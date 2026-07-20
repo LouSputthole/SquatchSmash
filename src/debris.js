@@ -45,6 +45,7 @@ export class DebrisSystem {
   // Small burst of cubes for non-final hits.
   puff(pos, color, n = 6) {
     const mat = new THREE.MeshLambertMaterial({ color });
+    mat.userData.refs = n;
     for (let i = 0; i < n; i++) {
       const mesh = new THREE.Mesh(puffGeo, mat);
       mesh.position.copy(pos);
@@ -58,6 +59,7 @@ export class DebrisSystem {
         t: 0,
         life: 0.6 + Math.random() * 0.3,
         baseScale: mesh.scale.clone(),
+        countedMaterial: true, // burst material is refcounted and disposed with its last puff
       });
     }
   }
@@ -68,6 +70,7 @@ export class DebrisSystem {
       it.t += dt;
       if (it.t >= it.life) {
         this.scene.remove(it.mesh);
+        if (it.countedMaterial && --it.mesh.material.userData.refs === 0) it.mesh.material.dispose();
         this.items.splice(i, 1);
         continue;
       }

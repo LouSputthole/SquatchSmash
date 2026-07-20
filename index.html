@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>SquatchSmash</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦶</text></svg>">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1420; }
-  body { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; user-select: none; }
+  body { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; user-select: none;
+         -webkit-user-select: none; touch-action: none; }
   canvas { display: block; }
 
   #hud {
@@ -27,13 +28,19 @@
     text-shadow: 0 2px 0 #7a4a12, 0 4px 10px rgba(0,0,0,.55);
     letter-spacing: 1px;
   }
+  .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   #timer {
     font-size: 38px; font-weight: 900; color: #fff;
     text-shadow: 0 2px 0 #333, 0 4px 10px rgba(0,0,0,.55);
     font-variant-numeric: tabular-nums;
   }
   #timer.low { color: #ff5a4e; animation: pulse .5s infinite alternate; }
+  #timer.bonus { color: #7dffb0; }
   @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+  #muteBtn {
+    pointer-events: auto; cursor: pointer; border: none; background: rgba(0,0,0,.35);
+    border-radius: 8px; font-size: 20px; padding: 4px 10px;
+  }
 
   #combo {
     position: absolute; top: 78px; left: 22px;
@@ -47,6 +54,12 @@
     60% { opacity: 1; transform: scale(1.25); }
     100% { opacity: 1; transform: scale(1); }
   }
+  #comboBar {
+    position: absolute; top: 112px; left: 22px; width: 140px; height: 6px;
+    border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden;
+    opacity: 0; transition: opacity .2s;
+  }
+  #comboBarFill { height: 100%; background: #7dffb0; }
 
   .rage-wrap {
     position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
@@ -81,6 +94,7 @@
     animation: floatUp .9s ease-out forwards;
   }
   .popup.big { font-size: 34px; color: #ff9c3a; }
+  .popup.timerpop { right: 30px; top: 64px; left: auto; font-size: 30px; color: #7dffb0; }
   @keyframes floatUp {
     0% { opacity: 0; transform: translate(-50%, 0) scale(.6); }
     15% { opacity: 1; transform: translate(-50%, -14px) scale(1.1); }
@@ -95,18 +109,20 @@
   }
   .overlay.hidden { display: none; }
   .title {
-    font-size: clamp(48px, 9vw, 96px); font-weight: 900; letter-spacing: 2px;
+    font-size: clamp(42px, 9vw, 96px); font-weight: 900; letter-spacing: 2px;
     color: #ffe27a;
     text-shadow: 0 4px 0 #7a4a12, 0 8px 24px rgba(0,0,0,.8);
     margin-bottom: 8px;
   }
-  .subtitle { font-size: 20px; color: #bcd2e8; margin-bottom: 28px; }
+  .subtitle { font-size: 20px; color: #bcd2e8; margin-bottom: 10px; }
+  #bestLine { font-size: 18px; font-weight: 800; color: #7dffb0; margin-bottom: 18px; min-height: 22px; }
   .controls {
     background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
-    border-radius: 12px; padding: 18px 28px; margin-bottom: 30px;
-    font-size: 17px; line-height: 1.9; color: #dce9f5; text-align: left;
+    border-radius: 12px; padding: 16px 26px; margin-bottom: 26px;
+    font-size: 16px; line-height: 1.85; color: #dce9f5; text-align: left;
   }
-  .controls b { color: #ffe27a; display: inline-block; min-width: 110px; }
+  .controls b { color: #ffe27a; display: inline-block; min-width: 128px; }
+  .controls b.k2 { min-width: 0; }
   .btn {
     font-size: 24px; font-weight: 900; letter-spacing: 1px;
     padding: 14px 46px; border-radius: 12px; border: none; cursor: pointer;
@@ -116,11 +132,42 @@
   }
   .btn:hover { transform: translateY(-2px); }
   .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #a05a14; }
-  #endStats { font-size: 22px; line-height: 2; margin-bottom: 26px; color: #dce9f5; }
+  #endStats { font-size: 22px; line-height: 1.9; margin-bottom: 18px; color: #dce9f5; }
   #endStats .big { font-size: 52px; font-weight: 900; color: #ffe27a;
     text-shadow: 0 3px 0 #7a4a12; display: block; }
   #endTitle { margin-bottom: 4px; }
-  #clearBonus { color: #7dffb0; font-weight: 800; display: none; }
+  #clearBonus, #newBest { color: #7dffb0; font-weight: 800; display: none; }
+  #breakdown {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center;
+    max-width: 620px; margin-bottom: 26px; font-size: 17px; color: #bcd2e8;
+  }
+
+  /* ---------- Touch controls ---------- */
+  #touchUI { display: none; }
+  body.touch #touchUI { display: block; }
+  #stickZone {
+    position: fixed; left: 0; bottom: 0; width: 45%; height: 55%;
+    z-index: 7; touch-action: none;
+  }
+  #stickBase {
+    display: none; position: fixed; width: 110px; height: 110px;
+    border-radius: 50%; border: 2px solid rgba(255,255,255,.4);
+    background: rgba(255,255,255,.08); transform: translate(-50%, -50%);
+    z-index: 8; pointer-events: none;
+  }
+  #stickKnob {
+    position: absolute; left: 50%; top: 50%; width: 48px; height: 48px;
+    border-radius: 50%; background: rgba(255,255,255,.5);
+    transform: translate(-50%, -50%);
+  }
+  .touch-btn {
+    position: fixed; z-index: 8; border-radius: 50%; border: none;
+    font-weight: 900; color: #2b1a05; touch-action: none;
+    background: linear-gradient(180deg, #ffd75e, #ff9c3a);
+    box-shadow: 0 4px 0 #a05a14, 0 6px 14px rgba(0,0,0,.5);
+  }
+  #smashBtn { right: 26px; bottom: 60px; width: 96px; height: 96px; font-size: 18px; }
+  #rageBtn { right: 140px; bottom: 34px; width: 64px; height: 64px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -129,25 +176,43 @@
   <div id="hud">
     <div class="hud-top">
       <div id="score">0</div>
-      <div id="timer">1:30</div>
+      <div class="hud-right">
+        <div id="timer">1:30</div>
+        <button id="muteBtn">🔊</button>
+      </div>
     </div>
     <div id="combo"></div>
+    <div id="comboBar"><div id="comboBarFill"></div></div>
     <div class="rage-wrap">
       <div class="rage-bar"><div id="rageFill"></div></div>
       <div id="ragePrompt">PRESS R TO RAGE!</div>
     </div>
   </div>
 
+  <div id="touchUI">
+    <div id="stickZone"></div>
+    <div id="stickBase"><div id="stickKnob"></div></div>
+    <button id="smashBtn" class="touch-btn">SMASH</button>
+    <button id="rageBtn" class="touch-btn">RAGE</button>
+  </div>
+
   <div id="menu" class="overlay">
     <div class="title">SQUATCHSMASH</div>
     <div class="subtitle">The campground closed early. Nobody told the sasquatch.</div>
+    <div id="bestLine"></div>
     <div class="controls">
-      <div><b>WASD / Arrows</b> Move</div>
+      <div><b>WASD / Arrows</b> Move &nbsp;·&nbsp; <b class="k2">Shift</b> Charge</div>
       <div><b>Space / Click</b> SMASH</div>
       <div><b>R</b> Rage mode (when the bar is full)</div>
+      <div><b>P / Esc</b> Pause &nbsp;·&nbsp; <b class="k2">M</b> Mute</div>
       <div><b>Goal</b> Wreck everything before time runs out</div>
     </div>
     <button id="startBtn" class="btn">START RAMPAGE</button>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="title">PAUSED</div>
+    <button id="resumeBtn" class="btn">RESUME</button>
   </div>
 
   <div id="end" class="overlay hidden">
@@ -156,7 +221,9 @@
       <span class="big" id="finalScore">0</span>
       <span id="destroyedLine"></span><br>
       <span id="clearBonus">TOTAL DESTRUCTION BONUS +5000!</span>
+      <span id="newBest">🏆 NEW BEST!</span>
     </div>
+    <div id="breakdown"></div>
     <button id="restartBtn" class="btn">SMASH AGAIN</button>
   </div>
 

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
-const FUR = 0x5a4230;
-const FUR_DARK = 0x46331f;
-const SKIN = 0x8a6f52;
+const FUR = 0x6b4f38;
+const FUR_DARK = 0x544029;
+const FUR_LIGHT = 0x7d6045;
+const SKIN = 0x9a7f5f;
 
 function box(w, h, d, color) {
   const m = new THREE.Mesh(
@@ -21,25 +22,49 @@ const SMASH_END = 0.5;
 export class Sasquatch {
   constructor() {
     this.group = new THREE.Group();
+    this.body = new THREE.Group(); // tilts forward when sprinting
+    this.group.add(this.body);
     this.heading = 0;
     this.walkT = 0;
     this.swing = 0;
     this.smashT = -1;
     this.impactFired = false;
+    this.lean = 0;
+    this.breatheT = 0;
+    this.lastStepSign = 0;
+    this.stepSide = 1;
 
-    // Torso
-    const torso = box(1.7, 1.6, 1.0, FUR);
+    // Torso, wider at the shoulders
+    const torso = box(1.7, 1.6, 1.05, FUR);
     torso.position.y = 2.05;
-    this.group.add(torso);
+    this.body.add(torso);
+    this.torso = torso;
+    const shoulders = box(2.15, 0.55, 1.1, FUR_DARK);
+    shoulders.position.y = 2.75;
+    this.body.add(shoulders);
     const belly = box(1.3, 1.0, 0.25, SKIN);
-    belly.position.set(0, 1.85, 0.45);
-    this.group.add(belly);
+    belly.position.set(0, 1.85, 0.5);
+    this.body.add(belly);
+
+    // Shaggy fur tufts
+    for (const [x, y, z, s] of [
+      [-0.7, 1.45, 0.3, 0.4], [0.65, 1.5, -0.3, 0.45], [0, 1.35, -0.45, 0.5],
+      [-0.5, 2.5, -0.45, 0.4], [0.55, 2.4, 0.42, 0.35],
+    ]) {
+      const tuft = box(s, s * 1.4, s * 0.7, FUR_LIGHT);
+      tuft.position.set(x, y, z);
+      tuft.rotation.z = (Math.random() - 0.5) * 0.5;
+      this.body.add(tuft);
+    }
 
     // Head
     const head = new THREE.Group();
-    head.position.set(0, 3.2, 0.1);
+    head.position.set(0, 3.25, 0.1);
     const skull = box(0.95, 0.95, 0.9, FUR);
     head.add(skull);
+    const crest = box(0.6, 0.4, 0.7, FUR_DARK);
+    crest.position.set(0, 0.55, -0.1);
+    head.add(crest);
     const face = box(0.62, 0.55, 0.12, SKIN);
     face.position.set(0, -0.08, 0.48);
     head.add(face);
@@ -51,15 +76,15 @@ export class Sasquatch {
       eye.position.set(0.17 * s, 0.1, 0.56);
       head.add(eye);
     }
-    this.group.add(head);
+    this.body.add(head);
     this.head = head;
 
     // Arms — pivot at the shoulder so rotation.x swings them
     this.armL = this.buildArm(-1);
     this.armR = this.buildArm(1);
-    this.group.add(this.armL, this.armR);
+    this.body.add(this.armL, this.armR);
 
-    // Legs — pivot at the hip
+    // Legs — pivot at the hip (on the root so the sprint lean doesn't lift them)
     this.legL = this.buildLeg(-1);
     this.legR = this.buildLeg(1);
     this.group.add(this.legL, this.legR);
@@ -67,12 +92,15 @@ export class Sasquatch {
 
   buildArm(side) {
     const pivot = new THREE.Group();
-    pivot.position.set(1.05 * side, 2.65, 0);
-    const upper = box(0.5, 1.8, 0.55, FUR);
-    upper.position.y = -0.9;
+    pivot.position.set(1.1 * side, 2.7, 0);
+    const upper = box(0.58, 1.15, 0.62, FUR);
+    upper.position.y = -0.6;
     pivot.add(upper);
-    const hand = box(0.58, 0.45, 0.6, SKIN);
-    hand.position.y = -1.95;
+    const fore = box(0.52, 0.95, 0.56, FUR_DARK);
+    fore.position.y = -1.55;
+    pivot.add(fore);
+    const hand = box(0.6, 0.45, 0.62, SKIN);
+    hand.position.y = -2.2;
     pivot.add(hand);
     return pivot;
   }
@@ -83,8 +111,8 @@ export class Sasquatch {
     const leg = box(0.58, 1.35, 0.62, FUR_DARK);
     leg.position.y = -0.68;
     pivot.add(leg);
-    const foot = box(0.6, 0.25, 0.9, SKIN);
-    foot.position.set(0, -1.28, 0.15);
+    const foot = box(0.6, 0.25, 0.95, SKIN);
+    foot.position.set(0, -1.28, 0.18);
     pivot.add(foot);
     return pivot;
   }
@@ -117,7 +145,8 @@ export class Sasquatch {
     return this.smashT >= 0;
   }
 
-  update(dt, moveVec, speed) {
+  // onStep(side) fires each time a foot lands while moving.
+  update(dt, moveVec, speed, sprinting = false, onStep = null) {
     const moving = moveVec.lengthSq() > 0.0001;
 
     if (moving) {
@@ -134,10 +163,30 @@ export class Sasquatch {
       this.swing = Math.max(0, this.swing - dt * 6);
     }
 
+    // Footfall detection: each sign flip of the gait sine is a foot landing
+    const stepSign = Math.sign(Math.sin(this.walkT));
+    if (moving && stepSign !== 0 && stepSign !== this.lastStepSign) {
+      this.lastStepSign = stepSign;
+      this.stepSide = -this.stepSide;
+      if (onStep) onStep(this.stepSide);
+    }
+
     const gait = Math.sin(this.walkT) * 0.65 * this.swing;
     this.legL.rotation.x = gait;
     this.legR.rotation.x = -gait;
     this.group.position.y = Math.abs(Math.sin(this.walkT)) * 0.14 * this.swing;
+
+    // Sprint lean + idle breathing
+    const targetLean = sprinting && moving ? 0.22 : 0;
+    this.lean += (targetLean - this.lean) * Math.min(1, 8 * dt);
+    this.body.rotation.x = this.lean;
+    this.breatheT += dt;
+    if (this.swing < 0.1 && !this.smashing) {
+      const b = 1 + Math.sin(this.breatheT * 2.2) * 0.02;
+      this.torso.scale.set(b, 1, b);
+    } else {
+      this.torso.scale.set(1, 1, 1);
+    }
 
     if (this.smashT >= 0) {
       this.smashT += dt;

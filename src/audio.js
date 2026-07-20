@@ -1,17 +1,31 @@
 // Procedural sound effects via WebAudio — no audio assets needed.
 
 let ctx = null;
+let master = null;
 let noiseBuf = null;
+let muted = false;
 
 export function init() {
   if (ctx) return;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
   ctx = new AC();
+  master = ctx.createGain();
+  master.gain.value = muted ? 0 : 1;
+  master.connect(ctx.destination);
   const len = ctx.sampleRate * 1.5;
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+}
+
+export function setMuted(m) {
+  muted = m;
+  if (master) master.gain.value = m ? 0 : 1;
+}
+
+export function isMuted() {
+  return muted;
 }
 
 function env(gainNode, t0, peak, attack, decay) {
@@ -31,7 +45,7 @@ function noise(t0, { peak = 0.3, attack = 0.005, decay = 0.15, type = 'lowpass',
   filt.Q.value = q;
   const g = ctx.createGain();
   env(g, t0, peak, attack, decay);
-  src.connect(filt).connect(g).connect(ctx.destination);
+  src.connect(filt).connect(g).connect(master);
   src.start(t0, Math.random() * 0.5);
   src.stop(t0 + attack + decay + 0.05);
 }
@@ -43,7 +57,7 @@ function tone(t0, { type = 'sine', from = 90, to = 40, dur = 0.2, peak = 0.4 } =
   osc.frequency.exponentialRampToValueAtTime(Math.max(to, 1), t0 + dur);
   const g = ctx.createGain();
   env(g, t0, peak, 0.008, dur);
-  osc.connect(g).connect(ctx.destination);
+  osc.connect(g).connect(master);
   osc.start(t0);
   osc.stop(t0 + dur + 0.05);
 }
@@ -72,6 +86,53 @@ export function whiff() {
   noise(t, { peak: 0.12, attack: 0.02, decay: 0.12, freq: 1200, type: 'bandpass', q: 2 });
 }
 
+// Fist meets rock: metallic clang, rock wins.
+export function clang() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'square', from: 320, to: 240, dur: 0.16, peak: 0.14 });
+  tone(t, { type: 'triangle', from: 620, to: 580, dur: 0.1, peak: 0.08 });
+  noise(t, { peak: 0.18, attack: 0.002, decay: 0.12, freq: 4500, type: 'highpass' });
+}
+
+// Soft heavy footfall.
+export function step() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: 70, to: 38, dur: 0.09, peak: 0.09 });
+}
+
+// Panicked camper: a cartoonish "waAAH" glide.
+export function scream() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(480 + Math.random() * 120, t);
+  osc.frequency.linearRampToValueAtTime(820 + Math.random() * 120, t + 0.09);
+  osc.frequency.exponentialRampToValueAtTime(240, t + 0.42);
+  const vib = ctx.createOscillator();
+  vib.frequency.value = 22;
+  const vibGain = ctx.createGain();
+  vibGain.gain.value = 30;
+  vib.connect(vibGain).connect(osc.frequency);
+  const g = ctx.createGain();
+  env(g, t, 0.11, 0.03, 0.42);
+  osc.connect(g).connect(master);
+  osc.start(t);
+  vib.start(t);
+  osc.stop(t + 0.5);
+  vib.stop(t + 0.5);
+}
+
+// Golden cooler time bonus.
+export function chime() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: 880, to: 880, dur: 0.22, peak: 0.16 });
+  tone(t + 0.1, { type: 'sine', from: 1318, to: 1318, dur: 0.3, peak: 0.14 });
+}
+
 // Sasquatch roar: layered detuned saws swept through a lowpass, plus breath noise.
 export function roar() {
   if (!ctx) return;
@@ -89,7 +150,7 @@ export function roar() {
     filt.frequency.linearRampToValueAtTime(300, t + 1.1);
     const g = ctx.createGain();
     env(g, t, 0.16, 0.08, 1.05);
-    osc.connect(filt).connect(g).connect(ctx.destination);
+    osc.connect(filt).connect(g).connect(master);
     osc.start(t);
     osc.stop(t + 1.3);
   }
