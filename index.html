@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SquatchSmash</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦶</text></svg>">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0b1420; }
+  body { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; user-select: none; }
+  canvas { display: block; }
+
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+    display: none; z-index: 5;
+  }
+  #hud.visible { display: block; }
+
+  .hud-top {
+    position: absolute; top: 14px; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 0 22px;
+  }
+  #score {
+    font-size: 42px; font-weight: 900; color: #ffe27a;
+    text-shadow: 0 2px 0 #7a4a12, 0 4px 10px rgba(0,0,0,.55);
+    letter-spacing: 1px;
+  }
+  #timer {
+    font-size: 38px; font-weight: 900; color: #fff;
+    text-shadow: 0 2px 0 #333, 0 4px 10px rgba(0,0,0,.55);
+    font-variant-numeric: tabular-nums;
+  }
+  #timer.low { color: #ff5a4e; animation: pulse .5s infinite alternate; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+
+  #combo {
+    position: absolute; top: 78px; left: 22px;
+    font-size: 26px; font-weight: 900; color: #7dffb0;
+    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+    opacity: 0; transform-origin: left center;
+  }
+  #combo.pop { animation: comboPop .35s ease-out forwards; }
+  @keyframes comboPop {
+    0% { opacity: 0; transform: scale(.4); }
+    60% { opacity: 1; transform: scale(1.25); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .rage-wrap {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    width: 320px; text-align: center;
+  }
+  .rage-bar {
+    height: 18px; border-radius: 10px; overflow: hidden;
+    background: rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.35);
+  }
+  #rageFill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #ff8c3a, #ff3a3a);
+    transition: width .12s linear;
+  }
+  #ragePrompt {
+    margin-top: 6px; font-size: 17px; font-weight: 800; color: #ffb03a;
+    text-shadow: 0 2px 5px rgba(0,0,0,.7); visibility: hidden;
+  }
+  #ragePrompt.ready { visibility: visible; animation: pulse .4s infinite alternate; }
+
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(255,30,10,.45) 100%);
+    transition: opacity .3s;
+  }
+  #vignette.rage { opacity: 1; }
+
+  .popup {
+    position: fixed; z-index: 6; pointer-events: none;
+    font-size: 24px; font-weight: 900; color: #ffe27a;
+    text-shadow: 0 2px 4px rgba(0,0,0,.7);
+    animation: floatUp .9s ease-out forwards;
+  }
+  .popup.big { font-size: 34px; color: #ff9c3a; }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translate(-50%, 0) scale(.6); }
+    15% { opacity: 1; transform: translate(-50%, -14px) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -80px) scale(1); }
+  }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(6, 14, 24, .72); backdrop-filter: blur(3px);
+    color: #fff; text-align: center;
+  }
+  .overlay.hidden { display: none; }
+  .title {
+    font-size: clamp(48px, 9vw, 96px); font-weight: 900; letter-spacing: 2px;
+    color: #ffe27a;
+    text-shadow: 0 4px 0 #7a4a12, 0 8px 24px rgba(0,0,0,.8);
+    margin-bottom: 8px;
+  }
+  .subtitle { font-size: 20px; color: #bcd2e8; margin-bottom: 28px; }
+  .controls {
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
+    border-radius: 12px; padding: 18px 28px; margin-bottom: 30px;
+    font-size: 17px; line-height: 1.9; color: #dce9f5; text-align: left;
+  }
+  .controls b { color: #ffe27a; display: inline-block; min-width: 110px; }
+  .btn {
+    font-size: 24px; font-weight: 900; letter-spacing: 1px;
+    padding: 14px 46px; border-radius: 12px; border: none; cursor: pointer;
+    color: #2b1a05; background: linear-gradient(180deg, #ffd75e, #ff9c3a);
+    box-shadow: 0 5px 0 #a05a14, 0 8px 18px rgba(0,0,0,.5);
+    transition: transform .08s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #a05a14; }
+  #endStats { font-size: 22px; line-height: 2; margin-bottom: 26px; color: #dce9f5; }
+  #endStats .big { font-size: 52px; font-weight: 900; color: #ffe27a;
+    text-shadow: 0 3px 0 #7a4a12; display: block; }
+  #endTitle { margin-bottom: 4px; }
+  #clearBonus { color: #7dffb0; font-weight: 800; display: none; }
+</style>
+</head>
+<body>
+  <div id="vignette"></div>
+
+  <div id="hud">
+    <div class="hud-top">
+      <div id="score">0</div>
+      <div id="timer">1:30</div>
+    </div>
+    <div id="combo"></div>
+    <div class="rage-wrap">
+      <div class="rage-bar"><div id="rageFill"></div></div>
+      <div id="ragePrompt">PRESS R TO RAGE!</div>
+    </div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="title">SQUATCHSMASH</div>
+    <div class="subtitle">The campground closed early. Nobody told the sasquatch.</div>
+    <div class="controls">
+      <div><b>WASD / Arrows</b> Move</div>
+      <div><b>Space / Click</b> SMASH</div>
+      <div><b>R</b> Rage mode (when the bar is full)</div>
+      <div><b>Goal</b> Wreck everything before time runs out</div>
+    </div>
+    <button id="startBtn" class="btn">START RAMPAGE</button>
+  </div>
+
+  <div id="end" class="overlay hidden">
+    <div class="title" id="endTitle">TIME'S UP</div>
+    <div id="endStats">
+      <span class="big" id="finalScore">0</span>
+      <span id="destroyedLine"></span><br>
+      <span id="clearBonus">TOTAL DESTRUCTION BONUS +5000!</span>
+    </div>
+    <button id="restartBtn" class="btn">SMASH AGAIN</button>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js" } }
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
