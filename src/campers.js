@@ -9,6 +9,19 @@ const bodyGeo = new THREE.BoxGeometry(0.55, 0.6, 0.32);
 const legGeo = new THREE.BoxGeometry(0.2, 0.55, 0.22);
 const armGeo = new THREE.BoxGeometry(0.15, 0.5, 0.17);
 const headGeo = new THREE.SphereGeometry(0.24, 8, 7);
+const poleGeo = new THREE.BoxGeometry(0.05, 1.7, 0.05);
+
+// kind: body scale + flee speed multiplier — kids are quick, heavies lumber
+const KINDS = [
+  { scale: 0.7, speedMul: 1.15 },  // kid
+  { scale: 1.0, speedMul: 1.0 },   // adult
+  { scale: 1.25, speedMul: 0.78 }, // heavy
+];
+
+function pickKind() {
+  const r = Math.random();
+  return KINDS[r < 0.25 ? 0 : r < 0.8 ? 1 : 2];
+}
 
 function buildCamper() {
   const g = new THREE.Group();
@@ -43,6 +56,7 @@ export class CamperSystem {
   constructor(scene, props, pond, count = 10) {
     this.scene = scene;
     this.props = props;
+    this.pond = pond;
     this.campers = [];
     for (let i = 0; i < count; i++) {
       let x = 0;
@@ -55,18 +69,63 @@ export class CamperSystem {
           Math.hypot(x - pond.x, z - pond.z) > pond.r + 2 &&
           props.every((p) => Math.hypot(x - p.x, z - p.z) > p.radius + 1);
       }
-      if (!ok) continue;
-      const c = buildCamper();
-      c.group.position.set(x, 0, z);
-      c.state = 'idle';
-      c.dir = Math.random() * Math.PI * 2;
-      c.timer = 1 + Math.random() * 3;
-      c.walkT = Math.random() * 10;
-      c.screamed = false;
-      c.stumbleT = 0;
-      c.home = { x, z };
-      scene.add(c.group);
-      this.campers.push(c);
+      if (ok) this.addCamper(x, z);
+    }
+
+    // Ambient life: a couple of anglers at the pond, a couple at picnic tables
+    let assigned = 0;
+    for (const c of this.campers) {
+      if (assigned >= 2) break;
+      const a = Math.random() * Math.PI * 2;
+      const fx = pond.x + Math.cos(a) * (pond.r + 0.8);
+      const fz = pond.z + Math.sin(a) * (pond.r + 0.8);
+      if (Math.abs(fx) > BOUNDS - 2 || Math.abs(fz) > BOUNDS - 2) continue;
+      c.group.position.set(fx, 0, fz);
+      c.group.rotation.y = Math.atan2(pond.x - fx, pond.z - fz);
+      c.activity = 'fish';
+      const pole = new THREE.Mesh(poleGeo, lambert(0x6b4a2a));
+      pole.position.set(0, -0.6, 0.4);
+      pole.rotation.x = -1.1;
+      c.armR.add(pole);
+      c.armR.rotation.x = -0.7;
+      assigned++;
+    }
+    const tables = props.filter((p) => p.type === 'picnic');
+    for (let i = 0; i < Math.min(2, tables.length); i++) {
+      const c = this.campers[assigned + i];
+      if (!c) break;
+      const t = tables[i];
+      c.group.position.set(t.x, 0, t.z + t.radius + 0.5);
+      c.group.rotation.y = Math.atan2(t.x - c.group.position.x, t.z - c.group.position.z);
+      c.activity = 'sit';
+    }
+  }
+
+  addCamper(x, z, fleeing = false) {
+    const c = buildCamper();
+    const kind = pickKind();
+    c.kind = kind;
+    c.group.scale.setScalar(kind.scale);
+    c.group.position.set(x, 0, z);
+    c.state = fleeing ? 'flee' : 'idle';
+    c.dir = Math.random() * Math.PI * 2;
+    c.timer = 1 + Math.random() * 3;
+    c.walkT = Math.random() * 10;
+    c.screamed = false;
+    c.stumbleT = 0;
+    c.activity = null;
+    c.home = { x, z };
+    this.scene.add(c.group);
+    this.campers.push(c);
+    return c;
+  }
+
+  // Occupants bursting out of a hit building — they spawn already panicking.
+  spawnAt(x, z, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = 1 + Math.random() * 1.5;
+      this.addCamper(x + Math.cos(a) * r, z + Math.sin(a) * r, true);
     }
   }
 
@@ -105,7 +164,7 @@ export class CamperSystem {
       if (c.state === 'idle') {
         if (distToPlayer < 9) {
           c.state = 'flee';
-        } else {
+        } else if (!c.activity) {
           c.timer -= dt;
           if (c.timer <= 0) {
             c.timer = 1.5 + Math.random() * 3;
@@ -119,6 +178,10 @@ export class CamperSystem {
       }
 
       if (c.state === 'flee') {
+        if (c.activity) {
+          c.activity = null;
+          c.armR.rotation.x = 0;
+        }
         if (!c.screamed) {
           c.screamed = true;
           if (onScream) onScream();
@@ -126,7 +189,7 @@ export class CamperSystem {
         if (distToPlayer < 25) {
           c.dir = Math.atan2(p.x - playerPos.x, p.z - playerPos.z);
         }
-        speed = 7;
+        speed = 7 * c.kind.speedMul;
 
         // Panic makes people clumsy: occasionally trip and eat dirt
         if (c.stumbleT <= 0 && Math.random() < dt * 0.22) {
@@ -165,13 +228,20 @@ export class CamperSystem {
 
       // Animate: scissor legs; arms flail overhead when fleeing
       const gait = Math.sin(c.walkT) * (speed > 3 ? 0.9 : 0.4);
-      c.legL.rotation.x = gait;
-      c.legR.rotation.x = -gait;
+      if (c.activity === 'sit') {
+        c.legL.rotation.x = 1.35;
+        c.legR.rotation.x = 1.35;
+        p.y = -0.35 * c.kind.scale;
+      } else {
+        c.legL.rotation.x = gait;
+        c.legR.rotation.x = -gait;
+        if (c.state !== 'flee') p.y = 0;
+      }
       if (c.state === 'flee') {
         c.armL.rotation.x = Math.PI - 0.3 + Math.sin(c.walkT * 2) * 0.25;
         c.armR.rotation.x = Math.PI - 0.3 - Math.sin(c.walkT * 2) * 0.25;
         p.y = Math.abs(Math.sin(c.walkT)) * 0.08;
-      } else {
+      } else if (!c.activity) {
         c.armL.rotation.x = gait * 0.6;
         c.armR.rotation.x = -gait * 0.6;
       }

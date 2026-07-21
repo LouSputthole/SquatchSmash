@@ -20,6 +20,9 @@ function box(w, h, d, color) {
 const WINDUP_END = 0.18;
 const IMPACT_T = 0.26;
 const SMASH_END = 0.5;
+// Ground stomp timing: hop up, slam down, recover
+const STOMP_IMPACT = 0.34;
+const STOMP_END = 0.6;
 
 export class Sasquatch {
   constructor() {
@@ -31,6 +34,8 @@ export class Sasquatch {
     this.swing = 0;
     this.smashT = -1;
     this.impactFired = false;
+    this.stompT = -1;
+    this.stompImpactFired = false;
     this.lean = 0;
     this.breatheT = 0;
     this.lastStepSign = 0;
@@ -156,10 +161,26 @@ export class Sasquatch {
   }
 
   startSmash() {
-    if (this.smashT >= 0) return false;
+    if (this.smashT >= 0 || this.stompT >= 0) return false;
     this.smashT = 0;
     this.impactFired = false;
     return true;
+  }
+
+  startStomp() {
+    if (this.smashT >= 0 || this.stompT >= 0) return false;
+    this.stompT = 0;
+    this.stompImpactFired = false;
+    return true;
+  }
+
+  // Fires exactly once per stomp, the moment the body lands.
+  consumeStompImpact() {
+    if (this.stompT >= STOMP_IMPACT && !this.stompImpactFired) {
+      this.stompImpactFired = true;
+      return true;
+    }
+    return false;
   }
 
   // Returns true exactly once per smash, at the moment the arms hit the ground.
@@ -172,7 +193,7 @@ export class Sasquatch {
   }
 
   get smashing() {
-    return this.smashT >= 0;
+    return this.smashT >= 0 || this.stompT >= 0;
   }
 
   // onStep(side) fires each time a foot lands while moving.
@@ -224,7 +245,25 @@ export class Sasquatch {
       this.tails[i].rotation.x = flutter + Math.sin(this.breatheT * 9 + i * 1.7) * (0.12 + this.swing * 0.25);
     }
 
-    if (this.smashT >= 0) {
+    if (this.stompT >= 0) {
+      this.stompT += dt;
+      if (this.stompT >= STOMP_END) {
+        this.stompT = -1;
+        this.armL.rotation.x = 0;
+        this.armR.rotation.x = 0;
+      } else {
+        // Parabolic hop that lands hard at STOMP_IMPACT
+        const hop = this.stompT < STOMP_IMPACT
+          ? Math.sin((this.stompT / STOMP_IMPACT) * Math.PI) * 1.6
+          : 0;
+        this.group.position.y = hop;
+        const k = Math.min(1, this.stompT / STOMP_IMPACT);
+        const armX = this.stompT < STOMP_IMPACT ? -2.4 * Math.sin(k * Math.PI * 0.9) : 0.6 * (1 - (this.stompT - STOMP_IMPACT) / (STOMP_END - STOMP_IMPACT));
+        this.armL.rotation.x = armX;
+        this.armR.rotation.x = armX;
+        this.head.rotation.x = armX * 0.1;
+      }
+    } else if (this.smashT >= 0) {
       this.smashT += dt;
       let armX;
       if (this.smashT < WINDUP_END) {

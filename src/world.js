@@ -329,6 +329,27 @@ function makeGnome() {
   return { group: g, radius: 0.45, hp: 1, points: 1000, type: 'gnome' };
 }
 
+// Explodes big, chains into other explosions and fires.
+function makePropane() {
+  const g = new THREE.Group();
+  g.add(mesh(cylGeo(0.35, 0.4, 1.0, 10), lambert(0xe6e6e6), 0, 0.5, 0));
+  g.add(mesh(cylGeo(0.12, 0.12, 0.2, 6), lambert(0xd92e2e), 0, 1.1, 0));
+  return { group: g, radius: 0.6, hp: 1, points: 200, type: 'propane' };
+}
+
+// Smash it and the bees come out looking for someone to blame.
+function makeBeehive() {
+  const g = new THREE.Group();
+  g.add(mesh(boxGeo(0.18, 1.8, 0.18), lambert(0x6b4a2a), 0, 0.9, 0));
+  const hive = mesh(new THREE.SphereGeometry(0.42, 8, 6), lambert(0xd4a94e), 0, 1.9, 0);
+  hive.scale.y = 0.8;
+  g.add(hive);
+  const hive2 = mesh(new THREE.SphereGeometry(0.32, 8, 6), lambert(0xc09a3e), 0, 2.2, 0);
+  hive2.scale.y = 0.7;
+  g.add(hive2);
+  return { group: g, radius: 0.7, hp: 1, points: 250, type: 'beehive' };
+}
+
 function makeDock() {
   const g = new THREE.Group();
   const wood = lambert(0x8a6a42);
@@ -504,6 +525,8 @@ export function buildWorld(scene, renderer) {
   place(makeFlagpole, 2);
   place(makeFence, 12);
   place(makeGnome, 2);
+  place(makePropane, 5);
+  place(makeBeehive, 3);
 
   // Dock + beached canoes on the pond shore, pointing at the pond center
   {

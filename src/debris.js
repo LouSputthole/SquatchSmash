@@ -14,7 +14,9 @@ export class DebrisSystem {
   // Blow a prop apart: every mesh inside becomes a physics chunk flying
   // away from `center`. The prop group itself should be removed by the caller
   // after this returns (attach() reparents the meshes to the scene).
-  explodeGroup(group, center) {
+  // `dir` (optional, unit XZ vector) biases chunks to fly that way — pass the
+  // smash direction so debris carries the momentum of the hit.
+  explodeGroup(group, center, dir = null) {
     group.updateMatrixWorld(true);
     const meshes = [];
     group.traverse((o) => { if (o.isMesh) meshes.push(o); });
@@ -23,13 +25,15 @@ export class DebrisSystem {
       _v.copy(mesh.position).sub(center);
       _v.y = 0;
       const away = _v.lengthSq() > 0.001 ? _v.normalize() : _v.set(Math.random() - 0.5, 0, Math.random() - 0.5).normalize();
+      const vel = new THREE.Vector3(
+        away.x * (3 + Math.random() * 6),
+        6 + Math.random() * 7,
+        away.z * (3 + Math.random() * 6)
+      );
+      if (dir) vel.addScaledVector(dir, 3.5 + Math.random() * 4);
       this.items.push({
         mesh,
-        vel: new THREE.Vector3(
-          away.x * (3 + Math.random() * 6),
-          6 + Math.random() * 7,
-          away.z * (3 + Math.random() * 6)
-        ),
+        vel,
         angVel: new THREE.Vector3(
           (Math.random() - 0.5) * 10,
           (Math.random() - 0.5) * 10,

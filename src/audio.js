@@ -151,9 +151,11 @@ export function boom() {
   noise(t, { peak: 0.14, attack: 0.002, decay: 0.16, freq: 2400, type: 'highpass' });
 }
 
-// ---------- Background music: a simple tribal drum loop ----------
+// ---------- Background music: driving rampage groove in E minor ----------
+// Four-on-the-floor kick, snare backbeat, ticking hats, a filtered square
+// bass riff, and a sparse triangle lead with a slap-back echo.
 let musicTimer = null;
-let musicBeat = 0;
+let musicStep = 0;
 
 function drum(t0, from, to, peak, dur) {
   const osc = ctx.createOscillator();
@@ -167,21 +169,69 @@ function drum(t0, from, to, peak, dur) {
   osc.stop(t0 + dur + 0.05);
 }
 
+function bassNote(t0, freq, dur) {
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = freq;
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.setValueAtTime(520, t0);
+  filt.frequency.exponentialRampToValueAtTime(180, t0 + dur);
+  const g = ctx.createGain();
+  env(g, t0, 0.085, 0.01, dur);
+  osc.connect(filt).connect(g).connect(master);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.05);
+}
+
+function leadNote(t0, freq, dur) {
+  for (const [delay, peak] of [[0, 0.05], [0.19, 0.02]]) { // slap-back echo
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const vib = ctx.createOscillator();
+    vib.frequency.value = 6;
+    const vibGain = ctx.createGain();
+    vibGain.gain.value = 4;
+    vib.connect(vibGain).connect(osc.frequency);
+    const g = ctx.createGain();
+    env(g, t0 + delay, peak, 0.02, dur);
+    osc.connect(g).connect(master);
+    osc.start(t0 + delay);
+    osc.stop(t0 + delay + dur + 0.05);
+    vib.start(t0 + delay);
+    vib.stop(t0 + delay + dur + 0.05);
+  }
+}
+
+const N = { D2: 73.42, E2: 82.41, G2: 98.0, A2: 110.0, B2: 123.47, D3: 146.83, E3: 164.81, G3: 196.0, A3: 220.0, B3: 246.94 };
+// Two-bar bass riff (16th of a 32-step loop each entry = eighth note)
+const BASS = [
+  N.E2, 0, N.E2, 0, N.G2, 0, N.E2, 0, N.A2, 0, N.G2, 0, N.E2, 0, N.D2, 0,
+  N.E2, 0, N.E2, 0, N.G2, 0, N.E2, 0, N.A2, 0, N.B2, 0, N.D3, 0, N.B2, 0,
+];
+// Sparse lead phrase over the back half of a 64-step (4-bar) loop
+const LEAD = { 32: N.E3, 36: N.G3, 40: N.A3, 44: N.G3, 46: N.E3, 48: N.B3, 54: N.A3, 58: N.G3, 62: N.E3 };
+
 export function startMusic() {
   if (!ctx || musicTimer) return;
-  const STEP = 60 / 112 / 2; // 112 BPM, eighth notes
+  const STEP = 60 / 122 / 2; // 122 BPM, eighth notes
   let next = ctx.currentTime + 0.1;
-  musicBeat = 0;
+  musicStep = 0;
   musicTimer = setInterval(() => {
     if (!ctx) return;
-    while (next < ctx.currentTime + 0.25) {
-      const b = musicBeat % 16;
-      if (b === 0 || b === 6 || b === 10) drum(next, 110, 42, 0.16, 0.22); // kick
-      if (b === 4 || b === 12) drum(next, 190, 80, 0.11, 0.16); // tom
-      if (b === 14 && Math.random() < 0.5) drum(next, 240, 100, 0.09, 0.12); // fill
-      if (b % 2 === 0) noise(next, { peak: 0.028, attack: 0.001, decay: 0.04, freq: 6000, type: 'highpass' }); // hat
+    while (next < ctx.currentTime + 0.3) {
+      const s16 = musicStep % 16;
+      const s64 = musicStep % 64;
+      if (s16 % 4 === 0) drum(next, 120, 40, 0.15, 0.18); // kick: four on the floor
+      if (s16 === 4 || s16 === 12) noise(next, { peak: 0.07, attack: 0.001, decay: 0.12, freq: 1800, type: 'bandpass', q: 0.9 }); // snare
+      noise(next, { peak: s16 % 2 ? 0.014 : 0.026, attack: 0.001, decay: 0.035, freq: 7000, type: 'highpass' }); // hats
+      const bass = BASS[musicStep % 32];
+      if (bass) bassNote(next, bass, STEP * 1.8);
+      const lead = LEAD[s64];
+      if (lead) leadNote(next, lead, STEP * 3.2);
       next += STEP;
-      musicBeat++;
+      musicStep++;
     }
   }, 100);
 }
@@ -191,6 +241,67 @@ export function stopMusic() {
     clearInterval(musicTimer);
     musicTimer = null;
   }
+}
+
+// Ground stomp: deeper and meaner than a regular smash.
+export function stomp() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: 65, to: 18, dur: 0.42, peak: 0.6 });
+  noise(t, { peak: 0.4, attack: 0.004, decay: 0.4, freq: 260, type: 'lowpass' });
+  noise(t, { peak: 0.1, attack: 0.002, decay: 0.1, freq: 2600, type: 'highpass' });
+}
+
+// Angry bee swarm.
+export function buzz() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(165 + Math.random() * 25, t);
+  const trem = ctx.createOscillator();
+  trem.frequency.value = 28;
+  const tremGain = ctx.createGain();
+  tremGain.gain.value = 22;
+  trem.connect(tremGain).connect(osc.frequency);
+  const g = ctx.createGain();
+  env(g, t, 0.05, 0.08, 1.0);
+  osc.connect(g).connect(master);
+  osc.start(t);
+  trem.start(t);
+  osc.stop(t + 1.2);
+  trem.stop(t + 1.2);
+}
+
+// Tranq dart: pfft on fire, thwip on hit.
+export function dart() {
+  if (!ctx) return;
+  noise(ctx.currentTime, { peak: 0.12, attack: 0.002, decay: 0.09, freq: 2200, type: 'bandpass', q: 1.5 });
+}
+
+export function dartHit() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'triangle', from: 900, to: 160, dur: 0.14, peak: 0.16 });
+  noise(t, { peak: 0.08, attack: 0.002, decay: 0.06, freq: 1400, type: 'bandpass', q: 2 });
+}
+
+// Power-up collect: quick ascending sparkle.
+export function powerup() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  [523, 659, 784, 1046].forEach((f, i) => {
+    tone(t + i * 0.05, { type: 'sine', from: f, to: f, dur: 0.14, peak: 0.1 });
+  });
+}
+
+// Final frenzy alarm.
+export function frenzyJingle() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  [440, 554, 659, 554, 440, 659].forEach((f, i) => {
+    tone(t + i * 0.09, { type: 'square', from: f, to: f, dur: 0.1, peak: 0.07 });
+  });
 }
 
 // Sasquatch roar: layered detuned saws swept through a lowpass, plus breath noise.

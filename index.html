@@ -41,6 +41,10 @@
     font-size: 20px; font-weight: 900; color: #ff8a8a;
     text-shadow: 0 2px 5px rgba(0,0,0,.6);
   }
+  #wrecked {
+    font-size: 14px; font-weight: 800; color: var(--purple-bright);
+    letter-spacing: 2px; text-shadow: 0 2px 5px rgba(0,0,0,.6);
+  }
   .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   #timer {
     font-size: 38px; font-weight: 900; color: #fff;
@@ -215,6 +219,37 @@
   #endBoardWrap { display: none; margin-bottom: 20px; }
   #endBoardWrap.show { display: block; }
 
+  #stompHud {
+    position: absolute; bottom: 24px; left: 22px; width: 130px;
+    font-size: 14px; font-weight: 800; color: var(--silver); letter-spacing: 1px;
+  }
+  #stompHud .bar {
+    margin-top: 4px; height: 8px; border-radius: 5px; overflow: hidden;
+    background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3);
+  }
+  #stompFill { height: 100%; width: 100%; background: var(--purple-bright); }
+  #stompHud.ready { color: var(--silver-bright); animation: pulse .6s infinite alternate; }
+  #buffs {
+    font-size: 17px; font-weight: 800; color: #ffd75e;
+    text-shadow: 0 2px 5px rgba(0,0,0,.6); margin-top: 2px;
+  }
+  #tranqTint {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(40,90,220,.5) 100%);
+    transition: opacity .25s;
+  }
+  #tranqTint.on { opacity: 1; }
+  #flash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,240,200,.9), rgba(255,150,60,.4));
+  }
+  #flash.go { animation: flashFade .3s ease-out forwards; }
+  @keyframes flashFade { 0% { opacity: .8; } 100% { opacity: 0; } }
+  #timer.frenzy { color: #ffd75e; }
+  #pauseStats { font-size: 20px; color: #c4cde0; line-height: 2; margin-bottom: 24px; }
+  #giveUpBtn { margin-top: 14px; font-size: 18px; padding: 10px 30px;
+    background: linear-gradient(180deg, #e05a4a, #a02a2a); box-shadow: 0 4px 0 #6a1414, 0 8px 18px rgba(0,0,0,.5); }
+
   /* ---------- Touch controls ---------- */
   #touchUI { display: none; }
   body.touch #touchUI { display: block; }
@@ -242,17 +277,22 @@
   #smashBtn { right: 26px; bottom: 60px; width: 96px; height: 96px; font-size: 18px; }
   #rageBtn { right: 140px; bottom: 34px; width: 64px; height: 64px; font-size: 14px;
     background: linear-gradient(180deg, #ff6a3a, var(--red)); box-shadow: 0 4px 0 #7a1a1a, 0 6px 14px rgba(0,0,0,.5); }
+  #stompBtn { right: 52px; bottom: 170px; width: 72px; height: 72px; font-size: 14px; }
 </style>
 </head>
 <body>
   <div id="vignette"></div>
+  <div id="tranqTint"></div>
+  <div id="flash"></div>
   <div id="banner"></div>
 
   <div id="hud">
     <div class="hud-top">
       <div>
         <div id="score">0</div>
+        <div id="wrecked">0% WRECKED</div>
         <div id="kills">💀 0</div>
+        <div id="buffs"></div>
       </div>
       <div class="hud-right">
         <div id="timer">1:30</div>
@@ -261,6 +301,7 @@
     </div>
     <div id="combo"></div>
     <div id="comboBar"><div id="comboBarFill"></div></div>
+    <div id="stompHud"><span>STOMP · RMB/F</span><div class="bar"><div id="stompFill"></div></div></div>
     <div class="rage-wrap">
       <div class="rage-bar"><div id="rageFill"></div></div>
       <div id="ragePrompt">PRESS R TO RAGE!</div>
@@ -271,6 +312,7 @@
     <div id="stickZone"></div>
     <div id="stickBase"><div id="stickKnob"></div></div>
     <button id="smashBtn" class="touch-btn">SMASH</button>
+    <button id="stompBtn" class="touch-btn">STOMP</button>
     <button id="rageBtn" class="touch-btn">RAGE</button>
   </div>
 
@@ -284,9 +326,10 @@
         <h3>CONTROLS</h3>
         <div><b>WASD / Arrows</b> Move &nbsp;·&nbsp; <b class="k2">Shift</b> Charge</div>
         <div><b>Space / Click</b> SMASH</div>
+        <div><b>Right-click / F</b> Ground stomp (area attack)</div>
         <div><b>R</b> Rage mode (when the bar is full)</div>
         <div><b>P / Esc</b> Pause &nbsp;·&nbsp; <b class="k2">M</b> Mute</div>
-        <div><b>Goal</b> Wreck everything before time runs out</div>
+        <div><b>Goal</b> Wreck it all. Watch for ranger tranq darts!</div>
       </div>
       <div class="panel">
         <h3>LEADERBOARD</h3>
@@ -298,7 +341,9 @@
 
   <div id="pause" class="overlay hidden">
     <div class="title">PAUSED</div>
+    <div id="pauseStats"></div>
     <button id="resumeBtn" class="btn">RESUME</button>
+    <button id="giveUpBtn" class="btn">GIVE UP</button>
   </div>
 
   <div id="end" class="overlay hidden">

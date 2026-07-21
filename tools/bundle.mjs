@@ -47,13 +47,15 @@ const parts = [
   threeBundle,
   moduleIIFE('src/audio.js',
     ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime',
-     'squish', 'boom', 'startMusic', 'stopMusic', 'roar', 'sting'],
+     'squish', 'boom', 'stomp', 'buzz', 'dart', 'dartHit', 'powerup', 'frenzyJingle',
+     'startMusic', 'stopMusic', 'roar', 'sting'],
     'sfx'),
   moduleIIFE('src/player.js', ['Sasquatch'], '{ Sasquatch }'),
   moduleIIFE('src/debris.js', ['DebrisSystem'], '{ DebrisSystem }'),
   moduleIIFE('src/effects.js', ['Effects'], '{ Effects }'),
   moduleIIFE('src/world.js', ['BOUNDS', 'lambert', 'buildWorld'], '{ BOUNDS, lambert, buildWorld }'),
   moduleIIFE('src/campers.js', ['CamperSystem'], '{ CamperSystem }'),
+  moduleIIFE('src/rangers.js', ['RangerSystem'], '{ RangerSystem }'),
 ];
 
 // main.js runs at top level (it *is* the program)

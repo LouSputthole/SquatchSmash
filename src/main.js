@@ -4,6 +4,7 @@ import { Sasquatch } from './player.js';
 import { DebrisSystem } from './debris.js';
 import { Effects } from './effects.js';
 import { CamperSystem } from './campers.js';
+import { RangerSystem } from './rangers.js';
 import * as sfx from './audio.js';
 
 const GAME_TIME = 90;
@@ -16,6 +17,12 @@ const RAGE_FOV = 68;
 const BEST_KEY = 'squatchsmash-best';
 const LB_KEY = 'squatchsmash-lb';
 const CAMPER_POINTS = 300;
+const RANGER_POINTS = 750;
+const STOMP_COOLDOWN = 4;
+const FRENZY_AT = 15;
+
+// Occupants come pouring out when you hit their shelter
+const OCCUPANTS = { cabin: 3, rv: 2, car: 1, truck: 1, tent: 1, outhouse: 1 };
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -36,6 +43,16 @@ scene.add(player.group);
 const debris = new DebrisSystem(scene);
 const effects = new Effects(scene);
 const campers = new CamperSystem(scene, props, pond, 10);
+const rangers = new RangerSystem(scene, props);
+
+for (const prop of props) prop.occupants = OCCUPANTS[prop.type] || 0;
+const gnomesTotal = props.filter((p) => p.type === 'gnome').length;
+
+// Day fades to sunset as the clock runs down
+const SKY_DAY = new THREE.Color(0x9fc4e8);
+const SKY_DUSK = new THREE.Color(0xe8a06a);
+const SUN_DAY = new THREE.Color(0xfff2d8);
+const SUN_DUSK = new THREE.Color(0xffb877);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -47,14 +64,20 @@ window.addEventListener('resize', () => {
 const $ = (id) => document.getElementById(id);
 const hudEl = $('hud');
 const scoreEl = $('score');
+const wreckedEl = $('wrecked');
 const killsEl = $('kills');
+const buffsEl = $('buffs');
 const timerEl = $('timer');
 const comboEl = $('combo');
 const comboBarEl = $('comboBarFill');
 const comboBarWrapEl = $('comboBar');
 const rageFillEl = $('rageFill');
 const ragePromptEl = $('ragePrompt');
+const stompHudEl = $('stompHud');
+const stompFillEl = $('stompFill');
 const vignetteEl = $('vignette');
+const tranqTintEl = $('tranqTint');
+const flashEl = $('flash');
 const bannerEl = $('banner');
 const muteBtn = $('muteBtn');
 const nameInput = $('nameInput');
@@ -74,13 +97,26 @@ let fovPunch = 0;
 let hitStop = 0;
 let camYaw = 0;
 let chargeCooldown = 0;
+let stompCooldown = 0;
+let slowTimer = 0;      // tranq dart
+let speedBoostT = 0;    // coffee
+let giantT = 0;         // mushroom
 let campersScared = 0;
 let campersSmashed = 0;
+let rangersSmashed = 0;
+let gnomesSmashed = 0;
+let gnomeLordAwarded = false;
 let killStreak = 0;
 let killStreakTimer = 0;
 let auraAcc = 0;
+let frenzyStarted = false;
+let backupSent = false;
 const destroyedByType = {};
 const burning = [];
+const swarms = [];
+const pickups = [];
+
+const frenzyMult = () => (frenzyStarted ? 2 : 1);
 
 // ---------- Leaderboard ----------
 function loadBoard() {
@@ -140,6 +176,7 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (state === 'playing') trySmash();
   }
+  if (e.code === 'KeyF' && state === 'playing') tryStomp();
   if (e.code === 'KeyR' && state === 'playing') tryRage();
   if (e.code === 'KeyM') toggleMute();
   if (e.code === 'KeyP' || e.code === 'Escape') togglePause();
@@ -148,14 +185,23 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]);
 });
+window.addEventListener('contextmenu', (e) => e.preventDefault());
 window.addEventListener('mousedown', (e) => {
-  if (state === 'playing' && !e.target.closest('button, input, .touch-btn')) trySmash();
+  if (state !== 'playing' || e.target.closest('button, input, .touch-btn')) return;
+  if (e.button === 2) tryStomp();
+  else if (e.button === 0) trySmash();
 });
 window.addEventListener('blur', () => keys.clear());
 
 $('startBtn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
 $('restartBtn').addEventListener('click', () => location.reload());
 $('resumeBtn').addEventListener('click', () => togglePause());
+$('giveUpBtn').addEventListener('click', () => {
+  if (state !== 'paused') return;
+  $('pause').classList.add('hidden');
+  state = 'playing';
+  endGame(false);
+});
 $('submitScore').addEventListener('click', () => submitScore());
 muteBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
 nameInput.addEventListener('input', () => {
@@ -171,6 +217,10 @@ function togglePause() {
   if (state === 'playing') {
     state = 'paused';
     sfx.stopMusic();
+    $('pauseStats').innerHTML =
+      `Score: <b>${score.toLocaleString()}</b><br>` +
+      `Kills: <b>${campersSmashed + rangersSmashed}</b> · Wrecked: <b>${destroyed} / ${smashableCount}</b><br>` +
+      `Time left: <b>${Math.ceil(timeLeft)}s</b>`;
     $('pause').classList.remove('hidden');
   } else if (state === 'paused') {
     state = 'playing';
@@ -228,6 +278,10 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     e.preventDefault();
     if (state === 'playing') trySmash();
   });
+  $('stompBtn').addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    if (state === 'playing') tryStomp();
+  });
   $('rageBtn').addEventListener('pointerdown', (e) => {
     e.preventDefault();
     if (state === 'playing') tryRage();
@@ -236,6 +290,89 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
 
 function isSprinting() {
   return keys.has('sprint') || (touch.active && Math.hypot(touch.x, touch.y) > 0.92);
+}
+
+// ---------- Power-ups ----------
+const POWERUP_TYPES = ['honey', 'coffee', 'shroom', 'clock'];
+
+function buildPickupMesh(type) {
+  const g = new THREE.Group();
+  if (type === 'honey') {
+    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.45, 8),
+      new THREE.MeshLambertMaterial({ color: 0xe8b23a, emissive: 0x6a4a10 }));
+    g.add(jar);
+  } else if (type === 'coffee') {
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.5, 8),
+      new THREE.MeshLambertMaterial({ color: 0x6b4226 }));
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.23, 0.08, 8),
+      new THREE.MeshLambertMaterial({ color: 0xe6e6e6 }));
+    lid.position.y = 0.29;
+    g.add(cup, lid);
+  } else if (type === 'shroom') {
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.15, 0.35, 8),
+      new THREE.MeshLambertMaterial({ color: 0xe8e2d2 }));
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshLambertMaterial({ color: 0xd94f6b, emissive: 0x4a1020 }));
+    cap.position.y = 0.18;
+    g.add(stem, cap);
+  } else if (type === 'clock') {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.09, 8, 14),
+      new THREE.MeshLambertMaterial({ color: 0x9a6ff0, emissive: 0x2a1a50 }));
+    g.add(ring);
+  } else { // loot backpack
+    const pack = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.45, 0.25),
+      new THREE.MeshLambertMaterial({ color: 0x8a5a30 }));
+    g.add(pack);
+  }
+  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+
+function spawnPickup(type, x, z, life = Infinity) {
+  const mesh = buildPickupMesh(type);
+  mesh.position.set(x, 1, z);
+  scene.add(mesh);
+  pickups.push({ mesh, type, x, z, t: 0, life, phase: Math.random() * 10 });
+}
+
+// Scatter power-ups around the map at build time
+for (let i = 0; i < 6; i++) {
+  for (let tries = 0; tries < 40; tries++) {
+    const x = (Math.random() - 0.5) * 2 * (BOUNDS - 8);
+    const z = (Math.random() - 0.5) * 2 * (BOUNDS - 8);
+    if (Math.hypot(x, z) < 12) continue;
+    if (Math.hypot(x - pond.x, z - pond.z) < pond.r + 2) continue;
+    if (props.some((p) => Math.hypot(x - p.x, z - p.z) < p.radius + 1.2)) continue;
+    spawnPickup(POWERUP_TYPES[i % POWERUP_TYPES.length], x, z);
+    break;
+  }
+}
+
+function applyPickup(p) {
+  const pos = new THREE.Vector3(p.x, 1, p.z);
+  sfx.powerup();
+  if (p.type === 'honey') {
+    if (rageTimer <= 0) rage = 1;
+    popText(pos, 'RAGE FILLED!', 'big');
+  } else if (p.type === 'coffee') {
+    speedBoostT = 10;
+    popText(pos, 'CAFFEINE RUSH!', 'big');
+  } else if (p.type === 'shroom') {
+    giantT = 8;
+    sfx.roar();
+    popText(pos, 'GIANT MODE!', 'big');
+  } else if (p.type === 'clock') {
+    timeLeft = Math.min(GAME_TIME * 2, timeLeft + 10);
+    sfx.chime();
+    timerEl.classList.add('bonus');
+    setTimeout(() => timerEl.classList.remove('bonus'), 700);
+    popTimerBonus('+10s');
+  } else if (p.type === 'loot') {
+    const gained = 100 * frenzyMult();
+    score += gained;
+    rage = Math.min(1, rage + (rageTimer > 0 ? 0 : 0.03));
+    popText(pos, `+${gained}`, '');
+  }
 }
 
 // ---------- Game flow ----------
@@ -247,6 +384,7 @@ function startGame() {
   sfx.roar();
   sfx.startMusic();
   campers.panicNear(player.position, 14);
+  rangers.spawn(2);
   shake = 0.4;
   clock.getDelta();
 }
@@ -258,6 +396,7 @@ const TYPE_LABELS = {
   cooler: '🧊 Coolers', goldcooler: '✨ Golden coolers', dock: '🛶 Docks',
   canoe: '🚣 Canoes', woodpile: '🪵 Woodpiles', trashcan: '🗑️ Trash cans',
   sign: '🪧 Signs', flagpole: '🚩 Flagpoles', fence: '🚧 Fences', gnome: '🧙 Gnomes',
+  propane: '🛢️ Propane tanks', beehive: '🐝 Beehives',
 };
 
 function endGame(clearedEverything) {
@@ -265,6 +404,7 @@ function endGame(clearedEverything) {
   sfx.stopMusic();
   hudEl.classList.remove('visible');
   vignetteEl.classList.remove('rage');
+  tranqTintEl.classList.remove('on');
   player.setRage(false);
   if (clearedEverything) {
     score += 5000;
@@ -284,6 +424,7 @@ function endGame(clearedEverything) {
     .sort((a, b) => b[1] - a[1])
     .map(([type, n]) => `${TYPE_LABELS[type] || type} ×${n}`);
   if (campersSmashed > 0) lines.push(`💀 Campers smashed ×${campersSmashed}`);
+  if (rangersSmashed > 0) lines.push(`🎯 Rangers downed ×${rangersSmashed}`);
   if (campersScared > 0) lines.push(`😱 Campers scared off ×${campersScared}`);
   if (bestCombo > 1) lines.push(`⚡ Best combo x${bestCombo}`);
   $('breakdown').innerHTML = lines.map((l) => `<span>${l}</span>`).join('');
@@ -318,9 +459,15 @@ function submitScore() {
 // ---------- Smashing ----------
 const _impact = new THREE.Vector3();
 const _propPos = new THREE.Vector3();
+const _dir = new THREE.Vector3();
 
 function trySmash() {
   player.startSmash();
+}
+
+function tryStomp() {
+  if (stompCooldown > 0) return;
+  if (player.startStomp()) stompCooldown = STOMP_COOLDOWN;
 }
 
 function propColor(prop) {
@@ -329,12 +476,27 @@ function propColor(prop) {
     : 0xc9b8a0;
 }
 
-function hitProp(prop, dmg) {
+function spawnOccupants(prop, n) {
+  if (n <= 0) return;
+  campers.spawnAt(prop.x, prop.z, n);
+  if (prop.type === 'outhouse') {
+    popText(_propPos.set(prop.x, 1.5, prop.z), 'OCCUPIED!!', 'gore');
+  }
+}
+
+// dir: optional unit XZ vector — which way the hit came from (debris flies with it)
+function hitProp(prop, dmg, dir = null) {
   prop.hp -= dmg;
   _propPos.set(prop.x, 0, prop.z);
   if (prop.hp <= 0) {
-    destroyProp(prop);
+    destroyProp(prop, dir);
     return true;
+  }
+  // Non-final hit: some occupants bail out early
+  if (prop.occupants > 0) {
+    const n = Math.min(2, prop.occupants);
+    prop.occupants -= n;
+    spawnOccupants(prop, n);
   }
   prop.wobble = 0.5;
   debris.puff(_propPos, propColor(prop), 5);
@@ -373,9 +535,36 @@ function igniteNear(x, z, radius) {
   }
 }
 
+function screenFlash() {
+  flashEl.classList.remove('go');
+  void flashEl.offsetWidth;
+  flashEl.classList.add('go');
+}
+
+// Blast damage: hurt props and kill humans around a point
+function detonate(x, z, radius, dmg) {
+  for (const prop of props) {
+    if (!prop.alive || !prop.smashable) continue;
+    const d = Math.hypot(prop.x - x, prop.z - z);
+    if (d < radius + prop.radius) {
+      _dir.set(prop.x - x, 0, prop.z - z);
+      const dir = _dir.lengthSq() > 0.001 ? _dir.normalize().clone() : null;
+      hitProp(prop, dmg, dir);
+    }
+  }
+  killHumansAt({ x, z }, radius * 0.85);
+}
+
+function smashRadius() {
+  let r = BASE_SMASH_RADIUS;
+  if (rageTimer > 0) r *= 1.8;
+  if (giantT > 0) r += 1.3;
+  return r;
+}
+
 function resolveImpact() {
   const raging = rageTimer > 0;
-  const radius = raging ? BASE_SMASH_RADIUS * 1.8 : BASE_SMASH_RADIUS;
+  const radius = smashRadius();
   player.facing(_impact).multiplyScalar(2.6).add(player.position);
 
   let hitSomething = false;
@@ -392,17 +581,18 @@ function resolveImpact() {
       continue;
     }
     hitSomething = true;
-    hitProp(prop, raging ? 2 : 1);
+    _dir.set(prop.x - player.position.x, 0, prop.z - player.position.z);
+    const dir = _dir.lengthSq() > 0.001 ? _dir.normalize().clone() : null;
+    hitProp(prop, raging ? 2 : 1, dir);
   }
 
-  const killed = campers.takeAt(_impact, radius + 0.8);
-  killed.forEach(killCamper);
+  const kills = killHumansAt(_impact, radius + 0.8);
   campers.panicNear(_impact, 12);
 
   if (hitSomething) {
     shake = Math.max(shake, raging ? 0.55 : 0.35);
     sfx.smash(raging);
-  } else if (killed.length) {
+  } else if (kills) {
     shake = Math.max(shake, 0.3);
   } else if (hitRock) {
     shake = Math.max(shake, 0.2);
@@ -410,6 +600,34 @@ function resolveImpact() {
   } else {
     sfx.whiff();
   }
+}
+
+function resolveStomp() {
+  const raging = rageTimer > 0;
+  const radius = 6 + (giantT > 0 ? 2 : 0);
+  const px = player.position.x;
+  const pz = player.position.z;
+
+  for (const prop of props) {
+    if (!prop.alive) continue;
+    const d = Math.hypot(prop.x - px, prop.z - pz);
+    if (d > radius + prop.radius) continue;
+    if (!prop.smashable) { prop.wobble = 0.4; continue; }
+    _dir.set(prop.x - px, 0, prop.z - pz);
+    const dir = _dir.lengthSq() > 0.001 ? _dir.normalize().clone() : null;
+    hitProp(prop, raging ? 2 : 1, dir);
+  }
+  killHumansAt(player.position, radius);
+  campers.panicNear(player.position, 20);
+
+  effects.shockwave(player.position, radius + 1, 0x9a6ff0);
+  for (let i = 0; i < 4; i++) {
+    _propPos.set(px + (Math.random() - 0.5) * 4, 0, pz + (Math.random() - 0.5) * 4);
+    debris.puff(_propPos, 0x6a5a42, 4);
+  }
+  sfx.stomp();
+  shake = Math.max(shake, 0.7);
+  fovPunch = Math.min(12, fovPunch + 6);
 }
 
 function bumpCombo() {
@@ -426,14 +644,14 @@ function bumpCombo() {
   return mult;
 }
 
-function destroyProp(prop) {
+function destroyProp(prop, dir = null) {
   prop.alive = false;
   _propPos.set(prop.x, 1, prop.z);
-  debris.explodeGroup(prop.group, _propPos);
+  debris.explodeGroup(prop.group, _propPos, dir);
   scene.remove(prop.group);
 
   const mult = bumpCombo();
-  const gained = prop.points * mult;
+  const gained = prop.points * mult * frenzyMult();
   score += gained;
   destroyed++;
   destroyedByType[prop.type] = (destroyedByType[prop.type] || 0) + 1;
@@ -441,14 +659,41 @@ function destroyProp(prop) {
   if (prop.points >= 500) fovPunch = Math.min(10, fovPunch + 4);
   if (prop.points >= 1000) hitStop = Math.max(hitStop, 0.07);
 
+  // Everyone still inside comes sprinting out of the wreckage
+  if (prop.occupants > 0) {
+    spawnOccupants(prop, prop.occupants);
+    prop.occupants = 0;
+  }
+
   effects.scorch(_propPos, Math.max(1, prop.radius));
   if (prop.type === 'tree') effects.birdBurst(_propPos, 2 + Math.floor(Math.random() * 2));
   if (prop.type === 'campfire') igniteNear(prop.x, prop.z, 6);
+  if (prop.type === 'beehive') spawnSwarm(prop.x, prop.z);
+  if (prop.type === 'gnome') {
+    gnomesSmashed++;
+    if (gnomesSmashed >= gnomesTotal && gnomesTotal > 0 && !gnomeLordAwarded) {
+      gnomeLordAwarded = true;
+      score += 2500;
+      showBanner('GNOME LORD! +2500');
+    }
+  }
   if (prop.type === 'car' || prop.type === 'rv' || prop.type === 'truck') {
     effects.explosion(_propPos);
     sfx.boom();
+    screenFlash();
     shake = Math.max(shake, 0.6);
     igniteNear(prop.x, prop.z, 4.5);
+    detonate(prop.x, prop.z, 3, 1);
+  }
+  if (prop.type === 'propane') {
+    effects.explosion(_propPos);
+    effects.shockwave(_propPos, 8, 0xff9a3a);
+    sfx.boom();
+    screenFlash();
+    shake = Math.max(shake, 0.8);
+    fovPunch = Math.min(12, fovPunch + 6);
+    igniteNear(prop.x, prop.z, 7);
+    detonate(prop.x, prop.z, 5, 2);
   }
 
   if (prop.timeBonus) {
@@ -464,7 +709,7 @@ function destroyProp(prop) {
   if (destroyed >= smashableCount) endGame(true);
 }
 
-// ---------- Camper gore ----------
+// ---------- Humans: gore, streaks ----------
 const KILL_BANNERS = { 3: 'RAMPAGE!', 5: 'MONSTER!', 8: 'LEGENDARY!' };
 
 function showBanner(text) {
@@ -474,32 +719,73 @@ function showBanner(text) {
   bannerEl.classList.add('show');
 }
 
-function killCamper(c) {
-  const pos = c.group.position.clone();
+function goreAt(group) {
+  const pos = group.position.clone();
   pos.y = 0.8;
-  debris.explodeGroup(c.group, pos);
-  scene.remove(c.group);
+  debris.explodeGroup(group, pos);
+  scene.remove(group);
   debris.puff(pos, 0x8a1414, 8);
   debris.puff(pos, 0xb02020, 6);
   effects.bloodSplat(pos);
   sfx.squish();
+  return pos;
+}
 
-  const mult = bumpCombo();
-  const gained = CAMPER_POINTS * mult;
-  score += gained;
-  campersSmashed++;
-  rage = Math.min(1, rage + (rageTimer > 0 ? 0 : 0.08));
-  hitStop = Math.max(hitStop, 0.045);
-  popText(pos, `SPLAT! +${gained}`, 'gore');
-
+function trackKill() {
   killStreak++;
   killStreakTimer = 4;
   if (KILL_BANNERS[killStreak]) showBanner(KILL_BANNERS[killStreak]);
+  hitStop = Math.max(hitStop, 0.045);
+}
+
+function killCamper(c) {
+  const pos = goreAt(c.group);
+  const mult = bumpCombo();
+  const gained = CAMPER_POINTS * mult * frenzyMult();
+  score += gained;
+  campersSmashed++;
+  rage = Math.min(1, rage + (rageTimer > 0 ? 0 : 0.08));
+  popText(pos, `SPLAT! +${gained}`, 'gore');
+  if (Math.random() < 0.3) spawnPickup('loot', pos.x, pos.z, 15);
+  trackKill();
+}
+
+function killRanger(r) {
+  const pos = goreAt(r.group);
+  const mult = bumpCombo();
+  const gained = RANGER_POINTS * mult * frenzyMult();
+  score += gained;
+  rangersSmashed++;
+  rage = Math.min(1, rage + (rageTimer > 0 ? 0 : 0.12));
+  popText(pos, `RANGER DOWN! +${gained}`, 'gore');
+  if (Math.random() < 0.5) spawnPickup('loot', pos.x, pos.z, 15);
+  trackKill();
+}
+
+// Returns how many humans were removed around a point
+function killHumansAt(pos, radius) {
+  const killedCampers = campers.takeAt(pos, radius);
+  killedCampers.forEach(killCamper);
+  const killedRangers = rangers.takeAt(pos, radius);
+  killedRangers.forEach(killRanger);
+  return killedCampers.length + killedRangers.length;
+}
+
+function onDartHit() {
+  if (rageTimer > 0) {
+    popText(player.position, 'IMMUNE!', 'big');
+    return;
+  }
+  slowTimer = 3;
+  sfx.dartHit();
+  shake = Math.max(shake, 0.25);
+  popText(player.position, 'TRANQED!', 'gore');
 }
 
 function tryRage() {
   if (rage < 1 || rageTimer > 0) return;
   rageTimer = RAGE_DURATION;
+  slowTimer = 0; // rage burns the tranq right out
   vignetteEl.classList.add('rage');
   player.setRage(true);
   sfx.roar();
@@ -508,13 +794,79 @@ function tryRage() {
 
   // Rage kickoff: shockwave that flattens everything nearby
   effects.shockwave(player.position, 9);
-  campers.takeAt(player.position, 8.5).forEach(killCamper);
+  killHumansAt(player.position, 8.5);
   campers.panicNear(player.position, 20);
   for (const prop of props) {
     if (!prop.alive || !prop.smashable) continue;
     if (Math.hypot(prop.x - player.position.x, prop.z - player.position.z) < 8 + prop.radius) {
-      hitProp(prop, 1);
+      _dir.set(prop.x - player.position.x, 0, prop.z - player.position.z);
+      const dir = _dir.lengthSq() > 0.001 ? _dir.normalize().clone() : null;
+      hitProp(prop, 1, dir);
     }
+  }
+}
+
+// ---------- Bee swarms ----------
+function spawnSwarm(x, z) {
+  const group = new THREE.Group();
+  for (let i = 0; i < 12; i++) {
+    const bee = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.1, 0.14),
+      new THREE.MeshBasicMaterial({ color: i % 3 ? 0x1e1a10 : 0xe8c04a })
+    );
+    bee.userData.base = new THREE.Vector3(
+      (Math.random() - 0.5) * 1.6,
+      1.5 + Math.random() * 1.2,
+      (Math.random() - 0.5) * 1.6
+    );
+    bee.position.copy(bee.userData.base);
+    group.add(bee);
+  }
+  group.position.set(x, 0, z);
+  scene.add(group);
+  swarms.push({ group, t: 12, buzzT: 0 });
+  sfx.buzz();
+}
+
+function updateSwarms(dt) {
+  for (let i = swarms.length - 1; i >= 0; i--) {
+    const s = swarms[i];
+    s.t -= dt;
+    s.buzzT -= dt;
+    if (s.t <= 0) {
+      scene.remove(s.group);
+      swarms.splice(i, 1);
+      continue;
+    }
+    if (s.buzzT <= 0) { sfx.buzz(); s.buzzT = 2.2; }
+
+    // Chase the nearest camper and keep them panicking
+    let nearest = null;
+    let nd = Infinity;
+    for (const c of campers.campers) {
+      const d = Math.hypot(c.group.position.x - s.group.position.x, c.group.position.z - s.group.position.z);
+      if (d < nd) { nd = d; nearest = c; }
+    }
+    if (nearest) {
+      _dir.set(
+        nearest.group.position.x - s.group.position.x, 0,
+        nearest.group.position.z - s.group.position.z
+      );
+      if (_dir.lengthSq() > 0.01) {
+        _dir.normalize();
+        s.group.position.addScaledVector(_dir, 8 * dt);
+      }
+      campers.panicNear(s.group.position, 4);
+    }
+    for (let j = 0; j < s.group.children.length; j++) {
+      const bee = s.group.children[j];
+      bee.position.set(
+        bee.userData.base.x + Math.sin(flameT * 18 + j * 2.3) * 0.35,
+        bee.userData.base.y + Math.cos(flameT * 15 + j * 1.7) * 0.3,
+        bee.userData.base.z + Math.sin(flameT * 21 + j * 3.1) * 0.35
+      );
+    }
+    if (s.t < 1) s.group.scale.setScalar(Math.max(0.001, s.t));
   }
 }
 
@@ -621,14 +973,15 @@ function collide(sprinting, dt) {
     const dx = p.x - prop.x;
     const dz = p.z - prop.z;
     const dist = Math.hypot(dx, dz);
-    const minD = prop.radius + 0.9;
+    const minD = prop.radius + 0.9 * player.group.scale.x;
     if (dist < minD && dist > 0.001) {
       // Charging shoulder-first through things smashes them
       if (sprinting && prop.smashable && chargeCooldown <= 0) {
         chargeCooldown = 0.3;
         shake = Math.max(shake, 0.3);
         sfx.smash(false);
-        if (hitProp(prop, rageTimer > 0 ? 2 : 1)) continue; // destroyed: barrel through
+        const dir = player.facing(_dir).clone();
+        if (hitProp(prop, rageTimer > 0 ? 2 : 1, dir)) continue; // destroyed: barrel through
       }
       const push = (minD - dist) / dist;
       p.x += dx * push;
@@ -651,21 +1004,32 @@ function collide(sprinting, dt) {
 // ---------- HUD ----------
 function updateHUD() {
   scoreEl.textContent = score.toLocaleString();
-  killsEl.textContent = `💀 ${campersSmashed}`;
+  wreckedEl.textContent = `${Math.round((destroyed / smashableCount) * 100)}% WRECKED`;
+  killsEl.textContent = `💀 ${campersSmashed + rangersSmashed}`;
   const t = Math.max(0, Math.ceil(timeLeft));
   timerEl.textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-  timerEl.classList.toggle('low', timeLeft <= 10);
+  timerEl.classList.toggle('low', timeLeft <= 10 && !frenzyStarted);
+  timerEl.classList.toggle('frenzy', frenzyStarted);
   rageFillEl.style.width = `${(rageTimer > 0 ? rageTimer / RAGE_DURATION : rage) * 100}%`;
   ragePromptEl.classList.toggle('ready', rage >= 1 && rageTimer <= 0);
   comboBarWrapEl.style.opacity = combo >= 3 && comboTimer > 0 ? 1 : 0;
   comboBarEl.style.width = `${(comboTimer / 2) * 100}%`;
+  stompFillEl.style.width = `${(1 - stompCooldown / STOMP_COOLDOWN) * 100}%`;
+  stompHudEl.classList.toggle('ready', stompCooldown <= 0);
+  tranqTintEl.classList.toggle('on', slowTimer > 0);
+
+  const buffs = [];
+  if (speedBoostT > 0) buffs.push(`☕ ${Math.ceil(speedBoostT)}s`);
+  if (giantT > 0) buffs.push(`🍄 ${Math.ceil(giantT)}s`);
+  if (slowTimer > 0) buffs.push(`💤 ${Math.ceil(slowTimer)}s`);
+  buffsEl.textContent = buffs.join('  ');
 }
 
 // ---------- Camper callbacks ----------
 function onCamperScaredOff(pos) {
   campersScared++;
-  score += 200;
-  popText(pos, 'SCARED! +200', '');
+  score += 200 * frenzyMult();
+  popText(pos, `SCARED! +${200 * frenzyMult()}`, '');
 }
 
 // ---------- Main loop ----------
@@ -697,6 +1061,40 @@ function tick() {
     if (timeLeft <= 0) {
       timeLeft = 0;
       endGame(false);
+    }
+
+    // Final frenzy: everything is worth double
+    if (!frenzyStarted && timeLeft <= FRENZY_AT && timeLeft > 0) {
+      frenzyStarted = true;
+      showBanner('FINAL FRENZY! 2x POINTS');
+      sfx.frenzyJingle();
+    }
+
+    // Ranger backup arrives at the halfway mark
+    if (!backupSent && GAME_TIME - timeLeft >= 45) {
+      backupSent = true;
+      rangers.spawn(2);
+      showBanner('RANGER BACKUP!');
+      sfx.dart();
+    }
+
+    // Sunset progression
+    const dayK = THREE.MathUtils.clamp(1 - timeLeft / GAME_TIME, 0, 1);
+    scene.background.lerpColors(SKY_DAY, SKY_DUSK, dayK);
+    scene.fog.color.copy(scene.background);
+    sun.color.lerpColors(SUN_DAY, SUN_DUSK, dayK);
+    sun.intensity = 2.0 - dayK * 0.5;
+
+    stompCooldown = Math.max(0, stompCooldown - dt);
+    slowTimer = Math.max(0, slowTimer - dt);
+    speedBoostT = Math.max(0, speedBoostT - dt);
+    giantT = Math.max(0, giantT - dt);
+
+    // Giant mode scale
+    const targetScale = giantT > 0 ? 1.45 : 1;
+    const cs = player.group.scale.x;
+    if (Math.abs(cs - targetScale) > 0.001) {
+      player.group.scale.setScalar(cs + (targetScale - cs) * Math.min(1, 6 * dt));
     }
 
     if (rageTimer > 0) {
@@ -742,14 +1140,40 @@ function tick() {
     const sprinting = isSprinting();
     let speed = sprinting ? SPRINT_SPEED : BASE_SPEED;
     if (rageTimer > 0) speed *= 1.4;
+    if (speedBoostT > 0) speed *= 1.35;
+    if (giantT > 0) speed *= 1.05;
+    if (slowTimer > 0) speed *= 0.45;
     const move = computeMove();
     player.update(dt, move, speed, sprinting, onStep);
     collide(sprinting, dt);
     if (sprinting && move.lengthSq() > 0.0001) {
-      campers.takeAt(player.position, 1.5).forEach(killCamper); // trampled
+      killHumansAt(player.position, 1.5 * player.group.scale.x); // trampled
     }
     if (player.consumeImpact()) resolveImpact();
+    if (player.consumeStompImpact()) resolveStomp();
     campers.update(dt, player.position, onCamperScaredOff, sfx.scream);
+    rangers.update(dt, player.position, sfx.dart, onDartHit);
+    updateSwarms(dt);
+
+    // Pickups: bob, spin, collect
+    const collectR = 1.8 * player.group.scale.x;
+    for (let i = pickups.length - 1; i >= 0; i--) {
+      const p = pickups[i];
+      p.t += dt;
+      if (p.t > p.life) {
+        scene.remove(p.mesh);
+        pickups.splice(i, 1);
+        continue;
+      }
+      p.mesh.position.y = 1 + Math.sin(flameT * 3 + p.phase) * 0.25;
+      p.mesh.rotation.y += dt * 2.2;
+      if (Math.hypot(p.x - player.position.x, p.z - player.position.z) < collectR) {
+        applyPickup(p);
+        scene.remove(p.mesh);
+        pickups.splice(i, 1);
+      }
+    }
+
     updateHUD();
   } else {
     // Idle sway on menu / end screens
@@ -787,13 +1211,20 @@ window.SQUATCH = {
   player,
   props,
   campers,
+  rangers,
   killCamper,
+  tryStomp,
+  get pickups() { return pickups; },
   get score() { return score; },
   get state() { return state; },
   get timeLeft() { return timeLeft; },
   set timeLeft(v) { timeLeft = v; },
   get campersScared() { return campersScared; },
   get campersSmashed() { return campersSmashed; },
+  get rangersSmashed() { return rangersSmashed; },
   get burningCount() { return burning.length; },
+  get swarmCount() { return swarms.length; },
+  get slowTimer() { return slowTimer; },
+  get giantT() { return giantT; },
   get board() { return loadBoard(); },
 };
