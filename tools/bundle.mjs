@@ -46,7 +46,8 @@ function moduleIIFE(path, returns, binding) {
 const parts = [
   threeBundle,
   moduleIIFE('src/audio.js',
-    ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime', 'roar', 'sting'],
+    ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime',
+     'squish', 'boom', 'startMusic', 'stopMusic', 'roar', 'sting'],
     'sfx'),
   moduleIIFE('src/player.js', ['Sasquatch'], '{ Sasquatch }'),
   moduleIIFE('src/debris.js', ['DebrisSystem'], '{ DebrisSystem }'),

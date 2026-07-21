@@ -63,6 +63,7 @@ export class CamperSystem {
       c.timer = 1 + Math.random() * 3;
       c.walkT = Math.random() * 10;
       c.screamed = false;
+      c.stumbleT = 0;
       c.home = { x, z };
       scene.add(c.group);
       this.campers.push(c);
@@ -77,6 +78,21 @@ export class CamperSystem {
         c.state = 'flee';
       }
     }
+  }
+
+  // Remove and return every camper within `radius` of a position. The caller
+  // owns what happens next (gore, scoring); groups stay in the scene so their
+  // meshes can be exploded before removal.
+  takeAt(pos, radius) {
+    const taken = [];
+    for (let i = this.campers.length - 1; i >= 0; i--) {
+      const c = this.campers[i];
+      if (Math.hypot(c.group.position.x - pos.x, c.group.position.z - pos.z) < radius) {
+        this.campers.splice(i, 1);
+        taken.push(c);
+      }
+    }
+    return taken;
   }
 
   update(dt, playerPos, onScaredOff, onScream) {
@@ -111,6 +127,19 @@ export class CamperSystem {
           c.dir = Math.atan2(p.x - playerPos.x, p.z - playerPos.z);
         }
         speed = 7;
+
+        // Panic makes people clumsy: occasionally trip and eat dirt
+        if (c.stumbleT <= 0 && Math.random() < dt * 0.22) {
+          c.stumbleT = 0.85;
+        }
+      }
+
+      if (c.stumbleT > 0) {
+        c.stumbleT -= dt;
+        speed = 0;
+        const k = 1 - Math.max(0, c.stumbleT) / 0.85;
+        c.group.rotation.x = Math.sin(Math.min(1, k) * Math.PI) * 1.35;
+        if (c.stumbleT <= 0) c.group.rotation.x = 0;
       }
 
       if (speed > 0) {

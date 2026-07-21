@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 
-const FUR = 0x6b4f38;
-const FUR_DARK = 0x544029;
-const FUR_LIGHT = 0x7d6045;
-const SKIN = 0x9a7f5f;
+// Silver Sasquatches team colors
+const FUR = 0x9aa0ab;
+const FUR_DARK = 0x6e747f;
+const FUR_LIGHT = 0xc3c8d4;
+const SKIN = 0xe2e5ec;
+const BANDANA = 0xd92e2e;
 
 function box(w, h, d, color) {
   const m = new THREE.Mesh(
@@ -69,13 +71,33 @@ export class Sasquatch {
     face.position.set(0, -0.08, 0.48);
     head.add(face);
     const brow = box(0.72, 0.16, 0.16, FUR_DARK);
-    brow.position.set(0, 0.24, 0.5);
+    brow.position.set(0, 0.2, 0.5);
     head.add(brow);
+    this.eyeMats = [];
     for (const s of [-1, 1]) {
-      const eye = box(0.13, 0.11, 0.06, 0x1a1008);
-      eye.position.set(0.17 * s, 0.1, 0.56);
+      const eye = box(0.13, 0.11, 0.06, 0x232a3d);
+      eye.position.set(0.17 * s, 0.06, 0.56);
       head.add(eye);
+      this.eyeMats.push(eye.material);
     }
+
+    // Red bandana, mascot-style, with fluttering tails at the back
+    const band = box(1.02, 0.2, 0.97, BANDANA);
+    band.position.set(0, 0.36, 0);
+    head.add(band);
+    const knot = box(0.22, 0.22, 0.14, BANDANA);
+    knot.position.set(0, 0.32, -0.52);
+    head.add(knot);
+    this.tails = [];
+    for (const s of [-1, 1]) {
+      const tail = box(0.14, 0.55, 0.05, BANDANA);
+      tail.position.set(0.1 * s, 0.05, -0.6);
+      tail.rotation.x = 0.55;
+      tail.rotation.z = 0.25 * s;
+      head.add(tail);
+      this.tails.push(tail);
+    }
+
     this.body.add(head);
     this.head = head;
 
@@ -123,6 +145,14 @@ export class Sasquatch {
 
   facing(out = new THREE.Vector3()) {
     return out.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+  }
+
+  // Glowing red eyes while raging
+  setRage(on) {
+    for (const m of this.eyeMats) {
+      m.color.setHex(on ? 0xff2222 : 0x232a3d);
+      m.emissive.setHex(on ? 0xd91a1a : 0x000000);
+    }
   }
 
   startSmash() {
@@ -186,6 +216,12 @@ export class Sasquatch {
       this.torso.scale.set(b, 1, b);
     } else {
       this.torso.scale.set(1, 1, 1);
+    }
+
+    // Bandana tails flutter harder the faster you move
+    const flutter = 0.55 + this.swing * 0.5;
+    for (let i = 0; i < this.tails.length; i++) {
+      this.tails[i].rotation.x = flutter + Math.sin(this.breatheT * 9 + i * 1.7) * (0.12 + this.swing * 0.25);
     }
 
     if (this.smashT >= 0) {

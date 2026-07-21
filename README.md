@@ -1,6 +1,8 @@
 # SquatchSmash
 
-A 3D rampage game built with [Three.js](https://threejs.org/). You are a sasquatch. The campground closed early — nobody told you. Smash everything before the timer runs out.
+A 3D rampage game built with [Three.js](https://threejs.org/), starring the **Silver Sasquatches** mascot — silver fur, red bandana, zero patience. The campground closed early — nobody told the sasquatch. Smash everything before the timer runs out.
+
+> To show your team logo on the menu screen, drop a transparent PNG at `assets/logo.png` — it's picked up automatically.
 
 ## Play
 
@@ -31,13 +33,15 @@ On touch devices a virtual joystick and SMASH/RAGE buttons appear automatically.
 
 ## Gameplay
 
-- **90 seconds** to wreck the campground: trees, tents, cars, cabins, RVs, a ranger watchtower, picnic tables, outhouses, campfires, a dock, and coolers are all smashable. Rocks are not — sasquatch knows their limits.
-- Bigger things take more hits (cars 2, cabins/watchtowers 3, RVs 4) and are worth more points.
-- **Campers** wander the grounds. Get close (or smash something nearby) and they flee screaming — chase them off the map for bonus points.
+- **90 seconds** to wreck the campground: trees, tents, cars, ranger trucks, cabins, RVs, a watchtower, picnic tables, outhouses, campfires, woodpiles, fences, trash cans, signs, flagpoles, canoes, a dock, coolers, and garden gnomes are all smashable. Rocks are not — sasquatch knows their limits.
+- Bigger things take more hits (cars 2, cabins/watchtowers/trucks 3, RVs 4) and are worth more points.
+- **Campers** wander the grounds. Scare them off the map for points — or smash them directly (they burst; it's that kind of game). Kill streaks earn RAMPAGE banners; trampling while charging counts.
+- **Fire spreads**: smashed campfires ignite nearby flammables, and vehicles explode in a fireball that does the same.
 - **Golden coolers** glow — smash one for +8 seconds on the clock.
 - Chaining smashes builds a **combo multiplier** (up to x5); the decay bar shows how long you have to keep the chain alive.
-- Smashing fills the **rage bar** — press **R** when it's full to unleash a shockwave and get 8 seconds of extra speed, a bigger smash radius, and double damage.
-- Destroy *everything* for a total destruction bonus. Your best score is saved locally.
+- Smashing fills the **rage bar** — press **R** when it's full: a shockwave levels the area, your eyes go red, and you get 8 seconds of extra speed, radius, and damage.
+- Destroy *everything* for a total destruction bonus.
+- **Leaderboard**: top-10 scores are kept locally — make the board and you enter a 5-character arcade name.
 
 ## Tech
 

@@ -59,7 +59,7 @@ function makeTree() {
     g.add(mesh(coneGeo(1.9 - i * 0.5, 2.4, 8), green, 0, 2.2 + i * 1.4, 0));
   }
   g.scale.setScalar(s);
-  return { group: g, radius: 0.8 * s, hp: 1, points: 100, type: 'tree' };
+  return { group: g, radius: 0.8 * s, hp: 1, points: 100, type: 'tree', flammable: true };
 }
 
 function makeRock() {
@@ -84,7 +84,7 @@ function makeTent() {
   const door = mesh(coneGeo(0.7, 1.0, 4), lambert(0x2a2a33), 0, 0.5, 1.15);
   door.rotation.y = Math.PI / 4;
   g.add(door);
-  return { group: g, radius: 1.9, hp: 1, points: 250, type: 'tent' };
+  return { group: g, radius: 1.9, hp: 1, points: 250, type: 'tent', flammable: true };
 }
 
 const CAR_COLORS = [0xd94f4f, 0x4f7dd9, 0xe6e6e6, 0x59b559, 0xe8c04a, 0xd97eb0];
@@ -175,7 +175,7 @@ function makePicnicTable() {
     leg.rotation.x = 0.5;
     g.add(leg);
   }
-  return { group: g, radius: 1.6, hp: 1, points: 200, type: 'picnic' };
+  return { group: g, radius: 1.6, hp: 1, points: 200, type: 'picnic', flammable: true };
 }
 
 function makeRV() {
@@ -214,6 +214,121 @@ function makeWatchtower() {
   return { group: g, radius: 2.2, hp: 3, points: 2000, type: 'tower' };
 }
 
+function makeTruck() {
+  const g = new THREE.Group();
+  const green = lambert(0x3f6b46);
+  g.add(mesh(boxGeo(5.0, 0.9, 1.9), green, 0, 1.05, 0));
+  g.add(mesh(boxGeo(2.0, 1.15, 1.85), green, 1.1, 2.0, 0));
+  g.add(mesh(boxGeo(1.9, 0.7, 1.75), lambert(0xbfe3f2), 1.1, 2.15, 0));
+  g.add(mesh(boxGeo(2.2, 0.5, 1.7), lambert(0x2e4a33), -1.4, 1.6, 0));
+  for (const sx of [-1.7, 1.7]) {
+    for (const sz of [-1, 1]) {
+      const w = mesh(cylGeo(0.5, 0.5, 0.4, 10), lambert(0x1c1c22), sx, 0.5, sz * 1.0);
+      w.rotation.x = Math.PI / 2;
+      g.add(w);
+    }
+  }
+  return { group: g, radius: 2.6, hp: 3, points: 800, type: 'truck' };
+}
+
+const CANOE_COLORS = [0xc0392b, 0x27ae60, 0xd4a017];
+
+function makeCanoe() {
+  const g = new THREE.Group();
+  const color = lambert(CANOE_COLORS[Math.floor(Math.random() * CANOE_COLORS.length)]);
+  g.add(mesh(boxGeo(0.8, 0.4, 3.0), color, 0, 0.25, 0));
+  g.add(mesh(boxGeo(0.55, 0.3, 2.5), lambert(0x3a2a1a), 0, 0.4, 0));
+  for (const sz of [-1, 1]) {
+    const tip = mesh(coneGeo(0.4, 0.7, 4), color, 0, 0.25, sz * 1.75);
+    tip.rotation.x = sz * Math.PI / 2;
+    g.add(tip);
+  }
+  return { group: g, radius: 1.6, hp: 1, points: 150, type: 'canoe', flammable: true };
+}
+
+function makeWoodpile() {
+  const g = new THREE.Group();
+  const wood = lambert(0x6b4a2a);
+  const logGeo2 = cylGeo(0.18, 0.18, 1.6, 6);
+  const rows = [[3, 0.18], [2, 0.5], [1, 0.8]];
+  for (const [count, y] of rows) {
+    for (let i = 0; i < count; i++) {
+      const log = mesh(logGeo2, wood, (i - (count - 1) / 2) * 0.4, y, 0);
+      log.rotation.z = Math.PI / 2;
+      log.rotation.y = Math.PI / 2;
+      g.add(log);
+    }
+  }
+  return { group: g, radius: 1.0, hp: 1, points: 100, type: 'woodpile', flammable: true };
+}
+
+function makeTrashcan() {
+  const g = new THREE.Group();
+  g.add(mesh(cylGeo(0.42, 0.36, 1.0, 8), lambert(0x5f6b60), 0, 0.5, 0));
+  g.add(mesh(cylGeo(0.46, 0.46, 0.12, 8), lambert(0x49544b), 0, 1.06, 0));
+  return { group: g, radius: 0.6, hp: 1, points: 50, type: 'trashcan' };
+}
+
+function makeSignTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 224;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#8a6a42';
+  ctx.fillRect(0, 0, 512, 224);
+  ctx.strokeStyle = '#5c4326';
+  ctx.lineWidth = 14;
+  ctx.strokeRect(10, 10, 492, 204);
+  ctx.fillStyle = '#2e2214';
+  ctx.font = '900 64px Trebuchet MS, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('CAMP', 256, 92);
+  ctx.fillText('PINEWOOD', 256, 172);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeSign() {
+  const g = new THREE.Group();
+  const wood = lambert(0x6b4a2a);
+  for (const sx of [-1.15, 1.15]) {
+    g.add(mesh(boxGeo(0.2, 2.4, 0.2), wood, sx, 1.2, 0));
+  }
+  const board = mesh(boxGeo(2.9, 1.3, 0.15), new THREE.MeshLambertMaterial({ map: makeSignTexture() }), 0, 2.1, 0);
+  g.add(board);
+  return { group: g, radius: 1.6, hp: 1, points: 400, type: 'sign', flammable: true };
+}
+
+function makeFlagpole() {
+  const g = new THREE.Group();
+  g.add(mesh(cylGeo(0.07, 0.1, 7, 6), lambert(0xb8bdc9), 0, 3.5, 0));
+  g.add(mesh(new THREE.SphereGeometry(0.14, 8, 6), lambert(0xe8c04a), 0, 7.05, 0));
+  // Team-purple flag
+  const flag = mesh(boxGeo(1.5, 0.9, 0.05), lambert(0x7b4fd9), 0.82, 6.35, 0);
+  g.add(flag);
+  return { group: g, radius: 0.6, hp: 1, points: 350, type: 'flagpole', flammable: true, flag };
+}
+
+function makeFence() {
+  const g = new THREE.Group();
+  const wood = lambert(0x8a6a42);
+  for (const sx of [-0.9, 0.9]) {
+    g.add(mesh(boxGeo(0.16, 1.15, 0.16), wood, sx, 0.55, 0));
+  }
+  g.add(mesh(boxGeo(2.1, 0.16, 0.1), wood, 0, 0.55, 0));
+  g.add(mesh(boxGeo(2.1, 0.16, 0.1), wood, 0, 0.95, 0));
+  return { group: g, radius: 1.2, hp: 1, points: 75, type: 'fence', flammable: true };
+}
+
+function makeGnome() {
+  const g = new THREE.Group();
+  g.add(mesh(coneGeo(0.26, 0.5, 8), lambert(0x3a7bd9), 0, 0.25, 0));
+  g.add(mesh(new THREE.SphereGeometry(0.16, 8, 6), lambert(0xe8b88a), 0, 0.56, 0));
+  g.add(mesh(coneGeo(0.17, 0.42, 8), lambert(0xd92e2e), 0, 0.82, 0));
+  return { group: g, radius: 0.45, hp: 1, points: 1000, type: 'gnome' };
+}
+
 function makeDock() {
   const g = new THREE.Group();
   const wood = lambert(0x8a6a42);
@@ -225,7 +340,7 @@ function makeDock() {
       g.add(mesh(boxGeo(0.16, 0.9, 0.16), lambert(0x6b4a2a), sx, 0.25, sz));
     }
   }
-  return { group: g, radius: 1.7, hp: 1, points: 300, type: 'dock' };
+  return { group: g, radius: 1.7, hp: 1, points: 300, type: 'dock', flammable: true };
 }
 
 // ---------- Ground texture ----------
@@ -376,25 +491,37 @@ export function buildWorld(scene, renderer) {
   place(makeCar, 8);
   place(makeCabin, 5);
   place(makeRV, 3);
+  place(makeTruck, 3);
   place(makeWatchtower, 2);
   place(makePicnicTable, 8);
   place(makeOuthouse, 4);
   place(makeCampfire, 5);
   place(makeCooler, 12);
   place(makeGoldCooler, 3);
+  place(makeWoodpile, 6);
+  place(makeTrashcan, 10);
+  place(makeSign, 2);
+  place(makeFlagpole, 2);
+  place(makeFence, 12);
+  place(makeGnome, 2);
 
-  // Dock on the pond shore, pointing at the pond center
+  // Dock + beached canoes on the pond shore, pointing at the pond center
   {
-    const dock = makeDock();
-    const a = Math.random() * Math.PI * 2;
-    const dx = pond.x + Math.cos(a) * pond.r;
-    const dz = pond.z + Math.sin(a) * pond.r;
-    if (Math.abs(dx) < BOUNDS - 2 && Math.abs(dz) < BOUNDS - 2) {
-      register(dock, dx, dz, Math.atan2(pond.x - dx, pond.z - dz));
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < 3; i++) {
+      const prop = i === 0 ? makeDock() : makeCanoe();
+      const a = a0 + i * (0.8 + Math.random() * 0.5);
+      const rr = i === 0 ? pond.r : pond.r + 1.5;
+      const dx = pond.x + Math.cos(a) * rr;
+      const dz = pond.z + Math.sin(a) * rr;
+      if (Math.abs(dx) < BOUNDS - 2 && Math.abs(dz) < BOUNDS - 2) {
+        register(prop, dx, dz, Math.atan2(pond.x - dx, pond.z - dz));
+      }
     }
   }
 
   const smashableCount = props.filter((p) => p.smashable).length;
+  const flags = props.filter((p) => p.flag).map((p) => p.flag);
 
-  return { props, flames, sun, smashableCount, pond };
+  return { props, flames, flags, sun, smashableCount, pond };
 }

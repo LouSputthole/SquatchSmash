@@ -133,6 +133,66 @@ export function chime() {
   tone(t + 0.1, { type: 'sine', from: 1318, to: 1318, dur: 0.3, peak: 0.14 });
 }
 
+// Camper meets fist: wet thwack.
+export function squish() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: 170, to: 45, dur: 0.13, peak: 0.32 });
+  noise(t, { peak: 0.26, attack: 0.003, decay: 0.16, freq: 380, type: 'lowpass' });
+  noise(t + 0.02, { peak: 0.1, attack: 0.002, decay: 0.08, freq: 900, type: 'bandpass', q: 2 });
+}
+
+// Vehicle explosion.
+export function boom() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: 75, to: 22, dur: 0.5, peak: 0.6 });
+  noise(t, { peak: 0.5, attack: 0.005, decay: 0.5, freq: 320, type: 'lowpass' });
+  noise(t, { peak: 0.14, attack: 0.002, decay: 0.16, freq: 2400, type: 'highpass' });
+}
+
+// ---------- Background music: a simple tribal drum loop ----------
+let musicTimer = null;
+let musicBeat = 0;
+
+function drum(t0, from, to, peak, dur) {
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(from, t0);
+  osc.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  const g = ctx.createGain();
+  env(g, t0, peak, 0.005, dur);
+  osc.connect(g).connect(master);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.05);
+}
+
+export function startMusic() {
+  if (!ctx || musicTimer) return;
+  const STEP = 60 / 112 / 2; // 112 BPM, eighth notes
+  let next = ctx.currentTime + 0.1;
+  musicBeat = 0;
+  musicTimer = setInterval(() => {
+    if (!ctx) return;
+    while (next < ctx.currentTime + 0.25) {
+      const b = musicBeat % 16;
+      if (b === 0 || b === 6 || b === 10) drum(next, 110, 42, 0.16, 0.22); // kick
+      if (b === 4 || b === 12) drum(next, 190, 80, 0.11, 0.16); // tom
+      if (b === 14 && Math.random() < 0.5) drum(next, 240, 100, 0.09, 0.12); // fill
+      if (b % 2 === 0) noise(next, { peak: 0.028, attack: 0.001, decay: 0.04, freq: 6000, type: 'highpass' }); // hat
+      next += STEP;
+      musicBeat++;
+    }
+  }, 100);
+}
+
+export function stopMusic() {
+  if (musicTimer) {
+    clearInterval(musicTimer);
+    musicTimer = null;
+  }
+}
+
 // Sasquatch roar: layered detuned saws swept through a lowpass, plus breath noise.
 export function roar() {
   if (!ctx) return;
