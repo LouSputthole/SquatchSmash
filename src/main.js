@@ -71,7 +71,14 @@ let chargeCooldown = 0;
 let campersScared = 0;
 const destroyedByType = {};
 
-const best = Number(localStorage.getItem(BEST_KEY) || 0);
+// localStorage can throw in sandboxed iframes / privacy modes
+function loadBest() {
+  try { return Number(localStorage.getItem(BEST_KEY) || 0); } catch { return 0; }
+}
+function saveBest(v) {
+  try { localStorage.setItem(BEST_KEY, String(v)); } catch { /* best effort */ }
+}
+const best = loadBest();
 if (best > 0) $('bestLine').textContent = `BEST: ${best.toLocaleString()}`;
 
 // ---------- Input ----------
@@ -211,7 +218,7 @@ function endGame(clearedEverything) {
     $('endTitle').textContent = 'TOTAL DESTRUCTION!';
   }
   if (score > best) {
-    localStorage.setItem(BEST_KEY, String(score));
+    saveBest(score);
     $('newBest').style.display = 'inline';
   }
   $('finalScore').textContent = score.toLocaleString();
