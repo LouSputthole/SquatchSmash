@@ -1015,9 +1015,15 @@ export async function buildApartment(ctx) {
     ceilSpot.castShadow = ceilSpot.intensity > 0.05;
     lampLight.intensity += ((state.lampOn ? 4.2 : 0) - lampLight.intensity) * Math.min(1, dt * 8);
     towerGlow.intensity = state.pcOn ? 0.7 + Math.sin(elapsed * 1.7) * 0.12 : 0;
+    // The tower breathes; the peripherals just sit there being lit.
     for (const strip of desk.rgb) {
       strip.material.emissiveIntensity = state.pcOn ? 1.6 + Math.sin(elapsed * 2.1) * 0.4 : 0;
     }
+    for (const m of desk.keyLeds) {
+      m.emissiveIntensity = state.pcOn ? 1.5 : 0;
+    }
+    desk.micLed.material = state.pcOn ? M.ledRed : M.bulbOff;
+    desk.sideScreen.material = state.pcOn ? desk.sideOn : desk.sideOff;
     desk.powerLed.material = state.pcOn ? M.ledGreen : M.bulbOff;
 
     /* bobblehead */

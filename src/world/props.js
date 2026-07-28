@@ -125,59 +125,159 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
   /* ---- monitor ---- */
   const monX = x - 0.22;
   const monBaseZ = z0 + 0.14;
-  g.add(box({ size: [0.28, 0.018, 0.20], pos: [monX, top + 0.009, monBaseZ], mat: M.plasticBlack }));
-  g.add(box({ size: [0.055, 0.30, 0.055], pos: [monX, top + 0.16, monBaseZ], mat: M.plasticBlack }));
+  g.add(box({ size: [0.34, 0.018, 0.22], pos: [monX, top + 0.009, monBaseZ], mat: M.plasticBlack }));
+  g.add(box({ size: [0.062, 0.32, 0.062], pos: [monX, top + 0.17, monBaseZ], mat: M.plasticBlack }));
   // Panel: 16:9, tilted back a touch.
   const panel = group('panel');
-  panel.position.set(monX, top + 0.43, monBaseZ + 0.02);
+  panel.position.set(monX, top + 0.47, monBaseZ + 0.02);
   panel.rotation.x = -0.06;
-  panel.add(box({ size: [0.68, 0.41, 0.028], pos: [0, 0, -0.016], mat: M.plasticBlack }));
-  const screen = plane(0.632, 0.356, M.screenOff.clone());
+  panel.add(box({ size: [0.82, 0.48, 0.028], pos: [0, 0, -0.016], mat: M.plasticBlack }));
+  const screen = plane(0.780, 0.439, M.screenOff.clone());
   screen.position.set(0, 0.006, 0.001);
   panel.add(screen);
   // Power LED.
-  const powerLed = box({ size: [0.012, 0.006, 0.004], pos: [0.30, -0.196, 0.004], mat: M.bulbOff });
+  const powerLed = box({ size: [0.012, 0.006, 0.004], pos: [0.37, -0.232, 0.004], mat: M.bulbOff });
   panel.add(powerLed);
   g.add(panel);
 
+  /* ---- second monitor, portrait, for the things that are not the game ----
+   * Chat on one screen and the game on the other is the whole aesthetic.
+   */
+  const sideX = x + 0.62;
+  const sideZ = z0 + 0.16;
+  g.add(box({ size: [0.20, 0.016, 0.18], pos: [sideX, top + 0.008, sideZ], mat: M.plasticBlack }));
+  g.add(box({ size: [0.045, 0.26, 0.045], pos: [sideX, top + 0.14, sideZ], mat: M.plasticBlack }));
+  const sidePanel = group('sidepanel');
+  sidePanel.position.set(sideX, top + 0.40, sideZ + 0.02);
+  sidePanel.rotation.set(-0.04, -0.42, 0);
+  sidePanel.add(box({ size: [0.26, 0.42, 0.024], pos: [0, 0, -0.014], mat: M.plasticBlack }));
+  const sideScreen = plane(0.234, 0.376, M.screenOff.clone());
+  sideScreen.position.set(0, 0.008, 0.001);
+  sidePanel.add(sideScreen);
+  g.add(sidePanel);
+  /** Painted once: the second monitor never changes, because nobody is on. */
+  const sideOn = new THREE.MeshBasicMaterial({ map: chatScreenTexture(), toneMapped: false });
+
   /* ---- keyboard, mouse, pad ---- */
   const kbZ = z0 + d - 0.20;
-  g.add(box({ size: [0.60, 0.008, 0.32], pos: [x - 0.16, top + 0.004, kbZ], mat: M.black }));
-  const kb = box({ size: [0.44, 0.022, 0.15], pos: [x - 0.16, top + 0.018, kbZ], mat: M.plasticBlack });
+  // Desk mat with a lit edge, because obviously.
+  g.add(box({ size: [0.86, 0.006, 0.36], pos: [x - 0.10, top + 0.003, kbZ], mat: M.black }));
+  const matGlow = box({
+    size: [0.87, 0.004, 0.37], pos: [x - 0.10, top + 0.0045, kbZ], mat: M.ledBlue.clone(), cast: false,
+  });
+  g.add(matGlow);
+  g.add(box({ size: [0.86, 0.006, 0.36], pos: [x - 0.10, top + 0.007, kbZ], mat: M.black, cast: false }));
+
+  const kb = box({ size: [0.44, 0.022, 0.15], pos: [x - 0.16, top + 0.020, kbZ], mat: M.plasticBlack });
   g.add(kb);
-  // Keycaps.
-  const capMat = mat({ color: 0x2b2b31, roughness: 0.65 });
-  for (let r = 0; r < 4; r++) {
-    for (let c = 0; c < 14; c++) {
+  /* Per-key RGB: a fixed rainbow across the board, so it reads as a gaming
+   * keyboard from across the room without needing a per-frame update. */
+  const keyRows = 4, keyCols = 14;
+  const keyLeds = [];
+  for (let r = 0; r < keyRows; r++) {
+    for (let c = 0; c < keyCols; c++) {
+      const hue = ((c / keyCols) * 0.8 + r * 0.03) % 1;
+      const capMat = mat({
+        color: 0x24242a, roughness: 0.6,
+        emissive: new THREE.Color().setHSL(hue, 0.85, 0.5),
+        emissiveIntensity: 0,
+      });
+      keyLeds.push(capMat);
       g.add(box({
         size: [0.024, 0.006, 0.024],
-        pos: [x - 0.16 - 0.205 + c * 0.0315, top + 0.032, kbZ - 0.055 + r * 0.033],
+        pos: [x - 0.16 - 0.205 + c * 0.0315, top + 0.034, kbZ - 0.055 + r * 0.033],
         mat: capMat, cast: false,
       }));
     }
   }
-  const mouse = sphere({ r: 0.035, ry: 0.018, rz: 0.055, pos: [x + 0.22, top + 0.018, kbZ], mat: M.plasticBlack });
+  const mouse = sphere({ r: 0.035, ry: 0.018, rz: 0.055, pos: [x + 0.26, top + 0.020, kbZ], mat: M.plasticBlack });
   g.add(mouse);
+  const mouseLed = box({
+    size: [0.030, 0.004, 0.018], pos: [x + 0.26, top + 0.036, kbZ + 0.012], mat: M.ledBlue.clone(), cast: false,
+  });
+  g.add(mouseLed);
 
-  /* ---- headset on a hook, speakers, clutter ---- */
-  g.add(cylinder({ r: 0.055, h: 0.02, pos: [x + 0.90, top + 0.01, z0 + 0.30], mat: M.plasticBlack }));
-  g.add(box({ size: [0.09, 0.22, 0.09], pos: [x + 0.90, top + 0.12, z0 + 0.30], mat: M.plasticBlack }));
-  g.add(box({ size: [0.09, 0.22, 0.09], pos: [x - 1.02, top + 0.12, z0 + 0.30], mat: M.plasticBlack }));
+  /* ---- headset on a stand ---- */
+  const hsX = x - 1.02, hsZ = z0 + 0.54;
+  g.add(cylinder({ r: 0.070, h: 0.016, pos: [hsX, top + 0.008, hsZ], mat: M.darkSteel }));
+  g.add(cylinder({ r: 0.014, h: 0.30, pos: [hsX, top + 0.16, hsZ], mat: M.darkSteel }));
+  const hook = box({ size: [0.03, 0.03, 0.13], pos: [hsX, top + 0.30, hsZ + 0.04], mat: M.darkSteel });
+  g.add(hook);
+  // Headband arc over the hook, earcups hanging either side.
+  const band = new THREE.Mesh(
+    new THREE.TorusGeometry(0.088, 0.011, 8, 20, Math.PI),
+    M.plasticBlack,
+  );
+  band.position.set(hsX, top + 0.30, hsZ + 0.02);
+  band.rotation.y = Math.PI / 2;
+  g.add(band);
+  for (const s of [-1, 1]) {
+    g.add(cylinder({
+      r: 0.043, h: 0.030, pos: [hsX, top + 0.30, hsZ + 0.02 + s * 0.088],
+      rotX: Math.PI / 2, mat: M.plasticBlack,
+    }));
+  }
+  // Boom mic, folded down.
+  g.add(box({ size: [0.012, 0.012, 0.09], pos: [hsX + 0.03, top + 0.255, hsZ - 0.02], mat: M.plasticBlack, rotX: 0.7 }));
 
-  /* ---- PC tower under the desk, RGB glow ---- */
-  const towerX = x + 0.92;
+  /* ---- streaming mic on a boom arm ---- */
+  const armX = x - 1.14;
+  g.add(box({ size: [0.05, 0.09, 0.05], pos: [armX, top + 0.04, z0 + 0.06], mat: M.darkSteel }));
+  const arm1 = box({ size: [0.022, 0.022, 0.40], pos: [armX, top + 0.32, z0 + 0.16], mat: M.darkSteel, rotX: -0.9 });
+  g.add(arm1);
+  const arm2 = box({ size: [0.020, 0.020, 0.34], pos: [armX + 0.11, top + 0.52, z0 + 0.24], mat: M.darkSteel, rotZ: 1.15, rotY: 0.5 });
+  g.add(arm2);
+  const micBody = cylinder({ r: 0.035, h: 0.13, pos: [armX + 0.28, top + 0.46, z0 + 0.34], mat: M.darkSteel, rotX: 0.5 });
+  g.add(micBody);
+  const micLed = cylinder({
+    r: 0.012, h: 0.010, pos: [armX + 0.284, top + 0.396, z0 + 0.368], mat: M.ledRed.clone(), rotX: 0.5,
+  });
+  g.add(micLed);
+
+  /* ---- PC tower under the desk ----
+   * A glass-side case with three lit intake fans, a graphics card with a lit
+   * logo, and a radiator up top. All of it faces into the room.
+   */
+  const towerX = x + 0.94;
   const tower = group('tower');
-  tower.add(box({ size: [0.22, 0.46, 0.46], pos: [towerX, 0.25, z], mat: M.plasticBlack }));
-  const sideGlass = plane(0.40, 0.40, new THREE.MeshPhysicalMaterial({
-    color: 0x11131a, roughness: 0.1, transmission: 0.55, transparent: true, opacity: 0.6, thickness: 0.01,
+  const tW = 0.24, tH = 0.52, tD = 0.50;
+  tower.add(box({ size: [tW, tH, tD], pos: [towerX, tH / 2, z], mat: M.plasticBlack }));
+  const sideGlass = plane(tD - 0.05, tH - 0.05, new THREE.MeshPhysicalMaterial({
+    color: 0x11131a, roughness: 0.06, transmission: 0.6, transparent: true, opacity: 0.55, thickness: 0.01,
   }));
-  sideGlass.position.set(towerX - 0.111, 0.25, z);
+  sideGlass.position.set(towerX - tW / 2 - 0.001, tH / 2, z);
   sideGlass.rotation.y = -Math.PI / 2;
   tower.add(sideGlass);
-  const rgbStrip = box({ size: [0.02, 0.30, 0.02], pos: [towerX - 0.06, 0.25, z - 0.16], mat: M.ledBlue.clone() });
+
+  const rgb = [];
+  // Three intake fans down the front edge.
+  for (let i = 0; i < 3; i++) {
+    const fz = z + tD / 2 - 0.10 - i * 0.0001;
+    void fz;
+    const fy = 0.12 + i * 0.145;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.052, 0.010, 8, 22),
+      M.ledBlue.clone(),
+    );
+    ring.position.set(towerX - 0.055, fy, z + tD / 2 - 0.06);
+    tower.add(ring);
+    rgb.push(ring);
+    // Hub + blades, dark against the glow.
+    tower.add(cylinder({
+      r: 0.018, h: 0.012, pos: [towerX - 0.055, fy, z + tD / 2 - 0.06],
+      rotZ: Math.PI / 2, mat: M.plasticBlack, cast: false,
+    }));
+  }
+  // Graphics card slung across the middle, logo lit.
+  tower.add(box({ size: [0.10, 0.05, 0.30], pos: [towerX - 0.03, 0.24, z - 0.04], mat: M.darkSteel }));
+  const gpuLogo = box({ size: [0.004, 0.016, 0.11], pos: [towerX - 0.081, 0.253, z - 0.04], mat: M.ledBlue.clone(), cast: false });
+  tower.add(gpuLogo);
+  rgb.push(gpuLogo);
+  // Radiator across the top.
+  tower.add(box({ size: [0.16, 0.05, 0.34], pos: [towerX - 0.02, tH - 0.05, z], mat: M.darkSteel }));
+  const rgbStrip = box({ size: [0.02, 0.34, 0.02], pos: [towerX - 0.062, 0.26, z - tD / 2 + 0.05], mat: M.ledBlue.clone() });
   tower.add(rgbStrip);
-  const fanRing = cylinder({ r: 0.055, h: 0.012, pos: [towerX - 0.06, 0.34, z + 0.10], rotX: Math.PI / 2, mat: M.ledBlue.clone() });
-  tower.add(fanRing);
+  rgb.push(rgbStrip);
   g.add(tower);
 
   return {
@@ -185,11 +285,98 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
     top,
     screen,
     panel,
+    sideScreen,
+    sideOn,
+    sideOff: sideScreen.material,
+    sidePanel,
     powerLed,
-    rgb: [rgbStrip, fanRing],
-    monitorPos: new THREE.Vector3(monX, top + 0.43, monBaseZ + 0.02),
+    micLed,
+    /** Everything that lights up when the tower is on. */
+    rgb,
+    /** Keyboard key materials, lit as a group. */
+    keyLeds: [...keyLeds, matGlow.material, mouseLed.material],
+    monitorPos: new THREE.Vector3(monX, top + 0.47, monBaseZ + 0.02),
     bounds: [[x0, 0, z0], [x0 + w, top, z0 + d]],
   };
+}
+
+/**
+ * The second monitor's contents: a chat client, open on a server where
+ * everyone went to bed. Drawn once -- nothing on it is ever going to change.
+ */
+function chatScreenTexture() {
+  const W = 320, H = 512;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+
+  g.fillStyle = '#2b2d34';
+  g.fillRect(0, 0, W, H);
+  // Server rail.
+  g.fillStyle = '#1c1e22';
+  g.fillRect(0, 0, 34, H);
+  for (let i = 0; i < 5; i++) {
+    g.fillStyle = i === 0 ? '#7a5cc4' : '#3a3d45';
+    g.beginPath();
+    g.arc(17, 26 + i * 40, 12, 0, 7);
+    g.fill();
+  }
+  // Channel list.
+  g.fillStyle = '#22242a';
+  g.fillRect(34, 0, 96, H);
+  g.fillStyle = '#e8ecf4';
+  g.font = 'bold 11px "Segoe UI", system-ui, sans-serif';
+  g.fillText('Silver Sasq…', 42, 22);
+  g.font = '10px "Segoe UI", system-ui, sans-serif';
+  const channels = ['# general', '# purgatory', '# clips', '# recruitment', '# squatch-lounge', '# pinned-copium'];
+  channels.forEach((ch, i) => {
+    g.fillStyle = i === 0 ? '#dfe4ee' : '#828a99';
+    g.fillText(ch, 44, 48 + i * 19);
+  });
+  g.fillStyle = '#828a99';
+  g.font = '9px "Segoe UI", system-ui, sans-serif';
+  g.fillText('VOICE — 0 CONNECTED', 42, 190);
+
+  // Message pane.
+  g.fillStyle = '#33363e';
+  g.fillRect(130, 0, W - 130, H);
+  const msgs = [
+    ['BOOSKI', '#8fb6ff', 'anyone up'],
+    ['BOOSKI', '#8fb6ff', 'hello'],
+    ['APE', '#ffb46a', 'no'],
+    ['LOU', '#9ee8a4', 'im at the airport'],
+    ['LOU', '#9ee8a4', 'not flying. just here'],
+    ['IRISH', '#e88fa4', 'read the carton'],
+    ['SHUBES', '#c8a2ff', 'queue?'],
+    ['SHUBES', '#c8a2ff', 'ok'],
+    ['SHUBES', '#c8a2ff', 'nvm'],
+  ];
+  let y = 34;
+  for (const [who, colour, text] of msgs) {
+    g.fillStyle = '#4a4d57';
+    g.beginPath(); g.arc(146, y - 4, 8, 0, 7); g.fill();
+    g.fillStyle = colour;
+    g.font = 'bold 10px "Segoe UI", system-ui, sans-serif';
+    g.fillText(who, 160, y - 5);
+    g.fillStyle = '#c6ccd8';
+    g.font = '11px "Segoe UI", system-ui, sans-serif';
+    g.fillText(text, 160, y + 9);
+    y += 40;
+  }
+  g.fillStyle = '#6b7280';
+  g.font = 'italic 10px "Segoe UI", system-ui, sans-serif';
+  g.fillText('No one is typing.', 160, y + 6);
+
+  // Compose box.
+  g.fillStyle = '#42454e';
+  g.fillRect(140, H - 40, W - 152, 26);
+  g.fillStyle = '#767c88';
+  g.font = '10px "Segoe UI", system-ui, sans-serif';
+  g.fillText('Message #general', 150, H - 23);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 /** Rolling gaming chair. Returns the seat group so it can swivel. */
