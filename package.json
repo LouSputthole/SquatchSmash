@@ -9,6 +9,7 @@
     "start": "node tools/serve.mjs",
     "sfx": "node tools/generate-sfx.mjs",
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
-    "check": "node tools/check.mjs"
+    "check": "node tools/check.mjs",
+    "verify:art": "node tools/verify-art.mjs"
   }
 }

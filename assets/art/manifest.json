@@ -167,7 +167,7 @@
       "slot": "bath.toilet",
       "file": "biplane-red.jpg",
       "title": "The red one",
-      "caption": "Hung at sitting height. You have studied every rivet."
+      "caption": "Above the tiles, so you have to look up at it. You have studied every rivet."
     },
     {
       "slot": "bath.high",
@@ -179,13 +179,13 @@
       "slot": "bath.far",
       "file": "golf-foursome.jpg",
       "title": "The foursome",
-      "caption": "Four visors, one good swing between them. In the bathroom, obviously."
+      "caption": "Four visors, one good swing between them. Above the cistern, obviously."
     },
     {
       "slot": "bath.mirror",
       "file": "plane-harness.jpg",
       "title": "Chute on",
-      "caption": "Next to the mirror, for comparison purposes."
+      "caption": "Over the mirror cabinet, for comparison purposes."
     },
     {
       "slot": "banner.main",

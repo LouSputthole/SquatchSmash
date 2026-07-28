@@ -146,8 +146,9 @@ as something hung over years rather than a showroom row.
 There are thirty-nine slots. Framed pictures on the west, north and south walls
 (`bed.above`, `bed.poster`, `gap.mid`, `couch.left`, `feature.stacks`,
 `south.wide` and the rest), four in the bathroom (`bath.toilet`, `bath.high`,
-`bath.far`, `bath.mirror`), two hanging cloth banners, a round crest, four
-standing frames on the furniture, and a sticker on the fridge door.
+`bath.far`, `bath.mirror` — all in the painted band above the tiling, none over
+the bath), two hanging cloth banners, a round crest, four standing frames on the
+furniture, and a sticker plus two magneted photographs on the fridge door.
 
 Five more are printed on objects rather than hung: `zyn.lid` goes on the tin,
 `label.beer` wraps the can, `label.whiskey` goes on the bottle, `eggs.carton` on
@@ -155,7 +156,8 @@ the box in the fridge and `cereal.box` on the one on top of it.
 
 Anything you don't fill gets a procedurally drawn placeholder, so no wall is
 ever blank. `npm run check` reads the slot list straight out of
-`src/world/apartment.js`, so a typo in the manifest is caught immediately.
+`src/world/apartment.js`, so a typo in the manifest is caught immediately, and
+`npm run verify:art` measures where everything actually ended up.
 
 ### `assets/sfx/` — ElevenLabs sound effects
 
@@ -241,16 +243,27 @@ src/core/               player controller, interaction raycasting, audio, radio
 src/world/              apartment shell, furniture builders, procedural textures,
                         materials, particle systems, and the wall-art loader
 src/arcade/             SquatchOS, the two apps on it, and the mount point
-tools/                  static server, ElevenLabs generator, project check
+tools/                  static server, ElevenLabs generator, static check,
+                        runtime art-placement check
 vendor/                 three.js (vendored so there is no install step)
 ```
 
 The apartment is laid out on a fixed grid: x runs −5 (west) to +5 (east), z runs
 −4.5 (north) to +4.5 (south), the ceiling is at 2.75m, and yaw 0 looks north.
 
-`npm run check` parses every source file and validates the manifests — worth
-running after editing JSON by hand, since a bad manifest otherwise shows up as a
-silently missing texture.
+```bash
+npm run check        # static: parses every source file, validates the manifests
+npm run verify:art   # runtime: boots the flat headless and measures the geometry
+```
+
+`check` is worth running after editing JSON by hand, since a bad manifest
+otherwise shows up as a silently missing texture. `verify:art` catches the
+things a parser cannot: two frames on the same patch of wall, anything through
+the floor or ceiling, anything fouling a door anywhere in its swing or hung
+across a doorway, bathroom pieces on the tiling or over the bath, and anything
+stuck to the fridge door overlapping anything else on it — that last one needs
+its own pass, because everything on a fridge is coplanar and so never overlaps
+on all three axes. It exits non-zero, so CI can run it.
 
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around

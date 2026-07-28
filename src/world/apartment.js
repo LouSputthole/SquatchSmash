@@ -65,16 +65,23 @@ export const WALL_SLOTS = [
  * Bathroom walls. Small pieces, hung where you have nothing else to look at.
  * Coordinates use the BATH box declared in buildApartment.
  */
+/**
+ * Bathroom walls. Small pieces, hung where you have nothing else to look at.
+ *
+ * The tiling stops at 1.70m and nothing is hung on it -- you do not put a
+ * frame on a wet wall -- so every one of these sits in the metre of painted
+ * wall above it. Heights still stagger; a row of four at the same level
+ * would look like a dentist's waiting room. Nothing goes over the bath.
+ */
 export const BATH_SLOTS = [
-  // On the east wall at sitting eye level, which is the only thing in this
-  // flat anybody has ever studied properly.
-  { slot: 'bath.toilet', x: -0.31, y: 1.38, z: -6.55, rotY: -Math.PI / 2, h: 0.34 },
-  // Behind the cistern.
-  { slot: 'bath.far', x: -1.30, y: 1.60, z: -7.09, rotY: 0, h: 0.36 },
-  // Beside the mirror, clear of the cabinet.
-  { slot: 'bath.mirror', x: -0.31, y: 1.66, z: -5.02, rotY: -Math.PI / 2, h: 0.30 },
-  // West wall between the bath and the door.
-  { slot: 'bath.high', x: -2.69, y: 1.78, z: -5.12, rotY: Math.PI / 2, h: 0.28 },
+  // East wall above the toilet. You look up at this one, at length.
+  { slot: 'bath.toilet', x: -0.31, y: 1.98, z: -6.55, rotY: -Math.PI / 2, h: 0.34 },
+  // Above and behind the cistern.
+  { slot: 'bath.far', x: -1.30, y: 2.10, z: -7.09, rotY: 0, h: 0.36 },
+  // Over the mirror cabinet.
+  { slot: 'bath.mirror', x: -0.31, y: 1.96, z: -5.02, rotY: -Math.PI / 2, h: 0.30 },
+  // West wall between the bath and the door, high enough to stay dry.
+  { slot: 'bath.high', x: -2.69, y: 2.24, z: -5.12, rotY: Math.PI / 2, h: 0.28 },
 ];
 
 /** Hanging cloth banners rather than framed pictures. */
