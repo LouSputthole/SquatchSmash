@@ -56,7 +56,7 @@ export class SquatchSmash {
     this.floaters = [];
 
     this.score = 0;
-    this.best = Number(localStorage.getItem('squatchsmash.best') || 0);
+    this.best = Number(readBest() || 0);
     this.lives = 3;
     this.wave = 0;
     this.combo = 0;
@@ -384,7 +384,7 @@ export class SquatchSmash {
     this.audio?.play('arcade.gameover', { volume: 0.6 });
     if (this.score > this.best) {
       this.best = this.score;
-      localStorage.setItem('squatchsmash.best', String(this.best));
+      writeBest(this.best);
     }
   }
 
@@ -750,3 +750,13 @@ export class SquatchSmash {
 }
 
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+
+/* Sandboxed frames can have storage switched off entirely, and touching it
+ * there throws rather than returning null. The high score is not worth a
+ * crash on boot. */
+function readBest() {
+  try { return localStorage.getItem('squatchsmash.best'); } catch { return null; }
+}
+function writeBest(v) {
+  try { localStorage.setItem('squatchsmash.best', String(v)); } catch { /* no storage */ }
+}

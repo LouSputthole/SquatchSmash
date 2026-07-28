@@ -40,6 +40,24 @@ Any static server works — `npm start` just saves you picking one. Opening
 `index.html` directly with `file://` will **not** work, because the game fetches
 its manifests over HTTP.
 
+If you need it somewhere you can't run a server — a sandboxed frame, a hosted
+preview, an email attachment — `npm run bundle` writes
+`dist/squatch-apartment.html`: every module, three.js, every image and every
+manifest inlined, with no external requests at all.
+
+```bash
+npm run bundle                 # ~3.8 MB, art re-encoded to 520px
+npm run bundle -- --full       # keep the art at full size (~9 MB)
+npm run bundle -- --max=1024   # somewhere in between
+```
+
+Each module becomes a `data:` URI and every import is rewritten to a flat
+specifier resolved through an importmap — so there's no concatenation and no
+scope merging, which matters when six files each define their own `clamp`.
+Bundled builds set `window.__SQUATCH_INLINE`; `src/core/assets.js` is the one
+place that knows the difference. Pointer lock is unavailable in some frames, so
+the game falls back to hold-left-button-to-look rather than being unplayable.
+
 ---
 
 ## Controls
@@ -244,7 +262,7 @@ src/world/              apartment shell, furniture builders, procedural textures
                         materials, particle systems, and the wall-art loader
 src/arcade/             SquatchOS, the two apps on it, and the mount point
 tools/                  static server, ElevenLabs generator, static check,
-                        runtime art-placement check
+                        runtime art-placement check, single-file bundler
 vendor/                 three.js (vendored so there is no install step)
 ```
 
@@ -254,6 +272,7 @@ The apartment is laid out on a fixed grid: x runs −5 (west) to +5 (east), z ru
 ```bash
 npm run check        # static: parses every source file, validates the manifests
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
+npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
 
 `check` is worth running after editing JSON by hand, since a bad manifest

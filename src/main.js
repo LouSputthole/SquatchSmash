@@ -273,11 +273,45 @@ startBtn.addEventListener('click', async () => {
   game.paused = false;
 });
 
+/* Pointer lock is how this is meant to be played, but some embeddings refuse
+ * it -- a sandboxed frame without allow-pointer-lock, for one. Rather than
+ * leave the game unplayable there, fall back to hold-the-left-button-and-drag
+ * to look. `dragLook` is set the first time a lock request is denied. */
+let dragLook = false;
+let dragging = false;
+
 function requestLock() {
-  canvas.requestPointerLock?.();
+  if (dragLook) {
+    enableInput();
+    return;
+  }
+  const p = canvas.requestPointerLock?.();
+  // Chrome returns a promise from requestPointerLock; older builds throw or
+  // simply never fire pointerlockchange, so both paths are covered.
+  if (p && p.catch) p.catch(() => fallBackToDragLook());
+  setTimeout(() => {
+    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) {
+      fallBackToDragLook();
+    }
+  }, 600);
+}
+
+function fallBackToDragLook() {
+  if (dragLook) return;
+  dragLook = true;
+  enableInput();
+  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+}
+
+function enableInput() {
+  player.enabled = true;
+  game.paused = false;
+  document.body.classList.remove('unlocked');
+  overlay.classList.add('hidden');
 }
 
 document.addEventListener('pointerlockchange', () => {
+  if (dragLook) return;
   const locked = document.pointerLockElement === canvas;
   player.enabled = locked;
   document.body.classList.toggle('unlocked', !locked);
@@ -302,6 +336,7 @@ function pauseGame() {
 
 document.addEventListener('mousemove', (e) => {
   if (!player.enabled || game.paused) return;
+  if (dragLook && !dragging) return;      // look only while the button is held
   if (game.seated) {
     arcade.onPointer(e.movementX, e.movementY);
     // Let the head drift very slightly so the pose is not rigid.
@@ -313,12 +348,14 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mousedown', (e) => {
   if (!player.enabled || game.paused || e.button !== 0) return;
+  dragging = true;
   if (game.seated) arcade.onClick(true);
   else interaction.press();
 });
 
 document.addEventListener('mouseup', (e) => {
   if (e.button !== 0) return;
+  dragging = false;
   if (game.seated) arcade.onClick(false);
   else interaction.release();
 });

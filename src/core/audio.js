@@ -13,6 +13,7 @@
  * upgrades the sound with no code change.
  */
 import * as THREE from 'three';
+import { loadJson, assetUrl } from './assets.js';
 
 const SFX_DIR = 'assets/sfx/';
 
@@ -83,23 +84,10 @@ export class AudioEngine {
    * If the index is missing entirely we fall back to probing every cue.
    */
   async loadManifest() {
-    try {
-      const res = await fetch(SFX_DIR + 'manifest.json', { cache: 'no-cache' });
-      if (res.ok) this.manifest = await res.json();
-    } catch {
-      /* manifest is optional */
-    }
+    this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
-    let available = null;
-    try {
-      const res = await fetch(SFX_DIR + 'index.json', { cache: 'no-cache' });
-      if (res.ok) {
-        const index = await res.json();
-        available = new Set(index.files || []);
-      }
-    } catch {
-      /* no index: probe everything below */
-    }
+    const index = await loadJson(SFX_DIR, 'index.json');
+    const available = index ? new Set(index.files || []) : null;
 
     const cues = this.manifest.sfx || [];
     const wanted = available
@@ -113,7 +101,7 @@ export class AudioEngine {
   async _loadOne(cue) {
     const file = cue.file || `${cue.name}.mp3`;
     try {
-      const res = await fetch(SFX_DIR + file, { cache: 'force-cache' });
+      const res = await fetch(assetUrl(SFX_DIR, file), { cache: 'force-cache' });
       if (!res.ok) return;
       const raw = await res.arrayBuffer();
       if (raw.byteLength < 512) return; // placeholder / empty file

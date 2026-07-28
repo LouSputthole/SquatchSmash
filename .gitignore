@@ -2,6 +2,10 @@ node_modules/
 package-lock.json
 _*.mjs
 
+# Single-file builds from `npm run bundle`. A few megabytes of base64, and
+# rebuildable in one command, so they do not belong in the history.
+dist/
+
 # Generated sound effects are large and rebuildable from assets/sfx/manifest.json
 # with `npm run sfx`. Uncomment to keep them out of the repo:
 # assets/sfx/*.mp3

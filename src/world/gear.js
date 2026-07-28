@@ -10,6 +10,7 @@
  */
 import * as THREE from 'three';
 import { posterPlaceholder } from './textures.js';
+import { loadJson, assetUrl } from '../core/assets.js';
 
 const ART_DIR = 'assets/art/';
 
@@ -64,13 +65,7 @@ const FALLBACKS = {
 };
 
 export async function loadGearManifest() {
-  try {
-    const res = await fetch(ART_DIR + 'manifest.json', { cache: 'no-cache' });
-    if (!res.ok) return { art: [] };
-    return await res.json();
-  } catch {
-    return { art: [] };
-  }
+  return (await loadJson(ART_DIR, 'manifest.json')) || { art: [] };
 }
 
 function loadTexture(url) {
@@ -105,7 +100,7 @@ export async function resolveGear(slotNames) {
     slotNames.map(async (slot) => {
       const entry = bySlot.get(slot);
       let texture = null;
-      if (entry?.file) texture = await loadTexture(ART_DIR + entry.file);
+      if (entry?.file) texture = await loadTexture(assetUrl(ART_DIR, entry.file));
 
       const real = !!texture;
       if (!texture) texture = (FALLBACKS[slot] || FALLBACKS['bed.above'])();

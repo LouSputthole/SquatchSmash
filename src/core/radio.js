@@ -19,6 +19,7 @@
  */
 import * as THREE from 'three';
 import { STATIONS, showAt } from './stations.js';
+import { loadJson, assetUrl } from './assets.js';
 
 const MUSIC_DIR = 'assets/music/';
 
@@ -52,15 +53,8 @@ export class Radio {
   get station() { return this.stations[this.stationIndex]; }
 
   async loadManifest() {
-    try {
-      const res = await fetch(MUSIC_DIR + 'manifest.json', { cache: 'no-cache' });
-      if (res.ok) {
-        const data = await res.json();
-        this.tracks = data.tracks || [];
-      }
-    } catch {
-      this.tracks = [];
-    }
+    const data = await loadJson(MUSIC_DIR, 'manifest.json');
+    this.tracks = data?.tracks || [];
     return this.tracks.length;
   }
 
@@ -307,7 +301,7 @@ export class Radio {
     const track = this._current();
     if (!track) return;
     this._ensureGraph();
-    this.el.src = MUSIC_DIR + track.file;
+    this.el.src = assetUrl(MUSIC_DIR, track.file);
     const p = this.el.play();
     if (p && p.catch) p.catch(() => { /* browser refused; the error handler covers it */ });
     this._fadeTo(0.85, fade);
