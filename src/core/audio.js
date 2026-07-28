@@ -485,6 +485,60 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 380, q: 0.9, gain: 0.20 });
       break;
 
+    /* -------- cigarettes -------- */
+    case 'cig.pack':
+      burst(ctx, dest, t, { dur: 0.18, type: 'bandpass', freq: 3400, q: 1.1, gain: 0.22, sweep: 0.6 });
+      burst(ctx, dest, t + 0.22, { dur: 0.26, type: 'highpass', freq: 4600, gain: 0.16 });
+      break;
+    case 'cig.light':
+      // Two dry flint scrapes, then the flame catching.
+      burst(ctx, dest, t, { dur: 0.07, type: 'bandpass', freq: 2800, q: 1.4, gain: 0.30 });
+      burst(ctx, dest, t + 0.20, { dur: 0.07, type: 'bandpass', freq: 3100, q: 1.4, gain: 0.32 });
+      burst(ctx, dest, t + 0.30, { dur: 0.55, type: 'lowpass', freq: 1500, gain: 0.20, sweep: 0.45 });
+      break;
+    case 'cig.drag':
+      // Airy inhale with paper crackle riding on top.
+      burst(ctx, dest, t, { dur: 1.15, type: 'bandpass', freq: 900, q: 0.7, gain: 0.24, sweep: 1.9 });
+      for (let i = 0; i < 9; i++) {
+        burst(ctx, dest, t + 0.1 + Math.random() * 0.9, {
+          dur: 0.02, type: 'highpass', freq: 5200, gain: 0.05 + Math.random() * 0.05,
+        });
+      }
+      break;
+    case 'cig.exhale':
+      burst(ctx, dest, t, { dur: 1.5, type: 'lowpass', freq: 1200, gain: 0.26, sweep: 0.35 });
+      burst(ctx, dest, t + 0.06, { dur: 1.3, type: 'bandpass', freq: 620, q: 0.5, gain: 0.14, sweep: 0.5 });
+      break;
+    case 'cig.stub':
+      burst(ctx, dest, t, { dur: 0.34, type: 'bandpass', freq: 2200, q: 0.9, gain: 0.20, sweep: 0.5 });
+      tone(ctx, dest, t, { freq: 480, to: 300, dur: 0.09, gain: 0.10, type: 'triangle' });
+      break;
+
+    /* -------- intoxication -------- */
+    case 'drunk.hiccup':
+      tone(ctx, dest, t, { freq: 260, to: 620, dur: 0.06, gain: 0.28, type: 'triangle' });
+      tone(ctx, dest, t + 0.05, { freq: 500, to: 180, dur: 0.13, gain: 0.22, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.05, type: 'bandpass', freq: 1400, q: 2, gain: 0.10 });
+      break;
+    case 'drunk.collapse':
+      tone(ctx, dest, t, { freq: 90, to: 38, dur: 0.55, gain: 0.50, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.36, type: 'lowpass', freq: 380, gain: 0.34, sweep: 0.3 });
+      burst(ctx, dest, t + 0.16, { dur: 0.28, type: 'lowpass', freq: 260, gain: 0.18, sweep: 0.4 });
+      break;
+    case 'drunk.heartbeat':
+      // Two thumps per beat, four beats, slowing down.
+      for (let i = 0; i < 4; i++) {
+        const b = t + i * 0.86 + i * i * 0.05;
+        tone(ctx, dest, b, { freq: 62, to: 34, dur: 0.24, gain: 0.42, type: 'sine' });
+        tone(ctx, dest, b + 0.24, { freq: 54, to: 30, dur: 0.20, gain: 0.26, type: 'sine' });
+      }
+      break;
+    case 'drunk.snore':
+      tone(ctx, dest, t, { freq: 74, to: 108, dur: 1.1, gain: 0.22, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: 1.1, type: 'lowpass', freq: 420, q: 3, gain: 0.20, sweep: 1.6 });
+      burst(ctx, dest, t + 1.25, { dur: 0.8, type: 'lowpass', freq: 300, gain: 0.12, sweep: 0.6 });
+      break;
+
     /* -------- radio -------- */
     case 'radio.tune':
       burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 2400, q: 4, gain: 0.20, sweep: 0.25 });

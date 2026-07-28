@@ -63,8 +63,11 @@ for (const [rel, validate] of manifests) {
 
 /* ---- wall slots referenced by the art manifest must exist ---- */
 const VALID_SLOTS = new Set([
-  'bed.above', 'couch.left', 'couch.right',
-  'desk.left', 'desk.right', 'door.side', 'banner.main',
+  'bed.above', 'west.gap', 'couch.left', 'couch.right',
+  'desk.left', 'desk.right',
+  'door.side', 'south.hawaii', 'south.wide', 'south.portrait',
+  'banner.main', 'crest.round',
+  'shelf.photo', 'desk.photo', 'fridge.magnet',
 ]);
 try {
   const art = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/art/manifest.json'), 'utf8'));

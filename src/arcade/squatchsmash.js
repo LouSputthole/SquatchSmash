@@ -76,6 +76,8 @@ export class SquatchSmash {
     this.flash = 0;
     this.slowmo = 0;
     this.buffCharges = 0;
+    /** How hard the aim wanders, driven by how drunk the player is. */
+    this.impair = 0;
 
     this.menuIndex = 0;
     this._bootLines = [];
@@ -109,6 +111,11 @@ export class SquatchSmash {
   /** Grant a slow-motion charge -- earned by drinking a beer in the kitchen. */
   grantBuff(n = 1) {
     this.buffCharges += n;
+  }
+
+  /** 0 = sober and steady, 1+ = the crosshair has a mind of its own. */
+  setImpairment(v) {
+    this.impair = v;
   }
 
   startRun() {
@@ -223,6 +230,16 @@ export class SquatchSmash {
     this.swing = Math.max(0, this.swing - dt * 6);
 
     if (this.mode === 'play') this._updatePlay(dt);
+
+    // Drunk aim: the crosshair drifts on its own. Slow-mo reins it back in,
+    // which is exactly what the first two beers bought you.
+    if (this.impair > 0 && (this.mode === 'play' || this.mode === 'menu')) {
+      const s = this.impair * (this.slowmo > 0 ? 0.3 : 1);
+      this.cursor.x = clamp(this.cursor.x
+        + (Math.sin(this.t * 0.83) * 46 + Math.sin(this.t * 2.11 + 1.3) * 16) * s * dt, 8, W - 8);
+      this.cursor.y = clamp(this.cursor.y
+        + (Math.cos(this.t * 0.61 + 0.7) * 30 + Math.sin(this.t * 1.77) * 11) * s * dt, 8, H - 8);
+    }
 
     // Particles and floaters run in every mode so the menu keeps its embers.
     const scale = this.mode === 'play' && this.slowmo > 0 ? 0.45 : 1;
@@ -711,6 +728,12 @@ export class SquatchSmash {
       g.font = '11px "Courier New", monospace';
       g.fillStyle = '#8fe8ff';
       g.fillText(`STEADY ${this.slowmo.toFixed(1)}s`, 12, 58);
+    }
+    if (this.impair > 0.25 && this.slowmo <= 0) {
+      g.textAlign = 'right';
+      g.font = '11px "Courier New", monospace';
+      g.fillStyle = '#ff9a5e';
+      g.fillText(this.impair > 0.8 ? 'VISION SWIMMING' : 'HANDS UNSTEADY', W - 12, 40);
     }
   }
 

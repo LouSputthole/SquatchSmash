@@ -12,10 +12,22 @@ import { Player } from './core/player.js';
 import { Radio } from './core/radio.js';
 import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
+import { Drunk, BEER_UNITS } from './core/drunk.js';
+import { SmokeSystem } from './world/smoke.js';
+import { makeHeldCigarette } from './world/props.js';
 
 const DRINK_TIME = 2.4;
 
+/* Smoking beats, in seconds from the moment you hold F. */
+const CIG_SHOW = 0.34;
+const CIG_DRAG = 0.46;
+const CIG_EXHALE = 1.55;
+const CIG_DONE = 2.40;
+const CIG_AFTERGLOW = 4.20;
+
 const canvas = document.getElementById('scene');
+const fxDrunk = document.getElementById('fx-drunk');
+const blackout = document.getElementById('blackout');
 const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
 const startBtn = document.getElementById('start-btn');
@@ -70,6 +82,20 @@ const radio = new Radio(audio, hud);
 
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
+const drunk = new Drunk();
+const smoke = new SmokeSystem(scene);
+
+// The lit cigarette rides on the camera, low and to the right.
+const heldCig = makeHeldCigarette();
+heldCig.group.position.set(0.17, -0.15, -0.33);
+heldCig.group.rotation.set(0.10, -0.40, 0.30);
+heldCig.group.scale.setScalar(1.25);
+heldCig.group.visible = false;
+camera.add(heldCig.group);
+
+const _v = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+
 const arcade = createArcade({ audio });
 const screenTexture = new THREE.CanvasTexture(arcade.canvas);
 screenTexture.colorSpace = THREE.SRGBColorSpace;
@@ -84,8 +110,11 @@ const game = {
   seated: false,
   flashlightOn: false,
   drinking: 0,
-  radioLookKey: false,
+  passingOut: false,
 };
+
+/** Smoking sequence state. */
+const cig = { t: -1, lit: false, exhaled: false, afterglow: 0 };
 
 /* ------------------------------------------------------------------ */
 /* Boot                                                                */
@@ -131,6 +160,7 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
+    drunk, smoke, cig, passOut,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -323,15 +353,19 @@ function standFromPC() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Beer                                                                */
+/* Beer and smokes                                                     */
 /* ------------------------------------------------------------------ */
 
 function dropHeld() {
   const st = apartment.state;
-  if (!st.heldItem) return;
+  if (!st.heldItem || cig.t >= 0) return;
+
   if (st.heldItem === 'empty') {
     audio.play('can.crush', { volume: 0.6 });
-    hud.toast('Crushed the can', '');
+    hud.toast('Crushed the can');
+  } else if (st.heldItem === 'cigs') {
+    apartment.returnCigarettes();
+    audio.play('can.set', { volume: 0.35 });
   } else {
     audio.play('can.set', { volume: 0.5 });
   }
@@ -339,9 +373,18 @@ function dropHeld() {
   hud.setHand(null);
 }
 
-function updateDrinking(dt) {
+/** Both consumables are on hold-F; which one runs depends on what you hold. */
+function updateConsume(dt) {
   const st = apartment.state;
-  const wantsDrink = player.keys.has('KeyF') && st.heldItem === 'beer' && !game.seated;
+  const holdingF = player.keys.has('KeyF') && !game.seated && !game.passingOut;
+
+  if (st.heldItem === 'cigs' || cig.t >= 0) updateSmoking(dt, holdingF);
+  else updateDrinking(dt, holdingF);
+}
+
+function updateDrinking(dt, holdingF) {
+  const st = apartment.state;
+  const wantsDrink = holdingF && st.heldItem === 'beer';
 
   if (!wantsDrink) {
     if (game.drinking > 0) {
@@ -366,12 +409,219 @@ function updateDrinking(dt) {
     hud.setHold(null);
     hud.hidePrompt();
     apartment.consumeBeer();
-    arcade.grantBuff?.(1);
+    drunk.drink(BEER_UNITS);
     hud.setHand({ icon: '🥫', name: 'Empty can', hint: '[Q] crush it' });
-    hud.toast('Steady hands — +1 slow-mo charge at the PC', 'good');
-    hud.say('Cold. Immediate. <em>Your aim feels better already.</em>', 4200);
+
+    // The first couple steady you. After that the room starts moving.
+    const n = apartment.state.beersDrunk;
+    if (n <= 2) {
+      arcade.grantBuff?.(1);
+      hud.toast('Steady hands — +1 slow-mo charge at the PC', 'good');
+      hud.say('Cold. Immediate. <em>Your aim feels better already.</em>', 4200);
+    } else if (n === 3) {
+      hud.toast('That one hit different', 'bad');
+      hud.say('Three deep. The floor has opinions about this now.', 4600);
+    } else {
+      hud.toast('You are not going to make it', 'bad');
+      hud.say('Everything is warm and slightly to the left.', 4600);
+    }
   }
 }
+
+/**
+ * One hold of F is one whole cigarette: flick, drag, exhale. Letting go
+ * before the exhale abandons it and costs nothing.
+ */
+function updateSmoking(dt, holdingF) {
+  const st = apartment.state;
+
+  // Afterglow: it stays lit in your hand for a moment, then gets flicked.
+  if (cig.t < 0 && cig.afterglow > 0) {
+    cig.afterglow -= dt;
+    heldCig.group.visible = true;
+    wispFromEmber(dt, 0.5);
+    if (cig.afterglow <= 0) {
+      heldCig.group.visible = false;
+      audio.play('cig.stub', { volume: 0.5 });
+    }
+    return;
+  }
+
+  const start = holdingF && st.heldItem === 'cigs' && cig.t < 0 && st.cigsLeft > 0;
+  if (start) {
+    cig.t = 0;
+    cig.lit = false;
+    cig.exhaled = false;
+    audio.play('cig.light', { volume: 0.75 });
+  }
+
+  if (cig.t < 0) {
+    if (holdingF && st.heldItem === 'cigs' && st.cigsLeft <= 0) {
+      hud.say('Empty pack. You have been through a lot this morning.');
+    }
+    return;
+  }
+
+  // Abandoned before the exhale.
+  if (!holdingF && cig.t < CIG_EXHALE) {
+    cig.t = -1;
+    cig.lit = false;
+    heldCig.group.visible = false;
+    hud.setHold(null);
+    if (!interaction.current) hud.hidePrompt();
+    return;
+  }
+
+  cig.t += dt;
+  hud.showPrompt(cig.t < CIG_DRAG ? 'Lighting…' : cig.t < CIG_EXHALE ? 'Drawing…' : 'Exhaling…', 'F');
+  hud.setHold(Math.min(1, cig.t / CIG_DONE));
+
+  if (!cig.lit && cig.t >= CIG_SHOW) {
+    cig.lit = true;
+    heldCig.group.visible = true;
+  }
+  if (cig.lit && cig.t >= CIG_DRAG && cig.t < CIG_EXHALE) {
+    // Ember flares while you draw on it.
+    heldCig.ember.material.emissiveIntensity = 3.4 + Math.sin(elapsed * 22) * 0.6;
+    if (Math.abs(cig.t - CIG_DRAG) < dt) audio.play('cig.drag', { volume: 0.7 });
+    wispFromEmber(dt, 1.6);
+  }
+
+  if (!cig.exhaled && cig.t >= CIG_EXHALE) {
+    cig.exhaled = true;
+    heldCig.ember.material.emissiveIntensity = 2.0;
+    audio.play('cig.exhale', { volume: 0.8 });
+    exhaleCloud();
+  }
+
+  if (cig.t >= CIG_DONE) {
+    cig.t = -1;
+    cig.afterglow = CIG_AFTERGLOW - CIG_DONE;
+    hud.setHold(null);
+    hud.hidePrompt();
+
+    apartment.consumeCigarette();
+    drunk.smoke();
+
+    if (st.cigsLeft > 0) {
+      hud.setHand({ icon: '🚬', name: `Smokes (${st.cigsLeft})`, hint: 'Hold [F] to light one' });
+    } else {
+      hud.setHand({ icon: '🚬', name: 'Empty pack', hint: '[Q] bin it' });
+    }
+    hud.toast('Steadier — for a bit', 'good');
+    hud.say(drunk.level > 0.4
+      ? 'Head rush. Then, briefly, the room holds still.'
+      : 'Filthy habit. Extremely effective.', 4200);
+  }
+}
+
+/** Thin wisp curling off the ember, in world space. */
+function wispFromEmber(dt, rate) {
+  if (Math.random() > dt * rate * 6) return;
+  heldCig.ember.getWorldPosition(_v);
+  smoke.wisp(_v);
+}
+
+/** The big one: a cloud pushed out along your view. */
+function exhaleCloud() {
+  camera.getWorldPosition(_v);
+  camera.getWorldDirection(_dir);
+  // Far enough ahead that the cloud reads as a plume rather than fog on the
+  // lens, and quick enough that it clears the view on its own.
+  _v.addScaledVector(_dir, 0.55);
+  _v.y -= 0.07;
+  // Many small billows travelling fast reads as a plume; a few big ones just
+  // fog the lens.
+  smoke.emit(_v, _dir, {
+    count: 18, speed: 2.20, spread: 0.26,
+    size0: 0.045, size1: 0.38, life: 2.8, peak: 0.22, rise: 0.24,
+  });
+  // A second, slower burst so the plume has a tail rather than one pop.
+  smoke.emit(_v, _dir, {
+    count: 10, speed: 0.90, spread: 0.18,
+    size0: 0.035, size1: 0.32, life: 4.0, peak: 0.14, rise: 0.18,
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Passing out                                                         */
+/* ------------------------------------------------------------------ */
+
+function passOut() {
+  if (game.passingOut) return;
+  game.passingOut = true;
+
+  player.clearKeys();
+  interaction.setPaused(true);
+  hud.hidePrompt();
+  hud.setHold(null);
+
+  if (game.seated) {
+    game.seated = false;
+    hud.setMode('walk');
+    audio.setMuffle(false);
+    radio.setFocusMuffle(false);
+  }
+
+  // Abandon anything mid-drag.
+  cig.t = -1;
+  cig.afterglow = 0;
+  heldCig.group.visible = false;
+
+  player.mode = 'frozen';
+  audio.play('drunk.collapse', { volume: 0.85 });
+  audio.play('drunk.heartbeat', { volume: 0.6, delay: 0.25 });
+  hud.say('Oh. <em>Oh no.</em>');
+
+  blackout.querySelector('span').textContent = 'you should sit down';
+  blackout.classList.add('on');
+
+  setTimeout(() => {
+    audio.play('drunk.snore', { volume: 0.4 });
+    blackout.querySelector('span').textContent = '· · ·';
+  }, 2200);
+
+  setTimeout(() => {
+    // Wake up in bed, a few hours gone.
+    player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
+    drunk.sleepItOff();
+    apartment.advanceClock(3 * 60 + 47);
+    apartment.state.heldItem = null;
+    hud.setHand(null);
+    game.passingOut = false;
+    blackout.querySelector('span').textContent = '';
+    blackout.classList.remove('on');
+    audio.play('bed.rustle', { volume: 0.5 });
+    hud.say('<em>9:51 AM.</em> You are in bed. You do not remember the trip.', 6000);
+    setTimeout(() => {
+      if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
+    }, 3200);
+  }, 5200);
+}
+
+/** Push the intoxication level into the CSS layer (blur + closing vignette). */
+let _fxBlur = -1;
+let _fxAmount = -1;
+function applyDrunkFx() {
+  const blur = Math.round(drunk.blur * 20) / 20;
+  const amount = Math.round(drunk.vignette * 50) / 50;
+  // Only touch the DOM when the value actually changes; setting a CSS custom
+  // property every frame forces a style recalc for nothing.
+  if (blur !== _fxBlur) {
+    _fxBlur = blur;
+    document.documentElement.style.setProperty('--drunk-blur', `${blur}px`);
+  }
+  if (amount !== _fxAmount) {
+    _fxAmount = amount;
+    fxDrunk.style.setProperty('--drunk-amount', amount);
+  }
+}
+
+drunk.onHiccup = () => {
+  if (game.paused || game.passingOut) return;
+  audio.play('drunk.hiccup', { volume: 0.5 });
+  drunk.rush = Math.max(drunk.rush, 0.35);
+};
 
 /* ------------------------------------------------------------------ */
 /* Frame loop                                                          */
@@ -388,9 +638,17 @@ function frame() {
 
   if (apartment) {
     if (!game.paused) {
+      // Intoxication first: the player controller reads sway/impair this frame.
+      if (drunk.update(dt)) passOut();
+      player.sway = drunk.sway;
+      player.impair = game.passingOut ? 0 : Math.max(0, (drunk.level - 0.34) / 0.66);
+      arcade.setImpairment?.(drunk.swayStrength);
+      applyDrunkFx();
+
       player.update(dt);
       apartment.update(dt, elapsed);
-      updateDrinking(dt);
+      updateConsume(dt);
+      smoke.update(dt);
 
       if (game.seated) {
         arcade.update(dt);

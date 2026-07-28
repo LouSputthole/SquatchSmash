@@ -16,17 +16,39 @@ import { resolveGear } from './gear.js';
 
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
 
-/** Where the player's own art hangs. Keys match assets/art/manifest.json. */
+/**
+ * Where the player's own art hangs. Keys match assets/art/manifest.json.
+ * `h` is the picture height in metres; width follows the image's aspect ratio.
+ */
 export const WALL_SLOTS = [
-  { slot: 'bed.above', x: -4.97, y: 1.85, z: -3.40, rotY: Math.PI / 2, h: 0.86 },
-  { slot: 'couch.left', x: -4.97, y: 1.68, z: 0.08, rotY: Math.PI / 2, h: 0.76 },
-  { slot: 'couch.right', x: -4.97, y: 1.68, z: 1.42, rotY: Math.PI / 2, h: 0.76 },
-  { slot: 'desk.left', x: 0.92, y: 1.76, z: -4.40, rotY: 0, h: 0.72 },
-  { slot: 'desk.right', x: 2.80, y: 1.76, z: -4.40, rotY: 0, h: 0.72 },
-  { slot: 'door.side', x: 0.90, y: 1.64, z: 4.40, rotY: Math.PI, h: 0.80 },
+  // West wall: over the bed, the gap by the lamp, then two over the couch.
+  { slot: 'bed.above', x: -4.97, y: 1.86, z: -3.40, rotY: Math.PI / 2, h: 0.62 },
+  { slot: 'west.gap', x: -4.97, y: 1.86, z: -1.30, rotY: Math.PI / 2, h: 0.54 },
+  { slot: 'couch.left', x: -4.97, y: 1.68, z: 0.10, rotY: Math.PI / 2, h: 0.56 },
+  { slot: 'couch.right', x: -4.97, y: 1.68, z: 1.44, rotY: Math.PI / 2, h: 0.56 },
+  // North wall: either side of the monitor.
+  { slot: 'desk.left', x: 0.92, y: 1.76, z: -4.40, rotY: 0, h: 0.54 },
+  { slot: 'desk.right', x: 2.80, y: 1.76, z: -4.40, rotY: 0, h: 0.56 },
+  // South wall gallery, running away from the front door.
+  { slot: 'door.side', x: 0.90, y: 1.64, z: 4.40, rotY: Math.PI, h: 0.56 },
+  { slot: 'south.hawaii', x: -2.05, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.52 },
+  { slot: 'south.wide', x: -3.35, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.42 },
+  { slot: 'south.portrait', x: -4.45, y: 1.58, z: 4.40, rotY: Math.PI, h: 0.62 },
 ];
 
-const BANNER_SLOT = { slot: 'banner.main', x: 4.10, y: 1.52, z: -4.38, rotY: 0, h: 1.15 };
+const BANNER_SLOT = { slot: 'banner.main', x: 4.10, y: 1.52, z: -4.38, rotY: 0, h: 0.78 };
+
+/** Round crest hung above the bookshelf on the north wall. */
+const CREST_SLOT = { slot: 'crest.round', x: -2.70, y: 2.13, z: -4.40, rotY: 0, r: 0.21 };
+
+/** Photo frames that stand on furniture rather than hanging. */
+const STANDING_SLOTS = [
+  { slot: 'shelf.photo', x: -0.52, y: 0.723, z: 4.14, rotY: Math.PI - 0.30, h: 0.19 },
+  { slot: 'desk.photo', x: 0.98, y: 0.740, z: -4.22, rotY: 0.22, h: 0.13 },
+];
+
+/** Sticker stuck to the fridge door. */
+const FRIDGE_MAGNET = { slot: 'fridge.magnet', w: 0.27 };
 
 export async function buildApartment(ctx) {
   const { scene, audio, hud, interaction } = ctx;
@@ -192,6 +214,20 @@ export async function buildApartment(ctx) {
   root.add(kitchen.group);
   addCollider(kitchen.bounds);
 
+  // Smokes and an ashtray on the countertop, clear of the sink and the hob.
+  const cigsPos = new THREE.Vector3(4.62, kitchen.top, 1.16);
+  const cigs = P.makeCigarettePack(M, { x: cigsPos.x, y: cigsPos.y, z: cigsPos.z, rotY: -0.55 });
+  root.add(cigs.group);
+  // A 4cm pack is a fiddly thing to aim at; give it a proxy like the bobblehead.
+  const cigsHit = box({
+    size: [0.22, 0.20, 0.20], pos: [cigsPos.x + 0.02, cigsPos.y + 0.08, cigsPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(cigsHit);
+
+  const ashtray = P.makeAshtray(M, { x: 4.60, y: kitchen.top, z: 0.86, rotY: 0.4 });
+  root.add(ashtray.group);
+
   const couch = P.makeCouch(M, { x: -4.55, z: 0.70 });
   root.add(couch.group);
   addCollider(couch.bounds);
@@ -256,7 +292,13 @@ export async function buildApartment(ctx) {
   /* Wall art                                                          */
   /* ================================================================ */
 
-  const slotNames = [...WALL_SLOTS.map((s) => s.slot), BANNER_SLOT.slot];
+  const slotNames = [
+    ...WALL_SLOTS.map((s) => s.slot),
+    BANNER_SLOT.slot,
+    CREST_SLOT.slot,
+    ...STANDING_SLOTS.map((s) => s.slot),
+    FRIDGE_MAGNET.slot,
+  ];
   const gear = await resolveGear(slotNames);
   const frames = [];
 
@@ -279,6 +321,41 @@ export async function buildApartment(ctx) {
     w: bannerH * (bannerGear.aspect || 0.8), h: bannerH, texture: bannerGear.texture,
   });
   root.add(banner.group);
+
+  // Round crest above the bookshelf.
+  const crestGear = gear.get(CREST_SLOT.slot);
+  const crest = P.makeRoundCrest(M, {
+    x: CREST_SLOT.x, y: CREST_SLOT.y, z: CREST_SLOT.z, rotY: CREST_SLOT.rotY,
+    r: CREST_SLOT.r * (crestGear.scale || 1), texture: crestGear.texture,
+  });
+  root.add(crest.group);
+  frames.push({ ...CREST_SLOT, mesh: crest.group, info: crestGear });
+
+  // Framed photos standing on the sideboard and the desk.
+  for (const slot of STANDING_SLOTS) {
+    const g = gear.get(slot.slot);
+    const height = slot.h * (g.scale || 1);
+    const sf = P.makeStandingFrame(M, {
+      x: slot.x, y: slot.y, z: slot.z, rotY: slot.rotY,
+      w: height * (g.aspect || 0.8), h: height, texture: g.texture,
+    });
+    root.add(sf.group);
+    frames.push({ ...slot, mesh: sf.group, info: g });
+  }
+
+  // Sticker on the fridge door, parented so it swings with it.
+  const magnetGear = gear.get(FRIDGE_MAGNET.slot);
+  const magnetW = FRIDGE_MAGNET.w * (magnetGear.scale || 1);
+  const magnet = P.makeDecal(M, {
+    texture: magnetGear.texture,
+    w: magnetW,
+    h: magnetW / (magnetGear.aspect || 1),
+    magnet: true,
+  });
+  magnet.group.position.set(-0.034, 0.86, -0.36);
+  magnet.group.rotation.set(0, -Math.PI / 2, 0.06);
+  fridge.door.add(magnet.group);
+  frames.push({ slot: FRIDGE_MAGNET.slot, mesh: magnet.group, info: magnetGear });
 
   /* ================================================================ */
   /* Lighting                                                          */
@@ -345,8 +422,10 @@ export async function buildApartment(ctx) {
     pcOn: false,
     radioOn: false,
     blindsOpen: false,
-    heldItem: null,       // 'beer' | 'empty' | null
+    heldItem: null,       // 'beer' | 'empty' | 'cigs' | null
     beersDrunk: 0,
+    cigsLeft: 17,
+    cigsSmoked: 0,
   };
 
   /* ---- fridge ---- */
@@ -386,6 +465,35 @@ export async function buildApartment(ctx) {
         void i;
       },
     });
+  });
+
+  /* ---- cigarettes ---- */
+  interaction.register(cigsHit, {
+    label: () => (state.cigsLeft > 0
+      ? `Take the <b>smokes</b> <span style="opacity:.6">(${state.cigsLeft})</span>`
+      : 'An empty <b>pack</b>'),
+    enabled: () => !state.heldItem && cigs.group.visible,
+    onUse: () => {
+      if (state.cigsLeft <= 0) {
+        hud.say('Empty. You knew it was empty.');
+        return;
+      }
+      cigs.group.visible = false;
+      state.heldItem = 'cigs';
+      hud.setHand({ icon: '🚬', name: `Smokes (${state.cigsLeft})`, hint: 'Hold [F] to light one' });
+      audio.play('cig.pack', { position: cigsPos, volume: 0.7 });
+      hud.toast('Picked up the smokes', 'good');
+    },
+  });
+
+  interaction.register(ashtray.group, {
+    label: () => 'The <b>ashtray</b>',
+    onUse: () => {
+      audio.play('frame.adjust', { volume: 0.3 });
+      hud.say(state.cigsSmoked > 2
+        ? 'Filling up nicely. You are having a morning.'
+        : 'Three dead ones and a lot of ash.');
+    },
   });
 
   /* ---- radio ---- */
@@ -626,6 +734,27 @@ export async function buildApartment(ctx) {
     consumeBeer() {
       state.beersDrunk++;
       state.heldItem = 'empty';
+    },
+
+    /** Burn one from the pack. Returns false when it is empty. */
+    consumeCigarette() {
+      if (state.cigsLeft <= 0) return false;
+      state.cigsLeft--;
+      state.cigsSmoked++;
+      return true;
+    },
+
+    /** Put the pack back on the counter (used when the player drops it). */
+    returnCigarettes() {
+      cigs.group.visible = true;
+    },
+
+    cigsPos,
+
+    /** Push the wall clock and alarm clock forward, e.g. after passing out. */
+    advanceClock(mins) {
+      minutes = (minutes + mins) % (24 * 60);
+      clockAcc = 99;
     },
 
     update(dt, elapsed) {

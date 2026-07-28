@@ -32,6 +32,51 @@ canvas#scene {
 }
 body.unlocked canvas#scene { cursor: default; }
 
+/* ---------------- Intoxication ---------------- */
+
+/* Blur is applied to the canvas itself so it costs one GPU pass, not a
+   three.js post-processing chain. --drunk-blur is driven from main.js. */
+canvas#scene {
+  filter: blur(var(--drunk-blur, 0px));
+  will-change: filter;
+}
+
+#fx-drunk {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  opacity: var(--drunk-amount, 0);
+  background:
+    radial-gradient(ellipse at 50% 50%,
+      rgba(0, 0, 0, 0) 34%,
+      rgba(24, 12, 4, .55) 78%,
+      rgba(12, 6, 2, .9) 100%),
+    linear-gradient(rgba(122, 74, 22, .10), rgba(122, 74, 22, .10));
+  transition: opacity .6s ease;
+}
+
+#blackout {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.4s ease;
+}
+#blackout.on { opacity: 1; }
+#blackout span {
+  font-size: 14px;
+  letter-spacing: 3px;
+  color: #6b6455;
+  opacity: 0;
+  transition: opacity .8s ease .6s;
+}
+#blackout.on span { opacity: 1; }
+
 /* ---------------- HUD ---------------- */
 #hud {
   position: fixed;

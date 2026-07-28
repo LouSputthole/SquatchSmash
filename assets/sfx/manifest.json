@@ -49,6 +49,17 @@
     { "name": "arcade.wave", "duration": 1.4, "prompt": "retro arcade level start fanfare, three rising square wave notes" },
     { "name": "arcade.gameover", "duration": 2.2, "prompt": "retro arcade game over jingle, slow descending square wave melody, 16-bit style" },
 
+    { "name": "cig.pack", "duration": 1.2, "prompt": "cigarette pack flip-top opening, foil crinkling, one cigarette pulled out" },
+    { "name": "cig.light", "duration": 1.4, "prompt": "disposable lighter flicking twice then igniting, cigarette tip catching" },
+    { "name": "cig.drag", "duration": 1.6, "prompt": "long drag on a cigarette, paper crackling as it burns, close mic" },
+    { "name": "cig.exhale", "duration": 1.8, "prompt": "person slowly exhaling a lungful of cigarette smoke, breathy, close mic" },
+    { "name": "cig.stub", "duration": 1.0, "prompt": "cigarette stubbed out in a glass ashtray, short gritty twist" },
+
+    { "name": "drunk.hiccup", "duration": 0.7, "prompt": "single involuntary hiccup, close mic, dry" },
+    { "name": "drunk.collapse", "duration": 1.6, "prompt": "person slumping heavily to a wooden floor, soft body impact, no voice" },
+    { "name": "drunk.heartbeat", "duration": 3.0, "prompt": "slow muffled heartbeat heard from inside the head, deep and dull" },
+    { "name": "drunk.snore", "duration": 2.6, "prompt": "one slow deep snore of someone passed out, muffled" },
+
     { "name": "ui.select", "duration": 0.4, "prompt": "soft interface confirm blip, warm and short" },
     { "name": "ui.hover", "duration": 0.3, "prompt": "very soft interface hover tick, quiet" }
   ]

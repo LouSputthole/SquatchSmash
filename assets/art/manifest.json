@@ -1,12 +1,96 @@
 {
-  "_comment": "Squatch gear on the walls. Drop images into assets/art/ and point a slot at one. Slots without a file get a procedurally drawn placeholder poster. Valid slots: bed.above, couch.left, couch.right, desk.left, desk.right, door.side, banner.main.",
+  "_comment": "Squatch gear on the walls and on the furniture. Drop images into assets/art/ and point a slot at one. Slots without a file get a procedurally drawn placeholder poster. See README.md in this folder for the slot list.",
+
   "art": [
     {
       "slot": "bed.above",
-      "file": "",
-      "title": "",
-      "caption": "",
-      "scale": 1
+      "file": "logo-shield-wide.jpg",
+      "title": "The shield",
+      "caption": "First thing you see every morning, whether you want to or not."
+    },
+    {
+      "slot": "west.gap",
+      "file": "iem-dallas-2022.jpg",
+      "title": "IEM Dallas 2022",
+      "caption": "The first one. Nobody knew what they were doing and it did not matter."
+    },
+    {
+      "slot": "couch.left",
+      "file": "iem-dallas-2024-arena.jpg",
+      "title": "Under the lights",
+      "caption": "IEM Dallas 2024. Six of you and about forty thousand watts."
+    },
+    {
+      "slot": "couch.right",
+      "file": "logo-pride.jpg",
+      "title": "Pride squatch",
+      "caption": "Same silverback. Better colours."
+    },
+    {
+      "slot": "desk.left",
+      "file": "team-lan-center.jpg",
+      "title": "The whole roster",
+      "caption": "Somebody had to stand at the back. It is always the same somebody."
+    },
+    {
+      "slot": "desk.right",
+      "file": "logo-shield.jpg",
+      "title": "Silver Sasquatches",
+      "caption": "Hung at eye level, so it is the last thing you see before you queue."
+    },
+    {
+      "slot": "door.side",
+      "file": "iem-dallas-2024-night.jpg",
+      "title": "Dallas, after hours",
+      "caption": "Matching tees, string lights, and nobody checking the time."
+    },
+    {
+      "slot": "south.hawaii",
+      "file": "team-hawaiian.jpg",
+      "title": "Hawaiian shirt night",
+      "caption": "There was a reason for this. It has not survived."
+    },
+    {
+      "slot": "south.wide",
+      "file": "iem-dallas-2023-roster.jpg",
+      "title": "IEM Dallas 2023",
+      "caption": "MEGGY. BOOSHI. LOU. RIP. SHUBES. Names on the wall, where they belong."
+    },
+    {
+      "slot": "south.portrait",
+      "file": "iem-dallas-2023-faze.jpg",
+      "title": "Met the pros",
+      "caption": "Dippin' Dots and a photo you have shown far too many people."
+    },
+    {
+      "slot": "banner.main",
+      "file": "logo-banner-wide.jpg",
+      "title": "Team banner",
+      "caption": "Hung off a dowel, because a frame that wide costs more than the PC."
+    },
+    {
+      "slot": "crest.round",
+      "file": "logo-crest.png",
+      "title": "The crest",
+      "caption": "EST. 2021. Mounted above the shelf like a coat of arms, which it is."
+    },
+    {
+      "slot": "shelf.photo",
+      "file": "portrait-chain.jpg",
+      "title": "The chain",
+      "caption": "Framed, on the sideboard. No further comment offered."
+    },
+    {
+      "slot": "desk.photo",
+      "file": "golf-hotdogs.jpg",
+      "title": "Golf, allegedly",
+      "caption": "Two hot dogs, one cart, zero holes played."
+    },
+    {
+      "slot": "fridge.magnet",
+      "file": "sticker-pinup.png",
+      "title": "Fridge magnet",
+      "caption": "Been on that door longer than you have lived here."
     }
   ]
 }

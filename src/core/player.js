@@ -51,6 +51,12 @@ export class Player {
     this.keys = new Set();
     this.onFootstep = null;
     this._stepDist = 0;
+    this.time = 0;
+
+    // Set by the intoxication system: `sway` is added to the camera angles,
+    // `impair` (0..1) bends walking away from the direction you asked for.
+    this.sway = { yaw: 0, pitch: 0, roll: 0 };
+    this.impair = 0;
 
     // Transition tween state.
     this._tween = null;
@@ -176,6 +182,7 @@ export class Player {
   /* ---------------------------------------------------------------- */
 
   update(dt) {
+    this.time += dt;
     if (this._tween) {
       const tw = this._tween;
       tw.t += dt;
@@ -217,10 +224,23 @@ export class Player {
         : SPEED_WALK;
 
     // Desired velocity in world space.
-    const sin = Math.sin(this.yaw);
-    const cos = Math.cos(this.yaw);
+    // Drunk walking: veer off the requested heading, and list to one side.
+    const veer = this.impair > 0
+      ? (Math.sin(this.time * 0.53) * 0.34 + Math.sin(this.time * 1.19 + 1.7) * 0.16) * this.impair
+      : 0;
+    const heading = this.yaw + veer;
+
+    const sin = Math.sin(heading);
+    const cos = Math.cos(heading);
     let wx = -sin * fwd + cos * strafe;
     let wz = -cos * fwd - sin * strafe;
+
+    if (this.impair > 0 && len2(wx, wz) > 0) {
+      const drift = Math.sin(this.time * 0.77 + 0.4) * 0.30 * this.impair;
+      wx += cos * drift;
+      wz += -sin * drift;
+    }
+
     const len = Math.hypot(wx, wz);
     if (len > 0) {
       wx /= len;
@@ -327,7 +347,12 @@ export class Player {
     cam.position.set(this.position.x + sideX, y, this.position.z + sideZ);
 
     // In YXZ order the components are (pitch, yaw, roll).
-    _euler.set(this.pitch, this.yaw, this.roll, 'YXZ');
+    _euler.set(
+      this.pitch + this.sway.pitch,
+      this.yaw + this.sway.yaw,
+      this.roll + this.sway.roll,
+      'YXZ',
+    );
     cam.quaternion.setFromEuler(_euler);
   }
 }
@@ -336,6 +361,7 @@ const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 const _tmpV = new THREE.Vector3();
 
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
+function len2(x, z) { return x * x + z * z; }
 function lerp(a, b, t) { return a + (b - a) * t; }
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;

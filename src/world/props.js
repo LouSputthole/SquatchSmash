@@ -315,6 +315,7 @@ export function makeFridge(M, { x, z, w = 0.80, d = 0.72, h = 1.85 }) {
   return {
     group: g,
     doorPivot,
+    door,
     light,
     beerSlots,
     handlePos: new THREE.Vector3(x0 - 0.02, 1.02, z0 + 0.13),
@@ -768,6 +769,88 @@ export function makeFrame(M, { x, y, z, rotY = 0, w = 0.5, h = 0.65, texture = n
 }
 
 /**
+ * A photo frame that stands on furniture, with an easel leg behind it.
+ * `w`/`h` are the picture size; the frame is built around them.
+ */
+export function makeStandingFrame(M, { x, y, z, rotY = 0, w = 0.16, h = 0.20, texture = null, tint = 0x2a1d12 }) {
+  const g = group('standingFrame');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const bezel = 0.022;
+  const panel = group('framePanel');
+  panel.rotation.x = 0.14;          // tipped back, like a real easel frame
+  panel.position.y = h / 2 + bezel;
+
+  panel.add(box({ size: [w + bezel * 2, h + bezel * 2, 0.014], pos: [0, 0, -0.007], mat: mat({ color: tint, roughness: 0.5 }) }));
+  panel.add(box({ size: [w + 0.008, h + 0.008, 0.003], pos: [0, 0, 0.0005], mat: M.paper }));
+
+  const art = plane(w, h, texture
+    ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.55 })
+    : new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.8 }));
+  art.position.set(0, 0, 0.003);
+  panel.add(art);
+
+  const glass = plane(w + 0.006, h + 0.006, new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, roughness: 0.04, transparent: true, opacity: 0.08,
+  }));
+  glass.position.set(0, 0, 0.008);
+  panel.add(glass);
+
+  // Easel leg, splayed back to meet the surface.
+  const leg = box({ size: [0.03, h * 0.8, 0.008], pos: [0, 0, -0.02], mat: mat({ color: tint, roughness: 0.7 }) });
+  leg.rotation.x = -0.42;
+  panel.add(leg);
+
+  g.add(panel);
+  return { group: g, art };
+}
+
+/**
+ * Round wall crest / patch. Alpha-cut so a transparent logo reads as a
+ * circular badge rather than a square card, with a thin backing disc.
+ */
+export function makeRoundCrest(M, { x, y, z, rotY = 0, r = 0.22, texture = null }) {
+  const g = group('crest');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  // Backing disc, so the badge has thickness against the wall.
+  g.add(cylinder({
+    r: r * 0.93, h: 0.018, pos: [0, 0, -0.010], rotX: Math.PI / 2,
+    mat: mat({ color: 0x1d1a26, roughness: 0.6 }),
+  }));
+
+  const face = plane(r * 2, r * 2, texture
+    ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.6, transparent: true, alphaTest: 0.35 })
+    : new THREE.MeshStandardMaterial({ color: 0x3b3350, roughness: 0.7 }));
+  face.position.z = 0.002;
+  g.add(face);
+
+  return { group: g, face };
+}
+
+/**
+ * Flat decal for stickers and fridge magnets. The caller parents it, so it
+ * rides along with whatever it is stuck to -- like a swinging fridge door.
+ */
+export function makeDecal(M, { texture, w = 0.16, h = 0.16, magnet = false }) {
+  const g = group('decal');
+  const face = plane(w, h, texture
+    ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.72, transparent: true, alphaTest: 0.3 })
+    : new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 }));
+  g.add(face);
+  if (magnet) {
+    // A little disc at one corner so it reads as held on, not printed on.
+    g.add(cylinder({
+      r: 0.012, h: 0.006, pos: [w * 0.30, h * 0.32, -0.005], rotX: Math.PI / 2,
+      mat: mat({ color: 0x2b2b30, roughness: 0.5 }),
+    }));
+  }
+  return { group: g, face };
+}
+
+/**
  * Hanging fabric banner / flag — the other classic way to display gear.
  * Slight wave built into the geometry so it does not read as a flat card.
  */
@@ -813,6 +896,86 @@ export function makeCapOnPeg(M, { x, y, z, rotY = 0, color = 0x3a4a3c }) {
   brim.rotation.set(-1.1, 0, 0);
   g.add(brim);
   return { group: g };
+}
+
+/**
+ * Soft pack of cigarettes, lid flipped open, with a couple standing proud.
+ * Returned `pack` is the whole thing so it can be hidden once picked up.
+ */
+export function makeCigarettePack(M, { x, y, z, rotY = 0 }) {
+  const g = group('cigs');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const packMat = mat({ color: 0xb8352c, roughness: 0.62 });
+  const foilMat = mat({ color: 0xc9b06a, roughness: 0.35, metalness: 0.5 });
+  const paperMat = mat({ color: 0xf2ece0, roughness: 0.9 });
+  const filterMat = mat({ color: 0xc59a58, roughness: 0.95 });
+
+  // Body, with a white band round the base like every soft pack.
+  g.add(box({ size: [0.056, 0.084, 0.024], pos: [0, 0.042, 0], mat: packMat }));
+  g.add(box({ size: [0.058, 0.016, 0.026], pos: [0, 0.010, 0], mat: paperMat }));
+  // Foil liner peeking out of the open top.
+  g.add(box({ size: [0.048, 0.014, 0.018], pos: [0, 0.090, 0], mat: foilMat }));
+  // Flip-top lid, hinged back.
+  g.add(box({ size: [0.056, 0.030, 0.024], pos: [0, 0.098, -0.020], mat: packMat, rotX: -0.85 }));
+
+  // Two cigarettes standing up out of the foil.
+  for (const [ox, oz, lean] of [[-0.010, 0.002, 0.06], [0.011, -0.004, -0.09]]) {
+    g.add(cylinder({ r: 0.0035, h: 0.030, pos: [ox, 0.106, oz], mat: paperMat, rotZ: lean }));
+    g.add(cylinder({ r: 0.0035, h: 0.010, pos: [ox, 0.090, oz], mat: filterMat, rotZ: lean }));
+  }
+
+  // Lighter lying beside the pack.
+  const lighter = group('lighter');
+  lighter.position.set(0.062, 0, 0.014);
+  lighter.rotation.y = 0.5;
+  lighter.add(box({ size: [0.022, 0.012, 0.058], pos: [0, 0.006, 0], mat: mat({ color: 0xd8a11e, roughness: 0.4 }) }));
+  lighter.add(box({ size: [0.016, 0.008, 0.012], pos: [0, 0.015, -0.020], mat: M.chrome }));
+  g.add(lighter);
+
+  return { group: g, lighter };
+}
+
+/** Glass ashtray with a couple of dead soldiers in it. */
+export function makeAshtray(M, { x, y, z, rotY = 0 }) {
+  const g = group('ashtray');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: 0xb9c6c9, roughness: 0.12, transmission: 0.7,
+    transparent: true, opacity: 0.55, thickness: 0.02,
+  });
+  g.add(cylinder({ rTop: 0.052, rBottom: 0.040, h: 0.022, pos: [0, 0.011, 0], mat: glass }));
+  g.add(cylinder({ r: 0.038, h: 0.004, pos: [0, 0.020, 0], mat: mat({ color: 0x4a463f, roughness: 1 }) }));
+  const butt = mat({ color: 0xd9cdb4, roughness: 0.95 });
+  for (const [bx, bz, r] of [[-0.012, 0.008, 0.5], [0.014, -0.006, 2.1], [0.004, 0.018, 1.2]]) {
+    g.add(cylinder({ r: 0.0035, h: 0.020, pos: [bx, 0.024, bz], rotZ: Math.PI / 2, rotY: r, mat: butt }));
+  }
+  return { group: g };
+}
+
+/**
+ * The lit cigarette held in view while smoking: a stub with a glowing ember.
+ * Parented to the camera by main.js; the smoke itself comes from SmokeSystem.
+ */
+export function makeHeldCigarette() {
+  const g = group('heldCig');
+  const paperMat = mat({ color: 0xf2ece0, roughness: 0.9 });
+  g.add(cylinder({ r: 0.0038, h: 0.052, pos: [0, 0, 0], rotZ: Math.PI / 2, mat: paperMat }));
+  g.add(cylinder({ r: 0.0038, h: 0.016, pos: [-0.030, 0, 0], rotZ: Math.PI / 2, mat: mat({ color: 0xc59a58, roughness: 0.95 }) }));
+  const ember = cylinder({
+    r: 0.0042, h: 0.006, pos: [0.028, 0, 0], rotZ: Math.PI / 2,
+    mat: new THREE.MeshStandardMaterial({
+      color: 0x1a0a04, emissive: 0xff5a1e, emissiveIntensity: 2.2, roughness: 1,
+    }),
+  });
+  g.add(ember);
+  // Small warm light so the ember actually reads in a dark room.
+  const glow = new THREE.PointLight(0xff6a24, 0.35, 0.5, 2);
+  glow.position.set(0.030, 0, 0);
+  g.add(glow);
+  return { group: g, ember, glow };
 }
 
 /** Free-standing "SQUATCH CROSSING" sign leaning in a corner. */

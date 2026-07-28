@@ -18,12 +18,20 @@ const loader = new THREE.TextureLoader();
 /** Placeholder art used when a slot has no image yet. */
 const FALLBACKS = {
   'bed.above': () => posterPlaceholder('Sasquatch', 'PACIFIC NORTHWEST', 200),
+  'west.gap': () => posterPlaceholder('Squatch', 'ROAD TO THE MAJOR', 172),
   'couch.left': () => posterPlaceholder('Believe', 'FIELD RESEARCH DIV.', 26),
   'couch.right': () => posterPlaceholder('Gone Squatchin', 'EST. 1967', 96),
   'desk.left': () => posterPlaceholder('Squatch', 'SMASH', 8),
   'desk.right': () => posterPlaceholder('Bigfoot', 'SIGHTING NO. 44', 260),
   'door.side': () => posterPlaceholder('Stay Hairy', 'TRAIL CREW', 140),
+  'south.hawaii': () => posterPlaceholder('Off Season', 'TEAM BUILDING', 46),
+  'south.wide': () => posterPlaceholder('The Roster', 'ALL OF THEM', 288),
+  'south.portrait': () => posterPlaceholder('Squatch', 'MET THE PROS', 216),
   'banner.main': () => posterPlaceholder('Squatch', 'SMASH CLUB', 18),
+  'crest.round': () => posterPlaceholder('Crest', 'EST. 2021', 270),
+  'shelf.photo': () => posterPlaceholder('Someone', 'YOU KNOW', 200),
+  'desk.photo': () => posterPlaceholder('A Good Day', 'ALLEGEDLY', 40),
+  'fridge.magnet': () => posterPlaceholder('Magnet', 'FRIDGE', 320),
 };
 
 export async function loadGearManifest() {
