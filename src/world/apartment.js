@@ -11,6 +11,7 @@
 import * as THREE from 'three';
 import { box, boxFrom, cylinder, plane, mat, collider, group, yawToward } from './build.js';
 import { makeMaterials } from './materials.js';
+import * as T from './textures.js';
 import * as P from './props.js';
 import { resolveGear } from './gear.js';
 
@@ -51,7 +52,7 @@ const STANDING_SLOTS = [
 const FRIDGE_MAGNET = { slot: 'fridge.magnet', w: 0.27 };
 
 export async function buildApartment(ctx) {
-  const { scene, audio, hud, interaction } = ctx;
+  const { scene, audio, hud, interaction, time } = ctx;
   const M = makeMaterials();
 
   const root = group('apartment');
@@ -141,11 +142,20 @@ export async function buildApartment(ctx) {
   glass.position.set(x1 + 0.01, (wy0 + wy1) / 2, (wz0 + wz1) / 2);
   glass.rotation.y = -Math.PI / 2;
   win.add(glass);
-  // Backdrop, set back so it parallaxes a little as the player moves.
-  const sky = plane(9, 4.6, M.sky);
-  sky.position.set(x1 + 2.6, 1.9, (wz0 + wz1) / 2);
-  sky.rotation.y = -Math.PI / 2;
-  win.add(sky);
+  // Backdrop, set back so it parallaxes a little as the player moves. Two
+  // stacked planes: the day/night phases cross-fade between them rather than
+  // popping from one painting to the next.
+  const skyBase = plane(9, 4.6, new THREE.MeshBasicMaterial({ toneMapped: false }));
+  skyBase.position.set(x1 + 2.6, 1.9, (wz0 + wz1) / 2);
+  skyBase.rotation.y = -Math.PI / 2;
+  win.add(skyBase);
+  const skyOver = plane(9, 4.6, new THREE.MeshBasicMaterial({
+    toneMapped: false, transparent: true, opacity: 0, depthWrite: false,
+  }));
+  skyOver.position.set(x1 + 2.58, 1.9, (wz0 + wz1) / 2);
+  skyOver.rotation.y = -Math.PI / 2;
+  skyOver.renderOrder = 1;
+  win.add(skyOver);
   root.add(win);
 
   // Venetian blinds: a stack of slats that rolls up.
@@ -448,7 +458,8 @@ export async function buildApartment(ctx) {
   /* Lighting                                                          */
   /* ================================================================ */
 
-  scene.add(new THREE.HemisphereLight(0x6d7d9e, 0x352a20, 0.85));
+  const hemi = new THREE.HemisphereLight(0x6d7d9e, 0x352a20, 0.85);
+  scene.add(hemi);
   const ambient = new THREE.AmbientLight(0x8d94a8, 0.45);
   scene.add(ambient);
 
@@ -518,6 +529,7 @@ export async function buildApartment(ctx) {
     bathDoorOpen: false,
     bathVisited: false,
     bathLightOn: false,
+    lightsManual: false,   // set once the player works the switch themselves
     bladder: 0.12,       // 0..1; drinking fills it
     bowel: 0,            // 0..1; cigarettes fill it. 4 of them and you are running
     urgeAnnounced: false,
@@ -622,7 +634,8 @@ export async function buildApartment(ctx) {
   });
 
   /* ---- lights ---- */
-  const setCeiling = (on) => {
+  const setCeiling = (on, auto = false) => {
+    if (!auto) state.lightsManual = true;
     state.lightsOn = on;
     ceilLight.bulb.material = on ? M.bulbOn : M.bulbOff;
     audio.play('switch.click', { position: new THREE.Vector3(1.95, 1.18, 4.4), volume: 0.7 });
@@ -780,6 +793,8 @@ export async function buildApartment(ctx) {
   let clockAcc = 0;
   let tickAcc = 0;
   let bathDoorT = 0;
+  let skyPhaseA = null;
+  let skyPhaseB = null;
   let seconds = 0;
   let minutes = 6 * 60 + 4;
 
@@ -789,6 +804,14 @@ export async function buildApartment(ctx) {
     state.fridgeT += (target - state.fridgeT) * Math.min(1, dt * 6);
     fridge.doorPivot.rotation.y = state.fridgeT * 2.0;
     fridge.light.intensity = state.fridgeT * 0.85;
+
+    /* the lamps look after themselves once it gets dark */
+    if (time.isDark && !state.lightsOn && !state.lightsManual) {
+      setCeiling(true, true);
+      hud.say('You put the light on without really deciding to.', 4000);
+    } else if (!time.isDark && state.lightsOn && !state.lightsManual) {
+      setCeiling(false, true);
+    }
 
     /* bathroom door + strip light */
     bathDoorT += ((state.bathDoorOpen ? 1 : 0) - bathDoorT) * Math.min(1, dt * 5);
@@ -808,7 +831,29 @@ export async function buildApartment(ctx) {
       slats[i].rotation.z = (1 - blindsT) * 1.35;
     }
     // Sun only really gets in once the blinds are up.
-    sun.intensity = 0.55 + blindsT * 1.35;
+    // Direct light only really gets in when the blinds are up.
+    sun.intensity = time.sunIntensity * (0.22 + blindsT * 0.78);
+    sun.color.copy(time.sunColour);
+    sun.position.copy(time.sunPos);
+    fill.intensity = time.fillIntensity;
+    hemi.intensity = time.hemiIntensity;
+    hemi.color.copy(time.hemiSky);
+    hemi.groundColor.copy(time.hemiGround);
+    ambient.intensity = time.ambIntensity;
+    ambient.color.copy(time.ambColour);
+
+    // Cross-fade the view out of the window between phase paintings.
+    if (skyPhaseA !== time.skyFrom) {
+      skyPhaseA = time.skyFrom;
+      skyBase.material.map = T.citySkyline(skyPhaseA);
+      skyBase.material.needsUpdate = true;
+    }
+    if (skyPhaseB !== time.skyTo) {
+      skyPhaseB = time.skyTo;
+      skyOver.material.map = T.citySkyline(skyPhaseB);
+      skyOver.material.needsUpdate = true;
+    }
+    skyOver.material.opacity = time.skyBlend;
 
     /* lights */
     ceilSpot.intensity += ((state.lightsOn ? 9.5 : 0) - ceilSpot.intensity) * Math.min(1, dt * 8);
@@ -837,9 +882,9 @@ export async function buildApartment(ctx) {
 
     /* clocks */
     clockAcc += dt;
-    if (clockAcc > 4) {
+    if (clockAcc > 0.5) {
       clockAcc = 0;
-      minutes = (minutes + 1) % (24 * 60);
+      minutes = Math.floor(time.minutes);
       const hh = Math.floor(minutes / 60) % 12 || 12;
       const mm = String(minutes % 60).padStart(2, '0');
       clock.draw(`${hh}:${mm}`);
@@ -948,9 +993,8 @@ export async function buildApartment(ctx) {
 
     cigsPos,
 
-    /** Push the wall clock and alarm clock forward, e.g. after passing out. */
-    advanceClock(mins) {
-      minutes = (minutes + mins) % (24 * 60);
+    /** Nudge the dials to redraw immediately after the clock is moved. */
+    refreshClocks() {
       clockAcc = 99;
     },
 

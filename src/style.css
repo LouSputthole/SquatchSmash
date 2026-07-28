@@ -235,6 +235,34 @@ kbd.key, .controls kbd {
   max-width: 260px;
 }
 
+/* time of day + how long you have been in here */
+#clock {
+  position: absolute;
+  right: 22px;
+  top: 22px;
+  text-align: right;
+  line-height: 1.35;
+}
+#clock .day {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #8d846f;
+  text-transform: uppercase;
+}
+#clock .time {
+  display: block;
+  font-size: 20px;
+  color: var(--paper);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, .8);
+}
+#clock .spent {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #6b6455;
+}
+
 /* bladder meter */
 #bladder {
   position: absolute;

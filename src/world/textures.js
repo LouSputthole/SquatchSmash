@@ -264,48 +264,98 @@ export function laminate(hex = '#2b2622') {
   });
 }
 
-/** Pre-dawn city seen through the window. */
-export function citySkyline() {
-  return cached('skyline', () => {
+/** Palettes for the view out of the window, one per phase of the day. */
+const SKY_PALETTES = {
+  night: {
+    sky: [[0, '#05070f'], [0.5, '#0b1024'], [0.8, '#161d38'], [1, '#232a44']],
+    stars: 1.0,
+    layers: [
+      { base: 0.80, hMin: 40, hMax: 130, w: 70, col: '#141a2e', lit: 0.16 },
+      { base: 0.90, hMin: 70, hMax: 220, w: 90, col: '#0c1020', lit: 0.42 },
+      { base: 1.02, hMin: 110, hMax: 300, w: 120, col: '#05070e', lit: 0.62 },
+    ],
+    haze: 'rgba(30,44,86,0.18)',
+  },
+  dawn: {
+    sky: [[0, '#16213c'], [0.45, '#3c3352'], [0.72, '#9a5f4c'], [1, '#e2a25e']],
+    stars: 0.55,
+    layers: [
+      { base: 0.80, hMin: 40, hMax: 130, w: 70, col: '#2a2740', lit: 0.10 },
+      { base: 0.90, hMin: 70, hMax: 220, w: 90, col: '#1b1a2c', lit: 0.30 },
+      { base: 1.02, hMin: 110, hMax: 300, w: 120, col: '#0e0e19', lit: 0.55 },
+    ],
+    haze: 'rgba(226,162,94,0.16)',
+  },
+  day: {
+    sky: [[0, '#5b8fd0'], [0.45, '#8fb6e2'], [0.8, '#c3d7ec'], [1, '#e2e9f0']],
+    stars: 0,
+    layers: [
+      { base: 0.80, hMin: 40, hMax: 130, w: 70, col: '#9aa8bd', lit: 0.02 },
+      { base: 0.90, hMin: 70, hMax: 220, w: 90, col: '#78899f', lit: 0.03 },
+      { base: 1.02, hMin: 110, hMax: 300, w: 120, col: '#5a6a80', lit: 0.05 },
+    ],
+    haze: 'rgba(226,236,246,0.22)',
+  },
+  dusk: {
+    sky: [[0, '#243154'], [0.4, '#6b4a75'], [0.72, '#c86f5c'], [1, '#f0a35f']],
+    stars: 0.25,
+    layers: [
+      { base: 0.80, hMin: 40, hMax: 130, w: 70, col: '#3b3350', lit: 0.20 },
+      { base: 0.90, hMin: 70, hMax: 220, w: 90, col: '#26223a', lit: 0.40 },
+      { base: 1.02, hMin: 110, hMax: 300, w: 120, col: '#14121f', lit: 0.58 },
+    ],
+    haze: 'rgba(240,163,95,0.18)',
+  },
+};
+
+/**
+ * The city out of the window, painted for a given phase of the day.
+ * Same skyline every time -- only the palette, the lit windows and the stars
+ * change -- so cross-fading between two phases lines the buildings up.
+ */
+export function citySkyline(phase = 'dawn') {
+  return cached('skyline' + phase, () => {
+    const P = SKY_PALETTES[phase] || SKY_PALETTES.dawn;
     const W = 1024;
     const H = 512;
     const c = makeCanvas(W, H);
     const g = c.getContext('2d');
 
     const sky = g.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#16213c');
-    sky.addColorStop(0.45, '#3c3352');
-    sky.addColorStop(0.72, '#9a5f4c');
-    sky.addColorStop(1, '#e2a25e');
+    for (const [stop, col] of P.sky) sky.addColorStop(stop, col);
     g.fillStyle = sky;
     g.fillRect(0, 0, W, H);
 
-    const rnd = mulberry32(1337);
-    // Stars, fading out toward the horizon.
-    for (let i = 0; i < 200; i++) {
-      const y = rnd() * H * 0.45;
-      g.fillStyle = `rgba(255,255,255,${(1 - y / (H * 0.45)) * rnd() * 0.8})`;
-      g.fillRect(rnd() * W, y, 1.5, 1.5);
+    // Stars fade out toward the horizon, and out entirely by day.
+    if (P.stars > 0) {
+      const rnd = mulberry32(1337);
+      for (let i = 0; i < 200; i++) {
+        const y = rnd() * H * 0.45;
+        g.fillStyle = `rgba(255,255,255,${(1 - y / (H * 0.45)) * rnd() * 0.8 * P.stars})`;
+        g.fillRect(rnd() * W, y, 1.5, 1.5);
+      }
     }
 
-    // Distant haze layer, then near buildings.
-    const layers = [
-      { base: H * 0.80, hMin: 40, hMax: 130, w: 70, col: '#2a2740', lit: 0.10 },
-      { base: H * 0.90, hMin: 70, hMax: 220, w: 90, col: '#1b1a2c', lit: 0.30 },
-      { base: H * 1.02, hMin: 110, hMax: 300, w: 120, col: '#0e0e19', lit: 0.55 },
-    ];
-    for (const L of layers) {
+    // Buildings. The seed is fixed per layer, so every phase draws the same
+    // city and only the colours differ.
+    for (let li = 0; li < P.layers.length; li++) {
+      const L = P.layers[li];
+      const rnd = mulberry32(4000 + li * 97);
       let x = -40;
       while (x < W + 40) {
         const bw = L.w * (0.5 + rnd());
         const bh = L.hMin + rnd() * (L.hMax - L.hMin);
+        const base = L.base * H;
         g.fillStyle = L.col;
-        g.fillRect(x, L.base - bh, bw, bh + 40);
-        // Lit windows.
-        for (let wy = L.base - bh + 8; wy < L.base - 8; wy += 12) {
+        g.fillRect(x, base - bh, bw, bh + 40);
+        for (let wy = base - bh + 8; wy < base - 8; wy += 12) {
           for (let wx = x + 6; wx < x + bw - 8; wx += 11) {
             if (rnd() < L.lit) {
               g.fillStyle = rnd() < 0.75 ? 'rgba(255,206,120,.85)' : 'rgba(150,200,255,.6)';
+              g.fillRect(wx, wy, 5, 6);
+            } else if (phase === 'day' && rnd() < 0.25) {
+              // Glass catching the light instead of a lamp behind it.
+              g.fillStyle = 'rgba(255,255,255,.10)';
               g.fillRect(wx, wy, 5, 6);
             }
           }
@@ -313,6 +363,14 @@ export function citySkyline() {
         x += bw + 4 + rnd() * 16;
       }
     }
+
+    // Haze sitting on the rooftops.
+    const haze = g.createLinearGradient(0, H * 0.55, 0, H);
+    haze.addColorStop(0, 'rgba(0,0,0,0)');
+    haze.addColorStop(1, P.haze);
+    g.fillStyle = haze;
+    g.fillRect(0, H * 0.55, W, H * 0.45);
+
     return finish(c, { repeat: [1, 1] });
   });
 }

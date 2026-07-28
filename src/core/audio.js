@@ -566,6 +566,29 @@ function synth(engine, name, dest, t, rate = 1) {
       break;
     }
 
+    /* -------- neighbours -------- */
+    case 'neighbours.argue': {
+      // Two muffled voices through a wall: bandpassed noise pulsed into
+      // syllables, so it reads as speech without being any actual words.
+      const syllables = 4 + ((Math.random() * 4) | 0);
+      const low = Math.random() < 0.5;
+      let at = t;
+      for (let i = 0; i < syllables; i++) {
+        const len = 0.10 + Math.random() * 0.16;
+        burst(ctx, dest, at, {
+          dur: len, type: 'bandpass',
+          freq: (low ? 300 : 520) * (0.85 + Math.random() * 0.5),
+          q: 3.5, gain: 0.16 + Math.random() * 0.12, sweep: 0.7 + Math.random() * 0.5,
+        });
+        at += len + 0.03 + Math.random() * 0.09;
+      }
+      break;
+    }
+    case 'neighbours.thump':
+      tone(ctx, dest, t, { freq: 74, to: 38, dur: 0.30, gain: 0.42, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.18, type: 'lowpass', freq: 190, gain: 0.20, sweep: 0.4 });
+      break;
+
     /* -------- the other thing -------- */
     case 'poop.1': case 'poop.2': case 'poop.3': case 'poop.4': {
       const v = Number(name.slice(-1));
@@ -760,6 +783,18 @@ function synthLoop(engine, name, dest) {
     case 'ambience.city':
       noise('lowpass', 380, 0.6, 0.42);
       noise('bandpass', 1100, 0.4, 0.08);
+      break;
+    case 'ambience.city.day':
+      // Busier and brighter: traffic plus a hint of everything else.
+      noise('lowpass', 520, 0.6, 0.44);
+      noise('bandpass', 1500, 0.4, 0.14);
+      noise('highpass', 3600, 0.4, 0.05);
+      break;
+    case 'ambience.city.night':
+      // Sparser, further away, with a thin high shimmer for the crickets.
+      noise('lowpass', 240, 0.7, 0.34);
+      noise('bandpass', 620, 0.5, 0.07);
+      noise('bandpass', 5200, 8, 0.05);
       break;
     case 'ambience.room':
       noise('lowpass', 180, 0.5, 0.24);

@@ -14,6 +14,11 @@ export class Hud {
     this.radioOsd = document.getElementById('radio-osd');
     this.radioName = this.radioOsd.querySelector('.rtitle span');
     this.radioTrack = this.radioOsd.querySelector('.rtrack');
+    this.clockEl = document.getElementById('clock');
+    this.clockDay = this.clockEl.querySelector('.day');
+    this.clockTime = this.clockEl.querySelector('.time');
+    this.clockSpent = this.clockEl.querySelector('.spent');
+    this._clockShown = '';
     this.bladder = document.getElementById('bladder');
     this.bladderFill = this.bladder.querySelector('.bar i');
     this.toasts = document.getElementById('toast-stack');
@@ -80,6 +85,21 @@ export class Hud {
     this.radioName.textContent = state.station;
     this.radioTrack.textContent = state.track;
     this.radioOsd.classList.remove('hidden');
+  }
+
+  /**
+   * Time of day, plus how long the player has actually been in here.
+   * Only touches the DOM when the displayed minute changes.
+   */
+  setClock(day, time12, elapsedReal) {
+    if (time12 === this._clockShown) return;
+    this._clockShown = time12;
+    this.clockDay.textContent = `Day ${day}`;
+    this.clockTime.textContent = time12;
+    const mins = Math.floor(elapsedReal / 60);
+    this.clockSpent.textContent = mins < 1
+      ? 'just got up'
+      : `${mins} min in here`;
   }
 
   /** Only shows once there is something worth showing. */

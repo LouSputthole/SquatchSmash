@@ -85,6 +85,12 @@
     { "name": "toilet.plop", "duration": 0.9, "prompt": "single small object dropping into toilet water, hollow plop and ripple" },
     { "name": "belly.rumble", "duration": 2.2, "prompt": "loud gurgling stomach rumble, digestive growl, close mic, no voice" },
 
+    { "name": "ambience.city.day", "duration": 12, "loop": true, "prompt": "summer afternoon city ambience heard through a closed apartment window, steady distant traffic, birds, an air conditioning unit, faint children playing far away, no distinct voices, seamless loop" },
+    { "name": "ambience.city.night", "duration": 12, "loop": true, "prompt": "late night city ambience heard through a closed apartment window, sparse distant traffic, a far away siren, crickets, low electrical hum, no voices, seamless loop" },
+
+    { "name": "neighbours.argue", "duration": 3.0, "prompt": "muffled argument between two people heard through an apartment wall, angry indistinct voices, words not intelligible" },
+    { "name": "neighbours.thump", "duration": 1.2, "prompt": "muffled heavy thump against an apartment wall from the next room, dull impact" },
+
     { "name": "ui.select", "duration": 0.4, "prompt": "soft interface confirm blip, warm and short" },
     { "name": "ui.hover", "duration": 0.3, "prompt": "very soft interface hover tick, quiet" }
   ]

@@ -13,6 +13,7 @@ import { Radio } from './core/radio.js';
 import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
+import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
 import { makeHeldCigarette } from './world/props.js';
@@ -98,6 +99,7 @@ const radio = new Radio(audio, hud);
 
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
+const time = new DayNight(6 + 4 / 60);
 const drunk = new Drunk();
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
@@ -158,6 +160,7 @@ async function boot() {
     audio,
     hud,
     interaction,
+    time,
     onSitPC: sitAtPC,
     onStartPee: startPee,
     onSitToilet: sitOnToilet,
@@ -202,7 +205,7 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
-    drunk, smoke, stream, cig, passOut, fart, startPee, stopPee,
+    drunk, smoke, stream, cig, time, passOut, fart, startPee, stopPee,
     sitOnToilet, standFromToilet,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -241,7 +244,8 @@ startBtn.addEventListener('click', async () => {
 
   if (!game.started) {
     game.started = true;
-    audio.startLoop('ambience.city', { volume: 0.10, ambience: true });
+    audio.startLoop('ambience.city.day', { volume: 0.0, ambience: true, fade: 2 });
+    audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
     audio.play('bed.rustle', { volume: 0.5 });
     hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
@@ -648,6 +652,44 @@ function exhaleCloud() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Living somewhere with neighbours                                    */
+/* ------------------------------------------------------------------ */
+
+/** They start at the same time every night, through the west wall. */
+const ARGUMENT_HOUR = 23;
+const ARGUMENT_POS = new THREE.Vector3(-5.2, 1.5, 0.6);
+
+let argumentDay = -1;
+let argumentUntil = 0;
+let nextShoutAt = 0;
+
+function updateNeighbours(dt) {
+  const h = time.hour;
+
+  // Kick off once a night, then keep it going for about forty in-game minutes.
+  if (h >= ARGUMENT_HOUR && h < ARGUMENT_HOUR + 0.7 && argumentDay !== time.day) {
+    argumentDay = time.day;
+    argumentUntil = time.minutes + 40;
+    nextShoutAt = 0;
+    hud.say('Upstairs. Or next door. It is hard to tell through the wall.', 5200);
+  }
+
+  if (time.minutes > argumentUntil) return;
+
+  nextShoutAt -= dt;
+  if (nextShoutAt <= 0) {
+    nextShoutAt = 2.5 + Math.random() * 5.5;
+    audio.play('neighbours.argue', {
+      position: ARGUMENT_POS, volume: 0.55 + Math.random() * 0.25,
+      rate: 0.92 + Math.random() * 0.18, ref: 2.2, maxDist: 14,
+    });
+    if (Math.random() < 0.22) {
+      audio.play('neighbours.thump', { position: ARGUMENT_POS, volume: 0.5, delay: 0.6 });
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Farting                                                             */
 /* ------------------------------------------------------------------ */
 
@@ -887,14 +929,15 @@ function passOut() {
     // Wake up in bed, a few hours gone.
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
     drunk.sleepItOff();
-    apartment.advanceClock(3 * 60 + 47);
+    time.skipHours(12);
+    apartment.refreshClocks();
     apartment.state.heldItem = null;
     hud.setHand(null);
     game.passingOut = false;
     blackout.querySelector('span').textContent = '';
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
-    hud.say('<em>9:51 AM.</em> You are in bed. You do not remember the trip.', 6000);
+    hud.say(`<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`, 6000);
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
     }, 3200);
@@ -935,11 +978,26 @@ let elapsed = 0;
 function frame() {
   requestAnimationFrame(frame);
 
-  const dt = Math.min(clock.getDelta(), 0.05);
+  // Simulation uses a clamped delta so a hitch cannot tunnel anything, but
+  // the time of day rides real elapsed seconds -- a day is 15 real minutes
+  // whatever the frame rate is doing.
+  const rawDt = clock.getDelta();
+  const dt = Math.min(rawDt, 0.05);
   elapsed += dt;
 
   if (apartment) {
     if (!game.paused) {
+      time.update(rawDt);
+      renderer.toneMappingExposure = time.exposure;
+      scene.fog.color.copy(time.fogColour);
+      scene.background.copy(time.fogColour);
+      hud.setClock(time.day, time.clock12, time.elapsedReal);
+
+      // The city outside changes character after dark: summer daytime traffic
+      // and birds give way to something sparser and further away.
+      audio.setLoopVolume('ambience.city.day', 0.02 + time.dayness * 0.13, 1.0);
+      audio.setLoopVolume('ambience.city.night', 0.02 + (1 - time.dayness) * 0.12, 1.0);
+
       // Intoxication first: the player controller reads sway/impair this frame.
       if (drunk.update(dt)) passOut();
       player.sway = drunk.sway;
@@ -953,6 +1011,7 @@ function frame() {
       updatePee(dt);
       updateBowel(dt);
       updateFarts(dt);
+      updateNeighbours(dt);
       smoke.update(dt);
       stream.update(dt);
 
