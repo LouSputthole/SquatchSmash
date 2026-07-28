@@ -228,6 +228,17 @@ export async function buildApartment(ctx) {
   const ashtray = P.makeAshtray(M, { x: 4.60, y: kitchen.top, z: 0.86, rotY: 0.4 });
   root.add(ashtray.group);
 
+  // Bottle of whiskey. Hits about twice as hard as a beer.
+  const whiskeyPos = new THREE.Vector3(4.62, kitchen.top, 0.42);
+  const whiskey = P.makeWhiskeyBottle(M, { x: whiskeyPos.x, y: whiskeyPos.y, z: whiskeyPos.z, rotY: -0.35 });
+  root.add(whiskey.group);
+  const whiskeyHit = box({
+    size: [0.22, 0.34, 0.22], pos: [whiskeyPos.x, whiskeyPos.y + 0.15, whiskeyPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(whiskeyHit);
+  root.add(P.makeShotGlass(M, { x: 4.52, y: kitchen.top, z: 0.18 }).group);
+
   const couch = P.makeCouch(M, { x: -4.55, z: 0.70 });
   root.add(couch.group);
   addCollider(couch.bounds);
@@ -426,6 +437,8 @@ export async function buildApartment(ctx) {
     beersDrunk: 0,
     cigsLeft: 17,
     cigsSmoked: 0,
+    whiskeyLeft: 6,      // pulls remaining in the bottle
+    whiskeyDrunk: 0,
   };
 
   /* ---- fridge ---- */
@@ -493,6 +506,26 @@ export async function buildApartment(ctx) {
       hud.say(state.cigsSmoked > 2
         ? 'Filling up nicely. You are having a morning.'
         : 'Three dead ones and a lot of ash.');
+    },
+  });
+
+  /* ---- whiskey ---- */
+  interaction.register(whiskeyHit, {
+    label: () => (state.whiskeyLeft > 0
+      ? 'Pick up the <b>whiskey</b>'
+      : 'An empty <b>bottle</b>'),
+    enabled: () => !state.heldItem && whiskey.group.visible,
+    onUse: () => {
+      if (state.whiskeyLeft <= 0) {
+        hud.say('Dead soldier. You did that.');
+        return;
+      }
+      whiskey.group.visible = false;
+      state.heldItem = 'whiskey';
+      hud.setHand({ icon: '🥃', name: "Jack & Daniel's", hint: 'Hold [F] to take a pull' });
+      audio.play('whiskey.cap', { position: whiskeyPos, volume: 0.7 });
+      hud.toast('Picked up the whiskey');
+      hud.say('Old No. 7½. Sour mash. A questionable decision, at this hour.');
     },
   });
 
@@ -738,6 +771,21 @@ export async function buildApartment(ctx) {
     consumeBeer() {
       state.beersDrunk++;
       state.heldItem = 'empty';
+    },
+
+    /** Take a pull. Returns false when the bottle is dry. */
+    consumeWhiskey() {
+      if (state.whiskeyLeft <= 0) return false;
+      state.whiskeyLeft--;
+      state.whiskeyDrunk++;
+      // Drop the level in the bottle to match.
+      whiskey.liquid.scale.y = Math.max(0.04, state.whiskeyLeft / 6);
+      return true;
+    },
+
+    /** Put the bottle back on the counter. */
+    returnWhiskey() {
+      whiskey.group.visible = true;
     },
 
     /** Burn one from the pack. Returns false when it is empty. */

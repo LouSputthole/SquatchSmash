@@ -514,6 +514,30 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t, { freq: 480, to: 300, dur: 0.09, gain: 0.10, type: 'triangle' });
       break;
 
+    /* -------- whiskey -------- */
+    case 'whiskey.cap':
+      burst(ctx, dest, t, { dur: 0.22, type: 'bandpass', freq: 2600, q: 3, gain: 0.20, sweep: 1.5 });
+      tone(ctx, dest, t + 0.20, { freq: 900, to: 520, dur: 0.05, gain: 0.12, type: 'square' });
+      break;
+    case 'whiskey.pour': {
+      // Glugs: a few descending blips as the neck clears.
+      for (let i = 0; i < 5; i++) {
+        const at = t + i * 0.14;
+        tone(ctx, dest, at, { freq: 420 - i * 34, to: 210 - i * 20, dur: 0.10, gain: 0.20, type: 'sine' });
+        burst(ctx, dest, at, { dur: 0.09, type: 'bandpass', freq: 1500, q: 1.4, gain: 0.10 });
+      }
+      break;
+    }
+    case 'whiskey.swig':
+      burst(ctx, dest, t, { dur: 0.36, type: 'bandpass', freq: 500, q: 1.6, gain: 0.24, sweep: 1.9 });
+      tone(ctx, dest, t + 0.05, { freq: 190, to: 120, dur: 0.20, gain: 0.12, type: 'sine' });
+      break;
+    case 'whiskey.gasp':
+      // Sharp hiss in through the teeth, then a low shudder.
+      burst(ctx, dest, t, { dur: 0.55, type: 'highpass', freq: 3600, gain: 0.24, sweep: 0.55 });
+      tone(ctx, dest, t + 0.30, { freq: 150, to: 92, dur: 0.45, gain: 0.14, type: 'triangle' });
+      break;
+
     /* -------- intoxication -------- */
     case 'drunk.hiccup':
       tone(ctx, dest, t, { freq: 260, to: 620, dur: 0.06, gain: 0.28, type: 'triangle' });

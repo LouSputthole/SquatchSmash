@@ -12,11 +12,12 @@ import { Player } from './core/player.js';
 import { Radio } from './core/radio.js';
 import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
-import { Drunk, BEER_UNITS } from './core/drunk.js';
+import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { SmokeSystem } from './world/smoke.js';
 import { makeHeldCigarette } from './world/props.js';
 
 const DRINK_TIME = 2.4;
+const SWIG_TIME = 1.7;   // whiskey goes down faster, for better or worse
 
 /* Smoking beats, in seconds from the moment you hold F. */
 const CIG_SHOW = 0.34;
@@ -366,6 +367,9 @@ function dropHeld() {
   } else if (st.heldItem === 'cigs') {
     apartment.returnCigarettes();
     audio.play('can.set', { volume: 0.35 });
+  } else if (st.heldItem === 'whiskey') {
+    apartment.returnWhiskey();
+    audio.play('whiskey.cap', { volume: 0.5 });
   } else {
     audio.play('can.set', { volume: 0.5 });
   }
@@ -379,6 +383,7 @@ function updateConsume(dt) {
   const holdingF = player.keys.has('KeyF') && !game.seated && !game.passingOut;
 
   if (st.heldItem === 'cigs' || cig.t >= 0) updateSmoking(dt, holdingF);
+  else if (st.heldItem === 'whiskey') updateSwigging(dt, holdingF);
   else updateDrinking(dt, holdingF);
 }
 
@@ -425,6 +430,52 @@ function updateDrinking(dt, holdingF) {
       hud.toast('You are not going to make it', 'bad');
       hud.say('Everything is warm and slightly to the left.', 4600);
     }
+  }
+}
+
+/** A pull straight from the bottle. Twice a beer, in half the time. */
+function updateSwigging(dt, holdingF) {
+  const st = apartment.state;
+  const wants = holdingF && st.whiskeyLeft > 0;
+
+  if (!wants) {
+    if (game.drinking > 0) {
+      game.drinking = 0;
+      hud.setHold(null);
+      if (!interaction.current) hud.hidePrompt();
+    }
+    if (holdingF && st.whiskeyLeft <= 0) hud.say('Empty. It was never going to end well.');
+    return;
+  }
+
+  if (game.drinking === 0) audio.play('whiskey.pour', { volume: 0.7 });
+  game.drinking += dt;
+
+  hud.showPrompt('Drinking…', 'F');
+  hud.setHold(Math.min(1, game.drinking / SWIG_TIME));
+  if (game.drinking > 0.3 && Math.random() < dt * 2.0) {
+    audio.play('whiskey.swig', { volume: 0.5 });
+  }
+
+  if (game.drinking >= SWIG_TIME) {
+    game.drinking = 0;
+    hud.setHold(null);
+    hud.hidePrompt();
+
+    apartment.consumeWhiskey();
+    drunk.drink(WHISKEY_UNITS);
+    audio.play('whiskey.gasp', { volume: 0.7 });
+
+    const n = st.whiskeyLeft;
+    hud.setHand({
+      icon: '🥃',
+      name: n > 0 ? `Jack & Daniel's (${n})` : 'Empty bottle',
+      hint: n > 0 ? 'Hold [F] to take a pull' : '[Q] set it down',
+    });
+    hud.toast(n > 0 ? 'That went straight through you' : 'Bottle empty', 'bad');
+    hud.say(st.whiskeyDrunk <= 1
+      ? 'Warm all the way down. <em>That was a lot faster than beer.</em>'
+      : 'The room takes a second to catch up with your head.', 4600);
   }
 }
 

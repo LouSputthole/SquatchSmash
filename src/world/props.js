@@ -1019,6 +1019,118 @@ export function makeCigarettePack(M, { x, y, z, rotY = 0 }) {
   return { group: g, lighter };
 }
 
+/**
+ * Square-shouldered Tennessee whiskey bottle. `liquid` is returned so the
+ * level can drop as it gets drunk.
+ *
+ * The label is a parody of the obvious one -- same silhouette and black-label
+ * look, different name.
+ */
+export function makeWhiskeyBottle(M, { x, y, z, rotY = 0 }) {
+  const g = group('whiskey');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  // Warm brown glass rather than near-black, so the bottle still reads as
+  // whiskey in a dim kitchen instead of a silhouette.
+  const glassMat = new THREE.MeshPhysicalMaterial({
+    color: 0x6b4218, roughness: 0.08, metalness: 0,
+    transmission: 0.7, thickness: 0.04, transparent: true, opacity: 0.55,
+  });
+  const boozeMat = new THREE.MeshPhysicalMaterial({
+    color: 0xc4711d, roughness: 0.1, metalness: 0,
+    transmission: 0.45, thickness: 0.06, transparent: true, opacity: 0.95,
+  });
+
+  const W = 0.075, D = 0.055, BODY = 0.175;
+
+  // Body, shoulders, neck.
+  g.add(box({ size: [W, BODY, D], pos: [0, BODY / 2, 0], mat: glassMat }));
+  g.add(box({ size: [W * 0.72, 0.030, D * 0.72], pos: [0, BODY + 0.015, 0], mat: glassMat }));
+  g.add(cylinder({ rTop: 0.016, rBottom: 0.024, h: 0.028, pos: [0, BODY + 0.044, 0], mat: glassMat }));
+  g.add(cylinder({ r: 0.016, h: 0.048, pos: [0, BODY + 0.082, 0], mat: glassMat }));
+  // Black screw cap.
+  g.add(cylinder({ r: 0.019, h: 0.030, pos: [0, BODY + 0.120, 0], mat: mat({ color: 0x141414, roughness: 0.45 }) }));
+
+  // The whiskey itself, anchored at the base so scaling drops the level.
+  const liquid = box({ size: [W - 0.012, BODY - 0.014, D - 0.012], pos: [0, 0, 0], mat: boozeMat });
+  const liquidPivot = new THREE.Group();
+  liquidPivot.position.y = 0.007;
+  liquid.position.y = (BODY - 0.014) / 2;
+  liquidPivot.add(liquid);
+  g.add(liquidPivot);
+
+  /* ---- label ---- */
+  const LW = 256, LH = 320;
+  const c = document.createElement('canvas');
+  c.width = LW; c.height = LH;
+  const d = c.getContext('2d');
+  d.fillStyle = '#0d0d0d';
+  d.fillRect(0, 0, LW, LH);
+  d.strokeStyle = '#e8e2d0';
+  d.lineWidth = 4;
+  d.strokeRect(12, 12, LW - 24, LH - 24);
+  d.strokeStyle = '#c9c2ac';
+  d.lineWidth = 1.5;
+  d.strokeRect(22, 22, LW - 44, LH - 44);
+
+  d.textAlign = 'center';
+  d.fillStyle = '#efe8d4';
+  d.font = 'bold 22px "Courier New", monospace';
+  d.fillText('OLD  No. 7½', LW / 2, 62);
+  d.font = 'bold 40px Georgia, "Times New Roman", serif';
+  d.fillText('JACK &', LW / 2, 122);
+  d.fillText("DANIEL'S", LW / 2, 166);
+  d.font = 'bold 17px "Courier New", monospace';
+  d.fillStyle = '#c9b273';
+  d.fillText('TENNESSEE', LW / 2, 208);
+  d.fillText('WHISKEY', LW / 2, 230);
+  d.strokeStyle = '#5c5346';
+  d.lineWidth = 2;
+  d.beginPath(); d.moveTo(60, 250); d.lineTo(LW - 60, 250); d.stroke();
+  d.fillStyle = '#9a917c';
+  d.font = '13px "Courier New", monospace';
+  d.fillText('SOUR MASH', LW / 2, 274);
+  d.fillText('40% ALC/VOL', LW / 2, 294);
+
+  const labelTex = new THREE.CanvasTexture(c);
+  labelTex.colorSpace = THREE.SRGBColorSpace;
+  labelTex.anisotropy = 8;
+  // A touch of emissive keyed to the label itself keeps the white text
+  // legible in low light without making the whole label glow.
+  const labelMat = mat({
+    map: labelTex, roughness: 0.85,
+    emissive: 0xffffff, emissiveMap: labelTex, emissiveIntensity: 0.28,
+  });
+
+  const front = plane(W - 0.006, 0.095, labelMat);
+  front.position.set(0, BODY * 0.48, D / 2 + 0.001);
+  g.add(front);
+  const back = plane(W - 0.006, 0.095, labelMat);
+  back.position.set(0, BODY * 0.48, -D / 2 - 0.001);
+  back.rotation.y = Math.PI;
+  g.add(back);
+
+  // Neck band.
+  g.add(cylinder({ r: 0.0165, h: 0.020, pos: [0, BODY + 0.092, 0], mat: mat({ color: 0x141414, roughness: 0.5 }) }));
+
+  return { group: g, liquid: liquidPivot, height: BODY + 0.135 };
+}
+
+/** A shot glass, for when you have standards. */
+export function makeShotGlass(M, { x, y, z }) {
+  const g = group('shotglass');
+  g.position.set(x, y, z);
+  g.add(cylinder({
+    rTop: 0.021, rBottom: 0.017, h: 0.052, pos: [0, 0.026, 0],
+    mat: new THREE.MeshPhysicalMaterial({
+      color: 0xd6e0e4, roughness: 0.05, transmission: 0.9,
+      thickness: 0.01, transparent: true, opacity: 0.35,
+    }),
+  }));
+  return { group: g };
+}
+
 /** Glass ashtray with a couple of dead soldiers in it. */
 export function makeAshtray(M, { x, y, z, rotY = 0 }) {
   const g = group('ashtray');

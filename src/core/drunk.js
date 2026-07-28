@@ -16,6 +16,9 @@
 /** One beer. Four of them will put you on the floor. */
 export const BEER_UNITS = 0.26;
 
+/** One pull of whiskey. Roughly two beers, and it lands faster. */
+export const WHISKEY_UNITS = 0.44;
+
 /** Per second. A beer wears off in a bit under two minutes. */
 const DECAY = 0.0024;
 

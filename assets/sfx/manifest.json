@@ -55,6 +55,11 @@
     { "name": "cig.exhale", "duration": 1.8, "prompt": "person slowly exhaling a lungful of cigarette smoke, breathy, close mic" },
     { "name": "cig.stub", "duration": 1.0, "prompt": "cigarette stubbed out in a glass ashtray, short gritty twist" },
 
+    { "name": "whiskey.cap", "duration": 1.0, "prompt": "metal screw cap being twisted off a glass whiskey bottle, short and dry" },
+    { "name": "whiskey.pour", "duration": 1.2, "prompt": "whiskey bottle tipped up, thick liquid glugging out of a narrow glass neck" },
+    { "name": "whiskey.swig", "duration": 1.2, "prompt": "person swallowing a mouthful of spirits straight from the bottle, close mic" },
+    { "name": "whiskey.gasp", "duration": 1.4, "prompt": "sharp involuntary exhale and hiss through the teeth after a shot of strong whiskey" },
+
     { "name": "drunk.hiccup", "duration": 0.7, "prompt": "single involuntary hiccup, close mic, dry" },
     { "name": "drunk.collapse", "duration": 1.6, "prompt": "person slumping heavily to a wooden floor, soft body impact, no voice" },
     { "name": "drunk.heartbeat", "duration": 3.0, "prompt": "slow muffled heartbeat heard from inside the head, deep and dull" },
