@@ -1,0 +1,7 @@
+node_modules/
+package-lock.json
+_*.mjs
+
+# Generated sound effects are large and rebuildable from assets/sfx/manifest.json
+# with `npm run sfx`. Uncomment to keep them out of the repo:
+# assets/sfx/*.mp3

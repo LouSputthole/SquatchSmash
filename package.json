@@ -1,0 +1,14 @@
+{
+  "name": "squatch-smash",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A first-person apartment you wake up in, with a gaming PC that runs Squatch Smash.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node tools/serve.mjs",
+    "sfx": "node tools/generate-sfx.mjs",
+    "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
+    "check": "node tools/check.mjs"
+  }
+}

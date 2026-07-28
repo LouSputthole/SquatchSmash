@@ -1,0 +1,55 @@
+{
+  "_comment": "Cue list for the apartment. Run `npm run sfx` to generate every entry with ElevenLabs into this folder. Any cue without a file falls back to the built-in WebAudio synth, so the game is playable either way. `prompt` is the ElevenLabs text prompt; `duration` is in seconds; `loop` asks ElevenLabs for a seamless loop.",
+
+  "sfx": [
+    { "name": "footstep.wood", "duration": 0.7, "prompt": "single soft barefoot step on a hardwood floor in a small apartment, close mic, dry, no reverb tail" },
+    { "name": "footstep.rug", "duration": 0.7, "prompt": "single muffled footstep on a thick wool rug, soft, dry, close mic" },
+    { "name": "footstep.tile", "duration": 0.7, "prompt": "single bare foot step on kitchen vinyl flooring, slight tacky sound, dry close mic" },
+
+    { "name": "bed.rustle", "duration": 1.6, "prompt": "person shifting under a duvet, cotton bedsheets rustling, close and intimate" },
+    { "name": "bed.creak", "duration": 1.4, "prompt": "wooden bed frame creaking as someone sits up, single low groan of timber" },
+
+    { "name": "fridge.open", "duration": 1.4, "prompt": "refrigerator door seal peeling open, suction release, bottles shifting slightly inside" },
+    { "name": "fridge.close", "duration": 1.2, "prompt": "refrigerator door thumping closed, rubber seal, solid low thud" },
+    { "name": "fridge.bottles", "duration": 1.3, "prompt": "glass bottles and cans clinking gently on a fridge shelf" },
+    { "name": "fridge.hum", "duration": 8, "loop": true, "prompt": "steady refrigerator compressor hum in a quiet apartment kitchen, low drone, seamless loop" },
+
+    { "name": "can.crack", "duration": 1.2, "prompt": "aluminium beer can tab cracking open, sharp hiss of carbonation escaping" },
+    { "name": "can.sip", "duration": 1.4, "prompt": "person taking a swig from a cold beer can, liquid glugging, close mic" },
+    { "name": "can.set", "duration": 0.8, "prompt": "aluminium can set down on a wooden table, light hollow clunk" },
+    { "name": "can.crush", "duration": 1.0, "prompt": "empty aluminium can crushed in one hand, metal buckling and crinkling" },
+
+    { "name": "switch.click", "duration": 0.5, "prompt": "light switch toggled on, single crisp plastic click" },
+    { "name": "radio.click", "duration": 0.5, "prompt": "chunky vintage stereo power button clicking, mechanical" },
+    { "name": "radio.tune", "duration": 1.6, "prompt": "analogue radio tuning dial sweeping across stations, brief squeals and static" },
+    { "name": "radio.static", "duration": 6, "loop": true, "prompt": "soft untuned FM radio static hiss from small speakers, seamless loop" },
+
+    { "name": "door.knob", "duration": 1.0, "prompt": "interior door handle turning, latch clicking, no door opening" },
+    { "name": "door.locked", "duration": 1.2, "prompt": "apartment front door handle rattling against a locked deadbolt, twice" },
+    { "name": "window.blinds", "duration": 1.6, "prompt": "venetian blinds being raised, plastic slats clattering upward" },
+    { "name": "frame.adjust", "duration": 0.8, "prompt": "picture frame nudged against a wall, faint wood and glass tap" },
+    { "name": "clock.tick", "duration": 0.4, "prompt": "single tick of a small wall clock, dry and quiet" },
+
+    { "name": "pc.boot", "duration": 2.5, "prompt": "desktop gaming PC powering on, fans spinning up, single motherboard beep" },
+    { "name": "pc.fan", "duration": 8, "loop": true, "prompt": "quiet desktop computer case fans running steadily, smooth airflow, seamless loop" },
+    { "name": "pc.keyboard", "duration": 0.4, "prompt": "single mechanical keyboard keypress, tactile brown switch" },
+    { "name": "pc.mouseclick", "duration": 0.3, "prompt": "single gaming mouse left click, crisp and light" },
+    { "name": "chair.sit", "duration": 1.3, "prompt": "person sitting down into a padded gaming chair, gas cylinder compressing slightly" },
+    { "name": "chair.roll", "duration": 1.2, "prompt": "office chair castors rolling a short distance over a hard floor" },
+
+    { "name": "ambience.city", "duration": 10, "loop": true, "prompt": "distant early morning city ambience heard through a closed apartment window, faint traffic, no voices, seamless loop" },
+    { "name": "ambience.room", "duration": 10, "loop": true, "prompt": "quiet empty apartment room tone, very low hum, seamless loop" },
+
+    { "name": "arcade.hit", "duration": 0.7, "prompt": "retro arcade impact, chunky bass thud with a short digital crunch, 16-bit style" },
+    { "name": "arcade.miss", "duration": 0.6, "prompt": "retro arcade whiff, short descending blip, 16-bit style" },
+    { "name": "arcade.roar", "duration": 1.8, "prompt": "short guttural bigfoot roar, deep and gravelly, monster vocal" },
+    { "name": "arcade.combo", "duration": 0.8, "prompt": "retro arcade combo chime, two rising square wave notes" },
+    { "name": "arcade.golden", "duration": 1.2, "prompt": "retro arcade bonus jingle, sparkling ascending arpeggio, 16-bit style" },
+    { "name": "arcade.hurt", "duration": 1.0, "prompt": "retro arcade damage sound, harsh descending buzz, 16-bit style" },
+    { "name": "arcade.wave", "duration": 1.4, "prompt": "retro arcade level start fanfare, three rising square wave notes" },
+    { "name": "arcade.gameover", "duration": 2.2, "prompt": "retro arcade game over jingle, slow descending square wave melody, 16-bit style" },
+
+    { "name": "ui.select", "duration": 0.4, "prompt": "soft interface confirm blip, warm and short" },
+    { "name": "ui.hover", "duration": 0.3, "prompt": "very soft interface hover tick, quiet" }
+  ]
+}

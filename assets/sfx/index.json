@@ -1,0 +1,4 @@
+{
+  "_comment": "Which cue files actually exist in this folder. `npm run sfx` rewrites this after generating. If you add an mp3 by hand, add its filename here too — the game only fetches what is listed. Delete this file to make the game probe for every cue instead.",
+  "files": []
+}

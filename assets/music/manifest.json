@@ -1,0 +1,5 @@
+{
+  "_comment": "Radio playlist. Drop audio files (mp3/ogg/m4a/wav) into assets/music/ and list them here. The radio plays them in order and loops. With an empty list the radio tunes to static instead.",
+  "station": "KSQCH 101.7",
+  "tracks": []
+}

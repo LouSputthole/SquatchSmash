@@ -1,0 +1,12 @@
+{
+  "_comment": "Squatch gear on the walls. Drop images into assets/art/ and point a slot at one. Slots without a file get a procedurally drawn placeholder poster. Valid slots: bed.above, couch.left, couch.right, desk.left, desk.right, door.side, banner.main.",
+  "art": [
+    {
+      "slot": "bed.above",
+      "file": "",
+      "title": "",
+      "caption": "",
+      "scale": 1
+    }
+  ]
+}

@@ -1,0 +1,603 @@
+/**
+ * Audio engine.
+ *
+ * Two sources of sound:
+ *   1. Baked samples in assets/sfx/, generated from ElevenLabs by
+ *      `npm run sfx` (see tools/generate-sfx.mjs). Listed in
+ *      assets/sfx/manifest.json.
+ *   2. A procedural WebAudio fallback for every cue, so the apartment is
+ *      fully audible before a single byte has been generated.
+ *
+ * Cues are addressed by name ("fridge.open"). play() prefers the sample and
+ * silently degrades to the synth, which means adding a file to assets/sfx/
+ * upgrades the sound with no code change.
+ */
+import * as THREE from 'three';
+
+const SFX_DIR = 'assets/sfx/';
+
+export class AudioEngine {
+  constructor() {
+    this.ctx = null;
+    this.ready = false;
+    this.buffers = new Map();
+    this.loops = new Map();
+    this.manifest = { sfx: [] };
+    this.loadedCount = 0;
+    this._lastStep = 0;
+  }
+
+  /** Must be called from a user gesture (browsers block autoplay otherwise). */
+  async init() {
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') await this.ctx.resume();
+      return;
+    }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    this.ctx = new Ctx();
+
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.9;
+
+    // A gentle limiter keeps stacked cues from clipping.
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -8;
+    this.limiter.knee.value = 6;
+    this.limiter.ratio.value = 8;
+    this.limiter.attack.value = 0.004;
+    this.limiter.release.value = 0.18;
+
+    this.busSfx = this.ctx.createGain();
+    this.busAmb = this.ctx.createGain();
+    this.busMusic = this.ctx.createGain();
+    this.busSfx.gain.value = 1.0;
+    this.busAmb.gain.value = 0.55;
+    this.busMusic.gain.value = 0.7;
+
+    // A muffling filter on everything, used when the player is "inside" the
+    // arcade game and the room should recede.
+    this.duck = this.ctx.createBiquadFilter();
+    this.duck.type = 'lowpass';
+    this.duck.frequency.value = 20000;
+
+    for (const bus of [this.busSfx, this.busAmb, this.busMusic]) bus.connect(this.duck);
+    this.duck.connect(this.limiter);
+    this.limiter.connect(this.master);
+    this.master.connect(this.ctx.destination);
+
+    if (this.ctx.listener.forwardX) {
+      this.ctx.listener.forwardX.value = 0;
+      this.ctx.listener.forwardY.value = 0;
+      this.ctx.listener.forwardZ.value = -1;
+      this.ctx.listener.upY.value = 1;
+    }
+    this.ready = true;
+  }
+
+  /**
+   * Fetch the cue list and decode the samples that exist on disk.
+   *
+   * assets/sfx/index.json lists which files have actually been generated, so
+   * the common case (no samples yet) costs one request instead of a wall of
+   * 404s. `npm run sfx` rewrites it; hand-added files can be listed manually.
+   * If the index is missing entirely we fall back to probing every cue.
+   */
+  async loadManifest() {
+    try {
+      const res = await fetch(SFX_DIR + 'manifest.json', { cache: 'no-cache' });
+      if (res.ok) this.manifest = await res.json();
+    } catch {
+      /* manifest is optional */
+    }
+
+    let available = null;
+    try {
+      const res = await fetch(SFX_DIR + 'index.json', { cache: 'no-cache' });
+      if (res.ok) {
+        const index = await res.json();
+        available = new Set(index.files || []);
+      }
+    } catch {
+      /* no index: probe everything below */
+    }
+
+    const cues = this.manifest.sfx || [];
+    const wanted = available
+      ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
+      : cues;
+
+    await Promise.all(wanted.map((cue) => this._loadOne(cue)));
+    return { total: cues.length, loaded: this.loadedCount };
+  }
+
+  async _loadOne(cue) {
+    const file = cue.file || `${cue.name}.mp3`;
+    try {
+      const res = await fetch(SFX_DIR + file, { cache: 'force-cache' });
+      if (!res.ok) return;
+      const raw = await res.arrayBuffer();
+      if (raw.byteLength < 512) return; // placeholder / empty file
+      const buf = await this.ctx.decodeAudioData(raw);
+      const list = this.buffers.get(cue.name) || [];
+      list.push(buf);
+      this.buffers.set(cue.name, list);
+      this.loadedCount++;
+    } catch {
+      /* fall back to the synth for this cue */
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Playback                                                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * @param {string} name  cue name, e.g. "fridge.open"
+   * @param {object} opts  { volume, rate, position: THREE.Vector3, ref, delay }
+   */
+  play(name, opts = {}) {
+    if (!this.ready) return null;
+    const { volume = 1, rate = 1, position = null, delay = 0 } = opts;
+
+    const out = this.ctx.createGain();
+    out.gain.value = volume;
+
+    let sink = this.busSfx;
+    if (position) {
+      const panner = this._makePanner(position, opts.ref ?? 1.4, opts.maxDist ?? 18);
+      out.connect(panner);
+      panner.connect(sink);
+    } else {
+      out.connect(sink);
+    }
+
+    const when = this.ctx.currentTime + delay;
+    const bank = this.buffers.get(name);
+    if (bank && bank.length) {
+      const src = this.ctx.createBufferSource();
+      src.buffer = bank[(Math.random() * bank.length) | 0];
+      src.playbackRate.value = rate;
+      src.connect(out);
+      src.start(when);
+      return src;
+    }
+    synth(this, name, out, when, rate);
+    return null;
+  }
+
+  /** Footsteps get their own entry point so cadence + surface stay in one place. */
+  footstep(surface = 'wood', intensity = 1) {
+    const now = performance.now();
+    if (now - this._lastStep < 140) return;
+    this._lastStep = now;
+    this.play(`footstep.${surface}`, {
+      volume: 0.30 * intensity,
+      rate: 0.9 + Math.random() * 0.25,
+    });
+  }
+
+  _makePanner(position, refDistance, maxDistance) {
+    const p = this.ctx.createPanner();
+    p.panningModel = 'HRTF';
+    p.distanceModel = 'inverse';
+    p.refDistance = refDistance;
+    p.maxDistance = maxDistance;
+    p.rolloffFactor = 1.4;
+    if (p.positionX) {
+      p.positionX.value = position.x;
+      p.positionY.value = position.y;
+      p.positionZ.value = position.z;
+    } else {
+      p.setPosition(position.x, position.y, position.z);
+    }
+    return p;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Loops (fridge hum, PC fan, city ambience)                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Start a named looping bed. Uses the sample if one was loaded, otherwise a
+   * synthesised noise/tone bed. Idempotent per key.
+   */
+  startLoop(key, opts = {}) {
+    if (!this.ready || this.loops.has(key)) return this.loops.get(key);
+    const {
+      name = key,
+      volume = 0.3,
+      position = null,
+      ambience = false,
+      fade = 1.2,
+    } = opts;
+
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0;
+
+    const bus = ambience ? this.busAmb : this.busSfx;
+    if (position) {
+      const panner = this._makePanner(position, opts.ref ?? 1.2, opts.maxDist ?? 14);
+      gain.connect(panner);
+      panner.connect(bus);
+    } else {
+      gain.connect(bus);
+    }
+
+    let node;
+    const bank = this.buffers.get(name);
+    if (bank && bank.length) {
+      node = this.ctx.createBufferSource();
+      node.buffer = bank[0];
+      node.loop = true;
+      node.connect(gain);
+      node.start();
+    } else {
+      node = synthLoop(this, name, gain);
+    }
+
+    gain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + fade);
+    const handle = { node, gain, volume };
+    this.loops.set(key, handle);
+    return handle;
+  }
+
+  stopLoop(key, fade = 0.5) {
+    const h = this.loops.get(key);
+    if (!h) return;
+    this.loops.delete(key);
+    const t = this.ctx.currentTime;
+    h.gain.gain.cancelScheduledValues(t);
+    h.gain.gain.setValueAtTime(h.gain.gain.value, t);
+    h.gain.gain.linearRampToValueAtTime(0.0001, t + fade);
+    setTimeout(() => {
+      try {
+        h.node.stop ? h.node.stop() : h.node.forEach?.((n) => n.stop());
+      } catch {
+        /* already stopped */
+      }
+    }, fade * 1000 + 60);
+  }
+
+  setLoopVolume(key, v, ramp = 0.3) {
+    const h = this.loops.get(key);
+    if (!h) return;
+    h.volume = v;
+    h.gain.gain.linearRampToValueAtTime(v, this.ctx.currentTime + ramp);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Listener + global shaping                                         */
+  /* ---------------------------------------------------------------- */
+
+  updateListener(camera) {
+    if (!this.ready) return;
+    const L = this.ctx.listener;
+    const p = camera.getWorldPosition(_v1);
+    const q = camera.getWorldQuaternion(_q1);
+    const fwd = _v2.set(0, 0, -1).applyQuaternion(q);
+    const up = _v3.set(0, 1, 0).applyQuaternion(q);
+    if (L.positionX) {
+      const t = this.ctx.currentTime;
+      L.positionX.setTargetAtTime(p.x, t, 0.02);
+      L.positionY.setTargetAtTime(p.y, t, 0.02);
+      L.positionZ.setTargetAtTime(p.z, t, 0.02);
+      L.forwardX.setTargetAtTime(fwd.x, t, 0.02);
+      L.forwardY.setTargetAtTime(fwd.y, t, 0.02);
+      L.forwardZ.setTargetAtTime(fwd.z, t, 0.02);
+      L.upX.setTargetAtTime(up.x, t, 0.02);
+      L.upY.setTargetAtTime(up.y, t, 0.02);
+      L.upZ.setTargetAtTime(up.z, t, 0.02);
+    } else {
+      L.setPosition(p.x, p.y, p.z);
+      L.setOrientation(fwd.x, fwd.y, fwd.z, up.x, up.y, up.z);
+    }
+  }
+
+  /** Muffle the room (used while the player is heads-down in the arcade game). */
+  setMuffle(on, cutoff = 900) {
+    if (!this.ready) return;
+    this.duck.frequency.linearRampToValueAtTime(
+      on ? cutoff : 20000,
+      this.ctx.currentTime + 0.5,
+    );
+  }
+
+  setMasterVolume(v) {
+    if (this.ready) this.master.gain.linearRampToValueAtTime(v, this.ctx.currentTime + 0.15);
+  }
+}
+
+const _v1 = new THREE.Vector3();
+const _v2 = new THREE.Vector3();
+const _v3 = new THREE.Vector3();
+const _q1 = new THREE.Quaternion();
+
+/* ------------------------------------------------------------------ */
+/* Procedural fallback synthesis                                       */
+/* ------------------------------------------------------------------ */
+
+let _noiseBuf = null;
+function noiseBuffer(ctx) {
+  if (_noiseBuf) return _noiseBuf;
+  const len = ctx.sampleRate * 2;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) {
+    const white = Math.random() * 2 - 1;
+    last = (last + 0.02 * white) / 1.02; // slight brown tilt, easier on the ears
+    d[i] = white * 0.7 + last * 3;
+  }
+  _noiseBuf = buf;
+  return buf;
+}
+
+/** Filtered noise burst — the workhorse for impacts, rustles and hisses. */
+function burst(ctx, dest, t, { dur = 0.2, type = 'bandpass', freq = 900, q = 1, gain = 0.5, sweep = 0, curve = 3 }) {
+  const src = ctx.createBufferSource();
+  src.buffer = noiseBuffer(ctx);
+  src.loop = true;
+  const f = ctx.createBiquadFilter();
+  f.type = type;
+  f.frequency.setValueAtTime(freq, t);
+  if (sweep) f.frequency.exponentialRampToValueAtTime(Math.max(40, freq * sweep), t + dur);
+  f.Q.value = q;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.02, dur * 0.15));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f);
+  f.connect(g);
+  g.connect(dest);
+  src.start(t);
+  src.stop(t + dur + 0.05);
+  void curve;
+  return g;
+}
+
+/** Pitched blip / thump. */
+function tone(ctx, dest, t, { freq = 220, to = null, dur = 0.2, gain = 0.3, type = 'sine' }) {
+  const o = ctx.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  if (to) o.frequency.exponentialRampToValueAtTime(Math.max(20, to), t + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + 0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g);
+  g.connect(dest);
+  o.start(t);
+  o.stop(t + dur + 0.05);
+  return g;
+}
+
+/**
+ * One-shot fallback voices. Each is a rough sketch of the real thing — enough
+ * to read as the right object without a sample present.
+ */
+function synth(engine, name, dest, t, rate = 1) {
+  const ctx = engine.ctx;
+  const r = (v) => v / rate;
+
+  switch (name) {
+    /* -------- movement -------- */
+    case 'footstep.wood':
+      burst(ctx, dest, t, { dur: r(0.09), type: 'lowpass', freq: 420, gain: 0.5, sweep: 0.4 });
+      tone(ctx, dest, t, { freq: 92, to: 55, dur: r(0.07), gain: 0.22, type: 'triangle' });
+      break;
+    case 'footstep.rug':
+      burst(ctx, dest, t, { dur: r(0.11), type: 'lowpass', freq: 240, gain: 0.34, sweep: 0.5 });
+      break;
+    case 'footstep.tile':
+      burst(ctx, dest, t, { dur: r(0.07), type: 'bandpass', freq: 2400, q: 1.6, gain: 0.34 });
+      tone(ctx, dest, t, { freq: 150, to: 90, dur: r(0.05), gain: 0.16, type: 'triangle' });
+      break;
+
+    /* -------- bed -------- */
+    case 'bed.rustle':
+      burst(ctx, dest, t, { dur: r(0.75), type: 'bandpass', freq: 2600, q: 0.7, gain: 0.30, sweep: 0.45 });
+      break;
+    case 'bed.creak':
+      tone(ctx, dest, t, { freq: 300, to: 168, dur: r(0.55), gain: 0.11, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: r(0.5), type: 'bandpass', freq: 700, q: 5, gain: 0.09, sweep: 0.6 });
+      break;
+
+    /* -------- fridge -------- */
+    case 'fridge.open':
+      burst(ctx, dest, t, { dur: r(0.30), type: 'lowpass', freq: 900, gain: 0.42, sweep: 0.35 });
+      tone(ctx, dest, t + r(0.02), { freq: 140, to: 62, dur: r(0.32), gain: 0.24, type: 'triangle' });
+      break;
+    case 'fridge.close':
+      tone(ctx, dest, t, { freq: 120, to: 44, dur: r(0.26), gain: 0.42, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.14), type: 'lowpass', freq: 500, gain: 0.34, sweep: 0.3 });
+      break;
+    case 'fridge.bottles':
+      for (let i = 0; i < 4; i++) {
+        tone(ctx, dest, t + i * 0.055 * Math.random() + 0.02, {
+          freq: 1400 + Math.random() * 900, dur: 0.10, gain: 0.10, type: 'sine',
+        });
+      }
+      break;
+
+    /* -------- beer -------- */
+    case 'can.crack':
+      burst(ctx, dest, t, { dur: 0.045, type: 'highpass', freq: 3200, gain: 0.55 });
+      burst(ctx, dest, t + 0.04, { dur: 0.55, type: 'highpass', freq: 5200, gain: 0.20, sweep: 0.35 });
+      break;
+    case 'can.sip':
+      burst(ctx, dest, t, { dur: 0.42, type: 'bandpass', freq: 620, q: 1.4, gain: 0.24, sweep: 1.7 });
+      break;
+    case 'can.set':
+      tone(ctx, dest, t, { freq: 520, to: 300, dur: 0.10, gain: 0.24, type: 'triangle' });
+      burst(ctx, dest, t, { dur: 0.06, type: 'bandpass', freq: 2600, q: 2, gain: 0.18 });
+      break;
+    case 'can.crush':
+      burst(ctx, dest, t, { dur: 0.34, type: 'bandpass', freq: 2100, q: 0.8, gain: 0.42, sweep: 0.4 });
+      break;
+
+    /* -------- switches, doors, knobs -------- */
+    case 'switch.click':
+    case 'radio.click':
+    case 'ui.select':
+      tone(ctx, dest, t, { freq: 1500, to: 700, dur: 0.035, gain: 0.30, type: 'square' });
+      burst(ctx, dest, t, { dur: 0.03, type: 'highpass', freq: 4200, gain: 0.22 });
+      break;
+    case 'ui.hover':
+      tone(ctx, dest, t, { freq: 900, dur: 0.03, gain: 0.09, type: 'sine' });
+      break;
+    case 'door.locked':
+      tone(ctx, dest, t, { freq: 210, to: 150, dur: 0.13, gain: 0.34, type: 'square' });
+      tone(ctx, dest, t + 0.16, { freq: 200, to: 145, dur: 0.13, gain: 0.28, type: 'square' });
+      break;
+    case 'door.knob':
+      burst(ctx, dest, t, { dur: 0.16, type: 'bandpass', freq: 1700, q: 2.2, gain: 0.26, sweep: 0.6 });
+      break;
+    case 'window.blinds':
+      for (let i = 0; i < 12; i++) {
+        burst(ctx, dest, t + i * 0.028, { dur: 0.04, type: 'bandpass', freq: 2600 + Math.random() * 1600, q: 3, gain: 0.13 });
+      }
+      break;
+    case 'frame.adjust':
+      burst(ctx, dest, t, { dur: 0.13, type: 'bandpass', freq: 1200, q: 2, gain: 0.16, sweep: 0.7 });
+      break;
+    case 'clock.tick':
+      burst(ctx, dest, t, { dur: 0.02, type: 'highpass', freq: 5000, gain: 0.14 });
+      break;
+
+    /* -------- computer -------- */
+    case 'pc.boot':
+      tone(ctx, dest, t, { freq: 180, to: 480, dur: 1.1, gain: 0.16, type: 'sawtooth' });
+      tone(ctx, dest, t + 0.55, { freq: 660, dur: 0.16, gain: 0.14, type: 'sine' });
+      tone(ctx, dest, t + 0.72, { freq: 880, dur: 0.30, gain: 0.14, type: 'sine' });
+      break;
+    case 'pc.keyboard':
+      tone(ctx, dest, t, { freq: 1900 + Math.random() * 700, to: 900, dur: 0.028, gain: 0.16, type: 'square' });
+      break;
+    case 'pc.mouseclick':
+      tone(ctx, dest, t, { freq: 2600, to: 1300, dur: 0.018, gain: 0.20, type: 'square' });
+      break;
+    case 'chair.sit':
+      burst(ctx, dest, t, { dur: 0.36, type: 'lowpass', freq: 620, gain: 0.30, sweep: 0.35 });
+      tone(ctx, dest, t, { freq: 130, to: 70, dur: 0.3, gain: 0.14, type: 'triangle' });
+      break;
+    case 'chair.roll':
+      burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 380, q: 0.9, gain: 0.20 });
+      break;
+
+    /* -------- radio -------- */
+    case 'radio.tune':
+      burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 2400, q: 4, gain: 0.20, sweep: 0.25 });
+      break;
+
+    /* -------- arcade -------- */
+    case 'arcade.hit':
+      tone(ctx, dest, t, { freq: 320, to: 60, dur: 0.16, gain: 0.42, type: 'square' });
+      burst(ctx, dest, t, { dur: 0.13, type: 'lowpass', freq: 1500, gain: 0.34, sweep: 0.25 });
+      break;
+    case 'arcade.miss':
+      tone(ctx, dest, t, { freq: 260, to: 150, dur: 0.13, gain: 0.20, type: 'triangle' });
+      break;
+    case 'arcade.roar':
+      tone(ctx, dest, t, { freq: 130, to: 62, dur: 0.85, gain: 0.30, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: 0.85, type: 'lowpass', freq: 800, q: 2, gain: 0.24, sweep: 0.4 });
+      break;
+    case 'arcade.combo':
+      tone(ctx, dest, t, { freq: 700 * rate, dur: 0.09, gain: 0.20, type: 'square' });
+      tone(ctx, dest, t + 0.07, { freq: 1050 * rate, dur: 0.11, gain: 0.18, type: 'square' });
+      break;
+    case 'arcade.golden':
+      for (let i = 0; i < 5; i++) {
+        tone(ctx, dest, t + i * 0.06, { freq: 700 + i * 220, dur: 0.12, gain: 0.16, type: 'sine' });
+      }
+      break;
+    case 'arcade.hurt':
+      tone(ctx, dest, t, { freq: 400, to: 90, dur: 0.42, gain: 0.34, type: 'sawtooth' });
+      break;
+    case 'arcade.wave':
+      tone(ctx, dest, t, { freq: 440, dur: 0.16, gain: 0.18, type: 'square' });
+      tone(ctx, dest, t + 0.14, { freq: 660, dur: 0.16, gain: 0.18, type: 'square' });
+      tone(ctx, dest, t + 0.28, { freq: 880, dur: 0.30, gain: 0.20, type: 'square' });
+      break;
+    case 'arcade.gameover':
+      tone(ctx, dest, t, { freq: 440, to: 220, dur: 0.3, gain: 0.22, type: 'square' });
+      tone(ctx, dest, t + 0.3, { freq: 330, to: 165, dur: 0.3, gain: 0.22, type: 'square' });
+      tone(ctx, dest, t + 0.6, { freq: 220, to: 82, dur: 0.9, gain: 0.24, type: 'square' });
+      break;
+
+    default:
+      // Unknown cue: a soft neutral tick rather than silence, which makes
+      // missing wiring obvious during development without being ugly.
+      tone(ctx, dest, t, { freq: 800, dur: 0.03, gain: 0.06, type: 'sine' });
+  }
+}
+
+/** Looping fallback beds. Returns a node (or array of nodes) with stop(). */
+function synthLoop(engine, name, dest) {
+  const ctx = engine.ctx;
+  const nodes = [];
+
+  const noise = (filterType, freq, q, gain) => {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx);
+    src.loop = true;
+    const f = ctx.createBiquadFilter();
+    f.type = filterType;
+    f.frequency.value = freq;
+    f.Q.value = q;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    src.connect(f);
+    f.connect(g);
+    g.connect(dest);
+    src.start();
+    nodes.push(src);
+    return { f, g };
+  };
+
+  const osc = (type, freq, gain) => {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = freq;
+    const g = ctx.createGain();
+    g.gain.value = gain;
+    o.connect(g);
+    g.connect(dest);
+    o.start();
+    nodes.push(o);
+    return o;
+  };
+
+  switch (name) {
+    case 'fridge.hum':
+      osc('sine', 60, 0.35);
+      osc('sine', 120.6, 0.12); // slight detune gives the compressor its beat
+      noise('bandpass', 340, 1.2, 0.10);
+      break;
+    case 'pc.fan':
+      noise('lowpass', 620, 0.8, 0.30);
+      osc('sine', 47, 0.10);
+      break;
+    case 'ambience.city':
+      noise('lowpass', 380, 0.6, 0.42);
+      noise('bandpass', 1100, 0.4, 0.08);
+      break;
+    case 'ambience.room':
+      noise('lowpass', 180, 0.5, 0.24);
+      break;
+    case 'radio.static':
+      noise('bandpass', 1800, 0.7, 0.30);
+      noise('highpass', 4000, 0.5, 0.10);
+      break;
+    default:
+      noise('lowpass', 400, 0.5, 0.12);
+  }
+
+  return {
+    stop() {
+      for (const n of nodes) {
+        try { n.stop(); } catch { /* already stopped */ }
+      }
+    },
+  };
+}
