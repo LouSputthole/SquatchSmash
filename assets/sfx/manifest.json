@@ -91,6 +91,9 @@
     { "name": "neighbours.argue", "duration": 3.0, "prompt": "muffled argument between two people heard through an apartment wall, angry indistinct voices, words not intelligible" },
     { "name": "neighbours.thump", "duration": 1.2, "prompt": "muffled heavy thump against an apartment wall from the next room, dull impact" },
 
+    { "name": "zyn.tin", "duration": 1.0, "prompt": "small plastic tin lid being twisted and popped open, light click, close mic" },
+    { "name": "zyn.pack", "duration": 0.9, "prompt": "soft wet click of something small being tucked behind a lip, very quiet, close mic, no voice" },
+
     { "name": "ui.select", "duration": 0.4, "prompt": "soft interface confirm blip, warm and short" },
     { "name": "ui.hover", "duration": 0.3, "prompt": "very soft interface hover tick, quiet" }
   ]

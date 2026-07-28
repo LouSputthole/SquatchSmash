@@ -51,7 +51,12 @@ export const WALL_SLOTS = [
   { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.54 },
 ];
 
-const BANNER_SLOT = { slot: 'banner.main', x: 4.10, y: 1.52, z: -4.38, rotY: 0, h: 0.78 };
+/** Hanging cloth banners rather than framed pictures. */
+const BANNER_SLOTS = [
+  { slot: 'banner.main', x: 4.15, y: 1.62, z: -4.38, rotY: 0, h: 0.60 },
+  // Strung above the monitor, the way a setup backdrop goes up.
+  { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.38, rotY: 0, h: 0.30 },
+];
 
 /** Round crest hung above the bookshelf on the north wall. */
 const CREST_SLOT = { slot: 'crest.round', x: -2.70, y: 2.13, z: -4.40, rotY: 0, r: 0.21 };
@@ -287,6 +292,17 @@ export async function buildApartment(ctx) {
   const chair = P.makeChair(M, { x: 1.68, z: -3.22, rotY: 0.12 });
   root.add(chair.group);
 
+  // Zyns live on the desk, where the gaming happens.
+  const zynPos = new THREE.Vector3(2.36, desk.top, -3.90);
+  const zyn = P.makeZynCan(M, { x: zynPos.x, y: zynPos.y, z: zynPos.z, rotY: 0.6 });
+  root.add(zyn.group);
+  // Lid graphic is applied once the art manifest has resolved, below.
+  const zynHit = box({
+    size: [0.18, 0.16, 0.18], pos: [zynPos.x, zynPos.y + 0.06, zynPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(zynHit);
+
   const bobble = P.makeBobblehead(M, { x: 2.86, y: desk.top, z: -4.24, rotY: -0.5 });
   root.add(bobble.group);
   // Invisible proxy so a 4cm mascot is still comfortable to look at and poke.
@@ -405,8 +421,9 @@ export async function buildApartment(ctx) {
 
   const slotNames = [
     ...WALL_SLOTS.map((s) => s.slot),
-    BANNER_SLOT.slot,
+    ...BANNER_SLOTS.map((b) => b.slot),
     CREST_SLOT.slot,
+    'zyn.lid',
     ...STANDING_SLOTS.map((s) => s.slot),
     FRIDGE_MAGNET.slot,
   ];
@@ -425,13 +442,18 @@ export async function buildApartment(ctx) {
     frames.push({ ...slot, mesh: f.group, info: g });
   }
 
-  const bannerGear = gear.get(BANNER_SLOT.slot);
-  const bannerH = BANNER_SLOT.h * (bannerGear.scale || 1);
-  const banner = P.makeBanner(M, {
-    x: BANNER_SLOT.x, y: BANNER_SLOT.y, z: BANNER_SLOT.z, rotY: BANNER_SLOT.rotY,
-    w: bannerH * (bannerGear.aspect || 0.8), h: bannerH, texture: bannerGear.texture,
-  });
-  root.add(banner.group);
+  const banners = [];
+  for (const slot of BANNER_SLOTS) {
+    const g = gear.get(slot.slot);
+    const bh = slot.h * (g.scale || 1);
+    const b = P.makeBanner(M, {
+      x: slot.x, y: slot.y, z: slot.z, rotY: slot.rotY,
+      w: bh * (g.aspect || 0.8), h: bh, texture: g.texture,
+    });
+    root.add(b.group);
+    banners.push({ ...slot, mesh: b.group, info: g });
+    frames.push({ ...slot, mesh: b.group, info: g });
+  }
 
   // Round crest above the bookshelf.
   const crestGear = gear.get(CREST_SLOT.slot);
@@ -452,6 +474,18 @@ export async function buildApartment(ctx) {
     });
     root.add(sf.group);
     frames.push({ ...slot, mesh: sf.group, info: g });
+  }
+
+  // Zyn tin lid graphic.
+  const zynLid = gear.get('zyn.lid');
+  if (zynLid?.texture) {
+    const face = new THREE.Mesh(
+      new THREE.CircleGeometry(0.0345, 28),
+      mat({ map: zynLid.texture, roughness: 0.4 }),
+    );
+    face.rotation.x = -Math.PI / 2;
+    face.position.y = 0.0052;
+    zyn.lid.add(face);
   }
 
   // Sticker on the fridge door, parented so it swings with it.
@@ -545,6 +579,9 @@ export async function buildApartment(ctx) {
     bathLightOn: false,
     lightsManual: false,   // set once the player works the switch themselves
     bladder: 0.12,       // 0..1; drinking fills it
+    zynsLeft: 15,
+    zynsTaken: 0,
+    lipPacked: false,
     bowel: 0,            // 0..1; cigarettes fill it. 4 of them and you are running
     urgeAnnounced: false,
     flushable: false,
@@ -587,6 +624,21 @@ export async function buildApartment(ctx) {
         void i;
       },
     });
+  });
+
+  /* ---- zyns ---- */
+  interaction.register(zynHit, {
+    label: () => {
+      if (state.lipPacked) return 'You already have one in';
+      return state.zynsLeft > 0
+        ? `Pack a <b>lip</b> <span style="opacity:.6">(${state.zynsLeft})</span>`
+        : 'An empty <b>tin</b>';
+    },
+    onUse: () => {
+      if (state.lipPacked) { hud.say('One at a time. You are not an animal.'); return; }
+      if (state.zynsLeft <= 0) { hud.say('Empty tin. You have been busy.'); return; }
+      ctx.onZyn?.();
+    },
   });
 
   /* ---- cigarettes ---- */
@@ -790,13 +842,15 @@ export async function buildApartment(ctx) {
     });
   }
 
-  interaction.register(banner.group, {
-    label: () => `Look at <b>${bannerGear.title}</b>`,
-    onUse: () => {
-      audio.play('frame.adjust', { volume: 0.4 });
-      hud.say(`<em>${bannerGear.title}.</em> ${bannerGear.caption}`);
-    },
-  });
+  for (const b of banners) {
+    interaction.register(b.mesh, {
+      label: () => `Look at <b>${b.info.title}</b>`,
+      onUse: () => {
+        audio.play('frame.adjust', { volume: 0.4 });
+        hud.say(`<em>${b.info.title}.</em> ${b.info.caption}`);
+      },
+    });
+  }
 
   /* ================================================================ */
   /* Animation                                                         */
@@ -999,6 +1053,22 @@ export async function buildApartment(ctx) {
     returnWhiskey() {
       whiskey.group.visible = true;
     },
+
+    /** Take a pouch. Returns false when the tin is empty. */
+    consumeZyn() {
+      if (state.zynsLeft <= 0 || state.lipPacked) return false;
+      state.zynsLeft--;
+      state.zynsTaken++;
+      state.lipPacked = true;
+      return true;
+    },
+
+    /** Bin the one in your lip. */
+    dropZyn() {
+      state.lipPacked = false;
+    },
+
+    zynPos,
 
     /** Burn one from the pack. Returns false when it is empty. */
     consumeCigarette() {

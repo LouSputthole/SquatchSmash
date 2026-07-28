@@ -139,6 +139,7 @@ const game = {
   poopTime: 0,
   nextPlopAt: 0,
   rumbleAt: 0,
+  zynUntil: -1,
   nextFartAt: 40 + Math.random() * 60,
   fartClock: 0,
 };
@@ -164,6 +165,7 @@ async function boot() {
     onSitPC: sitAtPC,
     onStartPee: startPee,
     onSitToilet: sitOnToilet,
+    onZyn: takeZyn,
     onRadioToggle: () => radio.toggle(),
   });
 
@@ -206,7 +208,7 @@ async function boot() {
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
     drunk, smoke, stream, cig, time, passOut, fart, startPee, stopPee,
-    sitOnToilet, standFromToilet,
+    sitOnToilet, standFromToilet, takeZyn,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -345,7 +347,12 @@ document.addEventListener('keydown', (e) => {
       if (interaction.current && interaction.current.name === 'radio') radio.next();
       break;
     case 'KeyQ':
-      if (game.onToilet) standFromToilet();
+      if (apartment.state.lipPacked) {
+        apartment.dropZyn();
+        audio.play('can.set', { volume: 0.3 });
+        hud.setHand(null);
+        hud.toast('Binned it');
+      } else if (game.onToilet) standFromToilet();
       else if (game.peeing) stopPee();
       else dropHeld();
       break;
@@ -729,6 +736,47 @@ function updateFarts(dt) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Zyns                                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The point of these, mechanically, is that they work in the chair. A
+ * cigarette needs both hands and takes you away from the desk; a pouch
+ * steadies you without you having to get up, which is exactly why anybody
+ * uses them.
+ */
+const ZYN_MINUTES = 42;   // in-game minutes a pouch lasts
+
+function takeZyn() {
+  const st = apartment.state;
+  if (!apartment.consumeZyn()) return;
+
+  audio.play('zyn.tin', { position: apartment.zynPos, volume: 0.7 });
+  audio.play('zyn.pack', { volume: 0.6, delay: 0.35 });
+
+  // A harder, shorter hit than a cigarette, and no trip to the bathroom.
+  drunk.rush = Math.max(drunk.rush, 1.25);
+  drunk.steady = Math.max(drunk.steady, 55);
+  game.zynUntil = time.minutes + ZYN_MINUTES;
+
+  hud.setHand({ icon: '⚪', name: `Zyn (${st.zynsLeft} left)`, hint: '[Q] bin it' });
+  hud.toast('Upper lip. Steady hands.', 'good');
+  hud.say(st.zynsTaken === 1
+    ? 'Tucked in. <em>The room tightens up for a second, then settles.</em>'
+    : 'Another one. Your gums have opinions you are ignoring.', 4400);
+}
+
+function updateZyn() {
+  const st = apartment.state;
+  if (!st.lipPacked) return;
+  if (time.minutes > game.zynUntil) {
+    apartment.dropZyn();
+    if (apartment.state.heldItem === null) hud.setHand(null);
+    hud.say('That one is done. You barely noticed it go.', 3600);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* The other thing                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -1010,6 +1058,7 @@ function frame() {
       updateConsume(dt);
       updatePee(dt);
       updateBowel(dt);
+      updateZyn();
       updateFarts(dt);
       updateNeighbours(dt);
       smoke.update(dt);

@@ -1202,6 +1202,54 @@ export function makeShotGlass(M, { x, y, z }) {
   return { group: g };
 }
 
+/**
+ * Tin of nicotine pouches, lid slightly ajar. Small, so it comes with a
+ * generous invisible hit proxy like the bobblehead does.
+ */
+export function makeZynCan(M, { x, y, z, rotY = 0, lidTexture = null }) {
+  const g = group('zyn');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const R = 0.035;
+  const shell = mat({ color: 0xe9edf0, roughness: 0.42 });
+  const lidMat = mat({ color: 0x2f6fb5, roughness: 0.38 });
+
+  g.add(cylinder({ r: R, h: 0.020, pos: [0, 0.010, 0], mat: shell }));
+  // Lid pushed half off, the way it always ends up.
+  const lidGroup = new THREE.Group();
+  lidGroup.position.set(0.018, 0.025, -0.006);
+  lidGroup.rotation.z = 0.12;
+  lidGroup.add(cylinder({ r: R, h: 0.010, pos: [0, 0, 0], mat: lidMat }));
+  if (lidTexture) {
+    // The label sits on the lid's top face.
+    const face = new THREE.Mesh(
+      new THREE.CircleGeometry(R * 0.985, 28),
+      mat({ map: lidTexture, roughness: 0.4 }),
+    );
+    face.rotation.x = -Math.PI / 2;
+    face.position.y = 0.0052;
+    lidGroup.add(face);
+  }
+  g.add(lidGroup);
+  const lid = lidGroup;
+
+  // Label ring round the side.
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(R + 0.0008, R + 0.0008, 0.011, 22, 1, true),
+    lidMat,
+  );
+  band.position.y = 0.010;
+  g.add(band);
+
+  // A couple of pouches visible in the open half.
+  const pouch = mat({ color: 0xf4f2ea, roughness: 0.9 });
+  g.add(box({ size: [0.020, 0.006, 0.011], pos: [-0.012, 0.023, 0.004], mat: pouch, rotY: 0.3 }));
+  g.add(box({ size: [0.020, 0.006, 0.011], pos: [-0.010, 0.023, -0.010], mat: pouch, rotY: -0.5 }));
+
+  return { group: g, lid };
+}
+
 /** Glass ashtray with a couple of dead soldiers in it. */
 export function makeAshtray(M, { x, y, z, rotY = 0 }) {
   const g = group('ashtray');

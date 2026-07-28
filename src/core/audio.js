@@ -566,6 +566,16 @@ function synth(engine, name, dest, t, rate = 1) {
       break;
     }
 
+    /* -------- zyns -------- */
+    case 'zyn.tin':
+      burst(ctx, dest, t, { dur: 0.10, type: 'bandpass', freq: 3200, q: 2.2, gain: 0.22, sweep: 1.4 });
+      tone(ctx, dest, t + 0.09, { freq: 1500, to: 800, dur: 0.04, gain: 0.20, type: 'square' });
+      break;
+    case 'zyn.pack':
+      tone(ctx, dest, t, { freq: 900, to: 420, dur: 0.05, gain: 0.14, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.07, type: 'bandpass', freq: 1800, q: 1.6, gain: 0.09 });
+      break;
+
     /* -------- neighbours -------- */
     case 'neighbours.argue': {
       // Two muffled voices through a wall: bandpassed noise pulsed into

@@ -68,7 +68,7 @@ const VALID_SLOTS = new Set([
   'couch.left', 'couch.mid', 'couch.right',
   'shelf.left', 'cork.above', 'desk.left', 'desk.right', 'desk.high',
   'door.side', 'south.a', 'south.b', 'south.wide', 'south.portrait',
-  'banner.main', 'crest.round',
+  'banner.main', 'banner.twitch', 'crest.round', 'zyn.lid',
   'shelf.photo', 'desk.photo', 'fridge.magnet',
 ]);
 try {
