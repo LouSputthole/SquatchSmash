@@ -608,18 +608,100 @@ export function makePlant(M, { x, z, scale = 1 }) {
   return { group: g, bounds: [[x - 0.18, 0, z - 0.18], [x + 0.18, 0.3, z + 0.18]] };
 }
 
-export function makeWallClock(M, { x, y, z, rotY = 0 }) {
+/**
+ * Round wall clock. The dial is drawn into a canvas and mapped onto a circle,
+ * and each hand hangs off a pivot at the centre so it sweeps properly instead
+ * of orbiting its own middle.
+ */
+export function makeWallClock(M, { x, y, z, rotY = 0, r = 0.15 }) {
   const g = group('wallclock');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
-  g.add(cylinder({ r: 0.14, h: 0.04, pos: [0, 0, 0.02], rotX: Math.PI / 2, mat: M.darkWood }));
-  const face = plane(0.24, 0.24, M.paper);
-  face.position.set(0, 0, 0.041);
+
+  // Case + rim.
+  g.add(cylinder({ r, h: 0.045, pos: [0, 0, 0.022], rotX: Math.PI / 2, mat: M.darkWood }));
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(r - 0.006, 0.008, 8, 40),
+    mat({ color: 0x1d1712, roughness: 0.5 }),
+  );
+  rim.position.z = 0.045;
+  rim.castShadow = true;
+  g.add(rim);
+
+  /* ---- dial ---- */
+  const S = 512;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const d = c.getContext('2d');
+  d.fillStyle = '#f1ead9';
+  d.beginPath();
+  d.arc(S / 2, S / 2, S / 2, 0, 7);
+  d.fill();
+  // Minute ticks, with the hour marks heavier.
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2 - Math.PI / 2;
+    const hour = i % 5 === 0;
+    const outer = S * 0.44;
+    const inner = outer - (hour ? S * 0.055 : S * 0.026);
+    d.strokeStyle = hour ? '#20201c' : '#7a766a';
+    d.lineWidth = hour ? 9 : 3.5;
+    d.beginPath();
+    d.moveTo(S / 2 + Math.cos(a) * inner, S / 2 + Math.sin(a) * inner);
+    d.lineTo(S / 2 + Math.cos(a) * outer, S / 2 + Math.sin(a) * outer);
+    d.stroke();
+  }
+  d.fillStyle = '#20201c';
+  d.font = `bold ${Math.round(S * 0.115)}px "Courier New", monospace`;
+  d.textAlign = 'center';
+  d.textBaseline = 'middle';
+  for (let n = 1; n <= 12; n++) {
+    const a = (n / 12) * Math.PI * 2 - Math.PI / 2;
+    d.fillText(String(n), S / 2 + Math.cos(a) * S * 0.335, S / 2 + Math.sin(a) * S * 0.335);
+  }
+  d.fillStyle = '#8a8478';
+  d.font = `${Math.round(S * 0.045)}px "Courier New", monospace`;
+  d.fillText('SQUATCH', S / 2, S * 0.68);
+  const dial = new THREE.CanvasTexture(c);
+  dial.colorSpace = THREE.SRGBColorSpace;
+  dial.anisotropy = 8;
+
+  const face = new THREE.Mesh(
+    new THREE.CircleGeometry(r - 0.014, 48),
+    mat({ map: dial, roughness: 0.85 }),
+  );
+  face.position.z = 0.046;
+  face.receiveShadow = true;
   g.add(face);
-  const hourHand = box({ size: [0.012, 0.07, 0.004], pos: [0, 0.03, 0.046], mat: M.black });
-  const minHand = box({ size: [0.008, 0.10, 0.004], pos: [0, 0.045, 0.048], mat: M.black });
-  g.add(hourHand, minHand);
-  return { group: g, hourHand, minHand };
+
+  /* ---- hands, each on a centre pivot ---- */
+  const handMat = mat({ color: 0x1a1a18, roughness: 0.5 });
+  const makeHand = (len, width, zOff, matr) => {
+    const pivot = new THREE.Group();
+    pivot.position.z = zOff;
+    // Offset the bar inside the pivot so the pivot itself sits at the centre,
+    // with a short counterweight tail past the middle.
+    const bar = box({ size: [width, len, 0.004], pos: [0, len / 2 - len * 0.14, 0], mat: matr });
+    pivot.add(bar);
+    g.add(pivot);
+    return pivot;
+  };
+  const hourHand = makeHand(r * 0.58, 0.011, 0.049, handMat);
+  const minHand = makeHand(r * 0.86, 0.008, 0.052, handMat);
+  const secHand = makeHand(r * 0.92, 0.004, 0.055, mat({ color: 0xb8402c, roughness: 0.5 }));
+
+  // Centre boss + glass.
+  g.add(cylinder({ r: 0.010, h: 0.010, pos: [0, 0, 0.058], rotX: Math.PI / 2, mat: M.chrome }));
+  const glass = new THREE.Mesh(
+    new THREE.CircleGeometry(r - 0.010, 40),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xffffff, roughness: 0.05, metalness: 0,
+      transparent: true, opacity: 0.10,
+    }),
+  );
+  glass.position.z = 0.062;
+  g.add(glass);
+
+  return { group: g, hourHand, minHand, secHand };
 }
 
 /** Squatch bobblehead — the desk mascot. Head is returned so it can wobble. */

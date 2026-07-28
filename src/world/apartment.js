@@ -620,6 +620,7 @@ export async function buildApartment(ctx) {
   let bobbleVel = 0;
   let clockAcc = 0;
   let tickAcc = 0;
+  let seconds = 0;
   let minutes = 6 * 60 + 4;
 
   ticks.push((dt, elapsed) => {
@@ -674,12 +675,15 @@ export async function buildApartment(ctx) {
       const hh = Math.floor(minutes / 60) % 12 || 12;
       const mm = String(minutes % 60).padStart(2, '0');
       clock.draw(`${hh}:${mm}`);
+      // The hour hand creeps between numerals rather than jumping on the hour.
       wallClock.hourHand.rotation.z = -((minutes % 720) / 720) * Math.PI * 2;
       wallClock.minHand.rotation.z = -((minutes % 60) / 60) * Math.PI * 2;
     }
     tickAcc += dt;
     if (tickAcc > 1) {
       tickAcc = 0;
+      seconds = (seconds + 1) % 60;
+      wallClock.secHand.rotation.z = -(seconds / 60) * Math.PI * 2;
       audio.play('clock.tick', { position: new THREE.Vector3(-1.0, 1.95, 4.3), volume: 0.25 });
     }
   });
