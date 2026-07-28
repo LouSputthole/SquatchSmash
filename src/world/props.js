@@ -341,11 +341,35 @@ export function makeBeerCan(M, { x, y, z, crushed = false, rotY = 0 }) {
   return { group: g };
 }
 
-/** Counter run with sink, cooktop, upper cabinets and a microwave. */
+/**
+ * Counter run with sink, cooktop, upper cabinets and a microwave.
+ *
+ * Everything on the worktop is laid out from one table of z positions rather
+ * than ad-hoc offsets, so nothing ends up sharing space with anything else.
+ * The microwave is wall-mounted in a gap in the cabinet run, well clear of
+ * the hob, and the free spots either side of the sink are returned so the
+ * caller can put the bottle and the smokes down without guessing.
+ */
 export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   const g = group('kitchen');
   const top = 0.92;
   const x0 = wallX - d;
+
+  // North to south along the run. Ranges do not overlap.
+  const L = {
+    hob: -1.56,          // 0.52 deep -> -1.82 .. -1.30
+    kettle: -1.10,
+    mug: -0.93,
+    knives: -0.74,
+    sink: -0.14,         // basin 0.72 deep -> -0.50 .. 0.22
+    soap: 0.37,
+    bottle: 0.57,
+    shot: 0.73,
+    ashtray: 0.91,
+    smokes: 1.13,
+    microwave: 1.19,     // on the wall, above the clutter
+    cabinetEnd: 0.86,    // upper cabinets stop here to leave the appliance gap
+  };
 
   // Toe kick + carcass + counter top.
   g.add(boxFrom(x0 + 0.06, 0, z0, wallX, 0.10, z1, M.plasticGrey));
@@ -362,9 +386,9 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   }
 
   /* ---- sink: a real inset basin, not a flat plate ---- */
-  const sinkZ = (z0 + z1) / 2 + 0.35;
+  const sinkZ = L.sink;
   const bx0 = x0 + 0.10, bx1 = wallX - 0.12;
-  const bz0 = sinkZ - 0.24, bz1 = sinkZ + 0.24;
+  const bz0 = sinkZ - 0.36, bz1 = sinkZ + 0.36;
   const DEPTH = 0.17;
   const steelIn = mat({ map: T_brushed, roughness: 0.28, metalness: 0.85 });
 
@@ -398,10 +422,10 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   g.add(cylinder({ r: 0.088, h: 0.014, pos: [bx0 + 0.17, top - DEPTH + 0.040, sinkZ + 0.04], mat: M.paper, rotZ: -0.04 }));
   g.add(cylinder({ rTop: 0.042, rBottom: 0.034, h: 0.09, pos: [bx1 - 0.13, top - DEPTH + 0.06, sinkZ + 0.09], mat: M.glass }));
   // Washing-up liquid on the rim.
-  g.add(cylinder({ rTop: 0.020, rBottom: 0.028, h: 0.15, pos: [wallX - 0.30, top + 0.075, sinkZ + 0.30], mat: mat({ color: 0x2f9c5a, roughness: 0.35 }) }));
+  g.add(cylinder({ rTop: 0.020, rBottom: 0.028, h: 0.15, pos: [wallX - 0.30, top + 0.075, L.soap], mat: mat({ color: 0x2f9c5a, roughness: 0.35 }) }));
 
   // Cooktop.
-  const stoveZ = z0 + 0.55;
+  const stoveZ = L.hob;
   g.add(boxFrom(x0 + 0.06, top, stoveZ - 0.26, wallX - 0.06, top + 0.012, stoveZ + 0.26, M.black, { cast: false }));
   for (const [bx, bz] of [[-0.12, -0.13], [0.12, -0.13], [-0.12, 0.13], [0.12, 0.13]]) {
     g.add(cylinder({ r: 0.055, h: 0.006, pos: [x0 + d / 2 + bx, top + 0.019, stoveZ + bz], mat: M.darkSteel }));
@@ -409,29 +433,35 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
 
   // Upper cabinets.
   const upY0 = 1.48, upY1 = 2.22, upD = 0.34;
-  g.add(boxFrom(wallX - upD, upY0, z0, wallX, upY1, z1, M.lightWood));
-  for (let i = 0; i < nDoors; i++) {
-    const cz = z0 + dw * (i + 0.5);
-    g.add(box({ size: [0.02, upY1 - upY0 - 0.04, dw - 0.03], pos: [wallX - upD - 0.012, (upY0 + upY1) / 2, cz], mat: M.cabinet }));
+  g.add(boxFrom(wallX - upD, upY0, z0, wallX, upY1, L.cabinetEnd, M.lightWood));
+  const nUpper = Math.max(2, Math.round((L.cabinetEnd - z0) / 0.55));
+  const udw = (L.cabinetEnd - z0) / nUpper;
+  for (let i = 0; i < nUpper; i++) {
+    const cz = z0 + udw * (i + 0.5);
+    g.add(box({ size: [0.02, upY1 - upY0 - 0.04, udw - 0.03], pos: [wallX - upD - 0.012, (upY0 + upY1) / 2, cz], mat: M.cabinet }));
     g.add(cylinder({ r: 0.010, h: 0.11, pos: [wallX - upD - 0.035, upY0 + 0.12, cz], mat: M.chrome }));
   }
 
-  // Microwave at the north end of the run.
-  const mwZ = z0 + 0.05 + 0.24;
-  g.add(box({ size: [0.42, 0.28, 0.48], pos: [wallX - 0.24, top + 0.14, mwZ], mat: M.plasticGrey }));
-  const mwDoor = plane(0.30, 0.20, new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.25 }));
-  mwDoor.position.set(wallX - 0.451, top + 0.15, mwZ - 0.04);
+  /* ---- microwave: wall-mounted in the cabinet gap, nowhere near the hob ---- */
+  const mwZ = L.microwave;
+  const mwY = 1.62;                 // 0.70 of clear air above the worktop
+  g.add(box({ size: [0.40, 0.30, 0.48], pos: [wallX - 0.22, mwY, mwZ], mat: M.plasticGrey }));
+  // Mounting bracket up to the underside of the cabinet run.
+  g.add(box({ size: [0.30, 0.14, 0.06], pos: [wallX - 0.17, mwY + 0.22, mwZ], mat: M.darkSteel }));
+  const mwDoor = plane(0.30, 0.21, new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.25 }));
+  mwDoor.position.set(wallX - 0.421, mwY, mwZ - 0.05);
   mwDoor.rotation.y = -Math.PI / 2;
   g.add(mwDoor);
+  g.add(box({ size: [0.012, 0.20, 0.02], pos: [wallX - 0.418, mwY, mwZ + 0.14], mat: M.chrome }));
   const mwClock = plane(0.10, 0.035, M.ledGreen);
-  mwClock.position.set(wallX - 0.451, top + 0.24, mwZ + 0.17);
+  mwClock.position.set(wallX - 0.421, mwY + 0.10, mwZ + 0.16);
   mwClock.rotation.y = -Math.PI / 2;
   g.add(mwClock);
 
-  // Kettle + mug + knife block, because a kitchen needs stuff on it.
-  g.add(cylinder({ rTop: 0.075, rBottom: 0.085, h: 0.18, pos: [x0 + 0.28, top + 0.09, z1 - 0.45], mat: M.steel }));
-  g.add(cylinder({ r: 0.042, h: 0.095, pos: [x0 + 0.24, top + 0.048, z1 - 0.20], mat: mat({ color: 0x2f6b8a, roughness: 0.4 }) }));
-  g.add(box({ size: [0.14, 0.24, 0.12], pos: [x0 + 0.24, top + 0.12, sinkZ + 0.50], mat: M.darkWood, rotY: 0.2 }));
+  // Kettle, mug and knife block, spaced along the run north of the sink.
+  g.add(cylinder({ rTop: 0.075, rBottom: 0.085, h: 0.18, pos: [x0 + 0.30, top + 0.09, L.kettle], mat: M.steel }));
+  g.add(cylinder({ r: 0.042, h: 0.095, pos: [x0 + 0.22, top + 0.048, L.mug], mat: mat({ color: 0x2f6b8a, roughness: 0.4 }) }));
+  g.add(box({ size: [0.14, 0.24, 0.12], pos: [x0 + 0.26, top + 0.12, L.knives], mat: M.darkWood, rotY: 0.2 }));
 
   return {
     group: g,
@@ -439,7 +469,14 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     bounds: [[x0 - 0.04, 0, z0], [wallX, top, z1]],
     upperBounds: [[wallX - upD, upY0, z0], [wallX, upY1, z1]],
     sinkPos: new THREE.Vector3(x0, top + 0.1, sinkZ),
-    microwavePos: new THREE.Vector3(x0 + 0.1, top + 0.15, mwZ),
+    microwavePos: new THREE.Vector3(x0 + 0.1, mwY, mwZ),
+    /** Clear worktop positions, so callers do not have to guess. */
+    spots: {
+      bottle: new THREE.Vector3(wallX - 0.30, top, L.bottle),
+      shot: new THREE.Vector3(wallX - 0.44, top, L.shot),
+      ashtray: new THREE.Vector3(wallX - 0.32, top, L.ashtray),
+      smokes: new THREE.Vector3(wallX - 0.30, top, L.smokes),
+    },
   };
 }
 

@@ -284,8 +284,9 @@ export async function buildApartment(ctx) {
   root.add(kitchen.group);
   addCollider(kitchen.bounds);
 
-  // Smokes and an ashtray on the countertop, clear of the sink and the hob.
-  const cigsPos = new THREE.Vector3(4.62, kitchen.top, 1.16);
+  // Smokes and an ashtray on the countertop. Positions come from the kitchen
+  // layout table so nothing lands in the sink or on the hob.
+  const cigsPos = kitchen.spots.smokes.clone();
   const cigs = P.makeCigarettePack(M, { x: cigsPos.x, y: cigsPos.y, z: cigsPos.z, rotY: -0.55 });
   root.add(cigs.group);
   // A 4cm pack is a fiddly thing to aim at; give it a proxy like the bobblehead.
@@ -295,11 +296,13 @@ export async function buildApartment(ctx) {
   });
   root.add(cigsHit);
 
-  const ashtray = P.makeAshtray(M, { x: 4.60, y: kitchen.top, z: 0.86, rotY: 0.4 });
+  const ashtray = P.makeAshtray(M, {
+    x: kitchen.spots.ashtray.x, y: kitchen.top, z: kitchen.spots.ashtray.z, rotY: 0.4,
+  });
   root.add(ashtray.group);
 
   // Bottle of whiskey. Hits about twice as hard as a beer.
-  const whiskeyPos = new THREE.Vector3(4.62, kitchen.top, 0.42);
+  const whiskeyPos = kitchen.spots.bottle.clone();
   // Label out toward the room, so you read it as you walk up.
   const whiskey = P.makeWhiskeyBottle(M, { x: whiskeyPos.x, y: whiskeyPos.y, z: whiskeyPos.z, rotY: -Math.PI / 2 + 0.18 });
   root.add(whiskey.group);
@@ -308,7 +311,9 @@ export async function buildApartment(ctx) {
     mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
   });
   root.add(whiskeyHit);
-  root.add(P.makeShotGlass(M, { x: 4.52, y: kitchen.top, z: 0.18 }).group);
+  root.add(P.makeShotGlass(M, {
+    x: kitchen.spots.shot.x, y: kitchen.top, z: kitchen.spots.shot.z,
+  }).group);
 
   const couch = P.makeCouch(M, { x: -4.55, z: 0.70 });
   root.add(couch.group);
