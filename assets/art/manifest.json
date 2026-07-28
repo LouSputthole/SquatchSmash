@@ -92,10 +92,10 @@
       "caption": "Team shirt, someone else's aeroplane. Still counts."
     },
     {
-      "slot": "cork.left",
+      "slot": "fridge.photo.a",
       "file": "localhost-queue.jpg",
       "title": "Queueing at LOCALHOST",
-      "caption": "Downloading data. Estimated 00:00 remaining. It was not."
+      "caption": "Stuck to the door with a magnet. Downloading data, estimated 00:00 remaining. It was not."
     },
     {
       "slot": "cork.above",
@@ -128,10 +128,10 @@
       "caption": "Matching tees, string lights, and nobody checking the time."
     },
     {
-      "slot": "south.c",
+      "slot": "fridge.photo.b",
       "file": "lan-thumbs-up.jpg",
       "title": "Thumbs up, all round",
-      "caption": "Three of you, one battle pass, and a tin of something on the desk."
+      "caption": "Low on the fridge door, curling at one corner. Three of you and a tin of something."
     },
     {
       "slot": "south.a",

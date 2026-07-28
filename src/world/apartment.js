@@ -46,7 +46,6 @@ export const WALL_SLOTS = [
   // pair either side of the monitor with a small one stacked above.
   { slot: 'north.corner', x: -4.20, y: 1.70, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'shelf.left', x: -3.30, y: 1.98, z: -4.40, rotY: 0, h: 0.34 },
-  { slot: 'cork.left', x: -1.12, y: 2.06, z: -4.40, rotY: 0, h: 0.32 },
   { slot: 'cork.above', x: -0.10, y: 2.20, z: -4.40, rotY: 0, h: 0.46 },
   { slot: 'desk.left', x: 0.95, y: 1.80, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'desk.right', x: 2.72, y: 1.62, z: -4.40, rotY: 0, h: 0.52 },
@@ -54,7 +53,6 @@ export const WALL_SLOTS = [
 
   // South wall gallery, with a stacked pair in the middle of the run.
   { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
-  { slot: 'south.c', x: 1.78, y: 1.44, z: 4.40, rotY: Math.PI, h: 0.40 },
   { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
   { slot: 'south.wide', x: -3.38, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.34 },
@@ -97,8 +95,16 @@ const STANDING_SLOTS = [
   { slot: 'night.photo', x: -3.02, y: 0.578, z: -4.20, rotY: -1.05, h: 0.15 },
 ];
 
-/** Sticker stuck to the fridge door. */
+/**
+ * The fridge door. The sticker has been there longer than you have lived
+ * here; the photographs are held on by magnets, the way photographs are.
+ * Positions are local to the door, which swings, so they swing with it.
+ */
 const FRIDGE_MAGNET = { slot: 'fridge.magnet', w: 0.27 };
+const FRIDGE_PHOTOS = [
+  { slot: 'fridge.photo.a', y: 1.55, z: -0.19, w: 0.21, tilt: -0.07 },
+  { slot: 'fridge.photo.b', y: 0.48, z: -0.42, w: 0.19, tilt: 0.09 },
+];
 
 /** Textures used on props rather than hung on a wall. */
 const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box'];
@@ -117,6 +123,7 @@ export async function buildApartment(ctx) {
     ...PROP_SLOTS,
     ...STANDING_SLOTS.map((s) => s.slot),
     FRIDGE_MAGNET.slot,
+    ...FRIDGE_PHOTOS.map((f) => f.slot),
   ]);
   /** Only hand a texture to a prop if the real file resolved. */
   const propTex = (slot) => {
@@ -559,10 +566,24 @@ export async function buildApartment(ctx) {
     h: magnetW / (magnetGear.aspect || 1),
     magnet: true,
   });
+  magnet.group.name = 'doorface:sticker';
   magnet.group.position.set(-0.034, 0.86, -0.36);
   magnet.group.rotation.set(0, -Math.PI / 2, 0.06);
   fridge.door.add(magnet.group);
   frames.push({ slot: FRIDGE_MAGNET.slot, mesh: magnet.group, info: magnetGear });
+
+  for (const f of FRIDGE_PHOTOS) {
+    const g = gear.get(f.slot);
+    const w = f.w * (g.scale || 1);
+    const photo = P.makeDecal(M, {
+      texture: g.texture, w, h: w / (g.aspect || 1), magnet: true,
+    });
+    photo.group.name = `doorface:${f.slot}`;
+    photo.group.position.set(-0.034, f.y, f.z);
+    photo.group.rotation.set(0, -Math.PI / 2, f.tilt);
+    fridge.door.add(photo.group);
+    frames.push({ ...f, mesh: photo.group, info: g });
+  }
 
   /* ================================================================ */
   /* Lighting                                                          */

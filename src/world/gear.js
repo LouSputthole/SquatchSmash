@@ -33,7 +33,6 @@ const FALLBACKS = {
   'west.corner': () => posterPlaceholder('Corner', 'FILLED IN', 190),
   'north.corner': () => posterPlaceholder('The Corner', 'BY THE BED', 176),
   'shelf.left': () => posterPlaceholder('Warbird', 'SOMEONE ELSE\u2019S', 200),
-  'cork.left': () => posterPlaceholder('Pinned', 'MEANT TO DEAL WITH', 60),
   'cork.above': () => posterPlaceholder('Hung High', 'ON PURPOSE', 320),
   'desk.left': () => posterPlaceholder('Squatch', 'SMASH', 8),
   'desk.right': () => posterPlaceholder('Bigfoot', 'SIGHTING NO. 44', 260),
@@ -41,7 +40,6 @@ const FALLBACKS = {
   'door.side': () => posterPlaceholder('Stay Hairy', 'TRAIL CREW', 140),
   'south.a': () => posterPlaceholder('Off Season', 'TEAM BUILDING', 46),
   'south.b': () => posterPlaceholder('The Bar', 'AFTER', 18),
-  'south.c': () => posterPlaceholder('By The Door', 'ON THE WAY OUT', 128),
   'south.wide': () => posterPlaceholder('Names', 'ON THE WALL', 288),
   'south.portrait': () => posterPlaceholder('Met The Pros', 'DIPPIN DOTS', 216),
   'bath.toilet': () => posterPlaceholder('Reading', 'MATERIAL', 152),
@@ -61,6 +59,8 @@ const FALLBACKS = {
   'desk.photo': () => posterPlaceholder('The Dog', 'GOOD BOY', 40),
   'night.photo': () => posterPlaceholder('Bedside', 'LAST THING', 300),
   'fridge.magnet': () => posterPlaceholder('Magnet', 'FRIDGE', 320),
+  'fridge.photo.a': () => posterPlaceholder('On The Door', 'SINCE THEN', 214),
+  'fridge.photo.b': () => posterPlaceholder('Also The Door', 'CURLING AT ONE CORNER', 40),
 };
 
 export async function loadGearManifest() {

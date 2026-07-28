@@ -481,21 +481,31 @@ export function makeFridge(M, { x, z, w = 0.80, d = 0.72, h = 1.85 }) {
   // Inner shelf lip + condiment door bins.
   door.add(box({ size: [0.09, 0.10, w - 0.16], pos: [0.06, 0.62, -dw / 2], mat: binMat }));
   door.add(box({ size: [0.09, 0.10, w - 0.16], pos: [0.06, 1.05, -dw / 2], mat: binMat }));
-  // Vertical bar handle, on the free edge.
-  door.add(cylinder({ r: 0.016, h: 0.85, pos: [-0.075, 1.02, -(w - 0.16)], mat: M.chrome }));
-  door.add(box({ size: [0.05, 0.03, 0.03], pos: [-0.05, 1.44, -(w - 0.16)], mat: M.chrome }));
-  door.add(box({ size: [0.05, 0.03, 0.03], pos: [-0.05, 0.60, -(w - 0.16)], mat: M.chrome }));
+  // Vertical bar handle, on the free edge. Named, along with everything else
+  // stuck to the outside, so the door face can be checked for overlaps --
+  // coplanar decals are invisible to the room's 3D clash pass.
+  const bar = cylinder({ r: 0.016, h: 0.85, pos: [-0.075, 1.02, -(w - 0.16)], mat: M.chrome });
+  bar.name = 'doorface:handle';
+  door.add(bar);
+  for (const by of [1.44, 0.60]) {
+    const br = box({ size: [0.05, 0.03, 0.03], pos: [-0.05, by, -(w - 0.16)], mat: M.chrome });
+    br.name = 'doorface:handle';
+    door.add(br);
+  }
   doorPivot.add(door);
   g.add(doorPivot);
 
   // Magnets and a takeout menu on the door front.
   for (const [my, mz, col] of [[1.30, -0.30, 0xff5a3c], [1.22, -0.46, 0x3ca0ff], [1.44, -0.52, 0xffd23c]]) {
-    door.add(cylinder({
+    const m = cylinder({
       r: 0.018, h: 0.008, pos: [-0.035, my, mz], rotZ: Math.PI / 2,
       mat: mat({ color: col, roughness: 0.5 }),
-    }));
+    });
+    m.name = 'doorface:magnet';
+    door.add(m);
   }
   const menu = plane(0.16, 0.22, M.paper);
+  menu.name = 'doorface:menu';
   menu.position.set(-0.032, 1.26, -0.40);
   menu.rotation.y = -Math.PI / 2;
   menu.rotation.z = 0.06;
