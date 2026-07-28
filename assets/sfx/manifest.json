@@ -32,6 +32,7 @@
     { "name": "radio.crowd", "duration": 2.0, "prompt": "small studio audience laughing warmly, canned sitcom laughter" },
     { "name": "radio.ident.squatch", "duration": 3.0, "prompt": "gravelly announcer voice shouting the words NINETY SEVEN POINT EIGHT, THE SQUATCH over a distorted guitar chord" },
     { "name": "radio.ident.uncle", "duration": 3.2, "prompt": "smooth warm radio DJ voice saying welcome to Uncle Squatch Beats, ninety eight point eight, over a soft lo-fi hip hop chord" },
+    { "name": "radio.ident.ksqch", "duration": 2.6, "prompt": "scrappy garage rock radio station sting: one distorted power chord and a crash cymbal, recorded cheaply" },
 
     { "name": "door.knob", "duration": 1.0, "prompt": "interior door handle turning, latch clicking, no door opening" },
     { "name": "door.locked", "duration": 1.2, "prompt": "apartment front door handle rattling against a locked deadbolt, twice" },

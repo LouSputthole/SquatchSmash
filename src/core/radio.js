@@ -6,13 +6,13 @@
  *   97.8 THE SQUATCH        talk radio; what is on depends on the in-game
  *                           hour, and the 60-second station commercial comes
  *                           round every few segments
- *   98.8 UNCLE SQUATCH      music; plays whatever the player has dropped into
- *                           assets/music/, with an ident over the first track
+ *   98.8 UNCLE SQUATCH      beats
+ *   101.7 KSQCH             the roster's own records
  *
  * Tracks are player-supplied: drop audio files into assets/music/ and list
- * them in assets/music/manifest.json. With no tracks the music station still
- * works -- it hisses and tells you why, which is both a fair result and an
- * obvious hint.
+ * them in assets/music/manifest.json, each tagged with the station it belongs
+ * to. A music station with no tracks still works -- it hisses and tells you
+ * why, which is both a fair result and an obvious hint.
  *
  * Everything goes through a PannerNode at the radio's position and a lowpass
  * filter, so it genuinely comes from across the room.
@@ -33,7 +33,8 @@ export class Radio {
     this.hud = hud;
     this.time = time;
     this.tracks = [];
-    this.index = 0;
+    /** Each station keeps its own place in its own playlist. */
+    this.index = new Map();
     this.on = false;
     this.el = null;
     this.source = null;
@@ -51,6 +52,20 @@ export class Radio {
   }
 
   get station() { return this.stations[this.stationIndex]; }
+
+  /** The current station's records, in manifest order. */
+  get playlist() {
+    const st = this.station;
+    if (st.kind !== 'music') return [];
+    // An untagged track belongs to whichever music station comes first, so a
+    // one-station manifest keeps working without anyone editing it.
+    const fallback = this.stations.find((s) => s.kind === 'music')?.id;
+    return this.tracks.filter((t) => (t.station || fallback) === st.id);
+  }
+
+  /** Where this station had got to. */
+  get cursor() { return this.index.get(this.station.id) || 0; }
+  set cursor(v) { this.index.set(this.station.id, v); }
 
   async loadManifest() {
     const data = await loadJson(MUSIC_DIR, 'manifest.json');
@@ -73,7 +88,7 @@ export class Radio {
     this.el.volume = 1;
     this.el.addEventListener('ended', () => this.next(true));
     this.el.addEventListener('error', () => {
-      if (this.on && this.tracks.length) {
+      if (this.on && this.playlist.length) {
         this.hud.toast(`Could not play ${this._current()?.title || 'track'}`, 'bad');
         this.next(true);
       }
@@ -120,7 +135,8 @@ export class Radio {
   }
 
   _current() {
-    return this.tracks[this.index] || null;
+    const list = this.playlist;
+    return list[this.cursor % Math.max(1, list.length)] || null;
   }
 
   /* ---------------------------------------------------------------- */
@@ -192,7 +208,7 @@ export class Radio {
     }
 
     // Music station.
-    if (!this.tracks.length) {
+    if (!this.playlist.length) {
       this.audio.startLoop('radio.static', {
         volume: 0.09, position: this.position, ref: 1.4, maxDist: 12,
       });
@@ -214,8 +230,9 @@ export class Radio {
       this._segT = SEGMENT_TIME;   // force the next line on the following frame
       return;
     }
-    if (!this.tracks.length) return;
-    this.index = (this.index + 1) % this.tracks.length;
+    const list = this.playlist;
+    if (!list.length) return;
+    this.cursor = (this.cursor + 1) % list.length;
     if (!auto) this.audio.play('radio.tune', { position: this.position, volume: 0.5 });
     if (this.on) {
       this._playCurrent(auto ? 0.2 : 0.3);
@@ -270,7 +287,7 @@ export class Radio {
   _showOsd() {
     const st = this.station;
     const show = st.kind === 'talk' && this._show ? this._show.name : null;
-    const track = st.kind === 'music' && this.tracks.length ? this._current() : null;
+    const track = st.kind === 'music' && this.playlist.length ? this._current() : null;
     this.hud.setRadio({
       station: show ? `${st.dial} — ${show}` : st.name,
       track: this._line

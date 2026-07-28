@@ -479,6 +479,13 @@ function synth(engine, name, dest, t, rate = 1) {
         tone(ctx, dest, t + i * 0.16, { freq: f, dur: 0.3, gain: 0.11, type: 'sine' });
       });
       break;
+    case 'radio.ident.ksqch':
+      // A garage-band station sting: one chord, one cymbal, done.
+      [147, 185, 220].forEach((f) => {
+        tone(ctx, dest, t, { freq: f, dur: 0.85, gain: 0.11, type: 'sawtooth' });
+      });
+      burst(ctx, dest, t, { dur: 0.9, type: 'highpass', freq: 6200, gain: 0.13, sweep: 0.5 });
+      break;
     case 'door.locked':
       tone(ctx, dest, t, { freq: 210, to: 150, dur: 0.13, gain: 0.34, type: 'square' });
       tone(ctx, dest, t + 0.16, { freq: 200, to: 145, dur: 0.13, gain: 0.28, type: 'square' });

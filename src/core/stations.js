@@ -1,11 +1,10 @@
 /**
  * What is on the radio.
  *
- * Two stations. 97.8 THE SQUATCH is talk radio, and what is on depends on
+ * Three stations. 97.8 THE SQUATCH is talk radio, and what is on depends on
  * the in-game hour -- the schedule below is the one the station advertises,
- * and it keeps to it. 98.8 UNCLE SQUATCH BEATS is music: it plays whatever
- * the player has dropped into assets/music/, with a station ident over the
- * top of the first track.
+ * and it keeps to it. The other two are music, and each has its own playlist:
+ * tracks in assets/music/manifest.json name the station they belong to.
  *
  * Nothing here is spoken by a voice actor. You hear a radio murmuring from
  * across the room and read what it is saying, which is roughly the
@@ -188,6 +187,35 @@ export const STATIONS = [
       'UNCLE SQUATCH: Drop some MP3s into assets/music/ and list them in manifest.json.',
       'UNCLE SQUATCH: Until then: this. This is the show now.',
       'UNCLE SQUATCH: 98.8. Uncle Squatch. Silence, mostly.',
+    ],
+  },
+  {
+    /* The roster's own records. Somebody in this group has a DAW and it has
+     * gone about how you would expect. The frequency is the one the radio
+     * shipped tuned to, which nobody has ever changed. */
+    id: 'ksqch',
+    dial: '101.7',
+    name: 'KSQCH 101.7',
+    tagline: 'Nothing but Sasquatch originals. Yes, all of them are ours.',
+    kind: 'music',
+    ident: 'radio.ident.ksqch',
+    lines: [
+      'KSQCH 101.7. Every record on this station was made by somebody in this group.',
+      'That is not a boast. It is closer to a disclosure.',
+      'Requests are open. Requests have always been open. Nobody has ever rung.',
+      'This one charted. Internally. Among us.',
+      'Coming up: the same eleven minutes of music, again.',
+      'KSQCH. If you know the words, you were probably there when it was written.',
+      '"10 Drunk Cigarettes" — a public health message, technically.',
+      'That was BooskiBro. He has heard it. He has opinions.',
+      'Somebody mixed this in a basement on monitors that cost forty dollars.',
+      'KSQCH 101.7. The roster, on the roster.',
+    ],
+    empty: [
+      'KSQCH 101.7. The originals station.',
+      'There are no originals in assets/music/ tagged for this station.',
+      'Add some, tag them "ksqch" in manifest.json, and we will play them.',
+      'Until then, this. Which is also, arguably, an original.',
     ],
   },
 ];

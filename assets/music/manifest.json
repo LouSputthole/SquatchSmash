@@ -1,10 +1,35 @@
 {
-  "_comment": "Radio playlist for 98.8 UNCLE SQUATCH BEATS. Drop audio files (mp3/ogg/m4a/wav) into this folder and list them here. The radio plays them in order and loops. With an empty list the station tunes to static and says why.",
+  "_comment": "Radio playlists. Drop audio files (mp3/ogg/m4a/wav) into this folder and list them here. `station` says which dial position a track belongs to — \"uncle\" for 98.8 UNCLE SQUATCH BEATS, \"ksqch\" for 101.7 KSQCH. Leave it out and the track lands on the first music station. Each station plays its own list in order and loops; a station with no tracks tunes to static and says why.",
   "tracks": [
     {
       "file": "good-ole-days.mp3",
+      "station": "uncle",
       "artist": "Silver Sasquatches",
       "title": "Good Ole Days"
+    },
+    {
+      "file": "squatch-up.mp3",
+      "station": "ksqch",
+      "artist": "Silver Sasquatches",
+      "title": "Squatch Up"
+    },
+    {
+      "file": "10-drunk-cigarettes.mp3",
+      "station": "ksqch",
+      "artist": "Silver Sasquatches",
+      "title": "10 Drunk Cigarettes"
+    },
+    {
+      "file": "booskibro.mp3",
+      "station": "ksqch",
+      "artist": "Silver Sasquatches",
+      "title": "BooskiBro"
+    },
+    {
+      "file": "i-aint-gay.mp3",
+      "station": "ksqch",
+      "artist": "Silver Sasquatches",
+      "title": "I Ain't Gay"
     }
   ]
 }
