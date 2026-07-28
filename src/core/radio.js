@@ -323,6 +323,8 @@ export class Radio {
     if (p && p.catch) p.catch(() => { /* browser refused; the error handler covers it */ });
     this._fadeTo(0.85, fade);
     this._showOsd();
+    // Hearing your own band on the radio never entirely stops being a thing.
+    this.audio.say?.('radio.song', { chance: 0.45, delay: 2.5 });
   }
 
   _fadeTo(v, time) {

@@ -153,6 +153,50 @@ export class AudioEngine {
     return null;
   }
 
+  /**
+   * Say one of the character's lines.
+   *
+   * Cues are named `vo.<moment>.<n>`; this picks among whichever ones exist,
+   * never the same one twice running, and does nothing at all if none of them
+   * have been generated yet. There is no procedural fallback on purpose --
+   * a synthesised voice would be worse than silence.
+   *
+   * @param {string} group e.g. 'beer.open'
+   * @param {object} opts  { chance, volume, delay }
+   */
+  say(group, opts = {}) {
+    if (!this.ready) return false;
+    const { chance = 1, volume = 0.85, delay = 0 } = opts;
+    if (chance < 1 && Math.random() > chance) return false;
+
+    let bank = this._voBanks?.get(group);
+    if (!bank) {
+      bank = [];
+      for (const name of this.buffers.keys()) {
+        if (name.startsWith(`vo.${group}.`)) bank.push(name);
+      }
+      bank.sort();
+      (this._voBanks ??= new Map()).set(group, bank);
+    }
+    if (!bank.length) return false;
+
+    // Never the same line twice running -- that is what makes VO feel canned.
+    this._voLast ??= new Map();
+    let pick = bank[(Math.random() * bank.length) | 0];
+    if (bank.length > 1) {
+      let guard = 0;
+      while (pick === this._voLast.get(group) && guard++ < 8) {
+        pick = bank[(Math.random() * bank.length) | 0];
+      }
+    }
+    this._voLast.set(group, pick);
+
+    // One voice at a time. He is not a chorus.
+    this._vo?.stop?.();
+    this._vo = this.play(pick, { volume, delay });
+    return true;
+  }
+
   /** Footsteps get their own entry point so cadence + surface stay in one place. */
   footstep(surface = 'wood', intensity = 1) {
     const now = performance.now();

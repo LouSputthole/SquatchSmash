@@ -79,9 +79,10 @@ const HOURS = [
 ];
 
 export class Narrator {
-  constructor(hud, time) {
+  constructor(hud, time, audio = null) {
     this.hud = hud;
     this.time = time;
+    this.audio = audio;
     this.enabled = true;
 
     this.idle = 0;
@@ -165,6 +166,8 @@ export class Narrator {
 
   _speak(line) {
     this.hud.say(`<em>${line}</em>`, 5200);
+    // Occasionally he says something himself, under the narration.
+    this.audio?.say('idle', { chance: 0.3, volume: 0.7, delay: 1.4 });
     this.cooldown = COOLDOWN;
   }
 }

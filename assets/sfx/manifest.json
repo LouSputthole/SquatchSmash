@@ -1,114 +1,860 @@
 {
-  "_comment": "Cue list for the apartment. Run `npm run sfx` to generate every entry with ElevenLabs into this folder. Any cue without a file falls back to the built-in WebAudio synth, so the game is playable either way. `prompt` is the ElevenLabs text prompt; `duration` is in seconds; `loop` asks ElevenLabs for a seamless loop.",
-
+  "_comment": "Cue list for Squatch Life. Two kinds live here. A cue with `prompt` is a sound effect and goes to ElevenLabs sound-generation. A cue with `say` is a line of dialogue and goes to text-to-speech using the voice named in `voice`, resolved against the `voices` block below. Run `npm run sfx` for everything, `npm run sfx:vo` for just the spoken lines. Any cue without a file falls back to the built-in WebAudio synth, so the game is playable either way.",
+  "voices": {
+    "_comment": "Every spoken line resolves its voice here, so the character sounds like one person. Paste an ElevenLabs voice id into `id` -- `npm run sfx:voices` lists what is on your account. Nothing spoken will generate until this is set.",
+    "player": {
+      "id": "<paste an ElevenLabs voice id here>",
+      "_note": "The man who lives here. Mid thirties, flat delivery, talks to himself because there is nobody else in. Not doing a bit -- he is just narrating his own afternoon to an empty room.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.82,
+      "style": 0.3
+    }
+  },
   "sfx": [
-    { "name": "footstep.wood", "duration": 0.7, "prompt": "single soft barefoot step on a hardwood floor in a small apartment, close mic, dry, no reverb tail" },
-    { "name": "footstep.rug", "duration": 0.7, "prompt": "single muffled footstep on a thick wool rug, soft, dry, close mic" },
-    { "name": "footstep.tile", "duration": 0.7, "prompt": "single bare foot step on kitchen vinyl flooring, slight tacky sound, dry close mic" },
-
-    { "name": "bed.rustle", "duration": 1.6, "prompt": "person shifting under a duvet, cotton bedsheets rustling, close and intimate" },
-    { "name": "bed.creak", "duration": 1.4, "prompt": "wooden bed frame creaking as someone sits up, single low groan of timber" },
-
-    { "name": "fridge.open", "duration": 1.4, "prompt": "refrigerator door seal peeling open, suction release, bottles shifting slightly inside" },
-    { "name": "fridge.close", "duration": 1.2, "prompt": "refrigerator door thumping closed, rubber seal, solid low thud" },
-    { "name": "fridge.bottles", "duration": 1.3, "prompt": "glass bottles and cans clinking gently on a fridge shelf" },
-    { "name": "fridge.hum", "duration": 8, "loop": true, "prompt": "steady refrigerator compressor hum in a quiet apartment kitchen, low drone, seamless loop" },
-
-    { "name": "can.crack", "duration": 1.2, "prompt": "aluminium beer can tab cracking open, sharp hiss of carbonation escaping" },
-    { "name": "can.sip", "duration": 1.4, "prompt": "person taking a swig from a cold beer can, liquid glugging, close mic" },
-    { "name": "can.set", "duration": 0.8, "prompt": "aluminium can set down on a wooden table, light hollow clunk" },
-    { "name": "can.crush", "duration": 1.0, "prompt": "empty aluminium can crushed in one hand, metal buckling and crinkling" },
-
-    { "name": "switch.click", "duration": 0.5, "prompt": "light switch toggled on, single crisp plastic click" },
-    { "name": "radio.click", "duration": 0.5, "prompt": "chunky vintage stereo power button clicking, mechanical" },
-    { "name": "radio.tune", "duration": 1.6, "prompt": "analogue radio tuning dial sweeping across stations, brief squeals and static" },
-    { "name": "radio.static", "duration": 6, "loop": true, "prompt": "soft untuned FM radio static hiss from small speakers, seamless loop" },
-    { "name": "radio.talk", "duration": 8, "loop": true, "prompt": "muffled talk radio heard through a wall from another room, indistinct male voices conversing, no intelligible words, seamless loop" },
-    { "name": "radio.airhorn", "duration": 1.2, "prompt": "single loud novelty air horn blast, cheap radio station stinger" },
-    { "name": "radio.riff", "duration": 2.4, "prompt": "over the top rock radio station stinger: four distorted electric guitar power chords, then an eagle screech and tires squealing" },
-    { "name": "radio.jingle", "duration": 2.0, "prompt": "cheesy local radio station ID jingle, short rising synth fanfare with a vocal-style flourish" },
-    { "name": "radio.slots", "duration": 2.0, "prompt": "slot machine reels spinning and coins clattering into a tray, casino floor" },
-    { "name": "radio.kazoo", "duration": 2.2, "prompt": "serious orchestral news theme lasting one second before derailing into an out of tune kazoo playing the same melody" },
-    { "name": "radio.crowd", "duration": 2.0, "prompt": "small studio audience laughing warmly, canned sitcom laughter" },
-    { "name": "radio.ident.squatch", "duration": 3.0, "prompt": "gravelly announcer voice shouting the words NINETY SEVEN POINT EIGHT, THE SQUATCH over a distorted guitar chord" },
-    { "name": "radio.ident.uncle", "duration": 3.2, "prompt": "smooth warm radio DJ voice saying welcome to Uncle Squatch Beats, ninety eight point eight, over a soft lo-fi hip hop chord" },
-    { "name": "radio.ident.ksqch", "duration": 2.6, "prompt": "scrappy garage rock radio station sting: one distorted power chord and a crash cymbal, recorded cheaply" },
-
-    { "name": "door.knob", "duration": 1.0, "prompt": "interior door handle turning, latch clicking, no door opening" },
-    { "name": "door.locked", "duration": 1.2, "prompt": "apartment front door handle rattling against a locked deadbolt, twice" },
-    { "name": "window.blinds", "duration": 1.6, "prompt": "venetian blinds being raised, plastic slats clattering upward" },
-    { "name": "frame.adjust", "duration": 0.8, "prompt": "picture frame nudged against a wall, faint wood and glass tap" },
-    { "name": "clock.tick", "duration": 0.4, "prompt": "single tick of a small wall clock, dry and quiet" },
-
-    { "name": "pc.boot", "duration": 2.5, "prompt": "desktop gaming PC powering on, fans spinning up, single motherboard beep" },
-    { "name": "pc.fan", "duration": 8, "loop": true, "prompt": "quiet desktop computer case fans running steadily, smooth airflow, seamless loop" },
-    { "name": "pc.keyboard", "duration": 0.4, "prompt": "single mechanical keyboard keypress, tactile brown switch" },
-    { "name": "pc.mouseclick", "duration": 0.3, "prompt": "single gaming mouse left click, crisp and light" },
-    { "name": "chair.sit", "duration": 1.3, "prompt": "person sitting down into a padded gaming chair, gas cylinder compressing slightly" },
-    { "name": "couch.sit", "duration": 1.5, "prompt": "person flopping down onto a soft old fabric sofa, cushions compressing with a muffled whump and springs settling" },
-    { "name": "cs.round", "duration": 1.0, "prompt": "retro video game round-start chime, three rising electronic beeps, slightly detuned and cheap sounding" },
-    { "name": "cs.shot", "duration": 0.5, "prompt": "single dry rifle shot as heard through cheap PC speakers, compressed and thin, no reverb tail" },
-    { "name": "cs.death", "duration": 1.4, "prompt": "video game death sound: sharp gunshot crack immediately followed by a low descending tone and a soft thud" },
-    { "name": "chair.roll", "duration": 1.2, "prompt": "office chair castors rolling a short distance over a hard floor" },
-
-    { "name": "ambience.city", "duration": 10, "loop": true, "prompt": "distant early morning city ambience heard through a closed apartment window, faint traffic, no voices, seamless loop" },
-    { "name": "ambience.room", "duration": 10, "loop": true, "prompt": "quiet empty apartment room tone, very low hum, seamless loop" },
-
-    { "name": "arcade.hit", "duration": 0.7, "prompt": "retro arcade impact, chunky bass thud with a short digital crunch, 16-bit style" },
-    { "name": "arcade.miss", "duration": 0.6, "prompt": "retro arcade whiff, short descending blip, 16-bit style" },
-    { "name": "arcade.roar", "duration": 1.8, "prompt": "short guttural bigfoot roar, deep and gravelly, monster vocal" },
-    { "name": "arcade.combo", "duration": 0.8, "prompt": "retro arcade combo chime, two rising square wave notes" },
-    { "name": "arcade.golden", "duration": 1.2, "prompt": "retro arcade bonus jingle, sparkling ascending arpeggio, 16-bit style" },
-    { "name": "arcade.hurt", "duration": 1.0, "prompt": "retro arcade damage sound, harsh descending buzz, 16-bit style" },
-    { "name": "arcade.wave", "duration": 1.4, "prompt": "retro arcade level start fanfare, three rising square wave notes" },
-    { "name": "arcade.gameover", "duration": 2.2, "prompt": "retro arcade game over jingle, slow descending square wave melody, 16-bit style" },
-
-    { "name": "cig.pack", "duration": 1.2, "prompt": "cigarette pack flip-top opening, foil crinkling, one cigarette pulled out" },
-    { "name": "cig.light", "duration": 1.4, "prompt": "disposable lighter flicking twice then igniting, cigarette tip catching" },
-    { "name": "cig.drag", "duration": 1.6, "prompt": "long drag on a cigarette, paper crackling as it burns, close mic" },
-    { "name": "cig.exhale", "duration": 1.8, "prompt": "person slowly exhaling a lungful of cigarette smoke, breathy, close mic" },
-    { "name": "cig.stub", "duration": 1.0, "prompt": "cigarette stubbed out in a glass ashtray, short gritty twist" },
-
-    { "name": "whiskey.cap", "duration": 1.0, "prompt": "metal screw cap being twisted off a glass whiskey bottle, short and dry" },
-    { "name": "whiskey.pour", "duration": 1.2, "prompt": "whiskey bottle tipped up, thick liquid glugging out of a narrow glass neck" },
-    { "name": "whiskey.swig", "duration": 1.2, "prompt": "person swallowing a mouthful of spirits straight from the bottle, close mic" },
-    { "name": "whiskey.gasp", "duration": 1.4, "prompt": "sharp involuntary exhale and hiss through the teeth after a shot of strong whiskey" },
-
-    { "name": "drunk.hiccup", "duration": 0.7, "prompt": "single involuntary hiccup, close mic, dry" },
-    { "name": "drunk.collapse", "duration": 1.6, "prompt": "person slumping heavily to a wooden floor, soft body impact, no voice" },
-    { "name": "drunk.heartbeat", "duration": 3.0, "prompt": "slow muffled heartbeat heard from inside the head, deep and dull" },
-    { "name": "drunk.snore", "duration": 2.6, "prompt": "one slow deep snore of someone passed out, muffled" },
-
-    { "name": "fart.1", "duration": 1.0, "prompt": "single short dry fart, comedic, close mic, no voice" },
-    { "name": "fart.2", "duration": 1.4, "prompt": "long drawn out low rumbling fart, comedic, close mic, no voice" },
-    { "name": "fart.3", "duration": 0.8, "prompt": "short high pitched squeaky fart, comedic, close mic, no voice" },
-    { "name": "fart.4", "duration": 1.6, "prompt": "sputtering stuttering fart in several bursts, comedic, close mic, no voice" },
-    { "name": "fart.5", "duration": 1.1, "prompt": "wet sounding fart, comedic, close mic, no voice" },
-    { "name": "fart.6", "duration": 2.0, "prompt": "very long slowly deflating fart that tails off, comedic, close mic, no voice" },
-    { "name": "fart.7", "duration": 0.7, "prompt": "sharp abrupt loud fart like a chair scrape, comedic, close mic, no voice" },
-
-    { "name": "pee.zip", "duration": 0.8, "prompt": "short metal zipper being pulled, single quick zip, dry close mic" },
-    { "name": "pee.stream", "duration": 6, "loop": true, "prompt": "steady stream of liquid splashing into toilet water, seamless loop, no voice" },
-    { "name": "toilet.flush", "duration": 4.0, "prompt": "domestic toilet flushing, cistern emptying and refilling" },
-    { "name": "sink.tap", "duration": 3.0, "prompt": "bathroom tap running into a ceramic basin, steady flow" },
-
-    { "name": "poop.1", "duration": 1.4, "prompt": "comedic toilet sound, muffled strain and release, no voice" },
-    { "name": "poop.2", "duration": 1.8, "prompt": "comedic toilet sound, longer sputtering release, no voice" },
-    { "name": "poop.3", "duration": 1.1, "prompt": "comedic toilet sound, short sharp release, no voice" },
-    { "name": "poop.4", "duration": 2.2, "prompt": "comedic toilet sound, drawn out gurgling release, no voice" },
-    { "name": "toilet.plop", "duration": 0.9, "prompt": "single small object dropping into toilet water, hollow plop and ripple" },
-    { "name": "belly.rumble", "duration": 2.2, "prompt": "loud gurgling stomach rumble, digestive growl, close mic, no voice" },
-
-    { "name": "ambience.city.day", "duration": 12, "loop": true, "prompt": "summer afternoon city ambience heard through a closed apartment window, steady distant traffic, birds, an air conditioning unit, faint children playing far away, no distinct voices, seamless loop" },
-    { "name": "ambience.city.night", "duration": 12, "loop": true, "prompt": "late night city ambience heard through a closed apartment window, sparse distant traffic, a far away siren, crickets, low electrical hum, no voices, seamless loop" },
-
-    { "name": "neighbours.argue", "duration": 3.0, "prompt": "muffled argument between two people heard through an apartment wall, angry indistinct voices, words not intelligible" },
-    { "name": "neighbours.thump", "duration": 1.2, "prompt": "muffled heavy thump against an apartment wall from the next room, dull impact" },
-
-    { "name": "zyn.tin", "duration": 1.0, "prompt": "small plastic tin lid being twisted and popped open, light click, close mic" },
-    { "name": "zyn.pack", "duration": 0.9, "prompt": "soft wet click of something small being tucked behind a lip, very quiet, close mic, no voice" },
-
-    { "name": "ui.select", "duration": 0.4, "prompt": "soft interface confirm blip, warm and short" },
-    { "name": "ui.hover", "duration": 0.3, "prompt": "very soft interface hover tick, quiet" }
+    {
+      "name": "footstep.wood",
+      "duration": 0.7,
+      "prompt": "single soft barefoot step on a hardwood floor in a small apartment, close mic, dry, no reverb tail"
+    },
+    {
+      "name": "footstep.rug",
+      "duration": 0.7,
+      "prompt": "single muffled footstep on a thick wool rug, soft, dry, close mic"
+    },
+    {
+      "name": "footstep.tile",
+      "duration": 0.7,
+      "prompt": "single bare foot step on kitchen vinyl flooring, slight tacky sound, dry close mic"
+    },
+    {
+      "name": "bed.rustle",
+      "duration": 1.6,
+      "prompt": "person shifting under a duvet, cotton bedsheets rustling, close and intimate"
+    },
+    {
+      "name": "bed.creak",
+      "duration": 1.4,
+      "prompt": "wooden bed frame creaking as someone sits up, single low groan of timber"
+    },
+    {
+      "name": "fridge.open",
+      "duration": 1.4,
+      "prompt": "refrigerator door seal peeling open, suction release, bottles shifting slightly inside"
+    },
+    {
+      "name": "fridge.close",
+      "duration": 1.2,
+      "prompt": "refrigerator door thumping closed, rubber seal, solid low thud"
+    },
+    {
+      "name": "fridge.bottles",
+      "duration": 1.3,
+      "prompt": "glass bottles and cans clinking gently on a fridge shelf"
+    },
+    {
+      "name": "fridge.hum",
+      "duration": 8,
+      "loop": true,
+      "prompt": "steady refrigerator compressor hum in a quiet apartment kitchen, low drone, seamless loop"
+    },
+    {
+      "name": "can.crack",
+      "duration": 1.2,
+      "prompt": "aluminium beer can tab cracking open, sharp hiss of carbonation escaping"
+    },
+    {
+      "name": "can.sip",
+      "duration": 1.4,
+      "prompt": "person taking a swig from a cold beer can, liquid glugging, close mic"
+    },
+    {
+      "name": "can.set",
+      "duration": 0.8,
+      "prompt": "aluminium can set down on a wooden table, light hollow clunk"
+    },
+    {
+      "name": "can.crush",
+      "duration": 1.0,
+      "prompt": "empty aluminium can crushed in one hand, metal buckling and crinkling"
+    },
+    {
+      "name": "switch.click",
+      "duration": 0.5,
+      "prompt": "light switch toggled on, single crisp plastic click"
+    },
+    {
+      "name": "radio.click",
+      "duration": 0.5,
+      "prompt": "chunky vintage stereo power button clicking, mechanical"
+    },
+    {
+      "name": "radio.tune",
+      "duration": 1.6,
+      "prompt": "analogue radio tuning dial sweeping across stations, brief squeals and static"
+    },
+    {
+      "name": "radio.static",
+      "duration": 6,
+      "loop": true,
+      "prompt": "soft untuned FM radio static hiss from small speakers, seamless loop"
+    },
+    {
+      "name": "radio.talk",
+      "duration": 8,
+      "loop": true,
+      "prompt": "muffled talk radio heard through a wall from another room, indistinct male voices conversing, no intelligible words, seamless loop"
+    },
+    {
+      "name": "radio.airhorn",
+      "duration": 1.2,
+      "prompt": "single loud novelty air horn blast, cheap radio station stinger"
+    },
+    {
+      "name": "radio.riff",
+      "duration": 2.4,
+      "prompt": "over the top rock radio station stinger: four distorted electric guitar power chords, then an eagle screech and tires squealing"
+    },
+    {
+      "name": "radio.jingle",
+      "duration": 2.0,
+      "prompt": "cheesy local radio station ID jingle, short rising synth fanfare with a vocal-style flourish"
+    },
+    {
+      "name": "radio.slots",
+      "duration": 2.0,
+      "prompt": "slot machine reels spinning and coins clattering into a tray, casino floor"
+    },
+    {
+      "name": "radio.kazoo",
+      "duration": 2.2,
+      "prompt": "serious orchestral news theme lasting one second before derailing into an out of tune kazoo playing the same melody"
+    },
+    {
+      "name": "radio.crowd",
+      "duration": 2.0,
+      "prompt": "small studio audience laughing warmly, canned sitcom laughter"
+    },
+    {
+      "name": "radio.ident.squatch",
+      "duration": 3.0,
+      "prompt": "gravelly announcer voice shouting the words NINETY SEVEN POINT EIGHT, THE SQUATCH over a distorted guitar chord"
+    },
+    {
+      "name": "radio.ident.uncle",
+      "duration": 3.2,
+      "prompt": "smooth warm radio DJ voice saying welcome to Uncle Squatch Beats, ninety eight point eight, over a soft lo-fi hip hop chord"
+    },
+    {
+      "name": "radio.ident.ksqch",
+      "duration": 2.6,
+      "prompt": "scrappy garage rock radio station sting: one distorted power chord and a crash cymbal, recorded cheaply"
+    },
+    {
+      "name": "door.knob",
+      "duration": 1.0,
+      "prompt": "interior door handle turning, latch clicking, no door opening"
+    },
+    {
+      "name": "door.locked",
+      "duration": 1.2,
+      "prompt": "apartment front door handle rattling against a locked deadbolt, twice"
+    },
+    {
+      "name": "window.blinds",
+      "duration": 1.6,
+      "prompt": "venetian blinds being raised, plastic slats clattering upward"
+    },
+    {
+      "name": "frame.adjust",
+      "duration": 0.8,
+      "prompt": "picture frame nudged against a wall, faint wood and glass tap"
+    },
+    {
+      "name": "clock.tick",
+      "duration": 0.4,
+      "prompt": "single tick of a small wall clock, dry and quiet"
+    },
+    {
+      "name": "pc.boot",
+      "duration": 2.5,
+      "prompt": "desktop gaming PC powering on, fans spinning up, single motherboard beep"
+    },
+    {
+      "name": "pc.fan",
+      "duration": 8,
+      "loop": true,
+      "prompt": "quiet desktop computer case fans running steadily, smooth airflow, seamless loop"
+    },
+    {
+      "name": "pc.keyboard",
+      "duration": 0.4,
+      "prompt": "single mechanical keyboard keypress, tactile brown switch"
+    },
+    {
+      "name": "pc.mouseclick",
+      "duration": 0.3,
+      "prompt": "single gaming mouse left click, crisp and light"
+    },
+    {
+      "name": "chair.sit",
+      "duration": 1.3,
+      "prompt": "person sitting down into a padded gaming chair, gas cylinder compressing slightly"
+    },
+    {
+      "name": "couch.sit",
+      "duration": 1.5,
+      "prompt": "person flopping down onto a soft old fabric sofa, cushions compressing with a muffled whump and springs settling"
+    },
+    {
+      "name": "cs.round",
+      "duration": 1.0,
+      "prompt": "retro video game round-start chime, three rising electronic beeps, slightly detuned and cheap sounding"
+    },
+    {
+      "name": "cs.shot",
+      "duration": 0.5,
+      "prompt": "single dry rifle shot as heard through cheap PC speakers, compressed and thin, no reverb tail"
+    },
+    {
+      "name": "cs.death",
+      "duration": 1.4,
+      "prompt": "video game death sound: sharp gunshot crack immediately followed by a low descending tone and a soft thud"
+    },
+    {
+      "name": "chair.roll",
+      "duration": 1.2,
+      "prompt": "office chair castors rolling a short distance over a hard floor"
+    },
+    {
+      "name": "ambience.city",
+      "duration": 10,
+      "loop": true,
+      "prompt": "distant early morning city ambience heard through a closed apartment window, faint traffic, no voices, seamless loop"
+    },
+    {
+      "name": "ambience.room",
+      "duration": 10,
+      "loop": true,
+      "prompt": "quiet empty apartment room tone, very low hum, seamless loop"
+    },
+    {
+      "name": "arcade.hit",
+      "duration": 0.7,
+      "prompt": "retro arcade impact, chunky bass thud with a short digital crunch, 16-bit style"
+    },
+    {
+      "name": "arcade.miss",
+      "duration": 0.6,
+      "prompt": "retro arcade whiff, short descending blip, 16-bit style"
+    },
+    {
+      "name": "arcade.roar",
+      "duration": 1.8,
+      "prompt": "short guttural bigfoot roar, deep and gravelly, monster vocal"
+    },
+    {
+      "name": "arcade.combo",
+      "duration": 0.8,
+      "prompt": "retro arcade combo chime, two rising square wave notes"
+    },
+    {
+      "name": "arcade.golden",
+      "duration": 1.2,
+      "prompt": "retro arcade bonus jingle, sparkling ascending arpeggio, 16-bit style"
+    },
+    {
+      "name": "arcade.hurt",
+      "duration": 1.0,
+      "prompt": "retro arcade damage sound, harsh descending buzz, 16-bit style"
+    },
+    {
+      "name": "arcade.wave",
+      "duration": 1.4,
+      "prompt": "retro arcade level start fanfare, three rising square wave notes"
+    },
+    {
+      "name": "arcade.gameover",
+      "duration": 2.2,
+      "prompt": "retro arcade game over jingle, slow descending square wave melody, 16-bit style"
+    },
+    {
+      "name": "cig.pack",
+      "duration": 1.2,
+      "prompt": "cigarette pack flip-top opening, foil crinkling, one cigarette pulled out"
+    },
+    {
+      "name": "cig.light",
+      "duration": 1.4,
+      "prompt": "disposable lighter flicking twice then igniting, cigarette tip catching"
+    },
+    {
+      "name": "cig.drag",
+      "duration": 1.6,
+      "prompt": "long drag on a cigarette, paper crackling as it burns, close mic"
+    },
+    {
+      "name": "cig.exhale",
+      "duration": 1.8,
+      "prompt": "person slowly exhaling a lungful of cigarette smoke, breathy, close mic"
+    },
+    {
+      "name": "cig.stub",
+      "duration": 1.0,
+      "prompt": "cigarette stubbed out in a glass ashtray, short gritty twist"
+    },
+    {
+      "name": "whiskey.cap",
+      "duration": 1.0,
+      "prompt": "metal screw cap being twisted off a glass whiskey bottle, short and dry"
+    },
+    {
+      "name": "whiskey.pour",
+      "duration": 1.2,
+      "prompt": "whiskey bottle tipped up, thick liquid glugging out of a narrow glass neck"
+    },
+    {
+      "name": "whiskey.swig",
+      "duration": 1.2,
+      "prompt": "person swallowing a mouthful of spirits straight from the bottle, close mic"
+    },
+    {
+      "name": "whiskey.gasp",
+      "duration": 1.4,
+      "prompt": "sharp involuntary exhale and hiss through the teeth after a shot of strong whiskey"
+    },
+    {
+      "name": "drunk.hiccup",
+      "duration": 0.7,
+      "prompt": "single involuntary hiccup, close mic, dry"
+    },
+    {
+      "name": "drunk.collapse",
+      "duration": 1.6,
+      "prompt": "person slumping heavily to a wooden floor, soft body impact, no voice"
+    },
+    {
+      "name": "drunk.heartbeat",
+      "duration": 3.0,
+      "prompt": "slow muffled heartbeat heard from inside the head, deep and dull"
+    },
+    {
+      "name": "drunk.snore",
+      "duration": 2.6,
+      "prompt": "one slow deep snore of someone passed out, muffled"
+    },
+    {
+      "name": "fart.1",
+      "duration": 1.0,
+      "prompt": "single short dry fart, comedic, close mic, no voice"
+    },
+    {
+      "name": "fart.2",
+      "duration": 1.4,
+      "prompt": "long drawn out low rumbling fart, comedic, close mic, no voice"
+    },
+    {
+      "name": "fart.3",
+      "duration": 0.8,
+      "prompt": "short high pitched squeaky fart, comedic, close mic, no voice"
+    },
+    {
+      "name": "fart.4",
+      "duration": 1.6,
+      "prompt": "sputtering stuttering fart in several bursts, comedic, close mic, no voice"
+    },
+    {
+      "name": "fart.5",
+      "duration": 1.1,
+      "prompt": "wet sounding fart, comedic, close mic, no voice"
+    },
+    {
+      "name": "fart.6",
+      "duration": 2.0,
+      "prompt": "very long slowly deflating fart that tails off, comedic, close mic, no voice"
+    },
+    {
+      "name": "fart.7",
+      "duration": 0.7,
+      "prompt": "sharp abrupt loud fart like a chair scrape, comedic, close mic, no voice"
+    },
+    {
+      "name": "pee.zip",
+      "duration": 0.8,
+      "prompt": "short metal zipper being pulled, single quick zip, dry close mic"
+    },
+    {
+      "name": "pee.stream",
+      "duration": 6,
+      "loop": true,
+      "prompt": "steady stream of liquid splashing into toilet water, seamless loop, no voice"
+    },
+    {
+      "name": "toilet.flush",
+      "duration": 4.0,
+      "prompt": "domestic toilet flushing, cistern emptying and refilling"
+    },
+    {
+      "name": "sink.tap",
+      "duration": 3.0,
+      "prompt": "bathroom tap running into a ceramic basin, steady flow"
+    },
+    {
+      "name": "poop.1",
+      "duration": 1.4,
+      "prompt": "comedic toilet sound, muffled strain and release, no voice"
+    },
+    {
+      "name": "poop.2",
+      "duration": 1.8,
+      "prompt": "comedic toilet sound, longer sputtering release, no voice"
+    },
+    {
+      "name": "poop.3",
+      "duration": 1.1,
+      "prompt": "comedic toilet sound, short sharp release, no voice"
+    },
+    {
+      "name": "poop.4",
+      "duration": 2.2,
+      "prompt": "comedic toilet sound, drawn out gurgling release, no voice"
+    },
+    {
+      "name": "toilet.plop",
+      "duration": 0.9,
+      "prompt": "single small object dropping into toilet water, hollow plop and ripple"
+    },
+    {
+      "name": "belly.rumble",
+      "duration": 2.2,
+      "prompt": "loud gurgling stomach rumble, digestive growl, close mic, no voice"
+    },
+    {
+      "name": "ambience.city.day",
+      "duration": 12,
+      "loop": true,
+      "prompt": "summer afternoon city ambience heard through a closed apartment window, steady distant traffic, birds, an air conditioning unit, faint children playing far away, no distinct voices, seamless loop"
+    },
+    {
+      "name": "ambience.city.night",
+      "duration": 12,
+      "loop": true,
+      "prompt": "late night city ambience heard through a closed apartment window, sparse distant traffic, a far away siren, crickets, low electrical hum, no voices, seamless loop"
+    },
+    {
+      "name": "neighbours.argue",
+      "duration": 3.0,
+      "prompt": "muffled argument between two people heard through an apartment wall, angry indistinct voices, words not intelligible"
+    },
+    {
+      "name": "neighbours.thump",
+      "duration": 1.2,
+      "prompt": "muffled heavy thump against an apartment wall from the next room, dull impact"
+    },
+    {
+      "name": "zyn.tin",
+      "duration": 1.0,
+      "prompt": "small plastic tin lid being twisted and popped open, light click, close mic"
+    },
+    {
+      "name": "zyn.pack",
+      "duration": 0.9,
+      "prompt": "soft wet click of something small being tucked behind a lip, very quiet, close mic, no voice"
+    },
+    {
+      "name": "ui.select",
+      "duration": 0.4,
+      "prompt": "soft interface confirm blip, warm and short"
+    },
+    {
+      "name": "ui.hover",
+      "duration": 0.3,
+      "prompt": "very soft interface hover tick, quiet"
+    },
+    {
+      "name": "vo.wake.1",
+      "voice": "player",
+      "say": "Nope."
+    },
+    {
+      "name": "vo.wake.2",
+      "voice": "player",
+      "say": "What time is… no. No, that is not right."
+    },
+    {
+      "name": "vo.wake.3",
+      "voice": "player",
+      "say": "Right. Awake. Great."
+    },
+    {
+      "name": "vo.getup.1",
+      "voice": "player",
+      "say": "Feet. Floor. Fine."
+    },
+    {
+      "name": "vo.getup.2",
+      "voice": "player",
+      "say": "Up. There we go."
+    },
+    {
+      "name": "vo.liedown.1",
+      "voice": "player",
+      "say": "Just for a minute."
+    },
+    {
+      "name": "vo.liedown.2",
+      "voice": "player",
+      "say": "Yeah, no, this was the right call."
+    },
+    {
+      "name": "vo.sleep.1",
+      "voice": "player",
+      "say": "Goodnight to me."
+    },
+    {
+      "name": "vo.sleep.2",
+      "voice": "player",
+      "say": "See you tomorrow, I suppose."
+    },
+    {
+      "name": "vo.fridge.1",
+      "voice": "player",
+      "say": "Same as it was an hour ago."
+    },
+    {
+      "name": "vo.fridge.2",
+      "voice": "player",
+      "say": "Cold air. Great. Love that."
+    },
+    {
+      "name": "vo.fridge.3",
+      "voice": "player",
+      "say": "I keep thinking something new will be in here."
+    },
+    {
+      "name": "vo.beer.open.1",
+      "voice": "player",
+      "say": "There we go."
+    },
+    {
+      "name": "vo.beer.open.2",
+      "voice": "player",
+      "say": "Six-oh-four. Somewhere it's five."
+    },
+    {
+      "name": "vo.beer.good.1",
+      "voice": "player",
+      "say": "Oh, that's the one."
+    },
+    {
+      "name": "vo.beer.good.2",
+      "voice": "player",
+      "say": "Yep. That's it. That's the feeling."
+    },
+    {
+      "name": "vo.beer.many.1",
+      "voice": "player",
+      "say": "Should probably slow down. Noted. Ignored."
+    },
+    {
+      "name": "vo.beer.many.2",
+      "voice": "player",
+      "say": "That one went somewhere different."
+    },
+    {
+      "name": "vo.beer.many.3",
+      "voice": "player",
+      "say": "Okay. Okay, we're doing this."
+    },
+    {
+      "name": "vo.beer.last.1",
+      "voice": "player",
+      "say": "That was the last one. That's a decision I made."
+    },
+    {
+      "name": "vo.whiskey.1",
+      "voice": "player",
+      "say": "Oh, that's horrible."
+    },
+    {
+      "name": "vo.whiskey.2",
+      "voice": "player",
+      "say": "Nope. Still horrible."
+    },
+    {
+      "name": "vo.whiskey.3",
+      "voice": "player",
+      "say": "Jack. And Daniels. Both of them."
+    },
+    {
+      "name": "vo.cig.light.1",
+      "voice": "player",
+      "say": "Right."
+    },
+    {
+      "name": "vo.cig.light.2",
+      "voice": "player",
+      "say": "Last one. Obviously not the last one."
+    },
+    {
+      "name": "vo.cig.drag.1",
+      "voice": "player",
+      "say": "Mm."
+    },
+    {
+      "name": "vo.cig.drag.2",
+      "voice": "player",
+      "say": "There it is."
+    },
+    {
+      "name": "vo.cig.last.1",
+      "voice": "player",
+      "say": "That's the pack. I'll be buying more, then."
+    },
+    {
+      "name": "vo.zyn.1",
+      "voice": "player",
+      "say": "In she goes."
+    },
+    {
+      "name": "vo.zyn.2",
+      "voice": "player",
+      "say": "Six milligrams of feeling something."
+    },
+    {
+      "name": "vo.bong.1",
+      "voice": "player",
+      "say": "Oh, that's a mistake."
+    },
+    {
+      "name": "vo.bong.2",
+      "voice": "player",
+      "say": "Right. Well. There goes the afternoon."
+    },
+    {
+      "name": "vo.shrooms.1",
+      "voice": "player",
+      "say": "This is a terrible idea and I'm doing it anyway."
+    },
+    {
+      "name": "vo.shrooms.2",
+      "voice": "player",
+      "say": "I'll be honest, I don't remember buying these."
+    },
+    {
+      "name": "vo.pee.1",
+      "voice": "player",
+      "say": "Ohhh. Yeah."
+    },
+    {
+      "name": "vo.pee.2",
+      "voice": "player",
+      "say": "That was overdue."
+    },
+    {
+      "name": "vo.poop.urge.1",
+      "voice": "player",
+      "say": "Oh. Oh no. Okay."
+    },
+    {
+      "name": "vo.poop.urge.2",
+      "voice": "player",
+      "say": "Nope, that's happening. Move."
+    },
+    {
+      "name": "vo.poop.relief.1",
+      "voice": "player",
+      "say": "We got there."
+    },
+    {
+      "name": "vo.poop.relief.2",
+      "voice": "player",
+      "say": "Do not want to talk about it."
+    },
+    {
+      "name": "vo.fart.1",
+      "voice": "player",
+      "say": "Yep."
+    },
+    {
+      "name": "vo.fart.2",
+      "voice": "player",
+      "say": "Nobody here. Nobody to mind."
+    },
+    {
+      "name": "vo.fart.3",
+      "voice": "player",
+      "say": "Excuse me. To nobody."
+    },
+    {
+      "name": "vo.pc.sit.1",
+      "voice": "player",
+      "say": "Right, let's have a look."
+    },
+    {
+      "name": "vo.pc.sit.2",
+      "voice": "player",
+      "say": "Just one game."
+    },
+    {
+      "name": "vo.cs.death.early.1",
+      "voice": "player",
+      "say": "What. What was that?"
+    },
+    {
+      "name": "vo.cs.death.early.2",
+      "voice": "player",
+      "say": "Through the wall. Straight through the wall."
+    },
+    {
+      "name": "vo.cs.death.early.3",
+      "voice": "player",
+      "say": "I hadn't even moved."
+    },
+    {
+      "name": "vo.cs.death.late.1",
+      "voice": "player",
+      "say": "Yeah. Sure. Why not."
+    },
+    {
+      "name": "vo.cs.death.late.2",
+      "voice": "player",
+      "say": "I've not fired a shot all game."
+    },
+    {
+      "name": "vo.cs.death.late.3",
+      "voice": "player",
+      "say": "I'm reporting him. It won't do anything."
+    },
+    {
+      "name": "vo.cs.kill.1",
+      "voice": "player",
+      "say": "OH! Oh, did you see that? That was me. That was me!"
+    },
+    {
+      "name": "vo.smash.1",
+      "voice": "player",
+      "say": "Right, come on."
+    },
+    {
+      "name": "vo.smash.2",
+      "voice": "player",
+      "say": "Not the hikers. Not the hikers!"
+    },
+    {
+      "name": "vo.radio.song.1",
+      "voice": "player",
+      "say": "Oh, this is us. This is actually us."
+    },
+    {
+      "name": "vo.radio.song.2",
+      "voice": "player",
+      "say": "Turn it up. Nobody's here. Turn it up."
+    },
+    {
+      "name": "vo.radio.ad.1",
+      "voice": "player",
+      "say": "I've heard this one about four hundred times."
+    },
+    {
+      "name": "vo.idle.1",
+      "voice": "player",
+      "say": "Right."
+    },
+    {
+      "name": "vo.idle.2",
+      "voice": "player",
+      "say": "So."
+    },
+    {
+      "name": "vo.idle.3",
+      "voice": "player",
+      "say": "Hm."
+    },
+    {
+      "name": "vo.idle.4",
+      "voice": "player",
+      "say": "There's nothing on."
+    },
+    {
+      "name": "vo.idle.5",
+      "voice": "player",
+      "say": "I could do something. I'm not going to, but I could."
+    },
+    {
+      "name": "vo.shower.1",
+      "voice": "player",
+      "say": "Cold. Cold. Cold — oh, there we go."
+    },
+    {
+      "name": "vo.shower.2",
+      "voice": "player",
+      "say": "Right. That's better. That's much better."
+    },
+    {
+      "name": "vo.eat.1",
+      "voice": "player",
+      "say": "Pasture raised, apparently."
+    },
+    {
+      "name": "vo.eat.2",
+      "voice": "player",
+      "say": "That's the first thing I've eaten since yesterday."
+    },
+    {
+      "name": "vo.dress.1",
+      "voice": "player",
+      "say": "Clean shirt. Look at me."
+    },
+    {
+      "name": "vo.door.shower.1",
+      "voice": "player",
+      "say": "No. I need a shower first. I'm aware."
+    },
+    {
+      "name": "vo.door.dressed.1",
+      "voice": "player",
+      "say": "I'm in what I slept in. Can't turn up in this."
+    },
+    {
+      "name": "vo.door.eat.1",
+      "voice": "player",
+      "say": "I've not eaten. I'll be useless."
+    },
+    {
+      "name": "vo.door.cs.1",
+      "voice": "player",
+      "say": "I told the boys I'd get a game in. Should probably do that."
+    },
+    {
+      "name": "vo.door.piss.1",
+      "voice": "player",
+      "say": "Ninety minutes in that room. I should go first."
+    },
+    {
+      "name": "vo.door.poop.1",
+      "voice": "player",
+      "say": "Absolutely not. Not until that's dealt with."
+    },
+    {
+      "name": "vo.door.beer.1",
+      "voice": "player",
+      "say": "Can't turn up holding this. Well. Shouldn't."
+    },
+    {
+      "name": "vo.door.drunk.1",
+      "voice": "player",
+      "say": "…No. Not like this. They'd know."
+    },
+    {
+      "name": "vo.door.leave.1",
+      "voice": "player",
+      "say": "Right. That's everything. Let's go."
+    },
+    {
+      "name": "vo.door.leave.2",
+      "voice": "player",
+      "say": "Okay. Wednesday. Here we go."
+    }
   ]
 }

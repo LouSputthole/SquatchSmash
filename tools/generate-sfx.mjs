@@ -1,16 +1,30 @@
 #!/usr/bin/env node
 /**
- * Generate the apartment's sound effects with the ElevenLabs Sound Effects API.
+ * Generate the apartment's audio with ElevenLabs.
  *
  *   ELEVENLABS_API_KEY=sk_... node tools/generate-sfx.mjs
  *
- * Reads assets/sfx/manifest.json, generates any cue that does not already have
- * an .mp3 next to it, and writes the result into assets/sfx/.
+ * Two kinds of cue live in assets/sfx/manifest.json, and they go to different
+ * endpoints, because they are genuinely different things:
+ *
+ *   { "prompt": "..." }   a sound effect, described in words
+ *                         -> /v1/sound-generation
+ *   { "say": "..." }      a line of dialogue, spoken
+ *                         -> /v1/text-to-speech/{voice_id}
+ *
+ * Every spoken cue names a voice from the `voices` block at the top of the
+ * manifest, and that block is the only place a voice id appears. One id, one
+ * voice, every line the character says -- change it there and the whole
+ * performance changes together. Sound-generation has no notion of a voice at
+ * all, which is why the split exists.
  *
  * Flags:
  *   --force            regenerate cues even if the file already exists
  *   --only <name,...>  generate just these cues
+ *   --voice-only       just the spoken lines
+ *   --sfx-only         just the sound effects
  *   --dry-run          list what would be generated and exit
+ *   --voices           list the voices on the account and exit
  *
  * Nothing here is required to play the game: every cue has a procedural
  * WebAudio fallback in src/core/audio.js. This just makes it sound real.
@@ -23,6 +37,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SFX_DIR = path.join(ROOT, 'assets', 'sfx');
 const MANIFEST = path.join(SFX_DIR, 'manifest.json');
 const ENDPOINT = 'https://api.elevenlabs.io/v1/sound-generation';
+const TTS = (voiceId) => `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+const VOICES = 'https://api.elevenlabs.io/v1/voices';
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
@@ -33,14 +49,46 @@ const valueOf = (f) => {
 
 const FORCE = has('--force');
 const DRY = has('--dry-run');
+const LIST_VOICES = has('--voices');
+const VOICE_ONLY = has('--voice-only');
+const SFX_ONLY = has('--sfx-only');
 const ONLY = valueOf('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
+
+const isSpoken = (cue) => typeof cue.say === 'string';
 
 const API_KEY = process.env.ELEVENLABS_API_KEY || process.env.XI_API_KEY;
 
 async function main() {
   const manifest = JSON.parse(await fs.readFile(MANIFEST, 'utf8'));
+  const voices = manifest.voices || {};
+
+  if (LIST_VOICES) return listVoices();
+
   let cues = manifest.sfx || [];
   if (ONLY) cues = cues.filter((c) => ONLY.includes(c.name));
+  if (VOICE_ONLY) cues = cues.filter(isSpoken);
+  if (SFX_ONLY) cues = cues.filter((c) => !isSpoken(c));
+
+  // A spoken cue is useless until somebody has pasted a voice id in. Say so
+  // once, clearly, instead of failing forty times against the API.
+  const unset = new Set();
+  for (const cue of cues) {
+    if (!isSpoken(cue)) continue;
+    const v = voices[cue.voice || 'player'];
+    if (!v?.id || /^<.*>$/.test(v.id)) unset.add(cue.voice || 'player');
+  }
+  if (unset.size && !DRY) {
+    console.error(
+      `\nNo voice id set for: ${[...unset].join(', ')}\n\n`
+      + 'Pick a voice, then put its id in the "voices" block of\n'
+      + 'assets/sfx/manifest.json. To see what is on your account:\n'
+      + '  npm run sfx -- --voices\n\n'
+      + 'Every spoken line uses that one id, so the character sounds like one\n'
+      + 'person. Sound effects are unaffected -- run with --sfx-only for those.',
+    );
+    process.exitCode = 1;
+    return;
+  }
 
   const pending = [];
   for (const cue of cues) {
@@ -55,8 +103,14 @@ async function main() {
     return;
   }
 
-  console.log(`${pending.length} cue(s) to generate:`);
-  for (const p of pending) console.log(`  ${p.cue.name.padEnd(20)} ${p.cue.duration ?? 'auto'}s`);
+  const spoken = pending.filter((p) => isSpoken(p.cue)).length;
+  console.log(`${pending.length} cue(s) to generate `
+    + `(${pending.length - spoken} sound, ${spoken} spoken):`);
+  for (const p of pending) {
+    console.log(isSpoken(p.cue)
+      ? `  ${p.cue.name.padEnd(24)} "${p.cue.say}"`
+      : `  ${p.cue.name.padEnd(24)} ${p.cue.duration ?? 'auto'}s`);
+  }
 
   if (DRY) return;
 
@@ -78,9 +132,9 @@ async function main() {
   let failed = 0;
   // Sequential on purpose: friendlier to rate limits, and the log stays readable.
   for (const { cue, dest, file } of pending) {
-    process.stdout.write(`  ${cue.name.padEnd(20)} … `);
+    process.stdout.write(`  ${cue.name.padEnd(24)} … `);
     try {
-      const bytes = await generate(cue);
+      const bytes = isSpoken(cue) ? await speak(cue, voices) : await generate(cue);
       await fs.writeFile(dest, bytes);
       console.log(`ok  (${(bytes.length / 1024).toFixed(0)} KB → assets/sfx/${file})`);
       ok++;
@@ -115,6 +169,48 @@ async function writeIndex() {
     files,
   }, null, 2) + '\n');
   console.log(`\nWrote assets/sfx/index.json (${files.length} file(s)).`);
+}
+
+/**
+ * Speak a line. Voice settings come from the manifest so the whole cast is
+ * tuned in one place rather than per line.
+ */
+async function speak(cue, voices) {
+  const v = voices[cue.voice || 'player'];
+  if (!v?.id) throw new Error(`no voice id for "${cue.voice || 'player'}"`);
+
+  const res = await fetchWithRetry(TTS(v.id) + '?output_format=mp3_44100_128', {
+    method: 'POST',
+    headers: { 'xi-api-key': API_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      text: cue.say,
+      model_id: v.model || 'eleven_multilingual_v2',
+      voice_settings: {
+        stability: cue.stability ?? v.stability ?? 0.42,
+        similarity_boost: v.similarity ?? 0.80,
+        style: cue.style ?? v.style ?? 0.35,
+        use_speaker_boost: true,
+      },
+    }),
+  });
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** What voices does this account have? Handy for filling in the manifest. */
+async function listVoices() {
+  if (!API_KEY) {
+    console.error('ELEVENLABS_API_KEY is not set.');
+    process.exitCode = 1;
+    return;
+  }
+  const res = await fetchWithRetry(VOICES, { headers: { 'xi-api-key': API_KEY } });
+  const { voices = [] } = await res.json();
+  console.log(`${voices.length} voice(s) on this account:\n`);
+  for (const v of voices) {
+    const labels = Object.values(v.labels || {}).join(', ');
+    console.log(`  ${v.voice_id}  ${(v.name || '').padEnd(22)} ${labels}`);
+  }
+  console.log('\nPut one of those ids into the "voices" block of assets/sfx/manifest.json.');
 }
 
 async function generate(cue) {

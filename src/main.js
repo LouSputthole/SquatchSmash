@@ -1,8 +1,11 @@
 /**
- * Squatch Smash -- entry point.
+ * Squatch Life -- entry point.
  *
  * Boots the renderer, builds the apartment, and owns the top-level state
  * machine: title -> in bed -> walking around -> seated at the PC.
+ *
+ * "Squatch Smash" is the arcade game on the desk PC, not this. See
+ * src/arcade/ for that one.
  */
 import * as THREE from 'three';
 import { AudioEngine } from './core/audio.js';
@@ -42,11 +45,27 @@ const assetStatus = document.getElementById('asset-status');
 /* Renderer                                                            */
 /* ------------------------------------------------------------------ */
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-  powerPreference: 'high-performance',
-});
+/* WebGL is the one hard requirement, and it is not always there -- an old
+ * phone, a locked-down frame, a machine with the GPU blocklisted. This runs
+ * at module top level, so throwing here would leave the loading screen
+ * sweeping forever with nothing to explain it. Say what happened instead. */
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: 'high-performance',
+  });
+} catch (err) {
+  window.__squatchFail?.(
+    'This device cannot run the apartment',
+    'It needs WebGL, and the browser would not give us a context. '
+    + 'On a phone this usually means low power mode; in an embedded page it '
+    + 'usually means the frame is not allowed one. Opening it in a normal '
+    + 'browser tab is the fix. ' + (err?.message || ''),
+  );
+  throw err;
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
@@ -103,7 +122,7 @@ const time = new DayNight(6 + 4 / 60);
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
 // Nothing happens in here. Somebody should say so.
-const narrator = new Narrator(hud, time);
+const narrator = new Narrator(hud, time, audio);
 const drunk = new Drunk();
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
@@ -162,6 +181,7 @@ const cig = { t: -1, lit: false, exhaled: false, afterglow: 0 };
 /* ------------------------------------------------------------------ */
 
 async function boot() {
+  window.__squatchStage?.('Building the apartment…');
   apartment = await buildApartment({
     scene,
     audio,
@@ -200,6 +220,7 @@ async function boot() {
     apartment.toiletCollider,
   );
 
+  window.__squatchStage?.('Tuning the radio…');
   radio.setPosition(apartment.radioPos);
   const trackCount = await radio.loadManifest();
 
@@ -214,6 +235,7 @@ async function boot() {
     'drop files in assets/music/ and assets/art/ — see README',
   ].join('<br>');
 
+  window.__squatchStage?.('Ready.');
   loading.classList.add('hidden');
 
   // Dev handle: lets you inspect and pose the scene from the console, e.g.
@@ -243,7 +265,7 @@ async function boot() {
 
 boot().catch((err) => {
   console.error(err);
-  loading.querySelector('span').textContent = 'Failed to load — check the console.';
+  window.__squatchFail?.('Could not build the apartment', err?.message || String(err));
 });
 
 /* ------------------------------------------------------------------ */
@@ -325,7 +347,7 @@ function pauseGame() {
   overlay.classList.remove('hidden');
   overlay.querySelector('h1').innerHTML = 'PAUSED<span>SQUATCH SMASH</span>';
   overlay.querySelector('.tag').textContent = game.seated
-    ? 'Still at the desk. The squatch can wait.'
+    ? 'Still at the desk. The meeting is not until tomorrow.'
     : 'The fridge is not going anywhere.';
   startBtn.textContent = 'Resume';
 }
@@ -431,6 +453,7 @@ function getUp() {
   hud.hidePrompt();
   audio.play('bed.creak', { volume: 0.7 });
   audio.play('bed.rustle', { volume: 0.6, delay: 0.2 });
+  audio.say('getup', { chance: 0.7 });
   player.standUpFromBed(apartment.bedExit, apartment.bedLookYaw, () => {
     interaction.setPaused(false);
   });
@@ -444,6 +467,7 @@ function sitAtPC() {
   hud.setMode('seated');
   audio.play('chair.roll', { volume: 0.4 });
   audio.play('chair.sit', { volume: 0.6, delay: 0.25 });
+  audio.say('pc.sit', { chance: 0.6, delay: 0.9 });
 
   player.sitAt(apartment.deskPose, () => {
     audio.setMuffle(true);
@@ -528,6 +552,7 @@ function lieOnBed() {
   hud.setMode('seated');
   audio.play('bed.creak', { volume: 0.7 });
   audio.play('bed.rustle', { volume: 0.6, delay: 0.25 });
+  audio.say('liedown', { chance: 0.8 });
 
   player.lieDown(apartment.bedPose, () => {
     hud.say('Ceiling. <em>[E] to sleep it off &middot; [Q] to get up.</em>', 5200);
@@ -539,6 +564,7 @@ function sleepInBed() {
   if (!game.inBed || game.passingOut) return;
   game.inBed = false;
   hud.hidePrompt();
+  audio.say('sleep');
   hud.say('You close your eyes. It is not like you had plans.', 2600);
   passOut({ voluntary: true });
 }
@@ -590,7 +616,10 @@ function updateDrinking(dt, holdingF) {
     return;
   }
 
-  if (game.drinking === 0) audio.play('can.crack', { volume: 0.8 });
+  if (game.drinking === 0) {
+    audio.play('can.crack', { volume: 0.8 });
+    audio.say('beer.open', { chance: 0.5, delay: 0.5 });
+  }
   game.drinking += dt;
 
   hud.showPrompt('Drinking…', 'F');
@@ -610,6 +639,8 @@ function updateDrinking(dt, holdingF) {
 
     // The first couple steady you. After that the room starts moving.
     const n = apartment.state.beersDrunk;
+    audio.say(n <= 2 ? 'beer.good' : 'beer.many', { chance: 0.75, delay: 0.4 });
+    if (apartment.state.beersLeft === 0) audio.say('beer.last', { delay: 2.2 });
     if (n <= 2) {
       arcade.grantBuff?.(1);
       hud.toast('Steady hands — +1 slow-mo charge at the PC', 'good');
@@ -696,6 +727,7 @@ function updateSmoking(dt, holdingF) {
     cig.lit = false;
     cig.exhaled = false;
     audio.play('cig.light', { volume: 0.75 });
+    audio.say('cig.light', { chance: 0.35, delay: 1.4 });
   }
 
   if (cig.t < 0) {
@@ -978,6 +1010,7 @@ function updateBowel(dt) {
   }
 
   if (st.bowel >= 1 && !st.urgeAnnounced) {
+    audio.say('poop.urge', { delay: 0.3 });
     st.urgeAnnounced = true;
     audio.play('belly.rumble', { volume: 0.85 });
     hud.toast('You need to go. Now.', 'bad');

@@ -1,10 +1,10 @@
-# Squatch Smash
+# Squatch Life
 
 Two things live in this repo.
 
 | | |
 |---|---|
-| **The apartment** (repo root) | First-person. You wake up at 6:04 AM with a fridge, a radio, a bathroom and a gaming PC, and nothing much to do. |
+| **Squatch Life** (repo root) | First-person. You wake up on Tuesday at 6:04 AM with a fridge, a radio, a bathroom and a gaming PC. The Squatch meeting is tomorrow night. |
 | **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
 
 ```bash
@@ -23,9 +23,9 @@ scoring. Everything below is the apartment.
 
 ---
 
-## The apartment
+## Squatch Life
 
-You wake up in your apartment at 6:04 AM. There's a fridge with beer in it, a
+You wake up in your apartment on Tuesday at 6:04 AM. There's a fridge with beer in it, a
 radio on the sideboard, squatch gear on the walls, and a gaming PC on the desk
 that runs a game called **Squatch Smash**.
 
@@ -187,8 +187,21 @@ npm run sfx -- --force                         # regenerate existing files
 npm run sfx:dry                                # list what would run, generate nothing
 ```
 
-Each of the 89 cues in `manifest.json` carries the text prompt used to generate
-it — edit a prompt and regenerate that one cue to taste.
+```bash
+npm run sfx:voices                             # list voices on your account
+npm run sfx:vo                                 # just the spoken lines
+npm run sfx -- --sfx-only                      # just the sound effects
+```
+
+There are two kinds of cue in `manifest.json` and they go to different
+endpoints. A cue with `prompt` is a sound effect, described in words, and goes
+to sound-generation — edit a prompt and regenerate that one cue to taste. A cue
+with `say` is a line of dialogue and goes to text-to-speech.
+
+Every spoken line resolves its voice through the `voices` block at the top of
+the manifest, which is the only place a voice id appears in the project. One
+id, one voice, every line the character says. Paste yours in before running
+`npm run sfx:vo`; nothing spoken generates until you do.
 
 **This step is optional.** Every cue has a procedural WebAudio fallback in
 `src/core/audio.js`, so the apartment is fully audible with no API key and no

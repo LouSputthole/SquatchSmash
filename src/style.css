@@ -396,6 +396,24 @@ kbd.key, .controls kbd {
   transition: opacity .4s ease;
 }
 #loading.hidden { opacity: 0; pointer-events: none; }
+
+/* Something went wrong and the person reading this may have no console. */
+#loading.failed { color: #cdc3ae; padding: 32px; text-align: center; }
+#loading.failed .bar { display: none; }
+#loading.failed strong {
+  display: block;
+  color: var(--red);
+  font-size: 15px;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+#loading.failed span {
+  display: block;
+  max-width: 46ch;
+  line-height: 1.6;
+  letter-spacing: 0;
+  color: #8d8471;
+}
 #loading .bar { width: 220px; height: 3px; background: #1b1a16; border-radius: 2px; overflow: hidden; }
 #loading .bar i {
   display: block;

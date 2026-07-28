@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Squatch Smash</title>
+<title>Squatch Life</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#129421;</text></svg>" />
 <link rel="stylesheet" href="src/style.css" />
 <script type="importmap">
@@ -66,8 +66,8 @@
 <!-- ============ Title / Pause ============ -->
 <div id="overlay">
   <div class="panel">
-    <h1>SQUATCH<span>SMASH</span></h1>
-    <p class="tag">Tuesday. 6:04 AM. You did not set an alarm.</p>
+    <h1>SQUATCH<span>LIFE</span></h1>
+    <p class="tag">Tuesday, 6:04 AM. The Squatch meeting is tomorrow night.</p>
     <button id="start-btn">Wake Up</button>
     <ul class="controls">
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</li>
@@ -84,6 +84,53 @@
 
 <div id="loading"><div class="bar"><i></i></div><span>Loading apartment…</span></div>
 
-<script type="module" src="src/main.js"></script>
+<!-- Anything that goes wrong before or during boot has to end up on the
+     screen. Half the time this runs somewhere with no console to check:
+     a phone, an embedded frame, a page somebody was sent a link to. This
+     is deliberately plain script, loaded before the module, so it also
+     catches the module failing to parse or a missing import. -->
+<script>
+(function () {
+  var shown = false;
+  window.__squatchFail = function (title, detail) {
+    if (shown) return;
+    shown = true;
+    var el = document.getElementById('loading');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('failed');
+    el.innerHTML = '<strong></strong><span></span>';
+    el.querySelector('strong').textContent = title;
+    el.querySelector('span').textContent = detail || '';
+  };
+  window.__squatchStage = function (text) {
+    if (shown) return;
+    var el = document.getElementById('loading');
+    var s = el && el.querySelector('span');
+    if (s) s.textContent = text;
+  };
+  addEventListener('error', function (e) {
+    window.__squatchFail('Could not start', e.message || String(e.error || e));
+  });
+  addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    window.__squatchFail('Could not start', (r && r.message) || String(r));
+  });
+  // A module that fails to fetch or parse does not always reach either
+  // handler above, so back them with a plain watchdog: if the game has not
+  // announced itself by now, something went wrong and nobody said so.
+  setTimeout(function () {
+    if (!window.__squatch) {
+      window.__squatchFail(
+        'The apartment did not finish loading',
+        'Everything it needs is in this page, so this is not a connection '
+        + 'problem. Reloading usually clears it. If it keeps happening, the '
+        + 'browser console will have the reason.');
+    }
+  }, 30000);
+})();
+</script>
+
+<script type="module" src="src/main.js" onerror="window.__squatchFail('Could not load the game code', 'src/main.js failed to load.')"></script>
 </body>
 </html>
