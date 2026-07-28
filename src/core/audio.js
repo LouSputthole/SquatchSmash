@@ -514,6 +514,107 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t, { freq: 480, to: 300, dur: 0.09, gain: 0.10, type: 'triangle' });
       break;
 
+    /* -------- farts --------
+     * Seven variants, all built from a buzzy sawtooth whose pitch wobbles,
+     * gated by a filtered noise puff. Crude, but so is the subject.
+     */
+    case 'fart.1': case 'fart.2': case 'fart.3':
+    case 'fart.4': case 'fart.5': case 'fart.6': case 'fart.7': {
+      const v = Number(name.slice(-1));
+      const dur = [0, 0.34, 0.95, 0.26, 1.10, 0.42, 1.55, 0.20][v];
+      const f0 = [0, 118, 74, 260, 96, 150, 62, 205][v];
+      const f1 = [0, 62, 44, 150, 70, 58, 36, 90][v];
+      const wob = [0, 22, 14, 46, 34, 26, 10, 30][v];
+
+      const o = ctx.createOscillator();
+      o.type = v === 3 || v === 7 ? 'square' : 'sawtooth';
+      o.frequency.setValueAtTime(f0, t);
+      o.frequency.exponentialRampToValueAtTime(Math.max(24, f1), t + dur);
+
+      // Wobble gives it the flutter; a stuttering one is gated harder.
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = v === 4 ? 19 : v === 6 ? 5.5 : 11;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = wob;
+      lfo.connect(lfoGain);
+      lfoGain.connect(o.frequency);
+
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(v === 3 ? 2600 : 900, t);
+      lp.frequency.exponentialRampToValueAtTime(v === 3 ? 900 : 260, t + dur);
+      lp.Q.value = 6;
+
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.42, t + 0.02);
+      if (v === 4) {
+        // Sputter: chop the tail into bursts.
+        for (let i = 0; i < 5; i++) {
+          g.gain.setValueAtTime(0.42, t + 0.06 + i * 0.19);
+          g.gain.exponentialRampToValueAtTime(0.05, t + 0.16 + i * 0.19);
+        }
+      }
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+      o.connect(lp); lp.connect(g); g.connect(dest);
+      o.start(t); o.stop(t + dur + 0.05);
+      lfo.start(t); lfo.stop(t + dur + 0.05);
+
+      if (v === 5) burst(ctx, dest, t, { dur, type: 'bandpass', freq: 700, q: 1.4, gain: 0.14, sweep: 0.4 });
+      break;
+    }
+
+    /* -------- the other thing -------- */
+    case 'poop.1': case 'poop.2': case 'poop.3': case 'poop.4': {
+      const v = Number(name.slice(-1));
+      const dur = [0, 0.55, 1.05, 0.35, 1.45][v];
+      // Low wet burble: a wobbling saw through a tight lowpass.
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(90, t);
+      o.frequency.exponentialRampToValueAtTime(46, t + dur);
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 7 + v * 2;
+      const lg = ctx.createGain();
+      lg.gain.value = 20;
+      lfo.connect(lg); lg.connect(o.frequency);
+      const f = ctx.createBiquadFilter();
+      f.type = 'lowpass'; f.frequency.value = 420; f.Q.value = 5;
+      const g2 = ctx.createGain();
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(0.30, t + 0.05);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(f); f.connect(g2); g2.connect(dest);
+      o.start(t); o.stop(t + dur + 0.05);
+      lfo.start(t); lfo.stop(t + dur + 0.05);
+      burst(ctx, dest, t, { dur, type: 'lowpass', freq: 700, gain: 0.14, sweep: 0.4 });
+      break;
+    }
+    case 'toilet.plop':
+      tone(ctx, dest, t, { freq: 620, to: 150, dur: 0.13, gain: 0.30, type: 'sine' });
+      burst(ctx, dest, t + 0.10, { dur: 0.30, type: 'bandpass', freq: 1400, q: 1.2, gain: 0.10, sweep: 0.5 });
+      break;
+    case 'belly.rumble':
+      tone(ctx, dest, t, { freq: 58, to: 34, dur: 1.6, gain: 0.30, type: 'sine' });
+      burst(ctx, dest, t, { dur: 1.6, type: 'lowpass', freq: 300, q: 4, gain: 0.22, sweep: 0.5 });
+      burst(ctx, dest, t + 0.6, { dur: 0.9, type: 'bandpass', freq: 180, q: 6, gain: 0.14, sweep: 1.6 });
+      break;
+
+    /* -------- bathroom -------- */
+    case 'pee.zip':
+      burst(ctx, dest, t, { dur: 0.16, type: 'bandpass', freq: 2400, q: 1.2, gain: 0.26, sweep: 2.4 });
+      break;
+    case 'toilet.flush':
+      burst(ctx, dest, t, { dur: 2.4, type: 'lowpass', freq: 1400, gain: 0.42, sweep: 0.28 });
+      tone(ctx, dest, t, { freq: 210, to: 90, dur: 1.6, gain: 0.10, type: 'sine' });
+      burst(ctx, dest, t + 2.2, { dur: 1.6, type: 'bandpass', freq: 700, q: 0.8, gain: 0.16, sweep: 1.4 });
+      break;
+    case 'sink.tap':
+      burst(ctx, dest, t, { dur: 2.6, type: 'bandpass', freq: 2000, q: 0.6, gain: 0.22 });
+      break;
+
     /* -------- whiskey -------- */
     case 'whiskey.cap':
       burst(ctx, dest, t, { dur: 0.22, type: 'bandpass', freq: 2600, q: 3, gain: 0.20, sweep: 1.5 });
@@ -666,6 +767,12 @@ function synthLoop(engine, name, dest) {
     case 'radio.static':
       noise('bandpass', 1800, 0.7, 0.30);
       noise('highpass', 4000, 0.5, 0.10);
+      break;
+    case 'pee.stream':
+      // Splashing water: bright filtered noise with a low burble under it.
+      noise('bandpass', 2600, 0.8, 0.34);
+      noise('bandpass', 900, 1.4, 0.20);
+      noise('lowpass', 260, 0.7, 0.14);
       break;
     default:
       noise('lowpass', 400, 0.5, 0.12);

@@ -7,7 +7,10 @@
  */
 import * as THREE from 'three';
 import { box, boxFrom, cylinder, sphere, plane, mat, group } from './build.js';
-import { drawSquatchSilhouette } from './textures.js';
+import { drawSquatchSilhouette, brushedMetal } from './textures.js';
+
+/** Basin interiors reuse the appliance metal, tiled tighter. */
+const T_brushed = brushedMetal('#c2c6ca');
 
 /* ------------------------------------------------------------------ */
 /* Bedroom                                                             */
@@ -358,14 +361,44 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     g.add(cylinder({ r: 0.010, h: 0.11, pos: [x0 - 0.035, top - 0.16, cz], mat: M.chrome }));
   }
 
-  // Sink.
+  /* ---- sink: a real inset basin, not a flat plate ---- */
   const sinkZ = (z0 + z1) / 2 + 0.35;
-  g.add(boxFrom(x0 + 0.10, top - 0.16, sinkZ - 0.22, wallX - 0.10, top - 0.02, sinkZ + 0.22, M.steel, { cast: false }));
-  g.add(cylinder({ r: 0.016, h: 0.26, pos: [wallX - 0.14, top + 0.13, sinkZ], mat: M.chrome }));
-  g.add(cylinder({ r: 0.013, h: 0.16, pos: [wallX - 0.26, top + 0.24, sinkZ], rotZ: Math.PI / 2, mat: M.chrome }));
-  // A couple of dishes nobody has dealt with.
-  g.add(cylinder({ r: 0.09, h: 0.012, pos: [x0 + 0.26, top - 0.13, sinkZ - 0.06], mat: M.paper }));
-  g.add(cylinder({ r: 0.085, h: 0.012, pos: [x0 + 0.26, top - 0.115, sinkZ + 0.04], mat: M.paper, rotZ: 0.03 }));
+  const bx0 = x0 + 0.10, bx1 = wallX - 0.12;
+  const bz0 = sinkZ - 0.24, bz1 = sinkZ + 0.24;
+  const DEPTH = 0.17;
+  const steelIn = mat({ map: T_brushed, roughness: 0.28, metalness: 0.85 });
+
+  // Basin: four inner walls and a bottom, dropped below the counter, with a
+  // narrow rim standing proud of the laminate.
+  g.add(boxFrom(bx0 - 0.02, top - 0.01, bz0 - 0.02, bx1 + 0.02, top + 0.008, bz1 + 0.02, M.steel, { cast: false }));
+  g.add(boxFrom(bx0, top - DEPTH, bz0, bx1, top - DEPTH + 0.012, bz1, steelIn, { cast: false }));
+  g.add(boxFrom(bx0, top - DEPTH, bz0, bx0 + 0.012, top, bz1, steelIn, { cast: false }));
+  g.add(boxFrom(bx1 - 0.012, top - DEPTH, bz0, bx1, top, bz1, steelIn, { cast: false }));
+  g.add(boxFrom(bx0, top - DEPTH, bz0, bx1, top, bz0 + 0.012, steelIn, { cast: false }));
+  g.add(boxFrom(bx0, top - DEPTH, bz1 - 0.012, bx1, top, bz1, steelIn, { cast: false }));
+  // Plughole.
+  g.add(cylinder({ r: 0.028, h: 0.006, pos: [(bx0 + bx1) / 2, top - DEPTH + 0.014, sinkZ], mat: M.chrome }));
+
+  // Mixer tap: riser, gooseneck spout, lever.
+  g.add(cylinder({ r: 0.030, h: 0.018, pos: [wallX - 0.13, top + 0.009, sinkZ], mat: M.chrome }));
+  g.add(cylinder({ r: 0.020, h: 0.20, pos: [wallX - 0.13, top + 0.11, sinkZ], mat: M.chrome }));
+  const spout = new THREE.Mesh(
+    new THREE.TorusGeometry(0.075, 0.018, 8, 20, Math.PI / 2),
+    M.chrome,
+  );
+  spout.position.set(wallX - 0.13, top + 0.21, sinkZ);
+  spout.rotation.set(0, Math.PI / 2, Math.PI);
+  spout.castShadow = true;
+  g.add(spout);
+  g.add(cylinder({ r: 0.018, h: 0.035, pos: [wallX - 0.205, top + 0.195, sinkZ], mat: M.chrome }));
+  g.add(box({ size: [0.075, 0.014, 0.016], pos: [wallX - 0.17, top + 0.20, sinkZ + 0.045], mat: M.chrome, rotZ: 0.25 }));
+
+  // Washing-up nobody has dealt with, sitting down in the basin.
+  g.add(cylinder({ r: 0.095, h: 0.014, pos: [bx0 + 0.16, top - DEPTH + 0.024, sinkZ - 0.05], mat: M.paper, rotZ: 0.05 }));
+  g.add(cylinder({ r: 0.088, h: 0.014, pos: [bx0 + 0.17, top - DEPTH + 0.040, sinkZ + 0.04], mat: M.paper, rotZ: -0.04 }));
+  g.add(cylinder({ rTop: 0.042, rBottom: 0.034, h: 0.09, pos: [bx1 - 0.13, top - DEPTH + 0.06, sinkZ + 0.09], mat: M.glass }));
+  // Washing-up liquid on the rim.
+  g.add(cylinder({ rTop: 0.020, rBottom: 0.028, h: 0.15, pos: [wallX - 0.30, top + 0.075, sinkZ + 0.30], mat: mat({ color: 0x2f9c5a, roughness: 0.35 }) }));
 
   // Cooktop.
   const stoveZ = z0 + 0.55;
@@ -1078,9 +1111,10 @@ export function makeWhiskeyBottle(M, { x, y, z, rotY = 0 }) {
   d.fillStyle = '#efe8d4';
   d.font = 'bold 22px "Courier New", monospace';
   d.fillText('OLD  No. 7½', LW / 2, 62);
+  d.font = 'bold 34px Georgia, "Times New Roman", serif';
+  d.fillText('JACK AND', LW / 2, 122);
   d.font = 'bold 40px Georgia, "Times New Roman", serif';
-  d.fillText('JACK &', LW / 2, 122);
-  d.fillText("DANIEL'S", LW / 2, 166);
+  d.fillText("DANIEL'S", LW / 2, 168);
   d.font = 'bold 17px "Courier New", monospace';
   d.fillStyle = '#c9b273';
   d.fillText('TENNESSEE', LW / 2, 208);
@@ -1170,6 +1204,230 @@ export function makeHeldCigarette() {
   glow.position.set(0.030, 0, 0);
   g.add(glow);
   return { group: g, ember, glow };
+}
+
+/* ------------------------------------------------------------------ */
+/* Bathroom                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Close-coupled toilet. Returns the lid and seat pivots so they can be put
+ * up, plus the bowl opening as a box for aim-testing.
+ */
+export function makeToilet(M, { x, z, rotY = 0 }) {
+  const g = group('toilet');
+  g.position.set(x, 0, z);
+  g.rotation.y = rotY;
+
+  const porcelain = mat({ color: 0xeceee9, roughness: 0.22 });
+  const SEAT_Y = 0.40;
+
+  // Pedestal, flaring out to the floor.
+  g.add(cylinder({ rTop: 0.14, rBottom: 0.19, h: 0.30, pos: [0, 0.15, 0.02], mat: porcelain }));
+  g.add(box({ size: [0.30, 0.30, 0.22], pos: [0, 0.15, -0.14], mat: porcelain }));
+
+  // Bowl: an outer shell with a darker recess for the water.
+  const bowl = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.20, 0.155, 0.16, 26),
+    porcelain,
+  );
+  bowl.position.set(0, SEAT_Y - 0.08, 0.02);
+  bowl.scale.z = 1.22;
+  bowl.castShadow = true;
+  bowl.receiveShadow = true;
+  g.add(bowl);
+
+  const water = new THREE.Mesh(
+    new THREE.CircleGeometry(0.155, 24),
+    new THREE.MeshPhysicalMaterial({
+      color: 0x9fc4cf, roughness: 0.06, metalness: 0,
+      transmission: 0.6, transparent: true, opacity: 0.75, thickness: 0.05,
+    }),
+  );
+  water.rotation.x = -Math.PI / 2;
+  water.position.set(0, SEAT_Y - 0.13, 0.02);
+  water.scale.z = 1.22;
+  g.add(water);
+
+  // Seat + lid, each on a hinge at the back.
+  const seatPivot = new THREE.Group();
+  seatPivot.position.set(0, SEAT_Y, -0.20);
+  const seat = new THREE.Mesh(
+    new THREE.TorusGeometry(0.175, 0.026, 10, 28),
+    mat({ color: 0xf2f3f0, roughness: 0.3 }),
+  );
+  seat.rotation.x = -Math.PI / 2;
+  seat.position.set(0, 0.012, 0.22);
+  seat.scale.y = 1.2;
+  seat.castShadow = true;
+  seatPivot.add(seat);
+  g.add(seatPivot);
+
+  const lidPivot = new THREE.Group();
+  lidPivot.position.set(0, SEAT_Y + 0.03, -0.20);
+  const lid = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.195, 0.195, 0.022, 26),
+    mat({ color: 0xf2f3f0, roughness: 0.3 }),
+  );
+  lid.position.set(0, 0, 0.22);
+  lid.scale.z = 1.18;
+  lid.castShadow = true;
+  lidPivot.add(lid);
+  g.add(lidPivot);
+
+  // Cistern + flush lever.
+  g.add(box({ size: [0.40, 0.42, 0.17], pos: [0, 0.60, -0.30], mat: porcelain }));
+  g.add(box({ size: [0.42, 0.03, 0.19], pos: [0, 0.82, -0.30], mat: porcelain }));
+  const lever = box({ size: [0.05, 0.016, 0.016], pos: [0.15, 0.74, -0.22], mat: M.chrome });
+  g.add(lever);
+
+  // Loo roll on a holder to one side.
+  g.add(cylinder({ r: 0.008, h: 0.14, pos: [-0.34, 0.62, -0.10], rotZ: Math.PI / 2, mat: M.chrome }));
+  g.add(cylinder({ r: 0.055, h: 0.10, pos: [-0.34, 0.62, -0.10], rotZ: Math.PI / 2, mat: M.paper }));
+
+  return {
+    group: g,
+    lidPivot,
+    seatPivot,
+    /** World-space centre of the bowl opening. */
+    bowl: new THREE.Vector3(x, SEAT_Y, z + 0.02),
+    bowlRadius: 0.19,
+    bounds: [[x - 0.24, 0, z - 0.42], [x + 0.24, 0.84, z + 0.30]],
+  };
+}
+
+/** Pedestal basin: recessed bowl, mixer tap, mirrored cabinet, towel rail. */
+export function makeBathSink(M, { x, z, rotY = 0 }) {
+  const g = group('bathsink');
+  g.position.set(x, 0, z);
+  g.rotation.y = rotY;
+
+  const porcelain = mat({ color: 0xeceee9, roughness: 0.20 });
+  const TOP = 0.84;
+
+  // Pedestal, waisted rather than a plain tube.
+  g.add(cylinder({ rTop: 0.11, rBottom: 0.155, h: 0.14, pos: [0, 0.07, 0], mat: porcelain }));
+  g.add(cylinder({ rTop: 0.105, rBottom: 0.11, h: 0.42, pos: [0, 0.35, 0], mat: porcelain }));
+  g.add(cylinder({ rTop: 0.16, rBottom: 0.105, h: 0.14, pos: [0, 0.63, 0], mat: porcelain }));
+
+  // Counter slab with a rolled front edge.
+  g.add(box({ size: [0.54, 0.09, 0.40], pos: [0, TOP - 0.045, 0], mat: porcelain }));
+  g.add(cylinder({ r: 0.045, h: 0.54, pos: [0, TOP - 0.045, 0.20], rotZ: Math.PI / 2, mat: porcelain }));
+
+  // Recessed bowl: a rim ring plus a cone dropping into a plughole, so it
+  // reads as a basin you could fill rather than a disc painted on the top.
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.145, 0.022, 10, 30),
+    porcelain,
+  );
+  rim.rotation.x = -Math.PI / 2;
+  rim.position.set(0, TOP, 0.01);
+  rim.scale.z = 0.86;
+  rim.castShadow = true;
+  g.add(rim);
+
+  const bowl = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.145, 0.055, 0.13, 28, 1, true),
+    mat({ color: 0xe4e7e3, roughness: 0.16, side: THREE.DoubleSide }),
+  );
+  bowl.position.set(0, TOP - 0.062, 0.01);
+  bowl.scale.z = 0.86;
+  g.add(bowl);
+  g.add(cylinder({ r: 0.055, h: 0.008, pos: [0, TOP - 0.126, 0.01], mat: porcelain }));
+  g.add(cylinder({ r: 0.020, h: 0.006, pos: [0, TOP - 0.120, 0.01], mat: M.chrome }));
+
+  // Mixer tap: riser, curved spout, two handles.
+  g.add(cylinder({ r: 0.026, h: 0.02, pos: [0, TOP + 0.005, -0.145], mat: M.chrome }));
+  g.add(cylinder({ r: 0.019, h: 0.13, pos: [0, TOP + 0.07, -0.145], mat: M.chrome }));
+  const spout = new THREE.Mesh(
+    new THREE.TorusGeometry(0.055, 0.017, 8, 20, Math.PI / 2),
+    M.chrome,
+  );
+  spout.position.set(0, TOP + 0.135, -0.145);
+  spout.rotation.set(Math.PI / 2, 0, Math.PI);
+  spout.castShadow = true;
+  g.add(spout);
+  g.add(cylinder({ r: 0.017, h: 0.03, pos: [0, TOP + 0.122, -0.090], mat: M.chrome }));
+  for (const sx of [-1, 1]) {
+    g.add(cylinder({ r: 0.016, h: 0.016, pos: [sx * 0.085, TOP + 0.012, -0.135], mat: M.chrome }));
+    g.add(box({ size: [0.012, 0.05, 0.030], pos: [sx * 0.085, TOP + 0.04, -0.135], mat: M.chrome, rotX: -0.3 }));
+  }
+
+  // Mirrored cabinet: carcass, frame, then the glass proud of it.
+  g.add(box({ size: [0.60, 0.72, 0.13], pos: [0, 1.46, -0.255], mat: mat({ color: 0xdad6cc, roughness: 0.6 }) }));
+  g.add(box({ size: [0.62, 0.74, 0.02], pos: [0, 1.46, -0.196], mat: M.trim }));
+  const mirror = box({
+    size: [0.54, 0.66, 0.012], pos: [0, 1.46, -0.186],
+    mat: new THREE.MeshStandardMaterial({ color: 0xc8d2da, roughness: 0.03, metalness: 1.0 }),
+  });
+  g.add(mirror);
+  // Strip light over the cabinet.
+  g.add(box({ size: [0.44, 0.05, 0.07], pos: [0, 1.88, -0.24], mat: mat({ color: 0xf0efe6, roughness: 0.7 }) }));
+
+  // Towel on a rail to one side.
+  g.add(cylinder({ r: 0.010, h: 0.34, pos: [0.40, 1.02, -0.20], rotZ: Math.PI / 2, mat: M.chrome }));
+  const towel = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.26, 0.34, 8, 1),
+    mat({ color: 0x8fb0bd, roughness: 0.95, side: THREE.DoubleSide }),
+  );
+  const tp = towel.geometry.attributes.position;
+  for (let i = 0; i < tp.count; i++) tp.setZ(i, Math.sin(tp.getX(i) * 22) * 0.012);
+  towel.geometry.computeVertexNormals();
+  towel.position.set(0.40, 0.85, -0.19);
+  towel.castShadow = true;
+  g.add(towel);
+
+  // Cup of toothbrushes and a bar of soap.
+  g.add(cylinder({ rTop: 0.032, rBottom: 0.026, h: 0.085, pos: [-0.20, TOP + 0.04, 0.05], mat: mat({ color: 0x3aa0c8, roughness: 0.35 }) }));
+  for (const [bx, lean] of [[-0.206, 0.12], [-0.194, -0.10]]) {
+    g.add(cylinder({ r: 0.005, h: 0.13, pos: [bx, TOP + 0.115, 0.05], mat: M.paper, rotZ: lean }));
+  }
+  g.add(box({ size: [0.075, 0.026, 0.05], pos: [0.20, TOP + 0.013, 0.06], mat: mat({ color: 0xe4d7b0, roughness: 0.6 }) }));
+
+  return {
+    group: g,
+    mirror,
+    bounds: [[x - 0.30, 0, z - 0.24], [x + 0.30, TOP, z + 0.24]],
+  };
+}
+
+/** Bath with a shower head and a half-drawn curtain. */
+export function makeTub(M, { x0, z0, x1, z1 }) {
+  const g = group('tub');
+  const porcelain = mat({ color: 0xeceee9, roughness: 0.24 });
+  const H = 0.56;
+
+  // Shell: four walls and a floor, so it reads as a tub you could stand in.
+  g.add(boxFrom(x0, 0, z0, x1, 0.10, z1, porcelain));
+  g.add(boxFrom(x0, 0, z0, x0 + 0.07, H, z1, porcelain));
+  g.add(boxFrom(x1 - 0.07, 0, z0, x1, H, z1, porcelain));
+  g.add(boxFrom(x0, 0, z0, x1, H, z0 + 0.07, porcelain));
+  g.add(boxFrom(x0, 0, z1 - 0.07, x1, H, z1, porcelain));
+
+  const cx = (x0 + x1) / 2;
+  // Shower riser + head against the short wall.
+  g.add(cylinder({ r: 0.014, h: 1.10, pos: [cx, H + 0.60, z0 + 0.12], mat: M.chrome }));
+  const head = cylinder({ rTop: 0.075, rBottom: 0.035, h: 0.06, pos: [cx, H + 1.10, z0 + 0.22], mat: M.chrome });
+  head.rotation.x = 0.5;
+  g.add(head);
+  g.add(cylinder({ r: 0.016, h: 0.10, pos: [cx, 0.62, z0 + 0.12], mat: M.chrome }));
+
+  // Curtain rail + a curtain shoved to one end.
+  g.add(cylinder({ r: 0.012, h: z1 - z0, pos: [cx, 2.05, (z0 + z1) / 2], rotX: Math.PI / 2, mat: M.chrome }));
+  const curtain = new THREE.Mesh(
+    new THREE.PlaneGeometry((z1 - z0) * 0.42, 1.45, 10, 1),
+    mat({ color: 0xd8e2e6, roughness: 0.95, side: THREE.DoubleSide, transparent: true, opacity: 0.82 }),
+  );
+  const pos = curtain.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setZ(i, Math.sin(pos.getX(i) * 9) * 0.05);
+  }
+  curtain.geometry.computeVertexNormals();
+  curtain.rotation.y = Math.PI / 2;
+  curtain.position.set(cx, 1.32, z1 - (z1 - z0) * 0.22);
+  g.add(curtain);
+
+  return { group: g, bounds: [[x0, 0, z0], [x1, H, z1]] };
 }
 
 /** Free-standing "SQUATCH CROSSING" sign leaning in a corner. */

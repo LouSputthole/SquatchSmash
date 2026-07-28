@@ -36,7 +36,7 @@ export function makeMaterials() {
 
     steel: mat({ map: T.brushedMetal('#b7babe'), roughness: 0.34, metalness: 0.82 }),
     darkSteel: mat({ color: 0x4a4d52, roughness: 0.4, metalness: 0.7 }),
-    chrome: mat({ color: 0xd8dce0, roughness: 0.15, metalness: 0.95 }),
+    chrome: mat({ color: 0xe6eaee, roughness: 0.12, metalness: 1.0 }),
     black: mat({ color: 0x232326, roughness: 0.55 }),
     plasticBlack: mat({ color: 0x2b2b31, roughness: 0.42 }),
     plasticGrey: mat({ color: 0x6d6f74, roughness: 0.6 }),

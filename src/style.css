@@ -235,6 +235,40 @@ kbd.key, .controls kbd {
   max-width: 260px;
 }
 
+/* bladder meter */
+#bladder {
+  position: absolute;
+  left: 22px;
+  bottom: 86px;
+  width: 150px;
+  transition: opacity .4s ease;
+}
+#bladder.hidden { opacity: 0; }
+#bladder .cap {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #8d846f;
+  text-transform: uppercase;
+}
+#bladder .bar {
+  margin-top: 4px;
+  height: 5px;
+  background: rgba(11, 10, 8, .7);
+  border: 1px solid rgba(255, 182, 72, .2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+#bladder .bar i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--amber);
+  transition: width .25s linear, background .3s ease;
+}
+#bladder.urgent .bar i { background: var(--red); }
+#bladder.urgent .cap { color: var(--red); }
+#bladder.draining .bar i { background: var(--green); }
+
 /* toasts */
 #toast-stack {
   position: absolute;

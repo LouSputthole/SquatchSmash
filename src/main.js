@@ -14,7 +14,9 @@ import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { SmokeSystem } from './world/smoke.js';
+import { StreamSystem } from './world/stream.js';
 import { makeHeldCigarette } from './world/props.js';
+import { roomEnvironment } from './world/textures.js';
 
 const DRINK_TIME = 2.4;
 const SWIG_TIME = 1.7;   // whiskey goes down faster, for better or worse
@@ -55,6 +57,19 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05060a);
 scene.fog = new THREE.Fog(0x0d1018, 14, 34);
 
+// Metals need something to reflect or they render black. One small procedural
+// room capture, prefiltered once, and every chrome fitting in the apartment
+// starts behaving like metal.
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const src = roomEnvironment();
+  scene.environment = pmrem.fromEquirectangular(src).texture;
+  scene.environmentIntensity = 0.55;
+  pmrem.dispose();
+  src.dispose();
+}
+
 const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.05, 60);
 scene.add(camera);
 
@@ -85,6 +100,7 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const drunk = new Drunk();
 const smoke = new SmokeSystem(scene);
+const stream = new StreamSystem(scene);
 
 // The lit cigarette rides on the camera, low and to the right.
 const heldCig = makeHeldCigarette();
@@ -96,6 +112,9 @@ camera.add(heldCig.group);
 
 const _v = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+const _origin = new THREE.Vector3();
+const _aim = new THREE.Vector3();
+const _aimPoint = new THREE.Vector3();
 
 const arcade = createArcade({ audio });
 const screenTexture = new THREE.CanvasTexture(arcade.canvas);
@@ -112,7 +131,19 @@ const game = {
   flashlightOn: false,
   drinking: 0,
   passingOut: false,
+  peeing: false,
+  peeTime: 0,
+  onToilet: false,
+  poopTime: 0,
+  nextPlopAt: 0,
+  rumbleAt: 0,
+  nextFartAt: 40 + Math.random() * 60,
+  fartClock: 0,
 };
+
+/** Seven of them, picked at random, never the same one twice running. */
+const FART_CUES = ['fart.1', 'fart.2', 'fart.3', 'fart.4', 'fart.5', 'fart.6', 'fart.7'];
+let _lastFart = -1;
 
 /** Smoking sequence state. */
 const cig = { t: -1, lit: false, exhaled: false, afterglow: 0 };
@@ -128,6 +159,8 @@ async function boot() {
     hud,
     interaction,
     onSitPC: sitAtPC,
+    onStartPee: startPee,
+    onSitToilet: sitOnToilet,
     onRadioToggle: () => radio.toggle(),
   });
 
@@ -140,6 +173,14 @@ async function boot() {
     map: screenTexture,
     toneMapped: false,
   });
+
+  stream.setColliders(apartment.colliders);
+  stream.setTarget(
+    apartment.toiletBowl,
+    apartment.toiletBowlRadius,
+    apartment.toiletBowl.y,
+    apartment.toiletCollider,
+  );
 
   radio.setPosition(apartment.radioPos);
   const trackCount = await radio.loadManifest();
@@ -161,7 +202,8 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
-    drunk, smoke, cig, passOut,
+    drunk, smoke, stream, cig, passOut, fart, startPee, stopPee,
+    sitOnToilet, standFromToilet,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -284,7 +326,12 @@ document.addEventListener('keydown', (e) => {
   switch (e.code) {
     case 'KeyE':
       if (player.mode === 'bed') getUp();
+      else if (game.onToilet) standFromToilet();
+      else if (game.peeing) stopPee();
       else interaction.press();
+      break;
+    case 'KeyG':
+      fart({ voluntary: true });
       break;
     case 'KeyT':
       game.flashlightOn = !game.flashlightOn;
@@ -294,7 +341,9 @@ document.addEventListener('keydown', (e) => {
       if (interaction.current && interaction.current.name === 'radio') radio.next();
       break;
     case 'KeyQ':
-      dropHeld();
+      if (game.onToilet) standFromToilet();
+      else if (game.peeing) stopPee();
+      else dropHeld();
       break;
     default:
       break;
@@ -415,6 +464,7 @@ function updateDrinking(dt, holdingF) {
     hud.hidePrompt();
     apartment.consumeBeer();
     drunk.drink(BEER_UNITS);
+    apartment.state.bladder = Math.min(1, apartment.state.bladder + 0.30);
     hud.setHand({ icon: '🥫', name: 'Empty can', hint: '[Q] crush it' });
 
     // The first couple steady you. After that the room starts moving.
@@ -464,6 +514,7 @@ function updateSwigging(dt, holdingF) {
 
     apartment.consumeWhiskey();
     drunk.drink(WHISKEY_UNITS);
+    apartment.state.bladder = Math.min(1, apartment.state.bladder + 0.16);
     audio.play('whiskey.gasp', { volume: 0.7 });
 
     const n = st.whiskeyLeft;
@@ -553,6 +604,8 @@ function updateSmoking(dt, holdingF) {
 
     apartment.consumeCigarette();
     drunk.smoke();
+    // Four of these and you will be needing the bathroom.
+    apartment.state.bowel = Math.min(1, apartment.state.bowel + 0.26);
 
     if (st.cigsLeft > 0) {
       hud.setHand({ icon: '🚬', name: `Smokes (${st.cigsLeft})`, hint: 'Hold [F] to light one' });
@@ -595,6 +648,198 @@ function exhaleCloud() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Farting                                                             */
+/* ------------------------------------------------------------------ */
+
+/** Pick a cue, never the same one twice in a row. */
+function fart({ voluntary = true } = {}) {
+  if (!game.started || game.paused || game.passingOut) return;
+  let i = (Math.random() * FART_CUES.length) | 0;
+  if (i === _lastFart) i = (i + 1 + ((Math.random() * (FART_CUES.length - 1)) | 0)) % FART_CUES.length;
+  _lastFart = i;
+
+  // Sitting muffles it; beer makes it worse.
+  const gassy = 1 + apartment.state.beersDrunk * 0.08;
+  audio.play(FART_CUES[i], {
+    volume: (game.seated ? 0.55 : 0.8) * gassy,
+    rate: 0.86 + Math.random() * 0.3,
+  });
+
+  // Reset the involuntary timer either way, so a deliberate one buys you time.
+  game.fartClock = 0;
+  game.nextFartAt = 35 + Math.random() * 70;
+
+  if (!voluntary && Math.random() < 0.35) {
+    hud.say(pick([
+      'That one arrived without asking.',
+      'Nobody heard that. Nobody is here.',
+      'Unprompted. Unwelcome. Unavoidable.',
+    ]), 3200);
+  }
+}
+
+function updateFarts(dt) {
+  if (game.passingOut) return;
+  // The more you have put away, the more often one slips out.
+  const rate = 1 + apartment.state.beersDrunk * 0.25 + apartment.state.whiskeyDrunk * 0.2;
+  game.fartClock += dt * rate;
+  if (game.fartClock >= game.nextFartAt) fart({ voluntary: false });
+}
+
+/* ------------------------------------------------------------------ */
+/* The other thing                                                     */
+/* ------------------------------------------------------------------ */
+
+const POOP_CUES = ['poop.1', 'poop.2', 'poop.3', 'poop.4'];
+
+function sitOnToilet() {
+  if (game.onToilet || game.passingOut) return;
+  game.onToilet = true;
+  game.poopTime = 0;
+  game.nextPlopAt = 0.8;
+
+  interaction.setPaused(true);
+  hud.setMode('seated');
+  // Lid up before you sit on it, obviously.
+  apartment.toiletLid.rotation.x = -1.9;
+  audio.play('chair.sit', { volume: 0.5 });
+
+  player.sitAt(
+    { position: apartment.toiletSeat.clone(), yaw: Math.PI, pitch: -0.15 },
+    () => hud.say('Relief. <em>[Q] to get up.</em>', 4000),
+  );
+}
+
+function standFromToilet() {
+  if (!game.onToilet) return;
+  game.onToilet = false;
+  hud.setMode('walk');
+  apartment.state.flushable = true;
+  audio.play('pee.zip', { volume: 0.6 });
+  player.standFrom(apartment.toiletStand, () => interaction.setPaused(false));
+}
+
+function updateBowel(dt) {
+  const st = apartment.state;
+
+  if (game.onToilet) {
+    game.poopTime += dt;
+    st.bowel = Math.max(0, st.bowel - dt * 0.30);
+
+    game.nextPlopAt -= dt;
+    if (game.nextPlopAt <= 0 && st.bowel > 0.02) {
+      game.nextPlopAt = 1.2 + Math.random() * 2.4;
+      audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
+        volume: 0.7, rate: 0.9 + Math.random() * 0.25,
+      });
+      if (Math.random() < 0.4) audio.play('toilet.plop', { volume: 0.5, delay: 0.35 });
+    }
+    if (st.bowel <= 0.02 && game.poopTime > 3) {
+      st.urgeAnnounced = false;
+      if (!game._poopDone) {
+        game._poopDone = true;
+        hud.say('That is that dealt with. <em>[Q] to get up.</em>', 5000);
+      }
+    }
+    return;
+  }
+  game._poopDone = false;
+
+  if (st.bowel <= 0) return;
+
+  // Rumbles get closer together the longer you ignore it.
+  game.rumbleAt -= dt;
+  if (game.rumbleAt <= 0) {
+    game.rumbleAt = Math.max(4, 16 - st.bowel * 11) * (0.7 + Math.random() * 0.6);
+    if (st.bowel > 0.5) {
+      audio.play('belly.rumble', { volume: 0.35 + st.bowel * 0.4 });
+    }
+  }
+
+  if (st.bowel >= 1 && !st.urgeAnnounced) {
+    st.urgeAnnounced = true;
+    audio.play('belly.rumble', { volume: 0.85 });
+    hud.toast('You need to go. Now.', 'bad');
+    hud.say('Four cigarettes on an empty stomach. <em>The bathroom. Immediately.</em>', 6000);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Relieving yourself                                                  */
+/* ------------------------------------------------------------------ */
+
+function startPee() {
+  if (game.peeing || game.passingOut) return;
+  game.peeing = true;
+  game.peeTime = 0;
+  stream.resetStats();
+  audio.play('pee.zip', { volume: 0.7 });
+  audio.startLoop('pee.stream', { volume: 0.0, fade: 0.25 });
+  hud.say('You are free to look around. <em>[E] or [Q] to stop.</em>', 4200);
+}
+
+function stopPee() {
+  if (!game.peeing) return;
+  game.peeing = false;
+  audio.stopLoop('pee.stream', 0.25);
+  audio.play('pee.zip', { volume: 0.6 });
+
+  const s = stream.stats;
+  if (s.total > 12) {
+    const acc = s.onTarget / s.total;
+    hud.toast(`${Math.round(acc * 100)}% on target`, acc > 0.7 ? 'good' : 'bad');
+    hud.say(acc > 0.85
+      ? 'Immaculate. Nobody will ever know how well that went.'
+      : acc > 0.45
+        ? 'Some of that went in. Some of it did not.'
+        : 'You have made this room worse. Measurably worse.', 4800);
+  }
+}
+
+function updatePee(dt) {
+  const st = apartment.state;
+
+  // The tank fills over time, faster once you have been drinking.
+  if (!game.peeing) {
+    st.bladder = Math.min(1, st.bladder + dt * 0.0028 * (1 + st.beersDrunk * 0.5 + st.whiskeyDrunk * 0.4));
+  }
+  // One meter, showing whichever is more urgent.
+  if (st.bowel > st.bladder) hud.setBladder(st.bowel, game.onToilet, 'urgency');
+  else hud.setBladder(st.bladder, game.peeing, 'bladder');
+
+  if (!game.peeing) return;
+
+  game.peeTime += dt;
+  st.bladder = Math.max(0, st.bladder - dt * 0.075);
+
+  // Ramp in, hold, then taper as the tank empties.
+  const ramp = Math.min(1, game.peeTime / 0.45);
+  const power = ramp * Math.min(1, 0.25 + st.bladder * 2.2);
+  audio.setLoopVolume('pee.stream', 0.10 + power * 0.22, 0.15);
+
+  // The stream leaves from hip height but has to go where you are *looking*,
+  // so aim at a point on the camera ray rather than copying the camera's
+  // direction -- otherwise looking down at the bowl always lands short.
+  camera.getWorldPosition(_v);
+  camera.getWorldDirection(_dir);
+  _aimPoint.copy(_v).addScaledVector(_dir, 1.25);
+
+  _origin.copy(_v).addScaledVector(_dir, 0.18);
+  _origin.y -= 0.58;
+
+  _aim.copy(_aimPoint).sub(_origin).normalize();
+  stream.emit(_origin, _aim, dt, power);
+
+  if (st.bladder <= 0.001) stopPee();
+}
+
+const _pickBag = [];
+function pick(list) {
+  void _pickBag;
+  return list[(Math.random() * list.length) | 0];
+}
+
+/* ------------------------------------------------------------------ */
 /* Passing out                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -612,6 +857,12 @@ function passOut() {
     hud.setMode('walk');
     audio.setMuffle(false);
     radio.setFocusMuffle(false);
+  }
+
+  if (game.peeing) stopPee();
+  if (game.onToilet) {
+    game.onToilet = false;
+    hud.setMode('walk');
   }
 
   // Abandon anything mid-drag.
@@ -699,7 +950,11 @@ function frame() {
       player.update(dt);
       apartment.update(dt, elapsed);
       updateConsume(dt);
+      updatePee(dt);
+      updateBowel(dt);
+      updateFarts(dt);
       smoke.update(dt);
+      stream.update(dt);
 
       if (game.seated) {
         arcade.update(dt);

@@ -97,8 +97,12 @@ export async function buildApartment(ctx) {
   root.add(boxFrom(x0, 0, z0, x0 + 0.02, 0.09, z1, skirt, { cast: false }));
   root.add(boxFrom(x1 - 0.02, 0, z0, x1, 0.09, z1, skirt, { cast: false }));
 
-  // Room colliders (walls). Made tall so the player can never leave.
-  addCollider([[x0 - 0.5, 0, z0 - 0.5], [x1 + 0.5, h, z0]]);
+  // Room colliders (walls). The north wall is split so the bathroom doorway
+  // at x -1.90..-0.90 is actually walkable.
+  addCollider([[x0 - 0.5, 0, z0 - wall, ], [-1.90, h, z0]]);
+  addCollider([[-0.90, 0, z0 - wall], [x1 + 0.5, h, z0]]);
+  addCollider([[x0 - 0.5, 0, z0 - 0.5], [-1.90, h, z0 - wall]]);
+  addCollider([[-0.90, 0, z0 - 0.5], [x1 + 0.5, h, z0 - wall]]);
   addCollider([[x0 - 0.5, 0, z1], [x1 + 0.5, h, z1 + 0.5]]);
   addCollider([[x0 - 0.5, 0, z0 - 0.5], [x0, h, z1 + 0.5]]);
   addCollider([[x1, 0, z0 - 0.5], [x1 + 0.5, h, z1 + 0.5]]);
@@ -166,8 +170,74 @@ export async function buildApartment(ctx) {
 
   const frontDoor = makeDoor(M, { x: 2.80, z: z1 - 0.02, w: 1.0, rotY: Math.PI });
   root.add(frontDoor.group);
-  const bathDoor = makeDoor(M, { x: -1.40, z: z0 + 0.02, w: 1.0, rotY: 0 });
+  const bathDoor = makeDoor(M, { x: -1.40, z: z0 - wall / 2, w: 1.0, rotY: 0, hinge: -1 });
   root.add(bathDoor.group);
+
+  /* ================================================================ */
+  /* Bathroom, through the door in the north wall                      */
+  /* ================================================================ */
+
+  const BATH = { x0: -2.70, x1: -0.30, z0: -7.10, z1: z0 - wall };
+  const bathTile = makeMaterials.bathTile || null;
+  void bathTile;
+
+  const bath = group('bathroom');
+  root.add(bath);
+
+  // Floor, ceiling and the three outer walls (the fourth is the room's own
+  // north wall, which already has the door opening in it).
+  bath.add(boxFrom(BATH.x0, -0.1, BATH.z0, BATH.x1, 0, BATH.z1, M.splash, { cast: false }));
+  bath.add(boxFrom(BATH.x0, h, BATH.z0, BATH.x1, h + 0.1, BATH.z1, M.ceiling, { cast: false }));
+  bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z0, M.wall, { cast: false }));
+  bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x0, h, BATH.z1, M.wall, { cast: false }));
+  bath.add(boxFrom(BATH.x1, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z1, M.wall, { cast: false }));
+
+  // Tiled to shoulder height, painted above.
+  for (const [px, py, pz, pw, ph, ry] of [
+    [(BATH.x0 + BATH.x1) / 2, 0.85, BATH.z0 + 0.005, BATH.x1 - BATH.x0, 1.7, 0],
+    [BATH.x0 + 0.005, 0.85, (BATH.z0 + BATH.z1) / 2, BATH.z1 - BATH.z0, 1.7, Math.PI / 2],
+    [BATH.x1 - 0.005, 0.85, (BATH.z0 + BATH.z1) / 2, BATH.z1 - BATH.z0, 1.7, -Math.PI / 2],
+  ]) {
+    const t = plane(pw, ph, M.splash);
+    t.position.set(px, py, pz);
+    t.rotation.y = ry;
+    bath.add(t);
+  }
+
+  addCollider([[BATH.x0 - wall, 0, BATH.z0 - wall], [BATH.x1 + wall, h, BATH.z0]]);
+  addCollider([[BATH.x0 - wall, 0, BATH.z0 - wall], [BATH.x0, h, BATH.z1]]);
+  addCollider([[BATH.x1, 0, BATH.z0 - wall], [BATH.x1 + wall, h, BATH.z1]]);
+
+  floorZones.push({
+    box: new THREE.Box3(
+      new THREE.Vector3(BATH.x0, 0, BATH.z0),
+      new THREE.Vector3(BATH.x1, 1, BATH.z1),
+    ),
+    surface: 'tile',
+  });
+
+  const tub = P.makeTub(M, { x0: BATH.x0 + 0.02, z0: BATH.z0 + 0.02, x1: -1.90, z1: -5.50 });
+  bath.add(tub.group);
+  addCollider(tub.bounds);
+
+  const toilet = P.makeToilet(M, { x: -1.32, z: -6.62, rotY: 0 });
+  bath.add(toilet.group);
+  addCollider(toilet.bounds);
+  const toiletCollider = colliders[colliders.length - 1];
+
+  const bathSink = P.makeBathSink(M, { x: -0.62, z: -5.55, rotY: -Math.PI / 2 });
+  bath.add(bathSink.group);
+  addCollider(bathSink.bounds);
+
+  // Bath mat, and the fluorescent tube that buzzes.
+  bath.add(boxFrom(-1.85, 0.001, -5.95, -1.05, 0.016, -5.35, M.rug, { cast: false }));
+  const bathTube = box({
+    size: [0.9, 0.06, 0.10], pos: [(BATH.x0 + BATH.x1) / 2, h - 0.09, -5.9], mat: M.bulbOff,
+  });
+  bath.add(bathTube);
+  const bathLight = new THREE.PointLight(0xdff0ff, 0, 5.5, 1.9);
+  bathLight.position.set((BATH.x0 + BATH.x1) / 2, h - 0.16, -5.9);
+  bath.add(bathLight);
 
   /* ================================================================ */
   /* Furniture                                                         */
@@ -230,7 +300,8 @@ export async function buildApartment(ctx) {
 
   // Bottle of whiskey. Hits about twice as hard as a beer.
   const whiskeyPos = new THREE.Vector3(4.62, kitchen.top, 0.42);
-  const whiskey = P.makeWhiskeyBottle(M, { x: whiskeyPos.x, y: whiskeyPos.y, z: whiskeyPos.z, rotY: -0.35 });
+  // Label out toward the room, so you read it as you walk up.
+  const whiskey = P.makeWhiskeyBottle(M, { x: whiskeyPos.x, y: whiskeyPos.y, z: whiskeyPos.z, rotY: -Math.PI / 2 + 0.18 });
   root.add(whiskey.group);
   const whiskeyHit = box({
     size: [0.22, 0.34, 0.22], pos: [whiskeyPos.x, whiskeyPos.y + 0.15, whiskeyPos.z],
@@ -439,6 +510,13 @@ export async function buildApartment(ctx) {
     cigsSmoked: 0,
     whiskeyLeft: 6,      // pulls remaining in the bottle
     whiskeyDrunk: 0,
+    bathDoorOpen: false,
+    bathVisited: false,
+    bathLightOn: false,
+    bladder: 0.12,       // 0..1; drinking fills it
+    bowel: 0,            // 0..1; cigarettes fill it. 4 of them and you are running
+    urgeAnnounced: false,
+    flushable: false,
   };
 
   /* ---- fridge ---- */
@@ -591,10 +669,53 @@ export async function buildApartment(ctx) {
     },
   });
   interaction.register(bathDoor.group, {
-    label: () => 'Open the <b>bathroom</b>',
+    label: () => (state.bathDoorOpen ? 'Close the <b>bathroom</b> door' : 'Open the <b>bathroom</b>'),
     onUse: () => {
+      state.bathDoorOpen = !state.bathDoorOpen;
       audio.play('door.knob', { position: new THREE.Vector3(-1.4, 1.1, -4.3), volume: 0.7 });
-      hud.say('You have seen it. It is fine. The light buzzes.');
+      if (state.bathDoorOpen && !state.bathVisited) {
+        state.bathVisited = true;
+        state.bathLightOn = true;
+        hud.say('The light buzzes. It has always buzzed.');
+      }
+    },
+  });
+
+  /* ---- the toilet ---- */
+  interaction.register(toilet.group, {
+    label: () => {
+      if (state.bowel >= 1) return '<b>Sit down</b>. Quickly.';
+      if (state.bowel > 0.55) return 'Sit on the <b>toilet</b>';
+      if (state.bladder > 0.05) return 'Take a <b>leak</b>';
+      return 'The <b>toilet</b>';
+    },
+    onUse: () => {
+      if (state.bowel > 0.55) { ctx.onSitToilet?.(); return; }
+      if (state.bladder <= 0.05) {
+        hud.say('Nothing to give. You are all out.');
+        return;
+      }
+      ctx.onStartPee?.();
+    },
+  });
+
+  interaction.register(toilet.lidPivot, {
+    label: () => 'Flush',
+    enabled: () => state.flushable,
+    onUse: () => {
+      state.flushable = false;
+      audio.play('toilet.flush', { position: toilet.bowl, volume: 0.85 });
+      hud.say('Gone. Somebody else&rsquo;s problem now.');
+    },
+  });
+
+  interaction.register(bathSink.group, {
+    label: () => 'Look in the <b>mirror</b>',
+    onUse: () => {
+      audio.play('frame.adjust', { volume: 0.3 });
+      hud.say(state.beersDrunk + state.whiskeyDrunk > 2
+        ? 'You look exactly as well as you feel.'
+        : 'Still you. Unfortunately.');
     },
   });
   interaction.register(cork.group, {
@@ -653,6 +774,7 @@ export async function buildApartment(ctx) {
   let bobbleVel = 0;
   let clockAcc = 0;
   let tickAcc = 0;
+  let bathDoorT = 0;
   let seconds = 0;
   let minutes = 6 * 60 + 4;
 
@@ -662,6 +784,14 @@ export async function buildApartment(ctx) {
     state.fridgeT += (target - state.fridgeT) * Math.min(1, dt * 6);
     fridge.doorPivot.rotation.y = state.fridgeT * 2.0;
     fridge.light.intensity = state.fridgeT * 0.85;
+
+    /* bathroom door + strip light */
+    bathDoorT += ((state.bathDoorOpen ? 1 : 0) - bathDoorT) * Math.min(1, dt * 5);
+    bathDoor.pivot.rotation.y = bathDoorT * 1.85;
+    bathLight.intensity += ((state.bathLightOn ? 4.6 : 0) - bathLight.intensity) * Math.min(1, dt * 7);
+    // Fluorescent tubes never quite settle.
+    if (state.bathLightOn) bathLight.intensity *= 0.985 + Math.random() * 0.03;
+    bathTube.material = state.bathLightOn ? M.bulbOn : M.bulbOff;
 
     /* blinds roll */
     blindsT += ((blindsOpen ? 1 : 0) - blindsT) * Math.min(1, dt * 3.5);
@@ -763,6 +893,16 @@ export async function buildApartment(ctx) {
     setCeiling,
     setLamp,
 
+    bathroom: BATH,
+    /** Where the camera sits when you are on the toilet. */
+    toiletSeat: new THREE.Vector3(toilet.bowl.x, 0.98, toilet.bowl.z + 0.06),
+    toiletStand: new THREE.Vector3(toilet.bowl.x, 0, toilet.bowl.z + 0.85),
+    toiletLid: toilet.lidPivot,
+    toiletBowl: toilet.bowl,
+    toiletBowlRadius: toilet.bowlRadius + 0.02,
+    toiletCollider,
+    setBathLight(on) { state.bathLightOn = on; },
+
     setPcOn(on) {
       state.pcOn = on;
     },
@@ -848,17 +988,33 @@ function addDoorHeader(root, M, side, a, b, zAt, thick, h, doorH) {
   root.add(boxFrom(a - 0.05, doorH, inner, b + 0.05, doorH + 0.05, outer, M.trim, { cast: false }));
 }
 
-/** A closed panel door with handle. */
-function makeDoor(M, { x, z, w = 1.0, rotY = 0, h = 2.02 }) {
+/**
+ * Panel door. `hinge` (-1 left, +1 right) puts the pivot on that edge so the
+ * door can actually swing; without it the door is a fixed slab.
+ */
+function makeDoor(M, { x, z, w = 1.0, rotY = 0, h = 2.02, hinge = 0 }) {
   const g = group('door');
   g.position.set(x, 0, z);
   g.rotation.y = rotY;
+
+  const pivot = new THREE.Group();
+  // Sit the pivot on the hinge edge, then offset the leaf back the other way.
+  pivot.position.x = hinge * (w / 2);
+  g.add(pivot);
+  const leafX = -hinge * (w / 2);
+
   const doorMat = mat({ color: 0xd9d2c2, roughness: 0.75 });
-  g.add(box({ size: [w - 0.04, h, 0.045], pos: [0, h / 2, 0], mat: doorMat }));
+  pivot.add(box({ size: [w - 0.04, h, 0.045], pos: [leafX, h / 2, 0], mat: doorMat }));
   // Recessed panels.
   for (const py of [h * 0.28, h * 0.70]) {
-    g.add(box({ size: [w - 0.28, h * 0.30, 0.012], pos: [0, py, 0.024], mat: mat({ color: 0xc6bfae, roughness: 0.8 }) }));
+    pivot.add(box({
+      size: [w - 0.28, h * 0.30, 0.012], pos: [leafX, py, 0.024],
+      mat: mat({ color: 0xc6bfae, roughness: 0.8 }),
+    }));
   }
-  g.add(cylinder({ r: 0.026, h: 0.05, pos: [w / 2 - 0.14, 1.02, 0.045], rotX: Math.PI / 2, mat: M.chrome }));
-  return { group: g };
+  pivot.add(cylinder({
+    r: 0.026, h: 0.05, pos: [leafX + (hinge >= 0 ? -1 : 1) * (w / 2 - 0.14), 1.02, 0.045],
+    rotX: Math.PI / 2, mat: M.chrome,
+  }));
+  return { group: g, pivot };
 }

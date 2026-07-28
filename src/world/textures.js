@@ -403,6 +403,49 @@ export function drawSquatchSilhouette(g, cx, baseY, height, fill) {
   g.fill();
 }
 
+/**
+ * A small equirectangular environment for the metals to reflect.
+ *
+ * Without this every `metalness: 1` surface samples nothing and renders
+ * black -- which is why chrome taps and handles looked like charcoal. This is
+ * a cheap stand-in for a real room capture: bright ceiling, mid walls, dark
+ * floor, plus a warm patch where the window is.
+ */
+export function roomEnvironment() {
+  return cached('env', () => {
+    const W = 512;
+    const H = 256;
+    const c = makeCanvas(W, H);
+    const g = c.getContext('2d');
+
+    const grad = g.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0.00, '#e8eaf0');   // ceiling
+    grad.addColorStop(0.42, '#a9a89f');
+    grad.addColorStop(0.55, '#7a7871');
+    grad.addColorStop(1.00, '#2b2621');   // floor
+    g.fillStyle = grad;
+    g.fillRect(0, 0, W, H);
+
+    // Warm window, and a cool one opposite, so reflections have some shape.
+    const warm = g.createRadialGradient(W * 0.72, H * 0.44, 0, W * 0.72, H * 0.44, W * 0.16);
+    warm.addColorStop(0, 'rgba(255,214,160,0.95)');
+    warm.addColorStop(1, 'rgba(255,214,160,0)');
+    g.fillStyle = warm;
+    g.fillRect(0, 0, W, H);
+
+    const cool = g.createRadialGradient(W * 0.22, H * 0.38, 0, W * 0.22, H * 0.38, W * 0.13);
+    cool.addColorStop(0, 'rgba(190,215,255,0.55)');
+    cool.addColorStop(1, 'rgba(190,215,255,0)');
+    g.fillStyle = cool;
+    g.fillRect(0, 0, W, H);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */

@@ -65,6 +65,26 @@
     { "name": "drunk.heartbeat", "duration": 3.0, "prompt": "slow muffled heartbeat heard from inside the head, deep and dull" },
     { "name": "drunk.snore", "duration": 2.6, "prompt": "one slow deep snore of someone passed out, muffled" },
 
+    { "name": "fart.1", "duration": 1.0, "prompt": "single short dry fart, comedic, close mic, no voice" },
+    { "name": "fart.2", "duration": 1.4, "prompt": "long drawn out low rumbling fart, comedic, close mic, no voice" },
+    { "name": "fart.3", "duration": 0.8, "prompt": "short high pitched squeaky fart, comedic, close mic, no voice" },
+    { "name": "fart.4", "duration": 1.6, "prompt": "sputtering stuttering fart in several bursts, comedic, close mic, no voice" },
+    { "name": "fart.5", "duration": 1.1, "prompt": "wet sounding fart, comedic, close mic, no voice" },
+    { "name": "fart.6", "duration": 2.0, "prompt": "very long slowly deflating fart that tails off, comedic, close mic, no voice" },
+    { "name": "fart.7", "duration": 0.7, "prompt": "sharp abrupt loud fart like a chair scrape, comedic, close mic, no voice" },
+
+    { "name": "pee.zip", "duration": 0.8, "prompt": "short metal zipper being pulled, single quick zip, dry close mic" },
+    { "name": "pee.stream", "duration": 6, "loop": true, "prompt": "steady stream of liquid splashing into toilet water, seamless loop, no voice" },
+    { "name": "toilet.flush", "duration": 4.0, "prompt": "domestic toilet flushing, cistern emptying and refilling" },
+    { "name": "sink.tap", "duration": 3.0, "prompt": "bathroom tap running into a ceramic basin, steady flow" },
+
+    { "name": "poop.1", "duration": 1.4, "prompt": "comedic toilet sound, muffled strain and release, no voice" },
+    { "name": "poop.2", "duration": 1.8, "prompt": "comedic toilet sound, longer sputtering release, no voice" },
+    { "name": "poop.3", "duration": 1.1, "prompt": "comedic toilet sound, short sharp release, no voice" },
+    { "name": "poop.4", "duration": 2.2, "prompt": "comedic toilet sound, drawn out gurgling release, no voice" },
+    { "name": "toilet.plop", "duration": 0.9, "prompt": "single small object dropping into toilet water, hollow plop and ripple" },
+    { "name": "belly.rumble", "duration": 2.2, "prompt": "loud gurgling stomach rumble, digestive growl, close mic, no voice" },
+
     { "name": "ui.select", "duration": 0.4, "prompt": "soft interface confirm blip, warm and short" },
     { "name": "ui.hover", "duration": 0.3, "prompt": "very soft interface hover tick, quiet" }
   ]

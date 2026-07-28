@@ -14,7 +14,10 @@ export class Hud {
     this.radioOsd = document.getElementById('radio-osd');
     this.radioName = this.radioOsd.querySelector('.rtitle span');
     this.radioTrack = this.radioOsd.querySelector('.rtrack');
+    this.bladder = document.getElementById('bladder');
+    this.bladderFill = this.bladder.querySelector('.bar i');
     this.toasts = document.getElementById('toast-stack');
+    this._bladderShown = -1;
     this._subTimer = null;
   }
 
@@ -77,6 +80,23 @@ export class Hud {
     this.radioName.textContent = state.station;
     this.radioTrack.textContent = state.track;
     this.radioOsd.classList.remove('hidden');
+  }
+
+  /** Only shows once there is something worth showing. */
+  setBladder(level, draining, label = 'bladder') {
+    if (this._bladderLabel !== label) {
+      this._bladderLabel = label;
+      this.bladder.querySelector('.cap').textContent = label;
+    }
+    const show = level > 0.35 || draining;
+    this.bladder.classList.toggle('hidden', !show);
+    this.bladder.classList.toggle('urgent', level > 0.8 && !draining);
+    this.bladder.classList.toggle('draining', !!draining);
+    const pct = Math.round(level * 100);
+    if (pct !== this._bladderShown) {
+      this._bladderShown = pct;
+      this.bladderFill.style.width = `${pct}%`;
+    }
   }
 
   setMode(mode) {
