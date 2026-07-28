@@ -881,22 +881,30 @@ export async function buildApartment(ctx) {
     }
 
     /* clocks */
-    clockAcc += dt;
-    if (clockAcc > 0.5) {
+    // Hands sweep continuously off the clock itself, so they are never stale
+    // and never disagree with the HUD. The hour hand creeps between numerals
+    // instead of jumping on the hour.
+    const TAU = Math.PI * 2;
+    wallClock.hourHand.rotation.z = -((time.minutes % 720) / 720) * TAU;
+    wallClock.minHand.rotation.z = -((time.minutes % 60) / 60) * TAU;
+    // One revolution per in-game minute -- which at this time scale is a fast
+    // sweep, and reads as exactly what it is: the day getting away from you.
+    wallClock.secHand.rotation.z = -(time.minutes % 1) * TAU;
+
+    // The digital dial only needs redrawing when the shown minute changes.
+    const shown = Math.floor(time.minutes);
+    if (shown !== minutes || clockAcc > 90) {
+      minutes = shown;
       clockAcc = 0;
-      minutes = Math.floor(time.minutes);
       const hh = Math.floor(minutes / 60) % 12 || 12;
       const mm = String(minutes % 60).padStart(2, '0');
       clock.draw(`${hh}:${mm}`);
-      // The hour hand creeps between numerals rather than jumping on the hour.
-      wallClock.hourHand.rotation.z = -((minutes % 720) / 720) * Math.PI * 2;
-      wallClock.minHand.rotation.z = -((minutes % 60) / 60) * Math.PI * 2;
     }
+    // The tick is room tone rather than a readout, so it stays on a real-time
+    // cadence -- an in-game second is a hundredth of a real one.
     tickAcc += dt;
     if (tickAcc > 1) {
       tickAcc = 0;
-      seconds = (seconds + 1) % 60;
-      wallClock.secHand.rotation.z = -(seconds / 60) * Math.PI * 2;
       audio.play('clock.tick', { position: new THREE.Vector3(-1.0, 1.95, 4.3), volume: 0.25 });
     }
   });
