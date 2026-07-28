@@ -10,6 +10,7 @@ import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
 import { Player } from './core/player.js';
 import { Radio } from './core/radio.js';
+import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
@@ -101,6 +102,8 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const time = new DayNight(6 + 4 / 60);
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
+// Nothing happens in here. Somebody should say so.
+const narrator = new Narrator(hud, time);
 const drunk = new Drunk();
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
@@ -165,6 +168,7 @@ async function boot() {
     hud,
     interaction,
     time,
+    onNote: (what) => narrator.note(what),
     onSitPC: sitAtPC,
     onSitCouch: () => sitOn('couch'),
     onSitBed: () => sitOn('bed'),
@@ -218,6 +222,7 @@ async function boot() {
     drunk, smoke, stream, cig, time, passOut, fart, startPee, stopPee,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
+    narrator,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -789,6 +794,7 @@ function updateNeighbours(dt) {
 
 /** Pick a cue, never the same one twice in a row. */
 function fart({ voluntary = true } = {}) {
+  if (voluntary) narrator.note('fart');
   if (!game.started || game.paused || game.passingOut) return;
   let i = (Math.random() * FART_CUES.length) | 0;
   if (i === _lastFart) i = (i + 1 + ((Math.random() * (FART_CUES.length - 1)) | 0)) % FART_CUES.length;
@@ -1165,6 +1171,11 @@ function frame() {
       smoke.update(dt);
       stream.update(dt);
       radio.update(dt);
+      narrator.update(dt, {
+        busy: game.passingOut || game.seated || game.peeing || game.onToilet
+          || cig.t >= 0 || player.mode === 'frozen',
+        moving: player.velocity.lengthSq() > 0.04,
+      });
 
       if (game.seated) {
         arcade.update(dt);

@@ -651,6 +651,7 @@ export async function buildApartment(ctx) {
   const setFridge = (open) => {
     if (state.fridgeOpen === open) return;
     state.fridgeOpen = open;
+    if (open) ctx.onNote?.('fridge');
     audio.play(open ? 'fridge.open' : 'fridge.close', {
       position: new THREE.Vector3(4.3, 1.0, 1.6), volume: 0.9,
     });
@@ -767,7 +768,7 @@ export async function buildApartment(ctx) {
   };
   interaction.register(switchPlate, {
     label: () => (state.lightsOn ? 'Lights <b>off</b>' : 'Lights <b>on</b>'),
-    onUse: () => setCeiling(!state.lightsOn),
+    onUse: () => { ctx.onNote?.('lights'); setCeiling(!state.lightsOn); },
   });
 
   const setLamp = (on) => {
@@ -786,6 +787,7 @@ export async function buildApartment(ctx) {
     onUse: () => {
       state.blindsOpen = !state.blindsOpen;
       blindsOpen = state.blindsOpen;
+      ctx.onNote?.('blinds');
       audio.play('window.blinds', { position: new THREE.Vector3(4.8, 1.7, -3.1), volume: 0.8 });
       hud.say(state.blindsOpen
         ? 'Sunrise, whether you asked for it or not.'
@@ -821,13 +823,13 @@ export async function buildApartment(ctx) {
 
   interaction.register(seatProxy('couchSeat', [-4.78, 0.40, -0.33], [-4.06, 1.06, 1.73]), {
     label: () => 'Sit on the <b>couch</b>',
-    onUse: () => ctx.onSitCouch?.(),
+    onUse: () => { ctx.onNote?.('sit'); ctx.onSitCouch?.(); },
   });
   interaction.register(seatProxy('bedSeat', [-4.82, 0.62, -4.34], [-3.44, 1.10, -2.44]), {
     label: () => 'Sit on the <b>bed</b> &middot; hold to <b>lie down</b>',
     holdLabel: () => 'Lying <b>down</b>…',
     hold: 0.55,
-    onTap: () => ctx.onSitBed?.(),
+    onTap: () => { ctx.onNote?.('sit'); ctx.onSitBed?.(); },
     onUse: () => ctx.onLieBed?.(),
   });
 
@@ -836,6 +838,7 @@ export async function buildApartment(ctx) {
     label: () => 'Leave the <b>apartment</b>',
     onUse: () => {
       audio.play('door.locked', { position: new THREE.Vector3(2.8, 1.1, 4.3), volume: 0.8 });
+      ctx.onNote?.('door');
       hud.say('Outside is a whole thing. There is a fridge and a PC in here.');
     },
   });

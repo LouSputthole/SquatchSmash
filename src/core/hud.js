@@ -54,7 +54,13 @@ export class Hud {
     clearTimeout(this._subTimer);
     this.subtitle.innerHTML = text;
     this.subtitle.classList.remove('hidden');
+    this._sayUntil = performance.now() + ms;
     this._subTimer = setTimeout(() => this.subtitle.classList.add('hidden'), ms);
+  }
+
+  /** True while a subtitle is on screen -- the narrator waits its turn. */
+  get saying() {
+    return performance.now() < (this._sayUntil || 0);
   }
 
   toast(text, kind = '') {
