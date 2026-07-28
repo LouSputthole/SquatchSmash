@@ -169,6 +169,7 @@ async function boot() {
     interaction,
     time,
     onNote: (what) => narrator.note(what),
+    isSeated: () => game.seated || !!game.sitting || game.inBed || game.onToilet,
     onSitPC: sitAtPC,
     onSitCouch: () => sitOn('couch'),
     onSitBed: () => sitOn('bed'),

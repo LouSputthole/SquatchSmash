@@ -238,6 +238,7 @@ export async function buildApartment(ctx) {
   root.add(blinds);
   let blindsOpen = false;   // "open" = rolled up
   let blindsT = 0;
+  let _pcWas = null;        // last tower power state, so materials swap once
 
   /* ================================================================ */
   /* Doors                                                             */
@@ -821,14 +822,20 @@ export async function buildApartment(ctx) {
     return m;
   };
 
+  // Seats stay unaimable while you are already in one -- otherwise the
+  // prompt to sit down follows you onto the cushion.
+  const standing = () => !ctx.isSeated?.();
+
   interaction.register(seatProxy('couchSeat', [-4.78, 0.40, -0.33], [-4.06, 1.06, 1.73]), {
     label: () => 'Sit on the <b>couch</b>',
+    enabled: standing,
     onUse: () => { ctx.onNote?.('sit'); ctx.onSitCouch?.(); },
   });
   interaction.register(seatProxy('bedSeat', [-4.82, 0.62, -4.34], [-3.44, 1.10, -2.44]), {
     label: () => 'Sit on the <b>bed</b> &middot; hold to <b>lie down</b>',
     holdLabel: () => 'Lying <b>down</b>…',
     hold: 0.55,
+    enabled: standing,
     onTap: () => { ctx.onNote?.('sit'); ctx.onSitBed?.(); },
     onUse: () => ctx.onLieBed?.(),
   });
@@ -1025,9 +1032,12 @@ export async function buildApartment(ctx) {
     for (const m of desk.keyLeds) {
       m.emissiveIntensity = state.pcOn ? 1.5 : 0;
     }
-    desk.micLed.material = state.pcOn ? M.ledRed : M.bulbOff;
-    desk.sideScreen.material = state.pcOn ? desk.sideOn : desk.sideOff;
-    desk.powerLed.material = state.pcOn ? M.ledGreen : M.bulbOff;
+    if (state.pcOn !== _pcWas) {
+      _pcWas = state.pcOn;
+      desk.micLed.material = state.pcOn ? M.ledRed : M.bulbOff;
+      desk.sideScreen.material = state.pcOn ? desk.sideOn : desk.sideOff;
+      desk.powerLed.material = state.pcOn ? M.ledGreen : M.bulbOff;
+    }
 
     /* bobblehead */
     bobbleVel += -bobblePhase * 42 * dt;
