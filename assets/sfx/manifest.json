@@ -36,6 +36,9 @@
     { "name": "pc.mouseclick", "duration": 0.3, "prompt": "single gaming mouse left click, crisp and light" },
     { "name": "chair.sit", "duration": 1.3, "prompt": "person sitting down into a padded gaming chair, gas cylinder compressing slightly" },
     { "name": "couch.sit", "duration": 1.5, "prompt": "person flopping down onto a soft old fabric sofa, cushions compressing with a muffled whump and springs settling" },
+    { "name": "cs.round", "duration": 1.0, "prompt": "retro video game round-start chime, three rising electronic beeps, slightly detuned and cheap sounding" },
+    { "name": "cs.shot", "duration": 0.5, "prompt": "single dry rifle shot as heard through cheap PC speakers, compressed and thin, no reverb tail" },
+    { "name": "cs.death", "duration": 1.4, "prompt": "video game death sound: sharp gunshot crack immediately followed by a low descending tone and a soft thud" },
     { "name": "chair.roll", "duration": 1.2, "prompt": "office chair castors rolling a short distance over a hard floor" },
 
     { "name": "ambience.city", "duration": 10, "loop": true, "prompt": "distant early morning city ambience heard through a closed apartment window, faint traffic, no voices, seamless loop" },

@@ -1,21 +1,12 @@
 /**
- * SQUATCH SMASH -- the game on the desk PC.
+ * SQUATCH SMASH -- one of the two things installed on the desk PC.
  *
- * Renders to an offscreen 640x360 canvas which apartment.js maps onto the
- * monitor. It owns its own boot / desktop / menu / play / game-over shell so
- * sitting down at the PC feels like using a PC.
- *
- * Input arrives from main.js while the player is seated:
- *   onPointer(dx, dy)  relative mouse motion (pointer is locked)
- *   onClick(down)      primary button
- *   onKey(code, down)  keyboard
- *
- * See arcade/mount.js for the interface an alternative game must implement.
+ * An app in the SquatchOS sense: the OS owns the monitor canvas, the boot
+ * sequence, the desktop and the CRT treatment, and hands this the drawing
+ * context plus input while it has focus. See arcade/os.js for the interface.
  */
 import { drawSquatchSilhouette } from '../world/textures.js';
-
-const W = 640;
-const H = 360;
+import { W, H } from './os.js';
 
 const KINDS = {
   grunt: { points: 100, life: 1, up: 1.95, colour: '#6d5038', size: 1.00, friendly: false },
@@ -44,15 +35,15 @@ const SPOTS = (() => {
 })();
 
 export class SquatchSmash {
-  constructor({ audio, onScore } = {}) {
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = W;
-    this.canvas.height = H;
-    this.g = this.canvas.getContext('2d');
+  constructor({ audio, os, onScore } = {}) {
+    this.id = 'smash';
+    this.label = 'SQUATCH\nSMASH.exe';
+    this.os = os;
+    this.g = os.g;
     this.audio = audio;
     this.onScore = onScore;
 
-    this.mode = 'off';
+    this.mode = 'menu';
     this.t = 0;
     this.modeT = 0;
 
@@ -80,32 +71,33 @@ export class SquatchSmash {
     this.impair = 0;
 
     this.menuIndex = 0;
-    this._bootLines = [];
-    this._desktopSel = 0;
   }
 
   /* ---------------------------------------------------------------- */
   /* Lifecycle                                                         */
   /* ---------------------------------------------------------------- */
 
-  /** Called when the tower is powered on. */
-  boot() {
-    this.mode = 'boot';
-    this.modeT = 0;
-    this._bootLines = [
-      'SQUATCH BIOS v4.04',
-      'CPU: Cryptid Core i7 @ 4.9GHz  OK',
-      'MEM: 32768MB                   OK',
-      'GPU: HairyForce RTX            OK',
-      'Detecting storage .............',
-      'Loading SquatchOS ............. ',
-    ];
+  /** Desktop icon: the silhouette on a dark tile. */
+  drawIcon(g, cx, cy, s) {
+    g.fillStyle = '#1b2436';
+    g.fillRect(cx - s / 2, cy - s / 2, s, s);
+    g.strokeStyle = '#5d7fb5';
+    g.lineWidth = 2;
+    g.strokeRect(cx - s / 2, cy - s / 2, s, s);
+    drawSquatchSilhouette(g, cx, cy + s / 2 - 4, s - 4, '#cfd8e8');
   }
 
-  powerOff() {
-    this.mode = 'off';
+  enter() {
+    this.mode = 'menu';
+    this.modeT = 0;
+    this.cursor.x = W / 2;
+    this.cursor.y = H / 2;
+  }
+
+  exit() {
     this.entities.length = 0;
     this.particles.length = 0;
+    this.floaters.length = 0;
   }
 
   /** Grant a slow-motion charge -- earned by drinking a beer in the kitchen. */
@@ -158,11 +150,6 @@ export class SquatchSmash {
     }
     this.clickHeld = true;
 
-    if (this.mode === 'desktop') {
-      // Click the icon if the cursor is on it.
-      if (this._iconHit(this.cursor.x, this.cursor.y)) this._launch();
-      return;
-    }
     if (this.mode === 'menu') {
       this.startRun();
       return;
@@ -176,11 +163,9 @@ export class SquatchSmash {
 
   onKey(code, down) {
     if (!down) return false;
-    if (this.mode === 'boot') return false;
 
     if (code === 'Space' || code === 'Enter') {
-      if (this.mode === 'desktop') this._launch();
-      else if (this.mode === 'menu') this.startRun();
+      if (this.mode === 'menu') this.startRun();
       else if (this.mode === 'over' && this.modeT > 1.1) this.mode = 'menu';
       else if (this.mode === 'play') this._smash();
       return true;
@@ -190,16 +175,6 @@ export class SquatchSmash {
       return true;
     }
     return false;
-  }
-
-  _launch() {
-    this.audio?.play('ui.select', { volume: 0.5 });
-    this.mode = 'menu';
-    this.modeT = 0;
-  }
-
-  _iconHit(x, y) {
-    return x > 26 && x < 118 && y > 26 && y < 122;
   }
 
   _useBuff() {
@@ -218,13 +193,6 @@ export class SquatchSmash {
     this.t += dt;
     this.modeT += dt;
 
-    if (this.mode === 'boot' && this.modeT > 3.4) {
-      this.mode = 'desktop';
-      this.modeT = 0;
-      this.cursor.x = W / 2;
-      this.cursor.y = H / 2;
-    }
-
     this.shake = Math.max(0, this.shake - dt * 3.2);
     this.flash = Math.max(0, this.flash - dt * 4);
     this.swing = Math.max(0, this.swing - dt * 6);
@@ -233,7 +201,7 @@ export class SquatchSmash {
 
     // Drunk aim: the crosshair drifts on its own. Slow-mo reins it back in,
     // which is exactly what the first two beers bought you.
-    if (this.impair > 0 && (this.mode === 'play' || this.mode === 'menu')) {
+    if (this.impair > 0) {
       const s = this.impair * (this.slowmo > 0 ? 0.3 : 1);
       this.cursor.x = clamp(this.cursor.x
         + (Math.sin(this.t * 0.83) * 46 + Math.sin(this.t * 2.11 + 1.3) * 16) * s * dt, 8, W - 8);
@@ -447,72 +415,12 @@ export class SquatchSmash {
     }
 
     switch (this.mode) {
-      case 'off': g.fillStyle = '#05060a'; g.fillRect(-20, -20, W + 40, H + 40); break;
-      case 'boot': this._drawBoot(); break;
-      case 'desktop': this._drawDesktop(); break;
-      case 'menu': this._drawForest(); this._drawMenu(); break;
       case 'play': this._drawForest(); this._drawPlay(); break;
       case 'over': this._drawForest(); this._drawPlay(); this._drawOver(); break;
+      default: this._drawForest(); this._drawMenu(); break;
     }
 
     g.restore();
-    if (this.mode !== 'off') this._drawCrt();
-  }
-
-  _drawBoot() {
-    const g = this.g;
-    g.fillStyle = '#05060a';
-    g.fillRect(0, 0, W, H);
-    g.font = '13px "Courier New", monospace';
-    g.textAlign = 'left';
-    g.fillStyle = '#9fe89f';
-    const shown = Math.min(this._bootLines.length, Math.floor(this.modeT / 0.42) + 1);
-    for (let i = 0; i < shown; i++) {
-      g.fillText(this._bootLines[i], 26, 42 + i * 20);
-    }
-    if (Math.floor(this.t * 2.4) % 2 === 0) {
-      g.fillRect(26 + (shown ? g.measureText(this._bootLines[shown - 1]).width : 0) + 4, 32 + (shown - 1) * 20, 8, 13);
-    }
-  }
-
-  _drawDesktop() {
-    const g = this.g;
-    // Wallpaper: the same forest, lightly washed out.
-    this._drawForest(0.55);
-    g.fillStyle = 'rgba(10,14,22,.45)';
-    g.fillRect(0, 0, W, H);
-
-    // Icon.
-    const hot = this._iconHit(this.cursor.x, this.cursor.y);
-    g.fillStyle = hot ? 'rgba(90,140,220,.35)' : 'rgba(0,0,0,0)';
-    g.fillRect(26, 26, 92, 96);
-    g.fillStyle = '#1b2436';
-    g.fillRect(46, 34, 52, 52);
-    g.strokeStyle = '#5d7fb5';
-    g.lineWidth = 2;
-    g.strokeRect(46, 34, 52, 52);
-    drawSquatchSilhouette(g, 72, 82, 48, '#cfd8e8');
-    g.fillStyle = '#dfe6f2';
-    g.font = '11px "Courier New", monospace';
-    g.textAlign = 'center';
-    g.fillText('SQUATCH', 72, 100);
-    g.fillText('SMASH.exe', 72, 112);
-
-    // Taskbar.
-    g.fillStyle = 'rgba(12,16,26,.9)';
-    g.fillRect(0, H - 26, W, 26);
-    g.fillStyle = '#7f8ba0';
-    g.font = '11px "Courier New", monospace';
-    g.textAlign = 'left';
-    g.fillText('SquatchOS', 12, H - 9);
-    g.textAlign = 'right';
-    g.fillText('6:0' + (4 + Math.floor(this.t / 30)) + ' AM', W - 12, H - 9);
-
-    g.textAlign = 'center';
-    g.fillStyle = 'rgba(220,230,245,.6)';
-    g.fillText('double-click, or just hit SPACE', W / 2, H - 42);
-
-    this._drawCursor(true);
   }
 
   /** Night forest backdrop shared by menu and play. */
@@ -763,7 +671,7 @@ export class SquatchSmash {
     g.font = '12px "Courier New", monospace';
     g.fillStyle = '#7f7767';
     g.fillText(`BEST  ${this.best}`, W / 2, 292);
-    g.fillText('Q to get up from the desk', W / 2, 312);
+    g.fillText('TAB for the desktop  ·  Q to get up from the desk', W / 2, 312);
 
     this._drawCursor(true);
   }
@@ -832,33 +740,12 @@ export class SquatchSmash {
     g.restore();
   }
 
-  /** Scanlines + vignette, so the monitor reads as a monitor. */
-  _drawCrt() {
-    const g = this.g;
-    g.globalAlpha = 0.10;
-    g.fillStyle = '#000';
-    for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1);
-    g.globalAlpha = 1;
-
-    const vig = g.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.86);
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(0,0,0,.5)');
-    g.fillStyle = vig;
-    g.fillRect(0, 0, W, H);
-  }
-
-  /** Average screen brightness/hue, used to drive the monitor's room glow. */
-  sampleGlow() {
-    switch (this.mode) {
-      case 'off': return { colour: 0x000000, intensity: 0 };
-      case 'boot': return { colour: 0x66ff88, intensity: 0.5 };
-      case 'desktop': return { colour: 0x6f8fc8, intensity: 0.9 };
-      default:
-        return {
-          colour: this.flash > 0.2 ? 0xff5a44 : this.slowmo > 0 ? 0x66aaff : 0x7fa8d8,
-          intensity: 1.1 + (this.flash > 0.2 ? 0.8 : 0),
-        };
-    }
+  /** What the monitor spills into the room while this is on screen. */
+  glow() {
+    return {
+      colour: this.flash > 0.2 ? 0xff5a44 : this.slowmo > 0 ? 0x66aaff : 0x7fa8d8,
+      intensity: 1.1 + (this.flash > 0.2 ? 0.8 : 0),
+    };
   }
 }
 

@@ -484,6 +484,24 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'chair.roll':
       burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 380, q: 0.9, gain: 0.20 });
       break;
+    /* -------- Counter-Squatch -------- */
+    case 'cs.round':
+      // The round-start bell, pitched slightly wrong.
+      tone(ctx, dest, t, { freq: 880, to: 880, dur: 0.10, gain: 0.12, type: 'square' });
+      tone(ctx, dest, t + 0.13, { freq: 1170, to: 1170, dur: 0.10, gain: 0.12, type: 'square' });
+      tone(ctx, dest, t + 0.26, { freq: 1480, to: 1400, dur: 0.30, gain: 0.13, type: 'square' });
+      break;
+    case 'cs.shot':
+      burst(ctx, dest, t, { dur: 0.10, type: 'highpass', freq: 1700, gain: 0.34, sweep: 0.7 });
+      tone(ctx, dest, t, { freq: 220, to: 60, dur: 0.09, gain: 0.24, type: 'square' });
+      break;
+    case 'cs.death':
+      // Their shot, then yours ending.
+      burst(ctx, dest, t, { dur: 0.13, type: 'highpass', freq: 1300, gain: 0.42, sweep: 0.8 });
+      tone(ctx, dest, t, { freq: 170, to: 40, dur: 0.22, gain: 0.30, type: 'sawtooth' });
+      tone(ctx, dest, t + 0.16, { freq: 300, to: 96, dur: 0.75, gain: 0.16, type: 'triangle' });
+      break;
+
     case 'couch.sit':
       // Soft cushion compressing: a broad muffled whump, no gas cylinder.
       burst(ctx, dest, t, { dur: 0.52, type: 'lowpass', freq: 380, gain: 0.34, sweep: 0.5 });

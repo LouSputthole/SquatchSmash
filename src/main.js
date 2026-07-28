@@ -1137,6 +1137,7 @@ function frame() {
       scene.fog.color.copy(time.fogColour);
       scene.background.copy(time.fogColour);
       hud.setClock(time.day, time.clock12, time.elapsedReal);
+      arcade.setClock?.(time.clock12);
 
       // The city outside changes character after dark: summer daytime traffic
       // and birds give way to something sparser and further away.
