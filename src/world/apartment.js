@@ -68,10 +68,15 @@ export const WALL_SLOTS = [
  * Coordinates use the BATH box declared in buildApartment.
  */
 export const BATH_SLOTS = [
-  { slot: 'bath.toilet', x: -2.69, y: 1.52, z: -6.36, rotY: Math.PI / 2, h: 0.34 },
-  { slot: 'bath.high', x: -2.69, y: 2.02, z: -5.92, rotY: Math.PI / 2, h: 0.26 },
-  { slot: 'bath.far', x: -1.90, y: 1.62, z: -7.09, rotY: 0, h: 0.36 },
-  { slot: 'bath.mirror', x: -0.31, y: 1.66, z: -6.42, rotY: -Math.PI / 2, h: 0.32 },
+  // On the east wall at sitting eye level, which is the only thing in this
+  // flat anybody has ever studied properly.
+  { slot: 'bath.toilet', x: -0.31, y: 1.38, z: -6.55, rotY: -Math.PI / 2, h: 0.34 },
+  // Behind the cistern.
+  { slot: 'bath.far', x: -1.30, y: 1.60, z: -7.09, rotY: 0, h: 0.36 },
+  // Beside the mirror, clear of the cabinet.
+  { slot: 'bath.mirror', x: -0.31, y: 1.66, z: -5.02, rotY: -Math.PI / 2, h: 0.30 },
+  // West wall between the bath and the door.
+  { slot: 'bath.high', x: -2.69, y: 1.78, z: -5.12, rotY: Math.PI / 2, h: 0.28 },
 ];
 
 /** Hanging cloth banners rather than framed pictures. */

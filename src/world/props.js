@@ -1241,20 +1241,65 @@ export function makeBanner(M, { x, y, z, rotY = 0, w = 0.9, h = 1.2, texture = n
 }
 
 /** A cap hanging on a wall peg. */
-export function makeCapOnPeg(M, { x, y, z, rotY = 0, color = 0x3a4a3c }) {
+export function makeCapOnPeg(M, { x, y, z, rotY = 0, color = 0x5b3f9e }) {
   const g = group('cap');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
-  g.add(cylinder({ r: 0.012, h: 0.09, pos: [0, 0, -0.045], rotX: Math.PI / 2, mat: M.lightWood }));
-  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.088, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat({ color, roughness: 0.9 }));
-  crown.position.set(0, -0.02, 0.01);
-  crown.rotation.x = 0.5;
+
+  const cloth = mat({ color, roughness: 0.92 });
+  const dark = mat({ color: 0x2a1d4a, roughness: 0.9 });
+
+  // Peg it hangs off.
+  g.add(cylinder({ r: 0.011, h: 0.10, pos: [0, 0, -0.05], rotX: Math.PI / 2, mat: M.lightWood }));
+  g.add(sphere({ r: 0.017, pos: [0, 0, 0.005], mat: M.lightWood }));
+
+  // Crown: a squashed dome, wider than it is tall, tipped forward on the peg.
+  const cap = new THREE.Group();
+  cap.position.set(0, -0.030, 0.020);
+  cap.rotation.x = 0.42;
+  g.add(cap);
+
+  const crown = new THREE.Mesh(
+    new THREE.SphereGeometry(0.092, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    cloth,
+  );
+  crown.scale.set(1, 0.74, 1);
   crown.castShadow = true;
-  g.add(crown);
-  const brim = new THREE.Mesh(new THREE.CircleGeometry(0.10, 16, 0, Math.PI), mat({ color, roughness: 0.9, side: THREE.DoubleSide }));
-  brim.position.set(0, -0.055, 0.075);
-  brim.rotation.set(-1.1, 0, 0);
-  g.add(brim);
+  cap.add(crown);
+  // Panel seams, so it is not one smooth blob of colour.
+  for (let i = 0; i < 6; i++) {
+    const seam = box({ size: [0.0035, 0.070, 0.0035], pos: [0, 0.034, 0], mat: dark, cast: false });
+    seam.rotation.z = (i / 6) * Math.PI * 2;
+    seam.position.set(Math.sin((i / 6) * Math.PI * 2) * 0.070, 0.030, Math.cos((i / 6) * Math.PI * 2) * 0.070);
+    cap.add(seam);
+  }
+  // Button on the crown.
+  cap.add(cylinder({ r: 0.008, h: 0.006, pos: [0, 0.070, 0], mat: dark }));
+  // Sweatband round the opening.
+  cap.add(new THREE.Mesh(new THREE.TorusGeometry(0.090, 0.007, 8, 24), dark)
+    .rotateX(Math.PI / 2));
+
+  /* Peak: a solid half-disc with real thickness, angled down. A flat circle
+   * with no depth reads as a shape someone forgot to finish. */
+  const peak = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.112, 0.112, 0.008, 22, 1, false, -Math.PI / 2, Math.PI),
+    cloth,
+  );
+  peak.scale.set(1, 1, 0.80);
+  peak.position.set(0, -0.004, 0.052);
+  peak.rotation.x = -0.30;
+  peak.castShadow = true;
+  cap.add(peak);
+  // Underside of the peak, darker, the way they always are.
+  const under = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.110, 0.110, 0.003, 22, 1, false, -Math.PI / 2, Math.PI),
+    dark,
+  );
+  under.scale.copy(peak.scale);
+  under.position.set(0, -0.010, 0.052);
+  under.rotation.x = -0.30;
+  cap.add(under);
+
   return { group: g };
 }
 
