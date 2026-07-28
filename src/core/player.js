@@ -57,6 +57,11 @@ export class Player {
     // `impair` (0..1) bends walking away from the direction you asked for.
     this.sway = { yaw: 0, pitch: 0, roll: 0 };
     this.impair = 0;
+    /** Weed: everything slower, and the camera a beat behind the mouse. */
+    this.moveScale = 1;
+    this.lookDrag = 0;
+    this._lookYaw = 0;
+    this._lookPitch = 0;
 
     // Transition tween state.
     this._tween = null;
@@ -68,6 +73,13 @@ export class Player {
 
   handleMouseMove(dx, dy) {
     if (!this.enabled || this.mode === 'frozen') return;
+    // Stoned, the view lags the mouse instead of tracking it. The input is
+    // banked and bled out over the next few frames in update().
+    if (this.lookDrag > 0.05) {
+      this._lookYaw -= dx * this.sensitivity;
+      this._lookPitch -= dy * this.sensitivity;
+      return;
+    }
     this.yaw -= dx * this.sensitivity;
     this.pitch -= dy * this.sensitivity;
     this.pitch = clamp(this.pitch, this.pitchMin, this.pitchMax);
@@ -214,6 +226,18 @@ export class Player {
 
   update(dt) {
     this.time += dt;
+
+    // Bleed off any banked look input. The higher the drag, the longer the
+    // view takes to arrive where you pointed it.
+    if (this._lookYaw || this._lookPitch) {
+      const k = Math.min(1, dt * (12 - this.lookDrag * 9));
+      this.yaw += this._lookYaw * k;
+      this.pitch = clamp(this.pitch + this._lookPitch * k, this.pitchMin, this.pitchMax);
+      this._lookYaw -= this._lookYaw * k;
+      this._lookPitch -= this._lookPitch * k;
+      if (Math.abs(this._lookYaw) < 1e-5) this._lookYaw = 0;
+      if (Math.abs(this._lookPitch) < 1e-5) this._lookPitch = 0;
+    }
     if (this._tween) {
       const tw = this._tween;
       tw.t += dt;
@@ -248,11 +272,11 @@ export class Player {
     this.targetEye = this.crouching ? EYE_CROUCH : EYE_STAND;
     this.eyeHeight += (this.targetEye - this.eyeHeight) * Math.min(1, dt * 9);
 
-    const maxSpeed = this.crouching
+    const maxSpeed = (this.crouching
       ? SPEED_CROUCH
       : this.sprinting
         ? SPEED_SPRINT
-        : SPEED_WALK;
+        : SPEED_WALK) * this.moveScale;
 
     // Desired velocity in world space.
     // Drunk walking: veer off the requested heading, and list to one side.

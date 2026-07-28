@@ -62,7 +62,7 @@ to leave without it.
 | **Shower** | `showered` | the bath, currently does nothing | ⬜ |
 | **Dressed** | `dressed` | laundry pile / nightstand drawer | ⬜ |
 | **Fed** | `fed` | the eggs, the cooktop | ⬜ |
-| **A game with the boys** | `playedCS` | the PC | 🔨 needs the CS rework |
+| **A game with the boys** | five deaths in Counter-Squatch | the PC | ⬜ gate only |
 | **Sober enough** | `drunk.level` under 0.45 | everywhere | ✅ mechanic / ⬜ gate |
 
 Sober-enough is checked **at the door**, not banked — you can drink at 10 AM
@@ -87,26 +87,11 @@ When nothing is left: the door just opens.
 
 ## What you do
 
-### Get a game in with the boys 🔨
+### Get a game in with the boys
 
-This is the one that needs work. Counter-Squatch currently kills you the
-instant you spawn, forever, which is a good joke and a bad task — there is
-nothing to complete.
-
-**The rework:** it becomes a *match*. You queue with the roster and play
-thirteen rounds.
-
-- Every round you spawn and are killed through a wall by an obvious cheater.
-  The window of control shrinks each round, exactly as it does now.
-- The boys are in comms the whole time — Booski, Ape, Lou, Irish, Shubes —
-  and they are having a much better time than you are.
-- The killfeed fills with things that could not have happened.
-- **Round 13:** the cheater gets banned mid-round. You get four full seconds
-  and can actually get one kill. One, in thirteen rounds. The boys lose it.
-- Final scoreboard: you finish 1–12. The task is complete. You were there.
-
-That keeps the parody intact and gives it a shape and an ending. Everything
-that makes it funny stays; it just stops being a loop with no exit.
+**No rework.** Getting a game in means getting smoked by a cheater for a
+handful of rounds, which is exactly what Counter-Squatch already does. Play
+five rounds, die five times, task complete. The joke does not need an arc.
 
 ### Shower ⬜
 The bath and shower riser are modelled and inert. Water, steam, the noise, and
@@ -138,11 +123,42 @@ This is the antagonist. None of it is required and all of it is available.
 | **Jack AND Daniels** | Twice a beer, half the time. | ✅ |
 | **Cigarettes** ×17 | Four of them start the other countdown. | ✅ |
 | **Zyns** ×15 | Forty-two minutes of steadier hands. | ✅ |
-| **The bong** | On the coffee table. Heavier and longer than the drink. | 🔨 prop built, no effect |
-| **The mushrooms** | Next to it. If you do these, you are not going to the meeting. | 🔨 prop built, no effect |
+| **The bong** | Everything slows down. See below. | ✅ |
+| **The mushrooms** | Everything bends. See below. | ✅ |
 
-The bong and the mushrooms should be the two things that can actually cost you
-Wednesday. Everything else you can sleep off.
+**Neither of these costs you Wednesday.** You can be as high as you like and
+still make the meeting. They are in because they change how the flat feels,
+and the flat is the game.
+
+### Weed — slower
+
+Hold <kbd>E</kbd> on the bong. One bowl runs about three and a half minutes and
+they stack.
+
+- the world itself runs at up to 70% speed — smoke, the room, the PC
+- you walk up to a third slower
+- **the camera lags the mouse**: your input is banked and bled out over the
+  following frames rather than tracked, which is the part that actually feels
+  like something
+- the room warms and the corners soften
+
+The clock is deliberately exempt. A day is fifteen minutes whether or not you
+have had a bowl.
+
+### Mushrooms — bent
+
+Hold <kbd>E</kbd> on the bag. Nothing happens for ninety-five seconds, which
+is the joke, and then it arrives over the next minute.
+
+- the hue rotates continuously, one way, and **unwinds back to normal** as it
+  fades, so you are not left in a permanently green flat
+- saturation climbs to nearly double
+- the whole frame breathes in and out, slowly
+- the camera rolls on a wider, slower rhythm than the drink does — that
+  difference is what stops it reading as just being drunker
+
+Roughly a quarter of an hour end to end: ninety-five seconds up, a peak, then
+a long fade. Both layer on top of the drink rather than replacing it.
 
 ---
 

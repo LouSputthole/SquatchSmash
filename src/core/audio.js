@@ -586,6 +586,14 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t + 0.16, { freq: 300, to: 96, dur: 0.75, gain: 0.16, type: 'triangle' });
       break;
 
+    case 'bong.bubble':
+      // Water pulling through the stem: a low burble that climbs as the
+      // chamber fills, then stops dead on the pull.
+      burst(ctx, dest, t, { dur: 1.5, type: 'lowpass', freq: 420, gain: 0.26, sweep: 1.6 });
+      burst(ctx, dest, t, { dur: 1.5, type: 'bandpass', freq: 900, q: 2.4, gain: 0.16, sweep: 1.9 });
+      tone(ctx, dest, t, { freq: 92, to: 148, dur: 1.4, gain: 0.09, type: 'sine' });
+      break;
+
     case 'couch.sit':
       // Soft cushion compressing: a broad muffled whump, no gas cylinder.
       burst(ctx, dest, t, { dur: 0.52, type: 'lowpass', freq: 380, gain: 0.34, sweep: 0.5 });

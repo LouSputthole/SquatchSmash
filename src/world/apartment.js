@@ -472,6 +472,19 @@ export async function buildApartment(ctx) {
   });
   root.add(shroomHit);
 
+  interaction.register(bongHit, {
+    label: () => 'Pack a <b>bowl</b>',
+    hold: 0.9,
+    holdLabel: () => 'Hold it…',
+    onUse: () => ctx.onBong?.(),
+  });
+  interaction.register(shroomHit, {
+    label: () => 'Take some <b>mushrooms</b>',
+    hold: 1.1,
+    holdLabel: () => 'Are you sure…',
+    onUse: () => ctx.onShrooms?.(),
+  });
+
   const sideboard = P.makeSideboard(M, { x: -1.00, z: 4.22 });
   root.add(sideboard.group);
   addCollider(sideboard.bounds);

@@ -34,11 +34,37 @@ body.unlocked canvas#scene { cursor: default; }
 
 /* ---------------- Intoxication ---------------- */
 
-/* Blur is applied to the canvas itself so it costs one GPU pass, not a
-   three.js post-processing chain. --drunk-blur is driven from main.js. */
+/* Everything the substances do to the picture happens in one filter on the
+   canvas, so it costs a single GPU pass rather than a three.js
+   post-processing chain. All four values are driven from main.js.
+
+   Order matters: hue-rotate before saturate, so the mushrooms shift the
+   colour and then push what is left of it, rather than the other way round. */
 canvas#scene {
-  filter: blur(var(--drunk-blur, 0px));
-  will-change: filter;
+  filter:
+    blur(var(--drunk-blur, 0px))
+    hue-rotate(var(--trip-hue, 0deg))
+    saturate(var(--trip-sat, 1));
+  transform: scale(var(--trip-breathe, 1));
+  transform-origin: 50% 50%;
+  will-change: filter, transform;
+}
+
+/* Weed: the room warms and the corners soften. Distinct from the drink,
+   which closes in and goes brown. */
+#fx-high {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  opacity: var(--high-amount, 0);
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse at 50% 55%,
+      rgba(255, 196, 120, .10) 0%,
+      rgba(180, 120, 200, .07) 55%,
+      rgba(0, 0, 0, 0) 100%);
+  transition: opacity 1.2s ease;
 }
 
 #fx-drunk {

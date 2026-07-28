@@ -17,6 +17,7 @@ import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
+import { Highs } from './core/highs.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -35,6 +36,7 @@ const CIG_AFTERGLOW = 4.20;
 
 const canvas = document.getElementById('scene');
 const fxDrunk = document.getElementById('fx-drunk');
+const fxHigh = document.getElementById('fx-high');
 const blackout = document.getElementById('blackout');
 const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
@@ -124,6 +126,8 @@ const radio = new Radio(audio, hud, time);
 // Nothing happens in here. Somebody should say so.
 const narrator = new Narrator(hud, time, audio);
 const drunk = new Drunk();
+// The coffee table's contribution. Neither of these costs you Wednesday.
+const highs = new Highs();
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
 
@@ -197,6 +201,8 @@ async function boot() {
     onStartPee: startPee,
     onSitToilet: sitOnToilet,
     onZyn: takeZyn,
+    onBong: hitBong,
+    onShrooms: eatShrooms,
     // The set's own LED and dial read off apartment state, so keep it honest.
     onRadioToggle: () => { radio.toggle(); apartment.state.radioOn = radio.on; },
     onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
@@ -242,7 +248,8 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
-    drunk, smoke, stream, cig, time, passOut, fart, startPee, stopPee,
+    drunk, highs, smoke, stream, cig, time, passOut, fart, startPee, stopPee,
+    hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator,
@@ -255,6 +262,7 @@ async function boot() {
       player.pitchMax = Math.PI / 2 - 0.05;
       player.yawCenter = null;
       player.position.set(x, 1.66, z);
+      player.velocity.set(0, 0, 0);   // or you arrive still carrying the last run
       player.eyeHeight = 1.66;
       player.pitch = 0;
       player.yaw = typeof facing === 'number' ? facing : (yaws[facing] ?? 0);
@@ -939,6 +947,42 @@ function updateZyn() {
   }
 }
 
+/**
+ * A bowl. The world slows down, you slow down, and the camera takes its time
+ * catching up with the mouse.
+ */
+function hitBong() {
+  if (game.passingOut) return;
+  audio.play('cig.light', { volume: 0.6 });
+  audio.play('bong.bubble', { volume: 0.8, delay: 0.5 });
+  audio.play('cig.exhale', { volume: 0.6, delay: 2.6 });
+  audio.say('bong', { chance: 0.8, delay: 3.4 });
+  highs.smokeBong();
+  smoke.emit(camera.position, cameraForward(), { count: 14, spread: 0.5, speed: 0.7 });
+  hud.toast('That is going to take a minute', 'good');
+  hud.say(highs.weed > 0.6
+    ? 'Everything has slowed down and you are fine with it.'
+    : 'The room gets softer at the edges.', 5200);
+}
+
+/** A cap. Nothing happens for a minute and a half, and then it does. */
+function eatShrooms() {
+  if (game.passingOut) return;
+  audio.play('zyn.pack', { volume: 0.5 });
+  audio.say('shrooms', { chance: 0.9, delay: 0.8 });
+  highs.eatShrooms();
+  hud.toast('Nothing is happening', '');
+  hud.say('Earthy. Unpleasant. Nothing is happening. '
+    + '<em>Nothing is going to happen for a while.</em>', 6000);
+}
+
+/** Where the camera is pointing, for anything that needs to come out of it. */
+const _fwd = new THREE.Vector3();
+function cameraForward() {
+  camera.getWorldDirection(_fwd);
+  return _fwd;
+}
+
 /* ------------------------------------------------------------------ */
 /* The other thing                                                     */
 /* ------------------------------------------------------------------ */
@@ -1152,6 +1196,7 @@ function passOut({ voluntary = false } = {}) {
     // Wake up in bed, a few hours gone.
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
     drunk.sleepItOff();
+    highs.sleepItOff();
     time.skipHours(12);
     apartment.refreshClocks();
     apartment.state.heldItem = null;
@@ -1172,9 +1217,36 @@ function passOut({ voluntary = false } = {}) {
 /** Push the intoxication level into the CSS layer (blur + closing vignette). */
 let _fxBlur = -1;
 let _fxAmount = -1;
+let _fxHue = -1;
+let _fxSat = -1;
+let _fxBreathe = -1;
+let _fxHigh = -1;
 function applyDrunkFx() {
   const blur = Math.round(drunk.blur * 20) / 20;
   const amount = Math.round(drunk.vignette * 50) / 50;
+
+  // The other two. Same trick: only touch the DOM when a rounded value moves,
+  // because setting a custom property forces a style recalc every time.
+  const hue = Math.round(highs.hue * 2) / 2;
+  const sat = Math.round(highs.saturate * 100) / 100;
+  const breathe = Math.round(highs.breathe * 1000) / 1000;
+  const warm = Math.round(highs.warmth * 50) / 50;
+  if (hue !== _fxHue) {
+    _fxHue = hue;
+    document.documentElement.style.setProperty('--trip-hue', `${hue}deg`);
+  }
+  if (sat !== _fxSat) {
+    _fxSat = sat;
+    document.documentElement.style.setProperty('--trip-sat', sat);
+  }
+  if (breathe !== _fxBreathe) {
+    _fxBreathe = breathe;
+    document.documentElement.style.setProperty('--trip-breathe', breathe);
+  }
+  if (warm !== _fxHigh) {
+    _fxHigh = warm;
+    fxHigh.style.setProperty('--high-amount', warm);
+  }
   // Only touch the DOM when the value actually changes; setting a CSS custom
   // property every frame forces a style recalc for nothing.
   if (blur !== _fxBlur) {
@@ -1224,6 +1296,12 @@ function frame() {
       audio.setLoopVolume('ambience.city.day', 0.02 + time.dayness * 0.13, 1.0);
       audio.setLoopVolume('ambience.city.night', 0.02 + (1 - time.dayness) * 0.12, 1.0);
 
+      // The coffee table slows the world down. Everything that animates runs
+      // on scaled time; the clock does not, because a day is fifteen minutes
+      // whether or not you have had a bowl.
+      highs.update(dt);
+      const hdt = dt * highs.timeScale;
+
       // Intoxication first: the player controller reads sway/impair this frame.
       if (drunk.update(dt)) passOut();
       player.sway = drunk.sway;
@@ -1231,16 +1309,23 @@ function frame() {
       arcade.setImpairment?.(drunk.swayStrength);
       applyDrunkFx();
 
+      // Weed rides on top of the drink rather than replacing it.
+      player.sway.yaw += highs.sway.yaw;
+      player.sway.pitch += highs.sway.pitch;
+      player.sway.roll += highs.sway.roll;
+      player.moveScale = highs.moveScale;
+      player.lookDrag = highs.lookDrag;
+
       player.update(dt);
-      apartment.update(dt, elapsed);
+      apartment.update(hdt, elapsed);
       updateConsume(dt);
       updatePee(dt);
       updateBowel(dt);
       updateZyn();
       updateFarts(dt);
       updateNeighbours(dt);
-      smoke.update(dt);
-      stream.update(dt);
+      smoke.update(hdt);
+      stream.update(hdt);
       radio.update(dt);
       narrator.update(dt, {
         busy: game.passingOut || game.seated || game.peeing || game.onToilet
@@ -1249,13 +1334,13 @@ function frame() {
       });
 
       if (game.seated) {
-        arcade.update(dt);
+        arcade.update(hdt);
         screenTexture.needsUpdate = true;
       } else {
         interaction.update(dt);
         // Keep the screen alive while the player is across the room.
         if (apartment.state.pcOn) {
-          arcade.update(dt);
+          arcade.update(hdt);
           screenTexture.needsUpdate = true;
         }
       }
