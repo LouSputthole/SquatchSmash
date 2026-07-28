@@ -761,6 +761,102 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
   return { group: g };
 }
 
+/**
+ * The bong on the coffee table. Straight tube, ice pinch, a slide in the
+ * downstem joint, and about two inches of water that has been in there for
+ * longer than anyone wants to think about.
+ */
+export function makeBong(M, { x, y, z, rotY = 0 }) {
+  const g = group('bong');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: 0x8fb4a8, roughness: 0.05, metalness: 0,
+    transmission: 0.86, thickness: 0.02, transparent: true, opacity: 0.42,
+  });
+  const dirty = new THREE.MeshPhysicalMaterial({
+    color: 0x6f7c3e, roughness: 0.22, transmission: 0.35,
+    thickness: 0.03, transparent: true, opacity: 0.82,
+  });
+
+  const BASE_R = 0.052, TUBE_R = 0.030, H = 0.325;
+
+  // Beaker base flaring into the tube.
+  g.add(cylinder({ rTop: TUBE_R + 0.004, rBottom: BASE_R, h: 0.105, pos: [0, 0.052, 0], mat: glass }));
+  g.add(cylinder({ r: BASE_R, h: 0.008, pos: [0, 0.004, 0], mat: glass }));
+  // The water. Not clean.
+  g.add(cylinder({ rTop: TUBE_R + 0.012, rBottom: BASE_R - 0.004, h: 0.052, pos: [0, 0.030, 0], mat: dirty }));
+  // Tube, with an ice pinch two thirds up.
+  g.add(cylinder({ r: TUBE_R, h: H - 0.105, pos: [0, 0.105 + (H - 0.105) / 2, 0], mat: glass }));
+  for (const a of [0, 2.1, 4.2]) {
+    g.add(sphere({
+      r: 0.013, pos: [Math.sin(a) * TUBE_R * 0.75, 0.245, Math.cos(a) * TUBE_R * 0.75], mat: glass,
+    }));
+  }
+  // Flared mouthpiece.
+  g.add(cylinder({ rTop: TUBE_R + 0.010, rBottom: TUBE_R, h: 0.022, pos: [0, H + 0.011, 0], mat: glass }));
+
+  // Downstem out the side at an angle, with the slide on the end.
+  const stem = new THREE.Group();
+  stem.position.set(0, 0.088, 0);
+  stem.rotation.z = -0.62;
+  g.add(stem);
+  stem.add(cylinder({ r: 0.011, h: 0.115, pos: [0, 0.052, 0], mat: glass }));
+  const bowl = cylinder({ rTop: 0.026, rBottom: 0.012, h: 0.030, pos: [0, 0.122, 0], mat: glass });
+  stem.add(bowl);
+  // What is in the bowl. Mostly ash by now.
+  stem.add(cylinder({ rTop: 0.021, rBottom: 0.011, h: 0.012, pos: [0, 0.126, 0], mat: mat({ color: 0x4a4238, roughness: 1 }) }));
+
+  // Lighter beside it, because there is always a lighter beside it.
+  g.add(box({
+    size: [0.024, 0.075, 0.014], pos: [0.085, 0.038, 0.045],
+    mat: mat({ color: 0xd8452f, roughness: 0.45 }), rotZ: Math.PI / 2, rotY: 0.4,
+  }));
+
+  return { group: g, bowl, height: H + 0.03 };
+}
+
+/**
+ * A little bag of mushrooms, next to the bong, because of course.
+ * Deliberately scruffy: a sandwich bag with the top rolled over.
+ */
+export function makeMushrooms(M, { x, y, z, rotY = 0 }) {
+  const g = group('shrooms');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const bag = new THREE.MeshPhysicalMaterial({
+    color: 0xdfe4e2, roughness: 0.55, transmission: 0.55,
+    thickness: 0.01, transparent: true, opacity: 0.30, side: THREE.DoubleSide,
+  });
+  const cap = mat({ color: 0x9a7a52, roughness: 0.95 });
+  const stalk = mat({ color: 0xd8cbb2, roughness: 1 });
+
+  // Six of them, tumbled together.
+  const SEED = [
+    [-0.030, 0.018, -0.012, 0.5], [0.008, 0.016, 0.020, -1.2],
+    [0.034, 0.019, -0.016, 2.3], [-0.012, 0.040, 0.006, 0.9],
+    [0.022, 0.042, 0.010, -0.4], [-0.034, 0.017, 0.024, 1.8],
+  ];
+  for (const [mx, my, mz, rot] of SEED) {
+    const one = new THREE.Group();
+    one.position.set(mx, my, mz);
+    one.rotation.set(0.9, rot, 0.35);
+    one.add(cylinder({ r: 0.0045, h: 0.036, pos: [0, 0, 0], mat: stalk }));
+    one.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.013, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), cap,
+    ).translateY(0.018));
+    g.add(one);
+  }
+
+  // The bag around them, rolled shut at the top.
+  g.add(box({ size: [0.105, 0.062, 0.078], pos: [0, 0.031, 0], mat: bag, cast: false }));
+  g.add(cylinder({ r: 0.014, h: 0.100, pos: [0, 0.066, 0], rotZ: Math.PI / 2, mat: bag, cast: false }));
+
+  return { group: g };
+}
+
 /** Sideboard the radio lives on. */
 export function makeSideboard(M, { x, z, w = 1.6, d = 0.44 }) {
   const g = group('sideboard');

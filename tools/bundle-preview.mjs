@@ -34,9 +34,17 @@ const OUT = path.join(OUT_DIR, 'squatch-apartment.html');
 
 const args = process.argv.slice(2);
 const FULL = args.includes('--full');
-/** Longest edge for re-encoded art, and JPEG quality. */
-const MAX_EDGE = Number(args.find((a) => a.startsWith('--max='))?.slice(6)) || 720;
-const QUALITY = 0.74;
+/**
+ * Longest edge for re-encoded art. Most of these are photographs that appear
+ * about a hand's width on screen, so they get the small budget; the two
+ * feature pieces and the banners are metre-wide and you can walk up to them,
+ * so they get more. Download size is what makes a bundle feel slow, and the
+ * art is the overwhelming majority of it.
+ */
+const MAX_EDGE = Number(args.find((a) => a.startsWith('--max='))?.slice(6)) || 384;
+const BIG_SLOTS = /^(feature\.|banner\.|crest\.|cork\.above|south\.wide|bed\.poster)/;
+const BIG_EDGE = Math.round(MAX_EDGE * 1.9);
+const QUALITY = 0.72;
 
 const MIME = {
   '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
@@ -107,7 +115,7 @@ for (const [dir, name] of [
 inline['assets/sfx/index.json'] = { files: [] };
 
 /** Re-encode one image through headless Chromium, since there is no PIL here. */
-async function shrinkAll(files) {
+async function shrinkAll(files) {   // files: [{ file, max }]
   if (FULL) return new Map();
   let chromium;
   try {
@@ -133,7 +141,7 @@ async function shrinkAll(files) {
   }
   const page = await browser.newPage();
   const out = new Map();
-  for (const file of files) {
+  for (const { file, max } of files) {
     const ext = path.extname(file).toLowerCase();
     const buf = read('assets/art/' + file);
     const url = await page.evaluate(async ({ src, max, q }) => {
@@ -152,26 +160,40 @@ async function shrinkAll(files) {
       let opaque = true;
       for (let i = 3; i < d.length; i += 4) { if (d[i] < 250) { opaque = false; break; } }
       return c.toDataURL(opaque ? 'image/jpeg' : 'image/png', q);
-    }, { src: dataUri(MIME[ext] || 'image/jpeg', buf), max: MAX_EDGE, q: QUALITY });
+    }, { src: dataUri(MIME[ext] || 'image/jpeg', buf), max, q: QUALITY });
     // Keep whichever is smaller.
     const shrunk = Buffer.from(url.split(',')[1], 'base64');
-    out.set(file, shrunk.length < buf.length ? url : dataUri(MIME[ext] || 'image/jpeg', buf));
+    const best = shrunk.length < buf.length ? url : dataUri(MIME[ext] || 'image/jpeg', buf);
+    // The frame geometry needs the aspect ratio, and waiting for 44 images to
+    // decode just to learn it is the whole reason boot feels slow. Measure it
+    // here instead and bake it in.
+    const dims = await page.evaluate(async (src) => {
+      const img = new Image(); img.src = src; await img.decode();
+      return img.naturalWidth / img.naturalHeight;
+    }, best);
+    out.set(file, { url: best, aspect: dims });
   }
   await browser.close();
   return out;
 }
 
-const artFiles = [...new Set((inline['assets/art/manifest.json'].art || [])
-  .map((e) => e.file).filter(Boolean))];
+const entries = (inline['assets/art/manifest.json'].art || []).filter((e) => e.file);
+const budget = new Map();
+for (const e of entries) {
+  const want = BIG_SLOTS.test(e.slot) ? BIG_EDGE : MAX_EDGE;
+  budget.set(e.file, Math.max(budget.get(e.file) || 0, want));
+}
+const artFiles = [...budget].map(([file, max]) => ({ file, max }));
 
 console.log(`Bundling ${modules.size} modules and ${artFiles.length} images…`);
 const shrunk = await shrinkAll(artFiles);
 
 let artBytes = 0;
-for (const entry of inline['assets/art/manifest.json'].art || []) {
-  if (!entry.file) continue;
+for (const entry of entries) {
   const ext = path.extname(entry.file).toLowerCase();
-  entry.file = shrunk.get(entry.file) || dataUri(MIME[ext] || 'image/jpeg', read('assets/art/' + entry.file));
+  const got = shrunk.get(entry.file);
+  entry.aspect = got?.aspect;
+  entry.file = got?.url || dataUri(MIME[ext] || 'image/jpeg', read('assets/art/' + entry.file));
   artBytes += entry.file.length;
 }
 

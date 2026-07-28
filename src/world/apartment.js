@@ -453,6 +453,25 @@ export async function buildApartment(ctx) {
   root.add(P.makeBeerCan(M, { x: -3.02, y: table.top, z: 0.92, crushed: true, rotY: 1.1 }).group);
   root.add(P.makeBeerCan(M, { x: -3.62, y: table.top, z: 0.88, crushed: true, rotY: -0.4 }).group);
 
+  // The other end of the coffee table. Neither of these is on the way out.
+  const bongPos = new THREE.Vector3(-3.02, table.top, 0.42);
+  const bong = P.makeBong(M, { x: bongPos.x, y: bongPos.y, z: bongPos.z, rotY: -0.7 });
+  root.add(bong.group);
+  const bongHit = box({
+    size: [0.20, 0.42, 0.20], pos: [bongPos.x, bongPos.y + 0.20, bongPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(bongHit);
+
+  const shroomPos = new THREE.Vector3(-3.66, table.top, 0.52);
+  const shrooms = P.makeMushrooms(M, { x: shroomPos.x, y: shroomPos.y, z: shroomPos.z, rotY: 0.5 });
+  root.add(shrooms.group);
+  const shroomHit = box({
+    size: [0.20, 0.18, 0.18], pos: [shroomPos.x, shroomPos.y + 0.07, shroomPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(shroomHit);
+
   const sideboard = P.makeSideboard(M, { x: -1.00, z: 4.22 });
   root.add(sideboard.group);
   addCollider(sideboard.bounds);
