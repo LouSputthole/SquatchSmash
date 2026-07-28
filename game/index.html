@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>SquatchSmash</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦶</text></svg>">
+<style>
+  :root {
+    --purple: #7b4fd9;
+    --purple-bright: #9a6ff0;
+    --purple-deep: #4a2f8f;
+    --navy: #1b1433;
+    --silver: #cfd4e0;
+    --silver-bright: #eef0f6;
+    --red: #d92e2e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #120d24; }
+  body { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; user-select: none;
+         -webkit-user-select: none; touch-action: none; }
+  canvas { display: block; }
+
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+    display: none; z-index: 5;
+  }
+  #hud.visible { display: block; }
+
+  .hud-top {
+    position: absolute; top: 14px; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 0 22px;
+  }
+  #score {
+    font-size: 42px; font-weight: 900; color: var(--silver-bright);
+    text-shadow: 0 2px 0 var(--purple-deep), 0 4px 10px rgba(0,0,0,.55);
+    letter-spacing: 1px;
+  }
+  #kills {
+    font-size: 20px; font-weight: 900; color: #ff8a8a;
+    text-shadow: 0 2px 5px rgba(0,0,0,.6);
+  }
+  #wrecked {
+    font-size: 14px; font-weight: 800; color: var(--purple-bright);
+    letter-spacing: 2px; text-shadow: 0 2px 5px rgba(0,0,0,.6);
+  }
+  .hud-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  #timer {
+    font-size: 38px; font-weight: 900; color: #fff;
+    text-shadow: 0 2px 0 #333, 0 4px 10px rgba(0,0,0,.55);
+    font-variant-numeric: tabular-nums;
+  }
+  #timer.low { color: #ff5a4e; animation: pulse .5s infinite alternate; }
+  #timer.bonus { color: #7dffb0; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+  #muteBtn {
+    pointer-events: auto; cursor: pointer; border: none; background: rgba(0,0,0,.35);
+    border-radius: 8px; font-size: 20px; padding: 4px 10px;
+  }
+
+  #combo {
+    position: absolute; top: 108px; left: 22px;
+    font-size: 26px; font-weight: 900; color: var(--purple-bright);
+    text-shadow: 0 2px 6px rgba(0,0,0,.6);
+    opacity: 0; transform-origin: left center;
+  }
+  #combo.pop { animation: comboPop .35s ease-out forwards; }
+  @keyframes comboPop {
+    0% { opacity: 0; transform: scale(.4); }
+    60% { opacity: 1; transform: scale(1.25); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  #comboBar {
+    position: absolute; top: 142px; left: 22px; width: 140px; height: 6px;
+    border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden;
+    opacity: 0; transition: opacity .2s;
+  }
+  #comboBarFill { height: 100%; background: var(--purple-bright); }
+
+  #banner {
+    position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%);
+    z-index: 6; pointer-events: none;
+    font-size: 64px; font-weight: 900; font-style: italic; letter-spacing: 3px;
+    color: var(--red);
+    -webkit-text-stroke: 2px var(--navy);
+    text-shadow: 0 4px 0 var(--navy), 0 8px 24px rgba(0,0,0,.6);
+    opacity: 0;
+  }
+  #banner.show { animation: bannerPop 1.2s ease-out forwards; }
+  @keyframes bannerPop {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.3); }
+    12% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+    22% { transform: translate(-50%, -50%) scale(1); }
+    80% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -60%) scale(1); }
+  }
+
+  .rage-wrap {
+    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+    width: 320px; text-align: center;
+  }
+  .rage-bar {
+    height: 18px; border-radius: 10px; overflow: hidden;
+    background: rgba(0,0,0,.5); border: 2px solid rgba(255,255,255,.35);
+  }
+  #rageFill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #ff6a3a, var(--red));
+    transition: width .12s linear;
+  }
+  #ragePrompt {
+    margin-top: 6px; font-size: 17px; font-weight: 800; color: #ff7a6a;
+    text-shadow: 0 2px 5px rgba(0,0,0,.7); visibility: hidden;
+  }
+  #ragePrompt.ready { visibility: visible; animation: pulse .4s infinite alternate; }
+
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(255,30,10,.45) 100%);
+    transition: opacity .3s;
+  }
+  #vignette.rage { opacity: 1; }
+
+  .popup {
+    position: fixed; z-index: 6; pointer-events: none;
+    font-size: 24px; font-weight: 900; color: var(--silver-bright);
+    text-shadow: 0 2px 4px rgba(0,0,0,.7);
+    animation: floatUp .9s ease-out forwards;
+  }
+  .popup.big { font-size: 34px; color: var(--purple-bright); }
+  .popup.gore { color: #ff5a4e; }
+  .popup.timerpop { right: 30px; top: 64px; left: auto; font-size: 30px; color: #7dffb0; }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translate(-50%, 0) scale(.6); }
+    15% { opacity: 1; transform: translate(-50%, -14px) scale(1.1); }
+    100% { opacity: 0; transform: translate(-50%, -80px) scale(1); }
+  }
+
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(18, 13, 36, .78); backdrop-filter: blur(3px);
+    color: #fff; text-align: center; overflow-y: auto;
+  }
+  .overlay.hidden { display: none; }
+  #teamMark {
+    font-size: 15px; font-weight: 800; letter-spacing: 7px; color: var(--purple-bright);
+    margin-bottom: 6px;
+  }
+  #teamMark .dash { color: var(--red); }
+  #logoImg { max-height: 130px; margin-bottom: 6px; }
+  .title {
+    font-size: clamp(40px, 8.5vw, 92px); font-weight: 900; font-style: italic;
+    letter-spacing: 2px;
+    background: linear-gradient(180deg, #f6f8fc 0%, #cdd3e0 42%, #878e9f 52%, #e9ecf3 60%, #b9bfcd 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 2px var(--navy);
+    filter: drop-shadow(0 4px 0 var(--purple-deep)) drop-shadow(0 10px 26px rgba(123,79,217,.55));
+    margin-bottom: 8px; transform: skewX(-4deg);
+  }
+  .subtitle { font-size: 19px; color: #c4cde0; margin-bottom: 18px; }
+  .menu-cols {
+    display: flex; gap: 22px; align-items: stretch; justify-content: center;
+    flex-wrap: wrap; margin-bottom: 26px; padding: 0 16px;
+  }
+  .panel {
+    background: rgba(255,255,255,.07); border: 1px solid rgba(154,111,240,.35);
+    border-radius: 12px; padding: 16px 24px;
+    font-size: 16px; line-height: 1.85; color: #dce2f0; text-align: left;
+  }
+  .panel h3 {
+    font-size: 14px; letter-spacing: 3px; color: var(--purple-bright);
+    margin-bottom: 8px; font-weight: 800;
+  }
+  .panel b { color: var(--silver-bright); display: inline-block; min-width: 128px; }
+  .panel b.k2 { min-width: 0; }
+  .lb { list-style: none; min-width: 240px; font-variant-numeric: tabular-nums; }
+  .lb li {
+    display: flex; gap: 12px; align-items: baseline;
+    border-bottom: 1px solid rgba(255,255,255,.08); padding: 3px 0;
+  }
+  .lb .rank { color: var(--purple-bright); font-weight: 900; width: 26px; }
+  .lb .name { letter-spacing: 3px; font-weight: 800; color: var(--silver-bright); flex: 1; }
+  .lb .pts { color: #c4cde0; }
+  .lb li.you { background: rgba(217,46,46,.18); border-radius: 6px; padding: 3px 8px; }
+  .lb li.you .name { color: #ff8a8a; }
+  .lb .empty { color: #8a92ab; border: none; font-style: italic; }
+  .btn {
+    font-size: 24px; font-weight: 900; letter-spacing: 1px;
+    padding: 14px 46px; border-radius: 12px; border: none; cursor: pointer;
+    color: #fff; background: linear-gradient(180deg, var(--purple-bright), #6438c9);
+    box-shadow: 0 5px 0 #3a2482, 0 8px 18px rgba(0,0,0,.5);
+    transition: transform .08s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #3a2482; }
+  #endStats { font-size: 22px; line-height: 1.9; margin-bottom: 14px; color: #dce2f0; }
+  #endStats .big { font-size: 52px; font-weight: 900; color: var(--silver-bright);
+    text-shadow: 0 3px 0 var(--purple-deep); display: block; }
+  #endTitle { margin-bottom: 4px; }
+  #clearBonus, #newBest { color: #7dffb0; font-weight: 800; display: none; }
+  #breakdown {
+    display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center;
+    max-width: 620px; margin-bottom: 16px; font-size: 16px; color: #c4cde0;
+  }
+  #nameEntry { display: none; margin-bottom: 16px; }
+  #nameEntry.show { display: block; }
+  #nameEntry .prompt { font-size: 20px; font-weight: 900; color: #ff8a8a; margin-bottom: 10px; }
+  #nameInput {
+    width: 220px; font-size: 34px; font-weight: 900; letter-spacing: 12px;
+    text-align: center; text-transform: uppercase; font-family: inherit;
+    color: var(--silver-bright); background: rgba(0,0,0,.45);
+    border: 2px solid var(--purple-bright); border-radius: 10px; padding: 8px 0 8px 12px;
+    outline: none;
+  }
+  #nameInput:focus { border-color: var(--red); }
+  #submitScore { margin-left: 12px; font-size: 20px; padding: 12px 26px; vertical-align: middle; }
+  #endBoardWrap { display: none; margin-bottom: 20px; }
+  #endBoardWrap.show { display: block; }
+
+  #stompHud {
+    position: absolute; bottom: 24px; left: 22px; width: 130px;
+    font-size: 14px; font-weight: 800; color: var(--silver); letter-spacing: 1px;
+  }
+  #stompHud .bar {
+    margin-top: 4px; height: 8px; border-radius: 5px; overflow: hidden;
+    background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.3);
+  }
+  #stompFill { height: 100%; width: 100%; background: var(--purple-bright); }
+  #stompHud.ready { color: var(--silver-bright); animation: pulse .6s infinite alternate; }
+  #buffs {
+    font-size: 17px; font-weight: 800; color: #ffd75e;
+    text-shadow: 0 2px 5px rgba(0,0,0,.6); margin-top: 2px;
+  }
+  #tranqTint {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(40,90,220,.5) 100%);
+    transition: opacity .25s;
+  }
+  #tranqTint.on { opacity: 1; }
+  #flash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 6; opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,240,200,.9), rgba(255,150,60,.4));
+  }
+  #flash.go { animation: flashFade .3s ease-out forwards; }
+  @keyframes flashFade { 0% { opacity: .8; } 100% { opacity: 0; } }
+  #timer.frenzy { color: #ffd75e; }
+  #pauseStats { font-size: 20px; color: #c4cde0; line-height: 2; margin-bottom: 24px; }
+  #giveUpBtn { margin-top: 14px; font-size: 18px; padding: 10px 30px;
+    background: linear-gradient(180deg, #e05a4a, #a02a2a); box-shadow: 0 4px 0 #6a1414, 0 8px 18px rgba(0,0,0,.5); }
+
+  /* ---------- Touch controls ---------- */
+  #touchUI { display: none; }
+  body.touch #touchUI { display: block; }
+  #stickZone {
+    position: fixed; left: 0; bottom: 0; width: 45%; height: 55%;
+    z-index: 7; touch-action: none;
+  }
+  #stickBase {
+    display: none; position: fixed; width: 110px; height: 110px;
+    border-radius: 50%; border: 2px solid rgba(255,255,255,.4);
+    background: rgba(255,255,255,.08); transform: translate(-50%, -50%);
+    z-index: 8; pointer-events: none;
+  }
+  #stickKnob {
+    position: absolute; left: 50%; top: 50%; width: 48px; height: 48px;
+    border-radius: 50%; background: rgba(255,255,255,.5);
+    transform: translate(-50%, -50%);
+  }
+  .touch-btn {
+    position: fixed; z-index: 8; border-radius: 50%; border: none;
+    font-weight: 900; color: #fff; touch-action: none;
+    background: linear-gradient(180deg, var(--purple-bright), #6438c9);
+    box-shadow: 0 4px 0 #3a2482, 0 6px 14px rgba(0,0,0,.5);
+  }
+  #smashBtn { right: 26px; bottom: 60px; width: 96px; height: 96px; font-size: 18px; }
+  #rageBtn { right: 140px; bottom: 34px; width: 64px; height: 64px; font-size: 14px;
+    background: linear-gradient(180deg, #ff6a3a, var(--red)); box-shadow: 0 4px 0 #7a1a1a, 0 6px 14px rgba(0,0,0,.5); }
+  #stompBtn { right: 52px; bottom: 170px; width: 72px; height: 72px; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div id="vignette"></div>
+  <div id="tranqTint"></div>
+  <div id="flash"></div>
+  <div id="banner"></div>
+
+  <div id="hud">
+    <div class="hud-top">
+      <div>
+        <div id="score">0</div>
+        <div id="wrecked">0% WRECKED</div>
+        <div id="kills">💀 0</div>
+        <div id="buffs"></div>
+      </div>
+      <div class="hud-right">
+        <div id="timer">1:30</div>
+        <button id="muteBtn">🔊</button>
+      </div>
+    </div>
+    <div id="combo"></div>
+    <div id="comboBar"><div id="comboBarFill"></div></div>
+    <div id="stompHud"><span>STOMP · RMB/F</span><div class="bar"><div id="stompFill"></div></div></div>
+    <div class="rage-wrap">
+      <div class="rage-bar"><div id="rageFill"></div></div>
+      <div id="ragePrompt">PRESS R TO RAGE!</div>
+    </div>
+  </div>
+
+  <div id="touchUI">
+    <div id="stickZone"></div>
+    <div id="stickBase"><div id="stickKnob"></div></div>
+    <button id="smashBtn" class="touch-btn">SMASH</button>
+    <button id="stompBtn" class="touch-btn">STOMP</button>
+    <button id="rageBtn" class="touch-btn">RAGE</button>
+  </div>
+
+  <div id="menu" class="overlay">
+    <img id="logoImg" src="assets/logo.png" alt="" onerror="this.style.display='none'">
+    <div id="teamMark"><span class="dash">—</span> SILVER SASQUATCHES <span class="dash">—</span></div>
+    <div class="title">SQUATCHSMASH</div>
+    <div class="subtitle">The campground closed early. Nobody told the sasquatch.</div>
+    <div class="menu-cols">
+      <div class="panel">
+        <h3>CONTROLS</h3>
+        <div><b>WASD / Arrows</b> Move &nbsp;·&nbsp; <b class="k2">Shift</b> Charge</div>
+        <div><b>Space / Click</b> SMASH</div>
+        <div><b>Right-click / F</b> Ground stomp (area attack)</div>
+        <div><b>R</b> Rage mode (when the bar is full)</div>
+        <div><b>P / Esc</b> Pause &nbsp;·&nbsp; <b class="k2">M</b> Mute</div>
+        <div><b>Goal</b> Wreck it all. Watch for ranger tranq darts!</div>
+      </div>
+      <div class="panel">
+        <h3>LEADERBOARD</h3>
+        <ol id="menuBoard" class="lb"></ol>
+      </div>
+    </div>
+    <button id="startBtn" class="btn">START RAMPAGE</button>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="title">PAUSED</div>
+    <div id="pauseStats"></div>
+    <button id="resumeBtn" class="btn">RESUME</button>
+    <button id="giveUpBtn" class="btn">GIVE UP</button>
+  </div>
+
+  <div id="end" class="overlay hidden">
+    <div class="title" id="endTitle">TIME'S UP</div>
+    <div id="endStats">
+      <span class="big" id="finalScore">0</span>
+      <span id="destroyedLine"></span><br>
+      <span id="clearBonus">TOTAL DESTRUCTION BONUS +5000!</span>
+      <span id="newBest">🏆 NEW BEST!</span>
+    </div>
+    <div id="breakdown"></div>
+    <div id="nameEntry">
+      <div class="prompt">YOU MADE THE LEADERBOARD! ENTER YOUR NAME:</div>
+      <input id="nameInput" maxlength="5" autocomplete="off" spellcheck="false" placeholder="AAAAA">
+      <button id="submitScore" class="btn">OK</button>
+    </div>
+    <div id="endBoardWrap" class="panel">
+      <h3>LEADERBOARD</h3>
+      <ol id="endBoard" class="lb"></ol>
+    </div>
+    <button id="restartBtn" class="btn">SMASH AGAIN</button>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js" } }
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

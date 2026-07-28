@@ -1,5 +1,30 @@
 # Squatch Smash
 
+Two things live in this repo.
+
+| | |
+|---|---|
+| **The apartment** (repo root) | First-person. You wake up at 6:04 AM with a fridge, a radio, a bathroom and a gaming PC, and nothing much to do. |
+| **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
+
+```bash
+npm start        # the apartment -> http://localhost:5173
+                 # the game      -> http://localhost:5173/game/
+```
+
+Both are static ES-module sites with no build step, served by the same
+`npm start`. The campground game keeps its own `lib/three.module.js`, its own
+README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
+completely self-contained; the apartment uses `vendor/three.module.min.js` at
+the root. Neither can break the other.
+
+See [`game/README.md`](./game/README.md) for the campground game's controls and
+scoring. Everything below is the apartment.
+
+---
+
+## The apartment
+
 You wake up in your apartment at 6:04 AM. There's a fridge with beer in it, a
 radio on the sideboard, squatch gear on the walls, and a gaming PC on the desk
 that runs a game called **Squatch Smash**.
