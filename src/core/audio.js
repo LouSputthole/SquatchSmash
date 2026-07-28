@@ -446,6 +446,51 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'ui.hover':
       tone(ctx, dest, t, { freq: 900, dur: 0.03, gain: 0.09, type: 'sine' });
       break;
+
+    /* -------- station stings -------- */
+    case 'radio.airhorn':
+      for (let i = 0; i < 3; i++) {
+        tone(ctx, dest, t + i * 0.015, { freq: 415 + i * 3, dur: 0.7, gain: 0.14, type: 'sawtooth' });
+      }
+      break;
+    case 'radio.riff':
+      // Four power chords and an eagle, approximately.
+      for (let i = 0; i < 4; i++) {
+        const f = [110, 110, 147, 165][i];
+        tone(ctx, dest, t + i * 0.19, { freq: f, dur: 0.20, gain: 0.20, type: 'sawtooth' });
+        tone(ctx, dest, t + i * 0.19, { freq: f * 1.5, dur: 0.20, gain: 0.13, type: 'square' });
+      }
+      tone(ctx, dest, t + 0.80, { freq: 2600, to: 1500, dur: 0.42, gain: 0.11, type: 'sawtooth' });
+      break;
+    case 'radio.jingle':
+      [523, 659, 784, 1047].forEach((f, i) => {
+        tone(ctx, dest, t + i * 0.11, { freq: f, dur: 0.24, gain: 0.13, type: 'triangle' });
+      });
+      break;
+    case 'radio.slots':
+      for (let i = 0; i < 10; i++) {
+        tone(ctx, dest, t + i * 0.075, { freq: 1400 + (i % 3) * 260, dur: 0.05, gain: 0.10, type: 'square' });
+      }
+      break;
+    case 'radio.kazoo':
+      // Serious news music, derailed.
+      tone(ctx, dest, t, { freq: 196, dur: 0.34, gain: 0.14, type: 'sawtooth' });
+      [392, 440, 349, 392].forEach((f, i) => {
+        tone(ctx, dest, t + 0.36 + i * 0.14, { freq: f, dur: 0.16, gain: 0.15, type: 'square' });
+      });
+      break;
+    case 'radio.crowd':
+      burst(ctx, dest, t, { dur: 1.1, type: 'bandpass', freq: 900, q: 0.8, gain: 0.14 });
+      break;
+    case 'radio.ident.squatch':
+      tone(ctx, dest, t, { freq: 147, dur: 0.5, gain: 0.17, type: 'sawtooth' });
+      tone(ctx, dest, t + 0.5, { freq: 220, to: 110, dur: 0.7, gain: 0.15, type: 'sawtooth' });
+      break;
+    case 'radio.ident.uncle':
+      [262, 330, 392, 523, 392].forEach((f, i) => {
+        tone(ctx, dest, t + i * 0.16, { freq: f, dur: 0.3, gain: 0.11, type: 'sine' });
+      });
+      break;
     case 'door.locked':
       tone(ctx, dest, t, { freq: 210, to: 150, dur: 0.13, gain: 0.34, type: 'square' });
       tone(ctx, dest, t + 0.16, { freq: 200, to: 145, dur: 0.13, gain: 0.28, type: 'square' });
@@ -836,6 +881,14 @@ function synthLoop(engine, name, dest) {
     case 'radio.static':
       noise('bandpass', 1800, 0.7, 0.30);
       noise('highpass', 4000, 0.5, 0.10);
+      break;
+    case 'radio.talk':
+      // Somebody talking two rooms away: speech-band noise with the
+      // consonants filtered off, so you hear that it is a voice, not what
+      // it is saying. The words are on screen instead.
+      noise('bandpass', 480, 1.6, 0.30);
+      noise('bandpass', 1250, 2.4, 0.16);
+      noise('lowpass', 220, 0.7, 0.10);
       break;
     case 'pee.stream':
       // Splashing water: bright filtered noise with a low burble under it.

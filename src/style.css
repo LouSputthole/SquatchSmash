@@ -225,14 +225,15 @@ kbd.key, .controls kbd {
 }
 #radio-osd.hidden { opacity: 0; transform: translateY(9px); }
 #radio-osd .rtitle { font-size: 12px; color: var(--amber); letter-spacing: 1px; }
+/* Talk radio puts whole sentences through here, so it wraps rather than
+   truncating -- but only to a column, so it never becomes the whole screen. */
 #radio-osd .rtrack {
   font-size: 12px;
+  line-height: 1.45;
   color: #cdc3ae;
   margin-top: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 260px;
+  max-width: 380px;
+  min-height: 17px;
 }
 
 /* time of day + how long you have been in here */

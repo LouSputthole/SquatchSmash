@@ -95,11 +95,12 @@ const hud = new Hud();
 const interaction = new InteractionSystem(camera, hud);
 const world = { colliders: [], floorZones: [] };
 const player = new Player(camera, world);
-const radio = new Radio(audio, hud);
 
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const time = new DayNight(6 + 4 / 60);
+// The talk station reads the clock to decide what is on air.
+const radio = new Radio(audio, hud, time);
 const drunk = new Drunk();
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
@@ -171,7 +172,9 @@ async function boot() {
     onStartPee: startPee,
     onSitToilet: sitOnToilet,
     onZyn: takeZyn,
-    onRadioToggle: () => radio.toggle(),
+    // The set's own LED and dial read off apartment state, so keep it honest.
+    onRadioToggle: () => { radio.toggle(); apartment.state.radioOn = radio.on; },
+    onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
   });
 
   world.colliders = apartment.colliders;
@@ -1161,6 +1164,7 @@ function frame() {
       updateNeighbours(dt);
       smoke.update(dt);
       stream.update(dt);
+      radio.update(dt);
 
       if (game.seated) {
         arcade.update(dt);

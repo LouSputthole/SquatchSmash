@@ -750,9 +750,12 @@ export async function buildApartment(ctx) {
   const radioPos = new THREE.Vector3(-1.10, sideboard.top + 0.12, 4.16);
   interaction.register(radio.group, {
     label: () => (state.radioOn
-      ? 'Turn off the <b>radio</b> &nbsp;<span style="opacity:.6">[R] next track</span>'
-      : 'Turn on the <b>radio</b>'),
-    onUse: () => ctx.onRadioToggle?.(),
+      ? 'Turn off the <b>radio</b> &middot; hold to <b>tune</b> &nbsp;<span style="opacity:.6">[R] skip</span>'
+      : 'Turn on the <b>radio</b> &middot; hold to <b>tune</b>'),
+    holdLabel: () => 'Tuning the <b>dial</b>…',
+    hold: 0.6,
+    onTap: () => ctx.onRadioToggle?.(),
+    onUse: () => ctx.onRadioTune?.(),
   });
 
   /* ---- lights ---- */
