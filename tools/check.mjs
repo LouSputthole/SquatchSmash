@@ -63,9 +63,11 @@ for (const [rel, validate] of manifests) {
 
 /* ---- wall slots referenced by the art manifest must exist ---- */
 const VALID_SLOTS = new Set([
-  'bed.above', 'west.gap', 'couch.left', 'couch.right',
-  'desk.left', 'desk.right',
-  'door.side', 'south.hawaii', 'south.wide', 'south.portrait',
+  'bed.above', 'bed.mid', 'bed.right',
+  'gap.high', 'gap.low', 'gap.mid',
+  'couch.left', 'couch.mid', 'couch.right',
+  'shelf.left', 'cork.above', 'desk.left', 'desk.right', 'desk.high',
+  'door.side', 'south.a', 'south.b', 'south.wide', 'south.portrait',
   'banner.main', 'crest.round',
   'shelf.photo', 'desk.photo', 'fridge.magnet',
 ]);

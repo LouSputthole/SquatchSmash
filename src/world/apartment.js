@@ -22,19 +22,33 @@ export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
  * `h` is the picture height in metres; width follows the image's aspect ratio.
  */
 export const WALL_SLOTS = [
-  // West wall: over the bed, the gap by the lamp, then two over the couch.
-  { slot: 'bed.above', x: -4.97, y: 1.86, z: -3.40, rotY: Math.PI / 2, h: 0.62 },
-  { slot: 'west.gap', x: -4.97, y: 1.86, z: -1.30, rotY: Math.PI / 2, h: 0.54 },
-  { slot: 'couch.left', x: -4.97, y: 1.68, z: 0.10, rotY: Math.PI / 2, h: 0.56 },
-  { slot: 'couch.right', x: -4.97, y: 1.68, z: 1.44, rotY: Math.PI / 2, h: 0.56 },
-  // North wall: either side of the monitor.
-  { slot: 'desk.left', x: 0.92, y: 1.76, z: -4.40, rotY: 0, h: 0.54 },
-  { slot: 'desk.right', x: 2.80, y: 1.76, z: -4.40, rotY: 0, h: 0.56 },
-  // South wall gallery, running away from the front door.
-  { slot: 'door.side', x: 0.90, y: 1.64, z: 4.40, rotY: Math.PI, h: 0.56 },
-  { slot: 'south.hawaii', x: -2.05, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.52 },
-  { slot: 'south.wide', x: -3.35, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.42 },
-  { slot: 'south.portrait', x: -4.45, y: 1.58, z: 4.40, rotY: Math.PI, h: 0.62 },
+  // West wall, over the bed and along past the lamp to the couch. Heights
+  // deliberately stagger so it reads as a wall someone hung over years,
+  // not a showroom row.
+  { slot: 'bed.above', x: -4.97, y: 2.00, z: -3.95, rotY: Math.PI / 2, h: 0.42 },
+  { slot: 'bed.mid', x: -4.97, y: 1.48, z: -3.12, rotY: Math.PI / 2, h: 0.40 },
+  { slot: 'bed.right', x: -4.97, y: 1.98, z: -2.72, rotY: Math.PI / 2, h: 0.30 },
+  { slot: 'gap.high', x: -4.97, y: 1.94, z: -2.10, rotY: Math.PI / 2, h: 0.32 },
+  { slot: 'gap.low', x: -4.97, y: 1.52, z: -1.52, rotY: Math.PI / 2, h: 0.42 },
+  { slot: 'gap.mid', x: -4.97, y: 1.90, z: -0.92, rotY: Math.PI / 2, h: 0.34 },
+  { slot: 'couch.left', x: -4.97, y: 1.56, z: -0.18, rotY: Math.PI / 2, h: 0.46 },
+  { slot: 'couch.mid', x: -4.97, y: 1.96, z: 0.52, rotY: Math.PI / 2, h: 0.34 },
+  { slot: 'couch.right', x: -4.97, y: 1.58, z: 1.24, rotY: Math.PI / 2, h: 0.44 },
+
+  // North wall: one by the shelf, one riding high over the corkboard, and a
+  // pair either side of the monitor with a small one stacked above.
+  { slot: 'shelf.left', x: -3.30, y: 1.98, z: -4.40, rotY: 0, h: 0.34 },
+  { slot: 'cork.above', x: -0.10, y: 2.14, z: -4.40, rotY: 0, h: 0.26 },
+  { slot: 'desk.left', x: 0.95, y: 1.80, z: -4.40, rotY: 0, h: 0.44 },
+  { slot: 'desk.right', x: 2.72, y: 1.62, z: -4.40, rotY: 0, h: 0.52 },
+  { slot: 'desk.high', x: 2.72, y: 2.22, z: -4.40, rotY: 0, h: 0.24 },
+
+  // South wall gallery, with a stacked pair in the middle of the run.
+  { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
+  { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
+  { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
+  { slot: 'south.wide', x: -3.38, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.34 },
+  { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.54 },
 ];
 
 const BANNER_SLOT = { slot: 'banner.main', x: 4.10, y: 1.52, z: -4.38, rotY: 0, h: 0.78 };
