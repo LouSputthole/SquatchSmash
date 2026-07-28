@@ -1,11 +1,17 @@
 {
-  "_comment": "Squatch gear on the walls and on the furniture. Drop images into assets/art/ and point a slot at one. Slots without a file get a procedurally drawn placeholder poster. See README.md in this folder for the slot list.",
+  "_comment": "Squatch gear on the walls, on the furniture, and printed on the things in the kitchen. Drop images into assets/art/ and point a slot at one. Slots without a file get a procedurally drawn placeholder. See README.md in this folder for the slot list.",
   "art": [
     {
       "slot": "bed.above",
       "file": "logo-shield-wide.jpg",
       "title": "The shield",
       "caption": "First thing you see every morning, whether you want to or not."
+    },
+    {
+      "slot": "bed.poster",
+      "file": "quote-swing.jpg",
+      "title": "Swing or be swung",
+      "caption": "Hung where you cannot avoid it. Some mornings it helps."
     },
     {
       "slot": "bed.mid",
@@ -44,10 +50,10 @@
       "caption": "Somebody had to stand at the back. It is always the same somebody."
     },
     {
-      "slot": "couch.mid",
-      "file": "logo-pride.jpg",
-      "title": "Pride squatch",
-      "caption": "Same silverback. Better colours."
+      "slot": "feature.stacks",
+      "file": "stacks-5-years.jpg",
+      "title": "Five Years of Stacks",
+      "caption": "The big one, over the couch. Five years. Nobody has left yet."
     },
     {
       "slot": "couch.right",
@@ -56,10 +62,40 @@
       "caption": "Everybody matching. Nobody warmed up."
     },
     {
+      "slot": "west.late",
+      "file": "lan-jerseys-group.jpg",
+      "title": "Kit on, all of us",
+      "caption": "One of the good ones. Everyone in frame, everyone still speaking."
+    },
+    {
+      "slot": "west.low",
+      "file": "logo-banner-wide.jpg",
+      "title": "The banner",
+      "caption": "Came in a tube. Went up crooked. Stayed crooked."
+    },
+    {
+      "slot": "west.corner",
+      "file": "lan-row-headsets.jpg",
+      "title": "The row",
+      "caption": "Headsets on, nobody talking to anybody who is not in the game."
+    },
+    {
+      "slot": "north.corner",
+      "file": "basement-squad.jpg",
+      "title": "Somebody's basement",
+      "caption": "Three hundred days of familiar. That is what the sign said, anyway."
+    },
+    {
       "slot": "shelf.left",
       "file": "plane-tshirt.jpg",
       "title": "The warbird",
       "caption": "Team shirt, someone else's aeroplane. Still counts."
+    },
+    {
+      "slot": "cork.left",
+      "file": "localhost-queue.jpg",
+      "title": "Queueing at LOCALHOST",
+      "caption": "Downloading data. Estimated 00:00 remaining. It was not."
     },
     {
       "slot": "cork.above",
@@ -92,6 +128,12 @@
       "caption": "Matching tees, string lights, and nobody checking the time."
     },
     {
+      "slot": "south.c",
+      "file": "lan-thumbs-up.jpg",
+      "title": "Thumbs up, all round",
+      "caption": "Three of you, one battle pass, and a tin of something on the desk."
+    },
+    {
       "slot": "south.a",
       "file": "team-hawaiian.jpg",
       "title": "Hawaiian shirt night",
@@ -116,10 +158,46 @@
       "caption": "Dippin' Dots and a photo you have shown far too many people."
     },
     {
+      "slot": "feature.denver",
+      "file": "denver-2026.jpg",
+      "title": "Denver 2026",
+      "caption": "Big, by the door, so it is the last thing you look at before you don't leave."
+    },
+    {
+      "slot": "bath.toilet",
+      "file": "biplane-red.jpg",
+      "title": "The red one",
+      "caption": "Hung at sitting height. You have studied every rivet."
+    },
+    {
+      "slot": "bath.high",
+      "file": "plane-tarmac.jpg",
+      "title": "On the tarmac",
+      "caption": "Up near the ceiling, where it does no harm."
+    },
+    {
+      "slot": "bath.far",
+      "file": "golf-foursome.jpg",
+      "title": "The foursome",
+      "caption": "Four visors, one good swing between them. In the bathroom, obviously."
+    },
+    {
+      "slot": "bath.mirror",
+      "file": "plane-harness.jpg",
+      "title": "Chute on",
+      "caption": "Next to the mirror, for comparison purposes."
+    },
+    {
       "slot": "banner.main",
       "file": "banner-austin-major.jpg",
       "title": "Austin Major 2025",
       "caption": "NUMBSKULL. BABS. ERICAN. MEGGY. BOOSKI. SAUCE. LOU. RIP. SHUBES. STOVE. APE. IRISH."
+    },
+    {
+      "slot": "banner.twitch",
+      "file": "banner-twitch.jpg",
+      "title": "Stream banner",
+      "caption": "Strung above the monitor, so it is in frame whether you go live or not."
     },
     {
       "slot": "crest.round",
@@ -134,10 +212,22 @@
       "caption": "Framed, on the sideboard. No further comment offered."
     },
     {
+      "slot": "sideboard.photo",
+      "file": "cave-selfie.jpg",
+      "title": "The cave bar",
+      "caption": "Five of you, one waterfall, and a drink somebody else paid for."
+    },
+    {
       "slot": "desk.photo",
       "file": "the-dog.jpg",
       "title": "The dog",
       "caption": "The only one in any of these photos with their life in order."
+    },
+    {
+      "slot": "night.photo",
+      "file": "logo-pride.jpg",
+      "title": "Pride squatch",
+      "caption": "Same silverback, better colours. Bedside, where it belongs."
     },
     {
       "slot": "fridge.magnet",
@@ -146,16 +236,34 @@
       "caption": "Been on that door longer than you have lived here."
     },
     {
-      "slot": "banner.twitch",
-      "file": "banner-twitch.jpg",
-      "title": "Stream banner",
-      "caption": "Strung above the monitor, so it is in frame whether you go live or not."
-    },
-    {
       "slot": "zyn.lid",
       "file": "zyn-lid.png",
       "title": "Squatch Up",
       "caption": "Six milligrams. The warning is right there on the lid."
+    },
+    {
+      "slot": "label.beer",
+      "file": "label-beer.png",
+      "title": "Berserker Brewing Co.",
+      "caption": "Premium craft amber ale. Est. 2024. It is fine."
+    },
+    {
+      "slot": "label.whiskey",
+      "file": "label-whiskey.jpg",
+      "title": "Jack AND Daniels",
+      "caption": "Old No. 7. Sour mash. Both of them, apparently."
+    },
+    {
+      "slot": "eggs.carton",
+      "file": "eggs-carton.jpg",
+      "title": "OrgaNick Pastures",
+      "caption": "Regenerative organic pasture-raised. Eat those pasture raised eggs, folks."
+    },
+    {
+      "slot": "cereal.box",
+      "file": "cereal-lobbys.jpg",
+      "title": "Oops! All Lobbys Berries",
+      "caption": "Sweetened balanced cereal. On top of the fridge, where cereal goes."
     }
   ]
 }

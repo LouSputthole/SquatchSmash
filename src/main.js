@@ -129,7 +129,9 @@ let apartment = null;
 const game = {
   started: false,
   paused: false,
-  seated: false,
+  seated: false,        // at the PC specifically
+  sitting: null,        // 'couch' | 'bed' -- sitting for its own sake
+  inBed: false,         // lay back down on purpose
   flashlightOn: false,
   drinking: 0,
   passingOut: false,
@@ -163,6 +165,9 @@ async function boot() {
     interaction,
     time,
     onSitPC: sitAtPC,
+    onSitCouch: () => sitOn('couch'),
+    onSitBed: () => sitOn('bed'),
+    onLieBed: lieOnBed,
     onStartPee: startPee,
     onSitToilet: sitOnToilet,
     onZyn: takeZyn,
@@ -209,6 +214,7 @@ async function boot() {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
     drunk, smoke, stream, cig, time, passOut, fart, startPee, stopPee,
     sitOnToilet, standFromToilet, takeZyn,
+    sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -331,7 +337,9 @@ document.addEventListener('keydown', (e) => {
 
   switch (e.code) {
     case 'KeyE':
-      if (player.mode === 'bed') getUp();
+      // Lying down on purpose is the one case where E means sleep, not stand.
+      if (game.inBed) sleepInBed();
+      else if (player.mode === 'bed') getUp();
       else if (game.onToilet) standFromToilet();
       else if (game.peeing) stopPee();
       else interaction.press();
@@ -354,6 +362,8 @@ document.addEventListener('keydown', (e) => {
         hud.toast('Binned it');
       } else if (game.onToilet) standFromToilet();
       else if (game.peeing) stopPee();
+      else if (game.sitting) standFromSeat();
+      else if (game.inBed || player.mode === 'bed') getUp();
       else dropHeld();
       break;
     default:
@@ -371,6 +381,7 @@ document.addEventListener('keyup', (e) => {
 /* ------------------------------------------------------------------ */
 
 function getUp() {
+  game.inBed = false;
   hud.hidePrompt();
   audio.play('bed.creak', { volume: 0.7 });
   audio.play('bed.rustle', { volume: 0.6, delay: 0.2 });
@@ -411,6 +422,79 @@ function standFromPC() {
   radio.setFocusMuffle(false);
   audio.play('chair.roll', { volume: 0.4 });
   player.standFrom(apartment.deskExit, () => interaction.setPaused(false));
+}
+
+/* ------------------------------------------------------------------ */
+/* Sitting about                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The couch and the edge of the bed. Nothing happens while you are there,
+ * which is rather the point -- but time keeps moving, the radio keeps
+ * playing, and the room slowly goes dark around you.
+ */
+const SEATS = {
+  couch: {
+    pose: () => apartment.couchPose,
+    exit: () => apartment.couchExit,
+    cue: 'couch.sit',
+    line: 'You sit down. The cushion gives up immediately. <em>[Q] to get up.</em>',
+  },
+  bed: {
+    pose: () => apartment.bedSitPose,
+    exit: () => apartment.bedSitExit,
+    cue: 'bed.creak',
+    line: 'On the edge of the bed, then. <em>Hold [E] on the bed to lie back down.</em>',
+  },
+};
+
+function sitOn(which) {
+  if (game.sitting || game.seated || game.onToilet || game.passingOut) return;
+  if (player.mode !== 'walk') return;
+  const seat = SEATS[which];
+  game.sitting = which;
+  interaction.setPaused(true);
+  hud.setMode('seated');
+  audio.play(seat.cue, { volume: 0.55 });
+
+  player.sitAt(seat.pose(), () => {
+    interaction.setPaused(false);   // you can still reach things from a seat
+    hud.say(seat.line, 4600);
+  });
+}
+
+function standFromSeat() {
+  if (!game.sitting) return;
+  const seat = SEATS[game.sitting];
+  game.sitting = null;
+  hud.setMode('walk');
+  audio.play(seat.cue, { volume: 0.4, rate: 1.08 });
+  player.standFrom(seat.exit(), () => interaction.setPaused(false));
+}
+
+/** Lie back down. From here you can sleep the day away, which is an option. */
+function lieOnBed() {
+  if (game.seated || game.onToilet || game.passingOut) return;
+  if (player.mode === 'bed') return;
+  game.sitting = null;
+  game.inBed = true;
+  interaction.setPaused(true);
+  hud.setMode('seated');
+  audio.play('bed.creak', { volume: 0.7 });
+  audio.play('bed.rustle', { volume: 0.6, delay: 0.25 });
+
+  player.lieDown(apartment.bedPose, () => {
+    hud.say('Ceiling. <em>[E] to sleep it off &middot; [Q] to get up.</em>', 5200);
+  });
+}
+
+/** Deliberate sleep, as opposed to the kind that happens to you. */
+function sleepInBed() {
+  if (!game.inBed || game.passingOut) return;
+  game.inBed = false;
+  hud.hidePrompt();
+  hud.say('You close your eyes. It is not like you had plans.', 2600);
+  passOut({ voluntary: true });
 }
 
 /* ------------------------------------------------------------------ */
@@ -933,7 +1017,11 @@ function pick(list) {
 /* Passing out                                                         */
 /* ------------------------------------------------------------------ */
 
-function passOut() {
+/**
+ * Lights out. Either the drink takes you (`voluntary` false, which is the
+ * usual way it happens) or you decide to lie down and let the day go.
+ */
+function passOut({ voluntary = false } = {}) {
   if (game.passingOut) return;
   game.passingOut = true;
 
@@ -949,6 +1037,9 @@ function passOut() {
     radio.setFocusMuffle(false);
   }
 
+  game.sitting = null;
+  game.inBed = false;
+
   if (game.peeing) stopPee();
   if (game.onToilet) {
     game.onToilet = false;
@@ -961,11 +1052,15 @@ function passOut() {
   heldCig.group.visible = false;
 
   player.mode = 'frozen';
-  audio.play('drunk.collapse', { volume: 0.85 });
-  audio.play('drunk.heartbeat', { volume: 0.6, delay: 0.25 });
-  hud.say('Oh. <em>Oh no.</em>');
+  if (voluntary) {
+    audio.play('bed.rustle', { volume: 0.5 });
+  } else {
+    audio.play('drunk.collapse', { volume: 0.85 });
+    audio.play('drunk.heartbeat', { volume: 0.6, delay: 0.25 });
+    hud.say('Oh. <em>Oh no.</em>');
+  }
 
-  blackout.querySelector('span').textContent = 'you should sit down';
+  blackout.querySelector('span').textContent = voluntary ? '' : 'you should sit down';
   blackout.classList.add('on');
 
   setTimeout(() => {
@@ -985,7 +1080,9 @@ function passOut() {
     blackout.querySelector('span').textContent = '';
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
-    hud.say(`<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`, 6000);
+    hud.say(voluntary
+      ? `<em>${time.clock12}.</em> Twelve hours. Nothing has changed.`
+      : `<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`, 6000);
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
     }, 3200);

@@ -270,7 +270,6 @@ export function makeFridge(M, { x, z, w = 0.80, d = 0.72, h = 1.85 }) {
     g.add(can.group);
     beerSlots.push(can.group);
   }
-  g.add(box({ size: [0.22, 0.10, 0.18], pos: [(inX0 + inX1) / 2, 1.20, inZ0 + 0.24], mat: M.cardboard }));
   g.add(cylinder({ r: 0.035, h: 0.20, pos: [inX0 + 0.14, 1.59, inZ1 - 0.16], mat: mat({ color: 0xc23a2a, roughness: 0.4 }) }));
   g.add(cylinder({ r: 0.032, h: 0.17, pos: [inX0 + 0.24, 1.575, inZ1 - 0.16], mat: mat({ color: 0xd8b53a, roughness: 0.4 }) }));
   // Half a lime, going grey.
@@ -323,7 +322,29 @@ export function makeFridge(M, { x, z, w = 0.80, d = 0.72, h = 1.85 }) {
     beerSlots,
     handlePos: new THREE.Vector3(x0 - 0.02, 1.02, z0 + 0.13),
     bounds: [[x0, 0, z0], [x0 + d, h, z0 + w]],
+    // So the caller can stock the shelves and stand things on the lid.
+    interior: { x0: inX0, x1: inX1, z0: inZ0, z1: inZ1, shelfY },
+    top: h,
+    centre: new THREE.Vector3(x0 + d / 2, 0, z0 + w / 2),
   };
+}
+
+/**
+ * The wrap for the beer can body. The supplied artwork is portrait, and the
+ * can's circumference is nearly twice its height, so the label repeats three
+ * times around rather than being stretched into a smear.
+ */
+let _beerLabelMat = null;
+export function beerLabelMaterial(texture) {
+  if (!texture) return null;
+  const tex = texture.clone();
+  tex.needsUpdate = true;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.repeat.set(3, 1);
+  tex.anisotropy = 8;
+  _beerLabelMat = mat({ map: tex, roughness: 0.42, metalness: 0.05 });
+  return _beerLabelMat;
 }
 
 /** A single beer can. */
@@ -335,7 +356,7 @@ export function makeBeerCan(M, { x, y, z, crushed = false, rotY = 0 }) {
     g.add(cylinder({ r: 0.033, h: 0.05, pos: [0, 0.025, 0], mat: M.aluminium, rotZ: 0.4 }));
     return { group: g };
   }
-  g.add(cylinder({ r: 0.033, h: 0.115, pos: [0, 0.058, 0], mat: M.beerLabel }));
+  g.add(cylinder({ r: 0.033, h: 0.115, pos: [0, 0.058, 0], mat: _beerLabelMat || M.beerLabel }));
   g.add(cylinder({ r: 0.030, h: 0.012, pos: [0, 0.121, 0], mat: M.aluminium }));
   g.add(cylinder({ r: 0.030, h: 0.010, pos: [0, 0.005, 0], mat: M.aluminium }));
   return { group: g };
@@ -1096,7 +1117,7 @@ export function makeCigarettePack(M, { x, y, z, rotY = 0 }) {
  * The label is a parody of the obvious one -- same silhouette and black-label
  * look, different name.
  */
-export function makeWhiskeyBottle(M, { x, y, z, rotY = 0 }) {
+export function makeWhiskeyBottle(M, { x, y, z, rotY = 0, labelImage = null }) {
   const g = group('whiskey');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
@@ -1130,13 +1151,45 @@ export function makeWhiskeyBottle(M, { x, y, z, rotY = 0 }) {
   liquidPivot.add(liquid);
   g.add(liquidPivot);
 
-  /* ---- label ---- */
+  /* ---- label ----
+   * The supplied artwork is a wide crest on black. Rather than squash it into
+   * a portrait label, it gets composited onto a taller black field -- which is
+   * what the real thing is anyway. Without artwork the label is drawn instead.
+   */
   const LW = 256, LH = 320;
   const c = document.createElement('canvas');
   c.width = LW; c.height = LH;
   const d = c.getContext('2d');
   d.fillStyle = '#0d0d0d';
   d.fillRect(0, 0, LW, LH);
+
+  if (labelImage) {
+    // Fill the width with the crest; the leftover black above and below is
+    // where the small print goes, the way it does on the real thing.
+    const iw = labelImage.width, ih = labelImage.height;
+    const s = (LW - 22) / iw;
+    const dh = ih * s;
+    const top = (LH - dh) / 2 + 6;
+    d.drawImage(labelImage, 11, top, LW - 22, dh);
+
+    d.textAlign = 'center';
+    d.fillStyle = '#d8d1bd';
+    d.font = 'bold 15px "Courier New", monospace';
+    d.fillText('TENNESSEE', LW / 2, top - 26);
+    d.font = '12px "Courier New", monospace';
+    d.fillStyle = '#9a927c';
+    d.fillText('SOUR MASH', LW / 2, top - 10);
+    d.font = '13px "Courier New", monospace';
+    d.fillStyle = '#b6ae97';
+    d.fillText('40% ALC/VOL  ·  750 ML', LW / 2, top + dh + 24);
+
+    // Hairline keyline, so the label has an edge against the glass.
+    d.strokeStyle = 'rgba(210,204,186,.55)';
+    d.lineWidth = 3;
+    d.strokeRect(7, 7, LW - 14, LH - 14);
+    return finishBottle();
+  }
+
   d.strokeStyle = '#e8e2d0';
   d.lineWidth = 4;
   d.strokeRect(12, 12, LW - 24, LH - 24);
@@ -1164,28 +1217,93 @@ export function makeWhiskeyBottle(M, { x, y, z, rotY = 0 }) {
   d.fillText('SOUR MASH', LW / 2, 274);
   d.fillText('40% ALC/VOL', LW / 2, 294);
 
-  const labelTex = new THREE.CanvasTexture(c);
-  labelTex.colorSpace = THREE.SRGBColorSpace;
-  labelTex.anisotropy = 8;
-  // A touch of emissive keyed to the label itself keeps the white text
-  // legible in low light without making the whole label glow.
-  const labelMat = mat({
-    map: labelTex, roughness: 0.85,
-    emissive: 0xffffff, emissiveMap: labelTex, emissiveIntensity: 0.28,
-  });
+  return finishBottle();
 
-  const front = plane(W - 0.006, 0.095, labelMat);
-  front.position.set(0, BODY * 0.48, D / 2 + 0.001);
-  g.add(front);
-  const back = plane(W - 0.006, 0.095, labelMat);
-  back.position.set(0, BODY * 0.48, -D / 2 - 0.001);
-  back.rotation.y = Math.PI;
-  g.add(back);
+  function finishBottle() {
+    const labelTex = new THREE.CanvasTexture(c);
+    labelTex.colorSpace = THREE.SRGBColorSpace;
+    labelTex.anisotropy = 8;
+    // A touch of emissive keyed to the label itself keeps the white text
+    // legible in low light without making the whole label glow.
+    const labelMat = mat({
+      map: labelTex, roughness: 0.85,
+      emissive: 0xffffff, emissiveMap: labelTex, emissiveIntensity: 0.28,
+    });
 
-  // Neck band.
-  g.add(cylinder({ r: 0.0165, h: 0.020, pos: [0, BODY + 0.092, 0], mat: mat({ color: 0x141414, roughness: 0.5 }) }));
+    const front = plane(W - 0.006, 0.095, labelMat);
+    front.position.set(0, BODY * 0.48, D / 2 + 0.001);
+    g.add(front);
+    const back = plane(W - 0.006, 0.095, labelMat);
+    back.position.set(0, BODY * 0.48, -D / 2 - 0.001);
+    back.rotation.y = Math.PI;
+    g.add(back);
 
-  return { group: g, liquid: liquidPivot, height: BODY + 0.135 };
+    // Neck band.
+    g.add(cylinder({ r: 0.0165, h: 0.020, pos: [0, BODY + 0.092, 0], mat: mat({ color: 0x141414, roughness: 0.5 }) }));
+
+    return { group: g, liquid: liquidPivot, height: BODY + 0.135 };
+  }
+}
+
+/**
+ * Carton of pasture-raised eggs for the fridge. The printed top face carries
+ * the supplied artwork; the shell underneath is the moulded pulp tray.
+ */
+export function makeEggCarton(M, { x, y, z, rotY = 0, texture = null }) {
+  const g = group('eggcarton');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const L = 0.310, W = 0.118, H = 0.072;
+  const pulp = mat({ color: 0x8d9a6a, roughness: 1 });
+  const printed = texture
+    ? mat({ map: texture, roughness: 0.92 })
+    : mat({ color: 0xd8cda2, roughness: 0.95 });
+
+  // Base tray, with the scalloped underside suggested by two rows of bumps.
+  g.add(box({ size: [L, H * 0.42, W], pos: [0, H * 0.21, 0], mat: pulp }));
+  for (let i = 0; i < 6; i++) {
+    const bx = -L / 2 + 0.030 + i * 0.050;
+    for (const bz of [-W / 4, W / 4]) {
+      g.add(sphere({ r: 0.019, pos: [bx, H * 0.06, bz], mat: pulp }));
+    }
+  }
+  // Lid, slightly proud of the tray, printed on top.
+  g.add(box({ size: [L + 0.004, H * 0.56, W + 0.004], pos: [0, H * 0.70, 0], mat: pulp }));
+  const face = plane(L, W, printed);
+  face.rotation.x = -Math.PI / 2;
+  face.position.set(0, H * 0.985, 0);
+  g.add(face);
+  // The band printed round the front lip.
+  const band = plane(L, H * 0.42, printed);
+  band.position.set(0, H * 0.66, W / 2 + 0.004);
+  g.add(band);
+
+  return { group: g, height: H };
+}
+
+/** Cereal box, for on top of the fridge where cereal goes. */
+export function makeCerealBox(M, { x, y, z, rotY = 0, texture = null }) {
+  const g = group('cereal');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const W = 0.196, H = 0.300, D = 0.070;
+  const card = mat({ color: 0x2f6fa8, roughness: 0.9 });
+  g.add(box({ size: [W, H, D], pos: [0, H / 2, 0], mat: card }));
+  if (texture) {
+    const printed = mat({ map: texture, roughness: 0.88 });
+    for (const s of [1, -1]) {
+      const face = plane(W, H, printed);
+      face.position.set(0, H / 2, s * (D / 2 + 0.001));
+      if (s < 0) face.rotation.y = Math.PI;
+      g.add(face);
+    }
+  }
+  // Folded top flaps, left open because of course they were.
+  g.add(box({ size: [W, 0.012, D * 0.5], pos: [0, H + 0.004, -D * 0.18], mat: card, rotX: 0.5 }));
+
+  return { group: g, height: H };
 }
 
 /** A shot glass, for when you have standards. */

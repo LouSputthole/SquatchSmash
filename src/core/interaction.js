@@ -8,8 +8,13 @@
  *     hold:   0.9,                              // seconds; omit for instant
  *     enabled:() => true,
  *     onUse:  () => {},
+ *     onTap:  () => {},                         // hold targets only: fired on
+ *                                               // a quick press instead
  *     onHoldProgress: (t) => {},
  *   }
+ *
+ * A descriptor with both `hold` and `onTap` gives you two actions on one
+ * target: tap for the cheap one, hold for the committed one.
  */
 import * as THREE from 'three';
 
@@ -82,7 +87,8 @@ export class InteractionSystem {
     if (!found) return;
 
     const desc = found.userData.interact;
-    const label = typeof desc.label === 'function' ? desc.label() : desc.label;
+    const src = (this.holding && desc.holdLabel) ? desc.holdLabel : desc.label;
+    const label = typeof src === 'function' ? src() : src;
     this.hud.showPrompt(label, desc.key || 'E');
 
     if (desc.hold) {
@@ -117,11 +123,19 @@ export class InteractionSystem {
     }
   }
 
-  /** Called on key-up / mouse-up. */
+  /**
+   * Called on key-up / mouse-up. Letting go early on a target that offers
+   * both actions is the tap.
+   */
   release() {
+    const desc = this.current?.userData.interact;
+    const target = this.current;
+    const tapped = this.holding && desc?.hold && desc.onTap && this.holdTime < desc.hold;
+    // Cleared first: the handler may pause the system, which calls back in here.
     this.holding = false;
     this.holdTime = 0;
     this.hud.setHold(null);
+    if (tapped) desc.onTap(target);
   }
 
   setPaused(v) {

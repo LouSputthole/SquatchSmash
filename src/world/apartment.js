@@ -25,30 +25,53 @@ export const WALL_SLOTS = [
   // West wall, over the bed and along past the lamp to the couch. Heights
   // deliberately stagger so it reads as a wall someone hung over years,
   // not a showroom row.
-  { slot: 'bed.above', x: -4.97, y: 2.00, z: -3.95, rotY: Math.PI / 2, h: 0.42 },
-  { slot: 'bed.mid', x: -4.97, y: 1.48, z: -3.12, rotY: Math.PI / 2, h: 0.40 },
-  { slot: 'bed.right', x: -4.97, y: 1.98, z: -2.72, rotY: Math.PI / 2, h: 0.30 },
-  { slot: 'gap.high', x: -4.97, y: 1.94, z: -2.10, rotY: Math.PI / 2, h: 0.32 },
-  { slot: 'gap.low', x: -4.97, y: 1.52, z: -1.52, rotY: Math.PI / 2, h: 0.42 },
-  { slot: 'gap.mid', x: -4.97, y: 1.90, z: -0.92, rotY: Math.PI / 2, h: 0.34 },
-  { slot: 'couch.left', x: -4.97, y: 1.56, z: -0.18, rotY: Math.PI / 2, h: 0.46 },
-  { slot: 'couch.mid', x: -4.97, y: 1.96, z: 0.52, rotY: Math.PI / 2, h: 0.34 },
-  { slot: 'couch.right', x: -4.97, y: 1.58, z: 1.24, rotY: Math.PI / 2, h: 0.44 },
+  { slot: 'bed.above', x: -4.97, y: 2.06, z: -3.95, rotY: Math.PI / 2, h: 0.42 },
+  // The poster you actually wake up under.
+  { slot: 'bed.poster', x: -4.97, y: 1.46, z: -3.98, rotY: Math.PI / 2, h: 0.60 },
+  { slot: 'bed.mid', x: -4.97, y: 1.54, z: -3.20, rotY: Math.PI / 2, h: 0.36 },
+  { slot: 'bed.right', x: -4.97, y: 2.02, z: -2.86, rotY: Math.PI / 2, h: 0.30 },
+  { slot: 'gap.high', x: -4.97, y: 1.94, z: -2.22, rotY: Math.PI / 2, h: 0.32 },
+  { slot: 'gap.low', x: -4.97, y: 1.46, z: -1.62, rotY: Math.PI / 2, h: 0.42 },
+  { slot: 'gap.mid', x: -4.97, y: 1.94, z: -1.02, rotY: Math.PI / 2, h: 0.34 },
+  { slot: 'couch.left', x: -4.97, y: 1.44, z: -0.30, rotY: Math.PI / 2, h: 0.42 },
+  // The big one, hung dead centre over the couch. This is the wall you look
+  // at when there is nothing to do, so it gets the space.
+  { slot: 'feature.stacks', x: -4.97, y: 1.86, z: 0.62, rotY: Math.PI / 2, h: 0.92 },
+  { slot: 'couch.right', x: -4.97, y: 1.30, z: 1.62, rotY: Math.PI / 2, h: 0.40 },
+  { slot: 'west.late', x: -4.97, y: 1.84, z: 2.34, rotY: Math.PI / 2, h: 0.44 },
+  { slot: 'west.low', x: -4.97, y: 1.26, z: 2.92, rotY: Math.PI / 2, h: 0.26 },
+  { slot: 'west.corner', x: -4.97, y: 1.86, z: 3.56, rotY: Math.PI / 2, h: 0.36 },
 
   // North wall: one by the shelf, one riding high over the corkboard, and a
   // pair either side of the monitor with a small one stacked above.
+  { slot: 'north.corner', x: -4.20, y: 1.70, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'shelf.left', x: -3.30, y: 1.98, z: -4.40, rotY: 0, h: 0.34 },
-  { slot: 'cork.above', x: -0.10, y: 2.14, z: -4.40, rotY: 0, h: 0.26 },
+  { slot: 'cork.left', x: -1.12, y: 2.06, z: -4.40, rotY: 0, h: 0.32 },
+  { slot: 'cork.above', x: -0.10, y: 2.20, z: -4.40, rotY: 0, h: 0.46 },
   { slot: 'desk.left', x: 0.95, y: 1.80, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'desk.right', x: 2.72, y: 1.62, z: -4.40, rotY: 0, h: 0.52 },
   { slot: 'desk.high', x: 2.72, y: 2.22, z: -4.40, rotY: 0, h: 0.24 },
 
   // South wall gallery, with a stacked pair in the middle of the run.
   { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
+  { slot: 'south.c', x: 1.78, y: 1.44, z: 4.40, rotY: Math.PI, h: 0.40 },
   { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
   { slot: 'south.wide', x: -3.38, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.34 },
   { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.54 },
+  // The other big one, facing you as you come away from the desk.
+  { slot: 'feature.denver', x: 3.88, y: 1.82, z: 4.40, rotY: Math.PI, h: 0.86 },
+];
+
+/**
+ * Bathroom walls. Small pieces, hung where you have nothing else to look at.
+ * Coordinates use the BATH box declared in buildApartment.
+ */
+export const BATH_SLOTS = [
+  { slot: 'bath.toilet', x: -2.69, y: 1.52, z: -6.36, rotY: Math.PI / 2, h: 0.34 },
+  { slot: 'bath.high', x: -2.69, y: 2.02, z: -5.92, rotY: Math.PI / 2, h: 0.26 },
+  { slot: 'bath.far', x: -1.90, y: 1.62, z: -7.09, rotY: 0, h: 0.36 },
+  { slot: 'bath.mirror', x: -0.31, y: 1.66, z: -6.42, rotY: -Math.PI / 2, h: 0.32 },
 ];
 
 /** Hanging cloth banners rather than framed pictures. */
@@ -64,15 +87,38 @@ const CREST_SLOT = { slot: 'crest.round', x: -2.70, y: 2.13, z: -4.40, rotY: 0, 
 /** Photo frames that stand on furniture rather than hanging. */
 const STANDING_SLOTS = [
   { slot: 'shelf.photo', x: -0.52, y: 0.723, z: 4.14, rotY: Math.PI - 0.30, h: 0.19 },
+  { slot: 'sideboard.photo', x: -1.62, y: 0.723, z: 4.16, rotY: Math.PI + 0.22, h: 0.17 },
   { slot: 'desk.photo', x: 0.98, y: 0.740, z: -4.22, rotY: 0.22, h: 0.13 },
+  { slot: 'night.photo', x: -3.02, y: 0.578, z: -4.20, rotY: -1.05, h: 0.15 },
 ];
 
 /** Sticker stuck to the fridge door. */
 const FRIDGE_MAGNET = { slot: 'fridge.magnet', w: 0.27 };
 
+/** Textures used on props rather than hung on a wall. */
+const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box'];
+
 export async function buildApartment(ctx) {
   const { scene, audio, hud, interaction, time } = ctx;
   const M = makeMaterials();
+
+  // Resolved up front: some of it is wall art, but some is the label on the
+  // beer and the print on the egg carton, which the prop builders need.
+  const gear = await resolveGear([
+    ...WALL_SLOTS.map((s) => s.slot),
+    ...BATH_SLOTS.map((s) => s.slot),
+    ...BANNER_SLOTS.map((b) => b.slot),
+    CREST_SLOT.slot,
+    ...PROP_SLOTS,
+    ...STANDING_SLOTS.map((s) => s.slot),
+    FRIDGE_MAGNET.slot,
+  ]);
+  /** Only hand a texture to a prop if the real file resolved. */
+  const propTex = (slot) => {
+    const g = gear.get(slot);
+    return g?.real ? g.texture : null;
+  };
+  P.beerLabelMaterial(propTex('label.beer'));
 
   const root = group('apartment');
   scene.add(root);
@@ -320,6 +366,22 @@ export async function buildApartment(ctx) {
   root.add(fridge.group);
   addCollider(fridge.bounds);
 
+  // A dozen pasture-raised, on the shelf above the beer. The radio has
+  // opinions about these.
+  const fin = fridge.interior;
+  const eggs = P.makeEggCarton(M, {
+    x: (fin.x0 + fin.x1) / 2, y: fin.shelfY[2] + 0.012, z: fin.z0 + 0.20,
+    rotY: Math.PI / 2 + 0.06, texture: propTex('eggs.carton'),
+  });
+  root.add(eggs.group);
+
+  // Cereal on top of the fridge, because there is nowhere else for it.
+  const cereal = P.makeCerealBox(M, {
+    x: fridge.centre.x + 0.02, y: fridge.top, z: fridge.centre.z - 0.08,
+    rotY: -Math.PI / 2 - 0.12, texture: propTex('cereal.box'),
+  });
+  root.add(cereal.group);
+
   const kitchen = P.makeKitchen(M, { z0: -1.90, z1: 1.45, wallX: x1 });
   root.add(kitchen.group);
   addCollider(kitchen.bounds);
@@ -344,7 +406,10 @@ export async function buildApartment(ctx) {
   // Bottle of whiskey. Hits about twice as hard as a beer.
   const whiskeyPos = kitchen.spots.bottle.clone();
   // Label out toward the room, so you read it as you walk up.
-  const whiskey = P.makeWhiskeyBottle(M, { x: whiskeyPos.x, y: whiskeyPos.y, z: whiskeyPos.z, rotY: -Math.PI / 2 + 0.18 });
+  const whiskey = P.makeWhiskeyBottle(M, {
+    x: whiskeyPos.x, y: whiskeyPos.y, z: whiskeyPos.z, rotY: -Math.PI / 2 + 0.18,
+    labelImage: propTex('label.whiskey')?.image || null,
+  });
   root.add(whiskey.group);
   const whiskeyHit = box({
     size: [0.22, 0.34, 0.22], pos: [whiskeyPos.x, whiskeyPos.y + 0.15, whiskeyPos.z],
@@ -419,18 +484,9 @@ export async function buildApartment(ctx) {
   /* Wall art                                                          */
   /* ================================================================ */
 
-  const slotNames = [
-    ...WALL_SLOTS.map((s) => s.slot),
-    ...BANNER_SLOTS.map((b) => b.slot),
-    CREST_SLOT.slot,
-    'zyn.lid',
-    ...STANDING_SLOTS.map((s) => s.slot),
-    FRIDGE_MAGNET.slot,
-  ];
-  const gear = await resolveGear(slotNames);
   const frames = [];
 
-  for (const slot of WALL_SLOTS) {
+  for (const slot of [...WALL_SLOTS, ...BATH_SLOTS]) {
     const g = gear.get(slot.slot);
     const height = slot.h * (g.scale || 1);
     const width = height * (g.aspect || 0.8);
@@ -740,8 +796,36 @@ export async function buildApartment(ctx) {
     onUse: () => ctx.onSitPC?.(),
   });
   interaction.register(chair.group, {
-    label: () => 'Sit down at the <b>PC</b>',
+    label: () => 'Sit in the <b>chair</b>',
     onUse: () => ctx.onSitPC?.(),
+  });
+
+  /* ---- somewhere to put yourself ----
+   * Half the point of the place is that you can stop moving. The couch, the
+   * edge of the bed and the bed itself are all things you can just be on.
+   *
+   * Both get an invisible hit volume standing well proud of the cushions.
+   * A seat is knee height, so aiming at the real geometry from standing means
+   * looking almost straight down; these let a glance at the furniture count.
+   */
+  const seatProxy = (name, [ax0, ay0, az0], [ax1, ay1, az1]) => {
+    const m = boxFrom(ax0, ay0, az0, ax1, ay1, az1,
+      new THREE.MeshBasicMaterial({ visible: false }), { cast: false, receive: false });
+    m.name = name;
+    root.add(m);
+    return m;
+  };
+
+  interaction.register(seatProxy('couchSeat', [-4.78, 0.40, -0.33], [-4.06, 1.06, 1.73]), {
+    label: () => 'Sit on the <b>couch</b>',
+    onUse: () => ctx.onSitCouch?.(),
+  });
+  interaction.register(seatProxy('bedSeat', [-4.82, 0.62, -4.34], [-3.44, 1.10, -2.44]), {
+    label: () => 'Sit on the <b>bed</b> &middot; hold to <b>lie down</b>',
+    holdLabel: () => 'Lying <b>down</b>…',
+    hold: 0.55,
+    onTap: () => ctx.onSitBed?.(),
+    onUse: () => ctx.onLieBed?.(),
   });
 
   /* ---- flavour interactions ---- */
@@ -994,6 +1078,30 @@ export async function buildApartment(ctx) {
   };
   const deskExit = new THREE.Vector3(1.05, 0, -2.85);
 
+  // Sitting on the couch: back against the cushions, facing east into the room
+  // so the window and the front door are both in view. Wide look cone --
+  // there is nothing here you are supposed to be staring at.
+  const couchPose = {
+    position: new THREE.Vector3(-4.28, 1.12, 0.72),
+    yaw: -Math.PI / 2,
+    pitch: -0.06,
+    yawRange: 1.5,
+    pitchMin: -0.85,
+    pitchMax: 0.70,
+  };
+  const couchExit = new THREE.Vector3(-3.55, 0, 0.72);
+
+  // Perched on the edge of the mattress, feet on the floor.
+  const bedSitPose = {
+    position: new THREE.Vector3(-3.95, 1.22, -3.00),
+    yaw: -Math.PI / 2,
+    pitch: -0.10,
+    yawRange: 1.5,
+    pitchMin: -0.85,
+    pitchMax: 0.70,
+  };
+  const bedSitExit = new THREE.Vector3(-3.20, 0, -3.00);
+
   return {
     root,
     materials: M,
@@ -1007,6 +1115,10 @@ export async function buildApartment(ctx) {
     bedLookYaw: yawToward(bedExit, new THREE.Vector3(2.0, 0, -1.0)),
     deskPose,
     deskExit,
+    couchPose,
+    couchExit,
+    bedSitPose,
+    bedSitExit,
 
     screen: desk.screen,
     screenGlow,

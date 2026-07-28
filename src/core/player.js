@@ -117,12 +117,18 @@ export class Player {
     };
   }
 
-  /** Sit at the desk: glide into a fixed pose and clamp the view. */
+  /**
+   * Sit down: glide into a fixed pose and clamp the view.
+   *
+   * The default cone suits the desk, where you are meant to be looking at a
+   * monitor. Anywhere you sit just to sit -- the couch, the edge of the bed --
+   * passes a wider one so you can still look round the room.
+   */
   sitAt(pose, done) {
     this.mode = 'frozen';
     this._tween = {
       t: 0,
-      dur: 1.0,
+      dur: pose.dur ?? 1.0,
       fromPos: this.position.clone(),
       toPos: pose.position.clone(),
       fromPitch: this.pitch,
@@ -132,9 +138,34 @@ export class Player {
       onDone: () => {
         this.mode = 'seated';
         this.yawCenter = pose.yaw;
-        this.yawRange = 0.85;
-        this.pitchMin = -0.75;
-        this.pitchMax = 0.45;
+        this.yawRange = pose.yawRange ?? 0.85;
+        this.pitchMin = pose.pitchMin ?? -0.75;
+        this.pitchMax = pose.pitchMax ?? 0.45;
+        this.velocity.set(0, 0, 0);
+        done?.();
+      },
+    };
+  }
+
+  /** Lie down on the bed from wherever you are standing. */
+  lieDown(pose, done) {
+    this.mode = 'frozen';
+    this._tween = {
+      t: 0,
+      dur: pose.dur ?? 1.3,
+      fromPos: this.position.clone(),
+      toPos: pose.position.clone(),
+      fromPitch: this.pitch,
+      toPitch: 0.95,
+      fromYaw: this.yaw,
+      toYaw: pose.yaw,
+      onDone: () => {
+        this.mode = 'bed';
+        this.pitch = 0.95;
+        this.pitchMin = 0.15;
+        this.pitchMax = Math.PI / 2 - 0.05;
+        this.yawCenter = pose.yaw;
+        this.yawRange = 1.15;
         this.velocity.set(0, 0, 0);
         done?.();
       },

@@ -61,16 +61,19 @@ for (const [rel, validate] of manifests) {
   }
 }
 
-/* ---- wall slots referenced by the art manifest must exist ---- */
-const VALID_SLOTS = new Set([
-  'bed.above', 'bed.mid', 'bed.right',
-  'gap.high', 'gap.low', 'gap.mid',
-  'couch.left', 'couch.mid', 'couch.right',
-  'shelf.left', 'cork.above', 'desk.left', 'desk.right', 'desk.high',
-  'door.side', 'south.a', 'south.b', 'south.wide', 'south.portrait',
-  'banner.main', 'banner.twitch', 'crest.round', 'zyn.lid',
-  'shelf.photo', 'desk.photo', 'fridge.magnet',
-]);
+/* ---- wall slots referenced by the art manifest must exist ----
+ * Read straight out of apartment.js rather than kept as a second list here,
+ * which would only ever drift out of date.
+ */
+const VALID_SLOTS = (() => {
+  const src = fs.readFileSync(path.join(ROOT, 'src/world/apartment.js'), 'utf8');
+  const slots = new Set();
+  for (const m of src.matchAll(/slot:\s*'([^']+)'/g)) slots.add(m[1]);
+  const props = src.match(/const PROP_SLOTS = \[([^\]]*)\]/);
+  if (props) for (const m of props[1].matchAll(/'([^']+)'/g)) slots.add(m[1]);
+  return slots;
+})();
+if (VALID_SLOTS.size < 20) fail(`only found ${VALID_SLOTS.size} slots in apartment.js`);
 try {
   const art = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/art/manifest.json'), 'utf8'));
   for (const entry of art.art || []) {

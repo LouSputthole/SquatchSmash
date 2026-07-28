@@ -484,6 +484,12 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'chair.roll':
       burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 380, q: 0.9, gain: 0.20 });
       break;
+    case 'couch.sit':
+      // Soft cushion compressing: a broad muffled whump, no gas cylinder.
+      burst(ctx, dest, t, { dur: 0.52, type: 'lowpass', freq: 380, gain: 0.34, sweep: 0.5 });
+      tone(ctx, dest, t, { freq: 96, to: 52, dur: 0.42, gain: 0.16, type: 'sine' });
+      burst(ctx, dest, t + 0.10, { dur: 0.30, type: 'bandpass', freq: 1900, q: 0.7, gain: 0.09 });
+      break;
 
     /* -------- cigarettes -------- */
     case 'cig.pack':
