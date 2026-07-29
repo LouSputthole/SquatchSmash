@@ -5,6 +5,7 @@ import {
   MISSION_IDS,
   SCENE_IDS,
 } from './campaign.js';
+import { getCharacter, voiceProfileFor } from './characters.js';
 
 const FIRST_RING_DELAY = 6;
 const RETRY_DELAY = 30;
@@ -34,7 +35,8 @@ const DEPARTURE_REQUIREMENTS = Object.freeze([
 export const DAY_ONE_LOU_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_FIRST_CALL,
   characterId: CHARACTER_IDS.LOU,
-  from: 'Lou',
+  from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
   vo: 'call.lou.bada_bing',
   lines: Object.freeze([
     'Kid. You awake?',
@@ -48,7 +50,8 @@ export const DAY_TWO_BOOSKI_CALL = Object.freeze({
   eventId: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
   characterId: CHARACTER_IDS.BOOSKI,
   targetCharacterId: CHARACTER_IDS.CAPTAIN_LOU_SASOLE,
-  from: 'Booski',
+  from: getCharacter(CHARACTER_IDS.BOOSKI).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.BOOSKI),
   vo: 'call.booski.airstrip',
   lines: Object.freeze([
     'You awake? Good.',
@@ -62,7 +65,8 @@ export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_SECOND_CALL,
   characterId: CHARACTER_IDS.LOU,
   targetSceneId: SCENE_IDS.BADA_BING_TWO,
-  from: 'Lou',
+  from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
   vo: 'call.lou.bing_second',
   lines: Object.freeze([
     'Kid. Back to the Bing.',

@@ -62,6 +62,7 @@ test('Lou calls once after the airstrip and unlocks the reused Bing second visit
   story.update(6.1);
   assert.deepEqual(calls, [DAY_TWO_LOU_SECOND_CALL]);
   assert.equal(DAY_TWO_LOU_SECOND_CALL.characterId, CHARACTER_IDS.LOU);
+  assert.equal(DAY_TWO_LOU_SECOND_CALL.voiceProfile, 'lou1');
   assert.equal(DAY_TWO_LOU_SECOND_CALL.targetSceneId, SCENE_IDS.BADA_BING_TWO);
   assert.equal(story.callAnswered(DAY_TWO_LOU_SECOND_CALL), true);
 

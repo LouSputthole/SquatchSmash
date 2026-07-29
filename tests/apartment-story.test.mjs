@@ -253,6 +253,7 @@ test('Booski rings once on Day Two and unlocks Captain Lou Sasole at the airstri
   story.update(0.2);
   assert.deepEqual(calls, [DAY_TWO_BOOSKI_CALL]);
   assert.equal(DAY_TWO_BOOSKI_CALL.characterId, CHARACTER_IDS.BOOSKI);
+  assert.equal(DAY_TWO_BOOSKI_CALL.voiceProfile, 'booski');
   assert.equal(DAY_TWO_BOOSKI_CALL.targetCharacterId, CHARACTER_IDS.CAPTAIN_LOU_SASOLE);
   assert.notEqual(DAY_TWO_BOOSKI_CALL.targetCharacterId, CHARACTER_IDS.LOU);
 
