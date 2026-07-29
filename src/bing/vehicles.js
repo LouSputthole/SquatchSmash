@@ -6,7 +6,7 @@
  * box, and a handbrake that ends the mission.
  */
 import * as THREE from 'three';
-import { mat, box, cylinder, group, collider } from '../world/build.js';
+import { mat, box, group, collider } from '../world/build.js';
 import { lit, rand, pick } from './kit.js';
 
 const BODY_COLOURS = [0x16161c, 0x24242e, 0x4a1418, 0x2e2e36, 0x5a4a2a, 0x18242e, 0x7a7a82, 0x3a2a1e];

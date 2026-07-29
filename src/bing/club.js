@@ -18,7 +18,7 @@
  *                              └─────────┘ → the lot → z = 56
  */
 import * as THREE from 'three';
-import { mat, box, boxFrom, cylinder, sphere, collider, group, emissive } from '../world/build.js';
+import { mat, box, cylinder, sphere, collider, group } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack } from '../world/props.js';
 import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick } from './kit.js';
@@ -229,7 +229,7 @@ export function buildClub(scene, { renderer } = {}) {
   scene.background = new THREE.Color(0x07070d);
   scene.fog = new THREE.FogExp2(0x0a0a12, 0.014);
 
-  add(new THREE.HemisphereLight(0x2a3450, 0x0a0a10, 0.5));
+  add(new THREE.HemisphereLight(0x33405e, 0x0d0d14, 0.62));
   const moon = new THREE.DirectionalLight(0x9fb4e8, 0.8);
   moon.position.set(-30, 40, 30);
   moon.castShadow = true;
@@ -385,10 +385,8 @@ export function buildClub(scene, { renderer } = {}) {
     add(signLight);
 
     // The dancer: a neon squatch in a bandana, mid-kick, wired up wrong
-    const dancerTex = printed('dancer', [], { w: 256, h: 384, bg: null });
     const dancer = sign(neonSilhouette(), 1.9, 2.7, { x: 6.7, y: 5.5, z: 15.85, emissive: 0xff77c0, intensity: 3.0 });
     add(dancer);
-    void dancerTex;
     const dancerLight = new THREE.PointLight(0xff77c0, 14, 14, 2);
     dancerLight.position.set(6.7, 5.5, 17);
     add(dancerLight);
@@ -437,7 +435,9 @@ export function buildClub(scene, { renderer } = {}) {
     add(reserved);
 
     // Lamp posts: cones of sodium light, the only warm thing out here
-    for (const [lx, lz] of [[-24, 21], [-24, 41], [17, 41], [26, 26], [0, 50]]) {
+    // Two of these are out in the middle of the bays, because a lot lit only
+    // round the edges is a lot full of black shapes.
+    for (const [lx, lz] of [[-24, 21], [-24, 41], [17, 41], [26, 26], [0, 50], [-9, 30], [9, 30]]) {
       add(cylinder({ r: 0.1, h: 6.6, pos: [lx, 3.3, lz], mat: M_STEEL }));
       add(box({ size: [0.7, 0.16, 0.4], pos: [lx + 0.3, 6.6, lz], mat: M_STEEL }));
       add(box({ size: [0.55, 0.08, 0.32], pos: [lx + 0.35, 6.5, lz], mat: lit(0xffd9a0, 2.6) }));

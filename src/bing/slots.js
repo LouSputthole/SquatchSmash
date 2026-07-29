@@ -26,8 +26,6 @@ export const PAYOUTS = {
 
 export const WAGERS = [5, 10, 25, 50];
 
-const SYMBOL_ORDER = ['cigar', 'duck', 'steak', 'cash', 'squatch'];
-
 function drawSymbol(g, kind, s) {
   g.save();
   if (kind === 'cigar') {

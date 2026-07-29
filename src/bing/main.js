@@ -25,7 +25,7 @@ import { roomEnvironment } from '../world/textures.js';
 
 import { buildClub, ROOMS, roomAt, STAGE_H } from './club.js';
 import { populate, makeAssociate } from './cast.js';
-import { makeSlotMachine, SlotMachine, WAGERS } from './slots.js';
+import { makeSlotMachine, SlotMachine } from './slots.js';
 import { Blackjack, BETS } from './blackjack.js';
 import { makePlayerCar, populateLot } from './vehicles.js';
 import { Dialogue } from './dialogue.js';
