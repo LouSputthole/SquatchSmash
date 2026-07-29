@@ -568,8 +568,12 @@ export async function buildApartment(ctx) {
 
   const pizza = P.makePizzaBox(M, { x: -3.48, y: table.top, z: 0.74, rotY: 0.26 });
   root.add(pizza.group);
-  root.add(P.makeBeerCan(M, { x: -2.92, y: table.top, z: 0.86, crushed: true, rotY: 1.1 }).group);
-  root.add(P.makeBeerCan(M, { x: -3.70, y: table.top, z: 0.52, crushed: true, rotY: -0.4 }).group);
+  /* Standing, not crushed. Same reason as the one on the shelf: a crumpled can
+   * at table height reads as a bent metal cylinder rather than as a can, and
+   * you spend a moment working out what it is instead of not noticing it. The
+   * crushed ones are the pool below, which you see him make. */
+  root.add(P.makeBeerCan(M, { x: -2.92, y: table.top, z: 0.86, rotY: 1.1 }).group);
+  root.add(P.makeBeerCan(M, { x: -3.70, y: table.top, z: 0.52, rotY: -0.4 }).group);
 
   // The other end of the coffee table. Neither of these is on the way out.
   // The table's front edge IS z 0.42, so the old position had it half off.
@@ -805,7 +809,12 @@ export async function buildApartment(ctx) {
    * as black slabs and the picture at the back was invisible whether the
    * clothes were over it or not, which defeats the entire point of the thing.
    * A dim bulb inside, of the kind that is in every closet in every flat. */
-  const closetLight = new THREE.PointLight(0xffe9c4, 2.4, 1.9, 2.0);
+  /* Dim, and it has to be. Bloom is thresholded at 0.82, so anything this
+   * light pushes past that blooms -- and a 60cm box with a lamp 16cm off the
+   * ceiling pushes almost all of itself past it, which is where the glow off
+   * the top of the closet was coming from. Enough to lift the shirts out of
+   * silhouette and no more. */
+  const closetLight = new THREE.PointLight(0xffe9c4, 0.85, 1.45, 2.2);
   closetLight.position.set((CLOSET.x0 + CLOSET.x1) / 2, CLOSET.h - 0.16, CLOSET.back - 0.42);
   root.add(closetLight);
 

@@ -2749,8 +2749,14 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
   const flame = new THREE.Group();
   flame.position.y = h + 0.019;
   g.add(flame);
+  /* Two additive quads crossed at right angles, so a flame seen from any
+   * angle has depth. Additive is also why these bloom: two of them overlapping
+   * sum well past 1.0 at the centre, and the bloom threshold is 0.82. Kept
+   * additive, because a flame that is not additive looks like a sticker, but
+   * dimmer and less opaque so the sum lands under the threshold instead of
+   * pouring light out of a cupboard. */
   const flameMat = new THREE.MeshBasicMaterial({
-    color: 0xffc663, transparent: true, opacity: 0.92,
+    color: 0xe8a94e, transparent: true, opacity: 0.62,
     blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
   });
   for (let i = 0; i < 2; i++) {
@@ -2761,7 +2767,7 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
   // The blue at the base, which is the bit that says "burning" rather than "orange".
   const core = new THREE.Mesh(
     new THREE.SphereGeometry(0.0055, 6, 5),
-    new THREE.MeshBasicMaterial({ color: 0x7fb4ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: 0x6f9edd, transparent: true, opacity: 0.30, blending: THREE.AdditiveBlending, depthWrite: false }),
   );
   core.position.y = -0.010;
   flame.add(core);
@@ -2771,7 +2777,7 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
    * whole point is that they are the only warm thing in a cupboard, which does
    * not survive them lighting it like a room. Dim, and tight: the fall-off
    * matters more than the brightness, so the pool stays on the shrine. */
-  const light = new THREE.PointLight(0xffb367, 0.26, 0.52, 2.2);
+  const light = new THREE.PointLight(0xffb367, 0.11, 0.38, 2.4);
   light.position.y = h + 0.03;
   g.add(light);
 
@@ -2788,7 +2794,7 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
       const wobble = Math.sin(s) * 0.5 + Math.sin(s * 2.7 + 1.1) * 0.32 + Math.sin(s * 6.1) * 0.18;
       flame.scale.set(1 + wobble * 0.10, 1 + wobble * 0.22, 1 + wobble * 0.10);
       flame.position.x = wobble * 0.0016;
-      light.intensity = 0.26 + wobble * 0.085;
+      light.intensity = 0.11 + wobble * 0.04;
     },
   };
 }
