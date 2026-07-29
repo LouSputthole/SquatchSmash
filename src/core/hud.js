@@ -72,6 +72,32 @@ export class Hud {
     setTimeout(() => el.remove(), 2800);
   }
 
+  /**
+   * Draw the carried slots. Rebuilt on change rather than kept in sync
+   * element-by-element -- it is five nodes and it changes when you pick
+   * something up, which is not a rate worth optimising for.
+   */
+  setInventory(inv, items) {
+    if (!this.hotbar) this.hotbar = document.getElementById('hotbar');
+    if (!this.hotbar) return;
+    if (!inv || inv.count() === 0) {
+      this.hotbar.classList.add('hidden');
+      this.hotbar.replaceChildren();
+      return;
+    }
+    const nodes = [];
+    for (let i = 0; i < inv.slots; i++) {
+      const id = inv.items[i];
+      const el = document.createElement('div');
+      el.className = `slot${i === inv.selected ? ' on' : ''}`;
+      el.dataset.key = String(i + 1);
+      el.textContent = id ? (items[id]?.icon ?? '?') : '';
+      nodes.push(el);
+    }
+    this.hotbar.replaceChildren(...nodes);
+    this.hotbar.classList.remove('hidden');
+  }
+
   setHand(item) {
     if (!item) {
       this.handItem.classList.add('hidden');

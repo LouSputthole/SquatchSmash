@@ -2827,3 +2827,76 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
     },
   };
 }
+
+/**
+ * The revolver on the coffee table.
+ *
+ * Snub-nosed, six rounds, and nothing in the flat to reload it with once they
+ * are gone. Built pointing along -Z so that dropping it into the camera's hand
+ * needs no correction, and so the muzzle position it hands back is simply the
+ * far end of the barrel.
+ */
+export function makeRevolver(M, { x, y, z, rotY = 0 }) {
+  const g = group('revolver');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const steel = mat({ color: 0x3a3f45, roughness: 0.34, metalness: 0.82 });
+  const dark = mat({ color: 0x22262b, roughness: 0.5, metalness: 0.6 });
+  const wood = mat({ color: 0x5a3520, roughness: 0.62 });
+
+  const BARREL = 0.115;
+  // Barrel, with the rib along the top and the bore in the end.
+  const barrel = cylinder({ r: 0.011, h: BARREL, pos: [0, 0.028, -0.085], rotX: Math.PI / 2, mat: steel });
+  g.add(barrel);
+  g.add(box({ size: [0.012, 0.008, BARREL], pos: [0, 0.038, -0.085], mat: steel }));
+  g.add(cylinder({ r: 0.0055, h: 0.012, pos: [0, 0.028, -0.142], rotX: Math.PI / 2, mat: mat({ color: 0x0a0b0c, roughness: 1 }) }));
+  // Front sight.
+  g.add(box({ size: [0.004, 0.010, 0.010], pos: [0, 0.045, -0.136], mat: dark }));
+
+  // Cylinder, fluted, with the chambers showing at the front face.
+  const cyl = cylinder({ r: 0.021, h: 0.040, pos: [0, 0.028, -0.008], rotX: Math.PI / 2, mat: steel });
+  g.add(cyl);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    g.add(cylinder({
+      r: 0.0042, h: 0.006,
+      pos: [Math.cos(a) * 0.0135, 0.028 + Math.sin(a) * 0.0135, -0.029],
+      rotX: Math.PI / 2, mat: mat({ color: 0x131518, roughness: 0.9 }),
+    }));
+  }
+
+  // Frame, top strap and rear sight.
+  g.add(box({ size: [0.020, 0.030, 0.075], pos: [0, 0.028, 0.020], mat: steel }));
+  g.add(box({ size: [0.016, 0.007, 0.055], pos: [0, 0.045, 0.014], mat: steel }));
+  g.add(box({ size: [0.014, 0.008, 0.006], pos: [0, 0.048, 0.040], mat: dark }));
+
+  // Hammer, back and slightly up, and the trigger inside its guard.
+  const hammer = box({ size: [0.010, 0.020, 0.012], pos: [0, 0.050, 0.050], mat: dark });
+  hammer.rotation.x = -0.30;
+  g.add(hammer);
+  g.add(box({ size: [0.006, 0.016, 0.006], pos: [0, 0.010, 0.028], mat: dark, rotX: 0.2 }));
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.017, 0.0035, 6, 14, Math.PI), steel);
+  guard.position.set(0, 0.009, 0.030);
+  guard.rotation.set(Math.PI / 2, 0, Math.PI);
+  guard.rotateX(Math.PI / 2);
+  g.add(guard);
+
+  /* Grip, raked back the way a revolver's is. Two panels with the frame's
+   * backstrap between them, so it is not one lump of wood. */
+  const grip = new THREE.Group();
+  grip.position.set(0, 0.012, 0.055);
+  grip.rotation.x = 0.42;
+  g.add(grip);
+  grip.add(box({ size: [0.026, 0.078, 0.030], pos: [0, -0.030, 0], mat: wood }));
+  grip.add(box({ size: [0.030, 0.070, 0.012], pos: [0, -0.028, -0.012], mat: dark }));
+
+  for (const m of [barrel, cyl]) m.castShadow = true;
+
+  return {
+    group: g,
+    hammer,
+    /** Where the flash happens and where a shot starts, in local space. */
+    muzzle: new THREE.Vector3(0, 0.028, -0.148),
+  };
+}

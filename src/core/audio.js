@@ -644,6 +644,31 @@ function synth(engine, name, dest, t, rate = 1) {
     /* A hinge turning slowly under its own weight. Two narrow bands walking
      * downward, because a creak is a resonance moving, not an impact -- and it
      * has to be quiet enough that you are not sure you heard it. */
+    /* A gunshot indoors is three things: the crack, the room slapping back,
+     * and the ring left in your ears. Leave any of them out and it reads as a
+     * door slamming. */
+    case 'gun.shot':
+      burst(ctx, dest, t, { dur: 0.035, type: 'highpass', freq: 1800, gain: 0.95 });
+      burst(ctx, dest, t + 0.004, { dur: 0.28, type: 'lowpass', freq: 320, gain: 0.85, sweep: 0.35 });
+      burst(ctx, dest, t + 0.05, { dur: 0.65, type: 'bandpass', freq: 900, q: 0.7, gain: 0.16, sweep: 0.4 });
+      tone(ctx, dest, t + 0.06, { freq: 3100, dur: 1.1, gain: 0.028, type: 'sine' });
+      break;
+    case 'gun.dry':
+      burst(ctx, dest, t, { dur: 0.02, type: 'bandpass', freq: 2600, q: 3, gain: 0.30 });
+      burst(ctx, dest, t + 0.02, { dur: 0.05, type: 'lowpass', freq: 700, gain: 0.10 });
+      break;
+    case 'gun.impact':
+      burst(ctx, dest, t, { dur: 0.05, type: 'bandpass', freq: 1500, q: 1.4, gain: 0.42, sweep: 0.4 });
+      for (let i = 0; i < 4; i++) {
+        burst(ctx, dest, t + 0.06 + i * 0.045 + Math.random() * 0.03, {
+          dur: 0.04, type: 'bandpass', freq: 700 + Math.random() * 900, q: 3, gain: 0.06,
+        });
+      }
+      break;
+    case 'gun.pickup':
+      burst(ctx, dest, t, { dur: 0.10, type: 'bandpass', freq: 2200, q: 2.4, gain: 0.20, sweep: 0.5 });
+      tone(ctx, dest, t + 0.05, { freq: 190, to: 120, dur: 0.14, gain: 0.10, type: 'triangle' });
+      break;
     /* Air let out slowly through a filter that opens and closes again. Not a
      * gasp -- the shape is the whole point, and a burst with no movement in it
      * reads as a hiss rather than as a person. */

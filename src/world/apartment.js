@@ -14,6 +14,7 @@ import { makeMaterials } from './materials.js';
 import * as T from './textures.js';
 import * as P from './props.js';
 import { resolveGear } from './gear.js';
+import { Inventory, bindHeldItem } from '../core/inventory.js';
 
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
 
@@ -691,6 +692,36 @@ export async function buildApartment(ctx) {
    * get kicked off. At z 3.90 they sat 46cm out into the floor, in the middle
    * of the walkway, looking placed rather than dropped. The skirting starts at
    * z 4.48, so 4.30 puts the heels near it without clipping through. */
+  /* ---- the revolver ----
+   *
+   * On the coffee table with everything else. It is not hidden, it is not
+   * locked in anything, and nobody in this game ever remarks on it being
+   * there, which is the joke. Six rounds and nothing to reload with.
+   */
+  const gunPos = new THREE.Vector3(-2.90, table.top, 0.60);
+  const revolver = P.makeRevolver(M, { x: gunPos.x, y: gunPos.y, z: gunPos.z, rotY: 2.35 });
+  root.add(revolver.group);
+  const gunHit = box({
+    size: [0.20, 0.10, 0.20], pos: [gunPos.x, gunPos.y + 0.05, gunPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(gunHit);
+  interaction.register(gunHit, {
+    label: () => 'Pick up the <b>revolver</b>',
+    enabled: () => revolver.group.visible && !inventory.full,
+    onUse: () => {
+      if (!inventory.add('gun')) return;
+      revolver.group.visible = false;
+      audio.play('gun.pickup', { volume: 0.55, position: gunPos });
+      ctx.onNote?.('gun');
+    },
+  });
+  /** Put it back where it came from. */
+  const dropGun = () => {
+    revolver.group.visible = true;
+    audio.play('gun.pickup', { volume: 0.4, position: gunPos });
+  };
+
   root.add(P.makeBoots(M, { x: 2.20, z: 4.30, rotY: 0.4 }).group);
   root.add(P.makeLaundry(M, { x: -2.55, z: -3.55 }).group);
   root.add(P.makeCapOnPeg(M, { x: 0.10, y: 1.78, z: 4.42, rotY: Math.PI }).group);
@@ -1000,6 +1031,7 @@ export async function buildApartment(ctx) {
   /* State                                                             */
   /* ================================================================ */
 
+  const inventory = new Inventory(5);
   const state = {
     fridgeOpen: false,
     fridgeT: 0,
@@ -1015,7 +1047,9 @@ export async function buildApartment(ctx) {
     chatUnread: 0,
     radioOn: false,
     blindsOpen: false,
-    heldItem: null,       // 'beer' | 'empty' | 'cigs' | null
+    /* Defined as an accessor over `inventory` just below -- reading it gives
+     * whatever is in the selected slot, assigning picks something up or puts
+     * it down. See core/inventory.js for why it is done that way. */
     beersDrunk: 0,
     cigsLeft: 17,
     cigsSmoked: 0,
@@ -1055,6 +1089,7 @@ export async function buildApartment(ctx) {
     /** The clothes are shoved to one end and the picture is showing. */
     closetOpen: false,
   };
+  bindHeldItem(state, inventory);
 
   /* ---- fridge ---- */
   audio.startLoop('fridge.hum', {
@@ -1087,7 +1122,7 @@ export async function buildApartment(ctx) {
   fridge.beerSlots.forEach((can, i) => {
     interaction.register(can, {
       label: () => 'Take a <b>beer</b>',
-      enabled: () => state.fridgeOpen && can.visible && !state.heldItem,
+      enabled: () => state.fridgeOpen && can.visible && !inventory.full,
       onUse: () => {
         can.visible = false;
         state.beersLeft--;
@@ -1120,7 +1155,7 @@ export async function buildApartment(ctx) {
     label: () => (state.cigsLeft > 0
       ? `Take the <b>smokes</b> <span style="opacity:.6">(${state.cigsLeft})</span>`
       : 'An empty <b>pack</b>'),
-    enabled: () => !state.heldItem && cigs.group.visible,
+    enabled: () => !inventory.full && cigs.group.visible,
     onUse: () => {
       if (state.cigsLeft <= 0) {
         hud.say('Empty. You knew it was empty.');
@@ -1149,7 +1184,7 @@ export async function buildApartment(ctx) {
     label: () => (state.whiskeyLeft > 0
       ? 'Pick up the <b>whiskey</b>'
       : 'An empty <b>bottle</b>'),
-    enabled: () => !state.heldItem && whiskey.group.visible,
+    enabled: () => !inventory.full && whiskey.group.visible,
     onUse: () => {
       if (state.whiskeyLeft <= 0) {
         hud.say('Dead soldier. You did that.');
@@ -1787,6 +1822,8 @@ export async function buildApartment(ctx) {
     colliders,
     floorZones,
     state,
+    inventory,
+    dropGun,
     frames,
 
     bedPose,

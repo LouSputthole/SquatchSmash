@@ -1868,6 +1868,62 @@
       "_note": "Mains into a steel basin."
     },
     {
+      "_comment": "Indoors, in a small flat, with no ear protection. It should be uncomfortable and it should ring afterwards — a polite gunshot is the wrong joke.",
+      "name": "gun.shot",
+      "duration": 1.6,
+      "promptInfluence": 0.6,
+      "prompt": "a single revolver gunshot fired indoors in a small room, loud crack with heavy room slap and a long ringing tail, no music, no voice"
+    },
+    {
+      "name": "gun.dry",
+      "duration": 0.8,
+      "promptInfluence": 0.5,
+      "prompt": "the hammer of an empty revolver falling on a spent chamber, one dry mechanical click, close, no music, no voice"
+    },
+    {
+      "name": "gun.impact",
+      "duration": 1.0,
+      "promptInfluence": 0.5,
+      "prompt": "a bullet striking plaster wall, sharp crack and falling debris, close, dry, no music, no voice"
+    },
+    {
+      "name": "gun.pickup",
+      "duration": 1.0,
+      "promptInfluence": 0.5,
+      "prompt": "a heavy steel revolver being picked up off a wooden table, one metallic scrape and settle, close, no music, no voice"
+    },
+    {
+      "_comment": "The tap bank, below, is where the flat's own commentary starts.",
+      "name": "vo.gun.fire.1",
+      "voice": "player",
+      "say": "…Okay. That was extremely loud."
+    },
+    {
+      "name": "vo.gun.fire.2",
+      "voice": "player",
+      "say": "The neighbours are going to have an opinion about that."
+    },
+    {
+      "name": "vo.gun.fire.3",
+      "voice": "player",
+      "say": "That is coming out of the deposit."
+    },
+    {
+      "name": "vo.gun.fire.4",
+      "voice": "player",
+      "say": "I would like to state that I did not think that would work."
+    },
+    {
+      "name": "vo.gun.empty.1",
+      "voice": "player",
+      "say": "That is it. That is all of them."
+    },
+    {
+      "name": "vo.gun.empty.2",
+      "voice": "player",
+      "say": "There is nothing in this flat that reloads that."
+    },
+    {
       "name": "vo.tap.1",
       "voice": "player",
       "say": "Glad that works. I probably should not leave that running."

@@ -22,13 +22,16 @@ import { Goals, ENDINGS, MEETING } from './core/goals.js';
 import { Chat } from './core/chat.js';
 import { Spooky } from './core/spooky.js';
 import { PostFX } from './core/postfx.js';
+import { BulletHoles } from './world/bullets.js';
+import { ITEMS } from './core/inventory.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
 import { ShowerSystem } from './world/shower.js';
 import { SplatSystem } from './world/splat.js';
 import { TimingBar } from './core/timingbar.js';
-import { makeHeldCigarette, makeHeldDrinks } from './world/props.js';
+import { makeHeldCigarette, makeHeldDrinks, makeRevolver } from './world/props.js';
+import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
 
 const DRINK_TIME = 2.4;
@@ -218,6 +221,7 @@ const spooky = new Spooky({
 // Booski, typing into a server nobody is in. The second way to find out.
 const chat = new Chat(time);
 const smoke = new SmokeSystem(scene);
+const bullets = new BulletHoles(scene);
 const stream = new StreamSystem(scene);
 // Water out of the rose, for the nine seconds it is running.
 const showerFx = new ShowerSystem(scene);
@@ -246,6 +250,18 @@ function poseDrink(which, k) {
   // Tipped back far enough to be pouring by the end, and rolled slightly in.
   m.rotation.set(-1.30 * e, 0, 0.34 * e);
 }
+
+/* The revolver in hand. Same idea as the drinks: one model parented to the
+ * camera, shown only while that slot is selected. Low and right, angled in,
+ * so the barrel is not sitting across the crosshair. */
+const heldGun = makeRevolver(makeMaterials(), { x: 0, y: 0, z: 0, rotY: 0 });
+heldGun.group.position.set(0.20, -0.24, -0.30);
+heldGun.group.rotation.set(0.06, -0.16, 0);
+heldGun.group.scale.setScalar(1.15);
+heldGun.group.visible = false;
+camera.add(heldGun.group);
+/** Recoil, in radians, decaying back to zero. */
+let gunKick = 0;
 
 const heldCig = makeHeldCigarette();
 /* In the corner of his mouth: low, just off centre, close to the camera, and
@@ -372,6 +388,16 @@ async function boot() {
   );
 
   // Third way to find out about the meeting: leave the radio on.
+  /* One place decides what the hands look like. Both the row of slots and the
+   * card naming the selected thing come from the same change event, so they
+   * cannot disagree about what he is holding. */
+  apartment.inventory.onChange = (inv) => {
+    hud.setInventory(inv, ITEMS);
+    const item = inv.held ? ITEMS[inv.held] : null;
+    hud.setHand(item ? { ...item, name: nameFor(inv.held, item.name) } : null);
+  };
+  apartment.inventory.onChange(apartment.inventory);
+
   radio.onNotice = () => learnAboutMeeting('radio');
   /* The inbox is the fourth way to hear about it, and the only one that asks
    * anything back: HR wants the Wednesday evening shift, which is the meeting. */
@@ -412,7 +438,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
-    updateChair, poseDrink, heldDrinks, spooky,
+    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, heldGun,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -510,6 +536,13 @@ function enableInput() {
   overlay.classList.add('hidden');
 }
 
+/* The wheel picks the next thing he is carrying. Only while the pointer is
+ * locked, so it cannot fire while somebody is scrolling the page around it. */
+window.addEventListener('wheel', (e) => {
+  if (!document.pointerLockElement || game.seated) return;
+  apartment?.inventory?.cycle(e.deltaY > 0 ? 1 : -1);
+}, { passive: true });
+
 document.addEventListener('pointerlockchange', () => {
   if (dragLook) return;
   const locked = document.pointerLockElement === canvas;
@@ -550,6 +583,7 @@ document.addEventListener('mousedown', (e) => {
   if (!player.enabled || game.paused || e.button !== 0) return;
   dragging = true;
   if (game.seated) arcade.onClick(true);
+  else if (apartment.state.heldItem === 'gun') fireGun();
   else interaction.press();
 });
 
@@ -626,6 +660,10 @@ document.addEventListener('keydown', (e) => {
       break;
     /* Bloom off, for a machine that is struggling. There is no options menu to
      * put this in and it is the first thing worth dropping. */
+    /* Slots. Digit1..Digit5 pick one directly; the wheel cycles (below). */
+    case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5':
+      apartment.inventory.select(Number(e.code.slice(5)) - 1);
+      break;
     case 'KeyB':
       hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
       break;
@@ -1437,6 +1475,88 @@ function relief() {
   setTimeout(() => hud.toast('Relaxed. Ready to take on the rest of the day.', 'good'), 900);
 }
 
+/**
+ * The name on the held-item card.
+ *
+ * A couple of things carry a count that changes while you hold them, and the
+ * card is the only place it is ever shown, so it cannot be a static string in
+ * the item table.
+ */
+function nameFor(id, base) {
+  const st = apartment.state;
+  if (id === 'cigs') return `Smokes (${st.cigsLeft})`;
+  if (id === 'whiskey') return `${base} (${st.whiskeyLeft})`;
+  if (id === 'gun') return `${base} (${st.rounds ?? 0}/6)`;
+  return base;
+}
+
+/* ------------------------------------------------------------------ */
+/* The revolver                                                        */
+/* ------------------------------------------------------------------ */
+
+const _shotRay = new THREE.Raycaster();
+const _shotDir = new THREE.Vector2(0, 0);
+const _muzzleWorld = new THREE.Vector3();
+
+/**
+ * Pull the trigger.
+ *
+ * Six rounds and nothing in the flat to reload with, so the interesting state
+ * is the empty click at the end rather than the shots before it. The shot goes
+ * where the crosshair is -- straight down the camera, not out of the barrel of
+ * the held model, because the held model sits low and right where it does not
+ * cover the sights, and firing from there would put the hole off to one side
+ * of everything you aimed at.
+ */
+function fireGun() {
+  const st = apartment.state;
+  if (st.rounds === undefined) st.rounds = 6;
+
+  if (st.rounds <= 0) {
+    audio.play('gun.dry', { volume: 0.6 });
+    hud.setHand({ ...ITEMS.gun, name: 'The revolver (0/6)', hint: 'Empty. Nothing here to reload it with.' });
+    audio.say('gun.empty', { chance: 0.5, delay: 0.35 });
+    return;
+  }
+
+  st.rounds--;
+  gunKick = 0.34;
+  audio.play('gun.shot', { volume: 1.0 });
+  apartment.inventory.onChange?.(apartment.inventory);
+
+  heldGun.group.getWorldPosition(_muzzleWorld);
+  bullets.muzzle(_muzzleWorld);
+
+  /* What it hit. Everything in the room is a candidate except the held model
+   * itself, which is parented to the camera and would otherwise be the only
+   * thing every shot ever hits. */
+  /* A little spread, from the crosshair outward.
+   *
+   * Not for realism -- for legibility. Six shots at a fixed aim point land on
+   * exactly the same pixel and produce ONE hole, which is what it did: you
+   * empty the cylinder into a wall and there is a single dot on it. A couple
+   * of degrees of scatter is also what a snub-nosed revolver fired one-handed
+   * by a man in a dressing gown actually does. */
+  const spread = 0.085;
+  _shotDir.set((Math.random() - 0.5) * spread, (Math.random() - 0.5) * spread);
+  _shotRay.setFromCamera(_shotDir, camera);
+  _shotRay.far = 40;
+  const hits = _shotRay.intersectObject(apartment.root, true);
+  const hit = hits.find((h) => h.face && h.object.visible);
+  if (hit) {
+    const n = hit.face.normal.clone()
+      .transformDirection(hit.object.matrixWorld)
+      .normalize();
+    bullets.punch(hit.point, n);
+    audio.play('gun.impact', {
+      volume: 0.7, position: hit.point, delay: Math.min(0.12, hit.distance / 340),
+    });
+  }
+
+  // He has an opinion about having done that.
+  audio.say('gun.fire', { chance: st.rounds === 0 ? 1 : 0.35, delay: 0.8 });
+}
+
 function updateGluing(dt) {
   if (glue.bar.active) {
     glue.bar.update(dt);
@@ -2203,6 +2323,15 @@ function frame() {
       // whether or not you have had a bowl.
       highs.update(dt);
       spooky.update(dt, highs.trip);
+      bullets.update(dt);
+      /* The gun is visible only while its slot is selected, and the recoil is
+       * a kick on the model rather than on the camera -- the camera is the
+       * crosshair and shoving that around makes the thing feel broken to aim
+       * rather than powerful to fire. */
+      heldGun.group.visible = apartment.state.heldItem === 'gun';
+      if (gunKick > 0) gunKick = Math.max(0, gunKick - dt * 2.6);
+      heldGun.group.rotation.x = 0.06 + gunKick;
+      heldGun.group.position.z = -0.30 + gunKick * 0.10;
       const hdt = dt * highs.timeScale;
 
       // Intoxication first: the player controller reads sway/impair this frame.
