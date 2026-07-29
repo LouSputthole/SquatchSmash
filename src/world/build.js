@@ -68,8 +68,60 @@ export function plane(w, h, mat) {
   return new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
 }
 
-export function mat(params) {
-  return new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0.0, ...params });
+/*
+ * Materials are shared between everything asking for the same thing.
+ *
+ * This used to mint a fresh MeshStandardMaterial per call, and it is called
+ * from about 350 places, so the flat was carrying 500 distinct materials for
+ * maybe forty distinct looks -- 500 programs to sort, bind and switch between
+ * for 33,000 triangles. The scene was never geometry-bound; it was bound by
+ * how many different things it claimed to be made of.
+ *
+ * The obvious danger is aliasing: share a material and anything that MUTATES
+ * one mutates all of them. Every site in the project that does that already
+ * clones first -- the eggs clone so they do not all cook as one object, the
+ * RGB strips clone so they can pulse independently -- and the rest build their
+ * materials directly rather than through here. That is the rule to keep: if
+ * you are going to write to a material at runtime, clone() it at build time.
+ * Pass `unique` to opt out entirely.
+ */
+const _matCache = new Map();
+/** Cache hits, i.e. materials this saved. Read by tools; see check/perf runs. */
+export const matStats = { made: 0, shared: 0, unique: 0 };
+
+/** Stable key for a params object, including maps and colours. */
+function matKey(params) {
+  const parts = [];
+  for (const k of Object.keys(params).sort()) {
+    const v = params[k];
+    if (v == null) parts.push(`${k}:null`);
+    else if (v.isTexture) parts.push(`${k}:tex#${v.uuid}`);
+    else if (v.isColor) parts.push(`${k}:#${v.getHexString()}`);
+    else if (typeof v === 'object') return null;        // not safely comparable
+    else parts.push(`${k}:${v}`);
+  }
+  return parts.join('|');
+}
+
+export function mat(params = {}) {
+  const { unique, ...rest } = params;
+  const key = unique ? null : matKey(rest);
+  if (key !== null) {
+    const hit = _matCache.get(key);
+    if (hit) { matStats.shared++; return hit; }
+  } else {
+    matStats.unique++;
+  }
+  matStats.made++;
+  const m = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0.0, ...rest });
+  if (key !== null) _matCache.set(key, m);
+  return m;
+}
+
+/** Drop the shared materials, for a rebuild. */
+export function disposeMaterialCache() {
+  for (const m of _matCache.values()) m.dispose?.();
+  _matCache.clear();
 }
 
 export function emissive(color, intensity = 1) {
