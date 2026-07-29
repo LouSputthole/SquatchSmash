@@ -231,9 +231,9 @@
     },
     {
       "slot": "fridge.magnet",
-      "file": "sticker-pinup.png",
-      "title": "Fridge magnet",
-      "caption": "Been on that door longer than you have lived here."
+      "file": "sticker-austin-2025.png",
+      "title": "Austin Major 2025",
+      "caption": "Held on by one magnet, at an angle nobody has ever corrected."
     },
     {
       "slot": "zyn.lid",
@@ -267,15 +267,15 @@
     },
     {
       "slot": "sticker.tower",
-      "file": "logo-crest.png",
-      "title": "Silver Sasquatches",
-      "caption": "Stuck on the glass since the build."
+      "file": "sticker-pinup-silver.png",
+      "title": "Tower sticker",
+      "caption": "On the side panel, over the case badge it came with."
     },
     {
       "slot": "sticker.fridge",
-      "file": "sticker-austin-2025.png",
-      "title": "Austin Major 2025",
-      "caption": "The whole roster, stuck to the fridge. Nobody remembers who put it there."
+      "file": "sticker-pinup-yellow.png",
+      "title": "Fridge sticker",
+      "caption": "Die-cut vinyl. Went on straight, which is the surprising part."
     },
     {
       "slot": "closet.back",
@@ -306,6 +306,12 @@
       "file": "shrine-booski-soldiers.jpg",
       "title": "Booski, again",
       "caption": "Next to the other one. Nobody keeps these on a closet floor. These are on a closet floor."
+    },
+    {
+      "slot": "poster.pinup",
+      "file": "poster-pinup-beach.jpg",
+      "title": "The beach one",
+      "caption": "Between the front door and the Denver piece, on the last free wall."
     }
   ]
 }
