@@ -2989,3 +2989,61 @@ export function makeTv(M, { x, z, rotY = 0, w = 1.12 }) {
     bounds: [[x - w / 2 - 0.16, 0, z - 0.22], [x + w / 2 + 0.16, panelY + h / 2, z + 0.22]],
   };
 }
+
+/**
+ * A box of rounds, with a few loose beside it.
+ *
+ * Cardboard carton, lid off, brass showing. `count` is only how many are drawn
+ * standing in it -- how many you actually get is the caller's business, since
+ * a box that looks half full and gives you six is better than counting them.
+ */
+export function makeAmmoBox(M, { x, y, z, rotY = 0, count = 8, loose = 2 }) {
+  const g = group('ammobox');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const card = mat({ color: 0x6f4a2c, roughness: 0.95 });
+  const brass = mat({ color: 0xb08a3c, roughness: 0.32, metalness: 0.85 });
+  const lead = mat({ color: 0x6b6259, roughness: 0.6, metalness: 0.4 });
+
+  const W = 0.085, D = 0.055, H = 0.032;
+  // Carton: floor and four walls, so it is open at the top and has a thickness.
+  g.add(box({ size: [W, 0.004, D], pos: [0, 0.002, 0], mat: card }));
+  for (const [sx, sz, sw, sd] of [
+    [0, -D / 2, W, 0.004], [0, D / 2, W, 0.004],
+    [-W / 2, 0, 0.004, D], [W / 2, 0, 0.004, D],
+  ]) {
+    g.add(box({ size: [sw, H, sd], pos: [sx, H / 2, sz], mat: card }));
+  }
+  // The lid, off, leaning against the side.
+  const lid = box({ size: [W + 0.006, 0.004, D + 0.006], pos: [W * 0.78, H * 0.42, 0], mat: card });
+  lid.rotation.z = 1.16;
+  g.add(lid);
+
+  /** One round: brass case, lead nose. */
+  const round = (rx, ry, rz, tipUp = true, rot = 0) => {
+    const r = new THREE.Group();
+    r.position.set(rx, ry, rz);
+    r.rotation.y = rot;
+    r.add(cylinder({ r: 0.0045, h: 0.019, pos: [0, 0.0095, 0], mat: brass }));
+    r.add(cylinder({ rTop: 0.0032, rBottom: 0.0045, h: 0.007, pos: [0, 0.0225, 0], mat: lead }));
+    if (!tipUp) r.rotation.z = Math.PI / 2;
+    g.add(r);
+    return r;
+  };
+
+  // Standing in the box, in rows, with the back row lower so it reads as full.
+  const cols = 4;
+  for (let i = 0; i < count; i++) {
+    const cx = (i % cols) - (cols - 1) / 2;
+    const cz = Math.floor(i / cols) - 0.5;
+    round(cx * 0.019, 0.004, cz * 0.022);
+  }
+  // A couple that never made it back in, lying on their sides.
+  for (let i = 0; i < loose; i++) {
+    const r = round(-W * 0.85 - i * 0.016, 0.0045, (i % 2 ? 1 : -1) * 0.012, false, 0.4 + i * 0.9);
+    r.rotation.z = Math.PI / 2;
+  }
+
+  return { group: g };
+}

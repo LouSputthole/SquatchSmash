@@ -697,6 +697,37 @@ export async function buildApartment(ctx) {
    * get kicked off. At z 3.90 they sat 46cm out into the floor, in the middle
    * of the walkway, looking placed rather than dropped. The skirting starts at
    * z 4.48, so 4.30 puts the heels near it without clipping through. */
+  /* ---- spare rounds ----
+   *
+   * Two boxes, neither of them anywhere sensible: one on the nightstand where
+   * a person would keep a phone charger, one in the closet with the shirts.
+   * Six in the gun and twelve about the place, which is enough to be a
+   * distraction for an afternoon and not enough to be a hobby.
+   */
+  const ammoSpots = [
+    { at: new THREE.Vector3(-3.15, 0.585, -4.02), rotY: 0.5, gives: 6 },
+    { at: new THREE.Vector3(CLOSET.x0 + 0.16, 0.002, CLOSET.back - 0.52), rotY: -0.8, gives: 6 },
+  ];
+  for (const spot of ammoSpots) {
+    const bx = P.makeAmmoBox(M, { x: spot.at.x, y: spot.at.y, z: spot.at.z, rotY: spot.rotY });
+    root.add(bx.group);
+    const hit = box({
+      size: [0.20, 0.14, 0.18], pos: [spot.at.x, spot.at.y + 0.06, spot.at.z],
+      mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+    });
+    root.add(hit);
+    interaction.register(hit, {
+      label: () => `Take the <b>rounds</b> (${spot.gives})`,
+      enabled: () => bx.group.visible,
+      onUse: () => {
+        bx.group.visible = false;
+        state.spareRounds = (state.spareRounds || 0) + spot.gives;
+        audio.play('ammo.take', { volume: 0.55, position: spot.at });
+        ctx.onAmmo?.(spot.gives);
+      },
+    });
+  }
+
   /* ---- taking a slice ----
    *
    * The box is on the table with three already gone. Taking one is a pickup
@@ -1140,6 +1171,9 @@ export async function buildApartment(ctx) {
     closetOpen: false,
     /** The telly is on. */
     tvOn: false,
+    /** In the cylinder, and in his pocket. */
+    rounds: 6,
+    spareRounds: 0,
   };
   bindHeldItem(state, inventory);
 

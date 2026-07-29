@@ -3339,6 +3339,45 @@
       "duration": 2.4,
       "promptInfluence": 0.5,
       "prompt": "water bubbling loudly through a glass bong as someone draws on it, wet gurgling, close, no music, no voice"
+    },
+    {
+      "_comment": "Loose cartridges being scooped out of a cardboard carton. Brass on brass is the whole sound.",
+      "name": "ammo.take",
+      "duration": 1.2,
+      "promptInfluence": 0.5,
+      "prompt": "a handful of brass cartridges being picked up out of a cardboard box, brass clinking against brass, close, dry, no music, no voice"
+    },
+    {
+      "_comment": "Cylinder swung out, rounds dropped in, cylinder closed. Three beats, not one.",
+      "name": "gun.reload",
+      "duration": 2.4,
+      "promptInfluence": 0.55,
+      "prompt": "a revolver cylinder swinging open, cartridges being loaded into the chambers one by one, then the cylinder snapping shut, close, mechanical, no music, no voice"
+    },
+    {
+      "name": "vo.ammo.1",
+      "voice": "player",
+      "say": "Right. Why do I have these."
+    },
+    {
+      "name": "vo.ammo.2",
+      "voice": "player",
+      "say": "In the bedside table. Next to the charger."
+    },
+    {
+      "name": "vo.ammo.3",
+      "voice": "player",
+      "say": "I have absolutely no memory of buying these."
+    },
+    {
+      "name": "vo.gun.reload.1",
+      "voice": "player",
+      "say": "There. Fully operational again. Wonderful."
+    },
+    {
+      "name": "vo.gun.reload.2",
+      "voice": "player",
+      "say": "I want it noted that I know how to do this and that is its own problem."
     }
   ]
 }

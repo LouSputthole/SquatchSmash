@@ -673,6 +673,25 @@ function synth(engine, name, dest, t, rate = 1) {
         });
       }
       break;
+    case 'ammo.take':
+      for (let i = 0; i < 6; i++) {
+        burst(ctx, dest, t + i * 0.055 + Math.random() * 0.03, {
+          dur: 0.035, type: 'bandpass', freq: 2400 + Math.random() * 1800, q: 5, gain: 0.10,
+        });
+      }
+      break;
+    /* Three beats: the cylinder out, the rounds in, the cylinder shut. One
+     * click for all of it reads as a light switch. */
+    case 'gun.reload':
+      burst(ctx, dest, t, { dur: 0.09, type: 'bandpass', freq: 1200, q: 2.6, gain: 0.24, sweep: 0.7 });
+      for (let i = 0; i < 6; i++) {
+        burst(ctx, dest, t + 0.22 + i * 0.13, {
+          dur: 0.03, type: 'bandpass', freq: 2100 + i * 90, q: 4, gain: 0.13,
+        });
+      }
+      burst(ctx, dest, t + 1.10, { dur: 0.06, type: 'bandpass', freq: 900, q: 2, gain: 0.30 });
+      tone(ctx, dest, t + 1.10, { freq: 320, to: 180, dur: 0.10, gain: 0.16, type: 'square' });
+      break;
     case 'gun.pickup':
       burst(ctx, dest, t, { dur: 0.10, type: 'bandpass', freq: 2200, q: 2.4, gain: 0.20, sweep: 0.5 });
       tone(ctx, dest, t + 0.05, { freq: 190, to: 120, dur: 0.14, gain: 0.10, type: 'triangle' });

@@ -370,6 +370,11 @@ async function boot() {
     onReadChat: readChat,
     onChatVisible: () => apartment.desk.repaintChat(chat),
     onLearn: (source) => learnAboutMeeting(source),
+    onAmmo: (n) => {
+      hud.toast(`Picked up ${n} rounds`, 'good');
+      audio.say('ammo', { chance: 0.7, delay: 0.9 });
+      apartment.inventory.onChange?.(apartment.inventory);
+    },
     onTvTap: () => {
       if (!apartment.state.tvOn) {
         apartment.state.tvOn = tv.toggle();
@@ -465,7 +470,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
-    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, heldGun, tv,
+    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -695,7 +700,12 @@ document.addEventListener('keydown', (e) => {
       hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
       break;
     case 'KeyR':
-      if (interaction.current && interaction.current.name === 'radio') radio.next();
+      /* Reload takes priority over skipping the radio, but only while the gun
+       * is the thing in his hand -- otherwise standing at the sideboard with a
+       * revolver in your pocket would stop [R] working on the radio, which is
+       * what it is for everywhere else in the flat. */
+      if (apartment.state.heldItem === 'gun') reloadGun();
+      else if (interaction.current && interaction.current.name === 'radio') radio.next();
       break;
     case 'KeyQ':
       if (apartment.state.lipPacked) {
@@ -1549,7 +1559,10 @@ function nameFor(id, base) {
   const st = apartment.state;
   if (id === 'cigs') return `Smokes (${st.cigsLeft})`;
   if (id === 'whiskey') return `${base} (${st.whiskeyLeft})`;
-  if (id === 'gun') return `${base} (${st.rounds ?? 0}/6)`;
+  if (id === 'gun') {
+    const spare = st.spareRounds || 0;
+    return `${base} (${st.rounds ?? 0}/6${spare ? ` · ${spare} spare` : ''})`;
+  }
   return base;
 }
 
@@ -1618,6 +1631,35 @@ function fireGun() {
 
   // He has an opinion about having done that.
   audio.say('gun.fire', { chance: st.rounds === 0 ? 1 : 0.35, delay: 0.8 });
+}
+
+/**
+ * Refill the cylinder from whatever is in his pocket.
+ *
+ * Six chambers, and it takes what it can rather than requiring a full six --
+ * a revolver with four in it is a revolver, and refusing to load because you
+ * are two short would be the wrong kind of realism.
+ */
+function reloadGun() {
+  const st = apartment.state;
+  const room = 6 - (st.rounds ?? 0);
+  if (!room) {
+    hud.toast('Already full');
+    return;
+  }
+  const take = Math.min(room, st.spareRounds || 0);
+  if (!take) {
+    audio.play('gun.dry', { volume: 0.45 });
+    hud.toast('Nothing to load it with', 'bad');
+    audio.say('gun.empty', { chance: 0.5, delay: 0.4 });
+    return;
+  }
+  st.rounds += take;
+  st.spareRounds -= take;
+  audio.play('gun.reload', { volume: 0.7 });
+  audio.say('gun.reload', { chance: 0.45, delay: 1.1 });
+  hud.toast(`Loaded ${take} · ${st.spareRounds} spare`, 'good');
+  apartment.inventory.onChange?.(apartment.inventory);
 }
 
 function updateGluing(dt) {
