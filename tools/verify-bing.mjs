@@ -162,18 +162,93 @@ await choose(0);
 await tick(4);
 check('and lets you in', (await state()).flags.bouncerCleared === true);
 
+/* ---- the rest of the club ----
+ * These are the things the mission does not need and the player will do
+ * anyway: a door, a drink, a chair, a tip. Each one has broken at least once.
+ */
+await tick(6);
+check('a conversation ends by itself', !(await page.evaluate(() => window.__bing.dialogue.active)));
+
+const doors = await page.evaluate(() => {
+  const b = window.__bing;
+  const d = b.club.doors.lou;
+  const before = b.club.colliders.length;
+  d.leaf.userData.interact.onUse();
+  const open = { open: d.open, colliders: b.club.colliders.length };
+  d.leaf.userData.interact.onUse();
+  const locked = b.club.doors.manager;
+  locked.leaf.userData.interact.onUse();
+  return {
+    before, open,
+    closed: { open: d.open, colliders: b.club.colliders.length },
+    lockedStayedShut: !locked.open,
+  };
+});
+check('a door opens and takes its collider with it',
+  doors.open.open && doors.open.colliders === doors.before - 1, JSON.stringify(doors.open));
+check('and gives it back on the way closed',
+  !doors.closed.open && doors.closed.colliders === doors.before, JSON.stringify(doors.closed));
+check('the locked ones stay locked', doors.lockedStayedShut);
+
 /* ---- the floor ---- */
 await walkTo(-8, 4, Math.PI);
 s = await state();
 check('walking in starts Lou waiting', s.mission === 'club', s.mission);
 
-/* ---- the machine ---- */
-await page.evaluate(() => {
+const bar = await page.evaluate(() => {
   const b = window.__bing;
-  for (let i = 0; i < 3; i++) { b.slots.spin(); b.slots.update(4); }
+  b.scripts.bartender.order.options[1].effect();          // a beer
+  const held = b.game.heldDrink;
+  b.game.drinking = 3;                                    // as if [F] had been held
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
+  return { held };
+});
+await tick(3, 0.1);
+check('the bar serves, and the drink lands',
+  bar.held === 'beer' && (await page.evaluate(() => window.__bing.drunk.level)) > 0,
+  `drunk ${await page.evaluate(() => window.__bing.drunk.level.toFixed(2))}`);
+
+const seat = await page.evaluate(() => {
+  const b = window.__bing;
+  const spot = b.club.anchors.booths[0];
+  b.game.seatedIn = null;
+  b.player.position.set(spot.x + 1, 1.66, spot.z);
+  b.player.mode = 'walk';
+  const pads = [];
+  b.scene.traverse((o) => {
+    const l = o.userData?.interact?.label;
+    const text = typeof l === 'function' ? l() : l;
+    if (text && String(text).includes('booth')) pads.push(o);
+  });
+  if (!pads.length) return { found: false };
+  pads[0].userData.interact.onUse();
+  return { found: true, seated: b.game.seatedIn };
+});
+await tick(2);
+check('there is somewhere to sit', seat.found && seat.seated === 'seat', JSON.stringify(seat));
+await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })));
+await tick(2);
+check('and a way back up', await page.evaluate(() => window.__bing.game.seatedIn === null));
+
+/* ---- the machine ----
+ * Asserting the wallet went down would be wrong: it is a slot machine, and
+ * occasionally it pays. What has to be true is that three spins happened and
+ * that each one was staked. */
+const slots = await page.evaluate(() => {
+  const b = window.__bing;
+  const before = b.game.money;
+  let staked = 0;
+  for (let i = 0; i < 3; i++) {
+    const at = b.game.money;
+    if (b.slots.spin()) staked += at - b.game.money;
+    b.slots.update(4);
+  }
+  return { before, after: b.game.money, staked, wager: b.slots.wager, net: b.slots.view.net };
 });
 s = await state();
-check('the machine takes your money', s.spins === 3 && s.money < 340, `${s.spins} spins, $${s.money} left`);
+check('the machine takes a stake on every spin',
+  s.spins === 3 && slots.staked === slots.wager * 3,
+  `staked $${slots.staked} at $${slots.wager}, net ${slots.net >= 0 ? '+' : ''}$${slots.net}`);
 
 /* ---- the table ---- */
 await page.evaluate(() => {
@@ -227,6 +302,21 @@ await walkTo(-4, 20, 0);
 await tick(1);
 check('back in the lot carrying it', (await state()).mission === 'lot-return');
 
+/* The back way out: the alarm chirps, and the yard counts as leaving by it. */
+const rear = await page.evaluate(() => {
+  const b = window.__bing;
+  b.club.doors.service.leaf.userData.interact.onUse();
+  b.player.position.set(9, 1.66, -17);
+  b.player.update(0.016);
+  return { tripped: b.mission.flags.alarmTripped };
+});
+await tick(1.5);
+check('the service door has a live alarm on it', rear.tripped);
+check('and the yard behind it counts as the back way',
+  await page.evaluate(() => window.__bing.mission.flags.leftByRear === true));
+
+await walkTo(-4, 20, 0);
+await tick(1);
 await page.evaluate(() => {
   const b = window.__bing;
   b.game.seatedIn = 'car';

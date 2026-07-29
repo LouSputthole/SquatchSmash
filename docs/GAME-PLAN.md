@@ -329,3 +329,79 @@ Sitting on the couch. Lying on the bed without sleeping. Turning the radio off
 and standing in the quiet. Farting. Reading the evidence board. Pointing the
 flashlight at things. None of these advance anything, and that is the point —
 a flat where only the useful actions work is a to-do list with walls.
+
+---
+
+# A Quick Stop at the Bing ✅
+
+The second location, and the first one with anybody else in it.
+`bing.html` -> `src/bing/`.
+
+## The premise
+
+Wednesday, 11:41 PM. You are sat in your own car in a wet lot off the highway
+with the engine running, and Lou has something for you in the back office. Get
+in, find him, take it, leave. That is all of it.
+
+The club is deliberately much bigger than the errand. It is a hub: a bar that
+serves you properly, a table that deals you in, a machine that takes your
+money, a store room with a live alarm on the back door, and roughly thirty
+people who were here before you turned up and will be here after.
+
+## The rule
+
+**You never lose control because somebody important started talking.** Lou
+says his piece while you walk round his office, sit down, open his liquor
+cabinet, read his ledger, take the package, put it back, or leave. Every reply
+is optional and the conversation lapses if you walk out of the room, the same
+way a conversation does. There is no cutscene in the level, including the
+ending: the mission finishes when you drive out of the lot yourself.
+
+## The state machine
+
+`lot -> outside -> club -> hallway -> office -> package -> briefed ->
+leaving -> lot-return -> done`. It only ever runs forwards, and nothing in the
+club can break it — the machine, the table and the bar report *into* it
+without being able to move it.
+
+## Lou's patience
+
+Starts when you walk in, stops when you take the package. Nothing fails.
+
+| | |
+|---|---|
+| 2 minutes | *LOU: You sightseeing?* |
+| 5 minutes | *LOU: Back office. Now.* |
+| 8 minutes | He sends somebody, who finds you wherever you are. |
+| 3 / 6 / 10 hands of blackjack | The same three beats, on a different clock. |
+
+What changes is what he says when you finally get there — and if you hit the
+jackpot on the way, he heard it through the wall and opens with that.
+
+## Endings
+
+Four, chosen by what you did about the grey sedan in the lot rather than by
+whether you "won":
+
+| | |
+|---|---|
+| **followed** | You ignored it. It pulls out four cars back. |
+| **plate** | You read the plate on the way past. They leave first. |
+| **warned** | You told Lou; one of his men is under the canopy when you come out. |
+| **rear** | You went out through the store room and down the alley, and the two men whose entire job was to watch you leave did not. |
+
+## Deliberately not rewarded
+
+Sitting in a booth. Tipping the performer. Losing four hundred dollars to a
+machine with a duck on it. Reading the graffiti in the men's room, which is
+the roster with two names spelled right. Drinking at the bar before seeing a
+made man, which does nothing except change his first line to a comment about
+it.
+
+## Verification
+
+`npm run verify:bing` plays the whole mission headlessly and asserts the state
+machine at every beat — the bouncer, the floor, the machine, the table, the
+hallway, Lou, the package, the lot, the ending card. It is the only thing that
+catches "the office where nothing happens", which is what every wiring mistake
+in here looks like from the inside.

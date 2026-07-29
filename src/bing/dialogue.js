@@ -94,7 +94,10 @@ export class Dialogue {
     this.options = [];
     const nextId = typeof opt.next === 'function' ? opt.next() : opt.next;
     this.timer = opt.hold ?? Math.max(1.4, opt.text.length / 22);
-    this._pending = nextId ?? null;
+    /* Boxed, because `next: null` is a real answer -- it means "that ends it"
+     * -- and a bare null here is indistinguishable from "nothing pending",
+     * which left those replies on screen until the player walked off. */
+    this._pending = { id: nextId ?? null };
     opt.effect?.();
     return true;
   }
@@ -128,8 +131,8 @@ export class Dialogue {
     if (this.timer > 0) {
       this.timer -= dt;
       if (this.timer > 0) return;
-      if (this._pending !== null && this._pending !== undefined) {
-        const next = this._pending;
+      if (this._pending) {
+        const next = this._pending.id;
         this._pending = null;
         if (next) this.go(next);
         else this.end();

@@ -537,6 +537,72 @@ reg(slotParts.panel, {
   });
 }
 
+/* ---- somewhere to sit, and somebody to tip ---- */
+
+/**
+ * Booths and two-tops. Sitting is the whole difference between a room you walk
+ * through and a room you are in, and it costs one pad and one pose.
+ */
+function sitOn(spot, yaw) {
+  if (game.seatedIn) return;
+  game.seatedIn = 'seat';
+  audio.play('chair.sit', { volume: 0.5 });
+  hud.setMode('seated');
+  hud.setPosture('stand up');
+  player.sitAt({
+    position: new THREE.Vector3(spot.x, 1.22, spot.z),
+    yaw,
+    pitch: -0.12,
+    yawRange: 1.5,
+    pitchMin: -0.9,
+    pitchMax: 0.5,
+  }, () => {
+    if (!game.satOnce) {
+      game.satOnce = true;
+      hud.say('Nobody looks over. In here that is the same as being welcome.', 4200);
+    }
+  });
+}
+
+function standFromSeat() {
+  if (game.seatedIn !== 'seat') return;
+  game.seatedIn = null;
+  hud.setMode('walk');
+  hud.setPosture(null);
+  player.standFrom({ x: player.position.x, z: player.position.z });
+}
+
+for (const spot of club.anchors.booths) {
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.0, 1.1), new THREE.MeshBasicMaterial({ visible: false }));
+  pad.position.set(spot.x, 0.6, spot.z);
+  scene.add(pad);
+  // Booths face the room: the east wall run looks west, the front run north
+  const yaw = spot.x > 0 ? Math.PI / 2 : Math.PI;
+  reg(pad, {
+    label: () => (game.seatedIn === 'seat' ? 'Get up' : 'Sit in the <b>booth</b>'),
+    onUse: () => (game.seatedIn === 'seat' ? standFromSeat() : sitOn(spot, yaw)),
+  });
+}
+
+{
+  // Tipping: the one interaction on the stage that security has no view on
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.4, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
+  pad.position.set(club.anchors.runway.x, 1.3, club.anchors.runway.z);
+  scene.add(pad);
+  reg(pad, {
+    label: () => (game.money >= 20 ? 'Tip the <b>performer</b> ($20)' : 'Tip the <b>performer</b> — no cash'),
+    enabled: () => game.money >= 20,
+    onUse: () => {
+      addMoney(-20);
+      game.tips = (game.tips || 0) + 1;
+      audio.play('chips.place', { volume: 0.4 });
+      hud.say(game.tips === 1
+        ? 'Twenty on the edge of the runway. It goes without either of you acknowledging it.'
+        : 'Another twenty. You are going to run out before she does.', 4200);
+    },
+  });
+}
+
 /* ---- the bathroom, the store room, the lot ---- */
 
 {
@@ -985,6 +1051,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.code === 'KeyQ') {
     if (game.seatedIn === 'table') standFromTable();
+    else if (game.seatedIn === 'seat') standFromSeat();
     else if (game.seatedIn === 'car') getOutOfCar();
     else if (game.atMachine) leaveMachine();
   }
@@ -1110,6 +1177,19 @@ function onRoomChange(next) {
   }
   if ((next === 'lot' || next === 'alley') && mission.state === 'leaving') {
     mission.backInLot();
+    /* You told him, so somebody is out here. He does nothing except be
+     * visible, which is the entire point of him. */
+    if (mission.flags.toldLou && !game.manOutside) {
+      game.manOutside = true;
+      associate.group.visible = true;
+      associate.job = 'stand';
+      associate.folded = true;
+      associate.route = null;
+      associate.group.position.set(3.9, 0, 17.8);
+      associate.faceToward(club.anchors.suspiciousCar.x, club.anchors.suspiciousCar.z, true);
+      hud.say('One of Lou’s men is under the canopy with a cigarette, looking at the grey sedan '
+        + 'the way you look at a dog you have not decided about.', 5600);
+    }
     hud.say('Rain, neon, and your car exactly where you left it.', 4200);
   }
 }
