@@ -14,6 +14,8 @@ export const SCENE_IDS = Object.freeze({
   BADA_BING_ONE: 'bada_bing_one',
   SQUATCHFATHER: 'squatchfather',
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
+  BADA_BING_TWO: 'bada_bing_two',
+  JERKY_MOTEL: 'jerky_motel',
 });
 
 export const ITEM_IDS = Object.freeze({
@@ -24,11 +26,14 @@ export const MISSION_IDS = Object.freeze({
   BADA_BING_ONE: 'bada_bing_one',
   SQUATCHFATHER: 'squatchfather',
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
+  BADA_BING_TWO: 'bada_bing_two',
+  JERKY_MOTEL: 'jerky_motel',
 });
 
 export const EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'lou_first_call',
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
+  LOU_SECOND_CALL: 'lou_second_call',
 });
 
 export const CAMPAIGN_VERSION = 1;
@@ -41,6 +46,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.BADA_BING_ONE,
       SCENE_IDS.SQUATCHFATHER,
       SCENE_IDS.AIRSTRIP_SMUGGLING,
+      SCENE_IDS.BADA_BING_TWO,
     ]),
   }),
   [SCENE_IDS.BADA_BING_ONE]: Object.freeze({
@@ -53,6 +59,14 @@ const SCENES = Object.freeze({
   }),
   [SCENE_IDS.AIRSTRIP_SMUGGLING]: Object.freeze({
     href: 'airstrip.html',
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  [SCENE_IDS.BADA_BING_TWO]: Object.freeze({
+    href: 'bing.html?visit=2',
+    next: Object.freeze([SCENE_IDS.JERKY_MOTEL]),
+  }),
+  [SCENE_IDS.JERKY_MOTEL]: Object.freeze({
+    href: 'motel.html',
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
 });
@@ -101,12 +115,27 @@ function initialState() {
         detected: false,
         landingQuality: null,
       },
+      [MISSION_IDS.BADA_BING_TWO]: {
+        status: 'locked',
+        assignment: null,
+      },
+      [MISSION_IDS.JERKY_MOTEL]: {
+        status: 'locked',
+        ending: null,
+        cargoRecovered: false,
+        packagesIntact: 0,
+        freshness: 0,
+        policeHeat: 0,
+      },
     },
     events: {
       [EVENT_IDS.LOU_FIRST_CALL]: {
         status: 'pending',
       },
       [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.LOU_SECOND_CALL]: {
         status: 'pending',
       },
     },
@@ -141,8 +170,15 @@ function normalize(saved) {
     .includes(airstrip.status)
     ? airstrip.status
     : base.missions.airstrip_smuggling.status;
+  const bingTwo = saved.missions?.[MISSION_IDS.BADA_BING_TWO] ?? {};
+  const bingTwoStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(bingTwo.status) ? bingTwo.status : base.missions.bada_bing_two.status;
+  const motel = saved.missions?.[MISSION_IDS.JERKY_MOTEL] ?? {};
+  const motelStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(motel.status) ? motel.status : base.missions.jerky_motel.status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
+  const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
 
   const state = {
     version: CAMPAIGN_VERSION,
@@ -191,6 +227,18 @@ function normalize(saved) {
         landingQuality: typeof airstrip.landingQuality === 'string'
           ? airstrip.landingQuality : null,
       },
+      [MISSION_IDS.BADA_BING_TWO]: {
+        status: bingTwoStatus,
+        assignment: typeof bingTwo.assignment === 'string' ? bingTwo.assignment : null,
+      },
+      [MISSION_IDS.JERKY_MOTEL]: {
+        status: motelStatus,
+        ending: typeof motel.ending === 'string' ? motel.ending : null,
+        cargoRecovered: motel.cargoRecovered === true,
+        packagesIntact: boundedNumber(motel.packagesIntact, 0, 8, 0, true),
+        freshness: boundedNumber(motel.freshness, 0, 100, 0),
+        policeHeat: boundedNumber(motel.policeHeat, 0, 100, 0),
+      },
     },
     events: {
       [EVENT_IDS.LOU_FIRST_CALL]: {
@@ -204,6 +252,10 @@ function normalize(saved) {
         // Once the airstrip mission has been exposed, Booski's call must not
         // replay even if this save predates the explicit event record.
         status: booskiCall.status === 'answered' || airstripStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      [EVENT_IDS.LOU_SECOND_CALL]: {
+        status: louSecondCall.status === 'answered' || bingTwoStatus !== 'locked'
           ? 'answered' : 'pending',
       },
     },
@@ -311,6 +363,12 @@ function browserStorage() {
   } catch {
     return null;
   }
+}
+
+function boundedNumber(value, min, max, fallback, integer = false) {
+  if (!Number.isFinite(value)) return fallback;
+  const bounded = Math.max(min, Math.min(max, value));
+  return integer ? Math.round(bounded) : bounded;
 }
 
 export function createCampaign({ storage = browserStorage() } = {}) {

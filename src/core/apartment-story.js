@@ -58,6 +58,20 @@ export const DAY_TWO_BOOSKI_CALL = Object.freeze({
   ]),
 });
 
+export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
+  eventId: EVENT_IDS.LOU_SECOND_CALL,
+  characterId: CHARACTER_IDS.LOU,
+  targetSceneId: SCENE_IDS.BADA_BING_TWO,
+  from: 'Lou',
+  vo: 'call.lou.bing_second',
+  lines: Object.freeze([
+    'Kid. Back to the Bing.',
+    'I have another assignment. This one starts in person.',
+    'Bring nothing and come straight to the back office.',
+    'You will leave from here. You are not going home first.',
+  ]),
+});
+
 class ApartmentStory {
   constructor({ campaign, ring }) {
     this.campaign = campaign;
@@ -93,6 +107,14 @@ class ApartmentStory {
       this.campaign.update((state) => {
         state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
         state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'available';
+      });
+      return true;
+    }
+    if (definition?.eventId === EVENT_IDS.LOU_SECOND_CALL
+      && !this.#eventAnswered(EVENT_IDS.LOU_SECOND_CALL)) {
+      this.campaign.update((state) => {
+        state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+        state.missions[MISSION_IDS.BADA_BING_TWO].status = 'available';
       });
       return true;
     }
@@ -138,10 +160,23 @@ class ApartmentStory {
           line: 'Captain Lou Sasole is waiting at the airstrip. The travel route is not connected yet.',
         };
       }
+      if (!this.#eventAnswered(EVENT_IDS.LOU_SECOND_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.LOU_SECOND_CALL,
+          line: 'Lou said he would call when he wanted you back at the Bing.',
+        };
+      }
+      if (state.missions[MISSION_IDS.BADA_BING_TWO].status !== 'complete') {
+        return {
+          kind: 'go',
+          destination: SCENE_IDS.BADA_BING_TWO,
+        };
+      }
       return {
         kind: 'stay',
-        id: 'airstrip_complete',
-        line: 'The airstrip job is done.',
+        id: 'motel_next',
+        line: 'Lou sent you straight to the motel from the Bing.',
       };
     }
     if (!this.#callAnswered()) {
@@ -201,6 +236,11 @@ class ApartmentStory {
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
       return DAY_TWO_BOOSKI_CALL;
+    }
+    if (state.story.day >= 2
+      && state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status === 'complete'
+      && !this.#eventAnswered(EVENT_IDS.LOU_SECOND_CALL)) {
+      return DAY_TWO_LOU_SECOND_CALL;
     }
     if (state.story.day === 1 && !this.#callAnswered()) return DAY_ONE_LOU_CALL;
     return null;
