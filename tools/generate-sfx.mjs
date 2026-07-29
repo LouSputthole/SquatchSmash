@@ -91,12 +91,19 @@ async function main() {
   }
 
   const pending = [];
+  let synthOnly = 0;
   for (const cue of cues) {
+    // A cue with neither `prompt` nor `say` is one the WebAudio synth owns
+    // outright -- footsteps, grunts, anything a generator would do worse.
+    // Nothing to send, so do not send it: the API's complaint about a missing
+    // `text` field is a long way from "this cue was never yours to generate".
+    if (!isSpoken(cue) && typeof cue.prompt !== 'string') { synthOnly++; continue; }
     const file = cue.file || `${cue.name}.mp3`;
     const dest = path.join(SFX_DIR, file);
     if (!FORCE && (await exists(dest))) continue;
     pending.push({ cue, dest, file });
   }
+  if (synthOnly) console.log(`${synthOnly} synth-only cue(s) skipped.\n`);
 
   if (!pending.length) {
     console.log(`Nothing to do — all ${cues.length} cues already exist. Use --force to regenerate.`);
