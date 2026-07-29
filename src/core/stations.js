@@ -109,6 +109,28 @@ const SQUATCH_SHOWS = [
         "LOU: Friendslop segment. Who is upset today. Start at the top.",
         "LOU: A man has written in to say we have never once helped him. Noted, and kept.",
       ],
+      /* The seed oil arc. Runs across three exchanges because the joke is the
+       * escalation, not any one line -- he starts with an app and ends up
+       * afraid of a tin of soup. */
+      [
+        "LOU: I have got an app now. You point it at food and it scores it out of a hundred.",
+        "LOU: What did the eggs get.",
+        "LOU: I have not done the eggs. I am not doing the eggs.",
+        "LOU: You are frightened of what the eggs are going to say.",
+      ],
+      [
+        "LOU: There is a second app and this one is specifically about the seed oils.",
+        "LOU: Finds them where.",
+        "LOU: In everything, Lou. That is the entire point. It is a first-class signal.",
+        "LOU: What is a first-class signal.",
+        "LOU: I do not know. It says it on the website.",
+      ],
+      [
+        "LOU: I scanned a tin of soup this morning and it gave me a little face.",
+        "LOU: A good face or a bad face.",
+        "LOU: A disappointed face.",
+        "LOU: Then that is the soup sorted, and we never speak of it again.",
+      ],
       [
         "LOU: Four hours. Four hours of this. And we have not read one news item.",
         "LOU: There is a news wire in this building. I have seen it. I have never read it.",
