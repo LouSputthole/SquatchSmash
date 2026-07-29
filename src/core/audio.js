@@ -594,6 +594,19 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t, { freq: 92, to: 148, dur: 1.4, gain: 0.09, type: 'sine' });
       break;
 
+    case 'egg.crack':
+      for (const at of [0, 0.42]) {
+        burst(ctx, dest, t + at, { dur: 0.05, type: 'highpass', freq: 3600, gain: 0.26 });
+        burst(ctx, dest, t + at + 0.09, { dur: 0.20, type: 'lowpass', freq: 900, gain: 0.16, sweep: 0.5 });
+      }
+      break;
+    case 'egg.eat':
+      for (let i = 0; i < 4; i++) {
+        burst(ctx, dest, t + i * 0.34, { dur: 0.14, type: 'bandpass', freq: 1500, q: 1.2, gain: 0.14 });
+        tone(ctx, dest, t + i * 0.34, { freq: 2400, to: 1900, dur: 0.03, gain: 0.07, type: 'triangle' });
+      }
+      break;
+
     case 'couch.sit':
       // Soft cushion compressing: a broad muffled whump, no gas cylinder.
       burst(ctx, dest, t, { dur: 0.52, type: 'lowpass', freq: 380, gain: 0.34, sweep: 0.5 });
@@ -936,6 +949,16 @@ function synthLoop(engine, name, dest) {
       noise('bandpass', 480, 1.6, 0.30);
       noise('bandpass', 1250, 2.4, 0.16);
       noise('lowpass', 220, 0.7, 0.10);
+      break;
+    case 'shower.run':
+      noise('bandpass', 3200, 0.7, 0.30);
+      noise('bandpass', 1100, 1.2, 0.20);
+      noise('lowpass', 300, 0.7, 0.12);
+      break;
+    case 'pan.sizzle':
+      // Fat in a hot pan: bright, sparse, no low end at all.
+      noise('highpass', 5200, 0.6, 0.20);
+      noise('bandpass', 2600, 2.0, 0.10);
       break;
     case 'pee.stream':
       // Splashing water: bright filtered noise with a low burble under it.

@@ -18,6 +18,7 @@ import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
+import { Goals, ENDINGS } from './core/goals.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -128,6 +129,8 @@ const narrator = new Narrator(hud, time, audio);
 const drunk = new Drunk();
 // The coffee table's contribution. Neither of these costs you Wednesday.
 const highs = new Highs();
+// The only goal in the game, and it never announces itself.
+const goals = new Goals(time);
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
 
@@ -169,6 +172,9 @@ const game = {
   nextPlopAt: 0,
   rumbleAt: 0,
   zynUntil: -1,
+  showering: null,      // seconds into the shower, or null
+  cooking: null,        // seconds into the eggs, or null
+  left: false,          // out of the door; the game is over
   nextFartAt: 40 + Math.random() * 60,
   fartClock: 0,
 };
@@ -203,6 +209,16 @@ async function boot() {
     onZyn: takeZyn,
     onBong: hitBong,
     onShrooms: eatShrooms,
+    onShower: takeShower,
+    onDressed: () => {
+      audio.say('dress', { chance: 0.8, delay: 0.4 });
+      hud.toast('Clean shirt', 'good');
+      hud.say('A clean shirt. It even smells like a clean shirt.', 4200);
+    },
+    onCook: cookEggs,
+    onEat: eatEggs,
+    onLeave: tryLeave,
+    onLearn: (source) => learnAboutMeeting(source),
     // The set's own LED and dial read off apartment state, so keep it honest.
     onRadioToggle: () => { radio.toggle(); apartment.state.radioOn = radio.on; },
     onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
@@ -252,7 +268,7 @@ async function boot() {
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
-    narrator,
+    narrator, goals, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -281,6 +297,7 @@ boot().catch((err) => {
 /* ------------------------------------------------------------------ */
 
 startBtn.addEventListener('click', async () => {
+  if (game.left) return;          // the ending card owns the button now
   await audio.init();
   const sfx = await audio.loadManifest();
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
@@ -984,6 +1001,214 @@ function cameraForward() {
 }
 
 /* ------------------------------------------------------------------ */
+/* Getting ready                                                       */
+/* ------------------------------------------------------------------ */
+
+const SHOWER_TIME = 9.0;
+
+/**
+ * A shower. You step in, it is cold, then it is not, and eight seconds later
+ * you are a person who has had a shower.
+ */
+function takeShower() {
+  if (game.showering || game.passingOut) return;
+  game.showering = 0;
+  interaction.setPaused(true);
+  hud.setMode('seated');
+  player.mode = 'frozen';
+
+  const st = apartment.showerStand;
+  player.sitAt({
+    position: new THREE.Vector3(st.x, 1.60, st.z),
+    yaw: Math.PI,          // facing the head
+    pitch: 0.10,
+    dur: 1.1,
+    yawRange: 1.2,
+    pitchMin: -0.9,
+    pitchMax: 0.8,
+  }, () => {
+    audio.startLoop('shower.run', {
+      volume: 0.34, position: apartment.showerHead, ref: 1.2, maxDist: 8,
+    });
+    audio.say('shower', { chance: 0.9, delay: 1.4 });
+    hud.say('Cold. Cold. Cold — <em>there we go.</em>', 4600);
+  });
+}
+
+function updateShower(dt) {
+  if (game.showering === null) return;
+  game.showering += dt;
+
+  // Steam, rising off the head rather than out of your face.
+  if (game.showering > 1.2 && Math.random() < dt * 9) {
+    smoke.wisp(apartment.showerHead);
+  }
+
+  if (game.showering >= SHOWER_TIME) {
+    game.showering = null;
+    audio.stopLoop('shower.run', 0.6);
+    apartment.state.showered = true;
+    hud.setMode('walk');
+    hud.toast('Clean', 'good');
+    hud.say('Right. That is better. That is much better.', 4600);
+    player.standFrom(
+      new THREE.Vector3(apartment.showerStand.x + 0.55, 0, apartment.showerStand.z + 0.75),
+      () => interaction.setPaused(false),
+    );
+  }
+}
+
+const COOK_TIME = 11.0;
+
+/** Two eggs into the pan. They take about as long as eggs take. */
+function cookEggs() {
+  const st = apartment.state;
+  if (st.panState || !st.hasEggs) return;
+  st.hasEggs = false;
+  st.panState = 'raw';
+  game.cooking = 0;
+  hud.setHand(null);
+  apartment.pan.contents.visible = true;
+  audio.play('egg.crack', { volume: 0.8, position: apartment.panPos });
+  audio.startLoop('pan.sizzle', {
+    volume: 0.26, position: apartment.panPos, ref: 1.1, maxDist: 7,
+  });
+  hud.say('Two of them, into the pan. Now you wait, which is the part you '
+    + 'are actually good at.', 5200);
+}
+
+function updateCooking(dt) {
+  if (game.cooking === null) return;
+  game.cooking += dt;
+  if (game.cooking >= COOK_TIME && apartment.state.panState === 'raw') {
+    game.cooking = null;
+    apartment.state.panState = 'done';
+    audio.stopLoop('pan.sizzle', 0.8);
+    hud.toast('Eggs are done', 'good');
+    hud.say('Done. Arguably over-done. <em>Nobody is inspecting them.</em>', 4600);
+  }
+}
+
+/** Eaten standing at the counter, out of the pan, like a person. */
+function eatEggs() {
+  const st = apartment.state;
+  if (st.panState !== 'done') return;
+  st.panState = null;
+  st.fed = true;
+  apartment.pan.contents.visible = false;
+  audio.play('egg.eat', { volume: 0.7 });
+  audio.say('eat', { chance: 0.9, delay: 1.2 });
+  hud.toast('Ate the eggs', 'good');
+  hud.say('Eaten standing up, out of the pan, at half past whatever. '
+    + '<em>Eat those pasture raised eggs folks.</em>', 5600);
+}
+
+/* ------------------------------------------------------------------ */
+/* Wednesday                                                           */
+/* ------------------------------------------------------------------ */
+
+/** How the player finds out there is anything on at all. */
+function learnAboutMeeting(source) {
+  if (!goals.learn(source)) return;
+  audio.play('ui.select', { volume: 0.4 });
+  hud.toast('Wednesday, 7 PM', 'good');
+  narrator.note('meeting');
+}
+
+/** The evaluation context every gate is judged against. */
+function goalContext() {
+  return {
+    state: apartment.state,
+    drunkLevel: drunk.level,
+    stoned: highs.stoned,
+    tripping: highs.tripping,
+  };
+}
+
+/**
+ * The door. It never lists what is missing -- it gives one reason, in his
+ * voice, and the reason is whichever thing he would think of first.
+ */
+function tryLeave() {
+  if (game.left || game.passingOut) return;
+  const pos = new THREE.Vector3(2.8, 1.1, 4.3);
+  const res = goals.tryDoor(goalContext());
+
+  if (res.kind === 'unaware') {
+    audio.play('door.locked', { position: pos, volume: 0.8 });
+    narrator.note('door');
+    hud.say('Outside is a whole thing. There is a fridge and a PC in here.', 4600);
+    return;
+  }
+  if (res.kind === 'go') {
+    leaveForTheMeeting();
+    return;
+  }
+
+  audio.play('door.locked', { position: pos, volume: 0.7 });
+  narrator.note('door');
+  if (res.vo) audio.say(res.vo, { chance: 0.85, delay: 0.3 });
+  hud.say(res.line, 5200);
+
+  // The first time a given excuse comes up, nudge toward where it lives.
+  if (res.id && goals.firstTime(res.id)) {
+    const WHERE = {
+      showered: 'The bathroom is through the north door.',
+      dressed: 'There is a drawer in the nightstand.',
+      fed: 'There are eggs in the fridge and a pan on the hob.',
+      playedCS: 'Counter-Squatch is on the desktop. It will not go well.',
+      bladder: 'You know where it is.',
+      bowel: 'You definitely know where it is.',
+    };
+    if (WHERE[res.id]) hud.toast(WHERE[res.id], '');
+  }
+}
+
+/** Out of the door. This is the end of the game. */
+function leaveForTheMeeting() {
+  game.left = true;
+  const ending = goals.endingFor(goalContext());
+  goals.ending = ending;
+
+  interaction.setPaused(true);
+  hud.hidePrompt();
+  player.clearKeys();
+  player.mode = 'frozen';
+  audio.say('door.leave', { delay: 0.2 });
+  audio.play('door.knob', { volume: 0.8 });
+  radio.turnOff?.();
+
+  blackout.querySelector('span').textContent = '';
+  blackout.classList.add('on');
+  setTimeout(() => showEnding(ending), 2600);
+}
+
+/** Wednesday, eight o'clock, and the flat is exactly as it was. */
+function missedIt() {
+  if (game.left || goals.missed) return;
+  goals.missed = true;
+  hud.say('<em>Eight o\'clock.</em> That will have started without you.', 6000);
+  hud.toast('You missed it', 'bad');
+}
+
+function showEnding(kind) {
+  const e = ENDINGS[kind] || ENDINGS.clean;
+  game.paused = true;
+  player.enabled = false;
+  // The blackout sits above the overlay, so it has to come off or the card
+  // is delivered to a black rectangle.
+  blackout.classList.remove('on');
+  overlay.classList.remove('hidden');
+  overlay.classList.add('ending');
+  overlay.querySelector('h1').innerHTML = 'SQUATCH<span>LIFE</span>';
+  overlay.querySelector('.tag').textContent = e.title;
+  assetStatus.innerHTML = e.body;
+  startBtn.textContent = 'Wake up again';
+  startBtn.onclick = () => location.reload();
+  document.exitPointerLock?.();
+}
+
+/* ------------------------------------------------------------------ */
 /* The other thing                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -1217,7 +1442,14 @@ function passOut({ voluntary = false } = {}) {
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
     drunk.sleepItOff();
     highs.sleepItOff();
-    time.skipHours(12);
+    if (voluntary) {
+      // Sleeping on purpose takes you to the next morning, so one night in
+      // bed gets you from Tuesday evening to Wednesday.
+      const h = time.hour;
+      time.skipHours(h < 7 ? 7 - h : 31 - h);
+    } else {
+      time.skipHours(12);
+    }
     apartment.refreshClocks();
     apartment.state.heldItem = null;
     hud.setHand(null);
@@ -1342,7 +1574,10 @@ function frame() {
       updatePee(dt);
       updateBowel(dt);
       updateZyn();
+      updateShower(hdt);
+      updateCooking(hdt);
       updateFarts(dt);
+      if (goals.known && !game.left && goals.window === 'missed' && !goals.missed) missedIt();
       updateNeighbours(dt);
       smoke.update(hdt);
       stream.update(hdt);
@@ -1366,6 +1601,14 @@ function frame() {
       }
 
       // Monitor glow spilling into the room.
+      // Getting a game in with the boys means dying to a cheater a few times,
+      // which is the only thing Counter-Squatch has ever offered.
+      const cs = arcade.app?.id === 'counter' ? arcade.app.deaths : 0;
+      if (cs > apartment.state.csDeaths) {
+        apartment.state.csDeaths = cs;
+        audio.say(cs <= 2 ? 'cs.death.early' : 'cs.death.late', { chance: 0.4, delay: 0.7 });
+      }
+
       const glow = arcade.sampleGlow();
       apartment.screenGlow.color.setHex(glow.colour);
       apartment.screenGlow.intensity +=

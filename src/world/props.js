@@ -689,6 +689,8 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     sinkPos: new THREE.Vector3(x0, top + 0.1, sinkZ),
     microwavePos: new THREE.Vector3(x0 + 0.1, mwY, mwZ),
     /** Clear worktop positions, so callers do not have to guess. */
+    /** Centre of the hob, at worktop height, for standing a pan on. */
+    hob: new THREE.Vector3(x0 + d / 2, top + 0.025, L.hob),
     spots: {
       bottle: new THREE.Vector3(wallX - 0.30, top, L.bottle),
       shot: new THREE.Vector3(wallX - 0.44, top, L.shot),
@@ -854,6 +856,85 @@ export function makeMushrooms(M, { x, y, z, rotY = 0 }) {
   g.add(box({ size: [0.105, 0.062, 0.078], pos: [0, 0.031, 0], mat: bag, cast: false }));
   g.add(cylinder({ r: 0.014, h: 0.100, pos: [0, 0.066, 0], rotZ: Math.PI / 2, mat: bag, cast: false }));
 
+  return { group: g };
+}
+
+/**
+ * Frying pan on the hob. `contents` is what is in it, so the same pan covers
+ * empty, two raw eggs and two cooked ones.
+ */
+export function makePan(M, { x, y, z, rotY = 0 }) {
+  const g = group('pan');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const steel = mat({ color: 0x2a2c30, roughness: 0.42, metalness: 0.55 });
+  const R = 0.105;
+  g.add(cylinder({ r: R, h: 0.012, pos: [0, 0.006, 0], mat: steel }));
+  // Sloped wall, so it reads as a pan rather than a disc.
+  g.add(cylinder({ rTop: R + 0.012, rBottom: R, h: 0.042, pos: [0, 0.032, 0], mat: steel }));
+  // Handle out to one side.
+  g.add(box({ size: [0.022, 0.016, 0.17], pos: [0, 0.040, R + 0.085], mat: M.plasticBlack }));
+
+  // What is in it. Whites are a squashed sphere, yolks sit on top.
+  const contents = new THREE.Group();
+  contents.position.y = 0.016;
+  contents.visible = false;
+  g.add(contents);
+  const white = mat({ color: 0xf6f1e2, roughness: 0.62 });
+  const yolk = mat({ color: 0xf0a821, roughness: 0.45 });
+  for (const [ex, ez] of [[-0.036, -0.012], [0.034, 0.018]]) {
+    const e = new THREE.Group();
+    e.position.set(ex, 0, ez);
+    const w = sphere({ r: 0.052, ry: 0.006, pos: [0, 0, 0], mat: white });
+    e.add(w);
+    e.add(sphere({ r: 0.021, ry: 0.010, pos: [0.004, 0.007, 0.002], mat: yolk }));
+    contents.add(e);
+  }
+
+  return { group: g, contents, rimY: 0.055 };
+}
+
+/**
+ * The index card on the corkboard. Small, and deliberately not eye-catching:
+ * the whole point is that it has been there long enough to stop being news.
+ */
+export function makeCorkNote(M, { x, y, z, rotY = 0 }) {
+  const g = group('corknote');
+  g.position.set(x, y, z);
+  g.rotation.set(0, rotY, -0.05);
+
+  const W = 152, H = 104;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const d = c.getContext('2d');
+  d.fillStyle = '#f2ead2';
+  d.fillRect(0, 0, W, H);
+  d.strokeStyle = '#d9cfb0';
+  d.lineWidth = 1;
+  for (let i = 1; i < 5; i++) {
+    d.beginPath(); d.moveTo(8, 22 + i * 17); d.lineTo(W - 8, 22 + i * 17); d.stroke();
+  }
+  d.fillStyle = '#2f2a20';
+  d.font = 'bold 17px "Courier New", monospace';
+  d.textAlign = 'center';
+  d.fillText('WED  7PM', W / 2, 32);
+  d.font = 'bold 13px "Courier New", monospace';
+  d.fillText('SQUATCH MEETING', W / 2, 54);
+  d.font = '11px "Courier New", monospace';
+  d.fillStyle = '#5c5445';
+  d.fillText('booski driving', W / 2, 74);
+  d.fillText('bring nothing', W / 2, 90);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const card = plane(0.115, 0.079, mat({ map: tex, roughness: 0.9 }));
+  g.add(card);
+  // The pin holding it up.
+  g.add(cylinder({
+    r: 0.005, h: 0.010, pos: [0, 0.030, 0.006], rotX: Math.PI / 2,
+    mat: mat({ color: 0xd8452f, roughness: 0.4 }),
+  }));
   return { group: g };
 }
 
@@ -1953,6 +2034,9 @@ export function makeTub(M, { x0, z0, x1, z1 }) {
   g.add(head);
   g.add(cylinder({ r: 0.016, h: 0.10, pos: [cx, 0.62, z0 + 0.12], mat: M.chrome }));
 
+  // Where the water comes out, so the shower can be pointed at.
+  const headPos = new THREE.Vector3(cx, H + 1.10, z0 + 0.22);
+
   // Curtain rail + a curtain shoved to one end.
   g.add(cylinder({ r: 0.012, h: z1 - z0, pos: [cx, 2.05, (z0 + z1) / 2], rotX: Math.PI / 2, mat: M.chrome }));
   const curtain = new THREE.Mesh(
@@ -1968,7 +2052,14 @@ export function makeTub(M, { x0, z0, x1, z1 }) {
   curtain.position.set(cx, 1.32, z1 - (z1 - z0) * 0.22);
   g.add(curtain);
 
-  return { group: g, bounds: [[x0, 0, z0], [x1, H, z1]] };
+  return {
+    group: g,
+    headPos,
+    /** Where you stand under it. */
+    standPos: new THREE.Vector3(cx, 0, z0 + 0.55),
+    rimY: H,
+    bounds: [[x0, 0, z0], [x1, H, z1]],
+  };
 }
 
 /** Free-standing "SQUATCH CROSSING" sign leaning in a corner. */

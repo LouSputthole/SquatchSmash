@@ -40,9 +40,11 @@ A full day is **15 real minutes** — the clock already runs at that rate. ✅
 | **The meeting** | **Wed 19:00** | ~16 min |
 
 Sleeping in the bed is how you skip the dead hours, which makes the bed
-structural rather than decorative. Voluntary sleep should advance to the next
-**07:00** rather than a flat 12 hours, so one sleep gets you from Tuesday night
-to Wednesday morning. 🔨
+structural rather than decorative. Voluntary sleep lands on the next **07:00**;
+passing out drunk is still a flat twelve hours, wherever that leaves you. ✅
+
+Measured: **2216 in-game minutes from waking to the meeting — 23.1 real
+minutes**, or about eight if you sleep Tuesday night away.
 
 **Miss it and the day rolls over.** There is another meeting next Wednesday.
 The game does not end; it just notes what happened. This is warmer than a hard
@@ -57,16 +59,18 @@ to leave without it.
 
 | Gate | State | Where it lives | Status |
 |---|---|---|---|
-| **Piss** | `bladder` below 0.35 | bathroom, exists | ✅ mechanic / ⬜ gate |
-| **Shit** | `bowel` at 0 | toilet, exists | ✅ mechanic / ⬜ gate |
-| **Shower** | `showered` | the bath, currently does nothing | ⬜ |
-| **Dressed** | `dressed` | laundry pile / nightstand drawer | ⬜ |
-| **Fed** | `fed` | the eggs, the cooktop | ⬜ |
-| **A game with the boys** | five deaths in Counter-Squatch | the PC | ⬜ gate only |
-| **Sober enough** | `drunk.level` under 0.45 | everywhere | ✅ mechanic / ⬜ gate |
+| **Shower** | `showered` | the bath | ✅ |
+| **Dressed** | `dressed` | the nightstand drawer | ✅ |
+| **Fed** | `fed` | the eggs, the pan on the hob | ✅ |
+| **A game with the boys** | five deaths in Counter-Squatch | the PC | ✅ |
+| **Piss** | `bladder` below 0.35 | bathroom | ✅ |
+| **Shit** | `bowel` at 0 | toilet | ✅ |
+| **Empty hands** | not holding a drink | anywhere | ✅ |
+| **Sober enough** | `drunk.level` under 0.45 | everywhere | ✅ |
 
-Sober-enough is checked **at the door**, not banked — you can drink at 10 AM
-and be fine by 7 PM. The other six, once done, stay done.
+Sober-enough and empty-hands are checked **at the door**, not banked — you can
+drink at 10 AM and be fine by 7 PM. The other six, once done, stay done:
+showering on Tuesday counts on Wednesday.
 
 ### The door's excuses
 
@@ -93,23 +97,23 @@ When nothing is left: the door just opens.
 handful of rounds, which is exactly what Counter-Squatch already does. Play
 five rounds, die five times, task complete. The joke does not need an arc.
 
-### Shower ⬜
-The bath and shower riser are modelled and inert. Water, steam, the noise, and
-a `showered` flag. The single biggest sensory upgrade left in the flat.
+### Shower ✅
+Aim at the bath. You step in, it runs for nine seconds, steam comes off the
+head, and you come out a person who has had a shower.
 
-### Change ⬜
-Clean shirt out of the nightstand drawer, or off the laundry pile. First-person
-so it is abstract, but "you are wearing what you slept in" is a good excuse and
-the drawer is already modelled.
+### Change ✅
+Hold <kbd>E</kbd> on the nightstand drawer. A clean shirt. That is the whole
+interaction and it does not need to be more.
 
-### Eat ⬜
-The pasture-raised eggs are in the fridge, the cooktop is right there, and 97.8
-has been telling you to eat those pasture raised eggs folks all morning. Pan,
-two eggs, a wait, a plate. The callback lands on its own.
+### Eat ✅
+Take the eggs from the fridge, crack them into the pan on the hob, wait eleven
+seconds, eat them standing at the counter out of the pan. 97.8 has been telling
+you to eat those pasture raised eggs folks all morning, so the callback lands
+on its own.
 
 ### Piss and shit ✅
-Both already built, including the bit where four cigarettes start a countdown.
-They just need wiring to the gate.
+Both already existed, including the bit where four cigarettes start a
+countdown. They are wired to the gate now.
 
 ---
 
@@ -162,18 +166,24 @@ a long fade. Both layer on top of the drink rather than replacing it.
 
 ---
 
-## Endings
+## Endings ✅
 
-Checked at the door, at 19:00 Wednesday.
+Chosen at the moment you step out, from the state you are in.
 
-1. **Ready, and on time.** You go. The good one.
-2. **Ready, but you took the shrooms.** You go. You should not have gone.
-3. **You leave holding a beer.** The door lets you. That is its own ending.
-4. **Too drunk at 7.** You get as far as the corridor.
-5. **Asleep at 7.** You wake at 07:00 Thursday. The note is still on the
-   corkboard. There is another one next Wednesday.
-6. **You never found out there was a meeting.** You can play forever. The
-   narrator eventually stops mentioning it.
+| | |
+|---|---|
+| **clean** | Showered, fed, dressed, out at ten to seven. |
+| **merry** | Two ahead of everyone before you arrived. |
+| **stoned** | It took a while to get down the stairs. |
+| **tripping** | The chairs are stacked in a way that means something. |
+| **late** | You got the last chair, the one with the wobble. |
+| **missed** | Eight o'clock and the flat is exactly as it was on Tuesday. |
+
+You never actually fail. Miss it and the card is still on the corkboard, and
+there is another one next Wednesday.
+
+And if you never read the card, there is no meeting. The door stays a door and
+you can potter about in there indefinitely, which is its own ending.
 
 ---
 
@@ -181,12 +191,12 @@ Checked at the door, at 19:00 Wednesday.
 
 Three ways, none of them a pop-up:
 
-- **The corkboard**, which is already on the wall doing nothing. A pinned card:
-  *WED 7PM · SQUATCH MEETING · BOOSKI DRIVING.*
-- **The second monitor.** Booski's messages arrive as the clock advances. You
-  can read them from across the room and keep ignoring them. The last one is
-  just `ok`.
-- **The radio.** 97.8 reads community notices. Once, quietly, between shows.
+- **The corkboard** ✅ — a card pinned there a fortnight ago:
+  *WED 7PM · SQUATCH MEETING · BOOSKI DRIVING · BRING NOTHING.*
+- **The second monitor** ⬜ — Booski's messages arriving as the clock advances.
+  You can read them from across the room and keep ignoring them. The last one
+  is just `ok`.
+- **The radio** ⬜ — 97.8 reading community notices, once, between shows.
 
 ---
 

@@ -345,6 +345,14 @@ export async function buildApartment(ctx) {
   const nightstand = P.makeNightstand(M, { x: -3.15, z: -4.12 });
   root.add(nightstand.group);
   addCollider(nightstand.bounds);
+  // Drawer height is knee height. Without a taller proxy you have to stare
+  // at your own feet to open it -- same fix as the couch and the bed.
+  const drawerHit = box({
+    size: [0.60, 0.72, 0.52], pos: [-3.15, 0.90, -4.12],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  drawerHit.name = 'drawer';
+  root.add(drawerHit);
 
   const clock = P.makeAlarmClock(M, { x: -3.15, y: nightstand.top, z: -4.12, rotY: 2.4 });
   root.add(clock.group);
@@ -394,6 +402,14 @@ export async function buildApartment(ctx) {
     rotY: Math.PI / 2 + 0.06, texture: propTex('eggs.carton'),
   });
   root.add(eggs.group);
+  // A 7cm carton on a shelf, like every other small prop, gets a proxy.
+  // Sized to sit between the shelf it is on and the one above it.
+  const eggHit = box({
+    size: [0.36, 0.26, 0.26], pos: [(fin.x0 + fin.x1) / 2, fin.shelfY[2] + 0.14, fin.z0 + 0.20],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  eggHit.name = 'eggs';
+  root.add(eggHit);
 
   // Cereal on top of the fridge, because there is nowhere else for it.
   const cereal = P.makeCerealBox(M, {
@@ -405,6 +421,17 @@ export async function buildApartment(ctx) {
   const kitchen = P.makeKitchen(M, { z0: -1.90, z1: 1.45, wallX: x1 });
   root.add(kitchen.group);
   addCollider(kitchen.bounds);
+
+  // Pan, sitting on the hob where it has been since the last time.
+  const panPos = kitchen.hob.clone();
+  const pan = P.makePan(M, { x: panPos.x, y: panPos.y, z: panPos.z, rotY: -1.2 });
+  root.add(pan.group);
+  const panHit = box({
+    size: [0.34, 0.52, 0.34], pos: [panPos.x, panPos.y + 0.24, panPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  panHit.name = 'pan';
+  root.add(panHit);
 
   // Smokes and an ashtray on the countertop. Positions come from the kitchen
   // layout table so nothing lands in the sink or on the hob.
@@ -707,6 +734,17 @@ export async function buildApartment(ctx) {
     bowel: 0,            // 0..1; cigarettes fill it. 4 of them and you are running
     urgeAnnounced: false,
     flushable: false,
+
+    /* ---- getting ready for Wednesday. Once done, these stay done. ---- */
+    showered: false,
+    dressed: false,
+    fed: false,
+    /** Raw eggs are out of the fridge and in your hands. */
+    hasEggs: false,
+    /** 'raw' while they cook, 'done' once they are ready to eat. */
+    panState: null,
+    /** Deaths in Counter-Squatch. Five of them is "a game with the boys". */
+    csDeaths: 0,
   };
 
   /* ---- fridge ---- */
@@ -905,14 +943,62 @@ export async function buildApartment(ctx) {
     onUse: () => ctx.onLieBed?.(),
   });
 
+  /* ---- getting ready ----
+   * None of these announce themselves as tasks. They are things you would do
+   * anyway; the front door is the only place they are ever added up.
+   */
+  interaction.register(tub.group, {
+    label: () => (state.showered ? 'You have had a <b>shower</b>' : 'Have a <b>shower</b>'),
+    enabled: () => !state.showered,
+    onUse: () => ctx.onShower?.(),
+  });
+
+  interaction.register(drawerHit, {
+    label: () => (state.dressed ? 'Already <b>changed</b>' : 'Find a <b>clean shirt</b>'),
+    enabled: () => !state.dressed,
+    hold: 0.8,
+    holdLabel: () => 'Getting <b>dressed</b>…',
+    onUse: () => {
+      state.dressed = true;
+      audio.play('bed.rustle', { volume: 0.55 });
+      ctx.onDressed?.();
+    },
+  });
+
+  // Eggs come out of the fridge; the pan is where they end up.
+  interaction.register(eggHit, {
+    label: () => 'Take the <b>eggs</b>',
+    enabled: () => state.fridgeOpen && !state.hasEggs && !state.fed && !state.panState,
+    onUse: () => {
+      state.hasEggs = true;
+      audio.play('can.set', { volume: 0.4 });
+      hud.setHand({ icon: '🥚', name: 'Two eggs', hint: 'The hob is over there' });
+      hud.say('Pasture raised. Regenerative. Certified humane. '
+        + '<em>Irish has a whiteboard about these.</em>', 5000);
+    },
+  });
+
+  interaction.register(panHit, {
+    label: () => {
+      if (state.panState === 'done') return 'Eat the <b>eggs</b>';
+      if (state.panState === 'raw') return 'They are <b>cooking</b>';
+      if (state.hasEggs) return 'Crack them into the <b>pan</b>';
+      return 'A <b>pan</b>. Empty.';
+    },
+    // Always aimable, even empty. "A pan. Empty." is how you work out that
+    // the pan is part of anything at all.
+    onUse: () => {
+      if (state.panState === 'done') ctx.onEat?.();
+      else if (state.hasEggs) ctx.onCook?.();
+      else if (state.fed) hud.say('Washed up, near enough.', 3000);
+      else hud.say('A pan. There are eggs in the fridge.', 3600);
+    },
+  });
+
   /* ---- flavour interactions ---- */
   interaction.register(frontDoor.group, {
     label: () => 'Leave the <b>apartment</b>',
-    onUse: () => {
-      audio.play('door.locked', { position: new THREE.Vector3(2.8, 1.1, 4.3), volume: 0.8 });
-      ctx.onNote?.('door');
-      hud.say('Outside is a whole thing. There is a fridge and a PC in here.');
-    },
+    onUse: () => ctx.onLeave?.(),
   });
   interaction.register(bathDoor.group, {
     label: () => (state.bathDoorOpen ? 'Close the <b>bathroom</b> door' : 'Open the <b>bathroom</b>'),
@@ -964,6 +1050,19 @@ export async function buildApartment(ctx) {
         : 'Still you. Unfortunately.');
     },
   });
+  // The card nobody has taken down. Reading it is how the game begins.
+  const note = P.makeCorkNote(M, { x: -0.10, y: 1.72, z: -4.385, rotY: 0.04 });
+  root.add(note.group);
+  interaction.register(note.group, {
+    label: () => 'Read the <b>card</b>',
+    onUse: () => {
+      audio.play('frame.adjust', { volume: 0.4 });
+      hud.say('<em>WED 7PM &middot; SQUATCH MEETING &middot; BOOSKI DRIVING.</em><br>'
+        + 'Pinned there a fortnight ago. Today is Tuesday.', 6400);
+      ctx.onLearn?.('the corkboard');
+    },
+  });
+
   interaction.register(cork.group, {
     label: () => 'Read the <b>evidence board</b>',
     onUse: () => {
@@ -1219,6 +1318,12 @@ export async function buildApartment(ctx) {
     setLamp,
 
     bathroom: BATH,
+    /** Where you stand under the shower, and where the water comes from. */
+    showerStand: tub.standPos,
+    showerHead: tub.headPos,
+    /** The pan, so the eggs can appear in it. */
+    pan,
+    panPos,
     /** Where the camera sits when you are on the toilet. */
     toiletSeat: new THREE.Vector3(toilet.bowl.x, 0.98, toilet.bowl.z + 0.06),
     toiletStand: new THREE.Vector3(toilet.bowl.x, 0, toilet.bowl.z + 0.85),
