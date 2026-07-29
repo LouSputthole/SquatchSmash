@@ -877,10 +877,15 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
     const slice = new THREE.Group();
     // Each one nudged out from the middle by a different amount.
     const drift = ((i * 37) % 11) / 11;
+    /* three's CylinderGeometry lays theta out from +Z toward +X -- its vertex
+     * is (sin, cos), not (cos, sin). Everything positioned ON a wedge has to
+     * use the same convention or it lands ninety degrees away, which is how
+     * the toppings ended up on the bare cardboard where the eaten slices had
+     * been. */
     slice.position.set(
-      Math.cos(a0 + span / 2) * drift * 0.006,
+      Math.sin(a0 + span / 2) * drift * 0.006,
       DEEP + 0.004,
-      -Math.sin(a0 + span / 2) * drift * 0.006,
+      Math.cos(a0 + span / 2) * drift * 0.006,
     );
     slice.rotation.y = drift * 0.03;
     g.add(slice);
@@ -904,7 +909,7 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
       const t = 0.30 + ((i * 5 + k * 3) % 7) / 11;
       const ang = a0 + span * (0.22 + ((k * 4 + i) % 5) / 7.5);
       const pep = new THREE.Mesh(new THREE.CylinderGeometry(0.0135, 0.0135, 0.004, 10), meatMat);
-      pep.position.set(Math.cos(ang) * R * t, 0.009, -Math.sin(ang) * R * t);
+      pep.position.set(Math.sin(ang) * R * t, 0.009, Math.cos(ang) * R * t);
       slice.add(pep);
     }
     // One scorched blister on the crust, because ovens.
@@ -912,7 +917,7 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
       const ang = a0 + span * 0.5;
       const blister = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 5), charMat);
       blister.scale.set(1, 0.4, 1);
-      blister.position.set(Math.cos(ang) * R * 0.93, 0.006, -Math.sin(ang) * R * 0.93);
+      blister.position.set(Math.sin(ang) * R * 0.93, 0.006, Math.cos(ang) * R * 0.93);
       slice.add(blister);
     }
   }
@@ -933,7 +938,7 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
       const t = 0.45 + k * 0.16;
       const crumb = box({
         size: [0.006, 0.004, 0.005],
-        pos: [Math.cos(ang) * R * t, DEEP + 0.005, -Math.sin(ang) * R * t],
+        pos: [Math.sin(ang) * R * t, DEEP + 0.005, Math.cos(ang) * R * t],
         mat: crustMat,
       });
       crumb.rotation.y = ang;
@@ -2698,5 +2703,80 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
     /** Where the player has to be looking to shove them. */
     centre: new THREE.Vector3(cx, 1.35, z0 + D * 0.5),
     bounds: [[x0, 0, z0], [x1, h, z1]],
+  };
+}
+
+/**
+ * A candle, lit.
+ *
+ * The flame is two crossed quads rather than a sphere: from any angle you see
+ * at least one of them close to face-on, and a flame has no thickness anyway.
+ * Additive and unlit, so it glows instead of being shaded like an object.
+ *
+ * Returns `flicker(t)` for the caller to drive. It is not on a timer of its
+ * own because there is more than one of these in a row and they must not
+ * breathe in unison -- which is exactly what independent timers started on the
+ * same frame would do.
+ */
+export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2, phase = 0 }) {
+  const g = group('candle');
+  g.position.set(x, y, z);
+
+  const wax = mat({ color: colour, roughness: 0.62 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.04, h, 14), wax);
+  body.position.y = h / 2;
+  body.castShadow = true;
+  g.add(body);
+  // The pool of melted wax at the top, and one run down the side.
+  g.add(new THREE.Mesh(
+    new THREE.CylinderGeometry(r * 0.94, r * 0.94, 0.004, 14),
+    mat({ color: 0xfbf4e6, roughness: 0.35 }),
+  ).translateY(h + 0.001));
+  const run = new THREE.Mesh(new THREE.CapsuleGeometry(r * 0.16, h * 0.34, 3, 6), wax);
+  run.position.set(r * 0.92, h * 0.72, 0);
+  g.add(run);
+
+  const wick = box({ size: [0.0018, 0.011, 0.0018], pos: [0, h + 0.006, 0], mat: mat({ color: 0x1c1a17 }) });
+  g.add(wick);
+
+  const flame = new THREE.Group();
+  flame.position.y = h + 0.019;
+  g.add(flame);
+  const flameMat = new THREE.MeshBasicMaterial({
+    color: 0xffc663, transparent: true, opacity: 0.92,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  });
+  for (let i = 0; i < 2; i++) {
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(0.016, 0.030), flameMat);
+    quad.rotation.y = i * Math.PI / 2;
+    flame.add(quad);
+  }
+  // The blue at the base, which is the bit that says "burning" rather than "orange".
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.0055, 6, 5),
+    new THREE.MeshBasicMaterial({ color: 0x7fb4ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  core.position.y = -0.010;
+  flame.add(core);
+
+  const light = new THREE.PointLight(0xffb367, 0.75, 0.85, 2.0);
+  light.position.y = h + 0.03;
+  g.add(light);
+
+  return {
+    group: g,
+    flame,
+    light,
+    /**
+     * @param {number} t seconds; the same clock for every candle, with each
+     *   one's own `phase` keeping them out of step.
+     */
+    flicker(t) {
+      const s = t * 7.3 + phase;
+      const wobble = Math.sin(s) * 0.5 + Math.sin(s * 2.7 + 1.1) * 0.32 + Math.sin(s * 6.1) * 0.18;
+      flame.scale.set(1 + wobble * 0.10, 1 + wobble * 0.22, 1 + wobble * 0.10);
+      flame.position.x = wobble * 0.0016;
+      light.intensity = 0.75 + wobble * 0.22;
+    },
   };
 }

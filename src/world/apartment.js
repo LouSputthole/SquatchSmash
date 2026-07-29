@@ -623,6 +623,25 @@ export async function buildApartment(ctx) {
   const wallClock = P.makeWallClock(M, { x: -1.00, y: 1.95, z: 4.40, rotY: Math.PI });
   root.add(wallClock.group);
 
+  /* Candles, either side of the shrine. Lit. Nobody lights candles in a
+   * cupboard for the light -- there is a bulb six inches above them -- so the
+   * only reason for these is the two photographs they are standing next to,
+   * which is the whole point and is never said out loud. */
+  const candles = [
+    /* In FRONT of the photographs, not level with them -- set alongside and
+     * they are simply hidden behind the frames from the only angle you can
+     * ever look at this from. */
+    P.makeCandle(M, { x: (CLOSET.x0 + CLOSET.x1) / 2 - 0.19, y: 0.002, z: CLOSET.back - 0.33, h: 0.115, phase: 0 }),
+    P.makeCandle(M, { x: (CLOSET.x0 + CLOSET.x1) / 2 + 0.20, y: 0.002, z: CLOSET.back - 0.30, h: 0.082, phase: 2.4, colour: 0xe8dcc4 }),
+    P.makeCandle(M, { x: (CLOSET.x0 + CLOSET.x1) / 2 + 0.02, y: 0.002, z: CLOSET.back - 0.39, h: 0.062, phase: 4.1 }),
+  ];
+  for (const c of candles) root.add(c.group);
+  /* One clock for all three, each with its own phase. Independent timers
+   * started on the same frame breathe in unison, which reads as a machine. */
+  ticks.push((dt, elapsed) => {
+    for (const c of candles) c.flicker(elapsed);
+  });
+
   root.add(P.makeBoots(M, { x: 2.20, z: 3.90, rotY: 0.4 }).group);
   root.add(P.makeLaundry(M, { x: -2.55, z: -3.55 }).group);
   root.add(P.makeCapOnPeg(M, { x: 0.10, y: 1.78, z: 4.42, rotY: Math.PI }).group);
