@@ -1,15 +1,19 @@
 /**
  * SQUATCH MAIL -- the inbox on the desk PC.
  *
- * There is one message that matters and it arrived while you were asleep. The
- * rest is what an inbox is: a receipt, a newsletter nobody signed up for, and
- * a thread from the boys that has been going for two days.
+ * Two messages matter and both arrived while he was asleep. Uncle Lou wrote at
+ * 5:12 to say well done for lasting the season and that tomorrow night is his;
+ * Goy Corp wrote at 4:51 to say he no longer works there. Neither mentions the
+ * other, which is the day in miniature.
  *
- * It is the fourth way to find out about the meeting, after the note on the
+ * The rest is what an inbox is: a receipt, a warranty nobody asked about, a
+ * training module, and a thread from the boys that has been going for two days.
+ *
+ * It is the fourth way to find out about tomorrow, after the note on the
  * corkboard, the radio, and Booski typing into a server nobody is in. None of
- * them is the intended route -- the point is that the information is lying
- * around in four places and it is still possible to spend the whole day not
- * looking at any of them.
+ * them is the intended route -- the information is lying around in four places
+ * and it is still possible to spend the whole day not looking at any of them.
+ * Lou's is the only one that says what it actually is.
  *
  * An app in the SquatchOS sense: the OS hands it the drawing context and the
  * input while it has focus. See os.js.
@@ -29,32 +33,48 @@ const HEADER_H = 30;
  */
 const MESSAGES = [
   {
-    from: 'People Operations',
-    addr: 'people@goycorp.com',
-    subject: 'Notice of separation',
-    time: '4:51 AM',
+    /* Top of the inbox on purpose. It is the first thing you read on the PC,
+     * and it is the one that tells you what tomorrow actually is -- everything
+     * else in the flat calls it "the meeting", because to everyone else that
+     * is all it is. */
+    from: 'Uncle Lou',
+    addr: 'lou@silversasquatches.gg',
+    subject: 'Tomorrow',
+    time: '5:12 AM',
     unread: true,
-    fired: true,
+    meeting: true,
+    initiation: true,
     body: [
-      'Dear Associate,',
+      'Kid,',
       '',
-      'Following the Q3 performance review cycle, Goy Corp has elected to end '
-        + 'your employment effective immediately. This decision reflects sustained '
-        + 'underperformance against your role expectations and is final.',
+      'Up early. Could not sleep. Thought I would write this before the day '
+        + 'gets hold of me.',
       '',
-      'Your building access was revoked at 4:50 AM. Please do not attend the '
-        + 'site. Any personal effects at your workstation will be boxed and held '
-        + 'for thirty (30) days.',
+      'Good job making it this far. I mean that. There were four of you in '
+        + 'the spring and there is one of you now, and the other three did not '
+        + 'wash out because they were not good enough. They washed out because '
+        + 'nobody told them what it was going to be like and they decided they '
+        + 'would rather not find out. You stayed. That counts.',
       '',
-      'Your final pay will be issued on the normal schedule. HR will be in touch '
-        + 'regarding benefits continuation.',
+      'Tomorrow night is yours. Seven, the usual place, and you walk in the '
+        + 'same door as everyone else. Nobody is going to make a fuss of you at '
+        + 'the start, and if anybody does, ignore them, because they are being '
+        + 'funny.',
       '',
-      'We thank you for your contributions and wish you well in your future '
-        + 'endeavours.',
+      'Two things and then I will leave you alone.',
       '',
-      '— People Operations, Goy Corp',
+      'One: bring nothing. I know Booski has said it. I am saying it as well '
+        + 'because prospects always bring something and it is always wrong.',
       '',
-      'This mailbox is not monitored. Please do not reply.',
+      'Two: turn up as yourself. Whatever you think we are looking for, we are '
+        + 'not looking for it, and the ones who try to be it are the ones we '
+        + 'notice trying.',
+      '',
+      'Looking forward to it. Genuinely.',
+      '',
+      '— Lou',
+      '',
+      'PS. Do not be late. I will not be able to help you with that one.',
     ],
   },
   {
@@ -83,6 +103,35 @@ const MESSAGES = [
       '',
       'Marguerite Vane · People & Culture · Goy Corp',
       '"Together, forward."',
+    ],
+  },
+  {
+    from: 'People Operations',
+    addr: 'people@goycorp.com',
+    subject: 'Notice of separation',
+    time: '4:51 AM',
+    unread: true,
+    fired: true,
+    body: [
+      'Dear Associate,',
+      '',
+      'Following the Q3 performance review cycle, Goy Corp has elected to end '
+        + 'your employment effective immediately. This decision reflects sustained '
+        + 'underperformance against your role expectations and is final.',
+      '',
+      'Your building access was revoked at 4:50 AM. Please do not attend the '
+        + 'site. Any personal effects at your workstation will be boxed and held '
+        + 'for thirty (30) days.',
+      '',
+      'Your final pay will be issued on the normal schedule. HR will be in touch '
+        + 'regarding benefits continuation.',
+      '',
+      'We thank you for your contributions and wish you well in your future '
+        + 'endeavours.',
+      '',
+      '— People Operations, Goy Corp',
+      '',
+      'This mailbox is not monitored. Please do not reply.',
     ],
   },
   {

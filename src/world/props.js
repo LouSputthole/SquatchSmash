@@ -1139,7 +1139,10 @@ export function makeCorkNote(M, { x, y, z, rotY = 0 }) {
   g.position.set(x, y, z);
   g.rotation.set(0, rotY, -0.05);
 
-  const W = 152, H = 104;
+  /* 120 tall, not 104. The note grew a line and the plane's aspect is matched
+   * to the canvas, so the two have to move together or the handwriting
+   * stretches. */
+  const W = 152, H = 120;
   const c = document.createElement('canvas');
   c.width = W; c.height = H;
   const d = c.getContext('2d');
@@ -1147,7 +1150,7 @@ export function makeCorkNote(M, { x, y, z, rotY = 0 }) {
   d.fillRect(0, 0, W, H);
   d.strokeStyle = '#d9cfb0';
   d.lineWidth = 1;
-  for (let i = 1; i < 5; i++) {
+  for (let i = 1; i < 6; i++) {
     d.beginPath(); d.moveTo(8, 22 + i * 17); d.lineTo(W - 8, 22 + i * 17); d.stroke();
   }
   d.fillStyle = '#2f2a20';
@@ -1160,10 +1163,14 @@ export function makeCorkNote(M, { x, y, z, rotY = 0 }) {
   d.fillStyle = '#5c5445';
   d.fillText('booski driving', W / 2, 74);
   d.fillText('bring nothing', W / 2, 90);
+  /* The one line on the note that is not logistics. He wrote the rest of it
+   * off Booski's messages; he wrote this bit himself, later, on his own. */
+  d.font = 'italic 11px "Courier New", monospace';
+  d.fillText('this is the one', W / 2, 107);
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const card = plane(0.115, 0.079, mat({ map: tex, roughness: 0.9 }));
+  const card = plane(0.115, 0.115 * (H / W), mat({ map: tex, roughness: 0.9 }));
   g.add(card);
   // The pin holding it up.
   g.add(cylinder({
