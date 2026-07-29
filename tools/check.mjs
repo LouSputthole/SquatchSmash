@@ -138,11 +138,18 @@ try {
     fail(`manifest has ${declared.size} radio cues, stations.js has ${cues.length} — run npm run radio:cues`);
   }
   // Two Lous only works if they are two different voices.
+  const louShow = STATIONS.find((s) => s.id === 'squatch')?.shows?.[0];
   const lous = new Set(
-    (STATIONS.find((s) => s.id === 'squatch')?.shows?.[0]?.lines ?? [])
-      .map((l) => voiceOf(l)?.voice).filter(Boolean),
+    (louShow?.exchanges ?? []).flat().map((l) => voiceOf(l)?.voice).filter(Boolean),
   );
   if (lous.size < 2) fail('Lou & Lou resolved to a single voice — the alternation broke');
+  // And they have to take turns inside a bit, not just across the show.
+  const flat = (louShow?.exchanges ?? []).filter((e) => e.length > 1
+    && e.every((l) => /^LOU:/.test(l)));
+  const noTurns = flat.filter((e) => new Set(e.map((l) => voiceOf(l)?.voice)).size < 2);
+  if (flat.length && noTurns.length === flat.length) {
+    fail('every multi-line Lou exchange is one voice — they never answer each other');
+  }
 } catch (err) {
   fail(err.message);
 }

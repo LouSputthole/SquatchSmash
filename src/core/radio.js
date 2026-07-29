@@ -1,24 +1,23 @@
 /**
  * The radio on the sideboard.
  *
- * Two stations, tuned by holding the interact key on the set:
+ * One station: 97.8 THE SQUATCH. What is on depends on the in-game hour, and
+ * it plays the roster's own records between its own shows -- which is what a
+ * local station does, and what three separate frequencies made impossible.
  *
- *   97.8 THE SQUATCH        talk radio; what is on depends on the in-game
- *                           hour, and the 60-second station commercial comes
- *                           round every few segments
- *   98.8 UNCLE SQUATCH      beats
- *   101.7 KSQCH             the roster's own records
+ * It airs in BLOCKS rather than lines: an exchange between the hosts, a
+ * record, the commercial, or the community notice. [R] skips whichever is on.
+ * Nothing talks over a record.
  *
  * Tracks are player-supplied: drop audio files into assets/music/ and list
- * them in assets/music/manifest.json, each tagged with the station it belongs
- * to. A music station with no tracks still works -- it hisses and tells you
- * why, which is both a fair result and an obvious hint.
+ * them in assets/music/manifest.json. With none there it still works -- it
+ * talks, which is most of what it does anyway.
  *
  * Everything goes through a PannerNode at the radio's position and a lowpass
  * filter, so it genuinely comes from across the room.
  */
 import * as THREE from 'three';
-import { STATIONS, showAt, voiceOf, MEETING_NOTICE, NOTICE_EVERY } from './stations.js';
+import { STATIONS, showAt, voiceOf, MEETING_NOTICE } from './stations.js';
 import { loadJson, assetUrl } from './assets.js';
 
 const MUSIC_DIR = 'assets/music/';
@@ -26,6 +25,16 @@ const MUSIC_DIR = 'assets/music/';
 /** How long a spoken segment sits on screen before the next one. */
 const SEGMENT_TIME = 8.5;
 const SEGMENT_GAP = 1.4;
+
+/* Records are played as a excerpt rather than end to end. A full track is
+ * three or four minutes of an eighteen-minute game, which is most of a
+ * playthrough spent on one song, and the station stops being a station. */
+const SONG_SECONDS = 30;
+const SONG_FADE_IN = 2.0;
+const SONG_FADE_OUT = 3.5;
+/* Where in the track to start. A fifth in usually clears the intro and lands
+ * somewhere with words on it. */
+const SONG_START_FRAC = 0.20;
 
 export class Radio {
   constructor(audio, hud, time) {
@@ -51,21 +60,22 @@ export class Radio {
     this._dwell = SEGMENT_TIME;
     this._voice = null;
     this._sinceAd = 0;
-    this._sinceNotice = 4;   // one lands reasonably early in the morning
+    this._sinceNotice = 0;
+    this._sinceSong = 0;
+    /** Blocks aired since tuning in, so the notice can hold off at first. */
+    this._blocks = 0;
+    /** Seconds into the record on air, or -1 when none is. */
+    this._songT = -1;
     this._show = null;
   }
 
   get station() { return this.stations[this.stationIndex]; }
 
-  /** The current station's records, in manifest order. */
-  get playlist() {
-    const st = this.station;
-    if (st.kind !== 'music') return [];
-    // An untagged track belongs to whichever music station comes first, so a
-    // one-station manifest keeps working without anyone editing it.
-    const fallback = this.stations.find((s) => s.kind === 'music')?.id;
-    return this.tracks.filter((t) => (t.station || fallback) === st.id);
-  }
+  /** Every record the station owns. There is one station, so: all of them. */
+  get playlist() { return this.tracks; }
+
+  /** True while a record is on air, so nothing talks over it. */
+  get songPlaying() { return this._songT >= 0; }
 
   /** Where this station had got to. */
   get cursor() { return this.index.get(this.station.id) || 0; }
@@ -198,97 +208,99 @@ export class Radio {
     this._line = null;
     this._segT = 0;
     this._sinceAd = 99;   // an ident lands as soon as you tune in
+    this._sinceSong = 0;
+    this._songT = -1;
+    this._blocks = 0;
 
-    if (st.kind === 'talk') {
-      if (this.el) this.el.pause();
-      // A murmuring voice bed under the words, so the room is not silent.
-      this.audio.startLoop('radio.talk', {
-        volume: 0.04, position: this.position, ref: 1.4, maxDist: 12,
-      });
-      this._show = null;
-      this._pump();
-      if (announce) {
-        this.audio.play(st.ident, { position: this.position, volume: 0.55 });
-      }
-      return;
-    }
-
-    // Music station.
-    if (!this.playlist.length) {
-      this.audio.startLoop('radio.static', {
-        volume: 0.09, position: this.position, ref: 1.4, maxDist: 12,
-      });
-      this._queue = st.empty.map((line) => ({ line, cue: null }));
-      this._pump();
-      this.hud.say('Static. <em>Drop MP3s into assets/music/ and list them in manifest.json.</em>', 6000);
-      return;
-    }
-    if (announce) this.audio.play(st.ident, { position: this.position, volume: 0.6 });
-    this._queue = [{ line: st.lines[0], cue: null }];
+    if (this.el) this.el.pause();
+    // A murmuring voice bed under the words, so the room is not silent.
+    this.audio.startLoop('radio.talk', {
+      volume: 0.04, position: this.position, ref: 1.4, maxDist: 12,
+    });
+    this._show = null;
     this._pump();
-    this._playCurrent(0.35);
+    if (announce) {
+      this.audio.play(st.ident, { position: this.position, volume: 0.55 });
+    }
+    return;
   }
 
-  /** [R]: next track on a music station, next segment on a talk one. */
+  /**
+   * [R]: skip the block that is on.
+   *
+   * Mid-record that means fade it out and move on; mid-exchange it means drop
+   * the rest of the bit rather than nudge one line forward, because skipping
+   * into the punchline of something you did not hear the setup of is worse
+   * than skipping the whole thing.
+   */
   next(auto = false) {
-    const st = this.station;
-    if (st.kind === 'talk') {
-      this._segT = this._dwell;    // force the next line on the following frame
+    if (!auto) this.audio.play('radio.tune', { position: this.position, volume: 0.5 });
+    if (this.songPlaying) {
+      this._endSong(auto ? SONG_FADE_OUT : 0.4);
       return;
     }
-    const list = this.playlist;
-    if (!list.length) return;
-    this.cursor = (this.cursor + 1) % list.length;
-    if (!auto) this.audio.play('radio.tune', { position: this.position, volume: 0.5 });
-    if (this.on) {
-      this._playCurrent(auto ? 0.2 : 0.3);
-      if (Math.random() < 0.4) {
-        this._queue.push({ line: pick(st.lines), cue: null });
-      }
-    }
+    this._queue.length = 0;
+    this._segT = this._dwell;      // next block on the following frame
   }
 
   /* ---------------------------------------------------------------- */
   /* Talk                                                              */
   /* ---------------------------------------------------------------- */
 
-  /** Refill the segment queue from whatever is scheduled at this hour. */
+  /**
+   * Queue the next BLOCK.
+   *
+   * A block is a whole thing rather than a line: an exchange between the
+   * hosts, a record, the commercial, or the community notice. Picking single
+   * lines out of a bag is why the station never sounded like a conversation --
+   * two hosts and no exchange between them. [R] skips a block, so it moves
+   * you past the rest of the bit rather than one line further into it.
+   */
   _refill() {
     const st = this.station;
-    if (st.kind !== 'talk') {
-      this._queue.push({ line: pick(st.lines), cue: null });
-      return;
-    }
-
     const show = showAt(st, this.time ? this.time.hour : 9);
     if (show !== this._show) {
-      // A show change is worth hearing about.
       this._show = show;
-      this._queue.push({ line: `ANNOUNCER: Next on 97.8 The Squatch — ${show.name}. ${show.strap}`, cue: 'radio.jingle' });
+      this._queue.push({ line: `ANNOUNCER: Next on 97.8 The Squatch \u2014 ${show.name}. ${show.strap}`, cue: 'radio.jingle' });
       this._sinceAd = 0;
       return;
     }
 
-    // The community notice takes priority over the commercial, and resets it
-    // so you never get both back to back.
-    if (st.notices && this._sinceNotice >= NOTICE_EVERY) {
+    // A record every couple of exchanges, if there are any records.
+    if (this.playlist.length && this._sinceSong >= (st.songEvery ?? 2)) {
+      this._sinceSong = 0;
+      this._sinceAd++;
+      this._sinceNotice++;
+      this._queue.push({ song: true });
+      return;
+    }
+
+    /* The notice waits out the opening blocks. Waking up to a man reading out
+     * where you are supposed to be tomorrow is the game announcing its goal in
+     * the first ten seconds; letting the station be a station first means you
+     * come across it. */
+    if (st.notices && this._blocks >= (st.noticeAfter ?? 5)
+        && this._sinceNotice >= (st.noticeEvery ?? 9)) {
       this._sinceNotice = 0;
       this._sinceAd = 0;
+      this._sinceSong++;
       this._queue.push(...MEETING_NOTICE);
       return;
     }
 
-    if (this._sinceAd >= st.commercialEvery) {
+    if (this._sinceAd >= (st.commercialEvery ?? 6)) {
       this._sinceAd = 0;
+      this._sinceSong++;
+      this._sinceNotice++;
       this._queue.push(...st.commercial);
-      // You have heard this one enough times to have an opinion on it.
-      this.audio.say?.('radio.ad', { chance: 0.5, delay: 6 });
+      this.audio.say?.('radio.ad', { chance: 0.4, delay: 6 });
       return;
     }
 
     this._sinceAd++;
     this._sinceNotice++;
-    this._queue.push({ line: pick(show.lines), cue: null });
+    this._sinceSong++;
+    for (const line of pick(show.exchanges)) this._queue.push({ line, cue: null });
   }
 
   /** Move the next segment on air. */
@@ -296,6 +308,8 @@ export class Radio {
     if (!this._queue.length) this._refill();
     const s = this._queue.shift();
     if (!s) return;
+    this._blocks++;
+    if (s.song) { this._startSong(); return; }
     this._line = s.line;
     this._segT = 0;
     // Hearing it counts as knowing it.
@@ -318,18 +332,80 @@ export class Radio {
 
   _showOsd() {
     const st = this.station;
-    const show = st.kind === 'talk' && this._show ? this._show.name : null;
-    const track = st.kind === 'music' && this.playlist.length ? this._current() : null;
+    const show = this._show ? this._show.name : null;
     this.hud.setRadio({
-      station: show ? `${st.dial} — ${show}` : st.name,
-      track: this._line
-        || (track ? `${track.artist ? track.artist + ' — ' : ''}${track.title || track.file}` : st.tagline),
+      station: show ? `${st.dial} \u2014 ${show}` : st.name,
+      track: this._line || st.tagline,
     });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Records                                                           */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Put a record on: thirty seconds from a fifth of the way in, faded up and
+   * out, with the talk bed pulled down under it.
+   */
+  _startSong() {
+    const list = this.playlist;
+    if (!list.length) { this._songT = -1; this._pump(); return; }
+    this.cursor = (this.cursor + 1) % list.length;
+    const track = this._current();
+    if (!track) { this._songT = -1; this._pump(); return; }
+
+    this._ensureGraph();
+    if (!this.el) { this._songT = -1; this._pump(); return; }
+
+    this.el.src = assetUrl(MUSIC_DIR, track.file);
+    /* Seeking has to wait for metadata, and a track that never loads must not
+     * strand the station on a silent block -- the timer runs either way and
+     * the song ends on schedule whether or not it ever started. */
+    const seek = () => {
+      const d = this.el.duration;
+      if (Number.isFinite(d) && d > SONG_SECONDS + 4) {
+        try { this.el.currentTime = d * (track.start ?? SONG_START_FRAC); } catch { /* not seekable */ }
+      }
+    };
+    if (this.el.readyState >= 1) seek();
+    else this.el.addEventListener('loadedmetadata', seek, { once: true });
+
+    const p = this.el.play();
+    if (p && p.catch) p.catch(() => { /* the error handler covers it */ });
+    this._fadeTo(0.85, SONG_FADE_IN);
+    // The murmuring talk bed would sit under the music otherwise.
+    this.audio.setLoopVolume?.('radio.talk', 0.006, 0.6);
+
+    this._songT = 0;
+    this._line = `${track.artist ? `${track.artist} \u2014 ` : ''}${track.title || track.file}`;
+    this._showOsd();
+  }
+
+  _endSong(fade = SONG_FADE_OUT) {
+    if (this._songT < 0) return;
+    this._songT = -1;
+    this._fadeTo(0, fade);
+    const el = this.el;
+    setTimeout(() => { if (!this.songPlaying && el) el.pause(); }, fade * 1000 + 120);
+    this.audio.setLoopVolume?.('radio.talk', 0.04, 1.2);
+    this._line = null;
+    this._segT = 0;
+    this._dwell = SEGMENT_GAP;
+    this._showOsd();
   }
 
   /** Called once a frame by main.js. */
   update(dt) {
     if (!this.on) return;
+
+    /* While a record is on, the station is the record. No lines, no ad, no
+     * notice -- the queue simply waits. */
+    if (this.songPlaying) {
+      this._songT += dt;
+      if (this._songT >= SONG_SECONDS - SONG_FADE_OUT) this._endSong();
+      return;
+    }
+
     this._segT += dt;
     const dwell = this._dwell ?? SEGMENT_TIME;
     if (this._segT >= dwell) {
@@ -346,18 +422,6 @@ export class Radio {
 
   /* ---------------------------------------------------------------- */
 
-  _playCurrent(fade) {
-    const track = this._current();
-    if (!track) return;
-    this._ensureGraph();
-    this.el.src = assetUrl(MUSIC_DIR, track.file);
-    const p = this.el.play();
-    if (p && p.catch) p.catch(() => { /* browser refused; the error handler covers it */ });
-    this._fadeTo(0.85, fade);
-    this._showOsd();
-    // Hearing your own band on the radio never entirely stops being a thing.
-    this.audio.say?.('radio.song', { chance: 0.45, delay: 2.5 });
-  }
 
   _fadeTo(v, time) {
     if (!this.gain) return;

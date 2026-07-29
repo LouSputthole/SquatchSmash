@@ -260,6 +260,7 @@ async function boot() {
   radio.setPosition(apartment.radioPos);
   const trackCount = await radio.loadManifest();
 
+
   player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
   // Nothing is reachable from under the duvet.
   interaction.setPaused(true);
@@ -328,6 +329,13 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
     audio.play('bed.rustle', { volume: 0.5 });
     audio.say('wake', { delay: 1.1 });
+    /* The set was already on when you went to sleep -- nobody in this flat has
+     * ever deliberately turned a radio off. It also means the station gets to
+     * introduce itself rather than wait to be discovered. Holding [E] on it
+     * turns it off if you want the quiet. Started here rather than at boot
+     * because the AudioContext does not exist until the first gesture. */
+    radio.turnOn();
+    apartment.state.radioOn = radio.on;
     hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
