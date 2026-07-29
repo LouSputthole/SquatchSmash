@@ -271,9 +271,16 @@ export class AudioEngine {
     const now = performance.now();
     if (now - this._lastStep < 140) return;
     this._lastStep = now;
-    this.play(`footstep.${surface}`, {
+    /* Alternate the two boards on wood -- left foot, right foot, different
+     * plank. One cue repeating is what makes a floor sound like a tape. */
+    let cue = `footstep.${surface}`;
+    if (surface === 'wood') {
+      this._woodFoot = !this._woodFoot;
+      cue = this._woodFoot ? 'footstep.wood.a' : 'footstep.wood.b';
+    }
+    this.play(cue, {
       volume: 0.30 * intensity,
-      rate: 0.9 + Math.random() * 0.25,
+      rate: 0.92 + Math.random() * 0.18,
     });
   }
 
@@ -483,9 +490,32 @@ function synth(engine, name, dest, t, rate = 1) {
 
   switch (name) {
     /* -------- movement -------- */
+    /* Two boards rather than one.
+     *
+     * A single step cue on a loop is the fastest way to make a floor sound
+     * like a tape: the ear locks onto the repeat within about four paces.
+     * These are a pair -- a tighter board and a looser, hollower one -- picked
+     * alternately by footstep(), each with its own resonance so the room reads
+     * as a floor with boards in it rather than one sample under your feet.
+     *
+     * Both are more wooden than the old one: a body thump for the heel, a
+     * short knock for the board flexing, and a ring on top. The old cue was a
+     * lowpassed noise burst, which is the sound of standing on carpet. */
     case 'footstep.wood':
-      burst(ctx, dest, t, { dur: r(0.09), type: 'lowpass', freq: 420, gain: 0.5, sweep: 0.4 });
-      tone(ctx, dest, t, { freq: 92, to: 55, dur: r(0.07), gain: 0.22, type: 'triangle' });
+    case 'footstep.wood.a':
+      // Tighter board, closer to a joist. Higher knock, shorter ring.
+      tone(ctx, dest, t, { freq: 96, to: 58, dur: r(0.075), gain: 0.26, type: 'triangle' });
+      burst(ctx, dest, t, { dur: r(0.035), type: 'bandpass', freq: 1650, q: 2.2, gain: 0.24 });
+      tone(ctx, dest, t + 0.006, { freq: 430, to: 300, dur: r(0.10), gain: 0.11, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.055), type: 'lowpass', freq: 520, gain: 0.30, sweep: 0.5 });
+      break;
+    case 'footstep.wood.b':
+      // The board that has a bit of air under it. Lower, longer, hollower.
+      tone(ctx, dest, t, { freq: 74, to: 44, dur: r(0.095), gain: 0.28, type: 'triangle' });
+      burst(ctx, dest, t, { dur: r(0.042), type: 'bandpass', freq: 1150, q: 1.7, gain: 0.22 });
+      tone(ctx, dest, t + 0.008, { freq: 268, to: 176, dur: r(0.17), gain: 0.13, type: 'sine' });
+      tone(ctx, dest, t + 0.012, { freq: 388, to: 300, dur: r(0.13), gain: 0.07, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.070), type: 'lowpass', freq: 400, gain: 0.28, sweep: 0.6 });
       break;
     case 'footstep.rug':
       burst(ctx, dest, t, { dur: r(0.11), type: 'lowpass', freq: 240, gain: 0.34, sweep: 0.5 });
