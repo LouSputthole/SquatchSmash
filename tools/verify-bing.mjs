@@ -134,6 +134,7 @@ const state = () => page.evaluate(() => {
     options: b.dialogue.active ? b.dialogue.options.length : -1,
     inventory: b.inventory.items.filter(Boolean),
     carrying: b.game.carrying ?? null,
+    campaign: b.campaign?.state ?? null,
     hands: b.mission.hands,
     spins: b.mission.spins,
   };
@@ -289,6 +290,9 @@ check('Lou puts it on the desk and you take it', s.flags.gotPackage === true, s.
 check('it is inside your jacket, not in a slot',
   s.carrying === 'parcel' && !s.inventory.includes('parcel'),
   `carrying ${s.carrying}, slots [${s.inventory.join(',')}]`);
+check('the shared campaign owns the concealed package',
+  s.campaign?.inventory?.concealed?.includes('parcel') === true,
+  JSON.stringify(s.campaign?.inventory ?? null));
 
 /* The case the reviewer found: four drinks and no drop key used to mean the
  * package went nowhere while the mission insisted it was on you. */
@@ -342,9 +346,38 @@ const ended = await page.evaluate(() => ({
   done: window.__bing.mission.state === 'done',
   card: document.getElementById('overlay').classList.contains('ending'),
   title: document.querySelector('#overlay .tag')?.textContent || '',
+  saved: window.__bing.campaign?.state?.missions?.bada_bing_one ?? null,
+  returnHref: document.getElementById('next-level')?.getAttribute('href') ?? null,
 }));
 check('driving out finishes the mission', ended.over && ended.done, JSON.stringify(ended));
 check('and puts up an ending card', ended.card, ended.title);
+check('completion is recorded in shared campaign state',
+  ended.saved?.status === 'complete' && ended.saved?.packageReceived === true,
+  JSON.stringify(ended.saved));
+check('the ending offers a return to the apartment',
+  ended.returnHref === 'index.html', ended.returnHref ?? 'missing');
+
+if (ended.returnHref === 'index.html') {
+  await page.evaluate(() => document.getElementById('next-level').click());
+  await page.waitForFunction(() => window.__squatch, null, { timeout: 90000 });
+  const returned = await page.evaluate(() => ({
+    scene: window.__squatch.campaign?.state?.scene ?? null,
+    hasPackage: window.__squatch.campaign?.hasItem('parcel') ?? false,
+    player: {
+      mode: window.__squatch.player.mode,
+      x: window.__squatch.player.position.x,
+      z: window.__squatch.player.position.z,
+    },
+  }));
+  check('returning home keeps the package and front-door spawn',
+    returned.hasPackage
+      && returned.scene?.id === 'apartment'
+      && returned.scene?.spawn === 'front_door'
+      && returned.player.mode === 'walk'
+      && Math.abs(returned.player.x - 2.55) < 0.05
+      && Math.abs(returned.player.z - 3.72) < 0.05,
+    JSON.stringify(returned));
+}
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 

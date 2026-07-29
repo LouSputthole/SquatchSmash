@@ -26,6 +26,13 @@ import { BulletHoles } from './world/bullets.js';
 import { Tv } from './core/tv.js';
 import { Phone } from './core/phone.js';
 import { ITEMS } from './core/inventory.js';
+import {
+  ITEM_IDS,
+  MISSION_IDS,
+  SCENE_IDS,
+  createCampaign,
+  navigateCampaign,
+} from './core/campaign.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -140,6 +147,16 @@ const player = new Player(camera, world);
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const time = new DayNight(6 + 4 / 60);
+const campaign = createCampaign();
+const campaignAtLoad = campaign.state;
+const returningFromBing = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
+  && campaignAtLoad.scene.spawn === 'front_door'
+  && campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
+if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
+  campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
+}
+time.day = campaign.state.story.day;
+time.minutes = campaign.state.story.timeMinutes;
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
 // Nothing happens in here. Somebody should say so.
@@ -149,6 +166,8 @@ const drunk = new Drunk();
 const highs = new Highs();
 // The only goal in the game, and it never announces itself.
 const goals = new Goals(time);
+goals.known = campaign.state.story.meetingKnown;
+goals.learnedFrom = campaign.state.story.meetingLearnedFrom;
 
 /*
  * The flat, once you are far enough gone.
@@ -323,6 +342,7 @@ const game = {
   peeTime: 0,
   onToilet: false,
   poopTime: 0,
+  pooped: campaign.state.activities.pooped,
   nextPlopAt: 0,
   rumbleAt: 0,
   zynUntil: -1,
@@ -411,6 +431,13 @@ async function boot() {
     onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
   });
 
+  const savedActivities = campaign.state.activities;
+  apartment.state.fed ||= savedActivities.eaten;
+  apartment.state.showered ||= savedActivities.showered;
+  apartment.state.dressed ||= savedActivities.changedClothes;
+  apartment.state.repliedHR ||= savedActivities.emailChecked;
+  if (savedActivities.pooped) apartment.state.bowel = 0;
+
   world.colliders = apartment.colliders;
   world.floorZones = apartment.floorZones;
 
@@ -464,9 +491,22 @@ async function boot() {
   const trackCount = await radio.loadManifest();
 
 
-  player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
-  // Nothing is reachable from under the duvet.
-  interaction.setPaused(true);
+  if (returningFromBing) {
+    player.mode = 'walk';
+    player.position.set(2.55, 1.66, 3.72);
+    player.velocity.set(0, 0, 0);
+    player.eyeHeight = 1.66;
+    player.pitch = 0;
+    player.yaw = 0;
+    player.update(0.016);
+    interaction.setPaused(false);
+    overlay.querySelector('.tag').textContent = 'Back from the Bing. Lou’s package is still under your jacket.';
+    startBtn.textContent = 'Go Inside';
+  } else {
+    player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
+    // Nothing is reachable from under the duvet.
+    interaction.setPaused(true);
+  }
 
   const realArt = apartment.frames.filter((f) => f.info.real).length;
   assetStatus.innerHTML = [
@@ -481,7 +521,7 @@ async function boot() {
   // Dev handle: lets you inspect and pose the scene from the console, e.g.
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
-    scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud,
+    scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud, campaign,
     drunk, highs, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
@@ -532,19 +572,24 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.city.day', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
-    audio.play('bed.rustle', { volume: 0.5 });
-    audio.say('wake', { delay: 1.1 });
-    /* The set was already on when you went to sleep -- nobody in this flat has
-     * ever deliberately turned a radio off. It also means the station gets to
-     * introduce itself rather than wait to be discovered. Holding [E] on it
-     * turns it off if you want the quiet. Started here rather than at boot
-     * because the AudioContext does not exist until the first gesture. */
-    radio.turnOn();
-    apartment.state.radioOn = radio.on;
-    hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
-    setTimeout(() => {
-      if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
-    }, 3600);
+    if (returningFromBing) {
+      hud.toast('Lou’s package · inside your jacket', 'good');
+      hud.say('Home again. The package came back with you.', 4800);
+    } else {
+      audio.play('bed.rustle', { volume: 0.5 });
+      audio.say('wake', { delay: 1.1 });
+      /* The set was already on when you went to sleep -- nobody in this flat has
+       * ever deliberately turned a radio off. It also means the station gets to
+       * introduce itself rather than wait to be discovered. Holding [E] on it
+       * turns it off if you want the quiet. Started here rather than at boot
+       * because the AudioContext does not exist until the first gesture. */
+      radio.turnOn();
+      apartment.state.radioOn = radio.on;
+      hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
+      setTimeout(() => {
+        if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
+      }, 3600);
+    }
   }
   game.paused = false;
 });
@@ -1732,6 +1777,10 @@ function updateGluing(dt) {
 /** How the player finds out there is anything on at all. */
 function learnAboutMeeting(source) {
   if (!goals.learn(source)) return;
+  campaign.update((state) => {
+    state.story.meetingKnown = true;
+    state.story.meetingLearnedFrom = source;
+  });
   audio.play('ui.select', { volume: 0.4 });
   hud.toast('Wednesday, 7 PM', 'good');
   // The radio reads the notice out; he answers it, the way you answer a radio.
@@ -1764,6 +1813,20 @@ function goalContext() {
     stoned: highs.stoned,
     tripping: highs.tripping,
   };
+}
+
+function saveApartmentProgress() {
+  campaign.update((state) => {
+    state.story.day = time.day;
+    state.story.timeMinutes = time.minutes;
+    state.activities.eaten = apartment.state.fed;
+    state.activities.showered = apartment.state.showered;
+    state.activities.pooped = game.pooped;
+    state.activities.changedClothes = apartment.state.dressed;
+    state.activities.emailChecked = apartment.state.repliedHR;
+    state.story.meetingKnown = goals.known;
+    state.story.meetingLearnedFrom = goals.learnedFrom;
+  });
 }
 
 /**
@@ -1810,6 +1873,7 @@ function leaveForTheMeeting() {
   game.left = true;
   const ending = goals.endingFor(goalContext());
   goals.ending = ending;
+  saveApartmentProgress();
 
   interaction.setPaused(true);
   hud.hidePrompt();
@@ -1855,9 +1919,20 @@ function showEnding(kind) {
     if (!next) {
       next = document.createElement('a');
       next.id = 'next-level';
-      next.href = 'bing.html';
       overlay.querySelector('.panel').appendChild(next);
     }
+    next.href = 'bing.html';
+    next.onclick = (event) => {
+      event.preventDefault();
+      saveApartmentProgress();
+      campaign.update((state) => {
+        state.missions[MISSION_IDS.BADA_BING_ONE].status = 'in_progress';
+      });
+      navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
+        spawn: 'driver_seat',
+        location,
+      });
+    };
     next.textContent = 'Later that night: a quick stop at the Bing →';
   }
   document.exitPointerLock?.();
@@ -2075,6 +2150,7 @@ function updateBowel(dt) {
       st.urgeAnnounced = false;
       if (!game._poopDone) {
         game._poopDone = true;
+        game.pooped = true;
         audio.say('poop.relief', { delay: 0.6 });
         hud.say('That is that dealt with.', 4000);
       }

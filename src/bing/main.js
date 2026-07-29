@@ -19,6 +19,13 @@ import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
+import {
+  ITEM_IDS,
+  MISSION_IDS,
+  SCENE_IDS,
+  createCampaign,
+  navigateCampaign,
+} from '../core/campaign.js';
 import { makeHeldDrinks } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -122,6 +129,10 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const drunk = new Drunk();
 const highs = new Highs();
 const inventory = new Inventory(4);
+const campaign = createCampaign();
+if (campaign.state.scene.id !== SCENE_IDS.BADA_BING_ONE) {
+  campaign.enter(SCENE_IDS.BADA_BING_ONE, { spawn: 'driver_seat' });
+}
 
 const game = {
   started: false,
@@ -816,6 +827,12 @@ function takePackage() {
   mission.tookPackage();
   club.office.parcel.visible = false;
   game.carrying = 'parcel';
+  campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
+  campaign.update((state) => {
+    const saved = state.missions[MISSION_IDS.BADA_BING_ONE];
+    saved.status = 'in_progress';
+    saved.packageReceived = true;
+  });
   paintCarrying();
   hud.toast('ITEM ACQUIRED: Lou’s package', 'good');
   audio.play('gun.pickup', { volume: 0.6 });
@@ -944,6 +961,12 @@ function finish() { /* the ending card is driven by driveAway() */ }
 
 function showEnding(kind) {
   const e = ENDINGS[kind] || ENDINGS.followed;
+  campaign.update((state) => {
+    const saved = state.missions[MISSION_IDS.BADA_BING_ONE];
+    saved.status = 'complete';
+    saved.packageReceived = campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
+    saved.ending = kind;
+  });
   game.paused = true;
   player.enabled = false;
   blackout.classList.remove('on');
@@ -962,6 +985,21 @@ function showEnding(kind) {
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   startBtn.textContent = 'Again';
   startBtn.onclick = () => location.reload();
+  let next = document.getElementById('next-level');
+  if (!next) {
+    next = document.createElement('a');
+    next.id = 'next-level';
+    overlay.querySelector('.panel').appendChild(next);
+  }
+  next.href = 'index.html';
+  next.textContent = 'Return to the apartment →';
+  next.onclick = (event) => {
+    event.preventDefault();
+    navigateCampaign(campaign, SCENE_IDS.APARTMENT, {
+      spawn: 'front_door',
+      location,
+    });
+  };
   document.exitPointerLock?.();
 }
 
@@ -1329,7 +1367,7 @@ assetStatus.innerHTML = 'Everything in here is drawn and synthesised at load tim
 loading.classList.add('hidden');
 window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
-  interaction, drunk, highs, inventory, car, lot, associate, scripts,
+  interaction, drunk, highs, inventory, campaign, car, lot, associate, scripts,
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

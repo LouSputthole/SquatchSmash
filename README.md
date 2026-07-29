@@ -18,8 +18,15 @@ All three are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own `lib/three.module.js`, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
-`vendor/three.module.min.js` and everything in `src/core`. Nothing can break
-anything else.
+`vendor/three.module.min.js` and everything in `src/core`. The campground stays
+isolated; the apartment and Bing now share an explicit campaign boundary.
+
+The first campaign-consolidation slice now connects the apartment and the Bing
+through `src/core/campaign.js`. The player’s readiness flags, learned meeting
+context, scene/spawn, Bada Bing completion, and Lou’s concealed package survive
+the page transition. Finishing the club offers a real return to the apartment,
+where the player resumes inside the front door with the package still carried.
+Other scenes are not connected to this campaign state yet.
 
 See [`game/README.md`](./game/README.md) for the campground game's controls and
 scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
@@ -290,8 +297,8 @@ To add a third, write an object with `id`, `label`, `drawIcon`, `enter`, `exit`,
 index.html              importmap + HUD markup
 src/main.js             renderer, state machine, input
 src/core/               player controller, interaction raycasting, audio, radio
-                        and its station schedules, day/night, intoxication,
-                        the narrator, HUD
+                        and its station schedules, day/night, campaign state,
+                        scene transitions, intoxication, the narrator, HUD
 src/world/              apartment shell, furniture builders, procedural textures,
                         materials, particle systems, and the wall-art loader
 src/arcade/             SquatchOS, the two apps on it, and the mount point
@@ -307,8 +314,9 @@ The apartment is laid out on a fixed grid: x runs −5 (west) to +5 (east), z ru
 
 ```bash
 npm run check        # static: parses every source file, validates the manifests
+npm test             # campaign state, persistence, IDs, and transition contract
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
-npm run verify:bing  # runtime: plays the club mission start to finish, headless
+npm run verify:bing  # runtime: plays the club and returns home, headless
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
 
