@@ -220,6 +220,116 @@ export const STATIONS = [
   },
 ];
 
+/* ------------------------------------------------------------------ */
+/* Who says what                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every line above is written as `SPEAKER: words`, and the speaker decides
+ * which voice reads it. This is the only place that mapping exists -- the
+ * generator (tools/radio-cues.mjs) and the radio itself both read it from
+ * here, so a new host needs adding in one place, not three.
+ *
+ * A line with no prefix belongs to whoever owns the block it is in: the
+ * commercial is the station announcer, KSQCH's chatter is its own DJ.
+ */
+const SPEAKERS = {
+  'BOOSKI': 'booski',
+  'APE': 'ape',
+  'IRISH': 'irish',
+  'ERIC': 'eric',
+  'GRATIN': 'gratin',
+  'HOG MAMA': 'hogmama',
+  'ANNOUNCER': 'announcer',
+  'UNCLE SQUATCH': 'uncle',
+};
+
+/** `HOG MAMA: (a chair falls over) That was on purpose.` -> the speaker key. */
+function speakerOf(line, fallback) {
+  const m = /^([A-Z][A-Z '’]*[A-Z]):\s*/.exec(line);
+  if (!m) return fallback;
+  return SPEAKERS[m[1]] ?? fallback;
+}
+
+/**
+ * What actually gets spoken. Drops the `SPEAKER:` label and any stage
+ * direction in brackets -- "(long silence)" is an instruction to the reader,
+ * not a thing to read out, and text-to-speech will happily say it.
+ */
+function spokenText(line) {
+  return line
+    .replace(/^[A-Z][A-Z '’]*[A-Z]:\s*/, '')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Nothing worth generating: an ellipsis beat, or a line that was all stage direction. */
+const sayable = (text) => /[a-z0-9]/i.test(text);
+
+/**
+ * Walk everything on air once and give each distinct utterance a cue name.
+ * Deduped by voice + text, so the two Uncle Squatch blocks that share an
+ * opening line share one clip instead of generating it twice.
+ */
+function buildVoiceIndex() {
+  const byKey = new Map();      // `${voice} ${text}` -> cue name
+  const byLine = new Map();     // original line string      -> { cue, voice }
+  const counts = new Map();
+
+  const add = (line, fallback) => {
+    const text = spokenText(line);
+    if (!sayable(text)) return;
+    const voice = speakerOf(line, fallback);
+    const key = `${voice} ${text}`;
+    let cue = byKey.get(key);
+    if (!cue) {
+      const n = (counts.get(voice) ?? 0) + 1;
+      counts.set(voice, n);
+      cue = `radio.vo.${voice}.${n}`;
+      byKey.set(key, cue);
+    }
+    // Same text under two speakers is two clips; keyed by line, last wins,
+    // which is fine because the text is what decides the audio.
+    byLine.set(line, { cue, voice, text });
+  };
+
+  for (const st of STATIONS) {
+    // Two Lous, alternating, because "two guys called Lou" only reads as a
+    // joke if you can hear that there are two of them.
+    let lou = 0;
+    for (const show of st.shows ?? []) {
+      for (const line of show.lines) {
+        add(line, /^LOU:/.test(line) ? (lou++ % 2 ? 'lou2' : 'lou1') : 'announcer');
+      }
+    }
+    for (const seg of st.commercial ?? []) add(seg.line, 'announcer');
+    for (const line of st.overnight?.lines ?? []) add(line, 'announcer');
+    for (const line of st.lines ?? []) add(line, st.id);
+    for (const line of st.empty ?? []) add(line, st.id);
+  }
+  return byLine;
+}
+
+const VOICE_INDEX = buildVoiceIndex();
+
+/** The generated clip for a line, or null if it has none. */
+export function voiceOf(line) {
+  return VOICE_INDEX.get(line) ?? null;
+}
+
+/** Everything that needs generating, for tools/radio-cues.mjs. */
+export function voiceCues() {
+  const seen = new Set();
+  const out = [];
+  for (const { cue, voice, text } of VOICE_INDEX.values()) {
+    if (seen.has(cue)) continue;
+    seen.add(cue);
+    out.push({ name: cue, voice, say: text });
+  }
+  return out;
+}
+
 /** Which show is on `station` at `hour` (fractional 24h). */
 export function showAt(station, hour) {
   if (station.kind !== 'talk') return null;

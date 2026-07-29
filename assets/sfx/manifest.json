@@ -9,6 +9,94 @@
       "stability": 0.45,
       "similarity": 0.82,
       "style": 0.3
+    },
+    "announcer": {
+      "id": "pNInz6obpgDQGcFmaJgB",
+      "_note": "97.8 THE SQUATCH station voice. Adverts, links and the automated overnight. Shouts everything. Low stability and high style on purpose -- this is the one voice allowed to be completely unhinged.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.22,
+      "similarity": 0.75,
+      "style": 0.85
+    },
+    "lou1": {
+      "id": "bIHbv24MWmeRgasZH58o",
+      "_note": "Lou, of Lou & Lou. Breakfast show. Chattier of the two.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.32,
+      "similarity": 0.8,
+      "style": 0.6
+    },
+    "lou2": {
+      "id": "TX3LPaxmHKxFdv7VOQHJ",
+      "_note": "The other Lou. Two Lous is the whole premise, so they have to be tellable apart or the joke does not land.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.32,
+      "similarity": 0.8,
+      "style": 0.62
+    },
+    "booski": {
+      "id": "N2lVS1w4EtoT3dr4eOWO",
+      "_note": "Booski. CS gambling show. Has put his rent on a Silver lobby and wants to talk about it.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.28,
+      "similarity": 0.78,
+      "style": 0.7
+    },
+    "ape": {
+      "id": "CwhRBWXzGAHq8TQ4Fs17",
+      "_note": "Ape. The straight man to Booski. Delivers legal disclaimers flatly.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.35
+    },
+    "irish": {
+      "id": "JBFqnCBsd6RMkjVDRZzb",
+      "_note": "Irish's Deep Dives. Conspiratorial, confiding, building to nothing. British storyteller voice makes the egg material land harder.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.35,
+      "similarity": 0.85,
+      "style": 0.65
+    },
+    "eric": {
+      "id": "cjVigY5qzO86Huf0OWal",
+      "_note": "Eric, of What's Happening in India. Tries to run a real news segment.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.48,
+      "similarity": 0.82,
+      "style": 0.4
+    },
+    "gratin": {
+      "id": "pqHfZKP75CvOlQylNhV4",
+      "_note": "Gratin. Wants to get to the butter chicken. Older, crisper, entirely uninterested in the tech story.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.38,
+      "similarity": 0.8,
+      "style": 0.55
+    },
+    "hogmama": {
+      "id": "FGY2WhTYpPnrIDTdsKH5",
+      "_note": "Hog Mama's Late Night Improv. No script, no plan, and increasingly aware of it.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.25,
+      "similarity": 0.75,
+      "style": 0.75
+    },
+    "uncle": {
+      "id": "nPczCjzI2devNBz1zQrb",
+      "_note": "98.8 UNCLE SQUATCH BEATS. Smooth, low, unhurried -- the opposite of everything on 97.8.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.6,
+      "similarity": 0.85,
+      "style": 0.3
+    },
+    "ksqch": {
+      "id": "SOYHLrjzK2X1ezoPC6cr",
+      "_note": "101.7 KSQCH. Scrappy, rough, sounds like it is broadcast out of a garage, because it is.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.3,
+      "similarity": 0.75,
+      "style": 0.7
     }
   },
   "sfx": [
@@ -75,7 +163,7 @@
     },
     {
       "name": "can.crush",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "empty aluminium can crushed in one hand, metal buckling and crinkling"
     },
     {
@@ -117,12 +205,12 @@
     },
     {
       "name": "radio.jingle",
-      "duration": 2.0,
+      "duration": 2,
       "prompt": "cheesy local radio station ID jingle, short rising synth fanfare with a vocal-style flourish"
     },
     {
       "name": "radio.slots",
-      "duration": 2.0,
+      "duration": 2,
       "prompt": "slot machine reels spinning and coins clattering into a tray, casino floor"
     },
     {
@@ -132,27 +220,42 @@
     },
     {
       "name": "radio.crowd",
-      "duration": 2.0,
+      "duration": 2,
       "prompt": "small studio audience laughing warmly, canned sitcom laughter"
     },
     {
       "name": "radio.ident.squatch",
-      "duration": 3.0,
-      "prompt": "gravelly announcer voice shouting the words NINETY SEVEN POINT EIGHT, THE SQUATCH over a distorted guitar chord"
+      "voice": "announcer",
+      "say": "Ninety seven point EIGHT! THE SQUAAATCH!"
     },
     {
       "name": "radio.ident.uncle",
-      "duration": 3.2,
-      "prompt": "smooth warm radio DJ voice saying welcome to Uncle Squatch Beats, ninety eight point eight, over a soft lo-fi hip hop chord"
+      "voice": "uncle",
+      "say": "You're locked in to Uncle Squatch Beats. Ninety eight point eight. Take it easy."
     },
     {
       "name": "radio.ident.ksqch",
-      "duration": 2.6,
-      "prompt": "scrappy garage rock radio station sting: one distorted power chord and a crash cymbal, recorded cheaply"
+      "voice": "ksqch",
+      "say": "K-S-Q-C-H! One oh one point seven! Turn it UP!"
+    },
+    {
+      "name": "radio.sting.squatch",
+      "duration": 2.5,
+      "prompt": "over the top rock radio station sting, no voice: one huge distorted guitar power chord, cymbal crash and a siren whoop, cheap and loud, no vocals, no speech"
+    },
+    {
+      "name": "radio.sting.uncle",
+      "duration": 3,
+      "prompt": "warm lo-fi hip hop station sting, no voice: soft rhodes piano chord, vinyl crackle and a lazy shuffled kick and snare, mellow, no vocals, no speech"
+    },
+    {
+      "name": "radio.sting.ksqch",
+      "duration": 2.5,
+      "prompt": "scrappy garage rock station sting, no voice: one fuzzy overdriven power chord badly recorded on a cheap mic, crash cymbal, room noise, no vocals, no speech"
     },
     {
       "name": "door.knob",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "interior door handle turning, latch clicking, no door opening"
     },
     {
@@ -172,8 +275,9 @@
     },
     {
       "name": "clock.tick",
-      "duration": 0.4,
-      "prompt": "single tick of a small wall clock, dry and quiet"
+      "duration": 0.5,
+      "promptInfluence": 0.6,
+      "prompt": "one loud sharp mechanical tick of a wall clock, hard close-mic click with a bright metallic edge, full level, dry, no reverb, no music"
     },
     {
       "name": "pc.boot",
@@ -208,7 +312,7 @@
     },
     {
       "name": "cs.round",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "retro video game round-start chime, three rising electronic beeps, slightly detuned and cheap sounding"
     },
     {
@@ -265,7 +369,7 @@
     },
     {
       "name": "arcade.hurt",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "retro arcade damage sound, harsh descending buzz, 16-bit style"
     },
     {
@@ -300,12 +404,12 @@
     },
     {
       "name": "cig.stub",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "cigarette stubbed out in a glass ashtray, short gritty twist"
     },
     {
       "name": "whiskey.cap",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "metal screw cap being twisted off a glass whiskey bottle, short and dry"
     },
     {
@@ -335,7 +439,7 @@
     },
     {
       "name": "drunk.heartbeat",
-      "duration": 3.0,
+      "duration": 3,
       "prompt": "slow muffled heartbeat heard from inside the head, deep and dull"
     },
     {
@@ -345,7 +449,7 @@
     },
     {
       "name": "fart.1",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "single short dry fart, comedic, close mic, no voice"
     },
     {
@@ -370,8 +474,9 @@
     },
     {
       "name": "fart.6",
-      "duration": 2.0,
-      "prompt": "very long slowly deflating fart that tails off, comedic, close mic, no voice"
+      "duration": 2.4,
+      "promptInfluence": 0.55,
+      "prompt": "long low wet flatulence on a leather couch cushion, starts as a loud brassy blat then sputters and deflates into a slow tapering hiss, comedic, close mic, no voice, no music"
     },
     {
       "name": "fart.7",
@@ -390,13 +495,19 @@
       "prompt": "steady stream of liquid splashing into toilet water, seamless loop, no voice"
     },
     {
+      "name": "pee.miss",
+      "duration": 6,
+      "loop": true,
+      "prompt": "steady stream of liquid hitting a hard bathroom tile floor and splattering, thin flat splashing with no deep water resonance, seamless loop, no voice, no music"
+    },
+    {
       "name": "toilet.flush",
-      "duration": 4.0,
+      "duration": 4,
       "prompt": "domestic toilet flushing, cistern emptying and refilling"
     },
     {
       "name": "sink.tap",
-      "duration": 3.0,
+      "duration": 3,
       "prompt": "bathroom tap running into a ceramic basin, steady flow"
     },
     {
@@ -443,8 +554,8 @@
     },
     {
       "name": "neighbours.argue",
-      "duration": 3.0,
-      "prompt": "muffled argument between two people heard through an apartment wall, angry indistinct voices, words not intelligible"
+      "duration": 15,
+      "prompt": "long muffled argument between a man and a woman heard through an apartment wall, angry indistinct voices rising and falling, one of them talks over the other, a door slams near the end and it goes quiet, words not intelligible, no music"
     },
     {
       "name": "neighbours.thump",
@@ -453,7 +564,7 @@
     },
     {
       "name": "zyn.tin",
-      "duration": 1.0,
+      "duration": 1,
       "prompt": "small plastic tin lid being twisted and popped open, light click, close mic"
     },
     {
@@ -855,6 +966,436 @@
       "name": "vo.door.leave.2",
       "voice": "player",
       "say": "Okay. Wednesday. Here we go."
+    },
+    {
+      "name": "radio.vo.lou1.1",
+      "voice": "lou1",
+      "say": "…and that is why you never trust a man who owns two planes."
+    },
+    {
+      "name": "radio.vo.lou2.1",
+      "voice": "lou2",
+      "say": "I own two planes."
+    },
+    {
+      "name": "radio.vo.lou1.2",
+      "voice": "lou1",
+      "say": "I know. That is what I am telling you."
+    },
+    {
+      "name": "radio.vo.lou2.2",
+      "voice": "lou2",
+      "say": "Caller, you are on The Squatch. Go ahead. …Caller? They have gone."
+    },
+    {
+      "name": "radio.vo.lou1.3",
+      "voice": "lou1",
+      "say": "Four hours. Four hours of this. And we have not read one news item."
+    },
+    {
+      "name": "radio.vo.lou2.3",
+      "voice": "lou2",
+      "say": "Was that you? …It was the desk. The desk did that."
+    },
+    {
+      "name": "radio.vo.lou1.4",
+      "voice": "lou1",
+      "say": "Friendslop segment. Who is upset today. Start at the top."
+    },
+    {
+      "name": "radio.vo.lou2.4",
+      "voice": "lou2",
+      "say": "Somebody in the chat says we are \"just two guys called Lou\". Correct."
+    },
+    {
+      "name": "radio.vo.lou1.5",
+      "voice": "lou1",
+      "say": "The airport says we are not allowed back. We will fight it on air."
+    },
+    {
+      "name": "radio.vo.lou2.5",
+      "voice": "lou2",
+      "say": "Morning. If you are only just getting up, that is fine. Nobody is counting."
+    },
+    {
+      "name": "radio.vo.booski.1",
+      "voice": "booski",
+      "say": "Is Team Liquid an NA team? We have forty minutes on this."
+    },
+    {
+      "name": "radio.vo.ape.1",
+      "voice": "ape",
+      "say": "Should you bet the house on Spirit? Legally I have to say no."
+    },
+    {
+      "name": "radio.vo.booski.2",
+      "voice": "booski",
+      "say": "I have put my rent on a Silver lobby. Ask me how that is going."
+    },
+    {
+      "name": "radio.vo.ape.2",
+      "voice": "ape",
+      "say": "Do not ask him how that is going."
+    },
+    {
+      "name": "radio.vo.booski.3",
+      "voice": "booski",
+      "say": "Big news out of the major: nothing. Nothing has happened. Back after this."
+    },
+    {
+      "name": "radio.vo.ape.3",
+      "voice": "ape",
+      "say": "A listener writes in: \"how do I stop\". We do not have that information."
+    },
+    {
+      "name": "radio.vo.booski.4",
+      "voice": "booski",
+      "say": "The odds are the odds. The odds have never once been my friend."
+    },
+    {
+      "name": "radio.vo.ape.4",
+      "voice": "ape",
+      "say": "If you are hearing this at work, get back to work."
+    },
+    {
+      "name": "radio.vo.booski.5",
+      "voice": "booski",
+      "say": "Someone in the lobby had a 94% headshot rate. We contacted Valve. Nothing."
+    },
+    {
+      "name": "radio.vo.irish.1",
+      "voice": "irish",
+      "say": "Tonight: is Big Egg suppressing the pasture-raised truth?"
+    },
+    {
+      "name": "radio.vo.irish.2",
+      "voice": "irish",
+      "say": "We investigate. For way longer than necessary."
+    },
+    {
+      "name": "radio.vo.irish.3",
+      "voice": "irish",
+      "say": "I have a whiteboard. There is string on the whiteboard."
+    },
+    {
+      "name": "radio.vo.irish.4",
+      "voice": "irish",
+      "say": "The carton says \"certified humane\". Certified by whom? Answer me."
+    },
+    {
+      "name": "radio.vo.irish.5",
+      "voice": "irish",
+      "say": "I rang the number on the carton. A man answered. He was very nice. Suspicious."
+    },
+    {
+      "name": "radio.vo.irish.6",
+      "voice": "irish",
+      "say": "Part fourteen of this investigation. Yes, fourteen. We are close."
+    },
+    {
+      "name": "radio.vo.irish.7",
+      "voice": "irish",
+      "say": "They do not want you eating the good eggs. That is all I am saying. That is all."
+    },
+    {
+      "name": "radio.vo.irish.8",
+      "voice": "irish",
+      "say": "Coming up after the break: more of this."
+    },
+    {
+      "name": "radio.vo.eric.1",
+      "voice": "eric",
+      "say": "Headlines, cricket scores, technology, food. In that order. Usually."
+    },
+    {
+      "name": "radio.vo.gratin.1",
+      "voice": "gratin",
+      "say": "The scores first. Then, inevitably, butter chicken."
+    },
+    {
+      "name": "radio.vo.eric.2",
+      "voice": "eric",
+      "say": "We are not going to talk about butter chicken today."
+    },
+    {
+      "name": "radio.vo.gratin.2",
+      "voice": "gratin",
+      "say": "We are going to talk about butter chicken today."
+    },
+    {
+      "name": "radio.vo.eric.3",
+      "voice": "eric",
+      "say": "An enormous tech story out of Bengaluru, and we have four minutes."
+    },
+    {
+      "name": "radio.vo.gratin.3",
+      "voice": "gratin",
+      "say": "Make it two. I want to get to the butter chicken."
+    },
+    {
+      "name": "radio.vo.eric.4",
+      "voice": "eric",
+      "say": "A listener has sent in a recipe. Gratin has already left the studio."
+    },
+    {
+      "name": "radio.vo.gratin.4",
+      "voice": "gratin",
+      "say": "I am in the car park. I am fine. Read the recipe."
+    },
+    {
+      "name": "radio.vo.hogmama.1",
+      "voice": "hogmama",
+      "say": "Okay. Okay. Give me a location. …Nobody? Fine. A bus."
+    },
+    {
+      "name": "radio.vo.hogmama.2",
+      "voice": "hogmama",
+      "say": "We are on the bus. I am a dentist. Why am I a dentist."
+    },
+    {
+      "name": "radio.vo.hogmama.3",
+      "voice": "hogmama",
+      "say": "…Still on the bus."
+    },
+    {
+      "name": "radio.vo.hogmama.4",
+      "voice": "hogmama",
+      "say": "The engineer is shaking his head at me through the glass."
+    },
+    {
+      "name": "radio.vo.hogmama.5",
+      "voice": "hogmama",
+      "say": "New scene. Same bus. I am now the bus."
+    },
+    {
+      "name": "radio.vo.hogmama.6",
+      "voice": "hogmama",
+      "say": "If you are up at this hour, you are exactly my audience and I am sorry."
+    },
+    {
+      "name": "radio.vo.hogmama.7",
+      "voice": "hogmama",
+      "say": "Somebody has called in. Do not put them through. Put them through."
+    },
+    {
+      "name": "radio.vo.hogmama.8",
+      "voice": "hogmama",
+      "say": "That was on purpose."
+    },
+    {
+      "name": "radio.vo.announcer.1",
+      "voice": "announcer",
+      "say": "Tired of boring radio stations that care about \"facts\" and \"professionalism\"?"
+    },
+    {
+      "name": "radio.vo.announcer.2",
+      "voice": "announcer",
+      "say": "Then tune your dial to 97.8… THE SQUATCH!"
+    },
+    {
+      "name": "radio.vo.announcer.3",
+      "voice": "announcer",
+      "say": "Wake up every morning with Lou & Lou! Two Lous. Zero preparation. Four hours of farts, aviation, friendslop and more."
+    },
+    {
+      "name": "radio.vo.announcer.4",
+      "voice": "announcer",
+      "say": "At Noon, it’s Booski & Ape’s CS Gambling Show!"
+    },
+    {
+      "name": "radio.vo.announcer.5",
+      "voice": "announcer",
+      "say": "\"Is Team Liquid an NA team? Should you bet the house on Spirit? Nonstop updates and news from all around the CS world!\""
+    },
+    {
+      "name": "radio.vo.announcer.6",
+      "voice": "announcer",
+      "say": "At 3 PM, it’s Irish’s Deep Dives… bringing you Real News You Can Trust."
+    },
+    {
+      "name": "radio.vo.announcer.7",
+      "voice": "announcer",
+      "say": "\"Tonight: is Big Egg suppressing the pasture-raised truth? We investigate… for way longer than necessary.\""
+    },
+    {
+      "name": "radio.vo.announcer.8",
+      "voice": "announcer",
+      "say": "Then at 5 PM, don’t miss Eric & Gratin’s \"What’s Happening in India!\""
+    },
+    {
+      "name": "radio.vo.announcer.9",
+      "voice": "announcer",
+      "say": "Covering headlines, cricket scores, technology, food, and somehow always ending with a discussion about butter chicken."
+    },
+    {
+      "name": "radio.vo.announcer.10",
+      "voice": "announcer",
+      "say": "And when the sun goes down…"
+    },
+    {
+      "name": "radio.vo.announcer.11",
+      "voice": "announcer",
+      "say": "It’s Hog Mama’s Late Night Improv! No script. No plan. No one knows what’s happening — including Hog Mama."
+    },
+    {
+      "name": "radio.vo.announcer.12",
+      "voice": "announcer",
+      "say": "97.8 THE SQUATCH."
+    },
+    {
+      "name": "radio.vo.announcer.13",
+      "voice": "announcer",
+      "say": "The only station where every host thinks they’re the smartest person in the building… and somehow they are."
+    },
+    {
+      "name": "radio.vo.announcer.14",
+      "voice": "announcer",
+      "say": "Eat those pasture raised eggs folks!"
+    },
+    {
+      "name": "radio.vo.announcer.15",
+      "voice": "announcer",
+      "say": "97.8 THE SQUATCH. \"If it’s on the air… it probably shouldn’t be.\""
+    },
+    {
+      "name": "radio.vo.announcer.16",
+      "voice": "announcer",
+      "say": "97.8 The Squatch. Nobody is in the building."
+    },
+    {
+      "name": "radio.vo.announcer.17",
+      "voice": "announcer",
+      "say": "The following is a repeat. Everything is a repeat."
+    },
+    {
+      "name": "radio.vo.announcer.18",
+      "voice": "announcer",
+      "say": "If it’s on the air… it probably shouldn’t be."
+    },
+    {
+      "name": "radio.vo.announcer.19",
+      "voice": "announcer",
+      "say": "We’ll be back at six. Probably."
+    },
+    {
+      "name": "radio.vo.announcer.20",
+      "voice": "announcer",
+      "say": "Eat those pasture raised eggs folks."
+    },
+    {
+      "name": "radio.vo.uncle.1",
+      "voice": "uncle",
+      "say": "Welcome to Uncle Squatch Beats. 98.8."
+    },
+    {
+      "name": "radio.vo.uncle.2",
+      "voice": "uncle",
+      "say": "Nothing but beats. No talking. …That was talking."
+    },
+    {
+      "name": "radio.vo.uncle.3",
+      "voice": "uncle",
+      "say": "Coming up: more of these."
+    },
+    {
+      "name": "radio.vo.uncle.4",
+      "voice": "uncle",
+      "say": "This one goes out to whoever is still in the apartment."
+    },
+    {
+      "name": "radio.vo.uncle.5",
+      "voice": "uncle",
+      "say": "98.8. Uncle Squatch. Beats."
+    },
+    {
+      "name": "radio.vo.uncle.6",
+      "voice": "uncle",
+      "say": "We would play you a record, but there are no records."
+    },
+    {
+      "name": "radio.vo.uncle.7",
+      "voice": "uncle",
+      "say": "Drop some MP3s into assets/music/ and list them in manifest.json."
+    },
+    {
+      "name": "radio.vo.uncle.8",
+      "voice": "uncle",
+      "say": "Until then: this. This is the show now."
+    },
+    {
+      "name": "radio.vo.uncle.9",
+      "voice": "uncle",
+      "say": "98.8. Uncle Squatch. Silence, mostly."
+    },
+    {
+      "name": "radio.vo.ksqch.1",
+      "voice": "ksqch",
+      "say": "KSQCH 101.7. Every record on this station was made by somebody in this group."
+    },
+    {
+      "name": "radio.vo.ksqch.2",
+      "voice": "ksqch",
+      "say": "That is not a boast. It is closer to a disclosure."
+    },
+    {
+      "name": "radio.vo.ksqch.3",
+      "voice": "ksqch",
+      "say": "Requests are open. Requests have always been open. Nobody has ever rung."
+    },
+    {
+      "name": "radio.vo.ksqch.4",
+      "voice": "ksqch",
+      "say": "This one charted. Internally. Among us."
+    },
+    {
+      "name": "radio.vo.ksqch.5",
+      "voice": "ksqch",
+      "say": "Coming up: the same eleven minutes of music, again."
+    },
+    {
+      "name": "radio.vo.ksqch.6",
+      "voice": "ksqch",
+      "say": "KSQCH. If you know the words, you were probably there when it was written."
+    },
+    {
+      "name": "radio.vo.ksqch.7",
+      "voice": "ksqch",
+      "say": "\"10 Drunk Cigarettes\" — a public health message, technically."
+    },
+    {
+      "name": "radio.vo.ksqch.8",
+      "voice": "ksqch",
+      "say": "That was BooskiBro. He has heard it. He has opinions."
+    },
+    {
+      "name": "radio.vo.ksqch.9",
+      "voice": "ksqch",
+      "say": "Somebody mixed this in a basement on monitors that cost forty dollars."
+    },
+    {
+      "name": "radio.vo.ksqch.10",
+      "voice": "ksqch",
+      "say": "KSQCH 101.7. The roster, on the roster."
+    },
+    {
+      "name": "radio.vo.ksqch.11",
+      "voice": "ksqch",
+      "say": "KSQCH 101.7. The originals station."
+    },
+    {
+      "name": "radio.vo.ksqch.12",
+      "voice": "ksqch",
+      "say": "There are no originals in assets/music/ tagged for this station."
+    },
+    {
+      "name": "radio.vo.ksqch.13",
+      "voice": "ksqch",
+      "say": "Add some, tag them \"ksqch\" in manifest.json, and we will play them."
+    },
+    {
+      "name": "radio.vo.ksqch.14",
+      "voice": "ksqch",
+      "say": "Until then, this. Which is also, arguably, an original."
     }
   ]
 }

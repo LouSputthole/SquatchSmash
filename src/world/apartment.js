@@ -1144,7 +1144,7 @@ export async function buildApartment(ctx) {
     tickAcc += dt;
     if (tickAcc > 1) {
       tickAcc = 0;
-      audio.play('clock.tick', { position: new THREE.Vector3(-1.0, 1.95, 4.3), volume: 0.25 });
+      audio.play('clock.tick', { position: new THREE.Vector3(-1.0, 1.95, 4.3), volume: 0.6 });
     }
   });
 

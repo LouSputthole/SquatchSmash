@@ -96,6 +96,37 @@ try {
   fail(err.message);
 }
 
+/* ---- the radio's voice cues must match what is on air ---- */
+// Every line in stations.js is turned into a text-to-speech cue by a bit of
+// parsing -- strip the `SPEAKER:` label, strip stage directions, pick a voice.
+// Get that wrong and you do not find out until you hear a host solemnly read
+// the words "long silence" on air, so it is checked here instead.
+try {
+  const { voiceCues, voiceOf, STATIONS } = await import('../src/core/stations.js');
+  const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+  const cues = voiceCues();
+  const declared = new Set(sfxManifest.sfx.filter((c) => c.name.startsWith('radio.vo.')).map((c) => c.name));
+
+  for (const c of cues) {
+    if (!declared.has(c.name)) fail(`radio cue ${c.name} is not in assets/sfx/manifest.json — run npm run radio:cues`);
+    if (!sfxManifest.voices?.[c.voice]) fail(`radio cue ${c.name} wants voice "${c.voice}", which has no entry`);
+    if (/^[A-Z][A-Z '’]*:/.test(c.say)) fail(`radio cue ${c.name} still has a speaker label: "${c.say}"`);
+    if (c.say.includes('(')) fail(`radio cue ${c.name} still has a stage direction: "${c.say}"`);
+    if (!/[a-z0-9]/i.test(c.say)) fail(`radio cue ${c.name} has nothing to say`);
+  }
+  if (declared.size !== cues.length) {
+    fail(`manifest has ${declared.size} radio cues, stations.js has ${cues.length} — run npm run radio:cues`);
+  }
+  // Two Lous only works if they are two different voices.
+  const lous = new Set(
+    (STATIONS.find((s) => s.id === 'squatch')?.shows?.[0]?.lines ?? [])
+      .map((l) => voiceOf(l)?.voice).filter(Boolean),
+  );
+  if (lous.size < 2) fail('Lou & Lou resolved to a single voice — the alternation broke');
+} catch (err) {
+  fail(err.message);
+}
+
 /* ---- three.js must actually be vendored ---- */
 const three = path.join(ROOT, 'vendor/three.module.min.js');
 if (!fs.existsSync(three) || fs.statSync(three).size < 100_000) {

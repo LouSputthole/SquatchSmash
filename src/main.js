@@ -1073,6 +1073,10 @@ function startPee() {
   stream.resetStats();
   audio.play('pee.zip', { volume: 0.7 });
   audio.startLoop('pee.stream', { volume: 0.0, fade: 0.25 });
+  audio.startLoop('pee.miss', { volume: 0.0, fade: 0.25 });
+  game.peeHitSnapshot = 0;
+  game.peeMissSnapshot = 0;
+  game.peeAccuracy = 1;
   hud.say('You are free to look around. <em>[E] or [Q] to stop.</em>', 4200);
 }
 
@@ -1080,6 +1084,7 @@ function stopPee() {
   if (!game.peeing) return;
   game.peeing = false;
   audio.stopLoop('pee.stream', 0.25);
+  audio.stopLoop('pee.miss', 0.25);
   audio.play('pee.zip', { volume: 0.6 });
 
   const s = stream.stats;
@@ -1113,7 +1118,22 @@ function updatePee(dt) {
   // Ramp in, hold, then taper as the tank empties.
   const ramp = Math.min(1, game.peeTime / 0.45);
   const power = ramp * Math.min(1, 0.25 + st.bladder * 2.2);
-  audio.setLoopVolume('pee.stream', 0.10 + power * 0.22, 0.15);
+
+  // Where it is landing decides what you hear: bowl water, or tile. Measured
+  // over the drops that died this frame, then smoothed -- reading the running
+  // total instead would mean an early miss haunts the whole session.
+  const s = stream.stats;
+  const hit = s.onTarget - game.peeHitSnapshot;
+  const miss = (s.onFloor + s.onWall) - game.peeMissSnapshot;
+  game.peeHitSnapshot = s.onTarget;
+  game.peeMissSnapshot = s.onFloor + s.onWall;
+  if (hit + miss > 0) {
+    const acc = hit / (hit + miss);
+    game.peeAccuracy += (acc - game.peeAccuracy) * Math.min(1, dt * 8);
+  }
+  const level = 0.10 + power * 0.22;
+  audio.setLoopVolume('pee.stream', level * game.peeAccuracy, 0.15);
+  audio.setLoopVolume('pee.miss', level * (1 - game.peeAccuracy) * 1.15, 0.15);
 
   // The stream leaves from hip height but has to go where you are *looking*,
   // so aim at a point on the camera ray rather than copying the camera's

@@ -943,6 +943,12 @@ function synthLoop(engine, name, dest) {
       noise('bandpass', 900, 1.4, 0.20);
       noise('lowpass', 260, 0.7, 0.14);
       break;
+    case 'pee.miss':
+      // Same stream, hard floor: keep the bright splatter, drop the burble.
+      // Tile has no volume of water to resonate in, which is the whole tell.
+      noise('bandpass', 3400, 0.9, 0.36);
+      noise('highpass', 1800, 1.1, 0.18);
+      break;
     default:
       noise('lowpass', 400, 0.5, 0.12);
   }

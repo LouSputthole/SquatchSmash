@@ -18,7 +18,7 @@
  * filter, so it genuinely comes from across the room.
  */
 import * as THREE from 'three';
-import { STATIONS, showAt } from './stations.js';
+import { STATIONS, showAt, voiceOf } from './stations.js';
 import { loadJson, assetUrl } from './assets.js';
 
 const MUSIC_DIR = 'assets/music/';
@@ -47,6 +47,9 @@ export class Radio {
     this._queue = [];
     this._line = null;
     this._segT = 0;
+    /** How long the line on air runs -- the clip's own length once it has one. */
+    this._dwell = SEGMENT_TIME;
+    this._voice = null;
     this._sinceAd = 0;
     this._show = null;
   }
@@ -182,6 +185,8 @@ export class Radio {
   _stopBeds() {
     this.audio.stopLoop('radio.static', 0.25);
     this.audio.stopLoop('radio.talk', 0.3);
+    try { this._voice?.stop(); } catch { /* already finished */ }
+    this._voice = null;
     if (this.el) this._fadeTo(0, 0.2);
   }
 
@@ -197,7 +202,7 @@ export class Radio {
       if (this.el) this.el.pause();
       // A murmuring voice bed under the words, so the room is not silent.
       this.audio.startLoop('radio.talk', {
-        volume: 0.085, position: this.position, ref: 1.4, maxDist: 12,
+        volume: 0.04, position: this.position, ref: 1.4, maxDist: 12,
       });
       this._show = null;
       this._pump();
@@ -227,7 +232,7 @@ export class Radio {
   next(auto = false) {
     const st = this.station;
     if (st.kind === 'talk') {
-      this._segT = SEGMENT_TIME;   // force the next line on the following frame
+      this._segT = this._dwell;    // force the next line on the following frame
       return;
     }
     const list = this.playlist;
@@ -281,6 +286,18 @@ export class Radio {
     this._line = s.line;
     this._segT = 0;
     if (s.cue) this.audio.play(s.cue, { position: this.position, volume: 0.5 });
+
+    // The hosts are recorded now, so hold a line on air for exactly as long as
+    // it takes to say. Anything without a clip -- the dynamically composed
+    // "next on" links -- falls back to reading time.
+    // Whoever was talking stops when the next segment starts, or skipping with
+    // [R] leaves two hosts talking over each other.
+    try { this._voice?.stop(); } catch { /* already finished */ }
+    const v = voiceOf(s.line);
+    this._voice = v ? this.audio.play(v.cue, { position: this.position, volume: 0.68 }) : null;
+    this._dwell = this._voice?.buffer
+      ? this._voice.buffer.duration + SEGMENT_GAP
+      : (s.line && s.line.length > 90 ? SEGMENT_TIME + 2.5 : SEGMENT_TIME);
     this._showOsd();
   }
 
@@ -299,7 +316,7 @@ export class Radio {
   update(dt) {
     if (!this.on) return;
     this._segT += dt;
-    const dwell = this._line && this._line.length > 90 ? SEGMENT_TIME + 2.5 : SEGMENT_TIME;
+    const dwell = this._dwell ?? SEGMENT_TIME;
     if (this._segT >= dwell) {
       // A beat of nothing between segments, so it does not read as a wall.
       if (this._line !== null) {
@@ -342,7 +359,7 @@ export class Radio {
       on ? 1400 : 6200,
       this.audio.ctx.currentTime + 0.4,
     );
-    this.audio.setLoopVolume('radio.talk', on ? 0.035 : 0.085, 0.4);
+    this.audio.setLoopVolume('radio.talk', on ? 0.018 : 0.04, 0.4);
   }
 }
 

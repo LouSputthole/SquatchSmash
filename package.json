@@ -14,6 +14,7 @@
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",
-    "sfx:listen": "node tools/sfx-index.mjs"
+    "sfx:listen": "node tools/sfx-index.mjs",
+    "radio:cues": "node tools/radio-cues.mjs"
   }
 }
