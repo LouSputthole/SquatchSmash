@@ -646,3 +646,64 @@ kbd.key, .controls kbd {
     brightness(var(--trip-bright, 1))
     url(#chroma);
 }
+
+/* ------------------------------------------------------------------ */
+/* Timing bar                                                          */
+/* ------------------------------------------------------------------ */
+
+#timing {
+  position: fixed;
+  left: 50%;
+  bottom: 6.6rem;
+  transform: translateX(-50%);
+  width: min(26rem, 62vw);
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+  z-index: 13;
+}
+#timing.hidden { opacity: 0; }
+#timing .track {
+  position: relative;
+  height: 0.86rem;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  overflow: hidden;
+}
+/* The target. Off to one side on purpose -- a centred window is hit by
+   mashing, which is not a mini-game, it is a formality. */
+#timing .win {
+  position: absolute;
+  top: 0; bottom: 0;
+  left: calc(var(--win-from, .72) * 100%);
+  width: calc((var(--win-to, .86) - var(--win-from, .72)) * 100%);
+  background: rgba(95, 176, 106, 0.42);
+  border-left: 1px solid rgba(140, 220, 150, 0.7);
+  border-right: 1px solid rgba(140, 220, 150, 0.7);
+}
+#timing .mark {
+  position: absolute;
+  top: -2px; bottom: -2px;
+  left: calc(var(--mark, 0) * 100%);
+  width: 3px;
+  margin-left: -1.5px;
+  background: #e8ecf4;
+  box-shadow: 0 0 6px rgba(232, 236, 244, 0.8);
+}
+#timing.hit .track { border-color: rgba(140, 220, 150, 0.95); }
+#timing.miss .track { border-color: rgba(224, 112, 90, 0.95); }
+
+/* One pip per hit still needed. */
+#timing .pips {
+  display: flex;
+  justify-content: center;
+  gap: 0.3rem;
+  margin-top: 0.42rem;
+}
+#timing .pips i {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+}
+#timing .pips i.on { background: #7fd08a; }

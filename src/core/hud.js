@@ -130,6 +130,29 @@ export class Hud {
   }
 
   /**
+   * The sweeping timing bar.
+   * @param {?object} v from TimingBar.view -- null hides it.
+   */
+  setTiming(v) {
+    this.timing ??= document.getElementById('timing');
+    if (!this.timing) return;
+    if (!v) { this.timing.classList.add('hidden'); return; }
+    const el = this.timing;
+    el.classList.remove('hidden');
+    el.classList.toggle('hit', v.flash === 'hit');
+    el.classList.toggle('miss', v.flash === 'miss');
+    el.style.setProperty('--mark', v.pos.toFixed(4));
+    el.style.setProperty('--win-from', v.from);
+    el.style.setProperty('--win-to', v.to);
+    // Pips only get rebuilt when the count moves, not every frame.
+    if (this._pipSig !== `${v.hits}/${v.total}`) {
+      this._pipSig = `${v.hits}/${v.total}`;
+      el.querySelector('.pips').innerHTML =
+        Array.from({ length: v.total }, (_, i) => `<i class="${i < v.hits ? 'on' : ''}"></i>`).join('');
+    }
+  }
+
+  /**
    * The push queue: keys to hit while you are sat down working on it.
    * @param {?Array<{key: string, state: string}>} keys null hides the row.
    */
