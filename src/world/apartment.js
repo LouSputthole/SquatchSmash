@@ -112,7 +112,7 @@ const FRIDGE_PHOTOS = [
   { slot: 'fridge.photo.a', y: 1.55, z: -0.19, w: 0.21, tilt: -0.07 },
   { slot: 'fridge.photo.b', y: 0.48, z: -0.42, w: 0.19, tilt: 0.09 },
   // Stuck on rather than magneted: no frame, no paper border, alpha cut out.
-  { slot: 'sticker.fridge', y: 1.05, z: -0.30, w: 0.24, tilt: -0.13, sticker: true },
+  { slot: 'sticker.fridge', y: 0.92, z: -0.06, w: 0.22, tilt: -0.13, sticker: true },
 ];
 
 /** Textures used on props rather than hung on a wall. */

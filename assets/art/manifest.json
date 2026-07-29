@@ -264,6 +264,18 @@
       "file": "cereal-lobbys.jpg",
       "title": "Oops! All Lobbys Berries",
       "caption": "Sweetened balanced cereal. On top of the fridge, where cereal goes."
+    },
+    {
+      "slot": "sticker.tower",
+      "file": "logo-crest.png",
+      "title": "Silver Sasquatches",
+      "caption": "Stuck on the glass since the build."
+    },
+    {
+      "slot": "sticker.fridge",
+      "file": "sticker-pinup.png",
+      "title": "On the door",
+      "caption": "Nobody remembers putting it there."
     }
   ]
 }
