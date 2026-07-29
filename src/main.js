@@ -156,11 +156,16 @@ const returningFromBing = returningToApartment
   && campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
 const returningFromSquatchfather = returningToApartment
   && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
+const wakingOnDayTwo = !returningToApartment && campaignAtLoad.story.day >= 2;
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
   campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
 }
 time.day = campaign.state.story.day;
 time.minutes = campaign.state.story.timeMinutes;
+if (wakingOnDayTwo) {
+  overlay.querySelector('.tag').textContent =
+    'Day Two, 7:00 AM. Booski has the next job. The phone is on the nightstand.';
+}
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
 // Nothing happens in here. Somebody should say so.
@@ -256,8 +261,8 @@ const apartmentStory = createApartmentStory({
   ring: (definition) => {
     const rang = phone.ring(definition);
     if (rang) {
-      hud.toast('Incoming call · Lou');
-      hud.say('<em>The phone is ringing.</em> Lou. It is on the nightstand.', 5200);
+      hud.toast(`Incoming call · ${definition.from}`);
+      hud.say(`<em>The phone is ringing.</em> ${definition.from}. It is on the nightstand.`, 5200);
     }
     return rang;
   },
@@ -966,8 +971,11 @@ function sleepInBed() {
   game.inBed = false;
   hud.hidePrompt();
   audio.say('sleep');
-  hud.say('You close your eyes. It is not like you had plans.', 2600);
-  passOut({ voluntary: true });
+  const storySleep = apartmentStory.sleep();
+  hud.say(storySleep.ok
+    ? 'Day One is done. You close your eyes.'
+    : 'You close your eyes. It is not like you had plans.', 2600);
+  passOut({ voluntary: true, storySleep });
 }
 
 /* ------------------------------------------------------------------ */
@@ -2358,7 +2366,7 @@ function pick(list) {
  * Lights out. Either the drink takes you (`voluntary` false, which is the
  * usual way it happens) or you decide to lie down and let the day go.
  */
-function passOut({ voluntary = false } = {}) {
+function passOut({ voluntary = false, storySleep = null } = {}) {
   if (game.passingOut) return;
   game.passingOut = true;
 
@@ -2411,7 +2419,11 @@ function passOut({ voluntary = false } = {}) {
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
     drunk.sleepItOff();
     highs.sleepItOff();
-    if (voluntary) {
+    if (storySleep?.ok) {
+      time.day = storySleep.day;
+      time.minutes = storySleep.timeMinutes;
+      time.skipHours(0);
+    } else if (voluntary) {
       /* Sleeping on purpose lands on whichever comes first: the next morning,
        * or half five on the day of the meeting.
        *
@@ -2435,8 +2447,10 @@ function passOut({ voluntary = false } = {}) {
     blackout.querySelector('span').textContent = '';
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
-    hud.say(voluntary
-      ? (time.day === MEETING.day && time.hour >= 17
+    hud.say(storySleep?.ok
+      ? `<em>Day Two. ${time.clock12}.</em> Booski said he would call.`
+      : voluntary
+        ? (time.day === MEETING.day && time.hour >= 17
         ? `<em>${time.clock12}.</em> Slept most of it away. <em>That is tonight, that is.</em>`
         : `<em>${time.clock12}.</em> Out like a light. Nothing has changed.`)
       : `<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`, 6000);

@@ -32,8 +32,10 @@ scene/spawn, Bada Bing completion, and Lou’s concealed package survive the pag
 transition. Finishing the club returns to the apartment with the package; the
 door then routes to Squatchfather, where beginning the meeting stages that
 package as the bathroom weapon. Finishing the restaurant records the dropped
-weapon and returns to the apartment again. Later story scenes are not connected
-to this campaign state yet.
+weapon and returns to the apartment again. Sleeping creates a persistent Day
+Two checkpoint at 7:00 AM; Booski then calls once and unlocks the airstrip job
+with Captain Lou Sasole kept distinct from Lou. The airstrip scene itself and
+later story scenes are not connected yet.
 
 See [`game/README.md`](./game/README.md) for the campground game's controls and
 scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
@@ -324,6 +326,7 @@ npm run check        # static: parses every source file, validates the manifests
 npm test             # campaign, apartment-story, and physical-phone contracts
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
 npm run verify:day-one # runtime: Lou's call, chore gate, apartment -> Bing
+npm run verify:day-two # runtime: sleep, reload, Booski call, non-replay
 npm run verify:bing  # runtime: plays the club and returns home, headless
 npm run verify:squatchfather # runtime: stages the package, plays, returns home
 npm run bundle       # bake the whole thing into one self-contained HTML file
@@ -353,6 +356,11 @@ call, mission, and activity state.
 restaurant through the apartment door, stages Lou’s package as the bathroom
 weapon, drives the real retrieval/train/shooting/drop sequence, and confirms the
 completed mission returns home without restoring the discarded weapon.
+
+`verify:day-two` starts after that return, sleeps through the live apartment
+blackout, verifies the checkpoint survives a reload, answers Booski through the
+physical phone, and reloads again to prove neither completed call replays.
+Captain Lou Sasole is asserted as a separate character ID at the airstrip gate.
 
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around

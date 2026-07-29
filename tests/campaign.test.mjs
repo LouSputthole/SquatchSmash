@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   CHARACTER_IDS,
+  EVENT_IDS,
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
@@ -31,6 +32,8 @@ test('a new campaign starts in the apartment with both Lous kept distinct', () =
   assert.equal(CHARACTER_IDS.LOU, 'lou');
   assert.equal(CHARACTER_IDS.CAPTAIN_LOU_SASOLE, 'captain_lou_sasole');
   assert.notEqual(CHARACTER_IDS.LOU, CHARACTER_IDS.CAPTAIN_LOU_SASOLE);
+  assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'pending');
+  assert.equal(campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
 });
 
 test('Lou’s parcel persists as concealed inventory across a reload', () => {
@@ -159,4 +162,49 @@ test('apartment readiness and learned story context survive a reload', () => {
   });
   assert.equal(restored.story.meetingKnown, true);
   assert.equal(restored.story.meetingLearnedFrom, 'lou_call');
+});
+
+test('older Day One saves gain the Day Two event and airstrip mission without losing progress', () => {
+  const storage = new MemoryStorage();
+  storage.setItem('squatchlife.campaign', JSON.stringify({
+    version: 1,
+    revision: 4,
+    scene: { id: SCENE_IDS.APARTMENT, spawn: 'front_door' },
+    story: {
+      chapter: 'day_one',
+      day: 1,
+      timeMinutes: 22 * 60,
+      meetingKnown: true,
+      meetingLearnedFrom: 'lou_call',
+    },
+    activities: {
+      eaten: true,
+      showered: true,
+      pooped: true,
+      changedClothes: true,
+      emailChecked: false,
+    },
+    inventory: { carried: [], concealed: [] },
+    missions: {
+      [MISSION_IDS.BADA_BING_ONE]: {
+        status: 'complete',
+        packageReceived: true,
+        ending: 'front',
+      },
+      [MISSION_IDS.SQUATCHFATHER]: {
+        status: 'complete',
+        weaponStaged: true,
+        weaponDropped: true,
+      },
+    },
+    events: {
+      [EVENT_IDS.LOU_FIRST_CALL]: { status: 'answered' },
+    },
+  }));
+
+  const restored = createCampaign({ storage }).state;
+  assert.equal(restored.missions[MISSION_IDS.SQUATCHFATHER].status, 'complete');
+  assert.equal(restored.activities.eaten, true);
+  assert.equal(restored.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'pending');
+  assert.equal(restored.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
 });

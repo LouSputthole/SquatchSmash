@@ -44,6 +44,20 @@ export const DAY_ONE_LOU_CALL = Object.freeze({
   ]),
 });
 
+export const DAY_TWO_BOOSKI_CALL = Object.freeze({
+  eventId: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
+  characterId: CHARACTER_IDS.BOOSKI,
+  targetCharacterId: CHARACTER_IDS.CAPTAIN_LOU_SASOLE,
+  from: 'Booski',
+  vo: 'call.booski.airstrip',
+  lines: Object.freeze([
+    'You awake? Good.',
+    'Meet Lou2 at the airstrip. Captain Lou Sasole. Not Lou from the Bing.',
+    'He has a beef jerky run and needs another set of hands.',
+    'Get moving. He hates waiting more than the other Lou does.',
+  ]),
+});
+
 class ApartmentStory {
   constructor({ campaign, ring }) {
     this.campaign = campaign;
@@ -58,23 +72,78 @@ class ApartmentStory {
   }
 
   update(dt) {
-    if (!this.started || this.#callAnswered()) return;
+    const pendingCall = this.#pendingCall();
+    if (!this.started || !pendingCall) return;
     this.elapsed += Math.max(0, dt);
     if (this.elapsed < this.nextRingAt) return;
-    const rang = this.ring?.(DAY_ONE_LOU_CALL) === true;
+    const rang = this.ring?.(pendingCall) === true;
     this.nextRingAt = this.elapsed + (rang ? RETRY_DELAY : 1);
   }
 
   callAnswered(definition) {
-    if (definition?.eventId !== EVENT_IDS.LOU_FIRST_CALL || this.#callAnswered()) return false;
-    this.campaign.update((state) => {
-      state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
-      state.missions[MISSION_IDS.BADA_BING_ONE].status = 'available';
+    if (definition?.eventId === EVENT_IDS.LOU_FIRST_CALL && !this.#callAnswered()) {
+      this.campaign.update((state) => {
+        state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+        state.missions[MISSION_IDS.BADA_BING_ONE].status = 'available';
+      });
+      return true;
+    }
+    if (definition?.eventId === EVENT_IDS.BOOSKI_DAY_TWO_CALL
+      && !this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
+      this.campaign.update((state) => {
+        state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+        state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'available';
+      });
+      return true;
+    }
+    return false;
+  }
+
+  sleep() {
+    const state = this.campaign.state;
+    if (state.story.day >= 2) return { ok: false, reason: 'already_day_two' };
+    if (state.missions[MISSION_IDS.SQUATCHFATHER].status !== 'complete') {
+      return { ok: false, reason: 'day_one_incomplete' };
+    }
+
+    const timeMinutes = 7 * 60;
+    this.campaign.update((next) => {
+      next.story.chapter = 'day_two';
+      next.story.day = 2;
+      next.story.timeMinutes = timeMinutes;
+      next.scene = { id: SCENE_IDS.APARTMENT, spawn: 'wake' };
     });
-    return true;
+    this.started = false;
+    this.elapsed = 0;
+    this.nextRingAt = FIRST_RING_DELAY;
+    return { ok: true, day: 2, timeMinutes };
   }
 
   tryLeave(activities = {}) {
+    const state = this.campaign.state;
+    if (state.story.day >= 2
+      && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete') {
+      if (!this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
+          line: 'Booski said he would call with the next job.',
+        };
+      }
+      if (state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status !== 'complete') {
+        return {
+          kind: 'mission',
+          id: MISSION_IDS.AIRSTRIP_SMUGGLING,
+          characterId: CHARACTER_IDS.CAPTAIN_LOU_SASOLE,
+          line: 'Captain Lou Sasole is waiting at the airstrip. The travel route is not connected yet.',
+        };
+      }
+      return {
+        kind: 'stay',
+        id: 'airstrip_complete',
+        line: 'The airstrip job is done.',
+      };
+    }
     if (!this.#callAnswered()) {
       return {
         kind: 'call',
@@ -119,7 +188,22 @@ class ApartmentStory {
   }
 
   #callAnswered() {
-    return this.campaign.state.events[EVENT_IDS.LOU_FIRST_CALL].status === 'answered';
+    return this.#eventAnswered(EVENT_IDS.LOU_FIRST_CALL);
+  }
+
+  #eventAnswered(eventId) {
+    return this.campaign.state.events[eventId].status === 'answered';
+  }
+
+  #pendingCall() {
+    const state = this.campaign.state;
+    if (state.story.day >= 2
+      && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'
+      && !this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
+      return DAY_TWO_BOOSKI_CALL;
+    }
+    if (state.story.day === 1 && !this.#callAnswered()) return DAY_ONE_LOU_CALL;
+    return null;
   }
 }
 

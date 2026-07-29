@@ -13,6 +13,7 @@
     "check": "node tools/check.mjs",
     "verify:art": "node tools/verify-art.mjs",
     "verify:day-one": "node tools/verify-day-one.mjs",
+    "verify:day-two": "node tools/verify-day-two.mjs",
     "verify:bing": "node tools/verify-bing.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",
     "bundle": "node tools/bundle-preview.mjs",

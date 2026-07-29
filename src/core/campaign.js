@@ -22,10 +22,12 @@ export const ITEM_IDS = Object.freeze({
 export const MISSION_IDS = Object.freeze({
   BADA_BING_ONE: 'bada_bing_one',
   SQUATCHFATHER: 'squatchfather',
+  AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
 });
 
 export const EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'lou_first_call',
+  BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
 });
 
 export const CAMPAIGN_VERSION = 1;
@@ -83,9 +85,15 @@ function initialState() {
         weaponStaged: false,
         weaponDropped: false,
       },
+      [MISSION_IDS.AIRSTRIP_SMUGGLING]: {
+        status: 'locked',
+      },
     },
     events: {
       [EVENT_IDS.LOU_FIRST_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
         status: 'pending',
       },
     },
@@ -115,7 +123,13 @@ function normalize(saved) {
     .includes(squatchfather.status)
     ? squatchfather.status
     : (status === 'complete' ? 'available' : base.missions.squatchfather.status);
+  const airstrip = saved.missions?.[MISSION_IDS.AIRSTRIP_SMUGGLING] ?? {};
+  const airstripStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(airstrip.status)
+    ? airstrip.status
+    : base.missions.airstrip_smuggling.status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
+  const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
 
   const state = {
     version: CAMPAIGN_VERSION,
@@ -155,6 +169,9 @@ function normalize(saved) {
         weaponStaged: squatchfather.weaponStaged === true,
         weaponDropped: squatchfather.weaponDropped === true,
       },
+      [MISSION_IDS.AIRSTRIP_SMUGGLING]: {
+        status: airstripStatus,
+      },
     },
     events: {
       [EVENT_IDS.LOU_FIRST_CALL]: {
@@ -162,6 +179,12 @@ function normalize(saved) {
         // or completed this mission. Treat that progress as proof the call
         // happened instead of replaying Lou and downgrading the mission.
         status: louCall.status === 'answered' || status !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
+        // Once the airstrip mission has been exposed, Booski's call must not
+        // replay even if this save predates the explicit event record.
+        status: booskiCall.status === 'answered' || airstripStatus !== 'locked'
           ? 'answered' : 'pending',
       },
     },
