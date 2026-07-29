@@ -223,7 +223,29 @@ export class AudioEngine {
     // One voice at a time. He is not a chorus.
     this._vo?.stop?.();
     this._vo = this.play(pick, { volume, delay });
+    /* Note how long he will be talking for, so anything that can afford to
+     * wait -- a fart, mostly -- can hold off rather than land on the line. */
+    const secs = this._vo?.buffer ? this._vo.buffer.duration : 1.6;
+    this._busyUntil = Math.max(this._busyUntil || 0, this.ctx.currentTime + delay + secs + 0.25);
     return true;
+  }
+
+  /**
+   * True while the character is mid-sentence, or a cue that asked to hold the
+   * floor is still sounding.
+   *
+   * Used by the things that are funny on their own and merely noise on top of
+   * something else. A fart under a voice line is not a joke twice, it is one
+   * joke ruined, so those wait and fire when the room is quiet again.
+   */
+  busy() {
+    return this.ready && this.ctx.currentTime < (this._busyUntil || 0);
+  }
+
+  /** Claim the floor for `secs`, so held-back cues wait that long. */
+  hold(secs) {
+    if (!this.ready) return;
+    this._busyUntil = Math.max(this._busyUntil || 0, this.ctx.currentTime + secs);
   }
 
   /** Footsteps get their own entry point so cadence + surface stay in one place. */

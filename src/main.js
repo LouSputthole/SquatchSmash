@@ -23,6 +23,7 @@ import { Chat } from './core/chat.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
+import { ShowerSystem } from './world/shower.js';
 import { makeHeldCigarette } from './world/props.js';
 import { roomEnvironment } from './world/textures.js';
 
@@ -136,6 +137,8 @@ const goals = new Goals(time);
 const chat = new Chat(time);
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
+// Water out of the rose, for the nine seconds it is running.
+const showerFx = new ShowerSystem(scene);
 
 // The lit cigarette rides on the camera, low and to the right.
 const heldCig = makeHeldCigarette();
@@ -182,6 +185,7 @@ const game = {
   left: false,          // out of the door; the game is over
   nextFartAt: 40 + Math.random() * 60,
   fartClock: 0,
+  fartQueued: false,    // deliberate one waiting for him to stop talking
 };
 
 /** Seven of them, picked at random, never the same one twice running. */
@@ -274,7 +278,7 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
-    drunk, highs, smoke, stream, cig, time, passOut, fart, startPee, stopPee,
+    drunk, highs, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
@@ -902,10 +906,32 @@ function updateNeighbours(dt) {
 /* Farting                                                             */
 /* ------------------------------------------------------------------ */
 
-/** Pick a cue, never the same one twice in a row. */
+/**
+ * Pick a cue, never the same one twice in a row.
+ *
+ * A fart is funny in a quiet room and merely noise on top of a voice line, so
+ * if the floor is busy this defers rather than fires. Deliberate ones are
+ * queued and land the moment he stops talking -- pressing the button and
+ * getting nothing would read as broken. Involuntary ones are simply dropped;
+ * the timer will come round again.
+ */
 function fart({ voluntary = true } = {}) {
   if (voluntary) narrator.note('fart');
   if (!game.started || game.paused || game.passingOut) return;
+
+  if (audio.busy()) {
+    if (voluntary && !game.fartQueued) {
+      game.fartQueued = true;
+      setTimeout(function retry() {
+        if (!game.fartQueued) return;
+        if (audio.busy()) { setTimeout(retry, 220); return; }
+        game.fartQueued = false;
+        fart({ voluntary: true });
+      }, 220);
+    }
+    return;
+  }
+  game.fartQueued = false;
   let i = (Math.random() * FART_CUES.length) | 0;
   if (i === _lastFart) i = (i + 1 + ((Math.random() * (FART_CUES.length - 1)) | 0)) % FART_CUES.length;
   _lastFart = i;
@@ -916,6 +942,7 @@ function fart({ voluntary = true } = {}) {
     volume: (game.seated ? 0.55 : 0.8) * gassy,
     rate: 0.86 + Math.random() * 0.3,
   });
+  audio.hold(1.1);
   audio.say('fart', { chance: voluntary ? 0.25 : 0.45, delay: 1.0 });
 
   // Reset the involuntary timer either way, so a deliberate one buys you time.
@@ -1047,6 +1074,7 @@ function takeShower() {
     audio.startLoop('shower.run', {
       volume: 0.34, position: apartment.showerHead, ref: 1.2, maxDist: 8,
     });
+    showerFx.start(apartment.showerHead);
     audio.say('shower', { chance: 0.9, delay: 1.4 });
     hud.say('Cold. Cold. Cold — <em>there we go.</em>', 4600);
   });
@@ -1055,6 +1083,7 @@ function takeShower() {
 function updateShower(dt) {
   if (game.showering === null) return;
   game.showering += dt;
+  showerFx.update(dt);
 
   // Steam, rising off the head rather than out of your face.
   if (game.showering > 1.2 && Math.random() < dt * 9) {
@@ -1064,6 +1093,7 @@ function updateShower(dt) {
   if (game.showering >= SHOWER_TIME) {
     game.showering = null;
     audio.stopLoop('shower.run', 0.6);
+    showerFx.stop();
     apartment.state.showered = true;
     hud.setMode('walk');
     hud.toast('Clean', 'good');

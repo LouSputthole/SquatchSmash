@@ -1124,14 +1124,44 @@ export function makePlant(M, { x, z, scale = 1 }) {
   g.scale.setScalar(scale);
   g.add(cylinder({ rTop: 0.17, rBottom: 0.13, h: 0.26, pos: [0, 0.13, 0], mat: M.terracotta }));
   g.add(cylinder({ r: 0.155, h: 0.02, pos: [0, 0.26, 0], mat: M.soil }));
-  g.add(cylinder({ r: 0.02, h: 0.5, pos: [0, 0.5, 0], mat: mat({ color: 0x4a3a24, roughness: 1 }) }));
+
+  /* Stem from the soil to the top of the foliage. It used to stop at 0.75
+   * while leaves sat as high as 0.97, so the top ones hung in the air over
+   * nothing. */
+  const SOIL = 0.27;
+  const TOP = 0.94;
+  const stemMat = mat({ color: 0x4a3a24, roughness: 1 });
+  g.add(cylinder({ r: 0.018, h: TOP - SOIL, pos: [0, (SOIL + TOP) / 2, 0], mat: stemMat }));
+
+  /* Each leaf gets a stalk running from a point on the stem out to the blade.
+   * Without one the blades float in a ring 14cm clear of a 2cm stem, which is
+   * what "not attached" looks like. The stalk is oriented by rotating +Y onto
+   * the stem-to-leaf direction, so it always lands on both ends whatever the
+   * angle. */
+  const UP = new THREE.Vector3(0, 1, 0);
+  const _dir = new THREE.Vector3();
   for (let i = 0; i < 11; i++) {
     const a = (i / 11) * Math.PI * 2 + i * 0.7;
-    const h = 0.55 + (i % 4) * 0.14;
+    // Higher leaves reach further out, the way a potted plant actually opens.
+    const baseY = SOIL + 0.12 + (i % 4) * 0.15;
+    const reach = 0.13 + (i % 3) * 0.035;
+    const rise = 0.07 + (i % 2) * 0.05;
+    const lx = Math.sin(a) * reach;
+    const lz = Math.cos(a) * reach;
+    const ly = Math.min(TOP + 0.06, baseY + rise);
+
+    _dir.set(lx, ly - baseY, lz);
+    const len = _dir.length();
+    const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.009, len, 6), stemMat);
+    stalk.position.set(lx / 2, (baseY + ly) / 2, lz / 2);
+    stalk.quaternion.setFromUnitVectors(UP, _dir.normalize());
+    g.add(stalk);
+
     const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 7), M.leaf);
     leaf.scale.set(1, 0.28, 0.55);
-    leaf.position.set(Math.sin(a) * 0.16, h, Math.cos(a) * 0.16);
-    leaf.rotation.set(0.5, a, 0.35);
+    // Sit the blade at the far end of its own stalk, not in a ring around the pot.
+    leaf.position.set(lx * 1.45, ly + 0.012, lz * 1.45);
+    leaf.rotation.set(0.42, a, 0.30);
     leaf.castShadow = true;
     g.add(leaf);
   }
@@ -1412,9 +1442,11 @@ export function makeStandingFrame(M, { x, y, z, rotY = 0, w = 0.16, h = 0.20, te
   glass.position.set(0, 0, 0.008);
   panel.add(glass);
 
-  // Easel leg, splayed back to meet the surface.
-  const leg = box({ size: [0.03, h * 0.8, 0.008], pos: [0, 0, -0.02], mat: mat({ color: tint, roughness: 0.7 }) });
-  leg.rotation.x = -0.42;
+  /* Easel leg, splayed BACK to meet the surface. rotX(-t) swings the foot
+   * toward +Z -- through the glass and out of the front of the picture, which
+   * is what it was doing. The foot has to travel the same way the panel leans. */
+  const leg = box({ size: [0.03, h * 0.8, 0.008], pos: [0, 0, -0.026], mat: mat({ color: tint, roughness: 0.7 }) });
+  leg.rotation.x = 0.42;
   panel.add(leg);
 
   g.add(panel);
@@ -2107,18 +2139,39 @@ export function makeTub(M, { x0, z0, x1, z1 }) {
   g.add(boxFrom(x0, 0, z1 - 0.07, x1, H, z1, porcelain));
 
   const cx = (x0 + x1) / 2;
-  // Shower riser + head against the short wall.
-  g.add(cylinder({ r: 0.014, h: 1.10, pos: [cx, H + 0.60, z0 + 0.12], mat: M.chrome }));
-  const head = cylinder({ rTop: 0.075, rBottom: 0.035, h: 0.06, pos: [cx, H + 1.10, z0 + 0.22], mat: M.chrome });
-  head.rotation.x = 0.5;
+  /* Shower riser and head, against the short end wall.
+   *
+   * Head height is measured from the floor, not from the rim: at rim+1.10 it
+   * came out level with your chest. A real riser puts the head somewhere over
+   * two metres, which is also what keeps it clear of the curtain rail.
+   *
+   * The cone is wide at the BOTTOM -- that face is where the water leaves.
+   * Built the other way up it reads as a funnel bolted on backwards. And the
+   * tilt is negative so it sprays into the tub rather than at the wall it is
+   * mounted on. */
+  const RISER_TOP = 2.06;
+  g.add(cylinder({
+    r: 0.014, h: RISER_TOP - 0.62, pos: [cx, (RISER_TOP + 0.62) / 2, z0 + 0.09], mat: M.chrome,
+  }));
+  g.add(cylinder({ r: 0.016, h: 0.10, pos: [cx, 0.62, z0 + 0.09], mat: M.chrome }));
+  // Elbow out from the riser to where the head hangs.
+  g.add(cylinder({
+    r: 0.013, h: 0.17, pos: [cx, RISER_TOP - 0.02, z0 + 0.17], mat: M.chrome, rotX: Math.PI / 2,
+  }));
+  const headY = RISER_TOP - 0.06;
+  const headZ = z0 + 0.26;
+  const head = cylinder({ rTop: 0.035, rBottom: 0.078, h: 0.06, pos: [cx, headY, headZ], mat: M.chrome });
+  head.rotation.x = -0.45;
   g.add(head);
-  g.add(cylinder({ r: 0.016, h: 0.10, pos: [cx, 0.62, z0 + 0.12], mat: M.chrome }));
 
   // Where the water comes out, so the shower can be pointed at.
-  const headPos = new THREE.Vector3(cx, H + 1.10, z0 + 0.22);
+  const headPos = new THREE.Vector3(cx, headY - 0.04, headZ + 0.02);
 
-  // Curtain rail + a curtain shoved to one end.
-  g.add(cylinder({ r: 0.012, h: z1 - z0, pos: [cx, 2.05, (z0 + z1) / 2], rotX: Math.PI / 2, mat: M.chrome }));
+  /* Curtain rail down the OPEN long side of the tub, not down its middle.
+   * The tub is against the x0 wall and runs along Z, so the side you step over
+   * is x1 -- a rail at cx hangs the curtain through the middle of the bath. */
+  const railX = x1 - 0.03;
+  g.add(cylinder({ r: 0.012, h: z1 - z0, pos: [railX, 2.05, (z0 + z1) / 2], rotX: Math.PI / 2, mat: M.chrome }));
   const curtain = new THREE.Mesh(
     new THREE.PlaneGeometry((z1 - z0) * 0.42, 1.45, 10, 1),
     mat({ color: 0xd8e2e6, roughness: 0.95, side: THREE.DoubleSide, transparent: true, opacity: 0.82 }),
@@ -2129,7 +2182,7 @@ export function makeTub(M, { x0, z0, x1, z1 }) {
   }
   curtain.geometry.computeVertexNormals();
   curtain.rotation.y = Math.PI / 2;
-  curtain.position.set(cx, 1.32, z1 - (z1 - z0) * 0.22);
+  curtain.position.set(railX, 1.32, z1 - (z1 - z0) * 0.22);
   g.add(curtain);
 
   return {
