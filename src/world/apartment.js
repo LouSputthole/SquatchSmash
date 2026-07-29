@@ -61,6 +61,15 @@ export const WALL_SLOTS = [
   { slot: 'desk.high', x: 2.72, y: 2.22, z: -4.40, rotY: 0, h: 0.24 },
 
   // South wall gallery, with a stacked pair in the middle of the run.
+  // The stretch between the stacked pair and the front door was the last
+  // empty run on this wall -- three metres of nothing you walk past on the
+  // way out.
+  { slot: 'south.shield', x: -0.60, y: 1.70, z: 4.40, rotY: Math.PI, h: 0.50 },
+
+  /* East wall. It had nothing on it at all: the window takes z -3.90..-2.30
+   * and the fridge stands at z 1.95, which leaves this stretch in the middle
+   * as the only bare wall left in the flat. */
+  { slot: 'east.square', x: 4.97, y: 1.74, z: -0.60, rotY: -Math.PI / 2, h: 0.46 },
   { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
   { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
@@ -148,8 +157,12 @@ const FRIDGE_PHOTOS = [
  * propped on the floor underneath, which is not where you keep photographs of
  * your friend, and is exactly where these are.
  */
-const CLOSET_SLOTS = ['closet.back', 'closet.shirt.a', 'closet.shirt.b',
-  'shrine.a', 'shrine.b'];
+const CLOSET_SLOTS = ['closet.shirt.a', 'closet.shirt.b',
+  'shrine.a', 'shrine.b',
+  /* Not in the closet at all: face down under the bed, and the only way to
+   * see it is to go looking. Kept in this list because it is the same kind of
+   * thing -- a picture that lives somewhere other than a wall. */
+  'bed.under'];
 
 /** Textures used on props rather than hung on a wall. */
 const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box',
@@ -807,11 +820,12 @@ export async function buildApartment(ctx) {
   /* The shrine. Two photographs of Booski on the closet floor, propped against
    * the back wall. Nobody keeps photographs of their friend on the floor of a
    * cupboard. These are on the floor of a cupboard. */
-  /* Side by side rather than overlapping. In a 60cm closet two 17cm frames at
-   * an angle need more room between them than the arithmetic suggests -- the
-   * tilt widens each one's footprint. */
-  for (const [slot, sx, tilt, dz] of [
-    ['shrine.a', -0.15, 0.22, 0], ['shrine.b', 0.15, -0.20, 0.07],
+  /* One of them is the shrine and the other is a supporting photograph, so
+   * they are not the same size. The big one sits square against the back wall
+   * with the candles in front of it; the small one is off to the side, tilted,
+   * the way a second picture ends up when there was only room for one. */
+  for (const [slot, sx, tilt, dz, size] of [
+    ['shrine.a', -0.02, 0.05, 0, 0.22], ['shrine.b', 0.19, -0.26, 0.09, 0.125],
   ]) {
     const g = gear.get(slot);
     if (!g?.real) continue;
@@ -822,8 +836,8 @@ export async function buildApartment(ctx) {
       y: 0.035,
       z: CLOSET.back - 0.16 - dz,
       rotY: Math.PI + tilt,
-      w: 0.17 * (g.aspect || 0.8),
-      h: 0.17,
+      w: size * (g.aspect || 0.8),
+      h: size,
       texture: g.texture,
     });
     root.add(sf.group);
@@ -977,6 +991,8 @@ export async function buildApartment(ctx) {
     bowel: 0,            // 0..1; cigarettes fill it. 4 of them and you are running
     urgeAnnounced: false,
     toiletHinted: false,   // he only points out the cigarette trick once
+    underBedOut: false,    // the photograph under the bed, pulled part way out
+    underBedSeen: false,   // he only says the line the first time
 
     flushable: false,
 
@@ -1278,6 +1294,58 @@ export async function buildApartment(ctx) {
       }
     },
   });
+
+  /* Under the bed: a framed photograph, face down, most of the way into the
+   * dark. Pulling it out is the whole of the easter egg -- it never comes all
+   * the way out and there is nothing to collect. You look, and then you know.
+   *
+   * The hit box is deliberately larger than the frame and sits at floor level
+   * on the open side, because aiming at a 17cm object in shadow under a bed is
+   * not a puzzle worth setting. */
+  const underBed = { x: -3.62, z: -3.05, hidden: -0.34, shown: 0.06 };
+  let underFrame = null;
+  const underGear = gear.get('bed.under');
+  if (underGear?.real) {
+    const uf = P.makeStandingFrame(M, {
+      x: underBed.x, y: 0.012, z: underBed.z,
+      rotY: Math.PI * 0.5 + 0.15,
+      w: 0.20 * (underGear.aspect || 0.75),
+      h: 0.20,
+      texture: underGear.texture,
+    });
+    /* Laid flat rather than stood up -- it is under a bed, not on a shelf. */
+    uf.group.rotation.z = Math.PI / 2;
+    uf.group.position.x = underBed.x + underBed.hidden;
+    root.add(uf.group);
+    underFrame = uf.group;
+    frames.push({ slot: 'bed.under', mesh: uf.group, info: underGear, onFloor: true });
+
+    const reach = box({
+      size: [0.66, 0.30, 0.92], pos: [underBed.x + 0.05, 0.15, underBed.z],
+      mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+    });
+    reach.name = 'under-bed';
+    root.add(reach);
+
+    // Slides rather than snaps, and never clears the bed frame.
+    ticks.push((dt) => {
+      const want = underBed.x + (state.underBedOut ? underBed.shown : underBed.hidden);
+      underFrame.position.x += (want - underFrame.position.x) * Math.min(1, dt * 6);
+    });
+    interaction.register(reach, {
+      label: () => (state.underBedOut
+        ? 'Push it <b>back</b>'
+        : 'Something <b>under the bed</b>'),
+      onUse: () => {
+        state.underBedOut = !state.underBedOut;
+        audio.play('frame.adjust', { volume: 0.4, position: new THREE.Vector3(underBed.x, 0.1, underBed.z) });
+        if (state.underBedOut && !state.underBedSeen) {
+          state.underBedSeen = true;
+          hud.say('Still there. Of course it is still there.', 4200);
+        }
+      },
+    });
+  }
 
   /* ---- the toilet ---- */
   interaction.register(toilet.group, {

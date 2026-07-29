@@ -278,12 +278,6 @@
       "caption": "Die-cut vinyl. Went on straight, which is the surprising part."
     },
     {
-      "slot": "closet.back",
-      "file": "closet-cowboy.jpg",
-      "title": "The cowboy portrait",
-      "caption": "Behind the shirts, at the back of the closet, hung properly. He put it there and he hung it straight."
-    },
-    {
       "slot": "closet.shirt.a",
       "file": "shirt-austin-front.jpg",
       "title": "Austin jersey — front",
@@ -297,21 +291,39 @@
     },
     {
       "slot": "shrine.a",
-      "file": "shrine-booski-podium.jpg",
-      "title": "Booski on the podium",
-      "caption": "On the floor of the closet, propped against the back wall."
+      "file": "shrine-booski-soldiers.jpg",
+      "title": "Booski, inspecting",
+      "caption": "The big one. Candles in front of it, door shut."
     },
     {
       "slot": "shrine.b",
-      "file": "shrine-booski-soldiers.jpg",
-      "title": "Booski, again",
-      "caption": "Next to the other one. Nobody keeps these on a closet floor. These are on a closet floor."
+      "file": "shrine-booski-podium.jpg",
+      "title": "Booski at the podium",
+      "caption": "Propped beside it, smaller, tilted."
     },
     {
       "slot": "poster.pinup",
       "file": "poster-pinup-beach.jpg",
       "title": "The beach one",
       "caption": "Between the front door and the Denver piece, on the last free wall."
+    },
+    {
+      "slot": "south.shield",
+      "file": "logo-shield-2022.jpg",
+      "title": "The 2022 shield",
+      "caption": "The old one. He prefers it and will tell you why."
+    },
+    {
+      "slot": "east.square",
+      "file": "iem-2023-square.jpg",
+      "title": "IEM Dallas 2023",
+      "caption": "Square crop, hung on the only bare wall left."
+    },
+    {
+      "slot": "bed.under",
+      "file": "closet-cowboy.jpg",
+      "title": "The cowboy portrait",
+      "caption": "Face down under the bed, which is where you put a thing you cannot throw away."
     }
   ]
 }
