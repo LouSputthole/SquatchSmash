@@ -1875,6 +1875,13 @@
       "prompt": "a single revolver gunshot fired indoors in a small room, loud crack with heavy room slap and a long ringing tail, no music, no voice"
     },
     {
+      "_comment": "The clunk of a cheap TV's power button, plus the tick of the panel waking up.",
+      "name": "tv.click",
+      "duration": 0.9,
+      "promptInfluence": 0.5,
+      "prompt": "the power button of an old flatscreen television being pressed, one plastic click and a faint electrical tick as the panel wakes, close, no music, no voice"
+    },
+    {
       "name": "gun.dry",
       "duration": 0.8,
       "promptInfluence": 0.5,

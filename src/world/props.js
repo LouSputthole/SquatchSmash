@@ -2900,3 +2900,57 @@ export function makeRevolver(M, { x, y, z, rotY = 0 }) {
     muzzle: new THREE.Vector3(0, 0.028, -0.148),
   };
 }
+
+/**
+ * The television, on its stand, facing the couch.
+ *
+ * `screen` is the mesh the channel canvas maps onto -- same arrangement as the
+ * desk monitor, so whatever drives it only has to hand over a texture. The
+ * standby light is on the front edge where you can see it from the couch,
+ * which is the only place anybody ever looks at this thing from.
+ */
+export function makeTv(M, { x, z, rotY = 0, w = 1.12 }) {
+  const g = group('tv');
+  g.position.set(x, 0, z);
+  g.rotation.y = rotY;
+
+  const h = w * 0.5625;                 // 16:9, panel height
+  const STAND_H = 0.44;
+  const black = mat({ color: 0x14161a, roughness: 0.42 });
+
+  // Low unit it sits on, with a shelf and a gap full of cables.
+  g.add(box({ size: [w + 0.22, 0.04, 0.40], pos: [0, STAND_H, 0], mat: M.darkWood }));
+  g.add(box({ size: [w + 0.18, 0.032, 0.36], pos: [0, STAND_H - 0.22, 0], mat: M.darkWood }));
+  for (const sx of [-1, 1]) {
+    g.add(box({ size: [0.035, STAND_H, 0.36], pos: [sx * (w / 2 + 0.06), STAND_H / 2, 0], mat: M.darkWood }));
+  }
+
+  // Pedestal and panel.
+  const baseY = STAND_H + 0.02;
+  g.add(box({ size: [0.30, 0.018, 0.20], pos: [0, baseY + 0.009, 0], mat: black }));
+  g.add(box({ size: [0.05, 0.10, 0.05], pos: [0, baseY + 0.06, 0], mat: black }));
+
+  const panelY = baseY + 0.11 + h / 2;
+  g.add(box({ size: [w + 0.03, h + 0.03, 0.035], pos: [0, panelY, -0.012], mat: black }));
+
+  const screen = plane(w, h, M.screenOff.clone());
+  screen.position.set(0, panelY, 0.008);
+  g.add(screen);
+
+  // Standby light, and the brand nobody has ever heard of.
+  const led = box({
+    size: [0.012, 0.006, 0.004], pos: [0, panelY - h / 2 - 0.014, 0.012],
+    mat: mat({ color: 0x401010, roughness: 0.4 }),
+  });
+  g.add(led);
+
+  return {
+    group: g,
+    screen,
+    led,
+    /** Where the glow comes from, and where the remote is pointed. */
+    screenPos: new THREE.Vector3(x, panelY, z),
+    /** Standing in front of it, for the interaction prompt. */
+    bounds: [[x - w / 2 - 0.16, 0, z - 0.22], [x + w / 2 + 0.16, panelY + h / 2, z + 0.22]],
+  };
+}

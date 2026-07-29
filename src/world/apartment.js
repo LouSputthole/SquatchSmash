@@ -692,6 +692,30 @@ export async function buildApartment(ctx) {
    * get kicked off. At z 3.90 they sat 46cm out into the floor, in the middle
    * of the walkway, looking placed rather than dropped. The skirting starts at
    * z 4.48, so 4.30 puts the heels near it without clipping through. */
+  /* ---- the television ----
+   *
+   * Facing the couch, past the coffee table. It plays a channel list rather
+   * than running an OS: you never use this thing, you only ever change what is
+   * on it from across the room. See core/tv.js.
+   */
+  const tv = P.makeTv(M, { x: -2.16, z: 0.72, rotY: -Math.PI / 2, w: 1.12 });
+  root.add(tv.group);
+  addCollider(tv.bounds);
+  const tvGlow = new THREE.PointLight(0x9fb4cc, 0, 4.4, 2.0);
+  tvGlow.position.copy(tv.screenPos).add(new THREE.Vector3(0.28, 0, 0));
+  root.add(tvGlow);
+  const tvHit = box({
+    size: [0.44, 0.90, 1.30], pos: [tv.screenPos.x + 0.22, 0.85, tv.screenPos.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(tvHit);
+  interaction.register(tvHit, {
+    label: () => (state.tvOn ? 'Change <b>channel</b>' : 'Turn the <b>telly</b> on'),
+    hold: 0.5,
+    onTap: () => ctx.onTvTap?.(),
+    onUse: () => ctx.onTvHold?.(),
+  });
+
   /* ---- the revolver ----
    *
    * On the coffee table with everything else. It is not hidden, it is not
@@ -1088,6 +1112,8 @@ export async function buildApartment(ctx) {
     repliedHR: false,
     /** The clothes are shoved to one end and the picture is showing. */
     closetOpen: false,
+    /** The telly is on. */
+    tvOn: false,
   };
   bindHeldItem(state, inventory);
 
@@ -1824,6 +1850,8 @@ export async function buildApartment(ctx) {
     state,
     inventory,
     dropGun,
+    tv,
+    tvGlow,
     frames,
 
     bedPose,

@@ -23,6 +23,7 @@ import { Chat } from './core/chat.js';
 import { Spooky } from './core/spooky.js';
 import { PostFX } from './core/postfx.js';
 import { BulletHoles } from './world/bullets.js';
+import { Tv } from './core/tv.js';
 import { ITEMS } from './core/inventory.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
@@ -222,6 +223,11 @@ const spooky = new Spooky({
 const chat = new Chat(time);
 const smoke = new SmokeSystem(scene);
 const bullets = new BulletHoles(scene);
+const tv = new Tv({ audio });
+/* Two materials for the standby light rather than mutating one, so it is a
+ * swap like every other indicator in the flat and cannot alias. */
+const M_LED_ON = new THREE.MeshStandardMaterial({ color: 0x2a0b0b, emissive: 0xff3b30, emissiveIntensity: 2.2, roughness: 0.4 });
+const M_LED_OFF = new THREE.MeshStandardMaterial({ color: 0x401010, roughness: 0.4 });
 const stream = new StreamSystem(scene);
 // Water out of the rose, for the nine seconds it is running.
 const showerFx = new ShowerSystem(scene);
@@ -364,6 +370,19 @@ async function boot() {
     onReadChat: readChat,
     onChatVisible: () => apartment.desk.repaintChat(chat),
     onLearn: (source) => learnAboutMeeting(source),
+    onTvTap: () => {
+      if (!apartment.state.tvOn) {
+        apartment.state.tvOn = tv.toggle();
+        hud.toast(apartment.state.tvOn ? 'Telly on' : 'Telly off');
+      } else {
+        tv.next();
+        hud.toast(tv.channel.name);
+      }
+    },
+    onTvHold: () => {
+      apartment.state.tvOn = tv.toggle();
+      hud.toast(apartment.state.tvOn ? 'Telly on' : 'Telly off');
+    },
     // The set's own LED and dial read off apartment state, so keep it honest.
     onRadioToggle: () => { radio.toggle(); apartment.state.radioOn = radio.on; },
     onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
@@ -397,6 +416,14 @@ async function boot() {
     hud.setHand(item ? { ...item, name: nameFor(inv.held, item.name) } : null);
   };
   apartment.inventory.onChange(apartment.inventory);
+
+  /* Tap changes channel, hold switches it off -- the same tap/hold split the
+   * radio uses, because they are the same gesture on the same kind of object
+   * and having them disagree would be worse than either choice. */
+  apartment.tv.screen.material = new THREE.MeshBasicMaterial({
+    map: new THREE.CanvasTexture(tv.canvas), toneMapped: false,
+  });
+  tv.position = apartment.tv.screenPos;
 
   radio.onNotice = () => learnAboutMeeting('radio');
   /* The inbox is the fourth way to hear about it, and the only one that asks
@@ -438,7 +465,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
-    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, heldGun,
+    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, heldGun, tv,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -2324,6 +2351,16 @@ function frame() {
       highs.update(dt);
       spooky.update(dt, highs.trip);
       bullets.update(dt);
+
+      /* The telly. Painted only while it is on -- a dark screen is one fill
+       * and does not need repainting sixty times a second -- and its light
+       * eases in so switching it on is not a step change in the room. */
+      tv.update(dt);
+      if (apartment.tv.screen.material.map) apartment.tv.screen.material.map.needsUpdate = tv.on;
+      const tvg = tv.glow();
+      apartment.tvGlow.color.setHex(tvg.colour || 0x000000);
+      apartment.tvGlow.intensity += (tvg.intensity * 2.4 - apartment.tvGlow.intensity) * Math.min(1, dt * 5);
+      apartment.tv.led.material = tv.on ? M_LED_ON : M_LED_OFF;
       /* The gun is visible only while its slot is selected, and the recoil is
        * a kick on the model rather than on the camera -- the camera is the
        * crosshair and shoving that around makes the thing feel broken to aim
