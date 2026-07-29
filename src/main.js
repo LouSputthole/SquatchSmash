@@ -365,6 +365,15 @@ async function boot() {
 
   // Third way to find out about the meeting: leave the radio on.
   radio.onNotice = () => learnAboutMeeting('radio');
+  /* The inbox is the fourth way to hear about it, and the only one that asks
+   * anything back: HR wants the Wednesday evening shift, which is the meeting. */
+  arcade.mail.onMeeting = () => learnAboutMeeting('the boys');
+  arcade.mail.onFired = () => audio.say('fired', { chance: 1, delay: 1.6 });
+  arcade.mail.onReplied = () => {
+    apartment.state.repliedHR = true;
+    hud.toast('Reply sent to Goy Corp HR', 'good');
+    audio.say('hr.replied', { chance: 0.9, delay: 1.1 });
+  };
 
   window.__squatchStage?.('Tuning the radio…');
   radio.setPosition(apartment.radioPos);

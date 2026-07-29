@@ -834,6 +834,8 @@ export async function buildApartment(ctx) {
     panState: null,
     /** Deaths in Counter-Squatch. Five of them is "a game with the boys". */
     csDeaths: 0,
+    /** The reply to HR has actually gone. */
+    repliedHR: false,
   };
 
   /* ---- fridge ---- */

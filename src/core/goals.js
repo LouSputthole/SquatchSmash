@@ -55,6 +55,16 @@ const GATES = [
     vo: 'door.eat',
   },
   {
+    /* HR wants the Wednesday evening shift. The meeting is the Wednesday
+     * evening. He is not going to leave that sitting in an inbox all day and
+     * he is not going to agonise over it either -- the reply is already
+     * written, he just has to be at the desk to send it. */
+    id: 'hrmail',
+    done: (c) => c.state.repliedHR,
+    excuse: 'HR wants me on the late shift tomorrow. I should answer that first.',
+    vo: 'door.hr',
+  },
+  {
     id: 'playedCS',
     done: (c) => c.state.csDeaths >= CS_ROUNDS,
     excuse: 'I told the boys I would get a game in. I should do that first.',

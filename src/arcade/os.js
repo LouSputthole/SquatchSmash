@@ -63,9 +63,17 @@ export class SquatchOS {
     this.mode = 'off';
   }
 
-  /** Where each desktop icon sits. */
+  /**
+   * Where each desktop icon sits.
+   *
+   * A column, then another column. This was a single column of 96px icons on
+   * a 108px pitch, which is exactly three before it runs off a 360px screen --
+   * fine while there were two things installed, and silently wrong the moment
+   * there were four.
+   */
   _iconRect(i) {
-    return { x: 26, y: 26 + i * 108, w: 96, h: 96 };
+    const perCol = Math.max(1, Math.floor((H - 26) / 108));
+    return { x: 26 + Math.floor(i / perCol) * 128, y: 26 + (i % perCol) * 108, w: 96, h: 96 };
   }
 
   _iconAt(x, y) {

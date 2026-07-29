@@ -18,54 +18,72 @@
  *
  * That object is SquatchOS, which supplies the boot sequence, the desktop
  * and the CRT treatment and hands each installed app the drawing context
- * while it has focus. Three things are installed:
+ * while it has focus. Five things are installed:
  *
+ *   Squatch Mail    the inbox. One of the messages is the day going wrong
  *   Squatch Smash   the campground rampage game in game/, running for real
  *   Squatch Shoot   the shooting gallery, which used to have Smash's name
  *   Counter-Squatch a Counter-Strike parody you are not allowed to win
+ *   DOOM            mrdoob's port, framed from where it is published
  *
- * Smash is the odd one. The other two draw into the context the OS hands
- * them; it is a complete separate application with its own three.js and its
- * own HTML, so it runs unmodified in an iframe laid over the monitor. See
- * campground.js. That is why `placeOverlay` exists and has to be called from
- * the frame loop -- the other two need nothing.
+ * Three of those draw into the context the OS hands them. Smash and DOOM do
+ * not: they are whole separate applications with their own renderers and
+ * their own HTML, so they run as themselves in a frame laid over the monitor
+ * (see webapp.js). That is why `placeOverlay` exists and has to be called
+ * from the frame loop -- the canvas apps need nothing.
  *
- * To add a fourth, write an app to the interface documented in os.js and
+ * To add a sixth, write an app to the interface documented in os.js and
  * register it here -- nothing else in the project changes.
  */
 import { SquatchOS } from './os.js';
+import { Mail } from './mail.js';
 import { Campground } from './campground.js';
 import { SquatchShoot } from './squatchshoot.js';
 import { CounterSquatch } from './counterstrike.js';
+import { Doom } from './doom.js';
 
 export function createArcade(opts = {}) {
   const os = new SquatchOS(opts);
-  const campground = new Campground({ ...opts, os });
-  os.register(campground);
+  const mail = new Mail({ ...opts, os });
+  const framed = [new Campground({ ...opts, os }), new Doom({ ...opts, os })];
+
+  os.register(mail);
+  os.register(framed[0]);
   os.register(new SquatchShoot({ ...opts, os }));
   os.register(new CounterSquatch({ ...opts, os }));
+  os.register(framed[1]);
+
+  /** The inbox, so the room can react to what is in it. */
+  os.mail = mail;
 
   /**
-   * Keep the embedded page sitting on the monitor. Cheap and safe to call
-   * every frame; it does nothing unless that app is the one in focus.
+   * Keep whichever framed page is up sitting on the monitor. Cheap and safe to
+   * call every frame; it does nothing unless one of them is in focus.
    */
   os.placeOverlay = (screen, camera, canvas, THREE) => {
-    campground.overlay.place(screen, camera, canvas, THREE);
+    for (const app of framed) {
+      if (os.app === app) app.place(screen, camera, canvas, THREE);
+    }
   };
   /**
    * Sitting down and standing up.
    *
-   * The overlay is a fixed-position element, not part of the scene, so it does
+   * An overlay is a fixed-position element, not part of the scene, so it does
    * not go away on its own when you walk off -- it would hang in the middle of
-   * the room showing the last frame it was given. It is only ever on screen
-   * while somebody is in the chair with the game in focus.
+   * the room showing the last frame it was given. One is only ever on screen
+   * while somebody is in the chair with that app in focus.
    */
   os.setSeated = (seated) => {
-    if (os.app === campground && seated) campground.overlay.show();
-    else campground.overlay.hide();
+    for (const app of framed) {
+      if (seated && os.app === app) app.overlay.show();
+      else app.overlay.hide();
+    }
   };
   /** Whatever is on the monitor should stop when the tower does. */
   const powerOff = os.powerOff.bind(os);
-  os.powerOff = () => { campground.overlay.hide(); powerOff(); };
+  os.powerOff = () => {
+    for (const app of framed) { app.overlay.hide(); app.quit.remove(); }
+    powerOff();
+  };
   return os;
 }

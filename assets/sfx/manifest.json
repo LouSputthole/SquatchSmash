@@ -2943,6 +2943,47 @@
       "say": "I am going to leave that on for a bit, I think."
     },
     {
+      "_comment": "Fired at 4:51 AM and asked to work late at 4:58. He is not angry about it, which is what makes it land.",
+      "name": "vo.hr.replied.1",
+      "voice": "player",
+      "say": "Sent. Copied nobody. Perfect."
+    },
+    {
+      "name": "vo.hr.replied.2",
+      "voice": "player",
+      "say": "I feel I struck the right tone there."
+    },
+    {
+      "name": "vo.hr.replied.3",
+      "voice": "player",
+      "say": "That is the most honest thing I have written in four years."
+    },
+    {
+      "name": "vo.door.hr.1",
+      "voice": "player",
+      "say": "HR wants me on the late shift tomorrow. I should answer that first."
+    },
+    {
+      "name": "vo.door.hr.2",
+      "voice": "player",
+      "say": "There is an email downstairs in my brain I have not dealt with."
+    },
+    {
+      "name": "vo.fired.1",
+      "voice": "player",
+      "say": "…Huh."
+    },
+    {
+      "name": "vo.fired.2",
+      "voice": "player",
+      "say": "Four fifty-one in the morning. Somebody wrote that at four fifty-one in the morning."
+    },
+    {
+      "name": "vo.fired.3",
+      "voice": "player",
+      "say": "Well. That is the day free, then."
+    },
+    {
       "name": "vo.tap.5",
       "voice": "player",
       "say": "That is the sound of a bill."
