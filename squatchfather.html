@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Squatchfather</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍝</text></svg>">
+<style>
+  :root {
+    --purple: #7b4fd9;
+    --purple-bright: #9a6ff0;
+    --purple-deep: #4a2f8f;
+    --navy: #14102a;
+    --silver: #cfd4e0;
+    --silver-bright: #eef0f6;
+    --red: #d92e2e;
+    --amber: #e8b463;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #07060c; }
+  body { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; user-select: none;
+         -webkit-user-select: none; color: #fff; }
+  canvas { display: block; }
+
+  /* ---------- Cinematic frame ---------- */
+  #letterbox { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
+  #letterbox .bar {
+    position: absolute; left: 0; right: 0; height: 0; background: #000;
+    transition: height .5s ease;
+  }
+  #letterbox .bar.top { top: 0; }
+  #letterbox .bar.bottom { bottom: 0; }
+  #letterbox.cine .bar { height: 8vh; }
+
+  #vig {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: .55;
+    background: radial-gradient(ellipse at center, transparent 42%, rgba(0,0,0,.85) 100%);
+    transition: opacity .8s ease;
+  }
+  #vig.tight { opacity: .95; }
+
+  #ringFlash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: 0;
+    background: radial-gradient(ellipse at center, rgba(255,255,255,.22), rgba(255,235,200,.05) 60%, transparent 75%);
+    transition: opacity .35s ease;
+  }
+  #ringFlash.on { opacity: 1; }
+
+  #fade {
+    position: fixed; inset: 0; background: #000; z-index: 9; pointer-events: none;
+    opacity: 1; transition: opacity 1s ease;
+  }
+  #fade.clear { opacity: 0; }
+  #fade.instant { transition: none; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
+  #hud.visible { display: block; }
+
+  #objective {
+    position: absolute; top: calc(8vh + 22px); left: 50%; transform: translateX(-50%);
+    text-align: center; opacity: 0; transition: opacity .45s ease;
+  }
+  #objective.show { opacity: 1; }
+  #objective .label {
+    font-size: 12px; letter-spacing: 6px; color: var(--purple-bright); font-weight: 800;
+    text-shadow: 0 2px 6px #000;
+  }
+  #objective .text {
+    font-size: 22px; font-weight: 800; letter-spacing: 2px; color: var(--silver-bright);
+    text-shadow: 0 2px 8px #000; margin-top: 3px;
+  }
+
+  #subs {
+    position: absolute; left: 50%; bottom: calc(8vh + 34px); transform: translateX(-50%);
+    width: min(860px, 88vw); text-align: center; opacity: 0; transition: opacity .18s;
+  }
+  #subs.show { opacity: 1; }
+  #subs .who {
+    font-size: 13px; letter-spacing: 5px; font-weight: 800; color: var(--amber);
+    text-shadow: 0 2px 6px #000; margin-bottom: 4px;
+  }
+  #subs .who.prospect { color: var(--purple-bright); }
+  #subs .line {
+    font-size: clamp(19px, 2.4vw, 27px); font-weight: 700; line-height: 1.35;
+    color: #f4f2ee; text-shadow: 0 2px 3px #000, 0 4px 16px rgba(0,0,0,.9);
+  }
+  #subs .stage {
+    font-size: 17px; font-style: italic; color: #a9b0c2; text-shadow: 0 2px 6px #000;
+  }
+
+  #prompt {
+    position: absolute; left: 50%; top: 58%; transform: translateX(-50%);
+    text-align: center; opacity: 0; transition: opacity .2s;
+  }
+  #prompt.show { opacity: 1; }
+  #prompt .key {
+    display: inline-block; min-width: 26px; padding: 1px 7px; margin-right: 6px;
+    border: 2px solid rgba(255,255,255,.75); border-radius: 6px;
+    font-weight: 900; font-size: 16px;
+  }
+  #prompt .txt { font-size: 18px; font-weight: 800; letter-spacing: 1px;
+    text-shadow: 0 2px 6px #000; }
+  #holdBar {
+    margin: 8px auto 0; width: 190px; height: 5px; border-radius: 4px;
+    background: rgba(255,255,255,.22); overflow: hidden; opacity: 0; transition: opacity .15s;
+  }
+  #holdBar.show { opacity: 1; }
+  #holdFill { height: 100%; width: 0%; background: var(--silver-bright); }
+
+  #choice {
+    position: absolute; left: 50%; bottom: calc(8vh + 118px); transform: translateX(-50%);
+    padding: 9px 22px; border: 1px solid rgba(154,111,240,.6); border-radius: 8px;
+    background: rgba(20,16,42,.7); font-size: 18px; font-weight: 800; color: var(--silver-bright);
+    letter-spacing: 1px; opacity: 0; transition: opacity .3s;
+  }
+  #choice.show { opacity: 1; }
+  #choice .key {
+    display: inline-block; padding: 0 6px; margin-right: 8px;
+    border: 2px solid rgba(255,255,255,.7); border-radius: 5px; font-size: 15px;
+  }
+
+  #drawPrompt {
+    position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%);
+    font-size: 26px; font-weight: 900; letter-spacing: 8px; color: #fff;
+    text-shadow: 0 0 18px rgba(217,46,46,.9), 0 2px 6px #000;
+    opacity: 0; transition: opacity .6s ease;
+  }
+  #drawPrompt.show { opacity: .55; }
+  #drawPrompt.urgent { opacity: 1; animation: throb .55s infinite alternate; }
+  @keyframes throb { from { transform: translate(-50%,-50%) scale(1); } to { transform: translate(-50%,-50%) scale(1.07); } }
+
+  #reticle {
+    position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+    border-radius: 50%; background: rgba(255,255,255,.8); box-shadow: 0 0 4px #000;
+    opacity: 0; transition: opacity .2s;
+  }
+  #reticle.show { opacity: 1; }
+
+  #hint {
+    position: absolute; left: 50%; bottom: calc(8vh + 8px); transform: translateX(-50%);
+    font-size: 13px; letter-spacing: 3px; color: #7c8398; opacity: 0; transition: opacity .4s;
+  }
+  #hint.show { opacity: 1; }
+
+  /* ---------- Overlays ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(8,6,14,.94), rgba(20,13,10,.94));
+    padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  .kicker {
+    font-size: 13px; font-weight: 800; letter-spacing: 8px; color: var(--purple-bright);
+    margin-bottom: 10px;
+  }
+  .kicker .dash { color: var(--red); }
+  .title {
+    font-size: clamp(38px, 8vw, 86px); font-weight: 900; font-style: italic; letter-spacing: 2px;
+    background: linear-gradient(180deg, #f6f8fc 0%, #cdd3e0 42%, #878e9f 52%, #e9ecf3 60%, #b9bfcd 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 2px var(--navy);
+    filter: drop-shadow(0 4px 0 var(--purple-deep)) drop-shadow(0 10px 26px rgba(123,79,217,.45));
+    transform: skewX(-4deg); margin-bottom: 8px;
+  }
+  .subtitle { font-size: 18px; color: #b9c1d4; margin-bottom: 22px; max-width: 620px; line-height: 1.6; }
+  .panel {
+    background: rgba(255,255,255,.06); border: 1px solid rgba(154,111,240,.3);
+    border-radius: 12px; padding: 16px 24px; text-align: left;
+    font-size: 15px; line-height: 1.9; color: #dce2f0; margin-bottom: 24px;
+  }
+  .panel h3 { font-size: 12px; letter-spacing: 4px; color: var(--purple-bright);
+    margin-bottom: 8px; font-weight: 800; }
+  .panel b { color: var(--silver-bright); display: inline-block; min-width: 120px; }
+  .btn {
+    font-size: 22px; font-weight: 900; letter-spacing: 1px; padding: 13px 42px;
+    border-radius: 12px; border: none; cursor: pointer; color: #fff;
+    background: linear-gradient(180deg, var(--purple-bright), #6438c9);
+    box-shadow: 0 5px 0 #3a2482, 0 8px 18px rgba(0,0,0,.5); transition: transform .08s;
+    font-family: inherit;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #3a2482; }
+  .btn.ghost {
+    font-size: 15px; padding: 9px 24px; margin-top: 14px;
+    background: rgba(255,255,255,.08); box-shadow: none; border: 1px solid rgba(255,255,255,.22);
+  }
+  .credit { margin-top: 26px; font-size: 12px; letter-spacing: 2px; color: #6a7186; }
+  .credit a { color: #8d94ab; }
+
+  #deathTitle { color: #ff6a5a; }
+  #endCard .title { font-size: clamp(30px, 6vw, 64px); }
+</style>
+</head>
+<body>
+  <div id="vig"></div>
+  <div id="ringFlash"></div>
+  <div id="letterbox"><div class="bar top"></div><div class="bar bottom"></div></div>
+
+  <div id="hud">
+    <div id="reticle"></div>
+    <div id="objective"><div class="label">OBJECTIVE</div><div class="text"></div></div>
+    <div id="drawPrompt">DRAW WEAPON</div>
+    <div id="prompt"><span class="key">E</span><span class="txt"></span>
+      <div id="holdBar"><div id="holdFill"></div></div>
+    </div>
+    <div id="choice"><span class="key">E</span><span class="txt">Excuse yourself</span></div>
+    <div id="subs"><div class="who"></div><div class="line"></div></div>
+    <div id="hint">ESC TO PAUSE</div>
+  </div>
+
+  <div id="fade"></div>
+
+  <div id="menu" class="overlay">
+    <div class="kicker"><span class="dash">—</span> SILVER SASQUATCHES <span class="dash">—</span></div>
+    <div class="title">THE SQUATCHFATHER</div>
+    <div class="subtitle">
+      A small Italian place under the elevated line. Two men are waiting.
+      Somebody left something in the bathroom.
+    </div>
+    <div class="panel">
+      <h3>CONTROLS</h3>
+      <div><b>WASD / Arrows</b> Move</div>
+      <div><b>Mouse</b> Look (click to capture the cursor)</div>
+      <div><b>E</b> Interact &nbsp;·&nbsp; hold where the prompt says hold</div>
+      <div><b>Left Click</b> Fire</div>
+      <div><b>Esc</b> Pause &nbsp;·&nbsp; <b>M</b> Mute</div>
+    </div>
+    <button id="startBtn" class="btn">BEGIN SCENE</button>
+    <button id="backBtn" class="btn ghost">← BACK TO SQUATCHSMASH</button>
+    <div class="credit">Chapter II — Prospect · Sal “The Prospector” Sorrento · Capt. McClawsky</div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="title">PAUSED</div>
+    <div class="subtitle" id="pauseState"></div>
+    <button id="resumeBtn" class="btn">RESUME</button>
+    <button id="restartBtn" class="btn ghost">RESTART SCENE</button>
+    <button id="quitBtn" class="btn ghost">← BACK TO SQUATCHSMASH</button>
+  </div>
+
+  <div id="death" class="overlay hidden">
+    <div class="kicker"><span class="dash">—</span> TOO SLOW <span class="dash">—</span></div>
+    <div class="title" id="deathTitle">McCLAWSKY DREW FIRST</div>
+    <div class="subtitle">Checkpoint: back at the table, weapon under the jacket.</div>
+    <button id="retryBtn" class="btn">RETRY FROM TABLE</button>
+  </div>
+
+  <div id="endCard" class="overlay hidden">
+    <div class="kicker"><span class="dash">—</span> SCENE COMPLETE <span class="dash">—</span></div>
+    <div class="title">THE BUSINESS IS SETTLED</div>
+    <div class="subtitle" id="endLine">Wednesday belongs to the family.</div>
+    <button id="againBtn" class="btn">PLAY AGAIN</button>
+    <button id="menuBtn" class="btn ghost">← BACK TO SQUATCHSMASH</button>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js" } }
+  </script>
+  <script type="module" src="./src/squatchfather/main.js"></script>
+</body>
+</html>

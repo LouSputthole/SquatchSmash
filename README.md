@@ -48,6 +48,44 @@ On touch devices a virtual joystick and SMASH/RAGE buttons appear automatically.
 - Destroy *everything* for a total destruction bonus.
 - **Leaderboard**: top-10 scores are kept locally — make the board and you enter a 5-character arcade name.
 
+## The Squatchfather
+
+A second, very different scene lives at `squatchfather.html` (linked from the main menu).
+
+**Prospect** — the quiet younger member of the Sasquatches family — agrees to meet
+Sal "The Prospector" Sorrento and Captain McClawsky in a small Italian restaurant
+under the elevated line. Sal wants the servers, the skin market, and Wednesday
+nights. There is a handgun taped behind the toilet tank in the bathroom.
+
+It's a first-person, tightly directed set piece rather than a rampage: walk in, sit
+down, sit through the conversation, excuse yourself, find the weapon, walk back,
+wait for the train, and leave on foot without running. The parody is in the names,
+the wallpaper, and the business being argued over — the scene itself plays straight.
+
+| Input | Action |
+| --- | --- |
+| **WASD** / Arrow keys | Move |
+| **Mouse** | Look (click the canvas to capture the cursor) |
+| **E** | Interact — hold where the prompt says hold |
+| **Left click** | Fire |
+| **Esc** | Pause &nbsp;·&nbsp; **M** Mute |
+
+Notes on how it's put together:
+
+- One state machine (`START_EXTERIOR → … → SCENE_COMPLETE`) owns the flow; every
+  system it drives is a separate module under `src/squatchfather/`.
+- Dialogue is data (`dialogue/dialogue.json`), fetched at boot. Lines carry their
+  own duration plus optional gaze and gesture cues.
+- Seated dialogue takes the player's legs but not their eyes: look freely between
+  Sal, McClawsky and the bathroom hallway, and no further.
+- Failure states are supported and minor — leaving early gets you sat back down,
+  two wrong searches get a muttered "Come on.", and being too slow on the second
+  shot cuts to black and restarts at the table, not at the front door.
+- The cracked bathroom mirror is a real reflection: Prospect's body lives on render
+  layer 1, invisible to the first-person camera and visible only to the mirror's.
+- All sound is synthesised (`audio/core.js` + the ambience, train, gunshot and foley
+  modules) — room tone, the train building overhead, and the ringing afterwards.
+
 ## Tech
 
 - Plain ES modules, no bundler — Three.js r160 is vendored in `lib/`.
@@ -67,4 +105,16 @@ src/effects.js  Footprints, birds, rage shockwave rings
 src/debris.js   Physics chunks when things break
 src/audio.js    Procedural WebAudio sound effects
 lib/            Vendored three.module.js
+
+squatchfather.html          The Squatchfather: UI overlay, styles, importmap
+src/squatchfather/
+  main.js                   Boot, input, loop, and the scene's state definitions
+  scenes/                   The set: street, dining room, hallway, bathroom
+  state/                    Scene state machine + checkpoint
+  dialogue/                 dialogue.json and the subtitle controller
+  interaction/              Look-at-and-press-E, the chair, the toilet, the drop
+  cinematic/                Camera director, seated camera, deferred timeline
+  characters/               Prospect (first-person), Sal, McClawsky, shared figure
+  audio/                    Ambience, train, gunshot, foley, WebAudio core
+  effects/                  Camera shake, train vibration, ear ringing, mirror
 ```

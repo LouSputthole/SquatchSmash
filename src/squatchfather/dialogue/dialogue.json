@@ -1,0 +1,64 @@
+{
+  "speakers": {
+    "PROSPECT": { "name": "PROSPECT", "tone": "prospect" },
+    "SAL": { "name": "SAL SORRENTO", "tone": "sal" },
+    "MCCLAWSKY": { "name": "CAPT. McCLAWSKY", "tone": "mcclawsky" }
+  },
+
+  "greeting": [
+    { "speaker": "MCCLAWSKY", "text": "Come on, Squatch. They're waiting.", "dur": 2.6 }
+  ],
+
+  "opening": [
+    { "beat": 1.2, "look": "SAL" },
+    { "speaker": "SAL", "text": "The Sasquatches are making business difficult.", "dur": 3.0 },
+    { "speaker": "PROSPECT", "text": "You attacked my family.", "dur": 2.5 },
+    { "speaker": "SAL", "text": "Business disagreement.", "dur": 2.3, "gesture": "shrug" },
+    { "speaker": "PROSPECT", "text": "You shot Booski.", "dur": 2.4 },
+    { "speaker": "SAL", "text": "Booski rejected my offer.", "dur": 2.8, "gesture": "drink" },
+    { "speaker": "MCCLAWSKY", "text": "Your people need to calm down.", "dur": 3.0, "gesture": "eat" },
+    { "beat": 0.9, "look": "MCCLAWSKY", "stage": "Prospect looks at McClawsky." },
+    { "speaker": "PROSPECT", "text": "You hit me.", "dur": 2.4 },
+    { "speaker": "MCCLAWSKY", "text": "You were being difficult.", "dur": 2.8, "gesture": "lean" },
+    { "beat": 0.8, "look": "SAL", "gesture": "salLean", "stage": "Sal leans forward." },
+    { "speaker": "SAL", "text": "I want the servers, the skin market, and Wednesday nights.", "dur": 4.4 },
+    { "speaker": "PROSPECT", "text": "Wednesday belongs to the family.", "dur": 3.0 },
+    { "speaker": "SAL", "text": "Everything belongs to someone until it changes hands.", "dur": 4.2 },
+    { "beat": 2.2 },
+    { "speaker": "SAL", "text": "Help me, Prospect. The Sasquatches keep their territory. I get a percentage.", "dur": 5.6, "gesture": "hands" },
+    { "speaker": "PROSPECT", "text": "What percentage?", "dur": 2.3 },
+    { "speaker": "SAL", "text": "Enough.", "dur": 2.2 },
+    { "beat": 1.4, "look": "HALLWAY", "stage": "Prospect looks toward the bathroom hallway." }
+  ],
+
+  "excuse": [
+    { "speaker": "PROSPECT", "text": "I need to use the bathroom.", "dur": 2.8, "gesture": "napkin" },
+    { "beat": 1.6, "look": "MCCLAWSKY", "stage": "McClawsky looks at Sal. Sal gives a small nod." },
+    { "speaker": "MCCLAWSKY", "text": "Go ahead. We checked it.", "dur": 2.8 }
+  ],
+
+  "sitDown": [
+    { "speaker": "MCCLAWSKY", "text": "Sit down, Squatch.", "dur": 2.2 }
+  ],
+
+  "wrongSearch": [
+    { "speaker": "PROSPECT", "text": "Come on.", "dur": 1.8 }
+  ],
+
+  "prodding": [
+    { "speaker": "SAL", "text": "Prospect?", "dur": 2.0 },
+    { "speaker": "SAL", "text": "Are you listening?", "dur": 2.4 }
+  ],
+
+  "final": [
+    { "beat": 1.0, "look": "SAL" },
+    { "speaker": "SAL", "text": "So. Do we have an understanding?", "dur": 3.2 },
+    { "speaker": "PROSPECT", "text": "I understand.", "dur": 2.3 },
+    { "speaker": "SAL", "text": "Good. The Sasquatches keep their name.", "dur": 3.4 },
+    { "speaker": "MCCLAWSKY", "text": "And everyone walks away happy.", "dur": 3.2, "gesture": "drink" },
+    { "beat": 1.6, "stage": "The train grows louder. The glasses begin to vibrate." },
+    { "speaker": "SAL", "text": "Tell your people the business is settled.", "dur": 3.6, "gesture": "salLean" },
+    { "beat": 0.7, "look": "SAL" },
+    { "speaker": "PROSPECT", "text": "It is.", "dur": 2.0 }
+  ]
+}
