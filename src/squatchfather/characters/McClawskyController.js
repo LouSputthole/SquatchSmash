@@ -47,7 +47,7 @@ export class McClawskyController {
   get group() { return this.fig.group; }
 
   get eyePoint() {
-    return new THREE.Vector3(POS.mcSeat.x - 0.04, 1.42, POS.mcSeat.z);
+    return new THREE.Vector3(POS.mcSeat.x - 0.04, 1.5, POS.mcSeat.z);
   }
 
   speak(dur) { this.fig.speak(dur); }

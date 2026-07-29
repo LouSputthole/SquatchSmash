@@ -26,7 +26,7 @@ export class SalController {
 
   // World point roughly at his eyes — the camera looks here during dialogue.
   get eyePoint() {
-    return new THREE.Vector3(POS.salSeat.x, 1.36, POS.salSeat.z - 0.02);
+    return new THREE.Vector3(POS.salSeat.x, 1.47, POS.salSeat.z - 0.02);
   }
 
   speak(dur) { this.fig.speak(dur); }

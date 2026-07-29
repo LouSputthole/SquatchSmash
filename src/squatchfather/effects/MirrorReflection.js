@@ -35,7 +35,7 @@ export class MirrorReflection {
     // Silvered glass: the reflection, tinted and grubby, under the cracks.
     this.mesh.material = new THREE.MeshBasicMaterial({
       map: this.target.texture,
-      color: 0x9aa4ac,
+      color: 0xc6ccd2,
     });
 
     const crackTex = makeCrackTexture();
@@ -62,6 +62,11 @@ export class MirrorReflection {
       camera.position.z
     );
     this.cam.lookAt(this.center);
+    // The virtual camera sits behind the wall the mirror is hung on, so the
+    // wall — and the mirror's own backing board — would fill the whole
+    // reflection. Push the near plane out to the glass and they clip away.
+    this.cam.near = Math.abs(this.cam.position.x - PLANE_X) + 0.03;
+    this.cam.updateProjectionMatrix();
     this.cam.updateMatrixWorld();
 
     const prevTarget = renderer.getRenderTarget();

@@ -20,8 +20,8 @@ export const POS = {
   mcSeat: new THREE.Vector3(1.95, 0, 5),
   hallMouth: new THREE.Vector3(5, 0, 10.6),
   bathroomDoor: new THREE.Vector3(5, 0, 15),
-  toilet: new THREE.Vector3(5.35, 0, 18.3),
-  toiletSearch: new THREE.Vector3(5.35, 1.02, 18.95),
+  toilet: new THREE.Vector3(5.35, 0, 18.5),
+  toiletSearch: new THREE.Vector3(5.35, 1.02, 19.08),
   mirror: new THREE.Vector3(2.15, 1.55, 16.9),
   getawayCar: new THREE.Vector3(-2.8, 0, -5.1),
 };
@@ -466,7 +466,15 @@ export function buildSquatchfatherScene(scene, renderer) {
   const facade = new THREE.Group();
   scene.add(facade);
   const brickMat = lam(0x3a2622, { map: T.brick });
-  facade.add(box(26, 11, 0.5, brickMat, 0, 5.5, -0.25));
+  // Built around the shopfront rather than across it — a single slab here
+  // walled the place up, so from the street there was no door and no windows.
+  facade.add(box(6, 11, 0.5, brickMat, -10, 5.5, -0.25));   // left of the front
+  facade.add(box(6, 11, 0.5, brickMat, 10, 5.5, -0.25));    // right of the front
+  facade.add(box(14, 8.6, 0.5, brickMat, 0, 6.7, -0.25));   // header above the glass
+  facade.add(box(6.3, 1.0, 0.5, brickMat, -3.85, 0.5, -0.25)); // stall risers, either
+  facade.add(box(6.3, 1.0, 0.5, brickMat, 3.85, 0.5, -0.25));  // side of the doorway
+  block(-10, -0.25, 6, 0.5);
+  block(10, -0.25, 6, 0.5);
   facade.add(box(13, 0.5, 1.4, lam(0x241a2e), 0, 4.0, -0.7)); // awning band
   for (let i = 0; i < 5; i++) {
     facade.add(box(1.9, 0.42, 1.4, lam(i % 2 ? 0x6e2f2f : 0xe8e6de), -4 + i * 2, 3.75, -0.72));
@@ -628,9 +636,13 @@ export function buildSquatchfatherScene(scene, renderer) {
   const frontDoorBlock = block(0, -0.05, 1.5, 0.14, 'frontDoor');
 
   // A "NO SHOES, NO SHIRT, NO SQUATCH" placard beside the door
-  const placard = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 0.45), new THREE.MeshLambertMaterial({ map: T.noSquatch }));
-  placard.position.set(1.45, 1.9, 0.02);
-  placard.rotation.y = Math.PI;
+  // Taped up inside the window by the door, facing the room. Double-sided so
+  // it also reads (backwards, as these always do) from the street.
+  const placard = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.95, 0.37),
+    new THREE.MeshLambertMaterial({ map: T.noSquatch, side: THREE.DoubleSide, transparent: true })
+  );
+  placard.position.set(2.3, 2.05, 0.05);
   scene.add(placard);
 
   // ---------- Furniture ----------
@@ -720,16 +732,17 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // The meeting table
   const table = makeTable(POS.tableCenter.x, POS.tableCenter.z, 0.95, false);
+  // Everything on the cloth stays inside the 0.95 radius of the table top.
   makeCandle(POS.tableCenter.x - 0.02, POS.tableCenter.z + 0.05);
-  makeBreadBasket(POS.tableCenter.x + 0.42, 0.78, POS.tableCenter.z - 0.32);
+  makeBreadBasket(POS.tableCenter.x - 0.5, 0.78, POS.tableCenter.z - 0.1);
   makeBottle(POS.tableCenter.x - 0.42, 0.78, POS.tableCenter.z + 0.3);
 
-  const prospectGlass = makeWineGlass(-0.24, 0.78, 3.9);
-  const salGlass = makeWineGlass(0.1, 0.78, 5.95);
-  const mcGlass = makeWineGlass(0.92, 0.78, 5.05);
+  const prospectGlass = makeWineGlass(-0.38, 0.78, 4.55);
+  const salGlass = makeWineGlass(0.38, 0.78, 5.5);
+  const mcGlass = makeWineGlass(0.62, 0.78, 4.62);
 
   // Plates
-  for (const [px, pz] of [[0, 4.05], [0, 5.95], [0.78, 5.0]]) {
+  for (const [px, pz] of [[0, 4.4], [0, 5.6], [0.7, 5.0]]) {
     const plate = cyl(0.21, 0.19, 0.03, lam(0xf2efe6), px, 0.79, pz, 16);
     scene.add(plate);
   }
@@ -746,7 +759,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   interactables.push(chairHit);
 
   // Background tables
-  for (const [tx, tz, rot] of [[-4.6, 2.6, 0.3], [4.6, 2.4, -0.4], [-4.8, 7.8, 0.1], [-2.4, 9.4, 0.6]]) {
+  for (const [tx, tz, rot] of [[-4.7, 2.4, 0.3], [4.7, 2.2, -0.4], [-4.9, 7.2, 0.1], [-6.0, 4.6, 1.4]]) {
     makeTable(tx, tz, 0.7);
     makeChair(tx + Math.cos(rot) * 1.1, tz + Math.sin(rot) * 1.1, -rot + Math.PI / 2);
     makeChair(tx - Math.cos(rot) * 1.1, tz - Math.sin(rot) * 1.1, -rot - Math.PI / 2);
@@ -767,6 +780,27 @@ export function buildSquatchfatherScene(scene, renderer) {
   scene.add(kitchenDoor);
   block(-4.55, 11.0, 1.3, 0.14);
 
+  // A slice of kitchen behind the swinging door — the cook has to be standing
+  // in something when he comes to look, and the door does swing open.
+  const KIT = { x0: -7, x1: -2.5, z0: 11.2, z1: 14.6, h: 2.8 };
+  const kitTile = lam(0x8d9490);
+  const kFloor = new THREE.Mesh(new THREE.PlaneGeometry(KIT.x1 - KIT.x0, KIT.z1 - KIT.z0), lam(0x4c5250));
+  kFloor.rotation.x = -Math.PI / 2;
+  kFloor.position.set((KIT.x0 + KIT.x1) / 2, 0.02, (KIT.z0 + KIT.z1) / 2);
+  scene.add(kFloor);
+  const kCeil = kFloor.clone();
+  kCeil.rotation.x = Math.PI / 2;
+  kCeil.position.y = KIT.h;
+  scene.add(kCeil);
+  scene.add(box(0.2, KIT.h, KIT.z1 - KIT.z0, kitTile, KIT.x0 - 0.1, KIT.h / 2, (KIT.z0 + KIT.z1) / 2));
+  scene.add(box(0.2, KIT.h, KIT.z1 - KIT.z0, kitTile, KIT.x1 + 0.1, KIT.h / 2, (KIT.z0 + KIT.z1) / 2));
+  scene.add(box(KIT.x1 - KIT.x0 + 0.4, KIT.h, 0.2, kitTile, (KIT.x0 + KIT.x1) / 2, KIT.h / 2, KIT.z1 + 0.1));
+  scene.add(box(3.6, 0.9, 0.7, phong(0xb8bcc0, { shininess: 60, specular: 0xdddddd }), -4.7, 0.45, 13.9));
+  for (let i = 0; i < 4; i++) scene.add(cyl(0.09, 0.09, 0.34, lam(0xc8ccd0), -6.0 + i * 0.9, 1.06, 13.9, 8));
+  const kitchenLight = new THREE.PointLight(0xdfe8ee, 5, 8, 2);
+  kitchenLight.position.set(-4.7, 2.5, 12.8);
+  scene.add(kitchenLight);
+
   // Purple + silver scarf hung by the kitchen
   const scarfTex = canvasTex(64, 256, (c, w, h) => {
     for (let i = 0; i < 16; i++) {
@@ -777,10 +811,10 @@ export function buildSquatchfatherScene(scene, renderer) {
     c.fillRect(0, 0, 6, h);
   });
   const scarf = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 1.5), new THREE.MeshLambertMaterial({ map: scarfTex, side: THREE.DoubleSide }));
-  scarf.position.set(-3.3, 1.9, 10.94);
-  scarf.rotation.z = 0.06;
+  scarf.position.set(-6.92, 1.9, 10.3);
+  scarf.rotation.y = Math.PI / 2;
   scene.add(scarf);
-  scene.add(box(0.06, 0.06, 0.1, lam(0x8a7a5a), -3.3, 2.66, 10.94));
+  scene.add(box(0.12, 0.06, 0.06, lam(0x8a7a5a), -6.94, 2.66, 10.3));
 
   // ---------- Wall dressing ----------
   function framed(tex, w, h, x, y, z, ry) {
@@ -795,13 +829,13 @@ export function buildSquatchfatherScene(scene, renderer) {
     return g;
   }
 
-  framed(T.clipping, 1.0, 0.62, -6.85, 2.0, 3.4, Math.PI / 2);   // Sasquatches clipping
-  framed(T.specials, 0.85, 1.15, -6.85, 1.9, 8.2, Math.PI / 2);   // The Great Includer
+  framed(T.clipping, 1.0, 0.62, -6.96, 2.0, 3.4, Math.PI / 2);   // Sasquatches clipping
+  framed(T.specials, 0.85, 1.15, -6.96, 1.9, 8.2, Math.PI / 2);   // The Great Includer
   for (let i = 0; i < 6; i++) {
     const y = i % 2 ? 1.75 : 2.25;
-    framed(T.portrait, 0.34, 0.42, 6.85, y, 2.2 + i * 1.25, -Math.PI / 2);
+    framed(T.portrait, 0.34, 0.42, 6.96, y, 2.2 + i * 1.25, -Math.PI / 2);
   }
-  for (let i = 0; i < 3; i++) framed(T.portrait, 0.34, 0.42, -6.85, 2.3, 5.0 + i * 0.55, Math.PI / 2);
+  for (let i = 0; i < 3; i++) framed(T.portrait, 0.34, 0.42, -6.96, 2.3, 5.0 + i * 0.55, Math.PI / 2);
 
   // ================= HALLWAY =================
 
@@ -826,6 +860,7 @@ export function buildSquatchfatherScene(scene, renderer) {
   const hallLamp = new THREE.Mesh(hallLampGeo, new THREE.MeshBasicMaterial({ color: 0xffd9a0 }));
   hallLamp.position.set(5, 2.4, 13);
   scene.add(hallLamp);
+  scene.add(cyl(0.012, 0.012, 0.2, lam(0x1a1a1a), 5, 2.52, 13, 4));
 
   // ================= BATHROOM =================
 
@@ -893,15 +928,16 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Exposed pipes
   const pipeMat = phong(0x8d8a80, { shininess: 60, specular: 0xbbbbb0 });
-  scene.add(cyl(0.045, 0.045, 2.6, pipeMat, 6.15, 1.3, 18.9, 8));
-  const runPipe = cyl(0.045, 0.045, 3.4, pipeMat, 4.6, 2.45, 19.0, 8);
+  scene.add(cyl(0.045, 0.045, 2.6, pipeMat, 6.3, 1.3, 19.05, 8));
+  const runPipe = cyl(0.045, 0.045, 2.2, pipeMat, 5.2, 2.45, 19.05, 8);
   runPipe.rotation.z = Math.PI / 2;
   scene.add(runPipe);
-  const toiletPipe = cyl(0.035, 0.035, 0.5, pipeMat, POS.toilet.x + 0.24, 0.5, 18.95, 8);
+  scene.add(cyl(0.045, 0.045, 0.95, pipeMat, 4.12, 1.99, 19.05, 8)); // elbow down
+  const toiletPipe = cyl(0.035, 0.035, 0.5, pipeMat, POS.toilet.x + 0.4, 0.5, 19.05, 8);
   scene.add(toiletPipe);
 
   // The interaction volume: the narrow gap behind the upper rear of the tank.
-  const searchHit = new THREE.Mesh(boxGeo(0.75, 0.5, 0.36), new THREE.MeshBasicMaterial({ visible: false }));
+  const searchHit = new THREE.Mesh(boxGeo(0.75, 0.5, 0.26), new THREE.MeshBasicMaterial({ visible: false }));
   searchHit.position.copy(POS.toiletSearch);
   searchHit.userData.interact = { id: 'toilet', label: 'Search behind toilet', hold: 2.6 };
   scene.add(searchHit);
@@ -909,9 +945,9 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // The wrapped package itself — hidden until it comes out.
   const wrapped = new THREE.Group();
-  wrapped.add(box(0.24, 0.14, 0.3, lam(0x6d6558), 0, 0, 0));
-  wrapped.add(box(0.26, 0.05, 0.32, lam(0x585044), 0, 0.02, 0));
-  wrapped.position.set(POS.toilet.x, 1.02, 18.98);
+  wrapped.add(box(0.26, 0.12, 0.11, lam(0x6d6558), 0, 0, 0));
+  wrapped.add(box(0.28, 0.04, 0.13, lam(0x585044), 0, 0.02, 0));
+  wrapped.position.set(POS.toilet.x, 1.02, 19.13);
   wrapped.visible = false;
   scene.add(wrapped);
 
@@ -932,6 +968,15 @@ export function buildSquatchfatherScene(scene, renderer) {
   mirror.rotation.y = Math.PI / 2;
   scene.add(mirror);
   scene.add(box(0.05, 1.14, 0.94, lam(0x4a4438), B.x0 + 0.02, 1.62, 16.9));
+
+  // Strip light over the glass — without it he is a black cut-out in his own
+  // reflection, and that beat only works if he can see his face.
+  const vanityTube = new THREE.Mesh(boxGeo(0.08, 0.07, 0.8), new THREE.MeshBasicMaterial({ color: 0xe6f2ea }));
+  vanityTube.position.set(B.x0 + 0.16, 2.28, 16.9);
+  scene.add(vanityTube);
+  const vanityLight = new THREE.PointLight(0xdfeee6, 6, 4.5, 2);
+  vanityLight.position.set(B.x0 + 0.45, 2.18, 16.9);
+  scene.add(vanityLight);
 
   // Wrong places to search — the scene supports looking in them.
   function decoy(id, label, x, y, z, w, h, d) {
@@ -954,10 +999,10 @@ export function buildSquatchfatherScene(scene, renderer) {
   const radiator = new THREE.Group();
   for (let i = 0; i < 7; i++) radiator.add(cyl(0.05, 0.05, 0.62, lam(0x9a9288), -0.2 + i * 0.07, 0.34, 0, 6));
   radiator.add(box(0.56, 0.08, 0.12, lam(0x9a9288), 0, 0.66, 0));
-  radiator.position.set(3.0, 0, B.z1 - 0.28);
+  radiator.position.set(3.0, 0, B.z1 - 0.14);
   scene.add(radiator);
-  block(3.0, B.z1 - 0.28, 0.6, 0.3);
-  decoy('radiator', 'Search behind the radiator', 3.0, 0.5, B.z1 - 0.45, 0.7, 0.8, 0.5);
+  block(3.0, B.z1 - 0.14, 0.6, 0.3);
+  decoy('radiator', 'Search behind the radiator', 3.0, 0.5, B.z1 - 0.34, 0.7, 0.8, 0.42);
 
   // Flickering ceiling light
   const bathLampMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.5), new THREE.MeshBasicMaterial({ color: 0xdff0e0 }));
@@ -1002,13 +1047,13 @@ export function buildSquatchfatherScene(scene, renderer) {
   scene.add(hallLight);
 
   // Wall sconces so the sides of the room aren't a void
-  for (const [sx, sz, ry] of [[-6.7, 4.5, 1], [-6.7, 8.5, 1], [6.7, 4.0, -1], [6.7, 8.0, -1]]) {
+  for (const [sx, sz, ry] of [[-6.86, 2.0, 1], [-6.86, 6.6, 1], [6.86, 4.0, -1], [6.86, 8.0, -1]]) {
     const shade = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.26, 8, 1, true), lam(0xd8b070, { side: THREE.DoubleSide }));
     shade.position.set(sx, 2.25, sz);
     shade.rotation.z = ry * 0.35;
     scene.add(shade);
     const sl = new THREE.PointLight(0xffa860, 6, 7, 2);
-    sl.position.set(sx + ry * 0.35, 2.2, sz);
+    sl.position.set(sx + ry * 0.3, 2.2, sz);
     scene.add(sl);
   }
 
@@ -1021,10 +1066,10 @@ export function buildSquatchfatherScene(scene, renderer) {
 
   // Layer 1 holds Prospect's body, which only the mirror camera renders — the
   // lights around the bathroom have to reach it or he shows up as a cut-out.
-  for (const l of [ambient, moon, bathLight, moonSpill, hallLight]) l.layers.enable(1);
+  for (const l of [ambient, moon, bathLight, moonSpill, hallLight, vanityLight]) l.layers.enable(1);
 
   // Hanging lamps over the background tables
-  for (const [lx, lz] of [[-4.6, 2.6], [4.6, 2.4], [-4.8, 7.8]]) {
+  for (const [lx, lz] of [[-4.7, 2.4], [4.7, 2.2], [-4.9, 7.2]]) {
     scene.add(cyl(0.01, 0.01, 0.9, lam(0x1a1a1a), lx, 2.75, lz, 4));
     const shade = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.3, 10, 1, true), lam(0x8e1f24, { side: THREE.DoubleSide }));
     shade.position.set(lx, 2.2, lz);
@@ -1058,12 +1103,14 @@ export function buildSquatchfatherScene(scene, renderer) {
   const cook = makeBystander(-5.2, 11.6, Math.PI, 0xdcd8d0, 0xb98a63);
   cook.visible = true;
   const diner1 = makeBystander(-4.6, 3.5, -0.9, 0x3a3b48, 0xd0a87e);
-  const diner2 = makeBystander(4.6, 1.5, 2.4, 0x4a3a3a, 0xc09069);
+  const diner2 = makeBystander(5.6, 1.0, 2.4, 0x4a3a3a, 0xc09069);
 
   // ================= EXIT + CAR INTERACTION =================
 
-  const carHit = new THREE.Mesh(boxGeo(2.2, 2.0, 2.6), new THREE.MeshBasicMaterial({ visible: false }));
-  carHit.position.set(POS.getawayCar.x, 1.0, POS.getawayCar.z + 1.0);
+  // Kept entirely on the car's side of where the player can stand, or the ray
+  // would start inside the box and never hit its front face.
+  const carHit = new THREE.Mesh(boxGeo(2.4, 1.6, 1.6), new THREE.MeshBasicMaterial({ visible: false }));
+  carHit.position.set(POS.getawayCar.x, 1.0, POS.getawayCar.z + 0.5);
   carHit.userData.interact = { id: 'car', label: 'Get in the car', hold: 0 };
   scene.add(carHit);
   interactables.push(carHit);

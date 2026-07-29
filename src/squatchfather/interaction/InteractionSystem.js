@@ -54,7 +54,10 @@ export class InteractionSystem {
     return hits.length ? hits[0].object : null;
   }
 
-  update(dt, down) {
+  // `down` is the key's current state (drives holds); `tapped` is set if the key
+  // went down at any point since the last frame. Without the second signal a
+  // quick press between two frames is simply never seen.
+  update(dt, down, tapped = false) {
     const hit = this.#pick();
     const info = hit ? hit.userData.interact : null;
 
@@ -73,6 +76,11 @@ export class InteractionSystem {
       this.held = 0;
     }
     this.focus = info ? info.id : null;
+
+    if (info && !info.hold && tapped && !down) {
+      // Pressed and released inside one frame — still counts.
+      if (this.onPress) this.onPress(info.id);
+    }
 
     if (info && down) {
       if (info.hold) {

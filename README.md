@@ -85,6 +85,9 @@ Notes on how it's put together:
   layer 1, invisible to the first-person camera and visible only to the mirror's.
 - All sound is synthesised (`audio/core.js` + the ambience, train, gunshot and foley
   modules) — room tone, the train building overhead, and the ringing afterwards.
+  `assets/sfx/squatchfather/manifest.json` is the queue of every cue the scene plays,
+  with a brief for each one, ready to be replaced by real recordings; the 27 spoken
+  lines are listed there too.
 
 ## Tech
 

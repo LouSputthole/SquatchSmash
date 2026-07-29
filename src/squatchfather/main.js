@@ -711,7 +711,7 @@ function restoreCheckpoint() {
     g.mesh.userData.clinked = false;
   }
   const salGlass = glasswareFor(sceneState.props.salGlass);
-  salGlass.base.set(0.1, 0.78, 5.95);
+  salGlass.base.set(0.38, 0.78, 5.5);
   salGlass.mesh.position.copy(salGlass.base);
 
   if (prospect.droppedMesh) {
@@ -851,7 +851,7 @@ function frame() {
 
     // Interaction prompts are suppressed while he's seated or scripted
     const canInteract = !prospect.autoTarget && !fsm.is(S.DROP_WEAPON);
-    interactions.update(dt, canInteract && keys.e);
+    interactions.update(dt, canInteract && keys.e, canInteract && ePressed);
     if (fsm.is(S.DROP_WEAPON)) ui.prompt.classList.add('show');
 
     // Clicks outside the shooting beats are discarded rather than queued —

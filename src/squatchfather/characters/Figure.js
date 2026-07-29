@@ -30,7 +30,10 @@ export const DEFAULTS = {
 };
 
 const STAND_PELVIS = 0.92;
-const SIT_PELVIS = 0.5;
+const SIT_PELVIS = 0.6;
+// Seated, the shin has further to travel to reach the floor from a chair than
+// it does when standing; stretching the lower leg keeps both ends in contact.
+const SIT_SHIN_STRETCH = 1.2;
 
 export function buildFigure(opts = {}) {
   const o = { ...DEFAULTS, ...opts };
@@ -52,12 +55,12 @@ export function buildFigure(opts = {}) {
     const hip = new THREE.Group();
     hip.position.set(side * 0.15 * o.bulk, -0.1, 0);
     pelvis.add(hip);
-    hip.add(box(0.2 * o.bulk, 0.46, 0.21, o.coat, 0, -0.23, 0));
+    hip.add(box(0.2 * o.bulk, 0.4, 0.21, o.coat, 0, -0.2, 0));
     const knee = new THREE.Group();
-    knee.position.set(0, -0.46, 0);
+    knee.position.set(0, -0.4, 0);
     hip.add(knee);
-    knee.add(box(0.18 * o.bulk, 0.42, 0.19, o.coat, 0, -0.21, 0));
-    knee.add(box(0.19 * o.bulk, 0.1, 0.3, 0x14141a, 0, -0.42, -0.06));
+    knee.add(box(0.18 * o.bulk, 0.37, 0.19, o.coat, 0, -0.185, 0));
+    knee.add(box(0.19 * o.bulk, 0.1, 0.3, 0x14141a, 0, -0.37, -0.06));
     return { hip, knee };
   }
   const legL = leg(-1);
@@ -149,12 +152,14 @@ export class Figure {
       this.pelvis.position.y = SIT_PELVIS;
       this.legL.hip.rotation.x = this.legR.hip.rotation.x = Math.PI / 2;
       this.legL.knee.rotation.x = this.legR.knee.rotation.x = -Math.PI / 2;
+      this.legL.knee.scale.y = this.legR.knee.scale.y = SIT_SHIN_STRETCH;
       this.armL.shoulder.rotation.x = this.armR.shoulder.rotation.x = 0.35;
       this.armL.elbow.rotation.x = this.armR.elbow.rotation.x = -1.25;
     } else {
       this.pelvis.position.y = STAND_PELVIS;
       this.legL.hip.rotation.x = this.legR.hip.rotation.x = 0;
       this.legL.knee.rotation.x = this.legR.knee.rotation.x = 0;
+      this.legL.knee.scale.y = this.legR.knee.scale.y = 1;
       this.armL.shoulder.rotation.x = this.armR.shoulder.rotation.x = 0.08;
       this.armL.elbow.rotation.x = this.armR.elbow.rotation.x = -0.22;
     }

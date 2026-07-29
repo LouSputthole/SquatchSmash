@@ -1,0 +1,571 @@
+{
+  "_comment": "Sound queue for The Squatchfather (squatchfather.html). Every cue the scene plays, whether or not a file exists for it yet. Nothing here is loaded at runtime today \u2014 all of it is synthesised in src/squatchfather/audio/* \u2014 so this is the generation list, not a dependency. To replace a cue, drop a file in this folder under the given `file` name and wire it in audio/core.js. `playedBy` names the code that makes the sound today; `status` is \"placeholder-synth\" where something already plays and \"queued\" where nothing does yet. `seconds` is a target, not a limit. `loop` means it must be seamless \u2014 those run continuously and are mixed by gain.",
+  "_direction": {
+    "room": "Small dim restaurant under an elevated railway, late, half full.",
+    "restraint": "No score, no stingers, no impact hits. The train is the only thing that builds.",
+    "mix": "Everything except ear.ringing drops behind a low-pass while the bathroom door is shut, and again for ten seconds after the shots.",
+    "voice": "Underplayed throughout. Prospect says as little as possible and never raises his voice; Sal is reasonable and warm right up until he isn't; McClawsky is bored."
+  },
+  "sfx": [
+    {
+      "id": "ambience.room",
+      "file": "ambience.room.mp3",
+      "seconds": 30,
+      "loop": true,
+      "status": "placeholder-synth",
+      "playedBy": "RestaurantAmbience.room",
+      "brief": "Small dim Italian restaurant, half full. Low room tone, cutlery, a couple of murmured conversations well back. No music, no laughter. Seamless loop."
+    },
+    {
+      "id": "ambience.murmur",
+      "file": "ambience.murmur.mp3",
+      "seconds": 30,
+      "loop": true,
+      "status": "placeholder-synth",
+      "playedBy": "RestaurantAmbience.murmurA, RestaurantAmbience.murmurB",
+      "brief": "Just the diners: two or three indistinct conversations, no intelligible words, low and even. Layered under ambience.room so it can be ducked on its own. Seamless loop."
+    },
+    {
+      "id": "ambience.street.wet",
+      "file": "ambience.street.wet.mp3",
+      "seconds": 30,
+      "loop": true,
+      "status": "placeholder-synth",
+      "playedBy": "RestaurantAmbience.street",
+      "brief": "Night street under an elevated railway after rain. Tyres hissing on wet asphalt, distant city, no voices. Seamless loop."
+    },
+    {
+      "id": "ambience.bathroom",
+      "file": "ambience.bathroom.mp3",
+      "seconds": 30,
+      "loop": true,
+      "status": "queued",
+      "playedBy": null,
+      "brief": "Hard tiled room tone with a faint ballast hum. The drip is a separate cue. Seamless loop."
+    },
+    {
+      "id": "ambience.kitchen",
+      "file": "ambience.kitchen.mp3",
+      "seconds": 20,
+      "loop": true,
+      "status": "queued",
+      "playedBy": null,
+      "brief": "Muffled restaurant kitchen behind a closed door: pans, a low extractor. Heard through a wall, so no highs. Seamless loop."
+    },
+    {
+      "id": "clink.cutlery",
+      "file": "clink.cutlery.mp3",
+      "seconds": 0.5,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "RestaurantAmbience.update",
+      "brief": "One fork or glass touching a plate across the room. Small, dry, unremarkable. Three variations."
+    },
+    {
+      "id": "drip.water",
+      "file": "drip.water.mp3",
+      "seconds": 0.4,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "RestaurantAmbience.update",
+      "brief": "A single drop into standing water in a tiled room."
+    },
+    {
+      "id": "car.pass.wet",
+      "file": "car.pass.wet.mp3",
+      "seconds": 3.0,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "RestaurantAmbience.#carPass",
+      "brief": "One car passing on wet road, swelling by and away. Nothing sporty."
+    },
+    {
+      "id": "car.horn.distant",
+      "file": "car.horn.distant.mp3",
+      "seconds": 1.2,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "RestaurantAmbience.update",
+      "brief": "A short car horn several streets away, flattened by distance."
+    },
+    {
+      "id": "train.rumble",
+      "file": "train.rumble.mp3",
+      "seconds": 30,
+      "loop": true,
+      "status": "placeholder-synth",
+      "playedBy": "TrainSequence.rumble",
+      "brief": "Elevated train bed, played at rising gain: steel structure resonating, low and broad. No wheel detail. Seamless loop."
+    },
+    {
+      "id": "train.roar",
+      "file": "train.roar.mp3",
+      "seconds": 30,
+      "loop": true,
+      "status": "placeholder-synth",
+      "playedBy": "TrainSequence.body",
+      "brief": "The mid band of the same pass \u2014 the part that arrives late and makes conversation hard. Seamless loop, mixed in above train.rumble."
+    },
+    {
+      "id": "train.sub",
+      "file": "train.sub.mp3",
+      "seconds": 30,
+      "loop": true,
+      "status": "placeholder-synth",
+      "playedBy": "TrainSequence.sub",
+      "brief": "Sub-bass only, 30-50Hz, the part felt through the chair. Seamless loop."
+    },
+    {
+      "id": "train.clatter",
+      "file": "train.clatter.mp3",
+      "seconds": 0.4,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "TrainSequence.update",
+      "brief": "Wheels crossing a rail joint overhead: two metallic knocks close together. Fired repeatedly and faster as it arrives."
+    },
+    {
+      "id": "train.horn",
+      "file": "train.horn.mp3",
+      "seconds": 2.0,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "TrainSequence.horn",
+      "brief": "Long flat two-tone horn a long way off. Mournful, not urgent."
+    },
+    {
+      "id": "train.pass.peak",
+      "file": "train.pass.peak.mp3",
+      "seconds": 8.0,
+      "loop": false,
+      "status": "queued",
+      "playedBy": null,
+      "brief": "Optional: the full pass directly overhead at maximum, if the layered beds don't sell the final exchange."
+    },
+    {
+      "id": "gun.shot.interior",
+      "file": "gun.shot.interior.mp3",
+      "seconds": 2.0,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "GunshotAudio.gunshot",
+      "brief": "A handgun fired inside a small hard room. Painfully loud, short crack, then the room slapping back twice. The loudest thing in the scene by a wide margin."
+    },
+    {
+      "id": "gun.check",
+      "file": "gun.check.mp3",
+      "seconds": 0.8,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "GunshotAudio.weaponCheck",
+      "brief": "Press check on a semi-auto: slide eased back and let forward. Two small metallic events, dry \u2014 he is doing it quietly."
+    },
+    {
+      "id": "gun.drop.wood",
+      "file": "gun.drop.wood.mp3",
+      "seconds": 1.2,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "GunshotAudio.weaponDrop",
+      "brief": "A pistol dropped on hardwood from waist height. One heavy knock, a smaller settle, then nothing."
+    },
+    {
+      "id": "ear.ringing",
+      "file": "ear.ringing.mp3",
+      "seconds": 20,
+      "loop": true,
+      "status": "placeholder-synth",
+      "playedBy": "core.startRinging",
+      "brief": "Tinnitus after two indoor gunshots: steady sine around 4kHz with a fainter partial. Seamless loop, faded out over ten seconds."
+    },
+    {
+      "id": "step.wood",
+      "file": "step.wood.mp3",
+      "seconds": 0.3,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.footstep('wood')",
+      "brief": "One footstep, leather sole, on old hardwood. Four to six variations."
+    },
+    {
+      "id": "step.tile",
+      "file": "step.tile.mp3",
+      "seconds": 0.3,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.footstep('tile')",
+      "brief": "One footstep on bathroom tile \u2014 harder, with a short slap of room. Four to six variations."
+    },
+    {
+      "id": "step.street.wet",
+      "file": "step.street.wet.mp3",
+      "seconds": 0.3,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.footstep('street')",
+      "brief": "One footstep on wet pavement, slight water in it. Four to six variations."
+    },
+    {
+      "id": "chair.scrape",
+      "file": "chair.scrape.mp3",
+      "seconds": 0.8,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.chairScrape",
+      "brief": "A wooden restaurant chair pulled back over hardwood. Not a screech \u2014 he is not making a scene."
+    },
+    {
+      "id": "chair.knock",
+      "file": "chair.knock.mp3",
+      "seconds": 0.5,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.chairKnock",
+      "brief": "A chair settling as someone sits, or knocked as they stand. Also used when McClawsky goes over backwards."
+    },
+    {
+      "id": "door.open.restaurant",
+      "file": "door.open.restaurant.mp3",
+      "seconds": 1.2,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.doorOpen",
+      "brief": "A heavy glazed front door pulled open: hinge, and a breath of street arriving."
+    },
+    {
+      "id": "door.close.restaurant",
+      "file": "door.close.restaurant.mp3",
+      "seconds": 1.0,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.doorClose",
+      "brief": "The same door closing and latching, shutting the street out."
+    },
+    {
+      "id": "door.close.bathroom",
+      "file": "door.close.bathroom.mp3",
+      "seconds": 1.0,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.doorClose (shared)",
+      "brief": "A light interior door closing in a tiled room, with the room's slap on it. Marks the moment the restaurant goes far away \u2014 wants to be its own asset."
+    },
+    {
+      "id": "cloth.movement",
+      "file": "cloth.movement.mp3",
+      "seconds": 0.6,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.cloth",
+      "brief": "Suit fabric: a napkin placed down, a jacket shifting, cloth unwrapped from something heavy. Three variations."
+    },
+    {
+      "id": "wine.pour",
+      "file": "wine.pour.mp3",
+      "seconds": 2.5,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.pour",
+      "brief": "Red wine poured into a glass at the table, unhurried."
+    },
+    {
+      "id": "glass.fall",
+      "file": "glass.fall.mp3",
+      "seconds": 1.5,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.glassFall",
+      "brief": "A wine glass going over on a laid table, rolling, and breaking on the floor."
+    },
+    {
+      "id": "search.rustle",
+      "file": "search.rustle.mp3",
+      "seconds": 0.8,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.searchRustle",
+      "brief": "A hand moving over cold porcelain and dusty pipe, feeling for something. Close, dry, slightly desperate."
+    },
+    {
+      "id": "pipe.knock",
+      "file": "pipe.knock.mp3",
+      "seconds": 0.5,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.pipeKnock",
+      "brief": "Knuckles finding a cistern pipe instead of what he is looking for. The sound of nothing being there."
+    },
+    {
+      "id": "heartbeat",
+      "file": "heartbeat.mp3",
+      "seconds": 1.0,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.heartbeat",
+      "brief": "One slow heavy heartbeat, felt more than heard. Played faster as the search goes on."
+    },
+    {
+      "id": "breath",
+      "file": "breath.mp3",
+      "seconds": 1.2,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.breath",
+      "brief": "One controlled breath through the nose, getting louder and less controlled. Three variations."
+    },
+    {
+      "id": "car.door",
+      "file": "car.door.mp3",
+      "seconds": 0.8,
+      "loop": false,
+      "status": "placeholder-synth",
+      "playedBy": "Foley.carDoor",
+      "brief": "A heavy 1970s car door closing on a quiet street. The last sound in the scene."
+    }
+  ],
+  "voice": [
+    {
+      "id": "vo.greeting.01.mcclawsky",
+      "file": "vo.greeting.01.mcclawsky.mp3",
+      "speaker": "CAPT. McCLAWSKY",
+      "line": "Come on, Squatch. They're waiting.",
+      "seconds": 2.6,
+      "beat": "Outside the door, as McClawsky lets him in.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.01.sal",
+      "file": "vo.opening.01.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "The Sasquatches are making business difficult.",
+      "seconds": 3.0,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.02.prospect",
+      "file": "vo.opening.02.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "You attacked my family.",
+      "seconds": 2.5,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.03.sal",
+      "file": "vo.opening.03.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Business disagreement.",
+      "seconds": 2.3,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.04.prospect",
+      "file": "vo.opening.04.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "You shot Booski.",
+      "seconds": 2.4,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.05.sal",
+      "file": "vo.opening.05.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Booski rejected my offer.",
+      "seconds": 2.8,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.06.mcclawsky",
+      "file": "vo.opening.06.mcclawsky.mp3",
+      "speaker": "CAPT. McCLAWSKY",
+      "line": "Your people need to calm down.",
+      "seconds": 3.0,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.07.prospect",
+      "file": "vo.opening.07.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "You hit me.",
+      "seconds": 2.4,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.08.mcclawsky",
+      "file": "vo.opening.08.mcclawsky.mp3",
+      "speaker": "CAPT. McCLAWSKY",
+      "line": "You were being difficult.",
+      "seconds": 2.8,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.09.sal",
+      "file": "vo.opening.09.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "I want the servers, the skin market, and Wednesday nights.",
+      "seconds": 4.4,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.10.prospect",
+      "file": "vo.opening.10.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "Wednesday belongs to the family.",
+      "seconds": 3.0,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.11.sal",
+      "file": "vo.opening.11.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Everything belongs to someone until it changes hands.",
+      "seconds": 4.2,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.12.sal",
+      "file": "vo.opening.12.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Help me, Prospect. The Sasquatches keep their territory. I get a percentage.",
+      "seconds": 5.6,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.13.prospect",
+      "file": "vo.opening.13.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "What percentage?",
+      "seconds": 2.3,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.opening.14.sal",
+      "file": "vo.opening.14.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Enough.",
+      "seconds": 2.2,
+      "beat": "The first conversation at the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.excuse.01.prospect",
+      "file": "vo.excuse.01.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "I need to use the bathroom.",
+      "seconds": 2.8,
+      "beat": "Asking to leave the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.excuse.02.mcclawsky",
+      "file": "vo.excuse.02.mcclawsky.mp3",
+      "speaker": "CAPT. McCLAWSKY",
+      "line": "Go ahead. We checked it.",
+      "seconds": 2.8,
+      "beat": "Asking to leave the table.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.sitDown.01.mcclawsky",
+      "file": "vo.sitDown.01.mcclawsky.mp3",
+      "speaker": "CAPT. McCLAWSKY",
+      "line": "Sit down, Squatch.",
+      "seconds": 2.2,
+      "beat": "Failure bark: the player tried to leave before the bathroom.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.wrongSearch.01.prospect",
+      "file": "vo.wrongSearch.01.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "Come on.",
+      "seconds": 1.8,
+      "beat": "Muttered after two searches in the wrong place.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.prodding.01.sal",
+      "file": "vo.prodding.01.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Prospect?",
+      "seconds": 2.0,
+      "beat": "Sal, when the player takes too long coming back.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.prodding.02.sal",
+      "file": "vo.prodding.02.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Are you listening?",
+      "seconds": 2.4,
+      "beat": "Sal, when the player takes too long coming back.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.final.01.sal",
+      "file": "vo.final.01.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "So. Do we have an understanding?",
+      "seconds": 3.2,
+      "beat": "The last exchange, under the train.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.final.02.prospect",
+      "file": "vo.final.02.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "I understand.",
+      "seconds": 2.3,
+      "beat": "The last exchange, under the train.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.final.03.sal",
+      "file": "vo.final.03.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Good. The Sasquatches keep their name.",
+      "seconds": 3.4,
+      "beat": "The last exchange, under the train.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.final.04.mcclawsky",
+      "file": "vo.final.04.mcclawsky.mp3",
+      "speaker": "CAPT. McCLAWSKY",
+      "line": "And everyone walks away happy.",
+      "seconds": 3.2,
+      "beat": "The last exchange, under the train.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.final.05.sal",
+      "file": "vo.final.05.sal.mp3",
+      "speaker": "SAL SORRENTO",
+      "line": "Tell your people the business is settled.",
+      "seconds": 3.6,
+      "beat": "The last exchange, under the train.",
+      "status": "queued"
+    },
+    {
+      "id": "vo.final.06.prospect",
+      "file": "vo.final.06.prospect.mp3",
+      "speaker": "PROSPECT",
+      "line": "It is.",
+      "seconds": 2.0,
+      "beat": "The last exchange, under the train.",
+      "status": "queued"
+    }
+  ]
+}

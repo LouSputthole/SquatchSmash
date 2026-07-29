@@ -7,8 +7,8 @@ import { POS } from '../scenes/SquatchfatherScene.js';
 // view-model, and a full body that only the bathroom mirror can see.
 
 const RADIUS = 0.32;
-const EYE_STAND = 1.7;
-const EYE_SEATED = 1.24;
+const EYE_STAND = 1.76;   // level with the head of his own body in the mirror
+const EYE_SEATED = 1.44;  // seated at a 0.78 table
 
 export const SPEED = {
   normal: 2.7,
