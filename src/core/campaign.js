@@ -12,6 +12,7 @@ export const CHARACTER_IDS = Object.freeze({
 export const SCENE_IDS = Object.freeze({
   APARTMENT: 'apartment',
   BADA_BING_ONE: 'bada_bing_one',
+  SQUATCHFATHER: 'squatchfather',
 });
 
 export const ITEM_IDS = Object.freeze({
@@ -20,6 +21,7 @@ export const ITEM_IDS = Object.freeze({
 
 export const MISSION_IDS = Object.freeze({
   BADA_BING_ONE: 'bada_bing_one',
+  SQUATCHFATHER: 'squatchfather',
 });
 
 export const EVENT_IDS = Object.freeze({
@@ -32,10 +34,14 @@ export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 const SCENES = Object.freeze({
   [SCENE_IDS.APARTMENT]: Object.freeze({
     href: 'index.html',
-    next: Object.freeze([SCENE_IDS.BADA_BING_ONE]),
+    next: Object.freeze([SCENE_IDS.BADA_BING_ONE, SCENE_IDS.SQUATCHFATHER]),
   }),
   [SCENE_IDS.BADA_BING_ONE]: Object.freeze({
     href: 'bing.html',
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  [SCENE_IDS.SQUATCHFATHER]: Object.freeze({
+    href: 'squatchfather.html',
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
 });
@@ -72,6 +78,11 @@ function initialState() {
         packageReceived: false,
         ending: null,
       },
+      [MISSION_IDS.SQUATCHFATHER]: {
+        status: 'locked',
+        weaponStaged: false,
+        weaponDropped: false,
+      },
     },
     events: {
       [EVENT_IDS.LOU_FIRST_CALL]: {
@@ -99,6 +110,11 @@ function normalize(saved) {
   const mission = saved.missions?.[MISSION_IDS.BADA_BING_ONE] ?? {};
   const status = ['locked', 'available', 'in_progress', 'complete']
     .includes(mission.status) ? mission.status : base.missions.bada_bing_one.status;
+  const squatchfather = saved.missions?.[MISSION_IDS.SQUATCHFATHER] ?? {};
+  const squatchfatherStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(squatchfather.status)
+    ? squatchfather.status
+    : (status === 'complete' ? 'available' : base.missions.squatchfather.status);
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
 
   const state = {
@@ -133,6 +149,11 @@ function normalize(saved) {
         status,
         packageReceived: mission.packageReceived === true,
         ending: typeof mission.ending === 'string' ? mission.ending : null,
+      },
+      [MISSION_IDS.SQUATCHFATHER]: {
+        status: squatchfatherStatus,
+        weaponStaged: squatchfather.weaponStaged === true,
+        weaponDropped: squatchfather.weaponDropped === true,
       },
     },
     events: {

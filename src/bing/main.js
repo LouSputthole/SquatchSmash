@@ -966,6 +966,10 @@ function showEnding(kind) {
     saved.status = 'complete';
     saved.packageReceived = campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
     saved.ending = kind;
+    if (saved.packageReceived) {
+      const next = state.missions[MISSION_IDS.SQUATCHFATHER];
+      if (next.status === 'locked') next.status = 'available';
+    }
   });
   game.paused = true;
   player.enabled = false;

@@ -1,6 +1,7 @@
 import {
   CHARACTER_IDS,
   EVENT_IDS,
+  ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
 } from './campaign.js';
@@ -79,6 +80,27 @@ class ApartmentStory {
         kind: 'call',
         id: EVENT_IDS.LOU_FIRST_CALL,
         line: 'Lou said he would call. I should answer before I go anywhere.',
+      };
+    }
+    const missions = this.campaign.state.missions;
+    if (missions[MISSION_IDS.BADA_BING_ONE].status === 'complete') {
+      if (missions[MISSION_IDS.SQUATCHFATHER].status === 'complete') {
+        return {
+          kind: 'stay',
+          id: 'sleep',
+          line: 'That is enough going out for one night.',
+        };
+      }
+      if (!this.campaign.hasItem(ITEM_IDS.LOU_PACKAGE)) {
+        return {
+          kind: 'item',
+          id: ITEM_IDS.LOU_PACKAGE,
+          line: 'I am not going anywhere until I find Lou’s package.',
+        };
+      }
+      return {
+        kind: 'go',
+        destination: SCENE_IDS.SQUATCHFATHER,
       };
     }
     const missing = DEPARTURE_REQUIREMENTS.find(({ id }) => !activities[id]);

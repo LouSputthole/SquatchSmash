@@ -3,7 +3,9 @@ import test from 'node:test';
 
 import {
   EVENT_IDS,
+  ITEM_IDS,
   MISSION_IDS,
+  SCENE_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
 import {
@@ -135,4 +137,32 @@ test('existing Bada Bing progress implies Lou’s call was already answered', ()
   assert.equal(reloaded.state.events[EVENT_IDS.LOU_FIRST_CALL].status, 'answered');
   assert.equal(reloaded.state.missions[MISSION_IDS.BADA_BING_ONE].status, 'complete');
   assert.deepEqual(calls, []);
+});
+
+test('returning from Bada Bing requires the package before Squatchfather', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'available';
+  });
+  const story = createApartmentStory({ campaign, ring: () => true });
+  const activities = {
+    eaten: true,
+    showered: true,
+    pooped: true,
+    changedClothes: true,
+    emailChecked: false,
+  };
+
+  assert.deepEqual(story.tryLeave(activities), {
+    kind: 'item',
+    id: ITEM_IDS.LOU_PACKAGE,
+    line: 'I am not going anywhere until I find Lou’s package.',
+  });
+
+  campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
+  assert.deepEqual(story.tryLeave(activities), {
+    kind: 'go',
+    destination: SCENE_IDS.SQUATCHFATHER,
+  });
 });

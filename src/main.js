@@ -1872,7 +1872,7 @@ function tryLeave() {
     return res;
   }
   if (res.kind === 'go') {
-    leaveForBadaBing();
+    leaveForMission(res.destination);
     return res;
   }
 
@@ -1883,13 +1883,15 @@ function tryLeave() {
   return res;
 }
 
-/** Out of the apartment and into the first story mission. */
-function leaveForBadaBing() {
+/** Out of the apartment and into whichever campaign mission is ready. */
+function leaveForMission(destination) {
   game.left = true;
   saveApartmentProgress();
-  campaign.update((state) => {
-    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'in_progress';
-  });
+  if (destination === SCENE_IDS.BADA_BING_ONE) {
+    campaign.update((state) => {
+      state.missions[MISSION_IDS.BADA_BING_ONE].status = 'in_progress';
+    });
+  }
 
   interaction.setPaused(true);
   hud.hidePrompt();
@@ -1902,8 +1904,9 @@ function leaveForBadaBing() {
   blackout.querySelector('span').textContent = '';
   blackout.classList.add('on');
   setTimeout(() => {
-    navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
-      spawn: 'driver_seat',
+    navigateCampaign(campaign, destination, {
+      spawn: destination === SCENE_IDS.SQUATCHFATHER
+        ? 'restaurant_exterior' : 'driver_seat',
       location,
     });
   }, 1800);
