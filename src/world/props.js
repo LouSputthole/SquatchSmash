@@ -2195,6 +2195,56 @@ export function makeTub(M, { x0, z0, x1, z1 }) {
   };
 }
 
+/**
+ * A bottle of PVA and a box of tissues.
+ *
+ * They live together on the desk because that is where the crooked frame is,
+ * and because a box of tissues next to a man working a bottle with both hands
+ * is the entire joke. Returned separately so each gets its own hit proxy.
+ */
+export function makeGlueAndTissues(M, { x, y, z }) {
+  const g = group('gluekit');
+
+  /* ---- glue: white body, orange cap, half used ---- */
+  const glue = group('glue');
+  glue.position.set(x, y, z);
+  const body = mat({ color: 0xf4f2ec, roughness: 0.35 });
+  glue.add(cylinder({ rTop: 0.026, rBottom: 0.030, h: 0.105, pos: [0, 0.052, 0], mat: body }));
+  glue.add(cylinder({ rTop: 0.014, rBottom: 0.026, h: 0.030, pos: [0, 0.119, 0], mat: body }));
+  glue.add(cylinder({
+    rTop: 0.006, rBottom: 0.015, h: 0.034, pos: [0, 0.150, 0],
+    mat: mat({ color: 0xe2691f, roughness: 0.4 }),
+  }));
+  // The label, and the crust round the nozzle nobody has ever cleaned.
+  glue.add(cylinder({
+    rTop: 0.0305, rBottom: 0.0305, h: 0.046, pos: [0, 0.050, 0],
+    mat: mat({ color: 0xdfe6ef, roughness: 0.7 }),
+  }));
+  glue.add(cylinder({
+    rTop: 0.010, rBottom: 0.013, h: 0.008, pos: [0, 0.134, 0],
+    mat: mat({ color: 0xeceae0, roughness: 0.95 }),
+  }));
+  g.add(glue);
+
+  /* ---- tissues ---- */
+  const tissues = group('tissues');
+  tissues.position.set(x + 0.16, y, z + 0.03);
+  tissues.add(box({
+    size: [0.115, 0.075, 0.115], pos: [0, 0.038, 0],
+    mat: mat({ color: 0x4a6f9c, roughness: 0.8 }),
+  }));
+  // One pulled halfway out and left there.
+  const sheet = box({
+    size: [0.052, 0.055, 0.010], pos: [0, 0.096, 0.006],
+    mat: mat({ color: 0xf6f6f2, roughness: 1 }),
+  });
+  sheet.rotation.set(0.22, 0.4, 0.16);
+  tissues.add(sheet);
+  g.add(tissues);
+
+  return { group: g, glue, tissues, gluePos: new THREE.Vector3(x, y + 0.10, z) };
+}
+
 /** Free-standing "SQUATCH CROSSING" sign leaning in a corner. */
 export function makeCrossingSign(M, { x, z, rotY = 0 }) {
   const g = group('sign');

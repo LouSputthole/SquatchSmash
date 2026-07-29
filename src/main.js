@@ -24,6 +24,8 @@ import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
 import { ShowerSystem } from './world/shower.js';
+import { SplatSystem } from './world/splat.js';
+import { TimingBar } from './core/timingbar.js';
 import { makeHeldCigarette } from './world/props.js';
 import { roomEnvironment } from './world/textures.js';
 
@@ -139,6 +141,8 @@ const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
 // Water out of the rose, for the nine seconds it is running.
 const showerFx = new ShowerSystem(scene);
+// Glue, once it is finally out of the bottle.
+const splat = new SplatSystem(scene, -4.40);
 
 // The lit cigarette rides on the camera, low and to the right.
 const heldCig = makeHeldCigarette();
@@ -230,6 +234,7 @@ async function boot() {
     onCook: cookEggs,
     onEat: eatEggs,
     onLeave: tryLeave,
+    onGlue: startGluing,
     onReadChat: readChat,
     onChatVisible: () => apartment.desk.repaintChat(chat),
     onLearn: (source) => learnAboutMeeting(source),
@@ -287,7 +292,7 @@ async function boot() {
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
-    updateBowel, updatePushes, tryPush, applyDrunkFx,
+    updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -448,6 +453,19 @@ document.addEventListener('keydown', (e) => {
   if (game.onToilet && tryPush(e.code)) {
     e.preventDefault();
     return;
+  }
+
+  if (glue.bar.active) {
+    if (e.code === 'KeyE') { glue.bar.press(); e.preventDefault(); return; }
+    if (e.code === 'KeyQ') {
+      glue.bar.stop();
+      hud.setTiming(null);
+      hud.setPosture(null);
+      interaction.setPaused(false);
+      hud.say('Right. That can stay crooked.', 3400);
+      e.preventDefault();
+      return;
+    }
   }
 
   player.setKey(e.code, true);
@@ -1189,6 +1207,90 @@ function eatEggs() {
 }
 
 /* ------------------------------------------------------------------ */
+/* The glue                                                            */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The frame above the desk has been crooked for months and the fixing pad has
+ * given up. There is a bottle of PVA that has gone solid round the nozzle, so
+ * getting anything out of it takes both hands, a rhythm, and a great deal of
+ * effort -- and it is going to sound like exactly what it sounds like, right
+ * up until the glue lands on the wall and it is very obviously glue.
+ *
+ * The bar is the sweeping kind rather than the toilet's reaction kind: you can
+ * see where the marker is the whole time, so every miss is your own timing.
+ */
+const glue = {
+  bar: new TimingBar({
+    hits: 6,
+    window: [0.74, 0.87],
+    speed: 0.80,
+    onHit: onGlueHit,
+    onMiss: () => audio.play('glue.slip', { volume: 0.5, position: apartment.gluePos }),
+    onDone: finishGluing,
+  }),
+  groaning: -1,
+};
+
+function startGluing() {
+  if (apartment.state.glued || glue.bar.active || glue.groaning >= 0) return;
+  glue.bar.start();
+  interaction.setPaused(true);
+  hud.setPosture('give up on it');
+  audio.play('glue.pickup', { volume: 0.6, position: apartment.gluePos });
+  hud.say('Solid round the nozzle. <em>Of course it is.</em> '
+    + 'Hold it, time it, and squeeze.', 5200);
+}
+
+function onGlueHit(n, total) {
+  // Each squeeze gets more of him behind it than the last.
+  audio.play('glue.squeeze', {
+    volume: 0.55 + n * 0.06, rate: 1.0 - n * 0.045, position: apartment.gluePos,
+  });
+  if (n === total) return;
+  if (n >= 3) audio.play('glue.effort', { volume: 0.30 + n * 0.07, delay: 0.10 });
+  hud.toast(`${n}/${total}`, n >= total - 1 ? 'good' : '');
+}
+
+/** The long one, and then the reveal. */
+function finishGluing() {
+  glue.groaning = 0;
+  hud.setPosture(null);
+  audio.hold(5.2);
+  audio.play('glue.groan', { volume: 0.85 });
+  hud.say('<em>Nnnnngh.</em>', 5000);
+}
+
+function updateGluing(dt) {
+  if (glue.bar.active) {
+    glue.bar.update(dt);
+    hud.setTiming(glue.bar.view);
+    return;
+  }
+  if (glue.groaning < 0) { hud.setTiming(null); return; }
+
+  hud.setTiming(null);
+  const was = glue.groaning;
+  glue.groaning += dt;
+
+  // Five seconds of it, and then the bottle gives all at once.
+  if (was < 5.0 && glue.groaning >= 5.0) {
+    audio.play('glue.burst', { volume: 0.9, position: apartment.gluePos });
+    // Straight up the wall behind the desk, which is where he was pointing it.
+    splat.spray(2.66, 1.94, 11);
+    apartment.state.glued = true;
+    hud.toast('The whole bottle', 'bad');
+    hud.say('<em>There we go.</em> All over the wall, obviously. '
+      + 'Half of it on the frame. <em>It is going to set like that.</em>', 6400);
+    audio.say('glue', { delay: 2.4 });
+  }
+  if (glue.groaning > 6.4) {
+    glue.groaning = -1;
+    interaction.setPaused(false);
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Wednesday                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -1846,6 +1948,8 @@ function frame() {
       updateBowel(dt);
       updateZyn();
       updateShower(hdt);
+      updateGluing(dt);
+      splat.update(dt);
       updateCooking(hdt);
       updateFarts(dt);
       if (goals.known && !game.left && goals.window === 'missed' && !goals.missed) missedIt();

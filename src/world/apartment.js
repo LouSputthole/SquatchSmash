@@ -541,6 +541,23 @@ export async function buildApartment(ctx) {
   root.add(books.group);
   root.add(P.makeBeerCan(M, { x: -2.30, y: 1.478, z: -4.34, crushed: true }).group);
 
+  /* The glue and the tissues, on the desk under the crooked frame. */
+  const gluekit = P.makeGlueAndTissues(M, { x: 2.52, y: 0.74, z: -3.92 });
+  root.add(gluekit.group);
+  // Knee-height clutter needs a taller proxy or you have to stare at the desk.
+  const glueHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.30, 0.34, 0.28),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  glueHit.position.set(2.56, 0.92, -3.92);
+  root.add(glueHit);
+  interaction.register(glueHit, {
+    label: () => (state.glued
+      ? 'The <b>glue</b>. Job done.'
+      : 'Get the <b>glue</b> going'),
+    onUse: () => { if (!state.glued) ctx.onGlue?.(); },
+  });
+
   const cork = P.makeCorkboard(M, { x: -0.10, y: 1.58, z: -4.40, rotY: 0 });
   root.add(cork.group);
 
@@ -722,6 +739,8 @@ export async function buildApartment(ctx) {
     lightsOn: false,
     lampOn: false,
     pcOn: false,
+    /** The frame is back up and the bottle is empty. */
+    glued: false,
     /** Messages on the second monitor you have not looked at. */
     chatUnread: 0,
     radioOn: false,
@@ -1389,6 +1408,7 @@ export async function buildApartment(ctx) {
 
     screen: desk.screen,
     desk,
+    gluePos: gluekit.gluePos,
     screenGlow,
     radioPos,
     radioNeedle: radio.needle,

@@ -843,6 +843,57 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 0.18, type: 'lowpass', freq: 190, gain: 0.20, sweep: 0.4 });
       break;
 
+    /* -------- the glue --------
+     * These are doing a job. The whole bit is that a bottle of PVA that has
+     * gone solid round the nozzle sounds, beat for beat, like something else
+     * entirely -- right up until the glue lands on the wall and it is very
+     * obviously glue. So: wet, rhythmic, effortful, and every one of them
+     * literally the sound of a plastic bottle being squeezed.
+     */
+    case 'glue.pickup':
+      burst(ctx, dest, t, { dur: 0.10, type: 'bandpass', freq: 1800, q: 1.2, gain: 0.16 });
+      tone(ctx, dest, t + 0.05, { freq: 240, to: 180, dur: 0.09, gain: 0.10, type: 'triangle' });
+      break;
+    case 'glue.squeeze': {
+      // Air and adhesive shifting inside a bottle that does not want to give.
+      burst(ctx, dest, t, { dur: 0.26, type: 'bandpass', freq: 620, q: 2.6, gain: 0.26, sweep: 1.5 });
+      burst(ctx, dest, t + 0.04, { dur: 0.18, type: 'lowpass', freq: 900, gain: 0.16, sweep: 0.6 });
+      tone(ctx, dest, t, { freq: 118, to: 168, dur: 0.22, gain: 0.11, type: 'triangle' });
+      break;
+    }
+    case 'glue.slip':
+      // Hand skids off the bottle. Nothing comes out.
+      burst(ctx, dest, t, { dur: 0.13, type: 'highpass', freq: 2200, gain: 0.13, sweep: 0.7 });
+      break;
+    case 'glue.effort': {
+      // Him, not the bottle.
+      const f0 = 108 + Math.random() * 22;
+      tone(ctx, dest, t, { freq: f0, to: f0 * 1.24, dur: 0.20, gain: 0.15, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: 0.24, type: 'bandpass', freq: 520, q: 2.6, gain: 0.07, sweep: 0.7 });
+      break;
+    }
+    case 'glue.groan': {
+      // Five seconds of a man leaning on a bottle with his whole chest.
+      const g0 = 96;
+      tone(ctx, dest, t, { freq: g0, to: g0 * 1.32, dur: 1.6, gain: 0.17, type: 'sawtooth' });
+      tone(ctx, dest, t + 1.5, { freq: g0 * 1.32, to: g0 * 1.44, dur: 2.0, gain: 0.19, type: 'sawtooth' });
+      tone(ctx, dest, t + 3.4, { freq: g0 * 1.44, to: g0 * 0.78, dur: 1.7, gain: 0.16, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: 5.0, type: 'bandpass', freq: 560, q: 3.0, gain: 0.055, sweep: 1.4 });
+      break;
+    }
+    case 'glue.burst':
+      // The nozzle gives. All of it, at once, at the wall.
+      burst(ctx, dest, t, { dur: 0.34, type: 'bandpass', freq: 780, q: 1.1, gain: 0.42, sweep: 2.2 });
+      burst(ctx, dest, t + 0.05, { dur: 0.55, type: 'lowpass', freq: 1300, gain: 0.24, sweep: 0.5 });
+      tone(ctx, dest, t, { freq: 210, to: 74, dur: 0.40, gain: 0.16, type: 'triangle' });
+      // And the several wet arrivals on the plaster.
+      for (let i = 0; i < 5; i++) {
+        burst(ctx, dest, t + 0.16 + i * 0.055 + Math.random() * 0.04, {
+          dur: 0.09, type: 'bandpass', freq: 1500 + Math.random() * 900, q: 2.2, gain: 0.13,
+        });
+      }
+      break;
+
     /* -------- the other thing -------- */
     case 'poop.strain':
       // Held breath and no result: a tight, quiet effort that goes nowhere.

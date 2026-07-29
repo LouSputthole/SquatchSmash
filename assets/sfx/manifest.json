@@ -2752,6 +2752,60 @@
     {
       "name": "poop.grunt",
       "_note": "Short effort from the chest, pitched down at the end."
+    },
+    {
+      "name": "glue.pickup",
+      "_note": "Picking the bottle up off the desk."
+    },
+    {
+      "name": "glue.squeeze",
+      "_note": "A bottle of PVA that has gone solid round the nozzle, being persuaded."
+    },
+    {
+      "name": "glue.slip",
+      "_note": "Hand skids off the bottle. Nothing comes out."
+    },
+    {
+      "name": "glue.effort",
+      "_note": "Him, not the bottle. Short, through the teeth."
+    },
+    {
+      "name": "glue.groan",
+      "_note": "Five seconds of leaning on a bottle with his whole chest."
+    },
+    {
+      "name": "glue.burst",
+      "_note": "The nozzle gives. All of it, at once, at the wall."
+    },
+    {
+      "name": "vo.glue.1",
+      "voice": "player",
+      "say": "All over the wall. Every time."
+    },
+    {
+      "name": "vo.glue.2",
+      "voice": "player",
+      "say": "That is the whole bottle. On the wall."
+    },
+    {
+      "name": "vo.glue.3",
+      "voice": "player",
+      "say": "Well, the frame is not going anywhere now."
+    },
+    {
+      "name": "vo.glue.4",
+      "voice": "player",
+      "say": "Should have bought a new one months ago."
+    },
+    {
+      "name": "vo.glue.5",
+      "voice": "player",
+      "say": "That is going to set like that. That is permanent, that is."
+    },
+    {
+      "name": "vo.glue.6",
+      "voice": "player",
+      "say": "Hands are stuck together. Brilliant."
     }
   ]
 }

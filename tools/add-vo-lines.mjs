@@ -215,6 +215,19 @@ const LINES = {
     'Nobody has aged well. Including me.',
   ],
 
+  /* ---- after the glue finally comes out ----
+   * The payoff line has to sell that it was always glue and he is annoyed
+   * about the wall, not embarrassed about anything. Play it completely
+   * straight; the moment he acknowledges the joke, the joke is gone. */
+  glue: [
+    'All over the wall. Every time.',
+    'That is the whole bottle. On the wall.',
+    'Well, the frame is not going anywhere now.',
+    'Should have bought a new one months ago.',
+    'That is going to set like that. That is permanent, that is.',
+    'Hands are stuck together. Brilliant.',
+  ],
+
   /* ---- the radio ---- */
   'radio.ad': [
     'I have heard this one about four hundred times.',
