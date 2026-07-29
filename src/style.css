@@ -44,7 +44,9 @@ canvas#scene {
   filter:
     blur(var(--drunk-blur, 0px))
     hue-rotate(var(--trip-hue, 0deg))
-    saturate(var(--trip-sat, 1));
+    saturate(var(--trip-sat, 1))
+    contrast(var(--trip-contrast, 1))
+    brightness(var(--trip-bright, 1));
   transform: scale(var(--trip-breathe, 1));
   transform-origin: 50% 50%;
   will-change: filter, transform;
@@ -57,7 +59,6 @@ canvas#scene {
   inset: 0;
   z-index: 6;
   pointer-events: none;
-  opacity: var(--high-amount, 0);
   mix-blend-mode: screen;
   background:
     radial-gradient(ellipse at 50% 55%,
@@ -563,3 +564,85 @@ kbd.key, .controls kbd {
 }
 #pushes b.hit { background: rgba(95, 176, 106, 0.92); border-color: #7fd08a; color: #0d1410; }
 #pushes b.miss { background: rgba(200, 74, 60, 0.75); border-color: #e0705a; color: #1a0d0b; }
+
+/* ------------------------------------------------------------------ */
+/* The trip                                                            */
+/* ------------------------------------------------------------------ */
+
+#fx-defs { position: fixed; pointer-events: none; }
+
+/* Actual colour laid over the room, rather than a hue filter applied to it.
+   Two counter-rotating conic gradients: the lower one recolours (blend: color,
+   so the room keeps its own light and shade and only its hues change), the
+   upper one adds glow. Between them the walls keep changing their mind. */
+#fx-trip {
+  position: fixed;
+  inset: -12%;
+  z-index: 7;
+  pointer-events: none;
+  opacity: var(--trip-wash, 0);
+  mix-blend-mode: color;
+  background: conic-gradient(
+    from var(--trip-angle, 0deg) at 50% 50%,
+    hsl(calc((var(--trip-washhue, 0) + 0) * 1deg) 92% 58%),
+    hsl(calc((var(--trip-washhue, 0) + 60) * 1deg) 92% 56%),
+    hsl(calc((var(--trip-washhue, 0) + 130) * 1deg) 92% 60%),
+    hsl(calc((var(--trip-washhue, 0) + 200) * 1deg) 92% 56%),
+    hsl(calc((var(--trip-washhue, 0) + 280) * 1deg) 92% 58%),
+    hsl(calc((var(--trip-washhue, 0) + 360) * 1deg) 92% 58%));
+  will-change: opacity, background;
+}
+#fx-trip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  background: conic-gradient(
+    from var(--trip-angle2, 0deg) at 42% 58%,
+    hsla(calc((var(--trip-washhue, 0) + 180) * 1deg) 96% 62% / .55) 0deg,
+    hsla(calc((var(--trip-washhue, 0) + 300) * 1deg) 96% 58% / .10) 90deg,
+    hsla(calc((var(--trip-washhue, 0) + 40) * 1deg) 96% 64% / .55) 180deg,
+    hsla(calc((var(--trip-washhue, 0) + 120) * 1deg) 96% 58% / .10) 270deg,
+    hsla(calc((var(--trip-washhue, 0) + 180) * 1deg) 96% 62% / .55) 360deg);
+}
+
+/* Weed pulls the frame in instead of pushing colour out: heavy lids top and
+   bottom, and a soft edge. The room is fine; you are not fully in the room. */
+/* Each layer carries its own alpha rather than sharing one element opacity --
+   with the lids dimmed by the warmth level they were invisible at the strength
+   that actually reads as stoned. */
+#fx-high {
+  opacity: 1;
+  mix-blend-mode: normal;
+  background:
+    linear-gradient(to bottom,
+      rgba(5, 4, 9, calc(var(--high-droop, 0) * .92)) 0%,
+      rgba(5, 4, 9, calc(var(--high-droop, 0) * .55)) calc(9% + var(--high-droop, 0) * 7%),
+      rgba(0, 0, 0, 0) calc(24% + var(--high-droop, 0) * 6%),
+      rgba(0, 0, 0, 0) calc(74% - var(--high-droop, 0) * 6%),
+      rgba(5, 4, 9, calc(var(--high-droop, 0) * .48)) calc(90% - var(--high-droop, 0) * 5%),
+      rgba(5, 4, 9, calc(var(--high-droop, 0) * .82)) 100%),
+    radial-gradient(ellipse at 50% 52%,
+      rgba(0, 0, 0, 0) 34%,
+      rgba(8, 6, 12, calc(var(--high-droop, 0) * .55)) 100%),
+    radial-gradient(ellipse at 50% 55%,
+      rgba(255, 196, 120, calc(var(--high-amount, 0) * .22)) 0%,
+      rgba(180, 120, 200, calc(var(--high-amount, 0) * .16)) 55%,
+      rgba(0, 0, 0, 0) 100%);
+}
+
+/* The channel split only gets attached while it is actually doing something.
+   The whole chain has to be repeated: `filter` is one property, so naming just
+   url(#chroma) here would silently drop the blur, the hue rotation and the
+   saturation the moment the mushrooms came up -- the trip would turn the rest
+   of the effects OFF. */
+#scene.tripping {
+  filter:
+    blur(var(--drunk-blur, 0px))
+    hue-rotate(var(--trip-hue, 0deg))
+    saturate(var(--trip-sat, 1))
+    contrast(var(--trip-contrast, 1))
+    brightness(var(--trip-bright, 1))
+    url(#chroma);
+}

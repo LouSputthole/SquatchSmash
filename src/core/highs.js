@@ -137,10 +137,38 @@ export class Highs {
       this._hue = short - short * Math.min(1, dt * 0.6);
       if (Math.abs(this._hue) < 0.4) this._hue = 0;
     }
-    this.hue = this._hue + p * (28 + Math.sin(t * 0.11) * 24);
-    this.saturate = 1 + p * 0.85 + w * 0.10;
+    this.hue = this._hue + p * (46 + Math.sin(t * 0.11) * 38);
+    this.saturate = 1 + p * 1.9 + w * 0.14;
+    /* Contrast pumps with the hue rather than sitting still, which is what
+     * stops the whole thing reading as a coloured sheet of glass laid over an
+     * ordinary room. */
+    this.contrast = 1 + p * (0.34 + Math.sin(t * 0.29) * 0.20);
+    this.bright = 1 + p * Math.sin(t * 0.37 + 1.4) * 0.12;
     // The frame breathing. Deliberately slow -- faster reads as a bug.
-    this.breathe = 1 + Math.sin(t * 0.42) * 0.014 * p;
+    this.breathe = 1 + Math.sin(t * 0.42) * 0.030 * p;
     this.warmth = w * 0.5 + p * 0.2;
+
+    /* ---- the colour wash ----
+     * A second layer of actual colour rolling across the room, independent of
+     * the hue filter underneath it. Two counter-rotating gradients: one broad
+     * and slow, one tighter and faster, so the pattern never lands in the same
+     * place twice and the walls keep changing their mind. */
+    this.wash = Math.min(1, p * 1.15);
+    this.washAngle = (t * 11) % 360;
+    this.washAngle2 = (360 - (t * 17) % 360);
+    this.washHue = (t * 26) % 360;
+
+    /* ---- chromatic aberration ----
+     * Splitting the red and blue channels apart is the single thing that most
+     * reads as "not right with my eyes" rather than "filter on a photo". It
+     * pulses, because a fixed offset just looks like a badly aligned screen. */
+    this.split = p * (2.6 + Math.sin(t * 0.53) * 1.9);
+
+    /* ---- weed ----
+     * Heavy lids and a soft edge. Where the trip pushes colour outward, this
+     * pulls the frame inward: the room is fine, you are just not fully in the
+     * room. */
+    this.droop = w * (0.55 + Math.sin(t * 0.21) * 0.12);
+    this.soften = w * 1.5;
   }
 }

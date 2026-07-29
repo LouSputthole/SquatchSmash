@@ -25,6 +25,30 @@
 <div id="blackout"><span></span></div>
 
 <!-- ============ HUD ============ -->
+<!-- Channel-splitting filter for the trip. The offsets are driven from JS
+     because SVG filter primitives cannot read CSS custom properties, and it is
+     only attached to the canvas while you are actually tripping -- running a
+     filter over a full-screen canvas every frame is not free. -->
+<svg id="fx-defs" width="0" height="0" aria-hidden="true">
+  <defs>
+    <filter id="chroma" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
+      <feOffset in="SourceGraphic" dx="0" dy="0" result="r"/>
+      <feColorMatrix in="r" type="matrix" result="rc"
+        values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/>
+      <feOffset in="SourceGraphic" dx="0" dy="0" result="b"/>
+      <feColorMatrix in="b" type="matrix" result="bc"
+        values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
+      <feColorMatrix in="SourceGraphic" type="matrix" result="gc"
+        values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"/>
+      <feBlend in="rc" in2="gc" mode="screen" result="rg"/>
+      <feBlend in="rg" in2="bc" mode="screen"/>
+    </filter>
+  </defs>
+</svg>
+
+<!-- The colour rolling across the room while the mushrooms are on. -->
+<div id="fx-trip" aria-hidden="true"></div>
+
 <div id="hud" aria-hidden="true">
   <div id="crosshair"><span></span></div>
 

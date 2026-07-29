@@ -287,7 +287,7 @@ async function boot() {
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
-    updateBowel, updatePushes, tryPush,
+    updateBowel, updatePushes, tryPush, applyDrunkFx,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -1692,8 +1692,15 @@ let _fxBlur = -1;
 let _fxAmount = -1;
 let _fxHue = -1;
 let _fxSat = -1;
+let _fxContrast = -1;
 let _fxBreathe = -1;
 let _fxHigh = -1;
+let _fxWash = -1;
+let _fxSplit = -1;
+let _fxDroop = -1;
+const fxTrip = document.getElementById('fx-trip');
+const chromaR = document.querySelector('#chroma feOffset');
+const chromaB = document.querySelectorAll('#chroma feOffset')[1];
 function applyDrunkFx() {
   const blur = Math.round(drunk.blur * 20) / 20;
   const amount = Math.round(drunk.vignette * 50) / 50;
@@ -1712,6 +1719,12 @@ function applyDrunkFx() {
     _fxSat = sat;
     document.documentElement.style.setProperty('--trip-sat', sat);
   }
+  const contrast = Math.round(highs.contrast * 100) / 100;
+  if (contrast !== _fxContrast) {
+    _fxContrast = contrast;
+    document.documentElement.style.setProperty('--trip-contrast', contrast);
+    document.documentElement.style.setProperty('--trip-bright', highs.bright.toFixed(3));
+  }
   if (breathe !== _fxBreathe) {
     _fxBreathe = breathe;
     document.documentElement.style.setProperty('--trip-breathe', breathe);
@@ -1719,6 +1732,43 @@ function applyDrunkFx() {
   if (warm !== _fxHigh) {
     _fxHigh = warm;
     fxHigh.style.setProperty('--high-amount', warm);
+  }
+
+  /* The rolling colour. The angles move every frame by design -- that IS the
+   * effect -- but they are only written while the wash is actually visible,
+   * so a sober flat is not recalculating two conic gradients sixty times a
+   * second for an element at zero opacity. */
+  const wash = Math.round(highs.wash * 100) / 100;
+  if (wash !== _fxWash) {
+    _fxWash = wash;
+    fxTrip.style.setProperty('--trip-wash', wash);
+  }
+  if (wash > 0.004) {
+    const st = fxTrip.style;
+    st.setProperty('--trip-angle', `${highs.washAngle.toFixed(1)}deg`);
+    st.setProperty('--trip-angle2', `${highs.washAngle2.toFixed(1)}deg`);
+    st.setProperty('--trip-washhue', highs.washHue.toFixed(1));
+  }
+
+  /* Channel split. The filter is detached entirely when it would be doing
+   * nothing, because an SVG filter over a full-screen canvas is not free. */
+  const split = Math.round(highs.split * 10) / 10;
+  if (split !== _fxSplit) {
+    _fxSplit = split;
+    const on = split > 0.15;
+    canvas.classList.toggle('tripping', on);
+    if (on && chromaR && chromaB) {
+      chromaR.setAttribute('dx', String(-split));
+      chromaR.setAttribute('dy', String(split * 0.35));
+      chromaB.setAttribute('dx', String(split));
+      chromaB.setAttribute('dy', String(-split * 0.35));
+    }
+  }
+
+  const droop = Math.round(highs.droop * 50) / 50;
+  if (droop !== _fxDroop) {
+    _fxDroop = droop;
+    fxHigh.style.setProperty('--high-droop', droop);
   }
   // Only touch the DOM when the value actually changes; setting a CSS custom
   // property every frame forces a style recalc for nothing.
