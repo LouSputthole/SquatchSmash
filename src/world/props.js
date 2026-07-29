@@ -3047,3 +3047,39 @@ export function makeAmmoBox(M, { x, y, z, rotY = 0, count = 8, loose = 2 }) {
 
   return { group: g };
 }
+
+/**
+ * The phone. A slab with a screen on it.
+ *
+ * `screen` is the mesh the phone's canvas maps onto, same arrangement as the
+ * monitor and the telly. Built face-up along +Y so it can lie on a surface, and
+ * the held version just tips it toward the camera.
+ */
+export function makePhone(M, { x, y, z, rotY = 0, w = 0.072 }) {
+  const g = group('phone');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const h = w * 2.06;                    // a phone, not a card
+  const body = mat({ color: 0x14161b, roughness: 0.36, metalness: 0.5 });
+  const T = 0.008;
+
+  g.add(box({ size: [w, T, h], pos: [0, T / 2, 0], mat: body }));
+  // Rail round the edge, so it is not a domino.
+  for (const [sx, sz, sw, sd] of [
+    [0, -h / 2, w, 0.003], [0, h / 2, w, 0.003],
+    [-w / 2, 0, 0.003, h], [w / 2, 0, 0.003, h],
+  ]) {
+    g.add(box({ size: [sw, T + 0.001, sd], pos: [sx, T / 2, sz], mat: mat({ color: 0x2a2e36, roughness: 0.3, metalness: 0.7 }) }));
+  }
+
+  const screen = plane(w * 0.90, h * 0.94, M.screenOff.clone());
+  screen.rotation.x = -Math.PI / 2;      // face up
+  screen.position.set(0, T + 0.0008, 0);
+  g.add(screen);
+
+  // Camera bump, on the back, so the thing has an up and a down.
+  g.add(box({ size: [w * 0.30, 0.002, w * 0.30], pos: [-w * 0.24, -0.001, -h * 0.36], mat: body }));
+
+  return { group: g, screen, w, h };
+}

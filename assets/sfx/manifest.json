@@ -3378,6 +3378,105 @@
       "name": "vo.gun.reload.2",
       "voice": "player",
       "say": "I want it noted that I know how to do this and that is its own problem."
+    },
+    {
+      "_comment": "A phone ringing face-down on a wooden nightstand: the ringtone plus the buzz through the wood. Loops.",
+      "name": "phone.ring",
+      "duration": 4.0,
+      "promptInfluence": 0.5,
+      "prompt": "a mobile phone ringing and vibrating on a wooden bedside table, ringtone with a buzzing rattle against wood, continuous, no music, no voice"
+    },
+    {
+      "name": "phone.hangup",
+      "duration": 0.7,
+      "promptInfluence": 0.5,
+      "prompt": "a mobile phone call ending, one soft descending tone, close, no music, no voice"
+    },
+    {
+      "name": "phone.pickup",
+      "duration": 0.7,
+      "promptInfluence": 0.5,
+      "prompt": "a mobile phone being picked up off a wooden table, small scrape and a soft haptic tick, close, no music, no voice"
+    },
+    {
+      "name": "vo.call.lou.1",
+      "voice": "lou",
+      "say": "Kid. You up?"
+    },
+    {
+      "name": "vo.call.lou.2",
+      "voice": "lou",
+      "say": "Good. Listen — I sent you a thing this morning, do not make it weird."
+    },
+    {
+      "name": "vo.call.lou.3",
+      "voice": "lou",
+      "say": "Tomorrow. Seven. Bring nothing."
+    },
+    {
+      "name": "vo.call.lou.4",
+      "voice": "lou",
+      "say": "And eat something. You never eat."
+    },
+    {
+      "name": "vo.call.booski.1",
+      "voice": "booski",
+      "say": "you good?"
+    },
+    {
+      "name": "vo.call.booski.2",
+      "voice": "booski",
+      "say": "im driving tomorrow so dont get a bus or whatever it is you do"
+    },
+    {
+      "name": "vo.call.booski.3",
+      "voice": "booski",
+      "say": "seven. the usual place."
+    },
+    {
+      "name": "vo.call.booski.4",
+      "voice": "booski",
+      "say": "right. thats it. thats the call."
+    },
+    {
+      "name": "vo.call.hr.1",
+      "voice": "hr",
+      "say": "Hi! Just following up on my email."
+    },
+    {
+      "name": "vo.call.hr.2",
+      "voice": "hr",
+      "say": "It looks like the message I received back from you may have been sent in error."
+    },
+    {
+      "name": "vo.call.hr.3",
+      "voice": "hr",
+      "say": "I am going to log it as a system fault and we will say no more about it."
+    },
+    {
+      "name": "vo.call.hr.4",
+      "voice": "hr",
+      "say": "So — can I put you down for tomorrow evening?"
+    },
+    {
+      "name": "vo.call.unknown.1",
+      "voice": "unknown",
+      "say": "…"
+    },
+    {
+      "name": "vo.call.unknown.2",
+      "voice": "unknown",
+      "say": "Is this the man from the flat."
+    },
+    {
+      "name": "vo.call.unknown.3",
+      "voice": "unknown",
+      "say": "It is. It is the man from the flat."
+    },
+    {
+      "name": "vo.call.unknown.4",
+      "voice": "unknown",
+      "say": "We will see you tomorrow."
     }
   ]
 }

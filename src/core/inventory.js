@@ -25,6 +25,7 @@ export const ITEMS = {
   eggs: { icon: '🥚', name: 'Two eggs', hint: 'The hob is over there' },
   slice: { icon: '🍕', name: 'Slice of pizza', hint: 'Hold [F] to eat it' },
   gun: { icon: '🔫', name: 'The revolver', hint: '[Click] to fire · [R] to reload' },
+  phone: { icon: '📱', name: 'Your phone', hint: '[E] to use it' },
 };
 
 export class Inventory {

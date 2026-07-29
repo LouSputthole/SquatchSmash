@@ -673,6 +673,23 @@ function synth(engine, name, dest, t, rate = 1) {
         });
       }
       break;
+    /* A ringtone plus the rattle of a phone against wood. The rattle is what
+     * makes it a phone on a nightstand rather than a phone in the abstract. */
+    case 'phone.ring':
+      for (let i = 0; i < 2; i++) {
+        tone(ctx, dest, t + i * 0.42, { freq: 880, dur: 0.20, gain: 0.10, type: 'sine' });
+        tone(ctx, dest, t + i * 0.42 + 0.10, { freq: 1180, dur: 0.20, gain: 0.09, type: 'sine' });
+      }
+      for (let i = 0; i < 14; i++) {
+        burst(ctx, dest, t + i * 0.035, { dur: 0.02, type: 'lowpass', freq: 260, gain: 0.05 });
+      }
+      break;
+    case 'phone.hangup':
+      tone(ctx, dest, t, { freq: 760, to: 420, dur: 0.16, gain: 0.10, type: 'sine' });
+      break;
+    case 'phone.pickup':
+      burst(ctx, dest, t, { dur: 0.07, type: 'bandpass', freq: 1700, q: 1.8, gain: 0.14, sweep: 0.6 });
+      break;
     case 'ammo.take':
       for (let i = 0; i < 6; i++) {
         burst(ctx, dest, t + i * 0.055 + Math.random() * 0.03, {

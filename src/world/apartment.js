@@ -697,6 +697,30 @@ export async function buildApartment(ctx) {
    * get kicked off. At z 3.90 they sat 46cm out into the floor, in the middle
    * of the walkway, looking placed rather than dropped. The skirting starts at
    * z 4.48, so 4.30 puts the heels near it without clipping through. */
+  /* ---- the phone ----
+   *
+   * Face down on the nightstand, which is where it has been all night. It is
+   * the fifth way to hear about tomorrow and the only one that asks anything
+   * of you at the time it happens -- everything else in the flat waits.
+   */
+  const phone = P.makePhone(M, { x: -3.36, y: 0.582, z: -4.20, rotY: -0.35 });
+  root.add(phone.group);
+  const phoneHit = box({
+    size: [0.16, 0.10, 0.20], pos: [-3.36, 0.62, -4.20],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(phoneHit);
+  interaction.register(phoneHit, {
+    label: () => 'Take your <b>phone</b>',
+    enabled: () => phone.group.visible && !inventory.full,
+    onUse: () => {
+      if (!inventory.add('phone')) return;
+      phone.group.visible = false;
+      audio.play('phone.pickup', { volume: 0.45 });
+      ctx.onNote?.('phone');
+    },
+  });
+
   /* ---- spare rounds ----
    *
    * Two boxes, neither of them anywhere sensible: one on the nightstand where
@@ -1919,6 +1943,7 @@ export async function buildApartment(ctx) {
     state,
     inventory,
     dropGun,
+    phoneProp: phone,
     /** Resolves once any .glb in assets/models/ has been placed. */
     models: modelsReady,
     pizza,

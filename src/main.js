@@ -24,6 +24,7 @@ import { Spooky } from './core/spooky.js';
 import { PostFX } from './core/postfx.js';
 import { BulletHoles } from './world/bullets.js';
 import { Tv } from './core/tv.js';
+import { Phone } from './core/phone.js';
 import { ITEMS } from './core/inventory.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
@@ -31,7 +32,7 @@ import { StreamSystem } from './world/stream.js';
 import { ShowerSystem } from './world/shower.js';
 import { SplatSystem } from './world/splat.js';
 import { TimingBar } from './core/timingbar.js';
-import { makeHeldCigarette, makeHeldDrinks, makeRevolver } from './world/props.js';
+import { makeHeldCigarette, makeHeldDrinks, makeRevolver, makePhone } from './world/props.js';
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
 
@@ -224,6 +225,7 @@ const chat = new Chat(time);
 const smoke = new SmokeSystem(scene);
 const bullets = new BulletHoles(scene);
 const tv = new Tv({ audio });
+const phone = new Phone({ time, audio });
 /* Two materials for the standby light rather than mutating one, so it is a
  * swap like every other indicator in the flat and cannot alias. */
 const M_LED_ON = new THREE.MeshStandardMaterial({ color: 0x2a0b0b, emissive: 0xff3b30, emissiveIntensity: 2.2, roughness: 0.4 });
@@ -268,6 +270,22 @@ heldGun.group.visible = false;
 camera.add(heldGun.group);
 /** Recoil, in radians, decaying back to zero. */
 let gunKick = 0;
+
+/* The phone in hand. Held up and tipped back, the way you look at one, with
+ * its own canvas on the screen. It is the same model as the one on the
+ * nightstand, so what he picks up is what he is holding. */
+const heldPhone = makePhone(makeMaterials(), { x: 0, y: 0, z: 0, w: 0.072 });
+/* Far enough in that the whole screen is on camera. At 1.9 and further right
+ * the bottom third of it hung off the edge of the frame, which is no use for
+ * something you are meant to read. */
+heldPhone.group.position.set(0.085, -0.125, -0.30);
+heldPhone.group.rotation.set(1.20, -0.10, 0.03);
+heldPhone.group.scale.setScalar(1.45);
+heldPhone.group.visible = false;
+camera.add(heldPhone.group);
+heldPhone.screen.material = new THREE.MeshBasicMaterial({
+  map: new THREE.CanvasTexture(phone.canvas), toneMapped: false,
+});
 
 const heldCig = makeHeldCigarette();
 /* In the corner of his mouth: low, just off centre, close to the camera, and
@@ -470,7 +488,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
-    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv,
+    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -572,6 +590,10 @@ function enableInput() {
  * locked, so it cannot fire while somebody is scrolling the page around it. */
 window.addEventListener('wheel', (e) => {
   if (!document.pointerLockElement || game.seated) return;
+  if (apartment?.state?.heldItem === 'phone' && (phone.screen === 'messages' || phone.screen === 'thread')) {
+    phone.cycle(e.deltaY > 0 ? 1 : -1);
+    return;
+  }
   apartment?.inventory?.cycle(e.deltaY > 0 ? 1 : -1);
 }, { passive: true });
 
@@ -676,6 +698,11 @@ document.addEventListener('keydown', (e) => {
 
   switch (e.code) {
     case 'KeyE':
+      /* The phone takes [E] first while it is the thing in his hand. You
+       * cannot open a fridge and answer a call with the same key, and the
+       * call wins -- it is the one thing in this flat that is not waiting
+       * for you to get round to it. */
+      if (apartment.state.heldItem === 'phone') { phone.press(); break; }
       // Lying down on purpose is the one case where E means sleep, not stand.
       if (game.inBed) sleepInBed();
       else if (player.mode === 'bed') getUp();
@@ -708,6 +735,10 @@ document.addEventListener('keydown', (e) => {
       else if (interaction.current && interaction.current.name === 'radio') radio.next();
       break;
     case 'KeyQ':
+      if (apartment.state.heldItem === 'phone' && phone.call) {
+        phone.hangUp();
+        break;
+      }
       if (apartment.state.lipPacked) {
         apartment.dropZyn();
         audio.play('can.set', { volume: 0.3 });
@@ -2429,6 +2460,16 @@ function frame() {
       highs.update(dt);
       spooky.update(dt, highs.trip);
       bullets.update(dt);
+
+      /* The phone runs whether or not it is in his hand -- a call he misses
+       * because it was on the nightstand is a missed call, not a call that
+       * never happened. Only the screen is painted on demand. */
+      phone.update(dt);
+      heldPhone.group.visible = apartment.state.heldItem === 'phone';
+      if (heldPhone.group.visible) {
+        phone.draw();
+        heldPhone.screen.material.map.needsUpdate = true;
+      }
 
       /* The telly. Painted only while it is on -- a dark screen is one fill
        * and does not need repainting sixty times a second -- and its light
