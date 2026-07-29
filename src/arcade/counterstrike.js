@@ -74,6 +74,7 @@ export class CounterSquatch {
     this.shots = 0;
     this.reports = 0;
     this.impair = 0;
+    this.fluked = false;
 
     this.cursor = { x: W / 2, y: H / 2 };
     this.aimYaw = 0;
@@ -123,6 +124,7 @@ export class CounterSquatch {
     this.kills = 0;
     this.shots = 0;
     this.reports = 0;
+    this.fluked = false;
     this.killfeed = [];
     this.cursor.x = W / 2;
     this.cursor.y = H / 2;
@@ -156,9 +158,12 @@ export class CounterSquatch {
     if (!down) return;
     if (this.state === 'menu') { this._startMatch(); return; }
     if (this.state === 'alive') {
-      // You are allowed to shoot. Nothing has ever been there.
+      // You are allowed to shoot. Nothing has ever been there -- with one
+      // exception per match, so that "last session: 7 deaths, 1 kills" is
+      // occasionally true and you have something to bring up at the meeting.
       this.shots++;
       this.audio?.play('cs.shot', { volume: 0.5 });
+      if (!this.fluked && this.deaths >= 2 && Math.random() < 0.05) this._fluke();
       return;
     }
     if (this.state === 'dead') {
@@ -206,6 +211,21 @@ export class CounterSquatch {
     this.aimYaw = 0;
     this.cursor.y = H / 2;
     this.window = windowFor(this.deaths);
+  }
+
+  /* One bullet, one match, and it lands. It does not save the round. */
+  _fluke() {
+    this.fluked = true;
+    this.kills++;
+    this.flash = 0.5;
+    const victim = CHEATERS[(Math.random() * CHEATERS.length) | 0];
+    this.killfeed.unshift({
+      killer: 'you', weapon: WEAPONS[(Math.random() * WEAPONS.length) | 0],
+      tag: TAGS[(Math.random() * TAGS.length) | 0], victim, life: 6, mine: true,
+    });
+    if (this.killfeed.length > 5) this.killfeed.pop();
+    this.audio?.play('cs.headshot', { volume: 0.7 });
+    this.audio?.say?.('cs.kill', { delay: 0.5 });
   }
 
   _die() {
@@ -424,15 +444,18 @@ export class CounterSquatch {
       const a = Math.min(1, k.life / 1.2);
       g.globalAlpha = a;
       g.fillStyle = 'rgba(10,12,18,.6)';
-      const label = `${k.killer}  [${k.weapon}] ${k.tag}  you`;
+      // Almost always they killed you. Once a match, the other way round.
+      const victim = k.victim || 'you';
+      const mid = `[${k.weapon}] ${k.tag}  `;
+      const label = `${k.killer}  ${mid}${victim}`;
       const w = g.measureText(label).width + 14;
       g.fillRect(W - 12 - w, 12 + i * 17, w, 15);
-      g.fillStyle = '#e05a44';
-      g.fillText(`${k.killer}  `, W - 12 - g.measureText(`[${k.weapon}] ${k.tag}  you`).width - 6, 24 + i * 17);
+      g.fillStyle = k.mine ? '#5fb06a' : '#e05a44';
+      g.fillText(`${k.killer}  `, W - 12 - g.measureText(`${mid}${victim}`).width - 6, 24 + i * 17);
       g.fillStyle = '#c8a24a';
-      g.fillText(`[${k.weapon}] ${k.tag}  `, W - 12 - g.measureText('you').width - 4, 24 + i * 17);
+      g.fillText(mid, W - 12 - g.measureText(victim).width - 4, 24 + i * 17);
       g.fillStyle = '#9aa6ba';
-      g.fillText('you', W - 14, 24 + i * 17);
+      g.fillText(victim, W - 14, 24 + i * 17);
       g.globalAlpha = 1;
     });
 

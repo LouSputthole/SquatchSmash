@@ -382,10 +382,12 @@ export class SquatchSmash {
     this.mode = 'over';
     this.modeT = 0;
     this.audio?.play('arcade.gameover', { volume: 0.6 });
-    if (this.score > this.best) {
+    const beat = this.score > this.best;
+    if (beat) {
       this.best = this.score;
       writeBest(this.best);
     }
+    this.audio?.say?.('smash', { chance: beat ? 0.9 : 0.4, delay: 1.3 });
   }
 
   _puff(x, y, colour, n) {

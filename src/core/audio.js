@@ -585,6 +585,12 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t, { freq: 170, to: 40, dur: 0.22, gain: 0.30, type: 'sawtooth' });
       tone(ctx, dest, t + 0.16, { freq: 300, to: 96, dur: 0.75, gain: 0.16, type: 'triangle' });
       break;
+    case 'cs.headshot':
+      // The one that lands: your shot, then the confirmation ping.
+      burst(ctx, dest, t, { dur: 0.10, type: 'highpass', freq: 1700, gain: 0.34, sweep: 0.7 });
+      tone(ctx, dest, t + 0.05, { freq: 1900, to: 1900, dur: 0.07, gain: 0.20, type: 'sine' });
+      tone(ctx, dest, t + 0.14, { freq: 2550, to: 2550, dur: 0.16, gain: 0.16, type: 'sine' });
+      break;
 
     case 'bong.bubble':
       // Water pulling through the stem: a low burble that climbs as the

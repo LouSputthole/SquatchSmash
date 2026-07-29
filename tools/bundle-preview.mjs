@@ -111,8 +111,59 @@ for (const [dir, name] of [
 ]) {
   inline[dir + name] = JSON.parse(read(dir + name).toString('utf8'));
 }
-// No samples travel with the bundle; the synth covers every cue.
-inline['assets/sfx/index.json'] = { files: [] };
+const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
+
+/* ------------------------------------------------------------------ */
+/* Sound                                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The synth covers every sound effect, so those can stay out of the bundle and
+ * cost nothing. The voice cannot be synthesised -- it is a person reading
+ * lines -- so a bundle with no samples is a bundle with a silent narrator,
+ * which is most of what was written this month.
+ *
+ * So: bake the voice, skip the rest, and stop at a byte budget so the page
+ * stays openable. `--sfx` bakes the effects too, `--no-vo` bakes nothing.
+ */
+const VO_BUDGET = Number(process.env.SQUATCH_VO_BUDGET || 6 * 1024 * 1024);
+const WANT_VO = !process.argv.includes('--no-vo');
+const WANT_SFX = process.argv.includes('--sfx');
+
+let sfxBytes = 0;
+{
+  const present = new Set(inline['assets/sfx/index.json'].files || []);
+  const cues = inline['assets/sfx/manifest.json'].sfx || [];
+  const baked = [];
+  let skipped = 0;
+
+  // Voice first, so it is the effects that get dropped when the budget runs
+  // out rather than a random half of the lines.
+  const ordered = cues.slice().sort((a, b) => {
+    const av = a.name.startsWith('vo.') ? 0 : 1;
+    const bv = b.name.startsWith('vo.') ? 0 : 1;
+    return av - bv;
+  });
+
+  for (const cue of ordered) {
+    const file = cue.file || `${cue.name}.mp3`;
+    if (!present.has(file)) continue;
+    const isVo = cue.name.startsWith('vo.');
+    if (isVo ? !WANT_VO : !WANT_SFX) continue;
+
+    let bytes;
+    try { bytes = read('assets/sfx/' + file); } catch { continue; }
+    if (sfxBytes + bytes.length * 1.37 > VO_BUDGET) { skipped++; continue; }
+
+    const uri = dataUri('audio/mpeg', bytes);
+    cue.file = uri;          // what the engine fetches
+    baked.push(uri);         // what index.json gates on
+    sfxBytes += uri.length;
+  }
+
+  inline['assets/sfx/index.json'] = { files: baked };
+  if (skipped) console.log(`  note: ${skipped} cues left out at the ${mb(VO_BUDGET)} budget`);
+}
 
 /** Re-encode one image through headless Chromium, since there is no PIL here. */
 async function shrinkAll(files) {   // files: [{ file, max }]
@@ -230,8 +281,8 @@ ${body}
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(OUT, out);
 
-const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
 console.log(`  modules   ${modules.size}`);
 console.log(`  three.js  ${mb(imports.three.length)}`);
 console.log(`  art       ${mb(artBytes)}${FULL ? ' (full size)' : ` (max ${MAX_EDGE}px)`}`);
+console.log(`  audio     ${mb(sfxBytes)}${WANT_SFX ? '' : ' (voice only)'}`);
 console.log(`\n${path.relative(ROOT, OUT)}  ${mb(out.length)}`);

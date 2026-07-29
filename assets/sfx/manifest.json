@@ -968,6 +968,616 @@
       "say": "Okay. Wednesday. Here we go."
     },
     {
+      "name": "vo.wake.4",
+      "voice": "player",
+      "say": "Oh, absolutely not."
+    },
+    {
+      "name": "vo.wake.5",
+      "voice": "player",
+      "say": "Six. It is six. Why is it six."
+    },
+    {
+      "name": "vo.wake.6",
+      "voice": "player",
+      "say": "I was having a good one, as well."
+    },
+    {
+      "name": "vo.wake.7",
+      "voice": "player",
+      "say": "Ceiling. Same ceiling."
+    },
+    {
+      "name": "vo.getup.3",
+      "voice": "player",
+      "say": "Right. Up. Vertical. Doing it."
+    },
+    {
+      "name": "vo.getup.4",
+      "voice": "player",
+      "say": "Floor is cold. Noted. Ignored."
+    },
+    {
+      "name": "vo.getup.5",
+      "voice": "player",
+      "say": "One thing at a time."
+    },
+    {
+      "name": "vo.getup.6",
+      "voice": "player",
+      "say": "Okay. What are we doing today."
+    },
+    {
+      "name": "vo.liedown.3",
+      "voice": "player",
+      "say": "This is not going back to sleep. This is lying down."
+    },
+    {
+      "name": "vo.liedown.4",
+      "voice": "player",
+      "say": "It is still early. Technically."
+    },
+    {
+      "name": "vo.sleep.3",
+      "voice": "player",
+      "say": "Nothing was going to happen today anyway."
+    },
+    {
+      "name": "vo.pc.sit.3",
+      "voice": "player",
+      "say": "Right then."
+    },
+    {
+      "name": "vo.pc.sit.4",
+      "voice": "player",
+      "say": "Ten minutes. That is all this is."
+    },
+    {
+      "name": "vo.pc.sit.5",
+      "voice": "player",
+      "say": "Let us see what the boys are doing."
+    },
+    {
+      "name": "vo.cs.death.early.4",
+      "voice": "player",
+      "say": "Okay, that is a wallbang. That is through a wall."
+    },
+    {
+      "name": "vo.cs.death.early.5",
+      "voice": "player",
+      "say": "I did not even hear him."
+    },
+    {
+      "name": "vo.cs.death.early.6",
+      "voice": "player",
+      "say": "Great. Off to a strong start."
+    },
+    {
+      "name": "vo.cs.death.early.7",
+      "voice": "player",
+      "say": "He was already looking at me."
+    },
+    {
+      "name": "vo.cs.death.late.4",
+      "voice": "player",
+      "say": "This is not a game any more, this is a documentary."
+    },
+    {
+      "name": "vo.cs.death.late.5",
+      "voice": "player",
+      "say": "Report. Report. Nothing is going to happen but report."
+    },
+    {
+      "name": "vo.cs.death.late.6",
+      "voice": "player",
+      "say": "I have not fired a bullet. Not one."
+    },
+    {
+      "name": "vo.cs.death.late.7",
+      "voice": "player",
+      "say": "Nine hour old account. Nine hours."
+    },
+    {
+      "name": "vo.cs.death.late.8",
+      "voice": "player",
+      "say": "I am going to go and have a shower."
+    },
+    {
+      "name": "vo.cs.death.late.9",
+      "voice": "player",
+      "say": "That is enough of that. That is genuinely enough."
+    },
+    {
+      "name": "vo.cs.kill.2",
+      "voice": "player",
+      "say": "That went in! That actually went in!"
+    },
+    {
+      "name": "vo.cs.kill.3",
+      "voice": "player",
+      "say": "Did anyone see that? Nobody saw that."
+    },
+    {
+      "name": "vo.cs.kill.4",
+      "voice": "player",
+      "say": "One. I got one. That is the day made."
+    },
+    {
+      "name": "vo.smash.3",
+      "voice": "player",
+      "say": "That is a score. That is a real score."
+    },
+    {
+      "name": "vo.smash.4",
+      "voice": "player",
+      "say": "Beat it. Barely. But beat it."
+    },
+    {
+      "name": "vo.smash.5",
+      "voice": "player",
+      "say": "One more. One more and then I get on with things."
+    },
+    {
+      "name": "vo.smash.6",
+      "voice": "player",
+      "say": "This game is rigged and I love it."
+    },
+    {
+      "name": "vo.fridge.4",
+      "voice": "player",
+      "say": "There is nothing in here. There is never anything in here."
+    },
+    {
+      "name": "vo.fridge.5",
+      "voice": "player",
+      "say": "Eggs. There are eggs. That is breakfast sorted."
+    },
+    {
+      "name": "vo.fridge.6",
+      "voice": "player",
+      "say": "That has been in there a while."
+    },
+    {
+      "name": "vo.fridge.7",
+      "voice": "player",
+      "say": "Cold air. Good. Just going to stand here a moment."
+    },
+    {
+      "name": "vo.eat.3",
+      "voice": "player",
+      "say": "Not bad. Not good. Eaten."
+    },
+    {
+      "name": "vo.eat.4",
+      "voice": "player",
+      "say": "That is food in me. That counts."
+    },
+    {
+      "name": "vo.eat.5",
+      "voice": "player",
+      "say": "Should have done that hours ago."
+    },
+    {
+      "name": "vo.beer.open.3",
+      "voice": "player",
+      "say": "Go on then."
+    },
+    {
+      "name": "vo.beer.open.4",
+      "voice": "player",
+      "say": "It is somewhere in the world."
+    },
+    {
+      "name": "vo.beer.good.3",
+      "voice": "player",
+      "say": "That is the one."
+    },
+    {
+      "name": "vo.beer.good.4",
+      "voice": "player",
+      "say": "Oh, that is cold. That is properly cold."
+    },
+    {
+      "name": "vo.beer.many.4",
+      "voice": "player",
+      "say": "How many is that. Do not answer that."
+    },
+    {
+      "name": "vo.beer.many.5",
+      "voice": "player",
+      "say": "I am going to regret the arithmetic on this."
+    },
+    {
+      "name": "vo.beer.many.6",
+      "voice": "player",
+      "say": "One more and then I am stopping. Genuinely."
+    },
+    {
+      "name": "vo.whiskey.4",
+      "voice": "player",
+      "say": "Right in the chest, that."
+    },
+    {
+      "name": "vo.whiskey.5",
+      "voice": "player",
+      "say": "That was more than I meant to take."
+    },
+    {
+      "name": "vo.whiskey.6",
+      "voice": "player",
+      "say": "Bit early for this. Bit early."
+    },
+    {
+      "name": "vo.whiskey.7",
+      "voice": "player",
+      "say": "Woof. Okay."
+    },
+    {
+      "name": "vo.cig.light.3",
+      "voice": "player",
+      "say": "Filthy. Necessary."
+    },
+    {
+      "name": "vo.cig.light.4",
+      "voice": "player",
+      "say": "Out of the window, out of the window."
+    },
+    {
+      "name": "vo.cig.drag.3",
+      "voice": "player",
+      "say": "That is better. That is actually better."
+    },
+    {
+      "name": "vo.cig.drag.4",
+      "voice": "player",
+      "say": "Should not enjoy that as much as I do."
+    },
+    {
+      "name": "vo.cig.last.2",
+      "voice": "player",
+      "say": "Last one. That is the pack."
+    },
+    {
+      "name": "vo.cig.last.3",
+      "voice": "player",
+      "say": "Well. That is that decision made for me."
+    },
+    {
+      "name": "vo.zyn.3",
+      "voice": "player",
+      "say": "Upper lip. Sorted."
+    },
+    {
+      "name": "vo.zyn.4",
+      "voice": "player",
+      "say": "That is a strong one."
+    },
+    {
+      "name": "vo.zyn.5",
+      "voice": "player",
+      "say": "Hands are steady. That is all I wanted."
+    },
+    {
+      "name": "vo.bong.3",
+      "voice": "player",
+      "say": "Okay. Okay. That was a big one."
+    },
+    {
+      "name": "vo.bong.4",
+      "voice": "player",
+      "say": "Not going anywhere for a bit."
+    },
+    {
+      "name": "vo.bong.5",
+      "voice": "player",
+      "say": "Everything just got very reasonable."
+    },
+    {
+      "name": "vo.bong.6",
+      "voice": "player",
+      "say": "Right. I still have things to do. I am aware."
+    },
+    {
+      "name": "vo.shrooms.3",
+      "voice": "player",
+      "say": "Tastes like a shed."
+    },
+    {
+      "name": "vo.shrooms.4",
+      "voice": "player",
+      "say": "Nothing is happening. Nothing is happening at all."
+    },
+    {
+      "name": "vo.shrooms.5",
+      "voice": "player",
+      "say": "Oh. Oh, there it is."
+    },
+    {
+      "name": "vo.shrooms.6",
+      "voice": "player",
+      "say": "The wall is doing something. The wall is definitely doing something."
+    },
+    {
+      "name": "vo.pee.3",
+      "voice": "player",
+      "say": "That is a relief and a half."
+    },
+    {
+      "name": "vo.pee.4",
+      "voice": "player",
+      "say": "Some of that went in."
+    },
+    {
+      "name": "vo.pee.5",
+      "voice": "player",
+      "say": "I will clean that up. Later. Probably."
+    },
+    {
+      "name": "vo.poop.urge.3",
+      "voice": "player",
+      "say": "Nope. Nope, that is happening now."
+    },
+    {
+      "name": "vo.poop.urge.4",
+      "voice": "player",
+      "say": "Bathroom. Bathroom, immediately."
+    },
+    {
+      "name": "vo.poop.relief.3",
+      "voice": "player",
+      "say": "Right. That is the day properly started."
+    },
+    {
+      "name": "vo.poop.relief.4",
+      "voice": "player",
+      "say": "Ten out of ten. No notes."
+    },
+    {
+      "name": "vo.poop.relief.5",
+      "voice": "player",
+      "say": "I feel like a different man."
+    },
+    {
+      "name": "vo.fart.4",
+      "voice": "player",
+      "say": "Nobody heard that."
+    },
+    {
+      "name": "vo.fart.5",
+      "voice": "player",
+      "say": "That was not on purpose."
+    },
+    {
+      "name": "vo.fart.6",
+      "voice": "player",
+      "say": "Bit of a big one, that."
+    },
+    {
+      "name": "vo.fart.7",
+      "voice": "player",
+      "say": "Beer does that."
+    },
+    {
+      "name": "vo.shower.3",
+      "voice": "player",
+      "say": "Cold. Cold. There we go."
+    },
+    {
+      "name": "vo.shower.4",
+      "voice": "player",
+      "say": "I could stay in here all day."
+    },
+    {
+      "name": "vo.shower.5",
+      "voice": "player",
+      "say": "Right. Out. Come on."
+    },
+    {
+      "name": "vo.shower.6",
+      "voice": "player",
+      "say": "Clean. Genuinely clean. That is new."
+    },
+    {
+      "name": "vo.dress.2",
+      "voice": "player",
+      "say": "A shirt. A whole clean shirt."
+    },
+    {
+      "name": "vo.dress.3",
+      "voice": "player",
+      "say": "That will do. That will absolutely do."
+    },
+    {
+      "name": "vo.dress.4",
+      "voice": "player",
+      "say": "Looking almost like a person."
+    },
+    {
+      "name": "vo.radio.ad.2",
+      "voice": "player",
+      "say": "I have heard this one about four hundred times."
+    },
+    {
+      "name": "vo.radio.ad.3",
+      "voice": "player",
+      "say": "Every host thinks he is the smartest man in the building."
+    },
+    {
+      "name": "vo.radio.ad.4",
+      "voice": "player",
+      "say": "Eat those pasture raised eggs. Yes. Alright."
+    },
+    {
+      "name": "vo.radio.song.3",
+      "voice": "player",
+      "say": "Hang on, this is us. This is actually us."
+    },
+    {
+      "name": "vo.radio.song.4",
+      "voice": "player",
+      "say": "Somebody in this group made this. In a basement."
+    },
+    {
+      "name": "vo.radio.song.5",
+      "voice": "player",
+      "say": "Turn that up."
+    },
+    {
+      "name": "vo.radio.song.6",
+      "voice": "player",
+      "say": "This one still holds up."
+    },
+    {
+      "name": "vo.notice.1",
+      "voice": "player",
+      "say": "Wednesday. Right. That is tomorrow."
+    },
+    {
+      "name": "vo.notice.2",
+      "voice": "player",
+      "say": "Seven o clock. I can do seven o clock."
+    },
+    {
+      "name": "vo.notice.3",
+      "voice": "player",
+      "say": "Showered, dressed, fed. That is not a lot to ask."
+    },
+    {
+      "name": "vo.notice.4",
+      "voice": "player",
+      "say": "I am not being the one who turns up at half seven."
+    },
+    {
+      "name": "vo.notice.5",
+      "voice": "player",
+      "say": "Good. Glad they said. I would have forgotten."
+    },
+    {
+      "name": "vo.door.shower.2",
+      "voice": "player",
+      "say": "Not like this. I need a shower first."
+    },
+    {
+      "name": "vo.door.shower.3",
+      "voice": "player",
+      "say": "I can smell myself. That is a bad sign."
+    },
+    {
+      "name": "vo.door.dressed.2",
+      "voice": "player",
+      "say": "I am in what I slept in. Absolutely not."
+    },
+    {
+      "name": "vo.door.dressed.3",
+      "voice": "player",
+      "say": "Clean shirt first. Come on."
+    },
+    {
+      "name": "vo.door.eat.2",
+      "voice": "player",
+      "say": "I have not eaten. I will be useless."
+    },
+    {
+      "name": "vo.door.eat.3",
+      "voice": "player",
+      "say": "There are eggs. Two minutes. Do the eggs."
+    },
+    {
+      "name": "vo.door.cs.2",
+      "voice": "player",
+      "say": "I said I would get a game in with the boys."
+    },
+    {
+      "name": "vo.door.cs.3",
+      "voice": "player",
+      "say": "One match. I promised. Well, I implied."
+    },
+    {
+      "name": "vo.door.piss.2",
+      "voice": "player",
+      "say": "Not making that journey like this."
+    },
+    {
+      "name": "vo.door.piss.3",
+      "voice": "player",
+      "say": "Bathroom first. Obviously bathroom first."
+    },
+    {
+      "name": "vo.door.poop.2",
+      "voice": "player",
+      "say": "Absolutely not. Not with this going on."
+    },
+    {
+      "name": "vo.door.poop.3",
+      "voice": "player",
+      "say": "That is not a public transport situation."
+    },
+    {
+      "name": "vo.door.beer.2",
+      "voice": "player",
+      "say": "One for the road first."
+    },
+    {
+      "name": "vo.door.beer.3",
+      "voice": "player",
+      "say": "There is time. There is loads of time."
+    },
+    {
+      "name": "vo.door.drunk.2",
+      "voice": "player",
+      "say": "I am not turning up like this."
+    },
+    {
+      "name": "vo.door.drunk.3",
+      "voice": "player",
+      "say": "Give it an hour. Give it a good hour."
+    },
+    {
+      "name": "vo.door.drunk.4",
+      "voice": "player",
+      "say": "They will know. They always know."
+    },
+    {
+      "name": "vo.door.leave.3",
+      "voice": "player",
+      "say": "Right. Wallet, keys, door."
+    },
+    {
+      "name": "vo.door.leave.4",
+      "voice": "player",
+      "say": "Off we go, then."
+    },
+    {
+      "name": "vo.door.leave.5",
+      "voice": "player",
+      "say": "See you on the other side of that."
+    },
+    {
+      "name": "vo.idle.6",
+      "voice": "player",
+      "say": "This is the day, then."
+    },
+    {
+      "name": "vo.idle.7",
+      "voice": "player",
+      "say": "Something should probably happen at some point."
+    },
+    {
+      "name": "vo.idle.8",
+      "voice": "player",
+      "say": "I could just stand here. That is an option."
+    },
+    {
+      "name": "vo.idle.9",
+      "voice": "player",
+      "say": "Nobody is coming round. I checked."
+    },
+    {
+      "name": "vo.idle.10",
+      "voice": "player",
+      "say": "Long way to Wednesday."
+    },
+    {
       "name": "radio.vo.lou1.1",
       "voice": "lou1",
       "say": "…and that is why you never trust a man who owns two planes."
@@ -1018,7 +1628,182 @@
       "say": "Morning. If you are only just getting up, that is fine. Nobody is counting."
     },
     {
+      "name": "radio.vo.lou1.6",
+      "voice": "lou1",
+      "say": "There is a news wire in this building. I have seen it. I have never read it."
+    },
+    {
+      "name": "radio.vo.lou2.6",
+      "voice": "lou2",
+      "say": "Weather: it is doing something out there. Look out of a window."
+    },
+    {
+      "name": "radio.vo.lou1.7",
+      "voice": "lou1",
+      "say": "I want to open with a correction. Not to anything. Just as a format."
+    },
+    {
+      "name": "radio.vo.lou2.7",
+      "voice": "lou2",
+      "say": "The other Lou is not here yet. I am both Lous this morning."
+    },
+    {
+      "name": "radio.vo.lou1.8",
+      "voice": "lou1",
+      "say": "He has walked in. He has heard that. He is making a face."
+    },
+    {
+      "name": "radio.vo.lou2.8",
+      "voice": "lou2",
+      "say": "Traffic report. There is traffic. It is on the roads."
+    },
+    {
+      "name": "radio.vo.lou1.9",
+      "voice": "lou1",
+      "say": "A man has written in to say we have never once helped him. Noted, and kept."
+    },
+    {
+      "name": "radio.vo.lou2.9",
+      "voice": "lou2",
+      "say": "Aviation corner. Today: a plane I like. That is the whole segment."
+    },
+    {
+      "name": "radio.vo.lou1.10",
+      "voice": "lou1",
+      "say": "You cannot land there. I want to be clear that you cannot land there."
+    },
+    {
+      "name": "radio.vo.lou2.10",
+      "voice": "lou2",
+      "say": "I have landed there."
+    },
+    {
+      "name": "radio.vo.lou1.11",
+      "voice": "lou1",
+      "say": "Producer says we have to do a news item. Fine. Something happened. Moving on."
+    },
+    {
+      "name": "radio.vo.lou2.11",
+      "voice": "lou2",
+      "say": "If you are eating breakfast right now, you are ahead of most of our audience."
+    },
+    {
+      "name": "radio.vo.lou1.12",
+      "voice": "lou1",
+      "say": "If you are not eating breakfast right now, we are not going to make a thing of it."
+    },
+    {
+      "name": "radio.vo.lou2.12",
+      "voice": "lou2",
+      "say": "Somebody has a meeting tomorrow night and has told everyone about it twice."
+    },
+    {
+      "name": "radio.vo.lou1.13",
+      "voice": "lou1",
+      "say": "That is not a bit. Somebody genuinely rang in about that."
+    },
+    {
+      "name": "radio.vo.lou2.13",
+      "voice": "lou2",
+      "say": "The chat wants the fart segment. The chat always wants the fart segment."
+    },
+    {
+      "name": "radio.vo.lou1.14",
+      "voice": "lou1",
+      "say": "We are not doing the fart segment before eight. We have standards until eight."
+    },
+    {
+      "name": "radio.vo.lou2.14",
+      "voice": "lou2",
+      "say": "It is eight."
+    },
+    {
+      "name": "radio.vo.lou1.15",
+      "voice": "lou1",
+      "say": "Quick reminder that this show is four hours long and nobody made us do that."
+    },
+    {
+      "name": "radio.vo.lou2.15",
+      "voice": "lou2",
+      "say": "We are going to a break, which for us means one of us stops talking."
+    },
+    {
+      "name": "radio.vo.announcer.1",
+      "voice": "announcer",
+      "say": "The Rerun Hour. Two hours the station could not fill, filled."
+    },
+    {
+      "name": "radio.vo.announcer.2",
+      "voice": "announcer",
+      "say": "That was from this morning. Four hours ago. We are aware."
+    },
+    {
+      "name": "radio.vo.hogmama.1",
+      "voice": "hogmama",
+      "say": "New scene. Same bus. I am now the bus."
+    },
+    {
+      "name": "radio.vo.announcer.3",
+      "voice": "announcer",
+      "say": "We have been asked not to explain that one."
+    },
+    {
+      "name": "radio.vo.irish.1",
+      "voice": "irish",
+      "say": "There is string on the whiteboard."
+    },
+    {
+      "name": "radio.vo.announcer.4",
+      "voice": "announcer",
+      "say": "There is, in fairness, string on the whiteboard."
+    },
+    {
+      "name": "radio.vo.announcer.5",
+      "voice": "announcer",
+      "say": "Nobody is in the studio. The tape is doing this by itself."
+    },
+    {
+      "name": "radio.vo.announcer.6",
+      "voice": "announcer",
+      "say": "If you have just tuned in: you have missed nothing, ever."
+    },
+    {
       "name": "radio.vo.booski.1",
+      "voice": "booski",
+      "say": "Ask me how that is going."
+    },
+    {
+      "name": "radio.vo.announcer.7",
+      "voice": "announcer",
+      "say": "We did ask. It went badly."
+    },
+    {
+      "name": "radio.vo.announcer.8",
+      "voice": "announcer",
+      "say": "Mid-morning on 97.8. Statistically, you should be at work."
+    },
+    {
+      "name": "radio.vo.announcer.9",
+      "voice": "announcer",
+      "say": "A listener asks if the Rerun Hour is ever going to be new. No."
+    },
+    {
+      "name": "radio.vo.announcer.10",
+      "voice": "announcer",
+      "say": "Coming up at noon: two men and a betting slip."
+    },
+    {
+      "name": "radio.vo.announcer.11",
+      "voice": "announcer",
+      "say": "Eat those pasture raised eggs folks. That one is live. That one we mean."
+    },
+    {
+      "name": "radio.vo.announcer.12",
+      "voice": "announcer",
+      "say": "97.8 The Squatch. This hour brought to you by having nothing else."
+    },
+    {
+      "name": "radio.vo.booski.2",
       "voice": "booski",
       "say": "Is Team Liquid an NA team? We have forty minutes on this."
     },
@@ -1028,7 +1813,7 @@
       "say": "Should you bet the house on Spirit? Legally I have to say no."
     },
     {
-      "name": "radio.vo.booski.2",
+      "name": "radio.vo.booski.3",
       "voice": "booski",
       "say": "I have put my rent on a Silver lobby. Ask me how that is going."
     },
@@ -1038,7 +1823,7 @@
       "say": "Do not ask him how that is going."
     },
     {
-      "name": "radio.vo.booski.3",
+      "name": "radio.vo.booski.4",
       "voice": "booski",
       "say": "Big news out of the major: nothing. Nothing has happened. Back after this."
     },
@@ -1048,7 +1833,7 @@
       "say": "A listener writes in: \"how do I stop\". We do not have that information."
     },
     {
-      "name": "radio.vo.booski.4",
+      "name": "radio.vo.booski.5",
       "voice": "booski",
       "say": "The odds are the odds. The odds have never once been my friend."
     },
@@ -1058,49 +1843,219 @@
       "say": "If you are hearing this at work, get back to work."
     },
     {
-      "name": "radio.vo.booski.5",
+      "name": "radio.vo.booski.6",
       "voice": "booski",
       "say": "Someone in the lobby had a 94% headshot rate. We contacted Valve. Nothing."
     },
     {
-      "name": "radio.vo.irish.1",
-      "voice": "irish",
-      "say": "Tonight: is Big Egg suppressing the pasture-raised truth?"
+      "name": "radio.vo.ape.5",
+      "voice": "ape",
+      "say": "Today’s slate: one match, in a region we cannot pronounce, at 4 AM."
+    },
+    {
+      "name": "radio.vo.booski.7",
+      "voice": "booski",
+      "say": "I will be up for it. I am always up for it. That is the problem."
+    },
+    {
+      "name": "radio.vo.ape.6",
+      "voice": "ape",
+      "say": "We have a caller who says he is \"up\". He is not up. He is down."
+    },
+    {
+      "name": "radio.vo.booski.8",
+      "voice": "booski",
+      "say": "Nobody on this show has ever been up."
+    },
+    {
+      "name": "radio.vo.ape.7",
+      "voice": "ape",
+      "say": "Correction: Booski was up, once, in 2019, for about forty minutes."
+    },
+    {
+      "name": "radio.vo.booski.9",
+      "voice": "booski",
+      "say": "Best forty minutes of my life and I gave it all back before dinner."
+    },
+    {
+      "name": "radio.vo.ape.8",
+      "voice": "ape",
+      "say": "Here is the thing about Spirit. …I have lost it. I had a thing about Spirit."
+    },
+    {
+      "name": "radio.vo.booski.10",
+      "voice": "booski",
+      "say": "A knife opened for me last night. Blue gem. Wrong pattern. Worth nothing."
+    },
+    {
+      "name": "radio.vo.ape.9",
+      "voice": "ape",
+      "say": "It is worth something. It is worth about as much as a knife."
+    },
+    {
+      "name": "radio.vo.booski.11",
+      "voice": "booski",
+      "say": "The lobby last night had a guy pre-firing every angle. Every single one."
+    },
+    {
+      "name": "radio.vo.ape.10",
+      "voice": "ape",
+      "say": "Was he cheating, or are you just slow? We open the phones."
+    },
+    {
+      "name": "radio.vo.booski.12",
+      "voice": "booski",
+      "say": "Do not open the phones."
+    },
+    {
+      "name": "radio.vo.ape.11",
+      "voice": "ape",
+      "say": "Sponsor read. We do not have a sponsor. That was the read."
+    },
+    {
+      "name": "radio.vo.booski.13",
+      "voice": "booski",
+      "say": "Is Team Liquid an NA team. We are forty minutes in. No progress."
+    },
+    {
+      "name": "radio.vo.ape.12",
+      "voice": "ape",
+      "say": "I want to note that neither of us has ever been to North America."
+    },
+    {
+      "name": "radio.vo.booski.14",
+      "voice": "booski",
+      "say": "A listener says he has stopped. Genuinely stopped. We wish him well."
+    },
+    {
+      "name": "radio.vo.ape.13",
+      "voice": "ape",
+      "say": "We wish him well and we will never hear from him again."
+    },
+    {
+      "name": "radio.vo.booski.15",
+      "voice": "booski",
+      "say": "If you play this game and you have fun, please write in, because we are curious."
+    },
+    {
+      "name": "radio.vo.ape.14",
+      "voice": "ape",
+      "say": "Back after this with more of exactly this."
     },
     {
       "name": "radio.vo.irish.2",
       "voice": "irish",
-      "say": "We investigate. For way longer than necessary."
+      "say": "Tonight: is Big Egg suppressing the pasture-raised truth?"
     },
     {
       "name": "radio.vo.irish.3",
       "voice": "irish",
-      "say": "I have a whiteboard. There is string on the whiteboard."
+      "say": "We investigate. For way longer than necessary."
     },
     {
       "name": "radio.vo.irish.4",
       "voice": "irish",
-      "say": "The carton says \"certified humane\". Certified by whom? Answer me."
+      "say": "I have a whiteboard. There is string on the whiteboard."
     },
     {
       "name": "radio.vo.irish.5",
       "voice": "irish",
-      "say": "I rang the number on the carton. A man answered. He was very nice. Suspicious."
+      "say": "The carton says \"certified humane\". Certified by whom? Answer me."
     },
     {
       "name": "radio.vo.irish.6",
       "voice": "irish",
-      "say": "Part fourteen of this investigation. Yes, fourteen. We are close."
+      "say": "I rang the number on the carton. A man answered. He was very nice. Suspicious."
     },
     {
       "name": "radio.vo.irish.7",
       "voice": "irish",
-      "say": "They do not want you eating the good eggs. That is all I am saying. That is all."
+      "say": "Part fourteen of this investigation. Yes, fourteen. We are close."
     },
     {
       "name": "radio.vo.irish.8",
       "voice": "irish",
+      "say": "They do not want you eating the good eggs. That is all I am saying. That is all."
+    },
+    {
+      "name": "radio.vo.irish.9",
+      "voice": "irish",
       "say": "Coming up after the break: more of this."
+    },
+    {
+      "name": "radio.vo.irish.10",
+      "voice": "irish",
+      "say": "\"Pasture raised.\" Pasture. Raised. Say it slowly and tell me it sounds normal."
+    },
+    {
+      "name": "radio.vo.irish.11",
+      "voice": "irish",
+      "say": "I have been to a pasture. I have never once seen it raising anything."
+    },
+    {
+      "name": "radio.vo.irish.12",
+      "voice": "irish",
+      "say": "A producer has asked me to move on. Note who asked. Note it."
+    },
+    {
+      "name": "radio.vo.irish.13",
+      "voice": "irish",
+      "say": "Twelve eggs. Always twelve. Why twelve. Nobody will tell me why twelve."
+    },
+    {
+      "name": "radio.vo.irish.14",
+      "voice": "irish",
+      "say": "I bought a carton from four different shops. Same carton. Same twelve."
+    },
+    {
+      "name": "radio.vo.irish.15",
+      "voice": "irish",
+      "say": "We had a whistleblower. He now says he was talking about a different egg."
+    },
+    {
+      "name": "radio.vo.irish.16",
+      "voice": "irish",
+      "say": "They got to him. Or he was talking about a different egg. I accept both."
+    },
+    {
+      "name": "radio.vo.irish.17",
+      "voice": "irish",
+      "say": "Somebody has emailed to say I am describing normal farming. Sent from a work address."
+    },
+    {
+      "name": "radio.vo.irish.18",
+      "voice": "irish",
+      "say": "I am not saying the hens are in on it. The hens are victims here."
+    },
+    {
+      "name": "radio.vo.irish.19",
+      "voice": "irish",
+      "say": "New string on the board today. Red string. Red is for the serious connections."
+    },
+    {
+      "name": "radio.vo.irish.20",
+      "voice": "irish",
+      "say": "The board is now larger than the studio door. We have discussed this at length."
+    },
+    {
+      "name": "radio.vo.irish.21",
+      "voice": "irish",
+      "say": "If I stop broadcasting suddenly, it was the eggs. Put that in writing somewhere."
+    },
+    {
+      "name": "radio.vo.irish.22",
+      "voice": "irish",
+      "say": "Part fifteen is recorded. Legal has asked to hear it first. Interesting."
+    },
+    {
+      "name": "radio.vo.irish.23",
+      "voice": "irish",
+      "say": "Real News You Can Trust. That is not a slogan, that is a promise, and it is both."
+    },
+    {
+      "name": "radio.vo.irish.24",
+      "voice": "irish",
+      "say": "We will be right back, unless we are not, in which case: the eggs."
     },
     {
       "name": "radio.vo.eric.1",
@@ -1143,29 +2098,194 @@
       "say": "I am in the car park. I am fine. Read the recipe."
     },
     {
-      "name": "radio.vo.hogmama.1",
-      "voice": "hogmama",
-      "say": "Okay. Okay. Give me a location. …Nobody? Fine. A bus."
+      "name": "radio.vo.eric.5",
+      "voice": "eric",
+      "say": "Drive time on 97.8. If you are driving, this is your show. If not, also."
+    },
+    {
+      "name": "radio.vo.gratin.5",
+      "voice": "gratin",
+      "say": "Cricket first. Somebody scored a lot of runs. It was very good."
+    },
+    {
+      "name": "radio.vo.eric.6",
+      "voice": "eric",
+      "say": "That is the whole report. He does not follow it, he just likes the numbers."
+    },
+    {
+      "name": "radio.vo.gratin.6",
+      "voice": "gratin",
+      "say": "I like the numbers. The numbers go up. It is a good sport."
+    },
+    {
+      "name": "radio.vo.eric.7",
+      "voice": "eric",
+      "say": "Mumbai traffic update, for our listeners in Mumbai, of whom there are none."
+    },
+    {
+      "name": "radio.vo.gratin.7",
+      "voice": "gratin",
+      "say": "There is one. He writes in every week. Hello, Sanjay."
+    },
+    {
+      "name": "radio.vo.eric.8",
+      "voice": "eric",
+      "say": "Sanjay says the traffic update is inaccurate and he has stopped listening."
+    },
+    {
+      "name": "radio.vo.gratin.8",
+      "voice": "gratin",
+      "say": "Hello anyway, Sanjay."
+    },
+    {
+      "name": "radio.vo.eric.9",
+      "voice": "eric",
+      "say": "Tech story: a company in Hyderabad has done something clever with batteries."
+    },
+    {
+      "name": "radio.vo.gratin.9",
+      "voice": "gratin",
+      "say": "Does it cook anything?"
+    },
+    {
+      "name": "radio.vo.eric.10",
+      "voice": "eric",
+      "say": "It does not cook anything."
+    },
+    {
+      "name": "radio.vo.gratin.10",
+      "voice": "gratin",
+      "say": "Then I have no follow-up questions."
+    },
+    {
+      "name": "radio.vo.eric.11",
+      "voice": "eric",
+      "say": "I am going to get through one headline today without food coming up."
+    },
+    {
+      "name": "radio.vo.gratin.11",
+      "voice": "gratin",
+      "say": "A new bridge has opened. Near a restaurant. A very good restaurant."
+    },
+    {
+      "name": "radio.vo.eric.12",
+      "voice": "eric",
+      "say": "We were four seconds from it. Four."
+    },
+    {
+      "name": "radio.vo.gratin.12",
+      "voice": "gratin",
+      "say": "If you are heading out this evening, eat first. That is not news, it is advice."
+    },
+    {
+      "name": "radio.vo.eric.13",
+      "voice": "eric",
+      "say": "Some of our audience are getting ready to go somewhere right now. Godspeed."
+    },
+    {
+      "name": "radio.vo.gratin.13",
+      "voice": "gratin",
+      "say": "Shower. Clean shirt. Eat. In that order. It is not complicated."
+    },
+    {
+      "name": "radio.vo.ape.15",
+      "voice": "ape",
+      "say": "Evening. It is me. It is just me. Everyone else has gone home."
+    },
+    {
+      "name": "radio.vo.ape.16",
+      "voice": "ape",
+      "say": "This slot has no format. They gave me two hours and a chair."
+    },
+    {
+      "name": "radio.vo.ape.17",
+      "voice": "ape",
+      "say": "I am going to read out things people have sent in. Some of it is not for radio."
+    },
+    {
+      "name": "radio.vo.ape.18",
+      "voice": "ape",
+      "say": "\"Dear Squatch, is it normal to have a beer while you get ready.\" Yes. Next."
+    },
+    {
+      "name": "radio.vo.ape.19",
+      "voice": "ape",
+      "say": "\"Dear Squatch, is it normal to have four.\" That is a different letter."
+    },
+    {
+      "name": "radio.vo.ape.20",
+      "voice": "ape",
+      "say": "Somebody has written in about tomorrow night. Big meeting. Big turnout expected."
+    },
+    {
+      "name": "radio.vo.ape.21",
+      "voice": "ape",
+      "say": "You know the one. Wednesday. Seven o’clock. Do not be the one who forgets."
+    },
+    {
+      "name": "radio.vo.ape.22",
+      "voice": "ape",
+      "say": "I say that every week and every week somebody forgets."
+    },
+    {
+      "name": "radio.vo.ape.23",
+      "voice": "ape",
+      "say": "The building is empty. The lights are on a timer and the timer has opinions."
+    },
+    {
+      "name": "radio.vo.ape.24",
+      "voice": "ape",
+      "say": "If you are getting an early night, good for you, genuinely."
+    },
+    {
+      "name": "radio.vo.ape.25",
+      "voice": "ape",
+      "say": "If you are not, Hog Mama is on at ten and that is your own fault."
+    },
+    {
+      "name": "radio.vo.ape.26",
+      "voice": "ape",
+      "say": "I have been handed a piece of paper. It says \"20 more minutes\". That is all it says."
+    },
+    {
+      "name": "radio.vo.ape.27",
+      "voice": "ape",
+      "say": "Music? No. This is a talk station. We are committed to the bit."
+    },
+    {
+      "name": "radio.vo.ape.28",
+      "voice": "ape",
+      "say": "Quiet evening out there. You can hear the city doing its thing."
+    },
+    {
+      "name": "radio.vo.ape.29",
+      "voice": "ape",
+      "say": "Whatever you are supposed to be doing tonight, this is not stopping you."
+    },
+    {
+      "name": "radio.vo.ape.30",
+      "voice": "ape",
+      "say": "97.8. Still on the air. Still probably should not be."
     },
     {
       "name": "radio.vo.hogmama.2",
       "voice": "hogmama",
-      "say": "We are on the bus. I am a dentist. Why am I a dentist."
+      "say": "Okay. Okay. Give me a location. …Nobody? Fine. A bus."
     },
     {
       "name": "radio.vo.hogmama.3",
       "voice": "hogmama",
-      "say": "…Still on the bus."
+      "say": "We are on the bus. I am a dentist. Why am I a dentist."
     },
     {
       "name": "radio.vo.hogmama.4",
       "voice": "hogmama",
-      "say": "The engineer is shaking his head at me through the glass."
+      "say": "…Still on the bus."
     },
     {
       "name": "radio.vo.hogmama.5",
       "voice": "hogmama",
-      "say": "New scene. Same bus. I am now the bus."
+      "say": "The engineer is shaking his head at me through the glass."
     },
     {
       "name": "radio.vo.hogmama.6",
@@ -1183,104 +2303,269 @@
       "say": "That was on purpose."
     },
     {
-      "name": "radio.vo.announcer.1",
-      "voice": "announcer",
-      "say": "Tired of boring radio stations that care about \"facts\" and \"professionalism\"?"
+      "name": "radio.vo.hogmama.9",
+      "voice": "hogmama",
+      "say": "Give me an occupation. …The engineer says \"no\". I am a No."
     },
     {
-      "name": "radio.vo.announcer.2",
-      "voice": "announcer",
-      "say": "Then tune your dial to 97.8… THE SQUATCH!"
+      "name": "radio.vo.hogmama.10",
+      "voice": "hogmama",
+      "say": "Scene: a man cannot sleep. He is listening to a woman being a bus."
     },
     {
-      "name": "radio.vo.announcer.3",
-      "voice": "announcer",
-      "say": "Wake up every morning with Lou & Lou! Two Lous. Zero preparation. Four hours of farts, aviation, friendslop and more."
+      "name": "radio.vo.hogmama.11",
+      "voice": "hogmama",
+      "say": "That is you. You are the man. Hello."
     },
     {
-      "name": "radio.vo.announcer.4",
-      "voice": "announcer",
-      "say": "At Noon, it’s Booski & Ape’s CS Gambling Show!"
+      "name": "radio.vo.hogmama.12",
+      "voice": "hogmama",
+      "say": "I am going to do an impression. Of the desk. …That is the impression."
     },
     {
-      "name": "radio.vo.announcer.5",
-      "voice": "announcer",
-      "say": "\"Is Team Liquid an NA team? Should you bet the house on Spirit? Nonstop updates and news from all around the CS world!\""
+      "name": "radio.vo.hogmama.13",
+      "voice": "hogmama",
+      "say": "Nobody has ever laughed at that and I do it every night."
     },
     {
-      "name": "radio.vo.announcer.6",
-      "voice": "announcer",
-      "say": "At 3 PM, it’s Irish’s Deep Dives… bringing you Real News You Can Trust."
+      "name": "radio.vo.hogmama.14",
+      "voice": "hogmama",
+      "say": "New scene. Two people. Both me. They are arguing and I am losing."
     },
     {
-      "name": "radio.vo.announcer.7",
-      "voice": "announcer",
-      "say": "\"Tonight: is Big Egg suppressing the pasture-raised truth? We investigate… for way longer than necessary.\""
+      "name": "radio.vo.hogmama.15",
+      "voice": "hogmama",
+      "say": "…I am thinking. I am allowed to think."
     },
     {
-      "name": "radio.vo.announcer.8",
-      "voice": "announcer",
-      "say": "Then at 5 PM, don’t miss Eric & Gratin’s \"What’s Happening in India!\""
+      "name": "radio.vo.hogmama.16",
+      "voice": "hogmama",
+      "say": "The clock says it is late enough that this counts as art."
     },
     {
-      "name": "radio.vo.announcer.9",
-      "voice": "announcer",
-      "say": "Covering headlines, cricket scores, technology, food, and somehow always ending with a discussion about butter chicken."
+      "name": "radio.vo.hogmama.17",
+      "voice": "hogmama",
+      "say": "Somebody in the chat has typed one word: \"why\". Fair. Good note."
     },
     {
-      "name": "radio.vo.announcer.10",
-      "voice": "announcer",
-      "say": "And when the sun goes down…"
+      "name": "radio.vo.hogmama.18",
+      "voice": "hogmama",
+      "say": "I want to try something. It will not work. Here it is anyway."
     },
     {
-      "name": "radio.vo.announcer.11",
-      "voice": "announcer",
-      "say": "It’s Hog Mama’s Late Night Improv! No script. No plan. No one knows what’s happening — including Hog Mama."
+      "name": "radio.vo.hogmama.19",
+      "voice": "hogmama",
+      "say": "Right. Yes. As predicted."
     },
     {
-      "name": "radio.vo.announcer.12",
-      "voice": "announcer",
-      "say": "97.8 THE SQUATCH."
+      "name": "radio.vo.hogmama.20",
+      "voice": "hogmama",
+      "say": "If you have to be up in the morning, turn this off. I mean it. Go."
+    },
+    {
+      "name": "radio.vo.hogmama.21",
+      "voice": "hogmama",
+      "say": "You are still here. Okay. Then we are doing the bus again."
+    },
+    {
+      "name": "radio.vo.hogmama.22",
+      "voice": "hogmama",
+      "say": "I have been on this bus for four years. Nobody has ever got off."
+    },
+    {
+      "name": "radio.vo.hogmama.23",
+      "voice": "hogmama",
+      "say": "Last one. Give me a location. …The apartment. Fine. The apartment."
+    },
+    {
+      "name": "radio.vo.hogmama.24",
+      "voice": "hogmama",
+      "say": "There is a man in the apartment and he has somewhere to be tomorrow."
     },
     {
       "name": "radio.vo.announcer.13",
       "voice": "announcer",
-      "say": "The only station where every host thinks they’re the smartest person in the building… and somehow they are."
+      "say": "Tired of boring radio stations that care about \"facts\" and \"professionalism\"?"
     },
     {
       "name": "radio.vo.announcer.14",
       "voice": "announcer",
-      "say": "Eat those pasture raised eggs folks!"
+      "say": "Then tune your dial to 97.8… THE SQUATCH!"
     },
     {
       "name": "radio.vo.announcer.15",
       "voice": "announcer",
-      "say": "97.8 THE SQUATCH. \"If it’s on the air… it probably shouldn’t be.\""
+      "say": "Wake up every morning with Lou & Lou! Two Lous. Zero preparation. Four hours of farts, aviation, friendslop and more."
     },
     {
       "name": "radio.vo.announcer.16",
       "voice": "announcer",
-      "say": "97.8 The Squatch. Nobody is in the building."
+      "say": "At Noon, it’s Booski & Ape’s CS Gambling Show!"
     },
     {
       "name": "radio.vo.announcer.17",
       "voice": "announcer",
-      "say": "The following is a repeat. Everything is a repeat."
+      "say": "\"Is Team Liquid an NA team? Should you bet the house on Spirit? Nonstop updates and news from all around the CS world!\""
     },
     {
       "name": "radio.vo.announcer.18",
       "voice": "announcer",
-      "say": "If it’s on the air… it probably shouldn’t be."
+      "say": "At 3 PM, it’s Irish’s Deep Dives… bringing you Real News You Can Trust."
     },
     {
       "name": "radio.vo.announcer.19",
       "voice": "announcer",
-      "say": "We’ll be back at six. Probably."
+      "say": "\"Tonight: is Big Egg suppressing the pasture-raised truth? We investigate… for way longer than necessary.\""
     },
     {
       "name": "radio.vo.announcer.20",
       "voice": "announcer",
+      "say": "Then at 5 PM, don’t miss Eric & Gratin’s \"What’s Happening in India!\""
+    },
+    {
+      "name": "radio.vo.announcer.21",
+      "voice": "announcer",
+      "say": "Covering headlines, cricket scores, technology, food, and somehow always ending with a discussion about butter chicken."
+    },
+    {
+      "name": "radio.vo.announcer.22",
+      "voice": "announcer",
+      "say": "And when the sun goes down…"
+    },
+    {
+      "name": "radio.vo.announcer.23",
+      "voice": "announcer",
+      "say": "It’s Hog Mama’s Late Night Improv! No script. No plan. No one knows what’s happening — including Hog Mama."
+    },
+    {
+      "name": "radio.vo.announcer.24",
+      "voice": "announcer",
+      "say": "97.8 THE SQUATCH."
+    },
+    {
+      "name": "radio.vo.announcer.25",
+      "voice": "announcer",
+      "say": "The only station where every host thinks they’re the smartest person in the building… and somehow they are."
+    },
+    {
+      "name": "radio.vo.announcer.26",
+      "voice": "announcer",
+      "say": "Eat those pasture raised eggs folks!"
+    },
+    {
+      "name": "radio.vo.announcer.27",
+      "voice": "announcer",
+      "say": "97.8 THE SQUATCH. \"If it’s on the air… it probably shouldn’t be.\""
+    },
+    {
+      "name": "radio.vo.announcer.28",
+      "voice": "announcer",
+      "say": "Community notice, and we read this one properly."
+    },
+    {
+      "name": "radio.vo.announcer.29",
+      "voice": "announcer",
+      "say": "The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening."
+    },
+    {
+      "name": "radio.vo.announcer.30",
+      "voice": "announcer",
+      "say": "Same room as always. Doors at half six. Do not turn up at half seven."
+    },
+    {
+      "name": "radio.vo.announcer.31",
+      "voice": "announcer",
+      "say": "Somebody always turns up at half seven."
+    },
+    {
+      "name": "radio.vo.announcer.32",
+      "voice": "announcer",
+      "say": "Come showered. Come dressed. Come having eaten something."
+    },
+    {
+      "name": "radio.vo.announcer.33",
+      "voice": "announcer",
+      "say": "That is not us being rude, that is a direct request from the room."
+    },
+    {
+      "name": "radio.vo.announcer.34",
+      "voice": "announcer",
+      "say": "If you are new: it is not that kind of meeting. Bring nothing. Turn up."
+    },
+    {
+      "name": "radio.vo.announcer.35",
+      "voice": "announcer",
+      "say": "Wednesday. Seven. 97.8 The Squatch, reminding you where to be."
+    },
+    {
+      "name": "radio.vo.announcer.36",
+      "voice": "announcer",
+      "say": "97.8 The Squatch. Nobody is in the building."
+    },
+    {
+      "name": "radio.vo.announcer.37",
+      "voice": "announcer",
+      "say": "The following is a repeat. Everything is a repeat."
+    },
+    {
+      "name": "radio.vo.announcer.38",
+      "voice": "announcer",
+      "say": "If it’s on the air… it probably shouldn’t be."
+    },
+    {
+      "name": "radio.vo.announcer.39",
+      "voice": "announcer",
+      "say": "We’ll be back at six. Probably."
+    },
+    {
+      "name": "radio.vo.announcer.40",
+      "voice": "announcer",
       "say": "Eat those pasture raised eggs folks."
+    },
+    {
+      "name": "radio.vo.announcer.41",
+      "voice": "announcer",
+      "say": "This is an automated broadcast. There is nobody to complain to."
+    },
+    {
+      "name": "radio.vo.announcer.42",
+      "voice": "announcer",
+      "say": "The overnight tape has been running for eleven years."
+    },
+    {
+      "name": "radio.vo.announcer.43",
+      "voice": "announcer",
+      "say": "A reminder that nothing on this station has ever been checked."
+    },
+    {
+      "name": "radio.vo.announcer.44",
+      "voice": "announcer",
+      "say": "If you are awake, that is between you and the ceiling."
+    },
+    {
+      "name": "radio.vo.announcer.45",
+      "voice": "announcer",
+      "say": "Hog Mama has left the building. She left the microphone on."
+    },
+    {
+      "name": "radio.vo.announcer.46",
+      "voice": "announcer",
+      "say": "…That was the tape. The tape does that."
+    },
+    {
+      "name": "radio.vo.announcer.47",
+      "voice": "announcer",
+      "say": "97.8. Broadcasting to an empty city at an unreasonable hour."
+    },
+    {
+      "name": "radio.vo.announcer.48",
+      "voice": "announcer",
+      "say": "Lou & Lou at six. Both Lous. Allegedly."
+    },
+    {
+      "name": "radio.vo.announcer.49",
+      "voice": "announcer",
+      "say": "Whatever you were going to do tonight, you have done it now."
     },
     {
       "name": "radio.vo.uncle.1",
@@ -1310,20 +2595,75 @@
     {
       "name": "radio.vo.uncle.6",
       "voice": "uncle",
-      "say": "We would play you a record, but there are no records."
+      "say": "You do not have to do anything while this is on. That is the format."
     },
     {
       "name": "radio.vo.uncle.7",
       "voice": "uncle",
-      "say": "Drop some MP3s into assets/music/ and list them in manifest.json."
+      "say": "Some of these have drums. Some of them do not. I do not decide."
     },
     {
       "name": "radio.vo.uncle.8",
       "voice": "uncle",
-      "say": "Until then: this. This is the show now."
+      "say": "If you are cleaning, this is good for cleaning. If not, also fine."
     },
     {
       "name": "radio.vo.uncle.9",
+      "voice": "uncle",
+      "say": "No requests. No callers. No phone in the building."
+    },
+    {
+      "name": "radio.vo.uncle.10",
+      "voice": "uncle",
+      "say": "I am told the last one went on a bit. It did. It was meant to."
+    },
+    {
+      "name": "radio.vo.uncle.11",
+      "voice": "uncle",
+      "say": "Uncle Squatch, 98.8, and a room somewhere with a window in it."
+    },
+    {
+      "name": "radio.vo.uncle.12",
+      "voice": "uncle",
+      "say": "Back-to-back for the next while. I will be here. Not saying anything."
+    },
+    {
+      "name": "radio.vo.uncle.13",
+      "voice": "uncle",
+      "say": "…Still not saying anything."
+    },
+    {
+      "name": "radio.vo.uncle.14",
+      "voice": "uncle",
+      "say": "Whatever you are putting off, this is the soundtrack to putting it off."
+    },
+    {
+      "name": "radio.vo.uncle.15",
+      "voice": "uncle",
+      "say": "98.8. Beats to be bored in an apartment to."
+    },
+    {
+      "name": "radio.vo.uncle.16",
+      "voice": "uncle",
+      "say": "That was one of them. Here is another one."
+    },
+    {
+      "name": "radio.vo.uncle.17",
+      "voice": "uncle",
+      "say": "We would play you a record, but there are no records."
+    },
+    {
+      "name": "radio.vo.uncle.18",
+      "voice": "uncle",
+      "say": "Drop some MP3s into assets/music/ and list them in manifest.json."
+    },
+    {
+      "name": "radio.vo.uncle.19",
+      "voice": "uncle",
+      "say": "Until then: this. This is the show now."
+    },
+    {
+      "name": "radio.vo.uncle.20",
       "voice": "uncle",
       "say": "98.8. Uncle Squatch. Silence, mostly."
     },
@@ -1380,20 +2720,70 @@
     {
       "name": "radio.vo.ksqch.11",
       "voice": "ksqch",
-      "say": "KSQCH 101.7. The originals station."
+      "say": "Every artist on this station is reachable. Most of them are in the group chat."
     },
     {
       "name": "radio.vo.ksqch.12",
       "voice": "ksqch",
-      "say": "There are no originals in assets/music/ tagged for this station."
+      "say": "That was written in one night. You can tell. We are not hiding it."
     },
     {
       "name": "radio.vo.ksqch.13",
       "voice": "ksqch",
-      "say": "Add some, tag them \"ksqch\" in manifest.json, and we will play them."
+      "say": "We have played this eleven times today. It is a short playlist and we are proud."
     },
     {
       "name": "radio.vo.ksqch.14",
+      "voice": "ksqch",
+      "say": "\"Squatch Up\" — the closest thing this group has to an anthem, and it is close."
+    },
+    {
+      "name": "radio.vo.ksqch.15",
+      "voice": "ksqch",
+      "say": "\"Good Ole Days\" next, which is about a period of time none of us remember well."
+    },
+    {
+      "name": "radio.vo.ksqch.16",
+      "voice": "ksqch",
+      "say": "A listener has asked who is singing. The answer will not help you."
+    },
+    {
+      "name": "radio.vo.ksqch.17",
+      "voice": "ksqch",
+      "say": "No royalties have ever been paid. No royalties have ever been owed."
+    },
+    {
+      "name": "radio.vo.ksqch.18",
+      "voice": "ksqch",
+      "say": "If you hear a door slam in the second verse, that was not a production choice."
+    },
+    {
+      "name": "radio.vo.ksqch.19",
+      "voice": "ksqch",
+      "say": "This one was recorded the night before somebody had somewhere to be."
+    },
+    {
+      "name": "radio.vo.ksqch.20",
+      "voice": "ksqch",
+      "say": "KSQCH. Turn it up. Nobody in this building is going to stop you."
+    },
+    {
+      "name": "radio.vo.ksqch.21",
+      "voice": "ksqch",
+      "say": "KSQCH 101.7. The originals station."
+    },
+    {
+      "name": "radio.vo.ksqch.22",
+      "voice": "ksqch",
+      "say": "There are no originals in assets/music/ tagged for this station."
+    },
+    {
+      "name": "radio.vo.ksqch.23",
+      "voice": "ksqch",
+      "say": "Add some, tag them \"ksqch\" in manifest.json, and we will play them."
+    },
+    {
+      "name": "radio.vo.ksqch.24",
       "voice": "ksqch",
       "say": "Until then, this. Which is also, arguably, an original."
     }

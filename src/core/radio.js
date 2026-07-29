@@ -18,7 +18,7 @@
  * filter, so it genuinely comes from across the room.
  */
 import * as THREE from 'three';
-import { STATIONS, showAt, voiceOf } from './stations.js';
+import { STATIONS, showAt, voiceOf, MEETING_NOTICE, NOTICE_EVERY } from './stations.js';
 import { loadJson, assetUrl } from './assets.js';
 
 const MUSIC_DIR = 'assets/music/';
@@ -51,6 +51,7 @@ export class Radio {
     this._dwell = SEGMENT_TIME;
     this._voice = null;
     this._sinceAd = 0;
+    this._sinceNotice = 4;   // one lands reasonably early in the morning
     this._show = null;
   }
 
@@ -268,13 +269,25 @@ export class Radio {
       return;
     }
 
+    // The community notice takes priority over the commercial, and resets it
+    // so you never get both back to back.
+    if (st.notices && this._sinceNotice >= NOTICE_EVERY) {
+      this._sinceNotice = 0;
+      this._sinceAd = 0;
+      this._queue.push(...MEETING_NOTICE);
+      return;
+    }
+
     if (this._sinceAd >= st.commercialEvery) {
       this._sinceAd = 0;
       this._queue.push(...st.commercial);
+      // You have heard this one enough times to have an opinion on it.
+      this.audio.say?.('radio.ad', { chance: 0.5, delay: 6 });
       return;
     }
 
     this._sinceAd++;
+    this._sinceNotice++;
     this._queue.push({ line: pick(show.lines), cue: null });
   }
 
@@ -285,6 +298,8 @@ export class Radio {
     if (!s) return;
     this._line = s.line;
     this._segT = 0;
+    // Hearing it counts as knowing it.
+    if (s.notice) this.onNotice?.();
     if (s.cue) this.audio.play(s.cue, { position: this.position, volume: 0.5 });
 
     // The hosts are recorded now, so hold a line on air for exactly as long as
@@ -363,13 +378,30 @@ export class Radio {
   }
 }
 
-/** Random, but never the same line twice running -- that reads as a bug. */
-const _last = new WeakMap();
+/**
+ * A shuffle bag per list: every line airs once before any line airs twice.
+ * Plain random re-picks far sooner than you would think, and on a station you
+ * leave on for twenty minutes that reads as a much shorter script than it is.
+ * The reshuffle avoids putting the old last line first, so the seam is quiet.
+ */
+const _bags = new WeakMap();
 function pick(arr) {
+  if (!arr || !arr.length) return '';
   if (arr.length < 2) return arr[0];
-  const prev = _last.get(arr);
-  let v;
-  do { v = arr[(Math.random() * arr.length) | 0]; } while (v === prev);
+  let bag = _bags.get(arr);
+  if (!bag || !bag.length) {
+    bag = arr.slice();
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [bag[i], bag[j]] = [bag[j], bag[i]];
+    }
+    if (bag[bag.length - 1] === _last.get(arr) && bag.length > 1) {
+      [bag[bag.length - 1], bag[0]] = [bag[0], bag[bag.length - 1]];
+    }
+    _bags.set(arr, bag);
+  }
+  const v = bag.pop();
   _last.set(arr, v);
   return v;
 }
+const _last = new WeakMap();

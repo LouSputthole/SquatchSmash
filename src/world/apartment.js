@@ -759,7 +759,11 @@ export async function buildApartment(ctx) {
     audio.play(open ? 'fridge.open' : 'fridge.close', {
       position: new THREE.Vector3(4.3, 1.0, 1.6), volume: 0.9,
     });
-    if (open) audio.play('fridge.bottles', { position: new THREE.Vector3(4.5, 0.8, 1.9), volume: 0.5, delay: 0.25 });
+    if (open) {
+      audio.play('fridge.bottles', { position: new THREE.Vector3(4.5, 0.8, 1.9), volume: 0.5, delay: 0.25 });
+      // Standing in the cold light with the door open is a thinking pose.
+      audio.say('fridge', { chance: 0.3, delay: 1.2 });
+    }
     hud.say(open
       ? 'Cold air. Six beers, half a lime, and something you should throw out.'
       : '', open ? 3600 : 1);

@@ -242,6 +242,9 @@ async function boot() {
     apartment.toiletCollider,
   );
 
+  // Third way to find out about the meeting: leave the radio on.
+  radio.onNotice = () => learnAboutMeeting('radio');
+
   window.__squatchStage?.('Tuning the radio…');
   radio.setPosition(apartment.radioPos);
   const trackCount = await radio.loadManifest();
@@ -312,6 +315,7 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
     audio.play('bed.rustle', { volume: 0.5 });
+    audio.say('wake', { delay: 1.1 });
     hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
@@ -370,7 +374,7 @@ function pauseGame() {
   player.clearKeys();
   interaction.release();
   overlay.classList.remove('hidden');
-  overlay.querySelector('h1').innerHTML = 'PAUSED<span>SQUATCH SMASH</span>';
+  overlay.querySelector('h1').innerHTML = 'PAUSED<span>SQUATCH LIFE</span>';
   overlay.querySelector('.tag').textContent = game.seated
     ? 'Still at the desk. The meeting is not until tomorrow.'
     : 'The fridge is not going anywhere.';
@@ -713,6 +717,7 @@ function updateSwigging(dt, holdingF) {
     drunk.drink(WHISKEY_UNITS);
     apartment.state.bladder = Math.min(1, apartment.state.bladder + 0.16);
     audio.play('whiskey.gasp', { volume: 0.7 });
+    audio.say('whiskey', { chance: 0.7, delay: 1.0 });
 
     const n = st.whiskeyLeft;
     hud.setHand({
@@ -791,6 +796,7 @@ function updateSmoking(dt, holdingF) {
     cig.exhaled = true;
     heldCig.ember.material.emissiveIntensity = 2.0;
     audio.play('cig.exhale', { volume: 0.8 });
+    audio.say('cig.drag', { chance: 0.4, delay: 0.9 });
     exhaleCloud();
   }
 
@@ -809,6 +815,7 @@ function updateSmoking(dt, holdingF) {
       hud.setHand({ icon: '🚬', name: `Smokes (${st.cigsLeft})`, hint: 'Hold [F] to light one' });
     } else {
       hud.setHand({ icon: '🚬', name: 'Empty pack', hint: '[Q] bin it' });
+      audio.say('cig.last', { delay: 2.6 });
     }
     hud.toast('Steadier — for a bit', 'good');
     hud.say(drunk.level > 0.4
@@ -901,6 +908,7 @@ function fart({ voluntary = true } = {}) {
     volume: (game.seated ? 0.55 : 0.8) * gassy,
     rate: 0.86 + Math.random() * 0.3,
   });
+  audio.say('fart', { chance: voluntary ? 0.25 : 0.45, delay: 1.0 });
 
   // Reset the involuntary timer either way, so a deliberate one buys you time.
   game.fartClock = 0;
@@ -949,6 +957,7 @@ function takeZyn() {
 
   hud.setHand({ icon: '⚪', name: `Zyn (${st.zynsLeft} left)`, hint: '[Q] bin it' });
   hud.toast('Upper lip. Steady hands.', 'good');
+  audio.say('zyn', { chance: 0.7, delay: 1.3 });
   hud.say(st.zynsTaken === 1
     ? 'Tucked in. <em>The room tightens up for a second, then settles.</em>'
     : 'Another one. Your gums have opinions you are ignoring.', 4400);
@@ -1112,6 +1121,8 @@ function learnAboutMeeting(source) {
   if (!goals.learn(source)) return;
   audio.play('ui.select', { volume: 0.4 });
   hud.toast('Wednesday, 7 PM', 'good');
+  // The radio reads the notice out; he answers it, the way you answer a radio.
+  audio.say('notice', { delay: source === 'radio' ? 2.4 : 1.0 });
   narrator.note('meeting');
 }
 
@@ -1251,15 +1262,37 @@ function updateBowel(dt) {
     game.nextPlopAt -= dt;
     if (game.nextPlopAt <= 0 && st.bowel > 0.02) {
       game.nextPlopAt = 1.2 + Math.random() * 2.4;
-      audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
-        volume: 0.7, rate: 0.9 + Math.random() * 0.25,
-      });
-      if (Math.random() < 0.4) audio.play('toilet.plop', { volume: 0.5, delay: 0.35 });
+      // Roughly one beat in three is a fart rather than the main event, which
+      // is how it goes. Sat down and in a tiled room, so it carries.
+      if (Math.random() < 0.34) {
+        let i = (Math.random() * FART_CUES.length) | 0;
+        if (i === _lastFart) i = (i + 1 + ((Math.random() * (FART_CUES.length - 1)) | 0)) % FART_CUES.length;
+        _lastFart = i;
+        audio.play(FART_CUES[i], { volume: 0.72, rate: 0.8 + Math.random() * 0.4 });
+        if (Math.random() < 0.3) {
+          audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
+            volume: 0.6, rate: 0.9 + Math.random() * 0.25, delay: 0.45 + Math.random() * 0.4,
+          });
+        }
+      } else {
+        audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
+          volume: 0.7, rate: 0.9 + Math.random() * 0.25,
+        });
+        if (Math.random() < 0.4) audio.play('toilet.plop', { volume: 0.5, delay: 0.35 });
+        // A little punctuation on the way out.
+        if (Math.random() < 0.22) {
+          let i = (Math.random() * FART_CUES.length) | 0;
+          if (i === _lastFart) i = (i + 1) % FART_CUES.length;
+          _lastFart = i;
+          audio.play(FART_CUES[i], { volume: 0.5, rate: 1.0 + Math.random() * 0.35, delay: 0.7 });
+        }
+      }
     }
     if (st.bowel <= 0.02 && game.poopTime > 3) {
       st.urgeAnnounced = false;
       if (!game._poopDone) {
         game._poopDone = true;
+        audio.say('poop.relief', { delay: 0.6 });
         hud.say('That is that dealt with. <em>[Q] to get up.</em>', 5000);
       }
     }
@@ -1315,6 +1348,7 @@ function stopPee() {
   const s = stream.stats;
   if (s.total > 12) {
     const acc = s.onTarget / s.total;
+    audio.say('pee', { chance: 0.6, delay: 0.7 });
     hud.toast(`${Math.round(acc * 100)}% on target`, acc > 0.7 ? 'good' : 'bad');
     hud.say(acc > 0.85
       ? 'Immaculate. Nobody will ever know how well that went.'

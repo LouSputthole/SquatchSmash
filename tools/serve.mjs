@@ -66,5 +66,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Squatch Smash → http://localhost:${PORT}`);
+  console.log(`Squatch Life → http://localhost:${PORT}`);
 });
