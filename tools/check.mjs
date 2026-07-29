@@ -96,6 +96,26 @@ try {
   fail(err.message);
 }
 
+/* ---- every audio.say() group must have lines to say ---- */
+// say() looks for cues named `vo.<group>.<n>` and returns false without a
+// murmur when it finds none, so a mistyped or renamed group is a line that
+// silently never plays again. Nothing else would ever tell you.
+try {
+  const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+  const voCues = sfxManifest.sfx.filter((c) => c.name.startsWith('vo.')).map((c) => c.name);
+  for (const file of ['src/main.js', 'src/world/apartment.js']) {
+    const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    for (const m of src.matchAll(/audio\.say\(\s*'([^']+)'/g)) {
+      const group = m[1];
+      if (!voCues.some((n) => n.startsWith(`vo.${group}.`))) {
+        fail(`${file}: audio.say('${group}') has no vo.${group}.* cue — it will never play`);
+      }
+    }
+  }
+} catch (err) {
+  fail(err.message);
+}
+
 /* ---- the radio's voice cues must match what is on air ---- */
 // Every line in stations.js is turned into a text-to-speech cue by a bit of
 // parsing -- strip the `SPEAKER:` label, strip stage directions, pick a voice.

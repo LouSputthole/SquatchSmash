@@ -2786,6 +2786,21 @@
       "name": "radio.vo.ksqch.24",
       "voice": "ksqch",
       "say": "Until then, this. Which is also, arguably, an original."
+    },
+    {
+      "name": "vo.toilet.hint.1",
+      "voice": "player",
+      "say": "Nothing doing yet. Couple of cigarettes usually gets that moving."
+    },
+    {
+      "name": "vo.toilet.hint.2",
+      "voice": "player",
+      "say": "Not yet. Give it a few smokes and we will be back in here."
+    },
+    {
+      "name": "vo.toilet.hint.3",
+      "voice": "player",
+      "say": "Empty. It always turns up about four cigarettes in."
     }
   ]
 }

@@ -10,6 +10,8 @@
  *     onUse:  () => {},
  *     onTap:  () => {},                         // hold targets only: fired on
  *                                               // a quick press instead
+ *     onLook: () => {},                         // fired when it comes under
+ *                                               // the crosshair, no keypress
  *     onHoldProgress: (t) => {},
  *   }
  *
@@ -82,6 +84,9 @@ export class InteractionSystem {
       this.current = found;
       this.holdTime = 0;
       if (!found) this.hud.hidePrompt();
+      // Fired the moment a target comes under the crosshair, before anyone has
+      // pressed anything -- for things the character remarks on just by seeing.
+      else found.userData.interact.onLook?.(found);
     }
 
     if (!found) return;

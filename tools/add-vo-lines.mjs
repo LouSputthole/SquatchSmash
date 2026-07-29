@@ -154,6 +154,14 @@ const LINES = {
     'Some of that went in.',
     'I will clean that up. Later. Probably.',
   ],
+  /* Looking at the toilet before anything is brewing. The only place the game
+   * admits out loud that cigarettes are what get things moving -- four of them
+   * fills the meter, and without this you are left to work that out yourself. */
+  'toilet.hint': [
+    'Nothing doing yet. Couple of cigarettes usually gets that moving.',
+    'Not yet. Give it a few smokes and we will be back in here.',
+    'Empty. It always turns up about four cigarettes in.',
+  ],
   'poop.urge': [
     'Nope. Nope, that is happening now.',
     'Bathroom. Bathroom, immediately.',

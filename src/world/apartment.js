@@ -733,6 +733,8 @@ export async function buildApartment(ctx) {
     lipPacked: false,
     bowel: 0,            // 0..1; cigarettes fill it. 4 of them and you are running
     urgeAnnounced: false,
+    toiletHinted: false,   // he only points out the cigarette trick once
+
     flushable: false,
 
     /* ---- getting ready for Wednesday. Once done, these stay done. ---- */
@@ -1024,6 +1026,14 @@ export async function buildApartment(ctx) {
       if (state.bowel > 0.55) return 'Sit on the <b>toilet</b>';
       if (state.bladder > 0.05) return 'Take a <b>leak</b>';
       return 'The <b>toilet</b>';
+    },
+    // Cigarettes are what fill the bowel meter, and nothing else in the game
+    // says so. Said once, and only while there is genuinely nothing brewing --
+    // after that the belly rumbles do the telling.
+    onLook: () => {
+      if (state.toiletHinted || state.bowel > 0.2) return;
+      state.toiletHinted = true;
+      audio.say('toilet.hint', { delay: 0.5 });
     },
     onUse: () => {
       if (state.bowel > 0.55) { ctx.onSitToilet?.(); return; }
