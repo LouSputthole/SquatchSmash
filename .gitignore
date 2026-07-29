@@ -9,3 +9,6 @@ dist/
 # Generated sound effects are large and rebuildable from assets/sfx/manifest.json
 # with `npm run sfx`. Uncomment to keep them out of the repo:
 # assets/sfx/*.mp3
+
+# Regenerate with: npm run sfx:listen
+assets/sfx/_listen.html

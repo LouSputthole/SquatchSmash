@@ -3,7 +3,7 @@
   "voices": {
     "_comment": "Every spoken line resolves its voice here, so the character sounds like one person. Paste an ElevenLabs voice id into `id` -- `npm run sfx:voices` lists what is on your account. Nothing spoken will generate until this is set.",
     "player": {
-      "id": "<paste an ElevenLabs voice id here>",
+      "id": "iP95p4xoKVk53GoZ742B",
       "_note": "The man who lives here. Mid thirties, flat delivery, talks to himself because there is nobody else in. Not doing a bit -- he is just narrating his own afternoon to an empty room.",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,

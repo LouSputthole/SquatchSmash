@@ -13,6 +13,7 @@
     "verify:art": "node tools/verify-art.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
-    "sfx:vo": "node tools/generate-sfx.mjs --voice-only"
+    "sfx:vo": "node tools/generate-sfx.mjs --voice-only",
+    "sfx:listen": "node tools/sfx-index.mjs"
   }
 }
