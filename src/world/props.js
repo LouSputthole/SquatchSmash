@@ -895,12 +895,14 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
   const SLICES = 8;
   const GONE = new Set([0, 3, 4]);
   const wedge = (Math.PI * 2) / SLICES;
+  /** Per wedge: the slice, and the mark it leaves when it goes. */
+  const wedges = [];
 
   for (let i = 0; i < SLICES; i++) {
-    if (GONE.has(i)) continue;
     const a0 = i * wedge + 0.028;             // a hair of gap, so they read apart
     const span = wedge - 0.056;
     const slice = new THREE.Group();
+    slice.visible = !GONE.has(i);
     // Each one nudged out from the middle by a different amount.
     const drift = ((i * 37) % 11) / 11;
     /* three's CylinderGeometry lays theta out from +Z toward +X -- its vertex
@@ -915,6 +917,7 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
     );
     slice.rotation.y = drift * 0.03;
     g.add(slice);
+    wedges[i] = { slice, ghost: null, crumbs: [] };
 
     // Base, sauce to the edge of the crust, then cheese short of that.
     const baseGeo = new THREE.CylinderGeometry(R, R, 0.008, 10, 1, false, a0, span);
@@ -950,7 +953,7 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
 
   /* Where the eaten ones were: sauce printed on the board, and the crumbs
    * they left. This is what tells you the box was full an hour ago. */
-  for (const i of GONE) {
+  for (let i = 0; i < SLICES; i++) {
     const a0 = i * wedge + 0.03;
     const span = wedge - 0.06;
     const ghost = new THREE.Mesh(
@@ -958,7 +961,9 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
       mat({ color: 0xa8763f, roughness: 1 }),
     );
     ghost.position.y = DEEP + 0.0032;
+    ghost.visible = GONE.has(i);
     g.add(ghost);
+    const crumbs = [];
     for (let k = 0; k < 3; k++) {
       const ang = a0 + span * (0.2 + k * 0.3);
       const t = 0.45 + k * 0.16;
@@ -968,8 +973,38 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
         mat: crustMat,
       });
       crumb.rotation.y = ang;
+      crumb.visible = GONE.has(i);
       g.add(crumb);
+      crumbs.push(crumb);
     }
+    if (wedges[i]) Object.assign(wedges[i], { ghost, crumbs });
+  }
+
+  /**
+   * Take the next slice that is still there.
+   *
+   * Goes round the box rather than picking at random, because a pizza empties
+   * in a direction -- you take the one next to the gap. Reveals the sauce mark
+   * and crumbs it leaves behind, which is the same thing the three missing at
+   * the start already show.
+   *
+   * @returns {boolean} false when there is nothing left
+   */
+  function takeSlice() {
+    for (let n = 0; n < SLICES; n++) {
+      const w = wedges[n];
+      if (!w || !w.slice.visible) continue;
+      w.slice.visible = false;
+      if (w.ghost) w.ghost.visible = true;
+      for (const c of w.crumbs) c.visible = true;
+      return true;
+    }
+    return false;
+  }
+
+  /** How many are left in the box. */
+  function slicesLeft() {
+    return wedges.reduce((n, w) => n + (w && w.slice.visible ? 1 : 0), 0);
   }
 
   // Grease. Two dark patches soaked into the cardboard by the near edge.
@@ -984,7 +1019,7 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
     stain.position.set(gx, DEEP + 0.0026, gz);
     g.add(stain);
   }
-  return { group: g };
+  return { group: g, takeSlice, slicesLeft };
 }
 
 /**

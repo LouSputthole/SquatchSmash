@@ -888,7 +888,43 @@ function updateConsume(dt) {
 
   if (st.heldItem === 'cigs' || cig.t >= 0) updateSmoking(dt, holdingF);
   else if (st.heldItem === 'whiskey') updateSwigging(dt, holdingF);
+  else if (st.heldItem === 'slice') updateEatingSlice(dt, holdingF);
   else updateDrinking(dt, holdingF);
+}
+
+/** Seconds of holding [F] to get through a slice. */
+const SLICE_TIME = 2.6;
+
+/**
+ * Eating the slice in his hand.
+ *
+ * Same shape as drinking: hold [F], a progress bar, and it is gone at the end.
+ * It counts as having eaten, so this is a second route through the `fed` gate
+ * that the door checks -- cold pizza off a coffee table is not the breakfast
+ * the eggs are, but the door only asks whether he has eaten.
+ */
+function updateEatingSlice(dt, holdingF) {
+  const st = apartment.state;
+  if (!holdingF) {
+    if (game.eatingSlice > 0) {
+      game.eatingSlice = 0;
+      hud.setHold(null);
+      if (!interaction.current) hud.hidePrompt();
+    }
+    return;
+  }
+
+  game.eatingSlice = (game.eatingSlice || 0) + dt;
+  hud.setHold({ label: 'Eating', k: Math.min(1, game.eatingSlice / SLICE_TIME) });
+  if (game.eatingSlice < SLICE_TIME) return;
+
+  game.eatingSlice = 0;
+  hud.setHold(null);
+  st.heldItem = null;                 // empties the slot the slice was in
+  st.fed = true;
+  audio.play('egg.eat', { volume: 0.6 });
+  audio.say('slice', { chance: 0.8, delay: 0.9 });
+  hud.toast('Ate a slice', 'good');
 }
 
 function updateDrinking(dt, holdingF) {

@@ -696,6 +696,27 @@ export async function buildApartment(ctx) {
    * get kicked off. At z 3.90 they sat 46cm out into the floor, in the middle
    * of the walkway, looking placed rather than dropped. The skirting starts at
    * z 4.48, so 4.30 puts the heels near it without clipping through. */
+  /* ---- taking a slice ----
+   *
+   * The box is on the table with three already gone. Taking one is a pickup
+   * like any other; eating it happens in the hand, not here.
+   */
+  const pizzaHit = box({
+    size: [0.34, 0.14, 0.34], pos: [pizza.group.position.x, table.top + 0.07, pizza.group.position.z],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(pizzaHit);
+  interaction.register(pizzaHit, {
+    label: () => (pizza.slicesLeft() ? 'Take a <b>slice</b>' : 'The box is <b>empty</b>'),
+    enabled: () => pizza.slicesLeft() > 0 && !inventory.full,
+    onUse: () => {
+      if (!inventory.add('slice')) return;
+      pizza.takeSlice();
+      audio.play('pizza.take', { volume: 0.5, position: pizza.group.position });
+      ctx.onNote?.('slice');
+    },
+  });
+
   /* ---- the television ----
    *
    * Facing the couch, past the coffee table. It plays a channel list rather
@@ -1854,6 +1875,7 @@ export async function buildApartment(ctx) {
     state,
     inventory,
     dropGun,
+    pizza,
     tv,
     tvGlow,
     frames,

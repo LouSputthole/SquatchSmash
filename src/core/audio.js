@@ -653,6 +653,10 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t + 0.05, { dur: 0.65, type: 'bandpass', freq: 900, q: 0.7, gain: 0.16, sweep: 0.4 });
       tone(ctx, dest, t + 0.06, { freq: 3100, dur: 1.1, gain: 0.028, type: 'sine' });
       break;
+    case 'pizza.take':
+      burst(ctx, dest, t, { dur: 0.16, type: 'bandpass', freq: 900, q: 1.1, gain: 0.14, sweep: 0.6 });
+      burst(ctx, dest, t + 0.10, { dur: 0.12, type: 'highpass', freq: 3200, gain: 0.05 });
+      break;
     case 'tv.click':
       burst(ctx, dest, t, { dur: 0.03, type: 'bandpass', freq: 1400, q: 2.2, gain: 0.26 });
       tone(ctx, dest, t + 0.06, { freq: 5200, dur: 0.05, gain: 0.03, type: 'sine' });

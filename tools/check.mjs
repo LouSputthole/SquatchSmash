@@ -117,6 +117,26 @@ try {
       }
     }
   }
+  /* Same again for audio.play(), which is a different failure with the same
+   * silence: play() falls through to the synth when a cue is not in the
+   * manifest, so a cue that exists ONLY as a synth case still makes a noise
+   * and is invisible to everything -- but generate-sfx reads the manifest, so
+   * it can never be given a real recording. Two cues sat like that for several
+   * commits before anyone counted them.
+   *
+   * Cues are allowed to be synth-only on purpose, so the manifest is the
+   * authority and this only reports names that appear nowhere in it. */
+  const allCues = new Set(sfxManifest.sfx.map((c) => c.name));
+  for (const file of ['src/main.js', 'src/world/apartment.js', 'src/core/radio.js']) {
+    const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    for (const m of src.matchAll(/audio\.(?:play|startLoop)\(\s*'([^']+)'/g)) {
+      if (!allCues.has(m[1])) {
+        fail(`${file}: audio.play('${m[1]}') is not in assets/sfx/manifest.json `
+          + '— it will fall through to the synth and can never be recorded');
+      }
+    }
+  }
+
   /* The inbox names its group in data rather than at the call site, so the
    * scan above cannot see it. Same failure either way: a renamed bank is a
    * reply he never gives, and nothing anywhere says so. */

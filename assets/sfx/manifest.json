@@ -3266,6 +3266,79 @@
       "name": "vo.mail.irish.4",
       "voice": "player",
       "say": "The nice bit at the end was genuinely nice, to be fair to him."
+    },
+    {
+      "_comment": "Cold cheese coming away from cardboard. Should sound reluctant.",
+      "name": "pizza.take",
+      "duration": 0.9,
+      "promptInfluence": 0.5,
+      "prompt": "a slice of cold pizza being lifted off a cardboard box, cheese pulling slightly, close, no music, no voice"
+    },
+    {
+      "name": "vo.slice.1",
+      "voice": "player",
+      "say": "Cold. As intended."
+    },
+    {
+      "name": "vo.slice.2",
+      "voice": "player",
+      "say": "That is breakfast. That is a breakfast."
+    },
+    {
+      "name": "vo.slice.3",
+      "voice": "player",
+      "say": "I would like to thank whoever I was last night."
+    },
+    {
+      "_comment": "Shirts shoved along a rail. Hangers first, fabric second — the metal is what tells you what just happened.",
+      "name": "closet.slide",
+      "duration": 1.4,
+      "promptInfluence": 0.5,
+      "prompt": "wire coat hangers sliding along a metal closet rail, clothes bunching together, close, dry, no voice, no music"
+    },
+    {
+      "_comment": "The breath out after the bottle finally gives. Relief, not exhaustion — it has to sound like a problem going away.",
+      "name": "relief.sigh",
+      "duration": 2.0,
+      "promptInfluence": 0.55,
+      "prompt": "a single relieved exhale from an adult man, quiet, unforced, close mic, no words, no music"
+    },
+    {
+      "name": "egg.crack",
+      "duration": 1.0,
+      "promptInfluence": 0.5,
+      "prompt": "an egg being cracked on the rim of a frying pan and opened, shell splitting, contents dropping, close, no music, no voice"
+    },
+    {
+      "name": "pan.sizzle",
+      "duration": 6.0,
+      "promptInfluence": 0.4,
+      "prompt": "eggs frying in a hot pan, steady sizzle, close, continuous, no music, no voice"
+    },
+    {
+      "name": "egg.eat",
+      "duration": 1.4,
+      "promptInfluence": 0.5,
+      "prompt": "someone eating a forkful of fried egg standing at a counter, quiet chewing and a fork against a pan, close, no music, no voice"
+    },
+    {
+      "name": "chat.ping",
+      "duration": 0.8,
+      "promptInfluence": 0.6,
+      "prompt": "a short soft two-tone notification chime from a desktop chat application, clean, no music, no voice"
+    },
+    {
+      "_comment": "The loop under a running shower, heard from in the room rather than under it.",
+      "name": "shower.run",
+      "duration": 8.0,
+      "promptInfluence": 0.4,
+      "prompt": "a shower running steadily into a bathtub, water hitting enamel and tiles, close, continuous, no music, no voice"
+    },
+    {
+      "name": "bong.bubble",
+      "duration": 2.4,
+      "promptInfluence": 0.5,
+      "prompt": "water bubbling loudly through a glass bong as someone draws on it, wet gurgling, close, no music, no voice"
     }
   ]
 }
