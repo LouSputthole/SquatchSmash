@@ -1132,11 +1132,37 @@ export async function buildApartment(ctx) {
     },
   });
 
+  /*
+   * The pictures talk back.
+   *
+   * Catching one under the crosshair is enough -- he says something without
+   * you pressing anything, which is the whole point of hanging your own photos
+   * in here. Rationed hard, though: a line every time your eye crossed a frame
+   * would turn a wall of memories into a wall of noise. One per frame per
+   * session, a chance roll on top, and a shared cooldown so sweeping the room
+   * gets you one remark rather than nine.
+   */
+  const seenFrames = new Set();
+  let lastPhotoLine = -999;
+  const remarkOn = (f, deliberate) => {
+    const now = performance.now() / 1000;
+    if (!deliberate) {
+      if (seenFrames.has(f.slot)) return;
+      if (now - lastPhotoLine < 14) return;
+      if (Math.random() > 0.55) return;
+    }
+    seenFrames.add(f.slot);
+    lastPhotoLine = now;
+    audio.say('photo', { delay: deliberate ? 0.35 : 0.55 });
+  };
+
   for (const f of frames) {
     interaction.register(f.mesh, {
       label: () => `Look at <b>${f.info.title}</b>`,
+      onLook: () => remarkOn(f, false),
       onUse: () => {
         audio.play('frame.adjust', { volume: 0.4 });
+        remarkOn(f, true);
         hud.say(f.info.caption
           ? `<em>${f.info.title}.</em> ${f.info.caption}`
           : `<em>${f.info.title}.</em>`);
@@ -1144,11 +1170,15 @@ export async function buildApartment(ctx) {
     });
   }
 
+  // Banners are in `frames` too, so this re-registration would otherwise drop
+  // the remark the loop above just attached to them.
   for (const b of banners) {
     interaction.register(b.mesh, {
       label: () => `Look at <b>${b.info.title}</b>`,
+      onLook: () => remarkOn(b, false),
       onUse: () => {
         audio.play('frame.adjust', { volume: 0.4 });
+        remarkOn(b, true);
         hud.say(`<em>${b.info.title}.</em> ${b.info.caption}`);
       },
     });

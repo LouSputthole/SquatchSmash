@@ -2801,6 +2801,96 @@
       "name": "vo.toilet.hint.3",
       "voice": "player",
       "say": "Empty. It always turns up about four cigarettes in."
+    },
+    {
+      "name": "vo.photo.1",
+      "voice": "player",
+      "say": "Ahh. What a good time."
+    },
+    {
+      "name": "vo.photo.2",
+      "voice": "player",
+      "say": "Let me hear you. Let me sing."
+    },
+    {
+      "name": "vo.photo.3",
+      "voice": "player",
+      "say": "It is all love."
+    },
+    {
+      "name": "vo.photo.4",
+      "voice": "player",
+      "say": "Let it be known: that was a great time."
+    },
+    {
+      "name": "vo.photo.5",
+      "voice": "player",
+      "say": "Piping hot."
+    },
+    {
+      "name": "vo.photo.6",
+      "voice": "player",
+      "say": "Oh, that is a good one."
+    },
+    {
+      "name": "vo.photo.7",
+      "voice": "player",
+      "say": "We were so young. That was eighteen months ago."
+    },
+    {
+      "name": "vo.photo.8",
+      "voice": "player",
+      "say": "Everyone in that picture owes me money."
+    },
+    {
+      "name": "vo.photo.9",
+      "voice": "player",
+      "say": "I remember about half of that."
+    },
+    {
+      "name": "vo.photo.10",
+      "voice": "player",
+      "say": "That was the night, that was."
+    },
+    {
+      "name": "vo.photo.11",
+      "voice": "player",
+      "say": "Look at the state of us."
+    },
+    {
+      "name": "vo.photo.12",
+      "voice": "player",
+      "say": "Good lads. All of them. Mostly."
+    },
+    {
+      "name": "vo.photo.13",
+      "voice": "player",
+      "say": "That is going to stay up there forever now."
+    },
+    {
+      "name": "vo.photo.14",
+      "voice": "player",
+      "say": "I have walked past that a thousand times."
+    },
+    {
+      "name": "vo.photo.15",
+      "voice": "player",
+      "say": "Been meaning to straighten that."
+    },
+    {
+      "name": "vo.photo.16",
+      "voice": "player",
+      "say": "One of the good ones, that."
+    },
+    {
+      "name": "vo.photo.17",
+      "voice": "player",
+      "say": "Should get everyone together again."
+    },
+    {
+      "name": "vo.photo.18",
+      "voice": "player",
+      "say": "Nobody has aged well. Including me."
     }
   ]
 }

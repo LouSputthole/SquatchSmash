@@ -189,6 +189,32 @@ const LINES = {
     'Looking almost like a person.',
   ],
 
+  /* ---- looking at the photographs on the walls ----
+   * Half of these are the group's own catchphrases, which is the point: they
+   * are not descriptions of what is in the frame, they are the thing he would
+   * actually say out loud on seeing it, and they land for anyone who was
+   * there. Do not make these explanatory. */
+  photo: [
+    'Ahh. What a good time.',
+    'Let me hear you. Let me sing.',
+    'It is all love.',
+    'Let it be known: that was a great time.',
+    'Piping hot.',
+    'Oh, that is a good one.',
+    'We were so young. That was eighteen months ago.',
+    'Everyone in that picture owes me money.',
+    'I remember about half of that.',
+    'That was the night, that was.',
+    'Look at the state of us.',
+    'Good lads. All of them. Mostly.',
+    'That is going to stay up there forever now.',
+    'I have walked past that a thousand times.',
+    'Been meaning to straighten that.',
+    'One of the good ones, that.',
+    'Should get everyone together again.',
+    'Nobody has aged well. Including me.',
+  ],
+
   /* ---- the radio ---- */
   'radio.ad': [
     'I have heard this one about four hundred times.',
