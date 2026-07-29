@@ -68,6 +68,38 @@ canvas#scene {
   transition: opacity 1.2s ease;
 }
 
+/* A wash of cool blue across the whole frame, once, and gone.
+ *
+ * Separate from the intoxication layers because it is an EVENT rather than a
+ * state: those fade in and sit there for as long as the condition lasts, this
+ * one is over in a second and a half and must not leave anything behind. It is
+ * driven by adding a class rather than by a variable for the same reason --
+ * there is no value for it to rest at. */
+#fx-relief {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(ellipse at 50% 52%,
+      rgba(150, 220, 255, .55) 0%,
+      rgba(80, 150, 235, .34) 48%,
+      rgba(20, 40, 90, .10) 100%);
+}
+#fx-relief.go {
+  animation: relief 1.5s ease-out 1;
+}
+@keyframes relief {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #fx-relief.go { animation-duration: 0.6s; }
+}
+
 #fx-drunk {
   position: fixed;
   inset: 0;

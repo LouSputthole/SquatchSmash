@@ -644,6 +644,15 @@ function synth(engine, name, dest, t, rate = 1) {
     /* A hinge turning slowly under its own weight. Two narrow bands walking
      * downward, because a creak is a resonance moving, not an impact -- and it
      * has to be quiet enough that you are not sure you heard it. */
+    /* Air let out slowly through a filter that opens and closes again. Not a
+     * gasp -- the shape is the whole point, and a burst with no movement in it
+     * reads as a hiss rather than as a person. */
+    case 'relief.sigh': {
+      const g1 = burst(ctx, dest, t, { dur: 1.1, type: 'bandpass', freq: 620, q: 1.3, gain: 0.055, sweep: 0.55 });
+      void g1;
+      burst(ctx, dest, t + 0.08, { dur: 0.85, type: 'lowpass', freq: 1500, gain: 0.03, sweep: 0.4 });
+      break;
+    }
     /* Hangers first, fabric second. The metal is what tells you what happened;
      * the cloth is what tells you how much of it there was. */
     case 'closet.slide':

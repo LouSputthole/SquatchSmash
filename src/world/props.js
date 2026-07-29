@@ -840,14 +840,119 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
     pos: [0, DEEP + dy, -HALF - dz],   // lands that edge on the base's back lip
   });
   g.add(lid);
-  // One surviving slice.
-  const slice = new THREE.Mesh(
-    new THREE.CircleGeometry(0.14, 12, 0, Math.PI / 4),
-    mat({ color: 0xd8a44e, roughness: 0.85, side: THREE.DoubleSide }),
+  /*
+   * What is left of it.
+   *
+   * This was one flat sector of a circle in a single colour, which from above
+   * is a beige triangle and from any other angle is nothing at all. A pizza is
+   * four things stacked -- board, crust, sauce, cheese -- and the reason you
+   * can tell one has been eaten is the SLICES: separate wedges with gaps
+   * between them where the missing ones were, each sitting slightly differently
+   * because somebody picked up the ones next to it.
+   */
+  const R = 0.148;
+  const board = new THREE.Mesh(
+    new THREE.CylinderGeometry(R + 0.006, R + 0.006, 0.003, 28),
+    mat({ color: 0xd9cdb4, roughness: 1 }),
   );
-  slice.rotation.x = -Math.PI / 2;
-  slice.position.set(0.02, DEEP + 0.002, 0.02);
-  g.add(slice);
+  board.position.set(0, DEEP + 0.0015, 0);
+  g.add(board);
+
+  const crustMat = mat({ color: 0xc98f45, roughness: 0.88 });
+  const sauceMat = mat({ color: 0x9e2d18, roughness: 0.72 });
+  const cheeseMat = mat({ color: 0xe0b256, roughness: 0.55 });
+  const meatMat = mat({ color: 0x8f2f28, roughness: 0.6 });
+  const charMat = mat({ color: 0x6b4a24, roughness: 0.95 });
+
+  /* Three eaten out of eight, and not three in a row -- one from the near
+   * side, then two together, which is how a box actually empties. */
+  const SLICES = 8;
+  const GONE = new Set([0, 3, 4]);
+  const wedge = (Math.PI * 2) / SLICES;
+
+  for (let i = 0; i < SLICES; i++) {
+    if (GONE.has(i)) continue;
+    const a0 = i * wedge + 0.028;             // a hair of gap, so they read apart
+    const span = wedge - 0.056;
+    const slice = new THREE.Group();
+    // Each one nudged out from the middle by a different amount.
+    const drift = ((i * 37) % 11) / 11;
+    slice.position.set(
+      Math.cos(a0 + span / 2) * drift * 0.006,
+      DEEP + 0.004,
+      -Math.sin(a0 + span / 2) * drift * 0.006,
+    );
+    slice.rotation.y = drift * 0.03;
+    g.add(slice);
+
+    // Base, sauce to the edge of the crust, then cheese short of that.
+    const baseGeo = new THREE.CylinderGeometry(R, R, 0.008, 10, 1, false, a0, span);
+    const base = new THREE.Mesh(baseGeo, crustMat);
+    base.castShadow = true;
+    slice.add(base);
+    slice.add(new THREE.Mesh(
+      new THREE.CylinderGeometry(R * 0.86, R * 0.86, 0.010, 10, 1, false, a0, span), sauceMat,
+    ));
+    const cheese = new THREE.Mesh(
+      new THREE.CylinderGeometry(R * 0.82, R * 0.82, 0.013, 10, 1, false, a0, span), cheeseMat,
+    );
+    cheese.position.y = 0.001;
+    slice.add(cheese);
+
+    // Two or three bits of meat per slice, inside the cheese.
+    for (let k = 0; k < 2 + (i % 2); k++) {
+      const t = 0.30 + ((i * 5 + k * 3) % 7) / 11;
+      const ang = a0 + span * (0.22 + ((k * 4 + i) % 5) / 7.5);
+      const pep = new THREE.Mesh(new THREE.CylinderGeometry(0.0135, 0.0135, 0.004, 10), meatMat);
+      pep.position.set(Math.cos(ang) * R * t, 0.009, -Math.sin(ang) * R * t);
+      slice.add(pep);
+    }
+    // One scorched blister on the crust, because ovens.
+    if (i % 3 === 0) {
+      const ang = a0 + span * 0.5;
+      const blister = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 5), charMat);
+      blister.scale.set(1, 0.4, 1);
+      blister.position.set(Math.cos(ang) * R * 0.93, 0.006, -Math.sin(ang) * R * 0.93);
+      slice.add(blister);
+    }
+  }
+
+  /* Where the eaten ones were: sauce printed on the board, and the crumbs
+   * they left. This is what tells you the box was full an hour ago. */
+  for (const i of GONE) {
+    const a0 = i * wedge + 0.03;
+    const span = wedge - 0.06;
+    const ghost = new THREE.Mesh(
+      new THREE.CylinderGeometry(R * 0.84, R * 0.84, 0.0016, 10, 1, false, a0, span),
+      mat({ color: 0xa8763f, roughness: 1 }),
+    );
+    ghost.position.y = DEEP + 0.0032;
+    g.add(ghost);
+    for (let k = 0; k < 3; k++) {
+      const ang = a0 + span * (0.2 + k * 0.3);
+      const t = 0.45 + k * 0.16;
+      const crumb = box({
+        size: [0.006, 0.004, 0.005],
+        pos: [Math.cos(ang) * R * t, DEEP + 0.005, -Math.sin(ang) * R * t],
+        mat: crustMat,
+      });
+      crumb.rotation.y = ang;
+      g.add(crumb);
+    }
+  }
+
+  // Grease. Two dark patches soaked into the cardboard by the near edge.
+  for (const [gx, gz, gr] of [[-0.06, 0.12, 0.035], [0.07, 0.10, 0.024]]) {
+    const stain = new THREE.Mesh(
+      new THREE.CircleGeometry(gr, 12),
+      new THREE.MeshStandardMaterial({
+        color: 0x8a6a3c, roughness: 1, transparent: true, opacity: 0.45,
+      }),
+    );
+    stain.rotation.x = -Math.PI / 2;
+    stain.position.set(gx, DEEP + 0.0026, gz);
+    g.add(stain);
+  }
   return { group: g };
 }
 

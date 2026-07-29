@@ -1401,6 +1401,29 @@ function finishGluing() {
   hud.say('<em>Nnnnngh.</em>', 5000);
 }
 
+/**
+ * The moment after.
+ *
+ * A wash of cool blue over the whole frame, once, then a line about how he
+ * feels. It is doing the work the sound cannot: the five seconds before it
+ * were straining and the bottle giving is the release, so the picture has to
+ * change all at once and then let go of it.
+ *
+ * The class is removed and re-added on the next frame rather than toggled,
+ * because restarting a CSS animation needs the element to lose it and be
+ * reflowed -- setting it twice in a row does nothing at all.
+ */
+function relief() {
+  const el = document.getElementById('fx-relief');
+  if (el) {
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+  }
+  audio.play('relief.sigh', { volume: 0.6 });
+  setTimeout(() => hud.toast('Relaxed. Ready to take on the rest of the day.', 'good'), 900);
+}
+
 function updateGluing(dt) {
   if (glue.bar.active) {
     glue.bar.update(dt);
@@ -1425,6 +1448,7 @@ function updateGluing(dt) {
     hud.say('<em>There we go.</em> Whole bottle of wood glue, straight down '
       + 'the picture. <em>It is going to set like that.</em>', 6400);
     audio.say('glue', { delay: 2.4 });
+    relief();
   }
   if (glue.groaning > 6.4) {
     glue.groaning = -1;

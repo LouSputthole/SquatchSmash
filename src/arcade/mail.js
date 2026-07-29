@@ -109,6 +109,39 @@ const MESSAGES = [
     ],
   },
   {
+    from: 'Vehicle Services Dept.',
+    addr: 'final-notice@vehicle-services-dept.net',
+    subject: 'FINAL NOTICE regarding your vehicle warranty',
+    time: 'Mon 9:20 PM',
+    unread: false,
+    body: [
+      'We have been attempting to reach you concerning your vehicle\'s extended '
+        + 'warranty. You should have received a notice regarding your vehicle\'s '
+        + 'extended warranty. This is your FINAL NOTICE.',
+      '',
+      'Our records indicate that you have not yet taken steps to PURCHASE your '
+        + 'vehicle\'s extended warranty. To PURCHASE, simply reply to this message '
+        + 'with the word PURCHASE and a representative will contact you to complete '
+        + 'your PURCHASE.',
+      '',
+      'Coverage available for PURCHASE includes:',
+      '',
+      '  ·  Engine, transmission, and drive axle',
+      '  ·  The electrical',
+      '  ·  Roadside assistance (some roads)',
+      '  ·  The warranty itself',
+      '',
+      'Do not delay. Once this offer expires you will be unable to PURCHASE, and '
+        + 'we would hate for you to be unable to PURCHASE.',
+      '',
+      'PURCHASE today.',
+      '',
+      '— Vehicle Services Dept.',
+      '',
+      'You are receiving this because you own a vehicle, or do not.',
+    ],
+  },
+  {
     from: 'Goy Corp IT',
     addr: 'noreply@goycorp.com',
     subject: 'Mandatory security training — OVERDUE',
