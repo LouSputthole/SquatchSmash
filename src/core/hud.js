@@ -161,13 +161,19 @@ export class Hud {
     if (!this.pushes) return;
     if (!keys || !keys.length) { this.pushes.classList.add('hidden'); return; }
     this.pushes.classList.remove('hidden');
-    // Rebuild only when the shape changes; restyling every frame is cheap but
-    // reflowing the row on each one makes the boxes jitter.
-    const sig = keys.map((k) => `${k.key}${k.state}`).join('|');
+    /* The row is fixed -- W A S D, always -- so the boxes are built once and
+     * only their class changes after that. Rebuilding the innerHTML to relight
+     * one key made the whole row re-layout and flicker. */
+    if (this._pushKeys !== keys.map((k) => k.key).join('')) {
+      this._pushKeys = keys.map((k) => k.key).join('');
+      this.pushes.innerHTML = keys.map((k) => `<b>${k.key}</b>`).join('');
+      this._pushEls = [...this.pushes.querySelectorAll('b')];
+      this._pushSig = null;
+    }
+    const sig = keys.map((k) => k.state).join('|');
     if (sig !== this._pushSig) {
       this._pushSig = sig;
-      this.pushes.innerHTML = keys
-        .map((k) => `<b class="${k.state}">${k.key}</b>`).join('');
+      keys.forEach((k, i) => { this._pushEls[i].className = k.state; });
     }
   }
 

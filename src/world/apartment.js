@@ -542,21 +542,14 @@ export async function buildApartment(ctx) {
   root.add(P.makeBeerCan(M, { x: -2.30, y: 1.478, z: -4.34, crushed: true }).group);
 
   /* The glue and the tissues, on the desk under the crooked frame. */
-  const gluekit = P.makeGlueAndTissues(M, { x: 2.52, y: 0.74, z: -3.92 });
+  /* Set dressing only -- deliberately NOT interactive.
+   *
+   * The bit dies the moment the game offers you a thing called glue, so the
+   * bottle is scenery at the far end of the desk and the whole sequence is
+   * started from the crooked frame instead. What he fetches to fix it is not
+   * announced until it is on the wall. */
+  const gluekit = P.makeGlueAndTissues(M, { x: 0.98, y: 0.74, z: -3.92 });
   root.add(gluekit.group);
-  // Knee-height clutter needs a taller proxy or you have to stare at the desk.
-  const glueHit = new THREE.Mesh(
-    new THREE.BoxGeometry(0.30, 0.34, 0.28),
-    new THREE.MeshBasicMaterial({ visible: false }),
-  );
-  glueHit.position.set(2.56, 0.92, -3.92);
-  root.add(glueHit);
-  interaction.register(glueHit, {
-    label: () => (state.glued
-      ? 'The <b>glue</b>. Job done.'
-      : 'Get the <b>glue</b> going'),
-    onUse: () => { if (!state.glued) ctx.onGlue?.(); },
-  });
 
   const cork = P.makeCorkboard(M, { x: -0.10, y: 1.58, z: -4.40, rotY: 0 });
   root.add(cork.group);
@@ -1176,6 +1169,18 @@ export async function buildApartment(ctx) {
   };
 
   for (const f of frames) {
+    /* The one hung too high, which has been crooked for months. Using it
+     * starts the fix; the label says nothing about what that involves. */
+    if (f.slot === 'desk.high') {
+      interaction.register(f.mesh, {
+        label: () => (state.glued
+          ? 'Straight now. <b>Very</b> straight.'
+          : 'Sort out the <b>crooked frame</b>'),
+        onLook: () => remarkOn(f, false),
+        onUse: () => { if (!state.glued) ctx.onGlue?.(); },
+      });
+      continue;
+    }
     interaction.register(f.mesh, {
       label: () => `Look at <b>${f.info.title}</b>`,
       onLook: () => remarkOn(f, false),

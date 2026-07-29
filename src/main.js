@@ -214,7 +214,7 @@ const game = {
   chairX: 0,            // how far the chair has rolled from where you sat down
   chairZ: 0,
   chairRoll: 0,         // seconds of continuous movement, for the wheel noise
-  pushQueue: [],        // the keys still to hit, front one live
+  pushLive: 0,          // index into PUSH_KEYS of the one lit right now
   pushT: 0,
   pushFlash: null,
   fartQueued: false,    // deliberate one waiting for him to stop talking
@@ -1252,11 +1252,14 @@ function eatEggs() {
 /* ------------------------------------------------------------------ */
 
 /*
- * The frame above the desk has been crooked for months and the fixing pad has
- * given up. There is a bottle of PVA that has gone solid round the nozzle, so
- * getting anything out of it takes both hands, a rhythm, and a great deal of
- * effort -- and it is going to sound like exactly what it sounds like, right
- * up until the glue lands on the wall and it is very obviously glue.
+ * The frame hung too high has been crooked for months, and the thing he
+ * fetches to fix it has gone solid round the nozzle, so getting anything out
+ * of it takes both hands, a rhythm, and a great deal of effort.
+ *
+ * NOTHING here names what is in the bottle until it is on the wall. The bit
+ * only works as a misdirect, and a misdirect that labels itself is not one:
+ * the prompt is about the frame, the lines during it are about the effort, and
+ * the word arrives at the same moment the mess does.
  *
  * The bar is the sweeping kind rather than the toilet's reaction kind: you can
  * see where the marker is the whole time, so every miss is your own timing.
@@ -1279,8 +1282,8 @@ function startGluing() {
   interaction.setPaused(true);
   hud.setPosture('give up on it');
   audio.play('glue.pickup', { volume: 0.6, position: apartment.gluePos });
-  hud.say('Solid round the nozzle. <em>Of course it is.</em> '
-    + 'Hold it, time it, and squeeze.', 5200);
+  hud.say('Crooked for months, this. <em>Right.</em><br>'
+    + 'Gone solid round the nozzle, of course. Time it and squeeze.', 5600);
 }
 
 function onGlueHit(n, total) {
@@ -1290,6 +1293,7 @@ function onGlueHit(n, total) {
   });
   if (n === total) return;
   if (n >= 3) audio.play('glue.effort', { volume: 0.30 + n * 0.07, delay: 0.10 });
+  // Deliberately says nothing about what is coming out. Just the count.
   hud.toast(`${n}/${total}`, n >= total - 1 ? 'good' : '');
 }
 
@@ -1317,12 +1321,14 @@ function updateGluing(dt) {
   // Five seconds of it, and then the bottle gives all at once.
   if (was < 5.0 && glue.groaning >= 5.0) {
     audio.play('glue.burst', { volume: 0.9, position: apartment.gluePos });
-    // Straight up the wall behind the desk, which is where he was pointing it.
-    splat.spray(2.66, 1.94, 11);
+    /* All over the frame he was trying to straighten, which is the point:
+     * the mess lands on the thing the job was about. */
+    splat.spray(2.72, 2.22, 12);
     apartment.state.glued = true;
-    hud.toast('The whole bottle', 'bad');
-    hud.say('<em>There we go.</em> All over the wall, obviously. '
-      + 'Half of it on the frame. <em>It is going to set like that.</em>', 6400);
+    // First and only time the word appears. It is the punchline.
+    hud.toast('PVA. Everywhere.', 'bad');
+    hud.say('<em>There we go.</em> Whole bottle of wood glue, straight down '
+      + 'the picture. <em>It is going to set like that.</em>', 6400);
     audio.say('glue', { delay: 2.4 });
   }
   if (glue.groaning > 6.4) {
@@ -1566,24 +1572,24 @@ const clampTo = (v, lim) => (v < -lim ? -lim : v > lim ? lim : v);
 const PUSH_KEYS = ['W', 'A', 'S', 'D'];
 const PUSH_WINDOW = 1.5;      // seconds the live key stays hittable
 const PUSH_GAP = 0.55;        // beat between one key and the next
-const PUSH_DRAIN = 0.19;      // how much a good push shifts
+/* Eight or nine pushes to clear a full meter. It was 0.19, which cleared it in
+ * five and, with the passive drain on top, often in two -- you pressed a key
+ * twice and it was over before it was a game. */
+const PUSH_DRAIN = 0.115;
 
 function resetPushes() {
-  game.pushQueue = [];
+  game.pushLive = 0;
   game.pushT = 0;
   game.pushFlash = null;
   game.pushFlashT = 0;
   hud.setPushes(null);
 }
 
-function fillPushQueue() {
-  while (game.pushQueue.length < 4) {
-    // Never the same key twice running -- it reads as a stuck prompt.
-    const last = game.pushQueue[game.pushQueue.length - 1];
-    let k = PUSH_KEYS[(Math.random() * PUSH_KEYS.length) | 0];
-    while (k === last) k = PUSH_KEYS[(Math.random() * PUSH_KEYS.length) | 0];
-    game.pushQueue.push(k);
-  }
+/** Pick the next key to light, never the one already lit. */
+function nextPushKey() {
+  let i = (Math.random() * PUSH_KEYS.length) | 0;
+  if (i === game.pushLive) i = (i + 1 + ((Math.random() * (PUSH_KEYS.length - 1)) | 0)) % PUSH_KEYS.length;
+  game.pushLive = i;
 }
 
 function updatePushes(dt) {
@@ -1595,32 +1601,35 @@ function updatePushes(dt) {
     if (game.pushFlashT <= 0) game.pushFlash = null;
   }
 
-  fillPushQueue();
   game.pushT += dt;
   if (game.pushT > PUSH_WINDOW) {
     // Ran out of time on the live key. Nothing happens, which is its own note.
     game.pushT = -PUSH_GAP;
-    game.pushQueue.shift();
+    nextPushKey();
     audio.play('poop.strain', { volume: 0.5 });
     game.pushFlash = 'miss';
     game.pushFlashT = 0.28;
   }
 
+  /* W A S D, always in that order, always all four on screen -- one of them
+   * lights up and that is the one to hit. The old version scrolled a queue of
+   * random keys, so you had to read a moving list instead of glancing at a
+   * shape you already know from your own keyboard. */
   const live = game.pushT >= 0;
-  hud.setPushes(game.pushQueue.slice(0, 4).map((k, i) => ({
+  hud.setPushes(PUSH_KEYS.map((k, i) => ({
     key: k,
-    state: i === 0 ? (game.pushFlash || (live ? 'live' : '')) : '',
+    state: i === game.pushLive ? (game.pushFlash || (live ? 'live' : '')) : '',
   })));
 }
 
 /** A key went down while sat on the toilet. @returns {boolean} consumed */
 function tryPush(code) {
   if (!game.onToilet || apartment.state.bowel <= 0.02) return false;
-  const want = game.pushQueue[0];
-  if (!want || game.pushT < 0) return false;
+  if (game.pushT < 0) return false;
+  const want = PUSH_KEYS[game.pushLive];
   if (code !== `Key${want}`) return false;
 
-  game.pushQueue.shift();
+  nextPushKey();
   game.pushT = -PUSH_GAP;
   game.pushFlash = 'hit';
   game.pushFlashT = 0.28;
@@ -1658,7 +1667,7 @@ function updateBowel(dt) {
   if (game.onToilet) {
     game.poopTime += dt;
     // It comes out on its own, slowly. Pushing is what makes it quick.
-    st.bowel = Math.max(0, st.bowel - dt * 0.055);
+    st.bowel = Math.max(0, st.bowel - dt * 0.022);
     updatePushes(dt);
     if (st.bowel <= 0.02 && game.poopTime > 3) {
       st.urgeAnnounced = false;
