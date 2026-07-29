@@ -162,15 +162,29 @@ const LINES = {
     'Cheers, Booski.',
   ],
   'mail.hate': [
-    'He watched all of them. That is the part he should be embarrassed about.',
-    'Someone was awake at four in the morning to write that. Not me.',
-    '"Anyway good luck I guess." He nearly got there.',
-    'That is going to sit with me for about nine hours.',
+    'Period much?',
+    'Period much? …That was uncalled for. From both of us.',
+    'Nobody there likes me. Noted. Added to the list.',
+    'She was awake at four in the morning to type that. I am the one with the problem.',
   ],
+  'mail.irish': [
+    'Forty one thousand people reviewed this. Overwhelmingly positive.',
+    'He bought it, then read what it was, and sent it anyway.',
+    'That is in my library now. That is on my account, permanently.',
+    'The nice bit at the end was genuinely nice, to be fair to him.',
+  ],
+  'mail.ape': [
+    'He said he would sort it. He says that.',
+    'So I am bringing it. Obviously I am bringing it.',
+    '"More than none, which is what I currently have." Brilliant.',
+  ],
+  /* He is not getting in that plane and everyone involved knows it. The reply
+   * is the sound of an offer being accepted in principle and never again. */
   'mail.flying': [
-    'Up, round the field, back down. I could do that.',
-    'He is going to think I am not going to reply. I am going to reply.',
-    'Left seat. He said left seat.',
+    'Yeah. Yeah, definitely. Sometime.',
+    'Love to. Absolutely. Not this week though.',
+    '"If you make it past initiation." Cheers, Lou.',
+    'I will reply to that later. I will not reply to that.',
   ],
 
   /* Looking at the toilet before anything is brewing. The only place the game

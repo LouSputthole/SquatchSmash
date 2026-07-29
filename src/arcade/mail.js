@@ -180,24 +180,78 @@ const MESSAGES = [
     ],
   },
   {
-    /* Somebody from a lobby. Every roster has one and there is nothing to be
-     * done about it except read it and get on with the day. */
+    /* Somebody from a lobby who has decided this is her business. Not a
+     * threat, not a plot point -- just a person being unpleasant at four in
+     * the morning, which is a thing that happens and which he does not handle
+     * gracefully either. */
     from: 'Deathmegatron',
-    addr: 'deathmegatron2011@mailbox.ru',
+    addr: 'deathmegatron@mailbox.ru',
     subject: 'lol',
     time: '3:47 AM',
     unread: true,
     vo: 'mail.hate',
     body: [
-      'saw your name on the sheet for tomorrow',
+      'saw your name on the sheet for tomorrow lmao',
       '',
-      'youre a little bitch and youll never make it. i have watched your '
-        + 'demos. all of them. thats how much of a little bitch you are, that '
-        + 'i watched all of them.',
+      'youre gonna choke. you ALWAYS choke. little bitch.',
       '',
-      'youll choke. you always choke.',
+      'also nobody there even likes you?? why do you keep coming around. '
+        + 'genuinely asking',
       '',
-      'anyway good luck i guess',
+      'youll never get in. ever.',
+      '',
+      'see you tomorrow',
+    ],
+  },
+  {
+    /* Irish being sincere and Irish being Irish, in the same message, with no
+     * indication he can tell the difference. */
+    from: 'Irish',
+    addr: 'irish@silversasquatches.gg',
+    subject: 'gift — steam',
+    time: '1:09 AM',
+    unread: true,
+    vo: 'mail.irish',
+    body: [
+      'Lad,',
+      '',
+      'Bought you something on Steam. Should be in your library already.',
+      '',
+      'ANIME GIRL TITTY CITY 3000 SIMULATOR',
+      '',
+      'It had a good discount and I did not read past the discount. By the '
+        + 'time I had read past the discount it was bought.',
+      '',
+      'Anyway. Good luck tomorrow night. You have earned it and I mean that '
+        + 'entirely separately from the above.',
+      '',
+      'Irish',
+      '',
+      '> Steam · Your friend Irish sent you a gift',
+      '> ANIME GIRL TITTY CITY 3000 SIMULATOR — added to your library',
+      '> "Overwhelmingly Positive" (41,882 reviews)',
+    ],
+  },
+  {
+    /* Ape saying he is coming, four hours after Booski said Ape saying he is
+     * coming means he is not coming. */
+    from: 'APE',
+    addr: 'ape@silversasquatches.gg',
+    subject: 'tomorrow — quick one',
+    time: '4:26 AM',
+    unread: true,
+    vo: 'mail.ape',
+    body: [
+      'mate',
+      '',
+      'any chance you can bring some extra weed tomorrow. for the initiation. '
+        + 'i said i would sort it and then i did not sort it.',
+      '',
+      'not loads. just more than none, which is what i currently have.',
+      '',
+      'i will get you back. i will not get you back but i will say i will.',
+      '',
+      'ape',
     ],
   },
   {
@@ -213,14 +267,14 @@ const MESSAGES = [
       'Ignore the other Lou, he is being dramatic about tomorrow as usual.',
       '',
       'Actual reason I am writing: do you want me to take you flying sometime? '
-        + 'Nothing mad. Up, round the field, back down, forty minutes. You '
-        + 'would be in the left seat for a bit of it if you wanted.',
+        + 'Nothing mad. Up, round the field, back down, forty minutes.',
       '',
-      'I have asked everyone on the roster and every single one of them said '
-        + 'they would "love to" and then never replied to the follow-up, so I '
-        + 'am fully expecting the same from you and there are no hard feelings.',
+      'I have taken half the guys up already. Open offer, any time, you just '
+        + 'have to say when.',
       '',
-      'Offer stands regardless. Say the word.',
+      'If you make it past initiation, that is.',
+      '',
+      'Good luck.',
       '',
       'Lou',
     ],

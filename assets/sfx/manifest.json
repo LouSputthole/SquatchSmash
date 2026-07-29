@@ -3132,37 +3132,77 @@
     {
       "name": "vo.mail.hate.1",
       "voice": "player",
-      "say": "He watched all of them. That is the part he should be embarrassed about."
+      "say": "Period much?"
     },
     {
       "name": "vo.mail.hate.2",
       "voice": "player",
-      "say": "Someone was awake at four in the morning to write that. Not me."
+      "say": "Period much? …That was uncalled for. From both of us."
     },
     {
       "name": "vo.mail.hate.3",
       "voice": "player",
-      "say": "\"Anyway good luck I guess.\" He nearly got there."
+      "say": "Nobody there likes me. Noted. Added to the list."
     },
     {
       "name": "vo.mail.hate.4",
       "voice": "player",
-      "say": "That is going to sit with me for about nine hours."
+      "say": "She was awake at four in the morning to type that. I am the one with the problem."
     },
     {
       "name": "vo.mail.flying.1",
       "voice": "player",
-      "say": "Up, round the field, back down. I could do that."
+      "say": "Yeah. Yeah, definitely. Sometime."
     },
     {
       "name": "vo.mail.flying.2",
       "voice": "player",
-      "say": "He is going to think I am not going to reply. I am going to reply."
+      "say": "Love to. Absolutely. Not this week though."
     },
     {
       "name": "vo.mail.flying.3",
       "voice": "player",
-      "say": "Left seat. He said left seat."
+      "say": "\"If you make it past initiation.\" Cheers, Lou."
+    },
+    {
+      "name": "vo.mail.flying.4",
+      "voice": "player",
+      "say": "I will reply to that later. I will not reply to that."
+    },
+    {
+      "name": "vo.mail.ape.1",
+      "voice": "player",
+      "say": "He said he would sort it. He says that."
+    },
+    {
+      "name": "vo.mail.ape.2",
+      "voice": "player",
+      "say": "So I am bringing it. Obviously I am bringing it."
+    },
+    {
+      "name": "vo.mail.ape.3",
+      "voice": "player",
+      "say": "\"More than none, which is what I currently have.\" Brilliant."
+    },
+    {
+      "name": "vo.mail.irish.1",
+      "voice": "player",
+      "say": "Forty one thousand people reviewed this. Overwhelmingly positive."
+    },
+    {
+      "name": "vo.mail.irish.2",
+      "voice": "player",
+      "say": "He bought it, then read what it was, and sent it anyway."
+    },
+    {
+      "name": "vo.mail.irish.3",
+      "voice": "player",
+      "say": "That is in my library now. That is on my account, permanently."
+    },
+    {
+      "name": "vo.mail.irish.4",
+      "voice": "player",
+      "say": "The nice bit at the end was genuinely nice, to be fair to him."
     }
   ]
 }
