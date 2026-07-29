@@ -41,6 +41,7 @@ import { Campground } from './campground.js';
 import { SquatchShoot } from './squatchshoot.js';
 import { CounterSquatch } from './counterstrike.js';
 import { Doom } from './doom.js';
+import { Yuka } from './yuka.js';
 
 export function createArcade(opts = {}) {
   const os = new SquatchOS(opts);
@@ -51,6 +52,7 @@ export function createArcade(opts = {}) {
   os.register(framed[0]);
   os.register(new SquatchShoot({ ...opts, os }));
   os.register(new CounterSquatch({ ...opts, os }));
+  os.register(new Yuka({ ...opts, os }));
   os.register(framed[1]);
 
   /** The inbox, so the room can react to what is in it. */
