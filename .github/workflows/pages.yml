@@ -1,11 +1,13 @@
-# Publish the apartment to GitHub Pages.
+# Publish the apartment and the club to GitHub Pages.
 #
 # The game is plain ES modules with no build step, so "deploying" is just
 # copying the repository somewhere that serves files over HTTP. That is the
 # whole point of the vendored three.js and the importmap in index.html.
 #
 # This is the full game, unlike dist/squatch-apartment.html: every voice clip,
-# every track, nothing dropped for a size budget.
+# every track, nothing dropped for a size budget. Both entry points go up:
+# index.html is the flat, bing.html is the club, and they share src/ and
+# vendor/ so the second one costs a copy of one HTML file.
 name: Pages
 
 on:
@@ -48,7 +50,7 @@ jobs:
       - name: Stage the site
         run: |
           mkdir -p _site
-          cp index.html _site/
+          cp index.html bing.html _site/
           cp -r src vendor assets _site/
           echo "Staged $(du -sh _site | cut -f1)"
 
