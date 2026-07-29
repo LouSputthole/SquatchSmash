@@ -4,6 +4,9 @@
 // imports and separate files aren't available.
 //
 // Usage: node tools/bundle.mjs [outfile]           (default: dist/squatchsmash.html)
+//        node tools/bundle.mjs --motel [outfile]   (bundle THE JERKY MOTEL scene
+//                                                   instead; default outfile is
+//                                                   dist/jerky-motel.html)
 //        node tools/bundle.mjs --fragment out.html (omit doctype/html wrapper,
 //                                                   for embedding in an existing page)
 
@@ -14,9 +17,14 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const fragment = args.includes('--fragment');
-const outFile = args.find((a) => !a.startsWith('--')) || join(root, 'dist', 'squatchsmash.html');
+const motel = args.includes('--motel');
+const defaultOut = join(root, 'dist', motel ? 'jerky-motel.html' : 'squatchsmash.html');
+const outFile = args.find((a) => !a.startsWith('--')) || defaultOut;
 
 const read = (p) => readFileSync(join(root, p), 'utf8');
+
+// Matches both single-line and multi-line `import ... from '...'` statements.
+const IMPORT_RE = /^import[\s\S]*?from\s*['"][^'"]+['"];?[^\n]*\n/gm;
 
 // --- three.module.js: turn the single trailing `export{a as B,...};` into a
 // namespace object returned from an IIFE.
@@ -38,12 +46,38 @@ const threeBundle = `const THREE = (() => {\n${three}\n})();`;
 // returns its exports, preserving module scoping (helper names collide freely).
 function moduleIIFE(path, returns, binding) {
   let src = read(path);
-  src = src.replace(/^import\s[^\n]*\n/gm, '');
+  src = src.replace(IMPORT_RE, '');
   src = src.replace(/^export\s+(const|function|class|let)/gm, '$1');
   return `const ${binding} = (() => {\n${src}\nreturn { ${returns.join(', ')} };\n})();`;
 }
 
-const parts = [
+const parts = motel ? [
+  threeBundle,
+  moduleIIFE('src/motel/audio.js',
+    ['init', 'resume', 'setMuted', 'isMuted', 'startAmbience', 'stopAmbience', 'setTension',
+     'knock', 'doorOpen', 'doorSlam', 'lockClick', 'punch', 'whiff', 'bodyFall', 'glassSmash',
+     'woodBreak', 'gunshot', 'sliceWhir', 'tvStatic', 'packaging', 'chew', 'iceDrop', 'plumbing',
+     'knifeTap', 'siren', 'carStart', 'tires', 'crash', 'blip', 'select', 'objective',
+     'achievement', 'alarm', 'sting', 'setMusic', 'stopMusic', 'shutdown'],
+    'sfx'),
+  moduleIIFE('src/player.js', ['Sasquatch'], '{ Sasquatch }'),
+  moduleIIFE('src/debris.js', ['DebrisSystem'], '{ DebrisSystem }'),
+  moduleIIFE('src/effects.js', ['Effects'], '{ Effects }'),
+  // Only `lambert` is needed from the campground world module; its BOUNDS would
+  // collide with the motel's own.
+  moduleIIFE('src/world.js', ['lambert'], '{ lambert }'),
+  moduleIIFE('src/motel/level.js', ['BOUNDS', 'buildMotel', 'makeJerkyCase'], '{ BOUNDS, buildMotel, makeJerkyCase }'),
+  moduleIIFE('src/motel/actors.js',
+    ['buildActor', 'buildWeaponMesh', 'WEAPON_STATS', 'Actor', 'CAST'],
+    '{ buildActor, buildWeaponMesh, WEAPON_STATS, Actor, CAST }'),
+  moduleIIFE('src/motel/dialogue.js',
+    ['STYLES', 'STYLE_LABEL', 'NODES', 'SELLER_BARKS', 'PROSPECT_BARKS', 'MANNY_BARKS',
+     'FIGHT_BARKS', 'MANNY_FIGHT_BARKS', 'ENDING'],
+    '{ STYLES, STYLE_LABEL, NODES, SELLER_BARKS, PROSPECT_BARKS, MANNY_BARKS, FIGHT_BARKS, MANNY_FIGHT_BARKS, ENDING }'),
+  moduleIIFE('src/motel/jerky.js',
+    ['GRADES', 'rollShipment', 'INSPECTIONS', 'Inspection', 'Freshness'],
+    '{ GRADES, rollShipment, INSPECTIONS, Inspection, Freshness }'),
+] : [
   threeBundle,
   moduleIIFE('src/audio.js',
     ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime',
@@ -59,8 +93,8 @@ const parts = [
 ];
 
 // main.js runs at top level (it *is* the program)
-let main = read('src/main.js');
-main = main.replace(/^import\s[^\n]*\n/gm, '');
+let main = read(motel ? 'src/motel/main.js' : 'src/main.js');
+main = main.replace(IMPORT_RE, '');
 parts.push(`(() => {\n${main}\n})();`);
 
 const script = parts.join('\n\n');
@@ -68,8 +102,8 @@ if (/^\s*(import|export)\s/m.test(script)) {
   throw new Error('bundle still contains import/export statements');
 }
 
-// --- HTML shell: reuse index.html, dropping the importmap + module script.
-let html = read('index.html');
+// --- HTML shell: reuse the scene's page, dropping the importmap + module script.
+let html = read(motel ? 'motel.html' : 'index.html');
 html = html.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/, '');
 html = html.replace(/<script type="module"[^>]*><\/script>\s*/, `<script>\n${script}\n</script>\n`);
 if (fragment) {
