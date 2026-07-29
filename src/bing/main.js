@@ -52,6 +52,7 @@ const ui = {
   gambleTitle: document.querySelector('#gamble .title'),
   gambleBody: document.querySelector('#gamble .body'),
   gambleKeys: document.querySelector('#gamble .keys'),
+  carrying: document.getElementById('carrying'),
   dialogue: {
     root: document.getElementById('dialogue'),
     name: document.querySelector('#dialogue .who'),
@@ -287,12 +288,30 @@ function paintObjectives(list) {
   }));
 }
 
+/** What is inside the jacket. Its own line, because it is not in your hands. */
+function paintCarrying() {
+  const item = game.carrying ? ITEMS[game.carrying] : null;
+  if (!item) {
+    ui.carrying.classList.add('hidden');
+    return;
+  }
+  ui.carrying.classList.remove('hidden');
+  ui.carrying.innerHTML = `<span class="icon">${item.icon}</span>`
+    + `<span class="what">${item.name}</span><span class="where">${item.hint}</span>`;
+}
+
 function serveDrink(what) {
   const kind = what === 'whiskey' ? 'whiskey' : what === 'beer' ? 'beer' : 'soft';
   audio.play(kind === 'soft' ? 'glass.set' : 'can.crack', { volume: 0.5, position: club.anchors.barService });
   audio.play('till.ring', { volume: 0.3, delay: 0.6, position: club.anchors.barService });
   if (kind === 'soft') {
     hud.toast('Club soda. Very professional.', '');
+    return;
+  }
+  /* Four hands' worth is the limit, and there is nowhere in a club to put a
+   * beer down, so the bar stops serving rather than pouring into the void. */
+  if (inventory.full) {
+    hud.say('<em>Bartender:</em> Finish one of those first. I am not a shelf.', 4200);
     return;
   }
   game.heldDrink = kind;
@@ -783,12 +802,21 @@ function startLouScene() {
   dialogue.start(scripts.lou, 'enter', cast.byName.lou);
 }
 
+/**
+ * Take the package.
+ *
+ * It does not go in a slot. The spec for this beat is "the weapon disappears
+ * into the concealed inventory slot", and modelling it as concealed carry
+ * rather than as the fifth beer solves a real problem at the same time: the
+ * hotbar has four slots, drinks go in them, and there is no drop key in here,
+ * so a player who ordered four rounds and took the package would have watched
+ * `add()` fail while the mission carried on insisting it was under his jacket.
+ */
 function takePackage() {
   mission.tookPackage();
   club.office.parcel.visible = false;
-  inventory.add('parcel');
-  hud.setInventory(inventory, ITEMS);
-  hud.setHand({ ...ITEMS.parcel });
+  game.carrying = 'parcel';
+  paintCarrying();
   hud.toast('ITEM ACQUIRED: Lou’s package', 'good');
   audio.play('gun.pickup', { volume: 0.6 });
   hud.say('It goes inside the jacket. It is heavier than the shape of it suggests.', 4200);
@@ -928,6 +956,7 @@ function showEnding(kind) {
   if (mission.hands >= 6) extras.push(`You sat ${mission.hands} hands at that table while a made squatch waited for you.`);
   if (mission.drinks > 0) extras.push(`Drinks taken on the way in: ${mission.drinks}.`);
   if (mission.flags.secretPanel) extras.push('And somebody is skimming that machine. You know it, and now Lou is going to know it.');
+  if (inventory.count() > 0) extras.push(`You also drove off with ${inventory.count()} of Lou's drinks in your hands.`);
   if (mission.flags.alarmTripped) extras.push('The service door alarm chirped on your way out. Somebody will mention it.');
   extras.push('<br><b>NEXT: THE JERKY MEETING</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;

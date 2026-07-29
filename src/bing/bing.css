@@ -184,3 +184,26 @@ body.bing #clock .day { color: var(--bing); }
    belongs to a game about a whole day, and this is one errand. */
 body.bing #clock .spent { display: none; }
 body.bing #clock .day { display: none; }
+
+/* ---------------- Concealed carry ---------------- */
+
+/* The package does not go in the hotbar: it is inside a jacket, and the HUD
+   should say so rather than showing it in your hands. */
+#carrying {
+  position: fixed;
+  bottom: 22px;
+  left: 22px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  padding: 6px 12px 7px;
+  background: rgba(8, 6, 10, 0.6);
+  border-left: 2px solid var(--amber);
+  transition: opacity 0.3s;
+}
+#carrying.hidden { opacity: 0; }
+#carrying .icon { color: var(--amber); font-size: 14px; }
+#carrying .what { color: var(--paper); }
+#carrying .where { color: #8d8474; font-size: 11px; }

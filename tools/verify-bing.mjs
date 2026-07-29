@@ -133,6 +133,7 @@ const state = () => page.evaluate(() => {
     money: b.game.money,
     options: b.dialogue.active ? b.dialogue.options.length : -1,
     inventory: b.inventory.items.filter(Boolean),
+    carrying: b.game.carrying ?? null,
     hands: b.mission.hands,
     spins: b.mission.spins,
   };
@@ -285,7 +286,19 @@ for (let i = 0; i < 8; i++) {
 }
 s = await state();
 check('Lou puts it on the desk and you take it', s.flags.gotPackage === true, s.mission);
-check('it is in your jacket', s.inventory.includes('parcel'), s.inventory.join(',') || 'nothing');
+check('it is inside your jacket, not in a slot',
+  s.carrying === 'parcel' && !s.inventory.includes('parcel'),
+  `carrying ${s.carrying}, slots [${s.inventory.join(',')}]`);
+
+/* The case the reviewer found: four drinks and no drop key used to mean the
+ * package went nowhere while the mission insisted it was on you. */
+const full = await page.evaluate(() => {
+  const b = window.__bing;
+  for (let i = 0; i < 6; i++) b.scripts.bartender.order.options[1].effect();
+  return { slots: b.inventory.items.filter(Boolean).length, carrying: b.game.carrying, full: b.inventory.full };
+});
+check('a full hotbar cannot lose the package',
+  full.full && full.slots === 4 && full.carrying === 'parcel', JSON.stringify(full));
 
 for (let i = 0; i < 10; i++) {
   const st = await state();

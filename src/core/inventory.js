@@ -26,6 +26,10 @@ export const ITEMS = {
   slice: { icon: '🍕', name: 'Slice of pizza', hint: 'Hold [F] to eat it' },
   gun: { icon: '🔫', name: 'The revolver', hint: '[Click] to fire · [R] to reload' },
   phone: { icon: '📱', name: 'Your phone', hint: '[E] to use it' },
+  /* The Bing's mission item. It is never put in a slot -- it is carried
+   * concealed, and the club draws its own line for that -- but the name and
+   * the icon live here with everything else you can be holding. */
+  parcel: { icon: '▣', name: "Lou's package", hint: 'Inside your jacket' },
 };
 
 export class Inventory {
