@@ -957,7 +957,44 @@ export function makePan(M, { x, y, z, rotY = 0 }) {
     contents.add(e);
   }
 
-  return { group: g, contents, rimY: 0.055 };
+  /* The eggs cook rather than switching from raw to done. Whites go from
+   * translucent and slack to opaque and set; the yolks tighten and dull; the
+   * whole thing shrinks a little, because it does. Driven by main.js from how
+   * far through the eleven seconds you are. */
+  const whites = [];
+  const yolks = [];
+  contents.traverse((o) => {
+    if (o.material === white) whites.push(o);
+    if (o.material === yolk) yolks.push(o);
+  });
+  // Each gets its own material instance or they all cook as one object.
+  for (const w of whites) w.material = white.clone();
+  for (const y of yolks) y.material = yolk.clone();
+
+  const _raw = new THREE.Color(0xd9d6c4);
+  const _set = new THREE.Color(0xf8f4e8);
+  const _yRaw = new THREE.Color(0xf6b62c);
+  const _yDone = new THREE.Color(0xd88f14);
+
+  /** @param {number} k 0 = just cracked, 1 = arguably over-done. */
+  function cook(k) {
+    const e = Math.min(1, Math.max(0, k));
+    for (const w of whites) {
+      w.material.color.copy(_raw).lerp(_set, Math.min(1, e * 1.6));
+      w.material.opacity = 0.72 + e * 0.28;
+      w.material.transparent = e < 0.94;
+      w.material.roughness = 0.40 + e * 0.34;
+      w.scale.setScalar(1 - e * 0.07);
+    }
+    for (const y of yolks) {
+      y.material.color.copy(_yRaw).lerp(_yDone, e);
+      y.material.roughness = 0.30 + e * 0.36;
+      y.scale.set(1 - e * 0.05, 1 + e * 0.16, 1 - e * 0.05);
+    }
+  }
+  cook(0);
+
+  return { group: g, contents, cook, rimY: 0.055 };
 }
 
 /**
@@ -1915,6 +1952,57 @@ export function makeAshtray(M, { x, y, z, rotY = 0 }) {
  * The lit cigarette held in view while smoking: a stub with a glowing ember.
  * Parented to the camera by main.js; the smoke itself comes from SmokeSystem.
  */
+/**
+ * The can and the bottle, in shot.
+ *
+ * Drinking used to be a progress bar and a sound: nothing came into view, so
+ * the beer you were holding was a HUD entry rather than an object. Both of
+ * these ride on the camera and tip toward the mouth as the hold fills, which
+ * is the whole animation -- there is no armature, just a lift and a rotation
+ * driven by how far through you are.
+ *
+ * Returned hidden. main.js shows whichever one is in his hand.
+ */
+export function makeHeldDrinks(M) {
+  const g = group('heldDrinks');
+
+  /* ---- beer can ---- */
+  const can = group('heldCan');
+  const alu = mat({ color: 0xb9bec6, roughness: 0.30, metalness: 0.85 });
+  can.add(cylinder({ r: 0.033, h: 0.118, pos: [0, 0, 0], mat: alu }));
+  can.add(cylinder({ rTop: 0.028, rBottom: 0.033, h: 0.012, pos: [0, 0.063, 0], mat: alu }));
+  can.add(cylinder({ rTop: 0.033, rBottom: 0.028, h: 0.012, pos: [0, -0.063, 0], mat: alu }));
+  // The label band, so it is not a bare cylinder.
+  can.add(cylinder({
+    r: 0.0335, h: 0.070, pos: [0, -0.004, 0],
+    mat: mat({ color: 0x6d3a1c, roughness: 0.62 }),
+  }));
+  can.visible = false;
+  g.add(can);
+
+  /* ---- whiskey bottle ---- */
+  const bottle = group('heldBottle');
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: 0x3c2412, roughness: 0.14, transmission: 0.45,
+    transparent: true, opacity: 0.92, thickness: 0.02,
+  });
+  bottle.add(cylinder({ r: 0.042, h: 0.150, pos: [0, -0.010, 0], mat: glass }));
+  bottle.add(cylinder({ rTop: 0.017, rBottom: 0.042, h: 0.052, pos: [0, 0.091, 0], mat: glass }));
+  bottle.add(cylinder({ r: 0.017, h: 0.040, pos: [0, 0.135, 0], mat: glass }));
+  bottle.add(cylinder({
+    r: 0.019, h: 0.018, pos: [0, 0.162, 0],
+    mat: mat({ color: 0x17130f, roughness: 0.5 }),
+  }));
+  bottle.add(cylinder({
+    r: 0.0425, h: 0.080, pos: [0, -0.012, 0],
+    mat: mat({ color: 0x100d0a, roughness: 0.75 }),
+  }));
+  bottle.visible = false;
+  g.add(bottle);
+
+  return { group: g, can, bottle };
+}
+
 export function makeHeldCigarette() {
   const g = group('heldCig');
   const paperMat = mat({ color: 0xf2ece0, roughness: 0.9 });

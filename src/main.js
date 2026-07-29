@@ -26,7 +26,7 @@ import { StreamSystem } from './world/stream.js';
 import { ShowerSystem } from './world/shower.js';
 import { SplatSystem } from './world/splat.js';
 import { TimingBar } from './core/timingbar.js';
-import { makeHeldCigarette } from './world/props.js';
+import { makeHeldCigarette, makeHeldDrinks } from './world/props.js';
 import { roomEnvironment } from './world/textures.js';
 
 const DRINK_TIME = 2.4;
@@ -145,6 +145,28 @@ const showerFx = new ShowerSystem(scene);
 const splat = new SplatSystem(scene, -4.40);
 
 // The lit cigarette rides on the camera, low and to the right.
+/* The can and the bottle ride on the camera and tip as the hold fills. There
+ * is no armature -- the animation is a lift and a rotation driven by progress,
+ * which is all a first-person drink actually needs. */
+const heldDrinks = makeHeldDrinks();
+heldDrinks.group.position.set(0.26, -0.30, -0.42);
+camera.add(heldDrinks.group);
+
+/** Pose whichever drink is up, from 0 (at rest) to 1 (at the mouth). */
+function poseDrink(which, k) {
+  const can = heldDrinks.can;
+  const bottle = heldDrinks.bottle;
+  can.visible = which === 'can';
+  bottle.visible = which === 'bottle';
+  const m = which === 'can' ? can : which === 'bottle' ? bottle : null;
+  if (!m) return;
+  // Ease so it settles at the lips instead of arriving at constant speed.
+  const e = k * k * (3 - 2 * k);
+  m.position.set(-0.10 * e, 0.20 * e, 0.09 * e);
+  // Tipped back far enough to be pouring by the end, and rolled slightly in.
+  m.rotation.set(-1.30 * e, 0, 0.34 * e);
+}
+
 const heldCig = makeHeldCigarette();
 /* In the corner of his mouth: low, just off centre, close to the camera, and
  * pointing away down the view rather than lying across it. */
@@ -296,7 +318,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
-    updateChair,
+    updateChair, poseDrink, heldDrinks,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -704,6 +726,7 @@ function updateDrinking(dt, holdingF) {
     if (game.drinking > 0) {
       game.drinking = 0;
       hud.setHold(null);
+      poseDrink(null, 0);
       if (!interaction.current) hud.hidePrompt();
     }
     return;
@@ -717,6 +740,7 @@ function updateDrinking(dt, holdingF) {
 
   hud.showPrompt('Drinking…', 'F');
   hud.setHold(Math.min(1, game.drinking / DRINK_TIME));
+  poseDrink('can', Math.min(1, game.drinking / DRINK_TIME));
   if (game.drinking > 0.4 && Math.random() < dt * 2.4) {
     audio.play('can.sip', { volume: 0.4 });
   }
@@ -724,6 +748,7 @@ function updateDrinking(dt, holdingF) {
   if (game.drinking >= DRINK_TIME) {
     game.drinking = 0;
     hud.setHold(null);
+    poseDrink(null, 0);
     hud.hidePrompt();
     apartment.consumeBeer();
     drunk.drink(BEER_UNITS);
@@ -757,6 +782,7 @@ function updateSwigging(dt, holdingF) {
     if (game.drinking > 0) {
       game.drinking = 0;
       hud.setHold(null);
+      poseDrink(null, 0);
       if (!interaction.current) hud.hidePrompt();
     }
     if (holdingF && st.whiskeyLeft <= 0) hud.say('Empty. It was never going to end well.');
@@ -768,6 +794,7 @@ function updateSwigging(dt, holdingF) {
 
   hud.showPrompt('Drinking…', 'F');
   hud.setHold(Math.min(1, game.drinking / SWIG_TIME));
+  poseDrink('bottle', Math.min(1, game.drinking / SWIG_TIME));
   if (game.drinking > 0.3 && Math.random() < dt * 2.0) {
     audio.play('whiskey.swig', { volume: 0.5 });
   }
@@ -775,6 +802,7 @@ function updateSwigging(dt, holdingF) {
   if (game.drinking >= SWIG_TIME) {
     game.drinking = 0;
     hud.setHold(null);
+    poseDrink(null, 0);
     hud.hidePrompt();
 
     apartment.consumeWhiskey();
@@ -1181,10 +1209,13 @@ function cookEggs() {
 }
 
 function updateCooking(dt) {
+  // The eggs set as they go rather than flipping from raw to done at the end.
+  if (game.cooking !== null) apartment.pan.cook?.(game.cooking / COOK_TIME);
   if (game.cooking === null) return;
   game.cooking += dt;
   if (game.cooking >= COOK_TIME && apartment.state.panState === 'raw') {
     game.cooking = null;
+    apartment.pan.cook?.(1);
     apartment.state.panState = 'done';
     audio.stopLoop('pan.sizzle', 0.8);
     hud.toast('Eggs are done', 'good');
@@ -1199,6 +1230,7 @@ function eatEggs() {
   st.panState = null;
   st.fed = true;
   apartment.pan.contents.visible = false;
+  apartment.pan.cook?.(0);        // ready for a pan that will never be used again
   audio.play('egg.eat', { volume: 0.7 });
   audio.say('eat', { chance: 0.9, delay: 1.2 });
   hud.toast('Ate the eggs', 'good');
