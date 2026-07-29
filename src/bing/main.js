@@ -1058,13 +1058,12 @@ let room = 'lot';
 function updateZones(dt) {
   const p = player.position;
   const next = roomAt(p.x, p.z);
-  const inside = next !== 'lot' && next !== 'outside' && next !== 'alley';
+  const inside = next !== 'lot' && next !== 'outside' && next !== 'alley' && next !== 'yard';
   const officeDoorOpen = club.doors.lou.open;
   const innerOpen = club.doors.inner.open;
 
   // Rain: loud outside, a rumour indoors
-  audio.setLoopVolume('ambience.rain', next === 'lot' || next === 'outside' || next === 'alley' ? 0.5
-    : next === 'vestibule' ? 0.13 : 0.02, 0.8);
+  audio.setLoopVolume('ambience.rain', inside ? (next === 'vestibule' ? 0.13 : 0.02) : 0.5, 0.8);
   // The club: the whole point of the wall between the hallway and the floor
   const music = next === 'main' ? 0.5
     : next === 'vestibule' ? (innerOpen ? 0.4 : 0.2)
@@ -1104,9 +1103,13 @@ function onRoomChange(next) {
     mission.leftOffice();
     dialogue.start(scripts.lou, 'parting', cast.byName.lou);
   }
+  /* Only counts on the way out: wandering down the alley on the way in is
+   * sightseeing, not tradecraft. */
+  if (mission.flags.gotPackage && (next === 'yard' || next === 'alley')) {
+    mission.flags.leftByRear = true;
+  }
   if ((next === 'lot' || next === 'alley') && mission.state === 'leaving') {
     mission.backInLot();
-    if (room === 'alley') mission.flags.leftByRear = true;
     hud.say('Rain, neon, and your car exactly where you left it.', 4200);
   }
 }

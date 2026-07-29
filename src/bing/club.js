@@ -36,7 +36,11 @@ export const ROOMS = {
   office: { x0: 7.9, x1: 13.9, z0: -9.5, z1: -4.5 },
   bathroom: { x0: 7.9, x1: 13.9, z0: -1.3, z1: 2.7 },
   storage: { x0: 5.6, x1: 13.6, z0: -15, z1: -9.6 },
-  alley: { x0: 21, x1: 27.5, z0: -24, z1: 15.4 },
+  alley: { x0: 21, x1: 27.5, z0: -26, z1: 15.4 },
+  /* The strip behind the building. Rooms are tested in order and every
+   * interior one comes first, so this only ever resolves outside the walls --
+   * which is the point: it is how the game knows you left by the back. */
+  yard: { x0: 5, x1: 21, z0: -26, z1: -15 },
 };
 
 /** Which room a point is in. Used by audio zones, the mission and the crowd. */
@@ -778,10 +782,14 @@ export function buildClub(scene, { renderer } = {}) {
     railGeo.rotateX(-Math.PI / 2);
     table.add(new THREE.Mesh(railGeo, M_LEATHER_DARK));
     table.children[1].position.y = 0.8;
-    table.add(box({ size: [2.4, 0.76, 1.4], pos: [0, 0.38, -0.55], mat: M_DARKWOOD }));
-    table.add(box({ size: [0.55, 0.08, 0.2], pos: [0, 0.92, -0.8], mat: M_WOOD }));
-    table.add(box({ size: [0.24, 0.18, 0.3], pos: [0.72, 0.97, -0.72], mat: mat({ color: 0x2a1a12, roughness: 0.7 }) }));
-    table.add(box({ size: [0.22, 0.1, 0.26], pos: [-0.72, 0.93, -0.72], mat: mat({ color: 0x2a1a12, roughness: 0.7 }) }));
+    /* The felt's flat edge faces the dealer, and the group is turned half round
+     * so the curve faces the room -- which means the dealer's own furniture
+     * lives at local +z. Getting that backwards put the shoe and the chip rack
+     * in the players' laps. */
+    table.add(box({ size: [2.4, 0.76, 1.4], pos: [0, 0.38, 0.55], mat: M_DARKWOOD }));
+    table.add(box({ size: [0.55, 0.08, 0.2], pos: [0, 0.92, 0.8], mat: M_WOOD }));
+    table.add(box({ size: [0.24, 0.18, 0.3], pos: [0.72, 0.97, 0.72], mat: mat({ color: 0x2a1a12, roughness: 0.7 }) }));
+    table.add(box({ size: [0.22, 0.1, 0.26], pos: [-0.72, 0.93, 0.72], mat: mat({ color: 0x2a1a12, roughness: 0.7 }) }));
     table.position.set(bj.x, 0, bj.z);
     table.rotation.y = Math.PI;
     add(table);

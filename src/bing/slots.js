@@ -133,7 +133,14 @@ export function makeSlotMachine({ x, z, rotY = 0 }) {
 
   const g = group('slot-machine');
   g.add(box({ size: [0.92, 0.95, 0.64], pos: [0, 0.48, 0], mat: purple }));
-  g.add(box({ size: [0.98, 0.7, 0.7], pos: [0, 1.28, 0], mat: purple }));
+  /* The reel housing is a bezel, not a box. Built as one solid cabinet, the
+   * reels sat inside it and the machine was a purple slab with a name on it. */
+  g.add(box({ size: [0.98, 0.16, 0.62], pos: [0, 1.55, -0.04], mat: purple }));   // above the window
+  g.add(box({ size: [0.98, 0.14, 0.62], pos: [0, 1.02, -0.04], mat: purple }));   // below it
+  for (const sx of [-1, 1]) {
+    g.add(box({ size: [0.16, 0.55, 0.62], pos: [sx * 0.41, 1.3, -0.04], mat: purple }));
+  }
+  g.add(box({ size: [0.98, 0.7, 0.06], pos: [0, 1.28, -0.32], mat: mat({ color: 0x1a1030, roughness: 0.9 }) }));
   g.add(box({ size: [1.02, 0.55, 0.62], pos: [0, 1.88, -0.04], mat: purple }));
   g.add(box({ size: [1.04, 0.06, 0.72], pos: [0, 0.96, 0], mat: gold }));
   g.add(box({ size: [1.06, 0.06, 0.64], pos: [0, 2.18, -0.04], mat: gold }));
@@ -142,17 +149,30 @@ export function makeSlotMachine({ x, z, rotY = 0 }) {
     w: 512, h: 256, bg: '#2a0f3a', fg: '#ff5aa0', font: '900 88px "Trebuchet MS", sans-serif',
   }), 0.86, 0.4, { x: 0, y: 1.9, z: 0.32, emissive: 0xff3d8b, intensity: 2.2 }));
 
-  const reelMat = mat({ map: reelTexture(), roughness: 0.85 });
+  /* Real machines backlight the reels, and in a room this dark that is the
+   * difference between three symbols and a black slot. */
+  const strip = reelTexture();
+  const reelMat = new THREE.MeshStandardMaterial({
+    map: strip, emissiveMap: strip, emissive: new THREE.Color(0xffffff),
+    emissiveIntensity: 0.32, roughness: 0.85,
+  });
   const reelGeo = new THREE.CylinderGeometry(0.19, 0.19, 0.24, 28, 1, true);
   reelGeo.rotateZ(Math.PI / 2);
   const reels = [];
   for (let i = 0; i < 3; i++) {
     const r = new THREE.Mesh(reelGeo, reelMat);
-    r.position.set(-0.26 + i * 0.26, 1.3, 0.08);
+    r.position.set(-0.26 + i * 0.26, 1.3, 0.02);
     g.add(r);
     reels.push(r);
   }
-  g.add(box({ size: [0.86, 0.46, 0.02], pos: [0, 1.3, 0.32], mat: mat({ color: 0x8aa0c8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.14 }) }));
+  // Smoked glass across the opening, and a gold surround for it
+  g.add(box({ size: [0.72, 0.5, 0.02], pos: [0, 1.3, 0.25], mat: mat({ color: 0x8aa0c8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.12 }) }));
+  for (const [w, h, yy] of [[0.78, 0.03, 1.56], [0.78, 0.03, 1.04]]) {
+    g.add(box({ size: [w, h, 0.05], pos: [0, yy, 0.26], mat: gold }));
+  }
+  for (const sx of [-1, 1]) {
+    g.add(box({ size: [0.03, 0.55, 0.05], pos: [sx * 0.385, 1.3, 0.26], mat: gold }));
+  }
 
   // Credit display, redrawn as the numbers change
   const creditCanvas = document.createElement('canvas');
