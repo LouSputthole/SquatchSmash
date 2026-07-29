@@ -13,6 +13,7 @@ export const SCENE_IDS = Object.freeze({
   APARTMENT: 'apartment',
   BADA_BING_ONE: 'bada_bing_one',
   SQUATCHFATHER: 'squatchfather',
+  AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
 });
 
 export const ITEM_IDS = Object.freeze({
@@ -36,7 +37,11 @@ export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 const SCENES = Object.freeze({
   [SCENE_IDS.APARTMENT]: Object.freeze({
     href: 'index.html',
-    next: Object.freeze([SCENE_IDS.BADA_BING_ONE, SCENE_IDS.SQUATCHFATHER]),
+    next: Object.freeze([
+      SCENE_IDS.BADA_BING_ONE,
+      SCENE_IDS.SQUATCHFATHER,
+      SCENE_IDS.AIRSTRIP_SMUGGLING,
+    ]),
   }),
   [SCENE_IDS.BADA_BING_ONE]: Object.freeze({
     href: 'bing.html',
@@ -44,6 +49,10 @@ const SCENES = Object.freeze({
   }),
   [SCENE_IDS.SQUATCHFATHER]: Object.freeze({
     href: 'squatchfather.html',
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  [SCENE_IDS.AIRSTRIP_SMUGGLING]: Object.freeze({
+    href: 'airstrip.html',
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
 });
@@ -87,6 +96,10 @@ function initialState() {
       },
       [MISSION_IDS.AIRSTRIP_SMUGGLING]: {
         status: 'locked',
+        checkpoint: null,
+        cargoLoaded: false,
+        detected: false,
+        landingQuality: null,
       },
     },
     events: {
@@ -171,6 +184,12 @@ function normalize(saved) {
       },
       [MISSION_IDS.AIRSTRIP_SMUGGLING]: {
         status: airstripStatus,
+        checkpoint: ['airstrip', 'remote_strip', 'returning', 'landed_home']
+          .includes(airstrip.checkpoint) ? airstrip.checkpoint : null,
+        cargoLoaded: airstrip.cargoLoaded === true,
+        detected: airstrip.detected === true,
+        landingQuality: typeof airstrip.landingQuality === 'string'
+          ? airstrip.landingQuality : null,
       },
     },
     events: {
