@@ -195,6 +195,13 @@
   }
   .btn:hover { transform: translateY(-2px); }
   .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #3a2482; }
+  #prologueLink {
+    display: inline-block; margin-top: 16px; padding: 9px 20px;
+    font-size: 14px; font-weight: 800; letter-spacing: 2px; color: #c4cde0;
+    text-decoration: none; border: 1px solid rgba(154,111,240,.4); border-radius: 10px;
+    background: rgba(255,255,255,.06); transition: color .15s, border-color .15s;
+  }
+  #prologueLink:hover { color: #fff; border-color: var(--purple-bright); }
   #endStats { font-size: 22px; line-height: 1.9; margin-bottom: 14px; color: #dce2f0; }
   #endStats .big { font-size: 52px; font-weight: 900; color: var(--silver-bright);
     text-shadow: 0 3px 0 var(--purple-deep); display: block; }
@@ -337,6 +344,7 @@
       </div>
     </div>
     <button id="startBtn" class="btn">START RAMPAGE</button>
+    <a id="prologueLink" href="./initiation.html">🔥 PROLOGUE: THE INITIATION</a>
   </div>
 
   <div id="pause" class="overlay hidden">

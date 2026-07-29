@@ -243,6 +243,57 @@ export function stopMusic() {
   }
 }
 
+// Blunt fist-on-fur punch: low thump with a slap transient.
+export function thud() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: 130 + Math.random() * 30, to: 48, dur: 0.11, peak: 0.3 });
+  noise(t, { peak: 0.16, attack: 0.002, decay: 0.09, freq: 700, type: 'lowpass' });
+}
+
+// Bonfire pop — call on a randomized timer for ambient crackle.
+export function crackle() {
+  if (!ctx) return;
+  noise(ctx.currentTime, {
+    peak: 0.04 + Math.random() * 0.05,
+    attack: 0.002,
+    decay: 0.04 + Math.random() * 0.07,
+    freq: 2200 + Math.random() * 2200,
+    type: 'bandpass',
+    q: 1.6,
+  });
+}
+
+// ---------- Ceremony drums: slow tom pattern for the initiation rite ----------
+let drumTimer = null;
+let drumStep = 0;
+
+export function startDrums() {
+  if (!ctx || drumTimer) return;
+  const STEP = 60 / 84 / 2; // 84 BPM, eighth notes
+  let next = ctx.currentTime + 0.1;
+  drumStep = 0;
+  drumTimer = setInterval(() => {
+    if (!ctx) return;
+    while (next < ctx.currentTime + 0.3) {
+      const s = drumStep % 8;
+      if (s === 0) drum(next, 92, 30, 0.2, 0.32);
+      if (s === 3) drum(next, 76, 28, 0.1, 0.24);
+      if (s === 6) drum(next, 68, 25, 0.14, 0.28);
+      if (s === 7 && drumStep % 32 === 31) drum(next, 110, 36, 0.12, 0.2); // pickup into the bar
+      next += STEP;
+      drumStep++;
+    }
+  }, 100);
+}
+
+export function stopDrums() {
+  if (drumTimer) {
+    clearInterval(drumTimer);
+    drumTimer = null;
+  }
+}
+
 // Ground stomp: deeper and meaner than a regular smash.
 export function stomp() {
   if (!ctx) return;

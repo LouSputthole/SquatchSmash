@@ -18,6 +18,18 @@ Then open `http://localhost:8000` in a browser.
 
 > A server is required (rather than opening `index.html` directly) because the game uses ES modules.
 
+## Prologue: The Initiation
+
+`initiation.html` (linked from the main menu) is a story scene set the night before the rampage. You're a mud-brown **prospect** deep in the forest; follow the bonfire glow through the pines and Booskibro will put you through the Silver Sasquatches' initiation rites:
+
+1. **The Gauntlet** — the members circle up and beat you down to a fifth of your health. Endure it. Swing back even once and you fail the initiation (you can retry).
+2. **The Roar** — press **R** and let the forest hear you.
+3. **The Timber** — break the ceremonial great log in three blows (mind your aim: striking a member still fails you).
+
+Survive all three and you're anointed on the spot — brown fur to silver — then it's off to the campground.
+
+Booskibro's speech lines live in the `SPEECH` const at the top of `src/initiation.js` and are placeholder text; edit freely.
+
 ## Controls
 
 | Input | Action |
@@ -50,21 +62,24 @@ On touch devices a virtual joystick and SMASH/RAGE buttons appear automatically.
 
 ## Tech
 
-- Plain ES modules, no bundler — Three.js r160 is vendored in `lib/`.
+- Plain ES modules, no bundler — Three.js r160 is vendored in `lib/`, with the r160 `examples/jsm` postprocessing stack (UnrealBloom) vendored in `lib/jsm/` for the initiation scene's night glow.
 - All models are built procedurally from primitives (with shared geometry/material caches); all sound effects are synthesized with the WebAudio API. No asset files.
 - ACES filmic tone mapping, soft shadows that follow the player, procedural canvas ground texture.
+- The initiation scene renders through an HDR bloom pipeline: emissive materials (bonfire, embers, torches, moon, stars, fireflies) are pushed above 1.0 so only true light sources glow.
 
 ## Project layout
 
 ```
-index.html      UI overlay, styles, importmap, touch controls
-src/main.js     Game loop, input, camera, scoring, HUD, pause/mute
-src/world.js    Scene, lighting, procedural props and placement, pond
-src/player.js   Sasquatch model and animations
-src/campers.js  Campers: wandering, fleeing, occupants, activities
-src/rangers.js  Park rangers with tranq dart rifles
-src/effects.js  Footprints, birds, rage shockwave rings
-src/debris.js   Physics chunks when things break
-src/audio.js    Procedural WebAudio sound effects
-lib/            Vendored three.module.js
+index.html          UI overlay, styles, importmap, touch controls
+initiation.html     Prologue scene page: dialog, HP bar, overlays
+src/main.js         Game loop, input, camera, scoring, HUD, pause/mute
+src/initiation.js   Prologue: night forest, bonfire, ceremony state machine
+src/world.js        Scene, lighting, procedural props and placement, pond
+src/player.js       Sasquatch model, palettes, and animations
+src/campers.js      Campers: wandering, fleeing, occupants, activities
+src/rangers.js      Park rangers with tranq dart rifles
+src/effects.js      Footprints, birds, rage shockwave rings
+src/debris.js       Physics chunks when things break
+src/audio.js        Procedural WebAudio sound effects
+lib/                Vendored three.module.js (+ lib/jsm/ postprocessing)
 ```
