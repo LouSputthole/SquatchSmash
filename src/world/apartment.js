@@ -57,6 +57,9 @@ export const WALL_SLOTS = [
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
   { slot: 'south.wide', x: -3.38, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.34 },
   { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.54 },
+  // Between the door and the Denver piece, which was the last empty stretch of
+  // wall in the flat. Not a tournament photo.
+  { slot: 'poster.pinup', x: 2.34, y: 1.70, z: 4.40, rotY: Math.PI, h: 0.62 },
   // The other big one, facing you as you come away from the desk.
   { slot: 'feature.denver', x: 3.88, y: 1.82, z: 4.40, rotY: Math.PI, h: 0.86 },
 ];

@@ -1155,6 +1155,12 @@ function synthLoop(engine, name, dest) {
       noise('bandpass', 900, 1.4, 0.20);
       noise('lowpass', 260, 0.7, 0.14);
       break;
+    case 'radio.cut':
+      // A transmission stepping on itself: full-level broadband hiss with no
+      // attack, so it lands on the same frame the music stops.
+      noise('highpass', 1200, 0.55, 0.55);
+      noise('bandpass', 3200, 0.4, 0.3);
+      break;
     case 'pee.miss':
       // Same stream, hard floor: keep the bright splatter, drop the burble.
       // Tile has no volume of water to resonate in, which is the whole tell.

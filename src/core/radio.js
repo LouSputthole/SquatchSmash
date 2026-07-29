@@ -376,6 +376,24 @@ export class Radio {
     if (this.el.readyState >= 1) seek();
     else this.el.addEventListener('loadedmetadata', seek, { once: true });
 
+    /* A cut is comic timing, so it is never allowed to be late. The frame loop
+     * does the cutting, but rAF throttles to about 1fps in a background tab
+     * while the audio keeps rolling -- so the element's own clock gets a say
+     * too. Whichever notices first wins; _cutSong is idempotent. */
+    if (track.cutAt) {
+      const watch = () => {
+        if (this._songT < 0 || this._current() !== track) {
+          this.el.removeEventListener('timeupdate', watch);
+          return;
+        }
+        if (this.el.currentTime >= track.cutAt) {
+          this.el.removeEventListener('timeupdate', watch);
+          this._cutSong();
+        }
+      };
+      this.el.addEventListener('timeupdate', watch);
+    }
+
     const p = this.el.play();
     if (p && p.catch) p.catch(() => { /* the error handler covers it */ });
     this._fadeTo(0.85, SONG_FADE_IN);
@@ -385,6 +403,31 @@ export class Radio {
     this._songT = 0;
     this._line = `${track.artist ? `${track.artist} \u2014 ` : ''}${track.title || track.file}`;
     this._showOsd();
+  }
+
+  /**
+   * Kill the record mid-bar and go straight to the meeting notice.
+   *
+   * Not a fade. The element is paused and the gain cut on the same tick as the
+   * static, so the join is a hard edit -- a station stepping on its own record
+   * because the notice matters more than the song does.
+   */
+  _cutSong() {
+    if (this._songT < 0) return;   // the frame loop and the media clock can both land on this tick
+    this._songT = -1;
+    if (this.el) {
+      try { this.el.pause(); } catch { /* already stopped */ }
+      this._fadeTo(0, 0);
+    }
+    this.audio.play('radio.cut', { position: this.position, volume: 0.75 });
+    this.audio.setLoopVolume?.('radio.talk', 0.04, 0.8);
+
+    // Jump the queue: whatever the station was going to say next waits.
+    this._queue.unshift(...MEETING_NOTICE);
+    this._line = null;
+    this._segT = 0;
+    this._dwell = 0;
+    this._pump();
   }
 
   _endSong(fade = SONG_FADE_OUT) {
@@ -408,6 +451,12 @@ export class Radio {
      * notice -- the queue simply waits. */
     if (this.songPlaying) {
       this._songT += dt;
+      // A track with `cutAt` is not faded out, it is interrupted. Timed off the
+      // element's own clock rather than accumulated frame time, because "the
+      // 15 second mark" has to mean the recording's 15 second mark exactly and
+      // summed dt drifts.
+      const cut = this._current()?.cutAt;
+      if (cut && this.el && this.el.currentTime >= cut) { this._cutSong(); return; }
       if (this._songT >= SONG_SECONDS - SONG_FADE_OUT) this._endSong();
       return;
     }

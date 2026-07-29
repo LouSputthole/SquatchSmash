@@ -188,6 +188,12 @@
       "prompt": "soft untuned FM radio static hiss from small speakers, seamless loop"
     },
     {
+      "name": "radio.cut",
+      "duration": 0.8,
+      "promptInfluence": 0.6,
+      "prompt": "abrupt harsh burst of FM radio static and white noise, starts instantly at full level with no fade in, sharp transmission cut, no music, no voice"
+    },
+    {
       "name": "radio.talk",
       "duration": 8,
       "loop": true,
