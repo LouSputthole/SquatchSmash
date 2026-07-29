@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>A Quick Stop at the Bing</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127864;</text></svg>" />
+<link rel="stylesheet" href="src/style.css" />
+<link rel="stylesheet" href="src/bing/bing.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body class="bing">
+
+<canvas id="scene"></canvas>
+
+<!-- Same treatment layers as the flat: the bar in here is a working bar. -->
+<div id="fx-drunk"></div>
+<div id="fx-high"></div>
+<div id="fx-relief" aria-hidden="true"></div>
+<div id="blackout"><span></span></div>
+
+<svg id="fx-defs" width="0" height="0" aria-hidden="true">
+  <defs>
+    <filter id="chroma" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
+      <feOffset in="SourceGraphic" dx="0" dy="0" result="r"/>
+      <feColorMatrix in="r" type="matrix" result="rc"
+        values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/>
+      <feOffset in="SourceGraphic" dx="0" dy="0" result="b"/>
+      <feColorMatrix in="b" type="matrix" result="bc"
+        values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
+      <feColorMatrix in="SourceGraphic" type="matrix" result="gc"
+        values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"/>
+      <feBlend in="rc" in2="gc" mode="screen" result="rg"/>
+      <feBlend in="rg" in2="bc" mode="screen"/>
+    </filter>
+  </defs>
+</svg>
+<div id="fx-trip" aria-hidden="true"></div>
+
+<div id="hud" aria-hidden="true">
+  <div id="crosshair"><span></span></div>
+
+  <div id="prompt" class="hidden">
+    <kbd class="key">E</kbd>
+    <span class="label">Interact</span>
+    <div class="holdbar"><i></i></div>
+  </div>
+
+  <div id="subtitle" class="hidden"></div>
+  <div id="posture" class="hidden"><kbd class="key">Q</kbd><span></span></div>
+  <div id="pushes" class="hidden"></div>
+  <div id="timing" class="hidden">
+    <div class="track"><i class="win"></i><i class="mark"></i></div>
+    <div class="pips"></div>
+  </div>
+
+  <div id="hands">
+    <div id="hotbar" class="hidden"></div>
+    <div id="hand-item" class="hidden">
+      <div class="icon"></div>
+      <div class="meta">
+        <span class="name"></span>
+        <span class="hint"></span>
+      </div>
+    </div>
+  </div>
+
+  <div id="radio-osd" class="hidden">
+    <div class="rtitle">📻 <span></span></div>
+    <div class="rtrack"></div>
+  </div>
+
+  <div id="clock">
+    <span class="day"></span>
+    <span class="time"></span>
+    <span class="spent"></span>
+  </div>
+
+  <div id="bladder" class="hidden">
+    <span class="cap">bladder</span>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <div id="toast-stack"></div>
+
+  <!-- ===== the Bing's own HUD ===== -->
+
+  <!-- What you are here for. One line at a time, ticked as it goes. -->
+  <div id="objectives" class="hidden">
+    <div class="head">A QUICK STOP AT THE BING</div>
+    <ul></ul>
+  </div>
+
+  <!-- What is left of the roll Lou gave you last month. -->
+  <div id="wallet" class="hidden"><span class="cash">$0</span></div>
+
+  <!-- Conversation. Never modal: you can walk off mid-sentence. -->
+  <div id="dialogue" class="hidden">
+    <div class="who"></div>
+    <div class="line"></div>
+    <div class="options hidden"></div>
+  </div>
+
+  <!-- The table and the machine, when you are at one of them. -->
+  <div id="gamble" class="hidden">
+    <div class="title"></div>
+    <div class="body"></div>
+    <div class="keys"></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h1>THE<span>BING</span></h1>
+    <p class="tag">Tuesday, 11:41 PM. Lou has something for you. Don’t keep him waiting.</p>
+    <button id="start-btn">Kill the engine</button>
+    <ul class="controls">
+      <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &middot; <kbd>Shift</kbd> hurry</li>
+      <li><kbd>E</kbd> / <kbd>Click</kbd> interact &middot; hold for the other thing</li>
+      <li><kbd>1</kbd>–<kbd>4</kbd> answer &middot; <kbd>Q</kbd> get up / step away</li>
+      <li>hold <kbd>F</kbd> drink &middot; <kbd>Tab</kbd> what you are doing here</li>
+      <li><kbd>Esc</kbd> release mouse</li>
+    </ul>
+    <p class="fine" id="asset-status"></p>
+  </div>
+</div>
+
+<div id="loading"><div class="bar"><i></i></div><span>Pulling into the lot…</span></div>
+
+<script>
+(function () {
+  var shown = false;
+  window.__squatchFail = function (title, detail) {
+    if (shown) return;
+    shown = true;
+    var el = document.getElementById('loading');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('failed');
+    el.innerHTML = '<strong></strong><span></span>';
+    el.querySelector('strong').textContent = title;
+    el.querySelector('span').textContent = detail || '';
+  };
+  window.__squatchStage = function (text) {
+    if (shown) return;
+    var el = document.getElementById('loading');
+    var s = el && el.querySelector('span');
+    if (s) s.textContent = text;
+  };
+  addEventListener('error', function (e) {
+    window.__squatchFail('Could not start', e.message || String(e.error || e));
+  });
+  addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    window.__squatchFail('Could not start', (r && r.message) || String(r));
+  });
+  setTimeout(function () {
+    if (!window.__bing) {
+      window.__squatchFail(
+        'The club did not finish loading',
+        'Everything it needs is in this page, so this is not a connection '
+        + 'problem. Reloading usually clears it. If it keeps happening, the '
+        + 'browser console will have the reason.');
+    }
+  }, 30000);
+})();
+</script>
+
+<script type="module" src="src/bing/main.js" onerror="window.__squatchFail('Could not load the game code', 'src/bing/main.js failed to load.')"></script>
+</body>
+</html>

@@ -35,6 +35,12 @@ export class Player {
     this.crouching = false;
     this.sprinting = false;
 
+    /* Height of the floor under him. Zero everywhere in the flat; the Bing has
+     * a stage, so the world may supply a groundAt(x, z) and the eye rides on
+     * top of whatever it returns. Smoothed, so stepping up is a step rather
+     * than a teleport. */
+    this.ground = 0;
+
     this.bobPhase = 0;
     this.bobAmount = 0;
     this.rollTarget = 0;
@@ -327,6 +333,12 @@ export class Player {
     this.bobPhase += moved * 3.4;
     this.rollTarget = -strafe * 0.014 * (this.sprinting ? 1.5 : 1);
 
+    // Ride whatever floor is under him -- the stage, a step, otherwise zero.
+    const ground = this.world.groundAt ? this.world.groundAt(this.position.x, this.position.z) : 0;
+    this.ground += (ground - this.ground) * Math.min(1, dt * 9);
+    if (Math.abs(ground - this.ground) < 0.002) this.ground = ground;
+    this.position.y = this.ground + this.eyeHeight;
+
     this._stepDist += moved;
     const stride = this.crouching ? 1.05 : this.sprinting ? 0.92 : 0.78;
     if (this._stepDist >= stride) {
@@ -388,7 +400,7 @@ export class Player {
   _applyCamera(dt) {
     const cam = this.camera;
 
-    let y = this.mode === 'walk' ? this.eyeHeight : this.position.y;
+    let y = this.mode === 'walk' ? this.ground + this.eyeHeight : this.position.y;
     let bobX = 0;
     if (this.mode === 'walk') {
       y += Math.sin(this.bobPhase * 2) * 0.022 * this.bobAmount;

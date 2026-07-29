@@ -1,0 +1,186 @@
+/*
+ * The Bing's own HUD, layered on top of src/style.css.
+ *
+ * Same rules as the flat: nothing is a game menu, everything is small, amber
+ * on black, and gets out of the way. The one new colour is the club's pink,
+ * and it only appears on things the club owns -- the objective card, the
+ * machine, the table.
+ */
+
+:root {
+  --bing: #ff3d8b;
+  --bing-dim: #a02a5c;
+  --felt: #2f7d54;
+}
+
+body.bing #overlay h1 span { color: var(--bing); }
+body.bing #overlay .tag { color: #a3919b; }
+
+/* ---------------- Objectives ---------------- */
+
+#objectives {
+  position: fixed;
+  top: 18px;
+  left: 20px;
+  min-width: 210px;
+  max-width: 300px;
+  padding: 10px 14px 11px;
+  background: rgba(8, 6, 10, 0.62);
+  border-left: 2px solid var(--bing);
+  border-radius: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.4px;
+  transition: opacity 0.35s;
+}
+#objectives.hidden { opacity: 0; }
+#objectives .head {
+  color: var(--bing);
+  font-size: 10px;
+  letter-spacing: 2.4px;
+  margin-bottom: 6px;
+}
+#objectives ul { margin: 0; padding: 0; list-style: none; }
+#objectives li {
+  color: var(--paper);
+  padding-left: 15px;
+  position: relative;
+  margin: 3px 0;
+}
+#objectives li::before {
+  content: "▸";
+  position: absolute;
+  left: 0;
+  color: var(--amber);
+}
+#objectives li.done {
+  color: #6f6a5f;
+  text-decoration: line-through;
+}
+#objectives li.done::before { content: "✓"; color: var(--green); }
+
+/* ---------------- Wallet ---------------- */
+
+#wallet {
+  position: fixed;
+  top: 18px;
+  right: 20px;
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: var(--green);
+  text-shadow: 0 0 12px rgba(125, 216, 125, 0.35);
+  transition: opacity 0.3s, transform 0.18s;
+}
+#wallet.hidden { opacity: 0; }
+#wallet.bump { transform: scale(1.16); }
+#wallet.down .cash { color: var(--red); }
+
+/* ---------------- Conversation ---------------- */
+
+#dialogue {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  width: min(720px, 84vw);
+  text-align: center;
+  transition: opacity 0.25s;
+}
+#dialogue.hidden { opacity: 0; }
+#dialogue .who {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--bing);
+  margin-bottom: 5px;
+}
+#dialogue .line {
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--paper);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+#dialogue .line em { color: #9b917f; font-style: italic; }
+#dialogue .options {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+#dialogue .options.hidden { display: none; }
+#dialogue .opt {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  font-size: 14px;
+  color: #cfc4ae;
+  background: rgba(8, 6, 10, 0.55);
+  padding: 4px 12px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 61, 139, 0.18);
+}
+#dialogue .opt kbd {
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--amber);
+  border-radius: 2px;
+  padding: 1px 5px;
+}
+#dialogue .opt .tone {
+  color: var(--bing);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  min-width: 78px;
+  text-align: right;
+}
+#dialogue .opt .say { color: var(--paper); }
+
+/* ---------------- Table and machine ---------------- */
+
+#gamble {
+  position: fixed;
+  right: 22px;
+  bottom: 92px;
+  width: 260px;
+  padding: 12px 14px;
+  background: rgba(8, 6, 10, 0.7);
+  border: 1px solid rgba(255, 61, 139, 0.25);
+  border-radius: 3px;
+  font-size: 13px;
+  line-height: 1.6;
+  transition: opacity 0.25s;
+}
+#gamble.hidden { opacity: 0; }
+#gamble .title {
+  font-size: 10px;
+  letter-spacing: 2.6px;
+  color: var(--bing);
+  margin-bottom: 7px;
+}
+#gamble .body { color: var(--paper); }
+#gamble .body b { color: var(--amber); font-weight: 400; }
+#gamble .body .felt { color: #8fd8a0; }
+#gamble .body .bust { color: var(--red); }
+#gamble .keys {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: #8d8474;
+  letter-spacing: 0.6px;
+}
+#gamble .keys kbd {
+  font-family: inherit;
+  color: var(--amber);
+  background: none;
+  padding: 0 2px;
+}
+
+/* The clock in here reads the night, not the day. */
+body.bing #clock .day { color: var(--bing); }
+
+/* The clock in here is a time, not a diary: the flat's "N min in here" line
+   belongs to a game about a whole day, and this is one errand. */
+body.bing #clock .spent { display: none; }
+body.bing #clock .day { display: none; }

@@ -1166,6 +1166,84 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t + 0.6, { freq: 220, to: 82, dur: 0.9, gain: 0.24, type: 'square' });
       break;
 
+    /* -------- the Bada Bing --------
+     * A club is mostly other people's noise. These are the events that happen
+     * on top of the beds in synthLoop(): a machine eating money, cards on
+     * felt, a door with an opinion, and one alarm nobody wants going off.
+     */
+    case 'slot.pull':
+      // A sprung lever coming down and the drum letting go.
+      burst(ctx, dest, t, { dur: 0.16, type: 'bandpass', freq: 520, q: 2.4, gain: 0.24, sweep: 0.5 });
+      tone(ctx, dest, t + 0.06, { freq: 240, to: 120, dur: 0.14, gain: 0.16, type: 'square' });
+      break;
+    case 'slot.reel':
+      // The reels turning: a fast tick that thins out as they slow.
+      for (let i = 0; i < 26; i++) {
+        burst(ctx, dest, t + i * (0.045 + i * 0.0022), {
+          dur: 0.015, type: 'bandpass', freq: 2100, q: 5, gain: 0.09,
+        });
+      }
+      break;
+    case 'slot.stop':
+      burst(ctx, dest, t, { dur: 0.05, type: 'bandpass', freq: 900, q: 3.2, gain: 0.22 });
+      tone(ctx, dest, t, { freq: 180, to: 90, dur: 0.08, gain: 0.12, type: 'square' });
+      break;
+    case 'slot.win':
+      for (let i = 0; i < 6; i++) {
+        tone(ctx, dest, t + i * 0.09, { freq: 700 + i * 180, dur: 0.1, gain: 0.13, type: 'square' });
+      }
+      break;
+    /* The jackpot alarm, which Lou can hear through a wall and a hallway.
+     * Deliberately too much: a two-tone siren, a bell, and coins. */
+    case 'slot.jackpot':
+      for (let i = 0; i < 10; i++) {
+        tone(ctx, dest, t + i * 0.28, { freq: 980, to: 1320, dur: 0.14, gain: 0.16, type: 'square' });
+        tone(ctx, dest, t + i * 0.28 + 0.14, { freq: 1320, to: 980, dur: 0.14, gain: 0.16, type: 'square' });
+      }
+      for (let i = 0; i < 40; i++) {
+        burst(ctx, dest, t + 0.4 + Math.random() * 2.6, {
+          dur: 0.03, type: 'bandpass', freq: 2600 + Math.random() * 2600, q: 6, gain: 0.10,
+        });
+      }
+      break;
+    case 'card.deal':
+      // Card off the shoe and onto felt: a short scrape and a soft landing.
+      burst(ctx, dest, t, { dur: 0.055, type: 'bandpass', freq: 3200, q: 1.4, gain: 0.16, sweep: 1.4 });
+      burst(ctx, dest, t + 0.05, { dur: 0.04, type: 'lowpass', freq: 700, gain: 0.10 });
+      break;
+    case 'chips.place':
+      for (let i = 0; i < 4; i++) {
+        burst(ctx, dest, t + i * 0.035, { dur: 0.03, type: 'bandpass', freq: 1400 + i * 220, q: 4, gain: 0.13 });
+      }
+      break;
+    case 'glass.set':
+      tone(ctx, dest, t, { freq: 1500, to: 1200, dur: 0.07, gain: 0.10, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.03, type: 'highpass', freq: 4200, gain: 0.09 });
+      break;
+    case 'till.ring':
+      tone(ctx, dest, t, { freq: 1760, dur: 0.22, gain: 0.13, type: 'sine' });
+      burst(ctx, dest, t + 0.06, { dur: 0.2, type: 'lowpass', freq: 900, gain: 0.14, sweep: 0.4 });
+      break;
+    case 'rope.clip':
+      burst(ctx, dest, t, { dur: 0.06, type: 'bandpass', freq: 2400, q: 3, gain: 0.14 });
+      break;
+    case 'alarm.chirp':
+      tone(ctx, dest, t, { freq: 2400, dur: 0.09, gain: 0.2, type: 'square' });
+      tone(ctx, dest, t + 0.16, { freq: 2400, dur: 0.09, gain: 0.2, type: 'square' });
+      break;
+    case 'neon.zap':
+      burst(ctx, dest, t, { dur: 0.07, type: 'bandpass', freq: 3800, q: 2, gain: 0.14, sweep: 1.6 });
+      tone(ctx, dest, t, { freq: 120, dur: 0.05, gain: 0.06, type: 'sawtooth' });
+      break;
+    case 'car.start':
+      tone(ctx, dest, t, { freq: 42, to: 88, dur: 0.9, gain: 0.30, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: 0.7, type: 'lowpass', freq: 320, gain: 0.22, sweep: 0.5 });
+      break;
+    case 'car.door':
+      tone(ctx, dest, t, { freq: 150, to: 60, dur: 0.18, gain: 0.28, type: 'triangle' });
+      burst(ctx, dest, t, { dur: 0.12, type: 'bandpass', freq: 700, q: 1.6, gain: 0.2 });
+      break;
+
     default:
       // Unknown cue: a soft neutral tick rather than silence, which makes
       // missing wiring obvious during development without being ugly.
@@ -1278,6 +1356,65 @@ function synthLoop(engine, name, dest) {
       noise('bandpass', 3400, 0.9, 0.36);
       noise('highpass', 1800, 1.1, 0.18);
       break;
+    /* -------- the Bada Bing --------
+     * Four beds, crossfaded by where the player is standing. The club track is
+     * a bassline rather than a noise wash, because a strip club with no beat
+     * in it is just a warm room.
+     */
+    case 'ambience.rain': {
+      noise('bandpass', 1400, 0.5, 0.26);
+      noise('highpass', 4200, 0.5, 0.10);
+      noise('lowpass', 260, 0.7, 0.16);
+      break;
+    }
+    case 'ambience.club': {
+      /* Four-to-the-floor at 104bpm. The kick is a sine through its own gain,
+       * pulsed by a sawtooth LFO at the beat rate -- a falling ramp is exactly
+       * the envelope a kick drum has, so one oscillator does the whole job. */
+      const kick = ctx.createOscillator();
+      kick.type = 'sine';
+      kick.frequency.value = 52;
+      const kickGain = ctx.createGain();
+      kickGain.gain.value = 0;
+      kick.connect(kickGain);
+      kickGain.connect(dest);
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sawtooth';
+      lfo.frequency.value = 104 / 60;
+      const depth = ctx.createGain();
+      depth.gain.value = -0.20;          // inverted: the ramp falls after the hit
+      lfo.connect(depth);
+      depth.connect(kickGain.gain);
+      kick.start();
+      lfo.start();
+      nodes.push(kick, lfo);
+      // A bassline under it, and the hats the room has mostly eaten
+      osc('triangle', 78, 0.055);
+      noise('bandpass', 2600, 0.8, 0.035);
+      break;
+    }
+    case 'ambience.crowd': {
+      // Two hundred people talking, none of them audibly.
+      noise('bandpass', 520, 1.1, 0.16);
+      noise('bandpass', 1500, 0.9, 0.07);
+      noise('lowpass', 200, 0.8, 0.06);
+      break;
+    }
+    case 'neon.buzz':
+      osc('sawtooth', 120, 0.012);
+      noise('bandpass', 5600, 6, 0.02);
+      break;
+    case 'fluoro.hum':
+      osc('sine', 100, 0.03);
+      osc('sine', 200, 0.012);
+      noise('highpass', 6200, 2, 0.012);
+      break;
+    case 'engine.idle':
+      osc('sawtooth', 34, 0.06);
+      osc('sine', 68, 0.03);
+      noise('lowpass', 220, 0.8, 0.10);
+      break;
+
     default:
       noise('lowpass', 400, 0.5, 0.12);
   }
