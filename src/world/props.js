@@ -1179,7 +1179,10 @@ export function makePlant(M, { x, z, scale = 1 }) {
    * the stem-to-leaf direction, so it always lands on both ends whatever the
    * angle. */
   const UP = new THREE.Vector3(0, 1, 0);
+  const OUTWARD = new THREE.Vector3(1, 0, 0);   // the blade's own long axis
   const _dir = new THREE.Vector3();
+  const _out = new THREE.Vector3();
+  const _anchor = new THREE.Vector3();
   for (let i = 0; i < 11; i++) {
     const a = (i / 11) * Math.PI * 2 + i * 0.7;
     // Higher leaves reach further out, the way a potted plant actually opens.
@@ -1199,18 +1202,37 @@ export function makePlant(M, { x, z, scale = 1 }) {
 
     /* The blade grows ALONG its stalk and overlaps the end of it.
      *
-     * Two things were wrong. It sat at 1.45x the stalk's reach, so there was a
-     * clear gap between the end of the stick and the start of the leaf; and
-     * the blade's long axis is local X, so rotation.y = a turned it ninety
-     * degrees across its own stalk instead of along it. Both together read as
-     * leaves floating near a plant rather than growing out of one. */
-    const blade = 0.115;
-    const bladeR = reach + blade * 0.72;
+     * Three goes at this. It sat at 1.45x the stalk's reach, so there was a
+     * gap between the end of the stick and the start of the leaf. Then
+     * `rotation.y = a` turned the blade ninety degrees across its own stalk,
+     * because the blade's long axis is local X. Then `Math.PI / 2 - a` -- the
+     * correction for that -- had the sign backwards: three's Y rotation sends
+     * +X to (cos, 0, -sin), so that angle lands the blade on (sin a, 0, -cos a)
+     * while the stalk goes out along (sin a, 0, +cos a). The two agree only
+     * where cos a is near zero, which is why some of them looked right and
+     * most of them looked thrown at the pot.
+     *
+     * So it is not an Euler triple any more. Point +X at the direction the
+     * stalk actually went -- the same vector, not a re-derivation of it -- and
+     * droop from there. There is no sign left to get wrong. */
+    const blade = 0.10;
     const leaf = new THREE.Mesh(new THREE.SphereGeometry(blade, 10, 7), M.leaf);
     leaf.scale.set(1, 0.26, 0.58);
-    leaf.position.set(Math.sin(a) * bladeR, ly + 0.006, Math.cos(a) * bladeR);
-    // +X onto the stalk's outward direction, then droop the tip.
-    leaf.rotation.set(0.30, Math.PI / 2 - a, 0.20);
+    leaf.quaternion.setFromUnitVectors(OUTWARD, _out.set(Math.sin(a), 0, Math.cos(a)));
+    leaf.rotateZ(-0.20);           // tip hangs
+    leaf.rotateX(0.30 + i * 0.11); // and each one rolls a little differently
+
+    /* Placed by its INNER END, not by its centre.
+     *
+     * Putting the centre on a radius and then drooping the blade rotates it
+     * about that centre, which swings the inner end off the stalk by three or
+     * four centimetres -- small on paper, and the exact size of a visible gap
+     * between a stick and a leaf. So the anchor is the end that has to touch:
+     * take the point 86% of the way in, and land THAT on the tip. The last
+     * 14% carries on past it and buries itself in the stalk, so there is no
+     * seam to find. */
+    _anchor.set(-blade * 0.86, 0, 0).applyQuaternion(leaf.quaternion);
+    leaf.position.set(lx, ly, lz).sub(_anchor);
     leaf.castShadow = true;
     g.add(leaf);
   }
@@ -1609,45 +1631,65 @@ export function makeCapOnPeg(M, { x, y, z, rotY = 0, color = 0x5b3f9e }) {
   cap.rotation.x = 0.42;
   g.add(cap);
 
+  const R = 0.092;
   const crown = new THREE.Mesh(
-    new THREE.SphereGeometry(0.092, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+    new THREE.SphereGeometry(R, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2),
     cloth,
   );
   crown.scale.set(1, 0.74, 1);
   crown.castShadow = true;
   cap.add(crown);
-  // Panel seams, so it is not one smooth blob of colour.
+
+  /*
+   * Panel seams, so it is not one smooth blob of colour.
+   *
+   * These were straight bars standing at a fixed radius, which does not work
+   * on a dome: at radius 0.070 the crown is only 0.044 tall and the bar was
+   * 0.070, so each one stood two centimetres proud of the fabric. Six of them
+   * read as black spokes coming out of a purple disc, which is what got
+   * reported -- nobody could tell it was a hat.
+   *
+   * A seam follows the surface, so it is a sliver of the same sphere at a
+   * hair more radius, under the same squash. It cannot stand off something it
+   * is a copy of.
+   */
   for (let i = 0; i < 6; i++) {
-    const seam = box({ size: [0.0035, 0.070, 0.0035], pos: [0, 0.034, 0], mat: dark, cast: false });
-    seam.rotation.z = (i / 6) * Math.PI * 2;
-    seam.position.set(Math.sin((i / 6) * Math.PI * 2) * 0.070, 0.030, Math.cos((i / 6) * Math.PI * 2) * 0.070);
+    const seam = new THREE.Mesh(
+      new THREE.SphereGeometry(R * 1.008, 3, 10, (i / 6) * Math.PI * 2, 0.05, 0, Math.PI / 2),
+      dark,
+    );
+    seam.scale.copy(crown.scale);
     cap.add(seam);
   }
   // Button on the crown.
   cap.add(cylinder({ r: 0.008, h: 0.006, pos: [0, 0.070, 0], mat: dark }));
-  // Sweatband round the opening.
-  cap.add(new THREE.Mesh(new THREE.TorusGeometry(0.090, 0.007, 8, 24), dark)
-    .rotateX(Math.PI / 2));
 
-  /* Peak: a solid half-disc with real thickness, angled down. A flat circle
-   * with no depth reads as a shape someone forgot to finish. */
+  /*
+   * No sweatband. There was a full torus round the opening, and a complete
+   * dark ring under a dome is the silhouette of a bowler hat -- which is what
+   * this looked like once the spokes came off. On a real cap the band is on
+   * the inside and you never see it from across the room. What tells you it is
+   * a cap is the peak, so the peak does the work: wide enough to break the
+   * dome's outline, and tipped far enough down to read as a peak rather than a
+   * disc seen edge-on.
+   */
   const peak = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.112, 0.112, 0.008, 22, 1, false, -Math.PI / 2, Math.PI),
+    new THREE.CylinderGeometry(0.138, 0.138, 0.009, 24, 1, false, -Math.PI / 2, Math.PI),
     cloth,
   );
-  peak.scale.set(1, 1, 0.80);
-  peak.position.set(0, -0.004, 0.052);
-  peak.rotation.x = -0.30;
+  peak.scale.set(1, 1, 0.72);
+  peak.position.set(0, -0.010, 0.060);
+  peak.rotation.x = -0.46;
   peak.castShadow = true;
   cap.add(peak);
   // Underside of the peak, darker, the way they always are.
   const under = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.110, 0.110, 0.003, 22, 1, false, -Math.PI / 2, Math.PI),
+    new THREE.CylinderGeometry(0.136, 0.136, 0.003, 24, 1, false, -Math.PI / 2, Math.PI),
     dark,
   );
   under.scale.copy(peak.scale);
-  under.position.set(0, -0.010, 0.052);
-  under.rotation.x = -0.30;
+  under.position.set(0, -0.016, 0.060);
+  under.rotation.x = -0.46;
   cap.add(under);
 
   return { group: g };

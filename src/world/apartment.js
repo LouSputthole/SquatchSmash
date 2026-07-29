@@ -88,11 +88,22 @@ export const BATH_SLOTS = [
   { slot: 'bath.high', x: -2.69, y: 2.24, z: -5.12, rotY: Math.PI / 2, h: 0.28 },
 ];
 
-/** Hanging cloth banners rather than framed pictures. */
+/**
+ * Hanging cloth banners rather than framed pictures.
+ *
+ * The wall face is z -4.5 and the framed pieces hang at -4.436, so a banner at
+ * -4.33 was standing 15cm off the wall -- twice as proud as anything around
+ * it, which reads as floating rather than hanging. They sit in the same plane
+ * as the frames now.
+ *
+ * Austin is 1.6m of cloth and was centred at 4.15, which put its right edge
+ * 5cm from the east wall: not hung in the corner, wedged into it. Moved left
+ * far enough to breathe, and still clear of desk.right at 3.015.
+ */
 const BANNER_SLOTS = [
-  { slot: 'banner.main', x: 4.15, y: 1.62, z: -4.33, rotY: 0, h: 0.60 },
+  { slot: 'banner.main', x: 3.95, y: 1.62, z: -4.42, rotY: 0, h: 0.60 },
   // Strung above the monitor, the way a setup backdrop goes up.
-  { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.33, rotY: 0, h: 0.30 },
+  { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.42, rotY: 0, h: 0.30 },
 ];
 
 /** Round crest hung above the bookshelf on the north wall. */
