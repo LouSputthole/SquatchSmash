@@ -117,6 +117,16 @@ try {
       }
     }
   }
+  /* The inbox names its group in data rather than at the call site, so the
+   * scan above cannot see it. Same failure either way: a renamed bank is a
+   * reply he never gives, and nothing anywhere says so. */
+  const mail = fs.readFileSync(path.join(ROOT, 'src/arcade/mail.js'), 'utf8');
+  for (const m of mail.matchAll(/vo:\s*'([^']+)'/g)) {
+    const group = m[1];
+    if (!voCues.some((n) => n.startsWith(`vo.${group}.`))) {
+      fail(`src/arcade/mail.js: a message wants vo '${group}', which has no vo.${group}.* cue`);
+    }
+  }
 } catch (err) {
   fail(err.message);
 }

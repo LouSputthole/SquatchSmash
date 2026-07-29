@@ -154,6 +154,25 @@ const LINES = {
     'Some of that went in.',
     'I will clean that up. Later. Probably.',
   ],
+  /* Reading the post. One bank per sender, because the whole point is that he
+   * answers three very different messages in the same flat register. */
+  'mail.booski': [
+    'He does not say things like that. He has said a thing like that.',
+    'Right. Well. Now I have to actually go, do not I.',
+    'Cheers, Booski.',
+  ],
+  'mail.hate': [
+    'He watched all of them. That is the part he should be embarrassed about.',
+    'Someone was awake at four in the morning to write that. Not me.',
+    '"Anyway good luck I guess." He nearly got there.',
+    'That is going to sit with me for about nine hours.',
+  ],
+  'mail.flying': [
+    'Up, round the field, back down. I could do that.',
+    'He is going to think I am not going to reply. I am going to reply.',
+    'Left seat. He said left seat.',
+  ],
+
   /* Looking at the toilet before anything is brewing. The only place the game
    * admits out loud that cigarettes are what get things moving -- four of them
    * fills the meter, and without this you are left to work that out yourself. */

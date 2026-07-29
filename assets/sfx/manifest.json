@@ -3113,6 +3113,56 @@
       "name": "radio.vo.announcer.02o73bt",
       "voice": "announcer",
       "say": "97.8 The Squatch. The roster, on the roster."
+    },
+    {
+      "name": "vo.mail.booski.1",
+      "voice": "player",
+      "say": "He does not say things like that. He has said a thing like that."
+    },
+    {
+      "name": "vo.mail.booski.2",
+      "voice": "player",
+      "say": "Right. Well. Now I have to actually go, do not I."
+    },
+    {
+      "name": "vo.mail.booski.3",
+      "voice": "player",
+      "say": "Cheers, Booski."
+    },
+    {
+      "name": "vo.mail.hate.1",
+      "voice": "player",
+      "say": "He watched all of them. That is the part he should be embarrassed about."
+    },
+    {
+      "name": "vo.mail.hate.2",
+      "voice": "player",
+      "say": "Someone was awake at four in the morning to write that. Not me."
+    },
+    {
+      "name": "vo.mail.hate.3",
+      "voice": "player",
+      "say": "\"Anyway good luck I guess.\" He nearly got there."
+    },
+    {
+      "name": "vo.mail.hate.4",
+      "voice": "player",
+      "say": "That is going to sit with me for about nine hours."
+    },
+    {
+      "name": "vo.mail.flying.1",
+      "voice": "player",
+      "say": "Up, round the field, back down. I could do that."
+    },
+    {
+      "name": "vo.mail.flying.2",
+      "voice": "player",
+      "say": "He is going to think I am not going to reply. I am going to reply."
+    },
+    {
+      "name": "vo.mail.flying.3",
+      "voice": "player",
+      "say": "Left seat. He said left seat."
     }
   ]
 }

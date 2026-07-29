@@ -158,6 +158,74 @@ const MESSAGES = [
     ],
   },
   {
+    /* The second Booski mail. The thread above is logistics; this one is not,
+     * which is why it is its own message and arrived four hours later. */
+    from: 'BOOSKI',
+    addr: 'booski@silversasquatches.gg',
+    subject: 'tonight',
+    time: '6:31 AM',
+    unread: true,
+    vo: 'mail.booski',
+    body: [
+      'right',
+      '',
+      'good luck tonight. genuinely.',
+      '',
+      'you have been at this longer than anyone thinks you have and i am '
+        + 'the only one who was there for the bad bit so i am the one telling you.',
+      '',
+      'dont overthink it. walk in, sit down, be normal.',
+      '',
+      'i will be there. ape says he will be there.',
+    ],
+  },
+  {
+    /* Somebody from a lobby. Every roster has one and there is nothing to be
+     * done about it except read it and get on with the day. */
+    from: 'Deathmegatron',
+    addr: 'deathmegatron2011@mailbox.ru',
+    subject: 'lol',
+    time: '3:47 AM',
+    unread: true,
+    vo: 'mail.hate',
+    body: [
+      'saw your name on the sheet for tomorrow',
+      '',
+      'youre a little bitch and youll never make it. i have watched your '
+        + 'demos. all of them. thats how much of a little bitch you are, that '
+        + 'i watched all of them.',
+      '',
+      'youll choke. you always choke.',
+      '',
+      'anyway good luck i guess',
+    ],
+  },
+  {
+    from: 'Lou Sasole',
+    addr: 'lou.sasole@silversasquatches.gg',
+    subject: 'the plane thing',
+    time: '5:58 AM',
+    unread: true,
+    vo: 'mail.flying',
+    body: [
+      'Morning,',
+      '',
+      'Ignore the other Lou, he is being dramatic about tomorrow as usual.',
+      '',
+      'Actual reason I am writing: do you want me to take you flying sometime? '
+        + 'Nothing mad. Up, round the field, back down, forty minutes. You '
+        + 'would be in the left seat for a bit of it if you wanted.',
+      '',
+      'I have asked everyone on the roster and every single one of them said '
+        + 'they would "love to" and then never replied to the follow-up, so I '
+        + 'am fully expecting the same from you and there are no hard feelings.',
+      '',
+      'Offer stands regardless. Say the word.',
+      '',
+      'Lou',
+    ],
+  },
+  {
     from: 'Vehicle Services Dept.',
     addr: 'final-notice@vehicle-services-dept.net',
     subject: 'FINAL NOTICE regarding your vehicle warranty',
@@ -314,6 +382,13 @@ export class Mail {
     if (m.fired && !this.readFiring) {
       this.readFiring = true;
       this.onFired?.();
+    }
+    /* He answers his post out loud, once per message. Delayed so it lands
+     * after you have had a moment with the thing rather than over the top of
+     * opening it. */
+    if (m.vo && !m.voSaid) {
+      m.voSaid = true;
+      this.audio?.say?.(m.vo, { delay: 1.6 });
     }
     if (m.meeting) this.onMeeting?.();
   }
