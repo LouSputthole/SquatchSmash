@@ -1,5 +1,11 @@
 /**
- * SQUATCH SMASH -- one of the two things installed on the desk PC.
+ * SQUATCH SHOOT -- the shooting gallery on the desk PC.
+ *
+ * This used to be called Squatch Smash, which was the placeholder name for
+ * whatever was on the PC before the real Squatch Smash turned up. It is not a
+ * smashing game and never was: nine burrows, things that pop out of them, and
+ * a friendly or two you are not supposed to hit. So it is Squatch Shoot, and
+ * the name goes back to the campground game in game/, which earned it.
  *
  * An app in the SquatchOS sense: the OS owns the monitor canvas, the boot
  * sequence, the desktop and the CRT treatment, and hands this the drawing
@@ -34,10 +40,10 @@ const SPOTS = (() => {
   return out;
 })();
 
-export class SquatchSmash {
+export class SquatchShoot {
   constructor({ audio, os, onScore } = {}) {
-    this.id = 'smash';
-    this.label = 'SQUATCH\nSMASH.exe';
+    this.id = 'shoot';
+    this.label = 'SQUATCH\nSHOOT.exe';
     this.os = os;
     this.g = os.g;
     this.audio = audio;

@@ -673,6 +673,7 @@ function sitAtPC() {
       arcade.boot();
     }
     hud.setPosture('get up from the desk');
+    arcade.setSeated?.(true);
   });
 }
 
@@ -682,6 +683,7 @@ function standFromPC() {
   audio.stopLoop('chair.roll.loop', 0.2);
   if (!game.seated) return;
   game.seated = false;
+  arcade.setSeated?.(false);
   hud.setMode('walk');
   audio.setMuffle(false);
   radio.setFocusMuffle(false);
@@ -2208,6 +2210,11 @@ function frame() {
       if (game.seated) {
         arcade.update(hdt);
         screenTexture.needsUpdate = true;
+        /* Squatch Smash is a whole separate page laid over the monitor rather
+         * than something drawn into the texture, so it has to be re-fitted to
+         * the screen every frame -- the chair still rolls and the head still
+         * moves while you are sat there. No-op for the other two apps. */
+        arcade.placeOverlay?.(apartment.screen, camera, renderer.domElement, THREE);
       } else {
         interaction.update(dt);
         // Keep the screen alive while the player is across the room.
