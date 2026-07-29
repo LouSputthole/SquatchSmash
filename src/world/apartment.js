@@ -55,10 +55,10 @@ export const WALL_SLOTS = [
   // pair either side of the monitor with a small one stacked above.
   { slot: 'north.corner', x: -4.20, y: 1.70, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'shelf.left', x: -3.30, y: 1.98, z: -4.40, rotY: 0, h: 0.34 },
-  /* Above the shelf rather than beside it: the shelf runs to x -2.3 and the
-   * bathroom door starts at -1.90, so wall level here is 40cm of nothing. The
-   * space over the top is the actual gap. */
-  { slot: 'shelf.above', x: -2.62, y: 2.16, z: -4.40, rotY: 0, h: 0.30 },
+  /* Above the shelf, but pushed right of the crest, which is a 21cm radius
+   * centred on x -2.70 and therefore owns -2.91 to -2.49. The first placement
+   * sat almost exactly on top of it. */
+  { slot: 'shelf.above', x: -2.16, y: 2.10, z: -4.40, rotY: 0, h: 0.26 },
   { slot: 'cork.above', x: -0.10, y: 2.20, z: -4.40, rotY: 0, h: 0.46 },
   { slot: 'desk.left', x: 0.95, y: 1.80, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'desk.right', x: 2.72, y: 1.62, z: -4.40, rotY: 0, h: 0.52 },
@@ -450,7 +450,11 @@ export async function buildApartment(ctx) {
   root.add(desk.group);
   addCollider(desk.bounds);
 
-  const chair = P.makeChair(M, { x: 1.68, z: -3.22, rotY: 0.12 });
+  /* Turned to face the desk. makeChair puts its backrest at local z -0.20, so
+   * at rotY ~0 the back lands at world z -3.42 -- between the seated camera at
+   * -3.34 and the monitor at -4.07, which is precisely the thing that was in
+   * the way. Half a turn puts the back behind you, where a chair back goes. */
+  const chair = P.makeChair(M, { x: 1.68, z: -3.22, rotY: Math.PI + 0.12 });
   root.add(chair.group);
 
   // Zyns live on the desk, where the gaming happens.
@@ -633,7 +637,11 @@ export async function buildApartment(ctx) {
   root.add(shelf.group);
   const books = P.makeBooks(M, { x: -3.14, y: 1.478, z: -4.34, count: 9 });
   root.add(books.group);
-  root.add(P.makeBeerCan(M, { x: -2.30, y: 1.478, z: -4.34, crushed: true }).group);
+  /* Left standing rather than crushed. Crumpled, at shelf height, in the
+   * corner of your eye, it does not read as a can someone put down -- it reads
+   * as a small grey object at a strange angle, which is a thing you notice and
+   * then have to work out. Upright it is instantly a beer can on a shelf. */
+  root.add(P.makeBeerCan(M, { x: -2.30, y: 1.478, z: -4.34 }).group);
 
   /* The glue and the tissues, on the desk under the crooked frame. */
   /* Set dressing only -- deliberately NOT interactive.
@@ -1323,13 +1331,19 @@ export async function buildApartment(ctx) {
   if (underGear?.real) {
     const uf = P.makeStandingFrame(M, {
       x: underBed.x, y: 0.012, z: underBed.z,
-      rotY: Math.PI * 0.5 + 0.15,
+      rotY: 0,
       w: 0.20 * (underGear.aspect || 0.75),
       h: 0.20,
       texture: underGear.texture,
     });
-    /* Laid flat rather than stood up -- it is under a bed, not on a shelf. */
-    uf.group.rotation.z = Math.PI / 2;
+    /* Laid flat and FACE UP, so it reads as it slides out.
+     *
+     * A standing frame's picture faces +Z. Rolling it about Z keeps it
+     * vertical and merely tips it onto its edge -- which is what it did. The
+     * rotation that lays a picture down is -90 about X: local +Z maps to +Y,
+     * and the face ends up pointing at the ceiling. The Z term is then just
+     * which way up it lies on the floor, so it is a spin, not a roll. */
+    uf.group.rotation.set(-Math.PI / 2, 0, Math.PI / 2 + 0.14);
     uf.group.position.x = underBed.x + underBed.hidden;
     root.add(uf.group);
     underFrame = uf.group;

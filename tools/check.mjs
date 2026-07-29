@@ -131,6 +131,78 @@ try {
   fail(err.message);
 }
 
+/* ---- hung art must not overlap other hung art ---- */
+/* Slots are hand-placed coordinates and a picture's WIDTH is not written down
+ * anywhere -- it comes from the image's own aspect ratio at load time. So two
+ * slots that look far apart in the table can collide once real files are in
+ * them, and the only way anyone finds out is by walking up to that wall. The
+ * crest is the reason this exists: it lives in its own slot table, so a check
+ * that only read WALL_SLOTS said everything was fine while a logo sat on it. */
+try {
+  const dim = (file) => {
+    const b = fs.readFileSync(path.join(ROOT, 'assets/art', file));
+    if (b[0] === 0x89) return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
+    let i = 2;
+    while (i < b.length - 8) {
+      if (b[i] !== 0xFF) { i++; continue; }
+      const mk = b[i + 1];
+      if (mk >= 0xC0 && mk <= 0xCF && mk !== 0xC4 && mk !== 0xC8 && mk !== 0xCC) {
+        return { h: b.readUInt16BE(i + 5), w: b.readUInt16BE(i + 7) };
+      }
+      i += 2 + b.readUInt16BE(i + 2);
+    }
+    return null;
+  };
+  const art = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/art/manifest.json'), 'utf8'));
+  const fileOf = Object.fromEntries(art.art.filter((a) => a.file).map((a) => [a.slot, a.file]));
+  const src = fs.readFileSync(path.join(ROOT, 'src/world/apartment.js'), 'utf8');
+
+  const placed = [];
+  for (const m of src.matchAll(/\{ slot: '([^']+)', x: (-?[\d.]+), y: (-?[\d.]+), z: (-?[\d.]+), rotY: ([^,]+), h: ([\d.]+)/g)) {
+    placed.push({ slot: m[1], x: +m[2], y: +m[3], z: +m[4], rotY: m[5], h: +m[6] });
+  }
+  // Round slots carry a radius instead of a height, and live in their own table.
+  for (const m of src.matchAll(/\{ slot: '([^']+)', x: (-?[\d.]+), y: (-?[\d.]+), z: (-?[\d.]+), rotY: ([^,]+), r: ([\d.]+)/g)) {
+    placed.push({ slot: m[1], x: +m[2], y: +m[3], z: +m[4], rotY: m[5], h: +m[6] * 2, w: +m[6] * 2 });
+  }
+
+  const live = [];
+  for (const p of placed) {
+    const file = fileOf[p.slot];
+    if (!file) continue;
+    if (p.w === undefined) {
+      const d = dim(file);
+      if (!d) continue;
+      p.w = p.h * (d.w / d.h);
+    }
+    /* Which wall a picture is on is its FACING, not where it happens to be:
+     * the bathroom's side walls sit at z -5 to -7, which is "north" by
+     * position and quite obviously not the same surface as the north wall of
+     * the flat. rotY 0 / PI face along Z and so run along X; +-PI/2 face along
+     * X and run along Z. Two pictures only collide if they also share a wall
+     * PLANE, so the perpendicular coordinate goes in the key. */
+    const alongX = !/Math\.PI\s*\/\s*2/.test(p.rotY);
+    p.u = alongX ? p.x : p.z;
+    p.wall = `${alongX ? 'x' : 'z'}@${(alongX ? p.z : p.x).toFixed(1)}`;
+    p.file = file;
+    live.push(p);
+  }
+  for (let i = 0; i < live.length; i++) {
+    for (let j = i + 1; j < live.length; j++) {
+      const a = live[i]; const b = live[j];
+      if (a.wall !== b.wall) continue;
+      const du = Math.abs(a.u - b.u) - (a.w + b.w) / 2;
+      const dv = Math.abs(a.y - b.y) - (a.h + b.h) / 2;
+      if (du < 0 && dv < 0) {
+        fail(`${a.slot} (${a.file}) overlaps ${b.slot} (${b.file}) on the ${a.wall} wall `
+          + `— ${(-du).toFixed(2)}m across, ${(-dv).toFixed(2)}m up`);
+      }
+    }
+  }
+} catch (err) {
+  fail(err.message);
+}
+
 /* ---- the radio's voice cues must match what is on air ---- */
 // Every line in stations.js is turned into a text-to-speech cue by a bit of
 // parsing -- strip the `SPEAKER:` label, strip stage directions, pick a voice.
