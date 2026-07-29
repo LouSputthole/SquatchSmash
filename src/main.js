@@ -20,6 +20,7 @@ import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
 import { Goals, ENDINGS, MEETING } from './core/goals.js';
 import { Chat } from './core/chat.js';
+import { Spooky } from './core/spooky.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -135,6 +136,77 @@ const drunk = new Drunk();
 const highs = new Highs();
 // The only goal in the game, and it never announces itself.
 const goals = new Goals(time);
+
+/*
+ * The flat, once you are far enough gone.
+ *
+ * Every one of these is deniable -- a door that was probably already like
+ * that, a light doing what old wiring does, somebody upstairs. Nothing is ever
+ * confirmed and nothing is ever in the room with you, which is the only way it
+ * stays funny instead of turning into a different game. His lines are all
+ * "did that just", never "there is something in here".
+ */
+const spooky = new Spooky({
+  door: () => {
+    const d = apartment.bathDoorPivot;
+    if (!d) return false;
+    // Swings a few degrees on its own and stops. That is all.
+    const from = d.rotation.y;
+    const to = from + (Math.abs(from) > 0.4 ? -0.34 : 0.42);
+    const t0 = performance.now();
+    const swing = () => {
+      const k = Math.min(1, (performance.now() - t0) / 1900);
+      d.rotation.y = from + (to - from) * (k * k * (3 - 2 * k));
+      if (k < 1) requestAnimationFrame(swing);
+    };
+    swing();
+    audio.play('door.creak', { volume: 0.30, position: new THREE.Vector3(-1.4, 1.2, -4.2), muffle: 900 });
+    audio.say('spooky', { chance: 0.55, delay: 2.2 });
+  },
+
+  lights: () => {
+    /* A dip, like a compressor kicking in somewhere. Nothing switches, and if
+     * every light in the flat is already off there is nothing to see, so it
+     * does not spend the event on an empty room. */
+    if (!apartment.state.lightsOn && !apartment.state.lampOn) return false;
+    apartment.dipLights(0.26, 0.24);
+    audio.play('light.dip', { volume: 0.35 });
+    // Twice, unevenly. Once reads as a bulb; twice reads as the building.
+    setTimeout(() => apartment.dipLights(0.45, 0.16), 520);
+    audio.say('spooky', { chance: 0.5, delay: 1.6 });
+  },
+
+  upstairs: () => {
+    /* Somebody walks the length of the room above and stops. Six steps, and
+     * the sixth does not arrive, which is worse than seven would be. */
+    const pos = new THREE.Vector3(1.2, 3.4, 0.4);
+    for (let i = 0; i < 5; i++) {
+      audio.play('neighbours.thump', {
+        position: pos, volume: 0.30 + i * 0.02, delay: i * 0.62 + Math.random() * 0.08, muffle: 130,
+      });
+    }
+    audio.say('spooky', { chance: 0.6, delay: 4.4 });
+  },
+
+  clock: () => {
+    // The tick goes out of step with itself for a few seconds.
+    for (let i = 0; i < 7; i++) {
+      audio.play('clock.tick', {
+        volume: 0.22, delay: i * 0.52 + (i > 2 ? 0.19 : 0) + Math.random() * 0.05, rate: 0.94,
+      });
+    }
+    audio.say('spooky', { chance: 0.4, delay: 3.0 });
+  },
+
+  radio: () => {
+    // One word of something that is not on the schedule, then back to normal.
+    if (!radio.on) return false;
+    audio.play('radio.static', { volume: 0.30, position: apartment.radioPos });
+    hud.say('<em>&mdash; and he is still in the flat with y&mdash;</em>', 2600);
+    setTimeout(() => hud.say('…which is the traffic. Back to Lou.', 3200), 2800);
+    audio.say('spooky', { chance: 0.7, delay: 2.0 });
+  },
+});
 // Booski, typing into a server nobody is in. The second way to find out.
 const chat = new Chat(time);
 const smoke = new SmokeSystem(scene);
@@ -323,7 +395,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
-    updateChair, poseDrink, heldDrinks,
+    updateChair, poseDrink, heldDrinks, spooky,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -2082,6 +2154,7 @@ function frame() {
       // on scaled time; the clock does not, because a day is fifteen minutes
       // whether or not you have had a bowl.
       highs.update(dt);
+      spooky.update(dt, highs.trip);
       const hdt = dt * highs.timeScale;
 
       // Intoxication first: the player controller reads sway/impair this frame.

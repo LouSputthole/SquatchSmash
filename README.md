@@ -42,21 +42,38 @@ its manifests over HTTP.
 
 If you need it somewhere you can't run a server — a sandboxed frame, a hosted
 preview, an email attachment — `npm run bundle` writes
-`dist/squatch-apartment.html`: every module, three.js, every image and every
-manifest inlined, with no external requests at all.
+`dist/squatch-apartment.html`: every module, three.js, every image, every
+manifest, and as much of the voice and music as fits, with no external requests
+at all. Nothing that doesn't fit is left in a manifest pointing at a file the
+bundle doesn't carry; it's struck from the manifest, so the game never asks.
 
 ```bash
-npm run bundle                 # ~3.8 MB, art re-encoded to 520px
-npm run bundle -- --full       # keep the art at full size (~9 MB)
+npm i                          # playwright, used to re-encode the art
+npm run bundle                 # ~16 MB, art re-encoded to 384px
+npm run bundle -- --full       # originals, whole songs, every clip (~40 MB)
 npm run bundle -- --max=1024   # somewhere in between
 ```
 
-Each module becomes a `data:` URI and every import is rewritten to a flat
-specifier resolved through an importmap — so there's no concatenation and no
-scope merging, which matters when six files each define their own `clamp`.
-Bundled builds set `window.__SQUATCH_INLINE`; `src/core/assets.js` is the one
-place that knows the difference. Pointer lock is unavailable in some frames, so
-the game falls back to hold-left-button-to-look rather than being unplayable.
+Hosted previews refuse anything over 16 MB, so the build measures what the
+script and the art cost and spends the rest on sound in priority order: his
+voice, then the records, then the hosts (whose lines still show as text without
+a clip). Records are cut to the thirty seconds the station actually plays
+(`tools/mp3-slice.mjs`) — no re-encoding, just the frames in the window. A
+build that ends up over the limit **fails** rather than writing a file that
+won't open. `SQUATCH_LIMIT` and `SQUATCH_MUSIC_BUDGET` move the lines.
+
+**This is a preview, not the game.** The Pages deploy serves every clip and
+every track over HTTP with nothing dropped; that's the one to play.
+
+Each module becomes a factory function in dependency order and every import
+becomes a table lookup — so there's no scope merging, which matters when six
+files each define their own `clamp`. It deliberately does *not* use `data:` URI
+modules and an importmap: a real CSP permits an inline `<script>` and refuses a
+`data:` script, and a refused module fires no error, so the page just sits there
+looking like a slow network. Bundled builds set `window.__SQUATCH_INLINE`;
+`src/core/assets.js` is the one place that knows the difference. Pointer lock is
+unavailable in some frames, so the game falls back to
+hold-left-button-to-look rather than being unplayable.
 
 ---
 

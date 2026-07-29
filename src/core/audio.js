@@ -641,6 +641,19 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'door.knob':
       burst(ctx, dest, t, { dur: 0.16, type: 'bandpass', freq: 1700, q: 2.2, gain: 0.26, sweep: 0.6 });
       break;
+    /* A hinge turning slowly under its own weight. Two narrow bands walking
+     * downward, because a creak is a resonance moving, not an impact -- and it
+     * has to be quiet enough that you are not sure you heard it. */
+    case 'door.creak':
+      burst(ctx, dest, t, { dur: 1.5, type: 'bandpass', freq: 640, q: 14, gain: 0.10, sweep: 0.72 });
+      burst(ctx, dest, t + 0.34, { dur: 1.1, type: 'bandpass', freq: 980, q: 18, gain: 0.055, sweep: 0.8 });
+      break;
+    /* Mains sagging for a moment: the hum drops in pitch and comes back. No
+     * click, because nothing switched. */
+    case 'light.dip':
+      tone(ctx, dest, t, { freq: 120, to: 96, dur: 0.22, gain: 0.045, type: 'sine' });
+      tone(ctx, dest, t + 0.22, { freq: 96, to: 120, dur: 0.5, gain: 0.03, type: 'sine' });
+      break;
     case 'window.blinds':
       for (let i = 0; i < 12; i++) {
         burst(ctx, dest, t + i * 0.028, { dur: 0.04, type: 'bandpass', freq: 2600 + Math.random() * 1600, q: 3, gain: 0.13 });

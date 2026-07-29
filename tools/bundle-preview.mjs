@@ -10,23 +10,28 @@
  * This produces a single file with no external requests at all.
  *
  * How it works
- *   - every module in src/ becomes a `data:text/javascript;base64,...` URI
- *   - every import specifier is rewritten to a flat bare specifier, and an
- *     importmap points each one at its data URI. Bare specifiers resolve
- *     through the map regardless of the importing module's base URL, which
- *     relative ones cannot do from inside a data: URL.
- *   - so no concatenation, no scope merging, and none of the name collisions
- *     that come with it. Six modules define their own `clamp`; they keep it.
- *   - the JSON manifests are inlined as `window.__SQUATCH_INLINE`, and the
- *     art files are rewritten to data URIs (see src/core/assets.js).
+ *   - every module in src/ becomes a factory function in dependency order, and
+ *     imports become lookups on an exports table. See the Emit section for why
+ *     it is not the obvious build with data: URIs and an importmap.
+ *   - so no scope merging and none of the name collisions that come with it.
+ *     Six modules define their own `clamp`; they keep it.
+ *   - the JSON manifests are inlined as `window.__SQUATCH_INLINE`, and the art,
+ *     voice and music files are rewritten to data URIs (src/core/assets.js).
  *
- * Images are re-encoded smaller on the way in -- the source art is 6MB, which
- * is 8MB once base64'd, and nothing wants an 8MB HTML file. Pass --full to
- * keep the originals.
+ * Nothing is fetched at runtime, which is the whole point, and that means
+ * anything that does not fit the budget is not merely left out of the bundle:
+ * it is struck from the inlined manifest too, so the game never asks for it.
+ * A manifest listing a record the bundle does not carry is a 404 and a silent
+ * gap on the station.
+ *
+ * Media is re-encoded or cut down on the way in -- the source art is 6MB and
+ * the records are 23MB, and nothing wants a 30MB HTML file. Pass --full to
+ * keep the originals, which is only sensible for a local build.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sliceMp3, durationOf } from './mp3-slice.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = path.join(ROOT, 'dist');
@@ -34,6 +39,14 @@ const OUT = path.join(OUT_DIR, 'squatch-apartment.html');
 
 const args = process.argv.slice(2);
 const FULL = args.includes('--full');
+
+/**
+ * What the hosted preview will accept. Going over does not produce a large
+ * page, it produces no page, so this is checked at the end and the build fails
+ * rather than writing a file that cannot be opened. --full is a local build and
+ * is not gated.
+ */
+const HARD_LIMIT = Number(process.env.SQUATCH_LIMIT || 16 * 1024 * 1024);
 /**
  * Longest edge for re-encoded art. Most of these are photographs that appear
  * about a hand's width on screen, so they get the small budget; the two
@@ -121,91 +134,161 @@ const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
  * The synth covers every sound effect, so those can stay out of the bundle and
  * cost nothing. The voice cannot be synthesised -- it is a person reading
  * lines -- so a bundle with no samples is a bundle with a silent narrator,
- * which is most of what was written this month.
+ * which is most of what was written this month. `--sfx` bakes the effects too,
+ * `--no-vo` bakes nothing.
  *
- * So: bake the voice, skip the rest, and stop at a byte budget so the page
- * stays openable. `--sfx` bakes the effects too, `--no-vo` bakes nothing.
+ * How much room there is for sound is not a number anyone should be typing
+ * in. It is whatever the limit leaves once the script and the art are laid
+ * down, and both of those move -- art gets added, three.js gets updated. A
+ * hand-tuned constant is a constant that is wrong a fortnight later, and the
+ * way you find out is a preview that will not open.
+ *
+ * So the audio budget is measured, not declared, and it is spent in priority
+ * order: his voice first, because he talks from the first second and a silent
+ * narrator is not a preview of anything; then the records, because a record
+ * with no file is a title card over silence; then the hosts, who degrade
+ * gracefully -- a host line with no clip still shows its text and holds the
+ * screen for a reading beat, which is what the station did before anyone was
+ * recorded.
+ *
+ * SQUATCH_MUSIC_BUDGET pins the records' share if you want to trade it against
+ * the hosts by hand. --full ignores all of it.
  */
-/* The hosted preview refuses anything over 16MB, and the art and the script
- * want three of it, so the voice gets eleven. His lines all fit inside that;
- * the hosts share what is left. Raise it with SQUATCH_VO_BUDGET for a local
- * build, where nothing is capped. */
-const VO_BUDGET = Number(process.env.SQUATCH_VO_BUDGET || 11 * 1024 * 1024);
 const WANT_VO = !process.argv.includes('--no-vo');
 const WANT_SFX = process.argv.includes('--sfx');
 
-let sfxBytes = 0;
-{
-  const present = new Set(inline['assets/sfx/index.json'].files || []);
-  const cues = inline['assets/sfx/manifest.json'].sfx || [];
-  const baked = [];
-  let skipped = 0;
+// vo.* is the man in the flat, radio.vo.* is the hosts. Both are people
+// reading lines; neither has a synth fallback.
+const isVoice = (n) => n.startsWith('vo.') || n.startsWith('radio.vo.');
+const isMine = (n) => n.startsWith('vo.');
 
-  // vo.* is the man in the flat, radio.vo.* is the hosts. Both are people
-  // reading lines; neither has a synth fallback.
-  const isVoice = (n) => n.startsWith('vo.') || n.startsWith('radio.vo.');
+const PRESENT = new Set(inline['assets/sfx/index.json'].files || []);
+const CUES = inline['assets/sfx/manifest.json'].sfx || [];
 
-  /*
-   * His voice goes in whole -- you hear it from the first second and it is
-   * the only voice that is always relevant. The hosts do not all fit, so they
-   * are taken round-robin by speaker rather than in manifest order: eleven
-   * hosts each losing their back half beats four hosts complete and seven
-   * struck silent. A host line with no clip still shows its text and holds
-   * the screen for a reading beat, which is what the radio did before anyone
-   * was recorded, so this degrades to the old behaviour rather than to a gap.
-   */
-  const mine = [];
+/*
+ * The hosts do not all fit, so they are taken round-robin by speaker rather
+ * than in manifest order: eleven hosts each losing their back half beats four
+ * hosts complete and seven struck silent.
+ */
+function hostsRoundRobin() {
   const byVoice = new Map();
-  for (const cue of cues) {
-    const file = cue.file || `${cue.name}.mp3`;
-    if (!present.has(file) || !isVoice(cue.name)) continue;
-    if (cue.name.startsWith('vo.')) { mine.push(cue); continue; }
+  for (const cue of CUES) {
+    if (!PRESENT.has(cue.file || `${cue.name}.mp3`)) continue;
+    if (!isVoice(cue.name) || isMine(cue.name)) continue;
     const who = cue.name.split('.')[2] || 'other';
     if (!byVoice.has(who)) byVoice.set(who, []);
     byVoice.get(who).push(cue);
   }
-  const hosts = [];
+  const out = [];
   for (let i = 0; ; i++) {
     let any = false;
     for (const list of byVoice.values()) {
-      if (i < list.length) { hosts.push(list[i]); any = true; }
+      if (i < list.length) { out.push(list[i]); any = true; }
     }
     if (!any) break;
   }
-  const ordered = [...mine, ...hosts, ...cues.filter((c) => !isVoice(c.name))];
-  const dropped = new Map();
+  return out;
+}
 
-  for (const cue of ordered) {
+let sfxBytes = 0;
+const dropped = new Map();
+let skipped = 0;
+
+/**
+ * Bake a run of cues, stopping at a byte ceiling.
+ * @param {Array} cues   in the order they should be spent
+ * @param {number} limit total baked audio bytes not to exceed
+ * @returns {number} bytes spent here
+ */
+function bakeCues(cues, limit) {
+  const before = sfxBytes;
+  for (const cue of cues) {
     const file = cue.file || `${cue.name}.mp3`;
-    if (!present.has(file)) continue;
-    const isVo = isVoice(cue.name);
-    if (isVo ? !WANT_VO : !WANT_SFX) continue;
+    if (!PRESENT.has(file)) continue;
+    if (isVoice(cue.name) ? !WANT_VO : !WANT_SFX) continue;
 
     let bytes;
     try { bytes = read('assets/sfx/' + file); } catch { continue; }
-    if (sfxBytes + bytes.length * 1.37 > VO_BUDGET) {
-      const who = cue.name.startsWith('vo.') ? 'the player' : (cue.name.split('.')[2] || 'other');
+    if (sfxBytes + bytes.length * 1.37 > limit) {
+      const who = isMine(cue.name) ? 'the player' : (cue.name.split('.')[2] || 'other');
       dropped.set(who, (dropped.get(who) || 0) + 1);
       skipped++;
       continue;
     }
 
-    const uri = dataUri('audio/mpeg', bytes);
-    cue.file = uri;          // what the engine fetches
-    baked.push(cue.name);
-    sfxBytes += uri.length;
+    cue.file = dataUri('audio/mpeg', bytes);   // what the engine fetches
+    sfxBytes += cue.file.length;
+  }
+  return sfxBytes - before;
+}
+
+/* index.json exists to stop the served build firing 400 requests at files that
+ * were never generated. A bundle has no such problem: the baked cues are data
+ * URIs that resolve instantly, and the rest fail their fetch and fall through
+ * to the synth, which is the intended result anyway. Dropping the index halves
+ * the page, because otherwise every URI is stored twice -- once as the cue's
+ * file, once in the index that gates on it. */
+delete inline['assets/sfx/index.json'];
+
+/* ------------------------------------------------------------------ */
+/* Music                                                              */
+/* ------------------------------------------------------------------ */
+
+/*
+ * The records are the biggest thing in the project by a distance -- 23MB of
+ * whole songs -- and the station plays thirty seconds of each. So they are cut
+ * to the window that actually airs before being baked, which turns a 3MB track
+ * into an 800KB one at the same bitrate (tools/mp3-slice.mjs).
+ *
+ * Anything that still does not fit is REMOVED from the playlist rather than
+ * left pointing at a file the bundle does not carry. The radio is built to run
+ * a short list -- or none at all -- and it will not fetch what it cannot see.
+ */
+let musicBytes = 0;
+/** @param {number} limit bytes of base64 the records may take up */
+function bakeMusic(limit) {
+  const music = inline['assets/music/manifest.json'];
+  const tracks = music?.tracks || [];
+  const kept = new Set();
+  const cut = [];
+
+  /* Spend on the scripted record first. A track with `cutAt` is not filler in
+   * a rotation, it is a beat -- the one the station talks over to read the
+   * meeting notice -- and losing it to alphabetical luck loses the joke. The
+   * playlist itself keeps its written order; only the buying does not. */
+  const order = [...tracks].sort((a, b) => (b.cutAt ? 1 : 0) - (a.cutAt ? 1 : 0));
+
+  for (const track of order) {
+    if (!track.file) continue;
+    let buf;
+    try { buf = read('assets/music/' + track.file); } catch { continue; }
+
+    if (!FULL) {
+      /* Where the station drops in, and how long it stays. Mirrors radio.js:
+       * SONG_START_FRAC of the way through for SONG_SECONDS, unless the track
+       * pins its own start (the meeting-notice cut-in does). One second of
+       * slack so the fade never runs off the end of the file. */
+      const dur = durationOf(buf);
+      const take = (track.cutAt || 30) + 1;
+      const slice = dur ? sliceMp3(buf, dur * (track.start ?? 0.20), take) : null;
+      if (slice) {
+        buf = slice.buf;
+        // The window now starts at byte zero, so the engine must not seek.
+        track.start = 0;
+      }
+    }
+
+    const uri = dataUri('audio/mpeg', buf);
+    if (!FULL && musicBytes + uri.length > limit) { cut.push(track.title || track.file); continue; }
+    track.file = uri;
+    musicBytes += uri.length;
+    kept.add(track);
   }
 
-  /* index.json exists to stop the served build firing 400 requests at files
-   * that were never generated. A bundle has no such problem: the baked cues
-   * are data URIs that resolve instantly, and the rest fail their fetch and
-   * fall through to the synth, which is the intended result anyway. Dropping
-   * the index halves the page, because otherwise every URI is stored twice --
-   * once as the cue's file, once in the index that gates on it. */
-  delete inline['assets/sfx/index.json'];
-  if (skipped) {
-    const who = [...dropped].map(([k, n]) => `${k} ${n}`).join(', ');
-    console.log(`  note: ${skipped} clips over the ${mb(VO_BUDGET)} budget (${who})`);
+  if (music) music.tracks = tracks.filter((t) => kept.has(t));
+  if (cut.length) {
+    console.log(`  note: ${cut.length} records did not fit in ${mb(limit)}, `
+      + `off the playlist (${cut.join(', ')})`);
   }
 }
 
@@ -407,6 +490,51 @@ const script = [
 const css = read('src/style.css').toString('utf8');
 const html = read('index.html').toString('utf8');
 
+/* ------------------------------------------------------------------ */
+/* Spending what is left on sound                                      */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Deliberately last. The script and the art are fixed costs -- there is no
+ * version of this file that leaves out a module -- so the sound is bought with
+ * the change, and the change is now a measured number rather than a guess.
+ *
+ * Priority order, spending down: him, then the records, then the hosts.
+ *
+ * He is uncapped because his clips are baked in manifest order, and manifest
+ * order is roughly the order features were built -- capping him drops the tail,
+ * and the tail is whatever was added most recently. A budget that silences the
+ * newest thing in the game every time is worse than no budget.
+ *
+ * The records are capped, because thirty seconds of music costs what forty of
+ * his lines cost and the hosts would otherwise get nothing at all. The hosts
+ * come last on purpose: theirs is the only voice that degrades gracefully, a
+ * line with no clip still showing its text.
+ *
+ * None of this applies to the served build. Pages carries every clip and every
+ * track; this file is a preview and says so in the log.
+ */
+/* Measured, not added up: serialising the manifests now -- with the art URIs
+ * already in and no audio yet -- counts the art, every key name, and every
+ * comma exactly once. Summing artBytes by hand misses the JSON around it, and
+ * missing it by 60KB is how you land 0.06MB over a hard limit. */
+const FIXED = script.length + css.length + html.length
+  + JSON.stringify(inline).length + 128 * 1024;
+const AUDIO_BUDGET = FULL ? Infinity : Math.max(0, HARD_LIMIT - FIXED);
+/** Records get this much of the audio budget, unless pinned by hand. */
+const MUSIC_SHARE = Number(process.env.SQUATCH_MUSIC_BUDGET
+  || (Number.isFinite(AUDIO_BUDGET) ? AUDIO_BUDGET * 0.38 : Infinity));
+
+bakeCues(CUES.filter((c) => isMine(c.name)), AUDIO_BUDGET);
+bakeMusic(Math.min(MUSIC_SHARE, AUDIO_BUDGET - sfxBytes));
+bakeCues(hostsRoundRobin(), AUDIO_BUDGET - musicBytes);
+if (WANT_SFX) bakeCues(CUES.filter((c) => !isVoice(c.name)), AUDIO_BUDGET - musicBytes);
+
+if (skipped) {
+  const who = [...dropped].map(([k, n]) => `${k} ${n}`).join(', ');
+  console.log(`  note: ${skipped} clips did not fit, so those lines run on text alone (${who})`);
+}
+
 /** The HUD markup, lifted straight out of index.html so it cannot drift. */
 const body = html
   .slice(html.indexOf('<canvas id="scene">'), html.indexOf('<script type="module"'))
@@ -432,5 +560,25 @@ fs.writeFileSync(OUT, out);
 console.log(`  modules   ${modules.size}`);
 console.log(`  script    ${mb(script.length)}`);
 console.log(`  art       ${mb(artBytes)}${FULL ? ' (full size)' : ` (max ${MAX_EDGE}px)`}`);
-console.log(`  audio     ${mb(sfxBytes)}${WANT_SFX ? '' : ' (voice only)'}`);
+console.log(`  voice     ${mb(sfxBytes)}${WANT_SFX ? '' : ' (no effects — the synth covers those)'}`);
+console.log(`  music     ${mb(musicBytes)}${FULL ? ' (whole tracks)' : ' (the aired window only)'}`);
 console.log(`\n${path.relative(ROOT, OUT)}  ${mb(out.length)}`);
+
+/*
+ * Every step above degrades quietly on purpose -- no Chromium means full-size
+ * art, no clip means the synth. That is the right behaviour per step and the
+ * wrong behaviour in aggregate, because enough of it produces a file the host
+ * will not serve, and the only symptom is a preview that never appears. So the
+ * total is checked once, here, and a build that cannot be opened is a build
+ * that fails.
+ */
+if (!FULL && out.length > HARD_LIMIT) {
+  console.error(`\nover the ${mb(HARD_LIMIT)} limit by ${mb(out.length - HARD_LIMIT)}.`);
+  if (!shrunk.size) {
+    console.error('the art went in at full size because Chromium was not available — '
+      + 'run `npm i -D playwright` (the browser itself is already on this image).');
+  }
+  console.error('otherwise lower SQUATCH_VO_BUDGET / SQUATCH_MUSIC_BUDGET, or pass '
+    + '--full for a local build, where nothing is capped.');
+  process.exit(1);
+}

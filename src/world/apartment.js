@@ -800,6 +800,9 @@ export async function buildApartment(ctx) {
     bathVisited: false,
     bathLightOn: false,
     lightsManual: false,   // set once the player works the switch themselves
+    /** Mains multiplier and how long it has left. 1 is normal service. */
+    sag: 1,
+    sagT: 0,
     bladder: 0.12,       // 0..1; drinking fills it
     zynsLeft: 15,
     zynsTaken: 0,
@@ -953,6 +956,19 @@ export async function buildApartment(ctx) {
     label: () => (state.lightsOn ? 'Lights <b>off</b>' : 'Lights <b>on</b>'),
     onUse: () => { ctx.onNote?.('lights'); setCeiling(!state.lightsOn); },
   });
+
+  /**
+   * Pull the mains down for a moment, the way they go when something big kicks
+   * in two floors away. Nothing switches and nothing is touched -- the lights
+   * that are on get dimmer and come back, the lights that are off stay off,
+   * which is what makes it deniable.
+   * @param {number} to      multiplier at the bottom of the dip, 0..1
+   * @param {number} seconds how long before service resumes
+   */
+  const dipLights = (to = 0.3, seconds = 0.7) => {
+    state.sag = to;
+    state.sagT = seconds;
+  };
 
   const setLamp = (on) => {
     state.lampOn = on;
@@ -1344,9 +1360,18 @@ export async function buildApartment(ctx) {
     skyOver.material.opacity = time.skyBlend;
 
     /* lights */
-    ceilSpot.intensity += ((state.lightsOn ? 9.5 : 0) - ceilSpot.intensity) * Math.min(1, dt * 8);
+    /* `sag` is the mains dropping for a moment -- see dipLights(). It scales
+     * the TARGETS rather than the intensities, because the intensities are a
+     * ramp that is rewritten every frame and would simply undo anything set
+     * from outside on the next tick. */
+    if (state.sagT > 0) {
+      state.sagT = Math.max(0, state.sagT - dt);
+      if (!state.sagT) state.sag = 1;
+    }
+    const sag = state.sag;
+    ceilSpot.intensity += ((state.lightsOn ? 9.5 * sag : 0) - ceilSpot.intensity) * Math.min(1, dt * 8);
     ceilSpot.castShadow = ceilSpot.intensity > 0.05;
-    lampLight.intensity += ((state.lampOn ? 4.2 : 0) - lampLight.intensity) * Math.min(1, dt * 8);
+    lampLight.intensity += ((state.lampOn ? 4.2 * sag : 0) - lampLight.intensity) * Math.min(1, dt * 8);
     towerGlow.intensity = state.pcOn ? 0.7 + Math.sin(elapsed * 1.7) * 0.12 : 0;
     // The tower breathes; the peripherals just sit there being lit.
     for (const strip of desk.rgb) {
@@ -1477,6 +1502,12 @@ export async function buildApartment(ctx) {
     screen: desk.screen,
     desk,
     gluePos: gluekit.gluePos,
+    /* Handles the comedown needs. Nothing here is a scripted scare -- it is a
+     * door, a light and a lamp, moved by something that is deniably you. */
+    bathDoorPivot: bathDoor.group,
+    ceilingLamp: ceilLight,
+    setCeiling,
+    dipLights,
     screenGlow,
     radioPos,
     radioNeedle: radio.needle,

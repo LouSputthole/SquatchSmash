@@ -270,6 +270,19 @@
       "prompt": "apartment front door handle rattling against a locked deadbolt, twice"
     },
     {
+      "_comment": "For the comedown. Has to sound like a hinge under its own weight in a still room, not a haunted-house creak — the whole bit is that you cannot tell whether it happened.",
+      "name": "door.creak",
+      "duration": 2.5,
+      "promptInfluence": 0.6,
+      "prompt": "an interior door swinging slowly a few inches on a dry hinge, one long quiet creak, close, no footsteps, no music, no voice"
+    },
+    {
+      "name": "light.dip",
+      "duration": 1.5,
+      "promptInfluence": 0.5,
+      "prompt": "mains electrical hum sagging in pitch for a moment and recovering, as a compressor kicks in elsewhere in the building, very quiet, no click, no switch, no music"
+    },
+    {
       "name": "window.blinds",
       "duration": 1.6,
       "prompt": "venetian blinds being raised, plastic slats clattering upward"
@@ -2933,6 +2946,67 @@
       "name": "vo.tap.5",
       "voice": "player",
       "say": "That is the sound of a bill."
+    },
+    {
+      "_comment": "The comedown bank. Read these unbothered, at normal volume, the way you talk to an empty room — the joke dies the second he sounds frightened. He is not investigating anything and he never goes to look.",
+      "name": "vo.spooky.1",
+      "voice": "player",
+      "say": "Did that just… no. No, that was always like that."
+    },
+    {
+      "name": "vo.spooky.2",
+      "voice": "player",
+      "say": "Old building."
+    },
+    {
+      "name": "vo.spooky.3",
+      "voice": "player",
+      "say": "That is the fridge. That is definitely the fridge."
+    },
+    {
+      "name": "vo.spooky.4",
+      "voice": "player",
+      "say": "I'm not turning round. There's no reason to turn round."
+    },
+    {
+      "name": "vo.spooky.5",
+      "voice": "player",
+      "say": "Hello? …Right. Good. Great."
+    },
+    {
+      "name": "vo.spooky.6",
+      "voice": "player",
+      "say": "I did that. I definitely did that earlier and forgot."
+    },
+    {
+      "name": "vo.spooky.7",
+      "voice": "player",
+      "say": "Upstairs is allowed to walk around. That is what upstairs does."
+    },
+    {
+      "name": "vo.spooky.8",
+      "voice": "player",
+      "say": "Okay so the clock is broken. Mystery solved. Moving on."
+    },
+    {
+      "name": "vo.spooky.9",
+      "voice": "player",
+      "say": "I would like it on the record that I am extremely calm."
+    },
+    {
+      "name": "vo.spooky.10",
+      "voice": "player",
+      "say": "Nope. Not tonight. Absolutely not tonight."
+    },
+    {
+      "name": "vo.spooky.11",
+      "voice": "player",
+      "say": "That is a normal amount of nothing."
+    },
+    {
+      "name": "vo.spooky.12",
+      "voice": "player",
+      "say": "See, this is why I don't do this on a weeknight."
     }
   ]
 }

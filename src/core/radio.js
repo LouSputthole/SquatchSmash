@@ -449,7 +449,11 @@ export class Radio {
     this.audio.setLoopVolume?.('radio.talk', 0.04, 1.2);
     this._line = null;
     this._segT = 0;
-    this._dwell = SEGMENT_GAP;
+    /* The gap is measured from the moment the record is actually GONE, not
+     * from the moment the fade starts -- otherwise a host opens his mouth
+     * two seconds into a still-audible outro, which is exactly the thing
+     * the running order exists to prevent. */
+    this._dwell = SEGMENT_GAP + fade;
     this._showOsd();
   }
 
