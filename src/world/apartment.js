@@ -682,7 +682,11 @@ export async function buildApartment(ctx) {
     for (const c of candles) c.flicker(elapsed);
   });
 
-  root.add(P.makeBoots(M, { x: 2.20, z: 3.90, rotY: 0.4 }).group);
+  /* Back against the south wall beside the front door, which is where boots
+   * get kicked off. At z 3.90 they sat 46cm out into the floor, in the middle
+   * of the walkway, looking placed rather than dropped. The skirting starts at
+   * z 4.48, so 4.30 puts the heels near it without clipping through. */
+  root.add(P.makeBoots(M, { x: 2.20, z: 4.30, rotY: 0.4 }).group);
   root.add(P.makeLaundry(M, { x: -2.55, z: -3.55 }).group);
   root.add(P.makeCapOnPeg(M, { x: 0.10, y: 1.78, z: 4.42, rotY: Math.PI }).group);
 

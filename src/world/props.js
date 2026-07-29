@@ -654,6 +654,21 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     cabinetEnd: 0.86,    // upper cabinets stop here to leave the appliance gap
   };
 
+  /* A cabinet pull is a bar held off the door by two posts. Drawn as a bare
+   * floating cylinder it sits a few millimetres proud of the door with nothing
+   * joining it, which is exactly the "not quite right" you cannot name until
+   * you look straight at it. `face` is the door's outward face; everything
+   * else is measured from there so the posts always land on the door. */
+  const pull = (face, y, z, len = 0.11) => {
+    const bar = face - 0.030;
+    g.add(cylinder({ r: 0.009, h: len, pos: [bar, y, z], mat: M.chrome }));
+    for (const dz of [-len / 2 + 0.012, len / 2 - 0.012]) {
+      g.add(cylinder({
+        r: 0.005, h: 0.030, pos: [face - 0.015, y, z + dz], rotZ: Math.PI / 2, mat: M.chrome,
+      }));
+    }
+  };
+
   // Toe kick + carcass + counter top.
   g.add(boxFrom(x0 + 0.06, 0, z0, wallX, 0.10, z1, M.plasticGrey));
   g.add(boxFrom(x0, 0.10, z0, wallX, top - 0.04, z1, M.lightWood));
@@ -665,7 +680,7 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   for (let i = 0; i < nDoors; i++) {
     const cz = z0 + dw * (i + 0.5);
     g.add(box({ size: [0.02, top - 0.22, dw - 0.03], pos: [x0 - 0.012, 0.10 + (top - 0.18) / 2, cz], mat: M.cabinet }));
-    g.add(cylinder({ r: 0.010, h: 0.11, pos: [x0 - 0.035, top - 0.16, cz], mat: M.chrome }));
+    pull(x0 - 0.022, top - 0.16, cz);
   }
 
   /* ---- sink: a real inset basin, not a flat plate ---- */
@@ -722,22 +737,33 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   for (let i = 0; i < nUpper; i++) {
     const cz = z0 + udw * (i + 0.5);
     g.add(box({ size: [0.02, upY1 - upY0 - 0.04, udw - 0.03], pos: [wallX - upD - 0.012, (upY0 + upY1) / 2, cz], mat: M.cabinet }));
-    g.add(cylinder({ r: 0.010, h: 0.11, pos: [wallX - upD - 0.035, upY0 + 0.12, cz], mat: M.chrome }));
+    pull(wallX - upD - 0.022, upY0 + 0.12, cz);
   }
 
   /* ---- microwave: wall-mounted in the cabinet gap, nowhere near the hob ---- */
   const mwZ = L.microwave;
   const mwY = 1.62;                 // 0.70 of clear air above the worktop
   g.add(box({ size: [0.40, 0.30, 0.48], pos: [wallX - 0.22, mwY, mwZ], mat: M.plasticGrey }));
-  // Mounting bracket up to the underside of the cabinet run.
-  g.add(box({ size: [0.30, 0.14, 0.06], pos: [wallX - 0.17, mwY + 0.22, mwZ], mat: M.darkSteel }));
+  /* A cabinet over the top, which is what an over-the-counter microwave hangs
+   * from. The upper run stops at cabinetEnd to leave this gap, so without
+   * something here the old bracket rose out of the microwave and stopped in
+   * mid-air, holding it to nothing. */
+  g.add(boxFrom(wallX - upD, mwY + 0.16, mwZ - 0.26, wallX, upY1, mwZ + 0.26, M.lightWood));
+  g.add(box({
+    size: [0.02, upY1 - (mwY + 0.16) - 0.04, 0.49],
+    pos: [wallX - upD - 0.012, (mwY + 0.16 + upY1) / 2, mwZ], mat: M.cabinet,
+  }));
+  pull(wallX - upD - 0.022, mwY + 0.30, mwZ, 0.14);
+  g.add(box({ size: [0.30, 0.05, 0.50], pos: [wallX - 0.20, mwY + 0.175, mwZ], mat: M.darkSteel }));
+
   const mwDoor = plane(0.30, 0.21, new THREE.MeshStandardMaterial({ color: 0x101216, roughness: 0.25 }));
-  mwDoor.position.set(wallX - 0.421, mwY, mwZ - 0.05);
+  mwDoor.position.set(wallX - 0.421, mwY, mwZ - 0.09);
   mwDoor.rotation.y = -Math.PI / 2;
   g.add(mwDoor);
-  g.add(box({ size: [0.012, 0.20, 0.02], pos: [wallX - 0.418, mwY, mwZ + 0.14], mat: M.chrome }));
-  const mwClock = plane(0.10, 0.035, M.ledGreen);
-  mwClock.position.set(wallX - 0.421, mwY + 0.10, mwZ + 0.16);
+  // Handle on the door's trailing edge, then the panel, then the clock in it.
+  g.add(box({ size: [0.012, 0.20, 0.02], pos: [wallX - 0.418, mwY, mwZ + 0.075], mat: M.chrome }));
+  const mwClock = plane(0.085, 0.032, M.ledGreen);
+  mwClock.position.set(wallX - 0.421, mwY + 0.075, mwZ + 0.165);
   mwClock.rotation.y = -Math.PI / 2;
   g.add(mwClock);
 
