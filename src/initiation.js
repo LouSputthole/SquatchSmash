@@ -32,8 +32,15 @@ const MEMBER_COUNT = 14;
 const FIRE = { x: 0, z: 0 };
 const STAGE = { x: 0, z: 9 };
 const SPAWN = { x: 0, z: -78 };
-const GAUNTLET_SPOT = { x: 0, z: -13 };
 const ARRIVE_R = 24; // walking this close to the fire starts the ceremony
+
+// The prospect line: front row, facing the stage across the fire.
+// Four NPC prospects plus one glowing empty slot — yours. You're
+// Prospect Two, right next to the poor soul who goes first.
+const LINE_Z = -8;
+const PLAYER_SLOT = { x: -2.2, z: LINE_Z };
+const PROSPECT_XS = [-4.4, 0, 2.2, 4.4];
+const LINE_CENTER = { x: 0, z: LINE_Z };
 
 // Everyone here is human. The prospect came straight from their
 // apartment — no bandana yet, that has to be earned. Members wear
@@ -51,30 +58,53 @@ const MEMBER_SHIRTS = [0x9aa0ab, 0x8a8f9c, 0xa8aeba, 0x79808e];
 const MEMBER_SKINS = [0xe8b88a, 0xc98d5f, 0x8d5a3b, 0xf0d0b0, 0xba8054];
 const MEMBER_HAIR = [0x2a2018, 0x11100c, 0x4a331c, 0x6e6659, 0x1e1c22];
 
-// The real Circle — the crew's actual faces, front row by the aisle so
-// they're in your face on the walk in (and guaranteed into the Gauntlet).
-// angle: degrees around the fire (180 = the aisle you arrive through).
+// The real Circle — the crew's actual faces, in semicircles behind the
+// prospect line. Lou Sputthole isn't in the crowd: he's up on the stage.
+// angle: degrees around the line's center (180 = directly behind you).
 const FEATURED = [
-  { name: 'LOU', face: 'assets/faces/lou.png', shirt: 0x6f7fa8, angle: 162, r: 8.0 },
-  { name: 'DEATHMEGATRON', face: 'assets/faces/deathmegatron.png', shirt: 0x9aa0ab, angle: 198, r: 8.0 },
-  { name: 'SHUBES', face: 'assets/faces/shubes.png', shirt: 0x8a8f9c, angle: 150, r: 9.2 },
-  { name: 'RIPPINFLOW', face: 'assets/faces/rippinflow.png', shirt: 0x2f62d9, angle: 210, r: 9.2 },
-  { name: 'ERICAN', face: 'assets/faces/erican.png', shirt: 0xe8e4d4, angle: 138, r: 8.6 },
-  { name: 'HOGMAMA', face: 'assets/faces/hogmama.png', shirt: 0x3a3a44, angle: 222, r: 8.6 },
-  { name: 'GRATIN', face: 'assets/faces/gratin.png', shirt: 0x5a4a6e, angle: 126, r: 9.6 },
-  { name: 'SASOLE', face: 'assets/faces/sasole.png', shirt: 0x2e3a5e, angle: 234, r: 9.6 },
-  { name: 'SNOW', face: 'assets/faces/snow.png', shirt: 0xf0f0ec, angle: 174, r: 9.4 },
+  { name: 'SHUBES', face: 'assets/faces/shubes.png', shirt: 0x8a8f9c, angle: 120, r: 5.5 },
+  { name: 'DEATHMEGATRON', face: 'assets/faces/deathmegatron.png', shirt: 0x9aa0ab, angle: 140, r: 5.5 },
+  { name: 'RIPPINFLOW', face: 'assets/faces/rippinflow.png', shirt: 0x2f62d9, angle: 160, r: 5.5 },
+  { name: 'SNOW', face: 'assets/faces/snow.png', shirt: 0xf0f0ec, angle: 180, r: 5.5 },
+  { name: 'ERICAN', face: 'assets/faces/erican.png', shirt: 0xe8e4d4, angle: 200, r: 5.5 },
+  { name: 'HOGMAMA', face: 'assets/faces/hogmama.png', shirt: 0x3a3a44, angle: 220, r: 5.5 },
+  { name: 'GRATIN', face: 'assets/faces/gratin.png', shirt: 0x5a4a6e, angle: 240, r: 5.5 },
+  { name: 'SASOLE', face: 'assets/faces/sasole.png', shirt: 0x2e3a5e, angle: 170, r: 8.3 },
 ];
+// Second-row slots for the unnamed members
+const CROWD_ROW2 = [130, 150, 190, 210, 230];
 
-// ---------- Placeholder speech — Booskibro's words are a work in
-// progress; rewrite these lines freely, the flow won't care. ----------
+// ---------- Placeholder script — rewrite these lines freely, the
+// flow won't care. Gesture tag 'slam' makes the speaker slam/gesture. ----------
 const SPEECH = [
   ['BOOSKIBRO', 'Brothers. Sisters. Silverbacks of the Circle.'],
-  ['BOOSKIBRO', 'Tonight the forest walks a stranger to our fire.'],
-  ['BOOSKIBRO', 'It smells of instant noodles, apartment carpet... and potential.'],
-  ['BOOSKIBRO', 'But hear me — the bandana is not given. The bandana is EARNED.', 'slam'],
-  ['BOOSKIBRO', 'Prospect! You stand where every one of us once stood. Human. Soft. Unsquatched.'],
-  ['BOOSKIBRO', 'First trial: THE GAUNTLET. Take what the Circle gives you — and raise no fist against your kin.', 'slam'],
+  ['BOOSKIBRO', 'Before there were bandanas... there was a fire. And before this fire... there were FIVE.', 'slam'],
+  ['BOOSKIBRO', 'Five who walked out of their apartments and into the pines. Five who heard the forest — and answered it.'],
+  ['BOOSKIBRO', 'Tonight, five prospects stand where the five once stood. The forest is watching. I am ALSO watching.', 'slam'],
+  ['LOU SPUTTHOLE', 'What Booski means is: welcome. This is a family. A large, damp, forest family.', 'slam'],
+  ['LOU SPUTTHOLE', 'Also — whoever keeps leaving beer cans at the fire pit, knock it off. The raccoons are ORGANIZING.'],
+  ['BOOSKIBRO', 'ENOUGH. Prospects! Your first trial is not of the body... but of the MIND.', 'slam'],
+];
+const Q1_LINES = [
+  ['BOOSKIBRO', 'Prospect One. Step forward.'],
+  ['BOOSKIBRO', 'Who are the FIVE founding members of the Silver Sasquatches?'],
+  ['PROSPECT ONE', 'Oh — uh. Booski... Lou... uhh. Bigfoot? Garfield?? ...the GEICO Gecko???'],
+  ['LOU SPUTTHOLE', 'Oof.'],
+  ['BOOSKIBRO', 'WRONG.', 'slam'],
+];
+const Q2_LINES = [
+  ['LOU SPUTTHOLE', '...Anyway!'],
+  ['BOOSKIBRO', 'Prospect Two. Same question.'],
+  ['LOU SPUTTHOLE', 'No pressure. Well. Some pressure. A specific, recently demonstrated amount of pressure.'],
+];
+const CORRECT_LINES = [
+  ['BOOSKIBRO', 'CORRECT. Myself. Lou Sputthole. Rippinflow. The Shubenator. Deathmegatron. The FIVE.', 'slam'],
+  ['LOU SPUTTHOLE', 'Somebody did the reading!'],
+  ['BOOSKIBRO', 'The mind is sharp. Now we test the BODY. Clear the line — THE GAUNTLET AWAITS.', 'slam'],
+];
+const WRONG_LINES = [
+  ['BOOSKIBRO', 'WRONG.', 'slam'],
+  ['LOU SPUTTHOLE', 'Oh no. Same as the last guy. Word for word almost.'],
 ];
 const ENDURED_LINES = [
   ['BOOSKIBRO', 'ENOUGH.'],
@@ -515,28 +545,27 @@ scene.add(player.group);
 const debris = new DebrisSystem(scene);
 const effects = new Effects(scene);
 
-// Crowd of members flanking the aisle, facing the stage
+// Crowd of members in semicircles behind the prospect line, facing the stage
 const members = [];
 {
-  const slots = [];
-  for (let i = 0; i < 7; i++) slots.push(THREE.MathUtils.degToRad(96 + i * 10));   // left flank
-  for (let i = 0; i < 7; i++) slots.push(THREE.MathUtils.degToRad(204 + i * 10));  // right flank
-  for (let i = 0; i < MEMBER_COUNT; i++) {
-    const feat = FEATURED[i] || null;
+  const placements = [
+    ...FEATURED.map((f) => ({ feat: f, angle: f.angle, r: f.r })),
+    ...CROWD_ROW2.map((a) => ({ feat: null, angle: a, r: 8.3 })),
+  ];
+  for (const { feat, angle, r } of placements) {
     const sq = new Person(feat ? {
       shirt: feat.shirt,
       face: feat.face,
     } : {
-      shirt: MEMBER_SHIRTS[i % MEMBER_SHIRTS.length],
+      shirt: MEMBER_SHIRTS[members.length % MEMBER_SHIRTS.length],
       skin: MEMBER_SKINS[Math.floor(Math.random() * MEMBER_SKINS.length)],
       hair: MEMBER_HAIR[Math.floor(Math.random() * MEMBER_HAIR.length)],
     });
     const scale = 0.94 + Math.random() * 0.16;
     sq.group.scale.setScalar(scale);
-    const a = feat ? THREE.MathUtils.degToRad(feat.angle) : slots[i];
-    const r = feat ? feat.r : 7.5 + (i % 3) * 2.3 + Math.random() * 1.2;
-    const x = FIRE.x + Math.sin(a) * r;
-    const z = FIRE.z + Math.cos(a) * r;
+    const a = THREE.MathUtils.degToRad(angle);
+    const x = LINE_CENTER.x + Math.sin(a) * r;
+    const z = LINE_CENTER.z + Math.cos(a) * r;
     sq.group.position.set(x, 0, z);
     sq.heading = Math.atan2(STAGE.x - x, STAGE.z - z);
     sq.group.rotation.y = sq.heading;
@@ -556,11 +585,80 @@ const members = [];
   }
 }
 
+// ---------- The prospect line ----------
+const PROSPECT_LOOKS = [
+  { shirt: 0xb0533a, shirtDark: 0x8a3f2c, pants: 0x3a3f47, skin: 0xc98d5f, bandana: null, hair: 0x11100c },
+  { shirt: 0x4a7a72, shirtDark: 0x38605a, pants: 0x2e3238, skin: 0xf0d0b0, bandana: null, hair: 0x4a331c },
+  { shirt: 0x8a7a4a, shirtDark: 0x6a5c36, pants: 0x33383f, skin: 0x8d5a3b, bandana: null, hair: 0x1e1c22 },
+  { shirt: 0x6a5a7a, shirtDark: 0x504460, pants: 0x2a2e35, skin: 0xe8b88a, bandana: null, hair: 0x6e6659 },
+];
+// Prospect One is first in line (and first to answer). You are Prospect Two.
+const PROSPECT_NAMES = ['PROSPECT ONE', 'PROSPECT THREE', 'PROSPECT FOUR', 'PROSPECT FIVE'];
+const prospects = [];
+for (let i = 0; i < PROSPECT_XS.length; i++) {
+  const sq = new Person(PROSPECT_LOOKS[i]);
+  const x = PROSPECT_XS[i];
+  sq.group.position.set(x, 0, LINE_Z);
+  sq.heading = Math.atan2(STAGE.x - x, STAGE.z - LINE_Z);
+  sq.group.rotation.y = sq.heading;
+  sq.walkT = Math.random() * 10;
+  sq.breatheT = Math.random() * 10;
+  const plate = makeNameplate(PROSPECT_NAMES[i], '#8a92ab');
+  plate.scale.set(1.9, 0.36, 1);
+  plate.position.y = 2.85;
+  sq.group.add(plate);
+  scene.add(sq.group);
+  prospects.push({
+    sq,
+    home: { x, z: LINE_Z },
+    stepTo: null,   // walk target (step forward / clear the line)
+    dead: false,
+    fallT: -1,      // >=0 while collapsing
+    jerkT: 0,       // bullet-impact twitch
+  });
+}
+
+// Your glowing slot in the line
+const spotMark = new THREE.Group();
+{
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x9a6ff0, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false,
+  });
+  ringMat.color.multiplyScalar(2.2);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.1, 32), ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.06;
+  spotMark.add(ring);
+  const discMat = new THREE.MeshBasicMaterial({
+    color: 0x9a6ff0, transparent: true, opacity: 0.14,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(0.85, 24), discMat);
+  disc.rotation.x = -Math.PI / 2;
+  disc.position.y = 0.05;
+  spotMark.add(disc);
+  spotMark.position.set(PLAYER_SLOT.x, 0, PLAYER_SLOT.z);
+  scene.add(spotMark);
+}
+
+// Lou Sputthole, up on the stage beside Booskibro
+const louStage = new Person({
+  shirt: 0x6f7fa8, shirtDark: 0x56637f, pants: 0x2e3e55,
+  bandana: 0xd92e2e, face: 'assets/faces/lou.png',
+});
+louStage.group.scale.setScalar(1.12);
+louStage.group.position.set(STAGE.x - 1.8, 1.1, STAGE.z);
+louStage.heading = Math.PI;
+louStage.group.rotation.y = Math.PI;
+louStage.group.add(makeNameplate('LOU SPUTTHOLE', '#ff8a8a'));
+scene.add(louStage.group);
+
 // Booskibro on stage: the founder, draped in an old silver pelt he claims
 // grew on him once, staff in hand
 const boosk = new Person(BOOSKI_PALETTE);
 boosk.group.scale.setScalar(1.22);
-boosk.group.position.set(STAGE.x, 1.1, STAGE.z);
+boosk.group.position.set(STAGE.x + 1.2, 1.1, STAGE.z);
 boosk.heading = Math.PI; // facing -z, out over the crowd
 boosk.group.rotation.y = Math.PI;
 {
@@ -585,6 +683,29 @@ boosk.group.rotation.y = Math.PI;
   boosk.group.add(makeNameplate('BOOSKIBRO', '#b9a0f5'));
 }
 scene.add(boosk.group);
+
+// ---------- The executioner's pistol ----------
+// Built once, hung on whichever member is doing Circle justice. The arm
+// pivot points its local -y forward when raised, so the gun hangs below
+// the hand along -y with the muzzle past the fist.
+const gun = new THREE.Group();
+let gunMuzzle;
+{
+  const dark = lambert(0x22242a);
+  gun.add(mesh(new THREE.BoxGeometry(0.055, 0.42, 0.065), dark, 0, -1.14, 0));
+  gun.add(mesh(new THREE.BoxGeometry(0.05, 0.14, 0.16), dark, 0, -0.97, 0.07));
+  const flashMat = new THREE.MeshBasicMaterial({
+    color: 0xffd75e, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  flashMat.color.multiplyScalar(3);
+  gunMuzzle = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 6), flashMat);
+  gunMuzzle.rotation.x = Math.PI;
+  gunMuzzle.position.y = -1.5;
+  gunMuzzle.visible = false;
+  gun.add(gunMuzzle);
+}
+const muzzleLight = new THREE.PointLight(0xffc86a, 0, 0, 2);
+scene.add(muzzleLight);
 
 // The great deadfall log for the Timber trial (spawned later)
 let greatLog = null;
@@ -678,7 +799,7 @@ function showCurrentLine() {
   lineEl.textContent = text;
   sayAutoT = 3.2 + text.length * 0.03;
   if (gesture === 'slam') {
-    boosk.startSmash();
+    (who === 'LOU SPUTTHOLE' ? louStage : boosk).startSmash();
     sfx.stomp();
     shake = Math.max(shake, 0.25);
   }
@@ -706,8 +827,10 @@ function advanceSay() {
 
 // ---------- Game state ----------
 let phase = 'approach';
-// approach → walkin → speech → gauntlet_in → beatdown → endured
-//   → trial_roar → roar_anim → trial_log → anoint_walk → anoint_lines
+// approach → line_up → speech → q1 → execution → q2_intro → q2_choice
+//   → (wrong: exec_player → failed, retry to q2_choice)
+//   → clear_line → gauntlet_in → beatdown → endured → trial_roar
+//   → roar_anim → trial_log → anoint_walk → anoint_lines
 //   → anoint_transform → complete   (+ fail_swing → failed, retryable)
 // No title screen — the apartment scene drops you straight into the pines.
 let shake = 0;
@@ -722,6 +845,8 @@ let surgeT = 0;         // bonfire flare-up
 let transformK = 0;     // 0..1 anointing progress
 let transformed = false; // human → squatch swap done
 let crackleT = 0;
+let playerFallT = -1;   // >=0 while the player collapses (shot dead)
+let exec = null;        // the execution in progress, see startExecution
 const respondQueue = []; // pending member roar timestamps
 
 function setPhase(next) {
@@ -729,7 +854,7 @@ function setPhase(next) {
   phaseT = 0;
 }
 
-const canMove = () => phase === 'approach' || phase === 'trial_log';
+const canMove = () => phase === 'approach' || phase === 'line_up' || phase === 'trial_log';
 
 // ---------- Input ----------
 const keys = new Set();
@@ -743,7 +868,7 @@ const KEYMAP = {
 
 function smashAction() {
   if (dialogActive()) { advanceSay(); return; }
-  if (phase === 'approach' || phase === 'trial_log') {
+  if (phase === 'approach' || phase === 'line_up' || phase === 'trial_log') {
     player.startSmash();
   } else if (phase === 'gauntlet_in' || phase === 'beatdown') {
     // Swinging back at the Circle: instant fail
@@ -763,6 +888,9 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); smashAction(); }
   if (e.code === 'KeyR') roarAction();
   if (e.code === 'KeyM') toggleMute();
+  if (phase === 'q2_choice' && /^Digit[123]$/.test(e.code)) {
+    chooseAnswer(Number(e.code.slice(-1)) - 1);
+  }
 });
 window.addEventListener('keyup', (e) => {
   if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]);
@@ -848,6 +976,162 @@ hudEl.classList.add('visible');
 setObjective('Follow the firelight — <span class="key">WASD</span> move · <span class="key">Shift</span> run');
 setTimeout(() => { fadeEl.style.opacity = 0; }, 120);
 
+// ---------- The founders quiz ----------
+const quizEl = $('quiz');
+const QUIZ_OPTIONS = [
+  { text: 'Booski, Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron', correct: true },
+  { text: 'Booski, Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko', correct: false },
+  { text: 'Booski, Snow, Hogmama, Erican, and two raccoons in a coat', correct: false },
+];
+
+function showQuiz() {
+  const opts = [...QUIZ_OPTIONS].sort(() => Math.random() - 0.5);
+  quizEl.querySelectorAll('.quiz-opt').forEach((btn, i) => {
+    btn.innerHTML = `<span class="num">${i + 1}.</span>`;
+    btn.appendChild(document.createTextNode(opts[i].text));
+    btn.dataset.correct = opts[i].correct ? '1' : '0';
+  });
+  quizEl.classList.add('show');
+}
+
+function hideQuiz() {
+  quizEl.classList.remove('show');
+}
+
+function chooseAnswer(i) {
+  if (phase !== 'q2_choice') return;
+  const btn = quizEl.querySelectorAll('.quiz-opt')[i];
+  if (!btn) return;
+  hideQuiz();
+  setPhase('q2_result');
+  if (btn.dataset.correct === '1') {
+    say(CORRECT_LINES, () => {
+      respondQueue.push(0.2, 0.6);
+      // The surviving prospects clear out to the crowd's edge
+      for (let i2 = 1; i2 < prospects.length; i2++) {
+        const p = prospects[i2];
+        p.stepTo = { x: p.home.x * 1.8 + 2, z: -14.5 };
+      }
+      setPhase('clear_line');
+    });
+  } else {
+    say(WRONG_LINES, () => {
+      setPhase('exec_player');
+      startExecution({
+        getPos: () => player.position,
+        y: 1.5,
+        onHit: () => { painT = 1; shake = Math.max(shake, 0.4); },
+        onDead: () => {
+          playerFallT = 0;
+          failFrom = 'question';
+          $('failReason').innerHTML =
+            'Wrong founders.<br>The Circle now knows two things about you: your name, and where you’re buried.';
+        },
+        onFinished: () => {
+          $('fail').classList.remove('hidden');
+          setPhase('failed');
+        },
+      });
+    });
+  }
+}
+
+quizEl.querySelectorAll('.quiz-opt').forEach((btn) => {
+  btn.addEventListener('click', () => chooseAnswer(Number(btn.dataset.i)));
+});
+
+// ---------- Executions ----------
+// One member walks out, draws the pistol, and puts eight rounds into the
+// target. target: { getPos(), y, onHit(), onDead(), onFinished() }.
+function startExecution(target) {
+  const tp = target.getPos();
+  let m0 = null;
+  let bd = Infinity;
+  for (const m of members) {
+    if (m.knock) continue;
+    const d = Math.hypot(m.sq.position.x - tp.x, m.sq.position.z - tp.z);
+    if (d < bd) { bd = d; m0 = m; }
+  }
+  exec = { m: m0, target, state: 'walk', t: 0, shots: 0, next: 0, aim: 0, flashT: 0 };
+}
+
+function fireShotAt(tp, y) {
+  sfx.gunshot();
+  gunMuzzle.visible = true;
+  exec.flashT = 0.07;
+  gunMuzzle.getWorldPosition(_impact);
+  muzzleLight.position.copy(_impact);
+  muzzleLight.intensity = 130;
+  debris.puff(new THREE.Vector3(
+    tp.x + (Math.random() - 0.5) * 0.35, y, tp.z + (Math.random() - 0.5) * 0.35
+  ), 0x8a1414, 5);
+  shake = Math.max(shake, 0.28);
+}
+
+function updateExecution(dt) {
+  if (!exec) return;
+  const m = exec.m;
+  const t = exec.target;
+  const tp = t.getPos();
+  exec.flashT = Math.max(0, exec.flashT - dt);
+  gunMuzzle.visible = exec.flashT > 0;
+
+  if (exec.state === 'walk') {
+    _dir.set(tp.x - m.sq.position.x, 0, tp.z - m.sq.position.z);
+    const d = _dir.length();
+    if (d > 2.2) {
+      _dir.normalize();
+      m.sq.update(dt, _dir, 3.6);
+    } else {
+      exec.state = 'aim';
+      exec.t = 0;
+      m.sq.armR.add(gun);
+    }
+  } else if (exec.state === 'aim' || exec.state === 'fire') {
+    faceToward(m.sq, tp.x, tp.z, dt, 14);
+    m.sq.update(dt, _zero, 0);
+    exec.aim = Math.min(1, exec.aim + dt * 3);
+    exec.t += dt;
+    if (exec.state === 'aim' && exec.t > 0.8) {
+      exec.state = 'fire';
+      exec.next = 0.3;
+    }
+    if (exec.state === 'fire') {
+      exec.next -= dt;
+      if (exec.next <= 0 && exec.shots < 8) {
+        exec.shots++;
+        exec.next = 0.26 + Math.random() * 0.12;
+        exec.recoil = 0.12;
+        fireShotAt(tp, t.y);
+        if (t.onHit) t.onHit();
+        if (exec.shots >= 8) {
+          exec.state = 'done';
+          exec.t = 0;
+          if (t.onDead) t.onDead();
+        }
+      }
+    }
+    exec.recoil = Math.max(0, (exec.recoil || 0) - dt * 1.2);
+    m.sq.armR.rotation.x = 1.58 * exec.aim + exec.recoil * 1.6;
+  } else if (exec.state === 'done') {
+    m.sq.update(dt, _zero, 0);
+    exec.aim = Math.max(0, exec.aim - dt * 2);
+    m.sq.armR.rotation.x = 1.58 * exec.aim;
+    exec.t += dt;
+    if (exec.t > 1.1) {
+      m.sq.armR.remove(gun);
+      m.sq.armR.rotation.x = 0;
+      exec.state = 'return';
+      if (t.onFinished) t.onFinished();
+    }
+  } else if (exec.state === 'return') {
+    if (walkNpc(m.sq, m.home.x, m.home.z, dt, 3.2)) {
+      faceToward(m.sq, STAGE.x, STAGE.z, dt, 8);
+      exec = null;
+    }
+  }
+}
+
 function startGauntlet(afterRetry = false) {
   hpWrapEl.classList.add('show');
   setObjective('ENDURE — do <span class="key">NOT</span> fight back');
@@ -881,6 +1165,16 @@ function retry() {
   updateHp();
   painT = 0;
   failT = -1;
+  // Holster everything and stand everyone back up
+  if (exec) {
+    exec.m.sq.armR.remove(gun);
+    exec.m.sq.armR.rotation.x = 0;
+    exec = null;
+  }
+  gunMuzzle.visible = false;
+  muzzleLight.intensity = 0;
+  playerFallT = -1;
+  player.group.rotation.x = 0;
   // Everyone back on their feet, back in the crowd
   for (const m of members) {
     m.knock = null;
@@ -891,7 +1185,11 @@ function retry() {
     m.sq.heading = Math.atan2(player.position.x - m.home.x, player.position.z - m.home.z);
     m.sq.group.rotation.y = m.sq.heading;
   }
-  if (failFrom === 'trial_log') {
+  if (failFrom === 'question') {
+    // The Circle, inexplicably, lets you have another go at it
+    setPhase('q2_choice');
+    showQuiz();
+  } else if (failFrom === 'trial_log') {
     setObjective('SMASH the great log! <span class="key">(Space / Click)</span>');
     setPhase('trial_log');
   } else {
@@ -940,6 +1238,22 @@ function triggerFailImpact(victim) {
     ? `The log was the target — not your kin. ${who}<br>Silver endures. Silver does not swing at its own.`
     : `${who}<br>Silver endures. Silver does not swing at its own.`;
   failT = 1.5;
+}
+
+// Prospect One's turn ends the way Prospect One's turns end
+function executeProspect(p, onFinished) {
+  startExecution({
+    getPos: () => p.sq.position,
+    y: 1.5,
+    onHit: () => { p.jerkT = 0.16; },
+    onDead: () => {
+      p.dead = true;
+      p.fallT = 0;
+      effects.bloodSplat(p.sq.position);
+      popText(p.sq.position, 'EXECUTED', 'pain');
+    },
+    onFinished,
+  });
 }
 
 function nearestMember(maxDist) {
@@ -1064,6 +1378,9 @@ function collide() {
   for (const m of members) {
     if (!m.knock) pushOut(m.sq.position.x, m.sq.position.z, 0.6 * m.scale);
   }
+  for (const p of prospects) {
+    if (!p.dead) pushOut(p.sq.position.x, p.sq.position.z, 0.55);
+  }
   pushOut(boosk.group.position.x, boosk.group.position.z, 0.8);
   p.x = THREE.MathUtils.clamp(p.x, -BOUNDS, BOUNDS);
   p.z = THREE.MathUtils.clamp(p.z, -BOUNDS, BOUNDS);
@@ -1106,7 +1423,7 @@ camera.lookAt(FIRE.x, 3, FIRE.z);
 function updateCamera(dt) {
   let desiredPos = null;
 
-  if (phase === 'approach' || phase === 'trial_log' || phase === 'log_broken') {
+  if (phase === 'approach' || phase === 'line_up' || phase === 'trial_log' || phase === 'log_broken') {
     // Behind-the-shoulder follow, pulled in for a human frame
     const diff = Math.atan2(Math.sin(player.heading - camYaw), Math.cos(player.heading - camYaw));
     camYaw += diff * Math.min(1, 3.2 * dt);
@@ -1115,16 +1432,24 @@ function updateCamera(dt) {
     desiredPos.y += 5.2;
     _desiredLook.copy(player.position).addScaledVector(_camForward, 3);
     _desiredLook.y += 1.8;
-  } else if (phase === 'walkin' || phase === 'speech') {
-    // Wide shot: prospect in the foreground, fire and stage beyond
-    const k = Math.min(1, phaseT / 14);
-    desiredPos = _camTarget.set(
-      player.position.x - 10 + k * 3.5,
-      4.6 - k * 1.2,
-      player.position.z - 3 + k * 4
-    );
-    _desiredLook.set(STAGE.x, 2.8, (STAGE.z + FIRE.z) / 2);
-  } else if (phase === 'gauntlet_in' || phase === 'beatdown' || phase === 'fail_swing' || phase === 'failed') {
+  } else if (phase === 'speech') {
+    // Wide shot from behind the line: prospects, fire, and the stage beyond
+    const k = Math.min(1, phaseT / 18);
+    desiredPos = _camTarget.set(-8.5 + k * 2, 3.9 - k * 0.8, -14 + k * 2.5);
+    _desiredLook.set(0, 2.5, 5);
+  } else if (phase === 'q1' || phase === 'execution') {
+    // Side shot on Prospect One's big moment
+    const p1 = prospects[0].sq.position;
+    desiredPos = _camTarget.set(p1.x - 5.5, 2.1, p1.z + 4.2);
+    _desiredLook.set(p1.x + 0.5, 1.3, p1.z);
+  } else if (phase === 'q2_intro' || phase === 'q2_choice' || phase === 'q2_result' || phase === 'exec_player') {
+    // Frontal on you: the fire behind the camera, the question in your face
+    player.facing(_facing);
+    desiredPos = _camTarget.copy(player.position).addScaledVector(_facing, 5.5).add(_camForward.set(1.4, 0, 0));
+    desiredPos.y = 2.1;
+    _desiredLook.copy(player.position);
+    _desiredLook.y += 1.4;
+  } else if (phase === 'gauntlet_in' || phase === 'beatdown' || phase === 'fail_swing' || phase === 'failed' || phase === 'clear_line') {
     // Slow orbit around the ring
     orbitA += dt * 0.28;
     desiredPos = _camTarget.set(
@@ -1190,16 +1515,35 @@ function updatePhase(dt) {
   if (phase === 'approach') {
     const d = Math.hypot(player.position.x - FIRE.x, player.position.z - FIRE.z);
     if (d < ARRIVE_R) {
+      setObjective('Take your place in the line — stand in the <span class="key">light</span>');
+      setPhase('line_up');
+    }
+  } else if (phase === 'line_up') {
+    const d = Math.hypot(player.position.x - PLAYER_SLOT.x, player.position.z - PLAYER_SLOT.z);
+    if (d < 1.05) {
       setObjective('');
-      setPhase('walkin');
-    }
-  } else if (phase === 'walkin') {
-    // The prospect is drawn the rest of the way in
-    if (walkNpc(player, GAUNTLET_SPOT.x, GAUNTLET_SPOT.z, dt, 4.2)) {
-      faceToward(player, STAGE.x, STAGE.z, dt);
+      spotMark.visible = false;
+      player.group.position.set(PLAYER_SLOT.x, 0, PLAYER_SLOT.z);
+      player.heading = Math.atan2(STAGE.x - PLAYER_SLOT.x, STAGE.z - PLAYER_SLOT.z);
+      player.group.rotation.y = player.heading;
       setPhase('speech');
-      say(SPEECH, () => startGauntlet(false));
+      say(SPEECH, () => {
+        setPhase('q1');
+        prospects[0].stepTo = { x: prospects[0].home.x, z: LINE_Z + 1.7 };
+        say(Q1_LINES, () => {
+          setPhase('execution');
+          executeProspect(prospects[0], () => {
+            setPhase('q2_intro');
+            say(Q2_LINES, () => {
+              setPhase('q2_choice');
+              showQuiz();
+            });
+          });
+        });
+      });
     }
+  } else if (phase === 'clear_line') {
+    if (phaseT > 2.2) startGauntlet(false);
   } else if (phase === 'gauntlet_in') {
     let allSet = true;
     for (const m of members) {
@@ -1326,8 +1670,7 @@ function tick() {
     const speed = sprinting ? SPRINT_SPEED : BASE_SPEED;
     player.update(dt, computeMove(), speed, sprinting, onStep);
     collide();
-  } else if (phase !== 'walkin') {
-    // walkin drives the player itself in updatePhase
+  } else {
     player.update(dt, _zero, 0);
   }
   if (player.consumeImpact()) resolvePlayerImpact();
@@ -1341,8 +1684,53 @@ function tick() {
     player.head.rotation.x = -0.4;
   }
 
+  // Shot dead: the player crumples where they stand
+  if (playerFallT >= 0) {
+    playerFallT += dt;
+    player.group.rotation.x = -Math.min(1.5, playerFallT * 3.2);
+  }
+
+  // Your glowing slot in the line, pulsing until you take it
+  if (spotMark.visible) {
+    const pulse = 1 + Math.sin(flameT * 3.4) * 0.08;
+    spotMark.scale.set(pulse, 1, pulse);
+  }
+
+  // Muzzle flash light decay
+  if (muzzleLight.intensity > 0) {
+    muzzleLight.intensity = muzzleLight.intensity > 1 ? muzzleLight.intensity * Math.exp(-22 * dt) : 0;
+  }
+
+  // --- Execution in progress (drives its member exclusively) ---
+  updateExecution(dt);
+
+  // --- Prospects ---
+  for (const p of prospects) {
+    if (p.fallT >= 0) {
+      // Dropped: fold to the ground and stay there
+      p.fallT += dt;
+      p.sq.group.rotation.x = -Math.min(1.5, p.fallT * 3.2);
+      continue;
+    }
+    if (p.stepTo) {
+      if (walkNpc(p.sq, p.stepTo.x, p.stepTo.z, dt, 2.6)) {
+        p.stepTo = null;
+        faceToward(p.sq, STAGE.x, STAGE.z, dt, 100);
+      }
+    } else {
+      p.sq.update(dt, _zero, 0);
+    }
+    if (p.jerkT > 0) {
+      // Bullet impacts twitch the body
+      p.jerkT -= dt;
+      p.sq.body.rotation.z = (Math.random() - 0.5) * 0.4;
+      if (p.jerkT <= 0) p.sq.body.rotation.z = 0;
+    }
+  }
+
   // --- Members ---
   for (const m of members) {
+    if (exec && m === exec.m) continue; // the executioner is otherwise engaged
     if (m.knock) {
       // Decked by the prospect: fly back, hit the dirt, stay down
       m.knock.t += dt;
@@ -1381,10 +1769,10 @@ function tick() {
         // Shoved around inside the ring
         _dir.set(player.position.x - m.sq.position.x, 0, player.position.z - m.sq.position.z).normalize();
         player.position.addScaledVector(_dir, 0.18);
-        const off = Math.hypot(player.position.x - GAUNTLET_SPOT.x, player.position.z - GAUNTLET_SPOT.z);
+        const off = Math.hypot(player.position.x - PLAYER_SLOT.x, player.position.z - PLAYER_SLOT.z);
         if (off > 1.3) {
-          player.position.x = GAUNTLET_SPOT.x + (player.position.x - GAUNTLET_SPOT.x) * (1.3 / off);
-          player.position.z = GAUNTLET_SPOT.z + (player.position.z - GAUNTLET_SPOT.z) * (1.3 / off);
+          player.position.x = PLAYER_SLOT.x + (player.position.x - PLAYER_SLOT.x) * (1.3 / off);
+          player.position.z = PLAYER_SLOT.z + (player.position.z - PLAYER_SLOT.z) * (1.3 / off);
         }
         if (hp <= STOP_HP) endureComplete();
       }
@@ -1395,9 +1783,12 @@ function tick() {
       // Drift back to their spot in the crowd
       walkNpc(m.sq, m.home.x, m.home.z, dt, 3.0);
     } else {
-      // In the crowd: watch the stage, or the prospect once things get physical
-      const watchStage = phase === 'approach' || phase === 'walkin' || phase === 'speech';
-      if (watchStage) faceToward(m.sq, STAGE.x, STAGE.z, dt, 4);
+      // In the crowd: watch the stage, the execution, or the prospect —
+      // whatever the evening's entertainment currently is
+      const watchStage = phase === 'approach' || phase === 'line_up' || phase === 'speech' ||
+        phase === 'q1' || phase === 'q2_intro' || phase === 'q2_choice' || phase === 'q2_result';
+      if (phase === 'execution') faceToward(m.sq, prospects[0].sq.position.x, prospects[0].sq.position.z, dt, 4);
+      else if (watchStage) faceToward(m.sq, STAGE.x, STAGE.z, dt, 4);
       else faceToward(m.sq, player.position.x, player.position.z, dt, 4);
       m.sq.update(dt, _zero, 0);
     }
@@ -1413,10 +1804,16 @@ function tick() {
     }
   }
 
-  // --- Booskibro ---
+  // --- Booskibro & Lou Sputthole on stage ---
   if (phase !== 'anoint_walk') boosk.update(dt, _zero, 0);
   if (phase === 'anoint_lines' || phase === 'anoint_transform' || phase === 'complete') {
     faceToward(boosk, player.position.x, player.position.z, dt, 6);
+  }
+  louStage.update(dt, _zero, 0);
+  if (phase === 'execution') {
+    faceToward(louStage, prospects[0].sq.position.x, prospects[0].sq.position.z, dt, 5);
+  } else if (phase !== 'approach' && phase !== 'line_up' && phase !== 'speech') {
+    faceToward(louStage, player.position.x, player.position.z, dt, 5);
   }
 
   // --- Fire, flames, particles ---
@@ -1491,19 +1888,29 @@ tick();
 window.INITIATION = {
   get player() { return player; }, // reassigned at the anointing
   members,
+  prospects,
   boosk,
+  louStage,
+  PLAYER_SLOT,
   get phase() { return phase; },
   get hp() { return hp; },
   get greatLog() { return greatLog; },
+  get quizOpen() { return quizEl.classList.contains('show'); },
+  get correctChoice() {
+    return [...quizEl.querySelectorAll('.quiz-opt')].findIndex((b) => b.dataset.correct === '1');
+  },
+  chooseAnswer,
   smashAction,
   roarAction,
   advanceSay,
   // Jump the ceremony forward for testing
   skipToGauntlet() {
-    player.group.position.set(GAUNTLET_SPOT.x, 0, GAUNTLET_SPOT.z);
+    player.group.position.set(PLAYER_SLOT.x, 0, PLAYER_SLOT.z);
+    spotMark.visible = false;
     sayQueue = [];
     sayDone = null;
     dialogEl.classList.remove('show');
+    hideQuiz();
     startGauntlet(false);
   },
 };

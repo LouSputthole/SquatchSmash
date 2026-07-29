@@ -104,6 +104,29 @@
   }
   @keyframes hintPulse { from { opacity: .4; } to { opacity: 1; } }
 
+  #quiz {
+    position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%);
+    z-index: 8; width: min(680px, 92vw); display: none;
+    background: rgba(10, 8, 22, .88); border: 1px solid rgba(217,46,46,.55);
+    border-radius: 14px; padding: 18px 22px 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.65);
+  }
+  #quiz.show { display: block; animation: dlgIn .25s ease-out; }
+  #quizQ {
+    font-size: 20px; font-weight: 900; color: var(--silver-bright);
+    margin-bottom: 12px; text-align: center;
+  }
+  .quiz-opt {
+    display: block; width: 100%; margin-bottom: 8px; cursor: pointer;
+    font-size: 17px; font-weight: 700; font-family: inherit; text-align: left;
+    color: #dce2f0; background: rgba(255,255,255,.06);
+    border: 1px solid rgba(154,111,240,.4); border-radius: 10px;
+    padding: 10px 14px; transition: background .12s, border-color .12s;
+  }
+  .quiz-opt:hover { background: rgba(154,111,240,.22); border-color: var(--purple-bright); }
+  .quiz-opt .num { color: var(--ember); margin-right: 8px; font-weight: 900; }
+  #quizHint { font-size: 13px; color: #8a92ab; text-align: right; margin-top: 4px; }
+
   .popup {
     position: fixed; z-index: 6; pointer-events: none;
     font-size: 24px; font-weight: 900; color: var(--silver-bright);
@@ -208,6 +231,14 @@
     <div id="dlgHint">SPACE / CLICK ▸</div>
   </div>
 
+  <div id="quiz">
+    <div id="quizQ">Who are the FIVE founding members of the Silver Sasquatches?</div>
+    <button class="quiz-opt" data-i="0"></button>
+    <button class="quiz-opt" data-i="1"></button>
+    <button class="quiz-opt" data-i="2"></button>
+    <div id="quizHint">Choose carefully. You saw what happened.</div>
+  </div>
+
   <div id="touchUI">
     <div id="stickZone"></div>
     <div id="stickBase"><div id="stickKnob"></div></div>
@@ -223,7 +254,7 @@
       You struck a member of the Circle.<br>
       Silver endures. Silver does not swing at its own.
     </div>
-    <button id="retryBtn" class="btn danger">FACE THE GAUNTLET AGAIN</button>
+    <button id="retryBtn" class="btn danger">TRY AGAIN</button>
   </div>
 
   <div id="complete" class="overlay hidden">

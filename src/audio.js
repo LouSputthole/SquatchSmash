@@ -251,6 +251,15 @@ export function thud() {
   noise(t, { peak: 0.16, attack: 0.002, decay: 0.09, freq: 700, type: 'lowpass' });
 }
 
+// Pistol shot: sharp high crack, low report, echo tail.
+export function gunshot() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.5, attack: 0.001, decay: 0.12, freq: 1400, type: 'highpass' });
+  tone(t, { type: 'sine', from: 170, to: 38, dur: 0.16, peak: 0.42 });
+  noise(t + 0.02, { peak: 0.16, attack: 0.002, decay: 0.4, freq: 480, type: 'lowpass' });
+}
+
 // Bonfire pop — call on a randomized timer for ambient crackle.
 export function crackle() {
   if (!ctx) return;

@@ -22,9 +22,10 @@ Then open `http://localhost:8000` in a browser.
 
 `initiation.html` (also linked from the main menu; the in-progress apartment scene leads here directly, so there's no title screen) is a story scene set the night before the rampage. The Silver Sasquatches are *people* — the actual crew: Booskibro runs the ceremony from the stage, while Lou, Deathmegatron, Shubes, Rippinflow, Erican, Hogmama, Gratin, Sasole, and Snow stand front row with their real faces (photo textures in `assets/faces/`, name tags overhead). You're the human from the apartment. Walk toward the bonfire glow through the pines and Booskibro will put you through the Circle's initiation rites:
 
-1. **The Gauntlet** — the members circle up and beat you down to a fifth of your health. Endure it. Swing back even once and you fail the initiation (you can retry).
-2. **The Roar** — press **R** and let the forest hear you.
-3. **The Timber** — break the ceremonial great log in three blows (mind your aim: striking a member still fails you).
+1. **The Question** — five prospects stand in line (a glowing slot marks your place; you're Prospect Two). Booski and Lou Sputthole hold court from the stage, and then comes the founders quiz. Prospect One goes first, guesses "Bigfoot, Garfield, the GEICO Gecko" — and is executed on the spot, eight rounds. Then it's your turn, multiple choice. Choose wrong and you get the same eight rounds (retryable). The five founders: Booski, Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron.
+2. **The Gauntlet** — the members circle up and beat you down to a fifth of your health. Endure it. Swing back even once and you fail the initiation (you can retry).
+3. **The Roar** — press **R** and let the forest hear you.
+4. **The Timber** — break the ceremonial great log in three blows (mind your aim: striking a member still fails you).
 
 Survive all three and you're anointed on the spot — the flash fades and a **silver sasquatch** is standing in your shoes — then it's off to the campground.
 
