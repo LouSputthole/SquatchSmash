@@ -355,6 +355,170 @@ export function crash() {
   noise(t + 0.03, { peak: 0.2, attack: 0.002, decay: 0.3, freq: 5000, type: 'highpass' });
 }
 
+// Heavy sasquatch footfall. The surface changes the filter, not the weight.
+const STEP_SURFACES = {
+  concrete: { freq: 520, peak: 0.13, tone: 72 },
+  carpet: { freq: 260, peak: 0.09, tone: 62 },
+  tile: { freq: 1400, peak: 0.12, tone: 88 },
+  asphalt: { freq: 700, peak: 0.12, tone: 68 },
+  pool: { freq: 1000, peak: 0.14, tone: 80 },
+  stairs: { freq: 900, peak: 0.15, tone: 96 },
+};
+
+export function step(surface = 'concrete') {
+  if (!ctx) return;
+  const s = STEP_SURFACES[surface] || STEP_SURFACES.concrete;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: s.tone, to: s.tone * 0.5, dur: 0.1, peak: s.peak });
+  noise(t, { peak: s.peak * 0.6, attack: 0.002, decay: 0.08, freq: s.freq, type: 'lowpass' });
+}
+
+// Take-off and landing. `hard` is a big drop from the balcony or into the pool.
+export function land(hard = false) {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: hard ? 110 : 80, to: 26, dur: hard ? 0.34 : 0.16, peak: hard ? 0.5 : 0.2 });
+  noise(t, { peak: hard ? 0.3 : 0.12, attack: 0.002, decay: hard ? 0.3 : 0.12, freq: 420, type: 'lowpass' });
+}
+
+// Two large bodies wrestling over a suitcase.
+export function grapple() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.16, attack: 0.02, decay: 0.22, freq: 900, type: 'bandpass', q: 0.8 });
+  tone(t, { type: 'sine', from: 130, to: 90, dur: 0.2, peak: 0.16 });
+}
+
+// A jar of classified seasoning going into somebody's eyes.
+export function spice() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.22, attack: 0.004, decay: 0.4, freq: 3400, type: 'highpass' });
+  tone(t, { type: 'triangle', from: 620, to: 240, dur: 0.2, peak: 0.08 });
+}
+
+// A television taking a man and dying.
+export function tvBreak() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'square', from: 900, to: 90, dur: 0.24, peak: 0.22 });
+  noise(t, { peak: 0.34, attack: 0.001, decay: 0.5, freq: 4200, type: 'highpass' });
+  noise(t + 0.05, { peak: 0.2, attack: 0.01, decay: 0.6, freq: 500, type: 'lowpass' });
+}
+
+// Ceiling fan overspeeding, then throwing sparks.
+export function sparks() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  for (let i = 0; i < 7; i++) {
+    noise(t + i * 0.09 + Math.random() * 0.05, {
+      peak: 0.12, attack: 0.001, decay: 0.06, freq: 5200 + Math.random() * 2500, type: 'highpass',
+    });
+  }
+  tone(t, { type: 'sawtooth', from: 220, to: 700, dur: 0.7, peak: 0.06 });
+}
+
+// The motel sign going off its wiring.
+export function neonShort() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'square', from: 120, to: 30, dur: 0.3, peak: 0.35 });
+  noise(t, { peak: 0.3, attack: 0.001, decay: 0.4, freq: 3000, type: 'highpass' });
+  tone(t + 0.1, { type: 'sawtooth', from: 61, to: 20, dur: 0.9, peak: 0.1 }); // the hum dying
+}
+
+// The Reserve meeting an open flame.
+export function fire() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.3, attack: 0.08, decay: 1.6, freq: 900, type: 'lowpass' });
+  noise(t + 0.1, { peak: 0.12, attack: 0.1, decay: 1.4, freq: 2600, type: 'highpass' });
+  tone(t, { type: 'sine', from: 90, to: 40, dur: 0.6, peak: 0.2 });
+}
+
+// Stun prod arcing.
+export function prod() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  for (let i = 0; i < 5; i++) {
+    noise(t + i * 0.03, { peak: 0.14, attack: 0.001, decay: 0.04, freq: 6000, type: 'highpass' });
+  }
+  tone(t, { type: 'square', from: 90, to: 60, dur: 0.18, peak: 0.1 });
+}
+
+// Suitcase latches.
+export function caseLatch() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  for (const d of [0, 0.11]) {
+    tone(t + d, { type: 'square', from: 1400, to: 900, dur: 0.04, peak: 0.09 });
+    noise(t + d, { peak: 0.1, attack: 0.001, decay: 0.05, freq: 3200, type: 'bandpass', q: 2 });
+  }
+}
+
+// One deliberate bite of eleven-year cure.
+export function bite() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.22, attack: 0.002, decay: 0.14, freq: 2200, type: 'bandpass', q: 0.7 });
+  noise(t + 0.18, { peak: 0.1, attack: 0.01, decay: 0.3, freq: 800, type: 'lowpass' });
+  tone(t, { type: 'triangle', from: 180, to: 90, dur: 0.12, peak: 0.08 });
+}
+
+// Heavy car door.
+export function carDoor() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.14, attack: 0.01, decay: 0.16, freq: 1200, type: 'bandpass', q: 1.2 });
+  tone(t + 0.16, { type: 'sine', from: 120, to: 45, dur: 0.2, peak: 0.32 });
+}
+
+// Crawling through the pool drain.
+export function tunnel() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.16, attack: 0.15, decay: 1.4, freq: 600, type: 'lowpass' });
+  for (let i = 0; i < 4; i++) {
+    tone(t + 0.2 + i * 0.32, { type: 'sine', from: 300 + Math.random() * 200, to: 140, dur: 0.12, peak: 0.05 });
+  }
+}
+
+// Hammer on an empty chamber.
+export function dryFire() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.12, attack: 0.001, decay: 0.03, freq: 3600, type: 'bandpass', q: 3 });
+  tone(t, { type: 'square', from: 520, to: 380, dur: 0.04, peak: 0.05 });
+}
+
+// Shards settling a second after the window goes.
+export function glassSettle() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  for (let i = 0; i < 5; i++) {
+    tone(t + 0.15 + i * 0.14 + Math.random() * 0.1, {
+      type: 'triangle', from: 1800 + Math.random() * 2200, to: 900, dur: 0.06, peak: 0.03,
+    });
+  }
+}
+
+// A door leaving its frame with somebody attached.
+export function doorSplinter() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'sine', from: 140, to: 34, dur: 0.35, peak: 0.5 });
+  noise(t, { peak: 0.34, attack: 0.002, decay: 0.3, freq: 1400, type: 'bandpass', q: 0.7 });
+  noise(t + 0.06, { peak: 0.18, attack: 0.005, decay: 0.4, freq: 500, type: 'lowpass' });
+}
+
+// A window sliding open an inch, and stopping.
+export function windowSlide() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  noise(t, { peak: 0.09, attack: 0.03, decay: 0.34, freq: 1800, type: 'bandpass', q: 1.6 });
+  tone(t + 0.3, { type: 'square', from: 900, to: 700, dur: 0.03, peak: 0.04 });
+}
+
 export function blip() {
   if (!ctx) return;
   tone(ctx.currentTime, { type: 'square', from: 720, to: 720, dur: 0.03, peak: 0.03 });

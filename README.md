@@ -59,11 +59,15 @@ On touch devices a virtual joystick and SMASH/RAGE buttons appear automatically.
 
 ## Scene Two — The Jerky Motel
 
-Prospect — full name Tony Squatchmontana, though nobody in the scene calls him that — and his driver
-**Manny Hairyera** pull into the Flamingo Motel at night to buy a suitcase of **The Reserve**: a
+Prospect — full name Tony Squatchmontana, though nobody in the scene calls him that — is a sasquatch
+trying to get made in the **squatch family**. He and his driver **Manny Hairyera**, who is already
+family, pull into the Flamingo Motel at night to buy a suitcase of **The Reserve**: a
 government-banned, seventy-two-hour-smoked, classified-spice beef jerky from a cattle bloodline
 declared legally untouchable. Worth more per ounce than silver. Dangerously addictive to sasquatches.
-Nobody involved acknowledges how stupid this is, and that is the point.
+
+Everyone selling meat in room twelve is **human**, and about half Prospect's height. That is most of
+the joke and all of the staging: humans work doorways, corners and bathrooms because nobody works a
+sasquatch head-on. Nobody involved acknowledges how stupid any of this is, and that is the point.
 
 **The scene never takes control away from you.** Dialogue happens while people walk around, block
 exits and get into position; the wheel slows time, it does not stop it. You can walk out of a
@@ -123,6 +127,21 @@ get put down outside and the sirens get closer. The scene always ends at Manny's
 *Say Hello to My Little Snack* · *Against the Grain* · *Well Done* · *Rare Form* ·
 *Motel Meat Inspector* · *No Beef Between Us* · *Prospect Pricing* · *Room Service*
 
+## Audio
+
+Every sound is synthesised at runtime with WebAudio — there are no audio files and the game needs
+none. `assets/audio/sound-queue.json` is the production queue for real audio later: every cue the
+game plays or wants (188 assets — SFX, ambience, music beds and all 95 spoken lines), each tied to
+the code hook it would replace.
+
+```sh
+node tools/sound-queue.mjs          # regenerate the queue and check coverage
+node tools/sound-queue.mjs --check  # fail if the code plays a cue nothing has briefed
+```
+
+Voice lines are read straight out of `src/motel/dialogue.js`, so the queue cannot fall behind the
+script. See `assets/audio/README.md`.
+
 ## Tech
 
 - Plain ES modules, no bundler — Three.js r160 is vendored in `lib/`.
@@ -149,6 +168,8 @@ src/motel/jerky.js  Shipment authenticity, the eight inspections, freshness
 src/motel/dialogue.js  Dialogue wheel nodes, barks, the closing exchange
 src/motel/audio.js  Motel ambience, tension bed, fight and chase music
 tools/bundle.mjs    Single-file HTML bundler (`--motel` for scene two)
+tools/sound-queue.mjs  Builds + checks the audio production queue
+assets/audio/       Sound queue and audio notes (no audio files yet)
 lib/                Vendored three.module.js
 ```
 

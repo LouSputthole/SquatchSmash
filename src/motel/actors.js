@@ -2,9 +2,13 @@ import * as THREE from 'three';
 import { lambert } from '../world.js';
 
 // ---------------------------------------------------------------------------
-// Everybody in the motel who is not Prospect: Manny, Rico, Chino, the man in
-// the bathroom, the lookout, the clerk, and whoever else turns up once the
-// shooting starts. All of them are blocky sasquatches with costumes.
+// Everybody in the motel who is not Prospect.
+//
+// Prospect is a sasquatch — a prospect, trying to get made in the squatch
+// family. Manny is family, so he is one too. Everybody selling meat in room
+// twelve is human, and about half Prospect's height, which is most of the joke
+// and all of the staging: humans work doorways and corners because they cannot
+// work a sasquatch head-on.
 // ---------------------------------------------------------------------------
 
 function box(w, h, d, color, extra = null) {
@@ -14,9 +18,163 @@ function box(w, h, d, color, extra = null) {
 }
 
 const FUR_TONES = { manny: 0x6b5a44, rico: 0x8a6a4a, chino: 0x5a4a3c, slicer: 0x4a3f36, thug: 0x6a5a48, clerk: 0x7a6a58, lookout: 0x5f5040 };
+const SKIN_TONES = [0xe8c39a, 0xc99268, 0x8d5f3c, 0xf0d0b0, 0x6f472c];
 
-// Builds the shared humanoid rig. `cfg` decorates it.
+// Dispatch: humans by default, sasquatches for the family.
 export function buildActor(cfg = {}) {
+  return cfg.species === 'squatch' ? buildSquatchRig(cfg) : buildHumanRig(cfg);
+}
+
+// ---------------- Human rig ----------------
+// Roughly 1.85 m to Prospect's 3.3 m. Real proportions, blocky construction,
+// so a human reads as a person and never as a small sasquatch.
+function buildHumanRig(cfg = {}) {
+  const skin = cfg.skin ?? SKIN_TONES[0];
+  const shirt = cfg.shirt ?? 0x8a8a92;
+  const pants = cfg.pants ?? 0x2f3340;
+  const hair = cfg.hair ?? 0x241a12;
+  const shoes = cfg.shoes ?? 0x1c1c22;
+  const sleeveless = !!cfg.sleeveless;
+
+  const group = new THREE.Group();
+  const body = new THREE.Group();
+  group.add(body);
+
+  const hips = box(0.44, 0.2, 0.24, pants);
+  hips.position.y = 0.98;
+  body.add(hips);
+
+  const torso = box(0.5, 0.64, 0.26, shirt);
+  torso.position.y = 1.3;
+  body.add(torso);
+
+  const shoulders = box(0.58, 0.14, 0.28, shirt);
+  shoulders.position.y = 1.58;
+  body.add(shoulders);
+
+  const neck = box(0.13, 0.1, 0.13, skin);
+  neck.position.y = 1.68;
+  body.add(neck);
+
+  // Head
+  const head = new THREE.Group();
+  head.position.set(0, 1.84, 0);
+  const skull = box(0.25, 0.3, 0.25, skin);
+  head.add(skull);
+  const hairCap = box(0.27, 0.09, 0.27, hair);
+  hairCap.position.y = 0.15;
+  head.add(hairCap);
+  const back = box(0.27, 0.16, 0.1, hair);
+  back.position.set(0, 0.03, -0.1);
+  head.add(back);
+  const eyes = [];
+  for (const s of [-1, 1]) {
+    const e = box(0.045, 0.035, 0.03, cfg.eyeColor ?? 0x20242e);
+    e.position.set(0.06 * s, 0.03, 0.13);
+    head.add(e);
+    eyes.push(e);
+  }
+  body.add(head);
+
+  const armL = buildHumanArm(-1, shirt, skin, sleeveless);
+  const armR = buildHumanArm(1, shirt, skin, sleeveless);
+  body.add(armL, armR);
+
+  const legL = buildHumanLeg(-1, pants, shoes);
+  const legR = buildHumanLeg(1, pants, shoes);
+  group.add(legL, legR);
+
+  // ---- costume ----
+  if (cfg.tropical) {
+    // Open shirt: bare chest with two loud panels either side
+    torso.material = lambert(skin);
+    for (const s of [-1, 1]) {
+      const panel = box(0.17, 0.66, 0.06, cfg.tropical);
+      panel.position.set(0.17 * s, 1.3, 0.14);
+      body.add(panel);
+    }
+    const collar = box(0.5, 0.08, 0.28, cfg.tropical);
+    collar.position.y = 1.6;
+    body.add(collar);
+  }
+  if (cfg.shades) {
+    const g = box(0.24, 0.06, 0.04, 0x101014, { emissive: 0x2a2a3a });
+    g.position.set(0, 0.04, 0.14);
+    head.add(g);
+  }
+  if (cfg.mustache) {
+    const m = box(0.12, 0.025, 0.03, hair);
+    m.position.set(0, -0.05, 0.14);
+    head.add(m);
+  }
+  if (cfg.chain) {
+    const c = box(0.24, 0.03, 0.05, 0xe8c04a, { emissive: 0x6a5210 });
+    c.position.set(0, 1.52, 0.14);
+    body.add(c);
+    const medal = box(0.08, 0.1, 0.03, 0xe8c04a, { emissive: 0x6a5210 });
+    medal.position.set(0, 1.42, 0.15);
+    body.add(medal);
+  }
+  if (cfg.apron) {
+    const a = box(0.42, 0.78, 0.05, 0xd8d2c0);
+    a.position.set(0, 1.18, 0.15);
+    body.add(a);
+    const stain = box(0.14, 0.12, 0.03, 0x7a1414);
+    stain.position.set(0.09, 1.06, 0.18);
+    body.add(stain);
+  }
+  if (cfg.gloves) {
+    for (const arm of [armL, armR]) {
+      const gl = box(0.14, 0.16, 0.14, 0xf0f4f0);
+      gl.position.y = -0.62;
+      arm.add(gl);
+    }
+  }
+  if (cfg.cap) {
+    const cap = box(0.28, 0.1, 0.28, cfg.cap);
+    cap.position.set(0, 0.17, 0);
+    head.add(cap);
+    const brim = box(0.28, 0.04, 0.14, cfg.cap);
+    brim.position.set(0, 0.13, 0.19);
+    head.add(brim);
+  }
+
+  group.scale.setScalar(cfg.scale ?? 1);
+  group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+
+  return { group, body, head, torso, armL, armR, legL, legR, eyes, height: 1.9, handY: -0.72, radius: 0.42, species: 'human' };
+}
+
+function buildHumanArm(side, shirt, skin, sleeveless) {
+  const pivot = new THREE.Group();
+  pivot.position.set(0.32 * side, 1.52, 0);
+  const upper = box(0.13, 0.38, 0.15, sleeveless ? skin : shirt);
+  upper.position.y = -0.19;
+  pivot.add(upper);
+  const fore = box(0.11, 0.34, 0.13, skin);
+  fore.position.y = -0.53;
+  pivot.add(fore);
+  const hand = box(0.12, 0.14, 0.12, skin);
+  hand.position.y = -0.76;
+  pivot.add(hand);
+  pivot.userData.hand = hand;
+  return pivot;
+}
+
+function buildHumanLeg(side, pants, shoes) {
+  const pivot = new THREE.Group();
+  pivot.position.set(0.13 * side, 0.94, 0);
+  const leg = box(0.17, 0.9, 0.19, pants);
+  leg.position.y = -0.45;
+  pivot.add(leg);
+  const shoe = box(0.18, 0.11, 0.3, shoes);
+  shoe.position.set(0, -0.9, 0.06);
+  pivot.add(shoe);
+  return pivot;
+}
+
+// ---------------- Sasquatch rig (the family) ----------------
+function buildSquatchRig(cfg = {}) {
   const fur = cfg.fur ?? 0x6b5a44;
   const furDark = cfg.furDark ?? shade(fur, -0.25);
   const skin = cfg.skin ?? 0xd8c0a0;
@@ -111,7 +269,7 @@ export function buildActor(cfg = {}) {
   group.scale.setScalar(scale);
   group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
 
-  return { group, body, head, torso, armL, armR, legL, legR, eyes };
+  return { group, body, head, torso, armL, armR, legL, legR, eyes, height: 3.1, handY: -1.75, radius: 0.7, species: 'squatch' };
 }
 
 function buildLimb(side, x, y, fur, furDark, skin) {
@@ -305,6 +463,9 @@ export class Actor {
     this.y = 0;
     this.escaped = false;
     this.lethalKill = false;
+    this.stuckT = 0;
+    this.lastX = this.group.position.x;
+    this.lastZ = this.group.position.z;
   }
 
   get position() { return this.group.position; }
@@ -318,8 +479,9 @@ export class Actor {
     this.weapon = kind;
     if (!kind) return;
     const m = buildWeaponMesh(kind);
-    const hand = this.rig.armR.userData?.hand || this.rig.armR;
-    m.position.set(0, -1.85, 0.16);
+    const handY = this.rig.handY ?? -1.75;
+    m.position.set(0, handY - 0.12, 0.1);
+    if (this.rig.species === 'human') m.scale.setScalar(0.85);
     this.rig.armR.add(m);
     this.weaponMesh = m;
   }
@@ -486,6 +648,21 @@ export class Actor {
       }
     }
 
+    // Somebody running for a door they cannot reach should not run at it
+    // forever — give up after a few seconds and let the scene move on.
+    if (this.state === 'flee' || this.state === 'goto') {
+      const moved = Math.hypot(p.x - this.lastX, p.z - this.lastZ);
+      this.stuckT = moved < 0.02 ? this.stuckT + dt : 0;
+      if (this.stuckT > 3.5) {
+        this.stuckT = 0;
+        ctx.onStuck?.(this);
+      }
+    } else {
+      this.stuckT = 0;
+    }
+    this.lastX = p.x;
+    this.lastZ = p.z;
+
     // Gravity / floor snapping
     const floor = ctx.floorAt(p.x, p.z, p.y);
     if (p.y > floor + 0.02) {
@@ -551,8 +728,9 @@ export class Actor {
   // Slide along blockers rather than sticking to them.
   applyMove(nx, nz, ctx) {
     const p = this.group.position;
-    if (!ctx.blocked(nx, p.z, p.y, 0.55)) p.x = nx;
-    if (!ctx.blocked(p.x, nz, p.y, 0.55)) p.z = nz;
+    const r = this.rig.radius ?? 0.55;
+    if (!ctx.blocked(nx, p.z, p.y, r)) p.x = nx;
+    if (!ctx.blocked(p.x, nz, p.y, r)) p.z = nz;
   }
 
   remove() {
@@ -562,38 +740,51 @@ export class Actor {
 
 // ---------------- Cast presets ----------------
 
+// Manny is family, so he is a sasquatch. Everyone selling meat is human, and
+// their health reflects it — a sasquatch does not need six swings to settle
+// an argument with a man holding a thermometer.
 export const CAST = {
   manny: () => ({
-    name: 'Manny', role: 'ally', fur: FUR_TONES.manny, shirt: 0x3f6b8a, pants: 0x2a3340,
-    cap: 0xd8c04a, hp: 160, speed: 5.6, scale: 1.02,
+    name: 'Manny', role: 'ally', species: 'squatch',
+    fur: FUR_TONES.manny, shirt: 0x3f6b8a, pants: 0x2a3340,
+    cap: 0xd8c04a, hp: 160, speed: 5.6, scale: 0.95,
   }),
   rico: () => ({
-    name: 'Rico', role: 'seller', fur: FUR_TONES.rico, shirt: 0xe8dcc0, pants: 0xe8e4d8,
+    name: 'Rico', role: 'seller', skin: SKIN_TONES[1], hair: 0x1d140e,
+    shirt: 0xe8dcc0, pants: 0xe8e4d8, shoes: 0xf0ece0,   // suspiciously clean shoes
     tropical: 0xd94f8a, shades: true, mustache: true, chain: true,
-    hp: 150, speed: 5.4, weapon: 'thermometer', scale: 1.05,
+    hp: 95, speed: 5.4, weapon: 'thermometer', scale: 1.02,
   }),
   chino: () => ({
-    name: 'Chino', role: 'seller', fur: FUR_TONES.chino, shirt: 0xe8e4d8, pants: 0x3a3a42,
-    apron: true, gloves: true, hp: 170, speed: 5.0, weapon: 'cleaver', scale: 1.1,
+    name: 'Chino', role: 'seller', skin: SKIN_TONES[2], hair: 0x141014,
+    shirt: 0xe8e4d8, pants: 0x3a3a42, sleeveless: true,
+    apron: true, gloves: true, hp: 115, speed: 5.0, weapon: 'cleaver', scale: 1.06,
   }),
   slicer: () => ({
-    name: 'Bathroom Seller', role: 'seller', fur: FUR_TONES.slicer, shirt: 0x4a4a52, pants: 0x2a2a30,
-    gloves: true, hp: 190, speed: 4.8, weapon: 'slicer', scale: 1.15,
+    name: 'Bathroom Seller', role: 'seller', skin: SKIN_TONES[0], hair: 0x2a1e14,
+    shirt: 0x4a4a52, pants: 0x2a2a30,
+    gloves: true, hp: 130, speed: 4.8, weapon: 'slicer', scale: 1.12,
   }),
   lookout: () => ({
-    name: 'Lookout', role: 'seller', fur: FUR_TONES.lookout, shirt: 0x6a3a3a, pants: 0x2f2f36,
-    hp: 110, speed: 5.6, weapon: 'knife', scale: 0.98,
+    name: 'Lookout', role: 'seller', skin: SKIN_TONES[3], hair: 0x6a4a22,
+    shirt: 0x6a3a3a, pants: 0x2f2f36,
+    hp: 70, speed: 5.6, weapon: 'knife', scale: 0.96,
   }),
   watcher: () => ({
-    name: 'Watcher', role: 'seller', fur: FUR_TONES.thug, shirt: 0x3a4a3a, pants: 0x2a2a30,
-    hp: 110, speed: 5.4, weapon: 'hook', scale: 1.0,
+    name: 'Watcher', role: 'seller', skin: SKIN_TONES[4], hair: 0x120e0a,
+    shirt: 0x3a4a3a, pants: 0x2a2a30,
+    hp: 75, speed: 5.4, weapon: 'hook', scale: 1.0,
   }),
   clerk: () => ({
-    name: 'Clerk', role: 'civilian', fur: FUR_TONES.clerk, shirt: 0x8a8ad0, pants: 0x3a3a48,
-    hp: 60, speed: 5.0, scale: 0.95,
+    name: 'Clerk', role: 'civilian', skin: SKIN_TONES[0], hair: 0x8a7a55,
+    shirt: 0x8a8ad0, pants: 0x3a3a48, cap: 0x4a4a66,
+    hp: 45, speed: 5.0, scale: 0.95,
   }),
   thug: (weapon) => ({
-    name: 'Seller', role: 'seller', fur: FUR_TONES.thug, shirt: 0x5a4a5a, pants: 0x2a2a30,
-    hp: 120, speed: 5.4, weapon, scale: 1.0 + Math.random() * 0.12,
+    name: 'Seller', role: 'seller',
+    skin: SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)],
+    hair: [0x1d140e, 0x3a2a18, 0x6a4a22, 0x121212][Math.floor(Math.random() * 4)],
+    shirt: [0x5a4a5a, 0x3a5a6a, 0x6a5a3a, 0x4a3a3a][Math.floor(Math.random() * 4)],
+    pants: 0x2a2a30, hp: 85, speed: 5.4, weapon, scale: 0.96 + Math.random() * 0.12,
   }),
 };

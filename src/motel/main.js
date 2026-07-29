@@ -429,6 +429,7 @@ const actorCtx = {
   onRangedAttack: (a) => enemyShoot(a),
   onGrabAttempt: (a) => startGrapple(a),
   onReachedTarget: (a) => actorReachedTarget(a),
+  onStuck: (a) => actorStuck(a),
   onAllyAttack: (a, foe) => allyAttack(a, foe),
   nearestHostile: (x, z, r) => nearestHostile(x, z, r),
 };
@@ -535,8 +536,8 @@ function startScene() {
   camYaw = Math.PI * 0.98;
 
   // Cast
-  manny = spawnActor({ ...CAST.manny(), x: -9.1, z: 16.4, state: 'idle' });
-  manny.anchor = { x: -9.1, z: 16.4 };
+  manny = spawnActor({ ...CAST.manny(), x: -10.6, z: 16.4, state: 'idle' });
+  manny.anchor = { x: -10.6, z: 16.4 };
   manny.heading = Math.PI;
   lookout = spawnActor({ ...CAST.lookout(), x: 21.4, z: -0.6, state: 'idle' });
   watcher = spawnActor({ ...CAST.watcher(), x: 6, z: -1.6, state: 'idle' });
@@ -576,7 +577,7 @@ function ix(id) { return interactables.find((i) => i.id === id); }
 
 // -- car phase --
 addInteract({
-  id: 'talkManny', x: -9.1, y: 1.6, z: 16.4, r: 4,
+  id: 'talkManny', x: -10.6, y: 1.6, z: 16.4, r: 4.2,
   label: () => 'Speak to Manny',
   enabled: () => (phase === 'car' || phase === 'lot') && !dialogue,
   act: () => {
@@ -741,6 +742,7 @@ addInteract({
   enabled: () => phase === 'lot' || phase === 'escape',
   act: () => {
     foundClue('bathwindow');
+    sfx.windowSlide();
     S.slicerKnown = true;
     completeObjective('thirdman');
     say('Prospect', 'The bathroom window opened an inch. Somebody in there wanted air, or a look at the lot.', 4.4);
@@ -962,7 +964,7 @@ addInteract({
     refs.roomLight.intensity = 0.25;
     refs.lamp.light.intensity = Math.min(refs.lamp.light.intensity, 0.6);
     effects.explosion(new THREE.Vector3(0, 3.1, -10.4));
-    sfx.glassSmash();
+    sfx.sparks();
     shake = Math.max(shake, 0.5);
     toast('SPARKS', 'warn', 'The fan is throwing sparks — there is fire in this room now');
     say('*', 'The fan screams up to speed and starts spitting sparks over the beds.', 4);
@@ -1084,7 +1086,7 @@ addInteract({
     vy = 0;
     S.escapeRoute = 'pool';
     say('*', 'Wet concrete, a dead frog, and then the alley behind the office.', 3.6);
-    sfx.plumbing();
+    sfx.tunnel();
   },
 });
 
@@ -1183,7 +1185,7 @@ addInteract({
     S.neonKilled = true;
     refs.neon.glow.intensity = 0;
     refs.neon.text.material.emissiveIntensity = 0;
-    sfx.glassSmash();
+    sfx.neonShort();
     effects.explosion(new THREE.Vector3(refs.neon.group.position.x, 11, refs.neon.group.position.z));
     shake = Math.max(shake, 0.5);
     toast('LIGHTS OUT', 'clue', 'The lot goes dark — nobody out here can aim for a while');
@@ -1603,7 +1605,7 @@ function onRanged() {
   const st = WEAPON_STATS[S.weapon];
   if (!st) return;
   if (!st.ranged) { throwWeapon(); return; }
-  if (S.ammo <= 0) { sfx.lockClick(); toast('EMPTY', 'warn', 'Nothing left in the wheel'); return; }
+  if (S.ammo <= 0) { sfx.dryFire(); toast('EMPTY', 'warn', 'Nothing left in the wheel'); return; }
   if (attackCd > 0) return;
   attackCd = st.rate;
   S.ammo--;
@@ -1717,7 +1719,8 @@ function enemyMelee(a) {
   }
   damagePlayer(st.dmg * 0.55, a.name);
   if (st.stun) stunT = Math.max(stunT, st.stun);
-  sfx.punch(false);
+  if (a.weapon === 'prod') sfx.prod();
+  else sfx.punch(false);
 }
 
 function enemyShoot(a) {
@@ -1746,7 +1749,7 @@ function startGrapple(a) {
 function mashGrapple() {
   if (!grapple) return;
   grapple.progress += 9;
-  sfx.punch(false);
+  sfx.grapple();
   grappleFillEl.style.width = `${Math.min(100, grapple.progress)}%`;
   if (grapple.captive) return;   // the tick handles climbing out of the tub
   if (grapple.progress >= 100) {
@@ -1873,7 +1876,7 @@ function markEnemies(seconds) {
     );
     m.rotation.x = Math.PI;
     a.group.add(m);
-    m.position.set(0, 3.5, 0);
+    m.position.set(0, (a.rig.height ?? 3.1) + 0.5, 0);
     a.marker = m;
     a.markerT = seconds;
   }
@@ -1902,7 +1905,7 @@ function kickTable() {
 function throwSeasoning() {
   refs.seasoning.used = true;
   refs.seasoning.group.visible = false;
-  sfx.packaging();
+  sfx.spice();
   const foe = nearestHostileInFront(6.0);
   if (foe) {
     foe.blindT = 3.2;
@@ -1928,7 +1931,7 @@ function smashTV() {
   if (refs.tv.broken) return;
   refs.tv.broken = true;
   refs.tv.screen.visible = false;
-  sfx.glassSmash();
+  sfx.tvBreak();
   effects.explosion(new THREE.Vector3(refs.tv.x, 1.6, refs.tv.z));
   shake = Math.max(shake, 0.4);
 }
@@ -1938,6 +1941,7 @@ function breakWindow(quiet = false) {
   S.windowBroken = true;
   refs.window12.mesh.visible = false;
   sfx.glassSmash();
+  sfx.glassSettle();
   shake = Math.max(shake, 0.4);
   if (!quiet) say('*', 'The front window of room twelve leaves the building.', 3.2);
   if (!S.mannyInside) mannyJoins('breaking glass');
@@ -1949,7 +1953,7 @@ function breakFrontDoor() {
   refs.frontDoor.collider.enabled = false;
   refs.frontDoor.open = true;
   refs.frontDoor.targetAngle = -2.6;
-  sfx.doorSlam();
+  sfx.doorSplinter();
   shake = Math.max(shake, 0.5);
   toast('DOOR IS OPEN', '', 'The way out of room twelve is not a door any more');
   if (!S.mannyInside) mannyJoins('a door leaving its frame');
@@ -1973,7 +1977,7 @@ function burnShipment() {
   refs.jerkyCase.group.visible = false;
   if (carriedCases.jerky) { scene.remove(carriedCases.jerky); carriedCases.jerky = null; }
   effects.explosion(new THREE.Vector3(pos.x, 1.2, pos.z));
-  sfx.crash();
+  sfx.fire();
   shake = Math.max(shake, 0.8);
   award('welldone');
   failObjective('intact');
@@ -2009,7 +2013,7 @@ function takeJerkyCase() {
     spawnReinforcements();
   }
   toast('THE RESERVE IS YOURS', '', `${S.packagesIntact}/8 packages · ${freshness.grade}`);
-  sfx.select();
+  sfx.caseLatch();
   updateGear();
 }
 
@@ -2105,9 +2109,24 @@ function actorReachedTarget(a) {
 }
 
 function pickRicoExit() {
-  if (refs.frontDoor.open || S.doorBroken) return { x: 0, z: 8 };
-  if (S.windowBroken) return { x: 3.0, z: 4 };
-  return { x: 3.3, z: -17 }; // out through the bathroom window
+  if (refs.frontDoor.open || S.doorBroken) return { x: 0, z: 8, via: 'the front walkway' };
+  if (S.windowBroken) return { x: 3.0, z: -5.2, via: 'the smashed front window' };
+  return { x: 3.3, z: -14.4, via: 'the bathroom window' }; // over the tub and out
+}
+
+// A seller who cannot reach where they were running gives up on the idea.
+function actorStuck(a) {
+  if (a === rico) {
+    ricoEscapes(a);
+    return;
+  }
+  if (a.carryingCase) {
+    a.carryingCase = false;
+    dropCaseAt(a.position.x, a.position.z);
+    toast('HE DROPPED IT', '', `${a.name} could not get the case out of the room`);
+  }
+  a.target = null;
+  a.state = a.hostile ? 'chase' : 'idle';
 }
 
 function ricoEscapes(a) {
@@ -2117,10 +2136,13 @@ function ricoEscapes(a) {
   const i = actors.indexOf(a);
   if (i >= 0) actors.splice(i, 1);
   S.ricoEscaped = true;
+  const via = a.target?.via || 'a gap you did not cover';
   if (S.moneyTakenByRico) {
     S.moneyRecovered = false;
     failObjective('money');
-    toast('RICO IS GONE', 'warn', 'And the forty thousand went with him');
+    toast('RICO IS GONE', 'warn', `Out through ${via}, with the forty thousand`);
+  } else {
+    toast('RICO IS GONE', '', `Out through ${via}`);
   }
   checkRoomCleared();
 }
@@ -2136,6 +2158,7 @@ function boardGetaway() {
   } else if (!S.carryingJerky) {
     S.wrongCase = true;
   }
+  sfx.carDoor();
   say('Manny', 'Tell me that was worth it.', 3.4);
   setTimeout(() => openDialogue('getaway'), 1400);
 }
@@ -2223,12 +2246,24 @@ function computeMove() {
   return _move;
 }
 
+// What Prospect is standing on, for footstep and landing sounds.
+function surfaceUnderfoot() {
+  const r = level.rects;
+  if (feetY < -1) return 'pool';
+  if (pos.x > r.BATH.x0 && pos.x < r.BATH.x1 && pos.z > r.BATH.z0 && pos.z < r.BATH.z1) return 'tile';
+  if (insideRoom()) return 'carpet';
+  if (pos.x > r.ROOM11.x0 && pos.x < r.ROOM11.x1 && pos.z > r.ROOM11.z0 && pos.z < r.ROOM11.z1) return 'carpet';
+  if (feetY > 0.6) return 'stairs';
+  if (pos.z > 0 && pos.z < 26) return 'asphalt';
+  return 'concrete';
+}
+
 function tryJump() {
   if (grapple || phase === 'car' || phase === 'menu' || phase === 'drive') return;
   const ground = level.floorAt(pos.x, pos.z, feetY);
   if (Math.abs(feetY - ground) < 0.12) {
     vy = JUMP_V;
-    sfx.punch(false);
+    sfx.land(false);
   }
 }
 
@@ -2255,7 +2290,7 @@ function updatePlayer(dt) {
   const prevX = pos.x;
   const prevZ = pos.z;
   player.group.position.set(pos.x, 0, pos.z);
-  player.update(dt, move, speed, sprinting, () => sfx.blip());
+  player.update(dt, move, speed, sprinting, () => sfx.step(surfaceUnderfoot()));
   const bob = player.group.position.y;
   let nx = player.group.position.x;
   let nz = player.group.position.z;
@@ -2272,6 +2307,7 @@ function updatePlayer(dt) {
     vy -= GRAVITY * dt;
     feetY += vy * dt;
     if (feetY <= ground) {
+      if (vy < -5) sfx.land(vy < -13);
       if (vy < -15) {
         damagePlayer(Math.min(28, (-vy - 15) * 2.4), 'the fall');
         shake = Math.max(shake, 0.5);
@@ -2742,6 +2778,7 @@ function showEnding(kind) {
   ).join('');
 
   $('end').classList.remove('hidden');
+  if (kind === 'home' && haul) setTimeout(() => sfx.bite(), 900);
   sfx.sting();
 }
 
@@ -2978,6 +3015,8 @@ window.MOTEL = {
   get objectives() { return { done: [...objDone], failed: [...objFailed] }; },
   get achievements() { return [...achieved]; },
   get interactables() { return interactables.map((i) => i.id); },
+  get interactableList() { return interactables; },
+  scene, three: THREE,
   start: startScene,
   teleport: (x, z) => { pos.set(x, 0, z); feetY = level.floorAt(x, z, 0); },
   face: (x, z) => { camYaw = Math.atan2(x - pos.x, z - pos.z); },

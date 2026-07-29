@@ -99,6 +99,9 @@ export const SELLER_BARKS = [
   ['Rico', 'This is not gas-station product.'],
   ['Chino', 'No refunds once you chew.'],
   ['Chino', 'Stand where I can see you.'],
+  ['Chino', 'Rico. Why is he so tall. Rico.'],
+  ['Rico', 'In this room we are all the same size.'],
+  ['Rico', 'Do not lean on that. It is a wall, but only technically.'],
   ['Rico', 'Seventy-two hours of smoke. Seventy-two.'],
   ['Chino', 'The gloves are for hygiene.'],
   ['Rico', 'Government took the herd. Government did not take everything.'],
@@ -112,6 +115,8 @@ export const PROSPECT_BARKS = [
   'You people do not respect the cure.',
   'This strip has been folded.',
   'Silver is cheaper than this and silver does not spoil.',
+  'I have to duck in your doorway. Think about what that means for you.',
+  'Everyone in this room is smaller than the deal.',
 ];
 
 export const MANNY_BARKS = [

@@ -119,20 +119,33 @@ export function buildMotel(scene, renderer) {
   refs.moon = moon;
 
   // ---------------- Ground ----------------
-  const grass = new THREE.Mesh(
-    new THREE.PlaneGeometry(400, 400),
-    lambert(C.grass)
-  );
-  grass.rotation.x = -Math.PI / 2;
-  grass.position.y = -0.02;
-  grass.receiveShadow = true;
-  scene.add(grass);
+  // Both ground planes are cut around the pool — otherwise they roof it over
+  // and the deep end is invisible from above.
+  function groundSlab(w, d, cx, cz, color, y) {
+    const shape = new THREE.Shape();
+    shape.moveTo(cx - w / 2, -(cz + d / 2));
+    shape.lineTo(cx + w / 2, -(cz + d / 2));
+    shape.lineTo(cx + w / 2, -(cz - d / 2));
+    shape.lineTo(cx - w / 2, -(cz - d / 2));
+    shape.closePath();
+    const m = 0.6; // matches the pool wall thickness
+    const hole = new THREE.Path();
+    hole.moveTo(POOL.x0 - m, -(POOL.z0 - m));
+    hole.lineTo(POOL.x1 + m, -(POOL.z0 - m));
+    hole.lineTo(POOL.x1 + m, -(POOL.z1 + m));
+    hole.lineTo(POOL.x0 - m, -(POOL.z1 + m));
+    hole.closePath();
+    shape.holes.push(hole);
+    const g = new THREE.Mesh(new THREE.ShapeGeometry(shape), lambert(color));
+    g.rotation.x = -Math.PI / 2;
+    g.position.y = y;
+    g.receiveShadow = true;
+    scene.add(g);
+    return g;
+  }
 
-  const lot = new THREE.Mesh(new THREE.PlaneGeometry(96, 34), lambert(C.asphalt));
-  lot.rotation.x = -Math.PI / 2;
-  lot.position.set(0, 0, 11);
-  lot.receiveShadow = true;
-  scene.add(lot);
+  groundSlab(400, 400, 0, 0, C.grass, -0.02);
+  groundSlab(96, 32, 0, 10, C.asphalt, 0);
 
   // Cracked concrete walkway along the front of the building
   const walk = new THREE.Mesh(new THREE.PlaneGeometry(BUILDING.x1 - BUILDING.x0 + 6, 3.2), lambert(C.concrete));
@@ -149,8 +162,8 @@ export function buildMotel(scene, renderer) {
     scene.add(stripe);
   }
 
-  // The road out front
-  const road = new THREE.Mesh(new THREE.PlaneGeometry(200, 14), lambert(0x1e1e22));
+  // The road out front, clear of the lot so the two surfaces never fight
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(200, 12), lambert(0x1e1e22));
   road.rotation.x = -Math.PI / 2;
   road.position.set(0, 0.005, 34);
   scene.add(road);
@@ -165,8 +178,19 @@ export function buildMotel(scene, renderer) {
   // Ground floor is solid except where the two modelled interiors are cut out.
   const gapFronts = [ROOM12, ROOM11];
 
-  // Back wall (full length, both floors)
-  wall(BUILDING.x0, BUILDING.x1, BUILDING.z0 - 0.4, BUILDING.z0, 0, ROOF_Y, C.stuccoDark, 'backwall');
+  // Back wall. Upstairs runs the full length; downstairs it stops either side
+  // of the two modelled rooms, whose own back walls (with their windows) face
+  // the alley directly instead of being sealed behind a second wall.
+  wall(BUILDING.x0, BUILDING.x1, BUILDING.z0 - 0.4, BUILDING.z0, DECK_Y, ROOF_Y, C.stuccoDark, 'backwall');
+  for (const [bx0, bx1] of [[BUILDING.x0, ROOM11.x0 - 0.3], [ROOM11.x1 + 0.3, ROOM12.x0 - 0.3], [ROOM12.x1 + 0.3, BUILDING.x1]]) {
+    if (bx1 > bx0) wall(bx0, bx1, BUILDING.z0 - 0.4, BUILDING.z0, 0, DECK_Y, C.stuccoDark, 'backwall');
+  }
+  // Side returns closing the recess either side of each modelled room
+  for (const R of [ROOM11, ROOM12]) {
+    for (const sx of [R.x0 - 0.3, R.x1]) {
+      wall(sx, sx + 0.3, BUILDING.z0 - 0.4, R.z0, 0, DECK_Y, C.stuccoDark, 'backwall');
+    }
+  }
   // End walls
   wall(BUILDING.x0 - 0.4, BUILDING.x0, BUILDING.z0, WALKWAY.z0, 0, ROOF_Y, C.stuccoDark);
   wall(BUILDING.x1, BUILDING.x1 + 0.4, BUILDING.z0, WALKWAY.z0, 0, ROOF_Y, C.stuccoDark);
@@ -177,8 +201,8 @@ export function buildMotel(scene, renderer) {
     let cursor = BUILDING.x0;
     const sorted = [...gapFronts].sort((a, b) => a.x0 - b.x0);
     for (const g of sorted) {
-      if (g.x0 > cursor) fillSpans.push([cursor, g.x0]);
-      cursor = g.x1;
+      if (g.x0 - 0.3 > cursor) fillSpans.push([cursor, g.x0 - 0.3]);
+      cursor = g.x1 + 0.3;
     }
     if (cursor < BUILDING.x1) fillSpans.push([cursor, BUILDING.x1]);
   }
@@ -218,49 +242,80 @@ export function buildMotel(scene, renderer) {
     refs.looseRail.group.traverse((o) => { if (o.isMesh) o.material = lambert(0x8a6a58); });
   }
 
-  // Doors + windows along both floors
+  // Openings in the ground-floor facade that must stay clear of decoration:
+  // the two real doorways and room twelve's front window.
+  const FACADE_OPENINGS = [
+    { x0: -13.4, x1: -10.7 },  // room eleven's door
+    { x0: -1.4, x1: 1.3 },     // room twelve's door
+    { x0: 2.0, x1: 4.0 },      // room twelve's window
+  ];
+  const clearOfOpenings = (x, halfWidth) =>
+    FACADE_OPENINGS.every((o) => x + halfWidth < o.x0 || x - halfWidth > o.x1);
+
+  // Doors + windows along both floors. Rooms eleven and twelve are modelled
+  // for real, so nothing decorative is drawn across their frontages and the
+  // numbering steps over 11 and 12 — those two plates go up separately, in the
+  // right places, so the sequence still reads left to right.
   const doorNumbers = [];
   refs.roomDoors = [];
+  const inRoomFrontage = (x, half) =>
+    [ROOM11, ROOM12].some((R) => x + half > R.x0 - 0.4 && x - half < R.x1 + 0.4);
+  let groundNum = 8;
   for (let i = 0; i < 14; i++) {
     const x = BUILDING.x0 + 4 + i * 5;
     if (x > BUILDING.x1 - 3) break;
+    // Once we are past room twelve, resume the numbering after the real rooms
+    if (x > ROOM12.x1 && groundNum < 13) groundNum = 13;
     for (const floor of [0, 1]) {
       const y = floor * DECK_Y;
-      const num = floor === 0 ? 8 + i : 22 + i;
-      const isTwelve = floor === 0 && num === 12;
-      const doorGroup = new THREE.Group();
-      const leaf = boxMesh(1.6, 2.6, 0.14, isTwelve ? C.door : (floor ? C.doorDark : C.door), 0.8, 1.3, 0);
-      doorGroup.add(leaf);
-      doorGroup.add(boxMesh(0.1, 0.1, 0.1, C.chrome, 1.5, 1.3, 0.12));
-      doorGroup.position.set(x - 0.8, y + 0.02, WALKWAY.z0 - 0.06);
-      scene.add(doorGroup);
-      // Room number plate
-      const plate = makeNumberPlate(num);
-      plate.position.set(x + 1.4, y + 2.2, WALKWAY.z0 - 0.04);
-      scene.add(plate);
-      doorNumbers.push({ num, x, y, floor, group: doorGroup, plate });
+      const num = floor === 0 ? groundNum : 22 + i;
+      const doorClear = floor === 1 || (clearOfOpenings(x, 1.1) && !inRoomFrontage(x, 1.1));
+      if (doorClear) {
+        if (floor === 0) groundNum++;
+        const doorGroup = new THREE.Group();
+        const leaf = boxMesh(1.6, 2.6, 0.14, floor ? C.doorDark : C.door, 0.8, 1.3, 0);
+        doorGroup.add(leaf);
+        doorGroup.add(boxMesh(0.1, 0.1, 0.1, C.chrome, 1.5, 1.3, 0.12));
+        doorGroup.position.set(x - 0.8, y + 0.02, WALKWAY.z0 + 0.06);
+        scene.add(doorGroup);
+        const plate = makeNumberPlate(num);
+        plate.position.set(x + 1.4, y + 2.2, WALKWAY.z0 + 0.04);
+        scene.add(plate);
+        doorNumbers.push({ num, x, y, floor, group: doorGroup, plate });
+        refs.roomDoors.push({ num, floor, group: doorGroup, x });
+      }
 
       // Window beside each door
-      const win = boxMesh(1.8, 1.5, 0.1, C.glass, x + 2.9, y + 1.7, WALKWAY.z0 - 0.05, { emissive: 0x0d2230 });
-      scene.add(win);
-      if (floor === 0 && num !== 12 && Math.random() < 0.4) {
-        win.material = lambert(0x2c3b2a, { emissive: 0x22331e });
+      if (floor === 1 || (clearOfOpenings(x + 2.9, 1.1) && !inRoomFrontage(x + 2.9, 1.1))) {
+        const lit = Math.random() < 0.4;
+        const win = boxMesh(1.8, 1.5, 0.1, lit ? 0x2c3b2a : C.glass, x + 2.9, y + 1.7, WALKWAY.z0 + 0.02,
+          { emissive: lit ? 0x22331e : 0x0d2230 });
+        scene.add(win);
       }
-      refs.roomDoors.push({ num, floor, group: doorGroup, x, window: win });
     }
+  }
+  // The two doors that actually open get their real numbers
+  for (const [num, px] of [[11, -10.4], [12, 1.7]]) {
+    const plate = makeNumberPlate(num);
+    plate.position.set(px, 2.25, WALKWAY.z0 + 0.04);
+    scene.add(plate);
+    doorNumbers.push({ num, x: px, y: 0, floor: 0, plate });
   }
   refs.doorNumbers = doorNumbers;
 
   // Air-conditioning units dripping onto the walkway. The upstairs ones are
   // loose enough to shove over the railing onto whoever is chasing you.
   refs.acUnits = [];
+  const AC_Z = WALKWAY.z0 + 0.15;   // straddling the wall, hanging over the walkway
   for (let i = 0; i < 8; i++) {
     const x = BUILDING.x0 + 6 + i * 8;
-    const ac = boxMesh(1.3, 0.8, 0.7, 0xa8adb3, x, 1.6, WALKWAY.z0 - 0.35);
-    scene.add(ac);
-    const acU = boxMesh(1.3, 0.8, 0.7, 0xa8adb3, x, DECK_Y + 1.6, WALKWAY.z0 - 0.35);
+    if (clearOfOpenings(x, 0.75)) {
+      const ac = boxMesh(1.3, 0.8, 0.7, 0xa8adb3, x, 1.6, AC_Z);
+      scene.add(ac);
+    }
+    const acU = boxMesh(1.3, 0.8, 0.7, 0xa8adb3, x, DECK_Y + 1.6, AC_Z);
     scene.add(acU);
-    refs.acUnits.push({ mesh: acU, x, z: WALKWAY.z0 - 0.35, dropped: false });
+    refs.acUnits.push({ mesh: acU, x, z: AC_Z, dropped: false });
   }
 
   // Walkway light fixtures. Only a handful carry a real light — the rest are
@@ -270,11 +325,11 @@ export function buildMotel(scene, renderer) {
     for (const floor of [0, 1]) {
       const y = floor * DECK_Y + 3.4;
       const lit = floor === 0 ? i % 3 === 1 : i === 3;
-      const fixture = boxMesh(0.5, 0.16, 0.4, 0xd8d2c0, x, y, WALKWAY.z0 - 0.5, { emissive: lit ? 0x685c30 : 0x2a2418 });
+      const fixture = boxMesh(0.5, 0.16, 0.4, 0xd8d2c0, x, y, WALKWAY.z0 + 0.2, { emissive: lit ? 0x685c30 : 0x2a2418 });
       scene.add(fixture);
       if (!lit) continue;
       const l = new THREE.PointLight(0xffe6a8, 2.4, 22, 2);
-      l.position.set(x, y - 0.3, WALKWAY.z0 - 0.9);
+      l.position.set(x, y - 0.3, WALKWAY.z0 + 0.6);
       scene.add(l);
       lights.push(l);
       flicker.push({ light: l, fixture, base: 2.4, phase: Math.random() * 10, rate: 0.4 + Math.random() * 3 });
@@ -327,10 +382,13 @@ export function buildMotel(scene, renderer) {
   wall(2.4, 4.2, R.z0, R.z0 + 0.3, 0, 1.1, C.wall);          // under the bathroom window
   wall(2.4, 4.2, R.z0, R.z0 + 0.3, 2.6, DECK_Y, C.wall);     // above it
 
-  // Front wall with the doorway and the front window
+  // Front wall: doorway at x -1.1..1.0, window opening at x 2.0..4.0
   wall(R.x0, -1.1, R.z1, R.z1 + 0.3, 0, DECK_Y, C.wall);
-  wall(1.0, R.x1, R.z1, R.z1 + 0.3, 0, DECK_Y, C.wall);
   wall(-1.1, 1.0, R.z1, R.z1 + 0.3, 2.7, DECK_Y, C.wall);    // over the door
+  wall(1.0, 2.0, R.z1, R.z1 + 0.3, 0, DECK_Y, C.wall);       // pier between door and window
+  wall(2.0, 4.0, R.z1, R.z1 + 0.3, 0, 1.1, C.wall);          // under the window
+  wall(2.0, 4.0, R.z1, R.z1 + 0.3, 2.6, DECK_Y, C.wall);     // over the window
+  wall(4.0, R.x1, R.z1, R.z1 + 0.3, 0, DECK_Y, C.wall);
 
   // The front door itself — hinged, and it closes behind you
   const frontDoor = makeDoor(1.9, 2.7, C.door);
@@ -342,7 +400,7 @@ export function buildMotel(scene, renderer) {
   refs.frontDoor = frontDoor;
 
   // Front window of room twelve — smashable, and Manny can see you through it
-  const win12 = boxMesh(2.0, 1.5, 0.12, C.glass, 3.0, 1.85, R.z1 + 0.15, { emissive: 0x16303a });
+  const win12 = boxMesh(1.98, 1.48, 0.12, C.glass, 3.0, 1.85, R.z1 + 0.15, { emissive: 0x16303a });
   scene.add(win12);
   refs.window12 = { mesh: win12, broken: false, x: 3.0, z: R.z1 };
 
@@ -352,7 +410,6 @@ export function buildMotel(scene, renderer) {
   wall(4.1, BATH.x1, BATH.z1 - 0.15, BATH.z1 + 0.15, 0, ROOM_H, C.tile);
   const bathDoor = makeDoor(1.5, 2.4, 0xd8d2c0);
   bathDoor.group.position.set(2.6, 0.02, BATH.z1);
-  bathDoor.group.rotation.y = Math.PI;
   scene.add(bathDoor.group);
   bathDoor.collider = block(2.6, 4.1, BATH.z1 - 0.15, BATH.z1 + 0.15, 0, 2.4, 'bathdoor');
   bathDoor.open = false;
@@ -372,7 +429,7 @@ export function buildMotel(scene, renderer) {
   const curtain = boxMesh(1.7, 1.9, 0.05, 0xbcd8d2, 4.0, 1.1, -12.9, { emissive: 0x1a2a28 });
   scene.add(curtain);
   refs.curtain = { mesh: curtain, rod: curtainRod, pulled: false };
-  const sink = boxMesh(0.9, 0.25, 0.6, 0xe4e8e4, 2.3, 0.9, -15.0);
+  const sink = boxMesh(0.9, 0.25, 0.6, 0xe4e8e4, 2.3, 0.9, -14.88);
   scene.add(sink);
   const toilet = boxMesh(0.6, 0.8, 0.8, 0xe4e8e4, 2.2, 0.4, -12.2);
   scene.add(toilet);
@@ -383,7 +440,7 @@ export function buildMotel(scene, renderer) {
   refs.bathLight = bathLight;
 
   // Bathroom window (rear alley escape)
-  const bathWin = boxMesh(1.6, 1.3, 0.1, C.glass, 3.3, 1.9, R.z0 + 0.12, { emissive: 0x101c14 });
+  const bathWin = boxMesh(1.78, 1.48, 0.1, C.glass, 3.3, 1.85, R.z0 + 0.15, { emissive: 0x3d5a4c });
   scene.add(bathWin);
   refs.bathWindow = { mesh: bathWin, open: false, broken: false, x: 3.3, z: R.z0 };
 
@@ -448,29 +505,29 @@ export function buildMotel(scene, renderer) {
   refs.chairSeat = { x: 3.0, z: -6.4 };
 
   // Counter: seasonings, vacuum sealer, plastic sheeting
-  const counter = boxMesh(4.4, 0.9, 0.7, 0x8a7f6a, -2.6, 0.45, -15.0);
+  const counter = boxMesh(4.4, 0.9, 0.7, 0x8a7f6a, -2.6, 0.45, -14.85);
   scene.add(counter);
-  block(-4.9, -0.4, -15.4, -14.6, 0, 0.9, 'counter');
+  block(-4.9, -0.4, -15.25, -14.45, 0, 0.9, 'counter');
   const seasoningGroup = new THREE.Group();
   const jarColors = [0x8f3a1d, 0xc9a227, 0x5a3b1f, 0x8f1d1d, 0x3f6b2f];
   for (let i = 0; i < 5; i++) {
-    const jar = mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.26, 8), lambert(jarColors[i]), -4.2 + i * 0.42, 1.03, -15.0);
+    const jar = mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.26, 8), lambert(jarColors[i]), -4.2 + i * 0.42, 1.03, -14.85);
     seasoningGroup.add(jar);
   }
   scene.add(seasoningGroup);
-  refs.seasoning = { group: seasoningGroup, x: -3.4, z: -15.0, used: false };
+  refs.seasoning = { group: seasoningGroup, x: -3.4, z: -14.85, used: false };
 
   const sealer = new THREE.Group();
   sealer.add(boxMesh(1.0, 0.35, 0.6, 0xd8d4c8, 0, 1.07, 0));
   sealer.add(boxMesh(1.0, 0.12, 0.6, 0x2a2a30, 0, 1.3, 0));
-  sealer.position.set(-1.2, 0, -15.0);
+  sealer.position.set(-1.2, 0, -14.85);
   scene.add(sealer);
   // Its power cord across the floor — a trip hazard during the fight
   const cord = boxMesh(0.06, 0.04, 2.6, 0x1c1c1c, -1.2, 0.04, -13.6);
   scene.add(cord);
-  refs.sealer = { group: sealer, cord, x: -1.2, z: -15.0, tripArmed: false };
+  refs.sealer = { group: sealer, cord, x: -1.2, z: -14.85, tripArmed: false };
 
-  const sheeting = boxMesh(2.6, 2.4, 0.05, 0xd8e4e8, -0.2, 1.2, -12.6, { emissive: 0x1a2426, transparent: true, opacity: 0.35 });
+  const sheeting = boxMesh(2.6, 3.3, 0.05, 0xd8e4e8, -0.2, 1.68, -12.6, { emissive: 0x1a2426, transparent: true, opacity: 0.35 });
   sheeting.material.transparent = true;
   sheeting.material.opacity = 0.35;
   scene.add(sheeting);
@@ -529,7 +586,10 @@ export function buildMotel(scene, renderer) {
   scene.add(boxMesh(R11.x1 - R11.x0, 0.2, R11.z1 - R11.z0, 0xbfb9a4, (R11.x0 + R11.x1) / 2, ROOM_H + 0.1, (R11.z0 + R11.z1) / 2));
   wall(R11.x0 - 0.3, R11.x0, R11.z0, R11.z1, 0, DECK_Y, C.wall);
   wall(R11.x1, R11.x1 + 0.3, R11.z0, R11.z1, 0, DECK_Y, C.wall);
-  wall(R11.x0, R11.x1, R11.z0, R11.z0 + 0.3, 0, DECK_Y, C.wall);
+  wall(R11.x0, -12.8, R11.z0, R11.z0 + 0.3, 0, DECK_Y, C.wall);
+  wall(-11.2, R11.x1, R11.z0, R11.z0 + 0.3, 0, DECK_Y, C.wall);
+  wall(-12.8, -11.2, R11.z0, R11.z0 + 0.3, 0, 1.1, C.wall);
+  wall(-12.8, -11.2, R11.z0, R11.z0 + 0.3, 2.6, DECK_Y, C.wall);
   wall(R11.x0, -13.1, R11.z1, R11.z1 + 0.3, 0, DECK_Y, C.wall);
   wall(-11.0, R11.x1, R11.z1, R11.z1 + 0.3, 0, DECK_Y, C.wall);
   wall(-13.1, -11.0, R11.z1, R11.z1 + 0.3, 2.7, DECK_Y, C.wall);
@@ -541,7 +601,7 @@ export function buildMotel(scene, renderer) {
   door11.locked = true;
   refs.door11 = door11;
   // Rear window of room eleven, out to the alley
-  const win11 = boxMesh(1.6, 1.3, 0.1, C.glass, -12, 1.9, R11.z0 + 0.12, { emissive: 0x101c14 });
+  const win11 = boxMesh(1.58, 1.48, 0.1, C.glass, -12, 1.85, R11.z0 + 0.15, { emissive: 0x2e3a24 });
   scene.add(win11);
   refs.window11 = { mesh: win11, broken: false, x: -12, z: R11.z0 };
   // Stacked shipment crates — the real product
@@ -714,9 +774,9 @@ export function buildMotel(scene, renderer) {
   signGlow.position.set(0, 11, 1.5);
   signGroup.add(signGlow);
   lights.push(signGlow);
-  signGroup.position.set(-2, 0, 29);
+  signGroup.position.set(-2, 0, 27);
   scene.add(signGroup);
-  block(-2.6, -1.4, 28.4, 29.6, 0, 12, 'sign');
+  block(-2.6, -1.4, 26.4, 27.6, 0, 12, 'sign');
   refs.neon = { group: signGroup, glow: signGlow, board: signBoard, text: signText };
   flicker.push({ light: signGlow, fixture: signText, base: 3.2, phase: 1.4, rate: 0.7 });
 
@@ -814,12 +874,12 @@ export function buildMotel(scene, renderer) {
   scene.add(packets);
   refs.packets = { group: packets, x: 6.5, z: -3.0 };
 
-  // Fence line along the back of the lot
+  // Fence line beyond the road
   for (let x = -58; x < 58; x += 4) {
-    const post = boxMesh(0.14, 2.0, 0.14, 0x585048, x, 1.0, 40);
+    const post = boxMesh(0.14, 2.0, 0.14, 0x585048, x, 1.0, 41);
     scene.add(post);
   }
-  block(-58, 58, 39.6, 40.4, 0, 2.0, 'fence');
+  block(-58, 58, 40.6, 41.4, 0, 2.0, 'fence');
 
   // Outer walls of the world
   block(BOUNDS.x0 - 2, BOUNDS.x0, BOUNDS.z0, BOUNDS.z1, -4, 12, 'bounds');

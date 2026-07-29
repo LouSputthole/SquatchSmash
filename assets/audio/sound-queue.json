@@ -1,0 +1,1862 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Every sound SquatchSmash needs. All cues are procedural WebAudio today; these ids are the brief for produced audio, and the drop-in points once it exists.",
+  "conventions": {
+    "format": "48 kHz mono WAV for one-shots, 48 kHz stereo for music and ambience loops",
+    "naming": "audio/<scene>/<category>/<file>[_NN].wav — NN is the variation index, 01-based",
+    "loops": "entries marked loop:true must be seamless",
+    "status": "todo | recorded | in-game — update as assets land"
+  },
+  "sfx": [
+    {
+      "id": "motel.doors.knock_room_door",
+      "scene": "motel",
+      "category": "doors",
+      "file": "audio/motel/doors/knock_room_door.wav",
+      "call": "knock",
+      "description": "Three heavy sasquatch knuckles on a hollow motel door.",
+      "seconds": 1.2,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.doors.door_open",
+      "scene": "motel",
+      "category": "doors",
+      "file": "audio/motel/doors/door_open.wav",
+      "call": "doorOpen",
+      "description": "Cheap door opening on a dry hinge, chain rattling.",
+      "seconds": 1,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.doors.door_slam",
+      "scene": "motel",
+      "category": "doors",
+      "file": "audio/motel/doors/door_slam.wav",
+      "call": "doorSlam",
+      "description": "Door slammed hard enough to move the frame.",
+      "seconds": 0.8,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.doors.deadbolt",
+      "scene": "motel",
+      "category": "doors",
+      "file": "audio/motel/doors/deadbolt.wav",
+      "call": "lockClick",
+      "description": "Deadbolt thrown, then the chain. The sound of a deal changing.",
+      "seconds": 0.7,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.doors.door_splinter",
+      "scene": "motel",
+      "category": "doors",
+      "file": "audio/motel/doors/door_splinter.wav",
+      "call": "doorSplinter",
+      "description": "Door leaving its frame with a body attached (Room Service).",
+      "seconds": 1.4,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.doors.window_slide",
+      "scene": "motel",
+      "category": "doors",
+      "file": "audio/motel/doors/window_slide.wav",
+      "call": "windowSlide",
+      "description": "Bathroom window sliding open an inch and stopping.",
+      "seconds": 1,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.punch_light",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/punch_light.wav",
+      "call": "punch",
+      "description": "Fist into a torso. Close, wet, unglamorous.",
+      "seconds": 0.5,
+      "variations": 4,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.punch_heavy",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/punch_heavy.wav",
+      "call": "punch",
+      "description": "Full sasquatch swing connecting. Deeper, with a wooden crack.",
+      "seconds": 0.7,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.swing_whiff",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/swing_whiff.wav",
+      "call": "whiff",
+      "description": "A heavy arm moving through humid air and hitting nothing.",
+      "seconds": 0.4,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.body_fall",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/body_fall.wav",
+      "call": "bodyFall",
+      "description": "A grown seller going down onto motel carpet.",
+      "seconds": 0.9,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.gunshot_revolver",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/gunshot_revolver.wav",
+      "call": "gunshot",
+      "description": "Compact revolver in a small room: crack, then the room slapping back.",
+      "seconds": 1.4,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.gunshot_pistol",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/gunshot_pistol.wav",
+      "call": "gunshot",
+      "description": "Enemy pistol, thinner and further away.",
+      "seconds": 1.2,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.dry_fire",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/dry_fire.wav",
+      "call": "dryFire",
+      "description": "Hammer on an empty chamber.",
+      "seconds": 0.3,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.meat_slicer_spin",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/meat_slicer_spin.wav",
+      "call": "sliceWhir",
+      "description": "Commercial meat slicer spinning up in a bathroom. Never reassuring.",
+      "seconds": 1.6,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.stun_prod",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/stun_prod.wav",
+      "call": "prod",
+      "description": "Stun prod arcing — dry electrical snap.",
+      "seconds": 0.6,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.cleaver_swipe",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/cleaver_swipe.wav",
+      "call": null,
+      "description": "Cleaver through air, ending in a chop into furniture.",
+      "seconds": 0.7,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.grapple_struggle",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/grapple_struggle.wav",
+      "call": "grapple",
+      "description": "Two heavy bodies wrestling, fabric and breath.",
+      "seconds": 2.5,
+      "variations": 2,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.spice_throw",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/spice_throw.wav",
+      "call": "spice",
+      "description": "A jar of classified seasoning thrown into somebody's eyes.",
+      "seconds": 0.8,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.curtain_rip",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/curtain_rip.wav",
+      "call": null,
+      "description": "Shower curtain and rod coming down over a man.",
+      "seconds": 1,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.combat.trip_fall",
+      "scene": "motel",
+      "category": "combat",
+      "file": "audio/motel/combat/trip_fall.wav",
+      "call": "bodyFall",
+      "description": "Somebody catching the sealer cord and hitting the floor.",
+      "seconds": 0.9,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.destruction.glass_smash",
+      "scene": "motel",
+      "category": "destruction",
+      "file": "audio/motel/destruction/glass_smash.wav",
+      "call": "glassSmash",
+      "description": "Motel window going out onto concrete.",
+      "seconds": 1.6,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.destruction.glass_settle",
+      "scene": "motel",
+      "category": "destruction",
+      "file": "audio/motel/destruction/glass_settle.wav",
+      "call": "glassSettle",
+      "description": "Shards settling ten seconds after the smash.",
+      "seconds": 1.2,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.destruction.wood_break",
+      "scene": "motel",
+      "category": "destruction",
+      "file": "audio/motel/destruction/wood_break.wav",
+      "call": "woodBreak",
+      "description": "Cheap table or railing giving up.",
+      "seconds": 0.9,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.destruction.heavy_crash",
+      "scene": "motel",
+      "category": "destruction",
+      "file": "audio/motel/destruction/heavy_crash.wav",
+      "call": "crash",
+      "description": "Air-conditioning unit or car meeting the ground.",
+      "seconds": 1.8,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.destruction.tv_implode",
+      "scene": "motel",
+      "category": "destruction",
+      "file": "audio/motel/destruction/tv_implode.wav",
+      "call": "tvBreak",
+      "description": "A 1997 television taking a man and dying loudly.",
+      "seconds": 1.5,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.destruction.fan_sparks",
+      "scene": "motel",
+      "category": "destruction",
+      "file": "audio/motel/destruction/fan_sparks.wav",
+      "call": "sparks",
+      "description": "Ceiling fan overspeeding and spitting sparks.",
+      "seconds": 2,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.destruction.neon_short",
+      "scene": "motel",
+      "category": "destruction",
+      "file": "audio/motel/destruction/neon_short.wav",
+      "call": "neonShort",
+      "description": "Motel sign shorting out — bang, then the hum stops.",
+      "seconds": 2.2,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.vacuum_pack_handle",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/vacuum_pack_handle.wav",
+      "call": "packaging",
+      "description": "Vacuum-sealed foil being turned over in big hands.",
+      "seconds": 0.9,
+      "variations": 4,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.jerky_chew",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/jerky_chew.wav",
+      "call": "chew",
+      "description": "Somebody chewing evidence.",
+      "seconds": 1.4,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.jerky_bite",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/jerky_bite.wav",
+      "call": "bite",
+      "description": "One deliberate bite of the Reserve. The last sound of the scene.",
+      "seconds": 1.2,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.jerky_bend",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/jerky_bend.wav",
+      "call": null,
+      "description": "A cured strip bent until the outer edge cracks.",
+      "seconds": 0.6,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.case_latches",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/case_latches.wav",
+      "call": "caseLatch",
+      "description": "Suitcase latches popping, lid lifting.",
+      "seconds": 1,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.wax_seal_break",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/wax_seal_break.wav",
+      "call": null,
+      "description": "A numbered wax seal broken off a package.",
+      "seconds": 0.5,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.shipment_burn",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/shipment_burn.wav",
+      "call": "fire",
+      "description": "Vacuum-sealed contraband meeting an open flame. Plastic first, then meat.",
+      "seconds": 3,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.jerky.vacuum_sealer_run",
+      "scene": "motel",
+      "category": "jerky",
+      "file": "audio/motel/jerky/vacuum_sealer_run.wav",
+      "call": null,
+      "description": "The counter sealer running a bag: pump, heat, click.",
+      "seconds": 2.6,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.tv_static",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/tv_static.wav",
+      "call": "tvStatic",
+      "description": "Television volume going up on nothing in particular.",
+      "seconds": 1.4,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.ice_machine_drop",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/ice_machine_drop.wav",
+      "call": "iceDrop",
+      "description": "Ice machine dropping a load of cubes at the worst moment.",
+      "seconds": 1.8,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.plumbing_knock",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/plumbing_knock.wav",
+      "call": "plumbing",
+      "description": "Motel plumbing: a faucet running, then stopping too suddenly.",
+      "seconds": 2.4,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.knife_tap",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/knife_tap.wav",
+      "call": "knifeTap",
+      "description": "A knife tapping a laminate table, unhurried.",
+      "seconds": 1.2,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.ceiling_fan_click",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/ceiling_fan_click.wav",
+      "call": null,
+      "description": "Uneven ceiling fan clicking once per rotation.",
+      "seconds": 0.4,
+      "variations": 3,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.ac_drip",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/ac_drip.wav",
+      "call": null,
+      "description": "Air-conditioning unit dripping onto the walkway.",
+      "seconds": 0.5,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.vending_hum_bump",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/vending_hum_bump.wav",
+      "call": null,
+      "description": "Vending machine compressor kicking in.",
+      "seconds": 1.6,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.motel.office_alarm",
+      "scene": "motel",
+      "category": "motel",
+      "file": "audio/motel/motel/office_alarm.wav",
+      "call": "alarm",
+      "description": "The clerk's under-counter alarm. Cheap, insistent, effective.",
+      "seconds": 2.6,
+      "variations": 1,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.vehicles.car_start",
+      "scene": "motel",
+      "category": "vehicles",
+      "file": "audio/motel/vehicles/car_start.wav",
+      "call": "carStart",
+      "description": "Tired sedan turning over twice before it catches.",
+      "seconds": 2,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.vehicles.tires_squeal",
+      "scene": "motel",
+      "category": "vehicles",
+      "file": "audio/motel/vehicles/tires_squeal.wav",
+      "call": "tires",
+      "description": "Tyres on warm asphalt leaving a motel lot.",
+      "seconds": 1.6,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.vehicles.siren_distant",
+      "scene": "motel",
+      "category": "vehicles",
+      "file": "audio/motel/vehicles/siren_distant.wav",
+      "call": "siren",
+      "description": "A siren somewhere else, getting interested.",
+      "seconds": 4,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.vehicles.siren_close",
+      "scene": "motel",
+      "category": "vehicles",
+      "file": "audio/motel/vehicles/siren_close.wav",
+      "call": "siren",
+      "description": "The same siren, no longer somewhere else.",
+      "seconds": 4,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.vehicles.car_door",
+      "scene": "motel",
+      "category": "vehicles",
+      "file": "audio/motel/vehicles/car_door.wav",
+      "call": "carDoor",
+      "description": "Heavy car door opening and shutting.",
+      "seconds": 0.8,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.vehicles.engine_idle",
+      "scene": "motel",
+      "category": "vehicles",
+      "file": "audio/motel/vehicles/engine_idle.wav",
+      "call": null,
+      "description": "The second car idling in the lot with nobody in it.",
+      "seconds": 6,
+      "variations": 1,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.vehicles.car_ram",
+      "scene": "motel",
+      "category": "vehicles",
+      "file": "audio/motel/vehicles/car_ram.wav",
+      "call": "crash",
+      "description": "Two cars trading paint at speed.",
+      "seconds": 1.8,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.step_concrete",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/step_concrete.wav",
+      "call": "step",
+      "description": "Sasquatch foot on cracked motel concrete.",
+      "seconds": 0.4,
+      "variations": 6,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.step_carpet",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/step_carpet.wav",
+      "call": "step",
+      "description": "Same foot on thin motel carpet.",
+      "seconds": 0.4,
+      "variations": 6,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.step_tile",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/step_tile.wav",
+      "call": "step",
+      "description": "Same foot on bathroom tile.",
+      "seconds": 0.4,
+      "variations": 6,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.step_asphalt",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/step_asphalt.wav",
+      "call": "step",
+      "description": "Same foot crossing the parking lot.",
+      "seconds": 0.4,
+      "variations": 6,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.step_pool",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/step_pool.wav",
+      "call": "step",
+      "description": "Same foot on the painted floor of a drained pool.",
+      "seconds": 0.4,
+      "variations": 4,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.stairs_metal",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/stairs_metal.wav",
+      "call": "step",
+      "description": "Exterior staircase taking more weight than it was built for.",
+      "seconds": 0.5,
+      "variations": 4,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.land_heavy",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/land_heavy.wav",
+      "call": "land",
+      "description": "Landing from the balcony or into the deep end.",
+      "seconds": 0.8,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.footsteps.tunnel_crawl",
+      "scene": "motel",
+      "category": "footsteps",
+      "file": "audio/motel/footsteps/tunnel_crawl.wav",
+      "call": "tunnel",
+      "description": "Crawling through a wet drainage tunnel.",
+      "seconds": 3,
+      "variations": 2,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ui.ui_line_blip",
+      "scene": "motel",
+      "category": "ui",
+      "file": "audio/motel/ui/ui_line_blip.wav",
+      "call": "blip",
+      "description": "Per-line subtitle tick. Very quiet, very short.",
+      "seconds": 0.1,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ui.ui_select",
+      "scene": "motel",
+      "category": "ui",
+      "file": "audio/motel/ui/ui_select.wav",
+      "call": "select",
+      "description": "Dialogue option chosen.",
+      "seconds": 0.3,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ui.ui_objective",
+      "scene": "motel",
+      "category": "ui",
+      "file": "audio/motel/ui/ui_objective.wav",
+      "call": "objective",
+      "description": "Objective updated.",
+      "seconds": 0.6,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ui.ui_achievement",
+      "scene": "motel",
+      "category": "ui",
+      "file": "audio/motel/ui/ui_achievement.wav",
+      "call": "achievement",
+      "description": "Achievement unlocked — brass, brief, pleased with itself.",
+      "seconds": 1.2,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ui.scene_end_sting",
+      "scene": "motel",
+      "category": "ui",
+      "file": "audio/motel/ui/scene_end_sting.wav",
+      "call": "sting",
+      "description": "End-of-scene sting: minor, humid, unresolved.",
+      "seconds": 2.4,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.combat.smash_impact",
+      "scene": "campground",
+      "category": "combat",
+      "file": "audio/campground/combat/smash_impact.wav",
+      "call": "smash",
+      "description": "Sasquatch double-fist slam into a structure.",
+      "seconds": 0.8,
+      "variations": 4,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.combat.structure_crack",
+      "scene": "campground",
+      "category": "combat",
+      "file": "audio/campground/combat/structure_crack.wav",
+      "call": "crack",
+      "description": "Non-final hit: wood and panel cracking.",
+      "seconds": 0.5,
+      "variations": 4,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.combat.swing_whiff_outdoor",
+      "scene": "campground",
+      "category": "combat",
+      "file": "audio/campground/combat/swing_whiff_outdoor.wav",
+      "call": "whiff",
+      "description": "Arms through open air.",
+      "seconds": 0.4,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.combat.fist_on_rock",
+      "scene": "campground",
+      "category": "combat",
+      "file": "audio/campground/combat/fist_on_rock.wav",
+      "call": "clang",
+      "description": "Fist meets boulder. Rock wins.",
+      "seconds": 0.5,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.combat.ground_stomp",
+      "scene": "campground",
+      "category": "combat",
+      "file": "audio/campground/combat/ground_stomp.wav",
+      "call": "stomp",
+      "description": "Both feet down: a shockwave with dirt in it.",
+      "seconds": 1,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.combat.camper_squish",
+      "scene": "campground",
+      "category": "combat",
+      "file": "audio/campground/combat/camper_squish.wav",
+      "call": "squish",
+      "description": "A camper ceasing to be a camper.",
+      "seconds": 0.6,
+      "variations": 4,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.combat.vehicle_explosion",
+      "scene": "campground",
+      "category": "combat",
+      "file": "audio/campground/combat/vehicle_explosion.wav",
+      "call": "boom",
+      "description": "Car or RV going up.",
+      "seconds": 2,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.movement.step_forest",
+      "scene": "campground",
+      "category": "movement",
+      "file": "audio/campground/movement/step_forest.wav",
+      "call": "step",
+      "description": "Heavy footfall on pine needles and dirt.",
+      "seconds": 0.4,
+      "variations": 6,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.creatures.camper_scream",
+      "scene": "campground",
+      "category": "creatures",
+      "file": "audio/campground/creatures/camper_scream.wav",
+      "call": "scream",
+      "description": "Panicked camper doppler-ing away.",
+      "seconds": 1.2,
+      "variations": 5,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.creatures.sasquatch_roar",
+      "scene": "campground",
+      "category": "creatures",
+      "file": "audio/campground/creatures/sasquatch_roar.wav",
+      "call": "roar",
+      "description": "The roar. Chest, gravel, and a little bit of grief.",
+      "seconds": 1.6,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.creatures.bee_swarm",
+      "scene": "campground",
+      "category": "creatures",
+      "file": "audio/campground/creatures/bee_swarm.wav",
+      "call": "buzz",
+      "description": "Beehive alumni looking for someone to blame.",
+      "seconds": 2,
+      "variations": 2,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "campground.rangers.tranq_fire",
+      "scene": "campground",
+      "category": "rangers",
+      "file": "audio/campground/rangers/tranq_fire.wav",
+      "call": "dart",
+      "description": "Tranquiliser rifle: compressed air, no bang.",
+      "seconds": 0.4,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.rangers.tranq_hit",
+      "scene": "campground",
+      "category": "rangers",
+      "file": "audio/campground/rangers/tranq_hit.wav",
+      "call": "dartHit",
+      "description": "Dart finding fur.",
+      "seconds": 0.5,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.ui.time_bonus",
+      "scene": "campground",
+      "category": "ui",
+      "file": "audio/campground/ui/time_bonus.wav",
+      "call": "chime",
+      "description": "Golden cooler: seconds added to the clock.",
+      "seconds": 0.8,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.ui.powerup_collect",
+      "scene": "campground",
+      "category": "ui",
+      "file": "audio/campground/ui/powerup_collect.wav",
+      "call": "powerup",
+      "description": "Power-up collected.",
+      "seconds": 0.6,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.ui.final_frenzy",
+      "scene": "campground",
+      "category": "ui",
+      "file": "audio/campground/ui/final_frenzy.wav",
+      "call": "frenzyJingle",
+      "description": "Final frenzy alarm: everything is worth double.",
+      "seconds": 1.2,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.ui.run_end_sting",
+      "scene": "campground",
+      "category": "ui",
+      "file": "audio/campground/ui/run_end_sting.wav",
+      "call": "sting",
+      "description": "End-of-run sting.",
+      "seconds": 2,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    }
+  ],
+  "ambience": [
+    {
+      "id": "motel.ambience.amb_neon_hum",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_neon_hum.wav",
+      "description": "Buzzing pink motel sign. Mains hum with a thin harmonic on top.",
+      "seconds": 30,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ambience.amb_ac_rattle",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_ac_rattle.wav",
+      "description": "A wall air-conditioner running badly, with a loose panel.",
+      "seconds": 30,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ambience.amb_night_traffic",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_night_traffic.wav",
+      "description": "Distant road, insects, warm wind through palms.",
+      "seconds": 45,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ambience.amb_room_tone",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_room_tone.wav",
+      "description": "Inside room twelve: fan, television murmur, plumbing, nobody breathing normally.",
+      "seconds": 30,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ambience.amb_tv_murmur",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_tv_murmur.wav",
+      "description": "Muffled late-night television through a wall.",
+      "seconds": 30,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ambience.amb_pool_bottom",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_pool_bottom.wav",
+      "description": "Down in the drained pool: enclosed, dead, dripping.",
+      "seconds": 20,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ambience.amb_alley",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_alley.wav",
+      "description": "Rear alley: extractor fan, dumpster metal ticking as it cools.",
+      "seconds": 20,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.ambience.amb_tension_pulse",
+      "scene": "motel",
+      "file": "audio/motel/ambience/amb_tension_pulse.wav",
+      "description": "The suspicion bed. A low pulse that speeds up as the room turns.",
+      "seconds": 30,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "campground.ambience.amb_forest_day",
+      "scene": "campground",
+      "file": "audio/campground/ambience/amb_forest_day.wav",
+      "description": "Campground afternoon: birds, wind in pines, a distant generator.",
+      "seconds": 45,
+      "loop": true,
+      "status": "todo"
+    }
+  ],
+  "music": [
+    {
+      "id": "motel.music.mus_deal_tense",
+      "scene": "motel",
+      "file": "audio/motel/music/mus_deal_tense.wav",
+      "description": "Under the deal: minimal, humid, two notes and a lot of patience.",
+      "seconds": 90,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.music.mus_fight",
+      "scene": "motel",
+      "file": "audio/motel/music/mus_fight.wav",
+      "description": "The room goes: fast percussion, brass stabs, distorted guitar, clave. Original — no film score.",
+      "seconds": 120,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "motel.music.mus_chase",
+      "scene": "motel",
+      "file": "audio/motel/music/mus_chase.wav",
+      "description": "The getaway: same band, faster, driving bass, siren-shaped topline.",
+      "seconds": 120,
+      "loop": true,
+      "status": "todo"
+    },
+    {
+      "id": "campground.music.mus_rampage",
+      "scene": "campground",
+      "file": "audio/campground/music/mus_rampage.wav",
+      "description": "Scene one groove: four-on-the-floor, square bass riff, sparse lead.",
+      "seconds": 120,
+      "loop": true,
+      "status": "todo"
+    }
+  ],
+  "voice": [
+    {
+      "id": "vo.manny.room_twelve_they_show_the_meat_first_you_show_th",
+      "speaker": "Manny",
+      "line": "Room twelve. They show the meat first. You show the money second.",
+      "context": "dialogue node \"mannyBrief\" — prompt",
+      "file": "audio/motel/voice/manny/room_twelve_they_show_the_meat_first_you_show_th.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.that_is_how_business_works",
+      "speaker": "Prospect",
+      "line": "That is how business works.",
+      "context": "dialogue node \"mannyBrief\" — calm answer",
+      "file": "audio/motel/voice/prospect/that_is_how_business_works.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.good_business_not_opera",
+      "speaker": "Manny",
+      "line": "Good. Business. Not opera.",
+      "context": "dialogue node \"mannyBrief\" — reply to calm",
+      "file": "audio/motel/voice/manny/good_business_not_opera.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.if_they_waste_my_time_they_lose_more_than_jerky",
+      "speaker": "Prospect",
+      "line": "If they waste my time, they lose more than jerky.",
+      "context": "dialogue node \"mannyBrief\" — threat answer",
+      "file": "audio/motel/voice/prospect/if_they_waste_my_time_they_lose_more_than_jerky.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.prospect_we_buy_the_meat_we_leave_no_speeches",
+      "speaker": "Manny",
+      "line": "Prospect. We buy the meat, we leave. No speeches.",
+      "context": "dialogue node \"mannyBrief\" — reply to threat",
+      "file": "audio/motel/voice/manny/prospect_we_buy_the_meat_we_leave_no_speeches.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.this_motel_smells_like_boiled_carpet",
+      "speaker": "Prospect",
+      "line": "This motel smells like boiled carpet.",
+      "context": "dialogue node \"mannyBrief\" — insult answer",
+      "file": "audio/motel/voice/prospect/this_motel_smells_like_boiled_carpet.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.that_is_the_pool_nobody_has_drained_it_since_the",
+      "speaker": "Manny",
+      "line": "That is the pool. Nobody has drained it since the eighties.",
+      "context": "dialogue node \"mannyBrief\" — reply to insult",
+      "file": "audio/motel/voice/manny/that_is_the_pool_nobody_has_drained_it_since_the.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.if_the_grain_runs_sideways_we_walk",
+      "speaker": "Prospect",
+      "line": "If the grain runs sideways, we walk.",
+      "context": "dialogue node \"mannyBrief\" — expert answer",
+      "file": "audio/motel/voice/prospect/if_the_grain_runs_sideways_we_walk.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.if_the_grain_runs_sideways_i_am_already_driving",
+      "speaker": "Manny",
+      "line": "If the grain runs sideways I am already driving.",
+      "context": "dialogue node \"mannyBrief\" — reply to expert",
+      "file": "audio/motel/voice/manny/if_the_grain_runs_sideways_i_am_already_driving.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.you_prospect",
+      "speaker": "Rico",
+      "line": "You Prospect?",
+      "context": "dialogue node \"atDoor\" — prompt",
+      "file": "audio/motel/voice/rico/you_prospect.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.you_rico",
+      "speaker": "Prospect",
+      "line": "You Rico?",
+      "context": "dialogue node \"atDoor\" — calm answer",
+      "file": "audio/motel/voice/prospect/you_rico.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.depends_who_is_asking_about_meat_at_this_hour",
+      "speaker": "Rico",
+      "line": "Depends who is asking about meat at this hour.",
+      "context": "dialogue node \"atDoor\" — reply to calm",
+      "file": "audio/motel/voice/rico/depends_who_is_asking_about_meat_at_this_hour.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.open_the_door",
+      "speaker": "Prospect",
+      "line": "Open the door.",
+      "context": "dialogue node \"atDoor\" — threat answer",
+      "file": "audio/motel/voice/prospect/open_the_door.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.relax_big_man_doors_open_easier_when_nobody_yell",
+      "speaker": "Rico",
+      "line": "Relax, big man. Doors open easier when nobody yells at them.",
+      "context": "dialogue node \"atDoor\" — reply to threat",
+      "file": "audio/motel/voice/rico/relax_big_man_doors_open_easier_when_nobody_yell.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.no_i_am_motel_inspection",
+      "speaker": "Prospect",
+      "line": "No, I am motel inspection.",
+      "context": "dialogue node \"atDoor\" — insult answer",
+      "file": "audio/motel/voice/prospect/no_i_am_motel_inspection.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.funny_inspectors_do_not_have_that_much_fur",
+      "speaker": "Rico",
+      "line": "Funny. Inspectors do not have that much fur.",
+      "context": "dialogue node \"atDoor\" — reply to insult",
+      "file": "audio/motel/voice/rico/funny_inspectors_do_not_have_that_much_fur.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.depends_what_is_in_the_suitcase",
+      "speaker": "Prospect",
+      "line": "Depends what is in the suitcase.",
+      "context": "dialogue node \"atDoor\" — expert answer",
+      "file": "audio/motel/voice/prospect/depends_what_is_in_the_suitcase.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.what_is_in_the_suitcase_is_history_come_inside_b",
+      "speaker": "Rico",
+      "line": "What is in the suitcase is history. Come inside before the neighbours smell it.",
+      "context": "dialogue node \"atDoor\" — reply to expert",
+      "file": "audio/motel/voice/rico/what_is_in_the_suitcase_is_history_come_inside_b.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.mountain_reserve_eleven_year_cure_no_fillers",
+      "speaker": "Rico",
+      "line": "Mountain reserve. Eleven-year cure. No fillers.",
+      "context": "dialogue node \"sample\" — prompt",
+      "file": "audio/motel/voice/rico/mountain_reserve_eleven_year_cure_no_fillers.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.this_smoke_is_real",
+      "speaker": "Prospect",
+      "line": "This smoke is real.",
+      "context": "dialogue node \"sample\" — prospect",
+      "file": "audio/motel/voice/prospect/this_smoke_is_real.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.i_did_not_say_the_meat_was_real",
+      "speaker": "Prospect",
+      "line": "I did not say the meat was real.",
+      "context": "dialogue node \"sample\" — prospect2",
+      "file": "audio/motel/voice/prospect/i_did_not_say_the_meat_was_real.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.you_buying_or_writing_a_cookbook",
+      "speaker": "Chino",
+      "line": "You buying or writing a cookbook?",
+      "context": "dialogue node \"sample\" — chino",
+      "file": "audio/motel/voice/chino/you_buying_or_writing_a_cookbook.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.show_me_the_full_case",
+      "speaker": "Prospect",
+      "line": "Show me the full case.",
+      "context": "dialogue node \"sample\" — calm answer",
+      "file": "audio/motel/voice/prospect/show_me_the_full_case.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.the_whole_case_nothing_to_hide_in_a_case",
+      "speaker": "Rico",
+      "line": "The whole case. Nothing to hide in a case.",
+      "context": "dialogue node \"sample\" — reply to calm",
+      "file": "audio/motel/voice/rico/the_whole_case_nothing_to_hide_in_a_case.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.do_not_rush_me_near_meat",
+      "speaker": "Prospect",
+      "line": "Do not rush me near meat.",
+      "context": "dialogue node \"sample\" — threat answer",
+      "file": "audio/motel/voice/prospect/do_not_rush_me_near_meat.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.nobody_is_rushing_i_am_just_standing_here_by_the",
+      "speaker": "Chino",
+      "line": "Nobody is rushing. I am just standing here. By the door.",
+      "context": "dialogue node \"sample\" — reply to threat",
+      "file": "audio/motel/voice/chino/nobody_is_rushing_i_am_just_standing_here_by_the.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.i_have_eaten_belts_with_better_texture",
+      "speaker": "Prospect",
+      "line": "I have eaten belts with better texture.",
+      "context": "dialogue node \"sample\" — insult answer",
+      "file": "audio/motel/voice/prospect/i_have_eaten_belts_with_better_texture.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.belts_he_says_belts_in_my_room",
+      "speaker": "Rico",
+      "line": "Belts. He says belts. In my room.",
+      "context": "dialogue node \"sample\" — reply to insult",
+      "file": "audio/motel/voice/rico/belts_he_says_belts_in_my_room.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.this_was_cut_against_the_grain_who_handled_it",
+      "speaker": "Prospect",
+      "line": "This was cut against the grain. Who handled it?",
+      "context": "dialogue node \"sample\" — expert answer",
+      "file": "audio/motel/voice/prospect/this_was_cut_against_the_grain_who_handled_it.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.nobody_handled_it_it_handles_itself",
+      "speaker": "Rico",
+      "line": "Nobody handled it. It handles itself.",
+      "context": "dialogue node \"sample\" — reply to expert",
+      "file": "audio/motel/voice/rico/nobody_handled_it_it_handles_itself.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.this_is_gas_station_product_with_the_logo_scrape",
+      "speaker": "Prospect",
+      "line": "This is gas-station product with the logo scraped off.",
+      "context": "dialogue node \"counterfeit\" — prompt",
+      "file": "audio/motel/voice/prospect/this_is_gas_station_product_with_the_logo_scrape.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.bring_out_the_real_case_and_we_forget_this",
+      "speaker": "Prospect",
+      "line": "Bring out the real case and we forget this.",
+      "context": "dialogue node \"counterfeit\" — calm answer",
+      "file": "audio/motel/voice/prospect/bring_out_the_real_case_and_we_forget_this.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.there_is_no_other_case_there_is_this_case",
+      "speaker": "Rico",
+      "line": "There is no other case. There is this case.",
+      "context": "dialogue node \"counterfeit\" — reply to calm",
+      "file": "audio/motel/voice/rico/there_is_no_other_case_there_is_this_case.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.you_sold_me_a_lie_in_a_wrapper_fix_it",
+      "speaker": "Prospect",
+      "line": "You sold me a lie in a wrapper. Fix it.",
+      "context": "dialogue node \"counterfeit\" — threat answer",
+      "file": "audio/motel/voice/prospect/you_sold_me_a_lie_in_a_wrapper_fix_it.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.rico_he_knows",
+      "speaker": "Chino",
+      "line": "Rico. He knows.",
+      "context": "dialogue node \"counterfeit\" — reply to threat",
+      "file": "audio/motel/voice/chino/rico_he_knows.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.eleven_year_cure_it_has_a_barcode_from_last_apri",
+      "speaker": "Prospect",
+      "line": "Eleven-year cure. It has a barcode from last April.",
+      "context": "dialogue node \"counterfeit\" — insult answer",
+      "file": "audio/motel/voice/prospect/eleven_year_cure_it_has_a_barcode_from_last_apri.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.barcodes_get_printed_meat_gets_born",
+      "speaker": "Rico",
+      "line": "Barcodes get printed. Meat gets born.",
+      "context": "dialogue node \"counterfeit\" — reply to insult",
+      "file": "audio/motel/voice/rico/barcodes_get_printed_meat_gets_born.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.sugar_glaze_uniform_strips_no_butcher_stamp_room",
+      "speaker": "Prospect",
+      "line": "Sugar glaze, uniform strips, no butcher stamp. Room eleven, then.",
+      "context": "dialogue node \"counterfeit\" — expert answer",
+      "file": "audio/motel/voice/prospect/sugar_glaze_uniform_strips_no_butcher_stamp_room.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.who_told_you_about_eleven",
+      "speaker": "Rico",
+      "line": "...Who told you about eleven?",
+      "context": "dialogue node \"counterfeit\" — reply to expert",
+      "file": "audio/motel/voice/rico/who_told_you_about_eleven.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.your_driver_takes_forty_of_your_money_for_parkin",
+      "speaker": "Rico",
+      "line": "Your driver takes forty of your money for parking a car. Walk out with me instead. You keep the case, I keep the cash, he keeps the parking.",
+      "context": "dialogue node \"ricoOffer\" — prompt",
+      "file": "audio/motel/voice/rico/your_driver_takes_forty_of_your_money_for_parkin.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.manny_stays_say_the_next_part_carefully",
+      "speaker": "Prospect",
+      "line": "Manny stays. Say the next part carefully.",
+      "context": "dialogue node \"ricoOffer\" — calm answer",
+      "file": "audio/motel/voice/prospect/manny_stays_say_the_next_part_carefully.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.the_next_part_is_the_part_where_you_decide",
+      "speaker": "Rico",
+      "line": "The next part is the part where you decide.",
+      "context": "dialogue node \"ricoOffer\" — reply to calm",
+      "file": "audio/motel/voice/rico/the_next_part_is_the_part_where_you_decide.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.say_his_name_again_and_i_use_the_vacuum_sealer_o",
+      "speaker": "Prospect",
+      "line": "Say his name again and I use the vacuum sealer on you.",
+      "context": "dialogue node \"ricoOffer\" — threat answer",
+      "file": "audio/motel/voice/prospect/say_his_name_again_and_i_use_the_vacuum_sealer_o.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.noted_loudly",
+      "speaker": "Rico",
+      "line": "Noted. Loudly.",
+      "context": "dialogue node \"ricoOffer\" — reply to threat",
+      "file": "audio/motel/voice/rico/noted_loudly.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.you_are_the_third_best_liar_in_this_room_and_the",
+      "speaker": "Prospect",
+      "line": "You are the third best liar in this room and there are three of us.",
+      "context": "dialogue node \"ricoOffer\" — insult answer",
+      "file": "audio/motel/voice/prospect/you_are_the_third_best_liar_in_this_room_and_the.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.three_he_counted_three",
+      "speaker": "Rico",
+      "line": "Three. He counted three.",
+      "context": "dialogue node \"ricoOffer\" — reply to insult",
+      "file": "audio/motel/voice/rico/three_he_counted_three.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.a_man_with_real_product_does_not_need_a_partner_",
+      "speaker": "Prospect",
+      "line": "A man with real product does not need a partner. Deal.",
+      "context": "dialogue node \"ricoOffer\" — expert answer",
+      "file": "audio/motel/voice/prospect/a_man_with_real_product_does_not_need_a_partner_.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.now_that_is_business",
+      "speaker": "Rico",
+      "line": "Now that is business.",
+      "context": "dialogue node \"ricoOffer\" — reply to expert",
+      "file": "audio/motel/voice/rico/now_that_is_business.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.tell_me_that_was_worth_it",
+      "speaker": "Manny",
+      "line": "Tell me that was worth it.",
+      "context": "dialogue node \"getaway\" — prompt",
+      "file": "audio/motel/voice/manny/tell_me_that_was_worth_it.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.it_is_real",
+      "speaker": "Prospect",
+      "line": "It is real.",
+      "context": "dialogue node \"getaway\" — calm answer",
+      "file": "audio/motel/voice/prospect/it_is_real.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.then_we_are_rich_and_i_am_shaking_for_no_reason",
+      "speaker": "Manny",
+      "line": "Then we are rich and I am shaking for no reason.",
+      "context": "dialogue node \"getaway\" — reply to calm",
+      "file": "audio/motel/voice/manny/then_we_are_rich_and_i_am_shaking_for_no_reason.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.drive_before_i_inspect_you",
+      "speaker": "Prospect",
+      "line": "Drive before I inspect you.",
+      "context": "dialogue node \"getaway\" — threat answer",
+      "file": "audio/motel/voice/prospect/drive_before_i_inspect_you.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.driving_driving",
+      "speaker": "Manny",
+      "line": "Driving. Driving.",
+      "context": "dialogue node \"getaway\" — reply to threat",
+      "file": "audio/motel/voice/manny/driving_driving.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.you_parked_facing_the_building",
+      "speaker": "Prospect",
+      "line": "You parked facing the building.",
+      "context": "dialogue node \"getaway\" — insult answer",
+      "file": "audio/motel/voice/prospect/you_parked_facing_the_building.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.i_parked_facing_the_exit_the_building_was_an_acc",
+      "speaker": "Manny",
+      "line": "I parked facing the exit. The building was an accident.",
+      "context": "dialogue node \"getaway\" — reply to insult",
+      "file": "audio/motel/voice/manny/i_parked_facing_the_exit_the_building_was_an_acc.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.humidity_touched_the_bottom_packages",
+      "speaker": "Prospect",
+      "line": "Humidity touched the bottom packages.",
+      "context": "dialogue node \"getaway\" — expert answer",
+      "file": "audio/motel/voice/prospect/humidity_touched_the_bottom_packages.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.humidity_touched_all_of_us_tonight",
+      "speaker": "Manny",
+      "line": "Humidity touched all of us tonight.",
+      "context": "dialogue node \"getaway\" — reply to expert",
+      "file": "audio/motel/voice/manny/humidity_touched_all_of_us_tonight.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.do_not_touch_that_package",
+      "speaker": "Rico",
+      "line": "Do not touch that package.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/do_not_touch_that_package.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.that_batch_crossed_three_state_lines",
+      "speaker": "Rico",
+      "line": "That batch crossed three state lines.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/that_batch_crossed_three_state_lines.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.you_think_rare_meat_grows_on_trees",
+      "speaker": "Chino",
+      "line": "You think rare meat grows on trees?",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/chino/you_think_rare_meat_grows_on_trees.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.the_cattle_had_names",
+      "speaker": "Rico",
+      "line": "The cattle had names.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/the_cattle_had_names.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.this_is_not_gas_station_product",
+      "speaker": "Rico",
+      "line": "This is not gas-station product.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/this_is_not_gas_station_product.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.no_refunds_once_you_chew",
+      "speaker": "Chino",
+      "line": "No refunds once you chew.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/chino/no_refunds_once_you_chew.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.stand_where_i_can_see_you",
+      "speaker": "Chino",
+      "line": "Stand where I can see you.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/chino/stand_where_i_can_see_you.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.rico_why_is_he_so_tall_rico",
+      "speaker": "Chino",
+      "line": "Rico. Why is he so tall. Rico.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/chino/rico_why_is_he_so_tall_rico.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.in_this_room_we_are_all_the_same_size",
+      "speaker": "Rico",
+      "line": "In this room we are all the same size.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/in_this_room_we_are_all_the_same_size.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.do_not_lean_on_that_it_is_a_wall_but_only_techni",
+      "speaker": "Rico",
+      "line": "Do not lean on that. It is a wall, but only technically.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/do_not_lean_on_that_it_is_a_wall_but_only_techni.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.seventy_two_hours_of_smoke_seventy_two",
+      "speaker": "Rico",
+      "line": "Seventy-two hours of smoke. Seventy-two.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/seventy_two_hours_of_smoke_seventy_two.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.the_gloves_are_for_hygiene",
+      "speaker": "Chino",
+      "line": "The gloves are for hygiene.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/chino/the_gloves_are_for_hygiene.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.government_took_the_herd_government_did_not_take",
+      "speaker": "Rico",
+      "line": "Government took the herd. Government did not take everything.",
+      "context": "ambient seller bark in room twelve",
+      "file": "audio/motel/voice/rico/government_took_the_herd_government_did_not_take.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.i_can_smell_preservatives",
+      "speaker": "Prospect",
+      "line": "I can smell preservatives.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/i_can_smell_preservatives.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.this_room_is_too_warm",
+      "speaker": "Prospect",
+      "line": "This room is too warm.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/this_room_is_too_warm.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.you_stored_this_near_fish",
+      "speaker": "Prospect",
+      "line": "You stored this near fish.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/you_stored_this_near_fish.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.nobody_locks_a_door_during_honest_jerky",
+      "speaker": "Prospect",
+      "line": "Nobody locks a door during honest jerky.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/nobody_locks_a_door_during_honest_jerky.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.you_people_do_not_respect_the_cure",
+      "speaker": "Prospect",
+      "line": "You people do not respect the cure.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/you_people_do_not_respect_the_cure.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.this_strip_has_been_folded",
+      "speaker": "Prospect",
+      "line": "This strip has been folded.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/this_strip_has_been_folded.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.silver_is_cheaper_than_this_and_silver_does_not_",
+      "speaker": "Prospect",
+      "line": "Silver is cheaper than this and silver does not spoil.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/silver_is_cheaper_than_this_and_silver_does_not_.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.i_have_to_duck_in_your_doorway_think_about_what_",
+      "speaker": "Prospect",
+      "line": "I have to duck in your doorway. Think about what that means for you.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/i_have_to_duck_in_your_doorway_think_about_what_.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.everyone_in_this_room_is_smaller_than_the_deal",
+      "speaker": "Prospect",
+      "line": "Everyone in this room is smaller than the deal.",
+      "context": "ambient Prospect bark",
+      "file": "audio/motel/voice/prospect/everyone_in_this_room_is_smaller_than_the_deal.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.there_is_a_second_car_running_out_here_nobody_is",
+      "speaker": "Manny",
+      "line": "There is a second car running out here. Nobody is in the front seat.",
+      "context": "ambient Manny bark in the lot",
+      "file": "audio/motel/voice/manny/there_is_a_second_car_running_out_here_nobody_is.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.i_do_not_like_the_upstairs_somebody_keeps_not_lo",
+      "speaker": "Manny",
+      "line": "I do not like the upstairs. Somebody keeps not looking at me.",
+      "context": "ambient Manny bark in the lot",
+      "file": "audio/motel/voice/manny/i_do_not_like_the_upstairs_somebody_keeps_not_lo.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.two_minutes_and_i_start_honking",
+      "speaker": "Manny",
+      "line": "Two minutes and I start honking.",
+      "context": "ambient Manny bark in the lot",
+      "file": "audio/motel/voice/manny/two_minutes_and_i_start_honking.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.if_they_show_you_one_package_ask_for_the_case",
+      "speaker": "Manny",
+      "line": "If they show you one package, ask for the case.",
+      "context": "ambient Manny bark in the lot",
+      "file": "audio/motel/voice/manny/if_they_show_you_one_package_ask_for_the_case.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.bring_out_the_cutting_board",
+      "speaker": "Rico",
+      "line": "Bring out the cutting board!",
+      "context": "combat bark",
+      "file": "audio/motel/voice/rico/bring_out_the_cutting_board.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.get_the_case_get_the_case",
+      "speaker": "Chino",
+      "line": "Get the case! Get the case!",
+      "context": "combat bark",
+      "file": "audio/motel/voice/chino/get_the_case_get_the_case.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.bathroom_seller.hold_him_still",
+      "speaker": "Bathroom Seller",
+      "line": "Hold him still!",
+      "context": "combat bark",
+      "file": "audio/motel/voice/bathroom_seller/hold_him_still.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.rico.not_the_product_anything_but_the_product",
+      "speaker": "Rico",
+      "line": "Not the product! Anything but the product!",
+      "context": "combat bark",
+      "file": "audio/motel/voice/rico/not_the_product_anything_but_the_product.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.chino.he_is_too_big_somebody_find_the_prod",
+      "speaker": "Chino",
+      "line": "He is too big! Somebody find the prod!",
+      "context": "combat bark",
+      "file": "audio/motel/voice/chino/he_is_too_big_somebody_find_the_prod.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.which_case_is_ours",
+      "speaker": "Manny",
+      "line": "Which case is ours?",
+      "context": "Manny combat bark",
+      "file": "audio/motel/voice/manny/which_case_is_ours.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.i_am_coming_in_do_not_swing_at_me",
+      "speaker": "Manny",
+      "line": "I am coming in! Do not swing at me!",
+      "context": "Manny combat bark",
+      "file": "audio/motel/voice/manny/i_am_coming_in_do_not_swing_at_me.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.car_is_running_move",
+      "speaker": "Manny",
+      "line": "Car is running! Move!",
+      "context": "Manny combat bark",
+      "file": "audio/motel/voice/manny/car_is_running_move.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.they_came_from_the_pool_side",
+      "speaker": "Manny",
+      "line": "They came from the pool side!",
+      "context": "Manny combat bark",
+      "file": "audio/motel/voice/manny/they_came_from_the_pool_side.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.how_much_of_it_survived",
+      "speaker": "Manny",
+      "line": "How much of it survived?",
+      "context": "closing exchange on the road",
+      "file": "audio/motel/voice/manny/how_much_of_it_survived.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.manny.well",
+      "speaker": "Manny",
+      "line": "Well?",
+      "context": "closing exchange on the road",
+      "file": "audio/motel/voice/manny/well.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.prospect.too_much_pepper",
+      "speaker": "Prospect",
+      "line": "Too much pepper.",
+      "context": "closing exchange on the road",
+      "file": "audio/motel/voice/prospect/too_much_pepper.wav",
+      "status": "todo"
+    }
+  ],
+  "counts": {
+    "sfx": 80,
+    "ambience": 9,
+    "music": 4,
+    "voice": 95,
+    "total": 188
+  }
+}
