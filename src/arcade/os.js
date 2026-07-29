@@ -171,10 +171,35 @@ export class SquatchOS {
         break;
       case 'app':
         this.app.update(dt);
+        this._drawExitHint();
         break;
     }
 
     if (this.mode !== 'off') this._drawCrt();
+  }
+
+  /**
+   * The way out, in the corner of the screen.
+   *
+   * Tab has always dropped back to the desktop and Q has always got you out of
+   * the chair; neither was written down anywhere, so from inside a match there
+   * was no visible way back to the room at all. An app can hide it -- set
+   * `hideExitHint` while something is mid-flow -- but by default it is there.
+   */
+  _drawExitHint() {
+    if (this.app?.hideExitHint) return;
+    const g = this.g;
+    g.save();
+    g.globalAlpha = 0.62;
+    g.font = '10px "Courier New", monospace';
+    g.textAlign = 'right';
+    const text = '[TAB] desktop   ·   [Q] leave the desk';
+    const w = g.measureText(text).width;
+    g.fillStyle = 'rgba(6,8,12,.62)';
+    g.fillRect(W - w - 16, 4, w + 12, 16);
+    g.fillStyle = '#9fb0c8';
+    g.fillText(text, W - 10, 15);
+    g.restore();
   }
 
   glow() {

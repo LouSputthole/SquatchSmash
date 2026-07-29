@@ -659,6 +659,11 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t, { freq: 170, to: 40, dur: 0.22, gain: 0.30, type: 'sawtooth' });
       tone(ctx, dest, t + 0.16, { freq: 300, to: 96, dur: 0.75, gain: 0.16, type: 'triangle' });
       break;
+    case 'cs.step':
+      // One boot on grit: the only warning you get.
+      burst(ctx, dest, t, { dur: 0.07, type: 'bandpass', freq: 1100, q: 1.4, gain: 0.20 });
+      burst(ctx, dest, t + 0.05, { dur: 0.10, type: 'lowpass', freq: 420, gain: 0.12, sweep: 0.5 });
+      break;
     case 'cs.headshot':
       // The one that lands: your shot, then the confirmation ping.
       burst(ctx, dest, t, { dur: 0.10, type: 'highpass', freq: 1700, gain: 0.34, sweep: 0.7 });

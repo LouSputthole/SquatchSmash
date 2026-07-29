@@ -12,10 +12,32 @@
  */
 import { W, H } from './os.js';
 
-/** How long you get to hold the mouse before it happens, by death count. */
+/** How long you hold the mouse before he steps out, by death count. */
 function windowFor(deaths) {
   if (deaths >= 9) return 0;                    // killed in the buy menu
   return Math.max(0.12, 1.5 * Math.pow(0.78, deaths));
+}
+
+/**
+ * How long he lets you live once he is actually on your screen.
+ *
+ * 0.37 seconds is roughly a good human's reaction time to a visual cue with
+ * nothing else going on, which makes this technically survivable and
+ * practically not -- and that is the whole joke. You CAN hit him. You almost
+ * never will, and when you do it is the best thing that happens all day.
+ */
+const REACTION = 0.37;
+
+/** Where he is standing this round, in the map's pan space. */
+function spotFor(i) {
+  const spots = [
+    { x: 150, y: 236, w: 34, h: 78 },   // by the left crate
+    { x: 508, y: 236, w: 32, h: 76 },   // by the right crate
+    { x: 318, y: 214, w: 30, h: 74 },   // in the arch
+    { x: 74, y: 244, w: 33, h: 72 },    // hard left, half behind the wall
+    { x: 566, y: 240, w: 31, h: 74 },   // hard right
+  ];
+  return spots[i % spots.length];
 }
 
 const CHEATERS = [
@@ -163,7 +185,8 @@ export class CounterSquatch {
       // occasionally true and you have something to bring up at the meeting.
       this.shots++;
       this.audio?.play('cs.shot', { volume: 0.5 });
-      if (!this.fluked && this.deaths >= 2 && Math.random() < 0.05) this._fluke();
+      // You are allowed to hit him. He is right there. You have 0.37 seconds.
+      if (this._onTarget()) this._fluke();
       return;
     }
     if (this.state === 'dead') {
@@ -211,12 +234,31 @@ export class CounterSquatch {
     this.aimYaw = 0;
     this.cursor.y = H / 2;
     this.window = windowFor(this.deaths);
+    // He steps out when the window expires, and shoots REACTION later.
+    this.enemy = spotFor(this.deaths + this.kills);
+    this.enemyShown = false;
   }
 
-  /* One bullet, one match, and it lands. It does not save the round. */
+  /** Is he on screen, and where. Null until he steps out. */
+  _enemyScreen() {
+    if (!this.enemyShown || !this.enemy) return null;
+    return { x: this.enemy.x - this.aimYaw * 0.5, y: this.enemy.y, w: this.enemy.w, h: this.enemy.h };
+  }
+
+  /** The reticle sits at the centre of the screen; the world pans past it. */
+  _onTarget() {
+    const e = this._enemyScreen();
+    if (!e) return false;
+    return Math.abs(W / 2 - e.x) < e.w * 0.62
+      && this.cursor.y > e.y - e.h * 0.15 && this.cursor.y < e.y + e.h;
+  }
+
+  /** You actually got him. Does not save the round -- the next one starts. */
   _fluke() {
     this.fluked = true;
     this.kills++;
+    this.enemyShown = false;
+    this.enemy = null;
     this.flash = 0.5;
     const victim = CHEATERS[(Math.random() * CHEATERS.length) | 0];
     this.killfeed.unshift({
@@ -271,7 +313,13 @@ export class CounterSquatch {
     }
 
     if (this.state === 'buy' && this.stateT > 0.85) this._spawn();
-    if (this.state === 'alive' && this.stateT >= this.window) this._die();
+    if (this.state === 'alive') {
+      if (!this.enemyShown && this.stateT >= this.window) {
+        this.enemyShown = true;
+        this.audio?.play('cs.step', { volume: 0.4 });
+      }
+      if (this.enemyShown && this.stateT >= this.window + REACTION) this._die();
+    }
 
     this._draw();
   }
@@ -294,7 +342,7 @@ export class CounterSquatch {
     switch (this.state) {
       case 'menu': this._drawMenu(); break;
       case 'buy': this._drawMap(); this._drawBuy(); break;
-      case 'alive': this._drawMap(); this._drawHud(); this._drawReticle(); break;
+      case 'alive': this._drawMap(); this._drawEnemy(); this._drawHud(); this._drawReticle(); break;
       case 'dead': this._drawMap(); this._drawHud(); this._drawDead(); break;
       case 'scoreboard': this._drawMap(); this._drawScoreboard(); break;
     }
@@ -304,6 +352,40 @@ export class CounterSquatch {
       g.fillStyle = `rgba(180,20,10,${this.flash * 0.45})`;
       g.fillRect(0, 0, W, H);
     }
+  }
+
+  /**
+   * The man himself, for the third of a second you get to see him.
+   *
+   * A flat silhouette rather than anything animated -- he is a shape that
+   * appears, and by the time you have parsed it you are usually dead. The
+   * outline goes red when your reticle is actually on him, which is the only
+   * feedback that the shot was ever possible.
+   */
+  _drawEnemy() {
+    const e = this._enemyScreen();
+    if (!e) return;
+    const g = this.g;
+    const on = this._onTarget();
+    const x = e.x - e.w / 2;
+
+    g.save();
+    // Body, legs, head: enough to read as a person at a glance.
+    g.fillStyle = on ? '#3a2a24' : '#2f2a26';
+    g.fillRect(x, e.y, e.w, e.h * 0.62);
+    g.fillRect(x + e.w * 0.16, e.y + e.h * 0.60, e.w * 0.22, e.h * 0.40);
+    g.fillRect(x + e.w * 0.62, e.y + e.h * 0.60, e.w * 0.22, e.h * 0.40);
+    g.beginPath();
+    g.arc(e.x, e.y - e.h * 0.10, e.w * 0.26, 0, 7);
+    g.fill();
+    // Rifle, held level, already pointing at you.
+    g.fillStyle = '#1d1a18';
+    g.fillRect(x - e.w * 0.30, e.y + e.h * 0.24, e.w * 1.15, e.h * 0.07);
+
+    g.strokeStyle = on ? 'rgba(224,90,68,.95)' : 'rgba(20,16,14,.55)';
+    g.lineWidth = on ? 2 : 1;
+    g.strokeRect(x - 2, e.y - e.h * 0.20, e.w + 4, e.h * 1.22);
+    g.restore();
   }
 
   /** A dusty corridor. Deliberately drab. */
