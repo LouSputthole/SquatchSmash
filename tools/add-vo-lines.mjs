@@ -215,6 +215,32 @@ const LINES = {
     'Nobody has aged well. Including me.',
   ],
 
+  /* ---- the picture hung far too high, on purpose, years ago ----
+   * Its own bank rather than the general photo one, because the joke is the
+   * height and the height only. Half of these are just noises. */
+  hunghigh: [
+    'Wee woo.',
+    'Oh my gosh.',
+    'Who hung that. Who did that.',
+    'It is a foot too high and it always will be.',
+    'Nobody has ever been able to see it properly.',
+    'That has been crooked since we put it up.',
+    'I would need a chair. I am not getting a chair.',
+    'One day I will sort that out. Not today.',
+    'Wee woo. Every time I look at it.',
+    'It is the principle of the thing now.',
+  ],
+
+  /* ---- and after it has been "fixed" ---- */
+  hungfixed: [
+    'Straight. Glued to the wall, but straight.',
+    'Wee woo. Still.',
+    'Not moving that again. Cannot, actually.',
+    'It is level. Nobody needs to know how.',
+    'Oh my gosh. Look at the state of it.',
+    'Worth it. Mostly worth it.',
+  ],
+
   /* ---- after the glue finally comes out ----
    * The payoff line has to sell that it was always glue and he is annoyed
    * about the wall, not embarrassed about anything. Play it completely

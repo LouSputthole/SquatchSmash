@@ -124,8 +124,8 @@ export class Radio {
     this.panner = ctx.createPanner();
     this.panner.panningModel = 'HRTF';
     this.panner.distanceModel = 'inverse';
-    this.panner.refDistance = 1.6;
-    this.panner.maxDistance = 22;
+    this.panner.refDistance = 3.2;
+    this.panner.maxDistance = 30;
     this.panner.rolloffFactor = 1.1;
     this._applyPannerPosition();
 
@@ -215,7 +215,7 @@ export class Radio {
     if (this.el) this.el.pause();
     // A murmuring voice bed under the words, so the room is not silent.
     this.audio.startLoop('radio.talk', {
-      volume: 0.04, position: this.position, ref: 1.4, maxDist: 12,
+      volume: 0.055, position: this.position, ref: 2.6, maxDist: 20,
     });
     this._show = null;
     this._pump();
@@ -323,7 +323,13 @@ export class Radio {
     // [R] leaves two hosts talking over each other.
     try { this._voice?.stop(); } catch { /* already finished */ }
     const v = voiceOf(s.line);
-    this._voice = v ? this.audio.play(v.cue, { position: this.position, volume: 0.68 }) : null;
+    /* Louder, and audible from further off. The schedule was always running --
+     * exchanges, songs, ads, all of it -- but a host at 0.68 through the
+     * default 1.4m rolloff is a murmur by the time you are at the fridge, so
+     * from anywhere but the sideboard the station read as dead air. */
+    this._voice = v ? this.audio.play(v.cue, {
+      position: this.position, volume: 1.0, ref: 3.4, maxDist: 26,
+    }) : null;
     this._dwell = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP
       : (s.line && s.line.length > 90 ? SEGMENT_TIME + 2.5 : SEGMENT_TIME);

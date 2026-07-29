@@ -207,6 +207,7 @@ const game = {
   rumbleAt: 0,
   zynUntil: -1,
   showering: null,      // seconds into the shower, or null
+  inShower: false,      // peeing in it, specifically
   cooking: null,        // seconds into the eggs, or null
   left: false,          // out of the door; the game is over
   nextFartAt: 40 + Math.random() * 60,
@@ -477,6 +478,13 @@ document.addEventListener('keydown', (e) => {
   /* Sat on the toilet, WASD is the push game rather than movement -- you are
    * not going anywhere, and the keys are already under your fingers. */
   if (game.onToilet && tryPush(e.code)) {
+    e.preventDefault();
+    return;
+  }
+
+  // In the shower, F is the other thing you are doing in there.
+  if (game.showering !== null && e.code === 'KeyF') {
+    if (game.peeing) stopPee(); else startPee();
     e.preventDefault();
     return;
   }
@@ -1323,7 +1331,7 @@ function updateGluing(dt) {
     audio.play('glue.burst', { volume: 0.9, position: apartment.gluePos });
     /* All over the frame he was trying to straighten, which is the point:
      * the mess lands on the thing the job was about. */
-    splat.spray(2.72, 2.22, 12);
+    splat.spray(-0.10, 2.20, 12);
     apartment.state.glued = true;
     // First and only time the word appears. It is the punchline.
     hud.toast('PVA. Everywhere.', 'bad');
@@ -1709,6 +1717,26 @@ function startPee() {
   if (game.peeing || game.passingOut) return;
   game.peeing = true;
   game.peeTime = 0;
+  /* In the shower it goes down the drain and there is nothing to aim at, so
+   * the stream retargets to the tub floor and accuracy stops being scored.
+   * Everybody does this. Nobody says it. */
+  game.inShower = game.showering !== null;
+  if (game.inShower) {
+    stream.setTarget(apartment.tubDrain, 0.30, 0.02, null);
+  } else {
+    stream.setTarget(
+      apartment.toiletBowl, apartment.toiletBowlRadius,
+      apartment.toiletBowl.y, apartment.toiletCollider,
+    );
+  }
+
+  /* Seat and lid up, which is the one bit of etiquette he does observe.
+   * Standing over a closed lid and going anyway was not a joke, it was a bug. */
+  if (!game.inShower) {
+    apartment.toiletLid.rotation.x = -1.92;
+    apartment.toiletSeatPivot.rotation.x = -1.78;
+    audio.play('toilet.lid', { volume: 0.5, position: apartment.toiletBowl });
+  }
   stream.resetStats();
   audio.play('pee.zip', { volume: 0.7 });
   audio.startLoop('pee.stream', { volume: 0.0, fade: 0.25 });
@@ -1724,11 +1752,25 @@ function stopPee() {
   if (!game.peeing) return;
   game.peeing = false;
   hud.setPosture(null);
+  // Read it before clearing it -- the report below depends on where you were.
+  const wasInShower = game.inShower;
+  game.inShower = false;
+
+  if (!wasInShower) {
+    // Seat back down. He is not an animal.
+    apartment.toiletSeatPivot.rotation.x = 0;
+    setTimeout(() => { if (!game.peeing && !game.onToilet) apartment.toiletLid.rotation.x = 0; }, 700);
+  }
   audio.stopLoop('pee.stream', 0.25);
   audio.stopLoop('pee.miss', 0.25);
   audio.play('pee.zip', { volume: 0.6 });
 
   const s = stream.stats;
+  if (wasInShower) {
+    hud.toast('Nobody will ever know', 'good');
+    hud.say('Straight down the drain. <em>This is why you shower.</em>', 4200);
+    return;
+  }
   if (s.total > 12) {
     const acc = s.onTarget / s.total;
     audio.say('pee', { chance: 0.6, delay: 0.7 });
@@ -1746,7 +1788,12 @@ function updatePee(dt) {
 
   // The tank fills over time, faster once you have been drinking.
   if (!game.peeing) {
-    st.bladder = Math.min(1, st.bladder + dt * 0.0028 * (1 + st.beersDrunk * 0.5 + st.whiskeyDrunk * 0.4));
+    /* Baseline is slow enough to ignore; drink and it is not.
+     * It used to fill in about six real minutes stone cold sober, which meant
+     * the bathroom was a chore on a timer rather than a consequence of the
+     * fridge. Halved at rest, and each drink counts for much more. */
+    st.bladder = Math.min(1, st.bladder + dt * 0.0013
+      * (1 + st.beersDrunk * 1.25 + st.whiskeyDrunk * 0.85));
   }
   // One meter, showing whichever is more urgent.
   if (st.bowel > st.bladder) hud.setBladder(st.bowel, game.onToilet, 'urgency');

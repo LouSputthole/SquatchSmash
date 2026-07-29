@@ -146,7 +146,7 @@ export class Highs {
     this.bright = 1 + p * Math.sin(t * 0.37 + 1.4) * 0.12;
     // The frame breathing. Deliberately slow -- faster reads as a bug.
     this.breathe = 1 + Math.sin(t * 0.42) * 0.030 * p;
-    this.warmth = w * 0.5 + p * 0.2;
+    this.warmth = w * 0.72 + p * 0.2;
 
     /* ---- the colour wash ----
      * A second layer of actual colour rolling across the room, independent of
@@ -168,7 +168,7 @@ export class Highs {
      * Heavy lids and a soft edge. Where the trip pushes colour outward, this
      * pulls the frame inward: the room is fine, you are just not fully in the
      * room. */
-    this.droop = w * (0.55 + Math.sin(t * 0.21) * 0.12);
+    this.droop = w * (0.72 + Math.sin(t * 0.21) * 0.14);
     this.soften = w * 1.5;
   }
 }

@@ -626,9 +626,13 @@ kbd.key, .controls kbd {
     radial-gradient(ellipse at 50% 52%,
       rgba(0, 0, 0, 0) 34%,
       rgba(8, 6, 12, calc(var(--high-droop, 0) * .55)) 100%),
-    radial-gradient(ellipse at 50% 55%,
-      rgba(255, 196, 120, calc(var(--high-amount, 0) * .22)) 0%,
-      rgba(180, 120, 200, calc(var(--high-amount, 0) * .16)) 55%,
+    /* Cool rather than warm. The old amber wash read as firelight, which is
+       cosy; this is meant to be slightly removed from the room. Violet in the
+       middle, cyan at the edges, and more of both. */
+    radial-gradient(ellipse at 50% 54%,
+      rgba(126, 96, 224, calc(var(--high-amount, 0) * .30)) 0%,
+      rgba(72, 148, 214, calc(var(--high-amount, 0) * .26)) 48%,
+      rgba(40, 92, 168, calc(var(--high-amount, 0) * .18)) 76%,
       rgba(0, 0, 0, 0) 100%);
 }
 

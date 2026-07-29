@@ -1171,13 +1171,24 @@ export async function buildApartment(ctx) {
   for (const f of frames) {
     /* The one hung too high, which has been crooked for months. Using it
      * starts the fix; the label says nothing about what that involves. */
-    if (f.slot === 'desk.high') {
+    if (f.slot === 'cork.above') {
+      /* The one hung too high, on purpose, years ago. It has its own remarks
+       * -- looking up at it is a bit in itself -- and using it starts the fix.
+       * The label says nothing about what that involves. */
       interaction.register(f.mesh, {
         label: () => (state.glued
           ? 'Straight now. <b>Very</b> straight.'
           : 'Sort out the <b>crooked frame</b>'),
-        onLook: () => remarkOn(f, false),
-        onUse: () => { if (!state.glued) ctx.onGlue?.(); },
+        onLook: () => {
+          const now = performance.now() / 1000;
+          if (now - lastPhotoLine < 9) return;
+          lastPhotoLine = now;
+          audio.say(state.glued ? 'hungfixed' : 'hunghigh', { chance: 0.7, delay: 0.4 });
+        },
+        onUse: () => {
+          if (state.glued) { audio.say('hungfixed', { delay: 0.3 }); return; }
+          ctx.onGlue?.();
+        },
       });
       continue;
     }
@@ -1430,6 +1441,8 @@ export async function buildApartment(ctx) {
     /** Where you stand under the shower, and where the water comes from. */
     showerStand: tub.standPos,
     showerHead: tub.headPos,
+    /** Where it goes when you are already standing in there. */
+    tubDrain: new THREE.Vector3(tub.standPos.x, 0.03, tub.standPos.z + 0.10),
     /** The pan, so the eggs can appear in it. */
     pan,
     panPos,
@@ -1437,6 +1450,7 @@ export async function buildApartment(ctx) {
     toiletSeat: new THREE.Vector3(toilet.bowl.x, 0.98, toilet.bowl.z + 0.06),
     toiletStand: new THREE.Vector3(toilet.bowl.x, 0, toilet.bowl.z + 0.85),
     toiletLid: toilet.lidPivot,
+    toiletSeatPivot: toilet.seatPivot,
     toiletBowl: toilet.bowl,
     toiletBowlRadius: toilet.bowlRadius + 0.02,
     toiletCollider,

@@ -2810,6 +2810,90 @@
     {
       "name": "chair.roll.loop",
       "_note": "Castors on a hard floor, looped while the chair is actually moving."
+    },
+    {
+      "name": "vo.hunghigh.1",
+      "voice": "player",
+      "say": "Wee woo."
+    },
+    {
+      "name": "vo.hunghigh.2",
+      "voice": "player",
+      "say": "Oh my gosh."
+    },
+    {
+      "name": "vo.hunghigh.3",
+      "voice": "player",
+      "say": "Who hung that. Who did that."
+    },
+    {
+      "name": "vo.hunghigh.4",
+      "voice": "player",
+      "say": "It is a foot too high and it always will be."
+    },
+    {
+      "name": "vo.hunghigh.5",
+      "voice": "player",
+      "say": "Nobody has ever been able to see it properly."
+    },
+    {
+      "name": "vo.hunghigh.6",
+      "voice": "player",
+      "say": "That has been crooked since we put it up."
+    },
+    {
+      "name": "vo.hunghigh.7",
+      "voice": "player",
+      "say": "I would need a chair. I am not getting a chair."
+    },
+    {
+      "name": "vo.hunghigh.8",
+      "voice": "player",
+      "say": "One day I will sort that out. Not today."
+    },
+    {
+      "name": "vo.hunghigh.9",
+      "voice": "player",
+      "say": "Wee woo. Every time I look at it."
+    },
+    {
+      "name": "vo.hunghigh.10",
+      "voice": "player",
+      "say": "It is the principle of the thing now."
+    },
+    {
+      "name": "vo.hungfixed.1",
+      "voice": "player",
+      "say": "Straight. Glued to the wall, but straight."
+    },
+    {
+      "name": "vo.hungfixed.2",
+      "voice": "player",
+      "say": "Wee woo. Still."
+    },
+    {
+      "name": "vo.hungfixed.3",
+      "voice": "player",
+      "say": "Not moving that again. Cannot, actually."
+    },
+    {
+      "name": "vo.hungfixed.4",
+      "voice": "player",
+      "say": "It is level. Nobody needs to know how."
+    },
+    {
+      "name": "vo.hungfixed.5",
+      "voice": "player",
+      "say": "Oh my gosh. Look at the state of it."
+    },
+    {
+      "name": "vo.hungfixed.6",
+      "voice": "player",
+      "say": "Worth it. Mostly worth it."
+    },
+    {
+      "name": "toilet.lid",
+      "_note": "Plastic seat and lid going up against the cistern."
     }
   ]
 }

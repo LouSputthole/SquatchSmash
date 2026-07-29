@@ -1482,8 +1482,16 @@ export function makeStandingFrame(M, { x, y, z, rotY = 0, w = 0.16, h = 0.20, te
   /* Easel leg, splayed BACK to meet the surface. rotX(-t) swings the foot
    * toward +Z -- through the glass and out of the front of the picture, which
    * is what it was doing. The foot has to travel the same way the panel leans. */
-  const leg = box({ size: [0.03, h * 0.8, 0.008], pos: [0, 0, -0.026], mat: mat({ color: tint, roughness: 0.7 }) });
-  leg.rotation.x = 0.42;
+  /* Sat well behind the panel and pivoting from low down, so that NO part of
+   * it -- including the top end, which is what was doing it -- ever reaches
+   * forward of the glass. Rotating a strut about its own centre swings one end
+   * forward by exactly as much as it swings the other back, which is easy to
+   * forget and immediately visible as a bar across somebody's face. */
+  const leg = box({
+    size: [0.03, h * 0.8, 0.008], pos: [0, -h * 0.18, -0.058],
+    mat: mat({ color: tint, roughness: 0.7 }),
+  });
+  leg.rotation.x = 0.40;
   panel.add(leg);
 
   g.add(panel);
@@ -2073,26 +2081,30 @@ export function makeToilet(M, { x, z, rotY = 0 }) {
 
   // Seat + lid, each on a hinge at the back.
   const seatPivot = new THREE.Group();
-  seatPivot.position.set(0, SEAT_Y, -0.20);
+  seatPivot.position.set(0, SEAT_Y, -0.175);
   const seat = new THREE.Mesh(
     new THREE.TorusGeometry(0.175, 0.026, 10, 28),
     mat({ color: 0xf2f3f0, roughness: 0.3 }),
   );
   seat.rotation.x = -Math.PI / 2;
-  seat.position.set(0, 0.012, 0.22);
+  seat.position.set(0, 0.012, 0.196);
   seat.scale.y = 1.2;
   seat.castShadow = true;
   seatPivot.add(seat);
   g.add(seatPivot);
 
   const lidPivot = new THREE.Group();
-  lidPivot.position.set(0, SEAT_Y + 0.03, -0.20);
+  lidPivot.position.set(0, SEAT_Y + 0.034, -0.175);
+  /* Shorter than the bowl it covers and hinged further forward, because the
+   * old one swept back through the cistern and the pedestal on its way up.
+   * The lid has to clear everything behind it through the WHOLE arc, not just
+   * at rest. */
   const lid = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.195, 0.195, 0.022, 26),
+    new THREE.CylinderGeometry(0.182, 0.182, 0.022, 26),
     mat({ color: 0xf2f3f0, roughness: 0.3 }),
   );
-  lid.position.set(0, 0, 0.22);
-  lid.scale.z = 1.18;
+  lid.position.set(0, 0, 0.196);
+  lid.scale.z = 1.10;
   lid.castShadow = true;
   lidPivot.add(lid);
   g.add(lidPivot);

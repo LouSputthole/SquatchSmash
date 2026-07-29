@@ -103,12 +103,25 @@ export class Drunk {
     this.sway.yaw = (Math.sin(t * 0.62) * 0.030 + Math.sin(t * 0.23 + 2.1) * 0.018) * s;
     this.sway.pitch = (Math.sin(t * 0.47 + 1.3) * 0.020 + Math.sin(t * 0.81) * 0.008) * s;
     this.sway.roll = (Math.sin(t * 0.35) * 0.075 + Math.sin(t * 0.90 + 0.7) * 0.022) * s;
+    // Slow lean on top of the wobble, once it is genuinely going wrong.
+    const tee = Math.max(0, (this.level - 0.85) / 0.15);
+    this.sway.roll += Math.sin(t * 0.13) * 0.16 * tee;
+    this.sway.pitch += Math.sin(t * 0.11 + 1.7) * 0.05 * tee;
 
-    // Screen treatment only kicks in once you are past "buzzed".
+    /* Screen treatment past "buzzed", and it climbs hard at the top.
+     *
+     * Linear to 1.0 meant the last stretch before blacking out looked much the
+     * same as the middle -- you went from mildly smeared to unconscious with no
+     * warning in between. Squaring it keeps the early buzz light and turns the
+     * final quarter into something you can feel coming. */
     const heavy = Math.max(0, (this.level - 0.40) / 0.60);
-    this.blur = heavy * (this.steady > 0 ? 1.1 : 2.2);
-    this.vignette = Math.max(0, (this.level - 0.28) / 0.72) * 0.62;
+    this.blur = heavy * heavy * (this.steady > 0 ? 2.4 : 5.0);
+    const closing = Math.max(0, (this.level - 0.28) / 0.72);
+    this.vignette = (closing * 0.42 + closing * closing * closing * 0.52);
     this.warmth = Math.min(1, this.level * 0.9);
+    /* The last fifteen percent: the room starts leaning and the edges pull in
+     * fast. This is the tell that you are about to lose the afternoon. */
+    this.teeter = Math.max(0, (this.level - 0.85) / 0.15);
 
     // Hiccups, once there is something to hiccup about.
     if (this.level > 0.35 && t > this._hiccupAt) {

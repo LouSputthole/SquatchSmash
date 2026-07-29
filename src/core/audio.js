@@ -900,6 +900,11 @@ function synth(engine, name, dest, t, rate = 1) {
       break;
 
     /* -------- the other thing -------- */
+    case 'toilet.lid':
+      // Plastic swinging up and knocking against the cistern.
+      burst(ctx, dest, t, { dur: 0.09, type: 'bandpass', freq: 900, q: 1.4, gain: 0.16, sweep: 0.6 });
+      tone(ctx, dest, t + 0.16, { freq: 320, to: 190, dur: 0.09, gain: 0.16, type: 'triangle' });
+      break;
     case 'poop.strain':
       // Held breath and no result: a tight, quiet effort that goes nowhere.
       tone(ctx, dest, t, { freq: 128, to: 152, dur: r(0.42), gain: 0.10, type: 'sawtooth' });
