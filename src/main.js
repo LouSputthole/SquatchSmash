@@ -261,6 +261,10 @@ async function boot() {
     onEat: eatEggs,
     onLeave: tryLeave,
     onGlue: startGluing,
+    onTap: () => {
+      audio.say('tap', { chance: 0.8, delay: 1.4 });
+      hud.say('<em>Water.</em> Good. That still works.', 4200);
+    },
     onReadChat: readChat,
     onChatVisible: () => apartment.desk.repaintChat(chat),
     onLearn: (source) => learnAboutMeeting(source),
@@ -758,7 +762,7 @@ function updateDrinking(dt, holdingF) {
     hud.setHold(null);
     poseDrink(null, 0);
     hud.hidePrompt();
-    apartment.consumeBeer();
+    apartment.consumeBeer(player.position);
     drunk.drink(BEER_UNITS);
     apartment.state.bladder = Math.min(1, apartment.state.bladder + 0.30);
     hud.setHand({ icon: '🥫', name: 'Empty can', hint: '[Q] crush it' });

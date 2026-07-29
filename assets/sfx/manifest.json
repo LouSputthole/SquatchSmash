@@ -2900,6 +2900,39 @@
     {
       "name": "toilet.lid",
       "_note": "Plastic seat and lid going up against the cistern."
+    },
+    {
+      "name": "tap.squeak",
+      "_note": "Quarter-turn valve, slightly stiff."
+    },
+    {
+      "name": "tap.run",
+      "_note": "Mains into a steel basin."
+    },
+    {
+      "name": "vo.tap.1",
+      "voice": "player",
+      "say": "Glad that works. I probably should not leave that running."
+    },
+    {
+      "name": "vo.tap.2",
+      "voice": "player",
+      "say": "Still got water. That is something."
+    },
+    {
+      "name": "vo.tap.3",
+      "voice": "player",
+      "say": "No reason for that. None at all."
+    },
+    {
+      "name": "vo.tap.4",
+      "voice": "player",
+      "say": "I am going to leave that on for a bit, I think."
+    },
+    {
+      "name": "vo.tap.5",
+      "voice": "player",
+      "say": "That is the sound of a bill."
     }
   ]
 }

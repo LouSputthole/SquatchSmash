@@ -483,13 +483,25 @@ export async function buildApartment(ctx) {
   root.add(table.group);
   addCollider(table.bounds);
 
-  const pizza = P.makePizzaBox(M, { x: -3.34, y: table.top, z: 0.62, rotY: 0.3 });
+  const pizza = P.makePizzaBox(M, { x: -3.48, y: table.top, z: 0.70, rotY: 0.26 });
   root.add(pizza.group);
-  root.add(P.makeBeerCan(M, { x: -3.02, y: table.top, z: 0.92, crushed: true, rotY: 1.1 }).group);
-  root.add(P.makeBeerCan(M, { x: -3.62, y: table.top, z: 0.88, crushed: true, rotY: -0.4 }).group);
+  root.add(P.makeBeerCan(M, { x: -2.92, y: table.top, z: 0.86, crushed: true, rotY: 1.1 }).group);
+  root.add(P.makeBeerCan(M, { x: -3.70, y: table.top, z: 0.52, crushed: true, rotY: -0.4 }).group);
 
   // The other end of the coffee table. Neither of these is on the way out.
-  const bongPos = new THREE.Vector3(-3.02, table.top, 0.42);
+  // The table's front edge IS z 0.42, so the old position had it half off.
+  /* Empties, pooled and hidden until you finish one. Lying on their side,
+   * because a can you have put down does not stand up. */
+  const emptyCans = [];
+  let emptyCanNext = 0;
+  for (let i = 0; i < 6; i++) {
+    const c = P.makeBeerCan(M, { x: 0, y: 0, z: 0, crushed: true }).group;
+    c.visible = false;
+    root.add(c);
+    emptyCans.push(c);
+  }
+
+  const bongPos = new THREE.Vector3(-3.06, table.top, 0.63);
   const bong = P.makeBong(M, { x: bongPos.x, y: bongPos.y, z: bongPos.z, rotY: -0.7 });
   root.add(bong.group);
   const bongHit = box({
@@ -563,6 +575,44 @@ export async function buildApartment(ctx) {
   root.add(P.makeBoots(M, { x: 2.20, z: 3.90, rotY: 0.4 }).group);
   root.add(P.makeLaundry(M, { x: -2.55, z: -3.55 }).group);
   root.add(P.makeCapOnPeg(M, { x: 0.10, y: 1.78, z: 4.42, rotY: Math.PI }).group);
+
+  /* ---- the tap ----
+   * A basin you can actually run. It does nothing and changes nothing, which
+   * is the point: it is the sort of thing you do in your own kitchen while
+   * thinking about something else. */
+  const tapWater = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.011, 0.016, 0.30, 8, 1, true),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xcfe6f2, roughness: 0.05, transmission: 0.75,
+      transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false,
+    }),
+  );
+  tapWater.position.set(kitchen.tapPos.x, kitchen.tapPos.y - 0.15, kitchen.tapPos.z);
+  tapWater.visible = false;
+  root.add(tapWater);
+
+  const tapHit = new THREE.Mesh(
+    new THREE.BoxGeometry(0.34, 0.34, 0.34),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
+  tapHit.position.copy(kitchen.tapPos);
+  root.add(tapHit);
+  interaction.register(tapHit, {
+    label: () => (state.tapOn ? 'Turn the <b>tap</b> off' : 'Turn the <b>tap</b> on'),
+    onUse: () => {
+      state.tapOn = !state.tapOn;
+      tapWater.visible = state.tapOn;
+      audio.play('tap.squeak', { volume: 0.5, position: kitchen.tapPos });
+      if (state.tapOn) {
+        audio.startLoop('tap.run', {
+          volume: 0.20, position: kitchen.basinPos, ref: 1.2, maxDist: 8,
+        });
+        ctx.onTap?.();
+      } else {
+        audio.stopLoop('tap.run', 0.35);
+      }
+    },
+  });
 
   /* ---- light switch by the front door ---- */
   const switchPlate = group('switchplate');
@@ -731,6 +781,8 @@ export async function buildApartment(ctx) {
     lightsOn: false,
     lampOn: false,
     pcOn: false,
+    /** Running, and nobody is going to turn it off for you. */
+    tapOn: false,
     /** The frame is back up and the bottle is empty. */
     glued: false,
     /** Messages on the second monitor you have not looked at. */
@@ -1459,10 +1511,27 @@ export async function buildApartment(ctx) {
       state.pcOn = on;
     },
 
-    /** Drop the currently held item back onto the world. */
-    consumeBeer() {
+    /**
+     * Finished one. The empty goes on the floor where you were standing.
+     *
+     * Six cans over a morning and none of them anywhere is a flat that tidies
+     * itself, which is not this flat. They are pooled, so drinking the fridge
+     * dry leaves exactly six and never grows the scene.
+     */
+    consumeBeer(where) {
       state.beersDrunk++;
       state.heldItem = 'empty';
+      const can = emptyCans[emptyCanNext];
+      emptyCanNext = (emptyCanNext + 1) % emptyCans.length;
+      const p = where || new THREE.Vector3(0, 0, 0);
+      // Just in front of the feet, rolled to wherever it settled.
+      can.position.set(
+        p.x + (Math.random() - 0.5) * 0.5,
+        0.032,
+        p.z + 0.25 + (Math.random() - 0.5) * 0.4,
+      );
+      can.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
+      can.visible = true;
     },
 
     /** Take a pull. Returns false when the bottle is dry. */

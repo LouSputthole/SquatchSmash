@@ -900,6 +900,16 @@ function synth(engine, name, dest, t, rate = 1) {
       break;
 
     /* -------- the other thing -------- */
+    case 'tap.squeak':
+      // Quarter-turn valve, slightly stiff.
+      tone(ctx, dest, t, { freq: 1300, to: 780, dur: 0.11, gain: 0.09, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.06, type: 'bandpass', freq: 2400, q: 3.0, gain: 0.07 });
+      break;
+    case 'tap.run':
+      // Mains into a steel basin: broadband hiss with a hollow ring under it.
+      burst(ctx, dest, t, { dur: 0.9, type: 'highpass', freq: 1500, gain: 0.16 });
+      burst(ctx, dest, t, { dur: 0.9, type: 'bandpass', freq: 620, q: 1.3, gain: 0.11 });
+      break;
     case 'toilet.lid':
       // Plastic swinging up and knocking against the cistern.
       burst(ctx, dest, t, { dur: 0.09, type: 'bandpass', freq: 900, q: 1.4, gain: 0.16, sweep: 0.6 });

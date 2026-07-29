@@ -752,6 +752,9 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     bounds: [[x0 - 0.04, 0, z0], [wallX, top, z1]],
     upperBounds: [[wallX - upD, upY0, z0], [wallX, upY1, z1]],
     sinkPos: new THREE.Vector3(x0, top + 0.1, sinkZ),
+    /** Where water leaves the spout, and where it lands in the basin. */
+    tapPos: new THREE.Vector3(wallX - 0.205, top + 0.185, sinkZ),
+    basinPos: new THREE.Vector3(wallX - 0.205, top - DEPTH + 0.02, sinkZ),
     microwavePos: new THREE.Vector3(x0 + 0.1, mwY, mwZ),
     /** Clear worktop positions, so callers do not have to guess. */
     /** Centre of the hob, at worktop height, for standing a pan on. */

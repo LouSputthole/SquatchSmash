@@ -254,6 +254,15 @@ const LINES = {
     'Hands are stuck together. Brilliant.',
   ],
 
+  /* ---- running the kitchen tap for no reason ---- */
+  tap: [
+    'Glad that works. I probably should not leave that running.',
+    'Still got water. That is something.',
+    'No reason for that. None at all.',
+    'I am going to leave that on for a bit, I think.',
+    'That is the sound of a bill.',
+  ],
+
   /* ---- the radio ---- */
   'radio.ad': [
     'I have heard this one about four hundred times.',
