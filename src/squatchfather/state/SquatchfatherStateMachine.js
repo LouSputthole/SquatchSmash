@@ -58,12 +58,6 @@ export class SquatchfatherStateMachine {
     return names.includes(this.name);
   }
 
-  // True once the scene has reached `name` (states are strictly ordered).
-  reached(name) {
-    const order = Object.keys(S);
-    return order.indexOf(this.name) >= order.indexOf(name);
-  }
-
   #enter(name) {
     const next = this.states[name];
     if (!next) throw new Error(`unknown scene state: ${name}`);

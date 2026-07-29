@@ -72,6 +72,9 @@ if (/^\s*(import|export)\s/m.test(script)) {
 let html = read('index.html');
 html = html.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/, '');
 html = html.replace(/<script type="module"[^>]*><\/script>\s*/, `<script>\n${script}\n</script>\n`);
+// The Squatchfather is a separate page and isn't part of this bundle, so its
+// menu link would dangle wherever the single file ends up. Drop it.
+html = html.replace(/\s*<a id="squatchfatherLink"[\s\S]*?<\/a>/, '');
 if (fragment) {
   // Strip the document wrapper: keep everything inside <body>, plus <title>
   // and the <style> block from <head>.

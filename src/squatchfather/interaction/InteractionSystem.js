@@ -5,6 +5,7 @@ import * as THREE from 'three';
 // report progress so the toilet search can play out over a few seconds.
 
 const MAX_DIST = 2.5;
+const CENTRE = new THREE.Vector2(0, 0); // always picks from the middle of the view
 
 export class InteractionSystem {
   constructor(camera, interactables, ui) {
@@ -46,7 +47,7 @@ export class InteractionSystem {
 
   #pick() {
     if (!this.allowed.size) return null;
-    this.ray.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+    this.ray.setFromCamera(CENTRE, this.camera);
     const targets = this.interactables.filter((m) => this.allowed.has(m.userData.interact.id));
     if (!targets.length) return null;
     const hits = this.ray.intersectObjects(targets, false);
