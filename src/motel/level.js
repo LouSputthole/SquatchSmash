@@ -201,6 +201,9 @@ export function buildMotel(scene, renderer) {
   // Railing along the upper walkway — one section is loose and gives way.
   const railSections = [];
   for (let x = BUILDING.x0; x < BUILDING.x1; x += 4) {
+    // Leave the stair landings open, or there is no way onto the upper floor
+    const overStairs = [STAIRS_E, STAIRS_W].some((st) => x + 4 > st.x0 - 0.6 && x < st.x1 + 0.6);
+    if (overStairs) continue;
     const g = new THREE.Group();
     g.add(boxMesh(4, 0.12, 0.12, C.rail, x + 2, DECK_Y + 1.05, WALKWAY.z1));
     g.add(boxMesh(4, 0.1, 0.1, C.rail, x + 2, DECK_Y + 0.6, WALKWAY.z1));
@@ -248,13 +251,16 @@ export function buildMotel(scene, renderer) {
   }
   refs.doorNumbers = doorNumbers;
 
-  // Air-conditioning units dripping onto the walkway
+  // Air-conditioning units dripping onto the walkway. The upstairs ones are
+  // loose enough to shove over the railing onto whoever is chasing you.
+  refs.acUnits = [];
   for (let i = 0; i < 8; i++) {
     const x = BUILDING.x0 + 6 + i * 8;
     const ac = boxMesh(1.3, 0.8, 0.7, 0xa8adb3, x, 1.6, WALKWAY.z0 - 0.35);
     scene.add(ac);
     const acU = boxMesh(1.3, 0.8, 0.7, 0xa8adb3, x, DECK_Y + 1.6, WALKWAY.z0 - 0.35);
     scene.add(acU);
+    refs.acUnits.push({ mesh: acU, x, z: WALKWAY.z0 - 0.35, dropped: false });
   }
 
   // Walkway light fixtures. Only a handful carry a real light — the rest are

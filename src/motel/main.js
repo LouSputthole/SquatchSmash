@@ -1122,6 +1122,90 @@ addInteract({
   follow: () => (rico ? { x: rico.position.x, z: rico.position.z } : null),
 });
 
+// -- the upper walkway --
+addInteract({
+  id: 'looseRail', x: 2, y: 4.6, z: -1.1, r: 4.0,
+  label: () => 'Go over the loose railing',
+  enabled: () => feetY > 3.2 && refs.looseRail && !refs.looseRail.broken,
+  act: () => {
+    const rail = refs.looseRail;
+    rail.broken = true;
+    rail.collider.enabled = false;
+    scene.remove(rail.group);
+    debris.explodeGroup(rail.group, new THREE.Vector3(pos.x, 4.4, -1.1));
+    sfx.woodBreak();
+    shake = Math.max(shake, 0.6);
+    // Anyone underneath wears a sasquatch and a railing
+    const foe = nearestHostile(pos.x, 0, 4.5);
+    if (foe && foe.position.y < 2) {
+      const down = foe.damage(45, false, pos.x, pos.z);
+      foe.stunT = 2.2;
+      if (down) onActorDown(foe, false);
+      toast('DOWN THE HARD WAY', '', `${foe.name} broke your fall`);
+    }
+    pos.z = 1.5;
+    feetY = 3.8;
+    vy = 0;
+    S.escapeRoute = 'balcony';
+    say('Prospect', 'The railing was rusted. That is on the motel.', 3);
+  },
+});
+
+for (const ac of refs.acUnits) {
+  addInteract({
+    id: `ac${Math.round(ac.x)}`, x: ac.x, y: 4.6, z: ac.z + 0.6, r: 3.2,
+    label: () => 'Shove the air conditioner off the balcony',
+    enabled: () => feetY > 3.2 && !ac.dropped,
+    act: () => {
+      ac.dropped = true;
+      scene.remove(ac.mesh);
+      effects.explosion(new THREE.Vector3(ac.x, 0.6, -2.6));
+      sfx.crash();
+      shake = Math.max(shake, 0.5);
+      const foe = nearestHostile(ac.x, -2.6, 3.6);
+      if (foe && foe.position.y < 2) {
+        const down = foe.damage(60, false, ac.x, ac.z);
+        if (down) onActorDown(foe, false);
+        toast('ROOM SERVICE', '', `An air conditioner found ${foe.name}`);
+      } else {
+        say('*', 'The unit explodes on the concrete. Everybody in the lot looks up.', 3.4);
+      }
+      for (const a of actors) if (a.hostile && Math.hypot(a.position.x - ac.x, a.position.z + 2.6) < 8) a.stunT = 0.9;
+    },
+  });
+}
+
+addInteract({
+  id: 'neon', x: refs.neon.group.position.x, y: 2, z: refs.neon.group.position.z, r: 4.0,
+  label: () => 'Kick the motel sign off its wiring',
+  enabled: () => !S.neonKilled,
+  act: () => {
+    S.neonKilled = true;
+    refs.neon.glow.intensity = 0;
+    refs.neon.text.material.emissiveIntensity = 0;
+    sfx.glassSmash();
+    effects.explosion(new THREE.Vector3(refs.neon.group.position.x, 11, refs.neon.group.position.z));
+    shake = Math.max(shake, 0.5);
+    toast('LIGHTS OUT', 'clue', 'The lot goes dark — nobody out here can aim for a while');
+    for (const a of actors) if (a.hostile) a.blindT = 5;
+    say('*', 'FLAMINGO MOTEL goes dark with a bang. The parking lot loses its colour.', 4);
+  },
+});
+
+// -- the clerk --
+addInteract({
+  id: 'clerk', x: -44, y: 1.4, z: -6.2, r: 3.6,
+  label: () => 'Tell the clerk to look at the wall',
+  enabled: () => clerk && clerk.alive && !S.clerkCowed,
+  follow: () => (clerk ? { x: clerk.position.x, z: clerk.position.z } : null),
+  act: () => {
+    S.clerkCowed = true;
+    clerk.state = 'panic';
+    say('Prospect', 'You saw a raccoon. A big one. In a shirt.', 3.2);
+    toast('CLERK HANDLED', '', 'No alarm from the office tonight');
+  },
+});
+
 // -- getaway --
 addInteract({
   id: 'getaway', x: -6.6, y: 1.2, z: 17.0, r: 4.2,
@@ -2311,6 +2395,7 @@ function updateInteract() {
 
 function onUse() {
   if (phase === 'menu' || paused) return;
+  if (phase === 'drive') { ramPursuer(); return; }
   if (inspecting) { closeInspection(); return; }
   if (grapple) { mashGrapple(); return; }
   if (activeInteract) {
@@ -2445,10 +2530,11 @@ function updateDrive(dt) {
   drive.spawnT -= dt;
   if (drive.spawnT <= 0) {
     drive.spawnT = 1.4 + Math.random() * 1.4;
-    const hostile = drive.hostiles.length < 2 && Math.random() < 0.45;
+    const hostile = drive.hostiles.length < 2 && Math.random() < 0.5;
     const car = buildDriveCar(hostile ? 0x2f3a6b : [0x8a8a92, 0x3f5f3a, 0x6a5a3a][Math.floor(Math.random() * 3)]);
-    car.position.set((Math.random() - 0.5) * 15, 0, -180);
-    car.userData = { hostile, speed: hostile ? drive.speed + 6 : 12 + Math.random() * 10, hp: 2 };
+    // Pursuers come up from behind; everyone else is oncoming traffic
+    car.position.set((Math.random() - 0.5) * 15, 0, hostile ? 90 : -180);
+    car.userData = { hostile, speed: hostile ? drive.speed + 9 : 12 + Math.random() * 10, hp: 2 };
     drive.scene.add(car);
     (hostile ? drive.hostiles : drive.traffic).push(car);
   }
@@ -2464,7 +2550,7 @@ function updateDrive(dt) {
         // pursuers close in and try to line up a ram
         c.position.x += THREE.MathUtils.clamp(drive.x - c.position.x, -1, 1) * 3.4 * dt;
       }
-      if (c.position.z > 30) {
+      if (c.position.z > 110 || c.position.z < -200) {
         drive.scene.remove(c);
         list.splice(i, 1);
         continue;
@@ -2478,6 +2564,16 @@ function updateDrive(dt) {
   };
   advance(drive.traffic);
   advance(drive.hostiles);
+
+  // A pursuer alongside can be answered with the whole car
+  const alongside = drive.hostiles.find((c) => Math.abs(c.position.z) < 12 && Math.abs(c.position.x - drive.x) < 5.5);
+  drive.ramTarget = alongside || null;
+  if (alongside) {
+    promptEl.innerHTML = `<b>[E]</b> ${S.mannyInjured ? 'Put them into the guardrail' : 'Tell Manny to ram them'}`;
+    promptEl.classList.add('show');
+  } else {
+    promptEl.classList.remove('show');
+  }
 
   // Manny helps himself to the evidence
   drive.mannyBiteT -= dt;
@@ -2517,6 +2613,22 @@ function updateDrive(dt) {
   $('distFill').style.width = `${pct}%`;
 
   if (drive.dist >= drive.target) finishScene('home');
+}
+
+function ramPursuer() {
+  const c = drive.ramTarget;
+  if (!c) return;
+  drive.scene.remove(c);
+  const i = drive.hostiles.indexOf(c);
+  if (i >= 0) drive.hostiles.splice(i, 1);
+  drive.ramTarget = null;
+  sfx.crash();
+  sfx.tires();
+  shake = Math.max(shake, 0.7);
+  freshness.damage(5, 'ramming a car off the road');
+  drive.speed = Math.max(16, drive.speed - 6);
+  toast('OFF THE ROAD', '', S.mannyInjured ? 'You put them into the guardrail' : 'Manny put them into the guardrail');
+  say(S.mannyInjured ? 'Prospect' : 'Manny', S.mannyInjured ? 'Stay down.' : 'That was my door!', 2.8);
 }
 
 function onDriveCrash(hostile) {
@@ -2729,6 +2841,21 @@ function updateFightLogic(dt) {
     rico.target = pickRicoExit();
     say('Rico', 'Not worth it, not worth it!', 2.6);
   }
+  // The clerk has a button under the counter and an opinion about all this
+  if (clerk && clerk.alive && !S.clerkCowed && !S.alarmPulled && level.rects.OFFICE
+      && pos.x > level.rects.OFFICE.x0 && pos.x < level.rects.OFFICE.x1
+      && pos.z > level.rects.OFFICE.z0 && pos.z < level.rects.OFFICE.z1) {
+    S.clerkTimer = (S.clerkTimer || 0) + dt;
+    if (S.clerkTimer > 1.6) {
+      S.alarmPulled = true;
+      S.policeHeat += 30;
+      sfx.alarm();
+      clerk.state = 'panic';
+      toast('THE CLERK HIT THE ALARM', 'warn', 'Police attention is climbing fast');
+      say('*', 'The clerk does not look up. He just presses something under the counter.', 3.6);
+    }
+  }
+
   // Enough noise and the objective stops being the sellers
   if (!S.policeArrived && S.policeHeat >= 90 && (phase === 'fight' || phase === 'recover' || phase === 'escape')) {
     S.policeArrived = true;
@@ -2864,4 +2991,5 @@ window.MOTEL = {
   inspectAll: () => { for (const s of [...inspection.available()]) runInspection(s.id); },
   finish: (k) => finishScene(k || 'home'),
   drive: () => startDrive(),
+  get driveState() { return drive; },
 };
