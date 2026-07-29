@@ -59,9 +59,8 @@ export class Radio {
     /** How long the line on air runs -- the clip's own length once it has one. */
     this._dwell = SEGMENT_TIME;
     this._voice = null;
-    this._sinceAd = 0;
-    this._sinceNotice = 0;
-    this._sinceSong = 0;
+    /** Position in the running order. */
+    this._cycle = 0;
     /** Blocks aired since tuning in, so the notice can hold off at first. */
     this._blocks = 0;
     /** Seconds into the record on air, or -1 when none is. */
@@ -207,8 +206,7 @@ export class Radio {
     this._queue = [];
     this._line = null;
     this._segT = 0;
-    this._sinceAd = 99;   // an ident lands as soon as you tune in
-    this._sinceSong = 0;
+    this._cycle = 0;
     this._songT = -1;
     this._blocks = 0;
 
@@ -262,45 +260,57 @@ export class Radio {
     if (show !== this._show) {
       this._show = show;
       this._queue.push({ line: `ANNOUNCER: Next on 97.8 The Squatch \u2014 ${show.name}. ${show.strap}`, cue: 'radio.jingle' });
-      this._sinceAd = 0;
       return;
     }
 
-    // A record every couple of exchanges, if there are any records.
-    if (this.playlist.length && this._sinceSong >= (st.songEvery ?? 2)) {
-      this._sinceSong = 0;
-      this._sinceAd++;
-      this._sinceNotice++;
-      this._queue.push({ song: true });
+    /* An explicit rotation rather than three independent counters.
+     *
+     * Counters were the bug: songEvery counted BLOCKS, and an ident or a
+     * one-line exchange is a block, so you reliably got one line and then a
+     * record. This is the running order written down -- talk, link, song,
+     * talk, link, song -- with the ad and the notice folded in at fixed
+     * points, so a show is always a proper stretch of show and a record is
+     * always introduced.
+     */
+    const CYCLE = [
+      'talk', 'link', 'song',
+      'talk', 'talk', 'link', 'song',
+      'talk', 'ad',
+      'talk', 'link', 'song',
+      'talk', 'talk', 'link', 'song',
+      'talk', 'notice',
+    ];
+    const noMusic = !this.playlist.length;
+
+    for (let guard = 0; guard < CYCLE.length * 2; guard++) {
+      const slot = CYCLE[this._cycle % CYCLE.length];
+      this._cycle++;
+
+      if (slot === 'song') {
+        if (noMusic) continue;               // no records: straight to more talk
+        this._queue.push({ song: true });
+        return;
+      }
+      if (slot === 'link') {
+        // The station saying its own name, between a record and a show.
+        this._queue.push({ line: pick(st.lines), cue: null });
+        return;
+      }
+      if (slot === 'ad') {
+        this._queue.push(...st.commercial);
+        this.audio.say?.('radio.ad', { chance: 0.4, delay: 6 });
+        return;
+      }
+      if (slot === 'notice') {
+        // Still holds off at the very start of a listen.
+        if (!st.notices || this._blocks < (st.noticeAfter ?? 5)) continue;
+        this._queue.push(...MEETING_NOTICE);
+        return;
+      }
+      // talk: a whole exchange, which is the point of the whole rewrite.
+      for (const line of pick(show.exchanges)) this._queue.push({ line, cue: null });
       return;
     }
-
-    /* The notice waits out the opening blocks. Waking up to a man reading out
-     * where you are supposed to be tomorrow is the game announcing its goal in
-     * the first ten seconds; letting the station be a station first means you
-     * come across it. */
-    if (st.notices && this._blocks >= (st.noticeAfter ?? 5)
-        && this._sinceNotice >= (st.noticeEvery ?? 9)) {
-      this._sinceNotice = 0;
-      this._sinceAd = 0;
-      this._sinceSong++;
-      this._queue.push(...MEETING_NOTICE);
-      return;
-    }
-
-    if (this._sinceAd >= (st.commercialEvery ?? 6)) {
-      this._sinceAd = 0;
-      this._sinceSong++;
-      this._sinceNotice++;
-      this._queue.push(...st.commercial);
-      this.audio.say?.('radio.ad', { chance: 0.4, delay: 6 });
-      return;
-    }
-
-    this._sinceAd++;
-    this._sinceNotice++;
-    this._sinceSong++;
-    for (const line of pick(show.exchanges)) this._queue.push({ line, cue: null });
   }
 
   /** Move the next segment on air. */
