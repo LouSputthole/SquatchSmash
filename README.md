@@ -20,13 +20,13 @@ Then open `http://localhost:8000` in a browser.
 
 ## Prologue: The Initiation
 
-`initiation.html` (linked from the main menu) is a story scene set the night before the rampage. You're a mud-brown **prospect** deep in the forest; follow the bonfire glow through the pines and Booskibro will put you through the Silver Sasquatches' initiation rites:
+`initiation.html` (linked from the main menu) is a story scene set the night before the rampage. The Silver Sasquatches are *people* — and you're the human from the apartment who followed the note under the door. Walk toward the bonfire glow through the pines and Booskibro (human founder, silver pelt mantle, staff) will put you through the Circle's initiation rites:
 
 1. **The Gauntlet** — the members circle up and beat you down to a fifth of your health. Endure it. Swing back even once and you fail the initiation (you can retry).
 2. **The Roar** — press **R** and let the forest hear you.
 3. **The Timber** — break the ceremonial great log in three blows (mind your aim: striking a member still fails you).
 
-Survive all three and you're anointed on the spot — brown fur to silver — then it's off to the campground.
+Survive all three and you're anointed on the spot — the flash fades and a **silver sasquatch** is standing in your shoes — then it's off to the campground.
 
 Booskibro's speech lines live in the `SPEECH` const at the top of `src/initiation.js` and are placeholder text; edit freely.
 
@@ -76,6 +76,7 @@ src/main.js         Game loop, input, camera, scoring, HUD, pause/mute
 src/initiation.js   Prologue: night forest, bonfire, ceremony state machine
 src/world.js        Scene, lighting, procedural props and placement, pond
 src/player.js       Sasquatch model, palettes, and animations
+src/person.js       Human character model (initiation prospect, members)
 src/campers.js      Campers: wandering, fleeing, occupants, activities
 src/rangers.js      Park rangers with tranq dart rifles
 src/effects.js      Footprints, birds, rage shockwave rings

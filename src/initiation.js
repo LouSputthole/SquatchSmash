@@ -5,16 +5,18 @@ import { UnrealBloomPass } from '../lib/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../lib/jsm/postprocessing/OutputPass.js';
 import { lambert } from './world.js';
 import { Sasquatch, SILVER_PALETTE } from './player.js';
+import { Person } from './person.js';
 import { DebrisSystem } from './debris.js';
 import { Effects } from './effects.js';
 import * as sfx from './audio.js';
 
 // ============================================================
 // THE INITIATION — prologue scene.
-// A prospect walks through the night forest to the Circle's
-// bonfire, hears Booskibro speak, and is put through the rites:
-// the Gauntlet (endure the beating, never swing back), the Roar,
-// and the Timber — then walks out silver.
+// The Silver Sasquatches are people. You're the human from the
+// apartment, walking through the night forest to their bonfire,
+// where Booskibro puts you through the rites: the Gauntlet
+// (endure the beating, never swing back), the Roar, and the
+// Timber — and then you don't walk out human at all.
 // ============================================================
 
 const BOUNDS = 88;
@@ -24,7 +26,7 @@ const BASE_FOV = 55;
 
 const MAX_HP = 100;
 const STOP_HP = MAX_HP / 5; // the Circle stops the beating at one fifth
-const CIRCLE_R = 3.1;       // gauntlet ring radius around the prospect
+const CIRCLE_R = 2.3;       // gauntlet ring radius around the prospect
 const MEMBER_COUNT = 14;
 
 const FIRE = { x: 0, z: 0 };
@@ -33,25 +35,29 @@ const SPAWN = { x: 0, z: -78 };
 const GAUNTLET_SPOT = { x: 0, z: -13 };
 const ARRIVE_R = 24; // walking this close to the fire starts the ceremony
 
-// Character palettes: the prospect walks in mud-brown; Booskibro is the
-// storm-grey elder with the team-purple bandana.
+// Everyone here is human. The prospect came straight from their
+// apartment — no bandana yet, that has to be earned. Members wear
+// silver-grey with the red bandana; Booskibro gets the purple one.
 const PROSPECT_PALETTE = {
-  fur: 0x7d5f3e, furDark: 0x5a4128, furLight: 0x9c7c50,
-  skin: 0xd9c09a, bandana: 0x6b5a44,
+  shirt: 0x6b7a4a, shirtDark: 0x53603a, pants: 0x33383f,
+  skin: 0xe8b88a, bandana: null, hair: 0x3a2a1a,
 };
 const BOOSKI_PALETTE = {
-  fur: 0x565c68, furDark: 0x3c414c, furLight: 0xb8bfd0,
-  skin: 0xd6dae4, bandana: 0x7b4fd9,
+  shirt: 0x3c414c, shirtDark: 0x2c313a, pants: 0x23272e,
+  skin: 0xd9a878, bandana: 0x7b4fd9, hair: 0x555b66,
 };
+const MEMBER_SHIRTS = [0x9aa0ab, 0x8a8f9c, 0xa8aeba, 0x79808e];
+const MEMBER_SKINS = [0xe8b88a, 0xc98d5f, 0x8d5a3b, 0xf0d0b0, 0xba8054];
+const MEMBER_HAIR = [0x2a2018, 0x11100c, 0x4a331c, 0x6e6659, 0x1e1c22];
 
 // ---------- Placeholder speech — Booskibro's words are a work in
 // progress; rewrite these lines freely, the flow won't care. ----------
 const SPEECH = [
   ['BOOSKIBRO', 'Brothers. Sisters. Silverbacks of the Circle.'],
   ['BOOSKIBRO', 'Tonight the forest walks a stranger to our fire.'],
-  ['BOOSKIBRO', 'It smells of pine sap, river mud... and potential.'],
-  ['BOOSKIBRO', 'But hear me — silver is not given. Silver is EARNED.', 'slam'],
-  ['BOOSKIBRO', 'Prospect! You stand where every one of us once stood.'],
+  ['BOOSKIBRO', 'It smells of instant noodles, apartment carpet... and potential.'],
+  ['BOOSKIBRO', 'But hear me — the bandana is not given. The bandana is EARNED.', 'slam'],
+  ['BOOSKIBRO', 'Prospect! You stand where every one of us once stood. Human. Soft. Unsquatched.'],
   ['BOOSKIBRO', 'First trial: THE GAUNTLET. Take what the Circle gives you — and raise no fist against your kin.', 'slam'],
 ];
 const ENDURED_LINES = [
@@ -65,8 +71,8 @@ const ROAR_LINES = [
 ];
 const ANOINT_LINES = [
   ['BOOSKIBRO', 'You took the Circle’s fists. You gave the forest your voice. You turned a log into a suggestion.'],
-  ['BOOSKIBRO', 'Prospect. You walked into this clearing mud-brown.'],
-  ['BOOSKIBRO', 'Walk out SILVER.', 'slam'],
+  ['BOOSKIBRO', 'Prospect. You walked into this clearing a human.'],
+  ['BOOSKIBRO', 'Walk out a SQUATCH.', 'slam'],
 ];
 const RETRY_LINE = [
   ['BOOSKIBRO', 'The Circle forgives once. Arms DOWN this time, prospect.'],
@@ -458,7 +464,9 @@ for (let i = 0; i < FIREFLY_N; i++) {
 }
 
 // ---------- Characters ----------
-const player = new Sasquatch(PROSPECT_PALETTE);
+// `player` is reassigned once, at the anointing, when the human becomes
+// the silver sasquatch (Person and Sasquatch share an animation API).
+let player = new Person(PROSPECT_PALETTE);
 player.group.position.set(SPAWN.x, 0, SPAWN.z);
 player.heading = 0; // facing +z, toward the fire
 player.group.rotation.y = 0;
@@ -474,8 +482,12 @@ const members = [];
   for (let i = 0; i < 7; i++) slots.push(THREE.MathUtils.degToRad(96 + i * 10));   // left flank
   for (let i = 0; i < 7; i++) slots.push(THREE.MathUtils.degToRad(204 + i * 10));  // right flank
   for (let i = 0; i < MEMBER_COUNT; i++) {
-    const sq = new Sasquatch();
-    const scale = 0.82 + Math.random() * 0.26;
+    const sq = new Person({
+      shirt: MEMBER_SHIRTS[i % MEMBER_SHIRTS.length],
+      skin: MEMBER_SKINS[Math.floor(Math.random() * MEMBER_SKINS.length)],
+      hair: MEMBER_HAIR[Math.floor(Math.random() * MEMBER_HAIR.length)],
+    });
+    const scale = 0.94 + Math.random() * 0.16;
     sq.group.scale.setScalar(scale);
     const a = slots[i];
     const r = 7.5 + (i % 3) * 2.3 + Math.random() * 1.2;
@@ -498,18 +510,31 @@ const members = [];
   }
 }
 
-// Booskibro on stage, staff in hand
-const boosk = new Sasquatch(BOOSKI_PALETTE);
-boosk.group.scale.setScalar(1.28);
+// Booskibro on stage: the founder, draped in an old silver pelt he claims
+// grew on him once, staff in hand
+const boosk = new Person(BOOSKI_PALETTE);
+boosk.group.scale.setScalar(1.22);
 boosk.group.position.set(STAGE.x, 1.1, STAGE.z);
 boosk.heading = Math.PI; // facing -z, out over the crowd
 boosk.group.rotation.y = Math.PI;
 {
+  // The pelt mantle: shaggy fur across the shoulders and down the back
+  const fur = lambert(0x6e747f);
+  const furLight = lambert(0xc3c8d4);
+  const mantle = mesh(new THREE.BoxGeometry(1.15, 0.26, 0.56), fur, 0, 2.18, -0.04);
+  boosk.body.add(mantle);
+  const cape = mesh(new THREE.BoxGeometry(0.95, 1.15, 0.14), fur, 0, 1.62, -0.3);
+  boosk.body.add(cape);
+  for (const [x, y, s] of [[-0.45, 2.3, 0.2], [0.45, 2.3, 0.2], [0, 2.34, 0.24]]) {
+    const tuft = mesh(new THREE.BoxGeometry(s, s * 1.3, s), furLight, x, y, -0.05);
+    tuft.rotation.z = (Math.random() - 0.5) * 0.5;
+    boosk.body.add(tuft);
+  }
   const staff = new THREE.Group();
-  staff.add(mesh(new THREE.CylinderGeometry(0.07, 0.09, 3.1, 6), lambert(0x33200e), 0, 0, 0));
-  const knob = mesh(new THREE.DodecahedronGeometry(0.22, 0), lambert(0xcfd4e0), 0, 1.65, 0);
+  staff.add(mesh(new THREE.CylinderGeometry(0.05, 0.07, 2.3, 6), lambert(0x33200e), 0, 0, 0));
+  const knob = mesh(new THREE.DodecahedronGeometry(0.16, 0), lambert(0xcfd4e0), 0, 1.22, 0);
   staff.add(knob);
-  staff.position.set(0, -2.1, 0.35);
+  staff.position.set(0, -0.9, 0.25);
   boosk.armR.add(staff);
 }
 scene.add(boosk.group);
@@ -582,7 +607,7 @@ function updateHp() {
 const _proj = new THREE.Vector3();
 function popText(worldPos, text, cls = '') {
   _proj.copy(worldPos);
-  _proj.y += 3.2;
+  _proj.y += 2.3;
   _proj.project(camera);
   if (_proj.z > 1) return;
   const el = document.createElement('div');
@@ -646,7 +671,8 @@ let failT = -1;         // countdown from illegal swing to the fail screen
 let failFrom = 'beatdown';
 let roarPoseT = 0;      // player arms-up roar pose
 let surgeT = 0;         // bonfire flare-up
-let transformK = 0;     // 0..1 silver transition
+let transformK = 0;     // 0..1 anointing progress
+let transformed = false; // human → squatch swap done
 let crackleT = 0;
 const respondQueue = []; // pending member roar timestamps
 
@@ -860,7 +886,7 @@ function triggerFailImpact(victim) {
   };
   sfx.smash(true);
   shake = Math.max(shake, 0.6);
-  debris.puff(new THREE.Vector3(victim.sq.position.x, 1.5, victim.sq.position.z), SILVER_PALETTE.fur, 8);
+  debris.puff(new THREE.Vector3(victim.sq.position.x, 1.2, victim.sq.position.z), MEMBER_SHIRTS[0], 8);
   popText(victim.sq.position, 'YOU STRUCK A BROTHER!', 'pain');
   $('failReason').innerHTML = failFrom === 'trial_log'
     ? 'The log was the target — not your kin.<br>Silver endures. Silver does not swing at its own.'
@@ -883,7 +909,7 @@ function nearestMember(maxDist) {
 const _impact = new THREE.Vector3();
 
 function resolvePlayerImpact() {
-  player.facing(_impact).multiplyScalar(2.6).add(player.position);
+  player.facing(_impact).multiplyScalar(1.8).add(player.position);
 
   if (phase === 'fail_swing') {
     const victim = nearestMember(5.5);
@@ -901,7 +927,7 @@ function resolvePlayerImpact() {
       triggerFailImpact(bystander);
       return;
     }
-    if (greatLog && Math.hypot(_impact.x - greatLog.x, _impact.z - greatLog.z) < greatLog.r + 2.2) {
+    if (greatLog && Math.hypot(_impact.x - greatLog.x, _impact.z - greatLog.z) < greatLog.r + 1.8) {
       greatLog.hp--;
       shake = Math.max(shake, 0.4);
       if (greatLog.hp <= 0) {
@@ -979,7 +1005,7 @@ function collide() {
     const dx = p.x - x;
     const dz = p.z - z;
     const dist = Math.hypot(dx, dz);
-    const minD = r + 0.9;
+    const minD = r + 0.55;
     if (dist < minD && dist > 0.001) {
       const push = (minD - dist) / dist;
       p.x += dx * push;
@@ -988,9 +1014,9 @@ function collide() {
   };
   for (const c of colliders) pushOut(c.x, c.z, c.r);
   for (const m of members) {
-    if (!m.knock) pushOut(m.sq.position.x, m.sq.position.z, 1.0 * m.scale);
+    if (!m.knock) pushOut(m.sq.position.x, m.sq.position.z, 0.6 * m.scale);
   }
-  pushOut(boosk.group.position.x, boosk.group.position.z, 1.3);
+  pushOut(boosk.group.position.x, boosk.group.position.z, 0.8);
   p.x = THREE.MathUtils.clamp(p.x, -BOUNDS, BOUNDS);
   p.z = THREE.MathUtils.clamp(p.z, -BOUNDS, BOUNDS);
 }
@@ -1036,14 +1062,14 @@ function updateCamera(dt) {
     desiredPos = _camTarget.set(7, 4.5, SPAWN.z - 12);
     _desiredLook.set(FIRE.x, 5, FIRE.z);
   } else if (phase === 'approach' || phase === 'trial_log' || phase === 'log_broken') {
-    // Behind-the-shoulder follow, same feel as the main game
+    // Behind-the-shoulder follow, pulled in for a human frame
     const diff = Math.atan2(Math.sin(player.heading - camYaw), Math.cos(player.heading - camYaw));
     camYaw += diff * Math.min(1, 3.2 * dt);
     _camForward.set(Math.sin(camYaw), 0, Math.cos(camYaw));
-    desiredPos = _camTarget.copy(player.position).addScaledVector(_camForward, -11);
-    desiredPos.y += 7;
+    desiredPos = _camTarget.copy(player.position).addScaledVector(_camForward, -9);
+    desiredPos.y += 5.2;
     _desiredLook.copy(player.position).addScaledVector(_camForward, 3);
-    _desiredLook.y += 2.5;
+    _desiredLook.y += 1.8;
   } else if (phase === 'walkin' || phase === 'speech') {
     // Wide shot: prospect in the foreground, fire and stage beyond
     const k = Math.min(1, phaseT / 14);
@@ -1052,31 +1078,31 @@ function updateCamera(dt) {
       4.6 - k * 1.2,
       player.position.z - 3 + k * 4
     );
-    _desiredLook.set(STAGE.x, 3.4, (STAGE.z + FIRE.z) / 2);
+    _desiredLook.set(STAGE.x, 2.8, (STAGE.z + FIRE.z) / 2);
   } else if (phase === 'gauntlet_in' || phase === 'beatdown' || phase === 'fail_swing' || phase === 'failed') {
     // Slow orbit around the ring
     orbitA += dt * 0.28;
     desiredPos = _camTarget.set(
-      player.position.x + Math.cos(orbitA) * 9.5,
-      4.8,
-      player.position.z + Math.sin(orbitA) * 9.5
+      player.position.x + Math.cos(orbitA) * 8,
+      3.8,
+      player.position.z + Math.sin(orbitA) * 8
     );
     _desiredLook.copy(player.position);
-    _desiredLook.y += 2;
+    _desiredLook.y += 1.3;
   } else if (phase === 'endured' || phase === 'trial_roar' || phase === 'roar_anim') {
     // Hero shot from the front
     player.facing(_facing);
-    desiredPos = _camTarget.copy(player.position).addScaledVector(_facing, 9.5).add(_camForward.set(2.5, 0, 0));
-    desiredPos.y = 3.6;
+    desiredPos = _camTarget.copy(player.position).addScaledVector(_facing, 8).add(_camForward.set(2.2, 0, 0));
+    desiredPos.y = 2.8;
     _desiredLook.copy(player.position);
-    _desiredLook.y += 3;
+    _desiredLook.y += 2;
   } else if (phase === 'anoint_walk' || phase === 'anoint_lines' || phase === 'anoint_transform') {
     // Two-shot: prospect and Booskibro side-on
     const mx = (player.position.x + boosk.group.position.x) / 2;
     const mz = (player.position.z + boosk.group.position.z) / 2;
     _dir.set(boosk.group.position.x - player.position.x, 0, boosk.group.position.z - player.position.z).normalize();
-    desiredPos = _camTarget.set(mx - _dir.z * 9, 3.6, mz + _dir.x * 9);
-    _desiredLook.set(mx, 2.8, mz);
+    desiredPos = _camTarget.set(mx - _dir.z * 7.5, 2.9, mz + _dir.x * 7.5);
+    _desiredLook.set(mx, 1.9, mz);
   } else { // complete
     orbitA += dt * 0.15;
     desiredPos = _camTarget.set(
@@ -1173,7 +1199,7 @@ function updatePhase(dt) {
     // Booskibro comes down off the stage to the prospect
     const b = boosk.group.position;
     b.y = Math.max(0, b.y - dt * 1.6);
-    const arrived = walkNpc(boosk, player.position.x, player.position.z, dt, 4.4, 3.2);
+    const arrived = walkNpc(boosk, player.position.x, player.position.z, dt, 4.4, 2.4);
     faceToward(player, b.x, b.z, dt);
     if (arrived && b.y <= 0.01) {
       faceToward(boosk, player.position.x, player.position.z, dt, 100);
@@ -1190,10 +1216,25 @@ function updatePhase(dt) {
     }
   } else if (phase === 'anoint_transform') {
     transformK = Math.min(1, transformK + dt / 2.2);
-    player.lerpPalette(SILVER_PALETTE, 1 - Math.exp(-2.4 * dt));
     anointLight.position.set(player.position.x, 4.5, player.position.z);
-    anointLight.intensity = 90 * Math.sin(Math.min(1, transformK) * Math.PI * 0.9 + 0.1);
+    anointLight.intensity = 110 * Math.sin(Math.min(1, transformK) * Math.PI * 0.9 + 0.1);
     if (Math.random() < dt * 14) effects.auraMote(player.position);
+    // At the flash's peak the human is simply gone, and something much
+    // larger and much shaggier is standing in their shoes.
+    if (!transformed && transformK >= 0.5) {
+      transformed = true;
+      const squatch = new Sasquatch(SILVER_PALETTE);
+      squatch.group.position.copy(player.group.position);
+      squatch.heading = player.heading;
+      squatch.group.rotation.y = player.heading;
+      scene.remove(player.group);
+      scene.add(squatch.group);
+      player = squatch;
+      sfx.roar();
+      effects.shockwave(player.position, 7, 0x9a6ff0);
+      shake = Math.max(shake, 0.45);
+      fovPunch = Math.min(12, fovPunch + 6);
+    }
     if (transformK >= 1 && phaseT > 3.2) {
       sfx.chime();
       $('complete').classList.remove('hidden');
@@ -1216,8 +1257,8 @@ function updatePhase(dt) {
 const clock = new THREE.Clock();
 let flameT = 0;
 
-function onStep(side) {
-  effects.footprint(player.position, player.heading, side);
+function onStep() {
+  // Human feet don't flatten the grass the way squatch feet do — just sound
   sfx.step();
 }
 
@@ -1246,13 +1287,13 @@ function tick() {
   }
   if (player.consumeImpact()) resolvePlayerImpact();
 
-  // Roar pose overrides the idle arms
+  // Roar pose overrides the idle arms: fists to the sky, head back
   if (roarPoseT > 0) {
     roarPoseT -= dt;
     const sway = Math.sin(flameT * 18) * 0.08;
-    player.armL.rotation.x = -2.9 + sway;
-    player.armR.rotation.x = -2.9 - sway;
-    player.head.rotation.x = -0.35;
+    player.armL.rotation.x = Math.PI - 0.35 + sway;
+    player.armR.rotation.x = Math.PI - 0.35 - sway;
+    player.head.rotation.x = -0.4;
   }
 
   // --- Members ---
@@ -1290,7 +1331,7 @@ function tick() {
         painT = 1;
         shake = Math.max(shake, 0.35);
         sfx.thud();
-        debris.puff(new THREE.Vector3(player.position.x, 2, player.position.z), PROSPECT_PALETTE.fur, 4);
+        debris.puff(new THREE.Vector3(player.position.x, 1.4, player.position.z), PROSPECT_PALETTE.shirt, 4);
         popText(player.position, `-${dmg}`, 'pain');
         // Shoved around inside the ring
         _dir.set(player.position.x - m.sq.position.x, 0, player.position.z - m.sq.position.z).normalize();
@@ -1403,7 +1444,7 @@ tick();
 
 // Debug/test handle (harmless in production)
 window.INITIATION = {
-  player,
+  get player() { return player; }, // reassigned at the anointing
   members,
   boosk,
   get phase() { return phase; },
