@@ -44,11 +44,27 @@ const PROSPECT_PALETTE = {
 };
 const BOOSKI_PALETTE = {
   shirt: 0x3c414c, shirtDark: 0x2c313a, pants: 0x23272e,
-  skin: 0xd9a878, bandana: 0x7b4fd9, hair: 0x555b66,
+  skin: 0xd9a878, bandana: 0x7b4fd9, hair: null,
+  face: 'assets/faces/booski.png',
 };
 const MEMBER_SHIRTS = [0x9aa0ab, 0x8a8f9c, 0xa8aeba, 0x79808e];
 const MEMBER_SKINS = [0xe8b88a, 0xc98d5f, 0x8d5a3b, 0xf0d0b0, 0xba8054];
 const MEMBER_HAIR = [0x2a2018, 0x11100c, 0x4a331c, 0x6e6659, 0x1e1c22];
+
+// The real Circle — the crew's actual faces, front row by the aisle so
+// they're in your face on the walk in (and guaranteed into the Gauntlet).
+// angle: degrees around the fire (180 = the aisle you arrive through).
+const FEATURED = [
+  { name: 'LOU', face: 'assets/faces/lou.png', shirt: 0x6f7fa8, angle: 162, r: 8.0 },
+  { name: 'DEATHMEGATRON', face: 'assets/faces/deathmegatron.png', shirt: 0x9aa0ab, angle: 198, r: 8.0 },
+  { name: 'SHUBES', face: 'assets/faces/shubes.png', shirt: 0x8a8f9c, angle: 150, r: 9.2 },
+  { name: 'RIPPINFLOW', face: 'assets/faces/rippinflow.png', shirt: 0x2f62d9, angle: 210, r: 9.2 },
+  { name: 'ERICAN', face: 'assets/faces/erican.png', shirt: 0xe8e4d4, angle: 138, r: 8.6 },
+  { name: 'HOGMAMA', face: 'assets/faces/hogmama.png', shirt: 0x3a3a44, angle: 222, r: 8.6 },
+  { name: 'GRATIN', face: 'assets/faces/gratin.png', shirt: 0x5a4a6e, angle: 126, r: 9.6 },
+  { name: 'SASOLE', face: 'assets/faces/sasole.png', shirt: 0x2e3a5e, angle: 234, r: 9.6 },
+  { name: 'SNOW', face: 'assets/faces/snow.png', shirt: 0xf0f0ec, angle: 174, r: 9.4 },
+];
 
 // ---------- Placeholder speech — Booskibro's words are a work in
 // progress; rewrite these lines freely, the flow won't care. ----------
@@ -464,6 +480,30 @@ for (let i = 0; i < FIREFLY_N; i++) {
 }
 
 // ---------- Characters ----------
+// Floating name tag that always faces the camera
+function makeNameplate(name, color) {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 96;
+  const ctx = c.getContext('2d');
+  ctx.font = '900 52px Trebuchet MS, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = 'rgba(18,13,36,.92)';
+  ctx.strokeText(name, 256, 50);
+  ctx.fillStyle = color;
+  ctx.fillText(name, 256, 50);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthWrite: false, opacity: 0.92,
+  }));
+  spr.scale.set(2.6, 0.49, 1);
+  spr.position.y = 3.05;
+  return spr;
+}
+
 // `player` is reassigned once, at the anointing, when the human becomes
 // the silver sasquatch (Person and Sasquatch share an animation API).
 let player = new Person(PROSPECT_PALETTE);
@@ -482,15 +522,19 @@ const members = [];
   for (let i = 0; i < 7; i++) slots.push(THREE.MathUtils.degToRad(96 + i * 10));   // left flank
   for (let i = 0; i < 7; i++) slots.push(THREE.MathUtils.degToRad(204 + i * 10));  // right flank
   for (let i = 0; i < MEMBER_COUNT; i++) {
-    const sq = new Person({
+    const feat = FEATURED[i] || null;
+    const sq = new Person(feat ? {
+      shirt: feat.shirt,
+      face: feat.face,
+    } : {
       shirt: MEMBER_SHIRTS[i % MEMBER_SHIRTS.length],
       skin: MEMBER_SKINS[Math.floor(Math.random() * MEMBER_SKINS.length)],
       hair: MEMBER_HAIR[Math.floor(Math.random() * MEMBER_HAIR.length)],
     });
     const scale = 0.94 + Math.random() * 0.16;
     sq.group.scale.setScalar(scale);
-    const a = slots[i];
-    const r = 7.5 + (i % 3) * 2.3 + Math.random() * 1.2;
+    const a = feat ? THREE.MathUtils.degToRad(feat.angle) : slots[i];
+    const r = feat ? feat.r : 7.5 + (i % 3) * 2.3 + Math.random() * 1.2;
     const x = FIRE.x + Math.sin(a) * r;
     const z = FIRE.z + Math.cos(a) * r;
     sq.group.position.set(x, 0, z);
@@ -498,9 +542,11 @@ const members = [];
     sq.group.rotation.y = sq.heading;
     sq.walkT = Math.random() * 10;
     sq.breatheT = Math.random() * 10;
+    if (feat) sq.group.add(makeNameplate(feat.name, '#cfd4e0'));
     scene.add(sq.group);
     members.push({
       sq, scale,
+      name: feat ? feat.name : null,
       home: { x, z },
       slot: null,       // gauntlet ring position when converging
       inCircle: false,
@@ -536,6 +582,7 @@ boosk.group.rotation.y = Math.PI;
   staff.add(knob);
   staff.position.set(0, -0.9, 0.25);
   boosk.armR.add(staff);
+  boosk.group.add(makeNameplate('BOOSKIBRO', '#b9a0f5'));
 }
 scene.add(boosk.group);
 
@@ -658,10 +705,11 @@ function advanceSay() {
 }
 
 // ---------- Game state ----------
-let phase = 'intro';
-// intro → approach → walkin → speech → gauntlet_in → beatdown → endured
+let phase = 'approach';
+// approach → walkin → speech → gauntlet_in → beatdown → endured
 //   → trial_roar → roar_anim → trial_log → anoint_walk → anoint_lines
 //   → anoint_transform → complete   (+ fail_swing → failed, retryable)
+// No title screen — the apartment scene drops you straight into the pines.
 let shake = 0;
 let fovPunch = 0;
 let painT = 0;
@@ -715,13 +763,12 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') { e.preventDefault(); smashAction(); }
   if (e.code === 'KeyR') roarAction();
   if (e.code === 'KeyM') toggleMute();
-  if (e.code === 'Enter' && phase === 'intro') begin();
 });
 window.addEventListener('keyup', (e) => {
   if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]);
 });
 window.addEventListener('mousedown', (e) => {
-  if (phase === 'intro' || e.target.closest('button, a, .touch-btn')) return;
+  if (e.target.closest('button, a, .touch-btn')) return;
   if (e.button === 0) smashAction();
 });
 window.addEventListener('blur', () => keys.clear());
@@ -785,21 +832,21 @@ function isSprinting() {
 }
 
 // ---------- Buttons / flow ----------
-$('beginBtn').addEventListener('click', begin);
 $('retryBtn').addEventListener('click', retry);
 $('replayBtn').addEventListener('click', () => location.reload());
 
-function begin() {
-  if (phase !== 'intro') return;
+// Browsers only allow audio after a real input on this page, so the drums
+// kick in on the first keypress or click after arriving from the apartment.
+function ensureAudio() {
   sfx.init();
   sfx.startDrums(); // the ceremony is already underway, somewhere ahead
-  $('intro').classList.add('hidden');
-  fadeEl.style.opacity = 0;
-  hudEl.classList.add('visible');
-  setObjective('Follow the firelight through the pines');
-  setPhase('approach');
-  clock.getDelta();
 }
+window.addEventListener('keydown', ensureAudio, { once: true });
+window.addEventListener('pointerdown', ensureAudio, { once: true });
+
+hudEl.classList.add('visible');
+setObjective('Follow the firelight — <span class="key">WASD</span> move · <span class="key">Shift</span> run');
+setTimeout(() => { fadeEl.style.opacity = 0; }, 120);
 
 function startGauntlet(afterRetry = false) {
   hpWrapEl.classList.add('show');
@@ -887,10 +934,11 @@ function triggerFailImpact(victim) {
   sfx.smash(true);
   shake = Math.max(shake, 0.6);
   debris.puff(new THREE.Vector3(victim.sq.position.x, 1.2, victim.sq.position.z), MEMBER_SHIRTS[0], 8);
-  popText(victim.sq.position, 'YOU STRUCK A BROTHER!', 'pain');
+  popText(victim.sq.position, victim.name ? `YOU STRUCK ${victim.name}!` : 'YOU STRUCK A BROTHER!', 'pain');
+  const who = victim.name ? `You struck ${victim.name}.` : 'You struck a member of the Circle.';
   $('failReason').innerHTML = failFrom === 'trial_log'
-    ? 'The log was the target — not your kin.<br>Silver endures. Silver does not swing at its own.'
-    : 'You struck a member of the Circle.<br>Silver endures. Silver does not swing at its own.';
+    ? `The log was the target — not your kin. ${who}<br>Silver endures. Silver does not swing at its own.`
+    : `${who}<br>Silver endures. Silver does not swing at its own.`;
   failT = 1.5;
 }
 
@@ -1058,10 +1106,7 @@ camera.lookAt(FIRE.x, 3, FIRE.z);
 function updateCamera(dt) {
   let desiredPos = null;
 
-  if (phase === 'intro') {
-    desiredPos = _camTarget.set(7, 4.5, SPAWN.z - 12);
-    _desiredLook.set(FIRE.x, 5, FIRE.z);
-  } else if (phase === 'approach' || phase === 'trial_log' || phase === 'log_broken') {
+  if (phase === 'approach' || phase === 'trial_log' || phase === 'log_broken') {
     // Behind-the-shoulder follow, pulled in for a human frame
     const diff = Math.atan2(Math.sin(player.heading - camYaw), Math.cos(player.heading - camYaw));
     camYaw += diff * Math.min(1, 3.2 * dt);
@@ -1332,7 +1377,7 @@ function tick() {
         shake = Math.max(shake, 0.35);
         sfx.thud();
         debris.puff(new THREE.Vector3(player.position.x, 1.4, player.position.z), PROSPECT_PALETTE.shirt, 4);
-        popText(player.position, `-${dmg}`, 'pain');
+        popText(player.position, m.name ? `${m.name}! -${dmg}` : `-${dmg}`, 'pain');
         // Shoved around inside the ring
         _dir.set(player.position.x - m.sq.position.x, 0, player.position.z - m.sq.position.z).normalize();
         player.position.addScaledVector(_dir, 0.18);
@@ -1450,13 +1495,11 @@ window.INITIATION = {
   get phase() { return phase; },
   get hp() { return hp; },
   get greatLog() { return greatLog; },
-  begin,
   smashAction,
   roarAction,
   advanceSay,
   // Jump the ceremony forward for testing
   skipToGauntlet() {
-    if (phase === 'intro') begin();
     player.group.position.set(GAUNTLET_SPOT.x, 0, GAUNTLET_SPOT.z);
     sayQueue = [];
     sayDone = null;

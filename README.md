@@ -20,7 +20,7 @@ Then open `http://localhost:8000` in a browser.
 
 ## Prologue: The Initiation
 
-`initiation.html` (linked from the main menu) is a story scene set the night before the rampage. The Silver Sasquatches are *people* — and you're the human from the apartment who followed the note under the door. Walk toward the bonfire glow through the pines and Booskibro (human founder, silver pelt mantle, staff) will put you through the Circle's initiation rites:
+`initiation.html` (also linked from the main menu; the in-progress apartment scene leads here directly, so there's no title screen) is a story scene set the night before the rampage. The Silver Sasquatches are *people* — the actual crew: Booskibro runs the ceremony from the stage, while Lou, Deathmegatron, Shubes, Rippinflow, Erican, Hogmama, Gratin, Sasole, and Snow stand front row with their real faces (photo textures in `assets/faces/`, name tags overhead). You're the human from the apartment. Walk toward the bonfire glow through the pines and Booskibro will put you through the Circle's initiation rites:
 
 1. **The Gauntlet** — the members circle up and beat you down to a fifth of your health. Endure it. Swing back even once and you fail the initiation (you can retry).
 2. **The Roar** — press **R** and let the forest hear you.

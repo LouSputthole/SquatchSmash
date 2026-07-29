@@ -6,7 +6,8 @@ import * as THREE from 'three';
 // the Silver Sasquatches are people, after all.
 //
 // `bandana: null` swaps the headband for plain hair (a prospect hasn't
-// earned theirs yet).
+// earned theirs yet). `face` is an optional image URL rendered on the
+// front of the head — how real Circle members get their real faces.
 export const MEMBER_PALETTE = {
   shirt: 0x9aa0ab,
   shirtDark: 0x6e747f,
@@ -14,7 +15,18 @@ export const MEMBER_PALETTE = {
   skin: 0xe8b88a,
   bandana: 0xd92e2e,
   hair: 0x2a2018,
+  face: null,
 };
+
+const faceTexCache = new Map();
+function faceTexture(url) {
+  if (!faceTexCache.has(url)) {
+    const tex = new THREE.TextureLoader().load(url);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    faceTexCache.set(url, tex);
+  }
+  return faceTexCache.get(url);
+}
 
 // Punch animation timing (seconds) — matches the Sasquatch smash so
 // shared choreography (punch scheduling, impact windows) lines up.
@@ -63,24 +75,39 @@ export class Person {
     // Head
     const head = new THREE.Group();
     head.position.set(0, 2.3, 0);
-    const skull = box(0.42, 0.46, 0.44, pal.skin);
-    head.add(skull);
-    const hairTop = box(0.46, 0.16, 0.48, pal.hair);
-    hairTop.position.y = 0.26;
-    head.add(hairTop);
-    for (const s of [-1, 1]) {
-      const eye = box(0.06, 0.06, 0.04, 0x232a3d);
-      eye.position.set(0.1 * s, 0.04, 0.23);
-      head.add(eye);
+    if (pal.face) {
+      // Photo head: the picture on the front, hair/skin wrapping the rest.
+      // The photo brings its own hair and eyes, so the blocky ones stay off.
+      const wrap = new THREE.MeshLambertMaterial({ color: pal.hair ?? pal.skin });
+      const faceMat = new THREE.MeshLambertMaterial({ map: faceTexture(pal.face) });
+      const skull = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.52, 0.48),
+        [wrap, wrap, wrap, wrap, faceMat, wrap] // +z is the face
+      );
+      skull.castShadow = true;
+      head.add(skull);
+    } else {
+      const skull = box(0.42, 0.46, 0.44, pal.skin);
+      head.add(skull);
+      const hairTop = box(0.46, 0.16, 0.48, pal.hair);
+      hairTop.position.y = 0.26;
+      head.add(hairTop);
+      for (const s of [-1, 1]) {
+        const eye = box(0.06, 0.06, 0.04, 0x232a3d);
+        eye.position.set(0.1 * s, 0.04, 0.23);
+        head.add(eye);
+      }
     }
     this.tails = [];
     if (pal.bandana !== null) {
       // The Circle's red bandana, worn on the brow, tails at the back
-      const band = box(0.48, 0.13, 0.5, pal.bandana);
-      band.position.y = 0.14;
+      // (photo heads are slightly bigger, so the band widens to fit)
+      const bw = pal.face ? 0.56 : 0.48;
+      const band = box(bw, 0.13, bw + 0.02, pal.bandana);
+      band.position.y = 0.16;
       head.add(band);
       const knot = box(0.13, 0.13, 0.08, pal.bandana);
-      knot.position.set(0, 0.1, -0.28);
+      knot.position.set(0, 0.1, -(bw / 2 + 0.05));
       head.add(knot);
       for (const s of [-1, 1]) {
         const tail = box(0.08, 0.3, 0.04, pal.bandana);
