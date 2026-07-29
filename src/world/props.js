@@ -106,7 +106,7 @@ export function makeAlarmClock(M, { x, y, z, rotY = 0 }) {
  * The desk setup. `screen` is the mesh the arcade game renders onto;
  * apartment.js swaps its material map for the game's CanvasTexture.
  */
-export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
+export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
   const g = group('desk');
   const top = 0.74;
   const x0 = x - w / 2;
@@ -148,8 +148,19 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
   g.add(box({ size: [0.20, 0.016, 0.18], pos: [sideX, top + 0.008, sideZ], mat: M.plasticBlack }));
   g.add(box({ size: [0.045, 0.26, 0.045], pos: [sideX, top + 0.14, sideZ], mat: M.plasticBlack }));
   const sidePanel = group('sidepanel');
-  sidePanel.position.set(sideX, top + 0.40, sideZ + 0.02);
-  sidePanel.rotation.set(-0.04, -0.42, 0);
+  /* The panel is turned 24 degrees to face the chair, which means its back
+   * plane sweeps diagonally across the neck standing behind it -- one edge
+   * ends up in front of the neck and the other behind, so the neck came
+   * through the screen. Offsetting along the panel's OWN normal instead of
+   * along world Z puts the whole back face clear of the neck at every edge. */
+  const SIDE_YAW = -0.42;
+  const CLEAR = 0.075;            // > half the neck (0.0225) + panel depth
+  sidePanel.position.set(
+    sideX + Math.sin(SIDE_YAW) * CLEAR,
+    top + 0.40,
+    sideZ + 0.02 + Math.cos(SIDE_YAW) * CLEAR,
+  );
+  sidePanel.rotation.set(-0.04, SIDE_YAW, 0);
   sidePanel.add(box({ size: [0.26, 0.42, 0.024], pos: [0, 0, -0.014], mat: M.plasticBlack }));
   const sideScreen = plane(0.234, 0.376, M.screenOff.clone());
   sideScreen.position.set(0, 0.008, 0.001);
@@ -221,17 +232,43 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
   // Boom mic, folded down.
   g.add(box({ size: [0.012, 0.012, 0.09], pos: [hsX + 0.03, top + 0.255, hsZ - 0.02], mat: M.plasticBlack, rotX: 0.7 }));
 
-  /* ---- streaming mic on a boom arm ---- */
+  /* ---- streaming mic on a boom arm ----
+   * Built as a clamp, an upright and a horizontal boom rather than two angled
+   * struts. The angled version left the lower strut's end hanging 8cm above
+   * the clamp, which reads as a mic floating in mid-air; right angles cannot
+   * do that. Every joint below is stated as a shared coordinate, not an angle.
+   */
   const armX = x - 1.14;
-  g.add(box({ size: [0.05, 0.09, 0.05], pos: [armX, top + 0.04, z0 + 0.06], mat: M.darkSteel }));
-  const arm1 = box({ size: [0.022, 0.022, 0.40], pos: [armX, top + 0.32, z0 + 0.16], mat: M.darkSteel, rotX: -0.9 });
-  g.add(arm1);
-  const arm2 = box({ size: [0.020, 0.020, 0.34], pos: [armX + 0.11, top + 0.52, z0 + 0.24], mat: M.darkSteel, rotZ: 1.15, rotY: 0.5 });
-  g.add(arm2);
-  const micBody = cylinder({ r: 0.035, h: 0.13, pos: [armX + 0.28, top + 0.46, z0 + 0.34], mat: M.darkSteel, rotX: 0.5 });
+  const clampZ = z0 + 0.06;
+  const clampTop = top + 0.085;
+  g.add(box({ size: [0.05, 0.09, 0.05], pos: [armX, top + 0.04, clampZ], mat: M.darkSteel }));
+
+  // Upright: stands on the clamp.
+  const postTop = top + 0.56;
+  const postH = postTop - clampTop;
+  g.add(box({
+    size: [0.024, postH, 0.024], pos: [armX, clampTop + postH / 2, clampZ], mat: M.darkSteel,
+  }));
+  // Knuckle where the boom pivots off the upright.
+  g.add(cylinder({ r: 0.019, h: 0.034, pos: [armX, postTop, clampZ], mat: M.plasticBlack, rotZ: Math.PI / 2 }));
+
+  // Boom: out over the desk, dropping very slightly, ending above the keyboard.
+  const boomEndZ = clampZ + 0.40;
+  const boomLen = boomEndZ - clampZ;
+  g.add(box({
+    size: [0.020, 0.020, boomLen],
+    pos: [armX, postTop - 0.02, clampZ + boomLen / 2], mat: M.darkSteel, rotX: 0.10,
+  }));
+
+  // Mic hangs off the boom end on a short yoke, angled back at the chair.
+  const micY = postTop - 0.16;
+  g.add(box({ size: [0.014, 0.075, 0.014], pos: [armX, postTop - 0.055, boomEndZ], mat: M.plasticBlack }));
+  const micBody = cylinder({
+    r: 0.035, h: 0.13, pos: [armX, micY, boomEndZ + 0.012], mat: M.darkSteel, rotX: 0.28,
+  });
   g.add(micBody);
   const micLed = cylinder({
-    r: 0.012, h: 0.010, pos: [armX + 0.284, top + 0.396, z0 + 0.368], mat: M.ledRed.clone(), rotX: 0.5,
+    r: 0.012, h: 0.010, pos: [armX, micY - 0.030, boomEndZ + 0.046], mat: M.ledRed.clone(), rotX: 0.28,
   });
   g.add(micLed);
 
@@ -249,6 +286,21 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
   sideGlass.position.set(towerX - tW / 2 - 0.001, tH / 2, z);
   sideGlass.rotation.y = -Math.PI / 2;
   tower.add(sideGlass);
+
+  /* Vinyl sticker slapped on the glass. Transparent PNGs only -- anything with
+   * a background reads as a photo taped on rather than a die-cut sticker. */
+  if (towerSticker) {
+    const sw = 0.20;
+    const ar = towerSticker.image
+      ? towerSticker.image.width / towerSticker.image.height : 1;
+    const decal = plane(sw, sw / (ar || 1), new THREE.MeshBasicMaterial({
+      map: towerSticker, transparent: true, alphaTest: 0.06, toneMapped: false,
+      side: THREE.DoubleSide, depthWrite: false,
+    }));
+    decal.position.set(towerX - tW / 2 - 0.004, tH / 2 + 0.06, z - 0.03);
+    decal.rotation.set(0, -Math.PI / 2, 0.06);
+    tower.add(decal);
+  }
 
   const rgb = [];
   // Three intake fans down the front edge.
@@ -1339,7 +1391,10 @@ export function makeStandingFrame(M, { x, y, z, rotY = 0, w = 0.16, h = 0.20, te
 
   const bezel = 0.022;
   const panel = group('framePanel');
-  panel.rotation.x = 0.14;          // tipped back, like a real easel frame
+  /* Leaning BACK: rotX(+t) sends the local +Z face normal to (0,-sin t,cos t),
+   * i.e. tips the picture forward onto its face. Negative is the way an easel
+   * frame actually stands. */
+  panel.rotation.x = -0.13;
   panel.position.y = h / 2 + bezel;
 
   panel.add(box({ size: [w + bezel * 2, h + bezel * 2, 0.014], pos: [0, 0, -0.007], mat: mat({ color: tint, roughness: 0.5 }) }));
@@ -1394,10 +1449,16 @@ export function makeRoundCrest(M, { x, y, z, rotY = 0, r = 0.22, texture = null 
  * Flat decal for stickers and fridge magnets. The caller parents it, so it
  * rides along with whatever it is stuck to -- like a swinging fridge door.
  */
-export function makeDecal(M, { texture, w = 0.16, h = 0.16, magnet = false }) {
+export function makeDecal(M, { texture, w = 0.16, h = 0.16, magnet = false, sticker = false }) {
   const g = group('decal');
+  /* A sticker is die-cut, so it needs a low alphaTest to keep the soft edge of
+   * the outline; a photograph is a rectangle and wants the higher threshold so
+   * JPEG mush at the border does not ghost. */
   const face = plane(w, h, texture
-    ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.72, transparent: true, alphaTest: 0.3 })
+    ? new THREE.MeshStandardMaterial({
+      map: texture, roughness: sticker ? 0.42 : 0.72,
+      transparent: true, alphaTest: sticker ? 0.06 : 0.3,
+    })
     : new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8 }));
   g.add(face);
   if (magnet) {
@@ -1825,10 +1886,16 @@ export function makeAshtray(M, { x, y, z, rotY = 0 }) {
 export function makeHeldCigarette() {
   const g = group('heldCig');
   const paperMat = mat({ color: 0xf2ece0, roughness: 0.9 });
-  g.add(cylinder({ r: 0.0038, h: 0.052, pos: [0, 0, 0], rotZ: Math.PI / 2, mat: paperMat }));
-  g.add(cylinder({ r: 0.0038, h: 0.016, pos: [-0.030, 0, 0], rotZ: Math.PI / 2, mat: mat({ color: 0xc59a58, roughness: 0.95 }) }));
+  /* Laid along Z, not X: it is in his mouth, so the filter is the end nearest
+   * the camera (+Z) and the ember is out at the far end (-Z), burning away
+   * from the face. Held across the view it read as being brandished. */
+  g.add(cylinder({ r: 0.0038, h: 0.052, pos: [0, 0, 0], rotX: Math.PI / 2, mat: paperMat }));
+  g.add(cylinder({
+    r: 0.0038, h: 0.016, pos: [0, 0, 0.030], rotX: Math.PI / 2,
+    mat: mat({ color: 0xc59a58, roughness: 0.95 }),
+  }));
   const ember = cylinder({
-    r: 0.0042, h: 0.006, pos: [0.028, 0, 0], rotZ: Math.PI / 2,
+    r: 0.0042, h: 0.006, pos: [0, 0, -0.028], rotX: Math.PI / 2,
     mat: new THREE.MeshStandardMaterial({
       color: 0x1a0a04, emissive: 0xff5a1e, emissiveIntensity: 2.2, roughness: 1,
     }),
@@ -1836,7 +1903,7 @@ export function makeHeldCigarette() {
   g.add(ember);
   // Small warm light so the ember actually reads in a dark room.
   const glow = new THREE.PointLight(0xff6a24, 0.35, 0.5, 2);
-  glow.position.set(0.030, 0, 0);
+  glow.position.set(0, 0, -0.030);
   g.add(glow);
   return { group: g, ember, glow };
 }

@@ -139,8 +139,10 @@ const stream = new StreamSystem(scene);
 
 // The lit cigarette rides on the camera, low and to the right.
 const heldCig = makeHeldCigarette();
-heldCig.group.position.set(0.17, -0.15, -0.33);
-heldCig.group.rotation.set(0.10, -0.40, 0.30);
+/* In the corner of his mouth: low, just off centre, close to the camera, and
+ * pointing away down the view rather than lying across it. */
+heldCig.group.position.set(0.055, -0.062, -0.10);
+heldCig.group.rotation.set(0.06, 0.13, 0);
 heldCig.group.scale.setScalar(1.25);
 heldCig.group.visible = false;
 camera.add(heldCig.group);

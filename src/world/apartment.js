@@ -86,9 +86,9 @@ export const BATH_SLOTS = [
 
 /** Hanging cloth banners rather than framed pictures. */
 const BANNER_SLOTS = [
-  { slot: 'banner.main', x: 4.15, y: 1.62, z: -4.38, rotY: 0, h: 0.60 },
+  { slot: 'banner.main', x: 4.15, y: 1.62, z: -4.33, rotY: 0, h: 0.60 },
   // Strung above the monitor, the way a setup backdrop goes up.
-  { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.38, rotY: 0, h: 0.30 },
+  { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.33, rotY: 0, h: 0.30 },
 ];
 
 /** Round crest hung above the bookshelf on the north wall. */
@@ -111,10 +111,15 @@ const FRIDGE_MAGNET = { slot: 'fridge.magnet', w: 0.27 };
 const FRIDGE_PHOTOS = [
   { slot: 'fridge.photo.a', y: 1.55, z: -0.19, w: 0.21, tilt: -0.07 },
   { slot: 'fridge.photo.b', y: 0.48, z: -0.42, w: 0.19, tilt: 0.09 },
+  // Stuck on rather than magneted: no frame, no paper border, alpha cut out.
+  { slot: 'sticker.fridge', y: 1.05, z: -0.30, w: 0.24, tilt: -0.13, sticker: true },
 ];
 
 /** Textures used on props rather than hung on a wall. */
-const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box'];
+const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box',
+  // Die-cut vinyl rather than framed art: these want a transparent PNG. Give
+  // one a photo with a background and it reads as paper taped on instead.
+  'sticker.tower', 'sticker.fridge'];
 
 export async function buildApartment(ctx) {
   const { scene, audio, hud, interaction, time } = ctx;
@@ -359,7 +364,7 @@ export async function buildApartment(ctx) {
   // A glass of water, mostly gone.
   root.add(cylinder({ r: 0.035, h: 0.11, pos: [-3.30, nightstand.top + 0.055, -3.98], mat: M.glass }));
 
-  const desk = P.makeDesk(M, { x: 1.90, z: -4.07 });
+  const desk = P.makeDesk(M, { x: 1.90, z: -4.07, towerSticker: propTex('sticker.tower') });
   root.add(desk.group);
   addCollider(desk.bounds);
 
@@ -642,7 +647,9 @@ export async function buildApartment(ctx) {
     const g = gear.get(f.slot);
     const w = f.w * (g.scale || 1);
     const photo = P.makeDecal(M, {
-      texture: g.texture, w, h: w / (g.aspect || 1), magnet: true,
+      texture: g.texture, w, h: w / (g.aspect || 1),
+      // Stickers are stuck to the door; photographs are held on by a magnet.
+      magnet: !f.sticker, sticker: !!f.sticker,
     });
     photo.group.name = `doorface:${f.slot}`;
     photo.group.position.set(-0.034, f.y, f.z);
@@ -1067,7 +1074,9 @@ export async function buildApartment(ctx) {
     },
   });
   // The card nobody has taken down. Reading it is how the game begins.
-  const note = P.makeCorkNote(M, { x: -0.10, y: 1.72, z: -4.385, rotY: 0.04 });
+  /* The board's own notes front at z -4.385 and their pins at -4.379, so a
+   card at -4.385 grows straight through the paper behind it. Clear both. */
+  const note = P.makeCorkNote(M, { x: -0.10, y: 1.74, z: -4.366, rotY: 0.04 });
   root.add(note.group);
   interaction.register(note.group, {
     label: () => 'Read the <b>card</b>',
