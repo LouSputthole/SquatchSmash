@@ -2766,7 +2766,12 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
   core.position.y = -0.010;
   flame.add(core);
 
-  const light = new THREE.PointLight(0xffb367, 0.75, 0.85, 2.0);
+  /* Three of these stand in a 60cm closet that already has a bulb in the
+   * ceiling, and at candle-scale intensity they simply washed it out -- the
+   * whole point is that they are the only warm thing in a cupboard, which does
+   * not survive them lighting it like a room. Dim, and tight: the fall-off
+   * matters more than the brightness, so the pool stays on the shrine. */
+  const light = new THREE.PointLight(0xffb367, 0.26, 0.52, 2.2);
   light.position.y = h + 0.03;
   g.add(light);
 
@@ -2783,7 +2788,7 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
       const wobble = Math.sin(s) * 0.5 + Math.sin(s * 2.7 + 1.1) * 0.32 + Math.sin(s * 6.1) * 0.18;
       flame.scale.set(1 + wobble * 0.10, 1 + wobble * 0.22, 1 + wobble * 0.10);
       flame.position.x = wobble * 0.0016;
-      light.intensity = 0.75 + wobble * 0.22;
+      light.intensity = 0.26 + wobble * 0.085;
     },
   };
 }

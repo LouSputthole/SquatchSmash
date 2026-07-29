@@ -273,9 +273,9 @@
     },
     {
       "slot": "sticker.fridge",
-      "file": "sticker-pinup-yellow.png",
-      "title": "Fridge sticker",
-      "caption": "Die-cut vinyl. Went on straight, which is the surprising part."
+      "file": "sticker-pinup.png",
+      "title": "The old sticker",
+      "caption": "Been on that door longer than he has lived here."
     },
     {
       "slot": "closet.shirt.a",
@@ -336,6 +336,12 @@
       "file": "logo-2023-square.jpg",
       "title": "The 2023 mark",
       "caption": "Small, high, over the shelf. You have to look up to notice it."
+    },
+    {
+      "slot": "sticker.fridge.b",
+      "file": "sticker-pinup-yellow.png",
+      "title": "The newer one",
+      "caption": "Went on later, at a different angle."
     }
   ]
 }

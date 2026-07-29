@@ -68,7 +68,11 @@ export const WALL_SLOTS = [
   // The stretch between the stacked pair and the front door was the last
   // empty run on this wall -- three metres of nothing you walk past on the
   // way out.
-  { slot: 'south.shield', x: -0.60, y: 1.70, z: 4.40, rotY: Math.PI, h: 0.50 },
+  /* Clear of the wall clock, which is a 15cm radius at x -1.00 and therefore
+   * occupies out to -0.85. The first attempt started at exactly -0.85 and read
+   * as hung on top of it. Dropped a little too, so it is not sharing a centre
+   * line with the clock face either. */
+  { slot: 'south.shield', x: -0.24, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.44 },
 
   /* East wall. It had nothing on it at all: the window takes z -3.90..-2.30
    * and the fridge stands at z 1.95, which leaves this stretch in the middle
@@ -154,6 +158,9 @@ const FRIDGE_PHOTOS = [
   { slot: 'fridge.photo.b', y: 0.48, z: -0.42, w: 0.19, tilt: 0.09 },
   // Stuck on rather than magneted: no frame, no paper border, alpha cut out.
   { slot: 'sticker.fridge', y: 0.92, z: -0.06, w: 0.22, tilt: -0.13, sticker: true },
+  /* The second one went on later and at a different angle, because nobody
+   * lines up the second sticker with the first. */
+  { slot: 'sticker.fridge.b', y: 1.24, z: 0.17, w: 0.19, tilt: 0.16, sticker: true },
 ];
 
 /**
@@ -176,7 +183,7 @@ const CLOSET_SLOTS = ['closet.shirt.a', 'closet.shirt.b',
 const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box',
   // Die-cut vinyl rather than framed art: these want a transparent PNG. Give
   // one a photo with a background and it reads as paper taped on instead.
-  'sticker.tower', 'sticker.fridge'];
+  'sticker.tower', 'sticker.fridge', 'sticker.fridge.b'];
 
 export async function buildApartment(ctx) {
   const { scene, audio, hud, interaction, time } = ctx;
