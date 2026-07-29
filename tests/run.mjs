@@ -5,3 +5,4 @@ import './squatchfather-story.test.mjs';
 import './airstrip-story.test.mjs';
 import './airstrip-mission.test.mjs';
 import './post-airstrip-story.test.mjs';
+import './bada-bing-two-mission.test.mjs';

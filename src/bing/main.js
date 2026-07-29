@@ -26,6 +26,7 @@ import {
   createCampaign,
   navigateCampaign,
 } from '../core/campaign.js';
+import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { makeHeldDrinks } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -38,6 +39,10 @@ import { makePlayerCar, populateLot } from './vehicles.js';
 import { Dialogue } from './dialogue.js';
 import { buildScripts, AMBIENT, NOTES } from './script.js';
 import { Mission, ENDINGS } from './mission.js';
+import {
+  SecondVisitMission,
+  buildSecondVisitLouScript,
+} from './second-visit.js';
 
 const START_CASH = 340;
 const DRINK_TIME = 2.4;
@@ -130,12 +135,18 @@ const drunk = new Drunk();
 const highs = new Highs();
 const inventory = new Inventory(4);
 const campaign = createCampaign();
-if (campaign.state.scene.id !== SCENE_IDS.BADA_BING_ONE) {
-  campaign.enter(SCENE_IDS.BADA_BING_ONE, { spawn: 'driver_seat' });
+const requestedVisit = new URLSearchParams(location.search).get('visit');
+const isSecondVisit = requestedVisit === '2'
+  || campaign.state.scene.id === SCENE_IDS.BADA_BING_TWO;
+const activeSceneId = isSecondVisit ? SCENE_IDS.BADA_BING_TWO : SCENE_IDS.BADA_BING_ONE;
+if (campaign.state.scene.id !== activeSceneId) {
+  campaign.enter(activeSceneId, { spawn: 'driver_seat' });
 }
+const secondVisitStory = isSecondVisit ? createBadaBingTwoStory({ campaign }) : null;
 
 const game = {
   started: false,
+  storyStarted: false,
   paused: false,
   over: false,
   money: START_CASH,
@@ -151,7 +162,8 @@ const game = {
   louTalking: false,
 };
 
-const mission = new Mission({
+const MissionType = isSecondVisit ? SecondVisitMission : Mission;
+const mission = new MissionType({
   onObjective: paintObjectives,
   onMessage: (text) => {
     hud.toast(text, '');
@@ -258,7 +270,7 @@ poseDrink(null, 0);
 /* Script                                                              */
 /* ------------------------------------------------------------------ */
 
-const scripts = buildScripts({
+const scriptContext = {
   mission,
   flags: mission.flags,
   money: () => game.money,
@@ -274,7 +286,9 @@ const scripts = buildScripts({
     audio.play('gun.pickup', { volume: 0.3, position: club.anchors.parcel });
   },
   showEnvelope: () => { club.office.envelope.visible = true; },
-});
+};
+const scripts = buildScripts(scriptContext);
+if (isSecondVisit) scripts.lou = buildSecondVisitLouScript({ mission });
 
 /* ------------------------------------------------------------------ */
 /* Money, drinks, objectives                                           */
@@ -431,11 +445,11 @@ function talkTo(npc, tree, at = 'open') {
 }
 
 reg(cast.byName.bouncer.group, {
-  label: () => (mission.flags.gotPackage ? 'Say something to the <b>bouncer</b>' : 'Talk to the <b>bouncer</b>'),
+  label: () => (mission.readyToLeave ? 'Say something to the <b>bouncer</b>' : 'Talk to the <b>bouncer</b>'),
   onUse: () => {
     const npc = cast.byName.bouncer;
     npc.faceToward(player.position.x, player.position.z);
-    if (mission.flags.gotPackage) dialogue.start(scripts.bouncer, 'leaving', npc);
+    if (mission.readyToLeave) dialogue.start(scripts.bouncer, 'leaving', npc);
     else if (mission.flags.bouncerCleared) dialogue.start(scripts.bouncer, 'returning', npc);
     else dialogue.start(scripts.bouncer, 'open', npc);
   },
@@ -445,7 +459,7 @@ reg(cast.byName.hallGuard.group, talkTo(cast.byName.hallGuard, scripts.hallGuard
 reg(cast.byName.dealer.group, talkTo(cast.byName.dealer, scripts.dealer));
 reg(cast.byName.dj.group, talkTo(cast.byName.dj, scripts.dj));
 reg(cast.byName.lou.group, {
-  label: () => (mission.state === 'briefed' ? 'Say goodnight to <b>Lou</b>' : 'Talk to <b>Lou</b>'),
+  label: () => (mission.state === 'briefed' ? 'Confirm with <b>Lou</b>' : 'Talk to <b>Lou</b>'),
   onUse: () => {
     const lou = cast.byName.lou;
     lou.faceToward(player.position.x, player.position.z);
@@ -460,6 +474,7 @@ reg(cast.byName.lou.group, {
 
 reg(club.office.parcel, {
   label: () => (mission.flags.gotPackage ? 'Look at it again' : 'Take the <b>package</b>'),
+  enabled: () => !isSecondVisit,
   hold: 0.9,
   onTap: () => {
     if (mission.flags.gotPackage) return;
@@ -481,6 +496,7 @@ reg(club.office.parcel, {
 
 reg(club.office.envelope, {
   label: 'Read the <b>envelope</b>',
+  enabled: () => !isSecondVisit,
   onUse: () => {
     hud.say('An address on Ferry Street. A sketch of a dining room with an X on the corner booth. '
       + 'A time. A photograph of somebody eating. On the back, in Lou’s hand: <em>bathroom is by the kitchen.</em>', 7000);
@@ -763,7 +779,7 @@ for (const spot of club.anchors.booths) {
   doorPad.position.set(car.driverPose.x - 1.2, 1, car.driverPose.z);
   scene.add(doorPad);
   reg(doorPad, {
-    label: () => (mission.flags.gotPackage ? 'Get in and <b>go</b>' : 'Get back in the <b>car</b>'),
+    label: () => (mission.readyToLeave ? 'Get in and <b>go</b>' : 'Get back in the <b>car</b>'),
     enabled: () => game.seatedIn !== 'car',
     onUse: () => getInCar(),
   });
@@ -789,13 +805,15 @@ for (const spot of club.anchors.booths) {
   });
 
   reg(car.wheel, {
-    label: () => (mission.flags.gotPackage ? 'Hold to <b>drive away</b>' : 'The <b>wheel</b>'),
+    label: () => (mission.readyToLeave ? 'Hold to <b>drive away</b>' : 'The <b>wheel</b>'),
     enabled: () => game.seatedIn === 'car',
-    hold: mission.flags.gotPackage ? 1.4 : undefined,
+    hold: mission.readyToLeave ? 1.4 : undefined,
     onTap: () => hud.say('Not until you have got what you came for.', 3000),
     onUse: () => {
-      if (!mission.flags.gotPackage) {
-        hud.say('Not until you have got what you came for.', 3000);
+      if (!mission.readyToLeave) {
+        hud.say(isSecondVisit
+          ? 'Not until Lou gives you the motel assignment.'
+          : 'Not until you have got what you came for.', 3000);
         return;
       }
       driveAway();
@@ -898,8 +916,10 @@ function getInCar() {
     pitchMin: -0.8,
     pitchMax: 0.5,
   });
-  if (mission.state === 'lot-return' || mission.flags.gotPackage) {
-    hud.say('Package under the jacket, rain on the windscreen. <em>Hold [E] on the wheel.</em>', 5200);
+  if (mission.state === 'lot-return' || mission.readyToLeave) {
+    hud.say(isSecondVisit
+      ? 'Room twelve, product first. <em>Hold [E] on the wheel to drive to the motel.</em>'
+      : 'Package under the jacket, rain on the windscreen. <em>Hold [E] on the wheel.</em>', 5200);
   }
 }
 
@@ -916,7 +936,7 @@ function getOutOfCar() {
 }
 
 function sendAssociate() {
-  if (mission.flags.gotPackage) return;
+  if (mission.readyToLeave) return;
   const npc = associate;
   npc.group.visible = true;
   npc.group.position.set(club.anchors.hallMouth.x, 0, club.anchors.hallMouth.z);
@@ -960,17 +980,29 @@ function driveAway() {
 function finish() { /* the ending card is driven by driveAway() */ }
 
 function showEnding(kind) {
-  const e = ENDINGS[kind] || ENDINGS.followed;
-  campaign.update((state) => {
-    const saved = state.missions[MISSION_IDS.BADA_BING_ONE];
-    saved.status = 'complete';
-    saved.packageReceived = campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
-    saved.ending = kind;
-    if (saved.packageReceived) {
-      const next = state.missions[MISSION_IDS.SQUATCHFATHER];
-      if (next.status === 'locked') next.status = 'available';
+  const e = isSecondVisit
+    ? {
+      title: 'ROOM TWELVE IS WAITING',
+      body: 'Lou gave you the job in the same office, but this visit ends differently. '
+        + 'Manny is already outside the Jerky Motel with the payment, and the apartment is not on the route.',
     }
-  });
+    : (ENDINGS[kind] || ENDINGS.followed);
+  if (isSecondVisit) {
+    if (!secondVisitStory.complete({ assignment: mission.assignment })) {
+      throw new Error('Bada Bing Scene Two ended without a durable assignment');
+    }
+  } else {
+    campaign.update((state) => {
+      const saved = state.missions[MISSION_IDS.BADA_BING_ONE];
+      saved.status = 'complete';
+      saved.packageReceived = campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
+      saved.ending = kind;
+      if (saved.packageReceived) {
+        const nextMission = state.missions[MISSION_IDS.SQUATCHFATHER];
+        if (nextMission.status === 'locked') nextMission.status = 'available';
+      }
+    });
+  }
   game.paused = true;
   player.enabled = false;
   blackout.classList.remove('on');
@@ -979,28 +1011,33 @@ function showEnding(kind) {
   overlay.querySelector('h1').innerHTML = 'THE<span>BING</span>';
   overlay.querySelector('.tag').textContent = e.title;
   const extras = [];
-  if (mission.flags.jackpot) extras.push('You left with the jackpot and the package, which is more than most prospects manage.');
+  if (mission.flags.jackpot) extras.push(isSecondVisit
+    ? 'You hit the jackpot while Lou waited for you a second time.'
+    : 'You left with the jackpot and the package, which is more than most prospects manage.');
   if (mission.hands >= 6) extras.push(`You sat ${mission.hands} hands at that table while a made squatch waited for you.`);
   if (mission.drinks > 0) extras.push(`Drinks taken on the way in: ${mission.drinks}.`);
   if (mission.flags.secretPanel) extras.push('And somebody is skimming that machine. You know it, and now Lou is going to know it.');
   if (inventory.count() > 0) extras.push(`You also drove off with ${inventory.count()} of Lou's drinks in your hands.`);
   if (mission.flags.alarmTripped) extras.push('The service door alarm chirped on your way out. Somebody will mention it.');
-  extras.push('<br><b>NEXT: RETURN HOME WITH LOU’S PACKAGE</b>');
+  extras.push(isSecondVisit
+    ? '<br><b>NEXT: DRIVE DIRECTLY TO THE JERKY MOTEL</b>'
+    : '<br><b>NEXT: RETURN HOME WITH LOU’S PACKAGE</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
-  startBtn.textContent = 'Again';
-  startBtn.onclick = () => location.reload();
+  startBtn.style.display = 'none';
   let next = document.getElementById('next-level');
   if (!next) {
     next = document.createElement('a');
     next.id = 'next-level';
     overlay.querySelector('.panel').appendChild(next);
   }
-  next.href = 'index.html';
-  next.textContent = 'Return to the apartment →';
+  next.href = isSecondVisit ? 'motel.html' : 'index.html';
+  next.textContent = isSecondVisit
+    ? 'Drive to the Jerky Motel →'
+    : 'Return to the apartment →';
   next.onclick = (event) => {
     event.preventDefault();
-    navigateCampaign(campaign, SCENE_IDS.APARTMENT, {
-      spawn: 'front_door',
+    navigateCampaign(campaign, isSecondVisit ? SCENE_IDS.JERKY_MOTEL : SCENE_IDS.APARTMENT, {
+      spawn: isSecondVisit ? 'passenger_seat' : 'front_door',
       location,
     });
   };
@@ -1163,6 +1200,18 @@ canvas.addEventListener('click', () => {
 
 startBtn.addEventListener('click', async () => {
   if (game.over) return;
+  if (isSecondVisit && !game.storyStarted) {
+    const started = secondVisitStory.begin();
+    if (!started.ok) {
+      overlay.querySelector('.tag').textContent = started.reason === 'already_complete'
+        ? 'This visit is already complete in the current save.'
+        : 'Lou has not called Prospect back to the Bing yet.';
+      startBtn.textContent = 'MISSION UNAVAILABLE';
+      startBtn.disabled = true;
+      return;
+    }
+    game.storyStarted = true;
+  }
   await audio.init();
   const sfx = await audio.loadManifest();
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
@@ -1182,7 +1231,9 @@ startBtn.addEventListener('click', async () => {
     getInCar();
     addMoney(0);
     paintObjectives(mission.objectives);
-    hud.say('<em>11:41 PM.</em> Lou is waiting in the back office with a package.', 6000);
+    hud.say(isSecondVisit
+      ? '<em>Day Two.</em> Lou is waiting in the same back office with a different job.'
+      : '<em>11:41 PM.</em> Lou is waiting in the back office with a package.', 6000);
     setTimeout(() => hud.say('<em>[Q]</em> to get out of the car.', 4200), 6400);
   }
   game.paused = false;
@@ -1243,7 +1294,7 @@ function onRoomChange(next) {
   }
   /* Only counts on the way out: wandering down the alley on the way in is
    * sightseeing, not tradecraft. */
-  if (mission.flags.gotPackage && (next === 'yard' || next === 'alley')) {
+  if (mission.readyToLeave && (next === 'yard' || next === 'alley')) {
     mission.flags.leftByRear = true;
   }
   if ((next === 'lot' || next === 'alley') && mission.state === 'leaving') {
@@ -1354,10 +1405,18 @@ function frame() {
 
   audio.updateListener(camera);
 
-  // The clock in the corner: late on Day One, nearly the next morning.
-  const mins = 41 + Math.floor(game.elapsed / 12);
-  const hour = 11 + Math.floor(mins / 60);
-  hud.setClock(1, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} ${hour >= 12 ? 'AM' : 'PM'}`, game.elapsed);
+  // Scene Two keeps the campaign's Day Two clock; Scene One retains its
+  // original late-night presentation.
+  if (isSecondVisit) {
+    const total = campaign.state.story.timeMinutes + Math.floor(game.elapsed / 12);
+    const hour24 = Math.floor(total / 60) % 24;
+    const hour12 = hour24 % 12 || 12;
+    hud.setClock(2, `${hour12}:${String(total % 60).padStart(2, '0')} ${hour24 >= 12 ? 'PM' : 'AM'}`, game.elapsed);
+  } else {
+    const mins = 41 + Math.floor(game.elapsed / 12);
+    const hour = 11 + Math.floor(mins / 60);
+    hud.setClock(1, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} ${hour >= 12 ? 'AM' : 'PM'}`, game.elapsed);
+  }
 
   postfx.render(dt);
 }
@@ -1368,10 +1427,16 @@ function frame() {
 
 assetStatus.innerHTML = 'Everything in here is drawn and synthesised at load time — '
   + 'no models, no textures, no audio files.';
+if (isSecondVisit) {
+  document.querySelector('#objectives .head').textContent = 'BACK TO THE BING';
+  overlay.querySelector('.tag').textContent =
+    'Day Two. Lou is waiting in the back office with the next assignment.';
+}
 loading.classList.add('hidden');
 window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
   interaction, drunk, highs, inventory, campaign, car, lot, associate, scripts,
+  isSecondVisit, secondVisitStory,
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

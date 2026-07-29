@@ -61,6 +61,10 @@ export class Mission {
     this.addObjective('lou', 'Meet Lou in the back office');
   }
 
+  get readyToLeave() {
+    return this.flags.gotPackage;
+  }
+
   /* ---------------------------------------------------------------- */
 
   setState(next) {
