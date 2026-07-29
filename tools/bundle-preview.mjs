@@ -126,7 +126,11 @@ const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
  * So: bake the voice, skip the rest, and stop at a byte budget so the page
  * stays openable. `--sfx` bakes the effects too, `--no-vo` bakes nothing.
  */
-const VO_BUDGET = Number(process.env.SQUATCH_VO_BUDGET || 14 * 1024 * 1024);
+/* The hosted preview refuses anything over 16MB, and the art and the script
+ * want three of it, so the voice gets eleven. His lines all fit inside that;
+ * the hosts share what is left. Raise it with SQUATCH_VO_BUDGET for a local
+ * build, where nothing is capped. */
+const VO_BUDGET = Number(process.env.SQUATCH_VO_BUDGET || 11 * 1024 * 1024);
 const WANT_VO = !process.argv.includes('--no-vo');
 const WANT_SFX = process.argv.includes('--sfx');
 
@@ -137,16 +141,39 @@ let sfxBytes = 0;
   const baked = [];
   let skipped = 0;
 
-  // Voice first, so it is the effects that get dropped when the budget runs
-  // out rather than a random half of the lines.
   // vo.* is the man in the flat, radio.vo.* is the hosts. Both are people
-  // reading lines; neither has a synth fallback. His voice goes in first
-  // because you hear it from the first second of the game.
+  // reading lines; neither has a synth fallback.
   const isVoice = (n) => n.startsWith('vo.') || n.startsWith('radio.vo.');
-  const ordered = cues.slice().sort((a, b) => {
-    const rank = (n) => (n.startsWith('vo.') ? 0 : n.startsWith('radio.vo.') ? 1 : 2);
-    return rank(a.name) - rank(b.name);
-  });
+
+  /*
+   * His voice goes in whole -- you hear it from the first second and it is
+   * the only voice that is always relevant. The hosts do not all fit, so they
+   * are taken round-robin by speaker rather than in manifest order: eleven
+   * hosts each losing their back half beats four hosts complete and seven
+   * struck silent. A host line with no clip still shows its text and holds
+   * the screen for a reading beat, which is what the radio did before anyone
+   * was recorded, so this degrades to the old behaviour rather than to a gap.
+   */
+  const mine = [];
+  const byVoice = new Map();
+  for (const cue of cues) {
+    const file = cue.file || `${cue.name}.mp3`;
+    if (!present.has(file) || !isVoice(cue.name)) continue;
+    if (cue.name.startsWith('vo.')) { mine.push(cue); continue; }
+    const who = cue.name.split('.')[2] || 'other';
+    if (!byVoice.has(who)) byVoice.set(who, []);
+    byVoice.get(who).push(cue);
+  }
+  const hosts = [];
+  for (let i = 0; ; i++) {
+    let any = false;
+    for (const list of byVoice.values()) {
+      if (i < list.length) { hosts.push(list[i]); any = true; }
+    }
+    if (!any) break;
+  }
+  const ordered = [...mine, ...hosts, ...cues.filter((c) => !isVoice(c.name))];
+  const dropped = new Map();
 
   for (const cue of ordered) {
     const file = cue.file || `${cue.name}.mp3`;
@@ -156,7 +183,12 @@ let sfxBytes = 0;
 
     let bytes;
     try { bytes = read('assets/sfx/' + file); } catch { continue; }
-    if (sfxBytes + bytes.length * 1.37 > VO_BUDGET) { skipped++; continue; }
+    if (sfxBytes + bytes.length * 1.37 > VO_BUDGET) {
+      const who = cue.name.startsWith('vo.') ? 'the player' : (cue.name.split('.')[2] || 'other');
+      dropped.set(who, (dropped.get(who) || 0) + 1);
+      skipped++;
+      continue;
+    }
 
     const uri = dataUri('audio/mpeg', bytes);
     cue.file = uri;          // what the engine fetches
@@ -171,7 +203,10 @@ let sfxBytes = 0;
    * the index halves the page, because otherwise every URI is stored twice --
    * once as the cue's file, once in the index that gates on it. */
   delete inline['assets/sfx/index.json'];
-  if (skipped) console.log(`  note: ${skipped} cues left out at the ${mb(VO_BUDGET)} budget`);
+  if (skipped) {
+    const who = [...dropped].map(([k, n]) => `${k} ${n}`).join(', ');
+    console.log(`  note: ${skipped} clips over the ${mb(VO_BUDGET)} budget (${who})`);
+  }
 }
 
 /** Re-encode one image through headless Chromium, since there is no PIL here. */
