@@ -2806,6 +2806,10 @@
       "name": "vo.glue.6",
       "voice": "player",
       "say": "Hands are stuck together. Brilliant."
+    },
+    {
+      "name": "chair.roll.loop",
+      "_note": "Castors on a hard floor, looped while the chair is actually moving."
     }
   ]
 }

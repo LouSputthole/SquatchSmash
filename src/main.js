@@ -189,6 +189,9 @@ const game = {
   left: false,          // out of the door; the game is over
   nextFartAt: 40 + Math.random() * 60,
   fartClock: 0,
+  chairX: 0,            // how far the chair has rolled from where you sat down
+  chairZ: 0,
+  chairRoll: 0,         // seconds of continuous movement, for the wheel noise
   pushQueue: [],        // the keys still to hit, front one live
   pushT: 0,
   pushFlash: null,
@@ -293,6 +296,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
+    updateChair,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -542,6 +546,9 @@ function getUp() {
 function sitAtPC() {
   if (game.seated) return;
   game.seated = true;
+  game.chairX = 0;
+  game.chairZ = 0;
+  game.chairRoll = 0;
   interaction.setPaused(true);
   hud.setMode('seated');
   audio.play('chair.roll', { volume: 0.4 });
@@ -565,6 +572,8 @@ function sitAtPC() {
 
 function standFromPC() {
   hud.setPosture(null);
+  game.chairRoll = 0;
+  audio.stopLoop('chair.roll.loop', 0.2);
   if (!game.seated) return;
   game.seated = false;
   hud.setMode('walk');
@@ -1450,6 +1459,62 @@ function standFromToilet() {
   player.standFrom(apartment.toiletStand, () => interaction.setPaused(false));
 }
 
+/**
+ * Rolling the chair while you are sat at it.
+ *
+ * A desk chair you cannot move is a chair you are strapped into, and it made
+ * the monitor a fixed frame you were pointed at rather than something you
+ * were sitting in front of. WASD now rolls it, and the camera goes with it,
+ * within about a forearm's reach in each direction -- enough to lean in, shove
+ * back from the desk, or slide sideways to see round the second monitor.
+ *
+ * The chair mesh moves too, so getting up leaves it wherever you left it.
+ */
+const CHAIR_REACH_X = 0.42;
+const CHAIR_REACH_Z = 0.50;
+const CHAIR_SPEED = 0.62;
+
+function updateChair(dt) {
+  if (!game.seated || player.mode !== 'seated') return;
+  const k = player.keys;
+  let dx = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
+  let dz = (k.has('KeyS') ? 1 : 0) - (k.has('KeyW') ? 1 : 0);
+  if (!dx && !dz) {
+    if (game.chairRoll > 0) {
+      game.chairRoll = 0;
+      audio.stopLoop('chair.roll.loop', 0.18);
+    }
+    return;
+  }
+
+  // Diagonals should not be faster than straight lines.
+  const len = Math.hypot(dx, dz) || 1;
+  dx /= len; dz /= len;
+
+  const before = { x: game.chairX, z: game.chairZ };
+  game.chairX = clampTo(game.chairX + dx * CHAIR_SPEED * dt, CHAIR_REACH_X);
+  game.chairZ = clampTo(game.chairZ + dz * CHAIR_SPEED * dt, CHAIR_REACH_Z);
+  const moved = Math.abs(game.chairX - before.x) + Math.abs(game.chairZ - before.z);
+
+  if (moved > 1e-5) {
+    // Castors on a hard floor: a loop while you are actually rolling, rather
+    // than one clip per frame, which would machine-gun.
+    if (game.chairRoll <= 0) {
+      audio.startLoop('chair.roll.loop', {
+        volume: 0.16, position: apartment.chair.position, ref: 1.0, maxDist: 6,
+      });
+    }
+    game.chairRoll += dt;
+  }
+
+  player.position.x = apartment.deskPose.position.x + game.chairX;
+  player.position.z = apartment.deskPose.position.z + game.chairZ;
+  apartment.chair.position.x = apartment.chairHome.x + game.chairX;
+  apartment.chair.position.z = apartment.chairHome.z + game.chairZ;
+}
+
+const clampTo = (v, lim) => (v < -lim ? -lim : v > lim ? lim : v);
+
 /* ------------------------------------------------------------------ */
 /* Pushing                                                             */
 /* ------------------------------------------------------------------ */
@@ -1948,6 +2013,7 @@ function frame() {
       updateBowel(dt);
       updateZyn();
       updateShower(hdt);
+      updateChair(dt);
       updateGluing(dt);
       splat.update(dt);
       updateCooking(hdt);

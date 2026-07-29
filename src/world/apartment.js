@@ -1413,6 +1413,8 @@ export async function buildApartment(ctx) {
     radioPos,
     radioNeedle: radio.needle,
     chair: chair.group,
+    /** Where the chair started, so rolling can be expressed as an offset. */
+    chairHome: chair.group.position.clone(),
     fridgePos: new THREE.Vector3(4.4, 1.1, 1.95),
 
     setFridge,

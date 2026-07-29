@@ -669,6 +669,11 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 0.36, type: 'lowpass', freq: 620, gain: 0.30, sweep: 0.35 });
       tone(ctx, dest, t, { freq: 130, to: 70, dur: 0.3, gain: 0.14, type: 'triangle' });
       break;
+    case 'chair.roll.loop':
+      // Castors turning on a hard floor, held while you are actually moving.
+      burst(ctx, dest, t, { dur: 0.9, type: 'bandpass', freq: 520, q: 1.1, gain: 0.16 });
+      burst(ctx, dest, t, { dur: 0.9, type: 'highpass', freq: 2400, gain: 0.05 });
+      break;
     case 'chair.roll':
       burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 380, q: 0.9, gain: 0.20 });
       break;
