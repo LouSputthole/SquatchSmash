@@ -87,6 +87,10 @@ export const WALL_SLOTS = [
   { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
   { slot: 'south.wide', x: -3.38, y: 1.66, z: 4.40, rotY: Math.PI, h: 0.34 },
+  /* A tall portrait in the one stretch of this wall wide enough for it. The
+   * gap between south.wide and the stacked pair is 0.67m; this is 0.30 across,
+   * which leaves it looking hung rather than wedged. */
+  { slot: 'south.stands', x: -2.72, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.62 },
   { slot: 'south.portrait', x: -4.42, y: 1.72, z: 4.40, rotY: Math.PI, h: 0.54 },
   // Between the door and the Denver piece, which was the last empty stretch of
   // wall in the flat. Not a tournament photo.

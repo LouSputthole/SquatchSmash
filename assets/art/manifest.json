@@ -342,6 +342,12 @@
       "file": "sticker-pinup-yellow.png",
       "title": "The newer one",
       "caption": "Went on later, at a different angle."
+    },
+    {
+      "slot": "south.stands",
+      "file": "major-austin-stands.jpg",
+      "title": "In the stands, Austin",
+      "caption": "Somewhere in the second half. Nobody in this photograph is watching the game."
     }
   ]
 }
