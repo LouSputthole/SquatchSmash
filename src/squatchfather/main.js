@@ -142,9 +142,17 @@ document.addEventListener('mousemove', (e) => {
   prospect.look(dx, dy, seated.clamp);
 });
 
+// Chrome rejects the request during its post-Escape cooldown and returns a
+// promise; swallow it so a denied lock isn't reported as a page error. The
+// player can always click the canvas to try again.
+function lockPointer() {
+  const p = renderer.domElement.requestPointerLock();
+  if (p && typeof p.catch === 'function') p.catch(() => {});
+}
+
 renderer.domElement.addEventListener('mousedown', (e) => {
   if (!running) return;
-  if (!pointerLocked) { renderer.domElement.requestPointerLock(); return; }
+  if (!pointerLocked) { lockPointer(); return; }
   if (e.button === 0) firePressed = true;
 });
 
@@ -232,6 +240,12 @@ function waiterPours() {
   });
 }
 
+// The rattle list is built during scene assembly; look entries up by the mesh
+// rather than by position in it.
+function glasswareFor(mesh) {
+  return sceneState.glassware.find((g) => g.mesh === mesh);
+}
+
 function knockGlassOver(glassEntry) {
   const g = glassEntry.mesh;
   const from = g.position.clone();
@@ -261,6 +275,7 @@ function roomReacts() {
   });
   animateOver(1.2, (e) => {
     cook.position.z = 11.6 - 0.55 * e;
+    sceneState.doors.kitchenDoor.rotation.y = -0.7 * e;
   });
 }
 
@@ -269,6 +284,7 @@ function resetRoomReactions() {
   diner1.position.y = 0; diner1.rotation.x = 0;
   diner2.position.y = 0; diner2.rotation.z = 0;
   cook.position.z = 11.6;
+  sceneState.doors.kitchenDoor.rotation.y = 0;
 }
 
 // ---------------------------------------------------------------- states
@@ -327,16 +343,21 @@ function buildStates() {
         mcclawsky.escortIn();
         setObjective('Sit down');
         interactions.allow('chair');
-        timeline.after(1.6, () => {
+        this.doorShut = false;
+        sal.lookAt(prospect.pos);
+      },
+      update() {
+        ambience.setOutside(Math.max(0, 1 - prospect.pos.z / 3));
+        sal.watch(new THREE.Vector3(prospect.pos.x, 1.4, prospect.pos.z));
+        // The door only shuts once he's well clear of it — closing it on a
+        // player who has wandered back onto the sidewalk would strand them
+        // outside with the only way forward (the chair) locked in here.
+        if (!this.doorShut && prospect.pos.z > 2.2) {
+          this.doorShut = true;
           Foley.doorClose();
           swingDoor(sceneState.doors.frontDoor, -2.0, 0, 0.7);
           sceneState.doors.frontDoorBlock.on = true;
-        });
-        sal.lookAt(prospect.pos);
-      },
-      update(dt) {
-        ambience.setOutside(Math.max(0, 1 - prospect.pos.z / 3));
-        sal.watch(new THREE.Vector3(prospect.pos.x, 1.4, prospect.pos.z));
+        }
       },
     },
 
@@ -546,7 +567,7 @@ function buildStates() {
         fire();
         prospect.fireKick();
         sal.kill();
-        knockGlassOver(sceneState.glassware[1]);
+        knockGlassOver(glasswareFor(sceneState.props.salGlass));
         roomReacts();
         fsm.go(S.SHOOT_MCCLAWSKY);
       },
@@ -689,8 +710,9 @@ function restoreCheckpoint() {
     g.mesh.rotation.set(0, 0, 0);
     g.mesh.userData.clinked = false;
   }
-  sceneState.glassware[1].base.set(0.1, 0.78, 5.95);
-  sceneState.glassware[1].mesh.position.copy(sceneState.glassware[1].base);
+  const salGlass = glasswareFor(sceneState.props.salGlass);
+  salGlass.base.set(0.1, 0.78, 5.95);
+  salGlass.mesh.position.copy(salGlass.base);
 
   if (prospect.droppedMesh) {
     scene.remove(prospect.droppedMesh);
@@ -795,7 +817,7 @@ function wire(data) {
 
   // Debug handle: jump between beats and fake input while tuning the scene.
   window.squatchfather = {
-    fsm, prospect, sal, mcclawsky, sceneState, director, dialogue, interactions,
+    fsm, prospect, sal, mcclawsky, sceneState, director, dialogue, interactions, audio,
     chairInteraction, toiletInteraction, dropInteraction,
     go: (name) => fsm.go(name),
     pressE: () => { ePressed = true; },
@@ -832,6 +854,10 @@ function frame() {
     interactions.update(dt, canInteract && keys.e);
     if (fsm.is(S.DROP_WEAPON)) ui.prompt.classList.add('show');
 
+    // Clicks outside the shooting beats are discarded rather than queued —
+    // he cannot draw early, and cannot fire again once both men are down.
+    if (!fsm.is(S.TRAIN_APPROACH, S.SHOOT_SAL, S.SHOOT_MCCLAWSKY)) firePressed = false;
+
     fsm.update(dt);
 
     ambience.update(dt);
@@ -854,9 +880,11 @@ function togglePause() {
   paused = !paused;
   ui.pause.classList.toggle('hidden', !paused);
   if (paused) {
+    audio.suspend();
     document.exitPointerLock();
   } else {
-    renderer.domElement.requestPointerLock();
+    audio.resume();
+    lockPointer();
   }
 }
 
@@ -882,7 +910,7 @@ function startScene(fresh = true) {
     fsm.start(S.START_EXTERIOR);
   }
   fadeIn();
-  renderer.domElement.requestPointerLock();
+  lockPointer();
 }
 
 function hardRestart() {
@@ -895,7 +923,7 @@ $('restartBtn').addEventListener('click', hardRestart);
 $('retryBtn').addEventListener('click', () => {
   ui.death.classList.add('hidden');
   restoreCheckpoint();
-  renderer.domElement.requestPointerLock();
+  lockPointer();
 });
 $('againBtn').addEventListener('click', hardRestart);
 for (const id of ['backBtn', 'quitBtn', 'menuBtn']) {

@@ -50,6 +50,12 @@ export function resume() {
   if (ctx && ctx.state === 'suspended') ctx.resume();
 }
 
+// Pausing the scene has to take the room with it — the ambience and the train
+// are looping sources that would otherwise play on behind the pause overlay.
+export function suspend() {
+  if (ctx && ctx.state === 'running') ctx.suspend();
+}
+
 export const isReady = () => !!ctx;
 export const now = () => (ctx ? ctx.currentTime : 0);
 export const audioCtx = () => ctx;

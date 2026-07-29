@@ -90,6 +90,7 @@ export class ToiletWeaponInteraction {
     const wrapped = this.scene.props.wrapped;
     const gap = new THREE.Vector3(POS.toiletSearch.x, POS.toiletSearch.y + 0.05, POS.toiletSearch.z - 0.35);
 
+    this.stepIndex = 0;
     this.steps = [
       [0.0, () => { wrapped.visible = true; this.director.steerTo(gap, 0.6); Foley.cloth(); }],
       [0.9, () => { wrapped.visible = false; this.bundle.visible = true; Foley.cloth(); }],
@@ -109,15 +110,21 @@ export class ToiletWeaponInteraction {
         if (this.onRetrieved) this.onRetrieved();
       }],
     ];
+    this.#pump(); // anything scheduled at t=0 runs the moment he finds it
+  }
+
+  // Steps are in order, so walk the cursor forward over everything now due.
+  #pump() {
+    while (this.stepIndex < this.steps.length && this.steps[this.stepIndex][0] <= this.t) {
+      this.steps[this.stepIndex][1]();
+      this.stepIndex++;
+    }
   }
 
   update(dt) {
     if (!this.retrieving) return;
-    const prev = this.t;
     this.t += dt;
-    for (const [at, fn] of this.steps) {
-      if (prev < at && this.t >= at) fn();
-    }
+    this.#pump();
     // Turning it over in his hands
     if (this.inspect) {
       const w = this.prospect.weapon;
@@ -130,6 +137,7 @@ export class ToiletWeaponInteraction {
     this.retrieving = false;
     this.found = false;
     this.inspect = false;
+    this.stepIndex = 0;
     this.bundle.visible = false;
     this.wrongSearches = 0;
     this.lastStage = -1;
