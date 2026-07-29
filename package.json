@@ -15,6 +15,7 @@
     "verify:day-one": "node tools/verify-day-one.mjs",
     "verify:day-two": "node tools/verify-day-two.mjs",
     "verify:computer": "node tools/verify-computer.mjs",
+    "verify:squatch-smash": "node tools/verify-squatch-smash.mjs",
     "verify:bing": "node tools/verify-bing.mjs",
     "verify:bing-two": "node tools/verify-bing-two.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",

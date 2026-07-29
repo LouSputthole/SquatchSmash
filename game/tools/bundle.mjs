@@ -85,6 +85,10 @@ if (/^\s*(import|export)\s/m.test(script)) {
 let html = read('index.html');
 html = html.replace(/<script type="importmap">[\s\S]*?<\/script>\s*/, '');
 html = html.replace(/<script type="module"[^>]*><\/script>\s*/, `<script>\n${script}\n</script>\n`);
+// The menu logo is the game's only external asset. A "single self-contained
+// HTML file" must keep working after it is moved away from this directory.
+const logo = readFileSync(join(root, 'assets', 'logo.png')).toString('base64');
+html = html.replace('src="assets/logo.png"', `src="data:image/png;base64,${logo}"`);
 if (fragment) {
   // Strip the document wrapper: keep everything inside <body>, plus <title>
   // and the <style> block from <head>.

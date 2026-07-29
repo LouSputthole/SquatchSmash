@@ -1334,10 +1334,13 @@ function tick() {
       b.t -= dt;
       for (const f of b.flames) f.scale.y = 1 + Math.sin(flameT * 15 + i * 2.1) * 0.3;
       if (b.t <= 0) {
-        destroyProp(b.prop);
-        burning.splice(i, 1);
+        // Count the fire result before destroyProp: the final standing prop
+        // can end the run immediately, and the end screen must include every
+        // goal and point earned by that same destruction.
         burnKills++;
         goals.set('arson', burnKills);
+        destroyProp(b.prop);
+        burning.splice(i, 1);
       }
     }
 

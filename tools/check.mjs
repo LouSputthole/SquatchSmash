@@ -30,6 +30,8 @@ const fail = (msg) => { console.error(`  FAIL  ${msg}`); failures++; };
 const sources = [
   ...walk(path.join(ROOT, 'src')),
   ...walk(path.join(ROOT, 'tools')),
+  ...walk(path.join(ROOT, 'game', 'src')),
+  ...walk(path.join(ROOT, 'game', 'tools')),
 ].filter((f) => /\.m?js$/.test(f));
 
 console.log(`Parsing ${sources.length} source files…`);
