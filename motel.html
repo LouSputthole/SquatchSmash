@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>The Jerky Motel — SquatchSmash</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥩</text></svg>">
+<style>
+  :root {
+    --pink: #ff3ea5;
+    --pink-dim: #a8256b;
+    --turq: #3fb9b0;
+    --yellow: #ffd75e;
+    --night: #0d1220;
+    --panel: rgba(10, 14, 26, .72);
+    --red: #d92e2e;
+    --green: #7dffb0;
+    --silver: #cfd4e0;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #05070d; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none; color: #eef1f7;
+  }
+  canvas { display: block; }
+
+  /* ---------------- HUD ---------------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 5; }
+  #hud.visible { display: block; }
+
+  .card {
+    background: var(--panel); border: 1px solid rgba(63, 185, 176, .35);
+    border-radius: 10px; backdrop-filter: blur(2px);
+  }
+
+  #objectiveBox {
+    position: absolute; top: 16px; left: 18px; padding: 10px 14px; min-width: 250px; max-width: 340px;
+  }
+  #objLabel { font-size: 11px; letter-spacing: 3px; color: var(--turq); font-weight: 800; }
+  #objTitle { font-size: 19px; font-weight: 900; color: #fff; margin-top: 2px; line-height: 1.25; }
+  #objSub { font-size: 13px; color: #a9b3c6; margin-top: 3px; }
+  #objList { margin-top: 8px; font-size: 13px; line-height: 1.6; display: none; }
+  #objList.show { display: block; }
+  #objList .done { color: var(--green); }
+  #objList .done::before { content: "✔ "; }
+  #objList .todo { color: #b9c2d4; }
+  #objList .todo::before { content: "▫ "; }
+  #objList h4 { font-size: 11px; letter-spacing: 2px; color: var(--pink); margin: 6px 0 2px; }
+
+  #meters { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 340px; display: none; }
+  #meters.show { display: block; }
+  .meter { margin-bottom: 6px; }
+  .meter .lbl {
+    display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 2px;
+    font-weight: 800; color: #b9c2d4; margin-bottom: 2px;
+  }
+  .meter .bar { height: 10px; border-radius: 6px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.22); overflow: hidden; }
+  .meter .fill { height: 100%; width: 0%; transition: width .18s linear; }
+  #heatFill { background: linear-gradient(90deg, var(--yellow), var(--red)); }
+  #readFill { background: linear-gradient(90deg, #4ad9ff, var(--turq)); }
+  #heatWrap.hot .lbl { color: #ff8a8a; animation: pulse .5s infinite alternate; }
+  @keyframes pulse { from { opacity: .6; } to { opacity: 1; } }
+
+  #healthWrap { position: absolute; bottom: 22px; left: 18px; width: 230px; }
+  #healthWrap .lbl { font-size: 11px; letter-spacing: 3px; color: #b9c2d4; font-weight: 800; }
+  #hpBar { height: 14px; border-radius: 7px; background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.25); overflow: hidden; margin-top: 3px; }
+  #hpFill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff6a3a, var(--red)); transition: width .15s linear; }
+
+  #gearBox { position: absolute; bottom: 22px; right: 18px; text-align: right; padding: 8px 12px; }
+  #weaponName { font-size: 16px; font-weight: 900; color: var(--yellow); }
+  #weaponSub { font-size: 12px; color: #a9b3c6; }
+  #carryLine { font-size: 13px; color: var(--turq); font-weight: 800; margin-top: 4px; }
+
+  #prompt {
+    position: absolute; bottom: 118px; left: 50%; transform: translateX(-50%);
+    padding: 7px 16px; font-size: 16px; font-weight: 700; opacity: 0; transition: opacity .12s;
+  }
+  #prompt.show { opacity: 1; }
+  #prompt b { color: var(--yellow); }
+
+  #subtitle {
+    position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%);
+    max-width: 70vw; text-align: center; font-size: 19px; line-height: 1.4;
+    text-shadow: 0 2px 8px rgba(0,0,0,.9); opacity: 0; transition: opacity .2s;
+  }
+  #subtitle.show { opacity: 1; }
+  #subtitle .who { color: var(--pink); font-weight: 900; letter-spacing: 1px; }
+  #subtitle .who.prospect { color: var(--turq); }
+  #subtitle .stage { color: #98a2b6; font-style: italic; }
+
+  #toasts { position: absolute; top: 60px; right: 18px; width: 300px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+  .toast {
+    padding: 8px 14px; font-size: 14px; font-weight: 800; animation: toastIn .35s ease-out;
+    border-left: 3px solid var(--turq);
+  }
+  .toast.ach { border-left-color: var(--yellow); color: var(--yellow); }
+  .toast.warn { border-left-color: var(--red); color: #ff9a9a; }
+  .toast.clue { border-left-color: var(--pink); color: #ffb0dc; }
+  .toast small { display: block; font-size: 11px; font-weight: 600; color: #a9b3c6; letter-spacing: 1px; }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+  .toast.out { animation: toastOut .4s ease-in forwards; }
+  @keyframes toastOut { to { opacity: 0; transform: translateX(24px); } }
+
+  /* ---------------- Dialogue wheel ---------------- */
+  #wheel {
+    position: fixed; inset: 0; z-index: 7; display: none;
+    align-items: center; justify-content: center; pointer-events: none;
+  }
+  #wheel.show { display: flex; }
+  #wheelInner { position: relative; width: min(760px, 92vw); pointer-events: auto; }
+  #wheelHead {
+    text-align: center; margin-bottom: 14px; font-size: 20px;
+    text-shadow: 0 2px 10px rgba(0,0,0,.9);
+  }
+  #wheelHead .who { color: var(--pink); font-weight: 900; letter-spacing: 1px; }
+  #wheelOpts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .opt {
+    display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
+    padding: 10px 14px; font-size: 15px; line-height: 1.35; text-align: left;
+    background: var(--panel); border: 1px solid rgba(255,255,255,.18); border-radius: 10px;
+    color: #eef1f7; font-family: inherit; transition: transform .08s, border-color .12s;
+  }
+  .opt:hover, .opt.sel { transform: translateY(-2px); border-color: var(--pink); }
+  .opt .key {
+    flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; background: rgba(255,255,255,.12);
+    display: grid; place-items: center; font-size: 12px; font-weight: 900; color: var(--yellow);
+  }
+  .opt .style { display: block; font-size: 10px; letter-spacing: 2px; font-weight: 800; margin-bottom: 2px; }
+  .opt[data-style="calm"] .style { color: var(--turq); }
+  .opt[data-style="threat"] .style { color: #ff8a5a; }
+  .opt[data-style="insult"] .style { color: var(--pink); }
+  .opt[data-style="expert"] .style { color: var(--yellow); }
+  #wheelHint { text-align: center; margin-top: 10px; font-size: 12px; color: #98a2b6; }
+
+  /* ---------------- Inspection panel ---------------- */
+  #inspect {
+    position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 6;
+    width: 300px; padding: 12px 14px; display: none;
+  }
+  #inspect.show { display: block; pointer-events: auto; }
+  #inspect h3 { font-size: 12px; letter-spacing: 3px; color: var(--yellow); margin-bottom: 4px; }
+  #inspectSerial { font-size: 11px; color: #8d97ab; margin-bottom: 8px; letter-spacing: 1px; }
+  .insp {
+    display: block; width: 100%; text-align: left; margin-bottom: 5px; cursor: pointer;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 7px;
+    color: #eef1f7; font-family: inherit; font-size: 14px; padding: 6px 10px;
+  }
+  .insp:hover { border-color: var(--turq); }
+  .insp.done { opacity: .38; cursor: default; }
+  .insp .k { color: var(--yellow); font-weight: 900; margin-right: 8px; }
+  #verdict { margin-top: 8px; font-size: 14px; font-weight: 800; }
+  #verdict.real { color: var(--green); }
+  #verdict.fake { color: #ff8a8a; }
+  #inspectHint { font-size: 11px; color: #8d97ab; margin-top: 6px; }
+
+  /* ---------------- Drive HUD ---------------- */
+  #driveHud { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 320px; display: none; }
+  #driveHud.show { display: block; }
+  #freshFill { background: linear-gradient(90deg, var(--green), var(--yellow)); }
+  #policeFill { background: linear-gradient(90deg, #4a9ad9, #2a4ad9); }
+  #distFill { background: linear-gradient(90deg, var(--pink), var(--turq)); }
+
+  /* ---------------- Overlays ---------------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; overflow-y: auto;
+    background: radial-gradient(ellipse at 50% 30%, rgba(40,12,44,.86), rgba(5,7,13,.95));
+    backdrop-filter: blur(3px); padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  .kicker { font-size: 13px; letter-spacing: 8px; color: var(--turq); font-weight: 800; }
+  .title {
+    font-size: clamp(38px, 8vw, 86px); font-weight: 900; font-style: italic; letter-spacing: 2px;
+    color: var(--pink); -webkit-text-stroke: 2px #2a0d22;
+    text-shadow: 0 0 26px rgba(255, 62, 165, .55), 0 6px 0 #45102f;
+    margin: 4px 0 6px; transform: skewX(-5deg);
+  }
+  .sub { font-size: 18px; color: #c4cde0; margin-bottom: 18px; max-width: 640px; }
+  .cols { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; margin-bottom: 22px; }
+  .panel {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(63,185,176,.3); border-radius: 12px;
+    padding: 14px 20px; font-size: 14px; line-height: 1.8; text-align: left; color: #dbe2f0; max-width: 380px;
+  }
+  .panel h3 { font-size: 12px; letter-spacing: 3px; color: var(--pink); margin-bottom: 6px; }
+  .panel b { color: var(--yellow); display: inline-block; min-width: 118px; }
+  .panel b.k2 { min-width: 0; }
+  .btn {
+    font-size: 22px; font-weight: 900; letter-spacing: 1px; padding: 13px 40px; border-radius: 12px;
+    border: none; cursor: pointer; color: #14060f; font-family: inherit;
+    background: linear-gradient(180deg, #ff77c2, var(--pink));
+    box-shadow: 0 5px 0 #8a1c56, 0 8px 20px rgba(0,0,0,.55); transition: transform .08s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #8a1c56; }
+  .btn.alt { background: linear-gradient(180deg, #5fd8ce, var(--turq)); box-shadow: 0 5px 0 #1d6a65, 0 8px 20px rgba(0,0,0,.55); }
+  .btn.small { font-size: 16px; padding: 9px 24px; }
+  .btnrow { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  #endStats { font-size: 15px; line-height: 1.9; color: #dbe2f0; margin-bottom: 14px; }
+  #endStats .big { display: block; font-size: 46px; font-weight: 900; color: #fff; }
+  #endLines { font-size: 17px; line-height: 1.9; margin-bottom: 16px; max-width: 640px; }
+  #endLines .who { color: var(--pink); font-weight: 900; }
+  #endLines .who.prospect { color: var(--turq); }
+  #endLines .stage { color: #98a2b6; font-style: italic; }
+  #achList { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 700px; margin-bottom: 16px; }
+  .ach {
+    font-size: 12px; font-weight: 800; padding: 5px 10px; border-radius: 20px;
+    border: 1px solid rgba(255,255,255,.2); color: #7b8598;
+  }
+  .ach.got { color: var(--yellow); border-color: var(--yellow); background: rgba(255,215,94,.1); }
+
+  #dmgFlash {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 40%, rgba(200,20,20,.6) 100%);
+    transition: opacity .25s;
+  }
+  #dmgFlash.on { opacity: 1; }
+  #slowTint {
+    position: fixed; inset: 0; pointer-events: none; z-index: 3; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, rgba(255,62,165,.22) 100%);
+    transition: opacity .25s;
+  }
+  #slowTint.on { opacity: 1; }
+  #grapple {
+    position: fixed; inset: 0; z-index: 8; display: none; align-items: center; justify-content: center;
+    pointer-events: none; flex-direction: column; gap: 10px;
+  }
+  #grapple.show { display: flex; }
+  #grappleText { font-size: 34px; font-weight: 900; color: #fff; text-shadow: 0 3px 12px #000; letter-spacing: 2px; }
+  #grappleBar { width: 320px; height: 16px; border-radius: 8px; background: rgba(0,0,0,.6); border: 2px solid #fff; overflow: hidden; }
+  #grappleFill { height: 100%; width: 0%; background: var(--pink); }
+
+  #muteBtn {
+    position: absolute; top: 16px; right: 18px; pointer-events: auto; cursor: pointer; border: none;
+    background: rgba(0,0,0,.4); color: #fff; border-radius: 8px; font-size: 18px; padding: 4px 10px;
+  }
+
+  /* ---------------- Touch ---------------- */
+  #touchUI { display: none; }
+  body.touch #touchUI { display: block; }
+  #stickZone { position: fixed; left: 0; bottom: 0; width: 45%; height: 55%; z-index: 7; touch-action: none; }
+  #stickBase {
+    display: none; position: fixed; width: 110px; height: 110px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.4); background: rgba(255,255,255,.08);
+    transform: translate(-50%, -50%); z-index: 8; pointer-events: none;
+  }
+  #stickKnob { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; border-radius: 50%;
+    background: rgba(255,255,255,.5); transform: translate(-50%, -50%); }
+  #lookZone { position: fixed; right: 0; top: 0; width: 55%; height: 60%; z-index: 6; touch-action: none; }
+  .tbtn {
+    position: fixed; z-index: 8; border-radius: 50%; border: none; font-weight: 900; color: #14060f;
+    background: linear-gradient(180deg, #ff77c2, var(--pink)); box-shadow: 0 4px 0 #8a1c56; touch-action: none;
+    font-family: inherit;
+  }
+  #hitBtn { right: 24px; bottom: 56px; width: 92px; height: 92px; font-size: 16px; }
+  #useBtn { right: 130px; bottom: 34px; width: 64px; height: 64px; font-size: 13px;
+    background: linear-gradient(180deg, #5fd8ce, var(--turq)); box-shadow: 0 4px 0 #1d6a65; }
+  #jumpBtn { right: 44px; bottom: 162px; width: 64px; height: 64px; font-size: 13px;
+    background: linear-gradient(180deg, #ffe08a, var(--yellow)); box-shadow: 0 4px 0 #8a6a14; }
+</style>
+</head>
+<body>
+  <div id="dmgFlash"></div>
+  <div id="slowTint"></div>
+
+  <div id="hud">
+    <div id="objectiveBox" class="card">
+      <div id="objLabel">OBJECTIVE</div>
+      <div id="objTitle">Meet the jerky suppliers</div>
+      <div id="objSub"></div>
+      <div id="objList"></div>
+    </div>
+
+    <div id="meters">
+      <div class="meter" id="heatWrap">
+        <div class="lbl"><span>SELLER SUSPICION</span><span id="heatPct">0%</span></div>
+        <div class="bar"><div class="fill" id="heatFill"></div></div>
+      </div>
+      <div class="meter" id="readWrap">
+        <div class="lbl"><span>PROSPECT'S READ</span><span id="readPct">0%</span></div>
+        <div class="bar"><div class="fill" id="readFill"></div></div>
+      </div>
+    </div>
+
+    <div id="driveHud">
+      <div class="meter">
+        <div class="lbl"><span>JERKY FRESHNESS</span><span id="freshPct">100%</span></div>
+        <div class="bar"><div class="fill" id="freshFill" style="width:100%"></div></div>
+      </div>
+      <div class="meter">
+        <div class="lbl"><span>POLICE ATTENTION</span><span id="policePct">0%</span></div>
+        <div class="bar"><div class="fill" id="policeFill"></div></div>
+      </div>
+      <div class="meter">
+        <div class="lbl"><span>TO THE SAFEHOUSE</span><span id="distPct">0%</span></div>
+        <div class="bar"><div class="fill" id="distFill"></div></div>
+      </div>
+    </div>
+
+    <div id="healthWrap">
+      <div class="lbl">PROSPECT</div>
+      <div id="hpBar"><div id="hpFill"></div></div>
+    </div>
+
+    <div id="gearBox" class="card">
+      <div id="weaponName">Sasquatch fists</div>
+      <div id="weaponSub">improvised · non-lethal</div>
+      <div id="carryLine"></div>
+    </div>
+
+    <div id="prompt" class="card"></div>
+    <div id="subtitle"></div>
+    <div id="toasts"></div>
+    <button id="muteBtn">🔊</button>
+  </div>
+
+  <div id="wheel">
+    <div id="wheelInner">
+      <div id="wheelHead"></div>
+      <div id="wheelOpts"></div>
+      <div id="wheelHint">1–4 or click to answer · you can walk away instead</div>
+    </div>
+  </div>
+
+  <div id="inspect" class="card">
+    <h3>THE RESERVE — FIELD INSPECTION</h3>
+    <div id="inspectSerial"></div>
+    <div id="inspectList"></div>
+    <div id="verdict"></div>
+    <div id="inspectHint">E or ESC to step back from the sample</div>
+  </div>
+
+  <div id="grapple">
+    <div id="grappleText">MASH SPACE</div>
+    <div id="grappleBar"><div id="grappleFill"></div></div>
+  </div>
+
+  <div id="touchUI">
+    <div id="stickZone"></div>
+    <div id="lookZone"></div>
+    <div id="stickBase"><div id="stickKnob"></div></div>
+    <button id="hitBtn" class="tbtn">HIT</button>
+    <button id="useBtn" class="tbtn">USE</button>
+    <button id="jumpBtn" class="tbtn">JUMP</button>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="kicker">SQUATCHSMASH · SCENE TWO</div>
+    <div class="title">THE JERKY MOTEL</div>
+    <div class="sub">
+      Tony Squatchmontana — everybody calls him Prospect — is buying a suitcase of
+      <b>The Reserve</b>: banned, seventy-two-hour-smoked, classified-spice contraband jerky.
+      Room twelve. They show the meat first. You show the money second.
+    </div>
+    <div class="cols">
+      <div class="panel">
+        <h3>CONTROLS</h3>
+        <div><b>WASD</b> Move &nbsp;·&nbsp; <b class="k2">Shift</b> Sprint</div>
+        <div><b>Mouse</b> Look (click to capture) &nbsp;·&nbsp; <b class="k2">← →</b> Turn</div>
+        <div><b>E</b> Interact / inspect / pick up</div>
+        <div><b>F or Click</b> Swing &nbsp;·&nbsp; <b class="k2">R</b> Throw / fire</div>
+        <div><b>Space</b> Jump &nbsp;·&nbsp; <b class="k2">G</b> Drop weapon</div>
+        <div><b>1–4</b> Answer in dialogue &nbsp;·&nbsp; <b class="k2">Tab</b> Objectives</div>
+        <div><b>P / Esc</b> Pause &nbsp;·&nbsp; <b class="k2">M</b> Mute</div>
+      </div>
+      <div class="panel">
+        <h3>HOUSE RULES</h3>
+        <div>Nobody takes control away from you. Dialogue happens while people walk, block doors and get into position.</div>
+        <div>Look around the lot before you knock — every warning sign you spot buys you something later.</div>
+        <div>The sample may be genuine, half-cut, or entirely gas-station product. Inspect it properly.</div>
+        <div>Where you are standing when it goes bad decides how it goes.</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button id="startBtn" class="btn">START THE DEAL</button>
+      <a href="./index.html" class="btn alt small" style="text-decoration:none; display:inline-block; line-height:1.9;">CAMPGROUND SCENE</a>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="title">PAUSED</div>
+    <div id="pauseStats" class="sub"></div>
+    <div class="btnrow">
+      <button id="resumeBtn" class="btn">RESUME</button>
+      <button id="abortBtn" class="btn alt">WALK AWAY</button>
+    </div>
+  </div>
+
+  <div id="end" class="overlay hidden">
+    <div class="kicker" id="endKicker">MISSION COMPLETE</div>
+    <div class="title" id="endTitle">THE JERKY MOTEL</div>
+    <div id="endLines"></div>
+    <div id="endStats"></div>
+    <div class="cols">
+      <div class="panel" id="endObjectives"></div>
+      <div class="panel" id="endNotes"></div>
+    </div>
+    <div id="achList"></div>
+    <div class="btnrow">
+      <button id="againBtn" class="btn">RUN IT AGAIN</button>
+      <a href="./index.html" class="btn alt small" style="text-decoration:none; display:inline-block; line-height:1.9;">CAMPGROUND SCENE</a>
+    </div>
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js" } }
+  </script>
+  <script type="module" src="./src/motel/main.js"></script>
+</body>
+</html>
