@@ -1,16 +1,23 @@
 import * as THREE from 'three';
 import { buildMotel, makeJerkyCase, BOUNDS } from './level.js';
 import { Actor, CAST, WEAPON_STATS, buildWeaponMesh } from './actors.js';
-import { Sasquatch } from '../player.js';
-import { DebrisSystem } from '../debris.js';
-import { Effects } from '../effects.js';
-import { lambert } from '../world.js';
+import { Sasquatch } from '../../game/src/player.js';
+import { DebrisSystem } from '../../game/src/debris.js';
+import { Effects } from '../../game/src/effects.js';
+import { lambert } from '../../game/src/world.js';
 import * as sfx from './audio.js';
 import {
   NODES, STYLES, STYLE_LABEL, SELLER_BARKS, PROSPECT_BARKS, MANNY_BARKS,
   FIGHT_BARKS, MANNY_FIGHT_BARKS, ENDING,
 } from './dialogue.js';
 import { rollShipment, Inspection, Freshness } from './jerky.js';
+import {
+  MISSION_IDS,
+  SCENE_IDS,
+  createCampaign,
+  navigateCampaign,
+} from '../core/campaign.js';
+import { createMotelStory } from '../core/motel-story.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -29,6 +36,13 @@ const RUN = 11.4;
 const CAM_FAR = 7.2;
 const CAM_NEAR = 4.0;
 const CAM_MIN = 1.1;   // hard floor when a wall crowds the shot
+
+const campaign = createCampaign();
+if (campaign.state.scene.id !== SCENE_IDS.JERKY_MOTEL) {
+  campaign.enter(SCENE_IDS.JERKY_MOTEL, { spawn: 'passenger_seat' });
+}
+const motelStory = createMotelStory({ campaign });
+let lastEndingKind = null;
 
 // ---------- Renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -302,7 +316,11 @@ window.addEventListener('mousemove', (e) => {
 $('startBtn').addEventListener('click', () => startScene());
 $('resumeBtn').addEventListener('click', () => togglePause());
 $('abortBtn').addEventListener('click', () => { paused = false; $('pause').classList.add('hidden'); finishScene('walked'); });
-$('againBtn').addEventListener('click', () => location.reload());
+$('continueBtn').addEventListener('click', () => {
+  navigateCampaign(campaign, SCENE_IDS.APARTMENT, {
+    spawn: lastEndingKind === 'home' ? 'front_door' : 'motel_retry',
+  });
+});
 $('muteBtn').addEventListener('click', (e) => { e.stopPropagation(); toggleMute(); });
 
 function toggleMute() {
@@ -519,6 +537,16 @@ function addRead(n) {
 
 // ---------- Scene flow ----------
 function startScene() {
+  const started = motelStory.begin();
+  if (!started.ok) {
+    const reason = started.reason === 'already_complete'
+      ? 'This job is already complete in the current save.'
+      : 'Lou has not sent Prospect to the motel yet.';
+    $('menuSub').textContent = reason;
+    $('startBtn').textContent = 'MISSION UNAVAILABLE';
+    $('startBtn').disabled = true;
+    return false;
+  }
   sfx.init();
   sfx.resume();
   sfx.startAmbience();
@@ -548,10 +576,24 @@ function startScene() {
   say('Manny', 'Room twelve. They show the meat first. You show the money second.', 4.2);
   setTimeout(() => { if (phase === 'car') openDialogue('mannyBrief'); }, 1400);
   clock.getDelta();
+  return true;
 }
 
 function finishScene(kind) {
   if (phase === 'end') return;
+  if (kind === 'home') {
+    const haul = S.carryingJerky || S.stashTaken || S.cratesFound;
+    if (!motelStory.complete({
+      ending: kind,
+      cargoRecovered: haul,
+      packagesIntact: S.packagesIntact,
+      freshness: freshness.value,
+      policeHeat: S.policeHeat,
+    })) {
+      return;
+    }
+  }
+  lastEndingKind = kind;
   phase = 'end';
   sfx.setMusic('none');
   sfx.stopAmbience();
@@ -3009,8 +3051,10 @@ tick();
 
 // Debug / test handle
 window.MOTEL = {
-  S, level, refs, actors, shipment, inspection, freshness,
+  S, level, refs, actors, shipment, inspection, freshness, campaign, story: motelStory,
   get phase() { return phase; },
+  get ending() { return lastEndingKind; },
+  get campaignState() { return campaign.state; },
   get pos() { return pos; },
   get objectives() { return { done: [...objDone], failed: [...objFailed] }; },
   get achievements() { return [...achieved]; },

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { lambert } from '../world.js';
+import { lambert } from '../../game/src/world.js';
 
 // ---------------------------------------------------------------------------
 // Everybody in the motel who is not Prospect.

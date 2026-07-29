@@ -173,10 +173,16 @@ class ApartmentStory {
           destination: SCENE_IDS.BADA_BING_TWO,
         };
       }
+      if (state.missions[MISSION_IDS.JERKY_MOTEL].status !== 'complete') {
+        return {
+          kind: 'go',
+          destination: SCENE_IDS.JERKY_MOTEL,
+        };
+      }
       return {
         kind: 'stay',
-        id: 'motel_next',
-        line: 'Lou sent you straight to the motel from the Bing.',
+        id: 'motel_complete',
+        line: 'The motel job is done.',
       };
     }
     if (!this.#callAnswered()) {

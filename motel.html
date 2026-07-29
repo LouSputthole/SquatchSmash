@@ -347,7 +347,7 @@
   <div id="menu" class="overlay">
     <div class="kicker">SQUATCHSMASH · SCENE TWO</div>
     <div class="title">THE JERKY MOTEL</div>
-    <div class="sub">
+    <div class="sub" id="menuSub">
       Tony Squatchmontana — everybody calls him Prospect — is buying a suitcase of
       <b>The Reserve</b>: banned, seventy-two-hour-smoked, classified-spice contraband jerky.
       Room twelve. They show the meat first. You show the money second.
@@ -373,7 +373,7 @@
     </div>
     <div class="btnrow">
       <button id="startBtn" class="btn">START THE DEAL</button>
-      <a href="./index.html" class="btn alt small" style="text-decoration:none; display:inline-block; line-height:1.9;">CAMPGROUND SCENE</a>
+      <a href="./index.html" class="btn alt small" style="text-decoration:none; display:inline-block; line-height:1.9;">APARTMENT</a>
     </div>
   </div>
 
@@ -397,13 +397,12 @@
     </div>
     <div id="achList"></div>
     <div class="btnrow">
-      <button id="againBtn" class="btn">RUN IT AGAIN</button>
-      <a href="./index.html" class="btn alt small" style="text-decoration:none; display:inline-block; line-height:1.9;">CAMPGROUND SCENE</a>
+      <button id="continueBtn" class="btn">RETURN TO APARTMENT</button>
     </div>
   </div>
 
   <script type="importmap">
-    { "imports": { "three": "./lib/three.module.js" } }
+    { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
   <script type="module" src="./src/motel/main.js"></script>
 </body>

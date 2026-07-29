@@ -16,6 +16,7 @@
     "verify:day-two": "node tools/verify-day-two.mjs",
     "verify:bing": "node tools/verify-bing.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",
+    "verify:motel": "node tools/verify-motel.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",

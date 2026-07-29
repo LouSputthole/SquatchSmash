@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { lambert } from '../world.js';
+import { lambert } from '../../game/src/world.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — level geometry.

@@ -160,3 +160,19 @@ test('the motel records its actual outcome and returns to the apartment', () => 
     policeHeat: 24,
   });
 });
+
+test('an interrupted motel run remains reachable from the apartment', () => {
+  const campaign = campaignAfterAirstrip();
+  campaign.update((state) => {
+    state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BADA_BING_TWO].status = 'complete';
+    state.missions[MISSION_IDS.BADA_BING_TWO].assignment = 'reserve_pickup';
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'in_progress';
+  });
+  const apartment = createApartmentStory({ campaign, ring: () => true });
+
+  assert.deepEqual(apartment.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.JERKY_MOTEL,
+  });
+});
