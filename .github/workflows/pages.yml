@@ -39,7 +39,7 @@ jobs:
       # is not there is a 404 at runtime and a silent fallback in the game.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
       - name: Check the manifests
         run: node tools/check.mjs
 
@@ -52,9 +52,12 @@ jobs:
           cp -r src vendor assets _site/
           echo "Staged $(du -sh _site | cut -f1)"
 
+      # Pages has to be switched on once, by hand, before this can deploy:
+      # Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
+      # `enablement: true` cannot do it -- creating the site needs admin scope,
+      # and the workflow token is not given that no matter what permissions
+      # this file asks for.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site

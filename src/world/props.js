@@ -155,8 +155,9 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
   sideScreen.position.set(0, 0.008, 0.001);
   sidePanel.add(sideScreen);
   g.add(sidePanel);
-  /** Painted once: the second monitor never changes, because nobody is on. */
-  const sideOn = new THREE.MeshBasicMaterial({ map: chatScreenTexture(), toneMapped: false });
+  /* Live: messages land on the in-game clock. See src/core/chat.js. */
+  const chatScreen = chatScreenTexture();
+  const sideOn = new THREE.MeshBasicMaterial({ map: chatScreen.texture, toneMapped: false });
 
   /* ---- keyboard, mouse, pad ---- */
   const kbZ = z0 + d - 0.20;
@@ -287,6 +288,9 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
     panel,
     sideScreen,
     sideOn,
+    /** Repaint the chat pane from a Chat feed. */
+    repaintChat: chatScreen.repaint,
+    sidePanelObject: sidePanel,
     sideOff: sideScreen.material,
     sidePanel,
     powerLed,
@@ -301,8 +305,13 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70 }) {
 }
 
 /**
- * The second monitor's contents: a chat client, open on a server where
- * everyone went to bed. Drawn once -- nothing on it is ever going to change.
+ * The second monitor's contents: a chat client on the roster's server.
+ *
+ * Repainted whenever a message lands, which is what makes it the second way
+ * to find out about Wednesday -- see src/core/chat.js. The chrome around the
+ * message pane is static, so only the pane is redrawn.
+ *
+ * @returns {{texture: THREE.CanvasTexture, repaint: (chat) => void}}
  */
 function chatScreenTexture() {
   const W = 320, H = 512;
@@ -337,35 +346,32 @@ function chatScreenTexture() {
   g.font = '9px "Segoe UI", system-ui, sans-serif';
   g.fillText('VOICE — 0 CONNECTED', 42, 190);
 
-  // Message pane.
-  g.fillStyle = '#33363e';
-  g.fillRect(130, 0, W - 130, H);
-  const msgs = [
-    ['BOOSKI', '#8fb6ff', 'anyone up'],
-    ['BOOSKI', '#8fb6ff', 'hello'],
-    ['APE', '#ffb46a', 'no'],
-    ['LOU', '#9ee8a4', 'im at the airport'],
-    ['LOU', '#9ee8a4', 'not flying. just here'],
-    ['IRISH', '#e88fa4', 'read the carton'],
-    ['SHUBES', '#c8a2ff', 'queue?'],
-    ['SHUBES', '#c8a2ff', 'ok'],
-    ['SHUBES', '#c8a2ff', 'nvm'],
-  ];
-  let y = 34;
-  for (const [who, colour, text] of msgs) {
-    g.fillStyle = '#4a4d57';
-    g.beginPath(); g.arc(146, y - 4, 8, 0, 7); g.fill();
-    g.fillStyle = colour;
-    g.font = 'bold 10px "Segoe UI", system-ui, sans-serif';
-    g.fillText(who, 160, y - 5);
-    g.fillStyle = '#c6ccd8';
-    g.font = '11px "Segoe UI", system-ui, sans-serif';
-    g.fillText(text, 160, y + 9);
-    y += 40;
-  }
-  g.fillStyle = '#6b7280';
-  g.font = 'italic 10px "Segoe UI", system-ui, sans-serif';
-  g.fillText('No one is typing.', 160, y + 6);
+  // Message pane, repainted as the day goes on.
+  const drawMessages = (chat) => {
+    g.fillStyle = '#33363e';
+    g.fillRect(130, 0, W - 130, H - 44);
+
+    const msgs = chat
+      ? chat.visible(9)
+      : [['BOOSKI', '#8fb6ff', 'anyone up']].map(([who, colour, text]) => ({ who, colour, text }));
+
+    let y = 34;
+    for (const m of msgs) {
+      g.fillStyle = '#4a4d57';
+      g.beginPath(); g.arc(146, y - 4, 8, 0, 7); g.fill();
+      g.fillStyle = m.colour || '#c6ccd8';
+      g.font = 'bold 10px "Segoe UI", system-ui, sans-serif';
+      g.fillText(m.who, 160, y - 5);
+      g.fillStyle = '#c6ccd8';
+      g.font = '11px "Segoe UI", system-ui, sans-serif';
+      g.fillText(m.text, 160, y + 9);
+      y += 40;
+    }
+    g.fillStyle = '#6b7280';
+    g.font = 'italic 10px "Segoe UI", system-ui, sans-serif';
+    g.fillText(chat && chat.unread ? `${chat.unread} unread` : 'No one is typing.', 160, y + 6);
+  };
+  drawMessages(null);
 
   // Compose box.
   g.fillStyle = '#42454e';
@@ -373,6 +379,13 @@ function chatScreenTexture() {
   g.fillStyle = '#767c88';
   g.font = '10px "Segoe UI", system-ui, sans-serif';
   g.fillText('Message #general', 150, H - 23);
+
+  const texture = new THREE.CanvasTexture(c);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return {
+    texture,
+    repaint(chat) { drawMessages(chat); texture.needsUpdate = true; },
+  };
 
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;

@@ -193,10 +193,13 @@ Three ways, none of them a pop-up:
 
 - **The corkboard** ✅ — a card pinned there a fortnight ago:
   *WED 7PM · SQUATCH MEETING · BOOSKI DRIVING · BRING NOTHING.*
-- **The second monitor** ⬜ — Booski's messages arriving as the clock advances.
-  You can read them from across the room and keep ignoring them. The last one
-  is just `ok`.
-- **The radio** ⬜ — 97.8 reading community notices, once, between shows.
+- **The second monitor** ✅ — Booski's messages arriving on the in-game clock,
+  four of them mentioning Wednesday. The monitor shows an unread count you can
+  see from across the room and ignore all game. Reading it is holding [E] on
+  the panel, not walking past it. The last one is just `ok`.
+- **The radio** ✅ — 97.8 reads a community notice every eleven segments:
+  Wednesday, seven, come showered and fed. Hearing it is knowing it, so
+  leaving the set on is enough on its own.
 
 ---
 

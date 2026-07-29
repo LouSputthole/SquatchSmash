@@ -507,6 +507,11 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'ui.hover':
       tone(ctx, dest, t, { freq: 900, dur: 0.03, gain: 0.09, type: 'sine' });
       break;
+    case 'chat.ping':
+      // Two notes up, quiet, from the other monitor. Easy to miss on purpose.
+      tone(ctx, dest, t, { freq: 1180, to: 1180, dur: 0.055, gain: 0.13, type: 'sine' });
+      tone(ctx, dest, t + 0.07, { freq: 1580, to: 1580, dur: 0.10, gain: 0.11, type: 'sine' });
+      break;
 
     /* -------- station stings -------- */
     case 'radio.airhorn':

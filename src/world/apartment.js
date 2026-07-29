@@ -715,6 +715,8 @@ export async function buildApartment(ctx) {
     lightsOn: false,
     lampOn: false,
     pcOn: false,
+    /** Messages on the second monitor you have not looked at. */
+    chatUnread: 0,
     radioOn: false,
     blindsOpen: false,
     heldItem: null,       // 'beer' | 'empty' | 'cigs' | null
@@ -1077,6 +1079,22 @@ export async function buildApartment(ctx) {
     },
   });
 
+  /* The second monitor. Readable from the chair or standing at the desk, and
+   * only worth reading if the PC is on -- a black panel says nothing. */
+  interaction.register(desk.sidePanelObject, {
+    label: () => (state.pcOn
+      ? (state.chatUnread ? `Read <b>chat</b> (${state.chatUnread})` : 'Read the <b>chat</b>')
+      : 'Second monitor'),
+    onUse: () => {
+      if (!state.pcOn) {
+        hud.say('Black. The tower is off.', 2600);
+        return;
+      }
+      audio.play('ui.select', { volume: 0.35 });
+      ctx.onReadChat?.();
+    },
+  });
+
   interaction.register(cork.group, {
     label: () => 'Read the <b>evidence board</b>',
     onUse: () => {
@@ -1214,6 +1232,8 @@ export async function buildApartment(ctx) {
       _pcWas = state.pcOn;
       desk.micLed.material = state.pcOn ? M.ledRed : M.bulbOff;
       desk.sideScreen.material = state.pcOn ? desk.sideOn : desk.sideOff;
+      // Switching it on shows whatever landed while it was off.
+      if (state.pcOn) ctx.onChatVisible?.();
       desk.powerLed.material = state.pcOn ? M.ledGreen : M.bulbOff;
     }
 
@@ -1321,6 +1341,7 @@ export async function buildApartment(ctx) {
     bedSitExit,
 
     screen: desk.screen,
+    desk,
     screenGlow,
     radioPos,
     radioNeedle: radio.needle,

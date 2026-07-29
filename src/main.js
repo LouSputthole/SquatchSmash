@@ -19,6 +19,7 @@ import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
 import { Goals, ENDINGS } from './core/goals.js';
+import { Chat } from './core/chat.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -131,6 +132,8 @@ const drunk = new Drunk();
 const highs = new Highs();
 // The only goal in the game, and it never announces itself.
 const goals = new Goals(time);
+// Booski, typing into a server nobody is in. The second way to find out.
+const chat = new Chat(time);
 const smoke = new SmokeSystem(scene);
 const stream = new StreamSystem(scene);
 
@@ -218,6 +221,8 @@ async function boot() {
     onCook: cookEggs,
     onEat: eatEggs,
     onLeave: tryLeave,
+    onReadChat: readChat,
+    onChatVisible: () => apartment.desk.repaintChat(chat),
     onLearn: (source) => learnAboutMeeting(source),
     // The set's own LED and dial read off apartment state, so keep it honest.
     onRadioToggle: () => { radio.toggle(); apartment.state.radioOn = radio.on; },
@@ -271,7 +276,8 @@ async function boot() {
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
-    narrator, goals, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
+    narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
+    readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
       // Skipping the wake-up also skips the point where interaction resumes.
@@ -1126,6 +1132,23 @@ function learnAboutMeeting(source) {
   narrator.note('meeting');
 }
 
+/**
+ * You looked at the second monitor properly. If Booski has mentioned tomorrow
+ * night by now, that is how you found out.
+ */
+function readChat() {
+  const told = chat.read();
+  apartment.state.chatUnread = 0;
+  apartment.desk.repaintChat(chat);
+  if (told) {
+    learnAboutMeeting('the chat');
+    hud.say('<em>BOOSKI: wed 7pm. im driving.</em><br>'
+      + 'Sent hours ago, to a server where nobody answers.', 6000);
+  } else {
+    hud.say('Nobody has said anything worth reading yet.', 3600);
+  }
+}
+
 /** The evaluation context every gate is judged against. */
 function goalContext() {
   return {
@@ -1616,6 +1639,17 @@ function frame() {
       smoke.update(hdt);
       stream.update(hdt);
       radio.update(dt);
+
+      /* Booski keeps typing whether or not anyone is at the desk. Repainting
+       * only matters while the tower is on, but the feed advances regardless
+       * so the backlog is right whenever you next switch it on. */
+      if (chat.update()) {
+        apartment.state.chatUnread = chat.unread;
+        if (apartment.state.pcOn) {
+          apartment.desk.repaintChat(chat);
+          audio.play('chat.ping', { position: apartment.deskPose.position, volume: 0.5 });
+        }
+      }
       narrator.update(dt, {
         busy: game.passingOut || game.seated || game.peeing || game.onToilet
           || cig.t >= 0 || player.mode === 'frozen',
