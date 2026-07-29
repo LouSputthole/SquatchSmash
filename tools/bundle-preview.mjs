@@ -261,10 +261,113 @@ for (const entry of entries) {
 /* Emit                                                               */
 /* ------------------------------------------------------------------ */
 
-const imports = { three: dataUri('text/javascript', read('vendor/three.module.min.js')) };
-for (const mod of modules.values()) {
-  imports[mod.id] = dataUri('text/javascript', Buffer.from(rewrite(mod), 'utf8'));
+/*
+ * Everything goes into ONE inline module script.
+ *
+ * The obvious build -- each module as its own `data:text/javascript` URI with
+ * an importmap pointing at them -- works over file:// and over HTTP, and is
+ * refused outright anywhere with a real Content-Security-Policy. `script-src
+ * 'unsafe-inline'` permits an inline <script>; it does not permit a data: URI
+ * script, and a refused module fires no error event, so the page just sits
+ * there looking like a slow network. That is what a hosted preview does, and
+ * it is why this never loaded in one.
+ *
+ * So: no script URLs of any kind. Each module becomes a factory in dependency
+ * order, and imports become lookups on an exports table. That also solves what
+ * the importmap was there to solve -- six modules define their own `clamp`,
+ * and each keeps its own, because each still has its own function scope.
+ */
+
+/** Deps before dependents, so a module's imports are always already built. */
+function topological() {
+  const order = [];
+  const seen = new Set();
+  const visit = (rel) => {
+    if (seen.has(rel)) return;
+    seen.add(rel);
+    const mod = modules.get(rel);
+    for (const spec of specifiersIn(mod.src)) {
+      if (spec === 'three' || !spec.startsWith('.')) continue;
+      visit(path.posix.normalize(path.posix.join(path.posix.dirname(rel), spec)));
+    }
+    order.push(mod);
+  };
+  visit('src/main.js');
+  return order;
 }
+
+/**
+ * ESM to a factory body. The source only ever uses three export forms and two
+ * import forms, which is what makes this a rewrite rather than a parser.
+ */
+function toFactory({ src, rel }) {
+  const names = new Set();
+  let out = src;
+
+  // import * as THREE from 'three'   ->   const THREE = __three;
+  out = out.replace(/^import\s+\*\s+as\s+([\w$]+)\s+from\s*['"]three['"]\s*;?$/gm,
+    (_, ns) => `const ${ns} = __three;`);
+
+  // import { a, b as c } from './x.js'   ->   const { a, b: c } = __x['id'];
+  out = out.replace(/^import\s*\{([^}]*)\}\s*from\s*['"](\.[^'"]+)['"]\s*;?$/gm, (all, names_, spec) => {
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(rel), spec));
+    const mod = modules.get(target);
+    if (!mod) throw new Error(`${rel}: cannot resolve ${spec}`);
+    const bound = names_.split(',').map((n) => n.trim()).filter(Boolean)
+      .map((n) => {
+        const m = /^([\w$]+)\s+as\s+([\w$]+)$/.exec(n);
+        return m ? `${m[1]}: ${m[2]}` : n;
+      }).join(', ');
+    return `const { ${bound} } = __x[${JSON.stringify(mod.id)}];`;
+  });
+
+  // import * as NS from './x.js'
+  out = out.replace(/^import\s+\*\s+as\s+([\w$]+)\s+from\s*['"](\.[^'"]+)['"]\s*;?$/gm, (all, ns, spec) => {
+    const target = path.posix.normalize(path.posix.join(path.posix.dirname(rel), spec));
+    const mod = modules.get(target);
+    if (!mod) throw new Error(`${rel}: cannot resolve ${spec}`);
+    return `const ${ns} = __x[${JSON.stringify(mod.id)}];`;
+  });
+
+  // export function f / export async function f / export class C / export const A
+  out = out.replace(/^export\s+(async\s+function|function|class|const|let|var)\s+([\w$]+)/gm,
+    (_, kind, name) => { names.add(name); return `${kind} ${name}`; });
+
+  if (/^\s*export[\s{*]/m.test(out)) {
+    throw new Error(`${rel}: an export form this bundler does not handle:\n`
+      + out.match(/^\s*export[\s{*].*$/m)[0]);
+  }
+  if (/^\s*import[\s{*]/m.test(out)) {
+    throw new Error(`${rel}: an import form this bundler does not handle:\n`
+      + out.match(/^\s*import[\s{*].*$/m)[0]);
+  }
+
+  const assigns = [...names].map((n) => `  __e.${n} = ${n};`).join('\n');
+  return `/* ${rel} */\n(function (__e) {\n${out}\n${assigns}\n})(__x[${JSON.stringify(idFor(rel))}] = {});`;
+}
+
+/** three.js ends in one `export{a as A,...}`; turn that into the table entry. */
+function threeFactory() {
+  const src = read('vendor/three.module.min.js').toString('utf8');
+  const m = /export\s*\{([\s\S]*?)\}\s*;?\s*$/.exec(src);
+  if (!m) throw new Error('vendor/three.module.min.js: no trailing export block');
+  const pairs = m[1].split(',').map((part) => {
+    const t = part.trim();
+    if (!t) return null;
+    const as = /^([\w$]+)\s+as\s+([\w$]+)$/.exec(t);
+    return as ? `${JSON.stringify(as[2])}: ${as[1]}` : `${JSON.stringify(t)}: ${t}`;
+  }).filter(Boolean);
+  return `/* three.js */\nconst __three = (function () {\n${src.slice(0, m.index)}\n`
+    + `return { ${pairs.join(', ')} };\n})();`;
+}
+
+const order = topological();
+const script = [
+  '/* Squatch Life -- single-file build. No external requests, no script URLs. */',
+  'const __x = {};',
+  threeFactory(),
+  ...order.map(toFactory),
+].join('\n\n');
 
 const css = read('src/style.css').toString('utf8');
 const html = read('index.html').toString('utf8');
@@ -283,15 +386,16 @@ html, body { width: 100%; height: 100%; }
 ${body}
 
 <script>window.__SQUATCH_INLINE = ${JSON.stringify(inline)};</script>
-<script type="importmap">${JSON.stringify({ imports })}</script>
-<script type="module">import ${JSON.stringify(imports[idFor('src/main.js')])};</script>
+<script type="module">
+${script}
+</script>
 `;
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(OUT, out);
 
 console.log(`  modules   ${modules.size}`);
-console.log(`  three.js  ${mb(imports.three.length)}`);
+console.log(`  script    ${mb(script.length)}`);
 console.log(`  art       ${mb(artBytes)}${FULL ? ' (full size)' : ` (max ${MAX_EDGE}px)`}`);
 console.log(`  audio     ${mb(sfxBytes)}${WANT_SFX ? '' : ' (voice only)'}`);
 console.log(`\n${path.relative(ROOT, OUT)}  ${mb(out.length)}`);

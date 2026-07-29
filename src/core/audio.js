@@ -17,6 +17,26 @@ import { loadJson, assetUrl, isBundled } from './assets.js';
 
 const SFX_DIR = 'assets/sfx/';
 
+/**
+ * The bytes out of a `data:...;base64,...` URI, without going through fetch().
+ *
+ * fetch() handles data: URIs perfectly well, but it is a fetch, so it answers
+ * to connect-src -- and a page served with a strict policy can refuse it even
+ * though the bytes are already sitting in the document. atob is just string
+ * work and nothing can block it.
+ */
+function decodeDataUri(uri) {
+  const comma = uri.indexOf(',');
+  if (comma < 0) return null;
+  const body = uri.slice(comma + 1);
+  const bin = uri.slice(0, comma).includes(';base64')
+    ? atob(body)
+    : decodeURIComponent(body);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
 export class AudioEngine {
   constructor() {
     this.ctx = null;
@@ -108,9 +128,11 @@ export class AudioEngine {
   async _loadOne(cue) {
     const file = cue.file || `${cue.name}.mp3`;
     try {
-      const res = await fetch(assetUrl(SFX_DIR, file), { cache: 'force-cache' });
-      if (!res.ok) return;
-      const raw = await res.arrayBuffer();
+      const raw = /^data:/.test(file)
+        ? decodeDataUri(file)
+        : await fetch(assetUrl(SFX_DIR, file), { cache: 'force-cache' })
+          .then((res) => (res.ok ? res.arrayBuffer() : null));
+      if (!raw) return;
       if (raw.byteLength < 512) return; // placeholder / empty file
       const buf = await this.ctx.decodeAudioData(raw);
       const list = this.buffers.get(cue.name) || [];
