@@ -128,4 +128,15 @@ export class Hud {
   setMode(mode) {
     document.body.classList.toggle('seated', mode === 'seated');
   }
+
+  /**
+   * The standing hint: what gets you out of whatever posture you are in.
+   * @param {?string} what e.g. 'get up' -- null hides it.
+   */
+  setPosture(what) {
+    this.posture ??= document.getElementById('posture');
+    if (!this.posture) return;
+    if (what) this.posture.querySelector('span').textContent = what;
+    this.posture.classList.toggle('hidden', !what);
+  }
 }

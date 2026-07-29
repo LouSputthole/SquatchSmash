@@ -154,18 +154,36 @@ export class AudioEngine {
    */
   play(name, opts = {}) {
     if (!this.ready) return null;
-    const { volume = 1, rate = 1, position = null, delay = 0 } = opts;
+    const { volume = 1, rate = 1, position = null, delay = 0, muffle = 0 } = opts;
 
     const out = this.ctx.createGain();
     out.gain.value = volume;
 
     let sink = this.busSfx;
+    /* `muffle` is a lowpass corner in Hz for anything arriving through
+     * building fabric. Distance attenuation alone makes a sound quieter, not
+     * duller, and quiet-but-bright still reads as in-the-room. Two poles,
+     * because one leaves too much of the consonants. */
+    let head = out;
+    if (muffle) {
+      const lp1 = this.ctx.createBiquadFilter();
+      lp1.type = 'lowpass';
+      lp1.frequency.value = muffle;
+      lp1.Q.value = 0.5;
+      const lp2 = this.ctx.createBiquadFilter();
+      lp2.type = 'lowpass';
+      lp2.frequency.value = muffle * 1.35;
+      lp2.Q.value = 0.5;
+      out.connect(lp1);
+      lp1.connect(lp2);
+      head = lp2;
+    }
     if (position) {
       const panner = this._makePanner(position, opts.ref ?? 1.4, opts.maxDist ?? 18);
-      out.connect(panner);
+      head.connect(panner);
       panner.connect(sink);
     } else {
-      out.connect(sink);
+      head.connect(sink);
     }
 
     const when = this.ctx.currentTime + delay;

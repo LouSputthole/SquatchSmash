@@ -1191,6 +1191,7 @@ export async function buildApartment(ctx) {
   let bobblePhase = 0;
   let bobbleVel = 0;
   let clockAcc = 0;
+  let secondsReal = 0;
   let tickAcc = 0;
   let bathDoorT = 0;
   let skyPhaseA = null;
@@ -1298,9 +1299,16 @@ export async function buildApartment(ctx) {
     const TAU = Math.PI * 2;
     wallClock.hourHand.rotation.z = -((time.minutes % 720) / 720) * TAU;
     wallClock.minHand.rotation.z = -((time.minutes % 60) / 60) * TAU;
-    // One revolution per in-game minute -- which at this time scale is a fast
-    // sweep, and reads as exactly what it is: the day getting away from you.
-    wallClock.secHand.rotation.z = -(time.minutes % 1) * TAU;
+    /* The second hand runs on REAL time, not game time.
+     *
+     * Truthfully it should turn once per in-game minute, but a day here is
+     * fifteen real minutes, so that is a hand spinning about one and a half
+     * times a second -- it stops reading as a clock and starts reading as a
+     * fault. The hour and minute hands still tell you the actual time, which
+     * is the part anyone reads; the second hand is texture, and texture that
+     * blurs is worse than texture that is slightly a lie. */
+    secondsReal += dt;
+    wallClock.secHand.rotation.z = -((secondsReal % 60) / 60) * TAU;
 
     // The digital dial only needs redrawing when the shown minute changes.
     const shown = Math.floor(time.minutes);

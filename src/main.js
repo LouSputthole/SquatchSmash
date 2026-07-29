@@ -18,7 +18,7 @@ import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
-import { Goals, ENDINGS } from './core/goals.js';
+import { Goals, ENDINGS, MEETING } from './core/goals.js';
 import { Chat } from './core/chat.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
@@ -277,7 +277,7 @@ async function boot() {
   // Dev handle: lets you inspect and pose the scene from the console, e.g.
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
-    scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction,
+    scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud,
     drunk, highs, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
@@ -490,6 +490,7 @@ document.addEventListener('keyup', (e) => {
 /* ------------------------------------------------------------------ */
 
 function getUp() {
+  hud.setPosture(null);
   game.inBed = false;
   hud.hidePrompt();
   audio.play('bed.creak', { volume: 0.7 });
@@ -521,11 +522,12 @@ function sitAtPC() {
       audio.play('pc.boot', { volume: 0.5 });
       arcade.boot();
     }
-    hud.say('<em>Q</em> to get up from the desk.', 3200);
+    hud.setPosture('get up from the desk');
   });
 }
 
 function standFromPC() {
+  hud.setPosture(null);
   if (!game.seated) return;
   game.seated = false;
   hud.setMode('walk');
@@ -571,10 +573,12 @@ function sitOn(which) {
   player.sitAt(seat.pose(), () => {
     interaction.setPaused(false);   // you can still reach things from a seat
     hud.say(seat.line, 4600);
+    hud.setPosture('get up');
   });
 }
 
 function standFromSeat() {
+  hud.setPosture(null);
   if (!game.sitting) return;
   const seat = SEATS[game.sitting];
   game.sitting = null;
@@ -596,12 +600,14 @@ function lieOnBed() {
   audio.say('liedown', { chance: 0.8 });
 
   player.lieDown(apartment.bedPose, () => {
-    hud.say('Ceiling. <em>[E] to sleep it off &middot; [Q] to get up.</em>', 5200);
+    hud.say('Ceiling. <em>[E] to sleep it off.</em>', 5200);
+    hud.setPosture('get up');
   });
 }
 
 /** Deliberate sleep, as opposed to the kind that happens to you. */
 function sleepInBed() {
+  hud.setPosture(null);
   if (!game.inBed || game.passingOut) return;
   game.inBed = false;
   hud.hidePrompt();
@@ -892,12 +898,16 @@ function updateNeighbours(dt) {
   nextShoutAt -= dt;
   if (nextShoutAt <= 0) {
     nextShoutAt = 2.5 + Math.random() * 5.5;
+    // Through a wall and a floor: heavily lowpassed, so you get the shape of
+    // the row and none of the words. That is what you actually hear.
     audio.play('neighbours.argue', {
-      position: ARGUMENT_POS, volume: 0.55 + Math.random() * 0.25,
-      rate: 0.92 + Math.random() * 0.18, ref: 2.2, maxDist: 14,
+      position: ARGUMENT_POS, volume: 0.50 + Math.random() * 0.22,
+      rate: 0.92 + Math.random() * 0.18, ref: 2.2, maxDist: 14, muffle: 340,
     });
     if (Math.random() < 0.22) {
-      audio.play('neighbours.thump', { position: ARGUMENT_POS, volume: 0.5, delay: 0.6 });
+      audio.play('neighbours.thump', {
+        position: ARGUMENT_POS, volume: 0.55, delay: 0.6, muffle: 150,
+      });
     }
   }
 }
@@ -1148,6 +1158,15 @@ function eatEggs() {
   hud.toast('Ate the eggs', 'good');
   hud.say('Eaten standing up, out of the pan, at half past whatever. '
     + '<em>Eat those pasture raised eggs folks.</em>', 5600);
+
+  /* Breakfast starts things moving.
+   *
+   * The bowel gate used to be reachable only by smoking four cigarettes, so a
+   * player who never touched the pack got no urge, never used the toilet for
+   * the other thing, and never heard a word of that whole bank -- and the door
+   * excuse guarding it could not fire either. Two eggs put you most of the way
+   * there, which is both funnier and true. It still takes a while to arrive. */
+  st.bowel = Math.min(1, st.bowel + 0.62);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1294,11 +1313,12 @@ function sitOnToilet() {
 
   player.sitAt(
     { position: apartment.toiletSeat.clone(), yaw: Math.PI, pitch: -0.15 },
-    () => hud.say('Relief. <em>[Q] to get up.</em>', 4000),
+    () => { hud.say('Relief.', 3000); hud.setPosture('get up'); },
   );
 }
 
 function standFromToilet() {
+  hud.setPosture(null);
   if (!game.onToilet) return;
   game.onToilet = false;
   hud.setMode('walk');
@@ -1348,7 +1368,7 @@ function updateBowel(dt) {
       if (!game._poopDone) {
         game._poopDone = true;
         audio.say('poop.relief', { delay: 0.6 });
-        hud.say('That is that dealt with. <em>[Q] to get up.</em>', 5000);
+        hud.say('That is that dealt with.', 4000);
       }
     }
     return;
@@ -1390,12 +1410,14 @@ function startPee() {
   game.peeHitSnapshot = 0;
   game.peeMissSnapshot = 0;
   game.peeAccuracy = 1;
-  hud.say('You are free to look around. <em>[E] or [Q] to stop.</em>', 4200);
+  hud.say('You are free to look around.', 3200);
+  hud.setPosture('stop');
 }
 
 function stopPee() {
   if (!game.peeing) return;
   game.peeing = false;
+  hud.setPosture(null);
   audio.stopLoop('pee.stream', 0.25);
   audio.stopLoop('pee.miss', 0.25);
   audio.play('pee.zip', { volume: 0.6 });
@@ -1509,6 +1531,7 @@ function passOut({ voluntary = false } = {}) {
   cig.afterglow = 0;
   heldCig.group.visible = false;
 
+  hud.setPosture(null);
   player.mode = 'frozen';
   if (voluntary) {
     audio.play('bed.rustle', { volume: 0.5 });
@@ -1532,10 +1555,19 @@ function passOut({ voluntary = false } = {}) {
     drunk.sleepItOff();
     highs.sleepItOff();
     if (voluntary) {
-      // Sleeping on purpose takes you to the next morning, so one night in
-      // bed gets you from Tuesday evening to Wednesday.
+      /* Sleeping on purpose lands on whichever comes first: the next morning,
+       * or half five on the day of the meeting.
+       *
+       * "Always the next 07:00" quietly lost you the game -- lie down at eight
+       * on Wednesday morning and you woke on Thursday, meeting gone, nothing
+       * having warned you. And with no way to nap toward the evening the only
+       * route from Wednesday breakfast to seven o'clock was six real minutes
+       * of standing in a room. A man with a whole day to kill before a thing
+       * would go back to bed, so let him. */
       const h = time.hour;
-      time.skipHours(h < 7 ? 7 - h : 31 - h);
+      const toMorning = h < 7 ? 7 - h : 31 - h;
+      const toEvening = (time.day === MEETING.day && h < 17.5) ? 17.5 - h : Infinity;
+      time.skipHours(Math.min(toMorning, toEvening));
     } else {
       time.skipHours(12);
     }
@@ -1547,7 +1579,9 @@ function passOut({ voluntary = false } = {}) {
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
     hud.say(voluntary
-      ? `<em>${time.clock12}.</em> Twelve hours. Nothing has changed.`
+      ? (time.day === MEETING.day && time.hour >= 17
+        ? `<em>${time.clock12}.</em> Slept most of it away. <em>That is tonight, that is.</em>`
+        : `<em>${time.clock12}.</em> Out like a light. Nothing has changed.`)
       : `<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`, 6000);
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');

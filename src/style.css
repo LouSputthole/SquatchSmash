@@ -483,3 +483,40 @@ kbd.key, .controls kbd {
 }
 
 .hidden-hard { display: none !important; }
+
+/* ------------------------------------------------------------------ */
+/* Posture hint                                                        */
+/* ------------------------------------------------------------------ */
+
+/* Sits low and centre, under the subtitle, for as long as you are in a
+   posture you have to deliberately leave. Quiet enough to ignore, present
+   enough that nobody wonders how to stand up. */
+#posture {
+  position: fixed;
+  left: 50%;
+  bottom: 4.2rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.30rem 0.72rem 0.30rem 0.42rem;
+  border-radius: 999px;
+  background: rgba(10, 12, 18, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #cdd4e2;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  opacity: 0.9;
+  transition: opacity 0.25s ease;
+  z-index: 12;
+}
+#posture.hidden { opacity: 0; }
+#posture .key {
+  background: #e8ecf4;
+  color: #14161c;
+  border-radius: 5px;
+  padding: 0.06rem 0.36rem;
+  font-weight: 700;
+  font-size: 0.72rem;
+}
