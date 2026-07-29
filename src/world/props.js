@@ -817,16 +817,36 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
   const g = group('pizzabox');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
-  g.add(box({ size: [0.40, 0.045, 0.40], pos: [0, 0.022, 0], mat: M.cardboard }));
-  const lid = box({ size: [0.40, 0.02, 0.40], pos: [0, 0.20, -0.19], mat: M.cardboard, rotX: -1.15 });
+  /*
+   * 34cm, not 40. A large pizza box is about fourteen inches and this coffee
+   * table is 105 by 56, so a 40cm box with its lid up came out DEEPER than the
+   * table it stood on -- it hung four centimetres over the front edge whatever
+   * you did with the position.
+   *
+   * The lid tips back off the base's back edge, and it is hinged there rather
+   * than floated near it. It used to lean the wrong way, forward over the
+   * pizza, and sit six centimetres behind the box with nothing joining them,
+   * because the rotation happens about the panel's own centre -- so the hinge
+   * position has to be derived from where that rotation puts the bottom edge,
+   * not guessed.
+   */
+  const W = 0.34, HALF = W / 2, DEEP = 0.045, LEAN = 1.35;
+  g.add(box({ size: [W, DEEP, W], pos: [0, DEEP / 2, 0], mat: M.cardboard }));
+  // Bottom edge of the tilted panel, relative to its own centre.
+  const dy = HALF * Math.sin(LEAN);
+  const dz = HALF * Math.cos(LEAN);
+  const lid = box({
+    size: [W, 0.02, W], mat: M.cardboard, rotX: LEAN,
+    pos: [0, DEEP + dy, -HALF - dz],   // lands that edge on the base's back lip
+  });
   g.add(lid);
   // One surviving slice.
   const slice = new THREE.Mesh(
-    new THREE.CircleGeometry(0.16, 12, 0, Math.PI / 4),
+    new THREE.CircleGeometry(0.14, 12, 0, Math.PI / 4),
     mat({ color: 0xd8a44e, roughness: 0.85, side: THREE.DoubleSide }),
   );
   slice.rotation.x = -Math.PI / 2;
-  slice.position.set(0.02, 0.047, 0.02);
+  slice.position.set(0.02, DEEP + 0.002, 0.02);
   g.add(slice);
   return { group: g };
 }
@@ -2108,7 +2128,12 @@ export function makeToilet(M, { x, z, rotY = 0 }) {
 
   // Pedestal, flaring out to the floor.
   g.add(cylinder({ rTop: 0.14, rBottom: 0.19, h: 0.30, pos: [0, 0.15, 0.02], mat: porcelain }));
-  g.add(box({ size: [0.30, 0.30, 0.22], pos: [0, 0.15, -0.14], mat: porcelain }));
+  /* The back rises to a shelf for the cistern to stand on. It used to stop at
+   * 0.30 and only reach back to -0.25, while the cistern starts at 0.39 and
+   * runs to -0.385 -- so the cistern hung nine centimetres clear of the toilet
+   * with tiled wall visible underneath it. This is a close-coupled suite; the
+   * tank sits on the pan, and now it does. */
+  g.add(box({ size: [0.34, 0.40, 0.32], pos: [0, 0.20, -0.21], mat: porcelain }));
 
   // Bowl: an outer shell with a darker recess for the water.
   const bowl = new THREE.Mesh(

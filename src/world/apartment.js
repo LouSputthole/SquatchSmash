@@ -495,7 +495,7 @@ export async function buildApartment(ctx) {
   root.add(table.group);
   addCollider(table.bounds);
 
-  const pizza = P.makePizzaBox(M, { x: -3.48, y: table.top, z: 0.70, rotY: 0.26 });
+  const pizza = P.makePizzaBox(M, { x: -3.48, y: table.top, z: 0.74, rotY: 0.26 });
   root.add(pizza.group);
   root.add(P.makeBeerCan(M, { x: -2.92, y: table.top, z: 0.86, crushed: true, rotY: 1.1 }).group);
   root.add(P.makeBeerCan(M, { x: -3.70, y: table.top, z: 0.52, crushed: true, rotY: -0.4 }).group);
