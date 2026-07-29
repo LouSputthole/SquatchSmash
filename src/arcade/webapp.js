@@ -73,9 +73,7 @@ export class WebApp {
 
   enter() {
     this.t = 0;
-    this.overlay.show();
-    document.body.appendChild(this.quit);
-    this.quit.style.display = 'block';
+    this.show();
 
     /* The apartment holds the pointer while you are sat down, and a locked
      * pointer means clicks never reach the page. Give it up; clicking the room
@@ -107,10 +105,28 @@ export class WebApp {
       this.overlay.el.removeEventListener('load', this._onLoad);
       this._onLoad = null;
     }
+    this.hide();
+    this.onExit?.();
+  }
+
+  /** Show every DOM layer owned by the framed app. */
+  show() {
+    this.overlay.show();
+    document.body.appendChild(this.quit);
+    this.quit.style.display = 'block';
+  }
+
+  /**
+   * Hide and detach every DOM layer owned by the framed app.
+   *
+   * Standing up is not the same as exiting: the app remains focused so the
+   * exact session can resume when the player sits back down. Its iframe and
+   * escape control must still leave the apartment view together.
+   */
+  hide() {
     this.overlay.hide();
     this.quit.style.display = 'none';
     this.quit.remove();
-    this.onExit?.();
   }
 
   /** Keep the frame, and the button in its corner, on the monitor. */

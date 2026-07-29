@@ -77,14 +77,14 @@ export function createArcade(opts = {}) {
    */
   os.setSeated = (seated) => {
     for (const app of framed) {
-      if (seated && os.app === app) app.overlay.show();
-      else app.overlay.hide();
+      if (seated && os.app === app) app.show();
+      else app.hide();
     }
   };
   /** Whatever is on the monitor should stop when the tower does. */
   const powerOff = os.powerOff.bind(os);
   os.powerOff = () => {
-    for (const app of framed) { app.overlay.hide(); app.quit.remove(); }
+    for (const app of framed) app.hide();
     powerOff();
   };
   return os;
