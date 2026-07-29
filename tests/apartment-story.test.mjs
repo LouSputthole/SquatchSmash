@@ -166,3 +166,18 @@ test('returning from Bada Bing requires the package before Squatchfather', () =>
     destination: SCENE_IDS.SQUATCHFATHER,
   });
 });
+
+test('an in-progress Squatchfather mission resumes after the package is staged', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'in_progress';
+    state.missions[MISSION_IDS.SQUATCHFATHER].weaponStaged = true;
+  });
+  const story = createApartmentStory({ campaign, ring: () => true });
+
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.SQUATCHFATHER,
+  });
+});

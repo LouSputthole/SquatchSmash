@@ -349,6 +349,7 @@ const ended = await page.evaluate(() => ({
   card: document.getElementById('overlay').classList.contains('ending'),
   title: document.querySelector('#overlay .tag')?.textContent || '',
   saved: window.__bing.campaign?.state?.missions?.bada_bing_one ?? null,
+  nextMission: window.__bing.campaign?.state?.missions?.squatchfather ?? null,
   returnHref: document.getElementById('next-level')?.getAttribute('href') ?? null,
 }));
 check('driving out finishes the mission', ended.over && ended.done, JSON.stringify(ended));
@@ -356,6 +357,9 @@ check('and puts up an ending card', ended.card, ended.title);
 check('completion is recorded in shared campaign state',
   ended.saved?.status === 'complete' && ended.saved?.packageReceived === true,
   JSON.stringify(ended.saved));
+check('the package unlocks Squatchfather',
+  ended.nextMission?.status === 'available',
+  JSON.stringify(ended.nextMission));
 check('the ending offers a return to the apartment',
   ended.returnHref === 'index.html', ended.returnHref ?? 'missing');
 

@@ -14,6 +14,7 @@
     "verify:art": "node tools/verify-art.mjs",
     "verify:day-one": "node tools/verify-day-one.mjs",
     "verify:bing": "node tools/verify-bing.mjs",
+    "verify:squatchfather": "node tools/verify-squatchfather.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",

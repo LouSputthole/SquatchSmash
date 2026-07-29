@@ -91,6 +91,13 @@ class ApartmentStory {
           line: 'That is enough going out for one night.',
         };
       }
+      if (missions[MISSION_IDS.SQUATCHFATHER].status === 'in_progress'
+        && missions[MISSION_IDS.SQUATCHFATHER].weaponStaged) {
+        return {
+          kind: 'go',
+          destination: SCENE_IDS.SQUATCHFATHER,
+        };
+      }
       if (!this.campaign.hasItem(ITEM_IDS.LOU_PACKAGE)) {
         return {
           kind: 'item',

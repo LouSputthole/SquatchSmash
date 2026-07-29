@@ -1,34 +1,39 @@
 # Squatch Life
 
-Three things live in this repo.
+Four playable experiences live in this repo.
 
 | | |
 |---|---|
 | **Squatch Life** (repo root) | First-person apartment hub. Wake up, answer Lou’s call, get ready, use the PC, and leave for the first mission. |
 | **A Quick Stop at the Bing** ([`bing.html`](./bing.html)) | First-person, same engine. Day One, 11:41 PM. Park, get past the bouncer, find Lou in the back office, and take his package. |
+| **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
 | **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
                  # the Bing      -> http://localhost:5173/bing.html
+                 # Squatchfather -> http://localhost:5173/squatchfather.html
                  # the game      -> http://localhost:5173/game/
 ```
 
-All three are static ES-module sites with no build step, served by the same
+All four are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own `lib/three.module.js`, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
-isolated; the apartment and Bing now share an explicit campaign boundary.
+isolated; the apartment, Bing, and Squatchfather now share an explicit campaign
+boundary.
 
-The campaign spine connects the apartment and the Bing through
+The campaign spine connects the apartment, the Bing, and Squatchfather through
 `src/core/campaign.js`. On Day One, Lou’s one-shot call rings through the
 physical phone. The apartment door then requires eating, showering, pooping,
 and changing clothes; email is optional. Activity flags, call state,
 scene/spawn, Bada Bing completion, and Lou’s concealed package survive the page
-transition. Finishing the club returns to the apartment, where the player
-resumes inside the front door with the package still carried. Other scenes are
-not connected to this campaign state yet.
+transition. Finishing the club returns to the apartment with the package; the
+door then routes to Squatchfather, where beginning the meeting stages that
+package as the bathroom weapon. Finishing the restaurant records the dropped
+weapon and returns to the apartment again. Later story scenes are not connected
+to this campaign state yet.
 
 See [`game/README.md`](./game/README.md) for the campground game's controls and
 scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
@@ -166,11 +171,11 @@ agree with each other, and so does the taskbar on the PC.
 
 ### The voice
 
-There is no plot in here and nothing to complete. What there is instead is
-somebody noticing things about you while you fail to do anything with a Tuesday.
-It speaks when you have stopped moving, when you have been in here a while, and
-when you open the fridge for the eighth time. It never says the same thing
-twice.
+The apartment now opens Day One: Lou calls once, the front door tracks the four
+required morning activities, and completed mission state survives every return.
+The narrator still notices what you do between story beats. It speaks when you
+have stopped moving, when you have been in here a while, and when you open the
+fridge for the eighth time. It never says the same thing twice.
 
 ---
 
@@ -320,6 +325,7 @@ npm test             # campaign, apartment-story, and physical-phone contracts
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
 npm run verify:day-one # runtime: Lou's call, chore gate, apartment -> Bing
 npm run verify:bing  # runtime: plays the club and returns home, headless
+npm run verify:squatchfather # runtime: stages the package, plays, returns home
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
 
@@ -343,12 +349,41 @@ physical phone, answers it in hand, exercises each live apartment-door blocker,
 leaves email unread, and confirms the direct Bada Bing handoff preserves the
 call, mission, and activity state.
 
+`verify:squatchfather` begins with the completed Bada Bing handoff, enters the
+restaurant through the apartment door, stages Lou’s package as the bathroom
+weapon, drives the real retrieval/train/shooting/drop sequence, and confirms the
+completed mission returns home without restoring the discarded weapon.
+
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around
 while working on a room, and direct handles for every mechanic (`passOut`,
 `fart`, `startPee`, `sitOn`, `lieOnBed`, `takeZyn`, `time.skipHours`) so you can
 get to a state without playing your way there.
 
+
+---
+
+## The Squatchfather
+
+Prospect meets Sal “The Prospector” Sorrento and Captain McClawsky in a small
+Italian restaurant under the elevated line. The original four-commit scene
+history is preserved under `src/squatchfather/`: its state machine drives the
+restaurant entrance, table conversation, bathroom weapon retrieval, train,
+shooting sequence, checkpoint, weapon drop, and exit.
+
+In the campaign, the scene is reachable only after Bada Bing Scene One is
+complete and Lou’s concealed package is still present. Beginning the mission
+stages that package behind the toilet as the scene’s weapon. Completion records
+that the weapon was dropped and returns the player to the apartment.
+
+| Input | Action |
+|---|---|
+| <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows | move |
+| mouse | look; click the canvas to capture the cursor |
+| <kbd>E</kbd> | interact; hold where prompted |
+| left click | fire during the shooting beats |
+| <kbd>Esc</kbd> | pause |
+| <kbd>M</kbd> | mute |
 
 ---
 

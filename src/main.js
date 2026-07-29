@@ -150,9 +150,12 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const time = new DayNight(6 + 4 / 60);
 const campaign = createCampaign();
 const campaignAtLoad = campaign.state;
-const returningFromBing = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
-  && campaignAtLoad.scene.spawn === 'front_door'
+const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
+  && campaignAtLoad.scene.spawn === 'front_door';
+const returningFromBing = returningToApartment
   && campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
+const returningFromSquatchfather = returningToApartment
+  && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
   campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
 }
@@ -506,7 +509,7 @@ async function boot() {
   const trackCount = await radio.loadManifest();
 
 
-  if (returningFromBing) {
+  if (returningToApartment) {
     player.mode = 'walk';
     player.position.set(2.55, 1.66, 3.72);
     player.velocity.set(0, 0, 0);
@@ -515,7 +518,9 @@ async function boot() {
     player.yaw = 0;
     player.update(0.016);
     interaction.setPaused(false);
-    overlay.querySelector('.tag').textContent = 'Back from the Bing. Lou’s package is still under your jacket.';
+    overlay.querySelector('.tag').textContent = returningFromBing
+      ? 'Back from the Bing. Lou’s package is still under your jacket.'
+      : 'Back from the restaurant. The business is settled.';
     startBtn.textContent = 'Go Inside';
   } else {
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
@@ -588,9 +593,14 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.city.day', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
-    if (returningFromBing) {
-      hud.toast('Lou’s package · inside your jacket', 'good');
-      hud.say('Home again. The package came back with you.', 4800);
+    if (returningToApartment) {
+      if (returningFromBing) {
+        hud.toast('Lou’s package · inside your jacket', 'good');
+        hud.say('Home again. The package came back with you.', 4800);
+      } else if (returningFromSquatchfather) {
+        hud.toast('The business is settled', 'good');
+        hud.say('Home again. The weapon did not come back with you.', 4800);
+      }
     } else {
       audio.play('bed.rustle', { volume: 0.5 });
       audio.say('wake', { delay: 1.1 });
