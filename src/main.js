@@ -21,6 +21,7 @@ import { Highs } from './core/highs.js';
 import { Goals, ENDINGS, MEETING } from './core/goals.js';
 import { Chat } from './core/chat.js';
 import { Spooky } from './core/spooky.js';
+import { PostFX } from './core/postfx.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -108,10 +109,17 @@ flashlight.position.set(0, 0, 0);
 flashlight.target.position.set(0, 0, -1);
 camera.add(flashlight, flashlight.target);
 
+/* Bloom. On by default; [B] turns it off, because it is the first thing to
+ * drop on a machine that is struggling and there is no menu to drop it from. */
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+postfx.onAuto = () => hud.toast('Bloom off — it was costing too much. [B] to force it on.', '');
+
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* ------------------------------------------------------------------ */
@@ -402,7 +410,7 @@ async function boot() {
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
-    narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
+    narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
     updateChair, poseDrink, heldDrinks, spooky,
     readChat,
@@ -615,6 +623,11 @@ document.addEventListener('keydown', (e) => {
     case 'KeyT':
       game.flashlightOn = !game.flashlightOn;
       audio.play('switch.click', { volume: 0.5 });
+      break;
+    /* Bloom off, for a machine that is struggling. There is no options menu to
+     * put this in and it is the first thing worth dropping. */
+    case 'KeyB':
+      hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
       break;
     case 'KeyR':
       if (interaction.current && interaction.current.name === 'radio') radio.next();
@@ -2278,7 +2291,8 @@ function frame() {
     }
   }
 
-  renderer.render(scene, camera);
+  postfx.render();
+  postfx.sample(dt);
 }
 
 frame();

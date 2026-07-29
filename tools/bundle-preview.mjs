@@ -420,11 +420,27 @@ function topological() {
  */
 function toFactory({ src, rel }) {
   const names = new Set();
+  /** exported name -> local name, for `export { local as exported }`. */
+  const aliases = new Map();
   let out = src;
 
   // import * as THREE from 'three'   ->   const THREE = __three;
   out = out.replace(/^import\s+\*\s+as\s+([\w$]+)\s+from\s*['"]three['"]\s*;?$/gm,
     (_, ns) => `const ${ns} = __three;`);
+
+  /* import { Vector2, Mesh as M } from 'three'  ->  const { ... } = __three;
+   *
+   * Nothing in src/ imports three this way -- it is all `import * as THREE` --
+   * but every addon does, and they are spread over several lines, so the
+   * pattern has to allow newlines inside the braces. */
+  out = out.replace(/^import\s*\{([^}]*)\}\s*from\s*['"]three['"]\s*;?$/gm, (_, list) => {
+    const bound = list.split(',').map((n) => n.trim()).filter(Boolean)
+      .map((n) => {
+        const as = /^([\w$]+)\s+as\s+([\w$]+)$/.exec(n);
+        return as ? `${as[1]}: ${as[2]}` : n;
+      }).join(', ');
+    return `const { ${bound} } = __three;`;
+  });
 
   // import { a, b as c } from './x.js'   ->   const { a, b: c } = __x['id'];
   out = out.replace(/^import\s*\{([^}]*)\}\s*from\s*['"](\.[^'"]+)['"]\s*;?$/gm, (all, names_, spec) => {
@@ -451,6 +467,22 @@ function toFactory({ src, rel }) {
   out = out.replace(/^export\s+(async\s+function|function|class|const|let|var)\s+([\w$]+)/gm,
     (_, kind, name) => { names.add(name); return `${kind} ${name}`; });
 
+  /* export { A, B as C };  -- declared above, exported in a block at the end.
+   *
+   * Every three.js addon is written this way, so vendoring one broke the whole
+   * build the moment it was imported. The name is already bound in the module
+   * body by this point; only the export table entry is missing. */
+  out = out.replace(/^export\s*\{([^}]*)\}\s*;?$/gm, (_, list) => {
+    for (const part of list.split(',')) {
+      const t = part.trim();
+      if (!t) continue;
+      const as = /^([\w$]+)\s+as\s+([\w$]+)$/.exec(t);
+      if (as) aliases.set(as[2], as[1]);
+      else names.add(t);
+    }
+    return '';
+  });
+
   if (/^\s*export[\s{*]/m.test(out)) {
     throw new Error(`${rel}: an export form this bundler does not handle:\n`
       + out.match(/^\s*export[\s{*].*$/m)[0]);
@@ -460,7 +492,10 @@ function toFactory({ src, rel }) {
       + out.match(/^\s*import[\s{*].*$/m)[0]);
   }
 
-  const assigns = [...names].map((n) => `  __e.${n} = ${n};`).join('\n');
+  const assigns = [
+    ...[...names].map((n) => `  __e.${n} = ${n};`),
+    ...[...aliases].map(([outer, local]) => `  __e.${outer} = ${local};`),
+  ].join('\n');
   return `/* ${rel} */\n(function (__e) {\n${out}\n${assigns}\n})(__x[${JSON.stringify(idFor(rel))}] = {});`;
 }
 
