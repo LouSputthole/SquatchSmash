@@ -70,6 +70,10 @@ export const WALL_SLOTS = [
    * and the fridge stands at z 1.95, which leaves this stretch in the middle
    * as the only bare wall left in the flat. */
   { slot: 'east.square', x: 4.97, y: 1.74, z: -0.60, rotY: -Math.PI / 2, h: 0.46 },
+  /* The rest of that stretch, between the window's edge at z -2.30 and the
+   * square above. Hung lower and smaller, so the pair reads as two things put
+   * up separately rather than a matched set. */
+  { slot: 'east.small', x: 4.97, y: 1.42, z: -1.62, rotY: -Math.PI / 2, h: 0.36 },
   { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
   { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },

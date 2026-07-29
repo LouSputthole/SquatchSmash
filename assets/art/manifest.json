@@ -291,14 +291,14 @@
     },
     {
       "slot": "shrine.a",
-      "file": "shrine-booski-soldiers.jpg",
-      "title": "Booski, inspecting",
+      "file": "shrine-booski-podium.jpg",
+      "title": "Booski at the podium",
       "caption": "The big one. Candles in front of it, door shut."
     },
     {
       "slot": "shrine.b",
-      "file": "shrine-booski-podium.jpg",
-      "title": "Booski at the podium",
+      "file": "shrine-booski-soldiers.jpg",
+      "title": "Booski, inspecting",
       "caption": "Propped beside it, smaller, tilted."
     },
     {
@@ -324,6 +324,12 @@
       "file": "closet-cowboy.jpg",
       "title": "The cowboy portrait",
       "caption": "Face down under the bed, which is where you put a thing you cannot throw away."
+    },
+    {
+      "slot": "east.small",
+      "file": "iem-2022-square.jpg",
+      "title": "IEM Dallas 2022",
+      "caption": "The square crop. Hung after the big one, lower and a bit off."
     }
   ]
 }
