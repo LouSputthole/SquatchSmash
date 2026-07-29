@@ -2736,21 +2736,6 @@
       "name": "radio.vo.announcer.02o73bt",
       "voice": "announcer",
       "say": "97.8 The Squatch. The roster, on the roster."
-    },
-    {
-      "name": "radio.vo.announcer.11snmqy",
-      "voice": "announcer",
-      "say": "97.8 The Squatch. We would play you a record, but there are no records."
-    },
-    {
-      "name": "radio.vo.announcer.1rk1ecr",
-      "voice": "announcer",
-      "say": "Drop some MP3s into assets/music/ and list them in manifest.json."
-    },
-    {
-      "name": "radio.vo.announcer.1hpme9z",
-      "voice": "announcer",
-      "say": "Until then: this. This is the show now."
     }
   ]
 }

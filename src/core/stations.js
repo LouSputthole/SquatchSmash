@@ -749,7 +749,9 @@ function buildVoiceIndex() {
     for (const seg of st.commercial ?? []) add(seg.line, 'announcer');
     if (st.notices) for (const seg of MEETING_NOTICE) add(seg.line, 'announcer');
     for (const line of st.lines ?? []) add(line, 'announcer');
-    for (const line of st.empty ?? []) add(line, 'announcer');
+    /* `empty` is the developer hint shown when assets/music/ has nothing in
+     * it. It tells you to go and add files, which is not something a radio
+     * host says, and it cannot air at all once there is music. Not voiced. */
   }
   return byLine;
 }
