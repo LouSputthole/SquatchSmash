@@ -36,9 +36,15 @@ const threeBundle = `const THREE = (() => {\n${three}\n})();`;
 
 // --- Game modules: strip import/export syntax and wrap each in an IIFE that
 // returns its exports, preserving module scoping (helper names collide freely).
+// Strips import statements, including ones broken across several lines.
+function stripImports(src) {
+  return src
+    .replace(/^import\s[\s\S]*?from\s*['"][^'"]*['"];?[ \t]*\r?\n/gm, '')
+    .replace(/^import\s+['"][^'"]*['"];?[ \t]*\r?\n/gm, '');
+}
+
 function moduleIIFE(path, returns, binding) {
-  let src = read(path);
-  src = src.replace(/^import\s[^\n]*\n/gm, '');
+  let src = stripImports(read(path));
   src = src.replace(/^export\s+(const|function|class|let)/gm, '$1');
   return `const ${binding} = (() => {\n${src}\nreturn { ${returns.join(', ')} };\n})();`;
 }
@@ -48,19 +54,26 @@ const parts = [
   moduleIIFE('src/audio.js',
     ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime',
      'squish', 'boom', 'stomp', 'buzz', 'dart', 'dartHit', 'powerup', 'frenzyJingle',
-     'startMusic', 'stopMusic', 'roar', 'sting'],
+     'startMusic', 'stopMusic', 'roar', 'sting', 'goalDing', 'siren', 'bossHit', 'bossDown'],
     'sfx'),
-  moduleIIFE('src/player.js', ['Sasquatch'], '{ Sasquatch }'),
+  moduleIIFE('src/player.js', ['Sasquatch', 'SKINS', 'skinById'], '{ Sasquatch, SKINS, skinById }'),
   moduleIIFE('src/debris.js', ['DebrisSystem'], '{ DebrisSystem }'),
   moduleIIFE('src/effects.js', ['Effects'], '{ Effects }'),
   moduleIIFE('src/world.js', ['BOUNDS', 'lambert', 'buildWorld'], '{ BOUNDS, lambert, buildWorld }'),
   moduleIIFE('src/campers.js', ['CamperSystem'], '{ CamperSystem }'),
   moduleIIFE('src/rangers.js', ['RangerSystem'], '{ RangerSystem }'),
+  moduleIIFE('src/boss.js', ['Boss', 'BOSS_NAME', 'BOSS_MAX_HP'], '{ Boss, BOSS_NAME, BOSS_MAX_HP }'),
+  moduleIIFE('src/goals.js',
+    ['buildGoals', 'GoalTracker', 'renderGoalList', 'renderGoalSummary'],
+    '{ buildGoals, GoalTracker, renderGoalList, renderGoalSummary }'),
+  moduleIIFE('src/meta.js',
+    ['RANKS', 'UNLOCKS', 'ratingFor', 'rankFor', 'nextRank', 'loadMeta', 'saveMeta',
+     'isUnlocked', 'unlockedSkins', 'setSkin', 'recordRun', 'renderCareer', 'renderSkins'],
+    '{ RANKS, UNLOCKS, ratingFor, rankFor, nextRank, loadMeta, saveMeta, isUnlocked, unlockedSkins, setSkin, recordRun, renderCareer, renderSkins }'),
 ];
 
 // main.js runs at top level (it *is* the program)
-let main = read('src/main.js');
-main = main.replace(/^import\s[^\n]*\n/gm, '');
+const main = stripImports(read('src/main.js'));
 parts.push(`(() => {\n${main}\n})();`);
 
 const script = parts.join('\n\n');
