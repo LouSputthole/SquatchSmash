@@ -521,3 +521,75 @@ export function disposeTextureCache() {
   for (const tex of _cache.values()) tex.dispose?.();
   _cache.clear();
 }
+
+/**
+ * Knock a near-white studio background out of a photograph.
+ *
+ * The garment art is product shots -- a shirt, centred, on white. Mapped onto
+ * a rectangle that is exactly what you get: a rectangle of white with a shirt
+ * printed on it, hanging on a rail. It reads as a photograph of a shirt
+ * rather than a shirt, which is worse than a plain coloured one would be.
+ *
+ * There is no alpha in a JPEG, so this makes one: draw the image, drop every
+ * pixel above the threshold to transparent, and feather the edge so the
+ * outline is not a staircase. Only pixels reachable from the border are
+ * cleared, so white INSIDE the garment -- lettering, a logo -- survives.
+ *
+ * @param {HTMLImageElement|ImageBitmap|HTMLCanvasElement} img
+ * @param {number} cut  0..1 luminance above which a border pixel is background
+ */
+export function dieCut(img, cut = 0.86) {
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+  if (!w || !h) return null;
+
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true });
+  g.drawImage(img, 0, 0, w, h);
+
+  const data = g.getImageData(0, 0, w, h);
+  const px = data.data;
+  const lum = (i) => (px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114) / 255;
+
+  /* Flood from the border rather than thresholding the whole image: the shirt
+   * has white lettering on it, and a plain threshold eats the lettering. */
+  const seen = new Uint8Array(w * h);
+  const stack = [];
+  for (let x = 0; x < w; x++) { stack.push(x, (h - 1) * w + x); }
+  for (let y = 0; y < h; y++) { stack.push(y * w, y * w + w - 1); }
+
+  while (stack.length) {
+    const p = stack.pop();
+    if (seen[p]) continue;
+    if (lum(p * 4) < cut) continue;
+    seen[p] = 1;
+    const x = p % w, y = (p / w) | 0;
+    if (x > 0) stack.push(p - 1);
+    if (x < w - 1) stack.push(p + 1);
+    if (y > 0) stack.push(p - w);
+    if (y < h - 1) stack.push(p + w);
+  }
+
+  // Clear the background, then soften whatever borders it.
+  for (let p = 0; p < w * h; p++) if (seen[p]) px[p * 4 + 3] = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const p = y * w + x;
+      if (seen[p] || px[p * 4 + 3] === 0) continue;
+      let open = 0;
+      if (seen[p - 1]) open++;
+      if (seen[p + 1]) open++;
+      if (seen[p - w]) open++;
+      if (seen[p + w]) open++;
+      if (open) px[p * 4 + 3] = Math.round(255 * (1 - open / 6));
+    }
+  }
+  g.putImageData(data, 0, 0);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  return tex;
+}

@@ -644,6 +644,16 @@ function synth(engine, name, dest, t, rate = 1) {
     /* A hinge turning slowly under its own weight. Two narrow bands walking
      * downward, because a creak is a resonance moving, not an impact -- and it
      * has to be quiet enough that you are not sure you heard it. */
+    /* Hangers first, fabric second. The metal is what tells you what happened;
+     * the cloth is what tells you how much of it there was. */
+    case 'closet.slide':
+      for (let i = 0; i < 5; i++) {
+        burst(ctx, dest, t + i * 0.055 + Math.random() * 0.02, {
+          dur: 0.05, type: 'bandpass', freq: 2600 + Math.random() * 1400, q: 6, gain: 0.09,
+        });
+      }
+      burst(ctx, dest, t + 0.04, { dur: 0.52, type: 'lowpass', freq: 900, gain: 0.07, sweep: 0.5 });
+      break;
     case 'door.creak':
       burst(ctx, dest, t, { dur: 1.5, type: 'bandpass', freq: 640, q: 14, gain: 0.10, sweep: 0.72 });
       burst(ctx, dest, t + 0.34, { dur: 1.1, type: 'bandpass', freq: 980, q: 18, gain: 0.055, sweep: 0.8 });

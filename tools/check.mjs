@@ -69,8 +69,13 @@ const VALID_SLOTS = (() => {
   const src = fs.readFileSync(path.join(ROOT, 'src/world/apartment.js'), 'utf8');
   const slots = new Set();
   for (const m of src.matchAll(/slot:\s*'([^']+)'/g)) slots.add(m[1]);
-  const props = src.match(/const PROP_SLOTS = \[([^\]]*)\]/);
-  if (props) for (const m of props[1].matchAll(/'([^']+)'/g)) slots.add(m[1]);
+  /* Any `const SOMETHING_SLOTS = [ '…', '…' ]`, not one array by name. This
+   * used to look for PROP_SLOTS specifically, so the first group of slots
+   * added under a different name failed the build for existing rather than
+   * for being wrong -- which is the drift this whole block exists to avoid. */
+  for (const m of src.matchAll(/const \w*SLOTS = \[([^\]]*)\]/g)) {
+    for (const s of m[1].matchAll(/'([^']+)'/g)) slots.add(s[1]);
+  }
   return slots;
 })();
 if (VALID_SLOTS.size < 20) fail(`only found ${VALID_SLOTS.size} slots in apartment.js`);

@@ -92,7 +92,10 @@ const report = await page.evaluate(async (TILE) => {
   /* ---- 1 + 2: pieces against each other, and against the shell ---- */
   const items = S.apartment.frames.map((f) => {
     f.mesh.updateWorldMatrix(true, true);
-    return { slot: f.slot, real: !!f.info.real, bb: new THREE.Box3().setFromObject(f.mesh) };
+    return {
+      slot: f.slot, real: !!f.info.real, onFloor: !!f.onFloor,
+      bb: new THREE.Box3().setFromObject(f.mesh),
+    };
   });
   for (let i = 0; i < items.length; i++) {
     for (let j = i + 1; j < items.length; j++) {
@@ -105,7 +108,11 @@ const report = await page.evaluate(async (TILE) => {
     }
     const { bb, slot } = items[i];
     if (bb.max.y > 2.74) problems.push(`${slot} is through the ceiling (${bb.max.y.toFixed(2)})`);
-    if (bb.min.y < 0.05) problems.push(`${slot} is through the floor (${bb.min.y.toFixed(2)})`);
+    /* 0.05 is the "this is hung on a wall and should not be at ankle height"
+     * threshold. A piece that is meant to be standing on the floor -- the
+     * shrine in the closet -- only has to not be UNDER it. */
+    const min = items[i].onFloor ? -0.005 : 0.05;
+    if (bb.min.y < min) problems.push(`${slot} is through the floor (${bb.min.y.toFixed(2)})`);
   }
 
   /* ---- 3: doors, swept through their full travel ---- */

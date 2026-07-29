@@ -276,6 +276,36 @@
       "file": "sticker-austin-2025.png",
       "title": "Austin Major 2025",
       "caption": "The whole roster, stuck to the fridge. Nobody remembers who put it there."
+    },
+    {
+      "slot": "closet.back",
+      "file": "closet-cowboy.jpg",
+      "title": "The cowboy portrait",
+      "caption": "Behind the shirts, at the back of the closet, hung properly. He put it there and he hung it straight."
+    },
+    {
+      "slot": "closet.shirt.a",
+      "file": "shirt-austin-front.jpg",
+      "title": "Austin jersey — front",
+      "caption": "On the rail. Worn once."
+    },
+    {
+      "slot": "closet.shirt.b",
+      "file": "shirt-austin-back.jpg",
+      "title": "Austin jersey — back",
+      "caption": "On the rail next to its own front."
+    },
+    {
+      "slot": "shrine.a",
+      "file": "shrine-booski-podium.jpg",
+      "title": "Booski on the podium",
+      "caption": "On the floor of the closet, propped against the back wall."
+    },
+    {
+      "slot": "shrine.b",
+      "file": "shrine-booski-soldiers.jpg",
+      "title": "Booski, again",
+      "caption": "Next to the other one. Nobody keeps these on a closet floor. These are on a closet floor."
     }
   ]
 }

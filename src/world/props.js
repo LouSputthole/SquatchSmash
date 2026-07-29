@@ -2451,3 +2451,147 @@ export function makeCrossingSign(M, { x, z, rotY = 0 }) {
   g.add(board);
   return { group: g, bounds: [[x - 0.24, 0, z - 0.12], [x + 0.24, 1.4, z + 0.12]] };
 }
+
+/**
+ * A closet: a shallow alcove with a rail across it and things on the rail.
+ *
+ * The point of it is what is behind the clothes, so the clothes have to be
+ * genuinely in the way -- a rail you can see past is a rail with nothing to
+ * find. They cover the back wall until you shove them, and then they bunch up
+ * at one end the way clothes on a rail actually do rather than sliding as one
+ * rigid object.
+ *
+ * Coordinates are the alcove's interior, in world space. `garments` is a list
+ * of { texture, colour, w } — a texture makes it a shirt with a print on it,
+ * a colour makes it something plain hanging next to it.
+ */
+export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = null }) {
+  const g = group('closet');
+  const shell = mat({ color: 0xcfc7ba, roughness: 0.95 });
+  const W = x1 - x0, D = z1 - z0;
+  const cx = (x0 + x1) / 2;
+
+  // Its own box, since this is carved out beyond the room's shell.
+  g.add(boxFrom(x0, -0.1, z0, x1, 0, z1, M.floor, { cast: false }));
+  g.add(boxFrom(x0, h, z0, x1, h + 0.1, z1, shell, { cast: false }));
+  g.add(boxFrom(x0 - 0.14, 0, z1, x1 + 0.14, h, z1 + 0.14, shell, { cast: false }));   // back
+  g.add(boxFrom(x0 - 0.14, 0, z0, x0, h, z1, shell, { cast: false }));                 // sides
+  g.add(boxFrom(x1, 0, z0, x1 + 0.14, h, z1, shell, { cast: false }));
+  // Skirting, so it belongs to the same flat.
+  g.add(boxFrom(x0, 0, z1 - 0.02, x1, 0.09, z1, M.trim, { cast: false }));
+
+  /* What is on the back wall. Hung high enough that the clothes cover it and
+   * low enough that it is at eye height once they are out of the way. */
+  let picture = null;
+  if (back) {
+    picture = plane(back.w, back.h, back.texture
+      ? new THREE.MeshStandardMaterial({ map: back.texture, roughness: 0.62 })
+      : new THREE.MeshStandardMaterial({ color: 0x4a4030, roughness: 0.8 }));
+    picture.position.set(cx, back.y ?? 1.30, z1 - 0.012);
+    picture.rotation.y = Math.PI;
+    g.add(picture);
+    // A frame with some depth, so it is an object and not a decal.
+    const f = 0.024;
+    for (const [px, py, sw, sh] of [
+      [0, back.h / 2 + f / 2, back.w + f * 2, f],
+      [0, -back.h / 2 - f / 2, back.w + f * 2, f],
+      [-back.w / 2 - f / 2, 0, f, back.h],
+      [back.w / 2 + f / 2, 0, f, back.h],
+    ]) {
+      g.add(box({
+        size: [sw, sh, 0.022], pos: [cx + px, (back.y ?? 1.30) + py, z1 - 0.022], mat: M.darkWood,
+      }));
+    }
+  }
+
+  // Rail, and a shelf over it.
+  const RAIL_Y = 1.74;
+  g.add(cylinder({ r: 0.016, h: W, pos: [cx, RAIL_Y, z0 + D * 0.5], rotZ: Math.PI / 2, mat: M.chrome }));
+  g.add(box({ size: [W, 0.030, D * 0.86], pos: [cx, RAIL_Y + 0.20, z0 + D * 0.5], mat: M.darkWood }));
+
+  /* The clothes. One group so they can be shoved as a unit, but each garment
+   * keeps its own offset inside it, which is what lets them bunch. */
+  const clothes = new THREE.Group();
+  g.add(clothes);
+  const hangers = [];
+  const span = W - 0.26;
+  const step = garments.length > 1 ? span / (garments.length - 1) : 0;
+  const startX = cx - span / 2;
+
+  for (let i = 0; i < garments.length; i++) {
+    const item = garments[i];
+    const gx = startX + i * step;
+    const hung = new THREE.Group();
+    hung.position.set(gx, 0, z0 + D * 0.5);
+    clothes.add(hung);
+    hangers.push({ mesh: hung, home: gx, bunch: startX + span - i * 0.055 });
+
+    // Hanger: hook and two shoulders.
+    const hook = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.0045, 6, 12, Math.PI * 1.5), M.chrome);
+    hook.position.set(0, RAIL_Y + 0.026, 0);
+    hook.rotation.y = Math.PI / 2;
+    hung.add(hook);
+    const wire = mat({ color: 0xbfc4c9, roughness: 0.4, metalness: 0.6 });
+    const gw = item.w ?? 0.42;
+    for (const s of [-1, 1]) {
+      const arm = box({ size: [gw * 0.52, 0.006, 0.006], pos: [s * gw * 0.26, RAIL_Y - 0.075, 0], mat: wire });
+      arm.rotation.z = s * 0.30;
+      hung.add(arm);
+    }
+    hung.add(box({ size: [gw * 0.98, 0.006, 0.006], pos: [0, RAIL_Y - 0.135, 0], mat: wire }));
+
+    /* The garment. A shirt with a print gets a plane on the front so the print
+     * reads, over a body with real thickness -- a bare plane on a rail looks
+     * like a photograph of a shirt, which is exactly what it would be. */
+    const gh = item.h ?? 0.62;
+    if (item.cut) {
+      /* A garment with real artwork is hung as its own shape, cut out of the
+       * product shot -- sleeves, collar, hem and all. Boxing it and printing
+       * the photo on the front instead gives you a rectangle of studio white
+       * with a shirt on it, which reads as a photograph of a shirt hanging on
+       * a rail. See dieCut() in textures.js.
+       *
+       * Double-sided and given a hair of thickness by a second copy behind it,
+       * so it is not a zero-width sheet when you look along the rail. */
+      const shirt = plane(gw * 1.55, gh * 1.55, new THREE.MeshStandardMaterial({
+        map: item.cut, roughness: 0.92, transparent: true, alphaTest: 0.42,
+        side: THREE.DoubleSide,
+      }));
+      shirt.position.set(0, RAIL_Y - 0.10 - gh * 0.72, 0);
+      shirt.rotation.y = Math.PI;
+      shirt.castShadow = true;
+      hung.add(shirt);
+      const back = shirt.clone();
+      back.position.z = 0.026;
+      hung.add(back);
+    } else {
+      const body = box({
+        size: [gw, gh, 0.055], pos: [0, RAIL_Y - 0.135 - gh / 2, 0],
+        mat: mat({ color: item.colour ?? 0x2b2f36, roughness: 0.95 }),
+      });
+      body.castShadow = true;
+      hung.add(body);
+      // Sleeves, so the silhouette is not a rectangle.
+      for (const s of [-1, 1]) {
+        const sleeve = box({
+          size: [gw * 0.30, gh * 0.34, 0.05],
+          pos: [s * (gw * 0.54), RAIL_Y - 0.135 - gh * 0.24, 0],
+          mat: mat({ color: item.colour ?? 0x2b2f36, roughness: 0.95 }),
+        });
+        sleeve.rotation.z = s * 0.16;
+        hung.add(sleeve);
+      }
+    }
+  }
+
+  return {
+    group: g,
+    clothes,
+    hangers,
+    picture,
+    railY: RAIL_Y,
+    /** Where the player has to be looking to shove them. */
+    centre: new THREE.Vector3(cx, 1.35, z0 + D * 0.5),
+    bounds: [[x0, 0, z0], [x1, h, z1]],
+  };
+}

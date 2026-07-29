@@ -18,6 +18,15 @@ import { resolveGear } from './gear.js';
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
 
 /**
+ * The closet, cut back into the south wall.
+ *
+ * `x0..x1` is the opening; the alcove runs from the wall's outer face back to
+ * `back`. Shallow, because it is a studio flat and this is the cupboard that
+ * came with it, not a walk-in.
+ */
+const CLOSET = { x0: 4.38, x1: 4.98, back: 5.40, h: 2.05 };
+
+/**
  * Where the player's own art hangs. Keys match assets/art/manifest.json.
  * `h` is the picture height in metres; width follows the image's aspect ratio.
  */
@@ -130,6 +139,18 @@ const FRIDGE_PHOTOS = [
   { slot: 'sticker.fridge', y: 0.92, z: -0.06, w: 0.22, tilt: -0.13, sticker: true },
 ];
 
+/**
+ * Inside the closet.
+ *
+ * `closet.back` is the whole reason the closet exists: it hangs where the
+ * clothes cover it, and you only find it by shoving them out of the way. The
+ * two shirts are on the rail in front of it; the two shrine photographs are
+ * propped on the floor underneath, which is not where you keep photographs of
+ * your friend, and is exactly where these are.
+ */
+const CLOSET_SLOTS = ['closet.back', 'closet.shirt.a', 'closet.shirt.b',
+  'shrine.a', 'shrine.b'];
+
 /** Textures used on props rather than hung on a wall. */
 const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'cereal.box',
   // Die-cut vinyl rather than framed art: these want a transparent PNG. Give
@@ -147,6 +168,7 @@ export async function buildApartment(ctx) {
     ...BATH_SLOTS.map((s) => s.slot),
     ...BANNER_SLOTS.map((b) => b.slot),
     CREST_SLOT.slot,
+    ...CLOSET_SLOTS,
     ...PROP_SLOTS,
     ...STANDING_SLOTS.map((s) => s.slot),
     FRIDGE_MAGNET.slot,
@@ -183,9 +205,19 @@ export async function buildApartment(ctx) {
   addWallRun(root, M, 'north', [[x0, -1.90], [-0.90, x1]], z0, wall, h);
   addDoorHeader(root, M, 'north', -1.90, -0.90, z0, wall, h, 2.05);
 
-  // South wall (z1): front door at x 2.30..3.30.
-  addWallRun(root, M, 'south', [[x0, 2.30], [3.30, x1]], z1, wall, h);
+  /* South wall (z1): front door at x 2.30..3.30, and the closet beside it.
+   *
+   * The corner past the Denver piece is the only stretch of wall in the flat
+   * that is free. Measured, after putting it somewhere that looked free and
+   * finding the sideboard, the radio and the wall clock already in it: the
+   * north wall is behind the bed for its whole western half, the west wall is
+   * a gallery end to end, and the rest is doors, the window or the kitchen.
+   *
+   * It is 60cm wide, which is narrow for a closet and exactly right for the
+   * one by the front door that came with the flat. */
+  addWallRun(root, M, 'south', [[x0, 2.30], [3.30, CLOSET.x0], [CLOSET.x1, x1]], z1, wall, h);
   addDoorHeader(root, M, 'south', 2.30, 3.30, z1, wall, h, 2.05);
+  addDoorHeader(root, M, 'south', CLOSET.x0, CLOSET.x1, z1, wall, h, CLOSET.h);
 
   // West wall: solid.
   addWallRunSide(root, M, 'west', [[z0, z1]], x0, wall, h);
@@ -208,7 +240,14 @@ export async function buildApartment(ctx) {
   addCollider([[-0.90, 0, z0 - wall], [x1 + 0.5, h, z0]]);
   addCollider([[x0 - 0.5, 0, z0 - 0.5], [-1.90, h, z0 - wall]]);
   addCollider([[-0.90, 0, z0 - 0.5], [x1 + 0.5, h, z0 - wall]]);
-  addCollider([[x0 - 0.5, 0, z1], [x1 + 0.5, h, z1 + 0.5]]);
+  /* South side, split around the closet mouth so it is walkable, with the
+   * alcove's own three walls closing it off behind. */
+  addCollider([[x0 - 0.5, 0, z1], [CLOSET.x0, h, z1 + 0.5]]);
+  addCollider([[CLOSET.x1, 0, z1], [x1 + 0.5, h, z1 + 0.5]]);
+  // The closet is in the corner, so its east side is the room's own east wall.
+  addCollider([[CLOSET.x0 - 0.5, 0, CLOSET.back], [CLOSET.x1 + 0.5, h, CLOSET.back + 0.5]]);
+  addCollider([[CLOSET.x0 - 0.5, 0, z1], [CLOSET.x0, h, CLOSET.back + 0.2]]);
+  addCollider([[CLOSET.x1, 0, z1], [CLOSET.x1 + 0.5, h, CLOSET.back + 0.2]]);
   addCollider([[x0 - 0.5, 0, z0 - 0.5], [x0, h, z1 + 0.5]]);
   addCollider([[x1, 0, z0 - 0.5], [x1 + 0.5, h, z1 + 0.5]]);
 
@@ -675,6 +714,104 @@ export async function buildApartment(ctx) {
   root.add(crest.group);
   frames.push({ ...CREST_SLOT, mesh: crest.group, info: crestGear });
 
+  /* ---- the closet ----
+   *
+   * A rail of shirts with something behind them. The clothes are genuinely in
+   * the way -- a rail you can see past is a rail with nothing to find -- so
+   * the picture is not visible, or interactable, or hinted at, until you have
+   * shoved them. Pushing them back covers it up again, which is the joke: it
+   * is his flat and he is the one who hung it there.
+   */
+  /* The garment art is a studio product shot. Cut the white away so it hangs
+   * as a shirt rather than as a rectangle with a shirt printed on it -- and
+   * fall back to the plain coloured body if the image is not there. */
+  const dieCutSlot = (slot) => {
+    const g = gear.get(slot);
+    if (!g?.real || !g.texture?.image) return null;
+    try { return T.dieCut(g.texture.image); } catch { return null; }
+  };
+  const closetBack = gear.get('closet.back');
+  const closet = P.makeCloset(M, {
+    x0: CLOSET.x0 + 0.02, x1: CLOSET.x1 - 0.02, z0: z1, z1: CLOSET.back, h: CLOSET.h,
+    back: closetBack?.real
+      ? { texture: closetBack.texture, w: 0.40, h: 0.40 / (closetBack.aspect || 0.75), y: 1.16 }
+      : null,
+    garments: [
+      { cut: dieCutSlot('closet.shirt.a'), colour: 0x6b4f9e, w: 0.34, h: 0.58 },
+      { colour: 0x2a3038, w: 0.31, h: 0.55 },
+      { cut: dieCutSlot('closet.shirt.b'), colour: 0x6b4f9e, w: 0.34, h: 0.58 },
+      { colour: 0x4a3f33, w: 0.29, h: 0.62 },
+    ],
+  });
+  root.add(closet.group);
+
+  /* A closet is a box with one open side, so nothing in it catches the ceiling
+   * spot and the whole interior renders as a silhouette -- the shirts came out
+   * as black slabs and the picture at the back was invisible whether the
+   * clothes were over it or not, which defeats the entire point of the thing.
+   * A dim bulb inside, of the kind that is in every closet in every flat. */
+  const closetLight = new THREE.PointLight(0xffe9c4, 2.4, 1.9, 2.0);
+  closetLight.position.set((CLOSET.x0 + CLOSET.x1) / 2, CLOSET.h - 0.16, CLOSET.back - 0.42);
+  root.add(closetLight);
+
+  /* The rail is the thing you interact with, not the picture. A hit box in
+   * front of the clothes rather than on them, because they move and a target
+   * that slides out from under the crosshair mid-press is unusable. */
+  const closetHit = box({
+    size: [CLOSET.x1 - CLOSET.x0 - 0.06, 1.05, 0.34],
+    pos: [(CLOSET.x0 + CLOSET.x1) / 2, 1.18, z1 + 0.26],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  root.add(closetHit);
+  interaction.register(closetHit, {
+    label: () => (state.closetOpen ? 'Push the clothes <b>back</b>' : 'Push the clothes <b>aside</b>'),
+    onUse: () => {
+      state.closetOpen = !state.closetOpen;
+      audio.play('closet.slide', {
+        position: closet.centre, volume: 0.55, muffle: 2600,
+      });
+      ctx.onCloset?.(state.closetOpen);
+    },
+  });
+
+  /* Sliding. Each hanger runs to its own target rather than the whole rail
+   * moving as one -- they bunch at the far end, the way clothes actually do,
+   * and the ones already there hardly move. */
+  ticks.push((dt) => {
+    const k = Math.min(1, dt * 7);
+    for (const hgr of closet.hangers) {
+      const want = state.closetOpen ? hgr.bunch : hgr.home;
+      hgr.mesh.position.x += (want - hgr.mesh.position.x) * k;
+    }
+  });
+
+  /* The shrine. Two photographs of Booski on the closet floor, propped against
+   * the back wall. Nobody keeps photographs of their friend on the floor of a
+   * cupboard. These are on the floor of a cupboard. */
+  /* Side by side rather than overlapping. In a 60cm closet two 17cm frames at
+   * an angle need more room between them than the arithmetic suggests -- the
+   * tilt widens each one's footprint. */
+  for (const [slot, sx, tilt, dz] of [
+    ['shrine.a', -0.15, 0.22, 0], ['shrine.b', 0.15, -0.20, 0.07],
+  ]) {
+    const g = gear.get(slot);
+    if (!g?.real) continue;
+    const sf = P.makeStandingFrame(M, {
+      x: (CLOSET.x0 + CLOSET.x1) / 2 + sx,
+      /* Standing frames hang their easel leg below the origin, so a photo
+       * "on the floor" has to sit ON it, not at it. */
+      y: 0.035,
+      z: CLOSET.back - 0.16 - dz,
+      rotY: Math.PI + tilt,
+      w: 0.17 * (g.aspect || 0.8),
+      h: 0.17,
+      texture: g.texture,
+    });
+    root.add(sf.group);
+    frames.push({ slot, mesh: sf.group, info: g, onFloor: true });
+  }
+
+
   // Framed photos standing on the sideboard and the desk.
   for (const slot of STANDING_SLOTS) {
     const g = gear.get(slot.slot);
@@ -836,6 +973,8 @@ export async function buildApartment(ctx) {
     csDeaths: 0,
     /** The reply to HR has actually gone. */
     repliedHR: false,
+    /** The clothes are shoved to one end and the picture is showing. */
+    closetOpen: false,
   };
 
   /* ---- fridge ---- */
