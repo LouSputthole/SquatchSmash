@@ -258,7 +258,7 @@ npm run sfx          # everything
 Nothing spoken will generate until that id is set, and the tool says so once
 rather than failing 77 times against the API.
 
-### Where he speaks ✅ (wired) / ⬜ (written, not wired)
+### Where he speaks — all wired ✅
 
 | Moment | Lines | |
 |---|---|---|
@@ -272,12 +272,12 @@ rather than failing 77 times against the API.
 | Sitting at the PC | 2 | ✅ |
 | Muttering to himself while idle | 5 | ✅ |
 | Hearing one of the band's own records | 2 | ✅ |
-| The fridge, the radio commercial | 4 | ⬜ |
-| Counter-Squatch deaths (early, late) and the one kill | 7 | ⬜ needs the CS rework |
-| Squatch Smash | 2 | ⬜ |
-| The bong, the mushrooms | 4 | ⬜ needs the effects |
-| Shower, eating, getting dressed | 5 | ⬜ needs the verbs |
-| **The door's eight excuses, in his own voice** | 10 | ⬜ needs the goal system |
+| The fridge, the radio commercial | 4 | ✅ |
+| Counter-Squatch deaths (early, late) and the one kill | 7 | ✅ |
+| Squatch Smash | 2 | ✅ |
+| The bong, the mushrooms | 4 | ✅ |
+| Shower, eating, getting dressed | 5 | ✅ |
+| **The door's eight excuses, in his own voice** | 10 | ✅ |
 
 The door excuses being *spoken by him* rather than narrated is the bit worth
 protecting. It is not a quest log telling you what to do; it is a man standing
@@ -302,3 +302,30 @@ be worse than silence.
 5. **The bong and the mushrooms** — effects, not just props.
 6. **The corkboard note and Booski's messages.**
 7. **Voice acting and ElevenLabs**, whenever the key and the network allow.
+
+---
+
+## Easter eggs ✅
+
+Nothing here is required, signposted, or rewarded. The test for whether
+something belongs in this section is simple: if a player never finds it, they
+should not be able to tell it was missing.
+
+| | Where | What |
+|---|---|---|
+| **The catchphrases** ✅ | Any framed photo | Catching a frame under the crosshair is enough — no button. Half the bank is the group's own sayings rather than descriptions of the picture: *let me hear you, let me sing* · *it is all love* · *piping hot*. Once per frame per run, 55% chance, 14-second shared cooldown. |
+| **The fluke kill** ✅ | Counter-Squatch | The cheater is on screen for 0.37 seconds before he shoots. You can hit him. Almost nobody will. The scoreboard says `1 kills` afterwards and it is the best thing that happens all day. |
+| **The glue** ✅ | Desk, under the crooked frame | Six squeezes, a long groan, and the whole bottle up the wall. Sounds like something else the entire way through and is glue at every point. The wall stays like that. |
+| **Booski's last message** ✅ | Second monitor, 9 PM | Nineteen messages across Tuesday, and the last one — after all the plans and the arguing — is just `ok`. |
+| **The Rerun Hour** ✅ | 97.8, 10 AM–noon | Two hours the station could not fill, filled with this morning's tape. *"That was from this morning. Four hours ago. We are aware."* |
+| **Irish and the eggs** ✅ | 97.8, 3–5 PM | Part fifteen of an investigation into whether Big Egg is suppressing the pasture-raised truth. There is string on the whiteboard. |
+| **Lou has landed there** ✅ | 97.8, breakfast | *"You cannot land there. I want to be clear that you cannot land there." / "I have landed there."* |
+| **The bottle** ✅ | Sideboard | Six pulls of Jack & Daniel's. The label is the real one off the crest, de-checkered and cropped by hand. |
+| **Nobody is in the building** ✅ | 97.8, 2–6 AM | Stay up. The overnight tape has been running for eleven years and knows it. |
+
+### Deliberately not rewarded
+
+Sitting on the couch. Lying on the bed without sleeping. Turning the radio off
+and standing in the quiet. Farting. Reading the evidence board. Pointing the
+flashlight at things. None of these advance anything, and that is the point —
+a flat where only the useful actions work is a to-do list with walls.
