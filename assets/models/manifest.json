@@ -1,0 +1,4 @@
+{
+  "_comment": "Real models placed in the apartment. See README.md in this folder. Empty is the normal state — everything in the flat is procedural until something here says otherwise.",
+  "models": []
+}

@@ -15,6 +15,7 @@ import * as T from './textures.js';
 import * as P from './props.js';
 import { resolveGear } from './gear.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
+import { loadModels } from './models.js';
 
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
 
@@ -1867,6 +1868,15 @@ export async function buildApartment(ctx) {
   };
   const bedSitExit = new THREE.Vector3(-3.20, 0, -3.00);
 
+  /* Real models last, so anything with `replaces` has a procedural prop to
+   * hide. Not awaited: the flat is fully playable without them and holding the
+   * loading screen on a fetch that is usually a 404 would be daft. */
+  const modelsReady = loadModels(root).then((r) => {
+    if (r.loaded) console.log(`models: placed ${r.loaded}`);
+    for (const f of r.failed) console.warn(`models: ${f}`);
+    return r;
+  });
+
   return {
     root,
     materials: M,
@@ -1875,6 +1885,8 @@ export async function buildApartment(ctx) {
     state,
     inventory,
     dropGun,
+    /** Resolves once any .glb in assets/models/ has been placed. */
+    models: modelsReady,
     pizza,
     tv,
     tvGlow,
