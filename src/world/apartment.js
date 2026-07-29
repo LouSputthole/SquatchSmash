@@ -55,6 +55,10 @@ export const WALL_SLOTS = [
   // pair either side of the monitor with a small one stacked above.
   { slot: 'north.corner', x: -4.20, y: 1.70, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'shelf.left', x: -3.30, y: 1.98, z: -4.40, rotY: 0, h: 0.34 },
+  /* Above the shelf rather than beside it: the shelf runs to x -2.3 and the
+   * bathroom door starts at -1.90, so wall level here is 40cm of nothing. The
+   * space over the top is the actual gap. */
+  { slot: 'shelf.above', x: -2.62, y: 2.16, z: -4.40, rotY: 0, h: 0.30 },
   { slot: 'cork.above', x: -0.10, y: 2.20, z: -4.40, rotY: 0, h: 0.46 },
   { slot: 'desk.left', x: 0.95, y: 1.80, z: -4.40, rotY: 0, h: 0.44 },
   { slot: 'desk.right', x: 2.72, y: 1.62, z: -4.40, rotY: 0, h: 0.52 },

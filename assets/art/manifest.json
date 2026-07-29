@@ -330,6 +330,12 @@
       "file": "iem-2022-square.jpg",
       "title": "IEM Dallas 2022",
       "caption": "The square crop. Hung after the big one, lower and a bit off."
+    },
+    {
+      "slot": "shelf.above",
+      "file": "logo-2023-square.jpg",
+      "title": "The 2023 mark",
+      "caption": "Small, high, over the shelf. You have to look up to notice it."
     }
   ]
 }
