@@ -1216,7 +1216,7 @@ assetStatus.innerHTML = 'Everything in here is drawn and synthesised at load tim
   + 'no models, no textures, no audio files.';
 loading.classList.add('hidden');
 window.__bing = {
-  scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
+  THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
   interaction, drunk, highs, inventory, car, lot, associate, scripts,
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';

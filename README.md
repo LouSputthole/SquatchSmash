@@ -1,25 +1,29 @@
 # Squatch Life
 
-Two things live in this repo.
+Three things live in this repo.
 
 | | |
 |---|---|
 | **Squatch Life** (repo root) | First-person. You wake up on Tuesday at 6:04 AM with a fridge, a radio, a bathroom and a gaming PC. The Squatch meeting is tomorrow night. |
+| **A Quick Stop at the Bing** ([`bing.html`](./bing.html)) | First-person, same engine. Wednesday, 11:41 PM. Park, get past the bouncer, find Lou in the back office, leave with what he has for you. |
 | **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
+                 # the Bing      -> http://localhost:5173/bing.html
                  # the game      -> http://localhost:5173/game/
 ```
 
-Both are static ES-module sites with no build step, served by the same
+All three are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own `lib/three.module.js`, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
-completely self-contained; the apartment uses `vendor/three.module.min.js` at
-the root. Neither can break the other.
+completely self-contained; the apartment and the Bing share
+`vendor/three.module.min.js` and everything in `src/core`. Nothing can break
+anything else.
 
 See [`game/README.md`](./game/README.md) for the campground game's controls and
-scoring. Everything below is the apartment.
+scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
+Everything between here and there is the apartment.
 
 ---
 
@@ -291,6 +295,8 @@ src/core/               player controller, interaction raycasting, audio, radio
 src/world/              apartment shell, furniture builders, procedural textures,
                         materials, particle systems, and the wall-art loader
 src/arcade/             SquatchOS, the two apps on it, and the mount point
+src/bing/               the Bada Bing: the club, its people, the script, the
+                        mission, and two ways to lose money
 tools/                  static server, ElevenLabs generator, static check,
                         runtime art-placement check, single-file bundler
 vendor/                 three.js (vendored so there is no install step)
@@ -302,6 +308,7 @@ The apartment is laid out on a fixed grid: x runs −5 (west) to +5 (east), z ru
 ```bash
 npm run check        # static: parses every source file, validates the manifests
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
+npm run verify:bing  # runtime: plays the club mission start to finish, headless
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
 
@@ -314,8 +321,88 @@ stuck to the fridge door overlapping anything else on it — that last one needs
 its own pass, because everything on a fridge is coplanar and so never overlaps
 on all three axes. It exits non-zero, so CI can run it.
 
+`verify:bing` is the same idea aimed at the club: it starts the game, walks the
+player through every beat of the mission — the bouncer, the floor, the machine,
+the table, the hallway, Lou, the package, the lot — and asserts the state
+machine at each one, because "the office where nothing happens" is a failure
+that no parser can see.
+
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around
 while working on a room, and direct handles for every mechanic (`passOut`,
 `fart`, `startPee`, `sitOn`, `lieOnBed`, `takeZyn`, `time.skipHours`) so you can
 get to a state without playing your way there.
+
+
+---
+
+## A Quick Stop at the Bing
+
+> `npm start`, then <http://localhost:5173/bing.html>
+
+Wednesday, 11:41 PM, a wet lot off the highway. You are sitting in your own car
+with the engine running and the wipers going, and Lou has something for you in
+the back office. That is the entire objective. The club is deliberately much
+larger than the errand.
+
+**The rule the whole level is built on:** you never lose control because
+somebody important started talking. Lou can say his piece while you walk around
+his office, sit down, open his liquor cabinet, look at his security monitor,
+take the package, put it back, or leave. There is no cutscene in here,
+including at the end — the mission finishes when you drive out of the lot
+yourself.
+
+### What is in there
+
+| | |
+|---|---|
+| **The lot** | Fifteen cars, a reserved space, a dumpster in the delivery alley, and one suspiciously clean sedan parked where it can watch the office wall. |
+| **The vestibule** | Coat check, a metal detector nobody has plugged in, and a bouncer who knows exactly who you are and asks anyway. |
+| **The floor** | Stage, runway, three poles, booths, candlelit two-tops, and a room dark enough that the light is all in pockets. Step onto the stage and somebody comes over. |
+| **The bar** | Twelve metres of it. Club soda, beer, whiskey, or whatever Lou drinks. The drink model is the flat's, so the whiskey lands the way the whiskey lands. |
+| **Blackjack** | A real table with real cards, played from the chair. $25 minimum. Lou counts your hands: three and he messages, six and he means it, ten and he sends somebody. |
+| **The machine** | Three reels, five symbols, and a jackpot that is technically possible. Its side panel is not screwed down, and there is a second counter behind it. |
+| **The back** | Fluorescent hallway, men's room with the roster written on the wall, a store room with a live alarm on the service door — and a way out through the alley that nobody watching the front will see. |
+| **The office** | Lou, a desk lamp, a ledger, a safe behind a picture, and a monitor showing the lot. |
+
+### Controls
+
+Everything the flat does, plus <kbd>1</kbd>–<kbd>4</kbd> to answer somebody,
+<kbd>Q</kbd> to get up or step away, and <kbd>Tab</kbd> to hide the objective
+card. At the table: <kbd>1</kbd>–<kbd>4</kbd> stake, <kbd>E</kbd> deal or hit,
+<kbd>F</kbd> stand, <kbd>R</kbd> double.
+
+### Endings
+
+Four, chosen by what you did about the sedan rather than by whether you
+"won": it follows you, you read its plate, you told Lou and one of his men came
+out to lean on the canopy post, or you left through the alley and nobody saw you
+at all. Next stop is the jerky meeting, which is another level.
+
+### The code
+
+```
+bing.html               importmap + the club's HUD markup
+src/bing/main.js        wiring: systems, interactables, zones, the loop
+src/bing/club.js        the building, its colliders, its lights, its doors
+src/bing/cast.js        one human figure, dressed a dozen ways, three tiers of AI
+src/bing/script.js      everything anybody says
+src/bing/dialogue.js    conversation that never takes the game off you
+src/bing/mission.js     the state machine, Lou's patience, the endings
+src/bing/slots.js       three cylinders and a strip texture
+src/bing/blackjack.js   cards and chips as objects on the felt
+src/bing/vehicles.js    the lot, and the car you arrived in
+src/bing/kit.js         the club's own procedural textures
+```
+
+It borrows rather than reimplements: `core/player.js`, `core/interaction.js`,
+`core/hud.js`, `core/audio.js`, `core/drunk.js`, `core/highs.js`,
+`core/inventory.js`, `core/postfx.js`, and the prop makers in
+`world/props.js` — Lou's package is the revolver from the flat's coffee table,
+and the back bar is the whiskey bottle forty times over. Two shared files grew
+by a few lines to support it: `player.js` reads an optional
+`world.groundAt(x, z)` so the stage can be walked on, and `audio.js` gained the
+club's cues and four ambience beds.
+
+In the console, `__bing` exposes the scene, the club, the cast, the mission and
+`__bing.teleport(x, z, yaw)`.

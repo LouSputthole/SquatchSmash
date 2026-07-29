@@ -280,18 +280,25 @@ export function buildClub(scene, { renderer } = {}) {
       });
     }
 
+    /* Warehouses, with a few lit windows each. The windows are children of the
+     * shed they belong to -- built loose in world space they ended up hanging
+     * in the middle of the club, which is a good way to find out that `add()`
+     * returns the object rather than positioning it. */
     for (let i = 0; i < 10; i++) {
       const w = rand(16, 30);
       const h = rand(6, 13);
       const d = rand(12, 22);
-      add(box({ size: [w, h, d], pos: [rand(-100, 100), h / 2, rand(-75, -34)], mat: mat({ color: pick([0x14141a, 0x1a1a22, 0x121218]), roughness: 1 }) }));
+      const shed = group('warehouse',
+        box({ size: [w, h, d], pos: [0, h / 2, 0], mat: mat({ color: pick([0x14141a, 0x1a1a22, 0x121218]), roughness: 1 }) }));
       for (let k = 0; k < 3; k++) {
-        add(box({
+        shed.add(box({
           size: [1.0, 0.8, 0.1],
-          pos: [rand(-w / 2 + 2, w / 2 - 2), rand(2, h - 1.5), 0],
+          pos: [rand(-w / 2 + 2, w / 2 - 2), rand(2, h - 1.5), d / 2 + 0.05],
           mat: lit(pick([0xffd9a0, 0x9ab8d8]), 0.9),
-        })).position.z = 0;
+        }));
       }
+      shed.position.set(rand(-100, 100), 0, rand(-75, -34));
+      add(shed);
     }
     // Power lines along the lot's edge
     for (let i = 0; i < 8; i++) {
@@ -473,20 +480,21 @@ export function buildClub(scene, { renderer } = {}) {
   {
     const dado = mat({ map: tiled(panelling('#3a2418'), 8, 0.6), roughness: 0.85 });
     const above = mat({ color: 0x1a1016, roughness: 0.98 });
+    /* Sat proud of the shell's inner face (x = -20.8, z = -14.8, z = 11), not
+     * inside it -- a skin buried in the wall it is skinning is just brick with
+     * extra draw calls, which is exactly what the first pass shipped. */
     // West wall, behind the bar
-    add(box({ size: [0.08, 1.3, 22], pos: [-20.88, 0.65, 0], mat: dado }));
-    add(box({ size: [0.08, 3.2, 22], pos: [-20.88, 2.9, 0], mat: above }));
-    // North wall, behind the stage
-    add(box({ size: [26.4, 1.3, 0.08], pos: [-7.8, 0.65, -10.88], mat: dado }));
-    add(box({ size: [26.4, 3.2, 0.08], pos: [-7.8, 2.9, -10.88], mat: above }));
+    add(box({ size: [0.08, 1.3, 22], pos: [-20.74, 0.65, 0], mat: dado }));
+    add(box({ size: [0.08, 3.2, 22], pos: [-20.74, 2.9, 0], mat: above }));
     // Front wall, either side of the doors
     for (const [cx, w] of [[-11.6, 18.6], [3.3, 4.2]]) {
-      add(box({ size: [w, 1.3, 0.08], pos: [cx, 0.65, 10.88], mat: dado }));
-      add(box({ size: [w, 3.2, 0.08], pos: [cx, 2.9, 10.88], mat: above }));
+      add(box({ size: [w, 1.3, 0.08], pos: [cx, 0.65, 10.84], mat: dado }));
+      add(box({ size: [w, 3.2, 0.08], pos: [cx, 2.9, 10.84], mat: above }));
     }
-    // The vestibule, which is small enough that the walls matter
-    for (const [vx, vz, vw, vd] of [[-3.92, 13.2, 0.06, 4.4], [3.92, 13.2, 0.06, 4.4], [0, 15.32, 8, 0.06]]) {
-      add(box({ size: [vw, 3.2, vd], pos: [vx, 1.6, vz], mat: vw < 1 ? dado : above }));
+    // The vestibule, which is small enough that its walls are most of it
+    for (const [vx, vz, vw, vd] of [[-3.74, 13.2, 0.06, 4.4], [3.74, 13.2, 0.06, 4.4], [0, 15.18, 7.4, 0.06]]) {
+      add(box({ size: [vw, 1.3, vd], pos: [vx, 0.65, vz], mat: dado }));
+      add(box({ size: [vw, 1.9, vd], pos: [vx, 2.25, vz], mat: above }));
     }
   }
 
@@ -893,9 +901,11 @@ export function buildClub(scene, { renderer } = {}) {
         cylinder({ r: 0.3, h: 0.04, pos: [tx, 0.03, tz], mat: M_CHROME }),
       ));
       solid(tx - 0.44, tz - 0.44, tx + 0.44, tz + 0.44, 0, 0.82);
-      const flame = cylinder({ r: 0.055, h: 0.14, pos: [tx, 0.88, tz], mat: lit(0xff6a3a, 3.4) });
+      // The candle: a red glass with a small flame in it, not a strip light
+      add(cylinder({ r: 0.045, h: 0.1, pos: [tx, 0.86, tz], mat: mat({ color: 0x6a1a1a, roughness: 0.3, transparent: true, opacity: 0.85, emissive: new THREE.Color(0x3a0a06), emissiveIntensity: 1.4 }) }));
+      const flame = cylinder({ rTop: 0.004, rBottom: 0.016, h: 0.05, seg: 6, pos: [tx, 0.93, tz], mat: lit(0xffb060, 4.5) });
       add(flame);
-      const cl = new THREE.PointLight(0xff8a4a, 1.6, 2.6, 2);
+      const cl = new THREE.PointLight(0xff8a4a, 2.2, 3.2, 2);
       cl.position.set(tx, 0.95, tz);
       add(cl);
       candles.push({ flame, light: cl, phase: rand(0, 6) });
@@ -907,7 +917,7 @@ export function buildClub(scene, { renderer } = {}) {
     ticking.push((dt, t) => {
       for (const c of candles) {
         const f = 0.85 + Math.sin(t * 9 + c.phase) * 0.1 + Math.sin(t * 21 + c.phase) * 0.05;
-        c.light.intensity = 1.6 * f;
+        c.light.intensity = 2.2 * f;
         c.flame.scale.y = f;
       }
     });
@@ -948,7 +958,7 @@ export function buildClub(scene, { renderer } = {}) {
       const z = H.z0 + 2 + i * 3.4;
       const tube = box({ size: [0.18, 0.06, 1.2], pos: [6.7, CEIL_BACK - 0.1, z], mat: lit(0xd8f0d8, 2.0), cast: false });
       add(tube);
-      const l = new THREE.PointLight(0xcfe8cf, 6, 6, 2);
+      const l = new THREE.PointLight(0xcfe8cf, 9, 7.5, 2);
       l.position.set(6.7, CEIL_BACK - 0.3, z);
       add(l);
       if (i === 2) neon.push({ mesh: tube, light: l, base: 6, next: rand(1, 4), on: true, kind: 'fluoro' });
@@ -1023,7 +1033,7 @@ export function buildClub(scene, { renderer } = {}) {
 
     const tube = box({ size: [1.6, 0.07, 0.15], pos: [bx, CEIL_BACK - 0.1, 0.6], mat: lit(0xd8f0e8, 2.0), cast: false });
     add(tube);
-    const bl = new THREE.PointLight(0xd0e8e0, 7, 8, 2);
+    const bl = new THREE.PointLight(0xd0e8e0, 10, 9, 2);
     bl.position.set(bx, CEIL_BACK - 0.3, 0.6);
     add(bl);
     neon.push({ mesh: tube, light: bl, base: 7, next: rand(0.5, 2), on: true, kind: 'fluoro' });
@@ -1077,7 +1087,7 @@ export function buildClub(scene, { renderer } = {}) {
       { x: S.x0 + 5.6, y: 1.5, z: S.z0 + 0.25, emissive: 0x2a2a30, intensity: 0.3 })).rotation.z = 0.35;
 
     for (let i = 0; i < 2; i++) {
-      const l = new THREE.PointLight(0xcfe8cf, 5, 9, 2);
+      const l = new THREE.PointLight(0xcfe8cf, 7, 10, 2);
       l.position.set(S.x0 + 2.6 + i * 4.6, CEIL_BACK - 0.3, (S.z0 + S.z1) / 2);
       add(l);
       add(box({ size: [1.2, 0.06, 0.15], pos: [S.x0 + 2.6 + i * 4.6, CEIL_BACK - 0.1, (S.z0 + S.z1) / 2], mat: lit(0xd8f0d8, 1.6), cast: false }));
@@ -1145,12 +1155,12 @@ export function buildClub(scene, { renderer } = {}) {
     );
     shade.position.set(dx + 0.78, 1.2, dz - 0.2);
     add(shade);
-    const deskLight = new THREE.PointLight(0xffb870, 14, 6, 2);
+    const deskLight = new THREE.PointLight(0xffb870, 17, 7, 2);
     deskLight.position.set(dx + 0.78, 1.25, dz - 0.2);
     deskLight.castShadow = true;
     deskLight.shadow.mapSize.set(512, 512);
     add(deskLight);
-    const officeFill = new THREE.PointLight(0xffa060, 4.5, 8, 2);
+    const officeFill = new THREE.PointLight(0xffa060, 6.5, 9, 2);
     officeFill.position.set(ox, CEIL_BACK - 0.4, oz + 0.6);
     add(officeFill);
     office.deskLight = deskLight;

@@ -11,6 +11,7 @@
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
     "check": "node tools/check.mjs",
     "verify:art": "node tools/verify-art.mjs",
+    "verify:bing": "node tools/verify-bing.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",

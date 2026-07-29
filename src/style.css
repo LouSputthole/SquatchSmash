@@ -787,3 +787,19 @@ kbd.key, .controls kbd {
   color: rgba(190, 200, 220, 0.45);
 }
 #hotbar .slot.on::after { color: rgba(255, 214, 150, 0.8); }
+
+/* The one link off the ending card: the night carries on at the club. */
+#next-level {
+  display: block;
+  order: 5;
+  margin-top: 16px;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  color: #ff3d8b;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(255, 61, 139, 0.35);
+  padding-bottom: 3px;
+  align-self: center;
+}
+#next-level:hover { color: #ff7ab0; border-bottom-color: #ff7ab0; }
+#overlay:not(.ending) #next-level { display: none; }

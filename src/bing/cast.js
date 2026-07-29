@@ -31,6 +31,13 @@ const BANDANA = 0xd92e2e;
 /**
  * One person.
  *
+ * Built to real proportions, because this is the first level with anybody
+ * else in it and a figure that is off by 20% reads as a mannequin from across
+ * a room. Seven and a half heads tall, shoulders about a quarter of the
+ * height across, elbows at the navel, fingertips at mid-thigh, and a neck.
+ * `build` thickens the body without widening the frame -- Lou is a big man,
+ * not a big doorway.
+ *
  * @param {object} o
  *   height   metres to the top of the head (1.78 is the default adult)
  *   build    1.0 average, 1.4 is Lou
@@ -45,151 +52,204 @@ export function makePerson(o = {}) {
     bandana = false, chain = false, beard = false, glasses = false,
   } = o;
 
-  const skinMat = mat({ color: skin, roughness: 0.72 });
-  const hairMat = mat({ color: hairColour, roughness: 0.95 });
+  const skinMat = mat({ color: skin, roughness: 0.68 });
+  const hairMat = mat({ color: hairColour, roughness: 0.96 });
   const cloth = mat({
     color: shirt,
-    roughness: dress === 'stage' ? 0.34 : 0.88,
-    metalness: dress === 'stage' ? 0.55 : 0,
+    roughness: dress === 'stage' ? 0.34 : 0.9,
+    metalness: dress === 'stage' ? 0.5 : 0,
   });
-  const jacket = mat({ color: dress === 'suit' ? 0x1b1b22 : shirt, roughness: 0.86 });
+  const jacketColour = dress === 'suit' ? 0x1b1b22 : shirt;
+  const jacket = mat({ color: jacketColour, roughness: 0.88 });
   const trousers = mat({
     color: dress === 'suit' ? 0x1b1b22 : dress === 'tracksuit' ? shirt : 0x232631,
-    roughness: 0.9,
+    roughness: 0.92,
   });
-  const shoe = mat({ color: 0x14141a, roughness: 0.55 });
+  const shoe = mat({ color: 0x14141a, roughness: 0.5 });
+  /* Sleeves: a tee and a stage outfit leave the arms bare, everything else
+   * covers them, and a waistcoat is a shirt with something over the chest. */
+  const sleeve = dress === 'tee' || dress === 'stage'
+    ? skinMat
+    : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth);
 
   const g = group('person');
   const body = group('body');
   g.add(body);
 
-  // Scale everything off a 1.78m frame, so `height` is genuinely height
-  const S = height / 1.78;
-  const W = 0.38 * build;   // shoulder half-width contribution
-  const D = 0.21 * build;   // depth
+  /* Everything below is in metres on a 1.78m frame; `g.scale` handles the
+   * rest, so `height` means height. `t` thickens with build; the frame does
+   * not, or a heavy man ends up shaped like a wardrobe. */
+  const t = 0.55 + build * 0.45;          // 1.0 at build 1
+  const SH = 0.215 * (0.85 + build * 0.15);  // half shoulder width
+  const D = 0.135 * t;                       // half chest depth
 
   /* ---- legs ---- */
   function leg(side) {
     const pivot = group('leg');
-    pivot.position.set(side * 0.10 * build, 0.88, 0);
-    pivot.add(box({ size: [0.16 * build, 0.46, 0.18 * build], pos: [0, -0.23, 0], mat: trousers }));
-    pivot.add(box({ size: [0.14 * build, 0.42, 0.16 * build], pos: [0, -0.66, 0.01], mat: trousers }));
-    pivot.add(box({ size: [0.15, 0.08, 0.27], pos: [0, -0.885, 0.05], mat: shoe }));
+    pivot.position.set(side * 0.095 * t, 0.90, 0);
+    // Thigh and shin taper, and the knee is a joint rather than a corner
+    pivot.add(cylinder({ rTop: 0.085 * t, rBottom: 0.068 * t, h: 0.44, seg: 10, pos: [0, -0.22, 0], mat: trousers }));
+    const shin = group('shin');
+    shin.position.set(0, -0.44, 0);
+    shin.add(sphere({ r: 0.072 * t, pos: [0, 0, 0], mat: trousers }));
+    shin.add(cylinder({ rTop: 0.068 * t, rBottom: 0.052 * t, h: 0.42, seg: 10, pos: [0, -0.21, 0], mat: trousers }));
+    shin.add(box({ size: [0.095, 0.055, 0.26], pos: [0, -0.44, 0.05], mat: shoe }));
+    shin.add(sphere({ r: 0.05, ry: 0.045, rz: 0.06, pos: [0, -0.42, -0.03], mat: shoe }));
+    pivot.add(shin);
     return pivot;
   }
   const legL = leg(-1);
   const legR = leg(1);
   g.add(legL, legR);
 
-  /* ---- torso ---- */
-  const hips = box({ size: [0.31 * build, 0.18, D * 1.05], pos: [0, 0.96, 0], mat: trousers });
-  body.add(hips);
-  const torso = box({ size: [0.36 * build, 0.42, D], pos: [0, 1.26, 0], mat: cloth });
+  /* ---- torso ----
+   * Hips, a waist that is narrower than both, and a chest that is wider than
+   * both. Three parts is the fewest that reads as a body rather than a box. */
+  body.add(box({ size: [0.30 * t * (build > 1.15 ? 1.08 : 1), 0.16, D * 1.9], pos: [0, 0.97, 0], mat: trousers }));
+  const waist = box({ size: [0.28 * t, 0.20, D * 1.75], pos: [0, 1.13, 0], mat: dress === 'suit' ? jacket : cloth });
+  body.add(waist);
+  /* A big man is big at the middle, not at the shoulders. Anything over about
+   * 1.15 build gets a front on him, which is most of what makes Lou Lou. */
+  if (build > 1.15) {
+    const heavy = (build - 1) * 0.9;
+    // Wide and shallow, sunk into the torso: a front, not a beach ball
+    body.add(sphere({
+      r: 0.185 * t, ry: 0.135 * t, rz: 0.105 * t,
+      pos: [0, 1.18, D * (0.45 + heavy * 0.2)], mat: dress === 'suit' ? jacket : cloth,
+    }));
+    // The shirt hangs over the belt, so the lower half is still shirt
+    body.add(sphere({
+      r: 0.165 * t, ry: 0.10 * t, rz: 0.09 * t,
+      pos: [0, 1.05, D * (0.3 + heavy * 0.2)], mat: dress === 'suit' ? jacket : cloth,
+    }));
+  }
+  const torso = box({ size: [0.345 * t, 0.30, D * 2], pos: [0, 1.36, 0], mat: cloth });
   body.add(torso);
-  // Shoulders: a slab plus two rounded caps, which is what stops a person
-  // reading as a wardrobe with a head on it
-  body.add(box({ size: [W * 2, 0.13, D * 1.02], pos: [0, 1.44, 0], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
+  // Shoulders: a slab the width of the frame, capped with deltoids
+  body.add(box({ size: [SH * 2, 0.11, D * 1.95], pos: [0, 1.47, 0], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
   for (const sx of [-1, 1]) {
-    body.add(sphere({ r: 0.085 * build, ry: 0.075, pos: [sx * W, 1.44, 0], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
+    body.add(sphere({ r: 0.072 * t, ry: 0.062, pos: [sx * SH, 1.45, 0], mat: sleeve === skinMat ? skinMat : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth) }));
   }
 
   if (dress === 'suit') {
-    body.add(box({ size: [0.38 * build, 0.44, D * 1.04], pos: [0, 1.26, 0], mat: jacket }));
-    body.add(box({ size: [0.1, 0.4, 0.02], pos: [0, 1.28, D * 0.53], mat: mat({ color: 0xe4e0d8, roughness: 0.9 }) }));
+    // A jacket is a slightly bigger torso with a shirt front cut out of it
+    body.add(box({ size: [0.365 * t, 0.46, D * 2.1], pos: [0, 1.28, 0], mat: jacket }));
+    body.add(box({ size: [0.075, 0.36, 0.02], pos: [0, 1.36, D * 1.06], mat: mat({ color: 0xe4e0d8, roughness: 0.9 }) }));
     for (const sx of [-1, 1]) {
-      const lap = box({ size: [0.08, 0.3, 0.02], pos: [sx * 0.07, 1.3, D * 0.54], mat: jacket });
-      lap.rotation.z = sx * 0.2;
+      const lap = box({ size: [0.07, 0.26, 0.02], pos: [sx * 0.06, 1.36, D * 1.07], mat: jacket });
+      lap.rotation.z = sx * 0.22;
       body.add(lap);
     }
-    body.add(box({ size: [0.05, 0.22, 0.02], pos: [0, 1.3, D * 0.56], mat: mat({ color: 0x6a1a24, roughness: 0.7 }) }));
+    body.add(box({ size: [0.038, 0.2, 0.018], pos: [0, 1.35, D * 1.09], mat: mat({ color: 0x6a1a24, roughness: 0.7 }) }));
   }
   if (dress === 'waistcoat') {
-    body.add(box({ size: [0.37 * build, 0.4, D * 1.03], pos: [0, 1.24, 0], mat: mat({ color: 0x191920, roughness: 0.8 }) }));
-    body.add(box({ size: [0.11, 0.06, 0.03], pos: [0, 1.42, D * 0.54], mat: mat({ color: 0x6a1a24, roughness: 0.6 }) }));
+    body.add(box({ size: [0.35 * t, 0.32, D * 2.06], pos: [0, 1.34, 0], mat: mat({ color: 0x191920, roughness: 0.82 }) }));
+    body.add(box({ size: [0.075, 0.05, 0.02], pos: [0, 1.5, D * 1.05], mat: mat({ color: 0x6a1a24, roughness: 0.6 }) }));
   }
   if (dress === 'work') {
-    body.add(box({ size: [0.38 * build, 0.2, D * 1.04], pos: [0, 1.06, 0], mat: mat({ color: 0x2a2a30, roughness: 0.95 }) }));
+    body.add(box({ size: [0.35 * t, 0.22, D * 2.06], pos: [0, 1.1, 0], mat: mat({ color: 0x2a2a30, roughness: 0.95 }) }));
   }
   if (chain) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.011, 6, 16), mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 }));
-    ring.position.set(0, 1.38, D * 0.45);
-    ring.rotation.x = 1.3;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.009, 6, 18), mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 }));
+    ring.position.set(0, 1.44, D * 1.4);
+    ring.rotation.x = 1.42;
     body.add(ring);
   }
 
-  /* ---- head ---- */
+  /* ---- head ----
+   * Sat on a neck, with a jaw, a nose and a brow. The features are small and
+   * the brow is what actually reads at three metres. */
   const head = group('head');
-  head.position.set(0, 1.52, 0);
-  head.add(cylinder({ r: 0.055, h: 0.09, pos: [0, 0.03, 0], mat: skinMat }));      // neck
-  const skull = sphere({ r: 0.105, ry: 0.125, rz: 0.115, pos: [0, 0.16, 0], mat: skinMat });
-  head.add(skull);
-  head.add(box({ size: [0.13, 0.1, 0.06], pos: [0, 0.115, 0.09], mat: skinMat })); // jaw and chin
+  head.position.set(0, 1.50, 0);
+  head.add(cylinder({ rTop: 0.048, rBottom: 0.056, h: 0.10, seg: 10, pos: [0, 0.04, -0.005], mat: skinMat }));
+  head.add(sphere({ r: 0.093, ry: 0.108, rz: 0.10, pos: [0, 0.165, 0], mat: skinMat }));
+  head.add(box({ size: [0.115, 0.085, 0.075], pos: [0, 0.115, 0.045], mat: skinMat }));   // jaw
+  head.add(sphere({ r: 0.045, ry: 0.035, rz: 0.03, pos: [0, 0.09, 0.05], mat: skinMat })); // chin
   for (const sx of [-1, 1]) {
-    head.add(sphere({ r: 0.026, ry: 0.034, pos: [sx * 0.1, 0.16, 0], mat: skinMat })); // ears
+    head.add(sphere({ r: 0.019, ry: 0.028, rz: 0.012, pos: [sx * 0.088, 0.165, -0.005], mat: skinMat }));
   }
+  head.add(box({ size: [0.12, 0.022, 0.03], pos: [0, 0.203, 0.078], mat: skinMat }));      // brow
   const eyes = [];
   for (const sx of [-1, 1]) {
-    const white = sphere({ r: 0.019, pos: [sx * 0.037, 0.175, 0.093], mat: mat({ color: 0xf2f0ec, roughness: 0.4 }) });
-    const iris = sphere({ r: 0.009, pos: [sx * 0.037, 0.175, 0.107], mat: mat({ color: pick([0x3a2a18, 0x2a3a4a, 0x2a4a2a]), roughness: 0.35 }) });
-    head.add(white, iris);
+    head.add(sphere({ r: 0.016, ry: 0.012, rz: 0.01, pos: [sx * 0.034, 0.181, 0.083], mat: mat({ color: 0xf2f0ec, roughness: 0.35 }) }));
+    const iris = sphere({ r: 0.007, pos: [sx * 0.034, 0.181, 0.09], mat: mat({ color: pick([0x3a2a18, 0x2a3a4a, 0x2a4a2a]), roughness: 0.3 }) });
+    head.add(iris);
     eyes.push(iris);
   }
-  head.add(box({ size: [0.032, 0.008, 0.012], pos: [-0.037, 0.202, 0.096], mat: hairMat }));
-  head.add(box({ size: [0.032, 0.008, 0.012], pos: [0.037, 0.202, 0.096], mat: hairMat }));
-  head.add(box({ size: [0.022, 0.03, 0.03], pos: [0, 0.163, 0.108], mat: skinMat })); // nose
-  const mouth = box({ size: [0.045, 0.008, 0.01], pos: [0, 0.118, 0.098], mat: mat({ color: 0x8a4a48, roughness: 0.6 }) });
+  head.add(box({ size: [0.022, 0.042, 0.028], pos: [0, 0.158, 0.092], mat: skinMat }));    // nose
+  const mouth = box({ size: [0.042, 0.009, 0.012], pos: [0, 0.112, 0.082], mat: mat({ color: 0x8a4a48, roughness: 0.6 }) });
   head.add(mouth);
 
   if (hair !== 'bald') {
-    const cap = sphere({ r: 0.112, ry: 0.115, rz: 0.12, pos: [0, 0.185, -0.008], mat: hairMat });
+    const cap = sphere({ r: 0.098, ry: 0.1, rz: 0.104, pos: [0, 0.178, -0.008], mat: hairMat });
     if (hair === 'receding') {
-      cap.scale.z = 0.8;
-      cap.position.z = -0.03;
-      cap.position.y = 0.2;
+      cap.scale.set(0.094, 0.08, 0.09);
+      cap.position.set(0, 0.204, -0.022);
     }
-    if (hair === 'crop') cap.scale.multiplyScalar(0.96);
+    if (hair === 'crop') cap.scale.multiplyScalar(0.98);
     head.add(cap);
     if (hair === 'long') {
-      head.add(box({ size: [0.2, 0.2, 0.14], pos: [0, 0.09, -0.07], mat: hairMat }));
+      head.add(box({ size: [0.17, 0.19, 0.12], pos: [0, 0.09, -0.055], mat: hairMat }));
     }
     if (hair === 'tied') {
-      head.add(sphere({ r: 0.05, pos: [0, 0.16, -0.13], mat: hairMat }));
+      head.add(sphere({ r: 0.042, pos: [0, 0.15, -0.115], mat: hairMat }));
     }
   }
   if (beard) {
-    head.add(box({ size: [0.13, 0.09, 0.08], pos: [0, 0.108, 0.075], mat: hairMat }));
+    head.add(box({ size: [0.115, 0.075, 0.07], pos: [0, 0.105, 0.045], mat: hairMat }));
   }
   if (glasses) {
     for (const sx of [-1, 1]) {
-      head.add(box({ size: [0.045, 0.04, 0.005], pos: [sx * 0.037, 0.175, 0.115], mat: mat({ color: 0x14141a, roughness: 0.4 }) }));
+      head.add(box({ size: [0.042, 0.032, 0.004], pos: [sx * 0.034, 0.181, 0.096], mat: mat({ color: 0x14141a, roughness: 0.35 }) }));
     }
+    head.add(box({ size: [0.03, 0.004, 0.004], pos: [0, 0.181, 0.096], mat: mat({ color: 0x14141a, roughness: 0.35 }) }));
   }
   if (bandana) {
-    head.add(box({ size: [0.215, 0.055, 0.225], pos: [0, 0.225, -0.005], mat: mat({ color: BANDANA, roughness: 0.92 }) }));
-    const tail = box({ size: [0.04, 0.13, 0.02], pos: [0.015, 0.18, -0.115], mat: mat({ color: BANDANA, roughness: 0.92 }) });
-    tail.rotation.x = 0.45;
+    head.add(box({ size: [0.185, 0.048, 0.195], pos: [0, 0.222, -0.006], mat: mat({ color: BANDANA, roughness: 0.92 }) }));
+    const tail = box({ size: [0.035, 0.115, 0.018], pos: [0.012, 0.185, -0.1], mat: mat({ color: BANDANA, roughness: 0.92 }) });
+    tail.rotation.x = 0.5;
     head.add(tail);
   }
   body.add(head);
 
-  /* ---- arms ---- */
+  /* ---- arms ----
+   * Elbow at the navel, fingertips at mid-thigh. The forearm is its own group
+   * so a raised glass or a dealt card bends at the right place.
+   */
   function arm(side) {
     const pivot = group('arm');
-    pivot.position.set(side * (W + 0.02), 1.42, 0);
-    const sleeve = dress === 'tee' || dress === 'stage' ? skinMat : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth);
-    pivot.add(cylinder({ r: 0.055 * build, h: 0.3, pos: [0, -0.16, 0], mat: sleeve }));
-    pivot.add(cylinder({ r: 0.048 * build, h: 0.28, pos: [0, -0.44, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
-    pivot.add(sphere({ r: 0.05, ry: 0.06, pos: [0, -0.61, 0.01], mat: skinMat }));
+    pivot.position.set(side * SH, 1.44, 0);
+    pivot.add(cylinder({ rTop: 0.055 * t, rBottom: 0.046 * t, h: 0.30, seg: 9, pos: [0, -0.15, 0], mat: sleeve }));
+    const fore = group('forearm');
+    fore.position.set(0, -0.30, 0);
+    fore.add(sphere({ r: 0.048 * t, pos: [0, 0, 0], mat: sleeve }));
+    fore.add(cylinder({ rTop: 0.046 * t, rBottom: 0.038 * t, h: 0.27, seg: 9, pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
+    fore.add(sphere({ r: 0.042, ry: 0.055, rz: 0.028, pos: [0, -0.3, 0.005], mat: skinMat }));
+    pivot.add(fore);
+    pivot.userData.fore = fore;
     return pivot;
   }
   const armL = arm(-1);
   const armR = arm(1);
   body.add(armL, armR);
 
-  g.scale.setScalar(S);
+  g.scale.setScalar(height / 1.78);
   g.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; } });
 
-  return { group: g, body, head, eyes, mouth, armL, armR, legL, legR, torso };
+  /* box() and sphere() in world/build.js put an object's SIZE in its scale --
+   * they all share one unit geometry. So anything animated by scale has to be
+   * animated relative to what it already is, or it snaps to a one-metre cube.
+   * Breathing did exactly that, and the club filled up with pale boxes. */
+  torso.userData.base = torso.scale.clone();
+  mouth.userData.base = mouth.scale.clone();
+
+  return {
+    group: g, body, head, eyes, mouth, torso, waist,
+    armL, armR, legL, legR,
+    foreL: armL.userData.fore, foreR: armR.userData.fore,
+    shinL: legL.children.find((c) => c.name === 'shin'),
+    shinR: legR.children.find((c) => c.name === 'shin'),
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -238,22 +298,33 @@ export class Npc {
 
   get position() { return this.group.position; }
 
-  /** Fold at the hips and knees, and drop to chair height. */
+  /**
+   * Fold at the hips and the knees and drop onto the seat.
+   *
+   * The drop is 0.42 because that is where the chairs in here are: thighs
+   * horizontal at seat height, shins vertical, feet on the floor. Getting it
+   * wrong by ten centimetres is the difference between sitting down and
+   * hovering, and everybody in this club is sitting down.
+   */
   sit() {
     this.seated = true;
-    this.parts.legL.rotation.x = -1.5;
-    this.parts.legR.rotation.x = -1.5;
-    this.parts.legL.children[1].rotation.x = 1.45;
-    this.parts.legR.children[1].rotation.x = 1.45;
-    this.group.position.y = this.baseY - 0.34;
+    this.parts.legL.rotation.x = -1.45;
+    this.parts.legR.rotation.x = -1.45;
+    this.parts.shinL.rotation.x = 1.4;
+    this.parts.shinR.rotation.x = 1.4;
+    this.parts.armL.rotation.x = -0.5;
+    this.parts.armR.rotation.x = -0.5;
+    this.parts.foreL.rotation.x = -0.5;
+    this.parts.foreR.rotation.x = -0.5;
+    this.group.position.y = this.baseY - 0.42;
   }
 
   stand() {
     this.seated = false;
     this.parts.legL.rotation.x = 0;
     this.parts.legR.rotation.x = 0;
-    this.parts.legL.children[1].rotation.x = 0;
-    this.parts.legR.children[1].rotation.x = 0;
+    this.parts.shinL.rotation.x = 0;
+    this.parts.shinR.rotation.x = 0;
     this.group.position.y = this.baseY;
   }
 
@@ -280,8 +351,9 @@ export class Npc {
     const t = this.t + this.phase;
 
     // Breathing, always. It is most of what separates a person from a prop.
-    const breathe = 1 + Math.sin(t * 1.5) * 0.012;
-    this.parts.torso.scale.set(breathe, 1, breathe);
+    const breathe = 1 + Math.sin(t * 1.5) * 0.02;
+    const base = this.parts.torso.userData.base;
+    this.parts.torso.scale.set(base.x * breathe, base.y, base.z * breathe);
     if (this.speaking > 0) this.speaking -= dt;
 
     switch (this.job) {
@@ -289,14 +361,22 @@ export class Npc {
         // Wiping, pouring, checking the till, and never still
         const cycle = (t * 0.5) % 4;
         if (cycle < 1.6) {
-          this.parts.armR.rotation.x = -0.7 + Math.sin(t * 6) * 0.32;
-          this.parts.armL.rotation.x = -0.25;
+          // Wiping: the shoulder swings a little, the elbow a lot
+          this.parts.armR.rotation.x = -0.45 + Math.sin(t * 6) * 0.16;
+          this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 6) * 0.3;
+          this.parts.armL.rotation.x = -0.2;
+          this.parts.foreL.rotation.x = -0.5;
         } else if (cycle < 2.8) {
-          this.parts.armR.rotation.x = -1.15;
-          this.parts.armL.rotation.x = -0.95 + Math.sin(t * 2) * 0.1;
+          // Pouring, both hands up
+          this.parts.armR.rotation.x = -0.7;
+          this.parts.foreR.rotation.x = -1.1;
+          this.parts.armL.rotation.x = -0.6 + Math.sin(t * 2) * 0.08;
+          this.parts.foreL.rotation.x = -1.0;
         } else {
-          this.parts.armR.rotation.x = -0.35 + Math.sin(t * 1.4) * 0.18;
-          this.parts.armL.rotation.x = -0.35 - Math.sin(t * 1.4) * 0.18;
+          this.parts.armR.rotation.x = -0.25 + Math.sin(t * 1.4) * 0.12;
+          this.parts.foreR.rotation.x = -0.85;
+          this.parts.armL.rotation.x = -0.25 - Math.sin(t * 1.4) * 0.12;
+          this.parts.foreL.rotation.x = -0.8;
         }
         break;
       }
@@ -304,8 +384,10 @@ export class Npc {
         // Deal, collect, pay, wait. Mostly wait.
         const cycle = (t * 0.6) % 6;
         const swing = cycle < 1 ? Math.sin(cycle * Math.PI) : 0;
-        this.parts.armR.rotation.x = -0.6 - swing * 0.75;
-        this.parts.armL.rotation.x = -0.55;
+        this.parts.armR.rotation.x = -0.32 - swing * 0.35;
+        this.parts.foreR.rotation.x = -1.15 - swing * 0.5;
+        this.parts.armL.rotation.x = -0.3;
+        this.parts.foreL.rotation.x = -1.1;
         break;
       }
       case 'dance': {
@@ -323,11 +405,13 @@ export class Npc {
         break;
       }
       case 'drink': {
-        // Sitting with a glass, raising it about once every eight seconds
+        // Sitting with a glass, raising it about once every eight seconds.
+        // The shoulder barely moves; it is the elbow that does the work.
         const cycle = t % 8;
         const lift = cycle < 1.4 ? Math.sin((cycle / 1.4) * Math.PI) : 0;
-        this.parts.armR.rotation.x = -0.55 - lift * 1.45;
-        this.parts.head.rotation.x = lift > 0.6 ? -0.14 : 0;
+        this.parts.armR.rotation.x = -0.5 - lift * 0.35;
+        this.parts.foreR.rotation.x = -0.8 - lift * 1.1;
+        this.parts.head.rotation.x = lift > 0.6 ? -0.12 : 0;
         break;
       }
       case 'patrol': {
@@ -366,10 +450,11 @@ export class Npc {
       default: {
         this.parts.body.rotation.z = Math.sin(t * 0.4) * 0.018;
         if (this.folded) {
-          this.parts.armL.rotation.x = -1.25;
-          this.parts.armR.rotation.x = -1.25;
-          this.parts.armL.rotation.z = 0.5;
-          this.parts.armR.rotation.z = -0.5;
+          // Arms crossed: shoulders in, elbows hard, forearms across the chest
+          this.parts.armL.rotation.set(-0.35, 0, 0.42);
+          this.parts.armR.rotation.set(-0.35, 0, -0.42);
+          this.parts.foreL.rotation.set(-1.45, 0.55, 0);
+          this.parts.foreR.rotation.set(-1.45, -0.55, 0);
         } else {
           this.parts.armL.rotation.x = Math.sin(t * 0.5) * 0.045;
           this.parts.armR.rotation.x = Math.sin(t * 0.5 + 1) * 0.045;
@@ -379,13 +464,14 @@ export class Npc {
 
     // Talking: the jaw works, the head nods, one hand does the explaining
     if (this.speaking > 0) {
-      const m = 0.006 + Math.abs(Math.sin(t * 11)) * 0.022;
-      this.parts.mouth.scale.y = m / 0.008;
+      const mb = this.parts.mouth.userData.base;
+      this.parts.mouth.scale.set(mb.x, mb.y * (1 + Math.abs(Math.sin(t * 11)) * 2.6), mb.z);
       this.parts.head.rotation.x = Math.sin(t * 6) * 0.05;
-      this.parts.armR.rotation.x = -0.75 + Math.sin(t * 4.5) * 0.3;
-      this.parts.armR.rotation.z = -0.22;
+      this.parts.armR.rotation.x = -0.35 + Math.sin(t * 4.5) * 0.14;
+      this.parts.armR.rotation.z = -0.18;
+      this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;
     } else {
-      this.parts.mouth.scale.y = 1;
+      this.parts.mouth.scale.copy(this.parts.mouth.userData.base);
     }
 
     // Heroes track the player once he is close enough to matter

@@ -1846,6 +1846,20 @@ function showEnding(kind) {
   assetStatus.innerHTML = e.body;
   startBtn.textContent = 'Wake up again';
   startBtn.onclick = () => location.reload();
+  /* If he actually left, the night is not over: Lou wants him to stop at the
+   * club on the way. Offered rather than forced -- the ending card is still
+   * the ending of this game, and the Bing is a different one in the same
+   * engine. Nothing is carried over but the fact that he went. */
+  if (kind !== 'missed') {
+    let next = document.getElementById('next-level');
+    if (!next) {
+      next = document.createElement('a');
+      next.id = 'next-level';
+      next.href = 'bing.html';
+      overlay.querySelector('.panel').appendChild(next);
+    }
+    next.textContent = 'Later that night: a quick stop at the Bing →';
+  }
   document.exitPointerLock?.();
 }
 
