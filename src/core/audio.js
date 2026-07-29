@@ -844,6 +844,19 @@ function synth(engine, name, dest, t, rate = 1) {
       break;
 
     /* -------- the other thing -------- */
+    case 'poop.strain':
+      // Held breath and no result: a tight, quiet effort that goes nowhere.
+      tone(ctx, dest, t, { freq: 128, to: 152, dur: r(0.42), gain: 0.10, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: r(0.40), type: 'bandpass', freq: 340, q: 3.2, gain: 0.07 });
+      break;
+    case 'poop.grunt': {
+      // A short one from the chest, pitched down at the end.
+      const g0 = 95 + Math.random() * 25;
+      tone(ctx, dest, t, { freq: g0, to: g0 * 1.18, dur: r(0.14), gain: 0.20, type: 'sawtooth' });
+      tone(ctx, dest, t + 0.13, { freq: g0 * 1.18, to: g0 * 0.72, dur: r(0.22), gain: 0.17, type: 'sawtooth' });
+      burst(ctx, dest, t, { dur: r(0.34), type: 'bandpass', freq: 480, q: 2.4, gain: 0.09, sweep: 0.6 });
+      break;
+    }
     case 'poop.1': case 'poop.2': case 'poop.3': case 'poop.4': {
       const v = Number(name.slice(-1));
       const dur = [0, 0.55, 1.05, 0.35, 1.45][v];

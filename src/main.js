@@ -185,6 +185,9 @@ const game = {
   left: false,          // out of the door; the game is over
   nextFartAt: 40 + Math.random() * 60,
   fartClock: 0,
+  pushQueue: [],        // the keys still to hit, front one live
+  pushT: 0,
+  pushFlash: null,
   fartQueued: false,    // deliberate one waiting for him to stop talking
 };
 
@@ -284,6 +287,7 @@ async function boot() {
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
+    updateBowel, updatePushes, tryPush,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -438,6 +442,13 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if (!game.started || game.paused) return;
+
+  /* Sat on the toilet, WASD is the push game rather than movement -- you are
+   * not going anywhere, and the keys are already under your fingers. */
+  if (game.onToilet && tryPush(e.code)) {
+    e.preventDefault();
+    return;
+  }
 
   player.setKey(e.code, true);
 
@@ -1312,6 +1323,7 @@ function sitOnToilet() {
   game.onToilet = true;
   game.poopTime = 0;
   game.nextPlopAt = 0.8;
+  resetPushes();
 
   interaction.setPaused(true);
   hud.setMode('seated');
@@ -1327,6 +1339,7 @@ function sitOnToilet() {
 
 function standFromToilet() {
   hud.setPosture(null);
+  resetPushes();
   if (!game.onToilet) return;
   game.onToilet = false;
   hud.setMode('walk');
@@ -1335,42 +1348,119 @@ function standFromToilet() {
   player.standFrom(apartment.toiletStand, () => interaction.setPaused(false));
 }
 
+/* ------------------------------------------------------------------ */
+/* Pushing                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The push mini-game.
+ *
+ * Sitting there watching a meter drain is not a thing to do, it is a thing to
+ * wait out. So it asks for something: a key appears, you hit it, and the hit
+ * IS the joke -- every successful push fires a fart, a plop, a grunt, or some
+ * combination, and the meter moves. Miss and you get a strain and nothing.
+ *
+ * The queue shows three keys ahead so it reads as a rhythm you can play into
+ * rather than a series of surprises, which is the difference between a bit and
+ * a reaction test.
+ */
+const PUSH_KEYS = ['W', 'A', 'S', 'D'];
+const PUSH_WINDOW = 1.5;      // seconds the live key stays hittable
+const PUSH_GAP = 0.55;        // beat between one key and the next
+const PUSH_DRAIN = 0.19;      // how much a good push shifts
+
+function resetPushes() {
+  game.pushQueue = [];
+  game.pushT = 0;
+  game.pushFlash = null;
+  game.pushFlashT = 0;
+  hud.setPushes(null);
+}
+
+function fillPushQueue() {
+  while (game.pushQueue.length < 4) {
+    // Never the same key twice running -- it reads as a stuck prompt.
+    const last = game.pushQueue[game.pushQueue.length - 1];
+    let k = PUSH_KEYS[(Math.random() * PUSH_KEYS.length) | 0];
+    while (k === last) k = PUSH_KEYS[(Math.random() * PUSH_KEYS.length) | 0];
+    game.pushQueue.push(k);
+  }
+}
+
+function updatePushes(dt) {
+  const st = apartment.state;
+  if (st.bowel <= 0.02) { resetPushes(); return; }
+
+  if (game.pushFlash) {
+    game.pushFlashT -= dt;
+    if (game.pushFlashT <= 0) game.pushFlash = null;
+  }
+
+  fillPushQueue();
+  game.pushT += dt;
+  if (game.pushT > PUSH_WINDOW) {
+    // Ran out of time on the live key. Nothing happens, which is its own note.
+    game.pushT = -PUSH_GAP;
+    game.pushQueue.shift();
+    audio.play('poop.strain', { volume: 0.5 });
+    game.pushFlash = 'miss';
+    game.pushFlashT = 0.28;
+  }
+
+  const live = game.pushT >= 0;
+  hud.setPushes(game.pushQueue.slice(0, 4).map((k, i) => ({
+    key: k,
+    state: i === 0 ? (game.pushFlash || (live ? 'live' : '')) : '',
+  })));
+}
+
+/** A key went down while sat on the toilet. @returns {boolean} consumed */
+function tryPush(code) {
+  if (!game.onToilet || apartment.state.bowel <= 0.02) return false;
+  const want = game.pushQueue[0];
+  if (!want || game.pushT < 0) return false;
+  if (code !== `Key${want}`) return false;
+
+  game.pushQueue.shift();
+  game.pushT = -PUSH_GAP;
+  game.pushFlash = 'hit';
+  game.pushFlashT = 0.28;
+  apartment.state.bowel = Math.max(0, apartment.state.bowel - PUSH_DRAIN);
+
+  /* Every push makes a noise, and which noise is the whole point. Weighted so
+   * the main event is commonest, farts are frequent, and a grunt sometimes
+   * rides on top of either. */
+  const roll = Math.random();
+  if (roll < 0.40) {
+    audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
+      volume: 0.75, rate: 0.9 + Math.random() * 0.25,
+    });
+    if (Math.random() < 0.5) audio.play('toilet.plop', { volume: 0.55, delay: 0.30 });
+  } else if (roll < 0.78) {
+    let i = (Math.random() * FART_CUES.length) | 0;
+    if (i === _lastFart) i = (i + 1) % FART_CUES.length;
+    _lastFart = i;
+    audio.play(FART_CUES[i], { volume: 0.78, rate: 0.8 + Math.random() * 0.4 });
+    if (Math.random() < 0.35) {
+      audio.play('toilet.plop', { volume: 0.5, delay: 0.42 + Math.random() * 0.3 });
+    }
+  } else {
+    audio.play('poop.grunt', { volume: 0.62, rate: 0.92 + Math.random() * 0.2 });
+    audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
+      volume: 0.6, rate: 0.9 + Math.random() * 0.2, delay: 0.35,
+    });
+  }
+  return true;
+}
+
 function updateBowel(dt) {
   const st = apartment.state;
 
   if (game.onToilet) {
     game.poopTime += dt;
-    st.bowel = Math.max(0, st.bowel - dt * 0.30);
-
-    game.nextPlopAt -= dt;
-    if (game.nextPlopAt <= 0 && st.bowel > 0.02) {
-      game.nextPlopAt = 1.2 + Math.random() * 2.4;
-      // Roughly one beat in three is a fart rather than the main event, which
-      // is how it goes. Sat down and in a tiled room, so it carries.
-      if (Math.random() < 0.34) {
-        let i = (Math.random() * FART_CUES.length) | 0;
-        if (i === _lastFart) i = (i + 1 + ((Math.random() * (FART_CUES.length - 1)) | 0)) % FART_CUES.length;
-        _lastFart = i;
-        audio.play(FART_CUES[i], { volume: 0.72, rate: 0.8 + Math.random() * 0.4 });
-        if (Math.random() < 0.3) {
-          audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
-            volume: 0.6, rate: 0.9 + Math.random() * 0.25, delay: 0.45 + Math.random() * 0.4,
-          });
-        }
-      } else {
-        audio.play(POOP_CUES[(Math.random() * POOP_CUES.length) | 0], {
-          volume: 0.7, rate: 0.9 + Math.random() * 0.25,
-        });
-        if (Math.random() < 0.4) audio.play('toilet.plop', { volume: 0.5, delay: 0.35 });
-        // A little punctuation on the way out.
-        if (Math.random() < 0.22) {
-          let i = (Math.random() * FART_CUES.length) | 0;
-          if (i === _lastFart) i = (i + 1) % FART_CUES.length;
-          _lastFart = i;
-          audio.play(FART_CUES[i], { volume: 0.5, rate: 1.0 + Math.random() * 0.35, delay: 0.7 });
-        }
-      }
-    }
+    // It comes out on its own, slowly. Pushing is what makes it quick.
+    st.bowel = Math.max(0, st.bowel - dt * 0.055);
+    updatePushes(dt);
     if (st.bowel <= 0.02 && game.poopTime > 3) {
       st.urgeAnnounced = false;
       if (!game._poopDone) {

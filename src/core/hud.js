@@ -130,6 +130,25 @@ export class Hud {
   }
 
   /**
+   * The push queue: keys to hit while you are sat down working on it.
+   * @param {?Array<{key: string, state: string}>} keys null hides the row.
+   */
+  setPushes(keys) {
+    this.pushes ??= document.getElementById('pushes');
+    if (!this.pushes) return;
+    if (!keys || !keys.length) { this.pushes.classList.add('hidden'); return; }
+    this.pushes.classList.remove('hidden');
+    // Rebuild only when the shape changes; restyling every frame is cheap but
+    // reflowing the row on each one makes the boxes jitter.
+    const sig = keys.map((k) => `${k.key}${k.state}`).join('|');
+    if (sig !== this._pushSig) {
+      this._pushSig = sig;
+      this.pushes.innerHTML = keys
+        .map((k) => `<b class="${k.state}">${k.key}</b>`).join('');
+    }
+  }
+
+  /**
    * The standing hint: what gets you out of whatever posture you are in.
    * @param {?string} what e.g. 'get up' -- null hides it.
    */
