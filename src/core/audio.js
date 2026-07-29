@@ -13,7 +13,7 @@
  * upgrades the sound with no code change.
  */
 import * as THREE from 'three';
-import { loadJson, assetUrl } from './assets.js';
+import { loadJson, assetUrl, isBundled } from './assets.js';
 
 const SFX_DIR = 'assets/sfx/';
 
@@ -86,13 +86,20 @@ export class AudioEngine {
   async loadManifest() {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
-    const index = await loadJson(SFX_DIR, 'index.json');
-    const available = index ? new Set(index.files || []) : null;
-
     const cues = this.manifest.sfx || [];
-    const wanted = available
-      ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
-      : cues;
+    let wanted;
+    if (isBundled()) {
+      /* A bundle has no folder to look in. Whatever was baked in is a data
+       * URI on the cue itself; everything else has no file anywhere and goes
+       * to the synth without a request. */
+      wanted = cues.filter((cue) => /^data:/.test(cue.file || ''));
+    } else {
+      const index = await loadJson(SFX_DIR, 'index.json');
+      const available = index ? new Set(index.files || []) : null;
+      wanted = available
+        ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
+        : cues;
+    }
 
     await Promise.all(wanted.map((cue) => this._loadOne(cue)));
     return { total: cues.length, loaded: this.loadedCount };

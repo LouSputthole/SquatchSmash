@@ -126,7 +126,7 @@ const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
  * So: bake the voice, skip the rest, and stop at a byte budget so the page
  * stays openable. `--sfx` bakes the effects too, `--no-vo` bakes nothing.
  */
-const VO_BUDGET = Number(process.env.SQUATCH_VO_BUDGET || 6 * 1024 * 1024);
+const VO_BUDGET = Number(process.env.SQUATCH_VO_BUDGET || 14 * 1024 * 1024);
 const WANT_VO = !process.argv.includes('--no-vo');
 const WANT_SFX = process.argv.includes('--sfx');
 
@@ -139,16 +139,19 @@ let sfxBytes = 0;
 
   // Voice first, so it is the effects that get dropped when the budget runs
   // out rather than a random half of the lines.
+  // vo.* is the man in the flat, radio.vo.* is the hosts. Both are people
+  // reading lines; neither has a synth fallback. His voice goes in first
+  // because you hear it from the first second of the game.
+  const isVoice = (n) => n.startsWith('vo.') || n.startsWith('radio.vo.');
   const ordered = cues.slice().sort((a, b) => {
-    const av = a.name.startsWith('vo.') ? 0 : 1;
-    const bv = b.name.startsWith('vo.') ? 0 : 1;
-    return av - bv;
+    const rank = (n) => (n.startsWith('vo.') ? 0 : n.startsWith('radio.vo.') ? 1 : 2);
+    return rank(a.name) - rank(b.name);
   });
 
   for (const cue of ordered) {
     const file = cue.file || `${cue.name}.mp3`;
     if (!present.has(file)) continue;
-    const isVo = cue.name.startsWith('vo.');
+    const isVo = isVoice(cue.name);
     if (isVo ? !WANT_VO : !WANT_SFX) continue;
 
     let bytes;
@@ -157,11 +160,17 @@ let sfxBytes = 0;
 
     const uri = dataUri('audio/mpeg', bytes);
     cue.file = uri;          // what the engine fetches
-    baked.push(uri);         // what index.json gates on
+    baked.push(cue.name);
     sfxBytes += uri.length;
   }
 
-  inline['assets/sfx/index.json'] = { files: baked };
+  /* index.json exists to stop the served build firing 400 requests at files
+   * that were never generated. A bundle has no such problem: the baked cues
+   * are data URIs that resolve instantly, and the rest fail their fetch and
+   * fall through to the synth, which is the intended result anyway. Dropping
+   * the index halves the page, because otherwise every URI is stored twice --
+   * once as the cue's file, once in the index that gates on it. */
+  delete inline['assets/sfx/index.json'];
   if (skipped) console.log(`  note: ${skipped} cues left out at the ${mb(VO_BUDGET)} budget`);
 }
 
