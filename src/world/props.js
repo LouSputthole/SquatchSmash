@@ -1692,7 +1692,10 @@ export function makeStandingFrame(M, { x, y, z, rotY = 0, w = 0.16, h = 0.20, te
   panel.add(leg);
 
   g.add(panel);
-  return { group: g, art };
+  /* `leg` is returned so a frame that is not standing up can lose it. One of
+   * these lies flat on the floor under the bed, where an easel strut is both
+   * wrong and the thing that pokes through the floorboards. */
+  return { group: g, art, leg };
 }
 
 /**

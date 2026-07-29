@@ -131,7 +131,12 @@ export const BATH_SLOTS = [
  * far enough to breathe, and still clear of desk.right at 3.015.
  */
 const BANNER_SLOTS = [
-  { slot: 'banner.main', x: 3.95, y: 1.62, z: -4.42, rotY: 0, h: 0.60 },
+  /* Was x 3.95 / h 0.60. desk.right's artwork was swapped for the official
+   * logo, which is a wider image, so that frame grew from 0.59m to 0.94m and
+   * walked into the banner's left edge. A picture's width is never written
+   * down here -- it comes from the file's aspect ratio -- so swapping art
+   * moves the edges of things that were fine yesterday. */
+  { slot: 'banner.main', x: 4.08, y: 1.62, z: -4.42, rotY: 0, h: 0.56 },
   // Strung above the monitor, the way a setup backdrop goes up.
   { slot: 'banner.twitch', x: 1.90, y: 2.34, z: -4.42, rotY: 0, h: 0.30 },
 ];
@@ -861,7 +866,10 @@ export async function buildApartment(ctx) {
    * with the candles in front of it; the small one is off to the side, tilted,
    * the way a second picture ends up when there was only room for one. */
   for (const [slot, sx, tilt, dz, size] of [
-    ['shrine.a', -0.02, 0.05, 0, 0.22], ['shrine.b', 0.19, -0.26, 0.09, 0.125],
+    /* shrine.b pulled in and pushed forward. At +0.19 its outer edge reached
+     * x 4.982 against a closet that stops at 4.96 -- it was inside the side
+     * wall -- and it was still touching shrine.a with 13mm of overlap. */
+    ['shrine.a', -0.02, 0.05, 0, 0.22], ['shrine.b', 0.145, -0.26, 0.155, 0.125],
   ]) {
     const g = gear.get(slot);
     if (!g?.real) continue;
@@ -1356,6 +1364,17 @@ export async function buildApartment(ctx) {
      * rotation that lays a picture down is -90 about X: local +Z maps to +Y,
      * and the face ends up pointing at the ceiling. The Z term is then just
      * which way up it lies on the floor, so it is a spin, not a roll. */
+    /* Nothing props up a photograph lying face-up on the floor, and the strut
+     * was the part hanging through the floorboards. Removed rather than
+     * hidden: an invisible mesh is still in the group, still counts toward the
+     * bounding box, and so is still "through the floor" to anything measuring
+     * it -- which is exactly how it read to verify-art. */
+    uf.leg.removeFromParent();
+    /* And it is not leaning either. The panel carries a -0.13 easel tilt so a
+     * frame standing on a shelf sits back on its strut; lying face-up on the
+     * floor there is nothing to lean against, and the tilt was what still had
+     * a corner of it under the boards. */
+    uf.art.parent.rotation.x = 0;
     uf.group.rotation.set(-Math.PI / 2, 0, Math.PI / 2 + 0.14);
     uf.group.position.x = underBed.x + underBed.hidden;
     root.add(uf.group);
