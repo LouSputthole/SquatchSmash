@@ -22,6 +22,10 @@ export const MISSION_IDS = Object.freeze({
   BADA_BING_ONE: 'bada_bing_one',
 });
 
+export const EVENT_IDS = Object.freeze({
+  LOU_FIRST_CALL: 'lou_first_call',
+});
+
 export const CAMPAIGN_VERSION = 1;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 
@@ -64,9 +68,14 @@ function initialState() {
     },
     missions: {
       [MISSION_IDS.BADA_BING_ONE]: {
-        status: 'available',
+        status: 'locked',
         packageReceived: false,
         ending: null,
+      },
+    },
+    events: {
+      [EVENT_IDS.LOU_FIRST_CALL]: {
+        status: 'pending',
       },
     },
   };
@@ -90,6 +99,7 @@ function normalize(saved) {
   const mission = saved.missions?.[MISSION_IDS.BADA_BING_ONE] ?? {};
   const status = ['locked', 'available', 'in_progress', 'complete']
     .includes(mission.status) ? mission.status : base.missions.bada_bing_one.status;
+  const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
 
   const state = {
     version: CAMPAIGN_VERSION,
@@ -123,6 +133,15 @@ function normalize(saved) {
         status,
         packageReceived: mission.packageReceived === true,
         ending: typeof mission.ending === 'string' ? mission.ending : null,
+      },
+    },
+    events: {
+      [EVENT_IDS.LOU_FIRST_CALL]: {
+        // Campaign saves created before the call event existed already exposed
+        // or completed this mission. Treat that progress as proof the call
+        // happened instead of replaying Lou and downgrading the mission.
+        status: louCall.status === 'answered' || status !== 'locked'
+          ? 'answered' : 'pending',
       },
     },
   };

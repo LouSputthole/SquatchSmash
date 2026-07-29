@@ -3399,6 +3399,26 @@
       "prompt": "a mobile phone being picked up off a wooden table, small scrape and a soft haptic tick, close, no music, no voice"
     },
     {
+      "name": "vo.call.lou.bada_bing.1",
+      "voice": "lou1",
+      "say": "Kid. You awake?"
+    },
+    {
+      "name": "vo.call.lou.bada_bing.2",
+      "voice": "lou1",
+      "say": "Meet me at the Bada Bing. Back office."
+    },
+    {
+      "name": "vo.call.lou.bada_bing.3",
+      "voice": "lou1",
+      "say": "I have a package for you, and I need it handled tonight."
+    },
+    {
+      "name": "vo.call.lou.bada_bing.4",
+      "voice": "lou1",
+      "say": "Eat, shower, and put on something clean before you come down. I am serious."
+    },
+    {
       "name": "vo.call.lou.1",
       "voice": "lou",
       "say": "Kid. You up?"

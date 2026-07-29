@@ -126,8 +126,9 @@ export class Phone {
    * @param {object} o
    * @param {object} o.time  the in-game clock
    * @param {object} o.audio
+   * @param {object[]} o.calls scheduled calls; pass [] when story owns them
    */
-  constructor({ time, audio } = {}) {
+  constructor({ time, audio, calls = CALLS } = {}) {
     this.time = time;
     this.audio = audio;
     this.canvas = document.createElement('canvas');
@@ -136,7 +137,7 @@ export class Phone {
     this.g = this.canvas.getContext('2d');
 
     this.threads = THREADS.map((t) => ({ ...t, messages: t.messages.slice() }));
-    this.calls = CALLS.slice();
+    this.calls = calls.slice();
     /** Calls that have already happened, newest first. */
     this.recents = [];
 
@@ -151,6 +152,8 @@ export class Phone {
     this._t = 0;
     /** Fires when a call with `meeting` is actually answered. */
     this.onMeeting = null;
+    /** Fires for every answered call, with the exact call definition. */
+    this.onAnswered = null;
   }
 
   /** Hours since the start of Tuesday, the way Chat counts. */
@@ -180,6 +183,7 @@ export class Phone {
     this.call.t = 0;
     this.call.line = -1;
     this.call.hold = 0;
+    this.onAnswered?.(this.call.def);
     if (this.call.def.meeting) this.onMeeting?.();
   }
 

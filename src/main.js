@@ -33,6 +33,7 @@ import {
   createCampaign,
   navigateCampaign,
 } from './core/campaign.js';
+import { createApartmentStory } from './core/apartment-story.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -244,7 +245,21 @@ const chat = new Chat(time);
 const smoke = new SmokeSystem(scene);
 const bullets = new BulletHoles(scene);
 const tv = new Tv({ audio });
-const phone = new Phone({ time, audio });
+// Campaign calls are one-shot story events, so the legacy clock schedule is
+// deliberately disabled here. The physical phone still owns ring/answer/UI.
+const phone = new Phone({ time, audio, calls: [] });
+const apartmentStory = createApartmentStory({
+  campaign,
+  ring: (definition) => {
+    const rang = phone.ring(definition);
+    if (rang) {
+      hud.toast('Incoming call · Lou');
+      hud.say('<em>The phone is ringing.</em> Lou. It is on the nightstand.', 5200);
+    }
+    return rang;
+  },
+});
+phone.onAnswered = (definition) => apartmentStory.callAnswered(definition);
 /* Two materials for the standby light rather than mutating one, so it is a
  * swap like every other indicator in the flat and cannot alias. */
 const M_LED_ON = new THREE.MeshStandardMaterial({ color: 0x2a0b0b, emissive: 0xff3b30, emissiveIntensity: 2.2, roughness: 0.4 });
@@ -522,6 +537,7 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud, campaign,
+    apartmentStory,
     drunk, highs, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
@@ -820,6 +836,7 @@ function getUp() {
     interaction.setPaused(false);
   });
   hud.say('Feet on cold floor. There is a fridge, and there is a PC.', 5000);
+  apartmentStory.beginMorning();
 }
 
 function sitAtPC() {
@@ -1815,6 +1832,16 @@ function goalContext() {
   };
 }
 
+function activityContext() {
+  return {
+    eaten: apartment.state.fed,
+    showered: apartment.state.showered,
+    pooped: game.pooped,
+    changedClothes: apartment.state.dressed,
+    emailChecked: apartment.state.repliedHR,
+  };
+}
+
 function saveApartmentProgress() {
   campaign.update((state) => {
     state.story.day = time.day;
@@ -1836,44 +1863,33 @@ function saveApartmentProgress() {
 function tryLeave() {
   if (game.left || game.passingOut) return;
   const pos = new THREE.Vector3(2.8, 1.1, 4.3);
-  const res = goals.tryDoor(goalContext());
+  const res = apartmentStory.tryLeave(activityContext());
 
-  if (res.kind === 'unaware') {
+  if (res.kind === 'call') {
     audio.play('door.locked', { position: pos, volume: 0.8 });
     narrator.note('door');
-    hud.say('Outside is a whole thing. There is a fridge and a PC in here.', 4600);
-    return;
+    hud.say(res.line, 4600);
+    return res;
   }
   if (res.kind === 'go') {
-    leaveForTheMeeting();
-    return;
+    leaveForBadaBing();
+    return res;
   }
 
   audio.play('door.locked', { position: pos, volume: 0.7 });
   narrator.note('door');
-  if (res.vo) audio.say(res.vo, { chance: 0.85, delay: 0.3 });
   hud.say(res.line, 5200);
-
-  // The first time a given excuse comes up, nudge toward where it lives.
-  if (res.id && goals.firstTime(res.id)) {
-    const WHERE = {
-      showered: 'The bathroom is through the north door.',
-      dressed: 'There is a drawer in the nightstand.',
-      fed: 'There are eggs in the fridge and a pan on the hob.',
-      playedCS: 'Counter-Squatch is on the desktop. It will not go well.',
-      bladder: 'You know where it is.',
-      bowel: 'You definitely know where it is.',
-    };
-    if (WHERE[res.id]) hud.toast(WHERE[res.id], '');
-  }
+  if (res.hint) hud.toast(res.hint, '');
+  return res;
 }
 
-/** Out of the door. This is the end of the game. */
-function leaveForTheMeeting() {
+/** Out of the apartment and into the first story mission. */
+function leaveForBadaBing() {
   game.left = true;
-  const ending = goals.endingFor(goalContext());
-  goals.ending = ending;
   saveApartmentProgress();
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'in_progress';
+  });
 
   interaction.setPaused(true);
   hud.hidePrompt();
@@ -1885,7 +1901,12 @@ function leaveForTheMeeting() {
 
   blackout.querySelector('span').textContent = '';
   blackout.classList.add('on');
-  setTimeout(() => showEnding(ending), 2600);
+  setTimeout(() => {
+    navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
+      spawn: 'driver_seat',
+      location,
+    });
+  }, 1800);
 }
 
 /** Wednesday, eight o'clock, and the flat is exactly as it was. */
@@ -2554,6 +2575,7 @@ function frame() {
       /* The phone runs whether or not it is in his hand -- a call he misses
        * because it was on the nightstand is a missed call, not a call that
        * never happened. Only the screen is painted on demand. */
+      apartmentStory.update(dt);
       phone.update(dt);
       heldPhone.group.visible = apartment.state.heldItem === 'phone';
       if (heldPhone.group.visible) {

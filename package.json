@@ -7,11 +7,12 @@
   "type": "module",
   "scripts": {
     "start": "node tools/serve.mjs",
-    "test": "node tests/campaign.test.mjs",
+    "test": "node tests/run.mjs",
     "sfx": "node tools/generate-sfx.mjs",
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
     "check": "node tools/check.mjs",
     "verify:art": "node tools/verify-art.mjs",
+    "verify:day-one": "node tools/verify-day-one.mjs",
     "verify:bing": "node tools/verify-bing.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",

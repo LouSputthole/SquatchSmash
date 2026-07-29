@@ -981,7 +981,7 @@ function showEnding(kind) {
   if (mission.flags.secretPanel) extras.push('And somebody is skimming that machine. You know it, and now Lou is going to know it.');
   if (inventory.count() > 0) extras.push(`You also drove off with ${inventory.count()} of Lou's drinks in your hands.`);
   if (mission.flags.alarmTripped) extras.push('The service door alarm chirped on your way out. Somebody will mention it.');
-  extras.push('<br><b>NEXT: THE JERKY MEETING</b>');
+  extras.push('<br><b>NEXT: RETURN HOME WITH LOU’S PACKAGE</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   startBtn.textContent = 'Again';
   startBtn.onclick = () => location.reload();
@@ -1178,7 +1178,7 @@ startBtn.addEventListener('click', async () => {
     getInCar();
     addMoney(0);
     paintObjectives(mission.objectives);
-    hud.say('<em>11:41 PM.</em> Lou has something for you. Don’t keep him waiting.', 6000);
+    hud.say('<em>11:41 PM.</em> Lou is waiting in the back office with a package.', 6000);
     setTimeout(() => hud.say('<em>[Q]</em> to get out of the car.', 4200), 6400);
   }
   game.paused = false;
@@ -1350,10 +1350,10 @@ function frame() {
 
   audio.updateListener(camera);
 
-  // The clock in the corner: a Wednesday night that is nearly a Thursday
+  // The clock in the corner: late on Day One, nearly the next morning.
   const mins = 41 + Math.floor(game.elapsed / 12);
   const hour = 11 + Math.floor(mins / 60);
-  hud.setClock(2, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} ${hour >= 12 ? 'AM' : 'PM'}`, game.elapsed);
+  hud.setClock(1, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} ${hour >= 12 ? 'AM' : 'PM'}`, game.elapsed);
 
   postfx.render(dt);
 }

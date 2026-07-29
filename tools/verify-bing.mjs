@@ -150,6 +150,8 @@ console.log('Driving the mission…');
 let s = await state();
 check('starts behind the wheel in the lot', s.mission === 'lot', s.mission);
 check('one objective, and it is Lou', s.objectives.join('') === ' lou', s.objectives.join(','));
+const displayedDay = await page.textContent('#clock .day');
+check('the first Bing visit is still Day One', displayedDay === 'Day 1', displayedDay);
 
 /* ---- the bouncer ---- */
 await walkTo(0, 13, Math.PI);

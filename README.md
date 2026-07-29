@@ -4,8 +4,8 @@ Three things live in this repo.
 
 | | |
 |---|---|
-| **Squatch Life** (repo root) | First-person. You wake up on Tuesday at 6:04 AM with a fridge, a radio, a bathroom and a gaming PC. The Squatch meeting is tomorrow night. |
-| **A Quick Stop at the Bing** ([`bing.html`](./bing.html)) | First-person, same engine. Wednesday, 11:41 PM. Park, get past the bouncer, find Lou in the back office, leave with what he has for you. |
+| **Squatch Life** (repo root) | First-person apartment hub. Wake up, answer Lou’s call, get ready, use the PC, and leave for the first mission. |
+| **A Quick Stop at the Bing** ([`bing.html`](./bing.html)) | First-person, same engine. Day One, 11:41 PM. Park, get past the bouncer, find Lou in the back office, and take his package. |
 | **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
 
 ```bash
@@ -21,12 +21,14 @@ completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
 isolated; the apartment and Bing now share an explicit campaign boundary.
 
-The first campaign-consolidation slice now connects the apartment and the Bing
-through `src/core/campaign.js`. The player’s readiness flags, learned meeting
-context, scene/spawn, Bada Bing completion, and Lou’s concealed package survive
-the page transition. Finishing the club offers a real return to the apartment,
-where the player resumes inside the front door with the package still carried.
-Other scenes are not connected to this campaign state yet.
+The campaign spine connects the apartment and the Bing through
+`src/core/campaign.js`. On Day One, Lou’s one-shot call rings through the
+physical phone. The apartment door then requires eating, showering, pooping,
+and changing clothes; email is optional. Activity flags, call state,
+scene/spawn, Bada Bing completion, and Lou’s concealed package survive the page
+transition. Finishing the club returns to the apartment, where the player
+resumes inside the front door with the package still carried. Other scenes are
+not connected to this campaign state yet.
 
 See [`game/README.md`](./game/README.md) for the campground game's controls and
 scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
@@ -314,8 +316,9 @@ The apartment is laid out on a fixed grid: x runs −5 (west) to +5 (east), z ru
 
 ```bash
 npm run check        # static: parses every source file, validates the manifests
-npm test             # campaign state, persistence, IDs, and transition contract
+npm test             # campaign, apartment-story, and physical-phone contracts
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
+npm run verify:day-one # runtime: Lou's call, chore gate, apartment -> Bing
 npm run verify:bing  # runtime: plays the club and returns home, headless
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
@@ -335,6 +338,11 @@ the table, the hallway, Lou, the package, the lot — and asserts the state
 machine at each one, because "the office where nothing happens" is a failure
 that no parser can see.
 
+`verify:day-one` starts from empty browser storage, rings Lou through the
+physical phone, answers it in hand, exercises each live apartment-door blocker,
+leaves email unread, and confirms the direct Bada Bing handoff preserves the
+call, mission, and activity state.
+
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around
 while working on a room, and direct handles for every mechanic (`passOut`,
@@ -348,7 +356,7 @@ get to a state without playing your way there.
 
 > `npm start`, then <http://localhost:5173/bing.html>
 
-Wednesday, 11:41 PM, a wet lot off the highway. You are sitting in your own car
+Day One, 11:41 PM, a wet lot off the highway. You are sitting in your own car
 with the engine running and the wipers going, and Lou has something for you in
 the back office. That is the entire objective. The club is deliberately much
 larger than the errand.
@@ -385,7 +393,7 @@ card. At the table: <kbd>1</kbd>–<kbd>4</kbd> stake, <kbd>E</kbd> deal or hit,
 Four, chosen by what you did about the sedan rather than by whether you
 "won": it follows you, you read its plate, you told Lou and one of his men came
 out to lean on the canopy post, or you left through the alley and nobody saw you
-at all. Next stop is the jerky meeting, which is another level.
+at all. Every ending returns home with Lou’s package for the next mission.
 
 ### The code
 
