@@ -7,12 +7,29 @@ const FUR_LIGHT = 0xc3c8d4;
 const SKIN = 0xe2e5ec;
 const BANDANA = 0xd92e2e;
 
-function box(w, h, d, color) {
+// Unlockable coats of fur. `pal` keys match the palette tags on each mesh, so
+// swapping a skin is a recolor of the existing model — no rebuild.
+export const SKINS = [
+  { id: 'silver', name: 'Silver Sasquatch', pal: { fur: FUR, furDark: FUR_DARK, furLight: FUR_LIGHT, skin: SKIN, bandana: BANDANA } },
+  { id: 'midnight', name: 'Midnight', pal: { fur: 0x3b3f5c, furDark: 0x262a42, furLight: 0x565c80, skin: 0xb9bed8, bandana: 0x9a6ff0 } },
+  { id: 'bigfoot', name: 'Classic Bigfoot', pal: { fur: 0x6b4a2e, furDark: 0x4a3320, furLight: 0x8a6440, skin: 0xd8b58a, bandana: 0x3f6b3a } },
+  { id: 'blaze', name: 'Blaze', pal: { fur: 0xd4622a, furDark: 0x9c4014, furLight: 0xf08a45, skin: 0xffd6a5, bandana: 0x1b1433 } },
+  { id: 'yeti', name: 'Yeti', pal: { fur: 0xe8f0f8, furDark: 0xb8cddd, furLight: 0xffffff, skin: 0xcfe6f5, bandana: 0x2a8ad4 } },
+  { id: 'golden', name: 'Golden Squatch', pal: { fur: 0xd9a92a, furDark: 0xa87c14, furLight: 0xf5d76a, skin: 0xfff0c0, bandana: 0x8b1a1a } },
+];
+
+export function skinById(id) {
+  return SKINS.find((s) => s.id === id) || SKINS[0];
+}
+
+// `key` tags the mesh with which palette slot recolors it.
+function box(w, h, d, color, key = null) {
   const m = new THREE.Mesh(
     new THREE.BoxGeometry(w, h, d),
     new THREE.MeshLambertMaterial({ color })
   );
   m.castShadow = true;
+  if (key) m.userData.palKey = key;
   return m;
 }
 
@@ -42,14 +59,14 @@ export class Sasquatch {
     this.stepSide = 1;
 
     // Torso, wider at the shoulders
-    const torso = box(1.7, 1.6, 1.05, FUR);
+    const torso = box(1.7, 1.6, 1.05, FUR, 'fur');
     torso.position.y = 2.05;
     this.body.add(torso);
     this.torso = torso;
-    const shoulders = box(2.15, 0.55, 1.1, FUR_DARK);
+    const shoulders = box(2.15, 0.55, 1.1, FUR_DARK, 'furDark');
     shoulders.position.y = 2.75;
     this.body.add(shoulders);
-    const belly = box(1.3, 1.0, 0.25, SKIN);
+    const belly = box(1.3, 1.0, 0.25, SKIN, 'skin');
     belly.position.set(0, 1.85, 0.5);
     this.body.add(belly);
 
@@ -58,7 +75,7 @@ export class Sasquatch {
       [-0.7, 1.45, 0.3, 0.4], [0.65, 1.5, -0.3, 0.45], [0, 1.35, -0.45, 0.5],
       [-0.5, 2.5, -0.45, 0.4], [0.55, 2.4, 0.42, 0.35],
     ]) {
-      const tuft = box(s, s * 1.4, s * 0.7, FUR_LIGHT);
+      const tuft = box(s, s * 1.4, s * 0.7, FUR_LIGHT, 'furLight');
       tuft.position.set(x, y, z);
       tuft.rotation.z = (Math.random() - 0.5) * 0.5;
       this.body.add(tuft);
@@ -67,15 +84,15 @@ export class Sasquatch {
     // Head
     const head = new THREE.Group();
     head.position.set(0, 3.25, 0.1);
-    const skull = box(0.95, 0.95, 0.9, FUR);
+    const skull = box(0.95, 0.95, 0.9, FUR, 'fur');
     head.add(skull);
-    const crest = box(0.6, 0.4, 0.7, FUR_DARK);
+    const crest = box(0.6, 0.4, 0.7, FUR_DARK, 'furDark');
     crest.position.set(0, 0.55, -0.1);
     head.add(crest);
-    const face = box(0.62, 0.55, 0.12, SKIN);
+    const face = box(0.62, 0.55, 0.12, SKIN, 'skin');
     face.position.set(0, -0.08, 0.48);
     head.add(face);
-    const brow = box(0.72, 0.16, 0.16, FUR_DARK);
+    const brow = box(0.72, 0.16, 0.16, FUR_DARK, 'furDark');
     brow.position.set(0, 0.2, 0.5);
     head.add(brow);
     this.eyeMats = [];
@@ -87,15 +104,15 @@ export class Sasquatch {
     }
 
     // Red bandana, mascot-style, with fluttering tails at the back
-    const band = box(1.02, 0.2, 0.97, BANDANA);
+    const band = box(1.02, 0.2, 0.97, BANDANA, 'bandana');
     band.position.set(0, 0.36, 0);
     head.add(band);
-    const knot = box(0.22, 0.22, 0.14, BANDANA);
+    const knot = box(0.22, 0.22, 0.14, BANDANA, 'bandana');
     knot.position.set(0, 0.32, -0.52);
     head.add(knot);
     this.tails = [];
     for (const s of [-1, 1]) {
-      const tail = box(0.14, 0.55, 0.05, BANDANA);
+      const tail = box(0.14, 0.55, 0.05, BANDANA, 'bandana');
       tail.position.set(0.1 * s, 0.05, -0.6);
       tail.rotation.x = 0.55;
       tail.rotation.z = 0.25 * s;
@@ -120,13 +137,13 @@ export class Sasquatch {
   buildArm(side) {
     const pivot = new THREE.Group();
     pivot.position.set(1.1 * side, 2.7, 0);
-    const upper = box(0.58, 1.15, 0.62, FUR);
+    const upper = box(0.58, 1.15, 0.62, FUR, 'fur');
     upper.position.y = -0.6;
     pivot.add(upper);
-    const fore = box(0.52, 0.95, 0.56, FUR_DARK);
+    const fore = box(0.52, 0.95, 0.56, FUR_DARK, 'furDark');
     fore.position.y = -1.55;
     pivot.add(fore);
-    const hand = box(0.6, 0.45, 0.62, SKIN);
+    const hand = box(0.6, 0.45, 0.62, SKIN, 'skin');
     hand.position.y = -2.2;
     pivot.add(hand);
     return pivot;
@@ -135,10 +152,10 @@ export class Sasquatch {
   buildLeg(side) {
     const pivot = new THREE.Group();
     pivot.position.set(0.42 * side, 1.35, 0);
-    const leg = box(0.58, 1.35, 0.62, FUR_DARK);
+    const leg = box(0.58, 1.35, 0.62, FUR_DARK, 'furDark');
     leg.position.y = -0.68;
     pivot.add(leg);
-    const foot = box(0.6, 0.25, 0.95, SKIN);
+    const foot = box(0.6, 0.25, 0.95, SKIN, 'skin');
     foot.position.set(0, -1.28, 0.18);
     pivot.add(foot);
     return pivot;
@@ -150,6 +167,14 @@ export class Sasquatch {
 
   facing(out = new THREE.Vector3()) {
     return out.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+  }
+
+  // Repaint every tagged mesh from an unlockable skin's palette.
+  setPalette(pal) {
+    this.group.traverse((o) => {
+      const key = o.userData && o.userData.palKey;
+      if (key && pal[key] !== undefined) o.material.color.setHex(pal[key]);
+    });
   }
 
   // Glowing red eyes while raging

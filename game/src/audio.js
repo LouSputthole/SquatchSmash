@@ -328,6 +328,43 @@ export function roar() {
   noise(t, { peak: 0.12, attack: 0.1, decay: 0.9, freq: 900, type: 'lowpass' });
 }
 
+// Goal completed: bright three-note flourish.
+export function goalDing() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  [784, 988, 1319].forEach((f, i) => {
+    tone(t + i * 0.07, { type: 'triangle', from: f, to: f, dur: 0.22, peak: 0.13 });
+  });
+}
+
+// Boss arrival: two-tone ranger siren.
+export function siren() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  for (let i = 0; i < 4; i++) {
+    tone(t + i * 0.3, { type: 'square', from: i % 2 ? 660 : 880, to: i % 2 ? 660 : 880, dur: 0.26, peak: 0.09 });
+  }
+}
+
+// Boss takes a hit but stays up: dull armored thud.
+export function bossHit() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  tone(t, { type: 'square', from: 220, to: 70, dur: 0.16, peak: 0.16 });
+  noise(t, { peak: 0.14, attack: 0.003, decay: 0.12, freq: 900, type: 'bandpass', q: 1.2 });
+}
+
+// Boss goes down: descending fanfare over a boom.
+export function bossDown() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  [880, 740, 587, 440].forEach((f, i) => {
+    tone(t + i * 0.13, { type: 'sawtooth', from: f, to: f * 0.98, dur: 0.3, peak: 0.13 });
+  });
+  tone(t + 0.5, { type: 'sine', from: 120, to: 30, dur: 0.7, peak: 0.4 });
+  noise(t + 0.5, { peak: 0.32, decay: 0.6, freq: 380, type: 'lowpass' });
+}
+
 // Short victory-ish sting for the end screen.
 export function sting() {
   if (!ctx) return;

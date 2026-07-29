@@ -1,10 +1,13 @@
 import * as THREE from 'three';
 import { buildWorld, BOUNDS } from './world.js';
-import { Sasquatch } from './player.js';
+import { Sasquatch, skinById } from './player.js';
 import { DebrisSystem } from './debris.js';
 import { Effects } from './effects.js';
 import { CamperSystem } from './campers.js';
 import { RangerSystem } from './rangers.js';
+import { Boss, BOSS_NAME } from './boss.js';
+import { buildGoals, GoalTracker, renderGoalList, renderGoalSummary } from './goals.js';
+import { loadMeta, recordRun, setSkin, renderCareer, renderSkins, ratingFor, rankFor, nextRank } from './meta.js';
 import * as sfx from './audio.js';
 
 const GAME_TIME = 90;
@@ -20,6 +23,8 @@ const CAMPER_POINTS = 300;
 const RANGER_POINTS = 750;
 const STOMP_COOLDOWN = 4;
 const FRENZY_AT = 15;
+const BOSS_AT = 30;        // seconds left when the Ranger Captain rolls in
+const BOSS_POINTS = 3000;
 
 // Occupants come pouring out when you hit their shelter
 const OCCUPANTS = { cabin: 3, rv: 2, car: 1, truck: 1, tent: 1, outhouse: 1 };
@@ -44,9 +49,23 @@ const debris = new DebrisSystem(scene);
 const effects = new Effects(scene);
 const campers = new CamperSystem(scene, props, pond, 10);
 const rangers = new RangerSystem(scene, props);
+const boss = new Boss(scene, props);
 
 for (const prop of props) prop.occupants = OCCUPANTS[prop.type] || 0;
-const gnomesTotal = props.filter((p) => p.type === 'gnome').length;
+const countType = (t) => props.filter((p) => p.type === t).length;
+
+// ---------- Career (local to this machine) + goals ----------
+let meta = loadMeta();
+player.setPalette(skinById(meta.skin).pal);
+
+const goals = new GoalTracker(buildGoals({
+  vehicles: countType('car') + countType('rv') + countType('truck'),
+  campsite: countType('tent') + countType('campfire'),
+  trees: countType('tree'),
+  hives: countType('beehive'),
+  gnomes: countType('gnome'),
+  smashable: smashableCount,
+}), onGoalComplete);
 
 // Day fades to sunset as the clock runs down
 const SKY_DAY = new THREE.Color(0x9fc4e8);
@@ -81,6 +100,10 @@ const flashEl = $('flash');
 const bannerEl = $('banner');
 const muteBtn = $('muteBtn');
 const nameInput = $('nameInput');
+const goalListEl = $('goalList');
+const goalCountEl = $('goalCount');
+const bossBarEl = $('bossBar');
+const bossFillEl = $('bossFill');
 
 // ---------- Game state ----------
 let state = 'menu'; // 'menu' | 'playing' | 'paused' | 'over'
@@ -105,12 +128,18 @@ let campersScared = 0;
 let campersSmashed = 0;
 let rangersSmashed = 0;
 let gnomesSmashed = 0;
-let gnomeLordAwarded = false;
 let killStreak = 0;
 let killStreakTimer = 0;
 let auraAcc = 0;
 let frenzyStarted = false;
 let backupSent = false;
+let bossSent = false;
+let bossDowned = false;
+let bossHitCd = 0;
+let goalVersionShown = -1;
+let blastDepth = 0;      // >0 while an explosion chain is resolving
+let chainPropane = 0;    // propane tanks popped in the current chain
+let burnKills = 0;
 const destroyedByType = {};
 const burning = [];
 const swarms = [];
@@ -155,6 +184,37 @@ function renderBoard(listEl, board, highlightIdx = -1) {
 }
 
 renderBoard($('menuBoard'), loadBoard());
+
+// ---------- Goals ----------
+// Goal points are flat: no combo, no frenzy doubling, so the rank they feed
+// into means the same thing on every run.
+function onGoalComplete(goal) {
+  score += goal.points;
+  showBanner(`${goal.icon} ${goal.label.toUpperCase()}! +${goal.points.toLocaleString()}`);
+  sfx.goalDing();
+}
+
+function refreshGoalHUD(force = false) {
+  if (!force && goals.version === goalVersionShown) return;
+  goalVersionShown = goals.version;
+  renderGoalList(goalListEl, goals);
+  goalCountEl.textContent = `${goals.completed}/${goals.total}`;
+}
+
+refreshGoalHUD(true);
+$('bossName').textContent = BOSS_NAME;
+
+// ---------- Career panel (menu) ----------
+function refreshCareer() {
+  renderCareer($('careerStats'), meta);
+  renderSkins($('skinList'), meta, (id) => {
+    meta = setSkin(id);
+    player.setPalette(skinById(id).pal);
+    refreshCareer();
+  });
+}
+
+refreshCareer();
 
 // ---------- Input ----------
 const keys = new Set();
@@ -220,6 +280,7 @@ function togglePause() {
     $('pauseStats').innerHTML =
       `Score: <b>${score.toLocaleString()}</b><br>` +
       `Kills: <b>${campersSmashed + rangersSmashed}</b> · Wrecked: <b>${destroyed} / ${smashableCount}</b><br>` +
+      `Goals: <b>${goals.completed} / ${goals.total}</b><br>` +
       `Time left: <b>${Math.ceil(timeLeft)}s</b>`;
     $('pause').classList.remove('hidden');
   } else if (state === 'paused') {
@@ -405,9 +466,11 @@ function endGame(clearedEverything) {
   hudEl.classList.remove('visible');
   vignetteEl.classList.remove('rage');
   tranqTintEl.classList.remove('on');
+  bossBarEl.classList.remove('show');
+  boss.clear();
   player.setRage(false);
+  goals.settle(); // award goals that can only be judged at the buzzer
   if (clearedEverything) {
-    score += 5000;
     $('clearBonus').style.display = 'inline';
     $('endTitle').textContent = 'TOTAL DESTRUCTION!';
   }
@@ -425,9 +488,49 @@ function endGame(clearedEverything) {
     .map(([type, n]) => `${TYPE_LABELS[type] || type} ×${n}`);
   if (campersSmashed > 0) lines.push(`💀 Campers smashed ×${campersSmashed}`);
   if (rangersSmashed > 0) lines.push(`🎯 Rangers downed ×${rangersSmashed}`);
+  if (bossDowned) lines.push('🚨 Ranger Captain downed');
   if (campersScared > 0) lines.push(`😱 Campers scared off ×${campersScared}`);
   if (bestCombo > 1) lines.push(`⚡ Best combo x${bestCombo}`);
   $('breakdown').innerHTML = lines.map((l) => `<span>${l}</span>`).join('');
+
+  // ---------- Rank ----------
+  const wreckedPct = smashableCount ? (destroyed / smashableCount) * 100 : 0;
+  const rating = ratingFor({ score, wreckedPct, goalsDone: goals.completed });
+  const rank = rankFor(rating);
+  $('rankLetter').textContent = rank.label;
+  $('rankLetter').style.color = rank.color;
+  $('rankTitle').textContent = rank.title;
+  $('rankTitle').style.color = rank.color;
+  const up = nextRank(rating);
+  $('rankNext').textContent = up
+    ? `${(up.min - rating).toLocaleString()} rating to rank ${up.label}`
+    : 'Top rank — nothing left to prove.';
+  $('rankBasis').textContent =
+    `${score.toLocaleString()} pts · ${Math.round(wreckedPct)}% wrecked · ${goals.completed} goals = ${rating.toLocaleString()} rating`;
+
+  // ---------- Goals ----------
+  renderGoalSummary($('goalSummary'), goals);
+  $('goalSummaryCount').textContent = `${goals.completed}/${goals.total} · +${goals.earnedPoints.toLocaleString()} pts`;
+
+  // ---------- Career (localStorage, this machine only) ----------
+  const result = recordRun({
+    score,
+    smashed: destroyed,
+    kills: campersSmashed + rangersSmashed,
+    scared: campersScared,
+    goals: goals.completed,
+    rating,
+    rank: rank.label,
+  });
+  meta = result.meta;
+  const unlockEl = $('unlockNote');
+  if (result.unlocked.length) {
+    unlockEl.textContent = `🔓 UNLOCKED: ${result.unlocked.map((s) => s.name).join(', ')}`;
+    unlockEl.style.display = 'block';
+  } else {
+    unlockEl.style.display = 'none';
+  }
+  refreshCareer();
 
   const qualifies = score > 0 && (board.length < 10 || score > board[board.length - 1].score);
   if (qualifies) {
@@ -552,7 +655,7 @@ function detonate(x, z, radius, dmg) {
       hitProp(prop, dmg, dir);
     }
   }
-  killHumansAt({ x, z }, radius * 0.85);
+  killHumansAt({ x, z }, radius * 0.85, 2);
 }
 
 function smashRadius() {
@@ -586,7 +689,7 @@ function resolveImpact() {
     hitProp(prop, raging ? 2 : 1, dir);
   }
 
-  const kills = killHumansAt(_impact, radius + 0.8);
+  const kills = killHumansAt(_impact, radius + 0.8, raging ? 2 : 1);
   campers.panicNear(_impact, 12);
 
   if (hitSomething) {
@@ -617,7 +720,7 @@ function resolveStomp() {
     const dir = _dir.lengthSq() > 0.001 ? _dir.normalize().clone() : null;
     hitProp(prop, raging ? 2 : 1, dir);
   }
-  killHumansAt(player.position, radius);
+  killHumansAt(player.position, radius, raging ? 3 : 2);
   campers.panicNear(player.position, 20);
 
   effects.shockwave(player.position, radius + 1, 0x9a6ff0);
@@ -635,6 +738,7 @@ function bumpCombo() {
   comboTimer = 2.0;
   const mult = Math.min(1 + Math.floor(combo / 3), 5);
   bestCombo = Math.max(bestCombo, mult);
+  if (mult >= 5) goals.complete('perfecto');
   if (mult > 1) {
     comboEl.textContent = `COMBO x${mult}`;
     comboEl.classList.remove('pop');
@@ -666,24 +770,18 @@ function destroyProp(prop, dir = null) {
   }
 
   effects.scorch(_propPos, Math.max(1, prop.radius));
+  trackGoalKill(prop.type);
   if (prop.type === 'tree') effects.birdBurst(_propPos, 2 + Math.floor(Math.random() * 2));
   if (prop.type === 'campfire') igniteNear(prop.x, prop.z, 6);
   if (prop.type === 'beehive') spawnSwarm(prop.x, prop.z);
-  if (prop.type === 'gnome') {
-    gnomesSmashed++;
-    if (gnomesSmashed >= gnomesTotal && gnomesTotal > 0 && !gnomeLordAwarded) {
-      gnomeLordAwarded = true;
-      score += 2500;
-      showBanner('GNOME LORD! +2500');
-    }
-  }
+  if (prop.type === 'gnome') gnomesSmashed++;
   if (prop.type === 'car' || prop.type === 'rv' || prop.type === 'truck') {
     effects.explosion(_propPos);
     sfx.boom();
     screenFlash();
     shake = Math.max(shake, 0.6);
     igniteNear(prop.x, prop.z, 4.5);
-    detonate(prop.x, prop.z, 3, 1);
+    blast(prop.x, prop.z, 3, 1);
   }
   if (prop.type === 'propane') {
     effects.explosion(_propPos);
@@ -693,7 +791,8 @@ function destroyProp(prop, dir = null) {
     shake = Math.max(shake, 0.8);
     fovPunch = Math.min(12, fovPunch + 6);
     igniteNear(prop.x, prop.z, 7);
-    detonate(prop.x, prop.z, 5, 2);
+    chainPropane++;
+    blast(prop.x, prop.z, 5, 2);
   }
 
   if (prop.timeBonus) {
@@ -706,7 +805,34 @@ function destroyProp(prop, dir = null) {
 
   popText(_propPos, `+${gained}`, prop.points >= 500 ? 'big' : '');
 
+  goals.set('total', destroyed);
   if (destroyed >= smashableCount) endGame(true);
+}
+
+// Per-type goal progress. Counters are derived from destroyedByType so this
+// stays correct however the prop went down (smashed, charged, blown up, burnt).
+const VEHICLE_TYPES = ['car', 'rv', 'truck'];
+const CAMPSITE_TYPES = ['tent', 'campfire'];
+const countDestroyed = (types) => types.reduce((n, t) => n + (destroyedByType[t] || 0), 0);
+
+function trackGoalKill(type) {
+  if (VEHICLE_TYPES.includes(type)) goals.set('derby', countDestroyed(VEHICLE_TYPES));
+  if (CAMPSITE_TYPES.includes(type)) goals.set('campsite', countDestroyed(CAMPSITE_TYPES));
+  if (type === 'tree') goals.set('timber', destroyedByType.tree || 0);
+  if (type === 'beehive') goals.set('bees', destroyedByType.beehive || 0);
+  if (type === 'gnome') goals.set('gnome', destroyedByType.gnome || 0);
+}
+
+// Wraps detonate() so nested explosions resolve as one chain — three propane
+// tanks going up together is one Chain Reaction, however deep the recursion got.
+function blast(x, z, radius, dmg) {
+  blastDepth++;
+  detonate(x, z, radius, dmg);
+  blastDepth--;
+  if (blastDepth === 0) {
+    if (chainPropane >= 3) goals.complete('chain');
+    chainPropane = 0;
+  }
 }
 
 // ---------- Humans: gore, streaks ----------
@@ -744,6 +870,7 @@ function killCamper(c) {
   const gained = CAMPER_POINTS * mult * frenzyMult();
   score += gained;
   campersSmashed++;
+  goals.set('splatter', campersSmashed);
   rage = Math.min(1, rage + (rageTimer > 0 ? 0 : 0.08));
   popText(pos, `SPLAT! +${gained}`, 'gore');
   if (Math.random() < 0.3) spawnPickup('loot', pos.x, pos.z, 15);
@@ -756,19 +883,80 @@ function killRanger(r) {
   const gained = RANGER_POINTS * mult * frenzyMult();
   score += gained;
   rangersSmashed++;
+  goals.set('rangers', rangersSmashed);
   rage = Math.min(1, rage + (rageTimer > 0 ? 0 : 0.12));
   popText(pos, `RANGER DOWN! +${gained}`, 'gore');
   if (Math.random() < 0.5) spawnPickup('loot', pos.x, pos.z, 15);
   trackKill();
 }
 
-// Returns how many humans were removed around a point
-function killHumansAt(pos, radius) {
+// Returns how many humans were removed around a point. The Ranger Captain is
+// not a human for these purposes — he soaks `bossDmg` instead of bursting.
+function killHumansAt(pos, radius, bossDmg = 1) {
   const killedCampers = campers.takeAt(pos, radius);
   killedCampers.forEach(killCamper);
   const killedRangers = rangers.takeAt(pos, radius);
   killedRangers.forEach(killRanger);
+  hitBoss(pos, radius, bossDmg);
   return killedCampers.length + killedRangers.length;
+}
+
+// ---------- Ranger Captain ----------
+function sendBoss() {
+  if (!boss.spawn(player.position)) return;
+  bossBarEl.classList.add('show');
+  showBanner('RANGER CAPTAIN INCOMING!');
+  sfx.siren();
+  shake = Math.max(shake, 0.5);
+}
+
+function hitBoss(pos, radius, dmg) {
+  if (!boss.active || dmg <= 0 || bossHitCd > 0) return;
+  if (!boss.inRange(pos, radius)) return;
+  bossHitCd = 0.35; // one connect per swing, not one per frame
+  const bossPos = boss.position.clone();
+  const result = boss.damage(dmg);
+  if (result === 'killed') {
+    downBoss(bossPos);
+    return;
+  }
+  sfx.bossHit();
+  shake = Math.max(shake, 0.35);
+  hitStop = Math.max(hitStop, 0.04);
+  debris.puff(bossPos, 0x5d6b3f, 5);
+  popText(bossPos, `-${dmg}`, 'gore');
+  if (boss.consumeEnrage()) {
+    rangers.spawn(2);
+    showBanner('BUCKLEY IS FURIOUS!');
+    sfx.siren();
+  }
+}
+
+function downBoss(pos) {
+  const body = boss.claimBody();
+  if (body) {
+    debris.explodeGroup(body, pos);
+    scene.remove(body);
+    debris.puff(pos, 0x8a1414, 10);
+    effects.bloodSplat(pos);
+  }
+  boss.clear();
+  bossBarEl.classList.remove('show');
+  bossDowned = true;
+  effects.explosion(pos);
+  effects.shockwave(pos, 10, 0xffd24a);
+  screenFlash();
+  shake = Math.max(shake, 0.9);
+  hitStop = Math.max(hitStop, 0.12);
+  const gained = BOSS_POINTS * frenzyMult();
+  score += gained;
+  popText(pos, `CAPTAIN DOWN! +${gained}`, 'big');
+  sfx.bossDown();
+  // He was carrying: a jar of honey and the park's stopwatch
+  spawnPickup('honey', pos.x + 1.5, pos.z, 20);
+  spawnPickup('clock', pos.x - 1.5, pos.z, 20);
+  goals.complete('boss');
+  trackKill();
 }
 
 function onDartHit() {
@@ -780,6 +968,7 @@ function onDartHit() {
   sfx.dartHit();
   shake = Math.max(shake, 0.25);
   popText(player.position, 'TRANQED!', 'gore');
+  goals.fail('untouchable');
 }
 
 function tryRage() {
@@ -794,7 +983,7 @@ function tryRage() {
 
   // Rage kickoff: shockwave that flattens everything nearby
   effects.shockwave(player.position, 9);
-  killHumansAt(player.position, 8.5);
+  killHumansAt(player.position, 8.5, 3);
   campers.panicNear(player.position, 20);
   for (const prop of props) {
     if (!prop.alive || !prop.smashable) continue;
@@ -1023,11 +1212,18 @@ function updateHUD() {
   if (giantT > 0) buffs.push(`🍄 ${Math.ceil(giantT)}s`);
   if (slowTimer > 0) buffs.push(`💤 ${Math.ceil(slowTimer)}s`);
   buffsEl.textContent = buffs.join('  ');
+
+  refreshGoalHUD();
+  if (boss.active) {
+    bossFillEl.style.width = `${boss.hpFrac * 100}%`;
+    bossBarEl.classList.toggle('enraged', boss.enraged);
+  }
 }
 
 // ---------- Camper callbacks ----------
 function onCamperScaredOff(pos) {
   campersScared++;
+  goals.set('ghost', campersScared);
   score += 200 * frenzyMult();
   popText(pos, `SCARED! +${200 * frenzyMult()}`, '');
 }
@@ -1076,6 +1272,12 @@ function tick() {
       rangers.spawn(2);
       showBanner('RANGER BACKUP!');
       sfx.dart();
+    }
+
+    // The Ranger Captain shows up for the last stretch
+    if (!bossSent && timeLeft <= BOSS_AT) {
+      bossSent = true;
+      sendBoss();
     }
 
     // Sunset progression
@@ -1134,6 +1336,8 @@ function tick() {
       if (b.t <= 0) {
         destroyProp(b.prop);
         burning.splice(i, 1);
+        burnKills++;
+        goals.set('arson', burnKills);
       }
     }
 
@@ -1153,6 +1357,8 @@ function tick() {
     if (player.consumeStompImpact()) resolveStomp();
     campers.update(dt, player.position, onCamperScaredOff, sfx.scream);
     rangers.update(dt, player.position, sfx.dart, onDartHit);
+    bossHitCd = Math.max(0, bossHitCd - dt);
+    boss.update(dt, player.position, sfx.dart, onDartHit);
     updateSwarms(dt);
 
     // Pickups: bob, spin, collect
@@ -1227,4 +1433,9 @@ window.SQUATCH = {
   get slowTimer() { return slowTimer; },
   get giantT() { return giantT; },
   get board() { return loadBoard(); },
+  goals,
+  boss,
+  sendBoss,
+  get meta() { return meta; },
+  get bossDowned() { return bossDowned; },
 };
