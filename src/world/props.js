@@ -1194,11 +1194,20 @@ export function makePlant(M, { x, z, scale = 1 }) {
     stalk.quaternion.setFromUnitVectors(UP, _dir.normalize());
     g.add(stalk);
 
-    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 7), M.leaf);
-    leaf.scale.set(1, 0.28, 0.55);
-    // Sit the blade at the far end of its own stalk, not in a ring around the pot.
-    leaf.position.set(lx * 1.45, ly + 0.012, lz * 1.45);
-    leaf.rotation.set(0.42, a, 0.30);
+    /* The blade grows ALONG its stalk and overlaps the end of it.
+     *
+     * Two things were wrong. It sat at 1.45x the stalk's reach, so there was a
+     * clear gap between the end of the stick and the start of the leaf; and
+     * the blade's long axis is local X, so rotation.y = a turned it ninety
+     * degrees across its own stalk instead of along it. Both together read as
+     * leaves floating near a plant rather than growing out of one. */
+    const blade = 0.115;
+    const bladeR = reach + blade * 0.72;
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(blade, 10, 7), M.leaf);
+    leaf.scale.set(1, 0.26, 0.58);
+    leaf.position.set(Math.sin(a) * bladeR, ly + 0.006, Math.cos(a) * bladeR);
+    // +X onto the stalk's outward direction, then droop the tip.
+    leaf.rotation.set(0.30, Math.PI / 2 - a, 0.20);
     leaf.castShadow = true;
     g.add(leaf);
   }

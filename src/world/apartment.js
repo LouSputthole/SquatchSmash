@@ -561,10 +561,6 @@ export async function buildApartment(ctx) {
   root.add(P.makeLaundry(M, { x: -2.55, z: -3.55 }).group);
   root.add(P.makeCapOnPeg(M, { x: 0.10, y: 1.78, z: 4.42, rotY: Math.PI }).group);
 
-  const sign = P.makeCrossingSign(M, { x: 4.42, z: 4.05, rotY: -0.7 });
-  root.add(sign.group);
-  addCollider(sign.bounds);
-
   /* ---- light switch by the front door ---- */
   const switchPlate = group('switchplate');
   switchPlate.position.set(1.95, 1.18, z1 - 0.01);
