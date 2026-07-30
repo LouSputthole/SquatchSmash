@@ -766,7 +766,7 @@ for (const spot of club.anchors.booths) {
   });
 
   const graffitiPad = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.4, 1.9), new THREE.MeshBasicMaterial({ visible: false }));
-  graffitiPad.position.set(ROOMS.bathroom.x0 + 0.14, 1.5, 1.6);
+  graffitiPad.position.set(ROOMS.bathroom.x0 + 0.14, 1.5, 2.55);
   scene.add(graffitiPad);
   reg(graffitiPad, {
     label: 'Read the <b>wall</b>',

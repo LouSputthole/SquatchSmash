@@ -555,7 +555,8 @@ export function buildClub(scene, { renderer } = {}) {
   hangDoor('inner', { axis: 'x', fixed: 11, from: -1.15, to: 1.15, label: 'the club doors', material: M_LEATHER_DARK, swing: -2.0 });
   hangDoor('lou', { axis: 'z', fixed: 7.9, from: -7.6, to: -6.5, label: "Lou's office", material: M_WOOD, swing: 1.9 });
   hangDoor('manager', { axis: 'z', fixed: 7.9, from: -4.3, to: -3.3, locked: true, label: "the manager's office" });
-  hangDoor('mens', { axis: 'z', fixed: 7.9, from: -0.1, to: 1.5, label: "the men's room", swing: 1.9 });
+  // Swings into the hallway; opening inward swept the leaf through the stalls.
+  hangDoor('mens', { axis: 'z', fixed: 7.9, from: -0.1, to: 1.5, label: "the men's room", swing: -1.9 });
   hangDoor('ladies', { axis: 'z', fixed: 7.9, from: 2.9, to: 3.9, locked: true, label: "the ladies'" });
   hangDoor('storage', { axis: 'x', fixed: -9.5, from: 6.2, to: 7.3, label: 'the store room', swing: 1.9 });
   hangDoor('service', { axis: 'x', fixed: -15, from: 8.4, to: 9.7, label: 'the service door', alarmed: true, material: M_STEEL, swing: -1.9 });
@@ -621,25 +622,33 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   {
     const stage = new THREE.Group();
-    const deckShape = new THREE.Shape();
-    deckShape.moveTo(-5, -3.5);
-    deckShape.lineTo(5, -3.5);
-    deckShape.lineTo(5, 2.2);
-    deckShape.absarc(0, 2.2, 5, 0, Math.PI, false);
-    const deckGeo = new THREE.ExtrudeGeometry(deckShape, { depth: STAGE_H, bevelEnabled: false });
-    deckGeo.rotateX(-Math.PI / 2);
+    /* The main platform is a plain slab. The old extruded arc pointed its
+     * cap backwards through the club wall and rode a storey above groundAt,
+     * burying the performers to the waist; the round thrust the room sees is
+     * the runway box plus the tip cylinder below. */
+    const deckGeo = new THREE.BoxGeometry(10, STAGE_H, 7.4);
     const deck = new THREE.Mesh(deckGeo, M_BLACKGLOSS);
-    deck.position.y = STAGE_H;
+    deck.position.y = STAGE_H / 2;
     deck.receiveShadow = true;
     stage.add(deck);
     stage.add(box({ size: [1.9, STAGE_H, 3.6], pos: [0, STAGE_H / 2, 4.6], mat: M_BLACKGLOSS }));
     stage.add(cylinder({ r: 0.95, h: STAGE_H, pos: [0, STAGE_H / 2, 6.4], mat: M_BLACKGLOSS }));
     for (const [sx, sz, w, d, col] of [
-      [0, -3.55, 10, 0.12, 0xff2a6a], [0, 7.3, 2.0, 0.12, 0x9a3aff],
-      [-1.0, 4.6, 0.1, 3.6, 0xff2a6a], [1.0, 4.6, 0.1, 3.6, 0x9a3aff],
+      [0, 3.5, 10, 0.12, 0xff2a6a],
+      [-1.0, 4.15, 0.1, 4.5, 0xff2a6a], [1.0, 4.15, 0.1, 4.5, 0x9a3aff],
     ]) {
       stage.add(box({ size: [w, 0.09, d], pos: [sx, STAGE_H - 0.05, sz], mat: lit(col, 2.6), cast: false }));
     }
+    // The tip light follows the tip: a half-ring on the round thrust's edge
+    // instead of a straight bar hanging off both sides of it.
+    const tipArc = new THREE.Mesh(
+      new THREE.TorusGeometry(0.95, 0.045, 6, 20, Math.PI),
+      lit(0x9a3aff, 2.6),
+    );
+    tipArc.name = 'stage-tip-arc';
+    tipArc.position.set(0, STAGE_H - 0.05, 6.4);
+    tipArc.rotation.x = Math.PI / 2;
+    stage.add(tipArc);
     stage.position.set(-12, 0, -7.2);
     add(stage);
     // Walkable, and the reason a security squatch has a line about it
@@ -926,7 +935,7 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.tables = [];
     const candles = [];
     for (const [tx, tz] of [
-      [-16.5, -1.2], [-13.4, 0.6], [-9.6, -1.6], [-7.2, 1.8], [-16.2, 3.4],
+      [-16.5, -1.2], [-13.4, 1.05], [-9.6, -1.6], [-7.2, 1.8], [-16.2, 3.4],
       [-12.6, 3.8], [-9.0, 3.4], [-5.4, -3.6], [-4.6, 5.6], [-8.2, 7.2], [-17.4, 6.6],
     ]) {
       add(group('twotop',
@@ -1025,9 +1034,10 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.hallMouth = new THREE.Vector3(6.7, 0, 3.6);
     anchors.louDoor = new THREE.Vector3(7.05, 0, -7.05);
 
+    // On the jamb beside each door, not floating on the leaf itself.
     for (const [lz, label] of [[-3.8, 'MANAGER'], [3.4, 'LADIES']]) {
       add(sign(printed(`plate-${label}`, [label], { w: 256, h: 80, bg: '#26262e', fg: '#c8c8d0', font: '800 42px "Trebuchet MS", sans-serif' }),
-        0.36, 0.11, { x: 7.78, y: 1.85, z: lz, rotY: -Math.PI / 2 }));
+        0.36, 0.11, { x: 7.78, y: 1.85, z: lz + 0.75, rotY: -Math.PI / 2 }));
     }
   }
 
@@ -1076,8 +1086,9 @@ export function buildClub(scene, { renderer } = {}) {
       'FOR A GOOD TIME, ASK LOU', 'THE DUCK GUY OWES ME', 'BOOSKI WAS HERE',
       'APE IS A CHEAT', 'SHUBES CRIED',
     ], { w: 512, h: 384, bg: '#2a2a32', fg: '#8a8a96', font: '700 30px "Trebuchet MS", sans-serif' }),
-    1.8, 1.35, { x: B.x0 + 0.07, y: 1.5, z: 1.6, rotY: Math.PI / 2 }));
-    anchors.graffiti = new THREE.Vector3(B.x0 + 0.95, 0, 1.6);
+    // Clear of the doorway gap (z -0.1..1.5) the panel used to hang across.
+    1.8, 1.35, { x: B.x0 + 0.07, y: 1.5, z: 2.55, rotY: Math.PI / 2 }));
+    anchors.graffiti = new THREE.Vector3(B.x0 + 0.95, 0, 2.55);
 
     add(box({ size: [0.06, 0.55, 0.85], pos: [B.x1 - 0.04, 1.95, 2.2], mat: lit(0x5a6a7a, 0.5) }));
     const vent = box({ size: [0.52, 0.06, 0.42], pos: [B.x0 + 1.3, CEIL_BACK - 0.05, B.z0 + 0.45], mat: M_STEEL });
@@ -1115,7 +1126,7 @@ export function buildClub(scene, { renderer } = {}) {
     add(box({ size: [0.95, 1.75, 0.8], pos: [S.x1 - 1.1, 0.87, S.z1 - 1.3], mat: mat({ color: 0xc0c0c6, roughness: 0.5 }) }));
     solid(S.x1 - 1.6, S.z1 - 1.75, S.x1 - 0.6, S.z1 - 0.85, 0, 1.8);
     add(box({ size: [0.62, 0.5, 0.5], pos: [S.x0 + 0.7, 0.4, S.z1 - 1.0], mat: M_STEEL }));
-    add(box({ size: [0.42, 0.9, 0.3], pos: [S.x0 + 4.2, 1.3, S.z0 + 0.2], mat: mat({ color: 0x2e2e36, roughness: 0.8 }) }));
+    add(box({ size: [0.42, 0.9, 0.3], pos: [S.x0 + 4.9, 1.3, S.z0 + 0.2], mat: mat({ color: 0x2e2e36, roughness: 0.8 }) }));
     // A broken sign that used to say something
     add(sign(neonText('broken-bin', 'BIN', { font: '900 130px "Trebuchet MS", sans-serif' }), 1.3, 0.4,
       { x: S.x0 + 5.6, y: 1.5, z: S.z0 + 0.25, emissive: 0x2a2a30, intensity: 0.3 })).rotation.z = 0.35;
@@ -1271,15 +1282,16 @@ export function buildClub(scene, { renderer } = {}) {
     add(cylinder({ r: 0.045, h: 1.8, pos: [O.x0 + 0.5, 0.9, O.z1 - 1.9], mat: M_DARKWOOD }));
 
     // Family photographs, the safe behind a picture, the clock, the telly
+    // Hung past the office door's swing arc, not inside its opening.
     for (let i = 0; i < 3; i++) {
       add(makeFrame(M, {
-        x: O.x0 + 0.11, y: 1.9, z: O.z0 + 1.6 + i * 0.9, rotY: Math.PI / 2, w: 0.34, h: 0.26,
+        x: O.x0 + 0.11, y: 1.9, z: O.z0 + 3.2 + i * 0.8, rotY: Math.PI / 2, w: 0.34, h: 0.26,
         texture: printed(`lou-family${i}`, [['SUNDAY', 'AT THE SHORE'], ['THE NEPHEWS'], ['THE OLD PLACE']][i], {
           w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
         }),
       }));
     }
-    anchors.photos = new THREE.Vector3(O.x0 + 0.9, 1.9, O.z0 + 2.5);
+    anchors.photos = new THREE.Vector3(O.x0 + 0.9, 1.9, O.z0 + 4.0);
 
     const safePic = makeFrame(M, {
       x: O.x1 - 0.13, y: 1.85, z: O.z0 + 1.2, rotY: -Math.PI / 2, w: 0.62, h: 0.48,

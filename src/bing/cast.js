@@ -580,15 +580,15 @@ export class Npc {
             const speed = 1.1;
             const stepX = (dx / d) * speed * dt;
             const stepZ = (dz / d) * speed * dt;
-            let moved = false;
-            if (this._navClear(this.group.position.x + stepX, this.group.position.z)) {
-              this.group.position.x += stepX;
-              moved = true;
-            }
-            if (this._navClear(this.group.position.x, this.group.position.z + stepZ)) {
-              this.group.position.z += stepZ;
-              moved = true;
-            }
+            // Moved means the position actually changed — a clear probe on an
+            // axis whose step is ~zero is just "standing somewhere legal", and
+            // counting it let NPCs slide against furniture animating forever.
+            const wasX = this.group.position.x;
+            const wasZ = this.group.position.z;
+            if (this._navClear(wasX + stepX, wasZ)) this.group.position.x += stepX;
+            if (this._navClear(this.group.position.x, wasZ + stepZ)) this.group.position.z += stepZ;
+            const moved = Math.abs(this.group.position.x - wasX)
+              + Math.abs(this.group.position.z - wasZ) > 1e-4;
             if (!moved) {
               // An authored waypoint ended up behind furniture. Advance
               // rather than walking through it or vibrating against it.
@@ -733,7 +733,7 @@ export function populate(scene, club) {
     x: -6.3, z: -4.5, yaw: 0,
     route: [
       { x: -6.3, z: -4.5 }, { x: -6.3, z: 5.7 },
-      { x: -18.5, z: 5.7 }, { x: -18.5, z: -2.3 },
+      { x: -17.9, z: 5.7 }, { x: -17.9, z: -2.3 },
       { x: -6.3, z: -2.3 },
     ],
     model: { height: 1.88, build: 1.3, dress: 'tee', shirt: 0x14141a, hair: 'bald' },
@@ -820,7 +820,7 @@ export function populate(scene, club) {
   add('waiter1', new Npc(scene, {
     name: 'a waitress', tier: 'ambient', job: 'patrol',
     x: -10, z: 5, yaw: 0,
-    route: [{ x: -10, z: 5 }, { x: -17, z: 2 }, { x: -19, z: 6.5 }, { x: -8, z: 8 }],
+    route: [{ x: -10, z: 5 }, { x: -17, z: 2 }, { x: -17.9, z: 6.5 }, { x: -8, z: 8 }],
     model: { height: 1.68, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
   }));
   add('waiter2', new Npc(scene, {
@@ -837,7 +837,7 @@ export function populate(scene, club) {
   add('delivery', new Npc(scene, {
     name: 'a delivery driver', tier: 'background', job: 'patrol',
     x: 22.5, z: 8, yaw: Math.PI,
-    route: [{ x: 22.5, z: 8 }, { x: 22.5, z: -4 }, { x: 24, z: -5 }, { x: 22.5, z: 8 }],
+    route: [{ x: 22.5, z: 8 }, { x: 22.5, z: -4 }, { x: 24, z: -4.6 }, { x: 22.5, z: 8 }],
     model: { height: 1.8, build: 1.15, dress: 'work', shirt: 0x3a3320, hair: 'crop', beard: true },
   }));
 
