@@ -14,7 +14,7 @@
  */
 import * as THREE from 'three';
 import {
-  solid, mat, boxGeo, cylGeo, mesh, group, clamp, damp,
+  solid, mat, boxGeo, cylGeo, mesh, flatMesh, group, clamp, damp,
 } from './util.js';
 
 const CHOCK_COLOUR = 0x8a6a42;
@@ -105,6 +105,20 @@ export class Preflight {
     ac.group.add(this.cup);
     this.cup.position.set(-1.4, -0.35, 0.4);
 
+    /* The fuel you can see: a stream running from the open valve down into
+     * the cup, and the puddle every discarded cup leaves on the apron. The
+     * stream only exists while the valve is held open — update() times it out
+     * rather than trusting a release event, because drifting the crosshair
+     * off the drain mid-hold cancels the hold without firing anything. */
+    this.stream = mesh(cylGeo(0.013, 0.022, 0.3, 6), mat({
+      color: 0xb8b49a, roughness: 0.3, transparent: true, opacity: 0.85,
+    }), 0, 0, 0);
+    this.stream.castShadow = false;
+    this.stream.visible = false;
+    ac.group.add(this.stream);
+    this.streamT = 0;
+    this.puddles = new Map();       // drain index -> the stain under that wing
+
     // Reach proxies for the parts that are only a few centimetres across.
     // Kept tight: a proxy big enough to shadow the part next to it is worse
     // than no proxy at all — the prompt says one thing and E does another.
@@ -117,6 +131,35 @@ export class Preflight {
   }
 
   /* ---------------------------------------------------------------- */
+
+  /** The stain under one wing root, minted the first time a cup lands there. */
+  puddleFor(i) {
+    if (!this.puddles.has(i)) {
+      const drain = this.aircraft.parts.drain[i];
+      // On the tarmac: the aircraft group's origin rides at gear height 1.62.
+      const p = flatMesh(new THREE.CircleGeometry(1, 12), mat({
+        color: 0x2a2620, roughness: 0.3, transparent: true, opacity: 0.5,
+      }), drain.position.x, -1.575, drain.position.z + 0.12);
+      p.rotation.x = -Math.PI / 2;
+      p.scale.setScalar(0.001);
+      p.visible = false;
+      this.aircraft.group.add(p);
+      this.puddles.set(i, p);
+    }
+    return this.puddles.get(i);
+  }
+
+  /** Tip a cup out onto the apron. The puddle spreads; clear fuel blues it. */
+  dumpCup(i, clear) {
+    this.cup.visible = false;
+    this.stream.visible = false;
+    const p = this.puddleFor(i);
+    p.visible = true;
+    p.scale.setScalar(Math.min(0.62, p.scale.x + 0.17));
+    if (clear) {
+      p.material = mat({ color: 0x3a444a, roughness: 0.12, transparent: true, opacity: 0.55 });
+    }
+  }
 
   get progress() {
     const all = Object.values(this.tasks);
@@ -239,8 +282,10 @@ export class Preflight {
 
     // ---- 4. Fuel sample ----
     // Hold to drain. The first cup is cloudy; Lou hits the tank and the second
-    // runs clear. Let go while it is clear and it counts.
-    ac.parts.drain.forEach((drain) => {
+    // runs clear. Let go while it is clear and it counts. The fuel itself is
+    // visible the whole way: a stream into the cup while the valve is open,
+    // and a stain on the apron wherever a cup gets tipped out.
+    ac.parts.drain.forEach((drain, i) => {
       reg(drain, {
         label: () => 'Hold to <b>drain a sample</b>',
         holdLabel: () => 'Let go when it runs <b>clear</b>',
@@ -262,22 +307,29 @@ export class Preflight {
             transparent: true,
             opacity: clear ? 0.55 : 0.95,
           });
+          // The stream from valve to cup, the colour of what is coming out.
+          this.stream.visible = true;
+          this.stream.position.set(drain.position.x, drain.position.y - 0.16, drain.position.z);
+          this.stream.material = this.sampleFluid.material;
+          this.streamT = 0.2;
         },
-        // Held all the way: it overflows down your arm.
+        // Held all the way: it overflows down your arm and onto the apron.
         onUse: () => {
-          this.cup.visible = false;
+          this.dumpCup(i, false);
           this.sampleAttempts++;
           this.dialogue.play('preflight.drain.cloudy', { once: this.sampleAttempts > 1 });
           this.audio?.play('glue.slip', { volume: 0.4 });
         },
         onTap: () => {
-          this.cup.visible = false;
           if (this.sampleClear) {
+            // Inspected, approved, and tipped out like every sample before it.
+            this.dumpCup(i, true);
             this.dialogue.play('preflight.drain.clear', { once: true });
             this.audio?.play('can.set', { volume: 0.5 });
             ac.parts.drain.forEach((d) => this.interaction.unregister(d));
             this.finish('sample');
           } else {
+            this.dumpCup(i, false);
             this.sampleAttempts++;
             if (this.sampleAttempts === 1) {
               this.dialogue.play('preflight.drain.cloudy');
@@ -332,6 +384,7 @@ export class Preflight {
     this.registered.length = 0;
     this.armed = false;
     this.cup.visible = false;
+    this.stream.visible = false;
   }
 
   /** Chocks vanish once the aeroplane starts moving; surfaces spring back. */
@@ -344,10 +397,18 @@ export class Preflight {
         else this.aircraft.parts.rudder.rotation.y = swing;
       }
     }
+    // The stream stops the moment the valve is no longer being held open.
+    if (this.streamT > 0) {
+      this.streamT -= dt;
+      if (this.streamT <= 0) {
+        this.stream.visible = false;
+        this.cup.visible = false;
+      }
+    }
     if (physics?.groundSpeed > 1.5) {
       for (const c of this.chocks) c.visible = false;
     }
-    void damp; void THREE;
+    void damp;
   }
 
   /** True when the chocks are still under the wheels — Lou will mention it. */
