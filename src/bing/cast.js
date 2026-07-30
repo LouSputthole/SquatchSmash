@@ -1143,9 +1143,11 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     model: { height: 1.88, build: 1.3, dress: 'tee', shirt: 0x14141a, hair: 'bald' },
   }));
 
+  // In the corner by the DJ, clear of the east booth run that now starts at
+  // z -8.5 (he used to stand exactly where booth zero's bench is)
   add('security2', new Npc(scene, {
     name: 'security', tier: 'ambient', job: 'stand',
-    x: 4.5, z: -9.4, yaw: -0.8,
+    x: 4.5, z: -10.35, yaw: -0.8,
     model: { height: 1.86, build: 1.28, dress: 'tee', shirt: 0x14141a, hair: 'crop', beard: true },
   }));
   by.security2.folded = true;
@@ -1204,16 +1206,23 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     model: { height: 1.72, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'receding', glasses: true },
   }));
 
-  /* ---- the floor ---- */
+  /* ---- the floor ----
+   * Seated patrons sit ON the benches. The lateral offset runs ALONG the
+   * bench -- z for the east run, x for the north run -- and the north sitters
+   * are pushed back onto the cushion. The old code added every offset to x,
+   * which put one man inside his own table and left the north row hovering a
+   * step in front of their seats. */
   const seatedSpots = [
     [a.booths[0], 0.6], [a.booths[1], -0.4], [a.booths[3], 0.2],
     [a.booths[5], 0.1], [a.booths[6], -0.2], [a.booths[7], 0.4],
   ];
   seatedSpots.forEach(([spot, off], i) => {
+    const eastRun = spot.x > 0;
     add(`patron${i}`, new Npc(scene, {
       name: 'a regular', tier: i < 3 ? 'ambient' : 'background', job: i % 2 ? 'drink' : 'sit',
-      x: spot.x + off, z: spot.z,
-      yaw: spot.x > 0 ? -Math.PI / 2 : (spot.z > 5 ? Math.PI : 0),
+      x: eastRun ? 4.55 : spot.x + off,
+      z: eastRun ? spot.z + off : 10.95,
+      yaw: eastRun ? -Math.PI / 2 : Math.PI,
       model: {
         height: rand(1.66, 1.9), build: rand(0.95, 1.3),
         dress: pick(['shirt', 'tracksuit', 'suit']),

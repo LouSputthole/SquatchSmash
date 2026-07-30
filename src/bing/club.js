@@ -908,8 +908,11 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   {
     function booth(x, z, rotY, width = 2.4) {
+      /* The cushion tops out at 0.52 -- chair height. It used to sit at 0.675,
+       * which is bar-stool height, and everybody seated on one was folded for
+       * a chair and sunk to the hips in the upholstery. */
       const g = group('booth',
-        box({ size: [width, 0.45, 0.72], pos: [0, 0.45, 0], mat: M_LEATHER }),
+        box({ size: [width, 0.28, 0.72], pos: [0, 0.38, 0], mat: M_LEATHER }),
         box({ size: [width, 1.2, 0.24], pos: [0, 0.92, -0.36], mat: M_LEATHER_DARK }),
         box({ size: [width, 0.36, 0.78], pos: [0, 0.18, 0], mat: M_DARKWOOD }),
       );
@@ -931,10 +934,22 @@ export function buildClub(scene, { renderer } = {}) {
     }
 
     anchors.booths = [];
-    for (let i = 0; i < 5; i++) {
-      const bz = -7.5 + i * 3.2;
+    /* The east run stops SHORT of the archway through to the back of house
+     * (z 2.4..4.4): the old fifth booth's collider lay across the mouth of
+     * it, which is the way to the bathroom. Four sit south of the arch and a
+     * shorter fifth tucks north of it against the slot alcove, so the count
+     * -- and everything seated on it -- is unchanged. */
+    for (let i = 0; i < 4; i++) {
+      const bz = -8.5 + i * 3.2;
       booth(4.55, bz, -Math.PI / 2);
       solid(4.05, bz - 1.25, 5.4, bz + 1.25, 0, 1.5);
+      boothTable(3.25, bz);
+      anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
+    }
+    {
+      const bz = 5.4;
+      booth(4.55, bz, -Math.PI / 2, 1.8);
+      solid(4.05, bz - 0.95, 5.4, bz + 0.95, 0, 1.5);
       boothTable(3.25, bz);
       anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
     }
