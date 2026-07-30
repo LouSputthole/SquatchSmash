@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 import { mat, box, cylinder, sphere, collider, group } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
-import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack } from '../world/props.js';
+import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack, makeToilet } from '../world/props.js';
 import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick } from './kit.js';
 import { drawSquatchSilhouette } from '../world/textures.js';
 import { Tv } from '../core/tv.js';
@@ -1157,8 +1157,15 @@ export function buildClub(scene, { renderer } = {}) {
       const leaf = box({ size: [1.1, 1.7, 0.05], pos: [0.55, 1.05, 0], mat: mat({ color: 0x25302f, roughness: 0.8 }) });
       pivot.add(leaf);
       add(pivot);
-      add(box({ size: [0.42, 0.42, 0.55], pos: [sx, 0.32, B.z0 + 0.65], mat: mat({ color: 0xd0d0d6, roughness: 0.4 }) }));
+      /* A real close-coupled toilet -- pedestal, bowl, water sitting in it,
+       * seat, cistern -- the same suite the flat has, instead of the plain
+       * porcelain block that stood in for one. Cistern backed to the wall. */
+      add(makeToilet(M, { x: sx, z: B.z0 + 0.5, rotY: 0 }));
       anchors.stalls.push({ pivot, locked: i === 2, x: sx, z: B.z0 + 1.9, index: i });
+      if (i === 1) {
+        // The lost membership card, exactly where the stall line says it is
+        add(box({ size: [0.09, 0.006, 0.055], pos: [sx + 0.06, 0.842, B.z0 + 0.2], rotY: 0.4, mat: mat({ color: 0xe8e2d0, roughness: 0.85 }) }));
+      }
     }
     solid(B.x0 + 0.3, B.z0 + 0.1, B.x0 + 3.8, B.z0 + 1.6, 0, 2.0);
     add(box({ size: [0.06, 1.9, 1.5], pos: [B.x0 + 3.4, 1.0, B.z0 + 0.9], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
