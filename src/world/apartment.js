@@ -74,7 +74,7 @@ export const WALL_SLOTS = [
    * occupies out to -0.85. The first attempt started at exactly -0.85 and read
    * as hung on top of it. Dropped a little too, so it is not sharing a centre
    * line with the clock face either. */
-  { slot: 'south.shield', x: -0.24, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.44 },
+  { slot: 'south.shield', x: -0.31, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.44 },
 
   /* The pair used to fight the kitchen cabinets — one riding their tops, one
    * on the tile between them. Both now hang on the blank stretch of east wall
@@ -178,7 +178,7 @@ const STANDING_SLOTS = [
   { slot: 'shelf.photo', x: -0.52, y: 0.723, z: 4.14, rotY: Math.PI - 0.30, h: 0.19 },
   { slot: 'sideboard.photo', x: -1.62, y: 0.723, z: 4.16, rotY: Math.PI + 0.22, h: 0.17 },
   { slot: 'desk.photo', x: 0.98, y: 0.740, z: -4.22, rotY: 0.22, h: 0.13 },
-  { slot: 'night.photo', x: -3.02, y: 0.578, z: -4.20, rotY: -1.05, h: 0.15 },
+  { slot: 'night.photo', x: -2.94, y: 0.578, z: -4.20, rotY: -1.05, h: 0.15 },
 ];
 
 /**
@@ -292,10 +292,13 @@ export async function buildApartment(ctx) {
   root.add(boxFrom(x1, 0, -3.90, x1 + wall, 0.95, -2.30, M.wall, { cast: false }));       // sill wall
   root.add(boxFrom(x1, 2.15, -3.90, x1 + wall, h, -2.30, M.wall, { cast: false }));       // header
 
-  // Skirting board all the way round.
+  // Skirting board all the way round — stopping at the doorways instead of
+  // running a nine-centimetre board across each threshold.
   const skirt = M.trim;
-  root.add(boxFrom(x0, 0, z0, x1, 0.09, z0 + 0.02, skirt, { cast: false }));
-  root.add(boxFrom(x0, 0, z1 - 0.02, x1, 0.09, z1, skirt, { cast: false }));
+  root.add(boxFrom(x0, 0, z0, -1.90, 0.09, z0 + 0.02, skirt, { cast: false }));
+  root.add(boxFrom(-0.90, 0, z0, x1, 0.09, z0 + 0.02, skirt, { cast: false }));
+  root.add(boxFrom(x0, 0, z1 - 0.02, 2.30, 0.09, z1, skirt, { cast: false }));
+  root.add(boxFrom(3.20, 0, z1 - 0.02, 4.38, 0.09, z1, skirt, { cast: false }));
   root.add(boxFrom(x0, 0, z0, x0 + 0.02, 0.09, z1, skirt, { cast: false }));
   root.add(boxFrom(x1 - 0.02, 0, z0, x1, 0.09, z1, skirt, { cast: false }));
 
@@ -405,7 +408,9 @@ export async function buildApartment(ctx) {
 
   // Floor, ceiling and the three outer walls (the fourth is the room's own
   // north wall, which already has the door opening in it).
-  bath.add(boxFrom(BATH.x0, -0.1, BATH.z0, BATH.x1, 0, BATH.z1, M.splash, { cast: false }));
+  // The floor runs to the room's own north wall line, so the doorway has
+  // boards under it instead of a sixteen-centimetre void.
+  bath.add(boxFrom(BATH.x0, -0.1, BATH.z0, BATH.x1, 0, z0, M.splash, { cast: false }));
   bath.add(boxFrom(BATH.x0, h, BATH.z0, BATH.x1, h + 0.1, BATH.z1, M.ceiling, { cast: false }));
   bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x1 + wall, h, BATH.z0, M.wall, { cast: false }));
   bath.add(boxFrom(BATH.x0 - wall, 0, BATH.z0 - wall, BATH.x0, h, BATH.z1, M.wall, { cast: false }));
@@ -505,7 +510,7 @@ export async function buildApartment(ctx) {
   });
   root.add(zynHit);
 
-  const bobble = P.makeBobblehead(M, { x: 2.86, y: desk.top, z: -4.24, rotY: -0.5 });
+  const bobble = P.makeBobblehead(M, { x: 2.86, y: desk.top + 0.008, z: -4.24, rotY: -0.5 });
   root.add(bobble.group);
   // Invisible proxy so a 4cm mascot is still comfortable to look at and poke.
   const bobbleHit = box({
@@ -526,7 +531,7 @@ export async function buildApartment(ctx) {
   // opinions about these.
   const fin = fridge.interior;
   const eggs = P.makeEggCarton(M, {
-    x: (fin.x0 + fin.x1) / 2, y: fin.shelfY[2] + 0.012, z: fin.z0 + 0.20,
+    x: (fin.x0 + fin.x1) / 2, y: fin.shelfY[2] + 0.024, z: fin.z0 + 0.20,
     rotY: Math.PI / 2 + 0.06, texture: propTex('eggs.carton'),
   });
   root.add(eggs.group);
@@ -634,7 +639,7 @@ export async function buildApartment(ctx) {
   });
   root.add(bongHit);
 
-  const shroomPos = new THREE.Vector3(-3.66, table.top, 0.52);
+  const shroomPos = new THREE.Vector3(-3.32, table.top, 0.88);
   const shrooms = P.makeMushrooms(M, { x: shroomPos.x, y: shroomPos.y, z: shroomPos.z, rotY: 0.5 });
   root.add(shrooms.group);
   const shroomHit = box({
@@ -709,7 +714,7 @@ export async function buildApartment(ctx) {
      * they are simply hidden behind the frames from the only angle you can
      * ever look at this from. */
     P.makeCandle(M, { x: (CLOSET.x0 + CLOSET.x1) / 2 - 0.19, y: 0.002, z: CLOSET.back - 0.33, h: 0.115, phase: 0 }),
-    P.makeCandle(M, { x: (CLOSET.x0 + CLOSET.x1) / 2 + 0.20, y: 0.002, z: CLOSET.back - 0.30, h: 0.082, phase: 2.4, colour: 0xe8dcc4 }),
+    P.makeCandle(M, { x: (CLOSET.x0 + CLOSET.x1) / 2 + 0.20, y: 0.002, z: CLOSET.back - 0.44, h: 0.082, phase: 2.4, colour: 0xe8dcc4 }),
     P.makeCandle(M, { x: (CLOSET.x0 + CLOSET.x1) / 2 + 0.02, y: 0.002, z: CLOSET.back - 0.39, h: 0.062, phase: 4.1 }),
   ];
   for (const c of candles) root.add(c.group);
@@ -755,7 +760,7 @@ export async function buildApartment(ctx) {
    * distraction for an afternoon and not enough to be a hobby.
    */
   const ammoSpots = [
-    { at: new THREE.Vector3(-3.15, 0.585, -4.02), rotY: 0.5, gives: 6 },
+    { at: new THREE.Vector3(-2.98, 0.585, -4.02), rotY: 0.5, gives: 6 },
     { at: new THREE.Vector3(CLOSET.x0 + 0.16, 0.002, CLOSET.back - 0.52), rotY: -0.8, gives: 6 },
   ];
   for (const spot of ammoSpots) {
@@ -856,7 +861,8 @@ export async function buildApartment(ctx) {
     return true;
   };
 
-  root.add(P.makeBoots(M, { x: 2.20, z: 4.30, rotY: 0.4 }).group);
+  // Clear of the front door's swing, which passed through them from 13 degrees.
+  root.add(P.makeBoots(M, { x: 1.90, z: 4.30, rotY: 0.4 }).group);
   root.add(P.makeLaundry(M, { x: -2.55, z: -3.55 }).group);
   root.add(P.makeCapOnPeg(M, { x: 0.10, y: 1.78, z: 4.42, rotY: Math.PI }).group);
 
@@ -1829,7 +1835,8 @@ export async function buildApartment(ctx) {
     const bathDoorTarget = state.bathDoorOpen ? 1 : 0;
     bathDoorT += (bathDoorTarget - bathDoorT) * Math.min(1, dt * 5);
     if (Math.abs(bathDoorTarget - bathDoorT) < 0.0005) bathDoorT = bathDoorTarget;
-    bathDoor.pivot.rotation.y = bathDoorT * 1.85 + bathDoorNudge;
+    // 1.55 rad full open — 1.85 swung the leaf six centimetres into the bath.
+    bathDoor.pivot.rotation.y = bathDoorT * 1.55 + bathDoorNudge;
     bathLight.intensity += ((state.bathLightOn ? 4.6 : 0) - bathLight.intensity) * Math.min(1, dt * 7);
     // Fluorescent tubes never quite settle.
     if (state.bathLightOn) bathLight.intensity *= 0.985 + Math.random() * 0.03;

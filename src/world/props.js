@@ -676,9 +676,11 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
   const pull = (face, y, z, len = 0.11) => {
     const bar = face - 0.030;
     g.add(cylinder({ r: 0.009, h: len, pos: [bar, y, z], mat: M.chrome }));
-    for (const dz of [-len / 2 + 0.012, len / 2 - 0.012]) {
+    // The bar is vertical, so the standoffs sit above and below along Y —
+    // offsetting them along Z left two brackets hanging in mid-air.
+    for (const dy of [-len / 2 + 0.012, len / 2 - 0.012]) {
       g.add(cylinder({
-        r: 0.005, h: 0.030, pos: [face - 0.015, y, z + dz], rotZ: Math.PI / 2, mat: M.chrome,
+        r: 0.005, h: 0.030, pos: [face - 0.015, y + dy, z], rotZ: Math.PI / 2, mat: M.chrome,
       }));
     }
   };
@@ -1641,7 +1643,9 @@ export function makeLaundry(M, { x, z }) {
     const lump = sphere({
       r: 0.13 + (i % 3) * 0.03,
       ry: 0.07 + (i % 2) * 0.02,
-      pos: [Math.sin(a) * r, 0.06 + (i % 2) * 0.05, Math.cos(a) * r],
+      // High enough that the rotated ellipsoids sit ON the boards — half of
+      // each lump used to be under the floor.
+      pos: [Math.sin(a) * r, 0.11 + (i % 2) * 0.05, Math.cos(a) * r],
       mat: mat({ color: cols[i % cols.length], roughness: 1 }),
     });
     lump.rotation.set(0.2, a, 0.3);
@@ -2500,7 +2504,9 @@ export function makeBathSink(M, { x, z, rotY = 0 }) {
   g.add(box({ size: [0.62, 0.74, 0.02], pos: [0, 1.46, -0.196], mat: M.trim }));
   const mirror = box({
     size: [0.54, 0.66, 0.012], pos: [0, 1.46, -0.186],
-    mat: new THREE.MeshStandardMaterial({ color: 0xc8d2da, roughness: 0.03, metalness: 1.0 }),
+    // Full metalness with nothing to reflect rendered as a black hole in the
+    // tiles; this reads as glass with a cold sheen instead.
+    mat: new THREE.MeshStandardMaterial({ color: 0xdfe6ec, roughness: 0.12, metalness: 0.55 }),
   });
   g.add(mirror);
   // Strip light over the cabinet.
@@ -3064,7 +3070,7 @@ export function makeAmmoBox(M, { x, y, z, rotY = 0, count = 8, loose = 2 }) {
     g.add(box({ size: [sw, H, sd], pos: [sx, H / 2, sz], mat: card }));
   }
   // The lid, off, leaning against the side.
-  const lid = box({ size: [W + 0.006, 0.004, D + 0.006], pos: [W * 0.78, H * 0.42, 0], mat: card });
+  const lid = box({ size: [W + 0.006, 0.004, D + 0.006], pos: [W * 0.80, 0.0425, 0], mat: card });
   lid.rotation.z = 1.16;
   g.add(lid);
 
