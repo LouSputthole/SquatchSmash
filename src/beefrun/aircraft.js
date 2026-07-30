@@ -87,6 +87,21 @@ function propBlade(material) {
   return g;
 }
 
+/**
+ * A straight structural member run between two points — struts, braces, the
+ * gear frame. Placing these by centre-plus-rotation is how both ends of a
+ * strut ended up in mid-air twice on this aeroplane; naming the two points it
+ * connects makes "attached" a property of the code rather than of luck.
+ */
+function memberBetween(a, b, w, d, material) {
+  const m = mesh(boxGeo(w, a.distanceTo(b), d), material);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.quaternion.setFromUnitVectors(_up, _dir.copy(b).sub(a).normalize());
+  return m;
+}
+const _up = new THREE.Vector3(0, 1, 0);
+const _dir = new THREE.Vector3();
+
 export class Brushrunner {
   constructor({ withCockpit = true } = {}) {
     this.group = group('brushrunner');
@@ -259,9 +274,23 @@ export class Brushrunner {
       const strut = mesh(boxGeo(0.16, 0.7, 0.16), metal, 0, -0.35, 0);
       leg.add(strut);
       if (i > 0) {
-        const brace = mesh(boxGeo(0.12, 0.8, 0.12), metal, -Math.sign(spec.x) * 0.22, -0.32, 0);
-        brace.rotation.z = Math.sign(spec.x) * 0.5;
-        leg.add(brace);
+        /* The wheel frame. It used to be a short brace that leaned inward and
+         * stopped 0.4 m shy of the skin, so the whole main gear read as
+         * parked luggage floating beside the aeroplane. Two members per side
+         * now carry the leg into the fuselage — one into the side, one up
+         * into the belly — with their inboard ends buried past the skin so
+         * the suspension can compress without opening a daylight gap. */
+        const inb = -Math.sign(spec.x);
+        leg.add(memberBetween(
+          new THREE.Vector3(0, -0.04, 0),
+          new THREE.Vector3(inb * (Math.abs(spec.x) - 0.8), -0.1, 0),
+          0.13, 0.13, metal,
+        ));
+        leg.add(memberBetween(
+          new THREE.Vector3(0, -0.62, 0),
+          new THREE.Vector3(inb * (Math.abs(spec.x) - 0.7), -0.44, 0),
+          0.11, 0.11, metal,
+        ));
       }
       const wheel = mesh(cylGeo(spec.r, spec.r, 0.28, 14), rubber, 0, -0.7 - spec.r * 0.0, 0);
       wheel.rotation.z = Math.PI / 2;
