@@ -68,3 +68,15 @@ integration checklist below still wait on the owner and the integration pass.
     hotPan has no TIP_POINTS entry so the hazard→tip path is dead.
 11. Sway.press() can be mashed — gate on the current beat index.
 12. The band set loops forever → theOne re-fires offerSway/toasts.
+
+## Owner rulings — 2026-07-30 morning
+
+1. **Campaign slot**: the date is Day 3 EVENING — wake at noon after the
+   Motel, Delia calls, the Silver Room is that evening. Booskibro's
+   big-night call and the Initiation MOVE TO DAY 4 (sleep after the date
+   turns the page). The Goodfellas calm-before-the-verdict beat.
+2. **Delia's radio handle changes** — she is NOT Hog Mama; pick a new
+   on-air name and update the intro references. Circle canon untouched.
+3. **Booski stays the cab driver** — the patriarch moonlighting is the joke.
+4. (Earlier ruling) The mission is the Goodfellas Copacabana parody and is
+   part of the campaign, not optional.
