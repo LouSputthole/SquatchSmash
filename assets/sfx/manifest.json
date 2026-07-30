@@ -3564,6 +3564,48 @@
       "say": "And eat something. You never eat."
     },
     {
+      "_comment": "Booskibro's Day Two airstrip call — it shipped as silent text until July 30.",
+      "name": "vo.call.booski.airstrip.1",
+      "voice": "booski",
+      "say": "You awake? Good."
+    },
+    {
+      "name": "vo.call.booski.airstrip.2",
+      "voice": "booski",
+      "say": "Meet the Captain at the airstrip. Captain Lou Sasole. Not Lou from the Bing."
+    },
+    {
+      "name": "vo.call.booski.airstrip.3",
+      "voice": "booski",
+      "say": "He has a beef jerky run and needs another set of hands."
+    },
+    {
+      "name": "vo.call.booski.airstrip.4",
+      "voice": "booski",
+      "say": "Get moving. He hates waiting more than the other Lou does."
+    },
+    {
+      "_comment": "Big Uncle Lou's second call, also silent text until July 30.",
+      "name": "vo.call.lou.bing_second.1",
+      "voice": "lou1",
+      "say": "Kid. Back to the Bing."
+    },
+    {
+      "name": "vo.call.lou.bing_second.2",
+      "voice": "lou1",
+      "say": "I have another assignment. This one starts in person."
+    },
+    {
+      "name": "vo.call.lou.bing_second.3",
+      "voice": "lou1",
+      "say": "Bring nothing and come straight to the back office."
+    },
+    {
+      "name": "vo.call.lou.bing_second.4",
+      "voice": "lou1",
+      "say": "You will leave from here. You are not going home first."
+    },
+    {
       "_comment": "Booskibro's big-night call, the last one Tony gets as a prospect. Patriarch voice, not the gambling-show one: he is telling the kid the room is assembling for him.",
       "name": "vo.call.booski.bignight.1",
       "voice": "booski",

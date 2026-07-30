@@ -45,6 +45,15 @@ function ensureThreeShim() {
 }
 ensureThreeShim();
 
+/* The engines' cosmetic RPM wobble is phased off the wall clock, which let
+ * this bench's centreline-drift number wander half a metre between runs —
+ * right across the envelope's 25 m edge. The bench owns time: freezing the
+ * clock makes every run the same flight. The phase is chosen so both engines
+ * read the SAME wobble value (sin(x) = sin(x + 2.1) at x = (pi - 2.1)/2) —
+ * a symmetric constant offset, so no artificial asymmetric thrust is pinned
+ * on for the whole takeoff roll the way phase zero pinned it. */
+performance.now = () => ((Math.PI - 2.1) / 2 / 7.3) * 1000;
+
 const THREE = await import('three');
 const { AircraftPhysics } = await import('../src/beefrun/physics.js');
 const { EngineSystem } = await import('../src/beefrun/engines.js');

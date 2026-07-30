@@ -56,7 +56,7 @@ export const DAY_TWO_BOOSKI_CALL = Object.freeze({
   vo: 'call.booski.airstrip',
   lines: Object.freeze([
     'You awake? Good.',
-    'Meet Lou2 at the airstrip. Captain Lou Sasole. Not Lou from the Bing.',
+    'Meet the Captain at the airstrip. Captain Lou Sasole. Not Lou from the Bing.',
     'He has a beef jerky run and needs another set of hands.',
     'Get moving. He hates waiting more than the other Lou does.',
   ]),

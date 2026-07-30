@@ -1,9 +1,11 @@
 # Silver Room (Front and Center) review — 2026-07-30
 
 Full findings from the Opus review of the imported, unintegrated mission at
-`b311555`. Mechanical findings 1-12 are being fixed on a worktree branch;
-consolidation hazards and canon questions below wait on the owner and the
-integration pass.
+`b311555`. **Status: mechanical findings 1-12 are FIXED and merged
+(verify:silver grew 54 → 75 checks; balance:silver accounts every event with
+a real source scan — two events removed with reasons, CallTaken/CallDeclined
+deferred to the phone-port integration).** The canon questions and the
+integration checklist below still wait on the owner and the integration pass.
 
 ## Owner rulings needed (canon)
 
