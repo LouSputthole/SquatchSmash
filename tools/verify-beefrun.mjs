@@ -119,6 +119,32 @@ try {
     eye.eye > 1.0 && eye.eye < 2.2 && Number.isFinite(eye.ground),
     JSON.stringify(eye));
 
+  /* The wave-2 scene notes: the walkaround must be guided (a named next item,
+   * six checklist rows, a marker that lives in the scene), the parked wing
+   * must not stand inside the hangar's front wall at z=396, and Old Stove
+   * starts inside the hangar (z past the door plane) so he has somewhere to
+   * walk out from. */
+  const scenePass = await page.evaluate(() => {
+    const m = window.__beefrun.mission;
+    const rows = m.preflight.checklist;
+    return {
+      next: m.preflight.next?.name,
+      rows: rows.length,
+      states: rows.map((r) => r.state).join(','),
+      markerInScene: !!m.preflight.marker?.parent,
+      wingtipClear: m.airfield.anchors.parking.z + 17.2 / 2 < 396,
+      stoveInHangar: m.stove.group.position.z > 396,
+    };
+  });
+  check('the walkaround is guided and the parked aeroplane fits the field',
+    scenePass.next === 'chocks'
+      && scenePass.rows === 6
+      && scenePass.states === 'next,todo,todo,todo,todo,todo'
+      && scenePass.markerInScene
+      && scenePass.wingtipClear
+      && scenePass.stoveInHangar,
+    JSON.stringify(scenePass));
+
   const chain = await page.evaluate(() => {
     const m = window.__beefrun.mission;
     const out = [];
