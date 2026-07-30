@@ -62,6 +62,9 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   if (pathname.endsWith('/beefrun.html') || pathname.endsWith('beefrun.html')) {
     return 'airstrip_smuggling';
   }
+  if (pathname.endsWith('/silver.html') || pathname.endsWith('silver.html')) {
+    return 'silver_room';
+  }
   /* The Initiation build does not create a campaign yet, so nothing in that
    * page consults this today. It is mapped anyway so the route cannot silently
    * seed an apartment preview the day the scene does claim its own state. */

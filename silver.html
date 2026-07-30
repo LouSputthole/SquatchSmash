@@ -148,45 +148,33 @@
 
 <div id="loading"><div class="bar"><i></i></div><span>Pulling up outside…</span></div>
 
+<!-- The same recovery panel every other standalone scene uses: a scene that
+     cannot boot must offer a reload and a way back to the flat, rather than a
+     dead loading bar. -->
+<div id="bootFailure" class="boot-failure" hidden role="alert">
+  <strong data-boot-title></strong>
+  <span data-boot-detail></span>
+  <div class="actions">
+    <button type="button" data-boot-reload>RELOAD</button>
+    <a href="./index.html">APARTMENT</a>
+  </div>
+</div>
+
+<script src="./src/core/boot-guard.js"
+  data-target="bootFailure"
+  data-ready="__silver"
+  data-scene="The Silver Room"></script>
 <script>
-(function () {
-  var shown = false;
-  window.__squatchFail = function (title, detail) {
-    if (shown) return;
-    shown = true;
-    var el = document.getElementById('loading');
-    if (!el) return;
-    el.classList.remove('hidden');
-    el.classList.add('failed');
-    el.innerHTML = '<strong></strong><span></span>';
-    el.querySelector('strong').textContent = title;
-    el.querySelector('span').textContent = detail || '';
-  };
-  window.__squatchStage = function (text) {
-    if (shown) return;
-    var el = document.getElementById('loading');
-    var s = el && el.querySelector('span');
-    if (s) s.textContent = text;
-  };
-  addEventListener('error', function (e) {
-    window.__squatchFail('Could not start', e.message || String(e.error || e));
-  });
-  addEventListener('unhandledrejection', function (e) {
-    var r = e.reason;
-    window.__squatchFail('Could not start', (r && r.message) || String(r));
-  });
-  setTimeout(function () {
-    if (!window.__silver) {
-      window.__squatchFail(
-        'The club did not finish loading',
-        'Everything it needs is in this page, so this is not a connection '
-        + 'problem. Reloading usually clears it. If it keeps happening, the '
-        + 'browser console will have the reason.');
-    }
-  }, 30000);
-})();
+/* The loading bar's own progress text. The shared guard owns failure; this
+ * only narrates the stages while things are still going well. */
+window.__squatchStage = function (text) {
+  var el = document.getElementById('loading');
+  var s = el && el.querySelector('span');
+  if (s) s.textContent = text;
+};
 </script>
 
-<script type="module" src="src/silver/main.js" onerror="window.__squatchFail('Could not load the game code', 'src/silver/main.js failed to load.')"></script>
+<script type="module" src="src/silver/main.js"
+  onerror="window.__squatchSceneFail('Could not load the scene', 'src/silver/main.js failed to load.')"></script>
 </body>
 </html>

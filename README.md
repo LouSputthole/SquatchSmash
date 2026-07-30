@@ -50,6 +50,15 @@ integrated: answering Booskibro routes the apartment door to
 and landing rank persist through the campaign save, a mid-mission reload
 resumes in the cockpit, and the end card returns home for Lou's second call.
 
+Sleeping off the Jerky Motel opens Day Three at noon, and Day Three is not
+work. Margo Salas — who runs the kitchen at an all-night place on Ashland, and
+who has no stake in Lou or the Bing or anybody in the family — rings once that
+afternoon, and the apartment door routes to the Silver Room
+([`silver.html`](./silver.html)) for a nine o'clock table. The evening's
+outcome is folded back into the campaign save; coming home and sleeping again
+is what finally turns the page onto the Day Four big night, Booskibro's call,
+and the Initiation at seven.
+
 The Initiation branch history, face art, NPC writing, post-processing modules,
 and playable scene are preserved without overwriting shared systems. Tony
 Squatchtana and the Circle present as humans before Initiation. The current
@@ -406,6 +415,9 @@ npm run check:flight # headless flight-model bench for the Brushrunner
 npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
 npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
 npm run verify:initiation # runtime: human cast, canonical names, human induction
+npm run verify:silver # runtime: plays the whole Silver Room evening, headless
+npm run verify:silver-story # runtime: the date's campaign seam, door to door
+npm run verify:big-night # runtime: post-date sleep, Booskibro, route to Initiation
 npm run verify:preview # runtime: later-scene previews never touch the real save
 npm run verify:boot-errors # blocked scene modules show reload/home recovery
 npm run bundle       # bake the whole thing into one self-contained HTML file
@@ -462,10 +474,16 @@ apartment.
 each unlocked developer preview, and proves the sentinel is unchanged after
 scene state and navigation are exercised.
 
-`verify:boot-errors` deliberately blocks the Motel, Squatchfather, and
-Initiation entry modules. Their classic-script guard must show a useful error,
-Reload, and Apartment recovery before any Three.js module has successfully
-executed.
+`verify:boot-errors` deliberately blocks the Motel, Squatchfather, Initiation,
+and Silver Room entry modules. Their classic-script guard must show a useful
+error, Reload, and Apartment recovery before any Three.js module has
+successfully executed.
+
+`verify:silver` plays the Silver Room evening itself — the walk in through the
+kitchen, the table, the band, the invitation — while `verify:silver-story`
+covers the join to the rest of the game: waking on Day 3, Margo's call, the
+door, the ending folding into campaign state, the walk home, and the sleep that
+opens the Day 4 big night.
 
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around

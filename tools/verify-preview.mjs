@@ -89,9 +89,9 @@ try {
     links: [...document.querySelectorAll('[data-preview-scene]')]
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
   }));
-  check('the launcher exposes all five requested previews',
+  check('the launcher exposes all six requested previews',
     launcher.title === 'Scene preview'
-      && launcher.links.length === 5
+      && launcher.links.length === 6
       && launcher.links.every(([, href]) => href.includes('preview=1')),
     JSON.stringify(launcher));
   check('opening the launcher leaves the canonical save untouched',
@@ -170,6 +170,27 @@ try {
       && meeting.mission.weaponStaged,
     JSON.stringify(meeting));
   check('playing Squatchfather leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
+  await page.goto(`http://localhost:${PORT}/silver.html?preview=1`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__silver?.story, null, { timeout: 90000 });
+  const silver = await page.evaluate(() => ({
+    mission: window.__silver.campaignState.missions.silver_room,
+    motel: window.__silver.campaignState.missions.jerky_motel.status,
+    call: window.__silver.campaignState.events.margo_date_call.status,
+    chapter: window.__silver.campaignState.story.chapter,
+    day: window.__silver.campaignState.story.day,
+    previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
+  }));
+  check('the Silver Room opens on the date chapter with Margo already rung',
+    silver.mission.status === 'available'
+      && silver.motel === 'complete'
+      && silver.call === 'answered'
+      && silver.chapter === 'date'
+      && silver.day === 3
+      && silver.previewNotice,
+    JSON.stringify(silver));
+  check('opening the Silver Room leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/initiation.html?preview=1`, { waitUntil: 'load' });

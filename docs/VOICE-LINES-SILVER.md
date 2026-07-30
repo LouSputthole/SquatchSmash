@@ -27,43 +27,54 @@ did not write.
 
 ---
 
-## Delia (bank: `vo.delia`)
+## Margo (bank: `vo.margo`)
 
 The largest part in the mission by some distance, and the only one that has to
 carry a whole personality rather than a job.
 
-**Direction.** Forty-ish. Works nights and sounds like it — the voice is warm
-and a bit worn, not bright. She is a comedian, which means her timing is better
-than his and she knows it. She is never impressed on the first take and never
-sarcastic on the second. When she laughs it should be an actual laugh, badly
-timed, cut off by her own glass; the polite version is a different sound and
-the game uses both.
+**Who she is.** Margo Salas, mid-thirties, runs the kitchen at the Blue Hour —
+a twenty-four-hour place on Ashland. She is a **civilian**: no connection to
+Lou, the Bing, the station or anybody in the Silver Room. That is the point of
+her. She is the only person in the mission with nothing at stake, which is what
+makes her good opinion worth earning.
+
+**Direction.** Works nights and sounds like it — warm, a bit worn, not bright.
+Her timing is better than his and she knows it. She has spent fifteen years
+listening to men perform competence in kitchens, so she is never impressed on
+the first take and never sarcastic on the second. When she laughs it should be
+an actual laugh, badly timed, cut off by her own glass; the polite version is a
+different sound and the game uses both.
+
+**The thing to get right.** She is the only guest in the building who can read
+the back of house professionally. When she says nobody puts down a pan, she is
+not making an observation — she is pricing it. Play those lines flat and
+technical, not charmed.
 
 | Beat | Bank | Lines | Notes |
 | --- | --- | --- | --- |
-| Bada Bing, first meeting | `vo.delia.bing` | 12 | Tired, guard up, end of a shift. |
-| The phone call | `vo.delia.call` | 5 + 8 replies | Down a phone. Compress the dynamics. |
-| Arrival, the front entrance | `vo.delia.arrive` | 11 | Outdoors, over traffic. |
-| Alley / side door / cellar / kitchen / corridor barks | `vo.delia.route` | 11 | Half of these are over her shoulder while walking. |
-| Reactions to tips, to being recognised | `vo.delia.notice` | 5 | Quiet. Almost to herself. |
-| Left behind, waiting, frustration | `vo.delia.wait` | 5 | Escalating, never shrill. |
-| The table being built | `vo.delia.table` | 5 | The one moment she is genuinely wrong-footed. |
-| Round 1 — the entrance | `vo.delia.r1` | 6 | |
-| Round 2 — what do you do | `vo.delia.r2` | 12 | The construction riff. Dry, not arch. |
-| The drink order | `vo.delia.drink` | 4 | "One. They always bring three." |
-| The family interruption | `vo.delia.ape` | 6 | |
-| "You're funny" / "Funny how?" | `vo.delia.funny` | 5 | See the note below. |
-| Round 6 — the personal question | `vo.delia.personal` | 10 | The butcher's shop. Play it flat. |
-| The band | `vo.delia.band` | 5 | Over music; she raises her voice and enjoys it. |
-| The sway | `vo.delia.sway` | 7 | Two of these are her wheezing. |
-| The invitation, all outcomes | `vo.delia.end` | 9 | One per ending. |
-| Ambient, seated | `vo.delia.idle` | 6 | |
+| Bada Bing, first meeting | `vo.margo.bing` | 16 | Tired, guard up, end of a shift. |
+| The phone call | `vo.margo.call` | 5 + 8 replies | Down a phone. Compress the dynamics. |
+| Arrival, the front entrance | `vo.margo.arrive` | 11 | Outdoors, over traffic. |
+| Alley / side door / cellar / kitchen / corridor barks | `vo.margo.route` | 11 | Half of these are over her shoulder while walking. |
+| Reactions to tips, to being recognised | `vo.margo.notice` | 5 | Quiet. Almost to herself. |
+| Left behind, waiting, frustration | `vo.margo.wait` | 5 | Escalating, never shrill. |
+| The table being built | `vo.margo.table` | 5 | The one moment she is genuinely wrong-footed. |
+| Round 1 — the entrance | `vo.margo.r1` | 6 | |
+| Round 2 — what do you do | `vo.margo.r2` | 12 | The construction riff. Dry, not arch. |
+| The drink order | `vo.margo.drink` | 4 | "One. They always bring three." |
+| The family interruption | `vo.margo.ape` | 6 | |
+| "You're funny" / "Funny how?" | `vo.margo.funny` | 5 | See the note below. |
+| Round 6 — the personal question | `vo.margo.personal` | 10 | The burn on her arm. Play it flat — she has told this story a hundred times and it still costs her nothing. |
+| The band | `vo.margo.band` | 5 | Over music; she raises her voice and enjoys it. |
+| The sway | `vo.margo.sway` | 7 | Two of these are her wheezing. |
+| The invitation, all outcomes | `vo.margo.end` | 9 | One per ending. |
+| Ambient, seated | `vo.margo.idle` | 6 | |
 
 **The "Funny how?" beat.** Her line — *"Funny like a man who has practised that
 question in a mirror"* — has to be delivered without a flicker. She is not
-frightened and she is not playing along; she is a professional watching an
-amateur do a bit, and she has decided to let him finish it. If she sounds like
-she is enjoying it, the room's silence stops being funny.
+frightened and she is not playing along; she has stood in front of angrier men
+than this for a living, and she has decided to let him finish it. If she sounds
+like she is enjoying it, the room's silence stops being funny.
 
 ## Prospect (bank: `vo.prospect`)
 
@@ -87,7 +98,7 @@ running an act that is about two per cent beyond him, and it mostly works.
 
 | Who | Bank | Lines | Direction |
 | --- | --- | --- | --- |
-| Booski (driver) | `vo.booski.silver` | 5 | Established. Lowercase in the script for a reason — no capitals in the delivery either. |
+| The driver | `vo.driver` | 6 | A hired car at the end of a long shift. **Not anybody** — no name, no connection, never seen again. He is the only person all night who says thank you out loud for money, and that has to land as ordinary so that everything after it lands as strange. |
 | Vinny, side door | `vo.vinny` | 5 | Opens the door before he speaks. |
 | Marco, cellar | `vo.marco` | 5 | |
 | Delivery driver | `vo.delivery` | 4 | Half under a stack of crates. |
@@ -107,7 +118,7 @@ running an act that is about two per cent beyond him, and it mostly works.
 
 | Who | Bank | Lines | Notes |
 | --- | --- | --- | --- |
-| Ape | `vo.ape.silver` | 16 | Established on `Booski & Ape's CS Gambling Show`. Same performer. He is star-struck and trying not to be. |
+| Ape | `vo.ape.silver` | 16 | Established on `Booski & Ape's CS Gambling Show`. Same performer. He eats at her diner and is delighted about it, and he is trying not to be. |
 | The Bing's bouncer | `vo.bouncer.silver` | 2 | In a suit that is nearly his size. |
 
 ## Background barks

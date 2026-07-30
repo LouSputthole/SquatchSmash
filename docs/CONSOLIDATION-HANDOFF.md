@@ -41,7 +41,12 @@ end-to-end verification.
 - The post-airstrip apartment state, Big Uncle Lou's second call, reused Bada
   Bing Scene Two, direct Jerky Motel handoff, Motel completion, and apartment
   return are implemented.
-- The final apartment return, the post-Motel sleep into the `big_night`
+- The post-Motel sleep opens the Day 3 `date` chapter, Margo's one-shot call
+  unlocks the Silver Room, the apartment door routes to `silver.html`, the
+  evening folds back into campaign state, and the walk home plus a second sleep
+  turns the page onto the Day 4 big night. Browser-verified end to end
+  (`verify:silver-story`, 20).
+- The final apartment return, the post-date sleep into the `big_night`
   chapter, Booskibro's one-shot big-night call, and the door route into the
   unchanged Initiation are implemented and browser-verified
   (`verify:big-night`, 14).
@@ -81,20 +86,78 @@ bcd5b81 Import the finished Beef Run and align its cast with campaign canon
 
 Apartment → Bada Bing One → apartment → Squatchfather → apartment →
 Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment →
-Initiation. This matches what is built; the owner confirmed position 9 is
-the Jerky Motel. Every arrow in that chain is now a real campaign transition,
-including the last one into the unchanged Initiation. The owner also confirmed the previously blocked
-character/performer decisions stand as originally specified (Squatchfather
-character style everywhere, detailed performers, Lou's face photo without
-the bandana).
+**Silver Room date** → apartment → Initiation on Day 4. This matches what is
+built; the owner confirmed position 9 is the Jerky Motel. Every arrow in that
+chain is a real campaign transition, including the last one into the unchanged
+Initiation. The owner also confirmed the previously blocked character/performer
+decisions stand as originally specified (Squatchfather character style
+everywhere, detailed performers, Lou's face photo without the bandana).
 
-**The Silver Room** (`silver.html`, `src/silver/*`) is imported and verifies
-standalone (54/54, `npm run verify:silver`) but is NOT yet in the campaign
-and does not appear in the confirmed order — where it slots is an open
-design question for the owner. Its original branch wired it through Bing
-hooks and a phone invite (`origin/claude/front-center-club-mission-0s9u3z`
-diffs to `src/bing/*`, `src/core/phone.js`, `src/main.js` — deliberately not
-taken); use those as the reference when the owner picks its slot.
+### The Silver Room is integrated
+
+`silver.html` / `src/silver/*` is now **in** the campaign, at the slot the owner
+ruled on 2026-07-30: **Day 3 evening**, between the Motel and the Initiation.
+The Goodfellas calm-before-the-verdict beat.
+
+- Sleeping off the Motel opens a new `date` chapter at **Day 3, 12:00 PM**.
+- **Margo** rings the physical phone that afternoon (`MARGO_DATE_CALL`,
+  +5 authored minutes) and unlocks `MISSION_IDS.SILVER_ROOM`.
+- The apartment door routes to `SCENE_IDS.SILVER_ROOM` (`silver.html`);
+  `travel.silver_room` advances to at least **Day 3, 7:30 PM**.
+- `src/core/silver-story.js` gates the mission on the Motel being complete and
+  her call being answered, and folds the mission's own `persist()` payload into
+  campaign state. The old private `squatch.frontAndCenter` localStorage key is
+  gone; nothing writes it and a verifier asserts it stays empty.
+- Completion advances to at least **Day 3, 11:20 PM**; the end card's button is
+  `Go Home` and navigates through `navigateCampaign`.
+- Sleeping off the *date* is what finally turns the calendar: **`big_night`
+  is now Day 4, waking at 10:00 AM**, Booskibro rings, ceremony at seven.
+
+**The casting was corrected before integration.** The reference branch moved to
+`48f028b` ("Recast the date and the driver: neither of them is family"), which
+the owner endorsed, and it supersedes two earlier rulings:
+
+- The date is **Margo Salas**, who runs the kitchen at the Blue Hour on
+  Ashland. She is **not** Hog Mama and **not** on 97.8 — putting her on the
+  family's own station put her inside the family, and you do not take the
+  family on a date. She is a civilian, which is the only reason her good
+  opinion costs anything to earn. There is no new radio handle; the earlier
+  "invent an on-air name" instruction was dropped. `core/stations.js` and the
+  Circle's `hogmama` id are untouched.
+- The taxi driver is **not Booskibro**. He is a hired car and a man who has
+  never met either of them — the one person all evening who does not know
+  Prospect's name, and the only one who says thank you out loud for money.
+
+That recast was three-way merged onto our copy (base `f23420f`, ours = the
+twelve review fixes, theirs = `48f028b`). Two hunks conflicted and both were
+resolved in favour of keeping *both* intentions: the taxi no longer leaves on a
+hidden 45-second timer (review fix #5 wins on behaviour) but uses the recast's
+stranger-driver copy, and the driver's option list uses the recast's lines while
+keeping the $80 elective tip that review fix #10 added to make `Woo.GenerousTip`
+reachable at all.
+
+Also landed with the integration:
+
+- `src/bing/cast.js` gained `dress: 'chef' | 'porter' | 'gown'`. Existing dress
+  kinds are unchanged. Silver call sites now pass `gender`/`bodyShape` so gowned
+  figures stop rendering as plain-shirt male frames, and the diner/queue rolls
+  were made coherent (one roll picks dress, colour and frame together, instead
+  of three independent rolls producing gowns in undertaker grey).
+- Margo has a **prior encounter at the Bing, Scene One only** — a stool at the
+  far end of the bar, a light three-minute conversation whose only mechanical
+  output is `mission.flags.gaveNumber`. It is **not** a gate: a player who walks
+  straight past still gets the date; what he loses is having met her first. The
+  branch's direct `silver.html` link out of the Bing ending was deliberately not
+  taken, because the campaign owns navigation now.
+- Stable IDs: `CHARACTER_IDS.MARGO` (human, role `civilian`) and
+  `CHARACTER_IDS.APE` (human, `family_member` — he is a locked Initiation id who
+  also sits at the pillar table in the Silver Room) are in
+  `src/core/characters.js`. `src/silver/script.js` takes her name from the
+  registry rather than a local literal.
+- All 13 bare "Lou" references in silver dialogue now say **Big Uncle Lou** at
+  the introducing mention, per the two-Lous rule.
+- `silver.html` now uses the shared `boot-guard.js` recovery panel like every
+  other standalone scene, instead of its own bespoke inline handler.
 
 ## Approved character canon
 
@@ -154,8 +217,11 @@ Current authored beats:
 | Bada Bing Scene Two completion | Advance to at least Day 3, 12:45 AM |
 | Drive to the Jerky Motel | Advance to at least Day 3, 1:30 AM |
 | Jerky Motel completion | Advance to at least Day 3, 4:30 AM |
+| Margo's answered date call | +5 minutes |
+| Leave for the Silver Room | Advance to at least Day 3, 7:30 PM |
+| Silver Room completion | Advance to at least Day 3, 11:20 PM |
 | Booskibro's answered big-night call | +5 minutes |
-| Leave for the Initiation | Advance to at least Day 3, 7:00 PM |
+| Leave for the Initiation | Advance to at least Day 4, 7:00 PM |
 
 The first Bing HUD now reads the persisted campaign clock instead of a
 scene-local timer. Remaining mission and travel beats should extend the same
@@ -172,14 +238,18 @@ chapter is still deliberately separate from calendar day. `SLEEP_CHAPTERS` in
 | Chapter | Requires | Wakes at | Next chapter |
 |---|---|---|---|
 | `day_one` | Squatchfather complete | Day 2, 7:00 AM | `day_two` |
-| `day_two` | Jerky Motel complete | Day 3, 12:00 PM | `big_night` |
+| `day_two` | Jerky Motel complete | Day 3, 12:00 PM | `date` |
+| `date` | Silver Room complete | Day 4, 10:00 AM | `big_night` |
 
 `big_night` is the last chapter, so sleeping again returns
 `already_big_night`. Lying down early is refused in Tony's voice with
-`day_one_incomplete` or `day_two_incomplete` rather than skipping a night of
-work. The big-night wake is noon of the *same* Day 3 the Motel ended on: Tony
-was up until half four in the morning, and the ceremony is not until seven that
-evening.
+`day_one_incomplete`, `day_two_incomplete`, or `date_incomplete` rather than
+skipping a night of work.
+
+The `date` wake is noon of the *same* Day 3 the Motel ended on: Tony was up
+until half four in the morning, and the table is not until nine that evening.
+Sleeping off the date is the only thing that moves the calendar to Day 4, which
+is the day the ceremony happens.
 
 ## The final apartment return and the big-night call
 
@@ -188,10 +258,12 @@ through ordinary campaign state without a single change to the scene:
 
 - Coming home from the Motel is recognised on its own (`returningFromMotel`),
   with its own overlay tag and arrival lines, instead of reusing the
-  Squatchfather return copy.
-- Before the post-Motel sleep the door gives an in-voice waiting line
+  Squatchfather return copy. Coming home from the **date** is recognised ahead
+  of it (`returningFromSilver`, checked first because a finished date also has
+  a finished Motel behind it) and its arrival line reads the recorded outcome.
+- Before the post-date sleep the door gives an in-voice waiting line
   (`sleep_before_big_night`) rather than a destination. Nothing rings.
-- Sleeping opens the `big_night` chapter at Day 3 noon. Booskibro — patriarch
+- Sleeping opens the `big_night` chapter at Day 4, 10:00 AM. Booskibro — patriarch
   and ceremony leader — then rings the physical phone once as
   `BIG_NIGHT_BOOSKI_CALL`: character `booski`, voice profile `booski`, cue bank
   `vo.call.booski.bignight.*`, four authored lines about the whole Circle
@@ -267,10 +339,12 @@ through ordinary campaign state without a single change to the scene:
 
 ### Safe preview
 
-Open <http://localhost:5173/preview.html> for Motel, Bing Scene Two,
-Squatchfather, or the unchanged Initiation reference. Preview campaign state is
-in-memory and page-local. It never reads, migrates, overwrites, or advances the
-canonical browser save.
+Open <http://localhost:5173/preview.html> for the Beef Run, Motel, Bing Scene
+Two, Squatchfather, **the Silver Room** (SCENE PREVIEW 07), or the unchanged
+Initiation reference. Preview campaign state is in-memory and page-local. It
+never reads, migrates, overwrites, or advances the canonical browser save.
+`npm run verify:silver` now boots through `silver.html?preview=1` for exactly
+that reason: the story gate has to open without a real save existing.
 
 The final Bada Bing and Motel captures are committed under
 [`docs/validation/2026-07-29/`](./validation/2026-07-29/README.md), including
@@ -309,31 +383,48 @@ Three.js. The adapted boundaries:
 
 ## Verification at this checkpoint
 
-Fresh checks on the July 30 big-night milestone:
+Fresh checks on the July 30 Silver Room integration milestone:
 
 ```text
-npm test                       73/73 passed
-npm run check                  175 source files, 4 manifests, all good
+npm test                       75/75 passed  (+2: Margo's call, the date door)
+npm run check                  177 source files, 4 manifests, all good
 npm run check:flight           flight-model bench, all envelopes hold
-npm run verify:art             50 pieces, 4 bathroom, 12 fridge, 2 doors
 npm run verify:day-one         19/19 passed
 npm run verify:day-two         13/13 passed (rides the real departure into beefrun.html)
-npm run verify:big-night       14/14 passed (Motel return, sleep, call, real route
-                                             into initiation.html)
-npm run verify:computer        18/18 passed
-npm run verify:squatch-smash    8/8 passed
+npm run verify:silver          76/76 passed (the evening itself, in preview mode)
+npm run verify:silver-story    20/20 passed (the campaign seam: sleep → call → door →
+                                             silver.html → ending → home → sleep → Day 4)
+npm run verify:big-night       14/14 passed (now seeded from the date, wakes on Day 4)
 npm run verify:bing            46/46 passed
 npm run verify:bing-two        10/10 passed
-npm run verify:squatchfather   19/19 passed
 npm run verify:motel           27/27 passed
 npm run verify:initiation      10/10 passed
-npm run verify:beefrun         13/13 passed (preview playthrough + cockpit resume)
-npm run verify:preview         14/14 passed (launcher lists five previews)
-npm run verify:boot-errors      6/6 passed
+npm run verify:preview         16/16 passed (launcher lists six previews)
+npm run verify:boot-errors      8/8 passed  (+2: the Silver Room's recovery panel)
 ```
 
-`npm run verify:silver` (54) and `npm run bundle` were not re-run at this
-checkpoint; nothing in this milestone touches `src/silver/*` or the bundler.
+Not re-run at this checkpoint because nothing in this milestone touches them:
+`verify:art`, `verify:computer`, `verify:squatch-smash`, `verify:squatchfather`,
+`verify:beefrun`, and `npm run bundle`.
+
+One flake worth knowing about: `verify:bing`'s "the bar serves, and the drink
+lands" check is timing-sensitive and failed once in five runs here with
+`drunk 0.00` before passing on every retry. It is not related to this work —
+the Bing's bartender path is untouched — but it will cost somebody an
+investigation eventually.
+
+### Audio for the date
+
+`npm run check` now scans `src/silver/*` for cue names, which caught 25 cues the
+mission plays that existed nowhere in `assets/sfx/manifest.json` — they were
+falling through to the synth and could never have been recorded. All 25 are now
+authored with prompts (kitchen, bar, stage, the three band stems, four ambience
+beds), plus `vo.call.margo.date.1..4` with her exact lines.
+
+**No audio was generated.** Margo's `voices.margo` entry is a **PROVISIONAL**
+placeholder: it borrows `hogmama`'s ElevenLabs id with stability raised to 0.4
+purely so her lines can be auditioned. She is not Hog Mama and must be recast
+before any real recording — the `_note` field in the manifest says so.
 
 The single-file bundle is a constrained preview artifact: its configured size
 budget omitted seven music tracks and 436 voice clips, so the normal hosted
@@ -371,18 +462,22 @@ imported into the shipped game.
    2026-07-30** — see "The final apartment return and the big-night call". The
    next move here is the human playtest gate: the user has to play the current
    Initiation before anything in it changes.
-2. After the user playtests Initiation, design and implement the approved
+2. ~~Slot the Silver Room into the campaign.~~ **DONE 2026-07-30** — see "The
+   Silver Room is integrated". Remaining follow-ups there are owner calls, not
+   code: recast Margo's voice off the `hogmama` placeholder, and decide whether
+   the date's recorded outcome should be visible anywhere in the Initiation.
+3. After the user playtests Initiation, design and implement the approved
    accomplishment review, rival deaths, mass transformation, and
    chapter-complete checkpoint. That work is also what gives
    `SCENE_IDS.INITIATION` its first outbound edge, a completion time event, and
    a reason to claim the scene with `campaign.enter`.
-3. Run the entire waking-apartment-through-Initiation acceptance path, including
+4. Run the entire waking-apartment-through-Initiation acceptance path, including
    reloads at every apartment return.
-4. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather
+5. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather
    chair orientation and revolver, Bada Bing character style/performer detail,
    Motel pool/doors/windows, driving-scene car interior and lights, gambling
    rework, apartment glue-gag tuning, sound and voice generation).
-5. Only after zero P0 failures, prepare a reviewed merge into `main`.
+6. Only after zero P0 failures, prepare a reviewed merge into `main`.
 
 ## Design questions to resolve with the user
 

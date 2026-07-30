@@ -78,12 +78,40 @@ export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
 });
 
 /**
+ * The one call in the campaign that is not work.
+ *
+ * Margo Salas runs the kitchen at the Blue Hour on Ashland. She is a civilian:
+ * no stake in Lou, the Bing, or anybody who will be in the room on the big
+ * night, which is the entire reason her good opinion is worth anything. She
+ * rings on the afternoon of Day 3, once, off the back of the number he gave
+ * her at the club — and she is the reason Day 3 is a chapter of its own
+ * instead of a gap between the Motel and the verdict.
+ */
+export const DATE_MARGO_CALL = Object.freeze({
+  eventId: EVENT_IDS.MARGO_DATE_CALL,
+  characterId: CHARACTER_IDS.MARGO,
+  targetSceneId: SCENE_IDS.SILVER_ROOM,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'call.margo.date',
+  lines: Object.freeze([
+    'You gave me this number and told me to use it. So.',
+    'The Silver Room. Nine o’clock. It is my one night off in six, so do not waste it.',
+    'I drink rye. One ice cube. One. Write it on your hand if you have to.',
+    'And iron something. I have seen what you wear at four in the morning.',
+  ]),
+});
+
+/**
  * What sleeping in his own bed does, chapter by chapter.
  *
  * Story chapter and calendar day are deliberately separate. Tony gets home
- * from the Jerky Motel at half four in the morning of Day 3, so the big-night
+ * from the Jerky Motel at half four in the morning of Day 3, so the `date`
  * chapter opens at noon on that same Day 3 rather than on a fourth day: he was
- * up all night, and the ceremony is not until seven that evening.
+ * up all night, and the table is not until nine that evening.
+ *
+ * Sleeping off the date is what finally moves the calendar. The big night is
+ * Day 4 — he wakes at ten, Booskibro rings, and the ceremony is at seven.
  */
 const SLEEP_CHAPTERS = Object.freeze([
   Object.freeze({
@@ -96,11 +124,19 @@ const SLEEP_CHAPTERS = Object.freeze([
   }),
   Object.freeze({
     from: 'day_two',
-    to: 'big_night',
+    to: 'date',
     requires: MISSION_IDS.JERKY_MOTEL,
     incomplete: 'day_two_incomplete',
     day: 3,
     timeMinutes: 12 * 60,
+  }),
+  Object.freeze({
+    from: 'date',
+    to: 'big_night',
+    requires: MISSION_IDS.SILVER_ROOM,
+    incomplete: 'date_incomplete',
+    day: 4,
+    timeMinutes: 10 * 60,
   }),
 ]);
 const LAST_CHAPTER = SLEEP_CHAPTERS[SLEEP_CHAPTERS.length - 1].to;
@@ -173,6 +209,14 @@ class ApartmentStory {
       });
       return true;
     }
+    if (definition?.eventId === EVENT_IDS.MARGO_DATE_CALL
+      && !this.#eventAnswered(EVENT_IDS.MARGO_DATE_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_DATE_CALL, (state) => {
+        state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+        state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
+      });
+      return true;
+    }
     if (definition?.eventId === EVENT_IDS.BOOSKI_BIG_NIGHT_CALL
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
       this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL, (state) => {
@@ -234,6 +278,30 @@ class ApartmentStory {
       return {
         kind: 'go',
         destination: SCENE_IDS.INITIATION,
+      };
+    }
+    /* Day 3. Nothing about the family happens today, which is the point of it.
+     * He waits for her to ring, he goes, and he comes back. */
+    if (state.story.chapter === 'date') {
+      if (!this.#eventAnswered(EVENT_IDS.MARGO_DATE_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.MARGO_DATE_CALL,
+          line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+        };
+      }
+      if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
+        return {
+          kind: 'go',
+          destination: SCENE_IDS.SILVER_ROOM,
+        };
+      }
+      /* Home from the Silver Room. Tomorrow is the whole rest of his life and
+       * there is nothing left to do about it tonight. */
+      return {
+        kind: 'stay',
+        id: 'sleep_before_big_night',
+        line: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
       };
     }
     if (state.story.chapter === 'day_two'
@@ -334,6 +402,10 @@ class ApartmentStory {
     if (state.story.chapter === 'big_night'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
       return BIG_NIGHT_BOOSKI_CALL;
+    }
+    if (state.story.chapter === 'date'
+      && !this.#eventAnswered(EVENT_IDS.MARGO_DATE_CALL)) {
+      return DATE_MARGO_CALL;
     }
     if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'

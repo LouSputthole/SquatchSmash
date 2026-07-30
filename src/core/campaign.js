@@ -13,6 +13,8 @@ export const CHARACTER_IDS = Object.freeze({
   LOU: 'lou',
   CAPTAIN_LOU_SASOLE: 'captain_lou_sasole',
   BOOSKI: 'booski',
+  APE: 'ape',
+  MARGO: 'margo',
 });
 
 export const SCENE_IDS = Object.freeze({
@@ -22,6 +24,7 @@ export const SCENE_IDS = Object.freeze({
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
+  SILVER_ROOM: 'silver_room',
   INITIATION: 'initiation',
 });
 
@@ -35,6 +38,7 @@ export const MISSION_IDS = Object.freeze({
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
+  SILVER_ROOM: 'silver_room',
   INITIATION: 'initiation',
 });
 
@@ -42,6 +46,7 @@ export const EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'lou_first_call',
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
   LOU_SECOND_CALL: 'lou_second_call',
+  MARGO_DATE_CALL: 'margo_date_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
 });
 
@@ -54,6 +59,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'call.lou_first',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
   LOU_SECOND_CALL: 'call.lou_second',
+  MARGO_DATE_CALL: 'call.margo_date',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
   DEPART_AIRSTRIP: 'travel.airstrip',
@@ -62,6 +68,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_BADA_BING_TWO: 'mission.bada_bing_two',
   DEPART_JERKY_MOTEL: 'travel.jerky_motel',
   COMPLETE_JERKY_MOTEL: 'mission.jerky_motel',
+  DEPART_SILVER_ROOM: 'travel.silver_room',
+  COMPLETE_SILVER_ROOM: 'mission.silver_room',
   DEPART_INITIATION: 'travel.initiation',
 });
 
@@ -74,6 +82,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
@@ -102,11 +111,20 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 4 * 60 + 30 }),
   }),
-  /* The big night. Booskibro said seven sharp, and it is the evening of the
-   * same day Tony crawled home from the Motel -- he sleeps through the morning
-   * first, so the chapter turns without the calendar day turning with it. */
+  /* Day 3 is the calm before the verdict. He wakes at noon off the back of the
+   * Motel, Margo rings in the afternoon, and he leaves at half seven for a
+   * nine o'clock table -- the Silver Room's own evening. */
+  [TIME_EVENT_IDS.DEPART_SILVER_ROOM]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 19 * 60 + 30 }),
+  }),
+  // Dinner, a set by the Midnight Pines, and the walk out the front.
+  [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 23 * 60 + 20 }),
+  }),
+  /* The big night is the day after the date. Sleeping off the Silver Room is
+   * what turns the page, so the ceremony lands on Day 4 at seven sharp. */
   [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
-    atLeast: Object.freeze({ day: 3, timeMinutes: 19 * 60 }),
+    atLeast: Object.freeze({ day: 4, timeMinutes: 19 * 60 }),
   }),
 });
 const MINUTES_PER_DAY = 24 * 60;
@@ -125,6 +143,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.SQUATCHFATHER,
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.INITIATION,
     ]),
   }),
@@ -156,6 +175,15 @@ const SCENES = Object.freeze({
     href: 'motel.html',
     defaultSpawn: 'passenger_seat',
     spawns: Object.freeze(['passenger_seat']),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  /* The date. One continuous scene with no loads of its own, so it has a single
+   * spawn on the pavement where the hired car drops them, and it comes home the
+   * way every other mission does. */
+  [SCENE_IDS.SILVER_ROOM]: Object.freeze({
+    href: 'silver.html',
+    defaultSpawn: 'kerb',
+    spawns: Object.freeze(['kerb']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   /* The Initiation is registered so the apartment door can route to it through
@@ -241,6 +269,19 @@ function initialState() {
         freshness: 0,
         policeHeat: 0,
       },
+      /* The date's durable summary. The mission itself keeps a much larger
+       * record while it is running; this is only what a later scene could
+       * reasonably ask about an evening it did not watch. */
+      [MISSION_IDS.SILVER_ROOM]: {
+        status: 'locked',
+        outcome: null,
+        woo: 0,
+        band: null,
+        tippedEverybody: false,
+        rememberedDrink: false,
+        seeingHerAgain: false,
+        knowsWhatHeDoes: false,
+      },
       [MISSION_IDS.INITIATION]: {
         status: 'locked',
       },
@@ -253,6 +294,9 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.LOU_SECOND_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.MARGO_DATE_CALL]: {
         status: 'pending',
       },
       [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
@@ -350,12 +394,16 @@ function normalize(saved) {
   const motel = saved.missions?.[MISSION_IDS.JERKY_MOTEL] ?? {};
   const motelStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(motel.status) ? motel.status : base.missions.jerky_motel.status;
+  const silver = saved.missions?.[MISSION_IDS.SILVER_ROOM] ?? {};
+  const silverStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(silver.status) ? silver.status : base.missions.silver_room.status;
   const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
+  const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
 
   const state = {
@@ -418,6 +466,17 @@ function normalize(saved) {
         freshness: boundedNumber(motel.freshness, 0, 100, 0),
         policeHeat: boundedNumber(motel.policeHeat, 0, 100, 0),
       },
+      [MISSION_IDS.SILVER_ROOM]: {
+        status: silverStatus,
+        outcome: ['perfect', 'strong', 'good', 'gentleman', 'awkward', 'insult', 'disaster']
+          .includes(silver.outcome) ? silver.outcome : null,
+        woo: boundedNumber(silver.woo, 0, 100, 0, true),
+        band: typeof silver.band === 'string' ? silver.band : null,
+        tippedEverybody: silver.tippedEverybody === true,
+        rememberedDrink: silver.rememberedDrink === true,
+        seeingHerAgain: silver.seeingHerAgain === true,
+        knowsWhatHeDoes: silver.knowsWhatHeDoes === true,
+      },
       [MISSION_IDS.INITIATION]: {
         status: initiationStatus,
       },
@@ -438,6 +497,11 @@ function normalize(saved) {
       },
       [EVENT_IDS.LOU_SECOND_CALL]: {
         status: louSecondCall.status === 'answered' || bingTwoStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      // An exposed Silver Room is proof Margo already rang.
+      [EVENT_IDS.MARGO_DATE_CALL]: {
+        status: margoCall.status === 'answered' || silverStatus !== 'locked'
           ? 'answered' : 'pending',
       },
       // Same rule at the end of the line: an exposed Initiation is proof
@@ -720,6 +784,7 @@ function seedPreviewCampaign(campaign, sceneId) {
     const airstrip = state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
     const secondBing = state.missions[MISSION_IDS.BADA_BING_TWO];
     const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
+    const silver = state.missions[MISSION_IDS.SILVER_ROOM];
     const initiation = state.missions[MISSION_IDS.INITIATION];
 
     if (sceneId === SCENE_IDS.BADA_BING_ONE) {
@@ -733,6 +798,7 @@ function seedPreviewCampaign(campaign, sceneId) {
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       firstBing.status = 'complete';
@@ -760,6 +826,7 @@ function seedPreviewCampaign(campaign, sceneId) {
     if ([
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       squatchfather.status = 'complete';
@@ -777,20 +844,43 @@ function seedPreviewCampaign(campaign, sceneId) {
       return;
     }
 
-    if ([SCENE_IDS.JERKY_MOTEL, SCENE_IDS.INITIATION].includes(sceneId)) {
+    if ([
+      SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.INITIATION,
+    ].includes(sceneId)) {
       secondBing.status = 'complete';
       secondBing.assignment = 'reserve_pickup';
       motel.status = 'available';
     }
 
-    if (sceneId === SCENE_IDS.INITIATION) {
+    if ([SCENE_IDS.SILVER_ROOM, SCENE_IDS.INITIATION].includes(sceneId)) {
       motel.status = 'complete';
       motel.ending = 'home';
       motel.cargoRecovered = true;
-      // Tony slept the morning off and woke into the big night.
-      state.story.chapter = 'big_night';
+      state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+    }
+
+    if (sceneId === SCENE_IDS.SILVER_ROOM) {
+      /* He slept off the Motel, woke at noon, and she rang in the afternoon.
+       * Half seven on the evening of Day 3, on his way out of the door. */
+      state.story.chapter = 'date';
       state.story.day = 3;
-      state.story.timeMinutes = 12 * 60;
+      state.story.timeMinutes = 19 * 60 + 30;
+      silver.status = 'available';
+      return;
+    }
+
+    if (sceneId === SCENE_IDS.INITIATION) {
+      silver.status = 'complete';
+      silver.outcome = 'strong';
+      silver.woo = 74;
+      silver.seeingHerAgain = true;
+      /* And then he slept off the date, which is the page turn into the big
+       * night: Day 4, ten in the morning, ceremony at seven. */
+      state.story.chapter = 'big_night';
+      state.story.day = 4;
+      state.story.timeMinutes = 10 * 60;
       state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
       initiation.status = 'available';
     }

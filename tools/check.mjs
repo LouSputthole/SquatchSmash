@@ -157,6 +157,13 @@ try {
     ...fs.readdirSync(path.join(ROOT, 'src/beefrun'))
       .filter((f) => f.endsWith('.js'))
       .map((f) => `src/beefrun/${f}`),
+    /* The Silver Room synthesises nearly all of its own sound — a working
+     * kitchen, five ambience beds, a live band. Every one of those cue names
+     * still has to exist in the manifest or it can never be replaced with a
+     * recording, which is exactly the silent failure this scan is for. */
+    ...fs.readdirSync(path.join(ROOT, 'src/silver'))
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => `src/silver/${f}`),
   ];
   for (const file of cueFiles) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');

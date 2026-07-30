@@ -12,6 +12,7 @@ import {
 } from '../src/core/campaign.js';
 import {
   BIG_NIGHT_BOOSKI_CALL,
+  DATE_MARGO_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
@@ -239,6 +240,13 @@ test('each chapter of sleep refuses until its own mission is finished', () => {
   campaign.update((state) => {
     state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
   });
+  // The Motel opens the date, not the big night.
+  assert.equal(story.sleep().chapter, 'date');
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'date_incomplete' });
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+  });
   assert.equal(story.sleep().chapter, 'big_night');
   assert.deepEqual(story.sleep(), { ok: false, reason: 'already_big_night' });
 });
@@ -398,31 +406,126 @@ test('the door sends Tony to bed after the Motel instead of straight to the Circ
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'locked');
 });
 
-test('sleep after the Motel creates a persistent Day Three big-night checkpoint', () => {
+test('sleep after the Motel creates a persistent Day Three date checkpoint', () => {
   const storage = new MemoryStorage();
   const campaign = afterTheMotel(storage);
   const story = createApartmentStory({ campaign, ring: () => true });
 
   // He was up until half four, so noon of the same calendar day: the chapter
-  // turns without the day turning with it.
+  // turns without the day turning with it. Day 3 is the date, not the verdict.
   assert.deepEqual(story.sleep(), {
-    ok: true, chapter: 'big_night', day: 3, timeMinutes: 12 * 60,
+    ok: true, chapter: 'date', day: 3, timeMinutes: 12 * 60,
   });
 
   const restored = createCampaign({ storage }).state;
-  assert.equal(restored.story.chapter, 'big_night');
+  assert.equal(restored.story.chapter, 'date');
   assert.equal(restored.story.day, 3);
   assert.equal(restored.story.timeMinutes, 12 * 60);
   assert.deepEqual(restored.scene, { id: SCENE_IDS.APARTMENT, spawn: 'wake' });
   assert.equal(restored.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+  assert.equal(restored.missions[MISSION_IDS.SILVER_ROOM].status, 'locked');
   assert.equal(restored.missions[MISSION_IDS.INITIATION].status, 'locked');
+  assert.equal(restored.events[EVENT_IDS.MARGO_DATE_CALL].status, 'pending');
   assert.equal(restored.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
 });
+
+test('Margo rings once on the afternoon of the date and unlocks the Silver Room', () => {
+  const storage = new MemoryStorage();
+  const story = createApartmentStory({
+    campaign: afterTheMotel(storage),
+    ring: () => true,
+  });
+  story.sleep();
+
+  const calls = [];
+  const woken = createApartmentStory({
+    campaign: createCampaign({ storage }),
+    ring: (definition) => {
+      calls.push(definition);
+      return true;
+    },
+  });
+  woken.beginMorning();
+  woken.update(6.1);
+  assert.deepEqual(calls, [DATE_MARGO_CALL]);
+  /* She is a civilian and she is not on the family's radio station, so she
+   * carries her own character id, her own voice profile, and her own bank. */
+  assert.equal(DATE_MARGO_CALL.characterId, CHARACTER_IDS.MARGO);
+  assert.equal(DATE_MARGO_CALL.from, 'Margo');
+  assert.equal(DATE_MARGO_CALL.voiceProfile, 'margo');
+  assert.equal(DATE_MARGO_CALL.vo, 'call.margo.date');
+  assert.equal(DATE_MARGO_CALL.targetSceneId, SCENE_IDS.SILVER_ROOM);
+  assert.notEqual(DATE_MARGO_CALL.vo, BIG_NIGHT_BOOSKI_CALL.vo);
+  assert.notEqual(DATE_MARGO_CALL.eventId, BIG_NIGHT_BOOSKI_CALL.eventId);
+
+  assert.equal(woken.callAnswered(DATE_MARGO_CALL), true);
+  const answered = createCampaign({ storage }).state;
+  assert.equal(answered.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
+  assert.equal(answered.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
+  // +5 minutes on the authored clock, once.
+  assert.equal(answered.story.timeMinutes, 12 * 60 + 5);
+  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL));
+  assert.equal(woken.callAnswered(DATE_MARGO_CALL), false);
+
+  // And she does not ring twice.
+  const replayed = [];
+  const afterReload = createApartmentStory({
+    campaign: createCampaign({ storage }),
+    ring: (definition) => {
+      replayed.push(definition);
+      return true;
+    },
+  });
+  afterReload.beginMorning();
+  afterReload.update(60);
+  assert.deepEqual(replayed, []);
+});
+
+test('the date door waits for Margo, then routes to the Silver Room', () => {
+  const campaign = afterTheMotel();
+  const story = createApartmentStory({ campaign, ring: () => true });
+  story.sleep();
+
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'call',
+    id: EVENT_IDS.MARGO_DATE_CALL,
+    line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+  });
+
+  story.callAnswered(DATE_MARGO_CALL);
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.SILVER_ROOM,
+  });
+
+  // Home from the date, the door sends him to bed rather than to the Circle.
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+  });
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'stay',
+    id: 'sleep_before_big_night',
+    line: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
+  });
+});
+
+/** Home from the Silver Room, with the evening on the save. */
+function afterTheDate(storage) {
+  const campaign = afterTheMotel(storage);
+  const story = createApartmentStory({ campaign, ring: () => true });
+  story.sleep();
+  campaign.update((state) => {
+    state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_ROOM].outcome = 'strong';
+  });
+  return campaign;
+}
 
 test('Booskibro rings once about the big night and unlocks the Initiation', () => {
   const storage = new MemoryStorage();
   const story = createApartmentStory({
-    campaign: afterTheMotel(storage),
+    campaign: afterTheDate(storage),
     ring: () => true,
   });
   story.sleep();
@@ -454,8 +557,9 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
   const answered = createCampaign({ storage }).state;
   assert.equal(answered.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
   assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'available');
-  // +5 minutes on the authored clock, once.
-  assert.equal(answered.story.timeMinutes, 12 * 60 + 5);
+  // Day 4 now, waking at ten. +5 minutes on the authored clock, once.
+  assert.equal(answered.story.day, 4);
+  assert.equal(answered.story.timeMinutes, 10 * 60 + 5);
   assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL));
   assert.equal(woken.callAnswered(BIG_NIGHT_BOOSKI_CALL), false);
 
@@ -473,7 +577,7 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
 });
 
 test('the big-night door waits for Booskibro, then routes to the Initiation', () => {
-  const campaign = afterTheMotel();
+  const campaign = afterTheDate();
   const story = createApartmentStory({ campaign, ring: () => true });
   story.sleep();
 

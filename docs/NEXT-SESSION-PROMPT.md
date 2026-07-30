@@ -41,7 +41,7 @@ Current product facts:
 - The whole confirmed order is now connected end to end through campaign state:
   apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep →
   Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment/sleep →
-  Initiation.
+  **the Silver Room date** → apartment/sleep → Initiation on Day 4.
 - The Beef Run is integrated at `beefrun.html`: Booskibro's answered call
   routes the apartment door there, the mission persists checkpoints, cargo,
   detection, landing rank, and completion, a reload resumes in the cockpit,
@@ -50,22 +50,32 @@ Current product facts:
   canonical.
 - The post-airstrip state contract, Lou's second call, reused Bada Bing Two,
   direct Jerky Motel transition, and Motel return exist.
-- The final apartment return is connected. Home from the Motel at 4:30 AM on
-  Day 3, the door refuses in Tony's voice until he sleeps; sleeping opens the
-  `big_night` chapter at Day 3 noon; Booskibro rings once about the big night
-  (`vo.call.booski.bignight.*`, +5 minutes) and unlocks the Initiation; the door
-  then applies `travel.initiation` (Day 3, 7:00 PM) and really navigates to
+- **The Silver Room is integrated (2026-07-30).** Home from the Motel at
+  4:30 AM on Day 3, the door refuses until Tony sleeps; sleeping opens the new
+  `date` chapter at Day 3 noon; **Margo Salas** rings once that afternoon
+  (`DATE_MARGO_CALL`, `vo.call.margo.date.*`, +5 minutes) and unlocks
+  `MISSION_IDS.SILVER_ROOM`; the door applies `travel.silver_room` (Day 3,
+  7:30 PM) and navigates to `silver.html`. `src/core/silver-story.js` gates the
+  evening and folds the mission's `persist()` payload into campaign state;
+  completion applies `mission.silver_room` (Day 3, 11:20 PM) and the end card
+  goes home. `verify:silver` (76) plays the evening; `verify:silver-story` (20)
+  rides the campaign seam.
+- The final apartment return is connected. After the date the door refuses
+  until Tony sleeps; sleeping opens `big_night` at **Day 4, 10:00 AM**;
+  Booskibro rings once about the big night (`vo.call.booski.bignight.*`,
+  +5 minutes) and unlocks the Initiation; the door then applies
+  `travel.initiation` (**Day 4, 7:00 PM**) and really navigates to
   `initiation.html`. `verify:big-night` (14) covers the whole beat.
 - Sleep is the chapter machine and chapter is still separate from calendar day:
   `day_one` → `day_two` (needs Squatchfather, wakes Day 2 7:00 AM) →
-  `big_night` (needs the Motel, wakes Day 3 12:00 PM). `big_night` is the last
-  chapter.
+  `date` (needs the Motel, wakes Day 3 12:00 PM) → `big_night` (needs the
+  Silver Room, wakes **Day 4 10:00 AM**). `big_night` is the last chapter.
 - `SCENE_IDS.INITIATION` is registered with no outbound edge because the scene
   does not read the campaign or report completion. `src/initiation/*` and
   `initiation.html` are byte-identical to the pre-consolidation build.
-- `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, and the
-  unchanged Initiation in page-local memory without reading or writing the
-  real save.
+- `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, **the
+  Silver Room**, and the unchanged Initiation in page-local memory without
+  reading or writing the real save. `verify:preview` (16) lists six.
 - The apartment/computer, Squatchfather spawn, Bada Bing geometry/NPC/rain,
   and first-person Motel/Manny/pool/interior playtest fixes are implemented and
   verified. Preserve those fixes.
@@ -78,7 +88,18 @@ Locked character/story canon:
 - Big Uncle Lou Sputthole is the Lou at the Bing.
 - Captain Lou Sasole is a separate character and owns the Beef Run/airstrip
   thread.
-- Display **Booskibro**; `booski` remains the stable save/voice ID.
+- Display **Booskibro**; `booski` remains the stable save/voice ID. He is a
+  boss and does **not** drive the cab in the Silver Room — that driver is a
+  hired-car stranger who has never met either of them, deliberately.
+- The Day 3 date is **Margo Salas** (`CHARACTER_IDS.MARGO`, role `civilian`),
+  who runs the kitchen at the Blue Hour on Ashland. She is **not** Hog Mama and
+  is **not** on 97.8 — the family's own station would put her inside the
+  family, and you do not take the family on a date. `hogmama` stays a Circle
+  id and a radio voice only. Her `voices.margo` manifest entry is a
+  **provisional placeholder** borrowing `hogmama`'s ElevenLabs id; recast it
+  before recording anything.
+- **Ape** is `CHARACTER_IDS.APE` — one identity shared by the Initiation and
+  his cameo at the Silver Room's pillar table.
 - Manny is an adult human, Tony's friendly Motel ally, and may never enter
   player-hostile targeting or damage logic.
 - Circle members present as humans before the Initiation verdict; supplied
@@ -94,8 +115,8 @@ Locked character/story canon:
 
 Immediate implementation objective:
 
-The Beef Run integration and the big-night apartment beat are both complete and
-verified (2026-07-30). Continue the consolidation in this order:
+The Beef Run integration, the big-night apartment beat, and the Silver Room
+date are all complete and verified (2026-07-30). Continue in this order:
 
 1. **A human playtest of the current Initiation is the next gate.** The
    apartment door now reaches it through ordinary campaign state, and the scene
@@ -104,13 +125,20 @@ verified (2026-07-30). Continue the consolidation in this order:
    ending: accomplishment review, rival deaths, Tony's verdict, mass
    transformation, plus the scene's first `campaign.enter` claim, completion
    time event, and outbound edge home.
-2. Two earlier campaign calls still have no manifest cues at all —
+2. **The Silver Room's remaining work is owner calls, not code.** Recast
+   Margo's voice off the `hogmama` placeholder in `assets/sfx/manifest.json`,
+   and decide whether the recorded date outcome
+   (`missions.silver_room.outcome` / `seeingHerAgain`) should be visible
+   anywhere in the Initiation. Nothing is blocked on either.
+3. Two earlier campaign calls still have no manifest cues at all —
    `vo.call.booski.airstrip.*` (Booskibro's Day Two call) and
    `vo.call.lou.bing_second.*` (Lou's second call). They display on screen and
    hold for a reading beat, but they can never be recorded until somebody
-   authors them the way `vo.call.booski.bignight.*` now is. `npm run check`
-   does not catch this class of gap for `src/core/apartment-story.js`.
-3. The 2026-07-29 scene-polish backlog is largely DONE (2026-07-30 commits
+   authors them the way `vo.call.booski.bignight.*` and
+   `vo.call.margo.date.*` now are. `npm run check` scans `src/silver/*` for
+   cue names as of 2026-07-30, but still does not catch this class of gap for
+   `src/core/apartment-story.js`.
+4. The 2026-07-29 scene-polish backlog is largely DONE (2026-07-30 commits
    `b2f784f` through the club-audio pass; details in
    `docs/audits/2026-07-30-bada-bing-audit.md`): Squatchfather
    chairs/diners/waiter/revolver/blood, Motel pool/doors/car/headlights/
@@ -123,7 +151,7 @@ verified (2026-07-30). Continue the consolidation in this order:
    win/lose, dealer), the TV program follow-up, the apartment crooked-frame
    pre-stage + glue-minigame pacing/moan, and the Manny "fellow prospect"
    relabel decision.
-4. A human playtest gate sits between each polish pass and the next scene.
+5. A human playtest gate sits between each polish pass and the next scene.
 
 Standing integration rules:
 

@@ -100,7 +100,7 @@ test('morning tasks consume authored time and departure lands at the Bing openin
   });
 });
 
-test('the Day Two and Day Three mission beats land on their authored clocks', () => {
+test('the Day Two through Day Four mission beats land on their authored clocks', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
 
   const beats = [
@@ -110,8 +110,12 @@ test('the Day Two and Day Three mission beats land on their authored clocks', ()
     [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 3, 45],
     [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 3, 60 + 30],
     [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 3, 4 * 60 + 30],
-    // Same Day 3: he sleeps the morning off and leaves for the Circle at seven.
-    [TIME_EVENT_IDS.DEPART_INITIATION, 3, 19 * 60],
+    /* Day 3 is the date. He sleeps the morning off, she rings in the
+     * afternoon, and he leaves at half seven for a nine o'clock table. */
+    [TIME_EVENT_IDS.DEPART_SILVER_ROOM, 3, 19 * 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM, 3, 23 * 60 + 20],
+    // And the ceremony is the next day: Day 4, seven sharp.
+    [TIME_EVENT_IDS.DEPART_INITIATION, 4, 19 * 60],
   ];
   for (const [eventId, day, timeMinutes] of beats) {
     const result = campaign.advanceTime(eventId);
@@ -124,7 +128,7 @@ test('the Day Two and Day Three mission beats land on their authored clocks', ()
   // and cannot drag the clock back to the beat's own authored hour either.
   const replay = campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO);
   assert.deepEqual(replay, {
-    applied: false, day: 3, timeMinutes: 19 * 60, minutesAdvanced: 0,
+    applied: false, day: 4, timeMinutes: 19 * 60, minutesAdvanced: 0,
   });
 });
 

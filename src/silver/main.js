@@ -31,9 +31,29 @@ import { Date_ } from './date.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
-import { buildScripts, DELIA, DELIA_BARKS, BARKS, NOTES } from './script.js';
+import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { makeTaxi } from './vehicle.js';
+import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
+import { createSilverStory } from '../core/silver-story.js';
+
+/* The campaign owns the save. Loading this page claims the scene; the story
+ * class gates the evening on the Motel being finished and on Margo having
+ * rung, and folds the ending into campaign state. In preview mode
+ * createCampaign() hands back page-local memory instead of localStorage. */
+const campaign = createCampaign();
+if (campaign.state.scene.id !== SCENE_IDS.SILVER_ROOM) {
+  campaign.enter(SCENE_IDS.SILVER_ROOM, { spawn: 'kerb' });
+}
+const story = createSilverStory({ campaign });
+
+/** Why the evening cannot start, in the same one-excuse voice as the door. */
+const UNAVAILABLE = {
+  already_complete: 'You already had this evening. It went how it went.',
+  motel_incomplete: 'There is a night’s work in front of this and you have not done it.',
+  margo_call_incomplete: 'Nobody has asked you to dinner.',
+  mission_locked: 'There is no table in your name.',
+};
 
 /** Enough to tip everybody and buy dinner, with room to be stupid once. */
 const START_CASH = Math.max(600, TIP_TOTAL + 240);
@@ -72,7 +92,7 @@ let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 } catch (err) {
-  window.__squatchFail?.(
+  window.__squatchSceneFail?.(
     'This device cannot run the club',
     'It needs WebGL and the browser would not give us a context. ' + (err?.message || ''),
   );
@@ -229,7 +249,7 @@ const mission = new Mission({
   onState: onMissionState,
   onObjective: paintObjectives,
   onNote: (text) => hud.say(text, 4600),
-  onImpatient: (key) => date.bark(key, DELIA_BARKS[key]),
+  onImpatient: (key) => date.bark(key, DATE_BARKS[key]),
   onCheckpoint: saveCheckpoint,
 });
 
@@ -246,11 +266,11 @@ const dialogue = new Dialogue(ui.dialogue, {
 /* ------------------------------------------------------------------ */
 
 const date = new Date_(scene, room, {
-  onBark: (line) => hud.say(`<em>${DELIA.name}:</em> ${line}`, 4600),
+  onBark: (line) => hud.say(`<em>${DATE.name}:</em> ${line}`, 4600),
   onLeftBehind: () => {
     const n = mission.leftBehind();
     woo.fire('Woo.DateLeftBehind');
-    date.bark('behind', DELIA_BARKS.behind);
+    date.bark('behind', DATE_BARKS.behind);
     if (n === 3) hud.say('<em>She has stopped hurrying to keep up, which is a decision rather than a speed.</em>', 5000);
   },
 });
@@ -266,7 +286,7 @@ const performance_ = new Performance({
       // Three separate people said the third number was the one.
       if (game.known.has('third-number')) woo.fire('Woo.CallbackUsed');
       date.watch(band.leader.group, 4);
-      date.bark('show', DELIA_BARKS.show);
+      date.bark('show', DATE_BARKS.show);
       offerSway();
     }
   },
@@ -366,7 +386,7 @@ function tip(id, amount, { generous = false, contextual = false } = {}) {
   woo.fire(id);
   if (generous) woo.fire('Woo.GenerousTip');
   if (contextual) woo.fire('Woo.ContextualTip');
-  date.bark('tipped', DELIA_BARKS.tipped);
+  date.bark('tipped', DATE_BARKS.tipped);
   const npc = npcForTip(id);
   if (npc) date.watch(npc.group, 2.2);
   return true;
@@ -472,7 +492,7 @@ function drinkTick(dt) {
     mission.madeAMess();
     audio.play('glass.set', { volume: 0.6, position: room.anchors.frontTable });
     audio.play('ice.drop', { volume: 0.5, delay: 0.15, position: room.anchors.frontTable });
-    date.bark('spill', DELIA_BARKS.spill);
+    date.bark('spill', DATE_BARKS.spill);
     hud.say('<em>The glass goes over. Not far, and not much in it, and a waiter is on it '
       + 'before you are — which is somehow the worst part.</em>', 4200);
   }
@@ -517,7 +537,7 @@ function registerDoor(key, opts = {}) {
           door.leaf.getWorldPosition(_doorAt);
           if (date.position.distanceTo(_doorAt) < 3.2) {
             woo.fire('Woo.DoorInHerFace');
-            date.bark('shut', DELIA_BARKS.shut);
+            date.bark('shut', DATE_BARKS.shut);
           }
         }
       }
@@ -530,7 +550,7 @@ registerDoor('service', {
   onToggle: (door) => {
     if (!door.open) return;
     mission.flags.sideDoorOpened = true;
-    date.bark('door', DELIA_BARKS.door);
+    date.bark('door', DATE_BARKS.door);
   },
 });
 registerDoor('kitchenSwing');
@@ -583,7 +603,7 @@ function greet(npc, tree, at = 'open') {
   dialogue.start(tree, node, npc);
   // She looks at whoever just said his name.
   date.watch(npc.group, 3);
-  if (date.mode === 'follow') date.bark('recognised', DELIA_BARKS.recognised);
+  if (date.mode === 'follow') date.bark('recognised', DATE_BARKS.recognised);
 }
 
 for (const t of TIP_POINTS) {
@@ -619,7 +639,7 @@ reg(room.anchors.crateMesh, {
     onUse: () => {
       if (woo.fire('Woo.HazardGuided')) {
         audio.play('kitchen.pan', { volume: 0.5, position: pad.position });
-        date.bark('hazard', DELIA_BARKS.hazard);
+        date.bark('hazard', DATE_BARKS.hazard);
         mission.flags.hazardSeen = true;
         const cook = cast.byName.hotPan;
         if (cook) cook.helpedAt = performance.now();
@@ -736,7 +756,7 @@ function standFromTable() {
       audio.play('chair.pull', { volume: 0.5, position: herPad.position });
       const seat = room.anchors.frontSeats[1];
       date.sitAt(seat);
-      hud.say(`<em>${DELIA.name}:</em> Somebody raised you. I want their name.`, 4600);
+      hud.say(`<em>${DATE.name}:</em> Somebody raised you. I want their name.`, 4600);
     },
   });
   game.chairPads = { his: pad, her: herPad };
@@ -1335,9 +1355,10 @@ function finish(outcome) {
   mission.done();
   const e = ENDINGS[outcome] ?? ENDINGS.awkward;
   const saved = mission.persist(woo);
-  try {
-    localStorage.setItem('squatch.frontAndCenter', JSON.stringify(saved));
-  } catch { /* private browsing; the ending card still works */ }
+  /* The evening goes into the campaign, not into a private key only this page
+   * has ever read. The story class takes the persist() payload as-is and keeps
+   * the handful of facts a later scene could ask about. */
+  story.complete(saved);
 
   performance_.finish();
   overlay.classList.remove('hidden');
@@ -1354,8 +1375,13 @@ function finish(outcome) {
   if (saved.swayed === 'good') extras.push('And you can, very slightly, dance.');
   if (saved.seeingHerAgain) extras.push('<b>She will pick up if you ring the station.</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
-  startBtn.textContent = 'Again';
-  startBtn.onclick = () => location.reload();
+  /* The evening ends where every other mission ends: at his own front door.
+   * Replaying it is a preview/debug affordance, not the way out. */
+  startBtn.textContent = 'Go Home';
+  startBtn.disabled = false;
+  startBtn.onclick = () => {
+    navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+  };
   document.exitPointerLock?.();
 }
 
@@ -1533,8 +1559,8 @@ function onRoomChange(next) {
     game.noted.add(key);
     hud.say(notes[(Math.random() * notes.length) | 0], 4800);
   }
-  if (key && DELIA_BARKS[key] && date.mode === 'follow') {
-    setTimeout(() => date.bark(key, DELIA_BARKS[key]), 1400);
+  if (key && DATE_BARKS[key] && date.mode === 'follow') {
+    setTimeout(() => date.bark(key, DATE_BARKS[key]), 1400);
   }
 
   if (next === 'alley' && mission.state === 'arrived') mission.intoAlley();
@@ -1543,7 +1569,7 @@ function onRoomChange(next) {
   if (next === 'corridor' && ['cellar', 'kitchen'].includes(mission.state)) mission.intoCorridor();
   if (next === 'floor' && ['corridor', 'kitchen'].includes(mission.state)) {
     mission.atHostStation();
-    date.bark('floor', DELIA_BARKS.floor);
+    date.bark('floor', DATE_BARKS.floor);
   }
 }
 
@@ -1607,7 +1633,7 @@ function evening(dt) {
     else if (gap < 2.4) {
       if (trailedFor > 1.5 && !woo.has('Woo.WaitedForDate')) {
         woo.fire('Woo.WaitedForDate');
-        date.bark('waited', DELIA_BARKS.waited);
+        date.bark('waited', DATE_BARKS.waited);
       }
       trailedFor = 0;
     }
@@ -1626,7 +1652,7 @@ function evening(dt) {
     if (staredFor >= 45) {
       staredFor = 0;
       woo.fire('Woo.StaredAtStage');
-      date.bark('staring', DELIA_BARKS.staring);
+      date.bark('staring', DATE_BARKS.staring);
     }
   } else {
     staredFor = 0;
@@ -1784,8 +1810,8 @@ function arrive() {
 function registerDriver() {
   reg(taxi.window, {
     label: () => (woo.has('Woo.DriverTipped')
-      ? 'Wave <b>Booski</b> off'
-      : 'Talk to <b>Booski</b> <span class="hold">· hold to take care of him ($40)</span>'),
+      ? 'Wave the <b>driver</b> off'
+      : 'Talk to the <b>driver</b> <span class="hold">· hold to take care of him ($40)</span>'),
     hold: 0.55,
     onTap: () => {
       taxi.driver.faceToward(player.position.x, player.position.z);
@@ -1846,6 +1872,19 @@ function taxiTick(dt) {
 
 startBtn.addEventListener('click', async () => {
   if (game.over) return;
+  if (!game.started) {
+    /* The campaign decides whether tonight is happening at all, before a single
+     * sample is loaded. A refused start leaves the title screen up with the
+     * reason on it rather than dropping him onto the pavement. */
+    const started = story.begin();
+    if (!started.ok) {
+      const tag = overlay.querySelector('.tag');
+      if (tag) tag.textContent = UNAVAILABLE[started.reason] ?? 'The Silver Room is not expecting you.';
+      startBtn.disabled = true;
+      startBtn.textContent = 'Not tonight';
+      return;
+    }
+  }
   await audio.init();
   const sfx = await audio.loadManifest();
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
@@ -1941,6 +1980,8 @@ window.__silver = {
   THREE, scene, camera, renderer, postfx, player, room, cast, band, date, taxi,
   mission, woo, dialogue, hud, audio, game, interaction, drunk, inventory,
   scripts, performance: performance_, sway, settings, ROOMS, SET, EVENTS, ENDINGS,
+  campaign, story,
+  get campaignState() { return campaign.state; },
   /* The pieces the headless driver has to be able to step by hand, because it
    * runs the update path directly rather than waiting on frames. */
   __zones: () => updateZones(),

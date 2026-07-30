@@ -17,6 +17,8 @@ import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
 import { rand, pick } from '../bing/kit.js';
 import { TIP_POINTS } from './woo.js';
+import { CHARACTER_IDS } from '../core/campaign.js';
+import { getCharacter } from '../core/characters.js';
 
 export { TIP_POINTS, TIP_TOTAL } from './woo.js';
 
@@ -56,14 +58,21 @@ export function populate(scene, room) {
   // The queue. Thirty people is a lot of figures for scenery, so this is nine
   // at the lowest tier, standing where the light from the canopy reaches.
   for (let i = 0; i < 9; i++) {
+    // Same rule as the dining room: the frame follows the dress.
+    const dress = pick(['suit', 'gown', 'suit', 'shirt']);
+    const inGown = dress === 'gown';
     add(`queue${i}`, new Npc(scene, {
       name: 'somebody waiting', tier: 'background', job: i % 3 ? 'stand' : 'lean',
       x: rand(-5, 5), z: rand(26.5, 29), yaw: rand(-0.4, 0.4), look: false,
       model: {
-        height: rand(1.62, 1.9), build: rand(0.9, 1.25),
-        dress: pick(['suit', 'gown', 'suit', 'shirt']),
-        shirt: pick([...SUIT_DINERS, ...GOWNS]),
-        hair: pick(['short', 'crop', 'long', 'tied', 'receding']),
+        height: inGown ? rand(1.6, 1.78) : rand(1.66, 1.9),
+        build: rand(0.9, 1.25),
+        dress,
+        shirt: pick(inGown ? GOWNS : SUIT_DINERS),
+        hair: pick(inGown
+          ? ['long', 'tied', 'crop']
+          : ['short', 'crop', 'receding']),
+        ...(inGown ? { gender: 'female', bodyShape: 'curvy' } : {}),
       },
     }));
   }
@@ -229,15 +238,22 @@ export function populate(scene, room) {
       if (Math.random() < 0.28) continue;
       const dx = t.x + side * 1.15;
       const dz = t.z + rand(-0.3, 0.3);
+      /* One roll, not three. The dress, the colour and the frame have to agree
+       * or the room fills up with gowns in undertaker grey on men's shoulders. */
+      const inGown = Math.random() < 0.42;
       add(`diner${diner}`, new Npc(scene, {
         name: 'a diner', tier: near && diner < 10 ? 'ambient' : 'background',
         job: Math.random() < 0.4 ? 'drink' : 'sit',
         x: dx, z: dz, yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2, look: near,
         model: {
-          height: rand(1.62, 1.9), build: rand(0.92, 1.3),
-          dress: Math.random() < 0.42 ? 'gown' : 'suit',
-          shirt: Math.random() < 0.42 ? pick(GOWNS) : pick(SUIT_DINERS),
-          hair: pick(['short', 'crop', 'receding', 'long', 'tied', 'bald']),
+          height: inGown ? rand(1.6, 1.78) : rand(1.68, 1.9),
+          build: rand(0.92, 1.3),
+          dress: inGown ? 'gown' : 'suit',
+          shirt: inGown ? pick(GOWNS) : pick(SUIT_DINERS),
+          hair: pick(inGown
+            ? ['long', 'tied', 'crop']
+            : ['short', 'crop', 'receding', 'bald']),
+          ...(inGown ? { gender: 'female', bodyShape: 'curvy' } : {}),
         },
       }));
       diner++;
@@ -245,17 +261,21 @@ export function populate(scene, room) {
   }
 
   /* ---- the table by the pillar, who send the champagne ---- */
+  /* Ape is a real Circle member with a locked id, not a lookalike: the same
+   * person Tony will be roasted by on the big night. His subtitle name comes
+   * from the campaign registry so the two scenes cannot drift apart. */
+  const APE = getCharacter(CHARACTER_IDS.APE);
   const pillar = new THREE.Vector3(-8.6, 0, 1.6);
   const crew = [
-    ['bing-bouncer', { height: 1.94, build: 1.45, dress: 'suit', shirt: 0x14141a, hair: 'bald', beard: true }],
-    ['ape', { height: 1.77, build: 1.05, dress: 'suit', shirt: 0x232430, hair: 'crop', glasses: true }],
-    ['crew1', { height: 1.82, build: 1.2, dress: 'suit', shirt: 0x1b1b22, hair: 'receding' }],
-    ['crew2', { height: 1.7, build: 1.15, dress: 'suit', shirt: 0x2a2028, hair: 'short', bandana: true }],
+    ['bing-bouncer', 'the bouncer', { height: 1.94, build: 1.45, dress: 'suit', shirt: 0x14141a, hair: 'bald', beard: true }],
+    [CHARACTER_IDS.APE, APE.subtitleName, { height: 1.77, build: 1.05, dress: 'suit', shirt: 0x232430, hair: 'crop', glasses: true }],
+    ['crew1', 'a Sasquatch', { height: 1.82, build: 1.2, dress: 'suit', shirt: 0x1b1b22, hair: 'receding' }],
+    ['crew2', 'a Sasquatch', { height: 1.7, build: 1.15, dress: 'suit', shirt: 0x2a2028, hair: 'short', bandana: true }],
   ];
-  crew.forEach(([key, model], i) => {
+  crew.forEach(([key, name, model], i) => {
     const ang = (i / crew.length) * Math.PI * 2 + 0.6;
     add(key, new Npc(scene, {
-      name: key === 'ape' ? 'Ape' : (key === 'bing-bouncer' ? 'the bouncer' : 'a Sasquatch'),
+      name,
       tier: i < 2 ? 'hero' : 'ambient', job: 'sit',
       x: pillar.x + Math.sin(ang) * 1.2, z: pillar.z + Math.cos(ang) * 1.2,
       yaw: ang + Math.PI,

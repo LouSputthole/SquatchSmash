@@ -79,7 +79,9 @@ const check = (name, ok, detail = '') => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 };
 
-await page.goto(`http://localhost:${PORT}/silver.html`, { waitUntil: 'load' });
+/* Preview mode seeds a page-local campaign in which the Motel is done and
+ * Margo has rung, so the story gate opens without touching a real save. */
+await page.goto(`http://localhost:${PORT}/silver.html?preview=1`, { waitUntil: 'load' });
 await page.waitForTimeout(1500);
 const failedToLoad = await page.evaluate(() => {
   const el = document.getElementById('loading');
@@ -962,21 +964,29 @@ check('so the rush penalty stays in its box on a careful evening',
 
 /* ---- and it ends ---- */
 await page.waitForFunction(() => window.__silver.game.over, null, { timeout: 20000 });
+/* The evening is written into the campaign now, not into a private key only
+ * this page ever read. `saved` is the mission's own persist() payload; `folded`
+ * is what the campaign kept of it, which is what a later scene can ask. */
 const ended = await page.evaluate(() => ({
   over: window.__silver.game.over,
   card: document.getElementById('overlay').classList.contains('ending'),
   title: document.querySelector('#overlay .tag')?.textContent || '',
-  saved: JSON.parse(localStorage.getItem('squatch.frontAndCenter') || 'null'),
+  saved: window.__silver.mission.persist(window.__silver.woo),
+  folded: window.__silver.campaignState.missions.silver_room,
+  chapter: window.__silver.campaignState.story.chapter,
+  legacyKey: localStorage.getItem('squatch.frontAndCenter'),
 }));
 check('the evening ends on a card, reached by asking her rather than by a debug button',
   ended.over && ended.card && !!ended.saved?.outcome,
   `${ended.title} — ${ended.saved?.outcome}`);
-check('and the relationship is written down for the next scene',
-  !!ended.saved && ended.saved.delia?.met === true && typeof ended.saved.woo === 'number',
-  JSON.stringify(ended.saved && {
-    woo: ended.saved.woo, outcome: ended.saved.outcome,
-    tipped: ended.saved.tippedEverybody, available: ended.saved.delia?.available,
-  }));
+check('and the relationship is folded into the campaign for the next scene',
+  ended.folded.status === 'complete'
+    && ended.folded.outcome === ended.saved.outcome
+    && typeof ended.folded.woo === 'number'
+    && ended.folded.seeingHerAgain === ended.saved.seeingHerAgain,
+  JSON.stringify(ended.folded));
+check('and nothing is left behind in the mission’s old private save key',
+  ended.legacyKey === null, String(ended.legacyKey));
 
 /* ---- and the one line the score cannot buy back ----
  * Last, because it fires into the live ledger, and by here the evening has been

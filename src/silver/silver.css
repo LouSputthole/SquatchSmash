@@ -18,6 +18,22 @@
   --woo: #d88aa8;
 }
 
+/* The shared boot-failure panel, in this room's brass rather than the Bing's
+ * pink. Structure and ids match every other standalone scene so the same
+ * boot-guard drives it. */
+.boot-failure {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-content: center;
+  gap: 14px; padding: 32px; text-align: center; background: rgba(5, 5, 8, .97);
+}
+.boot-failure[hidden] { display: none; }
+.boot-failure strong { font-size: 30px; color: var(--silver); }
+.boot-failure span { max-width: 620px; line-height: 1.55; color: #b9b3a4; }
+.boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+.boot-failure button, .boot-failure a {
+  border: 1px solid var(--silver-dim); border-radius: 6px; padding: 10px 16px;
+  background: #14120e; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+}
+
 body.silver #overlay h1 span { color: var(--silver); }
 body.silver #overlay .tag { color: #a39a86; }
 body.silver #clock .day,

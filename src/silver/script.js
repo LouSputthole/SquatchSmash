@@ -10,23 +10,56 @@
  * not what it is worth — "Honest" is not a recommendation. The player is meant
  * to work it out by listening to her, which is the entire minigame.
  */
+import { CHARACTER_IDS } from '../core/campaign.js';
+import { getCharacter } from '../core/characters.js';
 
-/** Who she is, in one place, because four systems need bits of it. */
-export const DELIA = {
-  name: 'Delia',
-  full: 'Delia Vance',
-  onAir: 'Hog Mama',
-  show: 'Late Night Improv',
-  station: '97.8 THE SQUATCH',
-  hours: 'ten till two',
+
+/**
+ * Who she is, in one place, because six systems need bits of her.
+ *
+ * The identifier is `DATE` rather than her name on purpose. She has been
+ * recast once already — the first pass made her a host on 97.8, which put her
+ * on the family's own radio station and therefore inside the family, and you
+ * do not take the family on a date. The whole point of her is that she is a
+ * civilian: the one person in the mission with no stake in any of it, whose
+ * good opinion therefore costs something to earn.
+ *
+ * So the name lives in the data and nowhere else, and recasting her again is
+ * editing this object — except for the name itself, which now comes from the
+ * campaign character registry, because she is a campaign character: the
+ * apartment phone rings in her name the afternoon before this scene, and the
+ * two must not be able to disagree about what she is called.
+ */
+const REGISTERED = getCharacter(CHARACTER_IDS.MARGO);
+
+export const DATE = {
+  name: REGISTERED.subtitleName,
+  full: REGISTERED.canonicalName,
+  /** What she does, which is most of why she is the right person for this. */
+  job: 'runs the kitchen at the Blue Hour, a twenty-four-hour place on Ashland',
+  /* She is the only guest in the building who can read the back of house
+   * professionally. Everything Prospect is showing off — the door that opens,
+   * the chef who puts down a pan, the table that appears — she can price
+   * exactly, which makes her both much harder to impress and much more
+   * impressed when it lands. */
   drink: 'rye, one ice cube',
   drinkId: 'rye',
   music: 'a live horn section',
+  /** Why she came. */
+  interest: 'he came in at four in the morning, ordered without reading the '
+    + 'menu, complained about nothing, and tipped her dishwasher',
+  /** Why she is not sold. */
+  doubt: 'fifteen years of men performing competence in kitchens',
+  /** The thing you remember about her. */
+  detail: 'a burn up the inside of her right forearm, and she will tell you '
+    + 'exactly which pan and exactly whose fault',
   /** Things the player can call her. Only one of these is her name. */
   names: {
-    right: 'Delia',
-    onAir: 'Hog Mama',
-    wrong: 'Denise',
+    right: REGISTERED.subtitleName,
+    /* Her own kitchen calls her this and it is not a compliment in a dining
+     * room: it introduces her as a job rather than as a person. */
+    job: 'Chef',
+    wrong: 'Marissa',
   },
 };
 
@@ -56,42 +89,59 @@ export function buildScripts(ctx) {
   /* The car                                                           */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * A hired car and a man who has never seen either of them before.
+   *
+   * He is the only person tonight who does not know who Prospect is, and the
+   * only one who says thank you out loud for money. Both of those are doing
+   * the same job: giving the next thirty minutes something to be different
+   * from. Everybody inside takes a folded note without acknowledging it, and
+   * that reads as remarkable only if you have just watched somebody do it the
+   * normal way.
+   *
+   * So he is short, faintly aggrieved, and gone as soon as the pavement is
+   * done with him — he does not pull off mid-sentence, and he does not leave
+   * on a hidden clock while you are still reading her.
+   */
   const driver = {
     open: {
-      who: 'Booski',
-      line: 'right. that’s the place. i’m not parking here, they tow in this town for '
-        + 'looking at the kerb wrong.',
+      who: 'the driver',
+      line: 'This is you. <em>(He is already looking at the mirror rather than at either of '
+        + 'them.)</em> I’m not stopping here, they tow on this block for looking at the kerb '
+        + 'wrong.',
       options: () => [
-        tipOption('Woo.DriverTipped', 40, 'Take something for the gas.', 'tipped'),
+        tipOption('Woo.DriverTipped', 40, 'Keep it. All of it.', 'tipped'),
         /* Over the odds, on purpose, in front of her. The only elective
          * generosity in the mission — everything else on the route has one
-         * price, and `Woo.GenerousTip` had nothing at all that could fire it. */
+         * price, and `Woo.GenerousTip` had nothing at all that could fire it.
+         * It lands on the one man tonight who will say thank you out loud. */
         { tone: '$80', text: 'Take double. Nobody drove me here.',
           when: () => ctx.money() >= 80 && !woo.has('Woo.DriverTipped'),
           next: 'tipped',
           effect: () => ctx.tip('Woo.DriverTipped', 80, { generous: true }) },
-        { tone: 'Ask', text: 'You want to come in?', next: 'come-in' },
-        { tone: 'Go', text: 'Go on. I’ll ring you.', next: null },
+        { tone: 'Ask', text: 'You know this place?', next: 'know' },
+        { tone: 'Go', text: 'Thanks. We’re good.', next: null },
       ],
     },
     tipped: {
-      who: 'Booski',
-      line: '<em>(He looks at it, then at her, then at it again.)</em> …i drove you nine blocks. '
-        + 'i’m keeping this. i want it on record that i tried to be normal about it.',
-      hold: 3.4,
-      next: 'watch',
+      who: 'the driver',
+      line: '<em>(He counts it. He actually counts it, in front of you, and then he turns '
+        + 'round in the seat.)</em> …That’s — thank you. Seriously. Thank you. Have a lovely '
+        + 'evening, both of you.',
+      hold: 4.4,
+      next: 'off',
     },
-    'come-in': {
-      who: 'Booski',
-      line: 'in there? they’d charge me for the air. no. i’ve got a match at four in a region '
-        + 'i can’t pronounce.',
-      next: 'watch',
+    know: {
+      who: 'the driver',
+      line: 'I know the queue. I sit in it twice a night waiting for people who have given '
+        + 'up. <em>(Beat.)</em> Never been in.',
+      next: 'off',
     },
-    watch: {
-      who: 'Booski',
-      line: '<em>(To her, leaning across.)</em> he’s alright. he’s not as connected as he’s about '
-        + 'to act. <em>(To him.)</em> good luck.',
-      hold: 3.8,
+    off: {
+      who: '',
+      line: '<em>(And he pulls out, and that is the last person this evening who will have '
+        + 'no idea who you are.)</em>',
+      hold: 4.0,
     },
   };
 
@@ -101,7 +151,7 @@ export function buildScripts(ctx) {
 
   const arrival = {
     open: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'The entrance is back there. There’s a rope and everything. There’s a man with a '
         + 'clipboard, which I always think is a bit much for a supper club.',
       options: [
@@ -109,13 +159,13 @@ export function buildScripts(ctx) {
           next: 'noticed', effect: () => fire('Woo.SideDoorResponse') },
         { tone: 'Simple', text: 'I like going this way.',
           next: 'this-way', effect: () => fire('Woo.SideDoorResponse') },
-        { tone: 'Name-drop', text: 'The guy on the door still owes Lou money.',
+        { tone: 'Name-drop', text: 'The guy on the door still owes Big Uncle Lou money.',
           next: 'owes', effect: () => fire('Woo.SideDoorFumbled') },
         { tone: 'Nothing', text: '<em>(Just walk towards the alley.)</em>', next: 'nothing' },
       ],
     },
     noticed: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(A beat.)</em> That was rehearsed.',
       options: [
         { tone: 'Admit it', text: 'In the car. Twice.', next: 'admitted',
@@ -124,43 +174,44 @@ export function buildScripts(ctx) {
       ],
     },
     admitted: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'See, that I like. Everybody in this city has a line. Almost nobody will '
         + 'tell you where they got it.',
       hold: 3.6,
       next: 'lead',
     },
     denied: {
-      who: DELIA.name,
-      line: 'I do four hours a night with no script. I can hear a rehearsal. '
-        + '<em>(She is not annoyed. She is filing it.)</em>',
+      who: DATE.name,
+      line: 'Fifteen years of men telling me the fish is fine. I can hear a '
+        + 'rehearsal. <em>(She is not annoyed. She is filing it.)</em>',
       hold: 3.8,
       next: 'lead',
     },
     'this-way': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'You like going this way. <em>(She looks at the alley, then at her shoes, '
         + 'then at you.)</em> Alright. These were expensive and I don’t care.',
       hold: 4.0,
       next: 'lead',
     },
     owes: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'So we’re going round the back because a man owes money. That’s not a reason, '
         + 'that’s an admission.',
       hold: 3.6,
       next: 'lead',
     },
     nothing: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She follows.)</em> No answer. Bold. Silence is a choice, and it’s usually '
         + 'the wrong one, and here we are.',
       hold: 4.0,
       next: 'lead',
     },
     lead: {
-      who: DELIA.name,
-      line: 'Go on then. Lead.',
+      who: DATE.name,
+      line: '<em>(Watching the car go.)</em> He had no idea who you were. '
+        + '<em>(She turns round.)</em> Let’s find out if anybody else does. Go on. Lead.',
       enter: () => mission.addObjective('alley', 'Take her round the side'),
       hold: 2.2,
     },
@@ -369,7 +420,7 @@ export function buildScripts(ctx) {
       ],
     },
     beneath: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(The spray keeps going. Nobody in the room looks up, which is how you '
         + 'know all of them heard it. She waits until you are three steps past him.)</em> '
         + 'Do the plates. <em>(Not a question. Just handing it back to you.)</em>',
@@ -418,8 +469,8 @@ export function buildScripts(ctx) {
     open: {
       who: 'coat check',
       line: () => (flags.abandonments > 1
-        ? 'Two, is it? <em>(She looks past you at Delia, who has just caught up.)</em> …Two.'
-        : 'Evening. Coats? <em>(To Delia.)</em> That’s a good coat. That’s a coat somebody chose.'),
+        ? 'Two, is it? <em>(She looks past you at Margo, who has just caught up.)</em> …Two.'
+        : 'Evening. Coats? <em>(To Margo.)</em> That’s a good coat. That’s a coat somebody chose.'),
       options: () => [
         { tone: 'Both', text: 'Both, thanks.', next: 'both' },
         tipOption('Woo.CoatCheckTipped', 20, '<em>(Fold it under the ticket.)</em>', 'took'),
@@ -434,7 +485,7 @@ export function buildScripts(ctx) {
     },
     took: {
       who: 'coat check',
-      line: 'Ta. <em>(To Delia, quietly.)</em> If he abandons you, the phone’s behind me '
+      line: 'Ta. <em>(To Margo, quietly.)</em> If he abandons you, the phone’s behind me '
         + 'and I’ll get you a car. That’s not a joke, that’s a standing offer.',
       hold: 5.0,
     },
@@ -487,12 +538,12 @@ export function buildScripts(ctx) {
     { at: 2.2, who: 'the manager', line: 'No.' },
     { at: 3.4, who: 'the host',  line: 'We don’t have anything else.' },
     { at: 5.0, who: 'the manager', line: 'Then bring something else.' },
-    { at: 7.4, who: DELIA.name,  line: '<em>(Under her breath.)</em> Bring something else?' },
+    { at: 7.4, who: DATE.name,  line: '<em>(Under her breath.)</em> Bring something else?' },
     { at: 9.0, who: 'the manager', line: '<em>(Not to you. To the room.)</em> Two-top. Front and center. Now.' },
     { at: 12.5, who: '', line: '<em>(Two men come off the floor carrying a table between them.)</em>' },
-    { at: 15.5, who: DELIA.name, line: '<em>(Quietly.)</em> …There wasn’t a table there.' },
+    { at: 15.5, who: DATE.name, line: '<em>(Quietly.)</em> …There wasn’t a table there.' },
     { at: 18.5, who: 'the manager', line: 'Give us a minute.' },
-    { at: 20.5, who: DELIA.name, line: 'A minute for what?' },
+    { at: 20.5, who: DATE.name, line: 'A minute for what?' },
     { at: 22.5, who: 'the manager', line: '<em>(He steps aside and turns his hand over.)</em> For that.' },
   ];
 
@@ -537,13 +588,13 @@ export function buildScripts(ctx) {
   const seated = {
     /* ROUND 0 — she reacts to the table */
     table: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'They built us a table. <em>(She sits, and looks at the stage, which is four '
         + 'metres away.)</em> There was a room and then there was a table in it.',
       options: [
         { tone: 'Deadpan', text: 'They hate seeing me stand.', next: 'stand',
           effect: () => { fire('Woo.TableReaction'); fire('Woo.MadeHerLaugh'); } },
-        { tone: 'Honest', text: 'Lou may have called ahead.', next: 'lou',
+        { tone: 'Honest', text: 'Big Uncle Lou may have called ahead.', next: 'lou',
           effect: () => fire('Woo.TableReaction') },
         { tone: 'Take credit', text: 'I told you I knew a place.', next: 'credit' },
         { tone: 'Warn her', text: 'Don’t look impressed. It encourages them.', next: 'encourages',
@@ -551,25 +602,25 @@ export function buildScripts(ctx) {
       ],
     },
     stand: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(That gets her. A real one, not a polite one.)</em> Right. Everybody '
         + 'here is terrified of you standing up.',
       next: 'round1',
     },
     lou: {
-      who: DELIA.name,
-      line: 'Lou called ahead. <em>(She nods slowly.)</em> That’s the first true thing '
+      who: DATE.name,
+      line: 'Big Uncle Lou called ahead. <em>(She nods slowly.)</em> That’s the first true thing '
         + 'anybody’s said to me tonight, including the man who took my coat.',
       next: 'round1',
     },
     credit: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'You knew a place. <em>(She looks at the manager, who is still standing '
         + 'there.)</em> Sure. You knew a place.',
       next: 'round1',
     },
     encourages: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Too late. I’m visibly impressed. I’m going to be impressed for at least '
         + 'another four minutes and then I’m going to start asking questions.',
       next: 'round1',
@@ -577,7 +628,7 @@ export function buildScripts(ctx) {
 
     /* ROUND 1 — the entrance */
     round1: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'So. Do you take every woman through the dish room, or am I special.',
       options: [
         { tone: 'Smooth', text: 'Only the ones I’m trying to impress.', next: 'r1-impress' },
@@ -588,32 +639,32 @@ export function buildScripts(ctx) {
       ],
     },
     'r1-impress': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'So there’s a shorter route and you didn’t use it. That’s not a shortcut, '
         + 'that’s a tour. <em>(She lifts her glass an inch.)</em> It was a good tour.',
       next: 'r1-close',
     },
     'r1-personality': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'The front door has thirty people and a rope. The back has a man called Marco '
         + 'and a crate nobody’s allowed to touch. You’re right. It’s no contest.',
       next: 'r1-close',
     },
     'r1-dark': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She holds your eye for a second and a half, which is exactly long enough.)</em> '
-        + 'Mm. See, if I flinch there, you win. I do four hours a night with drunks phoning in. '
+        + 'Mm. See, if I flinch there, you win. I run a kitchen at four in the morning. '
         + 'I don’t flinch.',
       next: 'r1-close',
     },
     'r1-flat': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'We got here. Through a cellar. Past a man holding nine hundred pounds of ice. '
         + '"We got here" is doing a great deal of work in that sentence.',
       next: 'r1-close',
     },
     'r1-close': {
-      who: DELIA.name,
+      who: DATE.name,
       line: () => (mission.flags.abandonments >= 2
         ? 'Although — twice back there I turned round and you were a room away. '
           + 'I noticed. I always notice. It’s the job.'
@@ -625,17 +676,17 @@ export function buildScripts(ctx) {
 
     /* ROUND 2 — what do you do */
     round2: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Can I ask you something you’re going to lie about. What do you actually do?',
       options: [
         { tone: 'Classic', text: 'I’m in construction.', next: 'r2-construction' },
-        { tone: 'Plain', text: 'I work for Lou.', next: 'r2-lou' },
+        { tone: 'Plain', text: 'I work for Big Uncle Lou.', next: 'r2-lou' },
         { tone: 'Oblique', text: 'I solve things people would rather not write down.', next: 'r2-oblique' },
         { tone: 'Deflect', text: 'Tonight I’m buying dinner. Start there.', next: 'r2-dinner' },
       ],
     },
     'r2-construction': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Construction. <em>(She looks at your hands. She takes her time about it.)</em> '
         + 'You don’t look like you work construction.',
       options: [
@@ -647,14 +698,14 @@ export function buildScripts(ctx) {
       ],
     },
     'r2-decon': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She puts the glass down so she can laugh properly, which is a thing '
         + 'she does and which you are going to want to see again.)</em> Deconstruction. '
         + 'God. Alright.',
       next: 'r2-close',
     },
     'r2-supervise': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'You supervise. Supervise what?',
       options: [
         { tone: 'Commit', text: 'Other people working construction.', next: 'r2-commit',
@@ -664,22 +715,23 @@ export function buildScripts(ctx) {
       ],
     },
     'r2-commit': {
-      who: DELIA.name,
-      line: 'Beautiful. Absolutely watertight. I’m going to use that on air and I’m not '
-        + 'going to credit you.',
+      who: DATE.name,
+      line: 'Beautiful. Absolutely watertight. I’m putting that on the specials board '
+        + 'and I’m not crediting you.',
       next: 'r2-close',
     },
     'r2-fold': {
-      who: DELIA.name,
-      line: 'There it is. <em>(She sits back.)</em> I know what you do, roughly. I work at '
-        + 'the station. I’ve read the community notices. I wasn’t asking what you do, '
-        + 'I was watching to see how long you’d go.',
+      who: DATE.name,
+      line: 'There it is. <em>(She sits back.)</em> I know what you do, roughly. Two of '
+        + 'your lot eat at mine every Tuesday and neither of them has ever paid. I wasn’t '
+        + 'asking what you do. I was seeing how long you’d go.',
       next: 'r2-close',
     },
     'r2-lou': {
-      who: DELIA.name,
-      line: 'I know you work for Lou. Lou has a radio show. Lou has two radio shows and '
-        + 'they argue with each other. <em>(Beat.)</em> I meant what do you <em>do</em>.',
+      who: DATE.name,
+      line: 'I know you work for Big Uncle Lou. Everybody on that street works for Lou, including '
+        + 'me, technically, if you follow the rent far enough back. <em>(Beat.)</em> '
+        + 'I meant what do you <em>do</em>.',
       options: [
         { tone: 'Honest', text: 'Whatever the day is. Mostly I go places and listen.', next: 'r2-listen',
           effect: () => fire('Woo.PersonalHonest') },
@@ -688,19 +740,19 @@ export function buildScripts(ctx) {
       ],
     },
     'r2-listen': {
-      who: DELIA.name,
-      line: 'You go places and listen. <em>(She considers this.)</em> That’s my job too. '
-        + 'Mine pays worse and has a jingle.',
+      who: DATE.name,
+      line: 'You go places and listen. <em>(She considers this.)</em> That’s a service '
+        + 'job. You’re in a service job. Do not tell the men by the pillar I said that.',
       next: 'r2-close',
     },
     'r2-brag': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She glances round the room, obligingly.)</em> Mm. And how many of them '
         + 'know your first name.',
       next: 'r2-close',
     },
     'r2-oblique': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'That is a beautifully constructed sentence that contains no information. '
         + 'Did you write it down first?',
       options: [
@@ -710,19 +762,20 @@ export function buildScripts(ctx) {
       ],
     },
     'r2-wrote': {
-      who: DELIA.name,
-      line: 'You wrote it down. <em>(She is delighted. Genuinely.)</em> I’ve been doing '
-        + 'this four years and I’ve never once written anything down.',
+      who: DATE.name,
+      line: 'You wrote it down. <em>(She is delighted. Genuinely.)</em> Fifteen years '
+        + 'and I have never once written anything down, including the specials, which is '
+        + 'why we have had two health inspections.',
       next: 'r2-close',
     },
     'r2-dinner': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Smooth. <em>(She lets it go, but she does not let it go — she just puts it '
         + 'somewhere.)</em> Alright. Dinner. We’ll come back to it.',
       next: 'r2-close',
     },
     'r2-close': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'For the record: I don’t care what the answer is. I care whether you think '
         + 'I can’t handle it.',
       hold: 4.4,
@@ -730,7 +783,7 @@ export function buildScripts(ctx) {
 
     /* ROUND 5 — funny how */
     funny: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(Still laughing at something.)</em> You’re funny. You know that? '
         + 'You’re actually funny.',
       options: [
@@ -749,7 +802,7 @@ export function buildScripts(ctx) {
       next: 'funny-hang',
     },
     'funny-hang': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She does not blink.)</em> Funny like a man who has practised that '
         + 'question in a mirror.',
       options: [
@@ -759,7 +812,7 @@ export function buildScripts(ctx) {
       ],
     },
     'funny-break': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(The room starts again all at once. The waiter puts the tray down and '
         + 'wipes his forehead with the back of his wrist.)</em> You scared your own waiter. '
         + 'That’s the funniest thing that’s happened all week and I do comedy.',
@@ -767,20 +820,20 @@ export function buildScripts(ctx) {
       hold: 5.6,
     },
     'funny-hold': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(Three full seconds. She reaches over, takes the ice cube out of her '
         + 'own drink, and drops it into yours.)</em> …Cool down. You were doing so well.',
       enter: () => { ctx.releaseTheRoom(); fire('Woo.FunnyHowOverplayed'); },
       hold: 5.4,
     },
     'funny-take': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Don’t take it, it’s not a compliment, it’s an observation. '
         + '<em>(Beat.)</em> …Fine. It’s a bit of a compliment.',
       hold: 4.0,
     },
     'funny-cope': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Everybody funny is coping with something. The good ones just cope louder '
         + 'and get paid.',
       hold: 4.0,
@@ -788,82 +841,84 @@ export function buildScripts(ctx) {
 
     /* ROUND 6 — the personal question */
     personal: {
-      who: DELIA.name,
+      who: DATE.name,
       line: () => (woo.score >= 60
         ? 'Right. Real question. <em>(She turns her glass a quarter turn.)</em> Do they '
-          + 'like you, or are they frightened of Lou?'
+          + 'like you, or are they frightened of Big Uncle Lou?'
         : 'Question. And I want the boring true answer, not the good one. '
-          + 'Do they like you, or are they frightened of Lou?'),
+          + 'Do they like you, or are they frightened of Big Uncle Lou?'),
       options: [
-        { tone: 'Honest', text: 'Frightened of Lou. All of it is Lou.', next: 'p-lou',
+        { tone: 'Honest', text: 'Frightened of Big Uncle Lou. All of it is Lou.', next: 'p-lou',
           effect: () => fire('Woo.PersonalHonest') },
-        { tone: 'Ambition', text: 'Frightened of Lou. For now.', next: 'p-fornow',
+        { tone: 'Ambition', text: 'Frightened of Big Uncle Lou. For now.', next: 'p-fornow',
           effect: () => fire('Woo.PersonalHonest') },
-        { tone: 'Loyalty', text: 'Lou pulled me out of something. That’s the whole story.', next: 'p-loyal',
+        { tone: 'Loyalty', text: 'Big Uncle Lou pulled me out of something. That’s the whole story.', next: 'p-loyal',
           effect: () => fire('Woo.PersonalHonest') },
         { tone: 'Evade', text: 'Why not both.', next: 'p-both',
           effect: () => fire('Woo.PersonalEvaded') },
       ],
     },
     'p-lou': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Thank you. <em>(She means it.)</em> Everybody else in this building would '
         + 'have taken the credit and I’d have had to sit here and let them.',
       next: 'p-hers',
     },
     'p-fornow': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '"For now." <em>(She raises an eyebrow, not unkindly.)</em> Careful. That’s '
         + 'the sentence men say in here about a year before something happens to them.',
       next: 'p-hers',
     },
     'p-loyal': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She does not ask what. That is the tell — she knows not to.)</em> '
         + 'Alright. That’s a real answer and I’m not going to poke it.',
       next: 'p-hers',
     },
     'p-both': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Both. <em>(She smiles with about sixty per cent of her face.)</em> Sure. '
         + 'Both.',
       next: 'p-hers',
     },
     'p-hers': {
-      who: DELIA.name,
-      line: 'My turn, since we’re being people. My dad had the butcher’s on Ashland. '
-        + 'Two rooms up, four of us. That’s where the name’s from — I picked it, before '
-        + 'you get brave and ask.',
+      who: DATE.name,
+      line: 'My turn, since we’re being people. <em>(She turns her right arm over on the '
+        + 'cloth. The burn runs from the wrist most of the way to the elbow, and it is old, '
+        + 'and she is not hiding it.)</em> Go on. Everybody looks and nobody asks.',
       options: [
-        { tone: 'Follow up', text: 'Is the shop still there?', next: 'p-shop',
+        { tone: 'Ask', text: 'What happened?', next: 'p-burn',
           effect: () => fire('Woo.GenuineQuestion') },
-        { tone: 'Follow up', text: 'Why keep it? You could be anything on air.', next: 'p-keep',
-          effect: () => fire('Woo.GenuineQuestion') },
-        { tone: 'Joke', text: 'I wasn’t going to ask. I was going to wonder loudly.', next: 'p-joke',
+        { tone: 'Ask', text: 'Whose fault?', next: 'p-fault',
+          effect: () => { fire('Woo.GenuineQuestion'); fire('Woo.MadeHerLaugh'); } },
+        { tone: 'Deflect', text: 'I wasn’t going to ask. I was going to wonder loudly.', next: 'p-joke',
           effect: () => fire('Woo.MadeHerLaugh') },
         { tone: 'Move on', text: '<em>(Let it sit.)</em>', next: 'p-close' },
       ],
     },
-    'p-shop': {
-      who: DELIA.name,
-      line: 'It’s a phone shop. <em>(Flat.)</em> Forty-one years, and it’s a phone shop. '
-        + 'The tiles are still ours, though. They couldn’t get the tiles up.',
+    'p-burn': {
+      who: DATE.name,
+      line: 'Twelve-litre stockpot, wet handle, and a boy who said he had it. '
+        + '<em>(She turns the arm back over.)</em> Nineteen. I finished the service. '
+        + 'That is the part I would like on the record.',
       next: 'p-close',
     },
-    'p-keep': {
-      who: DELIA.name,
-      line: 'Because the first time somebody says it like an insult you find out '
-        + 'immediately what they are. It’s the most efficient thing I own.',
+    'p-fault': {
+      who: DATE.name,
+      line: '<em>(Instantly, like she has been waiting years.)</em> Anthony’s. '
+        + 'Anthony knows it is Anthony’s. Anthony has a restaurant now and I have this, '
+        + 'and I would still rather be me.',
       next: 'p-close',
     },
     'p-joke': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Wonder loudly. <em>(Pointing at you with two fingers round the glass.)</em> '
-        + 'That’s mine now. That’s going out at half past midnight.',
+        + 'That’s mine now. That’s going on the wall by the pass.',
       next: 'p-close',
     },
     'p-close': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Anyway. That’s the deep bit done. If the band’s any good we never have to '
         + 'do that again.',
       enter: () => mission.roundDone('personal'),
@@ -900,14 +955,14 @@ export function buildScripts(ctx) {
       next: 'his',
     },
     white: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(To the waiter, pleasantly.)</em> He’s guessing. Rye, one ice cube. '
         + '<em>(To you.)</em> I told you in the car. I told you twice, and one of those '
         + 'times I did a voice.',
       next: 'his',
     },
     ask: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Rye. One ice cube. <em>(To the waiter.)</em> One. They always bring three '
         + 'and then it’s a soup. <em>(To you.)</em> Asking is allowed. Asking twice isn’t.',
       next: 'his',
@@ -919,7 +974,7 @@ export function buildScripts(ctx) {
       next: 'bottle-2',
     },
     'bottle-2': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(Into her hand.)</em> Bring the rye. One ice cube. And bring this man '
         + 'whatever he needs.',
       effect: () => { flags.drinkOrdered = 'rye'; },
@@ -944,7 +999,7 @@ export function buildScripts(ctx) {
       hold: 4.6,
     },
     soda: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Working. <em>(She looks at the stage, the table, the manager.)</em> '
         + 'Is that what this is?',
       enter: () => { ctx.serveTable(); mission.roundDone('drinks'); },
@@ -970,7 +1025,7 @@ export function buildScripts(ctx) {
     },
     thanks: {
       who: 'the waiter',
-      line: 'Very good, sir. <em>(To Delia, on the way past, quietly.)</em> He tipped '
+      line: 'Very good, sir. <em>(To Margo, on the way past, quietly.)</em> He tipped '
         + 'the dish room. Nobody tips the dish room.',
       hold: 4.6,
     },
@@ -992,7 +1047,7 @@ export function buildScripts(ctx) {
       hold: 4.6,
     },
     'her-call': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Obviously we’re doing dessert. I’ve been looking at that man’s figs since '
         + 'we sat down and pretending to listen to you.',
       hold: 4.2,
@@ -1007,7 +1062,7 @@ export function buildScripts(ctx) {
     { at: 0.0, who: '', line: '<em>(A waiter arrives at the table with a bucket nobody ordered.)</em>' },
     { at: 2.6, who: 'the waiter', line: 'From the gentlemen by the pillar. With respect, they said.' },
     { at: 6.0, who: '', line: '<em>(Four men at a round table. One of them lifts two fingers off the cloth. It is the bouncer from the Bing, in a suit that is nearly his size.)</em>' },
-    { at: 11.0, who: DELIA.name, line: '<em>(Not looking away from them.)</em> …With respect.' },
+    { at: 11.0, who: DATE.name, line: '<em>(Not looking away from them.)</em> …With respect.' },
   ];
 
   const ape = {
@@ -1017,11 +1072,11 @@ export function buildScripts(ctx) {
         + 'up to it from across a room.)</em> Look at this. Look at you, sat with the '
         + 'civilians.',
       options: () => [
-        { tone: 'Introduce', text: `This is ${DELIA.names.right}.`, next: 'intro-right',
+        { tone: 'Introduce', text: `This is ${DATE.names.right}.`, next: 'intro-right',
           effect: () => { flags.introducedAs = 'right'; fire('Woo.DateIntroduced'); } },
-        { tone: 'Introduce', text: `This is ${DELIA.names.onAir}. Off the radio.`, next: 'intro-air',
-          effect: () => { flags.introducedAs = 'onAir'; } },
-        { tone: 'Introduce', text: `This is ${DELIA.names.wrong}.`, next: 'intro-wrong',
+        { tone: 'Introduce', text: `This is ${DATE.names.job}. She cooks.`, next: 'intro-job',
+          effect: () => { flags.introducedAs = 'job'; } },
+        { tone: 'Introduce', text: `This is ${DATE.names.wrong}.`, next: 'intro-wrong',
           effect: () => { flags.introducedAs = 'wrong'; fire('Woo.WrongName'); } },
         { tone: 'Business', text: 'Not now. What is it?', next: 'business',
           effect: () => fire('Woo.LingeredWithFamily') },
@@ -1029,29 +1084,32 @@ export function buildScripts(ctx) {
     },
     'intro-right': {
       who: 'Ape',
-      line: '<em>(He takes her hand like it is a formal object.)</em> Delia. — Delia? '
-        + '<em>(He looks at her properly.)</em> …You’re Hog Mama. You’re on after us. '
-        + 'I’ve never seen your face. I’ve heard you eight hundred times and I’ve never '
-        + 'seen your face.',
-      next: 'ape-station',
+      line: '<em>(He takes her hand like it is a formal object, and then he does not let '
+        + 'go of it.)</em> Margo. — Margo off Ashland? The Blue Hour? '
+        + '<em>(To you, with enormous betrayal.)</em> This is <em>the Blue Hour</em>.',
+      next: 'ape-diner',
     },
-    'intro-air': {
+    'intro-job': {
+      who: DATE.name,
+      line: '<em>(Pleasantly, without moving.)</em> Margo.',
+      next: 'intro-job-2',
+    },
+    'intro-job-2': {
       who: 'Ape',
-      line: 'Hog M— <em>(He stops dead.)</em> You’re on after us. I hand over to you '
-        + 'four nights a week. <em>(To you, betrayed.)</em> You brought her here and '
-        + 'you didn’t tell me.',
-      next: 'ape-station',
+      line: '<em>(Shaking her hand and looking at you with something close to pity.)</em> '
+        + '…Margo.',
+      next: 'ape-diner',
     },
     'intro-wrong': {
-      who: DELIA.name,
-      line: '<em>(Beat. She shakes his hand anyway.)</em> Delia.',
+      who: DATE.name,
+      line: '<em>(Beat. She shakes his hand anyway.)</em> Margo.',
       next: 'intro-wrong-2',
     },
     'intro-wrong-2': {
       who: 'Ape',
       line: '<em>(To you, with the delivery of a man who has waited his whole life for '
-        + 'this.)</em> …Denise.',
-      next: 'ape-station',
+        + 'this.)</em> …Marissa.',
+      next: 'ape-diner',
     },
     business: {
       who: 'Ape',
@@ -1071,7 +1129,7 @@ export function buildScripts(ctx) {
       next: 'ashland-2',
     },
     'ashland-2': {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She puts her fork down and leaves it down.)</em> That’s Ashland. '
         + 'I grew up on Ashland. <em>(To Ape.)</em> Whose van.',
       next: 'ashland-3',
@@ -1086,35 +1144,35 @@ export function buildScripts(ctx) {
       who: 'Ape',
       line: '<em>(Immediately, no argument at all.)</em> Thursday. You’re right. '
         + 'Not at the table. <em>(To her.)</em> Sorry. He’s right.',
-      next: 'ape-station',
+      next: 'ape-diner',
     },
-    'ape-station': {
+    'ape-diner': {
       who: 'Ape',
       line: () => (flags.introducedAs === 'wrong'
-        ? '<em>(To her.)</em> Whatever he says your name is, ignore him. He listens to '
-          + 'your show. He rang in once. He rang in and asked for nothing.'
-        : '<em>(To her.)</em> He listens, you know. Two in the morning. He rang in once. '
-          + 'Never asked for anything, which around here makes him a lunatic.'),
+        ? '<em>(To her.)</em> Whatever he says your name is, ignore him. He eats at yours. '
+          + 'Four in the morning, on his own, every couple of weeks. Pays. Every time.'
+        : '<em>(To her.)</em> He eats at yours, you know. Four in the morning, on his own. '
+          + 'Pays every time, which around here makes him a lunatic.'),
       options: [
         { tone: 'Deny', text: 'That never happened.', next: 'deny' },
-        { tone: 'Own it', text: 'I did ring in.', next: 'own',
+        { tone: 'Own it', text: 'Corner two. Back to the door.', next: 'own',
           effect: () => fire('Woo.CallbackUsed') },
         { tone: 'Move him on', text: 'Ape. Your table’s looking at you.', next: 'leaves',
           effect: () => fire('Woo.FamilyHandled') },
       ],
     },
     deny: {
-      who: DELIA.name,
-      line: 'It happened. <em>(To Ape.)</em> He asked what the desk impression was. '
-        + 'Nobody has ever asked about the desk impression. <em>(To you.)</em> '
-        + 'That was you?',
+      who: DATE.name,
+      line: 'It happened. <em>(To Ape.)</em> Corner two, back to the door, never once '
+        + 'sent anything back. <em>(To you.)</em> You tipped Hector. Nobody tips Hector. '
+        + 'Hector is a dishwasher.',
       next: 'leaves',
     },
     own: {
-      who: DELIA.name,
-      line: '<em>(She looks at you for slightly too long.)</em> The desk. You asked about '
-        + 'the desk. <em>(She sits back.)</em> Right. Okay. That reframes the evening '
-        + 'somewhat.',
+      who: DATE.name,
+      line: '<em>(She looks at you for slightly too long.)</em> Corner two. '
+        + '<em>(She sits back.)</em> You tipped my dishwasher and then you never '
+        + 'mentioned it. Right. Okay. That reframes the evening somewhat.',
       next: 'leaves',
     },
     leaves: {
@@ -1136,7 +1194,7 @@ export function buildScripts(ctx) {
     { at: 3.0, who: '', line: '<em>(The room lowers its voice on its own, without being asked.)</em>' },
     { at: 5.5, who: 'the announcer', line: 'Ladies and gentlemen — the Silver Room is proud — the Midnight Pines.' },
     { at: 9.0, who: '', line: '<em>(Curtain. Seven of them: brass across the back, upright bass, brushes, a piano nobody has tuned since it stopped needing it.)</em>' },
-    { at: 12.0, who: DELIA.name, line: '<em>(She turns all the way round in her chair.)</em> Oh, they’re real.' },
+    { at: 12.0, who: DATE.name, line: '<em>(She turns all the way round in her chair.)</em> Oh, they’re real.' },
   ];
 
   const bandleader = {
@@ -1150,12 +1208,12 @@ export function buildScripts(ctx) {
           effect: () => { flags.songRequested = 'horns'; fire('Woo.PerformancePreferenceRemembered'); } },
         { tone: 'Slow', text: 'Something slow.', next: 'slow',
           effect: () => { flags.songRequested = 'slow'; fire('Woo.SongRequested'); } },
-        { tone: 'Ask her', text: '<em>(Look at Delia.)</em>', next: 'her-pick' },
+        { tone: 'Ask her', text: '<em>(Look at Margo.)</em>', next: 'her-pick' },
         tipOption('Woo.BandleaderTipped', 40, '<em>(Into the top pocket.)</em>', 'tipped'),
       ],
     },
     horns: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(Sharply, to you.)</em> How did you — <em>(She stops. She works it '
         + 'out.)</em> I said that in the car. I said one sentence about horns in a car '
         + 'nine blocks long.',
@@ -1167,7 +1225,7 @@ export function buildScripts(ctx) {
       next: 'band-go',
     },
     'her-pick': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'Horns. All of them. I don’t want a backing track, I want to watch seven '
         + 'people be slightly out of breath.',
       effect: () => { flags.songRequested = 'horns'; },
@@ -1201,7 +1259,7 @@ export function buildScripts(ctx) {
       ],
     },
     'her-say': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'I have a face for radio and I have been told so professionally. '
         + '<em>(She is already turning her chair in.)</em> Take the picture.',
       next: 'shoot',
@@ -1226,7 +1284,7 @@ export function buildScripts(ctx) {
 
   const toast = {
     open: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She lifts her glass an inch and waits, which is a dare.)</em>',
       options: [
         { tone: 'Simple', text: 'To the third number.', next: 'good',
@@ -1240,25 +1298,25 @@ export function buildScripts(ctx) {
       ],
     },
     good: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'The third number. <em>(Glass.)</em> Good. Short. Nobody wants a speech '
         + 'in a nightclub.',
       hold: 3.8,
     },
     ashland: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She does not drink for a second.)</em> …That’s a horrible thing to '
         + 'do to a person in a good mood. <em>(She drinks.)</em> To the tiles.',
       hold: 4.6,
     },
     grand: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She drinks anyway, which is worse than not drinking.)</em> Mm. '
         + 'To the room. To all of the room.',
       hold: 4.0,
     },
     clink: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(Glass. She lets it be quiet, and it is fine.)</em>',
       hold: 3.0,
     },
@@ -1266,7 +1324,7 @@ export function buildScripts(ctx) {
 
   const sway = {
     open: {
-      who: DELIA.name,
+      who: DATE.name,
       line: () => (flags.songRequested === 'horns'
         ? '<em>(The horns come in on the third number and she is on her feet before the '
           + 'second bar.)</em> No. Up. Now. This one you don’t sit through.'
@@ -1280,7 +1338,7 @@ export function buildScripts(ctx) {
       ],
     },
     warned: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'I’ve heard four hundred men say that and two of them meant it. '
         + '<em>(She is already standing.)</em>',
       next: 'up',
@@ -1292,21 +1350,21 @@ export function buildScripts(ctx) {
       hold: 2.0,
     },
     declined: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She sits back down without making anything of it, which is somehow '
         + 'worse than if she had.)</em> Sure. Watching’s good.',
       hold: 3.8,
     },
     good: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(Back at the table, still half in it.)</em> You’re not terrible. '
         + 'You’re economical. There’s a difference and it took me two songs to work it out.',
       hold: 4.6,
     },
     bad: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'That was genuinely one of the worst things I have ever been part of and '
-        + 'I once did forty minutes as a bus.',
+        + 'I have pulled a man out of a walk-in with his own apron.',
       options: [
         { tone: 'Own it', text: 'I peaked in the cellar.', next: 'recover',
           effect: () => { fire('Woo.SwayRecovered'); fire('Woo.MadeHerLaugh'); } },
@@ -1314,18 +1372,18 @@ export function buildScripts(ctx) {
       ],
     },
     recover: {
-      who: DELIA.name,
-      line: '<em>(Wheezing.)</em> "I peaked in the cellar." Right — that’s the closer. '
-        + 'That’s going out Thursday and I’m still not crediting you.',
+      who: DATE.name,
+      line: '<em>(Wheezing.)</em> "I peaked in the cellar." Right. That one I am telling '
+        + 'the whole kitchen on Tuesday, and I am still not crediting you.',
       hold: 4.8,
     },
     excuse: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'The floor’s uneven. <em>(She looks at the floor. It is not.)</em> Mm.',
       hold: 3.4,
     },
     forced: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She takes her wrist back, carefully, and does not raise her voice, '
         + 'which is how you know.)</em> I said I’d rather watch.',
       enter: () => { flags.swayed = 'forced'; fire('Woo.SwayForced'); },
@@ -1335,7 +1393,7 @@ export function buildScripts(ctx) {
 
   const invitation = {
     open: {
-      who: DELIA.name,
+      who: DATE.name,
       line: () => {
         if (woo.score >= 88) return '<em>(She has been looking at the door for about a minute and not saying anything about it.)</em>';
         if (woo.score >= 60) return '<em>(The set finishes. The room claps. She claps, and then she looks at you.)</em>';
@@ -1371,57 +1429,58 @@ export function buildScripts(ctx) {
 
     /* Her answers, chosen by mission.resolve() */
     perfect: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'You’ve been inviting me back for about twenty minutes without actually '
         + 'saying it. <em>(She is already reaching for her coat ticket.)</em> Are you '
         + 'going to keep talking, or are we leaving?',
       hold: 5.4,
     },
     strong: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'One drink. <em>(Beat.)</em> And if your building has a service entrance, '
-        + 'I’m getting back in the car.',
+        + 'I’m getting back in the car and you can explain it to the man on the door.',
       hold: 4.8,
     },
     good: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'I had a genuinely good time. Don’t ruin it by being in a hurry. '
         + '<em>(She writes nothing down, because she does not have to.)</em> '
-        + 'Listen Thursday. I’ll say something only you’ll catch.',
+        + 'Four in the morning. I’m there. You know where the door is.',
       hold: 6.0,
     },
     gentleman: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(A pause, and then something in her face resettles.)</em> …Alright. '
-        + 'Call the station. They put everybody through at that hour. Nobody calls.',
+        + 'Come in some night. Late. I cook better for one person than for forty and '
+        + 'nobody has ever let me prove it.',
       hold: 5.2,
     },
     polite: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'That’s kind. <em>(The coat check is already coming across the floor with '
         + 'her coat, which means she asked somebody a while ago.)</em>',
       hold: 4.8,
     },
     awkward: {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'I’m going to let them call me a car. <em>(Politely. Very politely.)</em> '
         + 'Thank you for dinner. The band was excellent.',
       hold: 5.0,
     },
     disaster: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She stands up, puts her napkin on the chair rather than the table, '
         + 'and goes back the way you brought her in.)</em>',
       hold: 5.0,
     },
     insult: {
-      who: DELIA.name,
+      who: DATE.name,
       line: '<em>(She looks at the money for a long moment. Then at you. Then she picks '
         + 'up her bag and does not touch it.)</em> …Huh.',
       hold: 5.4,
     },
     'from-a-distance': {
-      who: DELIA.name,
+      who: DATE.name,
       line: 'I like you. <em>(She is laughing, and she is also standing.)</em> From a '
         + 'distance. A good distance. About this one.',
       hold: 5.0,
@@ -1444,7 +1503,7 @@ export function buildScripts(ctx) {
  * Her running commentary. Keyed by where she is and what just happened; the
  * companion picks one, marks it used, and does not say it again.
  */
-export const DELIA_BARKS = {
+export const DATE_BARKS = {
   alley: [
     'There is an actual entrance around the corner. I saw it. It had a light over it.',
     '<em>(Stepping over something.)</em> If these are ruined you’re buying me shoes and I’ll pick them.',
@@ -1454,11 +1513,13 @@ export const DELIA_BARKS = {
   ],
   cellar: [
     'Is this normal? Genuinely. Is this a normal way to arrive somewhere.',
-    'It smells like my dad’s cold room in here. That is not a complaint.',
+    'It smells exactly like my own walk-in and I am furious about how much better it is.',
   ],
   kitchen: [
-    'Everybody in here knows you. <em>(Beat.)</em> Everybody in here is <em>busy</em>, and they still know you.',
-    'That man put down a pan. I’ve worked in kitchens. Nobody puts down a pan.',
+    '<em>(Counting, under her breath, without meaning to.)</em> …Eleven of them on a Tuesday. '
+      + 'I have four and I have to beg.',
+    'Everybody in here knows you. <em>(Beat.)</em> Everybody in here is <em>mid-service</em>, and they still know you.',
+    'That man put down a pan. <em>(Flatly.)</em> I run a kitchen. Nobody puts down a pan.',
   ],
   corridor: [
     'The music’s getting louder. That’s the trick, isn’t it. You’ve been walking me towards it the whole time.',
@@ -1495,7 +1556,7 @@ export const DELIA_BARKS = {
   ],
   waiting1: ['Take your time. I’ve got all night and a job at ten.'],
   waiting2: ['Right — are we doing something, or is this the evening?'],
-  waiting3: ['I’m going to start doing material. You don’t want that. Nobody wants that.'],
+  waiting3: ['I stand up for fourteen hours a day. I did not dress like this to keep doing it.'],
   hazard: ['<em>(As a tray goes past her ear.)</em> Thank you. Genuinely, thank you.'],
   show: ['Seven of them. On a Tuesday. In a room this size.'],
 };
@@ -1528,7 +1589,7 @@ export const BARKS = {
     ['a diner', 'And they gave him Wednesdays. Wednesdays!'],
     ['a waiter', 'Two more by the stage, and hurry, they’re on at half past.'],
     ['a diner', 'Out of respect. That’s what he said. Out of respect, and then he took the whole route.'],
-    ['a diner', 'You don’t put Lou on a list. Lou doesn’t wait for a table.'],
+    ['a diner', 'You don’t put Big Uncle Lou on a list. Lou doesn’t wait for a table.'],
     ['a diner', 'The front door’s for civilians. That’s not me being clever, that’s the actual policy.'],
     ['a waiter', 'Front and center just went out. Somebody find out who that is.'],
   ],

@@ -412,8 +412,10 @@ export class Mission {
         song: this.flags.songRequested,
         toast: this.flags.toast,
       },
-      /* She is a recurring character now, or she is not. */
-      delia: {
+      /* She is a recurring character now, or she is not. Keyed by role rather
+       * than by name: she has been recast once and the next scene should not
+       * have to care. */
+      date: {
         met: true,
         available: this.flags.outcome !== 'insult' && this.flags.outcome !== 'disaster',
         knowsWhatHeDoes: this.roundsDone.has('personal'),
@@ -461,14 +463,14 @@ export const ENDINGS = {
     title: 'FRONT AND CENTER',
     body: 'She was polite about it, which was worse. She let the manager call her a car and stood '
       + 'under the canopy talking to him about the band while you held her coat. He got more out '
-      + 'of her in four minutes than you managed all night. Lou will ring about this. Lou rings '
+      + 'of her in four minutes than you managed all night. Big Uncle Lou will ring about this. Lou rings '
       + 'about everything.',
   },
   disaster: {
     title: 'FRONT AND CENTER',
     body: 'She left through the kitchen. Every one of them watched her go and not one of them '
       + 'looked at you, which in that building is a formal statement. The cook you did not tip '
-      + 'held the door. Somebody will tell Lou before you get to the car.',
+      + 'held the door. Somebody will tell Big Uncle Lou before you get to the car.',
   },
   insult: {
     title: 'FRONT AND CENTER',

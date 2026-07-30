@@ -1,0 +1,393 @@
+#!/usr/bin/env node
+/**
+ * Ride the Silver Room's campaign seam in a real browser.
+ *
+ * Not the evening itself — `npm run verify:silver` plays that end to end. This
+ * is the join: waking on Day 3 after the Motel, Margo ringing the physical
+ * phone, the apartment door routing to `silver.html`, the mission's own story
+ * gate opening, the ending folding into campaign state, the walk home, and the
+ * sleep that finally turns the page onto the Day 4 big night.
+ *
+ * The whole point is that none of these are seams the unit tests can see: each
+ * one is a different page, and a save that survives one of them can still be
+ * wrong at the next.
+ */
+import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const PORT = Number(process.env.PORT) || 5214;
+const TYPES = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.mp3': 'audio/mpeg',
+  '.png': 'image/png',
+};
+
+let chromium;
+try {
+  ({ chromium } = await import('playwright'));
+} catch {
+  console.error('playwright is not installed; cannot verify the Silver Room story.');
+  process.exit(1);
+}
+
+const server = http.createServer(async (req, res) => {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const file = path.join(ROOT, decodeURIComponent(url.pathname));
+  if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+    res.writeHead(404).end('not found');
+    return;
+  }
+  res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
+  res.end(await fsp.readFile(file));
+});
+await new Promise((resolve) => server.listen(PORT, resolve));
+
+const browser = await chromium.launch({
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM
+    || (process.env.PLAYWRIGHT_BROWSERS_PATH
+      ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
+  args: [
+    '--use-gl=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--autoplay-policy=no-user-gesture-required',
+  ],
+});
+const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
+
+const problems = [];
+page.on('pageerror', (error) => problems.push(error.message));
+page.on('console', (message) => {
+  if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+});
+
+const results = [];
+function check(name, ok, detail = '') {
+  results.push({ name, ok });
+  console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
+}
+
+/*
+ * Exactly what the Motel's end card leaves behind: Day 3, half four in the
+ * morning, at his own front door, every job done and nothing booked.
+ */
+await page.addInitScript(() => {
+  if (localStorage.getItem('squatchlife.campaign')) return;
+  localStorage.setItem('squatchlife.campaign', JSON.stringify({
+    version: 2,
+    revision: 44,
+    scene: { id: 'apartment', spawn: 'front_door' },
+    story: {
+      chapter: 'day_two',
+      day: 3,
+      timeMinutes: 4 * 60 + 30,
+      meetingKnown: true,
+      meetingLearnedFrom: 'lou_call',
+      timeEvents: [
+        'activity.eat', 'activity.shower', 'activity.poop',
+        'activity.change_clothes', 'call.lou_first', 'travel.bada_bing_one',
+        'call.booski_day_two', 'travel.airstrip', 'mission.airstrip',
+        'call.lou_second', 'travel.bada_bing_two', 'mission.bada_bing_two',
+        'travel.jerky_motel', 'mission.jerky_motel',
+      ],
+    },
+    activities: {
+      eaten: true, showered: true, pooped: true, changedClothes: true, emailChecked: false,
+    },
+    inventory: { carried: [], concealed: [] },
+    missions: {
+      bada_bing_one: { status: 'complete', packageReceived: true, ending: 'front' },
+      squatchfather: { status: 'complete', weaponStaged: true, weaponDropped: true },
+      airstrip_smuggling: {
+        status: 'complete', checkpoint: 'landed_home', cargoLoaded: true,
+        detected: false, landingQuality: 'clean',
+      },
+      bada_bing_two: { status: 'complete', assignment: 'reserve_pickup' },
+      jerky_motel: {
+        status: 'complete', ending: 'home', cargoRecovered: true,
+        packagesIntact: 6, freshness: 74, policeHeat: 12,
+      },
+      silver_room: { status: 'locked' },
+      initiation: { status: 'locked' },
+    },
+    events: {
+      lou_first_call: { status: 'answered' },
+      booski_day_two_call: { status: 'answered' },
+      lou_second_call: { status: 'answered' },
+      margo_date_call: { status: 'pending' },
+      booski_big_night_call: { status: 'pending' },
+    },
+  }));
+});
+
+try {
+  /* ---- 1. sleep off the Motel into the date chapter ---- */
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
+  await page.evaluate(() => window.__squatch.postfx.disable?.());
+
+  const slept = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.lieOnBed();
+    game.sleepInBed();
+    const state = game.campaign.state;
+    return {
+      story: state.story,
+      silver: state.missions.silver_room.status,
+      initiation: state.missions.initiation.status,
+      call: state.events.margo_date_call.status,
+    };
+  });
+  check('sleeping off the Motel opens the date chapter at noon on Day 3',
+    slept.story.chapter === 'date'
+      && slept.story.day === 3
+      && slept.story.timeMinutes === 12 * 60,
+    JSON.stringify(slept.story));
+  check('and the date is still locked until she actually rings',
+    slept.silver === 'locked' && slept.call === 'pending' && slept.initiation === 'locked',
+    JSON.stringify(slept));
+
+  await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
+    timeout: 15000,
+  });
+  const woke = await page.evaluate(() => ({
+    day: window.__squatch.time.day,
+    minutes: window.__squatch.time.minutes,
+    tag: document.querySelector('#overlay .tag')?.textContent ?? '',
+  }));
+  check('the live apartment clock wakes at noon on Day 3',
+    woke.day === 3 && Math.abs(woke.minutes - 12 * 60) < 1,
+    JSON.stringify(woke));
+
+  /* ---- 2. the door waits for her, then she rings ---- */
+  const beforeCall = await page.evaluate(() => window.__squatch.apartmentStory.tryLeave({}));
+  check('the door refuses to leave before she has rung',
+    beforeCall?.kind === 'call' && beforeCall?.id === 'margo_date_call',
+    JSON.stringify(beforeCall));
+
+  const ringing = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.getUp();
+    game.apartmentStory.update(6.1);
+    const definition = game.phone.call?.def;
+    return {
+      ringing: game.phone.ringing,
+      eventId: definition?.eventId,
+      characterId: definition?.characterId,
+      from: definition?.from,
+      vo: definition?.vo,
+      targetSceneId: definition?.targetSceneId,
+      lines: definition?.lines?.length ?? 0,
+    };
+  });
+  check('Margo rings the physical phone on the afternoon of the date',
+    ringing.ringing
+      && ringing.eventId === 'margo_date_call'
+      && ringing.characterId === 'margo'
+      && ringing.from === 'Margo'
+      && ringing.vo === 'call.margo.date'
+      && ringing.targetSceneId === 'silver_room'
+      && ringing.lines === 4,
+    JSON.stringify(ringing));
+
+  const answered = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.apartment.inventory.add('phone');
+    game.phone.press();
+    const state = game.campaign.state;
+    return {
+      inCall: game.phone.inCall,
+      call: state.events.margo_date_call.status,
+      silver: state.missions.silver_room.status,
+      timeMinutes: state.story.timeMinutes,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('answering her unlocks the Silver Room on the authored clock',
+    answered.inCall
+      && answered.call === 'answered'
+      && answered.silver === 'available'
+      && answered.timeMinutes === 12 * 60 + 5,
+    JSON.stringify(answered));
+  check('the apartment door now routes to the Silver Room',
+    answered.door?.kind === 'go' && answered.door?.destination === 'silver_room',
+    JSON.stringify(answered.door));
+
+  /* ---- 3. out the door, at half seven, into the real scene ---- */
+  const departed = await page.evaluate(() => {
+    window.__squatch.tryLeave();
+    const state = window.__squatch.campaign.state;
+    return {
+      day: state.story.day,
+      timeMinutes: state.story.timeMinutes,
+      events: state.story.timeEvents,
+    };
+  });
+  check('leaving for the date lands at Day 3, 7:30 PM through the authored clock',
+    departed.day === 3
+      && departed.timeMinutes === 19 * 60 + 30
+      && departed.events.includes('travel.silver_room'),
+    JSON.stringify(departed));
+
+  await page.waitForURL(/silver\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__silver?.story, null, { timeout: 120000 });
+  await page.evaluate(() => window.__silver.postfx.disable?.());
+  const arrived = await page.evaluate(() => ({
+    scene: window.__silver.campaignState.scene,
+    mission: window.__silver.campaignState.missions.silver_room.status,
+  }));
+  check('the departure really lands in the Silver Room and claims the scene',
+    arrived.scene.id === 'silver_room' && arrived.scene.spawn === 'kerb',
+    JSON.stringify(arrived));
+
+  /* ---- 4. the mission's own gate opens, and the evening starts ---- */
+  /* The title panel is taller than this deliberately tiny viewport, so the
+   * button is off-screen for a real mouse. Same idiom as verify-silver. */
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.__silver.game.started, null, { timeout: 120000 });
+  const begun = await page.evaluate(() => ({
+    started: window.__silver.game.started,
+    mission: window.__silver.campaignState.missions.silver_room.status,
+    state: window.__silver.mission.state,
+  }));
+  check('pressing start opens the story gate and marks the date in progress',
+    begun.started && begun.mission === 'in_progress',
+    JSON.stringify(begun));
+
+  /* ---- 5. the evening ends and folds into the campaign ----
+   * The 30-minute evening itself is verify:silver's job. What is being tested
+   * here is only that a real ending reaches campaign state through the real
+   * finish path. */
+  const ended = await page.evaluate(() => {
+    /* The same two calls the invitation makes when she says yes: the mission
+     * records the outcome, then the card is drawn. `debug.ending` alone only
+     * previews the card, which would let this pass with an outcome the mission
+     * never actually reached. */
+    window.__silver.mission.finish('strong');
+    window.__silver.debug.ending('strong');
+    const folded = window.__silver.campaignState.missions.silver_room;
+    return {
+      over: window.__silver.game.over,
+      folded,
+      day: window.__silver.campaignState.story.day,
+      timeMinutes: window.__silver.campaignState.story.timeMinutes,
+      button: document.getElementById('start-btn')?.textContent ?? '',
+    };
+  });
+  check('the ending folds the evening into campaign state',
+    ended.over
+      && ended.folded.status === 'complete'
+      && ended.folded.outcome === 'strong'
+      && ended.folded.seeingHerAgain === true,
+    JSON.stringify(ended.folded));
+  check('and completion lands on the authored clock, late on Day 3',
+    ended.day === 3 && ended.timeMinutes === 23 * 60 + 20,
+    JSON.stringify({ day: ended.day, timeMinutes: ended.timeMinutes }));
+  check('the ending card offers the way home rather than a replay',
+    ended.button.toLowerCase().includes('home'), ended.button);
+
+  /* ---- 6. home ---- */
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForURL(/index\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
+  await page.evaluate(() => window.__squatch.postfx.disable?.());
+  const home = await page.evaluate(() => {
+    const game = window.__squatch;
+    return {
+      tag: document.querySelector('#overlay .tag')?.textContent ?? '',
+      scene: game.campaign.state.scene,
+      day: game.time.day,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('coming home is recognised as coming home from the date',
+    home.tag.includes('Silver Room')
+      && home.scene.id === 'apartment'
+      && home.scene.spawn === 'front_door'
+      && home.day === 3,
+    JSON.stringify(home));
+  check('and the door sends him to bed rather than on to the Circle',
+    home.door?.kind === 'stay' && home.door?.id === 'sleep_before_big_night',
+    JSON.stringify(home.door));
+
+  /* ---- 7. sleep turns the page onto Day 4 ---- */
+  const bigNight = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.lieOnBed();
+    game.sleepInBed();
+    const state = game.campaign.state;
+    return {
+      story: state.story,
+      silver: state.missions.silver_room.status,
+      call: state.events.booski_big_night_call.status,
+    };
+  });
+  check('sleeping off the date opens the big night on Day 4 at ten',
+    bigNight.story.chapter === 'big_night'
+      && bigNight.story.day === 4
+      && bigNight.story.timeMinutes === 10 * 60,
+    JSON.stringify(bigNight.story));
+  check('the date survives the page turn and Booskibro has not rung yet',
+    bigNight.silver === 'complete' && bigNight.call === 'pending',
+    JSON.stringify(bigNight));
+
+  await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
+    timeout: 15000,
+  });
+  const booski = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.getUp();
+    game.apartmentStory.update(6.1);
+    return {
+      ringing: game.phone.ringing,
+      eventId: game.phone.call?.def?.eventId,
+      from: game.phone.call?.def?.from,
+    };
+  });
+  check('and Booskibro rings about the big night on the far side of the date',
+    booski.ringing
+      && booski.eventId === 'booski_big_night_call'
+      && booski.from === 'Booskibro',
+    JSON.stringify(booski));
+
+  /* ---- 8. and none of it replays ---- */
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
+  const replay = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.apartmentStory.beginMorning();
+    game.apartmentStory.update(60);
+    const state = game.campaign.state;
+    return {
+      call: game.phone.call?.def?.eventId ?? null,
+      margo: state.events.margo_date_call.status,
+      silver: state.missions.silver_room.status,
+      day: state.story.day,
+    };
+  });
+  check('a reload cannot replay Margo or reopen a finished evening',
+    replay.margo === 'answered'
+      && replay.silver === 'complete'
+      && replay.day === 4
+      && replay.call === 'booski_big_night_call',
+    JSON.stringify(replay));
+
+  check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
+} finally {
+  await browser.close();
+  await new Promise((resolve) => server.close(resolve));
+}
+
+const failed = results.filter((result) => !result.ok);
+if (failed.length) {
+  console.error(`\n${failed.length}/${results.length} Silver Room story checks failed.`);
+  process.exit(1);
+}
+console.log(`\nAll ${results.length} Silver Room story checks passed.`);

@@ -31,6 +31,11 @@ const CASES = [
     module: 'src/initiation/main.js',
     scene: 'Initiation',
   },
+  {
+    page: 'silver.html',
+    module: 'src/silver/main.js',
+    scene: 'Silver Room',
+  },
 ];
 
 let chromium;

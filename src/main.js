@@ -167,15 +167,23 @@ const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
   && campaignAtLoad.scene.spawn === 'front_door';
 const returningFromBing = returningToApartment
   && campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
+/* Checked before the Motel, because coming home from the date is also coming
+ * home with a finished Motel behind you. Newest completed thing wins. */
+const returningFromSilver = returningToApartment
+  && campaignAtLoad.missions[MISSION_IDS.SILVER_ROOM].status === 'complete';
 const returningFromMotel = returningToApartment
+  && !returningFromSilver
   && campaignAtLoad.missions[MISSION_IDS.JERKY_MOTEL].status === 'complete';
 const returningFromSquatchfather = returningToApartment
+  && !returningFromSilver
   && !returningFromMotel
   && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
 const apartmentGunUnlocked =
   campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
 const wakingOnDayTwo = !returningToApartment
   && campaignAtLoad.story.chapter === 'day_two';
+const wakingOnDate = !returningToApartment
+  && campaignAtLoad.story.chapter === 'date';
 const wakingOnBigNight = !returningToApartment
   && campaignAtLoad.story.chapter === 'big_night';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
@@ -185,9 +193,12 @@ time.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
 if (wakingOnDayTwo) {
   overlay.querySelector('.tag').textContent =
     'Day Two, 7:00 AM. Booskibro has the next job. The phone is on the nightstand.';
+} else if (wakingOnDate) {
+  overlay.querySelector('.tag').textContent =
+    'Day Three, 12:00 PM. Nothing on today. She said she would ring.';
 } else if (wakingOnBigNight) {
   overlay.querySelector('.tag').textContent =
-    'Day Three, 12:00 PM. Tonight is the big night. Booskibro will call about it.';
+    'Day Four, 10:00 AM. Tonight is the big night. Booskibro will call about it.';
 }
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
@@ -572,9 +583,11 @@ async function boot() {
     interaction.setPaused(false);
     overlay.querySelector('.tag').textContent = returningFromBing
       ? 'Back from the Bing. Lou’s package is still under your jacket.'
-      : returningFromMotel
-        ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
-        : 'Back from the restaurant. The business is settled.';
+      : returningFromSilver
+        ? 'Back from the Silver Room. Tomorrow is the big night. Sleep on it.'
+        : returningFromMotel
+          ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
+          : 'Back from the restaurant. The business is settled.';
     startBtn.textContent = 'Go Inside';
   } else {
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
@@ -651,6 +664,16 @@ startBtn.addEventListener('click', async () => {
       if (returningFromBing) {
         hud.toast('Lou’s package · inside your jacket', 'good');
         hud.say('Home again. The package came back with you.', 4800);
+      } else if (returningFromSilver) {
+        /* The one time he comes home from something that was not work. The
+         * campaign knows how the evening went; the door only says that it did. */
+        const date = campaignAtLoad.missions[MISSION_IDS.SILVER_ROOM];
+        hud.toast(date.seeingHerAgain
+          ? 'She is seeing you again'
+          : 'The evening is over', date.seeingHerAgain ? 'good' : '');
+        hud.say(date.seeingHerAgain
+          ? 'Home. And she said yes to the next one. <em>Tomorrow is the other thing.</em>'
+          : 'Home. That went how it went. <em>Tomorrow is the other thing.</em>', 4800);
       } else if (returningFromMotel) {
         hud.toast('The jerky run is done', 'good');
         hud.say('Home. Every bit of that took all night. <em>Bed.</em>', 4800);
@@ -2021,6 +2044,11 @@ function leaveForMission(destination) {
   }
   if (destination === SCENE_IDS.BADA_BING_TWO) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_TWO);
+    syncClockFromCampaign();
+  }
+  if (destination === SCENE_IDS.SILVER_ROOM) {
+    // The mission's own story class flips it to in_progress on the pavement.
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_ROOM);
     syncClockFromCampaign();
   }
   if (destination === SCENE_IDS.INITIATION) {

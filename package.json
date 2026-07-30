@@ -34,7 +34,8 @@
     "sfx:listen": "node tools/sfx-index.mjs",
     "radio:cues": "node tools/radio-cues.mjs",
     "audio:todo": "node tools/audio-todo.mjs",
-    "vo:beefrun": "node tools/beefrun-vo.mjs"
+    "vo:beefrun": "node tools/beefrun-vo.mjs",
+    "verify:silver-story": "node tools/verify-silver-story.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0"

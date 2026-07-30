@@ -153,6 +153,14 @@
       "stability": 0.6,
       "similarity": 0.8,
       "style": 0.15
+    },
+    "margo": {
+      "id": "FGY2WhTYpPnrIDTdsKH5",
+      "_note": "PROVISIONAL — placeholder casting only, recast before any real recording. Margo Salas runs the kitchen at the Blue Hour: dry, direct, unhurried, fifteen years of talking over extraction fans. Borrowed id from `hogmama` purely so the lines can be auditioned; she is NOT Hog Mama and must not end up sharing a voice with a Circle member.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.75,
+      "style": 0.5
     }
   },
   "sfx": [
@@ -4874,6 +4882,155 @@
       "name": "vo.beefrun.sasole.bark-patrolClose-1.1",
       "voice": "lou2",
       "say": "Lower. Trees are free cover and nobody bills you for them."
+    },
+    {
+      "name": "woo.up",
+      "duration": 0.5,
+      "prompt": "short warm upward two-note chime on a vibraphone, soft mallet, small room, quiet and unfussy, no music bed"
+    },
+    {
+      "name": "woo.down",
+      "duration": 0.5,
+      "prompt": "short muted downward two-note vibraphone figure, soft mallet, slightly flat, small room, no music bed"
+    },
+    {
+      "name": "woo.streak",
+      "duration": 1.1,
+      "prompt": "small bright rising vibraphone flourish with a soft shimmer tail, celebratory but restrained, supper club scale"
+    },
+    {
+      "name": "tip.fold",
+      "duration": 0.6,
+      "prompt": "a folded banknote pressed into a palm and closed around, soft paper crease and fabric, very close mic, dry"
+    },
+    {
+      "name": "pour",
+      "duration": 1.6,
+      "prompt": "whiskey poured from a bottle into a heavy tumbler, steady stream, glass resonance, close mic, dry bar interior"
+    },
+    {
+      "name": "ice.drop",
+      "duration": 0.7,
+      "prompt": "a single large ice cube dropped into an empty heavy tumbler, sharp clink and settle, close mic"
+    },
+    {
+      "name": "glass.set",
+      "duration": 0.5,
+      "prompt": "a heavy tumbler set down firmly on a polished wooden bar, dull thud with a short glass ring, close mic"
+    },
+    {
+      "name": "cork.pop",
+      "duration": 0.8,
+      "prompt": "champagne cork eased out of a bottle, controlled soft pop and a breath of escaping gas, close mic"
+    },
+    {
+      "name": "kitchen.pan",
+      "duration": 0.9,
+      "prompt": "a heavy steel saute pan set down hard on a steel pass in a busy restaurant kitchen, metallic clang with room tail"
+    },
+    {
+      "name": "cutlery.set",
+      "duration": 0.7,
+      "prompt": "a handful of silver cutlery laid out on white linen, several small metallic taps, close mic, dry"
+    },
+    {
+      "name": "cloth.snap",
+      "duration": 0.8,
+      "prompt": "a fresh linen tablecloth snapped open and settling over a table, sharp fabric crack then a soft fall"
+    },
+    {
+      "name": "table.set",
+      "duration": 1,
+      "prompt": "a small round restaurant table lifted and set down on carpet, wooden creak and a muted thump"
+    },
+    {
+      "name": "chair.pull",
+      "duration": 0.9,
+      "prompt": "a wooden dining chair pulled back across carpet then stilled, low scrape, restaurant room tone"
+    },
+    {
+      "name": "mic.handle",
+      "duration": 0.6,
+      "prompt": "a vocal microphone lifted off its stand, handling noise and a short thump through a PA, close mic"
+    },
+    {
+      "name": "stage.clunk",
+      "duration": 0.7,
+      "prompt": "a heavy stage monitor or amp knocked on a wooden riser, dull resonant clunk, small hall"
+    },
+    {
+      "name": "curtain.draw",
+      "duration": 2.4,
+      "prompt": "a heavy velvet stage curtain drawn along a metal track, rings running, fabric sweep, small theatre"
+    },
+    {
+      "name": "applause",
+      "duration": 3.2,
+      "prompt": "warm applause from about sixty seated people in a supper club, no whistling, close and enthusiastic, ends naturally"
+    },
+    {
+      "name": "car.door",
+      "duration": 0.7,
+      "prompt": "a heavy sedan door closed from outside on a wet street at night, solid thunk, slight street reverb"
+    },
+    {
+      "name": "band.horns",
+      "duration": 8,
+      "prompt": "live brass section stem, muted trumpet and tenor sax, slow swing ballad at about 92 bpm, supper club stage, no drums no piano, loopable"
+    },
+    {
+      "name": "band.piano",
+      "duration": 8,
+      "prompt": "live jazz piano stem, soft comping chords, slow swing ballad at about 92 bpm, supper club stage, no horns no drums, loopable"
+    },
+    {
+      "name": "band.vocal",
+      "duration": 8,
+      "prompt": "live jazz vocal stem, warm low female scat and held notes, slow swing ballad at about 92 bpm, no accompaniment, loopable"
+    },
+    {
+      "name": "ambience.alley",
+      "duration": 20,
+      "prompt": "night alley behind a busy restaurant, distant city traffic, a extractor fan, light rain on bins, no voices, seamless loop"
+    },
+    {
+      "name": "ambience.cellar",
+      "duration": 20,
+      "prompt": "a restaurant cellar, low hum of refrigeration, faint muffled music through a ceiling, dripping, seamless loop"
+    },
+    {
+      "name": "ambience.kitchen",
+      "duration": 20,
+      "prompt": "a busy professional restaurant kitchen mid-service, pans, extraction, indistinct short calls, no clear words, seamless loop"
+    },
+    {
+      "name": "ambience.diners",
+      "duration": 20,
+      "prompt": "a full supper club dining room, sixty people in low conversation, cutlery on china, no clear words, seamless loop"
+    },
+    {
+      "name": "vo.call.margo.date.1",
+      "voice": "margo",
+      "say": "You gave me this number and told me to use it. So.",
+      "duration": 4
+    },
+    {
+      "name": "vo.call.margo.date.2",
+      "voice": "margo",
+      "say": "The Silver Room. Nine o’clock. It is my one night off in six, so do not waste it.",
+      "duration": 4
+    },
+    {
+      "name": "vo.call.margo.date.3",
+      "voice": "margo",
+      "say": "I drink rye. One ice cube. One. Write it on your hand if you have to.",
+      "duration": 4
+    },
+    {
+      "name": "vo.call.margo.date.4",
+      "voice": "margo",
+      "say": "And iron something. I have seen what you wear at four in the morning.",
+      "duration": 4
     }
   ]
 }

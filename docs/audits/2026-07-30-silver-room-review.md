@@ -69,15 +69,46 @@ integration checklist below still wait on the owner and the integration pass.
 11. Sway.press() can be mashed — gate on the current beat index.
 12. The band set loops forever → theOne re-fires offerSway/toasts.
 
+## Integration pass — 2026-07-30, DONE
+
+Every item on the checklist above is implemented. Disposition:
+
+| Checklist item | Disposition |
+|---|---|
+| `bing/cast.js` dress additions + gender/bodyShape | Ported. `chef`/`porter`/`gown` added, existing kinds untouched, silver call sites pass the frame params, diner/queue rolls made coherent. Render-probed headless: all three read correctly. |
+| `core/phone.js` Delia CALLS entry | **Adapted, not ported.** The campaign owns scheduled calls (`calls: []`), so she is `DATE_MARGO_CALL` in `src/core/apartment-story.js`, not an entry in the legacy `CALLS` array. Her copy comes from the recast's phone lines. |
+| Bing prior-encounter hook | Ported, Scene One only, gated behind `includeMargo`. Sets `mission.flags.gaveNumber`; **not** a gate on the date. The branch's direct `silver.html` link out of the Bing ending was deliberately dropped — the campaign owns navigation. |
+| Campaign ids, navigation, return path, persist fold | Done. `SCENE_IDS.SILVER_ROOM`, `MISSION_IDS.SILVER_ROOM`, `EVENT_IDS.MARGO_DATE_CALL`, `travel.silver_room`, `mission.silver_room`, `src/core/silver-story.js`. `squatch.frontAndCenter` is gone. |
+| Tooling: check.mjs cueFiles + manifest | Done. The scan caught **25** cues that existed nowhere in the manifest; all authored with prompts, plus `vo.call.margo.date.1..4` and a provisional `voices.margo`. |
+| Tooling: verify-boot-errors | Done (6 → 8). `silver.html` converted to the shared `boot-guard.js` panel. |
+| Tooling: extend verify-silver through real paths | Already done by the mechanical-fix pass (54 → 75); now 76, and it boots through `?preview=1` so the new story gate opens. |
+| Landmine: absolute `player.eyeHeight` in `groundAt` | **Still open.** Untouched by this pass — it remains correct at y=0 tables and wrong if anything is ever seated off the ground floor. |
+
+Canon questions 1-4 from the top of this file are all resolved: 1 and 2 by the
+recast (see below), 3 by making all 13 bare "Lou" sites explicitly Big Uncle
+Lou, and 4 by adding `MARGO` and `APE` to `src/core/characters.js`.
+
 ## Owner rulings — 2026-07-30 morning
 
 1. **Campaign slot**: the date is Day 3 EVENING — wake at noon after the
    Motel, Delia calls, the Silver Room is that evening. Booskibro's
    big-night call and the Initiation MOVE TO DAY 4 (sleep after the date
    turns the page). The Goodfellas calm-before-the-verdict beat.
-2. **Delia's radio handle changes** — she is NOT Hog Mama; pick a new
-   on-air name and update the intro references. Circle canon untouched.
-3. **Booski stays the cab driver** — the patriarch moonlighting is the joke.
+2. ~~**Delia's radio handle changes** — she is NOT Hog Mama; pick a new
+   on-air name and update the intro references. Circle canon untouched.~~
+   **SUPERSEDED** by the branch recast at `48f028b`, which the owner endorsed:
+   she is not a radio personality at all. She is **Margo Salas**, who runs the
+   kitchen at the Blue Hour on Ashland — a civilian with no stake in Lou, the
+   Bing, or anybody in the Silver Room, which is the only reason her good
+   opinion costs anything. No new on-air name was invented. Circle canon and
+   `core/stations.js` are untouched; `hogmama` remains a Circle id and a radio
+   voice.
+3. ~~**Booski stays the cab driver** — the patriarch moonlighting is the
+   joke.~~ **SUPERSEDED** by the same recast: Booski is a boss and does not do
+   the school run. The driver is a hired car and a man who has never met either
+   of them — the only person all evening who does not know Prospect's name, and
+   the only one who says thank you out loud for money, which is what the rest
+   of the night is measured against.
 4. (Earlier ruling) The mission is the Goodfellas Copacabana parody and is
    part of the campaign, not optional.
 

@@ -65,6 +65,42 @@ export const CHARACTER_REGISTRY = Object.freeze({
     role: 'founder',
     legacyAliases: ['booskibro'],
   }),
+  /**
+   * The Circle's roaster, and the first member Tony meets twice.
+   *
+   * He is a locked Initiation id (`src/initiation/npc.js`) who also turns up at
+   * the pillar table in the Silver Room, so he needs one identity rather than
+   * two scene-local cast keys that happen to spell the same word.
+   */
+  [CHARACTER_IDS.APE]: character({
+    id: CHARACTER_IDS.APE,
+    canonicalName: 'Ape',
+    subtitleName: 'Ape',
+    voiceProfile: 'ape',
+    species: 'human',
+    role: 'family_member',
+    legacyAliases: ['APE'],
+  }),
+  /**
+   * The date, and the only named person in the campaign with no stake in it.
+   *
+   * She is deliberately not family and deliberately not on the family's radio
+   * station: she runs a kitchen, she is a civilian, and her good opinion costs
+   * something to earn precisely because none of this belongs to her. The role
+   * is `civilian` for that reason — it is load-bearing, not decoration.
+   *
+   * `date` is a legacy alias because the mission that introduced her keys her
+   * by role rather than by name, so she can be recast with a data edit.
+   */
+  [CHARACTER_IDS.MARGO]: character({
+    id: CHARACTER_IDS.MARGO,
+    canonicalName: 'Margo Salas',
+    subtitleName: 'Margo',
+    voiceProfile: 'margo',
+    species: 'human',
+    role: 'civilian',
+    legacyAliases: ['margo_salas', 'date'],
+  }),
 });
 
 const CHARACTER_ALIASES = Object.freeze(

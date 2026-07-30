@@ -114,14 +114,28 @@ test('Squatchfather and Bing Two previews receive only temporary prerequisites',
       },
     },
     {
+      location: { pathname: '/silver.html', search: '?preview=1' },
+      scene: SCENE_IDS.SILVER_ROOM,
+      verify(state) {
+        assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+        assert.equal(state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
+        assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
+        assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
+        assert.equal(state.story.chapter, 'date');
+        assert.equal(state.story.day, 3);
+      },
+    },
+    {
       location: { pathname: '/initiation.html', search: '?preview=1' },
       scene: SCENE_IDS.INITIATION,
       verify(state) {
         assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'complete');
         assert.equal(state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
+        // The date is behind him, so the big night is the next calendar day.
         assert.equal(state.story.chapter, 'big_night');
-        assert.equal(state.story.day, 3);
+        assert.equal(state.story.day, 4);
       },
     },
   ];

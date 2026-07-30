@@ -56,6 +56,10 @@ export class Mission {
       alarmTripped: false,
       secretPanel: false,
       plateRead: false,
+      /* The one thing the woman at the end of the bar changes. Flavour, not a
+       * gate: the campaign decides whether the date happens. */
+      heardHerDrink: false,
+      gaveNumber: false,
     };
 
     this.addObjective('lou', 'Meet Lou in the back office');

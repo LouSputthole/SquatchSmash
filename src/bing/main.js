@@ -191,7 +191,7 @@ world.floorZones = club.floorZones;
 world.groundAt = club.groundAt;
 
 window.__squatchStage?.('Letting people in…');
-const cast = populate(scene, club);
+const cast = populate(scene, club, { includeMargo: !isSecondVisit });
 const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders);
 
 /* ------------------------------------------------------------------ *
@@ -566,6 +566,19 @@ reg(cast.byName.bartender.group, talkTo(cast.byName.bartender, scripts.bartender
 reg(cast.byName.hallGuard.group, talkTo(cast.byName.hallGuard, scripts.hallGuard));
 reg(cast.byName.dealer.group, talkTo(cast.byName.dealer, scripts.dealer));
 reg(cast.byName.dj.group, talkTo(cast.byName.dj, scripts.dj));
+/* Scene One only, so she is registered only when she is actually in the room. */
+if (cast.byName.margo) {
+  reg(cast.byName.margo.group, {
+    label: () => (mission.flags.gaveNumber
+      ? 'Say goodnight to <b>Margo</b>'
+      : 'Talk to the <b>woman at the end of the bar</b>'),
+    onUse: () => {
+      const her = cast.byName.margo;
+      her.faceToward(player.position.x, player.position.z);
+      dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her);
+    },
+  });
+}
 reg(cast.byName.lou.group, {
   label: () => (mission.state === 'briefed' ? 'Confirm with <b>Lou</b>' : 'Talk to <b>Lou</b>'),
   onUse: () => {
@@ -1243,6 +1256,11 @@ function showEnding(kind) {
   if (mission.flags.secretPanel) extras.push('And somebody is skimming that machine. You know it, and now Lou is going to know it.');
   if (inventory.count() > 0) extras.push(`You also drove off with ${inventory.count()} of Lou's drinks in your hands.`);
   if (mission.flags.alarmTripped) extras.push('The service door alarm chirped on your way out. Somebody will mention it.');
+  /* Offered rather than forced, and no link out of here: the campaign owns
+   * where he goes next, and where he goes next is home with the package. */
+  if (mission.flags.gaveNumber) {
+    extras.push('You gave somebody at the end of the bar your number, which is not a thing you do.');
+  }
   extras.push(isSecondVisit
     ? '<br><b>NEXT: DRIVE DIRECTLY TO THE JERKY MOTEL</b>'
     : '<br><b>NEXT: RETURN HOME WITH LOU’S PACKAGE</b>');
