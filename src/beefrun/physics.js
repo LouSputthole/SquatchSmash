@@ -306,7 +306,8 @@ export class AircraftPhysics {
       const mu = this.damage.tireBurst && i === 1 ? 0.34 : 0.78;
       sLat.copy(sSide).multiplyScalar(-clamp(latSpeed * 0.6, -1, 1) * mu * N);
 
-      const brakeMu = w.brake ? (c.parkingBrake ? 0.6 : c.brake * 0.42) : 0.015;
+      // Enough to hold a run-up at three quarters power, and not much more.
+      const brakeMu = w.brake ? (c.parkingBrake ? 0.7 : c.brake * 0.58) : 0.015;
       const rollMu = 0.02 + (this.damage.tireBurst && i === 1 ? 0.14 : 0);
       const longMag = -(brakeMu + rollMu) * N * Math.sign(fwdSpeed) * Math.min(1, Math.abs(fwdSpeed) / 1.1);
       sLong.copy(sFwd).multiplyScalar(longMag);
@@ -331,8 +332,28 @@ export class AircraftPhysics {
     if (anyContact) this._wasAirborne = false;
     else if (this.agl > 0.8) this._wasAirborne = true;
 
-    // Belly scrape / terrain strike.
-    if (!anyContact && this.agl < 0.2) {
+    /* Structural contact with the ground — as distinct from the wheels finding
+     * it, which is a landing.
+     *
+     * Without this the aeroplane can be flown into a hillside at ninety knots
+     * and simply carry on, because the undercarriage takes the load and slides:
+     * three spring-damper contact points will happily toboggan up a mountain.
+     * So the nose and the belly are checked against the surface directly, and
+     * how bad it is scales with how fast you were going when you found out. */
+    sTmp.set(0, 0.05, 4.4).applyQuaternion(this.quat);
+    const noseClear = (pos.y + sTmp.y) - this.getHeight(pos.x + sTmp.x, pos.z + sTmp.z);
+    const bellyClear = pos.y - this.getHeight(pos.x, pos.z);
+    /* The nose only counts as a strike if the aeroplane is going somewhere. An
+     * aeroplane parked at the top of an eight per cent strip has its nose over
+     * rising ground and is not crashing into anything. */
+    const struckNose = noseClear < 0.15 && sVb.z > 8;
+    if (struckNose || bellyClear < 0.35) {
+      const severity = V * 0.13 + Math.max(0, -this.velocity.y) * 0.6;
+      // Whatever happens next, it is not still flying.
+      this.velocity.multiplyScalar(Math.exp(-6 * dt));
+      this.omega.multiplyScalar(Math.exp(-8 * dt));
+      this.onImpact?.(severity, 'terrain');
+    } else if (!anyContact && this.agl < 0.2) {
       this.onImpact?.(Math.max(0, -this.velocity.y - 1) + this.tas * 0.02, 'terrain');
     }
 

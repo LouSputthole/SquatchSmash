@@ -127,9 +127,17 @@ try {
    * Cues are allowed to be synth-only on purpose, so the manifest is the
    * authority and this only reports names that appear nowhere in it. */
   const allCues = new Set(sfxManifest.sfx.map((c) => c.name));
-  for (const file of ['src/main.js', 'src/world/apartment.js', 'src/core/radio.js']) {
+  const cueFiles = [
+    'src/main.js', 'src/world/apartment.js', 'src/core/radio.js',
+    /* The Beef Run reaches the same engine through its own thin wrapper, so it
+     * can go wrong in exactly the same silent way. */
+    ...fs.readdirSync(path.join(ROOT, 'src/beefrun'))
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => `src/beefrun/${f}`),
+  ];
+  for (const file of cueFiles) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    for (const m of src.matchAll(/audio\.(?:play|startLoop)\(\s*'([^']+)'/g)) {
+    for (const m of src.matchAll(/(?:audio\??|missionAudio)\.(?:play|startLoop)\(\s*'([^']+)'/g)) {
       if (!allCues.has(m[1])) {
         fail(`${file}: audio.play('${m[1]}') is not in assets/sfx/manifest.json `
           + '— it will fall through to the synth and can never be recorded');
@@ -257,6 +265,39 @@ try {
   if (flat.length && noTurns.length === flat.length) {
     fail('every multi-line Lou exchange is one voice — they never answer each other');
   }
+} catch (err) {
+  fail(err.message);
+}
+
+/* ---- the Beef Run's dialogue must resolve ---- */
+/* Beats are played by id from mission.js, preflight.js and loading.js. A
+ * renamed beat is a line nobody ever hears again, and the mission carries on
+ * without it, so the ids are checked against the script rather than trusted. */
+try {
+  const { BEATS, BARKS, OBJECTIVES } = await import('../src/beefrun/script.js');
+  const ids = new Set(Object.keys(BEATS));
+  const files = fs.readdirSync(path.join(ROOT, 'src/beefrun'))
+    .filter((f) => f.endsWith('.js'))
+    .map((f) => `src/beefrun/${f}`);
+  let played = 0;
+  for (const file of files) {
+    const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    for (const m of src.matchAll(/dialogue\.play\(\s*'([^']+)'/g)) {
+      played++;
+      if (!ids.has(m[1])) fail(`${file}: dialogue.play('${m[1]}') is not a beat in script.js`);
+    }
+    for (const m of src.matchAll(/dialogue\.bark\(\s*'([^']+)'/g)) {
+      if (!BARKS[m[1]]) fail(`${file}: dialogue.bark('${m[1]}') has no lines in script.js`);
+    }
+  }
+  if (played < 30) fail(`only ${played} beats are ever played — the script is not wired up`);
+  for (const [k, v] of Object.entries(BEATS)) {
+    if (!Array.isArray(v) || !v.length) fail(`beat "${k}" is empty`);
+    for (const line of v) {
+      if (!line.who || !line.text) fail(`beat "${k}" has a line with no speaker or no text`);
+    }
+  }
+  if (Object.keys(OBJECTIVES).length < 10) fail('the objective list looks truncated');
 } catch (err) {
   fail(err.message);
 }

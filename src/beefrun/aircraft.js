@@ -274,9 +274,18 @@ export class Brushrunner {
     doorPivot.position.set(-0.93, -0.1, -0.2);
     const door = mesh(boxGeo(0.08, 1.5, 1.7), patch, 0, 0, -0.85);
     doorPivot.add(door);
-    const handle = mesh(boxGeo(0.14, 0.1, 0.42), metal, -0.09, -0.2, -0.3);
-    doorPivot.add(handle);
-    this.parts.doorHandle = handle;
+    /* The handle is a fixed mount with a lever inside it. Only the lever turns,
+     * because anything that interacts with the handle hangs its reach proxy off
+     * the mount — and a proxy that rotates ninety degrees mid-hold swings out
+     * from under the crosshair and cancels the hold it was there to support. */
+    const handleMount = new THREE.Group();
+    handleMount.position.set(-0.09, -0.2, -0.3);
+    handleMount.name = 'door-handle';
+    const lever = mesh(boxGeo(0.14, 0.1, 0.42), metal, 0, 0, 0);
+    handleMount.add(lever);
+    doorPivot.add(handleMount);
+    this.parts.doorHandle = handleMount;
+    this.parts.doorLever = lever;
     g.add(doorPivot);
     this.parts.cargoDoor = doorPivot;
 

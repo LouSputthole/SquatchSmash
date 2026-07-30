@@ -48,6 +48,18 @@ export class Player {
 
     this.sensitivity = 0.0022;
     this.enabled = false;
+
+    /**
+     * Where the floor is, if it is not at zero.
+     *
+     * The flat has one storey and a level floor, so the eye height doubles as
+     * the camera's world Y and nothing has ever needed this. A scene with
+     * terrain in it does: set `groundAt(x, z)` and the eye rides the surface
+     * instead of the origin. Left null, every number below is exactly what it
+     * was before.
+     */
+    this.groundAt = null;
+    this.feetY = 0;
     this.keys = new Set();
     this.onFootstep = null;
     this._stepDist = 0;
@@ -269,8 +281,13 @@ export class Player {
     this.crouching = k.has('KeyC');
     this.sprinting = (k.has('ShiftLeft') || k.has('ShiftRight')) && !this.crouching && fwd > 0;
 
-    this.targetEye = this.crouching ? EYE_CROUCH : EYE_STAND;
+    const base = this.groundAt ? this.groundAt(this.position.x, this.position.z) : 0;
+    this.feetY = base;
+    this.targetEye = base + (this.crouching ? EYE_CROUCH : EYE_STAND);
     this.eyeHeight += (this.targetEye - this.eyeHeight) * Math.min(1, dt * 9);
+    // Keep the body where the eye is, so anything measuring a distance to the
+    // player measures it from the player and not from the floor of storey zero.
+    this.position.y = this.eyeHeight;
 
     const maxSpeed = (this.crouching
       ? SPEED_CROUCH
@@ -338,8 +355,9 @@ export class Player {
   /** Push the player capsule out of any collider it is overlapping. */
   _resolve(axis) {
     const p = this.position;
+    const feet = this.groundAt ? this.feetY : p.y - this.eyeHeight;
     for (const box of this.world.colliders) {
-      if (p.y + 0.05 < box.min.y || p.y - this.eyeHeight > box.max.y) continue;
+      if (p.y + 0.05 < box.min.y || feet > box.max.y) continue;
 
       const cx = clamp(p.x, box.min.x, box.max.x);
       const cz = clamp(p.z, box.min.z, box.max.z);

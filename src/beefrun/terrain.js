@@ -9,8 +9,8 @@ import { clamp, lerp, smoothstep, fbm, ridged, rng, solid, mat } from './util.js
 // behind it; fog and cloud layers hide the seams.
 
 const CHUNK = 500;
-const RADIUS = 6;
-const DETAIL = [28, 28, 20, 12, 8, 6, 6];   // segments per chunk by ring distance
+const RADIUS = 5;                           // ~2.5 km of ground, then fog
+const DETAIL = [28, 24, 18, 12, 8, 6];      // segments per chunk by ring distance
 const BUILD_BUDGET = 3;                     // chunks built per frame
 
 // ---------- Elevation ----------
@@ -69,9 +69,15 @@ function elHuesoShape(x, z, h) {
   const stripElev = lerp(EH.elevHigh, EH.elevLow, clamp((z - EH.zHigh) / (EH.zLow - EH.zHigh), 0, 1));
   h = lerp(h, stripElev + 30, valley * 0.85);
 
-  // The shelf itself.
-  const onLen = smoothstep(halfLen + 150, halfLen - 10, Math.abs(dz));
-  const onWid = smoothstep(70, 26, Math.abs(dx));
+  /* The shelf itself, plus a run-out past the uphill end.
+   *
+   * Without the run-out, a landing that uses the whole strip arrives at the
+   * point where the valley wall starts climbing while still doing thirty knots,
+   * and the aeroplane drives into the mountain having done nothing wrong. */
+  const past = Math.max(0, EH.zHigh - z);                 // beyond the top end
+  const effective = Math.abs(dz) - smoothstep(0, EH.runOut, past) * EH.runOut;
+  const onLen = smoothstep(halfLen + 170, halfLen - 10, effective);
+  const onWid = smoothstep(90, 30, Math.abs(dx));
   h = lerp(h, stripElev, onLen * onWid);
 
   // Cliff past the low (departure) end.

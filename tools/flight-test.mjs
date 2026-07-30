@@ -350,5 +350,44 @@ console.log('Brushrunner flight model\n');
   console.log(results.splice(0).join('\n'));
 }
 
+/* ---------------------------------------------------------------- */
+/* 9. Flying it into a hill must end the flight                       */
+/* ---------------------------------------------------------------- */
+{
+  // A wall of ground rising 200 m over 100 m, straight ahead.
+  const hill = (x, z) => (z < -400 ? GH + Math.min(200, (-400 - z) * 2) : GH);
+  const p = new AircraftPhysics({ getHeight: hill });
+  const eng = new EngineSystem();
+  eng.masterBattery = true; eng.fuelSelectors = true; eng.rightBalks = false;
+  eng.crank(0); eng.crank(1);
+  for (let i = 0; i < 240; i++) eng.update(dt, 0);
+  p.engines = eng;
+  let worst = 0;
+  p.onImpact = (sev) => { worst = Math.max(worst, sev); };
+  p.setPose(new THREE.Vector3(0, GH + 40, 0), 180, 55);
+  let hitAt = -1;
+  for (let i = 0; i < 60 * 30; i++) {
+    autopilot(p, eng, { hdg: 180, speed: 55, climb: 0 });
+    if (worst > 0 && hitAt < 0) hitAt = i;
+    // Keep going for a second and a half after the first contact: the point is
+    // that it stops, not that it registers and carries on.
+    if (hitAt >= 0 && i - hitAt > 90) break;
+  }
+  console.log('\nFlown into a hillside at 55 m/s:');
+  expect('impact reported', worst, 6.5, 40);
+  expect('speed gone a second and a half later', p.groundSpeed, 0, 22, ' m/s');
+
+  // And the opposite case: stopped on a slope with the nose over rising
+  // ground is not a crash, which is exactly where an El Hueso arrival parks.
+  const slope = (x, z) => GH + Math.max(0, (-z) * 0.09);
+  const q = new AircraftPhysics({ getHeight: slope });
+  let reported = 0;
+  q.onImpact = () => { reported++; };
+  q.setPose(new THREE.Vector3(0, slope(0, -100) + AC.gearY, -100), 180, 0);
+  for (let i = 0; i < 60 * 5; i++) q.advance(dt);
+  expect('no impact from parking on a slope', reported, 0, 0);
+  console.log(results.splice(0).join('\n'));
+}
+
 console.log(failures ? `\n${failures} out of envelope.` : '\nThe aeroplane flies.');
 process.exit(failures ? 1 : 0);

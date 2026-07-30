@@ -1,14 +1,16 @@
 # Squatch Life
 
-Two things live in this repo.
+Three things live in this repo.
 
 | | |
 |---|---|
 | **Squatch Life** (repo root) | First-person. You wake up on Tuesday at 6:04 AM with a fridge, a radio, a bathroom and a gaming PC. The Squatch meeting is tomorrow night. |
+| **The Beef Run** ([`beefrun.html`](./beefrun.html)) | A playable aviation mission. You fly an unreliable twin to a jungle airstrip, load three crates of illegal beef jerky, and bring it home in the dark. |
 | **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
+                 # the mission   -> http://localhost:5173/beefrun.html
                  # the game      -> http://localhost:5173/game/
 ```
 
@@ -319,3 +321,95 @@ narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around
 while working on a room, and direct handles for every mechanic (`passOut`,
 `fart`, `startPee`, `sitOn`, `lieOnBed`, `takeZyn`, `time.skipHours`) so you can
 get to a state without playing your way there.
+
+---
+
+## The Beef Run
+
+A third space in the repo, at [`beefrun.html`](./beefrun.html): a playable
+aviation mission for the same prospect who lives in the flat.
+
+```bash
+npm start        # the mission -> http://localhost:5173/beefrun.html
+```
+
+Captain Lou Sasole is standing by an aeroplane at Whispering Pines Municipal
+with a shipment to collect and something wrong with his stomach. You do the
+walkaround, you start it, you fly it to a dirt shelf in a jungle valley, you
+load three crates of internationally prohibited beef jerky, and you bring it
+home in the dark without the Continental Agricultural Interdiction Bureau
+taking an interest. Nobody involved acknowledges that it is beef jerky.
+
+Before you leave, **Old Stove** turns up with three long crates stencilled
+TRACTOR PARTS and a folder he never opens. He is one of the squatches and he is
+also, allegedly, the government, and he is not standing where he is standing.
+The crates go down the hill with you and come off at the strip; they are the
+reason the men with rifles are pleased to see you. Nobody involved acknowledges
+that they are tractor parts either.
+
+The flying is the mission, not a cutscene between two conversations.
+
+- **The aeroplane.** A Mammoth M-12 "Brushrunner": twin piston, fixed gear,
+  mismatched paint. Lift, drag, propeller torque, ground effect, asymmetric
+  thrust, three contact points with spring-damper suspension and tyre friction,
+  all on a fixed 120 Hz step in `src/beefrun/physics.js`. Stall speed is about
+  50 knots and the elevator is deliberately weak enough that full aft stick
+  trims past the stall.
+- **The cockpit.** Six analogue dials painted onto one canvas and repainted
+  fourteen times a second, two yokes, a throttle quadrant, a magnetic compass
+  that scrolls, a Sasquatch bobblehead that reads g honestly, and a warning
+  light labelled GENERAL CONCERN.
+- **Weight and balance.** A jerky crate is 218 kg, one of Stove's is 142 kg, and
+  each of them moves the centre of gravity. Put all three in the back and the
+  nose goes light; the diagram on the HUD says so before Lou does. You load and
+  unload by hand — open the door, lift, wheel the cart over, put it in a marked
+  zone, strap it down, latch the door.
+- **The Bureau.** A stylised attention meter, driven by how much sky you are
+  standing in relative to the ridges around you, whether you are inside cloud,
+  and whether one of their aeroplanes is pointing at you. Get located and one
+  of them follows you with a spotlight until you lose it in a canyon.
+- **Four checkpoints** — first takeoff, the approach to El Hueso, the heavy
+  departure, the return approach — and graded rather than binary failure. A bad
+  landing costs points and a tyre; running out of aeroplane puts you back.
+
+Three flight-assistance settings, from **Assisted** (stability, auto-rudder, a
+projected approach path) to **Unstable Professional** (torque, no help, and the
+odd dead instrument). Keyboard and mouse throughout; a gamepad works if one is
+plugged in.
+
+```bash
+npm run check:flight     # flies the model headless and checks the envelope
+```
+
+That bench is not decoration. It exists because a flight model renders
+perfectly while being completely wrong, and it caught, among others: a heading
+getter and `setPose` that disagreed by 180 degrees, a wing leveller with its
+sign inverted, a coordination assist that drove sideslip instead of nulling it,
+and cylinders that cooked themselves within twenty seconds of full power.
+
+Everything in it is invented — the aeroplane, both airfields, the Bureau, the
+jerky, and its lineage.
+
+### Layout
+
+```
+beefrun.html              entry page, HUD markup, importmap
+src/beefrun/
+  main.js                 boot, the frame, input plumbing
+  mission.js              the phase machine, checkpoints, scoring
+  script.js               every line anybody says, as data
+  physics.js  engines.js  the flight model and two reluctant engines
+  aircraft.js instruments.js   the Brushrunner and its panel
+  terrain.js              one heightfield for the whole route, streamed
+  airfield.js airstrip.js landmarks.js   the places
+  weather.js  detection.js cargo.js      the air, the Bureau, the load
+  preflight.js loading.js the two played ground sequences
+  hud.js cameras.js input.js audio.js dialogue.js npc.js util.js config.js
+```
+
+It reuses the flat's own systems rather than reimplementing them: `AudioEngine`,
+`Hud`, `InteractionSystem` and the first-person `Player` are imported from
+`src/core/` unchanged, and materials go through `src/world/build.js`'s cache.
+The one change to shared code is `Player.groundAt`, which lets the eye ride a
+terrain surface instead of a floor at zero — left unset, the flat behaves
+exactly as it did.

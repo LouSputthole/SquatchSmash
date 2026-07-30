@@ -21,10 +21,11 @@ export const WP = {
 export const EH = {
   x: 40,
   zLow: -9620,
-  zHigh: -10080,
+  zHigh: -10240,     // 620 m of dirt, which is barely enough and meant to be
   elevLow: 690,
-  elevHigh: 726,     // ~8% uphill
+  elevHigh: 726,     // just under 6% uphill
   rwyWidth: 8,
+  runOut: 130,       // flat ground past the top end, before the mountain
 };
 
 export const ROUTE_LENGTH = 10400;
