@@ -238,6 +238,12 @@ export class TerrainStreamingSystem {
          * trees straight through them. Keep the scatter off the asphalt and off
          * the dirt, with enough margin either side to clear the wingtips. */
         if (Math.abs(wx - WP.x) < 40 && Math.abs(wz - WP.z) < WP.rwyHalf + 60) continue;
+        /* The west-side apron is a flattened pad too — hangar, ops shack, fuel
+         * tank, the wrecks, the entrance road — and the runway margin above
+         * stops at x -40, which is how a pine ended up growing hard against
+         * the hangar wall. Everything anybody walks between lives inside this
+         * rectangle, so nothing may sprout in it. */
+        if (wx > -130 && wx < -12 && wz > 320 && wz < 450) continue;
         if (Math.abs(wx - EH.x) < 30 && wz > EH.zHigh - 40 && wz < EH.zLow + 40) continue;
         const h = terrainHeight(wx, wz);
         const hx = terrainHeight(wx + 8, wz) - terrainHeight(wx - 8, wz);
