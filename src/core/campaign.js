@@ -15,6 +15,12 @@ export const CHARACTER_IDS = Object.freeze({
   BOOSKI: 'booski',
   APE: 'ape',
   MARGO: 'margo',
+  /* Two Circle members who were scene-local to the Initiation until the round
+   * at Silver Pines gave them a morning of their own. They speak, they are
+   * addressed by name, and their faces are already authoritative, so they need
+   * campaign identity rather than a second cast key that spells the same word. */
+  RIPPINFLOW: 'rippinflow',
+  ERICAN: 'erican',
 });
 
 export const SCENE_IDS = Object.freeze({
@@ -25,6 +31,7 @@ export const SCENE_IDS = Object.freeze({
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
   SILVER_ROOM: 'silver_room',
+  SILVER_PINES: 'silver_pines',
   INITIATION: 'initiation',
 });
 
@@ -39,6 +46,7 @@ export const MISSION_IDS = Object.freeze({
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
   SILVER_ROOM: 'silver_room',
+  SILVER_PINES: 'silver_pines',
   INITIATION: 'initiation',
 });
 
@@ -70,6 +78,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_JERKY_MOTEL: 'mission.jerky_motel',
   DEPART_SILVER_ROOM: 'travel.silver_room',
   COMPLETE_SILVER_ROOM: 'mission.silver_room',
+  DEPART_SILVER_PINES: 'travel.silver_pines',
+  COMPLETE_SILVER_PINES: 'mission.silver_pines',
   DEPART_INITIATION: 'travel.initiation',
 });
 
@@ -120,6 +130,16 @@ const TIME_EVENTS = Object.freeze({
   // Dinner, a set by the Midnight Pines, and the walk out the front.
   [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 23 * 60 + 20 }),
+  }),
+  /* The morning of the big night. He wakes at ten on Day 4 and the ceremony is
+   * at seven, and Lou spends the middle of that day not asking him for
+   * anything. Tee time is half past ten; three holes and the drive back put
+   * him home by mid-afternoon with the evening still ahead of him. */
+  [TIME_EVENT_IDS.DEPART_SILVER_PINES]: Object.freeze({
+    atLeast: Object.freeze({ day: 4, timeMinutes: 10 * 60 + 30 }),
+  }),
+  [TIME_EVENT_IDS.COMPLETE_SILVER_PINES]: Object.freeze({
+    atLeast: Object.freeze({ day: 4, timeMinutes: 14 * 60 + 30 }),
   }),
   /* The big night is the day after the date. Sleeping off the Silver Room is
    * what turns the page, so the ceremony lands on Day 4 at seven sharp. */
@@ -184,6 +204,23 @@ const SCENES = Object.freeze({
     href: 'silver.html',
     defaultSpawn: 'kerb',
     spawns: Object.freeze(['kerb']),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  /* The morning round, and the last quiet thing that happens to him.
+   *
+   * Registered — it claims the scene, keeps a card, and comes home the way
+   * every other mission does — but deliberately absent from the apartment's
+   * `next` list until the owner rules on where it sits. The scene is playable
+   * and verified standalone and through `preview.html`; the front door does
+   * not offer it yet. Adding `SCENE_IDS.SILVER_PINES` to the apartment's edges
+   * and a story gate is the whole of the remaining wiring.
+   *
+   * Two spawns because the round has a natural resume point: the car park it
+   * opens in, and the first tee for anyone dropped straight into the golf. */
+  [SCENE_IDS.SILVER_PINES]: Object.freeze({
+    href: 'golf.html',
+    defaultSpawn: 'car_park',
+    spawns: Object.freeze(['car_park', 'first_tee']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   /* The Initiation is registered so the apartment door can route to it through
@@ -281,6 +318,22 @@ function initialState() {
         rememberedDrink: false,
         seeingHerAgain: false,
         knowsWhatHeDoes: false,
+      },
+      /* The card, and the two things about the morning that were never really
+       * about golf: whether he heard Lou say why he was invited, and whether
+       * he took the ride out to the green instead of walking on his own. */
+      [MISSION_IDS.SILVER_PINES]: {
+        status: 'locked',
+        holesPlayed: 0,
+        strokes: 0,
+        penalties: 0,
+        toPar: 0,
+        holes: [],
+        heardInvitation: false,
+        rodeWithLou: false,
+        ace: false,
+        foundWater: false,
+        hitGreenInRegulation: false,
       },
       [MISSION_IDS.INITIATION]: {
         status: 'locked',
@@ -397,6 +450,9 @@ function normalize(saved) {
   const silver = saved.missions?.[MISSION_IDS.SILVER_ROOM] ?? {};
   const silverStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(silver.status) ? silver.status : base.missions.silver_room.status;
+  const pines = saved.missions?.[MISSION_IDS.SILVER_PINES] ?? {};
+  const pinesStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(pines.status) ? pines.status : base.missions.silver_pines.status;
   const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
@@ -476,6 +532,31 @@ function normalize(saved) {
         rememberedDrink: silver.rememberedDrink === true,
         seeingHerAgain: silver.seeingHerAgain === true,
         knowsWhatHeDoes: silver.knowsWhatHeDoes === true,
+      },
+      [MISSION_IDS.SILVER_PINES]: {
+        status: pinesStatus,
+        holesPlayed: boundedNumber(pines.holesPlayed, 0, 3, 0, true),
+        strokes: boundedNumber(pines.strokes, 0, 999, 0, true),
+        penalties: boundedNumber(pines.penalties, 0, 999, 0, true),
+        toPar: boundedNumber(pines.toPar, -20, 999, 0, true),
+        /* Per-hole cards. A malformed entry is dropped rather than repaired:
+         * a card nobody can read is worse than a card with a hole missing. */
+        holes: Array.isArray(pines.holes)
+          ? pines.holes
+            .filter((h) => h && Number.isFinite(h.hole) && Number.isFinite(h.strokes))
+            .slice(0, 3)
+            .map((h) => ({
+              hole: boundedNumber(h.hole, 1, 3, 1, true),
+              par: boundedNumber(h.par, 3, 5, 3, true),
+              strokes: boundedNumber(h.strokes, 1, 99, 1, true),
+              penalties: boundedNumber(h.penalties, 0, 99, 0, true),
+            }))
+          : [],
+        heardInvitation: pines.heardInvitation === true,
+        rodeWithLou: pines.rodeWithLou === true,
+        ace: pines.ace === true,
+        foundWater: pines.foundWater === true,
+        hitGreenInRegulation: pines.hitGreenInRegulation === true,
       },
       [MISSION_IDS.INITIATION]: {
         status: initiationStatus,

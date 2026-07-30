@@ -82,6 +82,42 @@ export const CHARACTER_REGISTRY = Object.freeze({
     legacyAliases: ['APE'],
   }),
   /**
+   * The mouth of the morning round.
+   *
+   * The Initiation seats him as the quiet founder, and that is true of him in
+   * a circle at night with a prospect on trial. On a golf course at half ten
+   * with nobody to judge he does not stop talking, which is the joke: the
+   * quiet one is only quiet when it counts. Same person, same id, same face —
+   * `archetype` in `src/initiation/npc.js` is that scene's seating, not a
+   * standing description of him.
+   */
+  [CHARACTER_IDS.RIPPINFLOW]: character({
+    id: CHARACTER_IDS.RIPPINFLOW,
+    canonicalName: 'Rippinflow',
+    subtitleName: 'Rippin',
+    voiceProfile: 'rippinflow',
+    species: 'human',
+    role: 'founder',
+    legacyAliases: ['rippin', 'RIPPINFLOW'],
+  }),
+  /**
+   * The adult in the foursome.
+   *
+   * `erican` is the Circle id and stays the save key; `Eric` is what the other
+   * three call him to his face, so that is the subtitle. Nobody on a golf
+   * course says a man's full handle before telling him to aim at the middle of
+   * the green.
+   */
+  [CHARACTER_IDS.ERICAN]: character({
+    id: CHARACTER_IDS.ERICAN,
+    canonicalName: 'Erican',
+    subtitleName: 'Eric',
+    voiceProfile: 'erican',
+    species: 'human',
+    role: 'family_member',
+    legacyAliases: ['eric', 'ERICAN'],
+  }),
+  /**
    * The date, and the only named person in the campaign with no stake in it.
    *
    * She is deliberately not family and deliberately not on the family's radio
