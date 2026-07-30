@@ -88,12 +88,25 @@ function backTexture() {
   return _backTex;
 }
 
-/** One card: a thin box, face on top, club's own back underneath. */
+/** One card: a thin box, face on top, club's own back underneath.
+ *
+ * Oversized against a real bridge card on purpose, and the printed side
+ * carries a little of its own light: the corner's pool lamp is deliberately
+ * dim, and cards lit only by it read from the seat as grey slivers. Both
+ * changes exist because the owner twice could not tell what he was holding. */
 function makeCard(rank, suit) {
-  const face = mat({ map: faceTexture(rank, suit), roughness: 0.85 });
-  const back = mat({ map: backTexture(), roughness: 0.85 });
+  const faceTex = faceTexture(rank, suit);
+  const backTex = backTexture();
+  const face = mat({
+    map: faceTex, roughness: 0.85,
+    emissive: new THREE.Color(0xffffff), emissiveMap: faceTex, emissiveIntensity: 0.34,
+  });
+  const back = mat({
+    map: backTex, roughness: 0.85,
+    emissive: new THREE.Color(0xffffff), emissiveMap: backTex, emissiveIntensity: 0.2,
+  });
   const edge = mat({ color: 0xf0ece0, roughness: 0.9 });
-  const geo = new THREE.BoxGeometry(0.063, 0.0035, 0.089);
+  const geo = new THREE.BoxGeometry(0.082, 0.004, 0.115);
   // BoxGeometry face order: +x, -x, +y, -y, +z, -z
   const m = new THREE.Mesh(geo, [edge, edge, face, back, edge, edge]);
   m.castShadow = true;
@@ -137,7 +150,7 @@ export class Blackjack {
    * @param {THREE.Scene} scene
    * @param {{x:number,z:number}} table centre of the felt
    * @param {object} seat where the player is sitting: { x, z }
-   * @param {object} hooks { getMoney, spend, win, onState, onNote, onDeal, onChips, onHandDone }
+   * @param {object} hooks { getMoney, spend, win, onState, onNote, onDeal, onFlip, onChips, onHandDone }
    *   onHandDone is called `(hands, won, outcome)` -- see `_settle` for the
    *   shape of `outcome`. The table's voice lines need to know *how* the hand
    *   went, not just whether it paid, and `message` is display text rather
@@ -303,14 +316,14 @@ export class Blackjack {
       const dx = this.seat.x - this.table.x;
       const dz = this.seat.z - this.table.z;
       const len = Math.hypot(dx, dz) || 1;
-      const px = this.table.x + (dx / len) * 0.7 + (i - 1) * 0.1;
+      const px = this.table.x + (dx / len) * 0.7 + (i - 1) * 0.11;
       const pz = this.table.z + (dz / len) * 0.7 + (i % 2) * 0.01;
       // Lifted and tilted toward the seat, so the rank reads from the chair
       // instead of presenting a 25-degree grazing sliver of card face.
       mesh.position.set(px, 0.99, pz);
       mesh.rotation.y = Math.atan2(dx, dz) + Math.PI;
     } else {
-      mesh.position.set(this.table.x - 0.16 + i * 0.085, 0.935, this.table.z - 0.62);
+      mesh.position.set(this.table.x - 0.2 + i * 0.105, 0.935, this.table.z - 0.62);
       mesh.rotation.y = 0;
     }
     if (faceDown) mesh.rotation.z = Math.PI;
@@ -332,7 +345,7 @@ export class Blackjack {
     if (!hole) return;
     hole.faceDown = false;
     hole.mesh.rotation.z = 0;
-    this.hooks.onDeal?.('dealer', hole);
+    this.hooks.onFlip?.(hole);
     this.hooks.onState?.(this.view);
   }
 

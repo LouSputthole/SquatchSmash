@@ -1261,6 +1261,23 @@ function synth(engine, name, dest, t, rate = 1) {
         burst(ctx, dest, t + i * 0.035, { dur: 0.03, type: 'bandpass', freq: 1400 + i * 220, q: 4, gain: 0.13 });
       }
       break;
+    case 'card.flip':
+      // The hole card turned over: a sharper snap than the deal, then flat.
+      burst(ctx, dest, t, { dur: 0.03, type: 'highpass', freq: 2600, gain: 0.18 });
+      burst(ctx, dest, t + 0.035, { dur: 0.05, type: 'lowpass', freq: 900, gain: 0.12 });
+      break;
+    case 'chip.stack':
+      // A paid stack set down and squared up: heavier and happier than a bet.
+      for (let i = 0; i < 7; i++) {
+        burst(ctx, dest, t + i * 0.03, { dur: 0.028, type: 'bandpass', freq: 1250 + (i % 3) * 260, q: 4, gain: 0.15 });
+      }
+      tone(ctx, dest, t + 0.22, { freq: 320, to: 240, dur: 0.06, gain: 0.08, type: 'triangle' });
+      break;
+    case 'duck.quack':
+      // One rubber duck, exactly as the store room's manifest promised.
+      tone(ctx, dest, t, { freq: 620, to: 380, dur: 0.16, gain: 0.22, type: 'sawtooth' });
+      tone(ctx, dest, t + 0.05, { freq: 940, to: 520, dur: 0.12, gain: 0.1, type: 'square' });
+      break;
     case 'glass.set':
       tone(ctx, dest, t, { freq: 1500, to: 1200, dur: 0.07, gain: 0.10, type: 'sine' });
       burst(ctx, dest, t, { dur: 0.03, type: 'highpass', freq: 4200, gain: 0.09 });

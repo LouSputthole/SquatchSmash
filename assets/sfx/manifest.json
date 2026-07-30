@@ -5016,6 +5016,22 @@
       "prompt": "a folded banknote pressed into a palm and closed around, soft paper crease and fabric, very close mic, dry"
     },
     {
+      "_comment": "The Bada Bing's blackjack corner. Three moments a hand actually has: a card out of the shoe, the hole card turned, and a paid stack squared up. The WebAudio synth stands in for any of these that have not been generated.",
+      "name": "card.deal",
+      "duration": 0.6,
+      "prompt": "single playing card slid off a dealing shoe and dropped flat onto casino felt, short crisp slide and a soft padded landing, close mic, dry, no voice"
+    },
+    {
+      "name": "card.flip",
+      "duration": 0.5,
+      "prompt": "single playing card snapped over face-up on felt, quick sharp flick of card stock and a light settle, close mic, dry, no voice"
+    },
+    {
+      "name": "chip.stack",
+      "duration": 0.9,
+      "prompt": "a short stack of clay poker chips set down on casino felt and squared together, bright ceramic clicks ending in one flat tap, close mic, no voice"
+    },
+    {
       "name": "pour",
       "duration": 1.6,
       "prompt": "whiskey poured from a bottle into a heavy tumbler, steady stream, glass resonance, close mic, dry bar interior"

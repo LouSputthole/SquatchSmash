@@ -177,6 +177,39 @@ body.bing #overlay .tag { color: #a3919b; }
   padding: 0 2px;
 }
 
+/* ---------------- The hand's verdict ---------------- */
+
+/* One word in the middle of the view when a hand settles. Big, coloured,
+   and gone in a couple of seconds, like the money. */
+#bj-callout {
+  position: fixed;
+  left: 50%;
+  top: 38%;
+  transform: translate(-50%, -50%) scale(0.92);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s;
+}
+#bj-callout.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+#bj-callout .word {
+  display: block;
+  font-size: 34px;
+  letter-spacing: 7px;
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.85);
+}
+#bj-callout .net {
+  display: block;
+  margin-top: 5px;
+  font-size: 15px;
+  letter-spacing: 1.6px;
+  color: var(--paper);
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+}
+#bj-callout.win .word { color: #8fd8a0; text-shadow: 0 0 22px rgba(125, 216, 125, 0.5); }
+#bj-callout.lose .word { color: var(--red); text-shadow: 0 0 22px rgba(217, 80, 80, 0.45); }
+#bj-callout.push .word { color: var(--amber); }
+
 /* The clock in here reads the night, not the day. */
 body.bing #clock .day { color: var(--bing); }
 

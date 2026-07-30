@@ -237,6 +237,29 @@ function tableSayFirst(candidates) {
  * felt and keeps its own counsel, so it does not share the table's floor. */
 let deadSpins = 0;
 
+/* The verdict, big and unmistakable, because "the dealer quietly sweeps your
+ * chips" turned out to be too subtle a way to find out how the hand went.
+ * The text stays in the node after the fade so the state remains inspectable. */
+const bjCallout = document.getElementById('bj-callout');
+let bjCalloutTimer = 0;
+function showHandCallout({ kind, staked = 0, payout = 0 } = {}) {
+  if (!bjCallout || !kind) return;
+  const net = Math.round(payout - staked);
+  const view = {
+    blackjack: ['BLACKJACK', `+$${net}`, 'win'],
+    win: ['YOU WIN', `+$${net}`, 'win'],
+    push: ['PUSH', 'the bet comes back', 'push'],
+    bust: ['BUST', `−$${staked}`, 'lose'],
+    lose: ['HOUSE WINS', `−$${staked}`, 'lose'],
+  }[kind];
+  if (!view) return;
+  bjCallout.innerHTML = `<span class="word">${view[0]}</span><span class="net">${view[1]}</span>`;
+  bjCallout.classList.remove('win', 'push', 'lose');
+  bjCallout.classList.add('show', view[2]);
+  clearTimeout(bjCalloutTimer);
+  bjCalloutTimer = setTimeout(() => bjCallout.classList.remove('show'), 2400);
+}
+
 // The machine bolted to the floor by the front booths
 const slotParts = makeSlotMachine({ x: club.slot.x, z: club.slot.z, rotY: Math.PI });
 scene.add(slotParts.group);
@@ -282,11 +305,13 @@ const blackjack = new Blackjack(scene, { x: club.bj.x, z: club.bj.z }, seat, {
   spend: (n) => addMoney(-n),
   win: (n) => addMoney(n),
   onDeal: () => audio.play('card.deal', { volume: 0.45, position: club.anchors.blackjack }),
+  onFlip: () => audio.play('card.flip', { volume: 0.5, position: club.anchors.blackjack }),
   onChips: () => audio.play('chips.place', { volume: 0.4, position: club.anchors.blackjack }),
   onState: paintGamble,
   onHandDone: (hands, won, outcome = {}) => {
     mission.handPlayed();
-    if (won) audio.play('chips.place', { volume: 0.5 });
+    if (won) audio.play('chip.stack', { volume: 0.55, position: club.anchors.blackjack });
+    showHandCallout(outcome);
     void hands;
 
     /* Cleaned out. Trumps whatever else the hand was, because being unable to
