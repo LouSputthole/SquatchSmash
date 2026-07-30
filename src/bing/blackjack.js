@@ -46,9 +46,13 @@ function faceTexture(rank, suit) {
   g.font = '30px Georgia, serif';
   g.fillText(suit, 12, 76);
   g.restore();
-  g.font = '64px Georgia, serif';
+  // A big centred rank first — from the seat the corner indices subtend well
+  // under half a degree, so the middle of the card does the real reading.
+  g.font = '900 92px Georgia, serif';
   g.textAlign = 'center';
-  g.fillText(suit, 64, 112);
+  g.fillText(rank, 64, 104);
+  g.font = '44px Georgia, serif';
+  g.fillText(suit, 64, 150);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   _faceCache.set(key, tex);
@@ -293,16 +297,18 @@ export class Blackjack {
       const dx = this.seat.x - this.table.x;
       const dz = this.seat.z - this.table.z;
       const len = Math.hypot(dx, dz) || 1;
-      const px = this.table.x + (dx / len) * 0.7 + (i - 1) * 0.075;
+      const px = this.table.x + (dx / len) * 0.7 + (i - 1) * 0.1;
       const pz = this.table.z + (dz / len) * 0.7 + (i % 2) * 0.01;
-      mesh.position.set(px, 0.935, pz);
+      // Lifted and tilted toward the seat, so the rank reads from the chair
+      // instead of presenting a 25-degree grazing sliver of card face.
+      mesh.position.set(px, 0.99, pz);
       mesh.rotation.y = Math.atan2(dx, dz) + Math.PI;
     } else {
       mesh.position.set(this.table.x - 0.16 + i * 0.085, 0.935, this.table.z - 0.62);
       mesh.rotation.y = 0;
     }
     if (faceDown) mesh.rotation.z = Math.PI;
-    mesh.rotation.x = 0;
+    mesh.rotation.x = who === 'player' ? -0.55 : 0;
     // Slide in from the shoe rather than appearing
     mesh.userData.from = new THREE.Vector3(this.table.x + 0.72, 1.02, this.table.z - 0.72);
     mesh.userData.to = mesh.position.clone();

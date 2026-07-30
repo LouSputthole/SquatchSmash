@@ -825,7 +825,7 @@ export function buildClub(scene, { renderer } = {}) {
     table.position.set(bj.x, 0, bj.z);
     table.rotation.y = Math.PI;
     add(table);
-    solid(bj.x - 1.4, bj.z - 1.1, bj.x + 1.4, bj.z + 1.5, 0, 1.0);
+    solid(bj.x - 1.4, bj.z - 1.1, bj.x + 1.4, bj.z + 1.2, 0, 1.0);
 
     anchors.blackjack = new THREE.Vector3(bj.x, 0, bj.z);
     // Five seats round the curved side, dealer alone on the flat side. The
@@ -833,8 +833,8 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.blackjackSeats = [];
     for (let i = 0; i < 5; i++) {
       const a = (i - 2) * 0.42;
-      const sx = bj.x + Math.sin(a) * 1.8;
-      const sz = bj.z + Math.cos(a) * 1.8;
+      const sx = bj.x + Math.sin(a) * 1.62;
+      const sz = bj.z + Math.cos(a) * 1.62;
       add(makeChair(M, { x: sx, z: sz, rotY: a + Math.PI }));
       anchors.blackjackSeats.push({
         x: sx,
@@ -881,6 +881,7 @@ export function buildClub(scene, { renderer } = {}) {
     wall(4.5, 6.4, 4.5, 9.4, 2.9, M_PANEL, 0.16);
     wall(1.9, 9.4, 4.58, 9.4, 2.9, M_PANEL, 0.16);
     anchors.slotStand = new THREE.Vector3(slot.x, 0, slot.z - 1.15);
+    anchors.slotMachine = new THREE.Vector3(slot.x, 0, slot.z);
     const alcoveLight = new THREE.PointLight(0xb06aff, 9, 7, 2);
     alcoveLight.position.set(slot.x, 2.5, slot.z - 0.6);
     add(alcoveLight);
@@ -923,12 +924,14 @@ export function buildClub(scene, { renderer } = {}) {
       boothTable(3.25, bz);
       anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
     }
+    // Shifted north against the wall so the blackjack corner stops
+    // overlapping the booth tables.
     for (let i = 0; i < 4; i++) {
       const bx = -19.0 + i * 3.4;
-      booth(bx, 10.35, Math.PI);
-      solid(bx - 1.25, 9.9, bx + 1.25, 11.0, 0, 1.5);
-      boothTable(bx, 9.15);
-      anchors.booths.push(new THREE.Vector3(bx, 0, 9.7));
+      booth(bx, 11.0, Math.PI);
+      solid(bx - 1.25, 10.55, bx + 1.25, 11.05, 0, 1.5);
+      boothTable(bx, 9.85);
+      anchors.booths.push(new THREE.Vector3(bx, 0, 10.4));
     }
 
     // Candlelit two-tops around the stage
@@ -936,7 +939,7 @@ export function buildClub(scene, { renderer } = {}) {
     const candles = [];
     for (const [tx, tz] of [
       [-16.5, -1.2], [-13.4, 1.05], [-9.6, -1.6], [-7.2, 1.8], [-16.2, 3.4],
-      [-12.6, 3.8], [-9.0, 3.4], [-5.4, -3.6], [-4.6, 5.6], [-8.2, 7.2], [-17.4, 6.6],
+      [-12.6, 3.8], [-9.0, 3.4], [-5.4, -3.6], [-4.6, 5.6], [-8.2, 7.2], [-16.9, 6.6],
     ]) {
       add(group('twotop',
         cylinder({ r: 0.42, h: 0.06, pos: [tx, 0.78, tz], mat: M_BLACKGLOSS }),

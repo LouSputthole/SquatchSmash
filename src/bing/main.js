@@ -1002,6 +1002,14 @@ function standFromTable() {
 function useMachine() {
   game.atMachine = true;
   hud.setPosture('step away');
+  // Stand square in front of the cabinet with eyes on the reels, instead of
+  // playing from wherever the E press happened to land.
+  const stand = club.anchors.slotStand;
+  const machine = club.anchors.slotMachine;
+  player.position.x = stand.x;
+  player.position.z = stand.z;
+  player.yaw = Math.atan2(-(machine.x - stand.x), -(machine.z - stand.z));
+  player.pitch = -0.12;
   paintGamble(null);
   paintMachine();
   club.anchors.slotLight.intensity = 14;
@@ -1197,6 +1205,7 @@ function paintMachine() {
   const rows = [`Stake: <b>$${v.wager}</b>`];
   if (v.reels) rows.push(`<span class="felt">${v.reels.join(' · ')}</span>`);
   rows.push(`Spins: <b>${v.spins}</b> · Net: <b>${v.net >= 0 ? '+' : ''}$${v.net}</b>`);
+  rows.push('3× squatch pays ×250 · then cherry, bell, bar, cash');
   ui.gambleBody.innerHTML = rows.join('<br>');
   ui.gambleKeys.innerHTML = '<kbd>1</kbd>/<kbd>2</kbd> stake · <kbd>E</kbd> spin · <kbd>Q</kbd> step away';
 }

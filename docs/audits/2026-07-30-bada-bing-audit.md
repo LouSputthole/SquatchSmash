@@ -1,6 +1,11 @@
 # Bada Bing scene audit — 2026-07-30
 
-Runtime-measured findings (headless probes), unimplemented as of this commit.
+**Status 2026-07-30 late:** every P1/P2 item below is IMPLEMENTED and verified
+(doorways/movers/stage in `e39dffa`, gambling rework in the following commit;
+verify:bing 46/46, verify:bing-two 10/10 after each slice). Still open: the P3
+office-radio/zone-muffle design and the cross-scene follow-ups at the bottom.
+
+Runtime-measured findings (headless probes) from the July 30 audit pass.
 The Squatchfather and Motel audits from the same pass are already implemented
 (`b2f784f`, `4b5c523`). Every fix below names its authoring site and the
 verifier assertions at risk. Implement as one focused pass and re-run

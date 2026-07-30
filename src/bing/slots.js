@@ -152,21 +152,21 @@ export function makeSlotMachine({ x, z, rotY = 0 }) {
   const strip = reelTexture();
   const reelMat = new THREE.MeshStandardMaterial({
     map: strip, emissiveMap: strip, emissive: new THREE.Color(0xffffff),
-    emissiveIntensity: 0.32, roughness: 0.85,
+    emissiveIntensity: 1.0, roughness: 0.85,
   });
-  const reelGeo = new THREE.CylinderGeometry(0.19, 0.19, 0.24, 28, 1, true);
+  // Big bright drums, nothing smoked in front of them — at the old radius one
+  // symbol was a squashed ten-centimetre sliver behind tinted glass.
+  const reelGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.3, 28, 1, true);
   reelGeo.rotateZ(Math.PI / 2);
   const reels = [];
   for (let i = 0; i < 3; i++) {
     const r = new THREE.Mesh(reelGeo, reelMat);
-    r.position.set(-0.26 + i * 0.26, 1.3, 0.02);
+    r.position.set(-0.31 + i * 0.31, 1.3, -0.02);
     g.add(r);
     reels.push(r);
   }
-  // Smoked glass across the opening, and a gold surround for it
-  g.add(box({ size: [0.72, 0.5, 0.02], pos: [0, 1.3, 0.25], mat: mat({ color: 0x8aa0c8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.12 }) }));
-  for (const [w, h, yy] of [[0.78, 0.03, 1.56], [0.78, 0.03, 1.04]]) {
-    g.add(box({ size: [w, h, 0.05], pos: [0, yy, 0.26], mat: gold }));
+  for (const [w, h, yy] of [[0.98, 0.03, 1.49], [0.98, 0.03, 1.11]]) {
+    g.add(box({ size: [w, h, 0.05], pos: [0, yy, 0.28], mat: gold }));
   }
   for (const sx of [-1, 1]) {
     g.add(box({ size: [0.03, 0.55, 0.05], pos: [sx * 0.385, 1.3, 0.26], mat: gold }));
