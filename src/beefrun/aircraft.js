@@ -15,6 +15,7 @@ import {
   clamp, lerp, damp, signTexture,
 } from './util.js';
 import { AC } from './config.js';
+import { drawSquatchSilhouette } from '../world/textures.js';
 import { Instruments } from './instruments.js';
 
 const CREAM = 0xd9cfb4;
@@ -23,7 +24,12 @@ const BROWN = 0x7a5230;
 const BROWN_DARK = 0x4f351f;
 const METAL = 0x9aa0a6;
 
-/** The Squatch Family emblem, painted on beside the cargo door. */
+/**
+ * The Squatch Family emblem, painted on both sides of the fuselage. The real
+ * squatch — the shared silhouette off the flat's posters, the arcade cabinet
+ * and the wallpaper — walking in front of a moon, not the footprint that used
+ * to stand in for him.
+ */
 function emblemTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
@@ -32,22 +38,18 @@ function emblemTexture() {
   ctx.fillRect(0, 0, 256, 256);
   ctx.fillStyle = '#4a2f8f';
   ctx.beginPath();
-  ctx.arc(128, 128, 96, 0, Math.PI * 2);
+  ctx.arc(128, 120, 96, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = '#cfd4e0';
-  // A footprint: heel, ball, five toes.
+  // The moon he is always photographed against.
+  ctx.fillStyle = 'rgba(207, 212, 224, 0.34)';
   ctx.beginPath();
-  ctx.ellipse(128, 152, 40, 52, 0, 0, Math.PI * 2);
+  ctx.arc(128, 102, 60, 0, Math.PI * 2);
   ctx.fill();
-  for (let i = 0; i < 5; i++) {
-    ctx.beginPath();
-    ctx.ellipse(92 + i * 18, 84 - Math.sin(i / 4 * Math.PI) * 12, 9, 12, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  drawSquatchSilhouette(ctx, 128, 196, 148, '#cfd4e0');
   ctx.fillStyle = '#d92e2e';
   ctx.font = '900 26px Trebuchet MS, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('SQUATCH FAMILY', 128, 238);
+  ctx.fillText('SQUATCH FAMILY', 128, 244);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -328,10 +330,16 @@ export class Brushrunner {
     g.add(doorPivot);
     this.parts.cargoDoor = doorPivot;
 
-    // Emblem + tally, painted on the skin beside the door.
-    const emblem = flatMesh(new THREE.PlaneGeometry(0.9, 0.9), mat({ map: emblemTexture(), roughness: 0.9 }), -0.945, 0.28, 1.35);
-    emblem.rotation.y = -Math.PI / 2;
-    g.add(emblem);
+    /* The emblem goes on BOTH sides — an aeroplane with one good side is a
+     * hearse — at z 1.28 so its aft edge stays clear of the side glazing,
+     * whose outer face sits proud of the skin. The tally stays port-only,
+     * beside the door: it is the crew's scoreboard, not livery. */
+    const emblemMat = mat({ map: emblemTexture(), roughness: 0.9 });
+    for (const sx of [-1, 1]) {
+      const emblem = flatMesh(new THREE.PlaneGeometry(0.9, 0.9), emblemMat, sx * 0.945, 0.28, 1.28);
+      emblem.rotation.y = sx * Math.PI / 2;
+      g.add(emblem);
+    }
     const tally = flatMesh(new THREE.PlaneGeometry(1.1, 0.28), mat({ map: tallyTexture(), roughness: 0.9 }), -0.945, -0.35, 1.35);
     tally.rotation.y = -Math.PI / 2;
     g.add(tally);
