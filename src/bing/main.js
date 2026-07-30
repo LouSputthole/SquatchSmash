@@ -194,6 +194,49 @@ window.__squatchStage?.('Letting people in…');
 const cast = populate(scene, club);
 const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders);
 
+/* ------------------------------------------------------------------ *
+ * The gambling floor's voice.
+ *
+ * A hand of blackjack takes a few seconds, and there is something worth
+ * remarking on at four separate points in it -- the deal, a hit, the stand,
+ * and the payout. Left alone that is the dealer and the prospect narrating
+ * every card of a long shoe at each other, which stops being funny somewhere
+ * in the first minute.
+ *
+ * So the table has one floor between the two of them: a line, then quiet for
+ * a while, whoever it was that spoke. Each moment also carries its own chance
+ * roll, low for the routine ones and high for the rare ones, and the rare
+ * outcomes get first refusal on the floor by being offered it first.
+ *
+ * A refused roll must NOT consume the cooldown, and neither must a line that
+ * has no recording yet -- say() returns false in both cases, and an ungenerated
+ * bank would otherwise sit on the floor in silence and mute the whole table.
+ * ------------------------------------------------------------------ */
+let lastTableLine = -999;
+function tableSay(group, { chance = 1, delay = 0, gap = 7 } = {}) {
+  const now = performance.now() / 1000;
+  if (now - lastTableLine < gap) return false;
+  if (chance < 1 && Math.random() > chance) return false;
+  if (!audio.say(group, { delay })) return false;
+  lastTableLine = now;
+  return true;
+}
+
+/* Offer the floor to each candidate in turn and stop at the first one that
+ * takes it. Exactly one line per moment: say() cancels a previously scheduled
+ * line when a new one arrives, so two calls in the same tick would leave the
+ * first one silently unplayed rather than queued behind it. */
+function tableSayFirst(candidates) {
+  for (const [group, opts] of candidates) {
+    if (group && tableSay(group, opts)) return true;
+  }
+  return false;
+}
+
+/* Spins in a row that paid nothing. The machine is across the room from the
+ * felt and keeps its own counsel, so it does not share the table's floor. */
+let deadSpins = 0;
+
 // The machine bolted to the floor by the front booths
 const slotParts = makeSlotMachine({ x: club.slot.x, z: club.slot.z, rotY: Math.PI });
 scene.add(slotParts.group);
@@ -210,14 +253,24 @@ const slots = new SlotMachine(slotParts, {
   onWin: (amount) => {
     audio.play('slot.win', { volume: 0.5 });
     hud.toast(`+$${amount}`, 'good');
+    deadSpins = 0;
   },
-  onLose: () => hud.say('<em>The machine takes it with mechanical indifference.</em>', 2600),
+  onLose: () => {
+    hud.say('<em>The machine takes it with mechanical indifference.</em>', 2600);
+    /* Only once it is a run of nothing, so the line reads as a running total
+     * rather than a verdict on one pull. If the roll declines, the streak
+     * carries -- he gets there eventually instead of losing the moment. */
+    if (++deadSpins >= 4 && audio.say('slots.dead', { chance: 0.6, delay: 1.4 })) deadSpins = 0;
+  },
   onJackpot: (amount) => {
     audio.play('slot.jackpot', { volume: 0.75 });
     hud.toast(`JACKPOT · $${amount}`, 'good');
     hud.say('Every head in the room turns. Lou can hear this from the office. Lou <em>will</em> hear about this.', 6000);
     mission.jackpot();
     for (const npc of cast.all) npc.faceToward(slotParts.group.position.x, slotParts.group.position.z);
+    deadSpins = 0;
+    // Well behind the bell, so he is reacting to the room rather than to a reel.
+    audio.say('slots.jackpot', { delay: 2.6 });
   },
   onNote: (text) => hud.toast(text, ''),
 });
@@ -231,10 +284,59 @@ const blackjack = new Blackjack(scene, { x: club.bj.x, z: club.bj.z }, seat, {
   onDeal: () => audio.play('card.deal', { volume: 0.45, position: club.anchors.blackjack }),
   onChips: () => audio.play('chips.place', { volume: 0.4, position: club.anchors.blackjack }),
   onState: paintGamble,
-  onHandDone: (hands, won) => {
+  onHandDone: (hands, won, outcome = {}) => {
     mission.handPlayed();
     if (won) audio.play('chips.place', { volume: 0.5 });
     void hands;
+
+    /* Cleaned out. Trumps whatever else the hand was, because being unable to
+     * make the twenty-five is the end of the evening rather than a result. */
+    if (game.money < BETS[0]) {
+      tableSay('bj.broke', { delay: 1.8, gap: 0 });
+      return;
+    }
+
+    /* Otherwise: the rarer the outcome, the earlier it is offered the floor and
+     * the likelier it is to take it. The dealer is the fallback on the ordinary
+     * hands -- he calls the table when the prospect has nothing to add.
+     *
+     * The result of a hand gets a much shorter gap than the patter that led up
+     * to it (SETTLE vs. the 6-12s on deal/hit/stand). The chance rolls do the
+     * rationing across hands; the gap is only here so the dealer calling the
+     * deal cannot mute the payoff two seconds later. One second clears the two
+     * tightest cases with margin: a natural blackjack settles 1.75s after the
+     * deal patter, and a stand against a dealer already on seventeen settles
+     * 1.25s after "Dealer plays." */
+    const SETTLE = 1.0;
+    const { kind, doubled, dealerBlackjack } = outcome;
+    if (kind === 'blackjack') {
+      tableSayFirst([
+        ['bj.blackjack', { chance: 0.85, delay: 1.2, gap: SETTLE }],
+        ['bj.dealer.payout', { delay: 0.4, gap: SETTLE }],
+      ]);
+    } else if (kind === 'win' && doubled) {
+      tableSayFirst([
+        ['bj.double', { chance: 0.9, delay: 1.3, gap: SETTLE }],
+        ['bj.dealer.payout', { delay: 0.4, gap: SETTLE }],
+      ]);
+    } else if (kind === 'bust') {
+      tableSayFirst([
+        ['bj.bust', { chance: 0.5, delay: 1.0, gap: SETTLE }],
+        ['bj.dealer.bust', { chance: 0.5, delay: 0.35, gap: SETTLE }],
+      ]);
+    } else if (kind === 'win') {
+      tableSayFirst([
+        ['bj.win', { chance: 0.35, delay: 1.1, gap: SETTLE }],
+        ['bj.dealer.payout', { chance: 0.45, delay: 0.4, gap: SETTLE }],
+      ]);
+    } else if (kind === 'lose') {
+      tableSayFirst([
+        // The dealer turning over twenty-one is worth him saying so.
+        [dealerBlackjack ? 'bj.dealer.blackjack' : null, { chance: 0.7, delay: 0.5, gap: SETTLE }],
+        ['bj.lose', { chance: 0.35, delay: 1.2, gap: SETTLE }],
+      ]);
+    }
+    // A push is a non-event. Nobody remarks on getting their own money back.
   },
 });
 
@@ -1270,8 +1372,21 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyE') {
     // At the table and the machine, E is the game's own button
     if (game.seatedIn === 'table' && blackjack.state !== 'off' && !interaction.current) {
-      if (blackjack.state === 'bet') blackjack.deal();
-      else if (blackjack.state === 'player') blackjack.hit();
+      if (blackjack.state === 'bet') {
+        blackjack.deal();
+        /* Still on 'bet' means it refused the hand, which at this table only
+         * ever means he cannot cover it -- so the dealer says the one thing a
+         * croupier says to a man sitting at the felt without the minimum. */
+        if (blackjack.state === 'bet') tableSay('bj.dealer.minimum', { gap: 12 });
+        else tableSay('bj.dealer.deal', { chance: 0.35, gap: 9 });
+      } else if (blackjack.state === 'player') {
+        blackjack.hit();
+        /* Only while the hand is still live. A hit that took him to twenty-one
+         * or past it hands straight off to the dealer, and "Card." landing there
+         * would sit on the floor and swallow the bust line a second later --
+         * which is the one worth hearing. */
+        if (blackjack.state === 'player') tableSay('bj.dealer.hit', { chance: 0.3, gap: 6 });
+      }
       return;
     }
     if (game.atMachine && !interaction.current) {
@@ -1289,7 +1404,12 @@ window.addEventListener('keydown', (e) => {
     else recoverIfStuck();
   }
   if (game.seatedIn === 'table' && blackjack.state === 'player') {
-    if (e.code === 'KeyF') blackjack.stand();
+    if (e.code === 'KeyF') {
+      blackjack.stand();
+      tableSay('bj.dealer.stand', { chance: 0.35, gap: 6 });
+    }
+    /* Nothing from the dealer on a double -- the prospect has his own line for
+     * how that one turns out, and the croupier calling it first would step on it. */
     if (e.code === 'KeyR') blackjack.double();
   }
   if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') {

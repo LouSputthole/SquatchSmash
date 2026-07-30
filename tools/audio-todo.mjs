@@ -43,6 +43,26 @@ const DIRECTION = {
   'vo.slice': 'Cold pizza off the coffee table, at whatever time it is. Content.',
   'vo.hr': 'He has just told HR where to go, in writing, having been sacked forty minutes earlier and not yet read that email.',
   'vo.fired': 'Reading that he no longer has a job. Not upset. Processing it the way you process weather.',
+
+  /* The Bada Bing's gambling floor. The prospect's half is the same man as the
+   * flat; the dealer's half is not, so every dealer bank says so out loud --
+   * the blanket "all in the player voice" above is exactly the wrong
+   * assumption to let somebody carry into the booth with these. */
+  'vo.bj.win': 'He has just won a hand of blackjack. Not pleased — mildly surprised that it went his way, and unwilling to take any credit for it.',
+  'vo.bj.lose': 'Lost the hand. Flat acceptance. This is money he had already written off walking in.',
+  'vo.bj.blackjack': 'Twenty-one off the first two cards. The best thing that can happen at the table, reported like a parcel arriving.',
+  'vo.bj.bust': 'He drew and went over. Appalled in the mild administrative way — the part that bothers him is that he asked for the card.',
+  'vo.bj.double': 'He doubled down and it landed. The closest he comes all night to having an opinion about himself.',
+  'vo.bj.broke': 'That was the last of it; he cannot make the twenty-five any more. Said exactly as flatly as everything else, which is the joke.',
+  'vo.bj.dealer.deal': 'THE DEALER, not the player — the `uncle` voice. Sharply dressed, older, says almost nothing. Smooth, low, unhurried, bored in a professional way. Calling the table, not performing.',
+  'vo.bj.dealer.hit': 'The dealer (`uncle` voice). One word, no inflection. He has said it ten thousand times.',
+  'vo.bj.dealer.stand': 'The dealer (`uncle` voice). Acknowledging and moving on.',
+  'vo.bj.dealer.blackjack': 'The dealer (`uncle` voice), turning over his own twenty-one. No triumph whatsoever — the house winning is simply Tuesday.',
+  'vo.bj.dealer.bust': 'The dealer (`uncle` voice), calling the player over. The "sorry" is courtesy, not sympathy.',
+  'vo.bj.dealer.payout': 'The dealer (`uncle` voice), paying the bet. Procedural.',
+  'vo.bj.dealer.minimum': 'The dealer (`uncle` voice), to a man sitting at the felt who cannot cover the bet. Not unkind, not remotely interested either.',
+  'vo.slots.jackpot': 'He has hit the jackpot on the machine by the front booths, and the whole room is now looking at him. Mortified rather than triumphant.',
+  'vo.slots.dead': 'Several spins into nothing at all. A running total rather than a complaint.',
 };
 
 /** How each of the mission's speakers reads, for whoever ends up in the booth. */

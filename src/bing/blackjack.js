@@ -138,6 +138,10 @@ export class Blackjack {
    * @param {{x:number,z:number}} table centre of the felt
    * @param {object} seat where the player is sitting: { x, z }
    * @param {object} hooks { getMoney, spend, win, onState, onNote, onDeal, onChips, onHandDone }
+   *   onHandDone is called `(hands, won, outcome)` -- see `_settle` for the
+   *   shape of `outcome`. The table's voice lines need to know *how* the hand
+   *   went, not just whether it paid, and `message` is display text rather
+   *   than something worth parsing.
    */
   constructor(scene, table, seat, hooks = {}) {
     this.scene = scene;
@@ -206,6 +210,7 @@ export class Blackjack {
     this.dealer = [];
     this.message = '';
     this.state = 'dealing';
+    this._doubled = false;
     this._chips = chipStack(0xd92e2e, Math.max(1, Math.min(10, Math.round(this.bet / 25))),
       this.seat.x + (this.table.x - this.seat.x) * 0.35,
       0.93,
@@ -256,6 +261,7 @@ export class Blackjack {
     this.hooks.spend?.(this.bet);
     this.net -= this.bet;
     this.bet *= 2;
+    this._doubled = true;
     if (this._chips) {
       this._chips.add(cylinder({ r: 0.038, h: 0.009, pos: [0.06, 0.0045, 0.02], mat: mat({ color: 0x2a2a33, roughness: 0.6 }) }));
     }
@@ -334,21 +340,32 @@ export class Blackjack {
     this._revealHole();
     const p = handTotal(this.player);
     const d = handTotal(this.dealer);
+    /* The staked amount, read before the doubled bet is halved back below. */
+    const staked = this.bet;
     let payout = 0;
-    if (p > 21) this.message = `Bust. ${p}.`;
-    else if (isBlackjack(this.player) && !isBlackjack(this.dealer)) {
+    /** 'bust' | 'blackjack' | 'win' | 'push' | 'lose' -- what the table calls it. */
+    let kind;
+    if (p > 21) {
+      kind = 'bust';
+      this.message = `Bust. ${p}.`;
+    } else if (isBlackjack(this.player) && !isBlackjack(this.dealer)) {
+      kind = 'blackjack';
       payout = this.bet * 2.5;
       this.message = 'Blackjack. Pays three to two.';
     } else if (d > 21) {
+      kind = 'win';
       payout = this.bet * 2;
       this.message = `Dealer busts with ${d}.`;
     } else if (p > d) {
+      kind = 'win';
       payout = this.bet * 2;
       this.message = `${p} beats ${d}.`;
     } else if (p === d) {
+      kind = 'push';
       payout = this.bet;
       this.message = `Push on ${p}.`;
     } else {
+      kind = 'lose';
       this.message = `${d} beats ${p}.`;
     }
     if (payout > 0) {
@@ -359,7 +376,15 @@ export class Blackjack {
     this.state = 'done';
     this.bet = BETS.includes(this.bet) ? this.bet : this.bet / 2;
     this.hooks.onState?.(this.view);
-    this.hooks.onHandDone?.(this.hands, payout > 0);
+    this.hooks.onHandDone?.(this.hands, payout > 0, {
+      kind,
+      staked,
+      payout,
+      doubled: this._doubled === true,
+      playerTotal: p,
+      dealerTotal: d,
+      dealerBlackjack: isBlackjack(this.dealer),
+    });
     // Back to betting on its own, so the table keeps moving
     this._queue = [{ at: 2.6, fn: () => { if (this.state === 'done') { this._clearTable(); this.state = 'bet'; this.message = ''; this.hooks.onState?.(this.view); } } }];
     this._timer = 0;

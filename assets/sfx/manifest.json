@@ -3624,6 +3624,240 @@
       "say": "We will see you tomorrow."
     },
     {
+      "_comment": "The Bada Bing's blackjack table. The prospect talks to himself over the felt exactly as he does in his own flat -- flat, competent, unimpressed, and mildly appalled in an administrative way when it goes wrong. He never celebrates. Rationed at the call site so a long shoe does not turn into a monologue.",
+      "name": "vo.bj.win.1",
+      "voice": "player",
+      "say": "Fine. That is one."
+    },
+    {
+      "name": "vo.bj.win.2",
+      "voice": "player",
+      "say": "Oh. I won that one."
+    },
+    {
+      "name": "vo.bj.win.3",
+      "voice": "player",
+      "say": "That is money I did not have a minute ago."
+    },
+    {
+      "name": "vo.bj.win.4",
+      "voice": "player",
+      "say": "I would like to point out that I did nothing clever there."
+    },
+    {
+      "name": "vo.bj.lose.1",
+      "voice": "player",
+      "say": "Right. That is gone."
+    },
+    {
+      "name": "vo.bj.lose.2",
+      "voice": "player",
+      "say": "That is fine. That is what that money was for."
+    },
+    {
+      "name": "vo.bj.lose.3",
+      "voice": "player",
+      "say": "I had a plan, and the plan was that."
+    },
+    {
+      "name": "vo.bj.lose.4",
+      "voice": "player",
+      "say": "No notes. That was simply worse."
+    },
+    {
+      "_comment": "Twenty-one off the first two. The joke is that it is the best thing that can happen at the table and he reports it like a delivery arriving.",
+      "name": "vo.bj.blackjack.1",
+      "voice": "player",
+      "say": "Blackjack. I did not do anything. It just arrived."
+    },
+    {
+      "name": "vo.bj.blackjack.2",
+      "voice": "player",
+      "say": "Twenty-one. Off the first two. Sure."
+    },
+    {
+      "name": "vo.bj.blackjack.3",
+      "voice": "player",
+      "say": "That is the best available outcome and I feel nothing."
+    },
+    {
+      "_comment": "He asked for the card himself, which is the part he cannot get past.",
+      "name": "vo.bj.bust.1",
+      "voice": "player",
+      "say": "Twenty-two. Excellent."
+    },
+    {
+      "name": "vo.bj.bust.2",
+      "voice": "player",
+      "say": "I asked for that card. That is the part that bothers me."
+    },
+    {
+      "name": "vo.bj.bust.3",
+      "voice": "player",
+      "say": "Over. By one. It is always by one."
+    },
+    {
+      "name": "vo.bj.bust.4",
+      "voice": "player",
+      "say": "That is my own fault in a very specific way."
+    },
+    {
+      "_comment": "He doubled down and it landed. The only moment he comes close to an opinion about himself.",
+      "name": "vo.bj.double.1",
+      "voice": "player",
+      "say": "I doubled it and it worked. I am as surprised as anybody."
+    },
+    {
+      "name": "vo.bj.double.2",
+      "voice": "player",
+      "say": "That is twice the money for the same bad decision."
+    },
+    {
+      "name": "vo.bj.double.3",
+      "voice": "player",
+      "say": "Do not let me do that again."
+    },
+    {
+      "_comment": "Nothing left on him. Said the way he says everything else, which is the whole character.",
+      "name": "vo.bj.broke.1",
+      "voice": "player",
+      "say": "That is all of it. That is everything I walked in with."
+    },
+    {
+      "name": "vo.bj.broke.2",
+      "voice": "player",
+      "say": "Well. That is the evening decided."
+    },
+    {
+      "name": "vo.bj.broke.3",
+      "voice": "player",
+      "say": "I would like to state that I knew this would happen."
+    },
+    {
+      "_comment": "The dealer, in the `uncle` voice -- smooth, low and unhurried, which is the only voice on the account that matches a sharply dressed older man who says almost nothing. Pure procedural croupier patter: he calls the table, never the outcome, and never has a feeling about either.",
+      "name": "vo.bj.dealer.deal.1",
+      "voice": "uncle",
+      "say": "Cards coming out."
+    },
+    {
+      "name": "vo.bj.dealer.deal.2",
+      "voice": "uncle",
+      "say": "Good luck."
+    },
+    {
+      "name": "vo.bj.dealer.deal.3",
+      "voice": "uncle",
+      "say": "No more bets. Cards."
+    },
+    {
+      "name": "vo.bj.dealer.hit.1",
+      "voice": "uncle",
+      "say": "Card."
+    },
+    {
+      "name": "vo.bj.dealer.hit.2",
+      "voice": "uncle",
+      "say": "Hitting."
+    },
+    {
+      "name": "vo.bj.dealer.hit.3",
+      "voice": "uncle",
+      "say": "One more."
+    },
+    {
+      "name": "vo.bj.dealer.stand.1",
+      "voice": "uncle",
+      "say": "Standing on that."
+    },
+    {
+      "name": "vo.bj.dealer.stand.2",
+      "voice": "uncle",
+      "say": "Dealer plays."
+    },
+    {
+      "name": "vo.bj.dealer.stand.3",
+      "voice": "uncle",
+      "say": "Very good. Dealer to sixteen."
+    },
+    {
+      "name": "vo.bj.dealer.blackjack.1",
+      "voice": "uncle",
+      "say": "Dealer has twenty-one."
+    },
+    {
+      "name": "vo.bj.dealer.blackjack.2",
+      "voice": "uncle",
+      "say": "Blackjack. House takes it."
+    },
+    {
+      "name": "vo.bj.dealer.bust.1",
+      "voice": "uncle",
+      "say": "Too many."
+    },
+    {
+      "name": "vo.bj.dealer.bust.2",
+      "voice": "uncle",
+      "say": "Over. Bet is mine."
+    },
+    {
+      "name": "vo.bj.dealer.bust.3",
+      "voice": "uncle",
+      "say": "That is a bust. Sorry."
+    },
+    {
+      "name": "vo.bj.dealer.payout.1",
+      "voice": "uncle",
+      "say": "Paid."
+    },
+    {
+      "name": "vo.bj.dealer.payout.2",
+      "voice": "uncle",
+      "say": "Pays even money."
+    },
+    {
+      "name": "vo.bj.dealer.payout.3",
+      "voice": "uncle",
+      "say": "Three to two. Good hand."
+    },
+    {
+      "_comment": "What he says to anyone standing at the felt without a bet down. The spoken twin of the dealer's opening line in src/bing/script.js.",
+      "name": "vo.bj.dealer.minimum.1",
+      "voice": "uncle",
+      "say": "Table minimum is twenty-five."
+    },
+    {
+      "name": "vo.bj.dealer.minimum.2",
+      "voice": "uncle",
+      "say": "Twenty-five to play."
+    },
+    {
+      "_comment": "The machine bolted to the floor by the front booths. The jackpot is mortifying rather than triumphant -- the problem with winning loudly in this room is the room.",
+      "name": "vo.slots.jackpot.1",
+      "voice": "player",
+      "say": "…That is a great deal of noise for a machine I was ignoring."
+    },
+    {
+      "name": "vo.slots.jackpot.2",
+      "voice": "player",
+      "say": "I have won. On a slot machine. In front of people."
+    },
+    {
+      "_comment": "Several spins into nothing at all. Only fires on a streak, so it reads as a running total rather than a comment on one pull.",
+      "name": "vo.slots.dead.1",
+      "voice": "player",
+      "say": "Nothing. Again."
+    },
+    {
+      "name": "vo.slots.dead.2",
+      "voice": "player",
+      "say": "This machine and I understand each other now."
+    },
+    {
+      "name": "vo.slots.dead.3",
+      "voice": "player",
+      "say": "I am funding something here. I do not know what."
+    },
+    {
       "name": "vo.beefrun.sasole.greeting-1.1",
       "voice": "lou2",
       "say": "You’re late."
