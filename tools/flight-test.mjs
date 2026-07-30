@@ -491,6 +491,24 @@ console.log('Brushrunner flight model\n');
   expect('ground clearance loaded', b.clear, 40, 4000, ' m');
   console.log(results.splice(0).join('\n'));
 
+  /* And back in again. A pass has to work in both directions, and the approach
+   * is the harder one: the departure only needs the floor to rise slower than the
+   * aeroplane climbs, while the approach needs it to rise slower than an approach
+   * descends, which is a good deal less. At a tenth the floor rose at very nearly
+   * the rate of the glide path, so the aeroplane came down the valley thirty
+   * metres over the ground the whole way, the ground levelled off underneath it,
+   * and it floated the length of the runway and landed in the trees past the far
+   * end. Nothing about that looks like a terrain bug from the cockpit. */
+  console.log('\nComing back in to Whispering Pines from the south:');
+  let worstClear = Infinity, worstAt = 0;
+  for (let out = 150; out <= 2400; out += 50) {
+    const glide = WP.elev + out * 0.075;
+    const clear = glide - terrainHeight(WP.x, -WP.rwyHalf - out);
+    if (clear < worstClear) { worstClear = clear; worstAt = out; }
+  }
+  expect(`a normal glide path stays above the ground (worst at ${worstAt} m out)`, worstClear, 8, 400, ' m');
+  console.log(results.splice(0).join('\n'));
+
   console.log('\nGetting out of El Hueso, heavy, over the ridge:');
   const c = climbOut({
     x: EH.x, z: EH.zHigh + 18, elev: terrainHeight(EH.x, EH.zHigh + 18), heading: 0,

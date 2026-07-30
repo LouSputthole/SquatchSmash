@@ -108,16 +108,26 @@ export function terrainHeight(x, z) {
    * flew into a hill, empty or loaded, at full power and best climb, and there
    * was not room to turn round either.
    *
-   * So the ground gives way ahead of the aeroplane at a tenth, which is well
-   * inside what it can climb at, and hands over to real country a few
-   * kilometres out where there is height to spare. It only ever lowers terrain —
-   * the mountains further along the route are the scenery and stay where they
-   * are. */
+   * So the ground gives way ahead of the aeroplane, and hands over to real
+   * country a few kilometres out where there is height to spare. It only ever
+   * lowers terrain — the mountains further along the route are the scenery and
+   * stay where they are.
+   *
+   * The gradient is set by the harder of the two directions, and that is not the
+   * climb. You come home up this same pass, and a floor rising at the rate an
+   * approach descends means you can never get on profile: the aeroplane arrives
+   * thirty metres over rising ground, the ground levels off underneath it, and
+   * it floats the length of the runway and lands in the trees past the far end.
+   * So it is a sixteenth — comfortably under both an approach slope and what a
+   * loaded Brushrunner climbs at. */
   const outbound = (WP.z - WP.rwyHalf) - z;
   if (outbound > 0) {
     const lateral = smoothstep(820, 300, Math.abs(x - WP.x));
     const fade = smoothstep(5200, 3000, outbound);
-    const ceiling = WP.elev + outbound * 0.10;
+    // Flat for a few hundred metres past the end first, so there is somewhere to
+    // be low on an approach. A floor that starts climbing at the threshold
+    // leaves an aeroplane on profile three metres over the dirt.
+    const ceiling = WP.elev + Math.max(0, outbound - 380) * 0.062;
     h = lerp(h, Math.min(h, ceiling), lateral * fade);
   }
 
