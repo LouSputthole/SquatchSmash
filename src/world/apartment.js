@@ -2077,6 +2077,8 @@ export async function buildApartment(ctx) {
     toiletSeatPivot: toilet.seatPivot,
     toiletBowl: toilet.bowl,
     toiletBowlRadius: toilet.bowlRadius + 0.02,
+    /** The stream dies at the standing water now, not at the rim. */
+    toiletWaterY: toilet.waterY,
     toiletCollider,
     setBathLight(on) { state.bathLightOn = on; },
 

@@ -2412,9 +2412,14 @@ export function makeToilet(M, { x, z, rotY = 0 }) {
    * tank sits on the pan, and now it does. */
   g.add(box({ size: [0.34, 0.40, 0.32], pos: [0, 0.20, -0.21], mat: porcelain }));
 
-  // Bowl: an outer shell with a darker recess for the water.
+  /* Bowl: an OPEN shell you can look into. The old one was a solid capped
+   * cylinder, so its top face was a porcelain lid at seat height and the
+   * water sat sealed inside it where nobody ever saw either -- "no actual
+   * bowl". Outer wall keeps the silhouette; a rolled rim closes the top edge;
+   * inside, a cone drops past standing water to the trap. Same construction
+   * as the bathroom basin, which always read right. */
   const bowl = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.20, 0.155, 0.16, 26),
+    new THREE.CylinderGeometry(0.20, 0.155, 0.16, 26, 1, true),
     porcelain,
   );
   bowl.position.set(0, SEAT_Y - 0.08, 0.02);
@@ -2423,16 +2428,47 @@ export function makeToilet(M, { x, z, rotY = 0 }) {
   bowl.receiveShadow = true;
   g.add(bowl);
 
+  const bowlRim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.19, 0.017, 10, 26),
+    porcelain,
+  );
+  bowlRim.rotation.x = -Math.PI / 2;
+  bowlRim.position.set(0, SEAT_Y - 0.004, 0.02);
+  bowlRim.scale.y = 1.22;   // local y is world z once the torus is laid flat
+  bowlRim.castShadow = true;
+  g.add(bowlRim);
+
+  const bowlInner = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.178, 0.062, 0.15, 26, 1, true),
+    mat({ color: 0xe2e5df, roughness: 0.18, side: THREE.DoubleSide }),
+  );
+  bowlInner.position.set(0, SEAT_Y - 0.078, 0.02);
+  bowlInner.scale.z = 1.22;
+  g.add(bowlInner);
+
+  // The trap under the water, darker so there is depth through it.
+  const trap = new THREE.Mesh(
+    new THREE.CircleGeometry(0.068, 20),
+    mat({ color: 0xaeb2a9, roughness: 0.5 }),
+  );
+  trap.rotation.x = -Math.PI / 2;
+  trap.position.set(0, SEAT_Y - 0.148, 0.02);
+  trap.scale.y = 1.22;
+  g.add(trap);
+
+  /* Standing water, high enough up the cone to be seen over the rim from
+   * where a person actually stands. */
+  const WATER_Y = SEAT_Y - 0.105;
   const water = new THREE.Mesh(
-    new THREE.CircleGeometry(0.155, 24),
+    new THREE.CircleGeometry(0.100, 24),
     new THREE.MeshPhysicalMaterial({
       color: 0x9fc4cf, roughness: 0.06, metalness: 0,
       transmission: 0.6, transparent: true, opacity: 0.75, thickness: 0.05,
     }),
   );
   water.rotation.x = -Math.PI / 2;
-  water.position.set(0, SEAT_Y - 0.13, 0.02);
-  water.scale.z = 1.22;
+  water.position.set(0, WATER_Y, 0.02);
+  water.scale.y = 1.22;
   g.add(water);
 
   // Seat + lid, each on a hinge at the back.
@@ -2482,6 +2518,8 @@ export function makeToilet(M, { x, z, rotY = 0 }) {
     /** World-space centre of the bowl opening. */
     bowl: new THREE.Vector3(x, SEAT_Y, z + 0.02),
     bowlRadius: 0.19,
+    /** World height of the standing water, for the stream to die at. */
+    waterY: WATER_Y,
     bounds: [[x - 0.24, 0, z - 0.42], [x + 0.24, 0.84, z + 0.30]],
   };
 }

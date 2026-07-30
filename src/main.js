@@ -529,10 +529,12 @@ async function boot() {
   });
 
   stream.setColliders(apartment.colliders);
+  /* Target top is the WATER, not the seat: with a real open bowl the drops
+   * should fall past the rim and die where the splash is. */
   stream.setTarget(
     apartment.toiletBowl,
     apartment.toiletBowlRadius,
-    apartment.toiletBowl.y,
+    apartment.toiletWaterY,
     apartment.toiletCollider,
   );
 
@@ -2392,7 +2394,7 @@ function startPee() {
   } else {
     stream.setTarget(
       apartment.toiletBowl, apartment.toiletBowlRadius,
-      apartment.toiletBowl.y, apartment.toiletCollider,
+      apartment.toiletWaterY, apartment.toiletCollider,
     );
   }
 
