@@ -1,11 +1,10 @@
 # SQUATCH LIFE — The Meeting: Outcomes & Script
 
-> **Legacy Initiation concept, preserved for character/story review.** This
-> document treats Initiation as a prologue and turns a human Prospect into a
-> sasquatch. That conflicts with the current chapter order and with the
-> Squatchfather/Motel portrayal of Prospect. It is not campaign canon until the
-> character alignment in [`CHARACTER-ALIGNMENT.md`](./CHARACTER-ALIGNMENT.md)
-> is approved.
+> **Character canon is approved; ending design is not.** Tony Squatchtana and
+> every Circle member are human. “Sasquatch” is family status, not species.
+> Initiation belongs at the current chapter endpoint, Prospect One's execution
+> remains, and the supplied named face photos are authoritative. The party and
+> alternate outcomes below remain design material until the final ending pass.
 
 > **Review copy.** Nothing in here is wired into the game yet except what's
 > already shipped (the ceremony flow). This is the writing pass for the four
@@ -26,7 +25,7 @@
 ```
 APARTMENT (other branch — do not touch)
  │
- ├─ The card on the corkboard: WED 7PM · SQUATCH MEETING · BOOSKI DRIVING · BRING NOTHING.
+ ├─ The card on the corkboard: WED 7PM · SQUATCH MEETING · BOOSKIBRO DRIVING · BRING NOTHING.
  │
  ├─ [NEW HOOK] Tuesday, 21:40 — two men at the door who are not from around here.
  │      Take the deal → the gun goes in your waistband. flag: fbiDeal, gunCarried
@@ -98,10 +97,10 @@ question it asks everyone. They were the first ones to answer it out loud.
 we're a gang. A gang has *ambitions*. We are a CIRCLE. A circle has no
 beginning, no end, and no fucking exit.
 
-**LOU SPUTTHOLE:** What Booski means is: welcome. This is a family. A large,
+**BIG UNCLE LOU SPUTTHOLE:** What Booskibro means is: welcome. This is a family. A large,
 damp family with one rule, and the rule has teeth.
 
-**LOU SPUTTHOLE:** Also, housekeeping — whoever keeps leaving cans at the fire
+**BIG UNCLE LOU SPUTTHOLE:** Also, housekeeping — whoever keeps leaving cans at the fire
 pit, the raccoons are organizing. I've seen the little one with the clipboard.
 This is how it starts.
 
@@ -118,12 +117,12 @@ certainly ironed for this.)*
 
 **BOOSKIBRO:** Who are the five founding members of the Silver Sasquatches?
 
-**PROSPECT ONE:** Okay. Okay okay okay. Booski... Lou... uh. Bigfoot?
+**PROSPECT ONE:** Okay. Okay okay okay. Booskibro... Big Uncle Lou... uh. Bigfoot?
 Garfield?? ...the GEICO Gecko???
 
 *(A pause the length of a funeral.)*
 
-**LOU SPUTTHOLE:** The gecko. He said the gecko.
+**BIG UNCLE LOU SPUTTHOLE:** The gecko. He said the gecko.
 
 **BOOSKIBRO:** WRONG. *(slam)*
 
@@ -133,22 +132,22 @@ The first two put Prospect One down; the other six are policy. What's left in
 the rust-colored shirt stops being a person and starts being a warning. The
 crowd's reaction is the joke: there is no reaction. HOGMAMA checks her nails.)*
 
-**LOU SPUTTHOLE:** ...Anyway.
+**BIG UNCLE LOU SPUTTHOLE:** ...Anyway.
 
 **BOOSKIBRO:** Prospect Two. Same question.
 
-**LOU SPUTTHOLE:** No pressure. Well. Some pressure. A specific, recently
+**BIG UNCLE LOU SPUTTHOLE:** No pressure. Well. Some pressure. A specific, recently
 demonstrated, still-cooling amount of pressure.
 
 *(THE QUIZ. Options shuffled:)*
-1. Booski, Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron ✓
-2. Booski, Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko
-3. Booski, Snow, Hogmama, Erican, and two raccoons in a coat
+1. Booskibro, Big Uncle Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron ✓
+2. Booskibro, Big Uncle Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko
+3. Booskibro, Snow, Hogmama, Erican, and two raccoons in a coat
 
-**On correct — BOOSKIBRO:** CORRECT. Myself. Lou Sputthole. Rippinflow. The
+**On correct — BOOSKIBRO:** CORRECT. Myself. Big Uncle Lou Sputthole. Rippinflow. The
 Shubenator. Deathmegatron. The FIVE. *(slam)*
 
-**LOU SPUTTHOLE:** Somebody did the reading. Somebody gets to keep their
+**BIG UNCLE LOU SPUTTHOLE:** Somebody did the reading. Somebody gets to keep their
 fluids on the inside.
 
 **BOOSKIBRO:** The mind is sharp. Now we find out what the meat is made of.
@@ -166,7 +165,7 @@ Somewhere around half health:
 > **NARRATOR:** They are being gentle. It's important you know that. This is
 > the version with restraint.
 
-They stop at a fifth of your health, on Booski's word:
+They stop at a fifth of your health, on Booskibro's word:
 
 **BOOSKIBRO:** ENOUGH. *(the fists stop mid-air, all at once, like a shift
 whistle went)*
@@ -183,7 +182,7 @@ more prospects.
 *(You roar. The fire stands up. Something three ridges over decides to be
 somewhere else.)*
 
-**LOU SPUTTHOLE:** Hm. Felt that in the fillings.
+**BIG UNCLE LOU SPUTTHOLE:** Hm. Felt that in the fillings.
 
 **BOOSKIBRO:** Last trial. THE TIMBER. That deadfall has been lying there
 since before you had a lease. Nobody will move it. Nobody but you. Break it,
@@ -201,13 +200,14 @@ You turned a log into a rumor of a log.
 **BOOSKIBRO:** I'm going to tell you the secret now. The one the mud and the
 bandana and the fucking mystery is for. Come here.
 
-**BOOSKIBRO:** *(quiet, almost kind)* You walked into this clearing a man.
+**BOOSKIBRO:** *(quiet, almost kind)* Tony Squatchtana. You walked into this
+clearing a prospect.
 
 **BOOSKIBRO:** Walk out a SQUATCH. *(slam — the light swallows you; when it
-lets go, you are nine feet of silver and the scream you were halfway through
-has become something the county will file reports about)*
+lets go, Tony is still human, now wearing the Circle's silver-grey colors and
+red member bandana)*
 
-> **NARRATOR:** So that's what the pelt was. That's what all the pelts were.
+> **NARRATOR:** Same bones. New bandana. Apparently that is what family means.
 
 → **CUT TO: THE PARTY.**
 
@@ -237,18 +237,18 @@ Things to do:
 |---|---|
 | The keg | Apartment beer system, communal. Six deep and the fire develops opinions. |
 | The bong circle | SHUBES runs it from a camp chair. World slows, camera lags — ported from apartment `highs.js`. |
-| The toast | Booski on the truck bed. Scripted set piece, below. |
+| The toast | Booskibro on the truck bed. Scripted set piece, below. |
 | Log toss | RIPPINFLOW's minigame with the leftover Timber chunks. Timing bar. |
 | The wall of founders | Five crooked portraits nailed to a pine. One is a raccoon. Nobody explains. |
 | Talk to everyone | The NPC system's showcase — every member has party dialog keyed to what you did to/with them tonight. See `docs/NPC-SYSTEM.md`. |
 
-**Booski's toast** (he's four beers in; the gravitas keeps slipping):
+**Booskibro's toast** (he's four beers in; the gravitas keeps slipping):
 
 **BOOSKIBRO:** QUIET. Quiet. Tonight the Circle grew by one. And shrank by
 one. *(gestures at Prospect One with his cup)* The math is called nature,
 and nature is called — Lou, what's it called —
 
-**LOU SPUTTHOLE:** Attrition.
+**BIG UNCLE LOU SPUTTHOLE:** Attrition.
 
 **BOOSKIBRO:** NATURE IS CALLED ATTRITION. To the new blood!
 
@@ -260,7 +260,7 @@ the cup)* Wherever we buried it.
 **End of night:** walk to the tree line, hold E. Ending card:
 
 > **SILVER.** You came here from an apartment with a wobble in the door
-> handle. You are leaving as an apex predator with a bandana and a hangover
+> handle. You are leaving as a made man with a bandana and a hangover
 > scheduled for noon. There is no going back. Your lease, ironically, also
 > says that.
 

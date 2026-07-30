@@ -1,113 +1,94 @@
-# Character Alignment Checkpoint
+# Character Bible — Approved Canon
 
-This is the evidence-backed character sheet for the consolidation branch. It
-separates identities already safe to use in save data from details that still
-need creative approval. No unresolved alias, model, species, or Initiation
-premise has been promoted into campaign state.
+This is the character authority for the consolidation branch. The campaign
+registry in `src/core/characters.js` owns stable identity, name, species, role,
+subtitle, voice, and compatibility aliases. Scenes may change a character's
+procedural rig, clothing, animation, or eventual GLB without changing that
+identity.
 
-## Stable campaign identities
+## Core campaign cast
 
-| Stable ID | Current subtitle | Current voice profile | What is established | What still needs approval |
-|---|---|---|---|---|
-| `prospect` | Prospect | `player` | The same playable lead crosses the apartment, Bing, Squatchfather, and Motel. | Whether Tony Squatchmontana is the canonical full name; species and appearance from Day One. |
-| `lou` | Lou | `lou1` | Lou gives the first package at the Bing and calls again after the airstrip. | Confirm that Bing Lou and Initiation’s Lou Sputthole are one person. |
-| `captain_lou_sasole` | Captain Lou Sasole | `lou2` | Booski sends the player to this separate character at the airstrip. He never shares Lou’s mission or call state. | Confirm whether Initiation’s `sasole` face/party member is Captain Lou Sasole. |
-| `booski` | Booski | `booski` | Day Two caller and Initiation leader/founder. | Final subtitle form: Booski, Booskibro, or a context-dependent pair. |
+| Stable ID | Canonical name | Subtitle | Voice | Species | Role |
+|---|---|---|---|---|---|
+| `prospect` | Tony Squatchtana | Prospect | `player` | Human | Prospect/pledge seeking entry to the Sasquatch family |
+| `lou` | Big Uncle Lou Sputthole | Big Uncle Lou | `lou1` | Human | Founder, family uncle, first Bing contact |
+| `captain_lou_sasole` | Captain Lou Sasole | Captain Lou Sasole | `lou2` | Human | Circle member and airstrip captain |
+| `booski` | Booskibro | Booskibro | `booski` | Human | Founder, patriarch, Day Two caller, ceremony leader |
 
-The live registry is `src/core/characters.js`. Species, clothing, model paths,
-and the aliases `tony_squatchmontana` and `sasole` are deliberately absent
-until approved.
+The two Lous are separate people. Big Uncle Lou owns the Bing story thread;
+Captain Lou Sasole owns the airstrip thread and is the same person represented
+by the authoritative `assets/faces/sasole.png` photo at Initiation. Their save
+IDs, voice profiles, calls, dialogue state, and mission flags must never merge.
 
-## The central continuity conflict
+Tony is human on Day One and remains human. “Sasquatch” is the name and status
+of the family/organization he is pledging, comparable to a biker-gang prospect;
+Initiation changes membership, not species. His surname is **Squatchtana**.
+`Squatchmontana` is rejected and is not accepted as a registry alias.
 
-Three scene sources disagree about Prospect:
+## Circle canon
 
-- `motel.html` names him **Tony Squatchmontana**, says everybody calls him
-  Prospect, and `src/motel/actors.js` builds the player and Manny as
-  sasquatches.
-- `src/squatchfather/dialogue/dialogue.json` calls him Prospect/Squatch and the
-  restaurant uses its own visible procedural Prospect body.
-- `src/initiation/main.js` starts him as a human and physically transforms him
-  into a nine-foot silver sasquatch at the end. Its source story treats this as
-  a prologue, while the intended campaign places it after the Motel.
+Every Circle member is human. The supplied face photos are authoritative for
+their named characters.
 
-Recommended canon: Prospect is already a literal sasquatch when Day One starts;
-Tony Squatchmontana is his full name; everyone normally calls him Prospect.
-Initiation changes his **membership/status** in the Silver Sasquatches rather
-than his species. The existing transformation beat can become a ceremonial
-reveal, bandana/coat presentation, or heightened subjective effect without
-breaking the earlier scenes.
-
-## Recurring and mission characters
-
-| Proposed ID | Display name | Source and current portrayal | Recommendation |
+| Stable/local ID | Canonical display | Face asset | Role |
 |---|---|---|---|
-| `manny` | Manny | `src/motel/actors.js`; Prospect’s sasquatch ally/driver, blue shirt and yellow cap. | Keep named and reusable; decide whether he appears at Initiation. |
-| `sal_sorrento` | Sal “The Prospector” Sorrento | `src/squatchfather/dialogue/dialogue.json`; restaurant antagonist/negotiator. | Keep mission-local unless later story reuses him. |
-| `captain_mcclawsky` | Capt. McClawsky | Same dialogue file; Sal’s armed associate. | Keep distinct from Captain Lou despite the shared title. |
-| `rico` | Rico | `src/motel/actors.js`; primary human seller, tropical shirt, shades, mustache, chain. | Keep as named Motel antagonist. |
-| `chino` | Chino | Same source; human seller/butcher with apron, gloves, and cleaver. | Keep as named Motel antagonist. |
-| `motel_slicer` | Bathroom Seller | Same source; hidden seller with a meat slicer. | Approve a real name only if future dialogue needs one. |
-| `motel_lookout` | Lookout | Same source; knife-carrying seller. | Functional ID is enough for now. |
-| `motel_watcher` | Watcher | Same source; hook-carrying seller. | Functional ID is enough for now. |
-| `motel_clerk` | Clerk | Same source; civilian Motel clerk. | Keep mission-local. |
-
-The Bing contains one recurring named character, Lou. Its bouncer, bartender,
-barback, dealer, guards, DJ, performers, contractor, regulars, staff, and Lou’s
-associate have good scene-local role keys in `src/bing/cast.js`; they should
-not receive global character IDs until one is intended to recur.
-
-## Preserved Initiation Circle
-
-| Legacy ID | Subtitle/name | Face asset | Current legacy role |
-|---|---|---|---|
-| `booski` | BOOSKI / BOOSKIBRO | `assets/faces/booski.png` | Patriarch, founder, ceremony leader |
-| `lou` | LOU SPUTTHOLE | `assets/faces/lou.png` | Lieutenant, founder, stage speaker |
+| `booski` | BOOSKIBRO | `assets/faces/booski.png` | Patriarch and founder |
+| `lou` | BIG UNCLE LOU SPUTTHOLE | `assets/faces/lou.png` | Lieutenant and founder |
 | `rippinflow` | RIPPINFLOW | `assets/faces/rippinflow.png` | Quiet founder |
-| `shubes` | THE SHUBENATOR | `assets/faces/shubes.png` | Emotional founder |
-| `deathmegatron` | DEATHMEGATRON | `assets/faces/deathmegatron.png` | Muscle, founder |
+| `shubes` | THE SHUBENATOR | `assets/faces/shubes.png` | Founder |
+| `deathmegatron` | DEATHMEGATRON | `assets/faces/deathmegatron.png` | Founder and muscle |
 | `hogmama` | HOG MAMA | `assets/faces/hogmama.png` | Matriarch |
-| `ape` | APE | Not present | Roaster |
-| `irish` | IRISH | Not present | Procedure/grievance voice |
-| `erican` | ERICAN | `assets/faces/erican.png` | Utility member |
-| `gratin` | GRATIN | `assets/faces/gratin.png` | Utility member |
-| `sasole` | SASOLE | `assets/faces/sasole.png` | Utility member; identity unresolved |
-| `snow` | SNOW | `assets/faces/snow.png` | Utility member and executioner |
+| `ape` | APE | Face not supplied | Roaster |
+| `irish` | IRISH | Face not supplied | Procedure/grievance voice |
+| `erican` | ERICAN | `assets/faces/erican.png` | Member |
+| `gratin` | GRATIN | `assets/faces/gratin.png` | Member |
+| `captain_lou_sasole` | CAPTAIN LOU SASOLE | `assets/faces/sasole.png` | Member and airstrip captain |
+| `snow` | SNOW | `assets/faces/snow.png` | Member and executioner |
 
-The scene also has four unnamed NPC prospects plus the player’s slot. The
-current founders quiz locks the five answers as Booski, Lou Sputthole,
-Rippinflow, The Shubenator, and DeathMegatron.
+The five founders are locked:
 
-## Presentation strategy
+1. Booskibro
+2. Big Uncle Lou Sputthole
+3. Rippinflow
+4. The Shubenator
+5. DeathMegatron
 
-There is no populated production character-model manifest. The strongest
-working presentation is currently:
+Prospect One's failed quiz, execution, and explicit gore remain canonical.
+The ending after Tony's successful induction still needs a dedicated design
+pass; no scene should remove or soften the execution while that ending is being
+decided.
 
-- procedural human rigs in the Bing and Initiation;
-- photo face textures for the named Circle cast;
-- procedural sasquatch rigs in Squatch Smash and the Motel;
-- a separate procedural visible Prospect/Sal/McClawsky rig in Squatchfather.
+## Mission and supporting cast
 
-Recommended near-term direction: keep the procedural rigs and approved photo
-faces while establishing one character-definition layer above them. A later
-GLB can replace a renderer without changing a character ID, voice, dialogue,
-mission flag, or save. This keeps the current scenes playable and follows the
-repo’s Three.js loader/material conventions without inventing replacement art.
+| ID | Display name | Current source | Status |
+|---|---|---|---|
+| `manny` | Manny | `src/motel/actors.js` | Tony's Motel ally/driver; species and future recurrence still need alignment |
+| `sal_sorrento` | Sal “The Prospector” Sorrento | `src/squatchfather/dialogue/dialogue.json` | Squatchfather antagonist |
+| `captain_mcclawsky` | Capt. McClawsky | Same file | Sal's associate; distinct from Captain Lou |
+| `rico` | Rico | `src/motel/actors.js` | Primary Motel seller |
+| `chino` | Chino | Same source | Motel seller/butcher |
+| `motel_slicer` | Bathroom Seller | Same source | Mission-local |
+| `motel_lookout` | Lookout | Same source | Mission-local |
+| `motel_watcher` | Watcher | Same source | Mission-local |
+| `motel_clerk` | Clerk | Same source | Mission-local civilian |
 
-## Decisions needed before canonical Initiation work
+The Bing bouncer, bartender, barback, dealer, guards, DJ, performers, staff,
+regulars, contractor, and Lou's associate retain their scene-local role IDs in
+`src/bing/cast.js` until the story makes one recur.
 
-1. Is **Tony Squatchmontana** Prospect’s canonical full name?
-2. Is Prospect already a literal sasquatch on Day One, with Initiation changing
-   membership/status rather than species?
-3. Is Bing Lou the same person as **Lou Sputthole**?
-4. Is the Initiation member `sasole` Captain Lou Sasole?
-5. Should subtitles say **Booski**, **Booskibro**, or use both by context?
-6. Are the Circle members humans, sasquatches, or a mixed organization?
-7. Are the supplied face photos authoritative for the named Circle cast?
-8. Are the five founders in the current quiz locked?
-9. Does the execution of Prospect One and the explicit gore remain in the
-   canonical chapter-ending Initiation?
+## Presentation rules
 
-The default recommendation is “yes” to 1, 2, 3, 4, 7, 8, and 9; use Booski in
-ordinary subtitles and Booskibro as an affectionate/on-air nickname; make the
-organization mixed rather than forcing every member into one species.
+- Core identity is data; model/rig choice is presentation.
+- Tony and every Circle member use human presentation in story scenes.
+- Named Circle members use their supplied face photos.
+- Booskibro is the subtitle and display name; `booski` remains the stable save
+  ID and existing voice-bank key.
+- Initiation may use firelight, bloom, the silver bandana, ceremonial clothing,
+  sound, and camera effects to make induction feel transformative, but it must
+  not replace Tony with a sasquatch body.
+- Squatch Smash may keep literal sasquatches because it is an in-world computer
+  game, not evidence that Tony or the Circle are another species.
+
+The current procedural figures remain the safest working renderers. Future GLB
+models can replace them only through this identity layer so character names,
+voices, dialogue, mission flags, and saves survive the art change.

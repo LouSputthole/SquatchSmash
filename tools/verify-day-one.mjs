@@ -92,8 +92,8 @@ try {
       from: game.phone.call?.def?.from,
     };
   });
-  check('Lou rings the physical phone after the player gets up',
-    ringing.ringing && ringing.eventId === 'lou_first_call' && ringing.from === 'Lou',
+  check('Big Uncle Lou rings the physical phone after the player gets up',
+    ringing.ringing && ringing.eventId === 'lou_first_call' && ringing.from === 'Big Uncle Lou',
     JSON.stringify(ringing));
 
   const answered = await page.evaluate(() => {

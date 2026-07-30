@@ -164,7 +164,7 @@ time.day = campaign.state.story.day;
 time.minutes = campaign.state.story.timeMinutes;
 if (wakingOnDayTwo) {
   overlay.querySelector('.tag').textContent =
-    'Day Two, 7:00 AM. Booski has the next job. The phone is on the nightstand.';
+    'Day Two, 7:00 AM. Booskibro has the next job. The phone is on the nightstand.';
 }
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
@@ -1833,7 +1833,7 @@ function readChat() {
   apartment.desk.repaintChat(chat);
   if (told) {
     learnAboutMeeting('the chat');
-    hud.say('<em>BOOSKI: wed 7pm. im driving.</em><br>'
+    hud.say('<em>BOOSKIBRO: wed 7pm. im driving.</em><br>'
       + 'Sent hours ago, to a server where nobody answers.', 6000);
   } else {
     hud.say('Nobody has said anything worth reading yet.', 3600);
@@ -2446,7 +2446,7 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
     hud.say(storySleep?.ok
-      ? `<em>Day Two. ${time.clock12}.</em> Booski said he would call.`
+      ? `<em>Day Two. ${time.clock12}.</em> Booskibro said he would call.`
       : voluntary
         ? (time.day === MEETING.day && time.hour >= 17
         ? `<em>${time.clock12}.</em> Slept most of it away. <em>That is tonight, that is.</em>`

@@ -153,7 +153,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
-          line: 'Booski said he would call with the next job.',
+          line: 'Booskibro said he would call with the next job.',
         };
       }
       if (state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status !== 'complete') {
@@ -193,7 +193,7 @@ class ApartmentStory {
       return {
         kind: 'call',
         id: EVENT_IDS.LOU_FIRST_CALL,
-        line: 'Lou said he would call. I should answer before I go anywhere.',
+          line: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
       };
     }
     const missions = this.campaign.state.missions;

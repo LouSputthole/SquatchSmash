@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildMotel, makeJerkyCase, BOUNDS } from './level.js';
 import { Actor, CAST, WEAPON_STATS, buildWeaponMesh } from './actors.js';
-import { Sasquatch } from '../../game/src/player.js';
+import { Person } from '../core/person.js';
 import { DebrisSystem } from '../../game/src/debris.js';
 import { Effects } from '../../game/src/effects.js';
 import { lambert } from '../../game/src/world.js';
@@ -60,7 +60,14 @@ const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerH
 const level = buildMotel(scene, renderer);
 const { colliders, refs } = level;
 
-const player = new Sasquatch();
+const player = new Person({
+  shirt: 0x384f74,
+  shirtDark: 0x26374f,
+  pants: 0x242933,
+  skin: 0xe8b88a,
+  bandana: null,
+  hair: 0x3a2a1a,
+});
 player.group.scale.setScalar(PLAYER_SCALE);
 scene.add(player.group);
 
@@ -1799,7 +1806,7 @@ function mashGrapple() {
     a.stunT = 1.6;
     a.damage(18, false, pos.x, pos.z);
     endGrapple();
-    say('Prospect', 'Do not put hands on a Squatchmontana.', 3);
+    say('Prospect', 'Do not put hands on a Squatchtana.', 3);
   }
 }
 
@@ -3051,7 +3058,7 @@ tick();
 
 // Debug / test handle
 window.MOTEL = {
-  S, level, refs, actors, shipment, inspection, freshness, campaign, story: motelStory,
+  S, level, refs, actors, shipment, inspection, freshness, campaign, story: motelStory, player,
   get phase() { return phase; },
   get ending() { return lastEndingKind; },
   get campaignState() { return campaign.state; },

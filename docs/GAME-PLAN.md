@@ -192,8 +192,8 @@ you can potter about in there indefinitely, which is its own ending.
 Three ways, none of them a pop-up:
 
 - **The corkboard** ✅ — a card pinned there a fortnight ago:
-  *WED 7PM · SQUATCH MEETING · BOOSKI DRIVING · BRING NOTHING.*
-- **The second monitor** ✅ — Booski's messages arriving on the in-game clock,
+  *WED 7PM · SQUATCH MEETING · BOOSKIBRO DRIVING · BRING NOTHING.*
+- **The second monitor** ✅ — Booskibro's messages arriving on the in-game clock,
   four of them mentioning Wednesday. The monitor shows an unread count you can
   see from across the room and ignore all game. Reading it is holding [E] on
   the panel, not walking past it. The last one is just `ok`.
@@ -300,7 +300,7 @@ be worse than silence.
 3. **The three missing verbs** — shower, change, eat.
 4. **The CS rework** — thirteen rounds, the boys, the one kill.
 5. **The bong and the mushrooms** — effects, not just props.
-6. **The corkboard note and Booski's messages.**
+6. **The corkboard note and Booskibro's messages.**
 7. **Voice acting and ElevenLabs**, whenever the key and the network allow.
 
 ---
@@ -316,7 +316,7 @@ should not be able to tell it was missing.
 | **The catchphrases** ✅ | Any framed photo | Catching a frame under the crosshair is enough — no button. Half the bank is the group's own sayings rather than descriptions of the picture: *let me hear you, let me sing* · *it is all love* · *piping hot*. Once per frame per run, 55% chance, 14-second shared cooldown. |
 | **The fluke kill** ✅ | Counter-Squatch | The cheater is on screen for 0.37 seconds before he shoots. You can hit him. Almost nobody will. The scoreboard says `1 kills` afterwards and it is the best thing that happens all day. |
 | **The glue** ✅ | Desk, under the crooked frame | Six squeezes, a long groan, and the whole bottle up the wall. Sounds like something else the entire way through and is glue at every point. The wall stays like that. |
-| **Booski's last message** ✅ | Second monitor, 9 PM | Nineteen messages across Tuesday, and the last one — after all the plans and the arguing — is just `ok`. |
+| **Booskibro's last message** ✅ | Second monitor, 9 PM | Nineteen messages across Tuesday, and the last one — after all the plans and the arguing — is just `ok`. |
 | **The Rerun Hour** ✅ | 97.8, 10 AM–noon | Two hours the station could not fill, filled with this morning's tape. *"That was from this morning. Four hours ago. We are aware."* |
 | **Irish and the eggs** ✅ | 97.8, 3–5 PM | Part fifteen of an investigation into whether Big Egg is suppressing the pasture-raised truth. There is string on the whiteboard. |
 | **Lou has landed there** ✅ | 97.8, breakfast | *"You cannot land there. I want to be clear that you cannot land there." / "I have landed there."* |

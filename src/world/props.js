@@ -405,7 +405,7 @@ function chatScreenTexture() {
 
     const msgs = chat
       ? chat.visible(9)
-      : [['BOOSKI', '#8fb6ff', 'anyone up']].map(([who, colour, text]) => ({ who, colour, text }));
+      : [['BOOSKIBRO', '#8fb6ff', 'anyone up']].map(([who, colour, text]) => ({ who, colour, text }));
 
     let y = 34;
     for (const m of msgs) {

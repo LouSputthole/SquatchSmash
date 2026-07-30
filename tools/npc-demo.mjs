@@ -55,7 +55,7 @@ hr('4 · THE RAT ROUTE — working the room builds suspicion, lines flip');
   const npc = new NpcSystem({ route: 'rat', rng });
   npc.seedStanding({ enduredFull: true, quizPassed: true });
   // Talk to a bunch of people; suspicion accumulates on the watchful ones.
-  const order = ['lou', 'ape', 'hogmama', 'shubes', 'erican', 'sasole', 'gratin', 'snow', 'irish', 'deathmegatron', 'booski'];
+  const order = ['lou', 'ape', 'hogmama', 'shubes', 'erican', 'captain_lou_sasole', 'gratin', 'snow', 'irish', 'deathmegatron', 'booski'];
   for (const id of order) {
     const g = npc.greet(id);
     const lead = npc.suspicionLeader();

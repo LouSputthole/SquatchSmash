@@ -1,10 +1,9 @@
-// Legacy Initiation human rig, isolated pending character-canon review.
+// Shared human character rig for story scenes.
 import * as THREE from 'three';
 
-// A human character with the same animation API as the Sasquatch
-// (heading/facing/position, update, startSmash/consumeImpact), so scenes
-// can drive either interchangeably. Used by the initiation prologue —
-// the Silver Sasquatches are people, after all.
+// The shared story-scene API is heading/facing/position, update, and
+// startSmash/consumeImpact, so a mission can animate Tony or a Circle member
+// without inventing another player rig.
 //
 // `bandana: null` swaps the headband for plain hair (a prospect hasn't
 // earned theirs yet). `face` is an optional image URL rendered on the

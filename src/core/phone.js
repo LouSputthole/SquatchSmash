@@ -58,7 +58,7 @@ export const CALLS = [
   },
   {
     at: 13.6,
-    from: 'BOOSKI',
+    from: 'BOOSKIBRO',
     vo: 'call.booski',
     meeting: true,
     lines: [
@@ -95,7 +95,7 @@ export const CALLS = [
 /** Threads already on the phone when he wakes up. */
 export const THREADS = [
   {
-    who: 'BOOSKI',
+    who: 'BOOSKIBRO',
     messages: [
       { them: true, text: 'you awake' },
       { them: true, text: 'answer your phone' },

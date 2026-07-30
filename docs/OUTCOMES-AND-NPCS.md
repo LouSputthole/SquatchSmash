@@ -1,9 +1,10 @@
 # The Initiation — Outcomes, Party & NPC System
 
-> **Legacy reference, not current campaign canon.** Parts of this plan are now
-> built in the isolated `src/initiation/` scene, but the prologue placement,
-> human-to-sasquatch transformation, character aliases, and ending are held for
-> the alignment in [`CHARACTER-ALIGNMENT.md`](./CHARACTER-ALIGNMENT.md).
+> **Approved character canon with unapproved ending variants.** Tony
+> Squatchtana and every Circle member are human. “Sasquatch” is family status,
+> Initiation is the chapter endpoint, the named face photos are authoritative,
+> the five founders are locked, and Prospect One's execution remains. The party
+> and alternate endings below are still candidates for the final design pass.
 
 This is the script-and-systems bible for where the preserved initiation scene
 goes after "you got the question right." Read it, carve it up, tell me what's
@@ -20,7 +21,7 @@ Two voices do the heavy lifting and they must never blur:
 - **THE NARRATOR** — your interior voice, carried over from the apartment. Dry,
   present-tense, faintly disappointed in you. Never frightened. Describes
   atrocity in the same tone it used to describe the fridge.
-- **THE CIRCLE** — Booski, Lou, the crew. Loud, ceremonial, genuinely warm even
+- **THE CIRCLE** — Booskibro, Big Uncle Lou, the crew. Loud, ceremonial, genuinely warm even
   while doing something monstrous. They love you. That's what makes it work.
 
 ---
@@ -42,23 +43,24 @@ two candidates for — pick one (or greenlight both as separate endings).
 ### A · THE BROTHER  *(best outcome → the party)*
 
 You answered right. You ate the beating and never swung. You roared. You put
-the log down. Booski comes off the stage.
+the log down. Booskibro comes off the stage.
 
-> **BOOSKI:** You walked in here a man. Soft. Renting. A person who *owns a
+> **BOOSKIBRO:** You walked in here a prospect. Soft. Renting. A person who *owns a
 > colander.*
 >
-> **BOOSKI:** Tonight you walked into the fire a prospect and you're walking out
+> **BOOSKIBRO:** Tonight you walked into the fire a prospect and you're walking out
 > the other side of it something the forest actually has a use for.
 >
-> **LOU SPUTTHOLE:** We're all so proud of you. Genuinely. I might cry. I won't,
+> **BIG UNCLE LOU SPUTTHOLE:** We're all so proud of you. Genuinely. I might cry. I won't,
 > but I might.
 >
 > **NARRATOR:** Somewhere behind you, the man who couldn't name the founders is
 > still cooling. Nobody has moved him. This does not appear to bother anyone.
 
-The anointing lands (the human→squatch swap we already built). Then the banner
-drops, the drums kick up, and the objective changes for the first time all
-night to something that isn't a threat:
+The anointing lands: Tony remains human and receives the Circle's silver-grey
+colors and red member bandana. Then the banner drops, the drums kick up, and
+the objective changes for the first time all night to something that isn't a
+threat:
 
 > **OBJECTIVE:** There's a party. Go to the party.
 
@@ -97,15 +99,15 @@ Gauntlet, the Roar — you're not enduring for the bandana anymore. You're waiti
 The tell is the writing. Every warm line the Circle gives you now lands wrong,
 because you know what's taped to your leg:
 
-> **BOOSKI:** *(mid-beating, delighted)* THERE it is! He's not even covering up!
+> **BOOSKIBRO:** *(mid-beating, delighted)* THERE it is! He's not even covering up!
 > That's a *believer!*
 >
 > **NARRATOR:** He thinks you've transcended the pain. You've stopped feeling it
-> because you're doing arithmetic. Six shots gets Booski. Then Lou, who's closer
+> because you're doing arithmetic. Six shots gets Booskibro. Then Big Uncle Lou, who's closer
 > than he should be. Then the tree line, and forty minutes of running, and a
 > life afterward you have genuinely not thought about.
 
-**The kill window** comes at the anointing — the one moment Booski is off the
+**The kill window** comes at the anointing — the one moment Booskibro is off the
 stage, unarmed, an arm's length away, calling you *son*. The game hands you the
 prompt: **[hold] RAISE THE GUN.** Two beats to decide.
 
@@ -113,16 +115,16 @@ prompt: **[hold] RAISE THE GUN.** Two beats to decide.
 pick the flavour:
 
 - **B1 — THE FASTEST DRAW IS BEHIND YOU.** The gun clears the holster. You get
-  the barrel level with Booski's grin. And *Rippinflow* — who has said maybe
+  the barrel level with Booskibro's grin. And *Rippinflow* — who has said maybe
   four words all night, who you clocked as the quiet one — puts a round through
   the back of your skull before your finger finds the trigger. The Circle knew.
   The Circle *always* knows. That's the whole reason the initiation exists.
-  > **NARRATOR:** The last thing you see is Booski's face fall — not fear.
+  > **NARRATOR:** The last thing you see is Booskibro's face fall — not fear.
   > *Disappointment.* He really did think you were the one.
-  > **BOOSKI:** *(genuinely, softly, over your body)* ...aw. He was *good,* too.
+  > **BOOSKIBRO:** *(genuinely, softly, over your body)* ...aw. He was *good,* too.
   > **LOU:** They're always good. That's the tragedy of it.
 
-- **B2 — YOU GET HIM.** The gun works. Booski goes down with the top of his head
+- **B2 — YOU GET HIM.** The gun works. Booskibro goes down with the top of his head
   redecorating the banner, and for one clean second you are the man who killed a
   legend. Then you remember there are ten of them and one of you, and the forest
   does the rest — not fast, not merciful. The screen doesn't cut away.
@@ -150,7 +152,7 @@ sadly, and correctly, and then go back to the fire.
 
 | Failure | Death | The line |
 |---|---|---|
-| **Wrong founders** *(already built as the execution)* | Eight rounds, on the spot, from the nearest member. | **BOOSKI:** "Wrong." *(no second word)* |
+| **Wrong founders** *(already built as the execution)* | Eight rounds, on the spot, from the nearest member. | **BOOSKIBRO:** "Wrong." *(no second word)* |
 | **Swing back in the Gauntlet** | You hit a brother. The ring stops being playful. It closes. You go under a dozen boots and don't come up. Camera stays at ground level. | **NARRATOR:** "You raised a hand to family. The family has a policy on that." |
 | **Don't roar / roar too soft** | The forest was supposed to learn your voice. It didn't. So it takes the voice — Deathmegatron's thumb finds your windpipe and the screen goes to the wet dark. | **DEATHMEGATRON:** "Nothing. He's got *nothing* in him." |
 | **Miss the log / hit a brother during the Timber** | The great log was a mercy. You wasted it. They put you under it — the same log, across the throat, two of them standing on the ends. | **LOU:** "He couldn't even do the *easy* one." *(sincerely sad)* |
@@ -225,7 +227,7 @@ so differently.
 
 ## THE NPC SYSTEM  *(the real ask — fully fleshed)*
 
-Every squatch is a real person with a fixed **archetype,** a **standing** toward
+Every Circle member is a real human with a fixed **archetype,** a **standing** toward
 you that moved during the initiation, a **state** (sober→wrecked, reusing the
 drunk model), and a **station** at the party (what they're doing). When you look
 at one and they clock you, they pull a line from the bank that matches
@@ -238,7 +240,7 @@ feel enormous.
 // One entry per crew member. Faces already exist in assets/faces/.
 const NPC = {
   id: 'booski',
-  name: 'BOOSKI',
+  name: 'BOOSKIBRO',
   face: 'assets/faces/booski.png',
   archetype: 'PATRIARCH',     // drives cadence + what they care about
   standing: 0,                // -100..100, moved by your run (see below)
@@ -254,12 +256,12 @@ you drink/smoke with people. Key moments that move it:
 
 - Took the whole Gauntlet without flinching → everyone +.
 - Roared loud (long hold) → the loud ones (Ape, Deathmegatron) love it, +big.
-- Hesitated on the quiz → the sharp ones (Booski, Lou) note it, small −.
+- Hesitated on the quiz → the sharp ones (Booskibro, Big Uncle Lou) note it, small −.
 - On the RAT route, *every* interaction quietly raises **suspicion** on a random
   nearby NPC, and high suspicion flips their party lines from warm to probing.
 
 **State** is just the drunk model's number bucketed, read off each NPC's own
-running total — they're drinking too, on their own timers. A wrecked squatch and
+running total — they're drinking too, on their own timers. A wrecked member and
 a sober one give completely different lines from the same bank. This is free
 content: the party gets funnier the longer you stay because everyone's sliding
 down their own curve.
@@ -268,15 +270,15 @@ down their own curve.
 
 | Archetype | Who | How they talk | What they say to a new brother |
 |---|---|---|---|
-| **PATRIARCH** | Booski | Ceremonial even drunk. Everything's a proclamation. Warm as a furnace. | Keeps *toasting* you. Tells the story of your Gauntlet to people who were standing right there. |
-| **LIEUTENANT** | Lou Sputthole | The translator. Softens Booski, roasts gently, means all of it. Airport energy — permanently in transit, emotionally present. | "What he means is welcome. What I mean is: don't touch the good tarp, you'll learn what it's for." |
+| **PATRIARCH** | Booskibro | Ceremonial even drunk. Everything's a proclamation. Warm as a furnace. | Keeps *toasting* you. Tells the story of your Gauntlet to people who were standing right there. |
+| **LIEUTENANT** | Big Uncle Lou Sputthole | The translator. Softens Booskibro, roasts gently, means all of it. Airport energy — permanently in transit, emotionally present. | "What he means is welcome. What I mean is: don't touch the good tarp, you'll learn what it's for." |
 | **THE QUIET ONE** | Rippinflow | Four words a night. On the RAT route, the scariest man alive. At the party, unnervingly kind, which is worse. | *(long pause)* "You did good." *(that's the whole conversation, and it's the one you'll remember)* |
 | **THE ROASTER** | Ape | Never says a nice thing directly; every insult is love. The apartment's "shubes cried" energy. | "You took thirty punches and cried less than Shubes did. That's the bar. You cleared the bar." |
 | **THE CRIER** | Shubenator / Shubes | Defensive, sincere, deeply moved and hates that he is. Denies crying while crying. | "I'm not — it's the smoke. It's a smoky fire. Welcome, man. *(sniff)* It's the smoke." |
 | **THE MUSCLE** | Deathmegatron | Few words, all physical. Communicates in nods and headlocks. The one who'd have choked you out if you'd failed the Roar, now your biggest fan. | *(a nod. a beer pressed into your hand hard enough to bruise.)* "Voice on this guy." |
 | **THE MATRIARCH** | Hog Mama | Practical, unbothered, has seen worse and cleaned it up. Runs logistics on everything including the murders. | "You eat? There's dogs on the fire. Real ones. Don't make it weird." |
 | **THE GRIEVANCE** | Irish | Always mid-complaint about something procedural and unrelated. Never once addresses the murder or the party directly. | "Nobody has answered my question about the eggs. You're new — *you* answer it. What is the egg situation." |
-| **THE UTILITY** | Erican, Gratin, Sasole, Snow | Background crew, lighter banks, keep the circle populated and drinking. | Toasts, "welcome brother," a story about their own initiation that's clearly worse than yours. |
+| **THE UTILITY** | Erican, Gratin, Captain Lou Sasole, Snow | Background crew, lighter banks, keep the circle populated and drinking. | Toasts, "welcome brother," a story about their own initiation that's clearly worse than yours. |
 
 ### The reaction rules  *(look-at → line)*
 
@@ -294,7 +296,7 @@ When you put the crosshair on an NPC and hold [E] (same interaction system):
 you're near, so the party sounds alive whether or not you're working the room.
 (Ape roasting Shubes forever is a renewable resource.)
 
-### Sample bank — Booski (PATRIARCH), "brother" standing
+### Sample bank — Booskibro (PATRIARCH), "brother" standing
 
 ```
 sober:   "There he is. THE MAN OF THE HOUR. Somebody get him a drink he can't refuse."
@@ -303,7 +305,7 @@ drunk:   "You know what the founders had that nobody has anymore? *(long pause)*
 wrecked: "You're my son now. Legally? No. Forest-legally? Absolutely. Don't test it."
 ```
 
-### Sample bank — Booski, RAT route, suspicion high
+### Sample bank — Booskibro, RAT route, suspicion high
 
 ```
 "You're quiet. My prospects are never quiet. What are you *thinking* about over there?"
@@ -339,7 +341,7 @@ Open questions for you:
 - **Do we want the FBI voice to be one-note federal, or is there room for it to
   be its own running joke** (a handler who's clearly done this too many times and
   is emotionally checked out)? I lean toward the latter — it's funnier and it
-  balances Booski's warmth with an equal-and-opposite deadpan.
-- **Real names on the crew NPCs, or keep the handles** (BOOSKI / RIPPINFLOW /
+  balances Booskibro's warmth with an equal-and-opposite deadpan.
+- **Real names on the crew NPCs, or keep the handles** (BOOSKIBRO / RIPPINFLOW /
   etc.)? The handles are funnier and safer. Assuming handles unless you say.
 ```

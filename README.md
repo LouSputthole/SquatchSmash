@@ -25,9 +25,8 @@ All six are static ES-module sites with no build step, served by the same
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
-isolated; the apartment, Bing, Squatchfather, and Motel share an explicit
-campaign boundary. Initiation is isolated under `src/initiation/` until its
-character and story premise is approved.
+isolated; the apartment, Bing, Squatchfather, Motel, and Initiation share
+campaign identities and reusable story-scene foundations.
 
 The campaign spine connects the apartment, the Bing, and Squatchfather through
 `src/core/campaign.js`. On Day One, Lou’s one-shot call rings through the
@@ -38,7 +37,7 @@ transition. Finishing the club returns to the apartment with the package; the
 door then routes to Squatchfather, where beginning the meeting stages that
 package as the bathroom weapon. Finishing the restaurant records the dropped
 weapon and returns to the apartment again. Sleeping creates a persistent Day
-Two checkpoint at 7:00 AM; Booski then calls once and unlocks the airstrip job
+Two checkpoint at 7:00 AM; Booskibro then calls once and unlocks the airstrip job
 with Captain Lou Sasole kept distinct from Lou. The post-airstrip state
 contract, Lou’s second call, the reused Bing assignment, direct Motel
 transition, and Motel return are implemented. The airstrip runtime is being
@@ -46,9 +45,12 @@ finished on its own branch, so that later sequence is not yet reachable through
 normal play.
 
 The Initiation branch history, face art, NPC writing, post-processing modules,
-and playable legacy scene are preserved without overwriting shared systems.
-Its prologue placement and human-to-sasquatch transformation are intentionally
-not wired into campaign state. See
+and playable scene are preserved without overwriting shared systems. Its
+approved canon keeps Tony Squatchtana and every Circle member human:
+“Sasquatch” is family status, and the anointing awards Tony the Circle's colors
+and red bandana instead of changing species. Prospect One's execution remains.
+The final post-Initiation ending still needs its design pass before the scene is
+wired as the chapter endpoint. See
 [`docs/CHARACTER-ALIGNMENT.md`](./docs/CHARACTER-ALIGNMENT.md).
 
 `src/core/campaign.js` is also the authoritative scene registry. Each location
@@ -347,14 +349,14 @@ npm run check        # static: parses every source file, validates the manifests
 npm test             # campaign, apartment-story, and physical-phone contracts
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
 npm run verify:day-one # runtime: Lou's call, chore gate, apartment -> Bing
-npm run verify:day-two # runtime: sleep, reload, Booski call, non-replay
+npm run verify:day-two # runtime: sleep, reload, Booskibro call, non-replay
 npm run verify:bing  # runtime: plays the club and returns home, headless
 npm run verify:bing-two # runtime: reuses the club for the second assignment
 npm run verify:squatchfather # runtime: stages the package, plays, returns home
 npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
 npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
 npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
-npm run verify:initiation # runtime: legacy scene/assets; not story canon
+npm run verify:initiation # runtime: human cast, canonical names, human induction
 npm run verify:boot-errors # blocked scene modules show reload/home recovery
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
@@ -385,7 +387,7 @@ weapon, drives the real retrieval/train/shooting/drop sequence, and confirms the
 completed mission returns home without restoring the discarded weapon.
 
 `verify:day-two` starts after that return, sleeps through the live apartment
-blackout, verifies the checkpoint survives a reload, answers Booski through the
+blackout, verifies the checkpoint survives a reload, answers Booskibro through the
 physical phone, and reloads again to prove neither completed call replays.
 Captain Lou Sasole is asserted as a separate character ID at the airstrip gate.
 

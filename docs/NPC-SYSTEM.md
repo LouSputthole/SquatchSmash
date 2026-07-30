@@ -14,16 +14,16 @@ Run the transcript to see it talk:
 
 Every line is filtered by **archetype × standing tier × state × route**, anything
 already said is dropped, one is picked. Small engine, large-feeling result: the
-party gets funnier the longer you stay because every squatch slides down their
+party gets funnier the longer you stay because every human member slides down their
 own drunk curve into a different bank.
 
 ## The pieces
 
 - **Roster** — the whole crew, each with an `archetype`, a `face` (photo path,
   or `null` where we haven't cut one yet: Ape and Irish), and a party `seat`.
-- **Archetypes** — `PATRIARCH` (Booski), `LIEUTENANT` (Lou), `QUIET`
+- **Archetypes** — `PATRIARCH` (Booskibro), `LIEUTENANT` (Big Uncle Lou), `QUIET`
   (Rippinflow), `ROASTER` (Ape), `CRIER` (Shubes), `MUSCLE` (Deathmegatron),
-  `MATRIARCH` (Hog Mama), `GRIEVANCE` (Irish), `UTILITY` (Erican/Gratin/Sasole/
+  `MATRIARCH` (Hog Mama), `GRIEVANCE` (Irish), `UTILITY` (Erican/Gratin/Captain Lou Sasole/
   Snow). Snow also carries the executioner specials.
 - **Standing** (−100..100) → tier `stranger / prospect / brother / beloved`,
   **seeded from your initiation run** and nudged up as you work the room.
@@ -56,7 +56,7 @@ npc.setDrunk('booski', 0.6);
 npc.setHigh('shubes', { stoned:true });
 
 // Player looked at an NPC and held [E]:
-const line = npc.greet('booski');   // → { name:'BOOSKI', text:'…' } | null
+const line = npc.greet('booski');   // → { name:'BOOSKIBRO', text:'…' } | null
 
 // Every frame, keep the room murmuring:
 const bark = npc.tickAmbient(dt);   // → [{who,name,text}, …] every ~7s | null
@@ -95,7 +95,7 @@ kindest line in the game is Rippinflow being nice to a man he's about to shoot.
 |---|---|
 | `enduredFull` | +18 everyone (took the whole Gauntlet, hands down) |
 | `roarLoud` | +22 to Muscle/Roaster, +10 everyone else |
-| `quizHesitated` | −12 to Booski/Lou, −4 others (the sharp ones noticed) |
+| `quizHesitated` | −12 to Booskibro/Big Uncle Lou, −4 others (the sharp ones noticed) |
 | `brokeLogFirstTry` | +8 everyone |
 | `arrivedDrunk` | +6 Ape only (he respects it) |
 

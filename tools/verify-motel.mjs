@@ -114,6 +114,7 @@ async function motelState() {
       phase: motel.phase,
       ending: motel.ending,
       mission: motel.campaignState.missions.jerky_motel,
+      playerKind: motel.player?.constructor?.name,
       actorCount: motel.actors.length,
       interactableCount: motel.interactables.length,
     };
@@ -127,6 +128,9 @@ try {
   let current = await motelState();
   check('the campaign opens the Motel at its passenger-seat entry',
     current.phase === 'menu' && current.mission.status === 'available',
+    JSON.stringify(current));
+  check('Tony Squatchtana is represented as a human in the Motel',
+    current.playerKind === 'Person',
     JSON.stringify(current));
   check('the original interactive Motel environment is intact',
     current.interactableCount >= 50, `${current.interactableCount} interactables`);

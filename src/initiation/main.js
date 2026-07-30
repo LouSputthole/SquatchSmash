@@ -4,19 +4,17 @@ import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
 import { lambert } from '../../game/src/world.js';
-import { Sasquatch, SILVER_PALETTE } from './sasquatch.js';
-import { Person } from './person.js';
+import { MEMBER_PALETTE, Person } from '../core/person.js';
 import { DebrisSystem } from '../../game/src/debris.js';
 import { Effects } from '../../game/src/effects.js';
 import * as sfx from './audio.js';
 
 // ============================================================
-// THE INITIATION — prologue scene.
-// The Silver Sasquatches are people. You're the human from the
-// apartment, walking through the night forest to their bonfire,
-// where Booskibro puts you through the rites: the Gauntlet
-// (endure the beating, never swing back), the Roar, and the
-// Timber — and then you don't walk out human at all.
+// THE INITIATION — current chapter endpoint.
+// Tony Squatchtana walks from the apartment into the night forest,
+// where Booskibro puts him through the rites: the Gauntlet (endure
+// the beating, never swing back), the Roar, and the Timber. Tony
+// remains human and walks out a made member of the Sasquatch family.
 // ============================================================
 
 const BOUNDS = 88;
@@ -49,6 +47,12 @@ const PROSPECT_PALETTE = {
   shirt: 0x6b7a4a, shirtDark: 0x53603a, pants: 0x33383f,
   skin: 0xe8b88a, bandana: null, hair: 0x3a2a1a,
 };
+const INDUCTED_PALETTE = {
+  ...MEMBER_PALETTE,
+  skin: PROSPECT_PALETTE.skin,
+  hair: PROSPECT_PALETTE.hair,
+  bandana: 0xd92e2e,
+};
 const BOOSKI_PALETTE = {
   shirt: 0x3c414c, shirtDark: 0x2c313a, pants: 0x23272e,
   skin: 0xd9a878, bandana: 0x7b4fd9, hair: null,
@@ -59,7 +63,7 @@ const MEMBER_SKINS = [0xe8b88a, 0xc98d5f, 0x8d5a3b, 0xf0d0b0, 0xba8054];
 const MEMBER_HAIR = [0x2a2018, 0x11100c, 0x4a331c, 0x6e6659, 0x1e1c22];
 
 // The real Circle — the crew's actual faces, in semicircles behind the
-// prospect line. Lou Sputthole isn't in the crowd: he's up on the stage.
+// prospect line. Big Uncle Lou Sputthole isn't in the crowd: he's on the stage.
 // angle: degrees around the line's center (180 = directly behind you).
 const FEATURED = [
   { name: 'SHUBES', face: 'assets/faces/shubes.png', shirt: 0x8a8f9c, angle: 120, r: 5.5 },
@@ -69,7 +73,7 @@ const FEATURED = [
   { name: 'ERICAN', face: 'assets/faces/erican.png', shirt: 0xe8e4d4, angle: 200, r: 5.5 },
   { name: 'HOGMAMA', face: 'assets/faces/hogmama.png', shirt: 0x3a3a44, angle: 220, r: 5.5 },
   { name: 'GRATIN', face: 'assets/faces/gratin.png', shirt: 0x5a4a6e, angle: 240, r: 5.5 },
-  { name: 'SASOLE', face: 'assets/faces/sasole.png', shirt: 0x2e3a5e, angle: 170, r: 8.3 },
+  { name: 'CAPTAIN LOU SASOLE', face: 'assets/faces/sasole.png', shirt: 0x2e3a5e, angle: 170, r: 8.3 },
 ];
 // Second-row slots for the unnamed members
 const CROWD_ROW2 = [130, 150, 190, 210, 230];
@@ -81,30 +85,30 @@ const SPEECH = [
   ['BOOSKIBRO', 'Before there were bandanas... there was a fire. And before this fire... there were FIVE.', 'slam'],
   ['BOOSKIBRO', 'Five who walked out of their apartments and into the pines. Five who heard the forest — and answered it.'],
   ['BOOSKIBRO', 'Tonight, five prospects stand where the five once stood. The forest is watching. I am ALSO watching.', 'slam'],
-  ['LOU SPUTTHOLE', 'What Booski means is: welcome. This is a family. A large, damp, forest family.', 'slam'],
-  ['LOU SPUTTHOLE', 'Also — whoever keeps leaving beer cans at the fire pit, knock it off. The raccoons are ORGANIZING.'],
+  ['BIG UNCLE LOU SPUTTHOLE', 'What Booskibro means is: welcome. This is a family. A large, damp, forest family.', 'slam'],
+  ['BIG UNCLE LOU SPUTTHOLE', 'Also — whoever keeps leaving beer cans at the fire pit, knock it off. The raccoons are ORGANIZING.'],
   ['BOOSKIBRO', 'ENOUGH. Prospects! Your first trial is not of the body... but of the MIND.', 'slam'],
 ];
 const Q1_LINES = [
   ['BOOSKIBRO', 'Prospect One. Step forward.'],
   ['BOOSKIBRO', 'Who are the FIVE founding members of the Silver Sasquatches?'],
-  ['PROSPECT ONE', 'Oh — uh. Booski... Lou... uhh. Bigfoot? Garfield?? ...the GEICO Gecko???'],
-  ['LOU SPUTTHOLE', 'Oof.'],
+  ['PROSPECT ONE', 'Oh — uh. Booskibro... Big Uncle Lou... uhh. Bigfoot? Garfield?? ...the GEICO Gecko???'],
+  ['BIG UNCLE LOU SPUTTHOLE', 'Oof.'],
   ['BOOSKIBRO', 'WRONG.', 'slam'],
 ];
 const Q2_LINES = [
-  ['LOU SPUTTHOLE', '...Anyway!'],
+  ['BIG UNCLE LOU SPUTTHOLE', '...Anyway!'],
   ['BOOSKIBRO', 'Prospect Two. Same question.'],
-  ['LOU SPUTTHOLE', 'No pressure. Well. Some pressure. A specific, recently demonstrated amount of pressure.'],
+  ['BIG UNCLE LOU SPUTTHOLE', 'No pressure. Well. Some pressure. A specific, recently demonstrated amount of pressure.'],
 ];
 const CORRECT_LINES = [
-  ['BOOSKIBRO', 'CORRECT. Myself. Lou Sputthole. Rippinflow. The Shubenator. Deathmegatron. The FIVE.', 'slam'],
-  ['LOU SPUTTHOLE', 'Somebody did the reading!'],
+  ['BOOSKIBRO', 'CORRECT. Myself. Big Uncle Lou Sputthole. Rippinflow. The Shubenator. Deathmegatron. The FIVE.', 'slam'],
+  ['BIG UNCLE LOU SPUTTHOLE', 'Somebody did the reading!'],
   ['BOOSKIBRO', 'The mind is sharp. Now we test the BODY. Clear the line — THE GAUNTLET AWAITS.', 'slam'],
 ];
 const WRONG_LINES = [
   ['BOOSKIBRO', 'WRONG.', 'slam'],
-  ['LOU SPUTTHOLE', 'Oh no. Same as the last guy. Word for word almost.'],
+  ['BIG UNCLE LOU SPUTTHOLE', 'Oh no. Same as the last guy. Word for word almost.'],
 ];
 const ENDURED_LINES = [
   ['BOOSKIBRO', 'ENOUGH.'],
@@ -117,7 +121,7 @@ const ROAR_LINES = [
 ];
 const ANOINT_LINES = [
   ['BOOSKIBRO', 'You took the Circle’s fists. You gave the forest your voice. You turned a log into a suggestion.'],
-  ['BOOSKIBRO', 'Prospect. You walked into this clearing a human.'],
+  ['BOOSKIBRO', 'Tony Squatchtana. You walked into this clearing a prospect.'],
   ['BOOSKIBRO', 'Walk out a SQUATCH.', 'slam'],
 ];
 const RETRY_LINE = [
@@ -534,8 +538,8 @@ function makeNameplate(name, color) {
   return spr;
 }
 
-// `player` is reassigned once, at the anointing, when the human becomes
-// the silver sasquatch (Person and Sasquatch share an animation API).
+// `player` is reassigned once at the anointing so Tony can receive the
+// Circle's colors while staying on the shared human rig.
 let player = new Person(PROSPECT_PALETTE);
 player.group.position.set(SPAWN.x, 0, SPAWN.z);
 player.heading = 0; // facing +z, toward the fire
@@ -642,7 +646,7 @@ const spotMark = new THREE.Group();
   scene.add(spotMark);
 }
 
-// Lou Sputthole, up on the stage beside Booskibro
+// Big Uncle Lou Sputthole, up on the stage beside Booskibro
 const louStage = new Person({
   shirt: 0x6f7fa8, shirtDark: 0x56637f, pants: 0x2e3e55,
   bandana: 0xd92e2e, face: 'assets/faces/lou.png',
@@ -651,7 +655,7 @@ louStage.group.scale.setScalar(1.12);
 louStage.group.position.set(STAGE.x - 1.8, 1.1, STAGE.z);
 louStage.heading = Math.PI;
 louStage.group.rotation.y = Math.PI;
-louStage.group.add(makeNameplate('LOU SPUTTHOLE', '#ff8a8a'));
+louStage.group.add(makeNameplate('BIG UNCLE LOU SPUTTHOLE', '#ff8a8a'));
 scene.add(louStage.group);
 
 // Booskibro on stage: the founder, draped in an old silver pelt he claims
@@ -799,7 +803,7 @@ function showCurrentLine() {
   lineEl.textContent = text;
   sayAutoT = 3.2 + text.length * 0.03;
   if (gesture === 'slam') {
-    (who === 'LOU SPUTTHOLE' ? louStage : boosk).startSmash();
+    (who === 'BIG UNCLE LOU SPUTTHOLE' ? louStage : boosk).startSmash();
     sfx.stomp();
     shake = Math.max(shake, 0.25);
   }
@@ -831,7 +835,7 @@ let phase = 'approach';
 //   → (wrong: exec_player → failed, retry to q2_choice)
 //   → clear_line → gauntlet_in → beatdown → endured → trial_roar
 //   → roar_anim → trial_log → anoint_walk → anoint_lines
-//   → anoint_transform → complete   (+ fail_swing → failed, retryable)
+//   → anoint_induction → complete   (+ fail_swing → failed, retryable)
 // No title screen — the apartment scene drops you straight into the pines.
 let shake = 0;
 let fovPunch = 0;
@@ -842,8 +846,8 @@ let failT = -1;         // countdown from illegal swing to the fail screen
 let failFrom = 'beatdown';
 let roarPoseT = 0;      // player arms-up roar pose
 let surgeT = 0;         // bonfire flare-up
-let transformK = 0;     // 0..1 anointing progress
-let transformed = false; // human → squatch swap done
+let inductionK = 0;     // 0..1 anointing progress
+let inducted = false;   // member clothes and red bandana awarded
 let crackleT = 0;
 let playerFallT = -1;   // >=0 while the player collapses (shot dead)
 let exec = null;        // the execution in progress, see startExecution
@@ -979,9 +983,9 @@ setTimeout(() => { fadeEl.style.opacity = 0; }, 120);
 // ---------- The founders quiz ----------
 const quizEl = $('quiz');
 const QUIZ_OPTIONS = [
-  { text: 'Booski, Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron', correct: true },
-  { text: 'Booski, Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko', correct: false },
-  { text: 'Booski, Snow, Hogmama, Erican, and two raccoons in a coat', correct: false },
+  { text: 'Booskibro, Big Uncle Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron', correct: true },
+  { text: 'Booskibro, Big Uncle Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko', correct: false },
+  { text: 'Booskibro, Snow, Hogmama, Erican, and two raccoons in a coat', correct: false },
 ];
 
 function showQuiz() {
@@ -1466,7 +1470,7 @@ function updateCamera(dt) {
     desiredPos.y = 2.8;
     _desiredLook.copy(player.position);
     _desiredLook.y += 2;
-  } else if (phase === 'anoint_walk' || phase === 'anoint_lines' || phase === 'anoint_transform') {
+  } else if (phase === 'anoint_walk' || phase === 'anoint_lines' || phase === 'anoint_induction') {
     // Two-shot: prospect and Booskibro side-on
     const mx = (player.position.x + boosk.group.position.x) / 2;
     const mz = (player.position.z + boosk.group.position.z) / 2;
@@ -1594,7 +1598,7 @@ function updatePhase(dt) {
       faceToward(boosk, player.position.x, player.position.z, dt, 100);
       setPhase('anoint_lines');
       say(ANOINT_LINES, () => {
-        setPhase('anoint_transform');
+        setPhase('anoint_induction');
         sfx.sting();
         sfx.roar();
         surgeT = 2.6;
@@ -1603,28 +1607,28 @@ function updatePhase(dt) {
         respondQueue.push(0.4, 0.8);
       });
     }
-  } else if (phase === 'anoint_transform') {
-    transformK = Math.min(1, transformK + dt / 2.2);
+  } else if (phase === 'anoint_induction') {
+    inductionK = Math.min(1, inductionK + dt / 2.2);
     anointLight.position.set(player.position.x, 4.5, player.position.z);
-    anointLight.intensity = 110 * Math.sin(Math.min(1, transformK) * Math.PI * 0.9 + 0.1);
+    anointLight.intensity = 110 * Math.sin(Math.min(1, inductionK) * Math.PI * 0.9 + 0.1);
     if (Math.random() < dt * 14) effects.auraMote(player.position);
-    // At the flash's peak the human is simply gone, and something much
-    // larger and much shaggier is standing in their shoes.
-    if (!transformed && transformK >= 0.5) {
-      transformed = true;
-      const squatch = new Sasquatch(SILVER_PALETTE);
-      squatch.group.position.copy(player.group.position);
-      squatch.heading = player.heading;
-      squatch.group.rotation.y = player.heading;
+    // At the flash's peak Tony is still Tony: the Circle has put him in its
+    // silver-grey colors and tied on the red member bandana.
+    if (!inducted && inductionK >= 0.5) {
+      inducted = true;
+      const member = new Person(INDUCTED_PALETTE);
+      member.group.position.copy(player.group.position);
+      member.heading = player.heading;
+      member.group.rotation.y = player.heading;
       scene.remove(player.group);
-      scene.add(squatch.group);
-      player = squatch;
+      scene.add(member.group);
+      player = member;
       sfx.roar();
       effects.shockwave(player.position, 7, 0x9a6ff0);
       shake = Math.max(shake, 0.45);
       fovPunch = Math.min(12, fovPunch + 6);
     }
-    if (transformK >= 1 && phaseT > 3.2) {
+    if (inductionK >= 1 && phaseT > 3.2) {
       sfx.chime();
       $('complete').classList.remove('hidden');
       setPhase('complete');
@@ -1647,7 +1651,7 @@ const clock = new THREE.Clock();
 let flameT = 0;
 
 function onStep() {
-  // Human feet don't flatten the grass the way squatch feet do — just sound
+  // Human footsteps only need the sound cue here.
   sfx.step();
 }
 
@@ -1804,9 +1808,9 @@ function tick() {
     }
   }
 
-  // --- Booskibro & Lou Sputthole on stage ---
+  // --- Booskibro & Big Uncle Lou Sputthole on stage ---
   if (phase !== 'anoint_walk') boosk.update(dt, _zero, 0);
-  if (phase === 'anoint_lines' || phase === 'anoint_transform' || phase === 'complete') {
+  if (phase === 'anoint_lines' || phase === 'anoint_induction' || phase === 'complete') {
     faceToward(boosk, player.position.x, player.position.z, dt, 6);
   }
   louStage.update(dt, _zero, 0);
@@ -1886,7 +1890,7 @@ tick();
 
 // Debug/test handle (harmless in production)
 window.INITIATION = {
-  get player() { return player; }, // reassigned at the anointing
+  get player() { return player; }, // human rig receives member colors at the anointing
   members,
   prospects,
   boosk,
@@ -1894,6 +1898,7 @@ window.INITIATION = {
   PLAYER_SLOT,
   get phase() { return phase; },
   get hp() { return hp; },
+  get inducted() { return inducted; },
   get greatLog() { return greatLog; },
   get quizOpen() { return quizEl.classList.contains('show'); },
   get correctChoice() {
@@ -1912,5 +1917,15 @@ window.INITIATION = {
     dialogEl.classList.remove('show');
     hideQuiz();
     startGauntlet(false);
+  },
+  skipToInduction() {
+    sayQueue = [];
+    sayDone = null;
+    dialogEl.classList.remove('show');
+    hideQuiz();
+    $('complete').classList.add('hidden');
+    inductionK = 0;
+    inducted = false;
+    setPhase('anoint_induction');
   },
 };

@@ -46,6 +46,7 @@ test('answering Lou’s first call unlocks Bada Bing and prevents a replay', () 
   assert.equal(calls.length, 0);
   story.update(0.2);
   assert.deepEqual(calls, [DAY_ONE_LOU_CALL]);
+  assert.equal(DAY_ONE_LOU_CALL.from, 'Big Uncle Lou');
 
   story.callAnswered(calls[0]);
   const saved = createCampaign({ storage }).state;
@@ -82,7 +83,7 @@ test('the apartment door waits for Lou’s call even when every chore is done', 
   assert.deepEqual(result, {
     kind: 'call',
     id: EVENT_IDS.LOU_FIRST_CALL,
-    line: 'Lou said he would call. I should answer before I go anywhere.',
+    line: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
   });
 });
 
@@ -227,7 +228,7 @@ test('sleep cannot advance the story before Squatchfather or advance Day Two twi
   assert.deepEqual(story.sleep(), { ok: false, reason: 'already_day_two' });
 });
 
-test('Booski rings once on Day Two and unlocks Captain Lou Sasole at the airstrip', () => {
+test('Booskibro rings once on Day Two and unlocks Captain Lou Sasole at the airstrip', () => {
   const storage = new MemoryStorage();
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
@@ -253,6 +254,7 @@ test('Booski rings once on Day Two and unlocks Captain Lou Sasole at the airstri
   story.update(0.2);
   assert.deepEqual(calls, [DAY_TWO_BOOSKI_CALL]);
   assert.equal(DAY_TWO_BOOSKI_CALL.characterId, CHARACTER_IDS.BOOSKI);
+  assert.equal(DAY_TWO_BOOSKI_CALL.from, 'Booskibro');
   assert.equal(DAY_TWO_BOOSKI_CALL.voiceProfile, 'booski');
   assert.equal(DAY_TWO_BOOSKI_CALL.targetCharacterId, CHARACTER_IDS.CAPTAIN_LOU_SASOLE);
   assert.notEqual(DAY_TWO_BOOSKI_CALL.targetCharacterId, CHARACTER_IDS.LOU);
@@ -275,7 +277,7 @@ test('Booski rings once on Day Two and unlocks Captain Lou Sasole at the airstri
   assert.deepEqual(replayed, []);
 });
 
-test('the Day Two door waits for Booski, then names the unconnected airstrip mission', () => {
+test('the Day Two door waits for Booskibro, then names the unconnected airstrip mission', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     state.story.chapter = 'day_two';
@@ -289,7 +291,7 @@ test('the Day Two door waits for Booski, then names the unconnected airstrip mis
   assert.deepEqual(story.tryLeave({}), {
     kind: 'call',
     id: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
-    line: 'Booski said he would call with the next job.',
+    line: 'Booskibro said he would call with the next job.',
   });
 
   story.callAnswered(DAY_TWO_BOOSKI_CALL);

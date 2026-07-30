@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify the preserved Initiation branch as an isolated legacy/reference
- * scene. This intentionally does not assert that its prologue story,
- * transformation, aliases, or character roles are campaign canon.
+ * Verify the canonical human Initiation scene and its approved identities.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -69,6 +67,7 @@ try {
   const initial = await page.evaluate(() => ({
     phase: window.INITIATION.phase,
     members: window.INITIATION.members.length,
+    memberNames: window.INITIATION.members.map((member) => member.name).filter(Boolean),
     prospects: window.INITIATION.prospects.length,
     hasHumanPlayer: window.INITIATION.player?.constructor?.name === 'Person',
     objective: document.querySelector('#objective')?.textContent,
@@ -78,12 +77,15 @@ try {
   check('the namespaced Initiation scene reaches its interactive approach phase',
     initial.phase === 'approach' && initial.canvasCount >= 1,
     JSON.stringify(initial));
-  check('the original ceremony cast and prospect line are preserved',
+  check('the ceremony cast and prospect line are preserved',
     initial.members === 13 && initial.prospects === 4,
     `${initial.members} members, ${initial.prospects} NPC prospects`);
-  check('the preserved scene still starts with its legacy human-player premise',
+  check('Tony starts Initiation human',
     initial.hasHumanPlayer,
-    'reference behavior only; campaign canon remains undecided');
+    JSON.stringify(initial));
+  check('Captain Lou Sasole appears under his canonical identity',
+    initial.memberNames.includes('CAPTAIN LOU SASOLE'),
+    initial.memberNames.join(' | '));
   check('the scene gives a visible movement objective',
     initial.objective?.includes('WASD'),
     initial.objective || 'no objective');
@@ -91,8 +93,27 @@ try {
 
   await page.evaluate(() => window.INITIATION.skipToGauntlet());
   await page.waitForFunction(() => window.INITIATION.phase === 'gauntlet_in');
-  check('the preserved debug route can enter the interactive Gauntlet',
+  check('the debug route can enter the interactive Gauntlet',
     await page.evaluate(() => window.INITIATION.phase === 'gauntlet_in'));
+
+  await page.evaluate(() => window.INITIATION.skipToInduction());
+  await page.waitForFunction(() => window.INITIATION.phase === 'complete', null, { timeout: 10000 });
+  const inducted = await page.evaluate(() => ({
+    constructor: window.INITIATION.player?.constructor?.name,
+    bandana: window.INITIATION.player?.palette?.bandana,
+    title: document.querySelector('#complete .title')?.textContent?.trim(),
+    subtitle: document.querySelector('#complete .subtitle')?.textContent?.replace(/\s+/g, ' ').trim(),
+    visible: !document.querySelector('#complete')?.classList.contains('hidden'),
+  }));
+  check('induction keeps Tony human and awards the red member bandana',
+    inducted.constructor === 'Person' && inducted.bandana === 0xd92e2e,
+    JSON.stringify(inducted));
+  check('completion describes family membership rather than a species change',
+    inducted.visible
+      && inducted.title === 'SILVER SASQUATCH'
+      && inducted.subtitle?.includes("walking out family")
+      && !inducted.subtitle?.includes('squatch feet'),
+    JSON.stringify(inducted));
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {
   await browser.close();

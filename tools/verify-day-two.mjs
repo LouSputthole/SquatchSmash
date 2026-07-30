@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Verify the apartment's persistent Day One -> Day Two transition and
- * Booski's one-shot airstrip call in a real browser.
+ * Booskibro's one-shot airstrip call in a real browser.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -174,13 +174,13 @@ try {
       from: definition?.from,
     };
   });
-  check('Booski rings the physical phone after the Day Two wake-up',
+  check('Booskibro rings the physical phone after the Day Two wake-up',
     ringing.ringing
       && ringing.eventId === 'booski_day_two_call'
       && ringing.characterId === 'booski'
-      && ringing.from === 'Booski',
+      && ringing.from === 'Booskibro',
     JSON.stringify(ringing));
-  check('Booski names Captain Lou Sasole without colliding with Lou',
+  check('Booskibro names Captain Lou Sasole without colliding with Lou',
     ringing.targetCharacterId === 'captain_lou_sasole'
       && ringing.targetCharacterId !== 'lou',
     JSON.stringify(ringing));
@@ -197,7 +197,7 @@ try {
       departure,
     };
   });
-  check('answering Booski persists the event and unlocks the airstrip mission',
+  check('answering Booskibro persists the event and unlocks the airstrip mission',
     answered.inCall
       && answered.event === 'answered'
       && answered.mission === 'available',

@@ -1,4 +1,4 @@
-// Legacy Initiation party behavior; character canon is intentionally not wired here yet.
+// Canonical Initiation party behavior.
 /**
  * THE NPC SYSTEM — how the Circle reacts to you at the party.
  *
@@ -35,19 +35,26 @@ export const ARCHETYPE = {
 // ---------- The roster ----------
 // face: path under assets/faces (null = photo not cut yet; renders faceless).
 // seat: where they hang at the party, for the scene to place them.
+// Every member is human. "Sasquatch" is family status, not species.
+const circleMember = (definition) => ({
+  species: 'human',
+  founder: false,
+  ...definition,
+});
+
 export const ROSTER = [
-  { id: 'booski',       name: 'BOOSKI',        archetype: ARCHETYPE.PATRIARCH,  face: 'assets/faces/booski.png',        seat: 'truck' },
-  { id: 'lou',          name: 'LOU SPUTTHOLE', archetype: ARCHETYPE.LIEUTENANT, face: 'assets/faces/lou.png',           seat: 'truck' },
-  { id: 'rippinflow',   name: 'RIPPINFLOW',    archetype: ARCHETYPE.QUIET,      face: 'assets/faces/rippinflow.png',    seat: 'treeline' },
-  { id: 'shubes',       name: 'THE SHUBENATOR', archetype: ARCHETYPE.CRIER,     face: 'assets/faces/shubes.png',        seat: 'bong' },
-  { id: 'deathmegatron', name: 'DEATHMEGATRON', archetype: ARCHETYPE.MUSCLE,    face: 'assets/faces/deathmegatron.png', seat: 'keg' },
-  { id: 'hogmama',      name: 'HOG MAMA',      archetype: ARCHETYPE.MATRIARCH,  face: 'assets/faces/hogmama.png',       seat: 'fire' },
-  { id: 'ape',          name: 'APE',           archetype: ARCHETYPE.ROASTER,    face: null,                             seat: 'keg' },
-  { id: 'irish',        name: 'IRISH',         archetype: ARCHETYPE.GRIEVANCE,  face: null,                             seat: 'fire' },
-  { id: 'erican',       name: 'ERICAN',        archetype: ARCHETYPE.UTILITY,    face: 'assets/faces/erican.png',        seat: 'fire' },
-  { id: 'gratin',       name: 'GRATIN',        archetype: ARCHETYPE.UTILITY,    face: 'assets/faces/gratin.png',        seat: 'bong' },
-  { id: 'sasole',       name: 'SASOLE',        archetype: ARCHETYPE.UTILITY,    face: 'assets/faces/sasole.png',        seat: 'keg' },
-  { id: 'snow',         name: 'SNOW',          archetype: ARCHETYPE.UTILITY,    face: 'assets/faces/snow.png',          seat: 'treeline', executioner: true },
+  circleMember({ id: 'booski', name: 'BOOSKIBRO', archetype: ARCHETYPE.PATRIARCH, face: 'assets/faces/booski.png', seat: 'truck', founder: true }),
+  circleMember({ id: 'lou', name: 'BIG UNCLE LOU SPUTTHOLE', archetype: ARCHETYPE.LIEUTENANT, face: 'assets/faces/lou.png', seat: 'truck', founder: true }),
+  circleMember({ id: 'rippinflow', name: 'RIPPINFLOW', archetype: ARCHETYPE.QUIET, face: 'assets/faces/rippinflow.png', seat: 'treeline', founder: true }),
+  circleMember({ id: 'shubes', name: 'THE SHUBENATOR', archetype: ARCHETYPE.CRIER, face: 'assets/faces/shubes.png', seat: 'bong', founder: true }),
+  circleMember({ id: 'deathmegatron', name: 'DEATHMEGATRON', archetype: ARCHETYPE.MUSCLE, face: 'assets/faces/deathmegatron.png', seat: 'keg', founder: true }),
+  circleMember({ id: 'hogmama', name: 'HOG MAMA', archetype: ARCHETYPE.MATRIARCH, face: 'assets/faces/hogmama.png', seat: 'fire' }),
+  circleMember({ id: 'ape', name: 'APE', archetype: ARCHETYPE.ROASTER, face: null, seat: 'keg' }),
+  circleMember({ id: 'irish', name: 'IRISH', archetype: ARCHETYPE.GRIEVANCE, face: null, seat: 'fire' }),
+  circleMember({ id: 'erican', name: 'ERICAN', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/erican.png', seat: 'fire' }),
+  circleMember({ id: 'gratin', name: 'GRATIN', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/gratin.png', seat: 'bong' }),
+  circleMember({ id: 'captain_lou_sasole', name: 'CAPTAIN LOU SASOLE', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/sasole.png', seat: 'keg' }),
+  circleMember({ id: 'snow', name: 'SNOW', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/snow.png', seat: 'treeline', executioner: true }),
 ];
 
 // ---------- Tiers & states ----------

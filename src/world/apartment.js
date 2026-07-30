@@ -1607,7 +1607,7 @@ export async function buildApartment(ctx) {
     label: () => 'Read the <b>card</b>',
     onUse: () => {
       audio.play('frame.adjust', { volume: 0.4 });
-      hud.say('<em>WED 7PM &middot; SQUATCH MEETING &middot; BOOSKI DRIVING.</em><br>'
+      hud.say('<em>WED 7PM &middot; SQUATCH MEETING &middot; BOOSKIBRO DRIVING.</em><br>'
         + 'Pinned there a fortnight ago. Today is Tuesday.', 6400);
       ctx.onLearn?.('the corkboard');
     },

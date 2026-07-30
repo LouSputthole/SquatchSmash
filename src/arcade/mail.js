@@ -135,7 +135,7 @@ const MESSAGES = [
     ],
   },
   {
-    from: 'BOOSKI',
+    from: 'BOOSKIBRO',
     addr: 'booski@silversasquatches.gg',
     subject: 'RE: RE: RE: tomorrow',
     time: '2:14 AM',
@@ -153,14 +153,14 @@ const MESSAGES = [
       '> On Mon, LOU wrote:',
       '> is it tomorrow or the day after',
       '',
-      '>> On Mon, BOOSKI wrote:',
+      '>> On Mon, BOOSKIBRO wrote:',
       '>> tomorrow',
     ],
   },
   {
     /* The second Booski mail. The thread above is logistics; this one is not,
      * which is why it is its own message and arrived four hours later. */
-    from: 'BOOSKI',
+    from: 'BOOSKIBRO',
     addr: 'booski@silversasquatches.gg',
     subject: 'tonight',
     time: '6:31 AM',
