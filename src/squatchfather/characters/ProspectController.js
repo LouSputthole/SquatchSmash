@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Figure } from './Figure.js';
-import { POS } from '../scenes/SquatchfatherScene.js';
+import { PLAYER_START_YAW, POS } from '../scenes/SquatchfatherScene.js';
 
 // Prospect — the quiet one. Played first-person, so this owns movement,
 // collision, the eye position the camera rides on, the concealed handgun
@@ -23,7 +23,7 @@ export class ProspectController {
     this.colliders = colliders;
 
     this.pos = POS.playerStart.clone();
-    this.yaw = -Math.PI / 2 - 0.3; // looking along the sidewalk toward the door
+    this.yaw = PLAYER_START_YAW; // looking along the sidewalk toward the door
     this.pitch = -0.03;
     this.vel = new THREE.Vector3();
     this.eyeHeight = EYE_STAND;
@@ -218,9 +218,10 @@ export class ProspectController {
         fx /= mag; fz /= mag;
         const s = Math.sin(this.yaw);
         const c = Math.cos(this.yaw);
-        // camera-relative: forward is (-sin yaw, -cos yaw)
-        wantX = (fx * c - fz * s) * this.speed;
-        wantZ = (-fx * s - fz * c) * this.speed;
+        // Camera-relative: local -Z is the view direction
+        // (-sin yaw, -cos yaw). Keep W aligned with what the player sees.
+        wantX = (fx * c + fz * s) * this.speed;
+        wantZ = (-fx * s + fz * c) * this.speed;
       }
       const k = Math.min(1, dt * 11);
       this.vel.x += (wantX - this.vel.x) * k;

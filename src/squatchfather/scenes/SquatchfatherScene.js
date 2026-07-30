@@ -12,7 +12,9 @@ import * as THREE from 'three';
 // +Z runs deeper into the restaurant. The street is at negative Z.
 
 export const POS = {
-  playerStart: new THREE.Vector3(-14, 0, -2.6),
+  // Beside the parked car, with enough clearance for Prospect's collision
+  // radius. The old x=-14 point was inside the car's blocker.
+  playerStart: new THREE.Vector3(-12, 0, -2.6),
   doorApproach: new THREE.Vector3(0, 0, -2.4),
   tableCenter: new THREE.Vector3(0, 0, 5),
   prospectSeat: new THREE.Vector3(0, 0, 3.1),
@@ -25,6 +27,8 @@ export const POS = {
   mirror: new THREE.Vector3(2.15, 1.55, 16.9),
   getawayCar: new THREE.Vector3(-2.8, 0, -5.1),
 };
+
+export const PLAYER_START_YAW = -Math.PI / 2 - 0.02;
 
 export const ROOM = {
   dining: { x0: -7, x1: 7, z0: 0, z1: 11, h: 3.2 },

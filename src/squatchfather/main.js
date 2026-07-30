@@ -1,5 +1,9 @@
 import * as THREE from 'three';
-import { buildSquatchfatherScene, POS } from './scenes/SquatchfatherScene.js';
+import {
+  buildSquatchfatherScene,
+  PLAYER_START_YAW,
+  POS,
+} from './scenes/SquatchfatherScene.js';
 import { SquatchfatherStateMachine, S, CHECKPOINT } from './state/SquatchfatherStateMachine.js';
 import { DialogueController } from './dialogue/DialogueController.js';
 import { InteractionSystem } from './interaction/InteractionSystem.js';
@@ -315,7 +319,7 @@ function buildStates() {
   return {
     [S.START_EXTERIOR]: {
       enter() {
-        prospect.teleport(POS.playerStart, -Math.PI / 2 - 0.3);
+        prospect.teleport(POS.playerStart, PLAYER_START_YAW);
         prospect.canMove = true;
         prospect.canLook = true;
         prospect.speed = SPEED.normal;

@@ -50,13 +50,16 @@ const browser = await chromium.launch({
     '--autoplay-policy=no-user-gesture-required',
   ],
 });
-const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
-
 const problems = [];
-page.on('pageerror', (error) => problems.push(error.message));
-page.on('console', (message) => {
-  if (message.type() === 'error') problems.push(message.text().slice(0, 240));
-});
+function trackRuntimeErrors(page) {
+  page.on('pageerror', (error) => problems.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+  });
+}
+
+const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
+trackRuntimeErrors(page);
 
 const results = [];
 function check(name, ok, detail = '') {
@@ -125,7 +128,80 @@ async function go(beat, seconds = 0.2) {
   }, [beat, seconds]);
 }
 
+async function openingSnapshot(target) {
+  return target.evaluate(() => {
+    const scene = window.squatchfather;
+    const { prospect } = scene;
+    return {
+      beat: scene.state(),
+      canMove: prospect.canMove,
+      canLook: prospect.canLook,
+      seated: prospect.seated,
+      scripted: prospect.autoTarget !== null,
+      blocked: prospect.blocked(prospect.pos.x, prospect.pos.z),
+      position: {
+        x: prospect.pos.x,
+        z: prospect.pos.z,
+      },
+      forward: {
+        x: -Math.sin(prospect.yaw),
+        z: -Math.cos(prospect.yaw),
+      },
+    };
+  });
+}
+
+async function verifyOpeningMovement(target, label) {
+  const before = await openingSnapshot(target);
+  check(`${label} starts Tony outside every active collider`,
+    before.beat === 'START_EXTERIOR'
+      && before.canMove
+      && before.canLook
+      && !before.seated
+      && !before.scripted
+      && !before.blocked,
+    JSON.stringify(before));
+
+  await target.keyboard.down('KeyW');
+  await target.waitForTimeout(550);
+  await target.keyboard.up('KeyW');
+  await target.waitForTimeout(80);
+
+  const after = await openingSnapshot(target);
+  const dx = after.position.x - before.position.x;
+  const dz = after.position.z - before.position.z;
+  const distance = Math.hypot(dx, dz);
+  const forwardProgress = dx * before.forward.x + dz * before.forward.z;
+  check(`${label} accepts W movement in the camera-facing direction`,
+    distance > 0.35 && forwardProgress > 0.3 && !after.blocked,
+    JSON.stringify({
+      before: before.position,
+      after: after.position,
+      distance: Number(distance.toFixed(3)),
+      forwardProgress: Number(forwardProgress.toFixed(3)),
+      beat: after.beat,
+      blocked: after.blocked,
+    }));
+}
+
 try {
+  const previewPage = await browser.newPage({ viewport: { width: 480, height: 300 } });
+  trackRuntimeErrors(previewPage);
+  await previewPage.goto(
+    `http://localhost:${PORT}/squatchfather.html?preview=1`,
+    { waitUntil: 'load' },
+  );
+  await previewPage.waitForFunction(() => window.squatchfather?.fsm, null, { timeout: 60000 });
+  check('the direct preview exposes a playable start button',
+    await previewPage.locator('#startBtn').isVisible()
+      && await previewPage.locator('#squatch-preview-notice').isVisible());
+  await previewPage.click('#startBtn');
+  await previewPage.waitForFunction(
+    () => window.squatchfather.state() === 'START_EXTERIOR',
+  );
+  await verifyOpeningMovement(previewPage, 'the direct preview');
+  await previewPage.close();
+
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
@@ -149,6 +225,7 @@ try {
       && current.mission.status === 'in_progress'
       && current.mission.weaponStaged,
     JSON.stringify(current.mission));
+  await verifyOpeningMovement(page, 'the saved-game entry');
 
   await go('SEARCH_TOILET');
   current = await state();
