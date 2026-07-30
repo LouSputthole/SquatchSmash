@@ -99,7 +99,15 @@ await page.evaluate(() => document.getElementById('start-btn').click());
 await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__silver.postfx.disable?.());
 
-/** Step the game's own update path for `secs` of simulated time. */
+/**
+ * Step the game's own update path for `secs` of simulated time.
+ *
+ * Everything the frame loop calls, in the order it calls it. `__evening` is the
+ * one that used to be missing: the car outside, the dance, and the two things
+ * she notices about being ignored all lived inline in `frame()`, so this driver
+ * never ran them — which is exactly why a dance that could not be started and a
+ * car that drove off mid-conversation both got past it.
+ */
 async function tick(secs = 1, step = 0.25) {
   await page.evaluate(([s, st]) => {
     const b = window.__silver;
@@ -115,9 +123,11 @@ async function tick(secs = 1, step = 0.25) {
       b.__zones();
       b.__seatTick(st);
       b.__host();
+      b.__evening(st);
     }
   }, [secs, step]);
 }
+
 
 /** Walk, rather than teleport, so the companion has to keep up. */
 async function walkTo(x, z) {
@@ -205,21 +215,47 @@ check('she is out of the car and next to him', s.dateGap < 4, s.dateGap.toFixed(
 check('the wallet can pay for the evening',
   s.money >= 600, `$${s.money}`);
 
-/* ---- the driver ---- */
+/* ---- the driver ----
+ * Through the conversation's own doubled-up option, because that is the only
+ * elective generosity on the route and `Woo.GenerousTip` had nothing at all
+ * that could fire it. The hold-to-tip interface is then tested doing the other
+ * half of its job — refusing a second one — and pays out for fourteen other
+ * people later in the kitchen.
+ */
 const drove = await page.evaluate(() => {
   const b = window.__silver;
   const before = b.game.money;
-  b.taxi.window.userData.interact.onUse();
-  const once = { money: b.game.money, woo: b.woo.score };
-  b.taxi.window.userData.interact.onUse();     // try to farm it
-  return { before, once, after: b.game.money, wooAfter: b.woo.score };
+  const big = b.scripts.driver.open.options().find((o) => o.tone === '$80');
+  const offered = !!big?.when?.();
+  big?.effect?.();
+  const once = { money: b.game.money, woo: b.woo.score, generous: b.woo.has('Woo.GenerousTip') };
+  big?.effect?.();                             // try to farm it
+  b.taxi.window.userData.interact.onUse();     // and the hold, on a man already looked after
+  return { before, offered, once, after: b.game.money, wooAfter: b.woo.score };
 });
 check('tipping the driver costs money and pays Woo',
-  drove.once.money === drove.before - 40 && drove.once.woo > 12,
+  drove.once.money === drove.before - 80 && drove.once.woo > 12,
   `$${drove.before} → $${drove.once.money}, woo ${drove.once.woo}`);
+check('and handing him double is generous, which is its own small thing',
+  drove.offered && drove.once.generous, JSON.stringify(drove.once));
 check('and a second attempt pays nothing and costs nothing',
   drove.after === drove.once.money && drove.wooAfter === drove.once.woo,
   `$${drove.after}, woo ${drove.wooAfter}`);
+
+/* ---- the car waits for the conversation ----
+ * It used to go on a forty-five second timer started the moment control came
+ * back, so reading her opening line and picking an answer cost you the driver,
+ * the tip, the full-roster streak and a line of the ending card. Nothing on
+ * screen said that was a clock.
+ */
+await tick(70, 0.5);
+const stillThere = await page.evaluate(() => ({
+  gone: window.__silver.debug.taxiGone(),
+  prompt: !!window.__silver.taxi.window.userData.interact,
+  state: window.__silver.mission.state,
+}));
+check('the car is still at the kerb a minute later, because nobody has walked away',
+  !stillThere.gone && stillThere.prompt, JSON.stringify(stillThere));
 
 /* ---- her question about the front door ---- */
 await page.evaluate(() => {
@@ -240,6 +276,13 @@ check('the alley starts the service route', s.mission === 'service-route', s.mis
 check('she came down the alley too', s.dateRoom === 'alley' || s.dateGap < 6,
   `${s.dateRoom}, ${s.dateGap.toFixed(1)}m`);
 
+const drovOff = await page.evaluate(() => ({
+  gone: window.__silver.debug.taxiGone(),
+  prompt: !!window.__silver.taxi.window.userData.interact,
+}));
+check('and once he has walked off the car goes, and takes its prompt with it',
+  drovOff.gone && !drovOff.prompt, JSON.stringify(drovOff));
+
 await page.evaluate(() => window.__silver.room.doors.service.toggle());
 await walkTo(31, 12);
 await walkTo(24, 11.5);
@@ -259,6 +302,10 @@ const her = await page.evaluate(() => {
 });
 check('and she followed him down the ramp and caught up', caughtUp < 3,
   `${caughtUp.toFixed(1)}m — she is ${JSON.stringify(her)}`);
+/* Standing still until she arrives is a thing the player does deliberately and
+ * the table had a point in it for — with nothing anywhere that fired it. */
+check('stopping and letting her catch up is worth the point it is worth',
+  await page.evaluate(() => window.__silver.woo.has('Woo.WaitedForDate')), '');
 console.log('    rooms:', (await page.evaluate(() => window.__roomLog)).join(' → '));
 check('the cellar floor is only the cellar floor to somebody already down there',
   await page.evaluate(() => {
@@ -372,6 +419,12 @@ await walkTo(12.5, 22);
 await walkTo(6, 24);
 s = await state();
 check('and it comes out on the floor of the club', s.mission === 'host', s.mission);
+const pace = await page.evaluate(() => ({
+  kept: window.__silver.woo.has('Woo.KeptPace'),
+  left: window.__silver.mission.flags.abandonments,
+}));
+check('walking the whole route without losing her once pays, and losing her forfeits it',
+  pace.kept === (pace.left === 0), `kept ${pace.kept}, left behind ${pace.left}×`);
 check('no loading screen anywhere between the alley and the room',
   await page.evaluate(() => !document.getElementById('blackout')?.classList.contains('on')), '');
 
@@ -405,9 +458,57 @@ check('the table is real, in place, and there is only one of it',
   JSON.stringify(table));
 check('with two chairs at it', table.chairs === 2, String(table.chairs));
 
-/* ---- sitting down ---- */
+/* ---- the two chairs ----
+ *
+ * Where the seats are and which way they point is the whole seated half of the
+ * mission. They used to be one behind the other on the line from the table to
+ * the stage, with the view pointed down it: she sat behind his head, outside the
+ * yaw clamp, unlookable-at, for twenty minutes of conversation.
+ */
+const facing = await page.evaluate(() => {
+  const b = window.__silver;
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const [his, hers] = b.room.anchors.frontSeats;
+  const stage = b.room.anchors.stageCentre;
+  const toward = (t, from) => Math.atan2(-(t.x - from.x), -(t.z - from.z));
+  return {
+    range: 1.7,
+    toHer: Math.abs(wrap(toward(hers, his) - his.faceYaw)),
+    toStage: Math.abs(wrap(toward(stage, his) - his.faceYaw)),
+    apart: Math.hypot(hers.x - his.x, hers.z - his.z),
+  };
+});
+check('his chair looks at her, with the stage a turn away and still inside the clamp',
+  facing.toHer < 0.2 && facing.toStage < facing.range && facing.apart > 1
+    && facing.apart < 2.2,
+  `she is ${facing.toHer.toFixed(2)} rad off centre, the stage ${facing.toStage.toFixed(2)} `
+    + `of ${facing.range}, ${facing.apart.toFixed(2)}m apart`);
+
+/* ---- sitting down ----
+ * Sitting down has to seat both of them. It used to seat only him unless the
+ * optional chair-pull pad was used, so a player who simply sat down spent the
+ * entire seated half of the evening talking to a woman standing beside the
+ * table — and the harness never saw it, because the harness always pulled the
+ * chair first.
+ */
+const satAlone = await page.evaluate(() => {
+  const b = window.__silver;
+  b.player.position.set(b.room.anchors.frontTable.x + 1.2, 1.66, b.room.anchors.frontTable.z + 1.2);
+  b.game.chairPads.his.userData.interact.onUse();
+  return { seated: b.game.seated, dateMode: b.date.mode, sitting: !!b.date.npc.seated,
+    chairPulled: b.mission.flags.chairPulled };
+});
+check('sitting down puts her in the other chair, with no chair-pull involved',
+  satAlone.seated && satAlone.dateMode === 'seated' && satAlone.sitting
+    && !satAlone.chairPulled, JSON.stringify(satAlone));
+
+/* Both of them back on their feet, so the optional pad is tested doing what it
+ * is for rather than re-seating somebody already sitting. */
 const chair = await page.evaluate(() => {
   const b = window.__silver;
+  b.game.chairPads.his.userData.interact.onUse();       // he stands
+  b.date.standFrom({ x: b.room.anchors.frontTable.x + 1.4, z: b.room.anchors.frontTable.z + 1.6 });
+  b.date.follow();
   b.player.position.set(b.room.anchors.frontTable.x + 1.2, 1.66, b.room.anchors.frontTable.z + 1.2);
   const before = b.woo.score;
   b.game.chairPads.her.userData.interact.onUse();
@@ -485,6 +586,23 @@ const showState = await page.evaluate(() => {
 check('seven of them, on stage, with the house down and the near table lamps still lit',
   showState.playing && showState.visible === 7 && showState.lampsNear > 0,
   JSON.stringify(showState));
+
+/* A cutscene takes her over, and the end of one used to hand her back to
+ * `follow` unconditionally — so the champagne stood her up out of her chair for
+ * the rest of the evening, and the moment the band arrived she got up and walked
+ * away from the table she had just said "oh, they're real" at. */
+const stillSitting = await page.evaluate(() => {
+  const b = window.__silver;
+  const seat = b.room.anchors.frontSeats[1];
+  return {
+    mode: b.date.mode,
+    sitting: !!b.date.npc.seated,
+    off: Math.hypot(b.date.position.x - seat.x, b.date.position.z - seat.z),
+  };
+});
+check('and both cutscenes leave her in her chair rather than on her feet',
+  stillSitting.mode === 'seated' && stillSitting.sitting && stillSitting.off < 0.2,
+  JSON.stringify(stillSitting));
 check('and the light budget stays sane in a room with eighty fittings in it',
   showState.lights <= 45 && showState.lampsNear < showState.lampsTotal,
   `${showState.lights} live lights, ${showState.lampsNear}/${showState.lampsTotal} lamps`);
@@ -524,34 +642,182 @@ await tick(4);
 check('and making one is worth something', (await state()).flags.toast !== null,
   String((await state()).flags.toast));
 
-/* ---- the sway ---- */
-const swayRun = await page.evaluate(() => {
+/* ---- the sway ----
+ *
+ * Driven through `startSway()` and the real key handler, which is the whole
+ * point. Starting the minigame by hand — which is what this used to do — tested
+ * four lines of `Sway` and nothing else, and hid the fact that the dance was
+ * unstartable: the latch went up nine hundred milliseconds before the first bar,
+ * the frame loop judged it lost on the next frame, and `Woo.SwayCompleted` was
+ * unreachable by any route a player could take.
+ */
+await page.evaluate(() => {
   const b = window.__silver;
-  b.sway.start(true);
-  for (let i = 0; i < 4; i++) {
-    b.sway.t = (60 / b.sway.bpm) * i + (60 / b.sway.bpm) * 0.5;   // dead on the beat
-    b.sway.press();
-  }
-  return { hits: b.sway.hits, result: b.sway.result, active: b.sway.active };
+  b.dialogue.end();
+  b.settings.assist = true;                    // the wide window, not the tight one
 });
-check('the sway can be played on the beat and scored',
-  swayRun.hits === 4 && swayRun.result === 'good' && !swayRun.active, JSON.stringify(swayRun));
+await page.evaluate(() => window.__silver.debug.sway());
+await tick(0.6, 0.1);
+const swayPending = await page.evaluate(() => {
+  const b = window.__silver;
+  return {
+    swayed: b.mission.flags.swayed, state: b.mission.state,
+    running: b.game.swayRunning, starting: b.game.swayStarting, active: b.sway.active,
+  };
+});
+check('getting up out of the chair is not itself a failed dance',
+  swayPending.swayed === null && swayPending.state === 'sway' && swayPending.starting,
+  JSON.stringify(swayPending));
 
-/* ---- checkpoint reload cannot pay a tip twice ---- */
+await page.waitForTimeout(1100);               // the band gets to the bar, on a real clock
+const swayLive = await page.evaluate(() => ({
+  active: window.__silver.sway.active,
+  running: window.__silver.game.swayRunning,
+  bar: !!window.__silver.sway.view,
+}));
+check('and then there is a dance, running, with a bar to hit',
+  swayLive.active && swayLive.running && swayLive.bar, JSON.stringify(swayLive));
+
+/* The four bars, in one pass in the page.
+ *
+ * One pass because the real frame loop is running in there: a press per round
+ * trip leaves twenty milliseconds of animation frames between each one, the
+ * timing bar moves on, and the beat you were aiming at goes by unplayed. The
+ * presses themselves are real keydowns through the real handler — the pinning
+ * of `t` is the metronome standing still, not the input being faked. */
+const swayPlay = await page.evaluate(() => {
+  const b = window.__silver;
+  const E = () => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' }));
+  };
+  b.sway.t = b.sway.beatLength * 0.5;             // dead on the first beat
+  for (let i = 0; i < 6; i++) E();                // and mash it
+  const mashed = {
+    hits: b.sway.hits, misses: b.sway.misses, beat: b.sway.beat, active: b.sway.active,
+  };
+  for (let k = 1; k < 4; k++) {
+    b.sway.t = b.sway.beatLength * (k + 0.5);
+    E();
+  }
+  return {
+    mashed,
+    hits: b.sway.hits, misses: b.sway.misses, result: b.sway.result,
+    active: b.sway.active, swayed: b.mission.flags.swayed,
+    completed: b.woo.has('Woo.SwayCompleted'),
+  };
+});
+check('six presses inside one beat is one judgement, not four hits and an early finish',
+  swayPlay.mashed.hits === 1 && swayPlay.mashed.misses === 0
+    && swayPlay.mashed.beat === 1 && swayPlay.mashed.active,
+  JSON.stringify(swayPlay.mashed));
+check('four beats on the beat is a dance, and it pays',
+  swayPlay.hits === 4 && swayPlay.misses === 0 && swayPlay.result === 'good'
+    && !swayPlay.active && swayPlay.swayed === 'good' && swayPlay.completed,
+  JSON.stringify(swayPlay));
+
+await page.waitForTimeout(3500);
+await tick(1, 0.25);
+const backAtTable = await page.evaluate(() => {
+  const b = window.__silver;
+  return {
+    state: b.mission.state, seated: b.game.seated,
+    dateMode: b.date.mode, hers: !!b.date.npc.seated, running: b.game.swayRunning,
+  };
+});
+check('and it puts the evening back somewhere the rest of it is written for',
+  backAtTable.state === 'performance' && backAtTable.seated
+    && backAtTable.dateMode === 'seated' && !backAtTable.running,
+  JSON.stringify(backAtTable));
+
+/* Which is the thing that actually broke: stuck in `sway`, she stopped being
+ * able to notice being kept waiting, for the rest of the mission. */
+const impatience = await page.evaluate(() => {
+  const b = window.__silver;
+  const heard = [];
+  const real = b.mission.hooks.onImpatient;
+  b.mission.hooks.onImpatient = (key, st) => { heard.push(`${key}@${st}`); };
+  b.mission.inState = 74;
+  b.mission._impatient = 0;
+  for (let i = 0; i < 20; i++) b.mission.update(0.5, { trailing: false });
+  b.mission.hooks.onImpatient = real;
+  return { heard, state: b.mission.state };
+});
+check('so she starts noticing being kept waiting again',
+  impatience.heard.length > 0, `${impatience.state}: ${impatience.heard.join(', ') || 'silence'}`);
+
+/* ---- the set ends ----
+ * It used to wrap round to the top and play forever, so the third number — the
+ * one three separate people tell you is *the* one — came round again, and with
+ * it the callback, the toast and another offer to dance.
+ */
+for (let i = 0; i < 7; i++) {
+  if (await page.evaluate(() => window.__silver.performance.setEnded)) break;
+  await page.evaluate(() => {
+    const p = window.__silver.performance;
+    if (p.current) p.t = p.current.dur + 0.05;
+  });
+  await tick(0.4, 0.2);
+  await page.waitForTimeout(2600);
+}
+const setEnd = await page.evaluate(() => {
+  const b = window.__silver;
+  return {
+    ended: b.performance.setEnded, playing: b.performance.playing,
+    played: b.performance.numbersPlayed.slice(),
+    theOne: b.performance.numbersPlayed.filter((n) => n === 'third').length,
+  };
+});
+check('the band play their four numbers, once each, and then the set is over',
+  setEnd.ended && !setEnd.playing && setEnd.played.length === 4 && setEnd.theOne === 1,
+  setEnd.played.join(' → '));
+
+/* ---- checkpoint reload cannot pay a tip twice, and puts the evening back ----
+ *
+ * It used to save the flags, the money and the score, and drop the mission
+ * state, the rounds already had, whether he was sitting down and every latch in
+ * main.js — so a "restored" evening came back with the right number over a
+ * mission that thought it was still standing on the pavement. Scramble
+ * everything the checkpoint claims to own, and see what comes back.
+ */
 const reload = await page.evaluate(() => {
   const b = window.__silver;
+  const snap = (x) => ({
+    woo: x.woo.score, tips: x.woo.tipCount, money: x.game.money,
+    state: x.mission.state, rounds: [...x.mission.roundsDone].sort().join(','),
+    objectives: x.mission.objectives.length, ledger: x.woo.ledger.length,
+    seated: x.game.seated, swayed: x.mission.flags.swayed, hers: x.date.mode,
+  });
+  b.dialogue.end();
   const cp = b.debug.save();
-  const before = { woo: b.woo.score, tips: b.woo.tipCount, money: b.game.money };
+  const before = snap(b);
   b.woo.score = 3;
+  b.woo.ledger.length = 0;
+  b.woo.fired.delete('Woo.CookTipped');
+  b.mission.state = 'arrived';
+  b.mission.roundsDone.clear();
+  b.mission.objectives.length = 0;
+  b.mission.flags.swayed = null;
+  b.game.seated = false;
+  b.game.money = 7;
+  b.date.follow();
   b.debug.load();
-  const after = { woo: b.woo.score, tips: b.woo.tipCount, money: b.game.money };
+  const after = snap(b);
   // And then try to be paid again for everything already on the ledger
   for (const npc of Object.values(b.cast.byName)) npc.group.userData?.interact?.onUse?.();
-  return { cp: !!cp, before, after, farmed: b.woo.score };
+  return { cp: !!cp, before, after, farmed: b.woo.score, saved: !!cp.mission };
 });
 check('a checkpoint restores the score and the ledger',
-  reload.after.woo === reload.before.woo && reload.after.tips === reload.before.tips,
+  reload.after.woo === reload.before.woo && reload.after.tips === reload.before.tips
+    && reload.after.ledger === reload.before.ledger,
   JSON.stringify(reload.after));
+const cpFields = ['state', 'rounds', 'objectives', 'seated', 'swayed', 'hers', 'money'];
+const cpWrong = cpFields.filter((k) => reload.after[k] !== reload.before[k]);
+check('and it round-trips the evening it claims to: state, rounds, chairs and all',
+  reload.saved && cpWrong.length === 0,
+  cpWrong.length
+    ? cpWrong.map((k) => `${k}: ${reload.before[k]} → ${reload.after[k]}`).join('; ')
+    : `${reload.after.state}, rounds ${reload.after.rounds || 'none'}, seated ${reload.after.seated}`);
 check('and reloading does not let a tip pay out twice',
   reload.farmed === reload.after.woo, String(reload.farmed));
 
@@ -631,22 +897,111 @@ check('the dance timing can be widened',
 check('the dev panel is absent without ?dev',
   await page.evaluate(() => !document.getElementById('debug')), '');
 
+/* ---- the invitation, and what "rushed" is measured against ----
+ *
+ * `Woo.InvitationRushed` fired on every single run of this mission, careful or
+ * not, because the judgement read `inState` two nodes after the move into
+ * `invitation` had reset it — so it was measuring how fast the player reads a
+ * menu. The harness never saw it, because it called the ending resolver
+ * directly and never once used the invitation the game offers.
+ */
+const asked = await page.evaluate(() => {
+  const b = window.__silver;
+  b.dialogue.end();
+  b.mission.inState = 150;                     // he has sat through the show
+  const opened = b.debug.invite();
+  return {
+    opened, state: b.mission.state, options: b.dialogue.options.length,
+    askedAfter: b.mission.askedAfter, rushed: b.mission.rushedIt,
+  };
+});
+check('the invitation comes up off the back of the evening, with a way out of it',
+  asked.opened && asked.state === 'invitation' && asked.options >= 5,
+  JSON.stringify(asked));
+check('and a man who sat through the show has not rushed it',
+  asked.rushed === false && asked.askedAfter >= 150, JSON.stringify(asked));
+
+const rushing = await page.evaluate(() => {
+  const Mission = window.__silver.mission.constructor;
+  const fresh = (secs) => {
+    const m = new Mission();
+    m.flags.showStarted = true;
+    m.setState('performance');
+    m.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
+    m.inState = secs;
+    const ok = m.offerInvitation();
+    m.flags.invitation = 'plain';
+    return { ok, rushed: m.rushedIt, askedAfter: m.askedAfter };
+  };
+  const declined = new Mission();
+  declined.flags.showStarted = true;
+  declined.setState('performance');
+  declined.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
+  declined.inState = 2;
+  declined.offerInvitation();
+  declined.flags.invitation = 'none';
+  return { early: fresh(4), late: fresh(140), declined: declined.rushedIt };
+});
+check('but asking four seconds after the curtain is rushing it',
+  rushing.early.ok && rushing.early.rushed && !rushing.late.rushed,
+  JSON.stringify(rushing));
+check('and deciding not to ask is never rushing it', rushing.declined === false, '');
+
+await choose(0);                               // the plain one, and let it play out
+await tick(2);
+const judged = await page.evaluate(() => {
+  const b = window.__silver;
+  return {
+    rushed: b.woo.has('Woo.InvitationRushed'),
+    outcome: b.mission.flags.outcome,
+    woo: b.woo.score,
+  };
+});
+check('so the rush penalty stays in its box on a careful evening',
+  !judged.rushed && !!judged.outcome, JSON.stringify(judged));
+
 /* ---- and it ends ---- */
-await page.evaluate(() => window.__silver.debug.ending('strong'));
-await page.waitForTimeout(500);
+await page.waitForFunction(() => window.__silver.game.over, null, { timeout: 20000 });
 const ended = await page.evaluate(() => ({
   over: window.__silver.game.over,
   card: document.getElementById('overlay').classList.contains('ending'),
   title: document.querySelector('#overlay .tag')?.textContent || '',
   saved: JSON.parse(localStorage.getItem('squatch.frontAndCenter') || 'null'),
 }));
-check('the evening ends on a card', ended.over && ended.card, ended.title);
+check('the evening ends on a card, reached by asking her rather than by a debug button',
+  ended.over && ended.card && !!ended.saved?.outcome,
+  `${ended.title} — ${ended.saved?.outcome}`);
 check('and the relationship is written down for the next scene',
   !!ended.saved && ended.saved.delia?.met === true && typeof ended.saved.woo === 'number',
   JSON.stringify(ended.saved && {
     woo: ended.saved.woo, outcome: ended.saved.outcome,
     tipped: ended.saved.tippedEverybody, available: ended.saved.delia?.available,
   }));
+
+/* ---- and the one line the score cannot buy back ----
+ * Last, because it fires into the live ledger, and by here the evening has been
+ * written down and there is nothing left to spoil. "Car's outside. Come on."
+ * used to cost nothing whatsoever above eighty: the flag was set, the ending
+ * looked at it, and the twelve points in the table never left the table.
+ */
+const crude = await page.evaluate(() => {
+  const b = window.__silver;
+  const opt = b.scripts.invitation.open.options().find((o) => o.tone === 'Overconfident');
+  const before = b.woo.score;
+  opt?.effect?.();
+  const Mission = b.mission.constructor;
+  const low = new Mission();
+  low.flags.invitation = 'crude';
+  return {
+    found: !!opt, before, after: b.woo.score,
+    fired: b.woo.has('Woo.CrudeInvitation'),
+    andThen: low.resolve(50, 'decent'),
+  };
+});
+check('"car’s outside, come on" costs what it costs at any score',
+  crude.found && crude.fired && crude.after <= crude.before - 12
+    && crude.andThen === 'disaster',
+  JSON.stringify(crude));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 

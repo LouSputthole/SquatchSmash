@@ -1105,8 +1105,11 @@ export function buildRoom(scene, { renderer } = {}) {
       s.add(box({ size: [0.015, 0.006, 0.14], pos: [-0.19, 0.775, 0], mat: mat({ color: 0xc8ccd4, roughness: 0.24, metalness: 0.85 }) }));
       s.add(box({ size: [0.015, 0.006, 0.14], pos: [0.19, 0.775, 0], mat: mat({ color: 0xc8ccd4, roughness: 0.24, metalness: 0.85 }) }));
       s.add(cylinder({ rTop: 0.045, rBottom: 0.028, h: 0.11, pos: [0.15, 0.83, -0.16], mat: M_GLASS }));
-      s.position.set(0, 0, side * 0.44);
-      s.rotation.y = side > 0 ? 0 : Math.PI;
+      /* Laid across the table rather than along it, because that is where the
+       * chairs are now: the two of them sit either side of the stage axis
+       * rather than one in front of the other. */
+      s.position.set(side * 0.44, 0, 0);
+      s.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
       s.visible = false;
       settings.push(s);
       front.add(s);
@@ -1128,10 +1131,29 @@ export function buildRoom(scene, { renderer } = {}) {
   /* Front and center: four metres out from the stage lip, dead on the middle
    * of it, which is the only place in this room worth carrying a table to. */
   anchors.frontTable = new THREE.Vector3(-16, 0, -5.2);
+  /**
+   * The two chairs, either side of the line between the table and the stage.
+   *
+   * They used to be one behind the other on that line, and the seated view was
+   * pointed down it — which meant the whole seated half of the mission was
+   * spent looking at a closed curtain with her sitting behind his head, outside
+   * the yaw clamp, unlookable-at while she talked. Across the table instead:
+   * she is dead centre of the view, the stage is a ninety-degree turn away and
+   * inside the clamp, and nobody has to be told which one to look at.
+   *
+   * `yaw` faces an object (+z at zero); `faceYaw` faces the camera (-z at
+   * zero). They are a half-turn apart on purpose — the two conventions are not
+   * the same and pretending they are is how she ended up facing the wall.
+   */
   anchors.frontSeats = [
-    { x: -16, z: -5.9, yaw: Math.PI, faceYaw: 0 },     // his: back to the room
-    { x: -16, z: -4.5, yaw: 0, faceYaw: Math.PI },     // hers: facing the stage
+    { x: -15.25, z: -5.2, yaw: -Math.PI / 2, faceYaw: Math.PI / 2 },   // his: looking at her, stage a quarter-turn right
+    { x: -16.75, z: -5.2, yaw: Math.PI / 2, faceYaw: -Math.PI / 2 },   // hers: looking at him
   ];
+  /** Where the seated view has to be able to reach: the middle of the stage. */
+  anchors.frontSeatStageYaw = Math.atan2(
+    -(anchors.stageCentre.x - anchors.frontSeats[0].x),
+    -(anchors.stageCentre.z - anchors.frontSeats[0].z),
+  );
   anchors.tableStaging = new THREE.Vector3(-9.5, 0, 0.5);
 
   /* ================================================================ */

@@ -48,6 +48,14 @@ const IMPATIENCE = [
   { at: 280, key: 'waiting3' },
 ];
 
+/**
+ * Asking her back with less than this much of the show behind you is rushing
+ * it. Twenty seconds of a supper club is nothing — it is the length of the
+ * applause — and that is the point: the penalty is for the man who sat down at
+ * the front table and immediately suggested leaving it.
+ */
+const RUSHED_UNDER = 20;
+
 export class Mission {
   /**
    * @param {object} hooks { onState, onObjective, onNote, onImpatient, onCheckpoint }
@@ -63,6 +71,8 @@ export class Mission {
     /** Seconds she has spent more than four metres behind him. */
     this.trailing = 0;
     this.roundsDone = new Set();
+    /** Seconds into the state he asked out of, or null if he has not asked. */
+    this.askedAfter = null;
 
     this.flags = {
       /* the street */
@@ -106,12 +116,17 @@ export class Mission {
     const order = STATES.indexOf(next);
     if (order < 0) throw new Error(`unknown mission state: ${next}`);
     if (order < STATES.indexOf(this.state)) return false;   // never backwards
+    this._enter(next);
+    return true;
+  }
+
+  /** The actual move. Split out because two things are allowed to do it. */
+  _enter(next) {
     this.state = next;
     this.inState = 0;
     this._impatient = 0;
     this.hooks.onState?.(next, this);
     if (CHECKPOINTS.includes(next)) this.hooks.onCheckpoint?.(next, this);
-    return true;
   }
 
   addObjective(id, text, { optional = false } = {}) {
@@ -192,6 +207,23 @@ export class Mission {
     this.addObjective('evening', 'Enjoy the evening', { optional: true });
   }
 
+  /* ---- the optional dance ----
+   *
+   * The one state that comes back where it came from. Getting up happens
+   * *during* the performance, so `sway` is a detour rather than a step, and
+   * `setState` — which is right to refuse everything backwards — cannot undo it.
+   * Left to it, the evening finished the dance and stayed in `sway` for good:
+   * not an idle state, so she stopped noticing being left at the table, and
+   * every later beat measured its patience against a state nobody was in.
+   */
+  startSway() { return this.setState('sway'); }
+
+  endSway() {
+    if (this.state !== 'sway') return false;
+    this._enter('performance');
+    return true;
+  }
+
   /**
    * The invitation does not appear the second the band does. It needs the show
    * to have been running a while and the conversation to have got somewhere.
@@ -203,9 +235,27 @@ export class Mission {
     return this.inState >= 90 || this.roundsDone.size >= 4;
   }
 
+  /**
+   * He asks. What is worth recording is *when* he asked, measured in the state
+   * he asked out of — because the timing judgement happens two nodes later, by
+   * which time `inState` has been reset by the move into `invitation` and reads
+   * as a man who has been sitting there for no time at all. That is how the
+   * rush penalty came to fire on every single run, including the careful ones.
+   */
   offerInvitation() {
     if (!this.invitationReady) return false;
+    this.askedAfter = this.inState;
     return this.setState('invitation');
+  }
+
+  /**
+   * Did he rush it? Not "did the menu appear a moment ago" — how much of the
+   * evening had actually happened when he asked. Deciding not to ask is never
+   * rushing it.
+   */
+  get rushedIt() {
+    if (this.flags.invitation === 'none' || this.flags.invitation === null) return false;
+    return (this.askedAfter ?? Infinity) < RUSHED_UNDER;
   }
 
   finish(outcome) {
@@ -278,6 +328,59 @@ export class Mission {
     if (score >= 65) return 'good';
     if (score >= 40) return 'awkward';
     return 'disaster';
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Checkpoints                                                       */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Everything about the evening that a reload has to put back.
+   *
+   * The first version of this saved the flags and the score and nothing else,
+   * which meant a restored evening came back with the right number over a
+   * mission that thought it was still standing on the pavement: the state, the
+   * rounds already had, and the objective list were all dropped. A checkpoint
+   * that does not round-trip is worse than no checkpoint, because it looks like
+   * one.
+   */
+  checkpoint() {
+    return {
+      state: this.state,
+      inState: this.inState,
+      elapsed: this.elapsed,
+      askedAfter: this.askedAfter,
+      roundsDone: [...this.roundsDone],
+      flags: { ...this.flags, familyMet: this.flags.familyMet.slice() },
+      objectives: this.objectives.map((o) => ({ ...o })),
+      notes: this.notes.slice(),
+    };
+  }
+
+  /**
+   * Put it back. Deliberately silent: `onState` is how the mission *arrives*
+   * somewhere, and firing it here would restart the arrival conversation, hand
+   * out objectives a second time, and re-save the checkpoint being restored.
+   * The objective list is repainted, because that is a view rather than an event.
+   */
+  restore(snap) {
+    if (!snap) return false;
+    /* A checkpoint comes back through JSON in localStorage, so it is data from
+     * outside: a state that is not one of the states is refused rather than
+     * installed, because every later comparison is an index into that list. */
+    if (snap.state && STATES.includes(snap.state)) this.state = snap.state;
+    this.inState = snap.inState ?? 0;
+    this.elapsed = snap.elapsed ?? this.elapsed;
+    this.askedAfter = snap.askedAfter ?? null;
+    this._impatient = 0;
+    this.trailing = 0;
+    this.roundsDone = new Set(snap.roundsDone ?? []);
+    Object.assign(this.flags, snap.flags ?? {});
+    if (snap.flags?.familyMet) this.flags.familyMet = snap.flags.familyMet.slice();
+    if (snap.objectives) this.objectives = snap.objectives.map((o) => ({ ...o }));
+    if (snap.notes) this.notes = snap.notes.slice();
+    this.hooks.onObjective?.(this.objectives);
+    return true;
   }
 
   /**

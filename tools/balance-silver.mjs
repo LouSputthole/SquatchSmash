@@ -23,8 +23,13 @@
  * It is not checking that the numbers are *nice*. That is a human's job and
  * this will not tell them anything about it.
  */
-import { Woo, EVENTS, TIP_ROSTER, TIP_POINTS, TIP_TOTAL, START } from '../src/silver/woo.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Woo, EVENTS, TIP_ROSTER, TIP_POINTS, TIP_TOTAL, START, DEFERRED } from '../src/silver/woo.js';
 import { Mission } from '../src/silver/mission.js';
+
+const SILVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'silver');
 
 /* ------------------------------------------------------------------ */
 /* Five ways to spend an evening                                       */
@@ -46,8 +51,12 @@ const PLAYERS = {
       'Woo.MadeHerLaugh', 'Woo.MadeHerLaugh', 'Woo.MadeHerLaugh',
       'Woo.FamilyHandled', 'Woo.ChampagneAcknowledged', 'Woo.FunnyHowSuccess',
       'Woo.PersonalHonest', 'Woo.PerformancePreferenceRemembered',
-      'Woo.ToastMade', 'Woo.SwayCompleted', 'Woo.PhotoTaken', 'Woo.CallDeclined',
+      'Woo.ToastMade', 'Woo.SwayCompleted', 'Woo.PhotoTaken',
       'Woo.InvitationTiming',
+      /* `Woo.CallDeclined` used to be on this list. Nothing in the mission can
+       * ring yet — the phone arrives with the core/phone.js port — so crediting
+       * a flawless run with it was the harness paying out for content that does
+       * not exist. It goes back in the same pass that wires the ring. */
     ],
     bad: [],
     flags: { drinkOrdered: 'rye', funnyHow: true, invitation: 'callback' },
@@ -93,7 +102,10 @@ const PLAYERS = {
       'Woo.DateLeftBehind', 'Woo.DateLeftBehind', 'Woo.DateLeftBehind',
       'Woo.DoorInHerFace', 'Woo.QuestionIgnored', 'Woo.Bragged', 'Woo.Bragged',
       'Woo.WrongName', 'Woo.DrinkWrong', 'Woo.LingeredWithFamily',
-      'Woo.GruesomeDetail', 'Woo.CallTaken', 'Woo.StaredAtStage',
+      'Woo.GruesomeDetail', 'Woo.StaredAtStage', 'Woo.DrinkSpilled',
+      'Woo.WorkerInsulted',
+      /* `Woo.CallTaken` was here for the same reason `Woo.CallDeclined` was on
+       * the immaculate run, and comes back the same way. */
     ],
     flags: { drinkOrdered: 'wrong', introducedAs: 'wrong', invitation: 'plain' },
     expect: ['disaster'],
@@ -119,7 +131,7 @@ const PLAYERS = {
       'Woo.MadeHerLaugh', 'Woo.MadeHerLaugh', 'Woo.MadeHerLaugh',
       'Woo.FamilyHandled', 'Woo.ChampagneAcknowledged', 'Woo.FunnyHowSuccess',
       'Woo.PersonalHonest', 'Woo.PerformancePreferenceRemembered',
-      'Woo.ToastMade', 'Woo.SwayCompleted', 'Woo.PhotoTaken', 'Woo.CallDeclined',
+      'Woo.ToastMade', 'Woo.SwayCompleted', 'Woo.PhotoTaken',
       'Woo.InvitationTiming',
     ],
     bad: [],
@@ -214,18 +226,56 @@ if (START_CASH - TIP_TOTAL < 150) {
   problems.push(`tipping everybody leaves $${START_CASH - TIP_TOTAL}, which is not enough for dinner`);
 }
 
-/* Every event has to be able to fire. An event nobody can reach is a value
- * somebody tuned for nothing. */
-const reachable = new Set();
-for (const r of Object.values(PLAYERS)) {
-  for (const id of [...(r.good ?? []), ...(r.bad ?? [])]) reachable.add(id);
-}
-for (const id of TIP_ROSTER) reachable.add(id);
-const never = Object.keys(EVENTS).filter((id) => !reachable.has(id));
+/* ---- coverage, which is a different question from balance ----
+ *
+ * Every event has to be able to fire. An event nobody can reach is a value
+ * somebody tuned for nothing, and the version of this file that shipped with
+ * the mission printed the seventeen it did not exercise as "checked in
+ * verify:silver" — where ten of them were not checked at all, because nothing
+ * in the mission called them. The score was carrying dead weight and the
+ * accounting said otherwise, which is the worse of the two problems.
+ *
+ * So this reads the mission instead of taking its word for it. An event counts
+ * as wired if something in `src/silver` fires it by name, or if it is on the tip
+ * roster (fired generically by the one tip path), or if `woo.js` lists it as
+ * deferred with a reason. Anything else fails the run.
+ */
+const source = fs.readdirSync(SILVER)
+  .filter((f) => f.endsWith('.js'))
+  .map((f) => fs.readFileSync(path.join(SILVER, f), 'utf8'))
+  .join('\n');
 
-console.log(`Starting score ${START}. Tipping everybody costs $${TIP_TOTAL} of $${START_CASH}.`);
-console.log(`${Object.keys(EVENTS).length} events; this harness exercises ${reachable.size}.`);
-if (never.length) console.log(`Not exercised here (checked in verify:silver): ${never.length}.`);
+const firesIt = (id) => new RegExp(`fire\\(\\s*'${id.replace(/\./g, '\\.')}'`).test(source);
+const onRoster = new Set(TIP_ROSTER);
+
+const wired = Object.keys(EVENTS).filter((id) => firesIt(id) || onRoster.has(id));
+const deferred = Object.keys(EVENTS).filter((id) => DEFERRED[id] && !wired.includes(id));
+const dead = Object.keys(EVENTS).filter((id) => !wired.includes(id) && !DEFERRED[id]);
+const stale = Object.keys(DEFERRED).filter((id) => !EVENTS[id] || wired.includes(id));
+
+for (const id of dead) {
+  problems.push(`${id} is in the table and nothing in src/silver fires it: either wire it `
+    + 'or list it in DEFERRED with a reason');
+}
+for (const id of stale) {
+  problems.push(`${id} is listed as deferred but ${EVENTS[id] ? 'is wired now' : 'is not an event'} `
+    + '— the reason has gone stale');
+}
+
+/* And what this harness itself exercises, which is a subset: these are ways of
+ * playing an evening, not a tour of the table. */
+const exercised = new Set();
+for (const r of Object.values(PLAYERS)) {
+  for (const id of [...(r.good ?? []), ...(r.bad ?? [])]) exercised.add(id);
+}
+for (const id of TIP_ROSTER) exercised.add(id);
+
+console.log(`Starting score ${START}. Tipping everybody costs $${TIP_TOTAL} of $${START_CASH} `
+  + `across ${TIP_ROSTER.length} people.`);
+console.log(`${Object.keys(EVENTS).length} events: ${wired.length} wired in src/silver, `
+  + `${deferred.length} deferred${deferred.length ? ` (${deferred.join(', ')})` : ''}.`);
+console.log(`These evenings exercise ${exercised.size} of them; the rest are branches of `
+  + 'the script that verify:silver walks or that a different evening takes.');
 
 const failed = runs.filter((r) => !r.ok).length + problems.length;
 if (problems.length) {

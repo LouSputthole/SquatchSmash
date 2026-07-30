@@ -26,7 +26,7 @@ export const START = 12;
  *
  * The balance, which `tools/balance-silver.mjs` exists to defend: talking well
  * for a whole evening is worth about sixty-six, tipping the whole route is
- * worth thirty-eight, and you start on twelve. So charm alone reaches a good
+ * worth forty, and you start on twelve. So charm alone reaches a good
  * night and no further, tips alone reach a decent one, and the perfect ending
  * needs the room as well as her — which is the entire premise of the mission.
  *
@@ -54,6 +54,11 @@ export const EVENTS = {
   'Woo.DeliveryTipped':      { points: 2, group: 'tip' },
   'Woo.PorterTipped':        { points: 2, group: 'tip' },
   'Woo.CookTipped':          { points: 3, label: 'Took Care of the Kitchen', group: 'tip' },
+  /* The man carrying the pan through the middle of the route. He had no entry
+   * here at all, which quietly killed the best contextual tip in the mission:
+   * you put a hand out to keep her clear of him, and then there was nobody to
+   * hand anything to. */
+  'Woo.LineCookTipped':      { points: 2, group: 'tip' },
   'Woo.DishwasherTipped':    { points: 2, group: 'tip' },
   'Woo.ServiceBarTipped':    { points: 2, group: 'tip' },
   'Woo.CoatCheckTipped':     { points: 2, group: 'tip' },
@@ -66,7 +71,11 @@ export const EVENTS = {
   'Woo.GenerousTip':        { points: 1,  repeat: true },
   'Woo.ContextualTip':      { points: 1,  label: 'Right Moment', repeat: true },
   'Woo.FullTipStreak':      { points: 8,  label: 'Everybody Eats' },
-  'Woo.TipRefused':         { points: -2, repeat: true },
+  /* `Woo.TipRefused` used to live here. Nothing in this building refuses money,
+   * and the one place it nearly fitted — holding the button on a man you have
+   * already looked after — is refused by the interface for nothing, which is
+   * what keeps the hold mash-proof. A -2 for pressing twice would have made
+   * the tipping interface punish a fumble. Deleted rather than left dangling. */
   'Woo.WorkerInsulted':     { points: -8, label: 'That Was Beneath You', repeat: true },
 
   'Woo.HazardGuided':       { points: 2,  label: 'Watch the Pan' },
@@ -115,7 +124,11 @@ export const EVENTS = {
   'Woo.CallDeclined':       { points: 2,  label: 'Let It Ring' },
   'Woo.CallTaken':          { points: -5, label: 'You Took It', repeat: true },
   'Woo.DrinkSpilled':       { points: -2, repeat: true },
-  'Woo.FightStarted':       { points: -20, label: 'Well, That Happened' },
+  /* `Woo.FightStarted` used to live here, at -20. There is no fight in this
+   * mission and there is nothing to start one with — no swing, no shove, not so
+   * much as a raised voice in the input map. It was a value tuned for content
+   * that does not exist, which is worse than a missing value: the balance
+   * harness counted it as a way to fall through the floor. */
   'Woo.PaidForAffection':   { points: -30, label: 'No' },
   'Woo.CrudeInvitation':    { points: -12 },
 
@@ -139,6 +152,7 @@ export const TIP_POINTS = [
   { id: 'Woo.DeliveryTipped',      who: 'delivery',    script: 'delivery',   amount: 20 },
   { id: 'Woo.PorterTipped',        who: 'porter',      script: 'porter',     amount: 20 },
   { id: 'Woo.CookTipped',          who: 'chef',        script: 'chef',       amount: 50 },
+  { id: 'Woo.LineCookTipped',      who: 'hotPan',      script: 'linecook',   amount: 20 },
   { id: 'Woo.DishwasherTipped',    who: 'dishwasher',  script: 'dishwasher', amount: 20 },
   { id: 'Woo.ServiceBarTipped',    who: 'servicebar',  script: 'servicebar', amount: 20 },
   { id: 'Woo.CoatCheckTipped',     who: 'coatcheck',   script: 'coatcheck',  amount: 20 },
@@ -156,6 +170,23 @@ export const TIP_TOTAL = TIP_POINTS.reduce((n, t) => n + t.amount, 0);
 export const TIP_ROSTER = Object.entries(EVENTS)
   .filter(([, e]) => e.group === 'tip')
   .map(([id]) => id);
+
+/**
+ * Events that exist and cannot fire yet, with the reason.
+ *
+ * This list is the honesty clause. An event in the table that nothing calls is
+ * a number somebody balanced for nothing, and the previous version of this
+ * mission had ten of them while the balance harness reported them as "checked
+ * in verify:silver", which they were not. Everything in `EVENTS` must now
+ * either be fired somewhere in `src/silver` (or be on the tip roster, which the
+ * generic tip path fires) or be listed here with a reason —
+ * `tools/balance-silver.mjs` reads the source and fails otherwise.
+ */
+export const DEFERRED = {
+  'Woo.CallTaken': 'the in-mission phone ring arrives with the src/core/phone.js port '
+    + '(integration pass); nothing in the mission can ring yet',
+  'Woo.CallDeclined': 'same ring — declining it needs something to decline',
+};
 
 /**
  * What the evening reads as. Bands rather than a pass mark: the mission does
@@ -240,6 +271,11 @@ export class Woo {
       tips: [...this.tips],
       tipsLeft: this.tipsLeft,
       streak: this.streakClosed,
+      /* The ledger itself, not just the set of things that have paid out. A
+       * checkpoint that restored `fired` and dropped this came back with a
+       * correct score and an empty history, so the debug panel and the save
+       * disagreed about the same evening. */
+      ledger: this.ledger.map((e) => ({ ...e })),
     };
   }
 
@@ -249,6 +285,7 @@ export class Woo {
     this.fired = new Set(snap.fired);
     this.tips = new Set(snap.tips);
     this.streakClosed = !!snap.streak;
+    this.ledger = (snap.ledger ?? []).map((e) => ({ ...e }));
     this.hooks.onChange?.(this.score, 0, null);
   }
 }

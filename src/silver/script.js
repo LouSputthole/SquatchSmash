@@ -63,6 +63,13 @@ export function buildScripts(ctx) {
         + 'looking at the kerb wrong.',
       options: () => [
         tipOption('Woo.DriverTipped', 40, 'Take something for the gas.', 'tipped'),
+        /* Over the odds, on purpose, in front of her. The only elective
+         * generosity in the mission — everything else on the route has one
+         * price, and `Woo.GenerousTip` had nothing at all that could fire it. */
+        { tone: '$80', text: 'Take double. Nobody drove me here.',
+          when: () => ctx.money() >= 80 && !woo.has('Woo.DriverTipped'),
+          next: 'tipped',
+          effect: () => ctx.tip('Woo.DriverTipped', 80, { generous: true }) },
         { tone: 'Ask', text: 'You want to come in?', next: 'come-in' },
         { tone: 'Go', text: 'Go on. I’ll ring you.', next: null },
       ],
@@ -212,6 +219,9 @@ export function buildScripts(ctx) {
     who: {
       who: 'the cellarman',
       line: 'By somebody who counts. That’s the whole sentence. That’s all of it.',
+      /* Talking to the back of house because they are worth talking to, which
+       * is what `Woo.CellarBanter` was for. It had a value and no caller. */
+      enter: () => fire('Woo.CellarBanter'),
       hold: 3.0,
     },
   };
@@ -260,6 +270,7 @@ export function buildScripts(ctx) {
     long: {
       who: 'the porter',
       line: 'It started long. It’s gone past long. We’re into a new unit.',
+      enter: () => fire('Woo.KitchenBanter'),
       hold: 3.0,
     },
   };
@@ -290,13 +301,54 @@ export function buildScripts(ctx) {
       who: 'Chef',
       line: 'You’re alright. Two seconds — <em>(to the line)</em> — heard! — go on, go, '
         + 'before somebody plates you.',
+      enter: () => fire('Woo.KitchenBanter'),
       hold: 4.0,
     },
     cocky: {
       who: 'Chef',
       line: 'Everything smells better than the dining room. The dining room smells of '
         + 'cologne and men lying about property.',
+      enter: () => fire('Woo.KitchenBanter'),
       hold: 4.2,
+    },
+  };
+
+  /**
+   * The man with the pan.
+   *
+   * He is the one hazard on the route and he was the only person on it you
+   * could not hand anything to, which meant the best beat in the kitchen — put
+   * a hand out to keep her clear of him, then look after him for it — had
+   * nowhere to land. Tipping him inside a few seconds of that is what the
+   * contextual bonus is for.
+   */
+  const linecook = {
+    open: {
+      who: 'a cook',
+      line: () => (flags.hazardSeen
+        ? '<em>(He has the pan in both hands and both elbows out, and he has clocked that '
+          + 'somebody moved for him.)</em> Behind — thank you, behind —'
+        : '<em>(Coming through the middle of the route at speed with something that is '
+          + 'still cooking.)</em> Behind! Behind, behind, behind —'),
+      options: () => [
+        tipOption('Woo.LineCookTipped', 20, '<em>(Into the apron, while his hands are full.)</em>', 'took'),
+        { tone: 'Move', text: '<em>(Get her out of his line.)</em>', next: 'space',
+          effect: () => fire('Woo.HazardGuided') },
+        { tone: 'Nothing', text: '<em>(Flatten against the bench.)</em>', next: null },
+      ],
+    },
+    took: {
+      who: 'a cook',
+      line: '<em>(He cannot take it and does not stop walking, so it goes in the apron '
+        + 'pocket and he says the rest of it over his shoulder.)</em> That’s a first. '
+        + 'Ma’am — mind the floor by the pass, it’s the only bit that’s wet.',
+      hold: 4.6,
+    },
+    space: {
+      who: 'a cook',
+      line: 'Thank you. <em>(To her, still moving.)</em> Nobody moves. Twenty years, '
+        + 'nobody moves.',
+      hold: 3.6,
     },
   };
 
@@ -308,8 +360,20 @@ export function buildScripts(ctx) {
       options: () => [
         tipOption('Woo.DishwasherTipped', 20, '<em>(Put it on the dry end.)</em>', 'took'),
         { tone: 'Agree', text: 'You’re not the problem.', next: 'agree' },
+        /* The one line in the mission that is beneath him. It is here, in the
+         * dish room, in front of her, because this is the man nobody tips and
+         * she is watching how he speaks to the people who cannot answer back. */
+        { tone: 'Dismiss', text: 'Nobody asked you. Do the plates.', next: 'beneath',
+          effect: () => fire('Woo.WorkerInsulted') },
         { tone: 'Move on', text: '<em>(Keep going.)</em>', next: null },
       ],
+    },
+    beneath: {
+      who: DELIA.name,
+      line: '<em>(The spray keeps going. Nobody in the room looks up, which is how you '
+        + 'know all of them heard it. She waits until you are three steps past him.)</em> '
+        + 'Do the plates. <em>(Not a question. Just handing it back to you.)</em>',
+      hold: 5.2,
     },
     took: {
       who: 'the dishwasher',
@@ -1287,8 +1351,11 @@ export function buildScripts(ctx) {
           effect: () => { flags.invitation = 'open'; } },
         { tone: 'Self-deprecating', text: 'You should see the place when nobody’s threatening to repossess it.', next: 'judge',
           effect: () => { flags.invitation = 'wry'; fire('Woo.MadeHerLaugh'); } },
+        /* The line costs what it costs wherever the evening had got to. A
+         * charming man saying this is a charming man saying this — the score
+         * used to buy him out of it entirely, because nothing fired. */
         { tone: 'Overconfident', text: 'Car’s outside. Come on.', next: 'judge',
-          effect: () => { flags.invitation = 'crude'; } },
+          effect: () => { flags.invitation = 'crude'; fire('Woo.CrudeInvitation'); } },
         { tone: 'Transactional', text: '<em>(Put money on the tablecloth.)</em>', next: 'judge',
           effect: () => { flags.invitation = 'transactional'; fire('Woo.PaidForAffection'); } },
         { tone: 'Don’t', text: 'I’ll get you a car. This was good.', next: 'judge',
@@ -1362,7 +1429,7 @@ export function buildScripts(ctx) {
   };
 
   return {
-    driver, arrival, doorman, cellarman, delivery, porter, chef, dishwasher,
+    driver, arrival, doorman, cellarman, delivery, porter, chef, linecook, dishwasher,
     servicebar, coatcheck, host, manager, seated, waiter, ape, bandleader,
     photographer, toast, sway, invitation,
     scenes: { table: tableScene, champagne, show: showScene },
@@ -1411,6 +1478,20 @@ export const DELIA_BARKS = {
   behind: [
     'I’m back here. Still back here.',
     'You’ve done this before. You do it well. You do it slightly too fast.',
+  ],
+  shut: [
+    '<em>(On the other side of it.)</em> …Right. I’ll get this one, shall I.',
+    'That’s twice you’ve shut a door with me on the wrong side of it.',
+  ],
+  waited: [
+    '<em>(Arriving, unhurried, because he stopped.)</em> Thank you. That’s all. Thank you.',
+  ],
+  staring: [
+    '<em>(Following your eyeline to the stage, and back.)</em> They’re very good. I’m also here.',
+    'You can watch the band. I do four hours a night talking to a wall, I’ll survive.',
+  ],
+  spill: [
+    '<em>(Moving her own glass out of the way, unhurried, without comment.)</em>',
   ],
   waiting1: ['Take your time. I’ve got all night and a job at ten.'],
   waiting2: ['Right — are we doing something, or is this the evening?'],

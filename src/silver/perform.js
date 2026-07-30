@@ -58,16 +58,19 @@ const STEMS = ['rhythm', 'horns', 'piano', 'vocal'];
 
 export class Performance {
   /**
-   * @param {object} o { audio, room, band, hud, onNumber, onApplause }
+   * @param {object} o { audio, room, band, hud, onNumber, onApplause, onSetEnd }
    */
-  constructor({ audio, room, band, onNumber, onApplause } = {}) {
+  constructor({ audio, room, band, onNumber, onApplause, onSetEnd } = {}) {
     this.audio = audio;
     this.room = room;
     this.band = band;
     this.onNumber = onNumber;
     this.onApplause = onApplause;
+    this.onSetEnd = onSetEnd;
 
     this.playing = false;
+    /** True once the last number has been played. A set is not a jukebox. */
+    this.setEnded = false;
     this.index = -1;
     this.t = 0;
     this.curtain = 0;
@@ -104,11 +107,31 @@ export class Performance {
     return this._requested;
   }
 
+  /**
+   * Which number is up.
+   *
+   * The requested one if it has not been played, otherwise the first one that
+   * has not. Blindly taking index+1 and wrapping is what made the set a loop,
+   * and a loop meant the third number came round again — with it the "this one
+   * is the one" line, the callback, the toast, and another offer to dance.
+   * Asking for the slow number also used to skip past the third for good;
+   * playing the unplayed ones in order means every number happens once.
+   */
+  _queue() {
+    const want = this._requested;
+    this._requested = null;
+    if (want) {
+      const i = SET.findIndex((s) => s.id === want);
+      if (i >= 0 && !this.numbersPlayed.includes(SET[i].id)) return i;
+    }
+    return SET.findIndex((s) => !this.numbersPlayed.includes(s.id));
+  }
+
   _next(i) {
     this.index = i;
     this.t = 0;
     const n = SET[i];
-    if (!n) { this.finish(); return; }
+    if (!n) { this.endSet(); return; }
     this.numbersPlayed.push(n.id);
     for (const s of STEMS) {
       this.audio?.setLoopVolume(`band.${s}`, n.stems[s], 1.4);
@@ -132,6 +155,24 @@ export class Performance {
   finish() {
     this.playing = false;
     for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 2.2);
+  }
+
+  /**
+   * Four numbers and they are done for the set.
+   *
+   * They do not vanish and the room does not go silent: the stems come down
+   * over six seconds, the diners come back up, and what is left is a club
+   * between sets — which is also the quietest the room gets all evening, and
+   * the right place for the last conversation of the night to happen.
+   */
+  endSet() {
+    if (this.setEnded) return;
+    this.setEnded = true;
+    this.playing = false;
+    this.index = -1;
+    this.t = 0;
+    for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 6);
+    this.onSetEnd?.(this.numbersPlayed.slice());
   }
 
   update(dt) {
@@ -170,15 +211,11 @@ export class Performance {
       this.applaud(n.theOne ? 1.3 : 1);
       /* A request moves the queue rather than interrupting: whatever is
        * playing finishes, and the next thing up is what was asked for. */
-      let nextIndex = this.index + 1;
-      if (this._requested) {
-        const want = SET.findIndex((s) => s.id === this._requested);
-        if (want >= 0 && want !== this.index) nextIndex = want;
-        this._requested = null;
-      }
-      setTimeout(() => this._next(nextIndex % SET.length), 2400);
+      const nextIndex = this._queue();
       this.index = -1;
       this.t = 0;
+      if (nextIndex < 0) { setTimeout(() => this.endSet(), 2400); return; }
+      setTimeout(() => this._next(nextIndex), 2400);
     }
   }
 }
@@ -202,10 +239,14 @@ export class Sway {
     this.active = false;
     this.hits = 0;
     this.misses = 0;
+    /** How many of the four beats have been judged, one way or the other. */
     this.beat = 0;
     this.t = 0;
     /** How wide the window is. Widened by the accessibility setting. */
     this.window = 0.26;
+    /** Which beat indices have already been judged. One each, and no more. */
+    this._judged = new Set();
+    this._flash = null;
   }
 
   start(assist = false) {
@@ -214,11 +255,18 @@ export class Sway {
     this.misses = 0;
     this.beat = 0;
     this.t = 0;
+    this._judged = new Set();
+    this._flash = null;
     this.window = assist ? 0.46 : 0.26;
   }
 
+  get beatLength() { return 60 / this.bpm; }
+
   /** 0..1 through the current beat. */
-  get phase() { return (this.t % (60 / this.bpm)) / (60 / this.bpm); }
+  get phase() { return (this.t % this.beatLength) / this.beatLength; }
+
+  /** Which of the four beats the bar is passing through right now. */
+  get index() { return Math.floor(this.t / this.beatLength); }
 
   /** For hud.setTiming(). */
   get view() {
@@ -233,14 +281,29 @@ export class Sway {
     };
   }
 
+  /**
+   * One judgement per beat.
+   *
+   * Without the gate this was not a rhythm game, it was a button: four presses
+   * inside the first beat scored four hits and the dance was over before the
+   * bar was. Pressing again in a beat you have already played is not a miss
+   * either — it is nothing, the same way a second hold on a man you have
+   * already tipped is nothing. Fumbling the button should not cost points.
+   *
+   * @returns {boolean|null} whether it landed, or null if there was nothing to
+   *   judge (not running, or this beat is already played)
+   */
   press() {
     if (!this.active) return null;
+    const i = this.index;
+    if (i >= this.beats || this._judged.has(i)) return null;
+    this._judged.add(i);
     const off = Math.abs(this.phase - 0.5);
     const good = off <= this.window / 2;
     if (good) this.hits++; else this.misses++;
     this._flash = good ? 'hit' : 'miss';
     setTimeout(() => { this._flash = null; }, 220);
-    this.beat++;
+    this.beat = this._judged.size;
     if (this.beat >= this.beats) this.active = false;
     return good;
   }
@@ -249,13 +312,15 @@ export class Sway {
     if (!this.active) return;
     this.t += dt;
     // Miss the beat entirely and it counts against you, same as hitting late
-    const beatsElapsed = Math.floor(this.t / (60 / this.bpm));
-    if (beatsElapsed > this.beat) {
+    const gone = Math.min(this.index, this.beats);
+    for (let i = 0; i < gone; i++) {
+      if (this._judged.has(i)) continue;
+      this._judged.add(i);
       this.misses++;
-      this.beat = beatsElapsed;
       this._flash = 'miss';
-      if (this.beat >= this.beats) this.active = false;
     }
+    this.beat = this._judged.size;
+    if (this.beat >= this.beats) this.active = false;
   }
 
   /** 'good' | 'bad' */

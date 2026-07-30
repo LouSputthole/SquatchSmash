@@ -191,6 +191,8 @@ const game = {
   barkAt: 14,
   lastBark: -1,
   swayRunning: false,
+  /** Up between "get up" and the first bar, which is not nothing. */
+  swayStarting: false,
   checkpoint: null,
 };
 
@@ -269,6 +271,16 @@ const performance_ = new Performance({
     }
   },
   onApplause: () => { if (date.mode === 'seated') date.npc.say(1.2); },
+  /* The set ends. It used to wrap round to the top and play forever, which
+   * meant the third number — the one three separate people tell you is the one
+   * — came round again, with the callback, the toast and another offer to dance
+   * behind it. Four numbers, then a club between sets. */
+  onSetEnd: () => {
+    audio.setLoopVolume('ambience.diners', 0.26, 4);
+    hud.toast('♫ end of the set', '');
+    hud.say('<em>The lights come up a third and the room gets its voice back all at once. '
+      + 'Somebody at the back is still clapping on his own.</em>', 5200);
+  },
 });
 
 const sway = new Sway();
@@ -374,7 +386,7 @@ const scripts = buildScripts({
   flags: mission.flags,
   woo,
   fire: (id, amount) => woo.fire(id, amount),
-  tip: (id, amount) => tip(id, amount),
+  tip: (id, amount, opts) => tip(id, amount, opts),
   money: () => game.money,
   drunkLevel: () => drunk.level,
   knows: (id) => game.known.has(id),
@@ -451,6 +463,19 @@ function drinkTick(dt) {
   if (drunk.level > 0.55) {
     hud.say('<em>She notices. She does not say anything, which is not the same as not noticing.</em>', 4200);
   }
+  /* Past a certain point the glass goes over. This is the only thing in the
+   * mission that makes a mess, and it is the whole of the chaos counter — which
+   * had a value, an ending written for it ("from a distance"), and no way at all
+   * of going up. Four of these and she likes you from across the table. */
+  if (drunk.level > 0.7 && game.seated) {
+    woo.fire('Woo.DrinkSpilled');
+    mission.madeAMess();
+    audio.play('glass.set', { volume: 0.6, position: room.anchors.frontTable });
+    audio.play('ice.drop', { volume: 0.5, delay: 0.15, position: room.anchors.frontTable });
+    date.bark('spill', DELIA_BARKS.spill);
+    hud.say('<em>The glass goes over. Not far, and not much in it, and a waiter is on it '
+      + 'before you are — which is somehow the worst part.</em>', 4200);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -461,6 +486,9 @@ function reg(mesh, desc) {
   if (!mesh) return null;
   return interaction.register(mesh, desc);
 }
+
+/** Scratch, for asking a door leaf where it actually is in the world. */
+const _doorAt = new THREE.Vector3();
 
 function registerDoor(key, opts = {}) {
   const door = room.doors[key];
@@ -478,9 +506,20 @@ function registerDoor(key, opts = {}) {
       audio.play(wasOpen ? 'door.knob' : 'door.creak', { volume: 0.5, position: door.pivot.position });
       /* Holding a door is only worth anything if she is behind you and about
        * to walk through it. Opening every door in the building is not charm. */
-      if (!wasOpen && date.mode === 'follow') {
+      if (date.mode === 'follow') {
         const gap = date.position.distanceTo(player.position);
-        if (gap < 4.5) woo.fire('Woo.DateDoorHeld');
+        if (!wasOpen && gap < 4.5) woo.fire('Woo.DateDoorHeld');
+        /* And shutting one she is walking into is the other half of the same
+         * gesture, which had a value in the table and nothing that fired it.
+         * Her distance to the door rather than to him: closing a door across
+         * the building while she happens to be behind you is not rudeness. */
+        if (wasOpen && gap < 4.5) {
+          door.leaf.getWorldPosition(_doorAt);
+          if (date.position.distanceTo(_doorAt) < 3.2) {
+            woo.fire('Woo.DoorInHerFace');
+            date.bark('shut', DELIA_BARKS.shut);
+          }
+        }
       }
       opts.onToggle?.(door);
     },
@@ -601,9 +640,37 @@ function frontGlasses(on) {
   }
 }
 
-/** Sit down. His chair, her chair, and the club carries on around it. */
-function sitAtTable() {
-  if (game.seated) return;
+/**
+ * The table, finished and in place, with no scene attached.
+ *
+ * The cutscene builds it a piece at a time, which is the point of the cutscene.
+ * This is the same end state applied at once, for a checkpoint that was taken
+ * after it happened — the alternative being to play the whole scene again to a
+ * player who has already watched it.
+ */
+function showFrontTable() {
+  const A = room.anchors;
+  front.group.visible = true;
+  front.group.position.set(A.frontTable.x, 0, A.frontTable.z);
+  for (const c of front.group.children) c.visible = true;
+  front.chairs.forEach((c, i) => {
+    c.visible = true;
+    c.position.set(A.frontSeats[i].x, 0, A.frontSeats[i].z);
+    c.rotation.y = A.frontSeats[i].yaw;
+  });
+  const lamp = front.group.children.find((c) => c.isPointLight);
+  if (lamp) lamp.intensity = lamp.userData.base;
+  game.chairPads?.his.position.set(A.frontSeats[0].x, 0.7, A.frontSeats[0].z);
+  game.chairPads?.her.position.set(A.frontSeats[1].x, 0.7, A.frontSeats[1].z);
+}
+
+/**
+ * Into the chair.
+ *
+ * Shared by sitting down and by a checkpoint putting him back, which is the
+ * only reason it is separate: a restore must not re-run the beat.
+ */
+function seatPlayer(done) {
   const seat = room.anchors.frontSeats[0];
   game.seated = true;
   audio.play('chair.sit', { volume: 0.5 });
@@ -618,7 +685,21 @@ function sitAtTable() {
     yawRange: 1.7,
     pitchMin: -0.8,
     pitchMax: 0.45,
-  }, () => {
+  }, done);
+  /* And she sits down with him.
+   *
+   * This used to depend entirely on the optional chair-pull pad, so a player
+   * who simply sat down had the entire seated half of the mission — six
+   * conversations, a waiter, the champagne, the band — with his date standing
+   * beside the table like a woman waiting for a bus. Pulling her chair out is
+   * still worth something; it is no longer the only way she ever sits. */
+  if (date.mode !== 'seated') date.sitAt(room.anchors.frontSeats[1]);
+}
+
+/** Sit down. His chair, her chair, and the club carries on around it. */
+function sitAtTable() {
+  if (game.seated) return;
+  seatPlayer(() => {
     mission.satDown();
     beginRound('table');
   });
@@ -710,10 +791,23 @@ reg(thanksPad, {
  * room you are standing in, to you, now.
  */
 class Cutscene {
-  constructor(beats, { camera: shots = [], onDone } = {}) {
+  /**
+   * @param {Array} beats
+   * @param {object} o {
+   *   camera, onDone,
+   *   dateSeat: a chair to put her back in when it ends. A cutscene takes her
+   *     over and the end of one used to hand her unconditionally back to
+   *     `follow`, which stood her up out of her chair in the middle of the
+   *     evening: after the champagne she spent the rest of the night on her
+   *     feet next to a seated man, and the second the band started she got up
+   *     and walked away from the table she had just said "oh, they're real" at.
+   * }
+   */
+  constructor(beats, { camera: shots = [], onDone, dateSeat = null } = {}) {
     this.beats = beats.slice().sort((a, b) => a.at - b.at);
     this.shots = shots;
     this.onDone = onDone;
+    this.dateSeat = dateSeat;
     this.t = 0;
     this.next = 0;
     this.from = { pos: player.position.clone(), yaw: player.yaw, pitch: player.pitch };
@@ -769,7 +863,8 @@ class Cutscene {
     ui.dialogue.root.classList.add('hidden');
     player.mode = 'walk';
     interaction.setPaused(false);
-    date.release();
+    if (this.dateSeat) date.sitAt(this.dateSeat);
+    else date.release();
     document.body.classList.remove('cutscene');
     game.scene = null;
     this.onDone?.();
@@ -923,6 +1018,7 @@ function sendChampagne() {
   audio.play('cork.pop', { volume: 0.55, position: target });
 
   game.scene = new Cutscene(scripts.scenes.champagne.map((b) => ({ ...b })), {
+    dateSeat: room.anchors.frontSeats[1],
     camera: [
       { at: 0, to: player.position.clone(), look: { x: target.x + 1.2, y: 1.4, z: target.z + 1.4 }, dur: 1.5 },
       { at: 5.5, to: player.position.clone(), look: { x: cast.crewTable.x, y: 1.3, z: cast.crewTable.z }, dur: 3 },
@@ -967,12 +1063,16 @@ function startShowCutscene() {
 
   const seat = A.frontSeats[0];
   game.scene = new Cutscene(beats, {
+    dateSeat: A.frontSeats[1],
     camera: [
       { at: 0, from: player.position.clone(), to: new THREE.Vector3(seat.x, 1.24, seat.z), look: { x: A.stageCentre.x, y: 1.6, z: A.stageCentre.z }, dur: 3 },
       { at: 11.5, to: new THREE.Vector3(seat.x, 1.24, seat.z), look: { x: A.frontSeats[1].x, y: 1.3, z: A.frontSeats[1].z }, dur: 2 },
     ],
     onDone: () => {
       player.mode = 'seated';
+      /* Still centred on her. The stage is a ninety-degree turn from that and
+       * inside the range, which is the only arrangement where both of the
+       * things the second half is about are things you can choose to look at. */
       player.yawCenter = seat.faceYaw;
       player.yawRange = 1.9;
       mission.showStarted();
@@ -1150,21 +1250,47 @@ function askAgain() {
   return true;
 }
 
+/**
+ * Getting up.
+ *
+ * The nine hundred milliseconds between standing up and the first bar are the
+ * whole reason this needed rewriting: `swayRunning` used to be set at the top of
+ * this function, and the frame loop — which ends the dance the moment
+ * `swayRunning` is true and the minigame is not active — is entitled to run
+ * during those nine hundred milliseconds. So the sway was judged and lost
+ * before it began, `Woo.SwayCompleted` was unreachable by any route, and the
+ * timing bar then started up under a player who had already been told he was
+ * terrible. The latch goes up when the music does.
+ */
 function startSway() {
-  if (game.swayRunning) return;
-  game.swayRunning = true;
-  mission.setState('sway');
+  if (game.swayRunning || game.swayStarting || sway.active) return;
+  if (mission.flags.swayed) return;
+  game.swayStarting = true;
+  mission.startSway();
   standFromTable();
-  const spot = { x: room.anchors.frontTable.x + 1.8, z: room.anchors.frontTable.z - 0.6 };
+  const spot = { x: room.anchors.frontTable.x + 0.6, z: room.anchors.frontTable.z - 1.6 };
   setTimeout(() => {
+    game.swayStarting = false;
     date.standFrom(spot);
     date.hold();
     sway.start(settings.assist);
+    game.swayRunning = true;
     hud.say('<em>Four bars. Hit [E] on the beat and try to look like you meant it.</em>', 4600);
   }, 900);
 }
 
+/**
+ * Sitting back down.
+ *
+ * `setState('performance')` was refused here, every time, because `sway` is
+ * after `performance` in the list and the list only runs forwards — so the
+ * mission spent the rest of the evening in a state that is not one of the ones
+ * she gets bored in, and she never said another word about being kept waiting.
+ * `mission.endSway()` is the named exception, and it lands back in a state the
+ * rest of the mission is written for.
+ */
 function finishSway() {
+  if (!game.swayRunning) return;
   game.swayRunning = false;
   const result = sway.result;
   mission.flags.swayed = result;
@@ -1172,9 +1298,11 @@ function finishSway() {
   if (result === 'good') woo.fire('Woo.SwayCompleted');
   dialogue.start(scripts.sway, result === 'good' ? 'good' : 'bad', date.npc);
   setTimeout(() => {
-    date.sitAt(room.anchors.frontSeats[1]);
-    sitAtTable();
-    mission.setState('performance');
+    /* Back into the chairs, both of them — and through `seatPlayer` rather than
+     * `sitAtTable`, because sitting down for the second time tonight must not
+     * re-run the beat that opens the first conversation of the evening. */
+    seatPlayer();
+    mission.endSway();
   }, 3200);
 }
 
@@ -1187,9 +1315,15 @@ function offerInvitation() {
 }
 
 function judgeInvitation() {
+  /* Rushing it is asked of the mission rather than worked out here: `inState`
+   * at this point is seconds since the invitation menu opened, which is a
+   * measure of how fast the player reads. It fired on every run in the game,
+   * including the careful ones, and the harness never saw it because it called
+   * the ending resolver directly. */
+  const rushed = mission.rushedIt;
   const outcome = mission.resolve(woo.score, woo.band.key);
-  if (outcome === 'perfect' || outcome === 'strong') woo.fire('Woo.InvitationTiming');
-  if (mission.inState < 20 && outcome !== 'none') woo.fire('Woo.InvitationRushed');
+  if (!rushed && (outcome === 'perfect' || outcome === 'strong')) woo.fire('Woo.InvitationTiming');
+  if (rushed) woo.fire('Woo.InvitationRushed');
   mission.finish(outcome);
   setTimeout(() => dialogue.start(scripts.invitation, outcome, date.npc), 500);
   setTimeout(() => finish(outcome), 8000);
@@ -1232,19 +1366,40 @@ function finish(outcome) {
 /**
  * Enough to put the evening back where it was, and — the part that matters —
  * the Woo ledger, so reloading cannot pay a tip twice.
+ *
+ * "Enough" was doing a lot of work in that sentence. The first version saved
+ * the flags, the money and the score, and dropped the mission state, the rounds
+ * already had, whether he was sitting down, and every latch in this file — so a
+ * restored evening came back with the right number over a mission that thought
+ * it was still on the pavement, rebuilt the table it already had, and re-ran
+ * the first conversation. It round-trips now, and it is still only reachable
+ * from the debug panel: nothing here restores on boot, because deciding when a
+ * player is resuming rather than starting is the campaign's business.
  */
 function saveCheckpoint(state) {
   game.checkpoint = {
     state,
+    mission: mission.checkpoint(),
     player: { x: player.position.x, z: player.position.z, yaw: player.yaw },
     date: { x: date.position.x, z: date.position.z, mode: date.mode },
     money: game.money,
     woo: woo.snapshot(),
-    flags: { ...mission.flags },
     known: [...game.known],
+    greeted: [...game.greeted],
+    noted: [...game.noted],
+    seated: game.seated,
+    round: game.round,
     queueAt,
     seatedFor,
-    tableBuilt: mission.flags.tableBuilt,
+    /* The module latches. Every one of these is a "this has already happened"
+     * that lives in a closure rather than in the mission, and every one of them
+     * would otherwise happen a second time. */
+    latches: {
+      tableCutsceneStarted,
+      champagneSent,
+      showStarted,
+      taxiGone,
+    },
   };
   try {
     localStorage.setItem('squatch.fac.checkpoint', JSON.stringify(game.checkpoint));
@@ -1256,15 +1411,51 @@ function restoreCheckpoint(cp = game.checkpoint) {
   woo.restore(cp.woo);          // the ledger, so nothing pays out twice
   game.money = cp.money;
   addMoney(0);
-  Object.assign(mission.flags, cp.flags);
-  game.known = new Set(cp.known);
+  mission.restore(cp.mission);
+  game.known = new Set(cp.known ?? []);
+  game.greeted = new Set(cp.greeted ?? []);
+  game.noted = new Set(cp.noted ?? []);
+  game.round = cp.round ?? null;
   queueAt = cp.queueAt;
   seatedFor = cp.seatedFor;
+
+  const l = cp.latches ?? {};
+  tableCutsceneStarted = !!l.tableCutsceneStarted;
+  champagneSent = !!l.champagneSent;
+  showStarted = !!l.showStarted;
+  if (l.taxiGone && !taxiGone) leaveTaxi();
+
+  /* The table is a real object that the cutscene carried into place. If the
+   * checkpoint was taken after that, it is where it was; putting it back is a
+   * matter of what is visible, not of playing the scene again. */
+  if (mission.flags.tableBuilt) showFrontTable();
+
+  game.swayRunning = false;
+  game.swayStarting = false;
+  sway.active = false;
+  hud.setTiming(null);
+  game.scene = null;
+  interaction.setPaused(false);
+  document.body.classList.remove('cutscene');
+
+  player._tween = null;
+  player.yawCenter = null;
   player.mode = 'walk';
-  player.position.set(cp.player.x, 1.66, cp.player.z);
+  player.position.set(cp.player.x, room.groundAt(cp.player.x, cp.player.z) + 1.66, cp.player.z);
   player.yaw = cp.player.yaw;
+  hud.setMode('walk');
+  hud.setPosture(null);
+  game.seated = false;
   date.group.position.set(cp.date.x, room.groundAt(cp.date.x, cp.date.z), cp.date.z);
   date.mode = cp.date.mode === 'seated' ? 'seated' : 'follow';
+
+  /* Sitting down is a pose on two people, so it is restored rather than
+   * described: put him in the chair without re-running the beat that opens the
+   * first conversation, and put her in hers. */
+  if (cp.seated) seatPlayer();
+  else if (date.mode === 'seated') date.sitAt(room.anchors.frontSeats[1]);
+  paintWoo(woo.score, 0, null);
+  paintTips();
   return true;
 }
 
@@ -1282,6 +1473,10 @@ function onMissionState(state) {
   }
   if (state === 'host') {
     mission.addObjective('tips', 'Take care of everybody', { optional: true });
+    /* The whole route walked without once leaving her in a doorway. Worth a
+     * point, and worth it here rather than at the end, because this is the last
+     * moment at which it is still true. */
+    if (mission.flags.abandonments === 0) woo.fire('Woo.KeptPace');
   }
   if (state === 'ending') hud.setPosture(null);
 }
@@ -1379,6 +1574,66 @@ function barks(dt) {
 }
 
 /* ------------------------------------------------------------------ */
+/* The per-frame glue                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Everything the evening needs looked at every frame that is not already
+ * somebody else's job: the car outside, the dance, whether he stopped and let
+ * her catch up, and whether he has spent the show watching the band instead of
+ * the woman he brought to it.
+ *
+ * One function on purpose. The headless driver steps the update path by hand
+ * rather than waiting on frames, so anything living inline in `frame()` is
+ * something it silently does not run — which is how a dance that could not be
+ * started, a rush penalty that always fired, and a car that drove off in the
+ * middle of a conversation all got past a fifty-four check harness. It calls
+ * this, the same as the frame loop does.
+ */
+const STAGE_YAW = room.anchors.frontSeatStageYaw;
+let trailedFor = 0;
+let staredFor = 0;
+
+function evening(dt) {
+  taxiTick(dt);
+
+  if (sway.active) { sway.update(dt); hud.setTiming(sway.view); }
+  else if (game.swayRunning) finishSway();
+
+  /* He stopped, and she arrived, and that is worth a point once. */
+  if (date.mode === 'follow') {
+    const gap = date.position.distanceTo(player.position);
+    if (date.isTrailing) trailedFor += dt;
+    else if (gap < 2.4) {
+      if (trailedFor > 1.5 && !woo.has('Woo.WaitedForDate')) {
+        woo.fire('Woo.WaitedForDate');
+        date.bark('waited', DELIA_BARKS.waited);
+      }
+      trailedFor = 0;
+    }
+  } else {
+    trailedFor = 0;
+  }
+
+  /* Her chair is dead ahead of his and the stage is a quarter-turn to his
+   * right, so facing the band for three quarters of a minute at a stretch is a
+   * decision rather than a seating arrangement. She notices. She always does. */
+  if (game.seated && mission.state === 'performance' && performance_.playing) {
+    const off = Math.abs(Math.atan2(
+      Math.sin(player.yaw - STAGE_YAW), Math.cos(player.yaw - STAGE_YAW),
+    ));
+    staredFor = off < 0.4 ? staredFor + dt : 0;
+    if (staredFor >= 45) {
+      staredFor = 0;
+      woo.fire('Woo.StaredAtStage');
+      date.bark('staring', DELIA_BARKS.staring);
+    }
+  } else {
+    staredFor = 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Input                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -1436,8 +1691,10 @@ function pressInteract() {
 }
 
 function swayPress() {
-  sway.press();
-  audio.play(sway._flash === 'hit' ? 'woo.up' : 'woo.down', { volume: 0.4 });
+  const judged = sway.press();
+  // A press on a beat that has already been played is not a miss. It is nothing.
+  if (judged === null) return;
+  audio.play(judged ? 'woo.up' : 'woo.down', { volume: 0.4 });
   if (!sway.active) finishSway();
 }
 
@@ -1543,8 +1800,44 @@ function registerDriver() {
       }
     },
   });
-  // He waits a while, and then he has a match at four.
-  setTimeout(() => { taxi.leave(); }, 45000);
+  taxiWatching = true;
+}
+
+/**
+ * When the car goes.
+ *
+ * It used to go on a forty-five second timer started the instant control came
+ * back — which is about as long as it takes to read her opening line and pick
+ * an answer. Reading the conversation you are standing in cost you the driver,
+ * the tip, and with it the full-roster streak and the best line in the ending
+ * card, and there was nothing on screen to suggest that was a clock. So: he
+ * goes when the pavement is done with him. The player walking away is the cue,
+ * a very long stop is the backstop, and he does not pull off mid-sentence.
+ */
+let taxiWatching = false;
+let taxiGone = false;
+let taxiWaited = 0;
+
+function leaveTaxi() {
+  if (taxiGone) return;
+  taxiGone = true;
+  taxiWatching = false;
+  taxi.leave();
+  /* And the prompt goes with him. Left registered, the interaction system kept
+   * a live "hold to take care of him ($40)" target attached to a car driving
+   * up the street, and to the empty air it left behind. */
+  interaction.unregister(taxi.window);
+}
+
+function taxiTick(dt) {
+  taxi.update?.(dt);
+  if (!taxiWatching || taxiGone) return;
+  taxiWaited += dt;
+  const talkingToHim = dialogue.active && game.talkingTo === taxi.driver;
+  if (talkingToHim) return;
+  const walkedOff = player.position.distanceTo(taxi.group.position) > 12
+    || mission.state !== 'arrived';
+  if (walkedOff || taxiWaited > 240) leaveTaxi();
 }
 
 /* ------------------------------------------------------------------ */
@@ -1611,16 +1904,13 @@ function frame() {
   dialogue.update(dt, player.position);
   date.update(dt, player.position, player.yaw);
   performance_.update(dt);
-  taxi.update?.(dt);
   mission.update(raw, { trailing: date.isTrailing });
   drinkTick(raw);
   updateZones();
   checkHostStation();
   barks(raw);
   runSeatedQueue(raw);
-
-  if (sway.active) { sway.update(raw); hud.setTiming(sway.view); }
-  else if (game.swayRunning && !sway.active) finishSway();
+  evening(raw);
 
   /* Crowd: the near half every frame, the far half on the Npc class's own
    * stagger. Beyond twenty metres in a dark room, nobody has ever noticed. */
@@ -1656,6 +1946,9 @@ window.__silver = {
   __zones: () => updateZones(),
   __seatTick: (dt) => runSeatedQueue(dt),
   __host: () => checkHostStation(),
+  /* The car, the dance, and the two things she notices about being ignored.
+   * The driver has to step this or it is testing a game nobody plays. */
+  __evening: (dt) => evening(dt),
   /* ---- development only. The panel is off in the shipped page. ---- */
   debug: {
     tp(x, z, yaw = 0) {
@@ -1702,6 +1995,10 @@ window.__silver = {
     toast() { raiseAGlass(); },
     askAgain() { return askAgain(); },
     events() { return Object.keys(EVENTS); },
+    /* The two paths that used to exist only inside a closure, which is why
+     * neither of the bugs in them was catchable from outside. */
+    sway() { startSway(); return { running: game.swayRunning, starting: game.swayStarting }; },
+    taxiGone() { return taxiGone; },
   },
 };
 
