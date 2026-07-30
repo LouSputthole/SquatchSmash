@@ -48,7 +48,8 @@ ensureThreeShim();
 const THREE = await import('three');
 const { AircraftPhysics } = await import('../src/beefrun/physics.js');
 const { EngineSystem } = await import('../src/beefrun/engines.js');
-const { AC, KT } = await import('../src/beefrun/config.js');
+const { AC, KT, WP, EH } = await import('../src/beefrun/config.js');
+const { terrainHeight } = await import('../src/beefrun/terrain.js');
 
 const GH = 42;                    // flat test ground
 const dt = 1 / 60;
@@ -423,6 +424,71 @@ console.log('Brushrunner flight model\n');
   expect('cools when eased back', abused.e.temp, 0, 200, ' °C');
   const asym = abused.eng.thrust(1, 55, 1.1) - abused.eng.thrust(0, 55, 1.1);
   expect('asymmetric thrust to hold off', asym, 800, 4000, ' N');
+  console.log(results.splice(0).join('\n'));
+}
+
+/* ---------------------------------------------------------------- */
+/* Both departures, against the real ground                          */
+/* ---------------------------------------------------------------- */
+/* Everything above this flies over a flat plane, which is the right way to test
+ * an aeroplane and no way at all to test a route. Both of the mission's
+ * departures were walls: five hundred metres of mountain three hundred metres
+ * off Whispering Pines' southbound end, and eleven hundred metres of ridge in
+ * front of a heavy aeroplane that had just fallen off El Hueso's cliff into a
+ * bowl. Neither is visible from the cockpit until it is too late, and neither
+ * shows up in a screenshot. */
+{
+  const climbOut = ({ x, z, elev, heading, mass, rotate, best, until: untilZ, limit = 240 }) => {
+    const p = new AircraftPhysics({ getHeight: (gx, gz) => terrainHeight(gx, gz) });
+    const eng = new EngineSystem();
+    eng.masterBattery = true; eng.fuelSelectors = true; eng.rightBalks = false;
+    eng.crank(0); eng.crank(1);
+    for (let i = 0; i < 240; i++) eng.update(dt, 0);
+    p.engines = eng;
+    if (mass) { p.mass = mass; p.controls.flaps = 0.5; }
+    p.setPose(new THREE.Vector3(x, elev + AC.gearY, z), heading, 0);
+    p.controls.parkingBrake = false;
+    let rotated = false, flying = false, hit = false;
+    const north = heading === 0;
+    for (let i = 0; i < 120 * limit; i++) {
+      throttle(p, eng, 1);
+      if (p.ias * KT > rotate) rotated = true;
+      p.controls.pitch = !rotated ? 0 : clamp((p.tas - best) * 0.10 - p.omega.x * 0.6, -0.5, 1);
+      p.controls.roll = clamp(-p.rollDeg * 0.05, -1, 1);
+      const hdgErr = ((heading - p.headingDeg + 540) % 360) - 180;
+      p.controls.yaw = clamp(hdgErr * 0.12 - p.omega.y * 1.2, -1, 1);
+      eng.update(dt, p.tas);
+      p.advance(dt);
+      if (!flying && !p.onGround && p.agl > 6) flying = true;
+      // Back on the ground well past the runway is not a landing.
+      if (flying && p.onGround) { hit = true; break; }
+      if (north ? p.position.z > untilZ : p.position.z < untilZ) break;
+    }
+    return { hit, z: p.position.z, y: p.position.y, clear: p.position.y - terrainHeight(p.position.x, p.position.z) };
+  };
+
+  console.log('\nGetting out of Whispering Pines, southbound:');
+  const a = climbOut({
+    x: WP.x, z: WP.rwyHalf - 20, elev: WP.elev, heading: 180,
+    mass: null, rotate: 60, best: 42, until: -3200,
+  });
+  expect('empty, straight ahead, does not hit anything', a.hit ? 1 : 0, 0, 0);
+  expect('ground clearance 3.6 km out', a.clear, 60, 4000, ' m');
+  const b = climbOut({
+    x: WP.x, z: WP.rwyHalf - 20, elev: WP.elev, heading: 180,
+    mass: AC.emptyMass + AC.fuelMass * 0.7 + AC.maxCargo, rotate: 68, best: 46, until: -3200,
+  });
+  expect('loaded, the same', b.hit ? 1 : 0, 0, 0);
+  expect('ground clearance loaded', b.clear, 40, 4000, ' m');
+  console.log(results.splice(0).join('\n'));
+
+  console.log('\nGetting out of El Hueso, heavy, over the ridge:');
+  const c = climbOut({
+    x: EH.x, z: EH.zHigh + 18, elev: terrainHeight(EH.x, EH.zHigh + 18), heading: 0,
+    mass: AC.emptyMass + AC.fuelMass * 0.7 + AC.maxCargo, rotate: 68, best: 46, until: -7000,
+  });
+  expect('clears the ridge north of the valley', c.hit ? 1 : 0, 0, 0);
+  expect('and is well clear by the far side', c.clear, 150, 5000, ' m');
   console.log(results.splice(0).join('\n'));
 }
 
