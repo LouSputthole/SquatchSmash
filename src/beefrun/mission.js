@@ -923,9 +923,41 @@ export class MissionController {
   /* Shared flight behaviour                                           */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * Where the compass guidance points right now: El Hueso on the way out,
+   * home on the way back, nothing while the aeroplane is being taxied around
+   * either field with the destination in plain sight.
+   */
+  navTarget() {
+    switch (this.phase) {
+      case 'climbout': case 'south': case 'approach':
+        return { label: 'EL HUESO', x: EH.x, z: (EH.zLow + EH.zHigh) / 2 };
+      case 'heavyTakeoff': case 'return': case 'home': case 'final':
+        return { label: 'WHISPERING PINES', x: WP.x, z: WP.z };
+      default:
+        return null;
+    }
+  }
+
   updateFlightCommon(dt) {
     const p = this.physics;
     const warn = new Set();
+
+    // The compass while flying: a bearing bug on the heading tape plus the
+    // distance to the current objective, in the units the placards use.
+    const nav = this.navTarget();
+    if (nav) {
+      const dx = nav.x - p.position.x;
+      const dz = nav.z - p.position.z;
+      const bearing = ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
+      this.flightHud.setNav({
+        label: nav.label,
+        delta: headingDelta(p.headingDeg, bearing),
+        nm: Math.hypot(dx, dz) / 1852,
+      });
+    } else {
+      this.flightHud.setNav(null);
+    }
 
     // Air.
     this.weather.sampleAir(p.position, p.agl, { wind: p.wind, gust: p.gust });

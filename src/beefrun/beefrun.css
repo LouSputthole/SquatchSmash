@@ -127,6 +127,30 @@ body.beefrun { background: #0c0c10; }
   border-right: 5px solid transparent;
   border-bottom: 6px solid var(--br-amber);
 }
+/* The objective's bearing bug rides the top edge of the tape. The tape reads
+   as ±60° of heading; --d is the offset in percent of the half-width. */
+.hdg .bug {
+  position: absolute;
+  top: 0;
+  left: calc(50% + var(--d, 0) * 1%);
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid var(--br-green);
+}
+.hdg .bug.hidden { display: none; }
+.hdg .bug.off { opacity: 0.4; }
+.nav {
+  margin-top: 0.2rem;
+  text-align: center;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  color: var(--br-green);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.nav.hidden { display: none; }
 
 /* ---- Warnings ---- */
 .warnings {

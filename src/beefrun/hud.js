@@ -39,6 +39,8 @@ export class FlightHud {
     this.vsi = $('br-vsi');
     this.hdg = $('br-hdg');
     this.hdgTape = $('br-hdg-tape');
+    this.bug = $('br-bug');
+    this.nav = $('br-nav');
     this.objective = $('br-objective');
     this.warnings = $('br-warnings');
     this.engines = [$('br-eng-l'), $('br-eng-r')];
@@ -147,6 +149,43 @@ export class FlightHud {
       this.cg.classList.toggle('hidden', count === 0);
     }
     this.cgNeedle.style.setProperty('--b', cargo.balance.toFixed(3));
+  }
+
+  /**
+   * The compass guidance: a bearing bug on the heading tape and the distance
+   * to run, for whichever end of the route the mission currently wants. The
+   * tape reads as ±60°; past that the bug pegs at the edge and dims, which
+   * still says "turn this way" without drawing a heading that is not on it.
+   *
+   * @param {?{label: string, delta: number, nm: number}} nav null to hide
+   */
+  setNav(nav) {
+    if (!nav) {
+      if (this._navShown) {
+        this._navShown = false;
+        this.bug.classList.add('hidden');
+        this.nav.classList.add('hidden');
+      }
+      return;
+    }
+    if (!this._navShown) {
+      this._navShown = true;
+      this.bug.classList.remove('hidden');
+      this.nav.classList.remove('hidden');
+    }
+    const d = Math.round(clamp(nav.delta, -60, 60));
+    const pegged = Math.abs(nav.delta) > 60;
+    if (this._navD !== d || this._navPegged !== pegged) {
+      this._navD = d;
+      this._navPegged = pegged;
+      this.bug.style.setProperty('--d', ((d / 60) * 50).toFixed(1));
+      this.bug.classList.toggle('off', pegged);
+    }
+    const line = `${nav.label} · ${nav.nm.toFixed(1)} NM`;
+    if (this._navLine !== line) {
+      this._navLine = line;
+      this.nav.textContent = line;
+    }
   }
 
   setPatrol(state, meter) {
