@@ -583,16 +583,18 @@ export function buildClub(scene, { renderer } = {}) {
     }
     add(cylinder({ r: 0.02, h: 2.4, pos: [-2.6, 2.4, 12.85], rotZ: Math.PI / 2, mat: M_CHROME }));
 
-    // Velvet, either side of the inner doors
+    // Velvet, either side of the inner doors, hanging against the wall's
+    // vestibule face (z 11.09) rather than a hand's width off it
     for (const sx of [-2.3, 2.3]) {
-      add(box({ size: [1.5, 2.8, 0.12], pos: [sx, 1.45, 11.32], mat: mat({ color: 0x4a0f1a, roughness: 0.95 }) }));
+      add(box({ size: [1.5, 2.8, 0.12], pos: [sx, 1.45, 11.15], mat: mat({ color: 0x4a0f1a, roughness: 0.95 }) }));
     }
 
-    // The monitor wall: four of the club, one of the lot
+    // The monitor wall: four of the club, one of the lot. Backs a whisker off
+    // the front skin (face z 15.15) -- they used to hang 25 cm out in the air.
     for (let i = 0; i < 4; i++) {
       add(box({
         size: [0.52, 0.38, 0.05],
-        pos: [2.3 + (i % 2) * 0.58, 2.45 - Math.floor(i / 2) * 0.44, 14.9],
+        pos: [2.3 + (i % 2) * 0.58, 2.45 - Math.floor(i / 2) * 0.44, 15.12],
         mat: lit([0x1c3a2a, 0x2a1a3a, 0x18293a, 0x3a2a18][i], 0.9),
       }));
     }
@@ -604,14 +606,19 @@ export function buildClub(scene, { renderer } = {}) {
     }
     add(box({ size: [2.2, 0.18, 0.32], pos: [0, 2.05, 12.2], mat: mat({ color: 0x2a2a32, roughness: 0.8 }) }));
 
+    // Printed notices sit ON the front skin (face z 15.15), not a step out
+    // from it: half a centimetre proud is a sticker, thirty is a seance.
     add(sign(printed('no-cameras', ['NO', 'CAMERAS'], { w: 256, h: 180, bg: '#1a1420', fg: '#e8e0e8', font: '900 52px "Trebuchet MS", sans-serif', border: '#e8e0e8' }),
-      0.62, 0.44, { x: 3.2, y: 1.95, z: 14.86 }));
+      0.62, 0.44, { x: 3.2, y: 1.95, z: 15.145 }));
     add(sign(printed('atm', ['ATM INSIDE'], { w: 256, h: 110, bg: '#0f1a14', fg: '#6affb0', font: '900 42px "Trebuchet MS", sans-serif' }),
-      0.62, 0.28, { x: 3.2, y: 1.45, z: 14.86, emissive: 0x2a8a5a, intensity: 1.2 }));
+      0.62, 0.28, { x: 3.2, y: 1.45, z: 15.145, emissive: 0x2a8a5a, intensity: 1.2 }));
 
+    /* The wall of stars. The frames hang off the west skin's inner face
+     * (x -3.71): the old x put the whole frame, art and all, inside the
+     * shell's brick, which read from the room as pictures adrift in a wall. */
     for (let i = 0; i < 4; i++) {
       add(makeFrame(M, {
-        x: -3.87, y: 2.15, z: 11.9 + i * 0.72, rotY: Math.PI / 2, w: 0.42, h: 0.54,
+        x: -3.674, y: 2.15, z: 11.9 + i * 0.72, rotY: Math.PI / 2, w: 0.42, h: 0.54,
         texture: printed(`vest-photo${i}`, ['★'], { w: 256, h: 320, bg: '#2a1a24', fg: '#c8a2d8', font: '900 120px "Trebuchet MS", sans-serif' }),
       }));
     }
@@ -1066,16 +1073,19 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.hallMouth = new THREE.Vector3(6.7, 0, 3.6);
     anchors.louDoor = new THREE.Vector3(7.05, 0, -7.05);
 
-    // On the jamb beside each door, not floating on the leaf itself.
+    // On the jamb beside each door, not floating on the leaf itself -- and on
+    // the hallway FACE of the wall (x 7.71), not embedded in its thickness.
     for (const [lz, label] of [[-3.8, 'MANAGER'], [3.4, 'LADIES']]) {
       add(sign(printed(`plate-${label}`, [label], { w: 256, h: 80, bg: '#26262e', fg: '#c8c8d0', font: '800 42px "Trebuchet MS", sans-serif' }),
-        0.36, 0.11, { x: 7.78, y: 1.85, z: lz + 0.75, rotY: -Math.PI / 2 }));
+        0.36, 0.11, { x: 7.7, y: 1.85, z: lz + 0.75, rotY: -Math.PI / 2 }));
     }
 
-    /* The family's marks, hung like they matter: a gilt crest on the main
-     * room's vestibule wall, its neon sister across the doorway, and the
-     * club mark in the back hallway — all measured clear of every door
-     * swing after the July 30 doorway audit. */
+    /* The family's marks, hung like they matter: the gilt crest and its pink
+     * sister flank the club doors on the main room's front wall, and the club
+     * mark hangs in the back hallway. All three are seated on the faces of
+     * the walls that carry them -- the crest pair used to sit at x 10.94,
+     * which is inside the sealed room behind the manager's door, and the
+     * hallway mark was buried in the wall's own thickness. */
     const crestTex = (() => {
       const c = document.createElement('canvas');
       c.width = 512; c.height = 640;
@@ -1100,18 +1110,18 @@ export function buildClub(scene, { renderer } = {}) {
       return t;
     })();
     add(makeFrame(M, {
-      x: 10.94, y: 1.95, z: -4.2, rotY: -Math.PI / 2, w: 0.72, h: 0.9,
+      x: -2.9, y: 1.95, z: 10.7645, rotY: Math.PI, w: 0.72, h: 0.9,
       texture: crestTex, tint: 0x6a4e1c,
     }));
     add(makeFrame(M, {
-      x: 10.94, y: 1.9, z: 4.2, rotY: -Math.PI / 2, w: 0.66, h: 0.5,
+      x: 2.9, y: 1.9, z: 10.7645, rotY: Math.PI, w: 0.66, h: 0.5,
       texture: printed('logo-bing-family', ['BADA BING', 'A FAMILY PLACE'], {
         w: 512, h: 384, bg: '#241018', fg: '#ff5aa0', font: '900 62px "Trebuchet MS", sans-serif',
       }),
       tint: 0x6a4e1c,
     }));
     add(makeFrame(M, {
-      x: 7.78, y: 1.85, z: -2.3, rotY: -Math.PI / 2, w: 0.5, h: 0.62,
+      x: 7.6745, y: 1.85, z: -2.3, rotY: -Math.PI / 2, w: 0.5, h: 0.62,
       texture: printed('logo-club-mark', ['SS', 'MC', 'RIDE SILVER'], {
         w: 384, h: 480, bg: '#141018', fg: '#b8b8c4', font: '800 58px "Trebuchet MS", sans-serif',
       }),
@@ -1164,8 +1174,9 @@ export function buildClub(scene, { renderer } = {}) {
       'FOR A GOOD TIME, ASK LOU', 'THE DUCK GUY OWES ME', 'BOOSKI WAS HERE',
       'APE IS A CHEAT', 'SHUBES CRIED',
     ], { w: 512, h: 384, bg: '#2a2a32', fg: '#8a8a96', font: '700 30px "Trebuchet MS", sans-serif' }),
-    // Clear of the doorway gap (z -0.1..1.5) the panel used to hang across.
-    1.8, 1.35, { x: B.x0 + 0.07, y: 1.5, z: 2.55, rotY: Math.PI / 2 }));
+    // Clear of the doorway gap (z -0.1..1.5) the panel used to hang across,
+    // and painted ON the wall's bathroom face (x 7.89) instead of mid-air.
+    1.8, 1.35, { x: B.x0 - 0.005, y: 1.5, z: 2.55, rotY: Math.PI / 2 }));
     anchors.graffiti = new THREE.Vector3(B.x0 + 0.95, 0, 2.55);
 
     add(box({ size: [0.06, 0.55, 0.85], pos: [B.x1 - 0.04, 1.95, 2.2], mat: lit(0x5a6a7a, 0.5) }));
@@ -1314,18 +1325,39 @@ export function buildClub(scene, { renderer } = {}) {
       box({ size: [0.28, 0.055, 0.07], pos: [dx + 0.88, 0.91, dz + 0.02], mat: mat({ color: 0x1a1a20, roughness: 0.6 }) }),
     ));
 
-    // The package, wrapped in cloth, on the desk once Lou puts it there
+    /* The package, wrapped in cloth, on the desk once Lou puts it there.
+     * It gets its own light: a low, dark red ember that breathes, nothing
+     * like the honest amber of the desk lamp -- the one thing on the desk
+     * the room's warmth refuses to touch. Subtle on purpose: the player
+     * should feel drawn to it before he can say why. */
     const revolver = makeRevolver(M, { x: 0, y: 0, z: 0, rotY: 0.4 }).group;
-    const wrap = box({ size: [0.34, 0.1, 0.22], pos: [0, 0.05, 0], mat: mat({ color: 0x1c1c22, roughness: 0.98 }) });
+    const wrapMat = mat({
+      color: 0x1c1c22, roughness: 0.98, unique: true,
+      emissive: new THREE.Color(0x3a0a08), emissiveIntensity: 0.16,
+    });
+    const wrap = box({ size: [0.34, 0.1, 0.22], pos: [0, 0.05, 0], mat: wrapMat });
     const parcel = group('parcel', wrap, revolver);
     revolver.position.set(0, 0.02, 0);
     revolver.visible = false;
     parcel.position.set(dx + 0.05, 0.83, dz + 0.36);
     parcel.visible = false;
     add(parcel);
+    const parcelLight = new THREE.PointLight(0x8a1414, 0, 1.7, 2);
+    parcelLight.position.set(dx + 0.05, 1.06, dz + 0.36);
+    add(parcelLight);
+    ticking.push((dt, t) => {
+      if (!parcel.visible) {
+        parcelLight.intensity = 0;
+        return;
+      }
+      const breathe = 0.5 + Math.sin(t * 1.3) * 0.5;   // slow, like something asleep
+      parcelLight.intensity = 0.9 + breathe * 0.9;
+      wrapMat.emissiveIntensity = 0.12 + breathe * 0.18;
+    });
     office.parcel = parcel;
     office.parcelCloth = wrap;
     office.parcelGun = revolver;
+    office.parcelLight = parcelLight;
     anchors.parcel = new THREE.Vector3(dx + 0.05, 0.9, dz + 0.36);
 
     // The envelope with the restaurant in it
@@ -1373,11 +1405,13 @@ export function buildClub(scene, { renderer } = {}) {
     solid(O.x0 + 0.2, O.z0 + 0.75, O.x0 + 0.8, O.z0 + 1.25, 0, 1.3);
     add(cylinder({ r: 0.045, h: 1.8, pos: [O.x0 + 0.5, 0.9, O.z1 - 1.9], mat: M_DARKWOOD }));
 
-    // Family photographs, the safe behind a picture, the clock, the telly
-    // Hung past the office door's swing arc, not inside its opening.
+    // Family photographs, the safe behind a picture, the clock, the telly.
+    // Hung past the office door's swing arc, not inside its opening, and
+    // seated on the hallway wall's office face (x 7.89) -- they used to hang
+    // eight centimetres out into the room.
     for (let i = 0; i < 3; i++) {
       add(makeFrame(M, {
-        x: O.x0 + 0.11, y: 1.9, z: O.z0 + 3.2 + i * 0.8, rotY: Math.PI / 2, w: 0.34, h: 0.26,
+        x: 7.926, y: 1.9, z: O.z0 + 3.2 + i * 0.8, rotY: Math.PI / 2, w: 0.34, h: 0.26,
         texture: printed(`lou-family${i}`, [['SUNDAY', 'AT THE SHORE'], ['THE NEPHEWS'], ['THE OLD PLACE']][i], {
           w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
         }),
@@ -1414,18 +1448,25 @@ export function buildClub(scene, { renderer } = {}) {
     });
     office.tvScreen = officeTvProp.screen;
 
-    // The security monitor showing the parking lot, which matters later
+    /* The security monitor showing the parking lot, which matters later.
+     * It hangs off a bracket on the back-right wall, angled down at the desk
+     * the way every back-office CCTV set has hung since 1987 -- it used to
+     * float in mid-air over the desk's rear corner with nothing holding it. */
     const monScreen = box({ size: [0.54, 0.4, 0.02], pos: [0, 0, 0.06], mat: lit(0x1a2a1a, 0.8) });
     const monitor = group('monitor',
       box({ size: [0.64, 0.5, 0.12], pos: [0, 0, 0], mat: mat({ color: 0x26262e, roughness: 0.7 }) }),
       monScreen,
     );
-    monitor.position.set(dx + 1.35, 1.65, dz - 0.75);
-    monitor.rotation.y = -0.6;
+    monitor.position.set(13.44, 1.72, -9.0);
+    monitor.rotation.y = -1.1;
+    monitor.rotation.x = 0.12;
     add(monitor);
+    // The mount: a plate on the wall face (x 13.81) and an arm to the set
+    add(box({ size: [0.06, 0.3, 0.3], pos: [13.78, 1.72, -9.0], mat: M_STEEL }));
+    add(box({ size: [0.32, 0.05, 0.06], pos: [13.6, 1.78, -9.0], mat: M_STEEL }));
     office.monitor = monitor;
     office.monitorScreen = monScreen;
-    anchors.monitor = new THREE.Vector3(dx + 1.0, 1.6, dz - 0.2);
+    anchors.monitor = new THREE.Vector3(13.3, 1.7, -8.8);
   }
 
   /* ================================================================== */
