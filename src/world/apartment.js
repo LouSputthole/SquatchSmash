@@ -639,7 +639,10 @@ export async function buildApartment(ctx) {
   });
   root.add(bongHit);
 
-  const shroomPos = new THREE.Vector3(-3.32, table.top, 0.88);
+  /* Clear of the pizza box, whose base reaches x -3.27 with the lid leaning
+   * further -- at -3.32 the bag sat on the box's corner. Between the box and
+   * the bong, touching neither. */
+  const shroomPos = new THREE.Vector3(-3.16, table.top, 0.90);
   const shrooms = P.makeMushrooms(M, { x: shroomPos.x, y: shroomPos.y, z: shroomPos.z, rotY: 0.5 });
   root.add(shrooms.group);
   const shroomHit = box({
