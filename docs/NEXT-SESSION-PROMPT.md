@@ -43,7 +43,7 @@ Current product facts:
 - The Beef Run is integrated at `beefrun.html`: Booskibro's answered call
   routes the apartment door there, the mission persists checkpoints, cargo,
   detection, landing rank, and completion, a reload resumes in the cockpit,
-  and the end card returns home. `verify:beefrun` (12) and `check:flight`
+  and the end card returns home. `verify:beefrun` (13) and `check:flight`
   cover it. Preserve its flight model, terrain, and mission geography as
   canonical.
 - The post-airstrip state contract, Lou's second call, reused Bada Bing Two,

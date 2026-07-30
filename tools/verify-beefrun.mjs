@@ -171,6 +171,20 @@ try {
     // The real end-card path: releases pointer lock and shows the buttons.
     window.__beefrun.flightHud.showComplete(window.__beefrun.mission.report());
   });
+  const frozen = await page.evaluate(async () => {
+    // Give the aeroplane a shove; a live simulation would integrate it.
+    const b = window.__beefrun;
+    b.physics.velocity.set(0, 0, 5);
+    const before = { x: b.physics.position.x, z: b.physics.position.z };
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    return {
+      completeUp: b.flightHud.completeUp,
+      moved: Math.abs(b.physics.position.x - before.x)
+        + Math.abs(b.physics.position.z - before.z),
+    };
+  });
+  check('the simulation freezes under the report card',
+    frozen.completeUp === true && frozen.moved < 0.01, JSON.stringify(frozen));
   await page.click('#br-home');
   await page.waitForFunction(
     () => /index\.html/.test(location.pathname) || location.pathname.endsWith('/'),

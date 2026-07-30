@@ -236,9 +236,12 @@ export class FlightHud {
     this.rank.textContent = report.rank;
     this.rank.dataset.tier = String(report.tier);
     this.complete.classList.remove('hidden');
+    // The frame loop reads this to freeze the simulation under the card.
+    this.completeUp = true;
   }
 
   hideComplete() {
     this.complete.classList.add('hidden');
+    this.completeUp = false;
   }
 }

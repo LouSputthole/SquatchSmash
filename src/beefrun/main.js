@@ -384,7 +384,10 @@ function frame() {
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
 
-  if (game.started && !game.paused) {
+  // The ending keeps the world alive under the player's control until the
+  // report card is up; then the whole simulation freezes rather than stepping
+  // physics, weather and streaming behind an opaque card forever.
+  if (game.started && !game.paused && !flightHud.completeUp) {
     input.update(dt);
 
     const inCockpit = mission.flags.inCockpit;

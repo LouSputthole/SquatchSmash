@@ -247,7 +247,7 @@ npm run verify:bing-two        10/10 passed
 npm run verify:squatchfather   19/19 passed
 npm run verify:motel           27/27 passed
 npm run verify:initiation      10/10 passed
-npm run verify:beefrun         12/12 passed (preview playthrough + cockpit resume)
+npm run verify:beefrun         13/13 passed (preview playthrough + cockpit resume)
 npm run verify:preview         14/14 passed (launcher now lists five previews)
 npm run verify:boot-errors      6/6 passed
 npm run bundle                 built dist/squatch-apartment.html (15.88 MB)
