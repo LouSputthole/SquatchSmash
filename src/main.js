@@ -404,6 +404,7 @@ const game = {
   peeing: false,
   peeTime: 0,
   onToilet: false,
+  toiletPee: false,     // the bladder emptying itself while you are sat down
   poopTime: 0,
   pooped: campaign.state.activities.pooped,
   nextPlopAt: 0,
@@ -2152,6 +2153,13 @@ function sitOnToilet() {
   game.nextPlopAt = 0.8;
   resetPushes();
 
+  /* Sitting down does both jobs. The standing system is all aim; on the
+   * throne the bladder just goes down the same hole, so it drains alongside
+   * the bowel with the stream sound under you and no scoring. Everybody
+   * does this. Nobody talks about it either. */
+  game.toiletPee = apartment.state.bladder > 0.04;
+  if (game.toiletPee) audio.startLoop('pee.stream', { volume: 0.0, fade: 0.3 });
+
   interaction.setPaused(true);
   hud.setMode('seated');
   // Lid up before you sit on it, obviously.
@@ -2169,6 +2177,10 @@ function standFromToilet() {
   resetPushes();
   if (!game.onToilet) return;
   game.onToilet = false;
+  if (game.toiletPee) {
+    game.toiletPee = false;
+    audio.stopLoop('pee.stream', 0.25);
+  }
   hud.setMode('walk');
   apartment.state.flushable = true;
   audio.play('pee.zip', { volume: 0.6 });
@@ -2346,6 +2358,17 @@ function updateBowel(dt) {
     game.poopTime += dt;
     // It comes out on its own, slowly. Pushing is what makes it quick.
     st.bowel = Math.max(0, st.bowel - dt * 0.022);
+    /* The other tank empties itself meanwhile -- same rate as standing, the
+     * loop tapering with what is left, straight into the bowl every time. */
+    if (game.toiletPee) {
+      st.bladder = Math.max(0, st.bladder - dt * 0.075);
+      const power = Math.min(1, 0.25 + st.bladder * 2.2);
+      audio.setLoopVolume('pee.stream', 0.10 + power * 0.20, 0.15);
+      if (st.bladder <= 0.001) {
+        game.toiletPee = false;
+        audio.stopLoop('pee.stream', 0.6);
+      }
+    }
     updatePushes(dt);
     if (st.bowel <= 0.02 && game.poopTime > 3) {
       st.urgeAnnounced = false;
@@ -2459,7 +2482,7 @@ function updatePee(dt) {
   const st = apartment.state;
 
   // The tank fills over time, faster once you have been drinking.
-  if (!game.peeing) {
+  if (!game.peeing && !game.toiletPee) {
     /* Baseline is slow enough to ignore; drink and it is not.
      * It used to fill in about six real minutes stone cold sober, which meant
      * the bathroom was a chore on a timer rather than a consequence of the
@@ -2469,7 +2492,7 @@ function updatePee(dt) {
   }
   // One meter, showing whichever is more urgent.
   if (st.bowel > st.bladder) hud.setBladder(st.bowel, game.onToilet, 'urgency');
-  else hud.setBladder(st.bladder, game.peeing, 'bladder');
+  else hud.setBladder(st.bladder, game.peeing || game.toiletPee, 'bladder');
 
   if (!game.peeing) return;
 
@@ -2573,6 +2596,10 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
   if (game.onToilet) {
     game.onToilet = false;
     hud.setMode('walk');
+  }
+  if (game.toiletPee) {
+    game.toiletPee = false;
+    audio.stopLoop('pee.stream', 0.25);
   }
 
   // Abandon anything mid-drag.
