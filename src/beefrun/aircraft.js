@@ -162,11 +162,17 @@ export class Brushrunner {
     g.add(wing);
     this.parts.wing = wing;
     g.add(mesh(boxGeo(AC.span, 0.16, 0.34), trim, 0, 1.3, 0.5));  // spine stripe
-    // Struts down to the belly.
+    /* Lift struts, wing to fuselage. The old centre-plus-rotation placement
+     * had the tilt backwards, so each strut left the wing and arrived at
+     * nothing — outboard, below, in clean air. Named endpoints instead: top
+     * buried in the wing underside just inboard of the nacelle, bottom in the
+     * lower fuselage longeron, both sides. */
     for (const sx of [-1, 1]) {
-      const strut = mesh(boxGeo(0.14, 2.1, 0.4), metal, sx * 2.6, 0.18, 0.5);
-      strut.rotation.z = sx * 0.52;
-      g.add(strut);
+      g.add(memberBetween(
+        new THREE.Vector3(sx * 2.45, 1.06, 0.5),
+        new THREE.Vector3(sx * 0.9, -0.6, 0.5),
+        0.14, 0.4, metal,
+      ));
     }
 
     // Ailerons and flaps hang off the wing trailing edge.
