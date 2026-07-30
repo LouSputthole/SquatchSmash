@@ -128,11 +128,51 @@ const drunk = new Drunk();
 const highs = new Highs();
 const inventory = new Inventory(4);
 
+/**
+ * Accessibility.
+ *
+ * Four switches on the start screen. The project has no options menu — the
+ * flat has one screen and so does the Bing — so bolting one on would be a
+ * bigger change than the mission it is for. These live in localStorage under
+ * `squatch.*`, so when the flat and the Bing want them they are already there.
+ *
+ * Two things are honoured without a switch, because they should not be
+ * optional: every intelligible line is subtitled (the dialogue box *is* the
+ * subtitle), and nothing in the HUD says anything with colour alone — the Woo
+ * strip carries the same information in its number and its label, the phone
+ * ringing is a visible pulse as well as a sound, and the stage cue is a
+ * lighting change the player is looking at.
+ */
 const settings = {
-  /** Widens the dance timing window. Honours the same flag the flat uses. */
-  assist: localStorage.getItem('squatch.assist') === '1',
+  subtitles: localStorage.getItem('squatch.subs') !== '0',
+  bigSubtitles: localStorage.getItem('squatch.bigsubs') === '1',
   reduceShake: localStorage.getItem('squatch.reduceShake') === '1',
+  assist: localStorage.getItem('squatch.assist') === '1',
 };
+
+function applySettings() {
+  document.body.classList.toggle('nosubs', !settings.subtitles);
+  document.body.classList.toggle('bigsubs', settings.bigSubtitles);
+}
+
+for (const [id, key, store] of [
+  ['opt-subs', 'subtitles', 'squatch.subs'],
+  ['opt-bigsubs', 'bigSubtitles', 'squatch.bigsubs'],
+  ['opt-shake', 'reduceShake', 'squatch.reduceShake'],
+  ['opt-assist', 'assist', 'squatch.assist'],
+]) {
+  const el = document.getElementById(id);
+  if (!el) continue;
+  el.checked = settings[key];
+  el.addEventListener('change', () => {
+    settings[key] = el.checked;
+    try {
+      localStorage.setItem(store, el.checked ? '1' : '0');
+    } catch { /* private browsing; it still applies this session */ }
+    applySettings();
+  });
+}
+applySettings();
 
 const game = {
   started: false,
@@ -621,6 +661,41 @@ function standFromTable() {
   game.chairPads = { his: pad, her: herPad };
 }
 
+/**
+ * Four men send you a bottle and then watch to see what you do about it.
+ *
+ * There is one right answer and it takes a second and a half: you catch the
+ * eye of whoever lifted his fingers off the cloth and you lift your glass.
+ * Not doing it is not rude by itself — she does not notice — but the table by
+ * the pillar notices, and so does everybody who works here.
+ */
+const thanksPad = new THREE.Mesh(
+  new THREE.BoxGeometry(3.2, 2.2, 3.2),
+  new THREE.MeshBasicMaterial({ visible: false }),
+);
+thanksPad.position.set(cast.crewTable.x, 1.1, cast.crewTable.z);
+thanksPad.visible = false;
+scene.add(thanksPad);
+reg(thanksPad, {
+  label: () => (mission.flags.champagneThanked
+    ? 'The <b>table by the pillar</b>'
+    : 'Raise your glass to <b>the pillar</b>'),
+  enabled: () => mission.flags.champagneSent,
+  onUse: () => {
+    if (mission.flags.champagneThanked) return;
+    mission.flags.champagneThanked = true;
+    woo.fire('Woo.ChampagneAcknowledged');
+    mission.complete('thanks');
+    audio.play('glass.set', { volume: 0.35, position: thanksPad.position });
+    const b = cast.byName['bing-bouncer'];
+    b?.faceToward(player.position.x, player.position.z);
+    b?.say(1.4);
+    hud.say('<em>Two fingers off the cloth, and back to whatever they were saying. '
+      + 'That is the entire exchange and everybody in this room understood it.</em>', 5200);
+    date.watch(thanksPad, 3);
+  },
+});
+
 /* ------------------------------------------------------------------ */
 /* Cutscenes                                                           */
 /* ------------------------------------------------------------------ */
@@ -857,7 +932,8 @@ function sendChampagne() {
       player.mode = 'seated';
       goesBack(waiter);
       mission.addObjective('thanks', 'Acknowledge the table by the pillar', { optional: true });
-      hud.say('<em>[E] toward the pillar to raise a glass at them.</em>', 4600);
+      thanksPad.visible = true;
+      hud.say('<em>Look over at the pillar and [E] to lift a glass at them.</em>', 4600);
     },
   });
 }
@@ -954,6 +1030,12 @@ const ROUND_QUEUE = [
   { id: 'funny', after: 150 },
   { id: 'personal', after: 186 },
   { id: 'show', after: 240, run: () => startShowCutscene() },
+  /* After the band. The evening keeps having things in it — this is the
+   * window the brief asks for, where the player works out for himself that
+   * it is going well rather than being handed a button that says so. */
+  { id: 'another', after: 300, run: () => waiterComesOver('another') },
+  { id: 'toast', after: 355, run: () => raiseAGlass() },
+  { id: 'dessert', after: 430, run: () => waiterComesOver('dessert') },
 ];
 
 let queueAt = 0;
@@ -1042,6 +1124,11 @@ dialogue.hooks.onEnd = (reason) => {
 /* The sway, the invitation, the endings                               */
 /* ------------------------------------------------------------------ */
 
+function raiseAGlass() {
+  if (mission.flags.toast || !game.seated || dialogue.active) return;
+  dialogue.start(scripts.toast, 'open', date.npc);
+}
+
 function offerSway() {
   if (mission.flags.swayed || !game.seated) return;
   mission.addObjective('sway', 'Get up, if you are getting up', { optional: true });
@@ -1049,6 +1136,18 @@ function offerSway() {
     if (dialogue.active || game.scene || mission.flags.swayed) return;
     dialogue.start(scripts.sway, 'open', date.npc);
   }, 4000);
+}
+
+/**
+ * Asking again after she has said she would rather watch.
+ *
+ * She does not shout. That is the whole point of the line, and it is why this
+ * costs more than almost anything else in the mission.
+ */
+function askAgain() {
+  if (mission.flags.swayed !== 'refused' || dialogue.active) return false;
+  dialogue.start(scripts.sway, 'forced', date.npc);
+  return true;
 }
 
 function startSway() {
@@ -1351,8 +1450,13 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyQ') {
     if (game.seated && !sway.active) standFromTable();
   }
-  if (e.code === 'KeyR' && mission.invitationReady && !dialogue.active && game.seated) {
-    offerInvitation();
+  if (e.code === 'KeyR' && !dialogue.active && game.seated) {
+    /* One key for "say the thing you have been working up to". What that is
+     * depends on where the evening has got to, which is the same logic the
+     * player is using. */
+    if (mission.flags.swayed === 'refused' && !mission.flags.toast) askAgain();
+    else if (mission.invitationReady) offerInvitation();
+    else if (mission.flags.showStarted && !mission.flags.toast) raiseAGlass();
   }
   if (/^Digit[1-7]$/.test(e.code)) {
     const n = Number(e.code.slice(-1)) - 1;
@@ -1595,8 +1699,74 @@ window.__silver = {
     sitDown() { sitAtTable(); },
     seatHer() { date.sitAt(room.anchors.frontSeats[1]); },
     waiter() { waiterComesOver(); },
+    toast() { raiseAGlass(); },
+    askAgain() { return askAgain(); },
     events() { return Object.keys(EVENTS); },
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* Debug                                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Development only, and gone otherwise.
+ *
+ * Everything here is also on `window.__silver.debug`, which is what the
+ * headless driver uses. The panel exists because this mission has a shape you
+ * cannot get to quickly — six minutes of walking and talking before the second
+ * cutscene — and testing the last ten minutes by playing the first twenty is
+ * how tuning does not get done.
+ *
+ * Shown only with `?dev` on the URL. No key toggles it into a shipped build by
+ * accident, and the element is not in the page at all otherwise.
+ */
+if (new URLSearchParams(location.search).has('dev')) {
+  const panel = document.createElement('div');
+  panel.id = 'debug';
+  panel.innerHTML = '<h4>FRONT AND CENTER · DEV</h4>'
+    + '<div class="row" data-row="phase"></div>'
+    + '<div class="row" data-row="scene"></div>'
+    + '<div class="row" data-row="woo"></div>'
+    + '<div class="row" data-row="end"></div>'
+    + '<div class="stat"></div>';
+  document.body.appendChild(panel);
+
+  const D = window.__silver.debug;
+  const rows = {
+    phase: [['street', () => D.phase('street')], ['alley', () => D.phase('alley')],
+      ['cellar', () => D.phase('cellar')], ['kitchen', () => D.phase('kitchen')],
+      ['corridor', () => D.phase('corridor')], ['host', () => D.phase('host')],
+      ['table', () => { D.phase('table'); D.seatHer(); D.sitDown(); }]],
+    scene: [['table scene', () => { mission.setState('host'); D.table(); }],
+      ['champagne', () => D.champagne()], ['band', () => D.show()],
+      ['waiter', () => D.waiter()], ['sway', () => startSway()],
+      ['invite', () => { mission.flags.showStarted = true; mission.setState('performance'); mission.inState = 999; D.invite(); }]],
+    woo: [['−10', () => D.addWoo(-10)], ['+10', () => D.addWoo(10)],
+      ['0', () => D.setWoo(0)], ['50', () => D.setWoo(50)], ['100', () => D.setWoo(100)],
+      ['all tips', () => D.allTips()], ['reset tips', () => D.resetTips()],
+      ['save', () => D.save()], ['load', () => D.load()]],
+    end: Object.keys(ENDINGS).map((k) => [k, () => D.ending(k)]),
+  };
+  for (const [row, buttons] of Object.entries(rows)) {
+    const host = panel.querySelector(`[data-row="${row}"]`);
+    for (const [label, fn] of buttons) {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+      host.appendChild(b);
+    }
+  }
+  const stat = panel.querySelector('.stat');
+  setInterval(() => {
+    const p = player.position;
+    stat.innerHTML = `<b>${mission.state}</b> · ${roomAt(p.x, p.z, p.y - 1.66)} · `
+      + `woo <b>${woo.score}</b> (${woo.band.key}) · tips <b>${woo.tipCount}</b>/${woo.tipCount + woo.tipsLeft}<br>`
+      + `$${game.money} · ${cast.all.length + band.members.length} figures · `
+      + `${woo.fired.size} events fired<br>`
+      + `x ${p.x.toFixed(1)} z ${p.z.toFixed(1)} y ${(p.y - 1.66).toFixed(1)} · `
+      + `she is ${date.position.distanceTo(p).toFixed(1)}m away (${date.mode})`;
+  }, 250);
+}
 
 frame();

@@ -445,6 +445,41 @@ const showState = await page.evaluate(() => {
 check('seven of them, on stage, with the house down and the table lamps still lit',
   showState.playing && showState.visible === 7 && showState.lamps, JSON.stringify(showState));
 
+/* ---- the things the evening still has in it after the band ---- */
+const afterBand = await page.evaluate(() => {
+  const b = window.__silver;
+  const out = {};
+  // The champagne thank-you: one look and one press, and it is worth something.
+  let pad = null;
+  b.scene.traverse((o) => {
+    const l = o.userData?.interact?.label;
+    const t = typeof l === 'function' ? l() : l;
+    if (t && String(t).includes('pillar')) pad = o;
+  });
+  out.foundPillar = !!pad;
+  if (pad) {
+    const before = b.woo.score;
+    pad.userData.interact.onUse();
+    pad.userData.interact.onUse();            // and only once
+    out.thanked = b.mission.flags.champagneThanked;
+    out.gain = b.woo.score - before;
+  }
+  return out;
+});
+check('the table by the pillar can be thanked, once',
+  afterBand.foundPillar && afterBand.thanked && afterBand.gain > 0,
+  JSON.stringify(afterBand));
+
+await page.evaluate(() => window.__silver.dialogue.end());
+await page.evaluate(() => window.__silver.debug.toast());
+await tick(1);
+check('there is a toast, and it has options', (await state()).options >= 3,
+  String((await state()).options));
+await choose(0);
+await tick(4);
+check('and making one is worth something', (await state()).flags.toast !== null,
+  String((await state()).flags.toast));
+
 /* ---- the sway ---- */
 const swayRun = await page.evaluate(() => {
   const b = window.__silver;
@@ -522,6 +557,35 @@ const broke = await page.evaluate(() => {
 });
 check('with an empty wallet nothing is charged and nothing is awarded',
   broke.money === 0, `$${broke.money}`);
+
+/* ---- accessibility ---- */
+const access = await page.evaluate(() => {
+  const ids = ['opt-subs', 'opt-bigsubs', 'opt-shake', 'opt-assist'];
+  const present = ids.filter((i) => document.getElementById(i)).length;
+  const big = document.getElementById('opt-bigsubs');
+  big.checked = true;
+  big.dispatchEvent(new Event('change'));
+  const applied = document.body.classList.contains('bigsubs');
+  const stored = localStorage.getItem('squatch.bigsubs');
+  big.checked = false;
+  big.dispatchEvent(new Event('change'));
+  return { present, applied, stored, cleared: !document.body.classList.contains('bigsubs') };
+});
+check('the accessibility switches exist, apply, and persist',
+  access.present === 4 && access.applied && access.stored === '1' && access.cleared,
+  JSON.stringify(access));
+check('the dance timing can be widened',
+  await page.evaluate(() => {
+    const b = window.__silver;
+    b.sway.start(false);
+    const tight = b.sway.window;
+    b.sway.start(true);
+    return b.sway.window > tight;
+  }), '');
+
+/* ---- the debug panel is not in a shipped page ---- */
+check('the dev panel is absent without ?dev',
+  await page.evaluate(() => !document.getElementById('debug')), '');
 
 /* ---- and it ends ---- */
 await page.evaluate(() => window.__silver.debug.ending('strong'));

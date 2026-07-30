@@ -1,29 +1,32 @@
 # Squatch Life
 
-Three things live in this repo.
+Four things live in this repo.
 
 | | |
 |---|---|
 | **Squatch Life** (repo root) | First-person. You wake up on Tuesday at 6:04 AM with a fridge, a radio, a bathroom and a gaming PC. The Squatch meeting is tomorrow night. |
 | **A Quick Stop at the Bing** ([`bing.html`](./bing.html)) | First-person, same engine. Wednesday, 11:41 PM. Park, get past the bouncer, find Lou in the back office, leave with what he has for you. |
+| **Front and Center** ([`silver.html`](./silver.html)) | First-person, same engine. Tuesday, nine o'clock. A date, a supper club, and a door round the back that nobody uses. |
 | **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
 
 ```bash
-npm start        # the apartment -> http://localhost:5173
-                 # the Bing      -> http://localhost:5173/bing.html
-                 # the game      -> http://localhost:5173/game/
+npm start        # the apartment    -> http://localhost:5173
+                 # the Bing         -> http://localhost:5173/bing.html
+                 # the Silver Room  -> http://localhost:5173/silver.html
+                 # the game         -> http://localhost:5173/game/
 ```
 
-All three are static ES-module sites with no build step, served by the same
+All four are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own `lib/three.module.js`, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
-completely self-contained; the apartment and the Bing share
+completely self-contained; the apartment, the Bing and the Silver Room share
 `vendor/three.module.min.js` and everything in `src/core`. Nothing can break
 anything else.
 
 See [`game/README.md`](./game/README.md) for the campground game's controls and
-scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
-Everything between here and there is the apartment.
+scoring, [the Bing](#a-quick-stop-at-the-bing) below for the club, and
+[Front and Center](#front-and-center) for the date. Everything between here and
+there is the apartment.
 
 ---
 
@@ -406,3 +409,132 @@ club's cues and four ambience beds.
 
 In the console, `__bing` exposes the scene, the club, the cast, the mission and
 `__bing.teleport(x, z, yaw)`.
+
+---
+
+## Front and Center
+
+**[`silver.html`](./silver.html)** · Tuesday, nine o'clock.
+
+Delia Vance rang. On air she is Hog Mama, ten till two on 97.8, and she has
+been talking to you through the radio in your own flat since the first level.
+She has agreed to dinner at the Silver Room, which does not take reservations
+from prospects.
+
+You are not going to need one.
+
+### What it is
+
+The Copacabana walk, made playable rather than watched. There is no tracking
+shot — you do the tracking shot. Out of the car, down the alley, in at the
+service door, down the ramp into the cellar, through the wine and the dry store
+and the walk-in, up into the prep kitchen, across a working line while somebody
+carries a hot pan through the middle of it, past the dish station, up the
+employee corridor past the service bar and the coat check, and out through a
+velvet curtain into a room with two hundred people in it.
+
+No loading screen anywhere in that, and no cutscene either. The glamour leaks
+backwards along the route: the light warms up, the kitchen noise thins out, the
+band gets clearer, and the uniforms get better, all at exactly the rate you are
+walking.
+
+Then the staff build you a table in the middle of a full room, and you sit down
+and try to have a conversation.
+
+### The Woo score
+
+A number between 0 and 100 in the corner, moved by named events that fire
+**once each**. It is not a bar you fill; it is a description of how you are
+behaving, and it decides which of nine endings you get — along with a handful of
+flags that no score can buy back.
+
+Fourteen people on the route can be looked after, and it costs real money out of
+the same wallet the Bing uses. Tipping all of them is **Everybody Eats**. Tipping
+the same man twice is nothing at all, because the game refuses.
+
+Nothing in any conversation is labelled good, neutral or bad. The tone tag tells
+you what a line *is*, never what it is worth. She tells you what she wants; the
+minigame is listening.
+
+### The two cutscenes, and only two
+
+1. **The table.** The host offers you the back. The manager says one word, and
+   then four more, and the room moves. Two men carry a table across the floor,
+   another brings chairs, a waiter throws a cloth over it, and the lamp goes on
+   last. That is the real table. It is still there when control comes back and
+   your drink arrives on it.
+2. **The band.** The house lights go a third of the way down, the table lamps
+   stay exactly where they are, and the Midnight Pines come out from behind a
+   curtain. Seven of them, which she counts.
+
+Everything else is yours, including the ending.
+
+### Controls
+
+| | |
+|---|---|
+| **WASD** | Move. **Shift** hurries, and she notices. |
+| **E** / click | Greet. **Hold** to take care of somebody. |
+| **1**–**7** | Answer. |
+| **Q** | Get up. |
+| hold **F** | Drink. |
+| **R** | Say the thing you have been working up to. |
+| **Tab** | What you are doing here. |
+
+### Endings
+
+Nine. Perfect, strong, good, gentleman, polite, awkward, disaster, the one
+where you put money on the tablecloth, and the one where you have destroyed
+enough of the restaurant that she likes you from a distance.
+
+Social failure is content: a bad joke does not restart the mission, it ends the
+evening differently. The only hard failures are technical ones.
+
+### The code
+
+```
+silver.html                importmap, the HUD, the accessibility switches
+src/silver/main.js         wiring: systems, interactables, zones, cutscenes, the loop
+src/silver/room.js         the building — 21 rooms on two levels, and the route
+src/silver/cast.js         who is standing where, and which of them is tippable
+src/silver/date.js         Delia: a companion rather than a follower
+src/silver/woo.js          the score, as a table rather than as scattered calls
+src/silver/mission.js      22 states, 5 checkpoints, 9 endings
+src/silver/script.js       everything anybody says — 150 nodes, 123 options
+src/silver/perform.js      the Midnight Pines, in four stems, and the sway
+src/silver/vehicle.js      Booski's car
+tools/verify-silver.mjs    plays the whole thing headlessly — 52 checks
+docs/FRONT-AND-CENTER.md   the repository audit and the implementation map
+docs/VOICE-LINES-SILVER.md the voice manifest, and what is still to produce
+```
+
+It borrows rather than reimplements. `core/player.js`, `core/interaction.js`,
+`core/hud.js`, `core/audio.js`, `core/drunk.js`, `core/highs.js`,
+`core/inventory.js`, `core/postfx.js`, `core/phone.js`, the prop makers in
+`world/props.js`, and — from the Bing — `dialogue.js`, `kit.js`, `vehicles.js`
+and the whole of `cast.js`. Delia is built from the same figure as Lou.
+
+Three shared files grew, all additively and none of them changing anything that
+already existed:
+
+- **`bing/cast.js`** gained whites, aprons and a gown, because the club needed a
+  dozen jobs the Bing does not have and every one of them is that body with
+  something tied over it.
+- **`core/audio.js`** gained the Silver Room's cues, five ambience beds, and the
+  band in four separate stems — so a line of dialogue ducks the melody without
+  the band stopping being live.
+- **`core/phone.js`** learned to stop and wait for an answer. The smallest
+  possible version: a phone call is not a dialogue tree, it is somebody talking
+  at you with three places where you get a word in.
+
+### Checks
+
+`npm run check`, then `npm run verify:silver` — which plays the mission from the
+pavement to the ending card in a real browser and asserts the state at every
+beat. **52 checks.** It is the only thing that catches a companion stuck two
+rooms back, a tip that pays twice across a checkpoint, or a table that gets
+built and then is not there.
+
+Add `?dev` to the URL for the debug panel: jump to any phase, fire either
+cutscene, set the score, mark or reset every tip, and force any of the nine
+endings.
