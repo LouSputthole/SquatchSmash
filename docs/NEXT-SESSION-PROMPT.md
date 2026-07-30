@@ -113,6 +113,15 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
+IMMEDIATE PICKUP (2026-07-30 ~17:00, machine restarted mid-flight): four
+scene passes for the owner's wave-2 playtest notes were running in agent
+worktrees when the session ended. Follow the pickup procedure and complete
+note lists in `docs/audits/2026-07-30-playtest-notes-wave2.md` — harvest any
+committed worktree work, finish or re-dispatch the rest, then do Margo's
+deferred hair/face (needs the shared figure builder in src/bing/cast.js
+after the Bing pass lands). main is kept equal to this branch and the Pages
+deploy now ships every page; keep pushing both.
+
 Immediate implementation objective:
 
 The Beef Run integration, the big-night apartment beat, and the Silver Room
