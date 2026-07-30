@@ -454,6 +454,14 @@ const bar = await page.evaluate(() => {
   return { held };
 });
 await tick(3, 0.1);
+/* The swallow rides the real frame loop's key handling, which under software
+ * rendering can lag the stepped clock — poll up to twenty more simulated
+ * seconds instead of racing a single window. This check failed one run in
+ * five on the old fixed wait. */
+for (let i = 0; i < 20; i++) {
+  if (await page.evaluate(() => window.__bing.drunk.level > 0)) break;
+  await tick(1, 0.1);
+}
 check('the bar serves, and the drink lands',
   bar.held === 'beer' && (await page.evaluate(() => window.__bing.drunk.level)) > 0,
   `drunk ${await page.evaluate(() => window.__bing.drunk.level.toFixed(2))}`);
