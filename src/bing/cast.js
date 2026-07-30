@@ -42,6 +42,7 @@ const BANDANA = 0xd92e2e;
  *   height   metres to the top of the head (1.78 is the default adult)
  *   build    1.0 average, 1.4 is Lou
  *   dress    'suit' | 'shirt' | 'tracksuit' | 'tee' | 'waistcoat' | 'stage' | 'work'
+ *            | 'chef' | 'porter' | 'gown'
  *   hair     'short' | 'crop' | 'receding' | 'bald' | 'long' | 'tied'
  *   bandana  club colours, worn by the crew and the prospect
  */
@@ -55,7 +56,7 @@ export function makePerson(o = {}) {
   const skinMat = mat({ color: skin, roughness: 0.68 });
   const hairMat = mat({ color: hairColour, roughness: 0.96 });
   const cloth = mat({
-    color: shirt,
+    color: dress === 'chef' ? 0xe8e6e0 : shirt,
     roughness: dress === 'stage' ? 0.34 : 0.9,
     metalness: dress === 'stage' ? 0.5 : 0,
   });
@@ -68,9 +69,14 @@ export function makePerson(o = {}) {
   const shoe = mat({ color: 0x14141a, roughness: 0.5 });
   /* Sleeves: a tee and a stage outfit leave the arms bare, everything else
    * covers them, and a waistcoat is a shirt with something over the chest. */
-  const sleeve = dress === 'tee' || dress === 'stage'
+  const sleeve = dress === 'tee' || dress === 'stage' || dress === 'porter' || dress === 'gown'
     ? skinMat
     : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth);
+  /* Whites, aprons and a gown, for the Silver Room. Kept here rather than in a
+   * second figure builder: the club needed a dozen jobs the Bing does not have,
+   * and every one of them is this body with something tied over it. */
+  const whites = mat({ color: 0xe8e6e0, roughness: 0.94 });
+  const apronMat = mat({ color: dress === 'porter' ? 0x4a4a52 : 0xd8d5cc, roughness: 0.96 });
 
   const g = group('person');
   const body = group('body');
@@ -148,6 +154,39 @@ export function makePerson(o = {}) {
   }
   if (dress === 'work') {
     body.add(box({ size: [0.35 * t, 0.22, D * 2.06], pos: [0, 1.1, 0], mat: mat({ color: 0x2a2a30, roughness: 0.95 }) }));
+  }
+  if (dress === 'chef') {
+    // A double-breasted front: two rows of buttons is the whole silhouette
+    body.add(box({ size: [0.355 * t, 0.42, D * 2.12], pos: [0, 1.3, 0], mat: whites }));
+    for (const bx of [-0.055, 0.055]) {
+      for (let i = 0; i < 4; i++) {
+        body.add(sphere({ r: 0.014, pos: [bx * t, 1.46 - i * 0.1, D * 1.09], mat: mat({ color: 0xc8c4ba, roughness: 0.6 }) }));
+      }
+    }
+    // Apron, from the waist down, and a towel over the shoulder
+    body.add(box({ size: [0.30 * t, 0.5, D * 2.16], pos: [0, 0.98, D * 0.1], mat: apronMat }));
+    const towel = box({ size: [0.07, 0.3, 0.05], pos: [-0.17 * t, 1.4, -0.02], mat: mat({ color: 0xd0ccc2, roughness: 0.97 }) });
+    towel.rotation.z = 0.2;
+    body.add(towel);
+  }
+  if (dress === 'porter') {
+    // A long apron over a bare-armed tee, tied at the back
+    body.add(box({ size: [0.32 * t, 0.72, D * 2.1], pos: [0, 0.94, D * 0.12], mat: apronMat }));
+    body.add(box({ size: [0.09, 0.34, 0.02], pos: [-0.06, 1.34, D * 1.08], mat: apronMat }));
+    body.add(box({ size: [0.09, 0.34, 0.02], pos: [0.06, 1.34, D * 1.08], mat: apronMat }));
+  }
+  if (dress === 'gown') {
+    /* A gown is a skirt: the legs still articulate underneath, so she can walk,
+     * but from the waist down what you see is one falling shape. It hangs off
+     * the hips rather than sitting on them, which is the difference between a
+     * dress and a lampshade. */
+    const gownMat = mat({ color: shirt, roughness: 0.62, metalness: 0.08 });
+    body.add(cylinder({ rTop: 0.16 * t, rBottom: 0.24 * t, h: 0.78, seg: 14, pos: [0, 0.62, 0], mat: gownMat }));
+    body.add(box({ size: [0.31 * t, 0.34, D * 2.05], pos: [0, 1.32, 0], mat: gownMat }));
+    // Straps, and the neckline they imply
+    for (const sx of [-1, 1]) {
+      body.add(box({ size: [0.03, 0.14, 0.02], pos: [sx * 0.09, 1.47, D * 0.4], mat: gownMat }));
+    }
   }
   if (chain) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.009, 6, 18), mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 }));
