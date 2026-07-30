@@ -22,6 +22,7 @@ import { mat, box, cylinder, sphere, collider, group } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack } from '../world/props.js';
 import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick } from './kit.js';
+import { drawSquatchSilhouette } from '../world/textures.js';
 
 export const CEIL_MAIN = 4.5;
 export const CEIL_BACK = 2.6;
@@ -1042,6 +1043,52 @@ export function buildClub(scene, { renderer } = {}) {
       add(sign(printed(`plate-${label}`, [label], { w: 256, h: 80, bg: '#26262e', fg: '#c8c8d0', font: '800 42px "Trebuchet MS", sans-serif' }),
         0.36, 0.11, { x: 7.78, y: 1.85, z: lz + 0.75, rotY: -Math.PI / 2 }));
     }
+
+    /* The family's marks, hung like they matter: a gilt crest on the main
+     * room's vestibule wall, its neon sister across the doorway, and the
+     * club mark in the back hallway — all measured clear of every door
+     * swing after the July 30 doorway audit. */
+    const crestTex = (() => {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 640;
+      const g = c.getContext('2d');
+      g.fillStyle = '#1a1420';
+      g.fillRect(0, 0, 512, 640);
+      g.strokeStyle = '#c8a24a';
+      g.lineWidth = 10;
+      g.strokeRect(18, 18, 476, 604);
+      g.lineWidth = 3;
+      g.strokeRect(38, 38, 436, 564);
+      drawSquatchSilhouette(g, 256, 480, 300, '#c8a24a');
+      g.fillStyle = '#c8a24a';
+      g.textAlign = 'center';
+      g.font = '900 46px "Trebuchet MS", sans-serif';
+      g.fillText('THE SILVER', 256, 96);
+      g.fillText('SASQUATCHES', 256, 150);
+      g.font = '700 34px "Trebuchet MS", sans-serif';
+      g.fillText('EST. 1979', 256, 580);
+      const t = new THREE.CanvasTexture(c);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    })();
+    add(makeFrame(M, {
+      x: 10.94, y: 1.95, z: -4.2, rotY: -Math.PI / 2, w: 0.72, h: 0.9,
+      texture: crestTex, tint: 0x6a4e1c,
+    }));
+    add(makeFrame(M, {
+      x: 10.94, y: 1.9, z: 4.2, rotY: -Math.PI / 2, w: 0.66, h: 0.5,
+      texture: printed('logo-bing-family', ['BADA BING', 'A FAMILY PLACE'], {
+        w: 512, h: 384, bg: '#241018', fg: '#ff5aa0', font: '900 62px "Trebuchet MS", sans-serif',
+      }),
+      tint: 0x6a4e1c,
+    }));
+    add(makeFrame(M, {
+      x: 7.78, y: 1.85, z: -2.3, rotY: -Math.PI / 2, w: 0.5, h: 0.62,
+      texture: printed('logo-club-mark', ['SS', 'MC', 'RIDE SILVER'], {
+        w: 384, h: 480, bg: '#141018', fg: '#b8b8c4', font: '800 58px "Trebuchet MS", sans-serif',
+      }),
+      tint: 0x2a2a32,
+    }));
   }
 
   /* ================================================================== */
