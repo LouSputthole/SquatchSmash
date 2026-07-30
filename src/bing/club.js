@@ -1196,25 +1196,69 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   /* I. Storage and service                                              */
   /* ================================================================== */
+  const storeroom = {};
   {
+    /* Kegs in their corner, shifted a hand north of where they were: the old
+     * grid's nearest keg stood inside the service door's swing. */
     for (let i = 0; i < 6; i++) {
       const kx = S.x0 + 1.0 + (i % 3) * 0.72;
-      const kz = S.z0 + 1.1 + Math.floor(i / 3) * 0.72;
+      const kz = S.z0 + 1.4 + Math.floor(i / 3) * 0.72;
       add(group('keg',
         cylinder({ r: 0.24, h: 0.62, pos: [kx, 0.31, kz], mat: M_STEEL }),
         cylinder({ r: 0.2, h: 0.07, pos: [kx, 0.66, kz], mat: M_STEEL }),
       ));
     }
-    solid(S.x0 + 0.6, S.z0 + 0.7, S.x0 + 3.1, S.z0 + 2.3, 0, 0.7);
-    for (let i = 0; i < 12; i++) {
-      const s = rand(0.4, 0.72);
-      add(box({
-        size: [s, s * 0.8, s * 0.9],
-        pos: [rand(S.x0 + 4.2, S.x1 - 1), s * 0.4, rand(S.z0 + 0.9, S.z1 - 1.3)],
-        rotY: rand(0, 3),
-        mat: mat({ color: pick([0x7a5c38, 0x8a6a42, 0x6b4f30]), roughness: 0.95 }),
-      }));
-    }
+    solid(S.x0 + 0.6, S.z0 + 1.0, S.x0 + 2.9, S.z0 + 2.6, 0, 0.7);
+
+    /* Crates stacked the way a porter stacks them, not rolled by dice. The
+     * old pass scattered twelve random boxes that overlapped each other and,
+     * on a bad seed, the freezer -- exactly the mess the owner flagged. Each
+     * cluster is authored, separated, and solid. */
+    const crate = (x, z, s, rotY = 0, y = 0, shade = 0x7a5c38) =>
+      add(box({ size: [s, s * 0.8, s * 0.9], pos: [x, y + s * 0.4, z], rotY, mat: mat({ color: shade, roughness: 0.95 }) }));
+    // The double stack against the south wall, clear of the service door
+    crate(10.1, -13.75, 0.62, 0.06);
+    crate(10.78, -13.7, 0.56, -0.1, 0, 0x8a6a42);
+    crate(10.42, -13.72, 0.5, 0.22, 0.5, 0x6b4f30);
+    solid(9.75, -14.1, 11.1, -13.35, 0, 1.0);
+    // Singles: one by the shelf run, one dumped mid-floor on its way somewhere
+    crate(12.2, -14.35, 0.55, -0.18, 0, 0x8a6a42);
+    solid(11.9, -14.65, 12.5, -14.05, 0, 0.5);
+    crate(9.2, -11.3, 0.48, 0.35, 0, 0x6b4f30);
+    solid(8.95, -11.55, 9.45, -11.05, 0, 0.45);
+    // The mop sink was the one fixture in here you could walk through
+    solid(S.x0 + 0.4, S.z1 - 1.28, S.x0 + 1.02, S.z1 - 0.73, 0, 0.66);
+
+    /* ---- the easter egg ----
+     * The delivery manifest has read "DUCK ..... ?" since the room was
+     * built, and a patron out front swears somebody paid four hundred for
+     * one. Here it is: a crate stencilled DUCK by the freezer, lid ajar,
+     * with one rubber duck in the straw. main.js wires the interaction. */
+    const duckCrate = group('duck-crate');
+    duckCrate.position.set(11.3, 0, -10.95);
+    duckCrate.rotation.y = -0.28;
+    duckCrate.add(box({ size: [0.6, 0.46, 0.55], pos: [0, 0.23, 0], mat: mat({ color: 0x7a5c38, roughness: 0.95 }) }));
+    const stencil = sign(printed('duck-stencil', ['DUCK'], {
+      w: 256, h: 128, bg: null, fg: '#2a1c10', font: '900 64px "Trebuchet MS", sans-serif', rotate: -0.05,
+    }), 0.5, 0.25, { x: 0, y: 0.26, z: 0.281 });
+    stencil.material.transparent = true;
+    duckCrate.add(stencil);
+    const duckLid = box({ size: [0.62, 0.04, 0.57], pos: [0.1, 0.49, -0.05], rotZ: 0.16, mat: mat({ color: 0x6b4f30, roughness: 0.95 }) });
+    duckCrate.add(duckLid);
+    const straw = box({ size: [0.52, 0.05, 0.47], pos: [0, 0.4, 0], mat: mat({ color: 0xb89a52, roughness: 1 }) });
+    duckCrate.add(straw);
+    const duck = group('the-duck',
+      sphere({ r: 0.075, ry: 0.06, rz: 0.082, pos: [0, 0.46, 0], mat: mat({ color: 0xe8c020, roughness: 0.55 }) }),
+      sphere({ r: 0.044, pos: [0, 0.54, 0.05], mat: mat({ color: 0xe8c020, roughness: 0.55 }) }),
+      box({ size: [0.032, 0.018, 0.05], pos: [0, 0.53, 0.1], mat: mat({ color: 0xd97a2e, roughness: 0.5 }) }),
+    );
+    duck.visible = false;
+    duckCrate.add(duck);
+    add(duckCrate);
+    solid(10.95, -11.3, 11.65, -10.6, 0, 0.55);
+    storeroom.crate = duckCrate;
+    storeroom.lid = duckLid;
+    storeroom.duck = duck;
     for (let s = 0; s < 3; s++) {
       add(box({ size: [0.62, 0.06, 4.4], pos: [S.x1 - 0.42, 0.55 + s * 0.7, S.z0 + 2.7], mat: M_STEEL }));
     }
@@ -1536,7 +1580,7 @@ export function buildClub(scene, { renderer } = {}) {
   }
 
   return {
-    root, colliders, navBlockers, floorZones, doors, anchors, neon, office, slot, bj,
+    root, colliders, navBlockers, floorZones, doors, anchors, neon, office, storeroom, slot, bj,
     platforms, groundAt, update, roomAt, rooms: ROOMS, rain,
   };
 }

@@ -975,6 +975,30 @@ for (const spot of club.anchors.booths) {
     onUse: () => hud.say('Kegs, six. Liquor, four. Duck, quantity left blank, initialled by somebody with '
       + 'one letter in their name.', 5000),
   });
+
+  /* The answer to the manifest's blank line, for whoever pokes around the
+   * store room instead of going to see Lou like they were told. */
+  const duckPad = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.75, 0.8), new THREE.MeshBasicMaterial({ visible: false }));
+  duckPad.position.set(club.storeroom.crate.position.x, 0.38, club.storeroom.crate.position.z);
+  scene.add(duckPad);
+  reg(duckPad, {
+    label: () => (club.storeroom.duck.visible ? 'The <b>duck</b>' : 'The crate marked <b>DUCK</b>'),
+    onUse: () => {
+      const store = club.storeroom;
+      audio.play('duck.quack', { volume: 0.6, position: duckPad.position });
+      if (!store.duck.visible) {
+        store.duck.visible = true;
+        store.lid.rotation.z = 0.85;
+        store.lid.position.set(0.36, 0.4, -0.05);
+        hud.toast('Found: the duck', 'good');
+        hud.say('One rubber duck, packed in straw. Manifest quantity finally resolved. '
+          + 'Somebody out front paid four hundred dollars for this.', 5600);
+        mission.note('The duck on the manifest is a rubber one. Nobody must ever know you know.');
+      } else {
+        hud.say('It squeaks with the confidence of contraband.', 3200);
+      }
+    },
+  });
 }
 
 /* ---- outside ---- */
