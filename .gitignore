@@ -12,3 +12,4 @@ dist/
 
 # Regenerate with: npm run sfx:listen
 assets/sfx/_listen.html
+.claude/worktrees/
