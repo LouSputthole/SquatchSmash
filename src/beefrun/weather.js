@@ -183,7 +183,9 @@ export class WeatherSystem {
     this.fog.far = damp(this.fog.far, pal.fogFar * (1 - this.rain * 0.55) * (1 - this.dusk * 0.3), 0.8, dt);
 
     // Sun: high and hard at midday, low and orange by the time they get home.
-    const sunAngle = lerp(1.15, 0.09, this.dusk);
+    // 0.28 rad is about sixteen degrees: low enough to read as evening, high
+    // enough that the ground still catches light instead of going to black.
+    const sunAngle = lerp(1.15, 0.28, this.dusk);
     this.sun.position.set(
       focus.x + Math.cos(sunAngle) * 220,
       focus.y + Math.sin(sunAngle) * 260,
@@ -192,7 +194,7 @@ export class WeatherSystem {
     this.sun.target.position.copy(focus);
     this.sun.color.lerp(new THREE.Color(0xfff2d8).lerp(new THREE.Color(0xff9a4a), this.dusk), clamp(dt * 2, 0, 1));
     this.sun.intensity = damp(this.sun.intensity, lerp(2.4, 0.75, this.dusk) * (1 - this.rain * 0.45), 1.5, dt);
-    this.hemi.intensity = damp(this.hemi.intensity, lerp(1.05, 0.42, this.dusk) * (1 - this.rain * 0.2), 1.5, dt);
+    this.hemi.intensity = damp(this.hemi.intensity, lerp(1.05, 0.8, this.dusk) * (1 - this.rain * 0.2), 1.5, dt);
     this.hemi.color.lerp(new THREE.Color(0xcfe4ff).lerp(new THREE.Color(0x8a6a9a), this.dusk), clamp(dt * 2, 0, 1));
 
     // Clouds ride with the aeroplane, wrapped into a slab around it.

@@ -251,7 +251,11 @@ export class Brushrunner {
     ];
     legSpecs.forEach((spec, i) => {
       const leg = new THREE.Group();
-      leg.position.set(spec.x, -0.95, spec.z);
+      /* The wheel hangs 0.7 below the leg origin and then its own radius below
+       * that, so the leg has to sit exactly AC.gearY minus both — that is the
+       * height the physics holds the CG at, and anything else buries the tyres
+       * in the ground or floats the aeroplane above it. */
+      leg.position.set(spec.x, -(AC.gearY - 0.7 - spec.r), spec.z);
       const strut = mesh(boxGeo(0.16, 0.7, 0.16), metal, 0, -0.35, 0);
       leg.add(strut);
       if (i > 0) {
@@ -266,7 +270,7 @@ export class Brushrunner {
       hubCap.rotation.z = Math.PI / 2;
       leg.add(hubCap);
       g.add(leg);
-      this.parts.gear.push({ leg, wheel, rest: leg.position.y });
+      this.parts.gear.push({ leg, wheel, rest: leg.position.y, base: leg.position.y });
     });
 
     // ---- Cargo door, port side aft ----
@@ -676,7 +680,9 @@ export class Brushrunner {
   setCargoWeightVisual(kg) {
     // The gear sits lower with a load on. Small, but you can see it.
     const sag = clamp(kg / AC.maxCargo, 0, 1) * 0.08;
-    for (const gear of this.parts.gear) gear.rest = -0.95 + sag * 0.4;
+    // Each leg keeps its own base — the nose wheel is smaller than the mains,
+    // so one shared number would put one set of tyres in the dirt.
+    for (const gear of this.parts.gear) gear.rest = gear.base - sag * 0.4;
     void lerp;
   }
 }

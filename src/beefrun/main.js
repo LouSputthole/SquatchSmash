@@ -15,6 +15,7 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createAirstripStory } from '../core/airstrip-story.js';
+import { roomEnvironment } from '../world/textures.js';
 
 import { WP, EH, AC, DIFFICULTY } from './config.js';
 import { TerrainStreamingSystem, terrainHeight } from './terrain.js';
@@ -65,6 +66,21 @@ renderer.toneMappingExposure = 1.06;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
+
+// Corrugated tin, fuel drums, the aeroplane's bare skin — three dozen materials
+// out here run metalness above zero, and metal with nothing to reflect renders
+// black no matter how bright the sun is. Same prefiltered capture the flat and
+// the other scenes use, dialled down because this one is outdoors.
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const src = roomEnvironment();
+  scene.environment = pmrem.fromEquirectangular(src).texture;
+  scene.environmentIntensity = 0.4;
+  pmrem.dispose();
+  src.dispose();
+}
+
 const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.1, 9000);
 
 window.addEventListener('resize', () => {

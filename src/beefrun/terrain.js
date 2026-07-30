@@ -234,6 +234,11 @@ export class TerrainStreamingSystem {
       for (let i = 0; i < n; i++) {
         const wx = ox + (rand() - 0.5) * CHUNK;
         const wz = oz + (rand() - 0.5) * CHUNK;
+        /* Both runways are flattened pads, so the "too steep" test below waves
+         * trees straight through them. Keep the scatter off the asphalt and off
+         * the dirt, with enough margin either side to clear the wingtips. */
+        if (Math.abs(wx - WP.x) < 40 && Math.abs(wz - WP.z) < WP.rwyHalf + 60) continue;
+        if (Math.abs(wx - EH.x) < 30 && wz > EH.zHigh - 40 && wz < EH.zLow + 40) continue;
         const h = terrainHeight(wx, wz);
         const hx = terrainHeight(wx + 8, wz) - terrainHeight(wx - 8, wz);
         const hz = terrainHeight(wx, wz + 8) - terrainHeight(wx, wz - 8);

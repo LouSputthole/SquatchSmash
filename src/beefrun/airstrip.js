@@ -57,6 +57,9 @@ function makeHut(seed) {
   g.add(mesh(boxGeo(1.0, 1.9, 0.1), solid(0x4a3a26, { roughness: 1 }), 0, 0.95, d / 2 + 0.05));
   // A patch of blue tarp over the corner that leaks.
   g.add(mesh(boxGeo(2.0, 0.06, 1.6), solid(0x2f6b8a, { roughness: 1 }), w / 4, h + 0.3, -d / 4));
+  // The caller has to sit this on a slope, so it needs to know how wide it is.
+  g.userData.halfX = w / 2;
+  g.userData.halfZ = d / 2;
   return g;
 }
 
@@ -126,7 +129,13 @@ function makeCargoStack(seed) {
   return g;
 }
 
-function makeAntenna() {
+/**
+ * @param {(dx: number, dz: number) => number} groundRel ground height at an
+ *   offset from the mast's foot, relative to the mast's foot. The guy wires
+ *   are anchored to real points at both ends, so on a slope each one has to
+ *   know where its own foot lands or it ends up staked to thin air.
+ */
+function makeAntenna(groundRel = () => 0) {
   const g = group('antenna');
   const steel = solid(0x9aa0a6, { roughness: 0.55, metalness: 0.6 });
   for (let i = 0; i < 5; i++) {
@@ -137,12 +146,19 @@ function makeAntenna() {
     g.add(mesh(boxGeo(1.2, 0.07, 1.2), steel, 0, y + 3, 0));
   }
   g.add(mesh(cylGeo(0.04, 0.04, 3, 5), steel, 0, 16.5, 0));
-  // Guy wires, drawn as thin boxes because nobody will ever count them.
+  // Guy wires, drawn as thin boxes because nobody will ever count them. Each
+  // one runs from a collar on the mast to a stake on the ground it reaches.
+  const wireMat = solid(0x5a5a5a, { roughness: 0.8 });
+  const anchor = new THREE.Vector3(0, 13, 0);
+  const up = new THREE.Vector3(0, 1, 0);
   for (let i = 0; i < 3; i++) {
     const a = (i / 3) * Math.PI * 2;
-    const wire = mesh(boxGeo(0.03, 16, 0.03), solid(0x5a5a5a, { roughness: 0.8 }), Math.cos(a) * 3, 7, Math.sin(a) * 3);
-    wire.rotation.z = Math.cos(a) * 0.36;
-    wire.rotation.x = -Math.sin(a) * 0.36;
+    const fx = Math.cos(a) * 9, fz = Math.sin(a) * 9;
+    const span = new THREE.Vector3(fx, groundRel(fx, fz), fz).sub(anchor);
+    const len = span.length();
+    const wire = mesh(boxGeo(0.03, len, 0.03), wireMat, 0, 0, 0);
+    wire.position.copy(anchor).addScaledVector(span, 0.5);
+    wire.quaternion.setFromUnitVectors(up, span.clone().normalize());
     g.add(wire);
   }
   return g;
@@ -192,10 +208,29 @@ export function buildAirstrip(scene) {
   };
   const addCollider = (x, z, halfX, halfZ, top = 4) => {
     const y = terrainHeight(x, z);
-    colliders.push(new THREE.Box3(
+    const box = new THREE.Box3(
       new THREE.Vector3(x - halfX, y - 1, z - halfZ),
       new THREE.Vector3(x + halfX, y + top, z + halfZ),
-    ));
+    );
+    colliders.push(box);
+    return box;
+  };
+  /**
+   * Sit a rectangular thing on sloping ground. The shelf falls away under
+   * everything up here, so a single centre sample leaves the downhill corners
+   * hanging in the air; take the lowest corner instead and let the uphill side
+   * bury itself in the hill, which is what a shed on a slope actually does.
+   */
+  const sinkToGround = (obj, x, z, halfX, halfZ, rotY = 0) => {
+    const c = Math.cos(rotY), s = Math.sin(rotY);
+    let low = Infinity;
+    for (const sx of [-halfX, halfX]) {
+      for (const sz of [-halfZ, halfZ]) {
+        low = Math.min(low, terrainHeight(x + sx * c + sz * s, z - sx * s + sz * c));
+      }
+    }
+    obj.position.y = low;
+    return low;
   };
 
   /* ---- The strip itself: a sloped skin laid over the shelf ---- */
@@ -203,11 +238,15 @@ export function buildAirstrip(scene) {
   const strip = new THREE.Mesh(new THREE.PlaneGeometry(EH.rwyWidth * 2, stripLen, 4, 64), dirt);
   strip.rotation.x = -Math.PI / 2;
   {
+    /* The plane is built in XY and then laid down with rotation.x = -PI/2, so
+     * its local +y runs along -z in the world and its local +z runs straight
+     * up. Read the along-strip position out of y, write the height into z —
+     * do it the other way round and the whole 620 m collapses to a sliver. */
     const pos = strip.geometry.attributes.position;
     for (let i = 0; i < pos.count; i++) {
       const wx = EH.x + pos.getX(i);
-      const wz = stripMidZ + pos.getZ(i);
-      pos.setY(i, terrainHeight(wx, wz) + 0.06 - stripMidY);
+      const wz = stripMidZ - pos.getY(i);
+      pos.setZ(i, terrainHeight(wx, wz) + 0.06 - stripMidY);
     }
     strip.geometry.computeVertexNormals();
   }
@@ -233,23 +272,39 @@ export function buildAirstrip(scene) {
   for (let i = 0; i < 4; i++) {
     const x = EH.x - 26 - rand() * 8;
     const z = EH.zHigh + 40 + i * 22;
-    const hut = place(makeHut(0x300 + i * 31), x, z, rand() * 0.6 - 0.3);
+    const rot = rand() * 0.6 - 0.3;
+    const hut = place(makeHut(0x300 + i * 31), x, z, rot);
+    sinkToGround(hut, x, z, hut.userData.halfX, hut.userData.halfZ, rot);
     addCollider(x, z, 3.4, 2.8, 3);
     camp.push(hut);
   }
 
   const shelterX = EH.x - 22, shelterZ = EH.zHigh + 34;
   place(makeShelter(), shelterX, shelterZ, 0.15);
-  addCollider(shelterX, shelterZ, 4, 3, 3);
+  /* Four posts, not one box. The shelter is open on every side and the men sit
+   * under it — a collider on the roof footprint walls the player out of a
+   * space they are supposed to be able to walk into, and traps the guards. */
+  {
+    const c = Math.cos(0.15), s = Math.sin(0.15);
+    for (const sx of [-3.4, 3.4]) {
+      for (const sz of [-2.4, 2.4]) {
+        addCollider(shelterX + sx * c + sz * s, shelterZ - sx * s + sz * c, 0.2, 0.2, 2.6);
+      }
+    }
+  }
 
-  place(makeAntenna(), EH.x - 40, EH.zHigh + 20);
+  const antX = EH.x - 40, antZ = EH.zHigh + 20;
+  const antBase = terrainHeight(antX, antZ);
+  place(makeAntenna((dx, dz) => terrainHeight(antX + dx, antZ + dz) - antBase), antX, antZ);
   const sock = makeShirtSock();
   place(sock.group, EH.x + 16, EH.zHigh + 30);
 
   for (let i = 0; i < 2; i++) {
     const x = EH.x - 30 + i * 9;
     const z = EH.zHigh + 100 + i * 14;
-    place(makeMilitaryTruck(), x, z, 1.4 + i * 0.4);
+    const rot = 1.4 + i * 0.4;
+    const lorry = place(makeMilitaryTruck(), x, z, rot);
+    sinkToGround(lorry, x, z, 1.15, 3.2, rot);
     addCollider(x, z, 2.6, 3.4, 3);
   }
 
@@ -258,12 +313,19 @@ export function buildAirstrip(scene) {
     const x = EH.x - 20 + (rand() - 0.5) * 14;
     const z = EH.zHigh + 58 + rand() * 30;
     const d = place(makeDrum(i % 3 === 0 ? 0x8a4a2a : 0x3f6b46), x, z);
-    if (i % 4 === 0) d.rotation.z = 1.55;           // one on its side, always
+    if (i % 4 === 0) {
+      d.rotation.z = 1.55;                          // one on its side, always
+      // On its side it rolls onto its rims, and the group origin is no longer
+      // the bottom of the drum — lift it back out of the dirt.
+      d.position.y += 0.45;
+    }
     drums.push(d);
   }
 
+  // West of the strip edge, not on it: the third stack used to sit at EH.x - 5,
+  // which is inside the 8 m half-width and directly under the landing roll.
   for (let i = 0; i < 3; i++) {
-    place(makeCargoStack(0x900 + i * 17), EH.x - 17 + i * 6, EH.zHigh + 46 + rand() * 8, rand());
+    place(makeCargoStack(0x900 + i * 17), EH.x - 17 - i * 6, EH.zHigh + 46 + rand() * 8, rand());
   }
 
   /* ---- The departure arrow, painted on a barrel ---- */
@@ -287,11 +349,17 @@ export function buildAirstrip(scene) {
   }
 
   /* ---- The men ---- */
+  /* The bench takes up the north-west of the shelter and the table the
+   * north-east, so the old grid stood guard 0 inside the bench and guard 3
+   * inside the table. They line up along the open south side instead, where
+   * they can watch the strip and there is nothing to stand through. Offsets
+   * are world-relative to the shelter, which is itself yawed 0.15. */
   const guards = [];
+  const guardRow = [-2.6, -1.0, 0.6, 2.2];
   for (let i = 0; i < 4; i++) {
     const g = makeGuard(i);
-    const x = shelterX + (i - 1.5) * 1.7;
-    const z = shelterZ - 1.2 + (i % 2) * 0.9;
+    const x = shelterX + guardRow[i];
+    const z = shelterZ + 1.6;
     g.group.position.copy(at(x, z));
     g.group.rotation.y = 0.2 + (rand() - 0.5) * 0.5;
     root.add(g.group);

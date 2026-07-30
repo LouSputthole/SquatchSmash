@@ -73,12 +73,21 @@ function makeHangar() {
     g.add(mesh(boxGeo(w / 2 - 5, h, 0.3), corrugated, sx * (w / 4 + 2.5), h / 2, d / 2));
   }
   g.add(mesh(boxGeo(10, 1.4, 0.3), corrugated, 0, h - 0.7, d / 2));
-  // Curved roof, faked with a shallow prism.
-  const roof = mesh(cylGeo(w * 0.56, w * 0.56, d, 3, false), corrugated, 0, h - 1.1, 0);
-  roof.rotation.z = Math.PI / 2;
+  /* Roof, faked with a shallow three-sided prism laid front-to-back. The
+   * rotations matter: rotation.y = PI turns the prism's apex up instead of
+   * down (it used to hang point-first through the building and out the bottom,
+   * swallowing anything parked off the south wall), and rotation.x lays the
+   * prism along the depth. Scale then stretches the section out to the walls,
+   * so the eaves land on top of them at y = h and the ridge sits 3 m above. */
+  const roofR = 3, ridge = 3;
+  const roof = mesh(cylGeo(roofR, roofR, d, 3, false), corrugated, 0, h + ridge / 3, 0);
+  roof.rotation.y = Math.PI;
   roof.rotation.x = Math.PI / 2;
-  roof.scale.y = 1;
+  roof.scale.set((w / 2) / (roofR * Math.cos(Math.PI / 6)), 1, ridge / (roofR * 1.5));
   g.add(roof);
+  g.userData.eaveY = h;
+  g.userData.ridgeY = h + ridge;
+  g.userData.halfW = w / 2;
   // Rust running down from the roof line.
   for (let i = 0; i < 6; i++) {
     g.add(mesh(boxGeo(0.9, 2.6, 0.06), rust, -w / 2 + 2 + i * 3.6, h - 2.2, d / 2 + 0.17));
@@ -143,7 +152,15 @@ function makePickup(color = 0x8a2f2f, doorColor = 0x3f5f8a) {
     g.add(lamp);
     lights.push(lamp);
   }
-  return { group: g, lights };
+  /* A real light, not just two bright discs. When the truck is driven round to
+   * the threshold at dusk this is the only thing putting anything on the
+   * ground there, so the beam has to actually exist. Off until asked for. */
+  const beam = new THREE.SpotLight(0xfff0c8, 0, 150, 0.46, 0.5, 0.9);
+  beam.position.set(0, 1.25, 2.7);
+  beam.target.position.set(0, -0.6, 60);
+  beam.castShadow = false;
+  g.add(beam, beam.target);
+  return { group: g, lights, beam };
 }
 
 /** An aeroplane that stopped being one. */
@@ -158,8 +175,11 @@ function makeWreck(seed) {
   g.add(nose);
   // One wing on, one wing leaning against the fuselage.
   g.add(mesh(boxGeo(9, 0.22, 1.5), bare, -3.5, 1.7, 0.3));
-  const loose = mesh(boxGeo(8, 0.22, 1.5), bare, 3.4, 0.9, -0.6);
-  loose.rotation.z = -0.5;
+  /* Leaned at 0.5 rad from a 0.9 m hub, a 4 m half-span puts the low tip
+   * 1.11 m under the grass. Shallower, and lifted so the tip just grazes it. */
+  const lean = 0.24;
+  const loose = mesh(boxGeo(8, 0.22, 1.5), bare, 3.4, 4 * Math.sin(lean) + 0.11 * Math.cos(lean), -0.6);
+  loose.rotation.z = -lean;
   loose.rotation.y = 0.3;
   g.add(loose);
   g.add(mesh(boxGeo(0.16, 1.8, 1.4), bare, 0, 1.9, -3.0));
@@ -216,16 +236,17 @@ function makeFuelTank() {
 function makeBeacon() {
   const g = group('beacon');
   g.add(mesh(cylGeo(0.14, 0.2, 8, 8), solid(0x9aa0a6, { roughness: 0.5, metalness: 0.6 }), 0, 4, 0));
+  /* Head at the top of the mast, lenses as its children at the head's own
+   * origin — they are carried round by head.rotation.y in update(). Adding
+   * them to the group instead reparents them off the head, which left the
+   * lenses hanging in the air, unlit and stationary, above a head sitting on
+   * the grass. */
   const head = mesh(cylGeo(0.5, 0.5, 0.6, 10), solid(0x3a3a3e, { roughness: 0.6 }), 0, 8.3, 0);
   g.add(head);
-  const lens = flatMesh(boxGeo(0.55, 0.34, 0.2), unlit(0xffd75e), 0, 8.3, 0.3);
+  const lens = flatMesh(boxGeo(0.55, 0.34, 0.2), unlit(0xffd75e), 0, 0, 0.3);
   head.add(lens);
-  const lensB = flatMesh(boxGeo(0.55, 0.34, 0.2), unlit(0x3fe07a), 0, 8.3, -0.3);
+  const lensB = flatMesh(boxGeo(0.55, 0.34, 0.2), unlit(0x3fe07a), 0, 0, -0.3);
   head.add(lensB);
-  head.position.y = 0;
-  lens.position.set(0, 8.3, 0.3);
-  lensB.position.set(0, 8.3, -0.3);
-  g.add(lens, lensB);
   return { group: g, head };
 }
 
@@ -240,10 +261,12 @@ export function buildAirfield(scene, { terrain } = {}) {
   const floorZones = [];
   const rand = rng(0x5eef);
   const addCollider = (x, z, halfX, halfZ, top = 4) => {
-    colliders.push(new THREE.Box3(
+    const box = new THREE.Box3(
       new THREE.Vector3(x - halfX, ELEV - 1, z - halfZ),
       new THREE.Vector3(x + halfX, ELEV + top, z + halfZ),
-    ));
+    );
+    colliders.push(box);
+    return box;
   };
 
   /* ---- Runway, taxiway, apron ---- */
@@ -277,7 +300,11 @@ export function buildAirfield(scene, { terrain } = {}) {
   hangar.position.set(-60, ELEV, 404);
   hangar.rotation.y = Math.PI;
   root.add(hangar);
-  addCollider(-60, 404, 11, 8, 7);
+  /* Two piers, not one block: the hangar's door is a 10 m hole in the south
+   * wall and a single footprint collider bricks it up, so the player cannot
+   * walk into the building the mission sends them into. */
+  addCollider(-68, 404, 3, 8, 7);
+  addCollider(-52, 404, 3, 8, 7);
 
   const shack = makeOpsShack();
   shack.position.set(-38, ELEV, 366);
@@ -289,6 +316,7 @@ export function buildAirfield(scene, { terrain } = {}) {
   vending.position.set(-34.6, ELEV, 369.2);
   vending.rotation.y = -0.3;
   root.add(vending);
+  addCollider(-34.6, 369.2, 0.6, 0.5, 2.1);
 
   const tank = makeFuelTank();
   tank.position.set(-72, ELEV, 372);
@@ -299,16 +327,20 @@ export function buildAirfield(scene, { terrain } = {}) {
   const beacon = makeBeacon();
   beacon.group.position.set(-46, ELEV, 418);
   root.add(beacon.group);
+  addCollider(-46, 418, 0.4, 0.4, 8.6);
 
   const windsock = makeWindsock();
   windsock.group.position.set(-18, ELEV, 424);
   root.add(windsock.group);
+  addCollider(-18, 424, 0.3, 0.3, 5.5);
 
   const truck = makePickup();
   truck.group.position.set(-44, ELEV, 356);
   truck.group.rotation.y = 1.1;
   root.add(truck.group);
-  addCollider(-44, 356, 2.6, 2.6, 2.4);
+  // Held on to, because the truck is driven away at dusk and the collider has
+  // to go with it rather than stay parked on the apron as an invisible wall.
+  const truckCollider = addCollider(-44, 356, 2.6, 2.6, 2.4);
 
   for (let i = 0; i < 2; i++) {
     const wreck = makeWreck(0x1000 + i * 77);
@@ -335,6 +367,11 @@ export function buildAirfield(scene, { terrain } = {}) {
   signPost.position.set(-96, ELEV, 352);
   signPost.rotation.y = 1.35;
   root.add(signPost);
+  // One slim collider per post — a box across the whole board would be a wall
+  // of air either side of the sign, and the entrance road runs past it.
+  for (const sx of [-3, 3]) {
+    addCollider(-96 + sx * Math.cos(1.35), 352 - sx * Math.sin(1.35), 0.3, 0.3, 4.2);
+  }
 
   /* ---- Ground detail ---- */
   // Oil stains where aeroplanes have stood, and where one still does.
@@ -395,13 +432,22 @@ export function buildAirfield(scene, { terrain } = {}) {
   }
 
   /* ---- Wildlife ---- */
+  /* Crows sit on the roof, so they follow it: the pitch runs from the eaves at
+   * hangar-local x = +-halfW up to the ridge at x = 0, and the hangar is yawed
+   * PI so its local x is the negated world offset. */
   const crows = [];
   for (let i = 0; i < 4; i++) {
-    const c = makeCrow(-66 + i * 4, ELEV + 7.6, 404 + (rand() - 0.5) * 4);
+    const x = -66 + i * 4;
+    const t = Math.min(1, Math.abs(x + 60) / hangar.userData.halfW);
+    const y = ELEV + hangar.userData.ridgeY
+      - (hangar.userData.ridgeY - hangar.userData.eaveY) * t + 0.07;
+    const c = makeCrow(x, y, 404 + (rand() - 0.5) * 4);
     root.add(c.group);
     crows.push(c);
   }
-  const dog = makeDog(-69.5, 372);
+  // Clear of the fuel tank's collider and of the west cradle it used to be
+  // buried 0.32 m inside; still in the shade, which is the whole point of it.
+  const dog = makeDog(-67.5, 371);
   root.add(dog.group);
 
   /* ---- Insects: a haze of specks that only exists near the shack ---- */
@@ -422,7 +468,9 @@ export function buildAirfield(scene, { terrain } = {}) {
     playerStart: new THREE.Vector3(-88, ELEV, 350),
     parking: new THREE.Vector3(-55, ELEV, 388),
     parkingHeading: 90,
-    louStand: new THREE.Vector3(-49.5, ELEV, 386),
+    // Under the port wing, whose chord sits at x [-55.46, -53.54] when the
+    // aeroplane is on the parking spot. He is meant to be leaning on it.
+    louStand: new THREE.Vector3(-54.4, ELEV, 384),
     holdShort: new THREE.Vector3(-16, ELEV, 396),
     lineUp: new THREE.Vector3(WP.x, ELEV, 400),
     departHeading: 180,
@@ -434,16 +482,16 @@ export function buildAirfield(scene, { terrain } = {}) {
     stoveCart: new THREE.Vector3(-58, ELEV, 380),
   };
 
-  // Keep the player on the field: a soft fence well outside everything.
-  const bounds = new THREE.Box3(
-    new THREE.Vector3(-120, ELEV - 2, 300),
-    new THREE.Vector3(30, ELEV + 30, 450),
-  );
+  /* There used to be a `bounds` box here, offered as a soft fence around the
+   * field. Nothing ever read it, and nothing should: the mission walks the
+   * player around El Hueso as well, 10 km down-route, so a fence drawn around
+   * Whispering Pines would either do nothing or trap them at the other end.
+   * The colliders above are the only thing holding the player in. */
 
   const state = { t: 0, dusk: 0, truckLights: false };
 
   return {
-    root, colliders, floorZones, anchors, bounds,
+    root, colliders, floorZones, anchors,
     truck, windsock, beacon, crows, dog, tarps, wrappers, bugs,
     elevation: ELEV,
 
@@ -452,11 +500,18 @@ export function buildAirfield(scene, { terrain } = {}) {
     setTruckLights(on) {
       state.truckLights = on;
       for (const l of truck.lights) l.material = unlit(on ? 0xfff0c8 : 0x2a2a24);
+      truck.beam.intensity = on ? 260 : 0;
     },
     /** Drive the truck round to light the threshold. */
     moveTruckToThreshold() {
       truck.group.position.set(-26, ELEV, -420);
-      truck.group.rotation.y = -Math.PI / 2 + 0.25;
+      // Nose east and a little down-field, so the beam actually crosses the
+      // threshold. Pointed the other way it lit the trees behind the truck.
+      truck.group.rotation.y = Math.PI / 2 + 0.25;
+      // The collider is a separate box in world space; drive it round too, or
+      // the player walks into a pickup that is no longer there.
+      truckCollider.min.set(-26 - 2.6, ELEV - 1, -420 - 2.6);
+      truckCollider.max.set(-26 + 2.6, ELEV + 2.4, -420 + 2.6);
       this.setTruckLights(true);
     },
 

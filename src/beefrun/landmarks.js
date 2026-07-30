@@ -21,22 +21,31 @@ import { terrainHeight } from './terrain.js';
 
 function brokenTower(x, z) {
   const g = group('landmark-tower');
-  const y = terrainHeight(x, z);
   const steel = solid(0x8a5a42, { roughness: 0.85, metalness: 0.4 });   // rusted through
-  // Three legs, leaning, with the top forty metres missing.
+  const feet = [[-1, -0.6], [1, -0.6], [0, 1.2]];
+  /* The tower's own footprint is 14 m across and the ground under it is not
+   * flat, so one centre sample floats the downhill legs. The structure stays
+   * level off the highest foot — which is what a levelled tower does — and
+   * each leg's bottom section is lengthened to reach the dirt beneath it. */
+  const footY = feet.map(([ax, az]) => terrainHeight(x + ax * 7, z + az * 7));
+  const y = Math.max(...footY);
   for (let i = 0; i < 9; i++) {
     const level = i * 9;
     const shrink = 1 - i * 0.06;
-    for (const [ax, az] of [[-1, -0.6], [1, -0.6], [0, 1.2]]) {
-      const leg = mesh(boxGeo(1.1, 9, 1.1), steel, ax * 7 * shrink, y + level + 4.5, az * 7 * shrink);
+    feet.forEach(([ax, az], f) => {
+      const dig = i === 0 ? y - footY[f] : 0;             // reach down to my own ground
+      const leg = mesh(boxGeo(1.1, 9 + dig, 1.1), steel, ax * 7 * shrink, y + level + 4.5 - dig / 2, az * 7 * shrink);
       leg.rotation.z = -ax * 0.03;
       g.add(leg);
-    }
+    });
     g.add(mesh(boxGeo(15 * shrink, 0.7, 15 * shrink), steel, 0, y + level + 9, 0));
   }
-  // The top, lying in the scrub where it landed.
-  const fallen = mesh(boxGeo(4, 4, 30), steel, x * 0 + 40, y + 2, 26);
+  // The top, lying in the scrub where it landed — on its own patch of ground,
+  // forty metres out, resting on the lowest corner of its own tumbled box.
+  const fallen = mesh(boxGeo(4, 4, 30), steel, 40, 0, 26);
   fallen.rotation.set(0.1, 0.6, 0.06);
+  fallen.updateMatrixWorld(true);
+  fallen.position.y = terrainHeight(x + 40, z + 26) - new THREE.Box3().setFromObject(fallen).min.y;
   g.add(fallen);
   g.position.set(x, 0, z);
   return g;
@@ -150,9 +159,22 @@ function waterfall(x, z) {
  * These are the things the player is supposed to stay away from on the way
  * back, and they are marked so there is no guessing involved.
  */
+/** How much the ground moves across a mast's 6.8 m leg square. */
+export function caibRelief(x, z) {
+  let lo = Infinity, hi = -Infinity;
+  for (const ax of [-3.4, 3.4]) {
+    for (const az of [-3.4, 3.4]) {
+      const h = terrainHeight(x + ax, z + az);
+      lo = Math.min(lo, h); hi = Math.max(hi, h);
+    }
+  }
+  return { relief: hi - lo, low: lo };
+}
+
 export function caibTower(x, z) {
   const g = group('caib-tower');
-  const y = terrainHeight(x, z);
+  // Found on the lowest leg corner so that no leg is left standing on air.
+  const y = caibRelief(x, z).low;
   const steel = solid(0xb8bcc2, { roughness: 0.5, metalness: 0.6 });
   const red = solid(0xd92e2e, { roughness: 0.7 });
   for (let i = 0; i < 8; i++) {
@@ -251,8 +273,18 @@ export function buildLandmarks(scene) {
   const rand = rng(0xca1b);
   const towers = [];
   for (let i = 0; i < 7; i++) {
-    const x = (rand() - 0.5) * 1800;
-    const z = -1400 - i * 1150 - rand() * 400;
+    /* A mast is a rigid square on four legs. Dropped blind it lands on ground
+     * that moves up to 22 m across its own footprint, and three of its legs
+     * end up in the sky. Try a handful of spots along the same band and take
+     * the flattest — the band is what matters, not the exact metre. */
+    let x = 0, z = 0, best = Infinity;
+    for (let tryN = 0; tryN < 12; tryN++) {
+      const cx = (rand() - 0.5) * 1800;
+      const cz = -1400 - i * 1150 - rand() * 400;
+      const { relief } = caibRelief(cx, cz);
+      if (relief < best) { best = relief; x = cx; z = cz; }
+      if (relief <= 3) break;
+    }
     const t = caibTower(x, z);
     root.add(t);
     towers.push({ group: t, position: new THREE.Vector3(x, terrainHeight(x, z), z) });

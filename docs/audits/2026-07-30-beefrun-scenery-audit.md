@@ -67,6 +67,28 @@ The waterfall rock (landmarks.js:125) tops at exactly 690 m — the El Hueso
 threshold elevation — 345 m from the threshold on final, spanning the
 centreline. Deliberate hazard or accident? Left untouched pending ruling.
 
+## Status — 2026-07-30, fix pass
+
+Items 1-22 all fixed and verified in a headless run; waterfall left alone.
+Measured after: strip 620.00 m in z, 690.62-726.52 m, skin deviation 0.0000;
+0 trunks in either runway rect (2319 / 3913 placed elsewhere); wing-vs-roof
+disjoint by 4.07 m in y (was 3.27 m inside); drums +0.006 (was -0.44); wheels
++0.01 (was -0.49 / -0.37); guy feet within 12 mm (was -3.01..+2.59); wreck tip
+0.00 (was -1.11); tower and mast legs float 0.00; mast relief max 2.64 (was
+4-22); dusk ground luminance 14.37 vs 5.28 before. Deviations from the
+prescriptions above, all because the stated numbers did not land: 4 — roof
+eaves at y 7, ridge at y 10, and the crows re-seated on the pitch, since 7.6
+sits 0.8-1.9 m inside the new roof; 8 — dog moved (the second option) rather
+than shrinking the collider; 11 — +0.45, not +0.42, as the rims sit below the
+body; 14 — guards moved to the shelter's open south side, as +0.25 cleared
+neither the bench nor the table; 18 — field dropped with a note, since the
+player also walks El Hueso; 21 — needed the shallower lean *and* the lift.
+Item 3 also re-heads the truck, which parked facing away from the runway. Item
+22 ships the src/main.js pattern verbatim, but its effect is unverifiable
+headless: PMREM's own shaders fail VALIDATE_STATUS under SwiftShader, so the
+prefiltered capture samples black there. Gates: check, check:flight (twice,
+identical), 73 tests, verify:beefrun 13/13.
+
 ## Assertion exposure
 verify-beefrun's only geometry-adjacent check is eye height at playerStart
 (-88, 350) — do not place a collider under it. check.mjs lints only cues and
