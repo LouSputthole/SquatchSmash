@@ -41,7 +41,7 @@ export const CELLAR_Y = -2.9;
  */
 export const ROOMS = {
   /* ---- below ---- */
-  cellar:    { x0: 15, x1: 28.5, z0: -6,  z1: 8,   y1: -0.8 },
+  cellar:    { x0: 15, x1: 28.5, z0: -6,  z1: 8.6, y1: -0.8 },
   drystore:  { x0: 15, x1: 21,   z0: -14, z1: -6,  y1: -0.8 },
   walkin:    { x0: 21, x1: 28.5, z0: -14, z1: -6,  y1: -0.8 },
 
@@ -107,14 +107,16 @@ export const ROUTE = [
   { x: 34,  z: 16,  room: 'alley' },
   { x: 31,  z: 12,  room: 'alley' },
   { x: 24,  z: 12,  room: 'stair' },
-  { x: 18,  z: 11,  room: 'stair' },
-  { x: 18,  z: 5,   room: 'cellar', y: CELLAR_Y },
-  { x: 22,  z: 1,   room: 'cellar', y: CELLAR_Y },
+  { x: 19,  z: 11.5, room: 'stair' },
+  { x: 15.8, z: 11,  room: 'stair', y: CELLAR_Y },
+  { x: 16.4, z: 5,   room: 'cellar', y: CELLAR_Y },
+  { x: 21,  z: 1,   room: 'cellar', y: CELLAR_Y },
   { x: 25,  z: -4,  room: 'cellar', y: CELLAR_Y },
   { x: 24,  z: -8,  room: 'walkin', y: CELLAR_Y },
   { x: 19,  z: -10, room: 'drystore', y: CELLAR_Y },
-  { x: 17,  z: -4,  room: 'cellar', y: CELLAR_Y },
-  { x: 17,  z: 2,   room: 'prep' },
+  { x: 16.4, z: -3, room: 'cellar', y: CELLAR_Y },
+  { x: 16.4, z: 1,  room: 'cellar', y: CELLAR_Y },
+  { x: 19.5, z: 1,  room: 'prep' },
   { x: 19,  z: -2,  room: 'prep' },
   { x: 20,  z: -8,  room: 'kitchen' },
   { x: 25,  z: -13, room: 'dish' },
@@ -143,6 +145,10 @@ export function buildRoom(scene, { renderer } = {}) {
   const anchors = {};
   const neon = [];
   const ticking = [];
+  /* The two ramps, declared up here because the stair builds the one going
+   * down and the prep kitchen builds the one coming back up, and `groundAt`
+   * needs both. */
+  const ramps = [];
   const lamps = [];       // table lamps: stay on when the house lights go down
   const houseLights = []; // the ones that dim
   const stageLights = [];
@@ -437,12 +443,21 @@ export function buildRoom(scene, { renderer } = {}) {
     });
     add(rampMesh);
     // Sampled rather than solved: the ramp is one plane and this is one lerp.
-    const ramp = { x0: 15, x1: 22, z0: 8.4, z1: 14.6, from: 0, to: CELLAR_Y };
+    /* `from` is the height at x0 and `to` the height at x1, so the deep end is
+     * the low x -- this was the wrong way round, and the effect was that
+     * walking down the ramp took you *up* it, popping anybody who reached the
+     * bottom back onto the kitchen floor a metre above the wine. */
+    ramps.push({ x0: 15, x1: 22, z0: 8.4, z1: 14.6, from: CELLAR_Y, to: 0 });
     floorZones.push({
       box: new THREE.Box3(new THREE.Vector3(15, CELLAR_Y - 1, 8.4), new THREE.Vector3(29.4, 1, 14.6)),
       surface: 'concrete',
     });
-    wall(15, 8.2, 29.6, 8.2, 3.2, M_CONCRETE, 0.3, CELLAR_Y);
+    /* The south side is wall only where the landing is. The first seven metres
+     * of it are the mouth of the ramp, and putting a wall across those is
+     * putting a wall across the route -- which the player never noticed,
+     * because a cutscene camera and a debug teleport both go through walls,
+     * and she does not. */
+    wall(22, 8.2, 29.6, 8.2, 3.2, M_CONCRETE, 0.3, CELLAR_Y);
     wall(15, 14.8, 29.6, 14.8, 3.2, M_CONCRETE, 0.3, CELLAR_Y);
     wall(29.6, 8.2, 29.6, 14.8, 3.2, M_CONCRETE, 0.3, 0);
     ceiling(T, M_CONCRETE, CEIL_BACK);
@@ -564,16 +579,16 @@ export function buildRoom(scene, { renderer } = {}) {
   {
     const P = ROOMS.prep;
     // The ramp back up, at the cellar's west end
-    const upLen = 5.4;
+    const upLen = 4.5;
     add(box({
-      size: [upLen, 0.16, 3.2], pos: [17.2, CELLAR_Y / 2, 1], mat: M_CONCRETE_L,
+      size: [upLen, 0.16, 3.2], pos: [17.75, CELLAR_Y / 2, 1], mat: M_CONCRETE_L,
       rotZ: Math.atan2(CELLAR_Y, upLen),
     }));
     floorZones.push({
-      box: new THREE.Box3(new THREE.Vector3(14.6, CELLAR_Y - 1, -0.6), new THREE.Vector3(20, 1, 2.6)),
+      box: new THREE.Box3(new THREE.Vector3(15.5, CELLAR_Y - 1, -0.6), new THREE.Vector3(20, 1, 2.6)),
       surface: 'concrete',
     });
-    const upRamp = { x0: 14.6, x1: 20, z0: -0.6, z1: 2.6, from: CELLAR_Y, to: 0 };
+    ramps.push({ x0: 15.5, x1: 20, z0: -0.6, z1: 2.6, from: CELLAR_Y, to: 0 });
 
     floor(P, mat({ color: 0x9aa0a8, roughness: 0.35, metalness: 0.18 }), 'tile', 0);
     ceiling(P, mat({ color: 0x4a4e56, roughness: 0.9 }), CEIL_BACK);
@@ -669,8 +684,6 @@ export function buildRoom(scene, { renderer } = {}) {
       }
     }
 
-    ticking.push(() => {});
-    anchors.ramps = [ramp, upRamp];
   }
 
   /* ================================================================ */
@@ -1037,23 +1050,30 @@ export function buildRoom(scene, { renderer } = {}) {
   /* Ground height, and the update loop                                */
   /* ================================================================ */
 
-  const RAMPS = anchors.ramps;
   const STAGE = ROOMS.stage;
 
   /**
-   * How high the floor is at a point. Three answers: the stage, the two ramps,
-   * and the cellar level. Everything else is zero.
+   * How high the floor is at a point.
+   *
+   * The cellar is *under* the kitchen rather than beside it, so x and z alone
+   * cannot answer this: standing at (19, -4) you are either on the kitchen
+   * floor or in the wine store, and the only difference is which one you
+   * walked in from. So callers pass their own current height and get the floor
+   * that belongs to it. The two ramps are the only places the answer changes,
+   * which is what makes it stable rather than a guess.
+   *
+   * @param {number} fromY where the asker currently is. Omitted means ground.
    */
-  function groundAt(x, z) {
+  function groundAt(x, z, fromY = 0) {
     if (x >= STAGE.x0 && x <= STAGE.x1 && z >= STAGE.z0 && z <= STAGE.z1) return STAGE_H;
-    for (const r of RAMPS) {
+    for (const r of ramps) {
       if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) {
         const k = (x - r.x0) / (r.x1 - r.x0);
         return r.from + (r.to - r.from) * k;
       }
     }
-    const c = ROOMS.cellar; const d = ROOMS.drystore; const w = ROOMS.walkin;
-    for (const r of [c, d, w]) {
+    if (fromY > CELLAR_Y / 2) return 0;              // upstairs, and staying there
+    for (const r of [ROOMS.cellar, ROOMS.drystore, ROOMS.walkin]) {
       if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return CELLAR_Y;
     }
     return 0;

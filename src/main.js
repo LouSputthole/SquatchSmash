@@ -226,6 +226,16 @@ const smoke = new SmokeSystem(scene);
 const bullets = new BulletHoles(scene);
 const tv = new Tv({ audio });
 const phone = new Phone({ time, audio });
+/* She rang. Whatever else Wednesday turns out to be, there is now a Tuesday
+ * night with a table in it, and the club scene reads this on the way in. */
+phone.onDate = (call) => {
+  try {
+    localStorage.setItem('squatch.date', JSON.stringify({
+      who: call.from, at: 'The Silver Room', when: '9pm', drink: 'rye, one ice cube',
+    }));
+  } catch { /* private browsing; the call still happened */ }
+  hud.toast('The Silver Room. Nine.', 'good');
+};
 /* Two materials for the standby light rather than mutating one, so it is a
  * swap like every other indicator in the flat and cannot alias. */
 const M_LED_ON = new THREE.MeshStandardMaterial({ color: 0x2a0b0b, emissive: 0xff3b30, emissiveIntensity: 2.2, roughness: 0.4 });
@@ -719,8 +729,15 @@ document.addEventListener('keydown', (e) => {
       break;
     /* Bloom off, for a machine that is struggling. There is no options menu to
      * put this in and it is the first thing worth dropping. */
-    /* Slots. Digit1..Digit5 pick one directly; the wheel cycles (below). */
+    /* Slots. Digit1..Digit5 pick one directly; the wheel cycles (below).
+     * Unless somebody has asked him a question, in which case the numbers are
+     * his answer -- same as they are in every other conversation in this
+     * game, and the phone is the only place a conversation happens in here. */
     case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5':
+      if (apartment.state.heldItem === 'phone' && phone.choosing) {
+        phone.choose(Number(e.code.slice(5)) - 1);
+        break;
+      }
       apartment.inventory.select(Number(e.code.slice(5)) - 1);
       break;
     case 'KeyB':
@@ -1859,6 +1876,20 @@ function showEnding(kind) {
       overlay.querySelector('.panel').appendChild(next);
     }
     next.textContent = 'Later that night: a quick stop at the Bing →';
+    /* She rang, and he said yes, so there is a second door out of this ending.
+     * Only appears if the call actually happened. */
+    try {
+      if (localStorage.getItem('squatch.date')) {
+        let date = document.getElementById('date-level');
+        if (!date) {
+          date = document.createElement('a');
+          date.id = 'date-level';
+          date.href = 'silver.html';
+          overlay.querySelector('.panel').appendChild(date);
+        }
+        date.textContent = 'Or: the Silver Room, nine o’clock →';
+      }
+    } catch { /* private browsing; the Bing link is still there */ }
   }
   document.exitPointerLock?.();
 }

@@ -426,7 +426,94 @@ export function buildScripts(ctx) {
     },
   };
 
-  return { bouncer, bartender, hallGuard, security, dealer, lou, associate, dj };
+  /* ---------------------------------------------------------------- */
+  /* The woman at the end of the bar                                   */
+  /* ---------------------------------------------------------------- */
+
+  const delia = {
+    open: {
+      who: 'Delia',
+      line: () => (ctx.flags.gotPackage
+        ? '<em>(She does not look up from the glass.)</em> That was quick. Whatever it was.'
+        : '<em>(She is watching the room rather than the stage, which is unusual in here.)</em> '
+          + 'You are going to say something. I can see it arriving.'),
+      options: [
+        { tone: 'Deny it', text: 'I was going to walk past.', next: 'past' },
+        { tone: 'Ask', text: 'What are you drinking?', next: 'drinking' },
+        { tone: 'Recognise her', text: '…Two in the morning. You were being a bus.', next: 'bus' },
+        { tone: 'Leave it', text: '<em>(Walk past.)</em>', next: null },
+      ],
+    },
+    past: {
+      who: 'Delia',
+      line: 'Nobody walks past this end. This end is where you sit when you have '
+        + 'had enough of everybody.',
+      next: 'why',
+    },
+    drinking: {
+      who: 'Delia',
+      line: 'Rye. One ice cube. <em>(She tips the glass an inch.)</em> They brought three. '
+        + 'I sent two back. It caused a scene.',
+      enter: () => ctx.flags && (ctx.flags.heardHerDrink = true),
+      next: 'why',
+    },
+    bus: {
+      who: 'Delia',
+      line: '<em>(She puts the glass down and turns round properly, which she has not '
+        + 'done for anybody tonight.)</em> …You are the one who rang in about the desk.',
+      next: 'desk',
+    },
+    desk: {
+      who: 'Delia',
+      line: 'Four years. Nobody has ever asked about the desk. '
+        + '<em>(Beat.)</em> Right. Say the next thing. Go on.',
+      options: [
+        { tone: 'Ask', text: 'Let me buy you dinner.', next: 'dinner' },
+        { tone: 'Ask', text: 'What are you doing after two?', next: 'after' },
+        { tone: 'Fold', text: 'That was the next thing. That was all of it.', next: 'fold' },
+      ],
+    },
+    why: {
+      who: 'Delia',
+      line: 'I do a show upstairs from what used to be my dad\u2019s shop. I finish at two '
+        + 'and I wait here for a cab because the cabs know this address. '
+        + 'That is the whole story. Your turn.',
+      options: [
+        { tone: 'Ask', text: 'Let me buy you dinner.', next: 'dinner' },
+        { tone: 'Ask', text: 'What are you doing after two?', next: 'after' },
+        { tone: 'Leave it', text: 'Enjoy your cab.', next: null },
+      ],
+    },
+    dinner: {
+      who: 'Delia',
+      line: 'Dinner. <em>(She looks at you for slightly longer than is comfortable, '
+        + 'which is a thing you are going to get used to.)</em> Give me a number. '
+        + 'I am not committing to anything. I might ring.',
+      enter: () => { ctx.flags.gaveNumber = true; mission.note('You gave somebody your number, which is not a thing you do.'); },
+      next: 'number',
+    },
+    after: {
+      who: 'Delia',
+      line: 'After two I am asleep, and I do not want to hear the rest of that sentence. '
+        + '<em>(Beat.)</em> …Ask me the other way.',
+      next: 'why',
+    },
+    number: {
+      who: 'Delia',
+      line: '<em>(She writes it on the back of a coaster and puts the coaster in her bag '
+        + 'rather than her pocket, which means she is keeping it.)</em> Go on. He is waiting '
+        + 'for you and everybody in here knows it.',
+      hold: 5.2,
+    },
+    fold: {
+      who: 'Delia',
+      line: 'Honest. Rare. <em>(She turns back to the glass.)</em> Come and find me when '
+        + 'you have thought of one.',
+      hold: 4.2,
+    },
+  };
+
+  return { bouncer, bartender, hallGuard, security, dealer, lou, associate, dj, delia };
 }
 
 /** Things patrons say as you go past. Never repeated back to back. */

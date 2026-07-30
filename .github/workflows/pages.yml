@@ -6,7 +6,8 @@
 #
 # This is the full game, unlike dist/squatch-apartment.html: every voice clip,
 # every track, nothing dropped for a size budget. Both entry points go up:
-# index.html is the flat, bing.html is the club, and they share src/ and
+# index.html is the flat, bing.html is the Bing, silver.html is the Silver
+# Room, and they share src/ and
 # vendor/ so the second one costs a copy of one HTML file.
 name: Pages
 
@@ -50,7 +51,7 @@ jobs:
       - name: Stage the site
         run: |
           mkdir -p _site
-          cp index.html bing.html _site/
+          cp index.html bing.html silver.html _site/
           cp -r src vendor assets _site/
           echo "Staged $(du -sh _site | cut -f1)"
 

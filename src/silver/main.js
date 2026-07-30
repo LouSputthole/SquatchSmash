@@ -1,0 +1,1602 @@
+/**
+ * Front and Center -- entry point.
+ *
+ * Same engine as the flat and the Bing: the first-person controller, the
+ * look-at interaction system, the HUD, the audio engine, the intoxication
+ * model and the non-modal dialogue box all come straight out of src/core and
+ * src/bing. What is new is the building, the woman walking next to you, a
+ * score for how you are behaving, and two moments -- exactly two -- where the
+ * camera is taken off you.
+ *
+ * The rule the Bing was built on still holds everywhere else: you do not lose
+ * control because somebody important started talking. Every conversation in
+ * here can be walked out of, including the one about what you do for a living.
+ */
+import * as THREE from 'three';
+import { AudioEngine } from '../core/audio.js';
+import { Hud } from '../core/hud.js';
+import { InteractionSystem } from '../core/interaction.js';
+import { Player } from '../core/player.js';
+import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
+import { Highs } from '../core/highs.js';
+import { PostFX } from '../core/postfx.js';
+import { Inventory, ITEMS } from '../core/inventory.js';
+import { makeHeldDrinks } from '../world/props.js';
+import { makeMaterials } from '../world/materials.js';
+import { roomEnvironment } from '../world/textures.js';
+
+import { buildRoom, ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H } from './room.js';
+import { populate, makeBand, TIP_POINTS, TIP_TOTAL } from './cast.js';
+import { Date_ } from './date.js';
+import { Woo, EVENTS } from './woo.js';
+import { Mission, ENDINGS } from './mission.js';
+import { Dialogue } from '../bing/dialogue.js';
+import { buildScripts, DELIA, DELIA_BARKS, BARKS, NOTES } from './script.js';
+import { Performance, Sway, SET } from './perform.js';
+import { makeTaxi } from './vehicle.js';
+
+/** Enough to tip everybody and buy dinner, with room to be stupid once. */
+const START_CASH = Math.max(600, TIP_TOTAL + 240);
+const DRINK_TIME = 2.4;
+
+const canvas = document.getElementById('scene');
+const overlay = document.getElementById('overlay');
+const loading = document.getElementById('loading');
+const startBtn = document.getElementById('start-btn');
+const assetStatus = document.getElementById('asset-status');
+const fxDrunk = document.getElementById('fx-drunk');
+
+const ui = {
+  objectives: document.getElementById('objectives'),
+  objectiveList: document.querySelector('#objectives ul'),
+  wallet: document.getElementById('wallet'),
+  cash: document.querySelector('#wallet .cash'),
+  woo: document.getElementById('woo'),
+  wooFill: document.querySelector('#woo .bar i'),
+  wooNum: document.querySelector('#woo .num'),
+  wooNote: document.querySelector('#woo .note'),
+  tips: document.getElementById('tips'),
+  dialogue: {
+    root: document.getElementById('dialogue'),
+    name: document.querySelector('#dialogue .who'),
+    line: document.querySelector('#dialogue .line'),
+    options: document.querySelector('#dialogue .options'),
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/* Renderer                                                            */
+/* ------------------------------------------------------------------ */
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+} catch (err) {
+  window.__squatchFail?.(
+    'This device cannot run the club',
+    'It needs WebGL and the browser would not give us a context. ' + (err?.message || ''),
+  );
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.05, 300);
+scene.add(camera);
+
+{
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const src = roomEnvironment();
+  scene.environment = pmrem.fromEquirectangular(src).texture;
+  scene.environmentIntensity = 0.24;
+  pmrem.dispose();
+  src.dispose();
+}
+
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  postfx.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ------------------------------------------------------------------ */
+/* Systems                                                             */
+/* ------------------------------------------------------------------ */
+
+const audio = new AudioEngine();
+const hud = new Hud();
+const interaction = new InteractionSystem(camera, hud);
+const world = { colliders: [], floorZones: [], groundAt: () => 0 };
+const player = new Player(camera, world);
+/* The building has two levels stacked, so the floor height depends on which
+ * one you are already on. Everything that walks answers for itself. */
+world.groundAt = (x, z) => room?.groundAt(x, z, player.position.y - player.eyeHeight) ?? 0;
+player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
+
+const drunk = new Drunk();
+const highs = new Highs();
+const inventory = new Inventory(4);
+
+const settings = {
+  /** Widens the dance timing window. Honours the same flag the flat uses. */
+  assist: localStorage.getItem('squatch.assist') === '1',
+  reduceShake: localStorage.getItem('squatch.reduceShake') === '1',
+};
+
+const game = {
+  started: false,
+  paused: false,
+  over: false,
+  money: START_CASH,
+  seated: false,
+  heldDrink: null,
+  drinking: 0,
+  elapsed: 0,
+  noted: new Set(),
+  known: new Set(),          // things the player has been told and may recall
+  greeted: new Set(),
+  scene: null,               // the running cutscene, if any
+  round: null,               // which conversation round is up
+  barkAt: 14,
+  lastBark: -1,
+  swayRunning: false,
+  checkpoint: null,
+};
+
+window.__squatchStage?.('Wetting the pavement…');
+const room = buildRoom(scene, { renderer });
+world.colliders = room.colliders;
+world.floorZones = room.floorZones;
+
+window.__squatchStage?.('Opening for the evening…');
+const cast = populate(scene, room);
+const band = makeBand(scene, room);
+const taxi = makeTaxi(scene, room.anchors.dropOff);
+
+/* ------------------------------------------------------------------ */
+/* The score                                                           */
+/* ------------------------------------------------------------------ */
+
+const woo = new Woo({
+  onChange: (score, delta, label) => paintWoo(score, delta, label),
+  onEvent: (id, delta) => {
+    if (delta > 0) audio.play('woo.up', { volume: 0.5 });
+    else if (delta < 0) audio.play('woo.down', { volume: 0.5 });
+    void id;
+  },
+  onStreak: (n) => {
+    audio.play('woo.streak', { volume: 0.6 });
+    hud.toast('EVERYBODY EATS', 'good');
+    hud.say(`<em>Every last one of them. ${n} people, and not one of them said thank you like it was a favour.</em>`, 5200);
+    mission.complete('tips');
+  },
+});
+
+const mission = new Mission({
+  onState: onMissionState,
+  onObjective: paintObjectives,
+  onNote: (text) => hud.say(text, 4600),
+  onImpatient: (key) => date.bark(key, DELIA_BARKS[key]),
+  onCheckpoint: saveCheckpoint,
+});
+
+const dialogue = new Dialogue(ui.dialogue, {
+  onLine: () => performance_.setDucked(true),
+  onEnd: () => {
+    performance_.setDucked(false);
+    game.talkingTo = null;
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/* Her                                                                 */
+/* ------------------------------------------------------------------ */
+
+const date = new Date_(scene, room, {
+  onBark: (line) => hud.say(`<em>${DELIA.name}:</em> ${line}`, 4600),
+  onLeftBehind: () => {
+    const n = mission.leftBehind();
+    woo.fire('Woo.DateLeftBehind');
+    date.bark('behind', DELIA_BARKS.behind);
+    if (n === 3) hud.say('<em>She has stopped hurrying to keep up, which is a decision rather than a speed.</em>', 5000);
+  },
+});
+
+const performance_ = new Performance({
+  audio,
+  room,
+  band,
+  onNumber: (n) => {
+    hud.toast(`♫ ${n.title} — the Midnight Pines`, '');
+    if (n.say) hud.say(`<em>${n.lead}:</em> ${n.say}`, 5000);
+    if (n.theOne) {
+      // Three separate people said the third number was the one.
+      if (game.known.has('third-number')) woo.fire('Woo.CallbackUsed');
+      date.watch(band.leader.group, 4);
+      date.bark('show', DELIA_BARKS.show);
+      offerSway();
+    }
+  },
+  onApplause: () => { if (date.mode === 'seated') date.npc.say(1.2); },
+});
+
+const sway = new Sway();
+
+/* ------------------------------------------------------------------ */
+/* Money, HUD                                                          */
+/* ------------------------------------------------------------------ */
+
+function addMoney(delta) {
+  game.money = Math.max(0, game.money + delta);
+  ui.cash.textContent = `$${game.money.toLocaleString()}`;
+  ui.wallet.classList.remove('hidden');
+  ui.wallet.classList.toggle('down', delta < 0);
+  ui.wallet.classList.add('bump');
+  setTimeout(() => ui.wallet.classList.remove('bump'), 180);
+}
+
+/**
+ * The strip. Compact on purpose: a label, a bar, a number, and a line of text
+ * when something happens. The number is visible because the player has to
+ * understand there is a game being played; everything else about it is small.
+ */
+let wooNoteTimer = null;
+function paintWoo(score, delta, label) {
+  ui.woo.classList.remove('hidden');
+  ui.wooFill.style.width = `${score}%`;
+  ui.wooNum.textContent = String(score);
+  ui.woo.classList.toggle('good', score >= 65);
+  ui.woo.classList.toggle('bad', score < 35);
+  if (delta) {
+    ui.woo.classList.remove('up', 'down');
+    // Reflow, or two hits in a row only animate once.
+    void ui.woo.offsetWidth;
+    ui.woo.classList.add(delta > 0 ? 'up' : 'down');
+  }
+  if (label) {
+    clearTimeout(wooNoteTimer);
+    ui.wooNote.textContent = label;
+    ui.wooNote.classList.remove('hidden');
+    wooNoteTimer = setTimeout(() => ui.wooNote.classList.add('hidden'), 2600);
+  }
+  paintTips();
+}
+
+function paintTips() {
+  const left = woo.tipsLeft;
+  if (woo.tipCount === 0) { ui.tips.classList.add('hidden'); return; }
+  ui.tips.classList.remove('hidden');
+  ui.tips.innerHTML = `<span class="cap">looked after</span><span class="n">${woo.tipCount}</span>`
+    + `<span class="of">of ${woo.tipCount + left}</span>`;
+}
+
+function paintObjectives(list) {
+  ui.objectives.classList.remove('hidden');
+  ui.objectiveList.replaceChildren(...list.map((o) => {
+    const li = document.createElement('li');
+    li.className = `${o.done ? 'done' : ''}${o.optional ? ' optional' : ''}`.trim();
+    li.textContent = o.text;
+    return li;
+  }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Tipping                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Money changes hands.
+ *
+ * Not a menu and not a screen: a hold on the person you are already talking to,
+ * a folded-paper noise, and a line. The Woo event carries the value and fires
+ * once, so there is nothing to farm — a second hold on the same man does
+ * nothing at all except cost you the money, which is why it is refused instead.
+ */
+function tip(id, amount, { generous = false, contextual = false } = {}) {
+  if (woo.has(id)) return false;
+  if (game.money < amount) {
+    hud.say('<em>Not enough on you. Which is its own kind of statement.</em>', 3200);
+    return false;
+  }
+  addMoney(-amount);
+  audio.play('tip.fold', { volume: 0.75 });
+  woo.fire(id);
+  if (generous) woo.fire('Woo.GenerousTip');
+  if (contextual) woo.fire('Woo.ContextualTip');
+  date.bark('tipped', DELIA_BARKS.tipped);
+  const npc = npcForTip(id);
+  if (npc) date.watch(npc.group, 2.2);
+  return true;
+}
+
+function npcForTip(id) {
+  const t = TIP_POINTS.find((x) => x.id === id);
+  return t ? cast.byName[t.who] : null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Script wiring                                                       */
+/* ------------------------------------------------------------------ */
+
+const scripts = buildScripts({
+  mission,
+  flags: mission.flags,
+  woo,
+  fire: (id, amount) => woo.fire(id, amount),
+  tip: (id, amount) => tip(id, amount),
+  money: () => game.money,
+  drunkLevel: () => drunk.level,
+  knows: (id) => game.known.has(id),
+  remember: (id) => game.known.add(id),
+  order: (what) => serveDrink(what),
+  serveTable: () => serveTable(),
+  holdTheRoom: () => holdTheRoom(true),
+  releaseTheRoom: () => holdTheRoom(false),
+  startTableCutscene: () => startTableCutscene(),
+  startSway: () => startSway(),
+  playRequest: () => performance_.request(mission.flags.songRequested),
+  judgeInvitation: () => judgeInvitation(),
+});
+
+/* ------------------------------------------------------------------ */
+/* Drinks                                                              */
+/* ------------------------------------------------------------------ */
+
+const M = makeMaterials();
+const heldDrinks = makeHeldDrinks(M);
+heldDrinks.group.position.set(0.26, -0.30, -0.42);
+camera.add(heldDrinks.group);
+function poseDrink(which, k) {
+  const can = heldDrinks.can;
+  const bottle = heldDrinks.bottle;
+  can.visible = which === 'can';
+  bottle.visible = which === 'bottle';
+  const m = which === 'can' ? can : which === 'bottle' ? bottle : null;
+  if (!m) return;
+  const e = k * k * (3 - 2 * k);
+  m.position.set(-0.10 * e, 0.20 * e, 0.09 * e);
+  m.rotation.set(-1.30 * e, 0, 0.34 * e);
+}
+poseDrink(null, 0);
+
+function serveDrink(what) {
+  const kind = what === 'whiskey' || what === 'rye' ? 'whiskey' : what === 'beer' ? 'beer' : 'soft';
+  audio.play('pour', { volume: 0.5 });
+  if (kind === 'soft') return;
+  if (inventory.full) return;
+  game.heldDrink = kind;
+  inventory.add(kind === 'whiskey' ? 'whiskey' : 'beer');
+  hud.setInventory(inventory, ITEMS);
+}
+
+/** Two drinks land on the table. Hers has one ice cube in it. */
+function serveTable() {
+  audio.play('pour', { volume: 0.45, position: room.anchors.frontTable });
+  audio.play('ice.drop', { volume: 0.4, delay: 0.9, position: room.anchors.frontTable });
+  audio.play('glass.set', { volume: 0.4, delay: 1.2, position: room.anchors.frontTable });
+  frontGlasses(true);
+  if (mission.flags.drinkOrdered === 'rye') {
+    hud.say('<em>One cube. He did not have to be told, and she watches him not be told.</em>', 4600);
+  }
+}
+
+function drinkTick(dt) {
+  if (!game.heldDrink) return;
+  if (!keys.has('KeyF')) {
+    if (game.drinking > 0) { game.drinking = 0; poseDrink(null, 0); }
+    return;
+  }
+  game.drinking += dt;
+  const k = Math.min(1, game.drinking / DRINK_TIME);
+  poseDrink(game.heldDrink === 'whiskey' ? 'bottle' : 'can', k);
+  if (k < 1) return;
+  drunk.drink(game.heldDrink === 'whiskey' ? WHISKEY_UNITS : BEER_UNITS);
+  audio.play('can.sip', { volume: 0.5 });
+  inventory.remove?.(game.heldDrink === 'whiskey' ? 'whiskey' : 'beer');
+  game.heldDrink = null;
+  game.drinking = 0;
+  poseDrink(null, 0);
+  hud.setInventory(inventory, ITEMS);
+  if (drunk.level > 0.55) {
+    hud.say('<em>She notices. She does not say anything, which is not the same as not noticing.</em>', 4200);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Interactables                                                       */
+/* ------------------------------------------------------------------ */
+
+function reg(mesh, desc) {
+  if (!mesh) return null;
+  return interaction.register(mesh, desc);
+}
+
+function registerDoor(key, opts = {}) {
+  const door = room.doors[key];
+  if (!door) return;
+  reg(door.leaf, {
+    label: () => (door.locked ? `${door.label} — locked` : `${door.open ? 'Close' : 'Open'} ${door.label}`),
+    onUse: () => {
+      if (door.locked) {
+        audio.play('door.locked', { volume: 0.55, position: door.pivot.position });
+        hud.say(opts.lockedLine ?? 'Locked. Not tonight.', 3000);
+        return;
+      }
+      const wasOpen = door.open;
+      door.toggle();
+      audio.play(wasOpen ? 'door.knob' : 'door.creak', { volume: 0.5, position: door.pivot.position });
+      /* Holding a door is only worth anything if she is behind you and about
+       * to walk through it. Opening every door in the building is not charm. */
+      if (!wasOpen && date.mode === 'follow') {
+        const gap = date.position.distanceTo(player.position);
+        if (gap < 4.5) woo.fire('Woo.DateDoorHeld');
+      }
+      opts.onToggle?.(door);
+    },
+  });
+}
+
+registerDoor('service', {
+  onToggle: (door) => {
+    if (!door.open) return;
+    mission.flags.sideDoorOpened = true;
+    date.bark('door', DELIA_BARKS.door);
+  },
+});
+registerDoor('kitchenSwing');
+registerDoor('walkin');
+registerDoor('front');
+registerDoor('backstage', { lockedLine: 'Backstage. Not while there is a band behind it.' });
+registerDoor('manager', { lockedLine: 'The manager is not in his office. The manager is never in his office.' });
+registerDoor('rear');
+
+/* ---- people you can talk to, and hand something to ---- */
+
+/**
+ * One target, two actions: tap to greet, hold to take care of them.
+ *
+ * This is the tipping interface. It is deliberately the same button as
+ * everything else in the game with a longer press on it, because the moment it
+ * becomes a menu it becomes an economy, and it is not meant to feel like an
+ * economy. It is meant to feel like a handshake with something in it.
+ */
+function registerPerson(key, tree, { tipId = null, amount = 0, greetOnly = false } = {}) {
+  const npc = cast.byName[key];
+  if (!npc) return;
+  reg(npc.group, {
+    label: () => {
+      const talk = `Talk to <b>${npc.name}</b>`;
+      if (greetOnly || !tipId) return talk;
+      if (woo.has(tipId)) return `${talk} <span class="done">— looked after</span>`;
+      if (game.money < amount) return `${talk} — <span class="cant">$${amount} to look after</span>`;
+      return `${talk} <span class="hold">· hold to take care of him ($${amount})</span>`;
+    },
+    hold: tipId ? 0.55 : undefined,
+    onTap: tipId ? () => greet(npc, tree) : undefined,
+    onUse: () => {
+      if (!tipId) { greet(npc, tree); return; }
+      if (woo.has(tipId)) { hud.say('<em>Once is generous. Twice is a man buying something.</em>', 3200); return; }
+      /* Tipping somebody the instant after they have got you out of trouble
+       * reads differently, and the game notices. */
+      const contextual = performance.now() - (npc.helpedAt ?? -1e9) < 6000;
+      if (tip(tipId, amount, { contextual })) greet(npc, tree, 'took');
+    },
+  });
+}
+
+function greet(npc, tree, at = 'open') {
+  npc.faceToward(player.position.x, player.position.z);
+  game.greeted.add(npc.name);
+  game.talkingTo = npc;
+  if (!tree) return;
+  const node = tree[at] ? at : 'open';
+  dialogue.start(tree, node, npc);
+  // She looks at whoever just said his name.
+  date.watch(npc.group, 3);
+  if (date.mode === 'follow') date.bark('recognised', DELIA_BARKS.recognised);
+}
+
+for (const t of TIP_POINTS) {
+  if (t.who === 'driver') continue;                   // he is in the car
+  if (t.who === 'bandleader') continue;               // he is behind a curtain
+  registerPerson(t.who, scripts[t.script], { tipId: t.id, amount: t.amount });
+}
+/* The bandleader lives in the band rather than in the club's cast, and does
+ * not exist as far as the player is concerned until the curtain goes. */
+cast.byName.bandleader = band.leader;
+registerPerson('bandleader', scripts.bandleader, { tipId: 'Woo.BandleaderTipped', amount: 40 });
+registerPerson('ape', scripts.ape, { greetOnly: true });
+registerPerson('smoker', null, { greetOnly: true });
+
+/* ---- the things in the world ---- */
+
+reg(room.anchors.crateMesh, {
+  label: 'The <b>crate by the wall</b>',
+  onUse: () => {
+    hud.say('Chalk on the lid, in a hand that presses too hard: a name, and under it, '
+      + '<em>NOT FOR THE FLOOR</em>.', 4800);
+    if (cast.byName.cellarman) greet(cast.byName.cellarman, scripts.cellarman, 'who');
+  },
+});
+
+{
+  // The hot pan. The one hazard on the route, and the only one that matters.
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2, 2.6), new THREE.MeshBasicMaterial({ visible: false }));
+  pad.position.set(room.anchors.hotPan.x, 1, room.anchors.hotPan.z);
+  scene.add(pad);
+  reg(pad, {
+    label: () => (woo.has('Woo.HazardGuided') ? 'The <b>line</b>' : 'Put a hand out for <b>her</b>'),
+    onUse: () => {
+      if (woo.fire('Woo.HazardGuided')) {
+        audio.play('kitchen.pan', { volume: 0.5, position: pad.position });
+        date.bark('hazard', DELIA_BARKS.hazard);
+        mission.flags.hazardSeen = true;
+        const cook = cast.byName.hotPan;
+        if (cook) cook.helpedAt = performance.now();
+      }
+    },
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* The table                                                           */
+/* ------------------------------------------------------------------ */
+
+const front = room.frontTable;
+
+function frontGlasses(on) {
+  for (const c of front.group.children) {
+    if (c.name === 'setting') c.visible = on;
+  }
+}
+
+/** Sit down. His chair, her chair, and the club carries on around it. */
+function sitAtTable() {
+  if (game.seated) return;
+  const seat = room.anchors.frontSeats[0];
+  game.seated = true;
+  audio.play('chair.sit', { volume: 0.5 });
+  hud.setMode('seated');
+  hud.setPosture('stand up');
+  player.sitAt({
+    position: new THREE.Vector3(seat.x, 1.24, seat.z),
+    yaw: seat.faceYaw,
+    pitch: -0.06,
+    /* Wide enough to look at her, the stage, and whoever is coming over, and
+     * not so wide that the room stops being in front of you. */
+    yawRange: 1.7,
+    pitchMin: -0.8,
+    pitchMax: 0.45,
+  }, () => {
+    mission.satDown();
+    beginRound('table');
+  });
+}
+
+function standFromTable() {
+  if (!game.seated) return;
+  game.seated = false;
+  hud.setMode('walk');
+  hud.setPosture(null);
+  player.standFrom({ x: player.position.x, z: player.position.z + 0.8 });
+}
+
+{
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+  pad.name = 'his-chair';
+  pad.visible = false;
+  scene.add(pad);
+  reg(pad, {
+    label: () => (game.seated ? 'Stand up' : 'Sit <b>down</b>'),
+    enabled: () => mission.flags.tableBuilt,
+    onUse: () => (game.seated ? standFromTable() : sitAtTable()),
+  });
+
+  const herPad = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
+  herPad.visible = false;
+  scene.add(herPad);
+  reg(herPad, {
+    label: () => (mission.flags.chairPulled ? 'Her <b>chair</b>' : 'Pull out her <b>chair</b>'),
+    enabled: () => mission.flags.tableBuilt && !game.seated && !mission.flags.chairPulled,
+    onUse: () => {
+      mission.flags.chairPulled = true;
+      woo.fire('Woo.ChairPulled');
+      audio.play('chair.pull', { volume: 0.5, position: herPad.position });
+      const seat = room.anchors.frontSeats[1];
+      date.sitAt(seat);
+      hud.say(`<em>${DELIA.name}:</em> Somebody raised you. I want their name.`, 4600);
+    },
+  });
+  game.chairPads = { his: pad, her: herPad };
+}
+
+/* ------------------------------------------------------------------ */
+/* Cutscenes                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A cutscene here is a list of things to do at times, plus a camera that goes
+ * from where the player was standing to somewhere better and back.
+ *
+ * It never fades and it never loads. The room keeps running underneath —
+ * waiters keep walking, the crowd keeps talking, the lamps stay lit — because
+ * the entire point of both of these moments is that they are happening in the
+ * room you are standing in, to you, now.
+ */
+class Cutscene {
+  constructor(beats, { camera: shots = [], onDone } = {}) {
+    this.beats = beats.slice().sort((a, b) => a.at - b.at);
+    this.shots = shots;
+    this.onDone = onDone;
+    this.t = 0;
+    this.next = 0;
+    this.from = { pos: player.position.clone(), yaw: player.yaw, pitch: player.pitch };
+    this.dur = Math.max(...this.beats.map((b) => b.at + (b.hold ?? 3)), 1);
+    player.mode = 'frozen';
+    player.clearKeys();
+    interaction.setPaused(true);
+    date.takeOver();
+    document.body.classList.add('cutscene');
+  }
+
+  update(dt) {
+    this.t += dt;
+
+    while (this.next < this.beats.length && this.t >= this.beats[this.next].at) {
+      const b = this.beats[this.next++];
+      if (b.line) {
+        ui.dialogue.root.classList.remove('hidden');
+        ui.dialogue.name.textContent = (b.who || '').toUpperCase();
+        ui.dialogue.line.innerHTML = b.line;
+        ui.dialogue.options.classList.add('hidden');
+      }
+      b.run?.();
+    }
+
+    /* The camera: a slow move between authored points, eased. Slow because a
+     * fast one in a room this dark reads as a cut, and there are no cuts. */
+    if (this.shots.length) {
+      let shot = this.shots[0];
+      for (const s of this.shots) if (this.t >= s.at) shot = s;
+      const k = Math.min(1, (this.t - shot.at) / (shot.dur ?? 4));
+      const e = k * k * (3 - 2 * k);
+      const fromPos = shot.from ?? this.from.pos;
+      player.position.lerpVectors(fromPos, shot.to, e);
+      if (shot.look) {
+        const dx = shot.look.x - player.position.x;
+        const dz = shot.look.z - player.position.z;
+        const want = Math.atan2(-dx, -dz);
+        const d = Math.atan2(Math.sin(want - player.yaw), Math.cos(want - player.yaw));
+        player.yaw += d * Math.min(1, dt * 2.4);
+        const dy = (shot.look.y ?? 1.2) - player.position.y;
+        const wantPitch = Math.atan2(dy, Math.hypot(dx, dz));
+        player.pitch += (wantPitch - player.pitch) * Math.min(1, dt * 2.4);
+      }
+    }
+
+    if (this.t >= this.dur) this.finish();
+  }
+
+  finish() {
+    if (this._done) return;
+    this._done = true;
+    ui.dialogue.root.classList.add('hidden');
+    player.mode = 'walk';
+    interaction.setPaused(false);
+    date.release();
+    document.body.classList.remove('cutscene');
+    game.scene = null;
+    this.onDone?.();
+  }
+}
+
+/* ---- one: the table ---- */
+
+let tableCutsceneStarted = false;
+function startTableCutscene() {
+  if (tableCutsceneStarted) return;
+  /* Only where it can happen. The host's own script fires this, and his tip
+   * node can be reached from anywhere the player can reach him -- which, if
+   * he ever ends up on the floor mid-service, would otherwise build a table
+   * around somebody standing in the kitchen. */
+  if (mission.state !== 'host') return;
+  tableCutsceneStarted = true;
+  mission.tableCutscene();
+
+  const A = room.anchors;
+  const target = A.frontTable;
+  const movers = [cast.byName.mover1, cast.byName.mover2].filter(Boolean);
+  const manager = cast.byName.manager;
+  const waiter = cast.byName.waiter;
+
+  // Park the two of them where the host station can see them
+  player.position.set(A.hostMark.x, 1.66, A.hostMark.z);
+  date.group.position.set(A.hostMark.x - 1.1, 0, A.hostMark.z - 0.3);
+  date.npc.faceToward(A.host.x, A.host.z, true);
+
+  for (const m of movers) { m.route = null; m.job = 'stand'; }
+
+  const beats = [
+    ...scripts.scenes.table.map((b) => ({ ...b })),
+    {
+      at: 9.2,
+      run: () => {
+        // The manager says four words and the room starts moving.
+        manager?.faceToward(A.tableStaging.x, A.tableStaging.z);
+        for (const m of movers) m.faceToward(target.x, target.z);
+        audio.play('table.set', { volume: 0.4, position: A.tableStaging });
+      },
+    },
+    {
+      at: 10.5,
+      run: () => {
+        /* The real table. Not a stand-in: this object is the one that is still
+         * here in twenty minutes with her drink on it. */
+        front.group.visible = true;
+        front.group.position.set(A.tableStaging.x, 0, A.tableStaging.z);
+      },
+    },
+    {
+      at: 15.4,
+      run: () => {
+        front.group.position.set(target.x, 0, target.z);
+        audio.play('table.set', { volume: 0.6, position: target });
+        for (const m of movers) {
+          m.group.position.set(target.x + (Math.random() - 0.5) * 2, 0, target.z + 1.2);
+          m.faceToward(target.x, target.z, true);
+        }
+      },
+    },
+    {
+      at: 16.6,
+      run: () => {
+        // Chairs
+        const seats = A.frontSeats;
+        front.chairs.forEach((c, i) => {
+          c.visible = true;
+          c.position.set(seats[i].x, 0, seats[i].z);
+          c.rotation.y = seats[i].yaw;
+        });
+        audio.play('chair.pull', { volume: 0.5, position: target });
+      },
+    },
+    {
+      at: 17.8,
+      run: () => {
+        // Cloth
+        for (const c of front.group.children) {
+          if (c.geometry?.type === 'CylinderGeometry' && c.scale.y > 0.4) c.visible = true;
+        }
+        front.group.children.forEach((c) => { if (c.name !== 'setting') c.visible = true; });
+        audio.play('cloth.snap', { volume: 0.7, position: target });
+        waiter?.faceToward(target.x, target.z);
+      },
+    },
+    {
+      at: 19.2,
+      run: () => {
+        frontGlasses(true);
+        // The lamp comes on last, which is what makes it a table
+        const lampG = front.group.children.find((c) => c.name === 'front-lamp');
+        if (lampG) lampG.visible = true;
+        const l = front.group.children.find((c) => c.isPointLight);
+        if (l) l.intensity = 0.85 * 7;
+        audio.play('cutlery.set', { volume: 0.5, position: target });
+        audio.play('glass.set', { volume: 0.4, delay: 0.3, position: target });
+      },
+    },
+    {
+      at: 21.5,
+      run: () => {
+        // The room notices. Six of them, not all of them; a whole room turning
+        // would be a musical number.
+        let turned = 0;
+        for (const npc of cast.all) {
+          if (turned >= 6) break;
+          if (npc.job !== 'sit' && npc.job !== 'drink') continue;
+          if (npc.group.position.distanceTo(target) > 12) continue;
+          npc.faceToward(target.x, target.z);
+          turned++;
+        }
+      },
+    },
+  ];
+
+  game.scene = new Cutscene(beats, {
+    camera: [
+      { at: 0, to: new THREE.Vector3(A.hostMark.x, 1.66, A.hostMark.z + 0.4), look: A.host, dur: 2.5 },
+      { at: 8.5, to: new THREE.Vector3(A.hostMark.x - 1.5, 1.7, A.hostMark.z - 1), look: { x: target.x, y: 1.1, z: target.z }, dur: 5 },
+      { at: 15, to: new THREE.Vector3(A.hostMark.x - 3, 1.68, A.hostMark.z - 3), look: { x: target.x, y: 0.9, z: target.z }, dur: 6 },
+      { at: 22, to: new THREE.Vector3(-6, 1.66, -1.5), look: { x: target.x, y: 1.0, z: target.z }, dur: 3 },
+    ],
+    onDone: () => {
+      mission.tableBuilt();
+      game.chairPads.his.position.set(A.frontSeats[0].x, 0.7, A.frontSeats[0].z);
+      game.chairPads.her.position.set(A.frontSeats[1].x, 0.7, A.frontSeats[1].z);
+      date.release();
+      date.follow();
+      hud.say('<em>She has not said anything for eleven seconds, which for her is a review.</em>', 5000);
+      hud.setPosture(null);
+      for (const m of movers) {
+        m.job = 'patrol';
+        m.route = [{ x: -9.5, z: 0.5 }, { x: -4, z: 4 }, { x: -12, z: 2 }];
+      }
+    },
+  });
+}
+
+/* ---- the champagne ---- */
+
+let champagneSent = false;
+function sendChampagne() {
+  if (champagneSent || !game.seated) return;
+  champagneSent = true;
+  mission.flags.champagneSent = true;
+  const target = room.anchors.frontTable;
+  const waiter = comesToTable(cast.byName.waiter, { x: 1.2, z: 1.4 });
+  audio.play('cork.pop', { volume: 0.55, position: target });
+
+  game.scene = new Cutscene(scripts.scenes.champagne.map((b) => ({ ...b })), {
+    camera: [
+      { at: 0, to: player.position.clone(), look: { x: target.x + 1.2, y: 1.4, z: target.z + 1.4 }, dur: 1.5 },
+      { at: 5.5, to: player.position.clone(), look: { x: cast.crewTable.x, y: 1.3, z: cast.crewTable.z }, dur: 3 },
+    ],
+    onDone: () => {
+      // Control comes back sitting down, which is where it was.
+      player.mode = 'seated';
+      goesBack(waiter);
+      mission.addObjective('thanks', 'Acknowledge the table by the pillar', { optional: true });
+      hud.say('<em>[E] toward the pillar to raise a glass at them.</em>', 4600);
+    },
+  });
+}
+
+/* ---- two: the band ---- */
+
+let showStarted = false;
+function startShowCutscene() {
+  if (showStarted) return;
+  showStarted = true;
+  mission.showCutscene();
+  const A = room.anchors;
+
+  room.setHouse(0.28, 0);
+  audio.setLoopVolume('ambience.diners', 0.1, 2.2);
+
+  const beats = [
+    ...scripts.scenes.show.map((b) => ({ ...b })),
+    { at: 0.2, run: () => audio.play('light.dip', { volume: 0.5 }) },
+    { at: 4.8, run: () => audio.play('mic.handle', { volume: 0.4, position: A.stageCentre }) },
+    {
+      at: 8.2,
+      run: () => {
+        room.setHouse(0.28, 1);
+        audio.play('stage.clunk', { volume: 0.55, position: A.stageCentre });
+        performance_.begin();
+      },
+    },
+    { at: 10.5, run: () => { performance_.applaud(1.1); date.npc.faceToward(A.stageCentre.x, A.stageCentre.z); } },
+  ];
+
+  const seat = A.frontSeats[0];
+  game.scene = new Cutscene(beats, {
+    camera: [
+      { at: 0, from: player.position.clone(), to: new THREE.Vector3(seat.x, 1.24, seat.z), look: { x: A.stageCentre.x, y: 1.6, z: A.stageCentre.z }, dur: 3 },
+      { at: 11.5, to: new THREE.Vector3(seat.x, 1.24, seat.z), look: { x: A.frontSeats[1].x, y: 1.3, z: A.frontSeats[1].z }, dur: 2 },
+    ],
+    onDone: () => {
+      player.mode = 'seated';
+      player.yawCenter = seat.faceYaw;
+      player.yawRange = 1.9;
+      mission.showStarted();
+      audio.setLoopVolume('ambience.diners', 0.16, 2);
+    },
+  });
+}
+
+/**
+ * The room going quiet for a second and a half.
+ *
+ * Used once, for "Funny how?". Nothing else in the mission does this, which is
+ * the only reason it works.
+ */
+function holdTheRoom(on) {
+  audio.setLoopVolume('ambience.diners', on ? 0.02 : 0.16, on ? 0.25 : 1.2);
+  performance_.setDucked(on);
+  for (const key of ['ape', 'bing-bouncer', 'waiter']) {
+    const npc = cast.byName[key];
+    if (npc && on) npc.faceToward(player.position.x, player.position.z);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Conversation rounds                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The seated conversation is not one tree. It is six of them, opened by
+ * different things: sitting down, a waiter arriving, a man coming over from
+ * another table, the band. That is the difference between a conversation and a
+ * dialogue menu.
+ */
+function beginRound(id) {
+  if (mission.roundsDone.has(id) || game.round === id) return;
+  game.round = id;
+  const at = {
+    table: 'table',
+    entrance: 'round1',
+    work: 'round2',
+    funny: 'funny',
+    personal: 'personal',
+  }[id];
+  if (!at) return;
+  dialogue.start(scripts.seated, at, date.npc);
+  date.watch(null, 0);
+}
+
+const ROUND_QUEUE = [
+  { id: 'table', after: 0 },
+  { id: 'entrance', after: 6 },
+  { id: 'work', after: 26 },
+  { id: 'drinks', after: 48, run: () => waiterComesOver() },
+  { id: 'family', after: 96, run: () => apeComesOver() },
+  { id: 'funny', after: 150 },
+  { id: 'personal', after: 186 },
+  { id: 'show', after: 240, run: () => startShowCutscene() },
+];
+
+let queueAt = 0;
+let seatedFor = 0;
+function runSeatedQueue(dt) {
+  if (!game.seated || game.scene) return;
+  seatedFor += dt;
+  // The champagne arrives on its own clock, between the drinks and the family
+  if (seatedFor > 74 && !champagneSent && !dialogue.active) sendChampagne();
+
+  const next = ROUND_QUEUE[queueAt];
+  if (!next || seatedFor < next.after) return;
+  if (dialogue.active) return;
+  queueAt++;
+  if (next.run) next.run();
+  else beginRound(next.id);
+}
+
+/**
+ * Bring somebody to the table.
+ *
+ * Conversations lapse at six and a half metres — that is the rule that makes
+ * every conversation in this game walk-out-able, and it is a good rule. It
+ * also means a waiter cannot take an order from the far side of the dining
+ * room, which is exactly what was happening: the round opened, the range check
+ * ended it on the same frame, and the queue sat there waiting for a
+ * conversation that had already finished.
+ *
+ * So anybody whose job is to arrive at your table arrives at it.
+ */
+function comesToTable(npc, offset = { x: 1.3, z: 0.9 }) {
+  if (!npc) return null;
+  const t = room.anchors.frontTable;
+  npc.__wasPatrolling = npc.route;
+  npc.route = null;
+  npc.job = 'stand';
+  npc.stand?.();
+  npc.group.position.set(t.x + offset.x, 0, t.z + offset.z);
+  npc.faceToward(player.position.x, player.position.z, true);
+  return npc;
+}
+
+function goesBack(npc) {
+  if (!npc) return;
+  if (npc.__wasPatrolling) {
+    npc.route = npc.__wasPatrolling;
+    npc.job = 'patrol';
+    npc.__wasPatrolling = null;
+  }
+}
+
+function waiterComesOver(at = 'open') {
+  const w = comesToTable(cast.byName.waiter, { x: 1.1, z: 1.0 });
+  if (!w) return;
+  greet(w, scripts.waiter, at);
+}
+
+function apeComesOver() {
+  const ape = cast.byName.ape;
+  if (!ape) return;
+  const target = room.anchors.frontTable;
+  ape.stand();
+  ape.job = 'stand';
+  ape.group.position.set(target.x + 1.3, 0, target.z + 0.9);
+  ape.faceToward(player.position.x, player.position.z, true);
+  dialogue.start(scripts.ape, 'open', ape);
+  date.watch(ape.group, 5);
+}
+
+/* Ape goes back to his own table when the conversation ends. */
+dialogue.hooks.onEnd = (reason) => {
+  performance_.setDucked(false);
+  const who = game.talkingTo;
+  game.talkingTo = null;
+  if (who === cast.byName.waiter) goesBack(who);
+  if (who === cast.byName.ape && who.homeSeat) {
+    who.group.position.set(who.homeSeat.x, 0, who.homeSeat.z);
+    who.group.rotation.y = who.homeSeat.yaw;
+    who.job = 'sit';
+    who.sit();
+  }
+  if (reason === 'walked-away' && date.mode === 'seated') woo.fire('Woo.QuestionIgnored');
+};
+
+/* ------------------------------------------------------------------ */
+/* The sway, the invitation, the endings                               */
+/* ------------------------------------------------------------------ */
+
+function offerSway() {
+  if (mission.flags.swayed || !game.seated) return;
+  mission.addObjective('sway', 'Get up, if you are getting up', { optional: true });
+  setTimeout(() => {
+    if (dialogue.active || game.scene || mission.flags.swayed) return;
+    dialogue.start(scripts.sway, 'open', date.npc);
+  }, 4000);
+}
+
+function startSway() {
+  if (game.swayRunning) return;
+  game.swayRunning = true;
+  mission.setState('sway');
+  standFromTable();
+  const spot = { x: room.anchors.frontTable.x + 1.8, z: room.anchors.frontTable.z - 0.6 };
+  setTimeout(() => {
+    date.standFrom(spot);
+    date.hold();
+    sway.start(settings.assist);
+    hud.say('<em>Four bars. Hit [E] on the beat and try to look like you meant it.</em>', 4600);
+  }, 900);
+}
+
+function finishSway() {
+  game.swayRunning = false;
+  const result = sway.result;
+  mission.flags.swayed = result;
+  hud.setTiming(null);
+  if (result === 'good') woo.fire('Woo.SwayCompleted');
+  dialogue.start(scripts.sway, result === 'good' ? 'good' : 'bad', date.npc);
+  setTimeout(() => {
+    date.sitAt(room.anchors.frontSeats[1]);
+    sitAtTable();
+    mission.setState('performance');
+  }, 3200);
+}
+
+function offerInvitation() {
+  if (!mission.invitationReady) return false;
+  if (!mission.offerInvitation()) return false;
+  mission.addObjective('ask', 'Decide how the night ends');
+  dialogue.start(scripts.invitation, 'open', date.npc);
+  return true;
+}
+
+function judgeInvitation() {
+  const outcome = mission.resolve(woo.score, woo.band.key);
+  if (outcome === 'perfect' || outcome === 'strong') woo.fire('Woo.InvitationTiming');
+  if (mission.inState < 20 && outcome !== 'none') woo.fire('Woo.InvitationRushed');
+  mission.finish(outcome);
+  setTimeout(() => dialogue.start(scripts.invitation, outcome, date.npc), 500);
+  setTimeout(() => finish(outcome), 8000);
+}
+
+function finish(outcome) {
+  if (game.over) return;
+  game.over = true;
+  mission.done();
+  const e = ENDINGS[outcome] ?? ENDINGS.awkward;
+  const saved = mission.persist(woo);
+  try {
+    localStorage.setItem('squatch.frontAndCenter', JSON.stringify(saved));
+  } catch { /* private browsing; the ending card still works */ }
+
+  performance_.finish();
+  overlay.classList.remove('hidden');
+  overlay.classList.add('ending');
+  overlay.querySelector('h1').innerHTML = 'FRONT AND<span>CENTER</span>';
+  overlay.querySelector('.tag').textContent = e.title;
+
+  const extras = [
+    `<b>Woo:</b> ${woo.score} — ${woo.band.name}.`,
+    `<b>Looked after:</b> ${woo.tipCount} of ${woo.tipCount + woo.tipsLeft}${woo.streakClosed ? ' — everybody eats.' : '.'}`,
+  ];
+  if (saved.rememberedDrink) extras.push('You remembered the ice cube.');
+  if (saved.funnyHow) extras.push('You made a room go quiet for a second and a half.');
+  if (saved.swayed === 'good') extras.push('And you can, very slightly, dance.');
+  if (saved.seeingHerAgain) extras.push('<b>She will pick up if you ring the station.</b>');
+  assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
+  startBtn.textContent = 'Again';
+  startBtn.onclick = () => location.reload();
+  document.exitPointerLock?.();
+}
+
+/* ------------------------------------------------------------------ */
+/* Checkpoints                                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Enough to put the evening back where it was, and — the part that matters —
+ * the Woo ledger, so reloading cannot pay a tip twice.
+ */
+function saveCheckpoint(state) {
+  game.checkpoint = {
+    state,
+    player: { x: player.position.x, z: player.position.z, yaw: player.yaw },
+    date: { x: date.position.x, z: date.position.z, mode: date.mode },
+    money: game.money,
+    woo: woo.snapshot(),
+    flags: { ...mission.flags },
+    known: [...game.known],
+    queueAt,
+    seatedFor,
+    tableBuilt: mission.flags.tableBuilt,
+  };
+  try {
+    localStorage.setItem('squatch.fac.checkpoint', JSON.stringify(game.checkpoint));
+  } catch { /* nothing to do about it */ }
+}
+
+function restoreCheckpoint(cp = game.checkpoint) {
+  if (!cp) return false;
+  woo.restore(cp.woo);          // the ledger, so nothing pays out twice
+  game.money = cp.money;
+  addMoney(0);
+  Object.assign(mission.flags, cp.flags);
+  game.known = new Set(cp.known);
+  queueAt = cp.queueAt;
+  seatedFor = cp.seatedFor;
+  player.mode = 'walk';
+  player.position.set(cp.player.x, 1.66, cp.player.z);
+  player.yaw = cp.player.yaw;
+  date.group.position.set(cp.date.x, room.groundAt(cp.date.x, cp.date.z), cp.date.z);
+  date.mode = cp.date.mode === 'seated' ? 'seated' : 'follow';
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mission state                                                       */
+/* ------------------------------------------------------------------ */
+
+function onMissionState(state) {
+  if (state === 'arrived') {
+    date.follow();
+    hud.say('<em>She is out of the car and looking at the front door, which has a queue on it.</em>', 5000);
+    setTimeout(() => {
+      if (!dialogue.active) dialogue.start(scripts.arrival, 'open', date.npc);
+    }, 3000);
+  }
+  if (state === 'host') {
+    mission.addObjective('tips', 'Take care of everybody', { optional: true });
+  }
+  if (state === 'ending') hud.setPosture(null);
+}
+
+/* ------------------------------------------------------------------ */
+/* Zones                                                               */
+/* ------------------------------------------------------------------ */
+
+let where = 'street';
+let zone = 'exterior';
+
+function updateZones() {
+  const p = player.position;
+  const next = roomAt(p.x, p.z, p.y - 1.6);
+  const nextZone = zoneAt(next);
+
+  /* Five beds, crossfaded on where he is standing. The club leaks backwards
+   * through the building at exactly the rate the route walks forwards, which
+   * is the whole trick of the entrance: the glamour arrives before you do. */
+  const mix = {
+    exterior: { alley: 0.5, cellar: 0.0, kitchen: 0.02, diners: 0.03, band: 0.05 },
+    cellar: { alley: 0.06, cellar: 0.4, kitchen: 0.1, diners: 0.03, band: 0.06 },
+    kitchen: { alley: 0.02, cellar: 0.08, kitchen: 0.42, diners: 0.06, band: 0.12 },
+    corridor: { alley: 0.0, cellar: 0.02, kitchen: 0.16, diners: 0.2, band: 0.34 },
+    club: { alley: 0.0, cellar: 0.0, kitchen: 0.03, diners: 0.34, band: 0.85 },
+  }[nextZone] ?? { alley: 0.2, cellar: 0, kitchen: 0, diners: 0.1, band: 0.1 };
+
+  audio.setLoopVolume('ambience.alley', mix.alley, 1.1);
+  audio.setLoopVolume('ambience.cellar', mix.cellar, 1.1);
+  audio.setLoopVolume('ambience.kitchen', mix.kitchen, 1.1);
+  audio.setLoopVolume('ambience.diners', mix.diners, 1.1);
+  for (const s of ['rhythm', 'horns', 'piano', 'vocal']) {
+    const n = performance_.current;
+    if (n) audio.setLoopVolume(`band.${s}`, n.stems[s] * mix.band, 1.1);
+  }
+  // Behind a closed door, everything gets a blanket over it
+  audio.setMuffle(nextZone === 'cellar' || nextZone === 'kitchen', 900);
+
+  if (next === where) return;
+  /* The headless driver watches this: a route that silently resolves to the
+   * wrong room is the single hardest thing to see from inside the game. */
+  window.__roomLog?.push(`${next}@${player.position.y.toFixed(2)}:${mission.state}`);
+  where = next;
+  zone = nextZone;
+  onRoomChange(next);
+}
+
+function onRoomChange(next) {
+  const key = { street: 'street', alley: 'alley', stair: 'alley', cellar: 'cellar',
+    drystore: 'cellar', walkin: 'cellar', prep: 'kitchen', kitchen: 'kitchen',
+    dish: 'kitchen', corridor: 'corridor', floor: 'floor', lobby: 'floor' }[next];
+  const notes = NOTES[key];
+  if (notes && !game.noted.has(key)) {
+    game.noted.add(key);
+    hud.say(notes[(Math.random() * notes.length) | 0], 4800);
+  }
+  if (key && DELIA_BARKS[key] && date.mode === 'follow') {
+    setTimeout(() => date.bark(key, DELIA_BARKS[key]), 1400);
+  }
+
+  if (next === 'alley' && mission.state === 'arrived') mission.intoAlley();
+  if ((next === 'cellar' || next === 'stair') && mission.state === 'service-route') mission.intoCellar();
+  if ((next === 'kitchen' || next === 'prep') && ['service-route', 'cellar'].includes(mission.state)) mission.intoKitchen();
+  if (next === 'corridor' && ['cellar', 'kitchen'].includes(mission.state)) mission.intoCorridor();
+  if (next === 'floor' && ['corridor', 'kitchen'].includes(mission.state)) {
+    mission.atHostStation();
+    date.bark('floor', DELIA_BARKS.floor);
+  }
+}
+
+/* The host station triggers the first cutscene by being walked up to, so a
+ * player who ignores the host entirely still gets the scene. */
+function checkHostStation() {
+  if (mission.state !== 'host' || tableCutsceneStarted || game.scene) return;
+  const d = player.position.distanceTo(room.anchors.hostStation);
+  if (d < 2.6) startTableCutscene();
+}
+
+/* What the building sounds like when nobody is talking to you. */
+function barks(dt) {
+  game.barkAt -= dt;
+  if (game.barkAt > 0 || dialogue.active || game.scene) return;
+  game.barkAt = 11 + Math.random() * 12;
+  const key = { street: null, alley: 'alley', stair: 'alley', cellar: 'cellar',
+    drystore: 'cellar', walkin: 'cellar', prep: 'kitchen', kitchen: 'kitchen',
+    dish: 'kitchen', corridor: 'corridor', floor: 'floor', lobby: 'floor' }[where];
+  const list = BARKS[key];
+  if (!list) return;
+  let i = (Math.random() * list.length) | 0;
+  if (i === game.lastBark) i = (i + 1) % list.length;
+  game.lastBark = i;
+  const [who, line] = list[i];
+  hud.say(`<em>${who}:</em> ${line}`, 4200);
+  if (key === 'kitchen') audio.play(Math.random() < 0.5 ? 'kitchen.plate' : 'kitchen.pan', { volume: 0.3 });
+}
+
+/* ------------------------------------------------------------------ */
+/* Input                                                               */
+/* ------------------------------------------------------------------ */
+
+const keys = new Set();
+let dragLook = false;
+let dragging = false;
+
+function enableInput() {
+  player.enabled = true;
+  document.body.classList.remove('unlocked');
+}
+
+function requestLock() {
+  if (dragLook) { enableInput(); return; }
+  const p = canvas.requestPointerLock?.();
+  if (p && p.catch) p.catch(() => fallBackToDragLook());
+  setTimeout(() => {
+    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
+  }, 600);
+}
+
+function fallBackToDragLook() {
+  if (dragLook) return;
+  dragLook = true;
+  enableInput();
+  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
+}
+
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === canvas;
+  player.enabled = locked || dragLook;
+  document.body.classList.toggle('unlocked', !locked && !dragLook);
+  if (!locked && !dragLook) player.clearKeys();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (dragLook && !dragging) return;
+  if (!dragLook && document.pointerLockElement !== canvas) return;
+  player.handleMouseMove(e.movementX, e.movementY);
+});
+
+canvas.addEventListener('mousedown', (e) => {
+  if (game.paused) return;
+  if (dragLook) dragging = true;
+  if (e.button === 0) pressInteract();
+});
+window.addEventListener('mouseup', (e) => {
+  dragging = false;
+  if (e.button === 0) interaction.release();
+});
+
+function pressInteract() {
+  if (sway.active) { swayPress(); return; }
+  interaction.press();
+}
+
+function swayPress() {
+  sway.press();
+  audio.play(sway._flash === 'hit' ? 'woo.up' : 'woo.down', { volume: 0.4 });
+  if (!sway.active) finishSway();
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+  keys.add(e.code);
+  player.setKey(e.code, true);
+
+  if (e.code === 'KeyE') pressInteract();
+  if (e.code === 'KeyQ') {
+    if (game.seated && !sway.active) standFromTable();
+  }
+  if (e.code === 'KeyR' && mission.invitationReady && !dialogue.active && game.seated) {
+    offerInvitation();
+  }
+  if (/^Digit[1-7]$/.test(e.code)) {
+    const n = Number(e.code.slice(-1)) - 1;
+    if (dialogue.active && dialogue.options.length) dialogue.choose(n);
+  }
+  if (e.code === 'Escape') document.exitPointerLock?.();
+  if (e.code === 'Tab') {
+    e.preventDefault();
+    ui.objectives.classList.toggle('hidden');
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  keys.delete(e.code);
+  player.setKey(e.code, false);
+  if (e.code === 'KeyE') interaction.release();
+});
+window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
+
+canvas.addEventListener('click', () => {
+  if (!game.started || game.paused) return;
+  if (document.pointerLockElement !== canvas && !dragLook) requestLock();
+});
+
+/* ------------------------------------------------------------------ */
+/* Arrival                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Three to eight seconds, and then it is yours.
+ *
+ * The brief on this was blunt and correct: the arrival is not the mission. The
+ * car stops, two doors open, and the player is standing on a wet pavement with
+ * a woman next to him before he has finished reading the sign.
+ */
+function arrive() {
+  const A = room.anchors;
+  player.mode = 'frozen';
+  player.position.set(A.dropOff.x, 1.3, A.dropOff.z + 2.4);
+  player.yaw = Math.PI;
+  player.pitch = -0.05;
+  date.takeOver();
+  date.group.position.set(A.dropOff.x - 1.2, 0, A.dropOff.z + 2.4);
+
+  audio.play('car.door', { volume: 0.55, delay: 2.2 });
+  audio.play('car.door', { volume: 0.5, delay: 3.0 });
+
+  let t = 0;
+  game.drive = (dt) => {
+    t += dt;
+    const k = Math.min(1, t / 2.2);
+    const e = k * k * (3 - 2 * k);
+    taxi.group.position.z = (A.dropOff.z + 14) + (A.dropOff.z - (A.dropOff.z + 14)) * e;
+    player.position.z = taxi.group.position.z + 0.4;
+    date.group.position.z = taxi.group.position.z + 0.2;
+    if (t > 3.2) {
+      player.position.set(A.dropOff.x, 1.66, A.dropOff.z);
+      date.group.position.set(A.dropOff.x - 1.3, 0, A.dropOff.z - 0.4);
+      date.release();
+      player.mode = 'walk';
+      game.drive = null;
+      mission.outOfCar();
+      registerDriver();
+    }
+  };
+}
+
+function registerDriver() {
+  reg(taxi.window, {
+    label: () => (woo.has('Woo.DriverTipped')
+      ? 'Wave <b>Booski</b> off'
+      : 'Talk to <b>Booski</b> <span class="hold">· hold to take care of him ($40)</span>'),
+    hold: 0.55,
+    onTap: () => {
+      taxi.driver.faceToward(player.position.x, player.position.z);
+      game.talkingTo = taxi.driver;
+      dialogue.start(scripts.driver, 'open', taxi.driver);
+    },
+    onUse: () => {
+      if (tip('Woo.DriverTipped', 40)) {
+        mission.flags.driverTipped = true;
+        game.talkingTo = taxi.driver;
+        dialogue.start(scripts.driver, 'tipped', taxi.driver);
+      }
+    },
+  });
+  // He waits a while, and then he has a match at four.
+  setTimeout(() => { taxi.leave(); }, 45000);
+}
+
+/* ------------------------------------------------------------------ */
+/* Boot                                                                */
+/* ------------------------------------------------------------------ */
+
+startBtn.addEventListener('click', async () => {
+  if (game.over) return;
+  await audio.init();
+  const sfx = await audio.loadManifest();
+  console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
+
+  overlay.classList.add('hidden');
+  document.body.classList.add('playing');
+  requestLock();
+
+  if (!game.started) {
+    game.started = true;
+    for (const bed of ['alley', 'cellar', 'kitchen', 'diners']) {
+      audio.startLoop(`ambience.${bed}`, { volume: 0, ambience: true, fade: 1.5 });
+    }
+    audio.setLoopVolume('ambience.alley', 0.5, 1.5);
+    room.setHouse(1, 0, true);
+    addMoney(0);
+    paintWoo(woo.score, 0, null);
+    paintObjectives(mission.objectives);
+    arrive();
+    hud.say('<em>As far back as you can remember, you have wanted to be the man who does not '
+      + 'stand in that queue.</em>', 6400);
+  }
+  game.paused = false;
+});
+
+/* ------------------------------------------------------------------ */
+/* Loop                                                                */
+/* ------------------------------------------------------------------ */
+
+const clock = new THREE.Clock();
+
+function frame() {
+  requestAnimationFrame(frame);
+  const raw = Math.min(clock.getDelta(), 0.05);
+  if (!game.started || game.paused) { renderer.render(scene, camera); return; }
+  const dt = raw * highs.timeScale;
+  game.elapsed += raw;
+
+  drunk.update(raw);
+  highs.update(raw);
+  player.sway.yaw = drunk.sway.yaw + highs.sway.yaw;
+  player.sway.pitch = drunk.sway.pitch + highs.sway.pitch;
+  player.sway.roll = drunk.sway.roll + highs.sway.roll;
+  player.impair = drunk.swayStrength * (settings.reduceShake ? 0.3 : 0.8);
+  player.moveScale = highs.moveScale;
+  fxDrunk.style.setProperty('--blur', `${drunk.blur.toFixed(2)}px`);
+  fxDrunk.style.setProperty('--vig', drunk.vignette.toFixed(3));
+  fxDrunk.style.setProperty('--warm', drunk.warmth.toFixed(3));
+
+  player.update(dt);
+  if (game.drive) game.drive(raw);
+  if (game.scene) game.scene.update(raw);
+  else interaction.update(dt);
+
+  room.update(dt, player.position);
+  dialogue.update(dt, player.position);
+  date.update(dt, player.position, player.yaw);
+  performance_.update(dt);
+  taxi.update?.(dt);
+  mission.update(raw, { trailing: date.isTrailing });
+  drinkTick(raw);
+  updateZones();
+  checkHostStation();
+  barks(raw);
+  runSeatedQueue(raw);
+
+  if (sway.active) { sway.update(raw); hud.setTiming(sway.view); }
+  else if (game.swayRunning && !sway.active) finishSway();
+
+  /* Crowd: the near half every frame, the far half on the Npc class's own
+   * stagger. Beyond twenty metres in a dark room, nobody has ever noticed. */
+  const p = player.position;
+  for (const npc of cast.all) {
+    const d = Math.abs(npc.group.position.x - p.x) + Math.abs(npc.group.position.z - p.z);
+    if (d > 26) continue;
+    npc.update(dt, p);
+  }
+  for (const m of band.members) if (m.group.visible) m.update(dt, p);
+
+  audio.updateListener(camera);
+
+  const mins = 12 + Math.floor(game.elapsed / 14);
+  const hour = 9 + Math.floor(mins / 60);
+  hud.setClock(2, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} PM`, game.elapsed);
+
+  postfx.render(dt);
+}
+
+/* ------------------------------------------------------------------ */
+
+assetStatus.innerHTML = 'Everything in here is drawn and synthesised at load time — '
+  + 'no models, no textures, no audio files.';
+loading.classList.add('hidden');
+
+window.__silver = {
+  THREE, scene, camera, renderer, postfx, player, room, cast, band, date, taxi,
+  mission, woo, dialogue, hud, audio, game, interaction, drunk, inventory,
+  scripts, performance: performance_, sway, settings, ROOMS, SET, EVENTS, ENDINGS,
+  /* The pieces the headless driver has to be able to step by hand, because it
+   * runs the update path directly rather than waiting on frames. */
+  __zones: () => updateZones(),
+  __seatTick: (dt) => runSeatedQueue(dt),
+  __host: () => checkHostStation(),
+  /* ---- development only. The panel is off in the shipped page. ---- */
+  debug: {
+    tp(x, z, yaw = 0) {
+      player.mode = 'walk';
+      player._tween = null;
+      player.yawCenter = null;
+      player.position.set(x, room.groundAt(x, z) + 1.66, z);
+      player.yaw = yaw;
+      player.update(0.016);
+      date.group.position.set(x - 1.2, room.groundAt(x - 1.2, z), z);
+    },
+    phase(name) {
+      const A = room.anchors;
+      const spots = {
+        street: [A.dropOff.x, A.dropOff.z],
+        alley: [34, 20],
+        cellar: [22, 1],
+        kitchen: [20, -8],
+        corridor: [12.5, 10],
+        host: [A.hostStation.x, A.hostStation.z + 2],
+        table: [A.frontTable.x + 1.5, A.frontTable.z + 1.5],
+      };
+      const s = spots[name];
+      if (s) this.tp(s[0], s[1]);
+      return mission.state;
+    },
+    setWoo(n) { woo.score = Math.max(0, Math.min(100, n)); paintWoo(woo.score, 0, null); },
+    addWoo(n) { woo.score = Math.max(0, Math.min(100, woo.score + n)); paintWoo(woo.score, n, null); },
+    allTips() { for (const t of TIP_POINTS) woo.fire(t.id); },
+    resetTips() { for (const t of TIP_POINTS) woo.fired.delete(t.id); woo.tips.clear(); woo.streakClosed = false; paintTips(); },
+    table() { startTableCutscene(); },
+    champagne() { sendChampagne(); },
+    show() { startShowCutscene(); },
+    ending(kind) { finish(kind); },
+    fired() { return [...woo.fired]; },
+    ledger() { return woo.ledger.slice(); },
+    save() { saveCheckpoint(mission.state); return game.checkpoint; },
+    load() { return restoreCheckpoint(); },
+    crowd() { return cast.all.length + band.members.length; },
+    invite() { return offerInvitation(); },
+    sitDown() { sitAtTable(); },
+    seatHer() { date.sitAt(room.anchors.frontSeats[1]); },
+    waiter() { waiterComesOver(); },
+    events() { return Object.keys(EVENTS); },
+  },
+};
+
+frame();

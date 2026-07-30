@@ -433,6 +433,16 @@ reg(cast.byName.bartender.group, talkTo(cast.byName.bartender, scripts.bartender
 reg(cast.byName.hallGuard.group, talkTo(cast.byName.hallGuard, scripts.hallGuard));
 reg(cast.byName.dealer.group, talkTo(cast.byName.dealer, scripts.dealer));
 reg(cast.byName.dj.group, talkTo(cast.byName.dj, scripts.dj));
+reg(cast.byName.delia.group, {
+  label: () => (mission.flags.gaveNumber
+    ? 'Say goodnight to <b>Delia</b>'
+    : 'Talk to the <b>woman at the end of the bar</b>'),
+  onUse: () => {
+    const d = cast.byName.delia;
+    d.faceToward(player.position.x, player.position.z);
+    dialogue.start(scripts.delia, mission.flags.gaveNumber ? 'number' : 'open', d);
+  },
+});
 reg(cast.byName.lou.group, {
   label: () => (mission.state === 'briefed' ? 'Say goodnight to <b>Lou</b>' : 'Talk to <b>Lou</b>'),
   onUse: () => {
@@ -958,7 +968,22 @@ function showEnding(kind) {
   if (mission.flags.secretPanel) extras.push('And somebody is skimming that machine. You know it, and now Lou is going to know it.');
   if (inventory.count() > 0) extras.push(`You also drove off with ${inventory.count()} of Lou's drinks in your hands.`);
   if (mission.flags.alarmTripped) extras.push('The service door alarm chirped on your way out. Somebody will mention it.');
+  if (mission.flags.gaveNumber) {
+    extras.push('You gave somebody at the end of the bar your number, which is not a thing you do.');
+  }
   extras.push('<br><b>NEXT: THE JERKY MEETING</b>');
+  /* And, if she took the number, the other thing that is going to happen this
+   * week. Offered rather than forced, the same way the flat offers the Bing. */
+  if (mission.flags.gaveNumber) {
+    let next = document.getElementById('next-level');
+    if (!next) {
+      next = document.createElement('a');
+      next.id = 'next-level';
+      next.href = 'silver.html';
+      overlay.querySelector('.panel').appendChild(next);
+    }
+    next.textContent = 'Tomorrow, nine o’clock: Front and Center →';
+  }
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   startBtn.textContent = 'Again';
   startBtn.onclick = () => location.reload();

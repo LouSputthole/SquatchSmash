@@ -56,6 +56,10 @@ export class Mission {
       alarmTripped: false,
       secretPanel: false,
       plateRead: false,
+      /* Not part of this errand. She is at the end of the bar and she is going
+       * to ring him tomorrow, and the club scene reads this. */
+      gaveNumber: false,
+      heardHerDrink: false,
     };
 
     this.addObjective('lou', 'Meet Lou in the back office');

@@ -22,6 +22,18 @@
  * folder and nothing here changes. Until they exist the line still shows on
  * screen and holds for a reading beat, which is exactly how the radio behaved
  * before its hosts were recorded.
+ *
+ * A call may also stop and wait for him to say something:
+ *
+ *   choices: [{ at: 1, options: [
+ *     { text: 'I give out a lot of numbers.', lines: ['Narrow it down, then.'] },
+ *   ]}]
+ *
+ * `at` is the index of the line after which it pauses. Picking an option shows
+ * what he said, then splices that option's `lines` in and carries on. It is
+ * deliberately the smallest possible thing: a phone call is not a dialogue
+ * tree, it is somebody talking at you with two or three places where you get a
+ * word in.
  */
 
 export const W = 300;
@@ -90,6 +102,50 @@ export const CALLS = [
       'We will see you tomorrow.',
     ],
   },
+  {
+    /* She said she would ring. She rings. Nobody in this game sends a text
+     * except Booski, and Booski is not asking anybody to dinner. */
+    at: 20.2,
+    from: 'Hog Mama',
+    vo: 'call.delia',
+    date: true,
+    lines: [
+      'You gave me this number and said I should call.',
+      'The woman you promised dinner.',
+      'The Silver Room. Nine. I finish at two so do not plan an epic.',
+      'And I drink rye. One ice cube. One. Write it on your hand.',
+      'Right. Go and iron something.',
+    ],
+    choices: [
+      {
+        at: 0,
+        options: [
+          {
+            text: 'I give out a lot of numbers. You’ll have to narrow it down.',
+            lines: ['The woman you promised dinner.'],
+          },
+          {
+            text: 'Two in the morning. You were being a bus.',
+            lines: ['…Huh. You do listen. That is genuinely unsettling.'],
+          },
+        ],
+      },
+      {
+        at: 1,
+        options: [
+          { text: 'I only promised dinner to one woman this week.', lines: ['This week?', 'Bad recovery.'] },
+          { text: 'I remember. Where do you want to go?', lines: ['Somewhere I have to put shoes on.'] },
+        ],
+      },
+      {
+        at: 3,
+        options: [
+          { text: 'One cube. Got it.', lines: ['We will see.'] },
+          { text: 'What if they bring three?', lines: ['Then it is a soup, and I will hold you responsible.'] },
+        ],
+      },
+    ],
+  },
 ];
 
 /** Threads already on the phone when he wakes up. */
@@ -151,6 +207,10 @@ export class Phone {
     this._t = 0;
     /** Fires when a call with `meeting` is actually answered. */
     this.onMeeting = null;
+    /** Fires when a call with `date` is answered: there is an evening on. */
+    this.onDate = null;
+    /** The options currently on screen, if he has been asked something. */
+    this.options = [];
   }
 
   /** Hours since the start of Tuesday, the way Chat counts. */
@@ -181,11 +241,13 @@ export class Phone {
     this.call.line = -1;
     this.call.hold = 0;
     if (this.call.def.meeting) this.onMeeting?.();
+    if (this.call.def.date) this.onDate?.(this.call.def);
   }
 
   /** Hang up, or refuse to pick up. Both end the same way. */
   hangUp() {
     if (!this.call) return;
+    this.options = [];
     const { def, state } = this.call;
     this.audio?.stopLoop?.('phone.ring', 0.08);
     try { this.call.source?.stop(); } catch { /* already finished */ }
@@ -206,9 +268,63 @@ export class Phone {
     return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${ampm}`;
   }
 
+  /** True while she is waiting for him to say something. */
+  get choosing() { return this.options.length > 0; }
+
+  /**
+   * Pick one of the answers on screen. Returns false if there is nothing to
+   * pick, so the caller can fall through to whatever the number keys do
+   * normally.
+   */
+  choose(index) {
+    const opt = this.options[index];
+    if (!opt) return false;
+    this.options = [];
+    const c = this.call;
+    c.said = opt.text;
+    c.hold = READ_BASE + opt.text.length * READ_PER_CHAR;
+    /* His reply is on screen while hers queue up behind it. Splicing rather
+     * than branching keeps a call a call: it never forks, it just takes a
+     * slightly different route through the same conversation. */
+    c.queued = (opt.lines ?? []).slice();
+    return true;
+  }
+
   /** Move to the next line of the call, or end it. */
   _advance() {
     const c = this.call;
+
+    // Anything he said has been read; put her back on.
+    if (c.said) {
+      c.said = null;
+      if (c.queued?.length) {
+        const text = c.queued.shift();
+        c.spoken = text;
+        const cue = `vo.${c.def.vo}.r${c.line + 1}`;
+        c.source = this.audio?.play?.(cue, { volume: 0.95 }) ?? null;
+        c.hold = c.source?.buffer
+          ? c.source.buffer.duration + 0.45
+          : READ_BASE + text.length * READ_PER_CHAR;
+        return;
+      }
+    }
+    if (c.queued?.length) {
+      const text = c.queued.shift();
+      c.spoken = text;
+      c.hold = READ_BASE + text.length * READ_PER_CHAR;
+      return;
+    }
+    c.spoken = null;
+
+    // Does she stop here and wait for him?
+    const pause = c.def.choices?.find((ch) => ch.at === c.line && !c.asked?.has(ch.at));
+    if (pause) {
+      (c.asked ??= new Set()).add(pause.at);
+      this.options = pause.options;
+      c.hold = 1e9;                 // held until he picks one
+      return;
+    }
+
     c.line++;
     if (c.line >= c.def.lines.length) {
       // He does not get to say goodbye. Nobody on this phone says goodbye.
@@ -427,12 +543,27 @@ export class Phone {
     }
 
     // What is being said, one line at a time.
-    const text = c.def.lines[c.line] ?? '';
+    const text = c.said ?? c.spoken ?? c.def.lines[c.line] ?? '';
     g.font = '14px ui-monospace, monospace';
     const lines = wrap(g, text, W - 56);
     let y = H * 0.56;
-    g.fillStyle = '#cdd7e6';
+    g.fillStyle = c.said ? '#9fb8d8' : '#cdd7e6';    // his own voice reads cooler
     for (const ln of lines) { g.fillText(ln, W / 2, y); y += 21; }
+
+    if (this.options.length) {
+      g.textAlign = 'left';
+      g.font = '12px ui-monospace, monospace';
+      let oy = H * 0.66;
+      this.options.forEach((o, i) => {
+        const wrapped = wrap(g, `${i + 1}. ${o.text}`, W - 44);
+        g.fillStyle = '#5b8fd8';
+        for (const ln of wrapped) { g.fillText(ln, 22, oy); oy += 17; }
+        oy += 6;
+      });
+      g.textAlign = 'center';
+      this._hint(g, '[1]/[2] answer  ·  [Q] hang up');
+      return;
+    }
 
     g.fillStyle = '#4d5768';
     g.font = '12px ui-monospace, monospace';
