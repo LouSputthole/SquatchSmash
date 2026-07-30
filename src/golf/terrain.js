@@ -16,7 +16,7 @@ import * as THREE from 'three';
 import { mat } from '../world/build.js';
 import { SURFACE, surfaceProps } from './course.js';
 import { heightAt, surfaceAt } from './field.js';
-import { HOLE } from './hole.js';
+import { HOLE, setActiveHole } from './hole.js';
 
 /* Late morning after overnight rain: the light is warm and low-ish, the air
  * still has mist in it, and everything is a shade wetter than it will be by
@@ -140,7 +140,13 @@ function buildTerrainMesh(texture, renderer) {
   if (renderer) {
     texture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   }
-  const material = mat({ map: texture, roughness: 0.96, metalness: 0 });
+  /* Not from the shared `mat()` cache: the map is a canvas baked for this hole
+   * and nothing else will ever want this material, so it is owned here and
+   * disposed with the hole. */
+  const material = new THREE.MeshStandardMaterial({
+    map: texture, roughness: 0.96, metalness: 0,
+  });
+  material.userData.holeLocal = true;
   const mesh = new THREE.Mesh(geo, material);
   mesh.name = 'course';
   mesh.receiveShadow = true;
@@ -289,6 +295,7 @@ function buildPond(scene) {
     transparent: true,
     opacity: 0.88,
   });
+  material.userData.holeLocal = true;
   const water = new THREE.Mesh(geo, material);
   water.name = 'pond';
   water.position.set(HOLE.pond.x, HOLE.pond.level, HOLE.pond.z);
@@ -338,10 +345,12 @@ function buildFlag(scene) {
    * hundred and sixty-seven yards away. Its own material because it moves. */
   const clothGeo = new THREE.PlaneGeometry(0.76, 0.48, 8, 3);
   clothGeo.translate(0.38, 0, 0);      // hinge at the pole, not the middle
-  const cloth = new THREE.Mesh(clothGeo, new THREE.MeshStandardMaterial({
+  const clothMat = new THREE.MeshStandardMaterial({
     color: 0x9a6ff0, roughness: 0.8, side: THREE.DoubleSide,
     emissive: 0x2a1550, emissiveIntensity: 0.5,
-  }));
+  });
+  clothMat.userData.holeLocal = true;
+  const cloth = new THREE.Mesh(clothGeo, clothMat);
   cloth.position.set(0, HOLE.flagHeight - 0.32, 0);
   g.add(cloth);
 
@@ -415,10 +424,15 @@ function buildHoleMarker(scene) {
     [
       mat({ color: 0x20301f, roughness: 1 }), mat({ color: 0x20301f, roughness: 1 }),
       mat({ color: 0x20301f, roughness: 1 }), mat({ color: 0x20301f, roughness: 1 }),
-      new THREE.MeshStandardMaterial({
-        map: signTexture(['HOLE 1', 'THE INVITATION', 'PAR 3', '167 YARDS']),
+      Object.assign(new THREE.MeshStandardMaterial({
+        map: signTexture([
+          `HOLE ${HOLE.number}`,
+          (HOLE.meta?.name ?? '').toUpperCase(),
+          `PAR ${HOLE.par}`,
+          `${HOLE.yards} YARDS`,
+        ]),
         roughness: 0.9,
-      }),
+      }), { userData: { holeLocal: true } }),
       mat({ color: 0x20301f, roughness: 1 }),
     ],
   );
@@ -485,7 +499,7 @@ function buildClubhouse(scene, colliders) {
 }
 
 /** The next tee, over the trees. Scenery, and a promise about the round. */
-function buildHole2Hint(scene) {
+function buildNextHint(scene) {
   const g = new THREE.Group();
   const t = HOLE.nextHint.tee;
   const marker = new THREE.Mesh(
@@ -526,9 +540,9 @@ class GrassDetail {
     blade.translate(0, 0.075, 0);
     this.mesh = new THREE.InstancedMesh(
       blade,
-      new THREE.MeshStandardMaterial({
+      Object.assign(new THREE.MeshStandardMaterial({
         color: 0x74ad57, roughness: 1, side: THREE.DoubleSide,
-      }),
+      }), { userData: { holeLocal: true } }),
       count,
     );
     this.mesh.frustumCulled = false;
@@ -576,6 +590,8 @@ class GrassDetail {
 export class Course {
   constructor(scene, renderer, { onProgress } = {}) {
     this.scene = scene;
+    this.renderer = renderer;
+    this.onProgress = onProgress;
     this.colliders = [];
     /* The core Player wants floor zones for its footstep cue; out here the
      * answer comes from `field.js` instead, so the list is empty on purpose
@@ -588,7 +604,10 @@ export class Course {
     /* Late morning, sun still in the east and climbing, mist burning off. The
      * shadow camera is deliberately small and follows the player: a shadow
      * frustum big enough for a 300-metre course would have no resolution
-     * anywhere. */
+     * anywhere.
+     *
+     * The light belongs to the morning, not to the hole, so it is added to the
+     * scene and survives every rebuild below. */
     scene.add(new THREE.HemisphereLight(0xd7e7f5, 0x3d5233, 1.15));
     const sun = new THREE.DirectionalLight(0xfff0d4, 2.15);
     sun.position.set(60, 70, 40);
@@ -605,27 +624,88 @@ export class Course {
     scene.add(sun.target);
     this.sun = sun;
 
-    onProgress?.('Mowing the greens…');
-    this.texture = makeCourseTexture();
-    this.mesh = buildTerrainMesh(this.texture, renderer);
-    scene.add(this.mesh);
+    this._t = 0;
+    this.holeGroup = null;
+    this.build();
+  }
 
-    onProgress?.('Planting the pines…');
-    const trees = buildTrees(scene);
+  /**
+   * Build whichever hole `HOLE` currently names.
+   *
+   * Everything a hole owns goes under one group, which is what makes tearing
+   * it down at the next tee a single removal rather than a hunt through the
+   * scene graph for the things that belonged to the last one.
+   */
+  build() {
+    const p = this.onProgress;
+    this.teardown();
+
+    const g = new THREE.Group();
+    g.name = `hole-${HOLE.number}`;
+    this.holeGroup = g;
+    this.scene.add(g);
+    this.colliders.length = 0;
+
+    p?.('Mowing the greens…');
+    this.texture = makeCourseTexture();
+    this.mesh = buildTerrainMesh(this.texture, this.renderer);
+    g.add(this.mesh);
+
+    p?.('Planting the pines…');
+    const trees = buildTrees(g);
     this.colliders.push(...trees.colliders);
     this.treeCount = trees.count;
 
-    onProgress?.('Filling the pond…');
-    this.water = buildPond(scene);
-    this.flag = buildFlag(scene);
-    buildTeeMarkers(scene);
-    this.marker = buildHoleMarker(scene);
-    buildClubhouse(scene, this.colliders);
-    buildHole2Hint(scene);
+    p?.('Filling the pond…');
+    this.water = buildPond(g);
+    this.flag = buildFlag(g);
+    buildTeeMarkers(g);
+    this.marker = buildHoleMarker(g);
+    /* The clubhouse and the car park belong to the hole that has them. On the
+     * other two you can see the building from the course but you do not walk
+     * out of it, so it is scenery there and a collider here. */
+    if (HOLE.lot) buildClubhouse(g, this.colliders);
+    if (HOLE.nextHint) buildNextHint(g);
 
-    this.grass = new GrassDetail(scene);
-    this._t = 0;
+    this.grass = new GrassDetail(g);
     this._waterBase = this.water.position.y;
+    return this;
+  }
+
+  /** Load a different hole. The fade between tees is what hides this. */
+  load(number) {
+    setActiveHole(number);
+    return this.build();
+  }
+
+  /**
+   * Give back everything the last hole was holding.
+   *
+   * Geometry and textures are not garbage collected — they live on the GPU
+   * until something disposes them — so a course that rebuilt three times
+   * without this would leak two holes' worth of terrain, trees and canvas
+   * textures into a scene that is still running.
+   */
+  teardown() {
+    if (!this.holeGroup) return;
+    this.holeGroup.traverse((o) => {
+      if (o.isMesh || o.isInstancedMesh) {
+        o.geometry?.dispose?.();
+        /* Materials are shared through `mat()` and must not be disposed here;
+         * the ones this file makes itself are unique and are the flag, the
+         * water, the grass and the painted sign. */
+        for (const m of (Array.isArray(o.material) ? o.material : [o.material])) {
+          if (m?.userData?.holeLocal) {
+            m.map?.dispose?.();
+            m.dispose?.();
+          }
+        }
+      }
+    });
+    this.scene.remove(this.holeGroup);
+    this.texture?.dispose();
+    this.texture = null;
+    this.holeGroup = null;
   }
 
   /** What the player is standing on. Same answer the ball gets. */
@@ -660,8 +740,7 @@ export class Course {
   }
 
   dispose() {
-    this.texture?.dispose();
-    this.mesh?.geometry?.dispose();
+    this.teardown();
   }
 }
 

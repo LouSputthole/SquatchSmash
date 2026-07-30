@@ -60,23 +60,43 @@ export function ellipseT(x, z, e) {
   return Math.sqrt(dx * dx + dz * dz);
 }
 
-/** Centre of the mown corridor at a given distance down the hole. */
-function corridorCentreX(z) {
-  const { from, to } = HOLE.corridor;
-  const t = clamp01((z - from.z) / (to.z - from.z));
-  return lerp(from.x, to.x, t);
-}
-
-function corridorHalfWidth(z) {
-  const { from, to, halfWidth, endHalfWidth } = HOLE.corridor;
-  const t = clamp01((z - from.z) / (to.z - from.z));
-  return lerp(halfWidth, endHalfWidth, t);
+/**
+ * The mown corridor, as a centreline with a width that varies along it.
+ *
+ * A straight from/to was enough for a par 3 played down a chute. It cannot
+ * describe a dogleg, and a hole that bends is the entire point of the par 5 —
+ * so the corridor is a polyline now, each point carrying its own half-width.
+ * That is also how a hole gets to be generous off the tee and mean at the
+ * second shot without a special case: the widths just narrow along the path.
+ *
+ * Returns the nearest point on the centreline, the distance to it, and the
+ * half-width interpolated to that spot. Everything about mown ground is
+ * derived from these three numbers.
+ */
+export function nearestOnCorridor(x, z) {
+  const path = HOLE.corridor.path;
+  let best = { x: path[0].x, z: path[0].z, distance: Infinity, halfWidth: path[0].halfWidth };
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i + 1];
+    const vx = b.x - a.x;
+    const vz = b.z - a.z;
+    const len2 = vx * vx + vz * vz;
+    const t = len2 > 0 ? clamp01(((x - a.x) * vx + (z - a.z) * vz) / len2) : 0;
+    const px = a.x + vx * t;
+    const pz = a.z + vz * t;
+    const d = Math.hypot(x - px, z - pz);
+    if (d < best.distance) {
+      best = { x: px, z: pz, distance: d, halfWidth: lerp(a.halfWidth, b.halfWidth, t) };
+    }
+  }
+  return best;
 }
 
 /** How far off the mown line, as a fraction of its half-width. */
 export function corridorT(x, z) {
-  if (z > HOLE.corridor.from.z || z < HOLE.corridor.to.z - 14) return Infinity;
-  return Math.abs(x - corridorCentreX(z)) / corridorHalfWidth(z);
+  const near = nearestOnCorridor(x, z);
+  return near.distance / near.halfWidth;
 }
 
 /** Nearest point on the cart path, and how far off it we are. */
@@ -161,7 +181,7 @@ function baseHeight(x, z) {
    * The rough keeps its lumps, which is where lumps are interesting; the
    * sightline from the tee to the flag stays clean, which is where they are
    * not. */
-  const off = Math.abs(x - corridorCentreX(clamp(z, HOLE.corridor.to.z, HOLE.corridor.from.z)));
+  const off = nearestOnCorridor(x, z).distance;
   const openness = 1 - clamp01((off - 6) / 26);
   const roll = 1 - 0.82 * openness;
   h += noise2(x * 0.013, z * 0.013) * 1.45 * roll;

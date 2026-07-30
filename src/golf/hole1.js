@@ -51,9 +51,10 @@ export const BUNKER = Object.freeze({ x: -8.5, z: -141.5, rx: 7.0, rz: 4.8, dept
  * more than the rulebook does here.
  */
 export const CORRIDOR = Object.freeze({
-  from: Object.freeze({ x: 0, z: -4 }),
-  to: Object.freeze({ x: 5, z: -140 }),
-  halfWidth: 14, endHalfWidth: 21,
+  path: Object.freeze([
+    Object.freeze({ x: 0, z: -4, halfWidth: 14 }),
+    Object.freeze({ x: 5, z: -140, halfWidth: 21 }),
+  ]),
 });
 
 /** Down the left, past the bunker, ending short-left of the green. */

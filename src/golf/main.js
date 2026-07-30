@@ -682,7 +682,9 @@ window.__golf = {
   /* The live hole, so a harness driving hole three is not reading
    * hole one's pin. */
   get LAYOUT() { return HOLE; },
-  HOLE, setActiveHole, builtHoles,
+  HOLE, builtHoles,
+  /* Load a hole for real: rebind the layout and rebuild the world. */
+  loadHole: (n) => { course.load(n); return HOLE.number; },
   SURFACE, surfaceProps, heightAt, surfaceAt, toYards, toFeet,
 };
 window.__golfReady = true;
