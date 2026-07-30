@@ -1431,24 +1431,34 @@ function enableInput() {
   document.body.classList.remove('unlocked');
 }
 
+/* Drag-look is a FALLBACK, never a life sentence: every attempt asks the
+ * browser for real pointer lock again, and the moment one succeeds the drag
+ * mode retires itself. Losing lock once (an alt-tab, an overlay, a denied
+ * request) used to latch dragLook forever and no click could undo it. */
+let dragLookHinted = false;
+
 function requestLock() {
-  if (dragLook) { enableInput(); return; }
   const p = canvas.requestPointerLock?.();
   if (p && p.catch) p.catch(() => fallBackToDragLook());
   setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
+    if (document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
   }, 600);
 }
 
 function fallBackToDragLook() {
-  if (dragLook) return;
+  if (document.pointerLockElement === canvas) return;
+  if (!dragLook && !dragLookHinted) {
+    dragLookHinted = true;
+    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+      + 'Any click keeps retrying the real thing.', 7000);
+  }
   dragLook = true;
   enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
 }
 
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
+  if (locked) dragLook = false;   // the real thing won; retire the fallback
   player.enabled = locked || dragLook;
   document.body.classList.toggle('unlocked', !locked && !dragLook);
   if (!locked && !dragLook) player.clearKeys();
@@ -1546,7 +1556,10 @@ window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
 
 canvas.addEventListener('click', () => {
   if (!game.started || game.paused) return;
-  if (document.pointerLockElement !== canvas && !dragLook) requestLock();
+  // Every canvas click while unlocked re-attempts REAL pointer lock, even
+  // from drag-look -- the browser may grant it now that this is a fresh
+  // user gesture, and pointerlockchange retires the fallback when it does.
+  if (document.pointerLockElement !== canvas) requestLock();
 });
 
 startBtn.addEventListener('click', async () => {
