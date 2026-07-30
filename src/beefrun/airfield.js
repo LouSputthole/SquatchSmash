@@ -466,11 +466,15 @@ export function buildAirfield(scene, { terrain } = {}) {
   /* ---- Anchors the mission cares about ---- */
   const anchors = {
     playerStart: new THREE.Vector3(-88, ELEV, 350),
-    parking: new THREE.Vector3(-55, ELEV, 388),
+    /* Nose east, so the wing runs north–south. The hangar's front wall is the
+     * plane z = 396 and the span is 17.2 m: parked at z 388 the north wingtip
+     * reached 396.6 and stood inside the wall. At 385 it stops at 393.6,
+     * eight feet clear, and the tail still clears Stove's crates. */
+    parking: new THREE.Vector3(-55, ELEV, 385),
     parkingHeading: 90,
-    // Under the port wing, whose chord sits at x [-55.46, -53.54] when the
+    // Under the wing, whose chord sits at x [-55.46, -53.54] when the
     // aeroplane is on the parking spot. He is meant to be leaning on it.
-    louStand: new THREE.Vector3(-54.4, ELEV, 384),
+    louStand: new THREE.Vector3(-54.4, ELEV, 381),
     holdShort: new THREE.Vector3(-16, ELEV, 396),
     lineUp: new THREE.Vector3(WP.x, ELEV, 400),
     departHeading: 180,
