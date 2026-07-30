@@ -1,5 +1,12 @@
 # SQUATCH LIFE — The Meeting: Outcomes & Script
 
+> **Legacy Initiation concept, preserved for character/story review.** This
+> document treats Initiation as a prologue and turns a human Prospect into a
+> sasquatch. That conflicts with the current chapter order and with the
+> Squatchfather/Motel portrayal of Prospect. It is not campaign canon until the
+> character alignment in [`CHARACTER-ALIGNMENT.md`](./CHARACTER-ALIGNMENT.md)
+> is approved.
+
 > **Review copy.** Nothing in here is wired into the game yet except what's
 > already shipped (the ceremony flow). This is the writing pass for the four
 > outcomes, in the intended voice, for sign-off before implementation.

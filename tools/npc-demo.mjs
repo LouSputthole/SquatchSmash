@@ -1,5 +1,5 @@
 // Exercises the NPC system and prints a readable transcript for review.
-import { NpcSystem, ROSTER, tierOf, stateOf } from '../src/npc.js';
+import { NpcSystem, ROSTER, tierOf, stateOf } from '../src/initiation/npc.js';
 
 // Deterministic RNG so the transcript is stable run-to-run.
 let seed = 12345;

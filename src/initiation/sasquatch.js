@@ -1,3 +1,4 @@
+// Legacy Initiation sasquatch rig, isolated from the apartment player controller.
 import * as THREE from 'three';
 
 // Silver Sasquatches team colors — the default look for a full member.

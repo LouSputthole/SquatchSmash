@@ -1,11 +1,12 @@
-# NPC System — built
+# NPC System — preserved Initiation reference
 
-**Status: implemented in `src/npc.js`.** This doc is the map; the code is the
-territory. The system is framework-agnostic (no THREE), fully testable in node,
-and ready for the party scene to wire into.
+**Status: implemented in `src/initiation/npc.js`, but not campaign-canonical
+yet.** This doc is the map; the code is the territory. The system is
+framework-agnostic (no THREE), fully testable in node, and preserved for the
+party scene after the character and story alignment pass.
 
 Run the transcript to see it talk:
-`node scratchpad/npc-demo.mjs` (the review harness prints every scenario).
+`node tools/npc-demo.mjs` (the review harness prints every scenario).
 
 ---
 

@@ -1,3 +1,4 @@
+// Legacy Initiation party behavior; character canon is intentionally not wired here yet.
 /**
  * THE NPC SYSTEM — how the Circle reacts to you at the party.
  *

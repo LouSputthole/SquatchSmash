@@ -1,8 +1,13 @@
 # The Initiation — Outcomes, Party & NPC System
 
-**Status: writing mockup for review. Nothing here is built yet.** This is the
-script-and-systems bible for where the initiation scene goes after "you got the
-question right." Read it, carve it up, tell me what's wrong.
+> **Legacy reference, not current campaign canon.** Parts of this plan are now
+> built in the isolated `src/initiation/` scene, but the prologue placement,
+> human-to-sasquatch transformation, character aliases, and ending are held for
+> the alignment in [`CHARACTER-ALIGNMENT.md`](./CHARACTER-ALIGNMENT.md).
+
+This is the script-and-systems bible for where the preserved initiation scene
+goes after "you got the question right." Read it, carve it up, tell me what's
+wrong.
 
 Tone target: **dark comedy, HBO gore, Stanley-Parable deadpan.** The apartment
 scene already set the register — dry, lowercase, unbothered, the joke dies the

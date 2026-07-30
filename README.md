@@ -1,28 +1,33 @@
 # Squatch Life
 
-Four playable experiences live in this repo.
+Six playable or preserved experiences live in this repo.
 
 | | |
 |---|---|
 | **Squatch Life** (repo root) | First-person apartment hub. Wake up, answer Lou’s call, get ready, use the PC, and leave for the first mission. |
-| **A Quick Stop at the Bing** ([`bing.html`](./bing.html)) | First-person, same engine. Day One, 11:41 PM. Park, get past the bouncer, find Lou in the back office, and take his package. |
+| **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; the campaign also reuses the same club for his post-airstrip assignment. |
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
-| **The campground game** ([`game/`](./game)) | The 3D rampage game — silver sasquatch, 90 seconds, one campground. Standalone, unchanged, still playable on its own. |
+| **The Jerky Motel** ([`motel.html`](./motel.html)) | Interactive Motel deal, inspection, betrayal, recovery, and escape; campaign-owned after the second Bing visit. |
+| **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
+| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene and cast for alignment. Playable and verified, but not yet campaign canon or routed from the apartment. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
                  # the Bing      -> http://localhost:5173/bing.html
                  # Squatchfather -> http://localhost:5173/squatchfather.html
+                 # the Motel     -> http://localhost:5173/motel.html
                  # the game      -> http://localhost:5173/game/
+                 # Initiation    -> http://localhost:5173/initiation.html
 ```
 
-All four are static ES-module sites with no build step, served by the same
-`npm start`. The campground game keeps its own `lib/three.module.js`, its own
+All six are static ES-module sites with no build step, served by the same
+`npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
-isolated; the apartment, Bing, and Squatchfather now share an explicit campaign
-boundary.
+isolated; the apartment, Bing, Squatchfather, and Motel share an explicit
+campaign boundary. Initiation is isolated under `src/initiation/` until its
+character and story premise is approved.
 
 The campaign spine connects the apartment, the Bing, and Squatchfather through
 `src/core/campaign.js`. On Day One, Lou’s one-shot call rings through the
@@ -34,8 +39,17 @@ door then routes to Squatchfather, where beginning the meeting stages that
 package as the bathroom weapon. Finishing the restaurant records the dropped
 weapon and returns to the apartment again. Sleeping creates a persistent Day
 Two checkpoint at 7:00 AM; Booski then calls once and unlocks the airstrip job
-with Captain Lou Sasole kept distinct from Lou. The airstrip scene itself and
-later story scenes are not connected yet.
+with Captain Lou Sasole kept distinct from Lou. The post-airstrip state
+contract, Lou’s second call, the reused Bing assignment, direct Motel
+transition, and Motel return are implemented. The airstrip runtime is being
+finished on its own branch, so that later sequence is not yet reachable through
+normal play.
+
+The Initiation branch history, face art, NPC writing, post-processing modules,
+and playable legacy scene are preserved without overwriting shared systems.
+Its prologue placement and human-to-sasquatch transformation are intentionally
+not wired into campaign state. See
+[`docs/CHARACTER-ALIGNMENT.md`](./docs/CHARACTER-ALIGNMENT.md).
 
 See [`game/README.md`](./game/README.md) for the campground game's controls and
 scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
@@ -159,7 +173,7 @@ bed to lie back down, and <kbd>E</kbd> again to sleep the whole day off.
 **The radio.** Two stations, tuned by holding <kbd>E</kbd> on the set. See
 below.
 
-**The PC.** Two things are installed. See below.
+**The PC.** Six applications are installed. See below.
 
 ### Time
 
@@ -279,22 +293,23 @@ sequence, the desktop, the cursor and the CRT treatment, and hands whichever app
 has focus the drawing context plus input. <kbd>Tab</kbd> goes back to the
 desktop; the number keys launch straight into things.
 
-Two apps are installed.
+Six applications are installed and share the same mount/unmount lifecycle.
 
-**SQUATCH SMASH** (`src/arcade/squatchsmash.js`) — the arcade game. Waves,
-combos, a high score in `localStorage`. Smash the squatches, spare the hikers
-and the cubs. Beers you drank in the kitchen turn up here as Steady Hands
-charges; being drunk turns up here as a crosshair with its own ideas.
+**SQUATCH SMASH** (`src/arcade/campground.js`, `game/`) — the real 3D
+campground game in a same-origin frame. It has fourteen goals, the Ranger
+Captain boss, end-of-run ranks, career totals, and six persistent skins.
 
 **COUNTER-SQUATCH: GLOBAL OFFENSE** (`src/arcade/counterstrike.js`) — a parody,
-and the joke is that you never get to play. Every round you spawn, get a
-fraction of a second of control, and are killed through a wall by somebody very
-obviously cheating. The window shrinks 22% per death, so by the ninth you are
-killed during the warmup and by the tenth you are killed in the buy menu, having
-not spawned. Your rank only goes down. The REPORT PLAYER button works perfectly
-and does nothing.
+with a canvas first-person round/shoot/death loop.
 
-To add a third, write an object with `id`, `label`, `drawIcon`, `enter`, `exit`,
+**SQUATCH SHOOT** (`src/arcade/squatchshoot.js`) is the score-attack gallery
+shooter. **MAIL** (`src/arcade/mail.js`) is the five-message inbox and spoken
+reaction app. **YUKA VS OLIVE** (`src/arcade/yuka.js`) is the food-comparison
+scanner. **DOOM** (`src/arcade/doom.js`) uses the guarded web-app/iframe
+wrapper.
+
+To add another canvas app, write an object with `id`, `label`, `drawIcon`,
+`enter`, `exit`,
 `update`, `onPointer`, `onClick`, `onKey` and `glow`, and register it in
 `src/arcade/mount.js`. Nothing else in the project changes.
 
@@ -310,7 +325,7 @@ src/core/               player controller, interaction raycasting, audio, radio
                         scene transitions, intoxication, the narrator, HUD
 src/world/              apartment shell, furniture builders, procedural textures,
                         materials, particle systems, and the wall-art loader
-src/arcade/             SquatchOS, the two apps on it, and the mount point
+src/arcade/             SquatchOS, its six apps, and the mount/input boundary
 src/bing/               the Bada Bing: the club, its people, the script, the
                         mission, and two ways to lose money
 tools/                  static server, ElevenLabs generator, static check,
@@ -328,7 +343,12 @@ npm run verify:art   # runtime: boots the flat headless and measures the geometr
 npm run verify:day-one # runtime: Lou's call, chore gate, apartment -> Bing
 npm run verify:day-two # runtime: sleep, reload, Booski call, non-replay
 npm run verify:bing  # runtime: plays the club and returns home, headless
+npm run verify:bing-two # runtime: reuses the club for the second assignment
 npm run verify:squatchfather # runtime: stages the package, plays, returns home
+npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
+npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
+npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
+npm run verify:initiation # runtime: legacy scene/assets; not story canon
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
 

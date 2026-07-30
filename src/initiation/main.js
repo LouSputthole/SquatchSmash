@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { EffectComposer } from '../lib/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from '../lib/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from '../lib/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from '../lib/jsm/postprocessing/OutputPass.js';
-import { lambert } from './world.js';
-import { Sasquatch, SILVER_PALETTE } from './player.js';
+import { EffectComposer } from '../../lib/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from '../../lib/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../../lib/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../../lib/jsm/postprocessing/OutputPass.js';
+import { lambert } from '../../game/src/world.js';
+import { Sasquatch, SILVER_PALETTE } from './sasquatch.js';
 import { Person } from './person.js';
-import { DebrisSystem } from './debris.js';
-import { Effects } from './effects.js';
+import { DebrisSystem } from '../../game/src/debris.js';
+import { Effects } from '../../game/src/effects.js';
 import * as sfx from './audio.js';
 
 // ============================================================

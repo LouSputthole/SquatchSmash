@@ -1,3 +1,4 @@
+// Legacy Initiation human rig, isolated pending character-canon review.
 import * as THREE from 'three';
 
 // A human character with the same animation API as the Sasquatch

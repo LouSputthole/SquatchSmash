@@ -20,6 +20,7 @@
     "verify:bing-two": "node tools/verify-bing-two.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",
     "verify:motel": "node tools/verify-motel.mjs",
+    "verify:initiation": "node tools/verify-initiation.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",

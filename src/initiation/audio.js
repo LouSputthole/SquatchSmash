@@ -1,3 +1,4 @@
+// Legacy Initiation scene audio, kept isolated from the shared apartment audio bus.
 // Procedural sound effects via WebAudio — no audio assets needed.
 
 let ctx = null;
