@@ -754,6 +754,315 @@ cue('golf.h1.lou.were_not_in_a_hurry', LOU,
   'We’re not in a hurry.',
   { direction: 'And he genuinely is not. That is the whole morning.', priority: PRIORITY.BANTER, cooldown: 40 });
 
+
+/* ================================================================== */
+/* HOLE 2 — THE LONG WALK                                             */
+/* ================================================================== */
+/* Five hundred and twenty yards is four minutes of walking and about six
+ * shots. That is the point of it: this is the hole with room in it for the
+ * conversation that does not fit between two swings. The golf gets quieter
+ * and the talking gets longer, and most of what they talk about is other
+ * people — which is how a family tells you that you are in it. */
+
+cue('golf.h2.rippin.now_we_talk', RIPPIN,
+  'Five-twenty. Now we’re talking.',
+  { direction: 'Genuinely happy. This is his hole and he knows it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.eric.dogleg_right', ERIC,
+  'It doglegs right at the pines. You cannot see the corner from here.',
+  { direction: 'Information, offered before anybody asks for it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.i_can_see_it', RIPPIN, 'I can see it.',
+  { direction: 'He cannot.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.driver', LOU,
+  'Driver. Both of you.',
+  { direction: 'Permission, and it is the first time he has given any.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h2.rippin.watch_the_corner', RIPPIN,
+  'I’m going over the corner.',
+  { direction: 'Announcing a plan nobody asked to hear.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.eric.there_is_sand_there', ERIC, 'There is sand there.',
+  { direction: 'Flat.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.rippin.not_where_im_going', RIPPIN, 'Not where I’m going.',
+  { direction: 'Certain.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.eric.that_is_the_sand', ERIC,
+  'That is the sand.',
+  { direction: 'Not gloating. Reporting.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.rippin.different_sand', RIPPIN, 'Different sand.',
+  { direction: 'Committed.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.lou.same_sand', LOU, 'Same sand.',
+  { direction: 'Walking past him.', priority: PRIORITY.REACTION, once: true });
+
+cue('golf.h2.rippin.eric_hits_it_nowhere', RIPPIN,
+  'Eric hits it nowhere and finds it every time.',
+  { direction: 'The closest he gets to a compliment.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.eric.that_is_the_game', ERIC, 'That is the game.',
+  { direction: 'Mid-swing.', priority: PRIORITY.REACTION, once: true });
+
+cue('golf.h2.prospect.you_hit_it_short', PROSPECT,
+  'You hit it shorter than both of them.',
+  { direction: 'Not a criticism. He is working something out.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.im_in_the_fairway', LOU,
+  'I’m in the fairway. They’re in a conversation about sand.',
+  { direction: 'Dry, and it is the whole philosophy of the man.', priority: PRIORITY.STORY, once: true });
+
+/* --- the long walk itself: the family, sideways --- */
+
+cue('golf.h2.rippin.booski_rigged', RIPPIN,
+  'Booskibro thinks this course is rigged. He thinks *golf* is rigged.',
+  { direction: 'Delighted.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.eric.he_thinks_weather_is_rigged', ERIC,
+  'He thinks the weather is rigged.',
+  { direction: 'Deadpan.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.lou.hes_right_about_the_weather', LOU,
+  'He’s right about the weather.',
+  { direction: 'Completely unreadable.', priority: PRIORITY.BANTER, once: true });
+
+cue('golf.h2.rippin.ape_says_cheating', RIPPIN,
+  'Ape came out once. Accused a sprinkler of cheating.',
+  { direction: 'Fondly.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.eric.he_had_a_point', ERIC,
+  'It came on while he was over the ball. He had a point.',
+  { direction: 'Fair-minded to a fault.', priority: PRIORITY.BANTER, once: true });
+
+cue('golf.h2.rippin.shubes_cried', RIPPIN,
+  'Shubes cried on the ninth at Ridgemont. Openly.',
+  { direction: 'The best story he has.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.lou.he_did_not_cry', LOU, 'He did not cry.',
+  { direction: 'Protective, barely.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.rippin.his_eyes_were_wet', RIPPIN, 'His eyes were wet.',
+  { direction: 'Legally precise.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.eric.it_was_windy', ERIC, 'It was windy.',
+  { direction: 'Closing it down, kindly.', priority: PRIORITY.BANTER, once: true });
+
+cue('golf.h2.eric.gratin_butter_chicken', ERIC,
+  'Gratin still owes me a proper butter chicken. He has been to India. He has *seen* it done.',
+  { direction: 'The one subject Eric will not let go of.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.rippin.he_uses_a_jar', RIPPIN, 'He uses a jar.',
+  { direction: 'Betraying a friend without hesitating.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.eric.i_know_he_uses_a_jar', ERIC,
+  'I know he uses a jar. That is the entire problem.',
+  { direction: 'The only time Eric sounds genuinely wounded all morning.', priority: PRIORITY.BANTER, once: true });
+
+cue('golf.h2.rippin.irish_and_the_eggs', RIPPIN,
+  'Irish is still looking into the eggs.',
+  { direction: 'As though this is ordinary.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.prospect.what_eggs', PROSPECT, 'What eggs?',
+  { direction: 'He has learned that asking is usually a mistake and asks anyway.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.lou.dont', LOU, 'Don’t.',
+  { direction: 'Too late.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.rippin.eleven_months', RIPPIN,
+  'Eleven months he’s been on it. Eleven.',
+  { direction: 'Awed.', priority: PRIORITY.BANTER, once: true });
+
+cue('golf.h2.rippin.hog_mama_bus', RIPPIN,
+  'Hog Mama drove the bus to Atlantic City. Hog Mama *became* the bus.',
+  { direction: 'A sentence he has clearly said before and will say again.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.eric.that_is_not_what_happened', ERIC, 'That is not what happened.',
+  { direction: 'Tired.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.rippin.thats_how_i_tell_it', RIPPIN, 'That’s how I tell it.',
+  { direction: 'Unmovable.', priority: PRIORITY.BANTER, once: true });
+
+cue('golf.h2.lou.good_ole_days', LOU,
+  'Good ole days.',
+  { direction: 'Not nostalgic. Two words, put down like a stone.', priority: PRIORITY.STORY, once: true, hold: 1.6 });
+cue('golf.h2.rippin.theyre_still_going', RIPPIN,
+  'They’re still going, Lou.',
+  { direction: 'Gently. This is Rippin being kind, which he does about once a year.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.i_know_they_are', LOU,
+  'I know they are. That’s why he’s here.',
+  {
+    direction: 'He does not look at the Prospect. This is the second time all '
+      + 'morning he has said why, and he says it to Rippin instead.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 2.4,
+  });
+
+/* --- the second big night, properly this time --- */
+
+cue('golf.h2.prospect.ten_drunk_cigarettes', PROSPECT,
+  'Somebody said something about ten drunk cigarettes.',
+  { direction: 'Trying it out. Testing whether he is allowed the vocabulary.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.oh_hes_heard', RIPPIN,
+  'Oh, he’s heard.',
+  { direction: 'Enormously pleased.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.eric.thats_the_second_night', ERIC,
+  'That is the second night, yes.',
+  { direction: 'Confirming a fixture.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.one_night_at_a_time', LOU,
+  'One night at a time.',
+  { direction: 'Closing it, without any weight on it.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h2.rippin.squatch_up', RIPPIN,
+  'Squatch up, Prospect. It’s a par five, not a funeral.',
+  { direction: 'Loud, across the fairway.', priority: PRIORITY.REACTION });
+cue('golf.h2.eric.let_him_think', ERIC, 'Let him think.',
+  { direction: 'Quiet.', priority: PRIORITY.REACTION });
+
+cue('golf.h2.lou.three_shots_to_get_there', LOU,
+  'Three shots to get there. You have got room to be wrong twice.',
+  { direction: 'Advice, and permission, in one sentence.', priority: PRIORITY.REACTION, once: true });
+
+cue('golf.h2.rippin.sallie_j_hit_one', RIPPIN,
+  'Sallie J hit one out here once. Still going, far as anybody knows.',
+  { direction: 'Looking off into the trees.', priority: PRIORITY.BANTER, once: true });
+cue('golf.h2.lou.nehoo', LOU, 'Nehoo with a guu.',
+  { direction: 'Under his breath. Not for anybody.', priority: PRIORITY.BANTER, once: true });
+
+cue('golf.h2.eric.green_is_long', ERIC,
+  'Green’s long and it runs away from you at the back.',
+  { direction: 'The read, offered as always without being asked.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.rippin.i_like_the_back', RIPPIN, 'I like the back.',
+  { direction: 'He does not.', priority: PRIORITY.REACTION, once: true });
+
+cue('golf.h2.lou.longer_than_it_looks', LOU,
+  'Everything out here is longer than it looks.',
+  { direction: 'And he is not talking about the hole.', priority: PRIORITY.REACTION, once: true, hold: 1.4 });
+
+cue('golf.h2.rippin.two_holes_two_bunkers', RIPPIN,
+  'Two holes. Two bunkers. There’s a pattern forming and I don’t care for it.',
+  { direction: 'Aggrieved at the universe.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h2.eric.six', ERIC, 'Six.',
+  { direction: 'Writing nothing. Just saying it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.five', RIPPIN, 'Five.',
+  { direction: 'Reflex.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.six_2', LOU, 'Six.',
+  { direction: 'Identical to the last time he did this.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.its_all_love_4', RIPPIN, 'It’s all love.',
+  { direction: 'Beaten, and enjoying being beaten.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h2.lou.two_down', LOU,
+  'Two down. One to go.',
+  { direction: 'Closing the card.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.eric.clubhouse_behind_the_last', ERIC,
+  'Last one comes back to the clubhouse.',
+  { direction: 'A fact about geography.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.rippin.so_it_ends_where_it_started', RIPPIN,
+  'So it ends where it started. Poetic.',
+  { direction: 'Being funny, and accidentally not.', priority: PRIORITY.STORY, once: true });
+cue('golf.h2.lou.its_a_golf_course', LOU,
+  'It’s a golf course, Rip. They all do that.',
+  { direction: 'And the joke lands on the far side of something true.', priority: PRIORITY.STORY, once: true, hold: 1.8 });
+
+/* ================================================================== */
+/* HOLE 3 — THE BIG NIGHT                                             */
+/* ================================================================== */
+/* The last hole, with the clubhouse standing behind the green the whole way
+ * in. Nobody mentions the building and nobody mentions seven o'clock until
+ * the very end, and then only once. */
+
+cue('golf.h3.rippin.last_one', RIPPIN,
+  'Last one. Everybody still friends?',
+  { direction: 'Cheerful, and checking.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.eric.provisionally', ERIC, 'Provisionally.',
+  { direction: 'Dry.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.three_ninety_five', LOU,
+  'Three ninety-five. Bends left. Clubhouse behind the green.',
+  { direction: 'Reading the hole, and the last sentence is the one that matters.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.rippin.i_can_see_the_bar', RIPPIN,
+  'I can see the bar from the tee. That’s a design decision.',
+  { direction: 'Approving.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h3.eric.there_is_sand_at_two_ten', ERIC,
+  'Sand at two hundred and ten. Right side.',
+  { direction: 'To the Prospect, not to Rippin.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.rippin.two_ten_is_not_a_problem', RIPPIN,
+  'Two-ten is not a problem for me.',
+  { direction: 'It is about to be.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.eric.two_eleven', ERIC, 'Two hundred and eleven.',
+  { direction: 'Watching it come down.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.rippin.i_heard_you', RIPPIN, 'I heard you.',
+  { direction: 'From the sand.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.lou.he_did_hear_you', LOU, 'He did hear you.',
+  { direction: 'Enjoying his morning.', priority: PRIORITY.REACTION, once: true });
+
+/* --- the conversation the round has been walking toward --- */
+
+cue('golf.h3.lou.you_know_whats_at_seven', LOU,
+  'You know what’s at seven.',
+  {
+    direction: 'Not a question. First time either of them has said the hour out '
+      + 'loud, and he says it while looking down the fairway.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 2.0,
+  });
+cue('golf.h3.prospect.i_know', PROSPECT, 'I know.',
+  { direction: 'Steady. No performance in it.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.nothing_you_can_do_now', LOU,
+  'There’s nothing you can do about it between now and then. That’s why we’re out here.',
+  {
+    direction: 'The whole reason for the morning, stated once, on the last hole, '
+      + 'as though it were a small practical matter.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 2.6,
+  });
+
+cue('golf.h3.prospect.what_if_they_say_no', PROSPECT,
+  'What if they say no?',
+  { direction: 'Quiet. The question he has been carrying since the car park.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.then_they_say_no', LOU,
+  'Then they say no, and I still know where you live, and we still play golf.',
+  { direction: 'Absolutely level. It is the most reassuring thing he could have said.', priority: PRIORITY.STORY, once: true, hold: 2.0 });
+cue('golf.h3.lou.but_they_wont', LOU,
+  'They won’t.',
+  { direction: 'Two words, thrown away, and he is already walking.', priority: PRIORITY.STORY, once: true, hold: 2.2 });
+
+cue('golf.h3.rippin.what_are_we_talking_about', RIPPIN,
+  'What are we talking about over there?',
+  { direction: 'From forty yards away, because he cannot bear it.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.lou.golf', LOU, 'Golf.',
+  { direction: 'Flat.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.eric.leave_it_rip', ERIC, 'Leave it, Rip.',
+  { direction: 'And Rippin does, which tells you he understood.', priority: PRIORITY.REACTION, once: true });
+
+cue('golf.h3.eric.last_green_of_the_day', ERIC,
+  'Last green. Take a second on it.',
+  { direction: 'Kind, and the most Eric thing he says all morning.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.rippin.im_taking_two_seconds', RIPPIN, 'I’m taking two.',
+  { direction: 'Softer than usual.', priority: PRIORITY.REACTION, once: true });
+cue('golf.h3.lou.breaks_toward_the_building', LOU,
+  'Breaks toward the building. Everything here does.',
+  { direction: 'The last read he gives, and it is a joke about the club.', priority: PRIORITY.REACTION, once: true });
+
+/* --- the end of the morning --- */
+
+cue('golf.h3.rippin.final_accounting', RIPPIN,
+  'Right. Final accounting. I want my four back from the first.',
+  { direction: 'Opening negotiations he has already lost.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.no', LOU, 'No.',
+  { direction: 'Not looking up.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.rippin.didnt_even_think', RIPPIN, 'You didn’t even think about it.',
+  { direction: 'Outraged.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.lou.i_thought_about_it_on_one', LOU,
+  'I thought about it on the first. It’s all love.',
+  { direction: 'Using Rippin’s own phrase on him. This is Lou being playful.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.eric.that_is_devastating', ERIC, 'That is devastating.',
+  { direction: 'Impressed.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.rippin.it_is_all_love', RIPPIN,
+  'It *is* all love. That’s the tragedy of it.',
+  { direction: 'Beaten and completely happy.', priority: PRIORITY.STORY, once: true });
+
+cue('golf.h3.lou.thats_the_round', LOU,
+  'That’s the round.',
+  { direction: 'Closing the card for the last time.', priority: PRIORITY.STORY, once: true, hold: 1.6 });
+cue('golf.h3.eric.good_morning_for_it', ERIC,
+  'Good morning for it.',
+  { direction: 'Looking at the sky, meaning something else.', priority: PRIORITY.STORY, once: true });
+cue('golf.h3.rippin.same_time_next_week', RIPPIN,
+  'Same time next week, Prospect.',
+  {
+    direction: 'Said as an ordinary arrangement, which is the single warmest '
+      + 'thing anybody says to him all day — because it assumes a next week.',
+    priority: PRIORITY.STORY, once: true, hold: 1.8,
+  });
+cue('golf.h3.prospect.ill_be_here', PROSPECT,
+  'I’ll be here.',
+  { direction: 'And he means it, and everybody hears that he means it.', priority: PRIORITY.STORY, once: true, hold: 1.6 });
+
+cue('golf.h3.lou.seven_oclock', LOU,
+  'Seven o’clock. Don’t be early.',
+  {
+    direction: 'The last line of the morning. He is already walking to the car. '
+      + 'Do not make it heavy — the whole point is that he says it the way you '
+      + 'would tell somebody where to park.',
+    priority: PRIORITY.STORY, once: true, interruptible: false, hold: 3.0,
+  });
+
 export const CUES = Object.freeze(registry);
 
 /* ================================================================== */
@@ -936,6 +1245,92 @@ export const SEQUENCES = Object.freeze({
    * hole does: standing over a par 3 with a driver, changing club for the
    * ninth time, taking a very long while about it. Named rather than fired
    * loose so every line in the registry is reachable from this table. */
+
+  /* ---- Hole 2: The Long Walk ---- */
+  'h2.tee.arrival': [
+    'golf.h2.rippin.now_we_talk', 'golf.h2.eric.dogleg_right',
+    'golf.h2.rippin.i_can_see_it', 'golf.h2.lou.driver',
+  ],
+  'h2.tee.rippin.before': ['golf.h2.rippin.watch_the_corner', 'golf.h2.eric.there_is_sand_there', 'golf.h2.rippin.not_where_im_going'],
+  'h2.tee.rippin.after': ['golf.h2.eric.that_is_the_sand', 'golf.h2.rippin.different_sand', 'golf.h2.lou.same_sand'],
+  'h2.tee.eric.before': ['golf.h2.rippin.eric_hits_it_nowhere'],
+  'h2.tee.eric.after': ['golf.h2.eric.that_is_the_game'],
+  'h2.tee.lou.before': [],
+  'h2.tee.lou.after': ['golf.h2.prospect.you_hit_it_short', 'golf.h2.lou.im_in_the_fairway'],
+  'h2.tee.player.before': ['golf.h2.lou.three_shots_to_get_there', 'golf.h2.rippin.squatch_up', 'golf.h2.eric.let_him_think'],
+
+  'h2.green.arrival': [
+    'golf.h2.eric.green_is_long', 'golf.h2.rippin.i_like_the_back',
+    'golf.h2.lou.longer_than_it_looks',
+  ],
+  /* The long walk's own conversation, played on the way to the green because
+   * that is the only place in the round there is time for it. */
+  'h2.green.big_night': [
+    'golf.h2.rippin.booski_rigged', 'golf.h2.eric.he_thinks_weather_is_rigged',
+    'golf.h2.lou.hes_right_about_the_weather',
+    'golf.h2.rippin.ape_says_cheating', 'golf.h2.eric.he_had_a_point',
+    'golf.h2.rippin.shubes_cried', 'golf.h2.lou.he_did_not_cry',
+    'golf.h2.rippin.his_eyes_were_wet', 'golf.h2.eric.it_was_windy',
+    'golf.h2.eric.gratin_butter_chicken', 'golf.h2.rippin.he_uses_a_jar',
+    'golf.h2.eric.i_know_he_uses_a_jar',
+    'golf.h2.rippin.irish_and_the_eggs', 'golf.h2.prospect.what_eggs',
+    'golf.h2.lou.dont', 'golf.h2.rippin.eleven_months',
+    'golf.h2.rippin.hog_mama_bus', 'golf.h2.eric.that_is_not_what_happened',
+    'golf.h2.rippin.thats_how_i_tell_it',
+    'golf.h2.rippin.sallie_j_hit_one', 'golf.h2.lou.nehoo',
+    'golf.h2.lou.good_ole_days', 'golf.h2.rippin.theyre_still_going',
+    'golf.h2.lou.i_know_they_are',
+    'golf.h2.prospect.ten_drunk_cigarettes', 'golf.h2.rippin.oh_hes_heard',
+    'golf.h2.eric.thats_the_second_night', 'golf.h2.lou.one_night_at_a_time',
+  ],
+
+  'h2.end.scorecard': [
+    'golf.h2.rippin.two_holes_two_bunkers', 'golf.h2.eric.six',
+    'golf.h2.rippin.five', 'golf.h2.lou.six_2', 'golf.h2.rippin.its_all_love_4',
+  ],
+  'h2.end.walk_off': [
+    'golf.h2.lou.two_down', 'golf.h2.eric.clubhouse_behind_the_last',
+    'golf.h2.rippin.so_it_ends_where_it_started', 'golf.h2.lou.its_a_golf_course',
+  ],
+
+  /* ---- Hole 3: The Big Night ---- */
+  'h3.tee.arrival': [
+    'golf.h3.rippin.last_one', 'golf.h3.eric.provisionally',
+    'golf.h3.lou.three_ninety_five', 'golf.h3.rippin.i_can_see_the_bar',
+  ],
+  'h3.tee.rippin.before': ['golf.h3.eric.there_is_sand_at_two_ten', 'golf.h3.rippin.two_ten_is_not_a_problem'],
+  'h3.tee.rippin.after': ['golf.h3.eric.two_eleven', 'golf.h3.rippin.i_heard_you', 'golf.h3.lou.he_did_hear_you'],
+  'h3.tee.eric.before': [],
+  'h3.tee.eric.after': [],
+  'h3.tee.lou.before': [],
+  'h3.tee.lou.after': [],
+  'h3.tee.player.before': ['golf.h3.lou.you_know_whats_at_seven', 'golf.h3.prospect.i_know'],
+
+  /* The last conversation, on the walk in. Rippin is deliberately out of
+   * earshot for the first half of it and comes back for the second. */
+  'h3.green.big_night': [
+    'golf.h3.lou.nothing_you_can_do_now',
+    'golf.h3.prospect.what_if_they_say_no', 'golf.h3.lou.then_they_say_no',
+    'golf.h3.lou.but_they_wont',
+    'golf.h3.rippin.what_are_we_talking_about', 'golf.h3.lou.golf',
+    'golf.h3.eric.leave_it_rip',
+  ],
+  'h3.green.arrival': [
+    'golf.h3.eric.last_green_of_the_day', 'golf.h3.rippin.im_taking_two_seconds',
+    'golf.h3.lou.breaks_toward_the_building',
+  ],
+
+  'h3.end.scorecard': [
+    'golf.h3.rippin.final_accounting', 'golf.h3.lou.no',
+    'golf.h3.rippin.didnt_even_think', 'golf.h3.lou.i_thought_about_it_on_one',
+    'golf.h3.eric.that_is_devastating', 'golf.h3.rippin.it_is_all_love',
+  ],
+  'h3.end.walk_off': [
+    'golf.h3.lou.thats_the_round', 'golf.h3.eric.good_morning_for_it',
+    'golf.h3.rippin.same_time_next_week', 'golf.h3.prospect.ill_be_here',
+    'golf.h3.lou.seven_oclock',
+  ],
+
   'bark.driver_on_par_three': ['golf.h1.eric.thats_a_lot_of_club'],
   'bark.club_fiddling': ['golf.h1.rippin.hit_it_again'],
   'bark.slow_play': ['golf.h1.lou.were_not_in_a_hurry'],

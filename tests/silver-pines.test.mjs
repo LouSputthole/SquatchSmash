@@ -297,7 +297,29 @@ test('every line in the script can be heard, and none is addressed by position',
   // Every cue is keyed by a stable id that names it, not by where it sits.
   for (const [id, cue] of Object.entries(CUES)) {
     assert.equal(cue.id, id);
-    assert.ok(/^golf\.h1\.[a-z]+\.[a-z0-9_]+$/.test(id), `unstable cue id: ${id}`);
+    /* golf.h<hole>.<speaker>.<what it is>. Never an index, never a position:
+     * reordering an exchange must not be able to attach yesterday's recording
+     * to today's line. */
+    assert.ok(/^golf\.h[1-9]\d?\.[a-z]+\.[a-z0-9_]+$/.test(id), `unstable cue id: ${id}`);
+  }
+});
+
+test('every hole has something of its own to say', () => {
+  /* The per-hole fallback means a hole with no lines of its own silently
+   * borrows the first hole's, which is the correct behaviour and also exactly
+   * how a hole ships with nobody noticing it was never written. */
+  for (const hole of builtHoles()) {
+    const mine = Object.keys(CUES).filter((id) => id.startsWith(`golf.h${hole}.`));
+    assert.ok(mine.length > 20, `hole ${hole} only has ${mine.length} lines of its own`);
+    const owners = new Set(mine.map((id) => CUES[id].speaker));
+    for (const who of [CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW, CHARACTER_IDS.ERICAN]) {
+      assert.ok(owners.has(who), `hole ${hole}: ${who} says nothing`);
+    }
+    // And the round has to actually reach them.
+    for (const beat of ['tee.arrival', 'end.walk_off']) {
+      assert.ok(SEQUENCES[`h${hole}.${beat}`] || hole === 1,
+        `hole ${hole} has no ${beat} of its own`);
+    }
   }
 });
 

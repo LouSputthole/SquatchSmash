@@ -716,7 +716,10 @@ Finishing all three is what closes the mission: `story.complete()` refuses a
 round of fewer than three holes, so it is the only place the campaign learns
 he played golf with Lou rather than being driven to a tee.
 
-**The dialogue for Holes 2 and 3 is not written yet.** They play with the
-first hole's lines through a per-hole fallback — `tee.arrival` on Hole 2 looks
-for `h2.tee.arrival` and takes the shared one when there is not a different
-thing to say. The machinery is finished and the words are not.
+All three holes have their own dialogue — 291 cues, each with a stable id and
+a direction written for whoever records it. Hole 1 is the invitation, Hole 2 is
+four hundred yards of the family talking about everybody who is not there, and
+Hole 3 is the only conversation in the round that says the hour out loud. A
+per-hole fallback means a hole only overrides the lines that actually differ:
+`tee.arrival` on Hole 2 looks for `h2.tee.arrival` and takes the shared one
+when there is not a different thing to say.
