@@ -17,7 +17,7 @@ import { WP, EH, KT, FT, AC, DIFFICULTY, LANDMARKS } from './config.js';
 import { OBJECTIVES } from './script.js';
 import { terrainHeight } from './terrain.js';
 import { clamp, lerp, smoothstep, damp, headingDelta } from './util.js';
-import { setPose, speak, updateFigure, scatterCrows, makeAssociate } from './npc.js';
+import { setPose, speak, updateFigure, walkTo, scatterCrows, makeAssociate } from './npc.js';
 import { yawToward } from '../world/build.js';
 import { Loading } from './loading.js';
 
@@ -62,6 +62,7 @@ export class MissionController {
     this.flags = {
       louAboard: false,
       inCockpit: false,
+      stoveWalked: false,
       chocksWarned: false,
       runupDone: false,
       rotateCalled: false,
@@ -121,9 +122,12 @@ export class MissionController {
     setPose(this.lou, 'lean');
     this.lou.sick = 0.35;
 
-    // Old Stove is already at the hangar. He was not, officially.
-    this.stove.group.position.copy(this.airfield.anchors.stoveStand);
-    this.stove.group.rotation.y = 2.4;
+    /* Old Stove waits in the hangar's shade, facing the door. He walks out to
+     * his crates near the end of the preflight (updatePreflight) rather than
+     * standing frozen beside the aeroplane from the first frame. Officially,
+     * of course, he is in neither place. */
+    this.stove.group.position.copy(this.airfield.anchors.stoveHangar);
+    this.stove.group.rotation.y = Math.PI;
     setPose(this.stove, 'idle');
 
     const start = this.airfield.anchors.playerStart;
@@ -452,6 +456,15 @@ export class MissionController {
 
   updatePreflight(dt) {
     this.preflight.update(dt, this.physics);
+    /* Four of six checks done is "near the end": Old Stove leaves the hangar
+     * now, so the walk is finished and he is standing at his crates before
+     * the preflight wraps and his scene wants him — no repeated beat, no
+     * teleport, and no man frozen beside the aeroplane since frame one. */
+    if (!this.flags.stoveWalked && this.preflight.progress > 0.6) {
+      this.flags.stoveWalked = true;
+      const stand = this.airfield.anchors.stoveStand;
+      walkTo(this.stove, stand.x, stand.z, { speed: 1.3 });
+    }
     const left = this.preflight.remaining;
     this.setObjective(left.length
       ? `${OBJECTIVES.preflight} — ${left.join(', ')}`
@@ -462,6 +475,9 @@ export class MissionController {
 
   updateStove(dt) {
     void dt;
+    // If the preflight was rushed he may still be crossing the apron. His
+    // beats wait until he is standing at the crates, so nothing fires twice.
+    if (this.stove.walk) return;
     const d = this.player.position.distanceTo(this.stove.group.position);
     if (d < 12) this.stove.lookAt = this.player.position;
     if (d < 9 && !this.dialogue.seen('stove.meet')) {

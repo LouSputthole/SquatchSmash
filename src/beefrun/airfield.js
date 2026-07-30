@@ -480,7 +480,10 @@ export function buildAirfield(scene, { terrain } = {}) {
     departHeading: 180,
     truck: truck.group.position.clone(),
     hangarDoor: new THREE.Vector3(-60, ELEV, 394),
-    // Old Stove parks by the hangar and stands beside his crates.
+    /* Old Stove starts inside the hangar — in the shade, framed by the door
+     * opening (x -65..-55), officially not present — and walks out to
+     * stoveStand near the end of the preflight to wait beside his crates. */
+    stoveHangar: new THREE.Vector3(-62, ELEV, 401),
     stoveStand: new THREE.Vector3(-64, ELEV, 386),
     stoveCrates: new THREE.Vector3(-62, ELEV, 382),
     stoveCart: new THREE.Vector3(-58, ELEV, 380),

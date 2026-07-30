@@ -98,6 +98,7 @@ export function makeFigure(o = {}) {
     t: Math.random() * 10,
     talk: 0,
     lookAt: null,
+    walk: null,     // set by walkTo(); updateFigure carries him there
     sick: 0,        // Lou only: how bad it is right now
     _breath: 0,
   };
@@ -161,11 +162,54 @@ export function setPose(f, pose) {
   }
 }
 
+/**
+ * Send a figure walking somewhere on the flat ground he is standing on.
+ * updateFigure carries him there — legs scissoring, arms counter-swinging —
+ * and sets `pose` on arrival. The walk owns the legs while it runs.
+ */
+export function walkTo(f, x, z, { speed = 1.2, pose = 'idle' } = {}) {
+  setPose(f, 'idle');
+  f.walk = { x, z, speed, pose, phase: 0 };
+}
+
 /** Idle life: breathing, talking, the odd cough, and looking where told. */
 export function updateFigure(f, dt, camPos = null) {
   f.t += dt;
   f._breath = Math.sin(f.t * 1.6) * 0.012;
   f.hips.position.y = (f.pose === 'sit' ? 0.52 : 0.86) + f._breath;
+
+  if (f.walk) {
+    const w = f.walk;
+    const dx = w.x - f.group.position.x;
+    const dz = w.z - f.group.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.15) {
+      f.group.position.x = w.x;
+      f.group.position.z = w.z;
+      f.walk = null;
+      setPose(f, w.pose);
+    } else {
+      const step = Math.min(d, w.speed * dt);
+      f.group.position.x += (dx / d) * step;
+      f.group.position.z += (dz / d) * step;
+      // Face the direction of travel, turning rather than snapping.
+      const want = Math.atan2(dx, dz);
+      const turn = ((want - f.group.rotation.y + Math.PI) % (Math.PI * 2) + Math.PI * 2)
+        % (Math.PI * 2) - Math.PI;
+      f.group.rotation.y += clamp(turn, -3.4 * dt, 3.4 * dt);
+      // Legs scissor, knees lift on the trailing beat, arms swing opposite,
+      // and the whole man bobs on every stride.
+      w.phase += dt * (4.2 + w.speed * 2.4);
+      const s = Math.sin(w.phase);
+      f.legs[0].hip.rotation.x = s * 0.52;
+      f.legs[1].hip.rotation.x = -s * 0.52;
+      f.legs[0].knee.rotation.x = Math.max(0, s) * 0.8;
+      f.legs[1].knee.rotation.x = Math.max(0, -s) * 0.8;
+      f.arms[0].shoulder.rotation.x = -s * 0.3;
+      f.arms[1].shoulder.rotation.x = s * 0.3;
+      f.hips.position.y += Math.abs(Math.cos(w.phase)) * 0.028;
+    }
+  }
 
   if (f.talk > 0) {
     f.talk -= dt;
