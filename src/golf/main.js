@@ -26,7 +26,7 @@ import { Golfer, makeBag, makeBall } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
-import { Swing, SWING_PHASE } from './swing.js';
+import { Swing, SWING_PHASE, DEAD_ZONE } from './swing.js';
 import { CLUB_IDS, getClub, estimateCarry } from './clubs.js';
 import { BALL_STATE, solveShot } from './ball.js';
 import {
@@ -329,15 +329,34 @@ function paintAim() {
     : `${Math.abs(off).toFixed(0)}° ${off > 0 ? 'RIGHT' : 'LEFT'}`;
 }
 
+/* The meter runs from the late end of the strike sweep to full power, not from
+ * zero to full power.
+ *
+ * The strike marker travels past the line into negative territory, and mapping
+ * that onto a bar that starts at zero clamps it — so the marker parked at the
+ * left edge and being *late* looked identical to being perfect. The whole
+ * point of the third click is that you can see yourself miss it. */
+const METER_FLOOR = -0.30;
+const meterPct = (v) => `${Math.max(0, Math.min(100,
+  ((v - METER_FLOOR) / (1 - METER_FLOOR)) * 100))}%`;
+
 function paintMeter() {
   if (!swing.active && swing.phase !== SWING_PHASE.DONE) {
     ui.meter.classList.add('hidden');
     return;
   }
   ui.meter.classList.remove('hidden');
-  const pct = (v) => `${Math.max(0, Math.min(100, v * 100))}%`;
-  ui.meterFill.style.width = pct(swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power);
-  ui.meterMark.style.left = pct(swing.phase === SWING_PHASE.POWER ? swing.marker : swing.marker);
+
+  const striking = swing.phase !== SWING_PHASE.POWER;
+  ui.meterFill.style.width = meterPct(striking ? swing.power : swing.marker);
+  ui.meterMark.style.left = meterPct(swing.marker);
+
+  /* The forgiving middle, drawn where it actually is, so a player can see the
+   * size of the target he is being given rather than having to infer it. */
+  ui.meterLine.style.left = meterPct(-DEAD_ZONE);
+  ui.meterLine.style.width =
+    `${((DEAD_ZONE * 2) / (1 - METER_FLOOR)) * 100}%`;
+
   ui.meterHint.textContent = swing.phase === SWING_PHASE.POWER
     ? 'CLICK: POWER'
     : swing.phase === SWING_PHASE.STRIKE ? 'CLICK: STRIKE' : swing.strikeLabel();

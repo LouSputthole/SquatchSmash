@@ -115,13 +115,15 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
   background: linear-gradient(90deg, #4f8f43, #d7c24a 72%, #d9542e 100%);
 }
 /* The line the strike is measured against, with the forgiving middle drawn
- * around it so a player can see the size of the target he is being given. */
+ * around it so a player can see the size of the target he is being given.
+ * Positioned and sized from the swing's own dead zone in paintMeter, so the
+ * band on screen is the band the physics forgives rather than a guess that
+ * agrees with it today. */
 #meter .line {
-  position: absolute; left: 0; top: -1px; bottom: -1px;
-  width: 17%;
-  background: rgba(236, 234, 223, 0.16);
+  position: absolute; top: -1px; bottom: -1px;
+  background: rgba(236, 234, 223, 0.20);
+  border-left: 1px solid rgba(236, 234, 223, 0.45);
   border-right: 2px solid var(--pines-cream);
-  border-left: 2px solid rgba(236, 234, 223, 0.35);
 }
 #meter .mark {
   position: absolute; top: -3px; bottom: -3px; width: 3px;
