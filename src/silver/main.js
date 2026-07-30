@@ -26,9 +26,9 @@ import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
 
 import { buildRoom, ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H } from './room.js';
-import { populate, makeBand, TIP_POINTS, TIP_TOTAL } from './cast.js';
+import { populate, makeBand } from './cast.js';
 import { Date_ } from './date.js';
-import { Woo, EVENTS } from './woo.js';
+import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
 import { buildScripts, DELIA, DELIA_BARKS, BARKS, NOTES } from './script.js';

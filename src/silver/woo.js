@@ -24,6 +24,16 @@ export const START = 12;
 /**
  * Every scoring event in the mission.
  *
+ * The balance, which `tools/balance-silver.mjs` exists to defend: talking well
+ * for a whole evening is worth about sixty-six, tipping the whole route is
+ * worth thirty-eight, and you start on twelve. So charm alone reaches a good
+ * night and no further, tips alone reach a decent one, and the perfect ending
+ * needs the room as well as her — which is the entire premise of the mission.
+ *
+ * The first pass had the conversation worth eighty-eight, which put a charming
+ * man on a hundred before he had handed anybody a dollar. Every tip in the
+ * building bought nothing, and the central mechanic was decoration.
+ *
  *   points   what it is worth, once
  *   label    what the strip says when it fires; omitted events move the number
  *            silently, which is most of the small ones
@@ -33,9 +43,9 @@ export const START = 12;
 export const EVENTS = {
   /* ---- the street ---- */
   'Woo.DriverTipped':       { points: 2,  label: 'Took Care of the Driver', group: 'tip' },
-  'Woo.DateDoorHeld':       { points: 2,  label: 'Held the Door' },
-  'Woo.WaitedForDate':      { points: 2,  label: 'Waited' },
-  'Woo.SideDoorResponse':   { points: 2 },
+  'Woo.DateDoorHeld':       { points: 1,  label: 'Held the Door' },
+  'Woo.WaitedForDate':      { points: 1,  label: 'Waited' },
+  'Woo.SideDoorResponse':   { points: 1 },
   'Woo.SideDoorFumbled':    { points: -1 },
 
   /* ---- the route ---- */
@@ -60,46 +70,49 @@ export const EVENTS = {
   'Woo.WorkerInsulted':     { points: -8, label: 'That Was Beneath You', repeat: true },
 
   'Woo.HazardGuided':       { points: 2,  label: 'Watch the Pan' },
-  'Woo.KeptPace':           { points: 2,  label: 'Kept Pace' },
-  'Woo.CellarBanter':       { points: 2 },
-  'Woo.KitchenBanter':      { points: 2 },
+  'Woo.KeptPace':           { points: 1,  label: 'Kept Pace' },
+  'Woo.CellarBanter':       { points: 1 },
+  'Woo.KitchenBanter':      { points: 1 },
   'Woo.DateLeftBehind':     { points: -2, label: 'She Is Back There', repeat: true },
   'Woo.DoorInHerFace':      { points: -2, repeat: true },
   'Woo.QuestionIgnored':    { points: -3, repeat: true },
 
   /* ---- the table ---- */
-  'Woo.TableReaction':      { points: 3 },
+  'Woo.TableReaction':      { points: 2 },
   'Woo.ChairPulled':        { points: 3,  label: 'Pulled Her Chair' },
-  'Woo.DateIntroduced':     { points: 5,  label: 'Introduced Her' },
+  'Woo.DateIntroduced':     { points: 4,  label: 'Introduced Her' },
   'Woo.WrongName':          { points: -6, label: 'That Is Not Her Name' },
+  /* The two that keep their weight: she told him what she drinks and he was
+     listening, and he made a whole room go quiet. Everything else in the
+     mission is smaller than both of those and should feel it. */
   'Woo.DrinkRemembered':    { points: 6,  label: 'Remembered Her Drink' },
   'Woo.DrinkAsked':         { points: 1 },
   'Woo.DrinkWrong':         { points: -4 },
-  'Woo.CallbackUsed':       { points: 4,  label: 'You Were Listening' },
-  'Woo.GenuineQuestion':    { points: 3,  repeat: true },
-  'Woo.MadeHerLaugh':       { points: 3,  label: 'Made Her Laugh', repeat: true },
+  'Woo.CallbackUsed':       { points: 3,  label: 'You Were Listening' },
+  'Woo.GenuineQuestion':    { points: 2,  repeat: true },
+  'Woo.MadeHerLaugh':       { points: 2,  label: 'Made Her Laugh', repeat: true },
   'Woo.Bragged':            { points: -4, repeat: true },
   'Woo.GruesomeDetail':     { points: -4, repeat: true },
   'Woo.LingeredWithFamily': { points: -3, repeat: true },
-  'Woo.FamilyHandled':      { points: 4,  label: 'Handled It' },
-  'Woo.ChampagneAcknowledged': { points: 3, label: 'Said Thank You' },
+  'Woo.FamilyHandled':      { points: 3,  label: 'Handled It' },
+  'Woo.ChampagneAcknowledged': { points: 2, label: 'Said Thank You' },
   'Woo.FunnyHowSuccess':    { points: 5,  label: 'Funny How' },
   'Woo.FunnyHowOverplayed': { points: -3 },
-  'Woo.PersonalHonest':     { points: 4,  label: 'Straight Answer' },
+  'Woo.PersonalHonest':     { points: 3,  label: 'Straight Answer' },
   'Woo.PersonalEvaded':     { points: -1 },
 
   /* ---- the show ---- */
-  'Woo.PerformancePreferenceRemembered': { points: 5, label: 'Her Kind of Band' },
+  'Woo.PerformancePreferenceRemembered': { points: 4, label: 'Her Kind of Band' },
   'Woo.SongRequested':      { points: 2 },
   'Woo.StaredAtStage':      { points: -3, label: 'She Noticed', repeat: true },
-  'Woo.ToastMade':          { points: 4,  label: 'A Decent Toast' },
+  'Woo.ToastMade':          { points: 3,  label: 'A Decent Toast' },
   'Woo.ToastFumbled':       { points: -2 },
-  'Woo.SwayCompleted':      { points: 6,  label: 'Danced, Technically' },
+  'Woo.SwayCompleted':      { points: 5,  label: 'Danced, Technically' },
   'Woo.SwayRecovered':      { points: 2,  label: 'Recovered' },
   'Woo.SwayRefused':        { points: -3 },
   'Woo.SwayForced':         { points: -6, label: 'She Said No' },
-  'Woo.PhotoTaken':         { points: 3,  label: 'One for the Wall' },
-  'Woo.CallDeclined':       { points: 3,  label: 'Let It Ring' },
+  'Woo.PhotoTaken':         { points: 2,  label: 'One for the Wall' },
+  'Woo.CallDeclined':       { points: 2,  label: 'Let It Ring' },
   'Woo.CallTaken':          { points: -5, label: 'You Took It', repeat: true },
   'Woo.DrinkSpilled':       { points: -2, repeat: true },
   'Woo.FightStarted':       { points: -20, label: 'Well, That Happened' },
@@ -107,9 +120,37 @@ export const EVENTS = {
   'Woo.CrudeInvitation':    { points: -12 },
 
   /* ---- the end ---- */
-  'Woo.InvitationTiming':   { points: 4,  label: 'Read the Room' },
+  'Woo.InvitationTiming':   { points: 3,  label: 'Read the Room' },
   'Woo.InvitationRushed':   { points: -5 },
 };
+
+/**
+ * Everybody you can hand money to, in route order, with what they cost.
+ *
+ * Here rather than in cast.js, where it started, for two reasons: it is score
+ * data rather than staffing, and cast.js imports three.js — which means the
+ * balance harness could not read it without a browser, and a balance harness
+ * that needs a browser does not get run.
+ */
+export const TIP_POINTS = [
+  { id: 'Woo.DriverTipped',        who: 'driver',      script: 'driver',     amount: 40 },
+  { id: 'Woo.DoorAttendantTipped', who: 'doorman',     script: 'doorman',    amount: 20 },
+  { id: 'Woo.CellarWorkerTipped',  who: 'cellarman',   script: 'cellarman',  amount: 20 },
+  { id: 'Woo.DeliveryTipped',      who: 'delivery',    script: 'delivery',   amount: 20 },
+  { id: 'Woo.PorterTipped',        who: 'porter',      script: 'porter',     amount: 20 },
+  { id: 'Woo.CookTipped',          who: 'chef',        script: 'chef',       amount: 50 },
+  { id: 'Woo.DishwasherTipped',    who: 'dishwasher',  script: 'dishwasher', amount: 20 },
+  { id: 'Woo.ServiceBarTipped',    who: 'servicebar',  script: 'servicebar', amount: 20 },
+  { id: 'Woo.CoatCheckTipped',     who: 'coatcheck',   script: 'coatcheck',  amount: 20 },
+  { id: 'Woo.HostTipped',          who: 'host',        script: 'host',       amount: 20 },
+  { id: 'Woo.CaptainTipped',       who: 'manager',     script: 'manager',    amount: 50 },
+  { id: 'Woo.WaiterTipped',        who: 'waiter',      script: 'waiter',     amount: 40 },
+  { id: 'Woo.PhotographerTipped',  who: 'photographer', script: 'photographer', amount: 20 },
+  { id: 'Woo.BandleaderTipped',    who: 'bandleader',  script: 'bandleader', amount: 40 },
+];
+
+/** What it costs to do the whole route properly, before you buy anything. */
+export const TIP_TOTAL = TIP_POINTS.reduce((n, t) => n + t.amount, 0);
 
 /** Every tip in the mission. Getting all of them is the streak. */
 export const TIP_ROSTER = Object.entries(EVENTS)

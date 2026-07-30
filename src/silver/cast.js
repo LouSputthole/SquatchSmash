@@ -16,34 +16,13 @@
 import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
 import { rand, pick } from '../bing/kit.js';
+import { TIP_POINTS } from './woo.js';
+
+export { TIP_POINTS, TIP_TOTAL } from './woo.js';
 
 const SUIT_DINERS = [0x1b1b22, 0x232430, 0x2a2028, 0x1e2430];
 const GOWNS = [0x5a1430, 0x1a2a4a, 0x2a4a3a, 0x4a3a10, 0x3a1a3a];
 
-/**
- * Everybody you can hand money to, in route order, with what they cost and
- * what event they pay into. The Woo roster is derived from `woo.js`; this is
- * the other half — where each of them is standing.
- */
-export const TIP_POINTS = [
-  { id: 'Woo.DriverTipped',        who: 'driver',      script: 'driver',     amount: 40 },
-  { id: 'Woo.DoorAttendantTipped', who: 'doorman',     script: 'doorman',    amount: 20 },
-  { id: 'Woo.CellarWorkerTipped',  who: 'cellarman',   script: 'cellarman',  amount: 20 },
-  { id: 'Woo.DeliveryTipped',      who: 'delivery',    script: 'delivery',   amount: 20 },
-  { id: 'Woo.PorterTipped',        who: 'porter',      script: 'porter',     amount: 20 },
-  { id: 'Woo.CookTipped',          who: 'chef',        script: 'chef',       amount: 50 },
-  { id: 'Woo.DishwasherTipped',    who: 'dishwasher',  script: 'dishwasher', amount: 20 },
-  { id: 'Woo.ServiceBarTipped',    who: 'servicebar',  script: 'servicebar', amount: 20 },
-  { id: 'Woo.CoatCheckTipped',     who: 'coatcheck',   script: 'coatcheck',  amount: 20 },
-  { id: 'Woo.HostTipped',          who: 'host',        script: 'host',       amount: 20 },
-  { id: 'Woo.CaptainTipped',       who: 'manager',     script: 'manager',    amount: 50 },
-  { id: 'Woo.WaiterTipped',        who: 'waiter',      script: 'waiter',     amount: 40 },
-  { id: 'Woo.PhotographerTipped',  who: 'photographer', script: 'photographer', amount: 20 },
-  { id: 'Woo.BandleaderTipped',    who: 'bandleader',  script: 'bandleader', amount: 40 },
-];
-
-/** What it costs to do the whole route properly, before you buy anything. */
-export const TIP_TOTAL = TIP_POINTS.reduce((n, t) => n + t.amount, 0);
 
 /* ------------------------------------------------------------------ */
 

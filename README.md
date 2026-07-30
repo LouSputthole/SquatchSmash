@@ -531,9 +531,17 @@ already existed:
 
 `npm run check`, then `npm run verify:silver` — which plays the mission from the
 pavement to the ending card in a real browser and asserts the state at every
-beat. **52 checks.** It is the only thing that catches a companion stuck two
+beat. **54 checks.** It is the only thing that catches a companion stuck two
 rooms back, a tip that pays twice across a checkpoint, or a table that gets
 built and then is not there.
+
+`npm run balance:silver` plays the evening six ways with no browser at all and
+asks whether the score means anything: whether a flawless run can reach the top
+band, whether a bad one can fall through the floor, and — the one that matters —
+whether somebody who is charming and tips nobody can still have a good night
+without having a perfect one. He scores 78. Tipping the whole route is the
+difference between a good evening and the best one, which is the premise of the
+mission stated as arithmetic.
 
 Add `?dev` to the URL for the debug panel: jump to any phase, fire either
 cutscene, set the score, mark or reset every tip, and force any of the nine
