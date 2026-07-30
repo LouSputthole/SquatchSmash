@@ -279,7 +279,9 @@ export function buildMotel(scene, renderer) {
         const leaf = boxMesh(1.6, 2.6, 0.14, floor ? C.doorDark : C.door, 0.8, 1.3, 0);
         doorGroup.add(leaf);
         doorGroup.add(boxMesh(0.1, 0.1, 0.1, C.chrome, 1.5, 1.3, 0.12));
-        doorGroup.position.set(x - 0.8, y + 0.02, WALKWAY.z0 + 0.06);
+        // Upstairs the deck top sits at 3.995, so the ground-floor lift of
+        // +0.02 left a visible gap under every decorative door.
+        doorGroup.position.set(x - 0.8, y + (floor ? -0.005 : 0.02), WALKWAY.z0 + 0.06);
         scene.add(doorGroup);
         const plate = makeNumberPlate(num);
         plate.position.set(x + 1.4, y + 2.2, WALKWAY.z0 + 0.04);
@@ -297,10 +299,12 @@ export function buildMotel(scene, renderer) {
       }
     }
   }
-  // The two doors that actually open get their real numbers
+  // The two doors that actually open get their real numbers. Their fronts are
+  // recessed to the room wall, so the plates mount on that wall face rather
+  // than floating at the walkway line a quarter-metre out.
   for (const [num, px] of [[11, -10.4], [12, 1.7]]) {
     const plate = makeNumberPlate(num);
-    plate.position.set(px, 2.25, WALKWAY.z0 + 0.04);
+    plate.position.set(px, 2.25, ROOM11.z1 + 0.34);
     scene.add(plate);
     doorNumbers.push({ num, x: px, y: 0, floor: 0, plate });
   }
@@ -633,14 +637,16 @@ export function buildMotel(scene, renderer) {
   wall(O.x0, -45.1, O.z1 - 0.3, O.z1, 0, 3.6, C.stucco);     // front wall, west of the front door
   wall(-43.0, O.x1, O.z1 - 0.3, O.z1, 0, 3.6, C.stucco);
   const officeDoor = makeDoor(1.9, 2.7, 0x3f6b8a);
-  officeDoor.group.position.set(-45.05, 0.02, O.z1);
+  officeDoor.group.position.set(-45.05, 0.02, O.z1 - 0.15);
   scene.add(officeDoor.group);
   officeDoor.collider = block(-45.1, -43.0, O.z1 - 0.3, O.z1, 0, 2.7, 'officedoor');
   officeDoor.collider.enabled = false;
   officeDoor.open = true;
   refs.officeDoor = officeDoor;
   const officeRear = makeDoor(1.9, 2.7, 0x3f6b8a);
-  officeRear.group.position.set(-45.05, 0.02, O.z0 + 0.3);
+  // Hinged on the east jamb: the pi rotation mirrors the leaf, so hinging at
+  // -45.05 hung it on solid stucco west of its own opening.
+  officeRear.group.position.set(-43.0, 0.02, O.z0 + 0.15);
   officeRear.group.rotation.y = Math.PI;
   scene.add(officeRear.group);
   officeRear.collider = block(-45.1, -43.0, O.z0, O.z0 + 0.3, 0, 2.7, 'officerear');
@@ -694,11 +700,23 @@ export function buildMotel(scene, renderer) {
   refs.poolDeck = poolDeck;
 
   const poolShell = new THREE.Group();
-  const pf = new THREE.Mesh(new THREE.PlaneGeometry(POOL.x1 - POOL.x0, POOL.z1 - POOL.z0), lambert(0x7fa8b8));
+  // Grimy liner underneath; the blue is the water above it, not the paint.
+  const pf = new THREE.Mesh(new THREE.PlaneGeometry(POOL.x1 - POOL.x0, POOL.z1 - POOL.z0), lambert(0x8f9a92));
   pf.rotation.x = -Math.PI / 2;
   pf.position.set((POOL.x0 + POOL.x1) / 2, POOL.y + 0.02, (POOL.z0 + POOL.z1) / 2);
   pf.receiveShadow = true;
   poolShell.add(pf);
+  // The water itself: a translucent plane a metre-odd off the floor. Purely
+  // visual — no collider and no floor registration, so wading depth, the
+  // steps, and every measured pool assertion stay exactly as authored.
+  const water = new THREE.Mesh(
+    new THREE.PlaneGeometry(POOL.x1 - POOL.x0, POOL.z1 - POOL.z0),
+    lambert(0x2e7f8f, { transparent: true, opacity: 0.55 }),
+  );
+  water.rotation.x = -Math.PI / 2;
+  water.position.set((POOL.x0 + POOL.x1) / 2, POOL.y + 1.1, (POOL.z0 + POOL.z1) / 2);
+  poolShell.add(water);
+  refs.poolWater = water;
   // Inner walls, so you can only climb out at the steps
   const pw = 0.6;
   for (const [x0, x1, z0, z1] of [
@@ -737,7 +755,7 @@ export function buildMotel(scene, renderer) {
     chair.add(boxMesh(0.7, 0.1, 1.8, 0x2f7f78, 0, 0.25, 0));
     chair.add(boxMesh(0.7, 0.1, 0.8, 0x2f7f78, 0, 0.55, -0.9));
     chair.position.set(x, y, z);
-    chair.rotation.set(tipped ? 0.24 : 0, yaw, tipped ? -0.18 : 0);
+    chair.rotation.set(tipped ? 0.3 : 0, yaw, tipped ? -0.5 : 0);
     scene.add(chair);
     return chair;
   }
@@ -747,11 +765,12 @@ export function buildMotel(scene, renderer) {
   // props that can read as parking-lot placement bugs.
   const westLounge = makeLoungeChair(12.55, 0.04, 10.0, 0);
   const eastLounge = makeLoungeChair(31.35, 0.04, 15.8, Math.PI);
-  const poolDebris = makeLoungeChair(24.2, POOL.y, 11.8, 0.7, true);
+  // Tipped against the shallow-corner wall, not standing mid-pool.
+  const poolDebris = makeLoungeChair(15.4, POOL.y, 7.6, 0.7, true);
   refs.poolFurniture = [
     { id: 'west-lounge', group: westLounge, x: 12.55, z: 10.0, deck: true },
     { id: 'east-lounge', group: eastLounge, x: 31.35, z: 15.8, deck: true },
-    { id: 'pool-debris', group: poolDebris, x: 24.2, z: 11.8, deck: false },
+    { id: 'pool-debris', group: poolDebris, x: 15.4, z: 7.6, deck: false },
   ];
   const poolLight = new THREE.PointLight(0x4ad9ff, 2.6, 30, 2);
   poolLight.position.set((POOL.x0 + POOL.x1) / 2, POOL.y + 1.5, (POOL.z0 + POOL.z1) / 2);

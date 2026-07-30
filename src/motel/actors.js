@@ -488,10 +488,18 @@ export class Actor {
     this.weapon = kind;
     if (!kind) return;
     const m = buildWeaponMesh(kind);
-    const handY = this.rig.handY ?? -1.75;
-    m.position.set(0, handY - 0.12, 0.1);
-    if (this.rig.species === 'human') m.scale.setScalar(0.85);
-    this.rig.armR.add(m);
+    const hand = this.rig.armR.userData.hand;
+    if (hand) {
+      // In the fist, not hovering a hand-width under it.
+      m.position.set(0, -0.06, 0.1);
+      if (this.rig.species === 'human') m.scale.setScalar(0.85);
+      hand.add(m);
+    } else {
+      const handY = this.rig.handY ?? -1.75;
+      m.position.set(0, handY - 0.12, 0.1);
+      if (this.rig.species === 'human') m.scale.setScalar(0.85);
+      this.rig.armR.add(m);
+    }
     this.weaponMesh = m;
   }
 
@@ -672,8 +680,11 @@ export class Actor {
     }
 
     // Somebody running for a door they cannot reach should not run at it
-    // forever — give up after a few seconds and let the scene move on.
-    if (this.state === 'flee' || this.state === 'goto') {
+    // forever — give up after a few seconds and let the scene move on. A
+    // chaser wedged on geometry counts too, but standing at arm's length from
+    // the player is fighting, not stuck.
+    const chaseStuck = (this.state === 'chase' || this.state === 'grab') && distToPlayer > 2.6;
+    if (this.state === 'flee' || this.state === 'goto' || chaseStuck) {
       const moved = Math.hypot(p.x - this.lastX, p.z - this.lastZ);
       this.stuckT = moved < 0.02 ? this.stuckT + dt : 0;
       if (this.stuckT > 3.5) {

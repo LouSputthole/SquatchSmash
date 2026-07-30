@@ -1152,7 +1152,7 @@ addInteract({
 const EVIDENCE_SPOTS = [
   { id: 'evIce', x: refs.iceMachine.x, z: refs.iceMachine.z, label: 'Hide the weapon in the ice machine', key: 'ice' },
   { id: 'evVend', x: refs.vending.x, z: refs.vending.z, label: 'Drop it in the vending compartment', key: 'vending' },
-  { id: 'evPool', x: 22, z: 13, label: 'Throw the weapon into the empty pool', key: 'pool' },
+  { id: 'evPool', x: 22, z: 13, label: 'Throw the weapon into the pool', key: 'pool' },
 ];
 for (const spot of EVIDENCE_SPOTS) {
   addInteract({
@@ -1590,10 +1590,13 @@ function mannyJoins(reason) {
   say('Manny', MANNY_FIGHT_BARKS[Math.floor(Math.random() * MANNY_FIGHT_BARKS.length)], 3.2);
   toast('MANNY IS IN', '', `He heard ${reason}`);
   if (!S.windowBroken && !refs.frontDoor.open) breakWindow(true);
-  // He brings the crowbar from the trunk and throws it to you
+  // He brings the crowbar from the trunk — thrown to you if you're
+  // empty-handed, kept and visibly wielded if you're not.
   if (S.weapon === 'fists') {
     dropWeaponPickup('crowbar', pos.x + 1.4, pos.z + 0.6);
     setTimeout(() => say('Manny', 'Crowbar! Catch it with your face if you have to!', 3), 1600);
+  } else {
+    manny.equip('crowbar');
   }
 }
 
@@ -1761,6 +1764,8 @@ function enemyMelee(a) {
   const d = Math.hypot(a.position.x - pos.x, a.position.z - pos.z);
   const st = a.stats();
   if (d > st.reach + 0.7) return;
+  // A swing needs a line — no punching through a closed bathroom door.
+  if (segmentBlocked(a.position.x, a.position.z, a.position.y + 1.5, pos.x, pos.z, feetY + 1.5) < 0.95) return;
   if (S.mattressCover && Math.hypot(pos.x + 1.9, pos.z + 12.6) < 2.5) {
     say('*', 'The swing buries itself in a motel mattress.', 2.4);
     return;
@@ -2087,7 +2092,7 @@ function throwCaseInPool(a) {
   refs.jerkyCase.group.position.set(22, -2.9, 13);
   refs.jerkyCase.x = 22;
   refs.jerkyCase.z = 13;
-  freshness.damage(6, 'a short flight into an empty pool');
+  freshness.damage(6, 'a short flight into the motel pool');
   damagePackages(1, 'pool');
   say('Chino', 'Then nobody eats!', 3);
   toast('IN THE POOL', 'warn', 'Chino threw the Reserve into the deep end');
@@ -2179,6 +2184,17 @@ function actorStuck(a) {
     a.carryingCase = false;
     dropCaseAt(a.position.x, a.position.z);
     toast('HE DROPPED IT', '', `${a.name} could not get the case out of the room`);
+  }
+  // A hostile wedged in the bathroom lets himself out through the door and
+  // the doorway waypoint instead of hammering the wall forever.
+  const bath = level.rects.BATH;
+  if (a.hostile && a.position.x > bath.x0 && a.position.x < bath.x1
+    && a.position.z > bath.z0 && a.position.z < bath.z1) {
+    openDoor(refs.bathDoor);
+    a.state = 'goto';
+    a.target = { x: 3.3, z: -10.2 };
+    a.afterGoto = 'chase';
+    return;
   }
   a.target = null;
   a.state = a.hostile ? 'chase' : 'idle';
@@ -2534,23 +2550,88 @@ function buildDriveScene() {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 7, 6), lambert(0x4a4a52));
     pole.position.set(14, 3.5, -i * 50);
     s.add(pole);
-    drive.road.push({ seg, dash, palmL, lamp, pole, z: -i * 50 });
+    // The left side gets the same fixtures as the right, so the street reads
+    // lit on both shoulders instead of dark past the palm trunks.
+    const lampL = lamp.clone();
+    lampL.position.set(-14, 7, -i * 50);
+    s.add(lampL);
+    const poleL = pole.clone();
+    poleL.position.set(-14, 3.5, -i * 50);
+    s.add(poleL);
+    drive.road.push({ seg, dash, palmL, lamp, pole, lampL, poleL, z: -i * 50 });
   }
 
-  drive.car = buildDriveCar(0x6b2f3a);
+  drive.car = buildDriveCar(0x6b2f3a, true);
   s.add(drive.car);
   drive.scene = s;
   return s;
 }
 
-function buildDriveCar(color) {
+function buildDriveCar(color, player = false) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.9, 4.6), lambert(color));
   body.position.y = 0.85;
   g.add(body);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 2.2), lambert(0x121820, { emissive: 0x0a1016 }));
-  cabin.position.set(0, 1.65, -0.2);
-  g.add(cabin);
+  if (!player) {
+    // Traffic reads fine as a closed sedan, and it keeps the light budget at
+    // two spotlights total instead of two per spawned car.
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.8, 2.2), lambert(0x121820, { emissive: 0x0a1016 }));
+    cabin.position.set(0, 1.65, -0.2);
+    g.add(cabin);
+    return finishDriveCar(g);
+  }
+  // Convertible, like the movie car: an open cockpit tub with seats, a dash,
+  // and a raked windshield instead of the old solid cabin block.
+  const tub = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 2.2), lambert(0x1a1c22));
+  tub.position.set(0, 1.31, -0.2);
+  g.add(tub);
+  for (const sx of [-0.45, 0.45]) {
+    const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.12, 0.6), lambert(0x5a2c2c));
+    cushion.position.set(sx, 1.4, -0.5);
+    g.add(cushion);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.44, 0.12), lambert(0x5a2c2c));
+    back.position.set(sx, 1.62, -0.86);
+    back.rotation.x = 0.14;
+    g.add(back);
+  }
+  const dash = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.18, 0.36), lambert(0x14161c, { emissive: 0x101418 }));
+  dash.position.set(0, 1.5, 0.62);
+  g.add(dash);
+  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.03, 6, 14), lambert(0x0e0f13));
+  wheel.position.set(-0.45, 1.56, 0.44);
+  wheel.rotation.x = 1.15;
+  g.add(wheel);
+  const shield = new THREE.Mesh(
+    new THREE.BoxGeometry(1.8, 0.5, 0.05),
+    lambert(0xbcd2e0, { transparent: true, opacity: 0.25 }),
+  );
+  shield.position.set(0, 1.72, 0.92);
+  shield.rotation.x = -0.3;
+  g.add(shield);
+  const shieldFrame = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.05, 0.06), lambert(0x8a8f98));
+  shieldFrame.position.set(0, 1.95, 0.85);
+  shieldFrame.rotation.x = -0.3;
+  g.add(shieldFrame);
+  // Real headlight throw — two unshadowed spots plus visible emissive beams.
+  for (const sx of [-0.65, 0.65]) {
+    const spot = new THREE.SpotLight(0xfff0c8, 2.2, 60, 0.45, 0.6, 1);
+    spot.castShadow = false;
+    spot.position.set(sx, 0.9, -2.3);
+    spot.target.position.set(sx * 1.4, 0.1, -40);
+    g.add(spot, spot.target);
+    const beam = new THREE.Mesh(
+      new THREE.ConeGeometry(1.5, 9, 8, 1, true),
+      lambert(0xfff2c8, { emissive: 0xd8be78, transparent: true, opacity: 0.08 }),
+    );
+    beam.position.set(sx, 0.85, -6.8);
+    beam.rotation.x = -Math.PI / 2;
+    g.add(beam);
+  }
+  return finishDriveCar(g);
+}
+
+/** Wheels and lamp faces, shared by the player car and traffic. */
+function finishDriveCar(g) {
   for (const sx of [-1, 1]) {
     for (const sz of [-1.5, 1.5]) {
       const w = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 10), lambert(0x14141a));
@@ -2602,7 +2683,7 @@ function updateDrive(dt) {
   for (const r of drive.road) {
     r.z += drive.speed * dt;
     if (r.z > 40) r.z -= 24 * 50;
-    for (const m of [r.seg, r.dash, r.palmL, r.lamp, r.pole]) m.position.z = r.z;
+    for (const m of [r.seg, r.dash, r.palmL, r.lamp, r.pole, r.lampL, r.poleL]) m.position.z = r.z;
   }
 
   // Spawn traffic and pursuers
