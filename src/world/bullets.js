@@ -70,14 +70,48 @@ function holeTexture() {
   return _tex;
 }
 
+let _bloodTex = null;
+
+/** Dark centre, bright arterial edge, and a scatter of droplets. */
+function bloodTexture() {
+  if (_bloodTex) return _bloodTex;
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = S; c.height = S;
+  const g = c.getContext('2d');
+
+  const core = g.createRadialGradient(S / 2, S / 2, 2, S / 2, S / 2, S * 0.30);
+  core.addColorStop(0, 'rgba(60,6,8,0.95)');
+  core.addColorStop(0.55, 'rgba(110,14,16,0.85)');
+  core.addColorStop(1, 'rgba(140,20,20,0)');
+  g.fillStyle = core;
+  g.fillRect(0, 0, S, S);
+
+  // Droplets thrown out from the centre, heavier on one side.
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2 + (i % 5) * 0.21;
+    const d = S * (0.18 + ((i * 11) % 7) / 24);
+    const r = 1.2 + ((i * 5) % 4);
+    g.fillStyle = `rgba(${96 + (i % 3) * 18},10,12,${0.5 + (i % 3) * 0.15})`;
+    g.beginPath();
+    g.arc(S / 2 + Math.cos(a) * d * (i % 2 ? 1 : 0.6), S / 2 + Math.sin(a) * d, r, 0, 7);
+    g.fill();
+  }
+
+  _bloodTex = new THREE.CanvasTexture(c);
+  _bloodTex.colorSpace = THREE.SRGBColorSpace;
+  return _bloodTex;
+}
+
 export class BulletHoles {
-  constructor(scene) {
+  constructor(scene, kind = 'hole') {
     this.scene = scene;
     this.pool = [];
     this.next = 0;
 
+    const size = kind === 'blood' ? 0.17 : 0.09;
     const mat = new THREE.MeshBasicMaterial({
-      map: holeTexture(),
+      map: kind === 'blood' ? bloodTexture() : holeTexture(),
       transparent: true,
       depthWrite: false,
       /* Sits in front of whatever it is on, and must not fight it. The lift
@@ -88,7 +122,7 @@ export class BulletHoles {
       polygonOffsetUnits: -4,
     });
     for (let i = 0; i < MAX; i++) {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(0.09, 0.09), mat);
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
       m.visible = false;
       m.renderOrder = 3;
       scene.add(m);

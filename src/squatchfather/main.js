@@ -19,6 +19,7 @@ import { McClawskyController } from './characters/McClawskyController.js';
 import { RestaurantAmbience } from './audio/RestaurantAmbience.js';
 import { TrainSequence } from './audio/TrainSequence.js';
 import { gunshot } from './audio/GunshotAudio.js';
+import { BulletHoles } from '../world/bullets.js';
 import * as Foley from './audio/Foley.js';
 import * as audio from './audio/core.js';
 import { TrainVibration } from './effects/TrainVibration.js';
@@ -91,6 +92,8 @@ let campaignMissionStarted = false;
 // ---------------------------------------------------------------- systems
 
 const sceneState = buildSquatchfatherScene(scene, renderer);
+const impacts = new BulletHoles(scene);
+const blood = new BulletHoles(scene, 'blood');
 const prospect = new ProspectController(scene, camera, sceneState.colliders);
 const sal = new SalController(scene);
 const mcclawsky = new McClawskyController(scene);
@@ -238,23 +241,42 @@ function swingDoor(group, from, to, dur = 0.8) {
 
 let waiterBusy = false;
 
-function waiterPours() {
+function waiterPours(at = new THREE.Vector3(-1.75, 0, 6.5)) {
   if (waiterBusy) return;
   waiterBusy = true;
   const w = sceneState.bystanders.waiter;
   const start = w.position.clone();
-  const at = new THREE.Vector3(-1.75, 0, 6.5);
+  const face = Math.atan2(at.x - start.x, at.z - start.z);
   animateOver(1.6, (e) => {
     w.position.lerpVectors(start, at, e);
-    w.rotation.y = Math.PI + e * 1.5;
+    w.rotation.y = face;
   }, () => {
     Foley.pour();
     animateOver(1.4, () => {}, () => {
       animateOver(1.8, (e) => {
         w.position.lerpVectors(at, start, e);
-      }, () => { waiterBusy = false; });
+        w.rotation.y = face + Math.PI;
+      }, () => { waiterBusy = false; w.rotation.y = Math.PI; });
     });
   });
+}
+
+/* The waiter works the room between story beats rather than standing at the
+ * bar all night. Stops are open floor beside the background tables. */
+const WAITER_STOPS = [
+  new THREE.Vector3(-1.75, 0, 6.5),
+  new THREE.Vector3(-4.1, 0, 6.2),
+  new THREE.Vector3(-3.9, 0, 3.6),
+];
+let waiterNextServe = 7;
+let roomPanicked = false;
+
+function waiterRounds(dt) {
+  if (roomPanicked) return;
+  waiterNextServe -= dt;
+  if (waiterNextServe > 0 || waiterBusy) return;
+  waiterNextServe = 9 + Math.random() * 6;
+  waiterPours(WAITER_STOPS[Math.floor(Math.random() * WAITER_STOPS.length)]);
 }
 
 // The rattle list is built during scene assembly; look entries up by the mesh
@@ -281,6 +303,7 @@ function knockGlassOver(glassEntry) {
 // Everyone in the room hears two shots in a small space. Nobody moves to stop
 // him: the waiter freezes, a diner gets down, the cook watches from the door.
 function roomReacts() {
+  roomPanicked = true;
   const { diner1, diner2, cook } = sceneState.bystanders;
   animateOver(0.5, (e) => {
     diner1.position.y = -0.62 * e;
@@ -297,6 +320,9 @@ function roomReacts() {
 }
 
 function resetRoomReactions() {
+  roomPanicked = false;
+  impacts.reset();
+  blood.reset();
   const { diner1, diner2, cook } = sceneState.bystanders;
   diner1.position.y = 0; diner1.rotation.x = 0;
   diner2.position.y = 0; diner2.rotation.z = 0;
@@ -313,6 +339,19 @@ function fire() {
   gunshot();
   director.impulse(0.85);
   ringing.start(10);
+  const flashAt = new THREE.Vector3();
+  prospect.weapon.getWorldPosition(flashAt);
+  impacts.muzzle(flashAt);
+}
+
+/** Blood at the wound and a second spatter thrown low, facing the shooter. */
+function bloodHit(at) {
+  const toShooter = camera.position.clone().sub(at).normalize();
+  blood.punch(at, toShooter);
+  blood.punch(
+    at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.25, -0.38, (Math.random() - 0.5) * 0.25)),
+    toShooter,
+  );
 }
 
 function buildStates() {
@@ -584,6 +623,7 @@ function buildStates() {
         fire();
         prospect.fireKick();
         sal.kill();
+        bloodHit(sal.eyePoint);
         knockGlassOver(glasswareFor(sceneState.props.salGlass));
         roomReacts();
         fsm.go(S.SHOOT_MCCLAWSKY);
@@ -601,6 +641,7 @@ function buildStates() {
         fire();
         prospect.fireKick();
         mcclawsky.kill();
+        bloodHit(mcclawsky.eyePoint);
         Foley.chairKnock();
         fsm.go(S.DROP_WEAPON);
       },
@@ -880,6 +921,8 @@ function updateGame(dt) {
   train.update(dt);
   vibration.update(dt);
   ringing.update(dt);
+  impacts.update(dt);
+  waiterRounds(dt);
   director.update(dt, prospect, seatedNow ? seated.clamp : null);
   mirror.render(renderer, camera);
   ePressed = false;

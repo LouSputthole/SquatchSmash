@@ -765,8 +765,10 @@ export function buildSquatchfatherScene(scene, renderer) {
   // Background tables
   for (const [tx, tz, rot] of [[-4.7, 2.4, 0.3], [4.7, 2.2, -0.4], [-4.9, 7.2, 0.1], [-6.0, 4.6, 1.4]]) {
     makeTable(tx, tz, 0.7);
-    makeChair(tx + Math.cos(rot) * 1.1, tz + Math.sin(rot) * 1.1, -rot + Math.PI / 2);
-    makeChair(tx - Math.cos(rot) * 1.1, tz - Math.sin(rot) * 1.1, -rot - Math.PI / 2);
+    // The occupant looks along local +Z = (sin θ, cos θ); these angles turn
+    // each chair back toward its own table rather than out into the room.
+    makeChair(tx + Math.cos(rot) * 1.1, tz + Math.sin(rot) * 1.1, -rot - Math.PI / 2);
+    makeChair(tx - Math.cos(rot) * 1.1, tz - Math.sin(rot) * 1.1, -rot + Math.PI / 2);
   }
 
   // Counter / bar along the back left
@@ -897,7 +899,8 @@ export function buildSquatchfatherScene(scene, renderer) {
   bathDoor.add(box(1.3, 2.3, 0.09, lam(0x3f2b1a), 0.65, 1.15, 0));
   bathDoor.add(box(0.12, 0.12, 0.06, lam(0xb8a06a), 1.18, 1.1, 0.07));
   bathDoor.position.set(4.3, 0, 15.05);
-  bathDoor.rotation.y = -1.9;
+  // Open, but shy of sweeping the leaf through its own jamb at x=3.15.
+  bathDoor.rotation.y = -1.72;
   scene.add(bathDoor);
   const bathDoorBlock = block(4.95, 15.05, 1.3, 0.14, 'bathDoor');
   bathDoorBlock.on = false;
@@ -1103,11 +1106,14 @@ export function buildSquatchfatherScene(scene, renderer) {
     return g;
   }
 
-  const waiter = makeBystander(-3.2, 9.0, Math.PI, 0xe8e4dc, 0xc79c72);
+  // Clear of the bar counter's collider and its overhanging lip.
+  const waiter = makeBystander(-3.2, 8.5, Math.PI, 0xe8e4dc, 0xc79c72);
   const cook = makeBystander(-5.2, 11.6, Math.PI, 0xdcd8d0, 0xb98a63);
   cook.visible = true;
-  const diner1 = makeBystander(-4.6, 3.5, -0.9, 0x3a3b48, 0xd0a87e);
-  const diner2 = makeBystander(5.6, 1.0, 2.4, 0x4a3a3a, 0xc09069);
+  // Each diner stands just behind a chair at his table, facing the table —
+  // the same facing formula the chairs use.
+  const diner1 = makeBystander(-3.41, 2.8, -0.3 - Math.PI / 2, 0x3a3b48, 0xd0a87e);
+  const diner2 = makeBystander(5.94, 1.67, 0.4 - Math.PI / 2, 0x4a3a3a, 0xc09069);
 
   // ================= EXIT + CAR INTERACTION =================
 

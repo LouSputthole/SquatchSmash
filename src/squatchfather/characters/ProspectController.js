@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Figure } from './Figure.js';
 import { PLAYER_START_YAW, POS } from '../scenes/SquatchfatherScene.js';
+import { makeRevolver } from '../../world/props.js';
 
 // Prospect — the quiet one. Played first-person, so this owns movement,
 // collision, the eye position the camera rides on, the concealed handgun
@@ -54,33 +55,26 @@ export class ProspectController {
     this.fig.group.traverse((o) => o.layers.set(1));
     scene.add(this.fig.group);
 
-    // ---- Concealed handgun view-model
+    // ---- Concealed revolver view-model
+    // Lou's package IS the flat's coffee-table revolver, so the view-model is
+    // the canonical prop, re-materialed for this scene's Lambert lighting —
+    // its PBR metals render near-black here with no environment map.
     this.weapon = new THREE.Group();
-    const steel = new THREE.MeshLambertMaterial({ color: 0x24262b });
-    const steelLight = new THREE.MeshLambertMaterial({ color: 0x3a3d44 });
-    const grip = new THREE.MeshLambertMaterial({ color: 0x2b1d14 });
-    const slide = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.062, 0.3), steel);
-    slide.position.set(0, 0, -0.06);
-    this.weapon.add(slide);
-    this.weapon.add(new THREE.Mesh(new THREE.BoxGeometry(0.048, 0.05, 0.1), steelLight));
-    const stock = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.19, 0.075), grip);
-    stock.position.set(0, -0.13, 0.06);
-    stock.rotation.x = -0.3;
-    this.weapon.add(stock);
-    const guard = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.055, 0.02), steel);
-    guard.position.set(0, -0.06, 0.005);
-    this.weapon.add(guard);
-    const sight = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.016, 0.016), steelLight);
-    sight.position.set(0, 0.04, -0.19);
-    this.weapon.add(sight);
-    // A hand on it, so it isn't floating in front of his face
+    const revolver = makeRevolver(null, { x: 0, y: 0, z: 0 });
+    revolver.group.traverse((o) => {
+      if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ color: o.material.color.clone() });
+    });
+    revolver.group.scale.setScalar(1.35);
+    revolver.group.position.set(0, -0.02, -0.02);
+    this.weapon.add(revolver.group);
+    // A hand on the raked grip, so it isn't floating in front of his face
     const fur = new THREE.MeshLambertMaterial({ color: 0x9aa0ab });
-    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.12), fur);
-    hand.position.set(0, -0.13, 0.09);
-    hand.rotation.x = -0.25;
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.11), fur);
+    hand.position.set(0, -0.055, 0.09);
+    hand.rotation.x = -0.42;
     this.weapon.add(hand);
     const cuff = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.11, 0.16), new THREE.MeshLambertMaterial({ color: 0x191a22 }));
-    cuff.position.set(0.005, -0.18, 0.21);
+    cuff.position.set(0.005, -0.13, 0.2);
     cuff.rotation.x = -0.3;
     this.weapon.add(cuff);
     this.weapon.visible = false;
