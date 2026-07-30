@@ -1165,8 +1165,19 @@ export function makePan(M, { x, y, z, rotY = 0 }) {
   const steel = mat({ color: 0x2a2c30, roughness: 0.42, metalness: 0.55 });
   const R = 0.105;
   g.add(cylinder({ r: R, h: 0.012, pos: [0, 0.006, 0], mat: steel }));
-  // Sloped wall, so it reads as a pan rather than a disc.
-  g.add(cylinder({ rTop: R + 0.012, rBottom: R, h: 0.042, pos: [0, 0.032, 0], mat: steel }));
+  /* Sloped wall, so it reads as a pan rather than a disc -- and OPEN at the
+   * top. The helper's cylinder is capped, and that cap was a lid over the
+   * mouth of the pan: the eggs cooked sealed inside a closed drum, invisible
+   * from the day they were added, which is why "nothing happens" while they
+   * cook. DoubleSide so the inside of the wall exists too. */
+  const wall = new THREE.Mesh(
+    new THREE.CylinderGeometry(R + 0.012, R, 0.042, 20, 1, true),
+    mat({ color: 0x2a2c30, roughness: 0.42, metalness: 0.55, side: THREE.DoubleSide }),
+  );
+  wall.position.set(0, 0.032, 0);
+  wall.castShadow = true;
+  wall.receiveShadow = true;
+  g.add(wall);
   // Handle out to one side.
   g.add(box({ size: [0.022, 0.016, 0.17], pos: [0, 0.040, R + 0.085], mat: M.plasticBlack }));
 
@@ -2446,21 +2457,24 @@ export function makeToilet(M, { x, z, rotY = 0 }) {
   bowlInner.scale.z = 1.22;
   g.add(bowlInner);
 
-  // The trap under the water, darker so there is depth through it.
+  // The trap under the water, darker so there is depth through it. It sits on
+  // the pedestal's top cap, which is the real floor of this bowl -- the cap
+  // is at 0.30, so anything meant to be seen has to live above that.
   const trap = new THREE.Mesh(
     new THREE.CircleGeometry(0.068, 20),
     mat({ color: 0xaeb2a9, roughness: 0.5 }),
   );
   trap.rotation.x = -Math.PI / 2;
-  trap.position.set(0, SEAT_Y - 0.148, 0.02);
+  trap.position.set(0, SEAT_Y - 0.097, 0.02);
   trap.scale.y = 1.22;
   g.add(trap);
 
-  /* Standing water, high enough up the cone to be seen over the rim from
-   * where a person actually stands. */
-  const WATER_Y = SEAT_Y - 0.105;
+  /* Standing water. Above the pedestal cap -- the first cut put it at 0.295
+   * with the cap at 0.300, which sealed it under porcelain a second time --
+   * and wide enough to meet the cone wall, so the bowl reads wet rim to rim. */
+  const WATER_Y = SEAT_Y - 0.09;
   const water = new THREE.Mesh(
-    new THREE.CircleGeometry(0.100, 24),
+    new THREE.CircleGeometry(0.115, 24),
     new THREE.MeshPhysicalMaterial({
       color: 0x9fc4cf, roughness: 0.06, metalness: 0,
       transmission: 0.6, transparent: true, opacity: 0.75, thickness: 0.05,
