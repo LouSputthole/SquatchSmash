@@ -1623,6 +1623,10 @@ function updateCooking(dt) {
   if (game.cooking !== null) apartment.pan.cook?.(game.cooking / COOK_TIME);
   if (game.cooking === null) return;
   game.cooking += dt;
+  /* Steam off the pan, same trick as the shower. The whites changing is the
+   * close-up read; this is the one that carries across the room, so a player
+   * who wanders off can see the cooking still happening. */
+  if (game.cooking > 0.8 && Math.random() < dt * 7) smoke.wisp(apartment.panPos);
   if (game.cooking >= COOK_TIME && apartment.state.panState === 'raw') {
     game.cooking = null;
     apartment.pan.cook?.(1);

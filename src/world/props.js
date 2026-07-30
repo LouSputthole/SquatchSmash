@@ -1164,18 +1164,34 @@ export function makePan(M, { x, y, z, rotY = 0 }) {
     const w = sphere({ r: 0.052, ry: 0.006, pos: [0, 0, 0], mat: white });
     e.add(w);
     e.add(sphere({ r: 0.021, ry: 0.010, pos: [0.004, 0.007, 0.002], mat: yolk }));
+    // A crisped edge round each white, invisible until the back half of the
+    // cook. Torus laid flat so it hugs the white's outline as it spreads.
+    const edge = new THREE.Mesh(
+      new THREE.TorusGeometry(0.050, 0.006, 6, 20),
+      new THREE.MeshStandardMaterial({
+        color: 0xb0763a, roughness: 0.9, transparent: true, opacity: 0,
+      }),
+    );
+    edge.rotation.x = -Math.PI / 2;
+    edge.position.y = 0.003;
+    edge.castShadow = false;
+    e.add(edge);
     contents.add(e);
   }
 
-  /* The eggs cook rather than switching from raw to done. Whites go from
-   * translucent and slack to opaque and set; the yolks tighten and dull; the
-   * whole thing shrinks a little, because it does. Driven by main.js from how
-   * far through the eleven seconds you are. */
+  /* The eggs cook rather than switching from raw to done -- and the change has
+   * to carry from eye height at the counter, which the first pass did not: it
+   * nudged a pale beige two shades paler and called that cooking, so from
+   * where the player stands "nothing happened" for eleven seconds. Now the
+   * whites start as glassy translucent puddles, SPREAD as they hit the heat,
+   * set opaque white, and brown at the edge; the yolks tighten and dull. */
   const whites = [];
   const yolks = [];
+  const edges = [];
   contents.traverse((o) => {
     if (o.material === white) whites.push(o);
     if (o.material === yolk) yolks.push(o);
+    if (o.geometry?.type === 'TorusGeometry') edges.push(o);
   });
   // Each gets its own material instance or they all cook as one object.
   for (const w of whites) w.material = white.clone();
@@ -1184,31 +1200,40 @@ export function makePan(M, { x, y, z, rotY = 0 }) {
    * centimetre dimensions in `scale`. Cooking used to call setScalar(1) here,
    * which erased that authored flattening and turned each egg into a two-metre
    * ball the instant the contents became visible. Keep the base dimensions and
-   * apply the small cooking deformation as a multiplier instead. */
+   * apply the cooking deformation as a multiplier instead. */
   const whiteScales = whites.map((w) => w.scale.clone());
   const yolkScales = yolks.map((y) => y.scale.clone());
 
-  const _raw = new THREE.Color(0xd9d6c4);
-  const _set = new THREE.Color(0xf8f4e8);
+  const _raw = new THREE.Color(0xb9bfae);   // glassy, grey-green, plainly raw
+  const _set = new THREE.Color(0xfaf6ea);
   const _yRaw = new THREE.Color(0xf6b62c);
   const _yDone = new THREE.Color(0xd88f14);
 
   /** @param {number} k 0 = just cracked, 1 = arguably over-done. */
   function cook(k) {
     const e = Math.min(1, Math.max(0, k));
+    // Footprint grows by a third over the cook: the raw puddle relaxing out,
+    // then the set white holding that shape. The single biggest tell.
+    const spread = 0.76 + e * 0.32;
     for (let i = 0; i < whites.length; i++) {
       const w = whites[i];
-      w.material.color.copy(_raw).lerp(_set, Math.min(1, e * 1.6));
-      w.material.opacity = 0.72 + e * 0.28;
+      w.material.color.copy(_raw).lerp(_set, Math.min(1, e * 1.35));
+      w.material.opacity = 0.34 + e * 0.66;
       w.material.transparent = e < 0.94;
-      w.material.roughness = 0.40 + e * 0.34;
-      w.scale.copy(whiteScales[i]).multiplyScalar(1 - e * 0.07);
+      w.material.roughness = 0.16 + e * 0.58;
+      const base = whiteScales[i];
+      w.scale.set(base.x * spread, base.y * (1 + e * 0.5), base.z * spread);
+    }
+    for (const edge of edges) {
+      // Nothing until the whites are set; then the rim crisps over.
+      edge.material.opacity = Math.max(0, (e - 0.60) / 0.40) * 0.85;
+      edge.scale.set(spread, spread, 1);
     }
     for (let i = 0; i < yolks.length; i++) {
       const y = yolks[i];
       const base = yolkScales[i];
       y.material.color.copy(_yRaw).lerp(_yDone, e);
-      y.material.roughness = 0.30 + e * 0.36;
+      y.material.roughness = 0.30 + e * 0.42;
       y.scale.set(
         base.x * (1 - e * 0.05),
         base.y * (1 + e * 0.16),
