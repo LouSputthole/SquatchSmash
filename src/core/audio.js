@@ -319,17 +319,7 @@ export class AudioEngine {
       fade = 1.2,
     } = opts;
 
-    const gain = this.ctx.createGain();
-    gain.gain.value = 0;
-
-    const bus = ambience ? this.busAmb : this.busSfx;
-    if (position) {
-      const panner = this._makePanner(position, opts.ref ?? 1.2, opts.maxDist ?? 14);
-      gain.connect(panner);
-      panner.connect(bus);
-    } else {
-      gain.connect(bus);
-    }
+    const { gain, filter } = this._loopChain(position, ambience, opts);
 
     let node;
     const bank = this.buffers.get(name);
@@ -344,8 +334,55 @@ export class AudioEngine {
     }
 
     gain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + fade);
-    const handle = { node, gain, volume };
+    const handle = { node, gain, filter, volume, cutoff: 20000 };
     this.loops.set(key, handle);
+    return handle;
+  }
+
+  /** gain → lowpass (open by default) → panner/bus, shared by every loop. */
+  _loopChain(position, ambience, opts = {}) {
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0;
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 20000;
+    gain.connect(filter);
+    const bus = ambience ? this.busAmb : this.busSfx;
+    if (position) {
+      const panner = this._makePanner(position, opts.ref ?? 1.2, opts.maxDist ?? 14);
+      filter.connect(panner);
+      panner.connect(bus);
+    } else {
+      filter.connect(bus);
+    }
+    return { gain, filter };
+  }
+
+  /**
+   * Start a looping music track from a URL (assets/music/*, not the sfx
+   * manifest). Silent until the file decodes; a fetch failure just removes
+   * the loop rather than falling back to a synth bed.
+   */
+  startMusicLoop(key, url, opts = {}) {
+    if (!this.ready || this.loops.has(key)) return this.loops.get(key);
+    const { volume = 0.3, fade = 1.6 } = opts;
+    const { gain, filter } = this._loopChain(opts.position ?? null, opts.ambience ?? true, opts);
+    const handle = { node: null, gain, filter, volume, cutoff: 20000 };
+    this.loops.set(key, handle);
+    fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => this.ctx.decodeAudioData(buf))
+      .then((decoded) => {
+        if (this.loops.get(key) !== handle) return; // stopped while loading
+        const node = this.ctx.createBufferSource();
+        node.buffer = decoded;
+        node.loop = true;
+        node.connect(gain);
+        node.start();
+        handle.node = node;
+        gain.gain.linearRampToValueAtTime(handle.volume, this.ctx.currentTime + fade);
+      })
+      .catch(() => this.loops.delete(key));
     return handle;
   }
 
@@ -371,6 +408,14 @@ export class AudioEngine {
     if (!h) return;
     h.volume = v;
     h.gain.gain.linearRampToValueAtTime(v, this.ctx.currentTime + ramp);
+  }
+
+  /** Low-pass one loop — a wall between the listener and the music. */
+  setLoopCutoff(key, hz, ramp = 0.6) {
+    const h = this.loops.get(key);
+    if (!h || !h.filter || h.cutoff === hz) return;
+    h.cutoff = hz;
+    h.filter.frequency.linearRampToValueAtTime(hz, this.ctx.currentTime + ramp);
   }
 
   /* ---------------------------------------------------------------- */

@@ -1,9 +1,15 @@
 # Bada Bing scene audit — 2026-07-30
 
 **Status 2026-07-30 late:** every P1/P2 item below is IMPLEMENTED and verified
-(doorways/movers/stage in `e39dffa`, gambling rework in the following commit;
-verify:bing 46/46, verify:bing-two 10/10 after each slice). Still open: the P3
-office-radio/zone-muffle design and the cross-scene follow-ups at the bottom.
+(doorways/movers/stage in `e39dffa`, gambling rework next commit; verify:bing
+46/46, verify:bing-two 10/10 after each slice). **P3 is also DONE**: per-loop
+lowpass + `setLoopCutoff` + `startMusicLoop` in `src/core/audio.js`; the floor
+plays `sallie-j.mp3` from the DJ booth, Lou's office radio (new prop by the
+liquor cabinet) plays `good-ole-days.mp3` positionally, the record dulls by
+zone round the back-hallway corner, and the global back-of-house muffle is
+retired so footsteps and dialogue stay crisp — all inside the acoustic-key
+guard, repeatedRamps check still green. Remaining: cross-scene follow-ups at
+the bottom (minus the sounds, which shipped).
 
 Runtime-measured findings (headless probes) from the July 30 audit pass.
 The Squatchfather and Motel audits from the same pass are already implemented

@@ -1350,6 +1350,15 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.rain', { volume: 0.5, ambience: true, fade: 1.5 });
     audio.startLoop('ambience.club', { volume: 0.04, ambience: true, fade: 2 });
     audio.startLoop('ambience.crowd', { volume: 0.02, ambience: true, fade: 2 });
+    // The record actually playing on the floor tonight, from the DJ booth.
+    audio.startMusicLoop('music.club', 'assets/music/sallie-j.mp3', {
+      volume: 0.04, ambience: true, position: club.anchors.dj, ref: 3.5, maxDist: 34, fade: 2,
+    });
+    // Lou's radio plays his old stuff all night; the panner does the
+    // round-the-corner falloff on its own.
+    audio.startMusicLoop('office.radio', 'assets/music/good-ole-days.mp3', {
+      volume: 0.22, ambience: true, position: club.anchors.officeRadio, ref: 0.8, maxDist: 9,
+    });
     audio.startLoop('engine.idle', { volume: 0.22, ambience: false });
     audio.startLoop('car.radio', { name: 'radio.talk', volume: 0.3 });
     game.radioOn = true;
@@ -1404,8 +1413,17 @@ function updateZones(dt) {
     const crowd = next === 'main' ? 0.32 : next === 'vestibule' ? 0.14 : 0.04;
     audio.setLoopVolume('ambience.club', music, 0.7);
     audio.setLoopVolume('ambience.crowd', crowd, 0.7);
-    audio.setMuffle(inside && next !== 'main' && next !== 'vestibule', 780);
-    game.acoustics = { room: next, rain: rainVolume, music, crowd };
+    audio.setLoopVolume('music.club', music * 0.9, 0.7);
+    // The wall does the muffling per-loop now — footsteps and dialogue in the
+    // back of house stay crisp while the record dulls round the corner.
+    const cutoff = next === 'main' || next === 'vestibule' ? 20000
+      : next === 'hallway' ? 1400
+        : next === 'office' ? (officeDoorOpen ? 1600 : 700)
+          : next === 'bathroom' || next === 'storage' ? 600
+            : 900;
+    audio.setLoopCutoff('ambience.club', cutoff, 0.6);
+    audio.setLoopCutoff('music.club', cutoff, 0.6);
+    game.acoustics = { room: next, rain: rainVolume, music, crowd, cutoff };
     club.rain.setVisible(!inside);
   }
 

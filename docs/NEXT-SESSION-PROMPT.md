@@ -87,15 +87,19 @@ consolidation in this order:
    same way `travel.airstrip` and `mission.airstrip` were added.
 2. Add the final apartment return/big-night call and route the current
    Initiation through normal campaign state without rewriting the scene.
-3. Work the user's 2026-07-29 scene-polish backlog with focused per-scene
-   passes and playtest evidence: Squatchfather chair/NPC orientation, the
-   revolver, waiter behaviour, blood/impact effects; Bada Bing character
-   style unification, performer detail and choreography, Lou's office and
-   back hallway, wall-art collisions, blackjack and slot rework, club music;
-   Motel pool/doors/windows cleanup, the driving scene's car interior,
-   headlights and street lights, the bathroom-stuck fighter; apartment
-   crooked-frame gag staging and glue-minigame pacing; generate the missing
-   sounds and voice lines through the existing manifest tooling.
+3. The 2026-07-29 scene-polish backlog is largely DONE (2026-07-30 commits
+   `b2f784f` through the club-audio pass; details in
+   `docs/audits/2026-07-30-bada-bing-audit.md`): Squatchfather
+   chairs/diners/waiter/revolver/blood, Motel pool/doors/car/headlights/
+   stuck-fighter, Bing doorways/movers/stage/gambling, office radio +
+   zone-muffled music + sallie-j on the floor, and the sounds pass (revolver,
+   floorboards, car family, poop redone). Still open from the backlog:
+   performer detail/dance moves and Bing character-style unification with
+   Lou's face photo (blocked on the user's style/face decisions), fancy
+   framed sasquatch-logo artwork, blackjack/slots VO lines (prospect
+   win/lose, dealer), the TV program follow-up, the apartment crooked-frame
+   pre-stage + glue-minigame pacing/moan, and the Manny "fellow prospect"
+   relabel decision.
 4. A human playtest gate sits between each polish pass and the next scene.
 
 Standing integration rules:

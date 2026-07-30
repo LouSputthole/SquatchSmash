@@ -1273,6 +1273,20 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.liquor = new THREE.Vector3(O.x1 - 1.15, 1.2, oz + 1.2);
     office.cabinet = cab;
 
+    // Lou's radio, on the end of the cabinet: an old two-knob table set with
+    // a lit dial. The music it plays is positional, so it fades on its own
+    // as you leave the office.
+    const radio = group('office-radio',
+      box({ size: [0.34, 0.2, 0.16], pos: [0, 0.1, 0], mat: M_DARKWOOD }),
+      box({ size: [0.2, 0.09, 0.02], pos: [-0.03, 0.11, 0.085], mat: lit(0xd8a24a, 0.9) }),
+      cylinder({ r: 0.02, h: 0.02, pos: [0.11, 0.06, 0.09], rotX: Math.PI / 2, mat: M_CHROME }),
+      cylinder({ r: 0.02, h: 0.02, pos: [0.11, 0.13, 0.09], rotX: Math.PI / 2, mat: M_CHROME }),
+    );
+    radio.position.set(O.x1 - 0.5, 1.14, oz + 0.55);
+    radio.rotation.y = -Math.PI / 2;
+    add(radio);
+    anchors.officeRadio = new THREE.Vector3(O.x1 - 0.5, 1.25, oz + 0.55);
+
     add(box({ size: [0.32, 0.4, 0.3], pos: [O.x1 - 0.55, 1.32, oz - 0.5], mat: mat({ color: 0x26262e, roughness: 0.7 }) }));
     add(box({ size: [0.52, 0.8, 0.52], pos: [O.x0 + 0.55, 0.4, O.z1 - 0.7], mat: mat({ color: 0xd0d0d6, roughness: 0.5 }) }));
     solid(O.x0 + 0.29, O.z1 - 0.96, O.x0 + 0.81, O.z1 - 0.44, 0, 0.8);
