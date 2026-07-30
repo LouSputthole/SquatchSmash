@@ -15,6 +15,8 @@
 
 /** Sweep speed in bar-widths per second. */
 const SPEED = 0.86;
+/** How much faster every success makes it. */
+const RAMP = 1.11;
 /** How long a hit or a miss stays lit on the bar. */
 const FLASH = 0.22;
 
@@ -24,15 +26,20 @@ export class TimingBar {
    *   hits    how many good ones it takes
    *   window  [from, to] as fractions of the bar, e.g. [0.72, 0.86]
    *   speed   sweeps per second
+   *   ramp    multiplied into the speed on every success
    *   onHit   (n, total) => void
    *   onMiss  () => void
    *   onDone  () => void
    */
-  constructor({ hits = 6, window = [0.72, 0.86], speed = SPEED,
+  constructor({ hits = 6, window = [0.72, 0.86], speed = SPEED, ramp = RAMP,
     onHit, onMiss, onDone } = {}) {
     this.total = hits;
     this.window = window;
-    this.speed = speed;
+    /* Kept separate from `speed`, which is climbing the whole time the bar is
+     * up: reset() used to leave the sweep wherever the last run had wound it
+     * to, so a second go started at the pace the first one finished at. */
+    this.baseSpeed = speed;
+    this.ramp = ramp;
     this.onHit = onHit;
     this.onMiss = onMiss;
     this.onDone = onDone;
@@ -43,6 +50,7 @@ export class TimingBar {
     this.active = false;
     this.done = false;
     this.hits = 0;
+    this.speed = this.baseSpeed;
     /** 0..1 across the bar. */
     this.pos = 0;
     this._dir = 1;
@@ -94,9 +102,9 @@ export class TimingBar {
 
     this.hits++;
     this.onHit?.(this.hits, this.total);
-    /* It speeds up as it goes. Six hits at one pace is a chore; six hits that
-     * get harder is a build, and the last one is worth something. */
-    this.speed *= 1.11;
+    /* It speeds up as it goes. A run at one pace is a chore; a run that gets
+     * harder is a build, and the last one is worth something. */
+    this.speed *= this.ramp;
     if (this.hits >= this.total) {
       this.done = true;
       this.active = false;

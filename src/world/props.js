@@ -1679,32 +1679,52 @@ export function makeCorkboard(M, { x, y, z, rotY = 0, w = 0.9, h = 0.66 }) {
 /**
  * A framed picture. If `texture` is null it renders a procedurally drawn
  * placeholder so the wall is never empty before the player adds their own art.
+ *
+ * `roll` and `lean` are for a frame that is not hanging properly: `roll` takes
+ * it off level, `lean` stands one edge off the wall (negative brings the BOTTOM
+ * edge out into the room). `artRoll` and `artInset` do the same to the
+ * photograph inside the mount, which is a separate kind of wrong and reads as
+ * one when both are happening at once.
+ *
+ * They go on a panel INSIDE the group rather than on the group itself, because
+ * the group's own rotation is which wall it is on -- putting a tilt there would
+ * either fight that or have to know about it.
  */
-export function makeFrame(M, { x, y, z, rotY = 0, w = 0.5, h = 0.65, texture = null, tint = 0x1c1712 }) {
+export function makeFrame(M, {
+  x, y, z, rotY = 0, w = 0.5, h = 0.65, texture = null, tint = 0x1c1712,
+  roll = 0, lean = 0, artRoll = 0, artInset = 1,
+}) {
   const g = group('frame');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
 
+  const panel = group('framePanel');
+  panel.rotation.z = roll;
+  panel.rotation.x = lean;
+  g.add(panel);
+
   const bezel = 0.035;
-  g.add(box({ size: [w + bezel * 2, h + bezel * 2, 0.035], pos: [0, 0, -0.018], mat: mat({ color: tint, roughness: 0.55 }) }));
+  panel.add(box({ size: [w + bezel * 2, h + bezel * 2, 0.035], pos: [0, 0, -0.018], mat: mat({ color: tint, roughness: 0.55 }) }));
   // Mount board peeking out around the art.
-  g.add(box({ size: [w + 0.012, h + 0.012, 0.004], pos: [0, 0, 0.001], mat: M.paper }));
+  panel.add(box({ size: [w + 0.012, h + 0.012, 0.004], pos: [0, 0, 0.001], mat: M.paper }));
 
   const artMat = texture
     ? new THREE.MeshStandardMaterial({ map: texture, roughness: 0.62 })
     : new THREE.MeshStandardMaterial({ color: 0x2a2622, roughness: 0.8 });
   const art = plane(w, h, artMat);
   art.position.set(0, 0, 0.004);
-  g.add(art);
+  art.rotation.z = artRoll;
+  art.scale.set(artInset, artInset, 1);
+  panel.add(art);
 
   // Glass sheen.
   const glass = plane(w + 0.01, h + 0.01, new THREE.MeshPhysicalMaterial({
     color: 0xffffff, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.06,
   }));
   glass.position.set(0, 0, 0.02);
-  g.add(glass);
+  panel.add(glass);
 
-  return { group: g, art, artMat };
+  return { group: g, panel, art, artMat };
 }
 
 /**

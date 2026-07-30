@@ -1836,6 +1836,24 @@
       "say": "Hands are stuck together. Brilliant."
     },
     {
+      "name": "vo.heave.a.1",
+      "voice": "player",
+      "_note": "The last three squeezes of the frame job, in order -- a, then b, then c -- so they have to be three banks rather than three takes in one: say() picks at random inside a bank and a random pick cannot escalate. Filed under `heave` and NOT under `glue` on purpose: say() matches on the `vo.<group>.` prefix, so a vo.glue.heave.* would join the bank the punchline draws from and he would name what is in the bottle five squeezes before the mess arrives. Strained, short, through the nose. Nothing here says what he is straining at.",
+      "say": "Hnngh. Come on. Come on."
+    },
+    {
+      "name": "vo.heave.b.1",
+      "voice": "player",
+      "_note": "Second of the three. More of him behind it, starting to lose the breath.",
+      "say": "Nnngh. Nearly. Nearly."
+    },
+    {
+      "name": "vo.heave.c.1",
+      "voice": "player",
+      "_note": "The last one before the long groan takes over. Everything he has, and it breaks in the middle.",
+      "say": "Hhrrgh — that is it, that is it, oh—"
+    },
+    {
       "name": "chair.roll.loop",
       "_note": "Castors on a hard floor, looped while the chair is actually moving."
     },

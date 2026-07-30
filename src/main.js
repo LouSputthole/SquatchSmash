@@ -1639,9 +1639,15 @@ function eatEggs() {
  */
 const glue = {
   bar: new TimingBar({
-    hits: 6,
+    /* Eight, and steeper. Six at 1.11 topped out at a 96ms window on the last
+     * one, which is a rhythm you settle into; this ends around 55ms, which is
+     * a rhythm you are losing. Nothing is lost by missing -- there is no fail
+     * state here, only how long he is stood there for -- so the back half is
+     * allowed to be genuinely hard. */
+    hits: 8,
     window: [0.74, 0.87],
     speed: 0.80,
+    ramp: 1.17,
     onHit: onGlueHit,
     onMiss: () => audio.play('glue.slip', { volume: 0.5, position: apartment.gluePos }),
     onDone: finishGluing,
@@ -1660,12 +1666,33 @@ function startGluing() {
 }
 
 function onGlueHit(n, total) {
-  // Each squeeze gets more of him behind it than the last.
+  /* Each squeeze gets more of him behind it than the last. Scaled on how far
+   * through he is rather than on the count, so the last one lands exactly where
+   * it always did whatever the total happens to be. */
+  const p = n / total;
   audio.play('glue.squeeze', {
-    volume: 0.55 + n * 0.06, rate: 1.0 - n * 0.045, position: apartment.gluePos,
+    volume: 0.55 + p * 0.36, rate: 1.0 - p * 0.27, position: apartment.gluePos,
   });
+
+  /* The last three are him, not the bottle -- and they REPLACE the effort cue
+   * rather than stacking on it, because two efforts at once is mush. Still
+   * nothing about what is in his hand: it is a man straining, and what he is
+   * straining at is the joke that has not landed yet.
+   *
+   * Three banks in escalating order rather than three takes in one bank,
+   * because say() picks at random inside a bank and a random pick cannot
+   * escalate -- and named `heave` rather than `glue` because say() matches on
+   * the `vo.<group>.` prefix, so anything filed under glue would join the bank
+   * the punchline draws from and he would announce the joke five squeezes
+   * early. Spelt out one call at a time so `npm run check` can see all three.
+   */
+  const fromEnd = total - n;
+  if (fromEnd === 2) audio.say('heave.a', { volume: 0.72, delay: 0.10 });
+  else if (fromEnd === 1) audio.say('heave.b', { volume: 0.81, delay: 0.10 });
+  else if (fromEnd === 0) audio.say('heave.c', { volume: 0.90, delay: 0.10 });
+  else if (n >= 3) audio.play('glue.effort', { volume: 0.30 + p * 0.44, delay: 0.10 });
+
   if (n === total) return;
-  if (n >= 3) audio.play('glue.effort', { volume: 0.30 + n * 0.07, delay: 0.10 });
   // Deliberately says nothing about what is coming out. Just the count.
   hud.toast(`${n}/${total}`, n >= total - 1 ? 'good' : '');
 }
@@ -1835,6 +1862,10 @@ function updateGluing(dt) {
      * the mess lands on the thing the job was about. */
     splat.spray(-0.10, 2.20, 12);
     apartment.state.glued = true;
+    /* And it hangs straight from here on. The frame going level is the ONLY
+     * thing on screen that says the job succeeded -- everything else about this
+     * moment is the mess -- so it happens on the same frame as the burst. */
+    apartment.straightenFrame?.();
     // First and only time the word appears. It is the punchline.
     hud.toast('PVA. Everywhere.', 'bad');
     hud.say('<em>There we go.</em> Whole bottle of wood glue, straight down '

@@ -147,6 +147,32 @@ const BANNER_SLOTS = [
 /** Round crest hung above the bookshelf on the north wall. */
 const CREST_SLOT = { slot: 'crest.round', x: -2.70, y: 2.13, z: -4.40, rotY: 0, r: 0.21 };
 
+/**
+ * The one that has been crooked for months.
+ *
+ * The prompt on it has always said crooked and the frame has always hung dead
+ * level, so the state of it was a claim in a label rather than a thing you
+ * could see -- and the whole sequence is triggered by looking at it, which
+ * means it has to look wrong before you go anywhere near the desk.
+ *
+ * Three separate wrongnesses, because one on its own reads as a mistake in the
+ * geometry rather than as a picture nobody has dealt with: the frame off level,
+ * the bottom edge stood off the wall (it is hanging on one hook and the other
+ * corner has let go), and the photograph slipped inside its own mount. All
+ * three run off ONE number, which is 1 as found and 0 once the job is done.
+ */
+const CROOKED_SLOT = 'cork.above';
+const CROOKED = {
+  /** Off level, anticlockwise. About 3 degrees: wrong, not slapstick. */
+  roll: -0.055,
+  /** Bottom edge out into the room. Negative is the way that leans. */
+  lean: -0.085,
+  /** The photograph, crooked the OTHER way inside the mount. */
+  artRoll: 0.055,
+  /** And sat small in it, so the mount board shows as a wedge down one side. */
+  artInset: 0.955,
+};
+
 /** Photo frames that stand on furniture rather than hanging. */
 const STANDING_SLOTS = [
   { slot: 'shelf.photo', x: -0.52, y: 0.723, z: 4.14, rotY: Math.PI - 0.30, h: 0.19 },
@@ -887,17 +913,47 @@ export async function buildApartment(ctx) {
 
   const frames = [];
 
+  /** The crooked one, kept so the fix has something to straighten. */
+  let crookedFrame = null;
+
   for (const slot of [...WALL_SLOTS, ...BATH_SLOTS]) {
     const g = gear.get(slot.slot);
     const height = slot.h * (g.scale || 1);
     const width = height * (g.aspect || 0.8);
+    const wonky = slot.slot === CROOKED_SLOT;
     const f = P.makeFrame(M, {
       x: slot.x, y: slot.y, z: slot.z, rotY: slot.rotY,
       w: width, h: height, texture: g.texture,
+      ...(wonky ? CROOKED : null),
     });
     root.add(f.group);
+    if (wonky) crookedFrame = f;
     frames.push({ ...slot, mesh: f.group, info: g });
   }
+
+  /* Putting it right.
+   *
+   * It settles over about a third of a second rather than snapping, because the
+   * player is looking at the wall when it happens -- a snap is indistinguishable
+   * from a frame that was always straight, and the movement is the only way
+   * anyone finds out the squeezing achieved anything. Driven off state so a
+   * verifier can drive it without a camera. */
+  let crookedT = 1;
+  let crookedWant = 1;
+  const applyCrooked = () => {
+    if (!crookedFrame) return;
+    crookedFrame.panel.rotation.z = CROOKED.roll * crookedT;
+    crookedFrame.panel.rotation.x = CROOKED.lean * crookedT;
+    crookedFrame.art.rotation.z = CROOKED.artRoll * crookedT;
+    const inset = 1 + (CROOKED.artInset - 1) * crookedT;
+    crookedFrame.art.scale.set(inset, inset, 1);
+  };
+  ticks.push((dt) => {
+    if (crookedT === crookedWant) return;
+    crookedT += (crookedWant - crookedT) * Math.min(1, dt * 7);
+    if (Math.abs(crookedT - crookedWant) < 0.004) crookedT = crookedWant;
+    applyCrooked();
+  });
 
   const banners = [];
   for (const slot of BANNER_SLOTS) {
@@ -1954,6 +2010,11 @@ export async function buildApartment(ctx) {
     tv,
     tvGlow,
     frames,
+    /** The frame that has been crooked for months, and putting it right. */
+    crookedFrame,
+    straightenFrame() { crookedWant = 0; },
+    /** 1 as found, 0 hanging straight. Mid-settle in between. */
+    frameCrookedness() { return crookedT; },
 
     bedPose,
     bedExit,
