@@ -73,6 +73,24 @@ bcd5b81 Import the finished Beef Run and align its cast with campaign canon
 4b055ea Connect the Beef Run to the campaign spine
 ```
 
+## Campaign order — confirmed by the owner 2026-07-30
+
+Apartment → Bada Bing One → apartment → Squatchfather → apartment →
+Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment →
+Initiation. This matches what is built; the owner confirmed position 9 is
+the Jerky Motel. The owner also confirmed the previously blocked
+character/performer decisions stand as originally specified (Squatchfather
+character style everywhere, detailed performers, Lou's face photo without
+the bandana).
+
+**The Silver Room** (`silver.html`, `src/silver/*`) is imported and verifies
+standalone (54/54, `npm run verify:silver`) but is NOT yet in the campaign
+and does not appear in the confirmed order — where it slots is an open
+design question for the owner. Its original branch wired it through Bing
+hooks and a phone invite (`origin/claude/front-center-club-mission-0s9u3z`
+diffs to `src/bing/*`, `src/core/phone.js`, `src/main.js` — deliberately not
+taken); use those as the reference when the owner picks its slot.
+
 ## Approved character canon
 
 `docs/CHARACTER-ALIGNMENT.md` is authoritative. The important locked decisions

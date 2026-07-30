@@ -97,6 +97,62 @@
       "stability": 0.3,
       "similarity": 0.75,
       "style": 0.7
+    },
+    "lou": {
+      "id": "bIHbv24MWmeRgasZH58o",
+      "_note": "Big Uncle Lou on the phone — same man as lou1, phone cadence.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.32,
+      "similarity": 0.8,
+      "style": 0.6
+    },
+    "hr": {
+      "id": "pNInz6obpgDQGcFmaJgB",
+      "_note": "PROVISIONAL casting (announcer id) — swap this id and rerun sfx:vo --force --only vo.call.hr to recast.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.2
+    },
+    "unknown": {
+      "id": "JBFqnCBsd6RMkjVDRZzb",
+      "_note": "PROVISIONAL casting (irish id) — the unknown caller. Swap id + regenerate to recast.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.8,
+      "style": 0.5
+    },
+    "old-stove": {
+      "id": "nPczCjzI2devNBz1zQrb",
+      "_note": "PROVISIONAL casting (uncle id) — pleasant, unhurried, immovable. Swap id + regenerate to recast.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.55,
+      "similarity": 0.85,
+      "style": 0.3
+    },
+    "cecilio": {
+      "id": "pqHfZKP75CvOlQylNhV4",
+      "_note": "PROVISIONAL casting (gratin id) — courteous, slow, temperature removed. Swap id + regenerate to recast.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.4
+    },
+    "lookout": {
+      "id": "cjVigY5qzO86Huf0OWal",
+      "_note": "PROVISIONAL casting (eric id) — a man on a hill with binoculars. Swap id + regenerate to recast.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.35
+    },
+    "caib-radio": {
+      "id": "pNInz6obpgDQGcFmaJgB",
+      "_note": "PROVISIONAL casting (announcer id) — procedural, bored, filtered. Swap id + regenerate to recast.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.6,
+      "similarity": 0.8,
+      "style": 0.15
     }
   },
   "sfx": [
