@@ -25,6 +25,72 @@ export function init() {
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  loadSamples([
+    'car.engine.start', 'car.engine.idle', 'car.engine.rev',
+    'car.tire.skid', 'car.horn', 'car.impact.metal', 'gun.shot',
+  ]);
+}
+
+// ---------- Recorded samples ----------
+// Preferred when decoded; every caller keeps its synth fallback, so nothing
+// in the scene depends on the files existing.
+const samples = new Map();
+
+function loadSamples(names) {
+  for (const name of names) {
+    if (samples.has(name)) continue;
+    samples.set(name, null);
+    fetch(`assets/sfx/${name}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((decoded) => samples.set(name, decoded))
+      .catch(() => samples.delete(name));
+  }
+}
+
+function playSample(name, { volume = 1, rate = 1 } = {}) {
+  const buf = samples.get(name);
+  if (!buf || !ctx) return false;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = rate;
+  const g = ctx.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(master);
+  src.start();
+  return true;
+}
+
+// The drive scene's engine: the recorded start, then a looped idle whose
+// pitch follows road speed.
+let engineLoop = null;
+
+function startEngineIdle(delay = 0) {
+  const buf = samples.get('car.engine.idle');
+  if (!buf || engineLoop) return;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  const g = ctx.createGain();
+  g.gain.value = 0.3;
+  src.connect(g).connect(master);
+  src.start(ctx.currentTime + delay);
+  engineLoop = { src, g };
+}
+
+export function setEngineSpeed(k) {
+  if (!engineLoop) return;
+  const t = ctx.currentTime;
+  engineLoop.src.playbackRate.setTargetAtTime(0.85 + 0.55 * k, t, 0.15);
+  engineLoop.g.gain.setTargetAtTime(0.28 + 0.22 * k, t, 0.2);
+}
+
+export function stopEngine() {
+  if (!engineLoop) return;
+  const { src, g } = engineLoop;
+  engineLoop = null;
+  g.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
+  setTimeout(() => { try { src.stop(); } catch { /* stopped */ } }, 1200);
 }
 
 export function resume() {
@@ -241,6 +307,7 @@ export function woodBreak() {
 
 export function gunshot() {
   if (!ctx) return;
+  if (playSample('gun.shot', { volume: 0.9 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'square', from: 320, to: 40, dur: 0.12, peak: 0.4 });
   noise(t, { peak: 0.55, attack: 0.001, decay: 0.18, freq: 1800, type: 'highpass' });
@@ -333,6 +400,10 @@ export function siren(far = true) {
 
 export function carStart() {
   if (!ctx) return;
+  if (playSample('car.engine.start', { volume: 0.8 })) {
+    startEngineIdle(2.4);
+    return;
+  }
   const t = ctx.currentTime;
   for (let i = 0; i < 3; i++) {
     tone(t + i * 0.13, { type: 'sawtooth', from: 60, to: 110, dur: 0.11, peak: 0.14 });
@@ -342,6 +413,7 @@ export function carStart() {
 
 export function tires() {
   if (!ctx) return;
+  if (playSample('car.tire.skid', { volume: 0.55 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.2, attack: 0.02, decay: 0.7, freq: 2400, type: 'bandpass', q: 1.2 });
   tone(t, { type: 'sawtooth', from: 420, to: 260, dur: 0.6, peak: 0.06 });
@@ -349,6 +421,7 @@ export function tires() {
 
 export function crash() {
   if (!ctx) return;
+  if (playSample('car.impact.metal', { volume: 0.85 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 110, to: 30, dur: 0.4, peak: 0.5 });
   noise(t, { peak: 0.4, attack: 0.002, decay: 0.4, freq: 900, type: 'lowpass' });

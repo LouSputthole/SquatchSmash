@@ -119,17 +119,21 @@ verifier assertions at risk. Implement as one focused pass and re-run
 
 ## Follow-ups deferred from the other two scenes
 
-- Squatchfather: generate `gun.shot`/`gun.impact`/`gun.dry` +
-  `footstep.wood.a/b` samples (prompts already in the manifest), then route
-  `Foley.footstep`/`GunshotAudio` through real samples with synth fallback.
-  The fourth background table has no hanging lamp (`SquatchfatherScene.js:1076`).
-- Motel: car sound cues do not exist (`car.engine.start/idle/rev`,
-  `car.tire.skid`, `car.horn`, `car.impact.metal`, `traffic.pass`) and
-  `src/motel/audio.js` is synth-only — thread `core/audio.js` in with synth
-  fallback. Upstairs decorative windows sit on blank stucco with no reveal
-  (`level.js:292-297`). Manny → "fellow prospect" relabel is display-strings
-  only if ever done (`role`/`faction`/`identity` must NOT change —
-  verify-motel asserts them).
+- ~~Sounds~~ DONE 2026-07-30: gun.shot/dry/impact/pickup/reload +
+  footstep.wood.a/b generated and preferred in the Squatchfather audio stack
+  (synth fallback kept); car.engine.start/idle/rev, car.tire.skid, car.horn,
+  car.impact.metal, traffic.pass generated, Motel carStart/tires/crash/gunshot
+  prefer them, and the drive engine idles on a loop pitched by road speed;
+  poop.1-4 regenerated with heavier comedy prompts. `traffic.pass` and
+  `car.horn`/`car.engine.rev` are generated but not yet wired to events.
+- Still open: the fourth Squatchfather background table has no hanging lamp
+  (`SquatchfatherScene.js:1076`). Upstairs decorative Motel windows sit on
+  blank stucco with no reveal (`level.js:292-297`). Manny → "fellow prospect"
+  relabel is display-strings only if ever done (`role`/`faction`/`identity`
+  must NOT change — verify-motel asserts them).
+- Club real-track jukebox (play `assets/music/sallie-j.mp3` on the floor)
+  belongs with the P3 office-radio/zone-muffle pass: same loop/panner
+  architecture and the same repeatedRamps===0 verifier constraint.
 - Apartment (owner requests, unaudited): crooked-frame gag pre-staging (frame
   slightly crooked + hanging off at the bottom before the minigame), glue
   minigame two more successful pumps with faster ramp, better moan on the

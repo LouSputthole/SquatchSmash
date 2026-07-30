@@ -1,5 +1,6 @@
-// Shared WebAudio plumbing for the scene. Everything is synthesised — no audio
-// files, same as the rest of the game.
+// Shared WebAudio plumbing for the scene. Almost everything is synthesised;
+// a handful of shipped recordings (footsteps, the revolver) are preferred
+// when they load, with the synth kept as the fallback.
 //
 // Chain:  sources → bus → duck (lowpass) → master → destination
 //         ringing oscillator → master   (bypasses the duck so it stays on top)
@@ -43,7 +44,43 @@ export function init() {
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
 
+  loadSamples([
+    'footstep.wood.a', 'footstep.wood.b', 'footstep.tile',
+    'gun.shot', 'gun.reload',
+  ]);
+
   return ctx;
+}
+
+// ---------- Recorded samples ----------
+// A cue that fails to fetch or decode simply stays on the synth; nothing in
+// the scene depends on the files existing.
+const samples = new Map();
+
+function loadSamples(names) {
+  for (const name of names) {
+    if (samples.has(name)) continue;
+    samples.set(name, null);
+    fetch(`assets/sfx/${name}.mp3`)
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((decoded) => samples.set(name, decoded))
+      .catch(() => samples.delete(name));
+  }
+}
+
+/** Play a recorded cue. Returns false when it has not loaded (use the synth). */
+export function playSample(name, { volume = 1, rate = 1 } = {}) {
+  const buf = samples.get(name);
+  if (!buf || !ctx) return false;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.playbackRate.value = rate;
+  const g = ctx.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(busNode);
+  src.start();
+  return true;
 }
 
 export function resume() {

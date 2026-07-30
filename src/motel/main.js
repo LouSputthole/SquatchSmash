@@ -601,6 +601,7 @@ function finishScene(kind) {
   phase = 'end';
   sfx.setMusic('none');
   sfx.stopAmbience();
+  sfx.stopEngine();
   endGrapple();
   closeInspection();
   closeDialogue();
@@ -2674,6 +2675,7 @@ function updateDrive(dt) {
   drive.speed = THREE.MathUtils.clamp(drive.speed + accel * 14 * dt, 14, 52);
   drive.x = THREE.MathUtils.clamp(drive.x + steer * 13 * dt, -8.4, 8.4);
   drive.dist += drive.speed * dt;
+  sfx.setEngineSpeed((drive.speed - 14) / 38);
 
   drive.car.position.set(drive.x, 0, 0);
   drive.car.rotation.y = -steer * 0.12;

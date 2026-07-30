@@ -3,8 +3,19 @@ import * as core from './core.js';
 // Small sounds the scene leans on: footsteps on three surfaces, chairs, doors,
 // cloth, a wine glass going over, and a heartbeat for the bathroom.
 
+let boardAlt = false;
+
 export function footstep(surface = 'wood', loud = 1) {
   if (!core.isReady()) return;
+  // Real boards and tile when the recordings are in; the synth still covers
+  // the wet street and any cue that has not loaded.
+  if (surface === 'wood') {
+    boardAlt = !boardAlt;
+    const cue = boardAlt ? 'footstep.wood.a' : 'footstep.wood.b';
+    if (core.playSample(cue, { volume: 0.75 * loud, rate: 0.94 + Math.random() * 0.12 })) return;
+  } else if (surface === 'tile') {
+    if (core.playSample('footstep.tile', { volume: 0.7 * loud, rate: 0.95 + Math.random() * 0.1 })) return;
+  }
   const t = core.now();
   if (surface === 'street') {
     core.noise(t, { peak: 0.1 * loud, attack: 0.002, decay: 0.09, type: 'bandpass', freq: 700, q: 1.1 });

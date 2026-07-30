@@ -5,6 +5,9 @@ import * as core from './core.js';
 
 export function gunshot() {
   if (!core.isReady()) return;
+  // The recorded revolver — indoors, loud, with its own ringing tail. The
+  // synth below remains the fallback until the sample decodes.
+  if (core.playSample('gun.shot', { volume: 1 })) return;
   const t = core.now();
 
   // Crack
@@ -21,9 +24,10 @@ export function gunshot() {
   core.noise(t + 0.26, { peak: 0.05, attack: 0.02, decay: 0.5, type: 'lowpass', freq: 520 });
 }
 
-// Slide racking / press check in the bathroom.
+// Checking the revolver in the bathroom — cylinder out, spin, closed.
 export function weaponCheck() {
   if (!core.isReady()) return;
+  if (core.playSample('gun.reload', { volume: 0.8 })) return;
   const t = core.now();
   core.noise(t, { peak: 0.2, attack: 0.002, decay: 0.05, type: 'bandpass', freq: 2600, q: 2 });
   core.tone(t + 0.01, { type: 'square', from: 900, to: 420, dur: 0.05, peak: 0.14 });

@@ -531,23 +531,27 @@
     },
     {
       "name": "poop.1",
-      "duration": 1.4,
-      "prompt": "comedic toilet sound, muffled strain and release, no voice"
+      "duration": 1.6,
+      "promptInfluence": 0.55,
+      "prompt": "comedic cartoon toilet bomb: a wet sputtering blast into toilet water with a heavy splash and porcelain echo, bathroom reverb, exaggerated and rude, no voice"
     },
     {
       "name": "poop.2",
-      "duration": 1.8,
-      "prompt": "comedic toilet sound, longer sputtering release, no voice"
+      "duration": 2.4,
+      "promptInfluence": 0.55,
+      "prompt": "comedic long rolling toilet disaster: bubbling flatulent rumble breaking into three wet plops with splashes into bowl water, tiled bathroom echo, exaggerated, no voice"
     },
     {
       "name": "poop.3",
-      "duration": 1.1,
-      "prompt": "comedic toilet sound, short sharp release, no voice"
+      "duration": 1.2,
+      "promptInfluence": 0.55,
+      "prompt": "comedic single loud plop into deep toilet water with a big splash back and a drip after, close porcelain echo, no voice"
     },
     {
       "name": "poop.4",
-      "duration": 2.2,
-      "prompt": "comedic toilet sound, drawn out gurgling release, no voice"
+      "duration": 2.6,
+      "promptInfluence": 0.55,
+      "prompt": "comedic catastrophic toilet finale: squelching burst, rapid-fire plops into water, one last defeated squeak, tiled bathroom reverb, exaggerated and rude, no voice"
     },
     {
       "name": "toilet.plop",
@@ -1703,11 +1707,15 @@
     },
     {
       "name": "footstep.wood.a",
-      "_note": "A tighter floorboard, close to a joist: heel thump, short knock, quick ring."
+      "duration": 0.5,
+      "_note": "A tighter floorboard, close to a joist: heel thump, short knock, quick ring.",
+      "prompt": "single footstep on a tight old wooden floorboard close to a joist, firm heel thump with a short knock and a quick ring, interior, no voice"
     },
     {
       "name": "footstep.wood.b",
-      "_note": "The board with air under it: lower, longer, hollower."
+      "duration": 0.5,
+      "_note": "The board with air under it: lower, longer, hollower.",
+      "prompt": "single footstep on a loose hollow wooden floorboard with air under it, lower longer hollower knock, slight creak, interior, no voice"
     },
     {
       "name": "poop.strain",
@@ -1886,6 +1894,49 @@
       "duration": 0.8,
       "promptInfluence": 0.5,
       "prompt": "the hammer of an empty revolver falling on a spent chamber, one dry mechanical click, close, no music, no voice"
+    },
+    {
+      "_comment": "The Motel getaway convertible. Old American V8, nothing modern about it.",
+      "name": "car.engine.start",
+      "duration": 3.2,
+      "promptInfluence": 0.5,
+      "prompt": "an old american v8 sedan starting: starter motor cranks twice, engine catches with a rumble and settles to a low idle, exterior, no music, no voice"
+    },
+    {
+      "name": "car.engine.idle",
+      "duration": 6,
+      "promptInfluence": 0.45,
+      "prompt": "old american v8 engine idling steadily, low rumble with a slight lope, seamless loop, exterior, no music, no voice"
+    },
+    {
+      "name": "car.engine.rev",
+      "duration": 2.4,
+      "promptInfluence": 0.5,
+      "prompt": "old american v8 engine revving hard once and falling back to idle, throaty roar, exterior, no music, no voice"
+    },
+    {
+      "name": "car.tire.skid",
+      "duration": 2,
+      "promptInfluence": 0.5,
+      "prompt": "car tires squealing in a hard skid on asphalt, long screech tailing off, exterior night street, no music, no voice"
+    },
+    {
+      "name": "car.horn",
+      "duration": 1.2,
+      "promptInfluence": 0.5,
+      "prompt": "an old american sedan horn, two short angry honks, exterior, no music, no voice"
+    },
+    {
+      "name": "car.impact.metal",
+      "duration": 1.4,
+      "promptInfluence": 0.5,
+      "prompt": "two cars trading paint at speed: sheet metal bang and scrape with a rattle after, exterior, no music, no voice"
+    },
+    {
+      "name": "traffic.pass",
+      "duration": 2.6,
+      "promptInfluence": 0.45,
+      "prompt": "a single car passing at speed on a night highway, doppler whoosh rising and falling, tires on asphalt, no music, no voice"
     },
     {
       "name": "gun.impact",
