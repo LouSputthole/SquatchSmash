@@ -54,6 +54,7 @@ export class FlightHud {
     this.completeBody = $('br-complete-body');
     this.rank = $('br-rank');
     this.guide = $('br-guide');
+    this.checklist = $('br-checklist');
 
     this._warnState = new Set();
     this._objective = '';
@@ -162,6 +163,26 @@ export class FlightHud {
   hidePatrol() {
     this.patrol.classList.add('hidden');
     this._patrolState = null;
+  }
+
+  /** The walkaround checklist — on-foot, so independent of the flight HUD. */
+  showChecklist(on) {
+    this.checklist.classList.toggle('hidden', !on);
+    if (!on) this._checkSig = null;
+  }
+
+  /** @param {Array<{label,count,need,state}>} rows state: done | next | todo */
+  setChecklist(rows) {
+    const sig = rows.map((r) => `${r.state}${r.count}`).join('|');
+    if (this._checkSig === sig) return;
+    this._checkSig = sig;
+    this.checklist.querySelector('ul').replaceChildren(...rows.map((r) => {
+      const li = document.createElement('li');
+      li.className = r.state;
+      const glyph = r.state === 'done' ? '✓' : r.state === 'next' ? '▸' : '·';
+      li.textContent = `${glyph} ${r.label}${r.need > 1 ? ` ${r.count}/${r.need}` : ''}`;
+      return li;
+    }));
   }
 
   setObjective(text) {

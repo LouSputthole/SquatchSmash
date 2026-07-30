@@ -174,6 +174,7 @@ export class MissionController {
 
       case 'preflight':
         this.setObjective(OBJECTIVES.preflight);
+        this.flightHud.showChecklist(true);
         this.preflight.arm();
         this.preflight.onComplete = () => this.setPhase('stove');
         break;
@@ -181,6 +182,7 @@ export class MissionController {
       case 'stove':
         this.setObjective(OBJECTIVES.meetStove);
         this.preflight.disarm();
+        this.flightHud.showChecklist(false);
         break;
 
       case 'loadGuns':
@@ -460,15 +462,20 @@ export class MissionController {
      * now, so the walk is finished and he is standing at his crates before
      * the preflight wraps and his scene wants him — no repeated beat, no
      * teleport, and no man frozen beside the aeroplane since frame one. */
-    if (!this.flags.stoveWalked && this.preflight.progress > 0.6) {
+    if (!this.flags.stoveWalked && this.preflight.doneCount >= 4) {
       this.flags.stoveWalked = true;
       const stand = this.airfield.anchors.stoveStand;
       walkTo(this.stove, stand.x, stand.z, { speed: 1.3 });
     }
-    const left = this.preflight.remaining;
-    this.setObjective(left.length
-      ? `${OBJECTIVES.preflight} — ${left.join(', ')}`
+    /* The guided walkaround: the objective names the one thing to do next —
+     * the marker in the world and the checklist on the glass agree with it —
+     * instead of reciting everything still left. */
+    const next = this.preflight.next;
+    const step = next && next.need > 1 ? ` (${next.count}/${next.need})` : '';
+    this.setObjective(next
+      ? `${OBJECTIVES.preflight} — next: ${next.label}${step}`
       : OBJECTIVES.preflight);
+    this.flightHud.setChecklist(this.preflight.checklist);
   }
 
   /* ---- Old Stove ---- */
@@ -1232,6 +1239,10 @@ export class MissionController {
     this.input.clear();
     this.detection.clear();
     this.flightHud.hideComplete();
+    // Every checkpoint restore lands in the cockpit, so the walkaround's
+    // marker and checklist must not survive an R pressed mid-preflight.
+    this.preflight.disarm();
+    this.flightHud.showChecklist(false);
     this._touchdowns.length = 0;
 
     const setup = {

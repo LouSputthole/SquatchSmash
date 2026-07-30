@@ -7,6 +7,12 @@
  * is really doing is teaching the player that E interacts, that holding E is a
  * different thing from tapping it, and that Lou has an opinion about all of it.
  *
+ * The order stays free, but the walkaround is GUIDED: `next` names the first
+ * unfinished check in walk order, a pulsing marker stands at that part of the
+ * aeroplane, and `checklist` feeds the HUD its done / next / still-to-do rows.
+ * Touch things in any order you like; the guidance just keeps pointing at the
+ * nearest loose end.
+ *
  * The fuel sample is the one that is played rather than pressed: hold to drain,
  * and let go when the cup runs clear. That uses the hold/tap pair the
  * apartment's InteractionSystem already supports — a full hold overflows it, a
@@ -18,6 +24,12 @@ import {
 } from './util.js';
 
 const CHOCK_COLOUR = 0x8a6a42;
+
+/* The order a careful walkaround goes in — chocks first, round the wing, down
+ * the fuselage, tail last. The guidance points here; the player may not. */
+const ORDER = ['chocks', 'caps', 'props', 'sample', 'door', 'surfaces'];
+
+const _markerPos = new THREE.Vector3();
 
 /**
  * A generous invisible box in front of a small part, so the crosshair does not
@@ -128,6 +140,30 @@ export class Preflight {
     for (const hub of ac.parts.prop) hitProxy(hub, 0.85, 0.85, 0.34);
     for (const drain of ac.parts.drain) hitProxy(drain, 0.34, 0.34, 0.34);
     hitProxy(ac.parts.doorHandle, 0.3, 0.34, 0.6);
+
+    /* The guide marker: a pulsing ring on the tarmac with a slow-turning
+     * diamond floating at the part the checklist wants next. Basic materials
+     * with no depth write — it is HUD paint that happens to live in the
+     * world, the same idiom as the approach gates. */
+    this.marker = group('preflight-marker');
+    this.markerRing = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.035, 8, 28),
+      new THREE.MeshBasicMaterial({
+        color: 0xe8c86a, transparent: true, opacity: 0.8, depthWrite: false, toneMapped: false,
+      }),
+    );
+    this.markerRing.rotation.x = -Math.PI / 2;
+    this.marker.add(this.markerRing);
+    this.markerGem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.09),
+      new THREE.MeshBasicMaterial({
+        color: 0xe8c86a, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false,
+      }),
+    );
+    this.marker.add(this.markerGem);
+    this.marker.visible = false;
+    this.markerT = 0;
+    this.scene.add(this.marker);
   }
 
   /* ---------------------------------------------------------------- */
@@ -166,6 +202,10 @@ export class Preflight {
     return all.filter((t) => t.done).length / all.length;
   }
 
+  get doneCount() {
+    return Object.values(this.tasks).filter((t) => t.done).length;
+  }
+
   get complete() {
     return Object.values(this.tasks).every((t) => t.done);
   }
@@ -173,6 +213,44 @@ export class Preflight {
   /** Remaining tasks, for the objective line. */
   get remaining() {
     return Object.values(this.tasks).filter((t) => !t.done).map((t) => t.label);
+  }
+
+  /** The task the guidance points at: the first unfinished one in walk order. */
+  get next() {
+    const name = ORDER.find((n) => !this.tasks[n].done);
+    return name ? { name, ...this.tasks[name] } : null;
+  }
+
+  /** Checklist rows for the HUD: what is done, what is next, what remains. */
+  get checklist() {
+    const nextName = ORDER.find((n) => !this.tasks[n].done);
+    return ORDER.map((name) => {
+      const t = this.tasks[name];
+      return {
+        label: t.label,
+        count: t.count,
+        need: t.need,
+        state: t.done ? 'done' : name === nextName ? 'next' : 'todo',
+      };
+    });
+  }
+
+  /**
+   * The bit of aeroplane the next check lives on — for tasks with two
+   * instances, the first one still untouched, so the marker hops from the
+   * left cap to the right rather than hovering somewhere between them.
+   */
+  markerTarget() {
+    const ac = this.aircraft;
+    switch (this.next?.name) {
+      case 'chocks': return this.chocks.find((c) => !c.userData.pulled) ?? this.chocks[0];
+      case 'caps': return ac.parts.fuelCap.find((_, i) => !this.capChecked?.[i]) ?? ac.parts.fuelCap[0];
+      case 'props': return ac.parts.prop.find((_, i) => !this.propChecked?.[i]) ?? ac.parts.prop[0];
+      case 'sample': return ac.parts.drain[0];
+      case 'door': return ac.parts.doorHandle;
+      case 'surfaces': return this.surfaceChecked?.elevator ? ac.parts.rudder : ac.parts.elevator;
+      default: return null;
+    }
   }
 
   finish(name) {
@@ -211,6 +289,7 @@ export class Preflight {
         onUse: () => {
           // Dropped beside the wheel rather than deleted, because you can see
           // that you did it.
+          chock.userData.pulled = true;
           chock.position.x += i === 0 ? -1.1 : 1.1;
           chock.position.z += 0.4;
           chock.rotation.z = i === 0 ? 1.4 : -1.4;
@@ -385,6 +464,7 @@ export class Preflight {
     this.armed = false;
     this.cup.visible = false;
     this.stream.visible = false;
+    this.marker.visible = false;
   }
 
   /** Chocks vanish once the aeroplane starts moving; surfaces spring back. */
@@ -404,6 +484,24 @@ export class Preflight {
         this.stream.visible = false;
         this.cup.visible = false;
       }
+    }
+    // The guide marker breathes at whatever the checklist wants next: ring
+    // pulsing on the tarmac, diamond turning at the part itself.
+    this.markerT += dt;
+    const target = this.armed && !this.complete ? this.markerTarget() : null;
+    if (target) {
+      target.getWorldPosition(_markerPos);
+      const ground = physics ? physics.position.y - 1.62 : _markerPos.y - 1;
+      this.marker.visible = true;
+      this.marker.position.set(_markerPos.x, ground + 0.06, _markerPos.z);
+      const pulse = 1 + Math.sin(this.markerT * 3.6) * 0.16;
+      this.markerRing.scale.setScalar(pulse);
+      this.markerRing.material.opacity = 0.55 + Math.sin(this.markerT * 3.6) * 0.28;
+      this.markerGem.position.y = Math.max(0.35, _markerPos.y - ground)
+        + Math.sin(this.markerT * 2.2) * 0.05;
+      this.markerGem.rotation.y += dt * 2.4;
+    } else {
+      this.marker.visible = false;
     }
     if (physics?.groundSpeed > 1.5) {
       for (const c of this.chocks) c.visible = false;

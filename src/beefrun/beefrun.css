@@ -244,6 +244,36 @@ body.beefrun { background: #0c0c10; }
 }
 .guide.hidden { display: none; }
 
+/* ---- Walkaround checklist ---- */
+/* On foot, so it sits outside #br-hud and carries its own chrome. */
+#br-checklist {
+  position: fixed;
+  right: 1.4rem; top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  pointer-events: none;
+  padding: 0.55rem 0.95rem 0.65rem;
+  background: var(--br-ink);
+  border-right: 3px solid var(--br-amber);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  color: #e8e2d0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+#br-checklist.hidden { display: none; }
+#br-checklist h3 {
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.32em;
+  opacity: 0.6; margin-bottom: 0.35rem;
+}
+#br-checklist ul {
+  list-style: none;
+  font-size: 0.78rem; line-height: 1.9; letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+#br-checklist li.done { color: var(--br-green); opacity: 0.75; }
+#br-checklist li.next { color: var(--br-amber); animation: br-next 1.3s ease-in-out infinite; }
+#br-checklist li.todo { opacity: 0.5; }
+@keyframes br-next { 50% { opacity: 0.5; } }
+
 /* ------------------------------------------------------------------ */
 /* Title screen additions                                             */
 /* ------------------------------------------------------------------ */
