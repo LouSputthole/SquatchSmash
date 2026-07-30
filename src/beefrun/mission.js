@@ -1113,22 +1113,34 @@ export class MissionController {
   }
 
   gradeMountainLanding() {
-    this.score.mountainLanding = this.gradeLanding(EH.x);
+    this.score.mountainLanding = this.gradeLanding(EH.x, EH.rwyWidth);
     const q = this.score.mountainLanding;
     this.dialogue.play(q > 0.7 ? 'landing.good' : q > 0.38 ? 'landing.rough' : 'landing.bad');
   }
 
   gradeFinalLanding() {
-    this.score.finalLanding = this.gradeLanding(WP.x);
+    this.score.finalLanding = this.gradeLanding(WP.x, WP.rwyWidth);
   }
 
-  /** Sink rate, centreline, and whether anything came off. */
-  gradeLanding(centreX) {
+  /**
+   * Sink rate, centreline, and whether anything came off.
+   *
+   * The centreline tolerance comes from the width of what you landed on rather
+   * than being one number for both places. El Hueso is a sixteen-metre shelf of
+   * dirt and Whispering Pines is a twenty-two-metre runway, so a fixed figure
+   * generous enough for the runway scored a good landing at the strip while the
+   * aeroplane was sitting in the weeds beside it.
+   *
+   * @param {number} halfWidth half the width of the surface, in metres
+   */
+  gradeLanding(centreX, halfWidth = 11) {
     const p = this.physics;
     const td = this._touchdowns.filter((t) => t.phase === this.phase).pop()
       ?? this._touchdowns[this._touchdowns.length - 1];
     const sink = td ? clamp(1 - (td.vs - 0.6) / 4.2, 0, 1) : 0.4;
-    const line = clamp(1 - Math.abs(p.position.x - centreX) / 26, 0, 1);
+    // The centreline is full marks, half a wingspan past the edge is none.
+    const off = Math.abs(p.position.x - centreX);
+    const line = clamp(1 - off / (halfWidth + AC.span * 0.5), 0, 1);
     const kit = clamp(1 - p.damage.gear - (p.damage.tireBurst ? 0.35 : 0), 0, 1);
     return clamp(sink * 0.5 + line * 0.25 + kit * 0.25, 0, 1);
   }
