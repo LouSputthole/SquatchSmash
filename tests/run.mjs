@@ -4,3 +4,4 @@ import './phone.test.mjs';
 import './squatchfather-story.test.mjs';
 import './airstrip-story.test.mjs';
 import './airstrip-mission.test.mjs';
+import './flight-model.test.mjs';
