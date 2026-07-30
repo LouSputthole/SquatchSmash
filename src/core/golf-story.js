@@ -1,4 +1,5 @@
 import {
+  EVENT_IDS,
   MISSION_IDS,
   TIME_EVENT_IDS,
 } from './campaign.js';
@@ -13,11 +14,11 @@ import {
  * about golf: whether he was there when Lou said why he was invited, and
  * whether he took the ride out instead of walking on his own.
  *
- * Deliberately looser than the other missions about *starting*. The apartment
- * does not route here yet, so gating the round on a call nobody has authored
- * would make the scene unopenable; instead an unrouted round starts anyway and
- * says so. When the owner rules on placement, the prerequisite goes in
- * `begin()` and nothing else in the scene changes.
+ * The round is gated the way every other mission is: the Silver Room has to be
+ * finished and Lou has to have actually rung. Opening `golf.html` directly
+ * still starts a round rather than refusing — the scene stays playable
+ * standalone and in preview — but it reports `unrouted`, so the difference
+ * between "he was invited" and "somebody opened the page" is never guessed at.
  */
 
 class GolfStory {
@@ -38,15 +39,24 @@ class GolfStory {
    * front door does offer it.
    */
   begin() {
+    const state = this.campaign.state;
     const status = this.mission.status;
     if (status === 'in_progress') return { ok: true, resumed: true, unrouted: false };
     if (status === 'complete') return { ok: false, reason: 'already_complete' };
 
-    const unrouted = status === 'locked';
+    /* Unrouted means the campaign never offered this: the Silver Room is not
+     * finished, or Lou never rang, or both. The round runs anyway and says so
+     * rather than presenting itself as a morning he earned. */
+    const unrouted = status === 'locked'
+      || state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete'
+      || state.events[EVENT_IDS.LOU_GOLF_CALL].status !== 'answered';
+    /* Claiming the mission, and nothing else. The drive out is the door's
+     * time to spend — `travel.silver_pines` is applied by the apartment when
+     * he leaves, the way every other departure is, so opening this page
+     * directly cannot move the campaign clock. */
     this.campaign.update((next) => {
       next.missions[MISSION_IDS.SILVER_PINES].status = 'in_progress';
     });
-    this.campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_PINES);
     return { ok: true, resumed: false, unrouted };
   }
 

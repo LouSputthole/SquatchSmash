@@ -11,7 +11,7 @@ Seven playable or preserved experiences live in this repo.
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Manny is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
-| **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | Hole 1 of a three-hole round with Lou, Rippinflow and Erican. Standalone-verified and in `preview.html`; campaign placement is the owner's call and the apartment does not route there yet. |
+| **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | Hole 1 of a three-hole round with Lou, Rippinflow and Erican, on the morning of the big night. Lou rings at ten and the apartment door routes here; the ceremony waits until the round is on the card. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
 
 ```bash
@@ -692,10 +692,18 @@ noticed the car costs no new state; the jackpot and the hands he sat while Lou
 waited now survive the club's front door. A save with none of that history gets
 a scene with no callbacks in it and no holes where callbacks should have been.
 
-### Not yet wired to the front door
+### Where it sits
 
-`SCENE_IDS.SILVER_PINES` is registered, has a mission record, a story seam, a
-preview entry and its own verifier — but it is deliberately absent from the
-apartment's outbound edges until the owner rules on where the morning sits.
-The same posture the Silver Room was introduced with. Adding it to the
-apartment's `next` list and writing a gate is the whole of the remaining work.
+Day Four has two halves and the order is the story. Sleeping off the Silver
+Room opens `big_night` at **Day 4, 10:00 AM**; **Lou rings at ten past ten**
+(`LOU_GOLF_CALL`, `vo.call.lou.golf`, +3 minutes) — the only call in the game
+that asks for nothing — and the apartment door applies `travel.silver_pines`
+and routes to `golf.html` at **half past ten**. Booskibro stays quiet until the
+round is complete; only then does he ring about the ceremony at seven.
+
+`verify:big-night` (19) rides the whole seam: Lou's call, the door, the real
+navigation onto the course, the round claiming the scene, and the ceremony
+waiting its turn on the far side of it.
+
+Holes 2 and 3 are not built yet. Hole 1 ends on a development end card that
+says which hole is next and what it is.

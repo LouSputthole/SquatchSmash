@@ -211,9 +211,114 @@ try {
       && reload.tag.includes('Day Four'),
     JSON.stringify(reload));
 
-  const ringing = await page.evaluate(() => {
+  /* ---------------------------------------------------------------- */
+  /* The morning comes first                                           */
+  /* ---------------------------------------------------------------- */
+
+  const golfRing = await page.evaluate(() => {
     const game = window.__squatch;
     game.getUp();
+    game.apartmentStory.update(6.1);
+    const definition = game.phone.call?.def;
+    return {
+      ringing: game.phone.ringing,
+      eventId: definition?.eventId,
+      characterId: definition?.characterId,
+      from: definition?.from,
+      vo: definition?.vo,
+      targetSceneId: definition?.targetSceneId,
+      lines: definition?.lines?.length ?? 0,
+    };
+  });
+  check('Lou rings about the golf before anybody mentions the ceremony',
+    golfRing.ringing
+      && golfRing.eventId === 'lou_golf_call'
+      && golfRing.characterId === 'lou'
+      && golfRing.vo === 'call.lou.golf'
+      && golfRing.targetSceneId === 'silver_pines'
+      && golfRing.lines === 4,
+    JSON.stringify(golfRing));
+
+  const golfAnswered = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.apartment.inventory.add('phone');
+    game.phone.press();
+    const state = game.campaign.state;
+    return {
+      inCall: game.phone.inCall,
+      call: state.events.lou_golf_call.status,
+      pines: state.missions.silver_pines.status,
+      initiation: state.missions.initiation.status,
+      timeMinutes: state.story.timeMinutes,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('answering Lou unlocks the round and not the ceremony',
+    golfAnswered.inCall
+      && golfAnswered.call === 'answered'
+      && golfAnswered.pines === 'available'
+      && golfAnswered.initiation === 'locked'
+      && golfAnswered.timeMinutes === 10 * 60 + 3,
+    JSON.stringify(golfAnswered));
+  check('the apartment door routes to Silver Pines, not the Circle',
+    golfAnswered.door?.kind === 'go' && golfAnswered.door?.destination === 'silver_pines',
+    JSON.stringify(golfAnswered.door));
+
+  const teedOff = await page.evaluate(() => {
+    window.__squatch.tryLeave();
+    const state = window.__squatch.campaign.state;
+    return {
+      day: state.story.day,
+      timeMinutes: state.story.timeMinutes,
+      events: state.story.timeEvents,
+    };
+  });
+  check('leaving for the course lands at Day 4, half past ten',
+    teedOff.day === 4
+      && teedOff.timeMinutes >= 10 * 60 + 30
+      && teedOff.events.includes('travel.silver_pines'),
+    JSON.stringify(teedOff));
+
+  // The door really navigates, and the round really claims the scene.
+  await page.waitForURL(/golf\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__golfReady === true, null, { timeout: 90000 });
+  const onCourse = await page.evaluate(() => {
+    const g = window.__golf;
+    return {
+      beat: g.round.beat,
+      routed: g.story.begin().unrouted === false || g.story.mission.status !== 'locked',
+      savedScene: JSON.parse(localStorage.getItem('squatchlife.campaign')).scene,
+      mission: g.campaign.state.missions.silver_pines.status,
+    };
+  });
+  check('the round claims the scene and knows it was invited',
+    onCourse.savedScene.id === 'silver_pines'
+      && onCourse.savedScene.spawn === 'car_park'
+      && onCourse.mission === 'in_progress',
+    JSON.stringify(onCourse));
+
+  /* Playing all three holes is verify:golf's job. Here the round is marked
+   * finished the way its own end card will, so the seam on the far side of it
+   * can be ridden. */
+  await page.evaluate(() => {
+    window.__golf.campaign.update((state) => {
+      state.missions.silver_pines.status = 'complete';
+      state.missions.silver_pines.holesPlayed = 3;
+    });
+  });
+
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
+  await page.evaluate(() => window.__squatch.postfx.disable?.());
+
+  /* ---------------------------------------------------------------- */
+  /* And then the night                                                */
+  /* ---------------------------------------------------------------- */
+
+  const ringing = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.getUp?.();
+    game.apartmentStory.beginMorning();
     game.apartmentStory.update(6.1);
     const definition = game.phone.call?.def;
     return {
@@ -252,7 +357,7 @@ try {
     answered.inCall
       && answered.call === 'answered'
       && answered.initiation === 'available'
-      && answered.timeMinutes === 10 * 60 + 5,
+      && answered.timeMinutes >= 10 * 60 + 8,
     JSON.stringify(answered));
   check('the apartment door now routes to the Initiation',
     answered.door?.kind === 'go' && answered.door?.destination === 'initiation',

@@ -2051,6 +2051,11 @@ function leaveForMission(destination) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_ROOM);
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.SILVER_PINES) {
+    // The round's own story class flips it to in_progress in the car park.
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_PINES);
+    syncClockFromCampaign();
+  }
   if (destination === SCENE_IDS.INITIATION) {
     /* The Initiation build is deliberately untouched and does not report its
      * own progress, so leaving for it is the only thing the campaign can

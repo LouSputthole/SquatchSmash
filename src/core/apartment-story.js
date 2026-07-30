@@ -142,6 +142,32 @@ const SLEEP_CHAPTERS = Object.freeze([
 const LAST_CHAPTER = SLEEP_CHAPTERS[SLEEP_CHAPTERS.length - 1].to;
 
 /**
+ * The morning of the big night, and the only call in the game that asks him
+ * for nothing.
+ *
+ * Every other time this phone has rung it has been work: a package, a plane,
+ * a room, a man to meet. Lou rings at ten past ten to tell him where the
+ * course is. That is the whole content of it, and the fact that there is no
+ * job attached is the point — which is why he does not say so, and why the
+ * only instruction in it is about shoes.
+ */
+export const GOLF_LOU_CALL = Object.freeze({
+  eventId: EVENT_IDS.LOU_GOLF_CALL,
+  characterId: CHARACTER_IDS.LOU,
+  targetSceneId: SCENE_IDS.SILVER_PINES,
+  from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
+  vo: 'call.lou.golf',
+  lines: Object.freeze([
+    'Silver Pines. Off Route Twenty-Three, past the quarry, second gate.',
+    'Half ten. Rippin and Eric are already complaining about the time.',
+    'No, you do not need to bring anything. That is not what this is.',
+    'Wear something you can walk in. And Tony — the ceremony is at seven. '
+      + 'You have got all morning.',
+  ]),
+});
+
+/**
  * The last call Tony gets as a prospect.
  *
  * It rings once, after he has slept off the Motel, and it is the only reason
@@ -217,6 +243,14 @@ class ApartmentStory {
       });
       return true;
     }
+    if (definition?.eventId === EVENT_IDS.LOU_GOLF_CALL
+      && !this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_GOLF_CALL, (state) => {
+        state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+        state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
+      });
+      return true;
+    }
     if (definition?.eventId === EVENT_IDS.BOOSKI_BIG_NIGHT_CALL
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
       this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL, (state) => {
@@ -267,7 +301,24 @@ class ApartmentStory {
 
   tryLeave(activities = {}) {
     const state = this.campaign.state;
+    /* Day 4, and it has two halves. The morning is golf and the evening is
+     * the rest of his life, and the order matters: the round is the last time
+     * anybody treats him as a person rather than as a decision, so it happens
+     * before the room and not after it. */
     if (state.story.chapter === 'big_night') {
+      if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
+        if (!this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
+          return {
+            kind: 'call',
+            id: EVENT_IDS.LOU_GOLF_CALL,
+            line: 'Lou said he would ring this morning. Nowhere to be until he does.',
+          };
+        }
+        return {
+          kind: 'go',
+          destination: SCENE_IDS.SILVER_PINES,
+        };
+      }
       if (!this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
         return {
           kind: 'call',
@@ -399,7 +450,16 @@ class ApartmentStory {
 
   #pendingCall() {
     const state = this.campaign.state;
+    /* Lou rings first and Booskibro waits for the round to be over. Two
+     * one-shot calls in the same chapter need an order, and this one is the
+     * story: nobody tells him the night is his until the morning has happened. */
     if (state.story.chapter === 'big_night'
+      && state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete'
+      && !this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
+      return GOLF_LOU_CALL;
+    }
+    if (state.story.chapter === 'big_night'
+      && state.missions[MISSION_IDS.SILVER_PINES].status === 'complete'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
       return BIG_NIGHT_BOOSKI_CALL;
     }

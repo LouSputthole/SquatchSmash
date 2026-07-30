@@ -16,6 +16,7 @@ import {
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
+  GOLF_LOU_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 
@@ -522,13 +523,51 @@ function afterTheDate(storage) {
   return campaign;
 }
 
-test('Booskibro rings once about the big night and unlocks the Initiation', () => {
+test('Lou rings about the golf before Booskibro rings about the night', () => {
+  /* Two one-shot calls land in the same chapter and the order is the story:
+   * nobody tells him the night is his until the morning has happened. */
   const storage = new MemoryStorage();
   const story = createApartmentStory({
     campaign: afterTheDate(storage),
     ring: () => true,
   });
   story.sleep();
+
+  const first = [];
+  const morning = createApartmentStory({
+    campaign: createCampaign({ storage }),
+    ring: (definition) => {
+      first.push(definition);
+      return true;
+    },
+  });
+  morning.beginMorning();
+  morning.update(6.1);
+  assert.deepEqual(first, [GOLF_LOU_CALL], 'Lou rings first, about golf');
+  assert.equal(GOLF_LOU_CALL.characterId, CHARACTER_IDS.LOU);
+  assert.equal(GOLF_LOU_CALL.targetSceneId, SCENE_IDS.SILVER_PINES);
+  assert.equal(GOLF_LOU_CALL.vo, 'call.lou.golf');
+  assert.notEqual(GOLF_LOU_CALL.vo, DAY_ONE_LOU_CALL.vo);
+  assert.equal(morning.callAnswered(GOLF_LOU_CALL), true);
+  assert.equal(
+    createCampaign({ storage }).state.missions[MISSION_IDS.SILVER_PINES].status,
+    'available',
+  );
+
+  // Booskibro stays quiet until the round is on the card.
+  const tooEarly = [];
+  const waiting = createApartmentStory({
+    campaign: createCampaign({ storage }),
+    ring: (definition) => { tooEarly.push(definition); return true; },
+  });
+  waiting.beginMorning();
+  waiting.update(60);
+  assert.deepEqual(tooEarly, [], 'the big night waits for the morning');
+
+  const played = createCampaign({ storage });
+  played.update((state) => {
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
+  });
 
   const calls = [];
   const woken = createApartmentStory({
@@ -559,7 +598,9 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
   assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'available');
   // Day 4 now, waking at ten. +5 minutes on the authored clock, once.
   assert.equal(answered.story.day, 4);
-  assert.equal(answered.story.timeMinutes, 10 * 60 + 5);
+  /* Ten o'clock, plus three minutes for Lou's call and five for Booskibro's:
+   * the morning costs authored time like everything else does. */
+  assert.equal(answered.story.timeMinutes, 10 * 60 + 8);
   assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL));
   assert.equal(woken.callAnswered(BIG_NIGHT_BOOSKI_CALL), false);
 
@@ -576,11 +617,37 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
   assert.deepEqual(replayed, []);
 });
 
-test('the big-night door waits for Booskibro, then routes to the Initiation', () => {
+test('the Day 4 door plays the round first and the ceremony second', () => {
   const campaign = afterTheDate();
   const story = createApartmentStory({ campaign, ring: () => true });
   story.sleep();
 
+  // Nothing to do until Lou rings, and what he rings about is golf.
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'call',
+    id: EVENT_IDS.LOU_GOLF_CALL,
+    line: 'Lou said he would ring this morning. Nowhere to be until he does.',
+  });
+
+  story.callAnswered(GOLF_LOU_CALL);
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.SILVER_PINES,
+  });
+
+  /* A round in progress is not a round played: the door keeps sending him back
+   * out to the course rather than on to the ceremony. */
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'in_progress';
+  });
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.SILVER_PINES,
+  });
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
+  });
   assert.deepEqual(story.tryLeave({}), {
     kind: 'call',
     id: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,

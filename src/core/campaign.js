@@ -55,6 +55,7 @@ export const EVENT_IDS = Object.freeze({
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
   LOU_SECOND_CALL: 'lou_second_call',
   MARGO_DATE_CALL: 'margo_date_call',
+  LOU_GOLF_CALL: 'lou_golf_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
 });
 
@@ -68,6 +69,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
   LOU_SECOND_CALL: 'call.lou_second',
   MARGO_DATE_CALL: 'call.margo_date',
+  LOU_GOLF_CALL: 'call.lou_golf',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
   DEPART_AIRSTRIP: 'travel.airstrip',
@@ -93,6 +95,8 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
+  /* Short, because Lou is not a man who explains an invitation on the phone. */
+  [TIME_EVENT_IDS.LOU_GOLF_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
@@ -164,6 +168,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.SILVER_PINES,
       SCENE_IDS.INITIATION,
     ]),
   }),
@@ -358,6 +363,9 @@ function initialState() {
       [EVENT_IDS.MARGO_DATE_CALL]: {
         status: 'pending',
       },
+      [EVENT_IDS.LOU_GOLF_CALL]: {
+        status: 'pending',
+      },
       [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
         status: 'pending',
       },
@@ -466,6 +474,7 @@ function normalize(saved) {
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
+  const golfCall = saved.events?.[EVENT_IDS.LOU_GOLF_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
 
   const state = {
@@ -591,6 +600,11 @@ function normalize(saved) {
       // An exposed Silver Room is proof Margo already rang.
       [EVENT_IDS.MARGO_DATE_CALL]: {
         status: margoCall.status === 'answered' || silverStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      // An unlocked round is proof Lou already rang about the golf.
+      [EVENT_IDS.LOU_GOLF_CALL]: {
+        status: golfCall.status === 'answered' || pinesStatus !== 'locked'
           ? 'answered' : 'pending',
       },
       // Same rule at the end of the line: an exposed Initiation is proof
