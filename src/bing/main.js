@@ -567,12 +567,15 @@ registerDoor('service', {
 
 /* ---- people ---- */
 
+/* "Talk to" starts are resumable: walk off mid-conversation and the next
+ * press picks it back up where it lapsed. Scripted one-shots (door lines,
+ * the package beat) keep starting exactly where they are told to. */
 function talkTo(npc, tree, at = 'open') {
   return {
     label: () => `Talk to <b>${npc.name}</b>`,
     onUse: () => {
       npc.faceToward(player.position.x, player.position.z);
-      dialogue.start(tree, at, npc);
+      dialogue.start(tree, at, npc, { resume: true });
     },
   };
 }
@@ -584,7 +587,7 @@ reg(cast.byName.bouncer.group, {
     npc.faceToward(player.position.x, player.position.z);
     if (mission.readyToLeave) dialogue.start(scripts.bouncer, 'leaving', npc);
     else if (mission.flags.bouncerCleared) dialogue.start(scripts.bouncer, 'returning', npc);
-    else dialogue.start(scripts.bouncer, 'open', npc);
+    else dialogue.start(scripts.bouncer, 'open', npc, { resume: true });
   },
 });
 reg(cast.byName.bartender.group, talkTo(cast.byName.bartender, scripts.bartender));
@@ -600,7 +603,7 @@ if (cast.byName.margo) {
     onUse: () => {
       const her = cast.byName.margo;
       her.faceToward(player.position.x, player.position.z);
-      dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her);
+      dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her, { resume: true });
     },
   });
 }
@@ -610,8 +613,8 @@ reg(cast.byName.lou.group, {
     const lou = cast.byName.lou;
     lou.faceToward(player.position.x, player.position.z);
     if (mission.state === 'briefed') dialogue.start(scripts.lou, 'parting', lou);
-    else if (mission.flags.gotPackage) dialogue.start(scripts.lou, 'envelope', lou);
-    else if (dialogue.history.size) dialogue.start(scripts.lou, 'greet', lou);
+    else if (mission.flags.gotPackage) dialogue.start(scripts.lou, 'envelope', lou, { resume: true });
+    else if (dialogue.history.size) dialogue.start(scripts.lou, 'greet', lou, { resume: true });
     else startLouScene();
   },
 });
