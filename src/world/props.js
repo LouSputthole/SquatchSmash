@@ -125,10 +125,22 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
   /* ---- monitor ---- */
   const monX = x - 0.22;
   const monBaseZ = z0 + 0.14;
-  g.add(box({ size: [0.34, 0.018, 0.22], pos: [monX, top + 0.009, monBaseZ], mat: M.plasticBlack }));
-  g.add(box({ size: [0.062, 0.32, 0.062], pos: [monX, top + 0.17, monBaseZ], mat: M.plasticBlack }));
+  const monitorBase = box({
+    size: [0.34, 0.018, 0.22], pos: [monX, top + 0.009, monBaseZ], mat: M.plasticBlack,
+  });
+  monitorBase.name = 'monitor-base';
+  g.add(monitorBase);
+  /* The neck belongs behind the panel. At the old Z its front face sat just
+   * ahead of the display plane, so its top ten centimetres showed through the
+   * bottom of the picture as a black bar. */
+  const monitorNeck = box({
+    size: [0.062, 0.32, 0.050], pos: [monX, top + 0.17, monBaseZ - 0.025], mat: M.plasticBlack,
+  });
+  monitorNeck.name = 'monitor-neck';
+  g.add(monitorNeck);
   // Panel: 16:9, tilted back a touch.
   const panel = group('panel');
+  panel.name = 'monitor-panel';
   panel.position.set(monX, top + 0.47, monBaseZ + 0.02);
   panel.rotation.x = -0.06;
   panel.add(box({ size: [0.82, 0.48, 0.028], pos: [0, 0, -0.016], mat: M.plasticBlack }));
@@ -338,6 +350,8 @@ export function makeDesk(M, { x, z, w = 2.4, d = 0.70, towerSticker = null }) {
     top,
     screen,
     panel,
+    monitorBase,
+    monitorNeck,
     sideScreen,
     sideOn,
     /** Repaint the chat pane from a Chat feed. */
@@ -1164,6 +1178,13 @@ export function makePan(M, { x, y, z, rotY = 0 }) {
   // Each gets its own material instance or they all cook as one object.
   for (const w of whites) w.material = white.clone();
   for (const y of yolks) y.material = yolk.clone();
+  /* `sphere()` shapes these from the shared unit sphere by putting their real
+   * centimetre dimensions in `scale`. Cooking used to call setScalar(1) here,
+   * which erased that authored flattening and turned each egg into a two-metre
+   * ball the instant the contents became visible. Keep the base dimensions and
+   * apply the small cooking deformation as a multiplier instead. */
+  const whiteScales = whites.map((w) => w.scale.clone());
+  const yolkScales = yolks.map((y) => y.scale.clone());
 
   const _raw = new THREE.Color(0xd9d6c4);
   const _set = new THREE.Color(0xf8f4e8);
@@ -1173,17 +1194,24 @@ export function makePan(M, { x, y, z, rotY = 0 }) {
   /** @param {number} k 0 = just cracked, 1 = arguably over-done. */
   function cook(k) {
     const e = Math.min(1, Math.max(0, k));
-    for (const w of whites) {
+    for (let i = 0; i < whites.length; i++) {
+      const w = whites[i];
       w.material.color.copy(_raw).lerp(_set, Math.min(1, e * 1.6));
       w.material.opacity = 0.72 + e * 0.28;
       w.material.transparent = e < 0.94;
       w.material.roughness = 0.40 + e * 0.34;
-      w.scale.setScalar(1 - e * 0.07);
+      w.scale.copy(whiteScales[i]).multiplyScalar(1 - e * 0.07);
     }
-    for (const y of yolks) {
+    for (let i = 0; i < yolks.length; i++) {
+      const y = yolks[i];
+      const base = yolkScales[i];
       y.material.color.copy(_yRaw).lerp(_yDone, e);
       y.material.roughness = 0.30 + e * 0.36;
-      y.scale.set(1 - e * 0.05, 1 + e * 0.16, 1 - e * 0.05);
+      y.scale.set(
+        base.x * (1 - e * 0.05),
+        base.y * (1 + e * 0.16),
+        base.z * (1 - e * 0.05),
+      );
     }
   }
   cook(0);

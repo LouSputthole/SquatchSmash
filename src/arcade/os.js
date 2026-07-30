@@ -20,21 +20,24 @@ export const W = 640;
 export const H = 360;
 
 export class SquatchOS {
-  constructor({ audio } = {}) {
+  constructor({ audio, onInputModeChange } = {}) {
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
     this.g = this.canvas.getContext('2d');
     this.audio = audio;
+    this.onInputModeChange = onInputModeChange;
 
     this.apps = [];
     this.app = null;
     this.mode = 'off';        // off | boot | desktop | app
+    this.inputMode = 'relative'; // relative apartment mouse | direct DOM frame
     this.t = 0;
     this.modeT = 0;
 
     this.cursor = { x: W / 2, y: H / 2 };
     this.clock = '6:04 AM';
+    this.exitHintText = 'TAB = EXIT TO DESKTOP';
 
     this._boot = [
       'SQUATCH BIOS v4.04',
@@ -61,6 +64,7 @@ export class SquatchOS {
     if (this.app) this.app.exit?.();
     this.app = null;
     this.mode = 'off';
+    this.setInputMode('relative');
   }
 
   /**
@@ -97,6 +101,7 @@ export class SquatchOS {
     if (this.app) this.app.exit?.();
     this.app = null;
     this.mode = 'desktop';
+    this.setInputMode('relative');
     this.modeT = 0;
     this.cursor.x = W / 2;
     this.cursor.y = H / 2;
@@ -107,14 +112,33 @@ export class SquatchOS {
   /* Input                                                             */
   /* ---------------------------------------------------------------- */
 
-  onPointer(dx, dy) {
-    if (this.mode === 'app') {
-      this.app.onPointer?.(dx, dy);
-      return;
+  /**
+   * Framed apps need the real browser cursor; canvas apps use the apartment's
+   * locked, relative mouse. The apartment subscribes to this transition so an
+   * intentional unlock for an iframe is not mistaken for pausing the game.
+   */
+  setInputMode(mode) {
+    if (mode !== 'relative' && mode !== 'dom') {
+      throw new TypeError(`Unknown computer input mode: ${mode}`);
     }
+    if (this.inputMode === mode) return;
+    this.inputMode = mode;
+    this.onInputModeChange?.(mode);
+  }
+
+  _moveCursor(dx, dy) {
     const sens = 0.62;
     this.cursor.x = clamp(this.cursor.x + dx * sens, 4, W - 4);
     this.cursor.y = clamp(this.cursor.y + dy * sens, 4, H - 4);
+  }
+
+  onPointer(dx, dy) {
+    if (this.mode === 'app') {
+      if (this.app?.usesOsCursor) this._moveCursor(dx, dy);
+      this.app.onPointer?.(dx, dy);
+      return;
+    }
+    this._moveCursor(dx, dy);
   }
 
   onClick(down) {
@@ -201,7 +225,7 @@ export class SquatchOS {
     g.globalAlpha = 0.62;
     g.font = '10px "Courier New", monospace';
     g.textAlign = 'right';
-    const text = '[TAB] desktop   ·   [Q] leave the desk';
+    const text = `${this.exitHintText}   /   Q = LEAVE DESK`;
     const w = g.measureText(text).width;
     g.fillStyle = 'rgba(6,8,12,.62)';
     g.fillRect(W - w - 16, 4, w + 12, 16);

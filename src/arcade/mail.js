@@ -363,6 +363,8 @@ export class Mail {
   constructor({ os, audio } = {}) {
     this.id = 'mail';
     this.label = 'SQUATCH\nMAIL.exe';
+    /** Mail hit-tests against the shell cursor rather than owning an aim reticle. */
+    this.usesOsCursor = true;
     this.os = os;
     this.audio = audio;
     this.messages = MESSAGES.map((m) => ({ ...m }));
@@ -582,7 +584,11 @@ export class Mail {
     g.lineTo(W - 12, HEADER_H + 48.5);
     g.stroke();
 
-    if (this.reply) { this._drawCompose(g, x0, m); return; }
+    if (this.reply) {
+      this._drawCompose(g, x0, m);
+      this.os.drawCursor(true);
+      return;
+    }
 
     g.font = '10px ui-monospace, monospace';
     /* Wrapped here rather than in the copy. Hand-wrapping the message bodies
@@ -608,6 +614,7 @@ export class Mail {
       g.fillText(m.replied ? 'replied' : '[R] reply', x0, H - 8);
     }
     this._sendRect = null;
+    this.os.drawCursor(true);
   }
 
   /** The reply window, and what happens in it. */

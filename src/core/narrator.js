@@ -29,7 +29,7 @@ const IDLE = [
   'There is no objective. There was never going to be one.',
   'You are waiting for something to happen. That is the joke.',
   'Four walls. Twenty-odd photographs. One of everything else.',
-  'The clock is moving. That is the only thing in here that is.',
+  'The clock is waiting for you to do something. Fair enough.',
   'You have looked at all of it. You are looking at it again.',
 ];
 
@@ -37,7 +37,7 @@ const IDLE = [
 const ELAPSED = [
   { after: 240, line: 'Four minutes. Nothing has been achieved, and nothing was ever going to be.' },
   { after: 600, line: 'Ten minutes in this flat. You are doing this on purpose now.' },
-  { after: 900, line: 'A quarter of an hour. A whole day has gone past outside. You were in here.' },
+  { after: 900, line: 'A quarter of an hour. The story has politely waited while you were in here.' },
   { after: 1500, line: 'Twenty-five minutes. At some point this stopped being boredom and became a hobby.' },
   { after: 2400, line: 'Forty minutes. Nobody is coming. That was never part of it.' },
 ];

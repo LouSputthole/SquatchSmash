@@ -1,4 +1,5 @@
 import './campaign.test.mjs';
+import './daynight.test.mjs';
 import './characters.test.mjs';
 import './initiation-canon.test.mjs';
 import './apartment-story.test.mjs';
@@ -9,3 +10,4 @@ import './airstrip-mission.test.mjs';
 import './post-airstrip-story.test.mjs';
 import './bada-bing-two-mission.test.mjs';
 import './squatch-smash-goals.test.mjs';
+import './preview-mode.test.mjs';

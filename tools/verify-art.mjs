@@ -171,6 +171,12 @@ const report = await page.evaluate(async (TILE) => {
     }
     onDoor = face.length;
     for (let i = 0; i < face.length; i++) {
+      /* The hinge is local z 0 and the free edge is about -0.74. A small
+       * tolerance lets an old sticker curl over the edge; a positive centre
+       * like the newer sticker used to have still fails by a wide margin. */
+      if (face[i].bb.max.z > 0.06 || face[i].bb.min.z < -0.80) {
+        problems.push(`${face[i].name} floats beyond the fridge door`);
+      }
       for (let j = i + 1; j < face.length; j++) {
         const a = face[i], c = face[j];
         // The handle brackets touch the bar, and a magnet holds up the menu.
@@ -181,6 +187,54 @@ const report = await page.evaluate(async (TILE) => {
         const oz = Math.min(a.bb.max.z, c.bb.max.z) - Math.max(a.bb.min.z, c.bb.min.z);
         if (oy > 0.008 && oz > 0.008) problems.push(`${a.name} overlaps ${c.name} on the fridge door`);
       }
+    }
+  }
+
+  /* ---- apartment prop geometry reported during playtesting ---- */
+  const kitchenPicture = items.find((item) => item.slot === 'east.square');
+  if (!kitchenPicture) {
+    problems.push('east.square kitchen picture is missing');
+  } else {
+    /* Upper cabinet doors face the room at x 4.648. The frame belongs just in
+     * front of that plane: max.x greater than it is embedded, much less leaves
+     * it visibly floating. */
+    const cabinetFaceX = 4.648;
+    const gap = cabinetFaceX - kitchenPicture.bb.max.x;
+    if (gap < -0.004) {
+      problems.push(`east.square is embedded ${(Math.abs(gap) * 100).toFixed(1)}cm into the upper cabinets`);
+    } else if (gap > 0.015) {
+      problems.push(`east.square floats ${(gap * 100).toFixed(1)}cm off the upper cabinets`);
+    }
+  }
+
+  const eggContents = S.apartment.pan?.contents;
+  if (!eggContents) {
+    problems.push('frying-pan egg contents are missing');
+  } else {
+    const wasVisible = eggContents.visible;
+    eggContents.visible = true;
+    S.apartment.pan.cook?.(0);
+    eggContents.updateWorldMatrix(true, true);
+    const size = new THREE.Box3().setFromObject(eggContents).getSize(new THREE.Vector3());
+    eggContents.visible = wasVisible;
+    if (size.x > 0.24 || size.y > 0.08 || size.z > 0.24) {
+      problems.push(`eggs exceed the pan (${size.x.toFixed(2)} x ${size.y.toFixed(2)} x ${size.z.toFixed(2)}m)`);
+    }
+  }
+
+  const bathPivot = S.apartment.bathDoorPivot;
+  const bathDoor = bathPivot?.parent;
+  const useBathDoor = bathDoor?.userData?.interact?.onUse;
+  if (!bathPivot || !useBathDoor) {
+    problems.push('bathroom door hinge interaction is missing');
+  } else {
+    S.apartment.setBathDoorNudge?.(0.42);
+    useBathDoor();
+    S.apartment.update(1, 0);
+    useBathDoor();
+    S.apartment.update(1, 1);
+    if (S.apartment.state.bathDoorOpen || Math.abs(bathPivot.rotation.y) > 0.001) {
+      problems.push(`bathroom door does not close flush (${bathPivot.rotation.y.toFixed(4)} rad)`);
     }
   }
 

@@ -7,6 +7,7 @@ import {
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
 import {
@@ -52,6 +53,8 @@ test('answering Lou’s first call unlocks Bada Bing and prevents a replay', () 
   const saved = createCampaign({ storage }).state;
   assert.equal(saved.events[EVENT_IDS.LOU_FIRST_CALL].status, 'answered');
   assert.equal(saved.missions[MISSION_IDS.BADA_BING_ONE].status, 'available');
+  assert.equal(saved.story.timeMinutes, 6 * 60 + 7);
+  assert.deepEqual(saved.story.timeEvents, [TIME_EVENT_IDS.LOU_FIRST_CALL]);
 
   const afterReloadCalls = [];
   const afterReload = createApartmentStory({
@@ -226,6 +229,36 @@ test('sleep cannot advance the story before Squatchfather or advance Day Two twi
   });
   assert.equal(story.sleep().ok, true);
   assert.deepEqual(story.sleep(), { ok: false, reason: 'already_day_two' });
+});
+
+test('crossing midnight does not start the Day Two chapter before Tony sleeps', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.story.chapter = 'day_one';
+    state.story.day = 2;
+    state.story.timeMinutes = 2 * 60 + 26;
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+  });
+  const calls = [];
+  const story = createApartmentStory({
+    campaign,
+    ring: (definition) => {
+      calls.push(definition);
+      return true;
+    },
+  });
+
+  story.beginMorning();
+  story.update(60);
+  assert.deepEqual(calls, []);
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'stay',
+    id: 'sleep',
+    line: 'That is enough going out for one night.',
+  });
+  assert.deepEqual(story.sleep(), { ok: true, day: 2, timeMinutes: 420 });
 });
 
 test('Booskibro rings once on Day Two and unlocks Captain Lou Sasole at the airstrip', () => {

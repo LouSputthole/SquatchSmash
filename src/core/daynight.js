@@ -1,8 +1,9 @@
 /**
  * Time of day.
  *
- * One in-game day is 15 real minutes, so an in-game hour is 37.5 seconds and
- * the light is always visibly moving. Everything that depends on the hour --
+ * The campaign advances this clock through authored tasks, travel, missions,
+ * and sleep. Real time spent standing around never advances the story. Everything
+ * that depends on the hour --
  * sun angle and colour, ambient fill, fog, which city ambience is playing,
  * whether the lamps should be on -- reads from here rather than keeping its
  * own idea of the time.
@@ -11,12 +12,9 @@
  * day means adding a row, not editing code.
  */
 import * as THREE from 'three';
+import { AuthoredClock, DAY_MINUTES } from './authored-clock.js';
 
-export const DAY_MINUTES = 24 * 60;
-/** A whole day, in real seconds. */
-export const REAL_SECONDS_PER_DAY = 15 * 60;
-/** In-game minutes per real second. */
-const RATE = DAY_MINUTES / REAL_SECONDS_PER_DAY;
+export { DAY_MINUTES };
 
 /** Hour boundaries for the four named phases. */
 const DAWN_START = 5;
@@ -72,13 +70,10 @@ const KEYS = [
   },
 ];
 
-export class DayNight {
+export class DayNight extends AuthoredClock {
   /** @param {number} startHour e.g. 6.07 for 06:04 */
   constructor(startHour = 6 + 4 / 60) {
-    this.minutes = startHour * 60;
-    this.day = 1;
-    /** Real seconds the player has been in the apartment. */
-    this.elapsedReal = 0;
+    super(startHour);
 
     this.sunPos = new THREE.Vector3();
     this.sunColour = new THREE.Color();
@@ -106,23 +101,6 @@ export class DayNight {
     this._recompute();
   }
 
-  get hour() { return this.minutes / 60; }
-
-  /** "06:04" */
-  get clock() {
-    const h = Math.floor(this.hour) % 24;
-    const m = Math.floor(this.minutes % 60);
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  }
-
-  /** "6:04 AM" */
-  get clock12() {
-    const h24 = Math.floor(this.hour) % 24;
-    const m = String(Math.floor(this.minutes % 60)).padStart(2, '0');
-    const h = h24 % 12 || 12;
-    return `${h}:${m} ${h24 < 12 ? 'AM' : 'PM'}`;
-  }
-
   get isDark() {
     return this.hour >= DUSK_START || this.hour < DAWN_START + 1.2;
   }
@@ -138,13 +116,14 @@ export class DayNight {
     this._recompute();
   }
 
+  setTime(day, timeMinutes) {
+    super.setTime(day, timeMinutes);
+    this._lastHour = -1;
+    this._recompute();
+  }
+
   update(dt) {
-    this.elapsedReal += dt;
-    this.minutes += dt * RATE;
-    if (this.minutes >= DAY_MINUTES) {
-      this.minutes -= DAY_MINUTES;
-      this.day++;
-    }
+    super.update(dt);
 
     const h = Math.floor(this.hour);
     if (h !== this._lastHour) {

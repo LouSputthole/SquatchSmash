@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squatch Life — Scene Preview</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #f4f2e9;
+    --muted: #a9afbd;
+    --panel: rgba(25, 28, 39, .88);
+    --line: rgba(255, 255, 255, .13);
+    --gold: #ffd75e;
+    --green: #75e0b5;
+    --pink: #ff65b1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    margin: 0;
+    display: grid;
+    place-items: center;
+    padding: 32px 18px;
+    color: var(--ink);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at 15% 5%, rgba(255, 101, 177, .17), transparent 30rem),
+      radial-gradient(circle at 90% 95%, rgba(117, 224, 181, .13), transparent 34rem),
+      linear-gradient(145deg, #080910, #111521 58%, #090a11);
+  }
+  main { width: min(980px, 100%); }
+  .eyebrow {
+    margin: 0 0 8px;
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .28em;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(38px, 7vw, 78px);
+    line-height: .95;
+    letter-spacing: -.045em;
+  }
+  .lede {
+    max-width: 690px;
+    margin: 18px 0 28px;
+    color: var(--muted);
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  .safe {
+    display: inline-flex;
+    gap: 9px;
+    align-items: center;
+    margin-bottom: 22px;
+    padding: 8px 11px;
+    border: 1px solid rgba(117, 224, 181, .35);
+    border-radius: 999px;
+    background: rgba(117, 224, 181, .07);
+    color: var(--green);
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .safe::before { content: "●"; font-size: 9px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .card {
+    min-height: 190px;
+    display: flex;
+    flex-direction: column;
+    padding: 22px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .22);
+  }
+  .card.primary { border-color: rgba(255, 101, 177, .46); }
+  .number {
+    color: var(--pink);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: .22em;
+  }
+  h2 { margin: 8px 0 7px; font-size: 25px; }
+  .card p {
+    flex: 1;
+    margin: 0 0 18px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .play {
+    align-self: flex-start;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: var(--gold);
+    color: #14110a;
+    font-weight: 900;
+    text-decoration: none;
+  }
+  .primary .play { background: var(--pink); color: #1b0711; }
+  footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    margin-top: 24px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  footer a { color: var(--green); }
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; }
+    footer { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">SQUATCH LIFE · DEVELOPMENT</p>
+  <h1>Scene preview</h1>
+  <p class="lede">
+    Jump directly into later story scenes without changing your real campaign.
+    Each scene gets the prerequisites it needs in temporary memory, and a reload
+    resets that preview.
+  </p>
+  <div class="safe">Your saved campaign is not read or written in preview mode</div>
+
+  <section class="grid" aria-label="Playable scene previews">
+    <article class="card primary">
+      <span class="number">SCENE PREVIEW 04</span>
+      <h2>The Jerky Motel</h2>
+      <p>Start in Manny's car, inspect the shipment, survive the room, and make the drive home.</p>
+      <a class="play" data-preview-scene="motel" href="motel.html?preview=1">Play motel →</a>
+    </article>
+
+    <article class="card">
+      <span class="number">SCENE PREVIEW 03</span>
+      <h2>Bada Bing · Scene Two</h2>
+      <p>Return to Lou's office for the reserve-pickup assignment that leads directly to the motel.</p>
+      <a class="play" data-preview-scene="bing-two" href="bing.html?visit=2&amp;preview=1">Play scene two →</a>
+    </article>
+
+    <article class="card">
+      <span class="number">SCENE PREVIEW 02</span>
+      <h2>Squatchfather</h2>
+      <p>Enter the restaurant meeting with Lou's package already concealed and the scene ready to begin.</p>
+      <a class="play" data-preview-scene="squatchfather" href="squatchfather.html?preview=1">Play meeting →</a>
+    </article>
+
+    <article class="card">
+      <span class="number">SCENE PREVIEW 05</span>
+      <h2>The Initiation</h2>
+      <p>Test the current initiation build directly. This preview does not alter its story design.</p>
+      <a class="play" data-preview-scene="initiation" href="initiation.html?preview=1">Play initiation →</a>
+    </article>
+  </section>
+
+  <footer>
+    <span>Preview progress lasts only until this page is reloaded or closed.</span>
+    <a href="index.html">Return to your saved campaign</a>
+  </footer>
+</main>
+</body>
+</html>

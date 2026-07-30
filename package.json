@@ -22,6 +22,7 @@
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",
     "verify:motel": "node tools/verify-motel.mjs",
     "verify:initiation": "node tools/verify-initiation.mjs",
+    "verify:preview": "node tools/verify-preview.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",

@@ -76,10 +76,11 @@ export const WALL_SLOTS = [
    * line with the clock face either. */
   { slot: 'south.shield', x: -0.24, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.44 },
 
-  /* East wall. It had nothing on it at all: the window takes z -3.90..-2.30
-   * and the fridge stands at z 1.95, which leaves this stretch in the middle
-   * as the only bare wall left in the flat. */
-  { slot: 'east.square', x: 4.97, y: 1.74, z: -0.60, rotY: -Math.PI / 2, h: 0.46 },
+  /* This stretch is occupied by the upper cabinets, so the kitchen picture is
+   * mounted on their outward face rather than halfway inside the carcass. The
+   * frame's back reaches +X; x 4.61 leaves it just clear of the door face at
+   * x 4.648 while the artwork faces into the room. */
+  { slot: 'east.square', x: 4.61, y: 1.74, z: -0.60, rotY: -Math.PI / 2, h: 0.46 },
   /* The rest of that stretch, between the window's edge at z -2.30 and the
    * square above. Hung lower and smaller, so the pair reads as two things put
    * up separately rather than a matched set. */
@@ -168,10 +169,12 @@ const FRIDGE_PHOTOS = [
   { slot: 'fridge.photo.a', y: 1.55, z: -0.19, w: 0.21, tilt: -0.07 },
   { slot: 'fridge.photo.b', y: 0.48, z: -0.42, w: 0.19, tilt: 0.09 },
   // Stuck on rather than magneted: no frame, no paper border, alpha cut out.
-  { slot: 'sticker.fridge', y: 0.92, z: -0.06, w: 0.22, tilt: -0.13, sticker: true },
+  { slot: 'sticker.fridge', y: 0.92, z: -0.08, w: 0.22, tilt: -0.13, sticker: true },
   /* The second one went on later and at a different angle, because nobody
-   * lines up the second sticker with the first. */
-  { slot: 'sticker.fridge.b', y: 1.24, z: 0.17, w: 0.19, tilt: 0.16, sticker: true },
+   * lines up the second sticker with the first. Door-local Z runs from zero at
+   * the hinge toward negative values across the door; positive Z put this one
+   * beyond the hinge, floating off the left edge. */
+  { slot: 'sticker.fridge.b', y: 1.24, z: -0.16, w: 0.19, tilt: 0.16, sticker: true },
 ];
 
 /**
@@ -198,6 +201,7 @@ const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'ce
 
 export async function buildApartment(ctx) {
   const { scene, audio, hud, interaction, time } = ctx;
+  const gunUnlocked = ctx.gunUnlocked === true;
   const M = makeMaterials();
 
   // Resolved up front: some of it is wall art, but some is the label on the
@@ -799,12 +803,13 @@ export async function buildApartment(ctx) {
 
   /* ---- the revolver ----
    *
-   * On the coffee table with everything else. It is not hidden, it is not
-   * locked in anything, and nobody in this game ever remarks on it being
-   * there, which is the joke. Six rounds and nothing to reload with.
+   * It only returns to the coffee table after Lou has handed over the first
+   * package. The prop still exists while locked so its later placement and
+   * interaction stay identical; both the mesh and pickup gate begin disabled.
    */
   const gunPos = new THREE.Vector3(-2.90, table.top, 0.60);
   const revolver = P.makeRevolver(M, { x: gunPos.x, y: gunPos.y, z: gunPos.z, rotY: 2.35 });
+  revolver.group.visible = gunUnlocked;
   root.add(revolver.group);
   const gunHit = box({
     size: [0.20, 0.10, 0.20], pos: [gunPos.x, gunPos.y + 0.05, gunPos.z],
@@ -823,8 +828,10 @@ export async function buildApartment(ctx) {
   });
   /** Put it back where it came from. */
   const dropGun = () => {
+    if (!gunUnlocked) return false;
     revolver.group.visible = true;
     audio.play('gun.pickup', { volume: 0.4, position: gunPos });
+    return true;
   };
 
   root.add(P.makeBoots(M, { x: 2.20, z: 4.30, rotY: 0.4 }).group);
@@ -1474,6 +1481,9 @@ export async function buildApartment(ctx) {
   interaction.register(bathDoor.group, {
     label: () => (state.bathDoorOpen ? 'Close the <b>bathroom</b> door' : 'Open the <b>bathroom</b>'),
     onUse: () => {
+      // A trip can leave the door a few degrees ajar. Touching the handle takes
+      // control back and lets the leaf settle exactly into its frame.
+      bathDoorNudge = 0;
       state.bathDoorOpen = !state.bathDoorOpen;
       audio.play('door.knob', { position: new THREE.Vector3(-1.4, 1.1, -4.3), volume: 0.7 });
       if (state.bathDoorOpen && !state.bathVisited) {
@@ -1742,6 +1752,7 @@ export async function buildApartment(ctx) {
   let secondsReal = 0;
   let tickAcc = 0;
   let bathDoorT = 0;
+  let bathDoorNudge = 0;
   let skyPhaseA = null;
   let skyPhaseB = null;
   let seconds = 0;
@@ -1763,8 +1774,10 @@ export async function buildApartment(ctx) {
     }
 
     /* bathroom door + strip light */
-    bathDoorT += ((state.bathDoorOpen ? 1 : 0) - bathDoorT) * Math.min(1, dt * 5);
-    bathDoor.pivot.rotation.y = bathDoorT * 1.85;
+    const bathDoorTarget = state.bathDoorOpen ? 1 : 0;
+    bathDoorT += (bathDoorTarget - bathDoorT) * Math.min(1, dt * 5);
+    if (Math.abs(bathDoorTarget - bathDoorT) < 0.0005) bathDoorT = bathDoorTarget;
+    bathDoor.pivot.rotation.y = bathDoorT * 1.85 + bathDoorNudge;
     bathLight.intensity += ((state.bathLightOn ? 4.6 : 0) - bathLight.intensity) * Math.min(1, dt * 7);
     // Fluorescent tubes never quite settle.
     if (state.bathLightOn) bathLight.intensity *= 0.985 + Math.random() * 0.03;
@@ -1856,14 +1869,9 @@ export async function buildApartment(ctx) {
     const TAU = Math.PI * 2;
     wallClock.hourHand.rotation.z = -((time.minutes % 720) / 720) * TAU;
     wallClock.minHand.rotation.z = -((time.minutes % 60) / 60) * TAU;
-    /* The second hand runs on REAL time, not game time.
-     *
-     * Truthfully it should turn once per in-game minute, but a day here is
-     * fifteen real minutes, so that is a hand spinning about one and a half
-     * times a second -- it stops reading as a clock and starts reading as a
-     * fault. The hour and minute hands still tell you the actual time, which
-     * is the part anyone reads; the second hand is texture, and texture that
-     * blurs is worse than texture that is slightly a lie. */
+    /* The second hand is real-time texture, while hour and minute hands show
+     * authored campaign time. A frozen second hand looks broken even when the
+     * story clock is correctly waiting for the next task. */
     secondsReal += dt;
     wallClock.secHand.rotation.z = -((secondsReal % 60) / 60) * TAU;
 
@@ -1966,7 +1974,11 @@ export async function buildApartment(ctx) {
     gluePos: gluekit.gluePos,
     /* Handles the comedown needs. Nothing here is a scripted scare -- it is a
      * door, a light and a lamp, moved by something that is deniably you. */
-    bathDoorPivot: bathDoor.group,
+    bathDoorPivot: bathDoor.pivot,
+    getBathDoorNudge() { return bathDoorNudge; },
+    setBathDoorNudge(angle) {
+      bathDoorNudge = Number.isFinite(angle) ? angle : 0;
+    },
     ceilingLamp: ceilLight,
     setCeiling,
     dipLights,

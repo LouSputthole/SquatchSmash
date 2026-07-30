@@ -1,3 +1,9 @@
+import {
+  getPreviewRuntime,
+  installPreviewNotice,
+  previewNavigationHref,
+} from './preview-mode.js';
+
 /**
  * Stable IDs shared by every scene. Display names and voice-provider aliases
  * belong in character data; story state only uses these IDs.
@@ -36,8 +42,36 @@ export const EVENT_IDS = Object.freeze({
   LOU_SECOND_CALL: 'lou_second_call',
 });
 
-export const CAMPAIGN_VERSION = 1;
+export const TIME_EVENT_IDS = Object.freeze({
+  EAT: 'activity.eat',
+  SHOWER: 'activity.shower',
+  POOP: 'activity.poop',
+  CHANGE_CLOTHES: 'activity.change_clothes',
+  CHECK_EMAIL: 'activity.check_email',
+  LOU_FIRST_CALL: 'call.lou_first',
+  BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
+  LOU_SECOND_CALL: 'call.lou_second',
+  DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
+});
+
+const TIME_EVENTS = Object.freeze({
+  [TIME_EVENT_IDS.EAT]: Object.freeze({ minutes: 20 }),
+  [TIME_EVENT_IDS.SHOWER]: Object.freeze({ minutes: 15 }),
+  [TIME_EVENT_IDS.POOP]: Object.freeze({ minutes: 10 }),
+  [TIME_EVENT_IDS.CHANGE_CLOTHES]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.CHECK_EMAIL]: Object.freeze({ minutes: 10 }),
+  [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
+  [TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
+    atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
+  }),
+});
+const MINUTES_PER_DAY = 24 * 60;
+
+export const CAMPAIGN_VERSION = 2;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
+export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
 const SCENES = Object.freeze({
   [SCENE_IDS.APARTMENT]: Object.freeze({
@@ -111,6 +145,7 @@ function initialState() {
       timeMinutes: 6 * 60 + 4,
       meetingKnown: false,
       meetingLearnedFrom: null,
+      timeEvents: [],
     },
     activities: {
       eaten: false,
@@ -178,6 +213,60 @@ function uniqueStrings(value) {
     : [];
 }
 
+const MIGRATIONS = Object.freeze({
+  1(saved) {
+    return {
+      ...saved,
+      version: 2,
+    };
+  },
+});
+
+function migrate(saved) {
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+    return { ok: false, reason: 'invalid_shape' };
+  }
+  if (!Number.isSafeInteger(saved.version)
+    || saved.version < 1
+    || saved.version > CAMPAIGN_VERSION) {
+    return { ok: false, reason: 'unsupported_version' };
+  }
+
+  let value = saved;
+  let changed = false;
+  while (value.version < CAMPAIGN_VERSION) {
+    const migration = MIGRATIONS[value.version];
+    if (typeof migration !== 'function') {
+      return { ok: false, reason: 'unsupported_version' };
+    }
+    const beforeVersion = value.version;
+    try {
+      value = migration(value);
+    } catch {
+      return { ok: false, reason: 'migration_failed' };
+    }
+    if (!value
+      || typeof value !== 'object'
+      || !Number.isSafeInteger(value.version)
+      || value.version <= beforeVersion
+      || value.version > CAMPAIGN_VERSION) {
+      return { ok: false, reason: 'migration_failed' };
+    }
+    changed = true;
+  }
+  return { ok: true, value, changed };
+}
+
+function hasCurrentShape(saved) {
+  return Number.isSafeInteger(saved.revision)
+    && saved.scene && typeof saved.scene === 'object'
+    && saved.story && typeof saved.story === 'object'
+    && saved.activities && typeof saved.activities === 'object'
+    && saved.inventory && typeof saved.inventory === 'object'
+    && saved.missions && typeof saved.missions === 'object'
+    && saved.events && typeof saved.events === 'object';
+}
+
 function normalize(saved) {
   const base = initialState();
   if (!saved || saved.version !== CAMPAIGN_VERSION) return base;
@@ -224,6 +313,7 @@ function normalize(saved) {
       meetingKnown: saved.story?.meetingKnown === true,
       meetingLearnedFrom: typeof saved.story?.meetingLearnedFrom === 'string'
         ? saved.story.meetingLearnedFrom : null,
+      timeEvents: uniqueStrings(saved.story?.timeEvents),
     },
     activities: Object.fromEntries(
       Object.keys(base.activities)
@@ -301,22 +391,120 @@ function normalize(saved) {
 }
 
 function load(storage) {
-  if (!storage) return initialState();
+  const fresh = {
+    state: initialState(),
+    storage,
+    persist: false,
+    recovery: null,
+    newRecovery: null,
+    readOnly: false,
+  };
+  if (!storage) return fresh;
+
+  let raw;
   try {
-    return normalize(JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY)));
+    raw = storage.getItem(CAMPAIGN_STORAGE_KEY);
   } catch {
-    return initialState();
+    return { ...fresh, storage: null };
   }
+  try {
+    const recoveryRaw = storage.getItem(CAMPAIGN_RECOVERY_KEY);
+    if (recoveryRaw !== null) {
+      const recovery = JSON.parse(recoveryRaw);
+      if (recovery
+        && typeof recovery.reason === 'string'
+        && typeof recovery.raw === 'string') {
+        fresh.recovery = recovery;
+      }
+    }
+  } catch {
+    // A damaged recovery record must never make a valid primary save unreadable.
+  }
+  if (raw === null) return fresh;
+
+  let saved;
+  try {
+    saved = JSON.parse(raw);
+  } catch {
+    return {
+      ...fresh,
+      persist: true,
+      newRecovery: { reason: 'invalid_json', raw },
+    };
+  }
+
+  const migrated = migrate(saved);
+  if (!migrated.ok) {
+    const readOnly = migrated.reason === 'unsupported_version';
+    return {
+      ...fresh,
+      persist: !readOnly,
+      newRecovery: { reason: migrated.reason, raw },
+      readOnly,
+    };
+  }
+
+  const state = normalize(migrated.value);
+  const normalizedChanged = JSON.stringify(state) !== JSON.stringify(migrated.value);
+  const structurallyBroken = !migrated.changed
+    && (!hasCurrentShape(migrated.value) || normalizedChanged);
+  return {
+    ...fresh,
+    state,
+    persist: migrated.changed || normalizedChanged,
+    newRecovery: structurallyBroken ? { reason: 'invalid_shape', raw } : null,
+  };
 }
 
 class Campaign {
   constructor(storage) {
-    this.storage = storage;
-    this._state = load(storage);
+    const loaded = load(storage);
+    this.storage = loaded.storage;
+    this._state = loaded.state;
+    this._recoveredNow = Boolean(loaded.newRecovery);
+    this._recovery = loaded.newRecovery ?? loaded.recovery;
+
+    if (loaded.newRecovery && this.storage) {
+      if (loaded.recovery
+        && (loaded.recovery.reason !== loaded.newRecovery.reason
+          || loaded.recovery.raw !== loaded.newRecovery.raw)) {
+        this._recovery = {
+          ...loaded.newRecovery,
+          previous: {
+            reason: loaded.recovery.reason,
+            raw: loaded.recovery.raw,
+          },
+        };
+      }
+      try {
+        this.storage.setItem(
+          CAMPAIGN_RECOVERY_KEY,
+          JSON.stringify(this._recovery),
+        );
+      } catch {
+        // Never overwrite an unreadable save unless its recovery copy was
+        // successfully preserved first.
+        this.storage = null;
+      }
+    }
+    if (loaded.readOnly) this.storage = null;
+    if (loaded.persist && this.storage) this.#save();
   }
 
   get state() {
     return clone(this._state);
+  }
+
+  get recovery() {
+    return this._recovery ? clone(this._recovery) : null;
+  }
+
+  get recoveredNow() {
+    return this._recoveredNow;
+  }
+
+  get persistent() {
+    return Boolean(this.storage);
   }
 
   addItem(itemId, { concealed = false } = {}) {
@@ -360,7 +548,44 @@ class Campaign {
     return this.state;
   }
 
+  advanceTime(eventId, change) {
+    const event = TIME_EVENTS[eventId];
+    if (!event) throw new Error(`Unknown time event "${eventId}"`);
+    if (change !== undefined && typeof change !== 'function') {
+      throw new TypeError('Campaign time event change must be a function');
+    }
+    if (this._state.story.timeEvents.includes(eventId)) {
+      return {
+        applied: false,
+        day: this._state.story.day,
+        timeMinutes: this._state.story.timeMinutes,
+        minutesAdvanced: 0,
+      };
+    }
+
+    const before = (this._state.story.day - 1) * MINUTES_PER_DAY
+      + this._state.story.timeMinutes;
+    const target = event.atLeast
+      ? (event.atLeast.day - 1) * MINUTES_PER_DAY + event.atLeast.timeMinutes
+      : before + event.minutes;
+    const absolute = Math.max(before, target);
+    const minutesAdvanced = absolute - before;
+    this.update((state) => {
+      change?.(state);
+      state.story.day = Math.floor(absolute / MINUTES_PER_DAY) + 1;
+      state.story.timeMinutes = absolute % MINUTES_PER_DAY;
+      state.story.timeEvents.push(eventId);
+    });
+    return {
+      applied: true,
+      day: this._state.story.day,
+      timeMinutes: this._state.story.timeMinutes,
+      minutesAdvanced,
+    };
+  }
+
   transition(sceneId, { spawn } = {}) {
+    const before = clone(this._state);
     const from = this._state.scene.id;
     if (!SCENES[sceneId]) throw new Error(`Unknown scene "${sceneId}"`);
     if (!SCENES[from]?.next.includes(sceneId)) {
@@ -370,17 +595,34 @@ class Campaign {
     this._state.scene = { id: sceneId, spawn: resolvedSpawn };
     this._state.lastTransition = { from, to: sceneId, spawn: resolvedSpawn };
     this._state.revision++;
-    this.#save();
+    if (!this.#save()) {
+      this._state = before;
+      throw new Error('Campaign transition could not be saved');
+    }
+    return this.state;
+  }
+
+  restore(snapshot) {
+    this._state = normalize({
+      ...clone(snapshot),
+      version: CAMPAIGN_VERSION,
+    });
+    if (!this.#save()) {
+      throw new Error('Campaign rollback could not be saved');
+    }
     return this.state;
   }
 
   #save() {
+    if (!this.storage) return false;
     try {
-      this.storage?.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(this._state));
+      this.storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(this._state));
+      return true;
     } catch {
       // Sandboxed frames and privacy modes can expose localStorage but reject
       // writes. The current page still gets a coherent in-memory campaign.
       this.storage = null;
+      return false;
     }
   }
 }
@@ -399,8 +641,77 @@ function boundedNumber(value, min, max, fallback, integer = false) {
   return integer ? Math.round(bounded) : bounded;
 }
 
-export function createCampaign({ storage = browserStorage() } = {}) {
-  return new Campaign(storage);
+function seedPreviewCampaign(campaign, sceneId) {
+  campaign.update((state) => {
+    const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
+    const squatchfather = state.missions[MISSION_IDS.SQUATCHFATHER];
+    const airstrip = state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+    const secondBing = state.missions[MISSION_IDS.BADA_BING_TWO];
+    const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
+
+    if (sceneId === SCENE_IDS.BADA_BING_ONE) {
+      firstBing.status = 'available';
+      state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+      return;
+    }
+
+    if ([
+      SCENE_IDS.SQUATCHFATHER,
+      SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.JERKY_MOTEL,
+    ].includes(sceneId)) {
+      firstBing.status = 'complete';
+      firstBing.packageReceived = true;
+      state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+    }
+
+    if (sceneId === SCENE_IDS.SQUATCHFATHER) {
+      squatchfather.status = 'available';
+      if (!state.inventory.concealed.includes(ITEM_IDS.LOU_PACKAGE)) {
+        state.inventory.concealed.push(ITEM_IDS.LOU_PACKAGE);
+      }
+      return;
+    }
+
+    if ([SCENE_IDS.BADA_BING_TWO, SCENE_IDS.JERKY_MOTEL].includes(sceneId)) {
+      squatchfather.status = 'complete';
+      squatchfather.weaponStaged = true;
+      squatchfather.weaponDropped = true;
+      airstrip.status = 'complete';
+      airstrip.checkpoint = 'landed_home';
+      airstrip.cargoLoaded = true;
+      state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+      state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+    }
+
+    if (sceneId === SCENE_IDS.BADA_BING_TWO) {
+      secondBing.status = 'available';
+      return;
+    }
+
+    if (sceneId === SCENE_IDS.JERKY_MOTEL) {
+      secondBing.status = 'complete';
+      secondBing.assignment = 'reserve_pickup';
+      motel.status = 'available';
+    }
+  });
+
+  const spawn = SCENES[sceneId]?.defaultSpawn;
+  campaign.enter(sceneId, { spawn });
+}
+
+export function createCampaign(options = {}) {
+  const explicitStorage = Object.prototype.hasOwnProperty.call(options, 'storage');
+  const preview = explicitStorage ? null : getPreviewRuntime();
+  const storage = explicitStorage ? options.storage : (preview?.storage ?? browserStorage());
+  const campaign = new Campaign(storage);
+
+  if (preview && !preview.seeded) {
+    seedPreviewCampaign(campaign, preview.sceneId);
+    preview.seeded = true;
+  }
+  if (preview) installPreviewNotice();
+  return campaign;
 }
 
 export function navigateCampaign(
@@ -417,16 +728,19 @@ export function navigateCampaign(
   const before = campaign.state;
   const state = campaign.transition(sceneId, { spawn });
   try {
-    location.assign(scene.href);
+    location.assign(previewNavigationHref(scene.href));
     return state;
   } catch (error) {
     // location.assign() can be rejected by sandboxed/embedded browsers. Do
     // not strand the save at a page the browser never reached.
-    campaign.update((next) => {
-      next.scene = before.scene;
-      if (before.lastTransition) next.lastTransition = before.lastTransition;
-      else delete next.lastTransition;
-    });
+    try {
+      campaign.restore(before);
+    } catch (rollbackError) {
+      throw new AggregateError(
+        [error, rollbackError],
+        'Navigation failed and campaign rollback could not be saved',
+      );
+    }
     throw error;
   }
 }

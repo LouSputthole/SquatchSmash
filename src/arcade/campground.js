@@ -75,7 +75,13 @@ export class Campground extends WebApp {
    * run is still there when you sit back down.
    */
   onExit() {
+    this.suspend();
+  }
+
+  /** Stop the timer when the player stands up or returns to SquatchOS. */
+  suspend() {
     this.overlay.withWindow((w) => {
+      if (w.SQUATCH?.state !== 'playing') return;
       w.dispatchEvent(new w.KeyboardEvent('keydown', { code: 'KeyP', key: 'p', bubbles: true }));
     });
   }

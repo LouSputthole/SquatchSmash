@@ -63,13 +63,13 @@ export class Hud {
     return performance.now() < (this._sayUntil || 0);
   }
 
-  toast(text, kind = '') {
+  toast(text, kind = '', duration = 2800) {
     const el = document.createElement('div');
     el.className = `toast ${kind}`.trim();
     el.textContent = text;
     this.toasts.appendChild(el);
-    setTimeout(() => el.classList.add('out'), 2200);
-    setTimeout(() => el.remove(), 2800);
+    setTimeout(() => el.classList.add('out'), Math.max(0, duration - 600));
+    setTimeout(() => el.remove(), duration);
   }
 
   /**
@@ -124,11 +124,12 @@ export class Hud {
    * Only touches the DOM when the displayed minute changes.
    */
   setClock(day, time12, elapsedReal) {
-    if (time12 === this._clockShown) return;
+    const mins = Math.floor(elapsedReal / 60);
+    if (time12 === this._clockShown && mins === this._clockSpentMinute) return;
     this._clockShown = time12;
+    this._clockSpentMinute = mins;
     this.clockDay.textContent = `Day ${day}`;
     this.clockTime.textContent = time12;
-    const mins = Math.floor(elapsedReal / 60);
     this.clockSpent.textContent = mins < 1
       ? 'just got up'
       : `${mins} min in here`;

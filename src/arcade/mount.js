@@ -77,9 +77,15 @@ export function createArcade(opts = {}) {
    */
   os.setSeated = (seated) => {
     for (const app of framed) {
-      if (seated && os.app === app) app.show();
-      else app.hide();
+      if (seated && os.app === app) {
+        os.setInputMode('dom');
+        app.show();
+      } else {
+        if (!seated && os.app === app) app.suspend?.();
+        app.hide();
+      }
     }
+    if (!seated) os.setInputMode('relative');
   };
   /** Whatever is on the monitor should stop when the tower does. */
   const powerOff = os.powerOff.bind(os);

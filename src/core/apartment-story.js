@@ -4,6 +4,7 @@ import {
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
 } from './campaign.js';
 import { getCharacter, voiceProfileFor } from './characters.js';
 
@@ -100,7 +101,7 @@ class ApartmentStory {
 
   callAnswered(definition) {
     if (definition?.eventId === EVENT_IDS.LOU_FIRST_CALL && !this.#callAnswered()) {
-      this.campaign.update((state) => {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_FIRST_CALL, (state) => {
         state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
         state.missions[MISSION_IDS.BADA_BING_ONE].status = 'available';
       });
@@ -108,7 +109,7 @@ class ApartmentStory {
     }
     if (definition?.eventId === EVENT_IDS.BOOSKI_DAY_TWO_CALL
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
-      this.campaign.update((state) => {
+      this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL, (state) => {
         state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
         state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'available';
       });
@@ -116,7 +117,7 @@ class ApartmentStory {
     }
     if (definition?.eventId === EVENT_IDS.LOU_SECOND_CALL
       && !this.#eventAnswered(EVENT_IDS.LOU_SECOND_CALL)) {
-      this.campaign.update((state) => {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_SECOND_CALL, (state) => {
         state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
         state.missions[MISSION_IDS.BADA_BING_TWO].status = 'available';
       });
@@ -127,7 +128,9 @@ class ApartmentStory {
 
   sleep() {
     const state = this.campaign.state;
-    if (state.story.day >= 2) return { ok: false, reason: 'already_day_two' };
+    if (state.story.chapter !== 'day_one') {
+      return { ok: false, reason: 'already_day_two' };
+    }
     if (state.missions[MISSION_IDS.SQUATCHFATHER].status !== 'complete') {
       return { ok: false, reason: 'day_one_incomplete' };
     }
@@ -147,7 +150,7 @@ class ApartmentStory {
 
   tryLeave(activities = {}) {
     const state = this.campaign.state;
-    if (state.story.day >= 2
+    if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete') {
       if (!this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
         return {
@@ -242,12 +245,12 @@ class ApartmentStory {
 
   #pendingCall() {
     const state = this.campaign.state;
-    if (state.story.day >= 2
+    if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
       return DAY_TWO_BOOSKI_CALL;
     }
-    if (state.story.day >= 2
+    if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status === 'complete'
       && !this.#eventAnswered(EVENT_IDS.LOU_SECOND_CALL)) {
       return DAY_TWO_LOU_SECOND_CALL;

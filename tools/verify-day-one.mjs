@@ -72,15 +72,36 @@ try {
 
   const initial = await page.evaluate(() => {
     const state = window.__squatch.campaign.state;
+    let apartmentGun = null;
+    window.__squatch.apartment.root.traverse((object) => {
+      if (object.name === 'revolver') apartmentGun = object;
+    });
     return {
       event: state.events.lou_first_call.status,
       mission: state.missions.bada_bing_one.status,
       scene: state.scene.id,
+      timeMinutes: state.story.timeMinutes,
+      liveMinutes: window.__squatch.time.minutes,
+      gunVisible: apartmentGun?.visible,
     };
   });
   check('the campaign opens in the apartment', initial.scene === 'apartment', initial.scene);
   check('Lou has not already called', initial.event === 'pending', initial.event);
   check('Bada Bing starts locked', initial.mission === 'locked', initial.mission);
+  check('the apartment revolver is absent before Lou’s first package',
+    initial.gunVisible === false, String(initial.gunVisible));
+  check('Day One starts at the authored 6:04 AM checkpoint',
+    initial.timeMinutes === 6 * 60 + 4 && initial.liveMinutes === 6 * 60 + 4,
+    JSON.stringify(initial));
+
+  await page.waitForTimeout(1200);
+  const afterIdle = await page.evaluate(() => ({
+    saved: window.__squatch.campaign.state.story.timeMinutes,
+    live: window.__squatch.time.minutes,
+  }));
+  check('waiting in the apartment does not advance story time',
+    afterIdle.saved === initial.timeMinutes && afterIdle.live === initial.liveMinutes,
+    JSON.stringify(afterIdle));
 
   const ringing = await page.evaluate(() => {
     const game = window.__squatch;
@@ -90,11 +111,17 @@ try {
       ringing: game.phone.ringing,
       eventId: game.phone.call?.def?.eventId,
       from: game.phone.call?.def?.from,
+      instruction: document.querySelector('#toast-stack')?.textContent?.trim(),
     };
   });
   check('Big Uncle Lou rings the physical phone after the player gets up',
     ringing.ringing && ringing.eventId === 'lou_first_call' && ringing.from === 'Big Uncle Lou',
     JSON.stringify(ringing));
+  check('the incoming-call prompt explains the real two-step E control',
+    ringing.instruction?.includes('Phone on the nightstand')
+      && ringing.instruction.includes('press [E] to pick it up')
+      && ringing.instruction.includes('then [E] to answer'),
+    ringing.instruction);
 
   const answered = await page.evaluate(() => {
     const game = window.__squatch;
@@ -104,11 +131,16 @@ try {
       inCall: game.phone.inCall,
       event: game.campaign.state.events.lou_first_call.status,
       mission: game.campaign.state.missions.bada_bing_one.status,
+      timeMinutes: game.campaign.state.story.timeMinutes,
+      liveMinutes: game.time.minutes,
     };
   });
   check('answering the held phone persists Lou’s call',
     answered.inCall && answered.event === 'answered', JSON.stringify(answered));
   check('the answered call unlocks Bada Bing', answered.mission === 'available', answered.mission);
+  check('answering Lou advances the saved and displayed clock by three minutes',
+    answered.timeMinutes === 6 * 60 + 7 && answered.liveMinutes === 6 * 60 + 7,
+    JSON.stringify(answered));
 
   const gates = await page.evaluate(() => {
     const game = window.__squatch;
@@ -140,6 +172,11 @@ try {
 
   await page.waitForURL(`http://localhost:${PORT}/bing.html`, { timeout: 10000 });
   await page.waitForFunction(() => window.__bing?.campaign, null, { timeout: 60000 });
+  await page.waitForFunction(
+    () => document.querySelector('#clock .time')?.textContent?.trim(),
+    null,
+    { timeout: 5000 },
+  );
   const arrived = await page.evaluate(() => {
     const state = window.__bing.campaign.state;
     return {
@@ -148,6 +185,9 @@ try {
       mission: state.missions.bada_bing_one.status,
       activities: state.activities,
       event: state.events.lou_first_call.status,
+      timeMinutes: state.story.timeMinutes,
+      timeEvents: state.story.timeEvents,
+      clock: document.querySelector('#clock .time')?.textContent?.trim(),
     };
   });
   check('the apartment door routes directly to Bada Bing',
@@ -162,6 +202,69 @@ try {
       && arrived.activities.changedClothes
       && !arrived.activities.emailChecked,
     JSON.stringify(arrived));
+  check('travel advances once to the authored 11:41 PM Bing arrival',
+    arrived.timeMinutes === 23 * 60 + 41
+      && arrived.timeEvents.includes('call.lou_first')
+      && arrived.timeEvents.includes('travel.bada_bing_one')
+      && arrived.clock === '11:41 PM',
+    JSON.stringify(arrived));
+
+  /* The durable packageReceived milestone, rather than the parcel currently
+   * being in inventory, keeps the apartment gun unlocked on later returns. */
+  await page.evaluate(() => {
+    const campaign = window.__bing.campaign;
+    campaign.update((state) => {
+      state.missions.bada_bing_one.status = 'complete';
+      state.missions.bada_bing_one.packageReceived = true;
+      state.missions.squatchfather.status = 'complete';
+      state.inventory.concealed = [];
+    });
+    campaign.transition('apartment', { spawn: 'front_door' });
+  });
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__squatch?.apartment, null, { timeout: 60000 });
+  const laterGun = await page.evaluate(() => {
+    let apartmentGun = null;
+    window.__squatch.apartment.root.traverse((object) => {
+      if (object.name === 'revolver') apartmentGun = object;
+    });
+    return {
+      visible: apartmentGun?.visible,
+      packageReceived:
+        window.__squatch.campaign.state.missions.bada_bing_one.packageReceived,
+      carriesPackage:
+        window.__squatch.campaign.state.inventory.concealed.includes('parcel'),
+    };
+  });
+  check('the revolver returns after Lou’s package and remains after delivery',
+    laterGun.visible === true
+      && laterGun.packageReceived === true
+      && laterGun.carriesPackage === false,
+    JSON.stringify(laterGun));
+
+  const corruptRaw = '{"version":1,"scene":';
+  await page.evaluate((raw) => {
+    localStorage.setItem('squatchlife.campaign', raw);
+  }, corruptRaw);
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 60000 });
+  await page.waitForTimeout(1100);
+  const recovered = await page.evaluate(() => ({
+    state: window.__squatch.campaign.state,
+    recovery: window.__squatch.campaign.recovery,
+    storedRecovery: JSON.parse(localStorage.getItem('squatchlife.campaign.recovery')),
+    storedVersion: JSON.parse(localStorage.getItem('squatchlife.campaign')).version,
+    recoveryNotice: document.querySelector('#toast-stack')?.textContent?.trim(),
+  }));
+  check('corrupt browser saves are preserved and visibly recovered',
+    recovered.state.version === 2
+      && recovered.state.scene.id === 'apartment'
+      && recovered.storedVersion === 2
+      && recovered.recovery?.reason === 'invalid_json'
+      && recovered.recovery?.raw === corruptRaw
+      && recovered.storedRecovery?.raw === corruptRaw
+      && recovered.recoveryNotice?.includes('Save recovered'),
+    JSON.stringify(recovered));
 
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {

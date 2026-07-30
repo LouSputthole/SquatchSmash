@@ -32,6 +32,7 @@ export class WebApp {
     this.audio = audio;
     this.loading = loading;
     this.sameOrigin = sameOrigin;
+    this.requiresDomInput = true;
     this.overlay = new ScreenOverlay(src);
     this.t = 0;
     this._escape = null;
@@ -48,7 +49,9 @@ export class WebApp {
      */
     this.quit = document.createElement('button');
     this.quit.type = 'button';
-    this.quit.textContent = '‹ desktop';
+    this.quit.textContent = 'TAB = EXIT TO DESKTOP';
+    this.quit.setAttribute('aria-label', 'Exit to the SquatchOS desktop');
+    this.quit.title = 'Press Tab, or click here, to return to the desktop';
     Object.assign(this.quit.style, {
       position: 'fixed', display: 'none', zIndex: '6',
       font: '600 11px ui-monospace, SFMono-Regular, Menlo, monospace',
@@ -73,6 +76,9 @@ export class WebApp {
 
   enter() {
     this.t = 0;
+    /* Publish the transition before releasing pointer lock. The apartment can
+     * then distinguish a framed app asking for its cursor from a real pause. */
+    this.os?.setInputMode?.('dom');
     this.show();
 
     /* The apartment holds the pointer while you are sat down, and a locked
@@ -106,6 +112,7 @@ export class WebApp {
       this._onLoad = null;
     }
     this.hide();
+    this.os?.setInputMode?.('relative');
     this.onExit?.();
   }
 

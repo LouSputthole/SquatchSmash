@@ -30,6 +30,7 @@ import {
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   navigateCampaign,
 } from './core/campaign.js';
@@ -150,18 +151,32 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const time = new DayNight(6 + 4 / 60);
 const campaign = createCampaign();
 const campaignAtLoad = campaign.state;
+if (campaign.recoveredNow) {
+  const recoveryNotice = campaign.recovery?.reason === 'unsupported_version'
+    ? 'Newer save preserved · this build will not overwrite it'
+    : 'Save recovered · previous data kept in browser recovery backup';
+  setTimeout(() => {
+    hud.toast(
+      recoveryNotice,
+      'bad',
+      12000,
+    );
+  }, 200);
+}
 const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
   && campaignAtLoad.scene.spawn === 'front_door';
 const returningFromBing = returningToApartment
   && campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
 const returningFromSquatchfather = returningToApartment
   && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
-const wakingOnDayTwo = !returningToApartment && campaignAtLoad.story.day >= 2;
+const apartmentGunUnlocked =
+  campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
+const wakingOnDayTwo = !returningToApartment
+  && campaignAtLoad.story.chapter === 'day_two';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
   campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
 }
-time.day = campaign.state.story.day;
-time.minutes = campaign.state.story.timeMinutes;
+time.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
 if (wakingOnDayTwo) {
   overlay.querySelector('.tag').textContent =
     'Day Two, 7:00 AM. Booskibro has the next job. The phone is on the nightstand.';
@@ -191,13 +206,16 @@ const spooky = new Spooky({
   door: () => {
     const d = apartment.bathDoorPivot;
     if (!d) return false;
-    // Swings a few degrees on its own and stops. That is all.
-    const from = d.rotation.y;
-    const to = from + (Math.abs(from) > 0.4 ? -0.34 : 0.42);
+    // Swings a few degrees on its actual hinge and stops. The apartment owns
+    // the base open/closed angle, so this effect is an offset instead of a
+    // rotation on the whole door group that prevents it closing afterward.
+    const from = apartment.getBathDoorNudge?.() ?? 0;
+    const base = apartment.state.bathDoorOpen ? 1.85 : 0;
+    const to = from + (Math.abs(base + from) > 0.4 ? -0.34 : 0.42);
     const t0 = performance.now();
     const swing = () => {
       const k = Math.min(1, (performance.now() - t0) / 1900);
-      d.rotation.y = from + (to - from) * (k * k * (3 - 2 * k));
+      apartment.setBathDoorNudge?.(from + (to - from) * (k * k * (3 - 2 * k)));
       if (k < 1) requestAnimationFrame(swing);
     };
     swing();
@@ -261,13 +279,22 @@ const apartmentStory = createApartmentStory({
   ring: (definition) => {
     const rang = phone.ring(definition);
     if (rang) {
-      hud.toast(`Incoming call · ${definition.from}`);
-      hud.say(`<em>The phone is ringing.</em> ${definition.from}. It is on the nightstand.`, 5200);
+      const instruction = apartment?.state?.heldItem === 'phone'
+        ? 'Press [E] to answer.'
+        : apartment?.inventory?.has('phone')
+          ? 'Select your phone, then press [E] to answer.'
+          : 'Phone on the nightstand — press [E] to pick it up, then [E] to answer.';
+      hud.toast(`Incoming call — ${instruction}`, 'good', 16000);
+      hud.say(`<em>${definition.from} is calling.</em> ${instruction}`, 7000);
     }
     return rang;
   },
 });
-phone.onAnswered = (definition) => apartmentStory.callAnswered(definition);
+phone.onAnswered = (definition) => {
+  const changed = apartmentStory.callAnswered(definition);
+  if (changed) syncClockFromCampaign();
+  return changed;
+};
 /* Two materials for the standby light rather than mutating one, so it is a
  * swap like every other indicator in the flat and cannot alias. */
 const M_LED_ON = new THREE.MeshStandardMaterial({ color: 0x2a0b0b, emissive: 0xff3b30, emissiveIntensity: 2.2, roughness: 0.4 });
@@ -344,12 +371,6 @@ const _origin = new THREE.Vector3();
 const _aim = new THREE.Vector3();
 const _aimPoint = new THREE.Vector3();
 
-const arcade = createArcade({ audio });
-const screenTexture = new THREE.CanvasTexture(arcade.canvas);
-screenTexture.colorSpace = THREE.SRGBColorSpace;
-screenTexture.minFilter = THREE.LinearFilter;
-screenTexture.generateMipmaps = false;
-
 let apartment = null;
 
 const game = {
@@ -384,6 +405,21 @@ const game = {
   fartQueued: false,    // deliberate one waiting for him to stop talking
 };
 
+/* Canvas-native desktop apps use relative pointer motion while framed apps
+ * (DOOM and Squatch Smash) need an ordinary DOM mouse. Leaving pointer
+ * lock for those apps is intentional and must not pause the apartment. */
+const arcade = createArcade({
+  audio,
+  onInputModeChange(mode) {
+    if (mode === 'dom') document.exitPointerLock?.();
+    else if (game.seated && game.started && !game.paused) requestLock();
+  },
+});
+const screenTexture = new THREE.CanvasTexture(arcade.canvas);
+screenTexture.colorSpace = THREE.SRGBColorSpace;
+screenTexture.minFilter = THREE.LinearFilter;
+screenTexture.generateMipmaps = false;
+
 /** Seven of them, picked at random, never the same one twice running. */
 const FART_CUES = ['fart.1', 'fart.2', 'fart.3', 'fart.4', 'fart.5', 'fart.6', 'fart.7'];
 let _lastFart = -1;
@@ -403,6 +439,7 @@ async function boot() {
     hud,
     interaction,
     time,
+    gunUnlocked: apartmentGunUnlocked,
     onNote: (what) => narrator.note(what),
     isSeated: () => game.seated || !!game.sitting || game.inBed || game.onToilet,
     onSitPC: sitAtPC,
@@ -416,6 +453,7 @@ async function boot() {
     onShrooms: eatShrooms,
     onShower: takeShower,
     onDressed: () => {
+      completeApartmentActivity('changedClothes', TIME_EVENT_IDS.CHANGE_CLOTHES);
       audio.say('dress', { chance: 0.8, delay: 0.4 });
       hud.toast('Clean shirt', 'good');
       hud.say('A clean shirt. It even smells like a clean shirt.', 4200);
@@ -505,6 +543,7 @@ async function boot() {
   arcade.mail.onFired = () => audio.say('fired', { chance: 1, delay: 1.6 });
   arcade.mail.onReplied = () => {
     apartment.state.repliedHR = true;
+    completeApartmentActivity('emailChecked', TIME_EVENT_IDS.CHECK_EMAIL);
     hud.toast('Reply sent to Goy Corp HR', 'good');
     audio.say('hr.replied', { chance: 0.9, delay: 1.1 });
   };
@@ -676,9 +715,10 @@ window.addEventListener('wheel', (e) => {
 document.addEventListener('pointerlockchange', () => {
   if (dragLook) return;
   const locked = document.pointerLockElement === canvas;
-  player.enabled = locked;
-  document.body.classList.toggle('unlocked', !locked);
-  if (!locked && game.started) pauseGame();
+  const computerDomInput = game.seated && arcade.inputMode === 'dom';
+  player.enabled = locked || computerDomInput;
+  document.body.classList.toggle('unlocked', !locked && !computerDomInput);
+  if (!locked && game.started && !computerDomInput) pauseGame();
 });
 
 function pauseGame() {
@@ -1043,6 +1083,7 @@ function updateEatingSlice(dt, holdingF) {
   hud.setHold(null);
   st.heldItem = null;                 // empties the slot the slice was in
   st.fed = true;
+  completeApartmentActivity('eaten', TIME_EVENT_IDS.EAT);
   audio.play('egg.eat', { volume: 0.6 });
   audio.say('slice', { chance: 0.8, delay: 0.9 });
   hud.toast('Ate a slice', 'good');
@@ -1390,7 +1431,7 @@ function updateFarts(dt) {
  * steadies you without you having to get up, which is exactly why anybody
  * uses them.
  */
-const ZYN_MINUTES = 42;   // in-game minutes a pouch lasts
+const ZYN_SECONDS = 90;
 
 function takeZyn() {
   const st = apartment.state;
@@ -1402,7 +1443,7 @@ function takeZyn() {
   // A harder, shorter hit than a cigarette, and no trip to the bathroom.
   drunk.rush = Math.max(drunk.rush, 1.25);
   drunk.steady = Math.max(drunk.steady, 55);
-  game.zynUntil = time.minutes + ZYN_MINUTES;
+  game.zynUntil = time.elapsedReal + ZYN_SECONDS;
 
   hud.setHand({ icon: '⚪', name: `Zyn (${st.zynsLeft} left)`, hint: '[Q] bin it' });
   hud.toast('Upper lip. Steady hands.', 'good');
@@ -1415,7 +1456,7 @@ function takeZyn() {
 function updateZyn() {
   const st = apartment.state;
   if (!st.lipPacked) return;
-  if (time.minutes > game.zynUntil) {
+  if (time.elapsedReal > game.zynUntil) {
     apartment.dropZyn();
     if (apartment.state.heldItem === null) hud.setHand(null);
     hud.say('That one is done. You barely noticed it go.', 3600);
@@ -1509,6 +1550,7 @@ function updateShower(dt) {
     audio.stopLoop('shower.run', 0.6);
     showerFx.stop();
     apartment.state.showered = true;
+    completeApartmentActivity('showered', TIME_EVENT_IDS.SHOWER);
     hud.setMode('walk');
     hud.toast('Clean', 'good');
     hud.say('Right. That is better. That is much better.', 4600);
@@ -1559,6 +1601,7 @@ function eatEggs() {
   if (st.panState !== 'done') return;
   st.panState = null;
   st.fed = true;
+  completeApartmentActivity('eaten', TIME_EVENT_IDS.EAT);
   apartment.pan.contents.visible = false;
   apartment.pan.cook?.(0);        // ready for a pan that will never be used again
   audio.play('egg.eat', { volume: 0.7 });
@@ -1860,10 +1903,24 @@ function activityContext() {
   };
 }
 
+function syncClockFromCampaign() {
+  const { day, timeMinutes } = campaign.state.story;
+  time.setTime(day, timeMinutes);
+  apartment?.refreshClocks?.();
+  hud.setClock(day, time.clock12, time.elapsedReal);
+  arcade.setClock?.(time.clock12);
+}
+
+function completeApartmentActivity(activityId, timeEventId) {
+  const result = campaign.advanceTime(timeEventId, (state) => {
+    state.activities[activityId] = true;
+  });
+  syncClockFromCampaign();
+  return result;
+}
+
 function saveApartmentProgress() {
   campaign.update((state) => {
-    state.story.day = time.day;
-    state.story.timeMinutes = time.minutes;
     state.activities.eaten = apartment.state.fed;
     state.activities.showered = apartment.state.showered;
     state.activities.pooped = game.pooped;
@@ -1906,9 +1963,10 @@ function leaveForMission(destination) {
   game.left = true;
   saveApartmentProgress();
   if (destination === SCENE_IDS.BADA_BING_ONE) {
-    campaign.update((state) => {
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE, (state) => {
       state.missions[MISSION_IDS.BADA_BING_ONE].status = 'in_progress';
     });
+    syncClockFromCampaign();
   }
 
   interaction.setPaused(true);
@@ -1965,9 +2023,10 @@ function showEnding(kind) {
     next.onclick = (event) => {
       event.preventDefault();
       saveApartmentProgress();
-      campaign.update((state) => {
+      campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE, (state) => {
         state.missions[MISSION_IDS.BADA_BING_ONE].status = 'in_progress';
       });
+      syncClockFromCampaign();
       navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
         spawn: 'driver_seat',
         location,
@@ -2191,6 +2250,7 @@ function updateBowel(dt) {
       if (!game._poopDone) {
         game._poopDone = true;
         game.pooped = true;
+        completeApartmentActivity('pooped', TIME_EVENT_IDS.POOP);
         audio.say('poop.relief', { delay: 0.6 });
         hud.say('That is that dealt with.', 4000);
       }
@@ -2418,9 +2478,7 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     drunk.sleepItOff();
     highs.sleepItOff();
     if (storySleep?.ok) {
-      time.day = storySleep.day;
-      time.minutes = storySleep.timeMinutes;
-      time.skipHours(0);
+      time.setTime(storySleep.day, storySleep.timeMinutes);
     } else if (voluntary) {
       /* Sleeping on purpose lands on whichever comes first: the next morning,
        * or half five on the day of the meeting.
@@ -2569,9 +2627,8 @@ let elapsed = 0;
 function frame() {
   requestAnimationFrame(frame);
 
-  // Simulation uses a clamped delta so a hitch cannot tunnel anything, but
-  // the time of day rides real elapsed seconds -- a day is 15 real minutes
-  // whatever the frame rate is doing.
+  // Simulation uses a clamped delta so a hitch cannot tunnel anything. The
+  // story clock is event-driven; update() only tracks real session time.
   const rawDt = clock.getDelta();
   const dt = Math.min(rawDt, 0.05);
   elapsed += dt;
@@ -2590,9 +2647,7 @@ function frame() {
       audio.setLoopVolume('ambience.city.day', 0.02 + time.dayness * 0.13, 1.0);
       audio.setLoopVolume('ambience.city.night', 0.02 + (1 - time.dayness) * 0.12, 1.0);
 
-      // The coffee table slows the world down. Everything that animates runs
-      // on scaled time; the clock does not, because a day is fifteen minutes
-      // whether or not you have had a bowl.
+      // The coffee table slows animations, never the authored campaign clock.
       highs.update(dt);
       spooky.update(dt, highs.trip);
       bullets.update(dt);
@@ -2653,7 +2708,6 @@ function frame() {
       splat.update(dt);
       updateCooking(hdt);
       updateFarts(dt);
-      if (goals.known && !game.left && goals.window === 'missed' && !goals.missed) missedIt();
       updateNeighbours(dt);
       smoke.update(hdt);
       stream.update(hdt);

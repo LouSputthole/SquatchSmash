@@ -2,11 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CAMPAIGN_RECOVERY_KEY,
+  CAMPAIGN_STORAGE_KEY,
+  CAMPAIGN_VERSION,
   CHARACTER_IDS,
   EVENT_IDS,
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   navigateCampaign,
 } from '../src/core/campaign.js';
@@ -34,6 +38,66 @@ test('a new campaign starts in the apartment with both Lous kept distinct', () =
   assert.notEqual(CHARACTER_IDS.LOU, CHARACTER_IDS.CAPTAIN_LOU_SASOLE);
   assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'pending');
   assert.equal(campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
+});
+
+test('authored task time advances once and survives a reload', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+
+  assert.deepEqual(campaign.advanceTime(TIME_EVENT_IDS.EAT), {
+    applied: true,
+    day: 1,
+    timeMinutes: 6 * 60 + 24,
+    minutesAdvanced: 20,
+  });
+  assert.deepEqual(campaign.advanceTime(TIME_EVENT_IDS.EAT), {
+    applied: false,
+    day: 1,
+    timeMinutes: 6 * 60 + 24,
+    minutesAdvanced: 0,
+  });
+
+  const restored = createCampaign({ storage }).state;
+  assert.equal(restored.story.day, 1);
+  assert.equal(restored.story.timeMinutes, 6 * 60 + 24);
+  assert.deepEqual(restored.story.timeEvents, [TIME_EVENT_IDS.EAT]);
+});
+
+test('a completed task and its authored time are committed as one campaign beat', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+
+  campaign.advanceTime(TIME_EVENT_IDS.SHOWER, (state) => {
+    state.activities.showered = true;
+  });
+
+  const restored = createCampaign({ storage }).state;
+  assert.equal(restored.activities.showered, true);
+  assert.equal(restored.story.timeMinutes, 6 * 60 + 19);
+  assert.deepEqual(restored.story.timeEvents, [TIME_EVENT_IDS.SHOWER]);
+});
+
+test('morning tasks consume authored time and departure lands at the Bing opening', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+
+  for (const eventId of [
+    TIME_EVENT_IDS.EAT,
+    TIME_EVENT_IDS.SHOWER,
+    TIME_EVENT_IDS.POOP,
+    TIME_EVENT_IDS.CHANGE_CLOTHES,
+    TIME_EVENT_IDS.LOU_FIRST_CALL,
+  ]) {
+    campaign.advanceTime(eventId);
+  }
+  assert.equal(campaign.state.story.timeMinutes, 6 * 60 + 57);
+
+  const departure = campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
+  assert.deepEqual(departure, {
+    applied: true,
+    day: 1,
+    timeMinutes: 23 * 60 + 41,
+    minutesAdvanced: 16 * 60 + 44,
+  });
 });
 
 test('Lou’s parcel persists as concealed inventory across a reload', () => {
@@ -228,10 +292,13 @@ test('blocked browser storage falls back to the live in-memory campaign', () => 
 
   assert.doesNotThrow(() => {
     campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
-    campaign.transition(SCENE_IDS.BADA_BING_ONE, { spawn: 'driver_seat' });
   });
   assert.equal(campaign.hasItem(ITEM_IDS.LOU_PACKAGE), true);
-  assert.equal(campaign.state.scene.id, SCENE_IDS.BADA_BING_ONE);
+  assert.throws(
+    () => campaign.transition(SCENE_IDS.BADA_BING_ONE, { spawn: 'driver_seat' }),
+    /could not be saved/i,
+  );
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
 });
 
 test('apartment readiness and learned story context survive a reload', () => {
@@ -298,8 +365,220 @@ test('older Day One saves gain the Day Two event and airstrip mission without lo
   }));
 
   const restored = createCampaign({ storage }).state;
+  const migrated = JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY));
+  assert.equal(restored.version, CAMPAIGN_VERSION);
+  assert.equal(migrated.version, CAMPAIGN_VERSION);
   assert.equal(restored.missions[MISSION_IDS.SQUATCHFATHER].status, 'complete');
   assert.equal(restored.activities.eaten, true);
   assert.equal(restored.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'pending');
   assert.equal(restored.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
+});
+
+test('malformed save JSON is backed up before a clean campaign replaces it', () => {
+  const storage = new MemoryStorage();
+  const raw = '{"version":1,"scene":';
+  storage.setItem(CAMPAIGN_STORAGE_KEY, raw);
+
+  const campaign = createCampaign({ storage });
+  const recovery = JSON.parse(storage.getItem(CAMPAIGN_RECOVERY_KEY));
+  const persisted = JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY));
+
+  assert.equal(campaign.state.version, CAMPAIGN_VERSION);
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+  assert.deepEqual(recovery, {
+    reason: 'invalid_json',
+    raw,
+  });
+  assert.deepEqual(campaign.recovery, recovery);
+  assert.equal(persisted.version, CAMPAIGN_VERSION);
+});
+
+test('unsupported future saves are preserved instead of being silently discarded', () => {
+  const storage = new MemoryStorage();
+  const future = {
+    version: CAMPAIGN_VERSION + 10,
+    revision: 99,
+    scene: { id: SCENE_IDS.JERKY_MOTEL, spawn: 'passenger_seat' },
+  };
+  const raw = JSON.stringify(future);
+  storage.setItem(CAMPAIGN_STORAGE_KEY, raw);
+
+  const campaign = createCampaign({ storage });
+  const recovery = JSON.parse(storage.getItem(CAMPAIGN_RECOVERY_KEY));
+
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+  assert.equal(storage.getItem(CAMPAIGN_STORAGE_KEY), raw);
+  assert.deepEqual(recovery, {
+    reason: 'unsupported_version',
+    raw,
+  });
+  assert.deepEqual(campaign.recovery, recovery);
+  assert.equal(campaign.persistent, false);
+});
+
+test('a recovery record remains discoverable after the repaired save reloads', () => {
+  const storage = new MemoryStorage();
+  const raw = '{"version":1,"story":';
+  storage.setItem(CAMPAIGN_STORAGE_KEY, raw);
+
+  const recovered = createCampaign({ storage });
+  assert.equal(recovered.recoveredNow, true);
+
+  const reloaded = createCampaign({ storage });
+  assert.equal(reloaded.recoveredNow, false);
+  assert.deepEqual(reloaded.recovery, {
+    reason: 'invalid_json',
+    raw,
+  });
+});
+
+test('parseable but structurally broken current saves are backed up before repair', () => {
+  const storage = new MemoryStorage();
+  const raw = JSON.stringify({ version: CAMPAIGN_VERSION });
+  storage.setItem(CAMPAIGN_STORAGE_KEY, raw);
+
+  const campaign = createCampaign({ storage });
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+  assert.deepEqual(campaign.recovery, {
+    reason: 'invalid_shape',
+    raw,
+  });
+  assert.equal(JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY)).version, CAMPAIGN_VERSION);
+});
+
+test('navigation never leaves the page when its transition cannot be persisted', () => {
+  let assignments = 0;
+  const storage = {
+    getItem() {
+      return null;
+    },
+    setItem() {
+      throw new Error('quota exceeded');
+    },
+  };
+  const campaign = createCampaign({ storage });
+
+  assert.throws(
+    () => navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
+      spawn: 'driver_seat',
+      location: {
+        assign() {
+          assignments++;
+        },
+      },
+    }),
+    /could not be saved/i,
+  );
+  assert.equal(assignments, 0);
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+});
+
+test('a failed navigation rollback exposes the hard save mismatch', () => {
+  const values = new Map();
+  let writes = 0;
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null;
+    },
+    setItem(key, value) {
+      writes++;
+      if (writes === 2) throw new Error('rollback write failed');
+      values.set(key, String(value));
+    },
+  };
+  const campaign = createCampaign({ storage });
+
+  assert.throws(
+    () => navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
+      location: {
+        assign() {
+          throw new Error('navigation blocked');
+        },
+      },
+    }),
+    (error) => error instanceof AggregateError
+      && /rollback could not be saved/i.test(error.message),
+  );
+
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+  assert.equal(
+    JSON.parse(values.get(CAMPAIGN_STORAGE_KEY)).scene.id,
+    SCENE_IDS.BADA_BING_ONE,
+  );
+  assert.equal(campaign.persistent, false);
+});
+
+test('storage read failures fall back to a coherent in-memory campaign', () => {
+  const storage = {
+    getItem() {
+      throw new Error('read disabled');
+    },
+    setItem() {
+      throw new Error('write disabled');
+    },
+  };
+
+  const campaign = createCampaign({ storage });
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+  assert.doesNotThrow(() => {
+    campaign.update((state) => {
+      state.activities.eaten = true;
+    });
+  });
+  assert.equal(campaign.state.activities.eaten, true);
+});
+
+test('a failed recovery backup never overwrites the damaged primary save', () => {
+  const raw = '{"version":1,"inventory":';
+  const values = new Map([[CAMPAIGN_STORAGE_KEY, raw]]);
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null;
+    },
+    setItem(key, value) {
+      if (key === CAMPAIGN_RECOVERY_KEY) throw new Error('recovery quota exceeded');
+      values.set(key, String(value));
+    },
+  };
+
+  const campaign = createCampaign({ storage });
+  assert.equal(storage.getItem(CAMPAIGN_STORAGE_KEY), raw);
+  assert.equal(campaign.persistent, false);
+  assert.equal(campaign.recovery.reason, 'invalid_json');
+});
+
+test('a failed repaired-save write preserves both the damaged primary and its backup', () => {
+  const raw = '{"version":1,"story":';
+  const values = new Map([[CAMPAIGN_STORAGE_KEY, raw]]);
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null;
+    },
+    setItem(key, value) {
+      if (key === CAMPAIGN_STORAGE_KEY) throw new Error('primary quota exceeded');
+      values.set(key, String(value));
+    },
+  };
+
+  const campaign = createCampaign({ storage });
+  assert.equal(values.get(CAMPAIGN_STORAGE_KEY), raw);
+  assert.deepEqual(JSON.parse(values.get(CAMPAIGN_RECOVERY_KEY)), {
+    reason: 'invalid_json',
+    raw,
+  });
+  assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
+  assert.equal(campaign.persistent, false);
+});
+
+test('a damaged recovery record does not hide a valid primary save', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  campaign.update((state) => {
+    state.activities.eaten = true;
+  });
+  storage.setItem(CAMPAIGN_RECOVERY_KEY, '{not valid json');
+
+  const reloaded = createCampaign({ storage });
+  assert.equal(reloaded.state.activities.eaten, true);
+  assert.equal(reloaded.recovery, null);
 });

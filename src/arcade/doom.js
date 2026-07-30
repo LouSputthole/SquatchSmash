@@ -19,7 +19,13 @@
 import { WebApp } from './webapp.js';
 
 /** mrdoob/three-doom, as published. Not vendored -- see above. */
-const DOOM_URL = 'https://mrdoob.github.io/three-doom/';
+/*
+ * The bare page deliberately enters DOOM's attract loop, including recorded
+ * DEMO1/2/3 input. That looks exactly like the apartment is playing for you.
+ * The port's supported `map` parameter starts a real, idle player session
+ * instead: monsters may think, but no prerecorded player commands are fed in.
+ */
+const DOOM_URL = 'https://mrdoob.github.io/three-doom/?map=E1M1';
 
 export class Doom extends WebApp {
   constructor(opts = {}) {
