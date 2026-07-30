@@ -1361,15 +1361,23 @@ export class MissionController {
   /** The end card's contents. */
   report() {
     const s = this.score;
-    const pct = (v) => `${Math.round(clamp(v, 0, 1) * 100)}%`;
-    const grade = (v) => (v > 0.75 ? 'good' : v > 0.45 ? 'ok' : 'bad');
+    /* A stat that was never measured is not a stat you scored nothing on.
+     * Restoring a checkpoint can carry you past the point where a grade is
+     * taken, and `?? 0` then reported it as 0% — indistinguishable from a
+     * genuinely dreadful one — and, worse, fed a zero into the total at its full
+     * weight. The takeoff is worth twelve per cent of the mission, so a player
+     * who used a checkpoint was quietly docked twelve per cent for a takeoff
+     * nobody had judged. Unmeasured stats read as a dash and drop out of the
+     * average, which renormalises over whatever was actually flown. */
+    const pct = (v) => (v === null || v === undefined ? '—' : `${Math.round(clamp(v, 0, 1) * 100)}%`);
+    const grade = (v) => (v === null || v === undefined ? '' : v > 0.75 ? 'good' : v > 0.45 ? 'ok' : 'bad');
     const mins = Math.floor(s.flightTime / 60);
     const secs = Math.round(s.flightTime % 60);
 
     const stats = [
-      { label: 'Takeoff quality', value: pct(s.takeoff ?? 0), grade: grade(s.takeoff ?? 0) },
-      { label: 'Mountain landing', value: pct(s.mountainLanding ?? 0), grade: grade(s.mountainLanding ?? 0) },
-      { label: 'Final landing', value: pct(s.finalLanding ?? 0), grade: grade(s.finalLanding ?? 0) },
+      { label: 'Takeoff quality', value: pct(s.takeoff), grade: grade(s.takeoff) },
+      { label: 'Mountain landing', value: pct(s.mountainLanding), grade: grade(s.mountainLanding) },
+      { label: 'Final landing', value: pct(s.finalLanding), grade: grade(s.finalLanding) },
       { label: 'Cargo damage', value: pct(s.cargoDamage), grade: grade(1 - s.cargoDamage) },
       { label: 'Patrol attention', value: pct(s.patrolPeak), grade: grade(1 - s.patrolPeak) },
       {
@@ -1391,17 +1399,20 @@ export class MissionController {
 
     // The overall number, weighted toward the two landings, because they are
     // the mission.
-    const total = clamp(
-      (s.takeoff ?? 0) * 0.12
-      + (s.mountainLanding ?? 0) * 0.26
-      + (s.finalLanding ?? 0) * 0.22
-      + (1 - s.cargoDamage) * 0.12
-      + (1 - s.patrolPeak) * 0.12
-      + (1 - s.damage) * 0.08
-      + s.patience * 0.05
-      + (s.gunsDelivered >= 3 ? 0.03 : 0),
-      0, 1,
-    );
+    const parts = [
+      [s.takeoff, 0.12],
+      [s.mountainLanding, 0.26],
+      [s.finalLanding, 0.22],
+      [1 - s.cargoDamage, 0.12],
+      [1 - s.patrolPeak, 0.12],
+      [1 - s.damage, 0.08],
+      [s.patience, 0.05],
+      [s.gunsDelivered >= 3 ? 1 : 0, 0.03],
+    ].filter(([v]) => v !== null && v !== undefined && Number.isFinite(v));
+    const weight = parts.reduce((a, [, w]) => a + w, 0);
+    const total = weight > 0
+      ? clamp(parts.reduce((a, [v, w]) => a + clamp(v, 0, 1) * w, 0) / weight, 0, 1)
+      : 0;
     const ranks = [
       'Gas Station Amateur', 'Cargo Curious', 'Certified Meat Aviator',
       'Airborne Butcher', 'Silverback Smuggler',
