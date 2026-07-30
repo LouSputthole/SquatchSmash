@@ -23,6 +23,7 @@ import {
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
   navigateCampaign,
 } from '../core/campaign.js';
@@ -1149,6 +1150,7 @@ function showEnding(kind) {
     : 'Return to the apartment →';
   next.onclick = (event) => {
     event.preventDefault();
+    if (isSecondVisit) campaign.advanceTime(TIME_EVENT_IDS.DEPART_JERKY_MOTEL);
     navigateCampaign(campaign, isSecondVisit ? SCENE_IDS.JERKY_MOTEL : SCENE_IDS.APARTMENT, {
       spawn: isSecondVisit ? 'passenger_seat' : 'front_door',
       location,

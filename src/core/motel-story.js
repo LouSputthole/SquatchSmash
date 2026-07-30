@@ -1,4 +1,4 @@
-import { MISSION_IDS } from './campaign.js';
+import { MISSION_IDS, TIME_EVENT_IDS } from './campaign.js';
 
 class MotelStory {
   constructor({ campaign }) {
@@ -38,6 +38,7 @@ class MotelStory {
       completed.freshness = freshness;
       completed.policeHeat = policeHeat;
     });
+    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL);
     return true;
   }
 }

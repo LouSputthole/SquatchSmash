@@ -127,6 +127,10 @@ Current authored beats:
 | Leave for the Beef Run | Advance to at least Day 2, 9:10 AM |
 | Beef Run completion | Advance to at least Day 2, 8:30 PM |
 | Big Uncle Lou's second answered call | +5 minutes |
+| Leave for Bada Bing Scene Two | Advance to at least Day 2, 11:00 PM |
+| Bada Bing Scene Two completion | Advance to at least Day 3, 12:45 AM |
+| Drive to the Jerky Motel | Advance to at least Day 3, 1:30 AM |
+| Jerky Motel completion | Advance to at least Day 3, 4:30 AM |
 
 The first Bing HUD now reads the persisted campaign clock instead of a
 scene-local timer. Remaining mission and travel beats should extend the same
@@ -284,20 +288,18 @@ imported into the shipped game.
 
 ## Next implementation sequence
 
-1. Extend the authored time ledger across the remaining mission/return beats
-   (Bing Two travel/completion, Motel travel/completion, returns home).
-2. Add the final apartment return/big-night call and route the current
+1. Add the final apartment return/big-night call and route the current
    Initiation through normal campaign state without rewriting it.
-3. After the user playtests Initiation, design and implement the approved
+2. After the user playtests Initiation, design and implement the approved
    accomplishment review, rival deaths, mass transformation, and
    chapter-complete checkpoint.
-4. Run the entire waking-apartment-through-Initiation acceptance path, including
+3. Run the entire waking-apartment-through-Initiation acceptance path, including
    reloads at every apartment return.
-5. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather
+4. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather
    chair orientation and revolver, Bada Bing character style/performer detail,
    Motel pool/doors/windows, driving-scene car interior and lights, gambling
    rework, apartment glue-gag tuning, sound and voice generation).
-6. Only after zero P0 failures, prepare a reviewed merge into `main`.
+5. Only after zero P0 failures, prepare a reviewed merge into `main`.
 
 ## Design questions to resolve with the user
 

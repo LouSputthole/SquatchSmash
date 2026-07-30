@@ -54,6 +54,10 @@ export const TIME_EVENT_IDS = Object.freeze({
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
   DEPART_AIRSTRIP: 'travel.airstrip',
   COMPLETE_AIRSTRIP: 'mission.airstrip',
+  DEPART_BADA_BING_TWO: 'travel.bada_bing_two',
+  COMPLETE_BADA_BING_TWO: 'mission.bada_bing_two',
+  DEPART_JERKY_MOTEL: 'travel.jerky_motel',
+  COMPLETE_JERKY_MOTEL: 'mission.jerky_motel',
 });
 
 const TIME_EVENTS = Object.freeze({
@@ -75,6 +79,22 @@ const TIME_EVENTS = Object.freeze({
   // The return leg is flown at dusk; the mission ends after dark.
   [TIME_EVENT_IDS.COMPLETE_AIRSTRIP]: Object.freeze({
     atLeast: Object.freeze({ day: 2, timeMinutes: 20 * 60 + 30 }),
+  }),
+  // The club again, late the same evening Lou calls him back in.
+  [TIME_EVENT_IDS.DEPART_BADA_BING_TWO]: Object.freeze({
+    atLeast: Object.freeze({ day: 2, timeMinutes: 23 * 60 }),
+  }),
+  // Lou's assignment lands after the club crosses midnight.
+  [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 45 }),
+  }),
+  // The drive out to the Motel, straight from the club.
+  [TIME_EVENT_IDS.DEPART_JERKY_MOTEL]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 60 + 30 }),
+  }),
+  // Deal, betrayal, recovery, and the getaway end before dawn.
+  [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 4 * 60 + 30 }),
   }),
 });
 const MINUTES_PER_DAY = 24 * 60;

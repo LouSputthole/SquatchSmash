@@ -1973,6 +1973,10 @@ function leaveForMission(destination) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_AIRSTRIP);
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.BADA_BING_TWO) {
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_TWO);
+    syncClockFromCampaign();
+  }
 
   interaction.setPaused(true);
   hud.hidePrompt();

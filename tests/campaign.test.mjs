@@ -100,6 +100,31 @@ test('morning tasks consume authored time and departure lands at the Bing openin
   });
 });
 
+test('the Day Two and Day Three mission beats land on their authored clocks', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+
+  const beats = [
+    [TIME_EVENT_IDS.DEPART_AIRSTRIP, 2, 9 * 60 + 10],
+    [TIME_EVENT_IDS.COMPLETE_AIRSTRIP, 2, 20 * 60 + 30],
+    [TIME_EVENT_IDS.DEPART_BADA_BING_TWO, 2, 23 * 60],
+    [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 3, 45],
+    [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 3, 60 + 30],
+    [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 3, 4 * 60 + 30],
+  ];
+  for (const [eventId, day, timeMinutes] of beats) {
+    const result = campaign.advanceTime(eventId);
+    assert.equal(result.applied, true, eventId);
+    assert.equal(result.day, day, eventId);
+    assert.equal(result.timeMinutes, timeMinutes, eventId);
+  }
+
+  // Replaying a completed beat cannot farm time across the midnight boundary.
+  const replay = campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO);
+  assert.deepEqual(replay, {
+    applied: false, day: 3, timeMinutes: 4 * 60 + 30, minutesAdvanced: 0,
+  });
+});
+
 test('Lou’s parcel persists as concealed inventory across a reload', () => {
   const storage = new MemoryStorage();
   const firstPage = createCampaign({ storage });

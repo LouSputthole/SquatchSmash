@@ -1,6 +1,7 @@
 import {
   EVENT_IDS,
   MISSION_IDS,
+  TIME_EVENT_IDS,
 } from './campaign.js';
 
 class BadaBingTwoStory {
@@ -36,6 +37,7 @@ class BadaBingTwoStory {
       completed.assignment = assignment;
       state.missions[MISSION_IDS.JERKY_MOTEL].status = 'available';
     });
+    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO);
     return true;
   }
 }
