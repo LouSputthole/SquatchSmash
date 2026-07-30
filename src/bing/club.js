@@ -23,6 +23,7 @@ import { makeMaterials } from '../world/materials.js';
 import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack } from '../world/props.js';
 import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick } from './kit.js';
 import { drawSquatchSilhouette } from '../world/textures.js';
+import { Tv } from '../core/tv.js';
 
 export const CEIL_MAIN = 4.5;
 export const CEIL_BACK = 2.6;
@@ -1370,7 +1371,21 @@ export function buildClub(scene, { renderer } = {}) {
     anchors.safe = new THREE.Vector3(O.x1 - 0.75, 1.85, O.z0 + 1.2);
 
     add(makeWallClock(M, { x: dx - 0.9, y: 2.1, z: O.z0 + 0.1, rotY: 0, r: 0.16 }));
-    add(makeTv(M, { x: O.x0 + 0.7, z: O.z1 - 1.8, rotY: Math.PI / 2, w: 0.8 }));
+    // Lou's set runs all night on the nature channel, sound off. It is the
+    // same channel system as the flat's telly, pinned to one programme.
+    const officeTvProp = makeTv(M, { x: O.x0 + 0.7, z: O.z1 - 1.8, rotY: Math.PI / 2, w: 0.8 });
+    add(officeTvProp);
+    office.tv = new Tv({});
+    office.tv.on = true;
+    office.tv.index = 0;
+    const officeTvTex = new THREE.CanvasTexture(office.tv.canvas);
+    officeTvTex.colorSpace = THREE.SRGBColorSpace;
+    officeTvTex.generateMipmaps = false;
+    officeTvTex.minFilter = THREE.LinearFilter;
+    officeTvProp.screen.material = new THREE.MeshBasicMaterial({
+      map: officeTvTex, toneMapped: false,
+    });
+    office.tvScreen = officeTvProp.screen;
 
     // The security monitor showing the parking lot, which matters later
     const monScreen = box({ size: [0.54, 0.4, 0.02], pos: [0, 0, 0.06], mat: lit(0x1a2a1a, 0.8) });
@@ -1415,6 +1430,10 @@ export function buildClub(scene, { renderer } = {}) {
     for (const d of Object.values(doors)) d.update(dt);
     rain.update(dt, playerPos);
     haze.update(dt);
+    if (office.tv) {
+      office.tv.update(dt);
+      if (office.tvScreen.material.map) office.tvScreen.material.map.needsUpdate = true;
+    }
 
     for (const f of neon) {
       f.next -= dt;

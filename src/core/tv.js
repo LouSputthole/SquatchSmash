@@ -18,6 +18,8 @@
  * did something when a channel you have not written yet draws nothing.
  */
 
+import { drawSquatchSilhouette } from '../world/textures.js';
+
 export const W = 512;
 export const H = 288;
 
@@ -105,7 +107,167 @@ const STATIC = {
   glow: () => ({ colour: 0x9aa2ab, intensity: 0.85 }),
 };
 
-export const CHANNELS = [TEST_CARD, NOTICES, STATIC];
+/* ------------------------------------------------------------------ */
+/* Real programming                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A nature documentary about the one subject this world has. Hills, fog, a
+ * distant figure that keeps its distance, and captions written by somebody
+ * who has been in that hide far too long.
+ */
+const SQUATCH_WATCH = {
+  name: 'SQUATCH WATCH',
+  captions: [
+    'DAY 41. HE KNOWS WE ARE HERE.',
+    'THE GUIDE REFUSES TO GO PAST THE TREELINE.',
+    'HE TOOK THE SANDWICHES. ALL OF THEM.',
+    'WE HAVE NAMED HIM GARY. GARY DOES NOT CARE.',
+    'DAY 44. GARY HAS A FAMILY. THEY ALSO DO NOT CARE.',
+    'FUNDING RUNS OUT FRIDAY.',
+  ],
+  draw(g, t) {
+    // Dusk sky, three ranges of hills, and fog that never quite lifts.
+    const sky = g.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#26343c');
+    sky.addColorStop(0.6, '#48545a');
+    sky.addColorStop(1, '#6a6e66');
+    g.fillStyle = sky;
+    g.fillRect(0, 0, W, H);
+    const drift = (t * 6) % W;
+    for (const [base, amp, col] of [
+      [0.52, 26, '#31413c'], [0.66, 20, '#273630'], [0.82, 14, '#1c2a24'],
+    ]) {
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(0, H);
+      for (let x = 0; x <= W; x += 16) {
+        g.lineTo(x, H * base + Math.sin((x + drift * 0.4) * 0.02) * amp);
+      }
+      g.lineTo(W, H);
+      g.fill();
+    }
+    // Gary, crossing left to right forever, far enough away to be deniable.
+    const gx = ((t * 14) % (W + 120)) - 60;
+    drawSquatchSilhouette(g, gx, H * 0.74, 52, 'rgba(10,14,12,0.9)');
+    g.fillStyle = 'rgba(214,222,214,0.10)';
+    g.fillRect(0, H * (0.62 + Math.sin(t * 0.3) * 0.03), W, H * 0.1);
+    // The broadcast furniture.
+    g.fillStyle = '#c22';
+    g.fillRect(14, 12, 8, 8);
+    g.fillStyle = '#e8e8e0';
+    g.font = '700 12px ui-monospace, monospace';
+    g.fillText('LIVE', 28, 20);
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(0, H - 34, W, 22);
+    g.fillStyle = '#f0e6c8';
+    g.font = '600 13px ui-monospace, monospace';
+    g.textAlign = 'center';
+    g.fillText(this.captions[Math.floor(t / 7) % this.captions.length], W / 2, H - 19);
+    g.textAlign = 'left';
+  },
+  glow: () => ({ colour: 0x54685e, intensity: 1.0 }),
+};
+
+/** Somebody paying for airtime at this hour is selling exactly one thing. */
+const JERKY_CHANNEL = {
+  name: 'THE JERKY CHANNEL',
+  draw(g, t) {
+    g.fillStyle = '#2a1410';
+    g.fillRect(0, 0, W, H);
+    // The product, rotating on velvet like it cost something.
+    const cx = W / 2;
+    const cy = H * 0.46;
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(Math.sin(t * 0.8) * 0.35);
+    g.fillStyle = '#6a3018';
+    g.beginPath();
+    g.ellipse(0, 0, 88, 30, 0.2, 0, 7);
+    g.fill();
+    g.strokeStyle = '#4a1f0e';
+    g.lineWidth = 3;
+    for (let i = -2; i <= 2; i++) {
+      g.beginPath();
+      g.moveTo(-70, i * 9);
+      g.quadraticCurveTo(0, i * 9 + 6, 70, i * 9 - 4);
+      g.stroke();
+    }
+    g.restore();
+    const pulse = Math.sin(t * 4) > 0;
+    g.fillStyle = '#f2d8a0';
+    g.font = '900 26px "Trebuchet MS", sans-serif';
+    g.textAlign = 'center';
+    g.fillText('SILVERBACK RESERVE', cx, 42);
+    g.font = '700 15px "Trebuchet MS", sans-serif';
+    g.fillStyle = '#d8b070';
+    g.fillText('AIR-CURED AT ALTITUDE · ASK NOBODY WHERE', cx, 64);
+    g.fillStyle = pulse ? '#ffd23a' : '#c89a2a';
+    g.font = '900 30px "Trebuchet MS", sans-serif';
+    g.fillText('$19.99', cx, H - 44);
+    g.font = '700 13px "Trebuchet MS", sans-serif';
+    g.fillStyle = '#e8d8c0';
+    g.fillText(pulse ? 'CALL NOW. NOT LATER. NOW.' : 'OPERATORS ARE STANDING AROUND', cx, H - 22);
+    g.textAlign = 'left';
+  },
+  glow: () => ({ colour: 0xb07030, intensity: 1.1 }),
+};
+
+/** The esports broadcast for the game on the desk. The casters never sleep. */
+const COUNTER_SQUATCH_LEGENDS = {
+  name: 'COUNTER-SQUATCH LEGENDS',
+  feed: [
+    'xXgroundhogXx cheated SQUATCHLORD',
+    'SQUATCHLORD is having a moment',
+    'beans planted the pinecone',
+    'xXgroundhogXx cheated beans',
+    'ADMIN: nothing we can do',
+  ],
+  draw(g, t) {
+    g.fillStyle = '#101820';
+    g.fillRect(0, 0, W, H);
+    // A top-down map diagram with two sites and a dotted rush route.
+    g.strokeStyle = '#2c3c4c';
+    g.lineWidth = 2;
+    g.strokeRect(W * 0.12, H * 0.16, W * 0.5, H * 0.62);
+    g.strokeRect(W * 0.18, H * 0.24, W * 0.14, H * 0.18);
+    g.strokeRect(W * 0.44, H * 0.5, W * 0.14, H * 0.2);
+    g.fillStyle = '#c8a24a';
+    g.font = '700 13px ui-monospace, monospace';
+    g.fillText('A', W * 0.24, H * 0.34);
+    g.fillText('B', W * 0.5, H * 0.61);
+    g.setLineDash([4, 6]);
+    g.lineDashOffset = -t * 20;
+    g.strokeStyle = '#e0533a';
+    g.beginPath();
+    g.moveTo(W * 0.14, H * 0.74);
+    g.quadraticCurveTo(W * 0.36, H * 0.6, W * 0.5, H * 0.58);
+    g.stroke();
+    g.setLineDash([]);
+    // Score bug and the feed.
+    g.fillStyle = 'rgba(0,0,0,0.6)';
+    g.fillRect(W * 0.3, 8, W * 0.4, 26);
+    g.fillStyle = '#e8e8e0';
+    g.font = '900 15px ui-monospace, monospace';
+    g.textAlign = 'center';
+    const round = Math.floor(t / 12);
+    g.fillText(`SQUATCH ${7 + (round % 6)} — ${6 + ((round * 3) % 7)} RANGERS`, W / 2, 26);
+    g.textAlign = 'right';
+    g.font = '11px ui-monospace, monospace';
+    for (let i = 0; i < 3; i++) {
+      const line = this.feed[(Math.floor(t / 4) + i) % this.feed.length];
+      g.fillStyle = i === 0 ? '#f0c860' : '#9ab0c4';
+      g.fillText(line, W - 14, H * 0.2 + i * 16);
+    }
+    g.textAlign = 'left';
+  },
+  glow: () => ({ colour: 0x3a5a7a, intensity: 1.05 }),
+};
+
+export const CHANNELS = [
+  SQUATCH_WATCH, JERKY_CHANNEL, COUNTER_SQUATCH_LEGENDS,
+  NOTICES, TEST_CARD, STATIC,
+];
 
 /* ------------------------------------------------------------------ */
 
