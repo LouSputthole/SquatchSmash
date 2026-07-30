@@ -50,8 +50,9 @@ jobs:
       - name: Stage the site
         run: |
           mkdir -p _site
-          cp index.html bing.html _site/
-          cp -r src vendor assets _site/
+          cp index.html bing.html squatchfather.html motel.html beefrun.html \
+             silver.html initiation.html preview.html roster.html _site/
+          cp -r src vendor assets game _site/
           echo "Staged $(du -sh _site | cut -f1)"
 
       # Pages has to be switched on once, by hand, before this can deploy:
