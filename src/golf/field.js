@@ -108,6 +108,12 @@ export function cartPathDistance(x, z) {
  * about up there is still on the tee. */
 const TEE_BOX = { x: TEE.x, z: TEE.z + 1, rx: 8.5, rz: 7.0 };
 
+/* The car park and the walk down to the first tee. Somebody mows this: it is
+ * the first thing anybody sees of the club, and a clubhouse standing in
+ * knee-deep hay is a different story about Lou's membership than the one this
+ * scene is telling. */
+const LOT_AREA = { x: -6, z: 30, rx: 44, rz: 26 };
+
 /* ------------------------------------------------------------------ */
 /* Height                                                              */
 /* ------------------------------------------------------------------ */
@@ -121,24 +127,38 @@ function greenSurfaceHeight(x, z) {
   return GREEN.slopeFront * back - GREEN.slopePond * right;
 }
 
-/** Everything except the authored features: the shelf, the run-out, the roll. */
+/** Everything except the authored features: the fall, the run-out, the roll. */
 function baseHeight(x, z) {
-  /* The whole tee side of the hole is a shelf. The ground falls away from it
-   * over about forty-five metres and runs out level to the green — which is
-   * what makes the tee elevated and the green readable from it. */
-  const shelf = smootherstep(clamp01((z + 52) / 46));
-  let h = TEE.y * shelf;
+  /* One continuous fall from the tee shelf down to green level, across the
+   * whole length of the hole.
+   *
+   * This used to level out forty-five metres from the tee, and it made the
+   * hole unreadable: from an eye six metres up looking at a green a hundred
+   * and fifty metres away the depression angle is barely two degrees, so any
+   * ground left standing in the middle hides everything the player is
+   * supposed to be deciding about. A green you cannot see is a green you
+   * cannot aim at, and the brief for this hole is that it explains itself
+   * from the tee without a tutorial box. */
+  const fall = smootherstep(clamp01((-z + 6) / 140));
+  let h = TEE.y * (1 - fall);
 
-  // Past the green the ground lifts into the treeline and the next hole.
-  h += 2.6 * smootherstep(clamp01((-z - 168) / 34));
+  /* Past the green the ground lifts into the treeline and the next hole —
+   * but well beyond the green rather than immediately behind it, so the
+   * flagstick has sky behind it from the tee instead of a wall of pine. */
+  h += 2.6 * smootherstep(clamp01((-z - 186) / 34));
 
-  // Long roll, then finer texture. Both small; this is not links land.
-  h += noise2(x * 0.013, z * 0.013) * 1.45;
-  h += noise2(x * 0.048, z * 0.048) * 0.32;
+  /* Long roll, then finer texture — but damped to nothing down the middle.
+   * The rough keeps its lumps, which is where lumps are interesting; the
+   * sightline from the tee to the flag stays clean, which is where they are
+   * not. */
+  const off = Math.abs(x - corridorCentreX(clamp(z, CORRIDOR.to.z, CORRIDOR.from.z)));
+  const openness = 1 - clamp01((off - 6) / 26);
+  const roll = 1 - 0.82 * openness;
+  h += noise2(x * 0.013, z * 0.013) * 1.45 * roll;
+  h += noise2(x * 0.048, z * 0.048) * 0.32 * roll;
 
   /* The sides rise toward the pines so the hole reads as a corridor rather
    * than a field with a flag in it. */
-  const off = Math.abs(x - corridorCentreX(clamp(z, CORRIDOR.to.z, CORRIDOR.from.z)));
   h += 0.035 * Math.max(0, off - 27);
 
   return h;
@@ -177,14 +197,19 @@ export function heightAt(x, z) {
     h -= BUNKER.depth * bowl;
   }
 
-  /* The pond basin, carved last. The bottom sits well under the water plane so
-   * a ball that reaches it is unambiguously wet — there is no shallow lip for
-   * one to balance on and leave the scene wondering. */
+  /* The pond basin, carved last.
+   *
+   * The carve has to cover the whole region the surface model calls water,
+   * with the bank outside it — otherwise the edge of the pond is painted blue
+   * at grass height and reads as a blue rug lying on the green. It is fully
+   * carved by the time it reaches the waterline and drops well under the water
+   * plane in the middle, so a ball that gets there is unambiguously wet with
+   * no shallow lip to balance on. */
   const dp = ellipseT(x, z, POND);
-  if (dp < 1.3) {
-    const bottom = POND.level - 1.5;
-    const w = 1 - smootherstep(clamp01((dp - 0.15) / 0.95));
-    h = lerp(h, Math.min(h, bottom), w);
+  if (dp < 1.35) {
+    const bottom = POND.level - 1.6;
+    const w = 1 - smootherstep(clamp01((dp - 0.92) / 0.30));
+    h = lerp(h, Math.min(h, lerp(bottom, POND.level - 0.35, clamp01(dp))), w);
   }
 
   /* The cart path is graded: it follows the ground along its length but is
@@ -252,6 +277,7 @@ export function surfaceAt(x, z) {
   if (ellipseT(x, z, BUNKER) <= 1) return SURFACE.BUNKER;
   if (ellipseT(x, z, TEE_BOX) <= 1) return SURFACE.TEE;
   if (cartPathDistance(x, z) <= CART_PATH_WIDTH * 0.5) return SURFACE.PATH;
+  if (ellipseT(x, z, LOT_AREA) <= 1) return SURFACE.FAIRWAY;
 
   const ct = corridorT(x, z);
   if (ct <= 1) return SURFACE.FAIRWAY;

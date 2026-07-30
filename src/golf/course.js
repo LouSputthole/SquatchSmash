@@ -59,39 +59,39 @@ export const SURFACE = {
 export const SURFACE_PROPS = Object.freeze({
   [SURFACE.TEE]: Object.freeze({
     label: 'Tee', restitution: 0.34, tangent: 0.62, roll: 1.5,
-    power: 1.0, spread: 0, launch: 0, step: 'grass', colour: 0x4f8f43,
+    power: 1.0, spread: 0, launch: 0, step: 'grass', colour: 0x5c9b46,
   }),
   [SURFACE.FAIRWAY]: Object.freeze({
     label: 'Fairway', restitution: 0.34, tangent: 0.62, roll: 1.5,
-    power: 0.95, spread: 0.5, launch: 0, step: 'grass', colour: 0x477f3b,
+    power: 0.95, spread: 0.5, launch: 0, step: 'grass', colour: 0x4e8c3e,
   }),
   [SURFACE.ROUGH]: Object.freeze({
     label: 'Rough', restitution: 0.17, tangent: 0.30, roll: 4.6,
-    power: 0.82, spread: 3.2, launch: 2, step: 'grass', colour: 0x33622e,
+    power: 0.82, spread: 3.2, launch: 2, step: 'grass', colour: 0x2e5a28,
   }),
   [SURFACE.DEEP_ROUGH]: Object.freeze({
     label: 'Heavy rough', restitution: 0.12, tangent: 0.22, roll: 6.4,
-    power: 0.72, spread: 5.0, launch: 3, step: 'grass', colour: 0x274d21,
+    power: 0.72, spread: 5.0, launch: 3, step: 'grass', colour: 0x1f4019,
   }),
   [SURFACE.BUNKER]: Object.freeze({
     label: 'Bunker', restitution: 0.05, tangent: 0.10, roll: 9.5,
-    power: 0.63, spread: 2.4, launch: 8, step: 'sand', colour: 0xd9cfa6,
+    power: 0.63, spread: 2.4, launch: 8, step: 'sand', colour: 0xe9dcb2,
   }),
   [SURFACE.FRINGE]: Object.freeze({
     label: 'Fringe', restitution: 0.24, tangent: 0.48, roll: 2.4,
-    power: 0.92, spread: 1.0, launch: 1, step: 'grass', colour: 0x4c8a41,
+    power: 0.92, spread: 1.0, launch: 1, step: 'grass', colour: 0x62a54a,
   }),
   [SURFACE.GREEN]: Object.freeze({
     label: 'Green', restitution: 0.26, tangent: 0.52, roll: 0.62,
-    power: 0.97, spread: 0.4, launch: 0, step: 'grass', colour: 0x64a450,
+    power: 0.97, spread: 0.4, launch: 0, step: 'grass', colour: 0x7cbb5d,
   }),
   [SURFACE.WATER]: Object.freeze({
     label: 'Water', restitution: 0, tangent: 0, roll: 40,
-    power: 0.4, spread: 8, launch: 0, step: 'water', colour: 0x35709c,
+    power: 0.4, spread: 8, launch: 0, step: 'water', colour: 0x2b6d9e,
   }),
   [SURFACE.PATH]: Object.freeze({
     label: 'Cart path', restitution: 0.55, tangent: 0.80, roll: 0.9,
-    power: 0.88, spread: 2.0, launch: 0, step: 'gravel', colour: 0x8b8578,
+    power: 0.88, spread: 2.0, launch: 0, step: 'gravel', colour: 0x9c9486,
   }),
 });
 

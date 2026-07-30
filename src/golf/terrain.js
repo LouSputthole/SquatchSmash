@@ -339,12 +339,13 @@ function buildFlag(scene) {
 
   /* Club colours, on the one piece of the course everybody looks at from a
    * hundred and sixty-seven yards away. Its own material because it moves. */
-  const clothGeo = new THREE.PlaneGeometry(0.62, 0.40, 8, 3);
-  clothGeo.translate(0.31, 0, 0);      // hinge at the pole, not the middle
+  const clothGeo = new THREE.PlaneGeometry(0.76, 0.48, 8, 3);
+  clothGeo.translate(0.38, 0, 0);      // hinge at the pole, not the middle
   const cloth = new THREE.Mesh(clothGeo, new THREE.MeshStandardMaterial({
-    color: 0x7b4fd9, roughness: 0.85, side: THREE.DoubleSide,
+    color: 0x9a6ff0, roughness: 0.8, side: THREE.DoubleSide,
+    emissive: 0x2a1550, emissiveIntensity: 0.5,
   }));
-  cloth.position.set(0, FLAG_HEIGHT - 0.28, 0);
+  cloth.position.set(0, FLAG_HEIGHT - 0.32, 0);
   g.add(cloth);
 
   scene.add(g);
@@ -519,14 +520,17 @@ function buildHole2Hint(scene) {
  * more than twenty metres away where it would not be visible anyway.
  */
 class GrassDetail {
-  constructor(scene, count = 900) {
-    const blade = new THREE.PlaneGeometry(0.09, 0.30);
-    blade.translate(0, 0.15, 0);
+  constructor(scene, count = 620) {
+    /* Small, pale and short. The first pass used tall dark slabs, which from
+     * standing height read as a field of fence posts rather than as grass —
+     * detail meant to be noticed only out of the corner of the eye should not
+     * be the highest-contrast thing on screen. */
+    const blade = new THREE.PlaneGeometry(0.07, 0.15);
+    blade.translate(0, 0.075, 0);
     this.mesh = new THREE.InstancedMesh(
       blade,
       new THREE.MeshStandardMaterial({
-        color: 0x3d6d34, roughness: 1, side: THREE.DoubleSide,
-        transparent: true, alphaTest: 0.5,
+        color: 0x74ad57, roughness: 1, side: THREE.DoubleSide,
       }),
       count,
     );
@@ -534,7 +538,7 @@ class GrassDetail {
     this.mesh.castShadow = false;
     this.mesh.receiveShadow = false;
     this.count = count;
-    this.radius = 19;
+    this.radius = 13;
     this._dummy = new THREE.Object3D();
     this._at = new THREE.Vector3(1e9, 0, 1e9);
     scene.add(this.mesh);
@@ -558,7 +562,7 @@ class GrassDetail {
       const tall = s === SURFACE.ROUGH || s === SURFACE.DEEP_ROUGH;
       d.position.set(x, heightAt(x, z), z);
       d.rotation.set(0, a * 3.1, 0);
-      d.scale.setScalar(tall ? (s === SURFACE.DEEP_ROUGH ? 1.5 : 1.0) : 0);
+      d.scale.setScalar(tall ? (s === SURFACE.DEEP_ROUGH ? 1.0 : 0.7) : 0);
       d.updateMatrix();
       this.mesh.setMatrixAt(i, d.matrix);
       n++;

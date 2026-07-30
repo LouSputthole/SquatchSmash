@@ -26,10 +26,21 @@ export const GREEN = Object.freeze({
 export const PIN = Object.freeze({ x: 11.4, z: -150.4 });
 
 export const CUP_RADIUS = 0.108 / 2;   // regulation 4¼"
-export const FLAG_HEIGHT = 2.15;
+/* Regulation is seven feet. This is eight, because from the tee the stick is
+ * four pixels of purple against a wall of pine and the player is supposed to
+ * be able to find it without being told where it is. */
+export const FLAG_HEIGHT = 2.45;
 
 /** Short and right. Punishes the greedy line at the flag. */
-export const POND = Object.freeze({ x: 21.5, z: -137, rx: 15.5, rz: 13.5, level: -1.3 });
+/**
+ * Short and right. Punishes the greedy line at the flag.
+ *
+ * The waterline sits just under the surrounding grade rather than a metre and
+ * a half down. Sunk deep, the near bank hides the water completely from an eye
+ * on an elevated tee a hundred and forty metres away — which is realistic and
+ * useless: a hazard the player cannot see is not a decision, it is an ambush.
+ */
+export const POND = Object.freeze({ x: 25, z: -137, rx: 14.5, rz: 13.5, level: -0.55 });
 
 /** Front-left. The bail-out miss, and where Rippin is going to be. */
 export const BUNKER = Object.freeze({ x: -8.5, z: -141.5, rx: 7.0, rz: 4.8, depth: 1.0 });
@@ -40,7 +51,7 @@ export const BUNKER = Object.freeze({ x: -8.5, z: -141.5, rx: 7.0, rz: 4.8, dept
  * more than the rulebook does here.
  */
 export const CORRIDOR = Object.freeze({
-  from: Object.freeze({ x: 0, z: -8 }),
+  from: Object.freeze({ x: 0, z: -4 }),
   to: Object.freeze({ x: 5, z: -140 }),
   halfWidth: 14, endHalfWidth: 21,
 });
@@ -128,7 +139,10 @@ export const NPC_TEE_SHOTS = Object.freeze({
 export const TREE_BANDS = Object.freeze([
   Object.freeze({ x: -44, z: -70, rx: 24, rz: 88, count: 130, kind: 'pine' }),
   Object.freeze({ x: 50, z: -80, rx: 24, rz: 90, count: 130, kind: 'pine' }),
-  Object.freeze({ x: 6, z: -184, rx: 50, rz: 18, count: 96, kind: 'mixed' }),
+  /* Back far enough that the flag has sky behind it. Planted two metres off
+   * the back edge, the treeline swallowed the stick from the tee and the hole
+   * lost the one thing a player aims at. */
+  Object.freeze({ x: 6, z: -198, rx: 50, rz: 16, count: 96, kind: 'mixed' }),
   Object.freeze({ x: -32, z: 8, rx: 16, rz: 24, count: 34, kind: 'oak' }),
   Object.freeze({ x: 40, z: 14, rx: 18, rz: 28, count: 38, kind: 'mixed' }),
   Object.freeze({ x: 30, z: -168, rx: 16, rz: 16, count: 28, kind: 'oak' }),
