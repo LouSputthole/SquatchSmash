@@ -11,7 +11,7 @@ Seven playable or preserved experiences live in this repo.
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Manny is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
-| **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | Hole 1 of a three-hole round with Lou, Rippinflow and Erican, on the morning of the big night. Lou rings at ten and the apartment door routes here; the ceremony waits until the round is on the card. |
+| **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | The full three-hole round with Lou, Rippinflow and Erican, on the morning of the big night. Lou rings at ten and the apartment door routes here; the ceremony waits until the round is on the card. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
 
 ```bash
@@ -648,11 +648,18 @@ Jersey that was more prestigious twenty years ago. Lou has the scorecard, Eric
 has the clubs, Rippin is taking practice swings at nothing, and nobody has
 asked the Prospect to carry anything, meet anybody, or move any beef jerky.
 
-The round is three holes — a par 3, a par 5, a par 4. **Only Hole 1 is built.**
-Holes 2 and 3 exist as metadata so the card, the end card and the campaign
-record already know the shape of a round none of them has seen; a hole becomes
-playable by adding a layout module and flipping `playable` in
-`src/golf/course.js`. Hole 1 ends on a development end card that says so.
+The round is three holes and all three are built:
+
+| | | | |
+|---|---|---|---|
+| **1** | The Invitation | par 3 | 167 yds — elevated tee, water short and right, bunker front-left |
+| **2** | The Long Walk | par 5 | 520 yds — wide off the tee, dogleg right round the pines, and it narrows |
+| **3** | The Big Night | par 4 | 395 yds — a gentle bend left, and the clubhouse square behind the last green |
+
+Every marker measures true: the yardage on the sign is the mown centreline
+from the tee to the green, and a test asserts it on all three. Only one hole is
+resident at a time — the world is torn down and rebuilt behind the fade between
+tees, so draw calls stay flat however far the course grows.
 
 ```bash
 npm start                  # http://localhost:5173/golf.html
@@ -705,5 +712,11 @@ round is complete; only then does he ring about the ceremony at seven.
 navigation onto the course, the round claiming the scene, and the ceremony
 waiting its turn on the far side of it.
 
-Holes 2 and 3 are not built yet. Hole 1 ends on a development end card that
-says which hole is next and what it is.
+Finishing all three is what closes the mission: `story.complete()` refuses a
+round of fewer than three holes, so it is the only place the campaign learns
+he played golf with Lou rather than being driven to a tee.
+
+**The dialogue for Holes 2 and 3 is not written yet.** They play with the
+first hole's lines through a per-hole fallback — `tee.arrival` on Hole 2 looks
+for `h2.tee.arrival` and takes the shared one when there is not a different
+thing to say. The machinery is finished and the words are not.

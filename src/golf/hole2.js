@@ -40,7 +40,7 @@ export const CORRIDOR = Object.freeze({
 });
 
 export const GREEN = Object.freeze({
-  x: 166, z: -428,
+  x: 160, z: -422,
   rx: 15, rz: 12.5,          // 30m × 25m, bigger than the par 3's
   slopeFront: 0.30,
   slopePond: 0.10,           // a slight tilt to the right, and no water to fall into
@@ -48,7 +48,7 @@ export const GREEN = Object.freeze({
 });
 
 /** Back-left, so the long second shot is rewarded and the lay-up is not. */
-export const PIN = Object.freeze({ x: 161, z: -432 });
+export const PIN = Object.freeze({ x: 155, z: -426 });
 
 export const CUP_RADIUS = 0.108 / 2;
 export const FLAG_HEIGHT = 2.45;
@@ -61,15 +61,15 @@ export const POND = null;
  * dogleg exactly where a driver aimed at the shortest line finishes.
  */
 export const CORNER_BUNKER = Object.freeze({ x: 52, z: -286, rx: 10, rz: 8, depth: 1.15 });
-export const BUNKER = Object.freeze({ x: 152, z: -415, rx: 7.5, rz: 5.5, depth: 1.0 });
+export const BUNKER = Object.freeze({ x: 146, z: -409, rx: 7.5, rz: 5.5, depth: 1.0 });
 
 export const CART_PATH = Object.freeze([
   Object.freeze({ x: -22, z: 8 }), Object.freeze({ x: -18, z: -110 }),
   Object.freeze({ x: -6, z: -240 }), Object.freeze({ x: 34, z: -330 }),
-  Object.freeze({ x: 96, z: -396 }), Object.freeze({ x: 146, z: -436 }),
+  Object.freeze({ x: 96, z: -396 }), Object.freeze({ x: 140, z: -430 }),
 ]);
 export const CART_PATH_WIDTH = 2.7;
-export const CART_PARK = Object.freeze({ x: 146, z: -436 });
+export const CART_PARK = Object.freeze({ x: 140, z: -430 });
 
 export const DROP_ZONE = Object.freeze({ x: 120, z: -395 });
 
@@ -120,6 +120,13 @@ export const NPC_TEE_SHOTS = Object.freeze({
   lou: Object.freeze({ target: Object.freeze({ x: 10, z: -176 }), club: 'driver', loftBias: 0.92 }),
 });
 
+/** Par for the two who can play; Rippin gets out of the corner in one more. */
+export const NPC_PLAN = Object.freeze({
+  erican: Object.freeze({ finish: 5 }),
+  lou: Object.freeze({ finish: 5 }),
+  rippinflow: Object.freeze({ finish: 6 }),
+});
+
 /** The stand of pines the hole bends around, and the walls either side. */
 export const TREE_BANDS = Object.freeze([
   /* The dogleg itself. Big, close, and the reason the corner is a decision
@@ -145,7 +152,7 @@ export const LAYOUT = Object.freeze({
   corridor: CORRIDOR, dropZone: DROP_ZONE, bounds: BOUNDS, terrain: TERRAIN,
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
   cartPark: CART_PARK, lot: LOT, lotArea: LOT_AREA, teeMarks: TEE_MARKS,
-  npcTeeShots: NPC_TEE_SHOTS, treeBands: TREE_BANDS,
+  npcTeeShots: NPC_TEE_SHOTS, npcPlan: NPC_PLAN, treeBands: TREE_BANDS,
   clubhouse: CLUBHOUSE, nextHint: NEXT_HINT,
   cupRadius: CUP_RADIUS, flagHeight: FLAG_HEIGHT,
 });

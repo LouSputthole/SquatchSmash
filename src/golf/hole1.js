@@ -139,6 +139,18 @@ export const NPC_TEE_SHOTS = Object.freeze({
   lou: Object.freeze({ target: Object.freeze({ x: 2.0, z: -147.0 }), club: 'iron', loftBias: 0.74, runOut: true }),
 });
 
+/**
+ * What each of them takes. Authored, because these three numbers are dialogue:
+ * Rippin's five is what the argument on the way to the second tee is about,
+ * and Lou making par from the front fringe is what "It's closer than yours"
+ * has to be true of.
+ */
+export const NPC_PLAN = Object.freeze({
+  erican: Object.freeze({ finish: 3 }),
+  lou: Object.freeze({ finish: 3 }),
+  rippinflow: Object.freeze({ finish: 5 }),
+});
+
 /** Tree bands, filled procedurally, framing the hole without hand placement. */
 export const TREE_BANDS = Object.freeze([
   Object.freeze({ x: -44, z: -70, rx: 24, rz: 88, count: 130, kind: 'pine' }),
@@ -171,7 +183,7 @@ export const LAYOUT = Object.freeze({
   corridor: CORRIDOR, dropZone: DROP_ZONE, bounds: BOUNDS, terrain: TERRAIN,
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
   cartPark: CART_PARK, lot: LOT, teeMarks: TEE_MARKS,
-  npcTeeShots: NPC_TEE_SHOTS, treeBands: TREE_BANDS,
+  npcTeeShots: NPC_TEE_SHOTS, npcPlan: NPC_PLAN, treeBands: TREE_BANDS,
   clubhouse: CLUBHOUSE, lotArea: LOT_AREA, nextHint: HOLE2_HINT,
   cupRadius: CUP_RADIUS, flagHeight: FLAG_HEIGHT,
 });

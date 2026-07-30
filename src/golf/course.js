@@ -2,10 +2,10 @@
  * Silver Pines Golf Club — course metadata and the shared surface model.
  *
  * The round is three holes and always has been: a par 3, a par 5, a par 4, in
- * that order. Only Hole 1 is built. Holes 2 and 3 are here as data so the
- * scorecard, the end card, the campaign record and the verifier already know
- * the shape of a round none of them has seen yet — a hole becomes playable by
- * adding a layout module and flipping `playable`, and nothing else moves.
+ * that order, and all three are built. `playable` says whether a layout exists
+ * for a hole; `builtHoles()` in hole.js is what the round actually walks. The
+ * two agreeing is what the test suite checks — a hole that claims to be
+ * playable with no layout behind it would strand a round on its own tee.
  *
  * Everything in here is data. No Three.js, no DOM, so the node tests can read
  * the same numbers the scene does.
@@ -124,7 +124,7 @@ export const HOLES = Object.freeze([
     name: 'The Long Walk',
     par: 5,
     yards: 520,
-    playable: false,
+    playable: true,
     blurb: 'Wide off the tee, then it narrows. Dogleg round the pines.',
     purpose: 'The driver, properly, and long enough to talk.',
   }),
@@ -133,7 +133,7 @@ export const HOLES = Object.freeze([
     name: 'The Big Night',
     par: 4,
     yards: 395,
-    playable: false,
+    playable: true,
     blurb: 'Clubhouse behind the green. Last chance to say it out loud.',
     purpose: 'Finish the round and finish the conversation.',
   }),

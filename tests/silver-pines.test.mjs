@@ -16,6 +16,8 @@ import {
   CUES, SEQUENCES, buildScripts, unreachableCues, pastMissionBanter,
 } from '../src/golf/script.js';
 import { TEE_MARKS, GREEN, PIN, POND, BUNKER, NPC_TEE_SHOTS } from '../src/golf/hole1.js';
+import { builtHoles, setActiveHole, HOLE } from '../src/golf/hole.js';
+import { bunkers } from '../src/golf/field.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
 
 /* These are the facts about the hole that the browser verifier cannot state
@@ -32,8 +34,10 @@ test('the round is a par 3, a par 5 and a par 4, in that order', () => {
   assert.equal(getHole(1).name, 'The Invitation');
   assert.equal(nextHole(1).name, 'The Long Walk');
   assert.equal(nextHole(3), null);
-  // Only Hole 1 is built, and the data says so rather than pretending.
-  assert.deepEqual(HOLES.filter((h) => h.playable).map((h) => h.number), [1]);
+  /* What the card claims is playable and what the course can actually load
+   * have to be the same list. A hole that claims to be playable with no layout
+   * behind it strands a round on its own tee. */
+  assert.deepEqual(HOLES.filter((h) => h.playable).map((h) => h.number), builtHoles());
 });
 
 test('the marker on the tee is telling the truth about the hole', () => {
@@ -339,5 +343,119 @@ test('past-mission callbacks read real save state and degrade to nothing', () =>
   })) {
     assert.ok(['tee', 'cart', 'green'].includes(entry.at), `unknown bucket ${entry.at}`);
     for (const id of entry.lines) assert.ok(CUES[id], `callback names a missing cue: ${id}`);
+  }
+});
+
+
+/* ------------------------------------------------------------------ */
+/* Every hole the course has built                                     */
+/* ------------------------------------------------------------------ */
+
+/** Tee to green along the mown centreline — a dogleg's played length. */
+function playedLength() {
+  const path = HOLE.corridor.path;
+  let len = Math.hypot(path[0].x - HOLE.tee.x, path[0].z - HOLE.tee.z);
+  for (let i = 0; i < path.length - 1; i++) {
+    len += Math.hypot(path[i + 1].x - path[i].x, path[i + 1].z - path[i].z);
+  }
+  return len + Math.hypot(HOLE.green.x - path.at(-1).x, HOLE.green.z - path.at(-1).z);
+}
+
+test('the course has built the round the card describes', () => {
+  const built = builtHoles();
+  assert.deepEqual(built, [1, 2, 3]);
+  try {
+    for (const number of built) {
+      setActiveHole(number);
+      const meta = getHole(number);
+      assert.equal(HOLE.par, meta.par, `hole ${number} par`);
+      assert.equal(HOLE.yards, meta.yards, `hole ${number} yardage`);
+    }
+  } finally {
+    setActiveHole(1);
+  }
+});
+
+test('every marker on the course is telling the truth', () => {
+  try {
+    for (const number of builtHoles()) {
+      setActiveHole(number);
+      const played = toYards(playedLength());
+      assert.ok(Math.abs(played - HOLE.yards) <= 4,
+        `hole ${number} plays ${played.toFixed(0)} yds and the marker says ${HOLE.yards}`);
+    }
+  } finally {
+    setActiveHole(1);
+  }
+});
+
+test('every hole is playable from its own tee to its own cup', () => {
+  /* The cheap structural mistakes, on every hole at once: a tee that is not
+   * mown, a pin off the green, a bunker swallowed by the fringe collar so it
+   * plays as grass, a cart park in the trees, or a drop zone in a hazard. */
+  try {
+    for (const number of builtHoles()) {
+      setActiveHole(number);
+      const where = (p) => surfaceAt(p.x, p.z);
+      assert.equal(where(HOLE.teeMarks.ball), SURFACE.TEE, `hole ${number} tee`);
+      assert.equal(where(HOLE.green), SURFACE.GREEN, `hole ${number} green`);
+      assert.equal(where(HOLE.pin), SURFACE.GREEN, `hole ${number} pin`);
+
+      for (const [i, b] of bunkers().entries()) {
+        assert.equal(where(b), SURFACE.BUNKER,
+          `hole ${number} bunker ${i} plays as ${where(b)}`);
+      }
+
+      const drop = where(HOLE.dropZone);
+      assert.ok(drop !== SURFACE.WATER && drop !== SURFACE.BUNKER,
+        `hole ${number} drop zone is ${drop}`);
+      assert.ok(!isOutOfBounds(HOLE.dropZone.x, HOLE.dropZone.z));
+      assert.ok(!isOutOfBounds(HOLE.cartPark.x, HOLE.cartPark.z));
+
+      // The whole hole has to fit inside the ground that was built for it.
+      assert.ok(HOLE.green.x > HOLE.terrain.minX && HOLE.green.x < HOLE.terrain.maxX);
+      assert.ok(HOLE.green.z > HOLE.terrain.minZ && HOLE.green.z < HOLE.terrain.maxZ);
+    }
+  } finally {
+    setActiveHole(1);
+  }
+});
+
+test('every hole can be seen from its own tee', () => {
+  /* Hole 1 needed the ground flattening down the middle to be readable. The
+   * other two are longer, and the same rule applies to whatever a player is
+   * being asked to aim at from the tee — the first turn of a dogleg counts. */
+  try {
+    for (const number of builtHoles()) {
+      setActiveHole(number);
+      const tee = HOLE.teeMarks.ball;
+      const aim = HOLE.corridor.path[Math.min(1, HOLE.corridor.path.length - 1)];
+      const eye = heightAt(tee.x, tee.z) + 1.66;
+      const target = heightAt(aim.x, aim.z) + 1;
+      for (let t = 0.1; t < 1; t += 0.1) {
+        const x = tee.x + (aim.x - tee.x) * t;
+        const z = tee.z + (aim.z - tee.z) * t;
+        assert.ok(heightAt(x, z) < eye + (target - eye) * t,
+          `hole ${number} is blind at ${(t * 100).toFixed(0)}% of the first shot`);
+      }
+    }
+  } finally {
+    setActiveHole(1);
+  }
+});
+
+test('the authored NPC scores are the ones the writing depends on', () => {
+  try {
+    for (const number of builtHoles()) {
+      setActiveHole(number);
+      const plan = HOLE.npcPlan;
+      assert.ok(plan, `hole ${number} has no authored scores`);
+      // Eric and Lou play to par; Rippin does not, on any hole.
+      assert.equal(plan.erican.finish, HOLE.par, `hole ${number}: Eric makes par`);
+      assert.equal(plan.lou.finish, HOLE.par, `hole ${number}: Lou makes par`);
+      assert.ok(plan.rippinflow.finish > HOLE.par, `hole ${number}: Rippin does not`);
+    }
+  } finally {
+    setActiveHole(1);
   }
 });
