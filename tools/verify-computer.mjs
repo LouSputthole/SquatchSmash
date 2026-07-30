@@ -409,6 +409,72 @@ try {
       && state.campaignScene === 'apartment',
     JSON.stringify(state));
 
+  /* Seated, the keyboard belongs to the computer -- whole. Driven with REAL
+   * key events through the document handler, because the regression this
+   * guards lived exactly there: WASD reached the arcade AND the player, and
+   * rolled the chair out from under whatever you were typing into. */
+  await page.evaluate(() => {
+    const game = window.__squatch;
+    game.game.paused = false;
+    game.sitAtPC();
+    game.player.update(2);
+  });
+  const wasdBefore = await page.evaluate(() => {
+    const game = window.__squatch;
+    const os = game.arcade;
+    os.__wasdProbe = 0;
+    if (!os.__wasdWrapped) {
+      os.__wasdWrapped = true;
+      const real = os.onKey.bind(os);
+      os.onKey = (code, down) => {
+        if (down) os.__wasdProbe += 1;
+        return real(code, down);
+      };
+    }
+    return {
+      seated: game.game.seated,
+      x: game.player.position.x,
+      z: game.player.position.z,
+      chairX: game.apartment.chair.position.x,
+      chairZ: game.apartment.chair.position.z,
+    };
+  });
+  for (const key of ['w', 'a', 's', 'd']) await page.keyboard.down(key);
+  await page.waitForTimeout(700);
+  const wasdAfter = await page.evaluate(() => {
+    const game = window.__squatch;
+    return {
+      seated: game.game.seated,
+      x: game.player.position.x,
+      z: game.player.position.z,
+      chairX: game.apartment.chair.position.x,
+      chairZ: game.apartment.chair.position.z,
+      heldByPlayer: ['KeyW', 'KeyA', 'KeyS', 'KeyD']
+        .filter((code) => game.player.keys.has(code)),
+      arcadeSawKeys: game.arcade.__wasdProbe,
+    };
+  });
+  for (const key of ['w', 'a', 's', 'd']) await page.keyboard.up(key);
+  check('WASD while seated goes to the computer and never moves the player',
+    wasdBefore.seated && wasdAfter.seated
+      && Math.abs(wasdAfter.x - wasdBefore.x) < 1e-6
+      && Math.abs(wasdAfter.z - wasdBefore.z) < 1e-6
+      && Math.abs(wasdAfter.chairX - wasdBefore.chairX) < 1e-6
+      && Math.abs(wasdAfter.chairZ - wasdBefore.chairZ) < 1e-6
+      && wasdAfter.heldByPlayer.length === 0
+      && wasdAfter.arcadeSawKeys >= 4,
+    JSON.stringify({ wasdBefore, wasdAfter }));
+
+  // And the one key that is still the player's: [Q] stands him up. The tween
+  // is finished by hand like every other transition here -- software GL runs
+  // the frame loop too slowly to wait it out in real time.
+  await page.keyboard.press('q');
+  await page.evaluate(() => window.__squatch.player.update(2));
+  state = await computerState();
+  check('Q remains the stand-up escape from the seat',
+    !state.seated && state.playerMode === 'walk' && state.campaignScene === 'apartment',
+    JSON.stringify(state));
+
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {
   await browser.close();

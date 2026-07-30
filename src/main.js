@@ -416,9 +416,6 @@ const game = {
   left: false,          // out of the door; the game is over
   nextFartAt: 40 + Math.random() * 60,
   fartClock: 0,
-  chairX: 0,            // how far the chair has rolled from where you sat down
-  chairZ: 0,
-  chairRoll: 0,         // seconds of continuous movement, for the wheel noise
   pushLive: 0,          // index into PUSH_KEYS of the one lit right now
   pushT: 0,
   pushFlash: null,
@@ -619,7 +616,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
-    updateChair, poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
+    poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -838,8 +835,10 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  player.setKey(e.code, true);
-
+  /* Seated, the keyboard belongs to the computer. Every key is forwarded and
+   * NONE of them reach the player -- WASD used to roll the chair as well,
+   * which meant typing in a game was also driving your own camera around the
+   * desk. [Q] is the one exception: the stand-up key works everywhere. */
   if (game.seated) {
     // Escape is left to the browser -- it releases the pointer and pauses.
     if (e.code === 'KeyQ') {
@@ -850,6 +849,8 @@ document.addEventListener('keydown', (e) => {
     if (e.code === 'Space') e.preventDefault();
     return;
   }
+
+  player.setKey(e.code, true);
 
   switch (e.code) {
     case 'KeyE':
@@ -936,9 +937,8 @@ function getUp() {
 function sitAtPC() {
   if (game.seated) return;
   game.seated = true;
-  game.chairX = 0;
-  game.chairZ = 0;
-  game.chairRoll = 0;
+  // Anything held on the walk up dies here; while seated no key reaches him.
+  player.clearKeys();
   interaction.setPaused(true);
   hud.setMode('seated');
   audio.play('chair.roll', { volume: 0.4 });
@@ -963,8 +963,6 @@ function sitAtPC() {
 
 function standFromPC() {
   hud.setPosture(null);
-  game.chairRoll = 0;
-  audio.stopLoop('chair.roll.loop', 0.2);
   if (!game.seated) return;
   game.seated = false;
   arcade.setSeated?.(false);
@@ -2187,61 +2185,12 @@ function standFromToilet() {
   player.standFrom(apartment.toiletStand, () => interaction.setPaused(false));
 }
 
-/**
- * Rolling the chair while you are sat at it.
- *
- * A desk chair you cannot move is a chair you are strapped into, and it made
- * the monitor a fixed frame you were pointed at rather than something you
- * were sitting in front of. WASD now rolls it, and the camera goes with it,
- * within about a forearm's reach in each direction -- enough to lean in, shove
- * back from the desk, or slide sideways to see round the second monitor.
- *
- * The chair mesh moves too, so getting up leaves it wherever you left it.
- */
-const CHAIR_REACH_X = 0.42;
-const CHAIR_REACH_Z = 0.50;
-const CHAIR_SPEED = 0.62;
-
-function updateChair(dt) {
-  if (!game.seated || player.mode !== 'seated') return;
-  const k = player.keys;
-  let dx = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
-  let dz = (k.has('KeyS') ? 1 : 0) - (k.has('KeyW') ? 1 : 0);
-  if (!dx && !dz) {
-    if (game.chairRoll > 0) {
-      game.chairRoll = 0;
-      audio.stopLoop('chair.roll.loop', 0.18);
-    }
-    return;
-  }
-
-  // Diagonals should not be faster than straight lines.
-  const len = Math.hypot(dx, dz) || 1;
-  dx /= len; dz /= len;
-
-  const before = { x: game.chairX, z: game.chairZ };
-  game.chairX = clampTo(game.chairX + dx * CHAIR_SPEED * dt, CHAIR_REACH_X);
-  game.chairZ = clampTo(game.chairZ + dz * CHAIR_SPEED * dt, CHAIR_REACH_Z);
-  const moved = Math.abs(game.chairX - before.x) + Math.abs(game.chairZ - before.z);
-
-  if (moved > 1e-5) {
-    // Castors on a hard floor: a loop while you are actually rolling, rather
-    // than one clip per frame, which would machine-gun.
-    if (game.chairRoll <= 0) {
-      audio.startLoop('chair.roll.loop', {
-        volume: 0.16, position: apartment.chair.position, ref: 1.0, maxDist: 6,
-      });
-    }
-    game.chairRoll += dt;
-  }
-
-  player.position.x = apartment.deskPose.position.x + game.chairX;
-  player.position.z = apartment.deskPose.position.z + game.chairZ;
-  apartment.chair.position.x = apartment.chairHome.x + game.chairX;
-  apartment.chair.position.z = apartment.chairHome.z + game.chairZ;
-}
-
-const clampTo = (v, lim) => (v < -lim ? -lim : v > lim ? lim : v);
+/* The chair no longer rolls on WASD. It was a nice idea -- a forearm's reach
+ * of lean in every direction -- but it meant the movement keys did TWO things
+ * while you were seated: they typed into the computer and they drove your own
+ * camera around the desk, so playing anything on the monitor slid you slowly
+ * out of your own seat. The owner's ruling is that a seated keyboard belongs
+ * to the computer, whole. The chair stays where you sat down on it. */
 
 /* ------------------------------------------------------------------ */
 /* Pushing                                                             */
@@ -2850,7 +2799,6 @@ function frame() {
       updateBowel(dt);
       updateZyn();
       updateShower(hdt);
-      updateChair(dt);
       updateGluing(dt);
       splat.update(dt);
       updateCooking(hdt);
