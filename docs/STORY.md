@@ -1,10 +1,13 @@
 # SQUATCH LIFE — The Meeting: Outcomes & Script
 
-> **Character canon is approved; ending design is not.** Tony Squatchtana and
-> every Circle member are human. “Sasquatch” is family status, not species.
-> Initiation belongs at the current chapter endpoint, Prospect One's execution
-> remains, and the supplied named face photos are authoritative. The party and
-> alternate outcomes below remain design material until the final ending pass.
+> **Pre-Initiation character canon is approved; the current ending is frozen
+> for playtesting.** Tony Squatchtana and every Circle member present as human
+> before the verdict. Initiation belongs at the chapter endpoint, Prospect
+> One's execution remains, and the supplied named face photos are authoritative.
+> The approved later rewrite reviews campaign accomplishments, executes every
+> failed rival prospect, and visibly transforms Tony plus all recognized family
+> members into literal sasquatches. Do not implement that rewrite until the
+> user has tested the current scene.
 
 > **Review copy.** Nothing in here is wired into the game yet except what's
 > already shipped (the ceremony flow). This is the writing pass for the four
@@ -20,40 +23,24 @@
 
 ---
 
-## The branch map
+## Current campaign placement
 
 ```
-APARTMENT (other branch — do not touch)
- │
- ├─ The card on the corkboard: WED 7PM · SQUATCH MEETING · BOOSKIBRO DRIVING · BRING NOTHING.
- │
- ├─ [NEW HOOK] Tuesday, 21:40 — two men at the door who are not from around here.
- │      Take the deal → the gun goes in your waistband. flag: fbiDeal, gunCarried
- │      Tell them to fuck off → nothing. They were never here. flag: none
- │
- └─ Step out Wednesday → THE PINES (initiation.html), carrying your arrival
-        state (clean / merry / stoned / tripping / late) and maybe a gun.
-
-THE PINES
- │
- ├─ OUTCOME 1 — SILVER: survive the Question, the Gauntlet, the Roar,
- │     the Timber. Anointed. Best ending.        → OUTCOME 2
- │
- ├─ OUTCOME 2 — THE PARTY: the reward scene. Beer, weed, a keg, a fire,
- │     ten people who beat the shit out of you an hour ago and now love you.
- │
- ├─ OUTCOME 3 — THE RAT: you brought the gun. There is exactly one moment
- │     to use it. You use it. It does not go the way the Bureau said.  → DEAD
- │
- └─ OUTCOME 4 — THE WASHOUT: the many doors out of the ceremony that all
-       open onto the same shallow hole.           → DEAD (variant deaths)
+Day One apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep
+Day Two+ apartment → Beef Run → apartment → Bada Bing Two → Jerky Motel
+→ apartment/big-night call → THE PINES / Initiation
 ```
 
-Failing is no longer a retry screen — **failing is an ending** (Outcome 4),
-with its own kill, its own card, and a "NEXT WEDNESDAY" restart that quietly
-implies there is always another prospect. (We can keep a soft retry behind it
-for playability — die, get the ending card, restart the night. The card is the
-point.)
+Campaign time advances through authored tasks, calls, missions, travel, and
+sleep; the final meeting is not locked to the old Tuesday/Wednesday real-time
+schedule. The user permits additional days if the story needs them.
+
+The older corkboard/FBI-gun/rat-route/Wednesday branch below is preserved
+writing material, not current campaign canon. Do not wire it ahead of the
+mission spine. For now, the existing Initiation runtime remains unchanged and
+is available only through `preview.html`; after user playtesting, rewrite its
+verdict around completed campaign accomplishments, failed-prospect deaths,
+Tony's admission, and the mass sasquatch transformation.
 
 ---
 
@@ -211,6 +198,10 @@ red member bandana)*
 
 → **CUT TO: THE PARTY.**
 
+> **Current implementation only.** Preserve this version for the user's first
+> playtest. The later approved rewrite replaces the human-only payoff with the
+> accomplishment verdict, rival deaths, and mass literal transformation.
+
 ---
 
 ## OUTCOME 2 — THE PARTY ("The Den")
@@ -266,11 +257,11 @@ the cup)* Wherever we buried it.
 
 ---
 
-## OUTCOME 3 — THE RAT
+## Archived branches
 
-### The apartment hook (needs building on the apartment branch — spec only)
-
-Tuesday, 21:40, in-game. A knock. Nobody knocks. Through the peephole: two
-men in JC Penney suits standing exactly one step too far apart.
-
-**AGENT DOYLE:
+An unfinished FBI/rat-route draft previously followed this point. It is not
+approved campaign canon, was truncated mid-line, and must not drive
+implementation. The complete historical revision remains recoverable from Git
+at `9ed9693:docs/STORY.md`. Current ending work is limited to the locked
+accomplishment review, failed-prospect executions, conditional admission, and
+mass sasquatch transformation after the user playtests the existing Initiation.

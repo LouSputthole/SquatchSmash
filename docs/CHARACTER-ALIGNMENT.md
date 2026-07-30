@@ -20,15 +20,19 @@ Captain Lou Sasole owns the airstrip thread and is the same person represented
 by the authoritative `assets/faces/sasole.png` photo at Initiation. Their save
 IDs, voice profiles, calls, dialogue state, and mission flags must never merge.
 
-Tony is human on Day One and remains human. “Sasquatch” is the name and status
-of the family/organization he is pledging, comparable to a biker-gang prospect;
-Initiation changes membership, not species. His surname is **Squatchtana**.
-`Squatchmontana` is rejected and is not accepted as a registry alias.
+Tony is human throughout the pre-Initiation campaign. “Prospect” is his
+biker-gang-style status while seeking entry to the Sasquatch family. In the
+planned ending rewrite, successful Initiation changes both membership and
+literal form: Tony transforms into a sasquatch after the verdict. His surname
+is **Squatchtana**. `Squatchmontana` is rejected and is not accepted as a
+registry alias.
 
 ## Circle canon
 
-Every Circle member is human. The supplied face photos are authoritative for
-their named characters.
+Every Circle member presents as human before the final ceremony. The supplied
+face photos are authoritative for their named human presentations. The planned
+ending transforms every recognized Sasquatch-family member into a literal
+sasquatch after Tony is admitted.
 
 | Stable/local ID | Canonical display | Face asset | Role |
 |---|---|---|---|
@@ -53,16 +57,18 @@ The five founders are locked:
 4. The Shubenator
 5. DeathMegatron
 
-Prospect One's failed quiz, execution, and explicit gore remain canonical.
-The ending after Tony's successful induction still needs a dedicated design
-pass; no scene should remove or soften the execution while that ending is being
-decided.
+Prospect One's failed quiz, execution, and explicit gore remain canonical. The
+future ending rewrite will also judge the other rival prospects and kill each
+one for their failures. Tony's completed campaign activities and missions will
+be recalled during his review; only an eligible Tony is admitted. The current
+playable Initiation must remain unchanged until the user has tested it, so
+these ending decisions are documented but not yet production behavior.
 
 ## Mission and supporting cast
 
 | ID | Display name | Current source | Status |
 |---|---|---|---|
-| `manny` | Manny | `src/motel/actors.js` | Tony's Motel ally/driver; species and future recurrence still need alignment |
+| `manny` | Manny | `src/motel/actors.js` | Adult human; Tony's friendly Motel ally/driver; must never enter a hostile player-targeting state |
 | `sal_sorrento` | Sal “The Prospector” Sorrento | `src/squatchfather/dialogue/dialogue.json` | Squatchfather antagonist |
 | `captain_mcclawsky` | Capt. McClawsky | Same file | Sal's associate; distinct from Captain Lou |
 | `rico` | Rico | `src/motel/actors.js` | Primary Motel seller |
@@ -76,16 +82,28 @@ The Bing bouncer, bartender, barback, dealer, guards, DJ, performers, staff,
 regulars, contractor, and Lou's associate retain their scene-local role IDs in
 `src/bing/cast.js` until the story makes one recur.
 
+Manny is explicitly human and belongs to the friendly faction. His ally combat
+may target actual Motel hostiles, but scripted movement, waypoint completion,
+generic chase/grab logic, player melee, and player ranged targeting must all
+exclude him. This rule is structural rather than a single-scene timing fix.
+
+All adult nightclub performers at the Bing use the scene's female performer
+profile and non-nude bikini outfit. That presentation is specific to those
+performer roles; it must not leak into generic patrons or other recurring
+characters.
+
 ## Presentation rules
 
 - Core identity is data; model/rig choice is presentation.
-- Tony and every Circle member use human presentation in story scenes.
+- Tony and every Circle member use human presentation before the Initiation
+  verdict.
 - Named Circle members use their supplied face photos.
 - Booskibro is the subtitle and display name; `booski` remains the stable save
   ID and existing voice-bank key.
-- Initiation may use firelight, bloom, the silver bandana, ceremonial clothing,
-  sound, and camera effects to make induction feel transformative, but it must
-  not replace Tony with a sasquatch body.
+- Do not alter the current Initiation runtime before its user playtest. In the
+  later rewrite, preserve firelight, bloom, ceremony, executions, and supplied
+  faces before performing a literal on-screen mass sasquatch transformation
+  after Tony's admission.
 - Squatch Smash may keep literal sasquatches because it is an in-world computer
   game, not evidence that Tony or the Circle are another species.
 

@@ -1,14 +1,15 @@
-# Squatch Life
+# Squatch Life — apartment design archive
 
-## The Wednesday Night Squatch Meeting
-
-The working spec. Everything below is either built (✅), being built (🔨), or
-agreed but not started (⬜). This file is the source of truth for what the game
-is; if the code and this file disagree, one of them is a bug.
+> **Historical design notes, not the production source of truth.** This file
+> preserves the original apartment-only design and useful interaction details.
+> The campaign has since expanded into the apartment-led mission spine. Use
+> `docs/CONSOLIDATION-HANDOFF.md` for implementation state and
+> `docs/CHARACTER-ALIGNMENT.md` for locked canon. When this archive conflicts
+> with those documents or the verified runtime, this archive is superseded.
 
 ---
 
-## The premise
+## Original apartment-only premise — superseded
 
 You wake up in your flat on **Tuesday morning at 6:04 AM**. You did not set an
 alarm.
@@ -26,76 +27,69 @@ the whole joke.
 forgotten, and it tells you one thing at a time, as an excuse rather than an
 objective.
 
+The current game instead starts on Day One at 6:04 AM, exposes a clear
+four-chore objective, waits for Big Uncle Lou's call, and routes into the
+multi-mission campaign documented in the consolidation handoff.
+
 ---
 
 ## The clock
 
-A full day is **15 real minutes** — the clock already runs at that rate. ✅
+Campaign time advances through completed tasks and mission beats, not real
+waiting. This supersedes the original fifteen-real-minute day.
 
-| | in-game | real time from wake |
-|---|---|---|
-| Wake up | Tue 06:04 | 0:00 |
-| Tuesday evening | Tue 19:00 | ~8 min |
-| Sleep → Wednesday | Wed 07:00 | ~8 min (skipped) |
-| **The meeting** | **Wed 19:00** | ~16 min |
+- Wake: Day 1, 06:04.
+- First-time apartment chores add authored durations.
+- Answered story calls add a small authored duration.
+- Travel can advance to a fixed minimum arrival time; the first Bing remains
+  Day 1, 23:41.
+- Mission checkpoints and returns add their own durations.
+- Sleep creates deliberate day/chapter checkpoints.
+- Idle exploration, pausing, dialogue reading speed, and computer play do not
+  move campaign time.
 
-Sleeping in the bed is how you skip the dead hours, which makes the bed
-structural rather than decorative. Voluntary sleep lands on the next **07:00**;
-passing out drunk is still a flat twelve hours, wherever that leaves you. ✅
+Every beat has a stable ID in `story.timeEvents`, so repeating a completed
+interaction cannot advance the clock twice. Calendar day is presentation data;
+story chapter gates calls and missions. That distinction allows a late Day One
+mission to cross midnight without prematurely firing Day Two events.
 
-Measured: **2216 in-game minutes from waking to the meeting — 23.1 real
-minutes**, or about eight if you sleep Tuesday night away.
-
-**Miss it and the day rolls over.** There is another meeting next Wednesday.
-The game does not end; it just notes what happened. This is warmer than a hard
-fail and fits the tone better.
+The user permits additional days before the final meeting. The later mission
+schedule should choose whatever number of sleep/checkpoint breaks makes the
+story breathe, rather than compressing the campaign into a fixed real-time
+deadline.
 
 ---
 
-## The gates
+## The Day One gates
 
-Five things stand between you and the door. Each is revealed only when you try
-to leave without it.
+The campaign door uses four persistent morning requirements and Big Uncle
+Lou's answered call. It lists every missing chore in a single clear response;
+there is no invisible wall and no requirement to guess which joke interaction
+counts.
 
-| Gate | State | Where it lives | Status |
+| Gate | Campaign state | Where it lives | Status |
 |---|---|---|---|
-| **Shower** | `showered` | the bath | ✅ |
-| **Dressed** | `dressed` | the nightstand drawer | ✅ |
-| **Fed** | `fed` | the eggs, the pan on the hob | ✅ |
-| **A game with the boys** | five deaths in Counter-Squatch | the PC | ✅ |
-| **Piss** | `bladder` below 0.35 | bathroom | ✅ |
-| **Shit** | `bowel` at 0 | toilet | ✅ |
-| **Empty hands** | not holding a drink | anywhere | ✅ |
-| **Sober enough** | `drunk.level` under 0.45 | everywhere | ✅ |
+| **Eat** | `activities.eaten` | pizza or cooked eggs | ✅ |
+| **Shower** | `activities.showered` | the shower | ✅ |
+| **Poop** | `activities.pooped` | the toilet timing interaction | ✅ |
+| **Change clothes** | `activities.changedClothes` | the nightstand drawer | ✅ |
+| **Answer Lou** | `events.lou_first_call = answered` | physical nightstand phone | ✅ |
 
-Sober-enough and empty-hands are checked **at the door**, not banked — you can
-drink at 10 AM and be fine by 7 PM. The other six, once done, stay done:
-showering on Tuesday counts on Wednesday.
-
-### The door's excuses
-
-One per attempt, in priority order, so it feels like a person making them:
-
-- *"You have not had a shower. You are aware of this."*
-- *"You are wearing what you slept in."*
-- *"You have not eaten since yesterday."*
-- *"You said you would get a game in with the boys. You have not."*
-- *"You need a piss. Ninety minutes, that room, those chairs. Go."*
-- *"You are not going anywhere with that in you."*
-- *"You are holding a beer."*
-- *"You are too drunk to be seen."*
-
-When nothing is left: the door just opens.
+Email is optional characterization. Counter-Squatch, peeing, sobriety, empty
+hands, and every goof-around interaction remain available but do not silently
+block the first mission. Each completed chore and answered call records its
+authored time event once. When all four chores are complete and Lou has
+authorized the job, the door routes to Bada Bing Scene One.
 
 ---
 
 ## What you do
 
-### Get a game in with the boys
+### Get a game in with the boys — optional
 
 **No rework.** Getting a game in means getting smoked by a cheater for a
-handful of rounds, which is exactly what Counter-Squatch already does. Play
-five rounds, die five times, task complete. The joke does not need an arc.
+handful of rounds, which is exactly what Counter-Squatch already does. It is
+available through the PC but no longer blocks Lou's first mission.
 
 ### Shower ✅
 Aim at the bath. You step in, it runs for nine seconds, steam comes off the
@@ -113,7 +107,7 @@ on its own.
 
 ### Piss and shit ✅
 Both already existed, including the bit where four cigarettes start a
-countdown. They are wired to the gate now.
+countdown. Pooping is the required Day One activity; peeing remains optional.
 
 ---
 
@@ -126,13 +120,12 @@ This is the antagonist. None of it is required and all of it is available.
 | **Beer** ×6 | First two steady your hands at the PC. After that, the floor has opinions. | ✅ |
 | **Jack AND Daniels** | Twice a beer, half the time. | ✅ |
 | **Cigarettes** ×17 | Four of them start the other countdown. | ✅ |
-| **Zyns** ×15 | Forty-two minutes of steadier hands. | ✅ |
+| **Zyns** ×15 | Ninety real seconds of steadier hands. | ✅ |
 | **The bong** | Everything slows down. See below. | ✅ |
 | **The mushrooms** | Everything bends. See below. | ✅ |
 
-**Neither of these costs you Wednesday.** You can be as high as you like and
-still make the meeting. They are in because they change how the flat feels,
-and the flat is the game.
+**Neither of these advances campaign time.** They are optional because they
+change how the apartment feels, not because they are mission gates.
 
 ### Weed — slower
 
@@ -146,8 +139,8 @@ they stack.
   like something
 - the room warms and the corners soften
 
-The clock is deliberately exempt. A day is fifteen minutes whether or not you
-have had a bowl.
+The authored campaign clock is deliberately exempt. A task or mission advances
+the same amount whether or not you have had a bowl.
 
 ### Mushrooms — bent
 
@@ -166,7 +159,11 @@ a long fade. Both layer on top of the drink rather than replacing it.
 
 ---
 
-## Endings ✅
+## Historical apartment-only endings — superseded
+
+These were prototype outcomes for leaving the apartment for a Wednesday
+meeting. They are preserved as writing reference only; they are not current
+campaign routes or failure states.
 
 Chosen at the moment you step out, from the state you are in.
 
@@ -187,7 +184,10 @@ you can potter about in there indefinitely, which is its own ending.
 
 ---
 
-## How you find out
+## Historical meeting-discovery ideas — superseded
+
+These discovery hooks belong to the original Wednesday-meeting prototype.
+Current progression comes from authored calls, objectives, and mission state.
 
 Three ways, none of them a pop-up:
 
@@ -205,39 +205,34 @@ Three ways, none of them a pop-up:
 
 ## The radio ✅
 
-Three stations, tuned by holding <kbd>E</kbd> on the set.
+The current radio is one combined local station. It interleaves talk blocks,
+community notices, commercials, and the roster's local music instead of making
+the player tune between separate talk and music frequencies.
 
 | Dial | Station | What |
 |---|---|---|
-| **97.8** | THE SQUATCH | Talk. Five shows on a real schedule against the in-game clock, plus the 60-second commercial. |
-| **98.8** | UNCLE SQUATCH BEATS | Good Ole Days. |
-| **101.7** | KSQCH | Squatch Up · 10 Drunk Cigarettes · BooskiBro · I Ain't Gay. |
+| **97.8** | THE SQUATCH | Scheduled talk, the station commercial, notices, and local tracks from `assets/music/`. |
 
-**Voice acting is the biggest single upgrade available.** Every line for every
-show is written in `src/core/stations.js`; right now you read them while a
-filtered murmur plays. Real voices would change the whole flat.
+Every written line and its speaker mapping lives in `src/core/stations.js`.
+Generated recordings are preferred when present; the radio retains text and
+audio fallbacks when a cue or local track is unavailable.
 
 ---
 
-## Audio ⚠️
+## Audio
 
-**167 cues, none generated yet.** Everything falls back to the procedural
-synth, because:
-
-1. `ELEVENLABS_API_KEY` is not set in the cloud environment, and
-2. the environment's network policy denies `api.elevenlabs.io` outright
-   (`CONNECT tunnel failed, response 403`).
-
-Fix either by running `npm run sfx` locally with a key, or by allowlisting
-`api.elevenlabs.io` and adding the key to the environment so it can be run
-from a session.
+The repository now contains a large recorded/generated cue library as well as
+procedural fallbacks. Counts change as scenes and dialogue are integrated, so
+do not rely on the original apartment-only totals below. Use
+`assets/sfx/manifest.json`, `npm run check`, and `npm run audio:todo` for the
+current inventory.
 
 ### Two kinds of cue ✅
 
 | | | endpoint |
 |---|---|---|
-| **90 sound effects** | `{ "prompt": "..." }` | `/v1/sound-generation` |
-| **77 spoken lines** | `{ "say": "..." }` | `/v1/text-to-speech/{voice_id}` |
+| **Sound effects** | `{ "prompt": "..." }` | `/v1/sound-generation` |
+| **Spoken lines** | `{ "say": "..." }` | `/v1/text-to-speech/{voice_id}` |
 
 Sound-generation has no concept of a voice, which is why the split exists.
 
@@ -251,14 +246,14 @@ line he says. Change it there and the entire performance changes together.
 ```bash
 npm run sfx:voices   # list the voices on your account
 # paste an id into assets/sfx/manifest.json -> voices.player.id
-npm run sfx:vo       # generate just the 77 spoken lines
+npm run sfx:vo       # generate just the spoken lines
 npm run sfx          # everything
 ```
 
-Nothing spoken will generate until that id is set, and the tool says so once
-rather than failing 77 times against the API.
+Missing voice IDs or cues are reported by the tooling without invalidating
+already generated audio.
 
-### Where he speaks — all wired ✅
+### Original apartment voice plan — historical reference
 
 | Moment | Lines | |
 |---|---|---|
@@ -290,7 +285,10 @@ be worse than silence.
 
 ---
 
-## Build order
+## Historical apartment build order — complete and superseded
+
+Do not resume work from this list. Current priorities begin with selective Beef
+Run integration in `docs/CONSOLIDATION-HANDOFF.md`.
 
 1. ~~**Loading and diagnostics**~~ ✅ — WebGL failures, module failures and
    silent hangs all now say what happened, on screen, where somebody without
@@ -339,7 +337,7 @@ The second location, and the first one with anybody else in it.
 
 ## The premise
 
-Wednesday, 11:41 PM. You are sat in your own car in a wet lot off the highway
+Day One, 11:41 PM. You are sat in your own car in a wet lot off the highway
 with the engine running, and Lou has something for you in the back office. Get
 in, find him, take it, leave. That is all of it.
 
@@ -398,10 +396,27 @@ the roster with two names spelled right. Drinking at the bar before seeing a
 made man, which does nothing except change his first line to a comment about
 it.
 
+## Playtest constraints now enforced
+
+- The open front door has a real visible/collision-clear portal.
+- Eighteen vehicle footprints are separated and grounded; car and table exits
+  resolve to validated standing positions.
+- Walking <kbd>Q</kbd> provides a safe unstuck without competing with seated
+  get-up behavior.
+- Drinkers are seated, patrols respect colliders, movers update smoothly at
+  30 Hz, and nonhero NPC parts do not cast thousands of unnecessary shadows.
+- All four adult performer roles use the dedicated female, curvy, non-nude
+  bikini presentation.
+- Rain is full outside, door-dependent in the vestibule, and quiet/low-passed
+  inside. Audio automation changes only when the target mix changes.
+
 ## Verification
 
 `npm run verify:bing` plays the whole mission headlessly and asserts the state
 machine at every beat — the bouncer, the floor, the machine, the table, the
 hallway, Lou, the package, the lot, the ending card. It is the only thing that
 catches "the office where nothing happens", which is what every wiring mistake
-in here looks like from the inside.
+in here looks like from the inside. Its 46-check structural pass also measures
+the portal, vehicles, safe exits, performer contract, NPC cadence/shadows, rain
+mix, and runtime errors; `verify:bing-two` repeats the shared-location contract
+for Lou's second visit.

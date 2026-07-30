@@ -5,6 +5,12 @@ yet.** This doc is the map; the code is the territory. The system is
 framework-agnostic (no THREE), fully testable in node, and preserved for the
 party scene after the character and story alignment pass.
 
+The current Initiation runtime remains frozen for user playtesting. In the
+approved later rewrite, these named members use their authoritative human face
+presentations through the verdict, then visibly transform into literal
+sasquatches after Tony qualifies and is admitted. This dialogue system keeps
+stable character IDs across that presentation change.
+
 Run the transcript to see it talk:
 `node tools/npc-demo.mjs` (the review harness prints every scenario).
 

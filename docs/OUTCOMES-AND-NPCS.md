@@ -1,14 +1,24 @@
 # The Initiation — Outcomes, Party & NPC System
 
-> **Approved character canon with unapproved ending variants.** Tony
-> Squatchtana and every Circle member are human. “Sasquatch” is family status,
+> **Approved pre-Initiation canon with a frozen current ending.** Tony
+> Squatchtana and every Circle member present as human before the verdict.
 > Initiation is the chapter endpoint, the named face photos are authoritative,
-> the five founders are locked, and Prospect One's execution remains. The party
-> and alternate endings below are still candidates for the final design pass.
+> the five founders are locked, and Prospect One's execution remains. After the
+> user tests the current scene, the approved rewrite will judge campaign
+> accomplishments, execute every failed rival prospect, and transform Tony plus
+> all recognized family members into literal sasquatches. Those are the only
+> locked ending changes. The party, FBI/rat route, ghost variants, and other
+> alternate endings below are archived proposals, not approved implementation.
 
-This is the script-and-systems bible for where the preserved initiation scene
-goes after "you got the question right." Read it, carve it up, tell me what's
-wrong.
+This is future writing, not the active route. The production spine must first
+complete apartment → Bada Bing One → Squatchfather → Beef Run → Bada Bing Two
+→ Jerky Motel → apartment/big-night call. Until that route is connected and
+the current ceremony is user-tested, Initiation is available only from the
+save-isolated `preview.html` launcher.
+
+The material below is a writing archive for later review. It is not an active
+build order and must not override the current Initiation freeze or the canon
+listed above.
 
 Tone target: **dark comedy, HBO gore, Stanley-Parable deadpan.** The apartment
 scene already set the register — dry, lowercase, unbothered, the joke dies the
@@ -26,10 +36,11 @@ Two voices do the heavy lifting and they must never blur:
 
 ---
 
-## THE FOUR OUTCOMES
+## Archived four-outcome draft — unapproved
 
-You asked for four. Three are locked from your brief; the fourth I've drafted
-two candidates for — pick one (or greenlight both as separate endings).
+This predates the current campaign direction. None of these four route
+definitions is locked. Preserve their useful dialogue and tone, but do not wire
+the FBI, rat, ghost, or party branches without a new user decision.
 
 | # | Working title | How you get here | Ends |
 |---|---|---|---|
@@ -57,10 +68,18 @@ the log down. Booskibro comes off the stage.
 > **NARRATOR:** Somewhere behind you, the man who couldn't name the founders is
 > still cooling. Nobody has moved him. This does not appear to bother anyone.
 
-The anointing lands: Tony remains human and receives the Circle's silver-grey
-colors and red member bandana. Then the banner drops, the drums kick up, and
-the objective changes for the first time all night to something that isn't a
-threat:
+This describes the current untested scene and must remain intact for the user's
+first playtest: Tony remains human and receives the Circle's silver-grey colors
+and red member bandana.
+
+The approved later rewrite changes this outcome. Tony's campaign
+accomplishments are reviewed, every failed rival prospect is executed, and an
+eligible Tony is admitted. Tony and every recognized family member then
+visibly transform into literal sasquatches. The party below remains a candidate
+payoff, but its placement after that transformation is still to be decided.
+
+In the current version, the banner drops, the drums kick up, and the objective
+changes for the first time all night to something that isn't a threat:
 
 > **OBJECTIVE:** There's a party. Go to the party.
 
@@ -318,30 +337,10 @@ you, and the compliment is that the killer is watching you.
 
 ---
 
-## Build order  *(if you greenlight)*
+## Archived implementation notes
 
-1. **NPC system core** — data model, standing, state buckets off the existing
-   drunk number, look-at → filtered line, ambient barks. Testable with
-   placeholder lines before a word of party art exists.
-2. **Outcome C (Washout deaths)** — cheapest, biggest tone win, reuses the gun
-   rig and gore we already have. Turns the current soft-fail into the real thing.
-3. **The party scene** — port the apartment's beer/weed/mushroom/whiskey +
-   narrator + interaction modules into the clearing, wire the NPC system into it.
-4. **Outcome A (Brother → party)** — the pipe from anointing to party.
-5. **Outcome D1 (Ghost)** — cheap, one script beat, one walk-away.
-6. **The gun as a carried item + Outcome B (Rat)** — the big one. Needs the gun
-   to survive the apartment→forest handoff, the RESOLVE meter, the kill window,
-   and the suspicion layer on the NPCs. Do this last; it leans on all of the above.
-
-Open questions for you:
-
-- **Fourth outcome: D1, D2, or both?**
-- **Rat death: B1 (they always know) as default, B2 (you get him, then the
-  knives) as a headshot-only branch — good?**
-- **Do we want the FBI voice to be one-note federal, or is there room for it to
-  be its own running joke** (a handler who's clearly done this too many times and
-  is emotionally checked out)? I lean toward the latter — it's funnier and it
-  balances Booskibro's warmth with an equal-and-opposite deadpan.
-- **Real names on the crew NPCs, or keep the handles** (BOOSKIBRO / RIPPINFLOW /
-  etc.)? The handles are funnier and safer. Assuming handles unless you say.
-```
+The former Rat/Ghost/party build order and its FBI questions were exploratory
+and are intentionally removed from the active handoff. Recover them from
+`9ed9693:docs/OUTCOMES-AND-NPCS.md` if the user later chooses to revisit those
+branches. The next implementation task is the Beef Run integration documented
+in `docs/CONSOLIDATION-HANDOFF.md`.

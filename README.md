@@ -7,12 +7,13 @@ Six playable or preserved experiences live in this repo.
 | **Squatch Life** (repo root) | First-person apartment hub. Wake up, answer Lou’s call, get ready, use the PC, and leave for the first mission. |
 | **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; the campaign also reuses the same club for his post-airstrip assignment. |
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
-| **The Jerky Motel** ([`motel.html`](./motel.html)) | Interactive Motel deal, inspection, betrayal, recovery, and escape; campaign-owned after the second Bing visit. |
+| **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Manny is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene and cast for alignment. Playable and verified, but not yet campaign canon or routed from the apartment. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
+                 # safe previews -> http://localhost:5173/preview.html
                  # the Bing      -> http://localhost:5173/bing.html
                  # Squatchfather -> http://localhost:5173/squatchfather.html
                  # the Motel     -> http://localhost:5173/motel.html
@@ -40,18 +41,31 @@ weapon and returns to the apartment again. Sleeping creates a persistent Day
 Two checkpoint at 7:00 AM; Booskibro then calls once and unlocks the airstrip job
 with Captain Lou Sasole kept distinct from Lou. The post-airstrip state
 contract, Lou’s second call, the reused Bing assignment, direct Motel
-transition, and Motel return are implemented. The airstrip runtime is being
-finished on its own branch, so that later sequence is not yet reachable through
-normal play.
+transition, and Motel return are implemented. The airstrip runtime is finished
+on `origin/claude/beef-run-mission-di1vq9` and awaits selective integration, so
+that later sequence is not yet reachable through normal play. Do not merge that
+branch wholesale: it forked from the older Squatch Life base.
 
 The Initiation branch history, face art, NPC writing, post-processing modules,
-and playable scene are preserved without overwriting shared systems. Its
-approved canon keeps Tony Squatchtana and every Circle member human:
-“Sasquatch” is family status, and the anointing awards Tony the Circle's colors
-and red bandana instead of changing species. Prospect One's execution remains.
-The final post-Initiation ending still needs its design pass before the scene is
-wired as the chapter endpoint. See
+and playable scene are preserved without overwriting shared systems. Tony
+Squatchtana and the Circle present as humans before Initiation. The current
+standalone scene intentionally remains unchanged until it has been playtested.
+The approved future rewrite will review Tony's campaign accomplishments, kill
+the rival prospects who failed, admit Tony only when the required campaign work
+is complete, and visibly transform Tony and every recognized family member into
+literal sasquatches. Prospect One's execution and gore remain. See
 [`docs/CHARACTER-ALIGNMENT.md`](./docs/CHARACTER-ALIGNMENT.md).
+
+For playtesting later scenes before naturally reaching them, open
+<http://localhost:5173/preview.html>. Preview state is page-local memory: it
+does not read, migrate, overwrite, or advance the player's canonical
+`localStorage` save. The preview page currently exposes the Motel, Bing Scene
+Two, Squatchfather, and the unchanged Initiation reference, and every preview
+shows a persistent temporary-progress banner and an exit back to the saved
+apartment game.
+
+Final screenshots from the Bada Bing and Motel repair pass are versioned in
+[`docs/validation/2026-07-29/`](./docs/validation/2026-07-29/README.md).
 
 `src/core/campaign.js` is also the authoritative scene registry. Each location
 has one default spawn and a finite set of valid return points. Invalid saved
@@ -67,7 +81,7 @@ Everything between here and there is the apartment.
 
 ## Squatch Life
 
-You wake up in your apartment on Tuesday at 6:04 AM. There's a fridge with beer in it, a
+You wake up in your apartment on Day One at 6:04 AM. There's a fridge with beer in it, a
 radio on the sideboard, squatch gear on the walls, and a gaming PC on the desk
 that runs a game called **Squatch Smash**.
 
@@ -134,6 +148,11 @@ hold-left-button-to-look rather than being unplayable.
 | <kbd>R</kbd> | skip the radio on |
 | <kbd>Esc</kbd> | release the mouse and pause |
 
+When a story call arrives, the HUD names the real control sequence: look at the
+phone on the nightstand and press <kbd>E</kbd> to pick it up, then press
+<kbd>E</kbd> again to answer. The prompt remains visible long enough to reach
+the phone.
+
 At the PC: <kbd>Tab</kbd> goes back to the desktop, the number keys launch an
 app, and <kbd>Q</kbd> stands you up. Inside Squatch Smash, click to smash and
 <kbd>B</kbd> spends a Steady Hands charge.
@@ -147,6 +166,12 @@ venetian blinds looking over a city that changes with the hour, an evidence
 corkboard, a wall clock that keeps the right time, a bookshelf, a squatch
 crossing sign, a bathroom through the north door, and thirty-nine slots for your
 own gear on the walls and the furniture.
+
+The July 29 playtest pass corrected the frying-egg scale, both new fridge
+stickers, the kitchen picture, the bathroom-door hinge/close state, and the
+monitor neck. The apartment revolver is now absent before Big Uncle Lou hands
+over the first package and permanently returns to the coffee table after that
+story milestone.
 
 ### Things you can do
 
@@ -170,28 +195,35 @@ number of sound effects.
 same twice running. You will also do it involuntarily, at intervals, whether or
 not that is convenient.
 
-**Zyn.** A tin on the desk. Forty-two minutes of steadier hands, and a lip you
-have to remember to empty.
+**Zyn.** A tin on the desk. Ninety real seconds of steadier hands, and a lip
+you have to remember to empty.
 
 **Sit down.** The couch, the edge of the bed, the desk chair. Nothing happens
-while you are sitting, which is rather the point — time still moves, the radio
-still plays, the light still goes orange and then blue. Hold <kbd>E</kbd> on the
-bed to lie back down, and <kbd>E</kbd> again to sleep the whole day off.
+while you are sitting, which is rather the point. The radio still plays, but
+standing around does not burn campaign time. Hold <kbd>E</kbd> on the bed to
+lie back down, and <kbd>E</kbd> again to use an authored sleep checkpoint.
 
-**The radio.** Two stations, tuned by holding <kbd>E</kbd> on the set. See
-below.
+**The radio.** One local station combining scheduled talk, notices,
+commercials, and the crew's records. See below.
 
 **The PC.** Six applications are installed. See below.
 
 ### Time
 
-A whole day takes fifteen real minutes. The sun comes up the east wall, crosses,
-goes orange and sets; the sky outside the window cross-fades between four
-paintings of the same skyline; the lights come on when it gets dark and you can
-override them at the switch. The city sounds different at night. At eleven, the
-neighbours start arguing, and they do that every night. The clock in the corner
-of the screen, the alarm clock by the bed and the clock on the south wall all
-agree with each other, and so does the taskbar on the PC.
+Campaign time is authored, not a wall-clock timer. Idle exploration, pausing,
+dialogue reading speed, and computer play do not silently move the story.
+Completing a task, answering a story call, travelling, finishing a mission, or
+sleeping applies a named, idempotent time event through
+`src/core/campaign.js`. The campaign save is the authority; apartment lighting,
+the HUD, alarm clock, wall clock, PC taskbar, radio schedule, and scene clocks
+project that saved time.
+
+Day One begins at 6:04 AM. The first completion of eating, showering, pooping,
+and changing clothes consumes an authored duration, Lou's answered call adds
+three minutes, and leaving for the first Bing lands at the established 11:41 PM
+opening. Repeating an already completed interaction cannot farm time. Story
+chapters are separate from calendar days, so crossing midnight during Day One
+does not trigger Booskibro's Day Two call before Tony sleeps.
 
 ### The voice
 
@@ -271,24 +303,21 @@ prefers a real file whenever one exists.
 
 ## The radio
 
-Hold <kbd>E</kbd> on the set to move along the dial.
+Hold <kbd>E</kbd> on the set to interact with the station.
 
-**97.8 THE SQUATCH** is talk radio, and what is on depends on the in-game clock.
+**97.8 THE SQUATCH** is a combined talk-and-music station, and what is on
+depends on the authored campaign clock.
 Lou & Lou from six (two Lous, zero preparation), Booski & Ape's CS Gambling Show
 at noon, Irish's Deep Dives at three, Eric & Gratin's *What's Happening in
 India!* at five, Hog Mama's Late Night Improv after ten, and an automated
 overnight nobody is in the building for. Every few segments the sixty-second
-station commercial comes round in full.
+station commercial comes round in full. Between talk blocks it plays whatever
+is listed in `assets/music/manifest.json`.
 
-**98.8 UNCLE SQUATCH BEATS** plays whatever you have put in `assets/music/`,
-with a station ident over the first track. It cannot play YouTube — no embed
-survives a locked pointer and the terms don't allow proxying the audio — so it
-plays local files and says so plainly when there aren't any.
-
-Nothing is voiced. You hear a radio murmuring from across the room and read what
-it's saying, which is roughly what having a radio on in another room is like.
-The murmur is a speech-band bed with the consonants filtered off, so it reads as
-a voice without ever resolving into words.
+The station uses generated recordings when a matching cue exists and retains
+subtitle/murmur fallbacks for missing lines. It cannot play YouTube, so music is
+served from the repository's local files and the station says so plainly when
+none are available.
 
 Everything on the station lives in `src/core/stations.js`.
 
@@ -316,6 +345,13 @@ reaction app. **YUKA VS OLIVE** (`src/arcade/yuka.js`) is the food-comparison
 scanner. **DOOM** (`src/arcade/doom.js`) uses the guarded web-app/iframe
 wrapper.
 
+Canvas applications use SquatchOS's visible cursor; framed applications release
+pointer lock and receive the real browser mouse. Mail rows are mouse-navigable.
+Every active app displays `TAB = EXIT TO DESKTOP`. Squatch Smash keeps its run
+paused when Tony stands up and restores it when he sits back down. Its compact
+960x540 monitor layout keeps `START RAMPAGE` physically on-screen. DOOM opens a
+real `E1M1` session instead of the recorded attract-mode demo.
+
 To add another canvas app, write an object with `id`, `label`, `drawIcon`,
 `enter`, `exit`,
 `update`, `onPointer`, `onClick`, `onKey` and `glow`, and register it in
@@ -327,6 +363,7 @@ To add another canvas app, write an object with `id`, `label`, `drawIcon`,
 
 ```
 index.html              importmap + HUD markup
+preview.html            save-isolated later-scene playtest launcher
 src/main.js             renderer, state machine, input
 src/core/               player controller, interaction raycasting, audio, radio
                         and its station schedules, day/night, campaign state,
@@ -336,6 +373,9 @@ src/world/              apartment shell, furniture builders, procedural textures
 src/arcade/             SquatchOS, its six apps, and the mount/input boundary
 src/bing/               the Bada Bing: the club, its people, the script, the
                         mission, and two ways to lose money
+src/squatchfather/      restaurant scene, timeline, dialogue, and controller
+src/motel/              first-person Motel mission, human cast, level, and audio
+src/initiation/         preserved ceremony reference and NPC system
 tools/                  static server, ElevenLabs generator, static check,
                         runtime art-placement check, single-file bundler
 vendor/                 three.js (vendored so there is no install step)
@@ -357,6 +397,7 @@ npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
 npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
 npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
 npm run verify:initiation # runtime: human cast, canonical names, human induction
+npm run verify:preview # runtime: later-scene previews never touch the real save
 npm run verify:boot-errors # blocked scene modules show reload/home recovery
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
@@ -373,13 +414,15 @@ on all three axes. It exits non-zero, so CI can run it.
 `verify:bing` is the same idea aimed at the club: it starts the game, walks the
 player through every beat of the mission — the bouncer, the floor, the machine,
 the table, the hallway, Lou, the package, the lot — and asserts the state
-machine at each one, because "the office where nothing happens" is a failure
-that no parser can see.
+machine at each one. It also measures the open front-door portal, all eighteen
+vehicles, collision-safe car/table exits, the performer contract, NPC movement
+cadence/shadows, and room-aware rain attenuation.
 
-`verify:day-one` starts from empty browser storage, rings Lou through the
-physical phone, answers it in hand, exercises each live apartment-door blocker,
-leaves email unread, and confirms the direct Bada Bing handoff preserves the
-call, mission, and activity state.
+`verify:day-one` starts from empty browser storage, proves idle time is frozen,
+rings Lou through the physical phone, checks his authored three-minute advance,
+exercises each live apartment-door blocker, leaves email unread, and confirms
+the direct Bada Bing handoff preserves state and displays the saved 11:41 PM
+arrival. It also corrupts the browser save and verifies visible recovery.
 
 `verify:squatchfather` begins with the completed Bada Bing handoff, enters the
 restaurant through the apartment door, stages Lou’s package as the bathroom
@@ -391,6 +434,16 @@ blackout, verifies the checkpoint survives a reload, answers Booskibro through t
 physical phone, and reloads again to prove neither completed call replays.
 Captain Lou Sasole is asserted as a separate character ID at the airstrip gate.
 
+`verify:motel` starts the real later-scene preview, confirms first-person
+movement, asserts Manny is a friendly adult human who cannot attack or be
+targeted as an enemy, measures the pool/stairs/vehicles/furniture and Room 12
+spawn clearance, exercises retry/save/outcome state, and returns to the
+apartment.
+
+`verify:preview` plants a hostile sentinel in canonical browser storage, opens
+each unlocked developer preview, and proves the sentinel is unchanged after
+scene state and navigation are exercised.
+
 `verify:boot-errors` deliberately blocks the Motel, Squatchfather, and
 Initiation entry modules. Their classic-script guard must show a useful error,
 Reload, and Apartment recovery before any Three.js module has successfully
@@ -399,8 +452,8 @@ executed.
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around
 while working on a room, and direct handles for every mechanic (`passOut`,
-`fart`, `startPee`, `sitOn`, `lieOnBed`, `takeZyn`, `time.skipHours`) so you can
-get to a state without playing your way there.
+`fart`, `startPee`, `sitOn`, `lieOnBed`, `takeZyn`) so you can inspect a state
+without creating a second production clock.
 
 
 ---
@@ -418,6 +471,11 @@ complete and Lou’s concealed package is still present. Beginning the mission
 stages that package behind the toilet as the scene’s weapon. Completion records
 that the weapon was dropped and returns the player to the apartment.
 
+The production spawn is on the clear sidewalk facing the restaurant door, not
+inside the parked car collider. <kbd>W</kbd> now moves in the camera's forward
+direction and <kbd>S</kbd> moves backward, matching the apartment and other
+first-person scenes.
+
 | Input | Action |
 |---|---|
 | <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows | move |
@@ -426,6 +484,40 @@ that the weapon was dropped and returns the player to the apartment.
 | left click | fire during the shooting beats |
 | <kbd>Esc</kbd> | pause |
 | <kbd>M</kbd> | mute |
+
+---
+
+## The Jerky Motel
+
+> `npm start`, then use <http://localhost:5173/preview.html> while the normal
+> story route is still waiting for the Beef Run integration.
+
+The Motel is a first-person deal, inspection, betrayal, recovery, and escape
+mission. Tony and Manny are adult humans. Manny is a friendly ally and driver:
+his faction contract prevents scripted waypoints, chase/grab AI, enemy damage,
+or Tony's targeting from ever treating him as a hostile. He may still fight
+real Motel attackers.
+
+The July 29 layout pass separated the swimming-pool deck from the parking lot,
+moved the east stairs and second car clear of the pool, removed parking stripes
+from the pool opening, authored deterministic deck furniture, built a genuine
+step exit with floor heights at `-2.25`, `-1.50`, `-0.75`, and `0`, and opened
+the matching wall gap. Room 12 uses a human-scale `0.42m` player radius and
+collision-clear entry, seller, bathroom-attacker, recovery, mattress, and clerk
+placements; restoring the old `0.80m` radius would require a bathroom/furniture
+redesign rather than a spawn tweak.
+
+| Input | Action |
+|---|---|
+| <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> | first-person movement |
+| mouse | look; click the canvas to capture the cursor |
+| <kbd>E</kbd> | interact |
+| left click / <kbd>F</kbd> | melee |
+| right click / <kbd>R</kbd> | use the equipped ranged weapon |
+| <kbd>Space</kbd> | jump or fight a grapple |
+| <kbd>1</kbd>–<kbd>4</kbd> | dialogue response |
+| <kbd>Tab</kbd> | objective card |
+| <kbd>P</kbd> / <kbd>Esc</kbd> | pause |
 
 ---
 
@@ -449,9 +541,9 @@ yourself.
 
 | | |
 |---|---|
-| **The lot** | Fifteen cars, a reserved space, a dumpster in the delivery alley, and one suspiciously clean sedan parked where it can watch the office wall. |
+| **The lot** | Eighteen separated, grounded vehicles, a reserved space, a dumpster in the delivery alley, and one suspiciously clean sedan parked where it can watch the office wall. |
 | **The vestibule** | Coat check, a metal detector nobody has plugged in, and a bouncer who knows exactly who you are and asks anyway. |
-| **The floor** | Stage, runway, three poles, booths, candlelit two-tops, and a room dark enough that the light is all in pockets. Step onto the stage and somebody comes over. |
+| **The floor** | Stage, runway, three poles, four adult female performers in stylized bikini outfits, booths, candlelit two-tops, and a room dark enough that the light is all in pockets. |
 | **The bar** | Twelve metres of it. Club soda, beer, whiskey, or whatever Lou drinks. The drink model is the flat's, so the whiskey lands the way the whiskey lands. |
 | **Blackjack** | A real table with real cards, played from the chair. $25 minimum. Lou counts your hands: three and he messages, six and he means it, ten and he sends somebody. |
 | **The machine** | Three reels, five symbols, and a jackpot that is technically possible. Its side panel is not screwed down, and there is a second counter behind it. |
@@ -462,7 +554,8 @@ yourself.
 
 Everything the flat does, plus <kbd>1</kbd>–<kbd>4</kbd> to answer somebody,
 <kbd>Q</kbd> to get up or step away, and <kbd>Tab</kbd> to hide the objective
-card. At the table: <kbd>1</kbd>–<kbd>4</kbd> stake, <kbd>E</kbd> deal or hit,
+card. While already walking, <kbd>Q</kbd> is a validated unstuck action. At the
+table: <kbd>1</kbd>–<kbd>4</kbd> stake, <kbd>E</kbd> deal or hit,
 <kbd>F</kbd> stand, <kbd>R</kbd> double.
 
 ### Endings
@@ -471,6 +564,14 @@ Four, chosen by what you did about the sedan rather than by whether you
 "won": it follows you, you read its plate, you told Lou and one of his men came
 out to lean on the canopy post, or you left through the alley and nobody saw you
 at all. Every ending returns home with Lou’s package for the next mission.
+
+The July 29 playtest pass opened the accidentally skinned-over front portal,
+centered the lot and made every vehicle collider rotation-aware, added
+collision-validated standing poses for cars and tables, corrected seated and
+walking NPCs, and reduced nonhero shadow work. Rain is now cached and
+door/room-aware: full outside, reduced in the vestibule, and quiet/low-passed
+inside. Post-processing again samples frame time so its existing slow-frame
+fallback can act.
 
 ### The code
 
