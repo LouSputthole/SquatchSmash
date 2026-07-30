@@ -685,10 +685,23 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     }
   };
 
-  // Toe kick + carcass + counter top.
+  /* The basin opening, needed by the carcass below and the sink build after
+   * it. The bowl used to be built INSIDE a solid counter -- walls, floor and
+   * washing-up all sealed into the laminate -- so all anybody ever saw of the
+   * "sink" was a flat steel plate. The counter has to actually have a hole. */
+  const SINK = { x0: x0 + 0.10, x1: wallX - 0.12, z0: L.sink - 0.36, z1: L.sink + 0.36, depth: 0.17 };
+
+  // Toe kick + carcass + counter top, both cut around the basin opening.
   g.add(boxFrom(x0 + 0.06, 0, z0, wallX, 0.10, z1, M.plasticGrey));
-  g.add(boxFrom(x0, 0.10, z0, wallX, top - 0.04, z1, M.lightWood));
-  g.add(boxFrom(x0 - 0.02, top - 0.04, z0, wallX, top, z1, M.counter));
+  g.add(boxFrom(x0, 0.10, z0, wallX, top - 0.04, SINK.z0, M.lightWood));
+  g.add(boxFrom(x0, 0.10, SINK.z1, wallX, top - 0.04, z1, M.lightWood));
+  g.add(boxFrom(x0, 0.10, SINK.z0, SINK.x0, top - 0.04, SINK.z1, M.lightWood));
+  g.add(boxFrom(SINK.x1, 0.10, SINK.z0, wallX, top - 0.04, SINK.z1, M.lightWood));
+  g.add(boxFrom(SINK.x0, 0.10, SINK.z0, SINK.x1, top - SINK.depth - 0.008, SINK.z1, M.lightWood));
+  g.add(boxFrom(x0 - 0.02, top - 0.04, z0, wallX, top, SINK.z0, M.counter));
+  g.add(boxFrom(x0 - 0.02, top - 0.04, SINK.z1, wallX, top, z1, M.counter));
+  g.add(boxFrom(x0 - 0.02, top - 0.04, SINK.z0, SINK.x0, top, SINK.z1, M.counter));
+  g.add(boxFrom(SINK.x1, top - 0.04, SINK.z0, wallX, top, SINK.z1, M.counter));
 
   // Door fronts + pulls.
   const nDoors = Math.max(2, Math.round((z1 - z0) / 0.55));
@@ -699,16 +712,22 @@ export function makeKitchen(M, { x, z0, z1, d = 0.62, wallX = 5 }) {
     pull(x0 - 0.022, top - 0.16, cz);
   }
 
-  /* ---- sink: a real inset basin, not a flat plate ---- */
+  /* ---- sink: a real inset basin, recessed through the counter cut above ---- */
   const sinkZ = L.sink;
-  const bx0 = x0 + 0.10, bx1 = wallX - 0.12;
-  const bz0 = sinkZ - 0.36, bz1 = sinkZ + 0.36;
-  const DEPTH = 0.17;
+  const bx0 = SINK.x0, bx1 = SINK.x1;
+  const bz0 = SINK.z0, bz1 = SINK.z1;
+  const DEPTH = SINK.depth;
   const steelIn = mat({ map: T_brushed, roughness: 0.28, metalness: 0.85 });
 
-  // Basin: four inner walls and a bottom, dropped below the counter, with a
-  // narrow rim standing proud of the laminate.
-  g.add(boxFrom(bx0 - 0.02, top - 0.01, bz0 - 0.02, bx1 + 0.02, top + 0.008, bz1 + 0.02, M.steel, { cast: false }));
+  /* Rim: four narrow strips standing proud of the laminate, framing the
+   * opening. This used to be ONE slab spanning the whole basin, which capped
+   * the hole and was the flat plate the whole fix is about. */
+  g.add(boxFrom(bx0 - 0.02, top - 0.01, bz0 - 0.02, bx1 + 0.02, top + 0.008, bz0, M.steel, { cast: false }));
+  g.add(boxFrom(bx0 - 0.02, top - 0.01, bz1, bx1 + 0.02, top + 0.008, bz1 + 0.02, M.steel, { cast: false }));
+  g.add(boxFrom(bx0 - 0.02, top - 0.01, bz0, bx0, top + 0.008, bz1, M.steel, { cast: false }));
+  g.add(boxFrom(bx1, top - 0.01, bz0, bx1 + 0.02, top + 0.008, bz1, M.steel, { cast: false }));
+
+  // Basin: four inner walls and a bottom, dropped below the counter.
   g.add(boxFrom(bx0, top - DEPTH, bz0, bx1, top - DEPTH + 0.012, bz1, steelIn, { cast: false }));
   g.add(boxFrom(bx0, top - DEPTH, bz0, bx0 + 0.012, top, bz1, steelIn, { cast: false }));
   g.add(boxFrom(bx1 - 0.012, top - DEPTH, bz0, bx1, top, bz1, steelIn, { cast: false }));
