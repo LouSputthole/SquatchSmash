@@ -41,7 +41,7 @@ const BANDANA = 0xd92e2e;
  * @param {object} o
  *   height   metres to the top of the head (1.78 is the default adult)
  *   build    1.0 average, 1.4 is Lou
- *   dress    'suit' | 'shirt' | 'tracksuit' | 'tee' | 'waistcoat' | 'stage' | 'work'
+ *   dress    'suit' | 'shirt' | 'tracksuit' | 'tee' | 'waistcoat' | 'bikini' | 'work'
  *   hair     'short' | 'crop' | 'receding' | 'bald' | 'long' | 'tied'
  *   bandana  club colours, worn by the crew and the prospect
  */
@@ -50,25 +50,30 @@ export function makePerson(o = {}) {
     height = 1.78, build = 1, dress = 'shirt', hair = 'short',
     skin = pick(SKINS), hairColour = pick(HAIRS), shirt = pick(SHIRTS),
     bandana = false, chain = false, beard = false, glasses = false,
+    gender = 'unspecified', bodyShape = 'average', adult = true,
+    castShadow = true,
   } = o;
 
   const skinMat = mat({ color: skin, roughness: 0.68 });
   const hairMat = mat({ color: hairColour, roughness: 0.96 });
+  const performanceWear = dress === 'bikini';
   const cloth = mat({
     color: shirt,
-    roughness: dress === 'stage' ? 0.34 : 0.9,
-    metalness: dress === 'stage' ? 0.5 : 0,
+    roughness: performanceWear ? 0.34 : 0.9,
+    metalness: performanceWear ? 0.35 : 0,
   });
   const jacketColour = dress === 'suit' ? 0x1b1b22 : shirt;
   const jacket = mat({ color: jacketColour, roughness: 0.88 });
-  const trousers = mat({
-    color: dress === 'suit' ? 0x1b1b22 : dress === 'tracksuit' ? shirt : 0x232631,
-    roughness: 0.92,
-  });
+  const trousers = performanceWear
+    ? skinMat
+    : mat({
+      color: dress === 'suit' ? 0x1b1b22 : dress === 'tracksuit' ? shirt : 0x232631,
+      roughness: 0.92,
+    });
   const shoe = mat({ color: 0x14141a, roughness: 0.5 });
-  /* Sleeves: a tee and a stage outfit leave the arms bare, everything else
+  /* Sleeves: a tee and a bikini leave the arms bare, everything else
    * covers them, and a waistcoat is a shirt with something over the chest. */
-  const sleeve = dress === 'tee' || dress === 'stage'
+  const sleeve = dress === 'tee' || performanceWear
     ? skinMat
     : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth);
 
@@ -79,14 +84,16 @@ export function makePerson(o = {}) {
   /* Everything below is in metres on a 1.78m frame; `g.scale` handles the
    * rest, so `height` means height. `t` thickens with build; the frame does
    * not, or a heavy man ends up shaped like a wardrobe. */
+  const curvy = bodyShape === 'curvy';
+  const female = gender === 'female';
   const t = 0.55 + build * 0.45;          // 1.0 at build 1
-  const SH = 0.215 * (0.85 + build * 0.15);  // half shoulder width
-  const D = 0.135 * t;                       // half chest depth
+  const SH = (female ? 0.198 : 0.215) * (0.85 + build * 0.15); // half shoulder width
+  const D = (curvy ? 0.145 : 0.135) * t;                       // half chest depth
 
   /* ---- legs ---- */
   function leg(side) {
     const pivot = group('leg');
-    pivot.position.set(side * 0.095 * t, 0.90, 0);
+    pivot.position.set(side * (curvy ? 0.108 : 0.095) * t, 0.90, 0);
     // Thigh and shin taper, and the knee is a joint rather than a corner
     pivot.add(cylinder({ rTop: 0.085 * t, rBottom: 0.068 * t, h: 0.44, seg: 10, pos: [0, -0.22, 0], mat: trousers }));
     const shin = group('shin');
@@ -103,10 +110,25 @@ export function makePerson(o = {}) {
   g.add(legL, legR);
 
   /* ---- torso ----
-   * Hips, a waist that is narrower than both, and a chest that is wider than
-   * both. Three parts is the fewest that reads as a body rather than a box. */
-  body.add(box({ size: [0.30 * t * (build > 1.15 ? 1.08 : 1), 0.16, D * 1.9], pos: [0, 0.97, 0], mat: trousers }));
-  const waist = box({ size: [0.28 * t, 0.20, D * 1.75], pos: [0, 1.13, 0], mat: dress === 'suit' ? jacket : cloth });
+   * Rounded hips, waist, ribcage and shoulders keep the primitive figure
+   * human at close range. Earlier box-on-box torsos read as malformed
+   * mannequins, especially while a walk cycle moved the narrower limbs. */
+  const hipHalf = (curvy ? 0.205 : 0.155) * t * (build > 1.15 ? 1.06 : 1);
+  const hips = sphere({
+    r: hipHalf,
+    ry: curvy ? 0.14 : 0.105,
+    rz: curvy ? D * 1.08 : D * 0.94,
+    pos: [0, 1.0, 0],
+    mat: performanceWear ? cloth : trousers,
+  });
+  body.add(hips);
+  const waist = sphere({
+    r: (curvy ? 0.142 : 0.145) * t,
+    ry: 0.135,
+    rz: D * 0.9,
+    pos: [0, 1.15, 0],
+    mat: performanceWear ? skinMat : (dress === 'suit' ? jacket : cloth),
+  });
   body.add(waist);
   /* A big man is big at the middle, not at the shoulders. Anything over about
    * 1.15 build gets a front on him, which is most of what makes Lou Lou. */
@@ -123,12 +145,68 @@ export function makePerson(o = {}) {
       pos: [0, 1.05, D * (0.3 + heavy * 0.2)], mat: dress === 'suit' ? jacket : cloth,
     }));
   }
-  const torso = box({ size: [0.345 * t, 0.30, D * 2], pos: [0, 1.36, 0], mat: cloth });
+  const torso = sphere({
+    r: (curvy ? 0.182 : 0.173) * t,
+    ry: 0.19,
+    rz: D,
+    pos: [0, 1.34, 0],
+    mat: performanceWear ? skinMat : cloth,
+  });
   body.add(torso);
   // Shoulders: a slab the width of the frame, capped with deltoids
   body.add(box({ size: [SH * 2, 0.11, D * 1.95], pos: [0, 1.47, 0], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
   for (const sx of [-1, 1]) {
     body.add(sphere({ r: 0.072 * t, ry: 0.062, pos: [sx * SH, 1.45, 0], mat: sleeve === skinMat ? skinMat : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth) }));
+  }
+
+  // Adult performer silhouette. The coloured rounded forms are the bikini
+  // itself, not exposed anatomy: two cups and straps above, a full bottom and
+  // rounded rear panels below. It stays non-nude from every camera angle.
+  const curves = {};
+  if (female && curvy && performanceWear && adult) {
+    for (const sx of [-1, 1]) {
+      const cup = sphere({
+        r: 0.11 * t, ry: 0.105, rz: 0.095,
+        pos: [sx * 0.09 * t, 1.39, D * 0.92],
+        mat: cloth,
+      });
+      cup.name = `performer.bikini-top.${sx < 0 ? 'left' : 'right'}`;
+      body.add(cup);
+      curves[sx < 0 ? 'bustL' : 'bustR'] = cup;
+
+      const rear = sphere({
+        r: 0.118 * t, ry: 0.112, rz: 0.105,
+        pos: [sx * 0.10 * t, 1.02, -D * 0.72],
+        mat: cloth,
+      });
+      rear.name = `performer.bikini-bottom.rear.${sx < 0 ? 'left' : 'right'}`;
+      body.add(rear);
+      curves[sx < 0 ? 'rearL' : 'rearR'] = rear;
+
+      const strap = box({
+        name: `performer.bikini-top.strap.${sx < 0 ? 'left' : 'right'}`,
+        size: [0.024, 0.26, 0.018],
+        pos: [sx * 0.12, 1.49, D * 1.08],
+        mat: cloth,
+      });
+      strap.rotation.z = sx * -0.12;
+      body.add(strap);
+    }
+    const topBand = box({
+      name: 'performer.bikini-top.band',
+      size: [0.34 * t, 0.055, 0.028],
+      pos: [0, 1.31, D * 1.05],
+      mat: cloth,
+    });
+    const bottomBand = box({
+      name: 'performer.bikini-bottom.band',
+      size: [0.36 * t, 0.15, D * 1.94],
+      pos: [0, 1.03, 0],
+      mat: cloth,
+    });
+    body.add(topBand, bottomBand);
+    curves.topBand = topBand;
+    curves.bottomBand = bottomBand;
   }
 
   if (dress === 'suit') {
@@ -233,8 +311,21 @@ export function makePerson(o = {}) {
   const armR = arm(1);
   body.add(armL, armR);
 
-  g.scale.setScalar(height / 1.78);
-  g.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = false; } });
+  const heightScale = height / 1.78;
+  g.scale.setScalar(heightScale);
+  g.userData.profile = {
+    adult,
+    gender,
+    bodyShape,
+    outfit: dress,
+    height,
+  };
+  g.traverse((m) => {
+    if (m.isMesh) {
+      m.castShadow = castShadow;
+      m.receiveShadow = false;
+    }
+  });
 
   /* box() and sphere() in world/build.js put an object's SIZE in its scale --
    * they all share one unit geometry. So anything animated by scale has to be
@@ -244,7 +335,9 @@ export function makePerson(o = {}) {
   mouth.userData.base = mouth.scale.clone();
 
   return {
-    group: g, body, head, eyes, mouth, torso, waist,
+    group: g, body, head, eyes, mouth, torso, waist, hips, curves,
+    profile: g.userData.profile,
+    heightScale,
     armL, armR, legL, legR,
     foreL: armL.userData.fore, foreR: armR.userData.fore,
     shinL: legL.children.find((c) => c.name === 'shin'),
@@ -268,7 +361,7 @@ export class Npc {
   constructor(scene, o = {}) {
     const {
       name = 'somebody', tier = 'ambient', x = 0, z = 0, yaw = 0, y = 0,
-      job = 'stand', look = true, route = null, model = {},
+      job = 'stand', look = true, route = null, model = {}, colliders = null,
     } = o;
     this.name = name;
     this.tier = tier;
@@ -276,10 +369,20 @@ export class Npc {
     this.look = look;
     this.route = route;
     this.routeAt = 0;
-    this.parts = makePerson(model);
+    this.colliders = colliders;
+    this.parts = makePerson({
+      ...model,
+      castShadow: model.castShadow ?? tier === 'hero',
+    });
     this.group = this.parts.group;
     this.group.position.set(x, y, z);
     this.group.rotation.y = yaw;
+    this.group.userData.npc = {
+      name,
+      tier,
+      role: model.role ?? null,
+      ...this.parts.profile,
+    };
     this.homeYaw = yaw;
     this.baseY = y;
     scene.add(this.group);
@@ -291,9 +394,9 @@ export class Npc {
     this.folded = false;
     this.targetYaw = undefined;
     this._acc = 0;
-    this._every = tier === 'hero' ? 0 : tier === 'ambient' ? 1 / 20 : 1 / 6;
-
-    if (job === 'sit') this.sit();
+    this._every = 0;
+    this._lastJob = null;
+    this._syncJob(true);
   }
 
   get position() { return this.group.position; }
@@ -307,6 +410,7 @@ export class Npc {
    * hovering, and everybody in this club is sitting down.
    */
   sit() {
+    this._neutralPose();
     this.seated = true;
     this.parts.legL.rotation.x = -1.45;
     this.parts.legR.rotation.x = -1.45;
@@ -316,16 +420,51 @@ export class Npc {
     this.parts.armR.rotation.x = -0.5;
     this.parts.foreL.rotation.x = -0.5;
     this.parts.foreR.rotation.x = -0.5;
-    this.group.position.y = this.baseY - 0.42;
+    this.group.position.y = this.baseY - 0.42 * this.parts.heightScale;
   }
 
   stand() {
+    this._neutralPose();
     this.seated = false;
-    this.parts.legL.rotation.x = 0;
-    this.parts.legR.rotation.x = 0;
-    this.parts.shinL.rotation.x = 0;
-    this.parts.shinR.rotation.x = 0;
     this.group.position.y = this.baseY;
+  }
+
+  _neutralPose() {
+    this.parts.body.rotation.set(0, 0, 0);
+    this.parts.head.rotation.set(0, 0, 0);
+    for (const part of [
+      this.parts.legL, this.parts.legR, this.parts.shinL, this.parts.shinR,
+      this.parts.armL, this.parts.armR, this.parts.foreL, this.parts.foreR,
+    ]) {
+      part.rotation.set(0, 0, 0);
+    }
+  }
+
+  _syncJob(force = false) {
+    if (!force && this.job === this._lastJob) return;
+    if (this.job === 'sit' || this.job === 'drink') this.sit();
+    else this.stand();
+    // Movers need visually smooth transforms even when their behavioural tier
+    // is background. Thirty updates a second removes the old 18 cm jumps
+    // without making every idle patron a per-frame actor.
+    this._every = this.job === 'patrol' || this.job === 'dance'
+      ? 1 / 30
+      : this.tier === 'hero' ? 0 : this.tier === 'ambient' ? 1 / 20 : 1 / 6;
+    this._lastJob = this.job;
+  }
+
+  _navClear(x, z) {
+    if (!this.colliders?.length) return true;
+    const radius = 0.24;
+    for (const b of this.colliders) {
+      if (this.baseY > b.max.y || this.baseY + 1.8 < b.min.y) continue;
+      const cx = Math.max(b.min.x, Math.min(b.max.x, x));
+      const cz = Math.max(b.min.z, Math.min(b.max.z, z));
+      const dx = x - cx;
+      const dz = z - cz;
+      if (dx * dx + dz * dz < radius * radius) return false;
+    }
+    return true;
   }
 
   /** Say something: the head moves and one hand comes up for `secs`. */
@@ -341,6 +480,7 @@ export class Npc {
   }
 
   update(dt, playerPos) {
+    this._syncJob();
     if (this._every > 0) {
       this._acc += dt;
       if (this._acc < this._every) return;
@@ -355,6 +495,19 @@ export class Npc {
     const base = this.parts.torso.userData.base;
     this.parts.torso.scale.set(base.x * breathe, base.y, base.z * breathe);
     if (this.speaking > 0) this.speaking -= dt;
+    // Clear transient speaking/job rotations before applying this frame's
+    // authored pose. Previously a speaker could keep a tilted head or raised
+    // arm forever after the line ended or the job changed.
+    this.parts.body.rotation.z = 0;
+    this.parts.head.rotation.x = 0;
+    this.parts.armL.rotation.y = 0;
+    this.parts.armL.rotation.z = 0;
+    this.parts.armR.rotation.y = 0;
+    this.parts.armR.rotation.z = 0;
+    this.parts.foreL.rotation.y = 0;
+    this.parts.foreL.rotation.z = 0;
+    this.parts.foreR.rotation.y = 0;
+    this.parts.foreR.rotation.z = 0;
 
     switch (this.job) {
       case 'work': {
@@ -415,6 +568,7 @@ export class Npc {
         break;
       }
       case 'patrol': {
+        this.group.position.y = this.baseY;
         if (this.route && this.route.length > 1) {
           const target = this.route[this.routeAt];
           const dx = target.x - this.group.position.x;
@@ -424,8 +578,23 @@ export class Npc {
             this.routeAt = (this.routeAt + 1) % this.route.length;
           } else {
             const speed = 1.1;
-            this.group.position.x += (dx / d) * speed * dt;
-            this.group.position.z += (dz / d) * speed * dt;
+            const stepX = (dx / d) * speed * dt;
+            const stepZ = (dz / d) * speed * dt;
+            let moved = false;
+            if (this._navClear(this.group.position.x + stepX, this.group.position.z)) {
+              this.group.position.x += stepX;
+              moved = true;
+            }
+            if (this._navClear(this.group.position.x, this.group.position.z + stepZ)) {
+              this.group.position.z += stepZ;
+              moved = true;
+            }
+            if (!moved) {
+              // An authored waypoint ended up behind furniture. Advance
+              // rather than walking through it or vibrating against it.
+              this.routeAt = (this.routeAt + 1) % this.route.length;
+              break;
+            }
             const yaw = Math.atan2(dx, dz);
             const diff = Math.atan2(Math.sin(yaw - this.group.rotation.y), Math.cos(yaw - this.group.rotation.y));
             this.group.rotation.y += diff * Math.min(1, dt * 4);
@@ -508,6 +677,7 @@ export function populate(scene, club) {
   const all = [];
   const by = {};
   const add = (key, npc) => {
+    npc.colliders ??= club.colliders;
     all.push(npc);
     if (key) by[key] = npc;
     return npc;
@@ -560,8 +730,12 @@ export function populate(scene, club) {
 
   add('security', new Npc(scene, {
     name: 'security', tier: 'hero', job: 'patrol',
-    x: -6, z: -4, yaw: 0,
-    route: [{ x: -6, z: -4 }, { x: -6, z: 6 }, { x: -18, z: 6 }, { x: -18, z: -2 }],
+    x: -6.3, z: -4.5, yaw: 0,
+    route: [
+      { x: -6.3, z: -4.5 }, { x: -6.3, z: 5.7 },
+      { x: -18.5, z: 5.7 }, { x: -18.5, z: -2.3 },
+      { x: -6.3, z: -2.3 },
+    ],
     model: { height: 1.88, build: 1.3, dress: 'tee', shirt: 0x14141a, hair: 'bald' },
   }));
 
@@ -584,9 +758,10 @@ export function populate(scene, club) {
       name: 'a dancer', tier: i === 3 ? 'ambient' : 'background', job: 'dance',
       x: p.x, z: p.z, y: p.y, yaw: 0, look: false,
       model: {
-        height: rand(1.68, 1.76), dress: 'stage',
+        role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
+        height: rand(1.68, 1.76), build: rand(1.02, 1.12), dress: 'bikini',
         shirt: pick([0xd94f9a, 0x9a4fd9, 0xd9c04f, 0x4fd9c0]),
-        hair: pick(['long', 'tied', 'short']),
+        hair: pick(['long', 'tied']),
       },
     }));
   });
@@ -685,10 +860,11 @@ export function populate(scene, club) {
  * Lou's associate: sent out to fetch the prospect when he has been playing
  * cards too long. He is not in the room until he is needed.
  */
-export function makeAssociate(scene, from) {
+export function makeAssociate(scene, from, colliders = null) {
   const npc = new Npc(scene, {
     name: "Lou's associate", tier: 'hero', job: 'patrol',
     x: from.x, z: from.z, yaw: 0,
+    colliders,
     model: { height: 1.84, build: 1.22, dress: 'tracksuit', shirt: 0x1c2f4a, hair: 'crop', bandana: true },
   });
   npc.group.visible = false;

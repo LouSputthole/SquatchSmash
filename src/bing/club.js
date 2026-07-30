@@ -495,11 +495,34 @@ export function buildClub(scene, { renderer } = {}) {
       add(box({ size: [w, 1.3, 0.08], pos: [cx, 0.65, 10.84], mat: dado }));
       add(box({ size: [w, 3.2, 0.08], pos: [cx, 2.9, 10.84], mat: above }));
     }
-    // The vestibule, which is small enough that its walls are most of it
-    for (const [vx, vz, vw, vd] of [[-3.74, 13.2, 0.06, 4.4], [3.74, 13.2, 0.06, 4.4], [0, 15.18, 7.4, 0.06]]) {
+    // The vestibule, which is small enough that its walls are most of it.
+    // The front skin has to repeat the real doorway cut-out. The original
+    // single 7.4 m panel covered the opening even after the physical door had
+    // swung away, so from the lot an open door revealed an opaque wall.
+    for (const [vx, vz, vw, vd] of [[-3.74, 13.2, 0.06, 4.4], [3.74, 13.2, 0.06, 4.4]]) {
       add(box({ size: [vw, 1.3, vd], pos: [vx, 0.65, vz], mat: dado }));
       add(box({ size: [vw, 1.9, vd], pos: [vx, 2.25, vz], mat: above }));
     }
+    for (const [name, vx] of [['left', -2.425], ['right', 2.425]]) {
+      add(box({
+        name: `vestibule.front-skin.${name}.dado`,
+        size: [2.55, 1.3, 0.06],
+        pos: [vx, 0.65, 15.18],
+        mat: dado,
+      }));
+      add(box({
+        name: `vestibule.front-skin.${name}.upper`,
+        size: [2.55, 1.9, 0.06],
+        pos: [vx, 2.25, 15.18],
+        mat: above,
+      }));
+    }
+    add(box({
+      name: 'vestibule.front-skin.lintel',
+      size: [2.3, 3.2 - DOOR_H, 0.06],
+      pos: [0, DOOR_H + (3.2 - DOOR_H) / 2, 15.18],
+      mat: above,
+    }));
   }
 
   const H = ROOMS.hallway;
@@ -827,8 +850,11 @@ export function buildClub(scene, { renderer } = {}) {
     add(cylinder({ r: 0.4, h: 0.03, pos: [bj.x, 2.16, bj.z], mat: lit(0xffd9a0, 2.2) }));
     const tableLight = new THREE.PointLight(0xffd9a0, 16, 7, 2);
     tableLight.position.set(bj.x, 2.05, bj.z);
-    tableLight.castShadow = true;
-    tableLight.shadow.mapSize.set(512, 512);
+    // A shadow-casting point light renders six shadow maps. In this dense
+    // room that repeated every person and every chair six times per frame.
+    // The overhead emissive shade and the moon still ground the table without
+    // paying that cube-shadow cost.
+    tableLight.castShadow = false;
     add(tableLight);
 
     add(sign(printed('min-bet', ['$25', 'MIN'], { w: 256, h: 200, bg: '#e8e0cc', fg: '#1a1a1a', font: '900 76px "Trebuchet MS", sans-serif' }),
@@ -1165,8 +1191,9 @@ export function buildClub(scene, { renderer } = {}) {
     add(shade);
     const deskLight = new THREE.PointLight(0xffb870, 17, 7, 2);
     deskLight.position.set(dx + 0.78, 1.25, dz - 0.2);
-    deskLight.castShadow = true;
-    deskLight.shadow.mapSize.set(512, 512);
+    // As at the blackjack table, the warm pool matters more than a six-face
+    // point-light shadow map in an already shadowed office.
+    deskLight.castShadow = false;
     add(deskLight);
     const officeFill = new THREE.PointLight(0xffa060, 6.5, 9, 2);
     officeFill.position.set(ox, CEIL_BACK - 0.4, oz + 0.6);
@@ -1292,7 +1319,9 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   /* Spawns                                                              */
   /* ================================================================== */
-  anchors.playerCar = new THREE.Vector3(-4.5, 0, 27.5);
+  // Centre Tony's car in the deliberately empty bay in the first row. It used
+  // to sit sideways across this row and overlap the Lincoln to its west.
+  anchors.playerCar = new THREE.Vector3(-0.7, 0, 25);
   anchors.suspiciousCar = new THREE.Vector3(19.5, 0, 20.5);
   anchors.louCar = new THREE.Vector3(8.5, 0, 18.8);
   anchors.lotExit = new THREE.Vector3(21, 0, 52);

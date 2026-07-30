@@ -191,7 +191,7 @@ world.groundAt = club.groundAt;
 
 window.__squatchStage?.('Letting people in…');
 const cast = populate(scene, club);
-const associate = makeAssociate(scene, club.anchors.hallMouth);
+const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders);
 
 // The machine bolted to the floor by the front booths
 const slotParts = makeSlotMachine({ x: club.slot.x, z: club.slot.z, rotY: Math.PI });
@@ -237,15 +237,20 @@ const blackjack = new Blackjack(scene, { x: club.bj.x, z: club.bj.z }, seat, {
   },
 });
 
-const car = makePlayerCar(scene, { x: club.anchors.playerCar.x, z: club.anchors.playerCar.z, yaw: Math.PI });
+const car = makePlayerCar(scene, {
+  x: club.anchors.playerCar.x,
+  z: club.anchors.playerCar.z,
+  yaw: Math.PI / 2,
+});
+club.colliders.push(car.worldCollider);
 const lot = populateLot(scene, club.colliders, club.anchors);
 
 /* Put him behind the wheel before the first frame. Booting at the origin and
  * tweening out to the car meant the zone system spent a second convinced he
  * was standing in the middle of the club, and started Lou's patience clock
  * before the engine was even off. */
-player.position.set(car.driverPose.x - 0.55, 1.24, car.driverPose.z);
-player.yaw = Math.PI;
+player.position.copy(car.driverPosition());
+player.yaw = car.driverYaw();
 player.mode = 'frozen';
 
 /* Held drinks ride on the camera, exactly as they do in the flat. */
@@ -585,6 +590,102 @@ reg(slotParts.panel, {
 
 /* ---- somewhere to sit, and somebody to tip ---- */
 
+const SAFE_STAND_RADIUS = 0.34;
+const SAFE_STAND_RADII = [0.55, 0.8, 1.05, 1.3, 1.6, 2.0, 2.5];
+const SAFE_STAND_ANGLES = [
+  0, Math.PI / 2, -Math.PI / 2, Math.PI,
+  Math.PI / 4, -Math.PI / 4, Math.PI * 0.75, -Math.PI * 0.75,
+];
+
+/** True when Tony's standing capsule clears every live club collider. */
+function standingClearAt(x, z, expectedRoom = null) {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return false;
+  if (expectedRoom && roomAt(x, z) !== expectedRoom) return false;
+  const ground = club.groundAt(x, z);
+  const foot = ground;
+  const head = ground + 1.66;
+  for (const b of club.colliders) {
+    if (head < b.min.y || foot > b.max.y) continue;
+    const cx = Math.max(b.min.x, Math.min(b.max.x, x));
+    const cz = Math.max(b.min.z, Math.min(b.max.z, z));
+    const dx = x - cx;
+    const dz = z - cz;
+    if (dx * dx + dz * dz < SAFE_STAND_RADIUS * SAFE_STAND_RADIUS) return false;
+  }
+  return true;
+}
+
+/**
+ * Find a nearby validated egress point. Authored candidates are tried first;
+ * the radial search handles all booth/table variants and future furniture.
+ */
+function findSafeStandSpot(origin, preferredYaw = player.yaw, candidates = []) {
+  const originRoom = roomAt(origin.x, origin.z);
+  const check = (p, keepRoom = true) => {
+    if (!p) return null;
+    const expected = keepRoom ? originRoom : null;
+    if (!standingClearAt(p.x, p.z, expected)) return null;
+    return new THREE.Vector3(p.x, club.groundAt(p.x, p.z), p.z);
+  };
+  for (const p of candidates) {
+    const safe = check(p);
+    if (safe) return safe;
+  }
+  for (const radius of SAFE_STAND_RADII) {
+    for (const offset of SAFE_STAND_ANGLES) {
+      const yaw = preferredYaw + offset;
+      const safe = check({
+        x: origin.x - Math.sin(yaw) * radius,
+        z: origin.z - Math.cos(yaw) * radius,
+      });
+      if (safe) return safe;
+    }
+  }
+  // Door thresholds can straddle two room labels; make one final local pass
+  // without the label restriction while still requiring full clearance.
+  for (const radius of SAFE_STAND_RADII) {
+    for (const offset of SAFE_STAND_ANGLES) {
+      const yaw = preferredYaw + offset;
+      const safe = check({
+        x: origin.x - Math.sin(yaw) * radius,
+        z: origin.z - Math.cos(yaw) * radius,
+      }, false);
+      if (safe) return safe;
+    }
+  }
+  return null;
+}
+
+function standPlayerSafely(candidates = []) {
+  const target = findSafeStandSpot(player.position, player.yaw, candidates);
+  if (!target) {
+    hud.toast('No clear place to stand. Press [Q] again after looking toward open floor.', '');
+    return null;
+  }
+  player.standFrom({ x: target.x, z: target.z });
+  return target;
+}
+
+/** [Q] while walking is a quiet emergency unstuck, only when actually needed. */
+function recoverIfStuck() {
+  if (standingClearAt(player.position.x, player.position.z)) return false;
+  const target = findSafeStandSpot(player.position, player.yaw);
+  if (!target) return false;
+  player._tween = null;
+  player.mode = 'walk';
+  player.yawCenter = null;
+  player.pitchMin = -Math.PI / 2 + 0.05;
+  player.pitchMax = Math.PI / 2 - 0.05;
+  player.ground = target.y;
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.position.set(target.x, target.y + 1.66, target.z);
+  player.velocity.set(0, 0, 0);
+  player.update(0.016);
+  hud.toast('Moved clear.', 'good');
+  return true;
+}
+
 /**
  * Booths and two-tops. Sitting is the whole difference between a room you walk
  * through and a room you are in, and it costs one pad and one pose.
@@ -612,10 +713,11 @@ function sitOn(spot, yaw) {
 
 function standFromSeat() {
   if (game.seatedIn !== 'seat') return;
+  const target = standPlayerSafely();
+  if (!target) return;
   game.seatedIn = null;
   hud.setMode('walk');
   hud.setPosture(null);
-  player.standFrom({ x: player.position.x, z: player.position.z });
 }
 
 for (const spot of club.anchors.booths) {
@@ -623,7 +725,7 @@ for (const spot of club.anchors.booths) {
   pad.position.set(spot.x, 0.6, spot.z);
   scene.add(pad);
   // Booths face the room: the east wall run looks west, the front run north
-  const yaw = spot.x > 0 ? Math.PI / 2 : Math.PI;
+  const yaw = spot.x > 0 ? Math.PI / 2 : 0;
   reg(pad, {
     label: () => (game.seatedIn === 'seat' ? 'Get up' : 'Sit in the <b>booth</b>'),
     onUse: () => (game.seatedIn === 'seat' ? standFromSeat() : sitOn(spot, yaw)),
@@ -737,8 +839,12 @@ for (const spot of club.anchors.booths) {
 /* ---- outside ---- */
 
 {
-  const sedanPad = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.8, 5.4), new THREE.MeshBasicMaterial({ visible: false }));
+  const sedanPad = new THREE.Mesh(
+    new THREE.BoxGeometry(lot.watchers.length + 0.4, 1.8, lot.watchers.width + 0.4),
+    new THREE.MeshBasicMaterial({ visible: false }),
+  );
   sedanPad.position.copy(club.anchors.suspiciousCar).setY(1);
+  sedanPad.rotation.y = lot.watchers.group.rotation.y;
   scene.add(sedanPad);
   reg(sedanPad, {
     label: () => (mission.flags.plateRead ? 'The <b>grey sedan</b>' : 'The <b>grey sedan</b>'),
@@ -775,8 +881,8 @@ for (const spot of club.anchors.booths) {
 /* ---- your car ---- */
 
 {
-  const doorPad = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 2.4), new THREE.MeshBasicMaterial({ visible: false }));
-  doorPad.position.set(car.driverPose.x - 1.2, 1, car.driverPose.z);
+  const doorPad = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.6, 1.2), new THREE.MeshBasicMaterial({ visible: false }));
+  doorPad.position.copy(car.exitPosition()).setY(1);
   scene.add(doorPad);
   reg(doorPad, {
     label: () => (mission.readyToLeave ? 'Get in and <b>go</b>' : 'Get back in the <b>car</b>'),
@@ -879,12 +985,17 @@ function sitAtTable() {
 
 function standFromTable() {
   if (game.seatedIn !== 'table') return;
+  const target = standPlayerSafely([
+    { x: seat.x, z: seat.z + 0.55 },
+    { x: seat.x + 0.7, z: seat.z + 0.45 },
+    { x: seat.x - 0.7, z: seat.z + 0.45 },
+  ]);
+  if (!target) return;
   game.seatedIn = null;
   blackjack.standUp();
   hud.setMode('walk');
   hud.setPosture(null);
   paintGamble(null);
-  player.standFrom({ x: seat.x, z: seat.z + 0.4 });
 }
 
 function useMachine() {
@@ -907,10 +1018,9 @@ function getInCar() {
   audio.play('car.door', { volume: 0.6 });
   hud.setMode('seated');
   hud.setPosture('get out');
-  const yaw = Math.PI;
   player.sitAt({
-    position: new THREE.Vector3(car.driverPose.x - 0.55, 1.24, car.driverPose.z),
-    yaw,
+    position: car.driverPosition(),
+    yaw: car.driverYaw(),
     pitch: -0.05,
     yawRange: 1.5,
     pitchMin: -0.8,
@@ -925,13 +1035,14 @@ function getInCar() {
 
 function getOutOfCar() {
   if (game.seatedIn !== 'car') return;
+  const target = standPlayerSafely([car.exitPosition()]);
+  if (!target) return;
   game.seatedIn = null;
   audio.play('car.door', { volume: 0.6 });
   audio.stopLoop('car.radio', 0.6);
   audio.stopLoop('engine.idle', 0.8);
   hud.setMode('walk');
   hud.setPosture(null);
-  player.standFrom({ x: car.driverPose.x - 1.6, z: car.driverPose.z });
   if (mission.state === 'lot') mission.setState('outside');
 }
 
@@ -961,14 +1072,16 @@ function driveAway() {
   hud.setPosture(null);
   // The car pulls out. No cutscene camera -- you are still sitting in it.
   const from = car.group.position.clone();
+  const fromYaw = car.group.rotation.y;
   const to = new THREE.Vector3(club.anchors.lotExit.x, 0, club.anchors.lotExit.z + 8);
   let k = 0;
   game.drive = (dt) => {
     k = Math.min(1, k + dt * 0.16);
     const e = k * k;
     car.group.position.lerpVectors(from, to, e);
-    car.group.rotation.y = Math.PI + e * 0.9;
-    player.position.set(car.group.position.x - 0.55, 1.24, car.group.position.z);
+    car.group.rotation.y = fromYaw + e * 0.9;
+    player.position.copy(car.driverPosition());
+    player.yaw = car.driverYaw();
     if (k >= 1) {
       game.drive = null;
       showEnding(mission.ending());
@@ -1162,6 +1275,7 @@ window.addEventListener('keydown', (e) => {
     else if (game.seatedIn === 'seat') standFromSeat();
     else if (game.seatedIn === 'car') getOutOfCar();
     else if (game.atMachine) leaveMachine();
+    else recoverIfStuck();
   }
   if (game.seatedIn === 'table' && blackjack.state === 'player') {
     if (e.code === 'KeyF') blackjack.stand();
@@ -1244,29 +1358,48 @@ startBtn.addEventListener('click', async () => {
 /* ------------------------------------------------------------------ */
 
 let room = 'lot';
+let acousticKey = '';
 function updateZones(dt) {
   const p = player.position;
   const next = roomAt(p.x, p.z);
   const inside = next !== 'lot' && next !== 'outside' && next !== 'alley' && next !== 'yard';
   const officeDoorOpen = club.doors.lou.open;
   const innerOpen = club.doors.inner.open;
+  const frontOpen = club.doors.front.open;
 
-  // Rain: loud outside, a rumour indoors
-  audio.setLoopVolume('ambience.rain', inside ? (next === 'vestibule' ? 0.13 : 0.02) : 0.5, 0.8);
-  // The club: the whole point of the wall between the hallway and the floor
-  const music = next === 'main' ? 0.5
-    : next === 'vestibule' ? (innerOpen ? 0.4 : 0.2)
-      : next === 'hallway' ? 0.17
-        : next === 'office' ? (officeDoorOpen ? 0.16 : 0.07)
-          : next === 'bathroom' || next === 'storage' ? 0.1
-            : 0.05;
-  audio.setLoopVolume('ambience.club', music, 0.7);
-  audio.setLoopVolume('ambience.crowd', next === 'main' ? 0.32 : next === 'vestibule' ? 0.14 : 0.04, 0.7);
-  audio.setMuffle(inside && next !== 'main' && next !== 'vestibule', 780);
+  // Only schedule WebAudio ramps when the acoustic state actually changes.
+  // The previous per-frame calls built an ever-growing automation timeline.
+  const nextAcousticKey = `${next}:${frontOpen ? 1 : 0}:${innerOpen ? 1 : 0}:${officeDoorOpen ? 1 : 0}`;
+  if (nextAcousticKey !== acousticKey) {
+    acousticKey = nextAcousticKey;
+
+    // Rain falls off sharply across two real doors. Outside is present but no
+    // longer overpowering; once inside the main room it is effectively gone.
+    const rainVolume = !inside ? 0.38
+      : next === 'vestibule'
+        ? frontOpen ? (innerOpen ? 0.055 : 0.035) : 0.012
+        : next === 'main'
+          ? innerOpen ? 0.006 : 0.002
+          : 0.001;
+    audio.setLoopVolume('ambience.rain', rainVolume, 0.8);
+
+    // The club: the whole point of the wall between the hallway and the floor
+    const music = next === 'main' ? 0.5
+      : next === 'vestibule' ? (innerOpen ? 0.4 : 0.2)
+        : next === 'hallway' ? 0.17
+          : next === 'office' ? (officeDoorOpen ? 0.16 : 0.07)
+            : next === 'bathroom' || next === 'storage' ? 0.1
+              : 0.05;
+    const crowd = next === 'main' ? 0.32 : next === 'vestibule' ? 0.14 : 0.04;
+    audio.setLoopVolume('ambience.club', music, 0.7);
+    audio.setLoopVolume('ambience.crowd', crowd, 0.7);
+    audio.setMuffle(inside && next !== 'main' && next !== 'vestibule', 780);
+    game.acoustics = { room: next, rain: rainVolume, music, crowd };
+    club.rain.setVisible(!inside);
+  }
 
   if (next !== room) {
     room = next;
-    club.rain.setVisible(!inside);
     onRoomChange(next);
   }
   void dt;
@@ -1334,7 +1467,11 @@ function checkStage() {
     game.stagedOn = false;
     const guard = cast.byName.security;
     guard.job = 'patrol';
-    guard.route = [{ x: -6, z: -4 }, { x: -6, z: 6 }, { x: -18, z: 6 }, { x: -18, z: -2 }];
+    guard.route = [
+      { x: -6.3, z: -4.5 }, { x: -6.3, z: 5.7 },
+      { x: -18.5, z: 5.7 }, { x: -18.5, z: -2.3 },
+      { x: -6.3, z: -2.3 },
+    ];
   }
 }
 
@@ -1357,9 +1494,19 @@ function ambientChatter(dt) {
 
 const clock = new THREE.Clock();
 
+function paintCampaignClock() {
+  const story = campaign.state.story;
+  const hour24 = Math.floor(story.timeMinutes / 60) % 24;
+  const hour12 = hour24 % 12 || 12;
+  const time12 = `${hour12}:${String(story.timeMinutes % 60).padStart(2, '0')} `
+    + `${hour24 >= 12 ? 'PM' : 'AM'}`;
+  hud.setClock(story.day, time12, game.elapsed);
+}
+
 function frame() {
   requestAnimationFrame(frame);
   const raw = Math.min(clock.getDelta(), 0.05);
+  paintCampaignClock();
   if (!game.started || game.paused) {
     renderer.render(scene, camera);
     return;
@@ -1405,20 +1552,8 @@ function frame() {
 
   audio.updateListener(camera);
 
-  // Scene Two keeps the campaign's Day Two clock; Scene One retains its
-  // original late-night presentation.
-  if (isSecondVisit) {
-    const total = campaign.state.story.timeMinutes + Math.floor(game.elapsed / 12);
-    const hour24 = Math.floor(total / 60) % 24;
-    const hour12 = hour24 % 12 || 12;
-    hud.setClock(2, `${hour12}:${String(total % 60).padStart(2, '0')} ${hour24 >= 12 ? 'PM' : 'AM'}`, game.elapsed);
-  } else {
-    const mins = 41 + Math.floor(game.elapsed / 12);
-    const hour = 11 + Math.floor(mins / 60);
-    hud.setClock(1, `${hour > 12 ? hour - 12 : hour}:${String(mins % 60).padStart(2, '0')} ${hour >= 12 ? 'AM' : 'PM'}`, game.elapsed);
-  }
-
   postfx.render(dt);
+  postfx.sample(raw);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1437,6 +1572,7 @@ window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
   interaction, drunk, highs, inventory, campaign, car, lot, associate, scripts,
   isSecondVisit, secondVisitStory,
+  updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck,
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

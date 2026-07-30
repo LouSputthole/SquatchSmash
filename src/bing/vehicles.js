@@ -62,12 +62,43 @@ export function makeCar(kind = 'sedan', colour = null, { dented = false } = {}) 
   if (dented) {
     g.add(box({ size: [0.9, 0.5, 0.06], pos: [1.2, s.wheelR + 0.5, s.W / 2 - 0.02], mat: mat({ color: 0x8a8a90, roughness: 0.95 }) }));
   }
+  g.userData.vehicle = {
+    kind,
+    length: s.L,
+    width: s.W,
+    height: s.wheelR + s.bodyH + s.cabinH,
+  };
 
   return {
     group: g, heads, tails,
     length: s.L, width: s.W, height: s.wheelR + s.bodyH + s.cabinH,
     collider: collider([-s.L / 2, 0, -s.W / 2], [s.L / 2, 1.6, s.W / 2]),
   };
+}
+
+/**
+ * Axis-aligned world collider around a transformed car.
+ *
+ * Cars are authored long on local X and can face any yaw. The old lot code
+ * assumed every collider was long on world Z, which happened to fit most bays
+ * but left the sideways surveillance car solid in empty space and permeable
+ * through its doors. The wheel allowance covers the small amount by which the
+ * tyres sit proud of the nominal body width.
+ */
+export function makeVehicleCollider(vehicle, pad = 0.08) {
+  const yaw = vehicle.group.rotation.y;
+  const halfLength = vehicle.length / 2 + pad;
+  const halfWidth = vehicle.width / 2 + 0.12 + pad;
+  const c = Math.abs(Math.cos(yaw));
+  const s = Math.abs(Math.sin(yaw));
+  const halfX = c * halfLength + s * halfWidth;
+  const halfZ = s * halfLength + c * halfWidth;
+  const { x, z } = vehicle.group.position;
+  return collider(
+    [x - halfX, 0, z - halfZ],
+    [x + halfX, Math.max(1.6, vehicle.height), z + halfZ],
+    0,
+  );
 }
 
 /** Two silhouettes in a car with the engine off. They do not get out. */
@@ -91,6 +122,7 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
   const car = makeCar('sedan', 0x1d1f28);
   car.group.position.set(x, 0, z);
   car.group.rotation.y = yaw;
+  car.group.userData.role = 'player-car';
   scene.add(car.group);
 
   const interior = group('interior');
@@ -111,26 +143,42 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
   interior.add(box({ size: [0.5, 0.06, 1.7], pos: [-0.55, 0.72, 0], mat: trim })); // seat base
   car.group.add(interior);
 
+  // Poses live in car-local space, so changing the parking angle cannot put
+  // Tony or the interaction pad through the neighbouring vehicle.
+  const driverLocal = new THREE.Vector3(-0.35, 1.24, -0.42);
+  const exitLocal = new THREE.Vector3(-0.35, 0, -1.55);
+  const worldPoint = (local) => {
+    car.group.updateMatrixWorld(true);
+    return local.clone().applyMatrix4(car.group.matrixWorld);
+  };
+
   return {
     ...car,
     interior,
     radioFace,
     gloveLid,
     wheel,
+    driverLocal,
+    exitLocal,
     /** Where the camera sits when you are behind the wheel. */
-    driverPose: { x, z, yaw },
+    driverPosition: () => worldPoint(driverLocal),
+    /** Clear ground beside the driver's door. */
+    exitPosition: () => worldPoint(exitLocal),
+    /** Player yaw matching the car's local +X forward direction. */
+    driverYaw: () => car.group.rotation.y - Math.PI / 2,
+    worldCollider: makeVehicleCollider(car),
   };
 }
 
 /** Fill the lot: Lincolns, Cadillacs, two SUVs, a van, and one dented compact. */
 export function populateLot(scene, colliders, anchors) {
   const spots = [
-    [-25, 25, 'lincoln', null, {}], [-20.4, 25, 'sedan', null, {}], [-15.8, 25, 'suv', 0x2a2a34, {}],
-    [-11.2, 25, 'sedan', null, {}], [-6.6, 25, 'lincoln', 0x1a1a22, {}],
-    [2.6, 25, 'compact', 0x6a4a2a, { dented: true }], [7.2, 25, 'sedan', null, {}],
-    [11.8, 25, 'suv', null, {}], [16.4, 25, 'lincoln', null, {}],
-    [-25, 35, 'sedan', null, {}], [-20.4, 35, 'sedan', null, {}], [-11.2, 35, 'van', 0xd8d4c8, {}],
-    [-2, 35, 'lincoln', null, {}], [7.2, 35, 'sedan', null, {}], [16.4, 35, 'sedan', null, {}],
+    [-23.7, 25, 'lincoln', null, {}], [-19.1, 25, 'sedan', null, {}], [-14.5, 25, 'suv', 0x2a2a34, {}],
+    [-9.9, 25, 'sedan', null, {}], [-5.3, 25, 'lincoln', 0x1a1a22, {}],
+    [3.9, 25, 'compact', 0x6a4a2a, { dented: true }], [8.5, 25, 'sedan', null, {}],
+    [13.1, 25, 'suv', null, {}], [17.7, 25, 'lincoln', null, {}],
+    [-23.7, 35, 'sedan', null, {}], [-19.1, 35, 'sedan', null, {}], [-9.9, 35, 'van', 0xd8d4c8, {}],
+    [-0.7, 35, 'lincoln', null, {}], [8.5, 35, 'sedan', null, {}], [17.7, 35, 'sedan', null, {}],
   ];
   const cars = [];
   for (const [cx, cz, kind, colour, opts] of spots) {
@@ -138,8 +186,8 @@ export function populateLot(scene, colliders, anchors) {
     c.group.position.set(cx, 0, cz);
     c.group.rotation.y = Math.PI / 2 + rand(-0.03, 0.03);
     scene.add(c.group);
-    const b = collider([cx - c.width / 2 - 0.1, 0, cz - c.length / 2], [cx + c.width / 2 + 0.1, 1.5, cz + c.length / 2]);
-    colliders.push(b);
+    c.worldCollider = makeVehicleCollider(c);
+    colliders.push(c.worldCollider);
     cars.push(c);
   }
 
@@ -148,10 +196,8 @@ export function populateLot(scene, colliders, anchors) {
   lou.group.position.copy(anchors.louCar);
   lou.group.rotation.y = Math.PI / 2;
   scene.add(lou.group);
-  colliders.push(collider(
-    [anchors.louCar.x - 1.1, 0, anchors.louCar.z - 2.8],
-    [anchors.louCar.x + 1.1, 1.5, anchors.louCar.z + 2.8],
-  ));
+  lou.worldCollider = makeVehicleCollider(lou);
+  colliders.push(lou.worldCollider);
 
   // And the suspiciously clean one, parked where it can see the back office
   const watchers = makeCar('sedan', 0x2e3038);
@@ -161,10 +207,8 @@ export function populateLot(scene, colliders, anchors) {
   inside.position.set(-0.2, 1.15, 0);
   watchers.group.add(inside);
   scene.add(watchers.group);
-  colliders.push(collider(
-    [anchors.suspiciousCar.x - 1.1, 0, anchors.suspiciousCar.z - 2.6],
-    [anchors.suspiciousCar.x + 1.1, 1.5, anchors.suspiciousCar.z + 2.6],
-  ));
+  watchers.worldCollider = makeVehicleCollider(watchers);
+  colliders.push(watchers.worldCollider);
 
   return { cars, lou, watchers, watcherFigures: inside };
 }

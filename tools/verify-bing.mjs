@@ -153,6 +153,122 @@ check('one objective, and it is Lou', s.objectives.join('') === ' lou', s.object
 const displayedDay = await page.textContent('#clock .day');
 check('the first Bing visit is still Day One', displayedDay === 'Day 1', displayedDay);
 
+/* ---- the lot, the parked cars, and getting out safely ---- */
+const vehicles = await page.evaluate(() => {
+  const b = window.__bing;
+  const entries = [
+    ['player', b.car],
+    ...b.lot.cars.map((vehicle, i) => [`parked-${i}`, vehicle]),
+    ['lou', b.lot.lou],
+    ['watchers', b.lot.watchers],
+  ];
+  const measured = entries.map(([id, vehicle]) => {
+    vehicle.group.updateMatrixWorld(true);
+    const box = new b.THREE.Box3().setFromObject(vehicle.group);
+    const c = vehicle.worldCollider;
+    return {
+      id,
+      x: vehicle.group.position.x,
+      z: vehicle.group.position.z,
+      min: box.min.toArray(),
+      max: box.max.toArray(),
+      grounded: Math.abs(box.min.y) < 0.015,
+      contained: !!c
+        && c.min.x <= box.min.x && c.max.x >= box.max.x
+        && c.min.z <= box.min.z && c.max.z >= box.max.z
+        && c.max.y >= box.max.y,
+    };
+  });
+  const overlaps = [];
+  for (let i = 0; i < measured.length; i++) {
+    for (let j = i + 1; j < measured.length; j++) {
+      const a = measured[i];
+      const c = measured[j];
+      const overlapX = Math.min(a.max[0], c.max[0]) - Math.max(a.min[0], c.min[0]);
+      const overlapZ = Math.min(a.max[2], c.max[2]) - Math.max(a.min[2], c.min[2]);
+      if (overlapX > 0.02 && overlapZ > 0.02) overlaps.push(`${a.id}/${c.id}`);
+    }
+  }
+  const bayCentred = measured
+    .filter((v) => v.id === 'player' || v.id.startsWith('parked-'))
+    .every((v) => {
+      const col = Math.round((v.x + 23.7) / 4.6);
+      return Math.abs(v.x - (-23.7 + col * 4.6)) < 0.01
+        && (Math.abs(v.z - 25) < 0.01 || Math.abs(v.z - 35) < 0.01);
+    });
+  return {
+    count: measured.length,
+    overlaps,
+    grounded: measured.every((v) => v.grounded),
+    contained: measured.every((v) => v.contained),
+    bayCentred,
+    playerColliderLive: b.club.colliders.includes(b.car.worldCollider),
+  };
+});
+check('all eighteen vehicles are grounded and separated',
+  vehicles.count === 18 && vehicles.grounded && vehicles.overlaps.length === 0,
+  JSON.stringify(vehicles.overlaps));
+check('every visible car is contained by its matching collider',
+  vehicles.contained && vehicles.playerColliderLive);
+check('the ordinary parked cars sit on the painted bay centres', vehicles.bayCentred);
+
+await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })));
+await tick(1.2, 0.1);
+const carExit = await page.evaluate(() => {
+  const b = window.__bing;
+  return {
+    seated: b.game.seatedIn,
+    mode: b.player.mode,
+    safe: b.standingClearAt(b.player.position.x, b.player.position.z),
+    room: b.club.roomAt(b.player.position.x, b.player.position.z),
+    x: b.player.position.x,
+    z: b.player.position.z,
+  };
+});
+check('getting out of the car lands on validated clear ground',
+  carExit.seated === null && carExit.mode === 'walk' && carExit.safe && carExit.room === 'lot',
+  JSON.stringify(carExit));
+
+/* The open portal must be visually clear as well as collider-clear. */
+const frontPortal = await page.evaluate(() => {
+  const b = window.__bing;
+  const door = b.club.doors.front;
+  if (!door.open) door.toggle();
+  door._t = door.swing;
+  door.pivot.rotation.y = door.swing;
+  b.scene.updateMatrixWorld(true);
+  const ray = new b.THREE.Raycaster(
+    new b.THREE.Vector3(0, 1.35, 15.8),
+    new b.THREE.Vector3(0, 0, -1),
+    0,
+    1.0,
+  );
+  const hits = ray.intersectObject(b.club.root, true).filter((hit) => {
+    if (!hit.object.visible) return false;
+    // Rain and other particle fields are Points, not opaque portal geometry.
+    // They can intersect at distance zero when a randomized particle spawns
+    // on the ray origin, which made this visual-clearance assertion flaky.
+    if (!hit.object.isMesh) return false;
+    const materials = Array.isArray(hit.object.material)
+      ? hit.object.material : [hit.object.material];
+    return materials.some((m) => m?.visible !== false && (m.opacity ?? 1) > 0.05);
+  });
+  const collisionClear = b.standingClearAt(0, 15.42);
+  door.toggle();
+  door._t = 0;
+  door.pivot.rotation.y = 0;
+  return {
+    collisionClear,
+    hits: hits.map((hit) => ({
+      name: hit.object.name || hit.object.type,
+      distance: Number(hit.distance.toFixed(3)),
+    })),
+  };
+});
+check('the open front door reveals a clear vestibule portal',
+  frontPortal.collisionClear && frontPortal.hits.length === 0,
+  JSON.stringify(frontPortal));
+
 /* ---- the bouncer ---- */
 await walkTo(0, 13, Math.PI);
 await page.evaluate(() => {
@@ -172,6 +288,136 @@ check('and lets you in', (await state()).flags.bouncerCleared === true);
  */
 await tick(6);
 check('a conversation ends by itself', !(await page.evaluate(() => window.__bing.dialogue.active)));
+
+const people = await page.evaluate(() => {
+  const b = window.__bing;
+  const performers = Object.entries(b.cast.byName)
+    .filter(([key]) => key.startsWith('performer'))
+    .map(([, npc]) => {
+      const names = [];
+      let finite = true;
+      npc.group.updateMatrixWorld(true);
+      npc.group.traverse((o) => {
+        if (o.name) names.push(o.name);
+        if (o.matrix?.elements?.some((v) => !Number.isFinite(v))) finite = false;
+      });
+      const size = new b.THREE.Box3().setFromObject(npc.group).getSize(new b.THREE.Vector3());
+      const required = [
+        'performer.bikini-top.left',
+        'performer.bikini-top.right',
+        'performer.bikini-bottom.rear.left',
+        'performer.bikini-bottom.rear.right',
+        'performer.bikini-top.band',
+        'performer.bikini-bottom.band',
+      ];
+      return {
+        profile: npc.group.userData.npc,
+        requiredMeshes: required.every((name) => names.includes(name)),
+        finite,
+        height: size.y,
+      };
+    });
+
+  const drinkers = b.cast.all.filter((npc) => npc.job === 'drink').map((npc) => {
+    npc.group.updateMatrixWorld(true);
+    const bounds = new b.THREE.Box3().setFromObject(npc.group);
+    return {
+      seated: npc.seated,
+      dropped: npc.group.position.y < npc.baseY,
+      floor: bounds.min.y,
+    };
+  });
+  const movers = b.cast.all.filter((npc) => npc.job === 'patrol' || npc.job === 'dance');
+  for (let i = 0; i < 180; i++) {
+    for (const npc of movers) npc.update(1 / 30, b.player.position);
+  }
+  const patrolsClear = movers
+    .filter((npc) => npc.job === 'patrol' && npc.group.visible)
+    .every((npc) => npc._navClear(npc.group.position.x, npc.group.position.z));
+  let nonHeroShadowCasters = 0;
+  for (const npc of b.cast.all) {
+    if (npc.tier === 'hero') continue;
+    npc.group.traverse((o) => {
+      if (o.isMesh && o.castShadow) nonHeroShadowCasters += 1;
+    });
+  }
+  return {
+    count: b.cast.all.length,
+    performers,
+    drinkers,
+    moversSmooth: movers.every((npc) => npc._every <= 1 / 30 + 1e-6),
+    patrolsClear,
+    nonHeroShadowCasters,
+  };
+});
+check('the full nightclub population remains present', people.count >= 30, String(people.count));
+check('all stage performers are tagged adult female curvy bikini performers',
+  people.performers.length === 4
+    && people.performers.every((p) => p.profile.role === 'performer'
+      && p.profile.adult === true
+      && p.profile.gender === 'female'
+      && p.profile.bodyShape === 'curvy'
+      && p.profile.outfit === 'bikini'
+      && p.requiredMeshes
+      && p.finite
+      && p.height > 1.55 && p.height < 1.95),
+  JSON.stringify(people.performers));
+check('drink animations begin from a real seated, floor-safe pose',
+  people.drinkers.length > 0
+    && people.drinkers.every((p) => p.seated && p.dropped && p.floor > -0.08),
+  JSON.stringify(people.drinkers));
+check('walking and dancing NPCs update smoothly and patrol clear of furniture',
+  people.moversSmooth && people.patrolsClear);
+check('ambient and background people no longer multiply shadow passes',
+  people.nonHeroShadowCasters === 0, String(people.nonHeroShadowCasters));
+
+const acoustics = await page.evaluate(() => {
+  const b = window.__bing;
+  const calls = [];
+  const originalSetLoopVolume = b.audio.setLoopVolume;
+  b.audio.setLoopVolume = function setLoopVolumeSpy(...args) {
+    calls.push(args);
+    return originalSetLoopVolume.apply(this, args);
+  };
+  const setDoor = (door, open) => {
+    if (door.open !== open) door.toggle();
+    door._t = open ? door.swing : 0;
+    door.pivot.rotation.y = door._t;
+  };
+  setDoor(b.club.doors.front, false);
+  setDoor(b.club.doors.inner, false);
+  b.player.position.set(-0.7, 1.66, 25);
+  b.updateZones(0.016);
+  const outside = { ...b.game.acoustics };
+
+  setDoor(b.club.doors.front, true);
+  b.player.position.set(0, 1.66, 13);
+  b.updateZones(0.016);
+  const vestibule = { ...b.game.acoustics };
+
+  setDoor(b.club.doors.inner, true);
+  b.player.position.set(-8, 1.66, 4);
+  b.updateZones(0.016);
+  const main = { ...b.game.acoustics };
+  const beforeRepeat = calls.length;
+  for (let i = 0; i < 60; i++) b.updateZones(0.016);
+  const repeatedRamps = calls.length - beforeRepeat;
+  const rainVisibleInside = b.club.rain.points.visible;
+
+  b.audio.setLoopVolume = originalSetLoopVolume;
+  setDoor(b.club.doors.front, false);
+  setDoor(b.club.doors.inner, false);
+  return { outside, vestibule, main, repeatedRamps, rainVisibleInside };
+});
+check('rain settles sharply across the entrance doors',
+  acoustics.outside.rain === 0.38
+    && acoustics.vestibule.rain <= 0.04
+    && acoustics.main.rain <= 0.006
+    && acoustics.main.rain < acoustics.outside.rain / 50
+    && !acoustics.rainVisibleInside,
+  JSON.stringify(acoustics));
+check('an unchanged room does not schedule WebAudio ramps every frame',
+  acoustics.repeatedRamps === 0, String(acoustics.repeatedRamps));
 
 const doors = await page.evaluate(() => {
   const b = window.__bing;
@@ -232,7 +478,59 @@ await tick(2);
 check('there is somewhere to sit', seat.found && seat.seated === 'seat', JSON.stringify(seat));
 await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })));
 await tick(2);
-check('and a way back up', await page.evaluate(() => window.__bing.game.seatedIn === null));
+const stoodFromBooth = await page.evaluate(() => {
+  const b = window.__bing;
+  return {
+    seated: b.game.seatedIn,
+    safe: b.standingClearAt(b.player.position.x, b.player.position.z),
+    room: b.club.roomAt(b.player.position.x, b.player.position.z),
+    x: b.player.position.x,
+    z: b.player.position.z,
+  };
+});
+check('and a validated clear way back up',
+  stoodFromBooth.seated === null && stoodFromBooth.safe && stoodFromBooth.room === 'main',
+  JSON.stringify(stoodFromBooth));
+
+const allSeatExits = await page.evaluate(() => {
+  const b = window.__bing;
+  const exits = b.club.anchors.booths.map((spot) => {
+    const yaw = spot.x > 0 ? Math.PI / 2 : 0;
+    const safe = b.findSafeStandSpot(spot, yaw);
+    return safe ? { x: safe.x, z: safe.z, clear: b.standingClearAt(safe.x, safe.z) } : null;
+  });
+  const table = b.findSafeStandSpot(
+    b.club.anchors.blackjackSeats[2],
+    b.club.anchors.blackjackSeats[2].yaw,
+  );
+  return {
+    exits,
+    table: table ? { x: table.x, z: table.z, clear: b.standingClearAt(table.x, table.z) } : null,
+  };
+});
+check('every authored booth and the blackjack seat have a safe egress',
+  allSeatExits.exits.length === 9
+    && allSeatExits.exits.every((exit) => exit?.clear)
+    && allSeatExits.table?.clear,
+  JSON.stringify(allSeatExits));
+
+const unstuck = await page.evaluate(() => {
+  const b = window.__bing;
+  const blocked = b.club.anchors.booths[0];
+  b.player._tween = null;
+  b.player.mode = 'walk';
+  b.player.position.set(blocked.x, 1.66, blocked.z);
+  const wasBlocked = !b.standingClearAt(blocked.x, blocked.z);
+  const moved = b.recoverIfStuck();
+  return {
+    wasBlocked,
+    moved,
+    safe: b.standingClearAt(b.player.position.x, b.player.position.z),
+  };
+});
+check('[Q] unstuck only moves a genuinely blocked walking player',
+  unstuck.wasBlocked && unstuck.moved && unstuck.safe,
+  JSON.stringify(unstuck));
 
 /* ---- the machine ----
  * Asserting the wallet went down would be wrong: it is a slot machine, and
