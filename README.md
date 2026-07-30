@@ -10,7 +10,8 @@ Six playable or preserved experiences live in this repo.
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Manny is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
-| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene and cast for alignment. Playable and verified, but not yet campaign canon or routed from the apartment. |
+| **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
+| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
@@ -398,6 +399,9 @@ npm run verify:bing-two # runtime: reuses the club for the second assignment
 npm run verify:squatchfather # runtime: stages the package, plays, returns home
 npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
 npm run verify:beefrun # runtime: Beef Run campaign wiring, isolation, resume
+npm run verify:big-night # runtime: post-Motel sleep, Booskibro's last call, the door to Initiation
+npm run verify:silver # runtime: the Silver Room evening end to end
+npm run balance:silver # the date's scoring economy, accounted against the source
 npm run check:flight # headless flight-model bench for the Brushrunner
 npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
 npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
