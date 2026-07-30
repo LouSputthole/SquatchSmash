@@ -330,6 +330,8 @@ test('Bada Bing completion and its parcel survive the return to the apartment', 
     state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
     state.missions[MISSION_IDS.BADA_BING_ONE].packageReceived = true;
     state.missions[MISSION_IDS.BADA_BING_ONE].ending = 'warned';
+    state.missions[MISSION_IDS.BADA_BING_ONE].jackpot = true;
+    state.missions[MISSION_IDS.BADA_BING_ONE].handsPlayed = 7;
   });
   campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'front_door' });
 
@@ -339,10 +341,15 @@ test('Bada Bing completion and its parcel survive the return to the apartment', 
     spawn: 'front_door',
   });
   assert.deepEqual(atHome.inventory.concealed, [ITEM_IDS.LOU_PACKAGE]);
+  /* The whole record, not a subset: the evening's durable facts are what a
+   * later scene gets to bring up, and a field that quietly stops surviving the
+   * page is exactly the bug this assertion exists to catch. */
   assert.deepEqual(atHome.missions[MISSION_IDS.BADA_BING_ONE], {
     status: 'complete',
     packageReceived: true,
     ending: 'warned',
+    jackpot: true,
+    handsPlayed: 7,
   });
 });
 

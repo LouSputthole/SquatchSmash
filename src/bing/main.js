@@ -1234,6 +1234,13 @@ function showEnding(kind) {
       saved.status = 'complete';
       saved.packageReceived = campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
       saved.ending = kind;
+      /* Two things the club already knew and used to forget on the way out:
+       * whether he hit the machine, and how long he sat at that table while a
+       * made squatch waited for him. The ending card has always said both out
+       * loud — they just never survived the page. Somebody who was there is
+       * entitled to bring them up later, and now can. */
+      saved.jackpot = mission.flags.jackpot === true;
+      saved.handsPlayed = Number.isFinite(mission.hands) ? mission.hands : 0;
       if (saved.packageReceived) {
         const nextMission = state.missions[MISSION_IDS.SQUATCHFATHER];
         if (nextMission.status === 'locked') nextMission.status = 'available';

@@ -281,6 +281,12 @@ function initialState() {
         status: 'locked',
         packageReceived: false,
         ending: null,
+        /* `ending` already carries what he did about the grey sedan — `warned`
+         * is the man who told Lou, `plate` is the man who read it walking past.
+         * These two are the rest of the evening: the machine, and the hands he
+         * sat while Lou waited. */
+        jackpot: false,
+        handsPlayed: 0,
       },
       [MISSION_IDS.SQUATCHFATHER]: {
         status: 'locked',
@@ -495,6 +501,8 @@ function normalize(saved) {
         status,
         packageReceived: mission.packageReceived === true,
         ending: typeof mission.ending === 'string' ? mission.ending : null,
+        jackpot: mission.jackpot === true,
+        handsPlayed: boundedNumber(mission.handsPlayed, 0, 999, 0, true),
       },
       [MISSION_IDS.SQUATCHFATHER]: {
         status: squatchfatherStatus,
