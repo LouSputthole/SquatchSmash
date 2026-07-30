@@ -569,6 +569,107 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: r(0.07), type: 'bandpass', freq: 2400, q: 1.6, gain: 0.34 });
       tone(ctx, dest, t, { freq: 150, to: 90, dur: r(0.05), gain: 0.16, type: 'triangle' });
       break;
+    /* Outdoors, at Silver Pines. Grass is soft and damp after overnight rain,
+     * sand is the loudest thing a man walks on, and the cart path is the only
+     * hard surface on the property. */
+    case 'footstep.grass':
+      burst(ctx, dest, t, { dur: r(0.13), type: 'lowpass', freq: 620, gain: 0.26, sweep: 0.45 });
+      burst(ctx, dest, t + 0.012, { dur: r(0.07), type: 'bandpass', freq: 2900, q: 0.8, gain: 0.07 });
+      break;
+    case 'footstep.sand':
+      burst(ctx, dest, t, { dur: r(0.19), type: 'bandpass', freq: 3400, q: 0.5, gain: 0.30, sweep: 0.6 });
+      tone(ctx, dest, t, { freq: 110, to: 62, dur: r(0.05), gain: 0.09, type: 'sine' });
+      break;
+    case 'footstep.gravel':
+      burst(ctx, dest, t, { dur: r(0.10), type: 'bandpass', freq: 2100, q: 0.9, gain: 0.30 });
+      burst(ctx, dest, t + 0.02, { dur: r(0.07), type: 'highpass', freq: 4200, gain: 0.14 });
+      break;
+
+    /* -------- golf -------- */
+    /* The whole point of a golf sound is the crack, and the whole point of the
+     * crack is that it arrives before you know where the ball went. Each of
+     * these is a hard transient with a short tail and nothing else. */
+    case 'golf.hit.driver':
+      tone(ctx, dest, t, { freq: 1250, to: 380, dur: r(0.055), gain: 0.42, type: 'triangle' });
+      burst(ctx, dest, t, { dur: r(0.045), type: 'bandpass', freq: 2600, q: 1.1, gain: 0.36 });
+      tone(ctx, dest, t, { freq: 190, to: 96, dur: r(0.10), gain: 0.20, type: 'sine' });
+      break;
+    case 'golf.hit.iron':
+      // Denser and higher than the driver. Less boom, more click.
+      tone(ctx, dest, t, { freq: 1900, to: 620, dur: r(0.042), gain: 0.34, type: 'triangle' });
+      burst(ctx, dest, t, { dur: r(0.038), type: 'bandpass', freq: 3800, q: 1.4, gain: 0.30 });
+      tone(ctx, dest, t, { freq: 240, to: 130, dur: r(0.06), gain: 0.13, type: 'sine' });
+      break;
+    case 'golf.hit.putt':
+      tone(ctx, dest, t, { freq: 720, to: 330, dur: r(0.05), gain: 0.20, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.022), type: 'bandpass', freq: 1500, q: 2.0, gain: 0.12 });
+      break;
+    case 'golf.hit.sand':
+      // A thump with a spray on top. No click at all — he never touched it.
+      burst(ctx, dest, t, { dur: r(0.26), type: 'bandpass', freq: 2800, q: 0.45, gain: 0.40, sweep: 0.5 });
+      tone(ctx, dest, t, { freq: 130, to: 58, dur: r(0.11), gain: 0.24, type: 'sine' });
+      break;
+    case 'golf.hit.rough':
+      burst(ctx, dest, t, { dur: r(0.15), type: 'bandpass', freq: 1700, q: 0.7, gain: 0.30, sweep: 0.55 });
+      tone(ctx, dest, t, { freq: 640, to: 250, dur: r(0.04), gain: 0.16, type: 'triangle' });
+      break;
+    case 'golf.land.grass':
+      tone(ctx, dest, t, { freq: 165, to: 82, dur: r(0.07), gain: 0.16, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.08), type: 'lowpass', freq: 700, gain: 0.16, sweep: 0.5 });
+      break;
+    case 'golf.land.green':
+      tone(ctx, dest, t, { freq: 200, to: 110, dur: r(0.05), gain: 0.13, type: 'sine' });
+      break;
+    case 'golf.land.sand':
+      burst(ctx, dest, t, { dur: r(0.16), type: 'bandpass', freq: 3000, q: 0.5, gain: 0.24, sweep: 0.55 });
+      break;
+    case 'golf.land.path':
+      tone(ctx, dest, t, { freq: 900, to: 420, dur: r(0.05), gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t, { dur: r(0.04), type: 'highpass', freq: 3200, gain: 0.16 });
+      break;
+    case 'golf.splash':
+      burst(ctx, dest, t, { dur: r(0.32), type: 'lowpass', freq: 1400, gain: 0.40, sweep: 0.35 });
+      tone(ctx, dest, t, { freq: 420, to: 120, dur: r(0.18), gain: 0.16, type: 'sine' });
+      burst(ctx, dest, t + 0.05, { dur: r(0.30), type: 'highpass', freq: 2600, gain: 0.10 });
+      break;
+    /* The cup. Two knocks and a rattle, and it is the best sound in golf, so
+     * it gets more care than anything else on this list. */
+    case 'golf.cup':
+      tone(ctx, dest, t, { freq: 340, to: 250, dur: r(0.05), gain: 0.26, type: 'sine' });
+      tone(ctx, dest, t + 0.075, { freq: 290, to: 190, dur: r(0.06), gain: 0.20, type: 'sine' });
+      tone(ctx, dest, t + 0.15, { freq: 240, to: 150, dur: r(0.09), gain: 0.13, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.20), type: 'bandpass', freq: 1250, q: 2.4, gain: 0.10 });
+      break;
+    case 'golf.flag':
+      tone(ctx, dest, t, { freq: 520, to: 470, dur: r(0.22), gain: 0.09, type: 'sine' });
+      burst(ctx, dest, t, { dur: r(0.14), type: 'bandpass', freq: 1900, q: 3.0, gain: 0.06 });
+      break;
+    case 'golf.tee':
+      burst(ctx, dest, t, { dur: r(0.05), type: 'bandpass', freq: 1400, q: 1.4, gain: 0.10 });
+      break;
+    case 'golf.pickup':
+      tone(ctx, dest, t, { freq: 620, to: 520, dur: r(0.05), gain: 0.10, type: 'sine' });
+      break;
+    /* One bird, two notes, pitched randomly by the caller so the wood has more
+     * than one thing living in it. Deliberately not a loop: a looping bird is
+     * the fastest way to make a wood sound like a menu screen. */
+    case 'bird':
+      tone(ctx, dest, t, { freq: 2600, to: 3100, dur: r(0.075), gain: 0.16, type: 'sine' });
+      tone(ctx, dest, t + 0.11, { freq: 3050, to: 2500, dur: r(0.095), gain: 0.13, type: 'sine' });
+      break;
+    case 'sprinkler.tick':
+      // The impact head coming back round. Three ticks and a hiss.
+      for (let i = 0; i < 3; i++) {
+        burst(ctx, dest, t + i * 0.085, { dur: r(0.03), type: 'bandpass', freq: 2700, q: 2.6, gain: 0.16 });
+      }
+      burst(ctx, dest, t, { dur: r(0.34), type: 'highpass', freq: 5200, gain: 0.07, sweep: 0.7 });
+      break;
+    case 'golf.bag':
+      // Three shafts knocking together, which is what a bag actually sounds like.
+      tone(ctx, dest, t, { freq: 1500, to: 900, dur: r(0.05), gain: 0.11, type: 'triangle' });
+      tone(ctx, dest, t + 0.045, { freq: 1750, to: 1050, dur: r(0.045), gain: 0.09, type: 'triangle' });
+      tone(ctx, dest, t + 0.10, { freq: 1300, to: 800, dur: r(0.05), gain: 0.07, type: 'triangle' });
+      break;
 
     /* -------- bed -------- */
     case 'bed.rustle':
@@ -1570,6 +1671,35 @@ function synthLoop(engine, name, dest) {
       noise('lowpass', 480, 0.7, 0.34);
       noise('bandpass', 2100, 1.2, 0.07);
       noise('highpass', 5600, 0.7, 0.05);
+      break;
+
+    /* -------- Silver Pines -------- */
+    /* Late morning on a quiet course. The bed is wind in pines, which is
+     * mostly high noise with no bottom to it at all — the temptation is to
+     * make outdoors sound big, and outdoors on a still morning is the
+     * emptiest a mix ever gets. The birds and the sprinklers are one-shots on
+     * top, the way the kitchen's clatter is. */
+    case 'ambience.course':
+      noise('highpass', 4200, 0.5, 0.055);
+      noise('bandpass', 1500, 0.35, 0.030);
+      noise('lowpass', 240, 0.6, 0.045);
+      break;
+    /* A mower two fairways away: a small engine you never see, and the single
+     * detail that says other people are on this course. */
+    case 'mower.distant':
+      osc('sawtooth', 61, 0.020);
+      osc('sawtooth', 122.7, 0.009);
+      noise('bandpass', 780, 1.4, 0.022);
+      break;
+    case 'cart.motor':
+      // An electric cart is a whine and a bit of tyre, and nothing else.
+      osc('sine', 168, 0.045);
+      osc('sine', 336, 0.016);
+      noise('bandpass', 900, 1.1, 0.030);
+      break;
+    case 'sprinkler':
+      noise('bandpass', 3400, 0.8, 0.055);
+      noise('highpass', 6200, 0.6, 0.022);
       break;
     case 'ambience.diners':
       // Two hundred people over dinner: lower and slower than a club crowd,
