@@ -7,6 +7,7 @@ Six playable or preserved experiences live in this repo.
 | **Squatch Life** (repo root) | First-person apartment hub. Wake up, answer Lou’s call, get ready, use the PC, and leave for the first mission. |
 | **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; the campaign also reuses the same club for his post-airstrip assignment. |
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
+| **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Manny is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene and cast for alignment. Playable and verified, but not yet campaign canon or routed from the apartment. |
@@ -16,6 +17,7 @@ npm start        # the apartment -> http://localhost:5173
                  # safe previews -> http://localhost:5173/preview.html
                  # the Bing      -> http://localhost:5173/bing.html
                  # Squatchfather -> http://localhost:5173/squatchfather.html
+                 # the Beef Run  -> http://localhost:5173/beefrun.html
                  # the Motel     -> http://localhost:5173/motel.html
                  # the game      -> http://localhost:5173/game/
                  # Initiation    -> http://localhost:5173/initiation.html
@@ -41,10 +43,11 @@ weapon and returns to the apartment again. Sleeping creates a persistent Day
 Two checkpoint at 7:00 AM; Booskibro then calls once and unlocks the airstrip job
 with Captain Lou Sasole kept distinct from Lou. The post-airstrip state
 contract, Lou’s second call, the reused Bing assignment, direct Motel
-transition, and Motel return are implemented. The airstrip runtime is finished
-on `origin/claude/beef-run-mission-di1vq9` and awaits selective integration, so
-that later sequence is not yet reachable through normal play. Do not merge that
-branch wholesale: it forked from the older Squatch Life base.
+transition, and Motel return are implemented. The Beef Run flight mission is
+integrated: answering Booskibro routes the apartment door to
+[`beefrun.html`](./beefrun.html), the mission's checkpoints, cargo, detection,
+and landing rank persist through the campaign save, a mid-mission reload
+resumes in the cockpit, and the end card returns home for Lou's second call.
 
 The Initiation branch history, face art, NPC writing, post-processing modules,
 and playable scene are preserved without overwriting shared systems. Tony
@@ -394,6 +397,8 @@ npm run verify:bing  # runtime: plays the club and returns home, headless
 npm run verify:bing-two # runtime: reuses the club for the second assignment
 npm run verify:squatchfather # runtime: stages the package, plays, returns home
 npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
+npm run verify:beefrun # runtime: Beef Run campaign wiring, isolation, resume
+npm run check:flight # headless flight-model bench for the Brushrunner
 npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
 npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
 npm run verify:initiation # runtime: human cast, canonical names, human induction
@@ -431,8 +436,17 @@ completed mission returns home without restoring the discarded weapon.
 
 `verify:day-two` starts after that return, sleeps through the live apartment
 blackout, verifies the checkpoint survives a reload, answers Booskibro through the
-physical phone, and reloads again to prove neither completed call replays.
-Captain Lou Sasole is asserted as a separate character ID at the airstrip gate.
+physical phone, rides the door's real departure into `beefrun.html` at the
+authored Day 2, 9:10 AM, and reloads again to prove neither completed call
+replays. Captain Lou Sasole is asserted as a separate character ID throughout.
+
+`verify:beefrun` plays the save-isolated preview through the whole campaign
+surface — story-gated start, all four persisted checkpoints, cargo, patrol
+detection, durable completion at the authored dusk return, and the end-card
+navigation home — then seeds a mid-mission save and proves it resumes in the
+cockpit on the loaded return leg instead of starting over. `check:flight` is
+the flight-model bench: takeoff rolls, stall speeds, control authority, engine-
+out behaviour, and crash detection all against the envelope the mission needs.
 
 `verify:motel` starts the real later-scene preview, confirms first-person
 movement, asserts Manny is a friendly adult human who cannot attack or be

@@ -310,7 +310,7 @@ test('Booskibro rings once on Day Two and unlocks Captain Lou Sasole at the airs
   assert.deepEqual(replayed, []);
 });
 
-test('the Day Two door waits for Booskibro, then names the unconnected airstrip mission', () => {
+test('the Day Two door waits for Booskibro, then routes to the Beef Run', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   campaign.update((state) => {
     state.story.chapter = 'day_two';
@@ -329,9 +329,7 @@ test('the Day Two door waits for Booskibro, then names the unconnected airstrip 
 
   story.callAnswered(DAY_TWO_BOOSKI_CALL);
   assert.deepEqual(story.tryLeave({}), {
-    kind: 'mission',
-    id: MISSION_IDS.AIRSTRIP_SMUGGLING,
-    characterId: CHARACTER_IDS.CAPTAIN_LOU_SASOLE,
-    line: 'Captain Lou Sasole is waiting at the airstrip. The travel route is not connected yet.',
+    kind: 'go',
+    destination: SCENE_IDS.AIRSTRIP_SMUGGLING,
   });
 });

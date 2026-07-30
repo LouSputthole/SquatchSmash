@@ -216,7 +216,18 @@ try {
       && departTime.events.includes('travel.airstrip'),
     JSON.stringify(departTime));
 
-  await page.reload({ waitUntil: 'load' });
+  // The door's fade-out really navigates: ride it to Whispering Pines.
+  await page.waitForURL(/beefrun\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__beefrun?.story, null, { timeout: 60000 });
+  const arrived = await page.evaluate(() => ({
+    scene: window.__beefrun.campaignState.scene.id,
+    mission: window.__beefrun.campaignState.missions.airstrip_smuggling.status,
+  }));
+  check('the departure really lands at the Beef Run with the mission waiting',
+    arrived.scene === 'airstrip_smuggling' && arrived.mission === 'available',
+    JSON.stringify(arrived));
+
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
   const replay = await page.evaluate(() => {
     const game = window.__squatch;

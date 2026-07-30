@@ -34,6 +34,10 @@ end-to-end verification.
   Day Two wake state are connected through the versioned campaign boundary.
 - Booskibro's Day Two call and Captain Lou Sasole's distinct identity/state are
   connected to the airstrip mission contract.
+- The finished Beef Run flight mission is integrated at `beefrun.html`:
+  apartment departure, story-gated start, persisted checkpoints/cargo/
+  detection/completion, mid-mission resume, authored travel and completion
+  time, the end-card return home, and a save-isolated preview.
 - The post-airstrip apartment state, Big Uncle Lou's second call, reused Bada
   Bing Scene Two, direct Jerky Motel handoff, Motel completion, and apartment
   return are implemented.
@@ -65,6 +69,8 @@ a3d3d69 Fix Squatchfather entry controls
 62088c7 Harden apartment campaign and preview flow
 9ed9693 Document consolidation handoff
 9fb3022 Align campaign character canon
+bcd5b81 Import the finished Beef Run and align its cast with campaign canon
+4b055ea Connect the Beef Run to the campaign spine
 ```
 
 ## Approved character canon
@@ -118,6 +124,8 @@ Current authored beats:
 | Big Uncle Lou's first answered call | +3 minutes |
 | Leave for Bada Bing Scene One | Advance to at least Day 1, 11:41 PM |
 | Booskibro's answered call | +5 minutes |
+| Leave for the Beef Run | Advance to at least Day 2, 9:10 AM |
+| Beef Run completion | Advance to at least Day 2, 8:30 PM |
 | Big Uncle Lou's second answered call | +5 minutes |
 
 The first Bing HUD now reads the persisted campaign clock instead of a
@@ -191,48 +199,47 @@ The final Bada Bing and Motel captures are committed under
 the front portal, vehicle lot, performers, first-person Motel views, human
 Manny, corrected pool, Room 12, and capture recovery.
 
-## Finished Beef Run branch awaiting integration
+## The Beef Run is integrated
 
-The Beef Run is committed on its own remote branch and has been audited without
-merging it:
+The finished flight mission from `origin/claude/beef-run-mission-di1vq9` at
+audited tip `f4ed391` was selectively integrated on 2026-07-30 without merging
+its older Squatch Life base. Its aircraft, flight model, terrain, mission
+geography, and flight controls are the canonical implementation and were not
+rewritten; `npm run check:flight` passes against this branch's vendored
+Three.js. The adapted boundaries:
 
-```text
-branch: origin/claude/beef-run-mission-di1vq9
-tip: f4ed391
-commits:
-  f4ed391 Grade centreline landing
-  11d51ed Add per-line Beef Run VO cues
-  ed9ab27 Build the full Beef Run mission
-  58406b6 Implement the flight model
-```
-
-Its isolated branch passed `npm run check:flight`, `npm run check`, and a real
-browser boot/start through the arrival objective with no console errors. It
-forks from Squatch Life commit `570d05c`, not this integration branch, so do
-not merge the branch wholesale.
-
-Integration procedure:
-
-1. Import `beefrun.html`, `src/beefrun/*`, `tools/beefrun-vo.mjs`, and
-   `tools/flight-test.mjs`.
-2. Manually reconcile package scripts, voice manifest cues, and check/audio
-   tooling rather than overwriting the integration versions.
-3. Adapt the Beef terrain hook from `player.groundAt = terrainHeight` to the
-   integration runtime's existing `world.groundAt = terrainHeight`.
-4. Connect Booskibro's call and `captain_lou_sasole`, campaign checkpoints,
-   authored time, preview mode, mission completion, and apartment return.
-5. Verify apartment → Beef Run → apartment → Bing Two → Motel in a real browser.
+- The contact speaks as `SASOLE` — Captain Lou Sasole, voice profile `lou2` —
+  and the prospect uses the `player` voice. The cue namespace is
+  `vo.beefrun.sasole.*` (never `lou`, which is Big Uncle Lou). 191 manifest
+  cues regenerate through `npm run vo:beefrun`; 171 are generatable with
+  voices the manifest already has. Old Stove, Cecilio, CAIB radio, and the
+  lookout still need ElevenLabs voice ids in the `voices` block.
+- `beefrun.html` is the airstrip scene href. Entering claims the scene;
+  `createAirstripStory` gates the start on Booskibro's answered call and the
+  completed Squatchfather, with door-voice reasons on the title screen.
+- The mission's four restore points persist as campaign checkpoints
+  (`airstrip`, `remote_strip`, `returning`, `landed_home`) with cargo,
+  detection, landing rank, and completion; a reload mid-mission resumes in
+  the cockpit at the saved leg.
+- The on-foot player rides `world.groundAt = terrainHeight` at the
+  integration player's relative eye height; the forked `player.groundAt` and
+  absolute-eye code did not come across.
+- The mission-complete card releases pointer lock so its buttons work, and
+  losing the lock after the ending no longer pauses the game.
+- `check.mjs` gained the Beef Run cue round-trip and dialogue-resolution
+  gates; `audio-todo` gained the mission chapter with casting notes.
 
 ## Verification at this checkpoint
 
-Fresh checks on the complete July 29 milestone:
+Fresh checks on the complete July 30 Beef Run integration milestone:
 
 ```text
 npm test                       66/66 passed
-npm run check                  137 source files, 4 manifests, all good
+npm run check                  163 source files, 4 manifests, all good
+npm run check:flight           flight-model bench, all envelopes hold
 npm run verify:art             50 pieces, 4 bathroom, 12 fridge, 2 doors
 npm run verify:day-one         19/19 passed
-npm run verify:day-two         11/11 passed
+npm run verify:day-two         13/13 passed (rides the real departure into beefrun.html)
 npm run verify:computer        18/18 passed
 npm run verify:squatch-smash    8/8 passed
 npm run verify:bing            46/46 passed
@@ -240,9 +247,10 @@ npm run verify:bing-two        10/10 passed
 npm run verify:squatchfather   19/19 passed
 npm run verify:motel           27/27 passed
 npm run verify:initiation      10/10 passed
-npm run verify:preview         14/14 passed
+npm run verify:beefrun         12/12 passed (preview playthrough + cockpit resume)
+npm run verify:preview         14/14 passed (launcher now lists five previews)
 npm run verify:boot-errors      6/6 passed
-npm run bundle                 built dist/squatch-apartment.html (15.87 MB)
+npm run bundle                 built dist/squatch-apartment.html (15.88 MB)
 ```
 
 The single-file bundle is a constrained preview artifact: its configured size
@@ -276,19 +284,20 @@ imported into the shipped game.
 
 ## Next implementation sequence
 
-1. Selectively integrate the verified Beef Run branch into the canonical
-   runtime; do not merge its older Squatch Life base wholesale.
-2. Connect the real Beef Run to Booskibro's call, Captain Lou Sasole, authored
-   time, checkpoints, preview mode, apartment departure, and apartment return.
-3. Extend the authored time ledger across each existing mission/return beat.
-4. Add the final apartment return/big-night call and route the current
+1. Extend the authored time ledger across the remaining mission/return beats
+   (Bing Two travel/completion, Motel travel/completion, returns home).
+2. Add the final apartment return/big-night call and route the current
    Initiation through normal campaign state without rewriting it.
-5. After the user playtests Initiation, design and implement the approved
+3. After the user playtests Initiation, design and implement the approved
    accomplishment review, rival deaths, mass transformation, and
    chapter-complete checkpoint.
-6. Run the entire waking-apartment-through-Initiation acceptance path, including
+4. Run the entire waking-apartment-through-Initiation acceptance path, including
    reloads at every apartment return.
-7. Only after zero P0 failures, prepare a reviewed merge into `main`.
+5. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather
+   chair orientation and revolver, Bada Bing character style/performer detail,
+   Motel pool/doors/windows, driving-scene car interior and lights, gambling
+   rework, apartment glue-gag tuning, sound and voice generation).
+6. Only after zero P0 failures, prepare a reviewed merge into `main`.
 
 ## Design questions to resolve with the user
 

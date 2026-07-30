@@ -40,10 +40,17 @@ Current product facts:
   and sleep. Idle real time must not move campaign time.
 - Day One apartment → Bada Bing One → apartment → Squatchfather →
   apartment/sleep is connected.
+- The Beef Run is integrated at `beefrun.html`: Booskibro's answered call
+  routes the apartment door there, the mission persists checkpoints, cargo,
+  detection, landing rank, and completion, a reload resumes in the cockpit,
+  and the end card returns home. `verify:beefrun` (12) and `check:flight`
+  cover it. Preserve its flight model, terrain, and mission geography as
+  canonical.
 - The post-airstrip state contract, Lou's second call, reused Bada Bing Two,
   direct Jerky Motel transition, and Motel return exist.
-- `preview.html` opens Motel, Bing Two, Squatchfather, and the unchanged
-  Initiation in page-local memory without reading or writing the real save.
+- `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, and the
+  unchanged Initiation in page-local memory without reading or writing the
+  real save.
 - The apartment/computer, Squatchfather spawn, Bada Bing geometry/NPC/rain,
   and first-person Motel/Manny/pool/interior playtest fixes are implemented and
   verified. Preserve those fixes.
@@ -72,54 +79,41 @@ Locked character/story canon:
 
 Immediate implementation objective:
 
-Selectively integrate the finished Beef Run from
-`origin/claude/beef-run-mission-di1vq9` at audited tip `f4ed391` into the
-canonical integration branch. Do not merge the branch wholesale; it forked
-from the older Squatch Life commit `570d05c`.
+The Beef Run integration is complete and verified (2026-07-30). Continue the
+consolidation in this order:
 
-Bring across and adapt:
+1. Extend the authored time ledger across the remaining mission/return beats
+   (Bing Two travel/completion, Motel travel/completion, returns home), the
+   same way `travel.airstrip` and `mission.airstrip` were added.
+2. Add the final apartment return/big-night call and route the current
+   Initiation through normal campaign state without rewriting the scene.
+3. Work the user's 2026-07-29 scene-polish backlog with focused per-scene
+   passes and playtest evidence: Squatchfather chair/NPC orientation, the
+   revolver, waiter behaviour, blood/impact effects; Bada Bing character
+   style unification, performer detail and choreography, Lou's office and
+   back hallway, wall-art collisions, blackjack and slot rework, club music;
+   Motel pool/doors/windows cleanup, the driving scene's car interior,
+   headlights and street lights, the bathroom-stuck fighter; apartment
+   crooked-frame gag staging and glue-minigame pacing; generate the missing
+   sounds and voice lines through the existing manifest tooling.
+4. A human playtest gate sits between each polish pass and the next scene.
 
-- `beefrun.html`
-- `src/beefrun/*`
-- `tools/beefrun-vo.mjs`
-- `tools/flight-test.mjs`
-- only the needed package scripts, VO manifest entries, and check/audio
-  tooling
+Standing integration rules:
 
-Required integration rules:
-
-- Adapt Beef's `player.groundAt = terrainHeight` hook to the integration
-  runtime's existing `world.groundAt = terrainHeight` contract.
-- Enter through Booskibro's answered Day Two call.
-- Resolve the contact as stable character ID `captain_lou_sasole`, never
-  `lou`.
-- Preserve Beef's aircraft, flight model, terrain, mission geography, and
-  flight controls as the canonical implementation. Adapt its outer boundaries
-  to the shared campaign/save, authored-time, objective, input-ownership, audio,
-  and scene-transition contracts; do not rewrite verified flight behavior just
-  to resemble the apartment player controller.
-- Persist checkpoints, cargo, detection/failure/retry state, landing result,
-  completion, and the return to the apartment.
-- Add a save-isolated Beef Run preview route.
+- Preserve the Beef Run's aircraft, flight model, terrain, mission geography,
+  and flight controls as canonical. Its campaign boundaries live in
+  `src/beefrun/main.js` (boot/story/input), `src/beefrun/mission.js`
+  (checkpoint/detection/ending hooks), and `src/core/airstrip-story.js`.
+- Resolve the airstrip contact as stable character ID `captain_lou_sasole`,
+  never `lou`. The mission speaker key is `SASOLE`, voice profile `lou2`,
+  cue namespace `vo.beefrun.sasole.*`.
 - Preserve the verified apartment, computer, Bing, Squatchfather, Motel, and
   current Initiation behavior.
 - Keep commits focused and understandable. Push only the canonical integration
   branch; do not merge or force-push `main`.
-
-Verification required before declaring the Beef Run integrated:
-
-1. Run its flight-model test and static check.
-2. Browser-test normal apartment departure after Booskibro's call.
-3. Meet Captain Lou Sasole, complete preflight, takeoff, navigation/border
-   crossing, remote landing, jerky pickup/loading, low-altitude return,
-   detection avoidance/failure retry, home landing, and mission completion.
-4. Return to the apartment with durable state and confirm the next Lou call
-   does not duplicate.
-5. Continue through Bing Two → Motel → apartment using normal transitions.
-6. Reload at meaningful checkpoints and confirm state/calls do not replay.
-7. Run every focused verifier listed in `package.json`, inspect browser console
-   errors, update documentation and exact check counts, commit, push, and
-   verify the remote SHA.
+- Before any push, run `npm test`, `npm run check`, `npm run check:flight`,
+  and every focused verifier in `package.json`; inspect browser console
+  errors; update documentation and exact check counts; verify the remote SHA.
 
 Use actual code and runtime evidence. Do not call a scene complete merely
 because files exist, and do not replace working systems for cosmetic
