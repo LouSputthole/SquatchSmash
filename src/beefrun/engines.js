@@ -84,9 +84,18 @@ export class EngineSystem {
     this.onEvent?.('shutdown', i);
   }
 
-  damage(i, amount) {
+  /**
+   * Take health off an engine.
+   *
+   * @param {number} floor the lowest health this kind of abuse can reach. Heat
+   *   passes one; a propeller through the dirt does not. Overheating is meant to
+   *   cost power permanently and leave you nursing it home, not to hand you a
+   *   dead engine — see the seize in `update()`, which had no floor and killed
+   *   the left engine eleven seconds into its own scripted overheat.
+   */
+  damage(i, amount, floor = 0) {
     const e = this.engines[i];
-    e.health = clamp(e.health - amount, 0, 1);
+    e.health = clamp(e.health - amount, floor, 1);
     if (e.health <= 0.05) {
       e.dead = true;
       e.running = false;
@@ -130,17 +139,28 @@ export class EngineSystem {
         const cooling = 0.02 + airspeed * 0.0032;
         // Full power sits just under the red line. Getting past it takes a
         // hot day, a long climb, or the script deciding it is time.
-        const targetTemp = 40 + load * 192 + (e.hotScript > 0 ? 105 : 0);
+        /* The scripted overheat has to bite whatever power the player happens to
+         * be carrying. At +105 it only crossed the mission's 250 °C trigger
+         * above about three-quarters throttle, so anybody cruising home at a
+         * sensible setting — which is most people — got a left engine that ran
+         * warm, said nothing, and never asked to be nursed. The whole set piece
+         * was invisible unless you were climbing at full power. */
+        const targetTemp = 40 + load * 192 + (e.hotScript > 0 ? 185 : 0);
         const rate = targetTemp > e.temp ? 0.055 + load * 0.05 : cooling;
         e.temp = damp(e.temp, targetTemp, rate, dt);
         if (e.hotScript > 0) e.hotScript = Math.max(0, e.hotScript - dt);
 
-        // Cooking the cylinders costs power permanently.
+        // Cooking the cylinders costs power permanently — but heat alone never
+        // finishes an engine off. The point of the left engine on the way home
+        // is that you fly the rest of the mission on an aeroplane that pulls to
+        // one side, and you cannot do that with a dead one. The gradual decay
+        // stops at 0.45 and a seizure stops at 0.3; getting past those takes
+        // something mechanical, like a propeller through the dirt.
         if (e.temp > 245) {
           e.health = clamp(e.health - dt * 0.018, 0.45, 1);
           e.roughness = clamp((e.temp - 235) / 40, 0, 1);
           if (e.temp > 275 && Math.random() < dt * 0.35) {
-            this.damage(i, 0.4);
+            this.damage(i, 0.4, 0.3);
             this.onEvent?.('seize', i);
           }
         } else {

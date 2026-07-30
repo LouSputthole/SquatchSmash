@@ -391,6 +391,42 @@ console.log('Brushrunner flight model\n');
 }
 
 /* ---------------------------------------------------------------- */
+/* The left engine on the way home                                   */
+/* ---------------------------------------------------------------- */
+/* The mission scripts this one deliberately and then asks the player to nurse
+ * it. Two ways that stops being a set piece and starts being a bug: it can go
+ * off too quietly to notice at the power a player is actually carrying, or it
+ * can destroy the engine before anybody has read the warning. It did both. */
+{
+  const cook = (thr, seconds = 90) => {
+    const eng = new EngineSystem();
+    eng.reset(true);
+    eng.forceRunning();
+    eng.setThrottles(thr);
+    eng.scriptOverheat(0, 70);
+    let peak = 0;
+    for (let i = 0; i < 60 * seconds; i++) { eng.update(dt, 55); peak = Math.max(peak, eng.engines[0].temp); }
+    return { eng, peak, e: eng.engines[0] };
+  };
+  console.log('\nThe left engine, scripted hot:');
+  // It has to cross the mission's own 250 C trigger at any cruise setting.
+  const quiet = Math.min(...[0.45, 0.55, 0.68, 0.8].map((t) => cook(t).peak));
+  expect('gets hot enough to notice at cruise power', quiet, 250, 400, ' °C');
+  // And it has to still be an engine afterwards, at the worst abuse there is.
+  const abused = cook(1.0, 180);
+  expect('survives its own overheat', abused.e.dead ? 1 : 0, 0, 0);
+  expect('still running', abused.e.running ? 1 : 0, 1, 1);
+  expect('but permanently down on power', abused.e.health, 0.2, 0.6);
+  // Easing it back has to actually work, and leave something to fly around.
+  abused.eng.setThrottle(0, 0.15);
+  for (let i = 0; i < 60 * 150; i++) abused.eng.update(dt, 55);
+  expect('cools when eased back', abused.e.temp, 0, 200, ' °C');
+  const asym = abused.eng.thrust(1, 55, 1.1) - abused.eng.thrust(0, 55, 1.1);
+  expect('asymmetric thrust to hold off', asym, 800, 4000, ' N');
+  console.log(results.splice(0).join('\n'));
+}
+
+/* ---------------------------------------------------------------- */
 /* 9. Flying it into a hill must end the flight                       */
 /* ---------------------------------------------------------------- */
 {
