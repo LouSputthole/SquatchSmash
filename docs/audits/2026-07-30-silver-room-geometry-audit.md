@@ -71,3 +71,43 @@ also add the two ~15-line harness checks in §11.
     sampled at 0.2m must be collider-free at groundAt height; (b) for each
     ROUTE node, roomAt(node) === node.room. (~15 lines each; would have
     caught six findings.)
+
+---
+
+## Closed — 2026-07-30
+
+All eleven items are fixed in `src/silver/room.js` (plus one `groundAt` line in
+`main.js` and the harness). Captures and before/after luminance are in
+`docs/validation/2026-07-30-silver/`. verify-silver is 80 checks, all passing,
+including three new geometry ones: 47/47 route legs collider-free, 48/48 nodes
+in their labelled room, and the real companion walking the whole route with
+**zero** `_stuck` recoveries.
+
+Four more were found while fixing these, and are fixed with them, because the
+route could not be walked otherwise:
+
+- the up-ramp's slab was tilted the *wrong way* (`atan2(CELLAR_Y, run)`
+  descends towards +x while `ramps` climbs towards +x), so the concrete you saw
+  and the floor you walked crossed over in the middle and agreed nowhere else;
+- both ramp slabs were built the length of the run rather than the hypotenuse,
+  leaving half a metre of daylight at the top of each;
+- the kitchen's four ranges made one unbroken 10.2m block with a 0.65m slot at
+  one end and the dish pit hard against the other — no way past it at all for
+  anything 0.6m wide, so the route physically could not get from the pot wash
+  back to the swing doors. Three ranges now, with an end you can walk round;
+- the marquee sign asked `neonText` for `{ size: 128 }`, which is not one of its
+  options, so the default 150px face ran off a 1024px canvas and the sign over
+  the door read **HE SILVER ROO**.
+
+### Follow-ups this pass could not take (owned by `src/silver/cast.js`)
+
+1. **The queue is still indoors.** `cast.js:65` hardcodes nine background
+   figures at `z: rand(26.5, 29)`, which is inside the lobby. The street set
+   has moved out to the pavement (z 34.2..38.4) and `anchors.queue` with it, to
+   (0, 39.8) — but the figures do not read the anchor. They belong behind the
+   rope line at z ≈ 39.
+2. **Street figures ignore floor height.** The pavement is a 140mm platform and
+   `groundAt` honours it now, but `cast.js` places street NPCs with no `y`, so
+   the doorman at `anchors.doorman` (2.6, 35.8) stands 140mm into his own
+   paving. Either pass `y: room.groundAt(x, z)` for the street cast, or drop
+   `kerbY` to 0 and lay the pavement flush.

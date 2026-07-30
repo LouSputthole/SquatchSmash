@@ -205,6 +205,238 @@ const choose = async (i) => {
   await tick(3);
 };
 
+/* ---- the building, before anybody walks it ----
+ *
+ * Everything below this block drives the mission by setting the player's
+ * position, which is the only way to play a first-person game headlessly and
+ * also the reason none of it has ever noticed a wall. It walked through the
+ * street set built inside the lobby, four bricked-up doorways, ten route legs
+ * that went through a wine rack or a range, and two route nodes labelled with
+ * rooms they were not in — and passed. So the geometry gets asserted directly,
+ * against the same colliders and the same `groundAt` the player uses.
+ */
+const geometry = await page.evaluate(() => {
+  const b = window.__silver;
+  const room = b.room;
+  const EYE = 1.66;
+  const RADIUS = 0.30;
+  /* Doors a player can open are open: the service door is the only way in and
+   * the point of the sweep is the route somebody can actually walk. */
+  for (const d of Object.values(room.doors)) if (!d.locked && !d.open) d.toggle();
+
+  const blocking = (x, z, feet) => {
+    for (const c of room.colliders) {
+      if (feet + EYE + 0.05 < c.min.y || feet > c.max.y) continue;
+      const cx = Math.max(c.min.x, Math.min(x, c.max.x));
+      const cz = Math.max(c.min.z, Math.min(z, c.max.z));
+      if (Math.hypot(x - cx, z - cz) < RADIUS) {
+        return `${c.min.x.toFixed(1)}..${c.max.x.toFixed(1)} × ${c.min.z.toFixed(1)}..${c.max.z.toFixed(1)}`;
+      }
+    }
+    return null;
+  };
+
+  /* (a) every leg, sampled at 200mm, clear at the height it is walked at */
+  const R = room.ROUTE;
+  const fouled = [];
+  for (let i = 0; i + 1 < R.length; i++) {
+    const a = R[i]; const c = R[i + 1];
+    const steps = Math.max(1, Math.ceil(Math.hypot(c.x - a.x, c.z - a.z) / 0.2));
+    for (let s = 0; s <= steps; s++) {
+      const k = s / steps;
+      const x = a.x + (c.x - a.x) * k;
+      const z = a.z + (c.z - a.z) * k;
+      const hit = blocking(x, z, room.groundAt(x, z, a.y ?? 0));
+      if (hit) { fouled.push(`${i}→${i + 1} at ${x.toFixed(1)},${z.toFixed(1)} in ${hit}`); break; }
+    }
+  }
+
+  /* (b) every node is in the room it says it is in */
+  const mislabelled = R
+    .map((n, i) => ({ i, n, got: room.roomAt(n.x, n.z, n.y ?? 0) }))
+    .filter((e) => e.got !== e.n.room)
+    .map((e) => `${e.i} (${e.n.x},${e.n.z}) says ${e.n.room}, is ${e.got}`);
+
+  /* (c) can a man who obeys collision actually get in?
+   *
+   * A flood fill on a quarter-metre grid with his own capsule, from the mouth
+   * of the alley. Two levels, because the cellar is under the kitchen and
+   * `groundAt` answers differently depending on which one you are already on;
+   * they join where the two answers agree, which is exactly the ramps and
+   * nowhere else.
+   *
+   * This is the check the four bricked-up doorways needed. Every one of them
+   * was a `wall` drawn over the top of a `wallGap` in the same plane — an
+   * opening with a wall standing in it — and not one of them is visible in a
+   * diff, in a screenshot taken from the other side, or to a driver that moves
+   * the player by assignment.
+   */
+  const CELL = 0.25;
+  const X0 = -32; const Z0 = -24; const NX = 288; const NZ = 256;
+  const gx = (i) => X0 + i * CELL;
+  const gz = (j) => Z0 + j * CELL;
+  const at = (i, j) => i * NZ + j;
+  const gnd = [new Float32Array(NX * NZ), new Float32Array(NX * NZ)];
+  const free = [new Uint8Array(NX * NZ), new Uint8Array(NX * NZ)];
+  for (let i = 0; i < NX; i++) {
+    for (let j = 0; j < NZ; j++) {
+      for (const L of [0, 1]) {
+        const g = room.groundAt(gx(i), gz(j), L ? -2.9 : 0);
+        gnd[L][at(i, j)] = g;
+        free[L][at(i, j)] = blocking(gx(i), gz(j), g) ? 0 : 1;
+      }
+    }
+  }
+  const seen = [new Uint8Array(NX * NZ), new Uint8Array(NX * NZ)];
+  const si = Math.round((34 - X0) / CELL); const sj = Math.round((20 - Z0) / CELL);
+  const queue = [[si, sj, 0]];
+  seen[0][at(si, sj)] = 1;
+  while (queue.length) {
+    const [i, j, L] = queue.pop();
+    const g = gnd[L][at(i, j)];
+    const o = L ^ 1;
+    if (!seen[o][at(i, j)] && free[o][at(i, j)] && Math.abs(gnd[o][at(i, j)] - g) < 0.01) {
+      seen[o][at(i, j)] = 1; queue.push([i, j, o]);
+    }
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const ni = i + di; const nj = j + dj;
+      if (ni < 0 || nj < 0 || ni >= NX || nj >= NZ) continue;
+      if (seen[L][at(ni, nj)] || !free[L][at(ni, nj)]) continue;
+      if (Math.abs(gnd[L][at(ni, nj)] - g) > 0.6) continue;
+      seen[L][at(ni, nj)] = 1; queue.push([ni, nj, L]);
+    }
+  }
+  const A = room.anchors;
+  const canReach = (x, z, L) => {
+    const i = Math.round((x - X0) / CELL); const j = Math.round((z - Z0) / CELL);
+    return i >= 0 && j >= 0 && i < NX && j < NZ && !!seen[L][at(i, j)];
+  };
+  const unreachable = [
+    ['the landing inside the service door', 28.5, 11.7, 0],
+    ['the cellar floor', 22, 1, 1],
+    ['the dry store', 19, -10, 1],
+    ['the walk-in', 24.5, -10, 1],
+    ['the prep kitchen', 19, 3.2, 0],
+    ['the pass', 19, -5, 0],
+    ['the dish pit', 28.4, -14, 0],
+    ['the corridor', 12.5, 20, 0],
+    ['the floor of the club', 6, 24, 0],
+    ['the front table', A.frontTable.x + 1.2, A.frontTable.z + 1.2, 0],
+    /* Through the front-of-house doorway rather than round through the staff
+     * corridor: the lobby is the other side of a wall that had an opening
+     * drawn in it and a wall standing in the opening. */
+    ['the lobby', 0, 30, 0],
+  ].filter(([, x, z, L]) => !canReach(x, z, L)).map(([n]) => n);
+
+  /* (d) and every doorway is a doorway.
+   *
+   * Reachability alone will not see this: the lobby was still reachable with
+   * its own front-of-house opening walled up, because you could go the long way
+   * round through the staff corridor. So the middle of each opening is tested
+   * directly. Every one of the five that were sealed had a `wall` covering a
+   * `wallGap` in the same plane, which is invisible in a diff. */
+  const sealed = [
+    ['the alley service door', 29.8, 11.7, 0],
+    ['the cellar into the walk-in', 24.4, -6.2, -2.9],
+    ['the cellar into the dry store', 19.8, -6.2, -2.9],
+    ['the walk-in door', 21, -10, -2.9],
+    ['the kitchen swing doors', 15, -7.8, 0],
+    ['the corridor into the prep kitchen', 15, 4.8, 0],
+    ['the lobby into the dining room', 0, 26.2, 0],
+    ['the curtain', 9.8, 24, 0],
+    ['the dining room into the restrooms', -2.5, -8.1, 0],
+    ['the dining room into the back corridor', 3.9, -8.1, 0],
+    ['the back corridor into the restrooms', -2.5, -15.2, 0],
+    ['the rear exit', -3, -21.6, 0],
+  ].filter(([, x, z, y]) => blocking(x, z, y)).map(([n]) => n);
+
+  return { legs: R.length - 1, fouled, nodes: R.length, mislabelled, unreachable, sealed };
+});
+check('every leg of the route is clear of every collider at walking height',
+  geometry.fouled.length === 0,
+  `${geometry.legs - geometry.fouled.length}/${geometry.legs} legs`
+    + (geometry.fouled.length ? ` — ${geometry.fouled.slice(0, 3).join('; ')}` : ''));
+check('and every node on it is in the room it claims',
+  geometry.mislabelled.length === 0,
+  `${geometry.nodes - geometry.mislabelled.length}/${geometry.nodes} nodes`
+    + (geometry.mislabelled.length ? ` — ${geometry.mislabelled.slice(0, 3).join('; ')}` : ''));
+check('a man who cannot walk through walls can get in at the service door '
+  + 'and reach the best table in the building',
+  geometry.unreachable.length === 0,
+  geometry.unreachable.length ? `cannot reach ${geometry.unreachable.join(', ')}` : 'all eleven rooms');
+check('and none of the twelve doorways has a wall standing in it',
+  geometry.sealed.length === 0,
+  geometry.sealed.length ? `bricked up: ${geometry.sealed.join(', ')}` : 'all twelve open');
+
+/* ---- and she can walk it, rather than being teleported down it ----
+ *
+ * `_stuck` recovery exists so a companion who gets wedged behind a range is
+ * not lost for the evening; it is not a way of getting round the building, and
+ * every time it fires the player either sees her pop or turns round and finds
+ * her somewhere she did not walk to. Drive the real follower over the whole
+ * route with collision on, with him one node ahead of her the entire way, and
+ * require that it never fires once.
+ */
+const walkedRoute = await page.evaluate(() => {
+  const b = window.__silver;
+  const R = b.room.ROUTE;
+  let pops = 0;
+  const realCaughtUp = b.date.hooks.onCaughtUp;
+  b.date.hooks.onCaughtUp = (...a) => { pops++; realCaughtUp?.(...a); };
+  b.date.mode = 'follow';
+  b.date.at = 0;
+  b.date._stuck = 0;
+  b.date.group.position.set(R[0].x, b.room.groundAt(R[0].x, R[0].z, R[0].y ?? 0), R[0].z);
+  b.date._lastPos.copy(b.date.group.position);
+
+  let worst = 0; let worstAt = 0;
+  for (let i = 1; i < R.length; i++) {
+    const from = R[i - 1]; const to = R[i];
+    const len = Math.hypot(to.x - from.x, to.z - from.z);
+    const steps = Math.max(4, Math.ceil(len / 0.15));
+    for (let s = 1; s <= steps; s++) {
+      const k = s / steps;
+      const px = from.x + (to.x - from.x) * k;
+      const pz = from.z + (to.z - from.z) * k;
+      const feet = b.room.groundAt(px, pz, to.y ?? from.y ?? 0);
+      const pos = { x: px, y: feet + 1.66, z: pz };
+      const yaw = Math.atan2(-(to.x - from.x), -(to.z - from.z));
+      /* Two ticks per 150mm of his walk: 0.06s at 2.35m/s is about that, and
+       * she is given the same clock he is rather than a generous one. */
+      for (let t = 0; t < 2; t++) b.date.update(0.06, pos, yaw);
+      const gap = Math.hypot(b.date.position.x - px, b.date.position.z - pz);
+      if (gap > worst) { worst = gap; worstAt = i; }
+    }
+  }
+  b.date.hooks.onCaughtUp = realCaughtUp;
+  const end = R[R.length - 1];
+  return {
+    pops,
+    worst: +worst.toFixed(1),
+    worstAt,
+    at: b.date.at,
+    of: R.length - 1,
+    finalGap: +Math.hypot(b.date.position.x - end.x, b.date.position.z - end.z).toFixed(1),
+    room: b.room.roomAt(b.date.position.x, b.date.position.z, b.date.position.y),
+  };
+});
+check('she walks the whole route on her own legs, with nothing teleporting her',
+  walkedRoute.pops === 0,
+  `${walkedRoute.pops} recoveries, worst gap ${walkedRoute.worst}m at leg ${walkedRoute.worstAt}`);
+check('and she arrives at the far end of it, on the floor of the club',
+  walkedRoute.finalGap < 3 && walkedRoute.room === 'floor',
+  JSON.stringify(walkedRoute));
+
+/* Put her back where the mission expects her before the evening starts. */
+await page.evaluate(() => {
+  const b = window.__silver;
+  for (const d of Object.values(b.room.doors)) if (d.open) d.toggle();
+  b.date.at = 0;
+  b.date._stuck = 0;
+  b.date.group.position.set(b.room.anchors.dropOff.x - 1.3, 0, b.room.anchors.dropOff.z - 0.4);
+  b.date._lastPos.copy(b.date.group.position);
+});
+
 await page.evaluate(() => { window.__roomLog = []; });
 console.log('Driving the evening…');
 
@@ -270,8 +502,14 @@ check('she asks about the front entrance, and there are four answers',
 await choose(0);
 await tick(5);
 
-/* ---- the route ---- */
-await walkTo(20, 38);
+/* ---- the route ----
+ * Along the front and in at the alley mouth, which is what ROUTE does. Cutting
+ * the corner from (20,38) to (34,26) crosses the yard between the frontage and
+ * the alley wall, where there is no room at all — so the room log read
+ * street → outside → alley and she was left behind in the gap. */
+await walkTo(22, 37.5);
+await walkTo(33, 36);
+await walkTo(34, 30);
 await walkTo(34, 26);
 s = await state();
 check('the alley starts the service route', s.mission === 'service-route', s.mission);
@@ -286,14 +524,34 @@ check('and once he has walked off the car goes, and takes its prompt with it',
   drovOff.gone && !drovOff.prompt, JSON.stringify(drovOff));
 
 await page.evaluate(() => window.__silver.room.doors.service.toggle());
-await walkTo(31, 12);
-await walkTo(24, 11.5);
-await walkTo(15.8, 11);      // the full length of the ramp
-await walkTo(16.4, 4);
+await walkTo(34, 13.5);
+await walkTo(31.6, 11.7);
+await walkTo(28.4, 11.7);    // through the service door onto the landing
+await walkTo(20, 11.5);
+await walkTo(15.6, 10.6);    // the full length of the ramp
+await walkTo(15.9, 8);
 s = await state();
 check('the ramp puts him underground', s.mission === 'cellar' && s.room === 'cellar',
   `${s.mission} / ${s.room}`);
-const caughtUp = await waitForHer();
+/* Get in front of her on purpose, then stand still.
+ *
+ * This used to happen by itself, because she could not get down the ramp
+ * without being teleported and arrived late every single run — so the point
+ * for waiting was collected by accident, by a player who had not waited for
+ * anything. Now that she walks it, the gap never opens unless he opens it, and
+ * the only honest way to test "he stopped and she arrived" is to put her a
+ * flight of ramp behind him and let her walk down. */
+await page.evaluate(() => {
+  const b = window.__silver;
+  /* Back in the alley: the point needs 2.4 seconds of open gap before it will
+   * pay, and she walks the ramp down in less than that. */
+  const n = b.room.ROUTE[5];
+  b.date.at = 5;
+  b.date.group.position.set(n.x, b.room.groundAt(n.x, n.z, n.y ?? 0), n.z);
+  b.date._lastPos.copy(b.date.group.position);
+});
+const caughtUp = await waitForHer(25);
+await tick(4, 0.1);                               // and he is still standing there
 const her = await page.evaluate(() => {
   const b = window.__silver;
   return {
@@ -316,11 +574,15 @@ check('the cellar floor is only the cellar floor to somebody already down there'
   }), 'the kitchen is directly above it');
 
 /* Every doorway on the route, which is where a follower dies. */
-await walkTo(24, -4);
-await walkTo(16.4, -3);
-await walkTo(16.4, 1);
-await walkTo(19.5, 1);       // back up the other ramp
-await walkTo(19, -4);
+await walkTo(23.5, 1.5);
+await walkTo(25.4, -3);
+await walkTo(24.4, -9);      // through the cellar wall into the walk-in
+await walkTo(19.6, -10);     // and the walk-in door into the dry store
+await walkTo(19.8, -5);      // and back into the cellar
+await walkTo(15.9, -1.2);
+await walkTo(18, 1);
+await walkTo(20.8, 1);       // back up the other ramp
+await walkTo(22.5, -3);
 s = await state();
 check('the ramp brings him back up to the kitchen',
   s.mission === 'kitchen' && Math.abs(await page.evaluate(() => window.__silver.player.position.y - 1.66)) < 0.4,
@@ -344,7 +606,7 @@ const walked = await page.evaluate(() => {
   b.player._tween = null;
   b.player.position.set(34, 1.66, 20);
   b.player.ground = 0;
-  const legs = [[31, 12], [24, 11.5], [15.8, 11], [16.4, 5], [21, 3]];
+  const legs = [[34, 13.5], [31.6, 11.7], [26, 11.7], [20, 11.5], [15.6, 10.6], [15.9, 8], [20, 4]];
   const trace = [];
   let from = { x: 34, z: 20 };
   for (const [tx, tz] of legs) {
@@ -360,7 +622,7 @@ const walked = await page.evaluate(() => {
   return { trace, ground: b.player.ground, x: b.player.position.x, z: b.player.position.z };
 });
 check('the controller walks itself down the ramp into the cellar',
-  walked.ground < -2.5 && Math.abs(walked.x - 21) < 0.5,
+  walked.ground < -2.5 && Math.abs(walked.x - 20) < 0.8,
   walked.trace.join(' → '));
 
 /* ---- the hazard, and the kitchen ---- */
@@ -414,11 +676,16 @@ check('Woo cannot be farmed by tipping the room again',
   `$${farm.money}, woo ${farm.woo}`);
 
 /* ---- the corridor and the floor ---- */
-await walkTo(13, -14);
+await walkTo(27.6, -8.9);
+await walkTo(28.4, -14);
+await walkTo(25.2, -17.4);
+await walkTo(17.2, -14.2);
+await walkTo(16.2, -8.6);    // round the west end of the line
+await walkTo(14, -7.9);      // and out through the swing doors
 await walkTo(12.5, 4);
 check('the corridor is on the way', (await state()).mission === 'corridor', (await state()).mission);
-await walkTo(12.5, 22);
-await walkTo(6, 24);
+await walkTo(12.3, 22);
+await walkTo(7.5, 24);
 s = await state();
 check('and it comes out on the floor of the club', s.mission === 'host', s.mission);
 const pace = await page.evaluate(() => ({

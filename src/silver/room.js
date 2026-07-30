@@ -36,6 +36,17 @@ export const STAGE_H = 0.75;
 export const CELLAR_Y = -2.9;
 
 /**
+ * The footprint of the ramp back up out of the cellar.
+ *
+ * Three separate pieces of the building have to agree about where this hole
+ * is — the ramp itself, the hole in the cellar ceiling above it, and the hole
+ * in the prep kitchen's floor above that — and when they disagree the symptom
+ * is a man walking up a slope with his feet 1.3m under a tiled floor he can
+ * see. So it is written down once.
+ */
+export const RAMP_UP = { x0: 15.5, x1: 20, z0: -0.6, z1: 2.6 };
+
+/**
  * The plan. Order matters: `roomAt` returns the first match, so the cellar
  * level is listed before the floor above it and gated on `y1`.
  */
@@ -48,12 +59,18 @@ export const ROOMS = {
   /* ---- the way in ---- */
   street:    { x0: -40, x1: 44, z0: 34,  z1: 66 },
   alley:     { x0: 30,  x1: 38, z0: -22, z1: 34 },
-  stair:     { x0: 15,  x1: 22, z0: 8,   z1: 15 },
+  /* Out to the service door, because the concrete landing you come in onto is
+   * part of the stair and not a hole in the plan: it answered 'outside', so
+   * the first room inside the building played street audio. */
+  stair:     { x0: 15,  x1: 30,   z0: 8,   z1: 15 },
 
-  /* ---- back of house ---- */
+  /* ---- back of house ----
+   * `dish` before `kitchen`: `roomAt` returns the first match and the kitchen
+   * box contains the whole dish pit, so the dish room could never be answered
+   * and the pot wash was the kitchen with a different name. */
   prep:      { x0: 15, x1: 24, z0: -2,  z1: 8 },
-  kitchen:   { x0: 15, x1: 30, z0: -18, z1: -2 },
   dish:      { x0: 24, x1: 30, z0: -18, z1: -10 },
+  kitchen:   { x0: 15, x1: 30, z0: -18, z1: -2 },
   corridor:  { x0: 10, x1: 15, z0: -18, z1: 26 },
 
   /* ---- front of house ---- */
@@ -63,6 +80,10 @@ export const ROOMS = {
   backstage: { x0: -30, x1: -26, z0: -22, z1: -15 },
   restrooms: { x0: -6,  x1: 0,  z0: -22, z1: -15 },
   manager:   { x0: 0,   x1: 10, z0: -22, z1: -15 },
+  /* The back corridor behind the dining room's south wall. It is what the
+   * restrooms and the office are off, and without it the south edge of the
+   * dining room was 15.7m of open carpet onto nothing at all. */
+  service:   { x0: -6,  x1: 10, z0: -15, z1: -8 },
 };
 
 /**
@@ -84,7 +105,7 @@ export const ZONES = {
   cellar: ['stair', 'cellar', 'drystore', 'walkin'],
   kitchen: ['prep', 'kitchen', 'dish'],
   corridor: ['corridor'],
-  club: ['lobby', 'floor', 'stage', 'backstage', 'restrooms', 'manager'],
+  club: ['lobby', 'floor', 'stage', 'backstage', 'restrooms', 'manager', 'service'],
 };
 
 export function zoneAt(room) {
@@ -99,35 +120,77 @@ export function zoneAt(room) {
  * companion walks and the game measures progress along, because there is no
  * navmesh in this engine and a working kitchen is the worst possible place to
  * find that out.
+ *
+ * Which is exactly why it has to be surveyed rather than sketched. Ten of the
+ * old twenty-six legs ran through something solid — a wine rack, the pass, the
+ * range line, the wall at the bottom of the kitchen — and two nodes were
+ * labelled with rooms they were not in. None of that showed up, because the
+ * only thing that had ever walked it was a test driver that sets positions and
+ * a companion who teleports when she gets stuck. She got stuck a lot.
+ *
+ * Two rules for anybody editing this: every leg is clear of every collider at
+ * the walking height it is walked at, and `roomAt(node)` is the room on the
+ * node. Both are asserted in `tools/verify-silver.mjs`.
  */
 export const ROUTE = [
-  { x: 6,   z: 40,  room: 'street' },
-  { x: 20,  z: 38,  room: 'street' },
-  { x: 34,  z: 30,  room: 'alley' },
-  { x: 34,  z: 16,  room: 'alley' },
-  { x: 31,  z: 12,  room: 'alley' },
-  { x: 24,  z: 12,  room: 'stair' },
-  { x: 19,  z: 11.5, room: 'stair' },
-  { x: 15.8, z: 11,  room: 'stair', y: CELLAR_Y },
-  { x: 16.4, z: 5,   room: 'cellar', y: CELLAR_Y },
-  { x: 21,  z: 1,   room: 'cellar', y: CELLAR_Y },
-  { x: 25,  z: -4,  room: 'cellar', y: CELLAR_Y },
-  { x: 24,  z: -8,  room: 'walkin', y: CELLAR_Y },
-  { x: 19,  z: -10, room: 'drystore', y: CELLAR_Y },
-  { x: 16.4, z: -3, room: 'cellar', y: CELLAR_Y },
-  { x: 16.4, z: 1,  room: 'cellar', y: CELLAR_Y },
-  { x: 19.5, z: 1,  room: 'prep' },
-  { x: 19,  z: -2,  room: 'prep' },
-  { x: 20,  z: -8,  room: 'kitchen' },
-  { x: 25,  z: -13, room: 'dish' },
-  { x: 19,  z: -16, room: 'kitchen' },
-  { x: 13,  z: -14, room: 'corridor' },
-  { x: 12.5, z: -4, room: 'corridor' },
-  { x: 12.5, z: 10, room: 'corridor' },
-  { x: 12.5, z: 20, room: 'corridor' },
-  { x: 11,  z: 24,  room: 'corridor' },
-  { x: 6,   z: 24,  room: 'floor' },
-  { x: 0.5, z: 23,  room: 'floor' },
+  /* ---- the pavement, and along the front to the alley mouth ---- */
+  { x: 6,    z: 39,   room: 'street' },
+  { x: 22,   z: 37.5, room: 'street' },
+  { x: 33,   z: 36,   room: 'street' },
+  /* ---- the alley, down the east side to the service door ---- */
+  { x: 34,   z: 30,   room: 'alley' },
+  { x: 34,   z: 20,   room: 'alley' },
+  { x: 34,   z: 13.5, room: 'alley' },
+  { x: 31.6, z: 11.7, room: 'alley' },
+  /* ---- the landing, and the ramp down ---- */
+  { x: 28.4, z: 11.7, room: 'stair' },
+  { x: 24,   z: 11.6, room: 'stair' },
+  { x: 20,   z: 11.5, room: 'stair', y: CELLAR_Y },
+  { x: 15.6, z: 10.6, room: 'stair', y: CELLAR_Y },
+  /* ---- the cellar, west aisle then east across the racks ---- */
+  { x: 15.9, z: 8,    room: 'cellar', y: CELLAR_Y },
+  { x: 17.6, z: 7.6,  room: 'cellar', y: CELLAR_Y },
+  { x: 20,   z: 4,    room: 'cellar', y: CELLAR_Y },
+  { x: 23.5, z: 1.5,  room: 'cellar', y: CELLAR_Y },
+  { x: 25.4, z: -3,   room: 'cellar', y: CELLAR_Y },
+  /* ---- out to the walk-in, through it, and into the dry store ---- */
+  { x: 24.4, z: -7,   room: 'walkin', y: CELLAR_Y },
+  { x: 24.4, z: -10.5, room: 'walkin', y: CELLAR_Y },
+  { x: 21.8, z: -10,  room: 'walkin', y: CELLAR_Y },
+  { x: 19.6, z: -10,  room: 'drystore', y: CELLAR_Y },
+  { x: 19.8, z: -7,   room: 'drystore', y: CELLAR_Y },
+  /* ---- back into the cellar and up the other ramp ---- */
+  { x: 19.8, z: -5,   room: 'cellar', y: CELLAR_Y },
+  { x: 17.5, z: -3,   room: 'cellar', y: CELLAR_Y },
+  { x: 17.4, z: -1.4, room: 'cellar', y: CELLAR_Y },
+  { x: 15.9, z: -1.2, room: 'cellar', y: CELLAR_Y },
+  { x: 15.9, z: 0.8,  room: 'cellar', y: CELLAR_Y },
+  { x: 18,   z: 1,    room: 'cellar', y: CELLAR_Y },
+  { x: 20.8, z: 1,    room: 'prep' },
+  /* ---- the kitchen: east of the pass, east of the range line ---- */
+  { x: 22.5, z: -3,   room: 'kitchen' },
+  { x: 23,   z: -8.5, room: 'kitchen' },
+  { x: 27.6, z: -8.9, room: 'kitchen' },
+  { x: 28.4, z: -12,  room: 'dish' },
+  { x: 28.4, z: -15.5, room: 'dish' },
+  { x: 27.9, z: -17.4, room: 'dish' },
+  /* ---- back up the west side of the line to the swing doors ---- */
+  { x: 25.2, z: -17.4, room: 'dish' },
+  { x: 20,   z: -16.5, room: 'kitchen' },
+  { x: 17.2, z: -14.2, room: 'kitchen' },
+  { x: 15.9, z: -10.5, room: 'kitchen' },
+  { x: 16.2, z: -8.6, room: 'kitchen' },
+  { x: 14,   z: -7.9, room: 'corridor' },
+  /* ---- the corridor, getting warmer all the way north ---- */
+  { x: 12.5, z: -12,  room: 'corridor' },
+  { x: 12.5, z: -2,   room: 'corridor' },
+  { x: 12.5, z: 8,    room: 'corridor' },
+  { x: 12.3, z: 16,   room: 'corridor' },
+  { x: 12.3, z: 22,   room: 'corridor' },
+  { x: 11,   z: 24,   room: 'corridor' },
+  /* ---- through the curtain, onto the floor ---- */
+  { x: 7.5,  z: 24,   room: 'floor' },
+  { x: 2.2,  z: 23.4, room: 'floor' },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -358,10 +421,25 @@ export function buildRoom(scene, { renderer } = {}) {
   {
     const S = ROOMS.street;
     floor(S, M_ASPHALT, 'concrete', 0);
-    // Pavement, a step up, running the width of the frontage
+
+    /* Everything from here to the street lamps is *outside*, and the whole set
+     * used to be built inside the building.
+     *
+     * The frontage is a brick wall at z=34.2 and the street is the +z side of
+     * it, so a pavement at z 30..34.2 is four metres of paving slab laid across
+     * the lobby carpet, with a canopy over the host station, a rope line
+     * through the front-of-house wall, and the sign facing the wrong way into
+     * a dark room. `roomAt` agreed: standing under the marquee answered
+     * 'lobby', so the marquee played interior audio and the pooling switched
+     * the sign off as an interior fitting nobody was near.
+     *
+     * Every z here is now the reflection of the old one about the facade,
+     * z' = 68.4 - z, which is why the drop-off never moved: 38.5 was already
+     * on the correct side and is what said the reflection was the intent.
+     */
     const kerbY = 0.14;
-    floor({ x0: -20, x1: 20, z0: 30, z1: 34.2 }, mat({ color: 0x3c3c42, roughness: 0.94 }), 'concrete', kerbY);
-    add(box({ size: [40, kerbY, 0.3], pos: [0, kerbY / 2, 30], mat: mat({ color: 0x55555c, roughness: 0.9 }) }));
+    floor({ x0: -20, x1: 20, z0: 34.2, z1: 38.4 }, mat({ color: 0x3c3c42, roughness: 0.94 }), 'concrete', kerbY);
+    add(box({ size: [40, kerbY, 0.3], pos: [0, kerbY / 2, 38.4], mat: mat({ color: 0x55555c, roughness: 0.9 }) }));
 
     // The frontage: brick, a canopy, and the sign
     wallGap('x', 34.2, -22, 22, -3.4, 3.4, 9, M_BRICK, 0.4);
@@ -372,32 +450,44 @@ export function buildRoom(scene, { renderer } = {}) {
     wall(22, 34.2, 22, 26, 9, M_BRICK, 0.4);
 
     // Canopy over the public door, and the queue under it
-    add(box({ size: [11, 0.16, 4.6], pos: [0, 3.3, 32], mat: M_BURGUNDY }));
+    add(box({ size: [11, 0.16, 4.6], pos: [0, 3.3, 36.4], mat: M_BURGUNDY }));
     for (const px of [-5.2, 5.2]) {
-      add(cylinder({ r: 0.09, h: 3.3, pos: [px, 1.65, 30.2], mat: M_BRASS }));
-      solid(px - 0.14, 30.06, px + 0.14, 30.34, 0, 3.3);
+      /* On the pavement, which is 140mm up: a post whose base is at road level
+       * is a post buried to the ankle in its own paving. */
+      add(cylinder({ r: 0.09, h: 3.3, pos: [px, kerbY + 1.65, 38.2], mat: M_BRASS }));
+      solid(px - 0.14, 38.06, px + 0.14, 38.34, kerbY, kerbY + 3.3);
     }
     // Rope and posts, and the thirty people who have been there an hour
     for (let i = 0; i < 5; i++) {
       const px = -4.4 + i * 2.2;
-      add(cylinder({ r: 0.06, h: 0.95, pos: [px, 0.62, 29.2], mat: M_BRASS }));
-      add(sphere({ r: 0.075, pos: [px, 1.11, 29.2], mat: M_BRASS }));
+      add(cylinder({ r: 0.06, h: 0.95, pos: [px, kerbY + 0.62, 37.9], mat: M_BRASS }));
+      add(sphere({ r: 0.075, pos: [px, kerbY + 1.11, 37.9], mat: M_BRASS }));
       if (i < 4) {
-        const rope = cylinder({ r: 0.035, h: 2.2, pos: [px + 1.1, 0.98, 29.2], mat: M_VELVET, rotZ: Math.PI / 2 });
+        const rope = cylinder({ r: 0.035, h: 2.2, pos: [px + 1.1, kerbY + 0.98, 37.9], mat: M_VELVET, rotZ: Math.PI / 2 });
         add(rope);
       }
     }
-    anchors.publicDoor = new THREE.Vector3(0, 0, 33);
-    anchors.queue = new THREE.Vector3(0, 0, 28.6);
+    anchors.publicDoor = new THREE.Vector3(0, 0, 35.4);
+    anchors.queue = new THREE.Vector3(0, 0, 39.8);
     anchors.dropOff = new THREE.Vector3(6, 0, 38.5);
-    anchors.doorman = new THREE.Vector3(2.6, 0, 32.6);
+    anchors.doorman = new THREE.Vector3(2.6, 0, 35.8);
 
     // THE SILVER ROOM, in brass, lit from below and slightly too big
-    const nameTex = neonText('silver-name', 'THE SILVER ROOM', '#e8d9a8', { size: 128 });
-    const nameSign = sign(nameTex, 10, 1.9, { x: 0, y: 5.6, z: 34.05, emissive: '#e8d9a8', intensity: 1.5 });
+    /* `neonText` takes `w`, `h` and `font`. It does not take `size`, which is
+     * what this asked for — so the default 150px face ran off the end of a
+     * 1024px canvas and the sign over the door has always read HE SILVER ROO.
+     * A wider canvas and a face that fits on it. */
+    const nameTex = neonText('silver-name', 'THE SILVER ROOM', '#e8d9a8', {
+      w: 1400, h: 256, font: '900 124px "Trebuchet MS", sans-serif',
+    });
+    /* Proud of the brick, not inside it. The frontage is 400mm thick, so it
+     * runs z 34.0..34.4 and a sign at 34.35 is 50mm *into* the wall — which is
+     * where this one has always been, on one side or the other. All you ever
+     * saw was the uplight washing bare brick. */
+    const nameSign = sign(nameTex, 10, 1.9, { x: 0, y: 5.6, z: 34.45, emissive: '#e8d9a8', intensity: 1.5 });
     add(nameSign);
     const nameLight = pointLight(0xe8d9a8, 3.2);
-    nameLight.position.set(0, 4.4, 32.4);
+    nameLight.position.set(0, 4.4, 36);
     nameLight.distance = 13;
     add(nameLight);
     houseLights.push({ light: nameLight, exterior: true });
@@ -405,7 +495,7 @@ export function buildRoom(scene, { renderer } = {}) {
     const smallTex = printed('silver-tonight', ['TONIGHT', 'THE MIDNIGHT PINES', 'TWO SETS'], {
       w: 256, h: 200, bg: '#120c08', fg: '#d8c48a',
     });
-    add(sign(smallTex, 1.5, 1.2, { x: -4.6, y: 2.2, z: 34.02, emissive: '#d8c48a', intensity: 0.5 }));
+    add(sign(smallTex, 1.5, 1.2, { x: -4.6, y: 2.2, z: 34.44, emissive: '#d8c48a', intensity: 0.5 }));
 
     // A wet street reads mostly as reflections of things you cannot see
     for (let i = 0; i < 9; i++) {
@@ -451,7 +541,9 @@ export function buildRoom(scene, { renderer } = {}) {
     });
     const bulb = box({ size: [0.42, 0.3, 0.3], pos: [30.6, 2.5, 11.7], mat: M_STEEL_D });
     add(bulb);
-    const doorLight = pointLight(0xffd9a0, 2.4);
+    // 1.7, not 2.4: at 900mm off the brick the old one washed the whole
+    // elevation to flat white and the alley lost its wall
+    const doorLight = pointLight(0xffd9a0, 1.7);
     doorLight.position.set(30.9, 2.35, 11.7);
     doorLight.distance = 9;
     add(doorLight);
@@ -468,10 +560,19 @@ export function buildRoom(scene, { renderer } = {}) {
       solid(bx - 0.78, bz - 1.12, bx + 0.78, bz + 1.12, 0, 1.45);
     }
     anchors.smoker = new THREE.Vector3(35.4, 0, 15.4);
-    for (let i = 0; i < 7; i++) {
-      const cx = rand(31, 33);
-      const cz = rand(-14, 26);
-      add(box({ size: [0.6, 0.42, 0.5], pos: [cx, 0.21 + (i % 2) * 0.42, cz], mat: M_WOOD }));
+    /* Stacked against the club wall at fixed places rather than scattered by
+     * `rand` down the middle of the alley, and solid.
+     *
+     * Seven crates with no collider anywhere between z=-14 and z=26 meant the
+     * route through the alley walked through a different number of them every
+     * time the page loaded, and she walked through all of them every time.
+     * Nothing here is inside z 9..17, which is the run up to the service door. */
+    for (const [cx, cz, stack] of [
+      [31.4, -12, 0], [32.2, -11.5, 1], [31.5, -5.4, 0],
+      [32.4, 2.2, 0], [31.6, 19.8, 0], [32.3, 20.4, 1], [31.5, 24.2, 0],
+    ]) {
+      add(box({ size: [0.6, 0.42, 0.5], pos: [cx, 0.21 + stack * 0.42, cz], mat: M_WOOD }));
+      solid(cx - 0.3, cz - 0.25, cx + 0.3, cz + 0.25, 0, 0.42 + stack * 0.42);
     }
 
     // A fire escape, because every alley has one and it takes the eye upward
@@ -490,11 +591,17 @@ export function buildRoom(scene, { renderer } = {}) {
     const T = ROOMS.stair;
     /* A ramp, not steps: the player controller has no stair logic, and a ramp
      * is what a building with a thousand crates a week would have anyway. */
-    floor({ x0: 22, x1: 29.4, z0: 8.4, z1: 14.6 }, M_CONCRETE, 'concrete', 0);
-    const rampLen = 7;
+    // Out to the doorway itself: at 29.4 the threshold you step over is void
+    floor({ x0: 22, x1: 29.6, z0: 8.4, z1: 14.6 }, M_CONCRETE, 'concrete', 0);
+    const rampRun = 7;
+    /* The slab is the hypotenuse, not the run. A 7m box tilted to climb 2.9m
+     * covers 6.46m of floor and leaves half a metre of daylight at the top of
+     * the ramp, which reads as a hole in the concrete right where somebody is
+     * about to walk into it. */
+    const rampLen = Math.hypot(rampRun, -CELLAR_Y);
     const rampMesh = box({
       size: [rampLen, 0.16, 6.2], pos: [18.5, CELLAR_Y / 2, 11.5], mat: M_CONCRETE_L,
-      rotZ: Math.atan2(-CELLAR_Y, rampLen),
+      rotZ: Math.atan2(-CELLAR_Y, rampRun),
     });
     add(rampMesh);
     // Sampled rather than solved: the ramp is one plane and this is one lerp.
@@ -514,7 +621,19 @@ export function buildRoom(scene, { renderer } = {}) {
      * and she does not. */
     wall(22, 8.2, 29.6, 8.2, 3.2, M_CONCRETE, 0.3, CELLAR_Y);
     wall(15, 14.8, 29.6, 14.8, 3.2, M_CONCRETE, 0.3, CELLAR_Y);
-    wall(29.6, 8.2, 29.6, 14.8, 3.2, M_CONCRETE, 0.3, 0);
+    /* A second course on top of both.
+     *
+     * The first one starts at the cellar floor and is 3.2m tall, so it tops
+     * out at y=0.3 -- which is fine down in the ramp cutting and is a
+     * three-hundred-millimetre parapet by the time you are standing on the
+     * landing. Above it was open sky into the plenum on two sides of the room
+     * you walk into first. */
+    wall(22, 8.2, 29.6, 8.2, CEIL_BACK - 0.3, M_CONCRETE, 0.3, 0.3);
+    wall(15, 14.8, 29.6, 14.8, CEIL_BACK - 0.3, M_CONCRETE, 0.3, 0.3);
+    /* The east wall of the landing is the one the service door is in. It was
+     * a solid slab across the only entrance a player who obeys collision has,
+     * and the door outside it opened onto brick. */
+    wallGap('z', 29.6, 8.2, 14.8, 10, 13.4, 3.2, M_CONCRETE, 0.3, 0);
     ceiling(T, M_CONCRETE, CEIL_BACK);
 
     // A handrail down the ramp, because otherwise it reads as a hole
@@ -524,15 +643,50 @@ export function buildRoom(scene, { renderer } = {}) {
         const ry = CELLAR_Y * (1 - i / 6) + 0.95;
         add(cylinder({ r: 0.045, h: 0.95, pos: [rx, ry - 0.47, rz], mat: M_STEEL_D }));
       }
-      add(box({ size: [7.2, 0.06, 0.06], pos: [18.5, CELLAR_Y / 2 + 0.95, rz], mat: M_STEEL_D, rotZ: Math.atan2(-CELLAR_Y, rampLen) }));
+      add(box({ size: [rampLen + 0.2, 0.06, 0.06], pos: [18.5, CELLAR_Y / 2 + 0.95, rz], mat: M_STEEL_D, rotZ: Math.atan2(-CELLAR_Y, rampRun) }));
     }
 
     const C = ROOMS.cellar;
     floor(C, M_CONCRETE, 'concrete', CELLAR_Y);
-    ceiling(C, M_CONCRETE, CELLAR_Y + CEIL_CELLAR);
-    wall(15, -6.2, 28.7, -6.2, CEIL_CELLAR, M_BRICK_IN, 0.3, CELLAR_Y);
+    /* The cellar ceiling, with the up-ramp's shaft left out of it.
+     *
+     * It used to be one slab over the whole room at y=-0.5, and the ramp back
+     * up to the prep kitchen climbs from -2.9 to 0 underneath it: from x=16.3
+     * onwards the concrete is through your head, and at the top of the ramp
+     * you are half a metre inside it. Somebody walking the route did not
+     * notice, because the debug driver sets positions and does not have a
+     * head. */
+    for (const c of [
+      { x0: 15, x1: 28.5, z0: -6, z1: RAMP_UP.z0 },
+      { x0: RAMP_UP.x1, x1: 28.5, z0: RAMP_UP.z0, z1: RAMP_UP.z1 },
+      /* Stopped short of z=8.6 over the down-ramp: the last 200mm of the
+       * cellar is the mouth of the other ramp, and that one is at kitchen
+       * height by the time it gets there. */
+      { x0: 15, x1: 22, z0: RAMP_UP.z1, z1: 8.4 },
+      { x0: 22, x1: 28.5, z0: RAMP_UP.z1, z1: 8.6 },
+    ]) ceiling(c, M_CONCRETE, CELLAR_Y + CEIL_CELLAR);
+    /* And the cheek walls of the shaft, so the 500mm of plenum between the
+     * cellar ceiling and the prep floor is not a slot of daylight either side
+     * of the ramp. They stop 20mm short of the prep floor on purpose: a
+     * collider whose top is exactly the floor you are standing on is a wall
+     * you cannot see, and this one ran the length of the room. The thing that
+     * stops you walking into the well is the rail above it, which you can. */
+    for (const fz of [RAMP_UP.z0, RAMP_UP.z1]) {
+      wall(15, fz, RAMP_UP.x1, fz, 0.48, M_CONCRETE, 0.2, CELLAR_Y + CEIL_CELLAR);
+    }
+    /* Two doorways, because the route goes through this wall twice: out to the
+     * walk-in at the east end and back in from the dry store at the west. It
+     * was a solid thirteen metres of brick, which made the entire lower floor
+     * of the building a sealed box that only a teleport could get into. */
+    wallGap('x', -6.2, 15, 21, 19, 20.6, CEIL_CELLAR, M_BRICK_IN, 0.3, CELLAR_Y);
+    wallGap('x', -6.2, 21, 28.7, 23, 25.8, CEIL_CELLAR, M_BRICK_IN, 0.3, CELLAR_Y);
     wall(28.7, -6.2, 28.7, 8.2, CEIL_CELLAR, M_BRICK_IN, 0.3, CELLAR_Y);
-    wall(14.8, -6.2, 14.8, 8.2, CEIL_CELLAR, M_BRICK_IN, 0.3, CELLAR_Y);
+    /* Up to the prep floor rather than to the cellar ceiling, so the shaft has
+     * no slot down its west side — but stopping 20mm short of it, for the same
+     * reason the shaft cheeks do: a collider whose top is exactly the floor
+     * somebody is standing on is a wall they cannot see, and this one runs the
+     * length of the building straight through the corridor's prep doorway. */
+    wall(14.8, -6.2, 14.8, 8.2, -CELLAR_Y - 0.02, M_BRICK_IN, 0.3, CELLAR_Y);
 
     anchors.cellarman = new THREE.Vector3(24.5, CELLAR_Y, 3.2);
     anchors.cellarMid = new THREE.Vector3(21, CELLAR_Y, 1);
@@ -541,7 +695,12 @@ export function buildRoom(scene, { renderer } = {}) {
     // Wine racks: the whole point of the room
     const rackMat = mat({ color: 0x38251a, roughness: 0.9 });
     const bottleMat = mat({ color: 0x1c2a1a, roughness: 0.25, metalness: 0.05 });
-    for (const [rx, rz, rot] of [[27.6, 2, 0], [27.6, -2, 0], [16, 2, 0], [16, -2, 0], [22, 6.6, Math.PI / 2]]) {
+    /* The two west racks used to be at z=±2, which is the mouth of the ramp
+     * back up to the kitchen: 3.6m of oak standing in the only way out of the
+     * room, half-buried in the concrete of the ramp itself, with a 0.40m slot
+     * left between them and the wall. Moved clear of `RAMP_UP` in z, which
+     * leaves the aisle they were meant to make. */
+    for (const [rx, rz, rot] of [[27.6, 2, 0], [27.6, -2, 0], [16, 5.2, 0], [16, -3.6, 0], [22, 6.6, Math.PI / 2]]) {
       const g = group('rack');
       for (let shelf = 0; shelf < 5; shelf++) {
         g.add(box({ size: [0.7, 0.05, 3.4], pos: [0, 0.35 + shelf * 0.42, 0], mat: rackMat }));
@@ -598,9 +757,13 @@ export function buildRoom(scene, { renderer } = {}) {
           }));
         }
       }
-      g.position.set(17.8, CELLAR_Y, sz);
+      /* Racked against the west wall rather than down the middle of the room.
+       * Three runs at x 16..19.6 left a 0.68m slot between the last one and
+       * the walk-in wall, which is a 0.60m-wide person's whole margin, and it
+       * is the only way from the walk-in back into the cellar. */
+      g.position.set(17, CELLAR_Y, sz);
       add(g);
-      solid(16, sz - 0.36, 19.6, sz + 0.36, CELLAR_Y, CELLAR_Y + 2.1);
+      solid(15.2, sz - 0.36, 18.8, sz + 0.36, CELLAR_Y, CELLAR_Y + 2.1);
     }
     anchors.drystore = new THREE.Vector3(19, CELLAR_Y, -10);
 
@@ -633,31 +796,72 @@ export function buildRoom(scene, { renderer } = {}) {
   window.__squatchStage?.('Lighting the pass…');
   {
     const P = ROOMS.prep;
-    // The ramp back up, at the cellar's west end
-    const upLen = 4.5;
+    /* The ramp back up.
+     *
+     * Two things were wrong with it and they hid each other. The slab was
+     * tilted the wrong way -- `atan2(CELLAR_Y, run)` descends towards +x while
+     * `ramps` climbs towards +x -- so the concrete you could see and the floor
+     * you walked on crossed over in the middle and agreed nowhere else. And
+     * the prep kitchen's floor was laid straight across the top of the whole
+     * thing, so even where they did agree there was a tiled slab in the way:
+     * a metre and a third of solid floor between the ramp and the man on it.
+     */
+    const upRun = RAMP_UP.x1 - RAMP_UP.x0;
+    const upTilt = Math.atan2(-CELLAR_Y, upRun);
     add(box({
-      size: [upLen, 0.16, 3.2], pos: [17.75, CELLAR_Y / 2, 1], mat: M_CONCRETE_L,
-      rotZ: Math.atan2(CELLAR_Y, upLen),
+      size: [Math.hypot(upRun, CELLAR_Y), 0.16, RAMP_UP.z1 - RAMP_UP.z0],
+      pos: [(RAMP_UP.x0 + RAMP_UP.x1) / 2, CELLAR_Y / 2, (RAMP_UP.z0 + RAMP_UP.z1) / 2],
+      mat: M_CONCRETE_L, rotZ: upTilt,
     }));
     floorZones.push({
-      box: new THREE.Box3(new THREE.Vector3(15.5, CELLAR_Y - 1, -0.6), new THREE.Vector3(20, 1, 2.6)),
+      box: new THREE.Box3(
+        new THREE.Vector3(RAMP_UP.x0, CELLAR_Y - 1, RAMP_UP.z0),
+        new THREE.Vector3(RAMP_UP.x1, 1, RAMP_UP.z1),
+      ),
       surface: 'concrete',
     });
-    ramps.push({ x0: 15.5, x1: 20, z0: -0.6, z1: 2.6, from: CELLAR_Y, to: 0 });
+    ramps.push({ ...RAMP_UP, from: CELLAR_Y, to: 0 });
+    // A rail round the well, on the kitchen side, where there is a drop
+    for (const fz of [RAMP_UP.z0, RAMP_UP.z1]) {
+      add(box({ size: [RAMP_UP.x1 - 15, 0.06, 0.06], pos: [(15 + RAMP_UP.x1) / 2, 0.95, fz], mat: M_STEEL_D }));
+      for (let i = 0; i <= 4; i++) {
+        add(cylinder({ r: 0.04, h: 0.95, pos: [15.4 + i * 1.15, 0.48, fz], mat: M_STEEL_D }));
+      }
+      solid(15, fz - 0.05, RAMP_UP.x1, fz + 0.05, 0, 0.95);
+    }
 
-    floor(P, mat({ color: 0x9aa0a8, roughness: 0.35, metalness: 0.18 }), 'tile', 0);
+    /* The prep floor, with the ramp well left out of it. `floor()` also
+     * records a walking surface, so the pieces have to tile the room exactly
+     * or the footsteps go quiet in the gaps. */
+    const preTile = mat({ color: 0x8b9199, roughness: 0.55, metalness: 0.06 });
+    for (const f of [
+      { x0: RAMP_UP.x1, x1: 24, z0: -2, z1: 8 },
+      { x0: 15, x1: RAMP_UP.x1, z0: -2, z1: RAMP_UP.z0 },
+      { x0: 15, x1: RAMP_UP.x1, z0: RAMP_UP.z1, z1: 8 },
+    ]) floor(f, preTile, 'tile', 0);
     ceiling(P, mat({ color: 0x4a4e56, roughness: 0.9 }), CEIL_BACK);
     wall(15, 8.2, 24.2, 8.2, CEIL_BACK, M_TILE, 0.25);
     wall(24.2, -2, 24.2, 8.2, CEIL_BACK, M_TILE, 0.25);
 
     const K = ROOMS.kitchen;
-    floor(K, mat({ color: 0x9aa0a8, roughness: 0.35, metalness: 0.18 }), 'tile', 0);
+    floor(K, preTile, 'tile', 0);
     ceiling(K, mat({ color: 0x3e424a, roughness: 0.9 }), CEIL_BACK);
-    wall(15, -18.2, 30.2, -18.2, CEIL_BACK, M_TILE, 0.25);
-    wall(30.2, -18.2, 30.2, -2, CEIL_BACK, M_TILE, 0.25);
-    wall(24.2, -2, 30.2, -2, CEIL_BACK, M_TILE, 0.25);
-    // The wall between the kitchen and the corridor, with the swing doors in it
-    wallGap('z', 15, -18, 8, -9.2, -6.4, CEIL_BACK, M_TILE, 0.25);
+    wall(15, -18.2, 29.7, -18.2, CEIL_BACK, M_TILE, 0.25);
+    /* Inside the alley's brick rather than 200mm outside it: the tiled skin
+     * used to sit at x=30.2 and the club's east elevation at x=30, which is
+     * 7.4 cubic metres of wall inside another wall and a tiled stripe on the
+     * outside of the building. */
+    wall(29.6, -18.2, 29.6, -2, CEIL_BACK, M_TILE, 0.25);
+    wall(24.2, -2, 29.7, -2, CEIL_BACK, M_TILE, 0.25);
+    /* The wall between the kitchen and the corridor, with the swing doors in
+     * it -- and it stops at z=-2, where the kitchen stops.
+     *
+     * It used to run to z=8, straight over the top of the prep doorway the
+     * corridor punches at the same x further down this file, so the building
+     * had a doorway drawn in it with a solid tiled wall standing in it. Two
+     * `wallGap`s on the same line is one wall too many; each owns its own
+     * stretch now. */
+    wallGap('z', 15, -18, -2, -9.2, -6.4, CEIL_BACK, M_TILE, 0.25);
     hangDoor('kitchenSwing', {
       axis: 'z', fixed: 15.1, from: -9.2, to: -6.4, material: mat({ color: 0xb8bcc4, roughness: 0.5 }),
       label: 'the <b>kitchen doors</b>', swing: -1.9,
@@ -665,7 +869,7 @@ export function buildRoom(scene, { renderer } = {}) {
 
     anchors.pass = new THREE.Vector3(19, 0, -6.6);
     anchors.chef = new THREE.Vector3(20.5, 0, -5.4);
-    anchors.prepCook = new THREE.Vector3(18.5, 0, 4.2);
+    anchors.prepCook = new THREE.Vector3(18.5, 0, 3.1);   // in front of his bench, not inside it
     anchors.hotPan = new THREE.Vector3(21.5, 0, -9.5);
     anchors.dishwasher = new THREE.Vector3(26.6, 0, -13.5);
     anchors.porter = new THREE.Vector3(17.5, 0, -13);
@@ -678,15 +882,22 @@ export function buildRoom(scene, { renderer } = {}) {
     for (let i = 0; i < 9; i++) {
       add(box({ size: [0.14, 0.2, 0.01], pos: [16.6 + i * 0.6, 1.6, -6.88], mat: mat({ color: 0xf0ece0, roughness: 1 }) }));
     }
-    const passLight = pointLight(0xffd9a8, 3.4);
+    const passLight = pointLight(0xffd9a8, 2.7);
     passLight.position.set(19, 1.9, -6.6);
     passLight.distance = 8;
     add(passLight);
     houseLights.push({ light: passLight, back: true });
 
-    // The line: ranges, a salamander, and a lot of steel
-    for (let i = 0; i < 4; i++) {
-      const rx = 17 + i * 2.6;
+    /* The line: ranges, a salamander, and a lot of steel.
+     *
+     * Three of them, from x=16.6 to x=24.2, rather than four from 15.8 to 26.
+     * Four made a single unbroken block of range across the whole kitchen with
+     * a 0.65m slot at the corridor end and the dish pit hard against the
+     * other, which is to say no way past it at all for anything 0.6m wide.
+     * The room reads the same and you can now walk round both ends of it,
+     * which is the only reason a kitchen line ever has ends. */
+    for (let i = 0; i < 3; i++) {
+      const rx = 17.8 + i * 2.6;
       add(box({ size: [2.4, 0.9, 1.1], pos: [rx, 0.45, -10.5], mat: M_STEEL_D }));
       add(box({ size: [2.4, 0.06, 1.1], pos: [rx, 0.93, -10.5], mat: mat({ color: 0x1a1c20, roughness: 0.55 }) }));
       solid(rx - 1.2, -11.05, rx + 1.2, -9.95, 0, 0.95);
@@ -696,12 +907,21 @@ export function buildRoom(scene, { renderer } = {}) {
         }
       }
     }
-    // Extraction hood over the line, which is most of what makes a kitchen read
-    add(box({ size: [11.4, 0.9, 2.2], pos: [20.4, 2.2, -10.5], mat: mat({ color: 0xb0b6bc, roughness: 0.3, metalness: 0.7 }) }));
-    add(box({ size: [11.4, 0.5, 0.16], pos: [20.4, 1.6, -9.35], mat: M_STEEL }));
+    /* Extraction hood over the line, which is most of what makes a kitchen
+     * read. Its front valance used to hang from 1.35 to 1.85 and start at
+     * x=14.7 -- a half-metre steel plate at eye height, right across the aisle
+     * you walk down, ending inside the corridor wall. Lifted clear of a head
+     * and pulled back inside the room. */
+    const hoodX0 = 16.4;
+    const hoodX1 = 24.4;
+    add(box({
+      size: [hoodX1 - hoodX0, 0.9, 2.2], pos: [(hoodX0 + hoodX1) / 2, 2.3, -10.5],
+      mat: mat({ color: 0xb0b6bc, roughness: 0.3, metalness: 0.7 }),
+    }));
+    add(box({ size: [hoodX1 - hoodX0, 0.4, 0.16], pos: [(hoodX0 + hoodX1) / 2, 2.25, -9.35], mat: M_STEEL }));
 
     // Prep benches
-    for (const [bx, bz] of [[18.5, 4.6], [22, 4.6], [18.5, 0.6]]) {
+    for (const [bx, bz] of [[18.5, 4.6], [22, 4.6], [18.5, 6.8]]) {
       add(box({ size: [2.6, 0.06, 1.2], pos: [bx, 0.92, bz], mat: mat({ color: 0xc0c6cc, roughness: 0.3, metalness: 0.6 }) }));
       for (const lx of [-1.15, 1.15]) for (const lz of [-0.5, 0.5]) {
         add(cylinder({ r: 0.035, h: 0.9, pos: [bx + lx, 0.45, bz + lz], mat: M_STEEL_D }));
@@ -726,12 +946,19 @@ export function buildRoom(scene, { renderer } = {}) {
       surface: 'tile',
     });
 
-    // Strip lights the whole way down, unglamorous and even
+    /* Strip lights the whole way down, unglamorous and even.
+     *
+     * Seven of them at 2.2 over a floor that was mixing 0.35 roughness with
+     * 0.18 metalness came out at a mean of 160 with a seventh of the frame
+     * clipped to white: a kitchen you cannot look at, next door to a dining
+     * room the whole mission is about being able to see faces in. The floor
+     * is the bigger half of it -- see `preTile` -- and the tubes come down to
+     * match. */
     for (const lz of [4, -2, -8, -14]) {
       for (const lx of [18, 25]) {
         if (lz === 4 && lx === 25) continue;
-        add(box({ size: [0.14, 0.08, 1.6], pos: [lx, CEIL_BACK - 0.14, lz], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.9 }) }));
-        const l = pointLight(0xdce8f4, 2.2);
+        add(box({ size: [0.14, 0.08, 1.6], pos: [lx, CEIL_BACK - 0.14, lz], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }) }));
+        const l = pointLight(0xdce8f4, 1.4);
         l.position.set(lx, CEIL_BACK - 0.3, lz);
         l.distance = 11;
         add(l);
@@ -739,6 +966,17 @@ export function buildRoom(scene, { renderer } = {}) {
       }
     }
 
+    /* One fitting over the ramp well, which was a black hole in the floor of
+     * a lit room: the cellar's tubes are under the ceiling you just came up
+     * through and light none of it. */
+    add(box({
+      size: [0.14, 0.08, 1.4], pos: [17.6, CEIL_BACK - 0.14, 1], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }),
+    }));
+    const rampLight = pointLight(0xdce8f4, 2.1);
+    rampLight.position.set(17.6, CEIL_BACK - 0.3, 1);
+    rampLight.distance = 12;
+    add(rampLight);
+    houseLights.push({ light: rampLight, back: true });
   }
 
   /* ================================================================ */
@@ -755,8 +993,10 @@ export function buildRoom(scene, { renderer } = {}) {
     ceiling(C, mat({ color: 0x35383e, roughness: 0.92 }), CEIL_BACK);
     wall(9.8, -18, 9.8, 22.4, CEIL_BACK, M_WAINSCOT, 0.25);
     wall(10, -18.2, 15, -18.2, CEIL_BACK, M_TILE, 0.25);
-    // East wall of the corridor above the cellar, with the prep doorway in it
-    wallGap('z', 15, -2, 8, 1.6, 4.4, CEIL_BACK, M_TILE, 0.25);
+    /* East wall of the corridor above the cellar, with the prep doorway in it.
+     * North of the ramp well: at z 1.6..4.4 the near half of the opening was
+     * over a three-metre drop into the cellar. */
+    wallGap('z', 15, -2, 8, 3.4, 6.2, CEIL_BACK, M_TILE, 0.25);
     wall(15, 8, 15, 26, CEIL_BACK, M_WAINSCOT, 0.25);
 
     anchors.corridorMid = new THREE.Vector3(12.5, 0, 6);
@@ -764,15 +1004,31 @@ export function buildRoom(scene, { renderer } = {}) {
     anchors.coatCheck = new THREE.Vector3(12.4, 0, 20);
     anchors.curtain = new THREE.Vector3(10.4, 0, 24);
 
-    // The service bar: a hatch onto the main bar, from the working side
+    /* The service bar, working side out.
+     *
+     * It was built as a hatch: a counter with its serving lip and its whole
+     * back-bar pressed against x=15, which on this side of the building is
+     * 250mm of solid wainscot with a wine cellar behind it. Nothing was ever
+     * going to be passed through it. Turned round instead — the gantry is
+     * against the wall where a back-bar goes, the bottles stand on it, and the
+     * brass lip and the glasses face the corridor, which is where the waiters
+     * are.
+     *
+     * The tops all sit at 1.165: the counter is 70mm thick centred at 1.13,
+     * and both prop makers take the height of the surface the thing stands on.
+     * At 1.16 the bottles were 5mm into the brass and at 1.17 the glasses were
+     * 5mm above it. */
+    const BAR_TOP = 1.165;
     add(box({ size: [0.5, 1.1, 4.2], pos: [14.6, 0.55, 10.5], mat: M_DARKWOOD }));
-    add(box({ size: [0.68, 0.07, 4.4], pos: [14.6, 1.13, 10.5], mat: M_BRASS }));
+    add(box({ size: [0.6, 0.07, 4.4], pos: [14.5, 1.13, 10.5], mat: M_BRASS }));
+    // Shelf above, against the wall, which is what a back-bar actually is
+    add(box({ size: [0.28, 0.05, 4.2], pos: [14.72, 1.72, 10.5], mat: M_DARKWOOD }));
     solid(14.3, 8.4, 14.95, 12.6, 0, 1.2);
     for (let i = 0; i < 5; i++) {
-      add(makeWhiskeyBottle(M, { x: 14.75, y: 1.16, z: 9 + i * 0.7 }));
+      add(makeWhiskeyBottle(M, { x: 14.72, y: BAR_TOP, z: 9 + i * 0.7 }));
     }
     for (let i = 0; i < 8; i++) {
-      add(makeShotGlass(M, { x: 14.4, y: 1.17, z: 8.8 + i * 0.45 }));
+      add(makeShotGlass(M, { x: 14.32, y: BAR_TOP, z: 8.8 + i * 0.45 }));
     }
     const barLight = pointLight(0xffcb8a, 2.2);
     barLight.position.set(13.6, 2.3, 10.5);
@@ -780,10 +1036,15 @@ export function buildRoom(scene, { renderer } = {}) {
     add(barLight);
     houseLights.push({ light: barLight, back: true });
 
-    // Coat check: a counter, a rail, ninety-two numbered tickets
-    add(box({ size: [0.5, 1.1, 3.4], pos: [14.6, 0.55, 20], mat: M_DARKWOOD }));
-    add(box({ size: [0.72, 0.07, 3.6], pos: [14.6, 1.13, 20], mat: M_BRASS }));
-    solid(14.3, 18.2, 14.95, 21.8, 0, 1.2);
+    /* Coat check: a counter, a rail, ninety-two numbered tickets.
+     *
+     * Pulled 700mm off the wall so there is a staff side to it. There was not
+     * one before — the counter was hard against x=15 and the rail was at 15.6,
+     * which is 600mm inside the wainscot, so every coat in the building was
+     * hanging in masonry. */
+    add(box({ size: [0.5, 1.1, 3.4], pos: [13.9, 0.55, 20], mat: M_DARKWOOD }));
+    add(box({ size: [0.72, 0.07, 3.6], pos: [13.9, 1.13, 20], mat: M_BRASS }));
+    solid(13.6, 18.2, 14.25, 21.8, 0, 1.2);
     const railG = group('coat-rail');
     railG.add(cylinder({ r: 0.03, h: 3.2, pos: [0, 1.75, 0], mat: M_BRASS, rotX: Math.PI / 2 }));
     for (let i = 0; i < 16; i++) {
@@ -792,7 +1053,7 @@ export function buildRoom(scene, { renderer } = {}) {
         mat: mat({ color: pick([0x24242c, 0x3a2a20, 0x2a3040, 0x1e1e24]), roughness: 0.92 }),
       }));
     }
-    railG.position.set(15.6, 0, 20);
+    railG.position.set(14.6, 0, 20);      // behind the counter, in front of the wall
     add(railG);
 
     // The route gets warmer and quieter as it goes north
@@ -808,11 +1069,13 @@ export function buildRoom(scene, { renderer } = {}) {
       houseLights.push({ light: l, back: lz < 6 });
     }
 
-    // The curtain: heavy, floor to lintel, and the last thing between you and it
+    /* The curtain: heavy, floor to lintel, and the last thing between you and
+     * it. Floor to *lintel*, which is 2.05 — at 3.1 it went 350mm through a
+     * 2.75 ceiling and hung in the corridor above. */
     const curtain = group('curtain');
     for (let i = 0; i < 6; i++) {
       curtain.add(box({
-        size: [0.14, 3.1, 0.5], pos: [0, 1.55, -1.25 + i * 0.5],
+        size: [0.14, DOOR_H, 0.5], pos: [0, DOOR_H / 2, -1.25 + i * 0.5],
         mat: M_VELVET, rotY: (i % 2 ? 0.14 : -0.14),
       }));
     }
@@ -834,11 +1097,30 @@ export function buildRoom(scene, { renderer } = {}) {
     ceiling({ x0: -30, x1: 10, z0: -16, z1: 26 }, mat({ color: 0x1a1218, roughness: 0.96 }), CEIL_FLOOR);
 
     wall(-30.2, -16, -30.2, 26, CEIL_FLOOR, M_PANEL, 0.3);
-    wall(-30, 26.2, 10, 26.2, CEIL_FLOOR, M_PANEL, 0.3);
+    /* The north wall, in the two stretches either side of the lobby.
+     *
+     * It used to run -30..10 in one piece, straight across the front-of-house
+     * doorway that the lobby punches into the same plane thirty lines below —
+     * so the dining room had an opening drawn in it with a solid panelled wall
+     * standing in the opening, and the only way in from the lobby was through
+     * the staff corridor. Same mistake as the prep doorway: two `wallGap`s on
+     * one line is one wall too many, and each owns its own stretch now. */
+    wall(-30, 26.2, -9, 26.2, CEIL_FLOOR, M_PANEL, 0.3);
+    wall(9, 26.2, 10, 26.2, CEIL_FLOOR, M_PANEL, 0.3);
     wall(-30, -16.2, -26, -16.2, CEIL_FLOOR, M_PANEL, 0.3);
     // East wall, with the curtain doorway already punched by the corridor
     wall(10.1, -8, 10.1, 22.4, CEIL_FLOOR, M_PANEL, 0.3);
     wall(10.1, 25.6, 10.1, 26.2, CEIL_FLOOR, M_PANEL, 0.3);
+    /* The south edge, east of the stage.
+     *
+     * The dining room's carpet stops at z=-8 and the stage only covers x
+     * -26..-6, so from x=-6 to x=10 the room ended in fifteen and a half
+     * metres of open edge onto nothing — you walked off the floor of the club
+     * into the void, in the direction the restrooms are signposted. It is a
+     * wall now, with the two doorways that were already drawn twelve metres
+     * further south lined up on it. */
+    wallGap('x', -8.1, -6.2, 0, -3.4, -1.6, CEIL_FLOOR, M_PANEL, 0.3);
+    wallGap('x', -8.1, 0, 10.1, 3, 4.8, CEIL_FLOOR, M_PANEL, 0.3);
 
     // Wainscoting all the way round, at seated eye height
     for (const [x0, z0, x1, z1] of [[-30, -16, -30, 26], [-30, 26, 10, 26], [10, -8, 10, 26]]) {
@@ -904,8 +1186,20 @@ export function buildRoom(scene, { renderer } = {}) {
     anchors.stageFront = new THREE.Vector3(-16, STAGE_H, -9.6);
     anchors.stageCentre = new THREE.Vector3(-16, STAGE_H, -11);
 
-    // Pelmet and proscenium
+    /* Pelmet and proscenium, and one warm fitting tucked behind the pelmet.
+     *
+     * Before the band, `lighting.stage` is zero and the five spots with it, so
+     * the thing the whole seated half of the evening is pointed at was 79%
+     * black from his chair: a closed curtain in an unlit hole, at the end of a
+     * room lit warm enough to read a face in. This one is a house fitting and
+     * is not on the stage dimmer — it is the pelmet wash that says there is a
+     * stage there, and it stays on when the spots come up. */
     add(box({ size: [21, 1.1, 0.5], pos: [-16, 4.9, -9.4], mat: M_VELVET }));
+    const pelmet = pointLight(0xffc98a, 0.9, 20);
+    // A metre clear of the velvet: any closer and it is a hotspot, not a wash
+    pelmet.position.set(-16, 4.35, -8.3);
+    add(pelmet);
+    houseLights.push({ light: pelmet });
     for (const px of [-26.2, -5.8]) {
       add(box({ size: [0.7, 5.2, 0.7], pos: [px, 2.6, -9.4], mat: M_WAINSCOT }));
       solid(px - 0.35, -9.75, px + 0.35, -9.05, 0, 5.2);
@@ -967,14 +1261,26 @@ export function buildRoom(scene, { renderer } = {}) {
       return g;
     }
 
-    // A packed floor: rows that leave a service lane down the middle
+    /* A packed floor: rows that leave a service lane down the middle.
+     *
+     * The jitter is applied first and then tested, because testing the grid
+     * position and laying the table 400mm away from it is how three tables
+     * ended up inside the four columns — a 800mm oak post through the middle
+     * of a laid table, with two of the chairs entirely inside it. The old
+     * `tx > 4 && tz > 18` guard for the host station never fired at all: the
+     * grid tops out at x=-3.4.
+     */
+    const COLUMNS = [[-8, 6], [-8, 16], [-20, 6], [-20, 16]];
+    const inAColumn = (x, z) => COLUMNS.some(([cx, cz]) => Math.abs(x - cx) < 1.45
+      && Math.abs(z - cz) < 1.45);
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 5; col++) {
-        const tx = -25 + col * 5.4;
-        const tz = -4.5 + row * 5.4;
-        if (tx > 4 && tz > 18) continue;             // keep the host station clear
-        if (Math.abs(tx - (-16)) < 3 && tz < -2) continue;  // and the front of the stage
-        diningTable(tx + rand(-0.4, 0.4), tz + rand(-0.4, 0.4), col % 2 ? 4 : 2);
+        const tx = -25 + col * 5.4 + rand(-0.4, 0.4);
+        const tz = -4.5 + row * 5.4 + rand(-0.4, 0.4);
+        if (inAColumn(tx, tz)) continue;
+        if (Math.hypot(tx - 0.5, tz - 24.2) < 4) continue;   // keep the host station clear
+        if (Math.abs(tx - (-16)) < 3 && tz < -2) continue;   // and the front of the stage
+        diningTable(tx, tz, col % 2 ? 4 : 2);
       }
     }
     // Banquettes down the east wall
@@ -989,7 +1295,7 @@ export function buildRoom(scene, { renderer } = {}) {
 
     // Columns, with framed photographs on them, because everything in here has
     // a photograph of somebody on it
-    for (const [cx, cz] of [[-8, 6], [-8, 16], [-20, 6], [-20, 16]]) {
+    for (const [cx, cz] of COLUMNS) {
       add(box({ size: [0.8, CEIL_FLOOR, 0.8], pos: [cx, CEIL_FLOOR / 2, cz], mat: M_WAINSCOT }));
       solid(cx - 0.4, cz - 0.4, cx + 0.4, cz + 0.4, 0, CEIL_FLOOR);
       for (const [ox, oz, ry] of [[0.42, 0, Math.PI / 2], [-0.42, 0, -Math.PI / 2]]) {
@@ -1046,21 +1352,65 @@ export function buildRoom(scene, { renderer } = {}) {
     add(makeWallClock(M, { x: 9.8, y: 3.2, z: 14, rotY: -Math.PI / 2 }));
     for (const [px, pz] of [[-28.4, 24], [8.2, 24.6]]) add(makePlant(M, { x: px, y: 0, z: pz }));
 
-    /* ---- restrooms and the manager's station ---- */
+    /* ---- the back corridor, the restrooms and the manager's station ----
+     *
+     * Three rooms were listed in the plan and none of them was built: two
+     * floor planes, no walls, no ceiling and not one light between them, at
+     * the end of two doorways the dining room advertises. The brief is not
+     * three more rooms — it is that the doorways go somewhere, and that
+     * somewhere is lit. So: a service corridor behind the dining room's south
+     * wall, walled and lit, with the restrooms and the office off it, dressed
+     * only as far as a door and a bulb.
+     */
+    const SV = ROOMS.service;
+    const CEIL_SV = 2.9;
+    floor(SV, mat({ color: 0x6a7078, roughness: 0.5 }), 'tile', 0);
+    ceiling(SV, mat({ color: 0x2a2c32, roughness: 0.94 }), CEIL_SV);
+    /* Its west end is the back of the proscenium. The wall stands on the last
+     * 400mm of the stage deck, which is exactly where a stage-right wall goes
+     * and is the only line here that clears the proscenium leg at x=-5.8. */
+    wall(-6.4, -15.2, -6.4, -8.1, CEIL_FLOOR, M_PANEL, 0.2);
+    wall(10.1, -15.2, 10.1, -8.1, CEIL_FLOOR, M_PANEL, 0.3);
+
     floor(ROOMS.restrooms, mat({ color: 0x6a7078, roughness: 0.4 }), 'tile', 0);
     floor(ROOMS.manager, mat({ color: 0x33251c, roughness: 0.9 }), 'wood', 0);
-    wallGap('x', -15.2, -6, 0, -3.4, -1.6, CEIL_FLOOR, M_PANEL, 0.25);
-    wallGap('x', -15.2, 0, 10, 3, 4.8, CEIL_FLOOR, M_PANEL, 0.25);
+    ceiling(ROOMS.restrooms, mat({ color: 0x2a2c32, roughness: 0.94 }), CEIL_SV);
+    ceiling(ROOMS.manager, mat({ color: 0x2a2c32, roughness: 0.94 }), CEIL_SV);
+    wallGap('x', -15.2, -6.4, 0, -3.4, -1.6, CEIL_SV, M_PANEL, 0.25);
+    wallGap('x', -15.2, 0, 10.1, 3, 4.8, CEIL_SV, M_PANEL, 0.25);
+    // The three sides of the two back rooms that were never there at all
+    wall(-6.3, -21.8, -6.3, -15.2, CEIL_SV, M_PANEL, 0.25);
+    wall(0.1, -21.8, 0.1, -15.2, CEIL_SV, M_PANEL, 0.25);
+    wall(10.1, -21.8, 10.1, -15.2, CEIL_SV, M_PANEL, 0.25);
+    wall(0, -21.8, 10.1, -21.8, CEIL_SV, M_PANEL, 0.25);
     hangDoor('manager', {
       axis: 'x', fixed: -15.3, from: 3, to: 4.8, locked: true,
       label: 'the <b>manager’s office</b>',
     });
     anchors.managerDesk = new THREE.Vector3(5, 0, -18.5);
-    anchors.rearExit = new THREE.Vector3(-3, 0, -21);
+    anchors.rearExit = new THREE.Vector3(-3, 0, -20.6);
+    /* The fire door is in the south wall of the restroom lobby, so it is an
+     * `x` run at a fixed `z`. As a `z` run at a fixed `x` it was a
+     * free-standing steel door leaf lying across the middle of the floor with
+     * nothing either side of it, alarmed, three metres from the wall it was
+     * supposed to be in. */
+    wallGap('x', -21.6, -6.3, 0, -4.4, -1.6, CEIL_SV, M_PANEL, 0.25);
     hangDoor('rear', {
-      axis: 'z', fixed: -21.6, from: -4.4, to: -1.6, material: M_STEEL,
+      axis: 'x', fixed: -21.6, from: -4.4, to: -1.6, material: M_STEEL,
       label: 'the <b>rear exit</b>', alarmed: true,
     });
+
+    /* Four bulbs, which is the whole of the dressing: a lit corridor reads as
+     * a building that carries on, and an unlit one reads as the edge of the
+     * map with a doorway cut in it. */
+    for (const [lx, lz] of [[-3.5, -11.5], [5, -11.5], [-3, -18], [5, -18]]) {
+      add(box({ size: [0.36, 0.1, 0.36], pos: [lx, CEIL_SV - 0.06, lz], mat: mat({ color: 0x2a2a30, roughness: 0.9 }) }));
+      const l = pointLight(0xdcd0b4, 1.5);
+      l.position.set(lx, CEIL_SV - 0.28, lz);
+      l.distance = 10;
+      add(l);
+      houseLights.push({ light: l, back: true });
+    }
 
     anchors.diningSeats = seatsAt;
   }
@@ -1145,16 +1495,28 @@ export function buildRoom(scene, { renderer } = {}) {
    * zero). They are a half-turn apart on purpose — the two conventions are not
    * the same and pretending they are is how she ended up facing the wall.
    */
+  /*
+   * 1.02m out from the middle rather than 0.75m. The cloth on this table falls
+   * to a radius of 0.68 and a chair is 0.32 from its own centre to the outside
+   * of a castor, so at 0.75 both chairs were a quarter of a metre inside the
+   * tablecloth — the linen through the seat, the castors through the skirt.
+   * At 1.02 the castors just clear the cloth, which is a chair pulled in to
+   * the table. (`verify-silver` holds them between 1m and 2.2m apart, so 1.1
+   * is the ceiling and there is not much room above this.)
+   */
   anchors.frontSeats = [
-    { x: -15.25, z: -5.2, yaw: -Math.PI / 2, faceYaw: Math.PI / 2 },   // his: looking at her, stage a quarter-turn right
-    { x: -16.75, z: -5.2, yaw: Math.PI / 2, faceYaw: -Math.PI / 2 },   // hers: looking at him
+    { x: -14.98, z: -5.2, yaw: -Math.PI / 2, faceYaw: Math.PI / 2 },   // his: looking at her, stage a quarter-turn right
+    { x: -17.02, z: -5.2, yaw: Math.PI / 2, faceYaw: -Math.PI / 2 },   // hers: looking at him
   ];
   /** Where the seated view has to be able to reach: the middle of the stage. */
   anchors.frontSeatStageYaw = Math.atan2(
     -(anchors.stageCentre.x - anchors.frontSeats[0].x),
     -(anchors.stageCentre.z - anchors.frontSeats[0].z),
   );
-  anchors.tableStaging = new THREE.Vector3(-9.5, 0, 0.5);
+  /* Where the staff pick the table up. In the service lane between the two
+   * ranks of tables — it used to be at (-9.5, 0.5), which is 640mm inside a
+   * laid four-top, so the manager stood in a table to look at a table. */
+  anchors.tableStaging = new THREE.Vector3(-11.7, 0, 1.4);
 
   /* ================================================================ */
   /* Ground height, and the update loop                                */
@@ -1181,6 +1543,16 @@ export function buildRoom(scene, { renderer } = {}) {
         const k = (x - r.x0) / (r.x1 - r.x0);
         return r.from + (r.to - r.from) * k;
       }
+    }
+    /* Raised floors. `floor()` has always recorded these and nothing has ever
+     * read one, which is why the pavement was a step the camera went up and
+     * the feet did not: he walked the whole frontage shin-deep in his own
+     * paving, and the only reason it was survivable is that nothing else in
+     * the building is raised by less than a stage. Sunken floors are the
+     * cellar's business and are answered below, against `fromY`. */
+    for (const p of platforms) {
+      if (p.y <= 0) continue;
+      if (x >= p.box.min.x && x <= p.box.max.x && z >= p.box.min.z && z <= p.box.max.z) return p.y;
     }
     if (fromY > CELLAR_Y / 2) return 0;              // upstairs, and staying there
     for (const r of [ROOMS.cellar, ROOMS.drystore, ROOMS.walkin]) {

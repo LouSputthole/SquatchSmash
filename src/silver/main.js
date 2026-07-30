@@ -1797,7 +1797,11 @@ function arrive() {
     date.group.position.z = taxi.group.position.z + 0.2;
     if (t > 3.2) {
       player.position.set(A.dropOff.x, 1.66, A.dropOff.z);
-      date.group.position.set(A.dropOff.x - 1.3, 0, A.dropOff.z - 0.4);
+      /* On whatever she is standing on rather than on zero: the drop-off is at
+       * the kerb and half a step of it is the pavement, which is 140mm up. */
+      const dx = A.dropOff.x - 1.3;
+      const dz = A.dropOff.z - 0.4;
+      date.group.position.set(dx, room.groundAt(dx, dz), dz);
       date.release();
       player.mode = 'walk';
       game.drive = null;
