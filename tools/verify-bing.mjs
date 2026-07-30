@@ -145,6 +145,15 @@ const choose = async (i) => {
   await tick(3);
 };
 
+/* The felt's three sounds are authored as manifest cues, not generated here:
+ * the WebAudio synth stands in for any that have no file yet. */
+{
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+  const cues = new Map((manifest.sfx || []).map((cue) => [cue.name, cue]));
+  check('the felt’s three sound cues are authored in the manifest',
+    ['card.deal', 'card.flip', 'chip.stack'].every((name) => (cues.get(name)?.prompt || '').length > 20));
+}
+
 console.log('Driving the mission…');
 
 let s = await state();
@@ -371,6 +380,97 @@ check('walking and dancing NPCs update smoothly and patrol clear of furniture',
 check('ambient and background people no longer multiply shadow passes',
   people.nonHeroShadowCasters === 0, String(people.nonHeroShadowCasters));
 
+/* ---- the wave-2 scene pass: stage front, hair, seating, walls ---- */
+const scenePass = await page.evaluate(() => {
+  const b = window.__bing;
+  const guard = b.cast.byName.security;
+  const runway = b.club.anchors.runway;
+  const stageNav = {
+    blockers: b.club.navBlockers.length,
+    runwayBlocked: !guard._navClear(runway.x, runway.z),
+    deckBlocked: !guard._navClear(-12, -7.2),
+    playerStageHeight: b.club.groundAt(-12, -7.2),
+    blockersOutOfPlayerWorld: !b.club.colliders.includes(b.club.navBlockers[0]),
+  };
+
+  const hairOf = (npc) => {
+    const pieces = [];
+    npc.group.traverse((o) => {
+      if (o.isMesh && /^person\.hair\./.test(o.name)) pieces.push(o);
+    });
+    return pieces;
+  };
+  const blondePieces = hairOf(b.cast.byName.performer3);
+  const hairShaped = Object.entries(b.cast.byName)
+    .filter(([key]) => key.startsWith('performer'))
+    .every(([, npc]) => hairOf(npc).length >= 2);
+
+  let chain = false;
+  let pendant = false;
+  b.cast.byName.lou.group.traverse((o) => {
+    if (o.name === 'necklace.chain') chain = true;
+    if (o.name === 'necklace.pendant') pendant = true;
+  });
+
+  const patronsSeated = [];
+  for (let i = 0; i < 6; i++) {
+    const patron = b.cast.byName[`patron${i}`];
+    if (!patron) continue;
+    const { x, z } = patron.group.position;
+    patronsSeated.push(x > 0
+      ? x > 4.18 && x < 4.92        // on an east bench, not in its table
+      : z > 10.63 && z < 11.37);    // pushed back onto a north bench
+  }
+
+  const toilets = [];
+  b.scene.traverse((o) => {
+    if (o.name !== 'toilet') return;
+    const p = new b.THREE.Vector3();
+    o.getWorldPosition(p);
+    if (p.x < 7.9 || p.x > 13.9 || p.z < -1.4 || p.z > 2.7) return;
+    let water = false;
+    o.traverse((m) => { if (m.isMesh && m.material?.isMeshPhysicalMaterial) water = true; });
+    toilets.push(water);
+  });
+
+  return {
+    stageNav,
+    blondeHair: blondePieces[0]?.material.color.getHex() ?? null,
+    blondePieceCount: blondePieces.length,
+    hairShaped,
+    chain,
+    pendant,
+    patronsSeated: patronsSeated.length === 6 && patronsSeated.every(Boolean),
+    archClear: b.standingClearAt(4.7, 3.4),
+    monitorMounted: b.club.office.monitor.position.x > 13.3,
+    toilets,
+    duckWaiting: !!b.club.storeroom?.duck && b.club.storeroom.duck.visible === false,
+  };
+});
+check('the stage front blocks the crowd but still takes the player',
+  scenePass.stageNav.blockers === 3
+    && scenePass.stageNav.runwayBlocked
+    && scenePass.stageNav.deckBlocked
+    && scenePass.stageNav.playerStageHeight > 0.5
+    && scenePass.stageNav.blockersOutOfPlayerWorld,
+  JSON.stringify(scenePass.stageNav));
+check('the runway is the blonde’s and every performer wears shaped hair',
+  scenePass.blondeHair === 0xdcb04a && scenePass.blondePieceCount >= 3 && scenePass.hairShaped,
+  `hair #${(scenePass.blondeHair ?? 0).toString(16)}, ${scenePass.blondePieceCount} pieces`);
+check('Lou’s chain drapes to a pendant lying on his chest',
+  scenePass.chain && scenePass.pendant);
+check('booth patrons sit on the benches, not in the tables',
+  scenePass.patronsSeated);
+check('the arch to the back of house is clear of booth colliders',
+  scenePass.archClear);
+check('the office monitor hangs from its wall bracket',
+  scenePass.monitorMounted);
+check('three real toilets with water in the bowls stand in the stalls',
+  scenePass.toilets.length === 3 && scenePass.toilets.every(Boolean),
+  JSON.stringify(scenePass.toilets));
+check('the duck waits unfound in the store room',
+  scenePass.duckWaiting);
+
 const acoustics = await page.evaluate(() => {
   const b = window.__bing;
   const calls = [];
@@ -439,6 +539,35 @@ check('a door opens and takes its collider with it',
 check('and gives it back on the way closed',
   !doors.closed.open && doors.closed.colliders === doors.before, JSON.stringify(doors.closed));
 check('the locked ones stay locked', doors.lockedStayedShut);
+
+/* ---- conversations persist ----
+ * Walk off mid-thread and the next talk resumes where it lapsed; only a
+ * finished conversation replays from the top. */
+await walkTo(-18.5, 2.2, Math.PI / 2);
+const resume = await page.evaluate(() => {
+  const b = window.__bing;
+  const bartender = b.cast.byName.bartender;
+  b.dialogue.start(b.scripts.bartender, 'open', bartender, { resume: true });
+  b.dialogue.choose(0);                                    // the architecture joke
+  for (let i = 0; i < 40 && b.dialogue.nodeId !== 'order'; i++) {
+    b.dialogue.update(0.5, b.player.position);
+  }
+  const mid = b.dialogue.nodeId;
+  b.dialogue.end('walked-away');
+  b.dialogue.start(b.scripts.bartender, 'open', bartender, { resume: true });
+  const resumed = b.dialogue.nodeId;
+  b.dialogue.choose(0);                                    // club soda; thread completes
+  for (let i = 0; i < 40 && b.dialogue.active; i++) {
+    b.dialogue.update(0.5, b.player.position);
+  }
+  b.dialogue.start(b.scripts.bartender, 'open', bartender, { resume: true });
+  const replayed = b.dialogue.nodeId;
+  b.dialogue.end('done');
+  return { mid, resumed, replayed };
+});
+check('a walked-away conversation resumes; a finished one replays',
+  resume.mid === 'order' && resume.resumed === 'order' && resume.replayed === 'open',
+  JSON.stringify(resume));
 
 /* ---- the floor ---- */
 await walkTo(-8, 4, Math.PI);
@@ -568,9 +697,24 @@ await page.evaluate(() => {
   b.blackjack.deal();
 });
 await tick(3, 0.2);
+const cardRead = await page.evaluate(() => {
+  const mesh = window.__bing.blackjack._meshes[0];
+  const face = mesh?.material?.[2];
+  return mesh ? {
+    w: mesh.geometry.parameters.width,
+    d: mesh.geometry.parameters.depth,
+    lit: (face?.emissiveIntensity ?? 0) > 0.2 && !!face?.emissiveMap,
+  } : null;
+});
+check('the cards deal large and carry their own light',
+  !!cardRead && cardRead.w >= 0.08 && cardRead.d >= 0.11 && cardRead.lit,
+  JSON.stringify(cardRead));
 await page.evaluate(() => window.__bing.blackjack.stand());
 await tick(6, 0.2);
 check('a hand of blackjack resolves', (await state()).hands >= 1);
+const verdict = await page.evaluate(() => document.getElementById('bj-callout')?.textContent ?? '');
+check('the hand ends with an explicit verdict on screen',
+  /BLACKJACK|YOU WIN|PUSH|BUST|HOUSE WINS/.test(verdict), verdict);
 await page.evaluate(() => window.__bing.blackjack.standUp());
 
 /* ---- the back of house ---- */
@@ -582,10 +726,22 @@ s = await state();
 check('the office starts Lou talking', s.mission === 'office' && s.options >= 0, s.mission);
 
 /* ---- Lou ---- */
+let ominous = null;
 for (let i = 0; i < 8; i++) {
   const st = await state();
   if (st.flags.gotPackage) break;
   if (st.mission === 'package') {
+    /* Before he takes it: the parcel on the desk carries its own dark red
+     * light and a breathing glow, neither of which belongs to the desk lamp. */
+    ominous = await page.evaluate(() => {
+      const b = window.__bing;
+      b.club.update(0.3, b.player.position);
+      return {
+        visible: b.club.office.parcel.visible,
+        light: Number(b.club.office.parcelLight.intensity.toFixed(2)),
+        glow: Number(b.club.office.parcelCloth.material.emissiveIntensity.toFixed(2)),
+      };
+    });
     await page.evaluate(() => window.__bing.club.office.parcel.userData.interact.onUse());
     await tick(2);
     break;
@@ -593,6 +749,9 @@ for (let i = 0; i < 8; i++) {
   if (st.options > 0) await choose(0);
   else await tick(3);
 }
+check('the package sits in its own wrong light before he takes it',
+  !!ominous && ominous.visible && ominous.light > 0.5 && ominous.glow > 0.05,
+  JSON.stringify(ominous));
 s = await state();
 check('Lou puts it on the desk and you take it', s.flags.gotPackage === true, s.mission);
 check('it is inside your jacket, not in a slot',
@@ -619,6 +778,28 @@ for (let i = 0; i < 10; i++) {
   else await tick(3);
 }
 check('he finishes and lets you go', (await state()).mission === 'briefed');
+
+/* Once the job is done the front door itself offers the exit -- the owner's
+ * playtest never found the wheel. The drive-out stays the canonical path
+ * below; this only proves the on-foot prompt exists, arms, and is held. */
+const leavePad = await page.evaluate(() => {
+  const b = window.__bing;
+  let pad = null;
+  b.scene.traverse((o) => {
+    const l = o.userData?.interact?.label;
+    const text = typeof l === 'function' ? l() : l;
+    if (text && /call it a night|head for the motel/i.test(String(text))) pad = o;
+  });
+  if (!pad) return null;
+  return {
+    z: pad.position.z,
+    enabled: pad.userData.interact.enabled?.() ?? true,
+    hold: pad.userData.interact.hold ?? 0,
+  };
+});
+check('the front door offers a hold-to-leave once the job is done',
+  !!leavePad && leavePad.enabled && leavePad.hold > 0 && Math.abs(leavePad.z - 16.75) < 1.5,
+  JSON.stringify(leavePad));
 
 /* ---- out ---- */
 await walkTo(6.7, 2, 0);
