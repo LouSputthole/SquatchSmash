@@ -1923,8 +1923,6 @@ function leaveForMission(destination) {
   blackout.classList.add('on');
   setTimeout(() => {
     navigateCampaign(campaign, destination, {
-      spawn: destination === SCENE_IDS.SQUATCHFATHER
-        ? 'restaurant_exterior' : 'driver_seat',
       location,
     });
   }, 1800);

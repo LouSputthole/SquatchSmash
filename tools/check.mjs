@@ -43,6 +43,27 @@ for (const file of sources) {
   }
 }
 
+/* ---- browser verifiers must be safe to run in parallel ----
+ * Each verifier owns a small local HTTP server. Duplicate defaults make an
+ * otherwise green suite fail nondeterministically with EADDRINUSE when CI (or
+ * an agent) runs independent scene checks concurrently.
+ */
+const verifierPorts = new Map();
+for (const file of walk(path.join(ROOT, 'tools'))
+  .filter((f) => /verify-[^\\/]+\.mjs$/.test(f))) {
+  const source = fs.readFileSync(file, 'utf8');
+  const match = source.match(/const PORT = Number\(process\.env\.PORT\) \|\| (\d+);/);
+  if (!match) continue;
+  const port = Number(match[1]);
+  const previous = verifierPorts.get(port);
+  if (previous) {
+    fail(`${path.relative(ROOT, file)} and ${path.relative(ROOT, previous)} `
+      + `both default to port ${port}`);
+  } else {
+    verifierPorts.set(port, file);
+  }
+}
+
 /* ---- manifests ---- */
 const manifests = [
   ['assets/sfx/manifest.json', (d) => Array.isArray(d.sfx) || 'missing "sfx" array'],

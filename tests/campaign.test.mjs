@@ -80,6 +80,101 @@ test('scene navigation saves the target and spawn before changing pages', () => 
   });
 });
 
+test('invalid saved spawn points recover to the registered scene default', () => {
+  const storage = new MemoryStorage();
+  storage.setItem('squatchlife.campaign', JSON.stringify({
+    version: 1,
+    revision: 12,
+    scene: {
+      id: SCENE_IDS.BADA_BING_ONE,
+      spawn: 'through_the_office_ceiling',
+    },
+  }));
+
+  const campaign = createCampaign({ storage });
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.BADA_BING_ONE,
+    spawn: 'driver_seat',
+  });
+});
+
+test('scene entry and transition reject unregistered spawn points atomically', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  const before = campaign.state.scene;
+
+  assert.throws(
+    () => campaign.enter(SCENE_IDS.BADA_BING_ONE, { spawn: 'roof' }),
+    /Unknown spawn "roof"/,
+  );
+  assert.deepEqual(campaign.state.scene, before);
+
+  assert.throws(
+    () => campaign.transition(SCENE_IDS.BADA_BING_ONE, { spawn: 'roof' }),
+    /Unknown spawn "roof"/,
+  );
+  assert.deepEqual(campaign.state.scene, before);
+});
+
+test('every registered scene has a deterministic default spawn', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  const expected = new Map([
+    [SCENE_IDS.APARTMENT, 'wake'],
+    [SCENE_IDS.BADA_BING_ONE, 'driver_seat'],
+    [SCENE_IDS.SQUATCHFATHER, 'restaurant_exterior'],
+    [SCENE_IDS.AIRSTRIP_SMUGGLING, 'hangar'],
+    [SCENE_IDS.BADA_BING_TWO, 'driver_seat'],
+    [SCENE_IDS.JERKY_MOTEL, 'passenger_seat'],
+  ]);
+
+  for (const [sceneId, spawn] of expected) {
+    campaign.enter(sceneId);
+    assert.deepEqual(campaign.state.scene, { id: sceneId, spawn });
+  }
+});
+
+test('failed browser navigation rolls campaign state back to the source scene', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+
+  assert.throws(
+    () => navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
+      spawn: 'driver_seat',
+      location: {
+        assign() {
+          throw new Error('navigation blocked');
+        },
+      },
+    }),
+    /navigation blocked/,
+  );
+
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.APARTMENT,
+    spawn: 'wake',
+  });
+  assert.equal(campaign.state.lastTransition, undefined);
+  assert.deepEqual(createCampaign({ storage }).state.scene, {
+    id: SCENE_IDS.APARTMENT,
+    spawn: 'wake',
+  });
+});
+
+test('a missing browser location fails before campaign state changes', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+
+  assert.throws(
+    () => navigateCampaign(campaign, SCENE_IDS.BADA_BING_ONE, {
+      spawn: 'driver_seat',
+      location: {},
+    }),
+    /location with assign/,
+  );
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.APARTMENT,
+    spawn: 'wake',
+  });
+});
+
 test('Bada Bing completion and its parcel survive the return to the apartment', () => {
   const storage = new MemoryStorage();
   const campaign = createCampaign({ storage });

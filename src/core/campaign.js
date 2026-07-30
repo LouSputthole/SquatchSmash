@@ -42,6 +42,8 @@ export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 const SCENES = Object.freeze({
   [SCENE_IDS.APARTMENT]: Object.freeze({
     href: 'index.html',
+    defaultSpawn: 'wake',
+    spawns: Object.freeze(['wake', 'front_door', 'motel_retry']),
     next: Object.freeze([
       SCENE_IDS.BADA_BING_ONE,
       SCENE_IDS.SQUATCHFATHER,
@@ -51,25 +53,49 @@ const SCENES = Object.freeze({
   }),
   [SCENE_IDS.BADA_BING_ONE]: Object.freeze({
     href: 'bing.html',
+    defaultSpawn: 'driver_seat',
+    spawns: Object.freeze(['driver_seat', 'club_entrance']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   [SCENE_IDS.SQUATCHFATHER]: Object.freeze({
     href: 'squatchfather.html',
+    defaultSpawn: 'restaurant_exterior',
+    spawns: Object.freeze(['restaurant_exterior', 'development_entry']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   [SCENE_IDS.AIRSTRIP_SMUGGLING]: Object.freeze({
     href: 'airstrip.html',
+    defaultSpawn: 'hangar',
+    spawns: Object.freeze(['hangar']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   [SCENE_IDS.BADA_BING_TWO]: Object.freeze({
     href: 'bing.html?visit=2',
+    defaultSpawn: 'driver_seat',
+    spawns: Object.freeze(['driver_seat', 'club_entrance']),
     next: Object.freeze([SCENE_IDS.JERKY_MOTEL]),
   }),
   [SCENE_IDS.JERKY_MOTEL]: Object.freeze({
     href: 'motel.html',
+    defaultSpawn: 'passenger_seat',
+    spawns: Object.freeze(['passenger_seat']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
 });
+
+function normalizedSpawn(sceneId, spawn) {
+  const scene = SCENES[sceneId];
+  return scene?.spawns.includes(spawn) ? spawn : scene?.defaultSpawn;
+}
+
+function requiredSpawn(sceneId, spawn) {
+  const scene = SCENES[sceneId];
+  const requested = spawn ?? scene?.defaultSpawn;
+  if (!scene?.spawns.includes(requested)) {
+    throw new Error(`Unknown spawn "${requested}" for scene "${sceneId}"`);
+  }
+  return requested;
+}
 
 function initialState() {
   return {
@@ -186,7 +212,7 @@ function normalize(saved) {
       ? saved.revision : 0,
     scene: {
       id: sceneId,
-      spawn: typeof saved.scene?.spawn === 'string' ? saved.scene.spawn : 'default',
+      spawn: normalizedSpawn(sceneId, saved.scene?.spawn),
     },
     story: {
       chapter: typeof saved.story?.chapter === 'string'
@@ -268,7 +294,7 @@ function normalize(saved) {
     state.lastTransition = {
       from: saved.lastTransition.from,
       to: saved.lastTransition.to,
-      spawn: saved.lastTransition.spawn,
+      spawn: normalizedSpawn(saved.lastTransition.to, saved.lastTransition.spawn),
     };
   }
   return state;
@@ -325,22 +351,24 @@ class Campaign {
    * Register the page that actually loaded. This keeps direct development
    * entrypoints usable without inventing a story transition that never ran.
    */
-  enter(sceneId, { spawn = 'default' } = {}) {
+  enter(sceneId, { spawn } = {}) {
     if (!SCENES[sceneId]) throw new Error(`Unknown scene "${sceneId}"`);
-    this._state.scene = { id: sceneId, spawn };
+    const resolvedSpawn = requiredSpawn(sceneId, spawn);
+    this._state.scene = { id: sceneId, spawn: resolvedSpawn };
     this._state.revision++;
     this.#save();
     return this.state;
   }
 
-  transition(sceneId, { spawn = 'default' } = {}) {
+  transition(sceneId, { spawn } = {}) {
     const from = this._state.scene.id;
     if (!SCENES[sceneId]) throw new Error(`Unknown scene "${sceneId}"`);
     if (!SCENES[from]?.next.includes(sceneId)) {
       throw new Error(`Cannot transition from "${from}" to "${sceneId}"`);
     }
-    this._state.scene = { id: sceneId, spawn };
-    this._state.lastTransition = { from, to: sceneId, spawn };
+    const resolvedSpawn = requiredSpawn(sceneId, spawn);
+    this._state.scene = { id: sceneId, spawn: resolvedSpawn };
+    this._state.lastTransition = { from, to: sceneId, spawn: resolvedSpawn };
     this._state.revision++;
     this.#save();
     return this.state;
@@ -378,9 +406,27 @@ export function createCampaign({ storage = browserStorage() } = {}) {
 export function navigateCampaign(
   campaign,
   sceneId,
-  { spawn = 'default', location = globalThis.location } = {},
+  { spawn, location = globalThis.location } = {},
 ) {
+  const scene = SCENES[sceneId];
+  if (!scene) throw new Error(`Unknown scene "${sceneId}"`);
+  if (!location || typeof location.assign !== 'function') {
+    throw new TypeError('Campaign navigation requires a location with assign()');
+  }
+
+  const before = campaign.state;
   const state = campaign.transition(sceneId, { spawn });
-  location.assign(SCENES[sceneId].href);
-  return state;
+  try {
+    location.assign(scene.href);
+    return state;
+  } catch (error) {
+    // location.assign() can be rejected by sandboxed/embedded browsers. Do
+    // not strand the save at a page the browser never reached.
+    campaign.update((next) => {
+      next.scene = before.scene;
+      if (before.lastTransition) next.lastTransition = before.lastTransition;
+      else delete next.lastTransition;
+    });
+    throw error;
+  }
 }

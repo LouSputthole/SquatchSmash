@@ -51,6 +51,12 @@ Its prologue placement and human-to-sasquatch transformation are intentionally
 not wired into campaign state. See
 [`docs/CHARACTER-ALIGNMENT.md`](./docs/CHARACTER-ALIGNMENT.md).
 
+`src/core/campaign.js` is also the authoritative scene registry. Each location
+has one default spawn and a finite set of valid return points. Invalid saved
+spawns recover to that default, invalid transitions fail before changing the
+save, and a browser that rejects `location.assign()` rolls the transition back
+to the source scene instead of leaving the player stranded.
+
 See [`game/README.md`](./game/README.md) for the campground game's controls and
 scoring, and [the Bing](#a-quick-stop-at-the-bing) below for the club.
 Everything between here and there is the apartment.
