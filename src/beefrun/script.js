@@ -407,6 +407,35 @@ export const BARKS = {
   ],
 };
 
+/**
+ * The recording cue for one line.
+ *
+ * Every line gets its own cue rather than sharing a pool with the rest of its
+ * beat, because a pooled cue plays a random member and the subtitle on screen
+ * is a specific one — mismatched words are worse than silence. Barks are picked
+ * randomly at the *text* level, so they are per-line too.
+ *
+ * The engine's `say()` matches `vo.<cue>.<take>`, so a cue never ends in the
+ * take number: `beefrun.lou.greeting-1` is read from
+ * `assets/sfx/vo.beefrun.lou.greeting-1.1.mp3`, and an alternate take is `.2`.
+ */
+export const cueOf = (beatId, index, who) =>
+  `beefrun.${String(who || 'lou').toLowerCase()}.${beatId}-${index + 1}`;
+
+export const barkCueOf = (pool, index) => `beefrun.lou.bark-${pool}-${index + 1}`;
+
+/** Every cue the mission can ask for, with the words that go in it. */
+export function allCues() {
+  const out = [];
+  for (const [id, beat] of Object.entries(BEATS)) {
+    beat.forEach((line, i) => out.push({ cue: cueOf(id, i, line.who), who: line.who, text: line.text, beat: id }));
+  }
+  for (const [pool, lines] of Object.entries(BARKS)) {
+    lines.forEach((text, i) => out.push({ cue: barkCueOf(pool, i), who: 'LOU', text, bark: pool }));
+  }
+  return out;
+}
+
 /** The mission's objective strings, in the order they appear. */
 export const OBJECTIVES = {
   meetLou: 'Find Captain Sasole',

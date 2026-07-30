@@ -183,10 +183,17 @@ export class MissionAudio {
     this.engine?.play(name, opts);
   }
 
-  /** A spoken line, if anybody has ever recorded one for that character. */
+  /**
+   * A spoken line, if that exact line has been recorded.
+   *
+   * `say()` has no procedural fallback on purpose, so an unrecorded line shows
+   * on screen and plays nothing — which is the whole mission today. The cue is
+   * per line rather than per speaker so that when a clip does exist, the words
+   * coming out match the words on screen.
+   */
   line(line) {
-    const group = `beefrun.${String(line.who || 'lou').toLowerCase()}`;
-    this.engine?.say(group, { chance: 1, volume: this.headset ? 0.9 : 1 });
+    const cue = line.cue ?? `beefrun.${String(line.who || 'lou').toLowerCase()}`;
+    this.engine?.say(cue, { chance: 1, volume: this.headset ? 0.9 : 1 });
   }
 
   /* ---------------------------------------------------------------- */

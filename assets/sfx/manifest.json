@@ -1889,13 +1889,13 @@
     },
     {
       "name": "gun.impact",
-      "duration": 1.0,
+      "duration": 1,
       "promptInfluence": 0.5,
       "prompt": "a bullet striking plaster wall, sharp crack and falling debris, close, dry, no music, no voice"
     },
     {
       "name": "gun.pickup",
-      "duration": 1.0,
+      "duration": 1,
       "promptInfluence": 0.5,
       "prompt": "a heavy steel revolver being picked up off a wooden table, one metallic scrape and settle, close, no music, no voice"
     },
@@ -3299,19 +3299,19 @@
     {
       "_comment": "The breath out after the bottle finally gives. Relief, not exhaustion — it has to sound like a problem going away.",
       "name": "relief.sigh",
-      "duration": 2.0,
+      "duration": 2,
       "promptInfluence": 0.55,
       "prompt": "a single relieved exhale from an adult man, quiet, unforced, close mic, no words, no music"
     },
     {
       "name": "egg.crack",
-      "duration": 1.0,
+      "duration": 1,
       "promptInfluence": 0.5,
       "prompt": "an egg being cracked on the rim of a frying pan and opened, shell splitting, contents dropping, close, no music, no voice"
     },
     {
       "name": "pan.sizzle",
-      "duration": 6.0,
+      "duration": 6,
       "promptInfluence": 0.4,
       "prompt": "eggs frying in a hot pan, steady sizzle, close, continuous, no music, no voice"
     },
@@ -3330,7 +3330,7 @@
     {
       "_comment": "The loop under a running shower, heard from in the room rather than under it.",
       "name": "shower.run",
-      "duration": 8.0,
+      "duration": 8,
       "promptInfluence": 0.4,
       "prompt": "a shower running steadily into a bathtub, water hitting enamel and tiles, close, continuous, no music, no voice"
     },
@@ -3382,7 +3382,7 @@
     {
       "_comment": "A phone ringing face-down on a wooden nightstand: the ringtone plus the buzz through the wood. Loops.",
       "name": "phone.ring",
-      "duration": 4.0,
+      "duration": 4,
       "promptInfluence": 0.5,
       "prompt": "a mobile phone ringing and vibrating on a wooden bedside table, ringtone with a buzzing rattle against wood, continuous, no music, no voice"
     },
@@ -3477,6 +3477,961 @@
       "name": "vo.call.unknown.4",
       "voice": "unknown",
       "say": "We will see you tomorrow."
+    },
+    {
+      "name": "vo.beefrun.lou.greeting-1.1",
+      "voice": "lou",
+      "say": "You’re late."
+    },
+    {
+      "name": "vo.beefrun.prospect.greeting-2.1",
+      "voice": "prospect",
+      "say": "I’m four minutes early."
+    },
+    {
+      "name": "vo.beefrun.lou.greeting-3.1",
+      "voice": "lou",
+      "say": "Then you wasted four minutes somewhere."
+    },
+    {
+      "name": "vo.beefrun.lou.aircraft-1.1",
+      "voice": "lou",
+      "say": "This is the Brushrunner. She pulls left, leaks right, and the fuel gauge is an optimist."
+    },
+    {
+      "name": "vo.beefrun.prospect.aircraft-2.1",
+      "voice": "prospect",
+      "say": "You said I was helping load."
+    },
+    {
+      "name": "vo.beefrun.lou.aircraft-3.1",
+      "voice": "lou",
+      "say": "You are. After you fly us there."
+    },
+    {
+      "name": "vo.beefrun.prospect.aircraft-4.1",
+      "voice": "prospect",
+      "say": "You look terrible."
+    },
+    {
+      "name": "vo.beefrun.lou.aircraft-5.1",
+      "voice": "lou",
+      "say": "I ate airport sushi."
+    },
+    {
+      "name": "vo.beefrun.prospect.aircraft-6.1",
+      "voice": "prospect",
+      "say": "This airport has sushi?"
+    },
+    {
+      "name": "vo.beefrun.lou.aircraft-7.1",
+      "voice": "lou",
+      "say": "Not anymore."
+    },
+    {
+      "name": "vo.beefrun.lou.clipboard-1.1",
+      "voice": "lou",
+      "say": "Preflight. Walk round her and touch everything I tell you to."
+    },
+    {
+      "name": "vo.beefrun.lou.clipboard-2.1",
+      "voice": "lou",
+      "say": "If something falls off while you’re holding it, that’s information."
+    },
+    {
+      "name": "vo.beefrun.stove.stove.meet-1.1",
+      "voice": "old-stove",
+      "say": "Morning. I’m not here."
+    },
+    {
+      "name": "vo.beefrun.prospect.stove.meet-2.1",
+      "voice": "prospect",
+      "say": "You’re standing right there."
+    },
+    {
+      "name": "vo.beefrun.stove.stove.meet-3.1",
+      "voice": "old-stove",
+      "say": "I’m standing somewhere I have not been."
+    },
+    {
+      "name": "vo.beefrun.lou.stove.meet-4.1",
+      "voice": "lou",
+      "say": "That’s Old Stove. He’s family."
+    },
+    {
+      "name": "vo.beefrun.prospect.stove.meet-5.1",
+      "voice": "prospect",
+      "say": "And the windbreaker?"
+    },
+    {
+      "name": "vo.beefrun.lou.stove.meet-6.1",
+      "voice": "lou",
+      "say": "He’s also the government."
+    },
+    {
+      "name": "vo.beefrun.prospect.stove.meet-7.1",
+      "voice": "prospect",
+      "say": "Which government?"
+    },
+    {
+      "name": "vo.beefrun.lou.stove.meet-8.1",
+      "voice": "lou",
+      "say": "Ours. Allegedly."
+    },
+    {
+      "name": "vo.beefrun.stove.stove.crates-1.1",
+      "voice": "old-stove",
+      "say": "Three crates. They go where you’re going."
+    },
+    {
+      "name": "vo.beefrun.prospect.stove.crates-2.1",
+      "voice": "prospect",
+      "say": "What’s in them?"
+    },
+    {
+      "name": "vo.beefrun.stove.stove.crates-3.1",
+      "voice": "old-stove",
+      "say": "Agricultural equipment."
+    },
+    {
+      "name": "vo.beefrun.prospect.stove.crates-4.1",
+      "voice": "prospect",
+      "say": "They’re heavy for agricultural equipment."
+    },
+    {
+      "name": "vo.beefrun.stove.stove.crates-5.1",
+      "voice": "old-stove",
+      "say": "It’s very good agricultural equipment."
+    },
+    {
+      "name": "vo.beefrun.prospect.stove.dontask-1.1",
+      "voice": "prospect",
+      "say": "Are they what I think they are?"
+    },
+    {
+      "name": "vo.beefrun.stove.stove.dontask-2.1",
+      "voice": "old-stove",
+      "say": "They’re what the paperwork says they are."
+    },
+    {
+      "name": "vo.beefrun.prospect.stove.dontask-3.1",
+      "voice": "prospect",
+      "say": "What does the paperwork say?"
+    },
+    {
+      "name": "vo.beefrun.stove.stove.dontask-4.1",
+      "voice": "old-stove",
+      "say": "There is no paperwork."
+    },
+    {
+      "name": "vo.beefrun.lou.stove.dontask-5.1",
+      "voice": "lou",
+      "say": "Load the crates."
+    },
+    {
+      "name": "vo.beefrun.lou.stove.loading-1.1",
+      "voice": "lou",
+      "say": "Same three positions. His are lighter than what we’re bringing back."
+    },
+    {
+      "name": "vo.beefrun.stove.stove.loading-2.1",
+      "voice": "old-stove",
+      "say": "They are also more difficult to explain, so mind the door frame."
+    },
+    {
+      "name": "vo.beefrun.stove.stove.done-1.1",
+      "voice": "old-stove",
+      "say": "Cecilio will count them. He counts everything."
+    },
+    {
+      "name": "vo.beefrun.stove.stove.done-2.1",
+      "voice": "old-stove",
+      "say": "If anyone asks, this airfield has no windsock and I have no face."
+    },
+    {
+      "name": "vo.beefrun.lou.stove.done-3.1",
+      "voice": "lou",
+      "say": "He does this every time."
+    },
+    {
+      "name": "vo.beefrun.cecilio.guns.arrive-1.1",
+      "voice": "cecilio",
+      "say": "Old Stove sent his equipment."
+    },
+    {
+      "name": "vo.beefrun.lou.guns.arrive-2.1",
+      "voice": "lou",
+      "say": "He sends his regards. He does not send his name."
+    },
+    {
+      "name": "vo.beefrun.lou.guns.unloading-1.1",
+      "voice": "lou",
+      "say": "Get his crates out first. The jerky does not share the aeroplane."
+    },
+    {
+      "name": "vo.beefrun.prospect.guns.unloading-2.1",
+      "voice": "prospect",
+      "say": "Why not?"
+    },
+    {
+      "name": "vo.beefrun.lou.guns.unloading-3.1",
+      "voice": "lou",
+      "say": "Because one of them is worth more, and it isn’t the metal."
+    },
+    {
+      "name": "vo.beefrun.cecilio.guns.done-1.1",
+      "voice": "cecilio",
+      "say": "(weighing a crate) Tractor parts."
+    },
+    {
+      "name": "vo.beefrun.lou.guns.done-2.1",
+      "voice": "lou",
+      "say": "Tractor parts."
+    },
+    {
+      "name": "vo.beefrun.cecilio.guns.done-3.1",
+      "voice": "cecilio",
+      "say": "Now. The important cargo."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.chocks-1.1",
+      "voice": "lou",
+      "say": "Unless you plan on taking the runway with us, lose the blocks."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.chocks.done-1.1",
+      "voice": "lou",
+      "say": "Two of them. There are always two."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.caps-1.1",
+      "voice": "lou",
+      "say": "Fuel staying inside the plane is one of aviation’s better traditions."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.caps.loose-1.1",
+      "voice": "lou",
+      "say": "That one’s loose. Turn it till it argues back."
+    },
+    {
+      "name": "vo.beefrun.prospect.preflight.props-1.1",
+      "voice": "prospect",
+      "say": "This blade is chipped."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.props-2.1",
+      "voice": "lou",
+      "say": "So is my front tooth. We both still work."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.drain-1.1",
+      "voice": "lou",
+      "say": "Drain a cup off each side. If it’s cloudy there’s water in it."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.drain-2.1",
+      "voice": "lou",
+      "say": "Hold it open. Let go when it runs clear."
+    },
+    {
+      "name": "vo.beefrun.prospect.preflight.drain.cloudy-1.1",
+      "voice": "prospect",
+      "say": "It’s cloudy."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.drain.cloudy-2.1",
+      "voice": "lou",
+      "say": "That’s the airport’s fault, the fuel’s fault, and eventually ours."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.drain.cloudy-3.1",
+      "voice": "lou",
+      "say": "Again."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.drain.clear-1.1",
+      "voice": "lou",
+      "say": "Clear. Now we’re only carrying the usual problems."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.door-1.1",
+      "voice": "lou",
+      "say": "The cargo door. Turn the handle until you hear the aeroplane agree."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.surfaces-1.1",
+      "voice": "lou",
+      "say": "Move the elevator and the rudder. Watch them move."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.surfaces-2.1",
+      "voice": "lou",
+      "say": "Up makes the houses smaller. Down makes them bigger. Don’t let them get too big."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.done-1.1",
+      "voice": "lou",
+      "say": "That’s a preflight. Get in."
+    },
+    {
+      "name": "vo.beefrun.lou.preflight.done-2.1",
+      "voice": "lou",
+      "say": "I’ll take the right seat. Slowly."
+    },
+    {
+      "name": "vo.beefrun.lou.start.begin-1.1",
+      "voice": "lou",
+      "say": "Battery. Fuel selectors. Crack both throttles about an inch."
+    },
+    {
+      "name": "vo.beefrun.lou.start.begin-2.1",
+      "voice": "lou",
+      "say": "Then left engine. Then right. In that order, for reasons."
+    },
+    {
+      "name": "vo.beefrun.lou.start.leftRunning-1.1",
+      "voice": "lou",
+      "say": "There’s one."
+    },
+    {
+      "name": "vo.beefrun.lou.start.rightBalk-1.1",
+      "voice": "lou",
+      "say": "She likes commitment."
+    },
+    {
+      "name": "vo.beefrun.lou.start.rightBalk-2.1",
+      "voice": "lou",
+      "say": "Again."
+    },
+    {
+      "name": "vo.beefrun.lou.start.rightCatch-1.1",
+      "voice": "lou",
+      "say": "There she is."
+    },
+    {
+      "name": "vo.beefrun.lou.start.brake-1.1",
+      "voice": "lou",
+      "say": "Parking brake off. Gently. They’re more of a written suggestion."
+    },
+    {
+      "name": "vo.beefrun.lou.taxi.begin-1.1",
+      "voice": "lou",
+      "say": "Taxi out. Little bursts of power, then let her roll."
+    },
+    {
+      "name": "vo.beefrun.lou.taxi.begin-2.1",
+      "voice": "lou",
+      "say": "She doesn’t steer like a truck. She steers like an argument."
+    },
+    {
+      "name": "vo.beefrun.lou.taxi.fast-1.1",
+      "voice": "lou",
+      "say": "Slow down. We’re not late for anything that matters."
+    },
+    {
+      "name": "vo.beefrun.lou.taxi.hold-1.1",
+      "voice": "lou",
+      "say": "Hold here. Feet on the brakes, run them both up."
+    },
+    {
+      "name": "vo.beefrun.prospect.runup.sputter-1.1",
+      "voice": "prospect",
+      "say": "Did that fix it?"
+    },
+    {
+      "name": "vo.beefrun.lou.runup.sputter-2.1",
+      "voice": "lou",
+      "say": "It changed the situation."
+    },
+    {
+      "name": "vo.beefrun.lou.runup.done-1.1",
+      "voice": "lou",
+      "say": "Good enough. Line up."
+    },
+    {
+      "name": "vo.beefrun.lou.takeoff.brief-1.1",
+      "voice": "lou",
+      "say": "Full power. Keep it straight. At sixty, pull back gently."
+    },
+    {
+      "name": "vo.beefrun.prospect.takeoff.brief-2.1",
+      "voice": "prospect",
+      "say": "What happens at sixty?"
+    },
+    {
+      "name": "vo.beefrun.lou.takeoff.brief-3.1",
+      "voice": "lou",
+      "say": "We find out if I remembered the number."
+    },
+    {
+      "name": "vo.beefrun.lou.takeoff.rotate-1.1",
+      "voice": "lou",
+      "say": "That’s sixty. Ease her off."
+    },
+    {
+      "name": "vo.beefrun.lou.takeoff.trees-1.1",
+      "voice": "lou",
+      "say": "Trees. Trees are the last part of the runway nobody paves."
+    },
+    {
+      "name": "vo.beefrun.lou.takeoff.clear-1.1",
+      "voice": "lou",
+      "say": "Congratulations. You have now flown exactly far enough to be blamed."
+    },
+    {
+      "name": "vo.beefrun.lou.takeoff.grass-1.1",
+      "voice": "lou",
+      "say": "That’s the grass. The grass is not the runway."
+    },
+    {
+      "name": "vo.beefrun.lou.takeoff.grass-2.1",
+      "voice": "lou",
+      "say": "Bring her back round and do it with more conviction."
+    },
+    {
+      "name": "vo.beefrun.prospect.cruise.what-1.1",
+      "voice": "prospect",
+      "say": "What exactly are we picking up?"
+    },
+    {
+      "name": "vo.beefrun.lou.cruise.what-2.1",
+      "voice": "lou",
+      "say": "Beef jerky."
+    },
+    {
+      "name": "vo.beefrun.prospect.cruise.what-3.1",
+      "voice": "prospect",
+      "say": "That’s it?"
+    },
+    {
+      "name": "vo.beefrun.lou.cruise.what-4.1",
+      "voice": "lou",
+      "say": "Rare beef jerky."
+    },
+    {
+      "name": "vo.beefrun.prospect.cruise.what-5.1",
+      "voice": "prospect",
+      "say": "How rare?"
+    },
+    {
+      "name": "vo.beefrun.lou.cruise.what-6.1",
+      "voice": "lou",
+      "say": "Possession is a customs event."
+    },
+    {
+      "name": "vo.beefrun.lou.cruise.photo-1.1",
+      "voice": "lou",
+      "say": "This is mountain-cured, pepper-crusted Silverback Reserve. Every strip has a serial number."
+    },
+    {
+      "name": "vo.beefrun.prospect.cruise.photo-2.1",
+      "voice": "prospect",
+      "say": "Why is it illegal?"
+    },
+    {
+      "name": "vo.beefrun.lou.cruise.photo-3.1",
+      "voice": "lou",
+      "say": "Trade agreement. Agricultural rules. Three senators own competing smokehouses. Pick a villain."
+    },
+    {
+      "name": "vo.beefrun.lou.nav.tower-1.1",
+      "voice": "lou",
+      "say": "Broken tower on the nose. Keep it off your left wing and hold what you’ve got."
+    },
+    {
+      "name": "vo.beefrun.lou.nav.river-1.1",
+      "voice": "lou",
+      "say": "River bent like a horseshoe. Follow the open end."
+    },
+    {
+      "name": "vo.beefrun.lou.nav.volcano-1.1",
+      "voice": "lou",
+      "say": "Volcano. Don’t fly through the smoke, it’s rude."
+    },
+    {
+      "name": "vo.beefrun.lou.nav.cliff-1.1",
+      "voice": "lou",
+      "say": "Red cliff. After that it’s all jungle and bad ideas."
+    },
+    {
+      "name": "vo.beefrun.lou.turb.start-1.1",
+      "voice": "lou",
+      "say": "Air’s getting lumpy. That’s the mountains breathing."
+    },
+    {
+      "name": "vo.beefrun.lou.turb.sick-1.1",
+      "voice": "lou",
+      "say": "I need you to fly smoother."
+    },
+    {
+      "name": "vo.beefrun.prospect.turb.sick-2.1",
+      "voice": "prospect",
+      "say": "I don’t know how."
+    },
+    {
+      "name": "vo.beefrun.lou.turb.sick-3.1",
+      "voice": "lou",
+      "say": "Then learn before my shirt becomes evidence."
+    },
+    {
+      "name": "vo.beefrun.lou.turb.bag-1.1",
+      "voice": "lou",
+      "say": "There are receipts in the sick bag. I’m putting it back."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.falls-1.1",
+      "voice": "lou",
+      "say": "See that waterfall?"
+    },
+    {
+      "name": "vo.beefrun.prospect.approach.falls-2.1",
+      "voice": "prospect",
+      "say": "Yes."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.falls-3.1",
+      "voice": "lou",
+      "say": "Fly toward it."
+    },
+    {
+      "name": "vo.beefrun.prospect.approach.falls-4.1",
+      "voice": "prospect",
+      "say": "There’s a mountain behind it."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.falls-5.1",
+      "voice": "lou",
+      "say": "The runway is before the mountain."
+    },
+    {
+      "name": "vo.beefrun.prospect.approach.falls-6.1",
+      "voice": "prospect",
+      "say": "That feels important."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.valley-1.1",
+      "voice": "lou",
+      "say": "Down into the valley. Power back, flaps out, and pick your line early."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.valley-2.1",
+      "voice": "lou",
+      "say": "You get one. There is no going round again in here."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.high-1.1",
+      "voice": "lou",
+      "say": "Too high."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.high2-1.1",
+      "voice": "lou",
+      "say": "Still too high."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.high3-1.1",
+      "voice": "lou",
+      "say": "Now you’re proving a point."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.low-1.1",
+      "voice": "lou",
+      "say": "Low. Add power before the trees do it for you."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.slow-1.1",
+      "voice": "lou",
+      "say": "Power. Power. POWER."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.fast-1.1",
+      "voice": "lou",
+      "say": "We’re landing here, not in the next country."
+    },
+    {
+      "name": "vo.beefrun.lou.approach.flare-1.1",
+      "voice": "lou",
+      "say": "Hold it off. Hold it. Let her sit down."
+    },
+    {
+      "name": "vo.beefrun.lou.landing.good-1.1",
+      "voice": "lou",
+      "say": "That was a landing. I want that noted somewhere."
+    },
+    {
+      "name": "vo.beefrun.lou.landing.rough-1.1",
+      "voice": "lou",
+      "say": "We arrived before the important pieces fell off. Count it."
+    },
+    {
+      "name": "vo.beefrun.lou.landing.bad-1.1",
+      "voice": "lou",
+      "say": "Some of that was flying."
+    },
+    {
+      "name": "vo.beefrun.lou.landing.bad-2.1",
+      "voice": "lou",
+      "say": "Shut it down before anything else agrees to come off."
+    },
+    {
+      "name": "vo.beefrun.cecilio.cecilio.meet-1.1",
+      "voice": "cecilio",
+      "say": "Grass-fed. Cold-smoked. Forty-two days in mountain air."
+    },
+    {
+      "name": "vo.beefrun.prospect.cecilio.meet-2.1",
+      "voice": "prospect",
+      "say": "It looks like jerky."
+    },
+    {
+      "name": "vo.beefrun.lou.cecilio.silence-1.1",
+      "voice": "lou",
+      "say": "He’s new."
+    },
+    {
+      "name": "vo.beefrun.cecilio.cecilio.silence-2.1",
+      "voice": "cecilio",
+      "say": "This is not gas-station meat."
+    },
+    {
+      "name": "vo.beefrun.prospect.cecilio.silence-3.1",
+      "voice": "prospect",
+      "say": "Understood."
+    },
+    {
+      "name": "vo.beefrun.cecilio.cecilio.silence-4.1",
+      "voice": "cecilio",
+      "say": "This jerky has lineage."
+    },
+    {
+      "name": "vo.beefrun.lou.load.brief-1.1",
+      "voice": "lou",
+      "say": "Three crates. Three positions. One in each and she flies like an aeroplane."
+    },
+    {
+      "name": "vo.beefrun.lou.load.brief-2.1",
+      "voice": "lou",
+      "say": "All three in the back and she flies like a seesaw."
+    },
+    {
+      "name": "vo.beefrun.lou.load.tail-1.1",
+      "voice": "lou",
+      "say": "Move one forward unless you want the plane climbing before the runway starts."
+    },
+    {
+      "name": "vo.beefrun.lou.load.nose-1.1",
+      "voice": "lou",
+      "say": "We’re hauling jerky, not trying to drill for oil with the nose."
+    },
+    {
+      "name": "vo.beefrun.lou.load.strap-1.1",
+      "voice": "lou",
+      "say": "Strap them. Loose cargo is just weight that gets a vote."
+    },
+    {
+      "name": "vo.beefrun.lou.load.done-1.1",
+      "voice": "lou",
+      "say": "Door shut and latched. Say it out loud so I hear you say it."
+    },
+    {
+      "name": "vo.beefrun.lookout.depart.engine-1.1",
+      "voice": "lookout",
+      "say": "(radio, urgent) Motor. Two valleys over, coming this way."
+    },
+    {
+      "name": "vo.beefrun.cecilio.depart.engine-2.1",
+      "voice": "cecilio",
+      "say": "Aeroplane. Bureau. Go now."
+    },
+    {
+      "name": "vo.beefrun.lou.depart.lou-1.1",
+      "voice": "lou",
+      "say": "You’re flying back."
+    },
+    {
+      "name": "vo.beefrun.prospect.depart.lou-2.1",
+      "voice": "prospect",
+      "say": "I barely landed."
+    },
+    {
+      "name": "vo.beefrun.lou.depart.lou-3.1",
+      "voice": "lou",
+      "say": "And now you’re experienced."
+    },
+    {
+      "name": "vo.beefrun.lou.depart.seat-1.1",
+      "voice": "lou",
+      "say": "Wake me if an engine quits."
+    },
+    {
+      "name": "vo.beefrun.prospect.depart.seat-2.1",
+      "voice": "prospect",
+      "say": "Which engine?"
+    },
+    {
+      "name": "vo.beefrun.lou.depart.seat-3.1",
+      "voice": "lou",
+      "say": "The loud one."
+    },
+    {
+      "name": "vo.beefrun.lou.depart.downhill-1.1",
+      "voice": "lou",
+      "say": "Downhill. The arrow on the barrel is not decoration."
+    },
+    {
+      "name": "vo.beefrun.lou.depart.downhill-2.1",
+      "voice": "lou",
+      "say": "Keep it rolling."
+    },
+    {
+      "name": "vo.beefrun.prospect.depart.runway-1.1",
+      "voice": "prospect",
+      "say": "We’re running out of runway."
+    },
+    {
+      "name": "vo.beefrun.lou.depart.runway-2.1",
+      "voice": "lou",
+      "say": "Then stop looking at it."
+    },
+    {
+      "name": "vo.beefrun.lou.depart.clear-1.1",
+      "voice": "lou",
+      "say": "Cliff. That’s the good kind of nothing underneath you."
+    },
+    {
+      "name": "vo.beefrun.lou.return.river-1.1",
+      "voice": "lou",
+      "say": "Stay near the river."
+    },
+    {
+      "name": "vo.beefrun.prospect.return.river-2.1",
+      "voice": "prospect",
+      "say": "Why?"
+    },
+    {
+      "name": "vo.beefrun.lou.return.river-3.1",
+      "voice": "lou",
+      "say": "Because rivers rarely build towers."
+    },
+    {
+      "name": "vo.beefrun.lou.return.ridge-1.1",
+      "voice": "lou",
+      "say": "Ridge ahead. Left side."
+    },
+    {
+      "name": "vo.beefrun.prospect.return.ridge-2.1",
+      "voice": "prospect",
+      "say": "The left side has trees."
+    },
+    {
+      "name": "vo.beefrun.lou.return.ridge-3.1",
+      "voice": "lou",
+      "say": "The right side has government."
+    },
+    {
+      "name": "vo.beefrun.lou.return.rain-1.1",
+      "voice": "lou",
+      "say": "Rain. Good. Nobody looks up in it."
+    },
+    {
+      "name": "vo.beefrun.caib.caib.sweep-1.1",
+      "voice": "caib-radio",
+      "say": "...sector four, negative contact, continuing the pattern."
+    },
+    {
+      "name": "vo.beefrun.lou.caib.sweep-2.1",
+      "voice": "lou",
+      "say": "They’re sweeping. Get lower."
+    },
+    {
+      "name": "vo.beefrun.caib.caib.hail-1.1",
+      "voice": "caib-radio",
+      "say": "Unidentified cargo aircraft, alter course and prepare for agricultural inspection."
+    },
+    {
+      "name": "vo.beefrun.lou.caib.hail-2.1",
+      "voice": "lou",
+      "say": "Do not answer."
+    },
+    {
+      "name": "vo.beefrun.prospect.caib.hail-3.1",
+      "voice": "prospect",
+      "say": "They know we’re here."
+    },
+    {
+      "name": "vo.beefrun.lou.caib.hail-4.1",
+      "voice": "lou",
+      "say": "Knowing and proving are cousins, not twins."
+    },
+    {
+      "name": "vo.beefrun.lou.caib.chase-1.1",
+      "voice": "lou",
+      "say": "Behind us. Don’t climb — climbing is how you introduce yourself."
+    },
+    {
+      "name": "vo.beefrun.lou.caib.chase-2.1",
+      "voice": "lou",
+      "say": "Canyon, cloud, or the saddle in that ridge. Pick one and commit."
+    },
+    {
+      "name": "vo.beefrun.lou.caib.lost-1.1",
+      "voice": "lou",
+      "say": "Gone. Or bored. Both spend the same."
+    },
+    {
+      "name": "vo.beefrun.lou.caib.boundary-1.1",
+      "voice": "lou",
+      "say": "That range behind us is the whole argument. We’re somebody else’s paperwork now."
+    },
+    {
+      "name": "vo.beefrun.lou.engine.hot-1.1",
+      "voice": "lou",
+      "say": "Left one’s running hot. Ease back the left throttle."
+    },
+    {
+      "name": "vo.beefrun.prospect.engine.hot-2.1",
+      "voice": "prospect",
+      "say": "We need both engines."
+    },
+    {
+      "name": "vo.beefrun.lou.engine.hot-3.1",
+      "voice": "lou",
+      "say": "That is why the plane came with two."
+    },
+    {
+      "name": "vo.beefrun.lou.engine.cooling-1.1",
+      "voice": "lou",
+      "say": "Let it sulk. Fly the other one."
+    },
+    {
+      "name": "vo.beefrun.lou.engine.recovered-1.1",
+      "voice": "lou",
+      "say": "Temperature’s down. Give it half and don’t apologise to it."
+    },
+    {
+      "name": "vo.beefrun.lou.home.sight-1.1",
+      "voice": "lou",
+      "say": "That’s the field. Same as you left it, which is the best it does."
+    },
+    {
+      "name": "vo.beefrun.prospect.home.sight-2.1",
+      "voice": "prospect",
+      "say": "The runway lights are out."
+    },
+    {
+      "name": "vo.beefrun.lou.home.sight-3.1",
+      "voice": "lou",
+      "say": "They have been out since the county discovered invoices."
+    },
+    {
+      "name": "vo.beefrun.prospect.home.sight-4.1",
+      "voice": "prospect",
+      "say": "How do I see the runway?"
+    },
+    {
+      "name": "vo.beefrun.lou.home.headlights-1.1",
+      "voice": "lou",
+      "say": "Community support."
+    },
+    {
+      "name": "vo.beefrun.lou.home.final-1.1",
+      "voice": "lou",
+      "say": "Crosswind from the left. Point the nose into it and land on the wheel that’s low."
+    },
+    {
+      "name": "vo.beefrun.prospect.end.bucket-1.1",
+      "voice": "prospect",
+      "say": "So that was the job?"
+    },
+    {
+      "name": "vo.beefrun.lou.end.bucket-2.1",
+      "voice": "lou",
+      "say": "That was the interview."
+    },
+    {
+      "name": "vo.beefrun.lou.end.bite-1.1",
+      "voice": "lou",
+      "say": "Worth it."
+    },
+    {
+      "name": "vo.beefrun.prospect.end.envelope-1.1",
+      "voice": "prospect",
+      "say": "This is my cut?"
+    },
+    {
+      "name": "vo.beefrun.lou.end.envelope-2.1",
+      "voice": "lou",
+      "say": "You’re still a prospect."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-stall-1.1",
+      "voice": "lou",
+      "say": "Nose down! The sky is not holding meetings today!"
+    },
+    {
+      "name": "vo.beefrun.lou.bark-stall-2.1",
+      "voice": "lou",
+      "say": "Nose down. Down. The other down."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-stall-3.1",
+      "voice": "lou",
+      "say": "You’re out of speed and ideas. Fix the speed one."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-overspeed-1.1",
+      "voice": "lou",
+      "say": "Ease off. She starts shedding parts as a hint."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-overspeed-2.1",
+      "voice": "lou",
+      "say": "That noise is the airframe filing a complaint."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-terrain-1.1",
+      "voice": "lou",
+      "say": "Ground. Ground is a solid."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-terrain-2.1",
+      "voice": "lou",
+      "say": "Up. Now would be the time."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-gearHard-1.1",
+      "voice": "lou",
+      "say": "Feel that? That was the landing gear’s entire remaining career."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-banked-1.1",
+      "voice": "lou",
+      "say": "Level it. My coffee has opinions."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-banked-2.1",
+      "voice": "lou",
+      "say": "That’s a lot of angle for a man with my stomach."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-smooth-1.1",
+      "voice": "lou",
+      "say": "That’s better. Keep doing whatever that was."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-smooth-2.1",
+      "voice": "lou",
+      "say": "Good. Boring. Boring is the whole job."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-cargoShift-1.1",
+      "voice": "lou",
+      "say": "Something moved back there. That is never good news."
+    },
+    {
+      "name": "vo.beefrun.lou.bark-patrolClose-1.1",
+      "voice": "lou",
+      "say": "Lower. Trees are free cover and nobody bills you for them."
     }
   ]
 }

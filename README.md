@@ -377,6 +377,26 @@ projected approach path) to **Unstable Professional** (torque, no help, and the
 odd dead instrument). Keyboard and mouse throughout; a gamepad works if one is
 plugged in.
 
+**Nobody has recorded any of it yet.** There are 191 written lines — 177 across
+88 beats and 14 of Lou's unscripted one-liners, in six voices — and every one of
+them is on screen as a subtitle in the speaker's colour, filtered through the
+headset once the engines are running. None of them are spoken. The engine's
+`say()` has no synthesised fallback on purpose, so an unrecorded line reads and
+says nothing, and the mission plays at the same pace either way because the hold
+times are written into the script rather than taken from a clip.
+
+Each line has its own cue rather than sharing a pool with its beat, so when a
+recording does exist the words heard are the words on screen:
+
+```bash
+npm run vo:beefrun       # script.js -> 191 cues in assets/sfx/manifest.json
+npm run audio:todo       # -> VOICE-LINES-TODO.md, the recording sheet
+npm run sfx:listen       # picks up whatever mp3s have been dropped in
+```
+
+`npm run check` fails if a line has no cue, and fails again if a cue is left
+behind carrying words that have since been reworded.
+
 ```bash
 npm run check:flight     # flies the model headless and checks the envelope
 ```

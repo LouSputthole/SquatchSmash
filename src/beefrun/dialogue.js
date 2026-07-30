@@ -11,7 +11,7 @@
  * everything Lou says is coming through an intercom over two piston engines,
  * so the audio side gets told to filter it and the subtitle gets a marker.
  */
-import { BEATS, BARKS, SPEAKERS } from './script.js';
+import { BEATS, BARKS, SPEAKERS, cueOf, barkCueOf } from './script.js';
 import { clamp } from './util.js';
 
 const BARK_COOLDOWN = { default: 9, stall: 4, terrain: 3.5, smooth: 40, banked: 14 };
@@ -49,7 +49,7 @@ export class DialogueSystem {
       this.current = null;
       this.timer = 0;
     }
-    for (const line of beat) this.queue.push({ ...line, beat: id });
+    beat.forEach((line, i) => this.queue.push({ ...line, beat: id, cue: cueOf(id, i, line.who) }));
     if (delay) this.timer = Math.max(this.timer, delay);
     return true;
   }
@@ -69,7 +69,7 @@ export class DialogueSystem {
     if (this.busy && !force) return false;
     this._barkAt[pool] = this.t;
     const i = (this._barkIndex[pool] = ((this._barkIndex[pool] ?? -1) + 1) % lines.length);
-    this.queue.push({ who: 'LOU', text: lines[i], hold: 2.6, bark: true });
+    this.queue.push({ who: 'LOU', text: lines[i], hold: 2.6, bark: true, cue: barkCueOf(pool, i) });
     return true;
   }
 

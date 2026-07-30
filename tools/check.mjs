@@ -145,6 +145,30 @@ try {
     }
   }
 
+  /* The Beef Run derives its voice cue from the beat id and the line's index,
+   * so no call site names a cue and the scan above cannot see any of them. A
+   * line whose cue is missing from the manifest is a line that can never be
+   * given a recording -- and because say() has no synth fallback, it is silent
+   * either way, so nothing would ever draw attention to it. `npm run
+   * vo:beefrun` is what puts them there. */
+  {
+    const script = await import('../src/beefrun/script.js');
+    const orphans = script.allCues().filter((l) => !allCues.has(`vo.${l.cue}.1`));
+    if (orphans.length) {
+      fail(`${orphans.length} Beef Run line(s) have no cue in assets/sfx/manifest.json `
+        + `(first: ${orphans[0].cue} — ${JSON.stringify(orphans[0].text)}). `
+        + 'Run `npm run vo:beefrun`.');
+    }
+    // And the other way round, so a reworded line does not leave a cue behind
+    // carrying words nobody says any more.
+    const live = new Set(script.allCues().map((l) => `vo.${l.cue}.1`));
+    const stale = [...allCues].filter((n) => n.startsWith('vo.beefrun.') && !live.has(n));
+    if (stale.length) {
+      fail(`${stale.length} stale Beef Run cue(s) in assets/sfx/manifest.json `
+        + `(first: ${stale[0]}). Run \`npm run vo:beefrun\`.`);
+    }
+  }
+
   /* The inbox names its group in data rather than at the call site, so the
    * scan above cannot see it. Same failure either way: a renamed bank is a
    * reply he never gives, and nothing anywhere says so. */
