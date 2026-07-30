@@ -94,6 +94,18 @@ export const AC = {
   track: 3.4,
   vne: 92,              // m/s never-exceed (~179 kt)
   fuelBurn: 0.055,      // kg/s per engine at full power
+
+  /* Ground handling and the pull to the left, which have to be tuned as a set.
+   * The nosewheel is a rudder-pedal linkage with very little travel and it has
+   * to stay useful until the fin has air over it; the swing has to be small
+   * enough that full opposite pedal actually holds the centreline, at any
+   * weight, on the worst surface in the mission. `npm run check:flight` measures
+   * exactly that, because getting either number wrong looks completely normal
+   * from inside the cockpit right up until the aeroplane is in the trees. */
+  groundSteer: 0.26,    // rad of nosewheel at full pedal
+  steerFadeV: 22,       // m/s where the tyre has handed over to the rudder
+  torqueYaw: 1900,      // N·m of left yaw at full power, low speed
+  torqueRoll: 1300,     // N·m of left roll with it
 };
 
 export const DIFFICULTY = {

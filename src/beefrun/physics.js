@@ -232,8 +232,8 @@ export class AircraftPhysics {
     sTorque.y += (tL - tR) * 3.05 * 0.9;
     const slowPower = clamp((tL + tR) / (AC.thrustMax * 2), 0, 1)
       * smoothstep(0, 13, V) * clamp(1 - V / 55, 0, 1);
-    sTorque.y -= slowPower * 1900 * this.assist.torque;
-    sTorque.z += slowPower * 1300 * this.assist.torque;
+    sTorque.y -= slowPower * AC.torqueYaw * this.assist.torque;
+    sTorque.z += slowPower * AC.torqueRoll * this.assist.torque;
 
     // Stall: nose drops, one wing lets go first.
     if (stallT > 0.3 && !this.onGround) {
@@ -290,11 +290,21 @@ export class AircraftPhysics {
       sFwd.normalize();
       if (w.steer) {
         /* Nosewheel steering, and not much of it: this is a rudder pedal
-         * linkage, not a steering wheel. It also fades out early, so once
-         * you are rolling the aeroplane is steered aerodynamically and with
-         * the brakes rather than by pointing the front tyre. */
-        const steer = c.yaw * 0.30 * clamp(1 - V / 14, 0, 1);
-        sFwd.applyAxisAngle(UP, -steer);
+         * linkage, not a steering wheel. It fades out as the fin gets air over
+         * it, and the two have to overlap or there is a band of speed with no
+         * yaw control in it at all.
+         *
+         * The sign matters more than any of the numbers. A positive rotation
+         * about +Y takes the nose toward +X, which is right, and right pedal is
+         * positive — so this is `+steer`. It was `-steer`, which pointed the
+         * tyre away from the pedal and made the ground controls reversed below
+         * the speed where the rudder took over. It never looked like a reversal
+         * because the swing was always leftward and the rudder always won in
+         * the end; it looked like an aeroplane that wandered off the runway.
+         * Measured open-loop it was unmistakable: full right pedal produced
+         * twenty-two degrees a second squared of LEFT yaw. */
+        const steer = c.yaw * AC.groundSteer * clamp(1 - V / AC.steerFadeV, 0, 1);
+        sFwd.applyAxisAngle(UP, steer);
       }
       sSide.copy(sFwd).cross(UP).normalize();
 

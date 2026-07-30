@@ -147,7 +147,9 @@ console.log('Brushrunner flight model\n');
   }
   console.log('Takeoff, empty:');
   expect('ground roll', roll ?? 9999, 120, 400, ' m');
-  expect('centreline drift on the roll', maxDrift, 0, 25, ' m');
+  /* This was 25 m, which was wide enough to bless a reversed nosewheel. The
+   * mission puts you off the side of a sixteen-metre strip for less. */
+  expect('centreline drift on the roll', maxDrift, 0, 8, ' m');
   expect('time to 300 m', to300 ?? 999, 15, 70, ' s');
   expect('climb speed', p.ias * KT, 65, 105, ' kt');
   console.log(results.splice(0).join('\n'));
@@ -161,9 +163,10 @@ console.log('Brushrunner flight model\n');
   p.setPose(new THREE.Vector3(0, GH + AC.gearY, 400), 180, 0);
   p.controls.parkingBrake = false;
   p.controls.flaps = 0.5;
-  let rotated = false, roll = null;
+  let rotated = false, roll = null, maxDrift = 0;
   for (let i = 0; i < 60 * 70; i++) {
     throttle(p, eng, 1);
+    if (p.onGround) maxDrift = Math.max(maxDrift, Math.abs(p.position.x));
     if (p.ias * KT > 68) rotated = true;
     // Once the wheels are off, hold the best-climb speed rather than an
     // attitude — heavy, a fixed attitude just mushes.
@@ -181,7 +184,44 @@ console.log('Brushrunner flight model\n');
   console.log('\nTakeoff, full cargo:');
   expect('ground roll', roll ?? 9999, 180, 700, ' m');
   expect('longer than empty', (roll ?? 0) > 160 ? 1 : 0, 1, 1);
+  // El Hueso's strip is 8 m either side of the centreline and the mission fails
+  // you at 20 m off it, so a loaded roll has to stay inside the dirt.
+  expect('centreline drift, loaded', maxDrift, 0, 8, ' m');
   expect('initial climb rate', p.vspeed, 1.2, 8, ' m/s');
+  console.log(results.splice(0).join('\n'));
+}
+
+/* ---------------------------------------------------------------- */
+/* 2b. Ground steering points where the pedal points                 */
+/* ---------------------------------------------------------------- */
+/* Measured open-loop, one speed at a time, because closed-loop nothing looked
+ * wrong: the swing is always to the left and the rudder always wins in the end,
+ * so a reversed nosewheel reads as an aeroplane that wanders off the runway
+ * rather than as reversed controls. It cost a heavy departure every time. */
+{
+  const yawAccel = (V, pedal, mass) => {
+    const { p, eng } = rig(mass);
+    p.setPose(new THREE.Vector3(0, GH + AC.gearY, 0), 0, V);
+    p.controls.parkingBrake = false;
+    throttle(p, eng, 1);
+    for (let i = 0; i < 90; i++) { eng.update(dt, p.tas); p.advance(dt); }
+    p.controls.yaw = pedal;
+    const before = p.omega.y;
+    for (let i = 0; i < 30; i++) { eng.update(dt, p.tas); p.advance(dt); }
+    return ((p.omega.y - before) / (30 * dt)) * 180 / Math.PI;
+  };
+  const heavy = AC.emptyMass + AC.fuelMass * 0.7 + AC.maxCargo;
+  console.log('\nGround steering, yaw acceleration from full right pedal:');
+  let worst = Infinity;
+  for (const V of [4, 8, 12, 16, 20, 24]) {
+    for (const mass of [null, heavy]) worst = Math.min(worst, yawAccel(V, 1, mass));
+  }
+  expect('right pedal yaws right at every ground speed', worst, 4, 200, ' deg/s²');
+  const left = yawAccel(10, -1, null);
+  expect('and left pedal yaws left', left, -200, -4, ' deg/s²');
+  // The tyre and the fin have to overlap, or there is a band with no control.
+  const dip = Math.min(...[14, 18, 20, 22, 24].map((V) => yawAccel(V, 1, heavy)));
+  expect('no dead band where the tyre hands over', dip, 4, 200, ' deg/s²');
   console.log(results.splice(0).join('\n'));
 }
 
