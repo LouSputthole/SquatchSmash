@@ -191,19 +191,21 @@ const report = await page.evaluate(async (TILE) => {
   }
 
   /* ---- apartment prop geometry reported during playtesting ---- */
-  const kitchenPicture = items.find((item) => item.slot === 'east.square');
-  if (!kitchenPicture) {
-    problems.push('east.square kitchen picture is missing');
-  } else {
-    /* Upper cabinet doors face the room at x 4.648. The frame belongs just in
-     * front of that plane: max.x greater than it is embedded, much less leaves
-     * it visibly floating. */
-    const cabinetFaceX = 4.648;
-    const gap = cabinetFaceX - kitchenPicture.bb.max.x;
-    if (gap < -0.004) {
-      problems.push(`east.square is embedded ${(Math.abs(gap) * 100).toFixed(1)}cm into the upper cabinets`);
-    } else if (gap > 0.015) {
-      problems.push(`east.square floats ${(gap * 100).toFixed(1)}cm off the upper cabinets`);
+  /* The old kitchen pair fought the cabinets — one on their tops, one on the
+   * tile between them. Both now hang on the blank east wall right of the
+   * fridge, clear of the cabinet run (which ends at z 0.86) and the fridge
+   * (whose south edge is z 2.40). */
+  for (const slotName of ['east.square', 'east.small']) {
+    const piece = items.find((item) => item.slot === slotName);
+    if (!piece) {
+      problems.push(`${slotName} kitchen picture is missing`);
+      continue;
+    }
+    if (piece.bb.min.z < 2.45) {
+      problems.push(`${slotName} reaches z ${piece.bb.min.z.toFixed(2)} — back into the fridge/cabinet run`);
+    }
+    if (piece.bb.min.x < 4.9) {
+      problems.push(`${slotName} floats ${((4.97 - piece.bb.min.x) * 100).toFixed(1)}cm off the east wall`);
     }
   }
 

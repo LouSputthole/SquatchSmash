@@ -76,15 +76,11 @@ export const WALL_SLOTS = [
    * line with the clock face either. */
   { slot: 'south.shield', x: -0.24, y: 1.62, z: 4.40, rotY: Math.PI, h: 0.44 },
 
-  /* This stretch is occupied by the upper cabinets, so the kitchen picture is
-   * mounted on their outward face rather than halfway inside the carcass. The
-   * frame's back reaches +X; x 4.61 leaves it just clear of the door face at
-   * x 4.648 while the artwork faces into the room. */
-  { slot: 'east.square', x: 4.61, y: 1.74, z: -0.60, rotY: -Math.PI / 2, h: 0.46 },
-  /* The rest of that stretch, between the window's edge at z -2.30 and the
-   * square above. Hung lower and smaller, so the pair reads as two things put
-   * up separately rather than a matched set. */
-  { slot: 'east.small', x: 4.97, y: 1.42, z: -1.62, rotY: -Math.PI / 2, h: 0.36 },
+  /* The pair used to fight the kitchen cabinets — one riding their tops, one
+   * on the tile between them. Both now hang on the blank stretch of east wall
+   * to the right of the fridge, staggered so they read as hung separately. */
+  { slot: 'east.square', x: 4.97, y: 1.74, z: 2.85, rotY: -Math.PI / 2, h: 0.46 },
+  { slot: 'east.small', x: 4.97, y: 1.42, z: 3.45, rotY: -Math.PI / 2, h: 0.36 },
   { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
   { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },
