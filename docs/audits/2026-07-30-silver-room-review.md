@@ -80,3 +80,12 @@ integration checklist below still wait on the owner and the integration pass.
 3. **Booski stays the cab driver** — the patriarch moonlighting is the joke.
 4. (Earlier ruling) The mission is the Goodfellas Copacabana parody and is
    part of the campaign, not optional.
+
+### Superseded by the branch recast (48f028b, owner-endorsed)
+
+Rulings 2 and 3 above are superseded: the mission branch's own recast commit
+makes the date MARGO (not a radio personality; name lives in one data field)
+and the driver a hired stranger — deliberately the one person all evening who
+does not know Prospect's name. The integration reconciles that recast with
+the merged review fixes rather than inventing a new radio handle or keeping
+Booski in the cab.
