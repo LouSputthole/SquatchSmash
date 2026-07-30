@@ -1,6 +1,6 @@
 # Squatch Life
 
-Six playable or preserved experiences live in this repo.
+Seven playable or preserved experiences live in this repo.
 
 | | |
 |---|---|
@@ -11,6 +11,7 @@ Six playable or preserved experiences live in this repo.
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Manny is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
+| **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | Hole 1 of a three-hole round with Lou, Rippinflow and Erican. Standalone-verified and in `preview.html`; campaign placement is the owner's call and the apartment does not route there yet. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
 
 ```bash
@@ -21,10 +22,11 @@ npm start        # the apartment -> http://localhost:5173
                  # the Beef Run  -> http://localhost:5173/beefrun.html
                  # the Motel     -> http://localhost:5173/motel.html
                  # the game      -> http://localhost:5173/game/
+                 # Silver Pines  -> http://localhost:5173/golf.html
                  # Initiation    -> http://localhost:5173/initiation.html
 ```
 
-All six are static ES-module sites with no build step, served by the same
+All seven are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
@@ -636,3 +638,64 @@ club's cues and four ambience beds.
 
 In the console, `__bing` exposes the scene, the club, the cast, the mission and
 `__bing.teleport(x, z, yaw)`.
+
+---
+
+## A Morning at Silver Pines
+
+Late morning on Day Four, after overnight rain, on a private course in North
+Jersey that was more prestigious twenty years ago. Lou has the scorecard, Eric
+has the clubs, Rippin is taking practice swings at nothing, and nobody has
+asked the Prospect to carry anything, meet anybody, or move any beef jerky.
+
+The round is three holes — a par 3, a par 5, a par 4. **Only Hole 1 is built.**
+Holes 2 and 3 exist as metadata so the card, the end card and the campaign
+record already know the shape of a round none of them has seen; a hole becomes
+playable by adding a layout module and flipping `playable` in
+`src/golf/course.js`. Hole 1 ends on a development end card that says so.
+
+```bash
+npm start                  # http://localhost:5173/golf.html
+npm run verify:golf        # 40 browser checks, car park to end card
+npm test                   # includes 20 Silver Pines unit tests
+```
+
+### Hole 1 — The Invitation, par 3, 167 yards
+
+Elevated tee, water short and right, bunker front-left, pin middle-right where
+it tempts you over the corner of the pond. Eric tells you to aim at the middle
+of the green and ignore the flag, and the hole is built so that he is right:
+the centre line finishes about seventeen feet from the pin and the flag line
+finishes wet.
+
+Three clubs and no more — driver, iron, putter. Any of them can be used from
+anywhere, including a putter from the tee, which travels about fifty yards
+downhill and is its own punishment. Click to start the swing, again for power,
+again for the strike; the middle of the strike bar is genuinely forgiving,
+because the hole is a conversation and nobody should be losing it to an
+interface.
+
+Number keys pick a reply when replies are on screen and pick a club when they
+are not. There is no third case.
+
+### What the round records
+
+`src/core/golf-story.js` is the campaign seam. It keeps the card, plus the two
+facts that were never about golf: whether the player was there when Lou said
+why he was invited, and whether he took the ride out to the green. One hole
+does not complete the mission — a man who has played one hole has not played
+golf with Lou, he has been driven to a tee.
+
+Conditional callbacks read real save state and nothing else. `bada_bing_one.ending`
+has always encoded what he did about the grey sedan, so Lou noticing that he
+noticed the car costs no new state; the jackpot and the hands he sat while Lou
+waited now survive the club's front door. A save with none of that history gets
+a scene with no callbacks in it and no holes where callbacks should have been.
+
+### Not yet wired to the front door
+
+`SCENE_IDS.SILVER_PINES` is registered, has a mission record, a story seam, a
+preview entry and its own verifier — but it is deliberately absent from the
+apartment's outbound edges until the owner rules on where the morning sits.
+The same posture the Silver Room was introduced with. Adding it to the
+apartment's `next` list and writing a gate is the whole of the remaining work.

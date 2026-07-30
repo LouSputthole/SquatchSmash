@@ -28,6 +28,18 @@ end-to-end verification.
 
 ## What is already consolidated
 
+- **A Morning at Silver Pines is built and standalone-verified (2026-07-30).**
+  `golf.html` / `src/golf/*` is Hole 1 of a three-hole round — par 3, 167
+  yards — with the full foursome, the cart ride, 202 scripted cues and a
+  campaign seam in `src/core/golf-story.js`. `verify:golf` (40) plays it from
+  the car park to the end card in a browser; `tests/silver-pines.test.mjs`
+  (20) holds the geometry and the arithmetic. It is registered as
+  `SCENE_IDS.SILVER_PINES` and offered by `preview.html`, but **deliberately
+  absent from the apartment's outbound edges** pending the owner's ruling on
+  where the morning sits in the campaign — the same posture the Silver Room
+  was introduced with. Rippinflow and Erican were promoted from
+  Initiation-local NPCs to campaign characters to speak in it.
+
 - Squatch Life apartment is the recurring hub and production root.
 - Day One chore gate, Big Uncle Lou's one-shot call, Bada Bing Scene One,
   concealed package persistence, Squatchfather, apartment return, sleep, and

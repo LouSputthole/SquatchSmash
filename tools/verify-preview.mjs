@@ -89,9 +89,19 @@ try {
     links: [...document.querySelectorAll('[data-preview-scene]')]
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
   }));
-  check('the launcher exposes all six requested previews',
+  /* Every scene the launcher offers, by name rather than by count. A bare
+   * number told you the list had changed and never which way, which is the
+   * least useful thing an assertion can do at the moment somebody adds a
+   * scene. */
+  const EXPECTED_PREVIEWS = [
+    'beefrun', 'motel', 'bing-two', 'squatchfather',
+    'silver', 'silver_pines', 'initiation',
+  ];
+  const offered = launcher.links.map(([scene]) => scene);
+  check(`the launcher exposes all ${EXPECTED_PREVIEWS.length} requested previews`,
     launcher.title === 'Scene preview'
-      && launcher.links.length === 6
+      && EXPECTED_PREVIEWS.every((scene) => offered.includes(scene))
+      && offered.length === EXPECTED_PREVIEWS.length
       && launcher.links.every(([, href]) => href.includes('preview=1')),
     JSON.stringify(launcher));
   check('opening the launcher leaves the canonical save untouched',
