@@ -1004,6 +1004,42 @@ for (const spot of club.anchors.booths) {
   });
 }
 
+/* ---- the way out on foot ----
+ * "Leave the Bada Bing" used to mean finding your car and knowing to hold [E]
+ * on the wheel, which nobody guessed. Once the job is done the front door
+ * itself offers the exit; the drive-out from the wheel still works the same. */
+{
+  const leavePad = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.9, 1.3), new THREE.MeshBasicMaterial({ visible: false }));
+  leavePad.position.set(0, 1.1, 16.75);
+  scene.add(leavePad);
+  reg(leavePad, {
+    label: () => (isSecondVisit ? 'Hold to <b>head for the motel</b>' : 'Hold to <b>call it a night</b>'),
+    enabled: () => mission.readyToLeave && !game.seatedIn && !game.over,
+    hold: 1.2,
+    onUse: () => leaveByFrontDoor(),
+  });
+}
+
+function leaveByFrontDoor() {
+  if (game.over || !mission.readyToLeave) return;
+  /* Walking out the front counts exactly like driving out: a beat of black
+   * while Tony crosses the lot, then the same drive-away ending, so every
+   * flag he earned tonight still shapes the card. */
+  mission.backInLot();
+  audio.play('car.door', { volume: 0.5, delay: 0.55 });
+  blackout.classList.add('on');
+  setTimeout(() => {
+    game.seatedIn = 'car';
+    player._tween = null;
+    player.mode = 'frozen';
+    player.position.copy(car.driverPosition());
+    player.yaw = car.driverYaw();
+    hud.setMode('seated');
+    blackout.classList.remove('on');
+    driveAway();
+  }, 700);
+}
+
 /* ---- outside ---- */
 
 {
@@ -1648,6 +1684,10 @@ function onRoomChange(next) {
    * sightseeing, not tradecraft. */
   if (mission.readyToLeave && (next === 'yard' || next === 'alley')) {
     mission.flags.leftByRear = true;
+  }
+  if (next === 'vestibule' && mission.readyToLeave && !game.leaveHinted) {
+    game.leaveHinted = true;
+    hud.say('Out the front and into the rain. <em>Hold [E] at the door to leave, or take the wheel in the lot.</em>', 5600);
   }
   if ((next === 'lot' || next === 'alley') && mission.state === 'leaving') {
     mission.backInLot();
