@@ -91,7 +91,7 @@ try {
   }));
   check('the launcher exposes all six requested previews',
     launcher.title === 'Scene preview'
-      && launcher.links.length === 6
+      && launcher.links.length === 7
       && launcher.links.every(([, href]) => href.includes('preview=1')),
     JSON.stringify(launcher));
   check('opening the launcher leaves the canonical save untouched',

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Squatch Life — Cast, Voices &amp; Sound Roster</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #101014; color: #e6e2d6; font: 15px/1.5 "Trebuchet MS", "Segoe UI", sans-serif; }
+  header { padding: 28px 32px 12px; border-bottom: 1px solid #2a2a32; }
+  h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: 0.04em; }
+  header p { margin: 0; color: #9a9688; }
+  nav { position: sticky; top: 0; background: #101014ee; padding: 10px 32px; border-bottom: 1px solid #2a2a32; z-index: 5; }
+  nav a { color: #e8c86a; margin-right: 18px; text-decoration: none; font-weight: 700; }
+  section { padding: 20px 32px 8px; max-width: 1200px; }
+  h2 { font-size: 20px; border-bottom: 1px solid #2a2a32; padding-bottom: 6px; margin-top: 18px; }
+  h3 { font-size: 15px; color: #c8a24a; margin: 20px 0 6px; letter-spacing: 0.06em; }
+  .note { color: #9a9688; font-size: 13px; margin: 4px 0 12px; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin-bottom: 14px; }
+  th { text-align: left; color: #b8b2a0; font-weight: 700; padding: 5px 10px 5px 0; border-bottom: 1px solid #33333c; white-space: nowrap; }
+  td { padding: 4px 10px 4px 0; border-bottom: 1px solid #1d1d24; vertical-align: top; }
+  td.id, code { font-family: ui-monospace, Consolas, monospace; color: #8fc4a8; font-size: 12.5px; }
+  .tag { display: inline-block; padding: 0 7px; border-radius: 9px; font-size: 11.5px; font-weight: 700; margin-right: 4px; }
+  .tag.canon { background: #24422e; color: #8fd9a8; }
+  .tag.prov { background: #4a3a14; color: #ffd23a; }
+  .tag.synth { background: #2a2a3a; color: #9ab0d4; }
+  .tag.missing { background: #4a1c1c; color: #ff9a8a; }
+  .say { color: #d9d4c4; }
+  .prompt { color: #a8a294; font-size: 12.5px; }
+  button.play { background: #2a2a32; color: #e8c86a; border: 1px solid #3a3a44; border-radius: 4px; cursor: pointer; padding: 1px 9px; font: inherit; font-size: 12px; }
+  button.play:hover { border-color: #e8c86a; }
+  .bank { margin-bottom: 4px; }
+  details { margin-bottom: 8px; }
+  summary { cursor: pointer; color: #e8c86a; font-weight: 700; padding: 3px 0; }
+  summary .count { color: #9a9688; font-weight: 400; }
+  input#filter { width: 340px; max-width: 90%; background: #1a1a20; color: #e6e2d6; border: 1px solid #3a3a44; border-radius: 5px; padding: 6px 10px; font: inherit; margin: 4px 0 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>SQUATCH LIFE — CAST, VOICES &amp; SOUND ROSTER</h1>
+  <p>Everything and everyone in the campaign, in one place, for casting and regeneration decisions.
+     Voices, lines and effects are read live from <code>assets/sfx/manifest.json</code>; press play on any line.</p>
+</header>
+<nav>
+  <a href="#characters">Characters</a>
+  <a href="#voices">Voices</a>
+  <a href="#lines">Voice lines</a>
+  <a href="#sfx">Sound effects</a>
+</nav>
+
+<section id="characters">
+  <h2>Characters</h2>
+  <p class="note">The registry rows are read live from <code>src/core/characters.js</code> (locked canon).
+     Scene rosters are the curated state as of 2026-07-30 — mark up anything to adjust.</p>
+  <h3>Campaign registry (stable IDs — locked canon)</h3>
+  <div class="tablewrap"><table id="registry"><thead><tr>
+    <th>Stable ID</th><th>Canonical name</th><th>Subtitle</th><th>Voice</th><th>Species</th><th>Role</th><th>Aliases</th>
+  </tr></thead><tbody></tbody></table></div>
+  <div id="sceneCasts"></div>
+</section>
+
+<section id="voices">
+  <h2>Voices</h2>
+  <p class="note">One ElevenLabs id per voice key — every line that voice speaks uses it. Swap an id and rerun
+     <code>npm run sfx:vo -- --force --only vo.&lt;group&gt;</code> to recast. Provisional castings are flagged.</p>
+  <div class="tablewrap"><table id="voicesTable"><thead><tr>
+    <th>Key</th><th>ElevenLabs id</th><th>Lines</th><th>Status</th><th>Casting note</th>
+  </tr></thead><tbody></tbody></table></div>
+</section>
+
+<section id="lines">
+  <h2>Voice lines</h2>
+  <input id="filter" placeholder="Filter by text, bank, or voice — e.g. sasole, bj.win, rye">
+  <p class="note">Grouped by bank. Every line shows its recorded take when one exists; missing takes are flagged.</p>
+  <div id="banks"></div>
+</section>
+
+<section id="sfx">
+  <h2>Sound effects</h2>
+  <p class="note">Effects fall back to the procedural synth, so a missing file is audible but crude — a recording upgrades it.</p>
+  <div id="sfxList"></div>
+</section>
+
+<script type="module">
+import { CHARACTER_REGISTRY } from './src/core/characters.js';
+
+/* ---------------- curated scene rosters (2026-07-30 snapshot) ------------ */
+const SCENES = [
+  ['The Bada Bing — staff & regulars', [
+    ['lou (registry)', 'Big Uncle Lou Sputthole', 'owner; real photo face, no bandana', 'lou1 / lou (calls)'],
+    ['bouncer', 'the bouncer', 'door, knows you', '—'],
+    ['bartender / barback', 'bar crew', 'twelve metres of bar', '—'],
+    ['dealer', 'the blackjack dealer', 'procedural croupier patter', 'uncle'],
+    ['performer ×4', 'the performers', 'authored: 3 fair-skinned + 1 deep brown; blonde/brunette/black/platinum; 4-bar choreography', '—'],
+    ['security / waitress / delivery', 'movers', 'patrol routes (fixed 07-30)', '—'],
+    ['dj, staff, regulars, contractor, associate', 'the floor', 'ambient tiers', '—'],
+  ]],
+  ['The Squatchfather — restaurant', [
+    ['sal_sorrento', 'Sal “The Prospector” Sorrento', 'antagonist; killed at the table', '—'],
+    ['captain_mcclawsky', 'Capt. McClawsky', 'Sal’s associate (NOT Captain Lou)', '—'],
+    ['waiter / cook / diner ×2', 'the room', 'waiter works the room between beats (07-30)', '—'],
+  ]],
+  ['The Beef Run — airstrip', [
+    ['captain_lou_sasole (registry)', 'Captain Lou Sasole', 'speaker key SASOLE; 134 lines', 'lou2'],
+    ['stove', 'Old Stove', 'squatch, and also the government', 'old-stove (prov)'],
+    ['cecilio', 'Don Cecilio Barriga', 'the other end of the run', 'cecilio (prov)'],
+    ['caib', 'CAIB radio', 'the Bureau on the air', 'caib-radio (prov)'],
+    ['lookout', 'the lookout', 'a man on a hill since dawn', 'lookout (prov)'],
+  ]],
+  ['The Jerky Motel', [
+    ['manny', 'Manny', 'human friendly ally/driver — hard faction boundary; “fellow prospect” relabel pending owner', '—'],
+    ['rico / chino / motel_slicer', 'the sellers', 'deal then betrayal', '—'],
+    ['motel_lookout / motel_watcher / motel_clerk', 'mission-local', '', '—'],
+  ]],
+  ['The Silver Room — Front and Center', [
+    ['margo (registry)', 'Margo Salas', 'the date; civilian kitchen manager (recast 07-30)', 'margo (prov)'],
+    ['vinny / frontDoor doorman', 'the doors', 'alley and marquee', '—'],
+    ['maître d’, porters, cooks, band, diners', 'the house', 'gown/chef/porter wardrobe (07-30)', '—'],
+    ['driver', 'the hired car', 'the one man who does not know your name', '—'],
+  ]],
+  ['The Initiation — the Circle (faces are authoritative photos)', [
+    ['booski', 'BOOSKIBRO', 'patriarch, ceremony leader — booski.png', 'booski'],
+    ['lou', 'BIG UNCLE LOU SPUTTHOLE', 'founder — lou.png', 'lou1'],
+    ['rippinflow', 'RIPPINFLOW', 'quiet founder — rippinflow.png', '—'],
+    ['shubes', 'THE SHUBENATOR', 'founder — shubes.png', '—'],
+    ['deathmegatron', 'DEATHMEGATRON', 'founder and muscle — deathmegatron.png', '—'],
+    ['hogmama', 'HOG MAMA', 'Matriarch — hogmama.png', 'hogmama (radio)'],
+    ['ape', 'APE', 'roaster (no face supplied)', 'ape (radio)'],
+    ['irish', 'IRISH', 'procedure voice (no face supplied)', 'irish (radio)'],
+    ['erican / gratin / snow / captain_lou_sasole', 'members', 'erican.png / gratin.png / snow.png / sasole.png', '—'],
+  ]],
+  ['The apartment & the radio', [
+    ['prospect (registry)', 'Tony Squatchtana', 'the player; face/outfit decision still open', 'player'],
+    ['hr / unknown', 'phone callers', 'provisional castings', 'hr (prov) / unknown (prov)'],
+    ['radio hosts', 'Lou & Lou, Booski & Ape, Irish, Eric & Gratin, Hog Mama, KSQCH', '97.8 The Squatch schedule', 'lou1/lou2/booski/ape/irish/eric/gratin/hogmama/ksqch'],
+  ]],
+];
+
+const reg = document.querySelector('#registry tbody');
+for (const c of Object.values(CHARACTER_REGISTRY)) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="id">${c.id}</td><td>${c.canonicalName}</td><td>${c.subtitleName}</td>`
+    + `<td class="id">${c.voiceProfile ?? '—'}</td><td>${c.species}</td><td>${c.role}</td>`
+    + `<td class="id">${(c.legacyAliases ?? []).join(', ') || '—'}</td>`;
+  reg.appendChild(tr);
+}
+const castsEl = document.getElementById('sceneCasts');
+for (const [title, rows] of SCENES) {
+  const h = document.createElement('h3');
+  h.textContent = title;
+  castsEl.appendChild(h);
+  const wrap = document.createElement('div');
+  wrap.className = 'tablewrap';
+  const t = document.createElement('table');
+  t.innerHTML = '<thead><tr><th>ID</th><th>Name</th><th>Notes</th><th>Voice</th></tr></thead>';
+  const tb = document.createElement('tbody');
+  for (const [id, name, notes, voice] of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="id">${id}</td><td>${name}</td><td>${notes}</td><td class="id">${voice}</td>`;
+    tb.appendChild(tr);
+  }
+  t.appendChild(tb);
+  wrap.appendChild(t);
+  castsEl.appendChild(wrap);
+}
+
+/* ---------------- live manifest ---------------- */
+const [manifest, index] = await Promise.all([
+  fetch('assets/sfx/manifest.json').then((r) => r.json()),
+  fetch('assets/sfx/index.json').then((r) => r.json()).catch(() => ({ files: [] })),
+]);
+const have = new Set(index.files ?? []);
+const fileOf = (c) => c.file || `${c.name}.mp3`;
+
+const voiceLines = {};
+for (const c of manifest.sfx) if (c.say) (voiceLines[c.voice ?? 'player'] ??= []).push(c);
+
+const vt = document.querySelector('#voicesTable tbody');
+for (const [key, v] of Object.entries(manifest.voices)) {
+  if (!v || typeof v !== 'object' || !v.id) continue;
+  const prov = /provisional/i.test(v._note ?? '');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td class="id">${key}</td><td class="id">${v.id}</td>`
+    + `<td>${(voiceLines[key] ?? []).length}</td>`
+    + `<td>${prov ? '<span class="tag prov">PROVISIONAL</span>' : '<span class="tag canon">CAST</span>'}</td>`
+    + `<td>${v._note ?? ''}</td>`;
+  vt.appendChild(tr);
+}
+
+/* one shared audio element so plays never overlap */
+const playerEl = new Audio();
+function playBtn(cue) {
+  const f = fileOf(cue);
+  if (!have.has(f)) return '<span class="tag missing">NO TAKE</span>';
+  return `<button class="play" data-src="assets/sfx/${f}">&#9654; play</button>`;
+}
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button.play');
+  if (!b) return;
+  playerEl.src = b.dataset.src;
+  playerEl.play();
+});
+
+const bankOf = (n) => n.split('.').slice(0, -1).join('.');
+const banks = new Map();
+for (const c of manifest.sfx) {
+  if (!c.say) continue;
+  const b = bankOf(c.name);
+  if (!banks.has(b)) banks.set(b, []);
+  banks.get(b).push(c);
+}
+const banksEl = document.getElementById('banks');
+for (const [bank, list] of banks) {
+  const d = document.createElement('details');
+  d.dataset.text = `${bank} ${list.map((c) => `${c.voice ?? ''} ${c.say}`).join(' ')}`.toLowerCase();
+  d.innerHTML = `<summary><code>${bank}.*</code> <span class="count">— ${list.length} line(s) · ${list[0].voice ?? 'player'}</span></summary>`;
+  const t = document.createElement('table');
+  const tb = document.createElement('tbody');
+  for (const c of list) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td style="width:90px">${playBtn(c)}</td><td class="id" style="width:280px">${c.name}</td>`
+      + `<td class="id" style="width:90px">${c.voice ?? 'player'}</td><td class="say">${c.say}</td>`;
+    tb.appendChild(tr);
+  }
+  t.appendChild(tb);
+  d.appendChild(t);
+  banksEl.appendChild(d);
+}
+
+document.getElementById('filter').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  for (const d of banksEl.querySelectorAll('details')) {
+    d.style.display = !q || d.dataset.text.includes(q) ? '' : 'none';
+    if (q && d.dataset.text.includes(q)) d.open = true;
+  }
+});
+
+const sfxEl = document.getElementById('sfxList');
+const t = document.createElement('table');
+t.innerHTML = '<thead><tr><th style="width:90px"></th><th>Cue</th><th>Status</th><th>Prompt / note</th></tr></thead>';
+const tb = document.createElement('tbody');
+for (const c of manifest.sfx) {
+  if (c.say) continue;
+  const f = fileOf(c);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${playBtn(c)}</td><td class="id">${c.name}</td>`
+    + `<td>${have.has(f) ? '<span class="tag canon">RECORDED</span>' : '<span class="tag synth">SYNTH ONLY</span>'}</td>`
+    + `<td class="prompt">${c.prompt ?? c._note ?? ''}</td>`;
+  tb.appendChild(tr);
+}
+t.appendChild(tb);
+sfxEl.appendChild(t);
+</script>
+</body>
+</html>

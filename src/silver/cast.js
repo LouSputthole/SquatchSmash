@@ -50,7 +50,7 @@ export function populate(scene, room) {
   // The man on the public door, thirty metres away, who you are not using
   add('frontDoor', new Npc(scene, {
     name: 'the doorman', tier: 'background', job: 'stand',
-    x: a.doorman.x, z: a.doorman.z, yaw: Math.PI,
+    x: a.doorman.x, z: a.doorman.z, y: 0.14, yaw: Math.PI,
     model: { height: 1.88, build: 1.3, dress: 'suit', hair: 'bald' },
   }));
   by.frontDoor.folded = true;
@@ -61,9 +61,11 @@ export function populate(scene, room) {
     // Same rule as the dining room: the frame follows the dress.
     const dress = pick(['suit', 'gown', 'suit', 'shirt']);
     const inGown = dress === 'gown';
+    // On the pavement under the canopy, since the street moved outside where
+    // it belongs — the old range left nine people queueing inside the lobby.
     add(`queue${i}`, new Npc(scene, {
       name: 'somebody waiting', tier: 'background', job: i % 3 ? 'stand' : 'lean',
-      x: rand(-5, 5), z: rand(26.5, 29), yaw: rand(-0.4, 0.4), look: false,
+      x: rand(-5, 5), z: rand(35.2, 38.0), y: 0.14, yaw: rand(-0.4, 0.4), look: false,
       model: {
         height: inGown ? rand(1.6, 1.78) : rand(1.66, 1.9),
         build: rand(0.9, 1.25),
