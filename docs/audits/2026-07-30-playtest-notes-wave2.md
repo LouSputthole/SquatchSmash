@@ -91,3 +91,17 @@ were instructed to reset to origin/integration/post-airstrip-prep-20260729.
 - Marquee sign bloom too strong to read.
 - Wall stuff floating/hanging — seat sconces/frames to their walls.
 - Overall: one full flow pass for pacing snags.
+
+## FUTURE FEATURE (owner, 2026-07-30 ~16:55)
+Booski at the bar in the Bada Bing: you can talk to him and he offers you a
+shot; when he orders it he YELLS "I want that shot in 30 fucking seconds"
+and a quick cutscene shows the bouncer hustling over with the shot.
+(Needs: Booski figure at the bar [face photo booski.png, block style], a
+dialogue node, the yelled VO line [voice `booski`], a short camera beat on
+the bouncer's delivery, and the shot handed to Tony — drink system exists.)
+
+## SOUND REDO LIST (owner) — regenerated 2026-07-30 pre-restart
+gun.shot (meatier/more powerful) · footstep.rug · footstep.tile ·
+poop.4 (was "very weird") · car.engine.start — all reprompted + regenerated
+with --force. If any still miss, tweak the prompt in assets/sfx/manifest.json
+and rerun `npm run sfx -- --only <names> --force`.

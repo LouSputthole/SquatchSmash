@@ -172,12 +172,12 @@
     {
       "name": "footstep.rug",
       "duration": 0.7,
-      "prompt": "single muffled footstep on a thick wool rug, soft, dry, close mic"
+      "prompt": "single soft footstep on a thick rug over wooden boards, muffled low thud with a faint fabric brush, interior, close, no voice"
     },
     {
       "name": "footstep.tile",
       "duration": 0.7,
-      "prompt": "single bare foot step on kitchen vinyl flooring, slight tacky sound, dry close mic"
+      "prompt": "single footstep of a hard-soled shoe on ceramic tile, crisp slap with a short bright bathroom echo, no voice"
     },
     {
       "name": "bed.rustle",
@@ -613,9 +613,9 @@
     },
     {
       "name": "poop.4",
-      "duration": 2.6,
+      "duration": 2.2,
       "promptInfluence": 0.55,
-      "prompt": "comedic catastrophic toilet finale: squelching burst, rapid-fire plops into water, one last defeated squeak, tiled bathroom reverb, exaggerated and rude, no voice"
+      "prompt": "comedic toilet finale: a strained pause, then three quick heavy plops into deep bowl water with splash-back and one soft echoing drip, tiled bathroom reverb, exaggerated but natural, no voice"
     },
     {
       "name": "toilet.plop",
@@ -1960,9 +1960,9 @@
     {
       "_comment": "Indoors, in a small flat, with no ear protection. It should be uncomfortable and it should ring afterwards — a polite gunshot is the wrong joke.",
       "name": "gun.shot",
-      "duration": 1.6,
-      "promptInfluence": 0.6,
-      "prompt": "a single revolver gunshot fired indoors in a small room, loud crack with heavy room slap and a long ringing tail, no music, no voice"
+      "duration": 1.8,
+      "promptInfluence": 0.65,
+      "prompt": "a single massive revolver gunshot fired indoors, deep concussive boom with a hard mechanical crack, chest-punching low end, heavy room slap and a long ringing tail, no music, no voice"
     },
     {
       "_comment": "The clunk of a cheap TV's power button, plus the tick of the panel waking up.",
@@ -1980,9 +1980,9 @@
     {
       "_comment": "The Motel getaway convertible. Old American V8, nothing modern about it.",
       "name": "car.engine.start",
-      "duration": 3.2,
+      "duration": 3.4,
       "promptInfluence": 0.5,
-      "prompt": "an old american v8 sedan starting: starter motor cranks twice, engine catches with a rumble and settles to a low idle, exterior, no music, no voice"
+      "prompt": "an old american v8 muscle car cold start: the starter motor cranks, the engine catches with a deep throaty rumble and settles into a loping idle, close exterior, no music, no voice"
     },
     {
       "name": "car.engine.idle",
