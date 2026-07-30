@@ -4,11 +4,9 @@ import { lambert } from '../../game/src/world.js';
 // ---------------------------------------------------------------------------
 // Everybody in the motel who is not Prospect.
 //
-// Prospect is a sasquatch — a prospect, trying to get made in the squatch
-// family. Manny is family, so he is one too. Everybody selling meat in room
-// twelve is human, and about half Prospect's height, which is most of the joke
-// and all of the staging: humans work doorways and corners because they cannot
-// work a sasquatch head-on.
+// Tony and Manny are adult humans. "Squatchtana" is the family name, not a
+// species flag; keeping them on the human rig preserves their identity across
+// scenes. Costume, role, and faction distinguish the motel cast.
 // ---------------------------------------------------------------------------
 
 function box(w, h, d, color, extra = null) {
@@ -17,7 +15,6 @@ function box(w, h, d, color, extra = null) {
   return m;
 }
 
-const FUR_TONES = { manny: 0x6b5a44, rico: 0x8a6a4a, chino: 0x5a4a3c, slicer: 0x4a3f36, thug: 0x6a5a48, clerk: 0x7a6a58, lookout: 0x5f5040 };
 const SKIN_TONES = [0xe8c39a, 0xc99268, 0x8d5f3c, 0xf0d0b0, 0x6f472c];
 
 // Dispatch: humans by default, sasquatches for the family.
@@ -432,6 +429,9 @@ export class Actor {
     this.scene = scene;
     this.name = cfg.name || 'Seller';
     this.role = cfg.role || 'thug';
+    this.identity = cfg.identity || this.name.toLowerCase().replace(/\s+/g, '_');
+    this.faction = cfg.faction
+      || (this.role === 'ally' ? 'friendly' : this.role === 'civilian' ? 'civilian' : 'seller');
     this.rig = buildActor(cfg);
     this.group = this.rig.group;
     this.group.position.set(cfg.x || 0, 0, cfg.z || 0);
@@ -458,6 +458,15 @@ export class Actor {
     this.grappleT = 0;
     this.talkT = 0;
     this.barkCd = 2 + Math.random() * 4;
+    this._hostile = false;
+    Object.defineProperty(this, 'hostile', {
+      enumerable: true,
+      configurable: false,
+      get: () => this._hostile,
+      set: (value) => {
+        this._hostile = this.faction === 'friendly' ? false : Boolean(value);
+      },
+    });
     this.hostile = false;
     this.gestureT = 0;
     this.y = 0;
@@ -568,6 +577,12 @@ export class Actor {
         }
 
         case 'chase': {
+          // Attack-capable chase is structurally hostile-only. This protects
+          // every friendly actor even if a scripted waypoint regresses.
+          if (this.faction === 'friendly' || !this.hostile) {
+            this.state = 'idle';
+            break;
+          }
           const reach = this.stats().reach;
           if (this.stats().ranged) {
             // Keep a firing lane
@@ -592,6 +607,10 @@ export class Actor {
         }
 
         case 'grab': // trying to restrain Prospect
+          if (this.faction === 'friendly' || !this.hostile) {
+            this.state = 'idle';
+            break;
+          }
           if (distToPlayer > 2.0) {
             moving = this.moveToward(px, pz, dt, speed * 1.15, ctx);
           } else {
@@ -625,6 +644,10 @@ export class Actor {
           break;
 
         case 'follow': { // Manny, once he is out of the car
+          if (this.faction !== 'friendly') {
+            this.state = 'idle';
+            break;
+          }
           const d = Math.hypot(p.x - px, p.z - pz);
           if (d > 4.5) moving = this.moveToward(px, pz, dt, speed, ctx);
           else this.faceTo(px, pz, dt, 5);
@@ -740,14 +763,14 @@ export class Actor {
 
 // ---------------- Cast presets ----------------
 
-// Manny is family, so he is a sasquatch. Everyone selling meat is human, and
-// their health reflects it — a sasquatch does not need six swings to settle
-// an argument with a man holding a thermometer.
+// Manny is Tony's human ally. Everyone selling meat is human too; costume,
+// silhouette, faction, and role distinguish them without changing species.
 export const CAST = {
   manny: () => ({
-    name: 'Manny', role: 'ally', species: 'squatch',
-    fur: FUR_TONES.manny, shirt: 0x3f6b8a, pants: 0x2a3340,
-    cap: 0xd8c04a, hp: 160, speed: 5.6, scale: 0.95,
+    identity: 'manny', name: 'Manny', role: 'ally', faction: 'friendly', species: 'human',
+    skin: SKIN_TONES[2], hair: 0x24170f,
+    shirt: 0x315f78, pants: 0x27313d, shoes: 0x17191e,
+    cap: 0xd8c04a, mustache: true, hp: 160, speed: 5.4, scale: 1.08,
   }),
   rico: () => ({
     name: 'Rico', role: 'seller', skin: SKIN_TONES[1], hair: 0x1d140e,

@@ -49,7 +49,7 @@ const DECK_Y = 4;
 const ROOF_Y = 8;
 const POOL = { x0: 14, x1: 30, z0: 6, z1: 20, y: -3 };
 const POOL_STEPS = { x0: 14, x1: 17.5, z0: 16.5, z1: 20 };
-const STAIRS_E = { x0: 24.5, x1: 28.5, z0: -1.1, z1: 6.5 };
+const STAIRS_E = { x0: 30.2, x1: 34.2, z0: -1.1, z1: 5.2 };
 const STAIRS_W = { x0: -28.5, x1: -24.5, z0: -1.1, z1: 6.5 };
 const ROOM12 = { x0: -5, x1: 5, z0: -15.5, z1: -4.5 };
 const ROOM11 = { x0: -17, x1: -7, z0: -15.5, z1: -4.5 };
@@ -155,10 +155,13 @@ export function buildMotel(scene, renderer) {
   scene.add(walk);
 
   // Parking stripes
-  for (let i = 0; i < 12; i++) {
+  // Keep the painted bays on the west side of the lot. The former evenly
+  // spaced row drew three floating stripes straight across the pool opening.
+  for (const stripeX of [-33, -27, -21, -15, -9, -3, 3, 9]) {
     const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 6), lambert(0xb9b28a));
     stripe.rotation.x = -Math.PI / 2;
-    stripe.position.set(-33 + i * 6, 0.02, 12);
+    stripe.position.set(stripeX, 0.02, 12);
+    stripe.userData.layoutRole = 'parking-stripe';
     scene.add(stripe);
   }
 
@@ -667,6 +670,29 @@ export function buildMotel(scene, renderer) {
   refs.rulesSign = { mesh: rulesSign, x: -41.5, z: O.z1 + 0.6 };
 
   // ---------------- Pool ----------------
+  // A distinct concrete deck keeps pool furniture visually and physically out
+  // of the painted parking bays.
+  const poolDeck = [];
+  for (const [x0, x1, z0, z1] of [
+    [11.5, POOL.x0, 4.5, 22],
+    [POOL.x1, 32.5, 4.5, 22],
+    [POOL.x0, POOL.x1, 4.5, POOL.z0],
+    [POOL.x0, POOL.x1, POOL.z1, 22],
+  ]) {
+    const slab = boxMesh(
+      x1 - x0,
+      0.08,
+      z1 - z0,
+      C.concrete,
+      (x0 + x1) / 2,
+      0.02,
+      (z0 + z1) / 2,
+    );
+    scene.add(slab);
+    poolDeck.push(slab);
+  }
+  refs.poolDeck = poolDeck;
+
   const poolShell = new THREE.Group();
   const pf = new THREE.Mesh(new THREE.PlaneGeometry(POOL.x1 - POOL.x0, POOL.z1 - POOL.z0), lambert(0x7fa8b8));
   pf.rotation.x = -Math.PI / 2;
@@ -679,27 +705,54 @@ export function buildMotel(scene, renderer) {
     [POOL.x0 - pw, POOL.x0, POOL.z0 - pw, POOL.z1 + pw],
     [POOL.x1, POOL.x1 + pw, POOL.z0 - pw, POOL.z1 + pw],
     [POOL.x0 - pw, POOL.x1 + pw, POOL.z0 - pw, POOL.z0],
-    [POOL.x0 - pw, POOL.x1 + pw, POOL.z1, POOL.z1 + pw],
+    [POOL.x0 - pw, POOL_STEPS.x0, POOL.z1, POOL.z1 + pw],
+    [POOL_STEPS.x1, POOL.x1 + pw, POOL.z1, POOL.z1 + pw],
   ]) {
     poolShell.add(boxMesh(x1 - x0, 3, z1 - z0, 0xbfc8c4, (x0 + x1) / 2, POOL.y + 1.5, (z0 + z1) / 2));
     block(x0, x1, z0, z1, POOL.y, 0, 'poolwall');
   }
   scene.add(poolShell);
   // Steps at the shallow corner
+  const poolSteps = [];
+  const poolStepDepth = (POOL_STEPS.z1 - POOL_STEPS.z0) / 4;
   for (let i = 0; i < 4; i++) {
-    const y = POOL.y + (i + 1) * 0.75;
-    poolShell.add(boxMesh(POOL_STEPS.x1 - POOL_STEPS.x0, 0.75, 0.85, 0xd0d8d4,
-      (POOL_STEPS.x0 + POOL_STEPS.x1) / 2, y - 0.375, POOL_STEPS.z1 - 0.45 - i * 0.85));
+    const top = POOL.y + (i + 1) * 0.75;
+    const height = top - POOL.y;
+    const step = boxMesh(
+      POOL_STEPS.x1 - POOL_STEPS.x0,
+      height,
+      poolStepDepth + 0.04,
+      0xd0d8d4,
+      (POOL_STEPS.x0 + POOL_STEPS.x1) / 2,
+      POOL.y + height / 2,
+      POOL_STEPS.z0 + (i + 0.5) * poolStepDepth,
+    );
+    poolShell.add(step);
+    poolSteps.push(step);
   }
-  // Lawn chairs and trash at the bottom
-  for (let i = 0; i < 4; i++) {
+  refs.poolSteps = poolSteps;
+
+  function makeLoungeChair(x, y, z, yaw = 0, tipped = false) {
     const chair = new THREE.Group();
     chair.add(boxMesh(0.7, 0.1, 1.8, 0x2f7f78, 0, 0.25, 0));
     chair.add(boxMesh(0.7, 0.1, 0.8, 0x2f7f78, 0, 0.55, -0.9));
-    chair.position.set(POOL.x0 + 3 + Math.random() * 9, POOL.y, POOL.z0 + 3 + Math.random() * 9);
-    chair.rotation.set(Math.random() * 0.6, Math.random() * 6, Math.random() * 0.6);
+    chair.position.set(x, y, z);
+    chair.rotation.set(tipped ? 0.24 : 0, yaw, tipped ? -0.18 : 0);
     scene.add(chair);
+    return chair;
   }
+
+  // Deck furniture has fixed authored positions. One tipped chair remains at
+  // the bottom as intentional debris, rather than four randomly scattered
+  // props that can read as parking-lot placement bugs.
+  const westLounge = makeLoungeChair(12.55, 0.04, 10.0, 0);
+  const eastLounge = makeLoungeChair(31.35, 0.04, 15.8, Math.PI);
+  const poolDebris = makeLoungeChair(24.2, POOL.y, 11.8, 0.7, true);
+  refs.poolFurniture = [
+    { id: 'west-lounge', group: westLounge, x: 12.55, z: 10.0, deck: true },
+    { id: 'east-lounge', group: eastLounge, x: 31.35, z: 15.8, deck: true },
+    { id: 'pool-debris', group: poolDebris, x: 24.2, z: 11.8, deck: false },
+  ];
   const poolLight = new THREE.PointLight(0x4ad9ff, 2.6, 30, 2);
   poolLight.position.set((POOL.x0 + POOL.x1) / 2, POOL.y + 1.5, (POOL.z0 + POOL.z1) / 2);
   scene.add(poolLight);
@@ -715,7 +768,15 @@ export function buildMotel(scene, renderer) {
   function makeCar(color, plateGlow = false) {
     const g = new THREE.Group();
     g.add(boxMesh(2.0, 0.9, 4.6, color, 0, 0.85, 0));
-    g.add(boxMesh(1.8, 0.8, 2.2, 0x121820, 0, 1.65, -0.2, { emissive: 0x0a1016 }));
+    // Keep the cabin hollow so the passenger-seat opening has a readable
+    // first-person view. A solid box put the camera against an opaque face and
+    // washed the entire opening frame out.
+    g.add(boxMesh(1.8, 0.12, 2.2, 0x121820, 0, 2.02, -0.2, { emissive: 0x0a1016 }));
+    for (const sx of [-0.84, 0.84]) {
+      for (const sz of [-1.08, 0.68]) {
+        g.add(boxMesh(0.12, 0.76, 0.14, 0x121820, sx, 1.64, sz, { emissive: 0x0a1016 }));
+      }
+    }
     for (const sx of [-1, 1]) {
       for (const sz of [-1.5, 1.5]) {
         const w = mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 10), lambert(0x14141a), sx * 0.95, 0.45, sz);
@@ -734,8 +795,15 @@ export function buildMotel(scene, renderer) {
   const manCar = makeCar(0x6b2f3a);
   manCar.position.set(-8, 0, 17);
   scene.add(manCar);
-  block(-9.2, -6.8, 14.6, 19.4, 0, 1.8, 'car');
-  refs.manCar = { group: manCar, x: -8, z: 17, trunk: { x: -8, z: 19.6, opened: false }, headlights: [] };
+  const manCarCollider = block(-9.2, -6.8, 14.6, 19.4, 0, 1.8, 'car');
+  refs.manCar = {
+    group: manCar,
+    collider: manCarCollider,
+    x: -8,
+    z: 17,
+    trunk: { x: -8, z: 19.6, opened: false },
+    headlights: [],
+  };
   const hlL = new THREE.SpotLight(0xfff4d0, 0, 40, 0.5, 0.5, 1.4);
   hlL.position.set(-8.7, 0.9, 19.5);
   hlL.target.position.set(-9, 0.4, 40);
@@ -744,23 +812,42 @@ export function buildMotel(scene, renderer) {
 
   // The second car — engine running, one of the warning signs
   const secondCar = makeCar(0x2f3a6b, true);
-  secondCar.position.set(13, 0, 9);
+  secondCar.position.set(7, 0, 10);
   secondCar.rotation.y = 0.35;
   scene.add(secondCar);
-  block(11.6, 14.4, 6.6, 11.4, 0, 1.8, 'car');
-  refs.secondCar = { group: secondCar, x: 13, z: 9, idleT: 0 };
+  const secondCarCollider = block(5.0, 9.0, 7.2, 12.8, 0, 1.8, 'car');
+  refs.secondCar = {
+    group: secondCar,
+    collider: secondCarCollider,
+    x: 7,
+    z: 10,
+    idleT: 0,
+  };
 
   // Background parked cars
   const parked = [];
-  for (const [x, z, col] of [[2, 7, 0x3f5f3a], [-20, 10, 0x8a8a92], [22, 3, 0x6a5a3a], [-30, 6, 0x2a2a30]]) {
+  for (const [x, z, col, yaw] of [
+    [2, 7, 0x3f5f3a, -0.10],
+    [-20, 10, 0x8a8a92, 0.08],
+    [40, 8, 0x6a5a3a, -0.06],
+    [-38, 8, 0x2a2a30, 0.12],
+  ]) {
     const c = makeCar(col);
     c.position.set(x, 0, z);
-    c.rotation.y = Math.random() * 0.3 - 0.15;
+    c.rotation.y = yaw;
     scene.add(c);
-    block(x - 1.3, x + 1.3, z - 2.5, z + 2.5, 0, 1.8, 'car');
-    parked.push(c);
+    const collider = block(x - 1.5, x + 1.5, z - 2.6, z + 2.6, 0, 1.8, 'car');
+    parked.push({ group: c, collider, x, z });
   }
   refs.parkedCars = parked;
+  refs.vehicleFootprints = [
+    { id: 'manny-car', collider: manCarCollider },
+    { id: 'second-car', collider: secondCarCollider },
+    ...parked.map((entry, index) => ({
+      id: `parked-${index + 1}`,
+      collider: entry.collider,
+    })),
+  ];
 
   // ---------------- Motel sign, palms, alley clutter ----------------
   const signGroup = new THREE.Group();
@@ -898,8 +985,13 @@ export function buildMotel(scene, renderer) {
     const cands = [];
     if (inRect(POOL, x, z)) {
       if (inRect(POOL_STEPS, x, z)) {
-        const t = THREE.MathUtils.clamp((z - POOL_STEPS.z0) / (POOL_STEPS.z1 - POOL_STEPS.z0), 0, 1);
-        cands.push(POOL.y + t * 3);
+        const depth = (POOL_STEPS.z1 - POOL_STEPS.z0) / 4;
+        const index = THREE.MathUtils.clamp(
+          Math.floor((z - POOL_STEPS.z0) / depth),
+          0,
+          3,
+        );
+        cands.push(POOL.y + (index + 1) * 0.75);
       } else {
         cands.push(POOL.y);
       }

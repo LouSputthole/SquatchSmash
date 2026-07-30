@@ -28,14 +28,12 @@ import { createMotelStory } from '../core/motel-story.js';
 // ---------------------------------------------------------------------------
 
 const PLAYER_SCALE = 0.85;
-const PLAYER_R = 0.8;
+const PLAYER_R = 0.42;
+const PLAYER_EYE = 1.62;
 const GRAVITY = 26;
 const JUMP_V = 9.2;
-const WALK = 7.2;
-const RUN = 11.4;
-const CAM_FAR = 7.2;
-const CAM_NEAR = 4.0;
-const CAM_MIN = 1.1;   // hard floor when a wall crowds the shot
+const WALK = 4.8;
+const RUN = 7.6;
 
 const campaign = createCampaign();
 if (campaign.state.scene.id !== SCENE_IDS.JERKY_MOTEL) {
@@ -246,7 +244,6 @@ let feetY = 0;
 let vy = 0;
 let camYaw = Math.PI;   // looking at the motel
 let camPitch = -0.06;
-let camDist = CAM_FAR;
 let shake = 0;
 let hitStop = 0;
 let attackCd = 0;
@@ -566,7 +563,7 @@ function startScene() {
   renderObjectiveList();
 
   // Seat Prospect in the passenger seat
-  pos.set(-6.9, 0, 16.4);
+  pos.set(-7.55, 0, 16.4);
   feetY = 0.55;
   camYaw = Math.PI * 0.98;
 
@@ -578,7 +575,7 @@ function startScene() {
   watcher = spawnActor({ ...CAST.watcher(), x: 6, z: -1.6, state: 'idle' });
   watcher.group.position.y = level.DECK_Y;
   watcher.anchor = { x: 6, z: -1.6 };
-  clerk = spawnActor({ ...CAST.clerk(), x: -44, z: -6.4, state: 'idle' });
+  clerk = spawnActor({ ...CAST.clerk(), x: -44, z: -8.2, state: 'idle' });
 
   say('Manny', 'Room twelve. They show the meat first. You show the money second.', 4.2);
   setTimeout(() => { if (phase === 'car') openDialogue('mannyBrief'); }, 1400);
@@ -967,7 +964,8 @@ addInteract({
     S.mattressCover = true;
     const bed = refs.beds[0];
     bed.mattress.rotation.z = 1.35;
-    bed.mattress.position.set(-1.9, 1.1, -12.6);
+    // Mattress coordinates are local to the bed group at (-3.1, 0, -12.6).
+    bed.mattress.position.set(1.2, 1.1, 0);
     toast('COVER UP', '', 'Ranged damage is halved while you are behind the mattress');
     sfx.punch(false);
   },
@@ -1293,18 +1291,18 @@ function enterRoom() {
   phase = 'room';
   S.enteredRoom = true;
   S.dealStarted = true;
-  pos.set(0, 0, -6.2);
+  pos.set(-0.2, 0, -5.4);
   feetY = 0;
   completeObjective('reach');
   setObjective('inspect', 'Confirm the merchandise');
 
   // Everyone takes their positions
-  rico.anchor = { x: 0.2, z: -7.6 };
+  rico.anchor = { x: 1.2, z: -8.3 };
   rico.state = 'deal';
-  rico.group.position.set(0.2, 0, -7.6);
-  chino = spawnActor({ ...CAST.chino(), x: -1.4, z: -5.2, state: 'guard' });
-  chino.anchor = { x: -1.4, z: -5.2 };
-  slicer = spawnActor({ ...CAST.slicer(), x: 3.4, z: -14.2, state: 'idle' });
+  rico.group.position.set(1.2, 0, -8.3);
+  chino = spawnActor({ ...CAST.chino(), x: -1.2, z: -7.8, state: 'guard' });
+  chino.anchor = { x: -1.2, z: -7.8 };
+  slicer = spawnActor({ ...CAST.slicer(), x: 2.2, z: -13.5, state: 'idle' });
   slicer.group.visible = true;
 
   // The door closes behind you
@@ -1620,7 +1618,7 @@ function resolvePlayerHit(st) {
   let hitAny = false;
 
   for (const a of actors) {
-    if (!a.alive || a.role === 'ally' || a === manny) continue;
+    if (!a.alive || a.faction === 'friendly' || a === manny) continue;
     const dx = a.position.x - pos.x;
     const dz = a.position.z - pos.z;
     const d = Math.hypot(dx, dz);
@@ -1672,7 +1670,7 @@ function onRanged() {
   let best = null;
   let bestD = st.reach;
   for (const a of actors) {
-    if (!a.alive || a.role === 'ally') continue;
+    if (!a.alive || a.faction === 'friendly') continue;
     const dx = a.position.x - pos.x;
     const dz = a.position.z - pos.z;
     const d = Math.hypot(dx, dz);
@@ -1759,6 +1757,7 @@ function disposeWeapon(where) {
 }
 
 function enemyMelee(a) {
+  if (a.faction === 'friendly' || !a.hostile) return;
   const d = Math.hypot(a.position.x - pos.x, a.position.z - pos.z);
   const st = a.stats();
   if (d > st.reach + 0.7) return;
@@ -1773,6 +1772,7 @@ function enemyMelee(a) {
 }
 
 function enemyShoot(a) {
+  if (a.faction === 'friendly' || !a.hostile) return;
   sfx.gunshot();
   S.policeHeat += 4;
   const behindCover = S.mattressCover && Math.hypot(pos.x + 1.9, pos.z + 12.6) < 2.5;
@@ -1788,7 +1788,7 @@ function allyAttack(ally, foe) {
 }
 
 function startGrapple(a) {
-  if (grapple || !a.alive) return;
+  if (grapple || !a.alive || a.faction === 'friendly' || !a.hostile) return;
   if (Math.hypot(a.position.x - pos.x, a.position.z - pos.z) > 2.6) return;
   grapple = { actor: a, progress: 0, t: 0 };
   grappleEl.classList.add('show');
@@ -1890,7 +1890,7 @@ function nearestHostile(x, z, radius) {
   let best = null;
   let bd = radius;
   for (const a of actors) {
-    if (!a.alive || a.role === 'ally' || !a.hostile) continue;
+    if (!a.alive || a.faction === 'friendly' || !a.hostile) continue;
     const d = Math.hypot(a.position.x - x, a.position.z - z);
     if (d < bd) { bd = d; best = a; }
   }
@@ -1903,7 +1903,7 @@ function nearestHostileInFront(radius) {
   let best = null;
   let bd = radius;
   for (const a of actors) {
-    if (!a.alive || a.role === 'ally') continue;
+    if (!a.alive || a.faction === 'friendly') continue;
     const dx = a.position.x - pos.x;
     const dz = a.position.z - pos.z;
     const d = Math.hypot(dx, dz);
@@ -2139,6 +2139,12 @@ function checkRoomCleared() {
 }
 
 function actorReachedTarget(a) {
+  if (a.faction === 'friendly') {
+    a.target = null;
+    a.afterGoto = null;
+    a.state = S.mannyInside ? 'follow' : 'idle';
+    return;
+  }
   if (a === rico && a.afterGoto === 'grabmoney') {
     S.moneyTakenByRico = true;
     S.moneyRecovered = false;
@@ -2393,37 +2399,21 @@ function updateCamera(dt) {
   if (keys.has('lookU')) camPitch = Math.min(0.5, camPitch + dt * 1.2);
   if (keys.has('lookD')) camPitch = Math.max(-0.85, camPitch - dt * 1.2);
 
-  const indoors = insideRoom() || (pos.z < -4 && pos.z > -17 && Math.abs(pos.x) < 18);
-  const wanted = phase === 'car' || phase === 'boarding' ? 4.2 : indoors ? CAM_NEAR : CAM_FAR;
-  camDist += (wanted - camDist) * Math.min(1, 4 * dt);
-
-  const pivotY = feetY + 2.5;
   const dirX = Math.sin(camYaw) * Math.cos(camPitch);
   const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
   const dirY = Math.sin(camPitch);
+  const bodyBob = phase === 'car' || phase === 'boarding'
+    ? 0
+    : Math.max(-0.06, Math.min(0.08, player.group.position.y - feetY));
+  const eyeY = (phase === 'car' || phase === 'boarding' ? 1.55 : feetY + PLAYER_EYE)
+    + bodyBob * 0.45;
 
-  // Over-the-shoulder offset keeps Prospect out of the middle of the frame
-  const shoulder = indoors ? 1.0 : 0.55;
-  const offX = -Math.cos(camYaw) * shoulder;
-  const offZ = Math.sin(camYaw) * shoulder;
-  const px = pos.x + offX;
-  const pz = pos.z + offZ;
-
-  // Pull the camera in when a wall gets between it and Prospect
-  let dist = camDist;
-  for (let s = 0.5; s <= camDist; s += 0.35) {
-    const cx = px - dirX * s;
-    const cy = pivotY - dirY * s + 0.35;
-    const cz = pz - dirZ * s;
-    if (cy < 0.5 || pointBlocked(cx, cy, cz, 0.4)) { dist = Math.max(CAM_MIN, s - 0.45); break; }
-  }
-
-  let camY = pivotY - dirY * dist + 0.35;
-  if (indoors) camY = Math.min(camY, 3.05);      // stay under the motel ceiling
-  _camPos.set(px - dirX * dist, camY, pz - dirZ * dist);
-  camera.position.lerp(_camPos, 1 - Math.exp(-14 * dt));
-  // If the room squeezes the camera onto Prospect's back, get him out of the way
-  player.group.visible = dist > 2.4 || phase === 'car' || phase === 'boarding';
+  // Motel play is first-person in every walkable phase. The old trailing
+  // camera repeatedly wedged Tony's body between the lens, room furniture,
+  // and doors, making the already-dense room unreadable.
+  _camPos.set(pos.x, eyeY, pos.z);
+  camera.position.copy(_camPos);
+  player.group.visible = false;
 
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.6);
@@ -2432,7 +2422,11 @@ function updateCamera(dt) {
     camera.position.z += (Math.random() - 0.5) * shake;
   }
 
-  _lookAt.set(px + dirX * 3, Math.min(pivotY + dirY * 3, indoors ? 3.1 : 40), pz + dirZ * 3);
+  _lookAt.set(
+    pos.x + dirX * 8,
+    eyeY + dirY * 8,
+    pos.z + dirZ * 8,
+  );
   camera.lookAt(_lookAt);
 
   refs.moon.position.set(pos.x - 40, 60, pos.z + 35);
@@ -2585,7 +2579,7 @@ function startDrive() {
   drive.t = 0;
   drive.x = 0;
   drive.speed = 30;
-  camera.fov = 68;
+  camera.fov = 70;
   camera.updateProjectionMatrix();
   setObjective('escape', S.mannyInjured ? 'Manny is hurt — you are driving' : 'Get to the Sasquatch safehouse');
   say(S.mannyInjured ? 'Prospect' : 'Manny', S.mannyInjured ? 'Hold the case. I am driving.' : 'Seatbelt. Or do not. You are the size of a seatbelt.', 3.6);
@@ -2679,9 +2673,11 @@ function updateDrive(dt) {
     toast('POLICE', 'warn', 'Lights behind you. Lose them.');
   }
 
-  // Camera: chase view
-  camera.position.set(drive.x * 0.6, 4.6, 11.5);
-  camera.lookAt(drive.x * 0.5, 1.6, -14);
+  // Keep the getaway in first person as well. Tony rides on the passenger
+  // side unless Manny is injured and Tony has to take the wheel.
+  const seatX = S.mannyInjured ? -0.42 : 0.42;
+  camera.position.set(drive.x + seatX, 1.62, 0.25);
+  camera.lookAt(drive.x + seatX - steer * 0.8, 1.5, -22);
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.8);
     camera.position.x += (Math.random() - 0.5) * shake;
@@ -3006,6 +3002,11 @@ function tick() {
         if (grapple.progress >= 100) {
           endGrapple();
           openDoor(refs.bathDoor);
+          // The wake-up beat happens in the tub, but control resumes on clear
+          // tile instead of leaving Tony embedded in the tub collider.
+          pos.set(2.0, 0, -10.0);
+          feetY = 0;
+          vy = 0;
           say('Prospect', 'Motel bathtubs are not built for this species.', 3.2);
           phase = S.carryingJerky ? 'escape' : 'recover';
         }
@@ -3067,7 +3068,17 @@ window.MOTEL = {
   get achievements() { return [...achieved]; },
   get interactables() { return interactables.map((i) => i.id); },
   get interactableList() { return interactables; },
-  scene, three: THREE,
+  scene, camera, renderer, three: THREE,
+  get cameraMode() { return phase === 'drive' ? 'first_person_drive' : 'first_person'; },
+  get playerRadius() { return PLAYER_R; },
+  get facing() {
+    return {
+      x: Math.sin(camYaw) * Math.cos(camPitch),
+      y: Math.sin(camPitch),
+      z: Math.cos(camYaw) * Math.cos(camPitch),
+    };
+  },
+  isBlocked: (x, z, y = feetY, radius = PLAYER_R) => blocked(x, z, y, radius),
   start: startScene,
   teleport: (x, z) => { pos.set(x, 0, z); feetY = level.floorAt(x, z, 0); },
   face: (x, z) => { camYaw = Math.atan2(x - pos.x, z - pos.z); },
