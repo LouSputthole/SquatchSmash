@@ -202,11 +202,19 @@ try {
       && answered.event === 'answered'
       && answered.mission === 'available',
     JSON.stringify(answered));
-  check('the apartment door exposes the airstrip gate without navigating to a fake scene',
-    answered.departure?.kind === 'mission'
-      && answered.departure?.id === 'airstrip_smuggling'
-      && answered.departure?.characterId === 'captain_lou_sasole',
+  check('the apartment door now routes to the real Beef Run scene',
+    answered.departure?.kind === 'go'
+      && answered.departure?.destination === 'airstrip_smuggling',
     JSON.stringify(answered.departure));
+  const departTime = await page.evaluate(() => {
+    const story = window.__squatch.campaign.state.story;
+    return { day: story.day, timeMinutes: story.timeMinutes, events: story.timeEvents };
+  });
+  check('leaving for the airstrip lands at Day 2, 9:10 AM through the authored clock',
+    departTime.day === 2
+      && departTime.timeMinutes === 9 * 60 + 10
+      && departTime.events.includes('travel.airstrip'),
+    JSON.stringify(departTime));
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });

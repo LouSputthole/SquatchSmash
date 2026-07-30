@@ -13,6 +13,8 @@ import { AudioEngine } from '../core/audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
+import { createAirstripStory } from '../core/airstrip-story.js';
 
 import { WP, EH, AC, DIFFICULTY } from './config.js';
 import { TerrainStreamingSystem, terrainHeight } from './terrain.js';
@@ -75,16 +77,26 @@ window.addEventListener('resize', () => {
 /* Systems                                                            */
 /* ------------------------------------------------------------------ */
 
+/* The campaign owns the save. Entering the page claims the scene; the story
+ * class gates the mission on Booskibro's answered call and records checkpoints,
+ * cargo, detection, and completion against Captain Lou Sasole's mission. In
+ * preview mode createCampaign() gives page-local memory storage instead. */
+const campaign = createCampaign();
+if (campaign.state.scene.id !== SCENE_IDS.AIRSTRIP_SMUGGLING) {
+  campaign.enter(SCENE_IDS.AIRSTRIP_SMUGGLING, { spawn: 'hangar' });
+}
+const story = createAirstripStory({ campaign });
+
 const audio = new AudioEngine();
 const missionAudio = new MissionAudio(audio);
 const hud = new Hud();
 const flightHud = new FlightHud();
 const interaction = new InteractionSystem(camera, hud);
-const world = { colliders: [], floorZones: [] };
+// The flat has a floor at zero; this place has mountains. The player rides
+// whatever world.groundAt returns, exactly like the Bing's stage.
+const world = { colliders: [], floorZones: [], groundAt: terrainHeight };
 const player = new Player(camera, world);
 player.mode = 'walk';
-// The flat has a floor at zero; this place has mountains. See Player.groundAt.
-player.groundAt = terrainHeight;
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const terrain = new TerrainStreamingSystem(scene);
@@ -127,6 +139,7 @@ const mission = new MissionController({
   scene, camera, renderer, hud, flightHud, dialogue, audio: missionAudio, input,
   cameras, player, interaction, physics, engines, aircraft, cargo, weather,
   detection, terrain, airfield, airstrip, landmarks, lou, stove, preflight,
+  story,
 });
 
 // Prime the terrain around the field so the first frame is not empty.
@@ -135,13 +148,15 @@ terrain.prime(airfield.anchors.parking.x, airfield.anchors.parking.z);
 window.__beefrun = {
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
   player, cameras, dialogue, interaction, input, audio: missionAudio, hud, flightHud,
+  campaign, story,
+  get campaignState() { return campaign.state; },
 };
 
 /* ------------------------------------------------------------------ */
 /* Start / pause                                                      */
 /* ------------------------------------------------------------------ */
 
-const game = { started: false, paused: true, difficulty: 'standard' };
+const game = { started: false, paused: true, difficulty: 'standard', resume: null };
 
 for (const btn of diffButtons) {
   btn.addEventListener('click', () => {
@@ -151,7 +166,35 @@ for (const btn of diffButtons) {
 }
 diffButtons.find((b) => b.dataset.difficulty === 'standard')?.classList.add('on');
 
+/* Why the mission cannot start, in the door's one-excuse voice. */
+const UNAVAILABLE = {
+  already_complete: 'The jerky is delivered. The Captain has nothing else for you today.',
+  squatchfather_incomplete: 'The restaurant job comes first.',
+  booski_call_incomplete: 'Booskibro has not called about this yet.',
+  mission_locked: 'Nobody has told you about an airstrip.',
+};
+
+/* Campaign checkpoints map onto the mission's own restore points. `airstrip`
+ * is the on-foot arrival, which is what begin() already gives you. */
+const RESUME_CHECKPOINT = {
+  remote_strip: 'approach',
+  returning: 'departure',
+  landed_home: 'return',
+};
+
 startBtn.addEventListener('click', async () => {
+  if (!game.started) {
+    const started = story.begin();
+    if (!started.ok) {
+      const tag = overlay.querySelector('.tag');
+      if (tag) tag.textContent = UNAVAILABLE[started.reason] ?? 'The airstrip is quiet today.';
+      startBtn.disabled = true;
+      startBtn.textContent = 'Mission unavailable';
+      return;
+    }
+    game.resume = started.resumed ? RESUME_CHECKPOINT[started.checkpoint] : null;
+  }
+
   await audio.init();
   const sfx = await audio.loadManifest();
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
@@ -165,10 +208,19 @@ startBtn.addEventListener('click', async () => {
     game.started = true;
     mission.begin(game.difficulty);
     audio.startLoop('ambience.city.day', { volume: 0.03, ambience: true, fade: 3 });
-    hud.say('<em>Whispering Pines Municipal.</em> Captain Sasole is by the aeroplane.', 5200);
+    if (game.resume) {
+      mission.restoreCheckpoint(game.resume);
+      hud.say('<em>Back where you left it.</em>', 4200);
+    } else {
+      hud.say('<em>Whispering Pines Municipal.</em> Captain Sasole is by the aeroplane.', 5200);
+    }
   }
   game.paused = false;
   mission.paused = false;
+});
+
+document.getElementById('br-home')?.addEventListener('click', () => {
+  navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
 });
 
 let dragLook = false;
@@ -205,7 +257,8 @@ document.addEventListener('pointerlockchange', () => {
   player.enabled = locked && !mission.flags.inCockpit;
   input.enabled = locked;
   document.body.classList.toggle('unlocked', !locked);
-  if (!locked && game.started) pauseGame();
+  // Once the end card is up, losing the lock is the point, not a pause.
+  if (!locked && game.started && !mission.finished) pauseGame();
 });
 
 function pauseGame() {

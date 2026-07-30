@@ -1968,6 +1968,11 @@ function leaveForMission(destination) {
     });
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.AIRSTRIP_SMUGGLING) {
+    // The mission's own story class flips it to in_progress at the field.
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_AIRSTRIP);
+    syncClockFromCampaign();
+  }
 
   interaction.setPaused(true);
   hud.hidePrompt();

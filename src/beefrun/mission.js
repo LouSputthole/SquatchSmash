@@ -128,8 +128,9 @@ export class MissionController {
 
     const start = this.airfield.anchors.playerStart;
     this.player.position.set(start.x, WP.elev + 1.66, start.z);
-    this.player.eyeHeight = WP.elev + 1.66;
-    this.player.targetEye = WP.elev + 1.66;
+    // The integration player keeps the eye height relative and rides
+    // world.groundAt; seeding `ground` skips the smoothing swoop up from zero.
+    this.player.ground = WP.elev;
     // The apartment's player faces -Z at yaw 0; build.js already knows this.
     this.player.yaw = yawToward(start, park);
     this.player.mode = 'walk';
@@ -366,8 +367,7 @@ export class MissionController {
     const off = new THREE.Vector3(-3.2, 0, 0.5).applyQuaternion(q);
     const x = p.x + off.x, z = p.z + off.z;
     this.player.position.set(x, terrainHeight(x, z) + 1.66, z);
-    this.player.eyeHeight = this.player.position.y;
-    this.player.targetEye = this.player.position.y;
+    this.player.ground = terrainHeight(x, z);
     this.player.yaw = yawToward({ x, z }, p);
     this.player.pitch = 0;
     this.player.mode = 'walk';
@@ -1095,8 +1095,10 @@ export class MissionController {
   }
 
   onDetectionState(state) {
-    if (state === 'located') this.audio.setPhase('chase');
-    else if (state === 'unnoticed' && this.phase === 'return') this.audio.setPhase('ret');
+    if (state === 'located') {
+      this.audio.setPhase('chase');
+      this.story?.markDetected();
+    } else if (state === 'unnoticed' && this.phase === 'return') this.audio.setPhase('ret');
   }
 
   /* ---------------------------------------------------------------- */
@@ -1171,6 +1173,18 @@ export class MissionController {
 
   saveCheckpoint(name) {
     this.checkpoint = name;
+    /* The campaign save keeps the coarse mission state so a reload resumes at
+     * the same place. Cargo is recorded before `returning`, which requires it. */
+    if (this.story) {
+      if (name === 'departure') this.story.loadCargo();
+      const persisted = {
+        takeoff: 'airstrip',
+        approach: 'remote_strip',
+        departure: 'returning',
+        return: 'landed_home',
+      }[name];
+      if (persisted) this.story.checkpoint(persisted);
+    }
     this.checkpointData = {
       name,
       position: this.physics.position.clone(),
@@ -1339,6 +1353,11 @@ export class MissionController {
     this.setObjective('');
     this.audio.setPhase('silent');
     this.audio.setStallHorn(false);
+    // Durable completion first, so the end card never promises a save that
+    // did not happen. The rank is the persisted landing quality.
+    if (this.story && !this.story.complete({ landingQuality: this.report().rank })) {
+      console.warn('[beefrun] mission completion could not be recorded');
+    }
     // Squatch associates come out of the shadows and unload the crates.
     const hangar = this.airfield.anchors.hangarDoor;
     for (let i = 0; i < 4; i++) {

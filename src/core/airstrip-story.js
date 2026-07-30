@@ -1,6 +1,7 @@
 import {
   EVENT_IDS,
   MISSION_IDS,
+  TIME_EVENT_IDS,
 } from './campaign.js';
 
 const CHECKPOINTS = Object.freeze([
@@ -89,6 +90,7 @@ class AirstripStory {
       completed.landingQuality = typeof landingQuality === 'string'
         ? landingQuality : 'unknown';
     });
+    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_AIRSTRIP);
     return true;
   }
 }

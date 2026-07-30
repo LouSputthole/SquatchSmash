@@ -52,6 +52,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
   LOU_SECOND_CALL: 'call.lou_second',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
+  DEPART_AIRSTRIP: 'travel.airstrip',
+  COMPLETE_AIRSTRIP: 'mission.airstrip',
 });
 
 const TIME_EVENTS = Object.freeze({
@@ -65,6 +67,14 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
+  }),
+  // "Whispering Pines Municipal, ten past nine." The drive out to the field.
+  [TIME_EVENT_IDS.DEPART_AIRSTRIP]: Object.freeze({
+    atLeast: Object.freeze({ day: 2, timeMinutes: 9 * 60 + 10 }),
+  }),
+  // The return leg is flown at dusk; the mission ends after dark.
+  [TIME_EVENT_IDS.COMPLETE_AIRSTRIP]: Object.freeze({
+    atLeast: Object.freeze({ day: 2, timeMinutes: 20 * 60 + 30 }),
   }),
 });
 const MINUTES_PER_DAY = 24 * 60;
@@ -98,7 +108,7 @@ const SCENES = Object.freeze({
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   [SCENE_IDS.AIRSTRIP_SMUGGLING]: Object.freeze({
-    href: 'airstrip.html',
+    href: 'beefrun.html',
     defaultSpawn: 'hangar',
     spawns: Object.freeze(['hangar']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
@@ -657,6 +667,7 @@ function seedPreviewCampaign(campaign, sceneId) {
 
     if ([
       SCENE_IDS.SQUATCHFATHER,
+      SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.JERKY_MOTEL,
     ].includes(sceneId)) {
@@ -670,6 +681,15 @@ function seedPreviewCampaign(campaign, sceneId) {
       if (!state.inventory.concealed.includes(ITEM_IDS.LOU_PACKAGE)) {
         state.inventory.concealed.push(ITEM_IDS.LOU_PACKAGE);
       }
+      return;
+    }
+
+    if (sceneId === SCENE_IDS.AIRSTRIP_SMUGGLING) {
+      squatchfather.status = 'complete';
+      squatchfather.weaponStaged = true;
+      squatchfather.weaponDropped = true;
+      state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+      airstrip.status = 'available';
       return;
     }
 

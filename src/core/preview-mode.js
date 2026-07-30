@@ -59,6 +59,9 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   if (pathname.endsWith('/squatchfather.html') || pathname.endsWith('squatchfather.html')) {
     return 'squatchfather';
   }
+  if (pathname.endsWith('/beefrun.html') || pathname.endsWith('beefrun.html')) {
+    return 'airstrip_smuggling';
+  }
   if (pathname.endsWith('/bing.html') || pathname.endsWith('bing.html')) {
     return searchParams(locationLike).get('visit') === '2'
       ? 'bada_bing_two'

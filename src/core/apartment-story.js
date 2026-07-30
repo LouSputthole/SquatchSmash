@@ -161,10 +161,8 @@ class ApartmentStory {
       }
       if (state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status !== 'complete') {
         return {
-          kind: 'mission',
-          id: MISSION_IDS.AIRSTRIP_SMUGGLING,
-          characterId: CHARACTER_IDS.CAPTAIN_LOU_SASOLE,
-          line: 'Captain Lou Sasole is waiting at the airstrip. The travel route is not connected yet.',
+          kind: 'go',
+          destination: SCENE_IDS.AIRSTRIP_SMUGGLING,
         };
       }
       if (!this.#eventAnswered(EVENT_IDS.LOU_SECOND_CALL)) {

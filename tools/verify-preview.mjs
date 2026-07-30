@@ -89,9 +89,9 @@ try {
     links: [...document.querySelectorAll('[data-preview-scene]')]
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
   }));
-  check('the launcher exposes all four requested previews',
+  check('the launcher exposes all five requested previews',
     launcher.title === 'Scene preview'
-      && launcher.links.length === 4
+      && launcher.links.length === 5
       && launcher.links.every(([, href]) => href.includes('preview=1')),
     JSON.stringify(launcher));
   check('opening the launcher leaves the canonical save untouched',

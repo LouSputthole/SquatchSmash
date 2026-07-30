@@ -219,6 +219,8 @@ export class FlightHud {
    * @param {object} report from MissionController.report()
    */
   showComplete(report) {
+    // The card has buttons, and a locked pointer cannot reach a button.
+    document.exitPointerLock?.();
     const rows = report.stats.map((s) => `
       <div class="stat">
         <span class="k">${s.label}</span>
