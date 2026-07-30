@@ -407,6 +407,18 @@ getter and `setPose` that disagreed by 180 degrees, a wing leveller with its
 sign inverted, a coordination assist that drove sideslip instead of nulling it,
 and cylinders that cooked themselves within twenty seconds of full power.
 
+The best of them was a nosewheel that steered the wrong way. Full right pedal
+produced twenty-two degrees a second squared of *left* yaw at every ground speed
+below 20 m/s. It did not present as reversed controls, because the propeller
+swing is always to the left and the rudder always wins in the end — it presented
+as an aeroplane that wandered twenty-odd metres left on every full-power roll
+and then straightened up, which is survivable on a runway and fatal on a strip
+sixteen metres wide. Three earlier attempts to fix "the swing" were all
+compensating for an inverted control. What found it was measuring yaw
+acceleration open-loop, one speed at a time, in both directions; what would have
+found it sooner was a drift limit tied to the width of the strip instead of a
+round number, since the old limit was 25 m and the bug was 24.
+
 Everything in it is invented — the aeroplane, both airfields, the Bureau, the
 jerky, and its lineage.
 
