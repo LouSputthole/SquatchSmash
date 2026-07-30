@@ -184,9 +184,16 @@ export function buildRoom(scene, { renderer } = {}) {
    * (kit.js exports `lit`, which sounds like this and is not: it makes an
    * emissive *material* for the glowing panel a lamp is usually inside.)
    */
-  const LUMENS = 7;
+  const LUMENS = 13;
   function pointLight(colour, power, distance = 10) {
-    return new THREE.PointLight(colour, power * LUMENS, distance, 2);
+    const l = new THREE.PointLight(colour, power * LUMENS, distance, 2);
+    /* Stashed on the light, because the dimmer reads it back every frame and
+     * reading back the *unconverted* number is exactly what went wrong: it
+     * reset every fitting in the building to a thirteenth of its brightness on
+     * the first frame, and the first render of the dining room was a black
+     * rectangle with two hundred people in it. */
+    l.userData.base = power * LUMENS;
+    return l;
   }
 
   function add(...objs) {
@@ -299,6 +306,51 @@ export function buildRoom(scene, { renderer } = {}) {
   }
 
   /* ================================================================ */
+  /* Night                                                             */
+  /* ================================================================ */
+
+  /* The mistake worth writing down: every light in this building is a lamp,
+   * every lamp has a falloff, and with nothing global there is simply no light
+   * more than nine metres from a fitting. The first render of the street was a
+   * black rectangle with a subtitle on it.
+   *
+   * A cold hemisphere and a moon, the same pair the Bing uses, so a wet street
+   * outside and a dark room inside both have something to be dark *against*.
+   * Both are deliberately weak: the warm pools of the fittings are supposed to
+   * be what you see by, and the club is meant to be darker than it needs to be.
+   */
+  scene.background = new THREE.Color(0x06060a);
+  scene.fog = new THREE.FogExp2(0x08080e, 0.013);
+
+  add(new THREE.HemisphereLight(0x2c3752, 0x0c0c12, 0.55));
+  const moon = new THREE.DirectionalLight(0x9fb4e8, 0.7);
+  moon.position.set(-40, 46, 60);
+  moon.castShadow = true;
+  moon.shadow.mapSize.set(1024, 1024);
+  moon.shadow.camera.left = -50;
+  moon.shadow.camera.right = 50;
+  moon.shadow.camera.top = 50;
+  moon.shadow.camera.bottom = -50;
+  moon.shadow.camera.far = 160;
+  moon.shadow.bias = -0.0012;
+  add(moon, moon.target);
+
+  /* And a floor under the whole city, so the drop-off is on a road rather than
+   * on the edge of the world. */
+  {
+    const tex = tiled(asphalt(), 30, 30);
+    if (renderer) tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+    const g = new THREE.Mesh(
+      new THREE.PlaneGeometry(300, 300),
+      mat({ map: tex, roughness: 0.44, metalness: 0.08 }),
+    );
+    g.rotation.x = -Math.PI / 2;
+    g.position.set(0, -0.02, 20);
+    g.receiveShadow = true;
+    add(g);
+  }
+
+  /* ================================================================ */
   /* The street                                                        */
   /* ================================================================ */
 
@@ -314,7 +366,10 @@ export function buildRoom(scene, { renderer } = {}) {
     // The frontage: brick, a canopy, and the sign
     wallGap('x', 34.2, -22, 22, -3.4, 3.4, 9, M_BRICK, 0.4);
     wall(-22, 34.2, -22, 26, 9, M_BRICK, 0.4);
-    wall(22, 34.2, 22, -22, 9, M_BRICK, 0.4);
+    /* The east return of the frontage, z 26..34.2 -- not 34.2 down to -22,
+     * which is an x value in a z slot and builds a brick wall fifty-six metres
+     * long straight through the cellar, the kitchen and the dining room. */
+    wall(22, 34.2, 22, 26, 9, M_BRICK, 0.4);
 
     // Canopy over the public door, and the queue under it
     add(box({ size: [11, 0.16, 4.6], pos: [0, 3.3, 32], mat: M_BURGUNDY }));
@@ -345,7 +400,7 @@ export function buildRoom(scene, { renderer } = {}) {
     nameLight.position.set(0, 4.4, 32.4);
     nameLight.distance = 13;
     add(nameLight);
-    houseLights.push({ light: nameLight, base: 3.2, exterior: true });
+    houseLights.push({ light: nameLight, exterior: true });
 
     const smallTex = printed('silver-tonight', ['TONIGHT', 'THE MIDNIGHT PINES', 'TWO SETS'], {
       w: 256, h: 200, bg: '#120c08', fg: '#d8c48a',
@@ -369,7 +424,7 @@ export function buildRoom(scene, { renderer } = {}) {
       l.position.set(-22.6, 6.1, pz);
       l.distance = 20;
       add(l);
-      houseLights.push({ light: l, base: 2.6, exterior: true });
+      houseLights.push({ light: l, exterior: true });
     }
   }
 
@@ -400,7 +455,7 @@ export function buildRoom(scene, { renderer } = {}) {
     doorLight.position.set(30.9, 2.35, 11.7);
     doorLight.distance = 9;
     add(doorLight);
-    houseLights.push({ light: doorLight, base: 2.4, exterior: true });
+    houseLights.push({ light: doorLight, exterior: true });
 
     // A milk crate holding a fire door open two metres further down
     add(box({ size: [0.42, 0.34, 0.42], pos: [30.9, 0.17, 6.2], mat: mat({ color: 0x2a4a2a, roughness: 0.9 }) }));
@@ -520,8 +575,8 @@ export function buildRoom(scene, { renderer } = {}) {
       l.position.set(22, CELLAR_Y + 2.15, lz);
       l.distance = 12;
       add(l);
-      if (lz === -2) neon.push({ light: l, base: 2.4, next: 0, on: true, kind: 'flicker' });
-      houseLights.push({ light: l, base: 2.4, back: true });
+      if (lz === -2) neon.push({ light: l, base: l.userData.base, next: 0, on: true, kind: 'flicker' });
+      houseLights.push({ light: l, back: true });
     }
 
     /* ---- dry store and walk-in ---- */
@@ -561,7 +616,7 @@ export function buildRoom(scene, { renderer } = {}) {
     coldLight.position.set(25, CELLAR_Y + 2.1, -10);
     coldLight.distance = 10;
     add(coldLight);
-    houseLights.push({ light: coldLight, base: 1.6, back: true });
+    houseLights.push({ light: coldLight, back: true });
     for (const hx of [23, 26.5]) {
       for (let h = 0; h < 3; h++) {
         add(box({ size: [0.16, 0.5, 0.24], pos: [hx, CELLAR_Y + 1.7, -8 - h * 1.8], mat: mat({ color: 0x8a4a44, roughness: 0.75 }) }));
@@ -627,7 +682,7 @@ export function buildRoom(scene, { renderer } = {}) {
     passLight.position.set(19, 1.9, -6.6);
     passLight.distance = 8;
     add(passLight);
-    houseLights.push({ light: passLight, base: 3.4, back: true });
+    houseLights.push({ light: passLight, back: true });
 
     // The line: ranges, a salamander, and a lot of steel
     for (let i = 0; i < 4; i++) {
@@ -680,7 +735,7 @@ export function buildRoom(scene, { renderer } = {}) {
         l.position.set(lx, CEIL_BACK - 0.3, lz);
         l.distance = 11;
         add(l);
-        houseLights.push({ light: l, base: 2.2, back: true });
+        houseLights.push({ light: l, back: true });
       }
     }
 
@@ -723,7 +778,7 @@ export function buildRoom(scene, { renderer } = {}) {
     barLight.position.set(13.6, 2.3, 10.5);
     barLight.distance = 8;
     add(barLight);
-    houseLights.push({ light: barLight, base: 2.2, back: true });
+    houseLights.push({ light: barLight, back: true });
 
     // Coat check: a counter, a rail, ninety-two numbered tickets
     add(box({ size: [0.5, 1.1, 3.4], pos: [14.6, 0.55, 20], mat: M_DARKWOOD }));
@@ -750,7 +805,7 @@ export function buildRoom(scene, { renderer } = {}) {
       l.distance = 10;
       add(l);
       add(box({ size: [0.5, 0.1, 0.5], pos: [12.4, CEIL_BACK - 0.06, lz], mat: mat({ color: 0x2a2a30, roughness: 0.9 }) }));
-      houseLights.push({ light: l, base: power, back: lz < 6 });
+      houseLights.push({ light: l, back: lz < 6 });
     }
 
     // The curtain: heavy, floor to lintel, and the last thing between you and it
@@ -825,7 +880,7 @@ export function buildRoom(scene, { renderer } = {}) {
     hostLamp.position.set(0.5, 1.5, 24.2);
     hostLamp.distance = 5;
     add(hostLamp);
-    lamps.push({ light: hostLamp, base: 1.5 });
+    lamps.push({ light: hostLamp });
 
     /* ---- the stage ---- */
     const S = ROOMS.stage;
@@ -860,11 +915,11 @@ export function buildRoom(scene, { renderer } = {}) {
     for (let i = 0; i < 5; i++) {
       const sx = -23 + i * 3.5;
       add(cylinder({ r: 0.16, h: 0.34, pos: [sx, 4.5, -8.6], mat: M_STEEL_D, rotX: 0.6 }));
-      const l = pointLight(0xfff0d0, 0);
+      const l = pointLight(0xfff0d0, 4.2, 16);
+      l.intensity = 0;                      // until the announcer says otherwise
       l.position.set(sx, 4.3, -8.8);
-      l.distance = 16;
       add(l);
-      stageLights.push({ light: l, base: 4.2 });
+      stageLights.push({ light: l });
     }
     // The backstage door, off the stage-left wing
     const B = ROOMS.backstage;
@@ -888,11 +943,16 @@ export function buildRoom(scene, { renderer } = {}) {
       // The shaded lamp, which is the whole look of the room
       g.add(cylinder({ r: 0.05, h: 0.2, pos: [0, 0.86, 0], mat: M_BRASS }));
       g.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.55 }) }));
-      const l = pointLight(0xffb45e, 0.85);
+      /* The shade glows whatever happens -- that is what you see from across
+       * the room -- but only the nearest handful actually cast light. Thirty
+       * live point lights in a forward renderer are thirty per-pixel terms in
+       * every shader in the scene, and twenty-four of them are lighting a
+       * tablecloth nobody is looking at. */
+      const l = pointLight(0xffb45e, 2.2, 5.2);
       l.position.set(x, 1.0, z);
-      l.distance = 4.2;
+      l.intensity = 0;
       add(l);
-      lamps.push({ light: l, base: 0.85 });
+      lamps.push({ light: l, x, z });
       g.position.set(x, 0, z);
       add(g);
       solid(x - r, z - r, x + r, z + r, 0, 0.8);
@@ -937,18 +997,46 @@ export function buildRoom(scene, { renderer } = {}) {
       }
     }
 
+    /* Sconces. A forty-metre room lit only from the middle of the ceiling has
+     * dark walls and dark faces at every table against them, and the brief on
+     * this was explicit: not so dark that you cannot read a face or a prompt.
+     * Brass, shaded, at head height, all the way round. */
+    for (const [sx, sz, ry] of [
+      [-29.6, -2, Math.PI / 2], [-29.6, 6, Math.PI / 2], [-29.6, 14, Math.PI / 2], [-29.6, 22, Math.PI / 2],
+      [9.7, -4, -Math.PI / 2], [9.7, 6, -Math.PI / 2], [9.7, 16, -Math.PI / 2], [9.7, 24, -Math.PI / 2],
+      [-24, 25.7, Math.PI], [-14, 25.7, Math.PI], [-4, 25.7, Math.PI],
+    ]) {
+      const sc = group('sconce');
+      sc.add(cylinder({ r: 0.04, h: 0.3, pos: [0, 0, 0], mat: M_BRASS, rotX: 0.5 }));
+      sc.add(cylinder({
+        rTop: 0.13, rBottom: 0.09, h: 0.2, pos: [0, 0.2, 0.06],
+        mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.7 }),
+      }));
+      sc.position.set(sx, 2.35, sz);
+      sc.rotation.y = ry;
+      add(sc);
+      const l = pointLight(0xffb45e, 1.35, 9);
+      l.position.set(sx + Math.sin(ry) * 0.35, 2.4, sz + Math.cos(ry) * 0.35);
+      add(l);
+      houseLights.push({ light: l });
+    }
+
     // Chandeliers: the house lights, and the thing that dims
-    for (const [cx, cz] of [[-22, 2], [-22, 16], [-10, 2], [-10, 16], [2, 10], [2, 20]]) {
+    for (const [cx, cz] of [
+      [-24, -2], [-24, 10], [-24, 22],
+      [-13, -2], [-13, 10], [-13, 22],
+      [-2, -2], [-2, 10], [-2, 22],
+      [6, 4], [6, 18],
+    ]) {
       const ch = group('chandelier');
       ch.add(cylinder({ r: 0.03, h: 1.1, pos: [0, 0.55, 0], mat: M_BRASS }));
       ch.add(cylinder({ rTop: 0.55, rBottom: 0.3, h: 0.34, pos: [0, -0.12, 0], mat: mat({ color: 0xc9a24a, roughness: 0.35, metalness: 0.7, emissive: 0x6a4a10, emissiveIntensity: 0.4 }) }));
       ch.position.set(cx, CEIL_FLOOR - 1.1, cz);
       add(ch);
-      const l = pointLight(0xffbe72, 2.1);
+      const l = pointLight(0xffbe72, 3.4, 17);
       l.position.set(cx, CEIL_FLOOR - 1.3, cz);
-      l.distance = 15;
       add(l);
-      houseLights.push({ light: l, base: 2.1, chandelier: ch });
+      houseLights.push({ light: l, chandelier: ch });
     }
 
     // Framed photographs, the length of the north wall
@@ -1004,9 +1092,9 @@ export function buildRoom(scene, { renderer } = {}) {
     lampG.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.6 }) }));
     lampG.visible = false;
     front.add(lampG);
-    const frontLight = pointLight(0xffb45e, 0);
+    const frontLight = pointLight(0xffb45e, 1.6, 4.8);
+    frontLight.intensity = 0;               // lit last, which is what makes it a table
     frontLight.position.set(0, 1.0, 0);
-    frontLight.distance = 4.6;
     front.add(frontLight);
 
     // Two settings, hidden until a waiter lays them
@@ -1088,18 +1176,74 @@ export function buildRoom(scene, { renderer } = {}) {
     if (immediate) { lighting.house = level; lighting.stage = stageLevel; applyLighting(); }
   }
 
+  /**
+   * What each fitting is doing this frame.
+   *
+   * Two things multiply together and neither owns the other: the dimmer (the
+   * house goes down for the band; the back of house and the street do not) and
+   * the pool (a light more than a room away is switched off entirely).
+   *
+   * The pool is the performance answer. This is a forward renderer: every
+   * enabled point light is a per-pixel term in every shader in the scene, and
+   * a supper club that wants a lamp on every table has eighty of them. Keeping
+   * the nearest few and switching the rest off costs nothing visually, because
+   * the *shades* still glow — the warm dots you see across the room are
+   * emissive geometry, not lights.
+   */
   function applyLighting() {
     for (const h of houseLights) {
       if (h.exterior) continue;             // the street does not care about the show
-      h.light.intensity = h.base * (h.back ? 1 : lighting.house);
+      h.light.intensity = h.light.userData.base
+        * (h.back ? 1 : lighting.house) * (h.off ? 0 : 1);
     }
-    for (const l of lamps) l.light.intensity = l.base;   // lamps never go down
-    for (const s of stageLights) s.light.intensity = s.base * lighting.stage;
+    /* The table lamps never dim with the house -- that is the whole look of
+     * the second half -- but whether they are on at all is the pool's call. */
+    for (const l of lamps) l.light.intensity = l.off ? 0 : l.light.userData.base;
+    for (const st of stageLights) st.light.intensity = st.light.userData.base * lighting.stage;
   }
   applyLighting();
 
   let curtainOpen = 0;
   function openStageCurtain(k) { curtainOpen = k; }
+
+  /**
+   * Switch off everything that is too far away to be seen by.
+   *
+   * Run at 4Hz rather than per frame: it is a sort over eighty entries and the
+   * answer does not change in a quarter of a second of walking. The one thing
+   * it must not do is flicker, so the budget is generous and the ordering is
+   * stable.
+   */
+  const LAMP_BUDGET = 8;
+  const HOUSE_BUDGET = 14;
+  let poolAt = 0;
+  function pool(p, dt) {
+    poolAt -= dt;
+    if (!p || poolAt > 0) return;
+    poolAt = 0.25;
+    for (const [list, budget] of [[lamps, LAMP_BUDGET], [houseLights, HOUSE_BUDGET]]) {
+      const near = list
+        .map((e) => ({
+          e,
+          d: Math.abs(e.light.position.x - p.x) + Math.abs(e.light.position.z - p.z),
+        }))
+        .sort((a, b) => a.d - b.d);
+      for (let i = 0; i < near.length; i++) {
+        /* Two rules, and the radius is the one that matters: a fitting more
+         * than about a room away contributes nothing you can see and costs a
+         * per-pixel term in every shader in the scene. The count is a backstop
+         * for standing in the middle of the dining room with eleven
+         * chandeliers in range.
+         *
+         * The street is exempt. The sign over the front door is meant to be
+         * visible from the far end of the alley, which is the only reason the
+         * player believes there is a front door.
+         */
+        near[i].e.off = !near[i].e.exterior && (near[i].d > 26 || i >= budget);
+      }
+    }
+    applyLighting();
+  }
 
   function update(dt, playerPos) {
     // Lights ease rather than cut; a hard cut reads as a bug in a warm room
@@ -1107,6 +1251,7 @@ export function buildRoom(scene, { renderer } = {}) {
       const d = lighting.target[key] - lighting[key];
       if (Math.abs(d) > 0.001) lighting[key] += d * Math.min(1, dt * 1.6);
     }
+    pool(playerPos, dt);
     applyLighting();
 
     for (const d of Object.values(doors)) d.update(dt);

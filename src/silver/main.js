@@ -866,7 +866,7 @@ function startTableCutscene() {
         const lampG = front.group.children.find((c) => c.name === 'front-lamp');
         if (lampG) lampG.visible = true;
         const l = front.group.children.find((c) => c.isPointLight);
-        if (l) l.intensity = 0.85 * 7;
+        if (l) l.intensity = l.userData.base;
         audio.play('cutlery.set', { volume: 0.5, position: target });
         audio.play('glass.set', { volume: 0.4, delay: 0.3, position: target });
       },

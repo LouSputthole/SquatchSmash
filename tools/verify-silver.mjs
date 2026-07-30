@@ -280,6 +280,40 @@ const afterRamps = await waitForHer();
 check('she is still with him after four doorways and two ramps',
   afterRamps < 3, `${afterRamps.toFixed(1)}m`);
 
+/* ---- the controller has to walk it, not be placed on it ----
+ * Everything above moves the player by setting his position, which is the
+ * only way to drive a first-person game headlessly and also the reason this
+ * check has to exist: setting position.y hides the question of whether the
+ * *controller* can get down there. It eases its ground height and resolves
+ * collision, and either of those can refuse a ramp. So: put him at the top,
+ * give him nothing but x and z, and see where his feet end up.
+ */
+const walked = await page.evaluate(() => {
+  const b = window.__silver;
+  b.game.drive = null;                 // the arrival tween would drag him back
+  b.player.mode = 'walk';
+  b.player._tween = null;
+  b.player.position.set(34, 1.66, 20);
+  b.player.ground = 0;
+  const legs = [[31, 12], [24, 11.5], [15.8, 11], [16.4, 5], [21, 3]];
+  const trace = [];
+  let from = { x: 34, z: 20 };
+  for (const [tx, tz] of legs) {
+    for (let i = 1; i <= 60; i++) {
+      const k = i / 60;
+      b.player.position.x = from.x + (tx - from.x) * k;
+      b.player.position.z = from.z + (tz - from.z) * k;
+      b.player.update(0.05);           // and nothing else touches y
+    }
+    trace.push(`${tx},${tz}=${b.player.ground.toFixed(2)}`);
+    from = { x: b.player.position.x, z: b.player.position.z };
+  }
+  return { trace, ground: b.player.ground, x: b.player.position.x, z: b.player.position.z };
+});
+check('the controller walks itself down the ramp into the cellar',
+  walked.ground < -2.5 && Math.abs(walked.x - 21) < 0.5,
+  walked.trace.join(' → '));
+
 /* ---- the hazard, and the kitchen ---- */
 const hazard = await page.evaluate(() => {
   const b = window.__silver;
@@ -439,11 +473,21 @@ const showState = await page.evaluate(() => {
     visible: b.band.members.filter((m) => m.group.visible).length,
     curtain: b.room.lighting.stage,
     house: b.room.lighting.house,
-    lamps: b.room.lamps.every((l) => l.light.intensity > 0),
+    /* The lamps near you stay lit when the house goes down — that is the
+     * whole look of the second half. The ones across the room are switched
+     * off by the pool, which is a performance decision and invisible: what
+     * you see at that distance is the emissive shade, not the light. */
+    lampsNear: b.room.lamps.filter((l) => l.light.intensity > 0).length,
+    lampsTotal: b.room.lamps.length,
+    lights: (() => { let n = 0; b.scene.traverse((o) => { if (o.isLight && o.intensity > 0) n++; }); return n; })(),
   };
 });
-check('seven of them, on stage, with the house down and the table lamps still lit',
-  showState.playing && showState.visible === 7 && showState.lamps, JSON.stringify(showState));
+check('seven of them, on stage, with the house down and the near table lamps still lit',
+  showState.playing && showState.visible === 7 && showState.lampsNear > 0,
+  JSON.stringify(showState));
+check('and the light budget stays sane in a room with eighty fittings in it',
+  showState.lights <= 45 && showState.lampsNear < showState.lampsTotal,
+  `${showState.lights} live lights, ${showState.lampsNear}/${showState.lampsTotal} lamps`);
 
 /* ---- the things the evening still has in it after the band ---- */
 const afterBand = await page.evaluate(() => {
