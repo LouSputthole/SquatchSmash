@@ -1289,6 +1289,92 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 0.12, type: 'bandpass', freq: 700, q: 1.6, gain: 0.2 });
       break;
 
+    /* -------- the Silver Room --------
+     * Money changing hands, a kitchen, and a room going quiet.
+     */
+    case 'tip.fold':
+      /* Folded notes going from one hand into another. Almost nothing: a
+       * paper rustle and the cuff of a jacket. It has to be quiet — the whole
+       * character of tipping in this place is that nobody acknowledges it, and
+       * a satisfying noise would make it a transaction. */
+      burst(ctx, dest, t, { dur: 0.09, type: 'highpass', freq: 3400, gain: 0.055, sweep: 0.7 });
+      burst(ctx, dest, t + 0.07, { dur: 0.07, type: 'bandpass', freq: 1500, q: 1.2, gain: 0.04 });
+      break;
+    case 'woo.up':
+      // Restrained on purpose. This is not a slot machine paying out.
+      tone(ctx, dest, t, { freq: 587, dur: 0.09, gain: 0.055, type: 'sine' });
+      tone(ctx, dest, t + 0.07, { freq: 880, dur: 0.13, gain: 0.045, type: 'sine' });
+      break;
+    case 'woo.down':
+      tone(ctx, dest, t, { freq: 392, to: 294, dur: 0.2, gain: 0.055, type: 'sine' });
+      break;
+    case 'woo.streak':
+      for (let i = 0; i < 3; i++) {
+        tone(ctx, dest, t + i * 0.1, { freq: 587 + i * 147, dur: 0.14, gain: 0.05, type: 'sine' });
+      }
+      break;
+    case 'kitchen.plate':
+      tone(ctx, dest, t, { freq: 2400, to: 2100, dur: 0.06, gain: 0.10, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.04, type: 'highpass', freq: 5200, gain: 0.10 });
+      break;
+    case 'kitchen.pan':
+      burst(ctx, dest, t, { dur: 0.22, type: 'bandpass', freq: 1100, q: 1.1, gain: 0.18, sweep: 0.6 });
+      tone(ctx, dest, t, { freq: 320, to: 180, dur: 0.16, gain: 0.10, type: 'triangle' });
+      break;
+    case 'kitchen.spray':
+      burst(ctx, dest, t, { dur: 0.7, type: 'bandpass', freq: 3800, q: 0.8, gain: 0.14 });
+      break;
+    case 'cooler.door':
+      tone(ctx, dest, t, { freq: 90, to: 52, dur: 0.34, gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + 0.18, { dur: 0.3, type: 'highpass', freq: 2200, gain: 0.10, sweep: 0.4 });
+      break;
+    case 'crate.drag':
+      burst(ctx, dest, t, { dur: 0.5, type: 'bandpass', freq: 620, q: 0.9, gain: 0.16, sweep: 0.3 });
+      break;
+    case 'cloth.snap':
+      // A tablecloth going out over a table, which is one of the best sounds
+      // in the mission and lasts about a fifth of a second.
+      burst(ctx, dest, t, { dur: 0.16, type: 'highpass', freq: 2600, gain: 0.16, sweep: 1.5 });
+      break;
+    case 'table.set':
+      tone(ctx, dest, t, { freq: 140, to: 90, dur: 0.12, gain: 0.16, type: 'triangle' });
+      burst(ctx, dest, t, { dur: 0.07, type: 'lowpass', freq: 500, gain: 0.12 });
+      break;
+    case 'chair.pull':
+      burst(ctx, dest, t, { dur: 0.3, type: 'bandpass', freq: 420, q: 1.4, gain: 0.14, sweep: 0.5 });
+      break;
+    case 'cutlery.set':
+      for (let i = 0; i < 2; i++) {
+        burst(ctx, dest, t + i * 0.09, { dur: 0.05, type: 'bandpass', freq: 4200 + i * 900, q: 5, gain: 0.08 });
+      }
+      break;
+    case 'pour':
+      // Liquid into a glass: the pitch climbs as the glass fills.
+      burst(ctx, dest, t, { dur: 0.9, type: 'bandpass', freq: 900, q: 1.6, gain: 0.11, sweep: 2.2 });
+      break;
+    case 'ice.drop':
+      tone(ctx, dest, t, { freq: 2600, to: 1900, dur: 0.07, gain: 0.09, type: 'sine' });
+      break;
+    case 'cork.pop':
+      tone(ctx, dest, t, { freq: 700, to: 180, dur: 0.06, gain: 0.30, type: 'sine' });
+      burst(ctx, dest, t + 0.04, { dur: 0.5, type: 'highpass', freq: 4000, gain: 0.09, sweep: 0.4 });
+      break;
+    case 'curtain.draw':
+      burst(ctx, dest, t, { dur: 1.4, type: 'lowpass', freq: 900, gain: 0.14, sweep: 0.5 });
+      break;
+    case 'stage.clunk':
+      // A lighting bar taking load: a contactor, then the lamps.
+      tone(ctx, dest, t, { freq: 70, dur: 0.06, gain: 0.24, type: 'square' });
+      burst(ctx, dest, t + 0.05, { dur: 0.5, type: 'lowpass', freq: 300, gain: 0.07, sweep: 0.3 });
+      break;
+    case 'mic.handle':
+      burst(ctx, dest, t, { dur: 0.12, type: 'lowpass', freq: 260, gain: 0.20 });
+      break;
+    case 'camera.flash':
+      burst(ctx, dest, t, { dur: 0.05, type: 'highpass', freq: 3600, gain: 0.16 });
+      tone(ctx, dest, t + 0.04, { freq: 1400, to: 4200, dur: 0.6, gain: 0.03, type: 'sine' });
+      break;
+
     default:
       // Unknown cue: a soft neutral tick rather than silence, which makes
       // missing wiring obvious during development without being ugly.
@@ -1458,6 +1544,104 @@ function synthLoop(engine, name, dest) {
       osc('sawtooth', 34, 0.06);
       osc('sine', 68, 0.03);
       noise('lowpass', 220, 0.8, 0.10);
+      break;
+
+    /* -------- the Silver Room --------
+     * Five zone beds, crossfaded by which room the player is standing in, and
+     * the band in separate stems so the mix can duck the melody under a line
+     * of dialogue without flattening the room the line is being said in.
+     */
+    case 'ambience.alley':
+      // Wet, wide, and a long way from anything: traffic two streets over.
+      noise('lowpass', 300, 0.6, 0.30);
+      noise('bandpass', 900, 0.5, 0.06);
+      break;
+    case 'ambience.cellar':
+      // A room with no daylight in it: plant hum, a compressor, and pipes.
+      osc('sine', 49, 0.12);
+      osc('sine', 98.4, 0.05);
+      noise('lowpass', 160, 0.9, 0.20);
+      noise('bandpass', 700, 3.5, 0.025);
+      break;
+    case 'ambience.kitchen':
+      /* Extraction is the loudest thing in a working kitchen and it is what
+       * everybody has to shout over, so it is the bed rather than the clatter.
+       * The clatter is one-shots on top, which is also what it is in life. */
+      noise('lowpass', 480, 0.7, 0.34);
+      noise('bandpass', 2100, 1.2, 0.07);
+      noise('highpass', 5600, 0.7, 0.05);
+      break;
+    case 'ambience.diners':
+      // Two hundred people over dinner: lower and slower than a club crowd,
+      // with cutlery on top of it.
+      noise('bandpass', 430, 1.2, 0.17);
+      noise('bandpass', 1250, 1.0, 0.06);
+      noise('highpass', 6800, 1.4, 0.028);
+      noise('lowpass', 190, 0.9, 0.05);
+      break;
+
+    /* The Midnight Pines. Four stems, started together and mixed separately. */
+    case 'band.rhythm': {
+      /* Brushes and an upright: 118bpm, swung by leaving the offbeat late.
+       * The bass walks four notes because a walking bass that does not walk is
+       * just a drone with ambitions. */
+      const WALK = [55, 65.4, 73.4, 61.7];
+      const bass = ctx.createOscillator();
+      bass.type = 'triangle';
+      bass.frequency.value = WALK[0];
+      const bassGain = ctx.createGain();
+      bassGain.gain.value = 0.09;
+      bass.connect(bassGain);
+      bassGain.connect(dest);
+      bass.start();
+      nodes.push(bass);
+      const beat = 60 / 118;
+      let step = 0;
+      const walker = setInterval(() => {
+        step = (step + 1) % WALK.length;
+        try {
+          bass.frequency.setTargetAtTime(WALK[step], ctx.currentTime, 0.02);
+        } catch { /* context closed */ }
+      }, beat * 1000);
+      nodes.push({ stop: () => clearInterval(walker) });
+      // Brushes: a wash pulsed on the beat rather than a hit
+      const brush = noise('highpass', 4200, 0.6, 0);
+      const swish = ctx.createOscillator();
+      swish.type = 'triangle';
+      swish.frequency.value = 1 / beat;
+      const swishDepth = ctx.createGain();
+      swishDepth.gain.value = 0.035;
+      swish.connect(swishDepth);
+      swishDepth.connect(brush.g.gain);
+      brush.g.gain.value = 0.04;
+      swish.start();
+      nodes.push(swish);
+      break;
+    }
+    case 'band.horns': {
+      /* Four horns is four sawtooths a chord apart, detuned enough to beat
+       * against each other. Detuning is most of what makes a section sound
+       * like people rather than like an organ. */
+      for (const [f, g] of [[233, 0.045], [293.7, 0.038], [349.2, 0.034], [466.2, 0.022]]) {
+        osc('sawtooth', f * (1 + (Math.random() - 0.5) * 0.006), g);
+      }
+      noise('bandpass', 1800, 0.9, 0.02);
+      break;
+    }
+    case 'band.piano':
+      osc('triangle', 130.8, 0.03);
+      osc('triangle', 196, 0.024);
+      osc('sine', 392, 0.012);
+      break;
+    case 'band.vocal':
+      // A voice on a microphone in a warm room, with nothing intelligible in
+      // it. The subtitles do the words, the same way the radio's do.
+      noise('bandpass', 520, 2.2, 0.16);
+      noise('bandpass', 1400, 3.0, 0.07);
+      break;
+    case 'applause':
+      noise('bandpass', 1900, 0.5, 0.30);
+      noise('highpass', 4600, 0.4, 0.16);
       break;
 
     default:

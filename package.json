@@ -25,6 +25,8 @@
     "verify:initiation": "node tools/verify-initiation.mjs",
     "verify:preview": "node tools/verify-preview.mjs",
     "verify:beefrun": "node tools/verify-beefrun.mjs",
+    "verify:silver": "node tools/verify-silver.mjs",
+    "balance:silver": "node tools/balance-silver.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",
