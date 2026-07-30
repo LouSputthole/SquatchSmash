@@ -1559,10 +1559,14 @@ function takeShower() {
   const st = apartment.showerStand;
   player.sitAt({
     position: new THREE.Vector3(st.x, 1.60, st.z),
-    yaw: Math.PI,          // facing the head
+    /* The rose hangs off the tub's far end wall, at -z of where you stand, and
+     * facing -z is yaw 0 -- PI put your back to it, and the old ±1.2 clamp
+     * meant you could never turn the half-circle to find it. Full range now:
+     * you are stood in a bath, not strapped into it. */
+    yaw: 0,
     pitch: 0.10,
     dur: 1.1,
-    yawRange: 1.2,
+    yawRange: Math.PI,
     pitchMin: -0.9,
     pitchMax: 0.8,
   }, () => {
