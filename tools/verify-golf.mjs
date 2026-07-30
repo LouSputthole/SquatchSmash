@@ -419,6 +419,7 @@ const played = await page.evaluate(() => {
   const g = window.__golf;
   const seen = new Set();
   const beats = [];
+  const holesPlayed = [g.HOLE.number];
   let louPrivate = false;
   let cartMoved = false;
   const startCart = g.carts.lead.distance;
@@ -447,16 +448,26 @@ const played = await page.evaluate(() => {
     }
     if (g.round.needsRelief()) g.round.takeDrop();
     if (g.round.beat === 'walk_off') g.teleport(g.LAYOUT.cartPark.x, g.LAYOUT.cartPark.z);
+    /* Walk onto the next tee. The scene does this behind a fade; the harness
+     * runs faster than the fade, so it takes the same transition directly. */
+    if (g.round.beat === 'next_tee') {
+      const n = g.advanceToNextHole();
+      if (n !== null) holesPlayed.push(n);
+    }
     g.step(0.05);
     if (g.round.beat === 'done') break;
   }
   const h = g.round.card.hole('prospect', 1);
+  const line = g.round.card.line('prospect');
   return {
-    beats, louPrivate, cartMoved,
+    beats, louPrivate, cartMoved, holesPlayed,
     finished: h.finished, strokes: h.strokes,
     beat: g.round.beat,
     allFinished: g.round.card.allFinished(1),
     lines: g.round.card.lines().map((l) => `${l.card}:${l.strokes}`),
+    roundStrokes: line.strokes,
+    roundToPar: line.label,
+    built: g.round.holes,
   };
 });
 check('20. the cart ride begins and the carts actually move',
@@ -466,7 +477,11 @@ check('24. the group reaches the green and everybody finishes',
   played.allFinished, played.lines.join(' '));
 check('25. the player can complete the hole',
   played.finished && played.strokes > 0, `${played.strokes} strokes`);
-check('28. the end card appears', played.beat === 'done', `beats: ${played.beats.join(' → ')}`);
+check('28. the end card appears when the round is over',
+  played.beat === 'done', `beats: ${played.beats.join(' → ')}`);
+check('28b. the round plays every hole the course has built',
+  played.holesPlayed.join(',') === played.built.join(','),
+  `played ${played.holesPlayed.join(', ')} of ${played.built.join(', ')} — ${played.roundStrokes} strokes, ${played.roundToPar}`);
 
 /* ------------------------------------------------------------------ */
 /* 26 · every score branch                                             */
@@ -504,11 +519,17 @@ const saved = await page.evaluate(() => {
     toPar: record.toPar,
   };
 });
-check('27. the hole score is saved to the campaign',
-  saved.holes === 1 && saved.strokes > 0 && saved.status === 'in_progress',
-  `${saved.strokes} strokes, ${saved.toPar >= 0 ? '+' : ''}${saved.toPar}, invitation heard: ${saved.heardInvitation}`);
-check('27b. one hole does not complete a three-hole round',
-  saved.status === 'in_progress', 'the round stays in progress, as it should');
+check('27. every hole played is saved to the campaign',
+  saved.holes === played.built.length && saved.strokes > 0,
+  `${saved.holes} hole(s), ${saved.strokes} strokes, ${saved.toPar >= 0 ? '+' : ''}${saved.toPar}, invitation heard: ${saved.heardInvitation}`);
+/* The campaign's round is three holes and the course has not built three yet,
+ * so the mission must stay open. When Hole 3 lands this flips to `complete`
+ * on its own and this assertion is what will say so. */
+check('27b. a short round does not complete the mission',
+  played.built.length === 3
+    ? saved.status === 'complete'
+    : saved.status === 'in_progress',
+  `${played.built.length} of 3 built, mission is ${saved.status}`);
 
 /* ------------------------------------------------------------------ */
 /* 30 · nothing softlocks                                              */

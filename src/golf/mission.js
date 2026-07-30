@@ -18,6 +18,7 @@ import { launchFor, getClub } from './clubs.js';
 import { heightAt, surfaceAt, distanceToPin, isOnGreen } from './field.js';
 import { Scorecard } from './scorecard.js';
 import { buildScripts, SEQUENCES, pastMissionBanter } from './script.js';
+import { builtHoles } from './hole.js';
 import { HOLE } from './hole.js';
 
 const LOU = CHARACTER_IDS.LOU;
@@ -37,6 +38,10 @@ export const BEAT = {
   HOLE_OUT: 'hole_out',
   SCORECARD: 'scorecard',
   WALK_OFF: 'walk_off',
+  /* Between holes: the card goes up, the world is torn down and rebuilt, and
+   * the group walks onto the next tee. The only place in the round where the
+   * player is not in control, and it lasts as long as a fade. */
+  NEXT_TEE: 'next_tee',
   DONE: 'done',
 };
 
@@ -58,19 +63,20 @@ const SCRIPT_KEY = {
 };
 
 /**
- * How many strokes each of them takes. Authored, because these three scores
- * are dialogue: Rippin's five is what the argument at the end is *about*, and
- * Lou beating him from the fringe is what "It's closer than yours" means.
+ * How many strokes each of them takes, per hole.
  *
- * Eric and Lou both make par — tee shot and two putts — which on a par 3 is
- * three. Rippin makes five out of the bunker and will spend the walk to the
- * next tee arguing it down to four.
+ * Authored, because these scores are dialogue: Rippin's five on the first is
+ * what the argument at the end is *about*, and Lou beating him from the fringe
+ * is what "It's closer than yours" means. A hole may carry its own plan; this
+ * is the fallback, and it is par for the two who can play and one over for the
+ * one who cannot.
  */
-const NPC_PLAN = {
-  [ERIC]: { finish: 3, style: 'two putts for par' },
-  [LOU]: { finish: 3, style: 'lag from the fringe and tap in' },
-  [RIPPIN]: { finish: 5, style: 'out of the sand and a loud prediction' },
-};
+function npcPlanFor(id) {
+  const authored = HOLE.npcPlan?.[id];
+  if (authored) return authored;
+  const par = HOLE.par ?? 3;
+  return { finish: id === RIPPIN ? par + 2 : par };
+}
 
 export class Round {
   /**
@@ -96,6 +102,11 @@ export class Round {
     this.card = new Scorecard();
 
     this.beat = BEAT.LOT;
+    /* Only the holes that have been built. The card and the campaign already
+     * know the round is three; this is what is actually playable today, so a
+     * round ends cleanly on the last built hole rather than walking into a
+     * tee that does not exist. */
+    this.holes = builtHoles();
     this._t = 0;
     this._wait = 0;
     this._step = 0;
@@ -277,6 +288,19 @@ export class Round {
     return b.position.y < heightAt(b.position.x, b.position.z) - 0.8;
   }
 
+  /**
+   * Which written exchange to play, for this hole.
+   *
+   * `tee.arrival` on Hole 2 looks for `h2.tee.arrival` first and falls back to
+   * the unprefixed name. So a hole overrides only the lines that are actually
+   * different, and everything a round says the same way on every tee is
+   * written once.
+   */
+  seq(name) {
+    const own = `h${HOLE.number}.${name}`;
+    return SEQUENCES[own] ? own : name;
+  }
+
   /* ---------------------------------------------------------------- */
   /* Conditional callbacks                                             */
   /* ---------------------------------------------------------------- */
@@ -325,7 +349,7 @@ export class Round {
     if (this.hasBag) return false;
     this.hasBag = true;
     this.audio?.bag(this.golfers[LOU]?.position);
-    this.cues.playSequence('lot.bag');
+    this.cues.playSequence(this.seq('lot.bag'));
     this.hooks.onToast?.('Driver, iron, putter.');
     return true;
   }
@@ -367,6 +391,8 @@ export class Round {
       case BEAT.HOLE_OUT: this._updateHoleOut(dt); break;
       case BEAT.SCORECARD: this._updateScorecard(dt); break;
       case BEAT.WALK_OFF: this._updateWalkOff(dt, playerPos); break;
+      case BEAT.NEXT_TEE: break;   // main.js owns the fade, then calls startHole
+
       default: break;
     }
   }
@@ -402,8 +428,8 @@ export class Round {
        * man whose line opens it rather than starting without him. */
       if (this.golfers[LOU]?.walking) return;
       this._go(BEAT.TEE_TALK);
-      this.cues.playSequence('tee.arrival');
-      this._wait = this.cues.lengthOf('tee.arrival');
+      this.cues.playSequence(this.seq('tee.arrival'));
+      this._wait = this.cues.lengthOf(this.seq('tee.arrival'));
       this.playCallbacks('tee');
     }
   }
@@ -432,7 +458,7 @@ export class Round {
     if (this._npcIndex >= TEE_ORDER.length) {
       this.npcShotsSeen = true;
       this._go(BEAT.PLAYER_TEE);
-      this.cues.playSequence('tee.player.before');
+      this.cues.playSequence(this.seq('tee.player.before'));
       return;
     }
 
@@ -452,8 +478,8 @@ export class Round {
 
     switch (this._npcPhase) {
       case 'before': {
-        this.cues.playSequence(`tee.${key}.before`);
-        this._wait = this.cues.lengthOf(`tee.${key}.before`);
+        this.cues.playSequence(this.seq(`tee.${key}.before`));
+        this._wait = this.cues.lengthOf(this.seq(`tee.${key}.before`));
         this._npcPhase = 'address';
         break;
       }
@@ -482,8 +508,8 @@ export class Round {
       case 'watch': {
         if (ball.moving) break;
         if (this._wait > 0) break;
-        this.cues.playSequence(`tee.${key}.after`);
-        this._wait = this.cues.lengthOf(`tee.${key}.after`);
+        this.cues.playSequence(this.seq(`tee.${key}.after`));
+        this._wait = this.cues.lengthOf(this.seq(`tee.${key}.after`));
         this._npcPhase = 'settle';
         break;
       }
@@ -565,7 +591,7 @@ export class Round {
     if (sequence === 'tee.result.ace') {
       this._wait = 2.0;
       this.cues.suppressBanter(true);
-      this._after(2.0, () => this.cues.playSequence('tee.result.ace'));
+      this._after(2.0, () => this.cues.playSequence(this.seq('tee.result.ace')));
     } else {
       this.cues.playSequence(sequence);
       this._wait = 0.4;
@@ -670,16 +696,16 @@ export class Round {
     if (!this._bunkerTalked && !ball.moving
       && surfaceAt(ball.position.x, ball.position.z) === SURFACE.BUNKER) {
       this._bunkerTalked = true;
-      this.cues.playSequence('bunker.together');
+      this.cues.playSequence(this.seq('bunker.together'));
     }
     if (!this._greenTalked && playerPos
       && Math.hypot(playerPos.x - HOLE.green.x, playerPos.z - HOLE.green.z) < HOLE.green.rx + 4) {
       this._greenTalked = true;
-      this.cues.playSequence('green.arrival');
+      this.cues.playSequence(this.seq('green.arrival'));
       this._afterGreenTalk = 1;
     } else if (this._afterGreenTalk === 1 && !this.cues.busy) {
       this._afterGreenTalk = 2;
-      this.cues.playSequence('green.big_night');
+      this.cues.playSequence(this.seq('green.big_night'));
       this.playCallbacks('green');
     }
 
@@ -715,7 +741,7 @@ export class Round {
       if (ball.moving) return;
 
       const strokes = this.card.hole(id, HOLE.number).strokes;
-      const plan = NPC_PLAN[id];
+      const plan = npcPlanFor(id);
       /* He has played his round. Anything still out here gets holed out on
        * the next pass rather than played again — nobody at Silver Pines is
        * taking a fifth putt while the Prospect waits. */
@@ -774,8 +800,8 @@ export class Round {
       const result = this.card.result(PROSPECT, HOLE.number);
       const band = scoreBand(result.strokes, HOLE.par);
       this.cues.suppressBanter(true);
-      this.cues.playSequence(`hole.${band}`);
-      this._wait = this.cues.lengthOf(`hole.${band}`) + 0.6;
+      this.cues.playSequence(this.seq(`hole.${band}`));
+      this._wait = this.cues.lengthOf(this.seq(`hole.${band}`)) + 0.6;
       this.hooks.onBallEvent?.('hole_out', result);
       return;
     }
@@ -783,8 +809,8 @@ export class Round {
     if (this._wait > 0 || this.cues.busy) return;
     if (!this.card.allFinished(HOLE.number)) return;
     this._go(BEAT.SCORECARD);
-    this.cues.playSequence('end.scorecard');
-    this._wait = this.cues.lengthOf('end.scorecard');
+    this.cues.playSequence(this.seq('end.scorecard'));
+    this._wait = this.cues.lengthOf(this.seq('end.scorecard'));
   }
 
   /**
@@ -813,20 +839,73 @@ export class Round {
     if (this._wait > 0 || this.cues.busy) return;
     this._go(BEAT.WALK_OFF);
     this.cues.suppressBanter(false);
-    this.cues.playSequence('end.walk_off');
+    this.cues.playSequence(this.seq('end.walk_off'));
   }
 
   _updateWalkOff(dt, playerPos) {
     if (this.cues.busy) return;
-    /* The card only goes up when he decides the morning is over: he has to
-     * walk to the cart himself. Fading out on a man standing on a green is
-     * taking the ending off him. */
+    /* The card only goes up when he decides the hole is over: he has to walk
+     * to the cart himself. Fading out on a man standing on a green is taking
+     * the ending off him. */
     if (!playerPos) return;
     const d = Math.hypot(playerPos.x - HOLE.cartPark.x, playerPos.z - HOLE.cartPark.z);
-    if (d < 4.5) {
+    if (d >= 4.5) return;
+
+    const finished = this.summary();
+    this.hooks.onHoleComplete?.(finished, this.nextHoleNumber());
+
+    if (this.nextHoleNumber() === null) {
       this._go(BEAT.DONE);
-      this.hooks.onEndCard?.(this.summary());
+      this.hooks.onRoundComplete?.(this.roundSummary());
+      return;
     }
+    this._go(BEAT.NEXT_TEE);
+  }
+
+  /** The hole after this one, if the course has one built. */
+  nextHoleNumber() {
+    const i = this.holes.indexOf(HOLE.number);
+    return i >= 0 && i + 1 < this.holes.length ? this.holes[i + 1] : null;
+  }
+
+  /**
+   * Walk onto the next tee.
+   *
+   * Called by main.js once its fade is at full black, because this is where
+   * the world is thrown away and rebuilt and nobody should watch that happen.
+   */
+  startHole(number) {
+    this.hooks.onLoadHole?.(number);
+
+    for (const [id, ball] of this.balls) {
+      void id;
+      ball.placeAt(HOLE.teeMarks.ball.x, HOLE.teeMarks.ball.z);
+    }
+    for (const id of [LOU, RIPPIN, ERIC]) {
+      const at = HOLE.teeMarks[id];
+      if (at) this.golfers[id]?.placeAt(at.x, at.z, Math.PI);
+      this.golfers[id]?.idle();
+    }
+    this.carts?.stage();
+
+    this._npcIndex = 0;
+    this._npcPhase = 'before';
+    this._steppedUp = false;
+    this._resultPlayed = false;
+    this._greenTalked = false;
+    this._bunkerTalked = false;
+    this._holeOutPlayed = false;
+    this._afterGreenTalk = 0;
+    this._groupHeadingToTee = true;
+    this._pendingHoleOut = new Set();
+    this._pending.length = 0;
+    this.cues.suppressBanter(false);
+
+    this._go(BEAT.TEE_TALK);
+    this.cues.playSequence(this.seq('tee.arrival'));
+    this._wait = this.cues.lengthOf(this.seq('tee.arrival'));
+    this.playCallbacks('tee');
+    return number;
   }
 
   /* ---------------------------------------------------------------- */
@@ -844,6 +923,22 @@ export class Round {
       choices: [...this.memories],
       callbacksHeard: [...this._callbacksPlayed],
       lines: this.card.lines(),
+    };
+  }
+
+  /** Every hole he has finished, for the end of the round. */
+  roundSummary() {
+    const line = this.card.line(PROSPECT);
+    return {
+      holes: line.holes.filter((h) => h.finished).map((h) => ({
+        hole: h.hole, par: h.par, strokes: h.strokes, penalties: h.penalties,
+      })),
+      strokes: line.strokes,
+      toPar: line.toPar,
+      label: line.label,
+      lines: this.card.lines(),
+      heardInvitation: this.heardInvitation,
+      rodeWithLou: this.rodeWithLou,
     };
   }
 

@@ -30,7 +30,7 @@ import { Swing, SWING_PHASE, DEAD_ZONE } from './swing.js';
 import { CLUB_IDS, getClub, estimateCarry } from './clubs.js';
 import { BALL_STATE, solveShot } from './ball.js';
 import {
-  SURFACE, surfaceProps, toYards, toFeet, getHole, nextHole, relativeLabel, scoreName,
+  SURFACE, surfaceProps, toYards, toFeet, getHole, HOLES, relativeLabel, scoreName,
 } from './course.js';
 import { heightAt, surfaceAt } from './field.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
@@ -191,7 +191,9 @@ const round = new Round({
     onBallEvent: (kind, data) => {
       if (kind === 'stop' && data.id === CHARACTER_IDS.PROSPECT) paintCard();
     },
-    onEndCard: (summary) => showEndCard(summary),
+    onHoleComplete: (summary, next) => showHoleCard(summary, next),
+    onLoadHole: (n) => course.load(n),
+    onRoundComplete: (summary) => showEndCard(summary),
   },
 });
 
@@ -494,27 +496,101 @@ interaction.register(course.marker, {
 /* End card                                                            */
 /* ------------------------------------------------------------------ */
 
-function showEndCard(summary) {
-  if (ended) return;
-  ended = true;
+/**
+ * Between holes.
+ *
+ * The card goes up on the hole he has just played, the world is thrown away
+ * and rebuilt behind the black, and he walks onto the next tee. This is the
+ * only moment in the round the player is not in control, and it lasts exactly
+ * as long as the fade.
+ */
+function showHoleCard(summary, next) {
   story.recordHole(round.persist());
+  if (next === null) return;
 
-  const next = nextHole(1);
-  ui.endcard.querySelector('.result').textContent = scoreName(summary.strokes, summary.par);
-  ui.endcard.querySelector('.strokes').textContent =
+  const card = ui.endcard;
+  card.querySelector('.kicker').textContent = `HOLE ${summary.hole} COMPLETE`;
+  card.querySelector('h1').textContent = (getHole(summary.hole)?.name ?? '').toUpperCase();
+  card.querySelector('.result').textContent = scoreName(summary.strokes, summary.par);
+  card.querySelector('.strokes').textContent =
     `${summary.strokes} strokes · ${relativeLabel(summary.toPar)}`;
-  ui.endcard.querySelector('.next').innerHTML = next
-    ? `NEXT: ${next.name.toUpperCase()}<br><span>PAR ${next.par} · ${next.yards} YARDS</span>`
+  card.querySelector('.stats').textContent = holeStats(summary).join(' · ');
+  const upcoming = getHole(next);
+  card.querySelector('.next').innerHTML = upcoming
+    ? `NEXT: ${upcoming.name.toUpperCase()}<br><span>PAR ${upcoming.par} · ${upcoming.yards} YARDS</span>`
     : '';
+  card.querySelector('.actions').classList.add('hidden');
+  card.classList.remove('hidden');
+
+  player.enabled = false;
+  running = false;
+  window.setTimeout(() => {
+    round.startHole(next);
+    const t = HOLE.teeMarks.ball;
+    player.position.set(t.x, HOLE.tee.y + 1.66, t.z + 4);
+    player.yaw = Math.atan2(PIN_X() - t.x, PIN_Z() - t.z) + Math.PI;
+    club = 'iron';
+    camMode = CAM.WALK;
+    player.mode = 'walk';
+    player.enabled = true;
+    running = true;
+    ended = false;
+    card.classList.add('hidden');
+    card.querySelector('.actions').classList.remove('hidden');
+    paintCard();
+  }, 3400);
+}
+
+const PIN_X = () => HOLE.pin.x;
+const PIN_Z = () => HOLE.pin.z;
+
+function holeStats(summary) {
   const stats = [];
   if (summary.closestApproachFeet) stats.push(`Closest approach ${Math.round(summary.closestApproachFeet)} ft`);
   if (summary.longestShotYards) stats.push(`Longest shot ${Math.round(summary.longestShotYards)} yds`);
   if (summary.penalties) stats.push(`${summary.penalties} penalty stroke${summary.penalties > 1 ? 's' : ''}`);
   if (summary.hitGreenInRegulation) stats.push('Green in regulation');
   if (summary.heardInvitation) stats.push('“We invited you.”');
-  ui.endcard.querySelector('.stats').textContent = stats.join(' · ');
+  return stats;
+}
 
-  ui.endcard.classList.remove('hidden');
+/**
+ * The round is over.
+ *
+ * The card is the whole morning rather than the last hole: three lines, the
+ * total, and what it came to against par. `story.complete()` is what finally
+ * closes the mission — and it refuses a round of fewer than three holes, so
+ * this is the only place the campaign learns he actually played golf with Lou
+ * rather than being driven to a tee.
+ */
+function showEndCard(summary) {
+  if (ended) return;
+  ended = true;
+  story.recordHole(round.persist());
+  const closed = story.complete({ holes: summary.holes });
+
+  const card = ui.endcard;
+  card.querySelector('.kicker').textContent = closed
+    ? 'THE ROUND' : `${summary.holes.length} HOLES PLAYED`;
+  card.querySelector('h1').textContent = 'SILVER PINES';
+  card.querySelector('.result').textContent = relativeLabel(summary.toPar);
+  card.querySelector('.strokes').textContent =
+    `${summary.strokes} strokes over ${summary.holes.length} hole${summary.holes.length === 1 ? '' : 's'}`;
+
+  /* Everybody's card, because the argument about Rippin's five is the point
+   * of keeping one at all. */
+  card.querySelector('.stats').innerHTML = summary.lines
+    .map((l) => `${l.card} ${l.strokes} (${l.label})`)
+    .join(' &nbsp;·&nbsp; ');
+
+  const built = round.holes.length;
+  card.querySelector('.next').innerHTML = built < HOLES.length
+    ? `${HOLES.length - built} HOLE${HOLES.length - built === 1 ? '' : 'S'} STILL TO BUILD<br>`
+      + `<span>${HOLES.filter((h) => !h.playable).map((h) => h.name.toUpperCase()).join(' · ')}</span>`
+    : 'THAT IS THE ROUND<br><span>SEVEN O\'CLOCK IS THE ROOM</span>';
+
+  card.querySelector('.actions').classList.remove('hidden');
+  card.classList.remove('hidden');
   document.exitPointerLock?.();
   player.enabled = false;
   audio.play('golf.cup', { volume: 0.5 });
@@ -674,6 +750,22 @@ window.__golf = {
     carts.update(dt);
     for (const g of Object.values(golfers)) g.update(dt, player.position);
     courseAudio?.update(dt);
+  },
+  /* Take the transition without the fade, for a harness that runs faster than
+   * real time. Same calls `showHoleCard` makes, minus the three seconds of
+   * black nobody is watching. */
+  advanceToNextHole: () => {
+    const next = round.nextHoleNumber();
+    if (next === null) return null;
+    round.startHole(next);
+    const t = HOLE.teeMarks.ball;
+    player.position.set(t.x, HOLE.tee.y + 1.66, t.z + 4);
+    club = 'iron';
+    camMode = CAM.WALK;
+    player.mode = 'walk';
+    player.enabled = true;
+    ended = false;
+    return HOLE.number;
   },
   teleport: (x, z) => {
     player.position.x = x;
