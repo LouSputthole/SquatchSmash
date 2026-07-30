@@ -33,10 +33,8 @@ import {
   SURFACE, surfaceProps, toYards, toFeet, getHole, nextHole, relativeLabel, scoreName,
 } from './course.js';
 import { heightAt, surfaceAt } from './field.js';
-import LAYOUT, {
-  TEE_MARKS, LOT, PIN, WIND, CART_PARK, GREEN,
-} from './hole1.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { HOLE, setActiveHole, builtHoles } from './hole.js';
 
 /* ------------------------------------------------------------------ */
 /* Campaign                                                            */
@@ -122,15 +120,15 @@ const course = new Course(scene, renderer, { onProgress: stage });
 
 stage('Rounding up the foursome…');
 const golfers = {
-  [CHARACTER_IDS.LOU]: new Golfer(scene, CHARACTER_IDS.LOU, { ...LOT.lou, yaw: Math.PI }),
-  [CHARACTER_IDS.RIPPINFLOW]: new Golfer(scene, CHARACTER_IDS.RIPPINFLOW, { ...LOT.rippinflow, yaw: Math.PI }),
-  [CHARACTER_IDS.ERICAN]: new Golfer(scene, CHARACTER_IDS.ERICAN, { ...LOT.erican, yaw: Math.PI }),
+  [CHARACTER_IDS.LOU]: new Golfer(scene, CHARACTER_IDS.LOU, { ...HOLE.lot.lou, yaw: Math.PI }),
+  [CHARACTER_IDS.RIPPINFLOW]: new Golfer(scene, CHARACTER_IDS.RIPPINFLOW, { ...HOLE.lot.rippinflow, yaw: Math.PI }),
+  [CHARACTER_IDS.ERICAN]: new Golfer(scene, CHARACTER_IDS.ERICAN, { ...HOLE.lot.erican, yaw: Math.PI }),
 };
 
 const carts = new CartPair(scene);
-carts.parkInLot(LOT.carts);
+carts.parkInLot(HOLE.lot.carts);
 
-const bag = makeBag(scene, LOT.bag.x, LOT.bag.z, 0.4);
+const bag = makeBag(scene, HOLE.lot.bag.x, HOLE.lot.bag.z, 0.4);
 const ballMeshes = new Map();
 for (const id of [CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW, CHARACTER_IDS.ERICAN]) {
   ballMeshes.set(id, makeBall(scene, 0xeef0f4));
@@ -145,7 +143,7 @@ ballMeshes.set(CHARACTER_IDS.PROSPECT, playerBallMesh);
 const hud = new Hud();
 const audio = new AudioEngine();
 const player = new Player(camera, course);
-player.position.set(LOT.playerStart.x, 1.66, LOT.playerStart.z);
+player.position.set(HOLE.lot.playerStart.x, 1.66, HOLE.lot.playerStart.z);
 player.yaw = Math.PI;
 player.mode = 'walk';
 
@@ -223,7 +221,7 @@ function enterAddress() {
   player.mode = 'frozen';
   swing.reset();
   const b = round.playerBall.position;
-  aimYaw = Math.atan2(PIN.x - b.x, PIN.z - b.z);
+  aimYaw = Math.atan2(HOLE.pin.x - b.x, HOLE.pin.z - b.z);
   ui.shot.classList.remove('hidden');
   ui.aim.classList.remove('hidden');
   hud.hidePrompt();
@@ -299,7 +297,7 @@ function paintShot() {
   const lie = surfaceProps(surface);
   ui.club.textContent = c.name.toUpperCase();
   ui.lie.textContent = lie.label;
-  ui.wind.textContent = `${WIND.mph} MPH ${WIND.label}`;
+  ui.wind.textContent = `${HOLE.wind.mph} MPH ${HOLE.wind.label}`;
   const power = swing.phase === SWING_PHASE.IDLE ? 1 : Math.max(swing.power, swing.marker);
   const est = estimateCarry(club, power, lie);
   ui.carry.textContent = c.grounded
@@ -320,12 +318,12 @@ function paintAim() {
   const spreadDeg = c.dispersion * 0.8 + lie.spread;
   ui.aim.style.setProperty('--spread', `${Math.min(46, spreadDeg * 3.4)}px`);
   const b = round.playerBall.position;
-  const toPin = Math.atan2(PIN.x - b.x, PIN.z - b.z);
+  const toPin = Math.atan2(HOLE.pin.x - b.x, HOLE.pin.z - b.z);
   let off = ((aimYaw - toPin) * 180) / Math.PI;
   while (off > 180) off -= 360;
   while (off < -180) off += 360;
   ui.aim.querySelector('.label').textContent = Math.abs(off) < 1
-    ? 'AT THE PIN'
+    ? 'AT THE HOLE.pin'
     : `${Math.abs(off).toFixed(0)}° ${off > 0 ? 'RIGHT' : 'LEFT'}`;
 }
 
@@ -568,8 +566,8 @@ function frame() {
       player.mode = 'walk';
       player.yaw += player.yawOffset;
       player.yawOffset = 0;
-      player.position.x = CART_PARK.x + 1.6;
-      player.position.z = CART_PARK.z + 1.2;
+      player.position.x = HOLE.cartPark.x + 1.6;
+      player.position.z = HOLE.cartPark.z + 1.2;
     }
   } else {
     player.update(dt);
@@ -681,6 +679,10 @@ window.__golf = {
     player.position.x = x;
     player.position.z = z;
   },
-  LAYOUT, SURFACE, heightAt, surfaceAt, toYards, toFeet,
+  /* The live hole, so a harness driving hole three is not reading
+   * hole one's pin. */
+  get LAYOUT() { return HOLE; },
+  HOLE, setActiveHole, builtHoles,
+  SURFACE, surfaceProps, heightAt, surfaceAt, toYards, toFeet,
 };
 window.__golfReady = true;

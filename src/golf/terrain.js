@@ -16,10 +16,7 @@ import * as THREE from 'three';
 import { mat } from '../world/build.js';
 import { SURFACE, surfaceProps } from './course.js';
 import { heightAt, surfaceAt } from './field.js';
-import LAYOUT, {
-  TERRAIN, PIN, POND, TEE_MARKS,
-  FLAG_HEIGHT, CUP_RADIUS, TREE_BANDS, CLUBHOUSE, HOLE2_HINT,
-} from './hole1.js';
+import { HOLE } from './hole.js';
 
 /* Late morning after overnight rain: the light is warm and low-ish, the air
  * still has mist in it, and everything is a shade wetter than it will be by
@@ -53,16 +50,16 @@ function makeCourseTexture(onProgress) {
   const img = ctx.createImageData(TEX_W, TEX_H);
   const data = img.data;
 
-  const spanX = TERRAIN.maxX - TERRAIN.minX;
-  const spanZ = TERRAIN.maxZ - TERRAIN.minZ;
+  const spanX = HOLE.terrain.maxX - HOLE.terrain.minX;
+  const spanZ = HOLE.terrain.maxZ - HOLE.terrain.minZ;
 
   for (let py = 0; py < TEX_H; py++) {
     /* v runs with +Z, and the plane is laid out so row 0 is minZ. Getting this
      * backwards mirrors the whole course, which is the kind of bug that looks
      * like a level design opinion. */
-    const z = TERRAIN.minZ + (py / (TEX_H - 1)) * spanZ;
+    const z = HOLE.terrain.minZ + (py / (TEX_H - 1)) * spanZ;
     for (let px = 0; px < TEX_W; px++) {
-      const x = TERRAIN.minX + (px / (TEX_W - 1)) * spanX;
+      const x = HOLE.terrain.minX + (px / (TEX_W - 1)) * spanX;
       const surface = surfaceAt(x, z);
       const base = surfaceProps(surface).colour;
 
@@ -100,12 +97,12 @@ function makeCourseTexture(onProgress) {
    * need the mesh to have a hole in it, and at four pixels to the metre this
    * reads correctly from anywhere a player actually stands. The ball still
    * falls in through `field.js`, which knows nothing about this. */
-  const cupPx = ((PIN.x - TERRAIN.minX) / spanX) * TEX_W;
-  const cupPy = ((PIN.z - TERRAIN.minZ) / spanZ) * TEX_H;
+  const cupPx = ((HOLE.pin.x - HOLE.terrain.minX) / spanX) * TEX_W;
+  const cupPy = ((HOLE.pin.z - HOLE.terrain.minZ) / spanZ) * TEX_H;
   ctx.fillStyle = '#14200f';
   ctx.beginPath();
-  ctx.ellipse(cupPx, cupPy, (CUP_RADIUS / spanX) * TEX_W * 2.4,
-    (CUP_RADIUS / spanZ) * TEX_H * 2.4, 0, 0, Math.PI * 2);
+  ctx.ellipse(cupPx, cupPy, (HOLE.cupRadius / spanX) * TEX_W * 2.4,
+    (HOLE.cupRadius / spanZ) * TEX_H * 2.4, 0, 0, Math.PI * 2);
   ctx.fill();
 
   const tex = new THREE.CanvasTexture(canvas);
@@ -119,17 +116,17 @@ function makeCourseTexture(onProgress) {
 /* ------------------------------------------------------------------ */
 
 function buildTerrainMesh(texture, renderer) {
-  const spanX = TERRAIN.maxX - TERRAIN.minX;
-  const spanZ = TERRAIN.maxZ - TERRAIN.minZ;
-  const segX = Math.round(spanX / TERRAIN.cell);
-  const segZ = Math.round(spanZ / TERRAIN.cell);
+  const spanX = HOLE.terrain.maxX - HOLE.terrain.minX;
+  const spanZ = HOLE.terrain.maxZ - HOLE.terrain.minZ;
+  const segX = Math.round(spanX / HOLE.terrain.cell);
+  const segZ = Math.round(spanZ / HOLE.terrain.cell);
 
   const geo = new THREE.PlaneGeometry(spanX, spanZ, segX, segZ);
   geo.rotateX(-Math.PI / 2);
 
   const pos = geo.attributes.position;
-  const cx = (TERRAIN.minX + TERRAIN.maxX) / 2;
-  const cz = (TERRAIN.minZ + TERRAIN.maxZ) / 2;
+  const cx = (HOLE.terrain.minX + HOLE.terrain.maxX) / 2;
+  const cz = (HOLE.terrain.minZ + HOLE.terrain.maxZ) / 2;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i) + cx;
     const z = pos.getZ(i) + cz;
@@ -180,8 +177,8 @@ function buildTrees(scene) {
   const oaks = [];
   const colliders = [];
 
-  for (let b = 0; b < TREE_BANDS.length; b++) {
-    const band = TREE_BANDS[b];
+  for (let b = 0; b < HOLE.treeBands.length; b++) {
+    const band = HOLE.treeBands[b];
     const rand = bandRandom(0x5117e2 + b * 7919);
     let placed = 0;
     for (let tries = 0; tries < band.count * 14 && placed < band.count; tries++) {
@@ -294,8 +291,8 @@ function buildPond(scene) {
   });
   const water = new THREE.Mesh(geo, material);
   water.name = 'pond';
-  water.position.set(POND.x, POND.level, POND.z);
-  water.scale.set(POND.rx, 1, POND.rz);
+  water.position.set(HOLE.pond.x, HOLE.pond.level, HOLE.pond.z);
+  water.scale.set(HOLE.pond.rx, 1, HOLE.pond.rz);
   scene.add(water);
 
   /* A damp margin around the waterline. Without it the pond reads as a blue
@@ -304,8 +301,8 @@ function buildPond(scene) {
     geo.clone(),
     mat({ color: 0x3f4a33, roughness: 1 }),
   );
-  rim.position.set(POND.x, POND.level - 0.08, POND.z);
-  rim.scale.set(POND.rx * 1.06, 1, POND.rz * 1.06);
+  rim.position.set(HOLE.pond.x, HOLE.pond.level - 0.08, HOLE.pond.z);
+  rim.scale.set(HOLE.pond.rx * 1.06, 1, HOLE.pond.rz * 1.06);
   scene.add(rim);
 
   return water;
@@ -317,21 +314,21 @@ function buildPond(scene) {
 
 function buildFlag(scene) {
   const g = new THREE.Group();
-  const base = heightAt(PIN.x, PIN.z);
-  g.position.set(PIN.x, base, PIN.z);
+  const base = heightAt(HOLE.pin.x, HOLE.pin.z);
+  g.position.set(HOLE.pin.x, base, HOLE.pin.z);
 
   const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.022, 0.022, FLAG_HEIGHT, 6),
+    new THREE.CylinderGeometry(0.022, 0.022, HOLE.flagHeight, 6),
     mat({ color: 0xe8e8ec, roughness: 0.5 }),
   );
-  pole.position.y = FLAG_HEIGHT / 2;
+  pole.position.y = HOLE.flagHeight / 2;
   pole.castShadow = true;
   g.add(pole);
 
   /* The cup liner, sunk just under the painted hole so there is something
    * with depth to it when the player stands over a two-footer. */
   const liner = new THREE.Mesh(
-    new THREE.CylinderGeometry(CUP_RADIUS, CUP_RADIUS, 0.3, 14, 1, true),
+    new THREE.CylinderGeometry(HOLE.cupRadius, HOLE.cupRadius, 0.3, 14, 1, true),
     mat({ color: 0x101a0c, roughness: 1, side: THREE.DoubleSide }),
   );
   liner.position.y = -0.15;
@@ -345,7 +342,7 @@ function buildFlag(scene) {
     color: 0x9a6ff0, roughness: 0.8, side: THREE.DoubleSide,
     emissive: 0x2a1550, emissiveIntensity: 0.5,
   }));
-  cloth.position.set(0, FLAG_HEIGHT - 0.32, 0);
+  cloth.position.set(0, HOLE.flagHeight - 0.32, 0);
   g.add(cloth);
 
   scene.add(g);
@@ -359,8 +356,8 @@ function buildTeeMarkers(scene) {
       new THREE.CylinderGeometry(0.14, 0.20, 0.34, 8),
       mat({ color: side < 0 ? 0x7b4fd9 : 0xc9ced9, roughness: 0.7 }),
     );
-    const x = TEE_MARKS.ball.x + side * 2.6;
-    const z = TEE_MARKS.ball.z + 0.4;
+    const x = HOLE.teeMarks.ball.x + side * 2.6;
+    const z = HOLE.teeMarks.ball.z + 0.4;
     m.position.set(x, heightAt(x, z) + 0.17, z);
     m.castShadow = true;
     scene.add(m);
@@ -400,8 +397,8 @@ function signTexture(lines) {
  */
 function buildHoleMarker(scene) {
   const g = new THREE.Group();
-  const x = TEE_MARKS.ball.x - 4.6;
-  const z = TEE_MARKS.ball.z + 2.4;
+  const x = HOLE.teeMarks.ball.x - 4.6;
+  const z = HOLE.teeMarks.ball.z + 2.4;
   g.position.set(x, heightAt(x, z), z);
   g.rotation.y = 0.22;
 
@@ -443,9 +440,9 @@ function buildHoleMarker(scene) {
  */
 function buildClubhouse(scene, colliders) {
   const g = new THREE.Group();
-  const y = heightAt(CLUBHOUSE.x, CLUBHOUSE.z);
-  g.position.set(CLUBHOUSE.x, y, CLUBHOUSE.z);
-  g.rotation.y = CLUBHOUSE.rot;
+  const y = heightAt(HOLE.clubhouse.x, HOLE.clubhouse.z);
+  g.position.set(HOLE.clubhouse.x, y, HOLE.clubhouse.z);
+  g.rotation.y = HOLE.clubhouse.rot;
 
   const brick = mat({ color: 0x7a4b3c, roughness: 1 });
   const timber = mat({ color: 0x33261c, roughness: 1 });
@@ -481,8 +478,8 @@ function buildClubhouse(scene, colliders) {
 
   scene.add(g);
   colliders.push(new THREE.Box3(
-    new THREE.Vector3(CLUBHOUSE.x - 13, y, CLUBHOUSE.z - 8),
-    new THREE.Vector3(CLUBHOUSE.x + 13, y + 11, CLUBHOUSE.z + 8),
+    new THREE.Vector3(HOLE.clubhouse.x - 13, y, HOLE.clubhouse.z - 8),
+    new THREE.Vector3(HOLE.clubhouse.x + 13, y + 11, HOLE.clubhouse.z + 8),
   ));
   return g;
 }
@@ -490,7 +487,7 @@ function buildClubhouse(scene, colliders) {
 /** The next tee, over the trees. Scenery, and a promise about the round. */
 function buildHole2Hint(scene) {
   const g = new THREE.Group();
-  const t = HOLE2_HINT.tee;
+  const t = HOLE.nextHint.tee;
   const marker = new THREE.Mesh(
     new THREE.BoxGeometry(0.9, 0.7, 0.1),
     mat({ color: 0x4a3a8f, roughness: 0.9 }),
@@ -668,4 +665,4 @@ export class Course {
   }
 }
 
-export { LAYOUT, heightAt, surfaceAt };
+export { HOLE, heightAt, surfaceAt };

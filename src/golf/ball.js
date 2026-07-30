@@ -16,11 +16,11 @@
 
 import { SURFACE, surfaceProps } from './course.js';
 import { launchFor } from './clubs.js';
+import { HOLE } from './hole.js';
 import {
   heightAt, surfaceAt, slopeAt, normalAt, isOutOfBounds,
   distanceToPin, dropPointFor, recoveryPointFor,
 } from './field.js';
-import { PIN, POND, CUP_RADIUS, WIND } from './hole1.js';
 
 const GRAVITY = 9.81;
 
@@ -32,11 +32,13 @@ const DRAG = 0.00380;
 const LIFT = 0.00165;
 
 /* Wind is felt as air that is already moving: drag is computed against the
- * ball's speed *through the air*, which is the only place wind belongs. */
-const WIND_VECTOR = Object.freeze({
-  x: WIND.dirX * WIND.speed,
-  z: WIND.dirZ * WIND.speed,
-});
+ * ball's speed *through the air*, which is the only place wind belongs.
+ *
+ * Read per shot rather than captured at import, because each hole carries its
+ * own wind and a ball frozen to Hole 1's breeze would be drifting the wrong
+ * way on the other two. */
+const windX = () => HOLE.wind.dirX * HOLE.wind.speed;
+const windZ = () => HOLE.wind.dirZ * HOLE.wind.speed;
 
 /** Below this vertical speed on contact, the ball stops bouncing and rolls. */
 const BOUNCE_FLOOR = 1.35;
@@ -163,8 +165,8 @@ export class Ball {
     const p = this.position;
 
     // Speed through the air, which is what drag and lift actually see.
-    const ax = v.x - WIND_VECTOR.x;
-    const az = v.z - WIND_VECTOR.z;
+    const ax = v.x - windX();
+    const az = v.z - windZ();
     const ay = v.y;
     const air = Math.hypot(ax, ay, az) || 1e-6;
 
@@ -227,7 +229,7 @@ export class Ball {
       this.hooks.onLand?.(surface, { ...p });
     }
 
-    if (surface === SURFACE.WATER || ground <= POND.level + 0.05) {
+    if (surface === SURFACE.WATER || ground <= HOLE.pond.level + 0.05) {
       if (surface === SURFACE.WATER) return this._splash();
     }
 
@@ -321,17 +323,17 @@ export class Ball {
 
   _checkCup() {
     const p = this.position;
-    const d = Math.hypot(p.x - PIN.x, p.z - PIN.z);
-    if (d > CUP_RADIUS * 2.6) return false;
+    const d = Math.hypot(p.x - HOLE.pin.x, p.z - HOLE.pin.z);
+    if (d > HOLE.cupRadius * 2.6) return false;
     const speed = Math.hypot(this.velocity.x, this.velocity.z);
     /* Over the edge too fast and it rides the lip back out, which is the
      * correct amount of cruelty and also a line Rippin already has. */
     if (speed > CAPTURE_SPEED) return false;
-    if (d > CUP_RADIUS * 1.35 && speed > CAPTURE_SPEED * 0.55) return false;
+    if (d > HOLE.cupRadius * 1.35 && speed > CAPTURE_SPEED * 0.55) return false;
 
-    this.position.x = PIN.x;
-    this.position.z = PIN.z;
-    this.position.y = heightAt(PIN.x, PIN.z) - 0.1;
+    this.position.x = HOLE.pin.x;
+    this.position.z = HOLE.pin.z;
+    this.position.y = heightAt(HOLE.pin.x, HOLE.pin.z) - 0.1;
     this.velocity.x = this.velocity.y = this.velocity.z = 0;
     this.state = BALL_STATE.HOLED;
     this.hooks.onHoled?.({ ...this.position });
@@ -347,7 +349,7 @@ export class Ball {
 
   _splash() {
     this.velocity.x = this.velocity.y = this.velocity.z = 0;
-    this.position.y = POND.level;
+    this.position.y = HOLE.pond.level;
     this.state = BALL_STATE.WATER;
     this.surface = SURFACE.WATER;
     this.hooks.onSplash?.({ ...this.position });

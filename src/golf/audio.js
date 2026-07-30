@@ -14,7 +14,7 @@
  */
 
 import { SURFACE, surfaceProps } from './course.js';
-import { POND } from './hole1.js';
+import { HOLE } from './hole.js';
 
 /* Bird calls are one-shots on a long random timer rather than a loop, because
  * a looping bird is the fastest way to make a wood sound like a menu screen. */
@@ -107,7 +107,7 @@ export class CourseAudio {
   splash(position = null) {
     this.engine?.play('golf.splash', {
       volume: 0.85,
-      position: position ?? { x: POND.x, y: POND.level, z: POND.z },
+      position: position ?? { x: HOLE.pond.x, y: HOLE.pond.level, z: HOLE.pond.z },
     });
   }
 

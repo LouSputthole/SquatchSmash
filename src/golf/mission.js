@@ -18,9 +18,7 @@ import { launchFor, getClub } from './clubs.js';
 import { heightAt, surfaceAt, distanceToPin, isOnGreen } from './field.js';
 import { Scorecard } from './scorecard.js';
 import { buildScripts, SEQUENCES, pastMissionBanter } from './script.js';
-import {
-  TEE_MARKS, PIN, NPC_TEE_SHOTS, DROP_ZONE, CART_PARK, GREEN, LOT,
-} from './hole1.js';
+import { HOLE } from './hole.js';
 
 const LOU = CHARACTER_IDS.LOU;
 const RIPPIN = CHARACTER_IDS.RIPPINFLOW;
@@ -42,8 +40,9 @@ export const BEAT = {
   DONE: 'done',
 };
 
-const HOLE = 1;
-const PAR = 3;
+/* Which hole this round is on, and what it is worth. Both come off the live
+ * layout rather than being constants, because the round machine below runs
+ * three times with different content and only these two numbers change. */
 
 /** Order of play on the tee. The Prospect is last, always. */
 const TEE_ORDER = [ERIC, RIPPIN, LOU];
@@ -116,7 +115,7 @@ export class Round {
       this.balls.set(id, new Ball(this._ballHooks(id)));
     }
     this.playerBall = this.balls.get(PROSPECT);
-    this.playerBall.placeAt(TEE_MARKS.ball.x, TEE_MARKS.ball.z);
+    this.playerBall.placeAt(HOLE.teeMarks.ball.x, HOLE.teeMarks.ball.z);
 
     this.scripts = buildScripts({
       play: (id) => this.cues.play(id),
@@ -237,9 +236,9 @@ export class Round {
 
     this.audio?.strike(club, surface, power, { ...ball.position });
     this._shotContext = { club, surface, before, wasTeeShot: this.beat === BEAT.PLAYER_TEE };
-    this.card.addStroke(PROSPECT, HOLE);
-    if (surface === SURFACE.BUNKER) this.card.markBunker(PROSPECT, HOLE);
-    this.hooks.onStroke?.(this.card.hole(PROSPECT, HOLE));
+    this.card.addStroke(PROSPECT, HOLE.number);
+    if (surface === SURFACE.BUNKER) this.card.markBunker(PROSPECT, HOLE.number);
+    this.hooks.onStroke?.(this.card.hole(PROSPECT, HOLE.number));
 
     if (this.beat === BEAT.PLAYER_TEE) {
       this.beat = BEAT.TEE_RESULT;
@@ -261,8 +260,8 @@ export class Round {
     const ball = this.playerBall;
     const point = ball.dropPoint();
     ball.placeAt(point.x, point.z);
-    this.card.addPenalty(PROSPECT, HOLE, reason);
-    this.hooks.onStroke?.(this.card.hole(PROSPECT, HOLE));
+    this.card.addPenalty(PROSPECT, HOLE.number, reason);
+    this.hooks.onStroke?.(this.card.hole(PROSPECT, HOLE.number));
     this.hooks.onToast?.(
       reason === 'oob' ? 'Out of bounds. Drop, plus one.' : 'Drop, plus one.',
     );
@@ -389,14 +388,14 @@ export class Round {
      * to be collected and nobody appears at the tee already standing there:
      * they walk it, and by the time he arrives they are arriving too. */
     if (!this._groupHeadingToTee
-      && Math.hypot(playerPos.x - LOT.centre.x, playerPos.z - LOT.centre.z) > 13) {
+      && Math.hypot(playerPos.x - HOLE.lot.centre.x, playerPos.z - HOLE.lot.centre.z) > 13) {
       this._groupHeadingToTee = true;
       for (const id of [LOU, RIPPIN, ERIC]) {
-        this.golfers[id]?.walkTo(TEE_MARKS[id].x, TEE_MARKS[id].z, { speed: 1.7 });
+        this.golfers[id]?.walkTo(HOLE.teeMarks[id].x, HOLE.teeMarks[id].z, { speed: 1.7 });
       }
     }
 
-    const d = Math.hypot(playerPos.x - TEE_MARKS.ball.x, playerPos.z - TEE_MARKS.ball.z);
+    const d = Math.hypot(playerPos.x - HOLE.teeMarks.ball.x, playerPos.z - HOLE.teeMarks.ball.z);
     if (d < 9) {
       /* If he ran, they are still walking. The tee conversation waits for the
        * man whose line opens it rather than starting without him. */
@@ -462,12 +461,12 @@ export class Round {
         // He walks up to the ball. Nobody appears over it.
         if (!this._steppedUp) {
           this._steppedUp = true;
-          golfer?.setClub(NPC_TEE_SHOTS[id].club);
-          golfer?.walkTo(TEE_MARKS.ball.x - 0.55, TEE_MARKS.ball.z - 0.1, { speed: 1.4 });
+          golfer?.setClub(HOLE.npcTeeShots[id].club);
+          golfer?.walkTo(HOLE.teeMarks.ball.x - 0.55, HOLE.teeMarks.ball.z - 0.1, { speed: 1.4 });
           break;
         }
         if (golfer?.walking) break;
-        golfer?.faceToward(PIN.x, PIN.z, true);
+        golfer?.faceToward(HOLE.pin.x, HOLE.pin.z, true);
         golfer?.address();
         this._wait = 0.6 + (golfer?.practiceSwings ?? 0) * 1.0;
         this._npcPhase = 'swing';
@@ -490,7 +489,7 @@ export class Round {
       case 'settle': {
         if (this._wait > 0 || this.cues.busy) break;
         // Back to his own spot on the tee box, on his own feet.
-        golfer?.walkTo(TEE_MARKS[id].x, TEE_MARKS[id].z);
+        golfer?.walkTo(HOLE.teeMarks[id].x, HOLE.teeMarks[id].z);
         this._npcIndex++;
         this._npcPhase = 'before';
         this._steppedUp = false;
@@ -502,9 +501,9 @@ export class Round {
 
   /** Launch an NPC's authored tee shot for real. */
   _resolveNpcTeeShot(id, instant) {
-    const spec = NPC_TEE_SHOTS[id];
+    const spec = HOLE.npcTeeShots[id];
     const ball = this.balls.get(id);
-    const from = { x: TEE_MARKS.ball.x, z: TEE_MARKS.ball.z };
+    const from = { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z };
     const lie = surfaceProps(surfaceAt(from.x, from.z));
 
     const solved = solveShot({
@@ -512,7 +511,7 @@ export class Round {
     });
     ball.placeAt(from.x, from.z);
     ball.strike(solved.aim, solved.launch);
-    this.card.addStroke(id, HOLE);
+    this.card.addStroke(id, HOLE.number);
     if (!instant) {
       this.audio?.strike(spec.club, surfaceAt(from.x, from.z), solved.power, { ...ball.position });
     }
@@ -545,8 +544,8 @@ export class Round {
     const pin = ball.distanceToPin();
     const yards = toYards(ball.travelled);
 
-    this.card.markGreenInRegulation(PROSPECT, HOLE, isOnGreen(ball.position.x, ball.position.z));
-    const h = this.card.hole(PROSPECT, HOLE);
+    this.card.markGreenInRegulation(PROSPECT, HOLE.number, isOnGreen(ball.position.x, ball.position.z));
+    const h = this.card.hole(PROSPECT, HOLE.number);
     if (yards > h.longestShot) h.longestShot = yards;
     if (pin < h.closestApproach) h.closestApproach = pin;
 
@@ -648,10 +647,10 @@ export class Round {
       const b = this.balls.get(id);
       const g = this.golfers[id];
       if (!b || !g) continue;
-      g.placeAt(CART_PARK.x + spread[i], CART_PARK.z + 1.4 - i * 0.5);
+      g.placeAt(HOLE.cartPark.x + spread[i], HOLE.cartPark.z + 1.4 - i * 0.5);
       i++;
-      const dx = PIN.x - b.position.x;
-      const dz = PIN.z - b.position.z;
+      const dx = HOLE.pin.x - b.position.x;
+      const dz = HOLE.pin.z - b.position.z;
       const len = Math.hypot(dx, dz) || 1;
       g.walkTo(
         b.position.x - (dx / len) * 1.1,
@@ -673,7 +672,7 @@ export class Round {
       this.cues.playSequence('bunker.together');
     }
     if (!this._greenTalked && playerPos
-      && Math.hypot(playerPos.x - GREEN.x, playerPos.z - GREEN.z) < GREEN.rx + 4) {
+      && Math.hypot(playerPos.x - HOLE.green.x, playerPos.z - HOLE.green.z) < HOLE.green.rx + 4) {
       this._greenTalked = true;
       this.cues.playSequence('green.arrival');
       this._afterGreenTalk = 1;
@@ -686,7 +685,7 @@ export class Round {
     this._playNpcApproaches(dt);
 
     if (ball.state === BALL_STATE.HOLED) {
-      this.card.finish(PROSPECT, HOLE);
+      this.card.finish(PROSPECT, HOLE.number);
       this._go(BEAT.HOLE_OUT);
     }
   }
@@ -710,11 +709,11 @@ export class Round {
     this._npcPlayTimer = 2.6 + Math.random() * 2.2;
 
     for (const id of [ERIC, LOU, RIPPIN]) {
-      if (this.card.finished(id, HOLE)) continue;
+      if (this.card.finished(id, HOLE.number)) continue;
       const ball = this.balls.get(id);
       if (ball.moving) return;
 
-      const strokes = this.card.hole(id, HOLE).strokes;
+      const strokes = this.card.hole(id, HOLE.number).strokes;
       const plan = NPC_PLAN[id];
       /* He has played his round. Anything still out here gets holed out on
        * the next pass rather than played again — nobody at Silver Pines is
@@ -733,13 +732,13 @@ export class Round {
        * This is what makes Eric two-putt for par and Rippin take five. */
       const isLast = strokes + 1 >= plan.finish;
       const target = isLast
-        ? { x: PIN.x, z: PIN.z }
+        ? { x: HOLE.pin.x, z: HOLE.pin.z }
         : this._nearPin(from, 1.1 + Math.random() * 1.4);
 
       const solved = solveShot({ from, target, club, lie });
       ball.placeAt(from.x, from.z);
       ball.strike(solved.aim, solved.launch);
-      this.card.addStroke(id, HOLE);
+      this.card.addStroke(id, HOLE.number);
       this.audio?.strike(club, surface, solved.power, { ...ball.position });
       this.golfers[id]?.setClub(club);
       this.golfers[id]?.swing();
@@ -755,10 +754,10 @@ export class Round {
   }
 
   _nearPin(from, metres) {
-    const dx = from.x - PIN.x;
-    const dz = from.z - PIN.z;
+    const dx = from.x - HOLE.pin.x;
+    const dz = from.z - HOLE.pin.z;
     const len = Math.hypot(dx, dz) || 1;
-    return { x: PIN.x + (dx / len) * metres, z: PIN.z + (dz / len) * metres };
+    return { x: HOLE.pin.x + (dx / len) * metres, z: HOLE.pin.z + (dz / len) * metres };
   }
 
   /* ---- the hole is over ---- */
@@ -771,8 +770,8 @@ export class Round {
 
     if (!this._holeOutPlayed) {
       this._holeOutPlayed = true;
-      const result = this.card.result(PROSPECT, HOLE);
-      const band = scoreBand(result.strokes, PAR);
+      const result = this.card.result(PROSPECT, HOLE.number);
+      const band = scoreBand(result.strokes, HOLE.par);
       this.cues.suppressBanter(true);
       this.cues.playSequence(`hole.${band}`);
       this._wait = this.cues.lengthOf(`hole.${band}`) + 0.6;
@@ -781,7 +780,7 @@ export class Round {
     }
 
     if (this._wait > 0 || this.cues.busy) return;
-    if (!this.card.allFinished(HOLE)) return;
+    if (!this.card.allFinished(HOLE.number)) return;
     this._go(BEAT.SCORECARD);
     this.cues.playSequence('end.scorecard');
     this._wait = this.cues.lengthOf('end.scorecard');
@@ -796,12 +795,12 @@ export class Round {
    */
   _finishStragglers() {
     for (const id of [ERIC, LOU, RIPPIN]) {
-      if (this.card.finished(id, HOLE)) continue;
+      if (this.card.finished(id, HOLE.number)) continue;
       const ball = this.balls.get(id);
       if (ball.moving) continue;
       if (ball.state === BALL_STATE.HOLED || this._pendingHoleOut?.has(id)) {
-        if (ball.state !== BALL_STATE.HOLED) this.card.addStroke(id, HOLE);
-        this.card.finish(id, HOLE);
+        if (ball.state !== BALL_STATE.HOLED) this.card.addStroke(id, HOLE.number);
+        this.card.finish(id, HOLE.number);
         this.golfers[id]?.retrieveFromCup();
         this.audio?.holed({ ...ball.position });
         this._pendingHoleOut?.delete(id);
@@ -822,7 +821,7 @@ export class Round {
      * walk to the cart himself. Fading out on a man standing on a green is
      * taking the ending off him. */
     if (!playerPos) return;
-    const d = Math.hypot(playerPos.x - CART_PARK.x, playerPos.z - CART_PARK.z);
+    const d = Math.hypot(playerPos.x - HOLE.cartPark.x, playerPos.z - HOLE.cartPark.z);
     if (d < 4.5) {
       this._go(BEAT.DONE);
       this.hooks.onEndCard?.(this.summary());
@@ -834,10 +833,10 @@ export class Round {
   /* ---------------------------------------------------------------- */
 
   summary() {
-    const result = this.card.result(PROSPECT, HOLE);
+    const result = this.card.result(PROSPECT, HOLE.number);
     return {
-      hole: HOLE,
-      par: PAR,
+      hole: HOLE.number,
+      par: HOLE.par,
       ...result,
       heardInvitation: this.heardInvitation,
       rodeWithLou: this.rodeWithLou,
@@ -851,8 +850,8 @@ export class Round {
   persist() {
     const s = this.summary();
     return {
-      hole: HOLE,
-      par: PAR,
+      hole: HOLE.number,
+      par: HOLE.par,
       strokes: s.strokes,
       penalties: s.penalties,
       heardInvitation: this.heardInvitation,

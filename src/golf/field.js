@@ -13,9 +13,7 @@
  */
 
 import { SURFACE } from './course.js';
-import LAYOUT, {
-  GREEN, PIN, POND, BUNKER, CORRIDOR, TEE, CART_PATH, CART_PATH_WIDTH, BOUNDS,
-} from './hole1.js';
+import { HOLE } from './hole.js';
 
 /* ------------------------------------------------------------------ */
 /* Deterministic value noise                                           */
@@ -64,29 +62,29 @@ export function ellipseT(x, z, e) {
 
 /** Centre of the mown corridor at a given distance down the hole. */
 function corridorCentreX(z) {
-  const { from, to } = CORRIDOR;
+  const { from, to } = HOLE.corridor;
   const t = clamp01((z - from.z) / (to.z - from.z));
   return lerp(from.x, to.x, t);
 }
 
 function corridorHalfWidth(z) {
-  const { from, to, halfWidth, endHalfWidth } = CORRIDOR;
+  const { from, to, halfWidth, endHalfWidth } = HOLE.corridor;
   const t = clamp01((z - from.z) / (to.z - from.z));
   return lerp(halfWidth, endHalfWidth, t);
 }
 
 /** How far off the mown line, as a fraction of its half-width. */
 export function corridorT(x, z) {
-  if (z > CORRIDOR.from.z || z < CORRIDOR.to.z - 14) return Infinity;
+  if (z > HOLE.corridor.from.z || z < HOLE.corridor.to.z - 14) return Infinity;
   return Math.abs(x - corridorCentreX(z)) / corridorHalfWidth(z);
 }
 
 /** Nearest point on the cart path, and how far off it we are. */
 export function nearestCartPathPoint(x, z) {
-  let best = { x: CART_PATH[0].x, z: CART_PATH[0].z, distance: Infinity };
-  for (let i = 0; i < CART_PATH.length - 1; i++) {
-    const a = CART_PATH[i];
-    const b = CART_PATH[i + 1];
+  let best = { x: HOLE.cartPath[0].x, z: HOLE.cartPath[0].z, distance: Infinity };
+  for (let i = 0; i < HOLE.cartPath.length - 1; i++) {
+    const a = HOLE.cartPath[i];
+    const b = HOLE.cartPath[i + 1];
     const vx = b.x - a.x;
     const vz = b.z - a.z;
     const len2 = vx * vx + vz * vz;
@@ -104,15 +102,27 @@ export function cartPathDistance(x, z) {
   return nearestCartPathPoint(x, z).distance;
 }
 
-/* The tee box: a mown shelf, deliberately generous so a player who wanders
- * about up there is still on the tee. */
-const TEE_BOX = { x: TEE.x, z: TEE.z + 1, rx: 8.5, rz: 7.0 };
+/**
+ * The tee box: a mown shelf, deliberately generous so a player who wanders
+ * about up there is still on the tee.
+ *
+ * Computed per call rather than captured once. A module-level constant here
+ * would snapshot whichever hole happened to be loaded when this file was first
+ * imported, and every later hole would be played off Hole 1's tee box — the
+ * exact class of bug the live `HOLE` binding exists to avoid, reintroduced one
+ * line below it.
+ */
+function teeBox() {
+  return { x: HOLE.tee.x, z: HOLE.tee.z + 1, rx: 8.5, rz: 7.0 };
+}
 
 /* The car park and the walk down to the first tee. Somebody mows this: it is
  * the first thing anybody sees of the club, and a clubhouse standing in
  * knee-deep hay is a different story about Lou's membership than the one this
- * scene is telling. */
-const LOT_AREA = { x: -6, z: 30, rx: 44, rz: 26 };
+ * scene is telling. Only the hole with the car park on it has one. */
+function lotArea() {
+  return HOLE.lotArea ?? null;
+}
 
 /* ------------------------------------------------------------------ */
 /* Height                                                              */
@@ -122,9 +132,9 @@ const LOT_AREA = { x: -6, z: 30, rx: 44, rz: 26 };
 function greenSurfaceHeight(x, z) {
   /* Back-to-front, and a further tilt toward the water. Both gentle: this is
    * a green you can read by looking at it, which is the requirement. */
-  const back = (GREEN.z - z) / GREEN.rz;      // +1 at the back edge
-  const right = (x - GREEN.x) / GREEN.rx;     // +1 at the pond side
-  return GREEN.slopeFront * back - GREEN.slopePond * right;
+  const back = (HOLE.green.z - z) / HOLE.green.rz;      // +1 at the back edge
+  const right = (x - HOLE.green.x) / HOLE.green.rx;     // +1 at the pond side
+  return HOLE.green.slopeFront * back - HOLE.green.slopePond * right;
 }
 
 /** Everything except the authored features: the fall, the run-out, the roll. */
@@ -140,7 +150,7 @@ function baseHeight(x, z) {
    * cannot aim at, and the brief for this hole is that it explains itself
    * from the tee without a tutorial box. */
   const fall = smootherstep(clamp01((-z + 6) / 140));
-  let h = TEE.y * (1 - fall);
+  let h = HOLE.tee.y * (1 - fall);
 
   /* Past the green the ground lifts into the treeline and the next hole —
    * but well beyond the green rather than immediately behind it, so the
@@ -151,7 +161,7 @@ function baseHeight(x, z) {
    * The rough keeps its lumps, which is where lumps are interesting; the
    * sightline from the tee to the flag stays clean, which is where they are
    * not. */
-  const off = Math.abs(x - corridorCentreX(clamp(z, CORRIDOR.to.z, CORRIDOR.from.z)));
+  const off = Math.abs(x - corridorCentreX(clamp(z, HOLE.corridor.to.z, HOLE.corridor.from.z)));
   const openness = 1 - clamp01((off - 6) / 26);
   const roll = 1 - 0.82 * openness;
   h += noise2(x * 0.013, z * 0.013) * 1.45 * roll;
@@ -175,26 +185,26 @@ export function heightAt(x, z) {
   let h = baseHeight(x, z);
 
   // The tee shelf is mown flat on top.
-  const dt = ellipseT(x, z, TEE_BOX);
+  const dt = ellipseT(x, z, teeBox());
   if (dt < 1.5) {
     const w = 1 - smootherstep(clamp01((dt - 0.65) / 0.85));
-    h = lerp(h, TEE.y, w);
+    h = lerp(h, HOLE.tee.y, w);
   }
 
   /* The green is a plateau: full weight inside the edge, fading out across the
    * collar so the fringe is a real slope and not a step. */
-  const dg = ellipseT(x, z, GREEN);
+  const dg = ellipseT(x, z, HOLE.green);
   if (dg < 2.0) {
-    const collar = GREEN.fringe / ((GREEN.rx + GREEN.rz) / 2);
+    const collar = HOLE.green.fringe / ((HOLE.green.rx + HOLE.green.rz) / 2);
     const w = 1 - smootherstep(clamp01((dg - 1) / (collar + 0.35)));
     h = lerp(h, greenSurfaceHeight(x, z), w);
   }
 
   // The bunker is a bowl dug into whatever the ground was doing.
-  const db = ellipseT(x, z, BUNKER);
+  const db = ellipseT(x, z, HOLE.bunker);
   if (db < 1.25) {
     const bowl = 1 - smootherstep(clamp01(db / 1.05));
-    h -= BUNKER.depth * bowl;
+    h -= HOLE.bunker.depth * bowl;
   }
 
   /* The pond basin, carved last.
@@ -205,11 +215,11 @@ export function heightAt(x, z) {
    * carved by the time it reaches the waterline and drops well under the water
    * plane in the middle, so a ball that gets there is unambiguously wet with
    * no shallow lip to balance on. */
-  const dp = ellipseT(x, z, POND);
+  const dp = ellipseT(x, z, HOLE.pond);
   if (dp < 1.35) {
-    const bottom = POND.level - 1.6;
+    const bottom = HOLE.pond.level - 1.6;
     const w = 1 - smootherstep(clamp01((dp - 0.92) / 0.30));
-    h = lerp(h, Math.min(h, lerp(bottom, POND.level - 0.35, clamp01(dp))), w);
+    h = lerp(h, Math.min(h, lerp(bottom, HOLE.pond.level - 0.35, clamp01(dp))), w);
   }
 
   /* The cart path is graded: it follows the ground along its length but is
@@ -217,9 +227,9 @@ export function heightAt(x, z) {
    * and runs instead of stopping. Sampling the height at the centreline rather
    * than here is what removes the cross-slope. */
   const cp = nearestCartPathPoint(x, z);
-  if (cp.distance < CART_PATH_WIDTH * 1.6) {
+  if (cp.distance < HOLE.cartPathWidth * 1.6) {
     const w = 1 - smootherstep(clamp01(
-      (cp.distance - CART_PATH_WIDTH * 0.5) / CART_PATH_WIDTH,
+      (cp.distance - HOLE.cartPathWidth * 0.5) / HOLE.cartPathWidth,
     ));
     if (w > 0) h = lerp(h, baseHeight(cp.x, cp.z) + 0.05, w);
   }
@@ -267,29 +277,30 @@ export function slopeAt(x, z, step = 0.75) {
  * surface — the ball still lands on something — so it is asked separately.
  */
 export function surfaceAt(x, z) {
-  if (ellipseT(x, z, POND) <= 1) return SURFACE.WATER;
+  if (ellipseT(x, z, HOLE.pond) <= 1) return SURFACE.WATER;
 
-  const dg = ellipseT(x, z, GREEN);
+  const dg = ellipseT(x, z, HOLE.green);
   if (dg <= 1) return SURFACE.GREEN;
-  const collar = GREEN.fringe / ((GREEN.rx + GREEN.rz) / 2);
+  const collar = HOLE.green.fringe / ((HOLE.green.rx + HOLE.green.rz) / 2);
   if (dg <= 1 + collar) return SURFACE.FRINGE;
 
-  if (ellipseT(x, z, BUNKER) <= 1) return SURFACE.BUNKER;
-  if (ellipseT(x, z, TEE_BOX) <= 1) return SURFACE.TEE;
-  if (cartPathDistance(x, z) <= CART_PATH_WIDTH * 0.5) return SURFACE.PATH;
-  if (ellipseT(x, z, LOT_AREA) <= 1) return SURFACE.FAIRWAY;
+  if (ellipseT(x, z, HOLE.bunker) <= 1) return SURFACE.BUNKER;
+  if (ellipseT(x, z, teeBox()) <= 1) return SURFACE.TEE;
+  if (cartPathDistance(x, z) <= HOLE.cartPathWidth * 0.5) return SURFACE.PATH;
+  const lot = lotArea();
+  if (lot && ellipseT(x, z, lot) <= 1) return SURFACE.FAIRWAY;
 
   const ct = corridorT(x, z);
   if (ct <= 1) return SURFACE.FAIRWAY;
   /* Rough gets heavier the further off line he is, and the wet stuff behind
    * the green is heavy everywhere. */
   if (ct <= 1.55) return SURFACE.ROUGH;
-  if (z < GREEN.z - GREEN.rz - 4) return SURFACE.DEEP_ROUGH;
+  if (z < HOLE.green.z - HOLE.green.rz - 4) return SURFACE.DEEP_ROUGH;
   return ct <= 2.4 ? SURFACE.ROUGH : SURFACE.DEEP_ROUGH;
 }
 
 export function isOutOfBounds(x, z) {
-  return x < BOUNDS.minX || x > BOUNDS.maxX || z < BOUNDS.minZ || z > BOUNDS.maxZ;
+  return x < HOLE.bounds.minX || x > HOLE.bounds.maxX || z < HOLE.bounds.minZ || z > HOLE.bounds.maxZ;
 }
 
 /* ------------------------------------------------------------------ */
@@ -297,11 +308,11 @@ export function isOutOfBounds(x, z) {
 /* ------------------------------------------------------------------ */
 
 export function pinPosition() {
-  return { x: PIN.x, y: heightAt(PIN.x, PIN.z), z: PIN.z };
+  return { x: HOLE.pin.x, y: heightAt(HOLE.pin.x, HOLE.pin.z), z: HOLE.pin.z };
 }
 
 export function distanceToPin(x, z) {
-  return Math.hypot(x - PIN.x, z - PIN.z);
+  return Math.hypot(x - HOLE.pin.x, z - HOLE.pin.z);
 }
 
 export function isOnGreen(x, z) {
@@ -317,7 +328,7 @@ export function isOnGreen(x, z) {
  * returns water, never returns out of bounds, and never returns a spot the
  * player cannot hit a ball from.
  */
-export function dropPointFor(fromX, fromZ, towardX = TEE.x, towardZ = TEE.z) {
+export function dropPointFor(fromX, fromZ, towardX = HOLE.tee.x, towardZ = HOLE.tee.z) {
   const dx = towardX - fromX;
   const dz = towardZ - fromZ;
   const len = Math.hypot(dx, dz) || 1;
@@ -335,7 +346,7 @@ export function dropPointFor(fromX, fromZ, towardX = TEE.x, towardZ = TEE.z) {
     return { x, z, y: heightAt(x, z), surface: s };
   }
 
-  const { x, z } = LAYOUT.dropZone;
+  const { x, z } = HOLE.dropZone;
   return { x, z, y: heightAt(x, z), surface: surfaceAt(x, z) };
 }
 
@@ -353,4 +364,4 @@ export function recoveryPointFor(x, z) {
   return dropPointFor(x, z);
 }
 
-export { LAYOUT };
+export { HOLE };

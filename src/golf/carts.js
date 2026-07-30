@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 import { mat } from '../world/build.js';
 import { heightAt } from './field.js';
-import { CART_PATH } from './hole1.js';
+import { HOLE } from './hole.js';
 
 const BODY = 0xd8d2be;      // beige, and it was beige twenty years ago too
 const TRIM = 0x4a4a52;
@@ -89,26 +89,26 @@ function buildCart(scene) {
 /** Distance along the path, in metres, to a world point and a heading. */
 function pathPoint(distance) {
   let remaining = distance;
-  for (let i = 0; i < CART_PATH.length - 1; i++) {
-    const a = CART_PATH[i];
-    const b = CART_PATH[i + 1];
+  for (let i = 0; i < HOLE.cartPath.length - 1; i++) {
+    const a = HOLE.cartPath[i];
+    const b = HOLE.cartPath[i + 1];
     const seg = Math.hypot(b.x - a.x, b.z - a.z);
-    if (remaining <= seg || i === CART_PATH.length - 2) {
+    if (remaining <= seg || i === HOLE.cartPath.length - 2) {
       const t = seg > 0 ? Math.max(0, Math.min(1, remaining / seg)) : 0;
       const x = a.x + (b.x - a.x) * t;
       const z = a.z + (b.z - a.z) * t;
-      return { x, z, yaw: Math.atan2(b.x - a.x, b.z - a.z), done: i === CART_PATH.length - 2 && remaining >= seg };
+      return { x, z, yaw: Math.atan2(b.x - a.x, b.z - a.z), done: i === HOLE.cartPath.length - 2 && remaining >= seg };
     }
     remaining -= seg;
   }
-  const last = CART_PATH[CART_PATH.length - 1];
+  const last = HOLE.cartPath[HOLE.cartPath.length - 1];
   return { x: last.x, z: last.z, yaw: 0, done: true };
 }
 
 export function pathLength() {
   let total = 0;
-  for (let i = 0; i < CART_PATH.length - 1; i++) {
-    total += Math.hypot(CART_PATH[i + 1].x - CART_PATH[i].x, CART_PATH[i + 1].z - CART_PATH[i].z);
+  for (let i = 0; i < HOLE.cartPath.length - 1; i++) {
+    total += Math.hypot(HOLE.cartPath[i + 1].x - HOLE.cartPath[i].x, HOLE.cartPath[i + 1].z - HOLE.cartPath[i].z);
   }
   return total;
 }

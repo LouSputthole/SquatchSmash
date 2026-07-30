@@ -117,6 +117,9 @@ export const LOT = Object.freeze({
 
 export const CLUBHOUSE = Object.freeze({ x: -34, z: 48, rot: 0.42 });
 
+/** The mown ground around the car park and the clubhouse. Hole 1 only. */
+export const LOT_AREA = Object.freeze({ x: -6, z: 30, rx: 44, rz: 26 });
+
 /**
  * Deterministic NPC tee shots.
  *
@@ -167,7 +170,7 @@ export const LAYOUT = Object.freeze({
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
   cartPark: CART_PARK, lot: LOT, teeMarks: TEE_MARKS,
   npcTeeShots: NPC_TEE_SHOTS, treeBands: TREE_BANDS,
-  clubhouse: CLUBHOUSE, hole2Hint: HOLE2_HINT,
+  clubhouse: CLUBHOUSE, lotArea: LOT_AREA, nextHint: HOLE2_HINT,
   cupRadius: CUP_RADIUS, flagHeight: FLAG_HEIGHT,
 });
 
