@@ -11,8 +11,10 @@ import {
   createCampaign,
 } from '../src/core/campaign.js';
 import {
+  BIG_NIGHT_BOOSKI_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
+  DAY_TWO_LOU_SECOND_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 
@@ -205,7 +207,9 @@ test('sleep after Squatchfather creates a persistent Day Two wake checkpoint', (
   });
   const story = createApartmentStory({ campaign, ring: () => true });
 
-  assert.deepEqual(story.sleep(), { ok: true, day: 2, timeMinutes: 420 });
+  assert.deepEqual(story.sleep(), {
+    ok: true, chapter: 'day_two', day: 2, timeMinutes: 420,
+  });
 
   const restored = createCampaign({ storage }).state;
   assert.equal(restored.story.chapter, 'day_two');
@@ -218,7 +222,7 @@ test('sleep after Squatchfather creates a persistent Day Two wake checkpoint', (
   assert.equal(restored.events[EVENT_IDS.LOU_FIRST_CALL].status, 'answered');
 });
 
-test('sleep cannot advance the story before Squatchfather or advance Day Two twice', () => {
+test('each chapter of sleep refuses until its own mission is finished', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const story = createApartmentStory({ campaign, ring: () => true });
 
@@ -228,7 +232,15 @@ test('sleep cannot advance the story before Squatchfather or advance Day Two twi
     state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
   });
   assert.equal(story.sleep().ok, true);
-  assert.deepEqual(story.sleep(), { ok: false, reason: 'already_day_two' });
+  // Day Two is open now, so sleeping again waits on the Motel instead of
+  // silently repeating the Day One checkpoint.
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'day_two_incomplete' });
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+  });
+  assert.equal(story.sleep().chapter, 'big_night');
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'already_big_night' });
 });
 
 test('crossing midnight does not start the Day Two chapter before Tony sleeps', () => {
@@ -258,7 +270,9 @@ test('crossing midnight does not start the Day Two chapter before Tony sleeps', 
     id: 'sleep',
     line: 'That is enough going out for one night.',
   });
-  assert.deepEqual(story.sleep(), { ok: true, day: 2, timeMinutes: 420 });
+  assert.deepEqual(story.sleep(), {
+    ok: true, chapter: 'day_two', day: 2, timeMinutes: 420,
+  });
 });
 
 test('Booskibro rings once on Day Two and unlocks Captain Lou Sasole at the airstrip', () => {
@@ -331,5 +345,156 @@ test('the Day Two door waits for Booskibro, then routes to the Beef Run', () => 
   assert.deepEqual(story.tryLeave({}), {
     kind: 'go',
     destination: SCENE_IDS.AIRSTRIP_SMUGGLING,
+  });
+});
+
+/** Home from the Motel before dawn: everything Day Two asked for is done. */
+function afterTheMotel(storage = new MemoryStorage()) {
+  const campaign = createCampaign({ storage });
+  campaign.update((state) => {
+    state.story.chapter = 'day_two';
+    state.story.day = 3;
+    state.story.timeMinutes = 4 * 60 + 30;
+    state.activities.eaten = true;
+    state.activities.showered = true;
+    state.activities.pooped = true;
+    state.activities.changedClothes = true;
+    state.scene = { id: SCENE_IDS.APARTMENT, spawn: 'front_door' };
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+    state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status = 'complete';
+    state.missions[MISSION_IDS.BADA_BING_TWO].status = 'complete';
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
+    state.missions[MISSION_IDS.JERKY_MOTEL].ending = 'home';
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+    state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+    state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+  });
+  return campaign;
+}
+
+test('the door sends Tony to bed after the Motel instead of straight to the Circle', () => {
+  const campaign = afterTheMotel();
+  const calls = [];
+  const story = createApartmentStory({
+    campaign,
+    ring: (definition) => {
+      calls.push(definition);
+      return true;
+    },
+  });
+
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'stay',
+    id: 'sleep_before_big_night',
+    line: 'It is not even light out. Whatever is next can wait until I have slept.',
+  });
+
+  // Nobody rings before he has slept.
+  story.beginMorning();
+  story.update(60);
+  assert.deepEqual(calls, []);
+  assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
+  assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'locked');
+});
+
+test('sleep after the Motel creates a persistent Day Three big-night checkpoint', () => {
+  const storage = new MemoryStorage();
+  const campaign = afterTheMotel(storage);
+  const story = createApartmentStory({ campaign, ring: () => true });
+
+  // He was up until half four, so noon of the same calendar day: the chapter
+  // turns without the day turning with it.
+  assert.deepEqual(story.sleep(), {
+    ok: true, chapter: 'big_night', day: 3, timeMinutes: 12 * 60,
+  });
+
+  const restored = createCampaign({ storage }).state;
+  assert.equal(restored.story.chapter, 'big_night');
+  assert.equal(restored.story.day, 3);
+  assert.equal(restored.story.timeMinutes, 12 * 60);
+  assert.deepEqual(restored.scene, { id: SCENE_IDS.APARTMENT, spawn: 'wake' });
+  assert.equal(restored.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+  assert.equal(restored.missions[MISSION_IDS.INITIATION].status, 'locked');
+  assert.equal(restored.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
+});
+
+test('Booskibro rings once about the big night and unlocks the Initiation', () => {
+  const storage = new MemoryStorage();
+  const story = createApartmentStory({
+    campaign: afterTheMotel(storage),
+    ring: () => true,
+  });
+  story.sleep();
+
+  const calls = [];
+  const woken = createApartmentStory({
+    campaign: createCampaign({ storage }),
+    ring: (definition) => {
+      calls.push(definition);
+      return true;
+    },
+  });
+  woken.beginMorning();
+  woken.update(5.9);
+  assert.deepEqual(calls, []);
+  woken.update(0.2);
+  assert.deepEqual(calls, [BIG_NIGHT_BOOSKI_CALL]);
+  assert.equal(BIG_NIGHT_BOOSKI_CALL.characterId, CHARACTER_IDS.BOOSKI);
+  assert.equal(BIG_NIGHT_BOOSKI_CALL.from, 'Booskibro');
+  assert.equal(BIG_NIGHT_BOOSKI_CALL.voiceProfile, 'booski');
+  assert.equal(BIG_NIGHT_BOOSKI_CALL.vo, 'call.booski.bignight');
+  assert.equal(BIG_NIGHT_BOOSKI_CALL.targetSceneId, SCENE_IDS.INITIATION);
+  // A distinct bank from his airstrip call, or the last night of the campaign
+  // is delivered in the wrong lines.
+  assert.notEqual(BIG_NIGHT_BOOSKI_CALL.vo, DAY_TWO_BOOSKI_CALL.vo);
+  assert.notEqual(BIG_NIGHT_BOOSKI_CALL.eventId, DAY_TWO_LOU_SECOND_CALL.eventId);
+
+  assert.equal(woken.callAnswered(BIG_NIGHT_BOOSKI_CALL), true);
+  const answered = createCampaign({ storage }).state;
+  assert.equal(answered.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
+  assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'available');
+  // +5 minutes on the authored clock, once.
+  assert.equal(answered.story.timeMinutes, 12 * 60 + 5);
+  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL));
+  assert.equal(woken.callAnswered(BIG_NIGHT_BOOSKI_CALL), false);
+
+  const replayed = [];
+  const afterReload = createApartmentStory({
+    campaign: createCampaign({ storage }),
+    ring: (definition) => {
+      replayed.push(definition);
+      return true;
+    },
+  });
+  afterReload.beginMorning();
+  afterReload.update(60);
+  assert.deepEqual(replayed, []);
+});
+
+test('the big-night door waits for Booskibro, then routes to the Initiation', () => {
+  const campaign = afterTheMotel();
+  const story = createApartmentStory({ campaign, ring: () => true });
+  story.sleep();
+
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'call',
+    id: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
+    line: 'Booskibro said he would call about tonight. I am not turning up unasked.',
+  });
+
+  story.callAnswered(BIG_NIGHT_BOOSKI_CALL);
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.INITIATION,
+  });
+  // The scene does not report its own progress yet, so the door has to keep
+  // letting him back in rather than latching shut behind him.
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
+  });
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.INITIATION,
   });
 });

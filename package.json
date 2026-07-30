@@ -15,6 +15,7 @@
     "verify:art": "node tools/verify-art.mjs",
     "verify:day-one": "node tools/verify-day-one.mjs",
     "verify:day-two": "node tools/verify-day-two.mjs",
+    "verify:big-night": "node tools/verify-big-night.mjs",
     "verify:computer": "node tools/verify-computer.mjs",
     "verify:squatch-smash": "node tools/verify-squatch-smash.mjs",
     "verify:boot-errors": "node tools/verify-boot-errors.mjs",

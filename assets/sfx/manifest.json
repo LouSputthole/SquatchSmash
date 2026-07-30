@@ -3564,6 +3564,27 @@
       "say": "And eat something. You never eat."
     },
     {
+      "_comment": "Booskibro's big-night call, the last one Tony gets as a prospect. Patriarch voice, not the gambling-show one: he is telling the kid the room is assembling for him.",
+      "name": "vo.call.booski.bignight.1",
+      "voice": "booski",
+      "say": "Tonight is the night. Do not make other plans."
+    },
+    {
+      "name": "vo.call.booski.bignight.2",
+      "voice": "booski",
+      "say": "Everyone is coming. All five founders, the whole Circle, in one room."
+    },
+    {
+      "name": "vo.call.booski.bignight.3",
+      "voice": "booski",
+      "say": "Shower, shave, wear something clean. This one is about you, Tony."
+    },
+    {
+      "name": "vo.call.booski.bignight.4",
+      "voice": "booski",
+      "say": "Seven sharp. Do not be early and do not be late."
+    },
+    {
       "name": "vo.call.booski.1",
       "voice": "booski",
       "say": "you good?"

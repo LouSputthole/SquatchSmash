@@ -38,8 +38,10 @@ Current product facts:
 - The apartment is the recurring hub.
 - Story time advances only through authored tasks, calls, travel, missions,
   and sleep. Idle real time must not move campaign time.
-- Day One apartment → Bada Bing One → apartment → Squatchfather →
-  apartment/sleep is connected.
+- The whole confirmed order is now connected end to end through campaign state:
+  apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep →
+  Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment/sleep →
+  Initiation.
 - The Beef Run is integrated at `beefrun.html`: Booskibro's answered call
   routes the apartment door there, the mission persists checkpoints, cargo,
   detection, landing rank, and completion, a reload resumes in the cockpit,
@@ -48,6 +50,19 @@ Current product facts:
   canonical.
 - The post-airstrip state contract, Lou's second call, reused Bada Bing Two,
   direct Jerky Motel transition, and Motel return exist.
+- The final apartment return is connected. Home from the Motel at 4:30 AM on
+  Day 3, the door refuses in Tony's voice until he sleeps; sleeping opens the
+  `big_night` chapter at Day 3 noon; Booskibro rings once about the big night
+  (`vo.call.booski.bignight.*`, +5 minutes) and unlocks the Initiation; the door
+  then applies `travel.initiation` (Day 3, 7:00 PM) and really navigates to
+  `initiation.html`. `verify:big-night` (14) covers the whole beat.
+- Sleep is the chapter machine and chapter is still separate from calendar day:
+  `day_one` → `day_two` (needs Squatchfather, wakes Day 2 7:00 AM) →
+  `big_night` (needs the Motel, wakes Day 3 12:00 PM). `big_night` is the last
+  chapter.
+- `SCENE_IDS.INITIATION` is registered with no outbound edge because the scene
+  does not read the campaign or report completion. `src/initiation/*` and
+  `initiation.html` are byte-identical to the pre-consolidation build.
 - `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, and the
   unchanged Initiation in page-local memory without reading or writing the
   real save.
@@ -79,14 +94,22 @@ Locked character/story canon:
 
 Immediate implementation objective:
 
-The Beef Run integration is complete and verified (2026-07-30). Continue the
-consolidation in this order:
+The Beef Run integration and the big-night apartment beat are both complete and
+verified (2026-07-30). Continue the consolidation in this order:
 
-1. Extend the authored time ledger across the remaining mission/return beats
-   (Bing Two travel/completion, Motel travel/completion, returns home), the
-   same way `travel.airstrip` and `mission.airstrip` were added.
-2. Add the final apartment return/big-night call and route the current
-   Initiation through normal campaign state without rewriting the scene.
+1. **A human playtest of the current Initiation is the next gate.** The
+   apartment door now reaches it through ordinary campaign state, and the scene
+   is deliberately still unchanged. Nothing in `src/initiation/*` may change
+   until the user has played it. After that playtest, implement the approved
+   ending: accomplishment review, rival deaths, Tony's verdict, mass
+   transformation, plus the scene's first `campaign.enter` claim, completion
+   time event, and outbound edge home.
+2. Two earlier campaign calls still have no manifest cues at all —
+   `vo.call.booski.airstrip.*` (Booskibro's Day Two call) and
+   `vo.call.lou.bing_second.*` (Lou's second call). They display on screen and
+   hold for a reading beat, but they can never be recorded until somebody
+   authors them the way `vo.call.booski.bignight.*` now is. `npm run check`
+   does not catch this class of gap for `src/core/apartment-story.js`.
 3. The 2026-07-29 scene-polish backlog is largely DONE (2026-07-30 commits
    `b2f784f` through the club-audio pass; details in
    `docs/audits/2026-07-30-bada-bing-audit.md`): Squatchfather

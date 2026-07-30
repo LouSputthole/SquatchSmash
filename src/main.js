@@ -167,12 +167,17 @@ const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
   && campaignAtLoad.scene.spawn === 'front_door';
 const returningFromBing = returningToApartment
   && campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
+const returningFromMotel = returningToApartment
+  && campaignAtLoad.missions[MISSION_IDS.JERKY_MOTEL].status === 'complete';
 const returningFromSquatchfather = returningToApartment
+  && !returningFromMotel
   && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
 const apartmentGunUnlocked =
   campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
 const wakingOnDayTwo = !returningToApartment
   && campaignAtLoad.story.chapter === 'day_two';
+const wakingOnBigNight = !returningToApartment
+  && campaignAtLoad.story.chapter === 'big_night';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
   campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
 }
@@ -180,6 +185,9 @@ time.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
 if (wakingOnDayTwo) {
   overlay.querySelector('.tag').textContent =
     'Day Two, 7:00 AM. Booskibro has the next job. The phone is on the nightstand.';
+} else if (wakingOnBigNight) {
+  overlay.querySelector('.tag').textContent =
+    'Day Three, 12:00 PM. Tonight is the big night. Booskibro will call about it.';
 }
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
@@ -564,7 +572,9 @@ async function boot() {
     interaction.setPaused(false);
     overlay.querySelector('.tag').textContent = returningFromBing
       ? 'Back from the Bing. Lou’s package is still under your jacket.'
-      : 'Back from the restaurant. The business is settled.';
+      : returningFromMotel
+        ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
+        : 'Back from the restaurant. The business is settled.';
     startBtn.textContent = 'Go Inside';
   } else {
     player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
@@ -641,6 +651,9 @@ startBtn.addEventListener('click', async () => {
       if (returningFromBing) {
         hud.toast('Lou’s package · inside your jacket', 'good');
         hud.say('Home again. The package came back with you.', 4800);
+      } else if (returningFromMotel) {
+        hud.toast('The jerky run is done', 'good');
+        hud.say('Home. Every bit of that took all night. <em>Bed.</em>', 4800);
       } else if (returningFromSquatchfather) {
         hud.toast('The business is settled', 'good');
         hud.say('Home again. The weapon did not come back with you.', 4800);
@@ -1012,9 +1025,11 @@ function sleepInBed() {
   hud.hidePrompt();
   audio.say('sleep');
   const storySleep = apartmentStory.sleep();
-  hud.say(storySleep.ok
-    ? 'Day One is done. You close your eyes.'
-    : 'You close your eyes. It is not like you had plans.', 2600);
+  hud.say(storySleep.chapter === 'big_night'
+    ? 'The jerky is somebody else’s problem now. You close your eyes.'
+    : storySleep.ok
+      ? 'Day One is done. You close your eyes.'
+      : 'You close your eyes. It is not like you had plans.', 2600);
   passOut({ voluntary: true, storySleep });
 }
 
@@ -2008,6 +2023,15 @@ function leaveForMission(destination) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_TWO);
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.INITIATION) {
+    /* The Initiation build is deliberately untouched and does not report its
+     * own progress, so leaving for it is the only thing the campaign can
+     * record. Departure is what marks it started. */
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_INITIATION, (state) => {
+      state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
+    });
+    syncClockFromCampaign();
+  }
 
   interaction.setPaused(true);
   hud.hidePrompt();
@@ -2461,6 +2485,30 @@ function pick(list) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * The first thing he says on waking.
+ *
+ * A sleep that turned a story chapter announces the chapter -- those are the
+ * only two nights in the campaign that mean anything. Everything else is the
+ * old copy for a nap or for the drink taking him.
+ */
+function wakeUpLine(storySleep, voluntary) {
+  if (storySleep?.chapter === 'big_night') {
+    return `<em>Day Three. ${time.clock12}.</em> Tonight is the thing. `
+      + 'Booskibro said he would call.';
+  }
+  if (storySleep?.ok) {
+    return `<em>Day Two. ${time.clock12}.</em> Booskibro said he would call.`;
+  }
+  if (!voluntary) {
+    return `<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`;
+  }
+  if (time.day === MEETING.day && time.hour >= 17) {
+    return `<em>${time.clock12}.</em> Slept most of it away. <em>That is tonight, that is.</em>`;
+  }
+  return `<em>${time.clock12}.</em> Out like a light. Nothing has changed.`;
+}
+
+/**
  * Lights out. Either the drink takes you (`voluntary` false, which is the
  * usual way it happens) or you decide to lie down and let the day go.
  */
@@ -2543,13 +2591,7 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     blackout.querySelector('span').textContent = '';
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
-    hud.say(storySleep?.ok
-      ? `<em>Day Two. ${time.clock12}.</em> Booskibro said he would call.`
-      : voluntary
-        ? (time.day === MEETING.day && time.hour >= 17
-        ? `<em>${time.clock12}.</em> Slept most of it away. <em>That is tonight, that is.</em>`
-        : `<em>${time.clock12}.</em> Out like a light. Nothing has changed.`)
-      : `<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`, 6000);
+    hud.say(wakeUpLine(storySleep, voluntary), 6000);
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
     }, 3200);

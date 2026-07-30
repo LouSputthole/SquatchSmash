@@ -22,6 +22,7 @@ export const SCENE_IDS = Object.freeze({
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
+  INITIATION: 'initiation',
 });
 
 export const ITEM_IDS = Object.freeze({
@@ -34,12 +35,14 @@ export const MISSION_IDS = Object.freeze({
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
+  INITIATION: 'initiation',
 });
 
 export const EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'lou_first_call',
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
   LOU_SECOND_CALL: 'lou_second_call',
+  BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
 });
 
 export const TIME_EVENT_IDS = Object.freeze({
@@ -51,6 +54,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'call.lou_first',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
   LOU_SECOND_CALL: 'call.lou_second',
+  BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
   DEPART_AIRSTRIP: 'travel.airstrip',
   COMPLETE_AIRSTRIP: 'mission.airstrip',
@@ -58,6 +62,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_BADA_BING_TWO: 'mission.bada_bing_two',
   DEPART_JERKY_MOTEL: 'travel.jerky_motel',
   COMPLETE_JERKY_MOTEL: 'mission.jerky_motel',
+  DEPART_INITIATION: 'travel.initiation',
 });
 
 const TIME_EVENTS = Object.freeze({
@@ -69,6 +74,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
   }),
@@ -96,6 +102,12 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 4 * 60 + 30 }),
   }),
+  /* The big night. Booskibro said seven sharp, and it is the evening of the
+   * same day Tony crawled home from the Motel -- he sleeps through the morning
+   * first, so the chapter turns without the calendar day turning with it. */
+  [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 19 * 60 }),
+  }),
 });
 const MINUTES_PER_DAY = 24 * 60;
 
@@ -113,6 +125,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.SQUATCHFATHER,
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.INITIATION,
     ]),
   }),
   [SCENE_IDS.BADA_BING_ONE]: Object.freeze({
@@ -144,6 +157,16 @@ const SCENES = Object.freeze({
     defaultSpawn: 'passenger_seat',
     spawns: Object.freeze(['passenger_seat']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  /* The Initiation is registered so the apartment door can route to it through
+   * ordinary campaign state. The scene itself is deliberately untouched: it
+   * does not read the campaign, claim the scene, or report completion yet, so
+   * it has no outbound edge and nothing here waits on one. */
+  [SCENE_IDS.INITIATION]: Object.freeze({
+    href: 'initiation.html',
+    defaultSpawn: 'gathering',
+    spawns: Object.freeze(['gathering']),
+    next: Object.freeze([]),
   }),
 });
 
@@ -218,6 +241,9 @@ function initialState() {
         freshness: 0,
         policeHeat: 0,
       },
+      [MISSION_IDS.INITIATION]: {
+        status: 'locked',
+      },
     },
     events: {
       [EVENT_IDS.LOU_FIRST_CALL]: {
@@ -227,6 +253,9 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.LOU_SECOND_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
         status: 'pending',
       },
     },
@@ -321,9 +350,13 @@ function normalize(saved) {
   const motel = saved.missions?.[MISSION_IDS.JERKY_MOTEL] ?? {};
   const motelStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(motel.status) ? motel.status : base.missions.jerky_motel.status;
+  const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
+  const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
+  const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
 
   const state = {
     version: CAMPAIGN_VERSION,
@@ -385,6 +418,9 @@ function normalize(saved) {
         freshness: boundedNumber(motel.freshness, 0, 100, 0),
         policeHeat: boundedNumber(motel.policeHeat, 0, 100, 0),
       },
+      [MISSION_IDS.INITIATION]: {
+        status: initiationStatus,
+      },
     },
     events: {
       [EVENT_IDS.LOU_FIRST_CALL]: {
@@ -402,6 +438,12 @@ function normalize(saved) {
       },
       [EVENT_IDS.LOU_SECOND_CALL]: {
         status: louSecondCall.status === 'answered' || bingTwoStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      // Same rule at the end of the line: an exposed Initiation is proof
+      // Booskibro's big-night call already landed.
+      [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
+        status: booskiBigNightCall.status === 'answered' || initiationStatus !== 'locked'
           ? 'answered' : 'pending',
       },
     },
@@ -678,6 +720,7 @@ function seedPreviewCampaign(campaign, sceneId) {
     const airstrip = state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
     const secondBing = state.missions[MISSION_IDS.BADA_BING_TWO];
     const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
+    const initiation = state.missions[MISSION_IDS.INITIATION];
 
     if (sceneId === SCENE_IDS.BADA_BING_ONE) {
       firstBing.status = 'available';
@@ -690,6 +733,7 @@ function seedPreviewCampaign(campaign, sceneId) {
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       firstBing.status = 'complete';
       firstBing.packageReceived = true;
@@ -713,7 +757,11 @@ function seedPreviewCampaign(campaign, sceneId) {
       return;
     }
 
-    if ([SCENE_IDS.BADA_BING_TWO, SCENE_IDS.JERKY_MOTEL].includes(sceneId)) {
+    if ([
+      SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.INITIATION,
+    ].includes(sceneId)) {
       squatchfather.status = 'complete';
       squatchfather.weaponStaged = true;
       squatchfather.weaponDropped = true;
@@ -729,10 +777,22 @@ function seedPreviewCampaign(campaign, sceneId) {
       return;
     }
 
-    if (sceneId === SCENE_IDS.JERKY_MOTEL) {
+    if ([SCENE_IDS.JERKY_MOTEL, SCENE_IDS.INITIATION].includes(sceneId)) {
       secondBing.status = 'complete';
       secondBing.assignment = 'reserve_pickup';
       motel.status = 'available';
+    }
+
+    if (sceneId === SCENE_IDS.INITIATION) {
+      motel.status = 'complete';
+      motel.ending = 'home';
+      motel.cargoRecovered = true;
+      // Tony slept the morning off and woke into the big night.
+      state.story.chapter = 'big_night';
+      state.story.day = 3;
+      state.story.timeMinutes = 12 * 60;
+      state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
+      initiation.status = 'available';
     }
   });
 

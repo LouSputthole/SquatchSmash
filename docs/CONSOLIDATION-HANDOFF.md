@@ -1,6 +1,6 @@
 # SquatchSmash Consolidation Handoff
 
-Last updated: 2026-07-29  
+Last updated: 2026-07-30  
 GitHub: <https://github.com/LouSputthole/SquatchSmash>  
 Canonical integration branch: `integration/post-airstrip-prep-20260729`  
 Character-canon checkpoint: `9fb3022`
@@ -41,6 +41,10 @@ end-to-end verification.
 - The post-airstrip apartment state, Big Uncle Lou's second call, reused Bada
   Bing Scene Two, direct Jerky Motel handoff, Motel completion, and apartment
   return are implemented.
+- The final apartment return, the post-Motel sleep into the `big_night`
+  chapter, Booskibro's one-shot big-night call, and the door route into the
+  unchanged Initiation are implemented and browser-verified
+  (`verify:big-night`, 14).
 - Squatchfather, Motel, and Initiation history/content are preserved without
   overwriting the apartment-era shared systems.
 - Squatch Smash is an apartment-computer game with its enhanced goals, Ranger
@@ -78,7 +82,8 @@ bcd5b81 Import the finished Beef Run and align its cast with campaign canon
 Apartment → Bada Bing One → apartment → Squatchfather → apartment →
 Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment →
 Initiation. This matches what is built; the owner confirmed position 9 is
-the Jerky Motel. The owner also confirmed the previously blocked
+the Jerky Motel. Every arrow in that chain is now a real campaign transition,
+including the last one into the unchanged Initiation. The owner also confirmed the previously blocked
 character/performer decisions stand as originally specified (Squatchfather
 character style everywhere, detailed performers, Lou's face photo without
 the bandana).
@@ -149,12 +154,63 @@ Current authored beats:
 | Bada Bing Scene Two completion | Advance to at least Day 3, 12:45 AM |
 | Drive to the Jerky Motel | Advance to at least Day 3, 1:30 AM |
 | Jerky Motel completion | Advance to at least Day 3, 4:30 AM |
+| Booskibro's answered big-night call | +5 minutes |
+| Leave for the Initiation | Advance to at least Day 3, 7:00 PM |
 
 The first Bing HUD now reads the persisted campaign clock instead of a
 scene-local timer. Remaining mission and travel beats should extend the same
 ledger. The user explicitly permits additional days before Initiation; do not
 compress every mission into a two-day deadline merely to preserve the old
 fifteen-real-minute-day design.
+
+### Sleep is the chapter machine
+
+Sleeping in his own bed is the only thing that turns a story chapter, and story
+chapter is still deliberately separate from calendar day. `SLEEP_CHAPTERS` in
+`src/core/apartment-story.js` is the whole table:
+
+| Chapter | Requires | Wakes at | Next chapter |
+|---|---|---|---|
+| `day_one` | Squatchfather complete | Day 2, 7:00 AM | `day_two` |
+| `day_two` | Jerky Motel complete | Day 3, 12:00 PM | `big_night` |
+
+`big_night` is the last chapter, so sleeping again returns
+`already_big_night`. Lying down early is refused in Tony's voice with
+`day_one_incomplete` or `day_two_incomplete` rather than skipping a night of
+work. The big-night wake is noon of the *same* Day 3 the Motel ended on: Tony
+was up until half four in the morning, and the ceremony is not until seven that
+evening.
+
+## The final apartment return and the big-night call
+
+The last apartment beat is connected and the current Initiation is routed
+through ordinary campaign state without a single change to the scene:
+
+- Coming home from the Motel is recognised on its own (`returningFromMotel`),
+  with its own overlay tag and arrival lines, instead of reusing the
+  Squatchfather return copy.
+- Before the post-Motel sleep the door gives an in-voice waiting line
+  (`sleep_before_big_night`) rather than a destination. Nothing rings.
+- Sleeping opens the `big_night` chapter at Day 3 noon. Booskibro — patriarch
+  and ceremony leader — then rings the physical phone once as
+  `BIG_NIGHT_BOOSKI_CALL`: character `booski`, voice profile `booski`, cue bank
+  `vo.call.booski.bignight.*`, four authored lines about the whole Circle
+  assembling for Tony. Answering costs +5 authored minutes and unlocks
+  `MISSION_IDS.INITIATION`.
+- The door then returns `{ kind: 'go', destination: SCENE_IDS.INITIATION }`.
+  `leaveForMission` applies `travel.initiation`, marks the mission
+  `in_progress`, and navigates to `initiation.html`.
+- `src/initiation/*` and `initiation.html` are byte-identical to the
+  pre-existing build. The scene does not read the campaign, claim its scene, or
+  report completion, so `SCENE_IDS.INITIATION` has no outbound edge and the
+  door keeps letting Tony back in rather than latching shut behind him. That is
+  the accepted state until the user has playtested it.
+- `vo.call.booski.bignight.1..4` are authored in `assets/sfx/manifest.json`
+  with `voice: "booski"` and `say` fields. **No audio was generated.** Note
+  that `vo.call.booski.airstrip.*` and `vo.call.lou.bing_second.*` — the two
+  earlier campaign calls — are still missing from the manifest entirely, so
+  those two calls can never be recorded until someone authors them the same
+  way. Nothing in `npm run check` catches that today.
 
 ## July 29 playtest-fix pass
 
@@ -253,15 +309,17 @@ Three.js. The adapted boundaries:
 
 ## Verification at this checkpoint
 
-Fresh checks on the complete July 30 Beef Run integration milestone:
+Fresh checks on the July 30 big-night milestone:
 
 ```text
-npm test                       66/66 passed
-npm run check                  163 source files, 4 manifests, all good
+npm test                       73/73 passed
+npm run check                  175 source files, 4 manifests, all good
 npm run check:flight           flight-model bench, all envelopes hold
 npm run verify:art             50 pieces, 4 bathroom, 12 fridge, 2 doors
 npm run verify:day-one         19/19 passed
 npm run verify:day-two         13/13 passed (rides the real departure into beefrun.html)
+npm run verify:big-night       14/14 passed (Motel return, sleep, call, real route
+                                             into initiation.html)
 npm run verify:computer        18/18 passed
 npm run verify:squatch-smash    8/8 passed
 npm run verify:bing            46/46 passed
@@ -270,15 +328,17 @@ npm run verify:squatchfather   19/19 passed
 npm run verify:motel           27/27 passed
 npm run verify:initiation      10/10 passed
 npm run verify:beefrun         13/13 passed (preview playthrough + cockpit resume)
-npm run verify:preview         14/14 passed (launcher now lists five previews)
+npm run verify:preview         14/14 passed (launcher lists five previews)
 npm run verify:boot-errors      6/6 passed
-npm run bundle                 built dist/squatch-apartment.html (15.88 MB)
 ```
+
+`npm run verify:silver` (54) and `npm run bundle` were not re-run at this
+checkpoint; nothing in this milestone touches `src/silver/*` or the bundler.
 
 The single-file bundle is a constrained preview artifact: its configured size
 budget omitted seven music tracks and 436 voice clips, so the normal hosted
 runtime remains the authoritative audio experience. Re-run every focused
-verifier after the Beef runtime lands and before any merge to `main`.
+verifier before any merge to `main`.
 
 ## Repository Three.js skills
 
@@ -306,11 +366,16 @@ imported into the shipped game.
 
 ## Next implementation sequence
 
-1. Add the final apartment return/big-night call and route the current
-   Initiation through normal campaign state without rewriting it.
+1. ~~Add the final apartment return/big-night call and route the current
+   Initiation through normal campaign state without rewriting it.~~ **DONE
+   2026-07-30** — see "The final apartment return and the big-night call". The
+   next move here is the human playtest gate: the user has to play the current
+   Initiation before anything in it changes.
 2. After the user playtests Initiation, design and implement the approved
    accomplishment review, rival deaths, mass transformation, and
-   chapter-complete checkpoint.
+   chapter-complete checkpoint. That work is also what gives
+   `SCENE_IDS.INITIATION` its first outbound edge, a completion time event, and
+   a reason to claim the scene with `campaign.enter`.
 3. Run the entire waking-apartment-through-Initiation acceptance path, including
    reloads at every apartment return.
 4. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather

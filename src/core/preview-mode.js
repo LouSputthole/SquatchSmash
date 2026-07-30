@@ -62,6 +62,12 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   if (pathname.endsWith('/beefrun.html') || pathname.endsWith('beefrun.html')) {
     return 'airstrip_smuggling';
   }
+  /* The Initiation build does not create a campaign yet, so nothing in that
+   * page consults this today. It is mapped anyway so the route cannot silently
+   * seed an apartment preview the day the scene does claim its own state. */
+  if (pathname.endsWith('/initiation.html') || pathname.endsWith('initiation.html')) {
+    return 'initiation';
+  }
   if (pathname.endsWith('/bing.html') || pathname.endsWith('bing.html')) {
     return searchParams(locationLike).get('visit') === '2'
       ? 'bada_bing_two'

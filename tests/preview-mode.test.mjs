@@ -113,6 +113,17 @@ test('Squatchfather and Bing Two previews receive only temporary prerequisites',
         assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].status, 'available');
       },
     },
+    {
+      location: { pathname: '/initiation.html', search: '?preview=1' },
+      scene: SCENE_IDS.INITIATION,
+      verify(state) {
+        assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+        assert.equal(state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
+        assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
+        assert.equal(state.story.chapter, 'big_night');
+        assert.equal(state.story.day, 3);
+      },
+    },
   ];
 
   for (const entry of cases) {

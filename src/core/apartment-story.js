@@ -77,6 +77,56 @@ export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
   ]),
 });
 
+/**
+ * What sleeping in his own bed does, chapter by chapter.
+ *
+ * Story chapter and calendar day are deliberately separate. Tony gets home
+ * from the Jerky Motel at half four in the morning of Day 3, so the big-night
+ * chapter opens at noon on that same Day 3 rather than on a fourth day: he was
+ * up all night, and the ceremony is not until seven that evening.
+ */
+const SLEEP_CHAPTERS = Object.freeze([
+  Object.freeze({
+    from: 'day_one',
+    to: 'day_two',
+    requires: MISSION_IDS.SQUATCHFATHER,
+    incomplete: 'day_one_incomplete',
+    day: 2,
+    timeMinutes: 7 * 60,
+  }),
+  Object.freeze({
+    from: 'day_two',
+    to: 'big_night',
+    requires: MISSION_IDS.JERKY_MOTEL,
+    incomplete: 'day_two_incomplete',
+    day: 3,
+    timeMinutes: 12 * 60,
+  }),
+]);
+const LAST_CHAPTER = SLEEP_CHAPTERS[SLEEP_CHAPTERS.length - 1].to;
+
+/**
+ * The last call Tony gets as a prospect.
+ *
+ * It rings once, after he has slept off the Motel, and it is the only reason
+ * the apartment door will open on the Initiation. Booskibro is the patriarch
+ * and the ceremony leader, so he is the one who tells Tony the night is his.
+ */
+export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
+  eventId: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
+  characterId: CHARACTER_IDS.BOOSKI,
+  targetSceneId: SCENE_IDS.INITIATION,
+  from: getCharacter(CHARACTER_IDS.BOOSKI).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.BOOSKI),
+  vo: 'call.booski.bignight',
+  lines: Object.freeze([
+    'Tonight is the night. Do not make other plans.',
+    'Everyone is coming. All five founders, the whole Circle, in one room.',
+    'Shower, shave, wear something clean. This one is about you, Tony.',
+    'Seven sharp. Do not be early and do not be late.',
+  ]),
+});
+
 class ApartmentStory {
   constructor({ campaign, ring }) {
     this.campaign = campaign;
@@ -123,33 +173,69 @@ class ApartmentStory {
       });
       return true;
     }
+    if (definition?.eventId === EVENT_IDS.BOOSKI_BIG_NIGHT_CALL
+      && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL, (state) => {
+        state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
+        state.missions[MISSION_IDS.INITIATION].status = 'available';
+      });
+      return true;
+    }
     return false;
   }
 
+  /**
+   * Sleeping in his own bed is the chapter machine, and the only thing that
+   * turns a page. Each chapter names the mission that has to be finished
+   * first, so lying down early is refused in his own voice instead of
+   * skipping a night of work.
+   */
   sleep() {
     const state = this.campaign.state;
-    if (state.story.chapter !== 'day_one') {
-      return { ok: false, reason: 'already_day_two' };
+    const step = SLEEP_CHAPTERS.find((entry) => entry.from === state.story.chapter);
+    if (!step) {
+      return {
+        ok: false,
+        reason: state.story.chapter === LAST_CHAPTER
+          ? 'already_big_night' : 'unknown_chapter',
+      };
     }
-    if (state.missions[MISSION_IDS.SQUATCHFATHER].status !== 'complete') {
-      return { ok: false, reason: 'day_one_incomplete' };
+    if (state.missions[step.requires].status !== 'complete') {
+      return { ok: false, reason: step.incomplete };
     }
 
-    const timeMinutes = 7 * 60;
     this.campaign.update((next) => {
-      next.story.chapter = 'day_two';
-      next.story.day = 2;
-      next.story.timeMinutes = timeMinutes;
+      next.story.chapter = step.to;
+      next.story.day = step.day;
+      next.story.timeMinutes = step.timeMinutes;
       next.scene = { id: SCENE_IDS.APARTMENT, spawn: 'wake' };
     });
     this.started = false;
     this.elapsed = 0;
     this.nextRingAt = FIRST_RING_DELAY;
-    return { ok: true, day: 2, timeMinutes };
+    return {
+      ok: true,
+      chapter: step.to,
+      day: step.day,
+      timeMinutes: step.timeMinutes,
+    };
   }
 
   tryLeave(activities = {}) {
     const state = this.campaign.state;
+    if (state.story.chapter === 'big_night') {
+      if (!this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
+          line: 'Booskibro said he would call about tonight. I am not turning up unasked.',
+        };
+      }
+      return {
+        kind: 'go',
+        destination: SCENE_IDS.INITIATION,
+      };
+    }
     if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete') {
       if (!this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {
@@ -184,10 +270,12 @@ class ApartmentStory {
           destination: SCENE_IDS.JERKY_MOTEL,
         };
       }
+      /* Home from the Motel before dawn with nothing left on the list. The
+       * door stays shut until he has slept and Booskibro has rung. */
       return {
         kind: 'stay',
-        id: 'motel_complete',
-        line: 'The motel job is done.',
+        id: 'sleep_before_big_night',
+        line: 'It is not even light out. Whatever is next can wait until I have slept.',
       };
     }
     if (!this.#callAnswered()) {
@@ -243,6 +331,10 @@ class ApartmentStory {
 
   #pendingCall() {
     const state = this.campaign.state;
+    if (state.story.chapter === 'big_night'
+      && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
+      return BIG_NIGHT_BOOSKI_CALL;
+    }
     if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_DAY_TWO_CALL)) {

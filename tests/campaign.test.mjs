@@ -110,6 +110,8 @@ test('the Day Two and Day Three mission beats land on their authored clocks', ()
     [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 3, 45],
     [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 3, 60 + 30],
     [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 3, 4 * 60 + 30],
+    // Same Day 3: he sleeps the morning off and leaves for the Circle at seven.
+    [TIME_EVENT_IDS.DEPART_INITIATION, 3, 19 * 60],
   ];
   for (const [eventId, day, timeMinutes] of beats) {
     const result = campaign.advanceTime(eventId);
@@ -118,10 +120,11 @@ test('the Day Two and Day Three mission beats land on their authored clocks', ()
     assert.equal(result.timeMinutes, timeMinutes, eventId);
   }
 
-  // Replaying a completed beat cannot farm time across the midnight boundary.
+  // Replaying a completed beat cannot farm time across the midnight boundary,
+  // and cannot drag the clock back to the beat's own authored hour either.
   const replay = campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO);
   assert.deepEqual(replay, {
-    applied: false, day: 3, timeMinutes: 4 * 60 + 30, minutesAdvanced: 0,
+    applied: false, day: 3, timeMinutes: 19 * 60, minutesAdvanced: 0,
   });
 });
 
@@ -213,12 +216,61 @@ test('every registered scene has a deterministic default spawn', () => {
     [SCENE_IDS.AIRSTRIP_SMUGGLING, 'hangar'],
     [SCENE_IDS.BADA_BING_TWO, 'driver_seat'],
     [SCENE_IDS.JERKY_MOTEL, 'passenger_seat'],
+    [SCENE_IDS.INITIATION, 'gathering'],
   ]);
 
   for (const [sceneId, spawn] of expected) {
     campaign.enter(sceneId);
     assert.deepEqual(campaign.state.scene, { id: sceneId, spawn });
   }
+});
+
+test('the apartment door is a registered route to the Initiation', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  const hrefs = [];
+
+  navigateCampaign(campaign, SCENE_IDS.INITIATION, {
+    location: { assign: (href) => hrefs.push(href) },
+  });
+
+  assert.deepEqual(hrefs, ['initiation.html']);
+  assert.deepEqual(campaign.state.scene, {
+    id: SCENE_IDS.INITIATION,
+    spawn: 'gathering',
+  });
+  assert.deepEqual(createCampaign({ storage }).state.scene, {
+    id: SCENE_IDS.INITIATION,
+    spawn: 'gathering',
+  });
+  // The unchanged Initiation build never navigates anywhere, so it has no
+  // outbound edge and must not be given one by accident.
+  assert.throws(
+    () => campaign.transition(SCENE_IDS.APARTMENT, { spawn: 'wake' }),
+    /Cannot transition from "initiation" to "apartment"/,
+  );
+});
+
+test('an exposed Initiation implies Booskibro’s big-night call already landed', () => {
+  const storage = new MemoryStorage();
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify({
+    version: 1,
+    revision: 31,
+    scene: { id: SCENE_IDS.APARTMENT, spawn: 'wake' },
+    story: { chapter: 'big_night', day: 3, timeMinutes: 12 * 60 + 5 },
+    activities: {},
+    inventory: { carried: [], concealed: [] },
+    missions: {
+      [MISSION_IDS.JERKY_MOTEL]: { status: 'complete', ending: 'home' },
+      [MISSION_IDS.INITIATION]: { status: 'available' },
+    },
+    events: {},
+  }));
+
+  const restored = createCampaign({ storage }).state;
+  assert.equal(restored.story.chapter, 'big_night');
+  assert.equal(restored.missions[MISSION_IDS.INITIATION].status, 'available');
+  assert.equal(restored.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
 });
 
 test('failed browser navigation rolls campaign state back to the source scene', () => {
@@ -397,6 +449,8 @@ test('older Day One saves gain the Day Two event and airstrip mission without lo
   assert.equal(restored.activities.eaten, true);
   assert.equal(restored.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'pending');
   assert.equal(restored.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
+  assert.equal(restored.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
+  assert.equal(restored.missions[MISSION_IDS.INITIATION].status, 'locked');
 });
 
 test('malformed save JSON is backed up before a clean campaign replaces it', () => {
