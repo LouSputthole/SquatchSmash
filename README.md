@@ -355,6 +355,7 @@ npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
 npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
 npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
 npm run verify:initiation # runtime: legacy scene/assets; not story canon
+npm run verify:boot-errors # blocked scene modules show reload/home recovery
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
 
@@ -387,6 +388,11 @@ completed mission returns home without restoring the discarded weapon.
 blackout, verifies the checkpoint survives a reload, answers Booski through the
 physical phone, and reloads again to prove neither completed call replays.
 Captain Lou Sasole is asserted as a separate character ID at the airstrip gate.
+
+`verify:boot-errors` deliberately blocks the Motel, Squatchfather, and
+Initiation entry modules. Their classic-script guard must show a useful error,
+Reload, and Apartment recovery before any Three.js module has successfully
+executed.
 
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around

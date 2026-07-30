@@ -22,6 +22,19 @@
          -webkit-user-select: none; color: #fff; }
   canvas { display: block; }
 
+  .boot-failure {
+    position: fixed; inset: 0; z-index: 100; display: grid; place-content: center;
+    gap: 14px; padding: 32px; text-align: center; background: rgba(7, 6, 12, .98);
+  }
+  .boot-failure[hidden] { display: none; }
+  .boot-failure strong { font-size: 30px; color: var(--purple-bright); }
+  .boot-failure span { max-width: 620px; line-height: 1.55; color: var(--silver); }
+  .boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+  .boot-failure button, .boot-failure a {
+    border: 1px solid var(--amber); border-radius: 6px; padding: 10px 16px;
+    background: var(--navy); color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+  }
+
   /* ---------- Cinematic frame ---------- */
   #letterbox { position: fixed; inset: 0; pointer-events: none; z-index: 6; }
   #letterbox .bar {
@@ -255,9 +268,23 @@
     <button id="menuBtn" class="btn ghost">← HOME</button>
   </div>
 
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong>
+    <span data-boot-detail></span>
+    <div class="actions">
+      <button type="button" data-boot-reload>RELOAD</button>
+      <a href="./index.html">APARTMENT</a>
+    </div>
+  </div>
+
+  <script src="./src/core/boot-guard.js"
+    data-target="bootFailure"
+    data-ready="squatchfather"
+    data-scene="The Squatchfather"></script>
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
-  <script type="module" src="./src/squatchfather/main.js"></script>
+  <script type="module" src="./src/squatchfather/main.js"
+    onerror="window.__squatchSceneFail('Could not load the scene', 'src/squatchfather/main.js failed to load.')"></script>
 </body>
 </html>

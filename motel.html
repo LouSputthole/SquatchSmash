@@ -25,6 +25,19 @@
   }
   canvas { display: block; }
 
+  .boot-failure {
+    position: fixed; inset: 0; z-index: 100; display: grid; place-content: center;
+    gap: 14px; padding: 32px; text-align: center; background: rgba(5, 7, 13, .97);
+  }
+  .boot-failure[hidden] { display: none; }
+  .boot-failure strong { font-size: 30px; color: var(--pink); }
+  .boot-failure span { max-width: 620px; line-height: 1.55; color: var(--silver); }
+  .boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+  .boot-failure button, .boot-failure a {
+    border: 1px solid var(--turq); border-radius: 6px; padding: 10px 16px;
+    background: #101827; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+  }
+
   /* ---------------- HUD ---------------- */
   #hud { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 5; }
   #hud.visible { display: block; }
@@ -401,9 +414,23 @@
     </div>
   </div>
 
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong>
+    <span data-boot-detail></span>
+    <div class="actions">
+      <button type="button" data-boot-reload>RELOAD</button>
+      <a href="./index.html">APARTMENT</a>
+    </div>
+  </div>
+
+  <script src="./src/core/boot-guard.js"
+    data-target="bootFailure"
+    data-ready="MOTEL"
+    data-scene="The Jerky Motel"></script>
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
-  <script type="module" src="./src/motel/main.js"></script>
+  <script type="module" src="./src/motel/main.js"
+    onerror="window.__squatchSceneFail('Could not load the scene', 'src/motel/main.js failed to load.')"></script>
 </body>
 </html>
