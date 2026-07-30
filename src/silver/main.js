@@ -31,7 +31,7 @@ import { Date_ } from './date.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
-import { buildScripts, DELIA, DELIA_BARKS, BARKS, NOTES } from './script.js';
+import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { makeTaxi } from './vehicle.js';
 
@@ -227,7 +227,7 @@ const mission = new Mission({
   onState: onMissionState,
   onObjective: paintObjectives,
   onNote: (text) => hud.say(text, 4600),
-  onImpatient: (key) => date.bark(key, DELIA_BARKS[key]),
+  onImpatient: (key) => date.bark(key, DATE_BARKS[key]),
   onCheckpoint: saveCheckpoint,
 });
 
@@ -244,11 +244,11 @@ const dialogue = new Dialogue(ui.dialogue, {
 /* ------------------------------------------------------------------ */
 
 const date = new Date_(scene, room, {
-  onBark: (line) => hud.say(`<em>${DELIA.name}:</em> ${line}`, 4600),
+  onBark: (line) => hud.say(`<em>${DATE.name}:</em> ${line}`, 4600),
   onLeftBehind: () => {
     const n = mission.leftBehind();
     woo.fire('Woo.DateLeftBehind');
-    date.bark('behind', DELIA_BARKS.behind);
+    date.bark('behind', DATE_BARKS.behind);
     if (n === 3) hud.say('<em>She has stopped hurrying to keep up, which is a decision rather than a speed.</em>', 5000);
   },
 });
@@ -264,7 +264,7 @@ const performance_ = new Performance({
       // Three separate people said the third number was the one.
       if (game.known.has('third-number')) woo.fire('Woo.CallbackUsed');
       date.watch(band.leader.group, 4);
-      date.bark('show', DELIA_BARKS.show);
+      date.bark('show', DATE_BARKS.show);
       offerSway();
     }
   },
@@ -354,7 +354,7 @@ function tip(id, amount, { generous = false, contextual = false } = {}) {
   woo.fire(id);
   if (generous) woo.fire('Woo.GenerousTip');
   if (contextual) woo.fire('Woo.ContextualTip');
-  date.bark('tipped', DELIA_BARKS.tipped);
+  date.bark('tipped', DATE_BARKS.tipped);
   const npc = npcForTip(id);
   if (npc) date.watch(npc.group, 2.2);
   return true;
@@ -491,7 +491,7 @@ registerDoor('service', {
   onToggle: (door) => {
     if (!door.open) return;
     mission.flags.sideDoorOpened = true;
-    date.bark('door', DELIA_BARKS.door);
+    date.bark('door', DATE_BARKS.door);
   },
 });
 registerDoor('kitchenSwing');
@@ -544,7 +544,7 @@ function greet(npc, tree, at = 'open') {
   dialogue.start(tree, node, npc);
   // She looks at whoever just said his name.
   date.watch(npc.group, 3);
-  if (date.mode === 'follow') date.bark('recognised', DELIA_BARKS.recognised);
+  if (date.mode === 'follow') date.bark('recognised', DATE_BARKS.recognised);
 }
 
 for (const t of TIP_POINTS) {
@@ -580,7 +580,7 @@ reg(room.anchors.crateMesh, {
     onUse: () => {
       if (woo.fire('Woo.HazardGuided')) {
         audio.play('kitchen.pan', { volume: 0.5, position: pad.position });
-        date.bark('hazard', DELIA_BARKS.hazard);
+        date.bark('hazard', DATE_BARKS.hazard);
         mission.flags.hazardSeen = true;
         const cook = cast.byName.hotPan;
         if (cook) cook.helpedAt = performance.now();
@@ -655,7 +655,7 @@ function standFromTable() {
       audio.play('chair.pull', { volume: 0.5, position: herPad.position });
       const seat = room.anchors.frontSeats[1];
       date.sitAt(seat);
-      hud.say(`<em>${DELIA.name}:</em> Somebody raised you. I want their name.`, 4600);
+      hud.say(`<em>${DATE.name}:</em> Somebody raised you. I want their name.`, 4600);
     },
   });
   game.chairPads = { his: pad, her: herPad };
@@ -1338,8 +1338,8 @@ function onRoomChange(next) {
     game.noted.add(key);
     hud.say(notes[(Math.random() * notes.length) | 0], 4800);
   }
-  if (key && DELIA_BARKS[key] && date.mode === 'follow') {
-    setTimeout(() => date.bark(key, DELIA_BARKS[key]), 1400);
+  if (key && DATE_BARKS[key] && date.mode === 'follow') {
+    setTimeout(() => date.bark(key, DATE_BARKS[key]), 1400);
   }
 
   if (next === 'alley' && mission.state === 'arrived') mission.intoAlley();
@@ -1348,7 +1348,7 @@ function onRoomChange(next) {
   if (next === 'corridor' && ['cellar', 'kitchen'].includes(mission.state)) mission.intoCorridor();
   if (next === 'floor' && ['corridor', 'kitchen'].includes(mission.state)) {
     mission.atHostStation();
-    date.bark('floor', DELIA_BARKS.floor);
+    date.bark('floor', DATE_BARKS.floor);
   }
 }
 
@@ -1527,8 +1527,8 @@ function arrive() {
 function registerDriver() {
   reg(taxi.window, {
     label: () => (woo.has('Woo.DriverTipped')
-      ? 'Wave <b>Booski</b> off'
-      : 'Talk to <b>Booski</b> <span class="hold">· hold to take care of him ($40)</span>'),
+      ? 'Wave the <b>driver</b> off'
+      : 'Talk to the <b>driver</b> <span class="hold">· hold to take care of him ($40)</span>'),
     hold: 0.55,
     onTap: () => {
       taxi.driver.faceToward(player.position.x, player.position.z);
@@ -1543,7 +1543,7 @@ function registerDriver() {
       }
     },
   });
-  // He waits a while, and then he has a match at four.
+  // He waits a while, and then he has three more of these before he is done.
   setTimeout(() => { taxi.leave(); }, 45000);
 }
 

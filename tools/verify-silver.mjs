@@ -642,10 +642,10 @@ const ended = await page.evaluate(() => ({
 }));
 check('the evening ends on a card', ended.over && ended.card, ended.title);
 check('and the relationship is written down for the next scene',
-  !!ended.saved && ended.saved.delia?.met === true && typeof ended.saved.woo === 'number',
+  !!ended.saved && ended.saved.date?.met === true && typeof ended.saved.woo === 'number',
   JSON.stringify(ended.saved && {
     woo: ended.saved.woo, outcome: ended.saved.outcome,
-    tipped: ended.saved.tippedEverybody, available: ended.saved.delia?.available,
+    tipped: ended.saved.tippedEverybody, available: ended.saved.date?.available,
   }));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));

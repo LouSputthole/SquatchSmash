@@ -433,14 +433,14 @@ reg(cast.byName.bartender.group, talkTo(cast.byName.bartender, scripts.bartender
 reg(cast.byName.hallGuard.group, talkTo(cast.byName.hallGuard, scripts.hallGuard));
 reg(cast.byName.dealer.group, talkTo(cast.byName.dealer, scripts.dealer));
 reg(cast.byName.dj.group, talkTo(cast.byName.dj, scripts.dj));
-reg(cast.byName.delia.group, {
+reg(cast.byName.margo.group, {
   label: () => (mission.flags.gaveNumber
-    ? 'Say goodnight to <b>Delia</b>'
+    ? 'Say goodnight to <b>Margo</b>'
     : 'Talk to the <b>woman at the end of the bar</b>'),
   onUse: () => {
-    const d = cast.byName.delia;
-    d.faceToward(player.position.x, player.position.z);
-    dialogue.start(scripts.delia, mission.flags.gaveNumber ? 'number' : 'open', d);
+    const m = cast.byName.margo;
+    m.faceToward(player.position.x, player.position.z);
+    dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', m);
   },
 });
 reg(cast.byName.lou.group, {

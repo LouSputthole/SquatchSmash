@@ -28,11 +28,11 @@ character, not the code.
 | HUD | `core/hud.js` | Prompts, subtitles, toasts, posture hint. Woo uses `toast()` and its own strip. |
 | Non-modal dialogue | `bing/dialogue.js` | Every conversation, including the seated rounds. Range-lapse gives the "walked off mid-sentence" behaviour free. |
 | Audio engine | `core/audio.js` | `play`/`startLoop`/`stopLoop`/`setLoopVolume` for the five zone beds, `setMuffle` behind doors, positional panners for kitchen barks. |
-| People | `bing/cast.js` | `makePerson` and `Npc` build every member of staff, the crowd and Delia. `job: 'work' | 'patrol' | 'sit' | 'drink' | 'lean'` covers the kitchen without new animation code. |
+| People | `bing/cast.js` | `makePerson` and `Npc` build every member of staff, the crowd and Margo. `job: 'work' | 'patrol' | 'sit' | 'drink' | 'lean'` covers the kitchen without new animation code. |
 | Doors | `bing/club.js` `Door` | Service door, walk-in, kitchen swing doors, curtain. Collider leaves the array while the leaf is open. |
 | Procedural texture kit | `bing/kit.js` | Brick, asphalt, panelling, tile, neon, printed signage. |
 | Prop makers | `world/props.js` | Chairs, bottles, glasses, ashtrays, frames, clock, plants. |
-| Phone | `core/phone.js` | Delia's call. It is already built around *being rung*, which is the requirement. |
+| Phone | `core/phone.js` | Margo's call. It is already built around *being rung*, which is the requirement. |
 | Post FX, materials, build helpers | `core/postfx.js`, `world/materials.js`, `world/build.js` | Unchanged. |
 
 ## Systems extended (additively)
@@ -52,7 +52,7 @@ character, not the code.
 | --- | --- |
 | `room.js` | The Silver Room: street, alley, service door, stair, cellar, dry store, walk-in, prep, kitchen, dish, corridor, coat check, service bar, host station, dining room, stage, backstage, restrooms, manager's station, rear exit. |
 | `cast.js` | Staff and crowd. The tip roster. |
-| `date.js` | Delia: follower, gaze, comment triggers, seated behaviour. |
+| `date.js` | The companion: follower, gaze, comment triggers, seated behaviour. Named for the role, not for her — she has been recast once already. |
 | `woo.js` | The Woo score. Event table, non-repeatable ledger, bands, outcome resolution. |
 | `mission.js` | The 22-state machine, checkpoints, persistence. |
 | `script.js` | Every line anybody says. |
@@ -64,18 +64,39 @@ Plus `silver.html`, `tools/verify-silver.mjs`, and `docs/VOICE-LINES-SILVER.md`.
 
 ## The date
 
-**Delia Vance**, on air as **Hog Mama** — 97.8 The Squatch, ten till two, "no
-script, no plan". She is not invented for this mission: she has been talking to
-Prospect through the radio in his own flat since PR #1, twenty-four exchanges of
-her being alone on a bus at two in the morning.
+**Margo Salas** — she runs the kitchen at the Blue Hour, a twenty-four-hour
+place on Ashland.
 
-- **Why she is interested.** He called the show once and did not want anything.
-- **Why she stays skeptical.** She improvises for a living. She can see a bit
-  being performed from across a room, and this entire evening is a bit.
-- **Memorable detail.** The handle is her father's shop — she grew up over a
-  butcher's on the same block as the union half the Bing whispers about.
-- **Drink.** Rye, one ice cube. One.
-- **Music.** A live horn section. She will not sit through a backing track.
+She is a **civilian**, and that is the whole design. The first pass made her a
+host on 97.8, which is the family's own station — which put her inside the
+family, and you do not take the family on a date. Everybody else in this
+mission has a stake in Prospect: they work for Lou, they drink at the Bing,
+they want something. She wants nothing, which is the only reason her good
+opinion is worth anything.
+
+She is also the one guest in the building who can read the back of house
+professionally. Every single thing Prospect is showing off — the door that
+opens without a question, the chef who puts down a pan mid-service, the table
+that appears in a full room — she can price exactly. That makes her much harder
+to impress and much more impressed when it lands, and it means the long walk in
+is being watched by somebody who understands it rather than somebody being
+dazzled.
+
+- **Why she came.** He came in at four in the morning, ordered without reading
+  the menu, complained about nothing, and tipped her dishwasher. Nobody tips
+  the dishwasher — Hector is behind a wall; you would have to go and find him.
+- **Why she stays skeptical.** Fifteen years of men performing competence in
+  kitchens. She knows a front-of-house voice when she hears one.
+- **Memorable detail.** A burn up the inside of her right forearm. She will
+  tell you exactly which pan and exactly whose fault, and she finished the
+  service, and that is the part she would like on the record.
+- **Drink.** Rye, one ice cube. One. They always bring three.
+- **Music.** A live horn section — she does not want a backing track, she wants
+  to watch seven people be slightly out of breath.
+
+The identifier in code is `DATE`, not her name, and her name lives in one
+object in `script.js`. She has been recast once; the next one should cost a
+data edit rather than a refactor.
 
 ## Assets reused
 
@@ -100,7 +121,7 @@ figure comes from `bing/cast.js`. Vehicles come from `bing/vehicles.js`.
    with the existing three-tier `Npc` update (`hero` every frame, `ambient` at
    20 Hz, `background` at 6 Hz) plus a distance cull on the far half of the room.
 2. **Companion pathing through a working kitchen.** There is no navmesh in this
-   engine. Delia follows a recorded spline of the route with local avoidance
+   engine. She follows a recorded spline of the route with local avoidance
    rather than pathfinding, and the route is authored, which is what makes it
    reliable.
 3. **The continuous route.** One scene, no loads. The cellar and kitchen are
@@ -117,6 +138,6 @@ figure comes from `bing/cast.js`. Vehicles come from `bing/vehicles.js`.
 4. `cast.js`, `date.js` — the people. ✅
 5. `perform.js` — the band.
 6. `main.js`, `silver.html`, `silver.css` — glue.
-7. `core/phone.js` — Delia's call; `bing/main.js` — the prior encounter.
+7. `core/phone.js` — her call; `bing/main.js` — the prior encounter.
 8. `tools/verify-silver.mjs` — drive it end to end.
 9. Tune.

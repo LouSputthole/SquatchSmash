@@ -1,5 +1,9 @@
 /**
- * Delia.
+ * The date.
+ *
+ * Named for what she is rather than for who, because she has been recast once
+ * and none of this cares which woman it is walking. Her name is in
+ * `script.js`; everything here is about somebody walking next to you.
  *
  * A companion rather than a follower. The difference is the whole mission: a
  * follower stands behind you at a fixed radius and says nothing, and the
@@ -28,7 +32,7 @@
  */
 import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
-import { DELIA } from './script.js';
+import { DATE } from './script.js';
 
 /** Where she would rather be, relative to him. */
 const BESIDE = 1.15;
@@ -60,11 +64,14 @@ export class Date_ {
     this.route = room.ROUTE;
 
     this.npc = new Npc(scene, {
-      name: DELIA.name, tier: 'hero', job: 'stand', look: true,
+      name: DATE.name, tier: 'hero', job: 'stand', look: true,
       x: room.anchors.dropOff.x - 1.4, z: room.anchors.dropOff.z, yaw: Math.PI,
       model: {
-        height: 1.71, build: 1.0, dress: 'gown', shirt: 0x5a1430,
-        hair: 'long', hairColour: 0x2a1c14, skin: 0xe0b48c,
+        /* Dressed for the one night a week she is not on her feet in whites,
+         * and slightly overdressed for it on purpose — she does not get many
+         * of these and she is not going to waste one. */
+        height: 1.69, build: 1.06, dress: 'gown', shirt: 0x1a2a4a,
+        hair: 'tied', hairColour: 0x2a1c14, skin: 0xd8a878,
       },
     });
     this.group = this.npc.group;
@@ -356,4 +363,4 @@ export class Date_ {
   }
 }
 
-export { DELIA };
+export { DATE };

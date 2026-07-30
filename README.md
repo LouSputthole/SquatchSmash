@@ -416,10 +416,10 @@ In the console, `__bing` exposes the scene, the club, the cast, the mission and
 
 **[`silver.html`](./silver.html)** · Tuesday, nine o'clock.
 
-Delia Vance rang. On air she is Hog Mama, ten till two on 97.8, and she has
-been talking to you through the radio in your own flat since the first level.
-She has agreed to dinner at the Silver Room, which does not take reservations
-from prospects.
+Margo Salas rang. She runs the kitchen at the Blue Hour, the all-night place on
+Ashland, and you have been eating there at four in the morning for months
+without either of you making anything of it. She has agreed to dinner at the
+Silver Room, which does not take reservations from prospects.
 
 You are not going to need one.
 
@@ -497,12 +497,12 @@ silver.html                importmap, the HUD, the accessibility switches
 src/silver/main.js         wiring: systems, interactables, zones, cutscenes, the loop
 src/silver/room.js         the building — 21 rooms on two levels, and the route
 src/silver/cast.js         who is standing where, and which of them is tippable
-src/silver/date.js         Delia: a companion rather than a follower
+src/silver/date.js         the companion, which is not the same as a follower
 src/silver/woo.js          the score, as a table rather than as scattered calls
 src/silver/mission.js      22 states, 5 checkpoints, 9 endings
 src/silver/script.js       everything anybody says — 150 nodes, 123 options
 src/silver/perform.js      the Midnight Pines, in four stems, and the sway
-src/silver/vehicle.js      Booski's car
+src/silver/vehicle.js      the hired car, and a driver who has never met you
 tools/verify-silver.mjs    plays the whole thing headlessly — 52 checks
 docs/FRONT-AND-CENTER.md   the repository audit and the implementation map
 docs/VOICE-LINES-SILVER.md the voice manifest, and what is still to produce
@@ -512,7 +512,7 @@ It borrows rather than reimplements. `core/player.js`, `core/interaction.js`,
 `core/hud.js`, `core/audio.js`, `core/drunk.js`, `core/highs.js`,
 `core/inventory.js`, `core/postfx.js`, `core/phone.js`, the prop makers in
 `world/props.js`, and — from the Bing — `dialogue.js`, `kit.js`, `vehicles.js`
-and the whole of `cast.js`. Delia is built from the same figure as Lou.
+and the whole of `cast.js`. Margo is built from the same figure as Lou.
 
 Three shared files grew, all additively and none of them changing anything that
 already existed:

@@ -106,15 +106,15 @@ export const CALLS = [
     /* She said she would ring. She rings. Nobody in this game sends a text
      * except Booski, and Booski is not asking anybody to dinner. */
     at: 20.2,
-    from: 'Hog Mama',
-    vo: 'call.delia',
+    from: 'Margo · Blue Hour',
+    vo: 'call.margo',
     date: true,
     lines: [
       'You gave me this number and said I should call.',
       'The woman you promised dinner.',
-      'The Silver Room. Nine. I finish at two so do not plan an epic.',
+      'The Silver Room. Nine. It is my one night off in six so do not waste it.',
       'And I drink rye. One ice cube. One. Write it on your hand.',
-      'Right. Go and iron something.',
+      'Right. Go and iron something. I have seen what you wear at four in the morning.',
     ],
     choices: [
       {
@@ -125,8 +125,8 @@ export const CALLS = [
             lines: ['The woman you promised dinner.'],
           },
           {
-            text: 'Two in the morning. You were being a bus.',
-            lines: ['…Huh. You do listen. That is genuinely unsettling.'],
+            text: 'Corner two. Four in the morning. You took the plates yourself.',
+            lines: ['…Huh. You were paying attention. That is genuinely unsettling.'],
           },
         ],
       },
@@ -134,7 +134,7 @@ export const CALLS = [
         at: 1,
         options: [
           { text: 'I only promised dinner to one woman this week.', lines: ['This week?', 'Bad recovery.'] },
-          { text: 'I remember. Where do you want to go?', lines: ['Somewhere I have to put shoes on.'] },
+          { text: 'I remember. Where do you want to go?', lines: ['Somewhere I do not have to stand up.'] },
         ],
       },
       {

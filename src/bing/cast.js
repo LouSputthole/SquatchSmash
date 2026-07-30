@@ -705,22 +705,25 @@ export function populate(scene, club) {
     model: { height: 1.8, build: 1.15, dress: 'work', shirt: 0x3a3320, hair: 'crop', beard: true },
   }));
 
-  /* On a stool at the far end, on her own, with a rye and a cigarette she is
-   * not smoking. She does ten till two on the station upstairs from the
-   * butcher's her father used to have, and this is where she waits for the
-   * cab. She is here because a woman who turns up in the next mission out of
+  /* On a stool at the far end, on her own, with a rye she has already sent two
+   * ice cubes back from. She runs the kitchen at the all-night place on
+   * Ashland and she is not connected to anybody in this room, which is the
+   * entire point of her: the next mission is a date, and you do not take the
+   * family on a date.
+   *
+   * She is here at all because a woman who appears in the next scene out of
    * nowhere is a prize, and a woman you walked past three weeks earlier is a
    * person. */
-  add('delia', new Npc(scene, {
-    name: 'Delia', tier: 'hero', job: 'drink',
+  add('margo', new Npc(scene, {
+    name: 'Margo', tier: 'hero', job: 'drink',
     x: a.barStools[a.barStools.length - 1].x, z: a.barStools[a.barStools.length - 1].z,
     yaw: -Math.PI / 2,
     model: {
-      height: 1.71, dress: 'shirt', shirt: 0x2e2438, hair: 'long',
-      hairColour: 0x2a1c14, skin: 0xe0b48c,
+      height: 1.69, build: 1.06, dress: 'shirt', shirt: 0x24303a, hair: 'tied',
+      hairColour: 0x2a1c14, skin: 0xd8a878,
     },
   }));
-  by.delia.seated = true;
+  by.margo.seated = true;
 
   // Two by the coat check with opinions about the butcher union
   add('gossip1', new Npc(scene, {

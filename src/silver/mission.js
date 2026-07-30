@@ -309,8 +309,10 @@ export class Mission {
         song: this.flags.songRequested,
         toast: this.flags.toast,
       },
-      /* She is a recurring character now, or she is not. */
-      delia: {
+      /* She is a recurring character now, or she is not. Keyed by role rather
+       * than by name: she has been recast once and the next scene should not
+       * have to care. */
+      date: {
         met: true,
         available: this.flags.outcome !== 'insult' && this.flags.outcome !== 'disaster',
         knowsWhatHeDoes: this.roundsDone.has('personal'),

@@ -430,90 +430,111 @@ export function buildScripts(ctx) {
   /* The woman at the end of the bar                                   */
   /* ---------------------------------------------------------------- */
 
-  const delia = {
+  const margo = {
     open: {
-      who: 'Delia',
+      who: 'Margo',
       line: () => (ctx.flags.gotPackage
         ? '<em>(She does not look up from the glass.)</em> That was quick. Whatever it was.'
-        : '<em>(She is watching the room rather than the stage, which is unusual in here.)</em> '
-          + 'You are going to say something. I can see it arriving.'),
+        : '<em>(She is watching the room rather than the stage, which in here is '
+          + 'unusual enough to be conspicuous.)</em> You are going to say something. '
+          + 'I can see it arriving.'),
       options: [
         { tone: 'Deny it', text: 'I was going to walk past.', next: 'past' },
         { tone: 'Ask', text: 'What are you drinking?', next: 'drinking' },
-        { tone: 'Recognise her', text: '…Two in the morning. You were being a bus.', next: 'bus' },
+        { tone: 'Place her', text: '…Ashland. The all-night place. Corner two.', next: 'corner' },
         { tone: 'Leave it', text: '<em>(Walk past.)</em>', next: null },
       ],
     },
     past: {
-      who: 'Delia',
-      line: 'Nobody walks past this end. This end is where you sit when you have '
-        + 'had enough of everybody.',
+      who: 'Margo',
+      line: 'Nobody walks past this end. This end is where you sit when you are '
+        + 'waiting for somebody and you have stopped enjoying it.',
       next: 'why',
     },
     drinking: {
-      who: 'Delia',
+      who: 'Margo',
       line: 'Rye. One ice cube. <em>(She tips the glass an inch.)</em> They brought three. '
         + 'I sent two back. It caused a scene.',
-      enter: () => ctx.flags && (ctx.flags.heardHerDrink = true),
+      enter: () => { ctx.flags.heardHerDrink = true; },
       next: 'why',
     },
-    bus: {
-      who: 'Delia',
+    corner: {
+      who: 'Margo',
       line: '<em>(She puts the glass down and turns round properly, which she has not '
-        + 'done for anybody tonight.)</em> …You are the one who rang in about the desk.',
-      next: 'desk',
+        + 'done for anybody tonight.)</em> …You are corner two. Four in the morning. '
+        + 'Back to the door.',
+      next: 'hector',
     },
-    desk: {
-      who: 'Delia',
-      line: 'Four years. Nobody has ever asked about the desk. '
-        + '<em>(Beat.)</em> Right. Say the next thing. Go on.',
+    hector: {
+      who: 'Margo',
+      line: 'You tipped my dishwasher. <em>(Beat.)</em> Nobody tips Hector. Hector is '
+        + 'behind a wall. You would have had to go and find him. '
+        + 'Right — say the next thing. Go on.',
       options: [
         { tone: 'Ask', text: 'Let me buy you dinner.', next: 'dinner' },
-        { tone: 'Ask', text: 'What are you doing after two?', next: 'after' },
+        { tone: 'Ask', text: 'When are you not working?', next: 'working' },
         { tone: 'Fold', text: 'That was the next thing. That was all of it.', next: 'fold' },
       ],
     },
     why: {
-      who: 'Delia',
-      line: 'I do a show upstairs from what used to be my dad\u2019s shop. I finish at two '
-        + 'and I wait here for a cab because the cabs know this address. '
-        + 'That is the whole story. Your turn.',
+      who: 'Margo',
+      line: 'I run the kitchen at the all-night place on Ashland. I am in here because '
+        + 'my dishwasher’s brother works your door and he owes me two hundred dollars, '
+        + 'and I have decided to be visible about it. Your turn.',
       options: [
         { tone: 'Ask', text: 'Let me buy you dinner.', next: 'dinner' },
-        { tone: 'Ask', text: 'What are you doing after two?', next: 'after' },
-        { tone: 'Leave it', text: 'Enjoy your cab.', next: null },
+        { tone: 'Ask', text: 'When are you not working?', next: 'working' },
+        { tone: 'Offer', text: 'I could have a word about the two hundred.', next: 'word' },
+        { tone: 'Leave it', text: 'Good luck with the two hundred.', next: null },
       ],
     },
+    word: {
+      who: 'Margo',
+      line: '<em>(Sharply, and this is the most serious she gets all night.)</em> No. '
+        + 'Absolutely not. I have watched what a word costs and I would rather have '
+        + 'the two hundred outstanding forever. <em>(A beat, softer.)</em> '
+        + 'But thank you for offering it like it was nothing.',
+      next: 'why-2',
+    },
+    'why-2': {
+      who: 'Margo',
+      line: 'Say the other thing. The one you had queued up before that.',
+      options: [
+        { tone: 'Ask', text: 'Let me buy you dinner.', next: 'dinner' },
+        { tone: 'Fold', text: 'I have not got another thing.', next: 'fold' },
+      ],
+    },
+    working: {
+      who: 'Margo',
+      line: 'Tuesday. One Tuesday in six, and I spend it asleep like a normal person. '
+        + '<em>(Beat.)</em> …Ask me the other way.',
+      next: 'why',
+    },
     dinner: {
-      who: 'Delia',
+      who: 'Margo',
       line: 'Dinner. <em>(She looks at you for slightly longer than is comfortable, '
-        + 'which is a thing you are going to get used to.)</em> Give me a number. '
+        + 'which is a thing you are going to get used to.)</em> I feed four hundred '
+        + 'people a week and nobody has offered me a chair in a year. Give me a number. '
         + 'I am not committing to anything. I might ring.',
       enter: () => { ctx.flags.gaveNumber = true; mission.note('You gave somebody your number, which is not a thing you do.'); },
       next: 'number',
     },
-    after: {
-      who: 'Delia',
-      line: 'After two I am asleep, and I do not want to hear the rest of that sentence. '
-        + '<em>(Beat.)</em> …Ask me the other way.',
-      next: 'why',
-    },
     number: {
-      who: 'Delia',
+      who: 'Margo',
       line: '<em>(She writes it on the back of a coaster and puts the coaster in her bag '
         + 'rather than her pocket, which means she is keeping it.)</em> Go on. He is waiting '
         + 'for you and everybody in here knows it.',
       hold: 5.2,
     },
     fold: {
-      who: 'Delia',
+      who: 'Margo',
       line: 'Honest. Rare. <em>(She turns back to the glass.)</em> Come and find me when '
         + 'you have thought of one.',
       hold: 4.2,
     },
   };
 
-  return { bouncer, bartender, hallGuard, security, dealer, lou, associate, dj, delia };
+  return { bouncer, bartender, hallGuard, security, dealer, lou, associate, dj, margo };
 }
 
 /** Things patrons say as you go past. Never repeated back to back. */

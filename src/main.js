@@ -231,7 +231,7 @@ const phone = new Phone({ time, audio });
 phone.onDate = (call) => {
   try {
     localStorage.setItem('squatch.date', JSON.stringify({
-      who: call.from, at: 'The Silver Room', when: '9pm', drink: 'rye, one ice cube',
+      who: 'Margo', at: 'The Silver Room', when: '9pm', drink: 'rye, one ice cube',
     }));
   } catch { /* private browsing; the call still happened */ }
   hud.toast('The Silver Room. Nine.', 'good');
