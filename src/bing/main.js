@@ -192,7 +192,7 @@ world.groundAt = club.groundAt;
 
 window.__squatchStage?.('Letting people in…');
 const cast = populate(scene, club, { includeMargo: !isSecondVisit });
-const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders);
+const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders, club.navBlockers);
 
 /* ------------------------------------------------------------------ *
  * The gambling floor's voice.
@@ -1634,10 +1634,12 @@ function checkStage() {
     game.stagedOn = false;
     const guard = cast.byName.security;
     guard.job = 'patrol';
+    // Same there-and-back round as his authored one: no leg crosses the
+    // stage front, which is nav-blocked for the crowd.
     guard.route = [
       { x: -6.3, z: -4.5 }, { x: -6.3, z: 5.7 },
-      { x: -18.5, z: 5.7 }, { x: -18.5, z: -2.3 },
-      { x: -6.3, z: -2.3 },
+      { x: -17.9, z: 5.7 }, { x: -17.9, z: -2.3 },
+      { x: -17.9, z: 5.7 }, { x: -6.3, z: 5.7 },
     ];
   }
 }

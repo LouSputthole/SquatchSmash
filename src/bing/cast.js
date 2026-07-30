@@ -554,7 +554,7 @@ export class Npc {
     const {
       name = 'somebody', tier = 'ambient', x = 0, z = 0, yaw = 0, y = 0,
       job = 'stand', look = true, route = null, model = {}, colliders = null,
-      routine = 0, pole = false,
+      navBlockers = null, routine = 0, pole = false,
     } = o;
     this.name = name;
     this.tier = tier;
@@ -563,6 +563,7 @@ export class Npc {
     this.route = route;
     this.routeAt = 0;
     this.colliders = colliders;
+    this.navBlockers = navBlockers;
     this.parts = makePerson({
       ...model,
       castShadow: model.castShadow ?? tier === 'hero',
@@ -653,10 +654,17 @@ export class Npc {
     this._lastJob = this.job;
   }
 
+  /* Walls and furniture, plus the stage's nav-only blockers. Two lists rather
+   * than one because doors splice their boxes in and out of the shared
+   * colliders array live -- a merged copy would stop tracking them. */
   _navClear(x, z) {
-    if (!this.colliders?.length) return true;
+    return this._clearOf(this.colliders, x, z) && this._clearOf(this.navBlockers, x, z);
+  }
+
+  _clearOf(list, x, z) {
+    if (!list?.length) return true;
     const radius = 0.24;
-    for (const b of this.colliders) {
+    for (const b of list) {
       if (this.baseY > b.max.y || this.baseY + 1.8 < b.min.y) continue;
       const cx = Math.max(b.min.x, Math.min(b.max.x, x));
       const cz = Math.max(b.min.z, Math.min(b.max.z, z));
@@ -992,6 +1000,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   const by = {};
   const add = (key, npc) => {
     npc.colliders ??= club.colliders;
+    npc.navBlockers ??= club.navBlockers ?? null;
     all.push(npc);
     if (key) by[key] = npc;
     return npc;
@@ -1049,13 +1058,17 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     model: { height: 1.82, build: 1.2, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'crop', bandana: false },
   }));
 
+  /* His round goes down the east side, along the front wall, and down the
+   * west side to the stage corner -- then back the way he came. The old loop
+   * closed across the stage front, which meant a leg straight through the
+   * runway now that the stage blocks navigation like the furniture does. */
   add('security', new Npc(scene, {
     name: 'security', tier: 'hero', job: 'patrol',
     x: -6.3, z: -4.5, yaw: 0,
     route: [
       { x: -6.3, z: -4.5 }, { x: -6.3, z: 5.7 },
       { x: -17.9, z: 5.7 }, { x: -17.9, z: -2.3 },
-      { x: -6.3, z: -2.3 },
+      { x: -17.9, z: 5.7 }, { x: -6.3, z: 5.7 },
     ],
     model: { height: 1.88, build: 1.3, dress: 'tee', shirt: 0x14141a, hair: 'bald' },
   }));
@@ -1164,7 +1177,9 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   add('waiter2', new Npc(scene, {
     name: 'a waiter', tier: 'background', job: 'patrol',
     x: -4, z: 2, yaw: 0,
-    route: [{ x: -4, z: 2 }, { x: -13, z: -1 }, { x: -6, z: 6 }],
+    // Works the two-tops east of the runway; the old middle leg walked him
+    // through the thrust now that the stage blocks the crowd's nav.
+    route: [{ x: -4, z: 2 }, { x: -8.6, z: -1 }, { x: -8.1, z: 2.6 }, { x: -6, z: 6 }],
     model: { height: 1.77, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'crop' },
   }));
   add('cleaner', new Npc(scene, {
@@ -1222,11 +1237,11 @@ export function populate(scene, club, { includeMargo = true } = {}) {
  * Lou's associate: sent out to fetch the prospect when he has been playing
  * cards too long. He is not in the room until he is needed.
  */
-export function makeAssociate(scene, from, colliders = null) {
+export function makeAssociate(scene, from, colliders = null, navBlockers = null) {
   const npc = new Npc(scene, {
     name: "Lou's associate", tier: 'hero', job: 'patrol',
     x: from.x, z: from.z, yaw: 0,
-    colliders,
+    colliders, navBlockers,
     model: { height: 1.84, build: 1.22, dress: 'tracksuit', shirt: 0x1c2f4a, hair: 'crop', bandana: true },
   });
   npc.group.visible = false;

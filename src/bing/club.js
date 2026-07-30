@@ -111,6 +111,12 @@ export function buildClub(scene, { renderer } = {}) {
   const ticking = [];   // per-frame closures the club owns
   /** Raised floors: the stage, and nothing else so far. */
   const platforms = [];
+  /* Nav-only blockers: solid to anybody routed around the floor, invisible to
+   * the player's capsule. The stage is the one place where those differ -- the
+   * platforms above let Tony climb it (and security has a line about that),
+   * but a patrolling guard treating the deck as walkable floor strolls
+   * straight through the front of the show. */
+  const navBlockers = [];
 
   const M_BRICK = mat({ map: tiled(brick(), 6, 1.4), roughness: 0.96 });
   const M_PANEL = mat({ map: tiled(panelling(), 6, 1), roughness: 0.9 });
@@ -659,6 +665,12 @@ export function buildClub(scene, { renderer } = {}) {
     // The lip you can bump into, so you have to walk round to the steps
     solid(-17.1, -3.62, -13.05, -3.5, 0, STAGE_H);
     solid(-10.95, -3.62, -6.9, -3.5, 0, STAGE_H);
+    // The whole raised footprint, for the crowd's routing: deck, runway, and
+    // the round thrust. NPCs steer round the front of the stage instead of
+    // wading through it; the player still mounts it via the platforms above.
+    navBlockers.push(collider([-17.1, 0, -11], [-6.9, STAGE_H, -3.5]));
+    navBlockers.push(collider([-13.05, 0, -4.5], [-10.95, STAGE_H, -0.7]));
+    navBlockers.push(collider([-13.0, 0, -1.8], [-11.0, STAGE_H, 0.2]));
 
     anchors.poles = [];
     for (const px of [-15, -12, -9]) {
@@ -1461,7 +1473,7 @@ export function buildClub(scene, { renderer } = {}) {
   }
 
   return {
-    root, colliders, floorZones, doors, anchors, neon, office, slot, bj,
+    root, colliders, navBlockers, floorZones, doors, anchors, neon, office, slot, bj,
     platforms, groundAt, update, roomAt, rooms: ROOMS, rain,
   };
 }
