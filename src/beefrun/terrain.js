@@ -99,6 +99,49 @@ export function terrainHeight(x, z) {
   const pad = smoothstep(900, 480, dWP);
   h = lerp(h, WP.elev, pad);
 
+  /* The pass out of the valley, south along the route.
+   *
+   * The pad is a radial bowl that stops 480 m from the middle of the field —
+   * barely past the end of the runway — so the noise took over immediately and
+   * put five hundred metres of mountain three hundred metres off the departure
+   * end. The mission departs southbound. The first takeoff of the whole thing
+   * flew into a hill, empty or loaded, at full power and best climb, and there
+   * was not room to turn round either.
+   *
+   * So the ground gives way ahead of the aeroplane at a tenth, which is well
+   * inside what it can climb at, and hands over to real country a few
+   * kilometres out where there is height to spare. It only ever lowers terrain —
+   * the mountains further along the route are the scenery and stay where they
+   * are. */
+  const outbound = (WP.z - WP.rwyHalf) - z;
+  if (outbound > 0) {
+    const lateral = smoothstep(820, 300, Math.abs(x - WP.x));
+    const fade = smoothstep(5200, 3000, outbound);
+    const ceiling = WP.elev + outbound * 0.10;
+    h = lerp(h, Math.min(h, ceiling), lateral * fade);
+  }
+
+  /* The notch in the ridge north of El Hueso.
+   *
+   * The same problem as the pass above, in the other direction and worse. You
+   * leave the strip heavy off the cliff end, the ground falls away to 390 m, and
+   * eleven hundred metres of ridge stands 1.4 km ahead. That needs a third of a
+   * gradient to clear and the aeroplane has an eighth of one, and there was no
+   * way round it either — the lowest crossing anywhere within a kilometre and a
+   * half either side was still too steep. The heavy departure was a trap: fall
+   * off a cliff into a bowl you cannot climb out of.
+   *
+   * It gets a saddle rather than a flattening, because Lou calls this ridge out
+   * by name on the way home and it should still be a ridge. Four hundred metres
+   * wide on the route axis, climbable, and untouched to either side. */
+  if (z > EH.zLow - 200 && z < -7200) {
+    const north = z - (EH.zLow - 200);
+    const lateral = smoothstep(520, 200, Math.abs(x - EH.x));
+    const fade = smoothstep(2600, 1500, Math.abs(z - (-8200)));
+    const ceiling = EH.elevLow + north * 0.055;
+    h = lerp(h, Math.min(h, ceiling), lateral * Math.max(fade, 0.55));
+  }
+
   if (z < -8600) h = elHuesoShape(x, z, h);
 
   return h;
