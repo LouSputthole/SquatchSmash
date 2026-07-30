@@ -167,6 +167,7 @@ export const HOLE2_HINT = Object.freeze({
 export const LAYOUT = Object.freeze({
   number: 1, par: 3, yards: 167,
   tee: TEE, green: GREEN, pin: PIN, pond: POND, bunker: BUNKER,
+  bunkers: Object.freeze([BUNKER]),
   corridor: CORRIDOR, dropZone: DROP_ZONE, bounds: BOUNDS, terrain: TERRAIN,
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
   cartPark: CART_PARK, lot: LOT, teeMarks: TEE_MARKS,

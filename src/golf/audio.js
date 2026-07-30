@@ -107,7 +107,9 @@ export class CourseAudio {
   splash(position = null) {
     this.engine?.play('golf.splash', {
       volume: 0.85,
-      position: position ?? { x: HOLE.pond.x, y: HOLE.pond.level, z: HOLE.pond.z },
+      position: position ?? (HOLE.pond
+        ? { x: HOLE.pond.x, y: HOLE.pond.level, z: HOLE.pond.z }
+        : null),
     });
   }
 

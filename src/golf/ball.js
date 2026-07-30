@@ -229,9 +229,7 @@ export class Ball {
       this.hooks.onLand?.(surface, { ...p });
     }
 
-    if (surface === SURFACE.WATER || ground <= HOLE.pond.level + 0.05) {
-      if (surface === SURFACE.WATER) return this._splash();
-    }
+    if (surface === SURFACE.WATER) return this._splash();
 
     this._bounce(surface);
   }
@@ -349,7 +347,7 @@ export class Ball {
 
   _splash() {
     this.velocity.x = this.velocity.y = this.velocity.z = 0;
-    this.position.y = HOLE.pond.level;
+    this.position.y = HOLE.pond ? HOLE.pond.level : this.position.y;
     this.state = BALL_STATE.WATER;
     this.surface = SURFACE.WATER;
     this.hooks.onSplash?.({ ...this.position });

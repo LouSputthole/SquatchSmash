@@ -20,12 +20,17 @@
  */
 
 import HOLE_1 from './hole1.js';
+import HOLE_2 from './hole2.js';
 import { getHole } from './course.js';
 
 /** The live layout. Read it; never write to it directly. */
 export const HOLE = {};
 
-const LAYOUTS = new Map([[1, HOLE_1]]);
+/* Registered here rather than by each layout registering itself: a layout that
+ * imported this module would make a cycle, and a cycle here would have the
+ * layouts loading before the map that holds them exists. Layout files stay
+ * pure data with no dependency on the runtime at all. */
+const LAYOUTS = new Map([[1, HOLE_1], [2, HOLE_2]]);
 
 /**
  * Register a hole's layout. Called by each `holeN.js` at import time, so

@@ -144,6 +144,15 @@ function lotArea() {
   return HOLE.lotArea ?? null;
 }
 
+/** Every bunker on the hole, whether the layout names one or several. */
+export function bunkers() {
+  if (HOLE.bunkers) return HOLE.bunkers;
+  const list = [];
+  if (HOLE.bunker) list.push(HOLE.bunker);
+  if (HOLE.cornerBunker) list.push(HOLE.cornerBunker);
+  return list;
+}
+
 /* ------------------------------------------------------------------ */
 /* Height                                                              */
 /* ------------------------------------------------------------------ */
@@ -220,11 +229,15 @@ export function heightAt(x, z) {
     h = lerp(h, greenSurfaceHeight(x, z), w);
   }
 
-  // The bunker is a bowl dug into whatever the ground was doing.
-  const db = ellipseT(x, z, HOLE.bunker);
-  if (db < 1.25) {
+  /* Every bunker is a bowl dug into whatever the ground was already doing.
+   * A list rather than one, because the par 5 has a greenside trap and the one
+   * on the inside of the dogleg that is the whole reason the corner is a
+   * decision. */
+  for (const b of bunkers()) {
+    const db = ellipseT(x, z, b);
+    if (db >= 1.25) continue;
     const bowl = 1 - smootherstep(clamp01(db / 1.05));
-    h -= HOLE.bunker.depth * bowl;
+    h -= b.depth * bowl;
   }
 
   /* The pond basin, carved last.
@@ -235,7 +248,9 @@ export function heightAt(x, z) {
    * carved by the time it reaches the waterline and drops well under the water
    * plane in the middle, so a ball that gets there is unambiguously wet with
    * no shallow lip to balance on. */
-  const dp = ellipseT(x, z, HOLE.pond);
+  /* Only the hole with water on it gets a basin dug out of it. `pond: null`
+   * is a real answer, not a missing field. */
+  const dp = HOLE.pond ? ellipseT(x, z, HOLE.pond) : Infinity;
   if (dp < 1.35) {
     const bottom = HOLE.pond.level - 1.6;
     const w = 1 - smootherstep(clamp01((dp - 0.92) / 0.30));
@@ -297,14 +312,14 @@ export function slopeAt(x, z, step = 0.75) {
  * surface — the ball still lands on something — so it is asked separately.
  */
 export function surfaceAt(x, z) {
-  if (ellipseT(x, z, HOLE.pond) <= 1) return SURFACE.WATER;
+  if (HOLE.pond && ellipseT(x, z, HOLE.pond) <= 1) return SURFACE.WATER;
 
   const dg = ellipseT(x, z, HOLE.green);
   if (dg <= 1) return SURFACE.GREEN;
   const collar = HOLE.green.fringe / ((HOLE.green.rx + HOLE.green.rz) / 2);
   if (dg <= 1 + collar) return SURFACE.FRINGE;
 
-  if (ellipseT(x, z, HOLE.bunker) <= 1) return SURFACE.BUNKER;
+  for (const b of bunkers()) if (ellipseT(x, z, b) <= 1) return SURFACE.BUNKER;
   if (ellipseT(x, z, teeBox()) <= 1) return SURFACE.TEE;
   if (cartPathDistance(x, z) <= HOLE.cartPathWidth * 0.5) return SURFACE.PATH;
   const lot = lotArea();

@@ -22,18 +22,48 @@ import { HOLE, setActiveHole } from './hole.js';
  * still has mist in it, and everything is a shade wetter than it will be by
  * lunchtime. */
 export const SKY_COLOUR = 0xbcd4e6;
-const MIST_NEAR = 90;
-const MIST_FAR = 340;
+
+/**
+ * How far you can see, per hole.
+ *
+ * Mist tuned for a 167-yard par 3 swallows the corner of a 520-yard dogleg,
+ * and a corner you cannot see is not a decision — it is the same mistake the
+ * flat mid-corridor made on Hole 1, in a different medium. So the distance
+ * scales with the hole: far enough to read the shape you are being asked to
+ * play, never so far that the morning stops looking like a morning after rain.
+ */
+function mistFor() {
+  const span = Math.hypot(
+    HOLE.green.x - HOLE.tee.x,
+    HOLE.green.z - HOLE.tee.z,
+  );
+  return { near: 90, far: Math.max(340, Math.min(640, span * 1.35)) };
+}
 
 /* ------------------------------------------------------------------ */
 /* The painted course                                                  */
 /* ------------------------------------------------------------------ */
 
-/* Baked once at load. 768×1152 over 182m × 308m is about four pixels per metre
- * down the hole, which is enough for a bunker lip and cheap enough to generate
- * inside the loading bar. */
-const TEX_W = 768;
-const TEX_H = 1152;
+/* Baked once per hole, at a size chosen from the hole's own extent so every
+ * hole gets about the same pixels per metre — roughly four, which is enough
+ * for a bunker lip and cheap enough to generate inside the loading bar. A
+ * fixed size was fine while there was one hole; the par 5 covers nearly twice
+ * the ground, and at a constant bake it would have had half the resolution
+ * exactly where the corner bunker needs an edge. */
+const PIXELS_PER_METRE = 4.2;
+const TEX_BUDGET = 1_400_000;   // total pixels, whatever the aspect ratio
+
+function textureSize(spanX, spanZ) {
+  let w = Math.round(spanX * PIXELS_PER_METRE);
+  let h = Math.round(spanZ * PIXELS_PER_METRE);
+  const over = (w * h) / TEX_BUDGET;
+  if (over > 1) {
+    const k = Math.sqrt(over);
+    w = Math.round(w / k);
+    h = Math.round(h / k);
+  }
+  return { w, h };
+}
 
 function tint(hex, mul) {
   const r = Math.min(255, ((hex >> 16) & 255) * mul);
@@ -43,15 +73,16 @@ function tint(hex, mul) {
 }
 
 function makeCourseTexture(onProgress) {
+  const spanX = HOLE.terrain.maxX - HOLE.terrain.minX;
+  const spanZ = HOLE.terrain.maxZ - HOLE.terrain.minZ;
+  const { w: TEX_W, h: TEX_H } = textureSize(spanX, spanZ);
+
   const canvas = document.createElement('canvas');
   canvas.width = TEX_W;
   canvas.height = TEX_H;
   const ctx = canvas.getContext('2d');
   const img = ctx.createImageData(TEX_W, TEX_H);
   const data = img.data;
-
-  const spanX = HOLE.terrain.maxX - HOLE.terrain.minX;
-  const spanZ = HOLE.terrain.maxZ - HOLE.terrain.minZ;
 
   for (let py = 0; py < TEX_H; py++) {
     /* v runs with +Z, and the plane is laid out so row 0 is minZ. Getting this
@@ -286,6 +317,7 @@ function buildTrees(scene) {
 /* ------------------------------------------------------------------ */
 
 function buildPond(scene) {
+  if (!HOLE.pond) return null;
   const geo = new THREE.CircleGeometry(1, 56, 0, Math.PI * 2);
   geo.rotateX(-Math.PI / 2);
   const material = new THREE.MeshStandardMaterial({
@@ -599,7 +631,7 @@ export class Course {
     this.floorZones = [];
 
     scene.background = new THREE.Color(SKY_COLOUR);
-    scene.fog = new THREE.Fog(SKY_COLOUR, MIST_NEAR, MIST_FAR);
+    scene.fog = new THREE.Fog(SKY_COLOUR, 90, 340);
 
     /* Late morning, sun still in the east and climbing, mist burning off. The
      * shadow camera is deliberately small and follows the player: a shadow
@@ -646,6 +678,11 @@ export class Course {
     this.scene.add(g);
     this.colliders.length = 0;
 
+    // The air belongs to the hole, so it is set with the hole.
+    const mist = mistFor();
+    this.scene.fog.near = mist.near;
+    this.scene.fog.far = mist.far;
+
     p?.('Mowing the greens…');
     this.texture = makeCourseTexture();
     this.mesh = buildTerrainMesh(this.texture, this.renderer);
@@ -668,7 +705,7 @@ export class Course {
     if (HOLE.nextHint) buildNextHint(g);
 
     this.grass = new GrassDetail(g);
-    this._waterBase = this.water.position.y;
+    this._waterBase = this.water ? this.water.position.y : 0;
     return this;
   }
 
@@ -727,7 +764,9 @@ export class Course {
     cloth.rotation.z = 0.06 + Math.sin(this._t * 3.3) * 0.05;
 
     // A slow breathing on the pond, rather than a scrolling normal map.
-    this.water.position.y = this._waterBase + Math.sin(this._t * 0.7) * 0.012;
+    if (this.water) {
+      this.water.position.y = this._waterBase + Math.sin(this._t * 0.7) * 0.012;
+    }
 
     if (playerPos) {
       this.grass.update(playerPos);

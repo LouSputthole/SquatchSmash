@@ -388,7 +388,8 @@ export class Round {
      * to be collected and nobody appears at the tee already standing there:
      * they walk it, and by the time he arrives they are arriving too. */
     if (!this._groupHeadingToTee
-      && Math.hypot(playerPos.x - HOLE.lot.centre.x, playerPos.z - HOLE.lot.centre.z) > 13) {
+      && (!HOLE.lot
+        || Math.hypot(playerPos.x - HOLE.lot.centre.x, playerPos.z - HOLE.lot.centre.z) > 13)) {
       this._groupHeadingToTee = true;
       for (const id of [LOU, RIPPIN, ERIC]) {
         this.golfers[id]?.walkTo(HOLE.teeMarks[id].x, HOLE.teeMarks[id].z, { speed: 1.7 });
