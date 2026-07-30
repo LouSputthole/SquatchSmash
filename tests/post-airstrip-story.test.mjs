@@ -177,3 +177,27 @@ test('an interrupted motel run remains reachable from the apartment', () => {
     destination: SCENE_IDS.JERKY_MOTEL,
   });
 });
+
+test('an interrupted motel run selected at the apartment can navigate back to the motel', () => {
+  const campaign = campaignAfterAirstrip();
+  campaign.update((state) => {
+    state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BADA_BING_TWO].status = 'complete';
+    state.missions[MISSION_IDS.BADA_BING_TWO].assignment = 'reserve_pickup';
+    state.missions[MISSION_IDS.JERKY_MOTEL].status = 'in_progress';
+  });
+  const apartment = createApartmentStory({ campaign, ring: () => true });
+  const exit = apartment.tryLeave({});
+  const navigatedTo = [];
+
+  navigateCampaign(campaign, exit.destination, {
+    location: { assign: (href) => navigatedTo.push(href) },
+  });
+
+  assert.deepEqual(navigatedTo, ['motel.html']);
+  assert.deepEqual(campaign.state.lastTransition, {
+    from: SCENE_IDS.APARTMENT,
+    to: SCENE_IDS.JERKY_MOTEL,
+    spawn: 'passenger_seat',
+  });
+});
