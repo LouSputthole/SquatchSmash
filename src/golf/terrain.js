@@ -698,10 +698,11 @@ export class Course {
     this.flag = buildFlag(g);
     buildTeeMarkers(g);
     this.marker = buildHoleMarker(g);
-    /* The clubhouse and the car park belong to the hole that has them. On the
-     * other two you can see the building from the course but you do not walk
-     * out of it, so it is scenery there and a collider here. */
-    if (HOLE.lot) buildClubhouse(g, this.colliders);
+    /* The clubhouse belongs to any hole that can see it, not to the hole with
+     * the car park on it. Gating it on `lot` meant the last hole — whose whole
+     * staging is the building standing square behind the final green — did not
+     * have one. */
+    if (HOLE.clubhouse) buildClubhouse(g, this.colliders);
     if (HOLE.nextHint) buildNextHint(g);
 
     this.grass = new GrassDetail(g);
