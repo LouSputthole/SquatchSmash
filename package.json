@@ -11,6 +11,7 @@
     "sfx": "node tools/generate-sfx.mjs",
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
     "check": "node tools/check.mjs",
+    "check:flight": "node tools/flight-test.mjs",
     "verify:art": "node tools/verify-art.mjs",
     "verify:day-one": "node tools/verify-day-one.mjs",
     "verify:day-two": "node tools/verify-day-two.mjs",
@@ -23,12 +24,14 @@
     "verify:motel": "node tools/verify-motel.mjs",
     "verify:initiation": "node tools/verify-initiation.mjs",
     "verify:preview": "node tools/verify-preview.mjs",
+    "verify:beefrun": "node tools/verify-beefrun.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
     "sfx:vo": "node tools/generate-sfx.mjs --voice-only",
     "sfx:listen": "node tools/sfx-index.mjs",
     "radio:cues": "node tools/radio-cues.mjs",
-    "audio:todo": "node tools/audio-todo.mjs"
+    "audio:todo": "node tools/audio-todo.mjs",
+    "vo:beefrun": "node tools/beefrun-vo.mjs"
   },
   "devDependencies": {
     "playwright": "^1.49.0"

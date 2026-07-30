@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Beef Run</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#9992;</text></svg>" />
+<link rel="stylesheet" href="src/style.css" />
+<link rel="stylesheet" href="src/beefrun/beefrun.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body class="beefrun">
+
+<canvas id="scene"></canvas>
+
+<!-- The apartment's HUD, reused as-is. Its constructor expects all of these to
+     exist; the ones the mission has no use for are simply never shown. -->
+<div id="hud" aria-hidden="true">
+  <div id="crosshair"><span></span></div>
+
+  <div id="prompt" class="hidden">
+    <kbd class="key">E</kbd>
+    <span class="label">Interact</span>
+    <div class="holdbar"><i></i></div>
+  </div>
+
+  <div id="subtitle" class="hidden"></div>
+  <div id="posture" class="hidden"><kbd class="key">Q</kbd><span></span></div>
+  <div id="pushes" class="hidden"></div>
+  <div id="timing" class="hidden">
+    <div class="track"><i class="win"></i><i class="mark"></i></div>
+    <div class="pips"></div>
+  </div>
+
+  <div id="hands">
+    <div id="hotbar" class="hidden"></div>
+    <div id="hand-item" class="hidden">
+      <div class="icon"></div>
+      <div class="meta"><span class="name"></span><span class="hint"></span></div>
+    </div>
+  </div>
+
+  <div id="radio-osd" class="hidden">
+    <div class="rtitle">📻 <span></span></div>
+    <div class="rtrack"></div>
+  </div>
+
+  <div id="clock" class="hidden">
+    <span class="day"></span><span class="time"></span><span class="spent"></span>
+  </div>
+
+  <div id="bladder" class="hidden">
+    <span class="cap">bladder</span>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <div id="toast-stack"></div>
+</div>
+
+<!-- ============ The flight HUD ============ -->
+<div id="br-hud" class="hidden">
+  <div id="br-objective" class="hidden"></div>
+
+  <div class="br-left">
+    <div id="br-speed-tape" class="tape">
+      <div class="band"></div>
+      <div class="readout"><span id="br-speed">0</span><em>KT</em></div>
+    </div>
+  </div>
+
+  <div class="br-right">
+    <div class="stack">
+      <div class="readout big"><span id="br-alt">0</span><em>FT</em></div>
+      <div id="br-agl" class="sub">0 AGL</div>
+      <div id="br-vsi" class="sub vsi">0</div>
+    </div>
+  </div>
+
+  <div class="br-top">
+    <div id="br-hdg-tape" class="hdg"><span id="br-hdg">000</span></div>
+  </div>
+
+  <div id="br-warnings" class="warnings"></div>
+
+  <div class="br-bottom">
+    <div class="panel-row">
+      <div class="engs">
+        <div id="br-eng-l" class="eng ok"><span class="lab">L</span><span class="val">OK</span><div class="bar"><i></i></div></div>
+        <div id="br-eng-r" class="eng ok"><span class="lab">R</span><span class="val">OK</span><div class="bar"><i></i></div></div>
+      </div>
+      <div class="misc">
+        <div id="br-flaps">FLAPS UP</div>
+        <div id="br-cargo">EMPTY</div>
+      </div>
+      <div id="br-cg" class="cg hidden">
+        <span class="lab">BALANCE</span>
+        <div class="track"><i class="good-band"></i><i id="br-cg-needle" class="needle"></i></div>
+        <div class="ends"><span>TAIL</span><span>NOSE</span></div>
+      </div>
+      <div id="br-patrol" class="patrol hidden">
+        <span class="lab">PATROL</span>
+        <div class="meter"><i id="br-patrol-fill"></i></div>
+        <span id="br-patrol-label">UNNOTICED</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="br-guide" class="guide hidden"></div>
+  <div id="br-checkpoint" class="checkpoint hidden"></div>
+</div>
+
+<!-- ============ Mission complete ============ -->
+<div id="br-complete" class="hidden">
+  <div class="card">
+    <h1>THE BEEF RUN<span>COMPLETE</span></h1>
+    <div id="br-rank" class="rank" data-tier="0">—</div>
+    <div id="br-complete-body"></div>
+    <div class="foot">
+      <button class="btn" onclick="location.reload()">Fly it again</button>
+      <a class="btn ghost" href="./">Back to the flat</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Title ============ -->
+<div id="overlay">
+  <div class="panel beefrun-panel">
+    <h1>THE BEEF<span>RUN</span></h1>
+    <p class="tag">Whispering Pines Municipal, ten past nine. Captain Lou Sasole has a shipment,
+      an aeroplane, and something wrong with his stomach.</p>
+
+    <div class="difficulty">
+      <button class="diff" data-difficulty="assisted"><b>Assisted</b><span>Stability, auto-rudder, a landing path, gentle air</span></button>
+      <button class="diff" data-difficulty="standard"><b>Standard</b><span>Recoverable stalls, full cargo weight, real turbulence</span></button>
+      <button class="diff" data-difficulty="pro"><b>Unstable Professional</b><span>Torque, asymmetric thrust, no path, no help</span></button>
+    </div>
+
+    <button id="start-btn">Walk over</button>
+
+    <ul class="controls">
+      <li><kbd>W</kbd><kbd>S</kbd> pitch &middot; <kbd>A</kbd><kbd>D</kbd> roll &middot; <kbd>Q</kbd><kbd>E</kbd> rudder</li>
+      <li><kbd>Shift</kbd><kbd>Ctrl</kbd> throttle &middot; <kbd>[</kbd><kbd>]</kbd> trim one engine back</li>
+      <li><kbd>F</kbd><kbd>G</kbd> flaps &middot; <kbd>B</kbd> brakes &middot; <kbd>V</kbd> parking brake</li>
+      <li><kbd>3</kbd> battery &middot; <kbd>4</kbd> fuel &middot; <kbd>1</kbd><kbd>2</kbd> start / stop engines</li>
+      <li><kbd>C</kbd> camera &middot; <kbd>E</kbd> interact on foot &middot; <kbd>R</kbd> restart at checkpoint</li>
+      <li>Mouse looks around. A gamepad works if one is plugged in.</li>
+    </ul>
+    <p class="fine">Everything here is invented: the aeroplane, the airfields, the Bureau, the jerky.</p>
+  </div>
+</div>
+
+<div id="loading"><div class="bar"><i></i></div><span>Loading Whispering Pines…</span></div>
+
+<script>
+(function () {
+  var shown = false;
+  window.__squatchFail = function (title, detail) {
+    if (shown) return;
+    shown = true;
+    var el = document.getElementById('loading');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('failed');
+    el.innerHTML = '<strong></strong><span></span>';
+    el.querySelector('strong').textContent = title;
+    el.querySelector('span').textContent = detail || '';
+  };
+  window.__squatchStage = function (text) {
+    if (shown) return;
+    var el = document.getElementById('loading');
+    var s = el && el.querySelector('span');
+    if (s) s.textContent = text;
+  };
+  addEventListener('error', function (e) {
+    window.__squatchFail('Could not start the mission', e.message || String(e.error || e));
+  });
+  addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    window.__squatchFail('Could not start the mission', (r && r.message) || String(r));
+  });
+  setTimeout(function () {
+    if (!(window.__squatch && window.__squatch.beefrun)) {
+      window.__squatchFail(
+        'The mission did not finish loading',
+        'Serve the repo over HTTP (npm start) rather than opening the file directly. '
+        + 'If it is already served, the browser console will have the reason.');
+    }
+  }, 30000);
+})();
+</script>
+
+<script type="module" src="src/beefrun/main.js"
+  onerror="window.__squatchFail('Could not load the mission code', 'src/beefrun/main.js failed to load.')"></script>
+</body>
+</html>
