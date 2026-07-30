@@ -259,8 +259,68 @@ export class Golfer {
 
   faceToward(x, z, snap = false) { this.npc.faceToward(x, z, snap); }
 
+  /**
+   * Walk over there.
+   *
+   * Not a route system — a straight line at walking pace with a gait on it.
+   * What it is for is that nobody in this scene may ever arrive somewhere by
+   * being teleported into it: the group walks from the car park to the tee,
+   * and from the carts to their own balls, on their own feet.
+   */
+  walkTo(x, z, { speed = 1.55, onArrive = null } = {}) {
+    this._walk = { x, z, speed, onArrive };
+    this.state = GOLF_STATE.WALK;
+    return this;
+  }
+
+  get walking() { return !!this._walk; }
+
+  _updateWalk(dt) {
+    const w = this._walk;
+    const p = this.group.position;
+    const dx = w.x - p.x;
+    const dz = w.z - p.z;
+    const d = Math.hypot(dx, dz);
+
+    if (d < 0.35) {
+      this._walk = null;
+      this._gait = 0;
+      this._resetPose();
+      this.state = GOLF_STATE.IDLE;
+      w.onArrive?.();
+      return;
+    }
+
+    const step = Math.min(d, w.speed * dt);
+    p.x += (dx / d) * step;
+    p.z += (dz / d) * step;
+    p.y = heightAt(p.x, p.z);
+
+    // Face where he is going, without snapping round.
+    const want = Math.atan2(dx, dz);
+    let diff = want - this.group.rotation.y;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    this.group.rotation.y += diff * Math.min(1, dt * 6);
+    this.npc.homeYaw = this.group.rotation.y;
+    this.npc.homeX = p.x;
+    this.npc.homeZ = p.z;
+
+    this._gait = (this._gait ?? 0) + dt * w.speed * 3.4;
+    const swing = Math.sin(this._gait) * 0.52;
+    const parts = this.parts;
+    parts.legL.rotation.x = swing;
+    parts.legR.rotation.x = -swing;
+    parts.shinL.rotation.x = Math.max(0, -swing) * 0.7;
+    parts.shinR.rotation.x = Math.max(0, swing) * 0.7;
+    parts.armL.rotation.x = -swing * 0.55;
+    parts.armR.rotation.x = swing * 0.55;
+    parts.body.rotation.x = 0.04;
+  }
+
   /** Drop him at a spot on the course, standing on the ground. */
   placeAt(x, z, yaw = null) {
+    this._walk = null;
     this.group.position.set(x, heightAt(x, z), z);
     if (yaw !== null) {
       this.group.rotation.y = yaw;
@@ -367,6 +427,11 @@ export class Golfer {
   update(dt, playerPos) {
     // Idle life, gaze and speech stay the Bing's job.
     this.npc.update(dt, playerPos);
+
+    if (this._walk) {
+      this._updateWalk(dt);
+      return;
+    }
     if (this.state === GOLF_STATE.IDLE
       || this.state === GOLF_STATE.WALK
       || this.state === GOLF_STATE.CART) return;

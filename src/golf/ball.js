@@ -15,6 +15,7 @@
  */
 
 import { SURFACE, surfaceProps } from './course.js';
+import { launchFor } from './clubs.js';
 import {
   heightAt, surfaceAt, slopeAt, normalAt, isOutOfBounds,
   distanceToPin, dropPointFor, recoveryPointFor,
@@ -76,6 +77,10 @@ export class Ball {
     this.origin = { x: 0, z: 0 };
     this.apex = 0;
     this.carry = 0;
+    /* Where it first touched down, and on what. Distinct from where it stops:
+     * a low iron that lands on the fringe and releases onto the green did two
+     * different things and the scene talks about both. */
+    this.landing = null;
     this._carryDone = false;
     this._stuckTimer = 0;
   }
@@ -100,6 +105,7 @@ export class Ball {
     this.travelled = 0;
     this.apex = this.position.y;
     this.carry = 0;
+    this.landing = null;
     this._carryDone = true;
     this._stuckTimer = 0;
     return this;
@@ -131,6 +137,7 @@ export class Ball {
     this.travelled = 0;
     this.apex = this.position.y;
     this.carry = 0;
+    this.landing = null;
     this._carryDone = launch.grounded;
     this._stuckTimer = 0;
     return this;
@@ -215,6 +222,7 @@ export class Ball {
 
     if (!this._carryDone) {
       this.carry = Math.hypot(p.x - this.origin.x, p.z - this.origin.z);
+      this.landing = { x: p.x, z: p.z, surface };
       this._carryDone = true;
       this.hooks.onLand?.(surface, { ...p });
     }
@@ -407,3 +415,86 @@ export class Ball {
     return distanceToPin(this.position.x, this.position.z);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Aiming                                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Run a shot to its conclusion without rendering it. Used by the solver and
+ * by the verifier; never by the scene, which watches the ball fly.
+ */
+export function simulate(from, aimRad, launch, limit = 45) {
+  const b = new Ball();
+  b.placeAt(from.x, from.z);
+  b.strike(aimRad, launch);
+  let t = 0;
+  while (b.moving && t < limit) {
+    b.update(1 / 120);
+    t += 1 / 120;
+  }
+  return b;
+}
+
+/**
+ * Find the swing that puts the ball on a spot.
+ *
+ * This is how the NPC tee shots are authored. Lou's ball genuinely flies low,
+ * lands on the front fringe and releases onto the green; it is not placed
+ * there. What is authored is the target — everything between the clubface and
+ * the grass is the same physics the player gets, which is the only reason the
+ * three of them playing looks like three people playing.
+ *
+ * Power is bisected, then the aim is corrected for the drift the wind put on
+ * that flight, and both are repeated. Converges in well under a hundred
+ * simulated shots, which is a few milliseconds at load time.
+ */
+export function solveShot({ from, target, club, lie, loftBias = 1, passes = 3 }) {
+  let aim = Math.atan2(target.x - from.x, target.z - from.z);
+  let power = 0.75;
+
+  const shoot = (p, a) => {
+    const launch = launchFor(club, { power: p, accuracy: 0, lie });
+    launch.loftDeg *= loftBias;
+    return simulate(from, a, launch);
+  };
+
+  const wanted = Math.hypot(target.x - from.x, target.z - from.z);
+
+  for (let pass = 0; pass < passes; pass++) {
+    // --- distance, by bisection on power ---
+    let lo = 0.05;
+    let hi = 1.0;
+    for (let i = 0; i < 20; i++) {
+      const mid = (lo + hi) / 2;
+      const b = shoot(mid, aim);
+      const got = Math.hypot(b.position.x - from.x, b.position.z - from.z);
+      if (got < wanted) lo = mid; else hi = mid;
+      power = mid;
+    }
+
+    // --- direction, by measuring where that shot actually finished ---
+    const b = shoot(power, aim);
+    const err = Math.atan2(b.position.x - from.x, b.position.z - from.z) - aim;
+    const wantedAngle = Math.atan2(target.x - from.x, target.z - from.z);
+    aim = wantedAngle - err;
+  }
+
+  const launch = launchFor(club, { power, accuracy: 0, lie });
+  launch.loftDeg *= loftBias;
+  const final = simulate(from, aim, launch);
+  return {
+    aim,
+    power,
+    launch,
+    /* How close the solver actually got. The caller logs this rather than
+     * trusting it: a target inside the pond would converge on a splash and
+     * report it honestly instead of pretending. */
+    landedAt: { x: final.position.x, z: final.position.z },
+    landing: final.landing,
+    error: Math.hypot(final.position.x - target.x, final.position.z - target.z),
+    state: final.state,
+    surface: final.surface,
+  };
+}
+

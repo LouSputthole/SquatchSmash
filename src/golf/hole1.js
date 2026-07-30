@@ -116,12 +116,12 @@ export const CLUBHOUSE = Object.freeze({ x: -34, z: 48, rot: 0.42 });
  */
 export const NPC_TEE_SHOTS = Object.freeze({
   /* Centre of the green, about 22 feet. He is not interested in the flag. */
-  erican: Object.freeze({ target: Object.freeze({ x: 4.2, z: -149.4 }), club: 'iron', loftBias: 1.0 }),
+  erican: Object.freeze({ target: Object.freeze({ x: 4.9, z: -149.6 }), club: 'iron', loftBias: 1.0 }),
   /* At the flag, pulled left, front bunker. Exactly where he wanted it. */
   rippinflow: Object.freeze({ target: Object.freeze({ x: -8.2, z: -142.0 }), club: 'iron', loftBias: 1.05 }),
   /* Low, lands on the front fringe, releases onto the green. The oldest-man
    * shot there is, and it finishes inside Rippin's. */
-  lou: Object.freeze({ target: Object.freeze({ x: 3.2, z: -139.0 }), club: 'iron', loftBias: 0.74, runOut: true }),
+  lou: Object.freeze({ target: Object.freeze({ x: 2.0, z: -147.0 }), club: 'iron', loftBias: 0.74, runOut: true }),
 });
 
 /** Tree bands, filled procedurally, framing the hole without hand placement. */

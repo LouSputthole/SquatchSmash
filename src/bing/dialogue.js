@@ -62,8 +62,17 @@ export class Dialogue {
     this.options = opts.filter((o) => !o.when || o.when());
     this._paintOptions();
 
-    // A node with no options runs on its own after a beat
-    this.timer = node.hold ?? (text ? Math.max(2.2, text.length / 18) : 0.6);
+    /* A node with no options runs on its own after a beat.
+     *
+     * `hold` may be a function, for a node whose length is not knowable until
+     * it runs — a beat that plays however many conditional lines this save has
+     * earned, for instance. Assigning the function itself sets the timer to
+     * something that is never greater than zero and then subtracts a number
+     * from it, which parks the conversation permanently. */
+    const hold = typeof node.hold === 'function' ? node.hold() : node.hold;
+    this.timer = Number.isFinite(hold)
+      ? hold
+      : (text ? Math.max(2.2, text.length / 18) : 0.6);
     return node;
   }
 

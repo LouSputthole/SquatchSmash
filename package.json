@@ -27,6 +27,7 @@
     "verify:preview": "node tools/verify-preview.mjs",
     "verify:beefrun": "node tools/verify-beefrun.mjs",
     "verify:silver": "node tools/verify-silver.mjs",
+    "verify:golf": "node tools/verify-golf.mjs",
     "balance:silver": "node tools/balance-silver.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
