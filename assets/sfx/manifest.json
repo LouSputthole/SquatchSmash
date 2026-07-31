@@ -5792,6 +5792,21 @@
       "voice": "performer",
       "say": "Eyes up here are free. The winkin' costs.",
       "duration": 3.5
+    },
+    {
+      "name": "radio.tape.richguys",
+      "duration": 34.4,
+      "note": "Hand-supplied recording, not generated. Aired whole as the station's tape segment — see `tapes` in src/core/stations.js. No prompt and no say on purpose: the generator skips it."
+    },
+    {
+      "name": "radio.vo.announcer.0calrbi",
+      "voice": "announcer",
+      "say": "Tape segment. A listener sent this in. Two wealthy men, left alone with their own laundry."
+    },
+    {
+      "name": "radio.vo.announcer.1wvrx46",
+      "voice": "announcer",
+      "say": "One week a year. Every year. Our thoughts are with them."
     }
   ]
 }

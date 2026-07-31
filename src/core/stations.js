@@ -641,6 +641,23 @@ export const STATIONS = [
       'Turn it up. Nobody in this building is going to stop you.',
       '97.8 The Squatch. The roster, on the roster.',
     ],
+    /**
+     * Tapes. Not records and not the station's own people: recordings that
+     * turned up, which the station airs whole because it has four hours to
+     * fill and somebody else already filled thirty-four seconds of it.
+     *
+     * `cue` is a cue in assets/sfx/ like any other, so it is fetched, decoded
+     * and positioned the same way a host is -- and the block runs for exactly
+     * as long as the recording does rather than a guessed dwell.
+     */
+    tapes: [
+      {
+        cue: 'radio.tape.richguys',
+        title: 'TAPE — "One Week Without The Housekeeper"',
+        intro: 'ANNOUNCER: Tape segment. A listener sent this in. Two wealthy men, left alone with their own laundry.',
+        outro: 'ANNOUNCER: One week a year. Every year. Our thoughts are with them.',
+      },
+    ],
     /** Shown when the player has not supplied any music yet. */
     empty: [
       '97.8 The Squatch. We would play you a record, but there are no records.',
@@ -771,6 +788,10 @@ function buildVoiceIndex() {
     for (const seg of st.commercial ?? []) add(seg.line, 'announcer');
     if (st.notices) for (const seg of MEETING_NOTICE) add(seg.line, 'announcer');
     for (const line of st.lines ?? []) add(line, 'announcer');
+    /* A tape's own audio is a file somebody recorded, not something to
+     * generate -- but the announcer topping and tailing it is a line like any
+     * other, and gets a clip like any other. */
+    for (const tape of st.tapes ?? []) { add(tape.intro, 'announcer'); add(tape.outro, 'announcer'); }
     /* `empty` is the developer hint shown when assets/music/ has nothing in
      * it. It tells you to go and add files, which is not something a radio
      * host says, and it cannot air at all once there is music. Not voiced. */

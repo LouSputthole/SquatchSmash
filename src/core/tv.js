@@ -9,6 +9,8 @@
  *   name              what the on-screen banner says
  *   draw(g, t, w, h)  paint the frame; `t` is seconds since it came on
  *   glow()            optional { colour, intensity } for the room
+ *   enter(ctx)        optional; it just came on. { audio, position }
+ *   leave()           optional; something else is on now, or the set is off
  *
  * That is deliberately the smallest interface that could work, because the
  * content is going to be written by somebody else. Everything below is
@@ -19,9 +21,12 @@
  */
 
 import { drawSquatchSilhouette } from '../world/textures.js';
+import { assetUrl } from './assets.js';
 
 export const W = 512;
 export const H = 288;
+
+const VIDEO_DIR = 'assets/video/';
 
 /** Seconds of snow when the channel changes. */
 const SWITCH = 0.45;
@@ -264,8 +269,119 @@ const COUNTER_SQUATCH_LEGENDS = {
   glow: () => ({ colour: 0x3a5a7a, intensity: 1.05 }),
 };
 
+/* ------------------------------------------------------------------ */
+/* Tape                                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A channel that is a video file, blitted frame by frame onto the same canvas
+ * everything else paints on -- so the screen, its glow and its texture upload
+ * carry on knowing nothing about it.
+ *
+ * The element is built the first time the channel comes on rather than at
+ * load, because a set that is never switched on should not have fetched a
+ * video, and `enter()` runs off a keypress, which is the gesture autoplay
+ * wants. Its sound goes out through a panner at the set, at the same rolloff
+ * the radio uses: a telly across the room is a telly across the room.
+ *
+ * The file being missing is normal -- a bundled build has no assets/ folder to
+ * fetch from -- so a failure is a card on screen, not an exception.
+ */
+function videoChannel({ name, file, card, glow }) {
+  let el = null;
+  let wired = false;
+  let failed = false;
+
+  return {
+    name,
+    enter({ audio, position } = {}) {
+      if (failed) return;
+      if (!el) {
+        el = document.createElement('video');
+        el.src = assetUrl(VIDEO_DIR, file);
+        el.loop = true;
+        el.playsInline = true;
+        el.preload = 'auto';
+        el.addEventListener('error', () => { failed = true; });
+      }
+      /* No audio system (the club office set) or none running yet: play it
+       * muted rather than blaring out of the middle of the player's head. */
+      if (!wired && audio?.ready && position) {
+        try {
+          const ctx = audio.ctx;
+          const src = ctx.createMediaElementSource(el);
+          const tone = ctx.createBiquadFilter();
+          tone.type = 'lowpass';
+          tone.frequency.value = 5200;
+          const gain = ctx.createGain();
+          gain.gain.value = 0.9;
+          const panner = ctx.createPanner();
+          panner.panningModel = 'HRTF';
+          panner.distanceModel = 'inverse';
+          panner.refDistance = 3.0;
+          panner.maxDistance = 26;
+          panner.rolloffFactor = 1.1;
+          if (panner.positionX) {
+            panner.positionX.value = position.x;
+            panner.positionY.value = position.y;
+            panner.positionZ.value = position.z;
+          } else {
+            panner.setPosition(position.x, position.y, position.z);
+          }
+          src.connect(tone);
+          tone.connect(gain);
+          gain.connect(panner);
+          panner.connect(audio.busMusic);
+          /* It may have been switched on once before the audio context was
+           * running, and played muted. Now there is somewhere to send it. */
+          el.muted = false;
+          wired = true;
+        } catch {
+          el.muted = true;    // ponytail: one graph per element, so this only ever fails once
+          wired = true;
+        }
+      }
+      if (!wired) el.muted = true;
+      const p = el.play();
+      if (p && p.catch) p.catch(() => { /* the card covers it */ });
+    },
+    leave() {
+      try { el?.pause(); } catch { /* never started */ }
+    },
+    draw(g, t) {
+      g.fillStyle = '#050608';
+      g.fillRect(0, 0, W, H);
+      if (!failed && el && el.readyState >= 2) {
+        g.drawImage(el, 0, 0, W, H);
+        return;
+      }
+      // Still loading, or there is no tape. Either way: say so, do not freeze.
+      snow(g, 0.35);
+      g.fillStyle = 'rgba(6,8,12,0.72)';
+      g.fillRect(0, H * 0.40, W, H * 0.20);
+      g.fillStyle = '#e8dcc0';
+      g.font = '700 15px ui-monospace, monospace';
+      g.textAlign = 'center';
+      g.fillText(failed ? card : 'TRACKING…', W / 2, H * 0.52);
+      g.textAlign = 'left';
+    },
+    glow: () => glow,
+  };
+}
+
+/**
+ * Somebody's tape of the Austin trip, on the shelf under the telly, played
+ * more times than anyone will admit to.
+ */
+const AUSTIN_TAPE = videoChannel({
+  name: 'THE AUSTIN TAPE',
+  file: 'austin-2.mp4',
+  card: 'NO TAPE IN THE MACHINE',
+  glow: { colour: 0xb8c4d4, intensity: 1.15 },
+});
+
 export const CHANNELS = [
-  SQUATCH_WATCH, JERKY_CHANNEL, COUNTER_SQUATCH_LEGENDS,
+  SQUATCH_WATCH, JERKY_CHANNEL, COUNTER_SQUATCH_LEGENDS, AUSTIN_TAPE,
   NOTICES, TEST_CARD, STATIC,
 ];
 
@@ -299,16 +415,32 @@ export class Tv {
     this.t = 0;
     this._switch = this.on ? SWITCH : 0;
     this.audio?.play('tv.click', { volume: 0.6, position: this.position });
-    if (!this.on) this._paint();
+    if (this.on) this._enter();
+    else { this._leave(); this._paint(); }
     return this.on;
   }
 
   next() {
     if (!this.on) return;
+    this._leave();
     this.index = (this.index + 1) % this.channels.length;
     this.t = 0;
     this._switch = SWITCH;
     this.audio?.play('tv.click', { volume: 0.45, position: this.position });
+    this._enter();
+  }
+
+  /* A channel that is a running thing rather than a drawing -- a tape, say --
+   * needs to know when it is on and when it is not. Everything else ignores
+   * these, which is why they are optional. */
+  _enter() {
+    try {
+      this.channel.enter?.({ audio: this.audio, position: this.position });
+    } catch { /* a channel somebody is still writing */ }
+  }
+
+  _leave() {
+    try { this.channel.leave?.(); } catch { /* as above */ }
   }
 
   update(dt) {
