@@ -1926,6 +1926,97 @@ check('"car’s outside, come on" costs what it costs at any score',
     && crude.andThen === 'disaster',
   JSON.stringify(crude));
 
+/* ---- the set dressing, measured ----
+ *
+ * "The railings and the scenery need work" is not a thing a harness can be
+ * told, but two thirds of what it turned out to mean is arithmetic. Every
+ * fitting in the back of house hung somewhere between 45mm and 100mm below
+ * the ceiling it is screwed to; the meat in the walk-in hung 70mm under its
+ * own rail; the wet patches on the road sat 3mm over the asphalt, which is
+ * inside what the depth buffer can tell apart forty metres down a street
+ * with a 300m far plane, and two of them sat on top of each other.
+ *
+ * So: nothing small floats with clear air under it and nothing beside it,
+ * and no two flat faces share a plane. Neither of those can see a crude
+ * handrail — that is what the screenshots are for — but both of them catch
+ * the next one of these before a player does.
+ */
+const dressed = await page.evaluate(() => {
+  const b = window.__silver;
+  const T = b.THREE;
+  const items = [];
+  b.room.root.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.visible) return;
+    const bb = new T.Box3().setFromObject(o);
+    if (!Number.isFinite(bb.min.y)) return;
+    items.push({ o, bb, size: bb.getSize(new T.Vector3()) });
+  });
+  /* The heights something is allowed to be standing on, and the two ramps,
+   * which are a floor at every height between them. */
+  const LEVELS = [-2.9, -0.02, 0, 0.14, 0.75];
+  const onARamp = (bb) => b.room.ROUTE && [[15, 22, 8.4, 14.6], [15.5, 20, -0.6, 2.6]]
+    .some(([x0, x1, z0, z1]) => bb.min.x > x0 - 0.4 && bb.max.x < x1 + 0.4
+      && bb.min.z > z0 - 0.4 && bb.max.z < z1 + 0.4);
+  const floaters = [];
+  for (const it of items) {
+    const { bb, size } = it;
+    if (size.x > 6 || size.z > 6 || size.y > 4) continue;      // architecture
+    if (size.x < 0.02 || size.z < 0.02) continue;              // signs on walls
+    if (LEVELS.some((L) => Math.abs(bb.min.y - L) < 0.06)) continue;
+    if (bb.min.y < -3 || bb.min.y > 3.2) continue;
+    if (onARamp(bb)) continue;
+    let held = false;
+    for (const q of items) {
+      if (q === it) continue;
+      // something directly under it, close enough to be standing on
+      if (q.bb.max.y <= bb.min.y + 0.06 && q.bb.max.y >= bb.min.y - 0.9
+        && q.bb.max.x >= bb.min.x && q.bb.min.x <= bb.max.x
+        && q.bb.max.z >= bb.min.z && q.bb.min.z <= bb.max.z) { held = true; break; }
+      // or touching it at its own height, which is a bracket or a wall
+      if (q.bb.max.y >= bb.min.y && q.bb.min.y <= bb.max.y
+        && Math.max(q.bb.min.x - bb.max.x, bb.min.x - q.bb.max.x, 0) < 0.03
+        && Math.max(q.bb.min.z - bb.max.z, bb.min.z - q.bb.max.z, 0) < 0.03) { held = true; break; }
+    }
+    if (!held) floaters.push(`${it.o.name || it.o.geometry.type} at ${bb.min.toArray().map((n) => n.toFixed(2)).join(',')}`);
+  }
+  /* Two large flat faces in the same plane: z-fighting, before you see it. */
+  const flats = items.filter((it) => {
+    const s = it.size;
+    return (s.y < 0.02 && s.x > 1.5 && s.z > 1.5) || (s.x < 0.02 && s.y > 1.5 && s.z > 1.5)
+      || (s.z < 0.02 && s.x > 1.5 && s.y > 1.5);
+  });
+  const fighting = [];
+  for (let i = 0; i < flats.length; i++) {
+    for (let j = i + 1; j < flats.length; j++) {
+      const a = flats[i]; const c = flats[j];
+      for (const ax of ['x', 'y', 'z']) {
+        if (a.size[ax] > 0.02 || c.size[ax] > 0.02) continue;
+        if (Math.abs(a.bb.min[ax] - c.bb.min[ax]) > 0.004) continue;
+        const ov = (k) => Math.min(a.bb.max[k], c.bb.max[k]) - Math.max(a.bb.min[k], c.bb.min[k]);
+        const [o1, o2] = ax === 'y' ? ['x', 'z'] : ax === 'x' ? ['y', 'z'] : ['x', 'y'];
+        if (ov(o1) > 0.4 && ov(o2) > 0.4) fighting.push(`${ax}=${a.bb.min[ax].toFixed(3)}`);
+      }
+    }
+  }
+  /* The two ramp rails: a run, a mid-rail under it, and posts to the deck. */
+  const rails = { entry: 0, well: 0 };
+  for (const it of items) {
+    const s = it.size;
+    const long = Math.max(s.x, s.z);
+    if (long < 1.2 || Math.max(s.y, Math.min(s.x, s.z)) > 0.14) continue;
+    if (it.bb.min.z > 8 && it.bb.max.z < 15 && it.bb.max.y > -2.2 && it.bb.min.y < 1.2) rails.entry++;
+    if (it.bb.min.z > -1 && it.bb.max.z < 3 && it.bb.min.y > 0 && it.bb.max.y < 1.1) rails.well++;
+  }
+  return { meshes: items.length, floaters: floaters.slice(0, 8), n: floaters.length, fighting: [...new Set(fighting)], rails };
+});
+check('nothing in the building is hanging in the air with nothing holding it up',
+  dressed.n === 0, dressed.n ? `${dressed.n}: ${dressed.floaters.join('; ')}` : `${dressed.meshes} meshes, all sitting on something`);
+check('and no two flat faces share a plane to fight over',
+  dressed.fighting.length === 0, dressed.fighting.join(', ') || 'no coplanar sheets');
+check('both ramps have a handrail with more than one bar in it',
+  dressed.rails.entry >= 4 && dressed.rails.well >= 6,
+  JSON.stringify(dressed.rails));
+
 /* ---- she walks beside him, and stays put when he turns round ----
  *
  * The single worst thing about the evening: her spot was hung off his *look*

@@ -663,8 +663,14 @@ export function buildRoom(scene, { renderer } = {}) {
     for (let i = 0; i < 9; i++) {
       const px = rand(-18, 18);
       const pz = rand(35, 52);
-      add(box({
-        size: [rand(1.2, 3.4), 0.01, rand(0.8, 2.2)], pos: [px, 0.008, pz],
+      /* Each one on its own 2mm shelf. Two of them landed on top of each
+       * other at the same height and fought about it, which on a wet road is
+       * the one artefact you cannot look away from. */
+      /* 25mm off the tarmac, not 3. At 3mm these are inside what the depth
+        * buffer can tell apart forty metres down a street with a 300m far
+        * plane, and the whole road shimmered as you walked along it. */
+        add(box({
+        size: [rand(1.2, 3.4), 0.01, rand(0.8, 2.2)], pos: [px, 0.025 + i * 0.002, pz],
         mat: mat({ color: 0x1a1c24, roughness: 0.06, metalness: 0.55 }), cast: false,
       }));
     }
@@ -880,14 +886,31 @@ export function buildRoom(scene, { renderer } = {}) {
     }
     ceiling(T, M_CONCRETE, CEIL_BACK);
 
-    // A handrail down the ramp, because otherwise it reads as a hole
+    /* A handrail down the ramp, because otherwise it reads as a hole.
+     *
+     * It used to be seven bare stanchions and one 60mm bar laid across the
+     * top of them — no mid-rail, no return at either end, and the top of each
+     * post left square in the air. From the landing you were looking down a
+     * ramp at a row of sticks. It is a handrail now: top rail, mid-rail at
+     * half height, a ball on each post, and a return at both ends so the run
+     * finishes into something instead of stopping. */
+    const rampTilt = Math.atan2(-CELLAR_Y, rampRun);
     for (const rz of [8.7, 14.3]) {
       for (let i = 0; i <= 6; i++) {
         const rx = 15.5 + i;
         const ry = CELLAR_Y * (1 - i / 6) + 0.95;
         add(cylinder({ r: 0.045, h: 0.95, pos: [rx, ry - 0.47, rz], mat: M_STEEL_D }));
+        add(sphere({ r: 0.055, pos: [rx, ry, rz], mat: M_BRASS }));
       }
-      add(box({ size: [rampLen + 0.2, 0.06, 0.06], pos: [18.5, CELLAR_Y / 2 + 0.95, rz], mat: M_STEEL_D, rotZ: Math.atan2(-CELLAR_Y, rampRun) }));
+      for (const drop of [0, 0.46]) {
+        add(box({
+          size: [rampLen + 0.2, drop ? 0.045 : 0.06, drop ? 0.045 : 0.06],
+          pos: [18.5, CELLAR_Y / 2 + 0.95 - drop, rz], mat: M_STEEL_D, rotZ: rampTilt,
+        }));
+      }
+      // The returns, into the concrete at each end
+      add(box({ size: [0.05, 0.05, 0.42], pos: [15.5, CELLAR_Y + 0.95, rz + (rz > 11 ? 0.24 : -0.24)], mat: M_STEEL_D }));
+      add(box({ size: [0.05, 0.05, 0.42], pos: [21.5, 0.95, rz + (rz > 11 ? 0.24 : -0.24)], mat: M_STEEL_D }));
     }
 
     const C = ROOMS.cellar;
@@ -973,7 +996,8 @@ export function buildRoom(scene, { renderer } = {}) {
 
     // Strip lights: two, and one of them is going
     for (const lz of [4, -2]) {
-      add(box({ size: [0.14, 0.09, 1.5], pos: [22, CELLAR_Y + 2.3, lz], mat: mat({ color: 0xdfe6ee, roughness: 1, emissive: 0xbfd0e0, emissiveIntensity: 0.8 }) }));
+      // Screwed to the slab, not hovering 45mm under it
+      add(box({ size: [0.14, 0.09, 1.5], pos: [22, CELLAR_Y + CEIL_CELLAR - 0.045, lz], mat: mat({ color: 0xdfe6ee, roughness: 1, emissive: 0xbfd0e0, emissiveIntensity: 0.8 }) }));
       const l = pointLight(0xcfe0f0, 2.4);
       l.position.set(22, CELLAR_Y + 2.15, lz);
       l.distance = 12;
@@ -1026,7 +1050,8 @@ export function buildRoom(scene, { renderer } = {}) {
     houseLights.push({ light: coldLight, back: true });
     for (const hx of [23, 26.5]) {
       for (let h = 0; h < 3; h++) {
-        add(box({ size: [0.16, 0.5, 0.24], pos: [hx, CELLAR_Y + 1.7, -8 - h * 1.8], mat: mat({ color: 0x8a4a44, roughness: 0.75 }) }));
+        // On the rail: its underside is at 2.02, so the top of this is too
+        add(box({ size: [0.16, 0.5, 0.24], pos: [hx, CELLAR_Y + 1.77, -8 - h * 1.8], mat: mat({ color: 0x8a4a44, roughness: 0.75 }) }));
       }
       add(box({ size: [0.1, 0.06, 5.4], pos: [hx, CELLAR_Y + 2.05, -10.6], mat: M_STEEL }));
     }
@@ -1080,12 +1105,28 @@ export function buildRoom(scene, { renderer } = {}) {
         wall(hx0, fz, hx0 + 0.75, fz, top - CELLAR_Y, M_CONCRETE, 0.2, CELLAR_Y);
       }
     }
-    // A rail round the well, on the kitchen side, where there is a drop
+    /* A rail round the well, on the kitchen side, where there is a drop.
+     *
+     * The same treatment as the entry ramp's, and for the same reason: one
+     * bar on five posts over a three-metre hole in a working kitchen is not a
+     * guard rail, it is a trip hazard with a stripe on it. Top rail, mid-rail,
+     * a kickplate at the floor so a dropped pan does not go over the edge,
+     * and a post at each corner rather than a bar ending in mid-air. */
     for (const fz of [RAMP_UP.z0, RAMP_UP.z1]) {
-      add(box({ size: [RAMP_UP.x1 - 15, 0.06, 0.06], pos: [(15 + RAMP_UP.x1) / 2, 0.95, fz], mat: M_STEEL_D }));
+      const run = RAMP_UP.x1 - 15;
+      const mid = (15 + RAMP_UP.x1) / 2;
+      add(box({ size: [run, 0.06, 0.06], pos: [mid, 0.95, fz], mat: M_STEEL_D }));
+      add(box({ size: [run, 0.045, 0.045], pos: [mid, 0.5, fz], mat: M_STEEL_D }));
+      add(box({ size: [run, 0.12, 0.02], pos: [mid, 0.06, fz], mat: M_STEEL_D }));
       for (let i = 0; i <= 4; i++) {
         add(cylinder({ r: 0.04, h: 0.95, pos: [15.4 + i * 1.15, 0.48, fz], mat: M_STEEL_D }));
       }
+      /* An end post at the open end only. The west end of this run dies into
+       * the corridor's east wall, which is where a handrail is supposed to
+       * finish -- a post there would be a post inside 250mm of tiled
+       * blockwork. */
+      add(cylinder({ r: 0.045, h: 0.98, pos: [RAMP_UP.x1 - 0.04, 0.49, fz], mat: M_STEEL_D }));
+      add(sphere({ r: 0.055, pos: [RAMP_UP.x1 - 0.04, 0.98, fz], mat: M_BRASS }));
       solid(15, fz - 0.05, RAMP_UP.x1, fz + 0.05, 0, 0.95);
     }
 
@@ -1218,7 +1259,8 @@ export function buildRoom(scene, { renderer } = {}) {
     for (const lz of [4, -2, -8, -14]) {
       for (const lx of [18, 25]) {
         if (lz === 4 && lx === 25) continue;
-        add(box({ size: [0.14, 0.08, 1.6], pos: [lx, CEIL_BACK - 0.14, lz], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }) }));
+        // Flush to the ceiling. At CEIL_BACK-0.14 it hung 100mm under it.
+        add(box({ size: [0.14, 0.08, 1.6], pos: [lx, CEIL_BACK - 0.04, lz], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }) }));
         const l = pointLight(0xdce8f4, 1.4);
         l.position.set(lx, CEIL_BACK - 0.3, lz);
         l.distance = 11;
@@ -1231,7 +1273,7 @@ export function buildRoom(scene, { renderer } = {}) {
      * a lit room: the cellar's tubes are under the ceiling you just came up
      * through and light none of it. */
     add(box({
-      size: [0.14, 0.08, 1.4], pos: [17.6, CEIL_BACK - 0.14, 1], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }),
+      size: [0.14, 0.08, 1.4], pos: [17.6, CEIL_BACK - 0.04, 1], mat: mat({ color: 0xeef2f6, roughness: 1, emissive: 0xd0e0f0, emissiveIntensity: 0.7 }),
     }));
     const rampLight = pointLight(0xdce8f4, 2.1);
     rampLight.position.set(17.6, CEIL_BACK - 0.3, 1);
@@ -1368,7 +1410,7 @@ export function buildRoom(scene, { renderer } = {}) {
       l.position.set(12.4, CEIL_BACK - 0.35, lz);
       l.distance = 10;
       add(l);
-      add(box({ size: [0.5, 0.1, 0.5], pos: [12.4, CEIL_BACK - 0.06, lz], mat: mat({ color: 0x2a2a30, roughness: 0.9 }) }));
+      add(box({ size: [0.5, 0.1, 0.5], pos: [12.4, CEIL_BACK - 0.05, lz], mat: mat({ color: 0x2a2a30, roughness: 0.9 }) }));
       houseLights.push({ light: l, back: lz < 6 });
     }
 
@@ -1743,7 +1785,7 @@ export function buildRoom(scene, { renderer } = {}) {
      * a building that carries on, and an unlit one reads as the edge of the
      * map with a doorway cut in it. */
     for (const [lx, lz] of [[-3.5, -11.5], [5, -11.5], [-3, -18], [5, -18]]) {
-      add(box({ size: [0.36, 0.1, 0.36], pos: [lx, CEIL_SV - 0.06, lz], mat: mat({ color: 0x2a2a30, roughness: 0.9 }) }));
+      add(box({ size: [0.36, 0.1, 0.36], pos: [lx, CEIL_SV - 0.05, lz], mat: mat({ color: 0x2a2a30, roughness: 0.9 }) }));
       const l = pointLight(0xdcd0b4, 1.5);
       l.position.set(lx, CEIL_SV - 0.28, lz);
       l.distance = 10;
