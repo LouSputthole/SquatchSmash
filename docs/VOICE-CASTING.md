@@ -39,7 +39,7 @@ document is the ledger. `tools/generate-sfx.mjs` gained `--cast <voice,...>`
 | Rippinflow | `rippinflow` *(new)* | `rHWSYoq8UlV0YIBKMryp` | — | 0 | `rippinflow.png` |
 | Seff | `seff` *(new)* | `lnFzEtvLAfx8I9DtiJTS` | — | 0 | **MISSING** |
 | The Shubenator | `shubenator` *(new)* | `vpPOiJgwc09J0uCYqE35` | — | 0 | `shubes.png` |
-| Numbskull | `numbskull` *(new)* | **NONE — sheet row is blank** | — | 0 | **MISSING** |
+| Numbskull | `numbskull` *(new)* | `R4Zv8YQNcHyNDZl0ViUG` | — | 0 | **MISSING** |
 | *Radio (station voice)* | `announcer` | `dn9HtxgDwCH96MVX9iAO` | pNInz6ob… | 62 | n/a |
 
 The prospect (**Tony Squatchtana**, profile `player`, 365 lines) was not
@@ -47,9 +47,12 @@ recast — his voice stands.
 
 ### Gaps that need the owner
 
-1. **Numbskull has no voice id.** His profile and his hangout lines are
-   staged; paste the id into `voices.numbskull.id` and he joins the next
-   batch. Until then `--cast` runs must simply not include `numbskull`.
+1. ~~**Numbskull has no voice id.**~~ **Closed 2026-07-30** — the owner
+   supplied `R4Zv8YQNcHyNDZl0ViUG` and it is in `voices.numbskull.id`. He
+   has no cues to generate yet: his two hangout lines below are authored
+   copy, not manifest entries, so he joins the batch when the Bada Bing
+   floor lines land in the manifest. `--cast numbskull` is safe to include
+   from then on.
 2. **Seven Family faces missing.** Drop PNGs into `assets/faces/` under these
    names and every scene picks them up: `lag.png`, `willy.png`, `irish.png`,
    `ape.png`, `stove.png`, `seff.png`, `numbskull.png`.
@@ -179,7 +182,7 @@ Naming: `vo.bing.hang.<char>.<n>` for hangout lines,
 1. "I did nine hundred push-ups today. The number is not the impressive part. The floor was." (5.5s)
 2. "You need mass, Prospect. Order the shrimp. Order nine shrimp." (4.5s)
 
-**Numbskull** (`numbskull` — generates once his id lands)
+**Numbskull** (`numbskull` — id landed 2026-07-30, generates with the rest)
 1. "I like you. I decided this morning. It's done now, so don't worry about it." (5s)
 2. "Lou says I'm the muscle. Booski says I'm the heart. I say ow." (5s)
 
