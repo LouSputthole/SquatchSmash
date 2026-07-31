@@ -399,18 +399,35 @@ export function buildRoom(scene, { renderer } = {}) {
   add(moon, moon.target);
 
   /* And a floor under the whole city, so the drop-off is on a road rather than
-   * on the edge of the world. */
+   * on the edge of the world.
+   *
+   * In four pieces, with a hole left over the cellar's footprint. It used to
+   * be one 300m sheet, which also ran *under the building* at y=-0.02 — and
+   * the cellar is at -2.9, so both stairwells had a street-sized asphalt lid
+   * across them exactly at the eye line of anybody standing at the top. The
+   * whole descent read as opaque: you walked down into a surface you could
+   * not see through and the room below only existed once your head was under
+   * it. The hole covers the two ramp wells and everything below grade; the
+   * ground floors of the building sit at y=0 and hide the seams. */
   {
-    const tex = tiled(asphalt(), 30, 30);
-    if (renderer) tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    const g = new THREE.Mesh(
-      new THREE.PlaneGeometry(300, 300),
-      mat({ map: tex, roughness: 0.44, metalness: 0.08 }),
-    );
-    g.rotation.x = -Math.PI / 2;
-    g.position.set(0, -0.02, 20);
-    g.receiveShadow = true;
-    add(g);
+    const HOLE = { x0: 14.7, x1: 29.6, z0: -14.5, z1: 14.9 };
+    for (const [x0, z0, x1, z1] of [
+      [-150, -130, HOLE.x0, 170],
+      [HOLE.x1, -130, 150, 170],
+      [HOLE.x0, HOLE.z1, HOLE.x1, 170],
+      [HOLE.x0, -130, HOLE.x1, HOLE.z0],
+    ]) {
+      const tex = tiled(asphalt(), (x1 - x0) / 10, (z1 - z0) / 10);
+      if (renderer) tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      const g = new THREE.Mesh(
+        new THREE.PlaneGeometry(x1 - x0, z1 - z0),
+        mat({ map: tex, roughness: 0.44, metalness: 0.08 }),
+      );
+      g.rotation.x = -Math.PI / 2;
+      g.position.set((x0 + x1) / 2, -0.02, (z0 + z1) / 2);
+      g.receiveShadow = true;
+      add(g);
+    }
   }
 
   /* ================================================================ */
