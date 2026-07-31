@@ -370,10 +370,22 @@ export class Brushrunner {
     g.add(beacon);
     this.parts.beacon = beacon;
 
-    // Wing walk step and fuel caps (preflight targets live off these).
+    /* Wing walk step, fuel caps and sample drains. The walkaround asks you to
+     * find all of these from the ground, and as bare grey metal on a cream
+     * wing they were four little discs nobody could see. Real aeroplanes
+     * solve this the same way: the filler is a red anodised cap standing on a
+     * painted contrast ring, with a handle across it so it reads as a thing
+     * that turns, and the sample drain wears the same red at the bottom of a
+     * dark collar. Colour only — every position is where it was. */
+    const fuelRed = solid(0xc0392b, { roughness: 0.34, metalness: 0.55 });
+    const placard = solid(0x1e1c1a, { roughness: 0.92 });
+    const capBar = solid(0xe8e2d4, { roughness: 0.6 });
+
     this.parts.fuelCap = [];
     for (const sx of [-1, 1]) {
-      const cap = mesh(cylGeo(0.16, 0.16, 0.07, 10), metal, sx * 4.4, 1.34, 0.5);
+      g.add(flatMesh(cylGeo(0.30, 0.30, 0.012, 16), placard, sx * 4.4, 1.313, 0.5));
+      const cap = mesh(cylGeo(0.16, 0.16, 0.07, 10), fuelRed, sx * 4.4, 1.34, 0.5);
+      cap.add(mesh(boxGeo(0.24, 0.022, 0.05), capBar, 0, 0.04, 0));
       g.add(cap);
       this.parts.fuelCap.push(cap);
     }
@@ -383,7 +395,8 @@ export class Brushrunner {
     // Fuel sample drains, under the wing roots.
     this.parts.drain = [];
     for (const sx of [-1, 1]) {
-      const d = mesh(cylGeo(0.05, 0.05, 0.14, 6), metal, sx * 1.4, 0.99, 0.4);
+      g.add(flatMesh(cylGeo(0.15, 0.15, 0.012, 12), placard, sx * 1.4, 1.004, 0.4));
+      const d = mesh(cylGeo(0.05, 0.05, 0.14, 6), fuelRed, sx * 1.4, 0.99, 0.4);
       g.add(d);
       this.parts.drain.push(d);
     }
@@ -413,15 +426,25 @@ export class Brushrunner {
     panelTex.colorSpace = THREE.SRGBColorSpace;
     this.parts.panelTex = panelTex;
 
-    const panel = mesh(boxGeo(1.62, 0.78, 0.1), panelDark, 0, 0.42, 2.86);
+    /* Panel and coaming both sit lower than they used to. The seated eye is
+     * where a pilot's eye goes -- a hand's width under the cabin roof -- and
+     * from there the old glare shield stood level with the horizon, so the
+     * view out of the windshield was a strip of trim. Everything in front of
+     * the seat now lives below the sightline, and the nose is the only thing
+     * left in the way, which is how it should be. */
+    const panel = mesh(boxGeo(1.62, 0.72, 0.1), panelDark, 0, 0.30, 2.86);
     panel.rotation.x = 0.16;
     g.add(panel);
-    const face = flatMesh(new THREE.PlaneGeometry(1.5, 0.7), new THREE.MeshBasicMaterial({ map: panelTex }), 0, 0.42, 2.81);
-    face.rotation.x = 0.16;
-    g.add(face);
+    /* The gauges hang off the panel's own back face, turned to look at the
+     * left seat. They used to be a plane facing the propeller, which is a
+     * single-sided material pointed at nobody: six instruments drawn every
+     * frame into a canvas that the only person aboard could not see. */
+    const face = flatMesh(new THREE.PlaneGeometry(1.5, 0.64), new THREE.MeshBasicMaterial({ map: panelTex }), 0, 0, -0.052);
+    face.rotation.y = Math.PI;
+    panel.add(face);
 
     // Glare shield and coaming.
-    g.add(mesh(boxGeo(1.7, 0.1, 0.5), trimMat, 0, 0.86, 2.9));
+    g.add(mesh(boxGeo(1.7, 0.1, 0.5), trimMat, 0, 0.70, 2.9));
 
     // Radio stack in the centre pedestal.
     const stack = mesh(boxGeo(0.36, 0.62, 0.28), panelDark, 0, 0.1, 2.7);
@@ -468,7 +491,8 @@ export class Brushrunner {
     this.parts.flapLever = flapLever;
 
     // Magnetic compass on the windshield post.
-    const compassHousing = mesh(boxGeo(0.16, 0.14, 0.14), panelDark, 0, 1.02, 3.0);
+    // Hung just under the cabin roof at 0.97, not through it.
+    const compassHousing = mesh(boxGeo(0.16, 0.14, 0.14), panelDark, 0, 0.90, 3.0);
     g.add(compassHousing);
     const compassCanvas = document.createElement('canvas');
     compassCanvas.width = 256; compassCanvas.height = 64;
@@ -476,8 +500,10 @@ export class Brushrunner {
     const compassTex = new THREE.CanvasTexture(compassCanvas);
     compassTex.colorSpace = THREE.SRGBColorSpace;
     this.parts.compassTex = compassTex;
-    const compassFace = flatMesh(new THREE.PlaneGeometry(0.15, 0.05), new THREE.MeshBasicMaterial({ map: compassTex }), 0, 1.0, 2.92);
-    g.add(compassFace);
+    // Same again: the card reads from the seat, not from outside the glass.
+    const compassFace = flatMesh(new THREE.PlaneGeometry(0.15, 0.05), new THREE.MeshBasicMaterial({ map: compassTex }), 0, 0, -0.072);
+    compassFace.rotation.y = Math.PI;
+    compassHousing.add(compassFace);
 
     // Rudder pedals.
     this.parts.pedal = [];
@@ -496,7 +522,7 @@ export class Brushrunner {
 
     // The bobblehead: a sasquatch on a spring, and the honest instrument.
     const bobble = new THREE.Group();
-    bobble.position.set(0.3, 0.86, 2.94);
+    bobble.position.set(0.3, 0.70, 2.94);          // stands on the coaming
     const bobBody = mesh(cylGeo(0.035, 0.045, 0.07, 8), solid(0x6b5a44, { roughness: 1 }), 0, 0.03, 0);
     bobble.add(bobBody);
     const bobHead = new THREE.Group();
@@ -509,7 +535,7 @@ export class Brushrunner {
 
     // "World's Okayest Pilot", parked on the coaming where it will not stay.
     const cup = new THREE.Group();
-    cup.position.set(-0.2, 0.93, 2.86);
+    cup.position.set(-0.2, 0.77, 2.86);            // and so does the coffee
     cup.add(mesh(cylGeo(0.045, 0.04, 0.11, 10), solid(0xe8e2d4, { roughness: 0.75 }), 0, 0.055, 0));
     const handle = mesh(cylGeo(0.022, 0.022, 0.014, 8), solid(0xe8e2d4, { roughness: 0.75 }), 0.052, 0.055, 0);
     handle.rotation.x = Math.PI / 2;
@@ -560,7 +586,10 @@ export class Brushrunner {
     this.parts.lighter = lighter;
 
     // Where the cameras and the copilot live.
-    this.pilotEye = new THREE.Vector3(-0.42, 0.62, 2.22);
+    /* Seated eye: left seat, a hand's width below the cabin roof at y = 0.97,
+     * which is where a head goes and where the windshield's glazing actually
+     * is. The old 0.62 sat the pilot's eye level with the glare shield. */
+    this.pilotEye = new THREE.Vector3(-0.42, 0.80, 2.22);
     this.copilotSeat = new THREE.Vector3(0.42, -0.28, 1.66);
   }
 

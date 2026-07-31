@@ -96,8 +96,16 @@ export class CameraManager {
       _v.x += Math.cos(this._bob * 2.3) * bump * 0.7;
       cam.position.copy(_v);
 
+      /* Face the nose. A camera looks down its own -Z and the aeroplane's
+       * body frame puts the nose at +Z (physics.js, line one), so copying the
+       * airframe's rotation straight onto the camera sat the pilot backwards
+       * in his own seat, looking down the cabin at the cargo through the
+       * culled back faces of the fuselage. Half a turn of yaw puts him the
+       * way round the panel in front of him was built for; mouse look rides
+       * on top of it and keeps its sense, because the whole head frame turned
+       * rather than just the view direction. */
       _q.copy(body.quaternion);
-      _e.set(this.lookPitch, this.lookYaw, 0, 'YXZ');
+      _e.set(this.lookPitch, Math.PI + this.lookYaw, 0, 'YXZ');
       cam.quaternion.copy(_q).multiply(new THREE.Quaternion().setFromEuler(_e));
       // A little roll into the shake so it reads as the airframe, not the mouse.
       cam.rotateZ(Math.sin(this._bob * 4.7) * bump * 0.6);
