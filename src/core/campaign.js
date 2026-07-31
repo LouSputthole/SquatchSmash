@@ -92,6 +92,12 @@ export const TIME_EVENT_IDS = Object.freeze({
   MARGO_DATE_CALL: 'call.margo_date',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
+  /* Coming home from the restaurant. The Squatchfather scene keeps no clock of
+   * its own -- it is deliberately frozen -- so the return leg is what puts the
+   * hour on it, and it is applied by the apartment on arrival. Without it he
+   * walked back in at the same 11:41 PM he left at, which is why the bed felt
+   * like it was refusing him: the flat still thought he had just got up. */
+  COMPLETE_SQUATCHFATHER: 'mission.squatchfather',
   DEPART_AIRSTRIP: 'travel.airstrip',
   COMPLETE_AIRSTRIP: 'mission.airstrip',
   DEPART_BADA_BING_TWO: 'travel.bada_bing_two',
@@ -118,6 +124,13 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
+  }),
+  /* The restaurant, the walk away from it and the drive back. He lets himself
+   * in at three in the morning of the night Day One runs into: still Day One's
+   * chapter, on the second calendar day, exactly as the Motel already does at
+   * half four. Sleeping from here is what turns the page. */
+  [TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER]: Object.freeze({
+    atLeast: Object.freeze({ day: 2, timeMinutes: 3 * 60 }),
   }),
   // "Whispering Pines Municipal, ten past nine." The drive out to the field.
   [TIME_EVENT_IDS.DEPART_AIRSTRIP]: Object.freeze({

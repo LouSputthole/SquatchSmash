@@ -191,6 +191,17 @@ const wakingOnBigNight = !returningToApartment
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
   campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
 }
+/* The Squatchfather's return leg.
+ *
+ * That scene is frozen and keeps no clock, so nothing anywhere put an hour on
+ * the restaurant: he left for the Bing at 11:41 PM and let himself back in at
+ * 11:41 PM, with the whole night still ahead of him and a flat that thought he
+ * had just got up. Applied here, before the clock is read, and idempotent --
+ * `advanceTime` records the event id, so reloading the flat at three in the
+ * morning does not walk it forward again. */
+if (returningFromSquatchfather) {
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER);
+}
 time.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
 if (wakingOnDayTwo) {
   overlay.querySelector('.tag').textContent =
@@ -999,6 +1010,36 @@ function getUp() {
   apartmentStory.beginMorning();
 }
 
+/**
+ * The representation of `angle` closest to `near`, in radians.
+ */
+function yawNear(angle, near) {
+  let d = (angle - near) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return near + d;
+}
+
+/**
+ * Put the player's yaw in the same branch as a pose's before sitting into it.
+ *
+ * THE bug behind "sitting at the computer throws the camera left". Yaw
+ * accumulates without wrapping -- walk two laps of the flat and it is 12
+ * radians -- and the seated tween lands on `shortestAngle(fromYaw, toYaw)`,
+ * which is the value of the pose's yaw NEAREST the one he walked up with, so
+ * the camera can finish the tween at 6.28 while `yawCenter` is 0. It looks
+ * right, because 6.28 and 0 point the same way; then the first mouse movement
+ * runs the clamp, yaw is slammed to `yawCenter + yawRange`, and the view
+ * lurches most of a radian to the left before you have moved a centimetre.
+ *
+ * Normalising here rather than in the player means the tween starts and
+ * finishes in the clamp's own branch, so there is nothing left to snap.
+ */
+function seatedPose(pose) {
+  player.yaw = yawNear(player.yaw, pose.yaw);
+  return pose;
+}
+
 function sitAtPC() {
   if (game.seated) return;
   game.seated = true;
@@ -1010,7 +1051,7 @@ function sitAtPC() {
   audio.play('chair.sit', { volume: 0.6, delay: 0.25 });
   audio.say('pc.sit', { chance: 0.6, delay: 0.9 });
 
-  player.sitAt(apartment.deskPose, () => {
+  player.sitAt(seatedPose(apartment.deskPose), () => {
     audio.setMuffle(true);
     radio.setFocusMuffle(true);
     if (!apartment.state.pcOn) {
@@ -1071,7 +1112,7 @@ function sitOn(which) {
   hud.setMode('seated');
   audio.play(seat.cue, { volume: 0.55 });
 
-  player.sitAt(seat.pose(), () => {
+  player.sitAt(seatedPose(seat.pose()), () => {
     interaction.setPaused(false);   // you can still reach things from a seat
     hud.say(seat.line, 4600);
     hud.setPosture('get up');
@@ -1100,7 +1141,7 @@ function lieOnBed() {
   audio.play('bed.rustle', { volume: 0.6, delay: 0.25 });
   audio.say('liedown', { chance: 0.8 });
 
-  player.lieDown(apartment.bedPose, () => {
+  player.lieDown(seatedPose(apartment.bedPose), () => {
     hud.say('Ceiling. <em>[E] to sleep it off.</em>', 5200);
     hud.setPosture('get up');
   });
@@ -1147,7 +1188,19 @@ function sleepInBed() {
  * check below refuses to drop it, which fails safe.
  */
 const DROP_RULES = {
-  phone: { keep: 'It is my phone. <em>It stays on me.</em>' },
+  /* Not dropped and not refused: pocketed. Making it undroppable stopped [Q]
+   * deleting the only object Lou can reach him through, and left [Q] doing
+   * nothing at all while it was in his hand, which reads as broken. It leaves
+   * his hand, stays in the hotbar, stays in the campaign's carried list, and
+   * comes back out with its own number key. The refusal line is kept for the
+   * one case that cannot pocket it, because that case would have to destroy
+   * it. Mid-call never reaches here -- [Q] hangs up first, see the key
+   * handler -- so pocketing can never strand a call. */
+  phone: {
+    pocket: () => pocketPhone(),
+    keep: 'It is my phone. <em>It stays on me.</em>',
+    cue: () => audio.play('phone.pickup', { volume: 0.32, rate: 0.88 }),
+  },
   /* An empty is the one thing genuinely destroyed, and it is not destroyed
    * here: `consumeBeer` already dropped the crushed can on the floor at the
    * moment he finished it. This is only letting go of the idea of it. */
@@ -1190,6 +1243,28 @@ const DROP_RULES = {
   parcel: { keep: 'That is Lou’s. It does not leave my jacket.' },
 };
 
+/**
+ * Put the phone away without letting go of it.
+ *
+ * Selects any other slot -- an empty one for preference -- so the phone leaves
+ * his hand and the HUD's hand card while staying exactly where it was in the
+ * hotbar and in the save.
+ *
+ * @returns {boolean} false when there is no other slot to select, which is the
+ *   only case where putting it away would mean losing it.
+ */
+function pocketPhone() {
+  const inv = apartment.inventory;
+  const at = inv.items.indexOf('phone');
+  if (at < 0) return false;
+  const free = inv.items.findIndex((id, i) => id === null && i !== at);
+  const other = free >= 0 ? free : inv.items.findIndex((id, i) => id && i !== at);
+  if (other < 0) return false;
+  inv.select(other);
+  hud.toast(`Phone pocketed · [${at + 1}] to take it out`);
+  return true;
+}
+
 function dropHeld() {
   const st = apartment.state;
   if (!st.heldItem || cig.t >= 0) return;
@@ -1197,8 +1272,20 @@ function dropHeld() {
   const rule = DROP_RULES[st.heldItem];
   /* An id with no rule is a thing nobody has said how to put down, so he does
    * not put it down. Losing an item is worse than being unable to drop one. */
-  if (!rule || rule.keep) {
-    hud.say(rule?.keep || 'I should hang on to that.', 3000);
+  if (!rule) {
+    hud.say('I should hang on to that.', 3000);
+    return;
+  }
+  /* Pocketing is not dropping: nothing leaves the hotbar and nothing goes back
+   * into the world, so it returns here rather than falling through to the
+   * clear-the-slot path below. */
+  if (rule.pocket) {
+    if (rule.pocket() === true) { rule.cue?.(); return; }
+    hud.say(rule.keep || 'Nowhere to put that.', 3000);
+    return;
+  }
+  if (rule.keep) {
+    hud.say(rule.keep, 3000);
     return;
   }
   if (rule.put() !== true) {
@@ -2677,6 +2764,19 @@ function startNewMorning() {
   updateObjectives();
 }
 
+/**
+ * Day One, before the Bing, with hours to fill.
+ *
+ * The one state where lying down is killing time rather than ending a day.
+ * Read off the campaign, never off a flag of its own, so a nap and a reload
+ * agree about which day it still is.
+ */
+function killingTimeOnDayOne() {
+  const state = campaign.state;
+  return state.story.chapter === 'day_one'
+    && state.missions[MISSION_IDS.BADA_BING_ONE].status !== 'complete';
+}
+
 /** What the night that just ended was, named by the chapter it closed. */
 const CHAPTER_DONE = Object.freeze({
   day_two: 'Day One is done',
@@ -2780,6 +2880,14 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     highs.sleepItOff();
     if (storySleep?.ok) {
       time.setTime(storySleep.day, storySleep.timeMinutes);
+    } else if (voluntary && killingTimeOnDayOne()) {
+      /* Day One is explicitly a day with nothing in it. He wakes at four
+       * minutes past six and Lou's table is not until a quarter to midnight,
+       * so a deliberate nap is how a man spends that -- toward the evening,
+       * never past it, and never into tomorrow, because tomorrow is on the
+       * other side of the Bing. */
+      const h = time.hour;
+      time.skipHours(h < 19 ? 19 - h : Math.max(0, 23 - h));
     } else if (voluntary) {
       /* Sleeping on purpose lands on whichever comes first: the next morning,
        * or half five on the day of the meeting.
@@ -2796,6 +2904,15 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
       time.skipHours(Math.min(toMorning, toEvening));
     } else {
       time.skipHours(12);
+    }
+    /* And the save agrees with the clock on the wall. A nap used to move the
+     * display only, so reloading put him back at four minutes past six with
+     * the morning he had already spent still in front of him. */
+    if (!storySleep?.ok) {
+      campaign.update((state) => {
+        state.story.day = time.day;
+        state.story.timeMinutes = time.minutes;
+      });
     }
     apartment.refreshClocks();
     /* A chapter turned, so the flat gets a morning of its own: unshowered,

@@ -1595,14 +1595,35 @@ export async function buildApartment(ctx) {
     enabled: standing,
     onUse: () => { ctx.onNote?.('sit'); ctx.onSitCouch?.(); },
   });
-  interaction.register(seatProxy('bedSeat', [-4.82, 0.62, -4.34], [-3.44, 1.10, -2.44]), {
+  /**
+   * The bed, as one affordance.
+   *
+   * The seat proxy covers the mattress and does not quite cover the bed: the
+   * headboard, the far rail and the corners all stick out past it, and those
+   * were registered separately with a flat "You just got up. Give it an hour."
+   * So aiming at most of his own bed got a refusal instead of an offer -- and
+   * coming home from the restaurant at three in the morning, ready to close
+   * the day out, being told he had just got up is exactly the dead end the
+   * owner walked into.
+   *
+   * The whole bed is now the same tap-to-sit / hold-to-lie-down it always
+   * should have been. The proxy stays because it is comfortable to aim at from
+   * standing; the bed itself is registered `soft`, so it answers only when
+   * nothing on it does.
+   */
+  const bedDescriptor = {
     label: () => 'Sit on the <b>bed</b> &middot; hold to <b>lie down</b>',
     holdLabel: () => 'Lying <b>down</b>…',
     hold: 0.55,
     enabled: standing,
     onTap: () => { ctx.onNote?.('sit'); ctx.onSitBed?.(); },
     onUse: () => ctx.onLieBed?.(),
-  });
+  };
+  interaction.register(
+    seatProxy('bedSeat', [-4.82, 0.62, -4.34], [-3.44, 1.10, -2.44]),
+    bedDescriptor,
+  );
+  interaction.register(bed.group, { ...bedDescriptor, soft: true });
 
   /* ---- getting ready ----
    * None of these announce themselves as tasks. They are things you would do
@@ -1882,15 +1903,6 @@ export async function buildApartment(ctx) {
         : n === 1
           ? 'One slice left. It has gone the colour of the box.'
           : `${n} slices left. They have gone the colour of the box.`);
-    },
-  });
-  interaction.register(bed.group, {
-    label: () => 'Go back to <b>sleep</b>',
-    onUse: () => {
-      audio.play('bed.rustle', { position: new THREE.Vector3(-4.15, 0.7, -3.4), volume: 0.7 });
-      hud.say(state.beersDrunk > 0
-        ? 'Tempting. But the PC is right there and the beer is already open.'
-        : 'You just got up. Give it an hour.');
     },
   });
 
