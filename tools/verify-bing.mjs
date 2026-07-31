@@ -915,11 +915,23 @@ check('the dealer calls the cards in on every deal',
   bjDeal.sayCalls.includes('bing.blackjack.dealer.deal'),
   JSON.stringify(bjDeal.sayCalls));
 await tick(3, 0.2);
+/* Real time, not simulated.
+ *
+ * The table gives the verdict a one-second floor after the deal patter so
+ * the croupier calling the cards in cannot mute the payoff two seconds
+ * later -- and that floor is measured on the wall clock, because it is
+ * about how the room SOUNDS. tick() steps three simulated seconds in about
+ * twenty real milliseconds, so a hand that settles on the deal (a natural)
+ * used to land inside the gap and the verdict went unspoken. Wait it out
+ * the way a player does.
+ */
+await page.waitForTimeout(1300);
 await page.evaluate(() => {
   const b = window.__bing;
   if (b.blackjack.state === 'player') b.blackjack.stand();
 });
 await tick(6, 0.2);
+await page.waitForTimeout(200);
 const bjVerdict = await page.evaluate(() => {
   const b = window.__bing;
   const out = { kind: b.game.lastHand?.kind ?? null, voLog: [...b.game.voLog] };
@@ -1848,17 +1860,23 @@ const entrance = await page.evaluate(() => {
   const inkRun = (canvas) => {
     const g = canvas.getContext('2d', { willReadFrequently: true });
     if (!g) return 0;
-    // Shoulder line: 60% down a squatchArt plate is chest and arms.
-    const y = Math.round(canvas.height * 0.6);
-    const row = g.getImageData(0, y, canvas.width, 1).data;
+    /* The widest unbroken run of ink anywhere across the figure's half of
+     * the plate. A band rather than one row, because squatchArt drops the
+     * silhouette lower when there is no footer under it -- and a shoulder
+     * line on one layout is a forehead on the other. Nothing set in type
+     * runs a sixth of a plate wide without a gap; a pair of shoulders does. */
     let best = 0;
-    let run = 0;
-    // The plate's own background is the first pixel; ink is anything else.
-    const bg = [row[0], row[1], row[2]];
-    for (let x = 0; x < canvas.width; x++) {
-      const d = Math.abs(row[x * 4] - bg[0]) + Math.abs(row[x * 4 + 1] - bg[1])
-        + Math.abs(row[x * 4 + 2] - bg[2]);
-      if (d > 40) { run += 1; best = Math.max(best, run); } else run = 0;
+    for (let f = 0.45; f <= 0.86; f += 0.04) {
+      const y = Math.min(canvas.height - 1, Math.round(canvas.height * f));
+      const row = g.getImageData(0, y, canvas.width, 1).data;
+      // The plate's own background is the first pixel; ink is anything else.
+      const bg = [row[0], row[1], row[2]];
+      let run = 0;
+      for (let x = 0; x < canvas.width; x++) {
+        const d = Math.abs(row[x * 4] - bg[0]) + Math.abs(row[x * 4 + 1] - bg[1])
+          + Math.abs(row[x * 4 + 2] - bg[2]);
+        if (d > 40) { run += 1; if (run > best) best = run; } else run = 0;
+      }
     }
     return best / canvas.width;
   };
@@ -1868,16 +1886,17 @@ const entrance = await page.evaluate(() => {
       if (!img || !img.getContext) return;
       const p = new T.Vector3();
       o.getWorldPosition(p);
-      if (p.z < 9) return;                       // vestibule and the front wall only
+      // The vestibule's wall of stars and the pair flanking the club doors.
+      if (p.z < 10 || p.z > 15) return;
       const run = inkRun(img);
-      if (run > 0.3) marked.push({ tag, z: +p.z.toFixed(2), run: +run.toFixed(2) });
+      if (run > 0.12) marked.push({ tag, z: +p.z.toFixed(2), run: +run.toFixed(2) });
     });
   };
   scan(b.club.root, 'club');
   return { marked };
 });
 check('the pictures by the entrance carry the real squatch mark, drawn not lettered',
-  entrance.marked.length >= 4, JSON.stringify(entrance.marked.slice(0, 6)));
+  entrance.marked.length >= 5, JSON.stringify(entrance.marked.slice(0, 8)));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 
