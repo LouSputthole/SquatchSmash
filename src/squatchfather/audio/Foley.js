@@ -3,19 +3,23 @@ import * as core from './core.js';
 // Small sounds the scene leans on: footsteps on three surfaces, chairs, doors,
 // cloth, a wine glass going over, and a heartbeat for the bathroom.
 
-let boardAlt = false;
+// One recording per surface; every step gets its own rate and volume jitter
+// so a single file never reads as a metronome.
+const STEP_CUES = {
+  wood: { cue: 'footstep.wood', volume: 0.75 },
+  tile: { cue: 'footstep.tile', volume: 0.7 },
+  street: { cue: 'footstep.street.wet', volume: 0.6 },
+};
 
 export function footstep(surface = 'wood', loud = 1) {
   if (!core.isReady()) return;
-  // Real boards and tile when the recordings are in; the synth still covers
-  // the wet street and any cue that has not loaded.
-  if (surface === 'wood') {
-    boardAlt = !boardAlt;
-    const cue = boardAlt ? 'footstep.wood.a' : 'footstep.wood.b';
-    if (core.playSample(cue, { volume: 0.75 * loud, rate: 0.94 + Math.random() * 0.12 })) return;
-  } else if (surface === 'tile') {
-    if (core.playSample('footstep.tile', { volume: 0.7 * loud, rate: 0.95 + Math.random() * 0.1 })) return;
-  }
+  // Real boards, tile and wet pavement when the recordings are in; the synth
+  // still covers any cue that has not loaded.
+  const step = STEP_CUES[surface];
+  if (step && core.playSample(step.cue, {
+    volume: step.volume * loud * (0.85 + Math.random() * 0.3),
+    rate: 0.92 + Math.random() * 0.16,
+  })) return;
   const t = core.now();
   if (surface === 'street') {
     core.noise(t, { peak: 0.1 * loud, attack: 0.002, decay: 0.09, type: 'bandpass', freq: 700, q: 1.1 });

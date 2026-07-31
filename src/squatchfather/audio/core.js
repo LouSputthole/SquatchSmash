@@ -45,7 +45,7 @@ export function init() {
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
 
   loadSamples([
-    'footstep.wood.a', 'footstep.wood.b', 'footstep.tile',
+    'footstep.wood', 'footstep.tile', 'footstep.street.wet',
     'gun.shot', 'gun.reload',
   ]);
 
