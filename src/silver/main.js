@@ -866,14 +866,24 @@ class Cutscene {
     }
 
     /* The camera: a slow move between authored points, eased. Slow because a
-     * fast one in a room this dark reads as a cut, and there are no cuts. */
+     * fast one in a room this dark reads as a cut, and there are no cuts.
+     *
+     * Each shot starts from wherever the camera IS. It used to start from
+     * `this.from.pos` — the spot the player was standing when the scene began
+     * — so the first frame of every later shot teleported the camera back
+     * there and then flew it out again: a visible snap at every shot change,
+     * worst in the table scene, where the camera dropped out of the host
+     * conversation mid-sentence. `shot.from` remains an authored override. */
     if (this.shots.length) {
       let shot = this.shots[0];
       for (const s of this.shots) if (this.t >= s.at) shot = s;
+      if (shot !== this._shot) {
+        this._shot = shot;
+        this._shotFrom = shot.from ?? player.position.clone();
+      }
       const k = Math.min(1, (this.t - shot.at) / (shot.dur ?? 4));
       const e = k * k * (3 - 2 * k);
-      const fromPos = shot.from ?? this.from.pos;
-      player.position.lerpVectors(fromPos, shot.to, e);
+      player.position.lerpVectors(this._shotFrom, shot.to, e);
       if (shot.look) {
         const dx = shot.look.x - player.position.x;
         const dz = shot.look.z - player.position.z;
@@ -1000,6 +1010,10 @@ function startTableCutscene() {
     },
     {
       at: 21.5,
+      /* Held long enough for the final dolly to finish its glide: the scene
+       * runs to at+hold, and cutting it at 24.5 dropped the player mid-floor
+       * with the camera still moving. */
+      hold: 6,
       run: () => {
         // The room notices. Six of them, not all of them; a whole room turning
         // would be a musical number.
@@ -1016,11 +1030,18 @@ function startTableCutscene() {
   ];
 
   game.scene = new Cutscene(beats, {
+    /* One shot on the two of them for the whole host/manager exchange — the
+     * camera used to leave for the (empty) table spot at 8.5, half a second
+     * before "Two-top. Front and center." landed, and pitched down at the
+     * carpet while they were still talking. It holds on faces until the
+     * manager turns to the room at 9.0, then follows the work. */
     camera: [
-      { at: 0, to: new THREE.Vector3(A.hostMark.x, 1.66, A.hostMark.z + 0.4), look: A.host, dur: 2.5 },
-      { at: 8.5, to: new THREE.Vector3(A.hostMark.x - 1.5, 1.7, A.hostMark.z - 1), look: { x: target.x, y: 1.1, z: target.z }, dur: 5 },
+      { at: 0, to: new THREE.Vector3(A.hostMark.x, 1.66, A.hostMark.z + 0.4), look: { x: A.host.x - 1.2, y: 1.55, z: A.host.z - 0.3 }, dur: 2.5 },
+      { at: 9.2, to: new THREE.Vector3(A.hostMark.x - 1.5, 1.7, A.hostMark.z - 1), look: { x: A.tableStaging.x, y: 1.2, z: A.tableStaging.z }, dur: 4.5 },
       { at: 15, to: new THREE.Vector3(A.hostMark.x - 3, 1.68, A.hostMark.z - 3), look: { x: target.x, y: 0.9, z: target.z }, dur: 6 },
-      { at: 22, to: new THREE.Vector3(-6, 1.66, -1.5), look: { x: target.x, y: 1.0, z: target.z }, dur: 3 },
+      /* Slow. This is a twenty-metre dolly across the whole room and at dur 3
+       * it was a whip pan; at 6 it is the room being taken in. */
+      { at: 22, to: new THREE.Vector3(-6, 1.66, -1.5), look: { x: target.x, y: 1.0, z: target.z }, dur: 6 },
     ],
     onDone: () => {
       mission.tableBuilt();
