@@ -1585,7 +1585,7 @@ function leaveByFrontDoor() {
         hud.toast('Plate memorised', 'good');
         hud.say('You walk past the bumper without breaking step and take the plate with you. '
           + 'The engine turns over behind you.', 5400);
-        audio.play('car.start', { volume: 0.4, position: club.anchors.suspiciousCar });
+        audio.play('car.engine.start', { volume: 0.4, position: club.anchors.suspiciousCar });
       }
     },
   });
@@ -1782,7 +1782,7 @@ function getOutOfCar() {
   game.seatedIn = null;
   audio.play('car.door', { volume: 0.6 });
   audio.stopLoop('car.radio', 0.6);
-  audio.stopLoop('engine.idle', 0.8);
+  audio.stopLoop('car.engine.idle', 0.8);
   hud.setMode('walk');
   hud.setPosture(null);
   if (mission.state === 'lot') mission.setState('outside');
@@ -1980,8 +1980,8 @@ function driveAway() {
   recordSecondVisit();
   interaction.setPaused(true);
   player.mode = 'frozen';
-  audio.play('car.start', { volume: 0.7 });
-  audio.startLoop('engine.idle', { volume: 0.25 });
+  audio.play('car.engine.start', { volume: 0.7 });
+  audio.startLoop('car.engine.idle', { volume: 0.25 });
   hud.hidePrompt();
   hud.setPosture(null);
   // The car pulls out. No cutscene camera -- you are still sitting in it.
@@ -2328,7 +2328,7 @@ startBtn.addEventListener('click', async () => {
     audio.startMusicLoop('office.radio', 'assets/music/good-ole-days.mp3', {
       volume: 0.22, ambience: true, position: club.anchors.officeRadio, ref: 0.8, maxDist: 9,
     });
-    audio.startLoop('engine.idle', { volume: 0.22, ambience: false });
+    audio.startLoop('car.engine.idle', { volume: 0.22, ambience: false });
     audio.startLoop('car.radio', { name: 'radio.talk', volume: 0.3 });
     game.radioOn = true;
     getInCar();

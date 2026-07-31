@@ -150,21 +150,22 @@ try {
    * Cues are allowed to be synth-only on purpose, so the manifest is the
    * authority and this only reports names that appear nowhere in it. */
   const allCues = new Set(sfxManifest.sfx.map((c) => c.name));
-  const cueFiles = [
-    'src/main.js', 'src/world/apartment.js', 'src/core/radio.js',
-    /* The Beef Run reaches the same engine through its own thin wrapper, so it
-     * can go wrong in exactly the same silent way. */
-    ...fs.readdirSync(path.join(ROOT, 'src/beefrun'))
-      .filter((f) => f.endsWith('.js'))
-      .map((f) => `src/beefrun/${f}`),
-    /* The Silver Room synthesises nearly all of its own sound — a working
-     * kitchen, five ambience beds, a live band. Every one of those cue names
-     * still has to exist in the manifest or it can never be replaced with a
-     * recording, which is exactly the silent failure this scan is for. */
-    ...fs.readdirSync(path.join(ROOT, 'src/silver'))
-      .filter((f) => f.endsWith('.js'))
-      .map((f) => `src/silver/${f}`),
-  ];
+  /* Every .js under src/, not a hand-kept list of scenes.
+   *
+   * This WAS a list -- main, apartment, radio, beefrun, silver -- and the
+   * scenes added after it was written were simply not scanned. The Bing and
+   * the arcade cabinet spent a while playing eighteen cue names that appear
+   * nowhere in the manifest: slots, chips, the till, the rain outside. All
+   * audible, all on the synth, none of them reachable by generate-sfx, and
+   * nothing said a word. A scan whose coverage has to be remembered is a scan
+   * that is wrong by the next scene. */
+  const cueFiles = [];
+  (function walkCues(dir) {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      if (e.isDirectory()) walkCues(`${dir}/${e.name}`);
+      else if (e.name.endsWith('.js')) cueFiles.push(`${dir}/${e.name}`);
+    }
+  })('src');
   for (const file of cueFiles) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     for (const m of src.matchAll(/(?:audio\??|missionAudio)\.(?:play|startLoop)\(\s*'([^']+)'/g)) {

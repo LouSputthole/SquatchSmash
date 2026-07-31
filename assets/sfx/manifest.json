@@ -1902,36 +1902,99 @@
       "prompt": "single footstep on a loose hollow wooden floorboard with air under it, lower longer hollower knock, slight creak, interior, no voice"
     },
     {
+      "name": "footstep.concrete",
+      "duration": 0.5,
+      "_note": "audio.footstep() resolves `footstep.<surface>` with no table, so a new surface string is a new cue here and nothing else. These ten are the materials the campaign walks on outside the flat.",
+      "prompt": "single footstep on bare concrete, hard flat scuff of a rubber sole with a little grit under it, dry, outdoors, no reverb tail, no voice, no music"
+    },
+    {
+      "name": "footstep.gravel",
+      "duration": 0.5,
+      "prompt": "single footstep onto loose gravel, sharp crunch of small stones settling and shifting, outdoors, close, no voice, no music"
+    },
+    {
+      "name": "footstep.metal",
+      "duration": 0.5,
+      "prompt": "single footstep on a steel fire-escape grating, dull boot impact with a bright metallic clang and a short rattling ring, outdoors, no voice, no music"
+    },
+    {
+      "name": "footstep.carpet",
+      "duration": 0.5,
+      "prompt": "single footstep on thin worn motel carpet over concrete, soft dead thud with a faint synthetic fibre brush, no ring, interior, no voice, no music"
+    },
+    {
+      "name": "footstep.lino",
+      "duration": 0.5,
+      "prompt": "single footstep on scuffed linoleum in a commercial kitchen, flat rubbery slap with a slight tacky peel as the sole lifts, interior, no voice, no music"
+    },
+    {
+      "name": "footstep.grass",
+      "duration": 0.5,
+      "prompt": "single footstep on dry grass over soft soil, quiet muffled compression with a light papery rustle of blades, outdoors, close, no voice, no music"
+    },
+    {
+      "name": "footstep.dirt",
+      "duration": 0.5,
+      "prompt": "single footstep on dry packed dirt, low soft thud with a small puff of loose soil and grit, outdoors, close, no voice, no music"
+    },
+    {
+      "name": "footstep.leaves",
+      "duration": 0.5,
+      "prompt": "single footstep into a drift of dry fallen leaves, brittle crackle and rustle collapsing under the weight, woodland, close, no voice, no music"
+    },
+    {
+      "name": "footstep.snow",
+      "duration": 0.5,
+      "prompt": "single footstep into cold dry packed snow, tight high-pitched squeaky crunch compressing under the boot, outdoors, quiet, no voice, no music"
+    },
+    {
+      "name": "footstep.puddle",
+      "duration": 0.5,
+      "prompt": "single footstep landing in a shallow standing puddle, sharp water splash and slop with the sole lifting out wet, outdoors on pavement, no voice, no music"
+    },
+    {
       "name": "poop.strain",
-      "_note": "A push that achieves nothing: held breath, tight, no result."
+      "voice": "player",
+      "_note": "A push that achieves nothing: held breath, tight, no result. Spoken rather than generated for the same reason vo.heave.* is -- it has to be him.",
+      "say": "Hnnnnnh... nnnh."
     },
     {
       "name": "poop.grunt",
-      "_note": "Short effort from the chest, pitched down at the end."
+      "voice": "player",
+      "_note": "Short effort from the chest, pitched down at the end.",
+      "say": "Hurgh. Ohh."
     },
     {
       "name": "glue.pickup",
-      "_note": "Picking the bottle up off the desk."
+      "_note": "Picking the bottle up off the desk.",
+      "prompt": "a half-empty plastic glue bottle lifted off a wooden desk, short scrape of plastic on wood then a soft liquid slosh inside, close, dry interior, no voice, no music"
     },
     {
       "name": "glue.squeeze",
-      "_note": "A bottle of PVA that has gone solid round the nozzle, being persuaded."
+      "_note": "A bottle of PVA that has gone solid round the nozzle, being persuaded.",
+      "prompt": "squeezing a stiff plastic glue bottle whose nozzle is blocked, thick plastic creaking and buckling inward, dull air pressure straining, nothing comes out, close, no voice"
     },
     {
       "name": "glue.slip",
-      "_note": "Hand skids off the bottle. Nothing comes out."
+      "_note": "Hand skids off the bottle. Nothing comes out.",
+      "prompt": "a hand skidding off a slick plastic bottle, short rubbery squeak and the bottle rocking once on a desk, no liquid, close, no voice"
     },
     {
       "name": "glue.effort",
-      "_note": "Him, not the bottle. Short, through the teeth."
+      "voice": "player",
+      "_note": "Him, not the bottle. Short, through the teeth.",
+      "say": "Ssgh— nnh."
     },
     {
       "name": "glue.groan",
-      "_note": "Five seconds of leaning on a bottle with his whole chest."
+      "voice": "player",
+      "_note": "Five seconds of leaning on a bottle with his whole chest.",
+      "say": "Nnnnnnghhh... hhhhh... come onnn..."
     },
     {
       "name": "glue.burst",
-      "_note": "The nozzle gives. All of it, at once, at the wall."
+      "_note": "The nozzle gives. All of it, at once, at the wall.",
+      "prompt": "a blocked glue bottle nozzle giving way all at once, sharp wet pop then a thick heavy splatter of white glue hitting a flat wall, long viscous run afterwards, close, interior, no voice"
     },
     {
       "name": "vo.glue.1",
@@ -1983,7 +2046,8 @@
     },
     {
       "name": "chair.roll.loop",
-      "_note": "Castors on a hard floor, looped while the chair is actually moving."
+      "_note": "Castors on a hard floor, looped while the chair is actually moving.",
+      "prompt": "office chair castors rolling steadily on a hard wooden floor, continuous even rumble and small plastic wheel rattle, no start and no stop, close, interior, no voice, no music"
     },
     {
       "name": "vo.hunghigh.1",
@@ -2067,15 +2131,18 @@
     },
     {
       "name": "toilet.lid",
-      "_note": "Plastic seat and lid going up against the cistern."
+      "_note": "Plastic seat and lid going up against the cistern.",
+      "prompt": "a plastic toilet seat and lid swung up and knocking against the ceramic cistern, light hollow plastic clatter with a small tiled bathroom echo, close, no voice"
     },
     {
       "name": "tap.squeak",
-      "_note": "Quarter-turn valve, slightly stiff."
+      "_note": "Quarter-turn valve, slightly stiff.",
+      "prompt": "a stiff quarter-turn tap handle being twisted open, short dry metal squeak and a faint knock as the valve seats, close, bathroom, no water yet, no voice"
     },
     {
       "name": "tap.run",
-      "_note": "Mains into a steel basin."
+      "_note": "Mains into a steel basin.",
+      "prompt": "mains water running hard from a tap into an empty stainless steel basin, steady hissing splash with metallic ring, continuous, close, no voice, no music"
     },
     {
       "_comment": "Indoors, in a small flat, with no ear protection. It should be uncomfortable and it should ring afterwards — a polite gunshot is the wrong joke.",
@@ -7052,6 +7119,87 @@
       "voice": "margo",
       "say": "I get one night off in six. If I use it on you and you are boring, I will be extremely unpleasant about it. I will ring.",
       "duration": 10.5
+    },
+    {
+      "name": "slot.pull",
+      "_note": "The Bing's floor and the arcade cabinet were played through the synth because nothing named these cues in the manifest -- play() falls through silently, so they were audible and invisible at the same time. `npm run check` now scans all of src/ for exactly this.",
+      "duration": 1,
+      "prompt": "the arm of a mechanical slot machine pulled down and released, heavy spring-loaded lever travel with a solid metal clunk at the bottom, close, no voice, no music"
+    },
+    {
+      "name": "slot.reel",
+      "duration": 2,
+      "prompt": "the reels of a mechanical slot machine spinning, fast continuous mechanical whirr and rattle, steady, no start and no stop, close, no voice, no music"
+    },
+    {
+      "name": "slot.stop",
+      "duration": 0.6,
+      "prompt": "one slot machine reel snapping to a stop, single hard mechanical detent clack with a short metallic ring, close, no voice, no music"
+    },
+    {
+      "name": "slot.win",
+      "duration": 2.5,
+      "prompt": "a small slot machine payout, cheerful rising electronic chime followed by coins dropping into a metal tray, close, no voice, no music"
+    },
+    {
+      "name": "slot.jackpot",
+      "duration": 5,
+      "prompt": "a slot machine jackpot going off, loud repeating bell clanging over a long torrent of coins hammering into a metal tray, celebratory, close, no voice, no music"
+    },
+    {
+      "name": "chips.place",
+      "duration": 0.7,
+      "prompt": "a short stack of clay casino chips set down on green felt, soft clatter of chips settling against each other, close, quiet room, no voice, no music"
+    },
+    {
+      "name": "till.ring",
+      "duration": 1.5,
+      "prompt": "an old mechanical cash register drawer opening, bright single bell ding and the drawer sliding out and knocking to a stop, close, no voice, no music"
+    },
+    {
+      "name": "alarm.chirp",
+      "duration": 1,
+      "prompt": "a small door alarm box chirping twice, two short high electronic beeps with a tiny room echo, close, no voice, no music"
+    },
+    {
+      "name": "rope.clip",
+      "duration": 0.6,
+      "prompt": "a velvet rope clipped onto a brass stanchion, single metallic snap with a soft rope thud, close, interior, no voice, no music"
+    },
+    {
+      "name": "duck.quack",
+      "duration": 0.8,
+      "prompt": "a rubber bath duck squeezed once, single high comic squeak, close, dry, no voice, no music"
+    },
+    {
+      "name": "cs.headshot",
+      "duration": 0.7,
+      "prompt": "arcade video game headshot confirmation, short sharp digital hit with a bright bell ping over it, dry and punchy, retro game audio, no voice, no music"
+    },
+    {
+      "name": "cs.step",
+      "duration": 0.4,
+      "prompt": "a single video game footstep on a dusty stone map, short dry scuff with a faint digital compression, retro shooter game audio, no voice, no music"
+    },
+    {
+      "name": "ambience.rain",
+      "duration": 22,
+      "prompt": "steady rain on a city street at night, even hiss on pavement with occasional drips off an awning, no thunder, no traffic, no voice, no music, continuous"
+    },
+    {
+      "name": "ambience.club",
+      "duration": 22,
+      "prompt": "the inside of a small dim nightclub heard from the floor, muffled bass thump through walls, glasses and low chatter, continuous bed, no discernible words, no music melody"
+    },
+    {
+      "name": "ambience.crowd",
+      "duration": 22,
+      "prompt": "a room of about thirty people talking over each other, warm indoor murmur with occasional laughter, no discernible words, continuous bed, no music"
+    },
+    {
+      "name": "car.radio",
+      "duration": 12,
+      "prompt": "a car radio playing quietly through door speakers heard from outside the car, thin muffled broadcast with a little static, no discernible words, continuous, no clear music melody"
     }
   ]
 }
