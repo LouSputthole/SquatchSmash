@@ -427,6 +427,78 @@ export function buildRoom(scene, { renderer } = {}) {
   moon.shadow.bias = -0.0012;
   add(moon, moon.target);
 
+  /* And a moon you can look at, not just one you are lit by.
+   *
+   * The light above has been in the scene since the first render and there
+   * has never been anything in the sky: a wet street, a hemisphere the colour
+   * of a bruise, and shadows cast by nothing. It is on the light's own axis,
+   * so the disc is where the shadows say it is — north-north-west, about 33°
+   * up, which is exactly where a player is looking when the car pulls away,
+   * because arrival leaves him facing up the street.
+   *
+   * Kept 200m from the camera rather than parked in world space: the far
+   * plane is 300 and the set is 90m across, so anything fixed would clip out
+   * of the sky halfway down the alley. Depth testing stays on, so the club's
+   * own brick still eats it from inside the alley, which is what a moon does.
+   *
+   * MeshBasicMaterial at plain white is 1.0 in linear, and the bloom
+   * threshold this scene runs at is 1.35 — so the disc is the brightest thing
+   * on the street and still contributes nothing to the flare that the marquee
+   * fix exists to keep out of it. The glow around it is drawn, not bloomed:
+   * one additive gradient at a fifth strength, which cannot clip because it is
+   * adding a fifth of a stop to a sky that is at 0.02. */
+  {
+    const moonDir = moon.position.clone().normalize();
+    const moonG = group('moon');
+    const disc = new THREE.Mesh(
+      new THREE.CircleGeometry(4.4, 48),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false, depthWrite: false }),
+    );
+    disc.renderOrder = -2;
+    moonG.add(disc);
+    // The halo: a radial falloff painted once, added rather than lit
+    const hc = document.createElement('canvas');
+    hc.width = 128; hc.height = 128;
+    const hg = hc.getContext('2d');
+    const grad = hg.createRadialGradient(64, 64, 6, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(214,228,255,0.85)');
+    grad.addColorStop(0.28, 'rgba(178,200,246,0.30)');
+    grad.addColorStop(0.62, 'rgba(150,176,232,0.09)');
+    grad.addColorStop(1, 'rgba(120,150,210,0)');
+    hg.fillStyle = grad;
+    hg.fillRect(0, 0, 128, 128);
+    const haloTex = new THREE.CanvasTexture(hc);
+    haloTex.colorSpace = THREE.SRGBColorSpace;
+    const halo = new THREE.Mesh(
+      new THREE.PlaneGeometry(38, 38),
+      new THREE.MeshBasicMaterial({
+        map: haloTex, transparent: true, opacity: 0.2, fog: false,
+        depthWrite: false, blending: THREE.AdditiveBlending,
+      }),
+    );
+    halo.renderOrder = -3;
+    moonG.add(halo);
+    // The seas, so it is a moon rather than a bulb: three faint grey blots
+    for (const [mx, my, mr, ma] of [[-1.3, 0.9, 1.5, 0.16], [1.1, -0.6, 1.9, 0.12], [0.2, 1.8, 1.0, 0.1]]) {
+      const sea = new THREE.Mesh(
+        new THREE.CircleGeometry(mr, 20),
+        new THREE.MeshBasicMaterial({
+          color: 0x8fa2c4, fog: false, transparent: true, opacity: ma, depthWrite: false,
+        }),
+      );
+      sea.position.set(mx, my, 0.02);
+      sea.renderOrder = -1;
+      moonG.add(sea);
+    }
+    moonG.position.copy(moonDir).multiplyScalar(200);
+    add(moonG);
+    ticking.push((dt, p) => {
+      if (!p) return;
+      moonG.position.copy(moonDir).multiplyScalar(200).add(p);
+      moonG.lookAt(p.x, p.y, p.z);
+    });
+  }
+
   /* And a floor under the whole city, so the drop-off is on a road rather than
    * on the edge of the world.
    *
