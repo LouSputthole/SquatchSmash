@@ -301,6 +301,11 @@ const club = buildClub(scene, { renderer });
 world.colliders = club.colliders;
 world.floorZones = club.floorZones;
 world.groundAt = club.groundAt;
+/* The props that borrow the player's own art off assets/art -- the stickers
+ * on Lou's fridge. The room is already standing and dressed with the drawn
+ * versions; this only waits for the real images, and never throws if they are
+ * not there. */
+await club.artReady;
 
 window.__squatchStage?.('Letting people in…');
 const cast = populate(scene, club, { includeMargo: !isSecondVisit });
