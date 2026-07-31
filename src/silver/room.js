@@ -1330,9 +1330,15 @@ export function buildRoom(scene, { renderer } = {}) {
 
     /* ---- the room itself: tables, banquettes, columns ---- */
     anchors.tables = [];
+    /* Every laid table with its actual chairs: { x, z, seats: [{x, z, yaw}] }.
+     * The diners are dealt onto these, so a person sitting down in this room
+     * is sitting on a chair that exists, at the table the chair belongs to —
+     * rather than at ±1.15m of the centre, which was usually the gap between
+     * two chairs and occasionally the inside of one. */
+    anchors.tableSeats = [];
     const seatsAt = [];
     const tableTop = mat({ color: 0xece7dc, roughness: 0.95 });
-    function diningTable(x, z, seats = 4, { r = 0.72 } = {}) {
+    function diningTable(x, z, seats = 4, { r = 0.72, seatBase = 0.4, seatR = null, reserved = false } = {}) {
       const g = group('table');
       g.add(cylinder({ r: 0.09, h: 0.72, pos: [0, 0.36, 0], mat: M_DARKWOOD }));
       g.add(cylinder({ r: 0.36, h: 0.05, pos: [0, 0.03, 0], mat: M_DARKWOOD }));
@@ -1362,13 +1368,23 @@ export function buildRoom(scene, { renderer } = {}) {
       add(g);
       solid(x - r, z - r, x + r, z + r, 0, 0.8);
       anchors.tables.push(new THREE.Vector3(x, 0, z));
+      const placed = [];
       for (let i = 0; i < seats; i++) {
-        const a = (i / seats) * Math.PI * 2 + 0.4;
-        const sx = x + Math.sin(a) * (r + 0.5);
-        const sz = z + Math.cos(a) * (r + 0.5);
+        const a = (i / seats) * Math.PI * 2 + seatBase;
+        const ring = seatR ?? (r + 0.5);
+        const sx = x + Math.sin(a) * ring;
+        const sz = z + Math.cos(a) * ring;
+        /* The column guard tests the TABLE. Its chairs stand half a metre
+         * further out, so a table that just cleared a column could still deal
+         * a chair into the oak — which is exactly what the pillar-adjacent
+         * tables did. A chair that would foul a column is not laid. */
+        if (COLUMNS.some(([cx, cz]) => Math.abs(sx - cx) < 0.78 && Math.abs(sz - cz) < 0.78)) continue;
         add(makeChair(M, { x: sx, y: 0, z: sz, rotY: a + Math.PI }));
         seatsAt.push({ x: sx, z: sz, yaw: a + Math.PI });
+        placed.push({ x: sx, z: sz, yaw: a + Math.PI });
       }
+      if (!reserved) anchors.tableSeats.push({ x, z, seats: placed });
+      g.userData.seats = placed;
       return g;
     }
 
@@ -1391,9 +1407,19 @@ export function buildRoom(scene, { renderer } = {}) {
         if (inAColumn(tx, tz)) continue;
         if (Math.hypot(tx - 0.5, tz - 24.2) < 4) continue;   // keep the host station clear
         if (Math.abs(tx - (-16)) < 3 && tz < -2) continue;   // and the front of the stage
+        if (Math.hypot(tx - (-8.6), tz - 1.6) < 2.6) continue; // the crew's table is authored below
         diningTable(tx, tz, col % 2 ? 4 : 2);
       }
     }
+
+    /* The table by the pillar, laid by hand. The men who send the champagne
+     * sit at it, so its four chairs are the four seats the cast puts them in
+     * — `anchors.crewSeats` hands the exact chair positions across — instead
+     * of the grid dropping its own four-top somewhere near the spot and the
+     * crew sitting half in the cloth with spare chairs through their backs.
+     * `reserved` keeps it off the diner deal, because those seats are taken. */
+    const crewTable = diningTable(-8.6, 1.6, 4, { r: 0.72, seatBase: 0.6, seatR: 1.2, reserved: true });
+    anchors.crewSeats = crewTable.userData.seats;
     // Banquettes down the east wall
     for (let i = 0; i < 5; i++) {
       const bz = -3 + i * 5.2;

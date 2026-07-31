@@ -228,25 +228,31 @@ export function populate(scene, room) {
   }
 
   /* ---- the room, eating ----
-   * Two per table on a third of them, seated, at the two cheapest tiers. The
+   * Two per table on most of them, seated, at the two cheapest tiers. The
    * near half of the room is 'ambient'; the far half updates every sixth frame
    * and nobody has ever noticed.
+   *
+   * Dealt onto the tables' OWN chairs — `anchors.tableSeats` is the room's
+   * record of every chair it laid — a facing pair per table, in the chairs,
+   * at the chairs' yaws. The first pass sat people at ±1.15m of the table
+   * centre, which was almost always the gap between two chairs and read as a
+   * room full of people sitting on air next to their own seats.
    */
   let diner = 0;
-  for (const t of room.anchors.tables) {
+  for (const t of room.anchors.tableSeats) {
     if (diner > 26) break;
+    if (!t.seats.length) continue;
     const near = t.z > -2 && t.x > -20;
-    for (const side of [-1, 1]) {
+    const opposite = t.seats[Math.floor(t.seats.length / 2)];
+    for (const seat of t.seats.length > 1 ? [t.seats[0], opposite] : [t.seats[0]]) {
       if (Math.random() < 0.28) continue;
-      const dx = t.x + side * 1.15;
-      const dz = t.z + rand(-0.3, 0.3);
       /* One roll, not three. The dress, the colour and the frame have to agree
        * or the room fills up with gowns in undertaker grey on men's shoulders. */
       const inGown = Math.random() < 0.42;
       add(`diner${diner}`, new Npc(scene, {
         name: 'a diner', tier: near && diner < 10 ? 'ambient' : 'background',
         job: Math.random() < 0.4 ? 'drink' : 'sit',
-        x: dx, z: dz, yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2, look: near,
+        x: seat.x, z: seat.z, yaw: seat.yaw, look: near,
         model: {
           height: inGown ? rand(1.6, 1.78) : rand(1.68, 1.9),
           build: rand(0.92, 1.3),
@@ -274,13 +280,16 @@ export function populate(scene, room) {
     ['crew1', 'a Sasquatch', { height: 1.82, build: 1.2, dress: 'suit', shirt: 0x1b1b22, hair: 'receding' }],
     ['crew2', 'a Sasquatch', { height: 1.7, build: 1.15, dress: 'suit', shirt: 0x2a2028, hair: 'short', bandana: true }],
   ];
+  /* On the chairs the room laid at their table — anchors.crewSeats is the
+   * authored pillar four-top's own seat list — rather than on a ring computed
+   * here that only roughly agreed with wherever the table grid had landed. */
   crew.forEach(([key, name, model], i) => {
-    const ang = (i / crew.length) * Math.PI * 2 + 0.6;
+    const seat = a.crewSeats[i % a.crewSeats.length];
     add(key, new Npc(scene, {
       name,
       tier: i < 2 ? 'hero' : 'ambient', job: 'sit',
-      x: pillar.x + Math.sin(ang) * 1.2, z: pillar.z + Math.cos(ang) * 1.2,
-      yaw: ang + Math.PI,
+      x: seat.x, z: seat.z,
+      yaw: seat.yaw,
       model,
     }));
   });
