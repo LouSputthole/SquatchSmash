@@ -22,6 +22,7 @@ import { createApartmentStory } from '../core/apartment-story.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
 import {
+  EVENT_IDS,
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
@@ -79,6 +80,7 @@ const ui = {
   subtitle: document.getElementById('subtitle'),
   kit: document.getElementById('kit'),
   kitList: document.querySelector('#kit ul'),
+  kitFoot: document.querySelector('#kit .foot'),
   phone: document.getElementById('phone-osd'),
   phoneScreen: document.querySelector('#phone-osd .screen'),
   phoneKeys: document.querySelector('#phone-osd .keys'),
@@ -189,6 +191,19 @@ if (!isSecondVisit && campaign.hasItem(ITEM_IDS.LOU_PACKAGE)) {
     state.inventory.carried = drop(state.inventory.carried);
     state.inventory.concealed = drop(state.inventory.concealed);
   });
+}
+
+/* ---- and he arrives with his phone ----
+ * The flat records the pickup once and for good (ITEM_IDS.PHONE in `carried`),
+ * and everything phone-shaped in here reads that record. Two ways to reach
+ * this lot never went through that morning: a scene preview, and a save
+ * written before the phone was an item at all. Both of them answered Lou on
+ * it -- that call is what put the prospect in the car -- so the club takes the
+ * campaign at its word and records what already happened rather than leaving
+ * a man with no way to answer the next one. */
+if (!campaign.hasItem(ITEM_IDS.PHONE)
+  && campaign.state.events[EVENT_IDS.LOU_FIRST_CALL]?.status === 'answered') {
+  campaign.addItem(ITEM_IDS.PHONE);
 }
 
 const game = {
@@ -864,8 +879,26 @@ function moneyBurst(n = 9) {
  * whenever something lands in it.
  * ------------------------------------------------------------------ */
 const KIT_ITEMS = {
-  [ITEM_IDS.LOU_PACKAGE]: { icon: '🩶', name: 'A wrapped package', where: 'INSIDE JACKET' },
+  [ITEM_IDS.LOU_PACKAGE]: { icon: '🩶', name: 'A wrapped package', where: () => 'INSIDE JACKET' },
+  /* The phone is a campaign item like the package -- the flat puts it in
+   * `carried` the morning he picks it up off the nightstand and it never
+   * leaves. It used to be a hard-coded row printed under the money whether or
+   * not he owned one, which is a readout that cannot tell you anything: the
+   * one thing an inventory is for is answering "have I got it on me". It now
+   * comes out of the same campaign inventory the package does, and the [P]
+   * key below reads the same answer. */
+  [ITEM_IDS.PHONE]: {
+    icon: '📱',
+    name: 'Phone',
+    where: () => (phone.ringing ? 'RINGING' : 'POCKET'),
+    cls: () => (phone.ringing ? 'ring' : ''),
+  },
 };
+
+/** Is his phone actually on him? Everything phone-shaped in here asks this. */
+function hasPhone() {
+  return campaign.hasItem(ITEM_IDS.PHONE);
+}
 
 function paintKit() {
   const rows = [];
@@ -878,7 +911,7 @@ function paintKit() {
   };
   // Campaign items first: they are the ones that leave the building with you.
   for (const [id, meta] of Object.entries(KIT_ITEMS)) {
-    if (campaign.hasItem(id)) line(meta.icon, meta.name, meta.where);
+    if (campaign.hasItem(id)) line(meta.icon, meta.name, meta.where(), meta.cls?.() ?? '');
   }
   // Then whatever is actually in his hands.
   for (const slot of inventory.items) {
@@ -887,9 +920,9 @@ function paintKit() {
     if (item) line(item.icon, item.name, 'IN HAND');
   }
   line('💵', `$${game.money.toLocaleString()}`, 'POCKET');
-  const ringing = phone.ringing;
-  line('📱', 'Phone', ringing ? 'RINGING' : 'POCKET', ringing ? 'ring' : '');
   ui.kitList.replaceChildren(...rows);
+  // No phone on him, no "[P] phone" under the list.
+  ui.kitFoot?.classList.toggle('hidden', !hasPhone());
 }
 
 function showKit(on = true) {
@@ -910,6 +943,8 @@ ui.phoneScreen?.appendChild(phone.canvas);
 const phoneStory = createApartmentStory({
   campaign,
   ring: (definition) => {
+    // It cannot ring in his pocket if it is not in his pocket.
+    if (!hasPhone()) return false;
     const rang = phone.ring(definition);
     if (rang) {
       showKit(true);
@@ -925,7 +960,14 @@ phone.onAnswered = (definition) => {
   paintKit();
 };
 
+/* Taking it out is gated on owning it, and owning it is the campaign's call --
+ * the same `carried` entry the kit reads. A prospect who never picked the
+ * phone up off his own nightstand has nothing to raise in here. */
 function showPhone(on = true) {
+  if (on && !hasPhone()) {
+    hud.say('You left it at home. <em>It is on the nightstand, ringing at nobody.</em>', 3200);
+    return;
+  }
   game.phoneUp = on;
   ui.phone.classList.toggle('hidden', !on);
   if (on) showKit(true);
