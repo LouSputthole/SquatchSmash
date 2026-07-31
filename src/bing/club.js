@@ -1445,7 +1445,9 @@ export function buildClub(scene, { renderer } = {}) {
     add(radio);
     anchors.officeRadio = new THREE.Vector3(O.x1 - 0.5, 1.25, oz + 0.55);
 
-    add(box({ size: [0.32, 0.4, 0.3], pos: [O.x1 - 0.55, 1.32, oz - 0.5], mat: mat({ color: 0x26262e, roughness: 0.7 }) }));
+    // The intercom cabinet, backed against the east wall face (x 13.81)
+    // rather than floating half a metre into the room
+    add(box({ size: [0.32, 0.4, 0.3], pos: [O.x1 - 0.26, 1.32, oz - 0.5], mat: mat({ color: 0x26262e, roughness: 0.7 }) }));
     add(box({ size: [0.52, 0.8, 0.52], pos: [O.x0 + 0.55, 0.4, O.z1 - 0.7], mat: mat({ color: 0xd0d0d6, roughness: 0.5 }) }));
     solid(O.x0 + 0.29, O.z1 - 0.96, O.x0 + 0.81, O.z1 - 0.44, 0, 0.8);
     add(group('filing',
