@@ -113,22 +113,27 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
-IMMEDIATE PICKUP (2026-07-31): the wave-2 machine-restart recovery is DONE —
-all four scene passes were re-dispatched and landed (see the RESOLVED header
-in `docs/audits/2026-07-30-playtest-notes-wave2.md`), the owner's Voice_Ids
-casting is locked (`docs/VOICE-CASTING.md` — the manifest's voices block is
-authoritative; 342 recast lines + 62 station lines await regeneration
-wherever ELEVENLABS_API_KEY lives), PR #4's infrastructure hardening is
-merged in, and 56 new `vo.bing.*` floor cues are authored in the manifest.
-Current gate facts: npm test 77; verify:beefrun 14; verify:computer 20;
-verify:bing 60; verify:silver 96; verify:preview 16; verify:bundle covers
-three strict-CSP policies. Work is on `claude/project-status-check-tgs0fh`
-pending the owner's word on fast-forwarding the canonical branch and main.
-Still open, in order: Margo's deferred hair/face via the shared figure
-builder in src/bing/cast.js; the Family hangout floor at the Bing (every
-Family member present between missions, talk wired to the vo.bing.hang.*
-cues, CHARACTER_IDS entries per member); Numbskull's voice id and seven
-Family face photos from the owner; then the standing objectives below.
+IMMEDIATE PICKUP (2026-07-31, end of the marathon session): the wave-2
+recovery, the Voice_Ids casting lock, PR #4, the Family hangout floor, and
+SEVEN owner punch-list passes (Squatchfather ×2, Apartment, Beef Run, Motel,
+Bada Bing 33 items, Front and Center) are ALL landed, gated, and deployed;
+`main`, the integration branch, and the session branch move together.
+Current gate facts: npm test 87; bing 111; bing-two 10; silver 112;
+silver-story 20; motel 37; squatchfather 29; beefrun 22; computer 20;
+day-one 26; day-two 16; big-night 14; boot-errors 8; initiation 10;
+preview 16; squatch-smash 8; bundle green under 3 CSP policies; audio is
+cache-busted by content hash. Owner rulings landed: the Motel ally is SNOW
+(was Manny); the cute girl at the Bing bar is MARGO; Family present at the
+club between missions. OUTSTANDING FOR THE RECORDING BATCH: 234 authored
+lines (Tony's 28 call replies incl. the attaboy call, Silver's 180, the
+Bing's 26) — see VOICE-LINES-TODO.md; 16 effects. Open decisions: seven
+Family face photos; spawn-facing at the Silver arrival (player faces away
+from the club, moon aimed accordingly); the unnamed Family-styled guard at
+Lou's office; lou vs lou1 phone cadence. Open small work: dropHeld deletes
+the gun/pizza slice ([Q]); the Beef Run fuselage needs an interior shell
+(see-through cabin from the left seat); Motel antagonists (Rico/Chino) have
+no authored lines; door/bar/stage barks now wired. The Initiation playtest
+gate below still stands.
 
 Immediate implementation objective:
 
