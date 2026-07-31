@@ -103,6 +103,76 @@ try {
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
 
+  /* ---------------------------------------------------------------- */
+  /* Coming home from the restaurant                                   */
+  /* ---------------------------------------------------------------- */
+
+  /* Owner report: the bed refused him on the way back from the Squatchfather,
+   * so Day One could not be closed. Two separate faults. The Squatchfather is
+   * a frozen scene with no clock of its own, so nothing put an hour on the
+   * restaurant and he came home at the same 11:41 PM he left at, into a flat
+   * that thought he had just got up. And most of the bed -- headboard, far
+   * rail, corners, everything the seat proxy does not quite cover -- was
+   * registered with a flat "You just got up. Give it an hour." */
+  const home = await page.evaluate(() => {
+    const game = window.__squatch;
+    return {
+      day: game.campaign.state.story.day,
+      minutes: game.campaign.state.story.timeMinutes,
+      chapter: game.campaign.state.story.chapter,
+      clock: game.time.clock12,
+      events: game.campaign.state.story.timeEvents,
+      door: game.apartmentStory.tryLeave({
+        eaten: true, showered: true, pooped: true, changedClothes: true,
+      }),
+    };
+  });
+  check('the walk home from the restaurant lands at three in the morning',
+    home.day === 2
+      && home.minutes === 3 * 60
+      && home.clock === '3:00 AM'
+      && home.chapter === 'day_one'
+      && home.events.includes('mission.squatchfather'),
+    JSON.stringify(home));
+  check('the door sends him to bed rather than back out',
+    home.door?.kind === 'stay' && home.door?.id === 'sleep',
+    JSON.stringify(home.door));
+
+  /* Aim at the bed from four places a person would stand. Every one of them
+   * has to offer lying down; none of them may refuse. */
+  const bedAim = await page.evaluate(async () => {
+    const game = window.__squatch;
+    const THREE = await import('three');
+    game.interaction.setPaused(false);
+    game.player.mode = 'walk';
+    const spots = [
+      [-3.00, -3.40, [-4.15, 0.66, -3.40]],
+      [-3.20, -2.10, [-4.30, 0.60, -4.10]],
+      [-2.60, -4.10, [-4.30, 0.90, -4.30]],
+      [-3.60, -1.90, [-4.15, 0.68, -2.60]],
+    ];
+    const labels = [];
+    for (const [px, pz, look] of spots) {
+      game.player.position.set(px, 1.66, pz);
+      game.player.eyeHeight = 1.66;
+      game.player.update(0.016);
+      game.camera.up.set(0, 1, 0);
+      game.camera.lookAt(new THREE.Vector3(look[0], look[1], look[2]));
+      game.camera.updateMatrixWorld(true);
+      game.interaction.current = null;
+      game.interaction.update(0.016);
+      const target = game.interaction.current;
+      labels.push(target && (typeof target.userData.interact.label === 'function'
+        ? target.userData.interact.label() : target.userData.interact.label));
+    }
+    return labels;
+  });
+  check('every angle on the bed offers lying down, and none of them refuses',
+    bedAim.length === 4
+      && bedAim.every((l) => typeof l === 'string' && l.includes('lie down'))
+      && !bedAim.some((l) => /just got up|Give it an hour/i.test(l || '')),
+    JSON.stringify(bedAim));
+
   const sleepStarted = await page.evaluate(() => {
     const game = window.__squatch;
     game.lieOnBed();
@@ -186,6 +256,39 @@ try {
       && woke.panel.at(-1).text === 'Answer Booskibro’s call'
       && !woke.panel.some((row) => /Lou/.test(row.text)),
     JSON.stringify(woke.panel));
+
+  /* ---------------------------------------------------------------- */
+  /* The flat on the second morning                                    */
+  /* ---------------------------------------------------------------- */
+
+  /* And the room itself, which is the whole of "it appears it's always the
+   * first day". Day Two's flat has last night in it: the shirt he stepped out
+   * of, the first fold of money, a matchbook from the club -- and the lanyard
+   * for the day job is gone, because he told HR where to go yesterday. */
+  const room = await page.evaluate(() => {
+    const game = window.__squatch;
+    const shown = [];
+    for (const [id, piece] of game.apartment.dressing) {
+      if (piece.group.visible) shown.push(id);
+    }
+    return {
+      chapter: game.apartment.dressedChapter(),
+      shown,
+      messages: game.apartment.messagesWaiting(),
+      raining: game.apartment.state.raining,
+    };
+  });
+  check('the second morning is a visibly different flat from the first',
+    room.chapter === 'day_two'
+      && room.shown.includes('bloodShirt')
+      && room.shown.includes('cashSmall')
+      && room.shown.includes('bingMatches')
+      && !room.shown.includes('lanyard')
+      && !room.shown.includes('cashStacks')
+      && !room.shown.includes('gunCase')
+      && room.raining === false,
+    JSON.stringify(room.shown));
+
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
@@ -288,6 +391,42 @@ try {
       && replay.booski === 'answered'
       && replay.airstrip === 'available',
     JSON.stringify(replay));
+
+  /* And it has something to say about last night, once, from Lou. */
+  const machine = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.game.inBed = false;
+    game.player.mode = 'walk';
+    const waiting = game.apartment.messagesWaiting();
+    const before = game.apartmentStory.messages();
+    const played = game.playMessages();
+    const after = game.apartmentStory.messages();
+    return {
+      waiting,
+      from: before.list[0]?.from,
+      mentionsRestaurant: before.list.some((m) => m.lines.some((l) => /restaurant/i.test(l))),
+      played,
+      heardBefore: before.heard,
+      heardAfter: after.heard,
+      replayed: game.playMessages(),
+      left: game.apartment.messagesWaiting(),
+      news: !!game.apartmentStory.news()?.radio,
+      newsMentionsRestaurant: /restaurant/i.test(game.apartmentStory.news()?.radio?.line || ''),
+    };
+  });
+  check('a voicemail from Lou about the restaurant is waiting, and plays once',
+    machine.waiting === 1
+      && machine.from === 'Big Uncle Lou'
+      && machine.mentionsRestaurant === true
+      && machine.heardBefore === false
+      && machine.played === true
+      && machine.heardAfter === true
+      && machine.replayed === false
+      && machine.left === 0,
+    JSON.stringify(machine));
+  check('the wire is carrying the restaurant too',
+    machine.news === true && machine.newsMentionsRestaurant === true,
+    JSON.stringify(machine));
 
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {

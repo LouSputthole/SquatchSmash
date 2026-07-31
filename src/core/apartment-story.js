@@ -649,7 +649,9 @@ class ApartmentStory {
 
     /* The first morning's optional half. Only the first morning: by Day Two
      * he knows where his own computer is and does not need telling. */
-    if (state.story.chapter === 'day_one') {
+    const killingTime = state.story.chapter === 'day_one'
+      && state.missions[MISSION_IDS.BADA_BING_ONE].status !== 'complete';
+    if (killingTime) {
       for (const { id, label } of DAY_ONE_OPTIONAL) {
         items.push({ id, label, done: activities[id] === true, required: false });
       }
@@ -666,17 +668,15 @@ class ApartmentStory {
         done: false,
         required: true,
       });
-      /* Day One's departure is not until a quarter to midnight, so the line
-       * above is true and useless for seventeen hours without this under it. */
-      if (state.story.chapter === 'day_one'
-        && door.destination === SCENE_IDS.BADA_BING_ONE) {
-        items.push(DAY_ONE_KILL_TIME);
-      }
     } else if (door.kind === 'item') {
       items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
     } else if (door.kind === 'stay') {
       items.push({ id: door.id, label: 'Sleep', done: false, required: true });
     }
+    /* Last line, and only on the first day: the Bing is not until a quarter
+     * to midnight, so everything above it is true and useless for seventeen
+     * hours unless the list also says what a day with nothing in it is for. */
+    if (killingTime) items.push(DAY_ONE_KILL_TIME);
     return { chapter: state.story.chapter, day: state.story.day, items };
   }
 

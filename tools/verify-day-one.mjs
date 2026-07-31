@@ -174,29 +174,40 @@ try {
    * the hand card tells you puts things down, and dropHeld had a branch for
    * the can, the smokes and the whiskey and a silent `else` for everything
    * else that emptied the slot. The nightstand model had been hidden since
-   * pickup, so one press deleted the only object Lou can reach him through. */
+   * pickup, so one press deleted the only object Lou can reach him through.
+   *
+   * Making it undroppable fixed the deletion and left [Q] doing nothing at
+   * all while it was in his hand, which reads as broken in its own right. So
+   * [Q] POCKETS it: out of the hand, out of the hand card, still in the
+   * hotbar, still in the save, and back out with its own number key. */
   const kept = await page.evaluate(() => {
     const game = window.__squatch;
     game.game.inBed = false;
     game.player.mode = 'walk';
+    const slot = game.apartment.inventory.items.indexOf('phone');
     // What [Q] reaches once it has finished asking about beds and toilets.
     game.dropHeld();
     let nightstandPhone = null;
     game.apartment.root.traverse((o) => { if (o.name === 'phone') nightstandPhone = o; });
-    return {
+    const pocketed = {
       carrying: game.apartment.inventory.has('phone'),
       held: game.apartment.state.heldItem,
-      heldModelVisible: game.heldPhone.group.visible,
+      handHidden: document.getElementById('hand-item')?.classList.contains('hidden'),
       backOnNightstand: nightstandPhone?.visible,
       carriedInCampaign: game.campaign.state.inventory.carried.includes('phone'),
+      slot,
     };
+    // And back out again.
+    game.apartment.inventory.select(slot);
+    return { ...pocketed, retaken: game.apartment.state.heldItem };
   });
-  check('[Q] cannot throw his phone away',
+  check('[Q] pockets his phone instead of destroying it, and it comes back out',
     kept.carrying === true
-      && kept.held === 'phone'
-      && kept.heldModelVisible === true
+      && kept.held === null
+      && kept.handHidden === true
       && kept.backOnNightstand === false
-      && kept.carriedInCampaign === true,
+      && kept.carriedInCampaign === true
+      && kept.retaken === 'phone',
     JSON.stringify(kept));
 
   const answered = await page.evaluate(() => {
@@ -256,6 +267,209 @@ try {
   check('answering Lou advances the saved and displayed clock by three minutes',
     answered.timeMinutes === 6 * 60 + 7 && answered.liveMinutes === 6 * 60 + 7,
     JSON.stringify(answered));
+
+
+  /* ---------------------------------------------------------------- */
+  /* The first morning is a tutorial with seventeen hours in it        */
+  /* ---------------------------------------------------------------- */
+
+  /* Day One's list used to be four chores and a call, which is a morning's
+   * work in a day that does not start until a quarter to midnight. The rest
+   * of the tutorial -- the inbox, the computer, a game of Squatch Smash -- was
+   * nowhere on it, and neither was the fact that a man with nothing on can go
+   * back to bed. */
+  const panel = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.updateObjectives();
+    const plan = game.apartmentStory.objectives(game.activityContext());
+    const drawn = [...document.querySelectorAll('#objectives .olist li')].map((li) => ({
+      text: li.textContent,
+      required: li.classList.contains('required'),
+      done: li.classList.contains('done'),
+    }));
+    return { items: plan.items, drawn, hidden: document.getElementById('objectives')?.classList.contains('hidden') };
+  });
+  const optional = panel.items.filter((i) => !i.required);
+  check('Day One lists its optional tutorial beats as optional',
+    optional.some((i) => i.id === 'emailChecked')
+      && optional.some((i) => i.id === 'pcUsed')
+      && optional.some((i) => i.id === 'playedGame')
+      && panel.items.filter((i) => i.required).length >= 5,
+    JSON.stringify(panel.items.map((i) => `${i.id}${i.required ? '!' : '?'}`)));
+  check('the optional beats say how to skip the wait for the Bing',
+    optional.some((i) => i.id === 'killtime' && /sleep it off|have a drink/i.test(i.label)),
+    JSON.stringify(optional.map((i) => i.label)));
+  check('the panel draws required and optional differently',
+    panel.hidden === false
+      && panel.drawn.some((li) => li.required)
+      && panel.drawn.some((li) => !li.required && !li.done),
+    JSON.stringify(panel.drawn.map((li) => `${li.required ? 'R' : 'o'}:${li.text.slice(0, 18)}`)));
+
+  /* ---------------------------------------------------------------- */
+  /* The flat on the first morning                                     */
+  /* ---------------------------------------------------------------- */
+
+  /* The core finding: apartment.js had no reference to the campaign chapter
+   * at all, so every morning was dressed identically. Day One's flat is the
+   * anonymous one -- a lanyard for the job he is about to stop turning up to,
+   * and not one thing he has not earned yet. */
+  const dayOneRoom = await page.evaluate(() => {
+    const game = window.__squatch;
+    const shown = [];
+    const hidden = [];
+    for (const [id, piece] of game.apartment.dressing) {
+      (piece.group.visible ? shown : hidden).push(id);
+    }
+    return { chapter: game.apartment.dressedChapter(), shown, hidden, raining: game.apartment.state.raining };
+  });
+  check('the flat is dressed for Day One and for no other day',
+    dayOneRoom.chapter === 'day_one'
+      && dayOneRoom.shown.includes('lanyard')
+      && dayOneRoom.shown.includes('willyPhoto')
+      && !dayOneRoom.shown.includes('bloodShirt')
+      && !dayOneRoom.shown.includes('cashStacks')
+      && !dayOneRoom.shown.includes('gunCase')
+      && !dayOneRoom.shown.includes('suitBag')
+      && dayOneRoom.raining === false,
+    JSON.stringify(dayOneRoom.shown));
+  check('no trophy from a mission he has not run yet is on show',
+    ['cashSmall', 'cashMid', 'cashStacks', 'motelKey', 'silverMatches', 'bingMatches',
+      'jerkyHaul', 'laundryHeap', 'casualJacket', 'willyGap']
+      .every((id) => dayOneRoom.hidden.includes(id)),
+    JSON.stringify(dayOneRoom.hidden));
+
+  /* ---------------------------------------------------------------- */
+  /* The pizza, end to end                                             */
+  /* ---------------------------------------------------------------- */
+
+  /* Owner report: taking a slice put nothing in inventory and it could not be
+   * eaten. Three separate faults -- no model in the hand, a hold bar handed an
+   * object where it wanted a number so eating showed you nothing at all, and
+   * [Q] deleting the slice through the same silent else that once ate the
+   * phone. Driven here exactly as a player would drive it. */
+  const pizza = await page.evaluate(async () => {
+    const game = window.__squatch;
+    const THREE = await import('three');
+    game.interaction.setPaused(false);
+    game.player.mode = 'walk';
+    game.player.position.set(-2.55, 1.66, 0.74);
+    game.player.eyeHeight = 1.66;
+    game.player.update(0.016);
+    game.camera.up.set(0, 1, 0);
+    game.camera.lookAt(new THREE.Vector3(-3.48, 0.47, 0.74));
+    game.camera.updateMatrixWorld(true);
+    game.interaction.update(0.016);
+    const target = game.interaction.current;
+    const label = target && (typeof target.userData.interact.label === 'function'
+      ? target.userData.interact.label() : target.userData.interact.label);
+    const slicesBefore = game.apartment.pizza.slicesLeft();
+    game.interaction.press();
+    const held = game.apartment.state.heldItem;
+    game.heldSlice.group.visible = game.apartment.state.heldItem === 'slice';
+    const inHand = game.heldSlice.group.visible;
+    const handName = document.querySelector('#hand-item .name')?.textContent;
+
+    // Eat it. The hold bar has to move, and the campaign has to record it.
+    game.apartment.state.fed = false;
+    game.player.keys.add('KeyF');
+    game.game.seated = false;
+    let barMoved = false;
+    for (let i = 0; i < 40; i++) {
+      game.updateConsume(0.1);
+      const w = parseFloat(document.querySelector('#prompt .holdbar i')?.style?.width || '0');
+      if (w > 0 && w < 100) barMoved = true;
+    }
+    game.player.keys.delete('KeyF');
+    return {
+      label,
+      slicesBefore,
+      held,
+      inHand,
+      handName,
+      barMoved,
+      afterHeld: game.apartment.state.heldItem,
+      fed: game.apartment.state.fed,
+      eaten: game.campaign.state.activities.eaten,
+      slicesAfter: game.apartment.pizza.slicesLeft(),
+    };
+  });
+  check('a slice can be taken, is visibly in his hand, and can be eaten',
+    pizza.label === 'Take a <b>slice</b>'
+      && pizza.held === 'slice'
+      && pizza.inHand === true
+      && pizza.handName === 'Slice of pizza'
+      && pizza.barMoved === true
+      && pizza.afterHeld === null
+      && pizza.fed === true
+      && pizza.eaten === true,
+    JSON.stringify(pizza));
+
+  /* Nothing [Q] touches may cease to exist. The slice goes back in the box it
+   * came out of; the revolver goes back on the coffee table it came off. */
+  const dropped = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.game.inBed = false;
+    game.player.mode = 'walk';
+    game.apartment.inventory.add('slice');
+    const boxBefore = game.apartment.pizza.slicesLeft();
+    game.dropHeld();
+    const sliceBack = game.apartment.pizza.slicesLeft() === boxBefore + 1
+      && !game.apartment.inventory.has('slice');
+
+    let revolver = null;
+    game.apartment.root.traverse((o) => { if (o.name === 'revolver') revolver = o; });
+    revolver.visible = false;               // as if he had picked it up
+    game.apartment.inventory.add('gun');
+    game.dropHeld();
+    return {
+      sliceBack,
+      gunHeld: game.apartment.state.heldItem,
+      gunCarried: game.apartment.inventory.has('gun'),
+      gunOnTable: revolver?.visible,
+      boxBefore,
+      boxAfter: game.apartment.pizza.slicesLeft(),
+    };
+  });
+  check('[Q] destroys nothing: the slice goes back in the box',
+    dropped.sliceBack === true, JSON.stringify(dropped));
+  /* The revolver is still locked on Day One, so `dropGun` refuses -- and a
+   * refusal has to mean he keeps it rather than that it evaporates. */
+  check('[Q] destroys nothing: a gun it cannot put down stays in his hands',
+    dropped.gunOnTable === true || dropped.gunCarried === true,
+    JSON.stringify(dropped));
+
+  /* ---------------------------------------------------------------- */
+  /* Killing time                                                      */
+  /* ---------------------------------------------------------------- */
+
+  /* Day One is explicitly no rush. Lying down is how a man spends a day with
+   * nothing in it -- toward the evening rather than into tomorrow -- and the
+   * save has to agree with the clock on the wall afterwards. */
+  await page.evaluate(() => {
+    const game = window.__squatch;
+    game.apartment.inventory.clear();
+    game.game.inBed = true;
+    game.sleepInBed();
+  });
+  await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, { timeout: 20000 });
+  const napped = await page.evaluate(() => ({
+    liveDay: window.__squatch.time.day,
+    liveMinutes: window.__squatch.time.minutes,
+    savedDay: window.__squatch.campaign.state.story.day,
+    savedMinutes: window.__squatch.campaign.state.story.timeMinutes,
+    chapter: window.__squatch.campaign.state.story.chapter,
+    door: window.__squatch.apartmentStory.tryLeave({
+      eaten: true, showered: true, pooped: true, changedClothes: true,
+    }),
+  }));
+  check('a Day One nap kills the day toward the evening and is saved',
+    napped.liveDay === 1
+      && napped.liveMinutes === 19 * 60
+      && napped.savedDay === 1
+      && napped.savedMinutes === 19 * 60
+      && napped.chapter === 'day_one'
+      && napped.door?.destination === 'bada_bing_one',
+    JSON.stringify(napped));
 
   const gates = await page.evaluate(() => {
     const game = window.__squatch;

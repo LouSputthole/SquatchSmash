@@ -129,8 +129,13 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DATE]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]: Object.freeze({ minutes: 2 }),
-  // She is not in a hurry about it, and she is not staying either.
-  [TIME_EVENT_IDS.MARGO_WAKE]: Object.freeze({ minutes: 12 }),
+  /* Costs nothing on the clock. This one is a marker rather than an errand:
+   * the big night's morning is an authored ten o'clock checkpoint and the
+   * ceremony is an authored seven, and putting a quarter of an hour between
+   * them buys the story nothing while moving two pinned times. She wakes him
+   * at ten and it is still ten when she goes, which is also how the morning
+   * after actually plays. */
+  [TIME_EVENT_IDS.MARGO_WAKE]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
   // Shorter than the rest. Lou is not asking for anything, so it is short.
   [TIME_EVENT_IDS.LOU_ATTABOY_CALL]: Object.freeze({ minutes: 2 }),

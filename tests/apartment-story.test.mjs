@@ -157,12 +157,13 @@ test('the morning list is the door’s own requirements, chapter by chapter', ()
   assert.equal(listed.day, 1);
   assert.deepEqual(listed.items.map((i) => i.id), [
     'eaten', 'showered', 'pooped', 'changedClothes', EVENT_IDS.LOU_FIRST_CALL,
-    // The tutorial's optional half, which the door never checks.
-    'emailChecked', 'pcUsed', 'playedGame',
+    // The tutorial's optional half, which the door never checks, and the one
+    // line that says what a seventeen-hour day with nothing in it is for.
+    'emailChecked', 'pcUsed', 'playedGame', 'killtime',
   ]);
   assert.ok(listed.items.every((i) => !i.done));
   assert.deepEqual(listed.items.filter((i) => !i.required).map((i) => i.id),
-    ['emailChecked', 'pcUsed', 'playedGame']);
+    ['emailChecked', 'pcUsed', 'playedGame', 'killtime']);
 
   // Ticks follow the real flags, not a copy of them.
   dayOne.callAnswered(DAY_ONE_LOU_CALL);

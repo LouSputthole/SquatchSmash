@@ -3213,6 +3213,13 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
     hud.say(wakeUpLine(storySleep, voluntary), 6000);
+    /* Sleeping off the Silver Room is the usual way anybody reaches the fourth
+     * morning, so the cutscene has to hang off waking up as well as off a cold
+     * load into it. Both routes ask the campaign, not a flag. */
+    if (player.mode === 'bed' && apartmentStory.margoWakeOwed()) {
+      setTimeout(() => startMargoWake(), 1400);
+      return;
+    }
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
     }, 3200);

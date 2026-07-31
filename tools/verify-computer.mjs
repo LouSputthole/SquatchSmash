@@ -182,15 +182,59 @@ try {
   await page.evaluate(() => window.__squatch.postfx.disable?.());
   await page.click('#start-btn');
 
-  await page.evaluate(() => {
+  /* Walk up with a wound-up yaw, the way a player who has turned round the
+   * flat a few times arrives at the desk.
+   *
+   * Owner report: sitting down threw the view left. Yaw accumulates without
+   * wrapping -- two laps and it is twelve radians -- and the seated tween
+   * lands on the representation of the pose's yaw NEAREST the one he walked up
+   * with, while the look clamp is centred on the pose's own value. The camera
+   * finishes pointing the right way and then the first mouse movement runs the
+   * clamp and slams it to the edge of the cone. */
+  const seating = await page.evaluate(async () => {
     const game = window.__squatch;
+    const THREE = await import('three');
     game.getUp();
     game.player.update(2);
     game.game.paused = false;
+    game.player.mode = 'walk';
+    game.player.position.set(1.05, 1.66, -2.85);
+    game.player.yaw = Math.PI * 4 + 0.15;
+    game.player.pitch = 0;
+    game.player.update(0.016);
+    const wound = game.player.yaw;
     game.sitAtPC();
-    game.player.update(2);
+    for (let i = 0; i < 200; i++) game.player.update(0.02);
+    const seatedYaw = game.player.yaw;
+
+    const monitor = game.apartment.desk.monitorPos.clone();
+    const camPos = new THREE.Vector3();
+    const camDir = new THREE.Vector3();
+    game.camera.getWorldPosition(camPos);
+    game.camera.getWorldDirection(camDir);
+    const toMonitor = monitor.clone().sub(camPos).normalize();
+    const offAxis = Math.acos(Math.max(-1, Math.min(1, camDir.dot(toMonitor))));
+
+    // And the thing that used to lurch: the first movement of the mouse.
+    game.player.handleMouseMove(1, 0);
+    const nudged = game.player.yaw;
     game.arcade.update(3.5);
+    return {
+      wound,
+      seatedYaw,
+      yawCenter: game.player.yawCenter,
+      yawRange: game.player.yawRange,
+      offAxisDeg: (offAxis * 180) / Math.PI,
+      snapDeg: (Math.abs(nudged - seatedYaw) * 180) / Math.PI,
+    };
   });
+  check('sitting down lands the view square on the monitor',
+    seating.offAxisDeg < 4, JSON.stringify(seating));
+  check('the seated look clamp agrees with where the tween put the camera',
+    Math.abs(seating.seatedYaw - seating.yawCenter) < 0.01
+      && seating.snapDeg < 1
+      && seating.yawRange > 0.5,
+    JSON.stringify(seating));
 
   let state = await computerState();
   const appIds = state.apps.map(({ id }) => id);
