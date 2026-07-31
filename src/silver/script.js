@@ -87,6 +87,27 @@ export const VOICE_OF = {
 };
 
 /**
+ * Which recorded voice each of those banks is actually made in.
+ *
+ * Two different things, deliberately. The bank is who is speaking and names
+ * the cue; the profile is whose larynx it comes out of and is what the
+ * generator sends to ElevenLabs. The four men working the room share one
+ * profile because the owner's sheet has one row for wait staff — and keeping
+ * the banks separate anyway is what makes recasting any one of them a line in
+ * the manifest rather than a rename across ninety cues.
+ */
+export const PROFILE_OF = {
+  margo: 'margo',
+  ape: 'ape',
+  host: 'waiter',
+  manager: 'waiter',
+  waiter: 'waiter',
+  bandleader: 'waiter',
+  /** The building overheard: "a cook", "the pass", "a porter". */
+  room: 'waiter',
+};
+
+/**
  * Stamp `vo.silver.<who>.<tree>.<node>` onto every line somebody cast can say.
  *
  * Names come from the node's own id rather than from a running number, so

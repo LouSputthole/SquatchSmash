@@ -31,7 +31,7 @@ import { Date_ } from './date.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
-import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF } from './script.js';
+import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
@@ -2169,8 +2169,9 @@ window.__silver = {
   THREE, scene, camera, renderer, postfx, player, room, cast, band, date, taxi,
   mission, woo, dialogue, hud, audio, game, interaction, drunk, inventory,
   scripts, performance: performance_, sway, settings, ROOMS, SET, EVENTS, ENDINGS,
-  /* Who has been cast, for the verifier: it holds the manifest to the script. */
-  VOICE_OF,
+  /* Who has been cast, and in whose voice: the verifier holds the manifest
+   * to both. */
+  VOICE_OF, PROFILE_OF,
   campaign, story,
   get campaignState() { return campaign.state; },
   /* The pieces the headless driver has to be able to step by hand, because it

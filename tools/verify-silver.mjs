@@ -2080,7 +2080,8 @@ const voice = await page.evaluate(({ cues, voices }) => {
     lines++;
     if (!said.has(name)) { missing.push(name); return; }
     if (said.get(name) !== text) drifted.push(`${name}: manifest says ${JSON.stringify(said.get(name).slice(0, 40))}`);
-    if (voices[name] !== v) badVoice.push(`${name} is ${voices[name]}, should be ${v}`);
+    const profile = b.PROFILE_OF[v] ?? v;
+    if (voices[name] !== profile) badVoice.push(`${name} is ${voices[name]}, should be ${profile}`);
   };
   /* Every branch: the flags the `variant()`s read, driven directly. */
   const F = b.mission.flags;
@@ -2131,11 +2132,15 @@ check('and every line anybody cast can say has a cue in the manifest that says t
   voice.nMissing || voice.nDrifted || voice.badVoice.length
     ? `${voice.nMissing} missing (${voice.missing.join(', ')}); ${voice.nDrifted} drifted (${voice.drifted.join('; ')}); ${voice.badVoice.join('; ')}`
     : `${voice.lines} lines across ${new Set(Object.values(await page.evaluate(() => window.__silver.VOICE_OF))).size} voices`);
-check('every voice the scene names has a profile with an id behind it',
+/* The bank is who is speaking; the profile is whose larynx it comes out of,
+ * and only the second one needs an id on the owner's sheet. Four of the six
+ * banks in this scene share the wait staff's. */
+const profiles = await page.evaluate(() => window.__silver.PROFILE_OF);
+check('every voice the scene names resolves to a profile with an id behind it',
   Object.values(await page.evaluate(() => window.__silver.VOICE_OF))
-    .every((v) => manifest.voices[v]?.id),
-  Object.values(await page.evaluate(() => window.__silver.VOICE_OF))
-    .map((v) => `${v}:${manifest.voices[v]?.id ? 'cast' : 'UNCAST'}`).join(' '));
+    .every((v) => manifest.voices[profiles[v] ?? v]?.id),
+  Object.entries(profiles)
+    .map(([bank, v]) => `${bank}→${v}:${manifest.voices[v]?.id ? 'cast' : 'UNCAST'}`).join(' '));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 
