@@ -277,6 +277,7 @@ export class Radio {
       'talk', 'talk', 'link', 'song',
       'talk', 'ad',
       'talk', 'link', 'song',
+      'talk', 'tape',
       'talk', 'talk', 'link', 'song',
       'talk', 'notice',
     ];
@@ -294,6 +295,17 @@ export class Radio {
       if (slot === 'link') {
         // The station saying its own name, between a record and a show.
         this._queue.push({ line: pick(st.lines), cue: null });
+        return;
+      }
+      if (slot === 'tape') {
+        // Announcer in, the recording whole, announcer out.
+        const tape = pick(st.tapes);
+        if (!tape) continue;
+        this._queue.push(
+          { line: tape.intro, cue: 'radio.jingle' },
+          { line: tape.title, clip: tape.cue },
+          { line: tape.outro, cue: null },
+        );
         return;
       }
       if (slot === 'ad') {
@@ -332,7 +344,11 @@ export class Radio {
     // Whoever was talking stops when the next segment starts, or skipping with
     // [R] leaves two hosts talking over each other.
     try { this._voice?.stop(); } catch { /* already finished */ }
-    const v = voiceOf(s.line);
+    /* A tape names its own recording. Everything else is a written line, and
+     * the clip for it is looked up from the text. Either way the block runs
+     * for the length of the audio, so a 34-second tape is not talked over at
+     * eight and a half. */
+    const v = s.clip ? { cue: s.clip } : voiceOf(s.line);
     /* Louder, and audible from further off. The schedule was always running --
      * exchanges, songs, ads, all of it -- but a host at 0.68 through the
      * default 1.4m rolloff is a murmur by the time you are at the fridge, so

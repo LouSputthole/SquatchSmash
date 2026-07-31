@@ -27,6 +27,8 @@ const TYPES = {
   '.ogg': 'audio/ogg',
   '.wav': 'audio/wav',
   '.m4a': 'audio/mp4',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',

@@ -11,3 +11,4 @@ import './post-airstrip-story.test.mjs';
 import './bada-bing-two-mission.test.mjs';
 import './squatch-smash-goals.test.mjs';
 import './preview-mode.test.mjs';
+import './radio-tape.test.mjs';
