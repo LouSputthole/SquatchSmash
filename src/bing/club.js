@@ -1238,13 +1238,14 @@ export function buildClub(scene, { renderer } = {}) {
         porcelain,
       );
       bowl.position.set(0.03, 0.85, 0);
-      bowl.scale.set(0.85, 1, 1.05);
+      // Wide enough to read as a bowl from the door rather than as a pipe.
+      bowl.scale.set(1.18, 1, 1.1);
       const u = group('urinal',
         bowl,
         // Back plate against the tile, rolled lip, and the sump
         box({ size: [0.09, 0.78, 0.4], pos: [0.11, 0.82, 0], mat: porcelain }),
-        cylinder({ r: 0.2, h: 0.055, pos: [0.03, 1.09, 0], mat: porcelain }),
-        cylinder({ r: 0.13, h: 0.08, pos: [0.03, 0.6, 0], mat: porcelain }),
+        cylinder({ r: 0.23, h: 0.06, pos: [0.03, 1.09, 0], mat: porcelain }),
+        cylinder({ r: 0.15, h: 0.08, pos: [0.03, 0.6, 0], mat: porcelain }),
         cylinder({ r: 0.045, h: 0.06, pos: [0.03, 0.57, 0], mat: mat({ color: 0x3a3a42, roughness: 0.5 }) }),
         // Sparge pipe and the flush valve above it
         cylinder({ r: 0.017, h: 0.42, pos: [0.09, 1.34, 0], mat: M_CHROME }),
@@ -1744,6 +1745,10 @@ export function buildClub(scene, { renderer } = {}) {
       mark.rotation.z = 0.14;
       fridge.add(mark);
       fridge.position.set(fx, 0, fz);
+      /* Door into the ROOM. It stands against the north wall, and every part
+       * of it that is worth building -- the seam, the handle, the stickers --
+       * is on the door, which was pointing at thirty centimetres of panelling. */
+      fridge.rotation.y = Math.PI;
       add(fridge);
       office.fridge = fridge;
       solid(fx - 0.28, fz - 0.28, fx + 0.28, fz + 0.28, 0, 0.82);

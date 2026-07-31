@@ -1772,6 +1772,45 @@ check('the line on the urinal is usable and buys twenty-odd seconds',
   clocksAndPowder.focus > 20 && clocksAndPowder.focus <= 26,
   String(clocksAndPowder.focus));
 
+/* ---- 26: the hum and the static ----
+ * The owner heard a loud hum and a hiss he assumed was rain. Both were
+ * synthesised beds: a 52Hz club kick left at full level under a real record,
+ * and `ambience.rain` -- which is rain you are standing IN -- turned down so
+ * far indoors that all that survived of it was its top end. The bed drops
+ * under the record, and the weather through the walls gets its own loop with
+ * no highs in it at all, plus a manifest cue waiting for a recording. */
+const beds = await page.evaluate(() => {
+  const b = window.__bing;
+  b.game.seatedIn = null;
+  b.player.mode = 'walk';
+  b.player._tween = null;
+  b.player.position.set(-8, 1.66, 4);
+  b.updateZones(0.016);
+  const vol = (k) => b.audio.loops.get(k)?.volume ?? null;
+  return {
+    started: [...b.audio.loops.keys()].filter((k) => /rain|club|crowd/.test(k)),
+    muffled: vol('ambience.bing.rain.muffled'),
+    bed: vol('ambience.club'),
+    record: vol('music.club'),
+    crowd: vol('ambience.crowd'),
+    standingIn: vol('ambience.rain'),
+    acoustics: b.game.acoustics,
+  };
+});
+{
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+  const cue = (manifest.sfx || []).find((c) => c.name === 'ambience.bing.rain.muffled');
+  check('the rain you hear indoors is a muffled bed, not the top end of the outdoor one',
+    beds.started.includes('ambience.bing.rain.muffled')
+      && beds.muffled > 0 && beds.standingIn <= 0.006
+      && !!cue && cue.loop === true && /muffled/i.test(cue.prompt || ''),
+    JSON.stringify({ muffled: beds.muffled, outdoor: beds.standingIn, authored: !!cue }));
+  check('the synthesised club bed sits under the real record instead of over it',
+    beds.bed > 0 && beds.record > 0 && beds.bed < beds.record * 0.35
+      && beds.crowd < 0.2,
+    JSON.stringify({ bed: beds.bed, record: beds.record, crowd: beds.crowd }));
+}
+
 /* ---- 29: Margo, on her stool and wearing her own head ---- */
 const her = await page.evaluate(() => {
   const b = window.__bing;
@@ -1797,19 +1836,48 @@ check('the woman at the end of the bar is Margo, on the stool and not in it',
     && her.profile.gender === 'female' && her.profile.bodyShape === 'curvy',
   JSON.stringify(her));
 
-/* ---- 33: the mark by the entrance is the real one ---- */
+/* ---- 33: the mark by the entrance is the real one ----
+ * Not "is there a picture there" but "is the squatch actually drawn on it".
+ * squatchArt() renders drawSquatchSilhouette into a canvas, so the proof is
+ * in the pixels: a wide, solid band of ink across the shoulders at the
+ * height the silhouette puts them, which a letter or a star cannot fake. */
 const entrance = await page.evaluate(() => {
   const b = window.__bing;
-  /* squatchArt() caches by key, so the presence of the cached textures is
-   * what proves the entrance pieces are drawn from the shared silhouette
-   * rather than from a typographic star. */
-  const names = [];
-  b.club.root.traverse((o) => {
-    if (o.isMesh && o.material?.map?.source?.data?.width) names.push(o.material.map.source.data.width);
-  });
-  return { textured: names.length };
+  const T = b.THREE;
+  const marked = [];
+  const inkRun = (canvas) => {
+    const g = canvas.getContext('2d', { willReadFrequently: true });
+    if (!g) return 0;
+    // Shoulder line: 60% down a squatchArt plate is chest and arms.
+    const y = Math.round(canvas.height * 0.6);
+    const row = g.getImageData(0, y, canvas.width, 1).data;
+    let best = 0;
+    let run = 0;
+    // The plate's own background is the first pixel; ink is anything else.
+    const bg = [row[0], row[1], row[2]];
+    for (let x = 0; x < canvas.width; x++) {
+      const d = Math.abs(row[x * 4] - bg[0]) + Math.abs(row[x * 4 + 1] - bg[1])
+        + Math.abs(row[x * 4 + 2] - bg[2]);
+      if (d > 40) { run += 1; best = Math.max(best, run); } else run = 0;
+    }
+    return best / canvas.width;
+  };
+  const scan = (root, tag) => {
+    root.traverse((o) => {
+      const img = o.isMesh && o.material?.map?.source?.data;
+      if (!img || !img.getContext) return;
+      const p = new T.Vector3();
+      o.getWorldPosition(p);
+      if (p.z < 9) return;                       // vestibule and the front wall only
+      const run = inkRun(img);
+      if (run > 0.3) marked.push({ tag, z: +p.z.toFixed(2), run: +run.toFixed(2) });
+    });
+  };
+  scan(b.club.root, 'club');
+  return { marked };
 });
-check('the entrance pictures carry the house mark', entrance.textured > 0, String(entrance.textured));
+check('the pictures by the entrance carry the real squatch mark, drawn not lettered',
+  entrance.marked.length >= 4, JSON.stringify(entrance.marked.slice(0, 6)));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 

@@ -179,7 +179,9 @@ export const FAMILY = [
      * this exact spot AND a second Snow loitering by the coat check, which is
      * two of one man in one building; the cleaner is gone and this is him.
      * Same id, same face, same voice, same terse two lines. */
-    spot: { x: 6.55, z: 1.35, yaw: 1.95, job: 'stand', folded: true },
+    /* North of the men's room door, and outside the arc its leaf sweeps
+     * through the hallway -- the first spot for him was inside it. */
+    spot: { x: 6.45, z: 1.78, yaw: 2.2, job: 'stand', folded: true },
     model: {
       height: 1.7, build: 0.95, dress: 'work', shirt: 0x3a4048,
       hairColour: 0x9a9a9a, skin: 0xf0cba6,
