@@ -376,10 +376,26 @@ export function makePerson(o = {}) {
     }
   }
   if (chain) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.062, 0.009, 6, 18), mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 }));
-    ring.position.set(0, 1.44, D * 1.4);
-    ring.rotation.x = 1.42;
-    body.add(ring);
+    /* A necklace, not a hoop. The old torus floated a gold ring in the air a
+     * hand's width off the sternum; this is a chain that comes over the
+     * collar, drapes down the shirt front, and ends in a medallion lying flat
+     * ON the chest. Everything rides just proud of the chest plane so the
+     * links stay visible against the shirt instead of inside it. */
+    const gold = mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 });
+    const chestZ = D * (dress === 'suit' ? 1.07 : 1.02) + 0.006;
+    const drape = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.1, 1.518, D + 0.004),
+      new THREE.Vector3(-0.055, 1.452, chestZ),
+      new THREE.Vector3(0, 1.408, chestZ + 0.002),
+      new THREE.Vector3(0.055, 1.452, chestZ),
+      new THREE.Vector3(0.1, 1.518, D + 0.004),
+    ]);
+    const links = new THREE.Mesh(new THREE.TubeGeometry(drape, 24, 0.0065, 6), gold);
+    links.name = 'necklace.chain';
+    body.add(links);
+    const pendant = cylinder({ r: 0.03, h: 0.009, pos: [0, 1.382, chestZ + 0.006], rotX: Math.PI / 2, mat: gold });
+    pendant.name = 'necklace.pendant';
+    body.add(pendant);
   }
 
   /* ---- head ----
@@ -444,25 +460,62 @@ export function makePerson(o = {}) {
   }
 
   if (hair !== 'bald' && !face) {
-    // A flat cap of hair sat on the skull, the way the Squatchfather cuts it
-    const cap = box({ size: [0.2, 0.08, 0.215], pos: [0, 0.238, -0.008], mat: hairMat });
-    if (hair === 'receding') {
-      cap.scale.set(0.185, 0.055, 0.185);
-      cap.position.set(0, 0.252, -0.024);
-    }
-    if (hair === 'crop') cap.scale.multiplyScalar(0.98);
-    head.add(cap);
-    if (hair === 'long') {
-      head.add(box({ size: [0.185, 0.2, 0.13], pos: [0, 0.09, -0.062], mat: hairMat }));
-      /* Panels down either side of the face. Without them long hair is all
-       * behind the head, and from the front -- which is every conversation in
-       * the club -- a blonde and a brunette look identical. */
+    /* Shaped hair masses rather than one block cap. The single box read as a
+     * painter's cap from across the room -- worst on the performers, where the
+     * hair is half the look. Every style is built from the same three ideas:
+     * a crown that wraps the top of the skull, hair at the back of the head,
+     * and whatever the style does with the front and the sides. Nothing here
+     * rises above the old cap's crown line, so nobody's height moves. */
+    const hairPiece = (name, o) => {
+      const m = box({ name: `person.hair.${name}`, ...o, mat: hairMat });
+      head.add(m);
+      return m;
+    };
+    if (hair === 'short') {
+      hairPiece('crown', { size: [0.196, 0.055, 0.21], pos: [0, 0.257, -0.01] });
+      hairPiece('fringe', { size: [0.188, 0.045, 0.03], pos: [0, 0.245, 0.088] });
+      hairPiece('back', { size: [0.19, 0.115, 0.032], pos: [0, 0.196, -0.106] });
       for (const sx of [-1, 1]) {
-        head.add(box({ size: [0.032, 0.19, 0.17], pos: [sx * 0.1, 0.115, -0.012], mat: hairMat }));
+        hairPiece(`side.${sx < 0 ? 'left' : 'right'}`, { size: [0.026, 0.085, 0.16], pos: [sx * 0.102, 0.21, -0.02] });
+      }
+    }
+    if (hair === 'crop') {
+      // Clipped tight: a low crown and a shadow of it down the back
+      hairPiece('crown', { size: [0.192, 0.042, 0.205], pos: [0, 0.252, -0.008] });
+      hairPiece('back', { size: [0.186, 0.07, 0.026], pos: [0, 0.212, -0.104] });
+      for (const sx of [-1, 1]) {
+        hairPiece(`side.${sx < 0 ? 'left' : 'right'}`, { size: [0.02, 0.06, 0.14], pos: [sx * 0.099, 0.222, -0.022] });
+      }
+    }
+    if (hair === 'receding') {
+      // The horseshoe: bare in front, a thin patch pushed back, full round the ears
+      hairPiece('crown', { size: [0.15, 0.038, 0.125], pos: [0, 0.256, -0.06] });
+      hairPiece('back', { size: [0.188, 0.09, 0.03], pos: [0, 0.185, -0.105] });
+      for (const sx of [-1, 1]) {
+        hairPiece(`side.${sx < 0 ? 'left' : 'right'}`, { size: [0.028, 0.075, 0.15], pos: [sx * 0.103, 0.19, -0.03] });
+      }
+    }
+    if (hair === 'long') {
+      hairPiece('crown', { size: [0.198, 0.06, 0.215], pos: [0, 0.255, -0.01] });
+      hairPiece('fringe', { size: [0.19, 0.05, 0.032], pos: [0, 0.243, 0.09] });
+      // The fall: down the back to the shoulder blades, thin like hair is
+      hairPiece('fall', { size: [0.185, 0.3, 0.045], pos: [0, 0.065, -0.115] });
+      /* Framing panels down either side of the face. Without them long hair
+       * is all behind the head, and from the front -- which is every
+       * conversation in the club -- a blonde and a brunette look identical. */
+      for (const sx of [-1, 1]) {
+        const panel = hairPiece(`side.${sx < 0 ? 'left' : 'right'}`, { size: [0.034, 0.24, 0.16], pos: [sx * 0.105, 0.1, -0.025] });
+        panel.rotation.z = sx * -0.05;   // flares very slightly away from the jaw
       }
     }
     if (hair === 'tied') {
-      head.add(box({ size: [0.078, 0.078, 0.078], pos: [0, 0.15, -0.118], mat: hairMat }));
+      hairPiece('crown', { size: [0.194, 0.05, 0.212], pos: [0, 0.253, -0.012] });
+      hairPiece('sweep', { size: [0.182, 0.06, 0.05], pos: [0, 0.232, -0.098] });
+      hairPiece('bun', { size: [0.08, 0.08, 0.075], pos: [0, 0.155, -0.125] });
+      hairPiece('band', { size: [0.088, 0.016, 0.083], pos: [0, 0.198, -0.122] });
+      for (const sx of [-1, 1]) {
+        hairPiece(`side.${sx < 0 ? 'left' : 'right'}`, { size: [0.022, 0.07, 0.15], pos: [sx * 0.1, 0.215, -0.025] });
+      }
     }
   }
   if (beard && !face) {
@@ -554,7 +607,7 @@ export class Npc {
     const {
       name = 'somebody', tier = 'ambient', x = 0, z = 0, yaw = 0, y = 0,
       job = 'stand', look = true, route = null, model = {}, colliders = null,
-      routine = 0, pole = false,
+      navBlockers = null, routine = 0, pole = false,
     } = o;
     this.name = name;
     this.tier = tier;
@@ -563,6 +616,7 @@ export class Npc {
     this.route = route;
     this.routeAt = 0;
     this.colliders = colliders;
+    this.navBlockers = navBlockers;
     this.parts = makePerson({
       ...model,
       castShadow: model.castShadow ?? tier === 'hero',
@@ -653,10 +707,17 @@ export class Npc {
     this._lastJob = this.job;
   }
 
+  /* Walls and furniture, plus the stage's nav-only blockers. Two lists rather
+   * than one because doors splice their boxes in and out of the shared
+   * colliders array live -- a merged copy would stop tracking them. */
   _navClear(x, z) {
-    if (!this.colliders?.length) return true;
+    return this._clearOf(this.colliders, x, z) && this._clearOf(this.navBlockers, x, z);
+  }
+
+  _clearOf(list, x, z) {
+    if (!list?.length) return true;
     const radius = 0.24;
-    for (const b of this.colliders) {
+    for (const b of list) {
       if (this.baseY > b.max.y || this.baseY + 1.8 < b.min.y) continue;
       const cx = Math.max(b.min.x, Math.min(b.max.x, x));
       const cz = Math.max(b.min.z, Math.min(b.max.z, z));
@@ -785,9 +846,12 @@ export class Npc {
         let bend = 0;
 
         if (bar === 0) {
-          // Hip circles, hands tracing up the body and over the head
-          this.parts.armL.rotation.z = 0.7 + Math.sin(b) * 0.7;
-          this.parts.armR.rotation.z = -0.7 - Math.sin(b + 1) * 0.7;
+          /* Hip circles, hands tracing up and out overhead. Every arm swing in
+           * this routine works OUTWARD (negative z on the left arm, positive
+           * on the right): the old inward sweeps drove the upper arms through
+           * the chest, which is the exact clipping the owner flagged. */
+          this.parts.armL.rotation.z = -(0.7 + Math.sin(b) * 0.7);
+          this.parts.armR.rotation.z = 0.7 + Math.sin(b + 1) * 0.7;
           this.parts.armL.rotation.x = -0.5 + Math.sin(b * 0.5) * 0.6;
           this.parts.armR.rotation.x = -0.5 + Math.sin(b * 0.5 + 2) * 0.6;
           this.parts.foreL.rotation.x = -0.6;
@@ -805,11 +869,13 @@ export class Npc {
            * arm puts her fingertips 25 cm above her own head and the scene
            * measures each dancer's bounding box against a 1.95 m ceiling.
            * A gripping hand at brow height reads the same and stays inside
-           * it -- `node tools/shots-cast.mjs probe` reports the margin. */
-          this.parts.armR.rotation.z = -2.2;
+           * it -- `node tools/shots-cast.mjs probe` reports the margin.
+           * The grip arm goes up on the OUTSIDE (the pole is the thing she
+           * leans away from); swung inward it crossed through her own head. */
+          this.parts.armR.rotation.z = 2.2;
           this.parts.armR.rotation.x = -0.15;
           this.parts.foreR.rotation.x = -0.28;
-          this.parts.armL.rotation.z = 0.5 + Math.sin(b) * 0.5;
+          this.parts.armL.rotation.z = -(0.5 + Math.sin(b) * 0.5);
           this.parts.armL.rotation.x = -0.35;
           this.parts.foreL.rotation.x = -0.8;
           this.parts.body.rotation.z = -0.3 * ease + Math.sin(b) * 0.08;
@@ -819,8 +885,8 @@ export class Npc {
           const walk = Math.sin(b * 0.32);
           pz = this.homeZ + walk * 0.55 * ease;
           yaw = this.homeYaw + (walk > 0 ? 0.25 : -0.25);
-          this.parts.armL.rotation.z = 0.8 + Math.sin(b) * 0.35;
-          this.parts.armR.rotation.z = -0.8 - Math.sin(b + 1) * 0.35;
+          this.parts.armL.rotation.z = -(0.8 + Math.sin(b) * 0.35);
+          this.parts.armR.rotation.z = 0.8 + Math.sin(b + 1) * 0.35;
           this.parts.armL.rotation.x = -0.3;
           this.parts.armR.rotation.x = -0.3;
           this.parts.foreL.rotation.x = -0.7;
@@ -837,19 +903,19 @@ export class Npc {
           this.parts.legR.rotation.x = -0.5 * drop;
           this.parts.shinL.rotation.x = 0.95 * drop;
           this.parts.shinR.rotation.x = 0.95 * drop;
-          this.parts.armL.rotation.z = 0.95 * drop;
-          this.parts.armR.rotation.z = -0.95 * drop;
+          this.parts.armL.rotation.z = -0.95 * drop;
+          this.parts.armR.rotation.z = 0.95 * drop;
           this.parts.armL.rotation.x = -0.9 * drop;
           this.parts.armR.rotation.x = -0.9 * drop;
           this.parts.foreL.rotation.x = -0.5;
           this.parts.foreR.rotation.x = -0.5;
           this.parts.body.rotation.z = Math.sin(b) * 0.08;
         } else {
-          // Shoulder shimmy, back arched, chin up
+          // Shoulder shimmy, back arched, chin up, arms flung up and out
           const fast = Math.sin(b * 2.6);
           this.parts.body.rotation.z = fast * 0.16;
-          this.parts.armL.rotation.z = 1.15 + fast * 0.3;
-          this.parts.armR.rotation.z = -1.15 - fast * 0.3;
+          this.parts.armL.rotation.z = -(1.15 + fast * 0.3);
+          this.parts.armR.rotation.z = 1.15 + fast * 0.3;
           this.parts.armL.rotation.x = -0.75;
           this.parts.armR.rotation.x = -0.75;
           this.parts.foreL.rotation.x = -1.15;
@@ -933,11 +999,12 @@ export class Npc {
       default: {
         this.parts.body.rotation.z = Math.sin(t * 0.4) * 0.018;
         if (this.folded) {
-          // Arms crossed: shoulders in, elbows hard, forearms across the chest
-          this.parts.armL.rotation.set(-0.35, 0, 0.42);
-          this.parts.armR.rotation.set(-0.35, 0, -0.42);
-          this.parts.foreL.rotation.set(-1.45, 0.55, 0);
-          this.parts.foreR.rotation.set(-1.45, -0.55, 0);
+          // Arms crossed: lifted well forward first, so the elbows sit ON the
+          // chest and the forearms cross in front of it rather than inside it
+          this.parts.armL.rotation.set(-0.6, 0, 0.42);
+          this.parts.armR.rotation.set(-0.6, 0, -0.42);
+          this.parts.foreL.rotation.set(-1.3, 0.55, 0);
+          this.parts.foreR.rotation.set(-1.3, -0.55, 0);
         } else {
           this.parts.armL.rotation.x = Math.sin(t * 0.5) * 0.045;
           this.parts.armR.rotation.x = Math.sin(t * 0.5 + 1) * 0.045;
@@ -945,16 +1012,27 @@ export class Npc {
       }
     }
 
-    // Talking: the jaw works, the head nods, one hand does the explaining
+    // Talking: the jaw works, the head nods, one hand does the explaining.
+    // The hand turns OUT while it explains -- swung inward it crossed the
+    // sternum and the forearm ran through the speaker's own chest.
     if (this.speaking > 0) {
       const mb = this.parts.mouth.userData.base;
       this.parts.mouth.scale.set(mb.x, mb.y * (1 + Math.abs(Math.sin(t * 11)) * 2.6), mb.z);
       this.parts.head.rotation.x = Math.sin(t * 6) * 0.05;
       this.parts.armR.rotation.x = -0.35 + Math.sin(t * 4.5) * 0.14;
-      this.parts.armR.rotation.z = -0.18;
+      this.parts.armR.rotation.z = 0.16;
       this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;
     } else {
       this.parts.mouth.scale.copy(this.parts.mouth.userData.base);
+    }
+
+    /* Last line of defence for every pose above and any future one: an upper
+     * arm may only cross toward the sternum when it has been lifted well
+     * forward first (a fold, a reach), because that is the only way a real
+     * shoulder does it without passing through the ribcage. */
+    for (const [arm, side] of [[this.parts.armL, -1], [this.parts.armR, 1]]) {
+      const inward = -side * arm.rotation.z;
+      if (inward > 0.45 && arm.rotation.x > -0.55) arm.rotation.z = -side * 0.45;
     }
 
     // Heroes track the player once he is close enough to matter
@@ -992,6 +1070,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   const by = {};
   const add = (key, npc) => {
     npc.colliders ??= club.colliders;
+    npc.navBlockers ??= club.navBlockers ?? null;
     all.push(npc);
     if (key) by[key] = npc;
     return npc;
@@ -1049,20 +1128,26 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     model: { height: 1.82, build: 1.2, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'crop', bandana: false },
   }));
 
+  /* His round goes down the east side, along the front wall, and down the
+   * west side to the stage corner -- then back the way he came. The old loop
+   * closed across the stage front, which meant a leg straight through the
+   * runway now that the stage blocks navigation like the furniture does. */
   add('security', new Npc(scene, {
     name: 'security', tier: 'hero', job: 'patrol',
     x: -6.3, z: -4.5, yaw: 0,
     route: [
       { x: -6.3, z: -4.5 }, { x: -6.3, z: 5.7 },
       { x: -17.9, z: 5.7 }, { x: -17.9, z: -2.3 },
-      { x: -6.3, z: -2.3 },
+      { x: -17.9, z: 5.7 }, { x: -6.3, z: 5.7 },
     ],
     model: { height: 1.88, build: 1.3, dress: 'tee', shirt: 0x14141a, hair: 'bald' },
   }));
 
+  // In the corner by the DJ, clear of the east booth run that now starts at
+  // z -8.5 (he used to stand exactly where booth zero's bench is)
   add('security2', new Npc(scene, {
     name: 'security', tier: 'ambient', job: 'stand',
-    x: 4.5, z: -9.4, yaw: -0.8,
+    x: 4.5, z: -10.35, yaw: -0.8,
     model: { height: 1.86, build: 1.28, dress: 'tee', shirt: 0x14141a, hair: 'crop', beard: true },
   }));
   by.security2.folded = true;
@@ -1083,12 +1168,16 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * Three work a pole and the fourth has the runway, which is why she gets a
    * walk instead of an orbit. See the `dance` case for the routine itself.
    * Per the character bible this presentation belongs to these four roles and
-   * nobody else in either scene. */
+   * nobody else in either scene.
+   *
+   * Order matters: the list is dealt poles-first and the RUNWAY -- the front
+   * of the house, the one the whole room faces -- comes last. The owner's
+   * ruling is that the blonde works the front, so she holds the last slot. */
   const PERFORMERS = [
-    { skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a },  // blonde
+    { skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f },  // platinum
     { skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'tied', shirt: 0x9a4fd9 },  // brunette
     { skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0 },  // black
-    { skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f },  // platinum
+    { skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a },  // blonde
   ];
   [...a.poles, a.runway].forEach((p, i) => {
     const look = PERFORMERS[i % PERFORMERS.length];
@@ -1117,16 +1206,23 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     model: { height: 1.72, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'receding', glasses: true },
   }));
 
-  /* ---- the floor ---- */
+  /* ---- the floor ----
+   * Seated patrons sit ON the benches. The lateral offset runs ALONG the
+   * bench -- z for the east run, x for the north run -- and the north sitters
+   * are pushed back onto the cushion. The old code added every offset to x,
+   * which put one man inside his own table and left the north row hovering a
+   * step in front of their seats. */
   const seatedSpots = [
     [a.booths[0], 0.6], [a.booths[1], -0.4], [a.booths[3], 0.2],
     [a.booths[5], 0.1], [a.booths[6], -0.2], [a.booths[7], 0.4],
   ];
   seatedSpots.forEach(([spot, off], i) => {
+    const eastRun = spot.x > 0;
     add(`patron${i}`, new Npc(scene, {
       name: 'a regular', tier: i < 3 ? 'ambient' : 'background', job: i % 2 ? 'drink' : 'sit',
-      x: spot.x + off, z: spot.z,
-      yaw: spot.x > 0 ? -Math.PI / 2 : (spot.z > 5 ? Math.PI : 0),
+      x: eastRun ? 4.55 : spot.x + off,
+      z: eastRun ? spot.z + off : 10.95,
+      yaw: eastRun ? -Math.PI / 2 : Math.PI,
       model: {
         height: rand(1.66, 1.9), build: rand(0.95, 1.3),
         dress: pick(['shirt', 'tracksuit', 'suit']),
@@ -1164,7 +1260,9 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   add('waiter2', new Npc(scene, {
     name: 'a waiter', tier: 'background', job: 'patrol',
     x: -4, z: 2, yaw: 0,
-    route: [{ x: -4, z: 2 }, { x: -13, z: -1 }, { x: -6, z: 6 }],
+    // Works the two-tops east of the runway; the old middle leg walked him
+    // through the thrust now that the stage blocks the crowd's nav.
+    route: [{ x: -4, z: 2 }, { x: -8.6, z: -1 }, { x: -8.1, z: 2.6 }, { x: -6, z: 6 }],
     model: { height: 1.77, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'crop' },
   }));
   add('cleaner', new Npc(scene, {
@@ -1222,11 +1320,11 @@ export function populate(scene, club, { includeMargo = true } = {}) {
  * Lou's associate: sent out to fetch the prospect when he has been playing
  * cards too long. He is not in the room until he is needed.
  */
-export function makeAssociate(scene, from, colliders = null) {
+export function makeAssociate(scene, from, colliders = null, navBlockers = null) {
   const npc = new Npc(scene, {
     name: "Lou's associate", tier: 'hero', job: 'patrol',
     x: from.x, z: from.z, yaw: 0,
-    colliders,
+    colliders, navBlockers,
     model: { height: 1.84, build: 1.22, dress: 'tracksuit', shirt: 0x1c2f4a, hair: 'crop', bandana: true },
   });
   npc.group.visible = false;

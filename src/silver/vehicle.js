@@ -20,15 +20,26 @@ import * as THREE from 'three';
 import { makeCar } from '../bing/vehicles.js';
 import { Npc } from '../bing/cast.js';
 
+/** How far up the street the car starts, and how far it goes when it leaves. */
+const APPROACH = 22;
+
 export function makeTaxi(scene, dropOff) {
   const car = makeCar('sedan', 0x2a3a4a, { dented: true });
-  car.group.position.set(dropOff.x + 1.2, 0, dropOff.z + 14);
+  /* Parked parallel to the kerb, nose up the street. makeCar authors cars long
+   * on local X with the headlights at +x, and the street runs along x — the
+   * first pass drove it down the z axis, which is a sedan sliding sideways
+   * across the pavement and stopping with its nose through the canopy posts.
+   * The park spot sits the body wholly on the road: kerbline at z 38.55, car
+   * half-width 1.11, so z 39.85 leaves a shoe's width of tarmac between the
+   * sill and the kerb, which is where a driver who is not stopping here stops. */
+  const park = { x: dropOff.x + 0.8, z: dropOff.z + 1.65 };
+  car.group.position.set(park.x - APPROACH, 0, park.z);
   car.group.rotation.y = 0;
   scene.add(car.group);
 
   const driver = new Npc(scene, {
     name: 'the driver', tier: 'ambient', job: 'sit', look: true,
-    x: dropOff.x + 1.2, z: dropOff.z + 14, yaw: -Math.PI / 2,
+    x: park.x + 0.55, z: park.z + 0.28, yaw: Math.PI,
     model: {
       /* A man at the end of a long shift in his own clothes. No club colours,
        * no tracksuit, nothing that reads as connected to anybody. */
@@ -36,9 +47,10 @@ export function makeTaxi(scene, dropOff) {
       hair: 'receding', hairColour: 0x4a4a48, glasses: true,
     },
   });
-  /* Sat in a car rather than on a chair: lower, and turned to the window,
-   * because for the next forty-five seconds he is a head in a window. */
-  driver.group.position.y = 0.16;
+  /* Sat in a car rather than on a chair: lower, in the front half of the
+   * cabin, turned to the kerbside glass — for the next forty-five seconds he
+   * is a head in a window. */
+  driver.group.position.set(park.x + 0.55, 0.16, park.z + 0.28);
   driver.baseY = 0.16;
 
   /* Something to aim the interaction at. The car's own glass is one mesh for
@@ -56,6 +68,7 @@ export function makeTaxi(scene, dropOff) {
     car,
     driver,
     window: win,
+    park,
     /** He has three more of these before he is finished for the night. */
     leave() { if (!leaving) leaving = 1; },
     update(dt) {
@@ -63,10 +76,14 @@ export function makeTaxi(scene, dropOff) {
         driver.update(dt, null);
         return;
       }
+      // Off up the street the way he was already pointing, not across the kerb
       leaving += dt;
-      car.group.position.z += 9 * dt;
-      driver.group.position.z = car.group.position.z;
-      if (car.group.position.z > dropOff.z + 40) car.group.visible = false;
+      car.group.position.x += 9 * dt;
+      driver.group.position.x = car.group.position.x + 0.55;
+      if (car.group.position.x > park.x + APPROACH * 2) {
+        car.group.visible = false;
+        driver.group.visible = false;
+      }
     },
   };
 }

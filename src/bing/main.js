@@ -192,7 +192,7 @@ world.groundAt = club.groundAt;
 
 window.__squatchStage?.('Letting people in…');
 const cast = populate(scene, club, { includeMargo: !isSecondVisit });
-const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders);
+const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders, club.navBlockers);
 
 /* ------------------------------------------------------------------ *
  * The gambling floor's voice.
@@ -236,6 +236,29 @@ function tableSayFirst(candidates) {
 /* Spins in a row that paid nothing. The machine is across the room from the
  * felt and keeps its own counsel, so it does not share the table's floor. */
 let deadSpins = 0;
+
+/* The verdict, big and unmistakable, because "the dealer quietly sweeps your
+ * chips" turned out to be too subtle a way to find out how the hand went.
+ * The text stays in the node after the fade so the state remains inspectable. */
+const bjCallout = document.getElementById('bj-callout');
+let bjCalloutTimer = 0;
+function showHandCallout({ kind, staked = 0, payout = 0 } = {}) {
+  if (!bjCallout || !kind) return;
+  const net = Math.round(payout - staked);
+  const view = {
+    blackjack: ['BLACKJACK', `+$${net}`, 'win'],
+    win: ['YOU WIN', `+$${net}`, 'win'],
+    push: ['PUSH', 'the bet comes back', 'push'],
+    bust: ['BUST', `−$${staked}`, 'lose'],
+    lose: ['HOUSE WINS', `−$${staked}`, 'lose'],
+  }[kind];
+  if (!view) return;
+  bjCallout.innerHTML = `<span class="word">${view[0]}</span><span class="net">${view[1]}</span>`;
+  bjCallout.classList.remove('win', 'push', 'lose');
+  bjCallout.classList.add('show', view[2]);
+  clearTimeout(bjCalloutTimer);
+  bjCalloutTimer = setTimeout(() => bjCallout.classList.remove('show'), 2400);
+}
 
 // The machine bolted to the floor by the front booths
 const slotParts = makeSlotMachine({ x: club.slot.x, z: club.slot.z, rotY: Math.PI });
@@ -282,11 +305,13 @@ const blackjack = new Blackjack(scene, { x: club.bj.x, z: club.bj.z }, seat, {
   spend: (n) => addMoney(-n),
   win: (n) => addMoney(n),
   onDeal: () => audio.play('card.deal', { volume: 0.45, position: club.anchors.blackjack }),
+  onFlip: () => audio.play('card.flip', { volume: 0.5, position: club.anchors.blackjack }),
   onChips: () => audio.play('chips.place', { volume: 0.4, position: club.anchors.blackjack }),
   onState: paintGamble,
   onHandDone: (hands, won, outcome = {}) => {
     mission.handPlayed();
-    if (won) audio.play('chips.place', { volume: 0.5 });
+    if (won) audio.play('chip.stack', { volume: 0.55, position: club.anchors.blackjack });
+    showHandCallout(outcome);
     void hands;
 
     /* Cleaned out. Trumps whatever else the hand was, because being unable to
@@ -542,12 +567,15 @@ registerDoor('service', {
 
 /* ---- people ---- */
 
+/* "Talk to" starts are resumable: walk off mid-conversation and the next
+ * press picks it back up where it lapsed. Scripted one-shots (door lines,
+ * the package beat) keep starting exactly where they are told to. */
 function talkTo(npc, tree, at = 'open') {
   return {
     label: () => `Talk to <b>${npc.name}</b>`,
     onUse: () => {
       npc.faceToward(player.position.x, player.position.z);
-      dialogue.start(tree, at, npc);
+      dialogue.start(tree, at, npc, { resume: true });
     },
   };
 }
@@ -559,7 +587,7 @@ reg(cast.byName.bouncer.group, {
     npc.faceToward(player.position.x, player.position.z);
     if (mission.readyToLeave) dialogue.start(scripts.bouncer, 'leaving', npc);
     else if (mission.flags.bouncerCleared) dialogue.start(scripts.bouncer, 'returning', npc);
-    else dialogue.start(scripts.bouncer, 'open', npc);
+    else dialogue.start(scripts.bouncer, 'open', npc, { resume: true });
   },
 });
 reg(cast.byName.bartender.group, talkTo(cast.byName.bartender, scripts.bartender));
@@ -575,7 +603,7 @@ if (cast.byName.margo) {
     onUse: () => {
       const her = cast.byName.margo;
       her.faceToward(player.position.x, player.position.z);
-      dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her);
+      dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her, { resume: true });
     },
   });
 }
@@ -585,8 +613,8 @@ reg(cast.byName.lou.group, {
     const lou = cast.byName.lou;
     lou.faceToward(player.position.x, player.position.z);
     if (mission.state === 'briefed') dialogue.start(scripts.lou, 'parting', lou);
-    else if (mission.flags.gotPackage) dialogue.start(scripts.lou, 'envelope', lou);
-    else if (dialogue.history.size) dialogue.start(scripts.lou, 'greet', lou);
+    else if (mission.flags.gotPackage) dialogue.start(scripts.lou, 'envelope', lou, { resume: true });
+    else if (dialogue.history.size) dialogue.start(scripts.lou, 'greet', lou, { resume: true });
     else startLouScene();
   },
 });
@@ -950,6 +978,66 @@ for (const spot of club.anchors.booths) {
     onUse: () => hud.say('Kegs, six. Liquor, four. Duck, quantity left blank, initialled by somebody with '
       + 'one letter in their name.', 5000),
   });
+
+  /* The answer to the manifest's blank line, for whoever pokes around the
+   * store room instead of going to see Lou like they were told. */
+  const duckPad = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.75, 0.8), new THREE.MeshBasicMaterial({ visible: false }));
+  duckPad.position.set(club.storeroom.crate.position.x, 0.38, club.storeroom.crate.position.z);
+  scene.add(duckPad);
+  reg(duckPad, {
+    label: () => (club.storeroom.duck.visible ? 'The <b>duck</b>' : 'The crate marked <b>DUCK</b>'),
+    onUse: () => {
+      const store = club.storeroom;
+      audio.play('duck.quack', { volume: 0.6, position: duckPad.position });
+      if (!store.duck.visible) {
+        store.duck.visible = true;
+        store.lid.rotation.z = 0.85;
+        store.lid.position.set(0.36, 0.4, -0.05);
+        hud.toast('Found: the duck', 'good');
+        hud.say('One rubber duck, packed in straw. Manifest quantity finally resolved. '
+          + 'Somebody out front paid four hundred dollars for this.', 5600);
+        mission.note('The duck on the manifest is a rubber one. Nobody must ever know you know.');
+      } else {
+        hud.say('It squeaks with the confidence of contraband.', 3200);
+      }
+    },
+  });
+}
+
+/* ---- the way out on foot ----
+ * "Leave the Bada Bing" used to mean finding your car and knowing to hold [E]
+ * on the wheel, which nobody guessed. Once the job is done the front door
+ * itself offers the exit; the drive-out from the wheel still works the same. */
+{
+  const leavePad = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.9, 1.3), new THREE.MeshBasicMaterial({ visible: false }));
+  leavePad.position.set(0, 1.1, 16.75);
+  scene.add(leavePad);
+  reg(leavePad, {
+    label: () => (isSecondVisit ? 'Hold to <b>head for the motel</b>' : 'Hold to <b>call it a night</b>'),
+    enabled: () => mission.readyToLeave && !game.seatedIn && !game.over,
+    hold: 1.2,
+    onUse: () => leaveByFrontDoor(),
+  });
+}
+
+function leaveByFrontDoor() {
+  if (game.over || !mission.readyToLeave) return;
+  /* Walking out the front counts exactly like driving out: a beat of black
+   * while Tony crosses the lot, then the same drive-away ending, so every
+   * flag he earned tonight still shapes the card. */
+  mission.backInLot();
+  audio.play('car.door', { volume: 0.5, delay: 0.55 });
+  blackout.classList.add('on');
+  setTimeout(() => {
+    game.seatedIn = 'car';
+    player._tween = null;
+    player.mode = 'frozen';
+    player.position.copy(car.driverPosition());
+    player.yaw = car.driverYaw();
+    hud.setMode('seated');
+    blackout.classList.remove('on');
+    driveAway();
+  }, 700);
 }
 
 /* ---- outside ---- */
@@ -1343,24 +1431,34 @@ function enableInput() {
   document.body.classList.remove('unlocked');
 }
 
+/* Drag-look is a FALLBACK, never a life sentence: every attempt asks the
+ * browser for real pointer lock again, and the moment one succeeds the drag
+ * mode retires itself. Losing lock once (an alt-tab, an overlay, a denied
+ * request) used to latch dragLook forever and no click could undo it. */
+let dragLookHinted = false;
+
 function requestLock() {
-  if (dragLook) { enableInput(); return; }
   const p = canvas.requestPointerLock?.();
   if (p && p.catch) p.catch(() => fallBackToDragLook());
   setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
+    if (document.pointerLockElement !== canvas && !game.paused) fallBackToDragLook();
   }, 600);
 }
 
 function fallBackToDragLook() {
-  if (dragLook) return;
+  if (document.pointerLockElement === canvas) return;
+  if (!dragLook && !dragLookHinted) {
+    dragLookHinted = true;
+    hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em> '
+      + 'Any click keeps retrying the real thing.', 7000);
+  }
   dragLook = true;
   enableInput();
-  hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
 }
 
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
+  if (locked) dragLook = false;   // the real thing won; retire the fallback
   player.enabled = locked || dragLook;
   document.body.classList.toggle('unlocked', !locked && !dragLook);
   if (!locked && !dragLook) player.clearKeys();
@@ -1458,7 +1556,10 @@ window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
 
 canvas.addEventListener('click', () => {
   if (!game.started || game.paused) return;
-  if (document.pointerLockElement !== canvas && !dragLook) requestLock();
+  // Every canvas click while unlocked re-attempts REAL pointer lock, even
+  // from drag-look -- the browser may grant it now that this is a fresh
+  // user gesture, and pointerlockchange retires the fallback when it does.
+  if (document.pointerLockElement !== canvas) requestLock();
 });
 
 startBtn.addEventListener('click', async () => {
@@ -1597,6 +1698,10 @@ function onRoomChange(next) {
   if (mission.readyToLeave && (next === 'yard' || next === 'alley')) {
     mission.flags.leftByRear = true;
   }
+  if (next === 'vestibule' && mission.readyToLeave && !game.leaveHinted) {
+    game.leaveHinted = true;
+    hud.say('Out the front and into the rain. <em>Hold [E] at the door to leave, or take the wheel in the lot.</em>', 5600);
+  }
   if ((next === 'lot' || next === 'alley') && mission.state === 'leaving') {
     mission.backInLot();
     /* You told him, so somebody is out here. He does nothing except be
@@ -1634,10 +1739,12 @@ function checkStage() {
     game.stagedOn = false;
     const guard = cast.byName.security;
     guard.job = 'patrol';
+    // Same there-and-back round as his authored one: no leg crosses the
+    // stage front, which is nav-blocked for the crowd.
     guard.route = [
       { x: -6.3, z: -4.5 }, { x: -6.3, z: 5.7 },
-      { x: -18.5, z: 5.7 }, { x: -18.5, z: -2.3 },
-      { x: -6.3, z: -2.3 },
+      { x: -17.9, z: 5.7 }, { x: -17.9, z: -2.3 },
+      { x: -17.9, z: 5.7 }, { x: -6.3, z: 5.7 },
     ];
   }
 }

@@ -257,6 +257,22 @@
       "stability": 0.4,
       "similarity": 0.78,
       "style": 0.6
+    },
+    "sal": {
+      "id": "q3pCVYOxlOb5G3l2O13o",
+      "_note": "Sal “The Prospector” Sorrento. A businessman who has never once raised his voice and does not intend to start. Warm, reasonable, unhurried — explaining something obvious to someone he likes, right up until he isn't.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.25
+    },
+    "mcclawsky": {
+      "id": "yowh82B72eMNrxcxHgBh",
+      "_note": "Captain McClawsky. Large, bored, on somebody's payroll. Talks to Prospect the way you talk to a kid who keeps interrupting — no menace in it, he does not think he needs any.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.55,
+      "similarity": 0.78,
+      "style": 0.2
     }
   },
   "sfx": [
@@ -5000,6 +5016,22 @@
       "prompt": "a folded banknote pressed into a palm and closed around, soft paper crease and fabric, very close mic, dry"
     },
     {
+      "_comment": "The Bada Bing's blackjack corner. Three moments a hand actually has: a card out of the shoe, the hole card turned, and a paid stack squared up. The WebAudio synth stands in for any of these that have not been generated.",
+      "name": "card.deal",
+      "duration": 0.6,
+      "prompt": "single playing card slid off a dealing shoe and dropped flat onto casino felt, short crisp slide and a soft padded landing, close mic, dry, no voice"
+    },
+    {
+      "name": "card.flip",
+      "duration": 0.5,
+      "prompt": "single playing card snapped over face-up on felt, quick sharp flick of card stock and a light settle, close mic, dry, no voice"
+    },
+    {
+      "name": "chip.stack",
+      "duration": 0.9,
+      "prompt": "a short stack of clay poker chips set down on casino felt and squared together, bright ceramic clicks ending in one flat tap, close mic, no voice"
+    },
+    {
       "name": "pour",
       "duration": 1.6,
       "prompt": "whiskey poured from a bottle into a heavy tumbler, steady stream, glass resonance, close mic, dry bar interior"
@@ -5127,6 +5159,627 @@
       "voice": "margo",
       "say": "And iron something. I have seen what you wear at four in the morning.",
       "duration": 4
+    },
+    {
+      "name": "restaurant.room.tone",
+      "duration": 30,
+      "prompt": "Small dim Italian restaurant late at night, half full. Low room tone, distant cutlery, murmured conversation well back in the mix. No music. Seamless loop."
+    },
+    {
+      "name": "restaurant.murmur",
+      "duration": 30,
+      "prompt": "Two or three indistinct diner conversations, no intelligible words, low and even. Seamless loop."
+    },
+    {
+      "name": "restaurant.kitchen",
+      "duration": 20,
+      "prompt": "Restaurant kitchen heard through a closed swing door: pans, a low extractor, no highs. Seamless loop."
+    },
+    {
+      "name": "street.wet.night",
+      "duration": 30,
+      "prompt": "Night street under an elevated railway after rain, tyres hissing on wet asphalt, distant city, no voices. Seamless loop."
+    },
+    {
+      "name": "street.car.pass.wet",
+      "duration": 3,
+      "prompt": "A single car passing on a wet road, swelling by and away. Nothing sporty."
+    },
+    {
+      "name": "street.horn.distant",
+      "duration": 1.2,
+      "prompt": "A short car horn several streets away, flattened by distance."
+    },
+    {
+      "name": "bathroom.tone",
+      "duration": 30,
+      "prompt": "Hard tiled public bathroom room tone with a faint fluorescent ballast hum. Seamless loop."
+    },
+    {
+      "name": "bathroom.drip",
+      "duration": 0.4,
+      "prompt": "A single water drop landing in standing water in a tiled room."
+    },
+    {
+      "name": "dish.clink",
+      "duration": 0.5,
+      "prompt": "One fork or glass touching a plate across a restaurant room. Small, dry, unremarkable."
+    },
+    {
+      "name": "train.elevated.rumble",
+      "duration": 30,
+      "prompt": "Elevated train passing overhead: steel structure resonating, low and broad, no wheel detail. Seamless loop for rising gain."
+    },
+    {
+      "name": "train.elevated.roar",
+      "duration": 30,
+      "prompt": "The mid band of an elevated train pass, the part that arrives late and makes conversation impossible. Seamless loop."
+    },
+    {
+      "name": "train.elevated.sub",
+      "duration": 30,
+      "prompt": "Sub-bass only, 30 to 50 hertz, the part of a passing train felt through a chair. Seamless loop."
+    },
+    {
+      "name": "train.rail.clatter",
+      "duration": 0.4,
+      "prompt": "Train wheels crossing a rail joint overhead, two metallic knocks close together."
+    },
+    {
+      "name": "train.horn.far",
+      "duration": 2,
+      "prompt": "Long flat two-tone train horn a long way off. Mournful, not urgent."
+    },
+    {
+      "name": "gun.drop.wood",
+      "duration": 1.2,
+      "prompt": "A revolver dropped onto a hardwood floor from waist height. One heavy knock, a smaller settle, then nothing."
+    },
+    {
+      "name": "ear.ringing",
+      "duration": 20,
+      "prompt": "Tinnitus after two gunshots indoors: steady high sine tone around 4 kilohertz with a fainter partial. Seamless loop."
+    },
+    {
+      "name": "footstep.street.wet",
+      "duration": 0.4,
+      "prompt": "One footstep on wet pavement, leather sole, slight water in it."
+    },
+    {
+      "name": "chair.scrape.wood",
+      "duration": 0.8,
+      "prompt": "A wooden restaurant chair pulled back over a hardwood floor. Not a screech."
+    },
+    {
+      "name": "chair.knock",
+      "duration": 0.5,
+      "prompt": "A wooden chair settling as someone sits, or knocked as they stand quickly."
+    },
+    {
+      "name": "door.restaurant.open",
+      "duration": 1.2,
+      "prompt": "A heavy glazed restaurant front door pulled open, hinge and a breath of street noise arriving."
+    },
+    {
+      "name": "door.restaurant.close",
+      "duration": 1,
+      "prompt": "A heavy glazed restaurant front door closing and latching, shutting the street out."
+    },
+    {
+      "name": "door.bathroom.close",
+      "duration": 1,
+      "prompt": "A light interior door closing in a tiled bathroom, with the room's slap on it."
+    },
+    {
+      "name": "cloth.suit.movement",
+      "duration": 0.6,
+      "prompt": "Suit fabric moving: a napkin set down, a jacket shifting, cloth unwrapped from something heavy."
+    },
+    {
+      "name": "wine.pour.glass",
+      "duration": 2.5,
+      "prompt": "Red wine poured into a glass at a restaurant table, unhurried."
+    },
+    {
+      "name": "glass.wine.fall",
+      "duration": 1.5,
+      "prompt": "A wine glass going over on a laid table, rolling off, and breaking on a hard floor."
+    },
+    {
+      "name": "search.rustle",
+      "duration": 0.8,
+      "prompt": "A hand moving over cold porcelain and dusty pipework, feeling for something hidden. Close and dry."
+    },
+    {
+      "name": "pipe.knock.cistern",
+      "duration": 0.5,
+      "prompt": "Knuckles knocking against a toilet cistern pipe in a tiled room."
+    },
+    {
+      "name": "heartbeat.slow",
+      "duration": 1,
+      "prompt": "One slow heavy heartbeat, felt more than heard, close and internal."
+    },
+    {
+      "name": "breath.controlled",
+      "duration": 1.2,
+      "prompt": "One controlled breath in and out through the nose, tense, close mic."
+    },
+    {
+      "name": "car.door.close.heavy",
+      "duration": 0.8,
+      "prompt": "A heavy nineteen-seventies car door closing on a quiet wet street."
+    },
+    {
+      "name": "vo.sf.greeting.1",
+      "voice": "mcclawsky",
+      "say": "Come on, Squatch. They're waiting."
+    },
+    {
+      "name": "vo.sf.opening.1",
+      "voice": "sal",
+      "say": "The Sasquatches are making business difficult."
+    },
+    {
+      "name": "vo.sf.opening.2",
+      "voice": "player",
+      "say": "You attacked my family."
+    },
+    {
+      "name": "vo.sf.opening.3",
+      "voice": "sal",
+      "say": "Business disagreement."
+    },
+    {
+      "name": "vo.sf.opening.4",
+      "voice": "player",
+      "say": "You shot Booski."
+    },
+    {
+      "name": "vo.sf.opening.5",
+      "voice": "sal",
+      "say": "Booski rejected my offer."
+    },
+    {
+      "name": "vo.sf.opening.6",
+      "voice": "mcclawsky",
+      "say": "Your people need to calm down."
+    },
+    {
+      "name": "vo.sf.opening.7",
+      "voice": "player",
+      "say": "You hit me."
+    },
+    {
+      "name": "vo.sf.opening.8",
+      "voice": "mcclawsky",
+      "say": "You were being difficult."
+    },
+    {
+      "name": "vo.sf.opening.9",
+      "voice": "sal",
+      "say": "I want the servers, the skin market, and Wednesday nights."
+    },
+    {
+      "name": "vo.sf.opening.10",
+      "voice": "player",
+      "say": "Wednesday belongs to the family."
+    },
+    {
+      "name": "vo.sf.opening.11",
+      "voice": "sal",
+      "say": "Everything belongs to someone until it changes hands."
+    },
+    {
+      "name": "vo.sf.opening.12",
+      "voice": "sal",
+      "say": "Help me, Prospect. The Sasquatches keep their territory. I get a percentage."
+    },
+    {
+      "name": "vo.sf.opening.13",
+      "voice": "player",
+      "say": "What percentage?"
+    },
+    {
+      "name": "vo.sf.opening.14",
+      "voice": "sal",
+      "say": "Enough."
+    },
+    {
+      "name": "vo.sf.excuse.1",
+      "voice": "player",
+      "say": "I need to use the bathroom."
+    },
+    {
+      "name": "vo.sf.excuse.2",
+      "voice": "mcclawsky",
+      "say": "Go ahead. We checked it."
+    },
+    {
+      "name": "vo.sf.sitdown.1",
+      "voice": "mcclawsky",
+      "say": "Sit down, Squatch."
+    },
+    {
+      "name": "vo.sf.wrongsearch.1",
+      "voice": "player",
+      "say": "Come on."
+    },
+    {
+      "name": "vo.sf.prodding.1",
+      "voice": "sal",
+      "say": "Prospect?"
+    },
+    {
+      "name": "vo.sf.prodding.2",
+      "voice": "sal",
+      "say": "Are you listening?"
+    },
+    {
+      "name": "vo.sf.final.1",
+      "voice": "sal",
+      "say": "So. Do we have an understanding?"
+    },
+    {
+      "name": "vo.sf.final.2",
+      "voice": "player",
+      "say": "I understand."
+    },
+    {
+      "name": "vo.sf.final.3",
+      "voice": "sal",
+      "say": "Good. The Sasquatches keep their name."
+    },
+    {
+      "name": "vo.sf.final.4",
+      "voice": "mcclawsky",
+      "say": "And everyone walks away happy."
+    },
+    {
+      "name": "vo.sf.final.5",
+      "voice": "sal",
+      "say": "Tell your people the business is settled."
+    },
+    {
+      "name": "vo.sf.final.6",
+      "voice": "player",
+      "say": "It is."
+    },
+    {
+      "name": "vo.bing.hang.lag.1",
+      "voice": "lag",
+      "say": "You see the lights flicker just now? That ain't the wiring, that's packet loss. This whole building is on wifi.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.lag.2",
+      "voice": "lag",
+      "say": "I don't dance, Prospect. I peaked in a game you never heard of and I'm still cooling down.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.lag.tony.1",
+      "voice": "player",
+      "say": "The jukebox is not a server, Lag.",
+      "duration": 3
+    },
+    {
+      "name": "vo.bing.hang.gratin.1",
+      "voice": "gratin",
+      "say": "The kitchen here does one thing, and it is shrimp, and it is wrong. I still order it. Loyalty.",
+      "duration": 7
+    },
+    {
+      "name": "vo.bing.hang.gratin.2",
+      "voice": "gratin",
+      "say": "Sit. Eat something. You look like a prospect who skips lunch, and dead men skip lunch.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.gratin.tony.1",
+      "voice": "player",
+      "say": "I ate an egg today, actually.",
+      "duration": 3
+    },
+    {
+      "name": "vo.bing.hang.eric.1",
+      "voice": "eric",
+      "say": "Big things happening overseas, Prospect. Nobody in this club reads. I read. Ask me anything.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.eric.2",
+      "voice": "eric",
+      "say": "Off the record? The family's press situation is terrible, because we shoot the press.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.hogmama.1",
+      "voice": "hogmama",
+      "say": "Gimme a word, baby. Any word. I'll make a whole bit out of it, right here, no net.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.hogmama.2",
+      "voice": "hogmama",
+      "say": "You? You're a bit already, honey. Walkin' around all serious with them little errands.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.hogmama.tony.1",
+      "voice": "player",
+      "say": "Please don't make me a bit.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.hang.deathmegatron.1",
+      "voice": "deathmegatron",
+      "say": "I ordered a spritz. They gave me a spritz. Ain't every day the world does what it should.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.deathmegatron.2",
+      "voice": "deathmegatron",
+      "say": "Relax, kid. Nobody dies on a Tuesday. Statistically that ain't true, but relax anyway.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.lou.1",
+      "voice": "lou",
+      "say": "There he is. My favorite errand with legs. You keepin' your nose clean or just wipin' it?",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.lou.2",
+      "voice": "lou",
+      "say": "Everything in this room I either bought, won, or forgave. Remember that when you want somethin'.",
+      "duration": 6.5
+    },
+    {
+      "name": "vo.bing.hang.booski.1",
+      "voice": "booski",
+      "say": "PROSPECT! Get over here before I love you from a distance like some kinda stranger!",
+      "duration": 5.5
+    },
+    {
+      "name": "vo.bing.hang.booski.2",
+      "voice": "booski",
+      "say": "I had six hundred on red and it came up FAMILY, baby. House pays either way when it's my house.",
+      "duration": 6.5
+    },
+    {
+      "name": "vo.bing.hang.sasole.1",
+      "voice": "lou2",
+      "say": "Ground people, Tony. Everyone in here. Beautiful souls, zero situational awareness.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.sasole.2",
+      "voice": "lou2",
+      "say": "You flew with me once and you walked away from the landing. That puts you top five pilots in this room.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.sasole.tony.1",
+      "voice": "player",
+      "say": "Top five? Who's ahead of me?",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.hang.willy.1",
+      "voice": "willy",
+      "say": "I'm between things right now. Big things. Can't say. The things can hear.",
+      "duration": 5.5
+    },
+    {
+      "name": "vo.bing.hang.willy.2",
+      "voice": "willy",
+      "say": "You want my seat? It's the best seat. That's why I'm in it. I test 'em all after close.",
+      "duration": 5.5
+    },
+    {
+      "name": "vo.bing.hang.irish.1",
+      "voice": "irish",
+      "say": "Sit down, sit down — I was just gettin' to the good part. So the egg, right, the SAME egg—",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.irish.2",
+      "voice": "irish",
+      "say": "Nobody finishes a story anymore. Attention spans. Now — where was I. Start over. So. Eggs.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.irish.tony.1",
+      "voice": "player",
+      "say": "You told me the egg one, Irish.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.hang.ape.1",
+      "voice": "ape",
+      "say": "Statements made in this establishment are for entertainment purposes only.",
+      "duration": 5
+    },
+    {
+      "name": "vo.bing.hang.ape.2",
+      "voice": "ape",
+      "say": "I am having a nice time. This is my nice-time face. It is load-bearing.",
+      "duration": 5
+    },
+    {
+      "name": "vo.bing.hang.stove.1",
+      "voice": "old-stove",
+      "say": "City drinks, city prices, city ice. Ice used to mean somethin'.",
+      "duration": 5
+    },
+    {
+      "name": "vo.bing.hang.stove.2",
+      "voice": "old-stove",
+      "say": "That aeroplane misses you. Don't you tell her nothin' I wouldn't say.",
+      "duration": 5
+    },
+    {
+      "name": "vo.bing.hang.snow.1",
+      "voice": "snow",
+      "say": "Cold in here. Good.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.hang.snow.2",
+      "voice": "snow",
+      "say": "You talk a lot for a guy on a checklist.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.bing.hang.rippinflow.1",
+      "voice": "rippinflow",
+      "say": "Prospect on the floor, yeah, walkin' like rent's due — that's a bar, that's free, someone write that down.",
+      "duration": 6.5
+    },
+    {
+      "name": "vo.bing.hang.rippinflow.2",
+      "voice": "rippinflow",
+      "say": "I don't freestyle no more. Anyway — look at him, suit like a verdict, uh — see, it happened again.",
+      "duration": 6.5
+    },
+    {
+      "name": "vo.bing.hang.seff.1",
+      "voice": "seff",
+      "say": "Quick thing. You got a guy for mattresses? Doesn't matter. Forget it. I GOT the guy. I'm the guy.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.seff.2",
+      "voice": "seff",
+      "say": "This round's on me the moment somebody explains my situation to Lou. You'll do that, right?",
+      "duration": 5.5
+    },
+    {
+      "name": "vo.bing.hang.shubenator.1",
+      "voice": "shubenator",
+      "say": "I did nine hundred push-ups today. The number is not the impressive part. The floor was.",
+      "duration": 5.5
+    },
+    {
+      "name": "vo.bing.hang.shubenator.2",
+      "voice": "shubenator",
+      "say": "You need mass, Prospect. Order the shrimp. Order nine shrimp.",
+      "duration": 4.5
+    },
+    {
+      "name": "vo.bing.booski.shot.offer",
+      "voice": "booski",
+      "say": "You look empty-handed, Prospect. That's a ME problem now. You want a shot? Course you want a shot.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.booski.shot.yell",
+      "voice": "booski",
+      "say": "AY! I want that shot in thirty FUCKING seconds!",
+      "duration": 4
+    },
+    {
+      "name": "vo.bing.booski.shot.handoff",
+      "voice": "booski",
+      "say": "Twenty-eight. He's growin' on me. Drink, baby.",
+      "duration": 4
+    },
+    {
+      "name": "vo.bing.booski.shot.tony.1",
+      "voice": "player",
+      "say": "Thanks. I was gonna say no, and then I heard the yelling.",
+      "duration": 4
+    },
+    {
+      "name": "vo.bing.blackjack.dealer.deal.1",
+      "voice": "dealer",
+      "say": "Cards comin' in.",
+      "duration": 2
+    },
+    {
+      "name": "vo.bing.blackjack.dealer.deal.2",
+      "voice": "dealer",
+      "say": "Good luck, prospect.",
+      "duration": 2
+    },
+    {
+      "name": "vo.bing.blackjack.dealer.win",
+      "voice": "dealer",
+      "say": "Player wins. Somebody's kissin' the right rings.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.bing.blackjack.dealer.lose",
+      "voice": "dealer",
+      "say": "House takes it. The house always liked me better.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.bing.blackjack.dealer.push",
+      "voice": "dealer",
+      "say": "Push. Nobody wins, everybody stays pretty.",
+      "duration": 3
+    },
+    {
+      "name": "vo.bing.blackjack.dealer.bust",
+      "voice": "dealer",
+      "say": "That's a bust, sweetheart.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.blackjack.tony.win",
+      "voice": "player",
+      "say": "Hey — that's how you do that.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.blackjack.tony.lose",
+      "voice": "player",
+      "say": "That card was personal.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.door.in.1",
+      "voice": "doorman",
+      "say": "Go on in. He knows.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.door.in.2",
+      "voice": "doorman",
+      "say": "Nice night. Stays nice if you're nice.",
+      "duration": 3
+    },
+    {
+      "name": "vo.bing.bar.1",
+      "voice": "bartender",
+      "say": "What're we havin'?",
+      "duration": 2
+    },
+    {
+      "name": "vo.bing.bar.2",
+      "voice": "bartender",
+      "say": "Comin' up. Don't watch me pour, it makes the hands weird.",
+      "duration": 4
+    },
+    {
+      "name": "vo.bing.bar.3",
+      "voice": "bartender",
+      "say": "Booski's tab? Booski's tab is a myth I refill.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.bing.stage.1",
+      "voice": "performer",
+      "say": "You're sweet. Tip the band, sweetheart.",
+      "duration": 3
+    },
+    {
+      "name": "vo.bing.stage.2",
+      "voice": "performer",
+      "say": "Eyes up here are free. The winkin' costs.",
+      "duration": 3.5
     }
   ]
 }

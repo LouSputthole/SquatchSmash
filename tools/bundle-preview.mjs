@@ -118,6 +118,7 @@ function rewrite({ src, rel }) {
 const inline = {};
 for (const [dir, name] of [
   ['assets/art/', 'manifest.json'],
+  ['assets/models/', 'manifest.json'],
   ['assets/music/', 'manifest.json'],
   ['assets/sfx/', 'manifest.json'],
   ['assets/sfx/', 'index.json'],

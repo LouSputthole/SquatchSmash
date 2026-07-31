@@ -134,7 +134,7 @@ export function zoneAt(room) {
  */
 export const ROUTE = [
   /* ---- the pavement, and along the front to the alley mouth ---- */
-  { x: 6,    z: 39,   room: 'street' },
+  { x: 9,    z: 39,   room: 'street' },
   { x: 22,   z: 37.5, room: 'street' },
   { x: 33,   z: 36,   room: 'street' },
   /* ---- the alley, down the east side to the service door ---- */
@@ -235,6 +235,13 @@ export function buildRoom(scene, { renderer } = {}) {
   const M_GLASS = mat({ color: 0x9fb4cc, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.26 });
   const M_VELVET = mat({ color: 0x4a0d18, roughness: 1 });
   const M_ASPHALT = mat({ map: tiled(asphalt(), 10, 6), roughness: 0.98 });
+  /* Every glowing lampshade in the building. The base colour is near-black on
+   * purpose: the glow is the emissive term, and a pale albedo under a bulb a
+   * hand-span away multiplies into hundreds — which is what had every table
+   * lamp blooming like a headlight and the owner asking why he could not see
+   * the woman across the table. A black shade cannot be scorched by its own
+   * bulb; what you see is exactly the emissive, which is exactly a number. */
+  const M_SHADE = mat({ color: 0x1a1008, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.4 });
 
   /**
    * An actual lamp.
@@ -399,18 +406,35 @@ export function buildRoom(scene, { renderer } = {}) {
   add(moon, moon.target);
 
   /* And a floor under the whole city, so the drop-off is on a road rather than
-   * on the edge of the world. */
+   * on the edge of the world.
+   *
+   * In four pieces, with a hole left over the cellar's footprint. It used to
+   * be one 300m sheet, which also ran *under the building* at y=-0.02 — and
+   * the cellar is at -2.9, so both stairwells had a street-sized asphalt lid
+   * across them exactly at the eye line of anybody standing at the top. The
+   * whole descent read as opaque: you walked down into a surface you could
+   * not see through and the room below only existed once your head was under
+   * it. The hole covers the two ramp wells and everything below grade; the
+   * ground floors of the building sit at y=0 and hide the seams. */
   {
-    const tex = tiled(asphalt(), 30, 30);
-    if (renderer) tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    const g = new THREE.Mesh(
-      new THREE.PlaneGeometry(300, 300),
-      mat({ map: tex, roughness: 0.44, metalness: 0.08 }),
-    );
-    g.rotation.x = -Math.PI / 2;
-    g.position.set(0, -0.02, 20);
-    g.receiveShadow = true;
-    add(g);
+    const HOLE = { x0: 14.7, x1: 29.6, z0: -14.5, z1: 14.9 };
+    for (const [x0, z0, x1, z1] of [
+      [-150, -130, HOLE.x0, 170],
+      [HOLE.x1, -130, 150, 170],
+      [HOLE.x0, HOLE.z1, HOLE.x1, 170],
+      [HOLE.x0, -130, HOLE.x1, HOLE.z0],
+    ]) {
+      const tex = tiled(asphalt(), (x1 - x0) / 10, (z1 - z0) / 10);
+      if (renderer) tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      const g = new THREE.Mesh(
+        new THREE.PlaneGeometry(x1 - x0, z1 - z0),
+        mat({ map: tex, roughness: 0.44, metalness: 0.08 }),
+      );
+      g.rotation.x = -Math.PI / 2;
+      g.position.set((x0 + x1) / 2, -0.02, (z0 + z1) / 2);
+      g.receiveShadow = true;
+      add(g);
+    }
   }
 
   /* ================================================================ */
@@ -469,7 +493,12 @@ export function buildRoom(scene, { renderer } = {}) {
     }
     anchors.publicDoor = new THREE.Vector3(0, 0, 35.4);
     anchors.queue = new THREE.Vector3(0, 0, 39.8);
-    anchors.dropOff = new THREE.Vector3(6, 0, 38.5);
+    /* Where the two of them land: on the pavement at the kerb, east of the
+     * canopy. It used to be (6, 38.5) — half a metre off the queue's rope with
+     * a canopy post at arm's length, and the car stopped ON it, nose across
+     * the kerb. Clear of the posts (±5.2), clear of the rope run (x ≤ 4.4),
+     * with the whole car on the road. */
+    anchors.dropOff = new THREE.Vector3(9, 0, 38.2);
     anchors.doorman = new THREE.Vector3(2.6, 0, 35.8);
 
     // THE SILVER ROOM, in brass, lit from below and slightly too big
@@ -483,8 +512,16 @@ export function buildRoom(scene, { renderer } = {}) {
     /* Proud of the brick, not inside it. The frontage is 400mm thick, so it
      * runs z 34.0..34.4 and a sign at 34.35 is 50mm *into* the wall — which is
      * where this one has always been, on one side or the other. All you ever
-     * saw was the uplight washing bare brick. */
-    const nameSign = sign(nameTex, 10, 1.9, { x: 0, y: 5.6, z: 34.45, emissive: '#e8d9a8', intensity: 1.5 });
+     * saw was the uplight washing bare brick.
+     *
+     * Emissive 0.55, not 1.5. The letter cores in the neon texture are
+     * near-white, and 1.5 put them over the bloom threshold from the far end
+     * of the street: the whole sign read as one gold flare and THE SILVER
+     * ROOM was not readable off its own marquee. At 0.55 the tone mapper
+     * keeps the glyphs under the threshold and the sign is bright, lit, and a
+     * sign. */
+    const nameSign = sign(nameTex, 10, 1.9, { x: 0, y: 5.6, z: 34.45, emissive: '#e8d9a8', intensity: 0.55 });
+    nameSign.name = 'marquee';
     add(nameSign);
     const nameLight = pointLight(0xe8d9a8, 3.2);
     nameLight.position.set(0, 4.4, 36);
@@ -496,6 +533,25 @@ export function buildRoom(scene, { renderer } = {}) {
       w: 256, h: 200, bg: '#120c08', fg: '#d8c48a',
     });
     add(sign(smallTex, 1.5, 1.2, { x: -4.6, y: 2.2, z: 34.44, emissive: '#d8c48a', intensity: 0.5 }));
+
+    /* The nudge towards the side door. The whole bit of the scene is that he
+     * does not stand in that queue, so the east corner of the frontage — the
+     * corner you land facing — carries a small service plate with an arrow at
+     * the alley, and a bulb over it so the eye finds it before the rope does.
+     * Facing the frontage (looking −z), +x is on your right: the alley is the
+     * way the arrow points. */
+    const serviceTex = printed('silver-service', ['THE SILVER ROOM', 'SERVICE & DELIVERIES', 'IN REAR →'], {
+      w: 420, h: 220, bg: '#14100a', fg: '#c8b070', border: '#5a4a28',
+      font: '700 40px "Trebuchet MS", sans-serif',
+    });
+    const servicePlate = sign(serviceTex, 1.7, 0.9, { x: 19.6, y: 2.3, z: 34.44, emissive: '#c8b070', intensity: 0.4 });
+    servicePlate.name = 'service-plate';
+    add(servicePlate);
+    const serviceLight = pointLight(0xffd9a0, 1.2);
+    serviceLight.position.set(19.6, 3.1, 35.1);
+    serviceLight.distance = 7;
+    add(serviceLight);
+    houseLights.push({ light: serviceLight, exterior: true });
 
     // A wet street reads mostly as reflections of things you cannot see
     for (let i = 0; i < 9; i++) {
@@ -539,12 +595,14 @@ export function buildRoom(scene, { renderer } = {}) {
       axis: 'z', fixed: 30.1, from: 10, to: 13.4, material: M_STEEL,
       label: 'the <b>service door</b>', swing: -1.75, hinge: 'high',
     });
-    const bulb = box({ size: [0.42, 0.3, 0.3], pos: [30.6, 2.5, 11.7], mat: M_STEEL_D });
+    /* The lamp housing sits ON the wall face (30.2), not 400mm out in the
+     * air over the doorway. */
+    const bulb = box({ size: [0.42, 0.3, 0.3], pos: [30.34, 2.5, 11.7], mat: M_STEEL_D });
     add(bulb);
     // 1.7, not 2.4: at 900mm off the brick the old one washed the whole
     // elevation to flat white and the alley lost its wall
     const doorLight = pointLight(0xffd9a0, 1.7);
-    doorLight.position.set(30.9, 2.35, 11.7);
+    doorLight.position.set(30.62, 2.35, 11.7);
     doorLight.distance = 9;
     add(doorLight);
     houseLights.push({ light: doorLight, exterior: true });
@@ -575,10 +633,13 @@ export function buildRoom(scene, { renderer } = {}) {
       solid(cx - 0.3, cz - 0.25, cx + 0.3, cz + 0.25, 0, 0.42 + stack * 0.42);
     }
 
-    // A fire escape, because every alley has one and it takes the eye upward
+    /* A fire escape, because every alley has one and it takes the eye upward.
+     * Hung off the brick (face at 38.0) rather than standing in space 600mm
+     * clear of it, which is what it did: rails against the wall, landings
+     * cantilevered off them. */
     for (let i = 1; i <= 3; i++) {
-      add(box({ size: [0.12, 0.06, 3.4], pos: [37.4, 2.4 * i, 24], mat: M_STEEL_D }));
-      add(box({ size: [2.4, 0.06, 0.1], pos: [36.4, 2.4 * i, 22.4], mat: M_STEEL_D }));
+      add(box({ size: [0.12, 0.06, 3.4], pos: [37.92, 2.4 * i, 24], mat: M_STEEL_D }));
+      add(box({ size: [1.2, 0.06, 0.1], pos: [37.35, 2.4 * i, 22.4], mat: M_STEEL_D }));
     }
   }
 
@@ -871,7 +932,9 @@ export function buildRoom(scene, { renderer } = {}) {
     anchors.chef = new THREE.Vector3(20.5, 0, -5.4);
     anchors.prepCook = new THREE.Vector3(18.5, 0, 3.1);   // in front of his bench, not inside it
     anchors.hotPan = new THREE.Vector3(21.5, 0, -9.5);
-    anchors.dishwasher = new THREE.Vector3(26.6, 0, -13.5);
+    /* At the sink, not IN it: 26.6 is the centre line of the dish station he
+     * is supposed to be working at. He stands on its west side, facing it. */
+    anchors.dishwasher = new THREE.Vector3(25.35, 0, -13.5);
     anchors.porter = new THREE.Vector3(17.5, 0, -13);
 
     // The pass: a heated shelf, ticket rail, and the light over it
@@ -977,6 +1040,48 @@ export function buildRoom(scene, { renderer } = {}) {
     rampLight.distance = 12;
     add(rampLight);
     houseLights.push({ light: rampLight, back: true });
+
+    /* ---- the way out to the floor, painted on the floor ----
+     *
+     * The playtest note was blunt: coming up out of the cellar into a working
+     * kitchen, nothing says which way the dining room is. Working kitchens
+     * answer this the same way everywhere — a painted walkway lane — so one
+     * runs from the top of the ramp, east of the pass, along the aisle between
+     * pass and line, to the swing doors. Worn safety yellow, flat on the tile,
+     * no collider. A lit FLOOR plate over the swing doors on the kitchen side
+     * finishes the sentence, and its twin in the corridor points the turn
+     * north (facing −x, +z is on your LEFT). */
+    const M_LANE = mat({ color: 0x8a742c, roughness: 0.95 });
+    const lane = [
+      [20.6, 0.8], [22.6, -3.2], [22.6, -8.35], [16.4, -7.9], [15.3, -7.8],
+    ];
+    for (let i = 0; i + 1 < lane.length; i++) {
+      const [x0, z0] = lane[i];
+      const [x1, z1] = lane[i + 1];
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const stripe = box({
+        size: [0.14, 0.008, len + 0.14],
+        pos: [(x0 + x1) / 2, 0.012, (z0 + z1) / 2],
+        rotY: Math.atan2(x1 - x0, z1 - z0),
+        mat: M_LANE, cast: false,
+      });
+      stripe.name = 'service-lane';
+      add(stripe);
+    }
+    const floorTex = printed('silver-floor-plate', ['FLOOR'], {
+      w: 256, h: 110, bg: '#141410', fg: '#c8b070', border: '#5a4a28',
+      font: '800 54px "Trebuchet MS", sans-serif',
+    });
+    const floorPlate = sign(floorTex, 1.1, 0.45, { x: 15.16, y: 2.4, z: -7.8, rotY: Math.PI / 2, emissive: '#c8b070', intensity: 0.4 });
+    floorPlate.name = 'floor-plate';
+    add(floorPlate);
+    const floorTurnTex = printed('silver-floor-turn', ['← FLOOR'], {
+      w: 256, h: 110, bg: '#141410', fg: '#c8b070', border: '#5a4a28',
+      font: '800 50px "Trebuchet MS", sans-serif',
+    });
+    const floorTurn = sign(floorTurnTex, 1.1, 0.45, { x: 9.94, y: 2.2, z: -7.8, rotY: Math.PI / 2, emissive: '#c8b070', intensity: 0.4 });
+    floorTurn.name = 'floor-plate';
+    add(floorTurn);
   }
 
   /* ================================================================ */
@@ -1225,9 +1330,15 @@ export function buildRoom(scene, { renderer } = {}) {
 
     /* ---- the room itself: tables, banquettes, columns ---- */
     anchors.tables = [];
+    /* Every laid table with its actual chairs: { x, z, seats: [{x, z, yaw}] }.
+     * The diners are dealt onto these, so a person sitting down in this room
+     * is sitting on a chair that exists, at the table the chair belongs to —
+     * rather than at ±1.15m of the centre, which was usually the gap between
+     * two chairs and occasionally the inside of one. */
+    anchors.tableSeats = [];
     const seatsAt = [];
     const tableTop = mat({ color: 0xece7dc, roughness: 0.95 });
-    function diningTable(x, z, seats = 4, { r = 0.72 } = {}) {
+    function diningTable(x, z, seats = 4, { r = 0.72, seatBase = 0.4, seatR = null, reserved = false } = {}) {
       const g = group('table');
       g.add(cylinder({ r: 0.09, h: 0.72, pos: [0, 0.36, 0], mat: M_DARKWOOD }));
       g.add(cylinder({ r: 0.36, h: 0.05, pos: [0, 0.03, 0], mat: M_DARKWOOD }));
@@ -1236,14 +1347,20 @@ export function buildRoom(scene, { renderer } = {}) {
       g.add(cylinder({ rTop: r, rBottom: r * 0.94, h: 0.46, pos: [0, 0.52, 0], mat: tableTop }));
       // The shaded lamp, which is the whole look of the room
       g.add(cylinder({ r: 0.05, h: 0.2, pos: [0, 0.86, 0], mat: M_BRASS }));
-      g.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.55 }) }));
+      g.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: M_SHADE }));
       /* The shade glows whatever happens -- that is what you see from across
        * the room -- but only the nearest handful actually cast light. Thirty
        * live point lights in a forward renderer are thirty per-pixel terms in
        * every shader in the scene, and twenty-four of them are lighting a
-       * tablecloth nobody is looking at. */
-      const l = pointLight(0xffb45e, 2.2, 5.2);
-      l.position.set(x, 1.0, z);
+       * tablecloth nobody is looking at.
+       *
+       * The bulb sits *above* the shade rather than inside it. A point light
+       * ten centimetres from a surface is inverse-square fire whatever its
+       * wattage: at (x, 1.0, z) it scorched its own shade and the cloth under
+       * it to white, bloom picked the whole blob up, and the person across
+       * the table was a silhouette behind a flare. */
+      const l = pointLight(0xffb45e, 0.6, 5.2);
+      l.position.set(x, 1.55, z);
       l.intensity = 0;
       add(l);
       lamps.push({ light: l, x, z });
@@ -1251,13 +1368,23 @@ export function buildRoom(scene, { renderer } = {}) {
       add(g);
       solid(x - r, z - r, x + r, z + r, 0, 0.8);
       anchors.tables.push(new THREE.Vector3(x, 0, z));
+      const placed = [];
       for (let i = 0; i < seats; i++) {
-        const a = (i / seats) * Math.PI * 2 + 0.4;
-        const sx = x + Math.sin(a) * (r + 0.5);
-        const sz = z + Math.cos(a) * (r + 0.5);
+        const a = (i / seats) * Math.PI * 2 + seatBase;
+        const ring = seatR ?? (r + 0.5);
+        const sx = x + Math.sin(a) * ring;
+        const sz = z + Math.cos(a) * ring;
+        /* The column guard tests the TABLE. Its chairs stand half a metre
+         * further out, so a table that just cleared a column could still deal
+         * a chair into the oak — which is exactly what the pillar-adjacent
+         * tables did. A chair that would foul a column is not laid. */
+        if (COLUMNS.some(([cx, cz]) => Math.abs(sx - cx) < 0.78 && Math.abs(sz - cz) < 0.78)) continue;
         add(makeChair(M, { x: sx, y: 0, z: sz, rotY: a + Math.PI }));
         seatsAt.push({ x: sx, z: sz, yaw: a + Math.PI });
+        placed.push({ x: sx, z: sz, yaw: a + Math.PI });
       }
+      if (!reserved) anchors.tableSeats.push({ x, z, seats: placed });
+      g.userData.seats = placed;
       return g;
     }
 
@@ -1280,9 +1407,19 @@ export function buildRoom(scene, { renderer } = {}) {
         if (inAColumn(tx, tz)) continue;
         if (Math.hypot(tx - 0.5, tz - 24.2) < 4) continue;   // keep the host station clear
         if (Math.abs(tx - (-16)) < 3 && tz < -2) continue;   // and the front of the stage
+        if (Math.hypot(tx - (-8.6), tz - 1.6) < 2.6) continue; // the crew's table is authored below
         diningTable(tx, tz, col % 2 ? 4 : 2);
       }
     }
+
+    /* The table by the pillar, laid by hand. The men who send the champagne
+     * sit at it, so its four chairs are the four seats the cast puts them in
+     * — `anchors.crewSeats` hands the exact chair positions across — instead
+     * of the grid dropping its own four-top somewhere near the spot and the
+     * crew sitting half in the cloth with spare chairs through their backs.
+     * `reserved` keeps it off the diner deal, because those seats are taken. */
+    const crewTable = diningTable(-8.6, 1.6, 4, { r: 0.72, seatBase: 0.6, seatR: 1.2, reserved: true });
+    anchors.crewSeats = crewTable.userData.seats;
     // Banquettes down the east wall
     for (let i = 0; i < 5; i++) {
       const bz = -3 + i * 5.2;
@@ -1306,17 +1443,19 @@ export function buildRoom(scene, { renderer } = {}) {
     /* Sconces. A forty-metre room lit only from the middle of the ceiling has
      * dark walls and dark faces at every table against them, and the brief on
      * this was explicit: not so dark that you cannot read a face or a prompt.
-     * Brass, shaded, at head height, all the way round. */
+     * Brass, shaded, at head height, all the way round — and ON the walls:
+     * the first pass hung them 250–450mm out into the room, a ring of light
+     * fittings floating in mid-air. Each sits at its wall's inner face now,
+     * stem into the plaster. */
     for (const [sx, sz, ry] of [
-      [-29.6, -2, Math.PI / 2], [-29.6, 6, Math.PI / 2], [-29.6, 14, Math.PI / 2], [-29.6, 22, Math.PI / 2],
-      [9.7, -4, -Math.PI / 2], [9.7, 6, -Math.PI / 2], [9.7, 16, -Math.PI / 2], [9.7, 24, -Math.PI / 2],
-      [-24, 25.7, Math.PI], [-14, 25.7, Math.PI], [-4, 25.7, Math.PI],
+      [-30.0, -2, Math.PI / 2], [-30.0, 6, Math.PI / 2], [-30.0, 14, Math.PI / 2], [-30.0, 22, Math.PI / 2],
+      [9.92, -4, -Math.PI / 2], [9.92, 6, -Math.PI / 2], [9.92, 16, -Math.PI / 2], [9.92, 24, -Math.PI / 2],
+      [-24, 26.0, Math.PI], [-14, 26.0, Math.PI], [-4, 26.0, Math.PI],
     ]) {
       const sc = group('sconce');
       sc.add(cylinder({ r: 0.04, h: 0.3, pos: [0, 0, 0], mat: M_BRASS, rotX: 0.5 }));
       sc.add(cylinder({
-        rTop: 0.13, rBottom: 0.09, h: 0.2, pos: [0, 0.2, 0.06],
-        mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.7 }),
+        rTop: 0.13, rBottom: 0.09, h: 0.2, pos: [0, 0.2, 0.06], mat: M_SHADE,
       }));
       sc.position.set(sx, 2.35, sz);
       sc.rotation.y = ry;
@@ -1345,11 +1484,13 @@ export function buildRoom(scene, { renderer } = {}) {
       houseLights.push({ light: l, chandelier: ch });
     }
 
-    // Framed photographs, the length of the north wall
+    /* Framed photographs, the length of the north wall — hung on it, not
+     * eleven centimetres off it. The wall's inner face is 26.05 and a frame's
+     * back sits 35mm behind its origin. Same arithmetic for the clock. */
     for (let i = 0; i < 9; i++) {
-      add(makeFrame(M, { x: -26 + i * 3.6, y: 2.1, z: 25.9, rotY: Math.PI, w: 0.5, h: 0.62 }));
+      add(makeFrame(M, { x: -26 + i * 3.6, y: 2.1, z: 26.01, rotY: Math.PI, w: 0.5, h: 0.62 }));
     }
-    add(makeWallClock(M, { x: 9.8, y: 3.2, z: 14, rotY: -Math.PI / 2 }));
+    add(makeWallClock(M, { x: 9.94, y: 3.2, z: 14, rotY: -Math.PI / 2 }));
     for (const [px, pz] of [[-28.4, 24], [8.2, 24.6]]) add(makePlant(M, { x: px, y: 0, z: pz }));
 
     /* ---- the back corridor, the restrooms and the manager's station ----
@@ -1439,12 +1580,17 @@ export function buildRoom(scene, { renderer } = {}) {
 
     const lampG = group('front-lamp');
     lampG.add(cylinder({ r: 0.05, h: 0.2, pos: [0, 0.86, 0], mat: M_BRASS }));
-    lampG.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.6 }) }));
+    lampG.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: M_SHADE }));
     lampG.visible = false;
     front.add(lampG);
-    const frontLight = pointLight(0xffb45e, 1.6, 4.8);
+    /* Above the shade, same as every other lamp in the room: this is the one
+     * fitting the player spends twenty minutes eighty centimetres from, and
+     * it must light her face, not flare over it. Its height and wattage are
+     * held by a measured check in verify-silver — the renderer is sampled
+     * from his chair and the white pool under the lamp is counted in pixels. */
+    const frontLight = pointLight(0xffb45e, 0.55, 4.8);
     frontLight.intensity = 0;               // lit last, which is what makes it a table
-    frontLight.position.set(0, 1.0, 0);
+    frontLight.position.set(0, 1.55, 0);
     front.add(frontLight);
 
     // Two settings, hidden until a waiter lays them

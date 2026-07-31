@@ -122,6 +122,18 @@ scene.add(camera);
 
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
+/* The shared bloom is tuned for the flat — a dark room where anything over
+ * 0.82 linear is genuinely a light. A supper club at full house is made of
+ * lit white tablecloth, every metre of which clears that threshold, so the
+ * whole room bloomed: the wave-2 note called the table lamps "glaring" and
+ * could not see Margo behind the flare, and the flare was mostly the cloth.
+ * The club raises the bar so only real emitters and the hot pool directly
+ * under a fitting bloom, and takes a third off the strength. The flat's own
+ * numbers are untouched — this is this room's rig, set on this room's pass. */
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.35;
+  postfx.bloom.strength = 0.34;
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -595,6 +607,12 @@ function registerPerson(key, tree, { tipId = null, amount = 0, greetOnly = false
 }
 
 function greet(npc, tree, at = 'open') {
+  /* One conversation at a time, ENDED, not replaced. `dialogue.start` on top
+   * of a live conversation never fired the old one's onEnd — so a waiter
+   * summoned to the table and then talked past was orphaned there for the
+   * night, standing beside the cloth with his tray. Ending it runs the
+   * cleanup: he goes back to his station, the ape goes back to his table. */
+  if (dialogue.active && game.talkingTo !== npc) dialogue.end('interrupted');
   npc.faceToward(player.position.x, player.position.z);
   game.greeted.add(npc.name);
   game.talkingTo = npc;
@@ -615,7 +633,11 @@ for (const t of TIP_POINTS) {
  * not exist as far as the player is concerned until the curtain goes. */
 cast.byName.bandleader = band.leader;
 registerPerson('bandleader', scripts.bandleader, { tipId: 'Woo.BandleaderTipped', amount: 40 });
-registerPerson('ape', scripts.ape, { greetOnly: true });
+/* The ape has no tree on a tap: his scene is the one where he comes to YOUR
+ * table, and starting it by poking him at his own — "he arrives the way a man
+ * arrives when he has been working up to it" said over a seated man who has
+ * not moved — replayed the whole family round from the wrong side of the room. */
+registerPerson('ape', null, { greetOnly: true });
 registerPerson('smoker', null, { greetOnly: true });
 
 /* ---- the things in the world ---- */
@@ -854,14 +876,24 @@ class Cutscene {
     }
 
     /* The camera: a slow move between authored points, eased. Slow because a
-     * fast one in a room this dark reads as a cut, and there are no cuts. */
+     * fast one in a room this dark reads as a cut, and there are no cuts.
+     *
+     * Each shot starts from wherever the camera IS. It used to start from
+     * `this.from.pos` — the spot the player was standing when the scene began
+     * — so the first frame of every later shot teleported the camera back
+     * there and then flew it out again: a visible snap at every shot change,
+     * worst in the table scene, where the camera dropped out of the host
+     * conversation mid-sentence. `shot.from` remains an authored override. */
     if (this.shots.length) {
       let shot = this.shots[0];
       for (const s of this.shots) if (this.t >= s.at) shot = s;
+      if (shot !== this._shot) {
+        this._shot = shot;
+        this._shotFrom = shot.from ?? player.position.clone();
+      }
       const k = Math.min(1, (this.t - shot.at) / (shot.dur ?? 4));
       const e = k * k * (3 - 2 * k);
-      const fromPos = shot.from ?? this.from.pos;
-      player.position.lerpVectors(fromPos, shot.to, e);
+      player.position.lerpVectors(this._shotFrom, shot.to, e);
       if (shot.look) {
         const dx = shot.look.x - player.position.x;
         const dz = shot.look.z - player.position.z;
@@ -988,6 +1020,10 @@ function startTableCutscene() {
     },
     {
       at: 21.5,
+      /* Held long enough for the final dolly to finish its glide: the scene
+       * runs to at+hold, and cutting it at 24.5 dropped the player mid-floor
+       * with the camera still moving. */
+      hold: 6,
       run: () => {
         // The room notices. Six of them, not all of them; a whole room turning
         // would be a musical number.
@@ -1004,11 +1040,18 @@ function startTableCutscene() {
   ];
 
   game.scene = new Cutscene(beats, {
+    /* One shot on the two of them for the whole host/manager exchange — the
+     * camera used to leave for the (empty) table spot at 8.5, half a second
+     * before "Two-top. Front and center." landed, and pitched down at the
+     * carpet while they were still talking. It holds on faces until the
+     * manager turns to the room at 9.0, then follows the work. */
     camera: [
-      { at: 0, to: new THREE.Vector3(A.hostMark.x, 1.66, A.hostMark.z + 0.4), look: A.host, dur: 2.5 },
-      { at: 8.5, to: new THREE.Vector3(A.hostMark.x - 1.5, 1.7, A.hostMark.z - 1), look: { x: target.x, y: 1.1, z: target.z }, dur: 5 },
+      { at: 0, to: new THREE.Vector3(A.hostMark.x, 1.66, A.hostMark.z + 0.4), look: { x: A.host.x - 1.2, y: 1.55, z: A.host.z - 0.3 }, dur: 2.5 },
+      { at: 9.2, to: new THREE.Vector3(A.hostMark.x - 1.5, 1.7, A.hostMark.z - 1), look: { x: A.tableStaging.x, y: 1.2, z: A.tableStaging.z }, dur: 4.5 },
       { at: 15, to: new THREE.Vector3(A.hostMark.x - 3, 1.68, A.hostMark.z - 3), look: { x: target.x, y: 0.9, z: target.z }, dur: 6 },
-      { at: 22, to: new THREE.Vector3(-6, 1.66, -1.5), look: { x: target.x, y: 1.0, z: target.z }, dur: 3 },
+      /* Slow. This is a twenty-metre dolly across the whole room and at dur 3
+       * it was a whip pan; at 6 it is the room being taken in. */
+      { at: 22, to: new THREE.Vector3(-6, 1.66, -1.5), look: { x: target.x, y: 1.0, z: target.z }, dur: 6 },
     ],
     onDone: () => {
       mission.tableBuilt();
@@ -1145,7 +1188,10 @@ const ROUND_QUEUE = [
   { id: 'table', after: 0 },
   { id: 'entrance', after: 6 },
   { id: 'work', after: 26 },
-  { id: 'drinks', after: 48, run: () => waiterComesOver() },
+  /* Skipped if the order already happened — the waiter patrols within reach
+   * of the front table, so a player can wave him down before the queue does,
+   * and the round must not then play a second time. */
+  { id: 'drinks', after: 48, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
   { id: 'family', after: 96, run: () => apeComesOver() },
   { id: 'funny', after: 150 },
   { id: 'personal', after: 186 },
@@ -1189,6 +1235,11 @@ function runSeatedQueue(dt) {
 function comesToTable(npc, offset = { x: 1.3, z: 0.9 }) {
   if (!npc) return null;
   const t = room.anchors.frontTable;
+  /* His station's round, kept the first time he is called over. `goesBack`
+   * falls back to it, so a man summoned twice without being released between
+   * — which is a timing accident, not a plan — still has somewhere to go
+   * instead of standing at the table for the rest of the evening. */
+  npc.__homeRoute ??= npc.route;
   npc.__wasPatrolling = npc.route;
   npc.route = null;
   npc.job = 'stand';
@@ -1200,8 +1251,9 @@ function comesToTable(npc, offset = { x: 1.3, z: 0.9 }) {
 
 function goesBack(npc) {
   if (!npc) return;
-  if (npc.__wasPatrolling) {
-    npc.route = npc.__wasPatrolling;
+  const route = npc.__wasPatrolling ?? npc.__homeRoute;
+  if (route) {
+    npc.route = route;
     npc.job = 'patrol';
     npc.__wasPatrolling = null;
   }
@@ -1216,12 +1268,23 @@ function waiterComesOver(at = 'open') {
 function apeComesOver() {
   const ape = cast.byName.ape;
   if (!ape) return;
+  /* Once. The queue fires this on its own clock, and without the guard a
+   * family round that had already happened played again, word for word. */
+  if (mission.roundsDone.has('family')) return;
   const target = room.anchors.frontTable;
   ape.stand();
   ape.job = 'stand';
-  ape.group.position.set(target.x + 1.3, 0, target.z + 0.9);
+  /* His own spot on the far corner of the table — NOT the waiter's mark. The
+   * two offsets used to be 22cm apart, so the round where the ape lingers put
+   * him inside whichever waiter was next summoned. */
+  ape.group.position.set(target.x + 1.7, 0, target.z + 0.5);
   ape.faceToward(player.position.x, player.position.z, true);
-  dialogue.start(scripts.ape, 'open', ape);
+  /* Through greet, not around it: greet records him as `talkingTo`, and
+   * `talkingTo` is how the conversation's end knows whose walk home to run.
+   * Started directly, the dialogue ended and nobody had been talking — so he
+   * stood at the table for the rest of the night, waiting to intersect the
+   * waiter. */
+  greet(ape, scripts.ape);
   date.watch(ape.group, 5);
 }
 
@@ -1455,6 +1518,10 @@ function restoreCheckpoint(cp = game.checkpoint) {
    * checkpoint was taken after that, it is where it was; putting it back is a
    * matter of what is visible, not of playing the scene again. */
   if (mission.flags.tableBuilt) showFrontTable();
+  /* The pillar's raise-a-glass pad is stood up by the champagne scene. A
+   * restore that skipped this lost the thank-you (and its objective) for the
+   * rest of a champagne-sent evening: the raycaster only sees visible pads. */
+  thanksPad.visible = !!mission.flags.champagneSent;
 
   game.swayRunning = false;
   game.swayStarting = false;
@@ -1778,29 +1845,34 @@ canvas.addEventListener('click', () => {
 function arrive() {
   const A = room.anchors;
   player.mode = 'frozen';
-  player.position.set(A.dropOff.x, 1.3, A.dropOff.z + 2.4);
+  player.position.set(taxi.park.x - 0.6, 1.3, taxi.park.z - 1.6);
   player.yaw = Math.PI;
   player.pitch = -0.05;
   date.takeOver();
-  date.group.position.set(A.dropOff.x - 1.2, 0, A.dropOff.z + 2.4);
+  date.group.position.set(taxi.park.x - 1.8, 0, taxi.park.z - 1.4);
 
   audio.play('car.door', { volume: 0.55, delay: 2.2 });
   audio.play('car.door', { volume: 0.5, delay: 3.0 });
 
+  /* The car comes up the street — along it, nose first, the way a car arrives
+   * at a kerb — and eases to a stop wholly on the road. The camera glides with
+   * it at the kerbline, looking at the frontage sliding past, which is the
+   * first thing the evening shows you: the queue, the rope, the sign. */
   let t = 0;
   game.drive = (dt) => {
     t += dt;
     const k = Math.min(1, t / 2.2);
     const e = k * k * (3 - 2 * k);
-    taxi.group.position.z = (A.dropOff.z + 14) + (A.dropOff.z - (A.dropOff.z + 14)) * e;
-    player.position.z = taxi.group.position.z + 0.4;
-    date.group.position.z = taxi.group.position.z + 0.2;
+    taxi.group.position.x = taxi.park.x - 22 * (1 - e);
+    taxi.driver.group.position.x = taxi.group.position.x + 0.55;
+    player.position.x = taxi.group.position.x - 0.6;
+    date.group.position.x = taxi.group.position.x - 1.8;
     if (t > 3.2) {
       player.position.set(A.dropOff.x, 1.66, A.dropOff.z);
-      /* On whatever she is standing on rather than on zero: the drop-off is at
-       * the kerb and half a step of it is the pavement, which is 140mm up. */
-      const dx = A.dropOff.x - 1.3;
-      const dz = A.dropOff.z - 0.4;
+      /* On whatever she is standing on rather than on zero: the drop-off is
+       * on the pavement, which is 140mm up. */
+      const dx = A.dropOff.x - 1.7;
+      const dz = A.dropOff.z - 0.1;
       date.group.position.set(dx, room.groundAt(dx, dz), dz);
       date.release();
       player.mode = 'walk';
@@ -1946,7 +2018,6 @@ function frame() {
   room.update(dt, player.position);
   dialogue.update(dt, player.position);
   date.update(dt, player.position, player.yaw);
-  performance_.update(dt);
   mission.update(raw, { trailing: date.isTrailing });
   drinkTick(raw);
   updateZones();
@@ -1964,6 +2035,11 @@ function frame() {
     npc.update(dt, p);
   }
   for (const m of band.members) if (m.group.visible) m.update(dt, p);
+  /* After the band's own Npc updates, so the playing poses it writes are what
+   * gets rendered. Before, Npc.update ran last and re-posed every musician
+   * with the idle loop at its own 20Hz cadence — two systems fighting over
+   * the same arms, which is the shake the playtest saw on stage. */
+  performance_.update(dt);
 
   audio.updateListener(camera);
 

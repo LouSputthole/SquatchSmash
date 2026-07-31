@@ -1,5 +1,14 @@
 # Owner playtest notes — 2026-07-30 afternoon (wave 2)
 
+**RESOLVED 2026-07-31.** The four in-flight worktrees below died with the
+machine — nothing from them ever reached the remote — so all four passes
+were re-dispatched from scratch off these note lists and landed on
+`claude/project-status-check-tgs0fh`: every note in all four lists is done
+(Margo's hair/face stays deferred to the coordinated pass, as written).
+Verifier growth over the passes: beefrun 13→14, computer 18→20, bing 46→60,
+silver 82→96. Bing evidence in `docs/validation/2026-07-31/`. The lists
+below are kept as the historical brief.
+
 Four Opus worktree agents were dispatched on these (one per scene) at ~16:00-
 16:52 and were IN FLIGHT when the owner restarted the machine. PICKUP:
 check each worktree below for committed work (`git -C <path> log --oneline
