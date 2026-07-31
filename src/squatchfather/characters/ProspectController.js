@@ -130,7 +130,9 @@ export class ProspectController {
     this.yaw = Math.PI;
     this.eyeHeight = EYE_SEATED;
     this.fig.setPose('sit');
-    this.fig.place(POS.prospectSeat.x, POS.prospectSeat.z, Math.PI);
+    // Camera yaw pi looks along +Z at Sal; the figure's face is on local +Z,
+    // so the body that matches it sits at yaw 0.
+    this.fig.place(POS.prospectSeat.x, POS.prospectSeat.z, 0);
   }
 
   stand() {
@@ -244,10 +246,11 @@ export class ProspectController {
       }
     }
 
-    // Mirror body follows him
+    // Mirror body follows him. Camera forward is -Z but the figure's face is
+    // +Z, so the body that looks where he looks sits at yaw + pi.
     if (!this.seated) {
       this.fig.group.position.set(this.pos.x, 0, this.pos.z);
-      this.fig.group.rotation.y = this.yaw;
+      this.fig.group.rotation.y = this.yaw + Math.PI;
       this.fig.walkAmt += ((moving ? 1 : 0) - this.fig.walkAmt) * Math.min(1, dt * 8);
       this.fig.walkT += dt * (moving ? this.speed * 3.2 : 0);
     }

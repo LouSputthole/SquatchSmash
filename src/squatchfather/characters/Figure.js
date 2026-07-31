@@ -4,8 +4,12 @@ import * as THREE from 'three';
 // named joints so the controllers can pose it: standing, walking, seated,
 // talking, leaning, reaching into a jacket, and going down.
 //
-// Local forward is -Z, so a figure's rotation.y aims it the same way the
-// player's yaw does.
+// Local forward is +Z — the eyes, tie, shirt front and every gesture live on
+// the +Z face, same as the game's crowd builder (yaw 0 looks along +Z). That
+// is the OPPOSITE of the player's yaw (camera forward is -Z), so the mirror
+// body adds pi when it follows the camera. The steering below (lookAt,
+// walkTo, the seated legs) aims the +Z face; placements pass yaws in the
+// same convention.
 
 function box(w, h, d, color, x = 0, y = 0, z = 0, opts = null) {
   const m = new THREE.Mesh(
@@ -60,7 +64,7 @@ export function buildFigure(opts = {}) {
     knee.position.set(0, -0.4, 0);
     hip.add(knee);
     knee.add(box(0.18 * o.bulk, 0.37, 0.19, o.coat, 0, -0.185, 0));
-    knee.add(box(0.19 * o.bulk, 0.1, 0.3, 0x14141a, 0, -0.37, -0.06));
+    knee.add(box(0.19 * o.bulk, 0.1, 0.3, 0x14141a, 0, -0.37, 0.06)); // toes on the face side
     return { hip, knee };
   }
   const legL = leg(-1);
@@ -150,8 +154,10 @@ export class Figure {
     this.seated = pose === 'sit';
     if (this.seated) {
       this.pelvis.position.y = SIT_PELVIS;
-      this.legL.hip.rotation.x = this.legR.hip.rotation.x = Math.PI / 2;
-      this.legL.knee.rotation.x = this.legR.knee.rotation.x = -Math.PI / 2;
+      // Thighs swing up toward +Z — the knees end up under whatever the face
+      // is pointed at, not poking out through the chair back.
+      this.legL.hip.rotation.x = this.legR.hip.rotation.x = -Math.PI / 2;
+      this.legL.knee.rotation.x = this.legR.knee.rotation.x = Math.PI / 2;
       this.legL.knee.scale.y = this.legR.knee.scale.y = SIT_SHIN_STRETCH;
       this.armL.shoulder.rotation.x = this.armR.shoulder.rotation.x = 0.35;
       this.armL.elbow.rotation.x = this.armR.elbow.rotation.x = -1.25;
@@ -175,7 +181,8 @@ export class Figure {
     if (this.down) return;
     const dx = target.x - this.group.position.x;
     const dz = target.z - this.group.position.z;
-    const want = Math.atan2(-dx, -dz) - this.group.rotation.y;
+    // The face is on +Z, so the yaw that meets the target is atan2(dx, dz).
+    const want = Math.atan2(dx, dz) - this.group.rotation.y;
     let a = ((want + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     this.neckTarget = Math.max(-1.0, Math.min(1.0, a));
   }
@@ -196,7 +203,7 @@ export class Figure {
     this.group.position.x += (dx / d) * step;
     this.group.position.z += (dz / d) * step;
     if (faceTarget) {
-      const want = Math.atan2(-dx, -dz);
+      const want = Math.atan2(dx, dz); // face (+Z) leads the walk
       let diff = ((want - this.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       this.group.rotation.y += diff * Math.min(1, dt * 6);
     }
@@ -250,14 +257,16 @@ export class Figure {
   #walkPose(dt) {
     const s = Math.sin(this.walkT) * this.walkAmt;
     const c = Math.sin(this.walkT + Math.PI) * this.walkAmt;
-    this.legL.hip.rotation.x = s * 0.55;
-    this.legR.hip.rotation.x = c * 0.55;
-    this.legL.knee.rotation.x = -Math.max(0, -s) * 0.75;
-    this.legR.knee.rotation.x = -Math.max(0, -c) * 0.75;
+    // Strides mirror the sit pose: negative hip x swings a leg toward the +Z
+    // face, and the trailing knee folds the shin back behind it.
+    this.legL.hip.rotation.x = -s * 0.55;
+    this.legR.hip.rotation.x = -c * 0.55;
+    this.legL.knee.rotation.x = Math.max(0, -s) * 0.75;
+    this.legR.knee.rotation.x = Math.max(0, -c) * 0.75;
     if (this.gestureT <= 0) {
       const k = Math.min(1, dt * 6);
-      this.armL.shoulder.rotation.x += (0.08 + c * 0.35 - this.armL.shoulder.rotation.x) * k;
-      this.armR.shoulder.rotation.x += (0.08 + s * 0.35 - this.armR.shoulder.rotation.x) * k;
+      this.armL.shoulder.rotation.x += (0.08 - c * 0.35 - this.armL.shoulder.rotation.x) * k;
+      this.armR.shoulder.rotation.x += (0.08 - s * 0.35 - this.armR.shoulder.rotation.x) * k;
       this.armL.elbow.rotation.x += (-0.22 - this.armL.elbow.rotation.x) * k;
       this.armR.elbow.rotation.x += (-0.22 - this.armR.elbow.rotation.x) * k;
     }

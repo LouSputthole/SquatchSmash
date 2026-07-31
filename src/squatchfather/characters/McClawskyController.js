@@ -113,7 +113,7 @@ export class McClawskyController {
     f.root.position.set(0, 0, 0);
     f.root.rotation.set(0, 0, 0);
     f.setPose('sit');
-    f.place(POS.mcSeat.x, POS.mcSeat.z, Math.PI / 2);
+    f.place(POS.mcSeat.x, POS.mcSeat.z, -Math.PI / 2);
   }
 
   update(dt, prospectPos) {
@@ -123,7 +123,7 @@ export class McClawskyController {
         if (this.fig.walkTo(POS.mcSeat.x + 0.9, POS.mcSeat.z - 0.2, dt, 1.7)) this.escortStage = 1;
       } else if (this.fig.walkTo(POS.mcSeat.x, POS.mcSeat.z, dt, 1.2, false)) {
         this.fig.setPose('sit');
-        this.fig.group.rotation.y = Math.PI / 2; // faces -X, at Prospect's right
+        this.fig.group.rotation.y = -Math.PI / 2; // faces -X, at Prospect's right
         this.mode = 'seated';
       }
     } else if (this.mode === 'door' && prospectPos) {
@@ -144,14 +144,16 @@ export class McClawskyController {
     this.fig.update(dt);
 
     if (this.fig.down) {
-      // Goes over backwards, taking the chair with him.
+      // Goes over backwards, taking the chair with him. Backwards is -Z in
+      // his own frame — away from the face — so the tip and slide are
+      // negative.
       const k = Math.min(1, this.fig.deathT * 2.2);
       const e = k * k * (3 - 2 * k);
-      this.fig.root.rotation.x = 1.42 * e;
-      this.fig.root.position.z = 0.42 * e;
+      this.fig.root.rotation.x = -1.42 * e;
+      this.fig.root.position.z = -0.42 * e;
       this.fig.root.position.y = -0.34 * e;
-      this.fig.torso.rotation.x = -0.2 * e;
-      this.fig.neck.rotation.x = -0.25 * e;
+      this.fig.torso.rotation.x = 0.2 * e;
+      this.fig.neck.rotation.x = 0.25 * e;
       this.fig.armL.shoulder.rotation.x = 0.35 - 0.9 * e;
       this.fig.armR.shoulder.rotation.x = 0.35 - 0.7 * e;
       this.fig.armL.elbow.rotation.x = -1.25 + 1.0 * e;

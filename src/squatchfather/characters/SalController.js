@@ -16,7 +16,9 @@ export class SalController {
       bulk: 1.08,
     });
     this.fig.setPose('sit');
-    this.fig.place(POS.salSeat.x, POS.salSeat.z, 0); // faces -Z, across the table
+    // Faces -Z, across the table at Prospect's seat. The figure's face is on
+    // local +Z, so that is a yaw of pi, not zero.
+    this.fig.place(POS.salSeat.x, POS.salSeat.z, Math.PI);
     scene.add(this.fig.group);
     this.watchT = 0;
     this.dead = false;
@@ -63,7 +65,7 @@ export class SalController {
     f.root.position.set(0, 0, 0);
     f.root.rotation.set(0, 0, 0);
     f.setPose('sit');
-    this.fig.place(POS.salSeat.x, POS.salSeat.z, 0);
+    this.fig.place(POS.salSeat.x, POS.salSeat.z, Math.PI);
   }
 
   update(dt) {
@@ -80,7 +82,7 @@ export class SalController {
       this.fig.armR.shoulder.rotation.x = 0.35 + 0.9 * e;
       this.fig.armL.elbow.rotation.x = -1.25 + 1.05 * e;
       this.fig.armR.elbow.rotation.x = -1.25 + 1.15 * e;
-      this.fig.root.position.z = -0.12 * e;
+      this.fig.root.position.z = 0.12 * e; // slides toward the table (+Z, his face side)
     }
   }
 }
