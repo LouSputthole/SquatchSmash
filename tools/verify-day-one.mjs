@@ -324,7 +324,20 @@ try {
   }, corruptRaw);
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 60000 });
-  await page.waitForTimeout(1100);
+  /* "Visibly" means visible to a person, so wake up first. The notice used to
+   * be raised 200ms into module scope, behind the title card and gone twelve
+   * seconds later -- long before the apartment had even finished building on
+   * this machine, let alone before anyone had clicked through to look at it. */
+  await page.click('#start-btn');
+  /* Waking up loads the whole sound manifest before the room appears, so wait
+   * for the notice rather than for a fixed beat -- and swallow the timeout, so
+   * a notice that never comes is reported by the check below instead of
+   * throwing out of the whole run. */
+  await page.waitForFunction(
+    () => document.querySelector('#toast-stack')?.textContent?.includes('Save recovered'),
+    null,
+    { timeout: 60000 },
+  ).catch(() => {});
   const recovered = await page.evaluate(() => ({
     state: window.__squatch.campaign.state,
     recovery: window.__squatch.campaign.recovery,

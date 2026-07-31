@@ -151,18 +151,18 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const time = new DayNight(6 + 4 / 60);
 const campaign = createCampaign();
 const campaignAtLoad = campaign.state;
-if (campaign.recoveredNow) {
-  const recoveryNotice = campaign.recovery?.reason === 'unsupported_version'
+/* A save that had to be recovered is worth saying out loud -- but not here,
+ * which is what this used to do. The notice went up 200ms into module scope,
+ * behind a full-screen title card he has not clicked through yet, and its
+ * twelve seconds ran out several seconds before the apartment had finished
+ * building. It was a message nobody could ever have read. Held instead until
+ * he is actually in the room, which is where the other on-arrival toasts are.
+ */
+const recoveryNotice = campaign.recoveredNow
+  ? (campaign.recovery?.reason === 'unsupported_version'
     ? 'Newer save preserved · this build will not overwrite it'
-    : 'Save recovered · previous data kept in browser recovery backup';
-  setTimeout(() => {
-    hud.toast(
-      recoveryNotice,
-      'bad',
-      12000,
-    );
-  }, 200);
-}
+    : 'Save recovered · previous data kept in browser recovery backup')
+  : null;
 const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
   && campaignAtLoad.scene.spawn === 'front_door';
 const returningFromBing = returningToApartment
@@ -673,6 +673,8 @@ startBtn.addEventListener('click', async () => {
 
   if (!game.started) {
     game.started = true;
+    // First thing he sees, if it happened at all.
+    if (recoveryNotice) hud.toast(recoveryNotice, 'bad', 12000);
     audio.startLoop('ambience.city.day', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
