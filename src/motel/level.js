@@ -406,7 +406,7 @@ export function buildMotel(scene, renderer) {
   frontDoor.open = true;
   refs.frontDoor = frontDoor;
 
-  // Front window of room twelve — smashable, and Manny can see you through it
+  // Front window of room twelve — smashable, and Snow can see you through it
   const win12 = boxMesh(1.98, 1.48, 0.12, C.glass, 3.0, 1.85, R.z1 + 0.15, { emissive: 0x16303a });
   scene.add(win12);
   refs.window12 = { mesh: win12, broken: false, x: 3.0, z: R.z1 };
@@ -810,7 +810,7 @@ export function buildMotel(scene, renderer) {
     return g;
   }
 
-  // Manny's getaway sedan — engine off, parked facing the road
+  // Snow's getaway sedan — engine off, parked facing the road
   const manCar = makeCar(0x6b2f3a);
   manCar.position.set(-8, 0, 17);
   scene.add(manCar);
@@ -860,7 +860,7 @@ export function buildMotel(scene, renderer) {
   }
   refs.parkedCars = parked;
   refs.vehicleFootprints = [
-    { id: 'manny-car', collider: manCarCollider },
+    { id: 'snow-car', collider: manCarCollider },
     { id: 'second-car', collider: secondCarCollider },
     ...parked.map((entry, index) => ({
       id: `parked-${index + 1}`,

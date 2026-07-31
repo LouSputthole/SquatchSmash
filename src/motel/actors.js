@@ -4,7 +4,7 @@ import { lambert } from '../../game/src/world.js';
 // ---------------------------------------------------------------------------
 // Everybody in the motel who is not Prospect.
 //
-// Tony and Manny are adult humans. "Squatchtana" is the family name, not a
+// Tony and Snow are adult humans. "Squatchtana" is the family name, not a
 // species flag; keeping them on the human rig preserves their identity across
 // scenes. Costume, role, and faction distinguish the motel cast.
 // ---------------------------------------------------------------------------
@@ -16,6 +16,22 @@ function box(w, h, d, color, extra = null) {
 }
 
 const SKIN_TONES = [0xe8c39a, 0xc99268, 0x8d5f3c, 0xf0d0b0, 0x6f472c];
+
+/* Pull the frame in to the head itself — [u, v, width, height] in texture
+ * space, v from the bottom. These are all phone portraits at arm's length. */
+const FACE_CROP = [0.20, 0.06, 0.60, 0.86];
+const faceTexCache = new Map();
+function faceTexture(url, crop) {
+  const key = `${url}|${crop.join(',')}`;
+  if (!faceTexCache.has(key)) {
+    const tex = new THREE.TextureLoader().load(url);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.offset.set(crop[0], crop[1]);
+    tex.repeat.set(crop[2], crop[3]);
+    faceTexCache.set(key, tex);
+  }
+  return faceTexCache.get(key);
+}
 
 // Dispatch: humans by default, sasquatches for the family.
 export function buildActor(cfg = {}) {
@@ -56,20 +72,36 @@ function buildHumanRig(cfg = {}) {
   // Head
   const head = new THREE.Group();
   head.position.set(0, 1.84, 0);
-  const skull = box(0.25, 0.3, 0.25, skin);
-  head.add(skull);
-  const hairCap = box(0.27, 0.09, 0.27, hair);
-  hairCap.position.y = 0.15;
-  head.add(hairCap);
-  const back = box(0.27, 0.16, 0.1, hair);
-  back.position.set(0, 0.03, -0.1);
-  head.add(back);
   const eyes = [];
-  for (const s of [-1, 1]) {
-    const e = box(0.045, 0.035, 0.03, cfg.eyeColor ?? 0x20242e);
-    e.position.set(0.06 * s, 0.03, 0.13);
-    head.add(e);
-    eyes.push(e);
+  if (cfg.face) {
+    /* A photographed Family face: the picture on the +z side of the skull and
+     * hair colour on the other five, the same technique the Initiation and the
+     * Bing use. The photo already has eyes and a mouth in it, so none of the
+     * procedural features get built on top. Slightly narrower than it is tall,
+     * so the crop lands at close to its own aspect instead of stretching. */
+    const wrap = lambert(hair);
+    const faceMat = new THREE.MeshBasicMaterial({ map: faceTexture(cfg.face, cfg.faceCrop ?? FACE_CROP) });
+    const skull = new THREE.Mesh(
+      new THREE.BoxGeometry(0.23, 0.3, 0.25),
+      [wrap, wrap, wrap, wrap, faceMat, wrap],
+    );
+    skull.castShadow = true;
+    head.add(skull);
+  } else {
+    const skull = box(0.25, 0.3, 0.25, skin);
+    head.add(skull);
+    const hairCap = box(0.27, 0.09, 0.27, hair);
+    hairCap.position.y = 0.15;
+    head.add(hairCap);
+    const back = box(0.27, 0.16, 0.1, hair);
+    back.position.set(0, 0.03, -0.1);
+    head.add(back);
+    for (const s of [-1, 1]) {
+      const e = box(0.045, 0.035, 0.03, cfg.eyeColor ?? 0x20242e);
+      e.position.set(0.06 * s, 0.03, 0.13);
+      head.add(e);
+      eyes.push(e);
+    }
   }
   body.add(head);
 
@@ -139,7 +171,11 @@ function buildHumanRig(cfg = {}) {
   group.scale.setScalar(cfg.scale ?? 1);
   group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
 
-  return { group, body, head, torso, armL, armR, legL, legR, eyes, height: 1.9, handY: -0.72, radius: 0.42, species: 'human' };
+  return {
+    group, body, head, torso, armL, armR, legL, legR, eyes,
+    height: 1.9, handY: -0.72, radius: 0.42, species: 'human',
+    face: cfg.face ?? null,
+  };
 }
 
 function buildHumanArm(side, shirt, skin, sleeveless) {
@@ -436,6 +472,10 @@ export class Actor {
     this.group = this.rig.group;
     this.group.position.set(cfg.x || 0, 0, cfg.z || 0);
     this.heading = cfg.heading ?? 0;
+    /* The pose the scene authored, kept apart from `heading` so that idling —
+     * which sways — always sways around the direction the scene meant, and
+     * never drifts off to a compass point of its own. */
+    this.idleHeading = this.heading;
     this.group.rotation.y = this.heading;
     scene.add(this.group);
 
@@ -507,11 +547,30 @@ export class Actor {
     return WEAPON_STATS[this.weapon] || WEAPON_STATS.fists;
   }
 
-  faceTo(x, z, dt, rate = 9) {
-    const target = Math.atan2(x - this.group.position.x, z - this.group.position.z);
+  /** Turn toward an absolute yaw. 0 is +z, which is the way every rig faces. */
+  turnTo(target, dt, rate = 9) {
     const diff = Math.atan2(Math.sin(target - this.heading), Math.cos(target - this.heading));
     this.heading += diff * Math.min(1, rate * dt);
     this.group.rotation.y = this.heading;
+  }
+
+  faceTo(x, z, dt, rate = 9) {
+    this.turnTo(Math.atan2(x - this.group.position.x, z - this.group.position.z), dt, rate);
+  }
+
+  /** Pose him now, and remember it as the direction idling returns to. */
+  setFacing(heading) {
+    this.heading = heading;
+    this.idleHeading = heading;
+    this.group.rotation.y = heading;
+    return this;
+  }
+
+  /** Same, expressed as somewhere to look. */
+  faceAt(x, z) {
+    return this.setFacing(
+      Math.atan2(x - this.group.position.x, z - this.group.position.z),
+    );
   }
 
   // Returns true if the actor goes down from this hit.
@@ -566,7 +625,14 @@ export class Actor {
 
       switch (this.state) {
         case 'idle':
-          this.faceTo(this.anchor.x + Math.sin(this.walkT * 0.2), this.anchor.z, dt, 2);
+          /* Sway around the authored facing.
+           *
+           * This used to aim at `anchor.x + sin(t)`, `anchor.z` — a point one
+           * metre due east of the actor's own anchor. Every idle actor in the
+           * lot therefore turned to face +x within a second or two, whatever
+           * pose the scene had given them, and the lookout ended up watching
+           * the ice machine instead of the road. */
+          this.turnTo(this.idleHeading + Math.sin(this.walkT * 0.2) * 0.12, dt, 2);
           break;
 
         case 'deal': // standing in the room, working the conversation
@@ -651,7 +717,7 @@ export class Actor {
           }
           break;
 
-        case 'follow': { // Manny, once he is out of the car
+        case 'follow': { // Snow, once he is out of the car
           if (this.faction !== 'friendly') {
             this.state = 'idle';
             break;
@@ -774,14 +840,17 @@ export class Actor {
 
 // ---------------- Cast presets ----------------
 
-// Manny is Tony's human ally. Everyone selling meat is human too; costume,
+// Snow is Tony's human ally. Everyone selling meat is human too; costume,
 // silhouette, faction, and role distinguish them without changing species.
 export const CAST = {
-  manny: () => ({
-    identity: 'manny', name: 'Manny', role: 'ally', faction: 'friendly', species: 'human',
+  /* Snow of the Family drives tonight. The photo carries the likeness, so no
+   * procedural moustache or cap goes on top of his own face. */
+  snow: () => ({
+    identity: 'snow', name: 'Snow', role: 'ally', faction: 'friendly', species: 'human',
+    face: 'assets/faces/snow.png',
     skin: SKIN_TONES[2], hair: 0x24170f,
     shirt: 0x315f78, pants: 0x27313d, shoes: 0x17191e,
-    cap: 0xd8c04a, mustache: true, hp: 160, speed: 5.4, scale: 1.08,
+    hp: 160, speed: 5.4, scale: 1.08,
   }),
   rico: () => ({
     name: 'Rico', role: 'seller', skin: SKIN_TONES[1], hair: 0x1d140e,

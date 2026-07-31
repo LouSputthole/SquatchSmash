@@ -7,8 +7,8 @@ import { Effects } from '../../game/src/effects.js';
 import { lambert } from '../../game/src/world.js';
 import * as sfx from './audio.js';
 import {
-  NODES, STYLES, STYLE_LABEL, SELLER_BARKS, PROSPECT_BARKS, MANNY_BARKS,
-  FIGHT_BARKS, MANNY_FIGHT_BARKS, ENDING,
+  NODES, STYLES, STYLE_LABEL, SELLER_BARKS, PROSPECT_BARKS, SNOW_BARKS,
+  FIGHT_BARKS, SNOW_FIGHT_BARKS, ENDING,
 } from './dialogue.js';
 import { rollShipment, Inspection, Freshness } from './jerky.js';
 import {
@@ -34,6 +34,12 @@ const GRAVITY = 26;
 const JUMP_V = 9.2;
 const WALK = 4.8;
 const RUN = 7.6;
+/** The road across the top of the lot — the way out, and the way trouble comes. */
+const ROAD_Z = 34;
+/* The man in the car is Snow, of the Family: his photo, his voice profile, and
+ * two words where anybody else would use ten. One name, one place to change it. */
+const ALLY = 'Snow';
+const ALLY_FACE = 'assets/faces/snow.png';
 
 const campaign = createCampaign();
 if (campaign.state.scene.id !== SCENE_IDS.JERKY_MOTEL) {
@@ -137,9 +143,9 @@ const S = {
   fightStarted: false,
   slicerRevealed: false,
   slicerKnown: false,
-  mannySignalled: false,
-  mannyInside: false,
-  mannyInjured: false,
+  snowSignalled: false,
+  snowInside: false,
+  snowInjured: false,
   stashFound: false,
   ricoEscaped: false,
   caseInPool: false,
@@ -183,7 +189,7 @@ const OBJECTIVES = {
   opt: [
     { id: 'counterfeit', text: 'Identify counterfeit product' },
     { id: 'thirdman', text: 'Discover the hidden bathroom attacker' },
-    { id: 'signal', text: 'Signal Manny before the betrayal' },
+    { id: 'signal', text: 'Signal Snow before the betrayal' },
     { id: 'money', text: 'Recover all $40,000' },
     { id: 'intact', text: 'Keep every Reserve package intact' },
     { id: 'unseen', text: 'Avoid police detection' },
@@ -219,12 +225,12 @@ const CLUES = {
   packets: 'Empty meat-preservation packets. Somebody repacked something out here.',
   railing: 'Someone on the upstairs railing, looking away a half-second too late.',
   bathwindow: "Room twelve's bathroom window opens an inch and closes again.",
-  trunk: "Manny's trunk: a crowbar and one very illegal hand cannon.",
+  trunk: "Snow's trunk: a crowbar and one very illegal hand cannon.",
 };
 
 // ---------- Actors ----------
 const actors = [];
-let manny = null;
+let snow = null;
 let rico = null;
 let chino = null;
 let slicer = null;
@@ -568,17 +574,22 @@ function startScene() {
   camYaw = Math.PI * 0.98;
 
   // Cast
-  manny = spawnActor({ ...CAST.manny(), x: -10.6, z: 16.4, state: 'idle' });
-  manny.anchor = { x: -10.6, z: 16.4 };
-  manny.heading = Math.PI;
+  /* Everybody is posed at somewhere they have a reason to be looking. The
+   * road runs across the top of the lot at z = 34; the motel is at -z. */
+  snow = spawnActor({ ...CAST.snow(), x: -10.6, z: 16.4, state: 'idle' });
+  snow.anchor = { x: -10.6, z: 16.4 };
+  snow.faceAt(pos.x, pos.z);            // leaning in, talking to Tony
   lookout = spawnActor({ ...CAST.lookout(), x: 21.4, z: -0.6, state: 'idle' });
+  lookout.faceAt(21.4, ROAD_Z);          // watching the road, not the lot
   watcher = spawnActor({ ...CAST.watcher(), x: 6, z: -1.6, state: 'idle' });
   watcher.group.position.y = level.DECK_Y;
   watcher.anchor = { x: 6, z: -1.6 };
+  watcher.faceAt(6, 16);                 // over the railing, down at the lot
   clerk = spawnActor({ ...CAST.clerk(), x: -44, z: -8.2, state: 'idle' });
+  clerk.faceAt(-44, -4);                 // across his own counter at z = -7
 
-  say('Manny', 'Room twelve. They show the meat first. You show the money second.', 4.2);
-  setTimeout(() => { if (phase === 'car') openDialogue('mannyBrief'); }, 1400);
+  say(ALLY, 'Room twelve. They show the meat first. You show the money second.', 4.2);
+  setTimeout(() => { if (phase === 'car') openDialogue('snowBrief'); }, 1400);
   clock.getDelta();
   return true;
 }
@@ -624,12 +635,12 @@ function ix(id) { return interactables.find((i) => i.id === id); }
 
 // -- car phase --
 addInteract({
-  id: 'talkManny', x: -10.6, y: 1.6, z: 16.4, r: 4.2,
-  label: () => 'Speak to Manny',
+  id: 'talkAlly', x: -10.6, y: 1.6, z: 16.4, r: 4.2,
+  label: () => 'Speak to Snow',
   enabled: () => (phase === 'car' || phase === 'lot') && !dialogue,
   act: () => {
-    if (!S.dealStarted && phase === 'car') openDialogue('mannyBrief');
-    else say('Manny', MANNY_BARKS[Math.floor(Math.random() * MANNY_BARKS.length)]);
+    if (!S.dealStarted && phase === 'car') openDialogue('snowBrief');
+    else say(ALLY, SNOW_BARKS[Math.floor(Math.random() * SNOW_BARKS.length)]);
   },
 });
 
@@ -677,14 +688,14 @@ addInteract({
 
 addInteract({
   id: 'trunk', x: -8, y: 1.0, z: 20.2, r: 3.2,
-  label: () => (refs.manCar.trunk.opened ? "Manny's trunk" : "Check the trunk"),
+  label: () => (refs.manCar.trunk.opened ? "Snow's trunk" : "Check the trunk"),
   enabled: () => phase === 'lot' || phase === 'escape',
   act: () => {
     if (!refs.manCar.trunk.opened) {
       refs.manCar.trunk.opened = true;
       foundClue('trunk');
       S.hiddenWeaponKnown = true;
-      say('Manny', 'Crowbar. And the thing we agreed I would never mention out loud.', 3.6);
+      say(ALLY, 'Crowbar. And the thing we agreed I would never mention out loud.', 3.6);
       toast('TRUNK OPEN', '', 'Crowbar and hand cannon available here');
     } else if (S.weapon !== 'handcannon') {
       pickUpWeapon(S.weapon === 'crowbar' ? 'handcannon' : 'crowbar');
@@ -745,7 +756,7 @@ addInteract({
   act: () => {
     foundClue('secondcar');
     say('Prospect', 'Running engine. Warm seat. Nobody in it. That is a car waiting to leave in a hurry.', 4.2);
-    toast('ADVANTAGE', 'clue', 'Manny will come in sooner when it goes bad');
+    toast('ADVANTAGE', 'clue', 'Snow will come in sooner when it goes bad');
   },
 });
 
@@ -903,16 +914,16 @@ addInteract({
 
 addInteract({
   id: 'windowSignal', x: 3.0, y: 1.8, z: -4.2, r: 3.2,
-  label: () => (S.windowBroken ? 'Climb through the window' : (S.betrayed ? 'Smash through the window' : 'Signal Manny through the window')),
+  label: () => (S.windowBroken ? 'Climb through the window' : (S.betrayed ? 'Smash through the window' : 'Signal Snow through the window')),
   enabled: () => phase === 'room' || phase === 'fight' || phase === 'recover',
   act: () => {
     if (!S.betrayed) {
-      S.mannySignalled = true;
+      S.snowSignalled = true;
       completeObjective('signal');
       addHeat(12);
       say('*', 'Two fingers against the glass. Out in the lot, a car door opens.', 3.6);
-      toast('SIGNAL SENT', '', 'Manny is out of the car and moving');
-      if (manny) { manny.state = 'goto'; manny.target = { x: -1, z: 1.5 }; manny.afterGoto = 'idle'; }
+      toast('SIGNAL SENT', '', 'Snow is out of the car and moving');
+      if (snow) { snow.state = 'goto'; snow.target = { x: -1, z: 1.5 }; snow.afterGoto = 'idle'; }
     } else if (!S.windowBroken) {
       breakWindow();
     } else {
@@ -1269,7 +1280,9 @@ function exitCar() {
   phase = 'lot';
   pos.set(-5.4, 0, 16.0);
   feetY = 0;
-  say('Manny', 'I am right here. Facing the exit, before you ask.', 3.2);
+  /* He says he is facing the exit, so he faces the exit. The road is +z. */
+  if (snow) snow.faceAt(snow.group.position.x, ROAD_Z);
+  say(ALLY, 'Right here. Facing the exit.', 3.2);
   setObjective('reach', 'Walk the lot — everything you notice out here counts inside');
   updateGear();
 }
@@ -1422,15 +1435,15 @@ function pickDialogue(style) {
     S.slicerKnown = true;
     completeObjective('thirdman');
   }
-  if (opt.betrayManny) {
-    S.betrayedManny = true;
-    toast('SECRET COOPERATION', 'warn', "Rico thinks you are taking his side. Manny's trust will not survive this");
+  if (opt.betrayAlly) {
+    S.betrayedAlly = true;
+    toast('SECRET COOPERATION', 'warn', "Rico thinks you are taking his side. Snow's trust will not survive this");
     addHeat(-25);
   }
   if (nodeId === 'getaway') {
     setTimeout(() => startDrive(), 2600);
   }
-  if (nodeId === 'mannyBrief') {
+  if (nodeId === 'snowBrief') {
     setTimeout(() => toast('TIP', '', 'Look around the lot before you knock — every warning sign pays off'), 3000);
   }
 }
@@ -1578,26 +1591,26 @@ function maybeBetray(trigger) {
 
   if (S.positionsMarked > 0) markEnemies(S.positionsMarked);
 
-  // Manny reacts to gunfire / a broken window / a signal / the second car
-  const mannyDelay = S.mannySignalled ? 3 : S.cluesFound.has('secondcar') ? 8 : 16;
-  setTimeout(() => mannyJoins('the noise'), mannyDelay * 1000);
+  // Snow reacts to gunfire / a broken window / a signal / the second car
+  const snowDelay = S.snowSignalled ? 3 : S.cluesFound.has('secondcar') ? 8 : 16;
+  setTimeout(() => snowJoins('the noise'), snowDelay * 1000);
 }
 
-function mannyJoins(reason) {
-  if (S.mannyInside || !manny || phase === 'end' || phase === 'drive') return;
-  S.mannyInside = true;
-  manny.state = 'follow';
-  manny.hp = Math.max(60, manny.hp);
-  say('Manny', MANNY_FIGHT_BARKS[Math.floor(Math.random() * MANNY_FIGHT_BARKS.length)], 3.2);
+function snowJoins(reason) {
+  if (S.snowInside || !snow || phase === 'end' || phase === 'drive') return;
+  S.snowInside = true;
+  snow.state = 'follow';
+  snow.hp = Math.max(60, snow.hp);
+  say(ALLY, SNOW_FIGHT_BARKS[Math.floor(Math.random() * SNOW_FIGHT_BARKS.length)], 3.2);
   toast('MANNY IS IN', '', `He heard ${reason}`);
   if (!S.windowBroken && !refs.frontDoor.open) breakWindow(true);
   // He brings the crowbar from the trunk — thrown to you if you're
   // empty-handed, kept and visibly wielded if you're not.
   if (S.weapon === 'fists') {
     dropWeaponPickup('crowbar', pos.x + 1.4, pos.z + 0.6);
-    setTimeout(() => say('Manny', 'Crowbar! Catch it with your face if you have to!', 3), 1600);
+    setTimeout(() => say(ALLY, 'Crowbar! Catch it with your face if you have to!', 3), 1600);
   } else {
-    manny.equip('crowbar');
+    snow.equip('crowbar');
   }
 }
 
@@ -1622,7 +1635,7 @@ function resolvePlayerHit(st) {
   let hitAny = false;
 
   for (const a of actors) {
-    if (!a.alive || a.faction === 'friendly' || a === manny) continue;
+    if (!a.alive || a.faction === 'friendly' || a === snow) continue;
     const dx = a.position.x - pos.x;
     const dz = a.position.z - pos.z;
     const d = Math.hypot(dx, dz);
@@ -1667,7 +1680,7 @@ function onRanged() {
   sfx.gunshot();
   shake = Math.max(shake, 0.45);
   updateGear();
-  if (!S.mannyInside) mannyJoins('gunfire');
+  if (!S.snowInside) snowJoins('gunfire');
 
   const fx = Math.sin(camYaw);
   const fz = Math.cos(camYaw);
@@ -1999,7 +2012,7 @@ function breakWindow(quiet = false) {
   sfx.glassSettle();
   shake = Math.max(shake, 0.4);
   if (!quiet) say('*', 'The front window of room twelve leaves the building.', 3.2);
-  if (!S.mannyInside) mannyJoins('breaking glass');
+  if (!S.snowInside) snowJoins('breaking glass');
   freshness.damage(4, 'a broken window');
 }
 
@@ -2011,7 +2024,7 @@ function breakFrontDoor() {
   sfx.doorSplinter();
   shake = Math.max(shake, 0.5);
   toast('DOOR IS OPEN', '', 'The way out of room twelve is not a door any more');
-  if (!S.mannyInside) mannyJoins('a door leaving its frame');
+  if (!S.snowInside) snowJoins('a door leaving its frame');
 }
 
 function slamBathDoor() {
@@ -2064,7 +2077,7 @@ function takeJerkyCase() {
   completeObjective('recover');
   if (phase !== 'escape' && phase !== 'drive') {
     phase = 'escape';
-    setObjective('escape', 'Back to Manny — front walkway, upstairs, the pool, or through the office');
+    setObjective('escape', 'Back to Snow — front walkway, upstairs, the pool, or through the office');
     spawnReinforcements();
   }
   toast('THE RESERVE IS YOURS', '', `${S.packagesIntact}/8 packages · ${freshness.grade}`);
@@ -2148,7 +2161,7 @@ function actorReachedTarget(a) {
   if (a.faction === 'friendly') {
     a.target = null;
     a.afterGoto = null;
-    a.state = S.mannyInside ? 'follow' : 'idle';
+    a.state = S.snowInside ? 'follow' : 'idle';
     return;
   }
   if (a === rico && a.afterGoto === 'grabmoney') {
@@ -2231,7 +2244,7 @@ function boardGetaway() {
     S.wrongCase = true;
   }
   sfx.carDoor();
-  say('Manny', 'Tell me that was worth it.', 3.4);
+  say(ALLY, 'Tell me that was worth it.', 3.4);
   setTimeout(() => openDialogue('getaway'), 1400);
 }
 
@@ -2516,7 +2529,7 @@ function updateGear() {
 // ---------- The drive ----------
 const drive = {
   scene: null, car: null, road: [], hostiles: [], traffic: [],
-  x: 0, speed: 30, dist: 0, target: 1500, t: 0, mannyBiteT: 8, spawnT: 1.5,
+  x: 0, speed: 30, dist: 0, target: 1500, t: 0, snowBiteT: 8, spawnT: 1.5,
 };
 
 function buildDriveScene() {
@@ -2663,8 +2676,8 @@ function startDrive() {
   drive.speed = 30;
   camera.fov = 70;
   camera.updateProjectionMatrix();
-  setObjective('escape', S.mannyInjured ? 'Manny is hurt — you are driving' : 'Get to the Sasquatch safehouse');
-  say(S.mannyInjured ? 'Prospect' : 'Manny', S.mannyInjured ? 'Hold the case. I am driving.' : 'Seatbelt. Or do not. You are the size of a seatbelt.', 3.6);
+  setObjective('escape', S.snowInjured ? 'Snow is hurt — you are driving' : 'Get to the Sasquatch safehouse');
+  say(S.snowInjured ? 'Prospect' : 'Snow', S.snowInjured ? 'Hold the case. I am driving.' : 'Seatbelt. Or do not. You are the size of a seatbelt.', 3.6);
   if (S.windowBroken) toast('BROKEN WINDOW', 'warn', 'Warm air over the shipment all the way home');
 }
 
@@ -2731,19 +2744,19 @@ function updateDrive(dt) {
   const alongside = drive.hostiles.find((c) => Math.abs(c.position.z) < 12 && Math.abs(c.position.x - drive.x) < 5.5);
   drive.ramTarget = alongside || null;
   if (alongside) {
-    promptEl.innerHTML = `<b>[E]</b> ${S.mannyInjured ? 'Put them into the guardrail' : 'Tell Manny to ram them'}`;
+    promptEl.innerHTML = `<b>[E]</b> ${S.snowInjured ? 'Put them into the guardrail' : 'Tell Snow to ram them'}`;
     promptEl.classList.add('show');
   } else {
     promptEl.classList.remove('show');
   }
 
-  // Manny helps himself to the evidence
-  drive.mannyBiteT -= dt;
-  if (drive.mannyBiteT <= 0 && !S.mannyInjured && S.carryingJerky) {
-    drive.mannyBiteT = 11 + Math.random() * 8;
-    freshness.damage(4, 'Manny "checking quality"');
+  // Snow helps himself to the evidence
+  drive.snowBiteT -= dt;
+  if (drive.snowBiteT <= 0 && !S.snowInjured && S.carryingJerky) {
+    drive.snowBiteT = 11 + Math.random() * 8;
+    freshness.damage(4, 'Snow "checking quality"');
     sfx.chew();
-    say('Manny', 'I am checking quality!', 3);
+    say(ALLY, 'I am checking quality!', 3);
     setTimeout(() => say('Prospect', 'Stop eating the shipment!', 3), 1500);
   }
 
@@ -2757,8 +2770,8 @@ function updateDrive(dt) {
   }
 
   // Keep the getaway in first person as well. Tony rides on the passenger
-  // side unless Manny is injured and Tony has to take the wheel.
-  const seatX = S.mannyInjured ? -0.42 : 0.42;
+  // side unless Snow is injured and Tony has to take the wheel.
+  const seatX = S.snowInjured ? -0.42 : 0.42;
   camera.position.set(drive.x + seatX, 1.62, 0.25);
   camera.lookAt(drive.x + seatX - steer * 0.8, 1.5, -22);
   if (shake > 0) {
@@ -2791,8 +2804,8 @@ function ramPursuer() {
   shake = Math.max(shake, 0.7);
   freshness.damage(5, 'ramming a car off the road');
   drive.speed = Math.max(16, drive.speed - 6);
-  toast('OFF THE ROAD', '', S.mannyInjured ? 'You put them into the guardrail' : 'Manny put them into the guardrail');
-  say(S.mannyInjured ? 'Prospect' : 'Manny', S.mannyInjured ? 'Stay down.' : 'That was my door!', 2.8);
+  toast('OFF THE ROAD', '', S.snowInjured ? 'You put them into the guardrail' : 'Snow put them into the guardrail');
+  say(S.snowInjured ? 'Prospect' : 'Snow', S.snowInjured ? 'Stay down.' : 'That was my door!', 2.8);
 }
 
 function onDriveCrash(hostile) {
@@ -2827,7 +2840,7 @@ function showEnding(kind) {
 
   // Final exchange
   if (kind === 'home') {
-    lines.push(['*', 'The vehicle disappears down the road. Manny looks at the damaged suitcase.']);
+    lines.push(['*', 'The vehicle disappears down the road. Snow looks at the damaged suitcase.']);
     lines.push(ENDING[0]);
     if (haul) {
       const intact = S.stashTaken || S.cratesFound ? Math.max(3, S.packagesIntact) : S.packagesIntact;
@@ -2836,17 +2849,17 @@ function showEnding(kind) {
       lines.push(ENDING[2]);
       if (shipment.grade === 'counterfeit' && !inspection.correct()) {
         lines.push(['Prospect', 'This is gas-station product.']);
-        lines.push(['Manny', 'We paid forty thousand dollars for gas-station product.']);
+        lines.push(['Snow', 'We paid forty thousand dollars for gas-station product.']);
         lines.push(['*', 'This will follow Prospect around for a long time.']);
       } else {
         lines.push(ENDING[3]);
       }
     } else {
       lines.push(['Prospect', 'It survived the way a rumour survives.']);
-      if (S.wrongCase) lines.push(['Manny', 'I grabbed a case. It is full of smoked turkey. It is warm.']);
+      if (S.wrongCase) lines.push(['Snow', 'I grabbed a case. It is full of smoked turkey. It is warm.']);
     }
   } else if (kind === 'walked') {
-    lines.push(['Manny', 'Good. Best deal we ever made was the one we did not.']);
+    lines.push(['Snow', 'Good. Best deal we ever made was the one we did not.']);
   }
 
   $('endLines').innerHTML = lines.map(([who, line]) =>
@@ -2888,7 +2901,7 @@ function showEnding(kind) {
     rico: 'planted on Rico', room: 'left in room twelve', ground: 'dropped in the open',
   }[S.evidenceChoice] || (S.weapon !== 'fists' ? 'still in your hand' : 'you never picked anything up')}.`);
   if (S.ricoEscaped) notes.push('Rico got out of the building. He has a face you will see again.');
-  if (S.betrayedManny) notes.push("You took Rico's side out loud. Manny heard the shape of it.");
+  if (S.betrayedAlly) notes.push("You took Rico's side out loud. Snow heard the shape of it.");
   if (S.capturedOnce) notes.push('You woke up in a bathtub. Nobody needs to hear about that.');
   if (S.stashFound && !S.stashTaken && !S.cratesFound) notes.push("You found Rico's real stash and left it behind.");
   if (freshness.log.length) notes.push(`Freshness lost to: ${freshness.log.join(', ')}.`);
@@ -2954,7 +2967,7 @@ function updateAmbient(dt) {
       if (who === 'Rico' && rico) rico.talkT = 1.6;
       if (who === 'Chino' && chino) chino.talkT = 1.6;
     } else if (phase === 'lot' && Math.random() < 0.5) {
-      say('Manny', MANNY_BARKS[Math.floor(Math.random() * MANNY_BARKS.length)], 3.2);
+      say(ALLY, SNOW_BARKS[Math.floor(Math.random() * SNOW_BARKS.length)], 3.2);
     } else if ((phase === 'fight' || phase === 'recover') && Math.random() < 0.7) {
       const [who, line] = FIGHT_BARKS[Math.floor(Math.random() * FIGHT_BARKS.length)];
       say(who, line, 2.8);
@@ -3028,17 +3041,17 @@ function updateFightLogic(dt) {
     sfx.siren(false);
     sfx.alarm();
     toast('POLICE ON THE LOT', 'warn', 'Forget the sellers. Do not be here.');
-    say('Manny', 'Blue lights on the road! We are leaving with or without you!', 3.6);
+    say(ALLY, 'Blue lights on the road! We are leaving with or without you!', 3.6);
     setObjective('escape', 'Get to the car before the lot fills up');
     for (const a of actors) {
       if (a.role === 'seller' && a.alive) { a.state = 'panic'; a.hostile = false; }
     }
   }
 
-  if (manny && S.mannyInside && manny.hp < 60 && !S.mannyInjured) {
-    S.mannyInjured = true;
+  if (snow && S.snowInside && snow.hp < 60 && !S.snowInjured) {
+    S.snowInjured = true;
     toast('MANNY IS HURT', 'warn', 'You are driving');
-    say('Manny', 'I am fine. That is not my blood. Probably.', 3.2);
+    say(ALLY, 'I am fine. That is not my blood. Probably.', 3.2);
   }
 }
 

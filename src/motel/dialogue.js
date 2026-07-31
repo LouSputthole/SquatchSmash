@@ -15,14 +15,14 @@ export const STYLE_LABEL = { calm: 'CALM', threat: 'THREATENING', insult: 'INSUL
 
 export const NODES = {
   // --- in the car, before you ever open a door ---
-  mannyBrief: {
-    speaker: 'Manny',
-    line: 'Room twelve. They show the meat first. You show the money second.',
+  snowBrief: {
+    speaker: 'Snow',
+    line: 'Room twelve. Meat first. Money second.',
     options: {
-      calm: { text: 'That is how business works.', heat: 0, read: 2, reply: ['Manny', 'Good. Business. Not opera.'] },
-      threat: { text: 'If they waste my time, they lose more than jerky.', heat: 2, read: 1, reply: ['Manny', 'Prospect. We buy the meat, we leave. No speeches.'] },
-      insult: { text: 'This motel smells like boiled carpet.', heat: 0, read: 1, reply: ['Manny', 'That is the pool. Nobody has drained it since the eighties.'] },
-      expert: { text: 'If the grain runs sideways, we walk.', heat: 0, read: 5, reply: ['Manny', 'If the grain runs sideways I am already driving.'] },
+      calm: { text: 'That is how business works.', heat: 0, read: 2, reply: ['Snow', 'Good. Business. Not opera.'] },
+      threat: { text: 'If they waste my time, they lose more than jerky.', heat: 2, read: 1, reply: ['Snow', 'Buy. Leave. No speeches.'] },
+      insult: { text: 'This motel smells like boiled carpet.', heat: 0, read: 1, reply: ['Snow', 'The pool. Nobody drained it since the eighties.'] },
+      expert: { text: 'If the grain runs sideways, we walk.', heat: 0, read: 5, reply: ['Snow', 'Grain runs sideways, I am driving.'] },
     },
   },
 
@@ -70,22 +70,22 @@ export const NODES = {
     speaker: 'Rico',
     line: 'Your driver takes forty of your money for parking a car. Walk out with me instead. You keep the case, I keep the cash, he keeps the parking.',
     options: {
-      calm: { text: 'Manny stays. Say the next part carefully.', heat: 6, read: 6, reply: ['Rico', 'The next part is the part where you decide.'] },
+      calm: { text: 'Snow stays. Say the next part carefully.', heat: 6, read: 6, reply: ['Rico', 'The next part is the part where you decide.'] },
       threat: { text: 'Say his name again and I use the vacuum sealer on you.', heat: 18, read: 4, reply: ['Rico', 'Noted. Loudly.'] },
       insult: { text: 'You are the third best liar in this room and there are three of us.', heat: 14, read: 8, reply: ['Rico', 'Three. He counted three.'], hintsThird: true },
-      expert: { text: 'A man with real product does not need a partner. Deal.', heat: 4, read: 4, reply: ['Rico', 'Now that is business.'], betrayManny: true },
+      expert: { text: 'A man with real product does not need a partner. Deal.', heat: 4, read: 4, reply: ['Rico', 'Now that is business.'], betrayAlly: true },
     },
   },
 
   // --- in the car afterwards ---
   getaway: {
-    speaker: 'Manny',
+    speaker: 'Snow',
     line: 'Tell me that was worth it.',
     options: {
-      calm: { text: 'It is real.', heat: 0, read: 0, reply: ['Manny', 'Then we are rich and I am shaking for no reason.'] },
-      threat: { text: 'Drive before I inspect you.', heat: 0, read: 0, reply: ['Manny', 'Driving. Driving.'] },
-      insult: { text: 'You parked facing the building.', heat: 0, read: 0, reply: ['Manny', 'I parked facing the exit. The building was an accident.'] },
-      expert: { text: 'Humidity touched the bottom packages.', heat: 0, read: 0, reply: ['Manny', 'Humidity touched all of us tonight.'] },
+      calm: { text: 'It is real.', heat: 0, read: 0, reply: ['Snow', 'Then we are rich. I am still shaking.'] },
+      threat: { text: 'Drive before I inspect you.', heat: 0, read: 0, reply: ['Snow', 'Driving. Driving.'] },
+      insult: { text: 'You parked facing the building.', heat: 0, read: 0, reply: ['Snow', 'I parked facing the exit. Mostly.'] },
+      expert: { text: 'Humidity touched the bottom packages.', heat: 0, read: 0, reply: ['Snow', 'Humidity touched everything tonight.'] },
     },
   },
 };
@@ -119,12 +119,12 @@ export const PROSPECT_BARKS = [
   'Everyone in this room is smaller than the deal.',
 ];
 
-export const MANNY_BARKS = [
-  'Prospect, we buy the meat, we leave. No speeches.',
-  'There is a second car running out here. Nobody is in the front seat.',
-  'I do not like the upstairs. Somebody keeps not looking at me.',
-  'Two minutes and I start honking.',
-  'If they show you one package, ask for the case.',
+export const SNOW_BARKS = [
+  'Buy the meat. Leave. No speeches.',
+  'Second car. Running. Nobody in it.',
+  'The upstairs. Somebody keeps not looking at me.',
+  'Two minutes. Then I honk.',
+  'One package? Ask for the case.',
 ];
 
 // Combat / escape shouts.
@@ -136,17 +136,22 @@ export const FIGHT_BARKS = [
   ['Chino', 'He is too big! Somebody find the prod!'],
 ];
 
-export const MANNY_FIGHT_BARKS = [
+export const SNOW_FIGHT_BARKS = [
   'Which case is ours?',
-  'I am coming in! Do not swing at me!',
+  'Coming in. Do not swing.',
   'Car is running! Move!',
-  'They came from the pool side!',
+  'Pool side!',
 ];
+
+/* Deprecated aliases. `tools/sound-queue.mjs` still imports the old names and
+ * is owned elsewhere; these keep it running until it is updated to say Snow. */
+export const MANNY_BARKS = SNOW_BARKS;
+export const MANNY_FIGHT_BARKS = SNOW_FIGHT_BARKS;
 
 // The closing exchange on the road.
 export const ENDING = [
-  ['Manny', 'How much of it survived?'],
+  ['Snow', 'How much survived?'],
   ['*', 'Prospect opens the case.'],
-  ['Manny', 'Well?'],
+  ['Snow', 'Well?'],
   ['Prospect', 'Too much pepper.'],
 ];
