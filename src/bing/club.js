@@ -831,7 +831,7 @@ export function buildClub(scene, { renderer } = {}) {
      * is except the one where the whole point is that Lou has been waiting;
      * main.js drives these hands off the campaign clock, so the wall and the
      * HUD agree and both of them agree with the drive over. */
-    const barClock = makeWallClock(M, { x: -20.78, y: 2.6, z: -0.6, rotY: Math.PI / 2, r: 0.22 });
+    const barClock = makeWallClock(M, { x: -20.74, y: 2.72, z: -0.6, rotY: Math.PI / 2, r: 0.34 });
     add(barClock);
     clocks.push(barClock);
 

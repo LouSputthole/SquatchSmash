@@ -1421,7 +1421,7 @@ const stageTalk = {
       }
       club.anchors.powderMesh?.parent?.remove(club.anchors.powderMesh);
       startFocus(25);
-      audio.play('sniff', { volume: 0.5 });
+      audio.play('bing.line.snort', { volume: 0.5 });
       hud.toast('Locked in', 'good');
       hud.say('<em>Oh.</em> Everything in the room arrives at once and stands very still, and you are, '
         + 'briefly, the most competent man in New Jersey.', 5600);
