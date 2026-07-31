@@ -633,6 +633,15 @@ function addInteract(o) {
 
 function ix(id) { return interactables.find((i) => i.id === id); }
 
+/* Phases where Tony is out of the car with his hands free. Several props had
+ * no phase test at all, so the whole motel was live while he was still sitting
+ * in the passenger seat being briefed -- including the Reserve itself, which
+ * skipped the entire deal if it was reached. */
+function onFoot() {
+  return phase === 'lot' || phase === 'room' || phase === 'fight'
+    || phase === 'recover' || phase === 'escape';
+}
+
 // -- car phase --
 addInteract({
   id: 'talkAlly', x: -10.6, y: 1.6, z: 16.4, r: 4.2,
@@ -856,7 +865,8 @@ addInteract({
     if (phase === 'room') return 'Count the packages';
     return 'Take the Reserve';
   },
-  enabled: () => !S.carryingJerky && !S.caseInPool && !S.caseBurned && refs.jerkyCase.group.visible,
+  enabled: () => onFoot() && phase !== 'lot'
+    && !S.carryingJerky && !S.caseInPool && !S.caseBurned && refs.jerkyCase.group.visible,
   act: () => {
     if (phase === 'room') {
       addHeat(6);
@@ -1082,7 +1092,7 @@ addInteract({
 addInteract({
   id: 'crates', x: refs.crates.x, y: 1.0, z: refs.crates.z, r: 3.4,
   label: () => 'Search the shipment crates',
-  enabled: () => !S.cratesFound,
+  enabled: () => onFoot() && !S.cratesFound,
   act: () => {
     S.cratesFound = true;
     S.stashFound = true;
@@ -1097,7 +1107,7 @@ addInteract({
 addInteract({
   id: 'monitor', x: refs.monitor.x, y: 1.6, z: refs.monitor.z, r: 3.2,
   label: () => 'Read the security monitor',
-  enabled: () => !refs.monitor.used,
+  enabled: () => onFoot() && !refs.monitor.used,
   act: () => {
     refs.monitor.used = true;
     S.positionsMarked = 10;
@@ -1110,7 +1120,7 @@ addInteract({
 addInteract({
   id: 'register', x: refs.register.x, y: 1.5, z: refs.register.z, r: 3.0,
   label: () => 'Rob the register (optional)',
-  enabled: () => !refs.register.robbed && phase !== 'menu',
+  enabled: () => onFoot() && !refs.register.robbed,
   act: () => {
     refs.register.robbed = true;
     S.policeHeat += 18;
@@ -1123,7 +1133,7 @@ addInteract({
 addInteract({
   id: 'officeRear', x: -44, y: 1.2, z: -13.6, r: 3.2,
   label: () => (refs.officeRearDoor.locked ? 'Force the emergency exit' : 'Emergency exit'),
-  enabled: () => true,
+  enabled: () => onFoot(),
   act: () => {
     if (refs.officeRearDoor.locked) {
       refs.officeRearDoor.locked = false;
@@ -1138,7 +1148,7 @@ addInteract({
 addInteract({
   id: 'poolTunnel', x: refs.poolTunnel.x, y: -2.4, z: refs.poolTunnel.z, r: 3.4,
   label: () => 'Crawl into the drainage tunnel',
-  enabled: () => true,
+  enabled: () => onFoot(),
   act: () => {
     pos.set(refs.poolTunnel.exit.x, 0, refs.poolTunnel.exit.z);
     feetY = 0;
@@ -1239,7 +1249,7 @@ for (const ac of refs.acUnits) {
 addInteract({
   id: 'neon', x: refs.neon.group.position.x, y: 2, z: refs.neon.group.position.z, r: 4.0,
   label: () => 'Kick the motel sign off its wiring',
-  enabled: () => !S.neonKilled,
+  enabled: () => onFoot() && !S.neonKilled,
   act: () => {
     S.neonKilled = true;
     refs.neon.glow.intensity = 0;
@@ -1257,7 +1267,7 @@ addInteract({
 addInteract({
   id: 'clerk', x: -44, y: 1.4, z: -6.2, r: 3.6,
   label: () => 'Tell the clerk to look at the wall',
-  enabled: () => clerk && clerk.alive && !S.clerkCowed,
+  enabled: () => onFoot() && clerk && clerk.alive && !S.clerkCowed,
   follow: () => (clerk ? { x: clerk.position.x, z: clerk.position.z } : null),
   act: () => {
     S.clerkCowed = true;
@@ -1287,16 +1297,23 @@ function exitCar() {
   updateGear();
 }
 
+/** Rico answering the door. Idempotent, so the timer and the door can race. */
+function openTheDoor() {
+  if (rico) return rico;
+  sfx.doorOpen();
+  rico = spawnActor({ ...CAST.rico(), x: 0, z: -4.9, state: 'deal' });
+  rico.anchor = { x: 0, z: -4.9 };
+  rico.faceAt(0, 16);          // out through his own doorway, at Tony
+  rico.talkT = 2;
+  return rico;
+}
+
 function knockOnTwelve() {
   S.knocked = true;
   phase = 'door';
   sfx.knock();
   setTimeout(() => {
-    sfx.doorOpen();
-    rico = spawnActor({ ...CAST.rico(), x: 0, z: -4.9, state: 'deal' });
-    rico.anchor = { x: 0, z: -4.9 };
-    rico.heading = 0;
-    rico.talkT = 2;
+    openTheDoor();
     openDialogue('atDoor');
   }, 1100);
 }
@@ -1310,13 +1327,21 @@ function enterRoom() {
   completeObjective('reach');
   setObjective('inspect', 'Confirm the merchandise');
 
-  // Everyone takes their positions
+  /* Everyone takes their positions.
+   *
+   * Rico is spawned by a timer a second after the knock. On a slow frame that
+   * timer can still be pending when the player steps through, and this used to
+   * throw on a null `rico` and take the whole scene down with it, so the door
+   * opens here too if it has not opened yet. */
+  openTheDoor();
   rico.anchor = { x: 1.2, z: -8.3 };
   rico.state = 'deal';
   rico.group.position.set(1.2, 0, -8.3);
   chino = spawnActor({ ...CAST.chino(), x: -1.2, z: -7.8, state: 'guard' });
   chino.anchor = { x: -1.2, z: -7.8 };
+  chino.faceAt(0.5, -6.5);     // across the table, at the deal
   slicer = spawnActor({ ...CAST.slicer(), x: 2.2, z: -13.5, state: 'idle' });
+  slicer.faceAt(0, -8);        // out of the bathroom doorway at the room
   slicer.group.visible = true;
 
   // The door closes behind you
