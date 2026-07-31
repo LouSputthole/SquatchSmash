@@ -7,6 +7,7 @@
  *     key:    'E',
  *     hold:   0.9,                              // seconds; omit for instant
  *     enabled:() => true,
+ *     soft:   true,                             // see below
  *     onUse:  () => {},
  *     onTap:  () => {},                         // hold targets only: fired on
  *                                               // a quick press instead
@@ -17,6 +18,17 @@
  *
  * A descriptor with both `hold` and `onTap` gives you two actions on one
  * target: tap for the cheap one, hold for the committed one.
+ *
+ * `soft` marks a convenience volume rather than a thing. Half the furniture in
+ * the flat is aimed at through a proxy box standing well proud of the real
+ * geometry, because a drawer is knee height and nobody wants to stare at their
+ * own feet to open one. Those boxes then sit in FRONT of everything resting on
+ * the furniture, and the nearest hit wins, so the proxy quietly eats it: the
+ * nightstand drawer swallowed the phone lying on the nightstand whole, and the
+ * phone only became pickable once getting dressed switched the drawer off.
+ * A soft target is taken only when nothing solid was found anywhere along the
+ * same ray, which is the order a person would expect -- you point at the phone,
+ * you get the phone, and the drawer is what is there when the phone is not.
  */
 import * as THREE from 'three';
 
@@ -71,14 +83,18 @@ export class InteractionSystem {
     const hits = this.raycaster.intersectObjects(this.targets, true);
 
     let found = null;
+    let soft = null;
     for (const hit of hits) {
       const owner = this._ownerOf(hit.object);
       if (!owner) continue;
       const desc = owner.userData.interact;
       if (desc.enabled && !desc.enabled()) continue;
+      // Remembered, not taken: anything solid further down the ray beats it.
+      if (desc.soft) { soft ??= owner; continue; }
       found = owner;
       break;
     }
+    found ??= soft;
 
     if (found !== this.current) {
       this.current = found;

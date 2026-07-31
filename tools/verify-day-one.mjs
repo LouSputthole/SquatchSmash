@@ -123,18 +123,63 @@ try {
       && ringing.instruction.includes('then [E] to answer'),
     ringing.instruction);
 
+  /* He is still in what he slept in, and that has to be beside the point. The
+   * nightstand drawer's aim proxy stands three quarters of a metre proud of the
+   * drawer and so encloses the phone lying on the nightstand; while it was a
+   * hard target it answered for the phone, and the only way to reach a ringing
+   * phone was to go and get changed first. So: aim at the phone with every
+   * chore still undone, and take it the way a player does. */
+  const reach = await page.evaluate(async () => {
+    const game = window.__squatch;
+    const THREE = await import('three');
+    game.interaction.setPaused(false);
+    game.player.mode = 'walk';
+    game.player.position.set(-3.30, 1.66, -3.20);
+    game.player.eyeHeight = 1.66;
+    game.player.update(0.016);
+    game.camera.up.set(0, 1, 0);
+    game.camera.lookAt(new THREE.Vector3(-3.36, 0.62, -4.20));
+    game.camera.updateMatrixWorld(true);
+    game.interaction.update(0.016);
+    const target = game.interaction.current;
+    const label = target && (typeof target.userData.interact.label === 'function'
+      ? target.userData.interact.label()
+      : target.userData.interact.label);
+    game.interaction.press();
+    return {
+      dressed: game.apartment.state.dressed,
+      label,
+      carrying: game.apartment.inventory.has('phone'),
+      held: game.apartment.state.heldItem,
+    };
+  });
+  check('the ringing phone can be picked up before he has changed clothes',
+    reach.dressed === false
+      && reach.label === 'Take your <b>phone</b>'
+      && reach.carrying === true
+      && reach.held === 'phone',
+    JSON.stringify(reach));
+
   const answered = await page.evaluate(() => {
     const game = window.__squatch;
-    game.apartment.inventory.add('phone');
+    if (!game.apartment.inventory.has('phone')) game.apartment.inventory.add('phone');
     game.phone.press();
     return {
       inCall: game.phone.inCall,
+      dressed: game.apartment.state.dressed,
       event: game.campaign.state.events.lou_first_call.status,
       mission: game.campaign.state.missions.bada_bing_one.status,
+      changedClothes: game.campaign.state.activities.changedClothes,
       timeMinutes: game.campaign.state.story.timeMinutes,
       liveMinutes: game.time.minutes,
     };
   });
+  check('answering before the wardrobe leaves the campaign consistent',
+    answered.dressed === false
+      && answered.changedClothes === false
+      && answered.event === 'answered'
+      && answered.mission === 'available',
+    JSON.stringify(answered));
   check('answering the held phone persists Lou’s call',
     answered.inCall && answered.event === 'answered', JSON.stringify(answered));
   check('the answered call unlocks Bada Bing', answered.mission === 'available', answered.mission);

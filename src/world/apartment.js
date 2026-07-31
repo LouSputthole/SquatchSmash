@@ -474,8 +474,15 @@ export async function buildApartment(ctx) {
   const nightstand = P.makeNightstand(M, { x: -3.15, z: -4.12 });
   root.add(nightstand.group);
   addCollider(nightstand.bounds);
-  // Drawer height is knee height. Without a taller proxy you have to stare
-  // at your own feet to open it -- same fix as the couch and the bed.
+  /* Drawer height is knee height. Without a taller proxy you have to stare
+   * at your own feet to open it -- same fix as the couch and the bed.
+   *
+   * Which is why it is registered `soft`. The proxy stands three quarters of a
+   * metre proud of the drawer and so encloses the whole top of the nightstand:
+   * his phone and a box of rounds are both inside it, and the nearest hit wins.
+   * For a while that meant the drawer answered for both of them, and the phone
+   * could not be picked up -- could not be ANSWERED -- until getting dressed
+   * switched the drawer off and let go of it. */
   const drawerHit = box({
     size: [0.60, 0.72, 0.52], pos: [-3.15, 0.90, -4.12],
     mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
@@ -1493,6 +1500,7 @@ export async function buildApartment(ctx) {
   });
 
   interaction.register(drawerHit, {
+    soft: true,
     label: () => (state.dressed ? 'Already <b>changed</b>' : 'Find a <b>clean shirt</b>'),
     enabled: () => !state.dressed,
     hold: 0.8,
