@@ -159,6 +159,10 @@ try {
       game.camera.up.set(0, 1, 0);
       game.camera.lookAt(new THREE.Vector3(look[0], look[1], look[2]));
       game.camera.updateMatrixWorld(true);
+      // The probe moves the camera itself instead of using a rendered frame.
+      // Refresh the static room matrices too, otherwise Three raycasts against
+      // the identity transforms and misses an actually reachable bed.
+      game.scene.updateMatrixWorld(true);
       game.interaction.current = null;
       game.interaction.update(0.016);
       const target = game.interaction.current;
