@@ -219,8 +219,8 @@
       "style": 0.5
     },
     "numbskull": {
-      "id": "",
-      "_note": "Numbskull — Family. NO VOICE ID YET: the owner's sheet row is blank. Paste the id here; his authored lines are excluded from --cast batches until then.",
+      "id": "R4Zv8YQNcHyNDZl0ViUG",
+      "_note": "Numbskull — Family. Big, warm, slow to the point and completely unbothered about it. Says fond things like statements of fact. Not stupid on purpose — he just arrives where he was going without showing the working.",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.8,
@@ -5666,6 +5666,18 @@
       "voice": "shubenator",
       "say": "You need mass, Prospect. Order the shrimp. Order nine shrimp.",
       "duration": 4.5
+    },
+    {
+      "name": "vo.bing.hang.numbskull.1",
+      "voice": "numbskull",
+      "say": "I like you. I decided this morning. It's done now, so don't worry about it.",
+      "duration": 5
+    },
+    {
+      "name": "vo.bing.hang.numbskull.2",
+      "voice": "numbskull",
+      "say": "Lou says I'm the muscle. Booski says I'm the heart. I say ow.",
+      "duration": 5
     },
     {
       "name": "vo.bing.booski.shot.offer",
