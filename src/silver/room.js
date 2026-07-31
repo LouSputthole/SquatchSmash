@@ -534,6 +534,25 @@ export function buildRoom(scene, { renderer } = {}) {
     });
     add(sign(smallTex, 1.5, 1.2, { x: -4.6, y: 2.2, z: 34.44, emissive: '#d8c48a', intensity: 0.5 }));
 
+    /* The nudge towards the side door. The whole bit of the scene is that he
+     * does not stand in that queue, so the east corner of the frontage — the
+     * corner you land facing — carries a small service plate with an arrow at
+     * the alley, and a bulb over it so the eye finds it before the rope does.
+     * Facing the frontage (looking −z), +x is on your right: the alley is the
+     * way the arrow points. */
+    const serviceTex = printed('silver-service', ['THE SILVER ROOM', 'SERVICE & DELIVERIES', 'IN REAR →'], {
+      w: 420, h: 220, bg: '#14100a', fg: '#c8b070', border: '#5a4a28',
+      font: '700 40px "Trebuchet MS", sans-serif',
+    });
+    const servicePlate = sign(serviceTex, 1.7, 0.9, { x: 19.6, y: 2.3, z: 34.44, emissive: '#c8b070', intensity: 0.4 });
+    servicePlate.name = 'service-plate';
+    add(servicePlate);
+    const serviceLight = pointLight(0xffd9a0, 1.2);
+    serviceLight.position.set(19.6, 3.1, 35.1);
+    serviceLight.distance = 7;
+    add(serviceLight);
+    houseLights.push({ light: serviceLight, exterior: true });
+
     // A wet street reads mostly as reflections of things you cannot see
     for (let i = 0; i < 9; i++) {
       const px = rand(-18, 18);
@@ -1014,6 +1033,48 @@ export function buildRoom(scene, { renderer } = {}) {
     rampLight.distance = 12;
     add(rampLight);
     houseLights.push({ light: rampLight, back: true });
+
+    /* ---- the way out to the floor, painted on the floor ----
+     *
+     * The playtest note was blunt: coming up out of the cellar into a working
+     * kitchen, nothing says which way the dining room is. Working kitchens
+     * answer this the same way everywhere — a painted walkway lane — so one
+     * runs from the top of the ramp, east of the pass, along the aisle between
+     * pass and line, to the swing doors. Worn safety yellow, flat on the tile,
+     * no collider. A lit FLOOR plate over the swing doors on the kitchen side
+     * finishes the sentence, and its twin in the corridor points the turn
+     * north (facing −x, +z is on your LEFT). */
+    const M_LANE = mat({ color: 0x8a742c, roughness: 0.95 });
+    const lane = [
+      [20.6, 0.8], [22.6, -3.2], [22.6, -8.35], [16.4, -7.9], [15.3, -7.8],
+    ];
+    for (let i = 0; i + 1 < lane.length; i++) {
+      const [x0, z0] = lane[i];
+      const [x1, z1] = lane[i + 1];
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const stripe = box({
+        size: [0.14, 0.008, len + 0.14],
+        pos: [(x0 + x1) / 2, 0.012, (z0 + z1) / 2],
+        rotY: Math.atan2(x1 - x0, z1 - z0),
+        mat: M_LANE, cast: false,
+      });
+      stripe.name = 'service-lane';
+      add(stripe);
+    }
+    const floorTex = printed('silver-floor-plate', ['FLOOR'], {
+      w: 256, h: 110, bg: '#141410', fg: '#c8b070', border: '#5a4a28',
+      font: '800 54px "Trebuchet MS", sans-serif',
+    });
+    const floorPlate = sign(floorTex, 1.1, 0.45, { x: 15.16, y: 2.4, z: -7.8, rotY: Math.PI / 2, emissive: '#c8b070', intensity: 0.4 });
+    floorPlate.name = 'floor-plate';
+    add(floorPlate);
+    const floorTurnTex = printed('silver-floor-turn', ['← FLOOR'], {
+      w: 256, h: 110, bg: '#141410', fg: '#c8b070', border: '#5a4a28',
+      font: '800 50px "Trebuchet MS", sans-serif',
+    });
+    const floorTurn = sign(floorTurnTex, 1.1, 0.45, { x: 9.94, y: 2.2, z: -7.8, rotY: Math.PI / 2, emissive: '#c8b070', intensity: 0.4 });
+    floorTurn.name = 'floor-plate';
+    add(floorTurn);
   }
 
   /* ================================================================ */
