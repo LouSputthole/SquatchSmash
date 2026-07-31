@@ -69,6 +69,10 @@ const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
 const startBtn = document.getElementById('start-btn');
 const assetStatus = document.getElementById('asset-status');
+const restartCampaignBtn = document.getElementById('restart-campaign-btn');
+const restartCampaignConfirm = document.getElementById('restart-campaign-confirm');
+const restartCampaignConfirmBtn = document.getElementById('restart-campaign-confirm-btn');
+const restartCampaignCancelBtn = document.getElementById('restart-campaign-cancel-btn');
 
 /* ------------------------------------------------------------------ */
 /* Renderer                                                            */
@@ -844,6 +848,7 @@ function enableInput() {
   game.paused = false;
   document.body.classList.remove('unlocked');
   overlay.classList.add('hidden');
+  hideCampaignRestart();
 }
 
 /* The wheel picks the next thing he is carrying. Only while the pointer is
@@ -876,7 +881,36 @@ function pauseGame() {
     ? 'Still at the desk. The meeting is not until tomorrow.'
     : 'The fridge is not going anywhere.';
   startBtn.textContent = 'Resume';
+  restartCampaignBtn.classList.remove('hidden');
 }
+
+function hideCampaignRestart() {
+  restartCampaignBtn.classList.add('hidden');
+  restartCampaignConfirm.classList.add('hidden');
+}
+
+restartCampaignBtn.addEventListener('click', () => {
+  restartCampaignBtn.classList.add('hidden');
+  restartCampaignConfirm.classList.remove('hidden');
+});
+
+restartCampaignCancelBtn.addEventListener('click', () => {
+  restartCampaignConfirm.classList.add('hidden');
+  restartCampaignBtn.classList.remove('hidden');
+});
+
+restartCampaignConfirmBtn.addEventListener('click', () => {
+  const fresh = campaign.reset();
+  if (!fresh) {
+    restartCampaignConfirm.classList.add('hidden');
+    restartCampaignBtn.classList.remove('hidden');
+    assetStatus.textContent = 'Could not replace the campaign save. Your current progress was left alone.';
+    return;
+  }
+  // A reload rebuilds every scene-local system from the fresh durable state.
+  // Squatch Smash keeps its own score/career key and is intentionally untouched.
+  location.reload();
+});
 
 /* ------------------------------------------------------------------ */
 /* Input                                                               */

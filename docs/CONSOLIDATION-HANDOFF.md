@@ -3,7 +3,7 @@
 Last updated: 2026-07-31
 GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
-Current published checkpoint: `d49a506ef70cab9727fa0267e8ed012cad3ff0d5`
+Current published checkpoint: current `main` (verify with `git rev-parse origin/main`)
 Live Pages: <https://lousputthole.github.io/SquatchSmash/>
 Current handoff checkpoint: `origin/main`; the previous integration and
 project-status refs now converge with it. Verify with `git rev-parse origin/main`.
@@ -76,6 +76,12 @@ deferred pending the owner's playtest.
   navigation, `[Q]` pocket behavior in the club, and campaign-derived Family
   texts. Read state uses zero-minute `phone.read.*` campaign events, so it
   persists across reloads and scene returns without a second save system.
+- Apartment pause includes an explicit two-step **Restart campaign** action.
+  It resets only the story save to Day One and deliberately preserves the
+  separate Squatch Smash career/high-score storage.
+- Objective dialogue can opt into a movement lock. Big Uncle Lou's Bada Bing
+  briefing is locked through its authored ending; ambient conversations remain
+  walk-away-and-resume conversations.
 
 The focused implementation history in this handoff is:
 
@@ -96,9 +102,10 @@ The focused audio/phone follow-up was verified against the current production
 base before publication:
 
 ```text
-npm test                     90/90 passed
+npm test                     91/91 passed
 npm run check                186 source files, 4 manifests, all good
-npm run verify:bing          126/126 passed
+npm run verify:bing          127/127 passed
+npm run verify:day-one       36/36 passed
 npm run verify:squatchfather  31/31 passed
 npm run verify:beefrun        22/22 passed
 ```
@@ -113,6 +120,24 @@ deferred until the owner playtests it.
 The phone's `[Q] pocket` hint is intentionally present on **every idle phone
 screen** (home, Messages, a thread, and Recents), not only while browsing a
 thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
+
+### July 31: pause/reset, dialogue, and recording backlog
+
+- `Campaign.reset()` writes a fresh Day One save before removing obsolete
+  recovery data. If browser storage refuses the write, the old campaign stays
+  intact. The pause UI requires a second explicit confirmation.
+- `verify:bing` proves an objective Lou briefing cannot move or lapse, then
+  confirms Tony returns to normal walking after the dialogue reaches its
+  authored end. `verify:day-one` proves Big Uncle Lou's first call is a
+  decoded, nonzero-gain WebAudio buffer playback.
+- `VOICE-LINES-TODO.md` was regenerated from the manifest and SFX index:
+  **259 voice lines and 17 effects remain.** The caller-side Day One Lou files
+  are present, indexed, and decode. Tony's four Day One reply takes are absent
+  from disk, along with the other Tony call-reply banks; they need properly
+  cast recorded/generated takes rather than a cue-loader change. The same list
+  contains the 23 unrecorded Bing dialogue cues (Lou's brief chains and
+  Margo). Run `npm run audio:todo` after every recording pass, then
+  `npm run sfx:listen` after adding MP3s.
 
 ## Campaign order — confirmed by the owner 2026-07-30
 

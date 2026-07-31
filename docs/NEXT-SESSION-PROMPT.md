@@ -12,7 +12,7 @@ Repository:
 
 - GitHub: `https://github.com/LouSputthole/SquatchSmash`
 - Canonical production branch: `main`
-- Published checkpoint: `d49a506ef70cab9727fa0267e8ed012cad3ff0d5`
+- Published checkpoint: current `main` (verify with `git rev-parse origin/main`)
 - Live Pages: `https://lousputthole.github.io/SquatchSmash/`
 - Never force-push or overwrite `main`; make focused branches and reviewed PRs.
 
@@ -80,6 +80,10 @@ Current product facts:
   and first-person Motel/Snow/pool/interior playtest fixes are implemented and
   verified. Preserve those fixes.
 - Initiation is intentionally unchanged until the user has tested it.
+- Apartment pause includes an explicit two-step **Restart campaign** action.
+  It resets the story save to Day One but preserves Squatch Smash career/high
+  score storage. Big Uncle Lou's Bada Bing objective briefing locks movement
+  until its authored end; ambient dialogue remains non-modal.
 
 Locked character/story canon:
 
@@ -113,19 +117,16 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
-IMMEDIATE PICKUP (2026-07-31 release hygiene): `main@acd6a9b` is deployed on
-GitHub Pages and the former integration/status lines converge with it. The
-only open PR, #4, is a duplicate draft: its four patches are already on `main`
-as equivalent commits and it should be closed as superseded, not merged.
+IMMEDIATE PICKUP (2026-07-31): fetch `main` and run the stated safe-pickup
+commands before trusting any historical SHA or PR status. The current focused
+follow-up adds campaign reset, objective-dialogue movement locks, actual phone
+audio playback verification, and a freshly generated `VOICE-LINES-TODO.md`.
 
-Fresh candidate gates: `npm test` 90/90; `npm run check` 186 sources and four
-manifests; `npm run check:flight` green; Day One 35, Day Two 22, Big Night 19,
-Computer 29, Squatch Smash 8, Boot Errors 8, Preview 16, Beef Run 22, Motel
-37, Squatchfather 31, Initiation 10, Bing Two 10, Bing 126, Silver Story 20,
-Silver 112, Art 50, and Bundle under three CSP policies. The release-hygiene
-branch adds one test-only correction: the Day Two bed raycast refreshes scene
-world matrices after its test camera is moved directly. `VOICE-LINES-TODO.md`
-is freshly generated: 259 voice lines and 17 effects remain.
+Current recording queue: **259 voice lines and 17 effects**. Caller-side Day
+One Lou audio is present and browser-verified. Tony's call replies are authored
+but unrecorded MP3s; do not mistake them for an index/cue bug. The same queue
+also includes Lou/Margo's unrecorded Bing dialogue. After a recording pass run
+`npm run sfx:listen`, then `npm run audio:todo` and the affected browser gates.
 
 The phone is campaign-derived: it has a readable Family thread, dynamic
 mission texts, wheel navigation in the apartment and Bing, and persisted read

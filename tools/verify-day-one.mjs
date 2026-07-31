@@ -69,6 +69,15 @@ try {
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
+  /* The verifier drives the room through its exposed game seam instead of
+   * clicking Wake Up. Match that first user gesture here so voice assertions
+   * exercise decoded production buffers, not the intentionally silent
+   * pre-gesture AudioContext. */
+  await page.evaluate(async () => {
+    const audio = window.__squatch.audio;
+    await audio.init();
+    await audio.loadManifest();
+  });
 
   const initial = await page.evaluate(() => {
     const state = window.__squatch.campaign.state;
@@ -213,6 +222,7 @@ try {
   const answered = await page.evaluate(() => {
     const game = window.__squatch;
     if (!game.apartment.inventory.has('phone')) game.apartment.inventory.add('phone');
+    game.audio.clearPlaybackLog?.();
     game.phone.press();
     return {
       inCall: game.phone.inCall,
@@ -237,6 +247,14 @@ try {
    * holds for a reading beat rather than stalling the call. */
   const reply = await page.evaluate(async () => {
     const game = window.__squatch;
+    // The first update after answering is Big Uncle Lou's first audible line.
+    // Inspect the real AudioBuffer path before moving the scripted call on to
+    // Tony's currently unrecorded answer.
+    if (game.phone.call?.line < 0) game.phone.update(0.25);
+    const caller = game.phone.call?.turns?.[game.phone.call.line];
+    const callerPlayback = game.audio.playbacks
+      .filter((playback) => playback.name === caller?.cue)
+      .at(-1);
     let turn = null;
     for (let i = 0; i < 400 && game.phone.inCall && !turn; i++) {
       game.phone.update(0.25);
@@ -246,6 +264,14 @@ try {
     const manifest = await fetch('assets/sfx/manifest.json').then((r) => r.json());
     const cue = manifest.sfx.find((c) => c.name === turn?.cue);
     return {
+      callerCue: caller?.cue,
+      callerBufferCount: game.audio.buffers.get(caller?.cue)?.length ?? 0,
+      callerPlayback: callerPlayback ? {
+        source: callerPlayback.source,
+        decodedDuration: callerPlayback.decodedDuration,
+        gain: callerPlayback.gain,
+        connectedToSfx: callerPlayback.connectedToSfx,
+      } : null,
       cue: turn?.cue,
       text: turn?.text,
       voice: cue?.voice,
@@ -263,6 +289,13 @@ try {
     JSON.stringify(reply));
   check('answering the held phone persists Lou’s call',
     answered.inCall && answered.event === 'answered', JSON.stringify(answered));
+  check('Big Uncle Lou first phone line is a decoded, audible SFX-buffer playback',
+    reply.callerCue === 'vo.call.lou.bada_bing.1'
+      && reply.callerPlayback?.source === 'buffer'
+      && reply.callerPlayback.decodedDuration > 0
+      && reply.callerPlayback.gain > 0
+      && reply.callerPlayback.connectedToSfx === true,
+    JSON.stringify(reply.callerPlayback));
   check('the answered call unlocks Bada Bing', answered.mission === 'available', answered.mission);
   check('answering Lou advances the saved and displayed clock by three minutes',
     answered.timeMinutes === 6 * 60 + 7 && answered.liveMinutes === 6 * 60 + 7,

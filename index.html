@@ -122,6 +122,14 @@
     <h1>SQUATCH<span>LIFE</span></h1>
     <p class="tag">Day One, 6:04 AM. You are a prospect. Lou will call when he is ready.</p>
     <button id="start-btn">Wake Up</button>
+    <!-- Only revealed from the in-game pause card. It is deliberately a
+         second confirmation: this clears story progress, not the separate
+         Squatch Smash high score/career on Tony's computer. -->
+    <button id="restart-campaign-btn" class="campaign-reset hidden" type="button">Restart campaign…</button>
+    <div id="restart-campaign-confirm" class="campaign-reset-confirm hidden" role="alert">
+      <p><strong>Start over from Day One?</strong><br>Story progress, inventory, calls, and mission checkpoints will be permanently replaced. Squatch Smash scores stay.</p>
+      <div><button id="restart-campaign-confirm-btn" type="button">Restart campaign</button><button id="restart-campaign-cancel-btn" type="button">Keep campaign</button></div>
+    </div>
     <ul class="controls">
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</li>
       <li><kbd>Shift</kbd> sprint &middot; <kbd>C</kbd> crouch</li>

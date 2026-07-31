@@ -318,6 +318,22 @@ const dialogue = new Dialogue(ui.dialogue, {
   },
   onChoice: (opt) => { voiceCue(nodeCue(opt)); layoutTalk(true); },
   onPaint: () => layoutTalk(true),
+  onMovementLock: (locked) => {
+    if (locked) {
+      /* Objective briefings are the one kind of dialogue Tony cannot stroll
+       * away from. Keep the camera where it is, clear held movement, and
+       * return to the exact prior posture once the authored thread ends. */
+      game.dialogueModeBeforeLock = player.mode;
+      player.clearKeys();
+      if (player.mode === 'walk') player.mode = 'frozen';
+      return;
+    }
+    if (game.dialogueModeBeforeLock === 'walk' && player.mode === 'frozen') {
+      player.mode = 'walk';
+      player.clearKeys();
+    }
+    game.dialogueModeBeforeLock = null;
+  },
   onActive: (on) => {
     document.body.classList.toggle('talking', on);
     /* A conversation that opens while a patron is still mid-remark clears the
@@ -1757,7 +1773,7 @@ function leaveByFrontDoor() {
 function startLouScene() {
   game.louTalking = true;
   cast.byName.lou.faceToward(player.position.x, player.position.z);
-  dialogue.start(scripts.lou, 'enter', cast.byName.lou);
+  dialogue.start(scripts.lou, 'enter', cast.byName.lou, { lockMovement: true });
 }
 
 /**
@@ -1784,7 +1800,7 @@ function takePackage() {
   hud.toast('ITEM ACQUIRED: Lou’s package', 'good');
   audio.play('gun.pickup', { volume: 0.6 });
   hud.say('It goes inside the jacket. It is heavier than the shape of it suggests.', 4200);
-  dialogue.start(scripts.lou, 'taken', cast.byName.lou);
+  dialogue.start(scripts.lou, 'taken', cast.byName.lou, { lockMovement: true });
 }
 
 function sitAtTable() {
