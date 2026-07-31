@@ -80,7 +80,12 @@ export class Hud {
   setInventory(inv, items) {
     if (!this.hotbar) this.hotbar = document.getElementById('hotbar');
     if (!this.hotbar) return;
-    if (!inv || inv.count() === 0) {
+    /* Drawn even when every slot is empty. It used to vanish until he was
+     * carrying something, which meant the one thing that tells you there ARE
+     * pockets only appeared once you had already worked out that there were --
+     * and it blinked out again the moment you put the last thing down. Five
+     * empty squares is the answer to "what am I carrying": nothing. */
+    if (!inv) {
       this.hotbar.classList.add('hidden');
       this.hotbar.replaceChildren();
       return;

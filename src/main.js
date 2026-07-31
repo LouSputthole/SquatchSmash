@@ -472,6 +472,9 @@ async function boot() {
     time,
     gunUnlocked: apartmentGunUnlocked,
     onNote: (what) => narrator.note(what),
+    /* The phone is campaign state, not apartment state: it has to still be on
+     * him at the Bing and at the airstrip, and still be on him tomorrow. */
+    onPhoneTaken: () => campaign.addItem(ITEM_IDS.PHONE),
     isSeated: () => game.seated || !!game.sitting || game.inBed || game.onToilet,
     onSitPC: sitAtPC,
     onSitCouch: () => sitOn('couch'),
@@ -531,6 +534,15 @@ async function boot() {
   apartment.state.dressed ||= savedActivities.changedClothes;
   apartment.state.repliedHR ||= savedActivities.emailChecked;
   if (savedActivities.pooped) apartment.state.bowel = 0;
+
+  /* Once he has pocketed the phone he has it everywhere and for good, so a
+   * flat rebuilt on a later morning starts with it already in his hand and an
+   * empty nightstand. Done out here rather than inside buildApartment because
+   * the inventory does not exist yet at the point the nightstand is dressed. */
+  if (campaign.hasItem(ITEM_IDS.PHONE) && !apartment.inventory.has('phone')) {
+    apartment.inventory.add('phone');
+    apartment.phoneProp.group.visible = false;
+  }
 
   world.colliders = apartment.colliders;
   world.floorZones = apartment.floorZones;
@@ -632,6 +644,7 @@ async function boot() {
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
+    dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     readChat,
     teleport(x, z, facing = 'north') {
@@ -1082,6 +1095,17 @@ function sleepInBed() {
 function dropHeld() {
   const st = apartment.state;
   if (!st.heldItem || cig.t >= 0) return;
+
+  /* Everything below either goes back where it came from or is a thing he was
+   * always going to finish. The phone is neither, and it used to fall through
+   * the `else` at the bottom: the slot was emptied, the nightstand model had
+   * been hidden since he picked it up, and nothing anywhere put it back. One
+   * press of [Q] deleted the only object in the game that Lou can reach him
+   * through. It is his phone -- he does not put it down, he pockets it. */
+  if (st.heldItem === 'phone') {
+    hud.say('It is my phone. <em>It stays on me.</em>', 3000);
+    return;
+  }
 
   if (st.heldItem === 'empty') {
     audio.play('can.crush', { volume: 0.6 });

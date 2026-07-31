@@ -7,9 +7,21 @@ import {
   TIME_EVENT_IDS,
 } from './campaign.js';
 import { getCharacter, voiceProfileFor } from './characters.js';
+import { RING_SECONDS } from './phone.js';
 
 const FIRST_RING_DELAY = 6;
-const RETRY_DELAY = 30;
+/**
+ * How long after a caller gives up before they try again.
+ *
+ * Every call in this file is load-bearing -- each one is the only thing that
+ * unlocks the next place he is allowed to go -- so missing one cannot be a way
+ * to get stuck, and it used to be sixteen seconds of nothing while you
+ * wondered whether you had broken it. Ten seconds, from the moment they hang
+ * up, forever, until he picks it up. Measured off RING_SECONDS rather than
+ * written as one number, so lengthening the ring cannot silently shorten the
+ * gap into a caller who rings back before he has stopped ringing.
+ */
+const RETRY_GAP = 10;
 const DEPARTURE_REQUIREMENTS = Object.freeze([
   {
     id: 'eaten',
@@ -228,7 +240,10 @@ class ApartmentStory {
     this.elapsed += Math.max(0, dt);
     if (this.elapsed < this.nextRingAt) return;
     const rang = this.ring?.(pendingCall) === true;
-    this.nextRingAt = this.elapsed + (rang ? RETRY_DELAY : 1);
+    /* A successful ring books the next attempt for a full ring plus the gap;
+     * a refused one (there is already a call up) just tries again next second.
+     */
+    this.nextRingAt = this.elapsed + (rang ? RING_SECONDS + RETRY_GAP : 1);
   }
 
   callAnswered(definition) {

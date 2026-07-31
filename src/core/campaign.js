@@ -47,6 +47,12 @@ export const SCENE_IDS = Object.freeze({
 
 export const ITEM_IDS = Object.freeze({
   LOU_PACKAGE: 'parcel',
+  /* Once he has picked it up off the nightstand he has it for good, in every
+   * scene and across every save. It is not a possession, it is how the rest of
+   * the cast reaches him -- a campaign where the phone can be left on a table
+   * is a campaign where Lou rings an empty room. Carried, never concealed.
+   */
+  PHONE: 'phone',
 });
 
 export const MISSION_IDS = Object.freeze({

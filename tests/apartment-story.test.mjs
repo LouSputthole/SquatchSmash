@@ -18,7 +18,7 @@ import {
   DAY_TWO_LOU_SECOND_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
-import { callScript } from '../src/core/phone.js';
+import { RING_SECONDS, callScript } from '../src/core/phone.js';
 
 /** Every call the campaign makes, in the order Tony gets them. */
 const CAMPAIGN_CALLS = [
@@ -102,6 +102,38 @@ test('answering Lou’s first call unlocks Bada Bing and prevents a replay', () 
   afterReload.beginMorning();
   afterReload.update(60);
   assert.deepEqual(afterReloadCalls, []);
+});
+
+test('a missed story call rings back ten seconds after the caller gives up', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  const rings = [];
+  const story = createApartmentStory({
+    campaign,
+    ring: () => { rings.push(story.elapsed); return true; },
+  });
+
+  // A tenth of a second at a time, so the answer does not depend on where the
+  // frame boundaries happen to land.
+  story.beginMorning();
+  for (let t = 0; t < 80; t += 0.1) story.update(0.1);
+
+  assert.equal(rings.length, 3, `rang at ${rings}`);
+  assert.ok(Math.abs(rings[0] - 6) < 0.2, `first ring at ${rings[0]}`);
+  // Ringing out, then ten seconds of nothing, then he tries again. Once per
+  // miss, not a burst, and never a ring back before he has stopped ringing.
+  assert.ok(Math.abs((rings[1] - rings[0]) - (RING_SECONDS + 10)) < 0.2,
+    `second ring ${rings[1] - rings[0]}s later`);
+  assert.ok(Math.abs((rings[2] - rings[1]) - (RING_SECONDS + 10)) < 0.2,
+    `third ring ${rings[2] - rings[1]}s later`);
+
+  /* These calls are the only thing that unlocks the next place he is allowed
+   * to go, so the caller never gives up for good -- but the moment it is
+   * answered he stops, and the clock is charged for it exactly once. */
+  assert.equal(story.callAnswered(DAY_ONE_LOU_CALL), true);
+  assert.equal(story.callAnswered(DAY_ONE_LOU_CALL), false);
+  for (let t = 0; t < 300; t += 1) story.update(1);
+  assert.equal(rings.length, 3);
+  assert.deepEqual(campaign.state.story.timeEvents, [TIME_EVENT_IDS.LOU_FIRST_CALL]);
 });
 
 test('the apartment door waits for Lou’s call even when every chore is done', () => {

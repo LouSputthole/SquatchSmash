@@ -145,12 +145,16 @@ try {
     const label = target && (typeof target.userData.interact.label === 'function'
       ? target.userData.interact.label()
       : target.userData.interact.label);
+    const emptyHotbarHidden = document.getElementById('hotbar')?.classList.contains('hidden');
     game.interaction.press();
     return {
       dressed: game.apartment.state.dressed,
       label,
       carrying: game.apartment.inventory.has('phone'),
       held: game.apartment.state.heldItem,
+      emptyHotbarHidden,
+      hotbarSlots: document.getElementById('hotbar')?.children.length,
+      carriedInCampaign: game.campaign.state.inventory.carried.includes('phone'),
     };
   });
   check('the ringing phone can be picked up before he has changed clothes',
@@ -159,6 +163,41 @@ try {
       && reach.carrying === true
       && reach.held === 'phone',
     JSON.stringify(reach));
+  /* The slots are drawn before he is carrying anything. They used to appear
+   * only once something was in them, so the one thing that says there ARE
+   * pockets showed up after you had worked out that there were. */
+  check('the carried slots are on screen with nothing in them',
+    reach.emptyHotbarHidden === false && reach.hotbarSlots === 5,
+    JSON.stringify(reach));
+
+  /* THE bug: the phone was the first thing he had ever carried, [Q] is what
+   * the hand card tells you puts things down, and dropHeld had a branch for
+   * the can, the smokes and the whiskey and a silent `else` for everything
+   * else that emptied the slot. The nightstand model had been hidden since
+   * pickup, so one press deleted the only object Lou can reach him through. */
+  const kept = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.game.inBed = false;
+    game.player.mode = 'walk';
+    // What [Q] reaches once it has finished asking about beds and toilets.
+    game.dropHeld();
+    let nightstandPhone = null;
+    game.apartment.root.traverse((o) => { if (o.name === 'phone') nightstandPhone = o; });
+    return {
+      carrying: game.apartment.inventory.has('phone'),
+      held: game.apartment.state.heldItem,
+      heldModelVisible: game.heldPhone.group.visible,
+      backOnNightstand: nightstandPhone?.visible,
+      carriedInCampaign: game.campaign.state.inventory.carried.includes('phone'),
+    };
+  });
+  check('[Q] cannot throw his phone away',
+    kept.carrying === true
+      && kept.held === 'phone'
+      && kept.heldModelVisible === true
+      && kept.backOnNightstand === false
+      && kept.carriedInCampaign === true,
+    JSON.stringify(kept));
 
   const answered = await page.evaluate(() => {
     const game = window.__squatch;
@@ -263,9 +302,13 @@ try {
       event: state.events.lou_first_call.status,
       timeMinutes: state.story.timeMinutes,
       timeEvents: state.story.timeEvents,
+      carried: state.inventory.carried,
       clock: document.querySelector('#clock .time')?.textContent?.trim(),
     };
   });
+  // It is how the rest of the cast reaches him; it does not stay at home.
+  check('the phone travels to the Bing with him',
+    arrived.carried.includes('phone'), JSON.stringify(arrived.carried));
   check('the apartment door routes directly to Bada Bing',
     arrived.scene === 'bada_bing_one' && arrived.spawn === 'driver_seat',
     `${arrived.scene}/${arrived.spawn}`);
@@ -304,14 +347,23 @@ try {
     window.__squatch.apartment.root.traverse((object) => {
       if (object.name === 'revolver') apartmentGun = object;
     });
+    let nightstandPhone = null;
+    window.__squatch.apartment.root.traverse((object) => {
+      if (object.name === 'phone') nightstandPhone = object;
+    });
     return {
       visible: apartmentGun?.visible,
       packageReceived:
         window.__squatch.campaign.state.missions.bada_bing_one.packageReceived,
       carriesPackage:
         window.__squatch.campaign.state.inventory.concealed.includes('parcel'),
+      carriesPhone: window.__squatch.apartment.inventory.has('phone'),
+      phoneOnNightstand: nightstandPhone?.visible,
     };
   });
+  check('he comes home with the phone still in his pocket',
+    laterGun.carriesPhone === true && laterGun.phoneOnNightstand === false,
+    JSON.stringify(laterGun));
   check('the revolver returns after Lou’s package and remains after delivery',
     laterGun.visible === true
       && laterGun.packageReceived === true

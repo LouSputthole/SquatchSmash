@@ -759,6 +759,8 @@ export async function buildApartment(ctx) {
       phone.group.visible = false;
       audio.play('phone.pickup', { volume: 0.45 });
       ctx.onNote?.('phone');
+      // Pocketed for the rest of the campaign, not just for this visit.
+      ctx.onPhoneTaken?.();
     },
   });
 

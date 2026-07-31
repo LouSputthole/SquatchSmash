@@ -35,8 +35,16 @@
 export const W = 300;
 export const H = 620;
 
-/** Rings for this long before they give up. */
-const RING_SECONDS = 14;
+/**
+ * Rings for this long before they give up.
+ *
+ * The ring cue is four seconds, so this is four and a half of them. It was
+ * fourteen -- three and a bit -- and a story call you have to cross the room
+ * for is a story call you can lose by being in the bathroom. Exported because
+ * the story schedules its retries around it and the two numbers drifting apart
+ * is how you get a caller ringing back before he has finished giving up.
+ */
+export const RING_SECONDS = 18;
 /** A line with no recording holds for this long, plus a bit per character. */
 const READ_BASE = 1.4;
 const READ_PER_CHAR = 0.045;
