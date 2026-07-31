@@ -71,7 +71,7 @@ recast — his voice stands.
 | Bartender in Bada | `bartender` *(new)* | `nUEpF21E0nXsKMw4L4CS` | bar barks below |
 | Side guards / doorman, Bing | `doorman` *(new)* | `fhZTG3MTnv8OnksvofJI` | door barks below; backups `7fbQ7yJuEo56rYjrYaEh` (deep), `Je8d8oi82sj0l8L1VM0l` |
 | Performer in Bada (female) | `performer` *(new)* | `9QPzUjm1evjwY2ENQBKU` | stage barks below; backups `75MqelvgFq5upx0r44WK`, `qBDvhofpxp92JgXJxDjB`, `k6aNMn2EN3T8vpJSBhQw` |
-| Squatchfather Italian (Sal / McOwell) | — | `q3pCVYOxlOb5G3l2O13o` (backup `yowh82B72eMNrxcxHgBh`) | the Squatchfather VO queue still lives in `assets/sfx/squatchfather/manifest.json`; fold-in is staged on branch `claude/squatchfather-scene-o13uzh` and these ids apply when it lands |
+| Squatchfather Italian (Sal / McOwell) | `sal`, `mcclawsky` | Sal `q3pCVYOxlOb5G3l2O13o`, McClawsky `yowh82B72eMNrxcxHgBh` | folded in via PR #4 (2026-07-31): 27 `vo.sf.*` cues in the root manifest (12 Sal, 6 McClawsky, 9 Tony). The sheet's row named one primary and one backup id; the two men got one each so they don't share a voice at the same table — swap `mcclawsky`'s id if that read is wrong (note it doubles as row 40, "Italian Waitstaff"). Supersedes the fold on `claude/squatchfather-scene-o13uzh`, which can be deleted. |
 | Guards (Italian) | — | `OBLxU3DhFiBOh33EeRvi` | reserved; profile added when lines exist |
 | NPC pools (male ×4+, female ×3, old man, southern, Boston, German, clear male, waitstaff m/f, Italian waitstaff) | — | see `Voice_Ids.xlsx` | reserved for ambient NPC barks; add profiles as lines get authored |
 
