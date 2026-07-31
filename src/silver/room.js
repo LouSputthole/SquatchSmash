@@ -595,12 +595,14 @@ export function buildRoom(scene, { renderer } = {}) {
       axis: 'z', fixed: 30.1, from: 10, to: 13.4, material: M_STEEL,
       label: 'the <b>service door</b>', swing: -1.75, hinge: 'high',
     });
-    const bulb = box({ size: [0.42, 0.3, 0.3], pos: [30.6, 2.5, 11.7], mat: M_STEEL_D });
+    /* The lamp housing sits ON the wall face (30.2), not 400mm out in the
+     * air over the doorway. */
+    const bulb = box({ size: [0.42, 0.3, 0.3], pos: [30.34, 2.5, 11.7], mat: M_STEEL_D });
     add(bulb);
     // 1.7, not 2.4: at 900mm off the brick the old one washed the whole
     // elevation to flat white and the alley lost its wall
     const doorLight = pointLight(0xffd9a0, 1.7);
-    doorLight.position.set(30.9, 2.35, 11.7);
+    doorLight.position.set(30.62, 2.35, 11.7);
     doorLight.distance = 9;
     add(doorLight);
     houseLights.push({ light: doorLight, exterior: true });
@@ -631,10 +633,13 @@ export function buildRoom(scene, { renderer } = {}) {
       solid(cx - 0.3, cz - 0.25, cx + 0.3, cz + 0.25, 0, 0.42 + stack * 0.42);
     }
 
-    // A fire escape, because every alley has one and it takes the eye upward
+    /* A fire escape, because every alley has one and it takes the eye upward.
+     * Hung off the brick (face at 38.0) rather than standing in space 600mm
+     * clear of it, which is what it did: rails against the wall, landings
+     * cantilevered off them. */
     for (let i = 1; i <= 3; i++) {
-      add(box({ size: [0.12, 0.06, 3.4], pos: [37.4, 2.4 * i, 24], mat: M_STEEL_D }));
-      add(box({ size: [2.4, 0.06, 0.1], pos: [36.4, 2.4 * i, 22.4], mat: M_STEEL_D }));
+      add(box({ size: [0.12, 0.06, 3.4], pos: [37.92, 2.4 * i, 24], mat: M_STEEL_D }));
+      add(box({ size: [1.2, 0.06, 0.1], pos: [37.35, 2.4 * i, 22.4], mat: M_STEEL_D }));
     }
   }
 
@@ -927,7 +932,9 @@ export function buildRoom(scene, { renderer } = {}) {
     anchors.chef = new THREE.Vector3(20.5, 0, -5.4);
     anchors.prepCook = new THREE.Vector3(18.5, 0, 3.1);   // in front of his bench, not inside it
     anchors.hotPan = new THREE.Vector3(21.5, 0, -9.5);
-    anchors.dishwasher = new THREE.Vector3(26.6, 0, -13.5);
+    /* At the sink, not IN it: 26.6 is the centre line of the dish station he
+     * is supposed to be working at. He stands on its west side, facing it. */
+    anchors.dishwasher = new THREE.Vector3(25.35, 0, -13.5);
     anchors.porter = new THREE.Vector3(17.5, 0, -13);
 
     // The pass: a heated shelf, ticket rail, and the light over it
@@ -1410,17 +1417,19 @@ export function buildRoom(scene, { renderer } = {}) {
     /* Sconces. A forty-metre room lit only from the middle of the ceiling has
      * dark walls and dark faces at every table against them, and the brief on
      * this was explicit: not so dark that you cannot read a face or a prompt.
-     * Brass, shaded, at head height, all the way round. */
+     * Brass, shaded, at head height, all the way round — and ON the walls:
+     * the first pass hung them 250–450mm out into the room, a ring of light
+     * fittings floating in mid-air. Each sits at its wall's inner face now,
+     * stem into the plaster. */
     for (const [sx, sz, ry] of [
-      [-29.6, -2, Math.PI / 2], [-29.6, 6, Math.PI / 2], [-29.6, 14, Math.PI / 2], [-29.6, 22, Math.PI / 2],
-      [9.7, -4, -Math.PI / 2], [9.7, 6, -Math.PI / 2], [9.7, 16, -Math.PI / 2], [9.7, 24, -Math.PI / 2],
-      [-24, 25.7, Math.PI], [-14, 25.7, Math.PI], [-4, 25.7, Math.PI],
+      [-30.0, -2, Math.PI / 2], [-30.0, 6, Math.PI / 2], [-30.0, 14, Math.PI / 2], [-30.0, 22, Math.PI / 2],
+      [9.92, -4, -Math.PI / 2], [9.92, 6, -Math.PI / 2], [9.92, 16, -Math.PI / 2], [9.92, 24, -Math.PI / 2],
+      [-24, 26.0, Math.PI], [-14, 26.0, Math.PI], [-4, 26.0, Math.PI],
     ]) {
       const sc = group('sconce');
       sc.add(cylinder({ r: 0.04, h: 0.3, pos: [0, 0, 0], mat: M_BRASS, rotX: 0.5 }));
       sc.add(cylinder({
-        rTop: 0.13, rBottom: 0.09, h: 0.2, pos: [0, 0.2, 0.06],
-        mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.7 }),
+        rTop: 0.13, rBottom: 0.09, h: 0.2, pos: [0, 0.2, 0.06], mat: M_SHADE,
       }));
       sc.position.set(sx, 2.35, sz);
       sc.rotation.y = ry;
@@ -1449,11 +1458,13 @@ export function buildRoom(scene, { renderer } = {}) {
       houseLights.push({ light: l, chandelier: ch });
     }
 
-    // Framed photographs, the length of the north wall
+    /* Framed photographs, the length of the north wall — hung on it, not
+     * eleven centimetres off it. The wall's inner face is 26.05 and a frame's
+     * back sits 35mm behind its origin. Same arithmetic for the clock. */
     for (let i = 0; i < 9; i++) {
-      add(makeFrame(M, { x: -26 + i * 3.6, y: 2.1, z: 25.9, rotY: Math.PI, w: 0.5, h: 0.62 }));
+      add(makeFrame(M, { x: -26 + i * 3.6, y: 2.1, z: 26.01, rotY: Math.PI, w: 0.5, h: 0.62 }));
     }
-    add(makeWallClock(M, { x: 9.8, y: 3.2, z: 14, rotY: -Math.PI / 2 }));
+    add(makeWallClock(M, { x: 9.94, y: 3.2, z: 14, rotY: -Math.PI / 2 }));
     for (const [px, pz] of [[-28.4, 24], [8.2, 24.6]]) add(makePlant(M, { x: px, y: 0, z: pz }));
 
     /* ---- the back corridor, the restrooms and the manager's station ----
