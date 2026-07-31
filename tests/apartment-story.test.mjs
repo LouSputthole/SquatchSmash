@@ -253,6 +253,7 @@ test('the apartment door waits for Lou’s call even when every chore is done', 
     pooped: true,
     changedClothes: true,
     emailChecked: false,
+    whiskeyRelaxed: false,
   });
 
   assert.deepEqual(result, {
@@ -339,6 +340,8 @@ test('returning from Bada Bing requires the package before Squatchfather', () =>
   });
 
   campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
+  assert.equal(story.tryLeave(activities).kind, 'activity');
+  activities.whiskeyRelaxed = true;
   assert.deepEqual(story.tryLeave(activities), {
     kind: 'go',
     destination: SCENE_IDS.SQUATCHFATHER,
@@ -399,6 +402,7 @@ test('sleep after Squatchfather creates a persistent Day Two wake checkpoint', (
     pooped: false,
     changedClothes: false,
     emailChecked: false,
+    whiskeyRelaxed: false,
   });
 });
 

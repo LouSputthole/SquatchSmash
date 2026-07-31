@@ -1,3 +1,56 @@
+const VOICE_BY_SCOPE = Object.freeze({
+  bouncer: 'doorman', bartender: 'bartender', hallGuard: 'doorman', security: 'doorman',
+  dealer: 'dealer', lou: 'lou', associate: 'doorman', dj: 'announcer', margo: 'margo',
+});
+
+function plainWords(value) {
+  return String(value ?? '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function textHash(value) {
+  let h = 2166136261;
+  for (const ch of plainWords(value)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
+  return (h >>> 0).toString(36);
+}
+
+function generatedCue(scope, nodeId, role, text) {
+  return `vo.bing.full.${scope}.${nodeId}.${role}.${textHash(text)}`;
+}
+
+function valueOf(value) { return typeof value === 'function' ? value() : value; }
+
+/**
+ * Decorate every authored Bing line without replacing deliberately named
+ * clips already in the manifest. tools/bing-vo.mjs consumes this same shape.
+ */
+export function applyBingVoiceCues(scripts) {
+  for (const [scope, tree] of Object.entries(scripts)) {
+    if (!tree || tree.__bingVoiceDecorated) continue;
+    Object.defineProperty(tree, '__bingVoiceDecorated', { value: true });
+    for (const [nodeId, node] of Object.entries(tree)) {
+      if (!node || typeof node !== 'object') continue;
+      if (node.line && !node.cue) {
+        const line = node.line;
+        node.cue = () => generatedCue(scope, nodeId, 'line', valueOf(line));
+      }
+      if (!node.options) continue;
+      const decorate = (options) => (options || []).map((option) => {
+        if (!option?.text || option.cue) return option;
+        const text = option.text;
+        return { ...option, cue: () => generatedCue(scope, nodeId, 'tony', valueOf(text)) };
+      });
+      if (typeof node.options === 'function') {
+        const options = node.options;
+        node.options = (...args) => decorate(options(...args));
+      } else node.options = decorate(node.options);
+    }
+  }
+  return scripts;
+}
+
+export function bingVoiceForScope(scope) { return VOICE_BY_SCOPE[scope] ?? 'player'; }
+export { plainWords };
+
 /**
  * Everything anybody says in the Bing.
  *

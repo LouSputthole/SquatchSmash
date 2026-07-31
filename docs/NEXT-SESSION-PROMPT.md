@@ -21,11 +21,12 @@ First:
 1. Fetch origin, switch to `main`, pull
    fast-forward-only, and confirm the worktree is clean.
 2. Read these files completely before changing code:
-   - `docs/CONSOLIDATION-HANDOFF.md`
+   - `docs/CONSOLIDATION-HANDOFF.md` (historical; read its supersession note)
    - `docs/CHARACTER-ALIGNMENT.md`
    - `docs/NEXT-SESSION-PROMPT.md`
    - `README.md`
    - `docs/GAME-PLAN.md`
+   - `docs/AUDIO-AUDITIONS.md`
 3. Read the relevant vendored Three.js references under `.claude/skills/`
    before camera, geometry, interaction, lighting, post-processing, material,
    or asset-lifecycle work. These are engineering references, not runtime

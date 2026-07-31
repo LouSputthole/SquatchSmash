@@ -76,6 +76,13 @@ export class Dialogue {
     this.speaker = speaker;
     this.active = true;
     this._resumable = resume;
+    /* A package pickup can start a follow-up node while Lou's required brief
+     * is still active. Keep that lock through the handoff unless the caller
+     * deliberately changes it; otherwise the second node silently frees Tony
+     * halfway through the objective conversation. */
+    const nextLock = lockMovement ?? this._movementLocked === true;
+    if (nextLock !== this._movementLocked) this.hooks.onMovementLock?.(nextLock);
+    this._movementLocked = nextLock;
     this._inReplyRange = true;
     this.lockMovement = Boolean(lockMovement);
     this.hooks.onActive?.(true);

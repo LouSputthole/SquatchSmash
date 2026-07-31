@@ -172,6 +172,7 @@ const state = () => page.evaluate(() => {
   return {
     mission: b.mission.state,
     room: b.club.roomAt(b.player.position.x, b.player.position.z),
+    playerMode: b.player.mode,
     objectives: b.mission.objectives.map((o) => `${o.done ? 'x' : ' '}${o.id}`),
     flags: { ...b.mission.flags },
     money: b.game.money,
@@ -1328,7 +1329,14 @@ check('the hallway moves the objective on', (await state()).mission === 'hallway
 await walkTo(10.5, -6, Math.PI);
 await tick(1);
 s = await state();
-check('the office starts Lou talking', s.mission === 'office' && s.options >= 0, s.mission);
+check('the office stays free until Tony chooses to talk to Lou',
+  s.mission === 'office' && s.options === -1 && s.playerMode === 'walk', JSON.stringify(s));
+// Lou, not his desk, owns the interaction target.
+await page.evaluate(() => window.__bing.cast.byName.lou.group.userData.interact.onUse());
+await tick(0.2);
+s = await state();
+check('using Lou starts the objective briefing and locks walking, not the camera',
+  s.mission === 'office' && s.options >= 0 && s.playerMode === 'briefing', JSON.stringify(s));
 
 const louBriefLock = await page.evaluate(() => {
   const b = window.__bing;

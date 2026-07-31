@@ -287,6 +287,13 @@ let roomPanicked = false;
 
 function waiterRounds(dt) {
   if (roomPanicked) return;
+  // No waiter service can leak through the closed bathroom door. Hold the
+  // next round back so retrieving the toilet weapon never gets a full-volume
+  // wine pour, then let the room breathe again after Tony returns.
+  if (!bathroomDoorOpen) {
+    waiterNextServe = Math.max(waiterNextServe, 10);
+    return;
+  }
   waiterNextServe -= dt;
   if (waiterNextServe > 0 || waiterBusy) return;
   waiterNextServe = 34 + Math.random() * 28;

@@ -424,6 +424,7 @@ test('apartment readiness and learned story context survive a reload', () => {
     pooped: true,
     changedClothes: true,
     emailChecked: false,
+    whiskeyRelaxed: false,
   });
   assert.equal(restored.story.meetingKnown, true);
   assert.equal(restored.story.meetingLearnedFrom, 'lou_call');

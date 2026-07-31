@@ -48,7 +48,7 @@ import { makeSlotMachine, SlotMachine } from './slots.js';
 import { Blackjack, BETS } from './blackjack.js';
 import { makePlayerCar, populateLot } from './vehicles.js';
 import { Dialogue } from './dialogue.js';
-import { buildScripts, AMBIENT, NOTES } from './script.js';
+import { buildScripts, applyBingVoiceCues, AMBIENT, NOTES } from './script.js';
 import { Mission, ENDINGS } from './mission.js';
 import {
   SecondVisitMission,
@@ -325,10 +325,13 @@ const dialogue = new Dialogue(ui.dialogue, {
        * return to the exact prior posture once the authored thread ends. */
       game.dialogueModeBeforeLock = player.mode;
       player.clearKeys();
-      if (player.mode === 'walk') player.mode = 'frozen';
+      /* `briefing` disables locomotion while leaving the mouse-look path
+       * live. The old `frozen` state made Lou's required conversation feel
+       * like the camera had been taken away in the office doorway. */
+      if (player.mode === 'walk') player.mode = 'briefing';
       return;
     }
-    if (game.dialogueModeBeforeLock === 'walk' && player.mode === 'frozen') {
+    if (game.dialogueModeBeforeLock === 'walk' && player.mode === 'briefing') {
       player.mode = 'walk';
       player.clearKeys();
     }
@@ -342,7 +345,13 @@ const dialogue = new Dialogue(ui.dialogue, {
     if (on) ui.subtitle?.classList.add('hidden');
     layoutTalk(true);
   },
-  onEnd: () => { game.louTalking = false; },
+  onEnd: () => {
+    game.louTalking = false;
+    if (game.louBriefing) {
+      game.louBriefing = false;
+      if (player.enabled && !game.seatedIn) player.mode = 'walk';
+    }
+  },
   cueSeconds,
 });
 
@@ -649,6 +658,7 @@ const scriptContext = {
 };
 const scripts = buildScripts(scriptContext);
 if (isSecondVisit) scripts.lou = buildSecondVisitLouScript({ mission });
+applyBingVoiceCues(scripts);
 
 /* ------------------------------------------------------------------ */
 /* Money, drinks, objectives                                           */
@@ -1148,7 +1158,11 @@ reg(cast.byName.lou.group, {
       if (game.louPartingSaid) dialogue.start(scripts.lou, 'hang', lou, { resume: true });
       else { game.louPartingSaid = true; dialogue.start(scripts.lou, 'parting', lou); }
     } else if (mission.flags.gotPackage) dialogue.start(scripts.lou, 'envelope', lou, { resume: true });
-    else if (dialogue.history.size) dialogue.start(scripts.lou, 'greet', lou, { resume: true });
+    else if (dialogue.tree === scripts.lou && dialogue.history.size) {
+      // Dialogue history is global. A bouncer or bartender chat must not make
+      // Lou's first required briefing look resumable.
+      dialogue.start(scripts.lou, 'greet', lou, { resume: true });
+    }
     else startLouScene();
   },
 });
@@ -1772,6 +1786,7 @@ function leaveByFrontDoor() {
 
 function startLouScene() {
   game.louTalking = true;
+  game.louBriefing = true;
   cast.byName.lou.faceToward(player.position.x, player.position.z);
   dialogue.start(scripts.lou, 'enter', cast.byName.lou, { lockMovement: true });
 }

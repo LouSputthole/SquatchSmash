@@ -37,6 +37,7 @@
     "radio:cues": "node tools/radio-cues.mjs",
     "audio:todo": "node tools/audio-todo.mjs",
     "vo:beefrun": "node tools/beefrun-vo.mjs",
+    "vo:bing": "node tools/bing-vo.mjs",
     "verify:silver-story": "node tools/verify-silver-story.mjs"
   },
   "devDependencies": {
