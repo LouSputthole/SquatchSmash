@@ -113,14 +113,22 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
-IMMEDIATE PICKUP (2026-07-30 ~17:00, machine restarted mid-flight): four
-scene passes for the owner's wave-2 playtest notes were running in agent
-worktrees when the session ended. Follow the pickup procedure and complete
-note lists in `docs/audits/2026-07-30-playtest-notes-wave2.md` — harvest any
-committed worktree work, finish or re-dispatch the rest, then do Margo's
-deferred hair/face (needs the shared figure builder in src/bing/cast.js
-after the Bing pass lands). main is kept equal to this branch and the Pages
-deploy now ships every page; keep pushing both.
+IMMEDIATE PICKUP (2026-07-31): the wave-2 machine-restart recovery is DONE —
+all four scene passes were re-dispatched and landed (see the RESOLVED header
+in `docs/audits/2026-07-30-playtest-notes-wave2.md`), the owner's Voice_Ids
+casting is locked (`docs/VOICE-CASTING.md` — the manifest's voices block is
+authoritative; 342 recast lines + 62 station lines await regeneration
+wherever ELEVENLABS_API_KEY lives), PR #4's infrastructure hardening is
+merged in, and 56 new `vo.bing.*` floor cues are authored in the manifest.
+Current gate facts: npm test 77; verify:beefrun 14; verify:computer 20;
+verify:bing 60; verify:silver 96; verify:preview 16; verify:bundle covers
+three strict-CSP policies. Work is on `claude/project-status-check-tgs0fh`
+pending the owner's word on fast-forwarding the canonical branch and main.
+Still open, in order: Margo's deferred hair/face via the shared figure
+builder in src/bing/cast.js; the Family hangout floor at the Bing (every
+Family member present between missions, talk wired to the vo.bing.hang.*
+cues, CHARACTER_IDS entries per member); Numbskull's voice id and seven
+Family face photos from the owner; then the standing objectives below.
 
 Immediate implementation objective:
 
