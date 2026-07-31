@@ -103,10 +103,74 @@ export function makeJerkyBrick(batch) {
 }
 
 /**
+ * The stencil on the lid of one of Old Stove's crates.
+ *
+ * A rifle, sprayed through a plate, over a part number. The crate says TRACTOR
+ * PARTS on both sides and this on the top, and the two of them together are
+ * the whole of what Stove will tell you about the cargo — the man who packed
+ * it was thorough about the paperwork and careless about the stencil plate.
+ */
+function gunCrateLidTexture() {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 256;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#6f6248';
+  ctx.fillRect(0, 0, 512, 256);
+  // Grain, so the spray does not read as a decal.
+  for (let i = 0; i < 300; i++) {
+    ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`;
+    ctx.fillRect(Math.random() * 512, Math.random() * 256, Math.random() * 40, Math.random() * 3);
+  }
+
+  const ink = '#22201a';
+  ctx.fillStyle = ink;
+  ctx.strokeStyle = ink;
+  ctx.lineCap = 'butt';
+
+  /* The rifle, muzzle to the right. Everything is a filled rectangle or a
+   * quad, because a stencil is cut plates and this one was cut badly. */
+  const bar = (x, y, w, h) => ctx.fillRect(x, y, w, h);
+  bar(300, 104, 168, 9);                       // barrel
+  bar(438, 86, 11, 20);                        // front sight post
+  bar(300, 92, 104, 11);                       // gas tube
+  bar(276, 112, 92, 17);                       // handguard
+  bar(178, 98, 106, 36);                       // receiver
+  bar(246, 84, 26, 8);                         // rear sight
+  // Curved magazine: a fan of short bars swinging forward and down.
+  for (let i = 0; i <= 16; i++) {
+    const t = i / 16;
+    const x = 212 + t * 34 + t * t * 14;
+    const y = 134 + t * 52;
+    ctx.fillRect(x, y, 26, 7);
+  }
+  // Pistol grip, raked back.
+  ctx.beginPath();
+  ctx.moveTo(184, 134); ctx.lineTo(210, 134); ctx.lineTo(196, 188); ctx.lineTo(172, 186);
+  ctx.closePath(); ctx.fill();
+  // Stock and butt plate.
+  ctx.beginPath();
+  ctx.moveTo(178, 100); ctx.lineTo(178, 130); ctx.lineTo(66, 156); ctx.lineTo(66, 128);
+  ctx.closePath(); ctx.fill();
+  bar(52, 122, 16, 40);
+
+  ctx.font = '900 30px Trebuchet MS, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = ink;
+  ctx.fillText('PART No. AK-47', 256, 232);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
  * One of Old Stove's crates.
  *
- * Long, flat, stencilled TRACTOR PARTS, and heavier than tractor parts. It does
- * not open, and nobody in the mission ever asks it to.
+ * Long, flat, stencilled TRACTOR PARTS on both sides and an AK-47 on the lid,
+ * and heavier than tractor parts. The side text is his, verbatim: asked what
+ * is in them he says "Agricultural equipment", and asked why they are so heavy
+ * for agricultural equipment he says it is very good agricultural equipment.
+ * It does not open, and nobody in the mission ever asks it to.
  */
 export function makeGunCrate(index) {
   const g = group(`guncrate${index}`);
@@ -119,13 +183,23 @@ export function makeGunCrate(index) {
   for (const x of [-W / 3, W / 3]) {
     g.add(mesh(boxGeo(0.05, H + 0.08, D + 0.06), solid(0x8a8578, { roughness: 0.5, metalness: 0.6 }), x, H / 2, 0));
   }
-  const stencil = flatMesh(planeGeo(1.15, 0.26), mat({
-    map: signTexture(['TRACTOR PARTS', 'FRAGILE'], {
-      w: 256, h: 64, bg: '#6f6248', fg: '#22201a', border: null, rough: true,
-    }),
-    roughness: 1, transparent: true,
-  }), 0, H / 2 + 0.02, D / 2 + 0.02);
-  g.add(stencil);
+  // Both long sides, because a crate only stencilled on one side is a prop.
+  const sideMap = signTexture(['TRACTOR PARTS', 'VERY GOOD', 'AGRICULTURAL EQUIPMENT', 'FRAGILE'], {
+    w: 560, h: 200, bg: '#6f6248', fg: '#22201a', border: null, rough: true,
+  });
+  for (const sz of [1, -1]) {
+    const stencil = flatMesh(planeGeo(1.12, 0.40), mat({
+      map: sideMap, roughness: 1, transparent: true,
+    }), 0, H / 2, sz * (D / 2 + 0.02));
+    if (sz < 0) stencil.rotation.y = Math.PI;
+    g.add(stencil);
+  }
+  // And the lid.
+  const lidArt = flatMesh(planeGeo(1.2, 0.5), mat({
+    map: gunCrateLidTexture(), roughness: 1, transparent: true,
+  }), 0, H + 0.028, 0);
+  lidArt.rotation.x = -Math.PI / 2;
+  g.add(lidArt);
   return {
     group: g, lid: null, contents: null, index, kind: 'guns',
     mass: GUN_CRATE_MASS, open: false, damage: 0, slip: 0,
