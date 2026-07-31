@@ -16,7 +16,11 @@
  * Everything goes through a PannerNode at the radio's position and a lowpass
  * filter, so it genuinely comes from across the room.
  */
-import * as THREE from 'three';
+// The vendored path rather than the bare specifier: tests/radio-tape.test.mjs
+// runs this module under plain Node, where the page's importmap does not
+// exist. In the browser both specifiers resolve to the same URL, so THREE
+// stays a single instance.
+import * as THREE from '../../vendor/three.module.min.js';
 import { STATIONS, showAt, voiceOf, MEETING_NOTICE } from './stations.js';
 import { loadJson, assetUrl } from './assets.js';
 
