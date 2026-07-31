@@ -61,10 +61,11 @@ body.bing #overlay .tag { color: #a3919b; }
 
 /* ---------------- Wallet ---------------- */
 
+/* Under the campaign clock, which owns the top-right corner. */
 #wallet {
   position: fixed;
-  top: 58px;
-  right: 20px;
+  top: 96px;
+  right: 22px;
   font-size: 20px;
   letter-spacing: 1px;
   color: var(--green);
@@ -150,6 +151,176 @@ body.talking #subtitle {
   text-align: right;
 }
 #dialogue .opt .say { color: var(--paper); }
+
+
+/* ---------------- Objectives: the optional half ---------------- */
+
+/*
+ * Two lists in one card. The required beats read as they always have; the
+ * optional ones are dimmer, smaller and under a rule, so the eye can tell in
+ * one glance what the evening actually needs from it. A counter objective
+ * ("3/15") keeps its tally on the right where a number belongs.
+ */
+#objectives li.optional {
+  color: #9b917f;
+  font-size: 11px;
+  margin: 2px 0;
+}
+#objectives li.optional::before { content: "◦"; color: var(--bing-dim); }
+#objectives li.optional.done::before { content: "✓"; color: var(--green); }
+#objectives li.rule {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 4px;
+  color: var(--bing-dim);
+  font-size: 9px;
+  letter-spacing: 2.2px;
+  border-top: 1px solid rgba(255, 61, 139, 0.22);
+  padding-top: 6px;
+}
+#objectives li.rule::before { content: ""; }
+#objectives li .tally {
+  float: right;
+  color: var(--amber);
+  margin-left: 10px;
+  font-variant-numeric: tabular-nums;
+}
+#objectives li.done .tally { color: var(--green); }
+
+/* ---------------- What is on you ---------------- */
+
+/* Bottom left, under the objectives: the four corners are objectives,
+ * clock/wallet, what is on you, and what is in your hands. */
+#kit {
+  position: fixed;
+  bottom: 22px;
+  left: 20px;
+  min-width: 168px;
+  max-width: 250px;
+  padding: 9px 12px 10px;
+  background: rgba(8, 6, 10, 0.62);
+  border-left: 2px solid var(--bing);
+  border-radius: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.4px;
+  transition: opacity 0.3s;
+}
+#kit.hidden { opacity: 0; }
+#kit .head,
+#kit .foot {
+  color: var(--bing);
+  font-size: 9px;
+  letter-spacing: 2.2px;
+}
+#kit .head { margin-bottom: 5px; }
+#kit .foot {
+  margin-top: 6px;
+  color: var(--bing-dim);
+}
+#kit kbd {
+  font-family: inherit;
+  font-size: 9px;
+  color: var(--ink);
+  background: var(--amber);
+  border-radius: 2px;
+  padding: 0 4px 1px;
+}
+#kit ul { margin: 0; padding: 0; list-style: none; }
+#kit li {
+  color: var(--paper);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 2px 0;
+}
+#kit li .icon { width: 15px; text-align: center; }
+#kit li .where {
+  margin-left: auto;
+  color: #6f6a5f;
+  font-size: 10px;
+  letter-spacing: 1.4px;
+}
+#kit li.ring .where { color: var(--bing); }
+#kit li.ring { animation: kit-ring 0.9s ease-in-out infinite; }
+@keyframes kit-ring {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ---------------- The phone, held up ---------------- */
+
+#phone-osd {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  width: 168px;
+  padding: 9px 9px 7px;
+  background: rgba(10, 9, 12, 0.9);
+  border: 1px solid rgba(255, 61, 139, 0.35);
+  border-radius: 12px;
+  transition: opacity 0.22s, transform 0.22s;
+}
+#phone-osd.hidden {
+  opacity: 0;
+  transform: translateY(16px);
+}
+#phone-osd .screen {
+  border-radius: 6px;
+  overflow: hidden;
+  background: #05060a;
+  line-height: 0;
+}
+#phone-osd .screen canvas {
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+#phone-osd .keys {
+  margin-top: 6px;
+  color: #6f6a5f;
+  font-size: 9px;
+  letter-spacing: 1.6px;
+  text-align: center;
+}
+#phone-osd.ringing { border-color: var(--amber); }
+
+/* ---------------- Tip money ---------------- */
+
+/*
+ * Bills, thrown. DOM elements on a keyframe: nine of them for under two
+ * seconds is cheaper than a particle system and reads better than one,
+ * because a banknote is a rectangle and rectangles are what this is good at.
+ */
+#money-burst {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+#money-burst .bill {
+  position: absolute;
+  left: 50%;
+  bottom: 24%;
+  width: 34px;
+  height: 16px;
+  margin-left: -17px;
+  border-radius: 2px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(240, 236, 210, 0.85) 0 22%, rgba(0, 0, 0, 0) 23%),
+    linear-gradient(180deg, #5f8d63 0%, #4b7550 55%, #3d6243 100%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  animation: bill-fly 1.7s cubic-bezier(0.16, 0.7, 0.4, 1) var(--delay, 0s) forwards;
+}
+@keyframes bill-fly {
+  0% { transform: translate(0, 0) rotate(0deg) scale(0.7); opacity: 0; }
+  16% { opacity: 1; }
+  100% {
+    transform: translate(var(--dx, 0), calc(-1 * var(--rise, 24vmin))) rotate(var(--rot, 180deg)) scale(1);
+    opacity: 0;
+  }
+}
 
 /* ---------------- Table and machine ---------------- */
 

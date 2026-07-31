@@ -21,8 +21,7 @@ import * as THREE from 'three';
 import { mat, box, cylinder, sphere, collider, group } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack, makeToilet } from '../world/props.js';
-import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick } from './kit.js';
-import { drawSquatchSilhouette } from '../world/textures.js';
+import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick, squatchArt } from './kit.js';
 import { Tv } from '../core/tv.js';
 
 export const CEIL_MAIN = 4.5;
@@ -108,6 +107,7 @@ export function buildClub(scene, { renderer } = {}) {
   const doors = {};
   const anchors = {};
   const neon = [];      // things that flicker: { mesh, light, next, on, kind }
+  const clocks = [];    // wall clocks, whose hands the campaign clock drives
   const ticking = [];   // per-frame closures the club owns
   /** Raised floors: the stage, and nothing else so far. */
   const platforms = [];
@@ -569,6 +569,49 @@ export function buildClub(scene, { renderer } = {}) {
   hangDoor('storage', { axis: 'x', fixed: -9.5, from: 6.2, to: 7.3, label: 'the store room', swing: 1.9 });
   hangDoor('service', { axis: 'x', fixed: -15, from: 8.4, to: 9.7, label: 'the service door', alarmed: true, material: M_STEEL, swing: -1.9 });
 
+  /* ---- the glass round Lou's door ----
+   * The hallway wall stops at z -8.0 and starts again at -6.0, and the door
+   * hung in that hole is 1.1 m wide: there were forty and fifty centimetres
+   * of open air either side of it and a fifty-five centimetre gap over the
+   * head. Sidelights and a transom -- wired glass in a timber frame, the way
+   * every back office of this vintage borrows light off its corridor. Lou
+   * can see who is coming down the hall without opening anything, the
+   * hallway gets the office's amber through the panes, and the door is now
+   * the only way into the room.
+   */
+  {
+    const gx = 7.8;                       // the hallway wall's own plane
+    const panes = [];
+    const frameMat = M_WOOD;
+    const glaze = (z0, z1, y0, y1, tag) => {
+      const cz = (z0 + z1) / 2;
+      const cy = (y0 + y1) / 2;
+      const w = z1 - z0;
+      const h = y1 - y0;
+      const pane = box({
+        name: `office.glass.${tag}`,
+        size: [0.02, h - 0.1, w - 0.1],
+        pos: [gx, cy, cz],
+        mat: M_GLASS,
+      });
+      pane.castShadow = false;
+      pane.receiveShadow = false;
+      add(pane);
+      panes.push(pane);
+      add(box({ size: [0.075, h, 0.05], pos: [gx, cy, z0 + 0.025], mat: frameMat }));
+      add(box({ size: [0.075, h, 0.05], pos: [gx, cy, z1 - 0.025], mat: frameMat }));
+      add(box({ size: [0.075, 0.05, w], pos: [gx, y0 + 0.025, cz], mat: frameMat }));
+      add(box({ size: [0.075, 0.05, w], pos: [gx, y1 - 0.025, cz], mat: frameMat }));
+      // A glazing bar across the middle, so it reads as joinery not a hole
+      add(box({ size: [0.06, 0.035, w - 0.1], pos: [gx, cy, cz], mat: frameMat }));
+      solid(gx - 0.05, z0, gx + 0.05, z1, y0, y1);
+    };
+    glaze(-8.02, -7.58, 0.0, DOOR_H, 'south');
+    glaze(-6.52, -5.98, 0.0, DOOR_H, 'north');
+    glaze(-8.02, -5.98, DOOR_H, CEIL_BACK, 'transom');
+    doors.lou.glass = panes;
+  }
+
   /* ================================================================== */
   /* A. Entrance vestibule                                               */
   /* ================================================================== */
@@ -619,7 +662,13 @@ export function buildClub(scene, { renderer } = {}) {
     for (let i = 0; i < 4; i++) {
       add(makeFrame(M, {
         x: -3.674, y: 2.15, z: 11.9 + i * 0.72, rotY: Math.PI / 2, w: 0.42, h: 0.54,
-        texture: printed(`vest-photo${i}`, ['★'], { w: 256, h: 320, bg: '#2a1a24', fg: '#c8a2d8', font: '900 120px "Trebuchet MS", sans-serif' }),
+        /* The wall of stars, and the star is the house's own mark rather
+       * than a typographic asterisk: the same drawSquatchSilhouette every
+       * poster, cabinet and tail fin in the game draws. */
+      texture: squatchArt(`vest-photo${i}`, {
+        title: [['THE', 'BING'], ['HOUSE', 'RULES'], ['TUESDAY', 'NIGHTS'], ['THE', 'FAMILY']][i],
+        ink: '#c8a2d8', bg: '#2a1a24', w: 256, h: 320,
+      }),
       }));
     }
     add(cylinder({ r: 0.17, h: 0.5, pos: [3.5, 0.25, 12.5], mat: M_STEEL }));
@@ -777,6 +826,14 @@ export function buildClub(scene, { renderer } = {}) {
     add(box({ size: [0.02, 0.16, 0.3], pos: [-19.96, 1.32, 5.8], mat: lit(0x2affc8, 1.6) }));
     for (let i = 0; i < 12; i++) add(makeShotGlass(M, { x: -19.35 + rand(-0.1, 0.1), y: 1.15, z: rand(z0 + 0.7, z1 - 0.7) }));
     add(makeAshtray(M, { x: -19.5, y: 1.15, z: 6.4 }));
+
+    /* The clock behind the bar. Every room in this game knows what time it
+     * is except the one where the whole point is that Lou has been waiting;
+     * main.js drives these hands off the campaign clock, so the wall and the
+     * HUD agree and both of them agree with the drive over. */
+    const barClock = makeWallClock(M, { x: -20.78, y: 2.6, z: -0.6, rotY: Math.PI / 2, r: 0.22 });
+    add(barClock);
+    clocks.push(barClock);
 
     // Small television showing a game nobody is watching
     const tvGlow = box({ size: [0.06, 0.52, 0.86], pos: [-20.72, 2.95, 6.9], mat: lit(0x2a4a6a, 1.2) });
@@ -1086,37 +1143,18 @@ export function buildClub(scene, { renderer } = {}) {
      * the walls that carry them -- the crest pair used to sit at x 10.94,
      * which is inside the sealed room behind the manager's door, and the
      * hallway mark was buried in the wall's own thickness. */
-    const crestTex = (() => {
-      const c = document.createElement('canvas');
-      c.width = 512; c.height = 640;
-      const g = c.getContext('2d');
-      g.fillStyle = '#1a1420';
-      g.fillRect(0, 0, 512, 640);
-      g.strokeStyle = '#c8a24a';
-      g.lineWidth = 10;
-      g.strokeRect(18, 18, 476, 604);
-      g.lineWidth = 3;
-      g.strokeRect(38, 38, 436, 564);
-      drawSquatchSilhouette(g, 256, 480, 300, '#c8a24a');
-      g.fillStyle = '#c8a24a';
-      g.textAlign = 'center';
-      g.font = '900 46px "Trebuchet MS", sans-serif';
-      g.fillText('THE SILVER', 256, 96);
-      g.fillText('SASQUATCHES', 256, 150);
-      g.font = '700 34px "Trebuchet MS", sans-serif';
-      g.fillText('EST. 1979', 256, 580);
-      const t = new THREE.CanvasTexture(c);
-      t.colorSpace = THREE.SRGBColorSpace;
-      return t;
-    })();
+    const crestTex = squatchArt('crest', {
+      title: ['THE SILVER', 'SASQUATCHES'], footer: 'EST. 1979',
+    });
     add(makeFrame(M, {
       x: -2.9, y: 1.95, z: 10.7645, rotY: Math.PI, w: 0.72, h: 0.9,
       texture: crestTex, tint: 0x6a4e1c,
     }));
     add(makeFrame(M, {
       x: 2.9, y: 1.9, z: 10.7645, rotY: Math.PI, w: 0.66, h: 0.5,
-      texture: printed('logo-bing-family', ['BADA BING', 'A FAMILY PLACE'], {
-        w: 512, h: 384, bg: '#241018', fg: '#ff5aa0', font: '900 62px "Trebuchet MS", sans-serif',
+      texture: squatchArt('logo-bing-family', {
+        title: ['BADA BING'], footer: 'A FAMILY PLACE',
+        ink: '#ff5aa0', bg: '#241018', w: 512, h: 384,
       }),
       tint: 0x6a4e1c,
     }));
@@ -1134,10 +1172,52 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   {
     const bx = (B.x0 + B.x1) / 2;
+    /* ---- the basins ----
+     * They were a slab and a stick. A basin is a rolled rim with a bowl
+     * dropped through it, a splashback up the tile, two taps and a spout,
+     * brackets under the front edge and a bottle trap you can see. */
+    const porcelain = mat({ color: 0xdfe2e6, roughness: 0.24 });
     for (const sz of [-0.6, 0.2]) {
-      add(box({ size: [0.5, 0.22, 0.44], pos: [B.x1 - 0.32, 0.85, sz], mat: mat({ color: 0xd0d0d6, roughness: 0.35 }) }));
-      add(cylinder({ r: 0.02, h: 0.16, pos: [B.x1 - 0.45, 1.04, sz], mat: M_CHROME }));
+      const bx = B.x1 - 0.32;
+      const basin = group('basin',
+        // Rim, splashback, and the apron under the front lip
+        box({ size: [0.5, 0.07, 0.44], pos: [0, 0.86, 0], mat: porcelain }),
+        box({ size: [0.12, 0.26, 0.44], pos: [0.19, 0.96, 0], mat: porcelain }),
+        box({ size: [0.44, 0.06, 0.4], pos: [-0.02, 0.815, 0], mat: porcelain }),
+      );
+      // The bowl itself: open, so it is a basin and not a shelf
+      const bowl = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.155, 0.1, 0.13, 20, 1, true),
+        porcelain,
+      );
+      bowl.position.set(-0.03, 0.815, 0);
+      bowl.scale.z = 0.92;
+      basin.add(bowl);
+      basin.add(cylinder({ r: 0.1, h: 0.012, pos: [-0.03, 0.755, 0], mat: porcelain }));
+      basin.add(cylinder({ r: 0.022, h: 0.012, pos: [-0.03, 0.762, 0], mat: mat({ color: 0x3a3a42, roughness: 0.5 }) }));
+      // Spout and two cross-head taps
+      basin.add(cylinder({ r: 0.018, h: 0.12, pos: [0.11, 0.93, 0], mat: M_CHROME }));
+      basin.add(cylinder({ r: 0.016, h: 0.1, pos: [0.06, 0.985, 0], rotZ: Math.PI / 2, mat: M_CHROME }));
+      for (const tz of [-0.12, 0.12]) {
+        basin.add(cylinder({ r: 0.018, h: 0.05, pos: [0.13, 0.905, tz], mat: M_CHROME }));
+        basin.add(box({ size: [0.012, 0.012, 0.07], pos: [0.13, 0.932, tz], mat: M_CHROME }));
+        basin.add(box({ size: [0.05, 0.012, 0.012], pos: [0.13, 0.932, tz], mat: M_CHROME }));
+      }
+      // Bottle trap and the brackets carrying the front of the slab
+      basin.add(cylinder({ r: 0.026, h: 0.16, pos: [-0.03, 0.68, 0], mat: M_CHROME }));
+      basin.add(cylinder({ r: 0.034, h: 0.09, pos: [-0.03, 0.6, 0], mat: M_CHROME }));
+      basin.add(cylinder({ r: 0.022, h: 0.2, pos: [0.08, 0.6, 0], rotZ: Math.PI / 2, mat: M_CHROME }));
+      for (const kz of [-0.19, 0.19]) {
+        const bracket = box({ size: [0.2, 0.03, 0.03], pos: [0.06, 0.75, kz], mat: M_STEEL });
+        bracket.rotation.z = -0.5;
+        basin.add(bracket);
+      }
+      basin.position.set(bx, 0, sz);
+      add(basin);
     }
+    // Soap on the wall between the two of them, and the paper towels below it
+    add(box({ size: [0.1, 0.18, 0.12], pos: [B.x1 - 0.12, 1.12, -0.2], mat: mat({ color: 0x2e3238, roughness: 0.6 }) }));
+    add(cylinder({ r: 0.012, h: 0.05, pos: [B.x1 - 0.14, 1.01, -0.2], rotZ: Math.PI / 2, mat: M_CHROME }));
     solid(B.x1 - 0.55, -0.85, B.x1 - 0.05, 0.45, 0, 0.95);
     anchors.mirror = new THREE.Vector3(B.x1 - 1.0, 0, -0.2);
     const mirror = box({ size: [0.04, 0.85, 1.5], pos: [B.x1 - 0.08, 1.6, -0.2], mat: mat({ color: 0x3a3a44, roughness: 0.08, metalness: 0.95 }) });
@@ -1145,9 +1225,54 @@ export function buildClub(scene, { renderer } = {}) {
     // The crack across it, drawn as a thin dark quad rather than faked in a map
     add(box({ size: [0.01, 0.9, 0.02], pos: [B.x1 - 0.1, 1.6, -0.3], mat: mat({ color: 0x14141a, roughness: 1 }), rotX: 0.3 }));
 
+    /* ---- the urinals ----
+     * Two full-height bowls with rolled lips, a sparge pipe up to the flush
+     * valve, a waste at the bottom and a modesty divider between them. The
+     * left-hand lip is where somebody has left a line of something white;
+     * main.js registers it. */
+    const urinals = [];
     for (const sz of [1.5, 2.1]) {
-      add(box({ size: [0.3, 0.62, 0.42], pos: [B.x1 - 0.26, 0.92, sz], mat: mat({ color: 0xd0d0d6, roughness: 0.35 }) }));
+      const ux = B.x1 - 0.26;
+      const bowl = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.19, 0.13, 0.5, 18, 1, true, Math.PI * 0.35, Math.PI * 1.3),
+        porcelain,
+      );
+      bowl.position.set(0.03, 0.85, 0);
+      bowl.scale.set(0.85, 1, 1.05);
+      const u = group('urinal',
+        bowl,
+        // Back plate against the tile, rolled lip, and the sump
+        box({ size: [0.09, 0.78, 0.4], pos: [0.11, 0.82, 0], mat: porcelain }),
+        cylinder({ r: 0.2, h: 0.055, pos: [0.03, 1.09, 0], mat: porcelain }),
+        cylinder({ r: 0.13, h: 0.08, pos: [0.03, 0.6, 0], mat: porcelain }),
+        cylinder({ r: 0.045, h: 0.06, pos: [0.03, 0.57, 0], mat: mat({ color: 0x3a3a42, roughness: 0.5 }) }),
+        // Sparge pipe and the flush valve above it
+        cylinder({ r: 0.017, h: 0.42, pos: [0.09, 1.34, 0], mat: M_CHROME }),
+        box({ size: [0.1, 0.14, 0.1], pos: [0.09, 1.6, 0], mat: M_CHROME }),
+        cylinder({ r: 0.014, h: 0.07, pos: [0.03, 1.53, 0], rotZ: Math.PI / 2, mat: M_CHROME }),
+        // Waste, down to the floor
+        cylinder({ r: 0.03, h: 0.5, pos: [0.03, 0.3, 0], mat: M_CHROME }),
+      );
+      u.position.set(ux, 0, sz);
+      u.rotation.y = -Math.PI / 2;
+      add(u);
+      urinals.push(u);
+      // The blue cube in the bottom of it, which is somehow always there
+      add(box({ size: [0.05, 0.03, 0.05], pos: [ux - 0.03, 0.63, sz], mat: mat({ color: 0x3a7bd9, roughness: 0.8 }) }));
     }
+    anchors.urinal = new THREE.Vector3(B.x1 - 0.42, 1.12, 1.5);
+    // Modesty divider between the two of them
+    add(box({ size: [0.42, 0.72, 0.04], pos: [B.x1 - 0.28, 1.02, 1.8], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
+    /* The line on the left-hand lip. Somebody's evening, left where they
+     * put it down. main.js makes it usable. */
+    const powder = group('bathroom-powder',
+      box({ size: [0.005, 0.006, 0.16], pos: [0, 0, 0], mat: mat({ color: 0xf4f4f8, roughness: 0.95 }) }),
+      box({ size: [0.09, 0.001, 0.05], pos: [0.03, -0.004, 0.02], rotY: 0.3, mat: mat({ color: 0xe4e4ea, roughness: 1 }) }),
+    );
+    powder.position.set(B.x1 - 0.31, 1.122, 1.5);
+    powder.rotation.y = 0.12;
+    add(powder);
+    anchors.powder = new THREE.Vector3(B.x1 - 0.31, 1.12, 1.5);
     anchors.stalls = [];
     for (let i = 0; i < 3; i++) {
       const sx = B.x0 + 1.0 + i * 1.2;
@@ -1167,8 +1292,13 @@ export function buildClub(scene, { renderer } = {}) {
         add(box({ size: [0.09, 0.006, 0.055], pos: [sx + 0.06, 0.842, B.z0 + 0.2], rotY: 0.4, mat: mat({ color: 0xe8e2d0, roughness: 0.85 }) }));
       }
     }
-    solid(B.x0 + 0.3, B.z0 + 0.1, B.x0 + 3.8, B.z0 + 1.6, 0, 2.0);
-    add(box({ size: [0.06, 1.9, 1.5], pos: [B.x0 + 3.4, 1.0, B.z0 + 0.9], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
+    /* The run closes with one more divider. It was at B.x0 + 3.4 = 11.3,
+     * which is the centre line of the THIRD stall -- so the panel that was
+     * supposed to close the row stood inside the locked stall's toilet.
+     * The dividers go at sx - 0.6, so the closing one goes at the last
+     * sx + 0.6, and the block collider follows it out. */
+    solid(B.x0 + 0.3, B.z0 + 0.1, B.x0 + 4.05, B.z0 + 1.6, 0, 2.0);
+    add(box({ size: [0.06, 1.9, 1.5], pos: [B.x0 + 4.0, 1.0, B.z0 + 0.9], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
 
     const tube = box({ size: [1.6, 0.07, 0.15], pos: [bx, CEIL_BACK - 0.1, 0.6], mat: lit(0xd8f0e8, 2.0), cast: false });
     add(tube);
@@ -1177,20 +1307,35 @@ export function buildClub(scene, { renderer } = {}) {
     add(bl);
     neon.push({ mesh: tube, light: bl, base: 7, next: rand(0.5, 2), on: true, kind: 'fluoro' });
 
+    /* The wall Booski signed.
+     *
+     * It was 1.8 m wide centred at z 2.55, on a stretch of wall that runs
+     * from the door head at 1.5 to the room's north wall at 2.7 -- so it
+     * overshot the room by three quarters of a metre at one end and the hand
+     * dryer sat on top of it at the other. It is sized to the wall it is
+     * painted on now and shifted right, away from the dryer's old spot and
+     * still clear of the doorway gap (z -0.1..1.5). */
     add(sign(printed('graffiti', [
       'FOR A GOOD TIME, ASK LOU', 'THE DUCK GUY OWES ME', 'BOOSKI WAS HERE',
       'APE IS A CHEAT', 'SHUBES CRIED',
     ], { w: 512, h: 384, bg: '#2a2a32', fg: '#8a8a96', font: '700 30px "Trebuchet MS", sans-serif' }),
-    // Clear of the doorway gap (z -0.1..1.5) the panel used to hang across,
-    // and painted ON the wall's bathroom face (x 7.89) instead of mid-air.
-    1.8, 1.35, { x: B.x0 - 0.005, y: 1.5, z: 2.55, rotY: Math.PI / 2 }));
-    anchors.graffiti = new THREE.Vector3(B.x0 + 0.95, 0, 2.55);
+    1.06, 0.8, { x: B.x0 - 0.005, y: 1.52, z: 2.11, rotY: Math.PI / 2 }));
+    anchors.graffiti = new THREE.Vector3(B.x0 + 0.95, 0, 2.11);
 
     add(box({ size: [0.06, 0.55, 0.85], pos: [B.x1 - 0.04, 1.95, 2.2], mat: lit(0x5a6a7a, 0.5) }));
     const vent = box({ size: [0.52, 0.06, 0.42], pos: [B.x0 + 1.3, CEIL_BACK - 0.05, B.z0 + 0.45], mat: M_STEEL });
     add(vent);
     anchors.vent = new THREE.Vector3(B.x0 + 1.3, 0, B.z0 + 1.0);
-    add(box({ size: [0.3, 0.5, 0.18], pos: [B.x0 + 0.3, 1.4, 2.4], mat: mat({ color: 0xc8c8ce, roughness: 0.4 }) }));
+    /* The hand dryer, moved off the graffiti and down the wall to where a
+     * hand dryer belongs: on the sink run, between the two basins, at the
+     * height a hand comes up to. */
+    add(group('hand-dryer',
+      box({ size: [0.22, 0.34, 0.28], pos: [B.x1 - 0.19, 1.28, 0.75], mat: mat({ color: 0xc4c6cc, roughness: 0.38, metalness: 0.3 }) }),
+      box({ size: [0.06, 0.3, 0.24], pos: [B.x1 - 0.06, 1.28, 0.75], mat: mat({ color: 0x8e9098, roughness: 0.5 }) }),
+      // Nozzle underneath, and the little red lamp above it
+      box({ size: [0.13, 0.05, 0.11], pos: [B.x1 - 0.24, 1.11, 0.75], mat: mat({ color: 0x8e9098, roughness: 0.5 }) }),
+      sphere({ r: 0.012, pos: [B.x1 - 0.29, 1.38, 0.75], mat: lit(0xd92e2e, 1.6) }),
+    ));
   }
 
   /* ================================================================== */
@@ -1278,6 +1423,54 @@ export function buildClub(scene, { renderer } = {}) {
       add(box({ size: [1.2, 0.06, 0.15], pos: [S.x0 + 2.6 + i * 4.6, CEIL_BACK - 0.1, (S.z0 + S.z1) / 2], mat: lit(0xd8f0d8, 1.6), cast: false }));
     }
 
+    /* ---- the thing behind the crates ----
+     * Somebody's Tuesday went badly. He is face-down between the crate run
+     * and the freezer with a tarpaulin thrown over most of him -- boots, one
+     * hand and a spreading stain are what you actually see, and you only see
+     * those if you come round the stack, which nobody has any reason to do.
+     * main.js gives it a line. Nothing here is a jump scare; it is a fact
+     * about the room, and the room is quieter for it. */
+    {
+      const bx = 12.15;
+      const bz = -12.9;
+      const tarpMat = mat({ color: 0x2a3a34, roughness: 0.98 });
+      const body = group('back-room-body');
+      body.position.set(bx, 0, bz);
+      body.rotation.y = -0.42;
+      // The shape under the tarp: shoulders high, hips lower, one arm out
+      body.add(box({ size: [0.62, 0.3, 1.15], pos: [0, 0.15, -0.1], mat: tarpMat }));
+      body.add(box({ size: [0.52, 0.22, 0.5], pos: [0.02, 0.11, 0.6], mat: tarpMat }));
+      const fold = box({ size: [0.7, 0.04, 0.5], pos: [-0.02, 0.29, 0.28], mat: tarpMat });
+      fold.rotation.x = 0.12;
+      body.add(fold);
+      // What the tarp does not cover
+      for (const sx of [-0.14, 0.14]) {
+        body.add(box({ size: [0.15, 0.16, 0.26], pos: [sx, 0.08, 0.99], mat: mat({ color: 0x14141a, roughness: 0.55 }) }));
+        body.add(box({ size: [0.13, 0.1, 0.14], pos: [sx, 0.05, 1.16], mat: mat({ color: 0x14141a, roughness: 0.5 }) }));
+      }
+      body.add(box({ size: [0.34, 0.12, 0.13], pos: [-0.4, 0.06, -0.36], rotY: 0.5, mat: mat({ color: 0x2a2a32, roughness: 0.9 }) }));
+      body.add(box({ size: [0.1, 0.05, 0.16], pos: [-0.6, 0.025, -0.5], rotY: 0.5, mat: mat({ color: 0xc99a72, roughness: 0.85 }) }));
+      // What has run out from under it, soaking into the grout
+      const stain = new THREE.Mesh(
+        new THREE.CircleGeometry(0.52, 18),
+        mat({ color: 0x2e0709, roughness: 1 }),
+      );
+      stain.rotation.x = -Math.PI / 2;
+      stain.position.set(-0.28, 0.006, -0.22);
+      stain.scale.set(1, 0.72, 1);
+      stain.castShadow = false;
+      body.add(stain);
+      const stain2 = new THREE.Mesh(new THREE.CircleGeometry(0.2, 12), mat({ color: 0x1e0406, roughness: 1 }));
+      stain2.rotation.x = -Math.PI / 2;
+      stain2.position.set(-0.72, 0.005, -0.05);
+      stain2.castShadow = false;
+      body.add(stain2);
+      add(body);
+      storeroom.body = body;
+      anchors.body = new THREE.Vector3(bx, 0.3, bz);
+      solid(bx - 0.5, bz - 0.75, bx + 0.5, bz + 0.85, 0, 0.4);
+    }
+
     add(sign(printed('manifest', ['DELIVERY MANIFEST', 'KEGS ..... 6', 'LIQUOR ... 4', 'DUCK ..... ?'], {
       w: 320, h: 400, bg: '#e8e2d0', fg: '#2a2a2a', font: '700 30px "Trebuchet MS", sans-serif',
     }), 0.32, 0.4, { x: 8.2, y: 1.5, z: S.z0 + 0.12 }));
@@ -1336,11 +1529,18 @@ export function buildClub(scene, { renderer } = {}) {
     ));
     const shade = new THREE.Mesh(
       new THREE.CylinderGeometry(0.12, 0.17, 0.2, 14, 1, true),
-      mat({ color: 0xd9a24a, roughness: 0.8, side: THREE.DoubleSide, emissive: new THREE.Color(0xd9a24a), emissiveIntensity: 0.6 }),
+      /* The shade is CLOTH with a bulb behind it, and cloth does not glow
+       * white. It read at 0.6 emissive over a seventeen-unit point light,
+       * which put the whole corner of the office past the bloom threshold
+       * and smeared a halo across half the frame -- the owner's "way too
+       * hot". A quarter of the glow over half the light is the same warm
+       * pool with nothing clipping in it; tools/verify-bing.mjs measures the
+       * clipped-white percentage off a real render and holds it there. */
+      mat({ color: 0xd9a24a, roughness: 0.8, side: THREE.DoubleSide, emissive: new THREE.Color(0xd9a24a), emissiveIntensity: 0.22 }),
     );
     shade.position.set(dx + 0.78, 1.2, dz - 0.2);
     add(shade);
-    const deskLight = new THREE.PointLight(0xffb870, 17, 7, 2);
+    const deskLight = new THREE.PointLight(0xffb870, 8, 6.2, 2);
     deskLight.position.set(dx + 0.78, 1.25, dz - 0.2);
     // As at the blackjack table, the warm pool matters more than a six-face
     // point-light shadow map in an already shadowed office.
@@ -1440,37 +1640,261 @@ export function buildClub(scene, { renderer } = {}) {
       cylinder({ r: 0.02, h: 0.02, pos: [0.11, 0.06, 0.09], rotX: Math.PI / 2, mat: M_CHROME }),
       cylinder({ r: 0.02, h: 0.02, pos: [0.11, 0.13, 0.09], rotX: Math.PI / 2, mat: M_CHROME }),
     );
-    radio.position.set(O.x1 - 0.5, 1.14, oz + 0.55);
+    radio.position.set(O.x1 - 0.36, 1.15, oz + 0.55);
     radio.rotation.y = -Math.PI / 2;
     add(radio);
-    anchors.officeRadio = new THREE.Vector3(O.x1 - 0.5, 1.25, oz + 0.55);
+    anchors.officeRadio = new THREE.Vector3(O.x1 - 0.36, 1.26, oz + 0.55);
 
-    // The intercom cabinet, backed against the east wall face (x 13.81)
-    // rather than floating half a metre into the room
-    add(box({ size: [0.32, 0.4, 0.3], pos: [O.x1 - 0.26, 1.32, oz - 0.5], mat: mat({ color: 0x26262e, roughness: 0.7 }) }));
-    add(box({ size: [0.52, 0.8, 0.52], pos: [O.x0 + 0.55, 0.4, O.z1 - 0.7], mat: mat({ color: 0xd0d0d6, roughness: 0.5 }) }));
-    solid(O.x0 + 0.29, O.z1 - 0.96, O.x0 + 0.81, O.z1 - 0.44, 0, 0.8);
-    add(group('filing',
-      box({ size: [0.6, 1.3, 0.5], pos: [O.x0 + 0.5, 0.65, O.z0 + 1.0], mat: mat({ color: 0x44444c, roughness: 0.7 }) }),
-      box({ size: [0.15, 0.03, 0.03], pos: [O.x0 + 0.5, 1.0, O.z0 + 1.26], mat: M_CHROME }),
-      box({ size: [0.15, 0.03, 0.03], pos: [O.x0 + 0.5, 0.62, O.z0 + 1.26], mat: M_CHROME }),
-    ));
-    solid(O.x0 + 0.2, O.z0 + 0.75, O.x0 + 0.8, O.z0 + 1.25, 0, 1.3);
-    add(cylinder({ r: 0.045, h: 1.8, pos: [O.x0 + 0.5, 0.9, O.z1 - 1.9], mat: M_DARKWOOD }));
+    /* ---- the ledge ----
+     * The radio and the intercom both sat at cabinet-top height and neither
+     * of them was over the cabinet: the radio hung sixteen centimetres off
+     * the south end of it with nothing underneath, which is what the owner
+     * saw. The cabinet is 0.94 deep and the two of them span 2.4, so the
+     * cabinet top is now the near end of a proper wall ledge running the
+     * length of that wall, carried on two corbels where it overhangs. */
+    {
+      const lz0 = oz - 1.05;      // past the intercom
+      const lz1 = oz + 1.72;      // past the cabinet's far end
+      const lcz = (lz0 + lz1) / 2;
+      const ledge = group('office-ledge',
+        box({ size: [0.5, 0.055, lz1 - lz0], pos: [O.x1 - 0.36, 1.1225, lcz], mat: M_DARKWOOD }),
+        // A lipped front edge, so it reads as joinery and not as a plank
+        box({ size: [0.05, 0.09, lz1 - lz0], pos: [O.x1 - 0.585, 1.105, lcz], mat: M_WOOD }),
+        // The batten it is screwed to
+        box({ size: [0.05, 0.07, lz1 - lz0], pos: [O.x1 - 0.115, 1.06, lcz], mat: M_WOOD }),
+      );
+      for (const bz of [oz - 0.75, oz - 0.05]) {
+        const corbel = box({ size: [0.34, 0.22, 0.06], pos: [O.x1 - 0.42, 0.99, bz], mat: M_WOOD });
+        corbel.rotation.z = -0.5;
+        ledge.add(corbel);
+      }
+      add(ledge);
+      office.ledge = ledge;
+      solid(O.x1 - 0.62, lz0, O.x1 - 0.1, lz1, 0.98, 1.16);
+      anchors.officeLedge = new THREE.Vector3(O.x1 - 0.36, 1.15, lcz);
+    }
+
+    /* The intercom. It was a plain grey box floating at ledge height with no
+     * ledge under it; it is now a real wall set standing ON the ledge --
+     * pressed grille, call keys, a handset in its cradle and a maker's plate
+     * with nothing useful on it. */
+    {
+      const ix = O.x1 - 0.36;
+      const iz = oz - 0.62;
+      const shell = mat({ color: 0x26262e, roughness: 0.7 });
+      const intercom = group('office-intercom',
+        box({ size: [0.3, 0.38, 0.22], pos: [0, 0.19, 0], mat: shell }),
+        box({ size: [0.32, 0.05, 0.24], pos: [0, 0.395, 0], mat: mat({ color: 0x1a1a20, roughness: 0.8 }) }),
+      );
+      // Speaker grille: slats, not a painted rectangle
+      for (let i = 0; i < 7; i++) {
+        intercom.add(box({ size: [0.2, 0.012, 0.008], pos: [-0.02, 0.32 - i * 0.022, 0.112], mat: mat({ color: 0x14141a, roughness: 0.95 }) }));
+      }
+      // Call keys down the front, one of them lit
+      for (let i = 0; i < 4; i++) {
+        intercom.add(box({ size: [0.05, 0.022, 0.014], pos: [-0.075 + (i % 2) * 0.1, 0.13 - Math.floor(i / 2) * 0.045, 0.112], mat: mat({ color: 0xd8d4cc, roughness: 0.6 }) }));
+      }
+      intercom.add(sphere({ r: 0.011, pos: [0.095, 0.145, 0.112], mat: lit(0x2aff5a, 2.2) }));
+      // Handset on its cradle, down the near side
+      intercom.add(box({ size: [0.045, 0.055, 0.2], pos: [0.115, 0.23, 0.02], mat: mat({ color: 0x1a1a20, roughness: 0.6 }) }));
+      intercom.add(box({ size: [0.05, 0.05, 0.055], pos: [0.115, 0.29, 0.09], mat: mat({ color: 0x1a1a20, roughness: 0.6 }) }));
+      intercom.add(sign(printed('intercom-plate', ['ACME 4-WAY'], {
+        w: 256, h: 64, bg: '#c8c4bc', fg: '#2a2a30', font: '700 30px "Trebuchet MS", sans-serif',
+      }), 0.16, 0.04, { x: -0.02, y: 0.06, z: 0.112 }));
+      intercom.position.set(ix, 1.15, iz);
+      intercom.rotation.y = -Math.PI / 2;
+      add(intercom);
+      office.intercom = intercom;
+    }
+    /* ---- the mini fridge ----
+     * It was a white block. A bar fridge is black, has a door with a seam
+     * round it, a bar handle down the hinge side, a compressor vent along
+     * the bottom and four feet -- and this one has been in a nightclub
+     * office for fifteen years, so it has stickers on it. TAMMY is one of
+     * them. The house mark is the other. */
+    {
+      const fx = O.x0 + 0.55;
+      const fz = O.z1 - 0.7;
+      const shell = mat({ color: 0x1a1a1e, roughness: 0.42, metalness: 0.12 });
+      const seam = mat({ color: 0x0e0e12, roughness: 0.9 });
+      const fridge = group('mini-fridge',
+        // Carcass, then the door proud of it so the seam is a real gap
+        box({ size: [0.52, 0.78, 0.5], pos: [0, 0.43, 0], mat: shell }),
+        box({ size: [0.5, 0.7, 0.03], pos: [0, 0.45, 0.265], mat: seam }),
+        box({ size: [0.47, 0.66, 0.035], pos: [0, 0.45, 0.28], mat: shell }),
+        // Bar handle down the opening edge
+        cylinder({ r: 0.017, h: 0.46, pos: [-0.185, 0.45, 0.315], mat: M_CHROME }),
+        box({ size: [0.03, 0.03, 0.04], pos: [-0.185, 0.66, 0.298], mat: M_CHROME }),
+        box({ size: [0.03, 0.03, 0.04], pos: [-0.185, 0.24, 0.298], mat: M_CHROME }),
+        // Compressor grille at the bottom, and the feet under it
+        box({ size: [0.44, 0.05, 0.02], pos: [0, 0.09, 0.272], mat: mat({ color: 0x2e2e34, roughness: 0.95 }) }),
+      );
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          fridge.add(cylinder({ r: 0.022, h: 0.04, pos: [sx * 0.22, 0.02, sz * 0.2], mat: seam }));
+        }
+      }
+      // The stickers. Somebody's name, and the house.
+      const tammy = sign(printed('fridge-tammy', ['TAMMY'], {
+        w: 256, h: 128, bg: '#e8d84a', fg: '#2a1a10', font: '900 62px "Trebuchet MS", sans-serif', rotate: -0.09,
+      }), 0.2, 0.1, { x: 0.09, y: 0.62, z: 0.3 });
+      fridge.add(tammy);
+      const mark = sign(squatchArt('fridge-squatch', { title: [], ink: '#e8e2d0', bg: '#3a1420', w: 192, h: 192, rule: false }),
+        0.15, 0.15, { x: 0.05, y: 0.34, z: 0.3 });
+      mark.rotation.z = 0.14;
+      fridge.add(mark);
+      fridge.position.set(fx, 0, fz);
+      add(fridge);
+      office.fridge = fridge;
+      solid(fx - 0.28, fz - 0.28, fx + 0.28, fz + 0.28, 0, 0.82);
+    }
+
+    /* ---- the filing cabinet ----
+     * Four drawers with real fronts, a pull on each, and the little brass
+     * label holders every cabinet of this vintage has. Plus the plinth it
+     * stands on and the tray of paper nobody has filed. */
+    {
+      const cx = O.x0 + 0.5;
+      const cz = O.z0 + 1.0;
+      const carcass = mat({ color: 0x3a3a42, roughness: 0.62, metalness: 0.25 });
+      const front = mat({ color: 0x44444c, roughness: 0.55, metalness: 0.3 });
+      const filing = group('filing',
+        box({ size: [0.6, 1.3, 0.5], pos: [0, 0.65, 0], mat: carcass }),
+        box({ size: [0.62, 0.06, 0.52], pos: [0, 1.32, 0], mat: mat({ color: 0x2e2e36, roughness: 0.7 }) }),
+        box({ size: [0.56, 0.06, 0.46], pos: [0, 0.03, 0], mat: mat({ color: 0x22222a, roughness: 0.9 }) }),
+      );
+      for (let i = 0; i < 4; i++) {
+        const y = 0.22 + i * 0.3;
+        filing.add(box({ size: [0.54, 0.27, 0.02], pos: [0, y, 0.255], mat: front }));
+        // Recessed pull, and the card holder above it
+        filing.add(box({ size: [0.17, 0.035, 0.035], pos: [0, y - 0.05, 0.272], mat: M_CHROME }));
+        filing.add(box({ size: [0.19, 0.055, 0.012], pos: [0, y + 0.06, 0.268], mat: M_BRASS }));
+        filing.add(box({ size: [0.16, 0.032, 0.004], pos: [0, y + 0.06, 0.276], mat: mat({ color: 0xe8e2d0, roughness: 1 }) }));
+      }
+      // The tray of paper on top, because it never gets filed
+      filing.add(box({ size: [0.34, 0.02, 0.26], pos: [0.04, 1.36, 0.02], mat: M_STEEL }));
+      for (let i = 0; i < 3; i++) {
+        filing.add(box({ size: [0.3, 0.012, 0.22], pos: [0.04 + rand(-0.01, 0.01), 1.378 + i * 0.013, 0.02], mat: mat({ color: 0xe8e2d0, roughness: 1 }) }));
+      }
+      filing.position.set(cx, 0, cz);
+      add(filing);
+      office.filing = filing;
+      solid(cx - 0.32, cz - 0.28, cx + 0.32, cz + 0.28, 0, 1.4);
+    }
+
+    /* ---- the floor lamp ----
+     * The office had exactly one warm source in it and it was the thing that
+     * was too bright. A standard lamp in the filing corner spreads the load:
+     * low, soft, and nowhere near the bloom threshold. */
+    {
+      const lx = O.x0 + 0.62;
+      const lz = O.z0 + 1.95;
+      const stand = group('floor-lamp',
+        cylinder({ r: 0.17, h: 0.035, pos: [0, 0.02, 0], mat: mat({ color: 0x22222a, roughness: 0.7 }) }),
+        cylinder({ r: 0.02, h: 1.42, pos: [0, 0.74, 0], mat: M_BRASS }),
+        cylinder({ r: 0.035, h: 0.05, pos: [0, 1.47, 0], mat: M_BRASS }),
+      );
+      const cone = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.14, 0.21, 0.24, 12, 1, true),
+        mat({ color: 0xd8c9a4, roughness: 0.9, side: THREE.DoubleSide, emissive: new THREE.Color(0xd8c9a4), emissiveIntensity: 0.16 }),
+      );
+      cone.position.set(0, 1.6, 0);
+      stand.add(cone);
+      stand.position.set(lx, 0, lz);
+      add(stand);
+      const lampLight = new THREE.PointLight(0xffc890, 5.5, 5.2, 2);
+      lampLight.position.set(lx, 1.55, lz);
+      lampLight.castShadow = false;
+      add(lampLight);
+      office.floorLamp = lampLight;
+      solid(lx - 0.2, lz - 0.2, lx + 0.2, lz + 0.2, 0, 1.7);
+    }
+
+    /* ---- the coat stand ----
+     * There used to be a bare dowel standing half a metre inside the office
+     * across the door's swing and in front of the television. A coat stand
+     * is a weighted base, a turned column, a crown of hooks and a ring for
+     * umbrellas -- and it lives just inside the door against the north wall,
+     * which is where you actually hang a coat. */
+    {
+      const kx = O.x0 + 1.7;
+      const kz = O.z1 - 0.45;
+      const stand = group('coat-stand',
+        cylinder({ r: 0.19, h: 0.045, pos: [0, 0.022, 0], mat: mat({ color: 0x1e1a16, roughness: 0.8 }) }),
+        cylinder({ r: 0.055, h: 0.12, pos: [0, 0.09, 0], mat: M_DARKWOOD }),
+        cylinder({ r: 0.032, h: 1.62, pos: [0, 0.95, 0], mat: M_DARKWOOD }),
+        cylinder({ r: 0.055, h: 0.09, pos: [0, 1.79, 0], mat: M_DARKWOOD }),
+        sphere({ r: 0.045, pos: [0, 1.86, 0], mat: M_BRASS }),
+        // Umbrella ring at shin height
+        new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.011, 6, 14), M_BRASS),
+      );
+      stand.children[stand.children.length - 1].rotation.x = Math.PI / 2;
+      stand.children[stand.children.length - 1].position.set(0, 0.3, 0);
+      // Four hooks, angled up and out, with brass tips
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + 0.4;
+        const arm = cylinder({ r: 0.016, h: 0.2, pos: [Math.sin(a) * 0.075, 1.71, Math.cos(a) * 0.075], mat: M_DARKWOOD });
+        arm.rotation.x = Math.cos(a) * 0.7;
+        arm.rotation.z = -Math.sin(a) * 0.7;
+        stand.add(arm);
+        stand.add(sphere({ r: 0.021, pos: [Math.sin(a) * 0.14, 1.775, Math.cos(a) * 0.14], mat: M_BRASS }));
+      }
+      // Lou's spare overcoat, hanging off the back of it
+      const coat = box({ size: [0.3, 0.86, 0.14], pos: [-0.02, 1.28, -0.13], mat: mat({ color: 0x24242c, roughness: 0.95 }) });
+      stand.add(coat);
+      stand.add(box({ size: [0.2, 0.1, 0.12], pos: [-0.02, 1.68, -0.11], mat: mat({ color: 0x24242c, roughness: 0.95 }) }));
+      stand.position.set(kx, 0, kz);
+      add(stand);
+      office.coatStand = stand;
+      solid(kx - 0.22, kz - 0.22, kx + 0.22, kz + 0.22, 0, 1.9);
+    }
 
     // Family photographs, the safe behind a picture, the clock, the telly.
     // Hung past the office door's swing arc, not inside its opening, and
     // seated on the hallway wall's office face (x 7.89) -- they used to hang
     // eight centimetres out into the room.
-    for (let i = 0; i < 3; i++) {
+    /* The photographs.
+     *
+     * Two of the three still hang on the door wall, and THE OLD PLACE has
+     * come south forty centimetres: at z -4.7 its right-hand edge was inside
+     * the north wall, which is the clipping the owner spotted. SUNDAY AT THE
+     * SHORE has moved to the wall behind Lou, where a man hangs the picture
+     * he actually wants to be looked at over his own shoulder. */
+    for (const [i, pz] of [[1, O.z0 + 3.6], [2, O.z0 + 4.4]]) {
       add(makeFrame(M, {
-        x: 7.926, y: 1.9, z: O.z0 + 3.2 + i * 0.8, rotY: Math.PI / 2, w: 0.34, h: 0.26,
+        x: 7.926, y: 1.9, z: pz, rotY: Math.PI / 2, w: 0.34, h: 0.26,
         texture: printed(`lou-family${i}`, [['SUNDAY', 'AT THE SHORE'], ['THE NEPHEWS'], ['THE OLD PLACE']][i], {
           w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
         }),
       }));
     }
+    const shorePic = makeFrame(M, {
+      x: dx + 0.62, y: 1.76, z: O.z0 + 0.115, rotY: 0, w: 0.44, h: 0.34,
+      texture: printed('lou-family0', ['SUNDAY', 'AT THE SHORE'], {
+        w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
+      }),
+    });
+    add(shorePic);
+    office.shorePicture = shorePic.group;
     anchors.photos = new THREE.Vector3(O.x0 + 0.9, 1.9, O.z0 + 4.0);
+
+    /* The house mark, framed, twice: the crest over the door wall and a
+     * smaller plate on the wall behind the desk beside the shore. Same
+     * drawSquatchSilhouette as the crest in the main room and the poster in
+     * the flat -- squatchArt() in kit.js is the one place it is dressed. */
+    const officeLogos = [];
+    officeLogos.push(makeFrame(M, {
+      x: 7.926, y: 1.86, z: O.z0 + 2.35, rotY: Math.PI / 2, w: 0.38, h: 0.48,
+      texture: squatchArt('office-crest', { title: ['BADA BING'], footer: 'EST. 1979' }),
+      tint: 0x6a4e1c,
+    }));
+    officeLogos.push(makeFrame(M, {
+      x: dx - 0.28, y: 1.72, z: O.z0 + 0.115, rotY: 0, w: 0.3, h: 0.38,
+      texture: squatchArt('office-mark', { title: ['THE', 'FAMILY'], ink: '#d8c8a8', bg: '#241820' }),
+      tint: 0x6a4e1c,
+    }));
+    for (const f of officeLogos) add(f);
+    office.logos = officeLogos.map((f) => f.group);
 
     const safePic = makeFrame(M, {
       x: O.x1 - 0.13, y: 1.85, z: O.z0 + 1.2, rotY: -Math.PI / 2, w: 0.62, h: 0.48,
@@ -1484,7 +1908,9 @@ export function buildClub(scene, { renderer } = {}) {
     office.safe = safe;
     anchors.safe = new THREE.Vector3(O.x1 - 0.75, 1.85, O.z0 + 1.2);
 
-    add(makeWallClock(M, { x: dx - 0.9, y: 2.1, z: O.z0 + 0.1, rotY: 0, r: 0.16 }));
+    const officeClock = makeWallClock(M, { x: dx - 0.9, y: 2.1, z: O.z0 + 0.1, rotY: 0, r: 0.16 });
+    add(officeClock);
+    clocks.push(officeClock);
     // Lou's set runs all night on the nature channel, sound off. It is the
     // same channel system as the flat's telly, pinned to one programme.
     const officeTvProp = makeTv(M, { x: O.x0 + 0.7, z: O.z1 - 1.8, rotY: Math.PI / 2, w: 0.8 });
@@ -1583,7 +2009,18 @@ export function buildClub(scene, { renderer } = {}) {
 
   return {
     root, colliders, navBlockers, floorZones, doors, anchors, neon, office, storeroom, slot, bj,
-    platforms, groundAt, update, roomAt, rooms: ROOMS, rain,
+    platforms, groundAt, update, roomAt, rooms: ROOMS, rain, clocks,
+    /* Put every wall clock in the building on the same time -- the
+     * campaign's, not the wall clock's own idea of one. */
+    setClock(hour24, minute) {
+      const h = ((hour24 % 12) + minute / 60) / 12;
+      const m = (minute % 60) / 60;
+      for (const c of clocks) {
+        c.hourHand.rotation.z = -h * Math.PI * 2;
+        c.minHand.rotation.z = -m * Math.PI * 2;
+        c.secHand.rotation.z = 0;
+      }
+    },
   };
 }
 

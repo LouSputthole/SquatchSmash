@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { mat, box } from '../world/build.js';
+import { drawSquatchSilhouette } from '../world/textures.js';
 
 const _cache = new Map();
 
@@ -268,6 +269,49 @@ export function neonText(key, text, colour = '#ff3d8b', opts = {}) {
     g.font = font.replace(/^900/, '700');
     g.fillText(text, w / 2, h / 2);
     return finish(c);
+  });
+}
+
+/**
+ * The club's framed squatch mark.
+ *
+ * One drawing, shared. The silhouette itself is drawSquatchSilhouette from
+ * world/textures.js -- the same outline the arcade cabinet, the apartment
+ * poster, the aeroplane tail and the crossing sign all use -- so the mark is
+ * literally the same mark everywhere it appears. This only puts a border and
+ * some lettering round it, which is the part that differs between the crest
+ * over the club doors and the pieces hanging in Lou's office.
+ *
+ * Mount the result with props.js's makeFrame() and it is framed artwork.
+ */
+export function squatchArt(key, {
+  title = [], footer = null, ink = '#c8a24a', bg = '#1a1420',
+  w = 512, h = 640, rule = true,
+} = {}) {
+  return cached(`bing.squatch.${key}`, () => {
+    const c = canvas(w, h);
+    const g = c.getContext('2d');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, w, h);
+    if (rule) {
+      g.strokeStyle = ink;
+      g.lineWidth = Math.round(h / 64);
+      g.strokeRect(w * 0.035, h * 0.028, w * 0.93, h * 0.944);
+      g.lineWidth = Math.max(2, Math.round(h / 210));
+      g.strokeRect(w * 0.074, h * 0.059, w * 0.852, h * 0.881);
+    }
+    // The mark itself, sized to the plate and standing on the lower rule.
+    drawSquatchSilhouette(g, w / 2, h * (footer ? 0.75 : 0.82), h * 0.47, ink);
+    g.fillStyle = ink;
+    g.textAlign = 'center';
+    const lines = Array.isArray(title) ? title : [title];
+    g.font = `900 ${Math.round(h * 0.072)}px "Trebuchet MS", sans-serif`;
+    lines.forEach((line, i) => g.fillText(line, w / 2, h * 0.15 + i * h * 0.085));
+    if (footer) {
+      g.font = `700 ${Math.round(h * 0.053)}px "Trebuchet MS", sans-serif`;
+      g.fillText(footer, w / 2, h * 0.906);
+    }
+    return finish(c, { repeat: [1, 1] });
   });
 }
 

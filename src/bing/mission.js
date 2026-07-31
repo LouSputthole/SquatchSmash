@@ -59,10 +59,22 @@ export class Mission {
       /* The one thing the woman at the end of the bar changes. Flavour, not a
        * gate: the campaign decides whether the date happens. */
       heardHerDrink: false,
+      /* She has introduced herself. The objective and the interaction prompt
+       * both stop calling her "the woman at the end of the bar" once she has
+       * a name, which is how names work. */
+      metHer: false,
       gaveNumber: false,
+      /* The shot Booskibro will not take no for an answer about. */
+      tookShot: false,
+      foundBody: false,
     };
 
+    /* The three things the evening is actually for. The rest of the club --
+     * the machine, the felt, the runway, the floor -- reports in as optional
+     * from main.js, which owns that list because it owns those systems. */
     this.addObjective('lou', 'Meet Lou in the back office');
+    this.addObjective('margo', 'Talk to the cute girl at the bar');
+    this.addObjective('shot', 'Take a shot with Booski');
   }
 
   get readyToLeave() {

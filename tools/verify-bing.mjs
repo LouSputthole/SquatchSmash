@@ -158,7 +158,11 @@ console.log('Driving the mission…');
 
 let s = await state();
 check('starts behind the wheel in the lot', s.mission === 'lot', s.mission);
-check('one objective, and it is Lou', s.objectives.join('') === ' lou', s.objectives.join(','));
+/* Three things the evening is for, and none of them ticked in the lot. The
+ * club's own optional list is separate and lives on the HUD card, not on the
+ * mission -- it is checked further down against the rendered objectives. */
+check('the night opens on its three jobs, none of them done',
+  s.objectives.join(',') === ' lou, margo, shot', s.objectives.join(','));
 const displayedDay = await page.textContent('#clock .day');
 check('the first Bing visit is still Day One', displayedDay === 'Day 1', displayedDay);
 
@@ -819,7 +823,11 @@ await page.evaluate(() => {
   b.dialogue.start(b.familyScripts.booski, 'open', b.family.byId.booski, { resume: true });
   b.dialogue.choose(0);
 });
-await tick(6);
+/* Long enough for the offer AND the yell. A node's hold is now at least as
+ * long as its own recording (see dialogue.js `_cueHold`), so the three-line
+ * run to the yell takes as long as the three recordings do -- which is the
+ * entire point of the fix, and six seconds no longer covers it. */
+await tick(14);
 const midBeat = await page.evaluate(() => ({
   frozen: window.__bing.player.mode === 'frozen',
   running: !!window.__bing.game.beat,

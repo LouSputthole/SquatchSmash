@@ -486,16 +486,30 @@ export function buildScripts(ctx) {
   const dj = {
     open: {
       who: 'DJ',
-      line: 'You want a request? Because the answer’s no. Lou picks the records.',
-      options: [
-        { tone: 'Ask anyway', text: 'Anything by the Squatch?', next: 'squatch' },
-        { tone: 'Leave it', text: 'Fair enough.', next: null },
-      ],
+      line: () => (ctx.secondVisit?.()
+        ? 'Back again. Alright — one request, and if Lou asks, you threatened me.'
+        : 'You want a request? Because the answer’s no. Lou picks the records.'),
+      options: () => (ctx.secondVisit?.()
+        ? [
+          { tone: 'Request', text: 'Something with horns. Loud.', next: 'horns', effect: () => ctx.request?.('horns') },
+          { tone: 'Request', text: 'Anything by the Squatch.', next: 'squatch', effect: () => ctx.request?.('squatch') },
+          { tone: 'Leave it', text: 'Fair enough.', next: null },
+        ]
+        : [
+          { tone: 'Ask anyway', text: 'Anything by the Squatch?', next: 'squatch' },
+          { tone: 'Leave it', text: 'Fair enough.', next: null },
+        ]),
     },
     squatch: {
       who: 'DJ',
       line: 'That’s the one thing I would play. It’s in the crate. Lou says it’s "a lot".',
       hold: 3.0,
+    },
+    horns: {
+      who: 'DJ',
+      line: '<em>(He is already reaching for it.)</em> Horns. Everybody wants horns. '
+        + 'Nobody wants the four minutes before the horns.',
+      hold: 3.4,
     },
   };
 
@@ -520,6 +534,8 @@ export function buildScripts(ctx) {
         : '<em>(She is watching the room rather than the stage, which in here is '
           + 'unusual enough to be conspicuous.)</em> You are going to say something. '
           + 'I can see it arriving.'),
+      cue: () => (ctx.flags.gotPackage ? 'vo.bing.margo.1b' : 'vo.bing.margo.1'),
+      enter: () => { ctx.flags.metHer = true; },
       options: [
         { tone: 'Deny it', text: 'I was going to walk past.', next: 'past' },
         { tone: 'Ask', text: 'What are you drinking?', next: 'drinking' },
@@ -530,12 +546,14 @@ export function buildScripts(ctx) {
       who: 'Margo',
       line: 'Nobody walks past this end. This end is where you sit when you are '
         + 'waiting for somebody and you have stopped enjoying it.',
+      cue: 'vo.bing.margo.2',
       next: 'why',
     },
     drinking: {
       who: 'Margo',
       line: 'Rye. One ice cube. <em>(She tips the glass an inch.)</em> They brought three. '
         + 'I sent two back. It caused a scene.',
+      cue: 'vo.bing.margo.3',
       enter: () => { ctx.flags.heardHerDrink = true; },
       next: 'why',
     },
@@ -544,6 +562,7 @@ export function buildScripts(ctx) {
       line: 'I run the kitchen at the all-night place on Ashland. I am in here because '
         + 'my dishwasher’s brother works your door and he owes me two hundred dollars, '
         + 'and I have decided to be visible about it. Your turn.',
+      cue: 'vo.bing.margo.4',
       options: [
         { tone: 'Ask', text: 'Let me buy you dinner.', next: 'dinner' },
         { tone: 'Offer', text: 'I could have a word about the two hundred.', next: 'word' },
@@ -566,6 +585,7 @@ export function buildScripts(ctx) {
       line: '<em>(She looks at him properly for the first time, which takes a while.)</em> '
         + '…You ate at mine. Four in the morning, corner two. You tipped Hector. '
         + 'Nobody tips Hector — he is behind a wall, you would have had to go and find him.',
+      cue: 'vo.bing.margo.5',
       options: [
         { tone: 'Number', text: 'Take my number. Ring it when you are not working.',
           next: 'number', effect: () => { ctx.flags.gaveNumber = true; } },
@@ -577,6 +597,7 @@ export function buildScripts(ctx) {
       line: '<em>(She writes it on the back of a docket, which is what she has.)</em> '
         + 'I get one night off in six. If I use it on you and you are boring, '
         + 'I will be extremely unpleasant about it. <em>(Beat.)</em> I will ring.',
+      cue: 'vo.bing.margo.6',
       hold: 4.6,
     },
     fold: {

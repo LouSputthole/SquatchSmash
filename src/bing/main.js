@@ -17,6 +17,8 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
+import { Phone } from '../core/phone.js';
+import { createApartmentStory } from '../core/apartment-story.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
 import {
@@ -53,6 +55,8 @@ import {
 
 const START_CASH = 340;
 const DRINK_TIME = 2.4;
+/* How much of the synthesised club bed survives under the real record. */
+const BED_UNDER_RECORD = 0.16;
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -73,6 +77,11 @@ const ui = {
   gambleKeys: document.querySelector('#gamble .keys'),
   carrying: document.getElementById('carrying'),
   subtitle: document.getElementById('subtitle'),
+  kit: document.getElementById('kit'),
+  kitList: document.querySelector('#kit ul'),
+  phone: document.getElementById('phone-osd'),
+  phoneScreen: document.querySelector('#phone-osd .screen'),
+  phoneKeys: document.querySelector('#phone-osd .keys'),
   dialogue: {
     root: document.getElementById('dialogue'),
     name: document.querySelector('#dialogue .who'),
@@ -150,6 +159,14 @@ const activeSceneId = isSecondVisit ? SCENE_IDS.BADA_BING_TWO : SCENE_IDS.BADA_B
 if (campaign.state.scene.id !== activeSceneId) {
   campaign.enter(activeSceneId, { spawn: 'driver_seat' });
 }
+/* The drive over. Both visits book their travel time on ARRIVAL rather than
+ * on departure -- the campaign already knows the hour the prospect pulls
+ * into this lot (23:41 on the first night), and until this ran the club sat
+ * at whatever time he last got out of bed. `advanceTime` only ever moves the
+ * clock forward, so re-entering a scene cannot rewind the evening. */
+campaign.advanceTime(isSecondVisit
+  ? TIME_EVENT_IDS.DEPART_BADA_BING_TWO
+  : TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
 const secondVisitStory = isSecondVisit ? createBadaBingTwoStory({ campaign }) : null;
 
 const game = {
@@ -172,11 +189,15 @@ const game = {
   beat: null,          // the one scripted camera beat (Booski's shot delivery)
   lastHand: null,      // last blackjack outcome, for the table's voice
   voLog: [],           // recent exact-cue voice attempts, for the verifier
+  /* The objective card reads the mission, the Family and half a dozen other
+   * systems, none of which exist while the Mission constructor is still
+   * adding its own first objectives. Nothing paints until the club stands. */
+  hudReady: false,
 };
 
 const MissionType = isSecondVisit ? SecondVisitMission : Mission;
 const mission = new MissionType({
-  onObjective: paintObjectives,
+  onObjective: () => repaintObjectives(),
   onMessage: (text) => {
     hud.toast(text, '');
     audio.play('phone.ring', { volume: 0.35 });
@@ -552,6 +573,12 @@ const scriptContext = {
   hands: () => mission.hands,
   asked: new Set(),
   order: (what) => serveDrink(what),
+  secondVisit: () => isSecondVisit,
+  request: (what) => {
+    game.songRequested = what;
+    audio.play('radio.tune', { volume: 0.35, position: club.anchors.dj });
+    hud.toast('Request in', 'good');
+  },
   sitAtTable: () => sitAtTable(),
   showParcel: () => {
     club.office.parcel.visible = true;
@@ -569,6 +596,7 @@ if (isSecondVisit) scripts.lou = buildSecondVisitLouScript({ mission });
 
 function addMoney(delta) {
   game.money = Math.max(0, game.money + delta);
+  if (game.kitOpen) paintKit();
   ui.cash.textContent = `$${game.money.toLocaleString()}`;
   ui.wallet.classList.remove('hidden');
   ui.wallet.classList.toggle('down', delta < 0);
@@ -576,14 +604,103 @@ function addMoney(delta) {
   setTimeout(() => ui.wallet.classList.remove('bump'), 180);
 }
 
+/**
+ * The objective card.
+ *
+ * Two lists in one box. Required beats read as they always have. Optional
+ * ones -- the reasons to actually be in a nightclub rather than walking
+ * through one -- sit under a rule, dimmer, and some of them carry a live
+ * tally (`3/15 squatches`) rather than a tick. Order is authored, not
+ * insertion: an objective that completes does not jump about.
+ */
 function paintObjectives(list) {
   ui.objectives.classList.remove('hidden');
-  ui.objectiveList.replaceChildren(...list.map((o) => {
+  const rows = [];
+  const row = (o) => {
     const li = document.createElement('li');
-    li.className = o.done ? 'done' : '';
-    li.textContent = o.text;
+    li.className = [o.optional ? 'optional' : '', o.done ? 'done' : ''].filter(Boolean).join(' ');
+    if (o.total) {
+      const tally = document.createElement('span');
+      tally.className = 'tally';
+      tally.textContent = `${o.count ?? 0}/${o.total}`;
+      li.appendChild(tally);
+    }
+    li.appendChild(document.createTextNode(o.text));
     return li;
-  }));
+  };
+  for (const o of list) if (!o.optional) rows.push(row(o));
+  const optional = list.filter((o) => o.optional);
+  if (optional.length) {
+    const rule = document.createElement('li');
+    rule.className = 'rule';
+    rule.textContent = 'WHILE YOU ARE HERE';
+    rows.push(rule);
+    for (const o of optional) rows.push(row(o));
+  }
+  ui.objectiveList.replaceChildren(...rows);
+}
+
+/* ------------------------------------------------------------------ *
+ * The optional evening.
+ *
+ * The required objectives are the mission's and always have been. These are
+ * the club's own, and every one of them is wired to a beat that already
+ * existed: the shot, the table, the machine, the runway, the bar, and the
+ * Family on the floor. The squatch counter reads its total off whoever is
+ * actually present tonight, so it is right on a fresh save (fifteen) and
+ * right after the Beef Run (sixteen) without a second list to keep.
+ *
+ * "Squatches" is the crew's word for the crew. Everybody in this club
+ * presents as human, and nothing here says otherwise.
+ * ------------------------------------------------------------------ */
+const spokeTo = new Set();
+function optionalObjectives() {
+  const list = [
+    {
+      id: 'mingle',
+      text: 'Talk with the squatches around the club',
+      optional: true,
+      count: spokeTo.size,
+      total: family.all.length,
+      done: family.all.length > 0 && spokeTo.size >= family.all.length,
+    },
+    { id: 'slots', text: 'Play the slots', optional: true, done: (mission.spins || 0) > 0 },
+    { id: 'cards', text: 'Play blackjack', optional: true, done: (mission.hands || 0) > 0 },
+    { id: 'tip', text: 'Tip the performers', optional: true, done: (game.tips || 0) > 0 },
+    { id: 'drink', text: 'Order a drink from the bar', optional: true, done: (mission.drinks || 0) > 0 },
+  ];
+  if (isSecondVisit) {
+    list.push({ id: 'song', text: 'Request a song from the DJ', optional: true, done: !!game.songRequested });
+  }
+  return list;
+}
+
+/** The mission's list, then the club's. Repainted whenever either moves. */
+function repaintObjectives() {
+  if (!game.hudReady) return;
+  paintObjectives([...mission.objectives, ...optionalObjectives()]);
+}
+
+/* Repaint only when something actually moved. The card is rebuilt from
+ * scratch when it does, which is fine at the rate a nightclub changes. */
+let objectiveSig = '';
+function objectivesTick() {
+  if (!game.hudReady) return;
+  if (mission.flags.metHer) mission.complete('margo');
+  if (game.booskiShotDone) mission.complete('shot');
+  const sig = `${mission.objectives.map((o) => (o.done ? 1 : 0)).join('')}`
+    + `|${mission.objectives.length}|${spokeTo.size}|${mission.spins || 0}|${mission.hands || 0}`
+    + `|${mission.drinks || 0}|${game.tips || 0}|${game.songRequested ? 1 : 0}`;
+  if (sig === objectiveSig) return;
+  objectiveSig = sig;
+  repaintObjectives();
+}
+
+/** Somebody on the floor has now been talked to. Counts once. */
+function noteSpokeTo(npc) {
+  if (!npc?.characterId || !npc.familyMember || spokeTo.has(npc.characterId)) return;
+  spokeTo.add(npc.characterId);
+  repaintObjectives();
 }
 
 /** What is inside the jacket. Its own line, because it is not in your hands. */
@@ -621,7 +738,11 @@ function serveDrink(what) {
 
 function drinkTick(dt) {
   if (!game.heldDrink) return;
-  if (!keys.has('KeyF')) {
+  /* `autoDrink` is seconds of hold the game is doing on the player's behalf.
+   * The shot beat uses it: Booski says drink, so Tony drinks, and it goes
+   * through the same pose, the same units and the same swallow as [F]. */
+  if (game.autoDrink > 0) game.autoDrink = Math.max(0, game.autoDrink - dt);
+  if (!keys.has('KeyF') && game.autoDrink <= 0) {
     if (game.drinking > 0) {
       game.drinking = 0;
       poseDrink(null, 0);
@@ -645,6 +766,159 @@ function drinkTick(dt) {
   hud.say(drunk.level > 0.5
     ? 'That one landed. Lou is going to be able to tell.'
     : 'Warm. Free. Not the point of the visit.', 3600);
+}
+
+/* ------------------------------------------------------------------ *
+ * Twenty-five seconds of clarity.
+ *
+ * Whatever is on the urinal lip does what it does: the world narrows, the
+ * legs speed up, and the edges of the frame go dark and stay dark until it
+ * lets go. Deliberately a short, self-contained state rather than a fourth
+ * entry in the Highs system -- this is not a night out, it is a bathroom.
+ * ------------------------------------------------------------------ */
+const FOCUS_FOV = 9;      // degrees the view narrows by at full effect
+let focusK = 0;
+
+function startFocus(secs = 25) {
+  game.focus = Math.max(game.focus || 0, secs);
+}
+
+function focusTick(dt) {
+  if (game.focus > 0) game.focus = Math.max(0, game.focus - dt);
+  const want = game.focus > 0 ? 1 : 0;
+  // Comes on fast, lets go slowly, which is the honest shape of it.
+  focusK += (want - focusK) * Math.min(1, dt * (want ? 2.2 : 0.55));
+  if (focusK < 0.003) {
+    if (game.focusWasOn) {
+      game.focusWasOn = false;
+      camera.fov = 70;
+      camera.updateProjectionMatrix();
+    }
+    return;
+  }
+  game.focusWasOn = true;
+  camera.fov = 70 - FOCUS_FOV * focusK;
+  camera.updateProjectionMatrix();
+  player.moveScale *= 1 + 0.42 * focusK;
+  fxDrunk.style.setProperty('--vig', (drunk.vignette + 0.42 * focusK).toFixed(3));
+}
+
+/* A short cheerful shower of bills. DOM, not geometry: it is a HUD flourish
+ * on a tip, it lasts under two seconds, and it costs nothing. */
+const moneyLayer = document.getElementById('money-burst');
+function moneyBurst(n = 9) {
+  if (!moneyLayer) return;
+  for (let i = 0; i < n; i++) {
+    const bill = document.createElement('i');
+    bill.className = 'bill';
+    bill.style.setProperty('--dx', `${(Math.random() * 2 - 1) * 22}vmin`);
+    bill.style.setProperty('--rot', `${(Math.random() * 2 - 1) * 220}deg`);
+    bill.style.setProperty('--delay', `${Math.random() * 0.22}s`);
+    bill.style.setProperty('--rise', `${18 + Math.random() * 16}vmin`);
+    moneyLayer.appendChild(bill);
+    setTimeout(() => bill.remove(), 2100);
+  }
+  audio.play('bing.money.flutter', { volume: 0.4 });
+}
+
+/* ------------------------------------------------------------------ *
+ * What is on you.
+ *
+ * The flat has pockets, a nightstand and a hotbar. The club had a single
+ * "carrying" line and nothing else, so a player who had just been handed a
+ * gun wrapped in a cloth could not see that he had it, and a player whose
+ * phone was ringing had no way to reach the phone at all -- the owner's
+ * "can't answer my phone there because I can't get to my inventory".
+ *
+ * This is the club's own readout, deliberately small: campaign items (the
+ * ones that survive the drive), what is in your hands, the roll in your
+ * pocket, and the phone. [I] shows and hides it; it comes up on its own
+ * whenever something lands in it.
+ * ------------------------------------------------------------------ */
+const KIT_ITEMS = {
+  [ITEM_IDS.LOU_PACKAGE]: { icon: '🩶', name: 'A wrapped package', where: 'INSIDE JACKET' },
+};
+
+function paintKit() {
+  const rows = [];
+  const line = (icon, name, where, cls = '') => {
+    const li = document.createElement('li');
+    li.className = cls;
+    li.innerHTML = `<span class="icon">${icon}</span><span class="what">${name}</span>`
+      + `<span class="where">${where}</span>`;
+    rows.push(li);
+  };
+  // Campaign items first: they are the ones that leave the building with you.
+  for (const [id, meta] of Object.entries(KIT_ITEMS)) {
+    if (campaign.hasItem(id)) line(meta.icon, meta.name, meta.where);
+  }
+  // Then whatever is actually in his hands.
+  for (const slot of inventory.items) {
+    if (!slot) continue;
+    const item = ITEMS[slot];
+    if (item) line(item.icon, item.name, 'IN HAND');
+  }
+  line('💵', `$${game.money.toLocaleString()}`, 'POCKET');
+  const ringing = phone.ringing;
+  line('📱', 'Phone', ringing ? 'RINGING' : 'POCKET', ringing ? 'ring' : '');
+  ui.kitList.replaceChildren(...rows);
+}
+
+function showKit(on = true) {
+  game.kitOpen = on;
+  ui.kit.classList.toggle('hidden', !on);
+  if (on) paintKit();
+}
+
+/* ---- the phone ----
+ * The same Phone the flat uses, drawn into the HUD instead of onto a model
+ * in his hand: the club is a first-person scene without a hotbar slot to
+ * spare, and a call you cannot answer is a campaign that cannot advance.
+ * The apartment story owns which call is pending and what answering it
+ * means, so this reuses it rather than keeping a second copy of the rules.
+ */
+const phone = new Phone({ time: { day: campaign.state.story.day, hour: 23 }, audio, calls: [] });
+ui.phoneScreen?.appendChild(phone.canvas);
+const phoneStory = createApartmentStory({
+  campaign,
+  ring: (definition) => {
+    const rang = phone.ring(definition);
+    if (rang) {
+      showKit(true);
+      hud.toast(`Incoming: ${definition.from}`, '');
+      hud.say('Your phone is going in your pocket. <em>[P] to take it out, [E] to answer.</em>', 5200);
+    }
+    return rang;
+  },
+});
+phoneStory.beginMorning();
+phone.onAnswered = (definition) => {
+  phoneStory.callAnswered(definition);
+  paintKit();
+};
+
+function showPhone(on = true) {
+  game.phoneUp = on;
+  ui.phone.classList.toggle('hidden', !on);
+  if (on) showKit(true);
+}
+
+function paintPhone() {
+  phone.draw();
+  ui.phone.classList.toggle('ringing', phone.ringing);
+  ui.phoneKeys.textContent = phone.ringing
+    ? '[E] ANSWER   [P] POCKET'
+    : phone.inCall ? '[Q] HANG UP' : '[E] SELECT   [P] POCKET';
+}
+
+function phoneTick(dt) {
+  phoneStory.update(dt);
+  phone.update(dt);
+  if (game.phoneUp) paintPhone();
+  /* It rings whether or not it is out, and it comes out on its own the
+   * moment it does -- a missed campaign call is a stuck campaign. */
+  if (phone.ringing && !game.phoneUp) showPhone(true);
+  if (game.kitOpen && (phone.ringing || phone.inCall)) paintKit();
 }
 
 /* ------------------------------------------------------------------ */
@@ -715,6 +989,7 @@ function talkTo(npc, tree, at = 'open') {
     label: () => `Talk to <b>${npc.name}</b>`,
     onUse: () => {
       npc.faceToward(player.position.x, player.position.z);
+      noteSpokeTo(npc);
       dialogue.start(tree, at, npc, { resume: true });
     },
   };
@@ -737,12 +1012,13 @@ reg(cast.byName.dj.group, talkTo(cast.byName.dj, scripts.dj));
 /* Scene One only, so she is registered only when she is actually in the room. */
 if (cast.byName.margo) {
   reg(cast.byName.margo.group, {
-    label: () => (mission.flags.gaveNumber
-      ? 'Say goodnight to <b>Margo</b>'
+    label: () => (mission.flags.gaveNumber || mission.flags.metHer
+      ? 'Talk to <b>Margo</b>'
       : 'Talk to the <b>woman at the end of the bar</b>'),
     onUse: () => {
       const her = cast.byName.margo;
       her.faceToward(player.position.x, player.position.z);
+      noteSpokeTo(her);
       dialogue.start(scripts.margo, mission.flags.gaveNumber ? 'number' : 'open', her, { resume: true });
     },
   });
@@ -1068,6 +1344,7 @@ const stageTalk = {
       addMoney(-20);
       game.tips = (game.tips || 0) + 1;
       audio.play('chips.place', { volume: 0.4 });
+      moneyBurst();
       const her = cast.byName.performer3;
       if (her) dialogue.start(stageTalk, game.tips === 1 ? 'first' : 'again', her);
       hud.say(game.tips === 1
@@ -1091,7 +1368,7 @@ const stageTalk = {
   });
 
   const graffitiPad = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.4, 1.9), new THREE.MeshBasicMaterial({ visible: false }));
-  graffitiPad.position.set(ROOMS.bathroom.x0 + 0.14, 1.5, 2.55);
+  graffitiPad.position.set(ROOMS.bathroom.x0 + 0.14, 1.5, 2.11);
   scene.add(graffitiPad);
   reg(graffitiPad, {
     label: 'Read the <b>wall</b>',
@@ -1124,6 +1401,32 @@ const stageTalk = {
     });
   }
 
+  /* The line on the urinal lip. Nothing points at it, nothing asks you to
+   * take it, and no objective moves either way -- it is just there, the way
+   * it would be. Twenty-five seconds of everything being very clear
+   * afterwards, then it lets go of you. */
+  const powderPad = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.34, 0.5), new THREE.MeshBasicMaterial({ visible: false }));
+  powderPad.position.copy(club.anchors.powder);
+  scene.add(powderPad);
+  reg(powderPad, {
+    label: () => (game.focus > 0 ? 'You are fine. You are <b>great</b>.' : 'The line on the <b>urinal</b>'),
+    hold: 1.1,
+    onTap: () => hud.say('A line of something white on the lip of the urinal, laid out with a card and left. '
+      + 'It has been there a while. Nobody in this building is coming back for it.', 5200),
+    onUse: () => {
+      if (game.focus > 0) {
+        hud.say('There is nothing left and you knew that before you bent down.', 3200);
+        return;
+      }
+      club.anchors.powderMesh?.parent?.remove(club.anchors.powderMesh);
+      startFocus(25);
+      audio.play('sniff', { volume: 0.5 });
+      hud.toast('Locked in', 'good');
+      hud.say('<em>Oh.</em> Everything in the room arrives at once and stands very still, and you are, '
+        + 'briefly, the most competent man in New Jersey.', 5600);
+    },
+  });
+
   const ventPad = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.4, 0.6), new THREE.MeshBasicMaterial({ visible: false }));
   ventPad.position.set(ROOMS.bathroom.x0 + 1.3, 2.35, ROOMS.bathroom.z0 + 0.45);
   scene.add(ventPad);
@@ -1151,6 +1454,33 @@ const stageTalk = {
       hud.say('You flip the isolator like a man who has watched somebody else do it. The green light goes out.', 4800);
     },
   });
+
+  /* Whoever is under the tarpaulin. One look, and then the room is a room
+   * you have been in with a body in it, which is a different room. */
+  if (club.storeroom.body) {
+    const bodyPad = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.1, 2.0), new THREE.MeshBasicMaterial({ visible: false }));
+    bodyPad.position.set(club.anchors.body.x, 0.55, club.anchors.body.z);
+    scene.add(bodyPad);
+    reg(bodyPad, {
+      label: () => (mission.flags.foundBody ? 'Under the <b>tarpaulin</b>' : 'Something under a <b>tarpaulin</b>'),
+      hold: 1.2,
+      onTap: () => hud.say('A tarp thrown over something between the crates and the freezer. '
+        + 'Two boots are out the end of it, laces still done up.', 5000),
+      onUse: () => {
+        if (mission.flags.foundBody) {
+          hud.say('Still there. He is not going to be less there in ten minutes.', 3400);
+          return;
+        }
+        mission.flags.foundBody = true;
+        audio.play('door.creak', { volume: 0.25, position: bodyPad.position });
+        hud.toast('You should not have looked', '');
+        hud.say('You lift the corner. A man, face down, in a good coat, with a hand out towards the door '
+          + 'he did not reach. The stain has gone into the grout and dried at the edges — this happened '
+          + 'before your shift. <em>You put the tarp back exactly as it was.</em>', 8000);
+        mission.note('There is a man under a tarpaulin in the store room. Nobody has mentioned him.');
+      },
+    });
+  }
 
   const manifestPad = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.6, 0.3), new THREE.MeshBasicMaterial({ visible: false }));
   manifestPad.position.set(8.2, 1.5, ROOMS.storage.z0 + 0.25);
@@ -1299,8 +1629,18 @@ function leaveByFrontDoor() {
   reg(car.wheel, {
     label: () => (mission.readyToLeave ? 'Hold to <b>drive away</b>' : 'The <b>wheel</b>'),
     enabled: () => game.seatedIn === 'car',
-    hold: mission.readyToLeave ? 1.4 : undefined,
-    onTap: () => hud.say('Not until you have got what you came for.', 3000),
+    /* A CONSTANT. This read `mission.readyToLeave ? 1.4 : undefined`, which
+     * the interaction system evaluates exactly once, at registration -- and
+     * the mission is never ready to leave at the moment the club is built.
+     * So the wheel was a tap forever, "Hold to drive away" was a lie, and the
+     * onTap under it was unreachable code. The wheel is always a hold: tap it
+     * early and he tells you why not, hold it when the job is done and you
+     * are gone. (interaction.js divides by `hold`, so it cannot be a
+     * function without changing a system this scene does not own.) */
+    hold: 1.4,
+    onTap: () => hud.say(mission.readyToLeave
+      ? 'Hold it. You are leaving.'
+      : 'Not until you have got what you came for.', 3000),
     onUse: () => {
       if (!mission.readyToLeave) {
         hud.say(isSecondVisit
@@ -1459,6 +1799,7 @@ function giveShot() {
   if (!inventory.full) inventory.add('whiskey');
   hud.setHand({ ...ITEMS.whiskey, hint: 'Hold [F] to drink' });
   hud.setInventory(inventory, ITEMS);
+  showKit(true);
   hud.toast('On the house. Loudly.', 'good');
   mission.drank?.();
 }
@@ -1466,6 +1807,7 @@ function giveShot() {
 function startShotBeat() {
   if (game.booskiShotDone || game.beat || game.over) return;
   game.booskiShotDone = true;
+  game.shotSunk = false;
   const bouncer = cast.byName.bouncer;
   const booski = family.byId.booski;
   const post = {
@@ -1490,16 +1832,48 @@ function startShotBeat() {
   bouncer.routeAt = 0;
   let phase = 'to-bar';
   let t = 0;
+
+  /* ---- the framing ----
+   * The first pass aimed the camera straight at the bouncer from the moment
+   * the yell landed. The bouncer is at the FRONT DOOR and the player is at
+   * the far end of the bar, so the beat opened by spinning him a hundred and
+   * eighty degrees to stare across a dark room at a man he could not see --
+   * the owner's "turns the player BACKWARDS".
+   *
+   * So the shot starts where a shot should start: on the bar, on Booski,
+   * on the glass. The aim point only walks toward the bouncer as he gets
+   * close enough to be worth looking at, and the yaw is slew-limited, so
+   * from any starting view it is a pan rather than a cut. */
+  const aim = new THREE.Vector3(
+    club.anchors.barService.x,
+    1.35,
+    booski ? booski.position.z : club.anchors.barService.z,
+  );
+  const openAim = aim.clone();
+  const MAX_SLEW = 1.5;               // radians a second; a head turn, not a snap
+  const frameOn = (tx, tz, dt2, lead = 3.0) => {
+    const wantYaw = Math.atan2(-(tx - player.position.x), -(tz - player.position.z));
+    const dy = Math.atan2(Math.sin(wantYaw - player.yaw), Math.cos(wantYaw - player.yaw));
+    const step = dy * Math.min(1, dt2 * lead);
+    player.yaw += Math.abs(step) > MAX_SLEW * dt2 ? Math.sign(step) * MAX_SLEW * dt2 : step;
+    player.pitch += (-0.04 - player.pitch) * Math.min(1, dt2 * 2.4);
+  };
+
   game.beat = (dt) => {
     t += dt;
     const bp = bouncer.group.position;
     if (phase === 'to-bar') {
       if (hijacked) {
-        // The camera follows the man with the tray, nothing else moves.
-        const wantYaw = Math.atan2(-(bp.x - player.position.x), -(bp.z - player.position.z));
-        const dy = wantYaw - player.yaw;
-        player.yaw += Math.atan2(Math.sin(dy), Math.cos(dy)) * Math.min(1, dt * 3.5);
-        player.pitch += (0 - player.pitch) * Math.min(1, dt * 3);
+        /* Hold the bar, then hand the frame over to the man with the tray as
+         * he comes into it. `near` is 1 when he is on top of the delivery. */
+        const away = Math.hypot(bp.x - openAim.x, bp.z - openAim.z);
+        const near = Math.min(1, Math.max(0, (9 - away) / 6));
+        aim.set(
+          openAim.x + (bp.x - openAim.x) * near,
+          1.35,
+          openAim.z + (bp.z - openAim.z) * near,
+        );
+        frameOn(aim.x, aim.z, dt, 2.4 + near * 1.6);
       }
       const d = Math.hypot(bp.x - SHOT_BAR_STAND.x, bp.z - SHOT_BAR_STAND.z);
       if (d < 0.6 || t > 16) {
@@ -1513,7 +1887,7 @@ function startShotBeat() {
         );
         audio.play('glass.set', { volume: 0.55, position: club.anchors.barService });
         giveShot();
-        /* Control back BEFORE the toast — the club's rule is that nobody
+        /* Control back BEFORE the toast -- the club's rule is that nobody
          * important talking ever costs you the sticks. */
         if (hijacked) {
           player.mode = 'walk';
@@ -1522,6 +1896,15 @@ function startShotBeat() {
         if (booski) dialogue.start(familyScripts.booskiShot, 'handoff', booski);
       }
     } else if (phase === 'handoff') {
+      /* "Drink, baby." So he drinks it. The drink system does the work --
+       * same pose, same units, same swallow as holding [F] -- and the player
+       * has had the sticks back since the glass landed, so anybody who would
+       * rather keep it can simply walk off with it. */
+      if (t > 1.9 && !game.shotSunk && game.heldDrink === 'whiskey') {
+        game.shotSunk = true;
+        game.autoDrink = DRINK_TIME + 0.35;
+        mission.flags.tookShot = true;
+      }
       if (t > 2.2) {
         phase = 'return';
         t = 0;
@@ -1564,9 +1947,29 @@ function sendAssociate() {
   hud.toast('Somebody is coming out of the back hallway.', '');
 }
 
+/**
+ * Bank the second visit's assignment.
+ *
+ * Idempotent and total: a mission that is already complete with an
+ * assignment on it is a success, not an error, and a mission with no
+ * assignment is a bug worth a console line rather than an exception thrown
+ * out of a requestAnimationFrame callback where nothing can catch it.
+ */
+function recordSecondVisit() {
+  if (!isSecondVisit) return true;
+  const saved = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
+  if (saved.status === 'complete' && saved.assignment) return true;
+  if (secondVisitStory.complete({ assignment: mission.assignment })) return true;
+  console.error('[bing] Scene Two ended without a durable assignment',
+    { status: saved.status, assignment: mission.assignment });
+  return false;
+}
+
 function driveAway() {
   if (game.over) return;
   game.over = true;
+  // Bank it before the car moves, so the record cannot depend on a tween.
+  recordSecondVisit();
   interaction.setPaused(true);
   player.mode = 'frozen';
   audio.play('car.start', { volume: 0.7 });
@@ -1600,13 +2003,20 @@ function showEnding(kind) {
     ? {
       title: 'ROOM TWELVE IS WAITING',
       body: 'Lou gave you the job in the same office, but this visit ends differently. '
-        + 'Manny is already outside the Jerky Motel with the payment, and the apartment is not on the route.',
+        + 'Snow is already outside the Jerky Motel with the payment, and the apartment is not on the route.',
     }
     : (ENDINGS[kind] || ENDINGS.followed);
   if (isSecondVisit) {
-    if (!secondVisitStory.complete({ assignment: mission.assignment })) {
-      throw new Error('Bada Bing Scene Two ended without a durable assignment');
-    }
+    /* Recorded on the way out of the lot, not here.
+     *
+     * This used to call complete() and THROW when it returned false -- from
+     * inside the rAF closure that drives the car out, which killed the frame
+     * loop before the ending card was ever appended. complete() returns
+     * false for two entirely ordinary reasons (the mission is already
+     * complete, or this is a second call), so the gate failed at whatever
+     * point the race happened to land. The write now happens once, in
+     * driveAway(), and reaching the card is not conditional on it. */
+    recordSecondVisit();
   } else {
     campaign.update((state) => {
       const saved = state.missions[MISSION_IDS.BADA_BING_ONE];
@@ -1777,6 +2187,15 @@ window.addEventListener('keydown', (e) => {
   player.setKey(e.code, true);
 
   if (e.code === 'KeyE') {
+    /* The phone takes [E] first while it is out. Same rule as the flat: a
+     * ringing phone is the most interactive thing in the room. */
+    if (game.phoneUp) {
+      if (phone.ringing) phone.answer();
+      else phone.press();
+      paintPhone();
+      paintKit();
+      return;
+    }
     // At the table and the machine, E is the game's own button
     if (game.seatedIn === 'table' && blackjack.state !== 'off' && !interaction.current) {
       if (blackjack.state === 'bet') {
@@ -1812,6 +2231,7 @@ window.addEventListener('keydown', (e) => {
     interaction.press();
   }
   if (e.code === 'KeyQ') {
+    if (game.phoneUp && phone.call) { phone.hangUp(); paintPhone(); return; }
     if (game.seatedIn === 'table') standFromTable();
     else if (game.seatedIn === 'seat') standFromSeat();
     else if (game.seatedIn === 'car') getOutOfCar();
@@ -1839,6 +2259,8 @@ window.addEventListener('keydown', (e) => {
       paintMachine();
     }
   }
+  if (e.code === 'KeyI') showKit(!game.kitOpen);
+  if (e.code === 'KeyP') showPhone(!game.phoneUp);
   if (e.code === 'Escape') document.exitPointerLock?.();
   if (e.code === 'Tab') {
     e.preventDefault();
@@ -1886,7 +2308,8 @@ startBtn.addEventListener('click', async () => {
   if (!game.started) {
     game.started = true;
     audio.startLoop('ambience.rain', { volume: 0.5, ambience: true, fade: 1.5 });
-    audio.startLoop('ambience.club', { volume: 0.04, ambience: true, fade: 2 });
+    audio.startLoop('ambience.bing.rain.muffled', { volume: 0, ambience: true, fade: 1.5 });
+    audio.startLoop('ambience.club', { volume: 0.04 * BED_UNDER_RECORD, ambience: true, fade: 2 });
     audio.startLoop('ambience.crowd', { volume: 0.02, ambience: true, fade: 2 });
     // The record actually playing on the floor tonight, from the DJ booth.
     audio.startMusicLoop('music.club', 'assets/music/sallie-j.mp3', {
@@ -1902,7 +2325,9 @@ startBtn.addEventListener('click', async () => {
     game.radioOn = true;
     getInCar();
     addMoney(0);
-    paintObjectives(mission.objectives);
+    game.hudReady = true;
+    repaintObjectives();
+    showKit(true);
     hud.say(isSecondVisit
       ? '<em>Day Two.</em> Lou is waiting in the same back office with a different job.'
       : '<em>11:41 PM.</em> Lou is waiting in the back office with a package.', 6000);
@@ -1941,6 +2366,18 @@ function updateZones(dt) {
           : 0.001;
     audio.setLoopVolume('ambience.rain', rainVolume, 0.8);
 
+    /* Rain through the brick. `ambience.rain` is rain you are STANDING in,
+     * and indoors it has to be turned down so far that what is left of it is
+     * hiss -- the "static" the owner could not place. The muffled bed is the
+     * low half of the same storm with nothing above 400Hz, so it can sit at
+     * an audible level in here and still read as weather. */
+    const rainThrough = !inside ? 0
+      : next === 'vestibule' ? 0.14
+        : next === 'main' ? 0.05
+          : next === 'hallway' ? 0.1
+            : 0.08;
+    audio.setLoopVolume('ambience.bing.rain.muffled', rainThrough, 0.8);
+
     // The club: the whole point of the wall between the hallway and the floor
     const music = next === 'main' ? 0.5
       : next === 'vestibule' ? (innerOpen ? 0.4 : 0.2)
@@ -1949,8 +2386,15 @@ function updateZones(dt) {
             : next === 'bathroom' || next === 'storage' ? 0.1
               : 0.05;
     const crowd = next === 'main' ? 0.32 : next === 'vestibule' ? 0.14 : 0.04;
-    audio.setLoopVolume('ambience.club', music, 0.7);
-    audio.setLoopVolume('ambience.crowd', crowd, 0.7);
+    /* There is a REAL record on the deck now (music.club, from the DJ
+     * booth), and the synthesised club bed predates it. Left at full level
+     * the two of them play different music at each other, and the bed's 52Hz
+     * kick is the "loud humming" -- so the bed drops to a sub you feel under
+     * the record rather than a second band you hear over it. The crowd's
+     * filtered noise comes down for the same reason: at a third of the mix
+     * two hundred inaudible people are indistinguishable from tape hiss. */
+    audio.setLoopVolume('ambience.club', music * BED_UNDER_RECORD, 0.7);
+    audio.setLoopVolume('ambience.crowd', crowd * 0.5, 0.7);
     audio.setLoopVolume('music.club', music * 0.9, 0.7);
     // The wall does the muffling per-loop now — footsteps and dialogue in the
     // back of house stay crisp while the record dulls round the corner.
@@ -2032,8 +2476,12 @@ function checkStage() {
     guard.group.position.set(p.x + 1.6, 0, p.z + 1.8);
     guard.faceToward(p.x, p.z, true);
     dialogue.start(scripts.security, 'open', guard);
-    audio.setLoopVolume('ambience.club', 0.08, 0.2);
-    setTimeout(() => audio.setLoopVolume('ambience.club', 0.5, 1.2), 1400);
+    audio.setLoopVolume('ambience.club', 0.02, 0.2);
+    audio.setLoopVolume('music.club', 0.08, 0.2);
+    setTimeout(() => {
+      audio.setLoopVolume('ambience.club', 0.5 * BED_UNDER_RECORD, 1.2);
+      audio.setLoopVolume('music.club', 0.45, 1.2);
+    }, 1400);
   } else if (!on && game.stagedOn) {
     game.stagedOn = false;
     const guard = cast.byName.security;
@@ -2075,13 +2523,27 @@ function ambientChatter(dt) {
 
 const clock = new THREE.Clock();
 
+/**
+ * The clock, everywhere at once.
+ *
+ * The HUD read 6:04 AM in a club whose own title card says 11:41 PM, because
+ * driving to the Bing never told the campaign that any time had passed --
+ * the arrival was recorded when you LEFT. The travel event is applied on the
+ * way in now (see below), and the wall clocks behind the bar and over Lou's
+ * desk are hung off the same number, so the room and the HUD cannot disagree.
+ */
 function paintCampaignClock() {
   const story = campaign.state.story;
   const hour24 = Math.floor(story.timeMinutes / 60) % 24;
+  const minute = story.timeMinutes % 60;
   const hour12 = hour24 % 12 || 12;
-  const time12 = `${hour12}:${String(story.timeMinutes % 60).padStart(2, '0')} `
+  const time12 = `${hour12}:${String(minute).padStart(2, '0')} `
     + `${hour24 >= 12 ? 'PM' : 'AM'}`;
   hud.setClock(story.day, time12, game.elapsed);
+  if (game.shownClock !== story.timeMinutes) {
+    game.shownClock = story.timeMinutes;
+    club.setClock(hour24, minute);
+  }
 }
 
 function frame() {
@@ -2103,6 +2565,7 @@ function frame() {
   player.impair = drunk.swayStrength * 0.8;
   player.moveScale = highs.moveScale;
   player.lookDrag = highs.lookDrag;
+  focusTick(raw);
   fxDrunk.style.setProperty('--blur', `${drunk.blur.toFixed(2)}px`);
   fxDrunk.style.setProperty('--vig', drunk.vignette.toFixed(3));
   fxDrunk.style.setProperty('--warm', drunk.warmth.toFixed(3));
@@ -2116,6 +2579,8 @@ function frame() {
   blackjack.update(dt);
   dialogue.update(dt, player.position);
   if (dialogue.active) layoutTalk();
+  phoneTick(raw);
+  objectivesTick();
   mission.update(raw);
   drinkTick(raw);
   updateZones(dt);

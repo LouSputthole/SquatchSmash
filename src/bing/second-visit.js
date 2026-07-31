@@ -193,7 +193,7 @@ export function buildSecondVisitLouScript({ mission }) {
     },
     assignment: {
       who: 'Lou',
-      line: 'Jerky Motel. Room twelve. Manny is waiting in the car with the payment. '
+      line: 'Jerky Motel. Room twelve. Snow is waiting in the car with the payment. '
         + 'You inspect the Reserve before anybody opens the money.',
       cue: 'vo.bing.lou.brief2.3',
       options: [
@@ -211,7 +211,7 @@ export function buildSecondVisitLouScript({ mission }) {
     },
     rest: {
       who: 'Lou',
-      line: 'You can rest in Manny’s passenger seat. He will find that very moving.',
+      line: 'You can rest in Snow’s passenger seat. He will find that very moving.',
       next: 'confirm',
     },
     confirm: {

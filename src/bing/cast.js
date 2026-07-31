@@ -19,6 +19,11 @@
  * here should feel like standing in front of somebody.
  */
 import * as THREE from 'three';
+/* Read-only: her head is authored in the Silver Room's module and this is the
+ * SAME woman, so the club borrows the builder rather than approximating her.
+ * One Margo, one face, both scenes. */
+import { restyleMargoHead } from '../silver/margo.js';
+import { CHARACTER_IDS } from '../core/campaign.js';
 import { mat, box, sphere, cylinder, group } from '../world/build.js';
 import { rand, pick } from './kit.js';
 
@@ -236,7 +241,12 @@ export function makePerson(o = {}) {
    * "less blocky", not "not blocky" -- but nothing on the runway ends in a
    * hard right angle under the spot any more. Everyone else is unchanged, so
    * the club still reads as one cast cut from the same stock. */
-  const slab = (opts) => (showgirl
+  /* Chamfered slabs go to the stage roles and to the club's curvy women --
+   * the bevel is geometry, not presentation, and it is the difference
+   * between a figure and a stack of crates under a spot. It does NOT bring
+   * any of the performer forms with it; those stay gated on `showgirl`. */
+  const softFigure = showgirl || (female && curvy);
+  const slab = (opts) => (softFigure
     ? softBox({ ...opts, name: `person.soft.${opts.name ?? 'slab'}` })
     : box({ ...opts, name: undefined }));
   const t = 0.55 + build * 0.45;          // 1.0 at build 1
@@ -1413,11 +1423,17 @@ export function populate(scene, club, { includeMargo = true } = {}) {
       x: stool.x, z: stool.z, yaw: -Math.PI / 2,
       y: STOOL_SIT,
       model: {
-        height: 1.69, build: 1.06, dress: 'shirt', shirt: 0x24303a, hair: 'tied',
+        /* A narrower frame and a lower build than the roll gives, because
+         * the point of her is that she is a person and not a patron. Her
+         * head comes from the Silver Room builder below. */
+        height: 1.69, build: 0.96, dress: 'shirt', shirt: 0x24303a, hair: 'tied',
         hairColour: 0x2a1c14, skin: 0xd8a878,
         gender: 'female', bodyShape: 'curvy',
       },
     }));
+    by.margo.characterId = CHARACTER_IDS.MARGO;
+    by.margo.group.userData.npc.characterId = CHARACTER_IDS.MARGO;
+    restyleMargoHead(by.margo.parts, { skin: 0xd8a878, hairColour: 0x2a1c14 });
     by.margo.seated = true;
   }
 

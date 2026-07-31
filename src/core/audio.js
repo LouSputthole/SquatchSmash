@@ -1546,6 +1546,25 @@ function synthLoop(engine, name, dest) {
       noise('bandpass', 2600, 0.8, 0.035);
       break;
     }
+    /* Rain, heard from inside a building with a band playing in it.
+     *
+     * `ambience.rain` is rain you are STANDING in: a bandpass hiss with a
+     * highpass layer on top for the spatter, which is right on a pavement
+     * and is unlistenable through a wall. Turned down far enough to be
+     * plausible indoors it stops being rain and reads as tape hiss -- which
+     * is exactly what it read as at the Bing, where the owner heard it as
+     * static and could not place it.
+     *
+     * Weather through brick has no top end at all. This is the low half of
+     * the same storm and nothing above it, so it can sit up at an audible
+     * level indoors and still be rain. A recorded version is authored in the
+     * manifest under this name; until it lands, this is the bed.
+     */
+    case 'ambience.bing.rain.muffled': {
+      noise('lowpass', 190, 0.7, 0.30);
+      noise('bandpass', 380, 0.4, 0.09);
+      break;
+    }
     case 'ambience.crowd': {
       // Two hundred people talking, none of them audibly.
       noise('bandpass', 520, 1.1, 0.16);

@@ -197,8 +197,14 @@ try {
     bing.mission.backInLot();
     bing.car.wheel.userData.interact.onUse();
   });
-  await tick(8);
-  await page.waitForFunction(() => document.getElementById('next-level'), null, { timeout: 10000 });
+  /* The drive out is a tween at 0.16/second, so it needs seven seconds of
+   * simulated time before the ending card is appended -- and this stepper is
+   * racing the page's own rAF, which is running at about a frame a second
+   * under software rendering. Step generously and wait generously; the
+   * assignment itself is banked in driveAway(), before the tween starts, so
+   * nothing about the record depends on how long this takes. */
+  await tick(14);
+  await page.waitForFunction(() => document.getElementById('next-level'), null, { timeout: 45000 });
   current = await state();
   check('Scene Two completion unlocks the Motel in shared state',
     current.bingTwo.status === 'complete'
@@ -208,8 +214,11 @@ try {
   check('the ending targets the Motel instead of the apartment',
     current.nextHref === 'motel.html', current.nextHref);
 
-  await page.click('#next-level');
-  await page.waitForURL(`http://localhost:${PORT}/motel.html`, { timeout: 10000 });
+  /* Click it in the page rather than through the driver: the handler
+   * navigates, and Playwright's click waits for post-click stability on a
+   * document that is already being torn down. */
+  await page.evaluate(() => document.getElementById('next-level').click());
+  await page.waitForURL(`http://localhost:${PORT}/motel.html`, { timeout: 45000 });
   await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
   const motel = await page.evaluate(() => ({
     phase: window.MOTEL.phase,
