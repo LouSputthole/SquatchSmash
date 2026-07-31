@@ -90,7 +90,12 @@ const modules = new Map();   // rel path -> { id, code }
 
 function collect(rel) {
   if (modules.has(rel)) return;
-  const src = read(rel).toString('utf8');
+  let src = read(rel).toString('utf8');
+  /* A module may point at the vendored three by relative path instead of the
+   * bare specifier (radio.js does, so plain Node can run it under test). In
+   * the bundle both are the same library: normalise to the 'three' sentinel
+   * so minified three is never fed through the ESM rewriter. */
+  src = src.replace(/from\s*(['"])[^'"]*vendor\/three\.module\.min\.js\1/g, "from 'three'");
   modules.set(rel, { id: idFor(rel), src, rel });
   for (const spec of specifiersIn(src)) {
     if (spec === 'three') continue;
