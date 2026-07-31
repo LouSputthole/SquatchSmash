@@ -31,7 +31,7 @@ import { Date_ } from './date.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
 import { Mission, ENDINGS } from './mission.js';
 import { Dialogue } from '../bing/dialogue.js';
-import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES } from './script.js';
+import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
@@ -226,6 +226,9 @@ const game = {
   /** Up between "get up" and the first bar, which is not nothing. */
   swayStarting: false,
   checkpoint: null,
+  /* Every voice cue the evening has asked for, recorded or not. The only way
+   * to see that a line is wired before the recording exists. */
+  voLog: [],
 };
 
 window.__squatchStage?.('Wetting the pavement…');
@@ -265,8 +268,49 @@ const mission = new Mission({
   onCheckpoint: saveCheckpoint,
 });
 
+/* ------------------------------------------------------------------ *
+ * Exact-cue voice.
+ *
+ * The scene has been subtitles-only since it was written, with four
+ * recordings of Margo sitting in the manifest that nothing in the building
+ * could reach. This is the same arrangement the Bing uses and for the same
+ * reason: `audio.say()` picks among `vo.<group>.<n>` siblings, which is
+ * right for a bark and wrong for a script — a subtitled line has to play ITS
+ * recording, and half the trees in here belong to two people at once, so a
+ * group pick would put the waiter's words in Margo's mouth.
+ *
+ * So: one named cue, played when its file exists, silent when it does not.
+ * Nothing synthesises a voice; a wrong voice is worse than no voice, and the
+ * subtitle is the accessibility answer either way. Every attempt lands in
+ * `game.voLog` whether or not there is audio behind it, which is what lets
+ * the verifier prove the wiring fires before a single mp3 has been made.
+ * ------------------------------------------------------------------ */
+function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
+  if (!name) return false;
+  game.voLog.push(name);
+  if (game.voLog.length > 80) game.voLog.shift();
+  if (!audio.ready) return false;
+  const bank = audio.buffers?.get(name);
+  if (!bank?.length) return false;
+  if (solo) audio._vo?.stop?.();
+  const src = audio.play(name, { volume, delay });
+  if (solo) audio._vo = src;
+  audio.hold(delay + (src?.buffer ? src.buffer.duration : 1.6) + 0.25);
+  return true;
+}
+
+/** A node's or a reply's cue: a string, or a function when the line is one. */
+const nodeCue = (owner) => (typeof owner?.cue === 'function' ? owner.cue() : owner?.cue);
+
 const dialogue = new Dialogue(ui.dialogue, {
-  onLine: () => performance_.setDucked(true),
+  onLine: (text, who, node) => {
+    performance_.setDucked(true);
+    voiceCue(nodeCue(node));
+  },
+  /* The replies are Prospect's and he has never had a voice in this scene;
+   * the hook is here so that when he gets one it is a `cue` on the option and
+   * nothing else has to move. */
+  onChoice: (opt) => voiceCue(nodeCue(opt)),
   onEnd: () => {
     performance_.setDucked(false);
     game.talkingTo = null;
@@ -278,7 +322,10 @@ const dialogue = new Dialogue(ui.dialogue, {
 /* ------------------------------------------------------------------ */
 
 const date = new Date_(scene, room, {
-  onBark: (line) => hud.say(`<em>${DATE.name}:</em> ${line}`, 4600),
+  onBark: (line, key, i) => {
+    hud.say(`<em>${DATE.name}:</em> ${line}`, 4600);
+    voiceCue(`vo.silver.margo.bark.${key}.${i + 1}`, { volume: 0.85 });
+  },
   onLeftBehind: () => {
     const n = mission.leftBehind();
     woo.fire('Woo.DateLeftBehind');
@@ -871,6 +918,10 @@ class Cutscene {
         ui.dialogue.name.textContent = (b.who || '').toUpperCase();
         ui.dialogue.line.innerHTML = b.line;
         ui.dialogue.options.classList.add('hidden');
+        /* The timeline owns the pacing here, so a cue that runs long must not
+         * hold the floor past its beat — `solo` still cuts the previous line
+         * off, which is what a scene shot on one camera does anyway. */
+        voiceCue(b.cue);
       }
       b.run?.();
     }
@@ -1663,6 +1714,11 @@ function barks(dt) {
   game.lastBark = i;
   const [who, line] = list[i];
   hud.say(`<em>${who}:</em> ${line}`, 4200);
+  /* The room's own voices. Anonymous by design — "a cook", "the pass" — so
+   * they share the wait staff's profile and are named by where and which,
+   * which is also the only stable thing about them. Quieter and never solo:
+   * this is the building overheard, not somebody talking to you. */
+  voiceCue(`vo.silver.room.${key}.${i + 1}`, { volume: 0.5, solo: false });
   if (key === 'kitchen') audio.play(Math.random() < 0.5 ? 'kitchen.plate' : 'kitchen.pan', { volume: 0.3 });
 }
 
@@ -2060,6 +2116,8 @@ window.__silver = {
   THREE, scene, camera, renderer, postfx, player, room, cast, band, date, taxi,
   mission, woo, dialogue, hud, audio, game, interaction, drunk, inventory,
   scripts, performance: performance_, sway, settings, ROOMS, SET, EVENTS, ENDINGS,
+  /* Who has been cast, for the verifier: it holds the manifest to the script. */
+  VOICE_OF,
   campaign, story,
   get campaignState() { return campaign.state; },
   /* The pieces the headless driver has to be able to step by hand, because it

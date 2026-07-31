@@ -106,7 +106,10 @@ export class Date_ {
     const line = fresh[0];
     this.said.add(line);
     this.npc.say(Math.max(1.8, line.length / 20));
-    this.hooks.onBark?.(line, key);
+    /* The index in the list she was handed, not in `fresh`: it is what names
+     * the recording, so it has to be the line's own place in the script and
+     * not its place in whatever is left tonight. */
+    this.hooks.onBark?.(line, key, lines.indexOf(line));
     return true;
   }
 

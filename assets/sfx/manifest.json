@@ -273,6 +273,14 @@
       "stability": 0.55,
       "similarity": 0.78,
       "style": 0.2
+    },
+    "waiter": {
+      "id": "6yvQSmuck0L7cqMlVtsx",
+      "_note": "The men on the floor of the Silver Room -- the host, the maître d', the waiter, the bandleader, and the room's own overheard voices. From the owner's Voice_Ids sheet, row \"Wait staff bada or silver male\" (2026-07-31). One profile and five banks: everybody working the room in this scene is the same kind of professional courtesy, and recasting any one of them is a voice id in this block and nothing else.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.4
     }
   },
   "sfx": [
@@ -5990,6 +5998,906 @@
       "duration": 0.7,
       "_note": "The Squatchfather's bathroom. The flat's footstep.tile is a bright crisp slap; this wants the same shoe as the dining room with a short tiled-room slap on it.",
       "prompt": "single footstep of a leather-soled dress shoe on a hard tiled bathroom floor, low thud with a short small-room slap, no click, no bright ring, close mic"
+    },
+    {
+      "name": "vo.silver.ape.ape-diner.four-in-the-morning",
+      "voice": "ape",
+      "say": "He eats at yours, you know. Four in the morning, on his own. Pays every time, which around here makes him a lunatic."
+    },
+    {
+      "name": "vo.silver.ape.ape-diner.ignore-him",
+      "voice": "ape",
+      "say": "Whatever he says your name is, ignore him. He eats at yours. Four in the morning, on his own, every couple of weeks. Pays. Every time."
+    },
+    {
+      "name": "vo.silver.ape.ashland",
+      "voice": "ape",
+      "say": "So they found the van, right, and the reason they found the van is the —"
+    },
+    {
+      "name": "vo.silver.ape.ashland-3",
+      "voice": "ape",
+      "say": "…I’m going to go back to my table."
+    },
+    {
+      "name": "vo.silver.ape.business",
+      "voice": "ape",
+      "say": "It’s nothing. It’s a Thursday thing. It’s the Ashland thing, actually, if we’re —"
+    },
+    {
+      "name": "vo.silver.ape.intro-job-2",
+      "voice": "ape",
+      "say": "…Margo."
+    },
+    {
+      "name": "vo.silver.ape.intro-right",
+      "voice": "ape",
+      "say": "Margo. — Margo off Ashland? The Blue Hour? This is the Blue Hour."
+    },
+    {
+      "name": "vo.silver.ape.intro-wrong-2",
+      "voice": "ape",
+      "say": "…Marissa."
+    },
+    {
+      "name": "vo.silver.ape.leaves",
+      "voice": "ape",
+      "say": "Right. Enjoy the band. The third one’s the one. It was an honour."
+    },
+    {
+      "name": "vo.silver.ape.open",
+      "voice": "ape",
+      "say": "Prospect. Look at this. Look at you, sat with the civilians."
+    },
+    {
+      "name": "vo.silver.ape.shut",
+      "voice": "ape",
+      "say": "Thursday. You’re right. Not at the table. Sorry. He’s right."
+    },
+    {
+      "name": "vo.silver.bandleader.open.front-table",
+      "voice": "waiter",
+      "say": "Evening. You’re the front table. Front table gets one."
+    },
+    {
+      "name": "vo.silver.bandleader.open.on-the-pad",
+      "voice": "waiter",
+      "say": "It’s on the pad. Front table got its one."
+    },
+    {
+      "name": "vo.silver.bandleader.slow",
+      "voice": "waiter",
+      "say": "Slow it is. Four! The four!"
+    },
+    {
+      "name": "vo.silver.bandleader.tipped",
+      "voice": "waiter",
+      "say": "Ma’am, anything you want, all night, you raise a finger."
+    },
+    {
+      "name": "vo.silver.host.open.full",
+      "voice": "waiter",
+      "say": "Name? …We’re full. I can do you a nine-forty-five at the back. Behind the column. It’s a table."
+    },
+    {
+      "name": "vo.silver.host.open.settled",
+      "voice": "waiter",
+      "say": "Sir. Madam. Everything is exactly where it should be."
+    },
+    {
+      "name": "vo.silver.host.push",
+      "voice": "waiter",
+      "say": "I have looked at the book. The book is the book. The book does not —"
+    },
+    {
+      "name": "vo.silver.host.scene-table.0",
+      "voice": "waiter",
+      "say": "I can put you two in the back."
+    },
+    {
+      "name": "vo.silver.host.scene-table.2",
+      "voice": "waiter",
+      "say": "We don’t have anything else."
+    },
+    {
+      "name": "vo.silver.host.settled",
+      "voice": "waiter",
+      "say": "Very kind. The nine-forty-fives will never know."
+    },
+    {
+      "name": "vo.silver.host.took",
+      "voice": "waiter",
+      "say": "…One moment."
+    },
+    {
+      "name": "vo.silver.host.waited",
+      "voice": "waiter",
+      "say": "Sir, I have said we’re —"
+    },
+    {
+      "name": "vo.silver.manager.do",
+      "voice": "waiter",
+      "say": "…It’ll do. I’ll pass that to the men who carried it."
+    },
+    {
+      "name": "vo.silver.manager.more",
+      "voice": "waiter",
+      "say": "You didn’t ask for anything. That’s rather the point of the arrangement. Ma’am."
+    },
+    {
+      "name": "vo.silver.manager.open.moment",
+      "voice": "waiter",
+      "say": "Mr — — Prospect. One moment."
+    },
+    {
+      "name": "vo.silver.manager.open.settled",
+      "voice": "waiter",
+      "say": "Everything as it should be?"
+    },
+    {
+      "name": "vo.silver.manager.scene-table.1",
+      "voice": "waiter",
+      "say": "No."
+    },
+    {
+      "name": "vo.silver.manager.scene-table.10",
+      "voice": "waiter",
+      "say": "For that."
+    },
+    {
+      "name": "vo.silver.manager.scene-table.3",
+      "voice": "waiter",
+      "say": "Then bring something else."
+    },
+    {
+      "name": "vo.silver.manager.scene-table.5",
+      "voice": "waiter",
+      "say": "Two-top. Front and center. Now."
+    },
+    {
+      "name": "vo.silver.manager.scene-table.8",
+      "voice": "waiter",
+      "say": "Give us a minute."
+    },
+    {
+      "name": "vo.silver.manager.took",
+      "voice": "waiter",
+      "say": "The band’s on at half past. You’ll want to be sitting for the third number, not the first. Trust me on the third number."
+    },
+    {
+      "name": "vo.silver.margo.ape.ashland-2",
+      "voice": "margo",
+      "say": "That’s Ashland. I grew up on Ashland. Whose van."
+    },
+    {
+      "name": "vo.silver.margo.ape.deny",
+      "voice": "margo",
+      "say": "It happened. Corner two, back to the door, never once sent anything back. You tipped Hector. Nobody tips Hector. Hector is a dishwasher."
+    },
+    {
+      "name": "vo.silver.margo.ape.intro-job",
+      "voice": "margo",
+      "say": "Margo."
+    },
+    {
+      "name": "vo.silver.margo.ape.intro-wrong",
+      "voice": "margo",
+      "say": "Margo."
+    },
+    {
+      "name": "vo.silver.margo.ape.own",
+      "voice": "margo",
+      "say": "Corner two. You tipped my dishwasher and then you never mentioned it. Right. Okay. That reframes the evening somewhat."
+    },
+    {
+      "name": "vo.silver.margo.arrival.admitted",
+      "voice": "margo",
+      "say": "See, that I like. Everybody in this city has a line. Almost nobody will tell you where they got it."
+    },
+    {
+      "name": "vo.silver.margo.arrival.denied",
+      "voice": "margo",
+      "say": "Fifteen years of men telling me the fish is fine. I can hear a rehearsal."
+    },
+    {
+      "name": "vo.silver.margo.arrival.lead",
+      "voice": "margo",
+      "say": "He had no idea who you were. Let’s find out if anybody else does. Go on. Lead."
+    },
+    {
+      "name": "vo.silver.margo.arrival.nothing",
+      "voice": "margo",
+      "say": "No answer. Bold. Silence is a choice, and it’s usually the wrong one, and here we are."
+    },
+    {
+      "name": "vo.silver.margo.arrival.noticed",
+      "voice": "margo",
+      "say": "That was rehearsed."
+    },
+    {
+      "name": "vo.silver.margo.arrival.open",
+      "voice": "margo",
+      "say": "The entrance is back there. There’s a rope and everything. There’s a man with a clipboard, which I always think is a bit much for a supper club."
+    },
+    {
+      "name": "vo.silver.margo.arrival.owes",
+      "voice": "margo",
+      "say": "So we’re going round the back because a man owes money. That’s not a reason, that’s an admission."
+    },
+    {
+      "name": "vo.silver.margo.arrival.this-way",
+      "voice": "margo",
+      "say": "You like going this way. Alright. These were expensive and I don’t care."
+    },
+    {
+      "name": "vo.silver.margo.bandleader.her-pick",
+      "voice": "margo",
+      "say": "Horns. All of them. I don’t want a backing track, I want to watch seven people be slightly out of breath."
+    },
+    {
+      "name": "vo.silver.margo.bandleader.horns",
+      "voice": "margo",
+      "say": "How did you — I said that in the car. I said one sentence about horns in a car nine blocks long."
+    },
+    {
+      "name": "vo.silver.margo.bark.alley.1",
+      "voice": "margo",
+      "say": "There is an actual entrance around the corner. I saw it. It had a light over it."
+    },
+    {
+      "name": "vo.silver.margo.bark.alley.2",
+      "voice": "margo",
+      "say": "If these are ruined you’re buying me shoes and I’ll pick them."
+    },
+    {
+      "name": "vo.silver.margo.bark.behind.1",
+      "voice": "margo",
+      "say": "I’m back here. Still back here."
+    },
+    {
+      "name": "vo.silver.margo.bark.behind.2",
+      "voice": "margo",
+      "say": "You’ve done this before. You do it well. You do it slightly too fast."
+    },
+    {
+      "name": "vo.silver.margo.bark.cellar.1",
+      "voice": "margo",
+      "say": "Is this normal? Genuinely. Is this a normal way to arrive somewhere."
+    },
+    {
+      "name": "vo.silver.margo.bark.cellar.2",
+      "voice": "margo",
+      "say": "It smells exactly like my own walk-in and I am furious about how much better it is."
+    },
+    {
+      "name": "vo.silver.margo.bark.corridor.1",
+      "voice": "margo",
+      "say": "The music’s getting louder. That’s the trick, isn’t it. You’ve been walking me towards it the whole time."
+    },
+    {
+      "name": "vo.silver.margo.bark.door.1",
+      "voice": "margo",
+      "say": "He didn’t ask your name. He didn’t ask anything. He just opened it."
+    },
+    {
+      "name": "vo.silver.margo.bark.floor.1",
+      "voice": "margo",
+      "say": "…Oh, that’s a room."
+    },
+    {
+      "name": "vo.silver.margo.bark.hazard.1",
+      "voice": "margo",
+      "say": "Thank you. Genuinely, thank you."
+    },
+    {
+      "name": "vo.silver.margo.bark.kitchen.1",
+      "voice": "margo",
+      "say": "…Eleven of them on a Tuesday. I have four and I have to beg."
+    },
+    {
+      "name": "vo.silver.margo.bark.kitchen.2",
+      "voice": "margo",
+      "say": "Everybody in here knows you. Everybody in here is mid-service, and they still know you."
+    },
+    {
+      "name": "vo.silver.margo.bark.kitchen.3",
+      "voice": "margo",
+      "say": "That man put down a pan. I run a kitchen. Nobody puts down a pan."
+    },
+    {
+      "name": "vo.silver.margo.bark.recognised.1",
+      "voice": "margo",
+      "say": "That’s another one."
+    },
+    {
+      "name": "vo.silver.margo.bark.recognised.2",
+      "voice": "margo",
+      "say": "Somebody else who knows you. Shocking."
+    },
+    {
+      "name": "vo.silver.margo.bark.show.1",
+      "voice": "margo",
+      "say": "Seven of them. On a Tuesday. In a room this size."
+    },
+    {
+      "name": "vo.silver.margo.bark.shut.1",
+      "voice": "margo",
+      "say": "…Right. I’ll get this one, shall I."
+    },
+    {
+      "name": "vo.silver.margo.bark.shut.2",
+      "voice": "margo",
+      "say": "That’s twice you’ve shut a door with me on the wrong side of it."
+    },
+    {
+      "name": "vo.silver.margo.bark.staring.1",
+      "voice": "margo",
+      "say": "They’re very good. I’m also here."
+    },
+    {
+      "name": "vo.silver.margo.bark.staring.2",
+      "voice": "margo",
+      "say": "You can watch the band. I do four hours a night talking to a wall, I’ll survive."
+    },
+    {
+      "name": "vo.silver.margo.bark.tipped.1",
+      "voice": "margo",
+      "say": "That’s the fourth one."
+    },
+    {
+      "name": "vo.silver.margo.bark.tipped.2",
+      "voice": "margo",
+      "say": "You’ve given away more tonight than I make in a week and none of them thanked you properly."
+    },
+    {
+      "name": "vo.silver.margo.bark.tipped.3",
+      "voice": "margo",
+      "say": "Do they get to keep that, or does it go in a tin somewhere?"
+    },
+    {
+      "name": "vo.silver.margo.bark.waited.1",
+      "voice": "margo",
+      "say": "Thank you. That’s all. Thank you."
+    },
+    {
+      "name": "vo.silver.margo.bark.waiting1.1",
+      "voice": "margo",
+      "say": "Take your time. I’ve got all night and a job at ten."
+    },
+    {
+      "name": "vo.silver.margo.bark.waiting2.1",
+      "voice": "margo",
+      "say": "Right — are we doing something, or is this the evening?"
+    },
+    {
+      "name": "vo.silver.margo.bark.waiting3.1",
+      "voice": "margo",
+      "say": "I stand up for fourteen hours a day. I did not dress like this to keep doing it."
+    },
+    {
+      "name": "vo.silver.margo.dishwasher.beneath",
+      "voice": "margo",
+      "say": "Do the plates."
+    },
+    {
+      "name": "vo.silver.margo.invitation.awkward",
+      "voice": "margo",
+      "say": "I’m going to let them call me a car. Thank you for dinner. The band was excellent."
+    },
+    {
+      "name": "vo.silver.margo.invitation.from-a-distance",
+      "voice": "margo",
+      "say": "I like you. From a distance. A good distance. About this one."
+    },
+    {
+      "name": "vo.silver.margo.invitation.gentleman",
+      "voice": "margo",
+      "say": "…Alright. Come in some night. Late. I cook better for one person than for forty and nobody has ever let me prove it."
+    },
+    {
+      "name": "vo.silver.margo.invitation.good",
+      "voice": "margo",
+      "say": "I had a genuinely good time. Don’t ruin it by being in a hurry. Four in the morning. I’m there. You know where the door is."
+    },
+    {
+      "name": "vo.silver.margo.invitation.insult",
+      "voice": "margo",
+      "say": "…Huh."
+    },
+    {
+      "name": "vo.silver.margo.invitation.perfect",
+      "voice": "margo",
+      "say": "You’ve been inviting me back for about twenty minutes without actually saying it. Are you going to keep talking, or are we leaving?"
+    },
+    {
+      "name": "vo.silver.margo.invitation.polite",
+      "voice": "margo",
+      "say": "That’s kind."
+    },
+    {
+      "name": "vo.silver.margo.invitation.strong",
+      "voice": "margo",
+      "say": "One drink. And if your building has a service entrance, I’m getting back in the car and you can explain it to the man on the door."
+    },
+    {
+      "name": "vo.silver.margo.photographer.her-say",
+      "voice": "margo",
+      "say": "I have a face for radio and I have been told so professionally. Take the picture."
+    },
+    {
+      "name": "vo.silver.margo.scene-champagne.3",
+      "voice": "margo",
+      "say": "…With respect."
+    },
+    {
+      "name": "vo.silver.margo.scene-show.4",
+      "voice": "margo",
+      "say": "Oh, they’re real."
+    },
+    {
+      "name": "vo.silver.margo.scene-table.4",
+      "voice": "margo",
+      "say": "Bring something else?"
+    },
+    {
+      "name": "vo.silver.margo.scene-table.7",
+      "voice": "margo",
+      "say": "…There wasn’t a table there."
+    },
+    {
+      "name": "vo.silver.margo.scene-table.9",
+      "voice": "margo",
+      "say": "A minute for what?"
+    },
+    {
+      "name": "vo.silver.margo.seated.credit",
+      "voice": "margo",
+      "say": "You knew a place. Sure. You knew a place."
+    },
+    {
+      "name": "vo.silver.margo.seated.encourages",
+      "voice": "margo",
+      "say": "Too late. I’m visibly impressed. I’m going to be impressed for at least another four minutes and then I’m going to start asking questions."
+    },
+    {
+      "name": "vo.silver.margo.seated.funny",
+      "voice": "margo",
+      "say": "You’re funny. You know that? You’re actually funny."
+    },
+    {
+      "name": "vo.silver.margo.seated.funny-break",
+      "voice": "margo",
+      "say": "You scared your own waiter. That’s the funniest thing that’s happened all week and I do comedy."
+    },
+    {
+      "name": "vo.silver.margo.seated.funny-cope",
+      "voice": "margo",
+      "say": "Everybody funny is coping with something. The good ones just cope louder and get paid."
+    },
+    {
+      "name": "vo.silver.margo.seated.funny-hang",
+      "voice": "margo",
+      "say": "Funny like a man who has practised that question in a mirror."
+    },
+    {
+      "name": "vo.silver.margo.seated.funny-hold",
+      "voice": "margo",
+      "say": "…Cool down. You were doing so well."
+    },
+    {
+      "name": "vo.silver.margo.seated.funny-take",
+      "voice": "margo",
+      "say": "Don’t take it, it’s not a compliment, it’s an observation. …Fine. It’s a bit of a compliment."
+    },
+    {
+      "name": "vo.silver.margo.seated.lou",
+      "voice": "margo",
+      "say": "Big Uncle Lou called ahead. That’s the first true thing anybody’s said to me tonight, including the man who took my coat."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-both",
+      "voice": "margo",
+      "say": "Both. Sure. Both."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-burn",
+      "voice": "margo",
+      "say": "Twelve-litre stockpot, wet handle, and a boy who said he had it. Nineteen. I finished the service. That is the part I would like on the record."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-close",
+      "voice": "margo",
+      "say": "Anyway. That’s the deep bit done. If the band’s any good we never have to do that again."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-fault",
+      "voice": "margo",
+      "say": "Anthony’s. Anthony knows it is Anthony’s. Anthony has a restaurant now and I have this, and I would still rather be me."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-fornow",
+      "voice": "margo",
+      "say": "\"For now.\" Careful. That’s the sentence men say in here about a year before something happens to them."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-hers",
+      "voice": "margo",
+      "say": "My turn, since we’re being people. Go on. Everybody looks and nobody asks."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-joke",
+      "voice": "margo",
+      "say": "Wonder loudly. That’s mine now. That’s going on the wall by the pass."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-lou",
+      "voice": "margo",
+      "say": "Thank you. Everybody else in this building would have taken the credit and I’d have had to sit here and let them."
+    },
+    {
+      "name": "vo.silver.margo.seated.p-loyal",
+      "voice": "margo",
+      "say": "Alright. That’s a real answer and I’m not going to poke it."
+    },
+    {
+      "name": "vo.silver.margo.seated.personal.boring-true",
+      "voice": "margo",
+      "say": "Question. And I want the boring true answer, not the good one. Do they like you, or are they frightened of Big Uncle Lou?"
+    },
+    {
+      "name": "vo.silver.margo.seated.personal.real",
+      "voice": "margo",
+      "say": "Right. Real question. Do they like you, or are they frightened of Big Uncle Lou?"
+    },
+    {
+      "name": "vo.silver.margo.seated.r1-close.kept-looking",
+      "voice": "margo",
+      "say": "You did keep looking back for me, though. Most of them don’t. Most of them walk like they’re being filmed."
+    },
+    {
+      "name": "vo.silver.margo.seated.r1-close.noticed",
+      "voice": "margo",
+      "say": "Although — twice back there I turned round and you were a room away. I noticed. I always notice. It’s the job."
+    },
+    {
+      "name": "vo.silver.margo.seated.r1-dark",
+      "voice": "margo",
+      "say": "Mm. See, if I flinch there, you win. I run a kitchen at four in the morning. I don’t flinch."
+    },
+    {
+      "name": "vo.silver.margo.seated.r1-flat",
+      "voice": "margo",
+      "say": "We got here. Through a cellar. Past a man holding nine hundred pounds of ice. \"We got here\" is doing a great deal of work in that sentence."
+    },
+    {
+      "name": "vo.silver.margo.seated.r1-impress",
+      "voice": "margo",
+      "say": "So there’s a shorter route and you didn’t use it. That’s not a shortcut, that’s a tour. It was a good tour."
+    },
+    {
+      "name": "vo.silver.margo.seated.r1-personality",
+      "voice": "margo",
+      "say": "The front door has thirty people and a rope. The back has a man called Marco and a crate nobody’s allowed to touch. You’re right. It’s no contest."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-brag",
+      "voice": "margo",
+      "say": "Mm. And how many of them know your first name."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-close",
+      "voice": "margo",
+      "say": "For the record: I don’t care what the answer is. I care whether you think I can’t handle it."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-commit",
+      "voice": "margo",
+      "say": "Beautiful. Absolutely watertight. I’m putting that on the specials board and I’m not crediting you."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-construction",
+      "voice": "margo",
+      "say": "Construction. You don’t look like you work construction."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-decon",
+      "voice": "margo",
+      "say": "Deconstruction. God. Alright."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-dinner",
+      "voice": "margo",
+      "say": "Smooth. Alright. Dinner. We’ll come back to it."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-fold",
+      "voice": "margo",
+      "say": "There it is. I know what you do, roughly. Two of your lot eat at mine every Tuesday and neither of them has ever paid. I wasn’t asking what you do. I was seeing how long you’d go."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-listen",
+      "voice": "margo",
+      "say": "You go places and listen. That’s a service job. You’re in a service job. Do not tell the men by the pillar I said that."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-lou",
+      "voice": "margo",
+      "say": "I know you work for Big Uncle Lou. Everybody on that street works for Lou, including me, technically, if you follow the rent far enough back. I meant what do you do."
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-oblique",
+      "voice": "margo",
+      "say": "That is a beautifully constructed sentence that contains no information. Did you write it down first?"
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-supervise",
+      "voice": "margo",
+      "say": "You supervise. Supervise what?"
+    },
+    {
+      "name": "vo.silver.margo.seated.r2-wrote",
+      "voice": "margo",
+      "say": "You wrote it down. Fifteen years and I have never once written anything down, including the specials, which is why we have had two health inspections."
+    },
+    {
+      "name": "vo.silver.margo.seated.round1",
+      "voice": "margo",
+      "say": "So. Do you take every woman through the dish room, or am I special."
+    },
+    {
+      "name": "vo.silver.margo.seated.round2",
+      "voice": "margo",
+      "say": "Can I ask you something you’re going to lie about. What do you actually do?"
+    },
+    {
+      "name": "vo.silver.margo.seated.stand",
+      "voice": "margo",
+      "say": "Right. Everybody here is terrified of you standing up."
+    },
+    {
+      "name": "vo.silver.margo.seated.table",
+      "voice": "margo",
+      "say": "They built us a table. There was a room and then there was a table in it."
+    },
+    {
+      "name": "vo.silver.margo.sway.bad",
+      "voice": "margo",
+      "say": "That was genuinely one of the worst things I have ever been part of and I have pulled a man out of a walk-in with his own apron."
+    },
+    {
+      "name": "vo.silver.margo.sway.declined",
+      "voice": "margo",
+      "say": "Sure. Watching’s good."
+    },
+    {
+      "name": "vo.silver.margo.sway.excuse",
+      "voice": "margo",
+      "say": "The floor’s uneven. Mm."
+    },
+    {
+      "name": "vo.silver.margo.sway.forced",
+      "voice": "margo",
+      "say": "I said I’d rather watch."
+    },
+    {
+      "name": "vo.silver.margo.sway.good",
+      "voice": "margo",
+      "say": "You’re not terrible. You’re economical. There’s a difference and it took me two songs to work it out."
+    },
+    {
+      "name": "vo.silver.margo.sway.open.her-horns",
+      "voice": "margo",
+      "say": "No. Up. Now. This one you don’t sit through."
+    },
+    {
+      "name": "vo.silver.margo.sway.recover",
+      "voice": "margo",
+      "say": "\"I peaked in the cellar.\" Right. That one I am telling the whole kitchen on Tuesday, and I am still not crediting you."
+    },
+    {
+      "name": "vo.silver.margo.sway.warned",
+      "voice": "margo",
+      "say": "I’ve heard four hundred men say that and two of them meant it."
+    },
+    {
+      "name": "vo.silver.margo.toast.ashland",
+      "voice": "margo",
+      "say": "…That’s a horrible thing to do to a person in a good mood. To the tiles."
+    },
+    {
+      "name": "vo.silver.margo.toast.good",
+      "voice": "margo",
+      "say": "The third number. Good. Short. Nobody wants a speech in a nightclub."
+    },
+    {
+      "name": "vo.silver.margo.toast.grand",
+      "voice": "margo",
+      "say": "Mm. To the room. To all of the room."
+    },
+    {
+      "name": "vo.silver.margo.waiter.ask",
+      "voice": "margo",
+      "say": "Rye. One ice cube. One. They always bring three and then it’s a soup. Asking is allowed. Asking twice isn’t."
+    },
+    {
+      "name": "vo.silver.margo.waiter.bottle-2",
+      "voice": "margo",
+      "say": "Bring the rye. One ice cube. And bring this man whatever he needs."
+    },
+    {
+      "name": "vo.silver.margo.waiter.her-call",
+      "voice": "margo",
+      "say": "Obviously we’re doing dessert. I’ve been looking at that man’s figs since we sat down and pretending to listen to you."
+    },
+    {
+      "name": "vo.silver.margo.waiter.soda",
+      "voice": "margo",
+      "say": "Working. Is that what this is?"
+    },
+    {
+      "name": "vo.silver.margo.waiter.white",
+      "voice": "margo",
+      "say": "He’s guessing. Rye, one ice cube. I told you in the car. I told you twice, and one of those times I did a voice."
+    },
+    {
+      "name": "vo.silver.room.alley.1",
+      "voice": "waiter",
+      "say": "If it’s not on the sheet it’s not in the building."
+    },
+    {
+      "name": "vo.silver.room.alley.2",
+      "voice": "waiter",
+      "say": "Four minutes. Four. I’m owed four."
+    },
+    {
+      "name": "vo.silver.room.cellar.1",
+      "voice": "waiter",
+      "say": "Not that rack. That rack’s the manager’s and he counts them."
+    },
+    {
+      "name": "vo.silver.room.cellar.2",
+      "voice": "waiter",
+      "say": "They signed for nine. I brought twelve. Somebody explain nine."
+    },
+    {
+      "name": "vo.silver.room.corridor.1",
+      "voice": "waiter",
+      "say": "Ninety-one and ninety-two. No, ninety-one."
+    },
+    {
+      "name": "vo.silver.room.corridor.2",
+      "voice": "waiter",
+      "say": "The four-top by the pillar wants the band’s setlist. In writing."
+    },
+    {
+      "name": "vo.silver.room.corridor.3",
+      "voice": "waiter",
+      "say": "Sorry — sorry — sorry —"
+    },
+    {
+      "name": "vo.silver.room.floor.1",
+      "voice": "waiter",
+      "say": "He calls it a franchise. It’s a van. I’ve seen the van."
+    },
+    {
+      "name": "vo.silver.room.floor.2",
+      "voice": "waiter",
+      "say": "And they gave him Wednesdays. Wednesdays!"
+    },
+    {
+      "name": "vo.silver.room.floor.3",
+      "voice": "waiter",
+      "say": "Two more by the stage, and hurry, they’re on at half past."
+    },
+    {
+      "name": "vo.silver.room.floor.4",
+      "voice": "waiter",
+      "say": "Out of respect. That’s what he said. Out of respect, and then he took the whole route."
+    },
+    {
+      "name": "vo.silver.room.floor.5",
+      "voice": "waiter",
+      "say": "You don’t put Big Uncle Lou on a list. Lou doesn’t wait for a table."
+    },
+    {
+      "name": "vo.silver.room.floor.6",
+      "voice": "waiter",
+      "say": "The front door’s for civilians. That’s not me being clever, that’s the actual policy."
+    },
+    {
+      "name": "vo.silver.room.floor.7",
+      "voice": "waiter",
+      "say": "Front and center just went out. Somebody find out who that is."
+    },
+    {
+      "name": "vo.silver.room.kitchen.1",
+      "voice": "waiter",
+      "say": "Two veal, one fish, and where is my sauce — WHERE is my sauce —"
+    },
+    {
+      "name": "vo.silver.room.kitchen.2",
+      "voice": "waiter",
+      "say": "Behind! Behind you! Hot — hot — HOT —"
+    },
+    {
+      "name": "vo.silver.room.kitchen.3",
+      "voice": "waiter",
+      "say": "Table nine sent it back. Table nine sends everything back."
+    },
+    {
+      "name": "vo.silver.room.kitchen.4",
+      "voice": "waiter",
+      "say": "Who has taken the good tray. Somebody has taken the good tray."
+    },
+    {
+      "name": "vo.silver.room.kitchen.5",
+      "voice": "waiter",
+      "say": "Heard. Heard. Two minutes on the veal."
+    },
+    {
+      "name": "vo.silver.room.kitchen.6",
+      "voice": "waiter",
+      "say": "That’s not a garnish, that’s a hedge."
+    },
+    {
+      "name": "vo.silver.waiter.another",
+      "voice": "waiter",
+      "say": "Another for the table?"
+    },
+    {
+      "name": "vo.silver.waiter.band-round",
+      "voice": "waiter",
+      "say": "…Yes, sir."
+    },
+    {
+      "name": "vo.silver.waiter.bottle",
+      "voice": "waiter",
+      "say": "…The manager drinks milk, sir. For his stomach. Shall I bring the rye instead."
+    },
+    {
+      "name": "vo.silver.waiter.dessert",
+      "voice": "waiter",
+      "say": "Anything sweet? Chef does something with figs that people write letters about."
+    },
+    {
+      "name": "vo.silver.waiter.his",
+      "voice": "waiter",
+      "say": "And for yourself?"
+    },
+    {
+      "name": "vo.silver.waiter.open.checking",
+      "voice": "waiter",
+      "say": "Sir. Everything as it should be over here?"
+    },
+    {
+      "name": "vo.silver.waiter.open.expected",
+      "voice": "waiter",
+      "say": "Good evening. The kitchen knows you’re here. Drinks?"
+    },
+    {
+      "name": "vo.silver.waiter.open.menus",
+      "voice": "waiter",
+      "say": "Good evening. Something to drink for the lady?"
+    },
+    {
+      "name": "vo.silver.waiter.open.passing",
+      "voice": "waiter",
+      "say": "Sir. Your table is ahead of you."
+    },
+    {
+      "name": "vo.silver.waiter.rye",
+      "voice": "waiter",
+      "say": "Rye, one cube. Sir?"
+    },
+    {
+      "name": "vo.silver.waiter.scene-champagne.1",
+      "voice": "waiter",
+      "say": "From the gentlemen by the pillar. With respect, they said."
+    },
+    {
+      "name": "vo.silver.waiter.thanks",
+      "voice": "waiter",
+      "say": "Very good, sir. He tipped the dish room. Nobody tips the dish room."
     }
   ]
 }

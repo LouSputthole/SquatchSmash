@@ -64,6 +64,66 @@ export const DATE = {
 };
 
 /**
+ * Whose voice a subtitle is in.
+ *
+ * The `who` on a node is what the player reads; this is what gets recorded.
+ * A speaker who is not in here has no cue, plays no audio, and is subtitled
+ * exactly as before — which is the right answer for the driver, the doorman
+ * and the chef, none of whom have been cast. The four men on the floor share
+ * one profile because the owner's sheet has one row for wait staff; they are
+ * still four separate banks of cues, so recasting any of them is a voice id
+ * and nothing else.
+ *
+ * Exported because the manifest is authored from it and the verifier holds
+ * the two in step.
+ */
+export const VOICE_OF = {
+  [DATE.name]: 'margo',
+  'the host': 'host',
+  'the manager': 'manager',
+  'the waiter': 'waiter',
+  'the bandleader': 'bandleader',
+  Ape: 'ape',
+};
+
+/**
+ * Stamp `vo.silver.<who>.<tree>.<node>` onto every line somebody cast can say.
+ *
+ * Names come from the node's own id rather than from a running number, so
+ * moving a node up the file does not silently hand its recording to its
+ * neighbour — the failure mode the Beef Run needs a regeneration script to
+ * stay ahead of. A node whose line depends on the evening carries `variant()`
+ * alongside it, returning a tag for whichever thing it is about to say, and
+ * gets one cue per tag. Both are read by `tools/verify-silver.mjs`, which
+ * walks the built trees under every branch and requires that the manifest
+ * says exactly what the subtitle says.
+ *
+ * @param {string} tree the tree's own name, because node ids repeat across
+ *   trees and `open` is six different sentences.
+ */
+function voiced(tree, nodes) {
+  for (const [id, node] of Object.entries(nodes)) {
+    const voice = VOICE_OF[node?.who];
+    if (!voice || !node.line) continue;
+    /* The tree's name is dropped when it is already the speaker's, so the
+     * host's own tree is `vo.silver.host.open` and Margo's line in it, if
+     * she ever gets one, is `vo.silver.margo.host.open`. */
+    const base = `vo.silver.${voice}.${tree === voice ? '' : `${tree}.`}${id}`;
+    node.cue = node.variant ? () => `${base}.${node.variant()}` : base;
+  }
+  return nodes;
+}
+
+/** The same, for the cutscene timelines, which are arrays and change speaker. */
+function voicedScene(name, beats) {
+  beats.forEach((beat, i) => {
+    const voice = VOICE_OF[beat.who];
+    if (voice && beat.line) beat.cue = `vo.silver.${voice}.${name}.${i}`;
+  });
+  return beats;
+}
+
+/**
  * @param {object} ctx {
  *   mission, flags, woo, fire(id, amt), tip(id, amount), money(),
  *   drunkLevel(), knows(id), remember(id)
@@ -504,6 +564,7 @@ export function buildScripts(ctx) {
      * manager had already had built — another of the playtest's loops. */
     open: {
       who: 'the host',
+      variant: () => (flags.tableBuilt ? 'settled' : 'full'),
       line: () => (flags.tableBuilt
         ? '<em>(He does not consult the book.)</em> Sir. Madam. Everything is exactly '
           + 'where it should be.'
@@ -570,6 +631,7 @@ export function buildScripts(ctx) {
   const manager = {
     open: {
       who: 'the manager',
+      variant: () => (flags.tableBuilt ? 'settled' : 'moment'),
       line: () => (flags.tableBuilt
         ? 'Everything as it should be? <em>(He does not wait for an answer, because it is.)</em>'
         : 'Mr — <em>(he catches himself)</em> — Prospect. One moment.'),
@@ -685,6 +747,7 @@ export function buildScripts(ctx) {
     },
     'r1-close': {
       who: DATE.name,
+      variant: () => (mission.flags.abandonments >= 2 ? 'noticed' : 'kept-looking'),
       line: () => (mission.flags.abandonments >= 2
         ? 'Although — twice back there I turned round and you were a room away. '
           + 'I noticed. I always notice. It’s the job.'
@@ -862,6 +925,7 @@ export function buildScripts(ctx) {
     /* ROUND 6 — the personal question */
     personal: {
       who: DATE.name,
+      variant: () => (woo.score >= 60 ? 'real' : 'boring-true'),
       line: () => (woo.score >= 60
         ? 'Right. Real question. <em>(She turns her glass a quarter turn.)</em> Do they '
           + 'like you, or are they frightened of Big Uncle Lou?'
@@ -957,6 +1021,11 @@ export function buildScripts(ctx) {
      * had. Ordered, he offers the table another instead. */
     open: {
       who: 'the waiter',
+      variant: () => {
+        if (!flags.seated) return 'passing';
+        if (flags.drinkOrdered) return 'checking';
+        return ctx.knows('third-number') ? 'expected' : 'menus';
+      },
       line: () => {
         if (!flags.seated) {
           return '<em>(A nod, without breaking stride.)</em> Sir. Your table is ahead of you.';
@@ -1186,6 +1255,7 @@ export function buildScripts(ctx) {
     },
     'ape-diner': {
       who: 'Ape',
+      variant: () => (flags.introducedAs === 'wrong' ? 'ignore-him' : 'four-in-the-morning'),
       line: () => (flags.introducedAs === 'wrong'
         ? '<em>(To her.)</em> Whatever he says your name is, ignore him. He eats at yours. '
           + 'Four in the morning, on his own, every couple of weeks. Pays. Every time.'
@@ -1241,6 +1311,7 @@ export function buildScripts(ctx) {
      * was another way a conversation looped and the set queue got shuffled. */
     open: {
       who: 'the bandleader',
+      variant: () => (flags.songRequested ? 'on-the-pad' : 'front-table'),
       line: () => (flags.songRequested
         ? '<em>(Still grinning, already half-turned for the stage.)</em> It’s on the '
           + 'pad. Front table got its one.'
@@ -1374,6 +1445,7 @@ export function buildScripts(ctx) {
   const sway = {
     open: {
       who: DATE.name,
+      variant: () => (flags.songRequested === 'horns' ? 'her-horns' : 'floor-is-up'),
       line: () => (flags.songRequested === 'horns'
         ? '<em>(The horns come in on the third number and she is on her feet before the '
           + 'second bar.)</em> No. Up. Now. This one you don’t sit through.'
@@ -1443,6 +1515,7 @@ export function buildScripts(ctx) {
   const invitation = {
     open: {
       who: DATE.name,
+      variant: () => (woo.score >= 88 ? 'looking-at-the-door' : woo.score >= 60 ? 'she-claps' : 'checks-the-time'),
       line: () => {
         if (woo.score >= 88) return '<em>(She has been looking at the door for about a minute and not saying anything about it.)</em>';
         if (woo.score >= 60) return '<em>(The set finishes. The room claps. She claps, and then she looks at you.)</em>';
@@ -1536,11 +1609,26 @@ export function buildScripts(ctx) {
     },
   };
 
-  return {
+  /* Cast the ones that have been cast.
+   *
+   * Every tree goes through `voiced`; it only stamps the speakers in
+   * `VOICE_OF`, so the mixed trees do the right thing without being split up
+   * — the waiter's tree is half Margo, the ape's is half Margo, and the
+   * cutscene changes speaker every other beat. Anybody who has not been cast
+   * comes out of here exactly as they went in and stays subtitled. */
+  const trees = {
     driver, arrival, doorman, cellarman, delivery, porter, chef, linecook, dishwasher,
     servicebar, coatcheck, host, manager, seated, waiter, ape, bandleader,
     photographer, toast, sway, invitation,
-    scenes: { table: tableScene, champagne, show: showScene },
+  };
+  for (const [name, tree] of Object.entries(trees)) voiced(name, tree);
+  return {
+    ...trees,
+    scenes: {
+      table: voicedScene('scene-table', tableScene),
+      champagne: voicedScene('scene-champagne', champagne),
+      show: voicedScene('scene-show', showScene),
+    },
   };
 }
 
