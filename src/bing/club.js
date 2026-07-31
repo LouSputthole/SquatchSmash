@@ -1498,6 +1498,29 @@ export function buildClub(scene, { renderer } = {}) {
       add(box({ size: [w, 1.1, d], pos: [wx, 0.55, wz], mat: M_WOOD }));
     }
 
+    /* ---- the office's real wall planes ----
+     * Every fixture in here is placed against one of these rather than by eye.
+     * The dado above stands 3.5cm proud of the plaster it is nailed to, so the
+     * face a cabinet actually touches on the north and east walls is the
+     * DADO's, not the wall's; the west side is the hallway partition, which
+     * has no dado in here and shows its bare face at 7.89.
+     *   north (z0): -9.375   south (z1): -4.625   east (x1): 13.775
+     *   west  (x0): hallway wall's office face, 7.89 */
+    const WALLS = {
+      north: O.z0 + 0.125,
+      south: O.z1 - 0.125,
+      east: O.x1 - 0.125,
+      west: 7.89,
+    };
+    office.walls = WALLS;
+
+    /* The filing corner: the cabinet hard into the north-west corner with its
+     * back on the north dado, the standard lamp beside it, and the house crest
+     * on the wall above it. All three are derived from one pair of numbers so
+     * they cannot drift apart again. */
+    const filingX = WALLS.west + 0.325;      // 0.31 half-width + 1.5cm off the wall
+    const filingZ = WALLS.north + 0.275;     // 0.26 half-depth + 1.5cm off the dado
+
     // The desk: heavy, wooden, and covered in the evening's paperwork
     const dx = ox + 0.4;
     const dz = O.z0 + 1.6;
@@ -1760,10 +1783,16 @@ export function buildClub(scene, { renderer } = {}) {
     /* ---- the filing cabinet ----
      * Four drawers with real fronts, a pull on each, and the little brass
      * label holders every cabinet of this vintage has. Plus the plinth it
-     * stands on and the tray of paper nobody has filed. */
+     * stands on and the tray of paper nobody has filed.
+     *
+     * It stood 62cm off the north wall and 21cm off the west one -- marooned,
+     * which is what the owner saw. Nobody leaves a filing cabinet standing in
+     * the room; it goes in the corner with its back on the wall. Measured off
+     * WALLS above rather than nudged: the carcass is 0.6 x 0.5, its deepest
+     * back part is the plinth top at 0.26, so 1.5cm of daylight on both faces. */
     {
-      const cx = O.x0 + 0.5;
-      const cz = O.z0 + 1.0;
+      const cx = filingX;
+      const cz = filingZ;
       const carcass = mat({ color: 0x3a3a42, roughness: 0.62, metalness: 0.25 });
       const front = mat({ color: 0x44444c, roughness: 0.55, metalness: 0.3 });
       const filing = group('filing',
@@ -1793,10 +1822,16 @@ export function buildClub(scene, { renderer } = {}) {
     /* ---- the floor lamp ----
      * The office had exactly one warm source in it and it was the thing that
      * was too bright. A standard lamp in the filing corner spreads the load:
-     * low, soft, and nowhere near the bloom threshold. */
+     * low, soft, and nowhere near the bloom threshold.
+     *
+     * "The filing corner" was aspirational: it stood a metre and a half out
+     * into the room, square in the walking line between Lou's door and Lou's
+     * desk. It now stands where it says it does -- shoulder to shoulder with
+     * the cabinet against the north wall, its shade 1.5cm off the dado and its
+     * collider clear of the cabinet's by a comfortable hand's width. */
     {
-      const lx = O.x0 + 0.62;
-      const lz = O.z0 + 1.95;
+      const lx = filingX + 0.635;
+      const lz = WALLS.north + 0.225;
       const stand = group('floor-lamp',
         cylinder({ r: 0.17, h: 0.035, pos: [0, 0.02, 0], mat: mat({ color: 0x22222a, roughness: 0.7 }) }),
         cylinder({ r: 0.02, h: 1.42, pos: [0, 0.74, 0], mat: M_BRASS }),
@@ -1868,7 +1903,13 @@ export function buildClub(scene, { renderer } = {}) {
      * the north wall, which is the clipping the owner spotted. SUNDAY AT THE
      * SHORE has moved to the wall behind Lou, where a man hangs the picture
      * he actually wants to be looked at over his own shoulder. */
-    for (const [i, pz] of [[1, O.z0 + 3.6], [2, O.z0 + 4.4]]) {
+    /* THE NEPHEWS has come left along the wall (in the office's own view of it:
+     * you stand with your back to the room, so left is +z). Its frame is 0.41
+     * across the mount, and at z -5.9 the near edge sat at -6.105 -- twelve
+     * centimetres INSIDE the door's north sidelight, whose frame stops at
+     * -5.98. Hung at -5.72 it clears the glazing by 5.5cm and still leaves
+     * 21cm of wall between it and THE OLD PLACE. */
+    for (const [i, pz] of [[1, O.z0 + 3.78], [2, O.z0 + 4.4]]) {
       add(makeFrame(M, {
         x: 7.926, y: 1.9, z: pz, rotY: Math.PI / 2, w: 0.34, h: 0.26,
         texture: printed(`lou-family${i}`, [['SUNDAY', 'AT THE SHORE'], ['THE NEPHEWS'], ['THE OLD PLACE']][i], {
@@ -1891,8 +1932,15 @@ export function buildClub(scene, { renderer } = {}) {
      * drawSquatchSilhouette as the crest in the main room and the poster in
      * the flat -- squatchArt() in kit.js is the one place it is dressed. */
     const officeLogos = [];
+    /* The crest hung at z -7.15 on the door wall, which is the dead centre of
+     * the doorway (-7.6 to -6.5): from the hallway it was a picture floating
+     * in the opening, and from a desk chair it was a picture behind an open
+     * door. It has gone right along the same wall -- right, from the room's
+     * side of it, being -z -- to the one piece of wall in here that was asking
+     * for it: over the filing cabinet in the corner, centred on the cabinet
+     * and clear of the north wall by 8.5cm. */
     officeLogos.push(makeFrame(M, {
-      x: 7.926, y: 1.86, z: O.z0 + 2.35, rotY: Math.PI / 2, w: 0.38, h: 0.48,
+      x: 7.926, y: 1.86, z: filingZ, rotY: Math.PI / 2, w: 0.38, h: 0.48,
       texture: squatchArt('office-crest', { title: ['BADA BING'], footer: 'EST. 1979' }),
       tint: 0x6a4e1c,
     }));
