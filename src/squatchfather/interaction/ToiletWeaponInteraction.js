@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import * as Foley from '../audio/Foley.js';
 import { weaponCheck } from '../audio/GunshotAudio.js';
 import { POS } from '../scenes/SquatchfatherScene.js';
+import { makeRevolver } from '../../world/props.js';
 
 // Behind the upper rear of the tank, in the gap between porcelain and tile.
 //
@@ -28,13 +29,26 @@ export class ToiletWeaponInteraction {
     this.steps = [];
     this.found = false;
 
-    // The bundle, held in view once it comes out of the gap
+    // The bundle, held in view once it comes out of the gap. The revolver is
+    // already half out of the cloth, so the beat reads as a GUN from the
+    // first moment it is in his hand — not grey blocks assembling into one.
     this.bundle = new THREE.Group();
     const clothMat = new THREE.MeshLambertMaterial({ color: 0x6d6558 });
-    this.bundle.add(new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.09, 0.2), clothMat));
+    const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.07, 0.13), clothMat);
+    cloth.position.set(0, -0.015, 0.04);
+    this.bundle.add(cloth);
     const knot = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), new THREE.MeshLambertMaterial({ color: 0x585044 }));
-    knot.position.set(0.05, 0.04, 0.08);
+    knot.position.set(0.05, 0.02, 0.08);
     this.bundle.add(knot);
+    const emerging = makeRevolver(null, { x: 0, y: 0, z: 0 });
+    emerging.group.traverse((o) => {
+      if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ color: o.material.color.clone() });
+    });
+    emerging.group.name = 'bundle.revolver';
+    emerging.group.scale.setScalar(1.2);
+    emerging.group.position.set(0, 0.035, -0.02);
+    emerging.group.rotation.set(-0.15, 0.35, 0.1);
+    this.bundle.add(emerging.group);
     const hand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.11), new THREE.MeshLambertMaterial({ color: 0x9aa0ab }));
     hand.position.set(0.01, -0.07, 0.13);
     this.bundle.add(hand);
@@ -90,19 +104,22 @@ export class ToiletWeaponInteraction {
     const wrapped = this.scene.props.wrapped;
     const gap = new THREE.Vector3(POS.toiletSearch.x, POS.toiletSearch.y + 0.05, POS.toiletSearch.z - 0.35);
 
+    // The revolver reads early: the wrapped shape is on screen for barely
+    // half a second before the gun is visibly out of the cloth, and the full
+    // revolver is turning in his hands inside a second and a half.
     this.stepIndex = 0;
     this.steps = [
       [0.0, () => { wrapped.visible = true; this.director.steerTo(gap, 0.6); Foley.cloth(); }],
-      [0.9, () => { wrapped.visible = false; this.bundle.visible = true; Foley.cloth(); }],
-      [1.9, () => { this.bundle.visible = false; this.prospect.weapon.visible = true; this.inspect = true; Foley.cloth(); }],
-      [2.6, () => { weaponCheck(); }],
-      [3.6, () => {
+      [0.55, () => { wrapped.visible = false; this.bundle.visible = true; Foley.cloth(); }],
+      [1.3, () => { this.bundle.visible = false; this.prospect.weapon.visible = true; this.inspect = true; Foley.cloth(); }],
+      [2.2, () => { weaponCheck(); }],
+      [3.4, () => {
         this.inspect = false;
         this.prospect.weapon.visible = false;
         this.prospect.takeWeapon();
         Foley.cloth();
       }],
-      [4.1, () => { this.director.steerTo(new THREE.Vector3(POS.mirror.x, POS.mirror.y, POS.mirror.z), 0.9); }],
+      [3.9, () => { this.director.steerTo(new THREE.Vector3(POS.mirror.x, POS.mirror.y, POS.mirror.z), 0.9); }],
       [RETRIEVE, () => {
         this.retrieving = false;
         this.prospect.canMove = true;
