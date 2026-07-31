@@ -38,6 +38,20 @@ import { restyleMargoHead } from './margo.js';
 /** Where she would rather be, relative to him. */
 const BESIDE = 1.15;
 const BEHIND = 1.3;
+/**
+ * How far back of him her shoulder sits when she is walking beside him.
+ *
+ * Not zero. Two people walking abreast are never exactly abreast, and dead
+ * level she is in the corner of the frame the entire way, which reads as
+ * being escorted rather than accompanied.
+ */
+const SHOULDER = 0.28;
+/** Close enough to her spot, once he has stopped, to simply stand there. */
+const SETTLE = 0.5;
+/** He is walking, rather than turning on the spot, above this. */
+const MOVING = 0.35;
+/** Inside this of his eyeline, he is looking at her rather than past her. */
+const EYELINE = 1.0;
 /** Past this and she is trailing; past the second and she says so. */
 const TRAIL = 4.2;
 const LOST = 9.0;
@@ -93,6 +107,14 @@ export class Date_ {
     this._stuck = 0;
     this._lastPos = this.group.position.clone();
     this._gait = 0;
+    /* Him, as far as walking beside him is concerned: where he was, which way
+     * he is going, and how fast. His *heading*, deliberately, and not his
+     * yaw — the spot she aims at must not move when he moves the mouse. */
+    this._hisLast = new THREE.Vector3(0, 0, 1);
+    this._heading = { x: 0, z: -1 };
+    this._hisSpeed = 0;
+    /** Which shoulder. A decision, kept until that side is blocked. */
+    this._side = 1;
   }
 
   get position() { return this.group.position; }
@@ -187,12 +209,13 @@ export class Date_ {
     return R[Math.min(this.at + 1, R.length - 1)];
   }
 
-  /** Is there room to walk two abreast here? */
-  _roomBeside(x, z) {
-    const r = this.room.roomAt(x, z, this.group.position.y);
-    return r === 'street' || r === 'floor' || r === 'lobby' || r === 'corridor'
-      || r === 'alley' || r === 'kitchen';
-  }
+  /* `_roomBeside` used to live here: a list of six room names that decided
+   * whether she was allowed to walk next to him. It was wrong in both
+   * directions -- she trailed him through the whole cellar and the whole prep
+   * kitchen, both of which are wider than the corridor she was allowed to
+   * walk abreast in, and it said yes in the kitchen right where the range
+   * line makes it a single file. The building answers now, by being asked
+   * whether the spot is free. */
 
   update(dt, playerPos, playerYaw) {
     const npc = this.npc;
@@ -218,15 +241,57 @@ export class Date_ {
 
     const ahead = this._advance(playerPos);
 
-    /* Where she wants to stand: beside him on his left if there is room,
-     * otherwise a step behind and offset, so she is never in the camera and
-     * never in a doorway he is trying to use. */
-    const abreast = this._roomBeside(playerPos.x, playerPos.z) && gap < 5;
-    const side = playerYaw ?? 0;
+    /* ---- where she wants to stand ----
+     *
+     * Beside him. This used to be beside him only in six named rooms and
+     * behind him everywhere else, and the spot she was aiming at was hung off
+     * his *look* yaw — so the target swung round him whenever he moved the
+     * mouse, and a man who stopped and turned to talk to her set her walking
+     * a circle round his back to get to his other shoulder. The single worst
+     * thing about the evening: you could not turn and look at your date.
+     *
+     * Three changes. It is hung off the direction he is *travelling*, which a
+     * mouse does not move, and which holds still when he stops. Which side is
+     * a decision she keeps until that side is actually blocked, rather than
+     * one she takes again every frame. And whether she can be beside him at
+     * all is asked of the building — is that spot free, walking — instead of
+     * of a list of room names, so she comes up the alley and through the
+     * cellar next to him and only drops in behind for the doorways that
+     * genuinely will not take two.
+     */
+    const step = Math.hypot(playerPos.x - this._hisLast.x, playerPos.z - this._hisLast.z);
+    if (step > 1e-4 && dt > 0) {
+      /* His heading, eased. Raw frame-to-frame displacement is noisy enough
+       * at a tenth of a metre a frame to make her wobble. */
+      const hx = (playerPos.x - this._hisLast.x) / step;
+      const hz = (playerPos.z - this._hisLast.z) / step;
+      const k = Math.min(1, dt * 6);
+      this._heading.x += (hx - this._heading.x) * k;
+      this._heading.z += (hz - this._heading.z) * k;
+      const n = Math.hypot(this._heading.x, this._heading.z) || 1;
+      this._heading.x /= n;
+      this._heading.z /= n;
+    }
+    this._hisSpeed += ((dt > 0 ? step / dt : 0) - this._hisSpeed) * Math.min(1, dt * 8);
+    this._hisLast.copy(playerPos);
+    const walking = this._hisSpeed > MOVING;
+
+    /* A spot off one shoulder: perpendicular to his heading, a little back. */
+    const spot = (s) => ({
+      x: playerPos.x - this._heading.z * BESIDE * s - this._heading.x * SHOULDER,
+      z: playerPos.z + this._heading.x * BESIDE * s - this._heading.z * SHOULDER,
+    });
+    let beside = spot(this._side);
+    if (this._blocked(beside.x, beside.z)) {
+      const other = spot(-this._side);
+      if (!this._blocked(other.x, other.z)) { this._side = -this._side; beside = other; }
+      else beside = null;
+    }
+
     let tx; let tz;
-    if (abreast) {
-      tx = playerPos.x + Math.cos(side) * BESIDE;
-      tz = playerPos.z - Math.sin(side) * BESIDE;
+    if (beside) {
+      tx = beside.x;
+      tz = beside.z;
     } else {
       // Behind him along the route rather than behind him in space: in a bend
       // "behind" and "back down the corridor" are different places.
@@ -253,7 +318,13 @@ export class Date_ {
 
     _v.set(tx - pos.x, 0, tz - pos.z);
     const dist = _v.length();
-    const stop = abreast ? 0.35 : 0.6;
+    /* Standing still is a thing she is allowed to do.
+     *
+     * A tight stop radius while he is walking, because a metre of slack looks
+     * like she is wandering; a generous one the moment he is not, because
+     * that is the difference between a woman standing next to you and a woman
+     * endlessly adjusting. */
+    const stop = walking ? (beside ? 0.35 : 0.6) : SETTLE;
 
     if (dist > stop) {
       const speed = gap > TRAIL ? SPEED_CATCHUP : Math.min(SPEED, 0.8 + dist * 1.5);
@@ -298,7 +369,21 @@ export class Date_ {
       this._gait = 0;
       npc.parts.legL.rotation.x *= 0.85;
       npc.parts.legR.rotation.x *= 0.85;
-      if (this.lookFor <= 0) npc.faceToward(playerPos.x, playerPos.z);
+      /* Standing at his shoulder, she has two things she might be looking at
+       * and it depends entirely on him. If he has turned to face her she
+       * turns to face him, which is the whole point of stopping. If he is
+       * looking at the room she looks at the room too — turning to stare at
+       * the side of a man's head is what she did before, and it made every
+       * pause in the evening feel like being waited on. */
+      if (this.lookFor <= 0) {
+        const toHer = Math.atan2(pos.x - playerPos.x, pos.z - playerPos.z);
+        const off = Math.abs(Math.atan2(
+          Math.sin(toHer - (playerYaw ?? 0) + Math.PI),
+          Math.cos(toHer - (playerYaw ?? 0) + Math.PI),
+        ));
+        if (off < EYELINE) npc.faceToward(playerPos.x, playerPos.z);
+        else npc.faceToward(pos.x - Math.sin(playerYaw ?? 0) * 40, pos.z - Math.cos(playerYaw ?? 0) * 40);
+      }
     }
 
     pos.y = this.room.groundAt(pos.x, pos.z, pos.y);
