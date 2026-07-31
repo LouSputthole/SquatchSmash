@@ -23,7 +23,7 @@ const REPLY_RANGE = 3.6;
 export class Dialogue {
   /**
    * @param {object} ui { line, name, options } DOM nodes
-   * @param {object} hooks { onLine, onChoice, onEnd, onActive, cueSeconds }
+   * @param {object} hooks { onLine, onChoice, onEnd, onActive, onPaint, cueSeconds }
    */
   constructor(ui, hooks = {}) {
     this.ui = ui;
@@ -111,9 +111,14 @@ export class Dialogue {
   }
 
   _paintOptions() {
+    /* Anything that changes the height of the box tells the scene, so
+     * whatever else is written at the bottom of the screen can be moved
+     * clear of it. Measuring in onLine is too early -- the replies have not
+     * been added yet, and the replies are most of the height. */
     if (!this.options.length || !this._inReplyRange) {
       this.ui.options.replaceChildren();
       this.ui.options.classList.add('hidden');
+      this.hooks.onPaint?.();
       return;
     }
     this.ui.options.classList.remove('hidden');
@@ -123,6 +128,7 @@ export class Dialogue {
       el.innerHTML = `<kbd>${i + 1}</kbd><span class="tone">${o.tone ?? ''}</span><span class="say">${o.text}</span>`;
       return el;
     }));
+    this.hooks.onPaint?.();
   }
 
   /** Number keys 1..4 while a conversation is up. */

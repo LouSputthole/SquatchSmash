@@ -279,6 +279,7 @@ const dialogue = new Dialogue(ui.dialogue, {
     layoutTalk(true);
   },
   onChoice: (opt) => { voiceCue(nodeCue(opt)); layoutTalk(true); },
+  onPaint: () => layoutTalk(true),
   onActive: (on) => {
     document.body.classList.toggle('talking', on);
     /* A conversation that opens while a patron is still mid-remark clears the
@@ -2621,7 +2622,10 @@ window.__bing = {
   interaction, drunk, highs, inventory, campaign, car, lot, associate, scripts,
   family, familyScripts, faceIndex,
   isSecondVisit, secondVisitStory,
+  phone, phoneStory, spokeTo, stageTalk,
   updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck,
+  paintKit, showKit, showPhone, repaintObjectives, optionalObjectives,
+  startFocus, focusTick, moneyBurst, noteSpokeTo,
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

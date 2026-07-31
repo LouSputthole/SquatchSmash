@@ -89,8 +89,13 @@ body.bing #overlay .tag { color: #a3919b; }
  */
 :root { --talk-h: 0px; }
 body.talking #subtitle {
+  /* Moved, not animated. A conversation can open on the same frame a patron
+   * finishes a sentence, and a subtitle sliding up through the reply options
+   * on its way out of their way is exactly the pile-up this is here to stop.
+   * (It also makes the position measurable the instant the box is painted,
+   * which is how the verifier checks it.) */
   bottom: calc(96px + var(--talk-h) + 20px);
-  transition: opacity .5s ease, bottom .2s ease;
+  transition: opacity .5s ease;
 }
 
 #dialogue {

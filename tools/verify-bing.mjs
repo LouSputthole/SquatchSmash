@@ -119,6 +119,11 @@ async function walkTo(x, z, yaw = 0) {
     b.player.position.set(x, 1.66, z);
     b.player.yaw = yaw;
     b.player.update(0.016);
+    /* Tell the zone system where he is standing NOW. It is what turns a
+     * position into a room, and a room into an objective; leaving it to the
+     * page's own frame loop makes every room-entry assertion below a race
+     * against a renderer that manages about one frame a second. */
+    b.updateZones(0.016);
   }, [x, z, yaw]);
   await tick(0.5);
 }
@@ -1085,6 +1090,11 @@ const rear = await page.evaluate(() => {
   b.club.doors.service.leaf.userData.interact.onUse();
   b.player.position.set(9, 1.66, -17);
   b.player.update(0.016);
+  /* Step the zone system here rather than hoping a real frame lands between
+   * this call and the assertion: software rendering runs at about a frame a
+   * second, and which room the game thinks you are in is exactly the sort of
+   * thing that must not depend on that. */
+  b.updateZones(0.016);
   return { tripped: b.mission.flags.alarmTripped };
 });
 await tick(1.5);
@@ -1156,6 +1166,12 @@ await page.evaluate(() => {
 });
 await page.goto(`http://localhost:${PORT}/bing.html`, { waitUntil: 'load' });
 await page.waitForFunction(() => window.__bing?.family, null, { timeout: 90000 });
+/* Start it properly this time: the punch-list pass below reads the loaded
+ * sample bank, the painted objective card and a rendered frame, none of
+ * which exist until the club has actually been opened. */
+await page.evaluate(() => document.getElementById('start-btn').click());
+await page.waitForFunction(() => window.__bing?.game.started, null, { timeout: 120000 });
+await page.evaluate(() => window.__bing.postfx.disable?.());
 const postRun = await page.evaluate(() => {
   const b = window.__bing;
   const sasole = b.family.byId.captain_lou_sasole ?? null;
@@ -1177,6 +1193,623 @@ check('after the Beef Run the Captain takes his table — same id, his own face'
   postRun.present && postRun.count === 16 && postRun.hasFace
     && postRun.atHisTable && postRun.seated,
   JSON.stringify(postRun));
+
+/* ================================================================== *
+ * The punch-list pass.
+ *
+ * Everything below pins something the owner reported by hand after playing
+ * the club, in the order he reported it. The page has been reloaded twice by
+ * now and the Beef Run is flown in this save, so the floor is sixteen.
+ * ================================================================== */
+
+/* ---- 1, 6, 7, 8, 9, 10: the people ---- */
+const punchPeople = await page.evaluate(() => {
+  const b = window.__bing;
+  const T = b.THREE;
+  const boxOf = (o) => { o.updateMatrixWorld(true); return new T.Box3().setFromObject(o); };
+  const snow = b.family.byId.snow;
+  const stoolFolk = ['booski', 'deathmegatron', 'seff']
+    .map((id) => ({ id, floor: +boxOf(b.family.byId[id].group).min.y.toFixed(3) }));
+  if (b.cast.byName.margo) {
+    stoolFolk.push({ id: 'margo', floor: +boxOf(b.cast.byName.margo.group).min.y.toFixed(3) });
+  }
+  let silver = 0;
+  let rippinPendant = 0;
+  b.family.byId.rippinflow.group.traverse((o) => {
+    if (o.name === 'necklace.chain.silver') silver += 1;
+    if (o.name === 'necklace.pendant') rippinPendant += 1;
+  });
+  const hairOf = (npc) => {
+    let n = 0;
+    npc.group.traverse((o) => { if (/^person\.hair\./.test(o.name)) n += 1; });
+    return n;
+  };
+  const soften = (npc) => {
+    let n = 0;
+    npc.group.traverse((o) => { if (/^person\.soft\./.test(o.name)) n += 1; });
+    return n;
+  };
+  const performers = [0, 1, 2, 3].map((i) => {
+    const npc = b.cast.byName[`performer${i}`];
+    const bb = boxOf(npc.group);
+    return {
+      i,
+      hair: hairOf(npc),
+      soft: soften(npc),
+      height: npc.group.userData.npc.height,
+      tall: +(bb.max.y - bb.min.y).toFixed(3),
+      fall: !!npc.group.getObjectByName('person.hair.fall'),
+    };
+  });
+  return {
+    bouncerYaw: b.cast.byName.bouncer.group.rotation.y,
+    bouncerHomeYaw: b.cast.byName.bouncer.homeYaw,
+    stoolFolk,
+    snow: snow ? {
+      outfit: snow.group.userData.npc.outfit,
+      photo: snow.familyMember.photo,
+      slug: snow.familyMember.slug,
+      byTheBathroom: snow.group.position.x > 5.6 && snow.group.position.x < 7.8
+        && snow.group.position.z > 0.5 && snow.group.position.z < 2.5,
+      clear: b.standingClearAt(snow.group.position.x, snow.group.position.z),
+      talks: !!snow.group.userData.interact,
+    } : null,
+    snowCount: b.cast.all.filter((n) => n.name === 'Snow').length,
+    noCleaner: !b.cast.byName.cleaner,
+    guard: b.cast.byName.hallGuard.group.userData.npc.outfit,
+    guardChain: (() => {
+      let n = 0;
+      b.cast.byName.hallGuard.group.traverse((o) => { if (/^necklace\./.test(o.name)) n += 1; });
+      return n;
+    })(),
+    silver,
+    rippinPendant,
+    performers,
+  };
+});
+check('the bouncer faces the door he is standing on',
+  Math.abs(punchPeople.bouncerYaw) < 0.01 && Math.abs(punchPeople.bouncerHomeYaw) < 0.01,
+  `yaw ${punchPeople.bouncerYaw.toFixed(2)}`);
+check('everybody on a bar stool sits ON it, feet at the footrest',
+  punchPeople.stoolFolk.length >= 3
+    && punchPeople.stoolFolk.every((m) => m.floor > 0.18 && m.floor < 0.42),
+  JSON.stringify(punchPeople.stoolFolk));
+check('one Snow in the building, and he is the janitor by the men’s room',
+  punchPeople.snowCount === 1 && punchPeople.noCleaner
+    && punchPeople.snow?.outfit === 'work' && punchPeople.snow?.photo === 'snow.png'
+    && punchPeople.snow?.slug === 'snow' && punchPeople.snow?.byTheBathroom
+    && punchPeople.snow?.clear && punchPeople.snow?.talks,
+  JSON.stringify(punchPeople.snow));
+check('the man on Lou’s door wears the crew’s suit and chain',
+  punchPeople.guard === 'suit' && punchPeople.guardChain >= 2,
+  `${punchPeople.guard}, ${punchPeople.guardChain} necklace parts`);
+check('Rippinflow’s chain is a thin silver line with nothing hanging off it',
+  punchPeople.silver === 1 && punchPeople.rippinPendant === 0,
+  `silver ${punchPeople.silver}, pendant ${punchPeople.rippinPendant}`);
+check('every performer keeps her height, wears real hair, and has her edges taken off',
+  punchPeople.performers.every((p) => p.height > 1.55 && p.height < 1.95
+    && p.tall < 1.95 && p.hair >= 4 && p.soft >= 12)
+    && punchPeople.performers.filter((p) => p.fall).length >= 3,
+  JSON.stringify(punchPeople.performers));
+
+/* ---- 2, 3, 4, 5: every recorded voice in the club is reachable ---- */
+{
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+  const authored = new Set((manifest.sfx || []).map((cue) => cue.name));
+  const wired = await page.evaluate(() => {
+    const b = window.__bing;
+    const cues = new Set();
+    const collect = (owner) => {
+      if (!owner?.cue) return;
+      cues.add(typeof owner.cue === 'function' ? owner.cue() : owner.cue);
+    };
+    const walk = (tree) => {
+      for (const node of Object.values(tree)) {
+        collect(node);
+        const opts = typeof node.options === 'function' ? node.options() : node.options;
+        for (const opt of opts || []) collect(opt);
+      }
+    };
+    for (const tree of Object.values(b.scripts)) walk(tree);
+    for (const tree of Object.values(b.familyScripts)) walk(tree);
+    /* The two the club plays outside a dialogue tree: the table's verdicts
+     * and the runway's thank-you, which is a tree main.js owns. */
+    return [...cues];
+  });
+  const mustBeWired = [
+    'vo.bing.door.in.1', 'vo.bing.door.in.2',
+    'vo.bing.bar.1', 'vo.bing.bar.2', 'vo.bing.bar.3',
+    'vo.bing.hang.lou.1', 'vo.bing.hang.lou.2',
+    'vo.bing.hang.lag.tony.1', 'vo.bing.hang.gratin.tony.1',
+    'vo.bing.hang.hogmama.tony.1', 'vo.bing.hang.sasole.tony.1',
+    'vo.bing.hang.irish.tony.1', 'vo.bing.booski.shot.tony.1',
+  ];
+  const unwired = mustBeWired.filter((cue) => !wired.includes(cue));
+  const unauthored = wired.filter((cue) => !authored.has(cue));
+  check('every recorded bark in the club’s bank is hooked to something',
+    unwired.length === 0, unwired.join(' / '));
+  check('and no line names a cue that is not in the manifest',
+    unauthored.length === 0, unauthored.slice(0, 3).join(' / '));
+  const louBrief = [...Array(10)].map((_, i) => `vo.bing.lou.brief.${i + 1}`);
+  const louBrief2 = [...Array(6)].map((_, i) => `vo.bing.lou.brief2.${i + 1}`);
+  check('Lou’s office brief is authored for both visits, subtitled and awaiting a take',
+    louBrief.every((c) => authored.has(c) && wired.includes(c))
+      && louBrief2.every((c) => authored.has(c)),
+    `${louBrief.length} + ${louBrief2.length}`);
+  check('the stage and Margo have authored cues waiting for a recording',
+    ['vo.bing.stage.1', 'vo.bing.stage.2'].every((c) => authored.has(c))
+      && [...Array(6)].map((_, i) => `vo.bing.margo.${i + 1}`).every((c) => authored.has(c))
+      && authored.has('vo.bing.margo.1b'),
+    'stage 2, margo 7');
+}
+
+/* Tony's own lines, one at a time, through the exact-name path -- and none
+ * of them cut off by the line that follows. The hold a reply gets is now at
+ * least as long as the recording it plays, which is the fix. */
+const tonyLines = await page.evaluate(() => {
+  const b = window.__bing;
+  const secs = (n) => (b.audio.buffers.get(n)?.[0]?.duration ?? 0);
+  const runs = [];
+  const cases = [
+    ['lag', 'open', 'vo.bing.hang.lag.tony.1'],
+    ['gratin', 'more', 'vo.bing.hang.gratin.tony.1'],
+    ['hogmama', 'more', 'vo.bing.hang.hogmama.tony.1'],
+    ['irish', 'more', 'vo.bing.hang.irish.tony.1'],
+    ['captain_lou_sasole', 'more', 'vo.bing.hang.sasole.tony.1'],
+  ];
+  for (const [id, at, cue] of cases) {
+    const npc = b.family.byId[id];
+    if (!npc) { runs.push({ id, cue, missing: true }); continue; }
+    b.player.position.set(npc.group.position.x + 0.9, 1.66, npc.group.position.z + 0.5);
+    b.game.voLog.length = 0;
+    b.dialogue.start(b.familyScripts[id], 'open', npc, { resume: false });
+    if (at === 'more') {
+      b.dialogue.choose(0);
+      for (let i = 0; i < 80 && b.dialogue.nodeId !== 'more'; i++) {
+        b.dialogue.update(0.25, b.player.position);
+      }
+    }
+    const picked = b.dialogue.choose(0);
+    runs.push({
+      id,
+      cue,
+      picked,
+      spoke: b.game.voLog.includes(cue),
+      loaded: +secs(cue).toFixed(2),
+      hold: +b.dialogue.timer.toFixed(2),
+      uncut: b.dialogue.timer >= secs(cue),
+    });
+    b.dialogue.end('done');
+  }
+  return runs;
+});
+check('every one of Tony’s authored replies plays, and none of them is cut off',
+  tonyLines.length === 5 && tonyLines.every((r) => r.picked && r.spoke && r.loaded > 0 && r.uncut),
+  JSON.stringify(tonyLines));
+
+/* ---- 11, 12: the bottom of the screen ---- */
+const talkUi = await page.evaluate(async () => {
+  const b = window.__bing;
+  const gratin = b.family.byId.gratin;
+  /* On his feet beside Gratin. The frame loop runs during the await below and
+   * would otherwise put a seated player straight back in his car. */
+  b.game.seatedIn = null;
+  b.player.mode = 'walk';
+  b.player._tween = null;
+  b.player.yawCenter = null;
+  b.player.position.set(gratin.group.position.x - 1.2, 1.66, gratin.group.position.z);
+  b.dialogue.start(b.familyScripts.gratin, 'open', gratin, { resume: false });
+  b.hud.say('A patron says something you were not part of.', 6000);
+  await new Promise((r) => setTimeout(r, 260));
+  const box = document.getElementById('dialogue').getBoundingClientRect();
+  const sub = document.getElementById('subtitle').getBoundingClientRect();
+  const overlapping = !(sub.bottom <= box.top || sub.top >= box.bottom);
+  const talking = document.body.classList.contains('talking');
+  const talkH = getComputedStyle(document.documentElement).getPropertyValue('--talk-h');
+  const subBottom = getComputedStyle(document.getElementById('subtitle')).bottom;
+  const optionsUp = !document.querySelector('#dialogue .options').classList.contains('hidden');
+  // Now walk out of reach without leaving the conversation's range entirely.
+  b.player.position.set(gratin.group.position.x - 5.0, 1.66, gratin.group.position.z);
+  b.dialogue.update(0.05, b.player.position);
+  const afterStep = {
+    active: b.dialogue.active,
+    optionsHidden: document.querySelector('#dialogue .options').classList.contains('hidden'),
+    refused: b.dialogue.choose(0) === false,
+  };
+  // And right out of it.
+  b.player.position.set(gratin.group.position.x - 12, 1.66, gratin.group.position.z);
+  b.dialogue.update(0.05, b.player.position);
+  const gone = {
+    active: b.dialogue.active,
+    hidden: document.getElementById('dialogue').classList.contains('hidden'),
+    talking: document.body.classList.contains('talking'),
+    bookmarked: b.dialogue._bookmarks.get(b.familyScripts.gratin) === 'open',
+  };
+  return {
+    overlapping, talking, optionsUp, afterStep, gone,
+    box: [Math.round(box.top), Math.round(box.bottom), Math.round(box.height)],
+    sub: [Math.round(sub.top), Math.round(sub.bottom)],
+    talkH,
+    subBottom,
+  };
+});
+check('a conversation and a background subtitle never share the same pixels',
+  talkUi.talking && talkUi.optionsUp && !talkUi.overlapping,
+  JSON.stringify(talkUi));
+check('stepping out of reach takes the replies down and leaves the bookmark',
+  talkUi.afterStep.active && talkUi.afterStep.optionsHidden && talkUi.afterStep.refused
+    && !talkUi.gone.active && talkUi.gone.hidden && !talkUi.gone.talking
+    && talkUi.gone.bookmarked,
+  JSON.stringify(talkUi));
+
+/* ---- 14 to 21: Lou's office ---- */
+const office = await page.evaluate(() => {
+  const b = window.__bing;
+  const T = b.THREE;
+  const O = b.club.rooms.office;
+  const boxOf = (o) => { o.updateMatrixWorld(true); return new T.Box3().setFromObject(o); };
+  const shore = boxOf(b.club.office.shorePicture);
+  // The office's own north wall, which THE OLD PLACE used to be inside
+  const oldPlace = (() => {
+    let hit = null;
+    b.club.root.traverse((o) => {
+      if (o.name !== 'frame') return;
+      const bb = boxOf(o);
+      if (bb.min.x > 7.8 && bb.max.x < 8.1 && bb.max.z > O.z1 - 1.0) hit = bb;
+    });
+    return hit;
+  })();
+  const ledge = boxOf(b.club.office.ledge);
+  const radio = boxOf(b.club.root.getObjectByName('office-radio'));
+  const intercom = boxOf(b.club.office.intercom);
+  const on = (thing) => thing.min.x >= ledge.min.x - 0.06 && thing.max.x <= ledge.max.x + 0.06
+    && thing.min.z >= ledge.min.z - 0.02 && thing.max.z <= ledge.max.z + 0.02
+    && Math.abs(thing.min.y - ledge.max.y) < 0.06;
+  let fridgeStickers = 0;
+  b.club.office.fridge.traverse((o) => { if (o.isMesh && o.material?.map) fridgeStickers += 1; });
+  let drawerParts = 0;
+  b.club.office.filing.traverse((o) => { if (o.isMesh) drawerParts += 1; });
+  const coat = boxOf(b.club.office.coatStand);
+  const doorArc = { x0: 7.85, x1: 9.05, z0: -8.05, z1: -6.45 };
+  return {
+    shoreBehindLou: shore.max.z < O.z0 + 0.4 && shore.min.x > 10.5,
+    oldPlaceClear: !!oldPlace && oldPlace.max.z < O.z1 - 0.2,
+    logos: b.club.office.logos.length,
+    ledgeLong: +(ledge.max.z - ledge.min.z).toFixed(2),
+    radioOnLedge: on(radio),
+    intercomOnLedge: on(intercom),
+    intercomParts: (() => { let n = 0; b.club.office.intercom.traverse((o) => { if (o.isMesh) n += 1; }); return n; })(),
+    fridgeBlack: (() => {
+      let dark = false;
+      b.club.office.fridge.traverse((o) => {
+        if (o.isMesh && o.material?.color && o.material.color.getHex() < 0x303040) dark = true;
+      });
+      return dark;
+    })(),
+    fridgeStickers,
+    drawerParts,
+    floorLamp: b.club.office.floorLamp?.intensity ?? 0,
+    deskLamp: b.club.office.deskLight.intensity,
+    coatOutOfTheDoor: coat.min.x > doorArc.x1 || coat.max.z > doorArc.z1 || coat.min.z < doorArc.z0,
+    coatParts: (() => { let n = 0; b.club.office.coatStand.traverse((o) => { if (o.isMesh) n += 1; }); return n; })(),
+    glass: (b.club.doors.lou.glass || []).length,
+    glassSolid: b.club.colliders.some((c) => c.min.x > 7.7 && c.max.x < 7.9 && c.min.z < -7.6),
+  };
+});
+check('the shore picture hangs on the wall behind Lou',
+  office.shoreBehindLou, JSON.stringify(office.shoreBehindLou));
+check('THE OLD PLACE is out of the wall it was clipped into',
+  office.oldPlaceClear);
+check('two framed squatch marks hang in the office',
+  office.logos === 2, String(office.logos));
+check('the ledge is long enough for the radio and the intercom, and both stand on it',
+  office.ledgeLong > 2.4 && office.radioOnLedge && office.intercomOnLedge
+    && office.intercomParts >= 16,
+  JSON.stringify({ len: office.ledgeLong, r: office.radioOnLedge, i: office.intercomOnLedge }));
+check('the mini fridge is black, detailed and stickered',
+  office.fridgeBlack && office.fridgeStickers >= 2, `${office.fridgeStickers} stickers`);
+check('the filing cabinet has drawer fronts and the corner has a lamp in it',
+  office.drawerParts >= 18 && office.floorLamp > 0 && office.floorLamp < 8,
+  `${office.drawerParts} parts, lamp ${office.floorLamp}`);
+check('the coat stand is a coat stand, and it is not in the doorway',
+  office.coatParts >= 12 && office.coatOutOfTheDoor);
+check('the office door is glazed and the glass is solid',
+  office.glass === 3 && office.glassSolid, `${office.glass} panes`);
+
+/* ---- 20: the lamp bloom, measured off a real render ----
+ * The Silver Room's pass set this pattern: render the frame, read the
+ * back buffer, and count the pixels that have gone to white. A desk lamp
+ * that clips a percent of the screen is a desk lamp that is too hot. */
+const bloom = await page.evaluate(async () => {
+  const b = window.__bing;
+  b.postfx.enable?.();
+  const O = b.club.rooms.office;
+  b.game.seatedIn = null;
+  b.player.mode = 'walk';
+  b.player._tween = null;
+  b.player.yawCenter = null;
+  // Standing in the office doorway looking straight at the desk and its lamp.
+  b.player.position.set(9.2, 1.66, -6.2);
+  b.player.yaw = Math.atan2(-(12.08 - 9.2), -(-8.1 + 6.2));
+  b.player.pitch = -0.16;
+  b.player.update(0.016);
+  b.camera.updateMatrixWorld(true);
+  for (let i = 0; i < 4; i++) b.postfx.render(0.016);
+  await new Promise((r) => requestAnimationFrame(r));
+  const gl = b.renderer.getContext();
+  const w = gl.drawingBufferWidth;
+  const h = gl.drawingBufferHeight;
+  const px = new Uint8Array(w * h * 4);
+  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+  let clipped = 0;
+  let hot = 0;
+  for (let i = 0; i < w * h; i++) {
+    const r = px[i * 4];
+    const g = px[i * 4 + 1];
+    const bl = px[i * 4 + 2];
+    if (r > 250 && g > 250 && bl > 250) clipped += 1;
+    if (r > 235 && g > 220) hot += 1;
+  }
+  void O;
+  return {
+    pixels: w * h,
+    clippedPct: +((clipped / (w * h)) * 100).toFixed(3),
+    hotPct: +((hot / (w * h)) * 100).toFixed(3),
+    lamp: b.club.office.deskLight.intensity,
+  };
+});
+check('the desk lamp no longer blows the office out — measured, not asserted',
+  bloom.clippedPct < 0.2 && bloom.hotPct < 4 && bloom.lamp <= 9,
+  JSON.stringify(bloom));
+
+/* ---- 22, 23, 31, 32: the back of house ---- */
+const backOfHouse = await page.evaluate(() => {
+  const b = window.__bing;
+  const T = b.THREE;
+  const boxOf = (o) => { o.updateMatrixWorld(true); return new T.Box3().setFromObject(o); };
+  const B = b.club.rooms.bathroom;
+  const toilets = [];
+  b.scene.traverse((o) => {
+    if (o.name !== 'toilet') return;
+    const p = new T.Vector3();
+    o.getWorldPosition(p);
+    if (p.x < B.x0 || p.x > B.x1 || p.z < -1.4 || p.z > B.z1) return;
+    toilets.push(boxOf(o));
+  });
+  // Every stall partition in the men's room, against every bowl in it.
+  const partitions = [];
+  b.club.root.traverse((o) => {
+    if (!o.isMesh || o.name) return;
+    const bb = boxOf(o);
+    const thin = bb.max.x - bb.min.x < 0.1;
+    if (!thin) return;
+    if (bb.min.x < B.x0 || bb.max.x > B.x1) return;
+    if (bb.min.z < -1.4 || bb.max.z > B.z1) return;
+    if (bb.max.y < 1.5 || bb.max.y > 2.1) return;
+    partitions.push(bb);
+  });
+  const clash = partitions.some((w) => toilets.some((t) => w.intersectsBox(t)));
+  const stallDoors = b.club.anchors.stalls.map((st) => {
+    const leaf = boxOf(st.pivot);
+    return { locked: st.locked, hits: toilets.some((t) => leaf.intersectsBox(t)) };
+  });
+  const graffiti = (() => {
+    let hit = null;
+    b.club.root.traverse((o) => {
+      if (o.isMesh && o.material?.map?.image?.width === 512 && o.geometry?.type === 'PlaneGeometry'
+        && o.position.x < B.x0 + 0.02 && o.position.x > B.x0 - 0.1) hit = boxOf(o);
+    });
+    return hit;
+  })();
+  const dryer = boxOf(b.club.root.getObjectByName('hand-dryer'));
+  const body = boxOf(b.club.storeroom.body);
+  return {
+    toilets: toilets.length,
+    partitions: partitions.length,
+    partitionClash: clash,
+    lockedStallClean: stallDoors.every((d) => !d.hits),
+    lockedExists: stallDoors.some((d) => d.locked),
+    graffitiFitsWall: !!graffiti && graffiti.min.z > 1.5 && graffiti.max.z < B.z1,
+    dryerOffTheSign: !!graffiti && (dryer.min.x > B.x0 + 1.0 || dryer.max.z < graffiti.min.z),
+    dryerByTheSinks: dryer.max.x > B.x1 - 0.6 && dryer.min.z > -0.9 && dryer.max.z < 1.4,
+    basins: (() => { let n = 0; b.club.root.traverse((o) => { if (o.name === 'basin') n += 1; }); return n; })(),
+    basinParts: (() => {
+      let n = 0;
+      b.club.root.traverse((o) => { if (o.name === 'basin') o.traverse((m) => { if (m.isMesh) n += 1; }); });
+      return n;
+    })(),
+    urinals: (() => { let n = 0; b.club.root.traverse((o) => { if (o.name === 'urinal') n += 1; }); return n; })(),
+    urinalParts: (() => {
+      let n = 0;
+      b.club.root.traverse((o) => { if (o.name === 'urinal') o.traverse((m) => { if (m.isMesh) n += 1; }); });
+      return n;
+    })(),
+    bodyInStoreRoom: body.min.x > 5.6 && body.max.x < 13.6 && body.min.z > -15 && body.max.z < -9.6,
+    bodyLowProfile: +(body.max.y - body.min.y).toFixed(2),
+    powderThere: !!b.club.root.getObjectByName('bathroom-powder'),
+  };
+});
+check('the men’s room stalls no longer stand inside their own toilets',
+  backOfHouse.toilets === 3 && backOfHouse.partitions >= 4
+    && !backOfHouse.partitionClash && backOfHouse.lockedStallClean && backOfHouse.lockedExists,
+  JSON.stringify(backOfHouse));
+check('the Booski wall fits the wall it is painted on, clear of the dryer',
+  backOfHouse.graffitiFitsWall && backOfHouse.dryerOffTheSign && backOfHouse.dryerByTheSinks);
+check('the basins and the urinals have plumbing on them',
+  backOfHouse.basins === 2 && backOfHouse.basinParts >= 24
+    && backOfHouse.urinals === 2 && backOfHouse.urinalParts >= 16,
+  JSON.stringify({ b: backOfHouse.basinParts, u: backOfHouse.urinalParts }));
+check('there is a man under a tarpaulin in the store room, and he is lying down',
+  backOfHouse.bodyInStoreRoom && backOfHouse.bodyLowProfile < 0.5,
+  JSON.stringify(backOfHouse.bodyLowProfile));
+
+/* ---- 24, 25, 27, 28, 30, 32: the things he could not reach ---- */
+const punchHud = await page.evaluate(async () => {
+  const b = window.__bing;
+  const findPad = (label) => {
+    let hit = null;
+    b.scene.traverse((o) => {
+      const d = o.userData?.interact;
+      if (!d) return;
+      const text = typeof d.label === 'function' ? d.label() : d.label;
+      if (typeof text === 'string' && text.includes(label)) hit = d;
+    });
+    return hit;
+  };
+  const powder = findPad('urinal');
+  const bodyPad = findPad('tarpaulin');
+
+  // Inventory: pick the package up and watch the readout take it.
+  b.campaign.addItem('parcel', { concealed: true });
+  b.game.money = 275;
+  const before = document.querySelectorAll('#kit li').length;
+  b.game.kitOpen = false;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+  const kit = [...document.querySelectorAll('#kit li')].map((li) => li.textContent);
+
+  // The phone comes out on [P] and draws itself.
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+  const phoneUp = !document.getElementById('phone-osd').classList.contains('hidden');
+  const phoneCanvas = !!document.querySelector('#phone-osd canvas');
+  const ringing = b.phone ? b.phone.ringing : null;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+
+  // The tip: money in the air, and the objective ticks.
+  const tipPad = findPad('Tip the');
+  b.game.money = 200;
+  tipPad?.onUse?.();
+  await new Promise((r) => setTimeout(r, 60));
+  const bills = document.querySelectorAll('#money-burst .bill').length;
+
+  const objectives = [...document.querySelectorAll('#objectives li')]
+    .map((li) => ({ text: li.textContent, optional: li.classList.contains('optional'), rule: li.classList.contains('rule') }));
+  const story = b.campaign.state.story;
+  return {
+    before,
+    kit,
+    hasPackage: kit.some((t) => /package/i.test(t)),
+    hasMoney: kit.some((t) => /\$/.test(t)),
+    hasPhone: kit.some((t) => /Phone/.test(t)),
+    phoneUp,
+    phoneCanvas,
+    ringing,
+    bills,
+    objectives,
+    clockDay: story.day,
+    clockMinutes: story.timeMinutes,
+    hudClock: document.querySelector('#clock .time')?.textContent ?? '',
+    powder: !!powder,
+    bodyPad: !!bodyPad,
+    focusBefore: b.game.focus || 0,
+  };
+});
+check('the club has an inventory readout, and it takes the package',
+  punchHud.hasPackage && punchHud.hasMoney && punchHud.hasPhone,
+  JSON.stringify(punchHud.kit));
+check('the phone comes out of the pocket in the club',
+  punchHud.phoneUp && punchHud.phoneCanvas && punchHud.ringing === false,
+  JSON.stringify({ up: punchHud.phoneUp, canvas: punchHud.phoneCanvas }));
+check('tipping the runway puts money in the air',
+  punchHud.bills >= 6, String(punchHud.bills));
+{
+  const texts = punchHud.objectives.map((o) => o.text);
+  const primary = punchHud.objectives.filter((o) => !o.optional && !o.rule).map((o) => o.text);
+  const optional = punchHud.objectives.filter((o) => o.optional).map((o) => o.text);
+  check('the objective card carries the three jobs and the optional evening',
+    primary.some((t) => /Lou/.test(t))
+      && primary.some((t) => /cute girl at the bar/.test(t))
+      && primary.some((t) => /shot with Booski/.test(t))
+      && optional.some((t) => /\d+\/\d+.*squatches/.test(t))
+      && ['Play the slots', 'Play blackjack', 'Tip the performers', 'Order a drink from the bar']
+        .every((want) => optional.some((t) => t.includes(want)))
+      && punchHud.objectives.some((o) => o.rule),
+    JSON.stringify(texts));
+}
+{
+  /* The HUD must read back exactly what the campaign holds, and the campaign
+   * must have been moved on by the drive over -- the club used to open at
+   * whatever time the save last woke up, which was six in the morning. */
+  const hour24 = Math.floor(punchHud.clockMinutes / 60) % 24;
+  const expected = `${hour24 % 12 || 12}:${String(punchHud.clockMinutes % 60).padStart(2, '0')} `
+    + `${hour24 >= 12 ? 'PM' : 'AM'}`;
+  check('the club runs on campaign time, not on whatever time he woke up',
+    punchHud.clockMinutes >= 23 * 60 + 41 && punchHud.hudClock === expected,
+    `${punchHud.hudClock} vs ${expected} (day ${punchHud.clockDay}, ${punchHud.clockMinutes})`);
+}
+
+/* The wall clocks agree with the HUD, and the line on the urinal works. */
+const clocksAndPowder = await page.evaluate(() => {
+  const b = window.__bing;
+  const story = b.campaign.state.story;
+  const hour24 = Math.floor(story.timeMinutes / 60) % 24;
+  const minute = story.timeMinutes % 60;
+  const wantHour = -(((hour24 % 12) + minute / 60) / 12) * Math.PI * 2;
+  const wantMin = -((minute % 60) / 60) * Math.PI * 2;
+  const agree = b.club.clocks.every((c) => Math.abs(c.hourHand.rotation.z - wantHour) < 0.02
+    && Math.abs(c.minHand.rotation.z - wantMin) < 0.02);
+  let powderPad = null;
+  b.scene.traverse((o) => {
+    const d = o.userData?.interact;
+    if (!d) return;
+    const text = typeof d.label === 'function' ? d.label() : d.label;
+    if (typeof text === 'string' && /urinal/.test(text)) powderPad = d;
+  });
+  powderPad?.onUse?.();
+  const focus = b.game.focus;
+  const fovBefore = b.camera.fov;
+  for (let i = 0; i < 40; i++) b.game.focusTick?.(0.05);
+  return {
+    clocks: b.club.clocks.length,
+    agree,
+    focus,
+    fovBefore,
+  };
+});
+check('every clock on the wall reads the campaign clock',
+  clocksAndPowder.clocks >= 2 && clocksAndPowder.agree,
+  JSON.stringify(clocksAndPowder));
+check('the line on the urinal is usable and buys twenty-odd seconds',
+  clocksAndPowder.focus > 20 && clocksAndPowder.focus <= 26,
+  String(clocksAndPowder.focus));
+
+/* ---- 29: Margo, on her stool and wearing her own head ---- */
+const her = await page.evaluate(() => {
+  const b = window.__bing;
+  const npc = b.cast.byName.margo;
+  if (!npc) return null;
+  npc.group.updateMatrixWorld(true);
+  const bb = new b.THREE.Box3().setFromObject(npc.group);
+  let authored = 0;
+  npc.group.traverse((o) => { if (/^margo\./.test(o.name)) authored += 1; });
+  let soft = 0;
+  npc.group.traverse((o) => { if (/^person\.soft\./.test(o.name)) soft += 1; });
+  return {
+    id: npc.characterId,
+    floor: +bb.min.y.toFixed(3),
+    authored,
+    soft,
+    profile: npc.group.userData.npc,
+  };
+});
+check('the woman at the end of the bar is Margo, on the stool and not in it',
+  her && her.id === 'margo' && her.floor > 0.18 && her.floor < 0.42
+    && her.authored >= 20 && her.soft >= 10
+    && her.profile.gender === 'female' && her.profile.bodyShape === 'curvy',
+  JSON.stringify(her));
+
+/* ---- 33: the mark by the entrance is the real one ---- */
+const entrance = await page.evaluate(() => {
+  const b = window.__bing;
+  /* squatchArt() caches by key, so the presence of the cached textures is
+   * what proves the entrance pieces are drawn from the shared silhouette
+   * rather than from a typographic star. */
+  const names = [];
+  b.club.root.traverse((o) => {
+    if (o.isMesh && o.material?.map?.source?.data?.width) names.push(o.material.map.source.data.width);
+  });
+  return { textured: names.length };
+});
+check('the entrance pictures carry the house mark', entrance.textured > 0, String(entrance.textured));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 
