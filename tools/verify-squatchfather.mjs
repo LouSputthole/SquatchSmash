@@ -331,6 +331,93 @@ try {
       && facingOk(facing.sal) && facingOk(facing.mcclawsky) && facingOk(facing.prospect),
     JSON.stringify(facing));
 
+  // ---- The completed faces, pinned by measurement like Margo's check:
+  // two brows with skin between them, eyes about an eye-width apart, a nose
+  // off the face plane but short of a snout, a mouth wider than the nose,
+  // a jaw that tapers inside the skull.
+  const faces = await page.evaluate(() => {
+    const scene = window.squatchfather;
+    const measure = (fig) => {
+      const head = fig.head;
+      const get = (n) => head.getObjectByName(n);
+      const need = ['sf.face.skull', 'sf.face.jaw', 'sf.face.brow.left', 'sf.face.brow.right',
+        'sf.face.eye.left', 'sf.face.eye.right', 'sf.face.iris.left', 'sf.face.iris.right',
+        'sf.face.pupil.left', 'sf.face.pupil.right', 'sf.face.nose.bridge', 'sf.face.nose.tip',
+        'sf.face.lip.upper', 'sf.face.mouth'];
+      const missing = need.filter((n) => !get(n));
+      if (missing.length) return { missing };
+      const dim = (n) => get(n).userData.dim;
+      const skull = get('sf.face.skull');
+      const eyeL = get('sf.face.eye.left');
+      const eyeR = get('sf.face.eye.right');
+      const browL = get('sf.face.brow.left');
+      const browR = get('sf.face.brow.right');
+      const nose = get('sf.face.nose.tip');
+      return {
+        missing,
+        eyeWidth: dim('sf.face.eye.left').w,
+        eyeGap: Math.abs(eyeL.position.x - eyeR.position.x) - dim('sf.face.eye.left').w,
+        browGap: Math.abs(browL.position.x - browR.position.x) - dim('sf.face.brow.left').w,
+        noseOff: (nose.position.z + dim('sf.face.nose.tip').d / 2)
+          - (skull.position.z + dim('sf.face.skull').d / 2),
+        noseWidth: dim('sf.face.nose.tip').w,
+        mouthWidth: dim('sf.face.mouth').w,
+        jawWidth: dim('sf.face.jaw').w,
+        skullWidth: dim('sf.face.skull').w,
+      };
+    };
+    return { sal: measure(scene.sal.fig), mcclawsky: measure(scene.mcclawsky.fig) };
+  });
+  const faceOk = (f) => f && !f.missing.length
+    && f.eyeGap / f.eyeWidth > 0.8 && f.eyeGap / f.eyeWidth < 1.5
+    && f.browGap > 0.02
+    && f.noseOff > 0.005 && f.noseOff < 0.03
+    && f.mouthWidth > f.noseWidth
+    && f.jawWidth < f.skullWidth * 0.85;
+  check('both wiseguys wear faces with proportions somebody chose',
+    faceOk(faces.sal) && faceOk(faces.mcclawsky), JSON.stringify(faces));
+
+  const talk = await page.evaluate(() => {
+    const scene = window.squatchfather;
+    const sample = (fig) => {
+      fig.speak(1.2);
+      let maxMouth = 0;
+      let minJaw = 10;
+      for (let i = 0; i < 70; i++) {
+        scene.tick(0.02);
+        maxMouth = Math.max(maxMouth, fig.mouth.scale.y);
+        minJaw = Math.min(minJaw, fig.jaw.position.y);
+      }
+      return {
+        maxMouth: +maxMouth.toFixed(2),
+        jawDrop: +(fig.jaw.userData.baseY - minJaw).toFixed(3),
+      };
+    };
+    return { sal: sample(scene.sal.fig), mcclawsky: sample(scene.mcclawsky.fig) };
+  });
+  const talkOk = (t) => t.maxMouth > 1.6 && t.jawDrop > 0.015;
+  check('talking opens a shaped mouth, not a hinged slab',
+    talkOk(talk.sal) && talkOk(talk.mcclawsky), JSON.stringify(talk));
+
+  // ---- Elbows only ever hinge forward: sampled across the whole gesture
+  // library, the walk cycle and a talk, no elbow ever hyperextends backwards.
+  const elbows = await page.evaluate(() => {
+    const scene = window.squatchfather;
+    let max = -10;
+    for (const fig of [scene.sal.fig, scene.mcclawsky.fig]) {
+      for (const gesture of ['shrug', 'hands', 'drink', 'eat', 'point', 'reach', 'open']) {
+        fig.playGesture(gesture, 1.0);
+        for (let i = 0; i < 60; i++) {
+          scene.tick(0.02);
+          for (const a of [fig.armL, fig.armR]) max = Math.max(max, a.elbow.rotation.x);
+        }
+      }
+    }
+    return { maxElbowX: +max.toFixed(3) };
+  });
+  check('every elbow hinges forward, never backwards',
+    elbows.maxElbowX <= 0.05, JSON.stringify(elbows));
+
   // ---- A recorded VO beat plays and holds for the clip's real length.
   const vo = await page.evaluate(() => {
     const scene = window.squatchfather;
@@ -346,11 +433,42 @@ try {
     vo.log.some((v) => v.name === 'vo.sf.opening.1' && v.sample && v.duration > 0.5),
     JSON.stringify(vo));
 
+  // ---- The distant car horn keeps to the street: forced due indoors it
+  // stays silent, forced due outdoors it fires. (OPENING_DIALOGUE's update
+  // does not drive the ambience crossfade, so setOutside sticks here.)
+  const horn = await page.evaluate(() => {
+    const scene = window.squatchfather;
+    const amb = scene.ambience;
+    const count = () => scene.audio.playLog().filter((n) => n === 'street.horn.distant').length;
+    amb.passT = 999; amb.clinkT = 999; amb.dripT = 999;
+    amb.setOutside(0);
+    amb.hornT = -1;
+    const before = count();
+    scene.tick(0.4);
+    const insideFired = count() - before;
+    amb.setOutside(1);
+    amb.hornT = -1;
+    scene.tick(0.4);
+    const outsideFired = count() - before - insideFired;
+    amb.setOutside(0);
+    return { insideFired, outsideFired };
+  });
+  check('the distant horn never honks indoors',
+    horn.insideFired === 0 && horn.outsideFired > 0, JSON.stringify(horn));
+
   await go('SEARCH_TOILET');
   current = await state();
   check('the bathroom objective is reachable', current.beat === 'SEARCH_TOILET', current.beat);
 
-  await go('RETRIEVE_WEAPON', 6.2);
+  await go('RETRIEVE_WEAPON', 1.5);
+  const revolver = await page.evaluate(() => ({
+    weaponVisible: window.squatchfather.prospect.weapon.visible,
+    bundleRevolver: !!window.squatchfather.toiletInteraction.bundle.getObjectByName('bundle.revolver'),
+  }));
+  check('the bathroom weapon reads as a revolver from the first beat',
+    revolver.weaponVisible && revolver.bundleRevolver, JSON.stringify(revolver));
+
+  await page.evaluate(() => window.squatchfather.tick(4.7));
   current = await state();
   check('the real retrieval sequence returns to the table with the weapon',
     current.beat === 'RETURN_TO_TABLE' && current.hasWeapon,
@@ -378,6 +496,33 @@ try {
   });
   current = await state();
   check('shooting McClawsky requires the weapon drop', current.beat === 'DROP_WEAPON', current.beat);
+
+  // ---- The room really cowers: the waiter runs to the back corner and goes
+  // down; the diners are off their chairs, low, arms wrapped over their
+  // heads — and they hold it.
+  const cower = await page.evaluate(() => {
+    const scene = window.squatchfather;
+    scene.tick(3);
+    const figs = scene.sceneState.figures;
+    const m = (fig) => ({
+      cowering: !!fig.cowering,
+      pelvisY: +fig.pelvis.position.y.toFixed(2),
+      armX: +fig.armL.shoulder.rotation.x.toFixed(2),
+    });
+    return {
+      waiter: {
+        ...m(figs.waiter),
+        pos: [+figs.waiter.group.position.x.toFixed(2), +figs.waiter.group.position.z.toFixed(2)],
+      },
+      diner1: m(figs.diner1),
+      diner2: m(figs.diner2),
+    };
+  });
+  const down = (m) => m.cowering && m.pelvisY < 0.62 && m.armX < -1.8;
+  const waiterInCorner = Math.hypot(cower.waiter.pos[0] + 6.2, cower.waiter.pos[1] - 10.1) < 0.8;
+  check('after the shots the room cowers in earnest',
+    down(cower.waiter) && down(cower.diner1) && down(cower.diner2) && waiterInCorner,
+    JSON.stringify(cower));
 
   await page.evaluate(() => {
     window.squatchfather.dropInteraction.drop();
