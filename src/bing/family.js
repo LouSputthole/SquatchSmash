@@ -114,8 +114,13 @@ export const FAMILY = [
     id: CHARACTER_IDS.WILLY, name: 'Willy', slug: 'willy', photo: 'willy.png',
     // A blackjack seat — the best seat; he tested them all after close.
     spot: { x: -14.16, z: 8.88, yaw: 2.72, job: 'sit' },
+    /* A big man, not a big doorway -- and, ahead of a later scene, a big
+     * belly: `gut` is the general option on the shared figure builder
+     * (src/bing/cast.js), not a Willy-only shape, so the visual continuity
+     * does not suddenly inflate him the moment that scene lands. `build` only
+     * moves a little; the belly is doing the work. */
     model: {
-      height: 1.7, build: 1.05, dress: 'shirt', shirt: 0x2e2438,
+      height: 1.7, build: 1.1, gut: 1, dress: 'shirt', shirt: 0x2e2438,
       hair: 'receding', hairColour: 0x5a3a20, beard: true, skin: 0xd9a97f,
     },
   },
