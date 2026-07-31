@@ -103,6 +103,8 @@ export const STOOL_SIT = 0.315;
  * @param {object} o
  *   height   metres to the top of the head (1.78 is the default adult)
  *   build    1.0 average, 1.4 is Lou
+ *   gut      0 by default. A real belly, sized on its own rather than derived
+ *            from `build` -- see "gut" below, where it is built.
  *   dress    'suit' | 'shirt' | 'tracksuit' | 'tee' | 'waistcoat' | 'bikini' | 'work'
  *            | 'chef' | 'porter' | 'gown'
  *   hair     'short' | 'crop' | 'receding' | 'bald' | 'long' | 'tied'
@@ -173,7 +175,7 @@ function softBox({ size, pos, mat: material, name, rotX = 0, rotY = 0, rotZ = 0,
 
 export function makePerson(o = {}) {
   const {
-    height = 1.78, build = 1, dress = 'shirt', hair = 'short',
+    height = 1.78, build = 1, gut = 0, dress = 'shirt', hair = 'short',
     skin = pick(SKINS), hairColour = pick(HAIRS), shirt = pick(SHIRTS),
     bandana = false, chain = false, beard = false, glasses = false,
     gender = 'unspecified', bodyShape = 'average', adult = true,
@@ -254,6 +256,15 @@ export function makePerson(o = {}) {
   // rounded frame -- still narrower than the chest is deep is wide.
   const SH = (female ? 0.193 : 0.226) * (0.85 + build * 0.15); // half shoulder width
   const D = (curvy ? 0.145 : 0.135) * t;                       // half chest depth
+  /* A gut leans the man who carries it back a little, to counterbalance it --
+   * but that lean has to live in POSITION, not rotation: Npc.update() zeroes
+   * body and head rotation every single frame (see below), which is what
+   * stops a raised arm sticking forever, and it would just as happily erase
+   * a permanent tilt. Nudging the chest, shoulders, head and arm sockets back
+   * by a couple of centimetres survives that reset because nothing there is
+   * ever touched again after this function returns. */
+  const gutOn = Math.max(0, gut);
+  const lean = gutOn > 0 ? -(0.014 + gutOn * 0.02) * t : 0;
 
   /* ---- legs ----
    * Slab thigh, slab shin, a knee block between them, and a shoe that is a
@@ -305,13 +316,15 @@ export function makePerson(o = {}) {
       0.135 * 2,
       D * 0.9 * 2,
     ],
-    pos: [0, 1.15, 0],
+    pos: [0, 1.15, lean],
     mat: performanceWear ? skinMat : (dress === 'suit' ? jacket : cloth),
   });
   body.add(waist);
   /* A big man is big at the middle, not at the shoulders. Anything over about
-   * 1.15 build gets a front on him, which is most of what makes Lou Lou. */
-  if (build > 1.15) {
+   * 1.15 build gets a front on him, which is most of what makes Lou Lou --
+   * unless he has a real gut below, which stands in for this modest paunch
+   * rather than stacking a second belly on top of it. */
+  if (build > 1.15 && !gutOn) {
     const heavy = (build - 1) * 0.9;
     // Wide and shallow, sunk into the torso: a front, not a beach ball
     body.add(box({
@@ -324,6 +337,44 @@ export function makePerson(o = {}) {
       pos: [0, 1.05, D * (0.3 + heavy * 0.2)], mat: dress === 'suit' ? jacket : cloth,
     }));
   }
+  /* ---- gut ----
+   * A real belly, general enough for any figure the cast wants one on --
+   * Willy is the first, not the only. `build` thickens the whole frame
+   * evenly and tops out in the modest paunch above; `gut` is a shape on top
+   * of that, sized on its own. One rounded mass, built from `softBox` --
+   * the recent chamfer pass's own language, the one already used for the
+   * stage roles -- because a belly this size in hard-edged boxes reads as a
+   * crate strapped to a man's front rather than the man himself. Coloured in
+   * `cloth`, not skin, so what shows is the shirt stretched over it.
+   *
+   * Kept narrower than the hips and pulled up clear of where a seated thigh
+   * swings to (a seat folds the thigh to roughly horizontal, and its
+   * bounding box then tops out around y=1.01 regardless of build -- this
+   * sits above that with room to spare): a gut that reaches out sideways as
+   * far as it reaches forward stops being a belly and starts being a barrel
+   * and clips the hanging arm beside it, and one built down to knee height
+   * sits inside the thigh the moment the figure takes a chair. Depth is
+   * where a big gut actually reads, so depth is where this spends its size.
+   *
+   * Named so the belly can be measured on its own -- pinned against the
+   * family's other seated men in tools/verify-bing.mjs -- and so an arm can
+   * be checked against it directly rather than against the whole torso,
+   * which an arm is supposed to sit close beside.
+   */
+  if (gutOn > 0) {
+    const gutMat = dress === 'suit' ? jacket : cloth;
+    const gutW = (0.19 + gutOn * 0.05) * t;               // full width
+    const front = (0.11 + gutOn * 0.27) * t;              // full reach off the centreline
+    const back = (0.03 - gutOn * 0.07) * t;                // sinks into the torso behind it
+    const gutH = 0.22 + Math.min(gutOn, 1.4) * 0.02;       // full height -- not built from `t`,
+                                                            // like the waist and hips above it
+    body.add(softBox({
+      name: 'person.gut.belly',
+      size: [gutW, gutH, front - back],
+      pos: [0, 1.15, lean + (front + back) / 2],
+      mat: gutMat, r: 0.06,
+    }));
+  }
   /* The ribcage stops above the navel rather than running down to the hips.
    * A chest slab that reaches the waistband hides the waist behind it and the
    * whole figure goes rectangular -- which is what it did on the first pass,
@@ -331,17 +382,17 @@ export function makePerson(o = {}) {
   const torso = slab({
     name: 'ribcage',
     size: [(curvy ? 0.192 : 0.188) * t * 2, 0.16 * 2, D * 2],
-    pos: [0, 1.365, 0],
+    pos: [0, 1.365, lean],
     mat: performanceWear ? skinMat : cloth,
   });
   body.add(torso);
   // Shoulders: a slab the width of the frame, capped with square deltoids
-  body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, 0], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
+  body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
   for (const sx of [-1, 1]) {
     body.add(slab({
       name: 'deltoid',
       size: [0.118 * t, 0.11, 0.128 * t],
-      pos: [sx * SH, 1.45, 0],
+      pos: [sx * SH, 1.45, lean],
       mat: sleeve === skinMat ? skinMat : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth),
     }));
   }
@@ -511,7 +562,7 @@ export function makePerson(o = {}) {
    * Sat on a neck, with a jaw, a nose and a brow. The features are small and
    * the brow is what actually reads at three metres. */
   const head = group('head');
-  head.position.set(0, 1.50, 0);
+  head.position.set(0, 1.50, lean);
   head.add(box({ size: [0.105, 0.10, 0.105], pos: [0, 0.04, -0.005], mat: skinMat }));     // neck
 
   /* A photo face is one image on the front of a box skull and plain colour on
@@ -650,7 +701,7 @@ export function makePerson(o = {}) {
    */
   function arm(side) {
     const pivot = group('arm');
-    pivot.position.set(side * SH, 1.44, 0);
+    pivot.position.set(side * SH, 1.44, lean);
     pivot.add(slab({ name: 'upperarm', size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
     const fore = group('forearm');
     fore.position.set(0, -0.30, 0);
@@ -673,6 +724,7 @@ export function makePerson(o = {}) {
     bodyShape,
     outfit: dress,
     height,
+    gut: gutOn,
   };
   g.traverse((m) => {
     if (m.isMesh) {
@@ -739,6 +791,11 @@ export class Npc {
       role: model.role ?? null,
       ...this.parts.profile,
     };
+    /* A gutted figure rests its arms differently -- see sit() and the 'sit'
+     * and default cases in update() -- because the rest angles every other
+     * figure uses were tuned for a flat front and bring the forearm straight
+     * through where a real belly now sits. */
+    this.gutted = (this.parts.profile.gut ?? 0) > 0;
     this.homeYaw = yaw;
     this.baseY = y;
     /* Where a mover belongs. The dance walks the floor around a pole and has
@@ -783,10 +840,23 @@ export class Npc {
     this.parts.legR.rotation.x = -1.45;
     this.parts.shinL.rotation.x = 1.4;
     this.parts.shinR.rotation.x = 1.4;
-    this.parts.armL.rotation.x = -0.5;
-    this.parts.armR.rotation.x = -0.5;
-    this.parts.foreL.rotation.x = -0.5;
-    this.parts.foreR.rotation.x = -0.5;
+    if (this.gutted) {
+      /* The ordinary seated rest angle below pitches the whole arm forward,
+       * which is exactly the space a real belly now occupies -- it is how a
+       * flat-fronted figure rests its hands in its lap. A gutted figure
+       * rests its hands beside it instead: less forward pitch, elbows
+       * splayed outward (rotation.z), same job a big man's arms actually do
+       * in a chair. */
+      this.parts.armL.rotation.set(-0.3, 0, -0.38);
+      this.parts.armR.rotation.set(-0.3, 0, 0.38);
+      this.parts.foreL.rotation.x = -0.55;
+      this.parts.foreR.rotation.x = -0.55;
+    } else {
+      this.parts.armL.rotation.x = -0.5;
+      this.parts.armR.rotation.x = -0.5;
+      this.parts.foreL.rotation.x = -0.5;
+      this.parts.foreR.rotation.x = -0.5;
+    }
     this.group.position.y = this.baseY - 0.42 * this.parts.heightScale;
   }
 
@@ -1109,12 +1179,30 @@ export class Npc {
         this.parts.armR.rotation.x = -0.25;
         break;
       case 'sit':
-        this.parts.armL.rotation.x = -0.5 + Math.sin(t * 0.7) * 0.05;
-        this.parts.armR.rotation.x = -0.5 + Math.sin(t * 0.6 + 1) * 0.05;
+        if (this.gutted) {
+          this.parts.armL.rotation.x = -0.3 + Math.sin(t * 0.7) * 0.05;
+          this.parts.armR.rotation.x = -0.3 + Math.sin(t * 0.6 + 1) * 0.05;
+          this.parts.armL.rotation.z = -0.38;
+          this.parts.armR.rotation.z = 0.38;
+        } else {
+          this.parts.armL.rotation.x = -0.5 + Math.sin(t * 0.7) * 0.05;
+          this.parts.armR.rotation.x = -0.5 + Math.sin(t * 0.6 + 1) * 0.05;
+        }
         break;
       default: {
         this.parts.body.rotation.z = Math.sin(t * 0.4) * 0.018;
-        if (this.folded) {
+        if (this.folded && this.gutted) {
+          /* The same fold, lifted higher: pitching an upper arm forward from
+           * the shoulder drops its far end the LESS forward it goes (an arm
+           * pitched almost flat is almost level with the shoulder; one
+           * pitched only a little hangs almost straight down), so clearing
+           * the belly below takes MORE forward pitch than the ordinary fold
+           * uses, not less, and the crossed forearms come with it. */
+          this.parts.armL.rotation.set(-1.35, 0, 0.5);
+          this.parts.armR.rotation.set(-1.35, 0, -0.5);
+          this.parts.foreL.rotation.set(-1.55, 0.5, 0);
+          this.parts.foreR.rotation.set(-1.55, -0.5, 0);
+        } else if (this.folded) {
           // Arms crossed: lifted well forward first, so the elbows sit ON the
           // chest and the forearms cross in front of it rather than inside it
           this.parts.armL.rotation.set(-0.6, 0, 0.42);
