@@ -1512,6 +1512,12 @@ function updateSwigging(dt, holdingF) {
     hud.hidePrompt();
 
     apartment.consumeWhiskey();
+    if (campaign.state.missions[MISSION_IDS.BADA_BING_ONE].status === 'complete'
+      && !campaign.state.activities.whiskeyRelaxed) {
+      campaign.update((state) => { state.activities.whiskeyRelaxed = true; });
+      updateObjectives();
+      hud.toast('Nerves settled. Time to handle business.', 'good');
+    }
     drunk.drink(WHISKEY_UNITS);
     apartment.state.bladder = Math.min(1, apartment.state.bladder + 0.16);
     audio.play('whiskey.gasp', { volume: 0.7 });
@@ -2003,7 +2009,7 @@ function startGluing() {
   glue.bar.start();
   interaction.setPaused(true);
   hud.setPosture('give up on it');
-  audio.play('glue.pickup', { volume: 0.6, position: apartment.gluePos });
+  audio.play('glue.squeeze', { volume: 0.48, rate: 0.92, position: apartment.gluePos });
   hud.say('Crooked for months, this. <em>Right.</em><br>'
     + 'Gone solid round the nozzle, of course. Time it and squeeze.', 5600);
 }
@@ -2274,6 +2280,7 @@ function activityContext() {
     pooped: game.pooped,
     changedClothes: apartment.state.dressed,
     emailChecked: apartment.state.repliedHR,
+    whiskeyRelaxed: campaign.state.activities.whiskeyRelaxed,
     /* Day One's optional half. `pcOn` is whether the tower is on right now,
      * which is not the same question -- switching it off again does not
      * un-look at it. */

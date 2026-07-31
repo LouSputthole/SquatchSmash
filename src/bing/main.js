@@ -2553,7 +2553,7 @@ function onRoomChange(next) {
   if (next === 'hallway' && mission.state === 'club') mission.reachedHallway();
   if (next === 'office' && (mission.state === 'hallway' || mission.state === 'club')) {
     mission.enteredOffice();
-    startLouScene();
+    hud.say('Big Uncle Lou is at the desk. <kbd>E</kbd> when you are ready to talk.', 4600);
   }
   if (next !== 'office' && mission.state === 'briefed' && !game.partingSaid) {
     game.partingSaid = true;

@@ -1,19 +1,14 @@
 /**
  * SQUATCH MAIL -- the inbox on the desk PC.
  *
- * Two messages matter and both arrived while he was asleep. Uncle Lou wrote at
- * 5:12 to say well done for lasting the season and that tomorrow night is his;
- * Goy Corp wrote at 4:51 to say he no longer works there. Neither mentions the
- * other, which is the day in miniature.
+ * Goy Corp wrote at 4:51 to say he no longer works there. Family business is
+ * delivered by a call or in person, never by a mission email.
  *
  * The rest is what an inbox is: a receipt, a warranty nobody asked about, a
  * training module, and a thread from the boys that has been going for two days.
  *
- * It is the fourth way to find out about tomorrow, after the note on the
- * corkboard, the radio, and Booski typing into a server nobody is in. None of
- * them is the intended route -- the information is lying around in four places
- * and it is still possible to spend the whole day not looking at any of them.
- * Lou's is the only one that says what it actually is.
+ * It is optional character texture, not a progression gate. The intended
+ * route into the family business is the phone, then a face-to-face meeting.
  *
  * An app in the SquatchOS sense: the OS hands it the drawing context and the
  * input while it has focus. See os.js.
@@ -25,7 +20,7 @@ const ROW_H = 46;
 const HEADER_H = 30;
 
 /**
- * Newest first. `meeting` marks the one that counts as having been told.
+ * Newest first. None of these messages author campaign progression.
  *
  * Bodies are PARAGRAPHS, not lines. The pane wraps them at draw time, so a
  * line break in here is a real one -- a blank line, a list, a quoted reply --
@@ -367,7 +362,9 @@ export class Mail {
     this.usesOsCursor = true;
     this.os = os;
     this.audio = audio;
-    this.messages = MESSAGES.map((m) => ({ ...m }));
+    // The old Uncle Lou mail remains in source history while it is excluded
+    // from the live inbox. Lou gives instructions by phone and in person.
+    this.messages = MESSAGES.filter((m) => m.from !== 'Uncle Lou').map((m) => ({ ...m }));
     this.sel = 0;
     this.scroll = 0;
     this.t = 0;

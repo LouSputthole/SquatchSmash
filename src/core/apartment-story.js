@@ -672,6 +672,8 @@ class ApartmentStory {
       items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
     } else if (door.kind === 'stay') {
       items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+    } else if (door.kind === 'activity') {
+      items.push({ id: door.id, label: door.label, done: false, required: true });
     }
     /* Last line, and only on the first day: the Bing is not until a quarter
      * to midnight, so everything above it is true and useless for seventeen
@@ -789,6 +791,15 @@ class ApartmentStory {
           kind: 'item',
           id: ITEM_IDS.LOU_PACKAGE,
           line: 'I am not going anywhere until I find Lou’s package.',
+        };
+      }
+      if (!activities.whiskeyRelaxed) {
+        return {
+          kind: 'activity',
+          id: 'whiskeyRelaxed',
+          label: 'Take a shot of whiskey',
+          line: 'Take one pull of whiskey. You earned the nerves.',
+          hint: 'Pick up the whiskey and hold F for a pull.',
         };
       }
       return {

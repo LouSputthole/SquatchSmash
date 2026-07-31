@@ -472,9 +472,9 @@ export function buildAirfield(scene, { terrain } = {}) {
      * eight feet clear, and the tail still clears Stove's crates. */
     parking: new THREE.Vector3(-55, ELEV, 385),
     parkingHeading: 90,
-    // Under the wing, whose chord sits at x [-55.46, -53.54] when the
-    // aeroplane is on the parking spot. He is meant to be leaning on it.
-    louStand: new THREE.Vector3(-54.4, ELEV, 381),
+    // Clear of the wing and facing the road. Captain Sasole needs to read as
+    // someone waiting to brief Tony, not a figure clipped into the aircraft.
+    louStand: new THREE.Vector3(-52.4, ELEV, 380.3),
     holdShort: new THREE.Vector3(-16, ELEV, 396),
     lineUp: new THREE.Vector3(WP.x, ELEV, 400),
     departHeading: 180,

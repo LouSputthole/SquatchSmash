@@ -310,6 +310,7 @@ function initialState() {
       pooped: false,
       changedClothes: false,
       emailChecked: false,
+      whiskeyRelaxed: false,
     },
     inventory: {
       carried: [],

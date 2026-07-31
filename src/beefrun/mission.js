@@ -121,11 +121,6 @@ export class MissionController {
     this.physics.controls.parkingBrake = true;
     this.aircraft.syncTo(this.physics);
 
-    this.lou.group.position.copy(this.airfield.anchors.louStand);
-    this.lou.group.rotation.y = Math.PI * 0.6;
-    setPose(this.lou, 'lean');
-    this.lou.sick = 0.35;
-
     /* Old Stove waits in the hangar's shade, facing the door. He walks out to
      * his crates near the end of the preflight (updatePreflight) rather than
      * standing frozen beside the aeroplane from the first frame. Officially,
@@ -143,6 +138,11 @@ export class MissionController {
     this.player.yaw = yawToward(start, park);
     this.player.mode = 'walk';
     this.player.enabled = true;
+
+    this.lou.group.position.copy(this.airfield.anchors.louStand);
+    setPose(this.lou, 'lean');
+    this.lou.faceToward(this.player.position.x, this.player.position.z);
+    this.lou.sick = 0.35;
 
     this.weather.setConditions({ turbulence: 0.22, crosswind: 0.4 * d.crosswind, rain: 0, cloudDensity: 0.35, dusk: 0 });
     this.audio.setPhase('airport');

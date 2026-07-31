@@ -46,12 +46,11 @@ export const DAY_DRESSING = Object.freeze({
     air: Object.freeze({ rain: 0, tint: 1, warmth: 1 }),
   }),
 
-  /* "Trusted With Business." Last night happened. The shirt is on the floor
-   * where he stepped out of it, there is money that was not there yesterday,
-   * and there is a message on the machine. */
+  /* "Trusted With Business." Last night happened. There is money that was not
+   * there yesterday and a message on the machine; the floor stays clear. */
   day_two: Object.freeze({
     title: 'Trusted With Business',
-    adds: Object.freeze(['bloodShirt', 'cashSmall', 'bingMatches']),
+    adds: Object.freeze(['cashSmall', 'bingMatches']),
     // He replied to HR. He is not going back, and the badge went in a drawer.
     removes: Object.freeze(['lanyard']),
     air: Object.freeze({ rain: 0, tint: 1, warmth: 1 }),

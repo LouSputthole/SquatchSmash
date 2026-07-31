@@ -16,6 +16,7 @@ import {
 } from './util.js';
 import { AC } from './config.js';
 import { drawSquatchSilhouette } from '../world/textures.js';
+import { assetUrl } from '../core/assets.js';
 import { Instruments } from './instruments.js';
 
 const CREAM = 0xd9cfb4;
@@ -51,6 +52,13 @@ function emblemTexture() {
   ctx.textAlign = 'center';
   ctx.fillText('SQUATCH FAMILY', 128, 244);
   const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** The exact crest in Tony's apartment, carried onto the family aeroplane. */
+function apartmentCrestTexture() {
+  const tex = new THREE.TextureLoader().load(assetUrl('assets/art/', 'logo-crest.png'));
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
 }
@@ -334,7 +342,7 @@ export class Brushrunner {
      * hearse — at z 1.28 so its aft edge stays clear of the side glazing,
      * whose outer face sits proud of the skin. The tally stays port-only,
      * beside the door: it is the crew's scoreboard, not livery. */
-    const emblemMat = mat({ map: emblemTexture(), roughness: 0.9 });
+    const emblemMat = mat({ map: apartmentCrestTexture(), roughness: 0.9, transparent: true, alphaTest: 0.03 });
     for (const sx of [-1, 1]) {
       const emblem = flatMesh(new THREE.PlaneGeometry(0.9, 0.9), emblemMat, sx * 0.945, 0.28, 1.28);
       emblem.rotation.y = sx * Math.PI / 2;

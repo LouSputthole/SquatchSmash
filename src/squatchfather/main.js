@@ -578,7 +578,8 @@ function buildStates() {
         train.setIntensity(0.3);
         vibration.set(0.12);
         this.prodded = 0;
-        timeline.after(5, () => train.horn());
+        // The train owns the pressure here; the extra horn was an indoor
+        // jump-scare immediately after the bathroom, not useful story sound.
       },
       update(dt) {
         // He opens the door on his way out

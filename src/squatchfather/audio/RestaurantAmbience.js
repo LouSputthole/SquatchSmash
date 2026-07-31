@@ -113,7 +113,11 @@ export class RestaurantAmbience {
     if (!this.started) return;
     this.t += dt;
     const inside = 1 - this.outside;
-    const muf = 1 - this.muffle * 0.88;
+    // Behind the bathroom door, the room is almost gone. Keep the murmur as
+    // a filtered reminder of people outside; lose the glassware, street and
+    // kitchen beds rather than only low-passing them.
+    const muf = 1 - this.muffle * 0.97;
+    const murmurMuf = 1 - this.muffle * 0.72;
     const now = core.now();
 
     const { room, murmurA, murmurB, street, kitchen, bathroom } = this.beds;
@@ -125,31 +129,31 @@ export class RestaurantAmbience {
     const doorLp = 16000 * (1 - this.muffle) + 700 * this.muffle;
 
     if (room.isSample) {
-      room.handle.gain.gain.setTargetAtTime(LVL.room * (inside * muf + 0.24), now, 0.25);
+      room.handle.gain.gain.setTargetAtTime(LVL.room * (inside * muf + 0.015), now, 0.25);
       room.handle.filt.frequency.setTargetAtTime(doorLp, now, 0.3);
     } else if (room.handle) {
-      room.handle.gain.gain.setTargetAtTime(0.05 * inside * muf + 0.012, now, 0.25);
+      room.handle.gain.gain.setTargetAtTime(0.05 * inside * muf + 0.001, now, 0.25);
     }
 
     if (murmurA.isSample) {
-      murmurA.handle.gain.gain.setTargetAtTime(LVL.murmur * inside * muf, now, 0.25);
+      murmurA.handle.gain.gain.setTargetAtTime(LVL.murmur * inside * murmurMuf, now, 0.25);
       murmurA.handle.filt.frequency.setTargetAtTime(doorLp, now, 0.3);
     } else if (murmurA.handle) {
-      murmurA.handle.gain.gain.setTargetAtTime(0.038 * inside * muf, now, 0.25);
+      murmurA.handle.gain.gain.setTargetAtTime(0.038 * inside * murmurMuf, now, 0.25);
       murmurA.handle.filt.frequency.setTargetAtTime(
         (380 + Math.sin(this.t * 0.7) * 90) * (1 - this.muffle * 0.6), now, 0.3
       );
-      if (murmurB.handle) murmurB.handle.gain.gain.setTargetAtTime(0.024 * inside * muf, now, 0.25);
+      if (murmurB.handle) murmurB.handle.gain.gain.setTargetAtTime(0.024 * inside * murmurMuf, now, 0.25);
     }
 
     if (street.isSample) {
-      street.handle.gain.gain.setTargetAtTime(LVL.street * (this.outside + 0.13 * inside) * muf, now, 0.3);
+      street.handle.gain.gain.setTargetAtTime(LVL.street * (this.outside + 0.02 * inside) * muf, now, 0.3);
       // Wide open on the pavement; through the facade, then the door, it dulls.
       street.handle.filt.frequency.setTargetAtTime(
         (this.outside > 0.5 ? 15000 : 1400) * (1 - this.muffle * 0.8), now, 0.3
       );
     } else if (street.handle) {
-      street.handle.gain.gain.setTargetAtTime((0.09 * this.outside + 0.012 * inside) * muf, now, 0.3);
+      street.handle.gain.gain.setTargetAtTime((0.09 * this.outside + 0.002 * inside) * muf, now, 0.3);
       street.handle.filt.frequency.setTargetAtTime(
         (this.outside > 0.5 ? 1700 : 700) * (1 - this.muffle * 0.65), now, 0.3
       );
@@ -157,21 +161,21 @@ export class RestaurantAmbience {
 
     // Pans and extractor through the kitchen wall — inside only, no highs.
     if (kitchen.handle) {
-      kitchen.handle.gain.gain.setTargetAtTime(LVL.kitchen * inside * muf, now, 0.3);
+      kitchen.handle.gain.gain.setTargetAtTime(LVL.kitchen * inside * muf * (1 - this.muffle * 0.7), now, 0.3);
       kitchen.handle.filt.frequency.setTargetAtTime(900 * (1 - this.muffle * 0.5), now, 0.3);
     }
 
     // Hard tiled tone, present only once the bathroom door is between him
     // and the restaurant.
     if (bathroom.handle) {
-      bathroom.handle.gain.gain.setTargetAtTime(LVL.bathroom * this.muffle, now, 0.3);
+      bathroom.handle.gain.gain.setTargetAtTime(LVL.bathroom * this.muffle * 0.55, now, 0.3);
     }
 
     // Cutlery, glasses, a kitchen door
     this.clinkT -= dt;
     if (this.clinkT <= 0) {
       this.clinkT = 2.5 + Math.random() * 5;
-      if (inside > 0.4) {
+      if (inside > 0.4 && this.muffle < 0.35) {
         const t = core.now();
         const peak = (0.05 + Math.random() * 0.05) * inside * muf;
         if (!core.playSample('dish.clink', { volume: peak * 6, rate: 0.92 + Math.random() * 0.2 })) {
