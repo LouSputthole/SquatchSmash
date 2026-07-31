@@ -24,6 +24,32 @@ const TAG_Y = 2.16;               // metres: clear of the tallest hat
 
 const _tagPos = new THREE.Vector3();
 
+/* Photo faces, the way the Bing's cast and the Initiation do them: the picture
+ * on the front of a box skull and plain colour on the other five sides.
+ *
+ * A snapshot is not a face texture -- it arrives with a patio behind it, and
+ * mapped whole onto a head the fence comes too, so the man reads as a
+ * photograph on a stick. The crop pulls the frame in to the head itself:
+ * [u, v, width, height] in texture space, v measured from the bottom. */
+const FACE_CROP = [0.20, 0.06, 0.60, 0.86];
+
+const faceTexCache = new Map();
+function faceTexture(url, crop) {
+  const key = `${url}|${crop.join(',')}`;
+  if (!faceTexCache.has(key)) {
+    const tex = new THREE.TextureLoader().load(url);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.offset.set(crop[0], crop[1]);
+    tex.repeat.set(crop[2], crop[3]);
+    faceTexCache.set(key, tex);
+  }
+  return faceTexCache.get(key);
+}
+
+/* Poses whose hands are already busy. A man holding a rifle across his chest
+ * does not need to be caught gesturing with it. */
+const NO_GESTURE = new Set(['guard', 'carry', 'sit']);
+
 /**
  * A floating name, painted once into a canvas and hung over a figure's head.
  *
@@ -94,10 +120,26 @@ export function makeFigure(o = {}) {
   const neck = new THREE.Group();
   neck.position.set(0, 0.66, 0);
   hips.add(neck);
-  const head = mesh(boxGeo(0.24, 0.28, 0.24), skin, 0, 0.14, 0);
+  /* The head. With a photograph it is one image on the front of the skull and
+   * hair colour on the other five sides, and nothing procedural gets built on
+   * top of it: the picture already has his hair, his sunglasses and his
+   * moustache in it, and a painted-on pair over the top of real ones is how a
+   * likeness stops being one. The figure faces +z, which is material index 4. */
+  let head;
+  if (o.face) {
+    const wrap = solid(o.hair ?? 0x3a2c20, { roughness: 1 });
+    const faceMat = new THREE.MeshStandardMaterial({
+      map: faceTexture(o.face, o.faceCrop || FACE_CROP), roughness: 0.9, metalness: 0,
+    });
+    head = new THREE.Mesh(boxGeo(0.24, 0.28, 0.24), [wrap, wrap, wrap, wrap, faceMat, wrap]);
+    head.position.set(0, 0.14, 0);
+    head.castShadow = head.receiveShadow = true;
+  } else {
+    head = mesh(boxGeo(0.24, 0.28, 0.24), skin, 0, 0.14, 0);
+  }
   neck.add(head);
-  if (o.hair !== false) neck.add(mesh(boxGeo(0.25, 0.08, 0.25), solid(o.hair ?? 0x3a2c20, { roughness: 1 }), 0, 0.27, 0));
-  if (o.shades) {
+  if (o.hair !== false && !o.face) neck.add(mesh(boxGeo(0.25, 0.08, 0.25), solid(o.hair ?? 0x3a2c20, { roughness: 1 }), 0, 0.27, 0));
+  if (o.shades && !o.face) {
     neck.add(mesh(boxGeo(0.22, 0.06, 0.03), solid(0x14161a, { roughness: 0.3, metalness: 0.4 }), 0, 0.16, 0.13));
   }
   if (o.hat === 'cowboy') {
@@ -153,6 +195,10 @@ export function makeFigure(o = {}) {
     lookAt: null,
     walk: null,     // set by walkTo(); updateFigure carries him there
     sick: 0,        // Lou only: how bad it is right now
+    idle: true,     // weight shifts and the odd gesture, on top of the pose
+    gesture: 0,
+    gestureAt: 3 + Math.random() * 7,
+    base: null,     // what the pose set, so idle life can add rather than fight
     _breath: 0,
   };
 }
@@ -213,6 +259,14 @@ export function setPose(f, pose) {
       R.shoulder.rotation.x = -0.06;
       break;
   }
+  /* Remember where the pose left everything the idle layer is going to move,
+   * so a weight shift adds to a lean instead of straightening it out. */
+  f.base = {
+    hipRollZ: f.hips.rotation.z,
+    hipX: f.hips.position.x,
+    arms: f.arms.map((a) => ({ sx: a.shoulder.rotation.x, ex: a.elbow.rotation.x })),
+    legs: f.legs.map((l) => l.hip.rotation.z),
+  };
 }
 
 /**
@@ -261,6 +315,34 @@ export function updateFigure(f, dt, camPos = null) {
       f.arms[0].shoulder.rotation.x = -s * 0.3;
       f.arms[1].shoulder.rotation.x = s * 0.3;
       f.hips.position.y += Math.abs(Math.cos(w.phase)) * 0.028;
+    }
+  }
+
+  /* Idle life. A man waiting on his aeroplane does not stand still: he puts
+   * his weight on one leg, then on the other, and every so often he does
+   * something with his hands. Two sine waves at prime-ish rates so the sway
+   * never settles into a loop you can count, and everything is added to what
+   * the pose set rather than written over it — Lou keeps his lean, Stove keeps
+   * his folder against his leg. */
+  if (f.idle && f.base && !f.walk && f.pose !== 'sit') {
+    const shift = Math.sin(f.t * 0.31) * 0.5 + Math.sin(f.t * 0.17 + 1.1) * 0.5;
+    f.hips.position.x = f.base.hipX + shift * 0.035;
+    f.hips.rotation.z = f.base.hipRollZ + shift * 0.05;
+    for (const [i, leg] of f.legs.entries()) leg.hip.rotation.z = f.base.legs[i] - shift * 0.03;
+
+    if (!NO_GESTURE.has(f.pose)) {
+      if (f.gesture <= 0 && f.t > f.gestureAt) {
+        f.gesture = 1;
+        f.gestureAt = f.t + 7 + Math.random() * 9;
+      }
+      if (f.gesture > 0) {
+        f.gesture = Math.max(0, f.gesture - dt * 0.5);
+        // Up and back down again, so it reads as one movement and not a twitch.
+        const k = Math.sin((1 - f.gesture) * Math.PI);
+        const arm = f.arms[0];
+        arm.shoulder.rotation.x = f.base.arms[0].sx - k * 0.85;
+        arm.elbow.rotation.x = f.base.arms[0].ex - k * 1.05;
+      }
     }
   }
 
@@ -316,9 +398,13 @@ export function makeLou() {
     trousers: 0xa89878,      // wrinkled khaki
     boots: 0x4a3320,
     hair: 0x4a4038,
-    shades: true,
+    shades: true,            // in the photograph, where they belong
     hat: 'headset',
     build: 0.55,
+    /* His actual face. The crop takes the cap down to the moustache and no
+     * further — the shirt and the railing behind him are not part of him. */
+    face: 'assets/faces/sasole.png',
+    faceCrop: [0.276, 0.44, 0.48, 0.56],
   });
   setPose(f, 'lean');
   // The cup. It goes where he goes until he gets in the aeroplane.
