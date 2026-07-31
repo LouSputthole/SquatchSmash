@@ -481,7 +481,9 @@ export function buildScripts(ctx) {
       who: 'coat check',
       line: '<em>(Two tickets, one hand, no looking.)</em> Ninety-one and ninety-two. '
         + 'You’ll lose yours. They always lose theirs.',
-      next: 'open',
+      /* Ends. It used to loop back to `open`, which asked for the coats she
+       * had just taken — the first of the talking loops the playtest hit. */
+      hold: 4.2,
     },
     took: {
       who: 'coat check',
@@ -496,16 +498,34 @@ export function buildScripts(ctx) {
   /* ---------------------------------------------------------------- */
 
   const host = {
+    /* Before the table exists this is the whole confrontation; after it, he
+     * has nothing to be full about. Without the split, talking to him again
+     * mid-evening re-ran "Name? …We're full" over a man whose table the
+     * manager had already had built — another of the playtest's loops. */
     open: {
       who: 'the host',
-      line: '<em>(Running a pencil down the book without looking up.)</em> Name? '
-        + '…We’re full. I can do you a nine-forty-five at the back. Behind the column. '
-        + 'It’s a table.',
-      options: () => [
-        { tone: 'Wait', text: '<em>(Say nothing. Wait.)</em>', next: 'waited' },
-        { tone: 'Push', text: 'Look at the book again.', next: 'push' },
-        tipOption('Woo.HostTipped', 20, '<em>(Put something on the book.)</em>', 'took'),
-      ],
+      line: () => (flags.tableBuilt
+        ? '<em>(He does not consult the book.)</em> Sir. Madam. Everything is exactly '
+          + 'where it should be.'
+        : '<em>(Running a pencil down the book without looking up.)</em> Name? '
+          + '…We’re full. I can do you a nine-forty-five at the back. Behind the column. '
+          + 'It’s a table.'),
+      options: () => (flags.tableBuilt
+        ? [
+          tipOption('Woo.HostTipped', 20, '<em>(On the book, on the way past.)</em>', 'settled'),
+          { tone: 'Go on', text: 'It is.', next: null },
+        ]
+        : [
+          { tone: 'Wait', text: '<em>(Say nothing. Wait.)</em>', next: 'waited' },
+          { tone: 'Push', text: 'Look at the book again.', next: 'push' },
+          tipOption('Woo.HostTipped', 20, '<em>(Put something on the book.)</em>', 'took'),
+        ]),
+    },
+    settled: {
+      who: 'the host',
+      line: '<em>(The pencil closes the book on it.)</em> Very kind. The nine-forty-fives '
+        + 'will never know.',
+      hold: 3.6,
     },
     waited: {
       who: 'the host',
@@ -931,23 +951,41 @@ export function buildScripts(ctx) {
   /* ---------------------------------------------------------------- */
 
   const waiter = {
+    /* `open` is the drink order, ONCE. Talking to him again after the order —
+     * he patrols the floor and the tap is always there — used to replay the
+     * whole "something to drink for the lady?" round over drinks she already
+     * had. Ordered, he offers the table another instead. */
     open: {
       who: 'the waiter',
-      line: () => (ctx.knows('third-number')
-        ? '<em>(He is already setting down two menus and a jug of water nobody asked '
-          + 'for.)</em> Good evening. The kitchen knows you’re here. Drinks?'
-        : 'Good evening. <em>(Two menus, and he stands the way they stand: perfectly '
-          + 'still, at an angle.)</em> Something to drink for the lady?'),
-      options: () => [
-        { tone: 'Remember', text: 'Rye. One ice cube. One.', next: 'rye',
-          effect: () => { flags.drinkOrdered = 'rye'; fire('Woo.DrinkRemembered'); } },
-        { tone: 'Guess', text: 'She’ll have a glass of the white.', next: 'white',
-          effect: () => { flags.drinkOrdered = 'wrong'; fire('Woo.DrinkWrong'); } },
-        { tone: 'Ask her', text: 'What are you drinking?', next: 'ask',
-          effect: () => { flags.drinkOrdered = 'asked'; fire('Woo.DrinkAsked'); } },
-        { tone: 'Grand', text: 'Bring a bottle of whatever the manager drinks.', next: 'bottle',
-          effect: () => { flags.drinkOrdered = 'bottle'; } },
-      ],
+      line: () => {
+        if (!flags.seated) {
+          return '<em>(A nod, without breaking stride.)</em> Sir. Your table is ahead of you.';
+        }
+        if (flags.drinkOrdered) return 'Sir. Everything as it should be over here?';
+        return ctx.knows('third-number')
+          ? '<em>(He is already setting down two menus and a jug of water nobody asked '
+            + 'for.)</em> Good evening. The kitchen knows you’re here. Drinks?'
+          : 'Good evening. <em>(Two menus, and he stands the way they stand: perfectly '
+            + 'still, at an angle.)</em> Something to drink for the lady?';
+      },
+      options: () => (!flags.seated
+        ? [{ tone: 'Go on', text: '<em>(Leave him to the floor.)</em>', next: null }]
+        : flags.drinkOrdered
+          ? [
+            { tone: 'Another', text: 'Same again, when you get a second.', next: null },
+            tipOption('Woo.WaiterTipped', 40, '<em>(Take care of him.)</em>', 'thanks'),
+            { tone: 'No', text: 'We’re looked after, thanks.', next: null },
+          ]
+          : [
+            { tone: 'Remember', text: 'Rye. One ice cube. One.', next: 'rye',
+              effect: () => { flags.drinkOrdered = 'rye'; fire('Woo.DrinkRemembered'); } },
+            { tone: 'Guess', text: 'She’ll have a glass of the white.', next: 'white',
+              effect: () => { flags.drinkOrdered = 'wrong'; fire('Woo.DrinkWrong'); } },
+            { tone: 'Ask her', text: 'What are you drinking?', next: 'ask',
+              effect: () => { flags.drinkOrdered = 'asked'; fire('Woo.DrinkAsked'); } },
+            { tone: 'Grand', text: 'Bring a bottle of whatever the manager drinks.', next: 'bottle',
+              effect: () => { flags.drinkOrdered = 'bottle'; } },
+          ]),
     },
     rye: {
       who: 'the waiter',
@@ -1198,19 +1236,30 @@ export function buildScripts(ctx) {
   ];
 
   const bandleader = {
+    /* Front table gets ONE. Once a number has been asked for, asking again is
+     * met with the request already on the pad — the request options re-firing
+     * was another way a conversation looped and the set queue got shuffled. */
     open: {
       who: 'the bandleader',
-      line: 'Evening. <em>(He is mopping his neck with a handkerchief and grinning like '
-        + 'a man who has just got away with something.)</em> You’re the front table. '
-        + 'Front table gets one.',
-      options: () => [
-        { tone: 'Her band', text: 'Something with the horns. All of them.', next: 'horns',
-          effect: () => { flags.songRequested = 'horns'; fire('Woo.PerformancePreferenceRemembered'); } },
-        { tone: 'Slow', text: 'Something slow.', next: 'slow',
-          effect: () => { flags.songRequested = 'slow'; fire('Woo.SongRequested'); } },
-        { tone: 'Ask her', text: '<em>(Look at Margo.)</em>', next: 'her-pick' },
-        tipOption('Woo.BandleaderTipped', 40, '<em>(Into the top pocket.)</em>', 'tipped'),
-      ],
+      line: () => (flags.songRequested
+        ? '<em>(Still grinning, already half-turned for the stage.)</em> It’s on the '
+          + 'pad. Front table got its one.'
+        : 'Evening. <em>(He is mopping his neck with a handkerchief and grinning like '
+          + 'a man who has just got away with something.)</em> You’re the front table. '
+          + 'Front table gets one.'),
+      options: () => (flags.songRequested
+        ? [
+          tipOption('Woo.BandleaderTipped', 40, '<em>(Into the top pocket.)</em>', 'tipped'),
+          { tone: 'Go on', text: 'Play it well.', next: null },
+        ]
+        : [
+          { tone: 'Her band', text: 'Something with the horns. All of them.', next: 'horns',
+            effect: () => { flags.songRequested = 'horns'; fire('Woo.PerformancePreferenceRemembered'); } },
+          { tone: 'Slow', text: 'Something slow.', next: 'slow',
+            effect: () => { flags.songRequested = 'slow'; fire('Woo.SongRequested'); } },
+          { tone: 'Ask her', text: '<em>(Look at Margo.)</em>', next: 'her-pick' },
+          tipOption('Woo.BandleaderTipped', 40, '<em>(Into the top pocket.)</em>', 'tipped'),
+        ]),
     },
     horns: {
       who: DATE.name,

@@ -607,6 +607,12 @@ function registerPerson(key, tree, { tipId = null, amount = 0, greetOnly = false
 }
 
 function greet(npc, tree, at = 'open') {
+  /* One conversation at a time, ENDED, not replaced. `dialogue.start` on top
+   * of a live conversation never fired the old one's onEnd — so a waiter
+   * summoned to the table and then talked past was orphaned there for the
+   * night, standing beside the cloth with his tray. Ending it runs the
+   * cleanup: he goes back to his station, the ape goes back to his table. */
+  if (dialogue.active && game.talkingTo !== npc) dialogue.end('interrupted');
   npc.faceToward(player.position.x, player.position.z);
   game.greeted.add(npc.name);
   game.talkingTo = npc;
@@ -627,7 +633,11 @@ for (const t of TIP_POINTS) {
  * not exist as far as the player is concerned until the curtain goes. */
 cast.byName.bandleader = band.leader;
 registerPerson('bandleader', scripts.bandleader, { tipId: 'Woo.BandleaderTipped', amount: 40 });
-registerPerson('ape', scripts.ape, { greetOnly: true });
+/* The ape has no tree on a tap: his scene is the one where he comes to YOUR
+ * table, and starting it by poking him at his own — "he arrives the way a man
+ * arrives when he has been working up to it" said over a seated man who has
+ * not moved — replayed the whole family round from the wrong side of the room. */
+registerPerson('ape', null, { greetOnly: true });
 registerPerson('smoker', null, { greetOnly: true });
 
 /* ---- the things in the world ---- */
@@ -1178,7 +1188,10 @@ const ROUND_QUEUE = [
   { id: 'table', after: 0 },
   { id: 'entrance', after: 6 },
   { id: 'work', after: 26 },
-  { id: 'drinks', after: 48, run: () => waiterComesOver() },
+  /* Skipped if the order already happened — the waiter patrols within reach
+   * of the front table, so a player can wave him down before the queue does,
+   * and the round must not then play a second time. */
+  { id: 'drinks', after: 48, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
   { id: 'family', after: 96, run: () => apeComesOver() },
   { id: 'funny', after: 150 },
   { id: 'personal', after: 186 },
@@ -1222,6 +1235,11 @@ function runSeatedQueue(dt) {
 function comesToTable(npc, offset = { x: 1.3, z: 0.9 }) {
   if (!npc) return null;
   const t = room.anchors.frontTable;
+  /* His station's round, kept the first time he is called over. `goesBack`
+   * falls back to it, so a man summoned twice without being released between
+   * — which is a timing accident, not a plan — still has somewhere to go
+   * instead of standing at the table for the rest of the evening. */
+  npc.__homeRoute ??= npc.route;
   npc.__wasPatrolling = npc.route;
   npc.route = null;
   npc.job = 'stand';
@@ -1233,8 +1251,9 @@ function comesToTable(npc, offset = { x: 1.3, z: 0.9 }) {
 
 function goesBack(npc) {
   if (!npc) return;
-  if (npc.__wasPatrolling) {
-    npc.route = npc.__wasPatrolling;
+  const route = npc.__wasPatrolling ?? npc.__homeRoute;
+  if (route) {
+    npc.route = route;
     npc.job = 'patrol';
     npc.__wasPatrolling = null;
   }
@@ -1249,12 +1268,23 @@ function waiterComesOver(at = 'open') {
 function apeComesOver() {
   const ape = cast.byName.ape;
   if (!ape) return;
+  /* Once. The queue fires this on its own clock, and without the guard a
+   * family round that had already happened played again, word for word. */
+  if (mission.roundsDone.has('family')) return;
   const target = room.anchors.frontTable;
   ape.stand();
   ape.job = 'stand';
-  ape.group.position.set(target.x + 1.3, 0, target.z + 0.9);
+  /* His own spot on the far corner of the table — NOT the waiter's mark. The
+   * two offsets used to be 22cm apart, so the round where the ape lingers put
+   * him inside whichever waiter was next summoned. */
+  ape.group.position.set(target.x + 1.7, 0, target.z + 0.5);
   ape.faceToward(player.position.x, player.position.z, true);
-  dialogue.start(scripts.ape, 'open', ape);
+  /* Through greet, not around it: greet records him as `talkingTo`, and
+   * `talkingTo` is how the conversation's end knows whose walk home to run.
+   * Started directly, the dialogue ended and nobody had been talking — so he
+   * stood at the table for the rest of the night, waiting to intersect the
+   * waiter. */
+  greet(ape, scripts.ape);
   date.watch(ape.group, 5);
 }
 
