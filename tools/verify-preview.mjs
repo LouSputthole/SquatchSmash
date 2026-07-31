@@ -98,7 +98,7 @@ try {
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/motel.html?preview=1`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 180000 });
   let motel = await page.evaluate(() => ({
     phase: window.MOTEL.phase,
     mission: window.MOTEL.campaignState.missions.jerky_motel,
@@ -126,7 +126,7 @@ try {
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/bing.html?visit=2&preview=1`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.__bing?.secondVisitStory, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.__bing?.secondVisitStory, null, { timeout: 180000 });
   let bing = await page.evaluate(() => ({
     secondVisit: window.__bing.isSecondVisit,
     mission: window.__bing.campaign.state.missions.bada_bing_two,
@@ -141,7 +141,7 @@ try {
    * for the page to go quiet, and a scene rendering under a software
    * rasteriser never does. The listener only wants the event. */
   await page.evaluate(() => document.querySelector('#start-btn').click());
-  await page.waitForFunction(() => window.__bing.game.started, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.__bing.game.started, null, { timeout: 180000 });
   bing = await page.evaluate(() => ({
     started: window.__bing.game.started,
     status: window.__bing.campaign.state.missions.bada_bing_two.status,
@@ -152,7 +152,7 @@ try {
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/squatchfather.html?preview=1`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.squatchfather?.campaignStory, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.squatchfather?.campaignStory, null, { timeout: 180000 });
   let meeting = await page.evaluate(() => ({
     mission: window.squatchfather.campaign.state.missions.squatchfather,
     hasPackage: window.squatchfather.campaign.hasItem('parcel'),
@@ -167,7 +167,7 @@ try {
   await page.waitForFunction(
     () => window.squatchfather.state() === 'START_EXTERIOR',
     null,
-    { timeout: 60000 },
+    { timeout: 180000 },
   );
   meeting = await page.evaluate(() => ({
     state: window.squatchfather.state(),
@@ -182,7 +182,7 @@ try {
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/silver.html?preview=1`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.__silver?.story, null, { timeout: 90000 });
+  await page.waitForFunction(() => window.__silver?.story, null, { timeout: 180000 });
   const silver = await page.evaluate(() => ({
     mission: window.__silver.campaignState.missions.silver_room,
     motel: window.__silver.campaignState.missions.jerky_motel.status,
@@ -203,7 +203,7 @@ try {
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/initiation.html?preview=1`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.INITIATION?.player, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.INITIATION?.player, null, { timeout: 180000 });
   const initiation = await page.evaluate(() => ({
     phase: window.INITIATION.phase,
     previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
