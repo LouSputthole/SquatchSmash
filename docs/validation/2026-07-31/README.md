@@ -19,3 +19,15 @@ final committed tree; `verify:bing` grew 46 → 60 checks over the same fixes.
 | `blackjack-cards.png` | Readable cards (30% bigger, emissive faces) and the WIN/LOSE callout. |
 | `storeroom.png` | Authored, collidered stacks replacing the twelve RNG-overlapping crates. |
 | `duck-open-pre.png`, `duck-open.png` | The DUCK crate easter egg, closed and sprung. |
+
+Added later the same day, from the Margo and Family-floor passes:
+
+| File | What it proves |
+|---|---|
+| `before-tony-seat.png`, `after-tony-seat.png` | Margo from Tony's exact seat, old stock face vs the authored one. |
+| `before-closeup.png`, `after-closeup.png` | Margo at 0.72 m: brows, spaced eyes with irises, real lips, and the side-fall hair. |
+| `family-floor-wide.png` | The Family on the floor between missions — bar, booths, stage two-tops. |
+| `family-bar-group.png` | Booskibro, DeathMegatron, and Seff at the bar. |
+| `family-blackjack-group.png` | Willy seated at the felt, Ape at the rail; Tony's seat open. |
+| `family-stage-tables.png` | Hog Mama, the Shubenator, Rippinflow — and Sasole's post-Beef-Run table. |
+| `family-booski-beat.png` | The thirty-second shot beat: bouncer hustling the glass over. |
