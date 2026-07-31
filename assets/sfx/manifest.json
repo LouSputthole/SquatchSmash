@@ -11,7 +11,7 @@
       "style": 0.3
     },
     "announcer": {
-      "id": "pNInz6obpgDQGcFmaJgB",
+      "id": "dn9HtxgDwCH96MVX9iAO",
       "_note": "97.8 THE SQUATCH station voice. Adverts, links and the automated overnight. Shouts everything. Low stability and high style on purpose -- this is the one voice allowed to be completely unhinged.",
       "model": "eleven_multilingual_v2",
       "stability": 0.22,
@@ -19,7 +19,7 @@
       "style": 0.85
     },
     "lou1": {
-      "id": "bIHbv24MWmeRgasZH58o",
+      "id": "M9UAxraM2w5tCjpOaIB0",
       "_note": "Lou, of Lou & Lou. Breakfast show. Chattier of the two.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
@@ -27,7 +27,7 @@
       "style": 0.6
     },
     "lou2": {
-      "id": "TX3LPaxmHKxFdv7VOQHJ",
+      "id": "QzTKubutNn9TjrB7Xb2Q",
       "_note": "The other Lou. Two Lous is the whole premise, so they have to be tellable apart or the joke does not land.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
@@ -35,7 +35,7 @@
       "style": 0.62
     },
     "booski": {
-      "id": "N2lVS1w4EtoT3dr4eOWO",
+      "id": "s2wvuS7SwITYg8dqsJdn",
       "_note": "Booski. CS gambling show. Has put his rent on a Silver lobby and wants to talk about it.",
       "model": "eleven_multilingual_v2",
       "stability": 0.28,
@@ -43,7 +43,7 @@
       "style": 0.7
     },
     "ape": {
-      "id": "CwhRBWXzGAHq8TQ4Fs17",
+      "id": "pI7p9goUOVAfkfaP1k9Z",
       "_note": "Ape. The straight man to Booski. Delivers legal disclaimers flatly.",
       "model": "eleven_multilingual_v2",
       "stability": 0.5,
@@ -51,7 +51,7 @@
       "style": 0.35
     },
     "irish": {
-      "id": "JBFqnCBsd6RMkjVDRZzb",
+      "id": "qwaVDEGNsBllYcZO1ZOJ",
       "_note": "Irish's Deep Dives. Conspiratorial, confiding, building to nothing. British storyteller voice makes the egg material land harder.",
       "model": "eleven_multilingual_v2",
       "stability": 0.35,
@@ -59,7 +59,7 @@
       "style": 0.65
     },
     "eric": {
-      "id": "cjVigY5qzO86Huf0OWal",
+      "id": "A7AUsa1uITCDpK29MG3m",
       "_note": "Eric, of What's Happening in India. Tries to run a real news segment.",
       "model": "eleven_multilingual_v2",
       "stability": 0.48,
@@ -67,7 +67,7 @@
       "style": 0.4
     },
     "gratin": {
-      "id": "pqHfZKP75CvOlQylNhV4",
+      "id": "UgBBYS2sOqTuMpoF3BR0",
       "_note": "Gratin. Wants to get to the butter chicken. Older, crisper, entirely uninterested in the tech story.",
       "model": "eleven_multilingual_v2",
       "stability": 0.38,
@@ -75,7 +75,7 @@
       "style": 0.55
     },
     "hogmama": {
-      "id": "FGY2WhTYpPnrIDTdsKH5",
+      "id": "052jzHJceQiZr7ltnY0C",
       "_note": "Hog Mama's Late Night Improv. No script, no plan, and increasingly aware of it.",
       "model": "eleven_multilingual_v2",
       "stability": 0.25,
@@ -99,7 +99,7 @@
       "style": 0.7
     },
     "lou": {
-      "id": "bIHbv24MWmeRgasZH58o",
+      "id": "M9UAxraM2w5tCjpOaIB0",
       "_note": "Big Uncle Lou on the phone — same man as lou1, phone cadence.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
@@ -123,16 +123,16 @@
       "style": 0.5
     },
     "old-stove": {
-      "id": "nPczCjzI2devNBz1zQrb",
-      "_note": "PROVISIONAL casting (uncle id) — pleasant, unhurried, immovable. Swap id + regenerate to recast.",
+      "id": "lUTamkMw7gOzZbFIwmq4",
+      "_note": "Old Stove — LOCKED from the owner's Voice_Ids sheet (2026-07-30). Pleasant, unhurried, immovable.",
       "model": "eleven_multilingual_v2",
       "stability": 0.55,
       "similarity": 0.85,
       "style": 0.3
     },
     "cecilio": {
-      "id": "pqHfZKP75CvOlQylNhV4",
-      "_note": "PROVISIONAL casting (gratin id) — courteous, slow, temperature removed. Swap id + regenerate to recast.",
+      "id": "IpCcRCVYm2nsZJjBFn4H",
+      "_note": "Cecilio, the Motel antagonist — LOCKED from the owner's Voice_Ids sheet (2026-07-30). Courteous, slow, temperature removed.",
       "model": "eleven_multilingual_v2",
       "stability": 0.5,
       "similarity": 0.82,
@@ -155,12 +155,108 @@
       "style": 0.15
     },
     "margo": {
-      "id": "FGY2WhTYpPnrIDTdsKH5",
-      "_note": "PROVISIONAL — placeholder casting only, recast before any real recording. Margo Salas runs the kitchen at the Blue Hour: dry, direct, unhurried, fifteen years of talking over extraction fans. Borrowed id from `hogmama` purely so the lines can be auditioned; she is NOT Hog Mama and must not end up sharing a voice with a Circle member.",
+      "id": "XlDdozLmuTofIxK4BjPD",
+      "_note": "Margo Salas — LOCKED from the owner's Voice_Ids sheet (2026-07-30), her own voice at last. Runs the kitchen at the Blue Hour: dry, direct, unhurried, fifteen years of talking over extraction fans.",
       "model": "eleven_multilingual_v2",
       "stability": 0.4,
       "similarity": 0.75,
       "style": 0.5
+    },
+    "lag": {
+      "id": "fBD19tfE58bkETeiwUoC",
+      "_note": "Lag — Family. LOCKED from the owner's Voice_Ids sheet (2026-07-30). Esports-brained; blames the tick rate for everything including the weather.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.8,
+      "style": 0.55
+    },
+    "deathmegatron": {
+      "id": "bD9maNcCuQQS75DGuteM",
+      "_note": "DeathMegatron — founder. LOCKED (2026-07-30). Doom voice, gentle content; orders a spritz.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.45
+    },
+    "willy": {
+      "id": "R9EZoy8pXSL8Yh4yxiew",
+      "_note": "Willy — Family. LOCKED (2026-07-30). Between things. Big things. The things can hear.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.8,
+      "style": 0.55
+    },
+    "snow": {
+      "id": "OhisAd2u8Q6qSA4xXAAT",
+      "_note": "Snow — Family. LOCKED (2026-07-30). Minimalist. Two-word sentences where possible.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.6,
+      "similarity": 0.85,
+      "style": 0.25
+    },
+    "rippinflow": {
+      "id": "rHWSYoq8UlV0YIBKMryp",
+      "_note": "Rippinflow — founder. LOCKED (2026-07-30). Retired freestyler; it keeps happening anyway.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.3,
+      "similarity": 0.78,
+      "style": 0.7
+    },
+    "seff": {
+      "id": "lnFzEtvLAfx8I9DtiJTS",
+      "_note": "Seff — Family. LOCKED (2026-07-30). Always has a deal, a guy, and a situation Lou should hear about from someone else.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.38,
+      "similarity": 0.8,
+      "style": 0.6
+    },
+    "shubenator": {
+      "id": "vpPOiJgwc09J0uCYqE35",
+      "_note": "The Shubenator — founder. LOCKED (2026-07-30). Counts push-ups out loud. The floor is the impressive part.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.82,
+      "style": 0.5
+    },
+    "numbskull": {
+      "id": "",
+      "_note": "Numbskull — Family. NO VOICE ID YET: the owner's sheet row is blank. Paste the id here; his authored lines are excluded from --cast batches until then.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.5
+    },
+    "dealer": {
+      "id": "snyKKuaGYk1VUEh42zbW",
+      "_note": "The blackjack dealer at the Bada Bing. LOCKED (2026-07-30).",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.4
+    },
+    "bartender": {
+      "id": "nUEpF21E0nXsKMw4L4CS",
+      "_note": "The Bada Bing bartender. LOCKED (2026-07-30).",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.45
+    },
+    "doorman": {
+      "id": "fhZTG3MTnv8OnksvofJI",
+      "_note": "Side guards and the Bing doorman. LOCKED (2026-07-30). Backups on the sheet: 7fbQ7yJuEo56rYjrYaEh (deep), Je8d8oi82sj0l8L1VM0l.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.35
+    },
+    "performer": {
+      "id": "9QPzUjm1evjwY2ENQBKU",
+      "_note": "Bada Bing performer (female). LOCKED (2026-07-30). Backups on the sheet: 75MqelvgFq5upx0r44WK, qBDvhofpxp92JgXJxDjB, k6aNMn2EN3T8vpJSBhQw.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.78,
+      "style": 0.6
     }
   },
   "sfx": [

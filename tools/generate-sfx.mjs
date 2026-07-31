@@ -21,6 +21,7 @@
  * Flags:
  *   --force            regenerate cues even if the file already exists
  *   --only <name,...>  generate just these cues
+ *   --cast <voice,...> just the spoken lines of these voice profiles
  *   --voice-only       just the spoken lines
  *   --sfx-only         just the sound effects
  *   --dry-run          list what would be generated and exit
@@ -53,6 +54,7 @@ const LIST_VOICES = has('--voices');
 const VOICE_ONLY = has('--voice-only');
 const SFX_ONLY = has('--sfx-only');
 const ONLY = valueOf('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
+const CAST = valueOf('--cast')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
 
 const isSpoken = (cue) => typeof cue.say === 'string';
 
@@ -66,6 +68,7 @@ async function main() {
 
   let cues = manifest.sfx || [];
   if (ONLY) cues = cues.filter((c) => ONLY.includes(c.name));
+  if (CAST) cues = cues.filter((c) => isSpoken(c) && CAST.includes(c.voice || 'player'));
   if (VOICE_ONLY) cues = cues.filter(isSpoken);
   if (SFX_ONLY) cues = cues.filter((c) => !isSpoken(c));
 
