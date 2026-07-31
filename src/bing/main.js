@@ -169,6 +169,28 @@ campaign.advanceTime(isSecondVisit
   : TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
 const secondVisitStory = isSecondVisit ? createBadaBingTwoStory({ campaign }) : null;
 
+/* ---- he arrives empty-handed ----
+ * The whole point of the first visit is Lou putting the package on the desk
+ * and the prospect picking it up, and the campaign's inventory is durable:
+ * anybody who has played this night before still had `parcel` on him from
+ * last time, so scene one opened with the thing it exists to hand over
+ * already inside his jacket -- readout, weight and all -- and Lou's briefing
+ * handed him a second copy of what he was carrying.
+ *
+ * Nothing else grants it: the only add() in the game is takePackage(), at the
+ * handoff. So the fix is to make the START of the visit authoritative -- the
+ * night begins with it not on him, whatever the save remembers -- rather than
+ * to hunt for a grant that was never there. Scene TWO is untouched: by then
+ * the package is the Squatchfather's business and long gone.
+ */
+if (!isSecondVisit && campaign.hasItem(ITEM_IDS.LOU_PACKAGE)) {
+  campaign.update((state) => {
+    const drop = (list) => list.filter((id) => id !== ITEM_IDS.LOU_PACKAGE);
+    state.inventory.carried = drop(state.inventory.carried);
+    state.inventory.concealed = drop(state.inventory.concealed);
+  });
+}
+
 const game = {
   started: false,
   storyStarted: false,
