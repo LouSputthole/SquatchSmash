@@ -487,12 +487,24 @@ export function buildRoom(scene, { renderer } = {}) {
     floor({ x0: -20, x1: 20, z0: 34.2, z1: 38.4 }, mat({ color: 0x3c3c42, roughness: 0.94 }), 'concrete', kerbY);
     add(box({ size: [40, kerbY, 0.3], pos: [0, kerbY / 2, 38.4], mat: mat({ color: 0x55555c, roughness: 0.9 }) }));
 
-    // The frontage: brick, a canopy, and the sign
-    wallGap('x', 34.2, -22, 22, -3.4, 3.4, 9, M_BRICK, 0.4);
+    /* The frontage: brick, a canopy, and the sign.
+     *
+     * It runs to x=30, which is the club's own east elevation, so the
+     * building has one north-east corner and the alley has one mouth. It used
+     * to stop at x=22 and leave eight metres of nothing between the end of
+     * the frontage and the start of the alley — a second opening, wider than
+     * the alley, nearer than the alley, and directly under the sign that
+     * points at the alley. Every player walked into it first, followed it to
+     * a dead end against the old return wall, and came back out. The service
+     * plate stays exactly where it is; what changes is that the only thing it
+     * can be pointing at now is the way in. */
+    wallGap('x', 34.2, -22, 30, -3.4, 3.4, 9, M_BRICK, 0.4);
     wall(-22, 34.2, -22, 26, 9, M_BRICK, 0.4);
-    /* The east return of the frontage, z 26..34.2 -- not 34.2 down to -22,
-     * which is an x value in a z slot and builds a brick wall fifty-six metres
-     * long straight through the cellar, the kitchen and the dining room. */
+    /* The old east return, now the back of the frontage rather than a corner
+     * anybody sees -- kept because it is what closes the void behind it, and
+     * because it is an x value in a z slot away from a brick wall fifty-six
+     * metres long straight through the cellar, the kitchen and the dining
+     * room, which is what it was before. */
     wall(22, 34.2, 22, 26, 9, M_BRICK, 0.4);
 
     // Canopy over the public door, and the queue under it
@@ -604,10 +616,18 @@ export function buildRoom(scene, { renderer } = {}) {
   {
     const A = ROOMS.alley;
     floor(A, mat({ map: tiled(asphalt(), 4, 12), roughness: 0.98 }), 'concrete', 0);
-    // East wall of the club, west wall of whatever is next door
-    wallGap('z', 30, -20, 32, 10, 13.4, 9, M_BRICK, 0.4);
+    /* East wall of the club, west wall of whatever is next door.
+     *
+     * Both ends used to stop short of the alley's own walls and leave a way
+     * out of the world at each corner: z 32..34.2 at the top, which is the
+     * false opening the service plate appeared to be pointing at, and
+     * z −22..−20 at the bottom, where you could walk off the south end of the
+     * alley into the void behind the kitchen. The elevation is continuous
+     * brick now, with the one doorway in it. */
+    wallGap('z', 30, -22, 34.2, 10, 13.4, 9, M_BRICK, 0.4);
     wall(38.2, -22, 38.2, 34, 7.5, M_BRICK, 0.4);
-    wall(30, -22, 38.2, -22, 7.5, M_BRICK, 0.4);
+    // Lapped past x=30 so the south-west corner is a corner, not a mitre
+    wall(29.8, -22, 38.2, -22, 7.5, M_BRICK, 0.4);
 
     anchors.serviceDoor = new THREE.Vector3(30, 0, 11.7);
     anchors.alleyMouth = new THREE.Vector3(34, 0, 30);
