@@ -90,6 +90,21 @@ body.cutscene #objectives { transition: opacity 0.5s; }
 #objectives li.optional::before { content: "◦"; color: var(--silver-dim); }
 #objectives li.done { color: #6f6a5f; text-decoration: line-through; }
 #objectives li.done::before { content: "✓"; color: var(--green); }
+/* Which one is now. The board carries the whole evening, so with six lines
+   crossed out it still has to say where you are without being shouted. */
+#objectives li.now { color: #fff6e2; }
+#objectives li.now::before { color: var(--amber); }
+/* The rule between what the evening is and what is merely worth doing. */
+#objectives li.rule {
+  color: var(--silver-dim);
+  font-size: 9px;
+  letter-spacing: 2px;
+  padding-left: 0;
+  margin: 9px 0 4px;
+  border-top: 1px solid rgba(190, 190, 195, 0.18);
+  padding-top: 7px;
+}
+#objectives li.rule::before { content: none; }
 
 /* ---------------- Wallet ---------------- */
 

@@ -648,6 +648,13 @@ let s = await state();
 check('the car pulls up and hands control back inside five seconds',
   s.mission === 'arrived', s.mission);
 check('she is out of the car and next to him', s.dateGap < 4, s.dateGap.toFixed(1));
+/* And he started beside it rather than twenty-two metres up the street welded
+ * to its flank. `__spawn` is stamped by `arrive()` on the first frame, before
+ * anything has had a chance to walk anywhere. */
+const spawn = await page.evaluate(() => window.__silver.game.spawn);
+check('he starts on the pavement beside the car, not walking up to it from somewhere else',
+  spawn && spawn.toCar < 4 && spawn.toPark < 4 && spawn.feet > 0.1 && spawn.toHer < 3,
+  JSON.stringify(spawn));
 check('the wallet can pay for the evening',
   s.money >= 600, `$${s.money}`);
 
@@ -1918,6 +1925,217 @@ check('"car’s outside, come on" costs what it costs at any score',
   crude.found && crude.fired && crude.after <= crude.before - 12
     && crude.andThen === 'disaster',
   JSON.stringify(crude));
+
+/* ---- she walks beside him, and stays put when he turns round ----
+ *
+ * The single worst thing about the evening: her spot was hung off his *look*
+ * yaw, so it swung round him whenever he moved the mouse, and a man who
+ * stopped to talk to his date set her walking a circle round his back to
+ * reach his other shoulder. You could not turn and look at her.
+ *
+ * Two measurements, both of them of the thing the player feels. Walking: is
+ * she off his shoulder or in his wake. Standing: spin the camera a full turn
+ * and require that she does not take a step — which is the whole fix, because
+ * the target is hung off his heading now and a mouse does not move that.
+ */
+const beside = await page.evaluate(() => {
+  const b = window.__silver;
+  const P = b.player; const D = b.date;
+  const was = { mode: P.mode, enabled: P.enabled, impair: P.impair, dm: D.mode, at: D.at,
+    p: P.position.clone(), d: D.group.position.clone() };
+  P.mode = 'walk'; P.enabled = true; P.impair = 0; P._tween = null; P.yawCenter = null;
+  D.mode = 'follow'; D.at = 3; D._stuck = 0;
+  P.position.set(34, 1.66, 26); P.ground = 0;
+  D.group.position.set(33, 0, 27.5);
+  const step = (yaw, secs, forward) => {
+    P.yaw = yaw; P.clearKeys();
+    if (forward) P.setKey('KeyW', true);
+    for (let t = 0; t < secs; t += 1 / 60) { P.update(1 / 60); D.update(1 / 60, P.position, P.yaw); }
+    P.clearKeys();
+  };
+  /* Her place in his frame: forward is (-sin yaw, -cos yaw), right is its
+   * perpendicular. Positive `side` is one shoulder, negative the other; what
+   * matters is that it is not nearly zero, which is directly behind. */
+  const rel = () => {
+    const dx = D.position.x - P.position.x; const dz = D.position.z - P.position.z;
+    return {
+      fwd: +(-Math.sin(P.yaw) * dx + -Math.cos(P.yaw) * dz).toFixed(2),
+      side: +(-Math.cos(P.yaw) * dx + Math.sin(P.yaw) * dz).toFixed(2),
+      gap: +Math.hypot(dx, dz).toFixed(2),
+    };
+  };
+  step(Math.atan2(0, 16), 6, true);              // south down the alley, abreast
+  const walking = rel();
+  // He stops and turns to face her. She should turn to him and not walk.
+  const toHer = Math.atan2(-(D.position.x - P.position.x), -(D.position.z - P.position.z));
+  step(toHer, 2.5, false);
+  const turned = rel();
+  const faces = Math.abs(Math.atan2(
+    Math.sin(D.npc.group.rotation.y - Math.atan2(P.position.x - D.position.x, P.position.z - D.position.z)),
+    Math.cos(D.npc.group.rotation.y - Math.atan2(P.position.x - D.position.x, P.position.z - D.position.z)),
+  ));
+  // And a full turn of the camera, with him standing still.
+  let walked = 0;
+  let last = { x: D.position.x, z: D.position.z };
+  for (let i = 0; i < 180; i++) {
+    const y = (i / 180) * Math.PI * 2;
+    for (let t = 0; t < 1 / 30; t += 1 / 60) { P.update(1 / 60); D.update(1 / 60, P.position, y); }
+    walked += Math.hypot(D.position.x - last.x, D.position.z - last.z);
+    last = { x: D.position.x, z: D.position.z };
+  }
+  P.clearKeys();
+  P.mode = was.mode; P.enabled = was.enabled; P.impair = was.impair;
+  D.mode = was.dm; D.at = was.at;
+  P.position.copy(was.p); D.group.position.copy(was.d);
+  return { walking, turned, faces: +faces.toFixed(2), orbited: +walked.toFixed(2) };
+});
+check('she walks at his shoulder rather than in his wake',
+  Math.abs(beside.walking.side) > 0.6 && beside.walking.gap < 2.6,
+  JSON.stringify(beside.walking));
+check('and when he stops and turns to her she stays where she is and looks at him',
+  beside.faces < 0.35 && beside.orbited < 0.6,
+  `faces him ${beside.faces} rad off; a full turn of the camera moved her ${beside.orbited}m`);
+
+/* ---- the board ----
+ * Driven on its own Mission, because the one in the page has been all the way
+ * to the end and the point is that the list tracks the evening as it goes. */
+const board = await page.evaluate(() => {
+  const Mission = window.__silver.mission.constructor;
+  const m = new Mission();
+  const seen = (tag) => ({
+    tag,
+    n: m.objectives.length,
+    now: m.objectives.find((o) => !o.done && !o.optional)?.id ?? null,
+    done: m.objectives.filter((o) => o.done).length,
+    optional: m.objectives.filter((o) => o.optional).length,
+  });
+  const trail = [seen('starting')];
+  m.outOfCar(); trail.push(seen('arrived'));
+  m.intoAlley(); trail.push(seen('service-route'));
+  m.intoCellar(); trail.push(seen('cellar'));
+  m.intoKitchen(); m.intoCorridor(); m.atHostStation(); trail.push(seen('host'));
+  m.tableBuilt(); m.satDown(); trail.push(seen('round-one'));
+  m.roundDone('entrance'); m.roundDone('drinks'); m.roundDone('family'); m.roundDone('personal');
+  m.showCutscene(); m.showStarted(); trail.push(seen('performance'));
+  const beforeTick = m.objectives.filter((o) => o.done).length;
+  m.flags.songRequested = 'horns';
+  m.update(0.016, {});
+  return { trail, beforeTick, afterTick: m.objectives.filter((o) => o.done).length,
+    texts: m.objectives.map((o) => o.text) };
+});
+check('the evening is on the side of the screen, and it fills in as it happens',
+  board.trail[0].n >= 1 && board.trail.at(-1).n >= 16
+    && board.trail.every((t, i) => i === 0 || t.n >= board.trail[i - 1].n)
+    && board.trail.every((t, i) => i === 0 || t.done >= board.trail[i - 1].done)
+    && board.trail[2].now === 'cellar' && board.trail.at(-1).now === 'ask'
+    && board.trail.at(-1).optional >= 6,
+  board.trail.map((t) => `${t.tag}: ${t.n} lines, ${t.done} done, now ${t.now}`).join(' → '));
+check('and the optional ones tick themselves off when they are done',
+  board.afterTick === board.beforeTick + 1,
+  `${board.beforeTick} → ${board.afterTick} of ${board.texts.length}`);
+
+/* ---- the voice ----
+ *
+ * The scene was subtitles-only with four recordings of Margo sitting in the
+ * manifest that nothing in the building could reach, so there are two
+ * separate things to prove and neither is "an mp3 played".
+ *
+ * First, that the wiring fires: `game.voLog` collects every cue the evening
+ * asks for whether or not a file exists behind it, so the run above — which
+ * has just played the entire mission — must have asked for a great many.
+ *
+ * Second, that the names are real. Every line a cast speaker says gets a cue
+ * from its node id, and if that name is not in the manifest then the line can
+ * never be given a recording and nothing anywhere would say so. Walk the
+ * built trees under every branch of every `variant()` and hold the manifest
+ * to what the subtitle actually says, stage directions stripped — a reworded
+ * line with a stale cue is a line delivered in words nobody wrote.
+ */
+const manifest = JSON.parse(await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+const voice = await page.evaluate(({ cues, voices }) => {
+  const b = window.__silver;
+  const S = b.scripts;
+  const VOICE_OF = b.VOICE_OF;
+  const said = new Map(cues.map((c) => [c.name, c.say]));
+  /* The same reduction the manifest was authored with: the words, without
+   * the stage directions, which are for the reader and not for the actor. */
+  const spoken = (html) => String(html)
+    .replace(/<em>\s*\([^)]*\)\s*<\/em>/g, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ').trim()
+    .replace(/^[—–-]\s*/, '').trim();
+
+  const missing = []; const drifted = []; const badVoice = [];
+  let lines = 0;
+  const visit = (node) => {
+    if (!node?.line) return;
+    const v = VOICE_OF[node.who];
+    if (!v) return;
+    if (!node.cue) { missing.push(`${node.who}: uncast line`); return; }
+    const name = typeof node.cue === 'function' ? node.cue() : node.cue;
+    const text = spoken(typeof node.line === 'function' ? node.line() : node.line);
+    if (!text) return;                       // all stage direction: nothing to record
+    lines++;
+    if (!said.has(name)) { missing.push(name); return; }
+    if (said.get(name) !== text) drifted.push(`${name}: manifest says ${JSON.stringify(said.get(name).slice(0, 40))}`);
+    if (voices[name] !== v) badVoice.push(`${name} is ${voices[name]}, should be ${v}`);
+  };
+  /* Every branch: the flags the `variant()`s read, driven directly. */
+  const F = b.mission.flags;
+  const was = { ...F };
+  const wooWas = b.woo.score;
+  for (const tableBuilt of [false, true]) {
+    for (const seated of [false, true]) {
+      for (const drinkOrdered of [false, 'rye']) {
+        for (const songRequested of [false, 'horns']) {
+          for (const introducedAs of ['right', 'wrong']) {
+            for (const abandonments of [0, 2]) {
+              for (const score of [20, 65, 92]) {
+                Object.assign(F, { tableBuilt, seated, drinkOrdered, songRequested, introducedAs, abandonments });
+                b.woo.score = score;
+                for (const [key, tree] of Object.entries(S)) {
+                  if (key === 'scenes') { for (const beats of Object.values(tree)) beats.forEach(visit); continue; }
+                  Object.values(tree).forEach(visit);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  Object.assign(F, was);
+  b.woo.score = wooWas;
+  return {
+    asked: b.game.voLog.length,
+    distinct: new Set(b.game.voLog).size,
+    sample: [...new Set(b.game.voLog)].slice(0, 4),
+    lines,
+    missing: [...new Set(missing)].slice(0, 6),
+    nMissing: new Set(missing).size,
+    drifted: [...new Set(drifted)].slice(0, 4),
+    nDrifted: new Set(drifted).size,
+    badVoice: badVoice.slice(0, 4),
+  };
+}, {
+  cues: manifest.sfx.filter((c) => c.name.startsWith('vo.silver.')).map((c) => ({ name: c.name, say: c.say })),
+  voices: Object.fromEntries(manifest.sfx.filter((c) => c.name.startsWith('vo.silver.')).map((c) => [c.name, c.voice])),
+});
+check('the evening actually asked for its voice, line by line, rather than staying silent',
+  voice.asked > 40 && voice.distinct > 25,
+  `${voice.asked} cues asked for, ${voice.distinct} distinct — e.g. ${voice.sample.join(', ')}`);
+check('and every line anybody cast can say has a cue in the manifest that says the same words',
+  voice.nMissing === 0 && voice.nDrifted === 0 && voice.badVoice.length === 0,
+  voice.nMissing || voice.nDrifted || voice.badVoice.length
+    ? `${voice.nMissing} missing (${voice.missing.join(', ')}); ${voice.nDrifted} drifted (${voice.drifted.join('; ')}); ${voice.badVoice.join('; ')}`
+    : `${voice.lines} lines across ${new Set(Object.values(await page.evaluate(() => window.__silver.VOICE_OF))).size} voices`);
+check('every voice the scene names has a profile with an id behind it',
+  Object.values(await page.evaluate(() => window.__silver.VOICE_OF))
+    .every((v) => manifest.voices[v]?.id),
+  Object.values(await page.evaluate(() => window.__silver.VOICE_OF))
+    .map((v) => `${v}:${manifest.voices[v]?.id ? 'cast' : 'UNCAST'}`).join(' '));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 

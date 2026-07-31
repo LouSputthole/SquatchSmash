@@ -56,6 +56,54 @@ const IMPATIENCE = [
  */
 const RUSHED_UNDER = 20;
 
+const at = (state) => STATES.indexOf(state);
+
+/**
+ * The evening, as a list on the side of the screen.
+ *
+ * There were five objectives in the whole mission and four of them were
+ * handed out at the moment they became impossible to miss — "Get her inside"
+ * arrived when he was already on the pavement outside, "Talk to her" when she
+ * had already started. A player who put it down after the cellar and came
+ * back had nothing anywhere telling him where he had got to, and the two
+ * halves of the route that are actually easy to be lost in — the back of
+ * house, and the four conversations at the table — were not on it at all.
+ *
+ * So the board is derived rather than accumulated. Every line names the state
+ * it appears at and the state that finishes it, both of them out of the same
+ * ordered list the mission already runs on, which means it cannot disagree
+ * with where the evening actually is and a checkpoint restores it for free.
+ * Nothing shows before its time — the table appearing, the band coming on and
+ * the question at the end are the three surprises this scene has and the HUD
+ * is not going to be what spoils them.
+ *
+ * `done` on an optional line is a predicate rather than a state, because
+ * optional things are done by doing them and not by moving on.
+ */
+const BOARD = [
+  { id: 'arrive', from: 'starting', until: 'arrived', text: 'Get out of the car' },
+  { id: 'alley', from: 'arrived', until: 'service-route', text: 'Find the service entrance, round the side' },
+  { id: 'front', from: 'arrived', until: 'service-route', optional: true, text: 'Tell her why you are not using the front door', done: (m) => m.flags.askedAboutFront },
+  { id: 'cellar', from: 'service-route', until: 'cellar', text: 'In at the service door and down the ramp' },
+  { id: 'staff', from: 'service-route', until: 'performance', optional: true, text: 'Look after the room on the way through', done: (m) => m.flags.backOfHouseTipped >= 6 },
+  { id: 'kitchen', from: 'cellar', until: 'kitchen', text: 'Through the cellar and up into the kitchen' },
+  { id: 'keepup', from: 'cellar', until: 'host', optional: true, text: 'Do not lose her back there', done: (m) => at(m.state) >= at('host') && m.flags.abandonments === 0 },
+  { id: 'corridor', from: 'kitchen', until: 'corridor', text: 'Out of the kitchen and down the corridor' },
+  { id: 'inside', from: 'corridor', until: 'host', text: 'Come out on the floor and find the host' },
+  { id: 'table', from: 'host', until: 'seating', text: 'Get a table' },
+  { id: 'sit', from: 'seating', until: 'round-one', text: 'Sit down with her' },
+  { id: 'chair', from: 'seating', until: 'performance', optional: true, text: 'Pull her chair out', done: (m) => m.flags.chairPulled },
+  { id: 'r-entrance', from: 'round-one', until: 'drink-order', text: 'Talk about how you got her in here' },
+  { id: 'r-drinks', from: 'drink-order', until: 'family', text: 'Order the drinks' },
+  { id: 'r-rye', from: 'drink-order', until: 'performance', optional: true, text: 'Remember what she drinks', done: (m) => m.flags.drinkOrdered === 'rye' },
+  { id: 'r-family', from: 'family', until: 'personal', text: 'Get through the interruption' },
+  { id: 'r-personal', from: 'personal', until: 'performance-cutscene', text: 'Answer the question she actually asked' },
+  { id: 'song', from: 'performance', until: 'ending', optional: true, text: 'Ask the band for something', done: (m) => !!m.flags.songRequested },
+  { id: 'sway', from: 'performance', until: 'ending', optional: true, text: 'Dance with her', done: (m) => !!m.flags.swayed },
+  { id: 'toast', from: 'performance', until: 'ending', optional: true, text: 'Raise a glass', done: (m) => !!m.flags.toast },
+  { id: 'ask', from: 'performance', until: 'ending', text: 'Ask her about seeing her again' },
+];
+
 export class Mission {
   /**
    * @param {object} hooks { onState, onObjective, onNote, onImpatient, onCheckpoint }
@@ -83,6 +131,11 @@ export class Mission {
       sideDoorOpened: false,
       hazardSeen: false,
       abandonments: 0,
+      /* How many of the seven people between the alley and the curtain have
+       * been taken care of. Counted here rather than read off the Woo ledger
+       * because the board is a view of the mission and the mission does not
+       * know what a Woo is. */
+      backOfHouseTipped: 0,
       /* the table */
       tableBuilt: false,
       seated: false,
@@ -106,10 +159,42 @@ export class Mission {
       outcome: null,
     };
 
-    this.addObjective('arrive', 'Get out of the car');
+    this.refreshBoard();
   }
 
   /* ---------------------------------------------------------------- */
+
+  /**
+   * Rebuild the visible list from where the evening actually is.
+   *
+   * Called by everything that could change the answer, which is cheap: it is
+   * twenty comparisons against an array index. A line that has been shown
+   * stays shown even once its `from` state is behind — crossing something out
+   * is most of the point of a list, and a board that removed finished work
+   * would be empty for the whole of the second half.
+   */
+  refreshBoard() {
+    const now = at(this.state);
+    const seen = new Set(this.objectives.map((o) => o.id));
+    let changed = false;
+    for (const line of BOARD) {
+      if (now < at(line.from) && !seen.has(line.id)) continue;
+      const done = line.done ? !!line.done(this) : now >= at(line.until);
+      const had = this.objectives.find((o) => o.id === line.id);
+      if (!had) {
+        this.objectives.push({ id: line.id, text: line.text, done, optional: !!line.optional });
+        changed = true;
+      } else if (done && !had.done) {
+        had.done = true;
+        changed = true;
+      }
+    }
+    /* Only when it has actually moved. The board is cheap enough to derive
+     * every frame -- twenty index comparisons -- and repainting the DOM every
+     * frame is not, so the hook is the thing that gets rationed. */
+    if (changed) this.hooks.onObjective?.(this.objectives);
+    return changed;
+  }
 
   setState(next) {
     if (this.state === next) return false;
@@ -126,6 +211,7 @@ export class Mission {
     this.inState = 0;
     this._impatient = 0;
     this.hooks.onState?.(next, this);
+    this.refreshBoard();
     if (CHECKPOINTS.includes(next)) this.hooks.onCheckpoint?.(next, this);
   }
 
@@ -156,7 +242,6 @@ export class Mission {
   outOfCar() {
     this.setState('arrived');
     this.complete('arrive');
-    this.addObjective('inside', 'Get her inside');
   }
 
   intoAlley() {
@@ -170,7 +255,7 @@ export class Mission {
   intoCorridor() { this.setState('corridor'); }
 
   atHostStation() {
-    if (this.setState('host')) this.complete('inside');
+    this.setState('host');
   }
 
   /** The staff build a table. Control is off for this. */
@@ -179,14 +264,11 @@ export class Mission {
   tableBuilt() {
     this.flags.tableBuilt = true;
     this.setState('seating');
-    this.addObjective('sit', 'Sit down with her');
   }
 
   satDown() {
     this.flags.seated = true;
-    this.complete('sit');
     this.setState('round-one');
-    this.addObjective('talk', 'Talk to her');
   }
 
   /** Each conversation round reports in when it is finished with. */
@@ -195,7 +277,7 @@ export class Mission {
     if (id === 'entrance') this.setState('drink-order');
     if (id === 'drinks') this.setState('family');
     if (id === 'family') this.setState('personal');
-    if (id === 'personal') this.complete('talk');
+    this.refreshBoard();
   }
 
   /** Lights down, curtain up. The other control-off moment. */
@@ -204,7 +286,6 @@ export class Mission {
   showStarted() {
     this.flags.showStarted = true;
     this.setState('performance');
-    this.addObjective('evening', 'Enjoy the evening', { optional: true });
   }
 
   /* ---- the optional dance ----
@@ -288,6 +369,10 @@ export class Mission {
     this.elapsed += dt;
     this.inState += dt;
     this.trailing = trailing ? this.trailing + dt : 0;
+    /* The optional lines are ticked off by flags that a dozen dialogue
+     * effects set directly, so rather than making every one of them report
+     * in, the board is simply asked. It repaints only when the answer moves. */
+    this.refreshBoard();
 
     /* She only gets bored during the parts that are waiting on the player.
      * Being kept a moment during a cutscene is not being kept waiting. */
@@ -379,7 +464,9 @@ export class Mission {
     if (snap.flags?.familyMet) this.flags.familyMet = snap.flags.familyMet.slice();
     if (snap.objectives) this.objectives = snap.objectives.map((o) => ({ ...o }));
     if (snap.notes) this.notes = snap.notes.slice();
-    this.hooks.onObjective?.(this.objectives);
+    /* And then derived again from what was just installed, so a checkpoint
+     * written before a line existed still comes back with the whole board. */
+    this.refreshBoard();
     return true;
   }
 

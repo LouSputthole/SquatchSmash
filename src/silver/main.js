@@ -412,14 +412,36 @@ function paintTips() {
     + `<span class="of">of ${woo.tipCount + left}</span>`;
 }
 
+/**
+ * The board, down the side of the screen.
+ *
+ * The evening's work above a rule, the things that are merely worth doing
+ * below it, and the current line — the first one that is neither done nor
+ * optional — marked, because a list of eight where seven are crossed out
+ * still needs to say which one is now. Finished lines stay: crossing
+ * something out is most of what a list is for, and this one is also the
+ * record of an evening the player is being scored on.
+ */
 function paintObjectives(list) {
   ui.objectives.classList.remove('hidden');
-  ui.objectiveList.replaceChildren(...list.map((o) => {
+  const now = list.find((o) => !o.done && !o.optional);
+  const row = (o) => {
     const li = document.createElement('li');
-    li.className = `${o.done ? 'done' : ''}${o.optional ? ' optional' : ''}`.trim();
+    li.className = [o.done ? 'done' : '', o.optional ? 'optional' : '', o === now ? 'now' : '']
+      .filter(Boolean).join(' ');
     li.textContent = o.text;
     return li;
-  }));
+  };
+  const main = list.filter((o) => !o.optional);
+  const extra = list.filter((o) => o.optional);
+  const rows = main.map(row);
+  if (extra.length) {
+    const rule = document.createElement('li');
+    rule.className = 'rule';
+    rule.textContent = 'IF YOU LIKE';
+    rows.push(rule, ...extra.map(row));
+  }
+  ui.objectiveList.replaceChildren(...rows);
 }
 
 /* ------------------------------------------------------------------ */
@@ -448,8 +470,19 @@ function tip(id, amount, { generous = false, contextual = false } = {}) {
   date.bark('tipped', DATE_BARKS.tipped);
   const npc = npcForTip(id);
   if (npc) date.watch(npc.group, 2.2);
+  /* Everybody between the alley and the curtain, for the board's optional
+   * line about looking after the room. The front of house is a different
+   * thing and is not counted here — tipping the host is buying a table. */
+  if (BACK_OF_HOUSE.has(id)) mission.flags.backOfHouseTipped++;
+  mission.refreshBoard();
   return true;
 }
+
+/** The seven people on the way in who have no reason to do you a favour. */
+const BACK_OF_HOUSE = new Set([
+  'Woo.DoorAttendantTipped', 'Woo.CellarWorkerTipped', 'Woo.DeliveryTipped',
+  'Woo.PorterTipped', 'Woo.CookTipped', 'Woo.LineCookTipped', 'Woo.DishwasherTipped',
+]);
 
 function npcForTip(id) {
   const t = TIP_POINTS.find((x) => x.id === id);
