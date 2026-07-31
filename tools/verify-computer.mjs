@@ -9,6 +9,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { EXIT_HOLD, EXIT_LABEL } from '../src/arcade/webapp.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5207;
@@ -57,10 +58,36 @@ const browser = await chromium.launch({
 const context = await browser.newContext({ viewport: { width: 720, height: 450 } });
 const page = await context.newPage();
 
-// DOOM is deliberately cross-origin. Its availability is not an apartment
-// lifecycle invariant, so keep the verifier deterministic and test the
-// parent-owned escape path without depending on that external host.
-await page.route('https://mrdoob.github.io/**', (route) => route.abort('blockedbyclient'));
+/*
+ * DOOM is deliberately cross-origin, and its availability is not an apartment
+ * lifecycle invariant -- CI has no business depending on somebody else's host.
+ *
+ * But an ABORTED request leaves an empty frame that swallows nothing, and the
+ * whole reason the way out is shaped the way it is, is that the real page
+ * takes the keyboard and eats every key including Tab. So the request is
+ * fulfilled from here instead, with a stand-in served under mrdoob's origin
+ * -- genuinely cross-origin, genuinely a sealed box, genuinely deaf to us --
+ * and the escape route is tested against a frame that behaves like the real
+ * one rather than against a hole where it should be.
+ */
+const DOOM_STANDIN = `<!doctype html><meta charset="utf-8"><title>DOOM</title>
+<style>html,body{margin:0;height:100%;background:#1a0505;cursor:crosshair}</style>
+<canvas id="c" style="position:fixed;inset:0"></canvas>
+<script>
+  const swallowed = [];
+  window.SWALLOWED = swallowed;
+  addEventListener('keydown', (e) => { swallowed.push(e.code); e.preventDefault(); e.stopPropagation(); }, true);
+  addEventListener('keyup', (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+  const c = document.getElementById('c');
+  const g = c.getContext('2d');
+  c.width = innerWidth; c.height = innerHeight;
+  g.fillStyle = '#1a0505'; g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = '#c0392b'; g.font = 'bold 44px monospace'; g.textAlign = 'center';
+  g.fillText('DOOM', c.width / 2, c.height / 2);
+<\/script>`;
+await page.route('https://mrdoob.github.io/**', (route) => route.fulfill({
+  status: 200, contentType: 'text/html; charset=utf-8', body: DOOM_STANDIN,
+}));
 
 const problems = [];
 page.on('pageerror', (error) => problems.push(error.message));
@@ -91,9 +118,32 @@ async function computerState() {
       overlayVisible: app?.overlay?.visible === true,
       overlayDisplay: app?.overlay?.el?.style?.display ?? null,
       quitConnected: app?.quit?.isConnected === true,
-      quitText: app?.quit?.textContent ?? null,
+      quitText: app?.quitLabel?.textContent ?? null,
+      quitHow: app?.quitHow?.textContent ?? null,
+      /* The pointer is unlocked for a framed app, and the room hides the
+       * cursor over its own canvas whenever it is locked. If that rule is
+       * still in force there is a way out on screen that nobody can aim at. */
+      roomCursor: getComputedStyle(game.renderer.domElement).cursor,
       pointerLocked: document.pointerLockElement === game.renderer.domElement,
       campaignScene: game.campaign.state.scene.id,
+    };
+  });
+}
+
+/** Where the parent-owned way out is, and whether anything is on top of it. */
+async function wayOut() {
+  return page.evaluate(() => {
+    const q = window.__squatch.arcade.app?.quit;
+    if (!q?.isConnected) return null;
+    const r = q.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return {
+      x: r.left, y: r.top, w: r.width, h: r.height,
+      cx: Math.round(r.left + r.width / 2), cy: Math.round(r.top + r.height / 2),
+      onScreen: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+      onTop: hit === q || q.contains(hit),
+      focused: document.activeElement === q,
+      how: window.__squatch.arcade.app.quitHow.textContent,
     };
   });
 }
@@ -296,7 +346,7 @@ try {
   check('clicking the Squatch Smash desktop icon launches its real campground game',
     smashLaunch.mode === 'app' && smashLaunch.appId === 'smash' && smashLaunch.inputMode === 'dom'
       && state.appId === 'smash' && state.overlayVisible && state.quitConnected
-      && state.quitText === 'TAB = EXIT TO DESKTOP' && !state.paused && gameLoaded
+      && state.quitText === EXIT_LABEL && !state.paused && gameLoaded
       && smashButtonOnScreen,
     JSON.stringify({
       smashLaunch,
@@ -323,33 +373,53 @@ try {
     smashPlaying.state === 'playing' && smashPlaying.menuHidden && smashPlaying.hudVisible,
     JSON.stringify(smashPlaying));
 
-  await page.evaluate(() => {
-    const framedWindow = window.__squatch.arcade.app.overlay.el.contentWindow;
-    framedWindow.dispatchEvent(new framedWindow.KeyboardEvent('keydown', {
+  /* Tab inside a same-origin app is a HOLD, not a tap: a tap belongs to
+   * whatever is running -- it is DOOM's automap, and one day it will be
+   * something of the campground's -- and only the hold is the way out. */
+  const tabIn = (type) => campground.evaluate((eventType) => {
+    window.dispatchEvent(new KeyboardEvent(eventType, {
       code: 'Tab',
       key: 'Tab',
       bubbles: true,
       cancelable: true,
     }));
-  });
-  await page.waitForFunction(() => window.__squatch.arcade.mode === 'desktop');
+  }, type);
+  await tabIn('keydown');
+  await page.waitForTimeout(120);
+  await tabIn('keyup');
+  await page.waitForTimeout(200);
+  const smashAfterTap = await computerState();
+  check('a tap of Tab inside Squatch Smash is left to the game',
+    smashAfterTap.osMode === 'app' && smashAfterTap.appId === 'smash'
+      && smashAfterTap.overlayVisible,
+    JSON.stringify(smashAfterTap));
+
+  await tabIn('keydown');
+  await page.waitForFunction(() => window.__squatch.arcade.mode === 'desktop',
+    null, { timeout: 20000 });
+  await tabIn('keyup');
   state = await computerState();
   const smashAfterTab = await campground.evaluate(() => window.SQUATCH?.state);
-  check('Tab inside Squatch Smash returns through the apartment-owned desktop',
+  check('holding Tab inside Squatch Smash returns through the apartment-owned desktop',
     state.osMode === 'desktop' && state.inputMode === 'relative'
       && state.appId === null && !state.overlayVisible && !state.quitConnected
       && smashAfterTab === 'paused',
-    JSON.stringify({ state, smashAfterTab }));
+    JSON.stringify({ state, smashAfterTab, hold: EXIT_HOLD }));
 
   await page.evaluate(() => {
     const os = window.__squatch.arcade;
     os.launch(os.apps.find(({ id }) => id === 'doom'));
   });
+  await page.waitForFunction(() => {
+    const app = window.__squatch.arcade.app;
+    return app?.id === 'doom' && app.overlay.visible;
+  }, null, { timeout: 30000 });
+  await page.waitForTimeout(600);
   state = await computerState();
   check('the cross-origin DOOM frame has a parent-owned escape control',
     state.appId === 'doom' && state.inputMode === 'dom'
       && state.overlayVisible && state.quitConnected
-      && state.quitText === 'TAB = EXIT TO DESKTOP',
+      && state.quitText === EXIT_LABEL,
     JSON.stringify(state));
   const doomLaunch = await page.evaluate(() => {
     const app = window.__squatch.arcade.app;
@@ -362,11 +432,112 @@ try {
   check('DOOM starts a real E1M1 session instead of recorded attract-mode input',
     doomLaunch.map === 'E1M1',
     JSON.stringify(doomLaunch));
-  await page.evaluate(() => window.__squatch.arcade.app.quit.click());
+
+  /* ------------------------------------------------------------------ *
+   * The way out of a running app.
+   *
+   * Driven the way a player drives it -- real mouse, real keys -- because
+   * every part of this that was broken was broken in a way that a call to
+   * .click() from the console could not see.
+   * ------------------------------------------------------------------ */
+  const doomFrame = () => page.frames().find((f) => /mrdoob\.github\.io/.test(f.url()));
+  await page.waitForFunction(() => document.activeElement?.tagName === 'IFRAME',
+    null, { timeout: 10000 }).catch(() => {});
+  const framedKeyboard = await page.evaluate(() => ({
+    active: document.activeElement?.tagName ?? null,
+    // The parent still thinks it has focus. There is nothing here to test.
+    hasFocus: document.hasFocus(),
+  }));
+
+  const exitAt = await wayOut();
+  check('the way out is on screen, on top of the frame, and the room shows a cursor',
+    Boolean(exitAt) && exitAt.onScreen && exitAt.onTop
+      && exitAt.w > 60 && exitAt.h > 12 && state.roomCursor !== 'none',
+    JSON.stringify({ exitAt, roomCursor: state.roomCursor }));
+
+  /* A held Tab with the frame in focus reaches the frame and nobody else --
+   * this is the whole reason the label cannot just say TAB. */
+  await page.evaluate(() => { window.__parentKeys = []; window.addEventListener('keydown', (e) => window.__parentKeys.push(e.code), true); });
+  await page.keyboard.down('Tab');
+  await page.waitForTimeout(EXIT_HOLD * 1000 + 500);
+  await page.keyboard.up('Tab');
+  const swallowed = await doomFrame()?.evaluate(() => window.SWALLOWED?.slice() ?? []);
+  const heldInFrame = await page.evaluate(() => ({
+    parentKeys: window.__parentKeys.slice(),
+    osMode: window.__squatch.arcade.mode,
+    appId: window.__squatch.arcade.app?.id ?? null,
+  }));
+  check('a held Tab inside the cross-origin frame never reaches the apartment',
+    framedKeyboard.active === 'IFRAME' && heldInFrame.parentKeys.length === 0
+      && Array.isArray(swallowed) && swallowed.includes('Tab')
+      && heldInFrame.osMode === 'app' && heldInFrame.appId === 'doom',
+    JSON.stringify({ framedKeyboard, heldInFrame, swallowed }));
+
+  /* Pointing at the control is what hands the keyboard back. */
+  await page.mouse.move(exitAt.cx, exitAt.cy, { steps: 8 });
+  await page.waitForTimeout(200);
+  const armed = await wayOut();
+  const stillPut = armed && Math.abs(armed.x - exitAt.x) < 2 && Math.abs(armed.y - exitAt.y) < 2;
+  check('pointing at the way out arms it and it does not drift while he looks',
+    Boolean(armed) && armed.focused && armed.onTop && stillPut
+      && armed.how !== exitAt.how,
+    JSON.stringify({ exitAt, armed }));
+
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(250);
+  const afterTap = await computerState();
+  check('a tap of Tab still belongs to the game, even with the way out armed',
+    afterTap.osMode === 'app' && afterTap.appId === 'doom' && afterTap.overlayVisible,
+    JSON.stringify(afterTap));
+
+  await page.keyboard.down('Tab');
+  await page.waitForTimeout(180);
+  const midHold = await page.evaluate(() => {
+    const app = window.__squatch.arcade.app;
+    return { holding: app?._holding === true, fill: app?.quitFill?.style.width ?? null };
+  });
+  await page.waitForFunction(() => window.__squatch.arcade.mode === 'desktop',
+    null, { timeout: 20000 });
+  await page.keyboard.up('Tab');
   state = await computerState();
-  check('the DOOM escape control returns without cross-origin access',
-    state.osMode === 'desktop' && state.appId === null,
+  check('holding Tab on the way out quits a running DOOM to the desktop',
+    state.osMode === 'desktop' && state.appId === null && state.inputMode === 'relative'
+      && !state.overlayVisible && !state.quitConnected && midHold.holding,
+    JSON.stringify({ state, midHold }));
+
+  await page.keyboard.press('q');
+  await page.evaluate(() => window.__squatch.player.update(2));
+  state = await computerState();
+  check('and Q gets him out of the chair straight after quitting an app',
+    !state.seated && state.playerMode === 'walk' && state.campaignScene === 'apartment',
     JSON.stringify(state));
+
+  /* The route that needs no keyboard at all: a real click, real coordinates. */
+  await page.evaluate(() => {
+    const game = window.__squatch;
+    game.game.paused = false;
+    game.sitAtPC();
+    game.player.update(2);
+    const os = game.arcade;
+    os.launch(os.apps.find(({ id }) => id === 'doom'));
+  });
+  await page.waitForFunction(() => window.__squatch.arcade.app?.quit?.isConnected === true,
+    null, { timeout: 30000 });
+  await page.waitForTimeout(400);
+  const clickAt = await wayOut();
+  await page.mouse.move(clickAt.cx, clickAt.cy, { steps: 6 });
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(300);
+  state = await computerState();
+  check('clicking the way out quits a running app without touching the keyboard',
+    state.osMode === 'desktop' && state.appId === null && !state.quitConnected,
+    JSON.stringify({ clickAt, state }));
+
+  await page.evaluate(() => {
+    const game = window.__squatch;
+    if (!game.game.seated) { game.sitAtPC(); game.player.update(2); }
+  });
 
   await page.evaluate(() => {
     const game = window.__squatch;
