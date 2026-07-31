@@ -138,7 +138,7 @@ async function motelState() {
 async function firstPersonState(target) {
   return target.evaluate(() => {
     const motel = window.MOTEL;
-    const manny = motel.actors.find((actor) => actor.identity === 'manny');
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
     return {
       phase: motel.phase,
       mode: motel.cameraMode,
@@ -153,13 +153,13 @@ async function firstPersonState(target) {
         motel.pos.y,
         motel.playerRadius,
       ),
-      manny: manny ? {
-        identity: manny.identity,
-        role: manny.role,
-        faction: manny.faction,
-        species: manny.rig.species,
-        hostile: manny.hostile,
-        state: manny.state,
+      snow: snow ? {
+        identity: snow.identity,
+        role: snow.role,
+        faction: snow.faction,
+        species: snow.rig.species,
+        hostile: snow.hostile,
+        state: snow.state,
       } : null,
     };
   });
@@ -253,14 +253,31 @@ async function geometryState(target) {
   });
 }
 
-async function moveForward(target, duration = 550) {
+/**
+ * Hold W until he has actually covered some ground.
+ *
+ * This used to hold the key for a fixed 550ms, which measures the renderer as
+ * much as the movement code: the motel draws at a couple of frames a second
+ * under swiftshader, so half a second of real time is one simulated step and
+ * a real walk read as 0.24m. Holding until he has moved, with a ceiling, tests
+ * the same thing — genuine key events driving genuine movement — without
+ * asking a software rasteriser to keep up with a stopwatch.
+ */
+async function moveForward(target, { want = 0.6, timeout = 12000 } = {}) {
   const before = await target.evaluate(() => ({
     x: window.MOTEL.pos.x,
     z: window.MOTEL.pos.z,
     facing: window.MOTEL.facing,
   }));
   await target.keyboard.down('KeyW');
-  await target.waitForTimeout(duration);
+  await target.waitForFunction(
+    ([start, distance]) => {
+      const { pos } = window.MOTEL;
+      return Math.hypot(pos.x - start.x, pos.z - start.z) >= distance;
+    },
+    [{ x: before.x, z: before.z }, want],
+    { timeout, polling: 60 },
+  ).catch(() => { /* let the assertion below report what actually happened */ });
   await target.keyboard.up('KeyW');
   await target.waitForTimeout(80);
   const after = await target.evaluate(() => ({
@@ -307,13 +324,59 @@ try {
       && !previewState.playerVisible
       && previewState.cameraDistance < 0.08,
     JSON.stringify(previewState));
-  check('Manny is a distinct adult human ally',
-    previewState.manny?.identity === 'manny'
-      && previewState.manny.role === 'ally'
-      && previewState.manny.faction === 'friendly'
-      && previewState.manny.species === 'human'
-      && !previewState.manny.hostile,
-    JSON.stringify(previewState.manny));
+  check('Snow is a distinct adult human ally',
+    previewState.snow?.identity === 'snow'
+      && previewState.snow.role === 'ally'
+      && previewState.snow.faction === 'friendly'
+      && previewState.snow.species === 'human'
+      && !previewState.snow.hostile,
+    JSON.stringify(previewState.snow));
+
+  /* The ally is Snow of the Family, wearing his own photograph. */
+  const allyIdentity = await previewPage.evaluate(() => {
+    const snow = window.MOTEL.actors.find((actor) => actor.identity === 'snow');
+    if (!snow) return null;
+    let photoMaterials = 0;
+    snow.group.traverse((object) => {
+      for (const material of [].concat(object.material || [])) {
+        if (material?.map?.image) photoMaterials++;
+      }
+    });
+    return {
+      name: snow.name,
+      identity: snow.identity,
+      face: snow.rig.face,
+      photoMaterials,
+      subtitleName: window.MOTEL.voice.cueFor('Snow', 'x').split('.')[0],
+    };
+  });
+  check('the ally is Snow, with his own face on him',
+    allyIdentity?.identity === 'snow'
+      && allyIdentity.name === 'Snow'
+      && allyIdentity.face === 'assets/faces/snow.png'
+      && allyIdentity.photoMaterials >= 1,
+    JSON.stringify(allyIdentity));
+
+  /* Idle actors keep the pose the scene gave them. The old idle aimed at a
+   * point due east of each actor's own anchor, so everybody in the lot turned
+   * to face +x within a second whatever the scene intended. */
+  const idlePoses = await previewPage.evaluate(() => {
+    const norm = (r) => Math.atan2(Math.sin(r), Math.cos(r));
+    return window.MOTEL.actors
+      .filter((actor) => actor.state === 'idle')
+      .map((actor) => ({
+        name: actor.name,
+        idleHeading: Number(actor.idleHeading.toFixed(3)),
+        rotY: Number(norm(actor.group.rotation.y).toFixed(3)),
+        off: Number(Math.abs(norm(actor.group.rotation.y - actor.idleHeading)).toFixed(3)),
+      }));
+  });
+  check('idle actors hold the facing the scene authored',
+    idlePoses.length >= 3
+      && idlePoses.every((pose) => pose.off < 0.25)
+      && new Set(idlePoses.map((pose) => pose.idleHeading)).size > 1,
+    JSON.stringify(idlePoses));
+
   const passengerSightline = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     motel.scene.updateMatrixWorld(true);
@@ -356,33 +419,33 @@ try {
 
   const friendlyGuardBefore = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const manny = motel.actors.find((actor) => actor.identity === 'manny');
-    manny.group.position.set(motel.pos.x + 0.35, 0, motel.pos.z + 0.35);
-    manny.hostile = true;
-    manny.state = 'chase';
-    manny.attackCd = 0;
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
+    snow.group.position.set(motel.pos.x + 0.35, 0, motel.pos.z + 0.35);
+    snow.hostile = true;
+    snow.state = 'chase';
+    snow.attackCd = 0;
     return { hp: motel.S.hp };
   });
   await previewPage.waitForTimeout(280);
   await previewPage.evaluate(() => {
-    const manny = window.MOTEL.actors.find((actor) => actor.identity === 'manny');
-    manny.hostile = true;
-    manny.state = 'grab';
-    manny.attackCd = 0;
+    const snow = window.MOTEL.actors.find((actor) => actor.identity === 'snow');
+    snow.hostile = true;
+    snow.state = 'grab';
+    snow.attackCd = 0;
   });
   await previewPage.waitForTimeout(280);
   const friendlyGuardAfter = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const manny = motel.actors.find((actor) => actor.identity === 'manny');
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
     const result = {
       hp: motel.S.hp,
-      hostile: manny.hostile,
-      state: manny.state,
-      faction: manny.faction,
+      hostile: snow.hostile,
+      state: snow.state,
+      faction: snow.faction,
     };
-    manny.group.position.set(-10.6, 0, 16.4);
-    manny.anchor = { x: -10.6, z: 16.4 };
-    manny.state = 'idle';
+    snow.group.position.set(-10.6, 0, 16.4);
+    snow.anchor = { x: -10.6, z: 16.4 };
+    snow.state = 'idle';
     return result;
   });
   check('friendly faction blocks chase, grab, and damage-to-Tony regressions',
@@ -403,6 +466,100 @@ try {
   check('real WASD input moves Tony forward without a collider trap',
     motion.distance > 0.4 && motion.forwardProgress > 0.35 && !motion.blocked,
     JSON.stringify(motion));
+
+  /* The HUD shows what he is carrying, and grows a row when he picks
+   * something up. */
+  const packBefore = await previewPage.evaluate(() => ({
+    items: window.MOTEL.inventory.map((item) => item.id),
+    hidden: document.getElementById('packBox').classList.contains('empty'),
+    text: document.getElementById('packList').textContent,
+  }));
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('trunk'));
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('trunk'));
+  await previewPage.waitForTimeout(120);
+  const packAfter = await previewPage.evaluate(() => ({
+    items: window.MOTEL.inventory.map((item) => item.id),
+    hidden: document.getElementById('packBox').classList.contains('empty'),
+    text: document.getElementById('packList').textContent,
+    weapon: window.MOTEL.S.weapon,
+  }));
+  check('the carrying HUD lists what Tony has and updates on pickup',
+    !packBefore.hidden
+      && packBefore.items.includes('money')
+      && packAfter.items.length > packBefore.items.length
+      && packAfter.items.some((id) => id.startsWith('weapon:'))
+      && packAfter.text.includes('crowbar'),
+    JSON.stringify({ before: packBefore.items, after: packAfter.items, weapon: packAfter.weapon }));
+
+  /* And the thing in his hands is visible from his own eyes. */
+  const armed = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const THREE = motel.three;
+    motel.scene.updateMatrixWorld(true);
+    const view = motel.viewmodel;
+    const group = motel.camera.children.find((child) => child.type === 'Group');
+    if (!group) return { ...view, onScreen: false };
+    const box = new THREE.Box3().setFromObject(group);
+    const ndc = box.getCenter(new THREE.Vector3()).project(motel.camera);
+    return {
+      ...view,
+      ndc: [Number(ndc.x.toFixed(2)), Number(ndc.y.toFixed(2))],
+      onScreen: Math.abs(ndc.x) < 1 && Math.abs(ndc.y) < 1 && ndc.z > -1 && ndc.z < 1,
+    };
+  });
+  check('an equipped weapon is visible in first person',
+    armed.visible
+      && armed.inCamera
+      && armed.children > 0
+      && armed.kind === 'crowbar'
+      && armed.onScreen,
+    JSON.stringify(armed));
+
+  await previewPage.evaluate(() => { window.MOTEL.S.weapon = 'fists'; });
+  await previewPage.waitForFunction(
+    () => window.MOTEL.viewmodel.kind === null,
+    null,
+    { timeout: 20000 },
+  ).catch(() => { /* reported by the assertion */ });
+  const unarmed = await previewPage.evaluate(() => ({
+    weapon: window.MOTEL.S.weapon, view: window.MOTEL.viewmodel,
+  }));
+  check('and nothing is drawn in his hands when he is empty-handed',
+    unarmed.view.kind === null && unarmed.view.visible === false,
+    JSON.stringify(unarmed));
+
+  /* The Reserve is a room-twelve prop and must not be reachable from the lot,
+   * let alone from the passenger seat, where taking it skipped the whole deal. */
+  const reserveGate = await previewPage.evaluate(() => {
+    const reserve = window.MOTEL.interactableList.find((entry) => entry.id === 'jerkyCase');
+    return { phase: window.MOTEL.phase, enabledInLot: !!reserve.enabled() };
+  });
+  check('the Reserve cannot be taken before Tony is in the room',
+    reserveGate.phase === 'lot' && reserveGate.enabledInLot === false,
+    JSON.stringify(reserveGate));
+
+  /* Lines ask the audio layer for a recording and survive not getting one. */
+  const voiceWiring = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const before = motel.voice.requested.length;
+    motel.voice.say('Snow', 'Testing the wire.', 2, motel.voice.cueFor('Snow', 'probe'));
+    const coverage = motel.voice.coverage();
+    return {
+      grew: motel.voice.requested.length > before,
+      asked: coverage.requested.includes('vo.motel.snow.probe'),
+      namespaced: coverage.requested.every((cue) => cue.startsWith('vo.motel.')),
+      recorded: coverage.recorded.length,
+      subtitle: document.getElementById('subtitle').textContent,
+      shown: document.getElementById('subtitle').classList.contains('show'),
+    };
+  });
+  check('spoken lines ask for a recording and still read without one',
+    voiceWiring.grew
+      && voiceWiring.asked
+      && voiceWiring.namespaced
+      && voiceWiring.shown
+      && voiceWiring.subtitle.includes('Testing the wire.'),
+    JSON.stringify(voiceWiring));
   await capture(previewPage, 'after-lot-first-person');
 
   const geometry = await geometryState(previewPage);
@@ -433,13 +590,13 @@ try {
 
   await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const manny = motel.actors.find((actor) => actor.identity === 'manny');
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
     motel.teleport(0, 18);
-    manny.group.position.set(0, 0, 13.5);
-    motel.face(manny.position.x, manny.position.z);
+    snow.group.position.set(0, 0, 13.5);
+    motel.face(snow.position.x, snow.position.z);
   });
   await previewPage.waitForTimeout(180);
-  await capture(previewPage, 'after-manny-human');
+  await capture(previewPage, 'after-snow-human');
 
   await previewPage.evaluate(() => {
     window.MOTEL.teleport(10.5, 14);
@@ -449,7 +606,18 @@ try {
   await capture(previewPage, 'after-pool-layout');
 
   await previewPage.evaluate(() => window.MOTEL.forceInteract('knock'));
-  await previewPage.waitForTimeout(1300);
+  /* Rico is spawned by a timer a second after the knock. Waiting for him
+   * rather than for the clock keeps this honest on a slow renderer, where a
+   * frame can outlast the timer and the old fixed sleep stepped into an empty
+   * doorway. */
+  await previewPage.waitForFunction(
+    () => window.MOTEL.actors.some((actor) => actor.name === 'Rico'),
+    null,
+    { timeout: 20000 },
+  );
+  check('knocking brings Rico to the door of room twelve',
+    await previewPage.evaluate(() => window.MOTEL.phase === 'door'
+      && window.MOTEL.actors.some((actor) => actor.name === 'Rico')));
   await previewPage.evaluate(() => {
     window.MOTEL.S.doorOpened = true;
     window.MOTEL.forceInteract('enterRoom');
@@ -518,22 +686,22 @@ try {
 
   await previewPage.evaluate(() => {
     window.MOTEL.forceInteract('windowSignal');
-    const manny = window.MOTEL.actors.find((actor) => actor.identity === 'manny');
-    manny.group.position.set(-1, 0, 1.5);
+    const snow = window.MOTEL.actors.find((actor) => actor.identity === 'snow');
+    snow.group.position.set(-1, 0, 1.5);
   });
   await previewPage.waitForTimeout(280);
   const signalState = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const manny = motel.actors.find((actor) => actor.identity === 'manny');
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
     return {
-      signalled: motel.S.mannySignalled,
-      faction: manny.faction,
-      hostile: manny.hostile,
-      state: manny.state,
+      signalled: motel.S.snowSignalled,
+      faction: snow.faction,
+      hostile: snow.hostile,
+      state: snow.state,
       hp: motel.S.hp,
     };
   });
-  check('Manny reaches the signal waypoint without turning on Tony',
+  check('Snow reaches the signal waypoint without turning on Tony',
     signalState.signalled
       && signalState.faction === 'friendly'
       && !signalState.hostile
@@ -566,7 +734,10 @@ try {
     ) < 0.02,
     JSON.stringify(mattressState));
 
-  await previewPage.waitForFunction(() => window.MOTEL.S.captured, null, { timeout: 5000 });
+  /* Rico has to cross the room and take him. That is simulation time, not wall
+   * time, and this scene draws at a couple of frames a second on a software
+   * rasteriser, so the budget is generous on purpose. */
+  await previewPage.waitForFunction(() => window.MOTEL.S.captured, null, { timeout: 45000 });
   const capturedStart = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     return {
@@ -581,7 +752,7 @@ try {
   await previewPage.waitForFunction(
     () => window.MOTEL.phase === 'recover' || window.MOTEL.phase === 'escape',
     null,
-    { timeout: 3000 },
+    { timeout: 30000 },
   );
   const captureRecovery = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
@@ -600,17 +771,17 @@ try {
 
   const allyCombatBefore = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const manny = motel.actors.find((actor) => actor.identity === 'manny');
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
     const rico = motel.actors.find((actor) => actor.name === 'Rico');
     for (const actor of motel.actors) {
-      if (actor === manny || actor === rico) continue;
+      if (actor === snow || actor === rico) continue;
       actor.hostile = false;
       actor.state = 'idle';
     }
-    motel.S.mannyInside = true;
-    manny.group.position.set(rico.position.x - 1, 0, rico.position.z);
-    manny.state = 'follow';
-    manny.attackCd = 0;
+    motel.S.snowInside = true;
+    snow.group.position.set(rico.position.x - 1, 0, rico.position.z);
+    snow.state = 'follow';
+    snow.attackCd = 0;
     rico.hostile = true;
     rico.state = 'idle';
     return { playerHp: motel.S.hp, ricoHp: rico.hp };
@@ -618,21 +789,95 @@ try {
   await previewPage.waitForTimeout(1150);
   const allyCombatAfter = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
-    const manny = motel.actors.find((actor) => actor.identity === 'manny');
+    const snow = motel.actors.find((actor) => actor.identity === 'snow');
     const rico = motel.actors.find((actor) => actor.name === 'Rico');
     return {
       playerHp: motel.S.hp,
       ricoHp: rico.hp,
-      mannyHostile: manny.hostile,
-      mannyState: manny.state,
+      snowHostile: snow.hostile,
+      snowState: snow.state,
     };
   });
-  check('Manny can still defend Tony against a true hostile',
+  check('Snow can still defend Tony against a true hostile',
     allyCombatAfter.playerHp === allyCombatBefore.playerHp
       && allyCombatAfter.ricoHp < allyCombatBefore.ricoHp
-      && !allyCombatAfter.mannyHostile
-      && allyCombatAfter.mannyState === 'follow',
+      && !allyCombatAfter.snowHostile
+      && allyCombatAfter.snowState === 'follow',
     JSON.stringify({ before: allyCombatBefore, after: allyCombatAfter }));
+
+  /* ---- the getaway, from the driver's eye ---- */
+  await previewPage.evaluate(() => window.MOTEL.drive());
+  await previewPage.waitForFunction(() => window.MOTEL.phase === 'drive', null, { timeout: 20000 });
+  await previewPage.waitForTimeout(900);
+  await capture(previewPage, 'after-drive-first-person');
+
+  const driveView = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const THREE = motel.three;
+    motel.camera.updateMatrixWorld(true);
+    motel.driveState.scene.updateMatrixWorld(true);
+    const direction = new THREE.Vector3();
+    motel.camera.getWorldDirection(direction);
+    const ray = new THREE.Raycaster(motel.camera.position.clone(), direction);
+    const hits = ray.intersectObjects(motel.driveState.scene.children, true);
+    const opaque = hits.find((hit) => {
+      const material = hit.object.material;
+      return material && !material.transparent && material.opacity !== 0;
+    });
+    /* What is in the middle of the frame, and how far away, and is any of it
+     * something you cannot see through. */
+    return {
+      camera: motel.camera.position.toArray().map((n) => Number(n.toFixed(2))),
+      first: hits[0]
+        ? { role: hits[0].object.userData?.role ?? null, distance: Number(hits[0].distance.toFixed(2)) }
+        : null,
+      firstOpaque: opaque
+        ? { role: opaque.object.userData?.role ?? null, distance: Number(opaque.distance.toFixed(2)) }
+        : null,
+      roadVisible: hits.some((hit) => hit.object.geometry?.type === 'PlaneGeometry'),
+    };
+  });
+  check('the driving view looks out of the car, not into its own upholstery',
+    driveView.first?.role !== 'seat-back'
+      && (!driveView.firstOpaque || driveView.firstOpaque.distance > 20)
+      && driveView.roadVisible,
+    JSON.stringify(driveView));
+
+  const headlights = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    const THREE = motel.three;
+    const spots = [];
+    motel.driveState.scene.traverse((object) => { if (object.isSpotLight) spots.push(object); });
+    let ambient = 0;
+    motel.driveState.scene.traverse((object) => {
+      if (object.isHemisphereLight || object.isDirectionalLight || object.isAmbientLight) {
+        ambient += object.intensity;
+      }
+    });
+    /* How much the headlights deliver to a patch of road ahead of the car. */
+    const probe = new THREE.Vector3(0, 0.02, -14);
+    let onRoad = 0;
+    for (const spot of spots) {
+      const from = spot.getWorldPosition(new THREE.Vector3());
+      const aim = spot.target.getWorldPosition(new THREE.Vector3()).sub(from).normalize();
+      const toProbe = probe.clone().sub(from);
+      const distance = toProbe.length();
+      if (distance > spot.distance) continue;
+      if (Math.acos(Math.max(-1, Math.min(1, toProbe.normalize().dot(aim)))) > spot.angle) continue;
+      onRoad += spot.intensity / (distance ** spot.decay);
+    }
+    let pool = null;
+    motel.driveState.scene.traverse((object) => {
+      if (object.userData?.role === 'headlight-pool') pool = { visible: object.visible };
+    });
+    return { spots: spots.length, ambient: Number(ambient.toFixed(2)), onRoad: Number(onRoad.toFixed(1)), pool };
+  });
+  check('the headlights put unmistakable light on the road ahead',
+    headlights.spots === 2
+      && headlights.onRoad > headlights.ambient * 20
+      && headlights.pool?.visible === true,
+    JSON.stringify(headlights));
+
   await previewPage.close();
 
   await page.goto(`http://localhost:${PORT}/motel.html`, { waitUntil: 'load' });
