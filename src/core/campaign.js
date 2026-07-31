@@ -837,6 +837,36 @@ class Campaign {
     return this.state;
   }
 
+  /**
+   * Start over deliberately.
+   *
+   * This is intentionally separate from recovery: a repaired save keeps a
+   * forensic copy of the damaged data, whereas a player-confirmed restart
+   * replaces the primary save with Day One and discards any old recovery
+   * record. Write the fresh primary first so a storage failure never erases
+   * the campaign that was on disk.
+   */
+  reset() {
+    const fresh = initialState();
+    if (this.storage) {
+      try {
+        this.storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(fresh));
+      } catch {
+        return null;
+      }
+      try {
+        this.storage.removeItem?.(CAMPAIGN_RECOVERY_KEY);
+      } catch {
+        // The valid new primary campaign is still more important than an old
+        // recovery note that the player explicitly chose to discard.
+      }
+    }
+    this._state = fresh;
+    this._recovery = null;
+    this._recoveredNow = false;
+    return this.state;
+  }
+
   #save() {
     if (!this.storage) return false;
     try {

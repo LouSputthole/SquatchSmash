@@ -27,6 +27,10 @@ class MemoryStorage {
   setItem(key, value) {
     this.values.set(key, String(value));
   }
+
+  removeItem(key) {
+    this.values.delete(key);
+  }
 }
 
 test('a new campaign starts in the apartment with both Lous kept distinct', () => {
@@ -38,6 +42,24 @@ test('a new campaign starts in the apartment with both Lous kept distinct', () =
   assert.notEqual(CHARACTER_IDS.LOU, CHARACTER_IDS.CAPTAIN_LOU_SASOLE);
   assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'pending');
   assert.equal(campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
+});
+
+test('a confirmed campaign reset replaces story progress and clears obsolete recovery data', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
+  campaign.advanceTime(TIME_EVENT_IDS.EAT, (state) => { state.activities.eaten = true; });
+  storage.setItem(CAMPAIGN_RECOVERY_KEY, JSON.stringify({ reason: 'old_test_recovery', raw: '{}' }));
+
+  const reset = campaign.reset();
+
+  assert.equal(reset.scene.id, SCENE_IDS.APARTMENT);
+  assert.equal(reset.scene.spawn, 'wake');
+  assert.equal(reset.story.day, 1);
+  assert.equal(reset.activities.eaten, false);
+  assert.equal(reset.inventory.concealed.includes(ITEM_IDS.LOU_PACKAGE), false);
+  assert.equal(storage.getItem(CAMPAIGN_RECOVERY_KEY), null);
+  assert.deepEqual(createCampaign({ storage }).state, reset);
 });
 
 test('authored task time advances once and survives a reload', () => {

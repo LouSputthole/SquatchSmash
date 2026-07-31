@@ -1330,6 +1330,30 @@ await tick(1);
 s = await state();
 check('the office starts Lou talking', s.mission === 'office' && s.options >= 0, s.mission);
 
+const louBriefLock = await page.evaluate(() => {
+  const b = window.__bing;
+  const before = b.player.position.clone();
+  b.player.setKey('KeyW', true);
+  b.player.update(0.5);
+  b.player.clearKeys();
+  /* A normal conversation treats this as walking away. An objective briefing
+     stays active until its authored reply chain reaches an end. */
+  b.dialogue.update(0.1, {
+    x: b.cast.byName.lou.group.position.x + 20,
+    z: b.cast.byName.lou.group.position.z + 20,
+  });
+  return {
+    lockMovement: b.dialogue.lockMovement === true,
+    mode: b.player.mode,
+    moved: before.distanceTo(b.player.position),
+    stillTalking: b.dialogue.active,
+  };
+});
+check('Lou’s objective briefing holds Tony in place until the authored dialogue ends',
+  louBriefLock.lockMovement && louBriefLock.mode === 'frozen'
+    && louBriefLock.moved < 0.001 && louBriefLock.stillTalking,
+  JSON.stringify(louBriefLock));
+
 /* ---- Lou ---- */
 let ominous = null;
 for (let i = 0; i < 8; i++) {
@@ -1385,7 +1409,20 @@ for (let i = 0; i < 10; i++) {
   if (st.options > 0) await choose(st.options - 1);
   else await tick(3);
 }
-check('he finishes and lets you go', (await state()).mission === 'briefed');
+/* `mission.louDone()` is applied as Lou starts his final line. The movement
+ * lock is deliberately held until that line has actually finished, so do not
+ * confuse a logically-complete objective with a physically-complete briefing. */
+for (let i = 0; i < 10 && (await page.evaluate(() => window.__bing.dialogue.active)); i++) {
+  await tick(3);
+}
+const briefFinished = await page.evaluate(() => ({
+  mission: window.__bing.mission.state,
+  mode: window.__bing.player.mode,
+  locked: window.__bing.dialogue.lockMovement === true,
+}));
+check('he finishes and lets you go',
+  briefFinished.mission === 'briefed' && briefFinished.mode === 'walk' && !briefFinished.locked,
+  JSON.stringify(briefFinished));
 
 /* Once the job is done the front door itself offers the exit -- the owner's
  * playtest never found the wheel. The drive-out stays the canonical path

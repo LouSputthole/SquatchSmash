@@ -1,12 +1,11 @@
 /**
  * Conversation, without taking the game off the player.
  *
- * The rule for this whole level: you never lose control because somebody
- * important started talking. Lou can say his piece while you walk round the
- * office, sit down, open the drawer, look at the monitor or leave. So a
- * conversation here is a node, a line on screen, and up to four replies bound
- * to the number keys -- nothing is modal, nothing pauses, and walking out of
- * the room ends it the way walking out of a room does.
+ * Ambient conversations stay non-modal: you can step away and pick them up
+ * later. Mission briefings can opt into `lockMovement`, which holds Tony in
+ * place until the objective dialogue reaches an authored ending. A briefing
+ * cannot be skipped accidentally by walking out of Lou's office while the
+ * package, assignment, or next objective is still being explained.
  */
 
 const RANGE = 6.5;        // walk further than this and the conversation lapses
@@ -66,18 +65,21 @@ export class Dialogue {
    * @param {object} tree  id -> node
    * @param {string} at    starting node id
    * @param {object} speaker the Npc talking, for range and gaze
-   * @param {object} opts  { resume } -- pick the conversation back up at the
+   * @param {object} opts  { resume, lockMovement } -- pick the conversation back up at the
    *   node it lapsed on rather than restarting; only replay from `at` once
    *   the thread has completed. One-shot interjections (a door line, a
    *   package line) start without it and never disturb a saved thread.
    */
-  start(tree, at, speaker = null, { resume = false } = {}) {
+  start(tree, at, speaker = null, { resume = false, lockMovement = false } = {}) {
+    if (this.active) this.end('interrupted');
     this.tree = tree;
     this.speaker = speaker;
     this.active = true;
     this._resumable = resume;
     this._inReplyRange = true;
+    this.lockMovement = Boolean(lockMovement);
     this.hooks.onActive?.(true);
+    this.hooks.onMovementLock?.(this.lockMovement);
     const bookmark = resume ? this._bookmarks.get(tree) : null;
     this.go(bookmark && tree[bookmark] ? bookmark : at);
   }
@@ -167,8 +169,11 @@ export class Dialogue {
     this.options = [];
     this._pending = null;
     this._inReplyRange = true;
+    const lockedMovement = this.lockMovement;
+    this.lockMovement = false;
     this.ui.root.classList.add('hidden');
     this.ui.options.classList.add('hidden');
+    if (lockedMovement) this.hooks.onMovementLock?.(false);
     this.hooks.onActive?.(false);
     this.hooks.onEnd?.(reason);
   }
@@ -177,7 +182,7 @@ export class Dialogue {
     if (!this.active) return;
 
     // Walk away and it stops being a conversation
-    if (this.speaker && playerPos) {
+    if (!this.lockMovement && this.speaker && playerPos) {
       const d = Math.hypot(
         playerPos.x - this.speaker.group.position.x,
         playerPos.z - this.speaker.group.position.z,

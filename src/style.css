@@ -511,6 +511,46 @@ kbd.key, .controls kbd {
 #start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--amber-dim); }
 #start-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--amber-dim); }
 
+.campaign-reset {
+  display: block;
+  margin: 18px auto 0;
+  color: #b8ad98;
+  background: transparent;
+  border: 1px solid #675a4a;
+  border-radius: 4px;
+  padding: 8px 13px;
+  font: 600 11px var(--font);
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.campaign-reset:hover { color: #f1dfc1; border-color: #b47a53; }
+.campaign-reset-confirm {
+  max-width: 440px;
+  margin: 16px auto 0;
+  padding: 12px 14px;
+  color: #e3d7c1;
+  background: rgba(65, 18, 12, .68);
+  border: 1px solid #9c493b;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.campaign-reset-confirm p { margin: 0 0 10px; }
+.campaign-reset-confirm div { display: flex; justify-content: center; gap: 10px; }
+.campaign-reset-confirm button {
+  padding: 7px 10px;
+  color: #f6e8d1;
+  background: #6f251d;
+  border: 1px solid #b85b4c;
+  border-radius: 3px;
+  font: 600 11px var(--font);
+  letter-spacing: .6px;
+  cursor: pointer;
+}
+.campaign-reset-confirm #restart-campaign-cancel-btn { background: #24211e; border-color: #5f584d; }
+.campaign-reset-confirm button:hover { filter: brightness(1.18); }
+.campaign-reset.hidden, .campaign-reset-confirm.hidden { display: none; }
+
 #overlay .controls {
   list-style: none;
   padding: 0;
