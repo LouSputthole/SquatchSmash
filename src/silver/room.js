@@ -134,7 +134,7 @@ export function zoneAt(room) {
  */
 export const ROUTE = [
   /* ---- the pavement, and along the front to the alley mouth ---- */
-  { x: 6,    z: 39,   room: 'street' },
+  { x: 9,    z: 39,   room: 'street' },
   { x: 22,   z: 37.5, room: 'street' },
   { x: 33,   z: 36,   room: 'street' },
   /* ---- the alley, down the east side to the service door ---- */
@@ -469,7 +469,12 @@ export function buildRoom(scene, { renderer } = {}) {
     }
     anchors.publicDoor = new THREE.Vector3(0, 0, 35.4);
     anchors.queue = new THREE.Vector3(0, 0, 39.8);
-    anchors.dropOff = new THREE.Vector3(6, 0, 38.5);
+    /* Where the two of them land: on the pavement at the kerb, east of the
+     * canopy. It used to be (6, 38.5) — half a metre off the queue's rope with
+     * a canopy post at arm's length, and the car stopped ON it, nose across
+     * the kerb. Clear of the posts (±5.2), clear of the rope run (x ≤ 4.4),
+     * with the whole car on the road. */
+    anchors.dropOff = new THREE.Vector3(9, 0, 38.2);
     anchors.doorman = new THREE.Vector3(2.6, 0, 35.8);
 
     // THE SILVER ROOM, in brass, lit from below and slightly too big

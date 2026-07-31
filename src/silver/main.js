@@ -1778,29 +1778,34 @@ canvas.addEventListener('click', () => {
 function arrive() {
   const A = room.anchors;
   player.mode = 'frozen';
-  player.position.set(A.dropOff.x, 1.3, A.dropOff.z + 2.4);
+  player.position.set(taxi.park.x - 0.6, 1.3, taxi.park.z - 1.6);
   player.yaw = Math.PI;
   player.pitch = -0.05;
   date.takeOver();
-  date.group.position.set(A.dropOff.x - 1.2, 0, A.dropOff.z + 2.4);
+  date.group.position.set(taxi.park.x - 1.8, 0, taxi.park.z - 1.4);
 
   audio.play('car.door', { volume: 0.55, delay: 2.2 });
   audio.play('car.door', { volume: 0.5, delay: 3.0 });
 
+  /* The car comes up the street — along it, nose first, the way a car arrives
+   * at a kerb — and eases to a stop wholly on the road. The camera glides with
+   * it at the kerbline, looking at the frontage sliding past, which is the
+   * first thing the evening shows you: the queue, the rope, the sign. */
   let t = 0;
   game.drive = (dt) => {
     t += dt;
     const k = Math.min(1, t / 2.2);
     const e = k * k * (3 - 2 * k);
-    taxi.group.position.z = (A.dropOff.z + 14) + (A.dropOff.z - (A.dropOff.z + 14)) * e;
-    player.position.z = taxi.group.position.z + 0.4;
-    date.group.position.z = taxi.group.position.z + 0.2;
+    taxi.group.position.x = taxi.park.x - 22 * (1 - e);
+    taxi.driver.group.position.x = taxi.group.position.x + 0.55;
+    player.position.x = taxi.group.position.x - 0.6;
+    date.group.position.x = taxi.group.position.x - 1.8;
     if (t > 3.2) {
       player.position.set(A.dropOff.x, 1.66, A.dropOff.z);
-      /* On whatever she is standing on rather than on zero: the drop-off is at
-       * the kerb and half a step of it is the pavement, which is 140mm up. */
-      const dx = A.dropOff.x - 1.3;
-      const dz = A.dropOff.z - 0.4;
+      /* On whatever she is standing on rather than on zero: the drop-off is
+       * on the pavement, which is 140mm up. */
+      const dx = A.dropOff.x - 1.7;
+      const dz = A.dropOff.z - 0.1;
       date.group.position.set(dx, room.groundAt(dx, dz), dz);
       date.release();
       player.mode = 'walk';
