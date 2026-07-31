@@ -3187,7 +3187,14 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
       const toEvening = (time.day === MEETING.day && h < 17.5) ? 17.5 - h : Infinity;
       time.skipHours(Math.min(toMorning, toEvening));
     } else {
-      time.skipHours(12);
+      /* The drink taking him is the other way to spend Day One, and the panel
+       * says so, so it gets the same guard: twelve hours normally, but never
+       * out the far side of the night he is supposed to be spending at the
+       * Bing. Waking on Day Two with Day One's chapter still open is not a
+       * broken campaign, but it is a nonsense one. */
+      time.skipHours(killingTimeOnDayOne()
+        ? Math.max(0, Math.min(12, 23 - time.hour))
+        : 12);
     }
     /* And the save agrees with the clock on the wall. A nap used to move the
      * display only, so reloading put him back at four minutes past six with
