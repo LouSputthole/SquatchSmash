@@ -12,7 +12,7 @@ Repository:
 
 - GitHub: `https://github.com/LouSputthole/SquatchSmash`
 - Canonical production branch: `main`
-- Published checkpoint: `acd6a9b0c4444d1117ef0af081075663029d5d88`
+- Published checkpoint: `d49a506ef70cab9727fa0267e8ed012cad3ff0d5`
 - Live Pages: `https://lousputthole.github.io/SquatchSmash/`
 - Never force-push or overwrite `main`; make focused branches and reviewed PRs.
 
@@ -118,14 +118,20 @@ GitHub Pages and the former integration/status lines converge with it. The
 only open PR, #4, is a duplicate draft: its four patches are already on `main`
 as equivalent commits and it should be closed as superseded, not merged.
 
-Fresh candidate gates: `npm test` 87/87; `npm run check` 185 sources and four
+Fresh candidate gates: `npm test` 89/89; `npm run check` 186 sources and four
 manifests; `npm run check:flight` green; Day One 35, Day Two 22, Big Night 19,
 Computer 29, Squatch Smash 8, Boot Errors 8, Preview 16, Beef Run 22, Motel
-37, Squatchfather 31, Initiation 10, Bing Two 10, Bing 123, Silver Story 20,
+37, Squatchfather 31, Initiation 10, Bing Two 10, Bing 126, Silver Story 20,
 Silver 112, Art 50, and Bundle under three CSP policies. The release-hygiene
 branch adds one test-only correction: the Day Two bed raycast refreshes scene
 world matrices after its test camera is moved directly. `VOICE-LINES-TODO.md`
 is freshly generated: 259 voice lines and 17 effects remain.
+
+The phone is campaign-derived: it has a readable Family thread, dynamic
+mission texts, wheel navigation in the apartment and Bing, and persisted read
+markers in the existing campaign event ledger. Bing voice validation now proves
+five recorded voice surfaces decode, enter a nonzero-gain SFX graph, and end at
+their full decoded duration; do not weaken this to a cue-name-only check.
 
 Current open production decisions: seven Family face photos; Margo's final
 voice recast (her manifest mapping remains provisional); the unnamed

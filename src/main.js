@@ -25,6 +25,7 @@ import { PostFX } from './core/postfx.js';
 import { BulletHoles } from './world/bullets.js';
 import { Tv } from './core/tv.js';
 import { Phone } from './core/phone.js';
+import { phoneThreadsForCampaign } from './core/phone-content.js';
 import { ITEMS } from './core/inventory.js';
 import {
   ITEM_IDS,
@@ -308,7 +309,22 @@ const bullets = new BulletHoles(scene);
 const tv = new Tv({ audio });
 // Campaign calls are one-shot story events, so the legacy clock schedule is
 // deliberately disabled here. The physical phone still owns ring/answer/UI.
-const phone = new Phone({ time, audio, calls: [] });
+const phone = new Phone({
+  time,
+  audio,
+  calls: [],
+  threads: phoneThreadsForCampaign(campaign.state),
+  onThreadRead: (thread) => {
+    if (thread.readEventId) campaign.advanceTime(thread.readEventId);
+  },
+});
+let phoneContentRevision = campaign.state.revision;
+function syncPhoneThreads() {
+  const state = campaign.state;
+  if (state.revision === phoneContentRevision) return;
+  phone.setThreads(phoneThreadsForCampaign(state));
+  phoneContentRevision = state.revision;
+}
 const apartmentStory = createApartmentStory({
   campaign,
   ring: (definition) => {
@@ -412,9 +428,9 @@ const heldPhone = makePhone(makeMaterials(), { x: 0, y: 0, z: 0, w: 0.072 });
 /* Far enough in that the whole screen is on camera. At 1.9 and further right
  * the bottom third of it hung off the edge of the frame, which is no use for
  * something you are meant to read. */
-heldPhone.group.position.set(0.085, -0.125, -0.30);
+heldPhone.group.position.set(0.07, -0.10, -0.32);
 heldPhone.group.rotation.set(1.20, -0.10, 0.03);
-heldPhone.group.scale.setScalar(1.45);
+heldPhone.group.scale.setScalar(1.58);
 heldPhone.group.visible = false;
 camera.add(heldPhone.group);
 heldPhone.screen.material = new THREE.MeshBasicMaterial({
@@ -3373,6 +3389,7 @@ function frame() {
        * because it was on the nightstand is a missed call, not a call that
        * never happened. Only the screen is painted on demand. */
       apartmentStory.update(dt);
+      syncPhoneThreads();
       phone.update(dt);
       /* Once a second is plenty for a list of five things, and the HUD drops
        * the repaint entirely when nothing in it has changed. */

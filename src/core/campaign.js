@@ -94,6 +94,12 @@ export const TIME_EVENT_IDS = Object.freeze({
   HEAR_MESSAGES_DAY_TWO: 'activity.messages.day_two',
   HEAR_MESSAGES_DATE: 'activity.messages.date',
   HEAR_MESSAGES_BIG_NIGHT: 'activity.messages.big_night',
+  /* Phone read markers have no clock cost. They deliberately live in the
+   * existing time-event ledger so a phone rebuilt in another scene retains
+   * its unread state without a second browser-only save. */
+  PHONE_READ_FAMILY: 'phone.read.family',
+  PHONE_READ_LOU: 'phone.read.lou',
+  PHONE_READ_MUM: 'phone.read.mum',
   /** Margo waking up beside him on the fourth morning, and leaving. */
   MARGO_WAKE: 'scene.margo_wake',
   LOU_FIRST_CALL: 'call.lou_first',
@@ -129,6 +135,9 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_DATE]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.PHONE_READ_FAMILY]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.PHONE_READ_LOU]: Object.freeze({ minutes: 0 }),
+  [TIME_EVENT_IDS.PHONE_READ_MUM]: Object.freeze({ minutes: 0 }),
   /* Costs nothing on the clock. This one is a marker rather than an errand:
    * the big night's morning is an authored ten o'clock checkpoint and the
    * ceremony is an authored seven, and putting a quarter of an hour between

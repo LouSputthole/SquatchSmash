@@ -46,6 +46,12 @@ export class AudioEngine {
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
     this._lastStep = 0;
+    /* A small, factual record of sample playback.  `voLog` says that a scene
+     * asked for a line; this says whether a decoded buffer was really put on
+     * the audible graph and whether it was allowed to finish.  It is useful
+     * both for the browser verifier and for finding a future accidental
+     * interruption without pretending a headless browser can hear speakers. */
+    this.playbacks = [];
   }
 
   /** Must be called from a user gesture (browsers block autoplay otherwise). */
@@ -198,11 +204,39 @@ export class AudioEngine {
       src.buffer = bank[(Math.random() * bank.length) | 0];
       src.playbackRate.value = rate;
       src.connect(out);
+      const playback = {
+        name,
+        source: 'buffer',
+        decodedDuration: src.buffer.duration,
+        gain: volume,
+        rate,
+        scheduledAt: when,
+        connectedToSfx: true,
+        naturalEnd: false,
+        endedAt: null,
+      };
+      this.playbacks.push(playback);
+      // Keep diagnostics bounded. A busy apartment can make several hundred
+      // tiny sounds over an evening; diagnostics must not become save-state.
+      if (this.playbacks.length > 160) this.playbacks.splice(0, this.playbacks.length - 160);
+      src.onended = () => {
+        const endedAt = this.ctx.currentTime;
+        playback.endedAt = endedAt;
+        /* `onended` also fires for stop().  A natural end must therefore have
+         * survived its decoded duration at its selected playback rate. */
+        const expected = src.buffer.duration / Math.max(0.001, Math.abs(rate));
+        playback.naturalEnd = endedAt >= when + expected - 0.06;
+      };
       src.start(when);
       return src;
     }
     synth(this, name, out, when, rate);
     return null;
+  }
+
+  /** Clear only transient playback evidence; never samples or active sound. */
+  clearPlaybackLog() {
+    this.playbacks.length = 0;
   }
 
   /**

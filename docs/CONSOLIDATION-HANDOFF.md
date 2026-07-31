@@ -3,13 +3,10 @@
 Last updated: 2026-07-31
 GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
-Current published checkpoint: `acd6a9b0c4444d1117ef0af081075663029d5d88`
+Current published checkpoint: `d49a506ef70cab9727fa0267e8ed012cad3ff0d5`
 Live Pages: <https://lousputthole.github.io/SquatchSmash/>
-Character-canon checkpoint: `9fb3022`
-Prior published handoff checkpoint: `9ed9693`
 Current handoff checkpoint: `origin/main`; the previous integration and
-project-status refs now converge with it. Verify with
-`git rev-parse origin/main`.
+project-status refs now converge with it. Verify with `git rev-parse origin/main`.
 
 This file is the pickup point for another Codex session. Resume from `main`,
 which is the deployed canonical game. Read this file, `README.md`,
@@ -72,6 +69,13 @@ deferred pending the owner's playtest.
   writing the player's canonical campaign save.
 - The July 29 apartment, computer, Squatchfather, Bada Bing, and Motel
   playtest-fix pass is implemented and covered by focused browser verifiers.
+- Recorded Bing voice is checked as actual WebAudio playback, not merely a
+  requested cue: representative door, bar, blackjack dealer, stage, and Family
+  lines must decode, connect to a nonzero-gain SFX graph, and end naturally.
+- The physical phone has a larger readable Bing view, explicit wheel-thread
+  navigation, `[Q]` pocket behavior in the club, and campaign-derived Family
+  texts. Read state uses zero-minute `phone.read.*` campaign events, so it
+  persists across reloads and scene returns without a second save system.
 
 The focused implementation history in this handoff is:
 
@@ -85,6 +89,26 @@ a3d3d69 Fix Squatchfather entry controls
 bcd5b81 Import the finished Beef Run and align its cast with campaign canon
 4b055ea Connect the Beef Run to the campaign spine
 ```
+
+## Latest focused verification â€” 2026-07-31
+
+The focused audio/phone follow-up was verified against the current production
+base before publication:
+
+```text
+npm test                     89/89 passed
+npm run check                186 source files, 4 manifests, all good
+npm run verify:bing          126/126 passed
+npm run verify:squatchfather  31/31 passed
+npm run verify:beefrun        22/22 passed
+```
+
+The Squatchfather verifier proves a campaign entry begins outside active car
+colliders, accepts normal movement, stages/drops the weapon, resolves recorded
+surface footsteps, and returns through campaign state. The Beef Run verifier
+proves the full preview mission, durable checkpoints, Captain Sasole identity,
+and error-free completion. The future Initiation ending remains intentionally
+deferred until the owner playtests it.
 
 ## Campaign order — confirmed by the owner 2026-07-30
 

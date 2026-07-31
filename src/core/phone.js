@@ -166,7 +166,7 @@ export class Phone {
    * @param {object} o.audio
    * @param {object[]} o.calls scheduled calls; pass [] when story owns them
    */
-  constructor({ time, audio, calls = CALLS } = {}) {
+  constructor({ time, audio, calls = CALLS, threads = THREADS, onThreadRead = null } = {}) {
     this.time = time;
     this.audio = audio;
     this.canvas = document.createElement('canvas');
@@ -174,8 +174,10 @@ export class Phone {
     this.canvas.height = H;
     this.g = this.canvas.getContext('2d');
 
-    this.threads = THREADS.map((t) => ({ ...t, messages: t.messages.slice() }));
+    this.threads = [];
+    this.setThreads(threads);
     this.calls = calls.slice();
+    this.onThreadRead = onThreadRead;
     /** Calls that have already happened, newest first. */
     this.recents = [];
 
@@ -201,6 +203,29 @@ export class Phone {
 
   get ringing() { return !!this.call && this.call.state === 'ringing'; }
   get inCall() { return !!this.call && this.call.state === 'talking'; }
+  get unreadCount() { return this.threads.filter((thread) => thread.unread).length; }
+
+  /** Replace story-derived content without losing which thread is selected. */
+  setThreads(threads = THREADS) {
+    const selectedId = this.threads?.[this.thread]?.id;
+    this.threads = threads.map((thread, i) => ({
+      id: thread.id ?? `thread-${i}`,
+      who: thread.who ?? 'UNKNOWN',
+      readEventId: thread.readEventId ?? null,
+      unread: thread.unread === true,
+      messages: (thread.messages ?? []).map((message) => ({ ...message })),
+    }));
+    const selected = this.threads.findIndex((thread) => thread.id === selectedId);
+    this.thread = selected >= 0
+      ? selected : Math.min(this.thread ?? 0, Math.max(0, this.threads.length - 1));
+  }
+
+  _readSelectedThread() {
+    const selected = this.threads[this.thread];
+    if (!selected?.unread) return;
+    selected.unread = false;
+    this.onThreadRead?.(selected);
+  }
 
   /* ---------------------------------------------------------------- */
   /* Calls                                                             */
@@ -307,7 +332,7 @@ export class Phone {
     if (this.ringing) { this.answer(); return; }
     if (this.inCall) { this.hangUp(); return; }
     if (this.screen === 'home') { this.screen = 'messages'; return; }
-    if (this.screen === 'messages') { this.screen = 'thread'; return; }
+    if (this.screen === 'messages') { this.screen = 'thread'; this._readSelectedThread(); return; }
     if (this.screen === 'thread') { this.screen = 'recents'; this.missed = 0; return; }
     this.screen = 'home';
   }
@@ -315,7 +340,9 @@ export class Phone {
   /** The other direction, for moving between threads. */
   cycle(dir = 1) {
     if (this.screen !== 'messages' && this.screen !== 'thread') return;
+    if (!this.threads.length) return;
     this.thread = (this.thread + dir + this.threads.length) % this.threads.length;
+    if (this.screen === 'thread') this._readSelectedThread();
   }
 
   draw() {
@@ -348,7 +375,7 @@ export class Phone {
     g.fillStyle = '#79839a';
     g.fillText('Tuesday', W / 2, H * 0.30 + 26);
 
-    const unread = this.threads.reduce((n, t) => n + t.messages.length, 0);
+    const unread = this.unreadCount;
     const rows = [
       ['Messages', `${unread} unread`, '#e06a6a'],
       ['Recents', this.missed ? `${this.missed} missed` : 'nothing today', this.missed ? '#e06a6a' : '#5f6a7d'],
@@ -388,10 +415,17 @@ export class Phone {
       g.fillText(t.who, 26, y);
       g.fillStyle = '#79839a';
       g.font = '12px ui-monospace, monospace';
-      g.fillText(clip(g, t.messages[t.messages.length - 1].text, W - 60), 26, y + 20);
+      const latest = t.messages[t.messages.length - 1]?.text ?? 'nothing here';
+      g.fillText(clip(g, latest, W - 60), 26, y + 20);
+      if (t.unread) {
+        g.fillStyle = '#e06a6a';
+        g.beginPath();
+        g.arc(W - 28, y - 6, 5, 0, 7);
+        g.fill();
+      }
       y += 68;
     }
-    this._hint(g, '[E] read  ·  wheel: another');
+    this._hint(g, '[E] read  ·  wheel: another  ·  [Q] pocket');
   }
 
   _drawThread(g) {
@@ -404,7 +438,8 @@ export class Phone {
     let y = 100;
     g.font = '13px ui-monospace, monospace';
     for (const m of t.messages) {
-      const lines = wrap(g, m.text, W - 96);
+      const label = m.who && m.who !== t.who ? `${m.who}: ` : '';
+      const lines = wrap(g, `${label}${m.text}`, W - 96);
       const hgt = lines.length * 19 + 14;
       g.fillStyle = m.them ? '#1e2530' : '#2f4f7d';
       const x = m.them ? 16 : 80;
@@ -413,7 +448,7 @@ export class Phone {
       for (let i = 0; i < lines.length; i++) g.fillText(lines[i], x + 14, y + 21 + i * 19);
       y += hgt + 10;
     }
-    this._hint(g, '[E] recents');
+    this._hint(g, 'wheel: another  ·  [E] recents  ·  [Q] pocket');
   }
 
   _drawRecents(g) {

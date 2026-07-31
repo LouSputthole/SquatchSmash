@@ -8,6 +8,54 @@ globalThis.document ??= {
 };
 
 const { Phone, callScript } = await import('../src/core/phone.js');
+const {
+  phoneThreadsForCampaign,
+  phoneReadEventForThread,
+} = await import('../src/core/phone-content.js');
+const {
+  EVENT_IDS,
+  MISSION_IDS,
+  TIME_EVENT_IDS,
+  createCampaign,
+} = await import('../src/core/campaign.js');
+
+class MemoryStorage {
+  constructor() { this.values = new Map(); }
+  getItem(key) { return this.values.get(key) ?? null; }
+  setItem(key, value) { this.values.set(key, String(value)); }
+}
+
+test('the phone turns durable campaign progress into readable Family texts and remembers a read thread', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  campaign.advanceTime(TIME_EVENT_IDS.LOU_FIRST_CALL, (state) => {
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'available';
+  });
+
+  const first = phoneThreadsForCampaign(campaign.state);
+  const family = first.find((thread) => thread.id === 'family');
+  assert.ok(family.unread);
+  assert.match(family.messages.at(-1).text, /Bing/i);
+
+  campaign.advanceTime(phoneReadEventForThread('family'));
+  const restored = phoneThreadsForCampaign(createCampaign({ storage }).state);
+  assert.equal(restored.find((thread) => thread.id === 'family').unread, false);
+});
+
+test('reading the selected phone thread marks it through the shared campaign callback', () => {
+  const read = [];
+  const phone = new Phone({
+    calls: [],
+    threads: [{ id: 'family', who: 'THE FAMILY', unread: true, messages: [{ them: true, text: 'Bing. Tonight.' }] }],
+    onThreadRead: (thread) => read.push(thread.id),
+  });
+
+  phone.press(); // home -> messages
+  phone.press(); // messages -> selected thread
+  assert.deepEqual(read, ['family']);
+  assert.equal(phone.threads[0].unread, false);
+});
 
 test('the campaign can own scheduled calls and observe a physical-phone answer', () => {
   const answered = [];
