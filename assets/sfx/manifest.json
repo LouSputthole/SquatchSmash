@@ -6898,6 +6898,160 @@
       "name": "vo.silver.waiter.thanks",
       "voice": "waiter",
       "say": "Very good, sir. He tipped the dish room. Nobody tips the dish room."
+    },
+    {
+      "name": "vo.bing.lou.brief.1",
+      "voice": "lou",
+      "say": "This next place. You listen before you move. You understand?",
+      "duration": 4.5
+    },
+    {
+      "name": "vo.bing.lou.brief.2",
+      "voice": "lou",
+      "say": "Good. That’s the first thing you’ve said tonight I believe.",
+      "duration": 4.5
+    },
+    {
+      "name": "vo.bing.lou.brief.3",
+      "voice": "lou",
+      "say": "Clean, simple, and not connected to you.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.bing.lou.brief.4",
+      "voice": "lou",
+      "say": "It’s not going to walk over to you.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.bing.lou.brief.5",
+      "voice": "lou",
+      "say": "It’s the thing you hope stays wrapped up. Take it.",
+      "duration": 4.5
+    },
+    {
+      "name": "vo.bing.lou.brief.6",
+      "voice": "lou",
+      "say": "Comforting, isn’t it.",
+      "duration": 2
+    },
+    {
+      "name": "vo.bing.lou.brief.7",
+      "voice": "lou",
+      "say": "Address. The room. Who you’re meeting, and when. You walk in calm. You sit down. You hear them out.",
+      "duration": 7.5
+    },
+    {
+      "name": "vo.bing.lou.brief.8",
+      "voice": "lou",
+      "say": "Anything else, or are we both going to sit here.",
+      "duration": 4.5
+    },
+    {
+      "name": "vo.bing.lou.brief.9",
+      "voice": "lou",
+      "say": "Go on, then.",
+      "duration": 2
+    },
+    {
+      "name": "vo.bing.lou.brief.10",
+      "voice": "lou",
+      "say": "Prospect. Don’t lose that playing blackjack.",
+      "duration": 3
+    },
+    {
+      "name": "vo.bing.lou.brief2.1",
+      "voice": "lou",
+      "say": "Back already. Shut the door.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.bing.lou.brief2.2",
+      "voice": "lou",
+      "say": "The airstrip went well enough that Booski stopped shouting. That counts as well.",
+      "duration": 5.5
+    },
+    {
+      "name": "vo.bing.lou.brief2.3",
+      "voice": "lou",
+      "say": "Jerky Motel. Room twelve. Snow is waiting in the car with the payment. You inspect the Reserve before anybody opens the money.",
+      "duration": 9
+    },
+    {
+      "name": "vo.bing.lou.brief2.4",
+      "voice": "lou",
+      "say": "Everybody in the room, the exits, and whether the meat is what they say it is. If one thing feels wrong, assume three things are.",
+      "duration": 10
+    },
+    {
+      "name": "vo.bing.lou.brief2.5",
+      "voice": "lou",
+      "say": "Good. Leave from here and go directly there. Do not stop at the apartment.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.lou.brief2.6",
+      "voice": "lou",
+      "say": "Prospect. Product first. Money second.",
+      "duration": 2.5
+    },
+    {
+      "name": "ambience.bing.rain.muffled",
+      "duration": 12,
+      "loop": true,
+      "prompt": "heavy rain heard through the walls of a nightclub from inside, low muffled rumble and distant hiss, no high frequencies, no thunder, seamless loop, no music"
+    },
+    {
+      "name": "bing.line.snort",
+      "duration": 2,
+      "prompt": "a short sharp sniff through one nostril off a hard surface, close mic, a small paper card sliding on porcelain, dry bathroom acoustic, no music"
+    },
+    {
+      "name": "bing.money.flutter",
+      "duration": 1.6,
+      "prompt": "a small handful of paper banknotes thrown into the air and fluttering down, crisp paper, close, no music"
+    },
+    {
+      "name": "vo.bing.margo.1",
+      "voice": "margo",
+      "say": "You are going to say something. I can see it arriving.",
+      "duration": 5
+    },
+    {
+      "name": "vo.bing.margo.1b",
+      "voice": "margo",
+      "say": "That was quick. Whatever it was.",
+      "duration": 3
+    },
+    {
+      "name": "vo.bing.margo.2",
+      "voice": "margo",
+      "say": "Nobody walks past this end. This end is where you sit when you are waiting for somebody and you have stopped enjoying it.",
+      "duration": 9
+    },
+    {
+      "name": "vo.bing.margo.3",
+      "voice": "margo",
+      "say": "Rye. One ice cube. They brought three. I sent two back. It caused a scene.",
+      "duration": 6.5
+    },
+    {
+      "name": "vo.bing.margo.4",
+      "voice": "margo",
+      "say": "I run the kitchen at the all-night place on Ashland. I am in here because my dishwasher’s brother works your door and he owes me two hundred dollars, and I have decided to be visible about it. Your turn.",
+      "duration": 15
+    },
+    {
+      "name": "vo.bing.margo.5",
+      "voice": "margo",
+      "say": "You ate at mine. Four in the morning, corner two. You tipped Hector. Nobody tips Hector — he is behind a wall, you would have had to go and find him.",
+      "duration": 12
+    },
+    {
+      "name": "vo.bing.margo.6",
+      "voice": "margo",
+      "say": "I get one night off in six. If I use it on you and you are boring, I will be extremely unpleasant about it. I will ring.",
+      "duration": 10.5
     }
   ]
 }

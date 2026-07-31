@@ -10,11 +10,20 @@
  */
 
 const RANGE = 6.5;        // walk further than this and the conversation lapses
+/* And a tighter one for the replies. Six and a half metres is most of the
+ * dance floor: a player who turns and walks off is out of the conversation
+ * long before the machine notices, and the numbered options sat there on the
+ * bottom of his screen the whole way across the room. The replies come down
+ * the moment he is out of arm's reach; the line stays up a little longer,
+ * because a man calling after you is a real thing that happens in this club.
+ * Nothing is lost either way -- end() bookmarks the node, so walking back
+ * picks the thread up where it lapsed. */
+const REPLY_RANGE = 3.6;
 
 export class Dialogue {
   /**
    * @param {object} ui { line, name, options } DOM nodes
-   * @param {object} hooks { onLine, onChoice, onEnd, say }
+   * @param {object} hooks { onLine, onChoice, onEnd, onActive, cueSeconds }
    */
   constructor(ui, hooks = {}) {
     this.ui = ui;
@@ -33,6 +42,24 @@ export class Dialogue {
      * actually FINISHED replays from the top. */
     this._bookmarks = new WeakMap();
     this._resumable = false;
+    this._inReplyRange = true;
+  }
+
+  /**
+   * How long a line holds the floor.
+   *
+   * The old answer was "however long the text is", which is fine for a
+   * subtitle and wrong for a recording: a reply whose hold came out shorter
+   * than its own mp3 was cut off mid-word by the next line's solo stop. Every
+   * one of Tony's authored replies was clipped that way and two of them --
+   * the ones with the longest takes -- barely made a sound. So a line never
+   * gets less time than its own recording needs, and an authored `hold` is a
+   * floor rather than a ceiling.
+   */
+  _cueHold(owner, base) {
+    const name = typeof owner?.cue === 'function' ? owner.cue() : owner?.cue;
+    const secs = name ? (this.hooks.cueSeconds?.(name) || 0) : 0;
+    return secs > 0 ? Math.max(base, secs + 0.45) : base;
   }
 
   /**
@@ -49,6 +76,8 @@ export class Dialogue {
     this.speaker = speaker;
     this.active = true;
     this._resumable = resume;
+    this._inReplyRange = true;
+    this.hooks.onActive?.(true);
     const bookmark = resume ? this._bookmarks.get(tree) : null;
     this.go(bookmark && tree[bookmark] ? bookmark : at);
   }
@@ -77,12 +106,12 @@ export class Dialogue {
     this._paintOptions();
 
     // A node with no options runs on its own after a beat
-    this.timer = node.hold ?? (text ? Math.max(2.2, text.length / 18) : 0.6);
+    this.timer = this._cueHold(node, node.hold ?? (text ? Math.max(2.2, text.length / 18) : 0.6));
     return node;
   }
 
   _paintOptions() {
-    if (!this.options.length) {
+    if (!this.options.length || !this._inReplyRange) {
       this.ui.options.replaceChildren();
       this.ui.options.classList.add('hidden');
       return;
@@ -98,7 +127,7 @@ export class Dialogue {
 
   /** Number keys 1..4 while a conversation is up. */
   choose(index) {
-    if (!this.active || !this.options.length) return false;
+    if (!this.active || !this.options.length || !this._inReplyRange) return false;
     const opt = this.options[index];
     if (!opt) return false;
     this.ui.options.classList.add('hidden');
@@ -107,7 +136,7 @@ export class Dialogue {
     this.hooks.onChoice?.(opt, index);
     this.options = [];
     const nextId = typeof opt.next === 'function' ? opt.next() : opt.next;
-    this.timer = opt.hold ?? Math.max(1.4, opt.text.length / 22);
+    this.timer = this._cueHold(opt, opt.hold ?? Math.max(1.4, opt.text.length / 22));
     /* Boxed, because `next: null` is a real answer -- it means "that ends it"
      * -- and a bare null here is indistinguishable from "nothing pending",
      * which left those replies on screen until the player walked off. */
@@ -131,8 +160,10 @@ export class Dialogue {
     this.nodeId = null;
     this.options = [];
     this._pending = null;
+    this._inReplyRange = true;
     this.ui.root.classList.add('hidden');
     this.ui.options.classList.add('hidden');
+    this.hooks.onActive?.(false);
     this.hooks.onEnd?.(reason);
   }
 
@@ -148,6 +179,13 @@ export class Dialogue {
       if (d > RANGE) {
         this.end('walked-away');
         return;
+      }
+      /* Out of reach: the replies come down at once and go back up if he
+       * walks back into the conversation. The node is unchanged either way. */
+      const near = d <= REPLY_RANGE;
+      if (near !== this._inReplyRange) {
+        this._inReplyRange = near;
+        this._paintOptions();
       }
     }
 

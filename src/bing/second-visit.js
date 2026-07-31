@@ -167,12 +167,14 @@ export function buildSecondVisitLouScript({ mission }) {
     enter: {
       who: 'Lou',
       line: '<em>(Lou closes the ledger.)</em> Back already. Shut the door.',
+      cue: 'vo.bing.lou.brief2.1',
       hold: 2.8,
       next: 'greet',
     },
     greet: {
       who: 'Lou',
       line: 'The airstrip went well enough that Booski stopped shouting. That counts as well.',
+      cue: 'vo.bing.lou.brief2.2',
       options: [
         { tone: 'Business', text: 'What is the next job?', next: 'assignment' },
         { tone: 'Cautious', text: 'You said to come straight here.', next: 'straight' },
@@ -193,6 +195,7 @@ export function buildSecondVisitLouScript({ mission }) {
       who: 'Lou',
       line: 'Jerky Motel. Room twelve. Manny is waiting in the car with the payment. '
         + 'You inspect the Reserve before anybody opens the money.',
+      cue: 'vo.bing.lou.brief2.3',
       options: [
         { tone: 'Confirm', text: 'Room twelve. Product first, money second.', next: 'confirm' },
         { tone: 'Ask', text: 'What am I watching for?', next: 'warning' },
@@ -203,6 +206,7 @@ export function buildSecondVisitLouScript({ mission }) {
       who: 'Lou',
       line: 'Everybody in the room, the exits, and whether the meat is what they say it is. '
         + 'If one thing feels wrong, assume three things are.',
+      cue: 'vo.bing.lou.brief2.4',
       next: 'confirm',
     },
     rest: {
@@ -213,13 +217,32 @@ export function buildSecondVisitLouScript({ mission }) {
     confirm: {
       who: 'Lou',
       line: 'Good. Leave from here and go directly there. Do not stop at the apartment.',
+      cue: 'vo.bing.lou.brief2.5',
       enter: () => mission.assign('reserve_pickup'),
       hold: 3.2,
     },
     parting: {
       who: 'Lou',
       line: 'Prospect. Product first. Money second.',
+      cue: 'vo.bing.lou.brief2.6',
       hold: 2.6,
+    },
+    /* Same two floor lines as the first visit: business done, still in his
+     * office. One Lou, one voice, both nights. */
+    hang: {
+      who: 'Lou',
+      line: 'There he is. My favorite errand with legs. You keepin’ your nose clean or just wipin’ it?',
+      cue: 'vo.bing.hang.lou.1',
+      options: [
+        { tone: 'Reply', text: 'Clean. Mostly.', next: 'hang2' },
+        { tone: 'Leave', text: 'I’m going, Lou.', next: null },
+      ],
+    },
+    hang2: {
+      who: 'Lou',
+      line: 'Everything in this room I either bought, won, or forgave. Remember that when you want somethin’.',
+      cue: 'vo.bing.hang.lou.2',
+      hold: 3.6,
     },
     liquor: {
       who: 'Lou',

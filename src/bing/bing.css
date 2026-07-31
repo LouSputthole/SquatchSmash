@@ -77,6 +77,21 @@ body.bing #overlay .tag { color: #a3919b; }
 
 /* ---------------- Conversation ---------------- */
 
+/*
+ * The bottom of the screen is shared property: the conversation box, the
+ * narrator's subtitle, and whatever a patron says as you walk past all want
+ * the same 150 pixels. The dialogue box owns them while a conversation is
+ * open -- `body.talking`, set by the Dialogue's onActive hook -- and the
+ * subtitle is lifted above whatever height the box currently measures
+ * (--talk-h, written by main.js). Ambient crowd remarks are suppressed
+ * outright for the duration, so nobody talks over anybody.
+ */
+:root { --talk-h: 0px; }
+body.talking #subtitle {
+  bottom: calc(96px + var(--talk-h) + 20px);
+  transition: opacity .5s ease, bottom .2s ease;
+}
+
 #dialogue {
   position: fixed;
   left: 50%;

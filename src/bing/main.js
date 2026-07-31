@@ -72,6 +72,7 @@ const ui = {
   gambleBody: document.querySelector('#gamble .body'),
   gambleKeys: document.querySelector('#gamble .keys'),
   carrying: document.getElementById('carrying'),
+  subtitle: document.getElementById('subtitle'),
   dialogue: {
     root: document.getElementById('dialogue'),
     name: document.querySelector('#dialogue .who'),
@@ -228,13 +229,45 @@ function nodeCue(owner) {
   return typeof owner?.cue === 'function' ? owner.cue() : owner?.cue;
 }
 
+/* ------------------------------------------------------------------ *
+ * Where the words sit.
+ *
+ * Three separate things write to the bottom of the screen: the conversation
+ * box (name, line, numbered replies), the narrator's subtitle, and a patron's
+ * ambient remark as you go past. Left alone they land on top of each other --
+ * the owner's screenshot had a reply option reading through somebody else's
+ * sentence. So while a conversation is up, the subtitle line is lifted clear
+ * of whatever the dialogue box currently measures, and the crowd shuts up
+ * (see ambientChatter). Nothing is hidden that carries information; the
+ * narration you actually need mid-conversation -- what is under the cloth,
+ * what the monitor shows -- just moves up out of the way.
+ * ------------------------------------------------------------------ */
+let talkLayoutAt = 0;
+function layoutTalk(force = false) {
+  const now = performance.now();
+  if (!force && now - talkLayoutAt < 180) return;
+  talkLayoutAt = now;
+  const h = dialogue?.active ? ui.dialogue.root.offsetHeight : 0;
+  document.documentElement.style.setProperty('--talk-h', `${Math.round(h)}px`);
+}
+
 const dialogue = new Dialogue(ui.dialogue, {
   onLine: (text, who, node) => {
     audio.play('radio.talk', { volume: 0.0 });
     voiceCue(nodeCue(node));
+    layoutTalk(true);
   },
-  onChoice: (opt) => voiceCue(nodeCue(opt)),
+  onChoice: (opt) => { voiceCue(nodeCue(opt)); layoutTalk(true); },
+  onActive: (on) => {
+    document.body.classList.toggle('talking', on);
+    /* A conversation that opens while a patron is still mid-remark clears the
+     * remark rather than sliding it: two people talking at once at the bottom
+     * of the screen is the exact pile-up this is here to stop. */
+    if (on) ui.subtitle?.classList.add('hidden');
+    layoutTalk(true);
+  },
   onEnd: () => { game.louTalking = false; },
+  cueSeconds,
 });
 
 /* ------------------------------------------------------------------ */
@@ -719,8 +752,13 @@ reg(cast.byName.lou.group, {
   onUse: () => {
     const lou = cast.byName.lou;
     lou.faceToward(player.position.x, player.position.z);
-    if (mission.state === 'briefed') dialogue.start(scripts.lou, 'parting', lou);
-    else if (mission.flags.gotPackage) dialogue.start(scripts.lou, 'envelope', lou, { resume: true });
+    if (mission.state === 'briefed') {
+      /* Business first, then he is just a man in his office. The second press
+       * gets his two recorded floor lines rather than the parting line on a
+       * loop -- one Lou, one voice, and nothing in the bank left unplayed. */
+      if (game.louPartingSaid) dialogue.start(scripts.lou, 'hang', lou, { resume: true });
+      else { game.louPartingSaid = true; dialogue.start(scripts.lou, 'parting', lou); }
+    } else if (mission.flags.gotPackage) dialogue.start(scripts.lou, 'envelope', lou, { resume: true });
     else if (dialogue.history.size) dialogue.start(scripts.lou, 'greet', lou, { resume: true });
     else startLouScene();
   },
@@ -996,6 +1034,28 @@ for (const spot of club.anchors.booths) {
   });
 }
 
+/* The stage's own two recorded lines. They were in the bank from the first
+ * casting pass and had never been hooked to anything, because the performers
+ * are background figures with no walk-up conversation. They belong to the one
+ * moment the floor and the stage actually talk to each other: the tip. She
+ * says the first one the first time and the second one after that, through
+ * the same subtitled dialogue machine as everybody else, so the voice and the
+ * words on screen are the same words. */
+const stageTalk = {
+  first: {
+    who: 'the dancer',
+    line: 'You’re sweet. Tip the band, sweetheart.',
+    cue: 'vo.bing.stage.1',
+    hold: 3.0,
+  },
+  again: {
+    who: 'the dancer',
+    line: 'Eyes up here are free. The winkin’ costs.',
+    cue: 'vo.bing.stage.2',
+    hold: 3.0,
+  },
+};
+
 {
   // Tipping: the one interaction on the stage that security has no view on
   const pad = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.4, 1.4), new THREE.MeshBasicMaterial({ visible: false }));
@@ -1008,6 +1068,8 @@ for (const spot of club.anchors.booths) {
       addMoney(-20);
       game.tips = (game.tips || 0) + 1;
       audio.play('chips.place', { volume: 0.4 });
+      const her = cast.byName.performer3;
+      if (her) dialogue.start(stageTalk, game.tips === 1 ? 'first' : 'again', her);
       hud.say(game.tips === 1
         ? 'Twenty on the edge of the runway. It goes without either of you acknowledging it.'
         : 'Another twenty. You are going to run out before she does.', 4200);
@@ -1986,10 +2048,18 @@ function checkStage() {
   }
 }
 
-/* Patrons say things as you go past, and never the same thing twice running. */
+/* Patrons say things as you go past, and never the same thing twice running.
+ * Never while somebody is actually talking to you, and never in the first
+ * couple of seconds after a conversation closes either -- a background remark
+ * landing on the last line of a conversation is the pile-up the owner
+ * flagged, and it reads as the person you were talking to saying it. */
 function ambientChatter(dt) {
   game.ambientAt -= dt;
-  if (game.ambientAt > 0 || dialogue.active) return;
+  if (dialogue.active) {
+    game.ambientAt = Math.max(game.ambientAt, 3);
+    return;
+  }
+  if (game.ambientAt > 0) return;
   game.ambientAt = 16 + Math.random() * 14;
   if (room !== 'main' && room !== 'vestibule') return;
   let i = (Math.random() * AMBIENT.length) | 0;
@@ -2045,6 +2115,7 @@ function frame() {
   slots.update(dt);
   blackjack.update(dt);
   dialogue.update(dt, player.position);
+  if (dialogue.active) layoutTalk();
   mission.update(raw);
   drinkTick(raw);
   updateZones(dt);

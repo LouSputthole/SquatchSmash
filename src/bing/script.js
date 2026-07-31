@@ -6,6 +6,17 @@
  * and neither has to know much about the other. Nodes may read the mission
  * state, so a man who has been kept waiting eleven minutes greets you
  * differently from a man who has been kept waiting eleven seconds.
+ *
+ * ---- voice ----
+ * A node's `cue` is an EXACT manifest name played by main.js's voiceCue(): no
+ * group picking, no synth fallback, silence until the recording exists. The
+ * rule that goes with it is that the cue's `say` text in the manifest and the
+ * node's `line` here are the same words. A recording that says one thing over
+ * a subtitle that says another is worse than no recording at all, so where a
+ * bark already existed in the manifest and had never been hooked up -- the
+ * doorman's two, the bartender's three, Lou's two floor lines -- the node
+ * that carries it says exactly what was recorded, and the line it displaced
+ * became the beat after it.
  */
 
 /**
@@ -48,13 +59,29 @@ export function buildScripts(ctx) {
       line: 'You’re no fun since they made you a prospect.',
       next: 'done',
     },
+    /* The recorded clearance bark. He waves you through in his own voice,
+     * and the line that used to live here follows it in. */
     done: {
       who: 'Bouncer',
-      line: 'He’s in the back. Don’t make me come find you.',
+      line: 'Go on in. He knows.',
+      cue: 'vo.bing.door.in.1',
       enter: () => { ctx.flags.bouncerCleared = true; },
+      hold: 2.0,
+      next: 'through',
+    },
+    through: {
+      who: 'Bouncer',
+      line: 'He’s in the back. Don’t make me come find you.',
       hold: 2.4,
     },
     returning: {
+      who: 'Bouncer',
+      line: 'Nice night. Stays nice if you’re nice.',
+      cue: 'vo.bing.door.in.2',
+      hold: 2.2,
+      next: 'returning2',
+    },
+    returning2: {
       who: 'Bouncer',
       line: 'Back so soon. That’s either very good or very bad.',
       hold: 2.6,
@@ -78,6 +105,7 @@ export function buildScripts(ctx) {
       options: () => (ctx.flags.gotPackage
         ? [
           { tone: 'Order', text: 'One for the road.', next: 'order' },
+          { tone: 'Chance it', text: 'Put it on Booski’s tab.', next: 'tab' },
           { tone: 'Leave', text: 'Another time.', next: null },
         ]
         : [
@@ -104,7 +132,8 @@ export function buildScripts(ctx) {
     },
     order: {
       who: 'Bartender',
-      line: 'So. What are we doing.',
+      line: 'What’re we havin’?',
+      cue: 'vo.bing.bar.1',
       options: [
         { tone: 'Club soda', text: 'Club soda. I’m working.', next: 'soda', effect: () => ctx.order('soda') },
         { tone: 'Beer', text: 'Beer.', next: 'pour', effect: () => ctx.order('beer') },
@@ -112,12 +141,27 @@ export function buildScripts(ctx) {
         { tone: 'Coffee', text: 'Whatever Lou drinks.', next: 'lou-drink', effect: () => ctx.order('coffee') },
       ],
     },
+    /* The third recorded bar line, and the only place in the club it belongs. */
+    tab: {
+      who: 'Bartender',
+      line: 'Booski’s tab? Booski’s tab is a myth I refill.',
+      cue: 'vo.bing.bar.3',
+      hold: 2.6,
+      next: 'order',
+    },
     soda: {
       who: 'Bartender',
       line: 'Club soda. There you go. Big night.',
       hold: 2.4,
     },
     pour: {
+      who: 'Bartender',
+      line: 'Comin’ up. Don’t watch me pour, it makes the hands weird.',
+      cue: 'vo.bing.bar.2',
+      hold: 2.6,
+      next: 'poured',
+    },
+    poured: {
       who: 'Bartender',
       line: () => (ctx.drunkLevel() > 0.42
         ? 'This is the last one before he sees you. I mean that as a favour.'
@@ -253,6 +297,7 @@ export function buildScripts(ctx) {
     warning: {
       who: 'Lou',
       line: 'This next place. You listen before you move. You understand?',
+      cue: 'vo.bing.lou.brief.1',
       options: [
         { tone: 'Agree', text: 'I understand.', next: 'agree' },
         { tone: 'Confident', text: 'I know what I’m doing.', next: 'confident' },
@@ -263,6 +308,7 @@ export function buildScripts(ctx) {
     agree: {
       who: 'Lou',
       line: 'Good. That’s the first thing you’ve said tonight I believe.',
+      cue: 'vo.bing.lou.brief.2',
       next: 'parcel',
     },
     confident: {
@@ -285,6 +331,7 @@ export function buildScripts(ctx) {
     parcel: {
       who: 'Lou',
       line: '<em>(He opens the drawer and puts a cloth bundle on the desk.)</em> Clean, simple, and not connected to you.',
+      cue: 'vo.bing.lou.brief.3',
       enter: () => ctx.showParcel(),
       hold: 3.6,
       next: 'waiting',
@@ -292,6 +339,7 @@ export function buildScripts(ctx) {
     waiting: {
       who: 'Lou',
       line: () => 'It’s not going to walk over to you.',
+      cue: 'vo.bing.lou.brief.4',
       options: [
         { tone: 'Ask', text: 'What is it?', next: 'whatisit' },
         { tone: 'Refuse', text: 'And if I don’t take it?', next: 'refuse' },
@@ -301,6 +349,7 @@ export function buildScripts(ctx) {
     whatisit: {
       who: 'Lou',
       line: 'It’s the thing you hope stays wrapped up. Take it.',
+      cue: 'vo.bing.lou.brief.5',
       hold: 3.0,
     },
     refuse: {
@@ -312,6 +361,7 @@ export function buildScripts(ctx) {
     taken: {
       who: 'Lou',
       line: 'Comforting, isn’t it.',
+      cue: 'vo.bing.lou.brief.6',
       hold: 2.2,
       next: 'envelope',
     },
@@ -319,6 +369,7 @@ export function buildScripts(ctx) {
       who: 'Lou',
       line: '<em>(He slides an envelope across.)</em> Address. The room. Who you’re meeting, and when. '
         + 'You walk in calm. You sit down. You hear them out.',
+      cue: 'vo.bing.lou.brief.7',
       enter: () => ctx.showEnvelope(),
       options: [
         { tone: 'Ask', text: 'And then?', next: 'andthen' },
@@ -334,6 +385,7 @@ export function buildScripts(ctx) {
     questions: {
       who: 'Lou',
       line: 'Anything else, or are we both going to sit here.',
+      cue: 'vo.bing.lou.brief.8',
       options: () => [
         { tone: 'Contact', text: 'Who am I meeting?', next: 'contact', when: () => !ctx.asked.has('contact') },
         { tone: 'The package', text: 'Why give me this here?', next: 'why', when: () => !ctx.asked.has('why') },
@@ -369,6 +421,7 @@ export function buildScripts(ctx) {
     end: {
       who: 'Lou',
       line: '<em>(He goes back to the ledger.)</em> Go on, then.',
+      cue: 'vo.bing.lou.brief.9',
       enter: () => mission.louDone(),
       hold: 2.6,
     },
@@ -376,7 +429,27 @@ export function buildScripts(ctx) {
     parting: {
       who: 'Lou',
       line: 'Prospect. Don’t lose that playing blackjack.',
+      cue: 'vo.bing.lou.brief.10',
       hold: 3.0,
+    },
+    /* The two lines the ledger recorded for Lou on his own floor. He is never
+     * on the floor -- he runs the place from this office -- so they had no
+     * home and had never been played. They are what he says once business is
+     * done and you are still standing in his office. */
+    hang: {
+      who: 'Lou',
+      line: 'There he is. My favorite errand with legs. You keepin’ your nose clean or just wipin’ it?',
+      cue: 'vo.bing.hang.lou.1',
+      options: [
+        { tone: 'Reply', text: 'Clean. Mostly.', next: 'hang2' },
+        { tone: 'Leave', text: 'I’m going, Lou.', next: null },
+      ],
+    },
+    hang2: {
+      who: 'Lou',
+      line: 'Everything in this room I either bought, won, or forgave. Remember that when you want somethin’.',
+      cue: 'vo.bing.hang.lou.2',
+      hold: 3.6,
     },
     // Things he says without being spoken to
     doorOpen: { who: 'Lou', line: 'Close the door. We’re not selling raffle tickets.', hold: 2.6 },
