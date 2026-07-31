@@ -213,9 +213,9 @@ function buildQueue(dialogue) {
   }
   for (const [who, line] of dialogue.SELLER_BARKS) pushLine(who, line, 'ambient seller bark in room twelve');
   for (const line of dialogue.PROSPECT_BARKS) pushLine('Prospect', line, 'ambient Prospect bark');
-  for (const line of dialogue.MANNY_BARKS) pushLine('Manny', line, 'ambient Manny bark in the lot');
+  for (const line of dialogue.MANNY_BARKS) pushLine('Snow', line, 'ambient Snow bark in the lot');
   for (const [who, line] of dialogue.FIGHT_BARKS) pushLine(who, line, 'combat bark');
-  for (const line of dialogue.MANNY_FIGHT_BARKS) pushLine('Manny', line, 'Manny combat bark');
+  for (const line of dialogue.MANNY_FIGHT_BARKS) pushLine('Snow', line, 'Snow combat bark');
   for (const [who, line] of dialogue.ENDING) pushLine(who, line, 'closing exchange on the road');
 
   // De-duplicate identical lines (barks repeat across contexts)

@@ -68,7 +68,7 @@ these ending decisions are documented but not yet production behavior.
 
 | ID | Display name | Current source | Status |
 |---|---|---|---|
-| `manny` | Manny | `src/motel/actors.js` | Adult human; Tony's friendly Motel ally/driver; must never enter a hostile player-targeting state |
+| `snow` | Snow (was Manny) | `src/motel/actors.js` | OWNER RULING 2026-07-31: the Motel ally is Snow, a Family member (face snow.png, voice `snow`). The never-hostile player-targeting boundary transfers to him unchanged |
 | `sal_sorrento` | Sal “The Prospector” Sorrento | `src/squatchfather/dialogue/dialogue.json` | Squatchfather antagonist |
 | `captain_mcclawsky` | Capt. McClawsky | Same file | Sal's associate; distinct from Captain Lou |
 | `rico` | Rico | `src/motel/actors.js` | Primary Motel seller |
@@ -82,7 +82,7 @@ The Bing bouncer, bartender, barback, dealer, guards, DJ, performers, staff,
 regulars, contractor, and Lou's associate retain their scene-local role IDs in
 `src/bing/cast.js` until the story makes one recur.
 
-Manny is explicitly human and belongs to the friendly faction. His ally combat
+The Motel ally (Snow, formerly Manny) belongs to the friendly faction. His ally combat
 may target actual Motel hostiles, but scripted movement, waypoint completion,
 generic chase/grab logic, player melee, and player ranged targeting must all
 exclude him. This rule is structural rather than a single-scene timing fix.

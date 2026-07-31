@@ -67,7 +67,7 @@ recast — his voice stands.
 | Sheet row | profile | id | where it speaks |
 |---|---|---|---|
 | Date Copacabana **Margo** | `margo` | `XlDdozLmuTofIxK4BjPD` | Silver Room date + her call (4 lines to redo — this closes the "recast Margo off the hogmama placeholder" item) |
-| Spanish-ish Motel antagonist | `cecilio` | `IpCcRCVYm2nsZJjBFn4H` | Jerky Motel (7 lines to redo) |
+| Spanish-ish Motel antagonist | `cecilio` | `IpCcRCVYm2nsZJjBFn4H` | CORRECTION 2026-07-31: `cecilio` is Don Cecilio Barriga, the Beef Run's other end (`vo.beefrun.*`, 7 lines redone under this id). The actual Motel antagonists (Rico/Chino) have NO cues yet — when their lines are authored, the owner should say whether this sheet id belongs to them instead of Cecilio |
 | Dealer, cards, in Bada | `dealer` *(new)* | `snyKKuaGYk1VUEh42zbW` | blackjack VO below |
 | Bartender in Bada | `bartender` *(new)* | `nUEpF21E0nXsKMw4L4CS` | bar barks below |
 | Side guards / doorman, Bing | `doorman` *(new)* | `fhZTG3MTnv8OnksvofJI` | door barks below; backups `7fbQ7yJuEo56rYjrYaEh` (deep), `Je8d8oi82sj0l8L1VM0l` |
