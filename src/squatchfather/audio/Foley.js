@@ -3,23 +3,38 @@ import * as core from './core.js';
 // Small sounds the scene leans on: footsteps on three surfaces, chairs, doors,
 // cloth, a wine glass going over, and a heartbeat for the bathroom.
 
-// One recording per surface; every step gets its own rate and volume jitter
-// so a single file never reads as a metronome.
+// Cue chain per surface, first loaded cue wins, every step with its own rate
+// and volume jitter so a single file never reads as a metronome.
+//
+// The leather cues are this scene's own: a dress shoe's warm low knock. The
+// flat's takes (a barefoot apartment step, a bright tiled slap) stand in
+// until those are recorded — pitched WELL down, because played straight they
+// ring like walking on tin in high heels. Each entry is [cue, rate base,
+// rate spread].
 const STEP_CUES = {
-  wood: { cue: 'footstep.wood', volume: 0.75 },
-  tile: { cue: 'footstep.tile', volume: 0.7 },
-  street: { cue: 'footstep.street.wet', volume: 0.6 },
+  wood: {
+    volume: 0.75,
+    cues: [['footstep.leather.wood', 0.94, 0.12], ['footstep.wood', 0.74, 0.14]],
+  },
+  tile: {
+    volume: 0.7,
+    cues: [['footstep.leather.tile', 0.94, 0.12], ['footstep.tile', 0.72, 0.14]],
+  },
+  street: {
+    volume: 0.6,
+    cues: [['footstep.street.wet', 0.86, 0.12]], // already a leather sole
+  },
 };
 
 export function footstep(surface = 'wood', loud = 1) {
   if (!core.isReady()) return;
-  // Real boards, tile and wet pavement when the recordings are in; the synth
-  // still covers any cue that has not loaded.
   const step = STEP_CUES[surface];
-  if (step && core.playSample(step.cue, {
-    volume: step.volume * loud * (0.85 + Math.random() * 0.3),
-    rate: 0.92 + Math.random() * 0.16,
-  })) return;
+  if (step) {
+    const volume = step.volume * loud * (0.85 + Math.random() * 0.3);
+    for (const [cue, base, spread] of step.cues) {
+      if (core.playSample(cue, { volume, rate: base + Math.random() * spread })) return;
+    }
+  }
   const t = core.now();
   if (surface === 'street') {
     core.noise(t, { peak: 0.1 * loud, attack: 0.002, decay: 0.09, type: 'bandpass', freq: 700, q: 1.1 });

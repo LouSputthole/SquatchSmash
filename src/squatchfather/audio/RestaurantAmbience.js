@@ -199,8 +199,10 @@ export class RestaurantAmbience {
         this.passT = 3 + Math.random() * 5;
         this.#carPass();
       }
+      // The horn belongs to the street bed only: it never fires once he is
+      // through the door — a car horn indoors is a wrong sound, not colour.
       this.hornT -= dt;
-      if (this.hornT <= 0) {
+      if (this.hornT <= 0 && this.outside > 0.6) {
         this.hornT = 9 + Math.random() * 16;
         if (!core.playSample('street.horn.distant', { volume: 0.3 * this.outside, rate: 0.95 + Math.random() * 0.1 })) {
           const t = core.now();

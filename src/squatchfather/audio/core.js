@@ -71,6 +71,7 @@ export function init() {
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
 
   loadSamples([
+    'footstep.leather.wood', 'footstep.leather.tile',
     'footstep.wood', 'footstep.tile', 'footstep.street.wet',
     'gun.shot', 'gun.reload', 'gun.drop.wood',
     'chair.scrape.wood', 'chair.knock',
@@ -97,16 +98,30 @@ const samples = new Map();
 const playLogList = [];
 const voLogList = [];
 
+// The shipped index says which cue files exist, so a cue that has not been
+// recorded yet is simply skipped — no 404s in the console for wishes.
+let indexFiles = null; // Set of filenames, or 'all' when the index is unavailable
+
 export function loadSamples(names) {
-  for (const name of names) {
-    if (samples.has(name)) continue;
+  const start = (name) => {
+    if (samples.has(name)) return;
+    if (indexFiles !== 'all' && !indexFiles.has(`${name}.mp3`)) return; // not recorded yet
     samples.set(name, null);
     fetch(`assets/sfx/${name}.mp3`)
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
       .then((buf) => ctx.decodeAudioData(buf))
       .then((decoded) => samples.set(name, decoded))
       .catch(() => samples.delete(name));
+  };
+  if (indexFiles) {
+    for (const name of names) start(name);
+    return;
   }
+  fetch('assets/sfx/index.json')
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    .then((idx) => { indexFiles = new Set(idx.files || []); })
+    .catch(() => { indexFiles = 'all'; }) // no index: try everything
+    .then(() => { for (const name of names) start(name); });
 }
 
 /** True once a cue has fetched and decoded. */
