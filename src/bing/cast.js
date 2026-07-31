@@ -1439,7 +1439,12 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     add(`patron${i}`, new Npc(scene, {
       name: 'a regular', tier: i < 3 ? 'ambient' : 'background', job: i % 2 ? 'drink' : 'sit',
       x: eastRun ? 4.55 : spot.x + off,
-      z: eastRun ? spot.z + off : 10.95,
+      /* Read off the seat anchor rather than written out again: the north run
+       * moved south out of the front wall it had been pushed into, and a
+       * hard-coded 10.95 left three regulars sitting in the brick after the
+       * bench they are sitting on had gone. The anchor is 0.6 in front of the
+       * bench centre; a sitter is 0.05 in front of it. */
+      z: eastRun ? spot.z + off : spot.z + 0.55,
       yaw: eastRun ? -Math.PI / 2 : Math.PI,
       model: {
         height: rand(1.66, 1.9), build: rand(0.95, 1.3),

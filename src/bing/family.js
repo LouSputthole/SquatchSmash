@@ -94,8 +94,10 @@ export const FAMILY = [
   },
   {
     id: CHARACTER_IDS.LAG, name: 'Lag', slug: 'lag', photo: 'lag.png',
-    // North booth with Eric, watching the lights flicker like packet loss.
-    spot: { x: -8.35, z: 10.95, yaw: Math.PI, job: 'sit' },
+    /* North booth with Eric, watching the lights flicker like packet loss.
+     * Moved south with the bench: the run used to stand at z 11.0, which is
+     * inside the front wall, and the two of them sat in the brick with it. */
+    spot: { x: -8.35, z: 10.25, yaw: Math.PI, job: 'sit' },
     model: {
       height: 1.74, build: 0.9, dress: 'tracksuit', shirt: 0x1f3a2a,
       hair: 'crop', hairColour: 0x2a1c14, glasses: true, skin: 0xe8c39c,
@@ -103,8 +105,8 @@ export const FAMILY = [
   },
   {
     id: CHARACTER_IDS.ERIC, name: 'Eric', slug: 'eric', photo: 'erican.png',
-    // Same booth as Lag, current on everything overseas.
-    spot: { x: -9.35, z: 10.95, yaw: Math.PI, job: 'sit' },
+    // Same booth as Lag, current on everything overseas, same move south.
+    spot: { x: -9.35, z: 10.25, yaw: Math.PI, job: 'sit' },
     model: {
       height: 1.78, build: 1.05, dress: 'shirt', shirt: 0x24303a,
       hairColour: 0x5a3a20, skin: 0xe8c39c,
@@ -112,8 +114,10 @@ export const FAMILY = [
   },
   {
     id: CHARACTER_IDS.WILLY, name: 'Willy', slug: 'willy', photo: 'willy.png',
-    // A blackjack seat — the best seat; he tested them all after close.
-    spot: { x: -14.16, z: 8.88, yaw: 2.72, job: 'sit' },
+    /* A blackjack seat — the best seat; he tested them all after close. Seat
+     * one of five: it moved south with the felt when the corner gave the north
+     * booth run its metre back, and Willy moved with his chair. */
+    spot: { x: -14.16, z: 8.26, yaw: 2.72, job: 'sit' },
     /* A big man, not a big doorway -- and, ahead of a later scene, a big
      * belly: `gut` is the general option on the shared figure builder
      * (src/bing/cast.js), not a Willy-only shape, so the visual continuity
@@ -127,7 +131,8 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.APE, name: 'Ape', slug: 'ape', photo: 'ape.png',
     // Standing at the blackjack rail, statements for entertainment only.
-    spot: { x: -11.35, z: 8.95, yaw: -2.2, job: 'stand', folded: true },
+    // South with the felt, so he is still at the rail and not behind it.
+    spot: { x: -11.35, z: 8.33, yaw: -2.2, job: 'stand', folded: true },
     model: {
       height: 1.88, build: 1.3, dress: 'tee', shirt: 0x14141a,
       hair: 'crop', hairColour: 0x14100e, beard: true, skin: 0x8d5a3a,

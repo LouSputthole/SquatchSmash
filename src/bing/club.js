@@ -921,7 +921,16 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   /* E. The blackjack corner                                             */
   /* ================================================================== */
-  const bj = { x: -13.5, z: 7.4 };
+  /* The felt has come 62cm south of where it used to sit.
+   *
+   * The corner and the north booth run were fighting over the same strip of
+   * floor, and the last pass settled it by shoving the booths back into the
+   * front wall -- which is how Eric and Lag ended up sitting in the brick. The
+   * wall is not negotiable and the benches have to come off it, so the corner
+   * gives way instead: at z 7.4 the two outer chairs' backs reached z 9.27,
+   * which is under booth table three. There is open floor behind the dealer
+   * and none behind the booths. */
+  const bj = { x: -13.5, z: 6.78 };
   {
     const table = new THREE.Group();
     const shape = new THREE.Shape();
@@ -1065,14 +1074,27 @@ export function buildClub(scene, { renderer } = {}) {
       boothTable(3.25, bz);
       anchors.booths.push(new THREE.Vector3(4.2, 0, bz));
     }
-    // Shifted north against the wall so the blackjack corner stops
-    // overlapping the booth tables.
+    /* ---- the north run ----
+     * It was pushed to z 11.0 to keep its tables off the blackjack corner,
+     * and 11.0 is INSIDE the building: the front wall's brick and the dado
+     * skin over it both present their face at z 10.80, and a bench whose back
+     * panel ends at 11.48 is two-thirds buried in it. Everybody sitting on it
+     * -- Eric and Lag from the Family, and three of the floor's own regulars
+     * -- was sitting in the wall with them.
+     *
+     * NORTH_BENCH is measured, not nudged: the bench's deepest part is its
+     * back panel at 0.48 behind the origin, so 10.30 puts that panel 2cm off
+     * the wall face, which is how the east run sits. Everything on the run
+     * hangs off this number -- the collider, the table, the seat anchor -- and
+     * the Family spots and the ambient patrons read it back out of the
+     * anchor, so the furniture and the people can no longer part company. */
+    const NORTH_BENCH = 10.3;
     for (let i = 0; i < 4; i++) {
       const bx = -19.0 + i * 3.4;
-      booth(bx, 11.0, Math.PI);
-      solid(bx - 1.25, 10.55, bx + 1.25, 11.05, 0, 1.5);
-      boothTable(bx, 9.85);
-      anchors.booths.push(new THREE.Vector3(bx, 0, 10.4));
+      booth(bx, NORTH_BENCH, Math.PI);
+      solid(bx - 1.25, NORTH_BENCH - 0.45, bx + 1.25, NORTH_BENCH + 0.05, 0, 1.5);
+      boothTable(bx, NORTH_BENCH - 1.15);
+      anchors.booths.push(new THREE.Vector3(bx, 0, NORTH_BENCH - 0.6));
     }
 
     // Candlelit two-tops around the stage
