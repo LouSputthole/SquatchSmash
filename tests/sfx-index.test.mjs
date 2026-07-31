@@ -29,6 +29,17 @@ test('a dropped recording is indexed; placeholders and strays are not', async ()
     // ...and it is on disk in the shape the game reads, not just returned.
     const onDisk = JSON.parse(await fs.readFile(path.join(dir, 'index.json'), 'utf8'));
     assert.deepEqual(onDisk.files, files);
+
+    // Every indexed file carries a content hash, and regenerating a file
+    // under the same name changes it -- that hash is the cache-buster the
+    // game appends to its fetches, so a re-recorded line is actually heard.
+    for (const name of files) assert.match(onDisk.versions[name], /^[0-9a-f]{10}$/);
+    const before = onDisk.versions['poop.strain.mp3'];
+    await fs.writeFile(path.join(dir, 'poop.strain.mp3'), Buffer.alloc(2048, 9));
+    await writeIndex(dir);
+    const after = JSON.parse(await fs.readFile(path.join(dir, 'index.json'), 'utf8'));
+    assert.notEqual(after.versions['poop.strain.mp3'], before);
+    assert.equal(after.versions['glue.pickup.wav'], onDisk.versions['glue.pickup.wav']);
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }

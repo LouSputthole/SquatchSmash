@@ -116,6 +116,7 @@ export class AudioEngine {
     } else {
       const index = await loadJson(SFX_DIR, 'index.json');
       const available = index ? new Set(index.files || []) : null;
+      this._fileVersions = index?.versions || {};
       wanted = available
         ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
         : cues;
@@ -128,9 +129,13 @@ export class AudioEngine {
   async _loadOne(cue) {
     const file = cue.file || `${cue.name}.mp3`;
     try {
+      // The content hash from index.json rides along as a query so the URL
+      // changes whenever a recording is regenerated under the same name --
+      // force-cache is then never a way to keep hearing last week's take.
+      const version = this._fileVersions?.[file];
       const raw = /^data:/.test(file)
         ? decodeDataUri(file)
-        : await fetch(assetUrl(SFX_DIR, file), { cache: 'force-cache' })
+        : await fetch(assetUrl(SFX_DIR, file) + (version ? `?v=${version}` : ''), { cache: 'force-cache' })
           .then((res) => (res.ok ? res.arrayBuffer() : null));
       if (!raw) return;
       if (raw.byteLength < 512) return; // placeholder / empty file
