@@ -1219,7 +1219,10 @@ export class MissionController {
       else this.score.patience = clamp(this.score.patience + dt * 0.004, 0, 1);
     }
     updateFigure(this.lou, dt, this.flags.inCockpit ? this.camera.position : this.player.position);
+    // The cup and the name tag both belong to the man on the apron. Once he is
+    // in the right seat you are half a metre from him and you know who he is.
     if (this.lou.cup) this.lou.cup.visible = !this.flags.louAboard;
+    if (this.lou.tag && this.flags.louAboard) this.lou.tag.visible = false;
   }
 
   /* ---------------------------------------------------------------- */

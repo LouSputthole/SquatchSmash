@@ -14,6 +14,59 @@ import {
 
 const SKIN = [0xd9a878, 0xb07a4e, 0x8a5a38, 0xe8c49a];
 
+/* Name tags. Readable while you are close enough to be talking to somebody,
+ * and gone a few strides later — an airfield with two men on it should not
+ * read like a server with two hundred. */
+const TAG_FULL = 5;               // metres: solid up to here
+const TAG_FADE = 10;              // metres: nothing left by here
+const TAG_CAP = 0.13;             // metres: how tall the letters stand
+const TAG_Y = 2.16;               // metres: clear of the tallest hat
+
+const _tagPos = new THREE.Vector3();
+
+/**
+ * A floating name, painted once into a canvas and hung over a figure's head.
+ *
+ * A Sprite rather than a plane because a sprite is already a billboard —
+ * three.js faces it at the camera every frame for free, which is the entire
+ * behaviour wanted here. The canvas is measured to the words so a long name
+ * gets a long tag instead of a squashed one, and the letters end up the same
+ * height in the world either way.
+ */
+export function nameTag(text, colour) {
+  const c = document.createElement('canvas');
+  const font = '900 64px Trebuchet MS, sans-serif';
+  let ctx = c.getContext('2d');
+  ctx.font = font;
+  c.width = Math.ceil(ctx.measureText(text).width) + 56;   // resizing wipes it
+  c.height = 112;
+  ctx = c.getContext('2d');
+  ctx.font = font;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  // Outlined, because half of this airfield is pale sky and the other half is
+  // pale concrete and the tag has to sit on both.
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 11;
+  ctx.strokeStyle = 'rgba(14,13,11,0.9)';
+  ctx.strokeText(text, c.width / 2, c.height / 2);
+  ctx.fillStyle = colour;
+  ctx.fillText(text, c.width / 2, c.height / 2);
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthWrite: false, toneMapped: false, fog: false,
+  }));
+  const h = TAG_CAP * (c.height / 64);
+  spr.scale.set(h * (c.width / c.height), h, 1);
+  spr.position.y = TAG_Y;
+  spr.renderOrder = 3;
+  spr.userData.text = text;
+  return spr;
+}
+
 /**
  * @param {object} o
  *   colours: { shirt, trousers, boots, skin, hat, jacket }
@@ -232,6 +285,17 @@ export function updateFigure(f, dt, camPos = null) {
     const clamped = clamp(((want + Math.PI) % (Math.PI * 2)) - Math.PI, -1.1, 1.1);
     f.neck.rotation.y = damp(f.neck.rotation.y, clamped, 4, dt);
   }
+
+  /* The name tag rides in the group, so walking carries it. All that is left
+   * to decide is how much of it there is: full strength at talking distance,
+   * thinning out from there, and switched off entirely for the figures nobody
+   * passes a camera position for. */
+  if (f.tag) {
+    const d = camPos ? f.tag.getWorldPosition(_tagPos).distanceTo(camPos) : Infinity;
+    const a = clamp((TAG_FADE - d) / (TAG_FADE - TAG_FULL), 0, 1);
+    f.tag.material.opacity = a * 0.95;
+    f.tag.visible = a > 0.02;
+  }
 }
 
 /** Make a figure say something: the head bobs for `seconds`. */
@@ -261,6 +325,9 @@ export function makeLou() {
   const cup = mesh(cylGeo(0.045, 0.04, 0.11, 10), solid(0xe8e2d4, { roughness: 0.8 }), 0, -0.4, 0.06);
   f.arms[0].elbow.add(cup);
   f.cup = cup;
+  // Gold, the same gold his subtitles come up in.
+  f.tag = nameTag('CAPT. LOU SASOLE', '#e8c86a');
+  f.group.add(f.tag);
   return f;
 }
 
@@ -330,6 +397,9 @@ export function makeOldStove() {
   const folder = mesh(boxGeo(0.24, 0.32, 0.03), solid(0xc9b78d, { roughness: 0.9 }), 0, -0.34, 0.07);
   f.arms[1].elbow.add(folder);
   f.folder = folder;
+  // Not the name on any of his documents, which is the joke.
+  f.tag = nameTag('OLD STOVE', '#8fc4a8');
+  f.group.add(f.tag);
   return f;
 }
 
