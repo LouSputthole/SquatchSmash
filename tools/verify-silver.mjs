@@ -869,7 +869,10 @@ await walkTo(22.5, -3);
 s = await state();
 check('the ramp brings him back up to the kitchen',
   s.mission === 'kitchen' && Math.abs(await page.evaluate(() => window.__silver.player.position.y - 1.66)) < 0.4,
-  s.mission);
+  /* Room and height as well as mission state: "cellar" on its own cannot tell
+   * a ramp that refused to climb from a room change that never fired. */
+  `${s.mission} — ${s.room} at ${(await page.evaluate(() => window.__silver.player.position.y - 1.66)).toFixed(2)}, `
+    + `rooms ${(await page.evaluate(() => window.__roomLog.slice(-4))).join(' → ')}`);
 const afterRamps = await waitForHer();
 check('she is still with him after four doorways and two ramps',
   afterRamps < 3, `${afterRamps.toFixed(1)}m`);
@@ -907,6 +910,144 @@ const walked = await page.evaluate(() => {
 check('the controller walks itself down the ramp into the cellar',
   walked.ground < -2.5 && Math.abs(walked.x - 20) < 0.8,
   walked.trace.join(' → '));
+
+/* ---- and it does not put him back upstairs when he keeps walking ----
+ *
+ * The check above follows the route's own polyline, which turns south into
+ * the cellar at the foot of the ramp. A player does not: he holds W, the ramp
+ * takes him west and down, and he keeps going west. There was nothing at the
+ * west end of the well — the cellar's below-grade wall stops at z=8.2, the
+ * corridor's starts at y=0 and is skipped by anybody whose head is under it,
+ * and `groundAt` answered street level for x<15 — so he crossed x=15 at feet
+ * −2.9 and the floor-follow smoothing lifted him 2.9m onto the corridor
+ * carpet beside the service bar. That is the whole back-of-house route gone,
+ * and it passed every check in this file.
+ *
+ * So: keys, not assignment. Real collision, both descents, and back up.
+ */
+const descent = await page.evaluate(() => {
+  const b = window.__silver;
+  const p = b.player;
+  for (const d of Object.values(b.room.doors)) if (!d.locked && !d.open) d.toggle();
+  b.game.drive = null;
+  const feet = () => p.position.y - p.eyeHeight;
+  const at = () => b.room.roomAt(p.position.x, p.position.z, feet());
+  /* Hold W and face a heading, exactly as a man playing it does. */
+  const hold = (tx, tz, secs) => {
+    p.mode = 'walk';
+    p.enabled = true;
+    p._tween = null;
+    p.yawCenter = null;
+    p.yaw = Math.atan2(-(tx - p.position.x), -(tz - p.position.z));
+    p.clearKeys();
+    p.setKey('KeyW', true);
+    let jumped = 0;
+    for (let t = 0; t < secs; t += 1 / 60) {
+      const was = feet();
+      p.update(1 / 60);
+      if (Math.abs(feet() - was) > 0.12) jumped++;    // 7m/s of vertical: a pop
+    }
+    p.clearKeys();
+    p.update(1 / 60);
+    return jumped;
+  };
+  const place = (x, z) => { p.position.set(x, 1.66, z); p.ground = 0; p.update(0.016); };
+  const was = { enabled: p.enabled, impair: p.impair, mode: p.mode };
+  p.impair = 0;                                     // sober, so W means west
+  const out = {};
+
+  // (a) in at the service door and straight on down, without turning off
+  place(33, 13);
+  let pops = hold(29.8, 11.7, 3);
+  pops += hold(14, 11.6, 10);
+  out.alley = { x: +p.position.x.toFixed(2), feet: +feet().toFixed(2), room: at(), pops };
+
+  // (b) and back up the way he came, on the same keys
+  pops = hold(24, 11.6, 6) + hold(31, 11.7, 5);
+  out.backUp = { x: +p.position.x.toFixed(2), feet: +feet().toFixed(2), room: at(), pops };
+
+  // (c) the other descent: off the prep kitchen, down the well, keep going
+  place(21.5, 1);
+  pops = hold(14, 1, 9);
+  out.kitchen = { x: +p.position.x.toFixed(2), feet: +feet().toFixed(2), room: at(), pops };
+  // and up again into the prep kitchen
+  pops = hold(23, 1, 8);
+  out.upToPrep = { x: +p.position.x.toFixed(2), feet: +feet().toFixed(2), room: at(), pops };
+  /* Put him back where the route driver left him, so the rest of the evening
+   * carries on from the kitchen rather than from wherever this finished. */
+  p.clearKeys();
+  p.impair = was.impair;
+  p.enabled = was.enabled;
+  p.mode = was.mode;
+  place(20, 4);
+  return out;
+});
+check('walking the descent on the keys ends up in the cellar, not back beside the bar',
+  descent.alley.feet < -2.4 && ['stair', 'cellar'].includes(descent.alley.room)
+    && descent.alley.pops === 0
+    && descent.kitchen.feet < -2.4 && ['cellar', 'drystore'].includes(descent.kitchen.room)
+    && descent.kitchen.pops === 0,
+  `${JSON.stringify(descent.alley)} / ${JSON.stringify(descent.kitchen)}`);
+check('and he can walk back up out of it the same way',
+  descent.backUp.feet > -0.4 && ['stair', 'alley'].includes(descent.backUp.room)
+    && descent.upToPrep.feet > -0.4 && ['prep', 'kitchen'].includes(descent.upToPrep.room),
+  `${JSON.stringify(descent.backUp)} / ${JSON.stringify(descent.upToPrep)}`);
+
+/* ---- and nowhere below grade hands a man a floor over his head ----
+ *
+ * The stairwell was one instance of a class: a ramp is a floor to the man on
+ * it and a ceiling to the man under it, and `groundAt` could not tell them
+ * apart. Flood the back of house on a 100mm grid carrying the height each
+ * cell is actually stood at — which is the one thing the two-level flood at
+ * the top of this file cannot do, because it fixes a height per level — and
+ * require that nothing reachable ever lifts him more than a step. Anything
+ * that does is a teleport with a slope drawn on it.
+ */
+const lifts = await page.evaluate(() => {
+  const b = window.__silver;
+  const room = b.room;
+  const EYE = 1.66; const RADIUS = 0.30; const STEP_UP = 1.0;
+  const blocking = (x, z, feet) => room.colliders.some((c) => {
+    if (feet + EYE + 0.05 < c.min.y || feet > c.max.y) return false;
+    const cx = Math.max(c.min.x, Math.min(x, c.max.x));
+    const cz = Math.max(c.min.z, Math.min(z, c.max.z));
+    return Math.hypot(x - cx, z - cz) < RADIUS;
+  });
+  const CELL = 0.1; const X0 = 13; const Z0 = -17; const NX = 180; const NZ = 340;
+  const at = (i, j) => i * NZ + j;
+  const H = new Float32Array(NX * NZ).fill(NaN);
+  const si = Math.round((22 - X0) / CELL); const sj = Math.round((1 - Z0) / CELL);
+  H[at(si, sj)] = room.groundAt(22, 1, -2.9);
+  const q = [[si, sj]];
+  const found = [];
+  while (q.length) {
+    const [i, j] = q.pop();
+    const y = H[at(i, j)];
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const ni = i + di; const nj = j + dj;
+      if (ni < 0 || nj < 0 || ni >= NX || nj >= NZ) continue;
+      const nx = X0 + ni * CELL; const nz = Z0 + nj * CELL;
+      const ny = room.groundAt(nx, nz, y);
+      if (blocking(nx, nz, ny)) continue;
+      if (ny - y > STEP_UP + 1e-6) {
+        found.push(`${nx.toFixed(1)},${nz.toFixed(1)}: ${y.toFixed(2)}→${ny.toFixed(2)}`);
+        continue;
+      }
+      if (!Number.isNaN(H[at(ni, nj)])) continue;
+      H[at(ni, nj)] = ny;
+      q.push([ni, nj]);
+    }
+  }
+  let cells = 0; let top = -9; let bottom = 9;
+  for (let k = 0; k < H.length; k++) {
+    if (Number.isNaN(H[k])) continue;
+    cells++; top = Math.max(top, H[k]); bottom = Math.min(bottom, H[k]);
+  }
+  return { cells, top: +top.toFixed(2), bottom: +bottom.toFixed(2), found: found.slice(0, 6), n: found.length };
+});
+check('nothing a man can walk to below grade lifts him more than a step',
+  lifts.n === 0 && lifts.bottom < -2.8 && lifts.top > -0.1 && lifts.cells > 20000,
+  lifts.n ? `${lifts.n} lifts, e.g. ${lifts.found.join('; ')}` : `${lifts.cells} cells, ${lifts.bottom}..${lifts.top}`);
 
 /* ---- the hazard, and the kitchen ---- */
 const hazard = await page.evaluate(() => {
@@ -1371,8 +1512,16 @@ const swayPending = await page.evaluate(() => {
     running: b.game.swayRunning, starting: b.game.swayStarting, active: b.sway.active,
   };
 });
+/* `starting` OR `running`, because the nine hundred milliseconds are a real
+ * setTimeout and the round trips above are real milliseconds: on a machine
+ * drawing every pixel on the CPU the pre-roll is often over before this can
+ * ask, and the check failed two runs in three for a game that was behaving.
+ * The bug it is for is not the pre-roll elapsing — it is the dance being
+ * *judged* during it, and that shows up as `swayed` set, or as the latch up
+ * with no minigame under it. Both are still assertions. */
 check('getting up out of the chair is not itself a failed dance',
-  swayPending.swayed === null && swayPending.state === 'sway' && swayPending.starting,
+  swayPending.swayed === null && swayPending.state === 'sway'
+    && (swayPending.starting || (swayPending.running && swayPending.active)),
   JSON.stringify(swayPending));
 
 await page.waitForTimeout(1100);               // the band gets to the bar, on a real clock

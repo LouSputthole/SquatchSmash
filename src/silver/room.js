@@ -47,6 +47,28 @@ export const CELLAR_Y = -2.9;
 export const RAMP_UP = { x0: 15.5, x1: 20, z0: -0.6, z1: 2.6 };
 
 /**
+ * The footprint of the entry ramp's well, below grade.
+ *
+ * Not a room — the ramp is its floor and its ceiling is the night sky. It is
+ * written down because `groundAt` has to know that the ground under it is the
+ * cellar's slab and not the street: for six months the answer here was 0, and
+ * a man who walked down the ramp and kept walking got 2.9m of free lift onto
+ * the corridor carpet beside the service bar.
+ */
+export const WELL = { x0: 14.6, x1: 22, z0: 8.4, z1: 14.6 };
+
+/**
+ * The tallest lift that counts as a step rather than as a teleport.
+ *
+ * Nothing reads this to decide a floor height — that ended badly, see
+ * `groundAt`. It is the number the building is *built* to and the number the
+ * verifier holds it to: walk anywhere below grade and no step you can take
+ * may raise you further than this. A clamber onto the mouth of a ramp is a
+ * metre; being posted up beside the bar was two and nine.
+ */
+export const STEP_UP = 1.0;
+
+/**
  * The plan. Order matters: `roomAt` returns the first match, so the cellar
  * level is listed before the floor above it and gated on `y1`.
  */
@@ -695,6 +717,37 @@ export function buildRoom(scene, { renderer } = {}) {
      * a solid slab across the only entrance a player who obeys collision has,
      * and the door outside it opened onto brick. */
     wallGap('z', 29.6, 8.2, 14.8, 10, 13.4, 3.2, M_CONCRETE, 0.3, 0);
+    /* The west end of the ramp well, and the reason the whole back-of-house
+     * route was unplayable.
+     *
+     * The ramp bottoms out at x=15 and there was nothing there. Below grade
+     * the cellar's west wall stops at z=8.2, the corridor's east wall starts
+     * at y=0 and is skipped by anybody whose head is 1.2m under it, and
+     * `groundAt` answers 0 for x<15 at these z — so a man who walked down the
+     * ramp and kept walking, which is the one thing the ramp invites you to
+     * do, crossed x=15 at feet −2.9, was handed street level, and rode the
+     * floor-follow smoothing 2.9m straight up onto the corridor carpet beside
+     * the service bar. It read as being teleported back upstairs because that
+     * is exactly what it was.
+     *
+     * The face lands on x=15.00, flush with the head of the ramp slab and
+     * with the corridor floor's east edge above it, and it stops 20mm short
+     * of that floor for the same reason the cellar's west wall does. */
+    wall(14.85, 8.2, 14.85, 14.8, -CELLAR_Y - 0.02, M_CONCRETE, 0.3, CELLAR_Y);
+    /* The haunch under the entry ramp.
+     *
+     * The cellar runs to z=8.6 and the ramp starts at z=8.4, so 200mm of the
+     * cellar's north edge is *underneath* a slab that climbs to kitchen
+     * level: step north anywhere along it and the old `groundAt` put you on
+     * top of the ramp, up to 2.6m over your own head. Concrete under the
+     * slab, stepped to follow it, from the point the climb stops being a
+     * step. West of it is the mouth of the ramp, which is where the route
+     * goes and where the ramp is at cellar height anyway. */
+    for (let i = 0; i < 6; i++) {
+      const hx0 = 17.4 + i * 0.767;
+      const top = CELLAR_Y + (-CELLAR_Y / rampRun) * (hx0 - 15) - 0.04;
+      wall(hx0, 8.45, hx0 + 0.767, 8.45, top - CELLAR_Y, M_CONCRETE, 0.3, CELLAR_Y);
+    }
     ceiling(T, M_CONCRETE, CEIL_BACK);
 
     // A handrail down the ramp, because otherwise it reads as a hole
@@ -882,6 +935,21 @@ export function buildRoom(scene, { renderer } = {}) {
       surface: 'concrete',
     });
     ramps.push({ ...RAMP_UP, from: CELLAR_Y, to: 0 });
+    /* The haunch under this one, for the same reason as the entry ramp's.
+     *
+     * The cellar runs underneath the whole well, and the cheeks that close
+     * the shaft only start at the cellar ceiling — so from x≈17 eastwards a
+     * man standing on the cellar floor could walk sideways into a slab three
+     * metres over his head and be stood on top of it. Stepped concrete from
+     * the cellar floor up to the soffit, starting where the climb stops
+     * being a step; west of that is the mouth the route uses. */
+    for (const fz of [RAMP_UP.z0, RAMP_UP.z1]) {
+      for (let i = 0; i < 4; i++) {
+        const hx0 = 17 + i * 0.75;
+        const top = CELLAR_Y + (-CELLAR_Y / upRun) * (hx0 - RAMP_UP.x0) - 0.04;
+        wall(hx0, fz, hx0 + 0.75, fz, top - CELLAR_Y, M_CONCRETE, 0.2, CELLAR_Y);
+      }
+    }
     // A rail round the well, on the kitchen side, where there is a drop
     for (const fz of [RAMP_UP.z0, RAMP_UP.z1]) {
       add(box({ size: [RAMP_UP.x1 - 15, 0.06, 0.06], pos: [(15 + RAMP_UP.x1) / 2, 0.95, fz], mat: M_STEEL_D }));
@@ -1680,6 +1748,18 @@ export function buildRoom(scene, { renderer } = {}) {
    * that belongs to it. The two ramps are the only places the answer changes,
    * which is what makes it stable rather than a guess.
    *
+   * Nothing may ever hand somebody a floor that is over their head — a ramp
+   * is a floor to the man on it and a soffit to the man under it, and the
+   * teleport this scene shipped with was `groundAt` failing to tell them
+   * apart. It is not decided here, though, and the attempt is written down
+   * because it was tried and is wrong: refusing a ramp more than a step above
+   * `fromY` reads a number that the *controller* smooths, so anything that
+   * places a man on a ramp rather than walking him onto it — a checkpoint, a
+   * cutscene, the headless driver — asks with a height a metre and a half
+   * stale and gets told the ramp it is standing on is a ceiling. It is
+   * decided by concrete instead: the well has an end wall and both ramps have
+   * a haunch under them, so there is nowhere left to stand underneath one.
+   *
    * @param {number} fromY where the asker currently is. Omitted means ground.
    */
   function groundAt(x, z, fromY = 0) {
@@ -1701,7 +1781,13 @@ export function buildRoom(scene, { renderer } = {}) {
       if (x >= p.box.min.x && x <= p.box.max.x && z >= p.box.min.z && z <= p.box.max.z) return p.y;
     }
     if (fromY > CELLAR_Y / 2) return 0;              // upstairs, and staying there
-    for (const r of [ROOMS.cellar, ROOMS.drystore, ROOMS.walkin]) {
+    /* `WELL` is not a room in the plan and has no floor mesh of its own — the
+     * entry ramp is its floor. It is in this list because the answer for
+     * somebody already below grade at the foot of that ramp must be the
+     * cellar's slab and not the street's asphalt, which is what it was, and
+     * which is what launched him back up beside the bar. The end wall is what
+     * stops him getting here at all; this is what it costs if he ever does. */
+    for (const r of [ROOMS.cellar, ROOMS.drystore, ROOMS.walkin, WELL]) {
       if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return CELLAR_Y;
     }
     return 0;
