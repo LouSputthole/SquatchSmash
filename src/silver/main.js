@@ -1900,42 +1900,62 @@ canvas.addEventListener('click', () => {
  */
 function arrive() {
   const A = room.anchors;
+  /* Standing on the pavement beside the car, from the first frame.
+   *
+   * The car used to be twenty-two metres up the street with the player
+   * welded to its flank, so the evening opened on three and a bit seconds of
+   * sliding sideways past a wall at door-handle height, and then a cut to the
+   * kerb. Whatever that reads as, it is not arriving: the owner's note was
+   * that he wanted to start next to the car and not walk up to it from
+   * somewhere else. So he starts where the car stops, which is where he was
+   * always going to end up, and the car is already at its kerb -- the parking
+   * spot itself is untouched, the body still wholly on the road with a shoe's
+   * width between the sill and the stone.
+   *
+   * The doors are still the first thing that happens, and she is still out
+   * before he has read the sign. */
   player.mode = 'frozen';
-  player.position.set(taxi.park.x - 0.6, 1.3, taxi.park.z - 1.6);
+  player.position.set(A.dropOff.x, room.groundAt(A.dropOff.x, A.dropOff.z) + 1.66, A.dropOff.z);
+  player.ground = room.groundAt(A.dropOff.x, A.dropOff.z);
   player.yaw = Math.PI;
   player.pitch = -0.05;
   date.takeOver();
-  date.group.position.set(taxi.park.x - 1.8, 0, taxi.park.z - 1.4);
+  const dx = A.dropOff.x - 1.7;
+  const dz = A.dropOff.z - 0.1;
+  /* On whatever she is standing on rather than on zero: the drop-off is on
+   * the pavement, which is 140mm up. */
+  date.group.position.set(dx, room.groundAt(dx, dz), dz);
 
-  audio.play('car.door', { volume: 0.55, delay: 2.2 });
-  audio.play('car.door', { volume: 0.5, delay: 3.0 });
+  taxi.group.position.x = taxi.park.x;
+  taxi.driver.group.position.x = taxi.park.x + 0.55;
 
-  /* The car comes up the street — along it, nose first, the way a car arrives
-   * at a kerb — and eases to a stop wholly on the road. The camera glides with
-   * it at the kerbline, looking at the frontage sliding past, which is the
-   * first thing the evening shows you: the queue, the rope, the sign. */
+  /* Where he actually started, recorded on the frame he started on. The
+   * headless driver cannot see this any other way — by the time it can ask,
+   * he has been able to walk for four seconds. */
+  game.spawn = {
+    toCar: +player.position.distanceTo(taxi.group.position).toFixed(2),
+    toPark: +Math.hypot(player.position.x - taxi.park.x, player.position.z - taxi.park.z).toFixed(2),
+    toHer: +Math.hypot(player.position.x - date.position.x, player.position.z - date.position.z).toFixed(2),
+    feet: +(player.position.y - 1.66).toFixed(2),
+  };
+
+  audio.play('car.door', { volume: 0.55, delay: 0.2 });
+  audio.play('car.door', { volume: 0.5, delay: 0.75 });
+
+  /* A beat with the doors, and then it is his.
+   *
+   * Kept as a `drive` step rather than a setTimeout because the headless
+   * driver steps the update path by hand and does not wait on clocks -- a
+   * timer here is an arrival it can never watch happen. */
   let t = 0;
   game.drive = (dt) => {
     t += dt;
-    const k = Math.min(1, t / 2.2);
-    const e = k * k * (3 - 2 * k);
-    taxi.group.position.x = taxi.park.x - 22 * (1 - e);
-    taxi.driver.group.position.x = taxi.group.position.x + 0.55;
-    player.position.x = taxi.group.position.x - 0.6;
-    date.group.position.x = taxi.group.position.x - 1.8;
-    if (t > 3.2) {
-      player.position.set(A.dropOff.x, 1.66, A.dropOff.z);
-      /* On whatever she is standing on rather than on zero: the drop-off is
-       * on the pavement, which is 140mm up. */
-      const dx = A.dropOff.x - 1.7;
-      const dz = A.dropOff.z - 0.1;
-      date.group.position.set(dx, room.groundAt(dx, dz), dz);
-      date.release();
-      player.mode = 'walk';
-      game.drive = null;
-      mission.outOfCar();
-      registerDriver();
-    }
+    if (t <= 1.2) return;
+    date.release();
+    player.mode = 'walk';
+    game.drive = null;
+    mission.outOfCar();
+    registerDriver();
   };
 }
 
