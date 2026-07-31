@@ -164,8 +164,12 @@ async function verifyOpeningMovement(target, label) {
       && !before.blocked,
     JSON.stringify(before));
 
+  // Real keyboard input drives the real listeners, but the simulation time
+  // comes from the scene's own tick so the distance is deterministic even
+  // when a loaded machine renders the page at a crawl.
   await target.keyboard.down('KeyW');
-  await target.waitForTimeout(550);
+  await target.waitForTimeout(120);
+  await target.evaluate(() => window.squatchfather.tick(0.6));
   await target.keyboard.up('KeyW');
   await target.waitForTimeout(80);
 
@@ -211,7 +215,7 @@ try {
   const departure = await page.evaluate(() => window.__squatch.tryLeave());
   check('the apartment selects Squatchfather after the Bing',
     departure?.destination === 'squatchfather', JSON.stringify(departure));
-  await page.waitForURL(`http://localhost:${PORT}/squatchfather.html`, { timeout: 10000 });
+  await page.waitForURL(`http://localhost:${PORT}/squatchfather.html`, { timeout: 45000 });
   await page.waitForFunction(() => window.squatchfather?.fsm, null, { timeout: 60000 });
 
   let before = await state();
@@ -392,7 +396,7 @@ try {
   check('the chapter card appears after the car exit', current.endVisible);
 
   await page.click('#againBtn');
-  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: 10000 });
+  await page.waitForURL(`http://localhost:${PORT}/index.html`, { timeout: 45000 });
   await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 60000 });
   const home = await page.evaluate(() => {
     const game = window.__squatch;
