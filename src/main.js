@@ -2835,8 +2835,10 @@ function frame() {
         }
       }
       narrator.update(dt, {
+        /* A call is on the list now that he answers them out loud. Two of his
+         * own voice at once is not a joke twice, it is one of them ruined. */
         busy: game.passingOut || game.seated || game.peeing || game.onToilet
-          || cig.t >= 0 || player.mode === 'frozen',
+          || cig.t >= 0 || player.mode === 'frozen' || phone.inCall,
         moving: player.velocity.lengthSq() > 0.04,
       });
 

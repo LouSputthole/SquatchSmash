@@ -18,6 +18,16 @@ import {
   DAY_TWO_LOU_SECOND_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
+import { callScript } from '../src/core/phone.js';
+
+/** Every call the campaign makes, in the order Tony gets them. */
+const CAMPAIGN_CALLS = [
+  DAY_ONE_LOU_CALL,
+  DAY_TWO_BOOSKI_CALL,
+  DAY_TWO_LOU_SECOND_CALL,
+  DATE_MARGO_CALL,
+  BIG_NIGHT_BOOSKI_CALL,
+];
 
 class MemoryStorage {
   constructor() {
@@ -32,6 +42,28 @@ class MemoryStorage {
     this.values.set(key, String(value));
   }
 }
+
+test('Tony answers every campaign call out loud, from the caller’s own bank', () => {
+  for (const call of CAMPAIGN_CALLS) {
+    assert.equal(call.replies?.length, call.lines.length, `${call.vo} is missing replies`);
+    for (const reply of call.replies) {
+      assert.equal(typeof reply, 'string', `${call.vo} has a reply that is not a line`);
+      assert.ok(reply.trim().length > 0, `${call.vo} has an empty reply`);
+    }
+    const turns = callScript(call);
+    // Caller, him, caller, him -- and nobody talks over anybody.
+    assert.deepEqual(turns.map((t) => t.who),
+      call.lines.flatMap(() => ['them', 'me']));
+    assert.deepEqual(
+      turns.filter((t) => t.who === 'me').map((t) => t.cue),
+      call.lines.map((_, i) => `vo.${call.vo}.tony.${i + 1}`),
+    );
+  }
+
+  // Five calls, five banks: nobody's answers end up in somebody else's call.
+  const banks = CAMPAIGN_CALLS.map((call) => call.vo);
+  assert.equal(new Set(banks).size, banks.length);
+});
 
 test('answering Lou’s first call unlocks Bada Bing and prevents a replay', () => {
   const storage = new MemoryStorage();

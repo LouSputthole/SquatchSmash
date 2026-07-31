@@ -3664,6 +3664,31 @@
       "say": "Eat, shower, and put on something clean before you come down. I am serious."
     },
     {
+      "_comment": "Tony's half of the campaign calls. Every call in the flat used to be one man talking and a silence where the other one was; `<bank>.tony.<n>` is what he says back to line <n> of that bank, in the player voice, and it lives in the caller's own bank so a call is one folder. Same shape as the Bing's `vo.bing.hang.*.tony.*`. He does not argue with any of them -- he confirms, he asks the one question anybody would ask, and he does not get an answer to it. Short: these are answers, not speeches.",
+      "name": "vo.call.lou.bada_bing.tony.1",
+      "voice": "player",
+      "say": "I am now.",
+      "duration": 1.5
+    },
+    {
+      "name": "vo.call.lou.bada_bing.tony.2",
+      "voice": "player",
+      "say": "The back office. Right.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.call.lou.bada_bing.tony.3",
+      "voice": "player",
+      "say": "Handled how?",
+      "duration": 1.5
+    },
+    {
+      "name": "vo.call.lou.bada_bing.tony.4",
+      "voice": "player",
+      "say": "Eat, shower, clean shirt. I can do that.",
+      "duration": 3.5
+    },
+    {
       "name": "vo.call.lou.1",
       "voice": "lou",
       "say": "Kid. You up?"
@@ -3705,6 +3730,30 @@
       "say": "Get moving. He hates waiting more than the other Lou does."
     },
     {
+      "name": "vo.call.booski.airstrip.tony.1",
+      "voice": "player",
+      "say": "Everybody keeps asking me that.",
+      "duration": 3
+    },
+    {
+      "name": "vo.call.booski.airstrip.tony.2",
+      "voice": "player",
+      "say": "Two Lous. Of course there are two Lous.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.call.booski.airstrip.tony.3",
+      "voice": "player",
+      "say": "A beef jerky run.",
+      "duration": 2
+    },
+    {
+      "name": "vo.call.booski.airstrip.tony.4",
+      "voice": "player",
+      "say": "Airstrip. Going.",
+      "duration": 2
+    },
+    {
       "_comment": "Big Uncle Lou's second call, also silent text until July 30.",
       "name": "vo.call.lou.bing_second.1",
       "voice": "lou1",
@@ -3726,6 +3775,30 @@
       "say": "You will leave from here. You are not going home first."
     },
     {
+      "name": "vo.call.lou.bing_second.tony.1",
+      "voice": "player",
+      "say": "I was just there.",
+      "duration": 2
+    },
+    {
+      "name": "vo.call.lou.bing_second.tony.2",
+      "voice": "player",
+      "say": "In person. Understood.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.call.lou.bing_second.tony.3",
+      "voice": "player",
+      "say": "Nothing. Got it.",
+      "duration": 2
+    },
+    {
+      "name": "vo.call.lou.bing_second.tony.4",
+      "voice": "player",
+      "say": "Then I will not pack.",
+      "duration": 2.5
+    },
+    {
       "_comment": "Booskibro's big-night call, the last one Tony gets as a prospect. Patriarch voice, not the gambling-show one: he is telling the kid the room is assembling for him.",
       "name": "vo.call.booski.bignight.1",
       "voice": "booski",
@@ -3745,6 +3818,30 @@
       "name": "vo.call.booski.bignight.4",
       "voice": "booski",
       "say": "Seven sharp. Do not be early and do not be late."
+    },
+    {
+      "name": "vo.call.booski.bignight.tony.1",
+      "voice": "player",
+      "say": "I have no other plans. I have never had other plans.",
+      "duration": 4.5
+    },
+    {
+      "name": "vo.call.booski.bignight.tony.2",
+      "voice": "player",
+      "say": "All five of them. In one room.",
+      "duration": 3
+    },
+    {
+      "name": "vo.call.booski.bignight.tony.3",
+      "voice": "player",
+      "say": "It does not feel like it is about me.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.call.booski.bignight.tony.4",
+      "voice": "player",
+      "say": "Seven. Not early, not late.",
+      "duration": 3
     },
     {
       "name": "vo.call.booski.1",
@@ -5159,6 +5256,31 @@
       "voice": "margo",
       "say": "And iron something. I have seen what you wear at four in the morning.",
       "duration": 4
+    },
+    {
+      "_comment": "The one call he is not taking orders on, and the only one he answers like a person rather than like a prospect.",
+      "name": "vo.call.margo.date.tony.1",
+      "voice": "player",
+      "say": "I did. I meant it.",
+      "duration": 2
+    },
+    {
+      "name": "vo.call.margo.date.tony.2",
+      "voice": "player",
+      "say": "Nine. The Silver Room.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.call.margo.date.tony.3",
+      "voice": "player",
+      "say": "Rye. One cube. I will remember.",
+      "duration": 3
+    },
+    {
+      "name": "vo.call.margo.date.tony.4",
+      "voice": "player",
+      "say": "That was a work night.",
+      "duration": 2.5
     },
     {
       "name": "restaurant.room.tone",

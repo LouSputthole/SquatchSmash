@@ -180,6 +180,37 @@ try {
       && answered.event === 'answered'
       && answered.mission === 'available',
     JSON.stringify(answered));
+
+  /* He answers out loud now. Drive the call until it is his turn and check the
+   * cue it reaches is a real one in the manifest, in the player's voice, with
+   * the words that are on the screen -- and that an unrecorded reply still
+   * holds for a reading beat rather than stalling the call. */
+  const reply = await page.evaluate(async () => {
+    const game = window.__squatch;
+    let turn = null;
+    for (let i = 0; i < 400 && game.phone.inCall && !turn; i++) {
+      game.phone.update(0.25);
+      const t = game.phone.call?.turns?.[game.phone.call.line];
+      if (t?.who === 'me') turn = t;
+    }
+    const manifest = await fetch('assets/sfx/manifest.json').then((r) => r.json());
+    const cue = manifest.sfx.find((c) => c.name === turn?.cue);
+    return {
+      cue: turn?.cue,
+      text: turn?.text,
+      voice: cue?.voice,
+      says: cue?.say,
+      hold: game.phone.call?.hold,
+      stillTalking: game.phone.inCall,
+    };
+  });
+  check('Tony’s reply on Lou’s call resolves to a cue in his own voice',
+    reply.cue === 'vo.call.lou.bada_bing.tony.1'
+      && reply.voice === 'player'
+      && reply.says === reply.text
+      && reply.stillTalking === true
+      && reply.hold > 0,
+    JSON.stringify(reply));
   check('answering the held phone persists Lou’s call',
     answered.inCall && answered.event === 'answered', JSON.stringify(answered));
   check('the answered call unlocks Bada Bing', answered.mission === 'available', answered.mission);

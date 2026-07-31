@@ -33,6 +33,22 @@ const DEPARTURE_REQUIREMENTS = Object.freeze([
   },
 ]);
 
+/**
+ * Both halves of every call in this file.
+ *
+ * `lines` is the caller. `replies[i]` is what Tony says back to `lines[i]`, in
+ * his own voice, out loud -- his side of a phone call used to happen in the
+ * gap between the other man's sentences, unwritten and unvoiced, which is a
+ * strange way to write a phone call and a stranger way to play one. The reply
+ * takes its cue from the caller's own bank as `vo.<bank>.tony.<i+1>`, so the
+ * index says which line he is answering, and a hole in `replies` is a line he
+ * lets go past him. Nothing here needs a recording to work: an uncued reply
+ * shows on the screen and holds for a reading beat, exactly like an uncued
+ * caller line always has.
+ *
+ * He does not argue with any of them. He confirms, he asks the one question
+ * anybody would ask, and he does not get an answer to it.
+ */
 export const DAY_ONE_LOU_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_FIRST_CALL,
   characterId: CHARACTER_IDS.LOU,
@@ -44,6 +60,12 @@ export const DAY_ONE_LOU_CALL = Object.freeze({
     'Meet me at the Bada Bing. Back office.',
     'I have a package for you, and I need it handled tonight.',
     'Eat, shower, and put on something clean before you come down. I am serious.',
+  ]),
+  replies: Object.freeze([
+    'I am now.',
+    'The back office. Right.',
+    'Handled how?',
+    'Eat, shower, clean shirt. I can do that.',
   ]),
 });
 
@@ -60,6 +82,12 @@ export const DAY_TWO_BOOSKI_CALL = Object.freeze({
     'He has a beef jerky run and needs another set of hands.',
     'Get moving. He hates waiting more than the other Lou does.',
   ]),
+  replies: Object.freeze([
+    'Everybody keeps asking me that.',
+    'Two Lous. Of course there are two Lous.',
+    'A beef jerky run.',
+    'Airstrip. Going.',
+  ]),
 });
 
 export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
@@ -74,6 +102,12 @@ export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
     'I have another assignment. This one starts in person.',
     'Bring nothing and come straight to the back office.',
     'You will leave from here. You are not going home first.',
+  ]),
+  replies: Object.freeze([
+    'I was just there.',
+    'In person. Understood.',
+    'Nothing. Got it.',
+    'Then I will not pack.',
   ]),
 });
 
@@ -99,6 +133,12 @@ export const DATE_MARGO_CALL = Object.freeze({
     'The Silver Room. Nine o’clock. It is my one night off in six, so do not waste it.',
     'I drink rye. One ice cube. One. Write it on your hand if you have to.',
     'And iron something. I have seen what you wear at four in the morning.',
+  ]),
+  replies: Object.freeze([
+    'I did. I meant it.',
+    'Nine. The Silver Room.',
+    'Rye. One cube. I will remember.',
+    'That was a work night.',
   ]),
 });
 
@@ -160,6 +200,12 @@ export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
     'Everyone is coming. All five founders, the whole Circle, in one room.',
     'Shower, shave, wear something clean. This one is about you, Tony.',
     'Seven sharp. Do not be early and do not be late.',
+  ]),
+  replies: Object.freeze([
+    'I have no other plans. I have never had other plans.',
+    'All five of them. In one room.',
+    'It does not feel like it is about me.',
+    'Seven. Not early, not late.',
   ]),
 });
 

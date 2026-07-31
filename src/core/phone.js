@@ -14,7 +14,8 @@
  * A call is data:
  *
  *   { at: 9.5, from: 'Uncle Lou', vo: 'call.lou',
- *     lines: ['Kid.', 'Tomorrow. Seven.'], meeting: true }
+ *     lines: ['Kid.', 'Tomorrow. Seven.'],
+ *     replies: ['Uncle Lou.', 'Seven. I will be there.'], meeting: true }
  *
  * `at` is the in-game hour, counted the way Chat counts it, so a call lands
  * whether or not the phone is in your pocket. `vo` names the bank: line N of
@@ -22,6 +23,13 @@
  * folder and nothing here changes. Until they exist the line still shows on
  * screen and holds for a reading beat, which is exactly how the radio behaved
  * before its hosts were recorded.
+ *
+ * `replies` is the other half of the conversation, and optional. A call used
+ * to be one man talking and a silence where the other one was; `replies[i]` is
+ * what the man holding the phone says back to `lines[i]`, out loud, from
+ * `vo.<bank>.tony.<i+1>` -- the same bank, so a call is one folder, and the
+ * same reading-beat fallback, so his half works unrecorded exactly as the
+ * caller's half always has. A hole in `replies` is a line he lets go past him.
  */
 
 export const W = 300;
@@ -119,6 +127,28 @@ export const THREADS = [
   },
 ];
 
+/**
+ * Both sides of a call, in the order they are said.
+ *
+ * Exported because it is the only place that knows how a call's cue names are
+ * built, and everything that wants to check a call has a voice -- a verifier,
+ * a test, whatever comes next -- should ask here rather than rebuild the
+ * string and drift.
+ *
+ * @param {object} def a call definition
+ * @returns {{who: 'them'|'me', text: string, cue: string}[]}
+ */
+export function callScript(def) {
+  const turns = [];
+  const lines = def?.lines ?? [];
+  for (let i = 0; i < lines.length; i++) {
+    turns.push({ who: 'them', text: lines[i], cue: `vo.${def.vo}.${i + 1}` });
+    const reply = def.replies?.[i];
+    if (reply) turns.push({ who: 'me', text: reply, cue: `vo.${def.vo}.tony.${i + 1}` });
+  }
+  return turns;
+}
+
 /* ------------------------------------------------------------------ */
 
 export class Phone {
@@ -171,7 +201,10 @@ export class Phone {
   /** Start one now, whatever the clock says. */
   ring(def) {
     if (this.call) return false;
-    this.call = { def, state: 'ringing', t: 0, line: -1, hold: 0, source: null };
+    this.call = {
+      def, state: 'ringing', t: 0, line: -1, hold: 0, source: null,
+      turns: callScript(def),
+    };
     this.audio?.startLoop?.('phone.ring', { volume: 0.5 });
     return true;
   }
@@ -210,24 +243,28 @@ export class Phone {
     return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${ampm}`;
   }
 
-  /** Move to the next line of the call, or end it. */
+  /** Move to the next thing said by either of them, or end the call. */
   _advance() {
     const c = this.call;
     c.line++;
-    if (c.line >= c.def.lines.length) {
+    const turn = c.turns[c.line];
+    if (!turn) {
       // He does not get to say goodbye. Nobody on this phone says goodbye.
       this.hangUp();
       return;
     }
-    const text = c.def.lines[c.line];
-    const cue = `vo.${c.def.vo}.${c.line + 1}`;
-    c.source = this.audio?.play?.(cue, { volume: 0.95 }) ?? null;
+    /* His own voice is in the room and the caller's is coming out of an
+     * earpiece held to his head, so they are not quite the same loudness. */
+    c.source = this.audio?.play?.(turn.cue, {
+      volume: turn.who === 'me' ? 0.88 : 0.95,
+    }) ?? null;
     /* A recorded line holds for exactly as long as it takes to say. One that
      * has not been recorded yet holds for a reading beat instead, so the call
-     * still has a shape before a single mp3 exists. */
+     * still has a shape before a single mp3 exists -- which is what carries
+     * his half of every call until somebody records it. */
     c.hold = c.source?.buffer
       ? c.source.buffer.duration + 0.45
-      : READ_BASE + text.length * READ_PER_CHAR;
+      : READ_BASE + turn.text.length * READ_PER_CHAR;
   }
 
   /* ---------------------------------------------------------------- */
@@ -430,12 +467,21 @@ export class Phone {
       return;
     }
 
-    // What is being said, one line at a time.
-    const text = c.def.lines[c.line] ?? '';
+    /* What is being said, one line at a time, by whichever of them is saying
+     * it. The caller's name is already at the top of the screen, so the label
+     * only has to say when it is NOT him -- and his own name is not in his own
+     * phone, so it says "you". */
+    const turn = c.turns?.[c.line];
+    const mine = turn?.who === 'me';
+    g.fillStyle = '#4d5768';
+    g.font = '11px ui-monospace, monospace';
+    g.fillText(mine ? 'you' : c.def.from.toLowerCase(), W / 2, H * 0.50);
+
+    const text = turn?.text ?? '';
     g.font = '14px ui-monospace, monospace';
     const lines = wrap(g, text, W - 56);
     let y = H * 0.56;
-    g.fillStyle = '#cdd7e6';
+    g.fillStyle = mine ? '#8fa8c8' : '#cdd7e6';
     for (const ln of lines) { g.fillText(ln, W / 2, y); y += 21; }
 
     g.fillStyle = '#4d5768';
