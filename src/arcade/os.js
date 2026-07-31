@@ -217,6 +217,12 @@ export class SquatchOS {
    * the chair; neither was written down anywhere, so from inside a match there
    * was no visible way back to the room at all. An app can hide it -- set
    * `hideExitHint` while something is mid-flow -- but by default it is there.
+   *
+   * A TAP of Tab is the way out of these, and this is where it is true: the
+   * key reaches the apartment because the app is drawn on this canvas by the
+   * apartment. A framed app covers this text completely and cannot be relied
+   * on to let the key through at all, which is why it carries its own control
+   * and its own wording -- see webapp.js.
    */
   _drawExitHint() {
     if (this.app?.hideExitHint) return;

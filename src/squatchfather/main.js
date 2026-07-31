@@ -31,6 +31,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { createSquatchfatherStory } from '../core/squatchfather-story.js';
+import { prewarmScene } from '../core/prewarm.js';
 
 // ---------------------------------------------------------------- boot
 
@@ -800,6 +801,76 @@ function buildStates() {
   };
 }
 
+// ---------------------------------------------------------------- prewarm
+
+/* The first shot used to cost about ten frames and every shot after it was
+ * free. The reason was the muzzle flash: it is a PointLight that sits
+ * `visible = false` until the trigger, three.js ignores invisible lights when
+ * it counts the light list, and the point-light count is part of every
+ * material's program cache key. The frame that light first appears on is the
+ * frame the whole room needs programs it has never had — measured at ~994ms
+ * against ~8ms for a quiet frame.
+ *
+ * So we draw those states once while the menu is still up, clipped to a single
+ * pixel, and gameplay never pays for them. Nothing about the look changes;
+ * this only moves the cost earlier. */
+
+/** Everything hidden now that the shooting beats put on screen later. */
+function firstShotObjects() {
+  return [
+    blood.pool,            // the two spatters thrown at each hit
+    impacts.pool,          // bullet holes, same material family
+    prospect.weapon,       // the first-person revolver, out at DRAW_WEAPON
+    mcclawsky.gun,         // his, if he gets that far
+    sceneState.props.wrapped,       // the package coming out of the cistern
+    toiletInteraction?.bundle,      // and the bundle it is wrapped in
+  ].filter(Boolean);
+}
+
+async function prewarmFirstShot() {
+  const effects = firstShotObjects();
+
+  /* The flash is the expensive one, and it has to be warmed at the light
+   * count it really fires at — one more point light than the room has the
+   * rest of the time. Its intensity is irrelevant to the program key but is
+   * set anyway so the warm draw is the draw that happens in play. */
+  const flashIntensity = impacts.flash.intensity;
+  impacts.flash.intensity = 9;
+
+  try {
+    return await prewarmScene({
+      renderer,
+      scene,
+      camera,
+      // A frame between the passes: the menu stays clickable while they run.
+      spread: true,
+      passes: [
+        // The room's own lighting, with every hidden effect object drawn.
+        { name: 'effects', reveal: effects },
+        // And again with the muzzle flash lit: the state that used to hitch.
+        { name: 'muzzle flash', reveal: [...effects, impacts.flash] },
+      ],
+      audio: {
+        module: audio,
+        // Everything the trigger, the drop and the aftermath reach for. They
+        // are already fetching from audio.init(); this waits on the decode so
+        // the first shot never falls back to the synth mid-beat.
+        cues: [
+          'gun.shot', 'gun.reload', 'gun.drop.wood',
+          'ear.ringing', 'chair.knock', 'glass.wine.fall',
+          'cloth.suit.movement', 'car.door.close.heavy',
+        ],
+      },
+      /* No pools to fill: BulletHoles builds all eight quads and its light in
+       * its constructor, so the first shot already allocates nothing. The
+       * passes above are what its pool was still missing. */
+    });
+  } finally {
+    impacts.flash.intensity = flashIntensity;
+    impacts.flash.visible = false;
+  }
+}
+
 // ---------------------------------------------------------------- checkpoint
 
 // A botched draw sends the player back to the walk from the hallway, not to
@@ -979,6 +1050,9 @@ function wire(data, voCues) {
     ambience, train,
     campaign, campaignStory,
     chairInteraction, toiletInteraction, dropInteraction,
+    // The renderer and the two decal pools are on the handle so the frame-cost
+    // verifier can read renderer.info.programs across a shot.
+    renderer, scene, camera, impacts, blood, ringing,
     go: (name) => fsm.go(name),
     pressE: () => { ePressed = true; },
     pressFire: () => { firePressed = true; },
@@ -1124,6 +1198,20 @@ audio.init();
 Promise.all([loadDialogue(), loadVoiceCues()]).then(([data, voCues]) => {
   wire(data, voCues);
   frame();
+  /* One frame later — so the first real render has already put the room on
+   * the GPU — buy the shooting beats their shader programs and their decoded
+   * cues, behind the menu, where nobody is counting frames. */
+  requestAnimationFrame(() => {
+    /* Never fatal: a scene that cannot be prewarmed is a scene that hitches
+     * once, not one that fails to start — and an unhandled rejection here
+     * would put the boot-failure card over a perfectly good restaurant. */
+    window.squatchfather.prewarming = prewarmFirstShot()
+      .catch((err) => ({ failed: String(err && err.message ? err.message : err) }))
+      .then((report) => {
+        window.squatchfather.prewarmReport = report;
+        return report;
+      });
+  });
 }).catch((err) => {
   console.error(err);
   ui.menu.querySelector('.subtitle').textContent =

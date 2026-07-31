@@ -157,17 +157,30 @@ test('the morning list is the door’s own requirements, chapter by chapter', ()
   assert.equal(listed.day, 1);
   assert.deepEqual(listed.items.map((i) => i.id), [
     'eaten', 'showered', 'pooped', 'changedClothes', EVENT_IDS.LOU_FIRST_CALL,
+    // The tutorial's optional half, which the door never checks, and the one
+    // line that says what a seventeen-hour day with nothing in it is for.
+    'emailChecked', 'pcUsed', 'playedGame', 'killtime',
   ]);
-  assert.ok(listed.items.every((i) => i.required && !i.done));
+  assert.ok(listed.items.every((i) => !i.done));
+  assert.deepEqual(listed.items.filter((i) => !i.required).map((i) => i.id),
+    ['emailChecked', 'pcUsed', 'playedGame', 'killtime']);
 
   // Ticks follow the real flags, not a copy of them.
   dayOne.callAnswered(DAY_ONE_LOU_CALL);
   const half = dayOne.objectives({ ...nothingDone, eaten: true });
   assert.deepEqual(half.items.filter((i) => i.done).map((i) => i.id),
     ['eaten', EVENT_IDS.LOU_FIRST_CALL]);
-  // And once the chores are done the list says where he is going.
+  // And once the chores are done the list says where he is going -- and, on
+  // Day One only, that there is a whole day to fill before he goes.
   const ready = dayOne.objectives(allDone);
-  assert.equal(ready.items.at(-1).label, 'Leave for the Bada Bing');
+  assert.equal(ready.items.at(-1).id, 'killtime');
+  assert.equal(ready.items.at(-1).required, false);
+  assert.equal(ready.items.at(-2).label, 'Leave for the Bada Bing');
+  assert.match(ready.items.at(-1).label, /sleep it off|have a drink/i);
+  // The optional half ticks off the same way the required half does.
+  const busy = dayOne.objectives({ ...allDone, pcUsed: true, playedGame: true });
+  assert.deepEqual(busy.items.filter((i) => !i.required && i.done).map((i) => i.id),
+    ['pcUsed', 'playedGame']);
 
   /* Day Two. Same shape of morning -- he still eats, still showers -- but the
    * door does not count those, so they are listed and not marked required. */

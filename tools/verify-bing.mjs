@@ -736,6 +736,163 @@ const familyState = await page.evaluate(() => {
     JSON.stringify(familyState.members.map((m) => [m.id, m.job, m.navClear])));
 }
 
+/* ---- Willy's belly ----
+ * The owner's ask, ahead of a later reveal: a real, general `gut` option on
+ * the shared figure builder (src/bing/cast.js), not a Willy-only shape, with
+ * Willy as its first user. Pinned three ways: does it actually read as
+ * bigger than every other seated man in the Family, does an arm ever pass
+ * through it, and does the option work on a figure that never shipped --
+ * proof it is a builder feature and not a hack drawn around one man.
+ *
+ * Every measurement below zeroes the figure's own yaw before reading a
+ * Box3. A Box3 is axis-aligned in WORLD space, so at a yaw that is not a
+ * multiple of pi/2 -- which is most of this cast, Willy included -- the box
+ * bloats to cover the rotated corners, and a depth/width comparison or an
+ * intersection test taken at the seat's actual facing can flip its verdict
+ * for no reason but which way the chair points in the room. Confirmed by
+ * hand: the same sit() pose read as clear at yaw 0 and as clipping at yaw
+ * 2.72 (Willy's real seat) with nothing else different. Zeroing the whole
+ * figure's yaw removes that artefact without touching anything internal to
+ * the pose -- an arm's rotation relative to its own shoulder does not care
+ * which way the chair faces.
+ */
+const bellyState = await page.evaluate(async () => {
+  const b = window.__bing;
+  const T = b.THREE;
+  const { Npc } = await import('./src/bing/cast.js');
+
+  const withYawZeroed = (npc, fn) => {
+    const yaw = npc.group.rotation.y;
+    npc.group.rotation.y = 0;
+    npc.group.updateMatrixWorld(true);
+    const result = fn();
+    npc.group.rotation.y = yaw;
+    npc.group.updateMatrixWorld(true);
+    return result;
+  };
+  // The trunk, excluding head/arms/legs: hips, waist, ribcage, shoulders and
+  // -- when present -- the belly, which is added to `body` alongside them.
+  const trunkBoxOf = (npc) => {
+    const excl = new Set([npc.parts.head, npc.parts.armL, npc.parts.armR]);
+    const box = new T.Box3();
+    let any = false;
+    npc.parts.body.children.forEach((child) => {
+      if (excl.has(child)) return;
+      child.updateMatrixWorld(true);
+      const bb = new T.Box3().setFromObject(child);
+      if (!any) { box.copy(bb); any = true; } else box.union(bb);
+    });
+    return box;
+  };
+  const gutBoxOf = (npc) => {
+    const box = new T.Box3();
+    let any = false;
+    npc.group.traverse((o) => {
+      if (o.isMesh && /^person\.gut\./.test(o.name)) {
+        o.updateMatrixWorld(true);
+        const bb = new T.Box3().setFromObject(o);
+        if (!any) { box.copy(bb); any = true; } else box.union(bb);
+      }
+    });
+    return any ? box : null;
+  };
+  const armMeshesOf = (npc) => {
+    const out = [];
+    for (const armGroup of [npc.parts.armL, npc.parts.armR]) {
+      armGroup.updateMatrixWorld(true);
+      armGroup.traverse((o) => { if (o.isMesh) out.push(new T.Box3().setFromObject(o)); });
+    }
+    return out;
+  };
+  const noArmClip = (npc) => withYawZeroed(npc, () => {
+    npc.group.updateMatrixWorld(true);
+    const gut = gutBoxOf(npc);
+    if (!gut) return true;
+    return armMeshesOf(npc).every((a) => !a.intersectsBox(gut));
+  });
+
+  const willy = b.family.byId.willy;
+
+  // Depth/width -- read as the trunk's footprint -- against every OTHER
+  // seated, non-female Family member. Family builds are authored numbers,
+  // unlike the ambient floor's randomised patrons, so this is the same
+  // roster every run.
+  willy.job = 'sit';
+  willy.folded = false;
+  willy._syncJob(true);
+  const willySize = withYawZeroed(willy, () => trunkBoxOf(willy).getSize(new T.Vector3()));
+  const others = b.family.all
+    .filter((npc) => npc !== willy && npc.seated && npc.group.userData.npc.gender !== 'female')
+    .map((npc) => withYawZeroed(npc, () => trunkBoxOf(npc).getSize(new T.Vector3())));
+  const maxOtherDepth = Math.max(...others.map((s) => s.z));
+  const maxOtherArea = Math.max(...others.map((s) => s.x * s.z));
+
+  // No clipping: the actual seated rest pose, the idle sway sampled across
+  // several seconds (the seated arm sway that plays at the table), and the
+  // arm-clamp (folded) branch -- Willy never folds, but the branch is
+  // general, so it is exercised here directly rather than only by proxy.
+  const sitClear = noArmClip(willy);
+  let swayClear = true;
+  willy.group.rotation.y = 0;
+  for (let i = 0; i < 120 && swayClear; i++) {
+    willy.update(1 / 20, null);
+    willy.group.updateMatrixWorld(true);
+    const gut = gutBoxOf(willy);
+    if (gut && armMeshesOf(willy).some((a) => a.intersectsBox(gut))) swayClear = false;
+  }
+  willy.job = 'stand';
+  willy.folded = true;
+  willy._syncJob(true);
+  for (let i = 0; i < 10; i++) willy.update(1 / 20, null);
+  const foldedClear = noArmClip(willy);
+  // Put him back exactly as populateFamily left him.
+  willy.folded = false;
+  willy.job = 'sit';
+  willy._syncJob(true);
+  willy.group.rotation.y = willy.homeYaw;
+  willy.group.updateMatrixWorld(true);
+
+  // Reusable, not a Willy-only hack: a second, differently-proportioned
+  // gutted figure that never shipped, off in a corner nobody looks at,
+  // proving the same three poses on its own.
+  const other = new Npc(b.scene, {
+    name: 'verify-only', tier: 'ambient', job: 'sit', x: -80, z: -80, yaw: 1.1,
+    model: { height: 1.62, build: 1.35, gut: 1.2, dress: 'tracksuit' },
+  });
+  for (let i = 0; i < 5; i++) other.update(1 / 20, null);
+  const reuse = { sit: noArmClip(other) };
+  other.job = 'stand';
+  other._syncJob(true);
+  for (let i = 0; i < 5; i++) other.update(1 / 20, null);
+  reuse.stand = noArmClip(other);
+  other.folded = true;
+  other._syncJob(true);
+  for (let i = 0; i < 5; i++) other.update(1 / 20, null);
+  reuse.folded = noArmClip(other);
+  other.group.visible = false;
+
+  return {
+    willyDepth: +willySize.z.toFixed(4),
+    willyArea: +(willySize.x * willySize.z).toFixed(4),
+    maxOtherDepth: +maxOtherDepth.toFixed(4),
+    maxOtherArea: +maxOtherArea.toFixed(4),
+    otherCount: others.length,
+    sitClear, swayClear, foldedClear,
+    reuse,
+  };
+});
+check('Willy carries a real belly on the shared figure builder — his seated trunk reads deeper, and a bigger footprint, than every other seated man in the Family, by a clear margin',
+  bellyState.otherCount >= 8
+    && bellyState.willyDepth > bellyState.maxOtherDepth * 1.2
+    && bellyState.willyArea > bellyState.maxOtherArea * 1.1,
+  JSON.stringify(bellyState));
+check('no arm mesh ever intersects the belly — seated at the rail, idling, or arms crossed',
+  bellyState.sitClear && bellyState.swayClear && bellyState.foldedClear,
+  JSON.stringify({ sit: bellyState.sitClear, sway: bellyState.swayClear, folded: bellyState.foldedClear }));
+check('the belly is a general builder option, not a Willy-only shape — a second, differently-built gutted figure keeps its arms clear of it too',
+  bellyState.reuse.sit && bellyState.reuse.stand && bellyState.reuse.folded,
+  JSON.stringify(bellyState.reuse));
+
 /* Every cue the Family's scripts name must be authored in the manifest —
  * say() and voiceCue() are silent about a typo forever. Numbskull is the one
  * deliberate exception: no voice id yet, so his tree carries no cue names. */

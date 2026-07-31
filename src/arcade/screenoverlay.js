@@ -123,7 +123,20 @@ export class ScreenOverlay {
     this.el.style.display = 'block';
     // The page has to have the keyboard, or WASD goes to the apartment and
     // the player walks into a wall while the sasquatch stands still.
-    this.el.contentWindow?.focus();
+    this.focusFrame();
+  }
+
+  /**
+   * Hand the keyboard to the embedded page.
+   *
+   * focus() is one of the few things a parent may do to a cross-origin frame,
+   * so this works for DOOM as well as for our own pages. The exit control in
+   * webapp.js takes the keyboard off the frame while the pointer is on it and
+   * gives it back through here the moment the pointer leaves.
+   */
+  focusFrame() {
+    if (!this.visible) return;
+    try { this.el.contentWindow?.focus(); } catch { /* cross-origin, or gone */ }
   }
 
   hide() {

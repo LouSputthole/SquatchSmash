@@ -365,10 +365,19 @@ kbd.key, .controls kbd {
 }
 /* The ones the door will actually refuse on. */
 #objectives li.required:not(.done) { color: var(--paper); }
+/* And the ones it will not. Day One is a tutorial with seventeen hours in it,
+   so most of that morning is things worth doing rather than things you have to
+   do -- and a list that draws both the same way is a list that lies about
+   which is which. Optional reads as an aside: dimmer, italic, hollow bullet. */
+#objectives li:not(.required):not(.done) {
+  color: #9a9280;
+  font-style: italic;
+}
 #objectives li::before {
   content: '·  ';
   color: #6b6455;
 }
+#objectives li:not(.required)::before { content: '◦  '; }
 #objectives li.done::before { content: '✓  '; }
 
 /* bladder meter */

@@ -85,6 +85,17 @@ export const TIME_EVENT_IDS = Object.freeze({
   POOP: 'activity.poop',
   CHANGE_CLOTHES: 'activity.change_clothes',
   CHECK_EMAIL: 'activity.check_email',
+  /* Standing at the sideboard listening to what landed while he was out. One
+   * per chapter, because there is one message per chapter and a man does not
+   * hear yesterday's twice. Registered as time events rather than as a new
+   * field on the save so the state SHAPE does not move -- an added field makes
+   * every existing save normalise differently, which the loader would report
+   * to the player as a recovered save. */
+  HEAR_MESSAGES_DAY_TWO: 'activity.messages.day_two',
+  HEAR_MESSAGES_DATE: 'activity.messages.date',
+  HEAR_MESSAGES_BIG_NIGHT: 'activity.messages.big_night',
+  /** Margo waking up beside him on the fourth morning, and leaving. */
+  MARGO_WAKE: 'scene.margo_wake',
   LOU_FIRST_CALL: 'call.lou_first',
   LOU_ATTABOY_CALL: 'call.lou_attaboy',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
@@ -92,6 +103,12 @@ export const TIME_EVENT_IDS = Object.freeze({
   MARGO_DATE_CALL: 'call.margo_date',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
+  /* Coming home from the restaurant. The Squatchfather scene keeps no clock of
+   * its own -- it is deliberately frozen -- so the return leg is what puts the
+   * hour on it, and it is applied by the apartment on arrival. Without it he
+   * walked back in at the same 11:41 PM he left at, which is why the bed felt
+   * like it was refusing him: the flat still thought he had just got up. */
+  COMPLETE_SQUATCHFATHER: 'mission.squatchfather',
   DEPART_AIRSTRIP: 'travel.airstrip',
   COMPLETE_AIRSTRIP: 'mission.airstrip',
   DEPART_BADA_BING_TWO: 'travel.bada_bing_two',
@@ -109,6 +126,16 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.POOP]: Object.freeze({ minutes: 10 }),
   [TIME_EVENT_IDS.CHANGE_CLOTHES]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.CHECK_EMAIL]: Object.freeze({ minutes: 10 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_DATE]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]: Object.freeze({ minutes: 2 }),
+  /* Costs nothing on the clock. This one is a marker rather than an errand:
+   * the big night's morning is an authored ten o'clock checkpoint and the
+   * ceremony is an authored seven, and putting a quarter of an hour between
+   * them buys the story nothing while moving two pinned times. She wakes him
+   * at ten and it is still ten when she goes, which is also how the morning
+   * after actually plays. */
+  [TIME_EVENT_IDS.MARGO_WAKE]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
   // Shorter than the rest. Lou is not asking for anything, so it is short.
   [TIME_EVENT_IDS.LOU_ATTABOY_CALL]: Object.freeze({ minutes: 2 }),
@@ -118,6 +145,13 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
+  }),
+  /* The restaurant, the walk away from it and the drive back. He lets himself
+   * in at three in the morning of the night Day One runs into: still Day One's
+   * chapter, on the second calendar day, exactly as the Motel already does at
+   * half four. Sleeping from here is what turns the page. */
+  [TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER]: Object.freeze({
+    atLeast: Object.freeze({ day: 2, timeMinutes: 3 * 60 }),
   }),
   // "Whispering Pines Municipal, ten past nine." The drive out to the field.
   [TIME_EVENT_IDS.DEPART_AIRSTRIP]: Object.freeze({

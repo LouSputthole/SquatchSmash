@@ -153,6 +153,49 @@ try {
       && home.day === 3
       && Math.abs(home.minutes - (23 * 60 + 20)) < 1,
     JSON.stringify(home));
+  /* ---------------------------------------------------------------- */
+  /* The third morning, before it is slept off                         */
+  /* ---------------------------------------------------------------- */
+
+  /* Day 3 is the `date` chapter, and its whole job is atmosphere: a grey wet
+   * morning, the Motel on the wire, and Willy quietly off the fridge door
+   * with nobody saying a word about it. */
+  const dateRoom = await page.evaluate(() => {
+    const game = window.__squatch;
+    const shown = [];
+    for (const [id, piece] of game.apartment.dressing) {
+      if (piece.group.visible) shown.push(id);
+    }
+    return {
+      chapter: game.apartment.dressedChapter(),
+      shown,
+      raining: game.apartment.state.raining,
+      messages: game.apartment.messagesWaiting(),
+      lou: game.apartmentStory.messages().list[0]?.from,
+      vague: game.apartmentStory.messages().list
+        .some((m) => m.lines.some((l) => /Willy|plain|may need doing/i.test(l))),
+      motelOnTheWire: /motel/i.test(game.apartmentStory.news()?.radio?.line || ''),
+    };
+  });
+  check('the third morning is wet, grey, and missing Willy',
+    dateRoom.chapter === 'date'
+      && dateRoom.raining === true
+      && dateRoom.shown.includes('rain')
+      && dateRoom.shown.includes('willyGap')
+      && !dateRoom.shown.includes('willyPhoto')
+      && dateRoom.shown.includes('motelKey')
+      && dateRoom.shown.includes('casualJacket')
+      // Still an accumulating flat: Day Two's things are all still here.
+      && dateRoom.shown.includes('bloodShirt')
+      && dateRoom.shown.includes('cashSmall'),
+    JSON.stringify(dateRoom.shown));
+  check('Lou has stopped saying things, and the Motel is on the news',
+    dateRoom.messages === 2
+      && dateRoom.lou === 'Big Uncle Lou'
+      && dateRoom.vague === true
+      && dateRoom.motelOnTheWire === true,
+    JSON.stringify(dateRoom));
+
   check('the door sends him to bed instead of out to the Circle',
     home.door?.kind === 'stay' && home.door?.id === 'sleep_before_big_night',
     JSON.stringify(home.door));
@@ -194,6 +237,73 @@ try {
   check('the live apartment wakes in bed at ten on Day Four',
     woke.day === 4 && Math.abs(woke.minutes - 10 * 60) < 1 && woke.mode === 'bed',
     JSON.stringify(woke));
+
+  /* ---------------------------------------------------------------- */
+  /* The fourth morning: the den, and the woman in it                  */
+  /* ---------------------------------------------------------------- */
+
+  const peak = await page.evaluate(() => {
+    const game = window.__squatch;
+    const shown = [];
+    for (const [id, piece] of game.apartment.dressing) {
+      if (piece.group.visible) shown.push(id);
+    }
+    return { chapter: game.apartment.dressedChapter(), shown, raining: game.apartment.state.raining };
+  });
+  check('by Day Four the flat is the den of a newly minted Squatch criminal',
+    peak.chapter === 'big_night'
+      && ['cashStacks', 'suitBag', 'gunCase', 'jerkyHaul', 'silverMatches', 'laundryHeap']
+        .every((id) => peak.shown.includes(id))
+      // Everything he accumulated on the way here is still here.
+      && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
+        .every((id) => peak.shown.includes(id))
+      && !peak.shown.includes('lanyard')
+      && !peak.shown.includes('willyPhoto')
+      && peak.raining === false,
+    JSON.stringify(peak.shown));
+
+  /* The cutscene. It runs on the fourth morning only, it is one-shot against
+   * the campaign's own clock, and -- the part that matters -- it hands
+   * control back rather than leaving the player watching a woman walk. */
+  await page.waitForFunction(() => !!window.__squatch.game.margoScene, null, { timeout: 60000 });
+  const scene = await page.evaluate(() => {
+    const game = window.__squatch;
+    return {
+      running: !!game.game.margoScene,
+      owed: game.apartmentStory.margoWakeOwed(),
+      visible: game.apartment.margo.group.visible,
+      mode: game.player.mode,
+    };
+  });
+  check('the fourth morning opens with somebody else in the bed',
+    scene.running === true && scene.visible === true && scene.mode === 'bed',
+    JSON.stringify(scene));
+  await page.waitForFunction(() => !window.__squatch.game.margoScene, null, { timeout: 180000 });
+  const handedBack = await page.evaluate(() => {
+    const game = window.__squatch;
+    return {
+      running: !!game.game.margoScene,
+      visible: game.apartment.margo.group.visible,
+      owed: game.apartmentStory.margoWakeOwed(),
+      events: game.campaign.state.story.timeEvents,
+      minutes: game.campaign.state.story.timeMinutes,
+      mode: game.player.mode,
+      pitch: Math.round(game.player.pitch * 100) / 100,
+      yawCentre: Math.round((game.player.yawCenter ?? 0) * 100) / 100,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('Margo gets dressed, leaves, and hands the room back',
+    handedBack.running === false
+      && handedBack.visible === false
+      && handedBack.owed === false
+      && handedBack.events.includes('scene.margo_wake')
+      && handedBack.minutes === 10 * 60
+      // Exactly the pose an ordinary morning hands over.
+      && handedBack.mode === 'bed'
+      && handedBack.pitch === 0.95
+      && handedBack.door?.kind === 'call',
+    JSON.stringify(handedBack));
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });

@@ -16,8 +16,15 @@ import * as P from './props.js';
 import { resolveGear } from './gear.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { loadModels } from './models.js';
+import {
+  CHAPTER_ORDER, buildDressing, dressingFor, makeAnswerMachine, makeMorningGuest,
+} from './dressing.js';
 
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
+
+/** Where the daylight goes on a wet morning, and on a late warm one. */
+const OVERCAST = new THREE.Color(0x8d97a4);
+const LATE_GOLD = new THREE.Color(0xffb877);
 
 /**
  * The closet, cut back into the south wall.
@@ -678,6 +685,27 @@ export async function buildApartment(ctx) {
   const radio = P.makeRadio(M, { x: -1.10, y: sideboard.top, z: 4.16, rotY: Math.PI });
   root.add(radio.group);
 
+  /* The answering machine, beside the radio. It is in the flat on every
+   * morning -- it came with the place -- but what is ON it is chapter state:
+   * dark on Day One, and blinking with whatever the campaign says is waiting
+   * from Day Two. See `applyChapterDressing`. */
+  const answerMachine = makeAnswerMachine(M, {
+    x: -0.32, y: sideboard.top, z: 4.30, rotY: Math.PI + 0.08,
+  });
+  root.add(answerMachine.group);
+  const machineHit = box({
+    size: [0.26, 0.22, 0.22], pos: [-0.32, sideboard.top + 0.10, 4.30],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  machineHit.name = 'answermachine';
+  root.add(machineHit);
+  interaction.register(machineHit, {
+    label: () => (machineWaiting > 0
+      ? `Play your <b>messages</b> <span style="opacity:.6">(${machineWaiting})</span>`
+      : 'The <b>answering machine</b>'),
+    onUse: () => ctx.onPlayMessages?.(),
+  });
+
   const plant = P.makePlant(M, { x: 3.95, z: 3.75 });
   root.add(plant.group);
   addCollider(plant.bounds);
@@ -812,6 +840,12 @@ export async function buildApartment(ctx) {
       if (!inventory.add('slice')) return;
       pizza.takeSlice();
       audio.play('pizza.take', { volume: 0.5, position: pizza.group.position });
+      /* Said out loud, like every other pickup in the flat. A slice went into
+       * the hotbar silently and with nothing in his hands to show for it,
+       * which from the player's side is indistinguishable from a pickup that
+       * did not happen. */
+      hud.toast('Picked up a slice', 'good');
+      hud.say('Cold. Still pizza. <em>Hold [F] to eat it.</em>', 3600);
       ctx.onNote?.('slice');
     },
   });
@@ -924,6 +958,96 @@ export async function buildApartment(ctx) {
   switchPlate.rotation.y = Math.PI;
   switchPlate.add(toggle);
   root.add(switchPlate);
+
+  /* ================================================================ */
+  /* Chapter dressing                                                  */
+  /* ================================================================ */
+
+  /* Every piece the DAY_DRESSING table can name, built once and then shown or
+   * hidden. See world/dressing.js for why it is one accumulating flat rather
+   * than four sets, and why the visible set is folded from the campaign's own
+   * chapter instead of kept anywhere. */
+  const dressing = buildDressing(M, {
+    root,
+    fridgeDoor: fridge.door,
+    at: {
+      lanyard: { x: -0.80, y: sideboard.top, z: 4.30, rotY: 0.5 },
+      willy: { y: 1.12, z: -0.52 },
+      bloodShirt: { x: -1.62, y: 0.001, z: -3.62, rotY: 0.5 },
+      /* The money lands where he drops it as he comes in, so it lives at the
+       * FRONT of the sideboard rather than behind the photographs -- a stack
+       * of notes nobody can see is not a stack of notes. */
+      cashSmall: { x: -0.80, y: sideboard.top, z: 4.06, rotY: -0.3 },
+      bingMatches: { x: -3.44, y: table.top, z: 0.52, rotY: 0.9 },
+      motelKey: { x: -1.36, y: sideboard.top, z: 4.32, rotY: 0.4 },
+      cashMid: { x: -1.36, y: sideboard.top, z: 4.06, rotY: 0.5 },
+      casualJacket: { x: 1.70, y: 1.00, z: -2.96, rotY: Math.PI + 0.12 },
+      cashStacks: { x: -3.24, y: table.top, z: 0.48, rotY: 0.2 },
+      suitBag: { x: (CLOSET.x0 + CLOSET.x1) / 2, y: CLOSET.h - 0.05, z: 4.64, rotY: 0.06 },
+      gunCase: { x: -4.15, y: 0.73, z: -2.70, rotY: 0.35 },
+      jerkyHaul: { x: 4.72, y: kitchen.top, z: -0.62, rotY: 0.4 },
+      silverMatches: { x: -3.02, y: nightstand.top, z: -4.24, rotY: -0.5 },
+      laundryHeap: { x: -2.20, y: 0, z: -3.06, rotY: 0.3 },
+      rain: { x: x1 - 0.02, y: (wy0 + wy1) / 2, z: (wz0 + wz1) / 2, w: wz1 - wz0, h: wy1 - wy0 },
+    },
+  });
+
+  /* Margo, for the one morning she is here. Built in every chapter and shown
+   * by the cutscene rather than by the dressing table -- she is a person who
+   * stayed the night, not a possession he accumulated. */
+  const margo = makeMorningGuest(M);
+  root.add(margo.group);
+
+  /** Weather and light for the morning currently on show. */
+  let dressAir = dressingFor('day_one').air;
+  /** Which chapter the room is currently dressed for. */
+  let dressedChapter = null;
+  /** Messages waiting on the machine, and how long the light has been on. */
+  let machineWaiting = 0;
+  let machineBlink = 0;
+
+  /**
+   * Dress the flat for a chapter.
+   *
+   * The single entry point, and the only thing in here that knows what day it
+   * is. Called at build with the campaign's chapter and again whenever sleeping
+   * turns a page, so the room follows the save rather than the session -- a
+   * reload, a checkpoint restore and a night's sleep all arrive here with the
+   * same argument and leave the same room behind.
+   */
+  const applyChapterDressing = (chapter, { messages = null } = {}) => {
+    const plan = dressingFor(chapter);
+    dressedChapter = chapter;
+    dressAir = plan.air;
+    for (const [id, piece] of dressing) {
+      if (id === 'rain') continue;          // weather, not a possession
+      piece.group.visible = plan.shown.has(id);
+    }
+    dressing.get('rain').group.visible = plan.air.rain > 0;
+    /* One waiting message per chapter past the first, unless the caller knows
+     * better. Derived, so it cannot disagree with the room around it. */
+    machineWaiting = messages ?? Math.max(0, CHAPTER_ORDER.indexOf(chapter));
+    state.dressChapter = chapter;
+    state.dressTitle = plan.title;
+    state.raining = plan.air.rain > 0;
+    return plan;
+  };
+
+  /** Rain runs down the pane; the machine blinks what is waiting on it. */
+  ticks.push((dt, elapsed) => {
+    const rain = dressing.get('rain');
+    if (rain.group.visible) {
+      for (const r of rain.runners) {
+        r.mesh.position.y -= r.speed * dt;
+        if (r.mesh.position.y < r.bottom) r.mesh.position.y = r.top;
+      }
+    }
+    machineBlink += dt;
+    const on = machineWaiting > 0 && (machineBlink % 1.6) < 0.5;
+    answerMachine.led.material = on ? M.ledRed : M.bulbOff;
+    answerMachine.digit.material = machineWaiting > 0 ? M.ledAmber : M.bulbOff;
+    void elapsed;
+  });
 
   /* ================================================================ */
   /* Wall art                                                          */
@@ -1274,11 +1398,18 @@ export async function buildApartment(ctx) {
     closetOpen: false,
     /** The telly is on. */
     tvOn: false,
+    /** He has sat down at the computer at least once today. */
+    pcEverOn: false,
     /** In the cylinder, and in his pocket. */
     rounds: 6,
     spareRounds: 0,
   };
   bindHeldItem(state, inventory);
+
+  /* The room, dressed for whichever morning the save says this is. Done here
+   * rather than in the dressing block above because the pass writes what it
+   * did into `state`, and `state` is built here. */
+  applyChapterDressing(typeof ctx.chapter === 'string' ? ctx.chapter : 'day_one');
 
   /* ---- fridge ---- */
   audio.startLoop('fridge.hum', {
@@ -1484,14 +1615,35 @@ export async function buildApartment(ctx) {
     enabled: standing,
     onUse: () => { ctx.onNote?.('sit'); ctx.onSitCouch?.(); },
   });
-  interaction.register(seatProxy('bedSeat', [-4.82, 0.62, -4.34], [-3.44, 1.10, -2.44]), {
+  /**
+   * The bed, as one affordance.
+   *
+   * The seat proxy covers the mattress and does not quite cover the bed: the
+   * headboard, the far rail and the corners all stick out past it, and those
+   * were registered separately with a flat "You just got up. Give it an hour."
+   * So aiming at most of his own bed got a refusal instead of an offer -- and
+   * coming home from the restaurant at three in the morning, ready to close
+   * the day out, being told he had just got up is exactly the dead end the
+   * owner walked into.
+   *
+   * The whole bed is now the same tap-to-sit / hold-to-lie-down it always
+   * should have been. The proxy stays because it is comfortable to aim at from
+   * standing; the bed itself is registered `soft`, so it answers only when
+   * nothing on it does.
+   */
+  const bedDescriptor = {
     label: () => 'Sit on the <b>bed</b> &middot; hold to <b>lie down</b>',
     holdLabel: () => 'Lying <b>down</b>…',
     hold: 0.55,
     enabled: standing,
     onTap: () => { ctx.onNote?.('sit'); ctx.onSitBed?.(); },
     onUse: () => ctx.onLieBed?.(),
-  });
+  };
+  interaction.register(
+    seatProxy('bedSeat', [-4.82, 0.62, -4.34], [-3.44, 1.10, -2.44]),
+    bedDescriptor,
+  );
+  interaction.register(bed.group, { ...bedDescriptor, soft: true });
 
   /* ---- getting ready ----
    * None of these announce themselves as tasks. They are things you would do
@@ -1759,17 +1911,18 @@ export async function buildApartment(ctx) {
       audio.play('ui.select', { volume: 0.4 });
     },
   });
+  /* The box itself, as opposed to what is in it. Counted rather than asserted:
+   * this used to say "one slice left" whether there were five in there or
+   * none. */
   interaction.register(pizza.group, {
     label: () => 'Inspect the <b>pizza</b>',
-    onUse: () => hud.say('One slice left. It has gone the colour of the box.'),
-  });
-  interaction.register(bed.group, {
-    label: () => 'Go back to <b>sleep</b>',
     onUse: () => {
-      audio.play('bed.rustle', { position: new THREE.Vector3(-4.15, 0.7, -3.4), volume: 0.7 });
-      hud.say(state.beersDrunk > 0
-        ? 'Tempting. But the PC is right there and the beer is already open.'
-        : 'You just got up. Give it an hour.');
+      const n = pizza.slicesLeft();
+      hud.say(n === 0
+        ? 'An empty box and a lot of orange cardboard.'
+        : n === 1
+          ? 'One slice left. It has gone the colour of the box.'
+          : `${n} slices left. They have gone the colour of the box.`);
     },
   });
 
@@ -1899,17 +2052,27 @@ export async function buildApartment(ctx) {
       // Shut: slats stand on edge and overlap. Open: flat, stacked at the top.
       slats[i].rotation.z = (1 - blindsT) * 1.35;
     }
-    // Sun only really gets in once the blinds are up.
-    // Direct light only really gets in when the blinds are up.
-    sun.intensity = time.sunIntensity * (0.22 + blindsT * 0.78);
-    sun.color.copy(time.sunColour);
+    /* Sun only really gets in once the blinds are up -- and on a chapter the
+     * dressing table calls wet, not much gets in at all. `tint` pulls every
+     * daylight source down together and `warmth` swings their colour, so a
+     * grey morning is one row of a table rather than a second lighting rig. */
+    const { tint, warmth } = dressAir;
+    const grey = Math.max(0, 1 - warmth);
+    const warm = Math.max(0, warmth - 1);
+    const shade = (colour) => {
+      if (grey > 0) colour.lerp(OVERCAST, grey);
+      else if (warm > 0) colour.lerp(LATE_GOLD, Math.min(1, warm * 3));
+      return colour;
+    };
+    sun.intensity = time.sunIntensity * (0.22 + blindsT * 0.78) * tint;
+    shade(sun.color.copy(time.sunColour));
     sun.position.copy(time.sunPos);
-    fill.intensity = time.fillIntensity;
-    hemi.intensity = time.hemiIntensity;
-    hemi.color.copy(time.hemiSky);
+    fill.intensity = time.fillIntensity * (0.86 + 0.14 * tint);
+    hemi.intensity = time.hemiIntensity * tint;
+    shade(hemi.color.copy(time.hemiSky));
     hemi.groundColor.copy(time.hemiGround);
-    ambient.intensity = time.ambIntensity;
-    ambient.color.copy(time.ambColour);
+    ambient.intensity = time.ambIntensity * tint;
+    shade(ambient.color.copy(time.ambColour));
 
     // Cross-fade the view out of the window between phase paintings.
     if (skyPhaseA !== time.skyFrom) {
@@ -2065,6 +2228,21 @@ export async function buildApartment(ctx) {
     tv,
     tvGlow,
     frames,
+
+    /* ---- the morning the flat is currently dressed for ---- */
+    /** Re-dress for a chapter. Sleeping calls this; so does the loader. */
+    applyChapterDressing,
+    /** Which chapter the room is showing, for anything that needs to ask. */
+    dressedChapter() { return dressedChapter; },
+    /** Every dressing piece by id, so a verifier can look at the room. */
+    dressing,
+    /** The blinking box on the sideboard, and what is waiting on it. */
+    answerMachine,
+    messagesWaiting() { return machineWaiting; },
+    setMessagesWaiting(n) { machineWaiting = Math.max(0, n | 0); },
+    /** Whoever stayed over, and the door she leaves by. */
+    margo,
+    frontDoorPivot: frontDoor.pivot,
     /** The frame that has been crooked for months, and putting it right. */
     crookedFrame,
     straightenFrame() { crookedWant = 0; },
@@ -2127,6 +2305,9 @@ export async function buildApartment(ctx) {
 
     setPcOn(on) {
       state.pcOn = on;
+      // Whether he has ever sat down at it, which is a different question from
+      // whether it is on now -- switching it off is not un-looking at it.
+      if (on) state.pcEverOn = true;
     },
 
     /**
@@ -2165,6 +2346,28 @@ export async function buildApartment(ctx) {
     /** Put the bottle back on the counter. */
     returnWhiskey() {
       whiskey.group.visible = true;
+    },
+
+    /**
+     * Put an unopened beer back in the door of the fridge.
+     *
+     * Every other thing he can carry had a way home except this one, so a full
+     * can taken out of the fridge and then dropped simply stopped existing:
+     * the slot it came from stayed hidden and `beersLeft` never went back up.
+     * Returns false when the door is somehow already full, which is the signal
+     * to keep hold of it rather than to delete it.
+     */
+    returnBeer() {
+      const slot = fridge.beerSlots.find((can) => !can.visible);
+      if (!slot) return false;
+      slot.visible = true;
+      state.beersLeft = Math.min(fridge.beerSlots.length, state.beersLeft + 1);
+      return true;
+    },
+
+    /** Put an untouched slice back in the box on the coffee table. */
+    returnSlice() {
+      return pizza.putSlice();
     },
 
     /** Take a pouch. Returns false when the tin is empty. */

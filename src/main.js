@@ -18,7 +18,7 @@ import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
-import { Goals, ENDINGS, MEETING } from './core/goals.js';
+import { Goals, ENDINGS, MEETING, CS_ROUNDS } from './core/goals.js';
 import { Chat } from './core/chat.js';
 import { Spooky } from './core/spooky.js';
 import { PostFX } from './core/postfx.js';
@@ -34,14 +34,19 @@ import {
   createCampaign,
   navigateCampaign,
 } from './core/campaign.js';
-import { createApartmentStory } from './core/apartment-story.js';
+import {
+  BIG_NIGHT_MARGO_WAKE,
+  createApartmentStory,
+} from './core/apartment-story.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
 import { ShowerSystem } from './world/shower.js';
 import { SplatSystem } from './world/splat.js';
 import { TimingBar } from './core/timingbar.js';
-import { makeHeldCigarette, makeHeldDrinks, makeRevolver, makePhone } from './world/props.js';
+import {
+  makeHeldCigarette, makeHeldDrinks, makeHeldSlice, makeRevolver, makePhone,
+} from './world/props.js';
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
 
@@ -188,6 +193,17 @@ const wakingOnBigNight = !returningToApartment
   && campaignAtLoad.story.chapter === 'big_night';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
   campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
+}
+/* The Squatchfather's return leg.
+ *
+ * That scene is frozen and keeps no clock, so nothing anywhere put an hour on
+ * the restaurant: he left for the Bing at 11:41 PM and let himself back in at
+ * 11:41 PM, with the whole night still ahead of him and a flat that thought he
+ * had just got up. Applied here, before the clock is read, and idempotent --
+ * `advanceTime` records the event id, so reloading the flat at three in the
+ * morning does not walk it forward again. */
+if (returningFromSquatchfather) {
+  campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER);
 }
 time.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
 if (wakingOnDayTwo) {
@@ -361,6 +377,22 @@ function poseDrink(which, k) {
   m.rotation.set(1.95 * e, 0, 0.34 * e);
 }
 
+/* The slice in hand. Same rig as the drinks, and it is the whole reason the
+ * pizza felt broken: taking one emptied a wedge out of the box and put a card
+ * in the corner of the HUD, and his hands stayed conspicuously empty. */
+const heldSlice = makeHeldSlice();
+heldSlice.group.position.set(0.235, -0.235, -0.36);
+heldSlice.group.rotation.set(0.16, 0, -0.20);
+camera.add(heldSlice.group);
+
+/** Lift the slice to the mouth, 0 (at rest) to 1 (mid-bite). */
+function poseSlice(k) {
+  const e = k * k * (3 - 2 * k);
+  heldSlice.group.position.set(0.235 - 0.150 * e, -0.235 + 0.185 * e, -0.36 + 0.10 * e);
+  // Tipped up and rolled in, the way you angle a slice into your face.
+  heldSlice.group.rotation.set(0.16 + 0.70 * e, -0.30 * e, -0.20 - 0.24 * e);
+}
+
 /* The revolver in hand. Same idea as the drinks: one model parented to the
  * camera, shown only while that slot is selected. Low and right, angled in,
  * so the barrel is not sitting across the crosshair. */
@@ -474,6 +506,11 @@ async function boot() {
     interaction,
     time,
     gunUnlocked: apartmentGunUnlocked,
+    /* Which morning this is. The flat used to be built the same way on every
+     * one of them -- the chapter, the calls and the objectives all moved and
+     * the room did not, which is the whole of "it appears it is always the
+     * first day". It comes from the campaign, never from a flag of its own. */
+    chapter: campaign.state.story.chapter,
     onNote: (what) => narrator.note(what),
     /* The phone is campaign state, not apartment state: it has to still be on
      * him at the Bing and at the airstrip, and still be on him tomorrow. */
@@ -513,10 +550,13 @@ async function boot() {
       audio.say('ammo', { chance: 0.7, delay: 0.9 });
       apartment.inventory.onChange?.(apartment.inventory);
     },
+    onPlayMessages: () => playMessages(),
     onTvTap: () => {
       if (!apartment.state.tvOn) {
         apartment.state.tvOn = tv.toggle();
         hud.toast(apartment.state.tvOn ? 'Telly on' : 'Telly off');
+        // The other station is running his week as a story with no subject.
+        if (apartment.state.tvOn) playNews('tv');
       } else {
         tv.next();
         hud.toast(tv.channel.name);
@@ -525,9 +565,14 @@ async function boot() {
     onTvHold: () => {
       apartment.state.tvOn = tv.toggle();
       hud.toast(apartment.state.tvOn ? 'Telly on' : 'Telly off');
+      if (apartment.state.tvOn) playNews('tv');
     },
     // The set's own LED and dial read off apartment state, so keep it honest.
-    onRadioToggle: () => { radio.toggle(); apartment.state.radioOn = radio.on; },
+    onRadioToggle: () => {
+      radio.toggle();
+      apartment.state.radioOn = radio.on;
+      if (radio.on) playNews('radio');
+    },
     onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
   });
 
@@ -656,6 +701,8 @@ async function boot() {
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
+    heldSlice, updateConsume,
+    playMessages, playNews, startMargoWake, finishMargoWake, updateMargoWake,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -733,9 +780,14 @@ startBtn.addEventListener('click', async () => {
       radio.turnOn();
       apartment.state.radioOn = radio.on;
       hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
-      setTimeout(() => {
-        if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
-      }, 3600);
+      /* Except on the fourth morning, when he is not the only one awake. The
+       * cutscene owns the first minute and hands control back itself. */
+      if (apartmentStory.margoWakeOwed()) startMargoWake();
+      else {
+        setTimeout(() => {
+          if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
+        }, 3600);
+      }
     }
   }
   game.paused = false;
@@ -975,6 +1027,36 @@ function getUp() {
   apartmentStory.beginMorning();
 }
 
+/**
+ * The representation of `angle` closest to `near`, in radians.
+ */
+function yawNear(angle, near) {
+  let d = (angle - near) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return near + d;
+}
+
+/**
+ * Put the player's yaw in the same branch as a pose's before sitting into it.
+ *
+ * THE bug behind "sitting at the computer throws the camera left". Yaw
+ * accumulates without wrapping -- walk two laps of the flat and it is 12
+ * radians -- and the seated tween lands on `shortestAngle(fromYaw, toYaw)`,
+ * which is the value of the pose's yaw NEAREST the one he walked up with, so
+ * the camera can finish the tween at 6.28 while `yawCenter` is 0. It looks
+ * right, because 6.28 and 0 point the same way; then the first mouse movement
+ * runs the clamp, yaw is slammed to `yawCenter + yawRange`, and the view
+ * lurches most of a radian to the left before you have moved a centimetre.
+ *
+ * Normalising here rather than in the player means the tween starts and
+ * finishes in the clamp's own branch, so there is nothing left to snap.
+ */
+function seatedPose(pose) {
+  player.yaw = yawNear(player.yaw, pose.yaw);
+  return pose;
+}
+
 function sitAtPC() {
   if (game.seated) return;
   game.seated = true;
@@ -986,7 +1068,7 @@ function sitAtPC() {
   audio.play('chair.sit', { volume: 0.6, delay: 0.25 });
   audio.say('pc.sit', { chance: 0.6, delay: 0.9 });
 
-  player.sitAt(apartment.deskPose, () => {
+  player.sitAt(seatedPose(apartment.deskPose), () => {
     audio.setMuffle(true);
     radio.setFocusMuffle(true);
     if (!apartment.state.pcOn) {
@@ -1047,7 +1129,7 @@ function sitOn(which) {
   hud.setMode('seated');
   audio.play(seat.cue, { volume: 0.55 });
 
-  player.sitAt(seat.pose(), () => {
+  player.sitAt(seatedPose(seat.pose()), () => {
     interaction.setPaused(false);   // you can still reach things from a seat
     hud.say(seat.line, 4600);
     hud.setPosture('get up');
@@ -1076,7 +1158,7 @@ function lieOnBed() {
   audio.play('bed.rustle', { volume: 0.6, delay: 0.25 });
   audio.say('liedown', { chance: 0.8 });
 
-  player.lieDown(apartment.bedPose, () => {
+  player.lieDown(seatedPose(apartment.bedPose), () => {
     hud.say('Ceiling. <em>[E] to sleep it off.</em>', 5200);
     hud.setPosture('get up');
   });
@@ -1106,33 +1188,129 @@ function sleepInBed() {
 /* Beer and smokes                                                     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * What [Q] does to each thing he can be holding.
+ *
+ * One entry per id in `ITEMS`, and the shape is deliberately total: `put`
+ * returns the object to wherever it came from and reports whether it managed
+ * it, or the entry says `keep` and he simply does not put it down. There is no
+ * default branch, because the default branch was the bug.
+ *
+ * The silent `else` at the bottom of this function is how the phone used to
+ * get deleted -- the slot was emptied, the model in the world had been hidden
+ * since pickup, and nothing put it back. The phone was fixed by name, which
+ * left the revolver and the slice of pizza doing exactly the same thing: one
+ * press and Lou's gun, or his breakfast, was gone from the save for good.
+ * Anything added to `ITEMS` from here on has to say what happens to it or the
+ * check below refuses to drop it, which fails safe.
+ */
+const DROP_RULES = {
+  /* Not dropped and not refused: pocketed. Making it undroppable stopped [Q]
+   * deleting the only object Lou can reach him through, and left [Q] doing
+   * nothing at all while it was in his hand, which reads as broken. It leaves
+   * his hand, stays in the hotbar, stays in the campaign's carried list, and
+   * comes back out with its own number key. The refusal line is kept for the
+   * one case that cannot pocket it, because that case would have to destroy
+   * it. Mid-call never reaches here -- [Q] hangs up first, see the key
+   * handler -- so pocketing can never strand a call. */
+  phone: {
+    pocket: () => pocketPhone(),
+    keep: 'It is my phone. <em>It stays on me.</em>',
+    cue: () => audio.play('phone.pickup', { volume: 0.32, rate: 0.88 }),
+  },
+  /* An empty is the one thing genuinely destroyed, and it is not destroyed
+   * here: `consumeBeer` already dropped the crushed can on the floor at the
+   * moment he finished it. This is only letting go of the idea of it. */
+  empty: {
+    put: () => true,
+    cue: () => audio.play('can.crush', { volume: 0.6 }),
+    toast: 'Crushed the can',
+  },
+  beer: {
+    put: () => apartment.returnBeer(),
+    cue: () => audio.play('can.set', { volume: 0.5 }),
+    toast: 'Back in the fridge',
+    stuck: 'Nowhere to put it back. I will just drink it.',
+  },
+  cigs: {
+    put: () => { apartment.returnCigarettes(); return true; },
+    cue: () => audio.play('can.set', { volume: 0.35 }),
+  },
+  whiskey: {
+    put: () => { apartment.returnWhiskey(); return true; },
+    cue: () => audio.play('whiskey.cap', { volume: 0.5 }),
+  },
+  slice: {
+    put: () => apartment.returnSlice(),
+    cue: () => audio.play('can.set', { volume: 0.4 }),
+    toast: 'Back in the box',
+    stuck: 'It is not going back in that box. Might as well eat it.',
+  },
+  gun: {
+    put: () => apartment.dropGun(),
+    cue: () => null,     // dropGun plays its own set-down
+    toast: 'Left it on the table',
+    stuck: 'No. That does not get left lying about.',
+  },
+  /* Two eggs are a pair of hands, not a slot -- `state.hasEggs` carries them
+   * and the pan is the only place they go. There is nothing to empty. */
+  eggs: { keep: 'They are eggs. They go in the pan.' },
+  /* Carried inside the jacket by the campaign rather than in a slot. If it
+   * ever reaches a slot, it is Lou's and it is not going on the carpet. */
+  parcel: { keep: 'That is Lou’s. It does not leave my jacket.' },
+};
+
+/**
+ * Put the phone away without letting go of it.
+ *
+ * Selects any other slot -- an empty one for preference -- so the phone leaves
+ * his hand and the HUD's hand card while staying exactly where it was in the
+ * hotbar and in the save.
+ *
+ * @returns {boolean} false when there is no other slot to select, which is the
+ *   only case where putting it away would mean losing it.
+ */
+function pocketPhone() {
+  const inv = apartment.inventory;
+  const at = inv.items.indexOf('phone');
+  if (at < 0) return false;
+  const free = inv.items.findIndex((id, i) => id === null && i !== at);
+  const other = free >= 0 ? free : inv.items.findIndex((id, i) => id && i !== at);
+  if (other < 0) return false;
+  inv.select(other);
+  hud.toast(`Phone pocketed · [${at + 1}] to take it out`);
+  return true;
+}
+
 function dropHeld() {
   const st = apartment.state;
   if (!st.heldItem || cig.t >= 0) return;
 
-  /* Everything below either goes back where it came from or is a thing he was
-   * always going to finish. The phone is neither, and it used to fall through
-   * the `else` at the bottom: the slot was emptied, the nightstand model had
-   * been hidden since he picked it up, and nothing anywhere put it back. One
-   * press of [Q] deleted the only object in the game that Lou can reach him
-   * through. It is his phone -- he does not put it down, he pockets it. */
-  if (st.heldItem === 'phone') {
-    hud.say('It is my phone. <em>It stays on me.</em>', 3000);
+  const rule = DROP_RULES[st.heldItem];
+  /* An id with no rule is a thing nobody has said how to put down, so he does
+   * not put it down. Losing an item is worse than being unable to drop one. */
+  if (!rule) {
+    hud.say('I should hang on to that.', 3000);
     return;
   }
-
-  if (st.heldItem === 'empty') {
-    audio.play('can.crush', { volume: 0.6 });
-    hud.toast('Crushed the can');
-  } else if (st.heldItem === 'cigs') {
-    apartment.returnCigarettes();
-    audio.play('can.set', { volume: 0.35 });
-  } else if (st.heldItem === 'whiskey') {
-    apartment.returnWhiskey();
-    audio.play('whiskey.cap', { volume: 0.5 });
-  } else {
-    audio.play('can.set', { volume: 0.5 });
+  /* Pocketing is not dropping: nothing leaves the hotbar and nothing goes back
+   * into the world, so it returns here rather than falling through to the
+   * clear-the-slot path below. */
+  if (rule.pocket) {
+    if (rule.pocket() === true) { rule.cue?.(); return; }
+    hud.say(rule.keep || 'Nowhere to put that.', 3000);
+    return;
   }
+  if (rule.keep) {
+    hud.say(rule.keep, 3000);
+    return;
+  }
+  if (rule.put() !== true) {
+    hud.say(rule.stuck || 'There is nowhere to put that down.', 3000);
+    return;
+  }
+  rule.cue?.();
+  if (rule.toast) hud.toast(rule.toast);
   st.heldItem = null;
   hud.setHand(null);
 }
@@ -1165,17 +1343,29 @@ function updateEatingSlice(dt, holdingF) {
     if (game.eatingSlice > 0) {
       game.eatingSlice = 0;
       hud.setHold(null);
+      poseSlice(0);
       if (!interaction.current) hud.hidePrompt();
     }
     return;
   }
 
   game.eatingSlice = (game.eatingSlice || 0) + dt;
-  hud.setHold({ label: 'Eating', k: Math.min(1, game.eatingSlice / SLICE_TIME) });
+  const k = Math.min(1, game.eatingSlice / SLICE_TIME);
+  /* `hud.setHold` takes a NUMBER. This handed it `{ label, k }`, so the bar's
+   * width came out `NaN%`, the browser threw the declaration away, and holding
+   * [F] on a slice showed the player absolutely nothing for two and a half
+   * seconds -- no bar, no prompt, no movement -- which is indistinguishable
+   * from a slice that cannot be eaten. Same shape as drinking now, because it
+   * is the same gesture. */
+  hud.showPrompt('Eating…', 'F');
+  hud.setHold(k);
+  poseSlice(k);
   if (game.eatingSlice < SLICE_TIME) return;
 
   game.eatingSlice = 0;
   hud.setHold(null);
+  hud.hidePrompt();
+  poseSlice(0);
   st.heldItem = null;                 // empties the slot the slice was in
   st.fed = true;
   completeApartmentActivity('eaten', TIME_EVENT_IDS.EAT);
@@ -2034,6 +2224,11 @@ function activityContext() {
     pooped: game.pooped,
     changedClothes: apartment.state.dressed,
     emailChecked: apartment.state.repliedHR,
+    /* Day One's optional half. `pcOn` is whether the tower is on right now,
+     * which is not the same question -- switching it off again does not
+     * un-look at it. */
+    pcUsed: apartment.state.pcEverOn === true,
+    playedGame: (apartment.state.csDeaths || 0) >= CS_ROUNDS,
   };
 }
 
@@ -2583,7 +2778,287 @@ function startNewMorning() {
   game.pooped = false;
   game.poopTime = 0;
   st.bowel = Math.max(st.bowel, 0.35);
+  /* And the room itself. Sleeping is the only thing that turns a chapter, so
+   * it is the only thing that has to re-dress the flat without a reload --
+   * read back off the campaign rather than passed in, so a morning reached by
+   * sleeping and the same morning reached by reloading are the same room. */
+  apartment.applyChapterDressing(campaign.state.story.chapter);
   updateObjectives();
+}
+
+/* ------------------------------------------------------------------ */
+/* What the flat has to say about yesterday                            */
+/* ------------------------------------------------------------------ */
+
+/** A line with no recording holds for this long, plus a bit per character. */
+const READ_BASE = 1.3;
+const READ_PER_CHAR = 0.042;
+
+/**
+ * Speak one authored line, recorded or not.
+ *
+ * The same rule the phone uses: play the cue, and hold for as long as the
+ * recording lasts, or for a reading beat if there is no recording yet. Every
+ * line written this wave goes through here, so authoring content and recording
+ * it are separate jobs and neither blocks the other.
+ *
+ * @returns {number} seconds the line should hold the floor
+ */
+function speakLine(cue, text, { volume = 0.9, subtitle = null } = {}) {
+  const source = audio.play?.(cue, { volume });
+  const hold = source?.buffer
+    ? source.buffer.duration + 0.4
+    : READ_BASE + text.replace(/<[^>]+>/g, '').length * READ_PER_CHAR;
+  hud.say(subtitle ?? text, Math.round(hold * 1000));
+  return hold;
+}
+
+/** Play a list of {cue, text} in order, one after the other. */
+function speakSequence(turns, { onDone = null } = {}) {
+  let i = 0;
+  const step = () => {
+    if (i >= turns.length) { onDone?.(); return; }
+    const turn = turns[i++];
+    const hold = speakLine(turn.cue, turn.text, { subtitle: turn.subtitle });
+    setTimeout(step, Math.round(hold * 1000) + 220);
+  };
+  step();
+}
+
+/**
+ * Play whatever is on the answering machine this morning.
+ *
+ * Optional in every sense: nothing waits on it, nothing unlocks, and the
+ * campaign only records that it happened so the tape does not replay on the
+ * next load. It is how Day Two finds out that somebody heard about the
+ * restaurant, and how Day Three finds out that Lou has stopped saying things.
+ */
+function playMessages() {
+  const waiting = apartmentStory.messages();
+  if (!waiting.list.length) {
+    hud.say('Nothing on it. There is never anything on it.', 3000);
+    return false;
+  }
+  if (waiting.heard) {
+    hud.say('You have heard it. It does not get better.', 3000);
+    return false;
+  }
+  apartmentStory.hearMessages();
+  syncClockFromCampaign();
+  apartment.setMessagesWaiting(0);
+  audio.play('ui.select', { volume: 0.4 });
+  const turns = [];
+  for (const message of waiting.list) {
+    turns.push({
+      cue: `vo.${message.vo}.0`,
+      text: `<em>${message.from} · ${message.at}</em>`,
+    });
+    message.lines.forEach((line, i) => {
+      turns.push({ cue: `vo.${message.vo}.${i + 1}`, text: `${message.from}: ${line}` });
+    });
+  }
+  speakSequence(turns);
+  return true;
+}
+
+/**
+ * What the news is saying, on whichever box he just switched on.
+ *
+ * Nothing before Day Two, because until then he has not done anything worth
+ * reporting. Never names him -- a bulletin that named him would be a plot
+ * point, and this is weather.
+ */
+function playNews(station) {
+  const bulletin = apartmentStory.news()?.[station];
+  if (!bulletin || game.newsHeard?.has(bulletin.vo)) return false;
+  (game.newsHeard ??= new Set()).add(bulletin.vo);
+  setTimeout(() => {
+    speakLine(`vo.${bulletin.vo}.1`, bulletin.line, {
+      volume: 0.75,
+      subtitle: `<em>${station === 'radio' ? '97.8 · the wire' : 'KSQCH · news'}</em> ${bulletin.line}`,
+    });
+  }, 900);
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* The fourth morning                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Margo wakes up beside him, says her piece, gets dressed and goes.
+ *
+ * A cutscene in the sense that he cannot walk during it, and emphatically not
+ * in the sense that anything is taken away from him: he keeps the view, she is
+ * animated in the room rather than in a cut, and the whole thing is under a
+ * minute. It hands control back by putting him exactly where an ordinary
+ * morning puts him -- lying in his own bed with [E] on the screen.
+ *
+ * Everything about it is one-shot and durable: `margoWakeOwed` reads the
+ * campaign, `margoWakeDone` writes the campaign, so reloading the fourth
+ * morning after she has gone does not bring her back.
+ */
+/**
+ * The morning's beats: when she moves, and where he is looking when she does.
+ *
+ * `look` is a point in the room, not an angle, so the camera aim is derived
+ * from where she actually is rather than from a number somebody typed twice.
+ * He is flat on his back with the view pitched at the ceiling and clamped to a
+ * narrow cone; the scene widens that cone and turns his head for him, then
+ * puts it back exactly as `layInBed` left it.
+ */
+const MARGO_BEATS = [
+  /* Aimed at chest height rather than at the top of her head. She is about a
+   * metre away and he is flat on his back, so aiming at a face puts the
+   * ceiling in three quarters of the frame.
+   *
+   * The first beat has no aim at all, on purpose: she is beside him, forty
+   * centimetres off his eye, and turning his head toward her there gets you a
+   * cotton wall. He wakes looking at his own ceiling, hears her, and turns
+   * over when she sits up -- which is the shape of the morning anyway. */
+  { at: 0.0, pose: 'lying', look: null, cue: null },
+  { at: 6.4, pose: 'sitting', look: [-3.12, 1.00, -3.30], cue: 'bed.rustle' },
+  // On her feet and dressing while the last exchange plays. She does not
+  // start for the door until the conversation is actually over -- that is
+  // what `speakSequence`'s onDone is for.
+  { at: 20.0, pose: 'standing', look: [-2.86, 1.14, -3.10], cue: 'cloth.snap' },
+];
+/** Where she walks, from the side of the bed to the front door. */
+const MARGO_PATH = [
+  [-2.86, -3.10], [-2.40, -1.40], [-1.20, 1.20], [0.90, 3.30], [2.72, 4.28],
+];
+
+function startMargoWake() {
+  if (game.margoScene) return false;
+  /* Wall clock, not accumulated frame time. The lines are scheduled on
+   * setTimeout and the simulation delta is clamped at 50ms, so on a machine
+   * that cannot hold thirty frames a second the two drift apart and she says
+   * goodbye from under the duvet. One clock for both halves. */
+  game.margoScene = { startedAt: performance.now(), t: 0, beat: -1, walk: null, aim: null };
+  const margo = apartment.margo;
+  margo.setPose('lying');
+  margo.group.visible = true;
+  interaction.setPaused(true);
+  hud.hidePrompt();
+  // A cone wide enough to turn and look at somebody, and a floor low enough
+  // to see them. Both go back to the bed's own numbers in finishMargoWake.
+  player.pitchMin = -0.35;
+  player.pitchMax = Math.PI / 2 - 0.05;
+  player.yawRange = 1.6;
+
+  const turns = [];
+  BIG_NIGHT_MARGO_WAKE.lines.forEach((line, i) => {
+    turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.${i + 1}`, text: `Margo: ${line}` });
+    const reply = BIG_NIGHT_MARGO_WAKE.replies[i];
+    if (reply) {
+      turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.tony.${i + 1}`, text: `You: ${reply}` });
+    }
+  });
+  speakSequence(turns, {
+    onDone: () => {
+      // She is already on her feet by now; this is the backstop.
+      if (!game.margoScene || game.margoScene.walk !== null) return;
+      margo.setPose('standing');
+      game.margoScene.beat = MARGO_BEATS.length - 1;
+      game.margoScene.aim = MARGO_BEATS[MARGO_BEATS.length - 1].look;
+      game.margoScene.walk = 0;
+    },
+  });
+  return true;
+}
+
+/** She is gone. Give him the room, the clock and the prompt back. */
+function finishMargoWake() {
+  if (!game.margoScene) return;
+  game.margoScene = null;
+  apartment.margo.group.visible = false;
+  apartment.frontDoorPivot.rotation.y = 0;
+  audio.play('door.knob', { volume: 0.7 });
+  apartmentStory.margoWakeDone();
+  syncClockFromCampaign();
+  // Exactly the pose an ordinary morning hands over: on his back, looking at
+  // the ceiling, [E] to get up.
+  player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
+  interaction.setPaused(true);
+  hud.hidePrompt();
+  hud.say('<em>Gone.</em> The flat is very quiet and today is the day.', 4600);
+  updateObjectives();
+  setTimeout(() => {
+    if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
+  }, 1600);
+}
+
+/** Run the scene: her beats, his head, and the walk to the door. */
+function updateMargoWake(dt) {
+  const scene = game.margoScene;
+  if (!scene) return;
+  scene.t = (performance.now() - scene.startedAt) / 1000;
+  const margo = apartment.margo;
+
+  // Beats.
+  for (let i = MARGO_BEATS.length - 1; i > scene.beat; i--) {
+    if (scene.t < MARGO_BEATS[i].at) continue;
+    const beat = MARGO_BEATS[i];
+    scene.beat = i;
+    margo.setPose(beat.pose);
+    scene.aim = beat.look;
+    if (beat.cue) audio.play(beat.cue, { volume: 0.5 });
+    break;
+  }
+
+  // His head, turned toward whatever she is doing -- when there is anything
+  // worth turning toward. A null aim leaves the bed's own pose alone.
+  if (scene.aim) {
+    const head = new THREE.Vector3(scene.aim[0], scene.aim[1], scene.aim[2]);
+    const dx = head.x - player.position.x;
+    const dy = head.y - player.position.y;
+    const dz = head.z - player.position.z;
+    const wantYaw = yawNear(Math.atan2(-dx, -dz), player.yaw);
+    const wantPitch = Math.atan2(dy, Math.hypot(dx, dz));
+    const k = Math.min(1, dt * 2.6);
+    player.yaw += (wantYaw - player.yaw) * k;
+    player.pitch += (wantPitch - player.pitch) * k;
+    player.yawCenter = player.yaw;
+  }
+
+  if (scene.walk === null) return;
+  /* Wall clock again, and for the same reason plus a harder one: this is the
+   * stretch that ENDS the cutscene. Advanced by frame delta, a machine
+   * rendering at two frames a second leaves her walking across the flat
+   * forever with the player unable to move. Six seconds to the door, on
+   * whatever hardware. */
+  scene.walkStart ??= performance.now();
+  scene.walk = Math.min(1, (performance.now() - scene.walkStart) / 6000);
+  const w = scene.walk;
+  const g = margo.group;
+  const at = Math.min(MARGO_PATH.length - 2, Math.floor(w * (MARGO_PATH.length - 1)));
+  const local = w * (MARGO_PATH.length - 1) - at;
+  const [ax, az] = MARGO_PATH[at];
+  const [bx, bz] = MARGO_PATH[at + 1];
+  g.position.x = ax + (bx - ax) * local;
+  g.position.z = az + (bz - az) * local;
+  g.rotation.y = Math.atan2(bx - ax, bz - az);
+  // A walk cycle made of one number: she bobs, and her limbs swing with it.
+  const step = Math.sin(scene.t * 6.2);
+  g.position.y = 0.78 + Math.abs(step) * 0.018;
+  margo.legs.rotation.x = step * 0.35;
+  margo.arms.forEach((arm, i) => { arm.rotation.x = step * (i ? -0.3 : 0.3); });
+  // The door swings for her on the way past it.
+  apartment.frontDoorPivot.rotation.y = w > 0.80 ? -1.0 * Math.min(1, (w - 0.80) / 0.12) : 0;
+  if (w >= 1) finishMargoWake();
+}
+
+/**
+ * Day One, before the Bing, with hours to fill.
+ *
+ * The one state where lying down is killing time rather than ending a day.
+ * Read off the campaign, never off a flag of its own, so a nap and a reload
+ * agree about which day it still is.
+ */
+function killingTimeOnDayOne() {
+  const state = campaign.state;
+  return state.story.chapter === 'day_one'
+    && state.missions[MISSION_IDS.BADA_BING_ONE].status !== 'complete';
 }
 
 /** What the night that just ended was, named by the chapter it closed. */
@@ -2689,6 +3164,14 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     highs.sleepItOff();
     if (storySleep?.ok) {
       time.setTime(storySleep.day, storySleep.timeMinutes);
+    } else if (voluntary && killingTimeOnDayOne()) {
+      /* Day One is explicitly a day with nothing in it. He wakes at four
+       * minutes past six and Lou's table is not until a quarter to midnight,
+       * so a deliberate nap is how a man spends that -- toward the evening,
+       * never past it, and never into tomorrow, because tomorrow is on the
+       * other side of the Bing. */
+      const h = time.hour;
+      time.skipHours(h < 19 ? 19 - h : Math.max(0, 23 - h));
     } else if (voluntary) {
       /* Sleeping on purpose lands on whichever comes first: the next morning,
        * or half five on the day of the meeting.
@@ -2704,7 +3187,23 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
       const toEvening = (time.day === MEETING.day && h < 17.5) ? 17.5 - h : Infinity;
       time.skipHours(Math.min(toMorning, toEvening));
     } else {
-      time.skipHours(12);
+      /* The drink taking him is the other way to spend Day One, and the panel
+       * says so, so it gets the same guard: twelve hours normally, but never
+       * out the far side of the night he is supposed to be spending at the
+       * Bing. Waking on Day Two with Day One's chapter still open is not a
+       * broken campaign, but it is a nonsense one. */
+      time.skipHours(killingTimeOnDayOne()
+        ? Math.max(0, Math.min(12, 23 - time.hour))
+        : 12);
+    }
+    /* And the save agrees with the clock on the wall. A nap used to move the
+     * display only, so reloading put him back at four minutes past six with
+     * the morning he had already spent still in front of him. */
+    if (!storySleep?.ok) {
+      campaign.update((state) => {
+        state.story.day = time.day;
+        state.story.timeMinutes = time.minutes;
+      });
     }
     apartment.refreshClocks();
     /* A chapter turned, so the flat gets a morning of its own: unshowered,
@@ -2721,6 +3220,13 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
     hud.say(wakeUpLine(storySleep, voluntary), 6000);
+    /* Sleeping off the Silver Room is the usual way anybody reaches the fourth
+     * morning, so the cutscene has to hang off waking up as well as off a cold
+     * load into it. Both routes ask the campaign, not a flag. */
+    if (player.mode === 'bed' && apartmentStory.margoWakeOwed()) {
+      setTimeout(() => startMargoWake(), 1400);
+      return;
+    }
     setTimeout(() => {
       if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
     }, 3200);
@@ -2892,6 +3398,7 @@ function frame() {
        * crosshair and shoving that around makes the thing feel broken to aim
        * rather than powerful to fire. */
       heldGun.group.visible = apartment.state.heldItem === 'gun';
+      heldSlice.group.visible = apartment.state.heldItem === 'slice';
       if (gunKick > 0) gunKick = Math.max(0, gunKick - dt * 2.6);
       heldGun.group.rotation.x = 0.06 + gunKick;
       heldGun.group.position.z = -0.30 + gunKick * 0.10;
@@ -2913,6 +3420,7 @@ function frame() {
 
       player.update(dt);
       apartment.update(hdt, elapsed);
+      updateMargoWake(dt);
       updateConsume(dt);
       updatePee(dt);
       updateBowel(dt);
