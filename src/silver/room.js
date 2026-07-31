@@ -655,7 +655,8 @@ export function buildRoom(scene, { renderer } = {}) {
     // Bins, crates, a pallet, a puddle with something in it
     const binMat = mat({ color: 0x2c3a2c, roughness: 0.88 });
     for (const [bx, bz] of [[36.6, 18], [36.6, 20.6], [36.4, 4]]) {
-      add(box({ size: [1.5, 1.35, 2.2], pos: [bx, 0.68, bz], mat: binMat }));
+      // 0.675, not 0.68: a 1.35 box centred at 0.68 stands 5mm off the tarmac
+      add(box({ size: [1.5, 1.35, 2.2], pos: [bx, 0.675, bz], mat: binMat }));
       add(box({ size: [1.56, 0.1, 2.26], pos: [bx, 1.4, bz], mat: mat({ color: 0x22301f, roughness: 0.9 }) }));
       solid(bx - 0.78, bz - 1.12, bx + 0.78, bz + 1.12, 0, 1.45);
     }
@@ -667,21 +668,58 @@ export function buildRoom(scene, { renderer } = {}) {
      * route through the alley walked through a different number of them every
      * time the page loaded, and she walked through all of them every time.
      * Nothing here is inside z 9..17, which is the run up to the service door. */
-    for (const [cx, cz, stack] of [
-      [31.4, -12, 0], [32.2, -11.5, 1], [31.5, -5.4, 0],
-      [32.4, 2.2, 0], [31.6, 19.8, 0], [32.3, 20.4, 1], [31.5, 24.2, 0],
+    /* And the top of a stack is on top of the one below it.
+     *
+     * The two `stack: 1` crates were 800mm and 700mm away from the crates
+     * they were stacked on, so both of them hung in the air at knee height
+     * over bare tarmac with nothing underneath at all — and the second one is
+     * beside the route at z=20, which is the one the owner kept walking past.
+     * The offset is 60mm and a few degrees now, which is a crate put down on
+     * another crate by somebody in a hurry rather than a crate in orbit. */
+    for (const [cx, cz, stack, rot] of [
+      [31.4, -12, 0, 0.12], [31.46, -11.94, 1, -0.22], [31.5, -5.4, 0, -0.08],
+      [32.4, 2.2, 0, 0.3], [31.6, 19.8, 0, -0.15], [31.66, 19.87, 1, 0.24],
+      [31.5, 24.2, 0, 0.06],
     ]) {
-      add(box({ size: [0.6, 0.42, 0.5], pos: [cx, 0.21 + stack * 0.42, cz], mat: M_WOOD }));
-      solid(cx - 0.3, cz - 0.25, cx + 0.3, cz + 0.25, 0, 0.42 + stack * 0.42);
+      add(box({ size: [0.6, 0.42, 0.5], pos: [cx, 0.21 + stack * 0.42, cz], mat: M_WOOD, rotY: rot }));
+      solid(cx - 0.34, cz - 0.31, cx + 0.34, cz + 0.31, 0, 0.42 + stack * 0.42);
     }
 
     /* A fire escape, because every alley has one and it takes the eye upward.
+     *
      * Hung off the brick (face at 38.0) rather than standing in space 600mm
-     * clear of it, which is what it did: rails against the wall, landings
-     * cantilevered off them. */
+     * clear of it. It used to be six loose sticks — two 60mm bars per storey,
+     * one along the wall and one across it, holding nothing up and joined to
+     * nothing — which from the alley floor read as scaffolding somebody had
+     * dropped. It is a landing now: a grating, a kick rail, a handrail on
+     * posts, brackets back to the brick, and a ladder down to the next one.
+     * Still eight boxes a storey, and still nothing anybody can climb. */
     for (let i = 1; i <= 3; i++) {
-      add(box({ size: [0.12, 0.06, 3.4], pos: [37.92, 2.4 * i, 24], mat: M_STEEL_D }));
-      add(box({ size: [1.2, 0.06, 0.1], pos: [37.35, 2.4 * i, 22.4], mat: M_STEEL_D }));
+      const y = 2.4 * i;
+      // The grating, 1.1m out from the brick, and the angle brackets under it
+      add(box({ size: [1.1, 0.05, 3.4], pos: [37.45, y, 24], mat: M_STEEL_D }));
+      for (const bz of [22.5, 24, 25.4]) {
+        // 37.58, so the 0.9 bracket tilted 0.36rad lands its top on the brick
+        add(box({ size: [0.9, 0.05, 0.05], pos: [37.58, y - 0.34, bz], mat: M_STEEL_D, rotZ: 0.36 }));
+      }
+      // Kick rail, handrail, and the posts between them, on the alley side
+      add(box({ size: [0.04, 0.14, 3.4], pos: [36.92, y + 0.09, 24], mat: M_STEEL_D }));
+      add(box({ size: [0.05, 0.05, 3.4], pos: [36.92, y + 1.0, 24], mat: M_STEEL_D }));
+      for (const pz of [22.4, 24, 25.6]) {
+        add(cylinder({ r: 0.025, h: 1.0, pos: [36.92, y + 0.5, pz], mat: M_STEEL_D }));
+      }
+      // Stringers of the ladder up from the landing below, and four rungs
+      if (i < 3) {
+        for (const sz of [25.35, 25.75] ) {
+          add(box({ size: [0.05, 2.45, 0.05], pos: [37.3, y + 1.2, sz], mat: M_STEEL_D, rotX: 0.16 }));
+        }
+        for (let r = 0; r < 4; r++) {
+          add(cylinder({
+            r: 0.02, h: 0.4, rotZ: Math.PI / 2,
+            pos: [37.3, y + 0.35 + r * 0.55, 25.55 - r * 0.09], mat: M_STEEL_D,
+          }));
+        }
+      }
     }
   }
 
