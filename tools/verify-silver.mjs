@@ -368,6 +368,130 @@ check('and none of the twelve doorways has a wall standing in it',
   geometry.sealed.length === 0,
   geometry.sealed.length ? `bricked up: ${geometry.sealed.join(', ')}` : 'all twelve open');
 
+/* ---- the wave-2 set dressing ----
+ *
+ * Everything here is a thing the second playtest saw and the first harness
+ * could not: a queue that was a crowd, staff standing inside walls, chairs
+ * dealt into columns, a lidded stairwell, and a route with no signposting.
+ * All of it is asserted against the built scene, not against the source.
+ */
+const dressing = await page.evaluate(() => {
+  const b = window.__silver;
+  const T = b.THREE;
+  const room = b.room;
+  const out = {};
+
+  /* (a) the stairwells read open: from eye height at the top of each ramp,
+   * the sight line to eye height at the bottom hits nothing on the way down.
+   * The 300m street plane used to lid both wells at y=-0.02. */
+  const ray = new T.Raycaster();
+  out.stairs = [
+    ['entry ramp', [23, 1.66, 11.6], [15.9, -1.35, 10.6]],
+    ['kitchen well', [20.6, 1.66, 1], [15.7, -1.35, 1]],
+  ].map(([name, from, to]) => {
+    const o = new T.Vector3(...from);
+    const t = new T.Vector3(...to);
+    const dir = t.clone().sub(o);
+    const len = dir.length();
+    ray.set(o, dir.normalize());
+    ray.far = len - 0.05;
+    const hit = ray.intersectObjects(b.scene.children, true).find((h) => h.object.visible);
+    return { name, len: +len.toFixed(2), hit: hit ? +hit.distance.toFixed(2) : null };
+  });
+
+  /* (b) the front queue is a line: along the rope, evenly spaced, everybody
+   * facing up it and the head of it facing the man on the door. */
+  const q = [];
+  for (let i = 0; i < 12; i++) {
+    const npc = b.cast.byName[`queue${i}`];
+    if (!npc) break;
+    q.push({ x: npc.group.position.x, z: npc.group.position.z, yaw: npc.group.rotation.y });
+  }
+  q.sort((m, n) => m.x - n.x);
+  const gaps = q.slice(1).map((m, i) => m.x - q[i].x);
+  const head = q[q.length - 1];
+  const toDoor = Math.atan2(room.anchors.doorman.x - head.x, room.anchors.doorman.z - head.z);
+  out.queue = {
+    n: q.length,
+    offRope: +Math.max(...q.map((m) => Math.abs(m.z - 38.14))).toFixed(2),
+    gapMin: +Math.min(...gaps).toFixed(2),
+    gapMax: +Math.max(...gaps).toFixed(2),
+    facingLine: q.slice(0, -1).every((m) => Math.abs(m.yaw - Math.PI / 2) < 0.5),
+    headFacesDoor: Math.abs(Math.atan2(Math.sin(head.yaw - toDoor), Math.cos(head.yaw - toDoor))) < 0.5,
+  };
+
+  /* (c) the wayfinding exists: a service plate at the alley end of the
+   * frontage, a painted lane through the kitchen, FLOOR plates both sides of
+   * the swing doors, and a marquee whose emissive is a sign, not a flare. */
+  let plates = 0; let lanes = 0; let service = null; let marquee = null;
+  b.scene.traverse((o) => {
+    if (o.name === 'floor-plate') plates++;
+    if (o.name === 'service-lane') lanes++;
+    if (o.name === 'service-plate') service = { x: +o.position.x.toFixed(1), z: +o.position.z.toFixed(1) };
+    if (o.name === 'marquee') marquee = { intensity: o.material.emissiveIntensity };
+  });
+  out.signs = { plates, lanes, service, marquee };
+
+  /* (d) nobody on their feet is inside a wall or a piece of furniture. The
+   * service bar man used to work from inside the corridor's east wainscot. */
+  const inside = [];
+  for (const [key, npc] of Object.entries(b.cast.byName)) {
+    if (npc.job === 'sit' || npc.job === 'drink') continue;
+    if (!npc.group.visible) continue;
+    const p = npc.group.position;
+    for (const c of room.colliders) {
+      if (p.x > c.min.x + 0.02 && p.x < c.max.x - 0.02
+          && p.z > c.min.z + 0.02 && p.z < c.max.z - 0.02
+          && p.y + 1.5 > c.min.y && p.y + 0.05 < c.max.y) {
+        inside.push(`${key} at ${p.x.toFixed(1)},${p.z.toFixed(1)}`);
+        break;
+      }
+    }
+  }
+  out.inside = inside;
+
+  /* (e) chairs belong to tables: none dealt into a column, the pillar crew
+   * sitting on the pillar table's own chairs, every diner in a real chair. */
+  const COLUMNS = [[-8, 6], [-8, 16], [-20, 6], [-20, 16]];
+  out.chairsInColumns = room.anchors.diningSeats
+    .filter((s) => COLUMNS.some(([cx, cz]) => Math.hypot(s.x - cx, s.z - cz) < 0.72)).length;
+  const crewKeys = ['bing-bouncer', 'ape', 'crew1', 'crew2'];
+  out.crewSeated = crewKeys.every((k) => {
+    const npc = b.cast.byName[k];
+    return npc && room.anchors.crewSeats.some((s) => Math.hypot(npc.group.position.x - s.x, npc.group.position.z - s.z) < 0.3);
+  });
+  let dinersOffChair = 0;
+  for (const [key, npc] of Object.entries(b.cast.byName)) {
+    if (!/^diner\d+$/.test(key)) continue;
+    const p = npc.group.position;
+    const seated = room.anchors.tableSeats.some((t) => t.seats.some((s) => Math.hypot(p.x - s.x, p.z - s.z) < 0.3));
+    if (!seated) dinersOffChair++;
+  }
+  out.dinersOffChair = dinersOffChair;
+
+  return out;
+});
+check('both stairwells read open from the top — nothing across the sight line down',
+  dressing.stairs.every((s) => s.hit === null),
+  dressing.stairs.map((s) => `${s.name}: ${s.hit === null ? 'clear' : `hit at ${s.hit}m of ${s.len}`}`).join('; '));
+check('the front queue is an actual line along the rope, facing the door',
+  dressing.queue.n >= 8 && dressing.queue.offRope < 0.35
+    && dressing.queue.gapMin > 0.7 && dressing.queue.gapMax < 1.5
+    && dressing.queue.facingLine && dressing.queue.headFacesDoor,
+  JSON.stringify(dressing.queue));
+check('the side entrance is signposted from the street and the marquee is a sign, not a flare',
+  dressing.signs.service && dressing.signs.service.x > 17 && dressing.signs.service.z > 34.2
+    && dressing.signs.marquee && dressing.signs.marquee.intensity <= 0.7,
+  JSON.stringify(dressing.signs));
+check('the way from the kitchen to the floor is painted on it, with a plate over each door',
+  dressing.signs.lanes >= 4 && dressing.signs.plates === 2,
+  `${dressing.signs.lanes} lane stripes, ${dressing.signs.plates} plates`);
+check('nobody on their feet is standing inside a wall or the furniture',
+  dressing.inside.length === 0, dressing.inside.join('; ') || 'all clear');
+check('chairs belong to their tables: none in a column, the crew on their own chairs, every diner in one',
+  dressing.chairsInColumns === 0 && dressing.crewSeated && dressing.dinersOffChair === 0,
+  JSON.stringify({ inColumns: dressing.chairsInColumns, crew: dressing.crewSeated, offChair: dressing.dinersOffChair }));
+
 /* ---- and she can walk it, rather than being teleported down it ----
  *
  * `_stuck` recovery exists so a companion who gets wedged behind a range is
@@ -448,6 +572,87 @@ check('the car pulls up and hands control back inside five seconds',
 check('she is out of the car and next to him', s.dateGap < 4, s.dateGap.toFixed(1));
 check('the wallet can pay for the evening',
   s.money >= 600, `$${s.money}`);
+
+/* ---- the arrival has room ----
+ * The car used to slide SIDEWAYS down the z axis and stop with its nose over
+ * the kerb, on the pavement, in the canopy posts, with the pair of them
+ * dropped between it and the rope. Parallel to the kerb, on the road, with
+ * clear air around everybody. */
+const kerbside = await page.evaluate(() => {
+  const b = window.__silver;
+  const box = new b.THREE.Box3().setFromObject(b.taxi.group);
+  const p = b.player.position;
+  const posts = [[-5.2, 38.2], [5.2, 38.2]];
+  const d = b.date.position;
+  return {
+    carMinZ: +box.min.z.toFixed(2),
+    onRoad: box.min.z > 38.5,
+    longWays: (box.max.x - box.min.x) > (box.max.z - box.min.z),
+    playerClear: !box.containsPoint(p),
+    postGap: +Math.min(...posts.map(([px, pz]) => Math.min(
+      Math.hypot(p.x - px, p.z - pz), Math.hypot(d.x - px, d.z - pz),
+    ))).toFixed(2),
+  };
+});
+check('the car parks parallel to the kerb, on the road, clear of the posts and the pair of them',
+  kerbside.onRoad && kerbside.longWays && kerbside.playerClear && kerbside.postGap > 1,
+  JSON.stringify(kerbside));
+
+/* ---- the marquee is readable, measured rather than eyeballed ----
+ * Bloom on, camera on the pavement where a person reads it, and the sign's
+ * own screen rectangle sampled: it must be lit (mean well above the night
+ * sky) and not blown to a flare (almost nothing at clipping white). */
+const marquee = await page.evaluate(() => {
+  const b = window.__silver;
+  const T = b.THREE;
+  const was = { x: b.player.position.x, z: b.player.position.z, yaw: b.player.yaw, pitch: b.player.pitch };
+  b.player.mode = 'walk';
+  b.player._tween = null;
+  b.player.position.set(4, 1.66, 47);
+  const to = new T.Vector3(0, 5.6, 34.45);
+  const dir = to.clone().sub(b.player.position);
+  b.player.yaw = Math.atan2(-dir.x, -dir.z);
+  b.player.pitch = Math.atan2(dir.y - 1.66, Math.hypot(dir.x, dir.z));
+  b.player.update(0.016);
+  b.room.update(0.3, b.player.position);
+  b.postfx.enable();
+  b.postfx.render(0.016);
+  const canvas = document.getElementById('scene');
+  const c2 = document.createElement('canvas');
+  c2.width = canvas.width; c2.height = canvas.height;
+  const g = c2.getContext('2d');
+  g.drawImage(canvas, 0, 0);
+  const W = c2.width; const H = c2.height;
+  const img = g.getImageData(0, 0, W, H).data;
+  const cam = b.camera;
+  cam.updateMatrixWorld();
+  const corners = [[-5, 4.65, 34.45], [5, 6.55, 34.45]].map(([x, y, z]) => {
+    const p = new T.Vector3(x, y, z).project(cam);
+    return [Math.round((p.x * 0.5 + 0.5) * W), Math.round((-p.y * 0.5 + 0.5) * H)];
+  });
+  const x0 = Math.max(0, Math.min(corners[0][0], corners[1][0]));
+  const x1 = Math.min(W, Math.max(corners[0][0], corners[1][0]));
+  const y0 = Math.max(0, Math.min(corners[0][1], corners[1][1]));
+  const y1 = Math.min(H, Math.max(corners[0][1], corners[1][1]));
+  let blown = 0; let n = 0; let sum = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = (y * W + x) * 4;
+      sum += 0.2126 * img[i] + 0.7152 * img[i + 1] + 0.0722 * img[i + 2];
+      n++;
+      if (img[i] >= 250 && img[i + 1] >= 245 && img[i + 2] >= 230) blown++;
+    }
+  }
+  b.postfx.disable();
+  b.player.position.set(was.x, 1.8, was.z);
+  b.player.yaw = was.yaw;
+  b.player.pitch = was.pitch;
+  b.player.update(0.016);
+  return { n, mean: +(sum / Math.max(1, n)).toFixed(1), blownFrac: +(blown / Math.max(1, n)).toFixed(4) };
+});
+check('THE SILVER ROOM reads off its own marquee: lit, and not blown out by bloom',
+  marquee.n > 400 && marquee.mean >= 30 && marquee.blownFrac <= 0.02,
+  JSON.stringify(marquee));
 
 /* ---- the driver ----
  * Through the conversation's own doubled-up option, because that is the only
@@ -703,7 +908,50 @@ await walkTo(2.2, 23.4);
 await tick(1);
 check('walking up to the host station starts the table scene',
   (await state()).scene === true && !beforeTable, String((await state()).scene));
-await tick(26, 0.25);
+
+/* ---- the whole scene, with the camera under surveillance ----
+ * Two things the playtest saw and a state assertion cannot: every later shot
+ * used to begin by teleporting the camera back to where the player had been
+ * standing (a visible cut), and the camera left the host/manager exchange for
+ * the empty carpet half a second before "Front and center" landed. So: no
+ * single step may move the camera like a cut, and at the nine-second mark it
+ * must still be looking at the host station, not the table spot. */
+const cut = await page.evaluate(() => {
+  const b = window.__silver;
+  const A = b.room.anchors;
+  let t = 0;
+  let maxStep = 0;
+  let yawAtNine = null;
+  const last = b.player.position.clone();
+  for (let i = 0; i < 120; i++) {
+    const st = 0.25;
+    b.player.update(st);
+    if (b.game.drive) b.game.drive(st);
+    if (b.game.scene) b.game.scene.update(st);
+    b.room.update(st, b.player.position);
+    b.dialogue.update(st, b.player.position);
+    b.date.update(st, b.player.position, b.player.yaw);
+    b.performance.update(st);
+    b.mission.update(st, { trailing: b.date.isTrailing });
+    b.__zones();
+    b.__seatTick(st);
+    b.__host();
+    b.__evening(st);
+    t += st;
+    if (i > 0) maxStep = Math.max(maxStep, b.player.position.distanceTo(last));
+    last.copy(b.player.position);
+    /* On the SCENE's clock, not the loop's — the scene was already a second
+     * old when this loop picked it up. */
+    if (yawAtNine === null && b.game.scene && b.game.scene.t >= 8.6 && b.game.scene.t < 9.2) {
+      const want = Math.atan2(-(A.host.x - 1.2 - b.player.position.x), -(A.host.z - 0.3 - b.player.position.z));
+      yawAtNine = Math.abs(Math.atan2(Math.sin(b.player.yaw - want), Math.cos(b.player.yaw - want)));
+    }
+  }
+  return { maxStep: +maxStep.toFixed(2), yawAtNine: yawAtNine === null ? null : +yawAtNine.toFixed(2) };
+});
+check('the camera never cuts mid-scene, and holds the host while the manager overrules him',
+  cut.maxStep < 2.0 && cut.yawAtNine !== null && cut.yawAtNine < 0.6,
+  `worst step ${cut.maxStep}m, ${cut.yawAtNine} rad off the host at 9s`);
 s = await state();
 check('the scene ends and gives control back', s.scene === false && s.mission === 'seating', s.mission);
 
@@ -791,6 +1039,61 @@ await tick(2.5, 0.1);
 s = await state();
 check('and he can sit down opposite her', s.seated === true && s.mission === 'round-one', s.mission);
 
+/* ---- the lamp does not outshine her, measured in rendered pixels ----
+ * The wave-2 note: table lamps glaring under bloom, Margo invisible across
+ * the table. So: bloom ON, the camera in his chair exactly as he sits, one
+ * frame rendered and read back. The glare is counted (pixels at clipping
+ * white — the old lamp scorched its own shade and the cloth into a flare of
+ * them) and her face is sampled where her head actually projects. */
+const acrossTheTable = await page.evaluate(() => {
+  const b = window.__silver;
+  const T = b.THREE;
+  b.player.update(0.016);
+  b.room.update(0.3, b.player.position);
+  for (const npc of b.cast.all) npc.update(0.05, b.player.position);
+  b.date.update(0.05, b.player.position, b.player.yaw);
+  b.postfx.enable();
+  b.postfx.render(0.016);
+  const canvas = document.getElementById('scene');
+  const c2 = document.createElement('canvas');
+  c2.width = canvas.width; c2.height = canvas.height;
+  const g = c2.getContext('2d');
+  g.drawImage(canvas, 0, 0);
+  const W = c2.width; const H = c2.height;
+  const img = g.getImageData(0, 0, W, H).data;
+  let clipped = 0;
+  for (let i = 0; i < img.length; i += 4) {
+    if (img[i] >= 250 && img[i + 1] >= 245 && img[i + 2] >= 235) clipped++;
+  }
+  const cam = b.camera;
+  cam.updateMatrixWorld();
+  const head = new T.Vector3();
+  b.date.npc.parts.head.getWorldPosition(head);
+  head.y += 0.16;
+  const p = head.clone().project(cam);
+  const px = Math.round((p.x * 0.5 + 0.5) * W);
+  const py = Math.round((-p.y * 0.5 + 0.5) * H);
+  let herSum = 0; let herN = 0;
+  for (let y = Math.max(0, py - 10); y < Math.min(H, py + 10); y++) {
+    for (let x = Math.max(0, px - 8); x < Math.min(W, px + 8); x++) {
+      const i = (y * W + x) * 4;
+      herSum += 0.2126 * img[i] + 0.7152 * img[i + 1] + 0.0722 * img[i + 2];
+      herN++;
+    }
+  }
+  b.postfx.disable();
+  return {
+    onScreen: p.z < 1 && px >= 0 && px < W && py >= 0 && py < H,
+    clippedFrac: +(clipped / (W * H)).toFixed(4),
+    her: +(herSum / Math.max(1, herN)).toFixed(1),
+  };
+});
+check('with bloom on, the table lamp does not glare and she is visible across the table',
+  acrossTheTable.onScreen && acrossTheTable.clippedFrac <= 0.004
+    && acrossTheTable.her >= 40 && acrossTheTable.her <= 245,
+  `clipped ${(acrossTheTable.clippedFrac * 100).toFixed(2)}% of the frame, her face at `
+    + `${acrossTheTable.her}/255`);
+
 /* ---- the conversation ---- */
 await tick(2);
 check('sitting down starts her talking', (await state()).options > 0, String((await state()).options));
@@ -829,6 +1132,29 @@ check('the "you\'re funny" exchange happened and the room went quiet',
 check('and breaking the tension paid',
   await page.evaluate(() => window.__silver.woo.has('Woo.FunnyHowSuccess')));
 
+/* ---- everybody who came to the table has gone home again ----
+ * The ape used to be parked at the waiter's own mark for the rest of the
+ * night — his conversation was started around `greet`, so its end never knew
+ * whose walk home to run — and the next waiter was summoned into the space
+ * he was standing in. */
+const visitors = await page.evaluate(() => {
+  const b = window.__silver;
+  const ape = b.cast.byName.ape;
+  const w = b.cast.byName.waiter;
+  return {
+    apeHome: ape.homeSeat
+      ? +Math.hypot(ape.group.position.x - ape.homeSeat.x, ape.group.position.z - ape.homeSeat.z).toFixed(2)
+      : null,
+    apeJob: ape.job,
+    waiterJob: w.job,
+    waiterHasRound: !!w.route,
+  };
+});
+check('the ape is back at his own table and the waiter back on his round',
+  visitors.apeHome !== null && visitors.apeHome < 0.5 && visitors.apeJob === 'sit'
+    && visitors.waiterJob === 'patrol' && visitors.waiterHasRound,
+  JSON.stringify(visitors));
+
 /* ---- cutscene two ---- */
 check('the lights going down is the second scene, and it ran on its own',
   sawShowScene, sawShowScene ? 'reached on its own clock' : 'never saw the scene');
@@ -855,6 +1181,39 @@ const showState = await page.evaluate(() => {
 check('seven of them, on stage, with the house down and the near table lamps still lit',
   showState.playing && showState.visible === 7 && showState.lampsNear > 0,
   JSON.stringify(showState));
+
+/* ---- and they perform ----
+ * The wave-2 note: the performers "just shake and face the wrong way". They
+ * were built at yaw π — pointed at the back wall — with the bar-wipe idle
+ * loop re-posing their arms twenty times a second underneath the show
+ * animation. Facing the room now, with instrument poses that the frame order
+ * lets stand: horns at the mouth, a bass worked, brushes trading, a leader
+ * out front with the mic. */
+const stagecraft = await page.evaluate(() => {
+  const b = window.__silver;
+  const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const members = b.band.members.map((m) => ({
+    holds: m.holds,
+    yaw: +wrap(m.group.rotation.y).toFixed(2),
+    job: m.job,
+    foreL: +m.parts.foreL.rotation.x.toFixed(2),
+    armR: +m.parts.armR.rotation.x.toFixed(2),
+  }));
+  return {
+    facing: members.every((m) => Math.abs(m.yaw) < 0.9),
+    noWipers: members.every((m) => m.job !== 'work'),
+    hornsUp: members.filter((m) => m.holds === 'horn').every((m) => m.foreL < -1.0),
+    leadWorking: (() => {
+      const l = members.find((m) => m.holds === 'lead');
+      return !!l && l.armR < -0.2;
+    })(),
+    members,
+  };
+});
+check('the band faces the audience and plays its instruments rather than shaking',
+  stagecraft.facing && stagecraft.noWipers && stagecraft.hornsUp && stagecraft.leadWorking,
+  JSON.stringify({ facing: stagecraft.facing, noWipers: stagecraft.noWipers,
+    hornsUp: stagecraft.hornsUp, lead: stagecraft.leadWorking }));
 
 /* A cutscene takes her over, and the end of one used to hand her back to
  * `follow` unconditionally — so the champagne stood her up out of her chair for
@@ -1040,6 +1399,59 @@ const setEnd = await page.evaluate(() => {
 check('the band play their four numbers, once each, and then the set is over',
   setEnd.ended && !setEnd.playing && setEnd.played.length === 4 && setEnd.theOne === 1,
   setEnd.played.join(' → '));
+
+/* ---- a conversation talked over is ended, not orphaned ----
+ * `dialogue.start` on top of a live conversation never fired the old one's
+ * onEnd, so a waiter summoned to the table and then talked past kept his
+ * post there for the night. Greeting anybody now closes the open
+ * conversation through its own cleanup first. */
+const orphan = await page.evaluate(() => {
+  const b = window.__silver;
+  b.dialogue.end();
+  b.debug.waiter();
+  const during = { job: b.cast.byName.waiter.job, active: b.dialogue.active };
+  b.cast.byName.smoker.group.userData.interact.onUse();
+  return {
+    during,
+    after: { job: b.cast.byName.waiter.job, hasRound: !!b.cast.byName.waiter.route },
+  };
+});
+check('a waiter talked past mid-service goes back to his round instead of haunting the table',
+  orphan.during.job === 'stand' && orphan.during.active
+    && orphan.after.job === 'patrol' && orphan.after.hasRound,
+  JSON.stringify(orphan));
+
+/* ---- finished conversations stay finished ----
+ * The playtest's "talking loops": the coat check's Both answer looped back to
+ * its own opening question, the waiter re-ran the drink order on every later
+ * tap, the host re-ran "we're full" over a built table, and the bandleader
+ * re-offered the one request. Each node is driven or read here in the state
+ * the loop happened in. */
+const loops = await page.evaluate(() => {
+  const b = window.__silver;
+  b.dialogue.end();
+  const out = {};
+  const cc = b.cast.byName.coatcheck;
+  b.dialogue.start(b.scripts.coatcheck, 'open', cc);
+  const both = b.dialogue.options.findIndex((o) => o.tone === 'Both');
+  out.bothOffered = both >= 0;
+  b.dialogue.choose(both);
+  for (let t = 0; t < 48; t++) b.dialogue.update(0.25, cc.group.position);
+  out.coatEnds = !b.dialogue.active;
+  out.reorderTones = b.scripts.waiter.open.options().map((o) => o.tone);
+  out.hostLine = b.scripts.host.open.line();
+  const hadRequest = b.mission.flags.songRequested;
+  b.mission.flags.songRequested = hadRequest || 'horns';
+  out.leadTones = b.scripts.bandleader.open.options().map((o) => o.tone);
+  b.mission.flags.songRequested = hadRequest;
+  return out;
+});
+check('finished conversations stay finished: coats, drink order, the book, the one request',
+  loops.bothOffered && loops.coatEnds
+    && !loops.reorderTones.includes('Remember')
+    && !loops.hostLine.includes('full')
+    && !loops.leadTones.includes('Her band'),
+  JSON.stringify(loops));
 
 /* ---- checkpoint reload cannot pay a tip twice, and puts the evening back ----
  *
