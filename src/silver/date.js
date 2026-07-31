@@ -260,7 +260,10 @@ export class Date_ {
      * genuinely will not take two.
      */
     const step = Math.hypot(playerPos.x - this._hisLast.x, playerPos.z - this._hisLast.z);
-    if (step > 1e-4 && dt > 0) {
+    /* A stride, not a jump. Two metres in a frame is a checkpoint, a cutscene
+     * or the first frame of the evening, and reading a heading off one aims
+     * her at the far side of the building until the easing has caught up. */
+    if (step > 1e-4 && step < 2 && dt > 0) {
       /* His heading, eased. Raw frame-to-frame displacement is noisy enough
        * at a tenth of a metre a frame to make her wobble. */
       const hx = (playerPos.x - this._hisLast.x) / step;

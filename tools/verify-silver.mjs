@@ -1013,7 +1013,7 @@ check('and he can walk back up out of it the same way',
 const lifts = await page.evaluate(() => {
   const b = window.__silver;
   const room = b.room;
-  const EYE = 1.66; const RADIUS = 0.30; const STEP_UP = 1.0;
+  const EYE = 1.66; const RADIUS = 0.30; const STEP_UP = b.STEP_UP;
   const blocking = (x, z, feet) => room.colliders.some((c) => {
     if (feet + EYE + 0.05 < c.min.y || feet > c.max.y) return false;
     const cx = Math.max(c.min.x, Math.min(x, c.max.x));

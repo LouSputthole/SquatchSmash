@@ -25,7 +25,7 @@ import { makeHeldDrinks } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
 
-import { buildRoom, ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H } from './room.js';
+import { buildRoom, ROOMS, roomAt, zoneAt, CELLAR_Y, STAGE_H, STEP_UP } from './room.js';
 import { populate, makeBand } from './cast.js';
 import { Date_ } from './date.js';
 import { Woo, EVENTS, TIP_POINTS, TIP_TOTAL } from './woo.js';
@@ -2169,6 +2169,9 @@ window.__silver = {
   THREE, scene, camera, renderer, postfx, player, room, cast, band, date, taxi,
   mission, woo, dialogue, hud, audio, game, interaction, drunk, inventory,
   scripts, performance: performance_, sway, settings, ROOMS, SET, EVENTS, ENDINGS,
+  /* The number the back of house is built to, so the verifier holds it to
+   * the same one rather than to a copy of it. */
+  STEP_UP,
   /* Who has been cast, and in whose voice: the verifier holds the manifest
    * to both. */
   VOICE_OF, PROFILE_OF,
