@@ -492,6 +492,11 @@ async function boot() {
     interaction,
     time,
     gunUnlocked: apartmentGunUnlocked,
+    /* Which morning this is. The flat used to be built the same way on every
+     * one of them -- the chapter, the calls and the objectives all moved and
+     * the room did not, which is the whole of "it appears it is always the
+     * first day". It comes from the campaign, never from a flag of its own. */
+    chapter: campaign.state.story.chapter,
     onNote: (what) => narrator.note(what),
     /* The phone is campaign state, not apartment state: it has to still be on
      * him at the Bing and at the airstrip, and still be on him tomorrow. */
@@ -2664,6 +2669,11 @@ function startNewMorning() {
   game.pooped = false;
   game.poopTime = 0;
   st.bowel = Math.max(st.bowel, 0.35);
+  /* And the room itself. Sleeping is the only thing that turns a chapter, so
+   * it is the only thing that has to re-dress the flat without a reload --
+   * read back off the campaign rather than passed in, so a morning reached by
+   * sleeping and the same morning reached by reloading are the same room. */
+  apartment.applyChapterDressing(campaign.state.story.chapter);
   updateObjectives();
 }
 

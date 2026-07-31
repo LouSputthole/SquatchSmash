@@ -16,8 +16,15 @@ import * as P from './props.js';
 import { resolveGear } from './gear.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { loadModels } from './models.js';
+import {
+  CHAPTER_ORDER, buildDressing, dressingFor, makeAnswerMachine,
+} from './dressing.js';
 
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
+
+/** Where the daylight goes on a wet morning, and on a late warm one. */
+const OVERCAST = new THREE.Color(0x8d97a4);
+const LATE_GOLD = new THREE.Color(0xffb877);
 
 /**
  * The closet, cut back into the south wall.
@@ -678,6 +685,15 @@ export async function buildApartment(ctx) {
   const radio = P.makeRadio(M, { x: -1.10, y: sideboard.top, z: 4.16, rotY: Math.PI });
   root.add(radio.group);
 
+  /* The answering machine, beside the radio. It is in the flat on every
+   * morning -- it came with the place -- but what is ON it is chapter state:
+   * dark on Day One, and blinking with whatever the campaign says is waiting
+   * from Day Two. See `applyChapterDressing`. */
+  const answerMachine = makeAnswerMachine(M, {
+    x: -0.32, y: sideboard.top, z: 4.30, rotY: Math.PI + 0.08,
+  });
+  root.add(answerMachine.group);
+
   const plant = P.makePlant(M, { x: 3.95, z: 3.75 });
   root.add(plant.group);
   addCollider(plant.bounds);
@@ -930,6 +946,90 @@ export async function buildApartment(ctx) {
   switchPlate.rotation.y = Math.PI;
   switchPlate.add(toggle);
   root.add(switchPlate);
+
+  /* ================================================================ */
+  /* Chapter dressing                                                  */
+  /* ================================================================ */
+
+  /* Every piece the DAY_DRESSING table can name, built once and then shown or
+   * hidden. See world/dressing.js for why it is one accumulating flat rather
+   * than four sets, and why the visible set is folded from the campaign's own
+   * chapter instead of kept anywhere. */
+  const dressing = buildDressing(M, {
+    root,
+    fridgeDoor: fridge.door,
+    at: {
+      lanyard: { x: -0.80, y: sideboard.top, z: 4.30, rotY: 0.5 },
+      willy: { y: 1.12, z: -0.52 },
+      bloodShirt: { x: -1.62, y: 0.001, z: -3.62, rotY: 0.5 },
+      /* The money lands where he drops it as he comes in, so it lives at the
+       * FRONT of the sideboard rather than behind the photographs -- a stack
+       * of notes nobody can see is not a stack of notes. */
+      cashSmall: { x: -0.80, y: sideboard.top, z: 4.06, rotY: -0.3 },
+      bingMatches: { x: -3.44, y: table.top, z: 0.52, rotY: 0.9 },
+      motelKey: { x: -1.36, y: sideboard.top, z: 4.32, rotY: 0.4 },
+      cashMid: { x: -1.36, y: sideboard.top, z: 4.06, rotY: 0.5 },
+      casualJacket: { x: 1.70, y: 1.00, z: -2.96, rotY: Math.PI + 0.12 },
+      cashStacks: { x: -3.24, y: table.top, z: 0.48, rotY: 0.2 },
+      suitBag: { x: (CLOSET.x0 + CLOSET.x1) / 2, y: CLOSET.h - 0.05, z: 4.64, rotY: 0.06 },
+      gunCase: { x: -4.15, y: 0.73, z: -2.70, rotY: 0.35 },
+      jerkyHaul: { x: 4.72, y: kitchen.top, z: -0.62, rotY: 0.4 },
+      silverMatches: { x: -3.02, y: nightstand.top, z: -4.24, rotY: -0.5 },
+      laundryHeap: { x: -2.20, y: 0, z: -3.06, rotY: 0.3 },
+      rain: { x: x1 - 0.02, y: (wy0 + wy1) / 2, z: (wz0 + wz1) / 2, w: wz1 - wz0, h: wy1 - wy0 },
+    },
+  });
+
+  /** Weather and light for the morning currently on show. */
+  let dressAir = dressingFor('day_one').air;
+  /** Which chapter the room is currently dressed for. */
+  let dressedChapter = null;
+  /** Messages waiting on the machine, and how long the light has been on. */
+  let machineWaiting = 0;
+  let machineBlink = 0;
+
+  /**
+   * Dress the flat for a chapter.
+   *
+   * The single entry point, and the only thing in here that knows what day it
+   * is. Called at build with the campaign's chapter and again whenever sleeping
+   * turns a page, so the room follows the save rather than the session -- a
+   * reload, a checkpoint restore and a night's sleep all arrive here with the
+   * same argument and leave the same room behind.
+   */
+  const applyChapterDressing = (chapter, { messages = null } = {}) => {
+    const plan = dressingFor(chapter);
+    dressedChapter = chapter;
+    dressAir = plan.air;
+    for (const [id, piece] of dressing) {
+      if (id === 'rain') continue;          // weather, not a possession
+      piece.group.visible = plan.shown.has(id);
+    }
+    dressing.get('rain').group.visible = plan.air.rain > 0;
+    /* One waiting message per chapter past the first, unless the caller knows
+     * better. Derived, so it cannot disagree with the room around it. */
+    machineWaiting = messages ?? Math.max(0, CHAPTER_ORDER.indexOf(chapter));
+    state.dressChapter = chapter;
+    state.dressTitle = plan.title;
+    state.raining = plan.air.rain > 0;
+    return plan;
+  };
+
+  /** Rain runs down the pane; the machine blinks what is waiting on it. */
+  ticks.push((dt, elapsed) => {
+    const rain = dressing.get('rain');
+    if (rain.group.visible) {
+      for (const r of rain.runners) {
+        r.mesh.position.y -= r.speed * dt;
+        if (r.mesh.position.y < r.bottom) r.mesh.position.y = r.top;
+      }
+    }
+    machineBlink += dt;
+    const on = machineWaiting > 0 && (machineBlink % 1.6) < 0.5;
+    answerMachine.led.material = on ? M.ledRed : M.bulbOff;
+    answerMachine.digit.material = machineWaiting > 0 ? M.ledAmber : M.bulbOff;
+    void elapsed;
+  });
 
   /* ================================================================ */
   /* Wall art                                                          */
@@ -1285,6 +1385,11 @@ export async function buildApartment(ctx) {
     spareRounds: 0,
   };
   bindHeldItem(state, inventory);
+
+  /* The room, dressed for whichever morning the save says this is. Done here
+   * rather than in the dressing block above because the pass writes what it
+   * did into `state`, and `state` is built here. */
+  applyChapterDressing(typeof ctx.chapter === 'string' ? ctx.chapter : 'day_one');
 
   /* ---- fridge ---- */
   audio.startLoop('fridge.hum', {
@@ -1915,17 +2020,27 @@ export async function buildApartment(ctx) {
       // Shut: slats stand on edge and overlap. Open: flat, stacked at the top.
       slats[i].rotation.z = (1 - blindsT) * 1.35;
     }
-    // Sun only really gets in once the blinds are up.
-    // Direct light only really gets in when the blinds are up.
-    sun.intensity = time.sunIntensity * (0.22 + blindsT * 0.78);
-    sun.color.copy(time.sunColour);
+    /* Sun only really gets in once the blinds are up -- and on a chapter the
+     * dressing table calls wet, not much gets in at all. `tint` pulls every
+     * daylight source down together and `warmth` swings their colour, so a
+     * grey morning is one row of a table rather than a second lighting rig. */
+    const { tint, warmth } = dressAir;
+    const grey = Math.max(0, 1 - warmth);
+    const warm = Math.max(0, warmth - 1);
+    const shade = (colour) => {
+      if (grey > 0) colour.lerp(OVERCAST, grey);
+      else if (warm > 0) colour.lerp(LATE_GOLD, Math.min(1, warm * 3));
+      return colour;
+    };
+    sun.intensity = time.sunIntensity * (0.22 + blindsT * 0.78) * tint;
+    shade(sun.color.copy(time.sunColour));
     sun.position.copy(time.sunPos);
-    fill.intensity = time.fillIntensity;
-    hemi.intensity = time.hemiIntensity;
-    hemi.color.copy(time.hemiSky);
+    fill.intensity = time.fillIntensity * (0.86 + 0.14 * tint);
+    hemi.intensity = time.hemiIntensity * tint;
+    shade(hemi.color.copy(time.hemiSky));
     hemi.groundColor.copy(time.hemiGround);
-    ambient.intensity = time.ambIntensity;
-    ambient.color.copy(time.ambColour);
+    ambient.intensity = time.ambIntensity * tint;
+    shade(ambient.color.copy(time.ambColour));
 
     // Cross-fade the view out of the window between phase paintings.
     if (skyPhaseA !== time.skyFrom) {
@@ -2081,6 +2196,18 @@ export async function buildApartment(ctx) {
     tv,
     tvGlow,
     frames,
+
+    /* ---- the morning the flat is currently dressed for ---- */
+    /** Re-dress for a chapter. Sleeping calls this; so does the loader. */
+    applyChapterDressing,
+    /** Which chapter the room is showing, for anything that needs to ask. */
+    dressedChapter() { return dressedChapter; },
+    /** Every dressing piece by id, so a verifier can look at the room. */
+    dressing,
+    /** The blinking box on the sideboard, and what is waiting on it. */
+    answerMachine,
+    messagesWaiting() { return machineWaiting; },
+    setMessagesWaiting(n) { machineWaiting = Math.max(0, n | 0); },
     /** The frame that has been crooked for months, and putting it right. */
     crookedFrame,
     straightenFrame() { crookedWant = 0; },
