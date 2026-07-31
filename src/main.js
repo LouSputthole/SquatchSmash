@@ -342,9 +342,23 @@ function poseDrink(which, k) {
   if (!m) return;
   // Ease so it settles at the lips instead of arriving at constant speed.
   const e = k * k * (3 - 2 * k);
-  m.position.set(-0.10 * e, 0.20 * e, 0.09 * e);
-  // Tipped back far enough to be pouring by the end, and rolled slightly in.
-  m.rotation.set(-1.30 * e, 0, 0.34 * e);
+  m.position.set(-0.10 * e, 0.26 * e, 0.09 * e);
+  /* Tipped BACK past level, so the base finishes above the mouth and the thing
+   * is actually pouring, and rolled slightly in.
+   *
+   * Both models are built standing up, mouth at +Y. A camera looks down -Z, so
+   * +Z is the drinker's own face, and a POSITIVE rotation about X is the one
+   * that swings the mouth back onto his lip and the base up over it -- the same
+   * sign the held phone uses to tip its screen back toward him. This was
+   * negative, which is the identical motion played backwards: the base came
+   * back and the neck went out, so a swig of Jack read as pouring it on the
+   * carpet in front of you.
+   *
+   * Past a right angle rather than up to one, too. At 1.30 the bottle only
+   * reached level -- mouth at the lip but still the high end of it, which is
+   * how you hold a bottle you are about to drink from and not how you hold one
+   * you are drinking from. */
+  m.rotation.set(1.95 * e, 0, 0.34 * e);
 }
 
 /* The revolver in hand. Same idea as the drinks: one model parented to the
