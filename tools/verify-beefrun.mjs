@@ -98,8 +98,12 @@ try {
       && booted.previewNotice,
     JSON.stringify(booted));
 
+  /* Pressing start decodes the whole sample bank before the mission begins,
+   * and that bank is now over a thousand recordings. On a software renderer
+   * that is minutes, not seconds — so this wait is budgeted for the load, not
+   * for the frame. */
   await page.click('#start-btn');
-  await page.waitForFunction(() => window.__beefrun.mission.phase === 'arrival', null, { timeout: 60000 });
+  await page.waitForFunction(() => window.__beefrun.mission.phase === 'arrival', null, { timeout: 300000 });
   const started = await page.evaluate(() => ({
     phase: window.__beefrun.mission.phase,
     status: window.__beefrun.campaignState.missions.airstrip_smuggling.status,
@@ -272,7 +276,7 @@ try {
   await resumePage.waitForFunction(
     () => window.__beefrun.mission.flags.inCockpit,
     null,
-    { timeout: 60000 },
+    { timeout: 300000 },
   );
   const resumed = await resumePage.evaluate(() => ({
     phase: window.__beefrun.mission.phase,
