@@ -1,9 +1,10 @@
 // Shared WebAudio plumbing for the scene. Almost everything is synthesised;
-// a handful of shipped recordings (footsteps, the revolver) are preferred
+// the shipped recordings (dialogue, footsteps, the revolver) are preferred
 // when they load, with the synth kept as the fallback.
 //
 // Chain:  sources → bus → duck (lowpass) → master → destination
-//         ringing oscillator → master   (bypasses the duck so it stays on top)
+//         voice → voice lowpass+gain → bus   (the bathroom-door muffle)
+//         ringing → master   (bypasses the duck so it stays on top)
 
 let ctx = null;
 let master = null;
@@ -15,6 +16,20 @@ let muted = false;
 let ringOsc = null;
 let ringOsc2 = null;
 let ringGain = null;
+let voiceFilter = null;
+let voiceGain = null;
+let voiceSrc = null;
+
+// The 27 recorded dialogue clips, named for their beat in dialogue.json.
+const VO_CUES = [
+  'vo.sf.greeting.1',
+  ...Array.from({ length: 14 }, (_, i) => `vo.sf.opening.${i + 1}`),
+  'vo.sf.excuse.1', 'vo.sf.excuse.2',
+  'vo.sf.sitdown.1',
+  'vo.sf.wrongsearch.1',
+  'vo.sf.prodding.1', 'vo.sf.prodding.2',
+  ...Array.from({ length: 6 }, (_, i) => `vo.sf.final.${i + 1}`),
+];
 
 export function init() {
   if (ctx) return ctx;
@@ -39,6 +54,17 @@ export function init() {
   busNode.gain.value = 1;
   busNode.connect(duckFilter);
 
+  // Dialogue rides its own lowpass+gain INTO the duck bus: it goes dull and
+  // distant behind the shut bathroom door, and it drops with everything else
+  // for the ten seconds after the shots. Never around the duck.
+  voiceGain = ctx.createGain();
+  voiceGain.gain.value = 1;
+  voiceGain.connect(busNode);
+  voiceFilter = ctx.createBiquadFilter();
+  voiceFilter.type = 'lowpass';
+  voiceFilter.frequency.value = 18000;
+  voiceFilter.connect(voiceGain);
+
   const len = Math.floor(ctx.sampleRate * 2);
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = noiseBuf.getChannelData(0);
@@ -47,6 +73,7 @@ export function init() {
   loadSamples([
     'footstep.wood', 'footstep.tile', 'footstep.street.wet',
     'gun.shot', 'gun.reload',
+    ...VO_CUES,
   ]);
 
   return ctx;
@@ -56,8 +83,10 @@ export function init() {
 // A cue that fails to fetch or decode simply stays on the synth; nothing in
 // the scene depends on the files existing.
 const samples = new Map();
+const playLogList = [];
+const voLogList = [];
 
-function loadSamples(names) {
+export function loadSamples(names) {
   for (const name of names) {
     if (samples.has(name)) continue;
     samples.set(name, null);
@@ -68,6 +97,18 @@ function loadSamples(names) {
       .catch(() => samples.delete(name));
   }
 }
+
+/** True once a cue has fetched and decoded. */
+export const sampleReady = (name) => !!samples.get(name);
+
+/** Duration of a decoded cue in seconds, or 0. */
+export const sampleDuration = (name) => (samples.get(name) ? samples.get(name).duration : 0);
+
+/** Names of every recorded cue that played, in order — for the verify tools. */
+export const playLog = () => playLogList;
+
+/** Every dialogue line asked for: { name, sample, duration }. */
+export const voLog = () => voLogList;
 
 /** Play a recorded cue. Returns false when it has not loaded (use the synth). */
 export function playSample(name, { volume = 1, rate = 1 } = {}) {
@@ -80,7 +121,53 @@ export function playSample(name, { volume = 1, rate = 1 } = {}) {
   g.gain.value = volume;
   src.connect(g).connect(busNode);
   src.start();
+  playLogList.push(name);
   return true;
+}
+
+// ---------- Dialogue ----------
+
+/**
+ * Play a recorded dialogue line through the voice chain (lowpass + gain into
+ * the duck bus). One voice at a time. Returns the clip's real duration in
+ * seconds so the subtitle beat can hold exactly that long, or 0 when the
+ * clip has not loaded and the caller should keep its reading-beat timing.
+ */
+export function playVoice(name, { volume = 0.9 } = {}) {
+  stopVoice();
+  const buf = samples.get(name);
+  if (!buf || !ctx) {
+    voLogList.push({ name, sample: false, duration: 0 });
+    return 0;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const g = ctx.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(voiceFilter);
+  src.start();
+  voiceSrc = src;
+  voLogList.push({ name, sample: true, duration: buf.duration });
+  return buf.duration;
+}
+
+/** Cut whatever line is playing (checkpoint restore, an interrupting bark). */
+export function stopVoice() {
+  if (!voiceSrc) return;
+  try { voiceSrc.stop(); } catch { /* already ended */ }
+  voiceSrc = null;
+}
+
+/**
+ * How far away the dining room is. 0 at the table; 1 with the bathroom door
+ * shut, which drops the voices behind the same kind of lowpass as the rest
+ * of the room — the manifest's mix note applied to VO.
+ */
+export function setVoiceMuffle(v) {
+  if (!ctx) return;
+  const k = Math.max(0, Math.min(1, v));
+  voiceGain.gain.setTargetAtTime(1 - 0.62 * k, ctx.currentTime, 0.25);
+  voiceFilter.frequency.setTargetAtTime(18000 - (18000 - 480) * k, ctx.currentTime, 0.25);
 }
 
 export function resume() {

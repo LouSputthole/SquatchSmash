@@ -363,7 +363,7 @@ function buildStates() {
         prospect.canLook = true;
         prospect.speed = SPEED.normal;
         ambience.setOutside(1);
-        ambience.setMuffle(0);
+        setRoomMuffle(0);
         director.letterbox(false);
         director.setFov(FOV.base);
         director.vignette(false);
@@ -500,7 +500,7 @@ function buildStates() {
         swingDoor(sceneState.doors.bathDoor, -1.9, 0, 0.5);
         sceneState.doors.bathDoorBlock.on = true;
         bathroomDoorOpen = false;
-        ambience.setMuffle(1);
+        setRoomMuffle(1);
         mirror.enabled = true;
         setObjective('Find the weapon');
         interactions.allow('toilet', 'sink', 'radiator', 'cabinet');
@@ -539,7 +539,7 @@ function buildStates() {
           sceneState.doors.bathDoorBlock.on = false;
         }
         if (prospect.pos.z < 14.6) {
-          ambience.setMuffle(Math.max(0, (prospect.pos.z - 10.5) / 4.5));
+          setRoomMuffle(Math.max(0, (prospect.pos.z - 10.5) / 4.5));
           mirror.enabled = false;
         }
         // They watch him come back
@@ -792,7 +792,7 @@ function restoreCheckpoint() {
 
   train.setIntensity(0.3);
   vibration.set(0.15);
-  ambience.setMuffle(0);
+  setRoomMuffle(0);
   showDrawPrompt(null);
   showReticle(false);
 
@@ -810,12 +810,62 @@ async function loadDialogue() {
   return res.json();
 }
 
-function wire(data) {
+// ---- Recorded dialogue -------------------------------------------------
+// The sfx manifest carries every vo.sf.* clip with the exact line it speaks,
+// so the beats are matched to their recordings by speaker + line text rather
+// than by a table that could drift from either side.
+
+const SPEAKER_VOICE = { PROSPECT: 'player', SAL: 'sal', MCCLAWSKY: 'mcclawsky' };
+
+function normLine(text) {
+  return String(text)
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// voice|line -> cue name, e.g. "sal|enough." -> "vo.sf.opening.14".
+async function loadVoiceCues() {
+  try {
+    const res = await fetch('assets/sfx/manifest.json');
+    if (!res.ok) throw new Error(String(res.status));
+    const manifest = await res.json();
+    const cues = new Map();
+    for (const cue of manifest.sfx || []) {
+      if (!cue.name || !cue.name.startsWith('vo.sf.') || !cue.say) continue;
+      cues.set(`${cue.voice}|${normLine(cue.say)}`, cue.name);
+    }
+    return cues;
+  } catch {
+    return new Map(); // every beat falls back to its reading-beat hold
+  }
+}
+
+function voiceCueFor(voCues, line) {
+  return voCues.get(`${SPEAKER_VOICE[line.speaker]}|${normLine(line.text)}`) || null;
+}
+
+// The bathroom-door muffle: the ambience beds and the voices at the table go
+// dull and far away together, exactly as the manifest's mix note directs.
+function setRoomMuffle(v) {
+  ambience.setMuffle(v);
+  audio.setVoiceMuffle(v);
+}
+
+function wire(data, voCues) {
   dialogue = new DialogueController(data, {
     root: ui.subs, who: ui.subsWho, line: ui.subsLine,
   }, {
-    onSpeak(id, line) {
-      const dur = line.dur || 2.5;
+    onVoice(line) {
+      const cue = voiceCueFor(voCues, line);
+      return cue ? audio.playVoice(cue) : 0;
+    },
+    onVoiceStop() {
+      audio.stopVoice();
+    },
+    onSpeak(id, line, dur) {
       if (id === 'SAL') { sal.speak(dur); sal.lookAt(prospect.eye); }
       if (id === 'MCCLAWSKY') { mcclawsky.speak(dur); mcclawsky.lookAt(prospect.eye); }
     },
@@ -877,6 +927,7 @@ function wire(data) {
   // Debug handle: jump between beats and fake input while tuning the scene.
   window.squatchfather = {
     fsm, prospect, sal, mcclawsky, sceneState, director, dialogue, interactions, audio,
+    ambience, train,
     campaign, campaignStory,
     chairInteraction, toiletInteraction, dropInteraction,
     go: (name) => fsm.go(name),
@@ -1015,8 +1066,13 @@ for (const id of ['backBtn', 'quitBtn', 'menuBtn']) {
   if (el) el.addEventListener('click', returnToApartment);
 }
 
-loadDialogue().then((data) => {
-  wire(data);
+// Build the audio graph while the menu is still up: the context sits
+// suspended until the start click, but the recordings fetch and decode now,
+// so the first spoken line is a clip rather than a reading-beat hold.
+audio.init();
+
+Promise.all([loadDialogue(), loadVoiceCues()]).then(([data, voCues]) => {
+  wire(data, voCues);
   frame();
 }).catch((err) => {
   console.error(err);

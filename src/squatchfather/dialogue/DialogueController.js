@@ -4,8 +4,12 @@
 //   { speaker, text, dur, gesture?, look? }  — spoken, shown as a subtitle
 //   { beat, stage?, look?, gesture? }        — a silent pause (optional stage direction)
 //
-// Callbacks let the scene react without the dialogue data knowing about Three.js:
-//   onSpeak(speakerId, line)  — a character starts talking
+// Callbacks let the scene react without the dialogue data knowing about Three.js
+// or the audio stack:
+//   onVoice(line) -> secs     — start the line's recorded clip; return its real
+//                               duration, or 0 to keep the reading-beat timing
+//   onVoiceStop()             — cut any clip still sounding (stop, interrupt)
+//   onSpeak(speakerId, line, dur) — a character starts talking for `dur`
 //   onLook(targetId)          — Prospect's seated gaze should move
 //   onGesture(name)           — a character animation cue
 
@@ -34,13 +38,15 @@ export class DialogueController {
     return s ? s.tone : '';
   }
 
-  // Start a named sequence from dialogue.json. Replaces anything in flight.
+  // Start a named sequence from dialogue.json. Replaces anything in flight,
+  // clip and all.
   play(key, onDone = null) {
     const seq = this.data[key];
     if (!seq) {
       if (onDone) onDone();
       return;
     }
+    if (this.hooks.onVoiceStop) this.hooks.onVoiceStop();
     this.queue = seq.slice();
     this.current = null;
     this.t = 0;
@@ -60,6 +66,7 @@ export class DialogueController {
     this.current = null;
     this.playing = false;
     this.onDone = null;
+    if (this.hooks.onVoiceStop) this.hooks.onVoiceStop();
     this.#hide();
   }
 
@@ -98,9 +105,16 @@ export class DialogueController {
     }
     const line = this.queue.shift();
     this.current = line;
-    this.t = line.speaker ? (line.dur || 2.5) : (line.beat || 1);
+    if (line.speaker) {
+      // The recorded clip's real length when it plays; the written
+      // reading-beat hold when it hasn't loaded.
+      const voDur = this.hooks.onVoice ? this.hooks.onVoice(line) : 0;
+      this.t = voDur > 0 ? voDur : (line.dur || 2.5);
+    } else {
+      this.t = line.beat || 1;
+    }
     this.#show(line);
-    if (line.speaker && this.hooks.onSpeak) this.hooks.onSpeak(line.speaker, line);
+    if (line.speaker && this.hooks.onSpeak) this.hooks.onSpeak(line.speaker, line, this.t);
     if (line.look && this.hooks.onLook) this.hooks.onLook(line.look);
     if (line.gesture && this.hooks.onGesture) this.hooks.onGesture(line.gesture);
   }
