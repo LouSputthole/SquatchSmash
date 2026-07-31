@@ -669,6 +669,268 @@ check('[Q] unstuck only moves a genuinely blocked walking player',
   unstuck.wasBlocked && unstuck.moved && unstuck.safe,
   JSON.stringify(unstuck));
 
+/* ---- the Family hangout floor ----
+ * The owner's order: everyone in the Family table hangs out here between
+ * missions, with their real faces, one identity everywhere. Fresh campaign:
+ * fifteen on the floor — Sasole is still at Whispering Pines until the Beef
+ * Run is flown, and Big Uncle Lou is upstairs, never duplicated. */
+await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyF' })));
+const familyState = await page.evaluate(() => {
+  const b = window.__bing;
+  const members = b.family.all.map((npc) => {
+    let photoFaces = 0;
+    npc.group.updateMatrixWorld(true);
+    npc.group.traverse((o) => {
+      if (o.isMesh && Array.isArray(o.material) && o.material[4]?.map) photoFaces += 1;
+    });
+    const { x, z } = npc.group.position;
+    return {
+      id: npc.characterId,
+      photo: npc.familyMember.photo,
+      hasFace: photoFaces > 0,
+      eyes: npc.parts.eyes.length,
+      job: npc.job,
+      seated: !!npc.seated,
+      standingClear: npc.job === 'stand' ? b.standingClearAt(x, z) : true,
+      navClear: npc._clearOf(b.club.navBlockers, x, z),
+      interactive: !!npc.group.userData.interact,
+    };
+  });
+  return {
+    members,
+    ids: members.map((m) => m.id).sort(),
+    faces: [...b.faceIndex].sort(),
+  };
+});
+{
+  const expected = ['ape', 'booski', 'deathmegatron', 'eric', 'gratin', 'hogmama',
+    'irish', 'lag', 'numbskull', 'old_stove', 'rippinflow', 'seff',
+    'shubenator', 'snow', 'willy'];
+  check('the Family holds the floor on a fresh campaign — fifteen, stable ids, no second Lou',
+    familyState.ids.join(',') === expected.join(','),
+    familyState.ids.join(','));
+  check('Sasole sits out until the Beef Run is flown',
+    !familyState.ids.includes('captain_lou_sasole'));
+  const ledger = {
+    lag: 'lag.png', willy: 'willy.png', irish: 'irish.png', ape: 'ape.png',
+    old_stove: 'stove.png', seff: 'seff.png', numbskull: 'numbskull.png',
+  };
+  check('real faces where the photos exist; authored heads staged for the seven to come',
+    familyState.members.every((m) => (familyState.faces.includes(m.photo)
+      ? m.hasFace
+      : !m.hasFace && m.eyes === 2 && ledger[m.id] === m.photo)),
+    JSON.stringify(familyState.members.map((m) => [m.id, m.hasFace])));
+  check('they are patrons, not patrollers — seated or idling, clear of the stage nav and walls',
+    familyState.members.every((m) => ['sit', 'drink', 'stand', 'lean'].includes(m.job)
+      && (m.job === 'stand' ? m.standingClear : m.seated)
+      && m.navClear && m.interactive),
+    JSON.stringify(familyState.members.map((m) => [m.id, m.job, m.navClear])));
+}
+
+/* Every cue the Family's scripts name must be authored in the manifest —
+ * say() and voiceCue() are silent about a typo forever. Numbskull is the one
+ * deliberate exception: no voice id yet, so his tree carries no cue names. */
+{
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+  const authored = new Set((manifest.sfx || []).map((cue) => cue.name));
+  const scripted = await page.evaluate(() => {
+    const b = window.__bing;
+    const cues = new Set();
+    let numbskullCues = 0;
+    for (const [id, tree] of Object.entries(b.familyScripts)) {
+      for (const node of Object.values(tree)) {
+        const collect = (owner) => {
+          if (!owner?.cue) return;
+          cues.add(typeof owner.cue === 'function' ? owner.cue() : owner.cue);
+          if (id === 'numbskull') numbskullCues += 1;
+        };
+        collect(node);
+        const opts = typeof node.options === 'function' ? node.options() : node.options;
+        for (const opt of opts || []) collect(opt);
+      }
+    }
+    return { cues: [...cues], numbskullCues };
+  });
+  const slugs = ['lag', 'gratin', 'eric', 'hogmama', 'deathmegatron', 'booski',
+    'sasole', 'willy', 'irish', 'ape', 'stove', 'snow', 'rippinflow', 'seff', 'shubenator'];
+  const ledgered = [
+    ...slugs.flatMap((slug) => [`vo.bing.hang.${slug}.1`, `vo.bing.hang.${slug}.2`]),
+    ...['lag', 'gratin', 'hogmama', 'sasole', 'irish'].map((slug) => `vo.bing.hang.${slug}.tony.1`),
+    'vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
+    'vo.bing.booski.shot.handoff', 'vo.bing.booski.shot.tony.1',
+    'vo.bing.blackjack.dealer.deal.1', 'vo.bing.blackjack.dealer.deal.2',
+    'vo.bing.blackjack.dealer.win', 'vo.bing.blackjack.dealer.lose',
+    'vo.bing.blackjack.dealer.push', 'vo.bing.blackjack.dealer.bust',
+    'vo.bing.blackjack.tony.win', 'vo.bing.blackjack.tony.lose',
+  ];
+  const missing = [
+    ...scripted.cues.filter((cue) => !authored.has(cue)),
+    ...ledgered.filter((cue) => !authored.has(cue)),
+  ];
+  check('every cue the floor names is authored in the manifest, and Numbskull names none',
+    missing.length === 0 && scripted.numbskullCues === 0,
+    missing.slice(0, 3).join(' / ') || `${scripted.cues.length} cues`);
+}
+
+/* Walk-up talk goes through the club's own dialogue machine: the member's
+ * subtitled line carries their cue, a lapsed thread resumes, a finished one
+ * replays from the top. */
+await walkTo(2.4, -2.1, Math.PI / 2);
+const famResume = await page.evaluate(() => {
+  const b = window.__bing;
+  const gratin = b.family.byId.gratin;
+  gratin.group.userData.interact.onUse();
+  const openNode = b.dialogue.nodeId;
+  const openCue = typeof b.dialogue.node.cue === 'function' ? b.dialogue.node.cue() : b.dialogue.node.cue;
+  const who = b.dialogue.ui.name.textContent;
+  b.dialogue.choose(0);
+  for (let i = 0; i < 40 && b.dialogue.nodeId !== 'more'; i++) {
+    b.dialogue.update(0.5, b.player.position);
+  }
+  const mid = b.dialogue.nodeId;
+  b.dialogue.end('walked-away');
+  gratin.group.userData.interact.onUse();
+  const resumed = b.dialogue.nodeId;
+  b.dialogue.choose(0);                       // Tony's last word; thread completes
+  for (let i = 0; i < 40 && b.dialogue.active; i++) {
+    b.dialogue.update(0.5, b.player.position);
+  }
+  gratin.group.userData.interact.onUse();
+  const replayed = b.dialogue.nodeId;
+  b.dialogue.end('done');
+  return { openNode, openCue, who, mid, resumed, replayed };
+});
+check('a Family walk-up opens with the member’s own subtitled cue',
+  famResume.openNode === 'open' && famResume.openCue === 'vo.bing.hang.gratin.1'
+    && famResume.who === 'GRATIN',
+  JSON.stringify(famResume));
+check('a lapsed Family thread resumes; a finished one replays',
+  famResume.mid === 'more' && famResume.resumed === 'more' && famResume.replayed === 'open',
+  JSON.stringify(famResume));
+
+/* ---- Booski's shot, end to end ----
+ * Talk → offer → the yell → the bouncer hustles the shot across the room
+ * under a held camera → handoff → Tony holds a whiskey he did not order.
+ * The beat is stepped here the way the frame loop steps it. */
+await walkTo(-17.3, 1.5, Math.PI / 2);
+await page.evaluate(() => {
+  const b = window.__bing;
+  b.dialogue.start(b.familyScripts.booski, 'open', b.family.byId.booski, { resume: true });
+  b.dialogue.choose(0);
+});
+await tick(6);
+const midBeat = await page.evaluate(() => ({
+  frozen: window.__bing.player.mode === 'frozen',
+  running: !!window.__bing.game.beat,
+  oneShot: window.__bing.game.booskiShotDone,
+}));
+check('the yell hands the room to the delivery — camera held, beat running',
+  midBeat.frozen && midBeat.running && midBeat.oneShot,
+  JSON.stringify(midBeat));
+
+async function tickBeat(secs, step = 0.25) {
+  await page.evaluate(([secs, step]) => {
+    const b = window.__bing;
+    for (let t = 0; t < secs && b.game.beat; t += step) {
+      b.cast.byName.bouncer.update(step, b.player.position);
+      b.game.beat(step);
+      b.dialogue.update(step, b.player.position);
+    }
+  }, [secs, step]);
+}
+await tickBeat(30);
+await tickBeat(30);
+const afterBeat = await page.evaluate(() => {
+  const b = window.__bing;
+  const post = b.club.anchors.bouncerPost;
+  const bp = b.cast.byName.bouncer.group.position;
+  return {
+    beatOver: b.game.beat === null,
+    walk: b.player.mode === 'walk',
+    holdingShot: b.game.heldDrink === 'whiskey',
+    inSlot: b.inventory.items.filter(Boolean).includes('whiskey'),
+    bouncerHome: Math.hypot(bp.x - post.x, bp.z - post.z) < 1,
+    folded: b.cast.byName.bouncer.folded,
+    handoffSaid: b.dialogue.history.has('handoff') && b.dialogue.history.has('tony'),
+    voiced: ['vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
+      'vo.bing.booski.shot.handoff', 'vo.bing.booski.shot.tony.1']
+      .every((cue) => b.game.voLog.includes(cue)),
+  };
+});
+check('the shot lands and control comes back cleanly, bouncer back on his post',
+  afterBeat.beatOver && afterBeat.walk && afterBeat.holdingShot && afterBeat.inSlot
+    && afterBeat.bouncerHome && afterBeat.folded,
+  JSON.stringify(afterBeat));
+check('the beat spoke its four authored cues in order of appearance',
+  afterBeat.handoffSaid && afterBeat.voiced,
+  JSON.stringify(afterBeat));
+const shotAgain = await page.evaluate(() => {
+  const b = window.__bing;
+  b.dialogue.start(b.familyScripts.booski, 'open', b.family.byId.booski, { resume: true });
+  const opts = b.dialogue.options.map((o) => o.next ?? null);
+  const line = b.dialogue.ui.line.textContent;
+  b.dialogue.end('done');
+  return { opts, line };
+});
+check('the shot is a one-shot per visit — Booski moves on to the next story',
+  shotAgain.opts.length === 1 && shotAgain.opts[0] === null
+    && /six hundred on red/i.test(shotAgain.line),
+  JSON.stringify(shotAgain));
+
+/* ---- the table finds its voice ----
+ * Dealer bark on the deal, dealer verdict beside the WIN/LOSE callout, and
+ * Tony's line only on his own wins and losses — never push, never bust. */
+const bjDeal = await page.evaluate(() => {
+  const b = window.__bing;
+  const sayCalls = [];
+  const origSay = b.audio.say;
+  b.audio.say = function spy(group, opts) {
+    sayCalls.push(group);
+    return origSay.call(this, group, opts);
+  };
+  b.game.voLog.length = 0;
+  b.blackjack.sitDown();
+  b.blackjack.setBet(25);
+  b.game.seatedIn = 'table';
+  b.interaction.current = null;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
+  b.audio.say = origSay;
+  return { sayCalls, state: b.blackjack.state };
+});
+check('the dealer calls the cards in on every deal',
+  bjDeal.sayCalls.includes('bing.blackjack.dealer.deal'),
+  JSON.stringify(bjDeal.sayCalls));
+await tick(3, 0.2);
+await page.evaluate(() => {
+  const b = window.__bing;
+  if (b.blackjack.state === 'player') b.blackjack.stand();
+});
+await tick(6, 0.2);
+const bjVerdict = await page.evaluate(() => {
+  const b = window.__bing;
+  const out = { kind: b.game.lastHand?.kind ?? null, voLog: [...b.game.voLog] };
+  b.game.seatedIn = null;
+  b.blackjack.standUp();
+  return out;
+});
+{
+  const wantDealer = {
+    blackjack: 'vo.bing.blackjack.dealer.win',
+    win: 'vo.bing.blackjack.dealer.win',
+    lose: 'vo.bing.blackjack.dealer.lose',
+    push: 'vo.bing.blackjack.dealer.push',
+    bust: 'vo.bing.blackjack.dealer.bust',
+  }[bjVerdict.kind];
+  const wantTony = bjVerdict.kind === 'win' || bjVerdict.kind === 'blackjack'
+    ? 'vo.bing.blackjack.tony.win'
+    : bjVerdict.kind === 'lose' ? 'vo.bing.blackjack.tony.lose' : null;
+  const tonyBarks = bjVerdict.voLog.filter((cue) => cue.startsWith('vo.bing.blackjack.tony.'));
+  check('the dealer calls the verdict beside the callout, Tony answers only his wins and losses',
+    !!bjVerdict.kind && bjVerdict.voLog.includes(wantDealer)
+      && (wantTony ? tonyBarks.join(',') === wantTony : tonyBarks.length === 0),
+    `${bjVerdict.kind}: ${bjVerdict.voLog.join(', ')}`);
+}
+
 /* ---- the machine ----
  * Asserting the wallet went down would be wrong: it is a slot machine, and
  * occasionally it pays. What has to be true is that three spins happened and
@@ -871,6 +1133,41 @@ if (ended.returnHref === 'index.html') {
       && Math.abs(returned.player.z - 3.72) < 0.05,
     JSON.stringify(returned));
 }
+
+/* ---- one identity, before and after the Beef Run ----
+ * Same save, one field changed: the airstrip flown. Reload the club and the
+ * Captain is at his table near the stage — same stable id as the cockpit,
+ * same face photo, and the sixteenth chair on the floor. */
+await page.evaluate(() => {
+  const raw = JSON.parse(localStorage.getItem('squatchlife.campaign'));
+  raw.missions.airstrip_smuggling.status = 'complete';
+  raw.missions.airstrip_smuggling.checkpoint = 'landed_home';
+  raw.missions.airstrip_smuggling.cargoLoaded = true;
+  localStorage.setItem('squatchlife.campaign', JSON.stringify(raw));
+});
+await page.goto(`http://localhost:${PORT}/bing.html`, { waitUntil: 'load' });
+await page.waitForFunction(() => window.__bing?.family, null, { timeout: 90000 });
+const postRun = await page.evaluate(() => {
+  const b = window.__bing;
+  const sasole = b.family.byId.captain_lou_sasole ?? null;
+  let hasFace = false;
+  sasole?.group.traverse((o) => {
+    if (o.isMesh && Array.isArray(o.material) && o.material[4]?.map) hasFace = true;
+  });
+  return {
+    count: b.family.all.length,
+    present: !!sasole,
+    hasFace,
+    atHisTable: sasole
+      ? Math.hypot(sasole.group.position.x + 12.55, sasole.group.position.z - 0.85) < 0.3
+      : false,
+    seated: !!sasole?.seated,
+  };
+});
+check('after the Beef Run the Captain takes his table — same id, his own face',
+  postRun.present && postRun.count === 16 && postRun.hasFace
+    && postRun.atHisTable && postRun.seated,
+  JSON.stringify(postRun));
 
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 
