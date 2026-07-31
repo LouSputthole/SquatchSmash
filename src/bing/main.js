@@ -18,6 +18,7 @@ import { Player } from '../core/player.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { Phone } from '../core/phone.js';
+import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { createApartmentStory } from '../core/apartment-story.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
@@ -938,7 +939,22 @@ function showKit(on = true) {
  * The apartment story owns which call is pending and what answering it
  * means, so this reuses it rather than keeping a second copy of the rules.
  */
-const phone = new Phone({ time: { day: campaign.state.story.day, hour: 23 }, audio, calls: [] });
+const phone = new Phone({
+  time: { day: campaign.state.story.day, hour: 23 },
+  audio,
+  calls: [],
+  threads: phoneThreadsForCampaign(campaign.state),
+  onThreadRead: (thread) => {
+    if (thread.readEventId) campaign.advanceTime(thread.readEventId);
+  },
+});
+let phoneContentRevision = campaign.state.revision;
+function syncPhoneThreads() {
+  const state = campaign.state;
+  if (state.revision === phoneContentRevision) return;
+  phone.setThreads(phoneThreadsForCampaign(state));
+  phoneContentRevision = state.revision;
+}
 ui.phoneScreen?.appendChild(phone.canvas);
 const phoneStory = createApartmentStory({
   campaign,
@@ -978,13 +994,17 @@ function paintPhone() {
   ui.phone.classList.toggle('ringing', phone.ringing);
   ui.phoneKeys.textContent = phone.ringing
     ? '[E] ANSWER   [P] POCKET'
-    : phone.inCall ? '[Q] HANG UP' : '[E] SELECT   [P] POCKET';
+    : phone.inCall ? '[Q] HANG UP'
+      : (phone.screen === 'messages' || phone.screen === 'thread')
+        ? '[E] SELECT   WHEEL THREAD   [Q] POCKET'
+        : '[E] SELECT   [P] POCKET';
 }
 
 function phoneTick(dt) {
   /* The phone reads the campaign clock too. It was built with a fixed hour,
    * so the one screen in the club with a time printed on it in numerals was
    * the one screen disagreeing with the wall. */
+  syncPhoneThreads();
   const story = campaign.state.story;
   phone.time.day = story.day;
   // The Phone reads `hour` as a FRACTIONAL hour; the fraction is its minutes.
@@ -2308,7 +2328,12 @@ window.addEventListener('keydown', (e) => {
     interaction.press();
   }
   if (e.code === 'KeyQ') {
-    if (game.phoneUp && phone.call) { phone.hangUp(); paintPhone(); return; }
+    if (game.phoneUp) {
+      if (phone.call) phone.hangUp();
+      else showPhone(false);
+      paintPhone();
+      return;
+    }
     if (game.seatedIn === 'table') standFromTable();
     else if (game.seatedIn === 'seat') standFromSeat();
     else if (game.seatedIn === 'car') getOutOfCar();
@@ -2350,6 +2375,12 @@ window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
   if (e.code === 'KeyE') interaction.release();
 });
+window.addEventListener('wheel', (e) => {
+  if (!game.phoneUp || (phone.screen !== 'messages' && phone.screen !== 'thread')) return;
+  e.preventDefault();
+  phone.cycle(e.deltaY > 0 ? 1 : -1);
+  paintPhone();
+}, { passive: false });
 window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
 
 canvas.addEventListener('click', () => {
@@ -2698,7 +2729,7 @@ window.__bing = {
   interaction, drunk, highs, inventory, campaign, car, lot, associate, scripts,
   family, familyScripts, faceIndex,
   isSecondVisit, secondVisitStory,
-  phone, phoneStory, spokeTo, stageTalk,
+  phone, phoneStory, spokeTo, stageTalk, voiceCue,
   updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck,
   paintKit, showKit, showPhone, repaintObjectives, optionalObjectives,
   startFocus, focusTick, moneyBurst, noteSpokeTo,

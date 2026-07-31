@@ -93,6 +93,45 @@ await page.click('#start-btn');
 await page.waitForFunction(() => window.__bing?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__bing.postfx.disable?.());
 
+/* A cue request in voLog only tells us that the script named a file.  It does
+ * not prove the decoded buffer was ever put on the WebAudio graph -- the
+ * exact failure that made a fully-recorded Bing sound silent.  Exercise one
+ * representative line for every authored voice surface without letting the
+ * normal single-voice rule cut another line short, then wait for their real
+ * decoded durations. */
+const voicedSurfaces = [
+  'vo.bing.door.in.1',
+  'vo.bing.bar.1',
+  'vo.bing.blackjack.dealer.deal.1',
+  'vo.bing.stage.1',
+  'vo.bing.hang.gratin.1',
+];
+const playbackProbe = await page.evaluate((cues) => {
+  const b = window.__bing;
+  b.audio.clearPlaybackLog?.();
+  const started = cues.map((cue) => b.voiceCue?.(cue, { solo: false }));
+  const longest = Math.max(...cues.map((cue) => b.audio.buffers.get(cue)?.[0]?.duration ?? 0));
+  return { started, longest };
+}, voicedSurfaces);
+check('representative Bing voice recordings are decoded before playback',
+  playbackProbe.started.every(Boolean) && playbackProbe.longest > 0,
+  JSON.stringify(playbackProbe));
+await page.waitForTimeout(Math.ceil((playbackProbe.longest + 0.45) * 1000));
+const completedVoices = await page.evaluate((cues) => window.__bing.audio.playbacks
+  .filter((playback) => cues.includes(playback.name))
+  .map((playback) => ({
+    name: playback.name,
+    decodedDuration: playback.decodedDuration,
+    gain: playback.gain,
+    connectedToSfx: playback.connectedToSfx,
+    naturalEnd: playback.naturalEnd,
+  })), voicedSurfaces);
+check('Bing voice buffers reach a nonzero-gain SFX graph and run to natural completion',
+  completedVoices.length === voicedSurfaces.length
+    && completedVoices.every((playback) => playback.decodedDuration > 0
+      && playback.gain > 0 && playback.connectedToSfx && playback.naturalEnd),
+  JSON.stringify(completedVoices));
+
 /** Step the game's own update path for `secs` of simulated time. */
 async function tick(secs = 1, step = 0.25) {
   await page.evaluate(([secs, step]) => {
@@ -2101,6 +2140,12 @@ const punchHud = await page.evaluate(async () => {
   const phoneUp = !document.getElementById('phone-osd').classList.contains('hidden');
   const phoneCanvas = !!document.querySelector('#phone-osd canvas');
   const ringing = b.phone ? b.phone.ringing : null;
+  b.phone.press(); // home -> messages
+  b.phone.press(); // messages -> thread
+  const threadBeforeWheel = b.phone.threads[b.phone.thread]?.id;
+  window.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, cancelable: true }));
+  const threadAfterWheel = b.phone.threads[b.phone.thread]?.id;
+  const phoneRead = b.phone.threads.find((thread) => thread.id === threadBeforeWheel)?.unread === false;
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
 
   // The tip: money in the air, and the objective ticks.
@@ -2123,6 +2168,9 @@ const punchHud = await page.evaluate(async () => {
     phoneUp,
     phoneCanvas,
     ringing,
+    threadBeforeWheel,
+    threadAfterWheel,
+    phoneRead,
     bills,
     objectives,
     clockDay: story.day,
@@ -2139,6 +2187,9 @@ check('the club has an inventory readout, and it takes the package',
 check('the phone comes out of the pocket in the club',
   punchHud.phoneUp && punchHud.phoneCanvas && punchHud.ringing === false,
   JSON.stringify({ up: punchHud.phoneUp, canvas: punchHud.phoneCanvas }));
+check('the raised phone opens readable threads, marks the opened thread read, and navigates by wheel',
+  !!punchHud.threadBeforeWheel && punchHud.threadBeforeWheel !== punchHud.threadAfterWheel && punchHud.phoneRead,
+  JSON.stringify({ before: punchHud.threadBeforeWheel, after: punchHud.threadAfterWheel, read: punchHud.phoneRead }));
 /* The phone row is the campaign's `carried` entry, the one the flat writes
  * when he takes it off the nightstand -- not a line printed under the money
  * whatever the truth is. It appears when it is on him, it is gone when it is
