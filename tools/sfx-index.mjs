@@ -1,16 +1,30 @@
 #!/usr/bin/env node
 /**
- * Write assets/sfx/_listen.html -- every cue in the folder, playable inline,
- * grouped by prefix, with the prompt or spoken line next to it. Open it in a
- * browser to audition the whole set without clicking through Explorer.
+ * Take stock of assets/sfx/ after somebody has put files in it.
+ *
+ * Two outputs, both derived from the folder as it now stands:
+ *
+ *   index.json    which cue files exist. The game fetches only what this
+ *                 lists, so a recording that is not in here is a recording
+ *                 the game never plays.
+ *   _listen.html  every cue playable inline, grouped by prefix, with the
+ *                 prompt or spoken line next to it. Audition the whole set
+ *                 without clicking through Explorer.
  *
  *   node tools/sfx-index.mjs
+ *
+ * This is the command the audio docs send people to after they deliver
+ * hand-recorded mp3s, which is why it owns the index and not just the page:
+ * it used to write only the page, so a delivered recording landed on disk,
+ * never got indexed, never got fetched, and the game went on playing the
+ * procedural stand-in with nothing anywhere saying why.
  *
  * ponytail: plain file:// page, no server. `npm start` also serves it.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { writeIndex } from './sfx-index-json.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SFX_DIR = path.join(ROOT, 'assets', 'sfx');
@@ -65,3 +79,6 @@ ${rows}
 const dest = path.join(SFX_DIR, '_listen.html');
 await fs.writeFile(dest, html);
 console.log(`Wrote ${path.relative(ROOT, dest)} (${files.length} cues, ${groups.size} groups).`);
+
+const indexed = await writeIndex(SFX_DIR);
+console.log(`Wrote assets/sfx/index.json (${indexed.length} file(s)) — this is what the game fetches.`);
