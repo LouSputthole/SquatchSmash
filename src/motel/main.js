@@ -2717,8 +2717,10 @@ function buildDriveScene() {
   const s = new THREE.Scene();
   s.background = new THREE.Color(0x090c16);
   s.fog = new THREE.Fog(0x0d1220, 30, 170);
-  s.add(new THREE.HemisphereLight(0x33405c, 0x0a0a0c, 0.7));
-  const key = new THREE.DirectionalLight(0x9fb4e8, 0.5);
+  /* Night, and dark enough that the headlights are the reason he can see the
+   * road. The street lamps down both shoulders keep it from being a tunnel. */
+  s.add(new THREE.HemisphereLight(0x33405c, 0x0a0a0c, 0.22));
+  const key = new THREE.DirectionalLight(0x9fb4e8, 0.16);
   key.position.set(-20, 40, -30);
   s.add(key);
 
@@ -2775,54 +2777,121 @@ function buildDriveCar(color, player = false) {
     g.add(cabin);
     return finishDriveCar(g);
   }
-  // Convertible, like the movie car: an open cockpit tub with seats, a dash,
-  // and a raked windshield instead of the old solid cabin block.
+  /* Convertible, like the movie car: an open cockpit tub with seats, a dash and
+   * a raked windshield.
+   *
+   * The cockpit is built facing -z, which is the way this car actually travels.
+   * It used to be built facing +z while the road scrolled the other way, so the
+   * driver sat looking out of the back of his own car: the first thing in front
+   * of the camera was the passenger seat back, a metre away, and the road was
+   * never visible at all. */
   const tub = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 2.2), lambert(0x1a1c22));
-  tub.position.set(0, 1.31, -0.2);
+  tub.position.set(0, 1.31, 0.2);
   g.add(tub);
   for (const sx of [-0.45, 0.45]) {
     const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.12, 0.6), lambert(0x5a2c2c));
-    cushion.position.set(sx, 1.4, -0.5);
+    cushion.position.set(sx, 1.4, 0.5);
     g.add(cushion);
     const back = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.44, 0.12), lambert(0x5a2c2c));
-    back.position.set(sx, 1.62, -0.86);
-    back.rotation.x = 0.14;
+    back.position.set(sx, 1.62, 0.86);
+    back.rotation.x = -0.14;
+    back.userData.role = 'seat-back';
     g.add(back);
   }
   const dash = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.18, 0.36), lambert(0x14161c, { emissive: 0x101418 }));
-  dash.position.set(0, 1.5, 0.62);
+  dash.position.set(0, 1.44, -0.62);
+  dash.userData.role = 'dash';
   g.add(dash);
   const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.21, 0.03, 6, 14), lambert(0x0e0f13));
-  wheel.position.set(-0.45, 1.56, 0.44);
-  wheel.rotation.x = 1.15;
+  wheel.position.set(-0.45, 1.56, -0.44);      // left hand drive, travelling -z
+  wheel.rotation.x = -1.15;
   g.add(wheel);
   const shield = new THREE.Mesh(
     new THREE.BoxGeometry(1.8, 0.5, 0.05),
-    lambert(0xbcd2e0, { transparent: true, opacity: 0.25 }),
+    lambert(0xbcd2e0, { transparent: true, opacity: 0.18 }),
   );
-  shield.position.set(0, 1.72, 0.92);
-  shield.rotation.x = -0.3;
+  shield.position.set(0, 1.72, -0.92);
+  shield.rotation.x = 0.3;
+  shield.userData.role = 'windshield';
   g.add(shield);
   const shieldFrame = new THREE.Mesh(new THREE.BoxGeometry(1.86, 0.05, 0.06), lambert(0x8a8f98));
-  shieldFrame.position.set(0, 1.95, 0.85);
-  shieldFrame.rotation.x = -0.3;
+  shieldFrame.position.set(0, 1.95, -0.85);
+  shieldFrame.rotation.x = 0.3;
   g.add(shieldFrame);
-  // Real headlight throw — two unshadowed spots plus visible emissive beams.
+
+  /* Headlights that unmistakably land on the road.
+   *
+   * Two unshadowed spots aimed down the tarmac, strong enough to read against
+   * the night rather than the 2.2 candela they used to carry, which the
+   * hemisphere light alone drowned out. The visible beam is now a slim cone
+   * that is narrow at the lamp and wide down the road -- the way a beam
+   * actually goes -- laid low and told not to write depth, because the old one
+   * was three metres across, apex-first, at eye level, and the player watched
+   * the whole drive through two overlapping sheets of glowing fog. */
   for (const sx of [-0.65, 0.65]) {
-    const spot = new THREE.SpotLight(0xfff0c8, 2.2, 60, 0.45, 0.6, 1);
+    /* Aimed down at the tarmac rather than off at the horizon. A lamp 0.9m up
+     * pointed 34m away meets the road at about three degrees, where diffuse
+     * response is almost nothing however bright the bulb -- which is why the
+     * old headlights lit no road at any intensity. Bringing the aim in and the
+     * candela up to something a real low beam would carry puts a pool of light
+     * on the ground where the driver is looking. */
+    const spot = new THREE.SpotLight(0xfff0c8, 1600, 90, 0.5, 0.45, 1);
     spot.castShadow = false;
-    spot.position.set(sx, 0.9, -2.3);
-    spot.target.position.set(sx * 1.4, 0.1, -40);
+    spot.position.set(sx, 1.0, -2.3);
+    spot.target.position.set(sx * 1.3, 0, -16);
+    spot.userData.role = 'headlight';
     g.add(spot, spot.target);
     const beam = new THREE.Mesh(
-      new THREE.ConeGeometry(1.5, 9, 8, 1, true),
-      lambert(0xfff2c8, { emissive: 0xd8be78, transparent: true, opacity: 0.08 }),
+      new THREE.ConeGeometry(0.9, 13, 10, 1, true),
+      lambert(0xfff2c8, {
+        emissive: 0xd8be78, transparent: true, opacity: 0.05, depthWrite: false,
+      }),
     );
-    beam.position.set(sx, 0.85, -6.8);
-    beam.rotation.x = -Math.PI / 2;
+    beam.position.set(sx * 1.15, 0.5, -8.9);
+    beam.rotation.x = Math.PI / 2;   // apex at the lamp, mouth down the road
+    beam.renderOrder = -1;
+    beam.userData.role = 'headlight-beam';
     g.add(beam);
   }
+  /* And the pool itself, laid on the tarmac and travelling with the car, so
+   * that "are the headlights on" is never a question the player has to ask. */
+  const pool = new THREE.Mesh(
+    new THREE.PlaneGeometry(15, 30),
+    new THREE.MeshBasicMaterial({
+      map: headlightPoolTexture(),
+      transparent: true,
+      opacity: 0.34,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    }),
+  );
+  pool.rotation.x = -Math.PI / 2;
+  pool.position.set(0, 0.03, -14);
+  pool.renderOrder = -2;
+  pool.userData.role = 'headlight-pool';
+  g.add(pool);
   return finishDriveCar(g);
+}
+
+/** A soft wedge of light, brightest a few metres out and fading down the road. */
+let _poolTex = null;
+function headlightPoolTexture() {
+  if (_poolTex) return _poolTex;
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const ctx = c.getContext('2d');
+  /* The falloff has to reach zero inside the texture on every side, or the
+   * plane's own edges show up on the tarmac as straight bright lines. */
+  const grad = ctx.createRadialGradient(128, 168, 8, 128, 168, 122);
+  grad.addColorStop(0, 'rgba(255,244,208,0.85)');
+  grad.addColorStop(0.4, 'rgba(255,238,190,0.34)');
+  grad.addColorStop(1, 'rgba(255,232,170,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, c.width, c.height);
+  _poolTex = new THREE.CanvasTexture(c);
+  _poolTex.colorSpace = THREE.SRGBColorSpace;
+  return _poolTex;
 }
 
 /** Wheels and lamp faces, shared by the player car and traffic. */
@@ -2955,8 +3024,12 @@ function updateDrive(dt) {
   // Keep the getaway in first person as well. Tony rides on the passenger
   // side unless Snow is injured and Tony has to take the wheel.
   const seatX = S.snowInjured ? -0.42 : 0.42;
-  camera.position.set(drive.x + seatX, 1.62, 0.25);
-  camera.lookAt(drive.x + seatX - steer * 0.8, 1.5, -22);
+  /* Eye height above the dash, which is where a driver's eyes are. At the old
+   * 1.62 the camera sat level with the middle of the dashboard, so once the
+   * cockpit was facing the right way the dash filled the centre of the frame
+   * and the floor pan filled the bottom. Aimed down the road, not at the sky. */
+  camera.position.set(drive.x + seatX, 1.86, 0.3);
+  camera.lookAt(drive.x + seatX - steer * 0.8, 0.75, -16);
   if (shake > 0) {
     shake = Math.max(0, shake - dt * 1.8);
     camera.position.x += (Math.random() - 0.5) * shake;
