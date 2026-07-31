@@ -12,6 +12,7 @@ import {
 } from './dialogue.js';
 import { rollShipment, Inspection, Freshness } from './jerky.js';
 import {
+  ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
   createCampaign,
@@ -115,6 +116,8 @@ const slowTintEl = $('slowTint');
 const grappleEl = $('grapple');
 const grappleFillEl = $('grappleFill');
 const driveHudEl = $('driveHud');
+const packBoxEl = $('packBox');
+const packListEl = $('packList');
 
 // ---------- Game state ----------
 let phase = 'menu';   // menu | car | lot | door | room | fight | recover | escape | drive | end
@@ -258,6 +261,7 @@ let grapple = null;     // { actor, progress, t }
 let blindT = 0;
 let stunT = 0;
 let inspecting = false;
+let playerMoving = false;
 let dialogue = null;    // { nodeId, node, opts }
 let subtitleT = 0;
 const carriedCases = { money: null, jerky: null };
@@ -582,6 +586,7 @@ function startScene() {
   S.carryingMoney = true;
   setObjective('reach', 'Meet the jerky suppliers');
   renderObjectiveList();
+  updateGear();
 
   // Seat Prospect in the passenger seat
   pos.set(-7.55, 0, 16.4);
@@ -2416,6 +2421,7 @@ function updatePlayer(dt) {
   }
 
   const move = computeMove();
+  playerMoving = move.lengthSq() > 0.02;
   const sprinting = keys.has('sprint') || (touch.active && Math.hypot(touch.x, touch.y) > 0.9);
   let speed = sprinting ? RUN : WALK;
   if (S.carryingJerky) speed *= 0.92;
@@ -2562,7 +2568,131 @@ function onUse() {
   }
 }
 
-// ---------- Gear HUD ----------
+// ---------- What Tony is holding, from Tony's eyes ----------
+// The apartment already does this: the camera goes into the scene graph and
+// the held item hangs off the camera, so it rides the view for free. The motel
+// is first person in every walkable phase and showed nothing at all in his
+// hands, which made an equipped revolver a line of HUD text and not a gun.
+
+scene.add(camera);
+const viewmodel = new THREE.Group();
+viewmodel.visible = false;
+camera.add(viewmodel);
+
+let viewmodelKind = null;
+let viewSway = 0;
+/* Low and to the right, close enough to read and far enough not to own the
+ * screen. Half a metre out at a 62 degree lens is about a third of the frame. */
+const _viewRest = new THREE.Vector3(0.175, -0.145, -0.40);
+const _viewBox = new THREE.Box3();
+const _viewCentre = new THREE.Vector3();
+
+function updateViewmodel() {
+  const kind = S.weapon && S.weapon !== 'fists' ? S.weapon : null;
+  if (kind !== viewmodelKind) {
+    viewmodelKind = kind;
+    viewmodel.clear();
+    if (kind) {
+      const mesh = buildWeaponMesh(kind);
+      /* The world meshes are built to sit in somebody's fist at arm's length.
+       * Held against the lens they want turning muzzle-forward, scaling down,
+       * and re-centring on their own bounding box — the builders put their
+       * origins wherever the hand was, which off screen is nowhere useful. */
+      mesh.rotation.set(Math.PI / 2, 0, 0.12);
+      mesh.scale.setScalar(0.42);
+      mesh.updateMatrixWorld(true);
+      _viewBox.setFromObject(mesh);
+      mesh.position.sub(_viewBox.getCenter(_viewCentre));
+      mesh.traverse((o) => {
+        if (!o.isMesh) return;
+        o.castShadow = false;
+        o.receiveShadow = false;
+        /* The lot is lit for a parking lot at night, which leaves anything
+         * held at the lens as a silhouette. Its own faint glow lets him see
+         * what he is holding without putting light on the motel. */
+        o.material = o.material.clone();
+        if (o.material.emissive) {
+          o.material.emissive.copy(o.material.color).multiplyScalar(0.55);
+        }
+      });
+      viewmodel.add(mesh);
+    }
+  }
+  viewmodel.visible = !!kind && phase !== 'menu' && phase !== 'end'
+    && phase !== 'drive' && phase !== 'boarding' && !inspecting;
+}
+
+/** A little weight on the end of his arm: bob while walking, lag while turning. */
+function updateViewmodelSway(dt, moving) {
+  if (!viewmodel.visible) return;
+  viewSway += dt * (moving ? 9 : 2.2);
+  const bob = moving ? 0.012 : 0.004;
+  viewmodel.position.set(
+    _viewRest.x + Math.sin(viewSway * 0.5) * bob * 1.4,
+    _viewRest.y + Math.abs(Math.sin(viewSway)) * bob,
+    _viewRest.z,
+  );
+  viewmodel.rotation.set(
+    Math.sin(viewSway * 0.5) * 0.02,
+    Math.sin(viewSway * 0.37) * 0.03,
+    Math.sin(viewSway * 0.5) * 0.02,
+  );
+}
+
+// ---------- Gear + inventory HUD ----------
+
+const CAMPAIGN_ITEM_LABELS = { [ITEM_IDS.LOU_PACKAGE]: "Lou's package" };
+
+/**
+ * Everything Tony has on him right now, scene props and campaign items alike.
+ *
+ * The scene tracks its own cargo in `S`; the campaign tracks anything that
+ * outlives the night. Both belong on the same list, because from the player's
+ * side of the screen there is no difference between the two.
+ */
+function inventoryItems() {
+  const items = [];
+  const weapon = WEAPON_STATS[S.weapon] || WEAPON_STATS.fists;
+  if (S.weapon && S.weapon !== 'fists') {
+    items.push({
+      id: `weapon:${S.weapon}`,
+      icon: weapon.ammo ? '🔫' : '🔧',
+      text: weapon.name + (weapon.ammo ? ` · ${S.ammo} rounds` : ''),
+    });
+  }
+  if (S.carryingMoney && !S.couponOnly) items.push({ id: 'money', icon: '💼', text: '$40,000, mostly' });
+  if (S.couponOnly) items.push({ id: 'coupon', icon: '🎟️', text: 'One expired steakhouse coupon' });
+  if (S.carryingJerky) {
+    items.push({
+      id: 'reserve',
+      icon: '🥩',
+      text: `The Reserve · ${S.packagesIntact}/8 intact`,
+      dim: S.packagesIntact < 8,
+    });
+  }
+  if (S.stashTaken) items.push({ id: 'stash', icon: '📦', text: "Rico's premium stash" });
+  if (S.wrongCase) items.push({ id: 'wrong', icon: '🦃', text: 'A case of warm smoked turkey', dim: true });
+  for (const id of campaign.state.inventory.carried) {
+    items.push({ id: `carry:${id}`, icon: '🎁', text: CAMPAIGN_ITEM_LABELS[id] || id });
+  }
+  for (const id of campaign.state.inventory.concealed) {
+    items.push({ id: `hide:${id}`, icon: '🧥', text: `${CAMPAIGN_ITEM_LABELS[id] || id} (concealed)`, dim: true });
+  }
+  return items;
+}
+
+let packShown = new Set();
+function renderInventory() {
+  const items = inventoryItems();
+  packBoxEl.classList.toggle('empty', items.length === 0);
+  packListEl.innerHTML = items.map((item) => {
+    const fresh = packShown.has(item.id) ? '' : ' new';
+    return `<div class="item${item.dim ? ' dim' : ''}${fresh}">`
+      + `<span class="tag">${item.icon}</span> ${item.text}</div>`;
+  }).join('');
+  packShown = new Set(items.map((item) => item.id));
+}
+
 function updateGear() {
   const st = WEAPON_STATS[S.weapon] || WEAPON_STATS.fists;
   weaponNameEl.textContent = st.name + (st.ammo ? ` · ${S.ammo}` : '');
@@ -2573,6 +2703,8 @@ function updateGear() {
   if (S.carryingJerky) carry.push(`🥩 The Reserve ${S.packagesIntact}/8`);
   if (S.stashTaken) carry.push('📦 premium stash');
   carryLineEl.textContent = carry.join('  ·  ');
+  renderInventory();
+  updateViewmodel();
 }
 
 // ---------- The drive ----------
@@ -3117,11 +3249,16 @@ const clock = new THREE.Clock();
 
 function tick() {
   requestAnimationFrame(tick);
-  if (paused) { renderer.render(phase === 'drive' ? drive.scene : scene, camera); return; }
+  if (paused) {
+    camera.updateMatrixWorld();
+    renderer.render(phase === 'drive' ? drive.scene : scene, camera);
+    return;
+  }
   const raw = Math.min(clock.getDelta(), 0.05);
 
   if (hitStop > 0) {
     hitStop -= raw;
+    camera.updateMatrixWorld();
     renderer.render(phase === 'drive' ? drive.scene : scene, camera);
     return;
   }
@@ -3131,6 +3268,10 @@ function tick() {
   if (phase === 'drive') {
     updateDrive(dt);
     updateHud(raw);
+    /* The camera hangs off the main scene now so the viewmodel can ride it.
+     * The drive renders a different scene, which never walks that graph, so
+     * the camera's world matrix has to be brought up to date by hand. */
+    camera.updateMatrixWorld();
     renderer.render(drive.scene, camera);
     return;
   }
@@ -3142,6 +3283,8 @@ function tick() {
     if (player.consumeImpact() && pendingHit) { resolvePlayerHit(pendingHit); pendingHit = null; }
 
     updatePlayer(dt);
+    updateViewmodel();
+    updateViewmodelSway(dt, playerMoving);
     updateRoomBeats(dt);
     updateFightLogic(dt);
 
@@ -3239,6 +3382,17 @@ window.MOTEL = {
     coverage: () => sfx.voiceCoverage(),
     get requested() { return [...sfx.voiceRequested]; },
     busy: () => sfx.voiceBusy(),
+  },
+  /* The HUD inventory and the thing in his hands, for the verifier. */
+  get inventory() { return inventoryItems(); },
+  get viewmodel() {
+    return {
+      kind: viewmodelKind,
+      visible: viewmodel.visible,
+      children: viewmodel.children.length,
+      inCamera: viewmodel.parent === camera,
+      position: viewmodel.position.toArray().map((n) => Number(n.toFixed(3))),
+    };
   },
   isBlocked: (x, z, y = feetY, radius = PLAYER_R) => blocked(x, z, y, radius),
   start: startScene,
