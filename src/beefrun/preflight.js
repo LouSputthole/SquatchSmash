@@ -13,10 +13,15 @@
  * Touch things in any order you like; the guidance just keeps pointing at the
  * nearest loose end.
  *
- * The fuel sample is the one that is played rather than pressed: hold to drain,
- * and let go when the cup runs clear. That uses the hold/tap pair the
- * apartment's InteractionSystem already supports — a full hold overflows it, a
- * release inside the window is a good sample.
+ * The fuel sample is a cup off each side, the way Lou says it. It used to be a
+ * dexterity test — a hold released inside an unsignalled slice of its own
+ * timer, on a first draw that was rigged to fail — which meant the one item
+ * whose marker says "stand here and press E" was the one item E could not
+ * finish. Now every way of closing the valve produces a cup: a tap, a release
+ * part-way through a hold, a hold held until it overflows, even dragging the
+ * crosshair off the drain mid-hold. The first cup is cloudy and Lou hits the
+ * tank; the second runs clear. Holding is the flourish — you get to watch the
+ * stream and the cup fill — and never the gate.
  */
 import * as THREE from 'three';
 import {
@@ -65,7 +70,7 @@ export class Preflight {
       chocks: { done: false, label: 'Wheel chocks', count: 0, need: 2 },
       caps: { done: false, label: 'Fuel caps', count: 0, need: 2 },
       props: { done: false, label: 'Propellers', count: 0, need: 2 },
-      sample: { done: false, label: 'Fuel sample', count: 0, need: 1 },
+      sample: { done: false, label: 'Fuel samples', count: 0, need: 2 },
       door: { done: false, label: 'Cargo door', count: 0, need: 1 },
       surfaces: { done: false, label: 'Control surfaces', count: 0, need: 2 },
     };
@@ -75,7 +80,8 @@ export class Preflight {
     this.onProgress = null;
     this.onComplete = null;
 
-    this.sampleAttempts = 0;
+    this.sampleDrawn = [false, false];   // one cup off each side
+    this.sampleHeld = null;              // which valve is open right now
     this.capLoose = 1;              // the right cap is the loose one
     this.capTurn = 0;
     this.surfaceAnim = { elevator: 0, rudder: 0 };
@@ -197,6 +203,58 @@ export class Preflight {
     }
   }
 
+  /** The first cup off an aeroplane that has sat out overnight never is. */
+  get sampleRunsClear() { return this.tasks.sample.count >= 1; }
+
+  /**
+   * The valve, open. The cup fills while it is held, the stream runs in the
+   * colour of whatever is coming out, and `sampleHeld` remembers which side is
+   * pouring so update() can close it if the crosshair wanders off.
+   */
+  runValve(drain, i, t) {
+    this.sampleHeld = i;
+    this.cup.visible = true;
+    this.cup.position.set(drain.position.x, drain.position.y - 0.34, drain.position.z);
+    this.sampleFluid.scale.y = clamp(t * 5, 0.2, 2.6);
+    this.sampleFluid.position.y = -0.05 + this.sampleFluid.scale.y * 0.01;
+    const clear = this.sampleRunsClear;
+    this.sampleFluid.material = mat({
+      color: clear ? 0x9ec4d8 : 0xb8b49a,
+      roughness: clear ? 0.12 : 0.5,
+      transparent: true,
+      opacity: clear ? 0.55 : 0.95,
+    });
+    this.stream.visible = true;
+    this.stream.position.set(drain.position.x, drain.position.y - 0.16, drain.position.z);
+    this.stream.material = this.sampleFluid.material;
+    this.streamT = 0.2;
+  }
+
+  /**
+   * Close the valve and read the cup. Every route in here counts as a draw —
+   * a tap, a release, an overflow, a wandered crosshair — because the marker
+   * is standing at this drain telling the player that E does something.
+   */
+  drawSample(i, { spilled = false } = {}) {
+    this.sampleHeld = null;
+    this.streamT = 0;
+    if (this.sampleDrawn[i] || this.tasks.sample.done) return;
+    const clear = this.sampleRunsClear;
+    this.sampleDrawn[i] = true;
+    this.dumpCup(i, clear);
+    this.interaction.unregister(this.aircraft.parts.drain[i]);
+    if (clear) {
+      this.dialogue.play('preflight.drain.clear', { once: true });
+      this.audio?.play('can.set', { volume: 0.5 });
+    } else {
+      this.dialogue.play('preflight.drain.cloudy', { once: true });
+      this.audio?.play(spilled ? 'glue.slip' : 'can.set', { volume: spilled ? 0.4 : 0.5 });
+      // Lou walks over and hits the tank. It is not a repair.
+      this.audio?.play('neighbours.thump', { volume: 0.5, delay: 0.8 });
+    }
+    this.finish('sample');
+  }
+
   get progress() {
     const all = Object.values(this.tasks);
     return all.filter((t) => t.done).length / all.length;
@@ -246,7 +304,7 @@ export class Preflight {
       case 'chocks': return this.chocks.find((c) => !c.userData.pulled) ?? this.chocks[0];
       case 'caps': return ac.parts.fuelCap.find((_, i) => !this.capChecked?.[i]) ?? ac.parts.fuelCap[0];
       case 'props': return ac.parts.prop.find((_, i) => !this.propChecked?.[i]) ?? ac.parts.prop[0];
-      case 'sample': return ac.parts.drain[0];
+      case 'sample': return ac.parts.drain.find((_, i) => !this.sampleDrawn[i]) ?? ac.parts.drain[0];
       case 'door': return ac.parts.doorHandle;
       case 'surfaces': return this.surfaceChecked?.elevator ? ac.parts.rudder : ac.parts.elevator;
       default: return null;
@@ -360,65 +418,26 @@ export class Preflight {
     });
 
     // ---- 4. Fuel sample ----
-    // Hold to drain. The first cup is cloudy; Lou hits the tank and the second
-    // runs clear. Let go while it is clear and it counts. The fuel itself is
-    // visible the whole way: a stream into the cup while the valve is open,
-    // and a stain on the apron wherever a cup gets tipped out.
+    // A cup off each side, and the marker walks you from one drain to the
+    // other exactly like it does the caps. Press E and a cup comes out; hold
+    // it and you get to watch the stream fill one, which is the whole reason
+    // the stream exists. The first cup is cloudy, Lou hits the tank, and the
+    // second runs clear. The fuel is visible the whole way: a stream into the
+    // cup while the valve is open, and a stain on the apron wherever a cup
+    // gets tipped out.
     ac.parts.drain.forEach((drain, i) => {
       reg(drain, {
-        label: () => 'Hold to <b>drain a sample</b>',
-        holdLabel: () => 'Let go when it runs <b>clear</b>',
+        label: () => 'Draw a <b>fuel sample</b>',
+        holdLabel: () => 'Let go before it <b>overflows</b>',
         key: 'E',
         hold: 1.5,
-        enabled: () => !this.tasks.sample.done,
+        enabled: () => !this.sampleDrawn[i] && !this.tasks.sample.done,
         onLook: () => this.dialogue.play('preflight.drain', { once: true }),
-        onHoldProgress: (t) => {
-          this.cup.visible = true;
-          this.cup.position.set(drain.position.x, drain.position.y - 0.34, drain.position.z);
-          this.sampleFluid.scale.y = clamp(t * 5, 0.2, 2.6);
-          this.sampleFluid.position.y = -0.05 + this.sampleFluid.scale.y * 0.01;
-          // First attempt: never clears. Second: clears in the window.
-          const clear = this.sampleAttempts > 0 && t > 0.45 && t < 0.82;
-          this.sampleClear = clear;
-          this.sampleFluid.material = mat({
-            color: clear ? 0x9ec4d8 : 0xb8b49a,
-            roughness: clear ? 0.12 : 0.5,
-            transparent: true,
-            opacity: clear ? 0.55 : 0.95,
-          });
-          // The stream from valve to cup, the colour of what is coming out.
-          this.stream.visible = true;
-          this.stream.position.set(drain.position.x, drain.position.y - 0.16, drain.position.z);
-          this.stream.material = this.sampleFluid.material;
-          this.streamT = 0.2;
-        },
+        onHoldProgress: (t) => this.runValve(drain, i, t),
         // Held all the way: it overflows down your arm and onto the apron.
-        onUse: () => {
-          this.dumpCup(i, false);
-          this.sampleAttempts++;
-          this.dialogue.play('preflight.drain.cloudy', { once: this.sampleAttempts > 1 });
-          this.audio?.play('glue.slip', { volume: 0.4 });
-        },
-        onTap: () => {
-          if (this.sampleClear) {
-            // Inspected, approved, and tipped out like every sample before it.
-            this.dumpCup(i, true);
-            this.dialogue.play('preflight.drain.clear', { once: true });
-            this.audio?.play('can.set', { volume: 0.5 });
-            ac.parts.drain.forEach((d) => this.interaction.unregister(d));
-            this.finish('sample');
-          } else {
-            this.dumpCup(i, false);
-            this.sampleAttempts++;
-            if (this.sampleAttempts === 1) {
-              this.dialogue.play('preflight.drain.cloudy');
-              // Lou walks over and hits the tank. It is not a repair.
-              this.audio?.play('neighbours.thump', { volume: 0.5, delay: 0.8 });
-            } else {
-              this.dialogue.bark('smooth');
-            }
-          }
-        },
+        // You still saw what colour it was, so it still counts.
+        onUse: () => this.drawSample(i, { spilled: true }),
+        onTap: () => this.drawSample(i),
       });
     });
 
@@ -464,6 +483,8 @@ export class Preflight {
     this.armed = false;
     this.cup.visible = false;
     this.stream.visible = false;
+    this.streamT = 0;
+    this.sampleHeld = null;
     this.marker.visible = false;
   }
 
@@ -477,12 +498,17 @@ export class Preflight {
         else this.aircraft.parts.rudder.rotation.y = swing;
       }
     }
-    // The stream stops the moment the valve is no longer being held open.
+    /* The stream stops the moment the valve is no longer being held open —
+     * and whatever was in the cup when it stopped is the sample. Dragging the
+     * crosshair off the drain mid-hold cancels the hold without firing a
+     * release, so this timeout is what closes the valve in that case, and the
+     * cup gets read rather than quietly thrown away. */
     if (this.streamT > 0) {
       this.streamT -= dt;
       if (this.streamT <= 0) {
         this.stream.visible = false;
         this.cup.visible = false;
+        if (this.sampleHeld !== null) this.drawSample(this.sampleHeld);
       }
     }
     // The guide marker breathes at whatever the checklist wants next: ring
