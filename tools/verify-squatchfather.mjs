@@ -483,17 +483,92 @@ try {
   check('the train cue advances into the first shooting beat',
     current.beat === 'SHOOT_SAL', current.beat);
 
-  await page.evaluate(() => {
-    window.squatchfather.pressFire();
-    window.squatchfather.tick(0.2);
-  });
-  current = await state();
-  check('shooting Sal advances to McClawsky', current.beat === 'SHOOT_MCCLAWSKY', current.beat);
+  // ---- The first shot must cost what the second one costs.
+  //
+  // The muzzle flash is a PointLight that is hidden until the trigger, and
+  // three.js keys every material's shader program on how many lights are
+  // visible. Without a prewarm, the frame that light first appears on has to
+  // compile and link a program for the entire room: measured at ~994ms against
+  // ~8ms for a quiet frame, which is the ten dropped frames the owner sees.
+  //
+  // Both shots are driven through the real path here (pressFire + a hair of
+  // simulated time, so fire() runs and impacts.update has not yet decayed the
+  // flash away), and each is rendered explicitly rather than waiting on frame
+  // pacing — a loaded box running software GL renders far too slowly for rAF
+  // deltas to say anything, and at 4fps the flash decays inside updateGame and
+  // never reaches a render at all.
+  //
+  // Nothing here is compared against a millisecond count. The quiet reference
+  // is a MEDIAN frame, which a single stalled sample cannot move, and it is
+  // scaled to the width of the shot window so the two are like for like. The
+  // program count is the exact, noise-free half of the proof: the hitch was
+  // thirteen new programs, so zero growth is the regression that matters.
+  await page.waitForFunction(() => !!window.squatchfather.prewarmReport, null, { timeout: 90000 });
+  const shotCost = await page.evaluate(() => {
+    const sf = window.squatchfather;
+    const { renderer, scene: gl, camera } = sf;
+    const draw = () => {
+      const t0 = performance.now();
+      renderer.render(gl, camera);
+      return +(performance.now() - t0).toFixed(2);
+    };
+    const shoot = () => {
+      sf.pressFire();
+      sf.tick(0.001); // fire() runs; the flash is lit and not yet decayed
+      const window6 = [draw()];
+      for (let i = 0; i < 5; i++) { sf.tick(0.02); window6.push(draw()); }
+      return window6;
+    };
+    for (let i = 0; i < 3; i++) draw(); // settle
+    const quiet = [];
+    for (let i = 0; i < 6; i++) quiet.push(draw());
 
-  await page.evaluate(() => {
-    window.squatchfather.pressFire();
-    window.squatchfather.tick(0.2);
+    const programsBefore = renderer.info.programs.length;
+    const first = shoot();
+    const programsAfterFirst = renderer.info.programs.length;
+    const salBeat = sf.state();
+    const second = shoot();
+    return {
+      quiet,
+      first,
+      second,
+      programsBefore,
+      programsAfterFirst,
+      programsAfterSecond: renderer.info.programs.length,
+      salBeat,
+      mcBeat: sf.state(),
+    };
   });
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const median = (a) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  const quietFrame = Math.max(median(shotCost.quiet), 0.05);
+  const ratioOf = (win) => sum(win) / (quietFrame * win.length);
+  const firstRatio = ratioOf(shotCost.first);
+  const secondRatio = ratioOf(shotCost.second);
+  const shotDetail = JSON.stringify({
+    firstShotVsQuiet: +firstRatio.toFixed(2),
+    secondShotVsQuiet: +secondRatio.toFixed(2),
+    quietMedianMs: +quietFrame.toFixed(2),
+    firstFrameMs: shotCost.first[0],
+    secondFrameMs: shotCost.second[0],
+    programs: [
+      shotCost.programsBefore, shotCost.programsAfterFirst, shotCost.programsAfterSecond,
+    ],
+  });
+  check('the first shot compiles nothing the room did not already have',
+    shotCost.programsAfterFirst === shotCost.programsBefore
+      && shotCost.programsAfterSecond === shotCost.programsBefore,
+    shotDetail);
+  /* 8x is deliberately loose: a stalled sample on a loaded box has been seen
+   * at 5x, and the unprewarmed hitch measured 21x across this same window
+   * (994ms in one frame against an 8ms median), so the two do not overlap. */
+  check('the first shot costs what a later shot costs',
+    firstRatio <= 8 && firstRatio <= Math.max(secondRatio, 1) * 8,
+    shotDetail);
+
+  check('shooting Sal advances to McClawsky',
+    shotCost.salBeat === 'SHOOT_MCCLAWSKY', shotCost.salBeat);
+
   current = await state();
   check('shooting McClawsky requires the weapon drop', current.beat === 'DROP_WEAPON', current.beat);
 
