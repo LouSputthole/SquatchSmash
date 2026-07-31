@@ -1998,14 +1998,26 @@ const dressed = await page.evaluate(() => {
       }
     }
   }
-  /* The two ramp rails: a run, a mid-rail under it, and posts to the deck. */
+  /* The two ramp rails: how many long thin bars each run is made of.
+   *
+   * Read off the geometry's own parameters rather than its world box,
+   * because the entry ramp's rails are tilted to follow the slope — a 7.8m
+   * bar at 22 degrees has a bounding box nearly three metres tall, and every
+   * heuristic that looks at the box calls it a wall.
+   */
   const rails = { entry: 0, well: 0 };
+  const mid = new T.Vector3();
   for (const it of items) {
-    const s = it.size;
-    const long = Math.max(s.x, s.z);
-    if (long < 1.2 || Math.max(s.y, Math.min(s.x, s.z)) > 0.14) continue;
-    if (it.bb.min.z > 8 && it.bb.max.z < 15 && it.bb.max.y > -2.2 && it.bb.min.y < 1.2) rails.entry++;
-    if (it.bb.min.z > -1 && it.bb.max.z < 3 && it.bb.min.y > 0 && it.bb.max.y < 1.1) rails.well++;
+    /* Off the mesh's own scale, not its geometry's parameters: every box in
+     * this project is the one shared unit cube, so the parameters are 1,1,1
+     * for the whole building. */
+    if (it.o.geometry.type !== 'BoxGeometry') continue;
+    const sc = it.o.scale;
+    const d = [Math.abs(sc.x), Math.abs(sc.y), Math.abs(sc.z)].sort((a, c) => a - c);
+    if (d[2] < 1.2 || d[1] > 0.15) continue;            // one long side, two thin
+    it.bb.getCenter(mid);
+    if (mid.x > 14 && mid.x < 23 && mid.z > 8 && mid.z < 15) rails.entry++;
+    if (mid.x > 14 && mid.x < 21 && mid.z > -1 && mid.z < 3 && mid.y < 1.1) rails.well++;
   }
   return { meshes: items.length, floaters: floaters.slice(0, 8), n: floaters.length, fighting: [...new Set(fighting)], rails };
 });
