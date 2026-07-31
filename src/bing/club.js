@@ -22,6 +22,7 @@ import { mat, box, cylinder, sphere, collider, group } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack, makeToilet } from '../world/props.js';
 import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick, squatchArt } from './kit.js';
+import { resolveGear } from '../world/gear.js';
 import { Tv } from '../core/tv.js';
 
 export const CEIL_MAIN = 4.5;
@@ -145,6 +146,50 @@ export function buildClub(scene, { renderer } = {}) {
       first ??= obj;
     }
     return first;
+  }
+
+  /* ---- real art on club props ----
+   * Slots in assets/art/manifest.json, resolved AFTER the room stands:
+   * buildClub() is synchronous and loading an image is not. Each entry is
+   * built with its drawn version first and only swapped if the real file
+   * resolves, which is the art system's own rule -- a slot with no file on
+   * disk keeps the placeholder rather than leaving a hole in the prop. */
+  const artSlots = [];
+  /**
+   * Register a prop whose drawn version stands in until (and unless) the real
+   * image resolves. `tilt` is the angle the REAL sticker wants on the mesh --
+   * a drawn one can have its slant baked into the canvas instead, and would
+   * be slanted twice if the mesh were turned as well.
+   */
+  function artSticker(mesh, slot, w, tilt = null) {
+    mesh.userData.art = { slot, real: false };
+    artSlots.push({ mesh, slot, w, tilt });
+    return mesh;
+  }
+
+  /**
+   * Swap in the real images. Die-cut vinyl, so the material is the flat's:
+   * transparent with a low alphaTest, which keeps the soft edge of an outline
+   * instead of squaring it off. Sized from the file's own aspect -- a square
+   * sticker on a plate drawn for two lines of lettering is a stretched
+   * sticker. Anything that does not resolve keeps what it was built with.
+   */
+  function dressArtSlots(gear) {
+    const dressed = [];
+    for (const entry of artSlots) {
+      const g = gear.get(entry.slot);
+      if (!g?.real) continue;
+      const h = entry.w / (g.aspect || 1);
+      entry.mesh.geometry.dispose();
+      entry.mesh.geometry = new THREE.PlaneGeometry(entry.w, h);
+      entry.mesh.material = new THREE.MeshStandardMaterial({
+        map: g.texture, roughness: 0.42, transparent: true, alphaTest: 0.06,
+      });
+      if (entry.tilt !== null) entry.mesh.rotation.z = entry.tilt;
+      entry.mesh.userData.art.real = true;
+      dressed.push(entry.slot);
+    }
+    return dressed;
   }
 
   function solid(minX, minZ, maxX, maxZ, minY = 0, maxY = 3) {
@@ -1761,15 +1806,27 @@ export function buildClub(scene, { renderer } = {}) {
           fridge.add(cylinder({ r: 0.022, h: 0.04, pos: [sx * 0.22, 0.02, sz * 0.2], mat: seam }));
         }
       }
-      // The stickers. Somebody's name, and the house.
-      const tammy = sign(printed('fridge-tammy', ['TAMMY'], {
+      /* The stickers. Somebody's name, and the house.
+       *
+       * Both are the flat's own artwork rather than a second drawing of it,
+       * pulled through assets/art/manifest.json by the slot the image already
+       * belongs to: TAMMY is `sticker.fridge`, the die-cut pin-up that has
+       * been on Tony's own fridge door since before he lived there, and the
+       * mark under it is `crest.round`, the crest off his shelf. Same file,
+       * same sticker, two buildings.
+       *
+       * The lettered and drawn versions below are the fallback the art system
+       * guarantees: a slot whose file is missing keeps what it was built with,
+       * so a deleted PNG is a plainer sticker and never a bare fridge door. */
+      const tammy = artSticker(sign(printed('fridge-tammy', ['TAMMY'], {
         w: 256, h: 128, bg: '#e8d84a', fg: '#2a1a10', font: '900 62px "Trebuchet MS", sans-serif', rotate: -0.09,
-      }), 0.2, 0.1, { x: 0.09, y: 0.62, z: 0.3 });
+      }), 0.2, 0.1, { x: 0.09, y: 0.62, z: 0.3 }), 'sticker.fridge', 0.2, -0.09);
       fridge.add(tammy);
-      const mark = sign(squatchArt('fridge-squatch', { title: [], ink: '#e8e2d0', bg: '#3a1420', w: 192, h: 192, rule: false }),
-        0.15, 0.15, { x: 0.05, y: 0.34, z: 0.3 });
+      const mark = artSticker(sign(squatchArt('fridge-squatch', { title: [], ink: '#e8e2d0', bg: '#3a1420', w: 192, h: 192, rule: false }),
+        0.15, 0.15, { x: 0.05, y: 0.34, z: 0.3 }), 'crest.round', 0.17, 0.14);
       mark.rotation.z = 0.14;
       fridge.add(mark);
+      office.fridgeStickers = { tammy, mark };
       fridge.position.set(fx, 0, fz);
       /* Door into the ROOM. It stands against the north wall, and every part
        * of it that is worth building -- the seam, the handle, the stickers --
@@ -2063,9 +2120,18 @@ export function buildClub(scene, { renderer } = {}) {
     return 0;
   }
 
+  /* The art the club borrows off the flat's walls. Nothing waits on it -- the
+   * room is already standing and dressed with its drawn versions -- but the
+   * promise is handed out so a caller (and the verifier) can know when the
+   * real images have landed. A failed manifest or a missing file is not an
+   * error here: it leaves the placeholder up. */
+  const artReady = resolveGear(artSlots.map((a) => a.slot))
+    .then((gear) => dressArtSlots(gear))
+    .catch(() => []);
+
   return {
     root, colliders, navBlockers, floorZones, doors, anchors, neon, office, storeroom, slot, bj,
-    platforms, groundAt, update, roomAt, rooms: ROOMS, rain, clocks,
+    platforms, groundAt, update, roomAt, rooms: ROOMS, rain, clocks, artReady,
     /* Put every wall clock in the building on the same time -- the
      * campaign's, not the wall clock's own idea of one. */
     setClock(hour24, minute) {
