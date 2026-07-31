@@ -561,6 +561,84 @@ await page.evaluate(() => {
   b.date._lastPos.copy(b.date.group.position);
 });
 
+/* ---- and she is somebody you would ask to dinner ----
+ *
+ * The owner's wave-2 note, verbatim enough: her hair should come down on the
+ * side, and her face needed work. Both are authored geometry in
+ * src/silver/margo.js now, and both are pinned here by measurement rather
+ * than by eye: the hair is shaped masses with the fall on exactly one side
+ * reaching well below the jaw while the other side stays tucked above it,
+ * and the face has the proportions somebody chose on purpose — two brows,
+ * eyes an eye-width apart, a nose that stops short of being a snout, a
+ * mouth wider than the nose, a jaw narrower than the skull. If a later pass
+ * regresses her to the stock crowd face, both of these go red.
+ */
+const margo = await page.evaluate(() => {
+  const head = window.__silver.date.npc.parts.head;
+  const get = (n) => head.getObjectByName(n);
+  const need = ['margo.hair.crown', 'margo.hair.fringe', 'margo.hair.fall.main',
+    'margo.hair.fall.end', 'margo.hair.tuck', 'margo.face.skull', 'margo.face.jaw',
+    'margo.face.brow.left', 'margo.face.brow.right', 'margo.face.eye.left',
+    'margo.face.eye.right', 'margo.face.iris.left', 'margo.face.iris.right',
+    'margo.face.nose.tip', 'margo.face.mouth'];
+  const missing = need.filter((n) => !get(n));
+  if (missing.length) return { missing };
+  /* Head-local extents. box() keeps a mesh's size in its scale, so the
+   * lowest point of a z-rotated slab is centre minus the rotated half. */
+  const bottom = (m) => m.position.y
+    - (m.scale.x * Math.abs(Math.sin(m.rotation.z))
+      + m.scale.y * Math.abs(Math.cos(m.rotation.z))) / 2;
+  const falls = ['margo.hair.fall.main', 'margo.hair.fall.end'].map(get);
+  const tuck = get('margo.hair.tuck');
+  const jaw = get('margo.face.jaw');
+  const skull = get('margo.face.skull');
+  const eyeL = get('margo.face.eye.left');
+  const eyeR = get('margo.face.eye.right');
+  const browL = get('margo.face.brow.left');
+  const browR = get('margo.face.brow.right');
+  const nose = get('margo.face.nose.tip');
+  const mouth = get('margo.face.mouth');
+  return {
+    missing,
+    fallBottom: Math.min(...falls.map(bottom)),
+    fallOneSide: falls.every((m) => m.position.x > 0.06)
+      || falls.every((m) => m.position.x < -0.06),
+    tuckOtherSide: tuck.position.x * falls[0].position.x < 0,
+    tuckBottom: bottom(tuck),
+    jawBottom: jaw.position.y - jaw.scale.y / 2,
+    jawWidth: jaw.scale.x,
+    skullWidth: skull.scale.x,
+    skullFront: skull.position.z + skull.scale.z / 2,
+    eyeWidth: eyeL.scale.x,
+    eyeGap: Math.abs(eyeL.position.x - eyeR.position.x) - eyeL.scale.x,
+    browGap: Math.abs(browL.position.x - browR.position.x) - browL.scale.x,
+    noseFront: nose.position.z + nose.scale.z / 2,
+    noseWidth: nose.scale.x,
+    mouthWidth: mouth.scale.x,
+  };
+});
+check('her hair comes down one side of her face, and is tucked on the other',
+  !margo.missing.length && margo.fallOneSide && margo.tuckOtherSide
+    && margo.fallBottom < margo.jawBottom - 0.06
+    && margo.tuckBottom > margo.jawBottom,
+  margo.missing.length
+    ? `missing ${margo.missing.join(', ')}`
+    : `fall to ${margo.fallBottom.toFixed(2)}, tuck to ${margo.tuckBottom.toFixed(2)}, `
+      + `jaw at ${margo.jawBottom.toFixed(2)}`);
+const eyeApart = margo.missing.length ? 0 : margo.eyeGap / margo.eyeWidth;
+check('and the face across the table has proportions somebody chose',
+  !margo.missing.length
+    && eyeApart > 0.8 && eyeApart < 1.5            // eyes about an eye-width apart
+    && margo.browGap > 0.02                        // two brows, not a ledge
+    && margo.noseFront < margo.skullFront + 0.03   // a nose, not a snout
+    && margo.mouthWidth > margo.noseWidth          // a mouth wider than the nose
+    && margo.jawWidth < margo.skullWidth * 0.85,   // a jaw that tapers
+  margo.missing.length
+    ? `missing ${margo.missing.join(', ')}`
+    : `eyes ${eyeApart.toFixed(2)} widths apart, brow gap ${margo.browGap.toFixed(3)}, `
+      + `nose ${(margo.noseFront - margo.skullFront).toFixed(3)} off the face, `
+      + `jaw ${(margo.jawWidth / margo.skullWidth).toFixed(2)} of the skull`);
+
 await page.evaluate(() => { window.__roomLog = []; });
 console.log('Driving the evening…');
 
