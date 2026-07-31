@@ -1518,6 +1518,10 @@ function restoreCheckpoint(cp = game.checkpoint) {
    * checkpoint was taken after that, it is where it was; putting it back is a
    * matter of what is visible, not of playing the scene again. */
   if (mission.flags.tableBuilt) showFrontTable();
+  /* The pillar's raise-a-glass pad is stood up by the champagne scene. A
+   * restore that skipped this lost the thank-you (and its objective) for the
+   * rest of a champagne-sent evening: the raycaster only sees visible pads. */
+  thanksPad.visible = !!mission.flags.champagneSent;
 
   game.swayRunning = false;
   game.swayStarting = false;
