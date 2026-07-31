@@ -35,6 +35,24 @@ const CHOCK_COLOUR = 0x8a6a42;
 const ORDER = ['chocks', 'caps', 'props', 'sample', 'door', 'surfaces'];
 
 const _markerPos = new THREE.Vector3();
+const _markerOff = new THREE.Vector3();
+
+/* Where the highlight belongs on each part, in aeroplane-local metres from the
+ * object the interaction is registered on.
+ *
+ * Most of them are the part. The control surfaces are not: `parts.rudder` and
+ * `parts.elevator` are hinge-line pivots, and the panel you actually push
+ * hangs half a metre aft of the hinge and three metres up the fin — so a
+ * marker at the bare pivot pointed at air beside the tail, which is what the
+ * ring on the tarmac was really complaining about. */
+const MARKER_OFFSET = {
+  chocks: new THREE.Vector3(0, 0.16, 0),
+  caps: new THREE.Vector3(0, 0.06, 0),
+  props: new THREE.Vector3(0, 0, 0.16),
+  sample: new THREE.Vector3(0, -0.08, 0),
+  door: new THREE.Vector3(0, 0, 0),
+  surfaces: new THREE.Vector3(0, 0, -0.45),
+};
 
 /**
  * A generous invisible box in front of a small part, so the crosshair does not
@@ -147,26 +165,38 @@ export class Preflight {
     for (const drain of ac.parts.drain) hitProxy(drain, 0.34, 0.34, 0.34);
     hitProxy(ac.parts.doorHandle, 0.3, 0.34, 0.6);
 
-    /* The guide marker: a pulsing ring on the tarmac with a slow-turning
-     * diamond floating at the part the checklist wants next. Basic materials
-     * with no depth write — it is HUD paint that happens to live in the
-     * world, the same idiom as the approach gates. */
+    /* The guide marker. The pulsing ring is ON the part now, turned to face
+     * whoever is looking at it, with a slow-turning diamond in the middle of
+     * it; the ring on the tarmac stays as a dimmer footprint saying where to
+     * stand, and only bothers when the part is well off the ground. Anything
+     * on the tail used to get the tarmac ring and nothing else, which pointed
+     * at a patch of grass seven metres behind the aeroplane.
+     *
+     * Basic materials with no depth write — it is HUD paint that happens to
+     * live in the world, the same idiom as the approach gates. */
+    /* Drawn through the aeroplane on purpose. Both fuel caps sit on top of a
+     * high wing, a metre and a half over the player's head, so from the ground
+     * the thing the checklist is asking for is behind two hundred kilos of
+     * cream-painted aluminium. The marker is guidance, not scenery: it belongs
+     * on the glass in front of the wing rather than hidden behind it. */
+    const paint = (opacity) => new THREE.MeshBasicMaterial({
+      color: 0xe8c86a,
+      transparent: true,
+      opacity,
+      depthWrite: false,
+      depthTest: false,
+      toneMapped: false,
+    });
     this.marker = group('preflight-marker');
-    this.markerRing = new THREE.Mesh(
-      new THREE.TorusGeometry(0.42, 0.035, 8, 28),
-      new THREE.MeshBasicMaterial({
-        color: 0xe8c86a, transparent: true, opacity: 0.8, depthWrite: false, toneMapped: false,
-      }),
-    );
-    this.markerRing.rotation.x = -Math.PI / 2;
-    this.marker.add(this.markerRing);
-    this.markerGem = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.09),
-      new THREE.MeshBasicMaterial({
-        color: 0xe8c86a, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false,
-      }),
-    );
-    this.marker.add(this.markerGem);
+    this.markerRing = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.028, 8, 28), paint(0.85));
+    this.markerGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.09), paint(0.9));
+    this.markerFoot = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.03, 8, 28), paint(0.4));
+    this.markerFoot.rotation.x = -Math.PI / 2;
+    for (const piece of [this.markerFoot, this.markerRing, this.markerGem]) {
+      // renderOrder is per-object in three.js, so it goes on each of them.
+      piece.renderOrder = 6;
+      this.marker.add(piece);
+    }
     this.marker.visible = false;
     this.markerT = 0;
     this.scene.add(this.marker);
@@ -298,6 +328,20 @@ export class Preflight {
    * instances, the first one still untouched, so the marker hops from the
    * left cap to the right rather than hovering somewhere between them.
    */
+  /**
+   * The world point the highlight sits on: the part the next check lives on,
+   * nudged by that check's own offset. Public because the verifier holds it
+   * against the thing the crosshair has to hit.
+   */
+  markerAnchor(out = _markerPos) {
+    const target = this.markerTarget();
+    if (!target) return null;
+    target.getWorldPosition(out);
+    const off = MARKER_OFFSET[this.next?.name];
+    if (off) out.add(_markerOff.copy(off).applyQuaternion(this.aircraft.group.quaternion));
+    return out;
+  }
+
   markerTarget() {
     const ac = this.aircraft;
     switch (this.next?.name) {
@@ -489,7 +533,7 @@ export class Preflight {
   }
 
   /** Chocks vanish once the aeroplane starts moving; surfaces spring back. */
-  update(dt, physics) {
+  update(dt, physics, camera = null) {
     for (const name of ['elevator', 'rudder']) {
       if (this.surfaceAnim[name] > 0) {
         this.surfaceAnim[name] = Math.max(0, this.surfaceAnim[name] - dt * 0.8);
@@ -511,21 +555,26 @@ export class Preflight {
         if (this.sampleHeld !== null) this.drawSample(this.sampleHeld);
       }
     }
-    // The guide marker breathes at whatever the checklist wants next: ring
-    // pulsing on the tarmac, diamond turning at the part itself.
+    /* The guide marker breathes on whatever the checklist wants next: the ring
+     * sits on the part and turns to face the camera, the diamond turns inside
+     * it, and the footprint hangs below on the tarmac so there is still
+     * somewhere to walk to. */
     this.markerT += dt;
-    const target = this.armed && !this.complete ? this.markerTarget() : null;
-    if (target) {
-      target.getWorldPosition(_markerPos);
-      const ground = physics ? physics.position.y - 1.62 : _markerPos.y - 1;
+    const anchor = this.armed && !this.complete ? this.markerAnchor(_markerPos) : null;
+    if (anchor) {
+      const ground = physics ? physics.position.y - 1.62 : anchor.y - 1;
       this.marker.visible = true;
-      this.marker.position.set(_markerPos.x, ground + 0.06, _markerPos.z);
+      this.marker.position.copy(anchor);
+      if (camera) this.markerRing.quaternion.copy(camera.quaternion);
       const pulse = 1 + Math.sin(this.markerT * 3.6) * 0.16;
       this.markerRing.scale.setScalar(pulse);
       this.markerRing.material.opacity = 0.55 + Math.sin(this.markerT * 3.6) * 0.28;
-      this.markerGem.position.y = Math.max(0.35, _markerPos.y - ground)
-        + Math.sin(this.markerT * 2.2) * 0.05;
       this.markerGem.rotation.y += dt * 2.4;
+      // The footprint only earns its place when the part is out of reach of it.
+      const drop = anchor.y - (ground + 0.06);
+      this.markerFoot.visible = drop > 0.7;
+      this.markerFoot.position.y = -drop;
+      this.markerFoot.scale.setScalar(pulse);
     } else {
       this.marker.visible = false;
     }
