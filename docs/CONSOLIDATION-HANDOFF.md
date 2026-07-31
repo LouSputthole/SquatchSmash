@@ -1,30 +1,34 @@
 # SquatchSmash Consolidation Handoff
 
-Last updated: 2026-07-30  
-GitHub: <https://github.com/LouSputthole/SquatchSmash>  
-Canonical integration branch: `integration/post-airstrip-prep-20260729`  
+Last updated: 2026-07-31
+GitHub: <https://github.com/LouSputthole/SquatchSmash>
+Production branch: `main`
+Current published checkpoint: `acd6a9b0c4444d1117ef0af081075663029d5d88`
+Live Pages: <https://lousputthole.github.io/SquatchSmash/>
 Character-canon checkpoint: `9fb3022`
 Prior published handoff checkpoint: `9ed9693`
-Current handoff checkpoint: the latest remote tip of the canonical integration
-branch; verify it with `git rev-parse origin/integration/post-airstrip-prep-20260729`
+Current handoff checkpoint: `origin/main`; the previous integration and
+project-status refs now converge with it. Verify with
+`git rev-parse origin/main`.
 
-This file is the pickup point for another Codex session. Do not resume from
-`main`; `main` is still the old standalone Squatch Smash game. Read this file,
-`README.md`, and `docs/CHARACTER-ALIGNMENT.md` before editing.
+This file is the pickup point for another Codex session. Resume from `main`,
+which is the deployed canonical game. Read this file, `README.md`,
+`docs/CHARACTER-ALIGNMENT.md`, and `docs/GAME-PLAN.md` before editing.
 
 ## Safe pickup
 
 ```powershell
 git fetch origin
-git switch integration/post-airstrip-prep-20260729
+git switch main
 git pull --ff-only
 npm test
 npm run check
 ```
 
-Do not force-push or merge this branch into `main` yet. The airstrip/beef-run
-runtime still has to be integrated and the complete story path has not passed
-end-to-end verification.
+Do not force-push `main`. Work in a focused branch and reviewed PR; merge only
+after the affected gates are green. The campaign is integrated through the
+current Initiation reference, whose ending rewrite remains deliberately
+deferred pending the owner's playtest.
 
 ## What is already consolidated
 
@@ -49,7 +53,7 @@ end-to-end verification.
 - The final apartment return, the post-date sleep into the `big_night`
   chapter, Booskibro's one-shot big-night call, and the door route into the
   unchanged Initiation are implemented and browser-verified
-  (`verify:big-night`, 14).
+  (`verify:big-night`, 19).
 - Squatchfather, Motel, and Initiation history/content are preserved without
   overwriting the apartment-era shared systems.
 - Squatch Smash is an apartment-computer game with its enhanced goals, Ranger
@@ -176,7 +180,7 @@ are:
 - The founders are Booskibro, Big Uncle Lou Sputthole, Rippinflow, The
   Shubenator, and DeathMegatron.
 - Prospect One's execution and explicit gore remain canonical.
-- Manny is an adult human and Tony's friendly Motel ally. Friendly faction is a
+- Snow is an adult human and Tony's friendly Motel ally. Friendly faction is a
   hard AI/targeting boundary, not a dialogue convention.
 - The approved future ending reviews Tony's campaign accomplishments, kills
   every failed rival prospect, admits Tony only when the required campaign work
@@ -327,7 +331,7 @@ through ordinary campaign state without a single change to the scene:
 ### Jerky Motel
 
 - Every walkable and getaway phase uses first-person presentation.
-- Manny is a human friendly-faction ally. Friendly actors cannot become
+- Snow is a human friendly-faction ally. Friendly actors cannot become
   hostile, chase/grab Tony, damage Tony, or be selected by Tony's attacks.
 - East stairs, the second car, parking paint, pool deck/furniture, wall gap,
   and four-step floor heights are re-authored and measured.
@@ -349,7 +353,7 @@ that reason: the story gate has to open without a real save existing.
 The final Bada Bing and Motel captures are committed under
 [`docs/validation/2026-07-29/`](./validation/2026-07-29/README.md), including
 the front portal, vehicle lot, performers, first-person Motel views, human
-Manny, corrected pool, Room 12, and capture recovery.
+Snow, corrected pool, Room 12, and capture recovery.
 
 ## The Beef Run is integrated
 
@@ -383,35 +387,38 @@ Three.js. The adapted boundaries:
 
 ## Verification at this checkpoint
 
-Fresh checks on the July 30 Silver Room integration milestone:
+Fresh checks on the July 31 release-hygiene candidate (published base
+`acd6a9b`, plus the Day Two verifier world-matrix correction):
 
 ```text
-npm test                       75/75 passed  (+2: Margo's call, the date door)
-npm run check                  177 source files, 4 manifests, all good
+npm test                       87/87 passed
+npm run check                  185 source files, 4 manifests, all good
 npm run check:flight           flight-model bench, all envelopes hold
-npm run verify:day-one         19/19 passed
-npm run verify:day-two         13/13 passed (rides the real departure into beefrun.html)
-npm run verify:silver          76/76 passed (the evening itself, in preview mode)
-npm run verify:silver-story    20/20 passed (the campaign seam: sleep → call → door →
-                                             silver.html → ending → home → sleep → Day 4)
-npm run verify:big-night       14/14 passed (now seeded from the date, wakes on Day 4)
-npm run verify:bing            46/46 passed
-npm run verify:bing-two        10/10 passed
-npm run verify:motel           27/27 passed
+npm run verify:day-one         35/35 passed
+npm run verify:day-two         22/22 passed
+npm run verify:big-night       19/19 passed
+npm run verify:computer        29/29 passed
+npm run verify:squatch-smash    8/8 passed
+npm run verify:boot-errors      8/8 passed
+npm run verify:preview         16/16 passed
+npm run verify:beefrun         22/22 passed
+npm run verify:motel           37/37 passed
+npm run verify:squatchfather   31/31 passed
 npm run verify:initiation      10/10 passed
-npm run verify:preview         16/16 passed (launcher lists six previews)
-npm run verify:boot-errors      8/8 passed  (+2: the Silver Room's recovery panel)
+npm run verify:bing-two        10/10 passed
+npm run verify:bing           123/123 passed
+npm run verify:silver-story    20/20 passed
+npm run verify:silver         112/112 passed
+npm run verify:art             50 art pieces checked, all good
+npm run verify:bundle           3 strict-CSP policies passed; 295 voice clips embedded
+npm run audio:todo             259 voice lines, 17 effects remain
 ```
 
-Not re-run at this checkpoint because nothing in this milestone touches them:
-`verify:art`, `verify:computer`, `verify:squatch-smash`, `verify:squatchfather`,
-`verify:beefrun`, and `npm run bundle`.
-
-One flake worth knowing about: `verify:bing`'s "the bar serves, and the drink
-lands" check is timing-sensitive and failed once in five runs here with
-`drunk 0.00` before passing on every retry. It is not related to this work —
-the Bing's bartender path is untouched — but it will cost somebody an
-investigation eventually.
+The Day Two repair is test-only: the four-angle bed probe moves the camera
+directly, so it now refreshes the Three.js scene's world matrices before
+raycasting. Without that refresh a valid bed target appeared as a false
+negative in headless verification. No gameplay geometry or interaction code
+changed in this release-hygiene pass.
 
 ### Audio for the date
 
@@ -427,9 +434,9 @@ purely so her lines can be auditioned. She is not Hog Mama and must be recast
 before any real recording — the `_note` field in the manifest says so.
 
 The single-file bundle is a constrained preview artifact: its configured size
-budget omitted seven music tracks and 436 voice clips, so the normal hosted
-runtime remains the authoritative audio experience. Re-run every focused
-verifier before any merge to `main`.
+budget omits music and many voice clips, so the normal hosted runtime remains
+the authoritative audio experience. Re-run every focused verifier before any
+merge to `main`.
 
 ## Repository Three.js skills
 
@@ -477,7 +484,8 @@ imported into the shipped game.
    chair orientation and revolver, Bada Bing character style/performer detail,
    Motel pool/doors/windows, driving-scene car interior and lights, gambling
    rework, apartment glue-gag tuning, sound and voice generation).
-6. Only after zero P0 failures, prepare a reviewed merge into `main`.
+6. Keep `main` green through focused reviewed PRs; the deferred Initiation
+   ending is the only remaining campaign-completion P0.
 
 ## Design questions to resolve with the user
 

@@ -6,19 +6,19 @@ Copy everything below into a new Codex session.
 
 You are taking over the SquatchSmash consolidation as lead developer and
 technical director. Continue from the documented GitHub checkpoint; do not
-restart the repository audit and do not work from `main`.
+restart the repository audit. `main` is the deployed canonical game.
 
 Repository:
 
 - GitHub: `https://github.com/LouSputthole/SquatchSmash`
-- Canonical integration branch:
-  `integration/post-airstrip-prep-20260729`
-- Production `main` is still the old standalone Squatch Smash and must not be
-  force-pushed, overwritten, or used as the implementation base.
+- Canonical production branch: `main`
+- Published checkpoint: `acd6a9b0c4444d1117ef0af081075663029d5d88`
+- Live Pages: `https://lousputthole.github.io/SquatchSmash/`
+- Never force-push or overwrite `main`; make focused branches and reviewed PRs.
 
 First:
 
-1. Fetch origin, switch to the canonical integration branch, pull
+1. Fetch origin, switch to `main`, pull
    fast-forward-only, and confirm the worktree is clean.
 2. Read these files completely before changing code:
    - `docs/CONSOLIDATION-HANDOFF.md`
@@ -45,7 +45,7 @@ Current product facts:
 - The Beef Run is integrated at `beefrun.html`: Booskibro's answered call
   routes the apartment door there, the mission persists checkpoints, cargo,
   detection, landing rank, and completion, a reload resumes in the cockpit,
-  and the end card returns home. `verify:beefrun` (13) and `check:flight`
+  and the end card returns home. `verify:beefrun` (22) and `check:flight`
   cover it. Preserve its flight model, terrain, and mission geography as
   canonical.
 - The post-airstrip state contract, Lou's second call, reused Bada Bing Two,
@@ -58,14 +58,14 @@ Current product facts:
   7:30 PM) and navigates to `silver.html`. `src/core/silver-story.js` gates the
   evening and folds the mission's `persist()` payload into campaign state;
   completion applies `mission.silver_room` (Day 3, 11:20 PM) and the end card
-  goes home. `verify:silver` (76) plays the evening; `verify:silver-story` (20)
+  goes home. `verify:silver` (112) plays the evening; `verify:silver-story` (20)
   rides the campaign seam.
 - The final apartment return is connected. After the date the door refuses
   until Tony sleeps; sleeping opens `big_night` at **Day 4, 10:00 AM**;
   Booskibro rings once about the big night (`vo.call.booski.bignight.*`,
   +5 minutes) and unlocks the Initiation; the door then applies
   `travel.initiation` (**Day 4, 7:00 PM**) and really navigates to
-  `initiation.html`. `verify:big-night` (14) covers the whole beat.
+  `initiation.html`. `verify:big-night` (19) covers the whole beat.
 - Sleep is the chapter machine and chapter is still separate from calendar day:
   `day_one` → `day_two` (needs Squatchfather, wakes Day 2 7:00 AM) →
   `date` (needs the Motel, wakes Day 3 12:00 PM) → `big_night` (needs the
@@ -77,7 +77,7 @@ Current product facts:
   Silver Room**, and the unchanged Initiation in page-local memory without
   reading or writing the real save. `verify:preview` (16) lists six.
 - The apartment/computer, Squatchfather spawn, Bada Bing geometry/NPC/rain,
-  and first-person Motel/Manny/pool/interior playtest fixes are implemented and
+  and first-person Motel/Snow/pool/interior playtest fixes are implemented and
   verified. Preserve those fixes.
 - Initiation is intentionally unchanged until the user has tested it.
 
@@ -100,7 +100,7 @@ Locked character/story canon:
   before recording anything.
 - **Ape** is `CHARACTER_IDS.APE` — one identity shared by the Initiation and
   his cameo at the Silver Room's pillar table.
-- Manny is an adult human, Tony's friendly Motel ally, and may never enter
+- Snow is an adult human, Tony's friendly Motel ally, and may never enter
   player-hostile targeting or damage logic.
 - Circle members present as humans before the Initiation verdict; supplied
   named face photos are authoritative.
@@ -113,27 +113,26 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
-IMMEDIATE PICKUP (2026-07-31, end of the marathon session): the wave-2
-recovery, the Voice_Ids casting lock, PR #4, the Family hangout floor, and
-SEVEN owner punch-list passes (Squatchfather ×2, Apartment, Beef Run, Motel,
-Bada Bing 33 items, Front and Center) are ALL landed, gated, and deployed;
-`main`, the integration branch, and the session branch move together.
-Current gate facts: npm test 87; bing 111; bing-two 10; silver 112;
-silver-story 20; motel 37; squatchfather 29; beefrun 22; computer 20;
-day-one 26; day-two 16; big-night 14; boot-errors 8; initiation 10;
-preview 16; squatch-smash 8; bundle green under 3 CSP policies; audio is
-cache-busted by content hash. Owner rulings landed: the Motel ally is SNOW
-(was Manny); the cute girl at the Bing bar is MARGO; Family present at the
-club between missions. OUTSTANDING FOR THE RECORDING BATCH: 234 authored
-lines (Tony's 28 call replies incl. the attaboy call, Silver's 180, the
-Bing's 26) — see VOICE-LINES-TODO.md; 16 effects. Open decisions: seven
-Family face photos; spawn-facing at the Silver arrival (player faces away
-from the club, moon aimed accordingly); the unnamed Family-styled guard at
-Lou's office; lou vs lou1 phone cadence. Open small work: dropHeld deletes
-the gun/pizza slice ([Q]); the Beef Run fuselage needs an interior shell
-(see-through cabin from the left seat); Motel antagonists (Rico/Chino) have
-no authored lines; door/bar/stage barks now wired. The Initiation playtest
-gate below still stands.
+IMMEDIATE PICKUP (2026-07-31 release hygiene): `main@acd6a9b` is deployed on
+GitHub Pages and the former integration/status lines converge with it. The
+only open PR, #4, is a duplicate draft: its four patches are already on `main`
+as equivalent commits and it should be closed as superseded, not merged.
+
+Fresh candidate gates: `npm test` 87/87; `npm run check` 185 sources and four
+manifests; `npm run check:flight` green; Day One 35, Day Two 22, Big Night 19,
+Computer 29, Squatch Smash 8, Boot Errors 8, Preview 16, Beef Run 22, Motel
+37, Squatchfather 31, Initiation 10, Bing Two 10, Bing 123, Silver Story 20,
+Silver 112, Art 50, and Bundle under three CSP policies. The release-hygiene
+branch adds one test-only correction: the Day Two bed raycast refreshes scene
+world matrices after its test camera is moved directly. `VOICE-LINES-TODO.md`
+is freshly generated: 259 voice lines and 17 effects remain.
+
+Current open production decisions: seven Family face photos; Margo's final
+voice recast (her manifest mapping remains provisional); the unnamed
+Family-styled guard at Lou's office; Rico/Chino dialogue; and the Beef Run
+left-seat interior shell. Snow is the human, friendly Motel ally; do not call
+him Manny or allow him into player-hostile logic. The Initiation playtest gate
+below still stands.
 
 Immediate implementation objective:
 
@@ -152,14 +151,9 @@ date are all complete and verified (2026-07-30). Continue in this order:
    and decide whether the recorded date outcome
    (`missions.silver_room.outcome` / `seeingHerAgain`) should be visible
    anywhere in the Initiation. Nothing is blocked on either.
-3. Two earlier campaign calls still have no manifest cues at all —
-   `vo.call.booski.airstrip.*` (Booskibro's Day Two call) and
-   `vo.call.lou.bing_second.*` (Lou's second call). They display on screen and
-   hold for a reading beat, but they can never be recorded until somebody
-   authors them the way `vo.call.booski.bignight.*` and
-   `vo.call.margo.date.*` now are. `npm run check` scans `src/silver/*` for
-   cue names as of 2026-07-30, but still does not catch this class of gap for
-   `src/core/apartment-story.js`.
+3. The Booskibro-airstrip and Lou-second-call cue groups are authored in the
+   manifest and have indexed recordings. Do not recreate them. Use
+   `npm run audio:todo` for the live recording backlog instead.
 4. The 2026-07-29 scene-polish backlog is largely DONE (2026-07-30 commits
    `b2f784f` through the club-audio pass; details in
    `docs/audits/2026-07-30-bada-bing-audit.md`): Squatchfather
@@ -171,8 +165,8 @@ date are all complete and verified (2026-07-30). Continue in this order:
    Lou's face photo (blocked on the user's style/face decisions), fancy
    framed sasquatch-logo artwork, blackjack/slots VO lines (prospect
    win/lose, dealer), the TV program follow-up, the apartment crooked-frame
-   pre-stage + glue-minigame pacing/moan, and the Manny "fellow prospect"
-   relabel decision.
+   pre-stage + glue-minigame pacing/moan, and richer Snow-specific Motel
+   dialogue.
 5. A human playtest gate sits between each polish pass and the next scene.
 
 Standing integration rules:
@@ -186,8 +180,8 @@ Standing integration rules:
   cue namespace `vo.beefrun.sasole.*`.
 - Preserve the verified apartment, computer, Bing, Squatchfather, Motel, and
   current Initiation behavior.
-- Keep commits focused and understandable. Push only the canonical integration
-  branch; do not merge or force-push `main`.
+- Keep commits focused and understandable. Push a focused branch, open a
+  reviewed PR to `main`, and never force-push `main`.
 - Before any push, run `npm test`, `npm run check`, `npm run check:flight`,
   and every focused verifier in `package.json`; inspect browser console
   errors; update documentation and exact check counts; verify the remote SHA.
