@@ -1541,7 +1541,7 @@ function startShotBeat() {
         bouncer.job = 'stand';
         bouncer.folded = true;
         bouncer.speed = 1.1;    // back to the unhurried door walk
-        bouncer.group.rotation.y = Math.PI;
+        bouncer.group.rotation.y = bouncer.homeYaw;   // facing the door again
         bouncer.targetYaw = undefined;
         game.beat = null;
       }

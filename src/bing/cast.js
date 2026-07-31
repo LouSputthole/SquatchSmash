@@ -57,6 +57,19 @@ const TRACKSUITS = [0x1c2f4a, 0x3a1c2a, 0x1f3a2a, 0x2a2a1c];
 const BANDANA = 0xd92e2e;
 
 /**
+ * How high a bar stool sits somebody.
+ *
+ * Npc.sit() folds the figure and drops it 0.42 from its base, and that 0.42
+ * is measured against a CHAIR -- the office and blackjack seats have their
+ * cushions at 0.53 and the pose lands square on them. A bar stool's cushion
+ * is at 0.845. Anybody sat on one from a base of zero is therefore buried in
+ * it to the waist, which is precisely where Booskibro and DeathMegatron have
+ * been drinking. Raise the base by the difference and they sit ON the stool,
+ * with their feet at the height of its brass ring rather than through it.
+ */
+export const STOOL_SIT = 0.315;
+
+/**
  * One person.
  *
  * Built to real proportions, because this is the first level with anybody
@@ -93,6 +106,66 @@ const BANDANA = 0xd92e2e;
  *            Initiation gives the Circle their real faces. A photo brings its
  *            own hair, eyes and mouth, so the procedural ones stand down.
  */
+/* ------------------------------------------------------------------ */
+/* Softened slabs                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A box with its edges taken off.
+ *
+ * The club's figures are cut from slabs on purpose and that is staying. But
+ * the stage is the one place the light is actually ON somebody, and a hard
+ * 90-degree edge under a spot stops the highlight dead and reads as a crate.
+ * This is the same box at the same size -- the silhouette does not move and
+ * neither does anybody's height -- with a couple of centimetres of chamfer
+ * so the light rolls round the corner instead.
+ *
+ * Geometry is cached by shape, because four dancers built from the same
+ * dozen sizes should cost one set of them. Kept deliberately low-poly:
+ * three curve segments and one bevel segment is a chamfer, not a pill.
+ */
+const _softGeo = new Map();
+function softGeometry(w, h, d, r) {
+  const rr = Math.min(r, w * 0.34, h * 0.34, d * 0.34);
+  const key = `${w.toFixed(4)}:${h.toFixed(4)}:${d.toFixed(4)}:${rr.toFixed(4)}`;
+  let geo = _softGeo.get(key);
+  if (geo) return geo;
+  // Rounded rectangle in XY, inset by the bevel so the bevel puts it back.
+  const iw = w / 2 - rr;
+  const ih = h / 2 - rr;
+  const s = new THREE.Shape();
+  s.moveTo(-iw + rr, -ih);
+  s.lineTo(iw - rr, -ih);
+  s.quadraticCurveTo(iw, -ih, iw, -ih + rr);
+  s.lineTo(iw, ih - rr);
+  s.quadraticCurveTo(iw, ih, iw - rr, ih);
+  s.lineTo(-iw + rr, ih);
+  s.quadraticCurveTo(-iw, ih, -iw, ih - rr);
+  s.lineTo(-iw, -ih + rr);
+  s.quadraticCurveTo(-iw, -ih, -iw + rr, -ih);
+  geo = new THREE.ExtrudeGeometry(s, {
+    depth: d - rr * 2,
+    curveSegments: 3,
+    bevelEnabled: true,
+    bevelThickness: rr,
+    bevelSize: rr,
+    bevelOffset: 0,
+    bevelSegments: 1,
+  });
+  geo.translate(0, 0, -(d - rr * 2) / 2);
+  _softGeo.set(key, geo);
+  return geo;
+}
+
+/** Same call shape as build.js's box(), so a slab softens in place. */
+function softBox({ size, pos, mat: material, name, rotX = 0, rotY = 0, rotZ = 0, r = 0.022 }) {
+  const m = new THREE.Mesh(softGeometry(size[0], size[1], size[2], r), material);
+  m.position.set(pos[0], pos[1], pos[2]);
+  m.rotation.set(rotX, rotY, rotZ);
+  m.name = name ?? 'person.soft';
+  return m;
+}
+
 export function makePerson(o = {}) {
   const {
     height = 1.78, build = 1, dress = 'shirt', hair = 'short',
@@ -100,6 +173,11 @@ export function makePerson(o = {}) {
     bandana = false, chain = false, beard = false, glasses = false,
     gender = 'unspecified', bodyShape = 'average', adult = true,
     castShadow = true, face = null, faceCrop = FACE_CROP,
+    /* `chain` is false, true/'gold', or 'silver'; `pendant` is whether it
+     * ends in a medallion. Lou's is the heavy gold one with the disc on it.
+     * Rippinflow wears a thin silver line and nothing hanging off it, which
+     * is a different man saying a different thing with his neck. */
+    pendant = true,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -153,6 +231,14 @@ export function makePerson(o = {}) {
    * -- keep their own proportions. The character bible is explicit that this
    * presentation belongs to the stage roles and must not leak. */
   const showgirl = female && curvy && performanceWear && adult;
+  /* Every structural slab on a stage figure gets its edges chamfered. It is
+   * the same shape, the same size and the same style -- the owner's note was
+   * "less blocky", not "not blocky" -- but nothing on the runway ends in a
+   * hard right angle under the spot any more. Everyone else is unchanged, so
+   * the club still reads as one cast cut from the same stock. */
+  const slab = (opts) => (showgirl
+    ? softBox({ ...opts, name: `person.soft.${opts.name ?? 'slab'}` })
+    : box({ ...opts, name: undefined }));
   const t = 0.55 + build * 0.45;          // 1.0 at build 1
   // Shoulders carry the blocky read, so they sit a little wider than the old
   // rounded frame -- still narrower than the chest is deep is wide.
@@ -169,11 +255,11 @@ export function makePerson(o = {}) {
     // A little more daylight between the legs than the rounded frame had, or
     // two slabs this close read as one column with a seam down it.
     pivot.position.set(side * (curvy ? 0.118 : 0.108) * t, 0.90, 0);
-    pivot.add(box({ size: [0.175 * t, 0.44, 0.205 * t], pos: [0, -0.22, 0], mat: trousers }));
+    pivot.add(slab({ name: 'thigh', size: [0.175 * t, 0.44, 0.205 * t], pos: [0, -0.22, 0], mat: trousers }));
     const shin = group('shin');
     shin.position.set(0, -0.44, 0);
-    shin.add(box({ size: [0.158 * t, 0.11, 0.188 * t], pos: [0, 0, 0], mat: trousers }));
-    shin.add(box({ size: [0.15 * t, 0.42, 0.175 * t], pos: [0, -0.21, 0], mat: trousers }));
+    shin.add(slab({ name: 'knee', size: [0.158 * t, 0.11, 0.188 * t], pos: [0, 0, 0], mat: trousers }));
+    shin.add(slab({ name: 'shin', size: [0.15 * t, 0.42, 0.175 * t], pos: [0, -0.21, 0], mat: trousers }));
     shin.add(box({ size: [0.135, 0.068, 0.29], pos: [0, -0.436, 0.05], mat: shoe }));
     shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: shoe }));
     pivot.add(shin);
@@ -190,7 +276,8 @@ export function makePerson(o = {}) {
    * out; nobody else does. */
   const hipHalf = (curvy ? 0.205 : 0.155) * t
     * (build > 1.15 ? 1.06 : 1) * (showgirl ? 1.08 : 1);
-  const hips = box({
+  const hips = slab({
+    name: 'hips',
     size: [hipHalf * 2, (curvy ? 0.14 : 0.105) * 2, (curvy ? D * 1.08 : D * 0.94) * 2],
     pos: [0, 1.0, 0],
     /* On a performer the pelvis is her, not the costume -- the bikini is the
@@ -199,7 +286,8 @@ export function makePerson(o = {}) {
     mat: performanceWear ? skinMat : trousers,
   });
   body.add(hips);
-  const waist = box({
+  const waist = slab({
+    name: 'waist',
     size: [
       // Close to the chest on a man so the trunk is one shape; cut in on a
       // woman, where the waist is the line the rest of the figure works from.
@@ -230,16 +318,18 @@ export function makePerson(o = {}) {
    * A chest slab that reaches the waistband hides the waist behind it and the
    * whole figure goes rectangular -- which is what it did on the first pass,
    * most obviously on the dancers. */
-  const torso = box({
+  const torso = slab({
+    name: 'ribcage',
     size: [(curvy ? 0.192 : 0.188) * t * 2, 0.16 * 2, D * 2],
     pos: [0, 1.365, 0],
     mat: performanceWear ? skinMat : cloth,
   });
   body.add(torso);
   // Shoulders: a slab the width of the frame, capped with square deltoids
-  body.add(box({ size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, 0], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
+  body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, 0], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
   for (const sx of [-1, 1]) {
-    body.add(box({
+    body.add(slab({
+      name: 'deltoid',
       size: [0.118 * t, 0.11, 0.128 * t],
       pos: [sx * SH, 1.45, 0],
       mat: sleeve === skinMat ? skinMat : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth),
@@ -381,7 +471,10 @@ export function makePerson(o = {}) {
      * collar, drapes down the shirt front, and ends in a medallion lying flat
      * ON the chest. Everything rides just proud of the chest plane so the
      * links stay visible against the shirt instead of inside it. */
-    const gold = mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 });
+    const silver = chain === 'silver';
+    const metal = silver
+      ? mat({ color: 0xcfd6e0, roughness: 0.14, metalness: 0.98 })
+      : mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 });
     const chestZ = D * (dress === 'suit' ? 1.07 : 1.02) + 0.006;
     const drape = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-0.1, 1.518, D + 0.004),
@@ -390,12 +483,18 @@ export function makePerson(o = {}) {
       new THREE.Vector3(0.055, 1.452, chestZ),
       new THREE.Vector3(0.1, 1.518, D + 0.004),
     ]);
-    const links = new THREE.Mesh(new THREE.TubeGeometry(drape, 24, 0.0065, 6), gold);
-    links.name = 'necklace.chain';
+    const links = new THREE.Mesh(
+      // A thin silver line is thin: half the gauge of the gold rope.
+      new THREE.TubeGeometry(drape, 24, silver ? 0.0032 : 0.0065, 6),
+      metal,
+    );
+    links.name = silver ? 'necklace.chain.silver' : 'necklace.chain';
     body.add(links);
-    const pendant = cylinder({ r: 0.03, h: 0.009, pos: [0, 1.382, chestZ + 0.006], rotX: Math.PI / 2, mat: gold });
-    pendant.name = 'necklace.pendant';
-    body.add(pendant);
+    if (pendant) {
+      const disc = cylinder({ r: 0.03, h: 0.009, pos: [0, 1.382, chestZ + 0.006], rotX: Math.PI / 2, mat: metal });
+      disc.name = 'necklace.pendant';
+      body.add(disc);
+    }
   }
 
   /* ---- head ----
@@ -542,12 +641,12 @@ export function makePerson(o = {}) {
   function arm(side) {
     const pivot = group('arm');
     pivot.position.set(side * SH, 1.44, 0);
-    pivot.add(box({ size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
+    pivot.add(slab({ name: 'upperarm', size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
     const fore = group('forearm');
     fore.position.set(0, -0.30, 0);
-    fore.add(box({ size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: sleeve }));
-    fore.add(box({ size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
-    fore.add(box({ size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
+    fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: sleeve }));
+    fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
+    fore.add(slab({ name: 'hand', size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
     pivot.add(fore);
     pivot.userData.fore = fore;
     return pivot;
@@ -1103,9 +1202,14 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     },
   }));
 
+  /* Facing the DOOR. A model's face is its +z and the front door is at +z
+   * from his post under the heater, so yaw 0 is a doorman looking at whoever
+   * is coming in off the lot. He used to stand at yaw PI, which pointed him
+   * at the club he is guarding and put the back of his head on every arrival
+   * -- and then greeted them without turning round. */
   add('bouncer', new Npc(scene, {
     name: 'the bouncer', tier: 'hero', job: 'stand',
-    x: a.bouncerPost.x, z: a.bouncerPost.z, yaw: Math.PI,
+    x: a.bouncerPost.x, z: a.bouncerPost.z, yaw: 0,
     model: { height: 1.94, build: 1.45, dress: 'tee', shirt: 0x14141a, hair: 'bald', beard: true },
   }));
   by.bouncer.folded = true;
@@ -1129,10 +1233,17 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     model: { height: 1.76, build: 0.95, dress: 'waistcoat', shirt: 0xe6e2da, hair: 'short', hairColour: 0x9a9a9a, glasses: true },
   }));
 
+  /* The man on the office door is crew, not a doorman in a tracksuit: dark
+   * suit, open collar, gold on the neck -- the same language DeathMegatron
+   * and Seff wear at the bar. Human, like everybody in this club is human
+   * until the Initiation says otherwise. He has no name yet; he should. */
   add('hallGuard', new Npc(scene, {
     name: 'the guard', tier: 'hero', job: 'sit',
     x: a.hallGuard.x, z: a.hallGuard.z, yaw: -Math.PI / 2,
-    model: { height: 1.82, build: 1.2, dress: 'tracksuit', shirt: pick(TRACKSUITS), hair: 'crop', bandana: false },
+    model: {
+      height: 1.82, build: 1.2, dress: 'suit', shirt: 0x2a2f3a,
+      hair: 'crop', hairColour: 0x14100e, beard: true, chain: true, bandana: false,
+    },
   }));
 
   /* His round goes down the east side, along the front wall, and down the
@@ -1182,7 +1293,9 @@ export function populate(scene, club, { includeMargo = true } = {}) {
    * ruling is that the blonde works the front, so she holds the last slot. */
   const PERFORMERS = [
     { skin: 0x8d5a3a, hairColour: 0xe0c884, hair: 'tied', shirt: 0xd9c04f },  // platinum
-    { skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'tied', shirt: 0x9a4fd9 },  // brunette
+    // The middle of the back line. She wore the tied style, which from the
+    // floor is a crown and a bun and reads as cropped; hers falls.
+    { skin: 0xe8c39c, hairColour: 0x5a3a20, hair: 'long', shirt: 0x9a4fd9 },  // brunette
     { skin: 0xf2d3b4, hairColour: 0x14100e, hair: 'long', shirt: 0x4fd9c0 },  // black
     { skin: 0xf0cba6, hairColour: 0xdcb04a, hair: 'long', shirt: 0xd94f9a },  // blonde
   ];
@@ -1272,11 +1385,10 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     route: [{ x: -4, z: 2 }, { x: -8.6, z: -1 }, { x: -8.1, z: 2.6 }, { x: -6, z: 6 }],
     model: { height: 1.77, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'crop' },
   }));
-  add('cleaner', new Npc(scene, {
-    name: 'the cleaner', tier: 'background', job: 'work',
-    x: 6.9, z: 1.4, yaw: Math.PI,
-    model: { height: 1.64, dress: 'work', shirt: 0x3a3a42, hair: 'tied', skin: 0x8d5a3a },
-  }));
+  /* No separate cleaner. The man with the mop by the men's room is Snow, and
+   * Snow is Family -- one id, one face, one voice, seated by populateFamily
+   * with everybody else. Two figures in one job was how the club ended up
+   * with two of him. */
   add('delivery', new Npc(scene, {
     name: 'a delivery driver', tier: 'background', job: 'patrol',
     x: 22.5, z: 8, yaw: Math.PI,
@@ -1299,6 +1411,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     add('margo', new Npc(scene, {
       name: 'Margo', tier: 'hero', job: 'drink',
       x: stool.x, z: stool.z, yaw: -Math.PI / 2,
+      y: STOOL_SIT,
       model: {
         height: 1.69, build: 1.06, dress: 'shirt', shirt: 0x24303a, hair: 'tied',
         hairColour: 0x2a1c14, skin: 0xd8a878,

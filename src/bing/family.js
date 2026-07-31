@@ -19,7 +19,7 @@
  * photo lands on the same skull with no code changes.
  */
 import { CHARACTER_IDS } from '../core/campaign.js';
-import { Npc } from './cast.js';
+import { Npc, STOOL_SIT } from './cast.js';
 
 /* ------------------------------------------------------------------ */
 /* The roster                                                          */
@@ -39,8 +39,9 @@ import { Npc } from './cast.js';
 export const FAMILY = [
   {
     id: CHARACTER_IDS.BOOSKI, name: 'Booskibro', slug: 'booski', photo: 'booski.png',
-    // AT THE BAR, by the service station — his shot beat happens here.
-    spot: { x: -18.7, z: 1.3, yaw: -Math.PI / 2, job: 'drink' },
+    /* AT THE BAR, by the service station — his shot beat happens here. On
+     * the stool, not in it: see STOOL_SIT. */
+    spot: { x: -18.7, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     model: {
       height: 1.8, build: 1.15, dress: 'tracksuit', shirt: 0x1c2f4a,
       hairColour: 0x2a1c14, skin: 0xd9a97f, chain: true,
@@ -49,7 +50,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.DEATHMEGATRON, name: 'DeathMegatron', slug: 'deathmegatron', photo: 'deathmegatron.png',
     // Two stools down from Booski, with the spritz the world owed him.
-    spot: { x: -18.7, z: -1.3, yaw: -Math.PI / 2, job: 'drink' },
+    spot: { x: -18.7, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     model: {
       height: 1.82, build: 1.2, dress: 'suit', shirt: 0x2a2f3a,
       hairColour: 0x14100e, skin: 0xc08a5e,
@@ -58,7 +59,7 @@ export const FAMILY = [
   {
     id: CHARACTER_IDS.SEFF, name: 'Seff', slug: 'seff', photo: 'seff.png',
     // The far end of the bar, where a man waits for his situation to clear.
-    spot: { x: -18.7, z: 5.2, yaw: -Math.PI / 2, job: 'sit' },
+    spot: { x: -18.7, z: 5.2, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'sit' },
     model: {
       height: 1.76, build: 1.0, dress: 'suit', shirt: 0x3a2a2a,
       hair: 'short', hairColour: 0x14100e, skin: 0xe8c39c,
@@ -152,7 +153,11 @@ export const FAMILY = [
     spot: { x: -13.45, z: 4.0, yaw: 1.8, job: 'sit' },
     model: {
       height: 1.77, build: 1.0, dress: 'tee', shirt: 0x2e2438,
-      hairColour: 0x14100e, skin: 0x8d5a3a, chain: true,
+      hairColour: 0x14100e, skin: 0x8d5a3a,
+      /* Thin silver line, nothing hanging off it. The gold rope with the
+       * medallion is Lou's whole argument about himself; Rippinflow is not
+       * making that argument. */
+      chain: 'silver', pendant: false,
     },
   },
   {
@@ -168,10 +173,15 @@ export const FAMILY = [
   },
   {
     id: CHARACTER_IDS.SNOW, name: 'Snow', slug: 'snow', photo: 'snow.png',
-    // Standing off the coat check, where the door draught reaches. Good.
-    spot: { x: -2.8, z: 8.2, yaw: -2.45, job: 'stand', folded: true },
+    /* The janitor. He works here, and the back hallway outside the men's room
+     * is where the job puts him — cold tile, a mop, a draught under the fire
+     * door, and he likes it. There used to be an unnamed cleaner standing on
+     * this exact spot AND a second Snow loitering by the coat check, which is
+     * two of one man in one building; the cleaner is gone and this is him.
+     * Same id, same face, same voice, same terse two lines. */
+    spot: { x: 6.55, z: 1.35, yaw: 1.95, job: 'stand', folded: true },
     model: {
-      height: 1.7, build: 0.95, dress: 'shirt', shirt: 0xd8d4cc,
+      height: 1.7, build: 0.95, dress: 'work', shirt: 0x3a4048,
       hairColour: 0x9a9a9a, skin: 0xf0cba6,
     },
   },
@@ -236,6 +246,7 @@ export function populateFamily(scene, club, { present = FAMILY, faces = new Set(
       job: member.spot.job,
       x: member.spot.x,
       z: member.spot.z,
+      y: member.spot.y ?? 0,
       yaw: member.spot.yaw,
       colliders: club.colliders,
       navBlockers: club.navBlockers ?? null,
