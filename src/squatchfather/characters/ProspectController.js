@@ -51,6 +51,8 @@ export class ProspectController {
       bulk: 1.16,
       height: 1.02,
       fur: true,
+      iris: 0x4a3418,    // amber, for the mirror moment
+      browTilt: 0.06,
     });
     this.fig.group.traverse((o) => o.layers.set(1));
     scene.add(this.fig.group);

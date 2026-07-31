@@ -17,6 +17,13 @@ export class McClawskyController {
       hair: 0x5a4a3a,
       bulk: 1.24,
       height: 1.04,
+      // The big bored cop: cropped hair, heavy flat brows, lids at half
+      // mast over grey-blue eyes.
+      hairStyle: 'crop',
+      browHeavy: true,
+      lidHeavy: true,
+      browTilt: 0.02,
+      iris: 0x2a3a4a,
     });
     this.fig.place(DOOR_POST.x, DOOR_POST.z, Math.PI); // facing the door
     scene.add(this.fig.group);

@@ -242,41 +242,75 @@ function swingDoor(group, from, to, dur = 0.8) {
 let waiterBusy = false;
 
 function waiterPours(at = new THREE.Vector3(-1.75, 0, 6.5)) {
-  if (waiterBusy) return;
+  if (waiterBusy || roomPanicked) return;
   waiterBusy = true;
-  const w = sceneState.bystanders.waiter;
+  const wf = sceneState.figures.waiter;
+  const w = wf.group;
   const start = w.position.clone();
   const face = Math.atan2(at.x - start.x, at.z - start.z);
-  animateOver(1.6, (e) => {
+  const legs = (raw) => { wf.walkAmt = 1; wf.walkT = raw * 8; };
+  animateOver(1.6, (e, raw) => {
+    if (roomPanicked) return; // the panic run owns him now
     w.position.lerpVectors(start, at, e);
     w.rotation.y = face;
+    legs(raw);
   }, () => {
-    Foley.pour();
+    wf.walkAmt = 0;
+    if (!roomPanicked) Foley.pour();
     animateOver(1.4, () => {}, () => {
-      animateOver(1.8, (e) => {
+      animateOver(1.8, (e, raw) => {
+        if (roomPanicked) return;
         w.position.lerpVectors(at, start, e);
         w.rotation.y = face + Math.PI;
-      }, () => { waiterBusy = false; w.rotation.y = Math.PI; });
+        legs(raw);
+      }, () => {
+        waiterBusy = false;
+        if (roomPanicked) return;
+        w.rotation.y = Math.PI;
+        wf.walkAmt = 0;
+      });
     });
   });
 }
 
 /* The waiter works the room between story beats rather than standing at the
- * bar all night. Stops are open floor beside the background tables. */
+ * bar all night. Stops are open floor beside the background tables. The
+ * rounds are occasional room flavour, not table service on a stopwatch. */
 const WAITER_STOPS = [
   new THREE.Vector3(-1.75, 0, 6.5),
   new THREE.Vector3(-4.1, 0, 6.2),
   new THREE.Vector3(-3.9, 0, 3.6),
 ];
-let waiterNextServe = 7;
+let waiterNextServe = 20;
 let roomPanicked = false;
 
 function waiterRounds(dt) {
   if (roomPanicked) return;
   waiterNextServe -= dt;
   if (waiterNextServe > 0 || waiterBusy) return;
-  waiterNextServe = 9 + Math.random() * 6;
+  waiterNextServe = 34 + Math.random() * 28;
   waiterPours(WAITER_STOPS[Math.floor(Math.random() * WAITER_STOPS.length)]);
+}
+
+/* ---- After the shots: real cowering ----
+ * The waiter breaks for the back corner, then goes down; the diners slide
+ * off their chairs onto the floor. Everyone stays down, shaking, arms over
+ * their heads, until the scene ends — and they all face the room, so the
+ * fear reads from the player's walk out. */
+const WAITER_CORNER = new THREE.Vector3(-6.2, 0, 10.1);
+let waiterPanic = null;
+
+function updateCowering(dt) {
+  if (!waiterPanic) return;
+  const wf = sceneState.figures.waiter;
+  if (waiterPanic === 'run') {
+    if (wf.walkTo(WAITER_CORNER.x, WAITER_CORNER.z, dt, 2.9)) {
+      // Turned toward the room he is hiding from — and the exit lane.
+      wf.group.rotation.y = Math.atan2(0 - WAITER_CORNER.x, 2 - WAITER_CORNER.z);
+      wf.startCower();
+      waiterPanic = 'down';
+    }
+  }
 }
 
 // The rattle list is built during scene assembly; look entries up by the mesh
@@ -300,19 +334,24 @@ function knockGlassOver(glassEntry) {
   glassEntry.base.copy(to);
 }
 
-// Everyone in the room hears two shots in a small space. Nobody moves to stop
-// him: the waiter freezes, a diner gets down, the cook watches from the door.
+// Everyone in the room hears two shots in a small space. Nobody moves to
+// stop him: the diners slide off their chairs and cower on the floor, the
+// waiter breaks for the back corner and goes down, the cook watches from
+// the door. They hold it until the scene ends.
 function roomReacts() {
   roomPanicked = true;
-  const { diner1, diner2, cook } = sceneState.bystanders;
-  animateOver(0.5, (e) => {
-    diner1.position.y = -0.62 * e;
-    diner1.rotation.x = -0.15 * e;
-  });
-  animateOver(0.6, (e) => {
-    diner2.position.y = -0.5 * e;
-    diner2.rotation.z = 0.2 * e;
-  });
+  const { cook } = sceneState.bystanders;
+  const { diner1, diner2 } = sceneState.figures;
+  // Off the chair and down, sliding clear of the table as they drop.
+  for (const [fig, out] of [
+    [diner1, new THREE.Vector3(-6.25, 0, 1.85)],
+    [diner2, new THREE.Vector3(6.25, 0, 1.5)],
+  ]) {
+    fig.startCower();
+    const from = fig.group.position.clone();
+    animateOver(0.55, (e) => fig.group.position.lerpVectors(from, out, e));
+  }
+  waiterPanic = 'run';
   animateOver(1.2, (e) => {
     cook.position.z = 11.6 - 0.55 * e;
     sceneState.doors.kitchenDoor.rotation.y = -0.7 * e;
@@ -321,11 +360,21 @@ function roomReacts() {
 
 function resetRoomReactions() {
   roomPanicked = false;
+  waiterPanic = null;
   impacts.reset();
   blood.reset();
-  const { diner1, diner2, cook } = sceneState.bystanders;
-  diner1.position.y = 0; diner1.rotation.x = 0;
-  diner2.position.y = 0; diner2.rotation.z = 0;
+  const { cook } = sceneState.bystanders;
+  const { waiter, diner1, diner2 } = sceneState.figures;
+  waiter.stopCower();
+  waiter.walkAmt = 0;
+  waiter.place(-3.2, 8.5, Math.PI);
+  diner1.stopCower();
+  diner1.setPose('sit');
+  diner1.place(-5.75, 2.07, -0.3 + Math.PI / 2);
+  diner2.stopCower();
+  diner2.setPose('sit');
+  diner2.place(5.71, 1.77, 0.4 - Math.PI / 2);
+  waiterBusy = false;
   cook.position.z = 11.6;
   sceneState.doors.kitchenDoor.rotation.y = 0;
 }
@@ -974,6 +1023,7 @@ function updateGame(dt) {
   ringing.update(dt);
   impacts.update(dt);
   waiterRounds(dt);
+  updateCowering(dt);
   director.update(dt, prospect, seatedNow ? seated.clamp : null);
   mirror.render(renderer, camera);
   ePressed = false;

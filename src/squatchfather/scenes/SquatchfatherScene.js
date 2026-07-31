@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { Figure, buildHead } from '../characters/Figure.js';
 
 // The whole set: wet street under the elevated line, the dining room, the
 // narrow hallway, and the bathroom with the thing behind the toilet.
@@ -1092,10 +1093,15 @@ export function buildSquatchfatherScene(scene, renderer) {
   // ================= BACKGROUND STAFF & DINERS =================
   // Simple figures that hold still, then react after the shots.
 
-  function makeBystander(x, z, facing, coat, skin) {
+  // The cook keeps the scene's quick slab body, but his head comes from the
+  // characters' own face kit — brows, eyes, nose, lips — so he is not a
+  // blank block peering through the porthole.
+  function makeBystander(x, z, facing, coat, skin, face = {}) {
     const g = new THREE.Group();
     g.add(box(0.5, 0.75, 0.3, lam(coat), 0, 1.15, 0));
-    g.add(box(0.24, 0.26, 0.24, lam(skin), 0, 1.68, 0));
+    const head = buildHead({ skin, bulk: 0.95, ...face });
+    head.group.position.set(0, 1.5, 0);
+    g.add(head.group);
     g.add(box(0.13, 0.6, 0.16, lam(coat), -0.31, 1.15, 0));
     g.add(box(0.13, 0.6, 0.16, lam(coat), 0.31, 1.15, 0));
     g.add(box(0.2, 0.78, 0.2, lam(0x22242c), -0.13, 0.39, 0));
@@ -1106,14 +1112,39 @@ export function buildSquatchfatherScene(scene, renderer) {
     return g;
   }
 
+  // The waiter and the diners are full Figures — they need the rig so they
+  // can serve the room, and later actually cower instead of clipping into
+  // their chairs.
+  function makeFigure(x, z, facing, opts, pose = 'stand') {
+    const f = new Figure({ height: 0.96, ...opts });
+    f.setPose(pose);
+    f.place(x, z, facing);
+    scene.add(f.group);
+    return f;
+  }
+
   // Clear of the bar counter's collider and its overhanging lip.
-  const waiter = makeBystander(-3.2, 8.5, Math.PI, 0xe8e4dc, 0xc79c72);
-  const cook = makeBystander(-5.2, 11.6, Math.PI, 0xdcd8d0, 0xb98a63);
+  const waiterFig = makeFigure(-3.2, 8.5, Math.PI, {
+    coat: 0xe8e4dc, shirt: 0xdcd6c8, tie: 0x2a2a30, skin: 0xc79c72,
+    bulk: 0.95, hair: 0x241c14, hairStyle: 'short', browTilt: 0.08, iris: 0x3a2a18,
+  });
+  const cook = makeBystander(-5.2, 11.6, Math.PI, 0xdcd8d0, 0xb98a63,
+    { hair: 0x3a3230, hairStyle: 'crop', browHeavy: true, browTilt: 0.03, iris: 0x2a3a2a });
   cook.visible = true;
-  // Each diner stands just behind a chair at his table, facing the table —
-  // the same facing formula the chairs use.
-  const diner1 = makeBystander(-3.41, 2.8, -0.3 - Math.PI / 2, 0x3a3b48, 0xd0a87e);
-  const diner2 = makeBystander(5.94, 1.67, 0.4 - Math.PI / 2, 0x4a3a3a, 0xc09069);
+  // Each diner SITS at his table, on the chair that keeps his face toward
+  // the room — the man at the left table used to stand behind the far chair
+  // and greet every arrival with his coat-back.
+  const diner1Fig = makeFigure(-5.75, 2.07, -0.3 + Math.PI / 2, {
+    coat: 0x3a3b48, shirt: 0xd8d0c0, tie: 0x4a2a2a, skin: 0xd0a87e,
+    bulk: 0.95, hair: 0x4a3826, hairStyle: 'short', browTilt: 0.1, iris: 0x2a3a4a,
+  }, 'sit');
+  const diner2Fig = makeFigure(5.71, 1.77, 0.4 - Math.PI / 2, {
+    coat: 0x4a3a3a, shirt: 0xd0c8b8, tie: 0x2a3040, skin: 0xc09069,
+    bulk: 0.95, hair: 0x2c241c, hairStyle: 'crop', lidHeavy: true, browTilt: 0.05, iris: 0x3a2a18,
+  }, 'sit');
+  const waiter = waiterFig.group;
+  const diner1 = diner1Fig.group;
+  const diner2 = diner2Fig.group;
 
   // ================= EXIT + CAR INTERACTION =================
 
@@ -1151,13 +1182,16 @@ export function buildSquatchfatherScene(scene, renderer) {
       prospectGlass, salGlass, mcGlass, toilet, getawayCar, parkedCar,
     },
     bystanders: { waiter, cook, diner1, diner2 },
+    figures: { waiter: waiterFig, diner1: diner1Fig, diner2: diner2Fig },
     flicker: 0,
     t: 0,
   };
 
-  // Ambient motion: candle flicker, bathroom light stutter, traffic loop.
+  // Ambient motion: candle flicker, bathroom light stutter, traffic loop,
+  // and the rigged bystanders breathing.
   state.update = (dt) => {
     state.t += dt;
+    for (const f of Object.values(state.figures)) f.update(dt);
     for (const c of candles) {
       const f = 0.82 + Math.sin(state.t * 9 + c.phase) * 0.1 + Math.sin(state.t * 23 + c.phase * 2) * 0.06;
       c.light.intensity = 2.4 * f;

@@ -14,6 +14,12 @@ export class SalController {
       skin: 0xd0a279,
       hair: 0x4a4038,
       bulk: 1.08,
+      // The composed boss: barbered dark hair going silver at the temples,
+      // brows arched just enough to look interested, brown eyes.
+      hairStyle: 'short',
+      temples: 0xb8b2a8,
+      browTilt: 0.11,
+      iris: 0x3a2a18,
     });
     this.fig.setPose('sit');
     // Faces -Z, across the table at Prospect's seat. The figure's face is on
