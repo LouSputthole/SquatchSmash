@@ -97,7 +97,10 @@ try {
     await page.evaluate(() => window.INITIATION.phase === 'gauntlet_in'));
 
   await page.evaluate(() => window.INITIATION.skipToInduction());
-  await page.waitForFunction(() => window.INITIATION.phase === 'complete', null, { timeout: 10000 });
+  // The induction needs ~64 rendered frames (2.2s of clamped sim time), and
+  // swiftshader delivers under two a second on a busy box — the old 10s
+  // budget failed a scene that genuinely completes. Measured worst case ~47s.
+  await page.waitForFunction(() => window.INITIATION.phase === 'complete', null, { timeout: 90000 });
   const inducted = await page.evaluate(() => ({
     constructor: window.INITIATION.player?.constructor?.name,
     bandana: window.INITIATION.player?.palette?.bandana,
