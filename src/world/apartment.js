@@ -812,6 +812,12 @@ export async function buildApartment(ctx) {
       if (!inventory.add('slice')) return;
       pizza.takeSlice();
       audio.play('pizza.take', { volume: 0.5, position: pizza.group.position });
+      /* Said out loud, like every other pickup in the flat. A slice went into
+       * the hotbar silently and with nothing in his hands to show for it,
+       * which from the player's side is indistinguishable from a pickup that
+       * did not happen. */
+      hud.toast('Picked up a slice', 'good');
+      hud.say('Cold. Still pizza. <em>Hold [F] to eat it.</em>', 3600);
       ctx.onNote?.('slice');
     },
   });
@@ -1759,9 +1765,19 @@ export async function buildApartment(ctx) {
       audio.play('ui.select', { volume: 0.4 });
     },
   });
+  /* The box itself, as opposed to what is in it. Counted rather than asserted:
+   * this used to say "one slice left" whether there were five in there or
+   * none. */
   interaction.register(pizza.group, {
     label: () => 'Inspect the <b>pizza</b>',
-    onUse: () => hud.say('One slice left. It has gone the colour of the box.'),
+    onUse: () => {
+      const n = pizza.slicesLeft();
+      hud.say(n === 0
+        ? 'An empty box and a lot of orange cardboard.'
+        : n === 1
+          ? 'One slice left. It has gone the colour of the box.'
+          : `${n} slices left. They have gone the colour of the box.`);
+    },
   });
   interaction.register(bed.group, {
     label: () => 'Go back to <b>sleep</b>',
@@ -2165,6 +2181,28 @@ export async function buildApartment(ctx) {
     /** Put the bottle back on the counter. */
     returnWhiskey() {
       whiskey.group.visible = true;
+    },
+
+    /**
+     * Put an unopened beer back in the door of the fridge.
+     *
+     * Every other thing he can carry had a way home except this one, so a full
+     * can taken out of the fridge and then dropped simply stopped existing:
+     * the slot it came from stayed hidden and `beersLeft` never went back up.
+     * Returns false when the door is somehow already full, which is the signal
+     * to keep hold of it rather than to delete it.
+     */
+    returnBeer() {
+      const slot = fridge.beerSlots.find((can) => !can.visible);
+      if (!slot) return false;
+      slot.visible = true;
+      state.beersLeft = Math.min(fridge.beerSlots.length, state.beersLeft + 1);
+      return true;
+    },
+
+    /** Put an untouched slice back in the box on the coffee table. */
+    returnSlice() {
+      return pizza.putSlice();
     },
 
     /** Take a pouch. Returns false when the tin is empty. */

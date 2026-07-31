@@ -1037,6 +1037,28 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
     return false;
   }
 
+  /**
+   * Put one back.
+   *
+   * The counterpart to `takeSlice`, and the reason [Q] can no longer delete
+   * food: a slice he changes his mind about goes back in the box it came out
+   * of. Walks the wedges backwards so the one returned is the one most
+   * recently taken -- the gap closes from the direction it opened.
+   *
+   * @returns {boolean} false when the box is already as full as it started
+   */
+  function putSlice() {
+    for (let n = SLICES - 1; n >= 0; n--) {
+      const w = wedges[n];
+      if (!w || w.slice.visible || GONE.has(n)) continue;
+      w.slice.visible = true;
+      if (w.ghost) w.ghost.visible = false;
+      for (const c of w.crumbs) c.visible = false;
+      return true;
+    }
+    return false;
+  }
+
   /** How many are left in the box. */
   function slicesLeft() {
     return wedges.reduce((n, w) => n + (w && w.slice.visible ? 1 : 0), 0);
@@ -1054,7 +1076,53 @@ export function makePizzaBox(M, { x, y, z, rotY = 0 }) {
     stain.position.set(gx, DEEP + 0.0026, gz);
     g.add(stain);
   }
-  return { group: g, takeSlice, slicesLeft };
+  return { group: g, takeSlice, putSlice, slicesLeft };
+}
+
+/**
+ * The slice in his hand.
+ *
+ * Same idea as the drinks: one model parented to the camera, shown while that
+ * slot is selected, lifted and tipped as the hold fills. It used to be nothing
+ * at all -- you took a slice, the box lost one, and your hands were empty, so
+ * the only evidence you were carrying food was a card in the corner of the
+ * HUD. A wedge you can see is the difference between "I picked it up" and "the
+ * pickup did nothing".
+ *
+ * Built pointing away down the view with the crust nearest the camera, so the
+ * bite goes into the pointed end the way a person eats one.
+ */
+export function makeHeldSlice() {
+  const g = group('heldSlice');
+  const crustMat = mat({ color: 0xc98f45, roughness: 0.88 });
+  const sauceMat = mat({ color: 0x9e2d18, roughness: 0.72 });
+  const cheeseMat = mat({ color: 0xe0b256, roughness: 0.55 });
+  const meatMat = mat({ color: 0x8f2f28, roughness: 0.6 });
+
+  const R = 0.115;
+  const span = (Math.PI * 2) / 8 - 0.05;
+  /* Centred on -Z so the point of the wedge is away from the face. three lays
+   * theta out from +Z toward +X, so the wedge is straddled about PI. */
+  const a0 = Math.PI - span / 2;
+  const layer = (r, h, m, y) => {
+    const mesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(r, r, h, 12, 1, false, a0, span), m,
+    );
+    mesh.position.y = y;
+    return mesh;
+  };
+  g.add(layer(R, 0.009, crustMat, 0));
+  g.add(layer(R * 0.86, 0.011, sauceMat, 0.0012));
+  g.add(layer(R * 0.82, 0.014, cheeseMat, 0.0026));
+  for (let k = 0; k < 3; k++) {
+    const ang = a0 + span * (0.24 + k * 0.26);
+    const t = 0.36 + k * 0.18;
+    const pep = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.004, 10), meatMat);
+    pep.position.set(Math.sin(ang) * R * t, 0.010, Math.cos(ang) * R * t);
+    g.add(pep);
+  }
+  g.visible = false;
+  return { group: g };
 }
 
 /**

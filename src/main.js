@@ -41,7 +41,9 @@ import { StreamSystem } from './world/stream.js';
 import { ShowerSystem } from './world/shower.js';
 import { SplatSystem } from './world/splat.js';
 import { TimingBar } from './core/timingbar.js';
-import { makeHeldCigarette, makeHeldDrinks, makeRevolver, makePhone } from './world/props.js';
+import {
+  makeHeldCigarette, makeHeldDrinks, makeHeldSlice, makeRevolver, makePhone,
+} from './world/props.js';
 import { makeMaterials } from './world/materials.js';
 import { roomEnvironment } from './world/textures.js';
 
@@ -361,6 +363,22 @@ function poseDrink(which, k) {
   m.rotation.set(1.95 * e, 0, 0.34 * e);
 }
 
+/* The slice in hand. Same rig as the drinks, and it is the whole reason the
+ * pizza felt broken: taking one emptied a wedge out of the box and put a card
+ * in the corner of the HUD, and his hands stayed conspicuously empty. */
+const heldSlice = makeHeldSlice();
+heldSlice.group.position.set(0.235, -0.235, -0.36);
+heldSlice.group.rotation.set(0.16, 0, -0.20);
+camera.add(heldSlice.group);
+
+/** Lift the slice to the mouth, 0 (at rest) to 1 (mid-bite). */
+function poseSlice(k) {
+  const e = k * k * (3 - 2 * k);
+  heldSlice.group.position.set(0.235 - 0.150 * e, -0.235 + 0.185 * e, -0.36 + 0.10 * e);
+  // Tipped up and rolled in, the way you angle a slice into your face.
+  heldSlice.group.rotation.set(0.16 + 0.70 * e, -0.30 * e, -0.20 - 0.24 * e);
+}
+
 /* The revolver in hand. Same idea as the drinks: one model parented to the
  * camera, shown only while that slot is selected. Low and right, angled in,
  * so the barrel is not sitting across the crosshair. */
@@ -656,6 +674,7 @@ async function boot() {
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
+    heldSlice, updateConsume,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -1106,33 +1125,83 @@ function sleepInBed() {
 /* Beer and smokes                                                     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * What [Q] does to each thing he can be holding.
+ *
+ * One entry per id in `ITEMS`, and the shape is deliberately total: `put`
+ * returns the object to wherever it came from and reports whether it managed
+ * it, or the entry says `keep` and he simply does not put it down. There is no
+ * default branch, because the default branch was the bug.
+ *
+ * The silent `else` at the bottom of this function is how the phone used to
+ * get deleted -- the slot was emptied, the model in the world had been hidden
+ * since pickup, and nothing put it back. The phone was fixed by name, which
+ * left the revolver and the slice of pizza doing exactly the same thing: one
+ * press and Lou's gun, or his breakfast, was gone from the save for good.
+ * Anything added to `ITEMS` from here on has to say what happens to it or the
+ * check below refuses to drop it, which fails safe.
+ */
+const DROP_RULES = {
+  phone: { keep: 'It is my phone. <em>It stays on me.</em>' },
+  /* An empty is the one thing genuinely destroyed, and it is not destroyed
+   * here: `consumeBeer` already dropped the crushed can on the floor at the
+   * moment he finished it. This is only letting go of the idea of it. */
+  empty: {
+    put: () => true,
+    cue: () => audio.play('can.crush', { volume: 0.6 }),
+    toast: 'Crushed the can',
+  },
+  beer: {
+    put: () => apartment.returnBeer(),
+    cue: () => audio.play('can.set', { volume: 0.5 }),
+    toast: 'Back in the fridge',
+    stuck: 'Nowhere to put it back. I will just drink it.',
+  },
+  cigs: {
+    put: () => { apartment.returnCigarettes(); return true; },
+    cue: () => audio.play('can.set', { volume: 0.35 }),
+  },
+  whiskey: {
+    put: () => { apartment.returnWhiskey(); return true; },
+    cue: () => audio.play('whiskey.cap', { volume: 0.5 }),
+  },
+  slice: {
+    put: () => apartment.returnSlice(),
+    cue: () => audio.play('can.set', { volume: 0.4 }),
+    toast: 'Back in the box',
+    stuck: 'It is not going back in that box. Might as well eat it.',
+  },
+  gun: {
+    put: () => apartment.dropGun(),
+    cue: () => null,     // dropGun plays its own set-down
+    toast: 'Left it on the table',
+    stuck: 'No. That does not get left lying about.',
+  },
+  /* Two eggs are a pair of hands, not a slot -- `state.hasEggs` carries them
+   * and the pan is the only place they go. There is nothing to empty. */
+  eggs: { keep: 'They are eggs. They go in the pan.' },
+  /* Carried inside the jacket by the campaign rather than in a slot. If it
+   * ever reaches a slot, it is Lou's and it is not going on the carpet. */
+  parcel: { keep: 'That is Lou’s. It does not leave my jacket.' },
+};
+
 function dropHeld() {
   const st = apartment.state;
   if (!st.heldItem || cig.t >= 0) return;
 
-  /* Everything below either goes back where it came from or is a thing he was
-   * always going to finish. The phone is neither, and it used to fall through
-   * the `else` at the bottom: the slot was emptied, the nightstand model had
-   * been hidden since he picked it up, and nothing anywhere put it back. One
-   * press of [Q] deleted the only object in the game that Lou can reach him
-   * through. It is his phone -- he does not put it down, he pockets it. */
-  if (st.heldItem === 'phone') {
-    hud.say('It is my phone. <em>It stays on me.</em>', 3000);
+  const rule = DROP_RULES[st.heldItem];
+  /* An id with no rule is a thing nobody has said how to put down, so he does
+   * not put it down. Losing an item is worse than being unable to drop one. */
+  if (!rule || rule.keep) {
+    hud.say(rule?.keep || 'I should hang on to that.', 3000);
     return;
   }
-
-  if (st.heldItem === 'empty') {
-    audio.play('can.crush', { volume: 0.6 });
-    hud.toast('Crushed the can');
-  } else if (st.heldItem === 'cigs') {
-    apartment.returnCigarettes();
-    audio.play('can.set', { volume: 0.35 });
-  } else if (st.heldItem === 'whiskey') {
-    apartment.returnWhiskey();
-    audio.play('whiskey.cap', { volume: 0.5 });
-  } else {
-    audio.play('can.set', { volume: 0.5 });
+  if (rule.put() !== true) {
+    hud.say(rule.stuck || 'There is nowhere to put that down.', 3000);
+    return;
   }
+  rule.cue?.();
+  if (rule.toast) hud.toast(rule.toast);
   st.heldItem = null;
   hud.setHand(null);
 }
@@ -1165,17 +1234,29 @@ function updateEatingSlice(dt, holdingF) {
     if (game.eatingSlice > 0) {
       game.eatingSlice = 0;
       hud.setHold(null);
+      poseSlice(0);
       if (!interaction.current) hud.hidePrompt();
     }
     return;
   }
 
   game.eatingSlice = (game.eatingSlice || 0) + dt;
-  hud.setHold({ label: 'Eating', k: Math.min(1, game.eatingSlice / SLICE_TIME) });
+  const k = Math.min(1, game.eatingSlice / SLICE_TIME);
+  /* `hud.setHold` takes a NUMBER. This handed it `{ label, k }`, so the bar's
+   * width came out `NaN%`, the browser threw the declaration away, and holding
+   * [F] on a slice showed the player absolutely nothing for two and a half
+   * seconds -- no bar, no prompt, no movement -- which is indistinguishable
+   * from a slice that cannot be eaten. Same shape as drinking now, because it
+   * is the same gesture. */
+  hud.showPrompt('Eating…', 'F');
+  hud.setHold(k);
+  poseSlice(k);
   if (game.eatingSlice < SLICE_TIME) return;
 
   game.eatingSlice = 0;
   hud.setHold(null);
+  hud.hidePrompt();
+  poseSlice(0);
   st.heldItem = null;                 // empties the slot the slice was in
   st.fed = true;
   completeApartmentActivity('eaten', TIME_EVENT_IDS.EAT);
@@ -2892,6 +2973,7 @@ function frame() {
        * crosshair and shoving that around makes the thing feel broken to aim
        * rather than powerful to fire. */
       heldGun.group.visible = apartment.state.heldItem === 'gun';
+      heldSlice.group.visible = apartment.state.heldItem === 'slice';
       if (gunKick > 0) gunKick = Math.max(0, gunKick - dt * 2.6);
       heldGun.group.rotation.x = 0.06 + gunKick;
       heldGun.group.position.z = -0.30 + gunKick * 0.10;
