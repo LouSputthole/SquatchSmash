@@ -57,10 +57,16 @@ export class FlightHud {
     this.rank = $('br-rank');
     this.guide = $('br-guide');
     this.checklist = $('br-checklist');
+    this.dir = $('br-dir');
+    this.dirArrow = this.dir?.querySelector('.arrow');
+    this.dirTag = this.dir?.querySelector('.tag');
+    this.controls = $('br-controls');
 
     this._warnState = new Set();
     this._objective = '';
     this._hdgShown = -1;
+    this.controlsWanted = true;      // until the player says otherwise
+    this._controlsT = 0;
   }
 
   show(on = true) {
@@ -186,6 +192,76 @@ export class FlightHud {
       this._navLine = line;
       this.nav.textContent = line;
     }
+  }
+
+  /**
+   * The objective, on the world.
+   *
+   * The heading tape says the same thing as a number on a scale, which is the
+   * right readout for flying an intercept and the wrong one for "where am I
+   * supposed to be going". This is the other half: a diamond sitting on the
+   * place while it is on screen, and an arrow pinned to the edge pointing at
+   * it while it is not. Both are fed from the same nav target as the bug, so
+   * the two can never disagree.
+   *
+   * @param {?{onScreen: boolean, x: number, y: number, angle: number,
+   *           label: string, nm: number}} d  x/y in per cent; null to hide
+   */
+  setDirection(d) {
+    if (!this.dir) return;
+    if (!d) {
+      if (this._dirShown) {
+        this._dirShown = false;
+        this.dir.classList.add('hidden');
+      }
+      return;
+    }
+    if (!this._dirShown) {
+      this._dirShown = true;
+      this.dir.classList.remove('hidden');
+    }
+    this.dir.style.setProperty('--x', `${d.x.toFixed(2)}%`);
+    this.dir.style.setProperty('--y', `${d.y.toFixed(2)}%`);
+    if (this._dirEdge !== !d.onScreen) {
+      this._dirEdge = !d.onScreen;
+      this.dir.classList.toggle('edge', this._dirEdge);
+    }
+    this.dirArrow.style.setProperty('--a', d.onScreen ? '0deg' : `${d.angle.toFixed(1)}deg`);
+    const tag = `${d.label} ${d.nm.toFixed(1)} NM`;
+    if (this._dirTagText !== tag) {
+      this._dirTagText = tag;
+      this.dirTag.textContent = tag;
+    }
+  }
+
+  /**
+   * The controls card. Up and bright whenever a flight starts, stepping back
+   * to a quarter of itself once the player has had a minute with it, and
+   * toggled outright with H for anybody who already knows the aeroplane.
+   */
+  showControls(on) {
+    if (!this.controls) return;
+    this._controlsT = 0;
+    this.controls.classList.toggle('hidden', !(on && this.controlsWanted));
+    this.controls.classList.remove('faded');
+  }
+
+  toggleControls() {
+    this.controlsWanted = !this.controlsWanted;
+    if (!this.controls) return this.controlsWanted;
+    this.controls.classList.toggle('hidden', !this.controlsWanted);
+    if (this.controlsWanted) {
+      this._controlsT = 0;
+      this.controls.classList.remove('faded');
+    }
+    return this.controlsWanted;
+  }
+
+  /** Called every frame in the cockpit; fades the card once it has been read. */
+  ageControls(dt) {
+    if (!this.controls || this.controls.classList.contains('hidden')) return;
+    this._controlsT += dt;
+    if (this._controlsT > 22) this.controls.classList.add('faded');
   }
 
   setPatrol(state, meter) {

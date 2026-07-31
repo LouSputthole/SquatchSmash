@@ -377,6 +377,9 @@ input.onAction = (name) => {
     case 'restart':
       mission.requestRestart();
       break;
+    case 'help':
+      hud.toast(flightHud.toggleControls() ? 'CONTROLS SHOWN' : 'CONTROLS HIDDEN');
+      break;
     case 'mute':
       audio.setMasterVolume(audio.master?.gain.value > 0.05 ? 0 : 0.9);
       break;

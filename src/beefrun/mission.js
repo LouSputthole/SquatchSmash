@@ -24,6 +24,10 @@ import { Loading } from './loading.js';
 /** The four places the mission will put you back. */
 const CHECKPOINT_ORDER = ['takeoff', 'approach', 'departure', 'return'];
 
+/** Scratch, for putting the destination on the glass every frame. */
+const _navPos = new THREE.Vector3();
+const _navView = new THREE.Matrix4();
+
 export class MissionController {
   constructor(ctx) {
     Object.assign(this, ctx);
@@ -356,12 +360,17 @@ export class MissionController {
     this.audio.setHeadset(true);
     this.dialogue.setHeadset(true);
     this.input.rudderKeys = true;
+    // Every time he gets in, not just the first time.
+    this.flightHud.show(true);
+    this.flightHud.showControls(true);
     if (this.phase === 'boarding') this.setPhase('startup');
     else if (this.phase === 'boarding2') this.setPhase('heavyTakeoff');
   }
 
   exitCockpit() {
     this.flags.inCockpit = false;
+    this.flightHud.showControls(false);
+    this.flightHud.setDirection(null);
     this.interaction.setPaused(false);
     this.audio.setHeadset(false);
     this.dialogue.setHeadset(false);
@@ -457,7 +466,7 @@ export class MissionController {
   }
 
   updatePreflight(dt) {
-    this.preflight.update(dt, this.physics);
+    this.preflight.update(dt, this.physics, this.camera);
     /* Four of six checks done is "near the end": Old Stove leaves the hangar
      * now, so the walk is finished and he is standing at his crates before
      * the preflight wraps and his scene wants him — no repeated beat, no
@@ -939,6 +948,66 @@ export class MissionController {
     }
   }
 
+  /**
+   * The nav target, put on the glass.
+   *
+   * Through the same camera the player is looking through, so the diamond
+   * lands on the actual valley rather than near it. Camera space first, to
+   * find out whether the place is in front at all — a point behind you
+   * projects to a mirrored position on screen, and an indicator that points
+   * away from where you are going is worse than none.
+   *
+   * The destination is marked a little above its own ground, so the diamond
+   * clears the terrain and reads as a place rather than a pixel.
+   */
+  projectNav(nav, nm) {
+    const cam = this.camera;
+    cam.updateMatrixWorld();
+    _navPos.set(nav.x, terrainHeight(nav.x, nav.z) + 260, nav.z);
+    /* The view matrix is inverted here rather than read off the camera. The
+     * renderer refreshes `matrixWorldInverse` when it draws, and this runs
+     * before the flight camera has even been pointed for this frame, so the
+     * cached one belongs to a previous attitude — which on a fast roll is an
+     * arrow lagging the aeroplane by a whole turn. */
+    _navView.copy(cam.matrixWorld).invert();
+    _navPos.applyMatrix4(_navView);
+    const camX = _navPos.x;
+    const camY = _navPos.y;
+    const range = Math.abs(_navPos.z) || 1;
+    const ahead = _navPos.z < 0;
+    _navPos.applyMatrix4(cam.projectionMatrix);      // divides by w for us
+
+    const onScreen = ahead
+      && Math.abs(_navPos.x) <= 0.94 && Math.abs(_navPos.y) <= 0.9;
+    let nx = _navPos.x;
+    let ny = _navPos.y;
+    if (!onScreen) {
+      /* Off the glass, the arrow is aimed from the camera-space vector rather
+       * than the projected one. A point behind the camera projects mirrored,
+       * and dead astern it projects to a direction that flips from one edge
+       * of the screen to the other on a metre of drift. Straight behind has
+       * no side to be on at all, so it goes to the bottom, which is where you
+       * are looking when you are turning back. */
+      nx = camX;
+      ny = camY;
+      const len = Math.hypot(nx, ny);
+      if (len < range * 0.02) { nx = 0; ny = -1; } else { nx /= len; ny /= len; }
+      // Push it out until it touches the frame: the nearest border, not a corner.
+      const s = Math.min(0.94 / (Math.abs(nx) || 1e-6), 0.9 / (Math.abs(ny) || 1e-6));
+      nx *= s;
+      ny *= s;
+    }
+    return {
+      onScreen,
+      x: (nx * 0.5 + 0.5) * 100,
+      y: (0.5 - ny * 0.5) * 100,
+      // The clip-path arrowhead points up at zero, and screen y runs down.
+      angle: (Math.atan2(nx, ny) * 180) / Math.PI,
+      label: nav.label,
+      nm,
+    };
+  }
+
   updateFlightCommon(dt) {
     const p = this.physics;
     const warn = new Set();
@@ -950,14 +1019,18 @@ export class MissionController {
       const dx = nav.x - p.position.x;
       const dz = nav.z - p.position.z;
       const bearing = ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
+      const nm = Math.hypot(dx, dz) / 1852;
       this.flightHud.setNav({
         label: nav.label,
         delta: headingDelta(p.headingDeg, bearing),
-        nm: Math.hypot(dx, dz) / 1852,
+        nm,
       });
+      this.flightHud.setDirection(this.projectNav(nav, nm));
     } else {
       this.flightHud.setNav(null);
+      this.flightHud.setDirection(null);
     }
+    this.flightHud.ageControls(dt);
 
     // Air.
     this.weather.sampleAir(p.position, p.agl, { wind: p.wind, gust: p.gust });
@@ -1364,6 +1437,12 @@ export class MissionController {
     this.audio.setHeadset(true);
     this.dialogue.setHeadset(true);
     this.input.rudderKeys = true;
+    /* A checkpoint puts you in the seat without walking you to it, and the
+     * flight HUD was only ever raised on entering `startup` — so resuming at
+     * a later checkpoint used to fly the whole leg with no airspeed, no
+     * altitude and no heading tape at all. Raise the glass here too. */
+    this.flightHud.show(true);
+    this.flightHud.showControls(true);
 
     (setup[name] || setup.takeoff)();
     this.terrain.prime(this.physics.position.x, this.physics.position.z);

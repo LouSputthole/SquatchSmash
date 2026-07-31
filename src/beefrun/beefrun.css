@@ -298,6 +298,90 @@ body.beefrun { background: #0c0c10; }
 #br-checklist li.todo { opacity: 0.5; }
 @keyframes br-next { 50% { opacity: 0.5; } }
 
+/* ---- Where the objective is, on the world rather than on a scale ---- */
+
+/* Positioned in per-cent by the mission, which projects the target through
+   the same camera the player is looking through. On screen it is a diamond
+   sitting on the place; off screen it is an arrow pinned to the edge, turned
+   to point at it. Amber, dimmer than a warning, because it is guidance. */
+#br-dir {
+  position: absolute;
+  left: var(--x, 50%);
+  top: var(--y, 50%);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  text-align: center;
+  transition: opacity 0.25s ease;
+}
+#br-dir.hidden { display: none; }
+#br-dir .arrow {
+  display: block;
+  width: 1.5rem; height: 1.5rem;
+  margin: 0 auto;
+  background: var(--br-amber);
+  opacity: 0.9;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.85));
+  /* A diamond by default; the edge state swaps in an arrowhead. */
+  clip-path: polygon(50% 6%, 94% 50%, 50% 94%, 6% 50%);
+  transform: rotate(var(--a, 0deg));
+  animation: br-dir-pulse 1.6s ease-in-out infinite;
+}
+#br-dir.edge .arrow {
+  width: 1.9rem; height: 1.9rem;
+  clip-path: polygon(50% 0%, 100% 100%, 50% 76%, 0% 100%);
+}
+#br-dir .tag {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.1rem 0.42rem;
+  background: var(--br-ink);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+#br-dir.edge .tag { display: none; }
+@keyframes br-dir-pulse { 50% { opacity: 0.45; } }
+
+/* ---- The controls card ---- */
+
+/* Top left, above the speed tape rather than through it. */
+#br-controls {
+  position: absolute;
+  left: 1.4rem; top: 4.4rem;
+  padding: 0.45rem 0.8rem 0.5rem;
+  background: var(--br-ink);
+  border-left: 3px solid var(--br-amber);
+  transition: opacity 0.6s ease;
+}
+#br-controls.hidden { display: none; }
+/* Loud while it is new, then it steps back rather than vanishing -- the keys
+   are still there for the flight where you forget which one is the fuel. */
+#br-controls.faded { opacity: 0.3; }
+#br-controls h3 {
+  font-size: 0.58rem; font-weight: 700; letter-spacing: 0.3em;
+  opacity: 0.6; margin-bottom: 0.4rem;
+}
+#br-controls h3 em {
+  font-style: normal; opacity: 0.75;
+  border: 1px solid var(--br-line); padding: 0 0.25rem; margin-left: 0.3rem;
+}
+#br-controls ul { list-style: none; }
+#br-controls li {
+  display: flex; align-items: center; gap: 0.2rem;
+  font-size: 0.66rem; line-height: 1.5; letter-spacing: 0.04em;
+}
+#br-controls kbd {
+  min-width: 1.1rem;
+  padding: 0 0.22rem;
+  border: 1px solid var(--br-line);
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: 0.62rem;
+  text-align: center;
+  opacity: 0.9;
+}
+#br-controls li span { margin-left: 0.35rem; opacity: 0.66; }
+
 /* ------------------------------------------------------------------ */
 /* Title screen additions                                             */
 /* ------------------------------------------------------------------ */
