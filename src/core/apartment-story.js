@@ -69,6 +69,40 @@ const ROUTINE_LABELS = Object.freeze({
   changedClothes: 'Put on a clean shirt',
 });
 
+/**
+ * The rest of the first morning, none of which the door checks.
+ *
+ * Day One is the tutorial and it is deliberately NOT a rush: he is up at four
+ * minutes past six and Lou's table is not until a quarter to midnight, so
+ * everything here is a thing to do with a day, not a thing standing between
+ * him and the door. They were missing from the panel entirely -- the four
+ * chores and the call were the whole list -- so a player with seventeen hours
+ * to fill was given nothing to fill them with and no hint that filling them
+ * was optional.
+ *
+ * Marked `required: false`, which the panel draws differently on purpose.
+ */
+const DAY_ONE_OPTIONAL = Object.freeze([
+  { id: 'emailChecked', label: 'Check your email' },
+  { id: 'pcUsed', label: 'Have a look at the computer' },
+  { id: 'playedGame', label: 'Get a game of Squatch Smash in' },
+]);
+
+/**
+ * And the way out of the waiting, said plainly.
+ *
+ * Not an objective -- there is nothing to tick -- but it belongs on the list
+ * because the list is the only place the game ever tells you what a day is
+ * for. Napping and drinking both move the clock; nothing else in the flat
+ * does.
+ */
+const DAY_ONE_KILL_TIME = Object.freeze({
+  id: 'killtime',
+  label: 'Nothing until tonight — sleep it off, or have a drink and let it take you',
+  done: false,
+  required: false,
+});
+
 /** Somewhere to go, in words a person would use for it. */
 const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.BADA_BING_ONE]: 'the Bada Bing',
@@ -318,6 +352,13 @@ export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
  * `vo.<vo>.<n>` for the caller. A message with no recording still plays, on
  * screen, held for a reading beat -- see main.js's playMessages.
  */
+/** Which one-shot time event records that a chapter's messages were played. */
+const MESSAGE_EVENTS = Object.freeze({
+  day_two: TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO,
+  date: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
+  big_night: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
+});
+
 export const CHAPTER_MESSAGES = Object.freeze({
   day_two: Object.freeze([
     Object.freeze({
@@ -606,6 +647,14 @@ class ApartmentStory {
       required: true,
     });
 
+    /* The first morning's optional half. Only the first morning: by Day Two
+     * he knows where his own computer is and does not need telling. */
+    if (state.story.chapter === 'day_one') {
+      for (const { id, label } of DAY_ONE_OPTIONAL) {
+        items.push({ id, label, done: activities[id] === true, required: false });
+      }
+    }
+
     /* And what the door itself would say if he tried it right now. A chore it
      * is still waiting on is already a line above, so that case adds nothing.
      */
@@ -617,6 +666,12 @@ class ApartmentStory {
         done: false,
         required: true,
       });
+      /* Day One's departure is not until a quarter to midnight, so the line
+       * above is true and useless for seventeen hours without this under it. */
+      if (state.story.chapter === 'day_one'
+        && door.destination === SCENE_IDS.BADA_BING_ONE) {
+        items.push(DAY_ONE_KILL_TIME);
+      }
     } else if (door.kind === 'item') {
       items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
     } else if (door.kind === 'stay') {
@@ -747,6 +802,65 @@ class ApartmentStory {
       kind: 'go',
       destination: SCENE_IDS.BADA_BING_ONE,
     };
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* What the flat has to say about yesterday                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * The messages waiting on the machine this morning, and whether he has
+   * heard them.
+   *
+   * Both halves come off the campaign: the chapter picks the messages, and the
+   * time event records that they were played, so a reload does not replay them
+   * and a checkpoint restore that rewinds the chapter puts them back.
+   */
+  messages() {
+    const state = this.campaign.state;
+    const list = CHAPTER_MESSAGES[state.story.chapter] ?? [];
+    const eventId = MESSAGE_EVENTS[state.story.chapter] ?? null;
+    return {
+      chapter: state.story.chapter,
+      eventId,
+      heard: eventId ? state.story.timeEvents.includes(eventId) : true,
+      list,
+    };
+  }
+
+  /**
+   * Mark this morning's messages as played.
+   * @returns {boolean} false when there was nothing to play, or it is already
+   *   been played -- both of which mean the caller should not start the tape.
+   */
+  hearMessages() {
+    const { eventId, heard, list } = this.messages();
+    if (!eventId || heard || !list.length) return false;
+    return this.campaign.advanceTime(eventId).applied === true;
+  }
+
+  /** What is on the news this morning, by station. Null before Day Two. */
+  news() {
+    return CHAPTER_NEWS[this.campaign.state.story.chapter] ?? null;
+  }
+
+  /**
+   * The fourth morning's cutscene: whether it is owed, and marking it spent.
+   *
+   * Keyed off the chapter and a one-shot time event, so it plays once, on the
+   * big night's morning, and never again -- and a save that has already seen
+   * it reloads into an empty bed rather than replaying her.
+   */
+  margoWakeOwed() {
+    const state = this.campaign.state;
+    return state.story.chapter === 'big_night'
+      && !state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE);
+  }
+
+  /** She got dressed and went. Twelve minutes on the clock. */
+  margoWakeDone() {
+    if (!this.margoWakeOwed()) return false;
+    return this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_WAKE).applied === true;
   }
 
   #callAnswered() {

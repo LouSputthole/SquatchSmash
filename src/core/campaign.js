@@ -85,6 +85,17 @@ export const TIME_EVENT_IDS = Object.freeze({
   POOP: 'activity.poop',
   CHANGE_CLOTHES: 'activity.change_clothes',
   CHECK_EMAIL: 'activity.check_email',
+  /* Standing at the sideboard listening to what landed while he was out. One
+   * per chapter, because there is one message per chapter and a man does not
+   * hear yesterday's twice. Registered as time events rather than as a new
+   * field on the save so the state SHAPE does not move -- an added field makes
+   * every existing save normalise differently, which the loader would report
+   * to the player as a recovered save. */
+  HEAR_MESSAGES_DAY_TWO: 'activity.messages.day_two',
+  HEAR_MESSAGES_DATE: 'activity.messages.date',
+  HEAR_MESSAGES_BIG_NIGHT: 'activity.messages.big_night',
+  /** Margo waking up beside him on the fourth morning, and leaving. */
+  MARGO_WAKE: 'scene.margo_wake',
   LOU_FIRST_CALL: 'call.lou_first',
   LOU_ATTABOY_CALL: 'call.lou_attaboy',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
@@ -115,6 +126,11 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.POOP]: Object.freeze({ minutes: 10 }),
   [TIME_EVENT_IDS.CHANGE_CLOTHES]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.CHECK_EMAIL]: Object.freeze({ minutes: 10 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_DATE]: Object.freeze({ minutes: 2 }),
+  [TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT]: Object.freeze({ minutes: 2 }),
+  // She is not in a hurry about it, and she is not staying either.
+  [TIME_EVENT_IDS.MARGO_WAKE]: Object.freeze({ minutes: 12 }),
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
   // Shorter than the rest. Lou is not asking for anything, so it is short.
   [TIME_EVENT_IDS.LOU_ATTABOY_CALL]: Object.freeze({ minutes: 2 }),

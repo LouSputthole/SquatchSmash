@@ -18,7 +18,7 @@ import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from './core/drunk.js';
 import { Highs } from './core/highs.js';
-import { Goals, ENDINGS, MEETING } from './core/goals.js';
+import { Goals, ENDINGS, MEETING, CS_ROUNDS } from './core/goals.js';
 import { Chat } from './core/chat.js';
 import { Spooky } from './core/spooky.js';
 import { PostFX } from './core/postfx.js';
@@ -34,7 +34,10 @@ import {
   createCampaign,
   navigateCampaign,
 } from './core/campaign.js';
-import { createApartmentStory } from './core/apartment-story.js';
+import {
+  BIG_NIGHT_MARGO_WAKE,
+  createApartmentStory,
+} from './core/apartment-story.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -547,10 +550,13 @@ async function boot() {
       audio.say('ammo', { chance: 0.7, delay: 0.9 });
       apartment.inventory.onChange?.(apartment.inventory);
     },
+    onPlayMessages: () => playMessages(),
     onTvTap: () => {
       if (!apartment.state.tvOn) {
         apartment.state.tvOn = tv.toggle();
         hud.toast(apartment.state.tvOn ? 'Telly on' : 'Telly off');
+        // The other station is running his week as a story with no subject.
+        if (apartment.state.tvOn) playNews('tv');
       } else {
         tv.next();
         hud.toast(tv.channel.name);
@@ -559,9 +565,14 @@ async function boot() {
     onTvHold: () => {
       apartment.state.tvOn = tv.toggle();
       hud.toast(apartment.state.tvOn ? 'Telly on' : 'Telly off');
+      if (apartment.state.tvOn) playNews('tv');
     },
     // The set's own LED and dial read off apartment state, so keep it honest.
-    onRadioToggle: () => { radio.toggle(); apartment.state.radioOn = radio.on; },
+    onRadioToggle: () => {
+      radio.toggle();
+      apartment.state.radioOn = radio.on;
+      if (radio.on) playNews('radio');
+    },
     onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
   });
 
@@ -691,6 +702,7 @@ async function boot() {
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     heldSlice, updateConsume,
+    playMessages, playNews, startMargoWake, finishMargoWake, updateMargoWake,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -768,9 +780,14 @@ startBtn.addEventListener('click', async () => {
       radio.turnOn();
       apartment.state.radioOn = radio.on;
       hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
-      setTimeout(() => {
-        if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
-      }, 3600);
+      /* Except on the fourth morning, when he is not the only one awake. The
+       * cutscene owns the first minute and hands control back itself. */
+      if (apartmentStory.margoWakeOwed()) startMargoWake();
+      else {
+        setTimeout(() => {
+          if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
+        }, 3600);
+      }
     }
   }
   game.paused = false;
@@ -2207,6 +2224,11 @@ function activityContext() {
     pooped: game.pooped,
     changedClothes: apartment.state.dressed,
     emailChecked: apartment.state.repliedHR,
+    /* Day One's optional half. `pcOn` is whether the tower is on right now,
+     * which is not the same question -- switching it off again does not
+     * un-look at it. */
+    pcUsed: apartment.state.pcEverOn === true,
+    playedGame: (apartment.state.csDeaths || 0) >= CS_ROUNDS,
   };
 }
 
@@ -2764,6 +2786,268 @@ function startNewMorning() {
   updateObjectives();
 }
 
+/* ------------------------------------------------------------------ */
+/* What the flat has to say about yesterday                            */
+/* ------------------------------------------------------------------ */
+
+/** A line with no recording holds for this long, plus a bit per character. */
+const READ_BASE = 1.3;
+const READ_PER_CHAR = 0.042;
+
+/**
+ * Speak one authored line, recorded or not.
+ *
+ * The same rule the phone uses: play the cue, and hold for as long as the
+ * recording lasts, or for a reading beat if there is no recording yet. Every
+ * line written this wave goes through here, so authoring content and recording
+ * it are separate jobs and neither blocks the other.
+ *
+ * @returns {number} seconds the line should hold the floor
+ */
+function speakLine(cue, text, { volume = 0.9, subtitle = null } = {}) {
+  const source = audio.play?.(cue, { volume });
+  const hold = source?.buffer
+    ? source.buffer.duration + 0.4
+    : READ_BASE + text.replace(/<[^>]+>/g, '').length * READ_PER_CHAR;
+  hud.say(subtitle ?? text, Math.round(hold * 1000));
+  return hold;
+}
+
+/** Play a list of {cue, text} in order, one after the other. */
+function speakSequence(turns, { onDone = null } = {}) {
+  let i = 0;
+  const step = () => {
+    if (i >= turns.length) { onDone?.(); return; }
+    const turn = turns[i++];
+    const hold = speakLine(turn.cue, turn.text, { subtitle: turn.subtitle });
+    setTimeout(step, Math.round(hold * 1000) + 220);
+  };
+  step();
+}
+
+/**
+ * Play whatever is on the answering machine this morning.
+ *
+ * Optional in every sense: nothing waits on it, nothing unlocks, and the
+ * campaign only records that it happened so the tape does not replay on the
+ * next load. It is how Day Two finds out that somebody heard about the
+ * restaurant, and how Day Three finds out that Lou has stopped saying things.
+ */
+function playMessages() {
+  const waiting = apartmentStory.messages();
+  if (!waiting.list.length) {
+    hud.say('Nothing on it. There is never anything on it.', 3000);
+    return false;
+  }
+  if (waiting.heard) {
+    hud.say('You have heard it. It does not get better.', 3000);
+    return false;
+  }
+  apartmentStory.hearMessages();
+  syncClockFromCampaign();
+  apartment.setMessagesWaiting(0);
+  audio.play('ui.select', { volume: 0.4 });
+  const turns = [];
+  for (const message of waiting.list) {
+    turns.push({
+      cue: `vo.${message.vo}.0`,
+      text: `<em>${message.from} · ${message.at}</em>`,
+    });
+    message.lines.forEach((line, i) => {
+      turns.push({ cue: `vo.${message.vo}.${i + 1}`, text: `${message.from}: ${line}` });
+    });
+  }
+  speakSequence(turns);
+  return true;
+}
+
+/**
+ * What the news is saying, on whichever box he just switched on.
+ *
+ * Nothing before Day Two, because until then he has not done anything worth
+ * reporting. Never names him -- a bulletin that named him would be a plot
+ * point, and this is weather.
+ */
+function playNews(station) {
+  const bulletin = apartmentStory.news()?.[station];
+  if (!bulletin || game.newsHeard?.has(bulletin.vo)) return false;
+  (game.newsHeard ??= new Set()).add(bulletin.vo);
+  setTimeout(() => {
+    speakLine(`vo.${bulletin.vo}.1`, bulletin.line, {
+      volume: 0.75,
+      subtitle: `<em>${station === 'radio' ? '97.8 · the wire' : 'KSQCH · news'}</em> ${bulletin.line}`,
+    });
+  }, 900);
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
+/* The fourth morning                                                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Margo wakes up beside him, says her piece, gets dressed and goes.
+ *
+ * A cutscene in the sense that he cannot walk during it, and emphatically not
+ * in the sense that anything is taken away from him: he keeps the view, she is
+ * animated in the room rather than in a cut, and the whole thing is under a
+ * minute. It hands control back by putting him exactly where an ordinary
+ * morning puts him -- lying in his own bed with [E] on the screen.
+ *
+ * Everything about it is one-shot and durable: `margoWakeOwed` reads the
+ * campaign, `margoWakeDone` writes the campaign, so reloading the fourth
+ * morning after she has gone does not bring her back.
+ */
+/**
+ * The morning's beats: when she moves, and where he is looking when she does.
+ *
+ * `look` is a point in the room, not an angle, so the camera aim is derived
+ * from where she actually is rather than from a number somebody typed twice.
+ * He is flat on his back with the view pitched at the ceiling and clamped to a
+ * narrow cone; the scene widens that cone and turns his head for him, then
+ * puts it back exactly as `layInBed` left it.
+ */
+const MARGO_BEATS = [
+  /* Aimed at chest height rather than at the top of her head. She is about a
+   * metre away and he is flat on his back, so aiming at a face puts the
+   * ceiling in three quarters of the frame.
+   *
+   * The first beat has no aim at all, on purpose: she is beside him, forty
+   * centimetres off his eye, and turning his head toward her there gets you a
+   * cotton wall. He wakes looking at his own ceiling, hears her, and turns
+   * over when she sits up -- which is the shape of the morning anyway. */
+  { at: 0.0, pose: 'lying', look: null, cue: null },
+  { at: 6.4, pose: 'sitting', look: [-3.12, 1.00, -3.30], cue: 'bed.rustle' },
+  // On her feet and dressing while the last exchange plays. She does not
+  // start for the door until the conversation is actually over -- that is
+  // what `speakSequence`'s onDone is for.
+  { at: 20.0, pose: 'standing', look: [-2.86, 1.14, -3.10], cue: 'cloth.snap' },
+];
+/** Where she walks, from the side of the bed to the front door. */
+const MARGO_PATH = [
+  [-2.86, -3.10], [-2.40, -1.40], [-1.20, 1.20], [0.90, 3.30], [2.72, 4.28],
+];
+
+function startMargoWake() {
+  if (game.margoScene) return false;
+  /* Wall clock, not accumulated frame time. The lines are scheduled on
+   * setTimeout and the simulation delta is clamped at 50ms, so on a machine
+   * that cannot hold thirty frames a second the two drift apart and she says
+   * goodbye from under the duvet. One clock for both halves. */
+  game.margoScene = { startedAt: performance.now(), t: 0, beat: -1, walk: null, aim: null };
+  const margo = apartment.margo;
+  margo.setPose('lying');
+  margo.group.visible = true;
+  interaction.setPaused(true);
+  hud.hidePrompt();
+  // A cone wide enough to turn and look at somebody, and a floor low enough
+  // to see them. Both go back to the bed's own numbers in finishMargoWake.
+  player.pitchMin = -0.35;
+  player.pitchMax = Math.PI / 2 - 0.05;
+  player.yawRange = 1.6;
+
+  const turns = [];
+  BIG_NIGHT_MARGO_WAKE.lines.forEach((line, i) => {
+    turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.${i + 1}`, text: `Margo: ${line}` });
+    const reply = BIG_NIGHT_MARGO_WAKE.replies[i];
+    if (reply) {
+      turns.push({ cue: `vo.${BIG_NIGHT_MARGO_WAKE.vo}.tony.${i + 1}`, text: `You: ${reply}` });
+    }
+  });
+  speakSequence(turns, {
+    onDone: () => {
+      // She is already on her feet by now; this is the backstop.
+      if (!game.margoScene || game.margoScene.walk !== null) return;
+      margo.setPose('standing');
+      game.margoScene.beat = MARGO_BEATS.length - 1;
+      game.margoScene.aim = MARGO_BEATS[MARGO_BEATS.length - 1].look;
+      game.margoScene.walk = 0;
+    },
+  });
+  return true;
+}
+
+/** She is gone. Give him the room, the clock and the prompt back. */
+function finishMargoWake() {
+  if (!game.margoScene) return;
+  game.margoScene = null;
+  apartment.margo.group.visible = false;
+  apartment.frontDoorPivot.rotation.y = 0;
+  audio.play('door.knob', { volume: 0.7 });
+  apartmentStory.margoWakeDone();
+  syncClockFromCampaign();
+  // Exactly the pose an ordinary morning hands over: on his back, looking at
+  // the ceiling, [E] to get up.
+  player.layInBed(apartment.bedPose.position, apartment.bedPose.yaw);
+  interaction.setPaused(true);
+  hud.hidePrompt();
+  hud.say('<em>Gone.</em> The flat is very quiet and today is the day.', 4600);
+  updateObjectives();
+  setTimeout(() => {
+    if (player.mode === 'bed') hud.showPrompt('Get <b>up</b>', 'E');
+  }, 1600);
+}
+
+/** Run the scene: her beats, his head, and the walk to the door. */
+function updateMargoWake(dt) {
+  const scene = game.margoScene;
+  if (!scene) return;
+  scene.t = (performance.now() - scene.startedAt) / 1000;
+  const margo = apartment.margo;
+
+  // Beats.
+  for (let i = MARGO_BEATS.length - 1; i > scene.beat; i--) {
+    if (scene.t < MARGO_BEATS[i].at) continue;
+    const beat = MARGO_BEATS[i];
+    scene.beat = i;
+    margo.setPose(beat.pose);
+    scene.aim = beat.look;
+    if (beat.cue) audio.play(beat.cue, { volume: 0.5 });
+    break;
+  }
+
+  // His head, turned toward whatever she is doing -- when there is anything
+  // worth turning toward. A null aim leaves the bed's own pose alone.
+  if (scene.aim) {
+    const head = new THREE.Vector3(scene.aim[0], scene.aim[1], scene.aim[2]);
+    const dx = head.x - player.position.x;
+    const dy = head.y - player.position.y;
+    const dz = head.z - player.position.z;
+    const wantYaw = yawNear(Math.atan2(-dx, -dz), player.yaw);
+    const wantPitch = Math.atan2(dy, Math.hypot(dx, dz));
+    const k = Math.min(1, dt * 2.6);
+    player.yaw += (wantYaw - player.yaw) * k;
+    player.pitch += (wantPitch - player.pitch) * k;
+    player.yawCenter = player.yaw;
+  }
+
+  if (scene.walk === null) return;
+  /* Wall clock again, and for the same reason plus a harder one: this is the
+   * stretch that ENDS the cutscene. Advanced by frame delta, a machine
+   * rendering at two frames a second leaves her walking across the flat
+   * forever with the player unable to move. Six seconds to the door, on
+   * whatever hardware. */
+  scene.walkStart ??= performance.now();
+  scene.walk = Math.min(1, (performance.now() - scene.walkStart) / 6000);
+  const w = scene.walk;
+  const g = margo.group;
+  const at = Math.min(MARGO_PATH.length - 2, Math.floor(w * (MARGO_PATH.length - 1)));
+  const local = w * (MARGO_PATH.length - 1) - at;
+  const [ax, az] = MARGO_PATH[at];
+  const [bx, bz] = MARGO_PATH[at + 1];
+  g.position.x = ax + (bx - ax) * local;
+  g.position.z = az + (bz - az) * local;
+  g.rotation.y = Math.atan2(bx - ax, bz - az);
+  // A walk cycle made of one number: she bobs, and her limbs swing with it.
+  const step = Math.sin(scene.t * 6.2);
+  g.position.y = 0.78 + Math.abs(step) * 0.018;
+  margo.legs.rotation.x = step * 0.35;
+  margo.arms.forEach((arm, i) => { arm.rotation.x = step * (i ? -0.3 : 0.3); });
+  // The door swings for her on the way past it.
+  apartment.frontDoorPivot.rotation.y = w > 0.80 ? -1.0 * Math.min(1, (w - 0.80) / 0.12) : 0;
+  if (w >= 1) finishMargoWake();
+}
+
 /**
  * Day One, before the Bing, with hours to fill.
  *
@@ -3122,6 +3406,7 @@ function frame() {
 
       player.update(dt);
       apartment.update(hdt, elapsed);
+      updateMargoWake(dt);
       updateConsume(dt);
       updatePee(dt);
       updateBowel(dt);

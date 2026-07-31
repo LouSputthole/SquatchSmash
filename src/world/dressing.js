@@ -479,6 +479,105 @@ export function makeAnswerMachine(M, { x, y, z, rotY = 0 }) {
 }
 
 /**
+ * Somebody else in the bed on the fourth morning.
+ *
+ * Built round the hips rather than the feet, because every pose she is in
+ * during that minute is a different angle between her legs and the rest of
+ * her: on her side under the duvet, sat on the edge with her feet down,
+ * standing up and going. A rig with the origin on the floor cannot sit down
+ * without either floating or sinking, and this is a scene where she does all
+ * three in about forty seconds.
+ *
+ * Deliberately not the Person rig from the story scenes: that one is built at
+ * Sasquatch scale for rooms with four metres of headroom, and this is a studio
+ * flat with a bed in it.
+ */
+export function makeMorningGuest(M) {
+  const g = group('margo');
+  const skin = mat({ color: 0xe0ab84, roughness: 0.9 });
+  const hair = mat({ color: 0x2c1c14, roughness: 0.95 });
+  const shirt = mat({ color: 0xd8d2c4, roughness: 1 });
+  const jeans = mat({ color: 0x35405a, roughness: 1 });
+
+  const upper = group('margo.upper');
+  g.add(upper);
+  upper.add(box({ size: [0.34, 0.50, 0.20], pos: [0, 0.25, 0], mat: shirt }));
+  upper.add(box({ size: [0.40, 0.08, 0.21], pos: [0, 0.47, 0], mat: shirt }));
+  const head = group('margo.head');
+  head.position.y = 0.66;
+  upper.add(head);
+  head.add(box({ size: [0.17, 0.20, 0.18], pos: [0, 0, 0], mat: skin }));
+  head.add(box({ size: [0.19, 0.10, 0.20], pos: [0, 0.10, -0.01], mat: hair }));
+  head.add(box({ size: [0.20, 0.24, 0.09], pos: [0, -0.02, -0.08], mat: hair }));
+  for (const s of [-1, 1]) {
+    head.add(box({ size: [0.025, 0.02, 0.02], pos: [0.045 * s, 0.01, 0.092], mat: mat({ color: 0x24242c, roughness: 0.5 }) }));
+  }
+  const arms = [];
+  for (const s of [-1, 1]) {
+    const arm = box({ size: [0.075, 0.44, 0.09], pos: [0.205 * s, 0.22, 0], mat: shirt });
+    arm.rotation.z = 0.06 * -s;
+    upper.add(arm);
+    arms.push(arm);
+  }
+
+  const legs = group('margo.legs');
+  g.add(legs);
+  for (const s of [-1, 1]) {
+    legs.add(box({ size: [0.13, 0.78, 0.15], pos: [0.085 * s, -0.39, 0], mat: jeans }));
+  }
+
+  /**
+   * Where she is, and what shape she is in.
+   *
+   * All three placements are measured off the bed rather than guessed: he
+   * wakes with his eye at (-4.15, 0.86, -3.35), so anything within about half
+   * a metre of that is not a person in the room, it is a wall of denim across
+   * the lens. She is on his east side throughout, which is the open side of
+   * the bed and the side the rest of the flat is on.
+   *
+   * @param {'lying'|'sitting'|'standing'} pose
+   */
+  const setPose = (pose) => {
+    if (pose === 'lying') {
+      /* On her side beside him. Laid down by rotating the standing rig a
+       * quarter turn about X, so her head runs toward the headboard and her
+       * feet toward the foot of the bed; the roll is applied in her own body
+       * frame first, which is what puts her on her side rather than face up. */
+      /* Head level with his, body running down the bed, above the duvet
+       * rather than inside it -- the bedding tops out at 0.72 with folds to
+       * 0.94, so anything at mattress height is upholstery. She is forty
+       * centimetres from his eye here, which is what lying next to somebody
+       * is; the scene deliberately does not turn his head toward her until
+       * she sits up, because at this range she is a wall, not a person. */
+      g.position.set(-3.74, 0.82, -2.72);
+      g.rotation.set(-Math.PI / 2, 0, 0.55);
+      legs.rotation.x = 0.22;
+      upper.rotation.x = -0.10;
+      return;
+    }
+    if (pose === 'sitting') {
+      /* Sat on the east edge with her feet on the floor -- which is the side
+       * her legs have to hang from, and therefore the way her body has to
+       * face, so he is looking at three quarters of her back. That is what
+       * the morning after looks like from a pillow. A metre out, which is far
+       * enough that the angle up to her frames a person and not a ceiling. */
+      g.position.set(-3.12, 0.72, -3.30);
+      g.rotation.set(0, Math.PI / 2 - 0.35, 0);
+      legs.rotation.x = -1.20;
+      upper.rotation.x = 0.04;
+      return;
+    }
+    g.position.set(-2.86, 0.78, -3.10);
+    g.rotation.set(0, Math.PI / 2 - 0.2, 0);
+    legs.rotation.x = 0;
+    upper.rotation.x = 0;
+  };
+  setPose('lying');
+  g.visible = false;
+  return { group: g, head, upper, legs, arms, setPose };
+}
+
+/**
  * Build every dressing piece the table can name.
  *
  * All of them, every time, whatever the chapter -- they are a few dozen boxes

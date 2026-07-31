@@ -17,7 +17,7 @@ import { resolveGear } from './gear.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { loadModels } from './models.js';
 import {
-  CHAPTER_ORDER, buildDressing, dressingFor, makeAnswerMachine,
+  CHAPTER_ORDER, buildDressing, dressingFor, makeAnswerMachine, makeMorningGuest,
 } from './dressing.js';
 
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
@@ -693,6 +693,18 @@ export async function buildApartment(ctx) {
     x: -0.32, y: sideboard.top, z: 4.30, rotY: Math.PI + 0.08,
   });
   root.add(answerMachine.group);
+  const machineHit = box({
+    size: [0.26, 0.22, 0.22], pos: [-0.32, sideboard.top + 0.10, 4.30],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  machineHit.name = 'answermachine';
+  root.add(machineHit);
+  interaction.register(machineHit, {
+    label: () => (machineWaiting > 0
+      ? `Play your <b>messages</b> <span style="opacity:.6">(${machineWaiting})</span>`
+      : 'The <b>answering machine</b>'),
+    onUse: () => ctx.onPlayMessages?.(),
+  });
 
   const plant = P.makePlant(M, { x: 3.95, z: 3.75 });
   root.add(plant.group);
@@ -979,6 +991,12 @@ export async function buildApartment(ctx) {
       rain: { x: x1 - 0.02, y: (wy0 + wy1) / 2, z: (wz0 + wz1) / 2, w: wz1 - wz0, h: wy1 - wy0 },
     },
   });
+
+  /* Margo, for the one morning she is here. Built in every chapter and shown
+   * by the cutscene rather than by the dressing table -- she is a person who
+   * stayed the night, not a possession he accumulated. */
+  const margo = makeMorningGuest(M);
+  root.add(margo.group);
 
   /** Weather and light for the morning currently on show. */
   let dressAir = dressingFor('day_one').air;
@@ -1380,6 +1398,8 @@ export async function buildApartment(ctx) {
     closetOpen: false,
     /** The telly is on. */
     tvOn: false,
+    /** He has sat down at the computer at least once today. */
+    pcEverOn: false,
     /** In the cylinder, and in his pocket. */
     rounds: 6,
     spareRounds: 0,
@@ -2220,6 +2240,9 @@ export async function buildApartment(ctx) {
     answerMachine,
     messagesWaiting() { return machineWaiting; },
     setMessagesWaiting(n) { machineWaiting = Math.max(0, n | 0); },
+    /** Whoever stayed over, and the door she leaves by. */
+    margo,
+    frontDoorPivot: frontDoor.pivot,
     /** The frame that has been crooked for months, and putting it right. */
     crookedFrame,
     straightenFrame() { crookedWant = 0; },
@@ -2282,6 +2305,9 @@ export async function buildApartment(ctx) {
 
     setPcOn(on) {
       state.pcOn = on;
+      // Whether he has ever sat down at it, which is a different question from
+      // whether it is on now -- switching it off is not un-looking at it.
+      if (on) state.pcEverOn = true;
     },
 
     /**
