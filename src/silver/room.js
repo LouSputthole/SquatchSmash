@@ -235,6 +235,13 @@ export function buildRoom(scene, { renderer } = {}) {
   const M_GLASS = mat({ color: 0x9fb4cc, roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.26 });
   const M_VELVET = mat({ color: 0x4a0d18, roughness: 1 });
   const M_ASPHALT = mat({ map: tiled(asphalt(), 10, 6), roughness: 0.98 });
+  /* Every glowing lampshade in the building. The base colour is near-black on
+   * purpose: the glow is the emissive term, and a pale albedo under a bulb a
+   * hand-span away multiplies into hundreds — which is what had every table
+   * lamp blooming like a headlight and the owner asking why he could not see
+   * the woman across the table. A black shade cannot be scorched by its own
+   * bulb; what you see is exactly the emissive, which is exactly a number. */
+  const M_SHADE = mat({ color: 0x1a1008, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.4 });
 
   /**
    * An actual lamp.
@@ -505,8 +512,16 @@ export function buildRoom(scene, { renderer } = {}) {
     /* Proud of the brick, not inside it. The frontage is 400mm thick, so it
      * runs z 34.0..34.4 and a sign at 34.35 is 50mm *into* the wall — which is
      * where this one has always been, on one side or the other. All you ever
-     * saw was the uplight washing bare brick. */
-    const nameSign = sign(nameTex, 10, 1.9, { x: 0, y: 5.6, z: 34.45, emissive: '#e8d9a8', intensity: 1.5 });
+     * saw was the uplight washing bare brick.
+     *
+     * Emissive 0.55, not 1.5. The letter cores in the neon texture are
+     * near-white, and 1.5 put them over the bloom threshold from the far end
+     * of the street: the whole sign read as one gold flare and THE SILVER
+     * ROOM was not readable off its own marquee. At 0.55 the tone mapper
+     * keeps the glyphs under the threshold and the sign is bright, lit, and a
+     * sign. */
+    const nameSign = sign(nameTex, 10, 1.9, { x: 0, y: 5.6, z: 34.45, emissive: '#e8d9a8', intensity: 0.55 });
+    nameSign.name = 'marquee';
     add(nameSign);
     const nameLight = pointLight(0xe8d9a8, 3.2);
     nameLight.position.set(0, 4.4, 36);
@@ -1258,14 +1273,20 @@ export function buildRoom(scene, { renderer } = {}) {
       g.add(cylinder({ rTop: r, rBottom: r * 0.94, h: 0.46, pos: [0, 0.52, 0], mat: tableTop }));
       // The shaded lamp, which is the whole look of the room
       g.add(cylinder({ r: 0.05, h: 0.2, pos: [0, 0.86, 0], mat: M_BRASS }));
-      g.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.55 }) }));
+      g.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: M_SHADE }));
       /* The shade glows whatever happens -- that is what you see from across
        * the room -- but only the nearest handful actually cast light. Thirty
        * live point lights in a forward renderer are thirty per-pixel terms in
        * every shader in the scene, and twenty-four of them are lighting a
-       * tablecloth nobody is looking at. */
-      const l = pointLight(0xffb45e, 2.2, 5.2);
-      l.position.set(x, 1.0, z);
+       * tablecloth nobody is looking at.
+       *
+       * The bulb sits *above* the shade rather than inside it. A point light
+       * ten centimetres from a surface is inverse-square fire whatever its
+       * wattage: at (x, 1.0, z) it scorched its own shade and the cloth under
+       * it to white, bloom picked the whole blob up, and the person across
+       * the table was a silhouette behind a flare. */
+      const l = pointLight(0xffb45e, 0.6, 5.2);
+      l.position.set(x, 1.55, z);
       l.intensity = 0;
       add(l);
       lamps.push({ light: l, x, z });
@@ -1461,12 +1482,17 @@ export function buildRoom(scene, { renderer } = {}) {
 
     const lampG = group('front-lamp');
     lampG.add(cylinder({ r: 0.05, h: 0.2, pos: [0, 0.86, 0], mat: M_BRASS }));
-    lampG.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: mat({ color: 0xd8a860, roughness: 0.85, emissive: 0xc07a2a, emissiveIntensity: 0.6 }) }));
+    lampG.add(cylinder({ rTop: 0.1, rBottom: 0.15, h: 0.19, pos: [0, 1.03, 0], mat: M_SHADE }));
     lampG.visible = false;
     front.add(lampG);
-    const frontLight = pointLight(0xffb45e, 1.6, 4.8);
+    /* Above the shade, same as every other lamp in the room: this is the one
+     * fitting the player spends twenty minutes eighty centimetres from, and
+     * it must light her face, not flare over it. Its height and wattage are
+     * held by a measured check in verify-silver — the renderer is sampled
+     * from his chair and the white pool under the lamp is counted in pixels. */
+    const frontLight = pointLight(0xffb45e, 0.55, 4.8);
     frontLight.intensity = 0;               // lit last, which is what makes it a table
-    frontLight.position.set(0, 1.0, 0);
+    frontLight.position.set(0, 1.55, 0);
     front.add(frontLight);
 
     // Two settings, hidden until a waiter lays them

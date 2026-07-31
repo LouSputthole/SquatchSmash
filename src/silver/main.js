@@ -122,6 +122,18 @@ scene.add(camera);
 
 const postfx = new PostFX(renderer, scene, camera);
 postfx.enable();
+/* The shared bloom is tuned for the flat — a dark room where anything over
+ * 0.82 linear is genuinely a light. A supper club at full house is made of
+ * lit white tablecloth, every metre of which clears that threshold, so the
+ * whole room bloomed: the wave-2 note called the table lamps "glaring" and
+ * could not see Margo behind the flare, and the flare was mostly the cloth.
+ * The club raises the bar so only real emitters and the hot pool directly
+ * under a fitting bloom, and takes a third off the strength. The flat's own
+ * numbers are untouched — this is this room's rig, set on this room's pass. */
+if (postfx.bloom) {
+  postfx.bloom.threshold = 1.35;
+  postfx.bloom.strength = 0.34;
+}
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
