@@ -88,6 +88,7 @@ await page.addInitScript(() => {
       pooped: true,
       changedClothes: true,
       emailChecked: false,
+      whiskeyRelaxed: true,
     },
     inventory: { carried: [], concealed: ['parcel'] },
     missions: {
