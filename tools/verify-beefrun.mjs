@@ -102,7 +102,10 @@ try {
    * and that bank is now over a thousand recordings. On a software renderer
    * that is minutes, not seconds — so this wait is budgeted for the load, not
    * for the frame. */
-  await page.click('#start-btn');
+  /* Dispatched rather than clicked: Playwright's actionability check waits for
+   * the page to go quiet, and a page rendering a mountain range on a software
+   * rasteriser never does. The listener only wants the event. */
+  await page.evaluate(() => document.getElementById('start-btn').click());
   await page.waitForFunction(() => window.__beefrun.mission.phase === 'arrival', null, { timeout: 300000 });
   const started = await page.evaluate(() => ({
     phase: window.__beefrun.mission.phase,
@@ -148,6 +151,173 @@ try {
       && scenePass.wingtipClear
       && scenePass.stoveInHangar,
     JSON.stringify(scenePass));
+
+  /* The two men on the apron are named, and the names ride with them. */
+  const tags = await page.evaluate(async () => {
+    const m = window.__beefrun.mission;
+    const V = window.__beefrun.physics.position.constructor;
+    const read = (f) => {
+      const p = new V();
+      f.tag?.getWorldPosition(p);
+      return {
+        text: f.tag?.userData.text ?? null,
+        sprite: f.tag?.type === 'Sprite',
+        onFigure: f.tag?.parent === f.group,
+        world: p.clone(),
+      };
+    };
+    const lou = read(m.lou);
+    const stoveBefore = read(m.stove);
+    // Walk him a few metres and see whether the name goes with him.
+    const npc = await import('/src/beefrun/npc.js');
+    const from = m.stove.group.position.clone();
+    npc.walkTo(m.stove, from.x + 6, from.z - 6, { speed: 40 });
+    for (let i = 0; i < 30; i++) npc.updateFigure(m.stove, 0.05, null);
+    const stoveAfter = read(m.stove);
+    return {
+      lou: { text: lou.text, sprite: lou.sprite, onFigure: lou.onFigure },
+      stove: { text: stoveBefore.text, sprite: stoveBefore.sprite, onFigure: stoveBefore.onFigure },
+      figureMoved: +m.stove.group.position.distanceTo(from).toFixed(2),
+      tagMoved: +stoveAfter.world.distanceTo(stoveBefore.world).toFixed(2),
+    };
+  });
+  check('both airfield NPCs carry a name tag that tracks them',
+    tags.lou.text === 'CAPT. LOU SASOLE' && tags.lou.sprite && tags.lou.onFigure
+      && tags.stove.text === 'OLD STOVE' && tags.stove.sprite && tags.stove.onFigure
+      && tags.figureMoved > 1 && Math.abs(tags.tagMoved - tags.figureMoved) < 0.5,
+    JSON.stringify(tags));
+
+  /* Captain Sasole wears his own face, and does not stand perfectly still. */
+  const sasole = await page.evaluate(async () => {
+    const m = window.__beefrun.mission;
+    const npc = await import('/src/beefrun/npc.js');
+    const skull = m.lou.neck.children.find((c) => Array.isArray(c.material));
+    const faceMat = skull?.material[4];
+    const img = faceMat?.map?.image;
+    // Twenty seconds of standing about, sampled.
+    const seen = { hipX: [], hipZ: [], arm: [] };
+    for (let i = 0; i < 400; i++) {
+      npc.updateFigure(m.lou, 0.05, null);
+      seen.hipX.push(m.lou.hips.position.x);
+      seen.hipZ.push(m.lou.hips.rotation.z);
+      seen.arm.push(m.lou.arms[0].shoulder.rotation.x);
+    }
+    const span = (a) => +(Math.max(...a) - Math.min(...a)).toFixed(4);
+    return {
+      photoSkull: !!skull,
+      faceOnFront: !!faceMat?.map,
+      textureLoaded: !!(img && img.width > 0),
+      src: faceMat?.map?.image?.currentSrc?.split('/').slice(-2).join('/') ?? null,
+      sway: span(seen.hipX),
+      lean: span(seen.hipZ),
+      gesture: span(seen.arm),
+    };
+  });
+  check("Captain Sasole wears his own photograph and does not stand like a post",
+    sasole.photoSkull && sasole.faceOnFront && sasole.textureLoaded
+      && sasole.src === 'faces/sasole.png'
+      && sasole.sway > 0.01 && sasole.lean > 0.01 && sasole.gesture > 0.3,
+    JSON.stringify(sasole));
+
+  /* The walkaround marker stands on the part, not on the grass behind it. */
+  const marks = await page.evaluate(() => {
+    const b = window.__beefrun;
+    // The marker only exists once the walkaround is armed.
+    b.mission.setPhase('preflight');
+    const pf = b.mission.preflight;
+    const V = b.physics.position.constructor;
+    const names = ['chocks', 'caps', 'props', 'sample', 'door', 'surfaces'];
+    const rows = [];
+    for (const name of names) {
+      for (const n of names) pf.tasks[n].done = names.indexOf(n) < names.indexOf(name);
+      pf.update(0.016, b.physics, b.mission.camera);
+      const target = pf.markerTarget();
+      const tw = new V(); target.getWorldPosition(tw);
+      const mw = new V(); pf.marker.getWorldPosition(mw);
+      rows.push({ name, off: +mw.distanceTo(tw).toFixed(2), up: +(mw.y - tw.y).toFixed(2) });
+    }
+    for (const n of names) pf.tasks[n].done = false;
+    pf.update(0.016, b.physics, b.mission.camera);
+    return {
+      rows,
+      // The highlight has to be readable through the aeroplane it is on.
+      throughMetal: pf.markerRing.material.depthTest === false,
+    };
+  });
+  check('every walkaround marker sits on its own part, drawn through the airframe',
+    marks.rows.every((r) => r.off < 0.6) && marks.throughMetal,
+    JSON.stringify(marks));
+
+  /* The fuel sample: stand where the marker is, press E, get a cup. Twice. */
+  const sample = await page.evaluate(() => {
+    const b = window.__beefrun;
+    const pf = b.mission.preflight;
+    for (const n of ['chocks', 'caps', 'props']) pf.tasks[n].done = true;
+    const standAtMarker = () => {
+      pf.update(0.016, b.physics, b.mission.camera);
+      const target = pf.markerTarget();
+      const V = b.physics.position.constructor;
+      const wp = new V(); target.getWorldPosition(wp);
+      const mk = pf.marker.position.clone();
+      b.player.position.x = mk.x;
+      b.player.position.z = mk.z;
+      b.player.ground = b.player.position.y - b.player.eyeHeight;
+      const dx = wp.x - b.player.position.x;
+      const dz = wp.z - b.player.position.z;
+      const dy = wp.y - b.player.position.y;
+      const h = Math.hypot(dx, dz);
+      b.player.yaw = Math.atan2(-dx, -dz);
+      b.player.pitch = Math.max(b.player.pitchMin, Math.min(b.player.pitchMax, Math.atan2(dy, h)));
+      b.player.update(0.001);
+      b.player.camera.updateMatrixWorld(true);
+      b.interaction.update(0.016);
+      return b.interaction.current === target;
+    };
+    const found = [];
+    const tap = () => { b.interaction.press(); b.interaction.release(); };
+    found.push(standAtMarker());
+    const promptShown = !document.getElementById('prompt').classList.contains('hidden');
+    tap();
+    const afterOne = pf.tasks.sample.count;
+    found.push(standAtMarker());
+    tap();
+    return {
+      crosshairFoundBoth: found.every(Boolean),
+      promptShown,
+      afterOne,
+      done: pf.tasks.sample.done,
+      count: pf.tasks.sample.count,
+      need: pf.tasks.sample.need,
+      drawn: pf.sampleDrawn.slice(),
+      puddles: pf.puddles.size,
+    };
+  });
+  check('a fuel sample can be drawn by pressing E where the marker stands',
+    sample.crosshairFoundBoth && sample.promptShown
+      && sample.afterOne === 1 && sample.done && sample.count === 2
+      && sample.drawn.every(Boolean) && sample.puddles === 2,
+    JSON.stringify(sample));
+
+  /* Old Stove's crates say what they are on the lid and what they are not on
+   * both sides. */
+  const crates = await page.evaluate(async () => {
+    const cargo = await import('/src/beefrun/cargo.js');
+    const crate = cargo.makeGunCrate(0);
+    const decals = crate.group.children.filter((c) => c.material?.map);
+    const lid = decals.find((d) => Math.abs(d.rotation.x + Math.PI / 2) < 0.01);
+    const sides = decals.filter((d) => d !== lid);
+    return {
+      lid: !!lid,
+      lidPainted: !!(lid?.material.map.image?.width),
+      sides: sides.length,
+      bothFaces: sides.length === 2
+        && sides.some((s) => s.position.z > 0) && sides.some((s) => s.position.z < 0),
+      sharedSideArt: sides.length === 2 && sides[0].material.map === sides[1].material.map,
+    };
+  });
+  check("the gun crates carry a rifle on the lid and Stove's story on both sides",
+    crates.lid && crates.lidPainted && crates.bothFaces && crates.sharedSideArt,
+    JSON.stringify(crates));
 
   const chain = await page.evaluate(() => {
     const m = window.__beefrun.mission;
@@ -272,7 +442,7 @@ try {
   });
   await resumePage.goto(`http://localhost:${PORT}/beefrun.html`, { waitUntil: 'load' });
   await resumePage.waitForFunction(() => window.__beefrun?.story, null, { timeout: 60000 });
-  await resumePage.click('#start-btn');
+  await resumePage.evaluate(() => document.getElementById('start-btn').click());
   await resumePage.waitForFunction(
     () => window.__beefrun.mission.flags.inCockpit,
     null,
@@ -290,6 +460,79 @@ try {
       && resumed.checkpoint === 'returning'
       && resumed.cargoLoaded,
     JSON.stringify(resumed));
+
+  /* The seat looks where the aeroplane is going, over the top of its own
+   * panel, and the gauges face the man who has to read them. */
+  const seat = await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    const cam = b.player.camera;
+    const ac = b.aircraft;
+    const V = b.physics.position.constructor;
+    const camFwd = new V(0, 0, -1).applyQuaternion(cam.quaternion);
+    const noseFwd = new V(0, 0, 1).applyQuaternion(ac.group.quaternion);
+    // The tallest thing between the eye and the windshield.
+    const coaming = ac.parts.cockpit.children.find(
+      (c) => c.geometry?.parameters?.width === 1.7 && c.geometry.parameters.height === 0.1,
+    );
+    const panel = ac.parts.cockpit.children.find(
+      (c) => c.geometry?.parameters?.width === 1.62,
+    );
+    const gauges = panel?.children.find((c) => c.material?.map === ac.parts.panelTex);
+    return {
+      facesNose: +camFwd.dot(noseFwd).toFixed(3),
+      eyeY: ac.pilotEye.y,
+      coamingTopY: coaming ? +(coaming.position.y + 0.05).toFixed(3) : null,
+      panelTopY: panel ? +(panel.position.y + panel.geometry.parameters.height / 2).toFixed(3) : null,
+      gaugesFacePilot: !!gauges && Math.abs(gauges.rotation.y - Math.PI) < 0.01,
+      hudUp: !document.getElementById('br-hud').classList.contains('hidden'),
+      controlsUp: !document.getElementById('br-controls').classList.contains('hidden'),
+      controlKeys: document.querySelectorAll('#br-controls kbd').length,
+    };
+  });
+  check('the left seat looks over the panel at where the nose is pointing',
+    seat.facesNose > 0.99
+      && seat.eyeY > seat.coamingTopY && seat.eyeY > seat.panelTopY
+      && seat.gaugesFacePilot,
+    JSON.stringify(seat));
+  check('the flight HUD and the controls legend are up for the flight',
+    seat.hudUp && seat.controlsUp && seat.controlKeys >= 16,
+    JSON.stringify({ hudUp: seat.hudUp, controlsUp: seat.controlsUp, keys: seat.controlKeys }));
+
+  /* Where the mission wants the nose: on the glass, both on and off screen. */
+  const pointing = await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    const el = document.getElementById('br-dir');
+    const nav = b.mission.navTarget();
+    const dx = nav.x - b.physics.position.x;
+    const dz = nav.z - b.physics.position.z;
+    const bearing = ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
+    const read = () => ({
+      shown: !el.classList.contains('hidden'),
+      edge: el.classList.contains('edge'),
+      x: parseFloat(el.style.getPropertyValue('--x')),
+      y: parseFloat(el.style.getPropertyValue('--y')),
+      tag: el.querySelector('.tag').textContent,
+    });
+    // Drive the readout directly off the projection, so this does not depend
+    // on how many frames the software renderer has managed since the turn.
+    const at = (hdg) => {
+      b.physics.setPose(b.physics.position.clone(), hdg, 60);
+      b.aircraft.syncTo(b.physics);
+      b.cameras.lookYaw = 0;
+      b.cameras.lookPitch = 0;
+      b.cameras.update(0.016, b.physics, b.aircraft.group, b.aircraft.pilotEye, {});
+      b.flightHud.setDirection(b.mission.projectNav(nav, 5));
+      return read();
+    };
+    return { ahead: at(bearing), behind: at((bearing + 180) % 360) };
+  });
+  check('the objective is drawn on the glass ahead and pinned to the edge behind',
+    pointing.ahead.shown && !pointing.ahead.edge
+      && Math.abs(pointing.ahead.x - 50) < 12 && Math.abs(pointing.ahead.y - 50) < 25
+      && pointing.behind.shown && pointing.behind.edge
+      && pointing.behind.y > 90
+      && /WHISPERING PINES/.test(pointing.ahead.tag),
+    JSON.stringify(pointing));
   check('no console errors during the resume', resumeProblems.length === 0,
     resumeProblems.join(' | '));
   await resumePage.close();
