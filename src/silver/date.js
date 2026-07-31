@@ -33,6 +33,7 @@
 import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
 import { DATE } from './script.js';
+import { restyleMargoHead } from './margo.js';
 
 /** Where she would rather be, relative to him. */
 const BESIDE = 1.15;
@@ -71,10 +72,14 @@ export class Date_ {
          * and slightly overdressed for it on purpose — she does not get many
          * of these and she is not going to waste one. */
         height: 1.69, build: 1.06, dress: 'gown', shirt: 0x1a2a4a,
-        hair: 'tied', hairColour: 0x2a1c14, skin: 0xd8a878,
+        /* 'bald' because the builder's hair never survives: her whole head is
+         * rebuilt below — this is the face the player studies for twenty
+         * minutes under a lamp, and it gets its own file. */
+        hair: 'bald', hairColour: 0x2a1c14, skin: 0xd8a878,
         gender: 'female', bodyShape: 'curvy',
       },
     });
+    restyleMargoHead(this.npc.parts, { skin: 0xd8a878, hairColour: 0x2a1c14 });
     this.group = this.npc.group;
 
     /** 'idle' | 'follow' | 'recover' | 'seated' | 'scene' */
