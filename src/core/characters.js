@@ -101,6 +101,121 @@ export const CHARACTER_REGISTRY = Object.freeze({
     role: 'civilian',
     legacyAliases: ['margo_salas', 'date'],
   }),
+  /* The rest of the Family, one record per row of the owner's locked sheet
+   * (docs/VOICE-CASTING.md). Voice profiles are the manifest's `voices` keys;
+   * aliases carry the spellings other assets already use — `erican` is Eric's
+   * face photo, `shubes` is the Shubenator's, `stove` is the cue slug. */
+  [CHARACTER_IDS.LAG]: character({
+    id: CHARACTER_IDS.LAG,
+    canonicalName: 'Lag',
+    subtitleName: 'Lag',
+    voiceProfile: 'lag',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.GRATIN]: character({
+    id: CHARACTER_IDS.GRATIN,
+    canonicalName: 'Gratin',
+    subtitleName: 'Gratin',
+    voiceProfile: 'gratin',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.ERIC]: character({
+    id: CHARACTER_IDS.ERIC,
+    canonicalName: 'Eric',
+    subtitleName: 'Eric',
+    voiceProfile: 'eric',
+    species: 'human',
+    role: 'family_member',
+    legacyAliases: ['erican'],
+  }),
+  [CHARACTER_IDS.HOG_MAMA]: character({
+    id: CHARACTER_IDS.HOG_MAMA,
+    canonicalName: 'Hog Mama',
+    subtitleName: 'Hog Mama',
+    voiceProfile: 'hogmama',
+    species: 'human',
+    role: 'family_member',
+    legacyAliases: ['hog_mama'],
+  }),
+  [CHARACTER_IDS.DEATHMEGATRON]: character({
+    id: CHARACTER_IDS.DEATHMEGATRON,
+    canonicalName: 'DeathMegatron',
+    subtitleName: 'DeathMegatron',
+    voiceProfile: 'deathmegatron',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.WILLY]: character({
+    id: CHARACTER_IDS.WILLY,
+    canonicalName: 'Willy',
+    subtitleName: 'Willy',
+    voiceProfile: 'willy',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.IRISH]: character({
+    id: CHARACTER_IDS.IRISH,
+    canonicalName: 'Irish',
+    subtitleName: 'Irish',
+    voiceProfile: 'irish',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.OLD_STOVE]: character({
+    id: CHARACTER_IDS.OLD_STOVE,
+    canonicalName: 'Old Stove',
+    subtitleName: 'Old Stove',
+    voiceProfile: 'old-stove',
+    species: 'human',
+    role: 'family_member',
+    legacyAliases: ['stove'],
+  }),
+  [CHARACTER_IDS.SNOW]: character({
+    id: CHARACTER_IDS.SNOW,
+    canonicalName: 'Snow',
+    subtitleName: 'Snow',
+    voiceProfile: 'snow',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.RIPPINFLOW]: character({
+    id: CHARACTER_IDS.RIPPINFLOW,
+    canonicalName: 'Rippinflow',
+    subtitleName: 'Rippinflow',
+    voiceProfile: 'rippinflow',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.SEFF]: character({
+    id: CHARACTER_IDS.SEFF,
+    canonicalName: 'Seff',
+    subtitleName: 'Seff',
+    voiceProfile: 'seff',
+    species: 'human',
+    role: 'family_member',
+  }),
+  [CHARACTER_IDS.SHUBENATOR]: character({
+    id: CHARACTER_IDS.SHUBENATOR,
+    canonicalName: 'The Shubenator',
+    subtitleName: 'The Shubenator',
+    voiceProfile: 'shubenator',
+    species: 'human',
+    role: 'family_member',
+    legacyAliases: ['shubes'],
+  }),
+  /* No voice id yet — the sheet row is blank. His profile name is staged so
+   * the id can be pasted into the manifest's `voices` block and nothing else
+   * has to move; until then his lines are subtitles only. */
+  [CHARACTER_IDS.NUMBSKULL]: character({
+    id: CHARACTER_IDS.NUMBSKULL,
+    canonicalName: 'Numbskull',
+    subtitleName: 'Numbskull',
+    voiceProfile: 'numbskull',
+    species: 'human',
+    role: 'family_member',
+  }),
 });
 
 const CHARACTER_ALIASES = Object.freeze(

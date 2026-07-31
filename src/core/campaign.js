@@ -15,6 +15,23 @@ export const CHARACTER_IDS = Object.freeze({
   BOOSKI: 'booski',
   APE: 'ape',
   MARGO: 'margo',
+  /* The rest of the Family, per the locked ledger (docs/VOICE-CASTING.md).
+   * One stable id per person: the Sasole at a Bing table is the Sasole of
+   * the Beef Run, and these ids are what every scene keys face, voice and
+   * dialogue ownership from. Display names live with character data. */
+  LAG: 'lag',
+  GRATIN: 'gratin',
+  ERIC: 'eric',
+  HOG_MAMA: 'hogmama',
+  DEATHMEGATRON: 'deathmegatron',
+  WILLY: 'willy',
+  IRISH: 'irish',
+  OLD_STOVE: 'old_stove',
+  SNOW: 'snow',
+  RIPPINFLOW: 'rippinflow',
+  SEFF: 'seff',
+  SHUBENATOR: 'shubenator',
+  NUMBSKULL: 'numbskull',
 });
 
 export const SCENE_IDS = Object.freeze({
