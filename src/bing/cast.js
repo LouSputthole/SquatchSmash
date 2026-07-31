@@ -607,7 +607,7 @@ export class Npc {
     const {
       name = 'somebody', tier = 'ambient', x = 0, z = 0, yaw = 0, y = 0,
       job = 'stand', look = true, route = null, model = {}, colliders = null,
-      navBlockers = null, routine = 0, pole = false,
+      navBlockers = null, routine = 0, pole = false, speed = 1.1,
     } = o;
     this.name = name;
     this.tier = tier;
@@ -639,6 +639,10 @@ export class Npc {
     this.homeZ = z;
     this.routine = routine;
     this.pole = pole;
+    /* Walking pace in m/s. The default is the unhurried club walk everybody
+     * has always used; a man sent across the room on a thirty-second clock
+     * can be told to hustle. */
+    this.speed = speed;
     scene.add(this.group);
 
     this.t = rand(0, 10);
@@ -957,7 +961,7 @@ export class Npc {
           if (d < 0.4) {
             this.routeAt = (this.routeAt + 1) % this.route.length;
           } else {
-            const speed = 1.1;
+            const speed = this.speed;
             const stepX = (dx / d) * speed * dt;
             const stepZ = (dz / d) * speed * dt;
             // Moved means the position actually changed — a clear probe on an
@@ -978,12 +982,15 @@ export class Npc {
             const yaw = Math.atan2(dx, dz);
             const diff = Math.atan2(Math.sin(yaw - this.group.rotation.y), Math.cos(yaw - this.group.rotation.y));
             this.group.rotation.y += diff * Math.min(1, dt * 4);
-            const gait = Math.sin(t * 5.2) * 0.42;
+            // Stride cadence follows pace, so a hustle reads as hustling
+            // rather than the standard walk cycle sliding over the floor.
+            const cadence = 5.2 * Math.sqrt(this.speed / 1.1);
+            const gait = Math.sin(t * cadence) * 0.42;
             this.parts.legL.rotation.x = gait;
             this.parts.legR.rotation.x = -gait;
             this.parts.armL.rotation.x = -gait * 0.55;
             this.parts.armR.rotation.x = gait * 0.55;
-            this.group.position.y = this.baseY + Math.abs(Math.sin(t * 5.2)) * 0.012;
+            this.group.position.y = this.baseY + Math.abs(Math.sin(t * cadence)) * 0.012;
           }
         }
         break;

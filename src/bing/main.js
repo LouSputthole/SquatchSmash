@@ -34,6 +34,12 @@ import { roomEnvironment } from '../world/textures.js';
 
 import { buildClub, ROOMS, roomAt, STAGE_H } from './club.js';
 import { populate, makeAssociate } from './cast.js';
+import {
+  familyPresent,
+  loadFaceIndex,
+  populateFamily,
+  buildFamilyScripts,
+} from './family.js';
 import { makeSlotMachine, SlotMachine } from './slots.js';
 import { Blackjack, BETS } from './blackjack.js';
 import { makePlayerCar, populateLot } from './vehicles.js';
@@ -161,6 +167,10 @@ const game = {
   noted: new Set(),
   stagedOn: false,
   louTalking: false,
+  booskiShotDone: false,
+  beat: null,          // the one scripted camera beat (Booski's shot delivery)
+  lastHand: null,      // last blackjack outcome, for the table's voice
+  voLog: [],           // recent exact-cue voice attempts, for the verifier
 };
 
 const MissionType = isSecondVisit ? SecondVisitMission : Mission;
@@ -175,8 +185,55 @@ const mission = new MissionType({
   onAssociate: sendAssociate,
 });
 
+/* ------------------------------------------------------------------ *
+ * Exact-cue voice.
+ *
+ * audio.say() picks among `vo.<group>.<n>` variants, which is right for
+ * barks and wrong for dialogue: a subtitled line must play ITS recording,
+ * not a sibling's — and a member's bank also holds the prospect's replies
+ * (`vo.bing.hang.gratin.tony.1` shares the gratin prefix), so a group pick
+ * could put Tony's words in Gratin's mouth. This plays one named cue when
+ * its recording exists and stays silent when it does not, same as say():
+ * a synthesised voice would be worse than silence.
+ *
+ * Attempts land in game.voLog either way, so the verifier can prove the
+ * wiring fires before a single mp3 has been generated.
+ * ------------------------------------------------------------------ */
+function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
+  if (!name) return false;
+  game.voLog.push(name);
+  if (game.voLog.length > 60) game.voLog.shift();
+  if (!audio.ready) return false;
+  const bank = audio.buffers?.get(name);
+  if (!bank?.length) return false;
+  // One voice at a time, unless this line is scheduled behind another.
+  if (solo) audio._vo?.stop?.();
+  const src = audio.play(name, { volume, delay });
+  if (solo) audio._vo = src;
+  const secs = src?.buffer ? src.buffer.duration : 1.6;
+  audio.hold(delay + secs + 0.25);
+  return true;
+}
+
+/** How long a recorded cue runs, or 0 when it has no recording yet. */
+function cueSeconds(name) {
+  const bank = audio.buffers?.get(name);
+  return bank?.length ? bank[0].duration : 0;
+}
+
+/* Dialogue nodes and replies may carry a `cue` (string, or a function when
+ * the node's line itself is dynamic). The subtitle always shows; the voice
+ * plays exactly when its recording exists. */
+function nodeCue(owner) {
+  return typeof owner?.cue === 'function' ? owner.cue() : owner?.cue;
+}
+
 const dialogue = new Dialogue(ui.dialogue, {
-  onLine: () => audio.play('radio.talk', { volume: 0.0 }),
+  onLine: (text, who, node) => {
+    audio.play('radio.talk', { volume: 0.0 });
+    voiceCue(nodeCue(node));
+  },
+  onChoice: (opt) => voiceCue(nodeCue(opt)),
   onEnd: () => { game.louTalking = false; },
 });
 
@@ -193,6 +250,24 @@ world.groundAt = club.groundAt;
 window.__squatchStage?.('Letting people in…');
 const cast = populate(scene, club, { includeMargo: !isSecondVisit });
 const associate = makeAssociate(scene, club.anchors.hallMouth, club.colliders, club.navBlockers);
+
+/* ---- the Family ----
+ * Everyone from the owner's locked table hangs out here between missions,
+ * with their real faces where the photos exist. Presence is read from the
+ * shared campaign: Sasole only after the Beef Run is flown, Booski from the
+ * start, everyone else always — both visits get the floor. Big Uncle Lou is
+ * already upstairs and is not duplicated. The face index says which photos
+ * have landed, so nothing ever fetches a PNG that is not there. */
+window.__squatchStage?.('Seating the Family…');
+const faceIndex = await loadFaceIndex();
+const family = populateFamily(scene, club, {
+  present: familyPresent(campaign.state),
+  faces: faceIndex,
+});
+for (const npc of family.all) {
+  cast.all.push(npc);
+  if (!cast.byName[npc.characterId]) cast.byName[npc.characterId] = npc;
+}
 
 /* ------------------------------------------------------------------ *
  * The gambling floor's voice.
@@ -312,6 +387,7 @@ const blackjack = new Blackjack(scene, { x: club.bj.x, z: club.bj.z }, seat, {
     mission.handPlayed();
     if (won) audio.play('chip.stack', { volume: 0.55, position: club.anchors.blackjack });
     showHandCallout(outcome);
+    game.lastHand = outcome;
     void hands;
 
     /* Cleaned out. Trumps whatever else the hand was, because being unable to
@@ -334,6 +410,37 @@ const blackjack = new Blackjack(scene, { x: club.bj.x, z: club.bj.z }, seat, {
      * 1.25s after "Dealer plays." */
     const SETTLE = 1.0;
     const { kind, doubled, dealerBlackjack } = outcome;
+
+    /* The authored table VO (docs/VOICE-CASTING.md): the dealer calls every
+     * verdict right beside the WIN/LOSE callout, and the prospect answers his
+     * own wins and losses — never a push, never his own bust. These are
+     * single named cues, so they play through voiceCue; until the recordings
+     * land they fall through to the older floor patter below, and once they
+     * exist they take the floor first so nobody speaks twice. */
+    const dealerCue = {
+      blackjack: 'vo.bing.blackjack.dealer.win',
+      win: 'vo.bing.blackjack.dealer.win',
+      lose: 'vo.bing.blackjack.dealer.lose',
+      push: 'vo.bing.blackjack.dealer.push',
+      bust: 'vo.bing.blackjack.dealer.bust',
+    }[kind] ?? null;
+    const tonyCue = kind === 'win' || kind === 'blackjack'
+      ? 'vo.bing.blackjack.tony.win'
+      : kind === 'lose' ? 'vo.bing.blackjack.tony.lose' : null;
+    if (dealerCue && performance.now() / 1000 - lastTableLine >= SETTLE) {
+      const dealerSpoke = voiceCue(dealerCue, { delay: 0.45 });
+      const tonySpoke = tonyCue
+        ? voiceCue(tonyCue, {
+          delay: 0.45 + (dealerSpoke ? cueSeconds(dealerCue) + 0.35 : 0.55),
+          solo: !dealerSpoke,
+        })
+        : false;
+      if (dealerSpoke || tonySpoke) {
+        lastTableLine = performance.now() / 1000;
+        return;
+      }
+    }
+
     if (kind === 'blackjack') {
       tableSayFirst([
         ['bj.blackjack', { chance: 0.85, delay: 1.2, gap: SETTLE }],
@@ -618,6 +725,19 @@ reg(cast.byName.lou.group, {
     else startLouScene();
   },
 });
+
+/* ---- the Family, walk-up talk ----
+ * Ordinary resumable conversations through the same machine as everyone
+ * else: walk off mid-thread and the next [E] picks it back up. Booski's
+ * tree carries the shot beat; the hook hands it to startShotBeat below. */
+const familyScripts = buildFamilyScripts({
+  shotDone: () => game.booskiShotDone,
+  startShot: () => startShotBeat(),
+});
+for (const npc of family.all) {
+  const tree = familyScripts[npc.characterId];
+  if (tree) reg(npc.group, talkTo(npc, tree));
+}
 
 /* ---- the office ---- */
 
@@ -1258,6 +1378,115 @@ function getOutOfCar() {
   if (mission.state === 'lot') mission.setState('outside');
 }
 
+/* ------------------------------------------------------------------ *
+ * Booski's shot — the owner's booked beat.
+ *
+ * Talk to Booski at the bar and he offers a shot, then yells the
+ * thirty-seconds line across the room. The yell starts this: a short camera
+ * beat that follows the bouncer hustling the shot over from his post, the
+ * handoff line when it arrives, and the prospect holding a whiskey he did
+ * not order. One-shot per visit. The camera hijack is the gentlest the club
+ * allows — the player is frozen only while the bouncer crosses the room,
+ * and control comes back the moment the glass lands, before the toast.
+ * ------------------------------------------------------------------ */
+const SHOT_BAR_STAND = { x: -17.75, z: 2.5 };
+
+function giveShot() {
+  game.heldDrink = 'whiskey';
+  game.drinking = 0;
+  if (!inventory.full) inventory.add('whiskey');
+  hud.setHand({ ...ITEMS.whiskey, hint: 'Hold [F] to drink' });
+  hud.setInventory(inventory, ITEMS);
+  hud.toast('On the house. Loudly.', 'good');
+  mission.drank?.();
+}
+
+function startShotBeat() {
+  if (game.booskiShotDone || game.beat || game.over) return;
+  game.booskiShotDone = true;
+  const bouncer = cast.byName.bouncer;
+  const booski = family.byId.booski;
+  const post = {
+    x: club.anchors.bouncerPost.x,
+    z: club.anchors.bouncerPost.z,
+  };
+  const hijacked = player.mode === 'walk';
+  if (hijacked) {
+    player.mode = 'frozen';
+    interaction.setPaused(true);
+    hud.hidePrompt();
+  }
+  bouncer.folded = false;
+  bouncer.job = 'patrol';
+  bouncer.speed = 2.3;      // thirty FUCKING seconds — he hustles
+  bouncer.route = [
+    { x: -1.5, z: 8.8 },
+    { x: -9.5, z: 7.9 },
+    { x: -16.3, z: 5.0 },
+    { x: SHOT_BAR_STAND.x, z: SHOT_BAR_STAND.z },
+  ];
+  bouncer.routeAt = 0;
+  let phase = 'to-bar';
+  let t = 0;
+  game.beat = (dt) => {
+    t += dt;
+    const bp = bouncer.group.position;
+    if (phase === 'to-bar') {
+      if (hijacked) {
+        // The camera follows the man with the tray, nothing else moves.
+        const wantYaw = Math.atan2(-(bp.x - player.position.x), -(bp.z - player.position.z));
+        const dy = wantYaw - player.yaw;
+        player.yaw += Math.atan2(Math.sin(dy), Math.cos(dy)) * Math.min(1, dt * 3.5);
+        player.pitch += (0 - player.pitch) * Math.min(1, dt * 3);
+      }
+      const d = Math.hypot(bp.x - SHOT_BAR_STAND.x, bp.z - SHOT_BAR_STAND.z);
+      if (d < 0.6 || t > 16) {
+        if (t > 16) bouncer.group.position.set(SHOT_BAR_STAND.x, 0, SHOT_BAR_STAND.z);
+        phase = 'handoff';
+        t = 0;
+        bouncer.job = 'stand';
+        bouncer.faceToward(
+          booski ? booski.position.x : player.position.x,
+          booski ? booski.position.z : player.position.z,
+        );
+        audio.play('glass.set', { volume: 0.55, position: club.anchors.barService });
+        giveShot();
+        /* Control back BEFORE the toast — the club's rule is that nobody
+         * important talking ever costs you the sticks. */
+        if (hijacked) {
+          player.mode = 'walk';
+          interaction.setPaused(false);
+        }
+        if (booski) dialogue.start(familyScripts.booskiShot, 'handoff', booski);
+      }
+    } else if (phase === 'handoff') {
+      if (t > 2.2) {
+        phase = 'return';
+        t = 0;
+        bouncer.job = 'patrol';
+        bouncer.route = [
+          { x: -16.3, z: 5.0 },
+          { x: -9.5, z: 7.9 },
+          { x: -1.5, z: 8.8 },
+          { x: post.x, z: post.z },
+        ];
+        bouncer.routeAt = 0;
+      }
+    } else if (phase === 'return') {
+      const d = Math.hypot(bp.x - post.x, bp.z - post.z);
+      if (d < 0.7 || t > 24) {
+        bouncer.group.position.set(post.x, 0, post.z);
+        bouncer.job = 'stand';
+        bouncer.folded = true;
+        bouncer.speed = 1.1;    // back to the unhurried door walk
+        bouncer.group.rotation.y = Math.PI;
+        bouncer.targetYaw = undefined;
+        game.beat = null;
+      }
+    }
+  };
+}
+
 function sendAssociate() {
   if (mission.readyToLeave) return;
   const npc = associate;
@@ -1494,7 +1723,15 @@ window.addEventListener('keydown', (e) => {
          * ever means he cannot cover it -- so the dealer says the one thing a
          * croupier says to a man sitting at the felt without the minimum. */
         if (blackjack.state === 'bet') tableSay('bj.dealer.minimum', { gap: 12 });
-        else tableSay('bj.dealer.deal', { chance: 0.35, gap: 9 });
+        else {
+          /* The authored deal barks ("Cards comin' in." / "Good luck,
+           * prospect.") lead once generated; the older patter stands in
+           * until then. say() never repeats the same one twice running. */
+          tableSayFirst([
+            ['bing.blackjack.dealer.deal', { gap: 8 }],
+            ['bj.dealer.deal', { chance: 0.35, gap: 9 }],
+          ]);
+        }
       } else if (blackjack.state === 'player') {
         blackjack.hit();
         /* Only while the hand is still live. A hit that took him to twenty-one
@@ -1802,6 +2039,7 @@ function frame() {
 
   player.update(dt);
   if (game.drive) game.drive(raw);
+  if (game.beat) game.beat(raw);
   interaction.update(dt);
   club.update(dt, player.position);
   slots.update(dt);
@@ -1845,6 +2083,7 @@ loading.classList.add('hidden');
 window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
   interaction, drunk, highs, inventory, campaign, car, lot, associate, scripts,
+  family, familyScripts, faceIndex,
   isSecondVisit, secondVisitStory,
   updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck,
   teleport(x, z, yaw = 0) {
