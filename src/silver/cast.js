@@ -55,17 +55,26 @@ export function populate(scene, room) {
   }));
   by.frontDoor.folded = true;
 
-  // The queue. Thirty people is a lot of figures for scenery, so this is nine
-  // at the lowest tier, standing where the light from the canopy reaches.
+  /* The queue. Thirty people is a lot of figures for scenery, so this is nine
+   * at the lowest tier — and it is a QUEUE: single file along the road side of
+   * the rope (posts run x −4.4..4.4 at z 37.9), head of the line at the east
+   * end nearest the doorman, everybody facing the person in front of them and
+   * the head facing the door. The first pass scattered them across the whole
+   * pavement at random yaws, which read as a milling crowd, not a line that
+   * has been there an hour and is going nowhere. */
   for (let i = 0; i < 9; i++) {
     // Same rule as the dining room: the frame follows the dress.
     const dress = pick(['suit', 'gown', 'suit', 'shirt']);
     const inGown = dress === 'gown';
-    // On the pavement under the canopy, since the street moved outside where
-    // it belongs — the old range left nine people queueing inside the lobby.
+    const qx = 4.2 - i * 1.05 + rand(-0.08, 0.08);
+    const qz = 38.14 + rand(-0.07, 0.07);
+    /* Faces up the line (+x); the head of it faces the man on the door. */
+    const yaw = i === 0
+      ? Math.atan2(a.doorman.x - qx, a.doorman.z - qz)
+      : Math.PI / 2 + rand(-0.18, 0.18);
     add(`queue${i}`, new Npc(scene, {
-      name: 'somebody waiting', tier: 'background', job: i % 3 ? 'stand' : 'lean',
-      x: rand(-5, 5), z: rand(35.2, 38.0), y: 0.14, yaw: rand(-0.4, 0.4), look: false,
+      name: 'somebody waiting', tier: 'background', job: i === 5 ? 'lean' : 'stand',
+      x: qx, z: qz, y: 0.14, yaw, look: false,
       model: {
         height: inGown ? rand(1.6, 1.78) : rand(1.66, 1.9),
         build: rand(0.9, 1.25),
@@ -152,15 +161,20 @@ export function populate(scene, room) {
 
   /* ---- the corridor ---- */
 
+  /* Both corridor stations used to stand their staff at anchor+2.6 — which is
+   * x=15.0, the middle of the east wainscot. The bar man was working from
+   * inside a wall. The bar has no staff side (its gantry is against that
+   * wall), so he works at the counter's corridor face; the coat check has a
+   * 400mm staff slot between counter and rail, and she stands in it. */
   add('servicebar', new Npc(scene, {
     name: 'the service bar', tier: 'hero', job: 'work',
-    x: a.serviceBar.x + 2.6, z: a.serviceBar.z, yaw: -Math.PI / 2,
+    x: a.serviceBar.x + 1.35, z: a.serviceBar.z, yaw: Math.PI / 2,
     model: { height: 1.75, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'short' },
   }));
 
   add('coatcheck', new Npc(scene, {
     name: 'coat check', tier: 'hero', job: 'work',
-    x: a.coatCheck.x + 2.6, z: a.coatCheck.z, yaw: -Math.PI / 2,
+    x: a.coatCheck.x + 1.98, z: a.coatCheck.z, yaw: -Math.PI / 2,
     model: { height: 1.67, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
   }));
 
