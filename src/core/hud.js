@@ -103,6 +103,42 @@ export class Hud {
     this.hotbar.classList.remove('hidden');
   }
 
+  /**
+   * The morning's list.
+   *
+   * Takes what `ApartmentStory.objectives()` produced and does nothing to it
+   * but draw it -- no filtering, no reordering, no second opinion about what
+   * counts as done. A HUD that decides for itself what the objectives are is
+   * a HUD that will eventually disagree with the door.
+   *
+   * @param {{day: number, items: {id: string, label: string, done: boolean,
+   *   required: boolean}[]}|null} plan
+   */
+  setObjectives(plan) {
+    if (!this.objectives) {
+      this.objectives = document.getElementById('objectives');
+      this.objectivesTitle = this.objectives?.querySelector('.otitle');
+      this.objectivesList = this.objectives?.querySelector('.olist');
+    }
+    if (!this.objectives) return;
+    if (!plan || !plan.items?.length) {
+      this.objectives.classList.add('hidden');
+      return;
+    }
+    // Only touch the DOM when the list actually reads differently.
+    const key = `${plan.day}|${plan.items.map((i) => `${i.id}${i.done ? '1' : '0'}${i.required ? 'r' : ''}`).join(',')}`;
+    if (key === this._objectivesKey) return;
+    this._objectivesKey = key;
+    this.objectivesTitle.textContent = `Day ${plan.day} · today`;
+    this.objectivesList.replaceChildren(...plan.items.map((item) => {
+      const el = document.createElement('li');
+      el.className = `${item.done ? 'done' : ''} ${item.required ? 'required' : ''}`.trim();
+      el.textContent = item.label;
+      return el;
+    }));
+    this.objectives.classList.remove('hidden');
+  }
+
   setHand(item) {
     if (!item) {
       this.handItem.classList.add('hidden');

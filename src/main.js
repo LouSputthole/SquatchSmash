@@ -451,6 +451,9 @@ screenTexture.colorSpace = THREE.SRGBColorSpace;
 screenTexture.minFilter = THREE.LinearFilter;
 screenTexture.generateMipmaps = false;
 
+/** Seconds since the objectives panel last had a look at itself. */
+let objectiveClock = 0;
+
 /** Seven of them, picked at random, never the same one twice running. */
 const FART_CUES = ['fart.1', 'fart.2', 'fart.3', 'fart.4', 'fart.5', 'fart.6', 'fart.7'];
 let _lastFart = -1;
@@ -649,6 +652,7 @@ async function boot() {
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
+    updateObjectives, startNewMorning, activityContext,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
@@ -1086,10 +1090,14 @@ function sleepInBed() {
   hud.hidePrompt();
   audio.say('sleep');
   const storySleep = apartmentStory.sleep();
+  /* Named by the chapter that is ENDING, not hardcoded to the first one. This
+   * said "Day One is done" on every night in the campaign, so going to bed on
+   * Day Two and again before the big night both announced a day that was two
+   * chapters behind you. */
   hud.say(storySleep.chapter === 'big_night'
     ? 'The jerky is somebody else’s problem now. You close your eyes.'
     : storySleep.ok
-      ? 'Day One is done. You close your eyes.'
+      ? `${CHAPTER_DONE[storySleep.chapter] ?? 'That is that'}. You close your eyes.`
       : 'You close your eyes. It is not like you had plans.', 2600);
   passOut({ voluntary: true, storySleep });
 }
@@ -2029,6 +2037,18 @@ function activityContext() {
   };
 }
 
+/**
+ * Repaint the morning's list.
+ *
+ * Cheap enough to call from anywhere something might have been ticked off --
+ * the HUD compares the rendered list and does nothing when it reads the same,
+ * so this is a string compare on most of the calls.
+ */
+function updateObjectives() {
+  if (!apartment) return;
+  hud.setObjectives(apartmentStory.objectives(activityContext()));
+}
+
 function syncClockFromCampaign() {
   const { day, timeMinutes } = campaign.state.story;
   time.setTime(day, timeMinutes);
@@ -2042,6 +2062,7 @@ function completeApartmentActivity(activityId, timeEventId) {
     state.activities[activityId] = true;
   });
   syncClockFromCampaign();
+  updateObjectives();
   return result;
 }
 
@@ -2543,19 +2564,58 @@ function pick(list) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Wipe yesterday off the flat.
+ *
+ * Only the four things the door has ever counted, plus the props that back
+ * them: the eggs he ate are back in the fridge, the pan is clean, and the
+ * shirt he put on yesterday is yesterday's shirt. Everything else about the
+ * flat -- the beer he drank, the picture he glued back up, the phone in his
+ * pocket -- is his own history and stays where he left it.
+ */
+function startNewMorning() {
+  const st = apartment.state;
+  st.heldItem = null;
+  st.fed = false;
+  st.showered = false;
+  st.dressed = false;
+  st.hasEggs = false;
+  st.panState = null;
+  game.pooped = false;
+  game.poopTime = 0;
+  st.bowel = Math.max(st.bowel, 0.35);
+  updateObjectives();
+}
+
+/** What the night that just ended was, named by the chapter it closed. */
+const CHAPTER_DONE = Object.freeze({
+  day_two: 'Day One is done',
+  date: 'Day Two is done',
+  big_night: 'That is the Motel behind you',
+});
+
+/** And what the morning it opened onto is for. */
+const WAKE_LINES = Object.freeze({
+  day_two: 'Booskibro said he would call.',
+  date: 'Nothing on today. She said she would ring.',
+  big_night: 'Tonight is the thing. Booskibro said he would call.',
+});
+
+/**
  * The first thing he says on waking.
  *
- * A sleep that turned a story chapter announces the chapter -- those are the
- * only two nights in the campaign that mean anything. Everything else is the
- * old copy for a nap or for the drink taking him.
+ * A sleep that turned a story chapter announces the chapter and the campaign's
+ * own day number. Everything else is the old copy for a nap or for the drink
+ * taking him.
  */
 function wakeUpLine(storySleep, voluntary) {
-  if (storySleep?.chapter === 'big_night') {
-    return `<em>Day Three. ${time.clock12}.</em> Tonight is the thing. `
-      + 'Booskibro said he would call.';
-  }
+  /* Every chapter, off the campaign's own day number. There used to be two
+   * cases: the big night, which announced "Day Three" for what the campaign
+   * calls Day 4, and everything else, which said "Day Two. Booskibro said he
+   * would call" -- so waking up for the date on Day Three greeted you with
+   * Day Two and the wrong man's name. */
   if (storySleep?.ok) {
-    return `<em>Day Two. ${time.clock12}.</em> Booskibro said he would call.`;
+    const woken = WAKE_LINES[storySleep.chapter];
+    if (woken) return `<em>Day ${storySleep.day}. ${time.clock12}.</em> ${woken}`;
   }
   if (!voluntary) {
     return `<em>${time.clock12}.</em> You are in bed. You do not remember the trip.`;
@@ -2647,7 +2707,14 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
       time.skipHours(12);
     }
     apartment.refreshClocks();
-    apartment.state.heldItem = null;
+    /* A chapter turned, so the flat gets a morning of its own: unshowered,
+     * unfed, in what he slept in, with eggs back in the fridge and a clean
+     * pan. These used to persist, and waking on Day Two into a flat where
+     * every getting-ready interaction answered "you have already done that"
+     * is why the second morning felt like the first one with the wrong number
+     * on the clock. The phone stays in his pocket -- that is not a chore. */
+    if (storySleep?.ok) startNewMorning();
+    else apartment.state.heldItem = null;
     hud.setHand(null);
     game.passingOut = false;
     blackout.querySelector('span').textContent = '';
@@ -2801,6 +2868,10 @@ function frame() {
        * never happened. Only the screen is painted on demand. */
       apartmentStory.update(dt);
       phone.update(dt);
+      /* Once a second is plenty for a list of five things, and the HUD drops
+       * the repaint entirely when nothing in it has changed. */
+      objectiveClock += dt;
+      if (objectiveClock >= 1) { objectiveClock = 0; updateObjectives(); }
       heldPhone.group.visible = apartment.state.heldItem === 'phone';
       if (heldPhone.group.visible) {
         phone.draw();

@@ -138,6 +138,96 @@ test('a missed story call rings back ten seconds after the caller gives up', () 
   assert.deepEqual(campaign.state.story.timeEvents, [TIME_EVENT_IDS.LOU_FIRST_CALL]);
 });
 
+test('the morning list is the door’s own requirements, chapter by chapter', () => {
+  const nothingDone = {
+    eaten: false, showered: false, pooped: false, changedClothes: false, emailChecked: false,
+  };
+  const allDone = {
+    eaten: true, showered: true, pooped: true, changedClothes: true, emailChecked: false,
+  };
+
+  /* Day One. Four chores the door genuinely refuses on, Lou's call, and
+   * somewhere to be -- and the chores are marked required, because here they
+   * are. */
+  const dayOne = createApartmentStory({
+    campaign: createCampaign({ storage: new MemoryStorage() }),
+    ring: () => true,
+  });
+  const listed = dayOne.objectives(nothingDone);
+  assert.equal(listed.day, 1);
+  assert.deepEqual(listed.items.map((i) => i.id), [
+    'eaten', 'showered', 'pooped', 'changedClothes', EVENT_IDS.LOU_FIRST_CALL,
+  ]);
+  assert.ok(listed.items.every((i) => i.required && !i.done));
+
+  // Ticks follow the real flags, not a copy of them.
+  dayOne.callAnswered(DAY_ONE_LOU_CALL);
+  const half = dayOne.objectives({ ...nothingDone, eaten: true });
+  assert.deepEqual(half.items.filter((i) => i.done).map((i) => i.id),
+    ['eaten', EVENT_IDS.LOU_FIRST_CALL]);
+  // And once the chores are done the list says where he is going.
+  const ready = dayOne.objectives(allDone);
+  assert.equal(ready.items.at(-1).label, 'Leave for the Bada Bing');
+
+  /* Day Two. Same shape of morning -- he still eats, still showers -- but the
+   * door does not count those, so they are listed and not marked required. */
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.story.chapter = 'day_two';
+    state.story.day = 2;
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+  });
+  const dayTwo = createApartmentStory({ campaign, ring: () => true });
+  const morning = dayTwo.objectives(nothingDone);
+  assert.equal(morning.day, 2);
+  assert.deepEqual(morning.items.map((i) => i.id), [
+    'eaten', 'showered', 'pooped', 'changedClothes', EVENT_IDS.BOOSKI_DAY_TWO_CALL,
+  ]);
+  assert.equal(morning.items.find((i) => i.id === 'eaten').required, false);
+  assert.equal(morning.items.at(-1).required, true);
+  // Nobody from yesterday is on today's list.
+  assert.ok(!morning.items.some((i) => i.id === EVENT_IDS.LOU_FIRST_CALL));
+
+  dayTwo.callAnswered(DAY_TWO_BOOSKI_CALL);
+  assert.equal(dayTwo.objectives(nothingDone).items.at(-1).label, 'Leave for the airstrip');
+});
+
+test('the morning list never disagrees with what the door would say', () => {
+  /* The whole reason the list is derived rather than authored. Whatever the
+   * door is refusing on has to be a line on the panel that is not ticked. */
+  const cases = [
+    { chapter: 'day_one', setup: () => {} },
+    {
+      chapter: 'day_two',
+      setup: (state) => {
+        state.story.chapter = 'day_two';
+        state.story.day = 2;
+        state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+        state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+        state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+      },
+    },
+  ];
+  const activities = {
+    eaten: false, showered: false, pooped: false, changedClothes: false, emailChecked: false,
+  };
+
+  for (const { chapter, setup } of cases) {
+    const campaign = createCampaign({ storage: new MemoryStorage() });
+    campaign.update(setup);
+    const story = createApartmentStory({ campaign, ring: () => true });
+    const door = story.tryLeave(activities);
+    const items = story.objectives(activities).items;
+    const blocking = door.kind === 'activity' ? door.id : door.id ?? `depart.${door.destination}`;
+    const match = items.find((i) => i.id === blocking);
+    assert.ok(match, `${chapter}: the door wants ${blocking}, which is not on the list`);
+    assert.equal(match.done, false, `${chapter}: ${blocking} is ticked but the door refuses`);
+    assert.equal(match.required, true, `${chapter}: ${blocking} is not marked required`);
+  }
+});
+
 test('the apartment door waits for Lou’s call even when every chore is done', () => {
   const story = createApartmentStory({
     campaign: createCampaign({ storage: new MemoryStorage() }),
@@ -285,8 +375,18 @@ test('sleep after Squatchfather creates a persistent Day Two wake checkpoint', (
   assert.deepEqual(restored.scene, { id: SCENE_IDS.APARTMENT, spawn: 'wake' });
   assert.equal(restored.missions[MISSION_IDS.BADA_BING_ONE].status, 'complete');
   assert.equal(restored.missions[MISSION_IDS.SQUATCHFATHER].status, 'complete');
-  assert.equal(restored.activities.changedClothes, true);
   assert.equal(restored.events[EVENT_IDS.LOU_FIRST_CALL].status, 'answered');
+  /* The night's work survives; the morning's does not. Waking on Day Two he
+   * has not eaten today, has not showered today, and is in what he slept in --
+   * which is what makes it a morning rather than yesterday with a new number
+   * on the clock. */
+  assert.deepEqual(restored.activities, {
+    eaten: false,
+    showered: false,
+    pooped: false,
+    changedClothes: false,
+    emailChecked: false,
+  });
 });
 
 test('each chapter of sleep refuses until its own mission is finished', () => {

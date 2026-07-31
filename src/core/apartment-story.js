@@ -61,6 +61,57 @@ const DEPARTURE_REQUIREMENTS = Object.freeze([
  * He does not argue with any of them. He confirms, he asks the one question
  * anybody would ask, and he does not get an answer to it.
  */
+/** What the four chores are called when they are a list rather than a refusal. */
+const ROUTINE_LABELS = Object.freeze({
+  eaten: 'Eat something',
+  showered: 'Have a shower',
+  pooped: 'Use the bathroom',
+  changedClothes: 'Put on a clean shirt',
+});
+
+/** Somewhere to go, in words a person would use for it. */
+const SCENE_LABELS = Object.freeze({
+  [SCENE_IDS.BADA_BING_ONE]: 'the Bada Bing',
+  [SCENE_IDS.SQUATCHFATHER]: 'the Squatchfather',
+  [SCENE_IDS.AIRSTRIP_SMUGGLING]: 'the airstrip',
+  [SCENE_IDS.BADA_BING_TWO]: 'the Bada Bing',
+  [SCENE_IDS.JERKY_MOTEL]: 'the Jerky Motel',
+  [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
+  [SCENE_IDS.INITIATION]: 'the Initiation',
+});
+
+/**
+ * The shape of each chapter's morning.
+ *
+ * `routineRequired` is the one real difference between them: on Day One the
+ * door counts the four chores and refuses without them, and on every morning
+ * after that they are things he does because he is a person, not because
+ * anybody is checking. The panel says so rather than pretending otherwise --
+ * a checklist that lies about what is mandatory is worse than no checklist.
+ */
+const CHAPTER_PLAN = Object.freeze({
+  day_one: Object.freeze({
+    event: EVENT_IDS.LOU_FIRST_CALL,
+    caller: 'Big Uncle Lou',
+    routineRequired: true,
+  }),
+  day_two: Object.freeze({
+    event: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
+    caller: 'Booskibro',
+    routineRequired: false,
+  }),
+  date: Object.freeze({
+    event: EVENT_IDS.MARGO_DATE_CALL,
+    caller: 'Margo',
+    routineRequired: false,
+  }),
+  big_night: Object.freeze({
+    event: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
+    caller: 'Booskibro',
+    routineRequired: false,
+  }),
+});
+
 export const DAY_ONE_LOU_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_FIRST_CALL,
   characterId: CHARACTER_IDS.LOU,
@@ -357,6 +408,16 @@ class ApartmentStory {
       next.story.day = step.day;
       next.story.timeMinutes = step.timeMinutes;
       next.scene = { id: SCENE_IDS.APARTMENT, spawn: 'wake' };
+      /* A new morning is a new morning. These used to carry over, so waking on
+       * Day Two you had already eaten, already showered and were already
+       * dressed -- every getting-ready interaction in the flat answered
+       * "you have had a shower", the pan was washed up, and the day had no
+       * shape of its own. It was yesterday's flat with a different number on
+       * the clock, which is exactly what "it puts me back on day one" feels
+       * like from the inside. */
+      for (const { id } of DEPARTURE_REQUIREMENTS) next.activities[id] = false;
+      // Not emailChecked: telling HR where to go is a thing that happened
+      // once, not a thing he does every morning.
     });
     this.started = false;
     this.elapsed = 0;
@@ -367,6 +428,54 @@ class ApartmentStory {
       day: step.day,
       timeMinutes: step.timeMinutes,
     };
+  }
+
+  /**
+   * The morning's list, for the panel on the wall of the HUD.
+   *
+   * Derived, never authored. The chores come out of the same
+   * DEPARTURE_REQUIREMENTS the door refuses on, the call's tick comes out of
+   * the same campaign event that unlocks it, and the last line is literally
+   * whatever `tryLeave` says next -- so the panel cannot drift out of step
+   * with the door, because it is asking the door.
+   *
+   * @param {object} activities the same shape the door is judged against
+   */
+  objectives(activities = {}) {
+    const state = this.campaign.state;
+    const plan = CHAPTER_PLAN[state.story.chapter];
+    if (!plan) return { chapter: state.story.chapter, day: state.story.day, items: [] };
+
+    const items = DEPARTURE_REQUIREMENTS.map(({ id }) => ({
+      id,
+      label: ROUTINE_LABELS[id],
+      done: activities[id] === true,
+      required: plan.routineRequired,
+    }));
+    items.push({
+      id: plan.event,
+      label: `Answer ${plan.caller}’s call`,
+      done: this.#eventAnswered(plan.event),
+      required: true,
+    });
+
+    /* And what the door itself would say if he tried it right now. A chore it
+     * is still waiting on is already a line above, so that case adds nothing.
+     */
+    const door = this.tryLeave(activities);
+    if (door.kind === 'go') {
+      items.push({
+        id: `depart.${door.destination}`,
+        label: `Leave for ${SCENE_LABELS[door.destination] ?? door.destination}`,
+        done: false,
+        required: true,
+      });
+    } else if (door.kind === 'item') {
+      items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
+    } else if (door.kind === 'stay') {
+      items.push({ id: door.id, label: 'Sleep', done: false, required: true });
+    }
+    return { chapter: state.story.chapter, day: state.story.day, items };
   }
 
   tryLeave(activities = {}) {

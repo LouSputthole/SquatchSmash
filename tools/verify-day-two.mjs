@@ -141,10 +141,51 @@ try {
     day: window.__squatch.time.day,
     minutes: window.__squatch.time.minutes,
     mode: window.__squatch.player.mode,
+    clockDay: document.querySelector('#clock .day')?.textContent,
+    clockTime: document.querySelector('#clock .time')?.textContent,
+    subtitle: document.querySelector('#subtitle')?.textContent?.trim(),
+    panelTitle: document.querySelector('#objectives .otitle')?.textContent,
+    panel: [...document.querySelectorAll('#objectives li')]
+      .map((li) => ({ text: li.textContent, done: li.classList.contains('done') })),
+    flat: {
+      fed: window.__squatch.apartment.state.fed,
+      showered: window.__squatch.apartment.state.showered,
+      dressed: window.__squatch.apartment.state.dressed,
+      panState: window.__squatch.apartment.state.panState,
+    },
   }));
   check('the live apartment wakes in bed at 7:00 AM on Day Two',
     woke.day === 2 && Math.abs(woke.minutes - 420) < 1 && woke.mode === 'bed',
-    JSON.stringify(woke));
+    JSON.stringify({ day: woke.day, minutes: woke.minutes, mode: woke.mode }));
+  /* The bug the owner hit: the second morning presented as the first one. The
+   * clock, the line he says on waking and the panel all have to name Day Two,
+   * and none of them may mention Day One or the man who rang yesterday. */
+  check('waking on Day Two says Day Two everywhere it says anything',
+    woke.clockDay === 'Day 2'
+      && woke.clockTime === '7:00 AM'
+      && woke.subtitle.includes('Day 2')
+      && woke.subtitle.includes('Booskibro')
+      && !/Day One|Day 1/.test(woke.subtitle)
+      && woke.panelTitle === 'Day 2 · today',
+    JSON.stringify({
+      clockDay: woke.clockDay, clockTime: woke.clockTime,
+      subtitle: woke.subtitle, panelTitle: woke.panelTitle,
+    }));
+  /* And it is a morning, not yesterday with a new number on it: he has not
+   * eaten today, has not showered today, and is in what he slept in. */
+  check('Day Two is a fresh morning rather than yesterday’s flat',
+    woke.flat.fed === false
+      && woke.flat.showered === false
+      && woke.flat.dressed === false
+      && woke.flat.panState === null,
+    JSON.stringify(woke.flat));
+  check('the objectives panel lists the Day Two morning and Booskibro’s call',
+    woke.panel.length === 5
+      && woke.panel.every((row) => row.done === false)
+      && woke.panel[0].text === 'Eat something'
+      && woke.panel.at(-1).text === 'Answer Booskibro’s call'
+      && !woke.panel.some((row) => /Lou/.test(row.text)),
+    JSON.stringify(woke.panel));
 
   await page.reload({ waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });

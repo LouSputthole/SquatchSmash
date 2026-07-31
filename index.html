@@ -77,9 +77,16 @@
     <div class="pips"></div>
   </div>
 
+  <!-- What the morning is for. Rendered from the door's own requirements, so
+       it cannot disagree with what the door will actually say. -->
+  <div id="objectives" class="hidden">
+    <div class="otitle"></div>
+    <ul class="olist"></ul>
+  </div>
+
   <div id="hands">
-    <!-- One row of slots. Hidden entirely while he is carrying nothing, so an
-         empty flat does not have a UI element sitting in it. -->
+    <!-- One row of slots. Always on: the one thing that says there ARE pockets
+         should not be the thing that only appears once you have used them. -->
     <div id="hotbar" class="hidden"></div>
     <div id="hand-item" class="hidden">
       <div class="icon"></div>

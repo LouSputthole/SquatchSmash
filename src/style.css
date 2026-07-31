@@ -323,6 +323,54 @@ kbd.key, .controls kbd {
   color: #6b6455;
 }
 
+/* ---- the morning's list ----
+   Under the clock, in the clock's own idiom: a small caps label over a short
+   column of quiet type. It is a reminder, not a quest log, so nothing in here
+   is allowed to be brighter than the room. */
+#objectives {
+  position: absolute;
+  right: 22px;
+  top: 92px;
+  text-align: right;
+  max-width: 240px;
+  pointer-events: none;
+}
+#objectives.hidden { display: none; }
+#objectives .otitle {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #8d846f;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+#objectives .olist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+#objectives li {
+  font-size: 12px;
+  line-height: 1.3;
+  color: #b9b099;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .85);
+}
+/* Done is struck through and faded rather than removed: a list that deletes
+   what you have achieved gives you no credit for the morning. */
+#objectives li.done {
+  color: #6b6455;
+  text-decoration: line-through;
+}
+/* The ones the door will actually refuse on. */
+#objectives li.required:not(.done) { color: var(--paper); }
+#objectives li::before {
+  content: '·  ';
+  color: #6b6455;
+}
+#objectives li.done::before { content: '✓  '; }
+
 /* bladder meter */
 #bladder {
   position: absolute;
