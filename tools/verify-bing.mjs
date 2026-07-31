@@ -752,7 +752,8 @@ const familyState = await page.evaluate(() => {
     return { cues: [...cues], numbskullCues };
   });
   const slugs = ['lag', 'gratin', 'eric', 'hogmama', 'deathmegatron', 'booski',
-    'sasole', 'willy', 'irish', 'ape', 'stove', 'snow', 'rippinflow', 'seff', 'shubenator'];
+    'sasole', 'willy', 'irish', 'ape', 'stove', 'snow', 'rippinflow', 'seff',
+    'shubenator', 'numbskull'];
   const ledgered = [
     ...slugs.flatMap((slug) => [`vo.bing.hang.${slug}.1`, `vo.bing.hang.${slug}.2`]),
     ...['lag', 'gratin', 'hogmama', 'sasole', 'irish'].map((slug) => `vo.bing.hang.${slug}.tony.1`),
@@ -767,9 +768,9 @@ const familyState = await page.evaluate(() => {
     ...scripted.cues.filter((cue) => !authored.has(cue)),
     ...ledgered.filter((cue) => !authored.has(cue)),
   ];
-  check('every cue the floor names is authored in the manifest, and Numbskull names none',
-    missing.length === 0 && scripted.numbskullCues === 0,
-    missing.slice(0, 3).join(' / ') || `${scripted.cues.length} cues`);
+  check('every cue the floor names is authored in the manifest, Numbskull now included',
+    missing.length === 0 && scripted.numbskullCues >= 2,
+    missing.slice(0, 3).join(' / ') || `${scripted.cues.length} cues, numbskull ${scripted.numbskullCues}`);
 }
 
 /* Walk-up talk goes through the club's own dialogue machine: the member's

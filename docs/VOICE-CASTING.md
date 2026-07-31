@@ -105,9 +105,12 @@ cues**. **Recorded 2026-07-30** — 56 plus Numbskull's two, once his id
 landed, by `npm run sfx -- --voice-only`. Every line on this page now has a
 clip behind it.
 
-Still unwired: nothing under `src/` references a `vo.bing.*` cue, so these
-58 clips exist on disk and in the index but no code plays them yet. Hooking
-hangout barks to the Family on the floor is a separate pass.
+Wiring (2026-07-31): the Family hangout floor plays the hangout beats
+(Numbskull's included, now that his clips exist), Booski's shot beat, and
+the blackjack dealer/Tony lines through `src/bing/family.js` + `main.js`'s
+exact-name `voiceCue()`. Still unwired: the seven door/bar/stage barks
+(`vo.bing.door.*`, `vo.bing.bar.*`, `vo.bing.stage.*`) — recorded, indexed,
+awaiting hooks on the doorman, bartender, and performers.
 
 Naming: `vo.bing.hang.<char>.<n>` for hangout lines,
 `vo.bing.hang.<char>.tony.<n>` for the prospect's replies (voice `player`),

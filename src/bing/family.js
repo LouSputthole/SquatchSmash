@@ -442,16 +442,11 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
     line2: 'You need mass, Prospect. Order the shrimp. Order nine shrimp.',
   });
 
-  /* Numbskull talks like everybody else — the dock's two lines, as plain
-   * subtitles. NO cue fields anywhere in this tree until his voice id lands
-   * in the manifest's `voices` block (see docs/VOICE-CASTING.md). */
   const numbskull = hangout('Numbskull', 'numbskull', {
     line1: 'I like you. I decided this morning. It’s done now, so don’t worry about it.',
     reply: { text: '…Thanks?' },
     line2: 'Lou says I’m the muscle. Booski says I’m the heart. I say ow.',
   });
-  delete numbskull.open.cue;
-  delete numbskull.more.cue;
 
   return {
     [CHARACTER_IDS.LAG]: lag,
