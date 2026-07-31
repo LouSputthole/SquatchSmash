@@ -496,7 +496,7 @@ function buildStates() {
     [S.SEARCH_TOILET]: {
       enter() {
         // The door closes behind him and the restaurant goes far away
-        Foley.doorClose();
+        Foley.doorClose('bathroom');
         swingDoor(sceneState.doors.bathDoor, -1.9, 0, 0.5);
         sceneState.doors.bathDoorBlock.on = true;
         bathroomDoorOpen = false;

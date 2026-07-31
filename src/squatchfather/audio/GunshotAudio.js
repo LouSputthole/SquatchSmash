@@ -38,6 +38,7 @@ export function weaponCheck() {
 // Steel on hardwood, once, and then it stays there.
 export function weaponDrop() {
   if (!core.isReady()) return;
+  if (core.playSample('gun.drop.wood', { volume: 0.8 })) return;
   const t = core.now();
   core.tone(t, { type: 'triangle', from: 260, to: 90, dur: 0.14, peak: 0.4 });
   core.noise(t, { peak: 0.28, attack: 0.001, decay: 0.09, type: 'bandpass', freq: 1500, q: 1.1 });

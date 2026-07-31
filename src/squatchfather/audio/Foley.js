@@ -35,6 +35,7 @@ export function footstep(surface = 'wood', loud = 1) {
 
 export function chairScrape() {
   if (!core.isReady()) return;
+  if (core.playSample('chair.scrape.wood', { volume: 0.6, rate: 0.94 + Math.random() * 0.12 })) return;
   const t = core.now();
   core.noise(t, { peak: 0.24, attack: 0.03, decay: 0.4, type: 'bandpass', freq: 480, q: 0.8, rate: 0.5 });
   core.tone(t, { type: 'sawtooth', from: 180, to: 120, dur: 0.36, peak: 0.09 });
@@ -42,6 +43,7 @@ export function chairScrape() {
 
 export function chairKnock() {
   if (!core.isReady()) return;
+  if (core.playSample('chair.knock', { volume: 0.7, rate: 0.92 + Math.random() * 0.16 })) return;
   const t = core.now();
   core.tone(t, { type: 'triangle', from: 190, to: 60, dur: 0.18, peak: 0.35 });
   core.noise(t, { peak: 0.2, attack: 0.002, decay: 0.14, type: 'lowpass', freq: 800 });
@@ -49,13 +51,18 @@ export function chairKnock() {
 
 export function doorOpen() {
   if (!core.isReady()) return;
+  if (core.playSample('door.restaurant.open', { volume: 0.65, rate: 0.96 + Math.random() * 0.08 })) return;
   const t = core.now();
   core.noise(t, { peak: 0.13, attack: 0.05, decay: 0.35, type: 'bandpass', freq: 320, q: 0.7, rate: 0.4 });
   core.tone(t + 0.3, { type: 'sine', from: 120, to: 60, dur: 0.12, peak: 0.14 });
 }
 
-export function doorClose() {
+// The restaurant's glazed front door by default; the bathroom's light door —
+// with the tiled room's slap on it — when he shuts himself in.
+export function doorClose(kind = 'restaurant') {
   if (!core.isReady()) return;
+  const cue = kind === 'bathroom' ? 'door.bathroom.close' : 'door.restaurant.close';
+  if (core.playSample(cue, { volume: 0.7, rate: 0.96 + Math.random() * 0.08 })) return;
   const t = core.now();
   core.tone(t, { type: 'sine', from: 140, to: 48, dur: 0.2, peak: 0.42 });
   core.noise(t, { peak: 0.22, attack: 0.002, decay: 0.13, type: 'lowpass', freq: 500 });
@@ -64,11 +71,13 @@ export function doorClose() {
 
 export function cloth() {
   if (!core.isReady()) return;
+  if (core.playSample('cloth.suit.movement', { volume: 0.5, rate: 0.9 + Math.random() * 0.2 })) return;
   core.noise(core.now(), { peak: 0.08, attack: 0.02, decay: 0.22, type: 'highpass', freq: 2600, rate: 0.5 });
 }
 
 export function pour() {
   if (!core.isReady()) return;
+  if (core.playSample('wine.pour.glass', { volume: 0.55, rate: 0.97 + Math.random() * 0.06 })) return;
   const t = core.now();
   for (let i = 0; i < 14; i++) {
     core.tone(t + i * 0.06, { type: 'sine', from: 600 + Math.random() * 500, to: 300, dur: 0.05, peak: 0.045 });
@@ -78,6 +87,7 @@ export function pour() {
 
 export function glassFall() {
   if (!core.isReady()) return;
+  if (core.playSample('glass.wine.fall', { volume: 0.75, rate: 0.96 + Math.random() * 0.08 })) return;
   const t = core.now();
   core.tone(t, { type: 'sine', from: 2600, to: 1800, dur: 0.12, peak: 0.16 });
   core.noise(t + 0.12, { peak: 0.3, attack: 0.001, decay: 0.16, type: 'highpass', freq: 3400 });
@@ -88,11 +98,13 @@ export function glassFall() {
 
 export function searchRustle() {
   if (!core.isReady()) return;
+  if (core.playSample('search.rustle', { volume: 0.55, rate: 0.9 + Math.random() * 0.2 })) return;
   core.noise(core.now(), { peak: 0.1, attack: 0.03, decay: 0.28, type: 'bandpass', freq: 1400, q: 0.8, rate: 0.6 });
 }
 
 export function pipeKnock() {
   if (!core.isReady()) return;
+  if (core.playSample('pipe.knock.cistern', { volume: 0.55, rate: 0.94 + Math.random() * 0.12 })) return;
   const t = core.now();
   core.tone(t, { type: 'sine', from: 720, to: 300, dur: 0.16, peak: 0.2 });
   core.tone(t + 0.005, { type: 'square', from: 1400, to: 900, dur: 0.05, peak: 0.06 });
@@ -100,6 +112,10 @@ export function pipeKnock() {
 
 export function heartbeat(strength = 1) {
   if (!core.isReady()) return;
+  // The search plays him faster as it drags on; rate carries the urgency.
+  if (core.playSample('heartbeat.slow', {
+    volume: 0.55 * strength, rate: 0.9 + strength * 0.25,
+  })) return;
   const t = core.now();
   core.tone(t, { type: 'sine', from: 74, to: 38, dur: 0.16, peak: 0.32 * strength });
   core.tone(t + 0.19, { type: 'sine', from: 62, to: 34, dur: 0.2, peak: 0.22 * strength });
@@ -107,11 +123,15 @@ export function heartbeat(strength = 1) {
 
 export function breath(strength = 1) {
   if (!core.isReady()) return;
+  if (core.playSample('breath.controlled', {
+    volume: 0.45 * strength, rate: 0.92 + Math.random() * 0.16,
+  })) return;
   core.noise(core.now(), { peak: 0.09 * strength, attack: 0.12, decay: 0.4, type: 'bandpass', freq: 620, q: 0.7, rate: 0.4 });
 }
 
 export function carDoor() {
   if (!core.isReady()) return;
+  if (core.playSample('car.door.close.heavy', { volume: 0.75, rate: 0.97 + Math.random() * 0.06 })) return;
   const t = core.now();
   core.tone(t, { type: 'sine', from: 180, to: 55, dur: 0.24, peak: 0.45 });
   core.noise(t, { peak: 0.24, attack: 0.002, decay: 0.16, type: 'lowpass', freq: 600 });

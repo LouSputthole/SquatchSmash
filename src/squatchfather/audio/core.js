@@ -72,7 +72,18 @@ export function init() {
 
   loadSamples([
     'footstep.wood', 'footstep.tile', 'footstep.street.wet',
-    'gun.shot', 'gun.reload',
+    'gun.shot', 'gun.reload', 'gun.drop.wood',
+    'chair.scrape.wood', 'chair.knock',
+    'door.restaurant.open', 'door.restaurant.close', 'door.bathroom.close',
+    'cloth.suit.movement', 'wine.pour.glass', 'glass.wine.fall',
+    'search.rustle', 'pipe.knock.cistern', 'heartbeat.slow', 'breath.controlled',
+    'car.door.close.heavy',
+    'dish.clink', 'bathroom.drip', 'street.car.pass.wet', 'street.horn.distant',
+    'restaurant.room.tone', 'restaurant.murmur', 'restaurant.kitchen',
+    'street.wet.night', 'bathroom.tone',
+    'train.elevated.rumble', 'train.elevated.roar', 'train.elevated.sub',
+    'train.rail.clatter', 'train.horn.far',
+    'ear.ringing',
     ...VO_CUES,
   ]);
 
@@ -123,6 +134,33 @@ export function playSample(name, { volume = 1, rate = 1 } = {}) {
   src.start();
   playLogList.push(name);
   return true;
+}
+
+/**
+ * A seamless looping recording through the duck bus, with its own lowpass +
+ * gain so the caller can drive exactly the envelopes the synth beds use —
+ * same shape as noiseLoop's { src, filt, gain } handle. Returns null while
+ * the cue has not decoded: start the synth instead, and try again later to
+ * upgrade mid-scene.
+ */
+export function sampleLoop(name, { gain = 0, rate = 1, freq = 18000, q = 0.7 } = {}) {
+  const buf = samples.get(name);
+  if (!buf || !ctx) return null;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  src.loop = true;
+  src.playbackRate.value = rate;
+  const filt = ctx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.value = freq;
+  filt.Q.value = q;
+  const g = ctx.createGain();
+  g.gain.value = gain;
+  src.connect(filt).connect(g).connect(busNode);
+  // Loops start at a random phase so layered beds never breathe in step.
+  src.start(0, Math.random() * Math.max(0, buf.duration - 0.05));
+  playLogList.push(name);
+  return { src, filt, gain: g, sample: true, name };
 }
 
 // ---------- Dialogue ----------
@@ -201,41 +239,64 @@ export function duck(gain, cutoff) {
 }
 
 // ---------- Ear ringing ----------
+// Straight into the master, past the duck, so the tinnitus stays on top of a
+// mix that has dropped away. The recorded loop is preferred; the sine pair
+// covers it until the file decodes.
+
+let ringSrc = null;
+let ringBase = 0.05;
 
 export function startRinging() {
-  if (!ctx || ringOsc) return;
+  if (!ctx || ringOsc || ringSrc) return;
   ringGain = ctx.createGain();
   ringGain.gain.value = 0;
   ringGain.connect(master);
-  ringOsc = ctx.createOscillator();
-  ringOsc.type = 'sine';
-  ringOsc.frequency.value = 4380;
-  ringOsc2 = ctx.createOscillator();
-  ringOsc2.type = 'sine';
-  ringOsc2.frequency.value = 6210;
-  const g2 = ctx.createGain();
-  g2.gain.value = 0.35;
-  ringOsc.connect(ringGain);
-  ringOsc2.connect(g2).connect(ringGain);
-  ringOsc.start();
-  ringOsc2.start();
-  ringGain.gain.setTargetAtTime(0.05, ctx.currentTime, 0.01);
+  const buf = samples.get('ear.ringing');
+  if (buf) {
+    ringBase = 0.55;
+    ringSrc = ctx.createBufferSource();
+    ringSrc.buffer = buf;
+    ringSrc.loop = true;
+    ringSrc.connect(ringGain);
+    ringSrc.start();
+    playLogList.push('ear.ringing');
+  } else {
+    ringBase = 0.05;
+    ringOsc = ctx.createOscillator();
+    ringOsc.type = 'sine';
+    ringOsc.frequency.value = 4380;
+    ringOsc2 = ctx.createOscillator();
+    ringOsc2.type = 'sine';
+    ringOsc2.frequency.value = 6210;
+    const g2 = ctx.createGain();
+    g2.gain.value = 0.35;
+    ringOsc.connect(ringGain);
+    ringOsc2.connect(g2).connect(ringGain);
+    ringOsc.start();
+    ringOsc2.start();
+  }
+  ringGain.gain.setTargetAtTime(ringBase, ctx.currentTime, 0.01);
 }
 
 export function setRinging(level) {
   if (!ringGain) return;
-  ringGain.gain.setTargetAtTime(0.05 * Math.max(0, level), ctx.currentTime, 0.2);
+  ringGain.gain.setTargetAtTime(ringBase * Math.max(0, level), ctx.currentTime, 0.2);
 }
 
 export function stopRinging() {
-  if (!ringOsc) return;
+  if (!ringOsc && !ringSrc) return;
   const t = ctx.currentTime;
   ringGain.gain.setTargetAtTime(0, t, 0.25);
   const o1 = ringOsc;
   const o2 = ringOsc2;
+  const s = ringSrc;
   ringOsc = null;
   ringOsc2 = null;
-  setTimeout(() => { try { o1.stop(); o2.stop(); } catch { /* already stopped */ } }, 1200);
+  ringSrc = null;
+  setTimeout(() => {
+    try { o1?.stop(); o2?.stop(); } catch { /* already stopped */ }
+    try { s?.stop(); } catch { /* already stopped */ }
+  }, 1200);
 }
 
 // ---------- Primitives ----------
