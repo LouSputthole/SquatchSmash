@@ -913,6 +913,13 @@ function paintPhone() {
 }
 
 function phoneTick(dt) {
+  /* The phone reads the campaign clock too. It was built with a fixed hour,
+   * so the one screen in the club with a time printed on it in numerals was
+   * the one screen disagreeing with the wall. */
+  const story = campaign.state.story;
+  phone.time.day = story.day;
+  // The Phone reads `hour` as a FRACTIONAL hour; the fraction is its minutes.
+  phone.time.hour = (story.timeMinutes / 60) % 24;
   phoneStory.update(dt);
   phone.update(dt);
   if (game.phoneUp) paintPhone();
