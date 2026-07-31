@@ -5668,6 +5668,18 @@
       "duration": 4.5
     },
     {
+      "name": "vo.bing.hang.numbskull.1",
+      "voice": "numbskull",
+      "say": "I like you. I decided this morning. It's done now, so don't worry about it.",
+      "duration": 5
+    },
+    {
+      "name": "vo.bing.hang.numbskull.2",
+      "voice": "numbskull",
+      "say": "Lou says I'm the muscle. Booski says I'm the heart. I say ow.",
+      "duration": 5
+    },
+    {
       "name": "vo.bing.booski.shot.offer",
       "voice": "booski",
       "say": "You look empty-handed, Prospect. That's a ME problem now. You want a shot? Course you want a shot.",
