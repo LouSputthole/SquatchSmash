@@ -25,11 +25,19 @@ export function init() {
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-  loadSamples([
-    'car.engine.start', 'car.engine.idle', 'car.engine.rev',
-    'car.tire.skid', 'car.horn', 'car.impact.metal', 'gun.shot',
-  ]);
+  loadSamples(SAMPLE_CUES);
+  loadVoiceIndex();
 }
+
+/* Recorded cues this scene prefers over its own synthesis. Everything here
+ * keeps its procedural fallback, so a missing file costs nothing. */
+const SAMPLE_CUES = [
+  'car.engine.start', 'car.engine.idle', 'car.engine.rev',
+  'car.tire.skid', 'car.horn', 'car.impact.metal', 'gun.shot',
+  // The motel was synthesising all of these while the recordings sat on disk.
+  'door.locked', 'car.door', 'ice.drop', 'pipe.knock.cistern',
+  'footstep.tile', 'footstep.wood', 'footstep.rug', 'footstep.street.wet',
+];
 
 // ---------- Recorded samples ----------
 // Preferred when decoded; every caller keeps its synth fallback, so nothing
@@ -59,6 +67,102 @@ function playSample(name, { volume = 1, rate = 1 } = {}) {
   src.connect(g).connect(master);
   src.start();
   return true;
+}
+
+// ---------- Recorded voice ----------
+// The scene asks for a line by cue; if that line has been recorded it plays,
+// and the caller is told how long it runs so the subtitle can hold for the
+// real thing instead of an authored guess. Nothing is synthesised — a fake
+// voice is worse than silence — so an unrecorded line is simply subtitled.
+//
+// Cues are `vo.motel.<speaker>.<beat>.<take>`, matching the naming the rest of
+// the campaign uses. Which files exist is read from assets/sfx/index.json, so
+// a scene with no VO recorded yet costs exactly one request and no 404s.
+
+const VOICE_PREFIX = 'vo.motel.';
+const voiceFiles = new Set();
+const voiceBanks = new Map();
+const voiceLast = new Map();
+/** Every cue the scene has asked for, recorded or not — the wiring's receipt. */
+export const voiceRequested = new Set();
+let voiceIndexLoaded = false;
+let currentVoice = null;
+let voiceUntil = 0;
+
+async function loadVoiceIndex() {
+  if (voiceIndexLoaded) return;
+  voiceIndexLoaded = true;
+  try {
+    const res = await fetch('assets/sfx/index.json', { cache: 'force-cache' });
+    if (!res.ok) return;
+    const index = await res.json();
+    for (const file of index.files || []) {
+      if (file.startsWith(VOICE_PREFIX) && file.endsWith('.mp3')) {
+        voiceFiles.add(file.slice(0, -4));
+      }
+    }
+    voiceBanks.clear();
+    if (voiceFiles.size) loadSamples([...voiceFiles]);
+  } catch {
+    /* No index: the scene runs on subtitles, which is the whole motel today. */
+  }
+}
+
+/**
+ * Speak a line, if that line has been recorded.
+ * @returns {number} seconds of audio started, or 0 when nothing played.
+ */
+export function voice(cue, { volume = 0.95 } = {}) {
+  if (!cue) return 0;
+  voiceRequested.add(`${VOICE_PREFIX}${cue}`);
+  if (!ctx || !voiceFiles.size) return 0;
+
+  let bank = voiceBanks.get(cue);
+  if (!bank) {
+    const stem = `${VOICE_PREFIX}${cue}.`;
+    bank = [...voiceFiles].filter((n) => n.startsWith(stem)).sort();
+    voiceBanks.set(cue, bank);
+  }
+  if (!bank.length) return 0;
+
+  // Never the same take twice running — that is what makes VO sound canned.
+  let pick = bank[(Math.random() * bank.length) | 0];
+  for (let guard = 0; bank.length > 1 && pick === voiceLast.get(cue) && guard < 8; guard++) {
+    pick = bank[(Math.random() * bank.length) | 0];
+  }
+  const buf = samples.get(pick);
+  if (!buf) return 0;
+  voiceLast.set(cue, pick);
+
+  // One voice at a time. Nobody in this motel is a chorus.
+  stopVoice();
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const g = ctx.createGain();
+  g.gain.value = volume;
+  src.connect(g).connect(master);
+  src.start();
+  currentVoice = src;
+  voiceUntil = ctx.currentTime + buf.duration;
+  return buf.duration;
+}
+
+export function stopVoice() {
+  if (!currentVoice) return;
+  try { currentVoice.stop(); } catch { /* already finished */ }
+  currentVoice = null;
+}
+
+/** True while somebody is still mid-sentence. */
+export function voiceBusy() {
+  return !!ctx && ctx.currentTime < voiceUntil;
+}
+
+/** Which of the cues the scene asked for actually have a recording. */
+export function voiceCoverage() {
+  const recorded = [...voiceRequested].filter((cue) =>
+    [...voiceFiles].some((n) => n.startsWith(`${cue}.`)));
+  return { requested: [...voiceRequested], recorded, onDisk: [...voiceFiles] };
 }
 
 // The drive scene's engine: the recorded start, then a looped idle whose
@@ -264,6 +368,7 @@ export function doorSlam() {
 
 export function lockClick() {
   if (!ctx) return;
+  if (playSample('door.locked', { volume: 0.6 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.2, attack: 0.001, decay: 0.04, freq: 2600, type: 'bandpass', q: 3 });
   tone(t + 0.05, { type: 'square', from: 420, to: 300, dur: 0.05, peak: 0.06 });
@@ -357,6 +462,7 @@ export function chew() {
 
 export function iceDrop() {
   if (!ctx) return;
+  if (playSample('ice.drop', { volume: 0.5 })) return;
   const t = ctx.currentTime;
   for (let i = 0; i < 4; i++) {
     tone(t + i * 0.06 + Math.random() * 0.03, {
@@ -367,6 +473,7 @@ export function iceDrop() {
 
 export function plumbing() {
   if (!ctx) return;
+  if (playSample('pipe.knock.cistern', { volume: 0.45 })) return;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: 180, to: 120, dur: 0.9, peak: 0.05 });
   noise(t, { peak: 0.05, attack: 0.2, decay: 0.8, freq: 900, type: 'bandpass', q: 1.5 });
@@ -438,8 +545,19 @@ const STEP_SURFACES = {
   stairs: { freq: 900, peak: 0.15, tone: 96 },
 };
 
+/* The recorded step that best matches each motel surface. Anything without a
+ * recording keeps the filtered thump below. */
+const STEP_SAMPLES = {
+  carpet: 'footstep.rug',
+  tile: 'footstep.tile',
+  stairs: 'footstep.wood',
+  pool: 'footstep.street.wet',
+};
+
 export function step(surface = 'concrete') {
   if (!ctx) return;
+  const recorded = STEP_SAMPLES[surface];
+  if (recorded && playSample(recorded, { volume: 0.5, rate: 0.82 + Math.random() * 0.1 })) return;
   const s = STEP_SURFACES[surface] || STEP_SURFACES.concrete;
   const t = ctx.currentTime;
   tone(t, { type: 'sine', from: s.tone, to: s.tone * 0.5, dur: 0.1, peak: s.peak });
@@ -541,6 +659,7 @@ export function bite() {
 // Heavy car door.
 export function carDoor() {
   if (!ctx) return;
+  if (playSample('car.door', { volume: 0.7 })) return;
   const t = ctx.currentTime;
   noise(t, { peak: 0.14, attack: 0.01, decay: 0.16, freq: 1200, type: 'bandpass', q: 1.2 });
   tone(t + 0.16, { type: 'sine', from: 120, to: 45, dur: 0.2, peak: 0.32 });

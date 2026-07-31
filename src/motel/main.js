@@ -475,14 +475,29 @@ function toast(text, cls = '', sub = '') {
   while (toastsEl.children.length > 4) toastsEl.firstChild.remove();
 }
 
-function say(who, line, seconds = 3.4) {
+/**
+ * A line of dialogue: subtitle always, recorded voice when there is one.
+ *
+ * `cue` names the recording — `<speaker>.<beat>`, which the audio layer looks
+ * for as `vo.motel.<cue>.<take>.mp3`. When a take plays, the subtitle holds
+ * for its real duration instead of the authored guess, so the words on screen
+ * and the words in the room end together. With nothing recorded the scene
+ * behaves exactly as it always has.
+ */
+function say(who, line, seconds = 3.4, cue = null) {
   const cls = who === 'Prospect' ? 'who prospect' : who === '*' ? 'stage' : 'who';
   subtitleEl.innerHTML = who === '*'
     ? `<span class="stage">${line}</span>`
     : `<span class="${cls}">${who}</span> — ${line}`;
   subtitleEl.classList.add('show');
-  subtitleT = seconds;
-  sfx.blip();
+  const spoken = cue ? sfx.voice(cue) : 0;
+  subtitleT = spoken > 0 ? spoken + 0.5 : seconds;
+  if (spoken <= 0) sfx.blip();
+}
+
+/** Cue id for a spoken line: `snow.brief`, `rico.atdoor`, and so on. */
+function cueFor(who, beat) {
+  return `${String(who).toLowerCase().replace(/[^a-z0-9]+/g, '')}.${beat}`;
 }
 
 function setObjective(id, sub = '') {
@@ -588,7 +603,7 @@ function startScene() {
   clerk = spawnActor({ ...CAST.clerk(), x: -44, z: -8.2, state: 'idle' });
   clerk.faceAt(-44, -4);                 // across his own counter at z = -7
 
-  say(ALLY, 'Room twelve. They show the meat first. You show the money second.', 4.2);
+  say(ALLY, 'Room twelve. Meat first. Money second.', 4.2, cueFor(ALLY, 'arrive'));
   setTimeout(() => { if (phase === 'car') openDialogue('snowBrief'); }, 1400);
   clock.getDelta();
   return true;
@@ -649,7 +664,10 @@ addInteract({
   enabled: () => (phase === 'car' || phase === 'lot') && !dialogue,
   act: () => {
     if (!S.dealStarted && phase === 'car') openDialogue('snowBrief');
-    else say(ALLY, SNOW_BARKS[Math.floor(Math.random() * SNOW_BARKS.length)]);
+    else {
+      const i = Math.floor(Math.random() * SNOW_BARKS.length);
+      say(ALLY, SNOW_BARKS[i], 3.4, cueFor(ALLY, `bark.${i}`));
+    }
   },
 });
 
@@ -704,7 +722,7 @@ addInteract({
       refs.manCar.trunk.opened = true;
       foundClue('trunk');
       S.hiddenWeaponKnown = true;
-      say(ALLY, 'Crowbar. And the thing we agreed I would never mention out loud.', 3.6);
+      say(ALLY, 'Crowbar. And the thing we never mention.', 3.6, cueFor(ALLY, 'trunk'));
       toast('TRUNK OPEN', '', 'Crowbar and hand cannon available here');
     } else if (S.weapon !== 'handcannon') {
       pickUpWeapon(S.weapon === 'crowbar' ? 'handcannon' : 'crowbar');
@@ -1292,7 +1310,7 @@ function exitCar() {
   feetY = 0;
   /* He says he is facing the exit, so he faces the exit. The road is +z. */
   if (snow) snow.faceAt(snow.group.position.x, ROAD_Z);
-  say(ALLY, 'Right here. Facing the exit.', 3.2);
+  say(ALLY, 'Right here. Facing the exit.', 3.2, cueFor(ALLY, 'exitcar'));
   setObjective('reach', 'Walk the lot — everything you notice out here counts inside');
   updateGear();
 }
@@ -1410,7 +1428,7 @@ function openDialogue(nodeId) {
   wheelEl.classList.add('show');
   slowTintEl.classList.add('on');
   timeScale = 0.35;   // time slows; it does not stop
-  say(node.speaker, node.line, 4.5);
+  say(node.speaker, node.line, 4.5, cueFor(node.speaker, nodeId));
 }
 
 function closeDialogue() {
@@ -1427,11 +1445,16 @@ function pickDialogue(style) {
   if (!opt) return;
   closeDialogue();
   sfx.select();
-  say('Prospect', opt.text, 3.4);
+  say('Prospect', opt.text, 3.4, cueFor('Prospect', `${nodeId}.${style}`));
   addHeat(opt.heat || 0);
   addRead(opt.read || 0);
 
-  if (opt.reply) setTimeout(() => { if (phase !== 'end') say(opt.reply[0], opt.reply[1], 3.6); }, 1900);
+  if (opt.reply) {
+    setTimeout(() => {
+      if (phase === 'end') return;
+      say(opt.reply[0], opt.reply[1], 3.6, cueFor(opt.reply[0], `${nodeId}.${style}.reply`));
+    }, 1900);
+  }
 
   if (nodeId === 'atDoor') {
     S.doorOpened = true;
@@ -1626,14 +1649,15 @@ function snowJoins(reason) {
   S.snowInside = true;
   snow.state = 'follow';
   snow.hp = Math.max(60, snow.hp);
-  say(ALLY, SNOW_FIGHT_BARKS[Math.floor(Math.random() * SNOW_FIGHT_BARKS.length)], 3.2);
+  const barkIdx = Math.floor(Math.random() * SNOW_FIGHT_BARKS.length);
+  say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
   toast('MANNY IS IN', '', `He heard ${reason}`);
   if (!S.windowBroken && !refs.frontDoor.open) breakWindow(true);
   // He brings the crowbar from the trunk — thrown to you if you're
   // empty-handed, kept and visibly wielded if you're not.
   if (S.weapon === 'fists') {
     dropWeaponPickup('crowbar', pos.x + 1.4, pos.z + 0.6);
-    setTimeout(() => say(ALLY, 'Crowbar! Catch it with your face if you have to!', 3), 1600);
+    setTimeout(() => say(ALLY, 'Crowbar. Catch it.', 3, cueFor(ALLY, 'crowbar')), 1600);
   } else {
     snow.equip('crowbar');
   }
@@ -2269,7 +2293,7 @@ function boardGetaway() {
     S.wrongCase = true;
   }
   sfx.carDoor();
-  say(ALLY, 'Tell me that was worth it.', 3.4);
+  say(ALLY, 'Tell me that was worth it.', 3.4, cueFor(ALLY, 'boarded'));
   setTimeout(() => openDialogue('getaway'), 1400);
 }
 
@@ -2702,7 +2726,9 @@ function startDrive() {
   camera.fov = 70;
   camera.updateProjectionMatrix();
   setObjective('escape', S.snowInjured ? 'Snow is hurt — you are driving' : 'Get to the Sasquatch safehouse');
-  say(S.snowInjured ? 'Prospect' : 'Snow', S.snowInjured ? 'Hold the case. I am driving.' : 'Seatbelt. Or do not. You are the size of a seatbelt.', 3.6);
+  say(S.snowInjured ? 'Prospect' : ALLY,
+    S.snowInjured ? 'Hold the case. I am driving.' : 'Seatbelt. Or do not.',
+    3.6, cueFor(S.snowInjured ? 'Prospect' : ALLY, 'drivestart'));
   if (S.windowBroken) toast('BROKEN WINDOW', 'warn', 'Warm air over the shipment all the way home');
 }
 
@@ -2781,8 +2807,8 @@ function updateDrive(dt) {
     drive.snowBiteT = 11 + Math.random() * 8;
     freshness.damage(4, 'Snow "checking quality"');
     sfx.chew();
-    say(ALLY, 'I am checking quality!', 3);
-    setTimeout(() => say('Prospect', 'Stop eating the shipment!', 3), 1500);
+    say(ALLY, 'Checking quality.', 3, cueFor(ALLY, 'bite'));
+    setTimeout(() => say('Prospect', 'Stop eating the shipment!', 3, cueFor('Prospect', 'bite')), 1500);
   }
 
   if (S.windowBroken) freshness.damage(dt * 0.55, 'wind over the packages');
@@ -2830,7 +2856,9 @@ function ramPursuer() {
   freshness.damage(5, 'ramming a car off the road');
   drive.speed = Math.max(16, drive.speed - 6);
   toast('OFF THE ROAD', '', S.snowInjured ? 'You put them into the guardrail' : 'Snow put them into the guardrail');
-  say(S.snowInjured ? 'Prospect' : 'Snow', S.snowInjured ? 'Stay down.' : 'That was my door!', 2.8);
+  say(S.snowInjured ? 'Prospect' : ALLY,
+    S.snowInjured ? 'Stay down.' : 'That was my door.',
+    2.8, cueFor(S.snowInjured ? 'Prospect' : ALLY, 'ram'));
 }
 
 function onDriveCrash(hostile) {
@@ -2987,17 +3015,21 @@ function updateAmbient(dt) {
   if (barkT <= 0) {
     barkT = 7 + Math.random() * 7;
     if (phase === 'room' && !dialogue && !S.betrayed) {
-      const [who, line] = SELLER_BARKS[Math.floor(Math.random() * SELLER_BARKS.length)];
-      say(who, line, 3.2);
+      const i = Math.floor(Math.random() * SELLER_BARKS.length);
+      const [who, line] = SELLER_BARKS[i];
+      say(who, line, 3.2, cueFor(who, `sell.${i}`));
       if (who === 'Rico' && rico) rico.talkT = 1.6;
       if (who === 'Chino' && chino) chino.talkT = 1.6;
     } else if (phase === 'lot' && Math.random() < 0.5) {
-      say(ALLY, SNOW_BARKS[Math.floor(Math.random() * SNOW_BARKS.length)], 3.2);
+      const i = Math.floor(Math.random() * SNOW_BARKS.length);
+      say(ALLY, SNOW_BARKS[i], 3.2, cueFor(ALLY, `bark.${i}`));
     } else if ((phase === 'fight' || phase === 'recover') && Math.random() < 0.7) {
-      const [who, line] = FIGHT_BARKS[Math.floor(Math.random() * FIGHT_BARKS.length)];
-      say(who, line, 2.8);
+      const i = Math.floor(Math.random() * FIGHT_BARKS.length);
+      const [who, line] = FIGHT_BARKS[i];
+      say(who, line, 2.8, cueFor(who, `fight.${i}`));
     } else if (phase === 'room' && Math.random() < 0.4) {
-      say('Prospect', PROSPECT_BARKS[Math.floor(Math.random() * PROSPECT_BARKS.length)], 3);
+      const i = Math.floor(Math.random() * PROSPECT_BARKS.length);
+      say('Prospect', PROSPECT_BARKS[i], 3, cueFor('Prospect', `room.${i}`));
     }
   }
 
@@ -3066,7 +3098,7 @@ function updateFightLogic(dt) {
     sfx.siren(false);
     sfx.alarm();
     toast('POLICE ON THE LOT', 'warn', 'Forget the sellers. Do not be here.');
-    say(ALLY, 'Blue lights on the road! We are leaving with or without you!', 3.6);
+    say(ALLY, 'Blue lights. We leave now.', 3.6, cueFor(ALLY, 'police'));
     setObjective('escape', 'Get to the car before the lot fills up');
     for (const a of actors) {
       if (a.role === 'seller' && a.alive) { a.state = 'panic'; a.hostile = false; }
@@ -3076,7 +3108,7 @@ function updateFightLogic(dt) {
   if (snow && S.snowInside && snow.hp < 60 && !S.snowInjured) {
     S.snowInjured = true;
     toast('MANNY IS HURT', 'warn', 'You are driving');
-    say(ALLY, 'I am fine. That is not my blood. Probably.', 3.2);
+    say(ALLY, 'I am fine. Not my blood.', 3.2, cueFor(ALLY, 'hurt'));
   }
 }
 
@@ -3198,6 +3230,15 @@ window.MOTEL = {
       y: Math.sin(camPitch),
       z: Math.cos(camYaw) * Math.cos(camPitch),
     };
+  },
+  /* Voice wiring, so a verifier can prove the scene really asks for its
+   * recordings rather than only drawing subtitles. */
+  voice: {
+    say: (who, line, seconds, cue) => say(who, line, seconds, cue),
+    cueFor,
+    coverage: () => sfx.voiceCoverage(),
+    get requested() { return [...sfx.voiceRequested]; },
+    busy: () => sfx.voiceBusy(),
   },
   isBlocked: (x, z, y = feetY, radius = PLAYER_R) => blocked(x, z, y, radius),
   start: startScene,
