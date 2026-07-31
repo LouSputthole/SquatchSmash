@@ -1257,6 +1257,8 @@ export async function buildApartment(ctx) {
     /* ---- getting ready for Wednesday. Once done, these stay done. ---- */
     showered: false,
     dressed: false,
+    /** Which of the drawer's three shirts is on top. See SHIRTS. */
+    shirt: 0,
     fed: false,
     /** Raw eggs are out of the fridge and in your hands. */
     hasEggs: false,
@@ -1499,16 +1501,49 @@ export async function buildApartment(ctx) {
     onUse: () => ctx.onShower?.(),
   });
 
+  /* ---- what is actually in the drawer ----
+   *
+   * Three shirts, because he is not a man with a wardrobe, he is a man with a
+   * drawer. Tap turns them over one at a time, hold puts on whichever is on
+   * top: the same tap/hold split the telly, the radio and the bed already use,
+   * so picking something to wear is a gesture he already knows rather than a
+   * new one. It used to be one hold with nothing named at either end of it,
+   * which read as a switch being thrown rather than as a man getting changed.
+   */
+  const SHIRTS = [
+    { name: 'black shirt', line: 'The black one. It is always the black one.' },
+    { name: 'grey henley', line: 'Grey henley. Clean, or near enough to it.' },
+    { name: 'good shirt', line: 'The good shirt. Somebody ironed this once. Not him.' },
+  ];
+  // Latched so one hold shakes one shirt out, not one per frame.
+  let shookOut = false;
+
   interaction.register(drawerHit, {
     soft: true,
-    label: () => (state.dressed ? 'Already <b>changed</b>' : 'Find a <b>clean shirt</b>'),
+    label: () => (state.dressed
+      ? 'Already <b>changed</b>'
+      : `Wear the <b>${SHIRTS[state.shirt].name}</b> &middot; tap for <b>another</b>`),
     enabled: () => !state.dressed,
-    hold: 0.8,
-    holdLabel: () => 'Getting <b>dressed</b>…',
+    hold: 1.1,
+    holdLabel: () => `Pulling on the <b>${SHIRTS[state.shirt].name}</b>…`,
+    onTap: () => {
+      state.shirt = (state.shirt + 1) % SHIRTS.length;
+      audio.play('bed.rustle', { volume: 0.42, rate: 1.15 });
+      hud.say(SHIRTS[state.shirt].line, 2800);
+    },
+    // One shake of the shirt partway up the bar, so the hold has a middle.
+    onHoldProgress: (p) => {
+      if (p < 0.1) shookOut = false;
+      else if (p > 0.3 && !shookOut) {
+        shookOut = true;
+        audio.play('cloth.snap', { volume: 0.45 });
+      }
+    },
     onUse: () => {
       state.dressed = true;
+      shookOut = false;
       audio.play('bed.rustle', { volume: 0.55 });
-      ctx.onDressed?.();
+      ctx.onDressed?.(SHIRTS[state.shirt]);
     },
   });
 

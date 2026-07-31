@@ -483,11 +483,13 @@ async function boot() {
     onBong: hitBong,
     onShrooms: eatShrooms,
     onShower: takeShower,
-    onDressed: () => {
+    // The drawer names the shirt he settled on, so the toast can say which.
+    onDressed: (shirt) => {
+      const name = shirt?.name || 'clean shirt';
       completeApartmentActivity('changedClothes', TIME_EVENT_IDS.CHANGE_CLOTHES);
       audio.say('dress', { chance: 0.8, delay: 0.4 });
-      hud.toast('Clean shirt', 'good');
-      hud.say('A clean shirt. It even smells like a clean shirt.', 4200);
+      hud.toast(`Changed · ${name}`, 'good');
+      hud.say(`The ${name}, then. <em>It even smells like a clean shirt.</em>`, 4200);
     },
     onCook: cookEggs,
     onEat: eatEggs,
