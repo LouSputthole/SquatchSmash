@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Verify the package-gated apartment -> Squatchfather -> apartment round trip
- * in a real browser, including the restaurant's critical state-machine beats.
+ * in a real browser, including the restaurant's critical state-machine beats,
+ * the recorded audio (VO, footsteps, ambience and train beds), and that every
+ * seated man faces the way his beat was authored.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -226,6 +228,119 @@ try {
       && current.mission.weaponStaged,
     JSON.stringify(current.mission));
   await verifyOpeningMovement(page, 'the saved-game entry');
+
+  // ---- Recorded audio: the samples must decode, the beds must run on them,
+  // the footsteps must land on real files, and a VO beat must actually play.
+  const REQUIRED_SAMPLES = [
+    'footstep.wood', 'footstep.tile', 'footstep.street.wet',
+    'restaurant.room.tone', 'restaurant.murmur', 'restaurant.kitchen',
+    'street.wet.night', 'bathroom.tone',
+    'train.elevated.rumble', 'train.elevated.roar', 'train.elevated.sub',
+    'ear.ringing', 'vo.sf.greeting.1', 'vo.sf.opening.1',
+  ];
+  await page.waitForFunction(
+    (names) => names.every((n) => window.squatchfather.audio.sampleReady(n)),
+    REQUIRED_SAMPLES,
+    { timeout: 30000 },
+  ).catch(() => {});
+
+  const audioState = await page.evaluate((names) => {
+    const scene = window.squatchfather;
+    scene.tick(0.5); // lets any synth stand-in bed upgrade to its recording
+    const missing = names.filter((n) => !scene.audio.sampleReady(n));
+    const beds = {};
+    for (const [key, bed] of Object.entries(scene.ambience.beds)) {
+      if (bed.name) beds[`ambience.${key}`] = !!bed.isSample;
+    }
+    for (const [key, bed] of Object.entries(scene.train.beds)) {
+      beds[`train.${key}`] = !!bed.isSample;
+    }
+    return { missing, beds, synthBeds: Object.keys(beds).filter((k) => !beds[k]) };
+  }, REQUIRED_SAMPLES);
+  check('the ambience and train recordings load and drive the live beds',
+    audioState.missing.length === 0 && audioState.synthBeds.length === 0,
+    JSON.stringify(audioState));
+
+  await page.keyboard.down('KeyW');
+  await page.evaluate(() => window.squatchfather.tick(2));
+  await page.keyboard.up('KeyW');
+  const steps = await page.evaluate(() => ({
+    ready: ['footstep.wood', 'footstep.tile', 'footstep.street.wet']
+      .every((n) => window.squatchfather.audio.sampleReady(n)),
+    played: window.squatchfather.audio.playLog().filter((n) => n.startsWith('footstep.')),
+  }));
+  check('footsteps resolve to the recorded surface files',
+    steps.ready && steps.played.length > 0,
+    JSON.stringify({ ready: steps.ready, played: steps.played.slice(0, 4) }));
+
+  // ---- Every seated man faces his authored direction: McClawsky walks in
+  // and takes his chair, Sal is across the table, and Prospect's mirror body
+  // sits under the camera. The face is checked empirically from the tie's
+  // world position, not just the yaw number.
+  const facing = await page.evaluate(() => {
+    const scene = window.squatchfather;
+    scene.go('APPROACH_TABLE');
+    scene.tick(8); // the escort walk ends in the chair
+
+    const worldOf = (obj) => {
+      obj.updateWorldMatrix(true, false);
+      const m = obj.matrixWorld.elements;
+      return { x: m[12], z: m[14] };
+    };
+    const wrap = (a) => ((a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    const measure = (fig, want, lookTarget) => {
+      const at = { x: fig.group.position.x, z: fig.group.position.z };
+      const tie = worldOf(fig.tie);
+      const face = { x: tie.x - at.x, z: tie.z - at.z };
+      const fl = Math.hypot(face.x, face.z) || 1;
+      const to = { x: lookTarget.x - at.x, z: lookTarget.z - at.z };
+      const tl = Math.hypot(to.x, to.z) || 1;
+      return {
+        yaw: +fig.group.rotation.y.toFixed(3),
+        want: +want.toFixed(3),
+        yawErr: +Math.abs(wrap(fig.group.rotation.y - want)).toFixed(3),
+        faceDot: +((face.x / fl) * (to.x / tl) + (face.z / fl) * (to.z / tl)).toFixed(3),
+        seated: fig.seated,
+      };
+    };
+
+    const table = { x: 0, z: 5 };
+    const playerSeat = { x: 0, z: 3.1 };
+    const out = { mcMode: scene.mcclawsky.mode };
+    out.sal = measure(scene.sal.fig, Math.PI, playerSeat);
+    out.mcclawsky = measure(scene.mcclawsky.fig, -Math.PI / 2, table);
+
+    // Prospect's body: sit, measure, and put everything back.
+    const p = scene.prospect;
+    const saved = { x: p.pos.x, z: p.pos.z, yaw: p.yaw, canMove: p.canMove };
+    p.sit();
+    out.prospect = measure(p.fig, 0, table);
+    p.stand();
+    p.teleport({ x: saved.x, z: saved.z }, saved.yaw);
+    p.canMove = saved.canMove;
+    p.fig.group.position.set(saved.x, 0, saved.z);
+    return out;
+  });
+  const facingOk = (m) => m.seated && m.yawErr <= 0.05 && m.faceDot >= 0.95;
+  check('every seated man faces his authored direction',
+    facing.mcMode === 'seated'
+      && facingOk(facing.sal) && facingOk(facing.mcclawsky) && facingOk(facing.prospect),
+    JSON.stringify(facing));
+
+  // ---- A recorded VO beat plays and holds for the clip's real length.
+  const vo = await page.evaluate(() => {
+    const scene = window.squatchfather;
+    scene.go('OPENING_DIALOGUE');
+    scene.tick(2.6); // through the opening beat into Sal's first line
+    const log = scene.audio.voLog().slice();
+    const hold = scene.dialogue.current && scene.dialogue.current.speaker
+      ? +scene.dialogue.t.toFixed(2) : null;
+    scene.dialogue.stop(); // don't let the sequence finish under later beats
+    return { log, hold };
+  });
+  check('a recorded VO line plays for the opening beat',
+    vo.log.some((v) => v.name === 'vo.sf.opening.1' && v.sample && v.duration > 0.5),
+    JSON.stringify(vo));
 
   await go('SEARCH_TOILET');
   current = await state();
