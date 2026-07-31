@@ -163,6 +163,13 @@ console.log('Driving the mission…');
 
 let s = await state();
 check('starts behind the wheel in the lot', s.mission === 'lot', s.mission);
+/* Empty-handed. The one thing this night is for is Lou putting the package on
+ * the desk, so the prospect cannot already have it while he is still in the
+ * car park. Held here and asserted again after the handoff. */
+const packageAtStart = s.campaign?.inventory
+  && !s.campaign.inventory.carried.includes('parcel')
+  && !s.campaign.inventory.concealed.includes('parcel')
+  && s.carrying !== 'parcel';
 /* Three things the evening is for, and none of them ticked in the lot. The
  * club's own optional list is separate and lives on the HUD card, not on the
  * mission -- it is checked further down against the rendered objectives. */
@@ -421,14 +428,24 @@ const scenePass = await page.evaluate(() => {
     if (o.name === 'necklace.pendant') pendant = true;
   });
 
+  /* On the cushion of the bench nearest them, whichever run that is, measured
+   * off the club's own seat anchors instead of remembered numbers -- the north
+   * run has since moved south out of the front wall, and a hard-coded band is
+   * how three regulars came to be sitting in brick. The anchor stands 0.6 in
+   * front of the bench centre on the north run and 0.35 out from it on the
+   * east; the cushion is 0.72 deep, so anyone on it is within 0.36. */
   const patronsSeated = [];
   for (let i = 0; i < 6; i++) {
     const patron = b.cast.byName[`patron${i}`];
     if (!patron) continue;
     const { x, z } = patron.group.position;
-    patronsSeated.push(x > 0
-      ? x > 4.18 && x < 4.92        // on an east bench, not in its table
-      : z > 10.63 && z < 11.37);    // pushed back onto a north bench
+    const spot = b.club.anchors.booths
+      .map((anchor) => ({ anchor, d: Math.hypot(anchor.x - x, anchor.z - z) }))
+      .sort((p, q) => p.d - q.d)[0]?.anchor;
+    if (!spot) { patronsSeated.push(false); continue; }
+    const east = spot.x > 0;
+    const bench = east ? spot.x + 0.35 : spot.z + 0.6;
+    patronsSeated.push(Math.abs((east ? x : z) - bench) < 0.36);
   }
 
   const toilets = [];
@@ -735,6 +752,110 @@ const familyState = await page.evaluate(() => {
       && m.navClear && m.interactive),
     JSON.stringify(familyState.members.map((m) => [m.id, m.job, m.navClear])));
 }
+
+/* ---- nobody is sitting in a wall ----
+ *
+ * The owner found Eric and Lag inside the club's front wall: the north booth
+ * run had been pushed back until its bench backs were past the plaster, and
+ * everybody on it went with the furniture. `standingClear` never catches that
+ * -- it is a test for the PLAYER's capsule against colliders, and a seated
+ * patron is neither -- so this is the general form of the fault: every figure
+ * in the building against every wall face in it, wherever they sit.
+ *
+ * Two things make it honest. The walls are found rather than listed: any tall,
+ * thin, long slab parented straight to the club root, which picks up the
+ * shell's brick, the interior partitions AND the panelled skins standing proud
+ * of them (the skin is the face a bench actually touches). And the figures are
+ * measured as ORIENTED boxes: a Box3 is axis-aligned in world space, so at the
+ * yaws most of this cast sits at it bloats over the rotated corners and would
+ * fail people who are nowhere near a wall. Each figure's own yaw is zeroed to
+ * read its true extents, the box is then rotated back about its own origin,
+ * and the overlap test is a 2D separating-axis test in XZ plus a Y overlap. */
+const seatedInWalls = await page.evaluate(() => {
+  const b = window.__bing;
+  const T = b.THREE;
+  const boxOf = (o) => { o.updateMatrixWorld(true); return new T.Box3().setFromObject(o); };
+
+  const walls = [];
+  for (const o of b.club.root.children) {
+    if (!o.isMesh) continue;
+    const bb = boxOf(o);
+    const w = bb.max.x - bb.min.x;
+    const d = bb.max.z - bb.min.z;
+    const h = bb.max.y - bb.min.y;
+    if (h < 1.0 || Math.min(w, d) > 0.6 || Math.max(w, d) < 2) continue;
+    walls.push(bb);
+  }
+
+  /** A figure's true footprint: local extents, rotated back to its own yaw. */
+  const obbOf = (npc) => {
+    const yaw = npc.group.rotation.y;
+    npc.group.rotation.y = 0;
+    npc.group.updateMatrixWorld(true);
+    const box = boxOf(npc.group);
+    npc.group.rotation.y = yaw;
+    npc.group.updateMatrixWorld(true);
+    const p = npc.group.position;
+    const c = box.getCenter(new T.Vector3());
+    const e = box.getSize(new T.Vector3()).multiplyScalar(0.5);
+    const lx = c.x - p.x;
+    const lz = c.z - p.z;
+    const s = Math.sin(yaw);
+    const cs = Math.cos(yaw);
+    return {
+      cx: p.x + lx * cs + lz * s,
+      cz: p.z - lx * s + lz * cs,
+      ex: e.x, ez: e.z, y0: box.min.y, y1: box.max.y,
+      ax: [cs, -s], az: [s, cs],
+    };
+  };
+  const hits = (obb, box) => {
+    if (obb.y1 <= box.min.y || obb.y0 >= box.max.y) return false;
+    const dx = obb.cx - (box.min.x + box.max.x) / 2;
+    const dz = obb.cz - (box.min.z + box.max.z) / 2;
+    const bex = (box.max.x - box.min.x) / 2;
+    const bez = (box.max.z - box.min.z) / 2;
+    for (const [ax, az] of [[1, 0], [0, 1], obb.ax, obb.az]) {
+      const gap = Math.abs(dx * ax + dz * az)
+        - (obb.ex * Math.abs(obb.ax[0] * ax + obb.ax[1] * az)
+          + obb.ez * Math.abs(obb.az[0] * ax + obb.az[1] * az))
+        - (bex * Math.abs(ax) + bez * Math.abs(az));
+      if (gap > 1e-6) return false;
+    }
+    return true;
+  };
+
+  const report = (list) => list
+    .filter((npc) => npc?.group && npc.seated)
+    .map((npc) => {
+      const obb = obbOf(npc);
+      const wall = walls.find((w) => hits(obb, w));
+      return {
+        who: npc.characterId || npc.name,
+        x: +npc.group.position.x.toFixed(2),
+        z: +npc.group.position.z.toFixed(2),
+        inWall: !!wall,
+        wall: wall ? [+wall.min.x.toFixed(2), +wall.min.z.toFixed(2), +wall.max.x.toFixed(2), +wall.max.z.toFixed(2)] : null,
+      };
+    });
+
+  const family = report(b.family.all);
+  const floor = report(Object.values(b.cast.byName));
+  return {
+    walls: walls.length,
+    family,
+    floor,
+    offenders: [...family, ...floor].filter((m) => m.inWall),
+  };
+});
+check('no seated figure in the building has any part of them inside a wall — Family and floor, measured as oriented boxes against every wall face',
+  seatedInWalls.walls >= 20
+    && seatedInWalls.family.length >= 12
+    && seatedInWalls.floor.length >= 5
+    && seatedInWalls.offenders.length === 0,
+  `${seatedInWalls.walls} wall faces, ${seatedInWalls.family.length} seated Family, `
+  + `${seatedInWalls.floor.length} seated floor${seatedInWalls.offenders.length
+    ? ` — ${JSON.stringify(seatedInWalls.offenders)}` : ''}`);
 
 /* ---- Willy's belly ----
  * The owner's ask, ahead of a later reveal: a real, general `gut` option on
@@ -1205,6 +1326,9 @@ check('it is inside your jacket, not in a slot',
 check('the shared campaign owns the concealed package',
   s.campaign?.inventory?.concealed?.includes('parcel') === true,
   JSON.stringify(s.campaign?.inventory ?? null));
+check('the package is Lou’s until Lou hands it over — not on him in the lot, inside the jacket after the briefing',
+  packageAtStart && s.campaign?.inventory?.concealed?.includes('parcel') === true,
+  JSON.stringify({ atStart: packageAtStart, afterHandoff: s.carrying }));
 
 /* The case the reviewer found: four drinks and no drop key used to mean the
  * package went nowhere while the mission insisted it was on you. */
@@ -1326,15 +1450,40 @@ if (ended.returnHref === 'index.html') {
  * Same save, one field changed: the airstrip flown. Reload the club and the
  * Captain is at his table near the stage — same stable id as the cockpit,
  * same face photo, and the sixteenth chair on the floor. */
-await page.evaluate(() => {
+const savedBeforeReplay = await page.evaluate(() => {
   const raw = JSON.parse(localStorage.getItem('squatchlife.campaign'));
   raw.missions.airstrip_smuggling.status = 'complete';
   raw.missions.airstrip_smuggling.checkpoint = 'landed_home';
   raw.missions.airstrip_smuggling.cargoLoaded = true;
   localStorage.setItem('squatchlife.campaign', JSON.stringify(raw));
+  return raw.inventory;
 });
 await page.goto(`http://localhost:${PORT}/bing.html`, { waitUntil: 'load' });
 await page.waitForFunction(() => window.__bing?.family, null, { timeout: 90000 });
+
+/* ---- the replayed first visit ----
+ * This save has just finished the night, so it is still holding the package
+ * the way a returning player's save does -- which is exactly how the owner
+ * found scene one already carrying it before he had met Lou. The visit starts
+ * empty-handed whatever the save remembers; the briefing is the only way it
+ * gets into the jacket. */
+const replayStart = await page.evaluate(() => {
+  const b = window.__bing;
+  b.game.kitOpen = false;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+  return {
+    inventory: b.campaign.state.inventory,
+    hasIt: b.campaign.hasItem('parcel'),
+    carrying: b.game.carrying ?? null,
+    mission: b.mission.state,
+    kit: [...document.querySelectorAll('#kit li')].map((li) => li.textContent),
+  };
+});
+check('a replayed first visit starts with empty pockets — a save still holding the package does not hand it back at the door',
+  savedBeforeReplay?.concealed?.includes('parcel') === true
+    && !replayStart.hasIt && replayStart.carrying === null
+    && !replayStart.kit.some((t) => /package/i.test(t)),
+  JSON.stringify({ save: savedBeforeReplay, now: replayStart.inventory, kit: replayStart.kit }));
 /* Start it properly this time: the punch-list pass below reads the loaded
  * sample bank, the painted objective card and a rendered frame, none of
  * which exist until the club has actually been opened. */
@@ -1612,8 +1761,10 @@ check('stepping out of reach takes the replies down and leaves the bookmark',
   JSON.stringify(talkUi));
 
 /* ---- 14 to 21: Lou's office ---- */
-const office = await page.evaluate(() => {
+const office = await page.evaluate(async () => {
   const b = window.__bing;
+  // The club's borrowed art resolves off the manifest after the room is built.
+  await b.club.artReady;
   const T = b.THREE;
   const O = b.club.rooms.office;
   const boxOf = (o) => { o.updateMatrixWorld(true); return new T.Box3().setFromObject(o); };
@@ -1640,7 +1791,47 @@ const office = await page.evaluate(() => {
   b.club.office.filing.traverse((o) => { if (o.isMesh) drawerParts += 1; });
   const coat = boxOf(b.club.office.coatStand);
   const doorArc = { x0: 7.85, x1: 9.05, z0: -8.05, z1: -6.45 };
+
+  /* ---- the owner's four office moves, measured against the room's own wall
+   * planes (club.office.walls) rather than against remembered numbers ---- */
+  const W = b.club.office.walls;
+  const filing = boxOf(b.club.office.filing);
+  const lamp = boxOf(b.club.root.getObjectByName('floor-lamp'));
+  const crest = boxOf(b.club.office.logos[0]);
+  const louDoorway = b.club.doors.lou.box;
+  // The two photographs on the door wall, in wall order: THE NEPHEWS, then
+  // THE OLD PLACE. Everything hung on that wall shares its x, so z sorts them.
+  const wallPictures = [];
+  b.club.root.traverse((o) => {
+    if (o.name !== 'frame') return;
+    const bb = boxOf(o);
+    if (bb.min.x < 7.8 || bb.max.x > 8.1) return;
+    if (bb.max.y < 2.0 || bb.max.y > 2.1) return;       // the two 0.26 photos
+    wallPictures.push(bb);
+  });
+  wallPictures.sort((a, c) => a.min.z - c.min.z);
+  const glassEdge = (b.club.doors.lou.glass || [])
+    .reduce((z, pane) => Math.max(z, boxOf(pane).max.z), -Infinity);
   return {
+    walls: W,
+    // 1. THE NEPHEWS: off the door's glazing, still left of THE OLD PLACE
+    pictures: wallPictures.length,
+    nephewsOffTheGlass: wallPictures.length === 2
+      && wallPictures[0].min.z > glassEdge + 0.02,
+    nephewsGap: wallPictures.length === 2
+      ? +(wallPictures[1].min.z - wallPictures[0].max.z).toFixed(3) : -1,
+    // 2. the filing cabinet, backed into the north-west corner
+    filingOffNorth: +(filing.min.z - W.north).toFixed(3),
+    filingOffWest: +(filing.min.x - W.west).toFixed(3),
+    // 3. the standard lamp, beside it and off the walking line
+    lampOffNorth: +(lamp.min.z - W.north).toFixed(3),
+    lampBesideFiling: +(lamp.min.x - filing.max.x).toFixed(3),
+    lampOutOfTheDoorLine: lamp.max.z < louDoorway.min.z,
+    // 4. the crest, out of the doorway and over the cabinet
+    crestOutOfTheDoorway: crest.max.z < louDoorway.min.z,
+    crestOverFiling: crest.min.z > filing.min.z - 0.06 && crest.max.z < filing.max.z + 0.06
+      && crest.min.y > filing.max.y,
+    crestOnTheWall: +(crest.min.x - W.west).toFixed(3),
     shoreBehindLou: shore.max.z < O.z0 + 0.4 && shore.min.x > 10.5,
     oldPlaceClear: !!oldPlace && oldPlace.max.z < O.z1 - 0.2,
     logos: b.club.office.logos.length,
@@ -1656,6 +1847,23 @@ const office = await page.evaluate(() => {
       return dark;
     })(),
     fridgeStickers,
+    /* The two stickers are the flat's own images off assets/art, not the
+     * drawn stand-ins: real art, a file behind it, alpha kept (die-cut vinyl
+     * has no rectangle round it) and both still on the door. */
+    stickerArt: Object.entries(b.club.office.fridgeStickers).map(([name, mesh]) => {
+      const bb = boxOf(mesh);
+      const fridge = boxOf(b.club.office.fridge);
+      const src = mesh.material.map?.image?.src || mesh.material.map?.image?.currentSrc || '';
+      return {
+        name,
+        slot: mesh.userData.art?.slot ?? null,
+        real: mesh.userData.art?.real === true,
+        file: src.split('/').pop(),
+        cut: mesh.material.transparent === true && mesh.material.alphaTest > 0,
+        onTheDoor: bb.min.x >= fridge.min.x && bb.max.x <= fridge.max.x
+          && bb.min.y >= fridge.min.y && bb.max.y <= fridge.max.y,
+      };
+    }),
     drawerParts,
     floorLamp: b.club.office.floorLamp?.intensity ?? 0,
     deskLamp: b.club.office.deskLight.intensity,
@@ -1677,6 +1885,12 @@ check('the ledge is long enough for the radio and the intercom, and both stand o
   JSON.stringify({ len: office.ledgeLong, r: office.radioOnLedge, i: office.intercomOnLedge }));
 check('the mini fridge is black, detailed and stickered',
   office.fridgeBlack && office.fridgeStickers >= 2, `${office.fridgeStickers} stickers`);
+check('both fridge stickers are the flat’s real artwork, die-cut, not the drawn stand-in',
+  office.stickerArt.length === 2
+    && office.stickerArt.every((s) => s.real && s.cut && s.onTheDoor && /\.(png|jpe?g)$/i.test(s.file))
+    && office.stickerArt.some((s) => s.slot === 'sticker.fridge' && s.file === 'sticker-pinup.png')
+    && office.stickerArt.some((s) => s.slot === 'crest.round' && s.file === 'logo-crest.png'),
+  JSON.stringify(office.stickerArt));
 check('the filing cabinet has drawer fronts and the corner has a lamp in it',
   office.drawerParts >= 18 && office.floorLamp > 0 && office.floorLamp < 8,
   `${office.drawerParts} parts, lamp ${office.floorLamp}`);
@@ -1684,6 +1898,26 @@ check('the coat stand is a coat stand, and it is not in the doorway',
   office.coatParts >= 12 && office.coatOutOfTheDoor);
 check('the office door is glazed and the glass is solid',
   office.glass === 3 && office.glassSolid, `${office.glass} panes`);
+
+/* ---- the owner's four moves in Lou's office ----
+ * Each one measured against the wall or the corner it belongs to, off
+ * club.office.walls, so "against the wall" is a number and not an opinion. */
+check('THE NEPHEWS has come left off the door’s glazing, with wall either side of it',
+  office.pictures === 2 && office.nephewsOffTheGlass && office.nephewsGap > 0.15,
+  JSON.stringify({ clear: office.nephewsOffTheGlass, gap: office.nephewsGap }));
+check('the filing cabinet is backed into the north-west corner, touching both walls',
+  office.filingOffNorth >= 0 && office.filingOffNorth <= 0.03
+    && office.filingOffWest >= 0 && office.filingOffWest <= 0.03,
+  `north ${office.filingOffNorth}m, west ${office.filingOffWest}m`);
+check('the standard lamp stands beside the cabinet against the same wall, out of the door line',
+  office.lampOffNorth >= 0 && office.lampOffNorth <= 0.04
+    && office.lampBesideFiling > 0 && office.lampBesideFiling < 0.3
+    && office.lampOutOfTheDoorLine,
+  `north ${office.lampOffNorth}m, gap ${office.lampBesideFiling}m`);
+check('the crest is out of the doorway and hangs over the filing cabinet',
+  office.crestOutOfTheDoorway && office.crestOverFiling
+    && office.crestOnTheWall >= 0 && office.crestOnTheWall < 0.05,
+  JSON.stringify({ door: office.crestOutOfTheDoorway, over: office.crestOverFiling, off: office.crestOnTheWall }));
 
 /* ---- 20: the lamp bloom, measured off a real render ----
  * The Silver Room's pass set this pattern: render the frame, read the
@@ -1828,8 +2062,34 @@ const punchHud = await page.evaluate(async () => {
   const powder = findPad('urinal');
   const bodyPad = findPad('tarpaulin');
 
+  /* The phone before he owns it: the readout is a readout, so a man with no
+   * phone has no phone row and nothing to raise on [P]. Taken out of the
+   * campaign by hand here -- this save has been through a night that recorded
+   * the pickup, and the point of the check is what the HUD does with the
+   * answer, either way. */
+  b.campaign.update((state) => {
+    state.inventory.carried = state.inventory.carried.filter((id) => id !== 'phone');
+    state.inventory.concealed = state.inventory.concealed.filter((id) => id !== 'phone');
+  });
+  const noPhone = {
+    carried: b.campaign.hasItem('phone'),
+    kit: (() => {
+      b.game.kitOpen = false;
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
+      return [...document.querySelectorAll('#kit li')].map((li) => li.textContent);
+    })(),
+    raised: (() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+      const up = !document.getElementById('phone-osd').classList.contains('hidden');
+      if (up) window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+      return up;
+    })(),
+  };
+
   // Inventory: pick the package up and watch the readout take it.
   b.campaign.addItem('parcel', { concealed: true });
+  // The flat's record of the nightstand pickup, which is what the club reads.
+  b.campaign.addItem('phone');
   b.game.money = 275;
   const before = document.querySelectorAll('#kit li').length;
   b.game.kitOpen = false;
@@ -1856,6 +2116,7 @@ const punchHud = await page.evaluate(async () => {
   return {
     before,
     kit,
+    noPhone,
     hasPackage: kit.some((t) => /package/i.test(t)),
     hasMoney: kit.some((t) => /\$/.test(t)),
     hasPhone: kit.some((t) => /Phone/.test(t)),
@@ -1878,6 +2139,16 @@ check('the club has an inventory readout, and it takes the package',
 check('the phone comes out of the pocket in the club',
   punchHud.phoneUp && punchHud.phoneCanvas && punchHud.ringing === false,
   JSON.stringify({ up: punchHud.phoneUp, canvas: punchHud.phoneCanvas }));
+/* The phone row is the campaign's `carried` entry, the one the flat writes
+ * when he takes it off the nightstand -- not a line printed under the money
+ * whatever the truth is. It appears when it is on him, it is gone when it is
+ * not, and [P] answers to exactly the same question. */
+check('the phone is in the kit because he is carrying it — no phone carried, no phone row and nothing to raise',
+  punchHud.noPhone.carried === false
+    && !punchHud.noPhone.kit.some((t) => /Phone/.test(t))
+    && punchHud.noPhone.raised === false
+    && punchHud.hasPhone && punchHud.phoneUp,
+  JSON.stringify({ without: punchHud.noPhone.kit, with: punchHud.kit }));
 check('tipping the runway puts money in the air',
   punchHud.bills >= 6, String(punchHud.bills));
 {

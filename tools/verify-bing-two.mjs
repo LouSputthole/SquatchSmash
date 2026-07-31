@@ -147,10 +147,16 @@ try {
   check('Scene Two selects the reused Bada Bing runtime',
     current.isSecondVisit && current.castCount >= 20,
     `${current.castCount} cast members`);
+  /* Nothing of the first night's is handed back: the package went to the
+   * Squatchfather and stays gone. The phone is not that kind of item -- it is
+   * the one thing he has carried since Day One, in `carried` for good, and the
+   * club's kit and its [P] key both read it from there. */
   check('the first visit remains complete and no old package is recreated',
     current.bingOne.status === 'complete'
-      && current.inventory.carried.length === 0
-      && current.inventory.concealed.length === 0,
+      && !current.inventory.carried.includes('parcel')
+      && !current.inventory.concealed.includes('parcel')
+      && current.inventory.concealed.length === 0
+      && current.inventory.carried.includes('phone'),
     JSON.stringify(current));
 
   await page.click('#start-btn');
@@ -187,7 +193,7 @@ try {
     current.readyToLeave
       && current.assignment === 'reserve_pickup'
       && current.packageFlag === false
-      && current.inventory.carried.length === 0
+      && !current.inventory.carried.includes('parcel')
       && current.inventory.concealed.length === 0,
     JSON.stringify(current));
 
