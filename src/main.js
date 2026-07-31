@@ -609,6 +609,12 @@ async function boot() {
     player.yaw = 0;
     player.update(0.016);
     interaction.setPaused(false);
+    /* The flat is live for calls the moment he is up and about in it, and a
+     * man letting himself in through his own front door at two in the morning
+     * is as up and about as one getting out of bed. This used to be wired only
+     * to standing up, so a call scheduled against a RETURN -- Lou ringing to
+     * say well done about the Squatchfather -- could never have landed. */
+    apartmentStory.beginMorning();
     overlay.querySelector('.tag').textContent = returningFromBing
       ? 'Back from the Bing. Lou’s package is still under your jacket.'
       : returningFromSilver

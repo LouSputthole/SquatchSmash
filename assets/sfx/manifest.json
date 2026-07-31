@@ -3689,6 +3689,55 @@
       "duration": 3.5
     },
     {
+      "_comment": "Big Uncle Lou, the night the Squatchfather business is settled, ringing to say well done without once saying what for. Warm, unhurried, and completely unbothered — the menace is entirely in how ordinary he sounds about it. Never name the job, never raise the voice. The `lou` casting rather than `lou1`: this is him on a telephone, which is what that voice is for. This call unlocks nothing, which is why it is the only one he is allowed to be kind on.",
+      "name": "vo.call.lou.attaboy.1",
+      "voice": "lou",
+      "say": "Kid. That thing I asked you to take care of.",
+      "duration": 4
+    },
+    {
+      "name": "vo.call.lou.attaboy.2",
+      "voice": "lou",
+      "say": "Nice work. That is all I am going to say about it, and it is all you are going to say about it.",
+      "duration": 7
+    },
+    {
+      "name": "vo.call.lou.attaboy.3",
+      "voice": "lou",
+      "say": "Keep doing work like that and there is a bright future for you here.",
+      "duration": 5
+    },
+    {
+      "name": "vo.call.lou.attaboy.4",
+      "voice": "lou",
+      "say": "Get some sleep. Tomorrow is a different day and it has its own thing in it.",
+      "duration": 5.5
+    },
+    {
+      "name": "vo.call.lou.attaboy.tony.1",
+      "voice": "player",
+      "say": "It is taken care of.",
+      "duration": 2
+    },
+    {
+      "name": "vo.call.lou.attaboy.tony.2",
+      "voice": "player",
+      "say": "Then neither of us says it.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.call.lou.attaboy.tony.3",
+      "voice": "player",
+      "say": "A bright future. Here.",
+      "duration": 2.5
+    },
+    {
+      "name": "vo.call.lou.attaboy.tony.4",
+      "voice": "player",
+      "say": "I will sleep.",
+      "duration": 1.5
+    },
+    {
       "name": "vo.call.lou.1",
       "voice": "lou",
       "say": "Kid. You up?"

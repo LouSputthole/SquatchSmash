@@ -13,6 +13,7 @@ import {
 import {
   BIG_NIGHT_BOOSKI_CALL,
   DATE_MARGO_CALL,
+  DAY_ONE_LOU_ATTABOY_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
@@ -23,6 +24,7 @@ import { RING_SECONDS, callScript } from '../src/core/phone.js';
 /** Every call the campaign makes, in the order Tony gets them. */
 const CAMPAIGN_CALLS = [
   DAY_ONE_LOU_CALL,
+  DAY_ONE_LOU_ATTABOY_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
   DATE_MARGO_CALL,
@@ -336,7 +338,10 @@ test('crossing midnight does not start the Day Two chapter before Tony sleeps', 
 
   story.beginMorning();
   story.update(60);
-  assert.deepEqual(calls, []);
+  /* Lou rings to say well done and nobody rings about tomorrow: the calendar
+   * has turned over but the chapter has not, and the only call this state has
+   * in it is the one that unlocks nothing. */
+  assert.deepEqual(calls, [DAY_ONE_LOU_ATTABOY_CALL]);
   assert.deepEqual(story.tryLeave({}), {
     kind: 'stay',
     id: 'sleep',
@@ -345,6 +350,98 @@ test('crossing midnight does not start the Day Two chapter before Tony sleeps', 
   assert.deepEqual(story.sleep(), {
     ok: true, chapter: 'day_two', day: 2, timeMinutes: 420,
   });
+});
+
+test('Lou rings once to say well done, and it gates nothing', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  campaign.update((state) => {
+    state.story.chapter = 'day_one';
+    state.story.day = 2;
+    state.story.timeMinutes = 2 * 60 + 26;
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+  });
+  const calls = [];
+  const story = createApartmentStory({
+    campaign,
+    ring: (definition) => { calls.push(definition); return true; },
+  });
+
+  // Not until the Squatchfather business is actually settled.
+  story.beginMorning();
+  story.update(60);
+  assert.deepEqual(calls, []);
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+  });
+  story.update(60);
+  assert.deepEqual(calls, [DAY_ONE_LOU_ATTABOY_CALL]);
+  assert.equal(DAY_ONE_LOU_ATTABOY_CALL.from, 'Big Uncle Lou');
+  assert.equal(DAY_ONE_LOU_ATTABOY_CALL.vo, 'call.lou.attaboy');
+  // Its own bank, or the kind words come out in the voice of the job.
+  assert.notEqual(DAY_ONE_LOU_ATTABOY_CALL.vo, DAY_ONE_LOU_CALL.vo);
+  // Nowhere in the script does he say what it was.
+  for (const line of [...DAY_ONE_LOU_ATTABOY_CALL.lines, ...DAY_ONE_LOU_ATTABOY_CALL.replies]) {
+    assert.doesNotMatch(line, /squatchfather|weapon|gun|body|kill/i, line);
+  }
+
+  /* The door and the bed are exactly where they were: answering it changes
+   * two minutes on the clock and nothing else in the campaign. */
+  const doorBefore = story.tryLeave({});
+  assert.equal(story.callAnswered(DAY_ONE_LOU_ATTABOY_CALL), true);
+  const saved = createCampaign({ storage }).state;
+  assert.equal(saved.events[EVENT_IDS.LOU_ATTABOY_CALL].status, 'answered');
+  assert.equal(saved.story.timeMinutes, 2 * 60 + 28);
+  assert.ok(saved.story.timeEvents.includes(TIME_EVENT_IDS.LOU_ATTABOY_CALL));
+  assert.equal(saved.missions[MISSION_IDS.SQUATCHFATHER].status, 'complete');
+  assert.deepEqual(story.tryLeave({}), doorBefore);
+
+  // Once, and never again -- not on a second ring and not after a reload.
+  assert.equal(story.callAnswered(DAY_ONE_LOU_ATTABOY_CALL), false);
+  story.update(600);
+  assert.deepEqual(calls, [DAY_ONE_LOU_ATTABOY_CALL]);
+  const replayed = [];
+  const afterReload = createApartmentStory({
+    campaign: createCampaign({ storage }),
+    ring: (definition) => { replayed.push(definition); return true; },
+  });
+  afterReload.beginMorning();
+  afterReload.update(600);
+  assert.deepEqual(replayed, []);
+});
+
+test('missing Lou’s well-done costs nothing and does not follow him into Day Two', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  campaign.update((state) => {
+    state.story.chapter = 'day_one';
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+    state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
+    state.missions[MISSION_IDS.SQUATCHFATHER].status = 'complete';
+  });
+  const calls = [];
+  const story = createApartmentStory({
+    campaign,
+    ring: (definition) => { calls.push(definition); return true; },
+  });
+
+  // He never picks it up, and the night still ends.
+  story.beginMorning();
+  story.update(60);
+  assert.ok(calls.length > 0);
+  assert.equal(story.sleep().chapter, 'day_two');
+  assert.equal(campaign.state.events[EVENT_IDS.LOU_ATTABOY_CALL].status, 'pending');
+
+  // And Lou does not chase him about it in the morning. Booskibro does.
+  const morning = [];
+  const dayTwo = createApartmentStory({
+    campaign,
+    ring: (definition) => { morning.push(definition); return true; },
+  });
+  dayTwo.beginMorning();
+  dayTwo.update(60);
+  assert.deepEqual(morning, [DAY_TWO_BOOSKI_CALL]);
 });
 
 test('Booskibro rings once on Day Two and unlocks Captain Lou Sasole at the airstrip', () => {

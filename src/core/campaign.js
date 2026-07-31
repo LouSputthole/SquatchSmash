@@ -67,6 +67,12 @@ export const MISSION_IDS = Object.freeze({
 
 export const EVENT_IDS = Object.freeze({
   LOU_FIRST_CALL: 'lou_first_call',
+  /* The one call that asks nothing of him. Lou rings the night the
+   * Squatchfather business is settled to say well done without once saying
+   * what for -- so it is deliberately not a gate: the door does not wait for
+   * it, sleeping does not wait for it, and missing it costs nothing but the
+   * only kind words anybody in this family says out loud. */
+  LOU_ATTABOY_CALL: 'lou_attaboy_call',
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
   LOU_SECOND_CALL: 'lou_second_call',
   MARGO_DATE_CALL: 'margo_date_call',
@@ -80,6 +86,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   CHANGE_CLOTHES: 'activity.change_clothes',
   CHECK_EMAIL: 'activity.check_email',
   LOU_FIRST_CALL: 'call.lou_first',
+  LOU_ATTABOY_CALL: 'call.lou_attaboy',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
   LOU_SECOND_CALL: 'call.lou_second',
   MARGO_DATE_CALL: 'call.margo_date',
@@ -103,6 +110,8 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.CHANGE_CLOTHES]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.CHECK_EMAIL]: Object.freeze({ minutes: 10 }),
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
+  // Shorter than the rest. Lou is not asking for anything, so it is short.
+  [TIME_EVENT_IDS.LOU_ATTABOY_CALL]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
@@ -314,6 +323,9 @@ function initialState() {
       [EVENT_IDS.LOU_FIRST_CALL]: {
         status: 'pending',
       },
+      [EVENT_IDS.LOU_ATTABOY_CALL]: {
+        status: 'pending',
+      },
       [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
         status: 'pending',
       },
@@ -425,6 +437,7 @@ function normalize(saved) {
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
+  const attaboyCall = saved.events?.[EVENT_IDS.LOU_ATTABOY_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
@@ -512,6 +525,14 @@ function normalize(saved) {
         // happened instead of replaying Lou and downgrading the mission.
         status: louCall.status === 'answered' || status !== 'locked'
           ? 'answered' : 'pending',
+      },
+      /* The one call with no mission behind it to infer from, so there is
+       * nothing to reconstruct: a save that predates it has never heard it and
+       * gets it on the next return from the Squatchfather. A save already past
+       * that night never will, which is the correct amount of loss for a call
+       * that unlocks nothing. */
+      [EVENT_IDS.LOU_ATTABOY_CALL]: {
+        status: attaboyCall.status === 'answered' ? 'answered' : 'pending',
       },
       [EVENT_IDS.BOOSKI_DAY_TWO_CALL]: {
         // Once the airstrip mission has been exposed, Booski's call must not

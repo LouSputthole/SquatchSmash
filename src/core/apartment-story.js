@@ -81,6 +81,40 @@ export const DAY_ONE_LOU_CALL = Object.freeze({
   ]),
 });
 
+/**
+ * The only call in the campaign that is not an instruction.
+ *
+ * Lou rings the night the Squatchfather business is settled, once, after Tony
+ * has let himself back into his own flat. He does not name the job, he does
+ * not ask for anything, and he does not stay on the line: he says well done in
+ * the only register this family has for it, which is a compliment with a
+ * future attached to it and no way to decline either.
+ *
+ * It gates nothing on purpose. The door does not wait for it, sleeping does
+ * not wait for it, and a man who is in the shower when it comes has lost the
+ * only kind words anybody says to him out loud. That is the point of it -- a
+ * campaign where every ring is a key is a campaign where the phone is a lock.
+ */
+export const DAY_ONE_LOU_ATTABOY_CALL = Object.freeze({
+  eventId: EVENT_IDS.LOU_ATTABOY_CALL,
+  characterId: CHARACTER_IDS.LOU,
+  from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
+  vo: 'call.lou.attaboy',
+  lines: Object.freeze([
+    'Kid. That thing I asked you to take care of.',
+    'Nice work. That is all I am going to say about it, and it is all you are going to say about it.',
+    'Keep doing work like that and there is a bright future for you here.',
+    'Get some sleep. Tomorrow is a different day and it has its own thing in it.',
+  ]),
+  replies: Object.freeze([
+    'It is taken care of.',
+    'Then neither of us says it.',
+    'A bright future. Here.',
+    'I will sleep.',
+  ]),
+});
+
 export const DAY_TWO_BOOSKI_CALL = Object.freeze({
   eventId: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
   characterId: CHARACTER_IDS.BOOSKI,
@@ -251,6 +285,15 @@ class ApartmentStory {
       this.campaign.advanceTime(TIME_EVENT_IDS.LOU_FIRST_CALL, (state) => {
         state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
         state.missions[MISSION_IDS.BADA_BING_ONE].status = 'available';
+      });
+      return true;
+    }
+    /* No mission moves. Two minutes on the clock and a note in the save that
+     * he heard it, which is the whole of what answering this one does. */
+    if (definition?.eventId === EVENT_IDS.LOU_ATTABOY_CALL
+      && !this.#eventAnswered(EVENT_IDS.LOU_ATTABOY_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_ATTABOY_CALL, (state) => {
+        state.events[EVENT_IDS.LOU_ATTABOY_CALL].status = 'answered';
       });
       return true;
     }
@@ -479,6 +522,16 @@ class ApartmentStory {
       return DAY_TWO_LOU_SECOND_CALL;
     }
     if (state.story.day === 1 && !this.#callAnswered()) return DAY_ONE_LOU_CALL;
+    /* Last, and keyed off the CHAPTER rather than the calendar: he gets home
+     * from the Squatchfather well after midnight, so this rings on day 2 of a
+     * day_one that has not been slept off yet. Sleeping ends the chapter and
+     * with it the offer -- a call that unlocks nothing does not follow you
+     * into the morning. */
+    if (state.story.chapter === 'day_one'
+      && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'
+      && !this.#eventAnswered(EVENT_IDS.LOU_ATTABOY_CALL)) {
+      return DAY_ONE_LOU_ATTABOY_CALL;
+    }
     return null;
   }
 }
