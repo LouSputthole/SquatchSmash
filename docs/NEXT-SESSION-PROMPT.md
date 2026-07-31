@@ -118,7 +118,7 @@ GitHub Pages and the former integration/status lines converge with it. The
 only open PR, #4, is a duplicate draft: its four patches are already on `main`
 as equivalent commits and it should be closed as superseded, not merged.
 
-Fresh candidate gates: `npm test` 89/89; `npm run check` 186 sources and four
+Fresh candidate gates: `npm test` 90/90; `npm run check` 186 sources and four
 manifests; `npm run check:flight` green; Day One 35, Day Two 22, Big Night 19,
 Computer 29, Squatch Smash 8, Boot Errors 8, Preview 16, Beef Run 22, Motel
 37, Squatchfather 31, Initiation 10, Bing Two 10, Bing 126, Silver Story 20,

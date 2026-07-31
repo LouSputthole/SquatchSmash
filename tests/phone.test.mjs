@@ -57,6 +57,17 @@ test('reading the selected phone thread marks it through the shared campaign cal
   assert.equal(phone.threads[0].unread, false);
 });
 
+test('every idle apartment-phone screen tells Tony how to pocket it', () => {
+  const phone = new Phone({ calls: [] });
+  assert.match(phone.idleHint(), /\[Q\] pocket/i);
+  phone.press(); // home -> messages
+  assert.match(phone.idleHint(), /\[Q\] pocket/i);
+  phone.press(); // messages -> thread
+  assert.match(phone.idleHint(), /\[Q\] pocket/i);
+  phone.press(); // thread -> recents
+  assert.match(phone.idleHint(), /\[Q\] pocket/i);
+});
+
 test('the campaign can own scheduled calls and observe a physical-phone answer', () => {
   const answered = [];
   const phone = new Phone({
