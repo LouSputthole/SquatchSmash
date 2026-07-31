@@ -111,7 +111,10 @@ try {
       && motel.prior.status === 'complete'
       && motel.previewNotice,
     JSON.stringify(motel));
-  await page.click('#startBtn');
+  /* Dispatched rather than clicked: Playwright's actionability check waits
+   * for the page to go quiet, and a scene rendering under a software
+   * rasteriser never does. The listener only wants the event. */
+  await page.evaluate(() => document.querySelector('#startBtn').click());
   await page.waitForFunction(() => window.MOTEL.phase === 'car');
   motel = await page.evaluate(() => ({
     phase: window.MOTEL.phase,
@@ -134,7 +137,10 @@ try {
       && bing.mission.status === 'available'
       && bing.airstrip.status === 'complete',
     JSON.stringify(bing));
-  await page.click('#start-btn');
+  /* Dispatched rather than clicked: Playwright's actionability check waits
+   * for the page to go quiet, and a scene rendering under a software
+   * rasteriser never does. The listener only wants the event. */
+  await page.evaluate(() => document.querySelector('#start-btn').click());
   await page.waitForFunction(() => window.__bing.game.started, null, { timeout: 60000 });
   bing = await page.evaluate(() => ({
     started: window.__bing.game.started,
@@ -154,7 +160,10 @@ try {
   check('Squatchfather opens with Lou’s package and an available meeting',
     meeting.mission.status === 'available' && meeting.hasPackage,
     JSON.stringify(meeting));
-  await page.click('#startBtn');
+  /* Dispatched rather than clicked: Playwright's actionability check waits
+   * for the page to go quiet, and a scene rendering under a software
+   * rasteriser never does. The listener only wants the event. */
+  await page.evaluate(() => document.querySelector('#startBtn').click());
   await page.waitForFunction(
     () => window.squatchfather.state() === 'START_EXTERIOR',
     null,
