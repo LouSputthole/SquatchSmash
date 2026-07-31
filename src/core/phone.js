@@ -205,6 +205,14 @@ export class Phone {
   get inCall() { return !!this.call && this.call.state === 'talking'; }
   get unreadCount() { return this.threads.filter((thread) => thread.unread).length; }
 
+  /** The phone is a held item. Every idle screen must say how to pocket it. */
+  idleHint() {
+    if (this.screen === 'messages') return '[E] read  ·  wheel: another  ·  [Q] pocket';
+    if (this.screen === 'thread') return 'wheel: another  ·  [E] recents  ·  [Q] pocket';
+    if (this.screen === 'recents') return '[E] home  ·  [Q] pocket';
+    return '[E] open  ·  [Q] pocket';
+  }
+
   /** Replace story-derived content without losing which thread is selected. */
   setThreads(threads = THREADS) {
     const selectedId = this.threads?.[this.thread]?.id;
@@ -393,7 +401,7 @@ export class Phone {
       g.fillText(sub, 34, y + 15);
       y += 68;
     }
-    this._hint(g, '[E] open');
+    this._hint(g, this.idleHint());
   }
 
   _drawThreadList(g) {
@@ -425,7 +433,7 @@ export class Phone {
       }
       y += 68;
     }
-    this._hint(g, '[E] read  ·  wheel: another  ·  [Q] pocket');
+    this._hint(g, this.idleHint());
   }
 
   _drawThread(g) {
@@ -448,7 +456,7 @@ export class Phone {
       for (let i = 0; i < lines.length; i++) g.fillText(lines[i], x + 14, y + 21 + i * 19);
       y += hgt + 10;
     }
-    this._hint(g, 'wheel: another  ·  [E] recents  ·  [Q] pocket');
+    this._hint(g, this.idleHint());
   }
 
   _drawRecents(g) {
@@ -472,7 +480,7 @@ export class Phone {
       g.fillText(r.at, 18, y + 18);
       y += 48;
     }
-    this._hint(g, '[E] home');
+    this._hint(g, this.idleHint());
   }
 
   _drawCall(g) {

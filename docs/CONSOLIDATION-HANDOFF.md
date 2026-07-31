@@ -96,7 +96,7 @@ The focused audio/phone follow-up was verified against the current production
 base before publication:
 
 ```text
-npm test                     89/89 passed
+npm test                     90/90 passed
 npm run check                186 source files, 4 manifests, all good
 npm run verify:bing          126/126 passed
 npm run verify:squatchfather  31/31 passed
@@ -109,6 +109,10 @@ surface footsteps, and returns through campaign state. The Beef Run verifier
 proves the full preview mission, durable checkpoints, Captain Sasole identity,
 and error-free completion. The future Initiation ending remains intentionally
 deferred until the owner playtests it.
+
+The phone's `[Q] pocket` hint is intentionally present on **every idle phone
+screen** (home, Messages, a thread, and Recents), not only while browsing a
+thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
 
 ## Campaign order — confirmed by the owner 2026-07-30
 
