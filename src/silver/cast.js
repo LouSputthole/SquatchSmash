@@ -322,21 +322,25 @@ export function makeBand(scene, room) {
   const a = room.anchors;
   const members = [];
   const layout = [
-    // [x offset, z offset, job, dress, what they are holding]
-    [-4.2, -1.6, 'work', 0x1b1b22, 'horn'],
-    [-2.1, -1.9, 'work', 0x1b1b22, 'horn'],
-    [0.0, -2.1, 'work', 0x1b1b22, 'horn'],
-    [2.1, -1.9, 'work', 0x1b1b22, 'horn'],
-    [4.2, -1.2, 'work', 0x1b1b22, 'bass'],
-    [1.6, -3.0, 'work', 0x1b1b22, 'drums'],
-    [-2.6, 0.4, 'stand', 0x2a2028, 'lead'],
+    // [x offset, z offset, dress, what they are holding]
+    [-4.2, -1.6, 0x1b1b22, 'horn'],
+    [-2.1, -1.9, 0x1b1b22, 'horn'],
+    [0.0, -2.1, 0x1b1b22, 'horn'],
+    [2.1, -1.9, 0x1b1b22, 'horn'],
+    [4.2, -1.2, 0x1b1b22, 'bass'],
+    [1.6, -3.0, 0x1b1b22, 'drums'],
+    [-2.6, 0.4, 0x2a2028, 'lead'],
   ];
-  layout.forEach(([ox, oz, job, shirt, holds], i) => {
+  layout.forEach(([ox, oz, shirt, holds], i) => {
     const npc = new Npc(scene, {
+      /* Facing the ROOM. Yaw 0 is +z, and +z from the stage is the audience;
+       * they were built at yaw π, which pointed the whole section at the back
+       * wall for the entire set. `stand` rather than `work`, because `work` is
+       * the bar-wipe loop — Performance.update owns their playing pose. */
       name: i === 6 ? 'the bandleader' : 'the band', tier: i === 6 ? 'hero' : 'ambient',
-      job, look: i === 6,
+      job: 'stand', look: i === 6,
       x: a.stageCentre.x + ox, y: a.stageCentre.y, z: a.stageCentre.z + oz,
-      yaw: Math.PI,
+      yaw: 0,
       model: {
         height: rand(1.68, 1.86), build: rand(0.95, 1.2), dress: 'suit', shirt,
         hair: pick(['short', 'crop', 'receding', 'tied']),

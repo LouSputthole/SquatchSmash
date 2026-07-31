@@ -1963,7 +1963,6 @@ function frame() {
   room.update(dt, player.position);
   dialogue.update(dt, player.position);
   date.update(dt, player.position, player.yaw);
-  performance_.update(dt);
   mission.update(raw, { trailing: date.isTrailing });
   drinkTick(raw);
   updateZones();
@@ -1981,6 +1980,11 @@ function frame() {
     npc.update(dt, p);
   }
   for (const m of band.members) if (m.group.visible) m.update(dt, p);
+  /* After the band's own Npc updates, so the playing poses it writes are what
+   * gets rendered. Before, Npc.update ran last and re-posed every musician
+   * with the idle loop at its own 20Hz cadence — two systems fighting over
+   * the same arms, which is the shake the playtest saw on stage. */
+  performance_.update(dt);
 
   audio.updateListener(camera);
 

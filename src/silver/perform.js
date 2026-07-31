@@ -198,13 +198,86 @@ export class Performance {
     const n = this.current;
     if (!n) return;
 
-    // Musicians: the section moves, the leader works the front of the stage
+    /* Musicians, playing their actual instruments.
+     *
+     * This runs after the Npc updates in the frame loop, so what it writes is
+     * what renders — the first pass ran before them, lost the fight to the
+     * idle loop twenty times a second, and the section spent the whole set
+     * vibrating at the back wall. Which they were also facing.
+     *
+     * Nothing fancy: horns up at the mouth with the bells lifting on the
+     * phrase, a bass held and worked, a drummer trading hands, and a leader
+     * who walks the front of the stage and puts the mic up when there is a
+     * vocal to put it up for. Every figure is a beat or two out of phase with
+     * the next, because seven people nodding in unison is a metronome. */
+    const beat = this.t * 2.4;
     for (let i = 0; i < this.band.members.length; i++) {
       const m = this.band.members[i];
-      if (m.holds === 'lead') continue;
-      m.parts.armL.rotation.x = -1.1 + Math.sin(this.t * 3 + i) * 0.12;
-      m.parts.armR.rotation.x = -1.1 + Math.sin(this.t * 3 + i + 1) * 0.12;
-      m.parts.body.rotation.z = Math.sin(this.t * 1.9 + i) * 0.05;
+      const P = m.parts;
+      const ph = i * 1.7;
+      switch (m.holds) {
+        case 'horn': {
+          // Bells come up with the horn line: further up the louder they are
+          const swell = n.stems.horns * (1 - this.duck * 0.62);
+          const lift = Math.sin(beat + ph) * 0.07 + swell * 0.45;
+          P.armL.rotation.x = -0.9 - lift;
+          P.armR.rotation.x = -0.9 - lift;
+          P.foreL.rotation.x = -1.3;
+          P.foreR.rotation.x = -1.3;
+          P.body.rotation.z = Math.sin(this.t * 1.6 + ph) * 0.055;
+          P.body.rotation.x = -0.04 - swell * 0.06;
+          P.legL.rotation.x = Math.sin(beat + ph) * 0.08;
+          P.legR.rotation.x = -Math.sin(beat + ph) * 0.08;
+          break;
+        }
+        case 'bass': {
+          // One hand up the neck, the other walking the strings
+          P.armL.rotation.x = -1.0;
+          P.armL.rotation.z = 0.55;
+          P.foreL.rotation.x = -0.5;
+          P.armR.rotation.x = -0.4;
+          P.foreR.rotation.x = -0.75 + Math.sin(beat * 2 + ph) * 0.22;
+          P.body.rotation.z = 0.06 + Math.sin(this.t * 1.2 + ph) * 0.04;
+          P.body.rotation.x = 0.05;
+          P.legL.rotation.x = Math.sin(this.t * 1.2 + ph) * 0.06;
+          break;
+        }
+        case 'drums': {
+          // Brushes: hands trade on the eighths, head keeps the time
+          const hitR = Math.max(0, Math.sin(beat * 2 + ph));
+          const hitL = Math.max(0, Math.sin(beat * 2 + ph + Math.PI));
+          P.armR.rotation.x = -0.5 - hitR * 0.4;
+          P.armL.rotation.x = -0.5 - hitL * 0.4;
+          P.foreR.rotation.x = -0.85 - hitR * 0.3;
+          P.foreL.rotation.x = -0.85 - hitL * 0.3;
+          P.head.rotation.x = Math.sin(beat) * 0.045;
+          P.body.rotation.z = Math.sin(beat + 0.6) * 0.03;
+          break;
+        }
+        case 'lead': {
+          /* Works the lip of the stage: a slow walk across the front, always
+           * facing the room, mic up whenever there is a vocal in the number.
+           * The gaze tracker owns his head — he is the one who finds your
+           * table. */
+          const roam = Math.sin(this.t * 0.4);
+          m.group.position.x = m.homeX + roam * 1.5;
+          m.group.position.z = m.homeZ;
+          m.group.rotation.y = roam * -0.35;
+          const singing = n.stems.vocal * (1 - this.duck * 0.8) > 0.12;
+          if (singing) {
+            P.armR.rotation.x = -1.05;
+            P.foreR.rotation.x = -1.45;
+          } else {
+            P.armR.rotation.x = -0.45 + Math.sin(this.t * 1.1) * 0.15;
+            P.foreR.rotation.x = -0.6;
+          }
+          P.armL.rotation.x = -0.35 + Math.sin(this.t * 0.9 + 1) * 0.25;
+          P.armL.rotation.z = 0.3;
+          P.body.rotation.z = Math.sin(this.t * 1.3) * 0.04;
+          break;
+        }
+        default: break;
+      }
     }
 
     if (this.t >= n.dur) {
