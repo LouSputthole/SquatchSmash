@@ -663,7 +663,7 @@ tees, so draw calls stay flat however far the course grows.
 
 ```bash
 npm start                  # http://localhost:5173/golf.html
-npm run verify:golf        # 44 browser checks, car park to end card
+npm run verify:golf        # 45 browser checks, visible start button to end card
 npm test                   # includes 28 Silver Pines unit tests
 ```
 

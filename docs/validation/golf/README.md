@@ -2,9 +2,10 @@
 
 Current automated state (August 1, 2026):
 
-- `npm test`: 103/103 repository tests, including 28 focused Silver Pines tests.
+- `npm test`: 104/104 repository tests, including 28 focused Silver Pines tests.
 - `npm run check`: 200 source files and all four manifests valid.
-- `npm run verify:golf`: 44/44 live browser checks across all three holes.
+- `npm run verify:golf`: 45/45 live browser checks from the real start button
+  through all three holes.
 - The verifier plays the real round with the game's real objects and solver,
   records all three holes, completes the mission, checks recovery and restart,
   and sees no browser console errors.

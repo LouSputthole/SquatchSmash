@@ -84,7 +84,22 @@ console.log('\nSilver Pines — Hole 1\n');
 
 await page.goto(`http://localhost:${PORT}/golf.html`, { waitUntil: 'load' });
 await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
-await page.evaluate('window.__golf.boot()');
+let startError = '';
+try {
+  await page.locator('#start-btn').click({ timeout: 2000 });
+  await page.waitForFunction(
+    'document.getElementById("overlay").classList.contains("hidden")',
+    null,
+    { timeout: 5000 },
+  );
+} catch (error) {
+  startError = error.message;
+  /* Keep the remainder of the verifier useful while this assertion reports
+   * the real UI regression. The direct hook is recovery, not the tested path. */
+  await page.evaluate('window.__golf.boot()');
+}
+check('1a. the visible start button enters the round', !startError,
+  startError ? startError.split('\n')[0] : 'opening card dismissed');
 await page.waitForFunction('window.__golf.round.beat !== undefined', null, { timeout: 30000 });
 
 /* ------------------------------------------------------------------ */

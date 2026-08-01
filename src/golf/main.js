@@ -621,6 +621,7 @@ document.getElementById('endcard-again')?.addEventListener('click', () => {
 
 const clock = new THREE.Clock();
 let running = false;
+let booting = false;
 
 function frame() {
   requestAnimationFrame(frame);
@@ -689,7 +690,24 @@ function frame() {
 /* Boot                                                                */
 /* ------------------------------------------------------------------ */
 
+function requestMouseCapture() {
+  try {
+    /* Embedded browsers may reject pointer lock even after a user gesture.
+     * That removes mouse-look, but it must not turn a successfully started
+     * round into a fatal boot error. */
+    const pending = canvas.requestPointerLock?.();
+    pending?.catch?.(() => {});
+  } catch {
+    /* Pointer lock is optional; clicking the course can try again later. */
+  }
+}
+
 async function boot() {
+  if (running || booting) return;
+  booting = true;
+  startBtn.disabled = true;
+  startBtn.textContent = 'Walking over…';
+
   const begun = story.begin();
   if (!begun.ok && begun.reason === 'already_complete') {
     hud.toast('You already played this morning.');
@@ -711,16 +729,17 @@ async function boot() {
   document.getElementById('hud')?.setAttribute('aria-hidden', 'false');
   ui.card.classList.remove('hidden');
 
-  canvas.requestPointerLock?.();
+  requestMouseCapture();
   player.enabled = true;
   running = true;
   round.begin();
   paintCard();
+  booting = false;
 }
 
 startBtn?.addEventListener('click', () => { boot(); });
 canvas.addEventListener('click', () => {
-  if (running && document.pointerLockElement !== canvas && !ended) canvas.requestPointerLock?.();
+  if (running && document.pointerLockElement !== canvas && !ended) requestMouseCapture();
 });
 
 frame();
@@ -792,4 +811,9 @@ window.__golf = {
   loadHole: (n) => { course.load(n); return HOLE.number; },
   SURFACE, surfaceProps, heightAt, surfaceAt, toYards, toFeet,
 };
+/* The loading layer is above the opening card. Release it as soon as world
+ * construction finishes so the card's user-gesture button can initialise
+ * WebAudio and begin the round. */
+loading?.classList.add('hidden');
+startBtn?.removeAttribute('disabled');
 window.__golfReady = true;
