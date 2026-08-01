@@ -102,7 +102,7 @@ const ui = {
   subtitle: document.getElementById('subtitle'),
   kit: document.getElementById('kit'),
   kitList: document.querySelector('#kit ul'),
-  kitFoot: document.querySelector('#kit .foot'),
+  phonePocket: document.getElementById('phone-pocket'),
   phone: document.getElementById('phone-osd'),
   phoneScreen: document.querySelector('#phone-osd .screen'),
   phoneKeys: document.querySelector('#phone-osd .keys'),
@@ -960,24 +960,20 @@ function paintKit() {
   };
   // Campaign items first: they are the ones that leave the building with you.
   for (const [id, meta] of Object.entries(KIT_ITEMS)) {
+    // The phone has its own persistent lower-right affordance. It is a tool,
+    // not another line in the campaign-item card.
+    if (id === ITEM_IDS.PHONE) continue;
     if (campaign.hasItem(id)) line(meta.icon, meta.name, meta.where(), meta.cls?.() ?? '');
-  }
-  // Then whatever is actually in his hands.
-  for (const slot of inventory.items) {
-    if (!slot) continue;
-    const item = ITEMS[slot];
-    if (item) line(item.icon, item.name, 'IN HAND');
   }
   line('💵', `$${game.money.toLocaleString()}`, 'POCKET');
   ui.kitList.replaceChildren(...rows);
-  // No phone on him, no "[P] phone" under the list.
-  ui.kitFoot?.classList.toggle('hidden', !hasPhone());
 }
 
 function showKit(on = true) {
   game.kitOpen = on;
   ui.kit.classList.toggle('hidden', !on);
   if (on) paintKit();
+  paintPhonePocket();
 }
 
 /* ---- the phone ----
@@ -1035,6 +1031,14 @@ function showPhone(on = true) {
   game.phoneUp = on;
   ui.phone.classList.toggle('hidden', !on);
   if (on) showKit(true);
+  paintPhonePocket();
+}
+
+function paintPhonePocket() {
+  if (!ui.phonePocket) return;
+  const carried = hasPhone();
+  ui.phonePocket.classList.toggle('hidden', !carried);
+  ui.phonePocket.classList.toggle('ringing', carried && phone.ringing);
 }
 
 function paintPhone() {
@@ -1060,6 +1064,7 @@ function phoneTick(dt) {
   phoneStory.update(dt);
   phone.update(dt);
   if (game.phoneUp) paintPhone();
+  paintPhonePocket();
   /* It rings whether or not it is out, and it comes out on its own the
    * moment it does -- a missed campaign call is a stuck campaign. */
   if (phone.ringing && !game.phoneUp) showPhone(true);
@@ -1935,10 +1940,11 @@ function getOutOfCar() {
  *
  * Talk to Booski at the bar and he offers a shot, then yells the
  * thirty-seconds line across the room. The yell starts this: a short camera
- * beat that follows the bouncer hustling the shot over from his post, the
+ * beat that follows the bartender hustling the shot over from the service
+ * station, the
  * handoff line when it arrives, and the prospect holding a whiskey he did
  * not order. One-shot per visit. The camera hijack is the gentlest the club
- * allows — the player is frozen only while the bouncer crosses the room,
+ * allows — the player is frozen only while the bartender crosses the room,
  * and control comes back the moment the glass lands, before the toast.
  * ------------------------------------------------------------------ */
 const SHOT_BAR_STAND = { x: -17.75, z: 2.5 };
@@ -1958,11 +1964,15 @@ function startShotBeat() {
   if (game.booskiShotDone || game.beat || game.over) return;
   game.booskiShotDone = true;
   game.shotSunk = false;
-  const bouncer = cast.byName.bouncer;
+  const bartender = cast.byName.bartender;
+  if (!bartender) return;
   const booski = family.byId.booski;
-  const post = {
-    x: club.anchors.bouncerPost.x,
-    z: club.anchors.bouncerPost.z,
+  const station = {
+    x: bartender.group.position.x,
+    z: bartender.group.position.z,
+    yaw: bartender.group.rotation.y,
+    job: bartender.job,
+    speed: bartender.speed,
   };
   const hijacked = player.mode === 'walk';
   if (hijacked) {
@@ -1970,28 +1980,16 @@ function startShotBeat() {
     interaction.setPaused(true);
     hud.hidePrompt();
   }
-  bouncer.folded = false;
-  bouncer.job = 'patrol';
-  bouncer.speed = 2.3;      // thirty FUCKING seconds — he hustles
-  bouncer.route = [
-    { x: -1.5, z: 8.8 },
-    { x: -9.5, z: 7.9 },
-    { x: -16.3, z: 5.0 },
-    { x: SHOT_BAR_STAND.x, z: SHOT_BAR_STAND.z },
-  ];
-  bouncer.routeAt = 0;
+  bartender.job = 'patrol';
+  bartender.speed = 2.3;      // thirty FUCKING seconds — he hustles
+  bartender.route = [{ x: SHOT_BAR_STAND.x, z: SHOT_BAR_STAND.z }];
+  bartender.routeAt = 0;
   let phase = 'to-bar';
   let t = 0;
 
   /* ---- the framing ----
-   * The first pass aimed the camera straight at the bouncer from the moment
-   * the yell landed. The bouncer is at the FRONT DOOR and the player is at
-   * the far end of the bar, so the beat opened by spinning him a hundred and
-   * eighty degrees to stare across a dark room at a man he could not see --
-   * the owner's "turns the player BACKWARDS".
-   *
-   * So the shot starts where a shot should start: on the bar, on Booski,
-   * on the glass. The aim point only walks toward the bouncer as he gets
+   * The shot starts where a shot should start: on the bar, on Booski, and
+   * on the glass. The aim point only follows the bartender once he comes
    * close enough to be worth looking at, and the yaw is slew-limited, so
    * from any starting view it is a pan rather than a cut. */
   const aim = new THREE.Vector3(
@@ -2011,7 +2009,7 @@ function startShotBeat() {
 
   game.beat = (dt) => {
     t += dt;
-    const bp = bouncer.group.position;
+    const bp = bartender.group.position;
     if (phase === 'to-bar') {
       if (hijacked) {
         /* Hold the bar, then hand the frame over to the man with the tray as
@@ -2027,11 +2025,11 @@ function startShotBeat() {
       }
       const d = Math.hypot(bp.x - SHOT_BAR_STAND.x, bp.z - SHOT_BAR_STAND.z);
       if (d < 0.6 || t > 16) {
-        if (t > 16) bouncer.group.position.set(SHOT_BAR_STAND.x, 0, SHOT_BAR_STAND.z);
+        if (t > 16) bartender.group.position.set(SHOT_BAR_STAND.x, 0, SHOT_BAR_STAND.z);
         phase = 'handoff';
         t = 0;
-        bouncer.job = 'stand';
-        bouncer.faceToward(
+        bartender.job = 'stand';
+        bartender.faceToward(
           booski ? booski.position.x : player.position.x,
           booski ? booski.position.z : player.position.z,
         );
@@ -2058,24 +2056,19 @@ function startShotBeat() {
       if (t > 2.2) {
         phase = 'return';
         t = 0;
-        bouncer.job = 'patrol';
-        bouncer.route = [
-          { x: -16.3, z: 5.0 },
-          { x: -9.5, z: 7.9 },
-          { x: -1.5, z: 8.8 },
-          { x: post.x, z: post.z },
-        ];
-        bouncer.routeAt = 0;
+        bartender.job = 'patrol';
+        bartender.route = [{ x: station.x, z: station.z }];
+        bartender.routeAt = 0;
       }
     } else if (phase === 'return') {
-      const d = Math.hypot(bp.x - post.x, bp.z - post.z);
+      const d = Math.hypot(bp.x - station.x, bp.z - station.z);
       if (d < 0.7 || t > 24) {
-        bouncer.group.position.set(post.x, 0, post.z);
-        bouncer.job = 'stand';
-        bouncer.folded = true;
-        bouncer.speed = 1.1;    // back to the unhurried door walk
-        bouncer.group.rotation.y = bouncer.homeYaw;   // facing the door again
-        bouncer.targetYaw = undefined;
+        bartender.group.position.set(station.x, 0, station.z);
+        bartender.job = station.job;
+        bartender.folded = false;
+        bartender.speed = station.speed ?? bartender.speed;
+        bartender.group.rotation.y = station.yaw;
+        bartender.targetYaw = undefined;
         game.beat = null;
       }
     }
