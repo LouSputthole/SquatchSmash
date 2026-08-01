@@ -5,19 +5,22 @@ GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
 Current published checkpoint: current `main` (verify with `git rev-parse origin/main`)
 Live Pages: <https://lousputthole.github.io/SquatchSmash/>
-Current handoff checkpoint: `origin/main`; the previous integration and
-project-status refs now converge with it. Verify with `git rev-parse origin/main`.
+Active integration line: `codex/recovered-playtest-fixes-20260731`.
+It carries the current recovery and playtest work ahead of `main`; do not
+discard its in-progress changes while picking the work back up. `main` remains
+the deployed production branch until that line has passed review and merged.
 
-This file is the pickup point for another Codex session. Resume from `main`,
-which is the deployed canonical game. Read this file, `README.md`,
+This file is the pickup point for another Codex session. Resume from the active
+integration line above; `main` is the deployed canonical game. Read this file, `README.md`,
 `docs/CHARACTER-ALIGNMENT.md`, and `docs/GAME-PLAN.md` before editing.
 
 ## Safe pickup
 
 ```powershell
 git fetch origin
-git switch main
+git switch codex/recovered-playtest-fixes-20260731
 git pull --ff-only
+git status --short
 npm test
 npm run check
 ```
@@ -130,14 +133,11 @@ thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
   confirms Tony returns to normal walking after the dialogue reaches its
   authored end. `verify:day-one` proves Big Uncle Lou's first call is a
   decoded, nonzero-gain WebAudio buffer playback.
-- `VOICE-LINES-TODO.md` was regenerated from the manifest and SFX index:
-  **259 voice lines and 17 effects remain.** The caller-side Day One Lou files
-  are present, indexed, and decode. Tony's four Day One reply takes are absent
-  from disk, along with the other Tony call-reply banks; they need properly
-  cast recorded/generated takes rather than a cue-loader change. The same list
-  contains the 23 unrecorded Bing dialogue cues (Lou's brief chains and
-  Margo). Run `npm run audio:todo` after every recording pass, then
-  `npm run sfx:listen` after adding MP3s.
+- The live `VOICE-LINES-TODO.md` inventory currently lists **112 Bada Bing
+  voice lines and 0 effects**. They are the unrecorded full-conversation
+  exchanges (including Big Uncle Lou, bouncer, bartender, dealer, Margo, and
+  Tony replies), not a cue-loader failure. Run `npm run sfx:listen` after
+  adding MP3s, then regenerate the report with `npm run audio:todo`.
 
 ## Campaign order — confirmed by the owner 2026-07-30
 
@@ -335,11 +335,9 @@ through ordinary campaign state without a single change to the scene:
   door keeps letting Tony back in rather than latching shut behind him. That is
   the accepted state until the user has playtested it.
 - `vo.call.booski.bignight.1..4` are authored in `assets/sfx/manifest.json`
-  with `voice: "booski"` and `say` fields. **No audio was generated.** Note
-  that `vo.call.booski.airstrip.*` and `vo.call.lou.bing_second.*` — the two
-  earlier campaign calls — are still missing from the manifest entirely, so
-  those two calls can never be recorded until someone authors them the same
-  way. Nothing in `npm run check` catches that today.
+  with `voice: "booski"` and `say` fields. The earlier Day Two
+  `vo.call.booski.airstrip.*` and second-Bing `vo.call.lou.bing_second.*`
+  banks are also present in the manifest and indexed; do not recreate them.
 
 ## July 29 playtest-fix pass
 

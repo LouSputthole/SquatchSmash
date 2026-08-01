@@ -6,20 +6,24 @@ Copy everything below into a new Codex session.
 
 You are taking over the SquatchSmash consolidation as lead developer and
 technical director. Continue from the documented GitHub checkpoint; do not
-restart the repository audit. `main` is the deployed canonical game.
+restart the repository audit. `main` is the deployed canonical game, while
+`codex/recovered-playtest-fixes-20260731` is the active integration line that
+carries the current recovery and playtest work.
 
 Repository:
 
 - GitHub: `https://github.com/LouSputthole/SquatchSmash`
 - Canonical production branch: `main`
 - Published checkpoint: current `main` (verify with `git rev-parse origin/main`)
+- Active integration branch: `codex/recovered-playtest-fixes-20260731`
 - Live Pages: `https://lousputthole.github.io/SquatchSmash/`
 - Never force-push or overwrite `main`; make focused branches and reviewed PRs.
 
 First:
 
-1. Fetch origin, switch to `main`, pull
-   fast-forward-only, and confirm the worktree is clean.
+1. Fetch origin, switch to `codex/recovered-playtest-fixes-20260731`, pull
+   fast-forward-only, and inspect `git status --short`. Preserve any active
+   in-progress work on that integration line; do not reset it to `main`.
 2. Read these files completely before changing code:
    - `docs/CONSOLIDATION-HANDOFF.md` (historical; read its supersession note)
    - `docs/CHARACTER-ALIGNMENT.md`
@@ -118,15 +122,18 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
-IMMEDIATE PICKUP (2026-07-31): fetch `main` and run the stated safe-pickup
-commands before trusting any historical SHA or PR status. The current focused
-follow-up adds campaign reset, objective-dialogue movement locks, actual phone
-audio playback verification, and a freshly generated `VOICE-LINES-TODO.md`.
+IMMEDIATE PICKUP (2026-07-31): fetch the active recovery branch and run the
+stated safe-pickup commands before trusting any historical SHA or PR status.
+The current focused follow-up adds campaign reset, objective-dialogue movement
+locks, actual phone audio playback verification, and a freshly generated
+`VOICE-LINES-TODO.md`.
 
-Current recording queue: **259 voice lines and 17 effects**. Caller-side Day
-One Lou audio is present and browser-verified. Tony's call replies are authored
-but unrecorded MP3s; do not mistake them for an index/cue bug. The same queue
-also includes Lou/Margo's unrecorded Bing dialogue. After a recording pass run
+Current recording queue: **112 Bada Bing voice lines and 0 effects**.
+They are unrecorded full-conversation exchanges, including Big Uncle Lou,
+bouncer, bartender, dealer, Margo, and Tony replies; do not mistake them for
+an index/cue bug. The Day Two `vo.call.booski.airstrip.*` and second-Bing
+`vo.call.lou.bing_second.*` banks are already present in the manifest and
+indexed, so do not recreate them. After a recording pass run
 `npm run sfx:listen`, then `npm run audio:todo` and the affected browser gates.
 
 The phone is campaign-derived: it has a readable Family thread, dynamic
