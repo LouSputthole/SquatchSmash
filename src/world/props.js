@@ -860,17 +860,25 @@ export function makeCouch(M, { x, z, len = 2.15, depth = 0.88 }) {
   return { group: g, bounds: [[x0, 0, z0], [x0 + depth, 0.66, z0 + len]] };
 }
 
-export function makeCoffeeTable(M, { x, z, w = 1.05, d = 0.56 }) {
+export function makeCoffeeTable(M, { x, z, w = 1.05, d = 0.56, rotY = 0 }) {
   const g = group('coffeetable');
+  // The table is an assembled prop. Keep every board and leg in local space so
+  // rotating it turns the complete table around its own centre, not around the
+  // apartment origin.
+  g.position.set(x, 0, z);
+  g.rotation.y = rotY;
   const h = 0.42;
-  g.add(box({ size: [w, 0.04, d], pos: [x, h, z], mat: M.darkWood }));
-  g.add(box({ size: [w - 0.20, 0.03, d - 0.16], pos: [x, 0.16, z], mat: M.darkWood }));
+  g.add(box({ size: [w, 0.04, d], pos: [0, h, 0], mat: M.darkWood }));
+  g.add(box({ size: [w - 0.20, 0.03, d - 0.16], pos: [0, 0.16, 0], mat: M.darkWood }));
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      g.add(box({ size: [0.05, h, 0.05], pos: [x + sx * (w / 2 - 0.06), h / 2, z + sz * (d / 2 - 0.06)], mat: M.darkWood }));
+      g.add(box({ size: [0.05, h, 0.05], pos: [sx * (w / 2 - 0.06), h / 2, sz * (d / 2 - 0.06)], mat: M.darkWood }));
     }
   }
-  return { group: g, top: h + 0.02, bounds: [[x - w / 2, 0, z - d / 2], [x + w / 2, h, z + d / 2]] };
+  const swap = Math.abs(Math.sin(rotY)) > 0.5;
+  const halfX = (swap ? d : w) / 2;
+  const halfZ = (swap ? w : d) / 2;
+  return { group: g, top: h + 0.02, bounds: [[x - halfX, 0, z - halfZ], [x + halfX, h, z + halfZ]] };
 }
 
 /** Greasy pizza box, lid ajar. */

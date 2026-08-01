@@ -103,6 +103,27 @@ try {
     initial.timeMinutes === 6 * 60 + 4 && initial.liveMinutes === 6 * 60 + 4,
     JSON.stringify(initial));
 
+  const coffee = await page.evaluate(() => {
+    const apartment = window.__squatch.apartment;
+    const [min, max] = apartment.coffeeTable.bounds;
+    const withinTable = (object) => object.position.x >= min[0] - 0.03
+      && object.position.x <= max[0] + 0.03
+      && object.position.z >= min[2] - 0.03
+      && object.position.z <= max[2] + 0.03;
+    return {
+      rotation: apartment.coffeeTable.group.rotation.y,
+      width: max[0] - min[0],
+      depth: max[2] - min[2],
+      items: Object.fromEntries(Object.entries(apartment.coffeeTableItems)
+        .map(([name, object]) => [name, withinTable(object)])),
+    };
+  });
+  check('the coffee table turns ninety degrees with every prop and use target still on it',
+    Math.abs(coffee.rotation - Math.PI / 2) < 0.001
+      && coffee.width < coffee.depth
+      && Object.values(coffee.items).every(Boolean),
+    JSON.stringify(coffee));
+
   await page.waitForTimeout(1200);
   const afterIdle = await page.evaluate(() => ({
     saved: window.__squatch.campaign.state.story.timeMinutes,

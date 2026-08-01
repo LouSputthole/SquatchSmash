@@ -618,21 +618,38 @@ export async function buildApartment(ctx) {
   root.add(couch.group);
   addCollider(couch.bounds);
 
-  const table = P.makeCoffeeTable(M, { x: -3.30, z: 0.70 });
+  const coffeeCenter = new THREE.Vector3(-3.30, 0, 0.70);
+  const coffeeRotation = Math.PI / 2;
+  const coffeeAt = (dx, dz, y = 0) => new THREE.Vector3(dx, y, dz)
+    .applyAxisAngle(new THREE.Vector3(0, 1, 0), coffeeRotation)
+    .add(coffeeCenter);
+  const table = P.makeCoffeeTable(M, {
+    x: coffeeCenter.x, z: coffeeCenter.z, rotY: coffeeRotation,
+  });
   root.add(table.group);
   addCollider(table.bounds);
 
-  const pizza = P.makePizzaBox(M, { x: -3.48, y: table.top, z: 0.74, rotY: 0.26 });
+  const pizzaPos = coffeeAt(-0.18, 0.04, table.top);
+  const pizza = P.makePizzaBox(M, {
+    x: pizzaPos.x, y: pizzaPos.y, z: pizzaPos.z, rotY: coffeeRotation + 0.26,
+  });
   root.add(pizza.group);
   /* Standing, not crushed. Same reason as the one on the shelf: a crumpled can
    * at table height reads as a bent metal cylinder rather than as a can, and
    * you spend a moment working out what it is instead of not noticing it. The
    * crushed ones are the pool below, which you see him make. */
-  root.add(P.makeBeerCan(M, { x: -2.92, y: table.top, z: 0.86, rotY: 1.1 }).group);
-  root.add(P.makeBeerCan(M, { x: -3.70, y: table.top, z: 0.52, rotY: -0.4 }).group);
+  const tableCanA = coffeeAt(0.38, 0.16, table.top);
+  root.add(P.makeBeerCan(M, {
+    x: tableCanA.x, y: tableCanA.y, z: tableCanA.z, rotY: coffeeRotation + 1.1,
+  }).group);
+  const tableCanB = coffeeAt(-0.40, -0.18, table.top);
+  root.add(P.makeBeerCan(M, {
+    x: tableCanB.x, y: tableCanB.y, z: tableCanB.z, rotY: coffeeRotation - 0.4,
+  }).group);
 
-  // The other end of the coffee table. Neither of these is on the way out.
-  // The table's front edge IS z 0.42, so the old position had it half off.
+  // Every tabletop prop starts in table-local space. coffeeAt rotates that
+  // dressing with the table, so its visible mesh and interaction target stay
+  // on the same surface after layout changes.
   /* Empties, pooled and hidden until you finish one. Lying on their side,
    * because a can you have put down does not stand up. */
   const emptyCans = [];
@@ -644,8 +661,8 @@ export async function buildApartment(ctx) {
     emptyCans.push(c);
   }
 
-  const bongPos = new THREE.Vector3(-3.06, table.top, 0.63);
-  const bong = P.makeBong(M, { x: bongPos.x, y: bongPos.y, z: bongPos.z, rotY: -0.7 });
+  const bongPos = coffeeAt(0.24, -0.07, table.top);
+  const bong = P.makeBong(M, { x: bongPos.x, y: bongPos.y, z: bongPos.z, rotY: coffeeRotation - 0.7 });
   root.add(bong.group);
   const bongHit = box({
     size: [0.20, 0.42, 0.20], pos: [bongPos.x, bongPos.y + 0.20, bongPos.z],
@@ -653,11 +670,12 @@ export async function buildApartment(ctx) {
   });
   root.add(bongHit);
 
-  /* Clear of the pizza box, whose base reaches x -3.27 with the lid leaning
-   * further -- at -3.32 the bag sat on the box's corner. Between the box and
-   * the bong, touching neither. */
-  const shroomPos = new THREE.Vector3(-3.16, table.top, 0.90);
-  const shrooms = P.makeMushrooms(M, { x: shroomPos.x, y: shroomPos.y, z: shroomPos.z, rotY: 0.5 });
+  /* Clear of the pizza box and bong in the table's local layout, so all three
+   * rotate together without intersecting. */
+  const shroomPos = coffeeAt(0.14, 0.20, table.top);
+  const shrooms = P.makeMushrooms(M, {
+    x: shroomPos.x, y: shroomPos.y, z: shroomPos.z, rotY: coffeeRotation + 0.5,
+  });
   root.add(shrooms.group);
   const shroomHit = box({
     size: [0.20, 0.18, 0.18], pos: [shroomPos.x, shroomPos.y + 0.07, shroomPos.z],
@@ -880,8 +898,10 @@ export async function buildApartment(ctx) {
    * package. The prop still exists while locked so its later placement and
    * interaction stay identical; both the mesh and pickup gate begin disabled.
    */
-  const gunPos = new THREE.Vector3(-2.90, table.top, 0.60);
-  const revolver = P.makeRevolver(M, { x: gunPos.x, y: gunPos.y, z: gunPos.z, rotY: 2.35 });
+  const gunPos = coffeeAt(0.40, -0.10, table.top);
+  const revolver = P.makeRevolver(M, {
+    x: gunPos.x, y: gunPos.y, z: gunPos.z, rotY: coffeeRotation + 2.35,
+  });
   revolver.group.visible = gunUnlocked;
   root.add(revolver.group);
   const gunHit = box({
@@ -2225,6 +2245,17 @@ export async function buildApartment(ctx) {
     /** Resolves once any .glb in assets/models/ has been placed. */
     models: modelsReady,
     pizza,
+    coffeeTable: table,
+    coffeeTableRotation: coffeeRotation,
+    coffeeTableItems: {
+      pizza: pizza.group,
+      bong: bong.group,
+      shrooms: shrooms.group,
+      revolver: revolver.group,
+      bongHit,
+      shroomHit,
+      gunHit,
+    },
     tv,
     tvGlow,
     frames,
