@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { Npc, makePerson } from '../bing/cast.js';
+import { assetUrl, inlineManifest } from '../core/assets.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { box, collider, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { GRAVES } from './mission.js';
@@ -16,6 +17,55 @@ const BARK = mat({ color: 0x281b14, roughness: 1 });
 const NEEDLES = mat({ color: 0x0a1a10, roughness: 1 });
 const BLACK = mat({ color: 0x050505, roughness: 0.8 });
 const CHROME = mat({ color: 0x9ba2a3, roughness: 0.25, metalness: 0.82 });
+
+/**
+ * The five authored Family memorials supplied for this scene. Keeping the
+ * presentation data separate from GRAVES means story tier and interaction
+ * data remain authoritative while the world builder has one testable source
+ * for the artwork treatment. Colton's name is already carved into his image;
+ * every other portrait receives a physical nameplate below the relief.
+ */
+export const GRAVE_ART_PRESENTATION = Object.freeze({
+  babs: Object.freeze({
+    slot: 'grave.babs', file: 'graveyard/babs.webp', aspect: 0.8, panelHeight: 1.35,
+    embeddedName: false,
+  }),
+  brawny: Object.freeze({
+    slot: 'grave.brawny', file: 'graveyard/brawny.webp', aspect: 853 / 1280, panelHeight: 0.72,
+    embeddedName: false,
+  }),
+  whiplash: Object.freeze({
+    slot: 'grave.whiplash', file: 'graveyard/whiplash.webp', aspect: 853 / 1280, panelHeight: 0.72,
+    embeddedName: false, transparent: true,
+  }),
+  echo: Object.freeze({
+    slot: 'grave.echo', file: 'graveyard/echo.jpg', aspect: 1, panelHeight: 0.62,
+    embeddedName: false,
+  }),
+  colton: Object.freeze({
+    slot: 'grave.colton', file: 'graveyard/colton.webp', aspect: 0.75, panelHeight: 0.95,
+    embeddedName: true,
+  }),
+});
+
+export const BABS_BENCH_PRESENTATION = Object.freeze({
+  position: Object.freeze([-8.15, 0, -2.25]),
+  yaw: -Math.PI / 2,
+  colliderMin: Object.freeze([-8.5, 0, -3.3]),
+  colliderMax: Object.freeze([-7.8, 1.25, -1.2]),
+});
+
+const GRAVE_ART_DIR = 'assets/art/';
+const graveArtLoader = new THREE.TextureLoader();
+
+function graveArtTexture(art) {
+  const manifest = inlineManifest(GRAVE_ART_DIR, 'manifest.json');
+  const bundled = manifest?.art?.find((entry) => entry.slot === art.slot)?.file;
+  const texture = graveArtLoader.load(assetUrl(GRAVE_ART_DIR, bundled || art.file));
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
 
 function seeded(seed = 0x5a51e) {
   let value = seed >>> 0;
@@ -51,8 +101,36 @@ function labelTexture(name, epitaph = '') {
   return texture;
 }
 
+function memorialNameTexture(name, epitaph = '') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 160;
+  const g = canvas.getContext('2d');
+  g.clearRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = 'rgba(19, 20, 19, .96)';
+  g.fillRect(12, 10, 488, 140);
+  g.strokeStyle = '#c0ad76';
+  g.lineWidth = 7;
+  g.strokeRect(19, 17, 474, 126);
+  g.textAlign = 'center';
+  g.fillStyle = '#f2e8ca';
+  g.shadowColor = 'rgba(0, 0, 0, .9)';
+  g.shadowBlur = 7;
+  g.font = epitaph ? '700 58px Georgia, serif' : '700 72px Georgia, serif';
+  g.fillText(name, 256, epitaph ? 72 : 104);
+  if (epitaph) {
+    g.font = 'italic 25px Georgia, serif';
+    g.fillText(epitaph, 256, 120);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+
 function graveMarker(id, x, z, yaw = 0) {
   const data = GRAVES[id];
+  const art = GRAVE_ART_PRESENTATION[id] ?? null;
   const g = group(`grave.${id}`);
   g.position.set(x, 0, z);
   g.rotation.y = yaw;
@@ -72,22 +150,72 @@ function graveMarker(id, x, z, yaw = 0) {
   }
   g.add(base, slab);
 
-  const plaque = new THREE.Mesh(
-    new THREE.PlaneGeometry(width * 0.82, Math.min(0.68, height * 0.58)),
-    new THREE.MeshBasicMaterial({
-      map: labelTexture(data.name, monument ? 'FAMILY FIRST' : ruined ? 'TRAITOR' : ''),
-      transparent: true,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -1,
-    }),
-  );
-  plaque.name = `grave.${id}.name`;
-  plaque.userData.memorialName = data.name;
-  // The plots extend toward +Z, which is also the player's approach. These
-  // used to sit on -Z, behind the slab, so every name was physically hidden.
-  plaque.position.set(0, 0.2 + height * 0.56, 0.127);
-  g.add(plaque);
+  if (art) {
+    const panelWidth = art.panelHeight * art.aspect;
+    const panelBottom = id === 'babs' ? 0.35 : id === 'colton' ? 0.22 : id === 'echo' ? 0.42 : 0.24;
+    const panelY = panelBottom + art.panelHeight / 2;
+    const frame = box({
+      size: [panelWidth + 0.055, art.panelHeight + 0.055, 0.035],
+      pos: [0, panelY, 0.127],
+      mat: STONE_DARK,
+    });
+    frame.name = `grave.${id}.art-frame`;
+    const panel = new THREE.Mesh(
+      new THREE.PlaneGeometry(panelWidth, art.panelHeight),
+      new THREE.MeshBasicMaterial({
+        map: graveArtTexture(art),
+        color: 0xd8d8d3,
+        fog: true,
+        transparent: art.transparent === true,
+        alphaTest: art.transparent ? 0.025 : 0,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+      }),
+    );
+    panel.name = `grave.${id}.art`;
+    panel.position.set(0, panelY, 0.147);
+    panel.userData.memorialArt = {
+      graveId: id,
+      file: `${GRAVE_ART_DIR}${art.file}`,
+      embeddedName: art.embeddedName,
+    };
+    g.add(frame, panel);
+
+    if (!art.embeddedName) {
+      const nameplateHeight = monument ? 0.23 : 0.16;
+      const nameplate = new THREE.Mesh(
+        new THREE.PlaneGeometry(width * 0.78, nameplateHeight),
+        new THREE.MeshBasicMaterial({
+          map: memorialNameTexture(data.name, monument ? 'FAMILY FIRST' : ruined ? 'TRAITOR' : ''),
+          transparent: true,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: -3,
+        }),
+      );
+      nameplate.name = `grave.${id}.name`;
+      nameplate.position.set(0, monument ? 0.31 : 0.32, 0.154);
+      nameplate.userData.memorialName = data.name;
+      g.add(nameplate);
+    }
+  } else {
+    const plaque = new THREE.Mesh(
+      new THREE.PlaneGeometry(width * 0.82, Math.min(0.68, height * 0.58)),
+      new THREE.MeshBasicMaterial({
+        map: labelTexture(data.name, monument ? 'FAMILY FIRST' : ruined ? 'TRAITOR' : ''),
+        transparent: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+      }),
+    );
+    plaque.name = `grave.${id}.name`;
+    plaque.userData.memorialName = data.name;
+    // The plots extend toward +Z, which is also the player's approach. These
+    // used to sit on -Z, behind the slab, so every name was physically hidden.
+    plaque.position.set(0, 0.2 + height * 0.56, 0.127);
+    g.add(plaque);
+  }
 
   if (monument) {
     const cap = box({ size: [1.78, 0.16, 0.46], pos: [0, height + 0.24, 0], mat: STONE_LIGHT });
@@ -370,12 +498,12 @@ export function buildGraveyard(scene) {
   temporary.visible = false;
   root.add(temporary);
 
-  // Babs's bench runs along the west side of her plot and faces the grave.
-  // Keeping it parallel to the burial bed leaves the headstone and the aisle
-  // open instead of stretching the bench across the monument's approach.
+  // Babs's bench runs along the west side of her plot, turned outward toward
+  // the trees. Keeping it parallel to the burial bed leaves the headstone and
+  // aisle open instead of stretching it across the monument's approach.
   const bench = group('babs.bench');
-  bench.position.set(-8.15, 0, -2.25);
-  bench.rotation.y = Math.PI / 2;
+  bench.position.set(...BABS_BENCH_PRESENTATION.position);
+  bench.rotation.y = BABS_BENCH_PRESENTATION.yaw;
   bench.add(
     box({ size: [2.0, 0.14, 0.52], pos: [0, 0.52, 0], mat: STONE_LIGHT }),
     box({ size: [2.0, 0.65, 0.13], pos: [0, 0.86, -0.25], mat: STONE_LIGHT }),
@@ -383,7 +511,11 @@ export function buildGraveyard(scene) {
     box({ size: [0.15, 0.48, 0.42], pos: [0.7, 0.25, 0], mat: STONE_LIGHT }),
   );
   root.add(bench);
-  colliders.push(collider([-8.5, 0, -3.3], [-7.8, 1.25, -1.2], 0.03));
+  colliders.push(collider(
+    BABS_BENCH_PRESENTATION.colliderMin,
+    BABS_BENCH_PRESENTATION.colliderMax,
+    0.03,
+  ));
 
   const car = parkedCar();
   root.add(car);

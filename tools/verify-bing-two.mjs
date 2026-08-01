@@ -483,6 +483,62 @@ try {
 
   await page.click('#start-btn');
   await page.waitForFunction(() => window.GRAVEYARD.phase === 'active', null, { timeout: 90000 });
+  await page.evaluate(() => {
+    const runtime = window.GRAVEYARD;
+    const originalOnLine = runtime.mission.hooks.onLine;
+    window.__graveyardEmittedLines = [];
+    runtime.mission.hooks.onLine = (text, meta = {}) => {
+      window.__graveyardEmittedLines.push({ text, ...meta });
+      originalOnLine?.(text, meta);
+    };
+    // Echo is west of the graves. This point is the far/east edge of the
+    // central path, so the encounter must not require aiming at his marker.
+    runtime.player.position.set(0.9, 1.66, -7);
+  });
+  await page.waitForFunction(
+    () => window.GRAVEYARD.mission.echoHeard
+      && window.GRAVEYARD.campaignState.missions.bada_bing_two.echoHeard,
+    null,
+    { timeout: 10000 },
+  );
+  const memorialInteractions = await page.evaluate(() => {
+    const runtime = window.GRAVEYARD;
+    runtime.inspect('echo');
+    runtime.inspect('echo');
+    runtime.inspect('babs');
+    const firstRespect = runtime.respect('babs');
+    runtime.inspect('babs');
+    const duplicateRespect = runtime.respect('babs');
+    const emitted = window.__graveyardEmittedLines;
+    const cueCount = (cue) => emitted.filter((line) => line.cue === cue).length;
+    const incident = runtime.campaignState.missions.bada_bing_two;
+    return {
+      firstRespect,
+      duplicateRespect,
+      tribute: runtime.mission.tributeFor('babs'),
+      echoHeard: runtime.mission.echoHeard,
+      persistedEcho: incident.echoHeard,
+      inspectedEchoCount: incident.inspectedGraves.filter((id) => id === 'echo').length,
+      respectedBabsCount: incident.respectedGraves.filter((id) => id === 'babs').length,
+      cues: {
+        echoInspect: cueCount('vo.graveyard.inspect.echo'),
+        echoAlive: cueCount('vo.graveyard.echo.alive'),
+        echoWind: cueCount('vo.graveyard.prospect.wind'),
+        snowWind: cueCount('vo.graveyard.snow.wind'),
+        babsInspect: cueCount('vo.graveyard.inspect.babs'),
+      },
+    };
+  });
+  check('the path auto-triggers Echo once and duplicate grave events cannot replay speech or respect',
+    memorialInteractions.echoHeard
+      && memorialInteractions.persistedEcho
+      && memorialInteractions.inspectedEchoCount === 1
+      && memorialInteractions.firstRespect
+      && !memorialInteractions.duplicateRespect
+      && memorialInteractions.tribute === 'respect'
+      && memorialInteractions.respectedBabsCount === 1
+      && Object.values(memorialInteractions.cues).every((count) => count === 1),
+    JSON.stringify(memorialInteractions));
   const bodyMove = await page.evaluate(() => {
     const graveyardRuntime = window.GRAVEYARD;
     const initial = graveyardRuntime.bodyPresentation();

@@ -93,6 +93,7 @@ const VALID_SLOTS = (() => {
   const sceneSources = [
     'src/world/apartment.js',
     'src/bing/club.js',
+    'src/graveyard/world.js',
     'src/squatchfather/scenes/SquatchfatherScene.js',
   ].map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   for (const src of sceneSources) {

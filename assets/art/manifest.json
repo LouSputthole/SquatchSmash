@@ -528,6 +528,36 @@
       "file": "family-portrait-seff.webp",
       "title": "Seff",
       "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "grave.babs",
+      "file": "graveyard/babs.webp",
+      "title": "Babs",
+      "caption": "The Family's grand monument at the Squatch graveyard."
+    },
+    {
+      "slot": "grave.brawny",
+      "file": "graveyard/brawny.webp",
+      "title": "Brawny",
+      "caption": "A neglected traitor's marker at the Squatch graveyard."
+    },
+    {
+      "slot": "grave.whiplash",
+      "file": "graveyard/whiplash.webp",
+      "title": "Whiplash",
+      "caption": "A battered traitor's marker at the Squatch graveyard."
+    },
+    {
+      "slot": "grave.echo",
+      "file": "graveyard/echo.jpg",
+      "title": "Echo",
+      "caption": "Echo's suspiciously restless memorial portrait."
+    },
+    {
+      "slot": "grave.colton",
+      "file": "graveyard/colton.webp",
+      "title": "Colton",
+      "caption": "Colton's named memorial portrait at the Squatch graveyard."
     }
   ]
 }
