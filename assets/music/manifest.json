@@ -38,6 +38,13 @@
       "title": "Sallie J"
     },
     {
+      "file": "squatches-in-the-house.mp3",
+      "station": "ksqch",
+      "artist": "Silver Sasquatches",
+      "title": "Squatches in the House",
+      "venue": "bada_bing"
+    },
+    {
       "_comment": "Plays from the top and gets exactly 15 seconds before the station cuts it dead for the meeting notice. `start` pins it to 0 so the 15s is the recording's 15s, not 15s from wherever the usual random drop-in landed.",
       "file": "nehoo-with-a-guu.mp3",
       "station": "ksqch",

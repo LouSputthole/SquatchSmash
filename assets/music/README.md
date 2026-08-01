@@ -18,4 +18,8 @@ Anything the browser can play works — `.mp3`, `.ogg`, `.m4a`, `.wav`.
 Tracks play in order and loop back to the start. In game: look at the radio on
 the sideboard, press <kbd>E</kbd> to toggle power and <kbd>R</kbd> to skip.
 
+The Bada Bing DJ uses its own positional set from `src/bing/main.js`; records
+there alternate by visit. Set `"venue": "bada_bing"` in the manifest to mark
+a track that also belongs in that set.
+
 With no tracks listed the radio still turns on — it just plays static.

@@ -60,6 +60,27 @@ const DRINK_TIME = 2.4;
 /* How much of the synthesised club bed survives under the real record. */
 const BED_UNDER_RECORD = 0.16;
 
+/* The DJ alternates these by visit. They are genuine positional records on
+ * the club floor, not apartment-radio tracks pasted over the room. Keeping
+ * the last index in local storage makes a refresh change the set instead of
+ * randomly handing a player the same song all night. */
+const CLUB_DJ_RECORDS = Object.freeze([
+  { file: 'squatches-in-the-house.mp3', title: 'Squatches in the House' },
+  { file: 'sallie-j.mp3', title: 'Sallie J' },
+]);
+const CLUB_DJ_INDEX_KEY = 'squatch.bing.dj.record';
+
+function nextClubDjRecord() {
+  try {
+    const saved = Number.parseInt(localStorage.getItem(CLUB_DJ_INDEX_KEY), 10);
+    const index = Number.isInteger(saved) && saved >= 0 ? saved % CLUB_DJ_RECORDS.length : 0;
+    localStorage.setItem(CLUB_DJ_INDEX_KEY, String((index + 1) % CLUB_DJ_RECORDS.length));
+    return CLUB_DJ_RECORDS[index];
+  } catch {
+    return CLUB_DJ_RECORDS[0];
+  }
+}
+
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
 const loading = document.getElementById('loading');
@@ -226,6 +247,7 @@ const game = {
   booskiShotDone: false,
   beat: null,          // the one scripted camera beat (Booski's shot delivery)
   lastHand: null,      // last blackjack outcome, for the table's voice
+  clubRecord: null,    // the actual record selected for this visit's DJ set
   voLog: [],           // recent exact-cue voice attempts, for the verifier
   /* The objective card reads the mission, the Family and half a dozen other
    * systems, none of which exist while the Mission constructor is still
@@ -2451,7 +2473,9 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.club', { volume: 0.04 * BED_UNDER_RECORD, ambience: true, fade: 2 });
     audio.startLoop('ambience.crowd', { volume: 0.02, ambience: true, fade: 2 });
     // The record actually playing on the floor tonight, from the DJ booth.
-    audio.startMusicLoop('music.club', 'assets/music/sallie-j.mp3', {
+    const clubRecord = nextClubDjRecord();
+    game.clubRecord = clubRecord.file;
+    audio.startMusicLoop('music.club', `assets/music/${clubRecord.file}`, {
       volume: 0.04, ambience: true, position: club.anchors.dj, ref: 3.5, maxDist: 34, fade: 2,
     });
     // Lou's radio plays his old stuff all night; the panner does the

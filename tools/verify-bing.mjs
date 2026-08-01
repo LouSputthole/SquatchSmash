@@ -2336,6 +2336,7 @@ const beds = await page.evaluate(() => {
     bed: vol('ambience.club'),
     record: vol('music.club'),
     crowd: vol('ambience.crowd'),
+    clubRecord: b.game.clubRecord,
     standingIn: vol('ambience.rain'),
     acoustics: b.game.acoustics,
   };
@@ -2352,6 +2353,12 @@ const beds = await page.evaluate(() => {
     beds.bed > 0 && beds.record > 0 && beds.bed < beds.record * 0.35
       && beds.crowd < 0.2,
     JSON.stringify({ bed: beds.bed, record: beds.record, crowd: beds.crowd }));
+  const music = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'music', 'manifest.json'), 'utf8'));
+  check('the DJ selected a registered record, including Squatches in the House in its set',
+    music.tracks.some((track) => track.file === beds.clubRecord)
+      && music.tracks.some((track) => track.file === 'squatches-in-the-house.mp3'
+        && track.venue === 'bada_bing'),
+    JSON.stringify({ record: beds.clubRecord }));
 }
 
 /* ---- 29: Margo, on her stool and wearing her own head ---- */
