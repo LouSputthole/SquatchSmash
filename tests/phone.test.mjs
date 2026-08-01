@@ -83,9 +83,11 @@ test('every idle apartment-phone screen tells Tony how to pocket it', () => {
 
 test('the campaign can own scheduled calls and observe a physical-phone answer', () => {
   const answered = [];
+  const callStates = [];
   const phone = new Phone({
     time: { day: 1, hour: 9.5 },
     calls: [],
+    onCallState: (connected, definition) => callStates.push([connected, definition.from]),
   });
   phone.onAnswered = (definition) => answered.push(definition);
 
@@ -103,6 +105,10 @@ test('the campaign can own scheduled calls and observe a physical-phone answer',
 
   assert.deepEqual(answered, [definition]);
   assert.equal(phone.inCall, true);
+  assert.deepEqual(callStates, [[true, 'Lou']]);
+
+  phone.hangUp();
+  assert.deepEqual(callStates, [[true, 'Lou'], [false, 'Lou']]);
 });
 
 test('a call is both halves, and Tony’s take their cue from the caller’s bank', () => {

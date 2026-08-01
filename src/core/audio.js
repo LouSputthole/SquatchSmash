@@ -44,6 +44,8 @@ export class AudioEngine {
     this.ready = false;
     this.buffers = new Map();
     this.loops = new Map();
+    /** Output gain for each active one-shot source, without changing play()'s API. */
+    this.playbackGains = new WeakMap();
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
     this._manifestLoadPromise = null;
@@ -221,6 +223,7 @@ export class AudioEngine {
       src.buffer = bank[(Math.random() * bank.length) | 0];
       src.playbackRate.value = rate;
       src.connect(out);
+      this.playbackGains.set(src, out.gain);
       const playback = {
         name,
         source: 'buffer',
@@ -249,6 +252,17 @@ export class AudioEngine {
     }
     synth(this, name, out, when, rate);
     return null;
+  }
+
+  /** Ramp an already-playing sampled cue without stopping or restarting it. */
+  setPlaybackVolume(source, volume, ramp = 0.25) {
+    const gain = source && this.playbackGains.get(source);
+    if (!gain || !this.ctx) return false;
+    const t = this.ctx.currentTime;
+    gain.cancelScheduledValues(t);
+    gain.setValueAtTime(gain.value, t);
+    gain.linearRampToValueAtTime(Math.max(0.0001, volume), t + ramp);
+    return true;
   }
 
   /** Clear only transient playback evidence; never samples or active sound. */

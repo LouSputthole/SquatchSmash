@@ -335,6 +335,7 @@ const phone = new Phone({
   audio,
   calls: [],
   threads: phoneThreadsForCampaign(campaign.state),
+  onCallState: (connected) => radio.setPhoneDucked(connected),
   onThreadRead: (thread) => {
     if (thread.readEventId) campaign.advanceTime(thread.readEventId);
   },

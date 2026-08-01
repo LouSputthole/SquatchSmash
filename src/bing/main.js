@@ -262,6 +262,7 @@ const game = {
   beat: null,          // the one scripted camera beat (Booski's shot delivery)
   lastHand: null,      // last blackjack outcome, for the table's voice
   clubRecord: null,    // the actual record selected for this visit's DJ set
+  phoneRadioScale: 1, // connected calls leave 34% of radios/music underneath
   voLog: [],           // recent exact-cue voice attempts, for the verifier
   /* The objective card reads the mission, the Family and half a dozen other
    * systems, none of which exist while the Mission constructor is still
@@ -1185,10 +1186,26 @@ const phone = new Phone({
   audio,
   calls: [],
   threads: phoneThreadsForCampaign(campaign.state),
+  onCallState: (connected) => setPhoneAudioDucked(connected),
   onThreadRead: (thread) => {
     if (thread.readEventId) campaign.advanceTime(thread.readEventId);
   },
 });
+
+/**
+ * The club has three program sources rather than the apartment's Radio class:
+ * the DJ record and its synth bed, Lou's office radio, and Tony's car radio.
+ * They follow the same 66% phone duck and leave rain/crowd alone, so a caller
+ * is intelligible without making the whole building unnaturally silent.
+ */
+function setPhoneAudioDucked(connected) {
+  game.phoneRadioScale = connected ? 0.34 : 1;
+  const music = game.acoustics?.music ?? 0.05;
+  audio.setLoopVolume('ambience.club', music * BED_UNDER_RECORD * game.phoneRadioScale, 0.24);
+  audio.setLoopVolume('music.club', music * 0.9 * game.phoneRadioScale, 0.24);
+  audio.setLoopVolume('office.radio', 0.22 * game.phoneRadioScale, 0.24);
+  audio.setLoopVolume('car.radio', 0.3 * game.phoneRadioScale, 0.24);
+}
 let phoneContentRevision = campaign.state.revision;
 function syncPhoneThreads() {
   const state = campaign.state;
@@ -2837,9 +2854,9 @@ function updateZones(dt) {
      * the record rather than a second band you hear over it. The crowd's
      * filtered noise comes down for the same reason: at a third of the mix
      * two hundred inaudible people are indistinguishable from tape hiss. */
-    audio.setLoopVolume('ambience.club', music * BED_UNDER_RECORD, 0.7);
+    audio.setLoopVolume('ambience.club', music * BED_UNDER_RECORD * game.phoneRadioScale, 0.7);
     audio.setLoopVolume('ambience.crowd', crowd * 0.5, 0.7);
-    audio.setLoopVolume('music.club', music * 0.9, 0.7);
+    audio.setLoopVolume('music.club', music * 0.9 * game.phoneRadioScale, 0.7);
     // The wall does the muffling per-loop now — footsteps and dialogue in the
     // back of house stay crisp while the record dulls round the corner.
     const cutoff = next === 'main' || next === 'vestibule' ? 20000

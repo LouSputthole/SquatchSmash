@@ -445,12 +445,25 @@ try {
     const game = window.__squatch;
     game.apartment.inventory.add('phone');
     game.phone.press();
+    const connected = game.phone.inCall;
+    const radioDuring = {
+      ducked: game.radio.phoneDucked,
+      scale: game.radio.mixScale,
+      knob: game.radio.volume,
+    };
     const departure = game.tryLeave();
+    game.phone.hangUp();
     return {
-      inCall: game.phone.inCall,
+      inCall: connected,
       event: game.campaign.state.events.booski_day_two_call.status,
       mission: game.campaign.state.missions.airstrip_smuggling.status,
       departure,
+      radioDuring,
+      radioAfter: {
+        ducked: game.radio.phoneDucked,
+        scale: game.radio.mixScale,
+        knob: game.radio.volume,
+      },
     };
   });
   check('answering Booskibro persists the event and unlocks the airstrip mission',
@@ -458,6 +471,13 @@ try {
       && answered.event === 'answered'
       && answered.mission === 'available',
     JSON.stringify(answered));
+  check('the connected call ducks the radio by 66 percent and restores the player setting on hang-up',
+    answered.radioDuring.ducked
+      && answered.radioDuring.scale === 0.34
+      && answered.radioAfter.ducked === false
+      && answered.radioAfter.scale === 1
+      && answered.radioDuring.knob === answered.radioAfter.knob,
+    JSON.stringify({ during: answered.radioDuring, after: answered.radioAfter }));
   check('the apartment door now routes to the real Beef Run scene',
     answered.departure?.kind === 'go'
       && answered.departure?.destination === 'airstrip_smuggling',

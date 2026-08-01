@@ -109,3 +109,31 @@ test('venue-scoped records stay in their intended in-world music system', async 
     'legacy.mp3', 'club-only.mp3',
   ]);
 });
+
+test('a connected phone call ducks the radio by 66 percent without changing its knob', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const loopVolumes = [];
+  const voiceVolumes = [];
+  const voice = {};
+  const audio = {
+    ready: false,
+    setLoopVolume: (key, volume, ramp) => loopVolumes.push({ key, volume, ramp }),
+    setPlaybackVolume: (source, volume, ramp) => voiceVolumes.push({ source, volume, ramp }),
+  };
+  const radio = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 9 });
+  radio.on = true;
+  radio._voice = voice;
+
+  const knob = radio.volume;
+  assert.equal(radio.setPhoneDucked(true), 0.34);
+  assert.equal(radio.phoneDucked, true);
+  assert.equal(radio.volume, knob);
+  assert.ok(Math.abs(loopVolumes.at(-1).volume - 0.055 * knob * 0.34) < 1e-9);
+  assert.ok(Math.abs(voiceVolumes.at(-1).volume - knob * 0.34) < 1e-9);
+
+  assert.equal(radio.setPhoneDucked(false), 1);
+  assert.equal(radio.phoneDucked, false);
+  assert.equal(radio.volume, knob);
+  assert.ok(Math.abs(loopVolumes.at(-1).volume - 0.055 * knob) < 1e-9);
+  assert.ok(Math.abs(voiceVolumes.at(-1).volume - knob) < 1e-9);
+});
