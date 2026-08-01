@@ -201,6 +201,19 @@ try {
     }
   }
 
+  {
+    const script = await import('../src/heist/script.js');
+    const missing = Object.values(script.HEIST_DIALOGUE)
+      .filter((line) => !allCues.has(line.cue));
+    if (missing.length) {
+      fail(`${missing.length} THE TAKE line(s) have no manifest cue `
+        + `(first: ${missing[0].cue}).`);
+    }
+    for (const zone of ['safehouse', 'bank', 'street', 'garage', 'driving']) {
+      if (!allCues.has(`heist.ambience.${zone}`)) fail(`THE TAKE ambience missing for ${zone}`);
+    }
+  }
+
   /* The Beef Run derives its voice cue from the beat id and the line's index,
    * so no call site names a cue and the scan above cannot see any of them. A
    * line whose cue is missing from the manifest is a line that can never be

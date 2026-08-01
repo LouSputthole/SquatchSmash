@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>THE TAKE — Squatch Life</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128176;</text></svg>" />
+<link rel="stylesheet" href="src/heist/heist.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="scene" aria-label="THE TAKE first-person mission"></canvas>
+
+<div id="heist-hud" class="hidden">
+  <div id="heist-title"><span>THE TAKE</span><small id="phase-label">SAFEHOUSE</small></div>
+  <div id="objective"><b>OBJECTIVE</b><span>Meet the crew.</span></div>
+  <div id="crew-strip"></div>
+  <div id="health"><span>HEALTH</span><i></i></div>
+  <div id="ammo"><b>20</b><span>/ 80</span><small>CONTROLLED</small></div>
+  <div id="bag-readout" class="hidden"><b>DUFFEL</b><span>$0</span><small>Q DROP</small></div>
+  <div id="drive-hud" class="hidden"><b id="speed">0</b><span>MPH</span><small id="route">MERCER EXIT</small></div>
+  <div id="subtitle" class="hidden"></div>
+  <div id="prompt" class="hidden"><kbd>E</kbd><span>INTERACT</span><i></i></div>
+  <div id="crosshair" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div id="suppression" aria-hidden="true"></div>
+  <div id="damage-edge" aria-hidden="true"></div>
+</div>
+
+<div id="start-card">
+  <p>DAY FOUR</p>
+  <h1>THE TAKE</h1>
+  <h2>Cumberland Fidelity &amp; Trust</h2>
+  <div class="rule"></div>
+  <p class="lede">Six people. One job. Stay with Snow, protect the crew, and bring home what you can carry.</p>
+  <button id="start">BEGIN</button>
+  <small>WASD move · mouse look · E interact/order · left fire · right aim · R reload · Q drop bag</small>
+</div>
+
+<div id="fade"><span></span></div>
+<div id="mission-card" class="hidden"></div>
+
+<script type="module" src="src/heist/main.js"></script>
+</body>
+</html>

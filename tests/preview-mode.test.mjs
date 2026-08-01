@@ -19,6 +19,8 @@ import { createMotelStory } from '../src/core/motel-story.js';
 import {
   APARTMENT_PREVIEW_VARIANTS,
   isPreviewMode,
+  previewCheckpointForLocation,
+  previewDifficultyForLocation,
   previewApartmentVariantForLocation,
   previewNavigationHref,
   previewSceneForLocation,
@@ -72,6 +74,21 @@ test('preview query and route resolution preserve existing query parameters', ()
     previewNavigationHref('index.html', { pathname: '/game/index.html', search: '' }),
     'index.html',
   );
+});
+
+test('heist preview checkpoint and difficulty inputs are bounded', () => {
+  assert.equal(previewCheckpointForLocation({
+    search: '?preview=1&checkpoint=mercer_garage',
+  }), 'mercer_garage');
+  assert.equal(previewCheckpointForLocation({
+    search: '?preview=1&checkpoint=teleport_everywhere',
+  }), 'safehouse');
+  assert.equal(previewDifficultyForLocation({
+    search: '?preview=1&difficulty=forgiving',
+  }), 'forgiving');
+  assert.equal(previewDifficultyForLocation({
+    search: '?preview=1&difficulty=nightmare',
+  }), 'professional');
 });
 
 test('motel preview starts unlocked without reading or writing canonical localStorage', () => {
@@ -208,10 +225,11 @@ test('every authored apartment iteration receives a coherent isolated campaign c
       },
     },
     {
-      variant: 'day-four-wake', spawn: 'wake', chapter: 'big_night', day: 4,
+      variant: 'day-four-wake', spawn: 'wake', chapter: 'heist_day', day: 4,
       time: 10 * 60,
       verify(state, campaign) {
-        assert.equal(state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
+        assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
+        assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
         assert.equal(createApartmentStory({ campaign }).margoWakeOwed(), true);
       },

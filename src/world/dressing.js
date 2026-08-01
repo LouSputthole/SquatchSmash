@@ -21,7 +21,9 @@ import * as THREE from 'three';
 import { box, cylinder, group, mat, plane } from './build.js';
 
 /** The campaign's chapters, in the order sleeping walks through them. */
-export const CHAPTER_ORDER = Object.freeze(['day_one', 'day_two', 'no_wake', 'date', 'big_night']);
+export const CHAPTER_ORDER = Object.freeze([
+  'day_one', 'day_two', 'no_wake', 'date', 'big_night', 'heist_day', 'post_heist',
+]);
 
 /**
  * The table.
@@ -87,6 +89,26 @@ export const DAY_DRESSING = Object.freeze({
     ]),
     removes: Object.freeze([]),
     air: Object.freeze({ rain: 0, tint: 1, warmth: 1.08 }),
+  }),
+
+  heist_day: Object.freeze({
+    title: 'The Take',
+    adds: Object.freeze([
+      'heistArmor', 'heistGloves', 'heistMask', 'heistCarbine',
+      'heistSidearm', 'heistMagazines', 'heistDuffel',
+    ]),
+    removes: Object.freeze([]),
+    air: Object.freeze({ rain: 0, tint: 0.82, warmth: 0.92 }),
+  }),
+
+  post_heist: Object.freeze({
+    title: 'After the Take',
+    adds: Object.freeze(['heistWash', 'heistChange', 'heistGearSecured', 'heistCut']),
+    removes: Object.freeze([
+      'heistArmor', 'heistGloves', 'heistMask', 'heistCarbine',
+      'heistSidearm', 'heistMagazines', 'heistDuffel',
+    ]),
+    air: Object.freeze({ rain: 0, tint: 0.72, warmth: 0.78 }),
   }),
 });
 
@@ -625,11 +647,33 @@ export function buildDressing(M, { root, fridgeDoor, at }) {
   add('casualJacket', casualJacket(M, at.casualJacket));
 
   add('cashStacks', cash(M, { ...at.cashStacks, n: 6, wide: true }));
+  add('heistCut', cash(M, {
+    x: -2.78, y: 0.76, z: -2.34, rotY: -0.12, n: 10, wide: true,
+  }));
   add('suitBag', suitBag(M, at.suitBag));
   add('gunCase', gunCase(M, at.gunCase));
   add('jerkyHaul', jerkyHaul(M, at.jerkyHaul));
   add('silverMatches', matchbook(M, { ...at.silverMatches, colour: 0x2a3a52 }));
   add('laundryHeap', laundryHeap(M, at.laundryHeap));
+
+  const heistItem = (name, size, pos, material = M.black, rotY = 0) => {
+    const g = group(name);
+    g.position.set(...pos);
+    g.rotation.y = rotY;
+    g.add(box({ size, pos: [0, size[1] / 2, 0], mat: material }));
+    return g;
+  };
+  add('heistArmor', heistItem('heistArmor', [0.62, 0.16, 0.52], [-4.18, 0.72, -2.62]));
+  add('heistGloves', heistItem('heistGloves', [0.42, 0.08, 0.22], [-3.74, 0.73, -2.56]));
+  add('heistMask', heistItem('heistMask', [0.34, 0.18, 0.28], [-3.35, 0.73, -2.50]));
+  add('heistCarbine', heistItem('heistCarbine', [1.12, 0.09, 0.14], [-4.02, 0.88, -2.84], M.darkSteel, 0.18));
+  add('heistSidearm', heistItem('heistSidearm', [0.42, 0.10, 0.16], [-3.28, 0.87, -2.76], M.darkSteel, -0.25));
+  add('heistMagazines', heistItem('heistMagazines', [0.38, 0.12, 0.24], [-2.92, 0.73, -2.56], M.darkSteel));
+  add('heistDuffel', heistItem('heistDuffel', [0.86, 0.44, 0.42], [-2.84, 0.01, -2.94], M.black, 0.12));
+
+  add('heistWash', heistItem('heistWash', [0.55, 0.06, 0.34], [4.30, 0.94, 1.98], M.sheet));
+  add('heistChange', heistItem('heistChange', [0.72, 0.20, 0.34], [4.60, 0.02, 4.76], M.black, -0.12));
+  add('heistGearSecured', heistItem('heistGearSecured', [0.92, 0.46, 0.50], [-3.78, 0.01, -2.70], M.black, 0.24));
 
   const rain = rainSheet(M, at.rain);
   add('rain', rain.group, { runners: rain.runners });

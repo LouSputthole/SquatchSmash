@@ -113,6 +113,7 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.JERKY_MOTEL]: 'the Jerky Motel',
   [SCENE_IDS.NO_WAKE]: 'South Harbor',
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
+  [SCENE_IDS.BANK_HEIST]: 'THE TAKE',
   [SCENE_IDS.INITIATION]: 'the Initiation',
 });
 
@@ -146,12 +147,39 @@ const CHAPTER_PLAN = Object.freeze({
     caller: 'Margo',
     routineRequired: false,
   }),
+  heist_day: Object.freeze({
+    event: EVENT_IDS.LOU_HEIST_CALL,
+    caller: 'Big Uncle Lou',
+    routineRequired: false,
+  }),
+  /* Grandfathered saves that already exposed Initiation retain this route. */
   big_night: Object.freeze({
     event: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
     caller: 'Booskibro',
     routineRequired: false,
   }),
+  post_heist: Object.freeze({
+    event: null,
+    caller: null,
+    routineRequired: false,
+  }),
 });
+
+export const HEIST_PREPARATION_ITEMS = Object.freeze([
+  Object.freeze({ id: 'armor', label: 'Put on concealable armor' }),
+  Object.freeze({ id: 'gloves', label: 'Take black gloves' }),
+  Object.freeze({ id: 'mask', label: 'Pack the dark mask' }),
+  Object.freeze({ id: 'carbine', label: 'Take the carbine' }),
+  Object.freeze({ id: 'sidearm', label: 'Take the sidearm' }),
+  Object.freeze({ id: 'magazines', label: 'Load the magazines' }),
+  Object.freeze({ id: 'duffel', label: 'Take the cash duffel' }),
+]);
+
+export const HEIST_CLEANUP_ITEMS = Object.freeze([
+  Object.freeze({ id: 'washed', label: 'Wash the blood and dust off' }),
+  Object.freeze({ id: 'changed', label: 'Change for the Bada Bing' }),
+  Object.freeze({ id: 'gearSecured', label: 'Hide the heist gear' }),
+]);
 
 export const DAY_ONE_LOU_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_FIRST_CALL,
@@ -303,6 +331,28 @@ export const DATE_MARGO_CALL = Object.freeze({
   ]),
 });
 
+/** Lou's last job before Tony is invited into the room as family. */
+export const DAY_FOUR_LOU_HEIST_CALL = Object.freeze({
+  eventId: EVENT_IDS.LOU_HEIST_CALL,
+  characterId: CHARACTER_IDS.LOU,
+  targetSceneId: SCENE_IDS.BANK_HEIST,
+  from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
+  vo: 'call.lou.heist',
+  lines: Object.freeze([
+    'Kid. Listen once. There is a car coming for you.',
+    'Gray suit. Armor underneath. Gloves, mask, both guns, every magazine on the table.',
+    'You are meeting Snow at a closed laundry. Once he starts talking, he is in charge.',
+    'Bring your nerve and leave your name at home.',
+  ]),
+  replies: Object.freeze([
+    'I am listening.',
+    'Suit, armor, gloves, mask, guns, magazines.',
+    'Snow is in charge.',
+    'When does the car arrive?',
+  ]),
+});
+
 /**
  * What sleeping in his own bed does, chapter by chapter.
  *
@@ -333,7 +383,7 @@ const SLEEP_CHAPTERS = Object.freeze([
   }),
   Object.freeze({
     from: 'date',
-    to: 'big_night',
+    to: 'heist_day',
     requires: MISSION_IDS.SILVER_ROOM,
     incomplete: 'date_incomplete',
     day: 4,
@@ -343,6 +393,7 @@ const SLEEP_CHAPTERS = Object.freeze([
 const LAST_CHAPTER = SLEEP_CHAPTERS[SLEEP_CHAPTERS.length - 1].to;
 
 const APARTMENT_RETURN_PRIORITY = Object.freeze([
+  SCENE_IDS.BANK_HEIST,
   SCENE_IDS.SILVER_ROOM,
   SCENE_IDS.NO_WAKE,
   SCENE_IDS.JERKY_MOTEL,
@@ -416,6 +467,7 @@ const MESSAGE_EVENTS = Object.freeze({
   day_two: TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO,
   no_wake: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
   date: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
+  heist_day: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
   big_night: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
 });
 
@@ -462,6 +514,19 @@ export const CHAPTER_MESSAGES = Object.freeze({
         'Wear something plain today. Nothing anybody would describe.',
         'There is a thing that may need doing and it may not. I will know later.',
         'And if Willy calls you, you have not spoken to me. Say it back to yourself until it is true.',
+      ]),
+    }),
+  ]),
+  heist_day: Object.freeze([
+    Object.freeze({
+      from: 'Big Uncle Lou',
+      characterId: CHARACTER_IDS.LOU,
+      vo: 'machine.lou.heist_day',
+      at: 'Today, 6:02 AM',
+      lines: Object.freeze([
+        'Today is the day, kid. Keep the line clear and do not ring back.',
+        'Everything you have done this week was somebody asking a question. Today is the answer.',
+        'Eat. Dress plain. I will call when the car is moving.',
       ]),
     }),
   ]),
@@ -533,6 +598,34 @@ export const CHAPTER_NEWS = Object.freeze({
       voice: 'ksqch',
       line: '…the Jerky Motel. We are told there is nothing to tell. We have been told that '
         + 'four times this morning, by four different people, using the same four words.',
+    }),
+  }),
+  heist_day: Object.freeze({
+    radio: Object.freeze({
+      vo: 'news.radio.heist_day',
+      voice: 'announcer',
+      line: 'Clear over downtown this morning. Traffic crews report lane work near Mercer, '
+        + 'so give yourself time and mind the diversions.',
+    }),
+    tv: Object.freeze({
+      vo: 'news.tv.heist_day',
+      voice: 'ksqch',
+      line: 'A quiet opening downtown. Cumberland Fidelity begins commercial service at '
+        + 'nine, and the city says the construction outside will not affect customers.',
+    }),
+  }),
+  post_heist: Object.freeze({
+    radio: Object.freeze({
+      vo: 'news.radio.post_heist',
+      voice: 'announcer',
+      line: 'Downtown remains sealed after the robbery at Cumberland Fidelity. Police have '
+        + 'not released names, faces, or a reliable count of the missing cash.',
+    }),
+    tv: Object.freeze({
+      vo: 'news.tv.post_heist',
+      voice: 'ksqch',
+      line: 'Helicopter pictures show abandoned vehicles on Bank Avenue and Mercer Street. '
+        + 'Investigators say the crew changed cars before leaving the industrial district.',
     }),
   }),
   big_night: Object.freeze({
@@ -663,6 +756,14 @@ class ApartmentStory {
       });
       return true;
     }
+    if (definition?.eventId === EVENT_IDS.LOU_HEIST_CALL
+      && !this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_HEIST_CALL, (state) => {
+        state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+        state.missions[MISSION_IDS.BANK_HEIST].status = 'available';
+      });
+      return true;
+    }
     if (definition?.eventId === EVENT_IDS.BOOSKI_BIG_NIGHT_CALL
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
       this.campaign.advanceTime(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL, (state) => {
@@ -672,6 +773,30 @@ class ApartmentStory {
       return true;
     }
     return false;
+  }
+
+  collectHeistPreparation(itemId) {
+    const valid = [...HEIST_PREPARATION_ITEMS.map((item) => item.id), 'extraMagazine'];
+    const mission = this.campaign.state.missions[MISSION_IDS.BANK_HEIST];
+    if (!valid.includes(itemId)
+      || !['available', 'in_progress'].includes(mission.status)
+      || mission.preparation?.[itemId] === true) return false;
+    this.campaign.update((state) => {
+      state.missions[MISSION_IDS.BANK_HEIST].preparation[itemId] = true;
+    });
+    return true;
+  }
+
+  completeHeistCleanup(itemId) {
+    const valid = HEIST_CLEANUP_ITEMS.map((item) => item.id);
+    const mission = this.campaign.state.missions[MISSION_IDS.BANK_HEIST];
+    if (!valid.includes(itemId)
+      || mission.status !== 'complete'
+      || mission.cleanup?.[itemId] === true) return false;
+    this.campaign.update((state) => {
+      state.missions[MISSION_IDS.BANK_HEIST].cleanup[itemId] = true;
+    });
+    return true;
   }
 
   /**
@@ -687,7 +812,7 @@ class ApartmentStory {
       return {
         ok: false,
         reason: state.story.chapter === LAST_CHAPTER
-          ? 'already_big_night' : 'unknown_chapter',
+          ? 'already_heist_day' : 'unknown_chapter',
       };
     }
     if (state.missions[step.requires].status !== 'complete') {
@@ -743,12 +868,35 @@ class ApartmentStory {
       done: activities[id] === true,
       required: plan.routineRequired,
     }));
-    items.push({
-      id: plan.event,
-      label: `Answer ${plan.caller}’s call`,
-      done: this.#eventAnswered(plan.event),
-      required: true,
-    });
+    if (plan.event) {
+      items.push({
+        id: plan.event,
+        label: `Answer ${plan.caller}’s call`,
+        done: this.#eventAnswered(plan.event),
+        required: true,
+      });
+    }
+
+    const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
+    if (state.story.chapter === 'heist_day'
+      && this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
+      for (const item of HEIST_PREPARATION_ITEMS) {
+        items.push({
+          ...item,
+          done: bankHeist.preparation[item.id] === true,
+          required: true,
+        });
+      }
+    }
+    if (state.story.chapter === 'post_heist') {
+      for (const item of HEIST_CLEANUP_ITEMS) {
+        items.push({
+          ...item,
+          done: bankHeist.cleanup[item.id] === true,
+          required: true,
+        });
+      }
+    }
 
     /* The first morning's optional half. Only the first morning: by Day Two
      * he knows where his own computer is and does not need telling. */
@@ -775,7 +923,7 @@ class ApartmentStory {
       items.push({ id: door.id, label: 'Find Lou’s package', done: false, required: true });
     } else if (door.kind === 'stay') {
       items.push({ id: door.id, label: 'Sleep', done: false, required: true });
-    } else if (door.kind === 'activity') {
+    } else if (door.kind === 'activity' && !items.some((item) => item.id === door.id)) {
       items.push({ id: door.id, label: door.label, done: false, required: true });
     }
     /* Last line, and only on the first day: the Bing is not until a quarter
@@ -787,6 +935,47 @@ class ApartmentStory {
 
   tryLeave(activities = {}) {
     const state = this.campaign.state;
+    const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
+    if (state.story.chapter === 'post_heist') {
+      const missing = HEIST_CLEANUP_ITEMS.find(
+        ({ id }) => bankHeist.cleanup[id] !== true,
+      );
+      if (missing) {
+        return {
+          kind: 'activity',
+          ...missing,
+          line: 'Not walking into the Bing wearing the bank. Clean up first.',
+        };
+      }
+      if (state.missions[MISSION_IDS.INITIATION].status === 'locked') {
+        return {
+          kind: 'stay',
+          id: 'initiation_locked',
+          line: 'Lou said seven. The invitation still has to land.',
+        };
+      }
+      return { kind: 'go', destination: SCENE_IDS.INITIATION };
+    }
+    if (state.story.chapter === 'heist_day') {
+      if (!this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.LOU_HEIST_CALL,
+          line: 'Lou said he would call. Today is not a day to guess.',
+        };
+      }
+      const missing = HEIST_PREPARATION_ITEMS.find(
+        ({ id }) => bankHeist.preparation[id] !== true,
+      );
+      if (missing) {
+        return {
+          kind: 'activity',
+          ...missing,
+          line: 'Everything Lou named goes with me. Nothing else does.',
+        };
+      }
+      return { kind: 'go', destination: SCENE_IDS.BANK_HEIST };
+    }
     if (state.story.chapter === 'big_night') {
       if (!this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
         return {
@@ -986,7 +1175,7 @@ class ApartmentStory {
    */
   margoWakeOwed() {
     const state = this.campaign.state;
-    return state.story.chapter === 'big_night'
+    return ['heist_day', 'big_night'].includes(state.story.chapter)
       && !state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE);
   }
 
@@ -1006,6 +1195,10 @@ class ApartmentStory {
 
   #pendingCall() {
     const state = this.campaign.state;
+    if (state.story.chapter === 'heist_day'
+      && !this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
+      return DAY_FOUR_LOU_HEIST_CALL;
+    }
     if (state.story.chapter === 'big_night'
       && !this.#eventAnswered(EVENT_IDS.BOOSKI_BIG_NIGHT_CALL)) {
       return BIG_NIGHT_BOOSKI_CALL;

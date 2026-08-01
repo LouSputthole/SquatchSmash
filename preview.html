@@ -125,6 +125,18 @@
     text-decoration: none;
   }
   .primary .play { background: var(--pink); color: #1b0711; }
+  .phase-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin: 0 0 16px;
+  }
+  .phase-links a {
+    color: var(--green);
+    font-size: 12px;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(117, 224, 181, .35);
+  }
   footer {
     display: flex;
     justify-content: space-between;
@@ -291,8 +303,24 @@
       <a class="play" data-preview-scene="silver" href="silver.html?preview=1">Play the date →</a>
     </article>
 
-    <article class="card">
+    <article class="card primary">
       <span class="number">SCENE PREVIEW 09</span>
+      <h2>THE TAKE</h2>
+      <p>Run Day 4's bank job in temporary memory, or jump to an authored checkpoint for focused development.</p>
+      <nav class="phase-links" aria-label="THE TAKE checkpoints">
+        <a href="heist.html?preview=1&amp;checkpoint=safehouse">Briefing</a>
+        <a href="heist.html?preview=1&amp;checkpoint=bank_lobby">Bank</a>
+        <a href="heist.html?preview=1&amp;checkpoint=vault_open">Vault</a>
+        <a href="heist.html?preview=1&amp;checkpoint=street_withdrawal">Street</a>
+        <a href="heist.html?preview=1&amp;checkpoint=mercer_garage">Garage</a>
+        <a href="heist.html?preview=1&amp;checkpoint=vehicle_escape">Driving</a>
+        <a href="heist.html?preview=1&amp;checkpoint=safehouse_debrief">Debrief</a>
+      </nav>
+      <a class="play" data-preview-scene="heist" href="heist.html?preview=1&amp;checkpoint=safehouse">Play THE TAKE →</a>
+    </article>
+
+    <article class="card">
+      <span class="number">SCENE PREVIEW 10</span>
       <h2>The Initiation</h2>
       <p>Test the current initiation build directly. This preview does not alter its story design.</p>
       <a class="play" data-preview-scene="initiation" href="initiation.html?preview=1">Play initiation →</a>

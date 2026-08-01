@@ -11,15 +11,18 @@ import {
   navigateCampaign,
 } from '../src/core/campaign.js';
 import {
-  BIG_NIGHT_BOOSKI_CALL,
   DATE_MARGO_CALL,
+  DAY_FOUR_LOU_HEIST_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
+  HEIST_CLEANUP_ITEMS,
+  HEIST_PREPARATION_ITEMS,
   NO_WAKE_LOU_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createAirstripStory } from '../src/core/airstrip-story.js';
+import { createBankHeistStory } from '../src/core/bank-heist-story.js';
 import {
   BADA_BING_TWO_CLEANUP_TASKS,
   createBadaBingTwoStory,
@@ -212,9 +215,44 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
 
   apartment = createApartmentStory({ campaign, ring: () => true });
   assert.deepEqual(apartment.sleep(), {
-    ok: true, chapter: 'big_night', day: 4, timeMinutes: 10 * 60,
+    ok: true, chapter: 'heist_day', day: 4, timeMinutes: 10 * 60,
   });
-  assert.equal(apartment.callAnswered(BIG_NIGHT_BOOSKI_CALL), true);
+  assert.equal(apartment.callAnswered(DAY_FOUR_LOU_HEIST_CALL), true);
+  for (const item of HEIST_PREPARATION_ITEMS) {
+    assert.equal(apartment.collectHeistPreparation(item.id), true);
+  }
+  assert.deepEqual(apartmentExit(apartment, campaign), {
+    kind: 'go', destination: SCENE_IDS.BANK_HEIST,
+  });
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_BANK_HEIST);
+  route(campaign, SCENE_IDS.BANK_HEIST, 'safehouse', 'heist.html');
+
+  const heist = createBankHeistStory({ campaign });
+  assert.deepEqual(heist.begin(), { ok: true, resumed: false, checkpoint: null });
+  assert.equal(heist.checkpoint('safehouse_ready'), true);
+  assert.equal(heist.checkpoint('bank_secured', { guardsDisarmed: 2 }), true);
+  assert.equal(heist.checkpoint('vault_open', { bagsStaged: 8 }), true);
+  assert.equal(heist.checkpoint('street_withdrawal', { policeHeat: 61 }), true);
+  assert.equal(heist.checkpoint('mercer_garage', {
+    bagsRecovered: 7,
+    crewInjuries: { rippinflow: 'moderate' },
+  }), true);
+  assert.equal(heist.checkpoint('vehicle_swap', {
+    playerDroveEscape: true, vehicleDamage: 41,
+  }), true);
+  assert.equal(heist.complete({
+    bagsRecovered: 7,
+    grossTake: 1_260_000,
+    followedSnow: true,
+    disciplinedFire: true,
+  }), true);
+  route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
+
+  campaign = reload(storage);
+  apartment = createApartmentStory({ campaign, ring: () => true });
+  for (const item of HEIST_CLEANUP_ITEMS) {
+    assert.equal(apartment.completeHeistCleanup(item.id), true);
+  }
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.INITIATION,
   });
@@ -226,7 +264,8 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   // The current Initiation build is intentionally a terminal work-in-progress:
   // it can be entered through the story, but must never be reported complete.
   campaign = reload(storage);
-  assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
+  assert.equal(campaign.state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
+  assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].status, 'complete');
   assert.deepEqual(campaign.state.scene, { id: SCENE_IDS.INITIATION, spawn: 'gathering' });
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'in_progress');
   assert.notEqual(campaign.state.missions[MISSION_IDS.INITIATION].status, 'complete');

@@ -40,6 +40,8 @@ import {
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
+  HEIST_CLEANUP_ITEMS,
+  HEIST_PREPARATION_ITEMS,
   createApartmentStory,
 } from './core/apartment-story.js';
 import { DayNight } from './core/daynight.js';
@@ -179,6 +181,7 @@ const recoveryNotice = campaign.recoveredNow
 const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
   && campaignAtLoad.scene.spawn === 'front_door';
 const returnSource = apartmentReturnSource(campaignAtLoad);
+const returningFromHeist = returnSource === SCENE_IDS.BANK_HEIST;
 const returningFromBing = returnSource === SCENE_IDS.BADA_BING_ONE;
 const returningFromSilver = returnSource === SCENE_IDS.SILVER_ROOM;
 const returningFromNoWake = returnSource === SCENE_IDS.NO_WAKE;
@@ -195,6 +198,8 @@ const wakingOnDate = !returningToApartment
   && campaignAtLoad.story.chapter === 'date';
 const wakingOnBigNight = !returningToApartment
   && campaignAtLoad.story.chapter === 'big_night';
+const wakingOnHeistDay = !returningToApartment
+  && campaignAtLoad.story.chapter === 'heist_day';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
   campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'wake' });
 }
@@ -222,6 +227,9 @@ if (wakingOnDayTwo) {
 } else if (wakingOnBigNight) {
   overlay.querySelector('.tag').textContent =
     'Day Four, 10:00 AM. Tonight is the big night. Booskibro will call about it.';
+} else if (wakingOnHeistDay) {
+  overlay.querySelector('.tag').textContent =
+    'Day Four, 10:00 AM. Margo is still here. Lou will call when she leaves.';
 }
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
@@ -616,6 +624,7 @@ async function boot() {
   apartment.state.dressed ||= savedActivities.changedClothes;
   apartment.state.repliedHR ||= savedActivities.emailChecked;
   if (savedActivities.pooped) apartment.state.bowel = 0;
+  installHeistApartmentInteractions();
 
   /* Once he has pocketed the phone he has it everywhere and for good, so a
    * flat rebuilt on a later morning starts with it in a pocket and an empty
@@ -703,8 +712,10 @@ async function boot() {
      * to standing up, so a call scheduled against a RETURN -- Lou ringing to
      * say well done about the Squatchfather -- could never have landed. */
     apartmentStory.beginMorning();
-    overlay.querySelector('.tag').textContent = returningFromBing
-      ? 'Back from the Bing. Lou’s package is still under your jacket.'
+    overlay.querySelector('.tag').textContent = returningFromHeist
+      ? 'Back from THE TAKE. Clean up, change, and put every piece of it away.'
+      : returningFromBing
+        ? 'Back from the Bing. Lou’s package is still under your jacket.'
       : returningFromSilver
         ? 'Back from the Silver Room. Tomorrow is the big night. Sleep on it.'
         : returningFromNoWake
@@ -796,7 +807,10 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.city.night', { volume: 0.0, ambience: true, fade: 2 });
     audio.startLoop('ambience.room', { volume: 0.07, ambience: true });
     if (returningToApartment) {
-      if (returningFromBing) {
+      if (returningFromHeist) {
+        hud.toast('All six made it home', 'good');
+        hud.say('Home. Wash it off, change, and hide the gear. <em>Then the Bing.</em>', 5200);
+      } else if (returningFromBing) {
         hud.toast('Lou’s package · inside your jacket', 'good');
         hud.say('Home again. The package came back with you.', 4800);
       } else if (returningFromSilver) {
@@ -2391,6 +2405,66 @@ function saveApartmentProgress() {
   });
 }
 
+const HEIST_DRESSING_BY_PREP = Object.freeze({
+  armor: 'heistArmor', gloves: 'heistGloves', mask: 'heistMask',
+  carbine: 'heistCarbine', sidearm: 'heistSidearm', magazines: 'heistMagazines',
+  duffel: 'heistDuffel',
+});
+const HEIST_DRESSING_BY_CLEANUP = Object.freeze({
+  washed: 'heistWash', changed: 'heistChange', gearSecured: 'heistGearSecured',
+});
+
+function syncHeistApartmentProps() {
+  if (!apartment?.dressing) return;
+  const mission = campaign.state.missions[MISSION_IDS.BANK_HEIST];
+  const chapter = campaign.state.story.chapter;
+  for (const [id, dressingId] of Object.entries(HEIST_DRESSING_BY_PREP)) {
+    const piece = apartment.dressing.get(dressingId);
+    if (piece) piece.group.visible = chapter === 'heist_day' && mission.preparation?.[id] !== true;
+  }
+  for (const [id, dressingId] of Object.entries(HEIST_DRESSING_BY_CLEANUP)) {
+    const piece = apartment.dressing.get(dressingId);
+    if (piece) piece.group.visible = chapter === 'post_heist' && mission.cleanup?.[id] !== true;
+  }
+  const cut = apartment.dressing.get('heistCut');
+  if (cut) cut.group.visible = chapter === 'post_heist' && mission.prospectShare > 0;
+}
+
+function installHeistApartmentInteractions() {
+  for (const item of HEIST_PREPARATION_ITEMS) {
+    const piece = apartment.dressing.get(HEIST_DRESSING_BY_PREP[item.id]);
+    if (!piece) continue;
+    interaction.register(piece.group, {
+      label: item.label,
+      enabled: () => piece.group.visible,
+      onUse: () => {
+        if (!apartmentStory.collectHeistPreparation(item.id)) return;
+        audio.play('heist.apartment.pack', { volume: 0.7 });
+        hud.toast(`${item.label.replace(/^(Put on|Take|Pack|Load) /, '')} ready`, 'good');
+        syncHeistApartmentProps();
+        updateObjectives();
+      },
+    });
+  }
+  for (const item of HEIST_CLEANUP_ITEMS) {
+    const piece = apartment.dressing.get(HEIST_DRESSING_BY_CLEANUP[item.id]);
+    if (!piece) continue;
+    interaction.register(piece.group, {
+      label: item.label,
+      hold: item.id === 'washed' ? 1.4 : 0.8,
+      enabled: () => piece.group.visible,
+      onUse: () => {
+        if (!apartmentStory.completeHeistCleanup(item.id)) return;
+        audio.play(`heist.apartment.${item.id}`, { volume: 0.7 });
+        hud.toast(item.label, 'good');
+        syncHeistApartmentProps();
+        updateObjectives();
+      },
+    });
+  }
+  syncHeistApartmentProps();
+}
+
 /**
  * The door. It never lists what is missing -- it gives one reason, in his
  * voice, and the reason is whichever thing he would think of first.
@@ -2444,6 +2518,12 @@ function leaveForMission(destination) {
   if (destination === SCENE_IDS.SILVER_ROOM) {
     // The mission's own story class flips it to in_progress on the pavement.
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_ROOM);
+    syncClockFromCampaign();
+  }
+  if (destination === SCENE_IDS.BANK_HEIST) {
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_BANK_HEIST, (state) => {
+      state.missions[MISSION_IDS.BANK_HEIST].status = 'in_progress';
+    }, { required: true });
     syncClockFromCampaign();
   }
   if (destination === SCENE_IDS.INITIATION) {
@@ -3219,6 +3299,7 @@ const CHAPTER_DONE = Object.freeze({
   no_wake: 'Day Two is done',
   date: 'The harbor is behind you',
   big_night: 'The Silver Room is behind you',
+  heist_day: 'The Silver Room is behind you',
 });
 
 /** And what the morning it opened onto is for. */
@@ -3227,6 +3308,7 @@ const WAKE_LINES = Object.freeze({
   no_wake: 'Grey out. Lou said he would call.',
   date: 'Nothing on today. She said she would ring.',
   big_night: 'Tonight is the thing. Booskibro said he would call.',
+  heist_day: 'Margo is still here. Lou can wait until she leaves.',
 });
 
 /**

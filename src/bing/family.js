@@ -299,7 +299,12 @@ export function populateFamily(scene, club, { present = FAMILY, faces = new Set(
  *   shotDone  () => boolean — Booski's shot beat already ran this visit
  *   startShot () => void    — kick the shot beat (owned by main.js)
  */
-export function buildFamilyScripts({ shotDone = () => false, startShot = () => {} } = {}) {
+export function buildFamilyScripts({
+  shotDone = () => false,
+  startShot = () => {},
+  irishGifted = () => false,
+  grantIrishGift = () => false,
+} = {}) {
   /** A two-beat hangout: line one, a reply, line two, maybe a last word. */
   const hangout = (name, slug, {
     line1, line2, reply, replyTone = 'Reply', last, lastCue, leave = 'Another time.',
@@ -343,11 +348,37 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
     lastCue: 'vo.bing.hang.gratin.tony.1',
   });
 
-  const eric = hangout('Eric', 'eric', {
-    line1: 'Big things happening overseas, Prospect. Nobody in this club reads. I read. Ask me anything.',
-    reply: { text: 'Alright. What’s happening overseas?', replyTone: 'Ask' },
-    line2: 'Off the record? The family’s press situation is terrible, because we shoot the press.',
-  });
+  const eric = {
+    open: {
+      who: 'Eric',
+      line: 'Big things happening overseas, Prospect. Nobody in this club reads. I read. Ask me anything.',
+      cue: 'vo.bing.hang.eric.1',
+      options: [
+        { tone: 'Food', text: 'What should I eat nearby?', next: 'shawarma' },
+        { tone: 'Ask', text: 'Alright. What’s happening overseas?', next: 'press' },
+        { tone: 'Leave', text: 'Another time.', next: null },
+      ],
+    },
+    press: {
+      who: 'Eric',
+      line: 'Off the record? The family’s press situation is terrible, because we shoot the press.',
+      cue: 'vo.bing.hang.eric.2',
+      hold: 3.4,
+    },
+    shawarma: {
+      who: 'Eric',
+      line: 'The chicken shawarma nearby is unbelievable. Best thing within walking distance, and I have checked repeatedly.',
+      cue: 'vo.bing.hang.eric.shawarma.1',
+      hold: 4.2,
+      next: 'shawarmaMore',
+    },
+    shawarmaMore: {
+      who: 'Eric',
+      line: 'Garlic sauce, pickles, crispy edges. That rotating spit has done more for this neighborhood than local government.',
+      cue: 'vo.bing.hang.eric.shawarma.2',
+      hold: 4.4,
+    },
+  };
 
   const hogmama = hangout('Hog Mama', 'hogmama', {
     line1: 'Gimme a word, baby. Any word. I’ll make a whole bit out of it, right here, no net.',
@@ -434,13 +465,33 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
     line2: 'You want my seat? It’s the best seat. That’s why I’m in it. I test ’em all after close.',
   });
 
-  const irish = hangout('Irish', 'irish', {
+  const irishHangout = hangout('Irish', 'irish', {
     line1: 'Sit down, sit down — I was just gettin’ to the good part. So the egg, right, the SAME egg—',
     reply: { text: 'Go on.', replyTone: 'Listen' },
     line2: 'Nobody finishes a story anymore. Attention spans. Now — where was I. Start over. So. Eggs.',
     last: 'You told me the egg one, Irish.',
     lastCue: 'vo.bing.hang.irish.tony.1',
   });
+  const irish = {
+    gift: {
+      who: 'Irish',
+      line: 'Before you say anything — here. One hundred dollars. I had it earmarked for eggs, but you look like a developing situation.',
+      cue: 'vo.bing.hang.irish.gift.1',
+      enter: () => {
+        if (!irishGifted()) grantIrishGift();
+      },
+      hold: 5.2,
+      next: 'giftReason',
+    },
+    giftReason: {
+      who: 'Irish',
+      line: 'A man should have walking-around money. Also, now you are financially invested in hearing the egg story.',
+      cue: 'vo.bing.hang.irish.gift.2',
+      hold: 4.5,
+      next: 'open',
+    },
+    ...irishHangout,
+  };
 
   const ape = hangout('Ape', 'ape', {
     line1: 'Statements made in this establishment are for entertainment purposes only.',

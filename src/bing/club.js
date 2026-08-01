@@ -41,6 +41,7 @@ export const BING_HALLWAY_ART_SLOTS = [
   'bing.hallway.eric',
   'bing.hallway.irish',
   'bing.hallway.seff',
+  'bing.hallway.deathmegatron',
 ];
 
 export const ROOMS = {
@@ -1202,6 +1203,7 @@ export function buildClub(scene, { renderer } = {}) {
       ['bing.hallway.eric', ['ERIC'], -0.75],
       ['bing.hallway.irish', ['IRISH'], 0.25],
       ['bing.hallway.seff', ['SEFF'], 1.25],
+      ['bing.hallway.deathmegatron', ['DEATH', 'MEGATRON'], 2.25],
     ].map(([slot, label, z]) => {
       const portrait = makeFrame(M, {
         x: 5.73, y: 1.82, z, rotY: Math.PI / 2, w: 0.42, h: 0.56,

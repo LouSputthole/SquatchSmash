@@ -4,6 +4,11 @@ ensureThreeShim();
 
 const TEST_MODULES = [
   './campaign.test.mjs',
+  './heist-campaign.test.mjs',
+  './bank-heist-story.test.mjs',
+  './combat-core.test.mjs',
+  './ground-vehicle.test.mjs',
+  './heist-systems.test.mjs',
   './fresh-save-campaign-route.test.mjs',
   './daynight.test.mjs',
   './characters.test.mjs',
@@ -25,6 +30,7 @@ const TEST_MODULES = [
   './hotdog-graveyard-story.test.mjs',
   './hotdog-voice-catalog.test.mjs',
   './bing-dialogue-lock.test.mjs',
+  './bing-family.test.mjs',
   './bing-voice-coverage.test.mjs',
   './beefrun-voice-manifest.test.mjs',
   './bing-audio.test.mjs',

@@ -30,6 +30,7 @@
     "verify:preview": "node tools/verify-preview.mjs",
     "verify:beefrun": "node tools/verify-beefrun.mjs",
     "verify:silver": "node tools/verify-silver.mjs",
+    "verify:heist": "node tools/verify-heist.mjs",
     "preverify:bundle": "node tools/bundle-preview.mjs",
     "verify:bundle": "node tools/verify-bundle.mjs",
     "balance:silver": "node tools/balance-silver.mjs",

@@ -51,10 +51,15 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html bing.html squatchfather.html motel.html beefrun.html \
-             nowake.html silver.html initiation.html preview.html roster.html _site/
+             graveyard.html nowake.html silver.html heist.html initiation.html \
+             preview.html roster.html _site/
           cp -r src vendor assets game lib _site/
           test -f _site/nowake.html
+          test -f _site/graveyard.html
+          test -f _site/heist.html
           test -f _site/src/nowake/main.js
+          test -f _site/src/graveyard/main.js
+          test -f _site/src/heist/main.js
           test -f _site/lib/jsm/postprocessing/EffectComposer.js
           test -f _site/lib/jsm/postprocessing/UnrealBloomPass.js
           grep -q 'src/nowake/main.js' _site/nowake.html

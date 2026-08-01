@@ -73,6 +73,26 @@ export function isPreviewMode(locationLike = globalThis.location) {
   return searchParams(locationLike).get('preview') === PREVIEW_VALUE;
 }
 
+const HEIST_PREVIEW_CHECKPOINTS = Object.freeze([
+  'safehouse',
+  'bank_lobby',
+  'vault_open',
+  'street_withdrawal',
+  'mercer_garage',
+  'vehicle_escape',
+  'safehouse_debrief',
+]);
+
+export function previewCheckpointForLocation(locationLike = globalThis.location) {
+  const value = searchParams(locationLike).get('checkpoint');
+  return HEIST_PREVIEW_CHECKPOINTS.includes(value) ? value : 'safehouse';
+}
+
+export function previewDifficultyForLocation(locationLike = globalThis.location) {
+  return searchParams(locationLike).get('difficulty') === 'forgiving'
+    ? 'forgiving' : 'professional';
+}
+
 export function previewApartmentVariantForLocation(locationLike = globalThis.location) {
   const pathname = String(locationLike?.pathname || '').toLowerCase();
   if (!(pathname.endsWith('/index.html') || pathname.endsWith('index.html'))) return null;
@@ -96,6 +116,9 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   }
   if (pathname.endsWith('/silver.html') || pathname.endsWith('silver.html')) {
     return 'silver_room';
+  }
+  if (pathname.endsWith('/heist.html') || pathname.endsWith('heist.html')) {
+    return 'bank_heist';
   }
   if (pathname.endsWith('/nowake.html') || pathname.endsWith('nowake.html')) {
     return 'no_wake';
@@ -178,6 +201,7 @@ function addPreviewNotice() {
     '<strong>DEVELOPER PREVIEW</strong>',
     '<span>Progress here is temporary</span>',
     '<a href="preview.html">Choose scene</a>',
+    '<button type="button" data-preview-reset>Reset</button>',
     '<a href="index.html">Exit to saved game</a>',
   ].join('');
   Object.assign(notice.style, {
@@ -212,13 +236,21 @@ function addPreviewNotice() {
     color: '#b9c2d4',
     whiteSpace: 'nowrap',
   });
-  for (const link of notice.querySelectorAll('a')) {
-    Object.assign(link.style, {
+  for (const control of notice.querySelectorAll('a, button')) {
+    Object.assign(control.style, {
       color: '#7de6dc',
+      border: '0',
+      padding: '0',
+      background: 'transparent',
+      font: 'inherit',
+      cursor: 'pointer',
       textDecoration: 'none',
       whiteSpace: 'nowrap',
     });
   }
+  notice.querySelector('[data-preview-reset]')?.addEventListener('click', () => {
+    globalThis.location?.reload?.();
+  });
   document.body.appendChild(notice);
 }
 

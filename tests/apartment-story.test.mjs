@@ -13,6 +13,8 @@ import {
 import {
   BIG_NIGHT_BOOSKI_CALL,
   DATE_MARGO_CALL,
+  DAY_FOUR_LOU_HEIST_CALL,
+  HEIST_PREPARATION_ITEMS,
   DAY_ONE_LOU_ATTABOY_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
@@ -31,6 +33,7 @@ const CAMPAIGN_CALLS = [
   DAY_TWO_LOU_SECOND_CALL,
   NO_WAKE_LOU_CALL,
   DATE_MARGO_CALL,
+  DAY_FOUR_LOU_HEIST_CALL,
   BIG_NIGHT_BOOSKI_CALL,
 ];
 
@@ -435,8 +438,8 @@ test('each chapter of sleep refuses until its own mission is finished', () => {
   campaign.update((state) => {
     state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
   });
-  assert.equal(story.sleep().chapter, 'big_night');
-  assert.deepEqual(story.sleep(), { ok: false, reason: 'already_big_night' });
+  assert.equal(story.sleep().chapter, 'heist_day');
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'already_heist_day' });
 });
 
 test('crossing midnight does not start the Day Two chapter before Tony sleeps', () => {
@@ -821,7 +824,7 @@ function afterTheDate(storage) {
   return campaign;
 }
 
-test('Booskibro rings once about the big night and unlocks the Initiation', () => {
+test('Lou rings once on Day 4 and unlocks THE TAKE preparation', () => {
   const storage = new MemoryStorage();
   const story = createApartmentStory({
     campaign: afterTheDate(storage),
@@ -841,26 +844,23 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
   woken.update(5.9);
   assert.deepEqual(calls, []);
   woken.update(0.2);
-  assert.deepEqual(calls, [BIG_NIGHT_BOOSKI_CALL]);
-  assert.equal(BIG_NIGHT_BOOSKI_CALL.characterId, CHARACTER_IDS.BOOSKI);
-  assert.equal(BIG_NIGHT_BOOSKI_CALL.from, 'Booskibro');
-  assert.equal(BIG_NIGHT_BOOSKI_CALL.voiceProfile, 'booski');
-  assert.equal(BIG_NIGHT_BOOSKI_CALL.vo, 'call.booski.bignight');
-  assert.equal(BIG_NIGHT_BOOSKI_CALL.targetSceneId, SCENE_IDS.INITIATION);
-  // A distinct bank from his airstrip call, or the last night of the campaign
-  // is delivered in the wrong lines.
-  assert.notEqual(BIG_NIGHT_BOOSKI_CALL.vo, DAY_TWO_BOOSKI_CALL.vo);
-  assert.notEqual(BIG_NIGHT_BOOSKI_CALL.eventId, DAY_TWO_LOU_SECOND_CALL.eventId);
+  assert.deepEqual(calls, [DAY_FOUR_LOU_HEIST_CALL]);
+  assert.equal(DAY_FOUR_LOU_HEIST_CALL.characterId, CHARACTER_IDS.LOU);
+  assert.equal(DAY_FOUR_LOU_HEIST_CALL.from, 'Big Uncle Lou');
+  assert.equal(DAY_FOUR_LOU_HEIST_CALL.voiceProfile, 'lou1');
+  assert.equal(DAY_FOUR_LOU_HEIST_CALL.vo, 'call.lou.heist');
+  assert.equal(DAY_FOUR_LOU_HEIST_CALL.targetSceneId, SCENE_IDS.BANK_HEIST);
+  assert.notEqual(DAY_FOUR_LOU_HEIST_CALL.vo, DAY_TWO_LOU_SECOND_CALL.vo);
 
-  assert.equal(woken.callAnswered(BIG_NIGHT_BOOSKI_CALL), true);
+  assert.equal(woken.callAnswered(DAY_FOUR_LOU_HEIST_CALL), true);
   const answered = createCampaign({ storage }).state;
-  assert.equal(answered.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
-  assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'available');
-  // Day 4 now, waking at ten. +5 minutes on the authored clock, once.
+  assert.equal(answered.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
+  assert.equal(answered.missions[MISSION_IDS.BANK_HEIST].status, 'available');
+  assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'locked');
   assert.equal(answered.story.day, 4);
-  assert.equal(answered.story.timeMinutes, 10 * 60 + 5);
-  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL));
-  assert.equal(woken.callAnswered(BIG_NIGHT_BOOSKI_CALL), false);
+  assert.equal(answered.story.timeMinutes, 10 * 60 + 3);
+  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.LOU_HEIST_CALL));
+  assert.equal(woken.callAnswered(DAY_FOUR_LOU_HEIST_CALL), false);
 
   const replayed = [];
   const afterReload = createApartmentStory({
@@ -875,29 +875,41 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
   assert.deepEqual(replayed, []);
 });
 
-test('the big-night door waits for Booskibro, then routes to the Initiation', () => {
+test('the Day 4 door waits for Lou and the heist kit, then routes to THE TAKE', () => {
   const campaign = afterTheDate();
   const story = createApartmentStory({ campaign, ring: () => true });
   story.sleep();
 
   assert.deepEqual(story.tryLeave({}), {
     kind: 'call',
-    id: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
-    line: 'Booskibro said he would call about tonight. I am not turning up unasked.',
+    id: EVENT_IDS.LOU_HEIST_CALL,
+    line: 'Lou said he would call. Today is not a day to guess.',
   });
 
-  story.callAnswered(BIG_NIGHT_BOOSKI_CALL);
+  story.callAnswered(DAY_FOUR_LOU_HEIST_CALL);
+  for (const item of HEIST_PREPARATION_ITEMS) story.collectHeistPreparation(item.id);
   assert.deepEqual(story.tryLeave({}), {
     kind: 'go',
-    destination: SCENE_IDS.INITIATION,
+    destination: SCENE_IDS.BANK_HEIST,
   });
-  // The scene does not report its own progress yet, so the door has to keep
-  // letting him back in rather than latching shut behind him.
   campaign.update((state) => {
-    state.missions[MISSION_IDS.INITIATION].status = 'in_progress';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'in_progress';
   });
   assert.deepEqual(story.tryLeave({}), {
     kind: 'go',
-    destination: SCENE_IDS.INITIATION,
+    destination: SCENE_IDS.BANK_HEIST,
+  });
+});
+
+test('grandfathered big-night saves still route through Booskibro to Initiation', () => {
+  const campaign = afterTheDate();
+  campaign.update((state) => {
+    state.story.chapter = 'big_night';
+    state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'pending';
+  });
+  const story = createApartmentStory({ campaign, ring: () => true });
+  assert.equal(story.callAnswered(BIG_NIGHT_BOOSKI_CALL), true);
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go', destination: SCENE_IDS.INITIATION,
   });
 });

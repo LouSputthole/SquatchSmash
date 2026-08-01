@@ -6466,6 +6466,18 @@
       "duration": 6
     },
     {
+      "name": "vo.bing.hang.eric.shawarma.1",
+      "voice": "eric",
+      "say": "The chicken shawarma nearby is unbelievable. Best thing within walking distance, and I have checked repeatedly.",
+      "duration": 6
+    },
+    {
+      "name": "vo.bing.hang.eric.shawarma.2",
+      "voice": "eric",
+      "say": "Garlic sauce, pickles, crispy edges. That rotating spit has done more for this neighborhood than local government.",
+      "duration": 6
+    },
+    {
       "name": "vo.bing.hang.hogmama.1",
       "voice": "hogmama",
       "say": "Gimme a word, baby. Any word. I'll make a whole bit out of it, right here, no net.",
@@ -6566,6 +6578,18 @@
       "voice": "player",
       "say": "You told me the egg one, Irish.",
       "duration": 2.5
+    },
+    {
+      "name": "vo.bing.hang.irish.gift.1",
+      "voice": "irish",
+      "say": "Before you say anything - here. One hundred dollars. I had it earmarked for eggs, but you look like a developing situation.",
+      "duration": 7
+    },
+    {
+      "name": "vo.bing.hang.irish.gift.2",
+      "voice": "irish",
+      "say": "A man should have walking-around money. Also, now you are financially invested in hearing the egg story.",
+      "duration": 6
     },
     {
       "name": "vo.bing.hang.ape.1",
@@ -10328,6 +10352,326 @@
       "say": "Thirteen to ten. Not a loss. A collection of individual career decisions, all made at once."
     },
     {
+      "name": "heist.snow_arrival",
+      "voice": "snow",
+      "say": "Door shut. Phone off. We use names until the masks go on."
+    },
+    {
+      "name": "heist.snow_plan",
+      "voice": "snow",
+      "say": "Inside, six people do one job. Outside, six targets move as one."
+    },
+    {
+      "name": "heist.snow_rules",
+      "voice": "snow",
+      "say": "No civilians. No souvenirs. Nobody leaves a person to save a bag."
+    },
+    {
+      "name": "heist.rippin_route",
+      "voice": "rippinflow",
+      "say": "Route Green behaves at lunch. Today every light is going to discover a personality."
+    },
+    {
+      "name": "heist.shubes_case",
+      "voice": "shubenator",
+      "say": "The blue case is organized. Your hands are not part of the organization."
+    },
+    {
+      "name": "heist.death_bags",
+      "voice": "deathmegatron",
+      "say": "Lou bought bigger bags. Apparently confidence has handles."
+    },
+    {
+      "name": "heist.numb_alarm",
+      "voice": "numbskull",
+      "say": "I am nowhere near the alarms. This is me saying it before anybody asks."
+    },
+    {
+      "name": "heist.prospect_ready",
+      "voice": "player",
+      "say": "Armor is on. Magazines are full. I heard the plan."
+    },
+    {
+      "name": "heist.rippin_two_lights",
+      "voice": "rippinflow",
+      "say": "Two lights."
+    },
+    {
+      "name": "heist.snow_time",
+      "voice": "snow",
+      "say": "Time."
+    },
+    {
+      "name": "heist.shubes_loop",
+      "voice": "shubenator",
+      "say": "Exterior loop is live. It will remain useful until somebody looks out a window."
+    },
+    {
+      "name": "heist.death_breathe",
+      "voice": "deathmegatron",
+      "say": "Breathe now. It costs more in there."
+    },
+    {
+      "name": "heist.snow_guard",
+      "voice": "snow",
+      "say": "Prospect, visible guard. Put him on the floor."
+    },
+    {
+      "name": "heist.death_floor",
+      "voice": "deathmegatron",
+      "say": "Hands clear. Eyes down. Nobody here needs to be brave."
+    },
+    {
+      "name": "heist.numb_manager",
+      "voice": "numbskull",
+      "say": "Manager is mine. Teller line is listening."
+    },
+    {
+      "name": "heist.shubes_vault",
+      "voice": "shubenator",
+      "say": "Panel first. Time-delay second. Nobody touches the leads."
+    },
+    {
+      "name": "heist.snow_clock",
+      "voice": "snow",
+      "say": "Four minutes became two. Fill the bags we have and leave the rest."
+    },
+    {
+      "name": "heist.numb_signal",
+      "voice": "numbskull",
+      "say": "Foot switch. I stopped the teller. I did not stop what she already sent."
+    },
+    {
+      "name": "heist.rippin_street",
+      "voice": "rippinflow",
+      "say": "Blue lights on both ends. Route Green is turning brown."
+    },
+    {
+      "name": "heist.snow_exit",
+      "voice": "snow",
+      "say": "Bags. Tools. People. Move."
+    },
+    {
+      "name": "heist.snow_contact",
+      "voice": "snow",
+      "say": "Planters first. Prospect, right side!"
+    },
+    {
+      "name": "heist.death_suppress",
+      "voice": "deathmegatron",
+      "say": "Intersection is occupied. I am correcting it."
+    },
+    {
+      "name": "heist.rippin_van",
+      "voice": "rippinflow",
+      "say": "Van is boxed. Give me five seconds and a miracle with keys."
+    },
+    {
+      "name": "heist.rippin_hit",
+      "voice": "rippinflow",
+      "say": "That is my leg. Route Green is officially cancelled."
+    },
+    {
+      "name": "heist.snow_fallback",
+      "voice": "snow",
+      "say": "Mercer garage. Pairs. Leave the van and keep Rippin between us."
+    },
+    {
+      "name": "heist.numb_bag",
+      "voice": "numbskull",
+      "say": "Bag is down. Rippin is not. Make the choice fast."
+    },
+    {
+      "name": "heist.snow_leave_it",
+      "voice": "snow",
+      "say": "Do not trade a person for paper."
+    },
+    {
+      "name": "heist.shubes_garage",
+      "voice": "shubenator",
+      "say": "Sedan is live. The ignition was never the difficult system."
+    },
+    {
+      "name": "heist.death_load",
+      "voice": "deathmegatron",
+      "say": "Cover me. Bags are heavier when everybody is shooting at the handles."
+    },
+    {
+      "name": "heist.rippin_drive",
+      "voice": "rippinflow",
+      "say": "Prospect drives. Left out, wrong way on purpose, then the warehouse lights."
+    },
+    {
+      "name": "heist.rippin_market_left",
+      "voice": "rippinflow",
+      "say": "Left at the warehouse. Hold it through Market, then right at the glass tower."
+    },
+    {
+      "name": "heist.snow_roadblock",
+      "voice": "snow",
+      "say": "Roadblock. Center gap. Do not argue with the cruisers."
+    },
+    {
+      "name": "heist.rippin_canal",
+      "voice": "rippinflow",
+      "say": "Canal road next. Narrow means they cannot put three cars beside us."
+    },
+    {
+      "name": "heist.shubes_swap",
+      "voice": "shubenator",
+      "say": "Cash first, coats second, weapons in the lined bin. In that order."
+    },
+    {
+      "name": "heist.death_swap_bags",
+      "voice": "deathmegatron",
+      "say": "Eight bags moved. Nobody leaves a handle in the dirty car."
+    },
+    {
+      "name": "heist.rippin_swap_aid",
+      "voice": "rippinflow",
+      "say": "Tie it above the tear. I can complain in the clean car."
+    },
+    {
+      "name": "heist.snow_return",
+      "voice": "snow",
+      "say": "Nobody celebrates until I count six people and every bag in this room."
+    },
+    {
+      "name": "heist.rippin_aid",
+      "voice": "rippinflow",
+      "say": "The van had one job and chose performance art. Wrap the leg tighter."
+    },
+    {
+      "name": "heist.shubes_defend",
+      "voice": "shubenator",
+      "say": "The vault opened on schedule. The alarm was a separate and inferior system."
+    },
+    {
+      "name": "heist.death_ammo",
+      "voice": "deathmegatron",
+      "say": "Ammunition accounted for. Everybody else is somebody else's paperwork."
+    },
+    {
+      "name": "heist.numb_home",
+      "voice": "numbskull",
+      "say": "I saw the tracker late. I saw it. We are still all standing here."
+    },
+    {
+      "name": "heist.snow_good",
+      "voice": "snow",
+      "say": "You moved when I said move. You covered people before money. Lou will hear that."
+    },
+    {
+      "name": "heist.lou_call",
+      "voice": "lou",
+      "say": "Everybody breathing? Good. Clean up. Bada Bing, seven. Wear something worth remembering."
+    },
+    {
+      "name": "heist.prospect_home",
+      "voice": "player",
+      "say": "We got out. Everybody came home."
+    },
+    {
+      "name": "heist.ambience.safehouse",
+      "prompt": "subtle enclosed safehouse room tone, distant washing machines, fluorescent hum, restrained, seamless loop, no voices"
+    },
+    {
+      "name": "heist.ambience.bank",
+      "prompt": "large marble bank lobby room tone, distant air conditioning and soft public murmur, restrained seamless loop, no words"
+    },
+    {
+      "name": "heist.ambience.street",
+      "prompt": "dense downtown street ambience under a police emergency, distant traffic reflections and sharp urban reverb, seamless loop, no voices"
+    },
+    {
+      "name": "heist.ambience.garage",
+      "prompt": "concrete parking garage ambience, ventilation rumble, distant city reflections, tense restrained seamless loop, no voices"
+    },
+    {
+      "name": "heist.ambience.driving",
+      "prompt": "car interior at speed through city streets, engine load, tire noise and suspension, restrained seamless loop, no siren"
+    },
+    {
+      "name": "heist.police.sirens",
+      "prompt": "several distant American police sirens moving between city blocks, Doppler and building reflections, seamless restrained loop"
+    },
+    {
+      "name": "heist.apartment.pack",
+      "prompt": "heavy tactical equipment placed into a canvas bag, short cloth and metal handling, no weapon discharge"
+    },
+    {
+      "name": "heist.apartment.washed",
+      "prompt": "quick bathroom wash, running tap, damp towel and sink splash, short dry sound"
+    },
+    {
+      "name": "heist.apartment.changed",
+      "prompt": "jacket and shirt changed quickly, restrained cloth movement, short dry sound"
+    },
+    {
+      "name": "heist.apartment.gearSecured",
+      "prompt": "heavy gear bag pushed into a wooden cupboard and door firmly closed, short dry sound"
+    },
+    {
+      "name": "heist.armor.strap",
+      "prompt": "concealable body armor tightened, velcro straps and dense fabric, close and restrained"
+    },
+    {
+      "name": "heist.weapon.check",
+      "prompt": "carbine safety and magazine checked once, controlled metal clicks, no firing"
+    },
+    {
+      "name": "heist.vault.panel",
+      "prompt": "bank vault access panel opened and electronic bypass leads connected, precise metal and relay clicks"
+    },
+    {
+      "name": "heist.vault.open",
+      "prompt": "massive bank vault bolts retract and circular steel door begins opening, low mechanical weight, no alarm"
+    },
+    {
+      "name": "heist.weapon.empty",
+      "prompt": "compact carbine trigger pulled on an empty chamber, one sharp mechanical dry click outdoors, close and controlled, no gunshot, no voice"
+    },
+    {
+      "name": "heist.weapon.reload",
+      "prompt": "compact carbine reloaded under pressure, empty magazine removed, full metal magazine seated firmly and charging handle released, close controlled handling, no gunshot, no voice"
+    },
+    {
+      "name": "heist.weapon.carbine",
+      "prompt": "single compact carbine shot outdoors, sharp controlled report and urban tail, no automatic burst"
+    },
+    {
+      "name": "heist.vehicle.impact",
+      "prompt": "sedan clips a police barricade, tire thump, metal scrape and laminated windshield crack, no crash explosion"
+    },
+    {
+      "name": "heist.vehicle.curbstone",
+      "prompt": "car tire strikes a curb at moderate speed, suspension thump and brief gravel, no major crash"
+    },
+    {
+      "name": "heist.player.hit",
+      "prompt": "body armor catches a distant handgun round, dense vest impact and breath, no gore"
+    },
+    {
+      "name": "heist.swap.trunk",
+      "prompt": "older sedan trunk unlatches and opens, restrained metal hinge and latch"
+    },
+    {
+      "name": "heist.swap.fabric",
+      "prompt": "masks and jackets pulled off and packed quickly, close canvas and cloth movement"
+    },
+    {
+      "name": "heist.swap.weapons",
+      "prompt": "firearms cleared and placed into a padded evidence bin, controlled metal and fabric handling, no discharge"
+    },
+    {
+      "name": "heist.swap.wipe",
+      "prompt": "cloth firmly wiping car surfaces and gear, quick repeated dry strokes"
+    },
+    {
+      "name": "heist.weapon.down",
+      "prompt": "several firearms set down carefully on a wooden table, heavy controlled metal contact"
+    },
+    {
       "name": "vo.bing.ambient.01",
       "voice": "doorman",
       "say": "You hear something happened with the butcher union?"
@@ -10656,6 +11000,11 @@
       "name": "vo.bing.full.dj.squatch.line.1m9s40e",
       "voice": "announcer",
       "say": "That’s the one thing I would play. It’s in the crate. Lou says it’s \"a lot\"."
+    },
+    {
+      "name": "vo.bing.full.eric.open.tony.1jw6ixv",
+      "voice": "player",
+      "say": "What should I eat nearby?"
     },
     {
       "name": "vo.bing.full.eric.open.tony.1upksdx",

@@ -164,6 +164,8 @@ Naming: `vo.bing.hang.<char>.<n>` for hangout lines,
 **Eric** (`eric`)
 1. "Big things happening overseas, Prospect. Nobody in this club reads. I read. Ask me anything." (6s)
 2. "Off the record? The family's press situation is terrible, because we shoot the press." (6s)
+3. "The chicken shawarma nearby is unbelievable. Best thing within walking distance, and I have checked repeatedly." (6s)
+4. "Garlic sauce, pickles, crispy edges. That rotating spit has done more for this neighborhood than local government." (6s)
 
 **Hog Mama** (`hogmama`)
 1. "Gimme a word, baby. Any word. I'll make a whole bit out of it, right here, no net." (6s)
@@ -192,8 +194,10 @@ Naming: `vo.bing.hang.<char>.<n>` for hangout lines,
 2. "You want my seat? It's the best seat. That's why I'm in it. I test 'em all after close." (5.5s)
 
 **Irish** (`irish`)
-1. "Sit down, sit down — I was just gettin' to the good part. So the egg, right, the SAME egg—" (6s)
-2. "Nobody finishes a story anymore. Attention spans. Now — where was I. Start over. So. Eggs." (6s)
+1. "Before you say anything — here. One hundred dollars. I had it earmarked for eggs, but you look like a developing situation." (7s; first Bing One talk grants $100 once)
+2. "A man should have walking-around money. Also, now you are financially invested in hearing the egg story." (6s)
+3. "Sit down, sit down — I was just gettin' to the good part. So the egg, right, the SAME egg—" (6s)
+4. "Nobody finishes a story anymore. Attention spans. Now — where was I. Start over. So. Eggs." (6s)
 - Tony: "You told me the egg one, Irish." (2.5s)
 
 **Ape** (`ape`)

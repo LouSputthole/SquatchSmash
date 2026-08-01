@@ -113,16 +113,25 @@ export class AudioEngine {
    * 404s. `npm run sfx` rewrites it; hand-added files can be listed manually.
    * If the index is missing entirely we fall back to probing every cue.
    */
-  loadManifest() {
+  loadManifest({ names = null, prefixes = [] } = {}) {
     // A transient failure may be retried, while a successful load remains
     // immutable for this page and coalesces double-clicked starts.
-    return loadOnceRetriable(this, '_manifestLoadPromise', () => this._loadManifestOnce());
+    return loadOnceRetriable(
+      this,
+      '_manifestLoadPromise',
+      () => this._loadManifestOnce({ names, prefixes }),
+    );
   }
 
-  async _loadManifestOnce() {
+  async _loadManifestOnce({ names = null, prefixes = [] } = {}) {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
-    const cues = this.manifest.sfx || [];
+    const allCues = this.manifest.sfx || [];
+    const selectedNames = names ? new Set(names) : null;
+    const cues = selectedNames || prefixes.length
+      ? allCues.filter((cue) => selectedNames?.has(cue.name)
+        || prefixes.some((prefix) => cue.name.startsWith(prefix)))
+      : allCues;
     let wanted;
     if (isBundled()) {
       /* A bundle has no folder to look in. Whatever was baked in is a data
@@ -138,7 +147,7 @@ export class AudioEngine {
         : cues;
     }
 
-    await this._loadWanted(wanted);
+    await this._loadWanted(wanted, 24);
     return { total: cues.length, loaded: this.loadedCount };
   }
 
@@ -268,6 +277,16 @@ export class AudioEngine {
   /** Clear only transient playback evidence; never samples or active sound. */
   clearPlaybackLog() {
     this.playbacks.length = 0;
+  }
+
+  /** Whether a cue has a decoded recording ready for immediate playback. */
+  hasSample(name) {
+    return (this.buffers.get(name)?.length ?? 0) > 0;
+  }
+
+  /** Duration of the first decoded take, used to hold subtitles to delivery. */
+  sampleDuration(name) {
+    return this.buffers.get(name)?.[0]?.duration ?? null;
   }
 
   /**
@@ -1467,6 +1486,54 @@ function synth(engine, name, dest, t, rate = 1) {
       tone(ctx, dest, t + 0.04, { freq: 1400, to: 4200, dur: 0.6, gain: 0.03, type: 'sine' });
       break;
 
+    /* -------- THE TAKE -------- */
+    case 'heist.weapon.carbine':
+      burst(ctx, dest, t, { dur: 0.028, type: 'highpass', freq: 2100, gain: 0.82 });
+      burst(ctx, dest, t + 0.004, { dur: 0.24, type: 'lowpass', freq: 360, gain: 0.64, sweep: 0.3 });
+      burst(ctx, dest, t + 0.035, { dur: 0.42, type: 'bandpass', freq: 1100, q: 0.8, gain: 0.12, sweep: 0.45 });
+      break;
+    case 'heist.weapon.empty':
+      burst(ctx, dest, t, { dur: 0.025, type: 'bandpass', freq: 2300, q: 4, gain: 0.25 });
+      break;
+    case 'heist.weapon.reload':
+    case 'heist.weapon.check':
+    case 'heist.swap.weapons':
+    case 'heist.weapon.down':
+      for (let i = 0; i < 4; i++) {
+        burst(ctx, dest, t + i * 0.12, { dur: 0.035, type: 'bandpass', freq: 1000 + i * 420, q: 3, gain: 0.16 });
+      }
+      break;
+    case 'heist.vault.panel':
+      for (let i = 0; i < 5; i++) tone(ctx, dest, t + i * 0.11, { freq: 720 + i * 95, dur: 0.05, gain: 0.09, type: 'square' });
+      break;
+    case 'heist.vault.open':
+      tone(ctx, dest, t, { freq: 62, to: 38, dur: 1.8, gain: 0.28, type: 'sawtooth' });
+      for (let i = 0; i < 5; i++) burst(ctx, dest, t + 0.25 + i * 0.23, { dur: 0.09, type: 'lowpass', freq: 420, gain: 0.22 });
+      break;
+    case 'heist.vehicle.impact':
+      burst(ctx, dest, t, { dur: 0.22, type: 'lowpass', freq: 480, gain: 0.65, sweep: 0.3 });
+      burst(ctx, dest, t + 0.04, { dur: 0.8, type: 'highpass', freq: 2800, gain: 0.18, sweep: 0.35 });
+      break;
+    case 'heist.vehicle.curbstone':
+    case 'heist.player.hit':
+      burst(ctx, dest, t, { dur: 0.16, type: 'lowpass', freq: 380, gain: 0.38, sweep: 0.35 });
+      break;
+    case 'heist.armor.strap':
+    case 'heist.apartment.pack':
+    case 'heist.apartment.changed':
+    case 'heist.apartment.gearSecured':
+    case 'heist.swap.fabric':
+      burst(ctx, dest, t, { dur: 0.42, type: 'bandpass', freq: 1500, q: 0.8, gain: 0.18, sweep: 0.55 });
+      break;
+    case 'heist.apartment.washed':
+    case 'heist.swap.wipe':
+      burst(ctx, dest, t, { dur: 0.58, type: 'highpass', freq: 2100, gain: 0.14, sweep: 0.65 });
+      break;
+    case 'heist.swap.trunk':
+      tone(ctx, dest, t, { freq: 150, to: 66, dur: 0.22, gain: 0.24, type: 'triangle' });
+      burst(ctx, dest, t + 0.04, { dur: 0.18, type: 'bandpass', freq: 780, q: 2, gain: 0.18 });
+      break;
+
     default:
       // Unknown cue: a soft neutral tick rather than silence, which makes
       // missing wiring obvious during development without being ugly.
@@ -1511,6 +1578,33 @@ function synthLoop(engine, name, dest) {
   };
 
   switch (name) {
+    case 'heist.ambience.safehouse':
+      noise('lowpass', 520, 0.7, 0.06);
+      osc('sine', 60, 0.018);
+      break;
+    case 'heist.ambience.bank':
+      noise('lowpass', 900, 0.5, 0.045);
+      osc('sine', 48, 0.014);
+      break;
+    case 'heist.ambience.street':
+      noise('bandpass', 1050, 0.6, 0.09);
+      noise('lowpass', 240, 0.8, 0.07);
+      break;
+    case 'heist.ambience.garage':
+      noise('lowpass', 580, 1.2, 0.06);
+      osc('sine', 72, 0.025);
+      break;
+    case 'heist.ambience.driving':
+      noise('lowpass', 720, 0.8, 0.1);
+      osc('sawtooth', 55, 0.025);
+      break;
+    case 'heist.police.sirens': {
+      const a = osc('sine', 710, 0.025);
+      const b = osc('sine', 920, 0.018);
+      a.frequency.linearRampToValueAtTime(920, ctx.currentTime + 1.4);
+      b.frequency.linearRampToValueAtTime(710, ctx.currentTime + 1.4);
+      break;
+    }
     case 'fridge.hum':
       osc('sine', 60, 0.35);
       osc('sine', 120.6, 0.12); // slight detune gives the compressor its beat

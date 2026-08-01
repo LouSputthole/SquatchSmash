@@ -46,6 +46,7 @@ export const SCENE_IDS = Object.freeze({
   JERKY_MOTEL: 'jerky_motel',
   NO_WAKE: 'no_wake',
   SILVER_ROOM: 'silver_room',
+  BANK_HEIST: 'bank_heist',
   INITIATION: 'initiation',
 });
 
@@ -67,6 +68,7 @@ export const MISSION_IDS = Object.freeze({
   JERKY_MOTEL: 'jerky_motel',
   NO_WAKE: 'no_wake',
   SILVER_ROOM: 'silver_room',
+  BANK_HEIST: 'bank_heist',
   INITIATION: 'initiation',
 });
 
@@ -82,6 +84,7 @@ export const EVENT_IDS = Object.freeze({
   LOU_SECOND_CALL: 'lou_second_call',
   LOU_NO_WAKE_CALL: 'lou_no_wake_call',
   MARGO_DATE_CALL: 'margo_date_call',
+  LOU_HEIST_CALL: 'lou_heist_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
 });
 
@@ -114,6 +117,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   LOU_SECOND_CALL: 'call.lou_second',
   LOU_NO_WAKE_CALL: 'call.lou_no_wake',
   MARGO_DATE_CALL: 'call.margo_date',
+  LOU_HEIST_CALL: 'call.lou_heist',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
   /* Coming home from the restaurant. The Squatchfather scene keeps no clock of
@@ -133,6 +137,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_NO_WAKE: 'mission.no_wake',
   DEPART_SILVER_ROOM: 'travel.silver_room',
   COMPLETE_SILVER_ROOM: 'mission.silver_room',
+  DEPART_BANK_HEIST: 'travel.bank_heist',
+  COMPLETE_BANK_HEIST: 'mission.bank_heist',
   DEPART_INITIATION: 'travel.initiation',
 });
 
@@ -162,6 +168,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_NO_WAKE_CALL]: Object.freeze({ minutes: 4 }),
   [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.LOU_HEIST_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
     atLeast: Object.freeze({ day: 1, timeMinutes: 23 * 60 + 41 }),
@@ -219,6 +226,14 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 23 * 60 + 20 }),
   }),
+  // Margo leaves at ten; Lou's crew collects Tony late that morning.
+  [TIME_EVENT_IDS.DEPART_BANK_HEIST]: Object.freeze({
+    atLeast: Object.freeze({ day: 4, timeMinutes: 11 * 60 + 15 }),
+  }),
+  // Briefing, bank, withdrawal, pursuit, swap, and the count fill the day.
+  [TIME_EVENT_IDS.COMPLETE_BANK_HEIST]: Object.freeze({
+    atLeast: Object.freeze({ day: 4, timeMinutes: 17 * 60 + 20 }),
+  }),
   /* The big night is the day after the date. Sleeping off the Silver Room is
    * what turns the page, so the ceremony lands on Day 4 at seven sharp. */
   [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
@@ -227,9 +242,25 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 6;
+export const CAMPAIGN_VERSION = 7;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
+
+export const BANK_HEIST_CHECKPOINT_IDS = Object.freeze([
+  'safehouse_ready',
+  'bank_secured',
+  'vault_open',
+  'street_withdrawal',
+  'mercer_garage',
+  'vehicle_swap',
+]);
+
+export const BANK_HEIST_OUTCOMES = Object.freeze([
+  'professional',
+  'hard_exit',
+  'costly_success',
+  'barely_clean',
+]);
 
 const MEMORIAL_GRAVE_IDS = Object.freeze([
   'babs', 'brawny', 'whiplash', 'sheep', 'echo', 'colton', 'geewiz', 'sauce',
@@ -250,6 +281,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ]),
   }),
@@ -302,6 +334,23 @@ const SCENES = Object.freeze({
     href: 'silver.html',
     defaultSpawn: 'kerb',
     spawns: Object.freeze(['kerb']),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  /* THE TAKE owns all of its internal phases and checkpoints behind one scene
+   * boundary. Preview spawns expose those phases without inventing campaign
+   * transitions between rooms inside a single mission. */
+  [SCENE_IDS.BANK_HEIST]: Object.freeze({
+    href: 'heist.html',
+    defaultSpawn: 'safehouse',
+    spawns: Object.freeze([
+      'safehouse',
+      'bank_lobby',
+      'vault_open',
+      'street_withdrawal',
+      'mercer_garage',
+      'vehicle_escape',
+      'safehouse_debrief',
+    ]),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   /* The Initiation is registered so the apartment door can route to it through
@@ -418,6 +467,60 @@ function initialState() {
         seeingHerAgain: false,
         knowsWhatHeDoes: false,
       },
+      [MISSION_IDS.BANK_HEIST]: {
+        status: 'locked',
+        checkpoint: null,
+        briefingComplete: false,
+        preparationComplete: false,
+        preparation: {
+          armor: false,
+          gloves: false,
+          mask: false,
+          carbine: false,
+          sidearm: false,
+          magazines: false,
+          duffel: false,
+          extraMagazine: false,
+        },
+        cleanupComplete: false,
+        cleanup: {
+          washed: false,
+          changed: false,
+          gearSecured: false,
+          finalCalls: false,
+        },
+        bankEntered: false,
+        civiliansHarmed: 0,
+        guardsDisarmed: 0,
+        alarmTriggered: false,
+        vaultOpened: false,
+        bagsStaged: 0,
+        bagsRecovered: 0,
+        grossTake: 0,
+        compromisedCash: 0,
+        operationalLoss: 0,
+        familyShare: 0,
+        crewShare: 0,
+        prospectShare: 0,
+        playerInjury: 'none',
+        crewInjuries: {
+          [CHARACTER_IDS.SNOW]: 'none',
+          [CHARACTER_IDS.RIPPINFLOW]: 'none',
+          [CHARACTER_IDS.SHUBENATOR]: 'none',
+          [CHARACTER_IDS.DEATHMEGATRON]: 'none',
+          [CHARACTER_IDS.NUMBSKULL]: 'none',
+        },
+        primaryVanLost: false,
+        droppedBagRecovered: false,
+        optionalVaultBagTaken: false,
+        playerDroveEscape: false,
+        vehicleDamage: 0,
+        policeHeat: 0,
+        crewSurvived: true,
+        followedSnow: true,
+        disciplinedFire: true,
+        outcome: null,
+      },
       [MISSION_IDS.INITIATION]: {
         status: 'locked',
       },
@@ -441,6 +544,9 @@ function initialState() {
       [EVENT_IDS.MARGO_DATE_CALL]: {
         status: 'pending',
       },
+      [EVENT_IDS.LOU_HEIST_CALL]: {
+        status: 'pending',
+      },
       [EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: {
         status: 'pending',
       },
@@ -456,6 +562,21 @@ function uniqueStrings(value) {
   return Array.isArray(value)
     ? [...new Set(value.filter((item) => typeof item === 'string'))]
     : [];
+}
+
+function normalizedCrewInjuries(value) {
+  const allowedIds = [
+    CHARACTER_IDS.SNOW,
+    CHARACTER_IDS.RIPPINFLOW,
+    CHARACTER_IDS.SHUBENATOR,
+    CHARACTER_IDS.DEATHMEGATRON,
+    CHARACTER_IDS.NUMBSKULL,
+  ];
+  const allowedGrades = ['none', 'minor', 'moderate', 'severe'];
+  return Object.fromEntries(allowedIds.map((id) => [
+    id,
+    allowedGrades.includes(value?.[id]) ? value[id] : 'none',
+  ]));
 }
 
 function storyAfterTimeEvent(story, eventId) {
@@ -581,6 +702,23 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  6(saved) {
+    /* Version 6 sent the fourth morning straight to Initiation. Preserve a
+     * save that already exposed the ceremony, but put everybody still waiting
+     * on the old big-night call onto the new Day 4 heist chapter. */
+    const initiationStatus = saved.missions?.[MISSION_IDS.INITIATION]?.status;
+    const alreadyAtInitiation = saved.scene?.id === SCENE_IDS.INITIATION
+      || ['available', 'in_progress', 'complete'].includes(initiationStatus);
+    const waitingOnOldRoute = saved.story?.chapter === 'big_night'
+      && !alreadyAtInitiation;
+    return {
+      ...saved,
+      version: 7,
+      story: waitingOnOldRoute
+        ? { ...saved.story, chapter: 'heist_day' }
+        : saved.story,
+    };
+  },
 });
 
 function migrate(saved) {
@@ -667,6 +805,9 @@ function normalize(saved) {
   const silver = saved.missions?.[MISSION_IDS.SILVER_ROOM] ?? {};
   const silverStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(silver.status) ? silver.status : base.missions.silver_room.status;
+  const bankHeist = saved.missions?.[MISSION_IDS.BANK_HEIST] ?? {};
+  const bankHeistStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(bankHeist.status) ? bankHeist.status : base.missions.bank_heist.status;
   const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
@@ -676,6 +817,7 @@ function normalize(saved) {
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
   const louNoWakeCall = saved.events?.[EVENT_IDS.LOU_NO_WAKE_CALL] ?? {};
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
+  const louHeistCall = saved.events?.[EVENT_IDS.LOU_HEIST_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
 
   const state = {
@@ -773,6 +915,60 @@ function normalize(saved) {
         seeingHerAgain: silver.seeingHerAgain === true,
         knowsWhatHeDoes: silver.knowsWhatHeDoes === true,
       },
+      [MISSION_IDS.BANK_HEIST]: {
+        status: bankHeistStatus,
+        checkpoint: BANK_HEIST_CHECKPOINT_IDS.includes(bankHeist.checkpoint)
+          ? bankHeist.checkpoint : null,
+        briefingComplete: bankHeist.briefingComplete === true,
+        preparationComplete: [
+          'armor', 'gloves', 'mask', 'carbine', 'sidearm', 'magazines', 'duffel',
+        ].every((key) => bankHeist.preparation?.[key] === true),
+        preparation: {
+          armor: bankHeist.preparation?.armor === true,
+          gloves: bankHeist.preparation?.gloves === true,
+          mask: bankHeist.preparation?.mask === true,
+          carbine: bankHeist.preparation?.carbine === true,
+          sidearm: bankHeist.preparation?.sidearm === true,
+          magazines: bankHeist.preparation?.magazines === true,
+          duffel: bankHeist.preparation?.duffel === true,
+          extraMagazine: bankHeist.preparation?.extraMagazine === true,
+        },
+        cleanupComplete: ['washed', 'changed', 'gearSecured', 'finalCalls']
+          .every((key) => bankHeist.cleanup?.[key] === true),
+        cleanup: {
+          washed: bankHeist.cleanup?.washed === true,
+          changed: bankHeist.cleanup?.changed === true,
+          gearSecured: bankHeist.cleanup?.gearSecured === true,
+          finalCalls: bankHeist.cleanup?.finalCalls === true,
+        },
+        bankEntered: bankHeist.bankEntered === true,
+        civiliansHarmed: boundedNumber(bankHeist.civiliansHarmed, 0, 99, 0, true),
+        guardsDisarmed: boundedNumber(bankHeist.guardsDisarmed, 0, 16, 0, true),
+        alarmTriggered: bankHeist.alarmTriggered === true,
+        vaultOpened: bankHeist.vaultOpened === true,
+        bagsStaged: boundedNumber(bankHeist.bagsStaged, 0, 10, 0, true),
+        bagsRecovered: boundedNumber(bankHeist.bagsRecovered, 0, 10, 0, true),
+        grossTake: boundedNumber(bankHeist.grossTake, 0, 10_000_000, 0, true),
+        compromisedCash: boundedNumber(bankHeist.compromisedCash, 0, 10_000_000, 0, true),
+        operationalLoss: boundedNumber(bankHeist.operationalLoss, 0, 10_000_000, 0, true),
+        familyShare: boundedNumber(bankHeist.familyShare, 0, 10_000_000, 0, true),
+        crewShare: boundedNumber(bankHeist.crewShare, 0, 10_000_000, 0, true),
+        prospectShare: boundedNumber(bankHeist.prospectShare, 0, 10_000_000, 0, true),
+        playerInjury: ['none', 'minor', 'moderate', 'severe']
+          .includes(bankHeist.playerInjury) ? bankHeist.playerInjury : 'none',
+        crewInjuries: normalizedCrewInjuries(bankHeist.crewInjuries),
+        primaryVanLost: bankHeist.primaryVanLost === true,
+        droppedBagRecovered: bankHeist.droppedBagRecovered === true,
+        optionalVaultBagTaken: bankHeist.optionalVaultBagTaken === true,
+        playerDroveEscape: bankHeist.playerDroveEscape === true,
+        vehicleDamage: boundedNumber(bankHeist.vehicleDamage, 0, 100, 0),
+        policeHeat: boundedNumber(bankHeist.policeHeat, 0, 100, 0),
+        crewSurvived: bankHeist.crewSurvived !== false,
+        followedSnow: bankHeist.followedSnow !== false,
+        disciplinedFire: bankHeist.disciplinedFire !== false,
+        outcome: BANK_HEIST_OUTCOMES.includes(bankHeist.outcome)
+          ? bankHeist.outcome : null,
+      },
       [MISSION_IDS.INITIATION]: {
         status: initiationStatus,
       },
@@ -810,6 +1006,11 @@ function normalize(saved) {
       // An exposed Silver Room is proof Margo already rang.
       [EVENT_IDS.MARGO_DATE_CALL]: {
         status: margoCall.status === 'answered' || silverStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      // Once THE TAKE is exposed, Lou's Day 4 call has already landed.
+      [EVENT_IDS.LOU_HEIST_CALL]: {
+        status: louHeistCall.status === 'answered' || bankHeistStatus !== 'locked'
           ? 'answered' : 'pending',
       },
       // Same rule at the end of the line: an exposed Initiation is proof
@@ -979,6 +1180,24 @@ class Campaign {
     return this.state;
   }
 
+  /** Commit a heist checkpoint or result only when it is durably saved. */
+  updateRequired(change) {
+    if (typeof change !== 'function') {
+      throw new TypeError('Required campaign update requires a function');
+    }
+    const before = clone(this._state);
+    const candidate = clone(this._state);
+    change(candidate);
+    candidate.version = CAMPAIGN_VERSION;
+    candidate.revision = this._state.revision + 1;
+    this._state = normalize(candidate);
+    if (!this.#save()) {
+      this._state = before;
+      throw new Error('Required campaign update could not be saved');
+    }
+    return this.state;
+  }
+
   /**
    * Register the page that actually loaded. This keeps direct development
    * entrypoints usable without inventing a story transition that never ran.
@@ -992,7 +1211,7 @@ class Campaign {
     return this.state;
   }
 
-  advanceTime(eventId, change) {
+  advanceTime(eventId, change, { required = false } = {}) {
     const event = TIME_EVENTS[eventId];
     if (!event) throw new Error(`Unknown time event "${eventId}"`);
     if (change !== undefined && typeof change !== 'function') {
@@ -1014,7 +1233,8 @@ class Campaign {
       : before + event.minutes;
     const absolute = Math.max(before, target);
     const minutesAdvanced = absolute - before;
-    this.update((state) => {
+    const commit = required ? this.updateRequired.bind(this) : this.update.bind(this);
+    commit((state) => {
       change?.(state);
       state.story.day = Math.floor(absolute / MINUTES_PER_DAY) + 1;
       state.story.timeMinutes = absolute % MINUTES_PER_DAY;
@@ -1150,7 +1370,7 @@ const APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
     timeMinutes: 23 * 60 + 20,
   }),
   'day-four-wake': Object.freeze({
-    progress: 6, spawn: 'wake', chapter: 'big_night', day: 4, timeMinutes: 10 * 60,
+    progress: 6, spawn: 'wake', chapter: 'heist_day', day: 4, timeMinutes: 10 * 60,
   }),
 });
 
@@ -1175,6 +1395,7 @@ function seedApartmentPreviewCampaign(state, variant) {
   const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
   const noWake = state.missions[MISSION_IDS.NO_WAKE];
   const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+  const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
   const completedTimeEvents = [];
   const markTime = (...eventIds) => completedTimeEvents.push(...eventIds);
 
@@ -1277,6 +1498,10 @@ function seedApartmentPreviewCampaign(state, variant) {
       TIME_EVENT_IDS.DEPART_SILVER_ROOM,
       TIME_EVENT_IDS.COMPLETE_SILVER_ROOM,
     );
+    if (checkpoint.chapter === 'heist_day') {
+      state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'pending';
+      bankHeist.status = 'locked';
+    }
   }
 
   if (checkpoint.spawn === 'wake') {
@@ -1302,6 +1527,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
     const noWake = state.missions[MISSION_IDS.NO_WAKE];
     const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
     const initiation = state.missions[MISSION_IDS.INITIATION];
 
     if (sceneId === SCENE_IDS.APARTMENT) {
@@ -1323,6 +1549,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       firstBing.status = 'complete';
@@ -1353,6 +1580,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       squatchfather.status = 'complete';
@@ -1390,6 +1618,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       secondBing.status = 'complete';
@@ -1403,7 +1632,10 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       motel.status = 'available';
     }
 
-    if ([SCENE_IDS.NO_WAKE, SCENE_IDS.SILVER_ROOM, SCENE_IDS.INITIATION].includes(sceneId)) {
+    if ([
+      SCENE_IDS.NO_WAKE, SCENE_IDS.SILVER_ROOM, SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.INITIATION,
+    ].includes(sceneId)) {
       motel.status = 'complete';
       motel.ending = 'home';
       motel.cargoRecovered = true;
@@ -1418,7 +1650,8 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if ([SCENE_IDS.SILVER_ROOM, SCENE_IDS.INITIATION].includes(sceneId)) {
+    if ([SCENE_IDS.SILVER_ROOM, SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION]
+      .includes(sceneId)) {
       noWake.status = 'complete';
       noWake.checkpoint = 'returned';
       noWake.betrayalConfirmed = true;
@@ -1438,16 +1671,57 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if (sceneId === SCENE_IDS.INITIATION) {
+    if ([SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION].includes(sceneId)) {
       silver.status = 'complete';
       silver.outcome = 'strong';
       silver.woo = 74;
       silver.seeingHerAgain = true;
-      /* And then he slept off the date, which is the page turn into the big
-       * night: Day 4, ten in the morning, ceremony at seven. */
-      state.story.chapter = 'big_night';
+      state.story.chapter = 'heist_day';
       state.story.day = 4;
-      state.story.timeMinutes = 10 * 60;
+      state.story.timeMinutes = 11 * 60 + 15;
+      if (!state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE)) {
+        state.story.timeEvents.push(TIME_EVENT_IDS.MARGO_WAKE);
+      }
+      state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+    }
+
+    if (sceneId === SCENE_IDS.BANK_HEIST) {
+      bankHeist.status = 'available';
+      Object.assign(bankHeist.preparation, {
+        armor: true,
+        gloves: true,
+        mask: true,
+        carbine: true,
+        sidearm: true,
+        magazines: true,
+        duffel: true,
+      });
+      return;
+    }
+
+    if (sceneId === SCENE_IDS.INITIATION) {
+      bankHeist.status = 'complete';
+      bankHeist.checkpoint = 'vehicle_swap';
+      bankHeist.briefingComplete = true;
+      Object.assign(bankHeist.preparation, {
+        armor: true, gloves: true, mask: true, carbine: true,
+        sidearm: true, magazines: true, duffel: true,
+      });
+      Object.assign(bankHeist.cleanup, {
+        washed: true, changed: true, gearSecured: true, finalCalls: true,
+      });
+      bankHeist.bankEntered = true;
+      bankHeist.alarmTriggered = true;
+      bankHeist.vaultOpened = true;
+      bankHeist.bagsStaged = 8;
+      bankHeist.bagsRecovered = 7;
+      bankHeist.grossTake = 1_260_000;
+      bankHeist.playerDroveEscape = true;
+      bankHeist.primaryVanLost = true;
+      bankHeist.crewInjuries[CHARACTER_IDS.RIPPINFLOW] = 'moderate';
+      bankHeist.outcome = 'professional';
+      state.story.chapter = 'big_night';
+      state.story.timeMinutes = 19 * 60;
       state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status = 'answered';
       initiation.status = 'available';
     }

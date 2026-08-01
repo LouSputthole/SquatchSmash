@@ -2052,6 +2052,8 @@ check('every performer keeps her height, wears real hair, and has her edges take
     'vo.bing.hang.lag.tony.1', 'vo.bing.hang.gratin.tony.1',
     'vo.bing.hang.hogmama.tony.1', 'vo.bing.hang.sasole.tony.1',
     'vo.bing.hang.irish.tony.1', 'vo.bing.booski.shot.tony.1',
+    'vo.bing.hang.eric.shawarma.1', 'vo.bing.hang.eric.shawarma.2',
+    'vo.bing.hang.irish.gift.1', 'vo.bing.hang.irish.gift.2',
   ];
   const unwired = mustBeWired.filter((cue) => !wired.includes(cue));
   const unauthored = wired.filter((cue) => !authored.has(cue));
@@ -2115,6 +2117,30 @@ const tonyLines = await page.evaluate(() => {
 check('every one of Tony’s authored replies plays, and none of them is cut off',
   tonyLines.length === 5 && tonyLines.every((r) => r.picked && r.spoke && r.loaded > 0 && r.uncut),
   JSON.stringify(tonyLines));
+
+const irishGift = await page.evaluate(() => {
+  const b = window.__bing;
+  b.game.irishGifted = false;
+  b.game.money = 340;
+  const node = b.familyScripts.irish.gift;
+  node.enter();
+  const afterFirst = b.game.money;
+  node.enter();
+  return {
+    afterFirst,
+    afterSecond: b.game.money,
+    gifted: b.game.irishGifted,
+    cue: node.cue,
+    continuesTo: b.familyScripts.irish.giftReason.next,
+  };
+});
+check('Irish gives exactly $100 on the first conversation of Bing One',
+  irishGift.afterFirst === 440
+    && irishGift.afterSecond === 440
+    && irishGift.gifted
+    && irishGift.cue === 'vo.bing.hang.irish.gift.1'
+    && irishGift.continuesTo === 'open',
+  JSON.stringify(irishGift));
 
 /* ---- 11, 12: the bottom of the screen ---- */
 const talkUi = await page.evaluate(async () => {
@@ -2188,11 +2214,11 @@ const hallwayGallery = await page.evaluate(async () => {
     };
   });
 });
-check('the eleven supplied Family portraits make the rear-hall gallery to Lou’s office',
-  hallwayGallery.length === 11
+check('the twelve supplied Family portraits make the rear-hall gallery to Lou’s office',
+  hallwayGallery.length === 12
     && hallwayGallery.every((portrait) => portrait.real && portrait.wallBound)
     && hallwayGallery.map((portrait) => portrait.file).join(',')
-      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp',
+      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp,family-portrait-deathmegatron.webp',
   JSON.stringify(hallwayGallery));
 
 /* ---- 14 to 21: Lou's office ---- */

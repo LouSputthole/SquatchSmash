@@ -41,6 +41,7 @@ export class InteractionSystem {
     this.raycaster = new THREE.Raycaster();
     this.raycaster.far = MAX_DISTANCE;
     this.targets = [];
+    this.occluders = [];
     this.current = null;
     this.holdTime = 0;
     this.holding = false;
@@ -59,6 +60,9 @@ export class InteractionSystem {
     if (i >= 0) this.targets.splice(i, 1);
     delete mesh.userData.interact;
   }
+
+  /** Geometry that may block a target without itself becoming interactive. */
+  setOccluders(objects = []) { this.occluders = [...objects]; }
 
   /** Walk up the parent chain to find the object that owns the descriptor. */
   _ownerOf(object) {
@@ -80,13 +84,13 @@ export class InteractionSystem {
     }
 
     this.raycaster.setFromCamera(ORIGIN, this.camera);
-    const hits = this.raycaster.intersectObjects(this.targets, true);
+    const hits = this.raycaster.intersectObjects([...this.targets, ...this.occluders], true);
 
     let found = null;
     let soft = null;
     for (const hit of hits) {
       const owner = this._ownerOf(hit.object);
-      if (!owner) continue;
+      if (!owner) break;
       const desc = owner.userData.interact;
       if (desc.enabled && !desc.enabled()) continue;
       // Remembered, not taken: anything solid further down the ray beats it.
