@@ -39,6 +39,8 @@ const SONG_FADE_OUT = 3.5;
 /* Where in the track to start. A fifth in usually clears the intro and lands
  * somewhere with words on it. */
 const SONG_START_FRAC = 0.20;
+const DEFAULT_VOLUME = 0.07;
+const VOLUME_STEP = 0.07;
 
 export class Radio {
   constructor(audio, hud, time) {
@@ -49,6 +51,9 @@ export class Radio {
     /** Each station keeps its own place in its own playlist. */
     this.index = new Map();
     this.on = false;
+    // A small receiver across the room, not a nightclub PA. The physical
+    // knob lets the player change this without changing the whole game mix.
+    this.volume = DEFAULT_VOLUME;
     this.el = null;
     this.source = null;
     this.position = new THREE.Vector3();
@@ -70,9 +75,11 @@ export class Radio {
     /** Seconds into the record on air, or -1 when none is. */
     this._songT = -1;
     this._show = null;
+    this._broadcastT = 0;
   }
 
   get station() { return this.stations[this.stationIndex]; }
+  get volumePercent() { return Math.round(this.volume * 100); }
 
   /** Every record the station owns. There is one station, so: all of them. */
   get playlist() { return this.tracks; }
@@ -92,6 +99,19 @@ export class Radio {
 
   setPosition(v) {
     this.position.copy(v);
+  }
+
+  setVolume(value) {
+    this.volume = THREE.MathUtils.clamp(value, 0, 1);
+    if (this.gain && this._songT >= 0) this._fadeTo(0.85 * this.volume, 0.08);
+    if (this.on && !this.songPlaying && this._broadcastT <= 0) {
+      this.audio.setLoopVolume?.('radio.talk', 0.055 * this.volume, 0.08);
+    }
+    return this.volume;
+  }
+
+  adjustVolume(direction) {
+    return this.setVolume(this.volume + Math.sign(direction || 0) * VOLUME_STEP);
   }
 
   /** Build the audio graph lazily -- it needs a running AudioContext. */
@@ -174,6 +194,7 @@ export class Radio {
   turnOff() {
     this.audio.play('radio.click', { position: this.position, volume: 0.8 });
     this.on = false;
+    this._broadcastT = 0;
     this._stopBeds();
     if (this.el) {
       this._fadeTo(0, 0.25);
@@ -217,12 +238,12 @@ export class Radio {
     if (this.el) this.el.pause();
     // A murmuring voice bed under the words, so the room is not silent.
     this.audio.startLoop('radio.talk', {
-      volume: 0.055, position: this.position, ref: 2.6, maxDist: 20,
+      volume: 0.055 * this.volume, position: this.position, ref: 2.6, maxDist: 20,
     });
     this._show = null;
     this._pump();
     if (announce) {
-      this.audio.play(st.ident, { position: this.position, volume: 0.55 });
+      this.audio.play(st.ident, { position: this.position, volume: 0.55 * this.volume });
     }
     return;
   }
@@ -340,7 +361,7 @@ export class Radio {
     this._segT = 0;
     // Hearing it counts as knowing it.
     if (s.notice) this.onNotice?.();
-    if (s.cue) this.audio.play(s.cue, { position: this.position, volume: 0.5 });
+    if (s.cue) this.audio.play(s.cue, { position: this.position, volume: 0.5 * this.volume });
 
     // The hosts are recorded now, so hold a line on air for exactly as long as
     // it takes to say. Anything without a clip -- the dynamically composed
@@ -358,7 +379,7 @@ export class Radio {
      * default 1.4m rolloff is a murmur by the time you are at the fridge, so
      * from anywhere but the sideboard the station read as dead air. */
     this._voice = v ? this.audio.play(v.cue, {
-      position: this.position, volume: 1.0, ref: 3.4, maxDist: 26,
+      position: this.position, volume: 1.0 * this.volume, ref: 3.4, maxDist: 26,
     }) : null;
     this._dwell = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP
@@ -373,6 +394,22 @@ export class Radio {
       station: show ? `${st.dial} \u2014 ${show}` : st.name,
       track: this._line || st.tagline,
     });
+  }
+
+  /** Put an urgent bulletin ahead of the ordinary running order. */
+  broadcast({ cue, line }) {
+    if (!this.on) this.turnOn();
+    this._ensureGraph();
+    this._stopBeds();
+    this._line = line;
+    this._showOsd();
+    this._voice = cue ? this.audio.play(cue, {
+      position: this.position, volume: 1.0 * this.volume, ref: 3.4, maxDist: 26,
+    }) : null;
+    this._broadcastT = this._voice?.buffer
+      ? this._voice.buffer.duration + SEGMENT_GAP
+      : SEGMENT_TIME;
+    return this._broadcastT;
   }
 
   /* ---------------------------------------------------------------- */
@@ -426,9 +463,9 @@ export class Radio {
 
     const p = this.el.play();
     if (p && p.catch) p.catch(() => { /* the error handler covers it */ });
-    this._fadeTo(0.85, SONG_FADE_IN);
+    this._fadeTo(0.85 * this.volume, SONG_FADE_IN);
     // The murmuring talk bed would sit under the music otherwise.
-    this.audio.setLoopVolume?.('radio.talk', 0.006, 0.6);
+    this.audio.setLoopVolume?.('radio.talk', 0.006 * this.volume, 0.6);
 
     this._songT = 0;
     this._line = `${track.artist ? `${track.artist} \u2014 ` : ''}${track.title || track.file}`;
@@ -449,8 +486,8 @@ export class Radio {
       try { this.el.pause(); } catch { /* already stopped */ }
       this._fadeTo(0, 0);
     }
-    this.audio.play('radio.cut', { position: this.position, volume: 0.75 });
-    this.audio.setLoopVolume?.('radio.talk', 0.04, 0.8);
+    this.audio.play('radio.cut', { position: this.position, volume: 0.75 * this.volume });
+    this.audio.setLoopVolume?.('radio.talk', 0.04 * this.volume, 0.8);
 
     // Jump the queue: whatever the station was going to say next waits.
     this._queue.unshift(...MEETING_NOTICE);
@@ -466,7 +503,7 @@ export class Radio {
     this._fadeTo(0, fade);
     const el = this.el;
     setTimeout(() => { if (!this.songPlaying && el) el.pause(); }, fade * 1000 + 120);
-    this.audio.setLoopVolume?.('radio.talk', 0.04, 1.2);
+    this.audio.setLoopVolume?.('radio.talk', 0.04 * this.volume, 1.2);
     this._line = null;
     this._segT = 0;
     /* The gap is measured from the moment the record is actually GONE, not
@@ -480,6 +517,12 @@ export class Radio {
   /** Called once a frame by main.js. */
   update(dt) {
     if (!this.on) return;
+
+    if (this._broadcastT > 0) {
+      this._broadcastT -= dt;
+      if (this._broadcastT <= 0 && this.on) this._tuneIn(false);
+      return;
+    }
 
     /* While a record is on, the station is the record. No lines, no ad, no
      * notice -- the queue simply waits. */
@@ -527,7 +570,7 @@ export class Radio {
       on ? 1400 : 6200,
       this.audio.ctx.currentTime + 0.4,
     );
-    this.audio.setLoopVolume('radio.talk', on ? 0.018 : 0.04, 0.4);
+    this.audio.setLoopVolume('radio.talk', (on ? 0.018 : 0.04) * this.volume, 0.4);
   }
 }
 
