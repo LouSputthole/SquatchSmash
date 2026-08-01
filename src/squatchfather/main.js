@@ -649,6 +649,10 @@ function buildStates() {
       enter() {
         train.setIntensity(1);
         vibration.set(1);
+        /* The replacement deep horn belongs here, under the room's maximum
+         * vibration and immediately before Tony draws. The opening exterior
+         * horn remains the distant establishing call. */
+        train.horn();
         director.setFov(FOV.pressure);
         setObjective('');
         this.t = 0;

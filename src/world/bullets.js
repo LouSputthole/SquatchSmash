@@ -81,9 +81,11 @@ function bloodTexture() {
   const g = c.getContext('2d');
 
   const core = g.createRadialGradient(S / 2, S / 2, 2, S / 2, S / 2, S * 0.30);
-  core.addColorStop(0, 'rgba(60,6,8,0.95)');
-  core.addColorStop(0.55, 'rgba(110,14,16,0.85)');
-  core.addColorStop(1, 'rgba(140,20,20,0)');
+  /* These sit on dark suits in a dim restaurant. The old near-black centre
+   * and five-centimetre visible core read as no wound at all during the fall. */
+  core.addColorStop(0, 'rgba(105,0,6,1)');
+  core.addColorStop(0.52, 'rgba(188,10,18,0.96)');
+  core.addColorStop(1, 'rgba(224,24,28,0)');
   g.fillStyle = core;
   g.fillRect(0, 0, S, S);
 
@@ -92,7 +94,7 @@ function bloodTexture() {
     const a = (i / 22) * Math.PI * 2 + (i % 5) * 0.21;
     const d = S * (0.18 + ((i * 11) % 7) / 24);
     const r = 1.2 + ((i * 5) % 4);
-    g.fillStyle = `rgba(${96 + (i % 3) * 18},10,12,${0.5 + (i % 3) * 0.15})`;
+    g.fillStyle = `rgba(${146 + (i % 3) * 22},8,12,${0.62 + (i % 3) * 0.14})`;
     g.beginPath();
     g.arc(S / 2 + Math.cos(a) * d * (i % 2 ? 1 : 0.6), S / 2 + Math.sin(a) * d, r, 0, 7);
     g.fill();
@@ -109,11 +111,15 @@ export class BulletHoles {
     this.pool = [];
     this.next = 0;
 
-    const size = kind === 'blood' ? 0.17 : 0.09;
+    const isBlood = kind === 'blood';
+    const size = isBlood ? 0.31 : 0.09;
     const mat = new THREE.MeshBasicMaterial({
-      map: kind === 'blood' ? bloodTexture() : holeTexture(),
+      map: isBlood ? bloodTexture() : holeTexture(),
       transparent: true,
       depthWrite: false,
+      /* A wound starts facing Tony, then the actor falls and may roll the
+       * plane through its back face. Blood must survive that movement. */
+      side: isBlood ? THREE.DoubleSide : THREE.FrontSide,
       /* Sits in front of whatever it is on, and must not fight it. The lift
        * handles most of that; polygonOffset covers surfaces at a glancing
        * angle, where a fixed lift is not enough. */
@@ -124,7 +130,7 @@ export class BulletHoles {
     for (let i = 0; i < MAX; i++) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(size, size), mat);
       m.visible = false;
-      m.renderOrder = 3;
+      m.renderOrder = isBlood ? 4 : 3;
       scene.add(m);
       this.pool.push(m);
     }
