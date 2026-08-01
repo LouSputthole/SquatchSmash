@@ -1,5 +1,10 @@
 # Video
 
+## Current channels
+
+- `austin-2.mp4` - THE AUSTIN TAPE
+- `hog-mamas-show.mp4` - HOG MAMA'S SHOW (Sebesta Does Stand-Up)
+
 Tapes for the telly. A file in here becomes a channel via `videoChannel()` in
 `src/core/tv.js` — it is blitted onto the same 512x288 canvas every other
 channel paints on, and its sound goes out through a panner at the set.

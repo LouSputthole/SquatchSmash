@@ -380,8 +380,17 @@ const AUSTIN_TAPE = videoChannel({
   glow: { colour: 0xb8c4d4, intensity: 1.15 },
 });
 
+/** Hog Mama's local stand-up programme, received as a finished tape. */
+const HOG_MAMAS_SHOW = videoChannel({
+  name: "HOG MAMA'S SHOW",
+  file: 'hog-mamas-show.mp4',
+  card: "HOG MAMA'S SHOW IS OFF AIR",
+  glow: { colour: 0xe08ab1, intensity: 1.25 },
+});
+
 export const CHANNELS = [
   SQUATCH_WATCH, JERKY_CHANNEL, COUNTER_SQUATCH_LEGENDS, AUSTIN_TAPE,
+  HOG_MAMAS_SHOW,
   NOTICES, TEST_CARD, STATIC,
 ];
 
