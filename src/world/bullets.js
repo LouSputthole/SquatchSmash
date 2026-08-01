@@ -146,6 +146,10 @@ export class BulletHoles {
   punch(point, normal) {
     const m = this.pool[this.next % this.pool.length];
     this.next++;
+    // A pooled wound may have been attached to a falling character on its
+    // previous use. Put it back in world space before writing world-space
+    // coordinates again.
+    if (m.parent !== this.scene) this.scene.attach(m);
     m.position.copy(point).addScaledVector(normal, LIFT);
     /* Face along the normal. lookAt orients -Z at the target, and a plane's
      * face is +Z, so aim it at a point OUT from the surface rather than at the
@@ -155,6 +159,14 @@ export class BulletHoles {
     const s = 0.85 + Math.random() * 0.4;
     m.scale.set(s, s, 1);
     m.visible = true;
+    return m;
+  }
+
+  /** Put a wound on a moving actor so it follows their fall, not the room. */
+  punchAttached(parent, point, normal) {
+    const m = this.punch(point, normal);
+    parent.attach(m);
+    return m;
   }
 
   /** Light the room for an instant from `at`. */
@@ -179,7 +191,10 @@ export class BulletHoles {
 
   /** Wipe the holes, for a fresh run. */
   reset() {
-    for (const m of this.pool) m.visible = false;
+    for (const m of this.pool) {
+      if (m.parent !== this.scene) this.scene.attach(m);
+      m.visible = false;
+    }
     this.next = 0;
   }
 }

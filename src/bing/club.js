@@ -34,6 +34,13 @@ export const BING_HALLWAY_ART_SLOTS = [
   'bing.hallway.rippinflow',
   'bing.hallway.booskibro',
   'bing.hallway.shubenator',
+  'bing.hallway.sauce',
+  'bing.hallway.lag',
+  'bing.hallway.hogmama',
+  'bing.hallway.ape',
+  'bing.hallway.eric',
+  'bing.hallway.irish',
+  'bing.hallway.seff',
 ];
 
 export const ROOMS = {
@@ -1184,10 +1191,17 @@ export function buildClub(scene, { renderer } = {}) {
     // replace the old repeated liquor-permit filler frames with the supplied
     // portraits, mounted high enough to clear the service hardware below.
     const hallwayPortraits = [
-      ['bing.hallway.uncle_lou', ['BIG UNCLE', 'LOU'], -8.55],
-      ['bing.hallway.rippinflow', ['RIPPIN', 'FLOW'], -7.25],
-      ['bing.hallway.booskibro', ['BOOSKI', 'BRO'], -5.95],
-      ['bing.hallway.shubenator', ['SHUBE', 'NATOR'], -2.85],
+      ['bing.hallway.uncle_lou', ['BIG UNCLE', 'LOU'], -8.75],
+      ['bing.hallway.rippinflow', ['RIPPIN', 'FLOW'], -7.75],
+      ['bing.hallway.booskibro', ['BOOSKI', 'BRO'], -6.75],
+      ['bing.hallway.shubenator', ['SHUBE', 'NATOR'], -5.75],
+      ['bing.hallway.sauce', ['SAUCE'], -4.75],
+      ['bing.hallway.lag', ['LAG'], -3.75],
+      ['bing.hallway.hogmama', ['HOG MAMA'], -2.75],
+      ['bing.hallway.ape', ['APE'], -1.75],
+      ['bing.hallway.eric', ['ERIC'], -0.75],
+      ['bing.hallway.irish', ['IRISH'], 0.25],
+      ['bing.hallway.seff', ['SEFF'], 1.25],
     ].map(([slot, label, z]) => {
       const portrait = makeFrame(M, {
         x: 5.73, y: 1.82, z, rotY: Math.PI / 2, w: 0.42, h: 0.56,

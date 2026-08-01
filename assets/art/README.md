@@ -34,11 +34,25 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 | `bing.hallway.rippinflow` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
 | `bing.hallway.booskibro` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
 | `bing.hallway.shubenator` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `bing.hallway.sauce` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `bing.hallway.lag` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `bing.hallway.hogmama` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `bing.hallway.ape` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `bing.hallway.eric` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `bing.hallway.irish` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
+| `bing.hallway.seff` | Bada Bing, rear-hall Family portrait on the way to Lou's office |
 | `squatchfather.dining.coast` | Squatchfather, large framed dining-room print |
 | `squatchfather.portrait.uncle_lou` | Squatchfather, Family portrait replacing dining-room filler art |
 | `squatchfather.portrait.rippinflow` | Squatchfather, Family portrait replacing dining-room filler art |
 | `squatchfather.portrait.booskibro` | Squatchfather, Family portrait replacing dining-room filler art |
 | `squatchfather.portrait.shubenator` | Squatchfather, Family portrait replacing dining-room filler art |
+| `squatchfather.portrait.sauce` | Squatchfather, Family portrait replacing dining-room filler art |
+| `squatchfather.portrait.lag` | Squatchfather, Family portrait replacing dining-room filler art |
+| `squatchfather.portrait.hogmama` | Squatchfather, Family portrait replacing dining-room filler art |
+| `squatchfather.portrait.ape` | Squatchfather, Family portrait replacing dining-room filler art |
+| `squatchfather.portrait.eric` | Squatchfather, Family portrait replacing dining-room filler art |
+| `squatchfather.portrait.irish` | Squatchfather, Family portrait replacing dining-room filler art |
+| `squatchfather.portrait.seff` | Squatchfather, Family portrait replacing dining-room filler art |
 
 Frames size themselves to each image's aspect ratio, so portrait and landscape
 both hang correctly; `scale` (default `1`) nudges one bigger or smaller.

@@ -80,6 +80,7 @@ const ui = {
   pause: $('pause'),
   pauseState: $('pauseState'),
   death: $('death'),
+  deathTitle: $('deathTitle'),
   endCard: $('endCard'),
 };
 
@@ -402,13 +403,22 @@ function fire() {
 }
 
 /** Blood at the wound and a second spatter thrown low, facing the shooter. */
-function bloodHit(at) {
+function bloodHit(target) {
+  const at = target.eyePoint;
   const toShooter = camera.position.clone().sub(at).normalize();
-  blood.punch(at, toShooter);
-  blood.punch(
+  // These are wounds on people, not decals on the restaurant wall. Attach
+  // them to the moving figure so Sal's forward collapse and McClawsky's fall
+  // carry the impact with them instead of leaving it hanging in the air.
+  blood.punchAttached(target.fig.neck, at, toShooter);
+  blood.punchAttached(target.fig.torso,
     at.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.25, -0.38, (Math.random() - 0.5) * 0.25)),
     toShooter,
   );
+}
+
+function failScene(title) {
+  ui.deathTitle.textContent = title;
+  fsm.go(S.FAILED);
 }
 
 function buildStates() {
@@ -671,17 +681,26 @@ function buildStates() {
       enter() {
         director.steerTo(sal.eyePoint, 0.5, 0.8);
         this.t = 0;
+        this.warned = false;
       },
       update(dt) {
         this.t += dt;
         // Aim assistance keeps the first shot centred on Sal
         if (this.t < 0.6) director.steerTo(sal.eyePoint, 0.1, 0.9);
+        if (!this.warned && this.t > 14) {
+          this.warned = true;
+          showDrawPrompt('urgent');
+        }
+        if (this.t >= 20) {
+          failScene('YOU HESITATED');
+          return;
+        }
         if (!firePressed) return;
         firePressed = false;
         fire();
         prospect.fireKick();
         sal.kill();
-        bloodHit(sal.eyePoint);
+        bloodHit(sal);
         knockGlassOver(glasswareFor(sceneState.props.salGlass));
         roomReacts();
         fsm.go(S.SHOOT_MCCLAWSKY);
@@ -691,7 +710,7 @@ function buildStates() {
     [S.SHOOT_MCCLAWSKY]: {
       enter() {
         director.steerTo(mcclawsky.eyePoint, 0.55, 0.85);
-        mcclawsky.startDraw(1.7, () => fsm.go(S.FAILED));
+        mcclawsky.startDraw(1.7, () => failScene('McCLAWSKY DREW FIRST'));
       },
       update() {
         if (!firePressed) return;
@@ -699,7 +718,7 @@ function buildStates() {
         fire();
         prospect.fireKick();
         mcclawsky.kill();
-        bloodHit(mcclawsky.eyePoint);
+        bloodHit(mcclawsky);
         Foley.chairKnock();
         fsm.go(S.DROP_WEAPON);
       },
@@ -923,6 +942,7 @@ function restoreCheckpoint() {
   setRoomMuffle(0);
   showDrawPrompt(null);
   showReticle(false);
+  ui.deathTitle.textContent = 'McCLAWSKY DREW FIRST';
 
   fadeIn();
   ui.hud.classList.add('visible');

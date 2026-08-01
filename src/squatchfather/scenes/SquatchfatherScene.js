@@ -45,6 +45,13 @@ export const SQUATCHFATHER_ART_SLOTS = [
   'squatchfather.portrait.rippinflow',
   'squatchfather.portrait.booskibro',
   'squatchfather.portrait.shubenator',
+  'squatchfather.portrait.sauce',
+  'squatchfather.portrait.lag',
+  'squatchfather.portrait.hogmama',
+  'squatchfather.portrait.ape',
+  'squatchfather.portrait.eric',
+  'squatchfather.portrait.irish',
+  'squatchfather.portrait.seff',
 ];
 
 // ---------- Shared caches ----------
@@ -850,18 +857,25 @@ export function buildSquatchfatherScene(scene, renderer) {
   // large landscape frame, clear of the smaller newspaper clippings.
   const coastPicture = framed(T.specials, 3.8, 2.15, -6.96, 1.72, 8.35, Math.PI / 2);
   coastPicture.art.userData.art = { slot: 'squatchfather.dining.coast', real: false };
-  // These replace the old repeated filler portraits with the four Family
-  // portraits supplied for the campaign. They are deliberately grouped on
-  // the dining-room wall rather than scattered through the restaurant.
+  // These replace the old repeated filler portraits with the supplied Family
+  // gallery. Two rows keep all eleven readable without crowding the dining
+  // room's hero print on the opposite wall.
   const familyPortraits = [
-    ['squatchfather.portrait.uncle_lou', 2.15],
-    ['squatchfather.portrait.rippinflow', 4.25],
-    ['squatchfather.portrait.booskibro', 6.35],
-    ['squatchfather.portrait.shubenator', 8.45],
-  ].map(([slot, z]) => {
-    const portrait = framed(T.portrait, 0.52, 0.70, 6.96, 1.92, z, -Math.PI / 2);
+    ['squatchfather.portrait.uncle_lou', 'bing-hallway-uncle-lou.png', 2.32, 1.8],
+    ['squatchfather.portrait.rippinflow', 'bing-hallway-rippinflow.png', 2.32, 3.2],
+    ['squatchfather.portrait.booskibro', 'bing-hallway-booskibro.png', 2.32, 4.6],
+    ['squatchfather.portrait.shubenator', 'bing-hallway-shubenator.png', 2.32, 6.0],
+    ['squatchfather.portrait.sauce', 'family-portrait-sauce.png', 2.32, 7.4],
+    ['squatchfather.portrait.lag', 'family-portrait-lag.png', 2.32, 8.8],
+    ['squatchfather.portrait.hogmama', 'family-portrait-hogmama.png', 1.25, 2.45],
+    ['squatchfather.portrait.ape', 'family-portrait-ape.png', 1.25, 3.85],
+    ['squatchfather.portrait.eric', 'family-portrait-eric.png', 1.25, 5.25],
+    ['squatchfather.portrait.irish', 'family-portrait-irish.png', 1.25, 6.65],
+    ['squatchfather.portrait.seff', 'family-portrait-seff.png', 1.25, 8.05],
+  ].map(([slot, file, y, z]) => {
+    const portrait = framed(T.portrait, 0.46, 0.62, 6.96, y, z, -Math.PI / 2);
     portrait.art.userData.art = { slot, real: false };
-    return { slot, width: 0.52, ...portrait };
+    return { slot, file, width: 0.46, ...portrait };
   });
 
   // ================= HALLWAY =================
@@ -913,7 +927,21 @@ export function buildSquatchfatherScene(scene, renderer) {
   }
   tileWall(B.x0 - 0.1, 17.1, 0.2, 4.2);
   tileWall(B.x1 + 0.1, 17.1, 0.2, 4.2);
-  tileWall((B.x0 + B.x1) / 2, B.z1 + 0.1, B.x1 - B.x0 + 0.4, 0.2);
+  /* A window is an opening in the tile, not a sheet of blue glass pasted on
+   * top of it. Keep the collision continuous but build the visible north wall
+   * around the opening, then sink glass and its frame into that reveal. */
+  const bathBackZ = B.z1 + 0.1;
+  const tilePiece = (name, w, h, x, y) => {
+    const piece = box(w, h, 0.2, tileMat, x, y, bathBackZ);
+    piece.name = name;
+    scene.add(piece);
+    return piece;
+  };
+  tilePiece('bathroom.window.leftTile', 0.72, B.h, 2.36, B.h / 2);
+  tilePiece('bathroom.window.rightTile', 2.68, B.h, 5.06, B.h / 2);
+  tilePiece('bathroom.window.lowerTile', 1.0, 2.02, 3.2, 1.01);
+  tilePiece('bathroom.window.headerTile', 1.0, 0.16, 3.2, 2.62);
+  block((B.x0 + B.x1) / 2, B.z1 + 0.1, B.x1 - B.x0 + 0.4, 0.2);
 
   // Bathroom door — hinged at x=4.3, standing open until he walks through it
   const bathDoor = new THREE.Group();
@@ -930,11 +958,12 @@ export function buildSquatchfatherScene(scene, renderer) {
   const bwin = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), phong(0x2a3a48, {
     transparent: true, opacity: 0.5, shininess: 80, specular: 0xaaccee,
   }));
-  bwin.position.set(3.2, 2.35, B.z1 - 0.06);
+  bwin.name = 'bathroom.window.glass';
+  bwin.position.set(3.2, 2.35, B.z1 - 0.012);
   bwin.rotation.y = Math.PI;
   scene.add(bwin);
-  scene.add(box(1.0, 0.06, 0.08, lam(0x2c3830), 3.2, 2.62, B.z1 - 0.08));
-  scene.add(box(1.0, 0.06, 0.08, lam(0x2c3830), 3.2, 2.08, B.z1 - 0.08));
+  scene.add(box(1.0, 0.06, 0.08, lam(0x2c3830), 3.2, 2.62, B.z1 - 0.035));
+  scene.add(box(1.0, 0.06, 0.08, lam(0x2c3830), 3.2, 2.08, B.z1 - 0.035));
   const moonSpill = new THREE.PointLight(0x6f88b8, 5, 5.5, 2);
   moonSpill.position.set(3.2, 2.1, B.z1 - 0.5);
   scene.add(moonSpill);
@@ -1216,7 +1245,6 @@ export function buildSquatchfatherScene(scene, renderer) {
     { slot: 'squatchfather.dining.coast', file: 'squatchfather-coast-squatch.png', width: 3.8, ...coastPicture },
     ...familyPortraits.map((portrait) => ({
       slot: portrait.slot,
-      file: `bing-hallway-${portrait.slot.split('.').at(-1).replace('uncle_lou', 'uncle-lou')}.png`,
       ...portrait,
     })),
   ];

@@ -213,20 +213,49 @@ try {
       && familyArt.coast.file === 'squatchfather-coast-squatch.png'
       && familyArt.coast.width >= 3.8,
     JSON.stringify(familyArt.coast));
-  check('the four supplied Family portraits replace Squatchfather filler art',
-    familyArt.portraits.length === 4
+  check('the eleven supplied Family portraits replace Squatchfather filler art',
+    familyArt.portraits.length === 11
       && familyArt.portraits.every((portrait) => portrait.real)
       && familyArt.portraits.map((portrait) => portrait.file).join(',')
-        === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png',
+        === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.png,family-portrait-lag.png,family-portrait-hogmama.png,family-portrait-ape.png,family-portrait-eric.png,family-portrait-irish.png,family-portrait-seff.png',
     JSON.stringify(familyArt.portraits));
   check('the direct preview exposes a playable start button',
     await previewPage.locator('#startBtn').isVisible()
       && await previewPage.locator('#squatch-preview-notice').isVisible());
+  const bathroomWindow = await previewPage.evaluate(() => {
+    const glass = window.squatchfather.scene.getObjectByName('bathroom.window.glass');
+    const lower = window.squatchfather.scene.getObjectByName('bathroom.window.lowerTile');
+    const header = window.squatchfather.scene.getObjectByName('bathroom.window.headerTile');
+    const glassBottom = glass.position.y - glass.geometry.parameters.height / 2;
+    const glassTop = glass.position.y + glass.geometry.parameters.height / 2;
+    const lowerTop = lower.position.y + lower.geometry.parameters.height / 2;
+    const headerBottom = header.position.y - header.geometry.parameters.height / 2;
+    return {
+      named: !!glass,
+      opensAboveLower: glassBottom >= lowerTop - 0.08,
+      opensBelowHeader: glassTop <= headerBottom + 0.08,
+    };
+  });
+  check('the bathroom window is recessed into a tile opening',
+    bathroomWindow.named && bathroomWindow.opensAboveLower && bathroomWindow.opensBelowHeader,
+    JSON.stringify(bathroomWindow));
   await previewPage.click('#startBtn');
   await previewPage.waitForFunction(
     () => window.squatchfather.state() === 'START_EXTERIOR',
   );
   await verifyOpeningMovement(previewPage, 'the direct preview');
+  const hesitation = await previewPage.evaluate(() => {
+    const sf = window.squatchfather;
+    sf.go('SHOOT_SAL');
+    sf.tick(20.1);
+    return {
+      beat: sf.state(),
+      failureTitle: document.getElementById('deathTitle')?.textContent,
+    };
+  });
+  check('hesitating through the Sal shooting window fails the scene after twenty seconds',
+    hesitation.beat === 'FAILED' && hesitation.failureTitle === 'YOU HESITATED',
+    JSON.stringify(hesitation));
   await previewPage.close();
 
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
@@ -558,6 +587,10 @@ try {
       programsAfterSecond: renderer.info.programs.length,
       salBeat,
       mcBeat: sf.state(),
+      woundsFollowBodies: sf.blood.pool.filter((m) => m.visible).every((m) => (
+        m.parent === sf.sal.fig.neck || m.parent === sf.sal.fig.torso
+          || m.parent === sf.mcclawsky.fig.neck || m.parent === sf.mcclawsky.fig.torso
+      )),
     };
   });
   const sum = (a) => a.reduce((x, y) => x + y, 0);
@@ -592,6 +625,8 @@ try {
 
   current = await state();
   check('shooting McClawsky requires the weapon drop', current.beat === 'DROP_WEAPON', current.beat);
+  check('the wounds stay attached to the men as they fall',
+    shotCost.woundsFollowBodies === true, JSON.stringify(shotCost.woundsFollowBodies));
 
   // ---- The room really cowers: the waiter runs to the back corner and goes
   // down; the diners are off their chairs, low, arms wrapped over their
@@ -620,12 +655,21 @@ try {
     down(cower.waiter) && down(cower.diner1) && down(cower.diner2) && waiterInCorner,
     JSON.stringify(cower));
 
-  await page.evaluate(() => {
+  const droppedGun = await page.evaluate(() => {
     window.squatchfather.dropInteraction.drop();
     window.squatchfather.tick(0.2);
+    const gun = window.squatchfather.prospect.droppedMesh;
+    return {
+      name: gun?.name,
+      parts: gun?.children.length ?? 0,
+      hasCylinder: gun?.children.some((part) => part.geometry?.type === 'CylinderGeometry') ?? false,
+    };
   });
   current = await state();
   check('dropping the weapon opens the exit', current.beat === 'WALK_TO_EXIT', current.beat);
+  check('the floor weapon is a standalone revolver, not the boxy view-model hand rig',
+    droppedGun.name === 'dropped-revolver' && droppedGun.parts >= 10 && droppedGun.hasCylinder,
+    JSON.stringify(droppedGun));
 
   await go('SCENE_COMPLETE', 2.1);
   current = await state();
