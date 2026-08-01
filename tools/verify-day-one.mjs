@@ -10,9 +10,17 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { CAMPAIGN_VERSION } from '../src/core/campaign.js';
+import { isApartmentPreloadCue } from '../src/core/apartment-audio.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5201;
+const voiceManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+const voiceIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/index.json'), 'utf8'));
+const recordedFiles = new Set(voiceIndex.files || []);
+const expectedApartmentCues = (voiceManifest.sfx || [])
+  .filter((cue) => recordedFiles.has(cue.file || `${cue.name}.mp3`))
+  .filter(isApartmentPreloadCue)
+  .map((cue) => cue.name);
 const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -75,11 +83,33 @@ try {
    * clicking Wake Up. Match that first user gesture here so voice assertions
    * exercise decoded production buffers, not the intentionally silent
    * pre-gesture AudioContext. */
-  await page.evaluate(async () => {
+  const audioLoadStartedAt = Date.now();
+  const apartmentAudioLoad = await page.evaluate(async (expectedCues) => {
     const audio = window.__squatch.audio;
     await audio.init();
-    await audio.loadManifest();
-  });
+    const loaded = await audio.loadManifest();
+    const resident = [...audio.buffers.keys()];
+    return {
+      loaded,
+      plan: audio.preloadStats ?? null,
+      resident: resident.length,
+      missingExpected: expectedCues.filter((name) => !audio.buffers.has(name)),
+      sceneOnlyVo: resident.filter((name) => name.startsWith('vo.beefrun.')
+        || name.startsWith('vo.silver.')
+        || name.startsWith('vo.bing.')
+        || name.startsWith('vo.sf.')),
+    };
+  }, expectedApartmentCues);
+  apartmentAudioLoad.wallMs = Date.now() - audioLoadStartedAt;
+  check('the Apartment decodes its complete hub sound set without mission-only voice banks',
+    apartmentAudioLoad.plan?.manifestTotal === voiceManifest.sfx.length
+      && apartmentAudioLoad.plan?.selected === expectedApartmentCues.length
+      && apartmentAudioLoad.loaded?.total === expectedApartmentCues.length
+      && apartmentAudioLoad.loaded?.loaded === expectedApartmentCues.length
+      && apartmentAudioLoad.resident === expectedApartmentCues.length
+      && apartmentAudioLoad.missingExpected.length === 0
+      && apartmentAudioLoad.sceneOnlyVo.length === 0,
+    JSON.stringify({ ...apartmentAudioLoad, expected: expectedApartmentCues.length }));
 
   const initial = await page.evaluate(() => {
     const state = window.__squatch.campaign.state;

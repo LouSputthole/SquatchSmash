@@ -11,7 +11,6 @@
  * everybody would expect at the end.
  */
 import * as THREE from 'three';
-import { AudioEngine } from '../core/audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
@@ -37,6 +36,7 @@ import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
 
 import { buildClub, ROOMS, roomAt, STAGE_H } from './club.js';
+import { BingAudioEngine } from './audio.js';
 import { populate, makeAssociate } from './cast.js';
 import {
   familyPresent,
@@ -165,7 +165,7 @@ window.addEventListener('resize', () => {
 /* Systems                                                             */
 /* ------------------------------------------------------------------ */
 
-const audio = new AudioEngine();
+const audio = new BingAudioEngine();
 const hud = new Hud();
 const interaction = new InteractionSystem(camera, hud);
 const world = { colliders: [], floorZones: [], groundAt: () => 0 };
@@ -174,7 +174,8 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const drunk = new Drunk();
 const highs = new Highs();
-const inventory = new Inventory(4);
+const inventory = new Inventory(5);
+inventory.onChange = () => hud.setInventory(inventory, ITEMS);
 const campaign = createCampaign();
 const requestedVisit = new URLSearchParams(location.search).get('visit');
 const isSecondVisit = requestedVisit === '2'
@@ -643,6 +644,182 @@ const M = makeMaterials();
 const heldDrinks = makeHeldDrinks(M);
 heldDrinks.group.position.set(0.26, -0.30, -0.42);
 camera.add(heldDrinks.group);
+
+/* Booski's drink begins as a real bar action, not an inventory mutation.
+ * These deliberately small meshes are staged on the service rail: the
+ * bartender tips an unmistakable square whiskey bottle, a narrow stream
+ * bridges the neck to the glass, and the amber fill rises from the bottom.
+ * They stay hidden outside that one beat, so the permanent bar dressing does
+ * not gain another always-rendered prop cluster. */
+const shotPour = (() => {
+  const root = new THREE.Group();
+  root.name = 'booski-shot.pour';
+  root.position.set(-19.18, 1.16, club.anchors.barService.z);
+
+  const whiskey = new THREE.MeshStandardMaterial({
+    color: 0xb96819, emissive: 0x4b1704, emissiveIntensity: 0.18,
+    roughness: 0.24, transparent: true, opacity: 0.92,
+  });
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: 0xd9edf5, roughness: 0.06, transmission: 0.82,
+    thickness: 0.01, transparent: true, opacity: 0.42,
+  });
+  const bottleGlass = new THREE.MeshPhysicalMaterial({
+    color: 0x4a2813, roughness: 0.16, transmission: 0.32,
+    thickness: 0.025, transparent: true, opacity: 0.9,
+  });
+
+  const bottle = new THREE.Group();
+  bottle.name = 'booski-shot.bottle';
+  const bottleBody = new THREE.Mesh(new THREE.BoxGeometry(0.095, 0.19, 0.075), bottleGlass);
+  bottleBody.position.y = 0.095;
+  const bottleShoulder = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.045, 0.045, 12), bottleGlass);
+  bottleShoulder.position.y = 0.212;
+  const bottleNeck = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.075, 12), bottleGlass);
+  bottleNeck.name = 'booski-shot.bottle-neck';
+  bottleNeck.position.y = 0.270;
+  const label = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.072, 0.085),
+    new THREE.MeshStandardMaterial({ color: 0xe9d7ae, roughness: 0.78 }),
+  );
+  label.position.set(0, 0.105, 0.0382);
+  bottle.add(bottleBody, bottleShoulder, bottleNeck, label);
+  bottle.position.set(-0.24, 0.09, -0.035);
+  bottle.rotation.z = -1.08;
+  root.add(bottle);
+
+  const glassShell = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.024, 0.078, 20, 1, true), glass);
+  glassShell.name = 'booski-shot.glass';
+  glassShell.position.set(0.12, 0.039, 0);
+  root.add(glassShell);
+
+  const fill = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.021, 0.055, 18), whiskey);
+  fill.name = 'booski-shot.fill';
+  fill.position.set(0.12, 0.029, 0);
+  fill.scale.y = 0.001;
+  root.add(fill);
+
+  /* Exact 3D line between the transformed bottle mouth and glass rim. The
+   * bottle sits 3.5cm behind the glass as well as left of it, so an X/Y-only
+   * angle still visibly missed the neck when viewed down the bar. */
+  bottle.updateMatrix();
+  const pourMouth = new THREE.Vector3(0, 0.3075, 0).applyMatrix4(bottle.matrix);
+  const pourRim = glassShell.position.clone().add(new THREE.Vector3(0, 0.039, 0));
+  const pourVector = pourMouth.clone().sub(pourRim);
+  const stream = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.0045, 0.006, pourVector.length(), 8),
+    whiskey,
+  );
+  stream.name = 'booski-shot.stream';
+  stream.position.copy(pourMouth).add(pourRim).multiplyScalar(0.5);
+  stream.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    pourVector.normalize(),
+  );
+  root.add(stream);
+
+  root.visible = false;
+  scene.add(root);
+  return { root, bottle, stream, fill };
+})();
+
+/* The delivered glass is a separate camera prop. Ordinary bar whiskey is a
+ * bottle and still uses the shared held-drink model; Booski hands Tony a
+ * filled shot glass, so showing that same bottle here would undo the pour we
+ * just watched. */
+const heldShot = (() => {
+  const root = new THREE.Group();
+  root.name = 'booski-shot.held';
+  const shell = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.036, 0.027, 0.086, 20, 1, true),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xd9edf5, roughness: 0.05, transmission: 0.88,
+      thickness: 0.012, transparent: true, opacity: 0.48,
+    }),
+  );
+  shell.name = 'booski-shot.held-glass';
+  const fill = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.029, 0.024, 0.058, 18),
+    new THREE.MeshStandardMaterial({
+      color: 0xc77821, emissive: 0x4f1b05, emissiveIntensity: 0.2,
+      roughness: 0.3, transparent: true, opacity: 0.94,
+    }),
+  );
+  fill.name = 'booski-shot.held-fill';
+  fill.position.y = -0.009;
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.036, 0.0025, 6, 20),
+    new THREE.MeshStandardMaterial({ color: 0xe8f5fa, roughness: 0.12 }),
+  );
+  rim.rotation.x = Math.PI / 2;
+  rim.position.y = 0.043;
+  root.add(shell, fill, rim);
+  root.visible = false;
+  camera.add(root);
+  return { root, fill };
+})();
+
+const shotDelivery = (() => {
+  const root = new THREE.Group();
+  root.name = 'booski-shot.delivery';
+  root.position.set(0, 1.02, 0.31);
+  const tray = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.15, 0.13, 0.014, 24),
+    new THREE.MeshStandardMaterial({ color: 0xbcc3ca, roughness: 0.24, metalness: 0.82 }),
+  );
+  const shell = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.031, 0.024, 0.075, 18, 1, true),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xd9edf5, roughness: 0.06, transmission: 0.82,
+      thickness: 0.01, transparent: true, opacity: 0.46,
+    }),
+  );
+  shell.position.y = 0.045;
+  const fill = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.025, 0.021, 0.052, 16),
+    new THREE.MeshStandardMaterial({ color: 0xc77821, roughness: 0.28 }),
+  );
+  fill.name = 'booski-shot.delivery-fill';
+  fill.position.y = 0.035;
+  root.add(tray, fill, shell);
+  root.visible = false;
+  cast.byName.bartender.group.add(root);
+  return { root, fill };
+})();
+
+function poseHeldShot(progress = 0) {
+  const k = Math.max(0, Math.min(1, progress));
+  const e = k * k * (3 - 2 * k);
+  heldShot.root.visible = true;
+  heldShot.root.position.set(
+    0.22 - 0.18 * e,
+    -0.25 + 0.22 * e,
+    -0.36 + 0.18 * e,
+  );
+  heldShot.root.rotation.set(-1.38 * e, 0.08 * e, 0.28 * e);
+  /* The last half of the tilt drains the amber toward the rim. It remains a
+   * single cheap mesh; the silhouette and motion sell the drink. */
+  heldShot.fill.scale.y = 1 - 0.94 * Math.max(0, (e - 0.45) / 0.55);
+}
+
+function hideHeldShot() {
+  heldShot.root.visible = false;
+  heldShot.fill.scale.y = 1;
+  heldShot.root.position.set(0, 0, 0);
+  heldShot.root.rotation.set(0, 0, 0);
+}
+
+function poseShotPour(progress) {
+  const k = Math.max(0, Math.min(1, progress));
+  shotPour.root.visible = true;
+  shotPour.bottle.visible = true;
+  shotPour.stream.visible = k > 0.04 && k < 0.94;
+  shotPour.fill.scale.y = Math.max(0.001, k);
+  /* Keep the fill sitting on the bottom while its centre-scaled cylinder
+   * grows. A rising liquid line is what makes this read as a pour. */
+  shotPour.fill.position.y = 0.003 + 0.0275 * Math.max(0.001, k);
+}
+
 function poseDrink(which, k) {
   const can = heldDrinks.can;
   const bottle = heldDrinks.bottle;
@@ -820,7 +997,7 @@ function serveDrink(what) {
     hud.toast('Club soda. Very professional.', '');
     return;
   }
-  /* Four hands' worth is the limit, and there is nowhere in a club to put a
+  /* Five pockets' worth is the limit, and there is nowhere in a club to put a
    * beer down, so the bar stops serving rather than pouring into the void. */
   if (inventory.full) {
     hud.say('<em>Bartender:</em> Finish one of those first. I am not a shelf.', 4200);
@@ -835,6 +1012,9 @@ function serveDrink(what) {
 
 function drinkTick(dt) {
   if (!game.heldDrink) return;
+  /* Booski's glass is an E-key story beat, not a bottle Tony can nurse by
+   * holding F. Its camera animation and consumption live in shotDrinkTick. */
+  if (game.heldDrink === 'booski-shot') return;
   /* `autoDrink` is seconds of hold the game is doing on the player's behalf.
    * The shot beat uses it: Booski says drink, so Tony drinks, and it goes
    * through the same pose, the same units and the same swallow as [F]. */
@@ -1955,14 +2135,64 @@ function getOutOfCar() {
 const SHOT_BAR_STAND = { x: -17.75, z: 2.5 };
 
 function giveShot() {
-  game.heldDrink = 'whiskey';
+  game.heldDrink = 'booski-shot';
   game.drinking = 0;
-  if (!inventory.full) inventory.add('whiskey');
-  hud.setHand({ ...ITEMS.whiskey, hint: 'Hold [F] to drink' });
+  const inInventory = !inventory.full && inventory.add('whiskey');
+  if (game.shotBeat) {
+    game.shotBeat.inInventory = inInventory;
+    /* add() selects the exact slot it filled. Keep that identity: Tony may
+     * already own whiskey and select it while Booski waits for [E]. */
+    game.shotBeat.inventorySlot = inInventory ? inventory.selected : -1;
+  }
+  poseHeldShot(0);
+  hud.setHand({ ...ITEMS.whiskey, name: 'Booski shot', hint: 'Press [E] to throw it back' });
   hud.setInventory(inventory, ITEMS);
   showKit(true);
-  hud.toast('On the house. Loudly.', 'good');
+  hud.toast('Booski is watching. [E] Throw it back.', 'good');
+}
+
+function startBooskiShotDrink() {
+  const beat = game.shotBeat;
+  if (!beat || beat.phase !== 'await-drink' || game.heldDrink !== 'booski-shot') return false;
+  beat.phase = 'drinking';
+  beat.awaitingDrink = false;
+  beat.drink = 0;
+  audio.play('whiskey.swig', { volume: 0.68 });
+  return true;
+}
+
+function shotDrinkTick(dt) {
+  const beat = game.shotBeat;
+  if (!beat) return;
+  if (beat.pendingAfter && !dialogue.active) {
+    beat.pendingAfter = false;
+    const booski = family.byId.booski;
+    if (booski && familyScripts.booskiShot.after) {
+      dialogue.start(familyScripts.booskiShot, 'after', booski);
+    }
+  }
+  if (beat.phase !== 'drinking') return;
+  beat.drink = Math.min(1, beat.drink + dt / 1.2);
+  poseHeldShot(beat.drink);
+  if (beat.drink < 1) return;
+
+  beat.phase = 'drank';
+  beat.drank = true;
+  beat.pendingAfter = true;
+  game.shotSunk = true;
+  mission.flags.tookShot = true;
   mission.drank?.();
+  drunk.drink(WHISKEY_UNITS);
+  /* A full bar can still accept the handed glass visually, but it never got
+   * a slot. Do not delete some older whiskey Tony was already carrying. */
+  if (beat.inInventory) inventory.removeAt(beat.inventorySlot, 'whiskey');
+  game.heldDrink = null;
+  game.drinking = 0;
+  hideHeldShot();
+  hud.setHand(null);
+  hud.setInventory(inventory, ITEMS);
+  audio.play('glass.set', { volume: 0.55, position: club.anchors.barService });
+  hud.say('Hot rye, cold room. Booski looks personally vindicated.', 3600);
 }
 
 function startShotBeat() {
@@ -1985,12 +2215,18 @@ function startShotBeat() {
     interaction.setPaused(true);
     hud.hidePrompt();
   }
-  bartender.job = 'patrol';
-  bartender.speed = 2.3;      // thirty FUCKING seconds — he hustles
-  bartender.route = [{ x: SHOT_BAR_STAND.x, z: SHOT_BAR_STAND.z }];
-  bartender.routeAt = 0;
-  let phase = 'to-bar';
+  bartender.job = 'stand';
+  bartender.route = null;
+  bartender.pouringShot = true;
+  bartender.carryingShot = false;
+  let phase = 'pour';
   let t = 0;
+  game.shotBeat = {
+    phase, pour: 0, awaitingDrink: false, drank: false, bartenderLine: false,
+  };
+  poseShotPour(0.001);
+  audio.play('whiskey.cap', { volume: 0.5, position: club.anchors.barService });
+  audio.play('whiskey.pour', { volume: 0.65, delay: 0.18, position: club.anchors.barService });
 
   /* ---- the framing ----
    * The shot starts where a shot should start: on the bar, on Booski, and
@@ -2015,7 +2251,31 @@ function startShotBeat() {
   game.beat = (dt) => {
     t += dt;
     const bp = bartender.group.position;
-    if (phase === 'to-bar') {
+    if (phase === 'pour') {
+      const pour = Math.min(1, t / 2.2);
+      poseShotPour(pour);
+      game.shotBeat.phase = phase;
+      game.shotBeat.pour = pour;
+      if (hijacked) frameOn(openAim.x, openAim.z, dt, 3.2);
+      if (pour >= 1) {
+        shotPour.root.visible = false;
+        shotDelivery.root.visible = true;
+        bartender.pouringShot = false;
+        bartender.carryingShot = true;
+        phase = 'to-bar';
+        game.shotBeat.phase = phase;
+        t = 0;
+        bartender.job = 'patrol';
+        bartender.speed = 2.3;
+        bartender.route = [{ x: SHOT_BAR_STAND.x, z: SHOT_BAR_STAND.z }];
+        bartender.routeAt = 0;
+      }
+    } else if (phase === 'to-bar') {
+      if (t > 0.55 && !game.shotBeat.bartenderLine) {
+        game.shotBeat.bartenderLine = true;
+        hud.say('<em>Bartender:</em> House rye. If he asks, it was twenty-nine seconds.', 3600);
+        voiceCue('vo.bing.bartender.booski-shot.pour', { volume: 0.86 });
+      }
       if (hijacked) {
         /* Hold the bar, then hand the frame over to the man with the tray as
          * he comes into it. `near` is 1 when he is on top of the delivery. */
@@ -2034,12 +2294,16 @@ function startShotBeat() {
         phase = 'handoff';
         t = 0;
         bartender.job = 'stand';
+        bartender.carryingShot = false;
+        shotDelivery.root.visible = false;
         bartender.faceToward(
           booski ? booski.position.x : player.position.x,
           booski ? booski.position.z : player.position.z,
         );
         audio.play('glass.set', { volume: 0.55, position: club.anchors.barService });
         giveShot();
+        game.shotBeat.phase = 'await-drink';
+        game.shotBeat.awaitingDrink = true;
         /* Control back BEFORE the toast -- the club's rule is that nobody
          * important talking ever costs you the sticks. */
         if (hijacked) {
@@ -2049,15 +2313,8 @@ function startShotBeat() {
         if (booski) dialogue.start(familyScripts.booskiShot, 'handoff', booski);
       }
     } else if (phase === 'handoff') {
-      /* "Drink, baby." So he drinks it. The drink system does the work --
-       * same pose, same units, same swallow as holding [F] -- and the player
-       * has had the sticks back since the glass landed, so anybody who would
-       * rather keep it can simply walk off with it. */
-      if (t > 1.9 && !game.shotSunk && game.heldDrink === 'whiskey') {
-        game.shotSunk = true;
-        game.autoDrink = DRINK_TIME + 0.35;
-        mission.flags.tookShot = true;
-      }
+      /* The bartender can head back to work; Tony keeps the filled glass
+       * until the player presses E. No timer is allowed to drink for him. */
       if (t > 2.2) {
         phase = 'return';
         t = 0;
@@ -2074,6 +2331,9 @@ function startShotBeat() {
         bartender.speed = station.speed ?? bartender.speed;
         bartender.group.rotation.y = station.yaw;
         bartender.targetYaw = undefined;
+        bartender.pouringShot = false;
+        bartender.carryingShot = false;
+        shotDelivery.root.visible = false;
         game.beat = null;
       }
     }
@@ -2345,6 +2605,7 @@ window.addEventListener('keydown', (e) => {
       paintKit();
       return;
     }
+    if (startBooskiShotDrink()) return;
     // At the table and the machine, E is the game's own button
     if (game.seatedIn === 'table' && blackjack.state !== 'off' && !interaction.current) {
       if (blackjack.state === 'bet') {
@@ -2491,6 +2752,7 @@ startBtn.addEventListener('click', async () => {
     game.radioOn = true;
     getInCar();
     addMoney(0);
+    hud.setInventory(inventory, ITEMS);
     game.hudReady = true;
     repaintObjectives();
     showKit(true);
@@ -2748,6 +3010,7 @@ function frame() {
   phoneTick(raw);
   objectivesTick();
   mission.update(raw);
+  shotDrinkTick(raw);
   drinkTick(raw);
   updateZones(dt);
   checkStage();
@@ -2791,6 +3054,7 @@ window.__bing = {
   updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck,
   paintKit, showKit, showPhone, repaintObjectives, optionalObjectives,
   startFocus, focusTick, moneyBurst, noteSpokeTo,
+  giveShot, startBooskiShotDrink, shotDrinkTick,
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

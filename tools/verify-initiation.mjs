@@ -72,6 +72,9 @@ try {
     hasHumanPlayer: window.INITIATION.player?.constructor?.name === 'Person',
     objective: document.querySelector('#objective')?.textContent,
     canvasCount: document.querySelectorAll('canvas').length,
+    inventoryVisible: Boolean(document.querySelector('#hotbar'))
+      && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',
+    inventorySlots: document.querySelectorAll('#hotbar .slot').length,
   }));
 
   check('the namespaced Initiation scene reaches its interactive approach phase',
@@ -89,6 +92,9 @@ try {
   check('the scene gives a visible movement objective',
     initial.objective?.includes('WASD'),
     initial.objective || 'no objective');
+  check('Initiation keeps the shared five-slot inventory visible',
+    initial.inventoryVisible && initial.inventorySlots === 5,
+    JSON.stringify({ visible: initial.inventoryVisible, slots: initial.inventorySlots }));
   check('all scene modules and face textures load', missing.length === 0, missing.join(' | '));
 
   await page.evaluate(() => window.INITIATION.skipToGauntlet());

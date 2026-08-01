@@ -29,7 +29,7 @@
 Day One apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep
 Day Two apartment → Beef Run → apartment → Bada Bing Two → Jerky Motel
 → apartment/sleep
-Day Three apartment → Silver Room → apartment/sleep
+Day Three apartment → NO WAKE → apartment → Silver Room → apartment/sleep
 Day Four apartment/big-night call → THE PINES / Initiation
 ```
 
@@ -44,8 +44,9 @@ reachable from both the normal Day Four route and the save-isolated preview,
 but it does not yet complete the campaign or expose an outbound edge. After
 user playtesting, rewrite its verdict around completed campaign
 accomplishments, failed-prospect deaths, Tony's admission, and the mass
-sasquatch transformation. The intended Day Three informant hit and Day Four
-heist remain unbuilt and require separate owner approval before implementation.
+sasquatch transformation. The Day Three informant hit is now built and connected
+as NO WAKE. The Day Four heist remains unbuilt and requires separate owner
+approval before implementation.
 
 ---
 

@@ -13,7 +13,7 @@
  * last of four checkpoints with the world rebuilt around them.
  */
 import * as THREE from 'three';
-import { WP, EH, KT, FT, AC, DIFFICULTY, LANDMARKS } from './config.js';
+import { WP, EH, KT, FT, AC, DIFFICULTY, LANDMARKS, HOME_APPROACH } from './config.js';
 import { OBJECTIVES } from './script.js';
 import { terrainHeight } from './terrain.js';
 import { clamp, lerp, smoothstep, damp, headingDelta } from './util.js';
@@ -90,6 +90,7 @@ export class MissionController {
     this.associates = [];
     this.approachGates = null;
     this._callTimer = 0;
+    this._ambientBarkTimer = 18;
     this._touchdowns = [];
     this._lastCrateShift = 0;
 
@@ -305,6 +306,7 @@ export class MissionController {
         this.setObjective(OBJECTIVES.home);
         this.saveCheckpoint('return');
         this.dialogue.play('home.sight', { once: true });
+        this.buildHomeApproachGates();
         break;
 
       case 'final':
@@ -314,6 +316,7 @@ export class MissionController {
 
       case 'shutdown':
         this.setObjective(OBJECTIVES.taxiHome);
+        this.clearApproachGates();
         break;
 
       case 'ending':
@@ -796,8 +799,6 @@ export class MissionController {
       }
     }
 
-    if (this.approachGates) this.updateApproachGates(p);
-
     // On the ground, slowed to a walk, on the strip: that is an arrival.
     if (p.onGround && p.groundSpeed < 3 && p.position.z < EH.zLow + 40) {
       this.gradeMountainLanding();
@@ -901,7 +902,7 @@ export class MissionController {
     }
 
     // The left engine starts running hot on the last leg home.
-    if (!this.flags.engineScripted && z > -3400) {
+    if (!this.flags.engineScripted && z > -5600) {
       this.flags.engineScripted = true;
       this.engines.scriptOverheat(0, 70);
       this.dialogue.play('engine.hot', { urgent: true });
@@ -922,7 +923,7 @@ export class MissionController {
     this.weather.setConditions({ dusk: duskT });
     this.detection.rate = this.difficulty.detectRate;
 
-    if (z > -1500) {
+    if (z > HOME_APPROACH.acquireZ) {
       this.dialogue.play('caib.boundary', { once: true });
       this.detection.active = false;
       this.setPhase('home');
@@ -934,18 +935,32 @@ export class MissionController {
     void dt;
     const p = this.physics;
     this.weather.setConditions({ dusk: 1, rain: 0.15, crosswind: 2.6 * this.difficulty.crosswind });
-    if (!this.flags.truckLit && p.position.z > -900) {
+    if (!this.flags.truckLit && p.position.z > HOME_APPROACH.acquireZ) {
       this.flags.truckLit = true;
       this.airfield.moveTruckToThreshold();
       this.dialogue.play('home.headlights', { delay: 1.2 });
       this.audio.play('switch.click', { volume: 0.6 });
     }
-    if (p.position.z > WP.z - 1500 && p.agl < 260) this.setPhase('final');
+    // Enter final by distance, not altitude. The old altitude gate let a high
+    // player cross the whole field while the landing state never armed.
+    if (p.position.z > HOME_APPROACH.finalZ) this.setPhase('final');
   }
 
   updateFinal(dt) {
-    void dt;
     const p = this.physics;
+    this._callTimer = Math.max(0, this._callTimer - dt);
+    if (!p.onGround && this._callTimer <= 0) {
+      const ias = p.ias * KT;
+      const remaining = HOME_APPROACH.glideAim.z - p.position.z;
+      const wantHeight = Math.max(6, remaining * HOME_APPROACH.glideSlope);
+      const height = p.position.y - WP.elev;
+      let pool = null;
+      if (Math.abs(p.position.x - WP.x) > 32) pool = 'finalLine';
+      else if (ias > 92 && p.position.z > HOME_APPROACH.finalZ) pool = 'finalFast';
+      else if (height > wantHeight * 1.65 && remaining > 400) pool = 'finalHigh';
+      else if (height < 18 && p.position.z < HOME_APPROACH.touchdown.z) pool = 'finalFlare';
+      if (pool && this.dialogue.bark(pool)) this._callTimer = 8;
+    }
     if (p.onGround && p.groundSpeed < 4) {
       this.gradeFinalLanding();
       this.setPhase('shutdown');
@@ -989,10 +1004,16 @@ export class MissionController {
         const lineUp = this.airfield.anchors.lineUp;
         return { label: 'RUNWAY 18 - SOUTH', x: lineUp.x, z: lineUp.z };
       }
-      case 'climbout': case 'south': case 'approach':
-        return { label: 'EL HUESO', x: EH.x, z: (EH.zLow + EH.zHigh) / 2 };
-      case 'heavyTakeoff': case 'return': case 'home': case 'final':
-        return { label: 'WHISPERING PINES', x: WP.x, z: WP.z };
+      case 'climbout': case 'south': case 'approach': {
+        const touchdown = this.airstrip.anchors.touchdown;
+        return { label: 'EL HUESO RUNWAY - LAND UPHILL', x: touchdown.x, z: touchdown.z };
+      }
+      case 'heavyTakeoff': case 'return':
+        return { label: 'WHISPERING PINES APPROACH', x: HOME_APPROACH.entry.x, z: HOME_APPROACH.entry.z };
+      case 'home':
+        return { label: 'RWY 36 THRESHOLD', x: HOME_APPROACH.threshold.x, z: HOME_APPROACH.threshold.z };
+      case 'final':
+        return { label: 'RWY 36 TOUCHDOWN', x: HOME_APPROACH.touchdown.x, z: HOME_APPROACH.touchdown.z };
       default:
         return null;
     }
@@ -1127,6 +1148,18 @@ export class MissionController {
       && Math.abs(navDelta) > 38) {
       this.dialogue.bark(navDelta > 0 ? 'offCourseRight' : 'offCourseLeft');
     }
+    // Long cruise legs need character without turning Sasole into a looping
+    // soundboard. A six-line round-robin only advances during a stable, quiet
+    // stretch and cannot interrupt authored dialogue.
+    this._ambientBarkTimer -= dt;
+    if (this._ambientBarkTimer <= 0
+      && ['south', 'return'].includes(this.phase)
+      && !p.onGround && p.agl > 120
+      && Math.abs(navDelta) < 22
+      && Math.abs(p.rollDeg) < 18 && Math.abs(p.pitchDeg) < 14
+      && p.stallT < 0.05) {
+      if (this.dialogue.bark('cruise')) this._ambientBarkTimer = 24;
+    }
     if (this.detection.active) {
       if (this.detection.state === 'searching') warn.add('patrol');
       if (this.detection.state === 'located') warn.add('located');
@@ -1136,6 +1169,7 @@ export class MissionController {
     const nearStrip = Math.abs(p.position.x - EH.x) < 220 && p.position.z < EH.zLow + 500 && p.position.z > EH.zHigh - 200;
     if ((nearHome || nearStrip) && !p.onGround && p.agl < 320) warn.add('runway');
     this.flightHud.setWarnings(warn);
+    if (this.approachGates) this.updateApproachGates(p);
 
     // Cargo and mass.
     this.cargo.update(dt, {
@@ -1203,11 +1237,35 @@ export class MissionController {
       const y = lerp(EH.elevLow + 150, EH.elevLow + 6, t);
       const ring = new THREE.Mesh(new THREE.TorusGeometry(26 - t * 12, 1.1, 6, 20), mat);
       ring.position.set(EH.x, y, z);
-      ring.rotation.x = Math.PI / 2;
       gates.add(ring);
     }
     this.scene.add(gates);
     this.approachGates = gates;
+    this.flightHud.setGuide('FLY THE GATES · EL HUESO');
+  }
+
+  /** A persistent dusk ladder for the difficult return. Unlike the optional
+   * El Hueso assist, these are runway lights in a field with no working lights,
+   * so every difficulty gets them. */
+  buildHomeApproachGates() {
+    this.clearApproachGates();
+    const gates = new THREE.Group();
+    gates.name = 'home-approach-gates';
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0xffefb0, transparent: true, opacity: 0.24,
+      side: THREE.DoubleSide, depthWrite: false,
+    });
+    for (let i = 0; i < 10; i++) {
+      const t = i / 9;
+      const z = lerp(HOME_APPROACH.entry.z, HOME_APPROACH.glideAim.z, t);
+      const y = WP.elev + Math.max(6, (HOME_APPROACH.glideAim.z - z) * HOME_APPROACH.glideSlope);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(24 - t * 11, 0.9, 6, 18), mat);
+      ring.position.set(WP.x, y, z);
+      gates.add(ring);
+    }
+    this.scene.add(gates);
+    this.approachGates = gates;
+    this.flightHud.setGuide('FOLLOW THE LIGHTS · RWY 36');
   }
 
   updateApproachGates(p) {
@@ -1220,8 +1278,16 @@ export class MissionController {
 
   clearApproachGates() {
     if (!this.approachGates) return;
+    const materials = new Set();
+    this.approachGates.traverse((part) => {
+      part.geometry?.dispose?.();
+      if (Array.isArray(part.material)) part.material.forEach((m) => materials.add(m));
+      else if (part.material) materials.add(part.material);
+    });
+    materials.forEach((m) => m.dispose?.());
     this.scene.remove(this.approachGates);
     this.approachGates = null;
+    this.flightHud.setGuide(null);
   }
 
   /* ---------------------------------------------------------------- */
@@ -1236,6 +1302,10 @@ export class MissionController {
     if (vs > 4.2) {
       this.dialogue.bark('gearHard', { force: true });
       this.score.patience = clamp(this.score.patience - 0.12, 0, 1);
+    }
+    if (this.phase === 'final') {
+      this.setObjective('Brake to a stop — hold B · V sets the parking brake');
+      this.dialogue.play('home.brake', { once: true });
     }
     void level;
     void gLoad;
@@ -1464,8 +1534,8 @@ export class MissionController {
         this.setPhase('heavyTakeoff');
       },
       return: () => {
-        const z = WP.z - 2400;
-        this.physics.setPose(new THREE.Vector3(WP.x + 120, WP.elev + 520, z), 2, 58);
+        const a = HOME_APPROACH.entry;
+        this.physics.setPose(new THREE.Vector3(a.x, a.y, a.z), a.heading, a.speed);
         this.engines.forceRunning();
         this.input.throttle = 0.5;
         this.input.flaps = 0;

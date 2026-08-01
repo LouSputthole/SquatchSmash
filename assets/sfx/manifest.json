@@ -5099,6 +5099,11 @@
       "say": "Crosswind from the left. Point the nose into it and land on the wheel that’s low."
     },
     {
+      "name": "vo.beefrun.sasole.home.brake-1.1",
+      "voice": "lou2",
+      "say": "Feet down. Hold the brakes and keep her straight. We still need the hangar."
+    },
+    {
       "name": "vo.beefrun.prospect.end.bucket-1.1",
       "voice": "player",
       "say": "So that was the job?"
@@ -5164,6 +5169,16 @@
       "say": "Feel that? That was the landing gear’s entire remaining career."
     },
     {
+      "name": "vo.beefrun.sasole.bark-gearHard-2.1",
+      "voice": "lou2",
+      "say": "That noise came out of the maintenance budget."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-gearHard-3.1",
+      "voice": "lou2",
+      "say": "If the wheels are still round, buy them dinner."
+    },
+    {
       "name": "vo.beefrun.sasole.bark-banked-1.1",
       "voice": "lou2",
       "say": "Level it. My coffee has opinions."
@@ -5207,6 +5222,16 @@
       "name": "vo.beefrun.sasole.bark-holy-1.1",
       "voice": "lou2",
       "say": "Holee leee."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-holy-2.1",
+      "voice": "lou2",
+      "say": "If you meant to do that, never do it again."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-holy-3.1",
+      "voice": "lou2",
+      "say": "My stomach just filed a transfer request."
     },
     {
       "name": "vo.beefrun.sasole.bark-offCourseLeft-1.1",
@@ -5254,9 +5279,119 @@
       "say": "Something moved back there. That is never good news."
     },
     {
+      "name": "vo.beefrun.sasole.bark-cargoShift-2.1",
+      "voice": "lou2",
+      "say": "The jerky changed seats. Fly like it has another vote."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-cargoShift-3.1",
+      "voice": "lou2",
+      "say": "Cargo is walking around back there. Smooth it out."
+    },
+    {
       "name": "vo.beefrun.sasole.bark-patrolClose-1.1",
       "voice": "lou2",
       "say": "Lower. Trees are free cover and nobody bills you for them."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-patrolClose-2.1",
+      "voice": "lou2",
+      "say": "Keep the ridge between us and the badge."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-patrolClose-3.1",
+      "voice": "lou2",
+      "say": "Cloud or canyon. Either one has fewer forms."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-cruise-1.1",
+      "voice": "lou2",
+      "say": "Hold this line. The aeroplane finally believes you."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-cruise-2.1",
+      "voice": "lou2",
+      "say": "That is good flying. Do not celebrate where the plane can hear you."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-cruise-3.1",
+      "voice": "lou2",
+      "say": "Needles steady, cargo quiet. This is the part nobody puts in the movie."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-cruise-4.1",
+      "voice": "lou2",
+      "say": "Keep the diamond centered and let the engines earn their fuel."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-cruise-5.1",
+      "voice": "lou2",
+      "say": "Small corrections. We are smuggling beef, not wrestling weather."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-cruise-6.1",
+      "voice": "lou2",
+      "say": "Look outside once in a while. The mountains are doing most of the navigating."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalLine-1.1",
+      "voice": "lou2",
+      "say": "Runway is under the lights. Bring the nose back to center."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalLine-2.1",
+      "voice": "lou2",
+      "say": "You are drifting off the pavement. Correct gently."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalLine-3.1",
+      "voice": "lou2",
+      "say": "Centerline first. Pride later."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalFast-1.1",
+      "voice": "lou2",
+      "say": "Too fast for this runway. Power back and let the nose rise."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalFast-2.1",
+      "voice": "lou2",
+      "say": "Slow it down. Asphalt is cheaper than forest, but there is less of it."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalFast-3.1",
+      "voice": "lou2",
+      "say": "We need wheels on pavement, not a low pass for the county."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalHigh-1.1",
+      "voice": "lou2",
+      "say": "You are high. Power back and follow the light ladder down."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalHigh-2.1",
+      "voice": "lou2",
+      "say": "The runway is below us, which is useful only if we descend."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalHigh-3.1",
+      "voice": "lou2",
+      "say": "Ease the nose down. We are out of sky before we are out of runway."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalFlare-1.1",
+      "voice": "lou2",
+      "say": "Eyes at the far end. Hold it off."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalFlare-2.1",
+      "voice": "lou2",
+      "say": "Easy now. Let the runway come to you."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-finalFlare-3.1",
+      "voice": "lou2",
+      "say": "Small pull. Keep it straight. Let her settle."
     },
     {
       "name": "woo.up",
@@ -5998,6 +6133,18 @@
       "duration": 4
     },
     {
+      "name": "vo.bing.bartender.booski-shot.pour",
+      "voice": "bartender",
+      "say": "House rye. If he asks, it was twenty-nine seconds.",
+      "duration": 3.5
+    },
+    {
+      "name": "vo.bing.booski.shot.after",
+      "voice": "booski",
+      "say": "There he is. Now you look like you belong in here.",
+      "duration": 3.5
+    },
+    {
       "name": "vo.bing.blackjack.dealer.deal.1",
       "voice": "dealer",
       "say": "Cards comin' in.",
@@ -6178,6 +6325,16 @@
       "name": "vo.silver.bandleader.open.on-the-pad",
       "voice": "waiter",
       "say": "It’s on the pad. Front table got its one."
+    },
+    {
+      "name": "vo.silver.bandleader.set.front-and-center",
+      "voice": "waiter",
+      "say": "This one is for the table nobody had a table for."
+    },
+    {
+      "name": "vo.silver.bandleader.set.opener",
+      "voice": "waiter",
+      "say": "Good evening. We are the Midnight Pines and we are contractually obliged to be here."
     },
     {
       "name": "vo.silver.bandleader.slow",
@@ -6533,6 +6690,11 @@
       "name": "vo.silver.margo.invitation.strong",
       "voice": "margo",
       "say": "One drink. And if your building has a service entrance, I’m getting back in the car and you can explain it to the man on the door."
+    },
+    {
+      "name": "vo.silver.margo.moments.chairPulled",
+      "voice": "margo",
+      "say": "Somebody raised you. I want their name."
     },
     {
       "name": "vo.silver.margo.photographer.her-say",

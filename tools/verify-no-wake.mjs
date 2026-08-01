@@ -90,6 +90,15 @@ try {
   await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 30000 });
   await page.waitForTimeout(250);
 
+  const noWakeInventory = await page.evaluate(() => ({
+    visible: Boolean(document.querySelector('#hotbar'))
+      && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',
+    slots: document.querySelectorAll('#hotbar .slot').length,
+  }));
+  check('NO WAKE keeps the shared five-slot inventory visible',
+    noWakeInventory.visible && noWakeInventory.slots === 5,
+    JSON.stringify(noWakeInventory));
+
   const boot = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
     mission: window.NO_WAKE.campaignState.missions.no_wake,

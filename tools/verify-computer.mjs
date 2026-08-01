@@ -106,8 +106,10 @@ async function computerState() {
     const game = window.__squatch;
     const app = game.arcade.app;
     return {
+      started: game.game.started,
       seated: game.game.seated,
       playerMode: game.player.mode,
+      playerEnabled: game.player.enabled,
       paused: game.game.paused,
       osMode: game.arcade.mode,
       inputMode: game.arcade.inputMode,
@@ -125,6 +127,7 @@ async function computerState() {
        * still in force there is a way out on screen that nobody can aim at. */
       roomCursor: getComputedStyle(game.renderer.domElement).cursor,
       pointerLocked: document.pointerLockElement === game.renderer.domElement,
+      apartmentOverlayHidden: document.querySelector('#overlay')?.classList.contains('hidden') === true,
       campaignScene: game.campaign.state.scene.id,
     };
   });
@@ -136,14 +139,38 @@ async function wayOut() {
     const q = window.__squatch.arcade.app?.quit;
     if (!q?.isConnected) return null;
     const r = q.getBoundingClientRect();
-    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const describe = (element) => {
+      if (!element) return null;
+      const style = getComputedStyle(element);
+      const className = typeof element.className === 'string'
+        ? element.className : element.className?.baseVal ?? '';
+      return {
+        tag: element.tagName,
+        id: element.id || null,
+        className,
+        parent: element.parentElement?.id || element.parentElement?.tagName || null,
+        position: style.position,
+        zIndex: style.zIndex,
+        pointerEvents: style.pointerEvents,
+        display: style.display,
+        visibility: style.visibility,
+        opacity: style.opacity,
+        transform: style.transform === 'none' ? 'none' : style.transform,
+      };
+    };
+    const hit = document.elementFromPoint(cx, cy);
     return {
       x: r.left, y: r.top, w: r.width, h: r.height,
-      cx: Math.round(r.left + r.width / 2), cy: Math.round(r.top + r.height / 2),
+      cx: Math.round(cx), cy: Math.round(cy),
       onScreen: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
       onTop: hit === q || q.contains(hit),
       focused: document.activeElement === q,
       how: window.__squatch.arcade.app.quitHow.textContent,
+      quitStyle: describe(q),
+      hit: describe(hit),
+      hitStack: document.elementsFromPoint(cx, cy).slice(0, 10).map(describe),
     };
   });
 }
@@ -181,6 +208,13 @@ try {
   await page.waitForFunction(() => window.__squatch?.arcade, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
   await page.click('#start-btn');
+  /* A DOM click settles when the event has been dispatched, not when an async
+   * listener has finished. First start intentionally keeps the title overlay
+   * above the room while its recorded Apartment bank is decoded; driving the
+   * console-only seating seam before that promise resolves creates an
+   * impossible state (apps running behind the title card). */
+  await page.waitForFunction(() => window.__squatch.game.started
+    && document.querySelector('#overlay')?.classList.contains('hidden'), null, { timeout: 90000 });
 
   /* Walk up with a wound-up yaw, the way a player who has turned round the
    * flat a few times arrives at the desk.
@@ -586,19 +620,46 @@ try {
   await page.evaluate(() => {
     const game = window.__squatch;
     const os = game.arcade;
+    const canvas = game.renderer.domElement;
+    const requestPointerLock = canvas.requestPointerLock?.bind(canvas);
+    window.__computerRelockCalls = 0;
+    canvas.requestPointerLock = (...args) => {
+      window.__computerRelockCalls++;
+      return requestPointerLock?.(...args);
+    };
     os.launch(os.apps.find(({ id }) => id === 'smash'));
-    game.standFromPC();
-    game.player.update(1);
   });
+  await page.waitForFunction(() => window.__squatch.arcade.app?.quit?.isConnected === true,
+    null, { timeout: 30000 });
+  const standAt = await wayOut();
+  await page.mouse.move(standAt.cx, standAt.cy, { steps: 6 });
+  await page.waitForFunction(() => document.activeElement === window.__squatch.arcade.app?.quit,
+    null, { timeout: 10000 });
+  await page.keyboard.press('q');
+  await page.waitForFunction(() => window.__squatch.game.seated === false,
+    null, { timeout: 10000 });
+  await page.evaluate(() => window.__squatch.player.update(1));
+  await page.waitForTimeout(750);
+  const yawBeforeWalk = await page.evaluate(() => window.__squatch.player.yaw);
+  await page.mouse.down();
+  await page.mouse.move(standAt.cx + 50, standAt.cy + 10, { steps: 5 });
+  await page.mouse.up();
+  const yawAfterWalk = await page.evaluate(() => window.__squatch.player.yaw);
   state = await computerState();
-  check('leaving the chair hides framed input and resumes the apartment',
+  const relockCalls = await page.evaluate(() => window.__computerRelockCalls);
+  check('Q on a framed app exit control leaves the chair and resumes playable Apartment input',
     !state.seated
       && state.playerMode === 'walk'
+      && state.playerEnabled
+      && !state.paused
+      && state.apartmentOverlayHidden
+      && relockCalls >= 1
+      && Math.abs(yawAfterWalk - yawBeforeWalk) > 0.001
       && state.appId === 'smash'
       && !state.overlayVisible
       && !state.quitConnected
       && state.campaignScene === 'apartment',
-    JSON.stringify(state));
+    JSON.stringify({ standAt, state, relockCalls, yawBeforeWalk, yawAfterWalk }));
 
   await page.evaluate(() => {
     const game = window.__squatch;

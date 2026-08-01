@@ -21,6 +21,7 @@ export const SET = [
     title: 'Small Hours',
     lead: 'the bandleader',
     say: 'Good evening. We are the Midnight Pines and we are contractually obliged to be here.',
+    cue: 'vo.silver.bandleader.set.opener',
     dur: 52,
     stems: { rhythm: 0.5, horns: 0.22, piano: 0.34, vocal: 0 },
   },
@@ -39,6 +40,7 @@ export const SET = [
     title: 'Front and Center',
     lead: 'the bandleader',
     say: 'This one is for the table nobody had a table for.',
+    cue: 'vo.silver.bandleader.set.front-and-center',
     dur: 74,
     stems: { rhythm: 0.55, horns: 0.5, piano: 0.3, vocal: 0.3 },
     theOne: true,
@@ -254,26 +256,30 @@ export class Performance {
           P.body.rotation.z = Math.sin(beat + 0.6) * 0.03;
           break;
         }
-        case 'lead': {
-          /* Works the lip of the stage: a slow walk across the front, always
-           * facing the room, mic up whenever there is a vocal in the number.
-           * The gaze tracker owns his head — he is the one who finds your
-           * table. */
+        case 'violin': {
+          /* The leader works a narrow strip at the lip with the violin under
+           * his chin. Left hand holds the neck; the right drives a visible bow
+           * across the strings. The gaze tracker still owns his head so he is
+           * the one who finds the new front table. */
           const roam = Math.sin(this.t * 0.4);
-          m.group.position.x = m.homeX + roam * 1.5;
+          m.group.position.x = m.homeX + roam * 0.45;
           m.group.position.z = m.homeZ;
-          m.group.rotation.y = roam * -0.35;
-          const singing = n.stems.vocal * (1 - this.duck * 0.8) > 0.12;
-          if (singing) {
-            P.armR.rotation.x = -1.05;
-            P.foreR.rotation.x = -1.45;
-          } else {
-            P.armR.rotation.x = -0.45 + Math.sin(this.t * 1.1) * 0.15;
-            P.foreR.rotation.x = -0.6;
+          m.group.rotation.y = roam * -0.12;
+          const stroke = Math.sin(beat * 1.35 + ph);
+          P.armL.rotation.set(-1.02, -0.12, -0.72);
+          P.foreL.rotation.set(-1.10, 0, -0.18);
+          P.armR.rotation.set(-0.72 - stroke * 0.08, 0.08, 0.42);
+          P.foreR.rotation.set(-1.0 + stroke * 0.28, 0, 0.12);
+          P.body.rotation.z = Math.sin(this.t * 1.3) * 0.035;
+          if (m.violin?.bow) {
+            const rest = m.violin.bow.userData.restPosition;
+            m.violin.bow.position.set(
+              rest.x + stroke * 0.025,
+              rest.y + stroke * 0.12,
+              rest.z,
+            );
+            m.violin.bow.rotation.z = m.violin.bow.userData.restZ + stroke * 0.08;
           }
-          P.armL.rotation.x = -0.35 + Math.sin(this.t * 0.9 + 1) * 0.25;
-          P.armL.rotation.z = 0.3;
-          P.body.rotation.z = Math.sin(this.t * 1.3) * 0.04;
           break;
         }
         default: break;

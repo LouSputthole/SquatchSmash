@@ -16,6 +16,34 @@ export const WP = {
   heading: 180,      // departure is southbound (-Z)
 };
 
+/* The return is flown northbound onto runway 36. Keep its restart pose and
+ * navigation anchors together: the old checkpoint was 520 m above the field
+ * only 2.4 km out, a roughly fifteen-degree dive to the near threshold. This
+ * puts a restarted player on the same 4.3-degree arcade glide path that the
+ * mission's terrain pass and approach coaching are designed around. */
+const homeTouchdownZ = WP.z - WP.rwyHalf + 180;
+const homeEntryZ = WP.z - 3600;
+const homeGlideSlope = 0.075;
+// Aim the straight descent just before the pavement. The loaded Brushrunner
+// carries through its flare; aiming the mathematical line at the painted
+// touchdown bars made the real wheels arrive beyond the far runway end.
+const homeGlideAimZ = WP.z - WP.rwyHalf - 220;
+export const HOME_APPROACH = Object.freeze({
+  acquireZ: WP.z - 4300,
+  finalZ: WP.z - 1450,
+  glideSlope: homeGlideSlope,
+  threshold: Object.freeze({ x: WP.x, z: WP.z - WP.rwyHalf }),
+  touchdown: Object.freeze({ x: WP.x, z: homeTouchdownZ }),
+  glideAim: Object.freeze({ x: WP.x, z: homeGlideAimZ }),
+  entry: Object.freeze({
+    x: WP.x,
+    z: homeEntryZ,
+    y: WP.elev + (homeGlideAimZ - homeEntryZ) * homeGlideSlope,
+    heading: 0,
+    speed: 45,
+  }),
+});
+
 // ---------- El Hueso Mountain Airstrip ----------
 // Uphill toward -Z, cliff at the +Z (low) end. Land uphill, depart downhill.
 export const EH = {

@@ -340,12 +340,19 @@ export class TerrainStreamingSystem {
     this.center = { cx: 9999, cz: 9999 };
   }
 
-  // Force-build everything around a point (used when teleporting to a checkpoint).
+  // Warm the centre and its immediate neighbours when teleporting to a
+  // checkpoint. Collision height is procedural and independent of meshes, so
+  // the remaining rings can keep streaming under fog instead of blocking the
+  // restart on all 121 chunks and their forest scatter.
   prime(x, z) {
     this.update(x, z, 0);
-    while (this.queue.length) {
+    let warmed = 1;
+    while (this.queue.length && warmed < 9) {
       const item = this.queue.shift();
-      if (!this.chunks.has(item.k)) this.chunks.set(item.k, this.build(item.cx, item.cz, item.detail));
+      if (!this.chunks.has(item.k)) {
+        this.chunks.set(item.k, this.build(item.cx, item.cz, item.detail));
+        warmed++;
+      }
     }
   }
 }

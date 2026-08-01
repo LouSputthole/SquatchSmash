@@ -75,6 +75,21 @@ export class Inventory {
     return true;
   }
 
+  /**
+   * Empty one exact slot, but only when it still contains the expected item.
+   *
+   * Scripted handoffs use this instead of remove(id): the player may already
+   * own another copy of the same item and can change selection before the
+   * handoff is consumed. The identity check keeps that older copy safe.
+   */
+  removeAt(index, expectedId) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.slots) return false;
+    if (!expectedId || this.items[index] !== expectedId) return false;
+    this.items[index] = null;
+    this._changed();
+    return true;
+  }
+
   /** Empty the selected slot. */
   clearSelected() {
     if (this.items[this.selected] === null) return null;

@@ -2934,7 +2934,18 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
     const hung = new THREE.Group();
     hung.position.set(gx, 0, z0 + D * 0.5);
     clothes.add(hung);
-    hangers.push({ mesh: hung, home: gx, bunch: startX + span - i * 0.055 });
+    /* A garment stays broad when it only translates, so the old 5.5cm centre
+     * spacing still left the two printed shirts across most of this 60cm
+     * closet. At the end of a real rail the hangers turn edge-on as they
+     * bunch. Give every one an explicit side target and yaw so the opening is
+     * genuinely clear instead of merely less covered. */
+    hangers.push({
+      mesh: hung,
+      home: gx,
+      homeYaw: 0,
+      bunch: x1 - 0.045 - i * 0.025,
+      bunchYaw: Math.PI * (0.42 + (i % 2) * 0.035),
+    });
 
     // Hanger: hook and two shoulders.
     const hook = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.0045, 6, 12, Math.PI * 1.5), M.chrome);

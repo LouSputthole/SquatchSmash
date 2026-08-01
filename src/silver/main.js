@@ -13,7 +13,7 @@
  * here can be walked out of, including the one about what you do for a living.
  */
 import * as THREE from 'three';
-import { AudioEngine } from '../core/audio.js';
+import { SilverAudioEngine } from './audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
@@ -95,7 +95,10 @@ try {
   );
   throw err;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+/* The room is already geometry-heavy. Rendering four fragments for every CSS
+ * pixel on a 2x display bought almost no visible detail through the film grain
+ * and was the largest avoidable GPU cost in this scene. */
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -143,7 +146,7 @@ window.addEventListener('resize', () => {
 /* Systems                                                             */
 /* ------------------------------------------------------------------ */
 
-const audio = new AudioEngine();
+const audio = new SilverAudioEngine();
 const hud = new Hud();
 const interaction = new InteractionSystem(camera, hud);
 const world = { colliders: [], floorZones: [], groundAt: () => 0 };
@@ -155,7 +158,13 @@ player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
 const drunk = new Drunk();
 const highs = new Highs();
-const inventory = new Inventory(4);
+/* Every campaign scene speaks the same five-box inventory language. Silver
+ * starts empty, but empty pockets are still useful information. */
+const inventory = new Inventory(5);
+inventory.onChange = (inv) => {
+  hud.setInventory(inv, ITEMS);
+  hud.setHand(inv.held ? ITEMS[inv.held] : null);
+};
 
 /**
  * Accessibility.
@@ -285,7 +294,7 @@ const mission = new Mission({
 function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   if (!name) return false;
   game.voLog.push(name);
-  if (game.voLog.length > 80) game.voLog.shift();
+  if (game.voLog.length > 256) game.voLog.shift();
   if (!audio.ready) return false;
   const bank = audio.buffers?.get(name);
   if (!bank?.length) return false;
@@ -337,7 +346,10 @@ const performance_ = new Performance({
   band,
   onNumber: (n) => {
     hud.toast(`♫ ${n.title} — the Midnight Pines`, '');
-    if (n.say) hud.say(`<em>${n.lead}:</em> ${n.say}`, 5000);
+    if (n.say) {
+      hud.say(`<em>${n.lead}:</em> ${n.say}`, 5000);
+      voiceCue(n.cue);
+    }
     if (n.theOne) {
       // Three separate people said the third number was the one.
       if (game.known.has('third-number')) woo.fire('Woo.CallbackUsed');
@@ -538,7 +550,6 @@ function serveDrink(what) {
   if (inventory.full) return;
   game.heldDrink = kind;
   inventory.add(kind === 'whiskey' ? 'whiskey' : 'beer');
-  hud.setInventory(inventory, ITEMS);
 }
 
 /** Two drinks land on the table. Hers has one ice cube in it. */
@@ -568,7 +579,6 @@ function drinkTick(dt) {
   game.heldDrink = null;
   game.drinking = 0;
   poseDrink(null, 0);
-  hud.setInventory(inventory, ITEMS);
   if (drunk.level > 0.55) {
     hud.say('<em>She notices. She does not say anything, which is not the same as not noticing.</em>', 4200);
   }
@@ -855,7 +865,9 @@ function standFromTable() {
       audio.play('chair.pull', { volume: 0.5, position: herPad.position });
       const seat = room.anchors.frontSeats[1];
       date.sitAt(seat);
-      hud.say(`<em>${DATE.name}:</em> Somebody raised you. I want their name.`, 4600);
+      const moment = scripts.moments.chairPulled;
+      hud.say(`<em>${moment.who}:</em> ${moment.line}`, moment.hold * 1000);
+      voiceCue(nodeCue(moment));
     },
   });
   game.chairPads = { his: pad, her: herPad };
@@ -922,10 +934,14 @@ class Cutscene {
    *     and walked away from the table she had just said "oh, they're real" at.
    * }
    */
-  constructor(beats, { camera: shots = [], onDone, dateSeat = null } = {}) {
+  constructor(beats, {
+    camera: shots = [], onDone, dateSeat = null, onUpdate = null, onPose = null,
+  } = {}) {
     this.beats = beats.slice().sort((a, b) => a.at - b.at);
     this.shots = shots;
     this.onDone = onDone;
+    this.onUpdate = onUpdate;
+    this.onPose = onPose;
     this.dateSeat = dateSeat;
     this.t = 0;
     this.next = 0;
@@ -955,6 +971,11 @@ class Cutscene {
       }
       b.run?.();
     }
+
+    /* Some scenes have physical work in them, not only dialogue. This runs
+     * before the camera so a shot tracking a moving prop sees this frame's
+     * position rather than following one frame behind it. */
+    this.onUpdate?.(this.t, dt);
 
     /* The camera: a slow move between authored points, eased. Slow because a
      * fast one in a room this dark reads as a cut, and there are no cuts.
@@ -990,6 +1011,9 @@ class Cutscene {
     if (this.t >= this.dur) this.finish();
   }
 
+  /** Reapply a cinematic pose after the ordinary NPC idle pass. */
+  pose() { this.onPose?.(this.t); }
+
   finish() {
     if (this._done) return;
     this._done = true;
@@ -1022,6 +1046,120 @@ function startTableCutscene() {
   const movers = [cast.byName.mover1, cast.byName.mover2].filter(Boolean);
   const manager = cast.byName.manager;
   const waiter = cast.byName.waiter;
+  const carryStarts = movers.map((m) => m.group.position.clone());
+  const carryMid = A.tableCarryRoute[1];
+  const carryPoint = new THREE.Vector3();
+  const carryAhead = new THREE.Vector3();
+  const tableLook = new THREE.Vector3(A.tableStaging.x, 0.95, A.tableStaging.z);
+
+  /* The real table waits in the service lane even while hidden, so the first
+   * camera move can find where the work is about to begin. */
+  front.group.position.copy(A.tableStaging);
+
+  const pointOnCarry = (k, out) => {
+    const u = 1 - k;
+    out.set(
+      u * u * A.tableStaging.x + 2 * u * k * carryMid.x + k * k * target.x,
+      0,
+      u * u * A.tableStaging.z + 2 * u * k * carryMid.z + k * k * target.z,
+    );
+    return out;
+  };
+
+  const carrierMarks = (at, ahead) => {
+    const dx = ahead.x - at.x;
+    const dz = ahead.z - at.z;
+    const d = Math.max(0.001, Math.hypot(dx, dz));
+    const sideX = -dz / d;
+    const sideZ = dx / d;
+    return [
+      new THREE.Vector3(at.x + sideX * 0.82, 0, at.z + sideZ * 0.82),
+      new THREE.Vector3(at.x - sideX * 0.82, 0, at.z - sideZ * 0.82),
+    ];
+  };
+
+  const placeCarriers = (marks, ahead) => {
+    movers.forEach((m, i) => {
+      const mark = marks[i] ?? marks[0];
+      m.group.position.copy(mark);
+      m.baseY = mark.y;
+      m.faceToward(ahead.x, ahead.z, true);
+    });
+  };
+
+  /* Exact marks at the end of the carry. The chair phase must begin here,
+   * not at a made-up point behind the table: that old handoff moved one waiter
+   * 1.63m in a single frame even though the table itself never jumped. */
+  const carryBeforeEnd = pointOnCarry(0.975, new THREE.Vector3());
+  const carryBeyondEnd = target.clone().add(target.clone().sub(carryBeforeEnd));
+  const carrierSetMarks = carrierMarks(target, carryBeyondEnd);
+  const chairWorkEnds = A.frontSeats.map((seat) => new THREE.Vector3(seat.x, 0, seat.z + 1.05));
+
+  /* The complete procession: they converge on the table, flank it while the
+   * same object crosses the room, put it down, then each walks a chair out.
+   * Nothing swaps and nothing teleports. */
+  const updateTableWork = (t) => {
+    const approachFrom = 9.2;
+    const liftAt = 10.5;
+    const setAt = 16.0;
+    const chairsDone = 17.4;
+
+    if (t >= approachFrom && t < liftAt) {
+      pointOnCarry(0, carryPoint);
+      pointOnCarry(0.02, carryAhead);
+      const marks = carrierMarks(carryPoint, carryAhead);
+      const raw = Math.min(1, Math.max(0, (t - approachFrom) / (liftAt - approachFrom)));
+      const k = raw * raw * (3 - 2 * raw);
+      movers.forEach((m, i) => {
+        m.group.position.lerpVectors(carryStarts[i], marks[i], k);
+        m.faceToward(carryPoint.x, carryPoint.z, true);
+      });
+      return;
+    }
+
+    if (t >= liftAt && t < setAt) {
+      const raw = Math.min(1, (t - liftAt) / (setAt - liftAt));
+      const k = raw * raw * (3 - 2 * raw);
+      pointOnCarry(k, carryPoint);
+      pointOnCarry(Math.min(1, k + 0.025), carryAhead);
+      front.group.position.copy(carryPoint);
+      placeCarriers(carrierMarks(carryPoint, carryAhead), carryAhead);
+      return;
+    }
+
+    if (t >= setAt && t < chairsDone) {
+      front.group.position.copy(target);
+      const raw = Math.min(1, (t - setAt) / (chairsDone - setAt));
+      const k = raw * raw * (3 - 2 * raw);
+      front.chairs.forEach((chair, i) => {
+        const seat = A.frontSeats[i];
+        chair.visible = true;
+        chair.position.set(
+          target.x + (seat.x - target.x) * k,
+          0,
+          target.z + (seat.z - target.z) * k,
+        );
+        chair.rotation.y = seat.yaw;
+      });
+      movers.forEach((m, i) => {
+        const seat = A.frontSeats[i];
+        m.group.position.lerpVectors(carrierSetMarks[i], chairWorkEnds[i], k);
+        m.faceToward(seat.x, seat.z, true);
+      });
+    }
+  };
+
+  const poseTableWork = (t) => {
+    if (t < 9.2 || t > 17.4) return;
+    for (const m of movers) {
+      /* Hands under the edge for the carry, then down onto the chair backs.
+       * Applied after Npc.update so the ordinary idle never wipes the pose. */
+      m.parts.armL.rotation.x = -0.78;
+      m.parts.armR.rotation.x = -0.78;
+      m.parts.foreL.rotation.x = -1.22;
+      m.parts.foreR.rotation.x = -1.22;
+    }
+  };
 
   // Park the two of them where the host station can see them
   player.position.set(A.hostMark.x, 1.66, A.hostMark.z);
@@ -1038,7 +1176,6 @@ function startTableCutscene() {
         // The manager says four words and the room starts moving.
         manager?.faceToward(A.tableStaging.x, A.tableStaging.z);
         for (const m of movers) m.faceToward(target.x, target.z);
-        audio.play('table.set', { volume: 0.4, position: A.tableStaging });
       },
     },
     {
@@ -1047,24 +1184,24 @@ function startTableCutscene() {
         /* The real table. Not a stand-in: this object is the one that is still
          * here in twenty minutes with her drink on it. */
         front.group.visible = true;
-        front.group.position.set(A.tableStaging.x, 0, A.tableStaging.z);
+        front.group.position.copy(A.tableStaging);
+        for (const child of front.group.children) {
+          child.visible = ['front-pedestal', 'front-foot', 'front-top'].includes(child.name);
+        }
+        audio.play('table.set', { volume: 0.34, position: A.tableStaging });
       },
     },
     {
-      at: 15.4,
+      at: 16.0,
       run: () => {
         front.group.position.set(target.x, 0, target.z);
         audio.play('table.set', { volume: 0.6, position: target });
-        for (const m of movers) {
-          m.group.position.set(target.x + (Math.random() - 0.5) * 2, 0, target.z + 1.2);
-          m.faceToward(target.x, target.z, true);
-        }
       },
     },
     {
-      at: 16.6,
+      at: 17.4,
       run: () => {
-        // Chairs
+        // Chairs finish the trip on their own legs, one in each waiter's hands.
         const seats = A.frontSeats;
         front.chairs.forEach((c, i) => {
           c.visible = true;
@@ -1075,19 +1212,17 @@ function startTableCutscene() {
       },
     },
     {
-      at: 17.8,
+      at: 18.6,
       run: () => {
-        // Cloth
-        for (const c of front.group.children) {
-          if (c.geometry?.type === 'CylinderGeometry' && c.scale.y > 0.4) c.visible = true;
-        }
-        front.group.children.forEach((c) => { if (c.name !== 'setting') c.visible = true; });
+        // Cloth: a top and a skirt, and still no lamp or settings.
+        front.group.children.find((c) => c.name === 'front-cloth-top').visible = true;
+        front.group.children.find((c) => c.name === 'front-cloth').visible = true;
         audio.play('cloth.snap', { volume: 0.7, position: target });
         waiter?.faceToward(target.x, target.z);
       },
     },
     {
-      at: 19.2,
+      at: 20.2,
       run: () => {
         frontGlasses(true);
         // The lamp comes on last, which is what makes it a table
@@ -1128,12 +1263,20 @@ function startTableCutscene() {
      * manager turns to the room at 9.0, then follows the work. */
     camera: [
       { at: 0, to: new THREE.Vector3(A.hostMark.x, 1.66, A.hostMark.z + 0.4), look: { x: A.host.x - 1.2, y: 1.55, z: A.host.z - 0.3 }, dur: 2.5 },
-      { at: 9.2, to: new THREE.Vector3(A.hostMark.x - 1.5, 1.7, A.hostMark.z - 1), look: { x: A.tableStaging.x, y: 1.2, z: A.tableStaging.z }, dur: 4.5 },
-      { at: 15, to: new THREE.Vector3(A.hostMark.x - 3, 1.68, A.hostMark.z - 3), look: { x: target.x, y: 0.9, z: target.z }, dur: 6 },
-      /* Slow. This is a twenty-metre dolly across the whole room and at dur 3
-       * it was a whip pan; at 6 it is the room being taken in. */
-      { at: 22, to: new THREE.Vector3(-6, 1.66, -1.5), look: { x: target.x, y: 1.0, z: target.z }, dur: 6 },
+      /* Four connected dolly marks keep both carriers and the same tabletop in
+       * frame all the way from the service lane to front-and-centre. `tableLook`
+       * is mutated below, so these are tracking shots rather than four pans to
+       * stale coordinates. */
+      { at: 9.2, to: new THREE.Vector3(-2.0, 1.78, 15.0), look: tableLook, dur: 3.0 },
+      { at: 12.2, to: new THREE.Vector3(-7.4, 1.62, 7.0), look: tableLook, dur: 3.8 },
+      { at: 16.0, to: new THREE.Vector3(-10.9, 1.48, 0.1), look: tableLook, dur: 3.4 },
+      { at: 19.4, to: new THREE.Vector3(-11.8, 1.56, -3.0), look: tableLook, dur: 4.4 },
     ],
+    onUpdate: (t, dt) => {
+      updateTableWork(t, dt);
+      tableLook.set(front.group.position.x, 0.95, front.group.position.z);
+    },
+    onPose: poseTableWork,
     onDone: () => {
       mission.tableBuilt();
       game.chairPads.his.position.set(A.frontSeats[0].x, 0.7, A.frontSeats[0].z);
@@ -1913,6 +2056,7 @@ window.addEventListener('keydown', (e) => {
   if (/^Digit[1-7]$/.test(e.code)) {
     const n = Number(e.code.slice(-1)) - 1;
     if (dialogue.active && dialogue.options.length) dialogue.choose(n);
+    else if (n < inventory.slots) inventory.select(n);
   }
   if (e.code === 'Escape') document.exitPointerLock?.();
   if (e.code === 'Tab') {
@@ -2096,6 +2240,10 @@ startBtn.addEventListener('click', async () => {
 
   if (!game.started) {
     game.started = true;
+    /* Draw the five empty boxes on the first gameplay frame. Waiting for the
+     * first pickup made the inventory system invisible until it was too late
+     * to teach the player that it existed. */
+    inventory.onChange(inventory);
     for (const bed of ['alley', 'cellar', 'kitchen', 'diners']) {
       audio.startLoop(`ambience.${bed}`, { volume: 0, ambience: true, fade: 1.5 });
     }
@@ -2160,6 +2308,9 @@ function frame() {
     npc.update(dt, p);
   }
   for (const m of band.members) if (m.group.visible) m.update(dt, p);
+  /* Cutscene work poses must be the final author on the two waiters' arms.
+   * Their normal idle update still runs so faces and feet stay alive. */
+  game.scene?.pose?.();
   /* After the band's own Npc updates, so the playing poses it writes are what
    * gets rendered. Before, Npc.update ran last and re-posed every musician
    * with the idle loop at its own 20Hz cadence — two systems fighting over

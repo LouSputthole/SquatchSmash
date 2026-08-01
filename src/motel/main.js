@@ -19,6 +19,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { createMotelStory } from '../core/motel-story.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -115,6 +116,7 @@ const grappleFillEl = $('grappleFill');
 const driveHudEl = $('driveHud');
 const packBoxEl = $('packBox');
 const packListEl = $('packList');
+const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 
 // ---------- Game state ----------
 let phase = 'menu';   // menu | car | lot | door | room | fight | recover | escape | drive | end
@@ -582,6 +584,7 @@ function startScene() {
   sfx.setMusic('tense');
   $('menu').classList.add('hidden');
   hudEl.classList.add('visible');
+  sceneInventory.show();
   phase = 'car';
   S.carryingMoney = true;
   setObjective('reach', 'Meet the jerky suppliers');
@@ -2684,6 +2687,7 @@ function inventoryItems() {
 let packShown = new Set();
 function renderInventory() {
   const items = inventoryItems();
+  sceneInventory.set(items.map((item) => ({ icon: item.icon, label: item.text })));
   packBoxEl.classList.toggle('empty', items.length === 0);
   packListEl.innerHTML = items.map((item) => {
     const fresh = packShown.has(item.id) ? '' : ' new';

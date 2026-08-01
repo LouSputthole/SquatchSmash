@@ -1,6 +1,6 @@
 # SquatchSmash Consolidation Handoff
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
 Current published checkpoint: current `main` (verify with `git rev-parse origin/main`)
@@ -45,15 +45,16 @@ deferred pending the owner's playtest.
 - The post-airstrip apartment state, Big Uncle Lou's second call, reused Bada
   Bing Scene Two, direct Jerky Motel handoff, Motel completion, and apartment
   return are implemented.
-- The post-Motel sleep opens the Day 3 `date` chapter, Margo's one-shot call
-  unlocks the Silver Room, the apartment door routes to `silver.html`, the
-  evening folds back into campaign state, and the walk home plus a second sleep
-  turns the page onto the Day 4 big night. Browser-verified end to end
-  (`verify:silver-story`, 20).
+- The post-Motel sleep opens Day 3's `no_wake` chapter. Big Uncle Lou's vague
+  harbor call unlocks the connected NO WAKE mission; betrayal, player shot,
+  body disposal, and return are durable campaign state. Completion advances
+  directly into the same day's `date` chapter, where Margo's one-shot call
+  unlocks the Silver Room. The date folds back into campaign state and sleep
+  turns the page onto the Day 4 big night.
 - The final apartment return, the post-date sleep into the `big_night`
   chapter, Booskibro's one-shot big-night call, and the door route into the
   unchanged Initiation are implemented and browser-verified
-  (`verify:big-night`, 19).
+  (`verify:big-night`, 20).
 - `tests/fresh-save-campaign-route.test.mjs` follows a brand-new Tony through
   every currently connected mission, reloads at the apartment returns, and
   proves the saved route reaches an in-progress Initiation. Run it directly
@@ -65,9 +66,9 @@ deferred pending the owner's playtest.
 - Standalone scene boot failures show Reload and Apartment recovery.
 - Scene/spawn validation, atomic transitions, failed-navigation rollback, and
   browser-storage fallback are implemented.
-- Campaign save schema v3 explicitly migrates v1 and v2 saves, preserves malformed or
-  future-version data in a recovery journal, visibly warns the player, and
-  refuses unsafe scene transitions when persistence fails.
+- Campaign save schema v4 explicitly migrates v1, v2, and v3 saves, preserves
+  malformed or future-version data in a recovery journal, visibly warns the
+  player, and refuses unsafe scene transitions when persistence fails.
 - Campaign time is event-driven. Real waiting no longer moves story time;
   first-time tasks, calls, travel, missions, and sleep own named idempotent
   clock events. Day One starts at 6:04 AM and the first Bing travel event lands
@@ -138,7 +139,7 @@ The phone's `[Q] pocket` hint is intentionally present on **every idle phone
 screen** (home, Messages, a thread, and Recents), not only while browsing a
 thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
 
-### July 31: pause/reset, dialogue, and recording backlog
+### August 1: pause/reset, dialogue, and recording backlog
 
 - `Campaign.reset()` writes a fresh Day One save before removing obsolete
   recovery data. If browser storage refuses the write, the old campaign stays
@@ -147,31 +148,35 @@ thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
   confirms Tony returns to normal walking after the dialogue reaches its
   authored end. `verify:day-one` proves Big Uncle Lou's first call is a
   decoded, nonzero-gain WebAudio buffer playback.
-- The live `VOICE-LINES-TODO.md` inventory now lists **0 voice lines and 0
-  effects**. The 112 Bada Bing full-conversation recordings (including Big
-  Uncle Lou, bouncer, bartender, dealer, Margo, and Tony replies) are present,
-  indexed, and browser-verified as decoded audio buffers. After any future
-  recording intake, run `npm run sfx:listen`, then regenerate the report with
-  `npm run audio:todo`.
+- The generated `VOICE-LINES-TODO.md` is the live recording authority. It
+  currently lists **70 voice lines and 14 effects**: 69 newly authored pickups
+  in this batch (46 Beef Run, 18 NO WAKE, two Bada Bing, and three Silver Room lines), one
+  pre-existing missing Snow/Tony line, and procedural-fallback effects that are
+  already audible but still need final recordings. Existing Bada Bing conversation
+  recordings remain present and indexed. After recording intake, run
+  `npm run sfx:listen`, then regenerate the report with `npm run audio:todo`.
 
 ## Campaign order — confirmed by the owner 2026-07-30
 
 Apartment → Bada Bing One → apartment → Squatchfather → apartment →
 Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment →
-**Silver Room date** → apartment → Initiation on Day 4. This matches what is
-built; the owner confirmed position 9 is the Jerky Motel. Every arrow in that
-chain is a real campaign transition, including the last one into the unchanged
-Initiation. The owner also confirmed the previously blocked character/performer
-decisions stand as originally specified (Squatchfather character style
-everywhere, detailed performers, Lou's face photo without the bandana).
+sleep → **NO WAKE** → apartment → **Silver Room date** → apartment →
+Initiation on Day 4. This matches what is built; the owner confirmed position 9
+is the Jerky Motel. Every arrow in that chain is a real campaign transition,
+including NO WAKE's same-day handoff into the date chapter and the last one into
+the unchanged Initiation. The owner also confirmed the previously blocked
+character/performer decisions stand as originally specified (Squatchfather
+character style everywhere, detailed performers, Lou's face photo without the
+bandana).
 
 ### The Silver Room is integrated
 
 `silver.html` / `src/silver/*` is now **in** the campaign, at the slot the owner
-ruled on 2026-07-30: **Day 3 evening**, between the Motel and the Initiation.
+ruled on 2026-07-30: **Day 3 evening**, between NO WAKE and the Initiation.
 The Goodfellas calm-before-the-verdict beat.
 
-- Sleeping off the Motel opens a new `date` chapter at **Day 3, 12:00 PM**.
+- Sleeping off the Motel opens `no_wake` at **Day 3, 12:00 PM**. Completing NO
+  WAKE at South Harbor advances directly into `date` that afternoon.
 - **Margo** rings the physical phone that afternoon (`MARGO_DATE_CALL`,
   +5 authored minutes) and unlocks `MISSION_IDS.SILVER_ROOM`.
 - The apartment door routes to `SCENE_IDS.SILVER_ROOM` (`silver.html`);
@@ -289,6 +294,9 @@ Current authored beats:
 | Bada Bing Scene Two completion | Advance to at least Day 3, 12:45 AM |
 | Drive to the Jerky Motel | Advance to at least Day 3, 1:30 AM |
 | Jerky Motel completion | Advance to at least Day 3, 4:30 AM |
+| Big Uncle Lou's NO WAKE call | +4 minutes |
+| Leave for South Harbor | Advance to at least Day 3, 12:45 PM |
+| NO WAKE completion | Advance to at least Day 3, 4:40 PM |
 | Margo's answered date call | +5 minutes |
 | Leave for the Silver Room | Advance to at least Day 3, 7:30 PM |
 | Silver Room completion | Advance to at least Day 3, 11:20 PM |
@@ -310,7 +318,7 @@ chapter is still deliberately separate from calendar day. `SLEEP_CHAPTERS` in
 | Chapter | Requires | Wakes at | Next chapter |
 |---|---|---|---|
 | `day_one` | Squatchfather complete | Day 2, 7:00 AM | `day_two` |
-| `day_two` | Jerky Motel complete | Day 3, 12:00 PM | `date` |
+| `day_two` | Jerky Motel complete | Day 3, 12:00 PM | `no_wake` |
 | `date` | Silver Room complete | Day 4, 10:00 AM | `big_night` |
 
 `big_night` is the last chapter, so sleeping again returns
@@ -318,10 +326,11 @@ chapter is still deliberately separate from calendar day. `SLEEP_CHAPTERS` in
 `day_one_incomplete`, `day_two_incomplete`, or `date_incomplete` rather than
 skipping a night of work.
 
-The `date` wake is noon of the *same* Day 3 the Motel ended on: Tony was up
-until half four in the morning, and the table is not until nine that evening.
-Sleeping off the date is the only thing that moves the calendar to Day 4, which
-is the day the ceremony happens.
+The `no_wake` wake is noon of the *same* Day 3 the Motel ended on: Tony was up
+until half four in the morning. NO WAKE completion advances directly to `date`
+without another sleep, and the table is not until nine that evening. Sleeping
+off the date is the only thing that moves the calendar to Day 4, which is the
+day the ceremony happens.
 
 ## The final apartment return and the big-night call
 
@@ -329,10 +338,10 @@ The last apartment beat is connected and the current Initiation is routed
 through ordinary campaign state without a single change to the scene:
 
 - Coming home from the Motel is recognised on its own (`returningFromMotel`),
-  with its own overlay tag and arrival lines, instead of reusing the
-  Squatchfather return copy. Coming home from the **date** is recognised ahead
-  of it (`returningFromSilver`, checked first because a finished date also has
-  a finished Motel behind it) and its arrival line reads the recorded outcome.
+  with its own overlay tag and arrival lines. Coming home from South Harbor is
+  separately recognised as `returningFromNoWake`, and the **date** return is
+  `returningFromSilver`. Newest completed mission wins, so older completion
+  state never gives Tony the wrong arrival scene.
 - Before the post-date sleep the door gives an in-voice waiting line
   (`sleep_before_big_night`) rather than a destination. Nothing rings.
 - Sleeping opens the `big_night` chapter at Day 4, 10:00 AM. Booskibro — patriarch
@@ -451,45 +460,46 @@ Three.js. The adapted boundaries:
 - `check.mjs` gained the Beef Run cue round-trip and dialogue-resolution
   gates; `audio-todo` gained the mission chapter with casting notes.
 
-## Verification at this checkpoint
+## Verification for the August 1 consolidation candidate
 
-Fresh checks on the July 31 release-hygiene candidate (published base
-`acd6a9b`, plus the Day Two verifier world-matrix correction):
+Fresh checks on the complete consolidation candidate before publication:
 
 ```text
-npm test                       87/87 passed
-npm run check                  185 source files, 4 manifests, all good
+npm test                      123/123 passed
+npm run check                  200 source files, 4 manifests, all good
 npm run check:flight           flight-model bench, all envelopes hold
-npm run verify:day-one         35/35 passed
-npm run verify:day-two         22/22 passed
-npm run verify:big-night       19/19 passed
+npm run verify:campaign-route   1/1 passed; fresh save reaches Initiation in progress
+npm run verify:day-one         38/38 passed
+npm run verify:day-two         27/27 passed
+npm run verify:big-night       20/20 passed
 npm run verify:computer        29/29 passed
 npm run verify:squatch-smash    8/8 passed
-npm run verify:boot-errors      8/8 passed
-npm run verify:preview         16/16 passed
-npm run verify:beefrun         22/22 passed
-npm run verify:motel           37/37 passed
-npm run verify:squatchfather   31/31 passed
-npm run verify:initiation      10/10 passed
-npm run verify:bing-two        10/10 passed
-npm run verify:bing           123/123 passed
+npm run verify:boot-errors     10/10 passed
+npm run verify:direct-entry    15/15 passed
+npm run verify:preview         19/19 passed
+npm run verify:beefrun         40/40 passed
+npm run verify:motel           38/38 passed
+npm run verify:no-wake         26/26 passed
+npm run verify:squatchfather   38/38 passed
+npm run verify:initiation      11/11 passed
+npm run verify:bing-two        12/12 passed
+npm run verify:bing           146/146 passed
 npm run verify:silver-story    20/20 passed
-npm run verify:silver         112/112 passed
-npm run verify:art             50 art pieces checked, all good
-npm run verify:bundle           3 strict-CSP policies passed; 295 voice clips embedded
-npm run audio:todo             superseded — see current 0 voice / 0 effects queue below
+npm run verify:silver         120/120 passed
+npm run verify:art             52 art pieces checked, all good
+npm run verify:bundle           3 strict-CSP policies passed; 268 voice clips embedded
+npm run audio:todo             regenerated — see the live queue below
 ```
 
-The audio count above is preserved as a historical milestone only. The
-authoritative live queue is [VOICE-LINES-TODO.md](../VOICE-LINES-TODO.md),
-regenerated after each delivery with `npm run audio:todo`; it currently reports
-zero outstanding voice lines and effects.
+The authoritative recording queue is
+[VOICE-LINES-TODO.md](../VOICE-LINES-TODO.md), regenerated with
+`npm run audio:todo`. The effects have procedural fallbacks; the 70 voice cues
+are wired and subtitled but still require recordings.
 
-The Day Two repair is test-only: the four-angle bed probe moves the camera
-directly, so it now refreshes the Three.js scene's world matrices before
-raycasting. Without that refresh a valid bed target appeared as a false
-negative in headless verification. No gameplay geometry or interaction code
-changed in this release-hygiene pass.
+Day Two now has the bloody shirt evidence, a closet clothes slide that clears
+the opening, and a deterministic wake transition. The Day Two verifier also
+refreshes world matrices before its direct camera probes so its raycasts match
+the browser scene.
 
 ### Audio for the date
 
@@ -501,8 +511,8 @@ beds), plus `vo.call.margo.date.1..4` with her exact lines.
 
 Margo now has her own locked `voices.margo` casting from the owner's Voice IDs
 sheet, and her call/reply cues are recorded and indexed. She is not Hog Mama;
-the two characters retain separate voice keys and identities. The live
-`VOICE-LINES-TODO.md` queue reports zero missing recordings.
+the two characters retain separate voice keys and identities. The current
+recording backlog remains the 70-line queue summarized above.
 
 The single-file bundle is a constrained preview artifact: its configured size
 budget omits music and many voice clips, so the normal hosted runtime remains
@@ -573,9 +583,9 @@ implementation and should be reviewed before the final Initiation wiring:
   Bing oath and party, the Pines alone, or the Bada Bing ceremony alone.
   `docs/CAMPAIGN-TIMELINE.md` and `docs/STORY.md` currently specify different
   finales.
-- Confirm whether the Day-3 informant hit and Day-4 heist are now approved for
-  production. Both remain explicit do-not-build gates in the authoritative
-  timeline.
+- Decide whether the Day-4 heist is approved for production. The Day-3
+  informant hit is already built and connected as NO WAKE; only the heist
+  remains an explicit do-not-build gate in the authoritative timeline.
 
 1. Squatchfather dialogue says Sal's side “shot Booskibro,” but Booskibro calls
    Tony on Day Two. Was Booskibro wounded and recovered, and should the game

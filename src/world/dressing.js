@@ -195,21 +195,28 @@ function bloodShirt(M, { x, y, z, rotY = 0 }) {
   const g = group('dress:bloodShirt');
   g.position.set(x, y, z);
   g.rotation.y = rotY;
-  const cloth = mat({ color: 0x2a2f38, roughness: 1 });
-  const stain = mat({ color: 0x3a1010, roughness: 1 });
-  // A heap: three crumples of cloth at different angles.
+  /* A pale shirt, because the previous charcoal fabric disappeared into the
+   * flat's charcoal floor and read as generic rubbish even in full light. The
+   * blood is dark enough to stay ugly but red enough to read from the bed. */
+  const cloth = mat({ color: 0xb9b5ac, roughness: 1 });
+  const clothShade = mat({ color: 0x817f7a, roughness: 1 });
+  const stain = mat({ color: 0x71151a, roughness: 1 });
+  // A torso and two collapsed sleeves: a discarded shirt, not three boxes.
   for (const [dx, dz, sx, sz, r] of [
-    [0, 0, 0.34, 0.26, 0.1], [0.09, 0.06, 0.22, 0.20, -0.7], [-0.08, 0.05, 0.19, 0.15, 0.9],
+    [0, 0, 0.40, 0.31, 0.1], [0.20, 0.04, 0.32, 0.13, -0.52], [-0.20, 0.02, 0.31, 0.13, 0.62],
   ]) {
     const m = box({ size: [sx, 0.055, sz], pos: [dx, 0.028, dz], mat: cloth, rotY: r });
     m.scale.y = 0.9;
     g.add(m);
   }
+  // Collar and open front keep the heap recognisable as clothing.
+  g.add(box({ size: [0.16, 0.025, 0.07], pos: [0.01, 0.061, -0.12], mat: clothShade, rotY: 0.10 }));
+  g.add(box({ size: [0.025, 0.012, 0.25], pos: [0.015, 0.065, 0.01], mat: clothShade, rotY: 0.08 }));
   // Two dark patches down the front of it. Not discussed.
-  for (const [dx, dz, r] of [[0.02, -0.04, 0.055], [-0.03, 0.03, 0.038]]) {
+  for (const [dx, dz, r] of [[0.02, -0.04, 0.075], [-0.05, 0.05, 0.052], [0.18, 0.04, 0.035]]) {
     const s = new THREE.Mesh(new THREE.CircleGeometry(r, 12), stain);
     s.rotation.x = -Math.PI / 2;
-    s.position.set(dx, 0.057, dz);
+    s.position.set(dx, 0.067, dz);
     g.add(s);
   }
   return g;

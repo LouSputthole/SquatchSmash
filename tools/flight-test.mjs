@@ -57,8 +57,8 @@ performance.now = () => ((Math.PI - 2.1) / 2 / 7.3) * 1000;
 const THREE = await import('three');
 const { AircraftPhysics } = await import('../src/beefrun/physics.js');
 const { EngineSystem } = await import('../src/beefrun/engines.js');
-const { AC, KT, WP, EH } = await import('../src/beefrun/config.js');
-const { terrainHeight } = await import('../src/beefrun/terrain.js');
+const { AC, KT, WP, EH, HOME_APPROACH } = await import('../src/beefrun/config.js');
+const { terrainHeight, TerrainStreamingSystem } = await import('../src/beefrun/terrain.js');
 
 const GH = 42;                    // flat test ground
 const dt = 1 / 60;
@@ -121,6 +121,83 @@ function autopilot(p, eng, { hdg = 180, speed = 55, climb = 0, thr = null }) {
 const airborne = (p) => !p.onGround && p.agl > AC.gearY + 0.6;
 
 console.log('Brushrunner flight model\n');
+
+/* A checkpoint is a recovery action, so it cannot synchronously rebuild the
+ * entire 11x11 terrain working set before returning control to the player. */
+{
+  const stream = new TerrainStreamingSystem(new THREE.Scene());
+  stream.prime(WP.x, HOME_APPROACH.entry.z);
+  console.log('Checkpoint terrain warm-up:');
+  expect('chunks built synchronously', stream.chunks.size, 1, 9);
+  expect('far terrain left on streaming queue', stream.queue.length, 1, 120);
+  console.log(results.splice(0).join('\n'));
+  stream.clear();
+}
+
+/* ---------------------------------------------------------------- */
+/* The saved return checkpoint must start on a landable profile      */
+/* ---------------------------------------------------------------- */
+{
+  const horizontal = HOME_APPROACH.touchdown.z - HOME_APPROACH.entry.z;
+  const vertical = HOME_APPROACH.entry.y - WP.elev;
+  const descentDeg = Math.atan2(vertical, horizontal) * 180 / Math.PI;
+  console.log('Whispering Pines return setup:');
+  expect('checkpoint descent angle to touchdown', descentDeg, 3.5, 5.5, ' deg');
+  expect('time to establish before the threshold', horizontal / HOME_APPROACH.entry.speed, 55, 100, ' s');
+  console.log(results.splice(0).join('\n'));
+}
+
+/* Fly the exact saved return setup over the real route terrain. A geometric
+ * angle check can be green while the aeroplane still floats past the field;
+ * this is the regression for the player-visible back half. */
+{
+  const p = new AircraftPhysics({ getHeight: (x, z) => terrainHeight(x, z) });
+  const eng = new EngineSystem();
+  eng.masterBattery = true; eng.fuelSelectors = true; eng.rightBalks = false;
+  eng.crank(0); eng.crank(1);
+  for (let i = 0; i < 240; i++) eng.update(dt, 0);
+  p.engines = eng;
+  p.mass = AC.emptyMass + AC.fuelMass * 0.6 + AC.maxCargo;
+  const a = HOME_APPROACH.entry;
+  p.setPose(new THREE.Vector3(a.x, a.y, a.z), a.heading, a.speed);
+  p.controls.flaps = 1;
+  p.controls.parkingBrake = false;
+  let touched = null;
+  for (let i = 0; i < 60 * 150; i++) {
+    const remaining = HOME_APPROACH.glideAim.z - p.position.z;
+    const targetY = WP.elev + Math.max(0, remaining * HOME_APPROACH.glideSlope);
+    const wantVs = p.agl < 7
+      ? clamp(-0.45 - p.agl * 0.04, -1.1, 0)
+      : clamp(-p.groundSpeed * HOME_APPROACH.glideSlope
+        + (targetY - p.position.y) * 0.22, -4.2, 2);
+    autopilot(p, eng, {
+      hdg: 0,
+      speed: p.agl < 9 ? 36 : 40,
+      climb: wantVs,
+      thr: p.agl < 3 ? 0.08 : null,
+    });
+    if (p.onGround) {
+      touched = { x: p.position.x, z: p.position.z, speed: p.ias * KT };
+      break;
+    }
+  }
+  console.log('\nSaved return checkpoint through touchdown:');
+  if (!touched) {
+    failures++;
+    console.log('  FAIL  never touched down');
+  } else {
+    expect('touchdown is on runway width', Math.abs(touched.x - WP.x), 0, WP.rwyWidth, ' m');
+    expect('touchdown is inside runway length', touched.z, -WP.rwyHalf, WP.rwyHalf, ' m');
+    expect('touchdown speed', touched.speed, 45, 82, ' kt');
+    const z0 = p.position.z;
+    p.controls.brake = 1;
+    throttle(p, eng, 0);
+    for (let i = 0; i < 60 * 60 && p.groundSpeed > 1.5; i++) { eng.update(dt, p.tas); p.advance(dt); }
+    expect('stops before runway end', p.position.z, -WP.rwyHalf, WP.rwyHalf, ' m');
+    expect('braking distance home', p.position.z - z0, 60, 460, ' m');
+    console.log(results.splice(0).join('\n'));
+  }
+}
 
 /* ---------------------------------------------------------------- */
 /* 1. Takeoff, empty                                                 */

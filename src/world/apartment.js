@@ -1222,7 +1222,9 @@ export async function buildApartment(ctx) {
     const k = Math.min(1, dt * 7);
     for (const hgr of closet.hangers) {
       const want = state.closetOpen ? hgr.bunch : hgr.home;
+      const wantYaw = state.closetOpen ? hgr.bunchYaw : hgr.homeYaw;
       hgr.mesh.position.x += (want - hgr.mesh.position.x) * k;
+      hgr.mesh.rotation.y += (wantYaw - hgr.mesh.rotation.y) * k;
     }
   });
 
@@ -2285,6 +2287,8 @@ export async function buildApartment(ctx) {
     dressedChapter() { return dressedChapter; },
     /** Every dressing piece by id, so a verifier can look at the room. */
     dressing,
+    /** The working rail and hanger poses, exposed for scene verifiers. */
+    closet,
     /** The blinking box on the sideboard, and what is waiting on it. */
     answerMachine,
     messagesWaiting() { return machineWaiting; },

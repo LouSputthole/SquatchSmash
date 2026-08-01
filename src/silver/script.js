@@ -1630,6 +1630,17 @@ export function buildScripts(ctx) {
     },
   };
 
+  /* Small authored moments outside a conversation tree still live in the
+   * script. Keeping the subtitle and cue together means the voice audit can
+   * see them, instead of leaving a one-off line stranded in main.js. */
+  const moments = {
+    chairPulled: {
+      who: DATE.name,
+      line: 'Somebody raised you. I want their name.',
+      hold: 4.6,
+    },
+  };
+
   /* Cast the ones that have been cast.
    *
    * Every tree goes through `voiced`; it only stamps the speakers in
@@ -1640,7 +1651,7 @@ export function buildScripts(ctx) {
   const trees = {
     driver, arrival, doorman, cellarman, delivery, porter, chef, linecook, dishwasher,
     servicebar, coatcheck, host, manager, seated, waiter, ape, bandleader,
-    photographer, toast, sway, invitation,
+    photographer, toast, sway, invitation, moments,
   };
   for (const [name, tree] of Object.entries(trees)) voiced(name, tree);
   return {

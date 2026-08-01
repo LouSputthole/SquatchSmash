@@ -276,6 +276,14 @@ try {
 
   await page.click('#startBtn');
   await page.waitForFunction(() => window.squatchfather.state() === 'START_EXTERIOR');
+  const squatchfatherInventory = await page.evaluate(() => ({
+    visible: Boolean(document.querySelector('#hotbar'))
+      && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',
+    slots: document.querySelectorAll('#hotbar .slot').length,
+  }));
+  check('Squatchfather keeps the shared five-slot inventory visible',
+    squatchfatherInventory.visible && squatchfatherInventory.slots === 5,
+    JSON.stringify(squatchfatherInventory));
   let current = await state();
   check('beginning stages the package as the bathroom weapon',
     !current.packageCarried

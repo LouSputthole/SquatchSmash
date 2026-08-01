@@ -26,12 +26,14 @@ import { TrainVibration } from './effects/TrainVibration.js';
 import { EarRingingEffect } from './effects/EarRingingEffect.js';
 import { MirrorReflection } from './effects/MirrorReflection.js';
 import {
+  ITEM_IDS,
   SCENE_IDS,
   createCampaign,
   navigateCampaign,
 } from '../core/campaign.js';
 import { createSquatchfatherStory } from '../core/squatchfather-story.js';
 import { prewarmScene } from '../core/prewarm.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 
 // ---------------------------------------------------------------- boot
 
@@ -83,6 +85,8 @@ const ui = {
   deathTitle: $('deathTitle'),
   endCard: $('endCard'),
 };
+
+const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 
 const campaign = createCampaign();
 const campaignStory = createSquatchfatherStory({ campaign });
@@ -1124,8 +1128,25 @@ function updateGame(dt) {
   waiterRounds(dt);
   updateCowering(dt);
   director.update(dt, prospect, seatedNow ? seated.clamp : null);
+  updateSceneInventory();
   mirror.render(renderer, camera);
   ePressed = false;
+}
+
+let inventorySignature = '';
+function updateSceneInventory() {
+  const items = [];
+  if (!prospect.weaponDropped) {
+    if (prospect.hasWeapon) {
+      items.push({ icon: '🔫', label: prospect.weaponOut ? 'Revolver · drawn' : 'Revolver · concealed' });
+    } else if (campaign.state.inventory.concealed.includes(ITEM_IDS.LOU_PACKAGE)) {
+      items.push({ icon: '🧥', label: "Lou's package · concealed" });
+    }
+  }
+  const next = JSON.stringify(items);
+  if (next === inventorySignature) return;
+  inventorySignature = next;
+  sceneInventory.set(items);
 }
 
 function frame() {
@@ -1179,6 +1200,8 @@ function startScene(fresh = true) {
   ui.endCard.classList.add('hidden');
   ui.pause.classList.add('hidden');
   ui.hud.classList.add('visible');
+  sceneInventory.show();
+  updateSceneInventory();
   paused = false;
   running = true;
 
