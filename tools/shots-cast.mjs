@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5340;
-const OUT = path.join(ROOT, 'docs', 'validation', '2026-07-30');
+const OUT = path.join(ROOT, 'docs', 'validation', '2026-08-01');
 const ONLY = process.argv.slice(2);
 const want = (name) => ONLY.length === 0 || ONLY.includes(name);
 
@@ -78,9 +78,19 @@ const dress = params.get('dress') || 'shirt';
 const solo = params.get('solo');
 const SOLO = {
   lou: {
-    height: 1.8, build: 1.4, dress: 'shirt', shirt: 0x6a5a3a,
-    hairColour: 0x4a4a48, chain: true, skin: 0xd2a074,
+    height: 1.8, build: 1.4, dress: 'shirt', shirt: 0x6f5a38,
+    hairColour: 0x4a4a48, chain: 'gold', chainStyle: 'layered',
+    pendant: true, pendantStyle: 'crest', neckline: 'v', luxury: true,
+    shirtAccent: 0x9b825b, watch: 'gold', skin: 0xd2a074,
     face: 'assets/faces/lou.png', bandana: false,
+  },
+  booski: {
+    height: 1.8, build: 1.2, dress: 'shirt', shirt: 0x20365f,
+    hairColour: 0x2a1c14, skin: 0xd9a97f,
+    neckline: 'v', luxury: true, shirtAccent: 0x405a86,
+    chain: 'gold', chainStyle: 'layered', pendant: true,
+    pendantStyle: 'crest', watch: 'gold',
+    face: 'assets/faces/booski.png', bandana: false,
   },
   dancer: {
     role: 'performer', adult: true, gender: 'female', bodyShape: 'curvy',
@@ -231,6 +241,19 @@ if (want('bing')) {
   console.log(`  lou: camera ${louAim.from} -> head ${louAim.to}`);
   await page.evaluate(() => window.__tick(0.5));
   await shot(page, 'lou-office');
+
+  // ---- Booskibro, turned out from the bar for an unobstructed outfit study
+  const booskiAim = await page.evaluate(() => {
+    const b = window.__bing;
+    const booski = b.family.byId.booski;
+    booski.targetYaw = undefined;
+    booski.group.rotation.y = Math.PI / 2;
+    booski.say(6);
+    return window.__portrait({ key: 'booski', dist: 0.92, side: -0.18, lift: 0.02 });
+  });
+  console.log(`  booski: camera ${booskiAim.from} -> head ${booskiAim.to}`);
+  await page.evaluate(() => window.__tick(0.5));
+  await shot(page, 'booski-bar');
 
   /* ---- the four performers on the stage
    * The club's stage is close to unlit at this point in the evening, which is
@@ -454,6 +477,8 @@ if (want('style')) {
     ['style-suit', '?dress=suit'],
     ['lou-face-neutral', '?solo=lou&view=head'],
     ['lou-full-neutral', '?solo=lou'],
+    ['booski-face-neutral', '?solo=booski&view=head'],
+    ['booski-full-neutral', '?solo=booski'],
     ['dancer-neutral', '?solo=dancer'],
   ]) {
     const page = await browser.newPage({ viewport: { width: 760, height: 560 } });

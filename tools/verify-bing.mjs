@@ -133,7 +133,15 @@ const playbackProbe = await page.evaluate((cues) => {
 check('representative Bing voice recordings are decoded before playback',
   playbackProbe.started.every(Boolean) && playbackProbe.longest > 0,
   JSON.stringify(playbackProbe));
-await page.waitForTimeout(Math.ceil((playbackProbe.longest + 0.45) * 1000));
+/* The headless software renderer can delay the AudioContext clock relative to
+ * the wall-clock timeout when the CPU is saturated. Poll the playback records
+ * for their actual onended callbacks rather than assuming 450 ms of margin is
+ * enough for the longest take on every machine. */
+await page.waitForFunction((cues) => {
+  const playbacks = window.__bing.audio.playbacks
+    .filter((playback) => cues.includes(playback.name));
+  return playbacks.length === cues.length && playbacks.every((playback) => playback.naturalEnd);
+}, voicedSurfaces, { timeout: Math.ceil((playbackProbe.longest + 6) * 1000) }).catch(() => {});
 const completedVoices = await page.evaluate((cues) => window.__bing.audio.playbacks
   .filter((playback) => cues.includes(playback.name))
   .map((playback) => ({
@@ -1670,6 +1678,38 @@ const punchPeople = await page.evaluate(() => {
     npc.group.traverse((o) => { if (/^person\.soft\./.test(o.name)) n += 1; });
     return n;
   };
+  const wardrobe = (npc) => {
+    const named = {};
+    npc.group.traverse((o) => {
+      if (o.name) named[o.name] = (named[o.name] || 0) + 1;
+    });
+    const upper = npc.parts.armL.children.find((o) => o.isMesh);
+    return {
+      profile: npc.group.userData.npc,
+      vneck: named['shirt.neckline.v'] || 0,
+      ribs: named['shirt.luxury.rib'] || 0,
+      primary: named['necklace.chain'] || 0,
+      layered: named['necklace.chain.layered'] || 0,
+      pendant: named['necklace.pendant'] || 0,
+      crest: named['necklace.pendant.crest'] || 0,
+      watch: named['person.watch.band.gold'] || 0,
+      /* Positive means the inside edge of the upper arm begins outside the
+       * chest. A tiny negative overlap is the intended deltoid seam. */
+      socketGap: +(Math.abs(npc.parts.armL.position.x)
+        - upper.scale.x / 2 - npc.parts.torso.scale.x / 2).toFixed(3),
+    };
+  };
+  const folded = b.cast.all
+    .filter((npc) => npc.folded && npc.job === 'stand')
+    .map((npc) => {
+      npc.speaking = 0;
+      npc.update(1, b.player.position);
+      return {
+        name: npc.name,
+        left: +npc.parts.armL.rotation.z.toFixed(3),
+        right: +npc.parts.armR.rotation.z.toFixed(3),
+      };
+    });
   const performers = [0, 1, 2, 3].map((i) => {
     const npc = b.cast.byName[`performer${i}`];
     const bb = boxOf(npc.group);
@@ -1705,6 +1745,9 @@ const punchPeople = await page.evaluate(() => {
     })(),
     silver,
     rippinPendant,
+    louStyle: wardrobe(b.cast.byName.lou),
+    booskiStyle: wardrobe(b.family.byId.booski),
+    folded,
     performers,
   };
 });
@@ -1727,6 +1770,21 @@ check('the man on Lou’s door wears the crew’s suit and chain',
 check('Rippinflow’s chain is a thin silver line with nothing hanging off it',
   punchPeople.silver === 1 && punchPeople.rippinPendant === 0,
   `silver ${punchPeople.silver}, pendant ${punchPeople.rippinPendant}`);
+const luxuryFounder = (style) => style.profile.outfit === 'shirt'
+  && style.profile.neckline === 'v' && style.profile.luxury
+  && style.profile.watch === 'gold' && style.profile.chainStyle === 'layered'
+  && style.vneck === 1 && style.ribs >= 6
+  && style.primary === 1 && style.layered === 1
+  && style.pendant === 1 && style.crest === 1 && style.watch === 1
+  && style.socketGap >= -0.015;
+check('Big Uncle Lou wears the rich open knit, layered founder chain, crest and gold watch',
+  luxuryFounder(punchPeople.louStyle), JSON.stringify(punchPeople.louStyle));
+check('Booskibro has his own rich open knit, layered founder chain, crest and gold watch',
+  luxuryFounder(punchPeople.booskiStyle), JSON.stringify(punchPeople.booskiStyle));
+check('folded standing cast keep both elbows open instead of crossing through their chests',
+  punchPeople.folded.length >= 3
+    && punchPeople.folded.every((p) => p.left < -0.2 && p.right > 0.2),
+  JSON.stringify(punchPeople.folded));
 check('every performer keeps her height, wears real hair, and has her edges taken off',
   punchPeople.performers.every((p) => p.height > 1.55 && p.height < 1.95
     && p.tall < 1.95 && p.hair >= 4 && p.soft >= 12)

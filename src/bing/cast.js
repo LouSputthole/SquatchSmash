@@ -112,6 +112,10 @@ export const STOOL_SIT = 0.315;
  *   face     image URL painted on the front of the skull, the way the
  *            Initiation gives the Circle their real faces. A photo brings its
  *            own hair, eyes and mouth, so the procedural ones stand down.
+ *   neckline false | 'v' -- an open knit collar rather than a crew neck
+ *   luxury   richer fabric, piping and ribbing without changing the rig
+ *   watch    false | 'gold' | 'silver' -- worn on the left wrist
+ *   chainStyle 'single' | 'layered' -- the primary chain keeps its stable name
  */
 /* ------------------------------------------------------------------ */
 /* Softened slabs                                                      */
@@ -184,7 +188,8 @@ export function makePerson(o = {}) {
      * ends in a medallion. Lou's is the heavy gold one with the disc on it.
      * Rippinflow wears a thin silver line and nothing hanging off it, which
      * is a different man saying a different thing with his neck. */
-    pendant = true,
+    pendant = true, chainStyle = 'single', pendantStyle = 'disc',
+    neckline = false, luxury = false, shirtAccent = null, watch = false,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -199,8 +204,8 @@ export function makePerson(o = {}) {
     color: dress === 'chef' ? 0xe8e6e0 : shirt,
     // Stage costume catches the light, but it is fabric, not latex: too low a
     // roughness and the highlight rolls across it like it is wet.
-    roughness: performanceWear ? 0.52 : 0.9,
-    metalness: performanceWear ? 0.18 : 0,
+    roughness: performanceWear ? 0.52 : luxury ? 0.58 : 0.9,
+    metalness: performanceWear ? 0.18 : luxury ? 0.08 : 0,
   });
   const jacketColour = dress === 'suit' ? 0x1b1b22 : shirt;
   const jacket = mat({ color: jacketColour, roughness: 0.88 });
@@ -254,8 +259,16 @@ export function makePerson(o = {}) {
   const t = 0.55 + build * 0.45;          // 1.0 at build 1
   // Shoulders carry the blocky read, so they sit a little wider than the old
   // rounded frame -- still narrower than the chest is deep is wide.
-  const SH = (female ? 0.193 : 0.226) * (0.85 + build * 0.15); // half shoulder width
   const D = (curvy ? 0.145 : 0.135) * t;                       // half chest depth
+  const shoulderFrame = (female ? 0.193 : 0.226) * (0.85 + build * 0.15);
+  /* The arm socket must clear the ribcage before an animation even starts.
+   * The old fixed shoulder width grew much more slowly than `build`, so a
+   * broad man's upper arm began several centimetres inside his shirt and no
+   * later pose clamp could make that look correct. Keep a small deltoid seam,
+   * but derive the minimum socket position from the actual chest and arm. */
+  const chestHalf = (curvy ? 0.192 : 0.188) * t;
+  const armHalf = 0.0575 * t;
+  const SH = Math.max(shoulderFrame, chestHalf + armHalf - (female ? 0.022 : 0.012));
   /* A gut leans the man who carries it back a little, to counterbalance it --
    * but that lean has to live in POSITION, not rotation: Npc.update() zeroes
    * body and head rotation every single frame (see below), which is what
@@ -397,6 +410,61 @@ export function makePerson(o = {}) {
     }));
   }
 
+  /* A rich knit reads in the details rather than as a louder colour. The
+   * shallow ribs catch the office/bar lights, and the open V exposes a small
+   * triangle of chest without replacing the existing torso or shoulder rig.
+   * Both options are presentation data, so Lou and Booskibro can share the
+   * finish while keeping completely different colours and silhouettes. */
+  const shirtFront = D * 1.025 + 0.007;
+  const accent = mat({
+    color: shirtAccent ?? (luxury ? 0xc7a66a : shirt),
+    roughness: luxury ? 0.52 : 0.8,
+    metalness: luxury ? 0.025 : 0,
+  });
+  if (luxury && !performanceWear && dress !== 'suit') {
+    for (const x of [-0.112, -0.084, -0.056, -0.028, 0.028, 0.056, 0.084, 0.112]) {
+      const rib = box({
+        name: 'shirt.luxury.rib',
+        size: [0.004, 0.285, 0.006],
+        pos: [x * t, 1.345, shirtFront],
+        mat: accent,
+      });
+      body.add(rib);
+    }
+    const hem = box({
+      name: 'shirt.luxury.hem',
+      size: [0.34 * t, 0.012, 0.009],
+      pos: [0, 1.205, shirtFront],
+      mat: accent,
+    });
+    body.add(hem);
+  }
+  if (neckline === 'v' && !performanceWear) {
+    const topY = 1.505;
+    const bottomY = 1.355;
+    const halfW = 0.092 * Math.min(t, 1.2);
+    const shape = new THREE.Shape();
+    shape.moveTo(-halfW, topY);
+    shape.lineTo(halfW, topY);
+    shape.lineTo(0, bottomY);
+    shape.closePath();
+    const opening = new THREE.Mesh(new THREE.ShapeGeometry(shape), skinMat);
+    opening.name = 'shirt.neckline.v';
+    opening.position.z = shirtFront + 0.005;
+    body.add(opening);
+    const collarLength = Math.hypot(halfW, topY - bottomY);
+    for (const side of [-1, 1]) {
+      const collar = box({
+        name: `shirt.neckline.collar.${side < 0 ? 'left' : 'right'}`,
+        size: [0.012, collarLength, 0.009],
+        pos: [side * halfW * 0.5, (topY + bottomY) / 2, shirtFront + 0.012],
+        mat: accent,
+      });
+      collar.rotation.z = side * -0.55;
+      body.add(collar);
+    }
+  }
+
   // Adult performer silhouette. The coloured rounded forms are the bikini
   // itself, not exposed anatomy: two cups and straps above, a full bottom and
   // rounded rear panels below. It stays non-nude from every camera angle.
@@ -536,25 +604,69 @@ export function makePerson(o = {}) {
     const metal = silver
       ? mat({ color: 0xcfd6e0, roughness: 0.14, metalness: 0.98 })
       : mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 });
-    const chestZ = D * (dress === 'suit' ? 1.07 : 1.02) + 0.006;
-    const drape = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.1, 1.518, D + 0.004),
-      new THREE.Vector3(-0.055, 1.452, chestZ),
-      new THREE.Vector3(0, 1.408, chestZ + 0.002),
-      new THREE.Vector3(0.055, 1.452, chestZ),
-      new THREE.Vector3(0.1, 1.518, D + 0.004),
-    ]);
-    const links = new THREE.Mesh(
-      // A thin silver line is thin: half the gauge of the gold rope.
-      new THREE.TubeGeometry(drape, 24, silver ? 0.0032 : 0.0065, 6),
-      metal,
-    );
-    links.name = silver ? 'necklace.chain.silver' : 'necklace.chain';
-    body.add(links);
+    const chestZ = D * (dress === 'suit' ? 1.07 : 1.02) + 0.016;
+    const addDrape = ({ width, low, gauge, name }) => {
+      const drape = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-width, 1.518, D + 0.009),
+        new THREE.Vector3(-width * 0.55, (1.518 + low) / 2, chestZ),
+        new THREE.Vector3(0, low, chestZ + 0.003),
+        new THREE.Vector3(width * 0.55, (1.518 + low) / 2, chestZ),
+        new THREE.Vector3(width, 1.518, D + 0.009),
+      ]);
+      const links = new THREE.Mesh(
+        new THREE.TubeGeometry(drape, 28, gauge, 7),
+        metal,
+      );
+      links.name = name;
+      body.add(links);
+      return links;
+    };
+    addDrape({
+      width: 0.105,
+      low: 1.397,
+      gauge: silver ? 0.0032 : chainStyle === 'layered' ? 0.0082 : 0.0065,
+      name: silver ? 'necklace.chain.silver' : 'necklace.chain',
+    });
+    if (chainStyle === 'layered') {
+      /* The second rope is shorter and finer, so it reads as deliberate
+       * layering instead of two copies occupying the same pixels. */
+      addDrape({
+        width: 0.092,
+        low: 1.435,
+        gauge: silver ? 0.0025 : 0.0048,
+        name: silver ? 'necklace.chain.silver.layered' : 'necklace.chain.layered',
+      });
+    }
     if (pendant) {
-      const disc = cylinder({ r: 0.03, h: 0.009, pos: [0, 1.382, chestZ + 0.006], rotX: Math.PI / 2, mat: metal });
+      const crest = pendantStyle === 'crest';
+      const disc = cylinder({
+        r: crest ? 0.038 : 0.03,
+        h: crest ? 0.012 : 0.009,
+        pos: [0, crest ? 1.371 : 1.382, chestZ + 0.008],
+        rotX: Math.PI / 2,
+        mat: metal,
+      });
       disc.name = 'necklace.pendant';
       body.add(disc);
+      if (crest) {
+        const insetMat = mat({ color: 0x2a1838, roughness: 0.32, metalness: 0.38 });
+        const inset = cylinder({
+          r: 0.024,
+          h: 0.006,
+          pos: [0, 1.371, chestZ + 0.017],
+          rotX: Math.PI / 2,
+          mat: insetMat,
+        });
+        inset.name = 'necklace.pendant.crest';
+        body.add(inset);
+        const crown = box({
+          name: 'necklace.pendant.crown',
+          size: [0.025, 0.012, 0.006],
+          pos: [0, 1.376, chestZ + 0.022],
+          mat: metal,
+        });
+        body.add(crown);
+      }
     }
   }
 
@@ -708,6 +820,41 @@ export function makePerson(o = {}) {
     fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: sleeve }));
     fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
     fore.add(slab({ name: 'hand', size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
+    if (watch && side < 0) {
+      const silverWatch = watch === 'silver';
+      const watchMetal = mat({
+        color: silverWatch ? 0xdce2e8 : 0xe0b94f,
+        roughness: 0.16,
+        metalness: 0.98,
+      });
+      const band = new THREE.Mesh(
+        new THREE.TorusGeometry(0.035 * t, 0.005, 6, 16),
+        watchMetal,
+      );
+      band.name = silverWatch ? 'person.watch.band.silver' : 'person.watch.band.gold';
+      band.position.set(0, -0.247, 0.003);
+      band.rotation.x = Math.PI / 2;
+      fore.add(band);
+      const dial = cylinder({
+        r: 0.026,
+        h: 0.009,
+        pos: [0, -0.247, 0.048 * t],
+        rotX: Math.PI / 2,
+        mat: watchMetal,
+      });
+      dial.name = 'person.watch.dial';
+      fore.add(dial);
+      const faceMat = mat({ color: 0x17131f, roughness: 0.2, metalness: 0.5 });
+      const dialFace = cylinder({
+        r: 0.019,
+        h: 0.004,
+        pos: [0, -0.247, 0.055 * t],
+        rotX: Math.PI / 2,
+        mat: faceMat,
+      });
+      dialFace.name = 'person.watch.face';
+      fore.add(dialFace);
+    }
     pivot.add(fore);
     pivot.userData.fore = fore;
     return pivot;
@@ -725,6 +872,10 @@ export function makePerson(o = {}) {
     outfit: dress,
     height,
     gut: gutOn,
+    neckline: neckline || 'crew',
+    luxury: !!luxury,
+    watch: watch || false,
+    chainStyle: chain ? chainStyle : false,
   };
   g.traverse((m) => {
     if (m.isMesh) {
@@ -1192,23 +1343,21 @@ export class Npc {
       default: {
         this.parts.body.rotation.z = Math.sin(t * 0.4) * 0.018;
         if (this.folded && this.gutted) {
-          /* The same fold, lifted higher: pitching an upper arm forward from
-           * the shoulder drops its far end the LESS forward it goes (an arm
-           * pitched almost flat is almost level with the shoulder; one
-           * pitched only a little hangs almost straight down), so clearing
-           * the belly below takes MORE forward pitch than the ordinary fold
-           * uses, not less, and the crossed forearms come with it. */
-          this.parts.armL.rotation.set(-1.35, 0, 0.5);
-          this.parts.armR.rotation.set(-1.35, 0, -0.5);
-          this.parts.foreL.rotation.set(-1.55, 0.5, 0);
-          this.parts.foreR.rotation.set(-1.55, -0.5, 0);
+          /* Open guard stance. The old crossed-arm fold aimed both upper arms
+           * toward the sternum, so wide figures carried their elbows inside
+           * their own chest. A big man opens farther and rests his hands in
+           * front of the belly instead. */
+          this.parts.armL.rotation.set(-0.62, 0, -0.5);
+          this.parts.armR.rotation.set(-0.62, 0, 0.5);
+          this.parts.foreL.rotation.set(-0.72, 0, 0);
+          this.parts.foreR.rotation.set(-0.72, 0, 0);
         } else if (this.folded) {
-          // Arms crossed: lifted well forward first, so the elbows sit ON the
-          // chest and the forearms cross in front of it rather than inside it
-          this.parts.armL.rotation.set(-0.6, 0, 0.42);
-          this.parts.armR.rotation.set(-0.6, 0, -0.42);
-          this.parts.foreL.rotation.set(-1.3, 0.55, 0);
-          this.parts.foreR.rotation.set(-1.3, -0.55, 0);
+          // Elbows out, hands forward: authoritative for guards and members
+          // standing around the room. Nothing crosses through the shirt.
+          this.parts.armL.rotation.set(-0.48, 0, -0.34);
+          this.parts.armR.rotation.set(-0.48, 0, 0.34);
+          this.parts.foreL.rotation.set(-0.72, 0, 0);
+          this.parts.foreR.rotation.set(-0.72, 0, 0);
         } else {
           this.parts.armL.rotation.x = Math.sin(t * 0.5) * 0.045;
           this.parts.armR.rotation.x = Math.sin(t * 0.5 + 1) * 0.045;
@@ -1282,7 +1431,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
 
   /* ---- heroes ---- */
 
-  /* Lou: broad, patterned short-sleeve shirt, gold chain, and the man's own
+  /* Lou: broad, expensive open-neck knit, layered gold, and the man's own
    * face off the Initiation's photo set. He is a named founder, and the
    * character bible is explicit that named Circle members wear their supplied
    * photographs rather than a procedural approximation of them.
@@ -1294,8 +1443,10 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     name: 'Lou', tier: 'hero', job: 'sit',
     x: a.louSeat.x, z: a.louSeat.z, yaw: 0,
     model: {
-      height: 1.8, build: 1.4, dress: 'shirt', shirt: 0x6a5a3a,
-      hairColour: 0x4a4a48, chain: true, skin: 0xd2a074,
+      height: 1.8, build: 1.4, dress: 'shirt', shirt: 0x6f5a38,
+      hairColour: 0x4a4a48, chain: 'gold', chainStyle: 'layered',
+      pendant: true, pendantStyle: 'crest', neckline: 'v', luxury: true,
+      shirtAccent: 0x9b825b, watch: 'gold', skin: 0xd2a074,
       face: 'assets/faces/lou.png', bandana: false,
     },
   }));

@@ -199,6 +199,26 @@ try {
     { waitUntil: 'load' },
   );
   await previewPage.waitForFunction(() => window.squatchfather?.fsm, null, { timeout: 60000 });
+  const tonyPresentation = await previewPage.evaluate(() => {
+    const p = window.squatchfather.prospect;
+    const skull = p.fig.head.getObjectByName('sf.face.skull');
+    const hand = p.weapon.getObjectByName('prospect.viewmodel.hand');
+    return {
+      profile: p.fig.group.userData.characterPresentation,
+      skin: skull.material.color.getHex(),
+      hand: hand?.material.color.getHex(),
+      furRidge: !!p.fig.head.getObjectByName('sf.face.brow.ridge'),
+      furCheeks: !!p.fig.head.getObjectByName('sf.hair.cheek.left')
+        || !!p.fig.head.getObjectByName('sf.hair.cheek.right'),
+    };
+  });
+  check('Tony remains a human prospect in the Squatchfather mirror and view-model',
+    tonyPresentation.profile?.id === 'prospect'
+      && tonyPresentation.profile?.species === 'human'
+      && tonyPresentation.skin === 0xd2a074
+      && tonyPresentation.hand === 0xd2a074
+      && !tonyPresentation.furRidge && !tonyPresentation.furCheeks,
+    JSON.stringify(tonyPresentation));
   const familyArt = await previewPage.evaluate(async () => {
     const state = window.squatchfather.sceneState;
     await state.artReady;
