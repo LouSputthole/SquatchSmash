@@ -863,6 +863,44 @@ check('the cellar floor is only the cellar floor to somebody already down there'
     return g(22, 1, -2.9) < -2 && g(22, 1, 0) === 0;
   }), 'the kitchen is directly above it');
 
+/* A checkpoint must carry that same vertical context. Before this check,
+ * checkpoint restore only saved x/z, so a cellar save returned the Prospect
+ * and Margo to the kitchen floor directly above their saved positions. */
+const cellarCheckpoint = await page.evaluate(() => {
+  const b = window.__silver;
+  const p = b.player;
+  const cellar = { x: 22, z: 1, y: b.room.groundAt(22, 1, -2.9) };
+  const date = { x: 21.2, z: 1, y: b.room.groundAt(21.2, 1, cellar.y) };
+  const was = {
+    player: p.position.clone(), ground: p.ground,
+    date: b.date.group.position.clone(), mode: b.date.mode,
+  };
+  p.position.set(cellar.x, cellar.y + p.eyeHeight, cellar.z);
+  p.ground = cellar.y;
+  b.date.group.position.set(date.x, date.y, date.z);
+  b.date.mode = 'follow';
+  b.debug.save();
+  p.position.set(cellar.x, p.eyeHeight, cellar.z);
+  p.ground = 0;
+  b.date.group.position.set(date.x, 0, date.z);
+  b.debug.load();
+  const restored = {
+    player: +(p.position.y - p.eyeHeight).toFixed(2),
+    date: +b.date.group.position.y.toFixed(2),
+    checkpointPlayerY: b.game.checkpoint.player.y,
+    checkpointDateY: b.game.checkpoint.date.y,
+  };
+  p.position.copy(was.player);
+  p.ground = was.ground;
+  b.date.group.position.copy(was.date);
+  b.date.mode = was.mode;
+  return restored;
+});
+check('a cellar checkpoint restores both people to the cellar, not the kitchen above it',
+  cellarCheckpoint.player < -2.8 && cellarCheckpoint.date < -2.8
+    && cellarCheckpoint.checkpointPlayerY < -2.8 && cellarCheckpoint.checkpointDateY < -2.8,
+  JSON.stringify(cellarCheckpoint));
+
 /* Every doorway on the route, which is where a follower dies. */
 await walkTo(23.5, 1.5);
 await walkTo(25.4, -3);

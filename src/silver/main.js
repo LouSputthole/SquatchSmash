@@ -1553,8 +1553,16 @@ function saveCheckpoint(state) {
   game.checkpoint = {
     state,
     mission: mission.checkpoint(),
-    player: { x: player.position.x, z: player.position.z, yaw: player.yaw },
-    date: { x: date.position.x, z: date.position.z, mode: date.mode },
+    /* The cellar sits directly beneath the kitchen. x/z alone cannot say
+     * which floor a checkpoint belongs to, so persist each actor's feet
+     * height alongside their horizontal position. */
+    player: {
+      x: player.position.x,
+      y: player.position.y - player.eyeHeight,
+      z: player.position.z,
+      yaw: player.yaw,
+    },
+    date: { x: date.position.x, y: date.position.y, z: date.position.z, mode: date.mode },
     money: game.money,
     woo: woo.snapshot(),
     known: [...game.known],
@@ -1618,12 +1626,19 @@ function restoreCheckpoint(cp = game.checkpoint) {
   player._tween = null;
   player.yawCenter = null;
   player.mode = 'walk';
-  player.position.set(cp.player.x, room.groundAt(cp.player.x, cp.player.z) + 1.66, cp.player.z);
+  /* Older checkpoints have no y and therefore retain the historical ground
+   * level fallback. New checkpoints restore against the floor the actor was
+   * actually standing on, rather than the kitchen directly over the cellar. */
+  const playerFeet = Number.isFinite(cp.player.y) ? cp.player.y : 0;
+  const playerGround = room.groundAt(cp.player.x, cp.player.z, playerFeet);
+  player.position.set(cp.player.x, playerGround + player.eyeHeight, cp.player.z);
+  player.ground = playerGround;
   player.yaw = cp.player.yaw;
   hud.setMode('walk');
   hud.setPosture(null);
   game.seated = false;
-  date.group.position.set(cp.date.x, room.groundAt(cp.date.x, cp.date.z), cp.date.z);
+  const dateFeet = Number.isFinite(cp.date.y) ? cp.date.y : 0;
+  date.group.position.set(cp.date.x, room.groundAt(cp.date.x, cp.date.z, dateFeet), cp.date.z);
   date.mode = cp.date.mode === 'seated' ? 'seated' : 'follow';
 
   /* Sitting down is a pose on two people, so it is restored rather than
