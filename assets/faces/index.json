@@ -1,6 +1,7 @@
 {
   "note": "Which face photos exist. Scenes fetch this instead of probing PNGs, because a probe for a photo that has not landed yet is a 404 in every console. Rebuild with: node tools/faces-index.mjs",
   "files": [
+    "ape.png",
     "booski.png",
     "deathmegatron.png",
     "erican.png",

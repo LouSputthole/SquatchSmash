@@ -51,10 +51,10 @@ recast — his voice stands.
    supplied `R4Zv8YQNcHyNDZl0ViUG`, it is in `voices.numbskull.id`, and his
    two hangout lines are now manifest cues (`vo.bing.hang.numbskull.1/.2`)
    and recorded like everyone else's. Nothing outstanding.
-2. **Five Family faces missing.** Old Stove's and Irish's supplied faces now
-   live at `assets/faces/stove.png` and `assets/faces/irish.png`. Drop PNGs
-   under these remaining ledger names and every scene picks them up:
-   `lag.png`, `willy.png`, `ape.png`, `seff.png`, `numbskull.png`.
+2. **Four Family faces missing.** Old Stove's, Irish's, and Ape's supplied
+   faces now live under `assets/faces/`. Drop PNGs under these remaining ledger
+   names and every scene picks them up: `lag.png`, `willy.png`, `seff.png`,
+   `numbskull.png`.
 3. Station voices `uncle` (98.8) and `ksqch` (101.7) keep their old stock
    ids — the sheet supplied one radio voice and 97.8 got it. Shout if those
    two should recast as well.
