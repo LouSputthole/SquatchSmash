@@ -463,8 +463,13 @@ npm run verify:silver-story    20/20 passed
 npm run verify:silver         112/112 passed
 npm run verify:art             50 art pieces checked, all good
 npm run verify:bundle           3 strict-CSP policies passed; 295 voice clips embedded
-npm run audio:todo             259 voice lines, 17 effects remain
+npm run audio:todo             superseded — see current 0 voice / 0 effects queue below
 ```
+
+The audio count above is preserved as a historical milestone only. The
+authoritative live queue is [VOICE-LINES-TODO.md](../VOICE-LINES-TODO.md),
+regenerated after each delivery with `npm run audio:todo`; it currently reports
+zero outstanding voice lines and effects.
 
 The Day Two repair is test-only: the four-angle bed probe moves the camera
 directly, so it now refreshes the Three.js scene's world matrices before

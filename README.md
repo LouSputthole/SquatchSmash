@@ -8,7 +8,7 @@ Six playable or preserved experiences live in this repo.
 | **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; the campaign also reuses the same club for his post-airstrip assignment. |
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
-| **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Manny is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
+| **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Snow is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
@@ -465,7 +465,7 @@ the flight-model bench: takeoff rolls, stall speeds, control authority, engine-
 out behaviour, and crash detection all against the envelope the mission needs.
 
 `verify:motel` starts the real later-scene preview, confirms first-person
-movement, asserts Manny is a friendly adult human who cannot attack or be
+movement, asserts Snow is a friendly adult human who cannot attack or be
 targeted as an enemy, measures the pool/stairs/vehicles/furniture and Room 12
 spawn clearance, exercises retry/save/outcome state, and returns to the
 apartment.
@@ -529,7 +529,7 @@ first-person scenes.
 > story route is still waiting for the Beef Run integration.
 
 The Motel is a first-person deal, inspection, betrayal, recovery, and escape
-mission. Tony and Manny are adult humans. Manny is a friendly ally and driver:
+mission. Tony and Snow are adult humans. Snow is a friendly ally and driver:
 his faction contract prevents scripted waypoints, chase/grab AI, enemy damage,
 or Tony's targeting from ever treating him as a hostile. He may still fight
 real Motel attackers.
