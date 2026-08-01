@@ -6,6 +6,9 @@ import {
 } from './campaign.js';
 
 const TRAITOR_GRAVES = Object.freeze(['brawny', 'whiplash']);
+const MEMORIAL_GRAVES = Object.freeze([
+  'babs', 'brawny', 'whiplash', 'sheep', 'echo', 'colton', 'geewiz', 'sauce',
+]);
 
 class GraveyardStory {
   constructor({ campaign }) {
@@ -38,13 +41,41 @@ class GraveyardStory {
     return true;
   }
 
+  recordInspection(graveId) {
+    if (!MEMORIAL_GRAVES.includes(graveId)) return false;
+    const incident = this.campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
+    if (incident.status !== 'in_progress' || incident.checkpoint !== 'graveyard') return false;
+    if (incident.inspectedGraves.includes(graveId)) return true;
+    this.campaign.update((state) => {
+      state.missions[MISSION_IDS.BADA_BING_TWO].inspectedGraves.push(graveId);
+    });
+    return true;
+  }
+
+  recordRespect(graveId) {
+    if (!MEMORIAL_GRAVES.includes(graveId)) return false;
+    const incident = this.campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
+    if (incident.status !== 'in_progress' || incident.checkpoint !== 'graveyard') return false;
+    if (incident.urinatedOn.includes(graveId)) return false;
+    if (incident.respectedGraves.includes(graveId)) return true;
+    this.campaign.update((state) => {
+      const current = state.missions[MISSION_IDS.BADA_BING_TWO];
+      if (!current.inspectedGraves.includes(graveId)) current.inspectedGraves.push(graveId);
+      current.respectedGraves.push(graveId);
+    });
+    return true;
+  }
+
   recordUrination(graveId) {
     if (!TRAITOR_GRAVES.includes(graveId)) return false;
     const incident = this.campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
     if (incident.status !== 'in_progress' || incident.checkpoint !== 'graveyard') return false;
+    if (incident.respectedGraves.includes(graveId)) return false;
     if (incident.urinatedOn.includes(graveId)) return true;
     this.campaign.update((state) => {
-      state.missions[MISSION_IDS.BADA_BING_TWO].urinatedOn.push(graveId);
+      const current = state.missions[MISSION_IDS.BADA_BING_TWO];
+      if (!current.inspectedGraves.includes(graveId)) current.inspectedGraves.push(graveId);
+      current.urinatedOn.push(graveId);
     });
     return true;
   }

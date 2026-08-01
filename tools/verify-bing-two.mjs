@@ -462,21 +462,50 @@ try {
 
   await page.click('#start-btn');
   await page.waitForFunction(() => window.GRAVEYARD.phase === 'active', null, { timeout: 90000 });
+  const bodyMove = await page.evaluate(() => {
+    const graveyardRuntime = window.GRAVEYARD;
+    const initial = graveyardRuntime.bodyPresentation();
+    const pickedUp = graveyardRuntime.pickupBody();
+    const carried = graveyardRuntime.bodyPresentation();
+    const placementStarted = graveyardRuntime.placeBody();
+    return { initial, pickedUp, carried, placementStarted };
+  });
+  check('the actual HotDog figure is lifted from the trunk and carried as the same object',
+    bodyMove.initial.phase === 'trunk'
+      && bodyMove.initial.characterId === 'billy_hotdog'
+      && bodyMove.initial.presentation === 'character'
+      && bodyMove.pickedUp
+      && bodyMove.carried.phase === 'carrying'
+      && bodyMove.carried.parent === 'graveyard.camera'
+      && bodyMove.carried.uuid === bodyMove.initial.uuid
+      && bodyMove.placementStarted,
+    JSON.stringify(bodyMove));
+
+  await page.waitForFunction(() => window.GRAVEYARD.mission.bodyPlaced, null, { timeout: 10000 });
+  const placement = await page.evaluate(() => window.GRAVEYARD.bodyPresentation());
+  check('placing HotDog turns him lengthwise with his head toward the marker',
+    placement.phase === 'placed'
+      && placement.head[2] < placement.feet[2]
+      && Math.abs(placement.position[0]) < 0.05
+      && placement.position[1] < 0.12
+      && Math.abs(placement.position[2] + 17) < 0.05,
+    JSON.stringify(placement));
+
   const burial = await page.evaluate(() => {
     const graveyardRuntime = window.GRAVEYARD;
-    const lowered = graveyardRuntime.lowerBody();
     const completed = graveyardRuntime.bury();
     return {
-      lowered,
       completed,
+      body: graveyardRuntime.bodyPresentation(),
       clock: graveyardRuntime.displayClock,
       incident: graveyardRuntime.campaignState.missions.bada_bing_two,
       motel: graveyardRuntime.campaignState.missions.jerky_motel,
     };
   });
   check('burial completes the HotDog incident and only then unlocks the Motel',
-    burial.lowered
-      && burial.completed
+    burial.completed
+      && burial.body.phase === 'buried'
+      && !burial.body.visible
       && burial.clock.day === 3
       && burial.clock.timeMinutes === 45
       && burial.incident.status === 'complete'

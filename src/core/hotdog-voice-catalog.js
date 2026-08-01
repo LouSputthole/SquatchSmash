@@ -76,7 +76,8 @@ export function graveyardVoiceLines() {
   mission.suggestSaucePlot();
   mission.urinateOn('brawny');
   mission.urinateOn('whiplash');
-  mission.lowerBody();
+  mission.pickUpBody();
+  mission.placeBody();
   mission.finishBurial();
 
   return unique(lines);

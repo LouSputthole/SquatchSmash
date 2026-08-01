@@ -70,6 +70,7 @@ export const GRAVEYARD_SNOW_BARKS = Object.freeze({
 });
 
 const TRAITORS = Object.freeze(['brawny', 'whiplash']);
+const GRAVE_COUNT = Object.keys(GRAVES).length;
 
 export class GraveyardMission {
   constructor(hooks = {}) {
@@ -78,11 +79,15 @@ export class GraveyardMission {
     this.echoHeard = false;
     this.urinatedOn = new Set();
     this.inspected = new Set();
+    this.tributes = new Map();
+    this.bodyCarried = false;
+    this.bodyPlaced = false;
     this.bodyLowered = false;
     this.bodyBuried = false;
     this.objectives = [
       { id: 'bury', text: 'Bury Billy HotDog in a fresh plot', done: false },
-      { id: 'memorials', text: 'Look around the Family graveyard', done: false, optional: true },
+      { id: 'memorials', text: `Check every Family marker · 0/${GRAVE_COUNT}`, done: false, optional: true },
+      { id: 'tributes', text: `Pay respect or disrespect · 0/${GRAVE_COUNT}`, done: false, optional: true },
     ];
   }
 
@@ -90,12 +95,38 @@ export class GraveyardMission {
 
   restoreProgress(saved = {}) {
     this.echoHeard = saved.echoHeard === true;
+    this.inspected = new Set(
+      Array.isArray(saved.inspectedGraves)
+        ? saved.inspectedGraves.filter((id) => Boolean(GRAVES[id]))
+        : [],
+    );
     this.urinatedOn = new Set(
       Array.isArray(saved.urinatedOn)
         ? saved.urinatedOn.filter((id) => TRAITORS.includes(id))
         : [],
     );
+    this.tributes = new Map();
+    for (const id of Array.isArray(saved.respectedGraves) ? saved.respectedGraves : []) {
+      if (!GRAVES[id]) continue;
+      this.inspected.add(id);
+      this.tributes.set(id, 'respect');
+    }
+    for (const id of this.urinatedOn) {
+      this.inspected.add(id);
+      this.tributes.set(id, 'disrespect');
+    }
+    this.#refreshMemorialObjectives();
     return this;
+  }
+
+  #refreshMemorialObjectives(notify = true) {
+    const memorials = this.objectives.find((objective) => objective.id === 'memorials');
+    memorials.text = `Check every Family marker · ${this.inspected.size}/${GRAVE_COUNT}`;
+    memorials.done = this.inspected.size === GRAVE_COUNT;
+    const tributes = this.objectives.find((objective) => objective.id === 'tributes');
+    tributes.text = `Pay respect or disrespect · ${this.tributes.size}/${GRAVE_COUNT}`;
+    tributes.done = this.tributes.size === GRAVE_COUNT;
+    if (notify) this.hooks.onObjective?.(this.objectives);
   }
 
   line(text, cue = null, who = null) {
@@ -106,11 +137,8 @@ export class GraveyardMission {
     const grave = GRAVES[id];
     if (!grave) return null;
     this.inspected.add(id);
+    this.#refreshMemorialObjectives();
     this.line(grave.line, `vo.graveyard.inspect.${id}`, 'Prospect');
-    if (this.inspected.size === Object.keys(GRAVES).length) {
-      this.objectives.find((objective) => objective.id === 'memorials').done = true;
-      this.hooks.onObjective?.(this.objectives);
-    }
     if (id === 'echo' && !this.echoHeard) {
       this.echoHeard = true;
       this.hooks.onRumble?.();
@@ -128,10 +156,27 @@ export class GraveyardMission {
     return false;
   }
 
+  tributeFor(id) {
+    return this.tributes.get(id) ?? null;
+  }
+
+  payRespect(id) {
+    if (!GRAVES[id] || this.tributes.has(id)) return false;
+    if (!this.inspected.has(id)) this.inspectGrave(id);
+    this.tributes.set(id, 'respect');
+    this.#refreshMemorialObjectives();
+    this.hooks.onTribute?.(id, 'respect');
+    return true;
+  }
+
   urinateOn(id) {
-    if (!TRAITORS.includes(id) || this.urinatedOn.has(id)) return false;
+    if (!TRAITORS.includes(id) || this.tributes.has(id)) return false;
+    if (!this.inspected.has(id)) this.inspectGrave(id);
     this.urinatedOn.add(id);
+    this.tributes.set(id, 'disrespect');
+    this.#refreshMemorialObjectives();
     this.hooks.onUrination?.(id);
+    this.hooks.onTribute?.(id, 'disrespect');
     this.line(
       id === 'brawny'
         ? 'Brawny finally gets fresh flowers. Different liquid, same sentiment.'
@@ -142,17 +187,37 @@ export class GraveyardMission {
     return true;
   }
 
-  lowerBody() {
+  pickUpBody() {
     if (this.state !== 'arrival') return false;
-    this.state = 'lowered';
-    this.bodyLowered = true;
-    this.line('Easy. Feet first. He made enough noise above ground.', 'vo.graveyard.snow.lower', 'Snow');
+    this.state = 'carried';
+    this.bodyCarried = true;
+    this.objectives.find((objective) => objective.id === 'bury').text = 'Carry Billy HotDog to the fresh plot';
+    this.hooks.onObjective?.(this.objectives);
     this.hooks.onState?.(this.state, this);
     return true;
   }
 
+  placeBody() {
+    if (this.state !== 'carried') return false;
+    this.state = 'placed';
+    this.bodyPlaced = true;
+    this.bodyLowered = true;
+    this.objectives.find((objective) => objective.id === 'bury').text = 'Fill Billy HotDog\'s grave';
+    this.line('Easy. Feet first. He made enough noise above ground.', 'vo.graveyard.snow.lower', 'Snow');
+    this.hooks.onObjective?.(this.objectives);
+    this.hooks.onState?.(this.state, this);
+    return true;
+  }
+
+  // Compatibility for older verification callers. The live scene uses the
+  // explicit pickup and placement actions above.
+  lowerBody() {
+    if (this.state === 'arrival' && !this.pickUpBody()) return false;
+    return this.placeBody();
+  }
+
   finishBurial() {
-    if (this.state !== 'lowered') return false;
+    if (this.state !== 'placed') return false;
     this.state = 'buried';
     this.bodyBuried = true;
     this.objectives.find((objective) => objective.id === 'bury').done = true;

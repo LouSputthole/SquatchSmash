@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-import { Npc } from '../bing/cast.js';
+import { Npc, makePerson } from '../bing/cast.js';
+import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { box, collider, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { GRAVES } from './mission.js';
 
@@ -30,8 +31,15 @@ function labelTexture(name, epitaph = '') {
   canvas.height = 256;
   const g = canvas.getContext('2d');
   g.clearRect(0, 0, canvas.width, canvas.height);
+  g.fillStyle = 'rgba(20, 22, 20, .88)';
+  g.fillRect(16, 18, 480, 194);
+  g.strokeStyle = '#b8a978';
+  g.lineWidth = 8;
+  g.strokeRect(22, 24, 468, 182);
   g.textAlign = 'center';
-  g.fillStyle = '#171817';
+  g.fillStyle = '#eee4c7';
+  g.shadowColor = 'rgba(0, 0, 0, .85)';
+  g.shadowBlur = 8;
   g.font = '700 62px Georgia, serif';
   g.fillText(name, 256, 104);
   if (epitaph) {
@@ -66,15 +74,19 @@ function graveMarker(id, x, z, yaw = 0) {
 
   const plaque = new THREE.Mesh(
     new THREE.PlaneGeometry(width * 0.82, Math.min(0.68, height * 0.58)),
-    new THREE.MeshStandardMaterial({
+    new THREE.MeshBasicMaterial({
       map: labelTexture(data.name, monument ? 'FAMILY FIRST' : ruined ? 'TRAITOR' : ''),
       transparent: true,
-      roughness: 0.9,
+      depthWrite: false,
       polygonOffset: true,
       polygonOffsetFactor: -1,
     }),
   );
-  plaque.position.set(0, 0.2 + height * 0.56, -0.126);
+  plaque.name = `grave.${id}.name`;
+  plaque.userData.memorialName = data.name;
+  // The plots extend toward +Z, which is also the player's approach. These
+  // used to sit on -Z, behind the slab, so every name was physically hidden.
+  plaque.position.set(0, 0.2 + height * 0.56, 0.127);
   g.add(plaque);
 
   if (monument) {
@@ -83,11 +95,15 @@ function graveMarker(id, x, z, yaw = 0) {
     g.add(cap, urn);
     for (const sx of [-1, 1]) {
       const flowers = group('babs.flowers');
-      flowers.position.set(sx * 0.82, 0.18, -0.36);
+      flowers.position.set(sx * 0.82, 0.18, 0.41);
       flowers.add(cylinder({ r: 0.11, h: 0.24, pos: [0, 0, 0], mat: mat({ color: 0x6e6255, roughness: 0.9 }) }));
       for (let i = 0; i < 7; i++) {
         const a = (i / 7) * Math.PI * 2;
-        flowers.add(sphere({ r: 0.055, pos: [Math.cos(a) * 0.13, 0.2 + (i % 2) * 0.05, Math.sin(a) * 0.13], mat: mat({ color: i % 2 ? 0xd9c7d5 : 0xd8d0ad, roughness: 0.9 }) }));
+        flowers.add(sphere({
+          r: 0.09,
+          pos: [Math.cos(a) * 0.18, 0.22 + (i % 2) * 0.065, Math.sin(a) * 0.18],
+          mat: mat({ color: i % 2 ? 0x8f2638 : 0xe4d5ad, roughness: 0.9 }),
+        }));
       }
       g.add(flowers);
     }
@@ -106,13 +122,18 @@ function graveMarker(id, x, z, yaw = 0) {
 
 function openPlot(name, x, z, { occupied = false } = {}) {
   const g = group(name);
-  const pit = box({ size: [1.05, 0.025, 2.15], pos: [x, 0.014, z], mat: BLACK, cast: false });
+  const pitDepth = 0.22;
+  const pit = box({ size: [1.05, 0.025, 2.15], pos: [x, -pitDepth, z], mat: BLACK, cast: false });
   pit.material = pit.material.clone();
   pit.material.color.setHex(0x050403);
+  const innerLeft = box({ size: [0.1, 0.34, 2.15], pos: [x - 0.57, -0.06, z], mat: DIRT });
+  const innerRight = box({ size: [0.1, 0.34, 2.15], pos: [x + 0.57, -0.06, z], mat: DIRT });
+  const innerHead = box({ size: [1.25, 0.34, 0.1], pos: [x, -0.06, z - 1.1], mat: DIRT });
+  const innerFoot = box({ size: [1.25, 0.34, 0.1], pos: [x, -0.06, z + 1.1], mat: DIRT });
   const left = box({ size: [0.38, 0.24, 2.35], pos: [x - 0.76, 0.12, z], mat: FRESH_DIRT });
   const right = box({ size: [0.38, 0.24, 2.35], pos: [x + 0.76, 0.12, z], mat: FRESH_DIRT });
   const end = box({ size: [1.85, 0.18, 0.34], pos: [x, 0.09, z + 1.26], mat: FRESH_DIRT });
-  g.add(pit, left, right, end);
+  g.add(pit, innerLeft, innerRight, innerHead, innerFoot, left, right, end);
   if (occupied) {
     const mound = box({ size: [1.08, 0.08, 2.06], pos: [x, 0.055, z], mat: DIRT });
     mound.visible = false;
@@ -179,26 +200,98 @@ function parkedCar() {
   return car;
 }
 
-function wrappedBody() {
+export function hotDogBody() {
   const body = group('hotdog.body');
+  body.userData.characterId = 'billy_hotdog';
+  body.userData.presentation = 'character';
+  body.userData.bodyPhase = 'trunk';
+
+  const parts = makePerson({ ...BILLY_HOTDOG_MODEL, castShadow: true });
+  const figure = parts.group;
+  figure.name = 'hotdog.figure';
+  // Centre the real standing rig around this prop root, then put it on its
+  // back. Local -Z is HotDog's head and +Z is his feet from here on out.
+  figure.position.set(0, 0, 0.9);
+  figure.rotation.x = -Math.PI / 2;
+  parts.head.rotation.z = 0.1;
+  parts.armL.rotation.set(-0.18, 0, -0.34);
+  parts.armR.rotation.set(-0.1, 0, 0.28);
+  parts.foreL.rotation.x = -0.22;
+  parts.foreR.rotation.x = -0.16;
+  parts.legL.rotation.x = 0.05;
+  parts.legR.rotation.x = -0.04;
+  for (const eye of parts.eyes ?? []) eye.scale.y *= 0.16;
+  body.add(figure);
+
+  // He was wrapped at the club, but the plastic now reads as bands around a
+  // recognizable suit, face, shoes and belly instead of replacing him with a
+  // capsule. The actual HotDog rig remains the thing being carried.
   const plastic = new THREE.MeshStandardMaterial({
-    color: 0xd7d3c8, roughness: 0.48, transparent: true, opacity: 0.88,
+    color: 0xe8e2d5, roughness: 0.7, transparent: true, opacity: 0.33,
+    depthWrite: false,
   });
-  const torso = cylinder({ rTop: 0.35, rBottom: 0.42, h: 1.55, seg: 14, pos: [0, 0, 0], mat: plastic, rotZ: Math.PI / 2 });
-  torso.scale.z = 0.72;
-  const head = sphere({ r: 0.34, ry: 0.39, pos: [-0.96, 0, 0], mat: plastic });
-  const feet = box({ size: [0.55, 0.42, 0.48], pos: [0.98, 0, 0], mat: plastic });
-  body.add(torso, head, feet);
-  // Clear the rear bumper and turn the bundle broadside to the arrival view.
-  // End-on, the feet box read as loose cargo and the wrapping clipped the car.
-  body.position.set(2.0, 0.43, 18.15);
-  body.rotation.y = 0.72;
-  return body;
+  const wraps = [
+    { z: -0.42, width: 0.27, height: 0.16 },
+    { z: 0.14, width: 0.34, height: 0.21 },
+    { z: 0.63, width: 0.25, height: 0.13 },
+  ];
+  for (const { z, width, height } of wraps) {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-width, 0.055, z),
+      new THREE.Vector3(-width * 0.5, height * 0.82, z),
+      new THREE.Vector3(0, height, z),
+      new THREE.Vector3(width * 0.5, height * 0.82, z),
+      new THREE.Vector3(width, 0.055, z),
+    ]);
+    const band = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.012, 6, false), plastic);
+    band.name = 'hotdog.wrap-band';
+    band.castShadow = false;
+    body.add(band);
+  }
+
+  // Open trunk: head inward, shoes protruding toward the player.
+  body.position.set(0, 0.87, 17.46);
+  body.userData.parts = parts;
+  return { group: body, parts };
+}
+
+function moonVisual() {
+  const moon = group('graveyard.moon');
+  const disc = new THREE.Mesh(
+    new THREE.SphereGeometry(1.9, 28, 18),
+    new THREE.MeshBasicMaterial({ color: 0xcad9df, fog: false }),
+  );
+  disc.name = 'graveyard.moon.disc';
+  moon.add(disc);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const g = canvas.getContext('2d');
+  const glow = g.createRadialGradient(128, 128, 22, 128, 128, 126);
+  glow.addColorStop(0, 'rgba(210, 230, 238, .29)');
+  glow.addColorStop(0.42, 'rgba(158, 194, 209, .09)');
+  glow.addColorStop(1, 'rgba(120, 160, 180, 0)');
+  g.fillStyle = glow;
+  g.fillRect(0, 0, 256, 256);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: texture, transparent: true, depthWrite: false, fog: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  halo.name = 'graveyard.moon.halo';
+  halo.scale.set(10.2, 10.2, 1);
+  moon.add(halo);
+  moon.position.set(-18, 25, -48);
+  return moon;
 }
 
 export function buildGraveyard(scene) {
   const root = group('squatch.graveyard');
   scene.add(root);
+  const visibleMoon = moonVisual();
+  root.add(visibleMoon);
   const colliders = [];
   const floorZones = [{ box: new THREE.Box3(new THREE.Vector3(-50, -1, -50), new THREE.Vector3(50, 1, 50)), surface: 'grass' }];
 
@@ -291,8 +384,8 @@ export function buildGraveyard(scene) {
   const car = parkedCar();
   root.add(car);
   colliders.push(collider([-1.18, 0, 12.85], [1.18, 1.45, 17.55], 0.08));
-  const trunkLight = new THREE.PointLight(0xffcf91, 18, 7, 1.8);
-  trunkLight.position.set(-0.15, 1.7, 17.75);
+  const trunkLight = new THREE.PointLight(0xffcf91, 13.5, 7, 1.8);
+  trunkLight.position.set(-0.15, 1.55, 17.75);
   scene.add(trunkLight);
 
   const headlightTargets = [];
@@ -317,7 +410,8 @@ export function buildGraveyard(scene) {
   pool.position.set(0, 0.018, -1.8);
   root.add(pool);
 
-  const body = wrappedBody();
+  const hotdog = hotDogBody();
+  const body = hotdog.group;
   root.add(body);
   const shovel = group('burial.shovel');
   shovel.add(
@@ -361,23 +455,70 @@ export function buildGraveyard(scene) {
   const state = {
     echoRumble: 0,
     bodyTween: null,
+    bodyPhase: 'trunk',
     burialTween: 0,
   };
+
+  const carryPosition = new THREE.Vector3(0, -0.92, -1.72);
+  const carryQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
+  const gravePosition = new THREE.Vector3(0, 0.07, -17.0);
+  const graveQuaternion = new THREE.Quaternion();
 
   function startEchoRumble() {
     state.echoRumble = 2.8;
   }
 
-  function lowerBody(done) {
-    if (state.bodyTween) return;
-    state.bodyTween = { t: 0, from: body.position.clone(), done };
+  function pickUpBody(carryAnchor) {
+    if (state.bodyPhase !== 'trunk' || !carryAnchor) return false;
+    carryAnchor.attach(body);
+    body.position.copy(carryPosition);
+    body.quaternion.copy(carryQuaternion);
+    state.bodyPhase = 'carrying';
+    body.userData.bodyPhase = state.bodyPhase;
+    return true;
+  }
+
+  function placeBody(done) {
+    if (state.bodyPhase !== 'carrying' || state.bodyTween) return false;
+    root.attach(body);
+    state.bodyPhase = 'placing';
+    body.userData.bodyPhase = state.bodyPhase;
+    state.bodyTween = {
+      t: 0,
+      from: body.position.clone(),
+      fromQuaternion: body.quaternion.clone(),
+      done,
+    };
+    return true;
   }
 
   function finishBurial() {
+    if (state.bodyPhase !== 'placed') return false;
     body.visible = false;
     freshMound.visible = true;
     temporary.visible = true;
     state.burialTween = 1;
+    state.bodyPhase = 'buried';
+    body.userData.bodyPhase = state.bodyPhase;
+    return true;
+  }
+
+  function bodyPresentation() {
+    const head = new THREE.Vector3();
+    const feet = new THREE.Vector3();
+    hotdog.parts.head.getWorldPosition(head);
+    hotdog.parts.group.localToWorld(feet.set(0, 0.03, 0));
+    return {
+      uuid: body.uuid,
+      phase: state.bodyPhase,
+      characterId: body.userData.characterId,
+      presentation: body.userData.presentation,
+      parent: body.parent?.name ?? '',
+      visible: body.visible,
+      position: body.getWorldPosition(new THREE.Vector3()).toArray(),
+      head: head.toArray(),
+      feet: feet.toArray(),
+    };
   }
 
   function update(dt, elapsed, playerPosition) {
@@ -396,13 +537,17 @@ export function buildGraveyard(scene) {
       state.bodyTween.t = Math.min(1, state.bodyTween.t + dt / 2.3);
       const k = state.bodyTween.t;
       const smooth = k * k * (3 - 2 * k);
-      body.position.lerpVectors(state.bodyTween.from, new THREE.Vector3(0, -0.18, -17.0), smooth);
-      body.rotation.y = 0.72 * (1 - smooth);
+      body.position.lerpVectors(state.bodyTween.from, gravePosition, smooth);
+      body.quaternion.slerpQuaternions(state.bodyTween.fromQuaternion, graveQuaternion, smooth);
       if (k >= 1) {
         const done = state.bodyTween.done;
         state.bodyTween = null;
+        state.bodyPhase = 'placed';
+        body.userData.bodyPhase = state.bodyPhase;
         done?.();
       }
+    } else if (state.bodyPhase === 'carrying') {
+      body.position.y = carryPosition.y + Math.sin(elapsed * 5.2) * 0.012;
     }
     if (state.burialTween > 0) {
       state.burialTween = Math.max(0, state.burialTween - dt * 0.7);
@@ -414,12 +559,14 @@ export function buildGraveyard(scene) {
 
   return {
     root,
+    visibleMoon,
     colliders,
     floorZones,
     graves,
     saucePlot,
     freshPlot,
     body,
+    bodyParts: hotdog.parts,
     shovel,
     snow,
     car,
@@ -427,8 +574,10 @@ export function buildGraveyard(scene) {
     echoPosition: new THREE.Vector3(-6, 0, -8.9),
     freshPosition: new THREE.Vector3(0, 0, -17),
     startEchoRumble,
-    lowerBody,
+    pickUpBody,
+    placeBody,
     finishBurial,
+    bodyPresentation,
     update,
   };
 }
