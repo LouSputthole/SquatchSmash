@@ -432,6 +432,90 @@
       "file": "bing-hallway-shubenator.png",
       "title": "Shubenator",
       "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "bing.hallway.sauce",
+      "file": "family-portrait-sauce.png",
+      "title": "Sauce",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "bing.hallway.lag",
+      "file": "family-portrait-lag.png",
+      "title": "Lag",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "bing.hallway.hogmama",
+      "file": "family-portrait-hogmama.png",
+      "title": "Hog Mama",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "bing.hallway.ape",
+      "file": "family-portrait-ape.png",
+      "title": "Ape",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "bing.hallway.eric",
+      "file": "family-portrait-eric.png",
+      "title": "Eric",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "bing.hallway.irish",
+      "file": "family-portrait-irish.png",
+      "title": "Irish",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "bing.hallway.seff",
+      "file": "family-portrait-seff.png",
+      "title": "Seff",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "squatchfather.portrait.sauce",
+      "file": "family-portrait-sauce.png",
+      "title": "Sauce",
+      "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "squatchfather.portrait.lag",
+      "file": "family-portrait-lag.png",
+      "title": "Lag",
+      "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "squatchfather.portrait.hogmama",
+      "file": "family-portrait-hogmama.png",
+      "title": "Hog Mama",
+      "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "squatchfather.portrait.ape",
+      "file": "family-portrait-ape.png",
+      "title": "Ape",
+      "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "squatchfather.portrait.eric",
+      "file": "family-portrait-eric.png",
+      "title": "Eric",
+      "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "squatchfather.portrait.irish",
+      "file": "family-portrait-irish.png",
+      "title": "Irish",
+      "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "squatchfather.portrait.seff",
+      "file": "family-portrait-seff.png",
+      "title": "Seff",
+      "caption": "The Family portrait on the dining-room wall."
     }
   ]
 }

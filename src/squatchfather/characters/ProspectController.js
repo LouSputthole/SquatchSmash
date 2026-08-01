@@ -170,9 +170,22 @@ export class ProspectController {
     this.weaponDropped = true;
     this.weaponOut = false;
     this.weapon.visible = false;
-    const world = this.weapon.clone();
+    /* The view model contains Tony's blocky hand and cuff so it reads well
+     * against the camera. Cloning that whole rig onto the floor made the
+     * dropped revolver read as a grey box. Build the canonical revolver again
+     * as a world prop: no first-person hand, actual cylinder, barrel, grip,
+     * and a slightly larger silhouette players can identify on the floor. */
+    const dropped = makeRevolver(null, { x: 0, y: 0, z: 0 });
+    const world = dropped.group;
+    world.name = 'dropped-revolver';
+    world.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = new THREE.MeshLambertMaterial({ color: o.material.color.clone() });
+      o.castShadow = true;
+      o.receiveShadow = true;
+    });
     world.visible = true;
-    world.scale.setScalar(1);
+    world.scale.setScalar(1.75);
     world.position.set(this.pos.x + 0.35, 0.9, this.pos.z + 0.2);
     world.rotation.set(-Math.PI / 2, 0, Math.random() * 0.8 - 0.4);
     this.scene.add(world);
