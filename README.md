@@ -532,8 +532,8 @@ first-person scenes.
 
 ## The Jerky Motel
 
-> `npm start`, then use <http://localhost:5173/preview.html> while the normal
-> story route is still waiting for the Beef Run integration.
+> `npm start`, then reach the Motel through the normal Day Two route, or use
+> <http://localhost:5173/preview.html> for a save-isolated scene playtest.
 
 The Motel is a first-person deal, inspection, betrayal, recovery, and escape
 mission. Tony and Snow are adult humans. Snow is a friendly ally and driver:

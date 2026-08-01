@@ -27,8 +27,10 @@
 
 ```
 Day One apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep
-Day Two+ apartment → Beef Run → apartment → Bada Bing Two → Jerky Motel
-→ apartment/big-night call → THE PINES / Initiation
+Day Two apartment → Beef Run → apartment → Bada Bing Two → Jerky Motel
+→ apartment/sleep
+Day Three apartment → Silver Room → apartment/sleep
+Day Four apartment/big-night call → THE PINES / Initiation
 ```
 
 Campaign time advances through authored tasks, calls, missions, travel, and
@@ -37,10 +39,13 @@ schedule. The user permits additional days if the story needs them.
 
 The older corkboard/FBI-gun/rat-route/Wednesday branch below is preserved
 writing material, not current campaign canon. Do not wire it ahead of the
-mission spine. For now, the existing Initiation runtime remains unchanged and
-is available only through `preview.html`; after user playtesting, rewrite its
-verdict around completed campaign accomplishments, failed-prospect deaths,
-Tony's admission, and the mass sasquatch transformation.
+mission spine. The existing Initiation runtime remains unchanged; it is
+reachable from both the normal Day Four route and the save-isolated preview,
+but it does not yet complete the campaign or expose an outbound edge. After
+user playtesting, rewrite its verdict around completed campaign
+accomplishments, failed-prospect deaths, Tony's admission, and the mass
+sasquatch transformation. The intended Day Three informant hit and Day Four
+heist remain unbuilt and require separate owner approval before implementation.
 
 ---
 

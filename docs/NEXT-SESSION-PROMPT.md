@@ -108,9 +108,8 @@ Locked character/story canon:
   who runs the kitchen at the Blue Hour on Ashland. She is **not** Hog Mama and
   is **not** on 97.8 — the family's own station would put her inside the
   family, and you do not take the family on a date. `hogmama` stays a Circle
-  id and a radio voice only. Her `voices.margo` manifest entry is a
-  **provisional placeholder** borrowing `hogmama`'s ElevenLabs id; recast it
-  before recording anything.
+  id and a radio voice only. Her `voices.margo` manifest entry is her own
+  owner-locked casting, and her call/reply recordings are indexed.
 - **Ape** is `CHARACTER_IDS.APE` — one identity shared by the Initiation and
   his cameo at the Silver Room's pillar table.
 - Snow is an adult human, Tony's friendly Motel ally, and may never enter
@@ -145,8 +144,7 @@ markers in the existing campaign event ledger. Bing voice validation now proves
 five recorded voice surfaces decode, enter a nonzero-gain SFX graph, and end at
 their full decoded duration; do not weaken this to a cue-name-only check.
 
-Current open production decisions: seven Family face photos; Margo's final
-voice recast (her manifest mapping remains provisional); the unnamed
+Current open production decisions: seven Family face photos; the unnamed
 Family-styled guard at Lou's office; Rico/Chino dialogue; and the Beef Run
 left-seat interior shell. Snow is the human, friendly Motel ally; do not call
 him Manny or allow him into player-hostile logic. The Initiation playtest gate
@@ -164,11 +162,11 @@ date are all complete and verified (2026-07-30). Continue in this order:
    ending: accomplishment review, rival deaths, Tony's verdict, mass
    transformation, plus the scene's first `campaign.enter` claim, completion
    time event, and outbound edge home.
-2. **The Silver Room's remaining work is owner calls, not code.** Recast
-   Margo's voice off the `hogmama` placeholder in `assets/sfx/manifest.json`,
-   and decide whether the recorded date outcome
+2. **The Silver Room's remaining work is an owner call, not code.** Decide
+   whether the recorded date outcome
    (`missions.silver_room.outcome` / `seeingHerAgain`) should be visible
-   anywhere in the Initiation. Nothing is blocked on either.
+   anywhere in the Initiation. Margo's independent voice is already locked,
+   recorded, and indexed.
 3. The Booskibro-airstrip and Lou-second-call cue groups are authored in the
    manifest and have indexed recordings. Do not recreate them. Use
    `npm run audio:todo` for the live recording backlog instead.

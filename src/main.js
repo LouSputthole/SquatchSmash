@@ -1226,11 +1226,9 @@ function sleepInBed() {
    * said "Day One is done" on every night in the campaign, so going to bed on
    * Day Two and again before the big night both announced a day that was two
    * chapters behind you. */
-  hud.say(storySleep.chapter === 'big_night'
-    ? 'The jerky is somebody else’s problem now. You close your eyes.'
-    : storySleep.ok
-      ? `${CHAPTER_DONE[storySleep.chapter] ?? 'That is that'}. You close your eyes.`
-      : 'You close your eyes. It is not like you had plans.', 2600);
+  hud.say(storySleep.ok
+    ? `${CHAPTER_DONE[storySleep.chapter] ?? 'That is that'}. You close your eyes.`
+    : 'You close your eyes. It is not like you had plans.', 2600);
   passOut({ voluntary: true, storySleep });
 }
 
@@ -3122,7 +3120,7 @@ function killingTimeOnDayOne() {
 const CHAPTER_DONE = Object.freeze({
   day_two: 'Day One is done',
   date: 'Day Two is done',
-  big_night: 'That is the Motel behind you',
+  big_night: 'The Silver Room is behind you',
 });
 
 /** And what the morning it opened onto is for. */

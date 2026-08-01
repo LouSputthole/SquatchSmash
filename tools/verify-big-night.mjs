@@ -212,6 +212,7 @@ try {
       silver: state.missions.silver_room.status,
       initiation: state.missions.initiation.status,
       call: state.events.booski_big_night_call.status,
+      sleepCopy: document.querySelector('#subtitle')?.textContent ?? '',
     };
   });
   check('sleep writes the Day Four big-night checkpoint at ten in the morning',
@@ -222,6 +223,9 @@ try {
     JSON.stringify(slept));
   check('the campaign so far survives the last sleep',
     slept.motel === 'complete' && slept.silver === 'complete', JSON.stringify(slept));
+  check('sleeping after the date names the Silver Room, not the Motel',
+    /Silver Room/i.test(slept.sleepCopy) && !/jerky|motel/i.test(slept.sleepCopy),
+    slept.sleepCopy);
   check('the big-night call and the Initiation stay shut until he wakes',
     slept.call === 'pending' && slept.initiation === 'locked',
     JSON.stringify(slept));

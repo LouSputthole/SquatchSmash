@@ -499,10 +499,10 @@ falling through to the synth and could never have been recorded. All 25 are now
 authored with prompts (kitchen, bar, stage, the three band stems, four ambience
 beds), plus `vo.call.margo.date.1..4` with her exact lines.
 
-**No audio was generated.** Margo's `voices.margo` entry is a **PROVISIONAL**
-placeholder: it borrows `hogmama`'s ElevenLabs id with stability raised to 0.4
-purely so her lines can be auditioned. She is not Hog Mama and must be recast
-before any real recording — the `_note` field in the manifest says so.
+Margo now has her own locked `voices.margo` casting from the owner's Voice IDs
+sheet, and her call/reply cues are recorded and indexed. She is not Hog Mama;
+the two characters retain separate voice keys and identities. The live
+`VOICE-LINES-TODO.md` queue reports zero missing recordings.
 
 The single-file bundle is a constrained preview artifact: its configured size
 budget omits music and many voice clips, so the normal hosted runtime remains
@@ -541,9 +541,9 @@ imported into the shipped game.
    next move here is the human playtest gate: the user has to play the current
    Initiation before anything in it changes.
 2. ~~Slot the Silver Room into the campaign.~~ **DONE 2026-07-30** — see "The
-   Silver Room is integrated". Remaining follow-ups there are owner calls, not
-   code: recast Margo's voice off the `hogmama` placeholder, and decide whether
-   the date's recorded outcome should be visible anywhere in the Initiation.
+   Silver Room is integrated". Margo's independent voice is also locked and
+   recorded. The remaining owner call is whether the date's recorded outcome
+   should be visible anywhere in the Initiation.
 3. After the user playtests Initiation, design and implement the approved
    accomplishment review, rival deaths, mass transformation, and
    chapter-complete checkpoint. That work is also what gives
