@@ -9,6 +9,8 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { CAMPAIGN_VERSION } from '../src/core/campaign.js';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5201;
 const TYPES = {
@@ -666,9 +668,9 @@ try {
     recoveryNotice: document.querySelector('#toast-stack')?.textContent?.trim(),
   }));
   check('corrupt browser saves are preserved and visibly recovered',
-    recovered.state.version === 2
+    recovered.state.version === CAMPAIGN_VERSION
       && recovered.state.scene.id === 'apartment'
-      && recovered.storedVersion === 2
+      && recovered.storedVersion === CAMPAIGN_VERSION
       && recovered.recovery?.reason === 'invalid_json'
       && recovered.recovery?.raw === corruptRaw
       && recovered.storedRecovery?.raw === corruptRaw

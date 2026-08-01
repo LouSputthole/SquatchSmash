@@ -21,6 +21,7 @@ const CASES = [
   { page: 'squatchfather.html', start: '#startBtn', label: 'Squatchfather' },
   { page: 'beefrun.html', start: '#start-btn', label: 'Beef Run' },
   { page: 'motel.html', start: '#startBtn', label: 'Jerky Motel' },
+  { page: 'nowake.html', start: '#start-btn', label: 'NO WAKE' },
   { page: 'silver.html', start: '#start-btn', label: 'Silver Room' },
 ];
 const TYPES = {
