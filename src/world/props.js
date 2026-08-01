@@ -1467,15 +1467,18 @@ export function makeRadio(M, { x, y, z, rotY = 0 }) {
   g.add(needle);
 
   // Knobs + a lit power ring.
-  g.add(cylinder({ r: 0.022, h: 0.026, pos: [-0.20, 0.062, 0.118], rotX: Math.PI / 2, mat: M.plasticGrey }));
-  g.add(cylinder({ r: 0.022, h: 0.026, pos: [0.20, 0.062, 0.118], rotX: Math.PI / 2, mat: M.plasticGrey }));
+  const tuneKnob = cylinder({ r: 0.022, h: 0.026, pos: [-0.20, 0.062, 0.118], rotX: Math.PI / 2, mat: M.plasticGrey });
+  const volumeKnob = cylinder({ r: 0.022, h: 0.026, pos: [0.20, 0.062, 0.118], rotX: Math.PI / 2, mat: M.plasticGrey });
+  tuneKnob.name = 'radio-tune-knob';
+  volumeKnob.name = 'radio-volume-knob';
+  g.add(tuneKnob, volumeKnob);
   const led = cylinder({ r: 0.008, h: 0.008, pos: [0, 0.055, 0.120], rotX: Math.PI / 2, mat: M.bulbOff });
   g.add(led);
 
   // Telescopic antenna.
   g.add(cylinder({ r: 0.004, h: 0.42, pos: [-0.22, 0.44, -0.06], rotZ: -0.22, mat: M.chrome }));
 
-  return { group: g, needle, led, dialFace };
+  return { group: g, needle, led, dialFace, tuneKnob, volumeKnob };
 }
 
 /* ------------------------------------------------------------------ */

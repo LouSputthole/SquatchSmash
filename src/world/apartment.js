@@ -1550,6 +1550,13 @@ export async function buildApartment(ctx) {
     onTap: () => ctx.onRadioToggle?.(),
     onUse: () => ctx.onRadioTune?.(),
   });
+  interaction.register(radio.volumeKnob, {
+    label: () => `Radio volume <b>${ctx.radioVolume?.() ?? 7}%</b> &middot; tap louder &middot; hold quieter`,
+    holdLabel: () => 'Turning the volume <b>down</b>…',
+    hold: 0.45,
+    onTap: () => ctx.onRadioVolume?.(1),
+    onUse: () => ctx.onRadioVolume?.(-1),
+  });
 
   /* ---- lights ---- */
   const setCeiling = (on, auto = false) => {

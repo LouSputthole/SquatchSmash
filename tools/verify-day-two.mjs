@@ -260,15 +260,39 @@ try {
       && woke.panel.at(-1).text === 'Answer Booskibro’s call'
       && !woke.panel.some((row) => /Lou/.test(row.text)),
     JSON.stringify(woke.panel));
+  const dayTwoRadio = await page.evaluate(() => ({
+    on: window.__squatch.radio.on,
+    volume: window.__squatch.radio.volume,
+    bulletin: [...(window.__squatch.game.newsHeard || [])].includes('news.radio.day_two'),
+  }));
+  check('Day Two starts with the radio quietly on and the murder bulletin queued first',
+    dayTwoRadio.on === true
+      && Math.abs(dayTwoRadio.volume - 0.07) < 0.001
+      && dayTwoRadio.bulletin === true,
+    JSON.stringify(dayTwoRadio));
+  const radioKnob = await page.evaluate(() => {
+    const game = window.__squatch;
+    const knob = game.apartment.root.getObjectByName('radio-volume-knob');
+    const before = game.radio.volumePercent;
+    knob?.userData.interact?.onTap?.();
+    const louder = game.radio.volumePercent;
+    knob?.userData.interact?.onUse?.();
+    return { before, louder, after: game.radio.volumePercent, label: knob?.userData.interact?.label?.() };
+  });
+  check('the visible radio knob raises and lowers the radio volume in seven-percent steps',
+    radioKnob.before === 7
+      && radioKnob.louder === 14
+      && radioKnob.after === 7
+      && /7%/.test(radioKnob.label || ''),
+    JSON.stringify(radioKnob));
 
   /* ---------------------------------------------------------------- */
   /* The flat on the second morning                                    */
   /* ---------------------------------------------------------------- */
 
-  /* And the room itself, which is the whole of "it appears it's always the
-   * first day". Day Two's flat has last night in it: the shirt he stepped out
-   * of, the first fold of money, a matchbook from the club -- and the lanyard
-   * for the day job is gone, because he told HR where to go yesterday. */
+  /* Day Two has the proof of last night without dumping an ugly shirt pile on
+   * the bedroom floor: the first fold of money and Bing's matchbook remain,
+   * while the lanyard and the old floor clothes are gone. */
   const room = await page.evaluate(() => {
     const game = window.__squatch;
     const shown = [];
@@ -284,9 +308,9 @@ try {
   });
   check('the second morning is a visibly different flat from the first',
     room.chapter === 'day_two'
-      && room.shown.includes('bloodShirt')
       && room.shown.includes('cashSmall')
       && room.shown.includes('bingMatches')
+      && !room.shown.includes('bloodShirt')
       && !room.shown.includes('lanyard')
       && !room.shown.includes('cashStacks')
       && !room.shown.includes('gunCase')
@@ -311,10 +335,17 @@ try {
 
   const ringing = await page.evaluate(() => {
     const game = window.__squatch;
+    // The page has been loaded long enough for a real 20-second wall timer to
+    // elapse. Reset the public story clock so this assertion measures the
+    // authored delay itself rather than test harness setup time.
+    game.apartmentStory.beginMorning({ delay: 20, reset: true });
     game.getUp();
-    game.apartmentStory.update(6.1);
+    game.apartmentStory.update(19.7);
+    const early = game.phone.ringing;
+    game.apartmentStory.update(0.5);
     const definition = game.phone.call?.def;
     return {
+      early,
       ringing: game.phone.ringing,
       eventId: definition?.eventId,
       characterId: definition?.characterId,
@@ -323,7 +354,8 @@ try {
     };
   });
   check('Booskibro rings the physical phone after the Day Two wake-up',
-    ringing.ringing
+    ringing.early === false
+      && ringing.ringing
       && ringing.eventId === 'booski_day_two_call'
       && ringing.characterId === 'booski'
       && ringing.from === 'Booskibro',

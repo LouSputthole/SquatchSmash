@@ -28,6 +28,7 @@ import { Phone } from './core/phone.js';
 import { phoneThreadsForCampaign } from './core/phone-content.js';
 import { ITEMS } from './core/inventory.js';
 import {
+  EVENT_IDS,
   ITEM_IDS,
   MISSION_IDS,
   SCENE_IDS,
@@ -223,6 +224,7 @@ if (wakingOnDayTwo) {
 }
 // The talk station reads the clock to decide what is on air.
 const radio = new Radio(audio, hud, time);
+const DAY_TWO_CALL_AFTER_BULLETIN = 20;
 // Nothing happens in here. Somebody should say so.
 const narrator = new Narrator(hud, time, audio);
 const drunk = new Drunk();
@@ -594,6 +596,12 @@ async function boot() {
       if (radio.on) playNews('radio');
     },
     onRadioTune: () => { radio.tune(); apartment.state.radioOn = radio.on; },
+    radioVolume: () => radio.volumePercent,
+    onRadioVolume: (direction) => {
+      const volume = radio.adjustVolume(direction);
+      apartment.state.radioOn = radio.on;
+      hud.toast(`Radio volume ${Math.round(volume * 100)}%`);
+    },
   });
 
   const savedActivities = campaign.state.activities;
@@ -797,8 +805,11 @@ startBtn.addEventListener('click', async () => {
        * introduce itself rather than wait to be discovered. Holding [E] on it
        * turns it off if you want the quiet. Started here rather than at boot
        * because the AudioContext does not exist until the first gesture. */
-      radio.turnOn();
-      apartment.state.radioOn = radio.on;
+      const dayTwoOpening = startDayTwoOpening();
+      if (!dayTwoOpening) {
+        radio.turnOn();
+        apartment.state.radioOn = radio.on;
+      }
       hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
       /* Except on the fourth morning, when he is not the only one awake. The
        * cutscene owns the first minute and hands control back itself. */
@@ -2841,6 +2852,23 @@ function startNewMorning() {
   updateObjectives();
 }
 
+/**
+ * Day Two opens on the murder bulletin, not a random DJ break. The phone
+ * begins ringing twenty seconds after that broadcast starts whether Tony is
+ * still in bed or already walking to the kitchen; ApartmentStory still owns
+ * the normal retry behavior if he lets it ring out.
+ */
+function startDayTwoOpening() {
+  const state = campaign.state;
+  if (state.story.chapter !== 'day_two'
+    || state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL]?.status === 'answered') return false;
+  if (!radio.on) radio.turnOn();
+  apartment.state.radioOn = radio.on;
+  const announced = playNews('radio');
+  if (announced) apartmentStory.beginMorning({ delay: DAY_TWO_CALL_AFTER_BULLETIN, reset: true });
+  return announced;
+}
+
 /* ------------------------------------------------------------------ */
 /* What the flat has to say about yesterday                            */
 /* ------------------------------------------------------------------ */
@@ -2928,6 +2956,11 @@ function playNews(station) {
   if (!bulletin || game.newsHeard?.has(bulletin.vo)) return false;
   (game.newsHeard ??= new Set()).add(bulletin.vo);
   setTimeout(() => {
+    if (station === 'radio') {
+      const hold = radio.broadcast({ cue: `vo.${bulletin.vo}.1`, line: bulletin.line });
+      hud.say(`<em>97.8 · the wire</em> ${bulletin.line}`, Math.round(hold * 1000));
+      return;
+    }
     speakLine(`vo.${bulletin.vo}.1`, bulletin.line, {
       volume: 0.75,
       subtitle: `<em>${station === 'radio' ? '97.8 · the wire' : 'KSQCH · news'}</em> ${bulletin.line}`,
@@ -3275,6 +3308,7 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
     hud.say(wakeUpLine(storySleep, voluntary), 6000);
+    if (storySleep?.ok) startDayTwoOpening();
     /* Sleeping off the Silver Room is the usual way anybody reaches the fourth
      * morning, so the cutscene has to hang off waking up as well as off a cold
      * load into it. Both routes ask the campaign, not a flag. */

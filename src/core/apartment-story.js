@@ -503,8 +503,14 @@ class ApartmentStory {
     this.nextRingAt = FIRST_RING_DELAY;
   }
 
-  beginMorning() {
+  beginMorning({ delay = FIRST_RING_DELAY, reset = false } = {}) {
+    // Day Two starts its timer at the radio bulletin, before Tony reaches the
+    // edge of the bed. Do not let the ordinary get-up callback reset that
+    // deliberate lead-in back to the generic six seconds.
+    if (this.started && !reset) return;
     this.started = true;
+    this.elapsed = 0;
+    this.nextRingAt = Math.max(0, delay);
   }
 
   update(dt) {
