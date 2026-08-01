@@ -328,6 +328,63 @@ if (want('bing')) {
   await page.close();
 }
 
+/* -------------------------------- arrival car, phone and Booski's shot beat */
+if (want('arrival')) {
+  const page = await browser.newPage({ viewport: { width: 960, height: 640 } });
+  page.on('pageerror', (e) => console.error(`  [arrival] ${e.message}`));
+  await page.goto(`http://localhost:${PORT}/bing.html`, { waitUntil: 'load' });
+  await page.waitForTimeout(1200);
+  /* These frames verify geometry and blocking, not decode coverage. The full
+   * scene verifier exercises the audio manifest; making a three-frame visual
+   * contact sheet wait for the entire club voice bank just makes it flaky. */
+  await page.evaluate(() => {
+    window.__bing.audio.loadManifest = async () => ({ loaded: 0, total: 0 });
+  });
+  await page.click('#start-btn');
+  await page.waitForFunction(() => window.__bing?.game.started, null, { timeout: 90000 });
+  await page.evaluate(() => {
+    const b = window.__bing;
+    b.postfx.disable?.();
+    for (let i = 0; i < 80; i++) b.player.update(1 / 60);
+    b.game.paused = true;
+    document.querySelectorAll('#hud > *').forEach((el) => { el.dataset.arrivalDisplay = el.style.display; });
+  });
+  await page.addStyleTag({
+    content: '#hud > * { display:none !important; } #hud #phone-osd { display:block !important; }',
+  });
+  await shot(page, 'bing-arrival-car-interior');
+
+  await page.evaluate(() => {
+    const b = window.__bing;
+    b.campaign.addItem('phone');
+    b.showPhone(true);
+    /* The scene is paused for deterministic captures, so its normal frame
+     * loop is not available to repaint the phone after raising it. */
+    b.phone.draw();
+  });
+  await shot(page, 'bing-phone-large');
+
+  await page.evaluate(() => {
+    const b = window.__bing;
+    b.showPhone(false);
+    b.teleport(-17.3, 1.5, Math.PI / 2);
+    b.player.pitch = -0.08;
+    b.dialogue.start(b.familyScripts.booski, 'open', b.family.byId.booski, { resume: true });
+    b.dialogue.choose(0);
+    for (let t = 0; t < 30 && !b.game.beat; t += 0.1) {
+      b.dialogue.update(0.1, b.player.position);
+    }
+    for (let t = 0; t < 0.9 && b.game.beat; t += 1 / 30) {
+      b.game.beat(1 / 30);
+      b.cast.byName.bartender.update(1 / 30, b.player.position);
+    }
+    b.player.update(0.016);
+    b.game.paused = true;
+  });
+  await shot(page, 'bing-booski-bartender-pour');
+  await page.close();
+}
+
 /* ------------------------------------------------- measurements, not looks */
 /* The dance squats, and verify-bing measures each performer's bounding box
  * against a 1.55--1.95 m window at one arbitrary moment. Sweep the whole

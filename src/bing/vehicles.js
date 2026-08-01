@@ -126,26 +126,122 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
   scene.add(car.group);
 
   const interior = group('interior');
-  const trim = mat({ color: 0x2a2118, roughness: 0.9 });
-  const dash = box({ size: [0.5, 0.28, 1.7], pos: [0.75, 1.05, 0], mat: trim });
+  const trim = mat({ color: 0x241d18, roughness: 0.88 });
+  const vinyl = mat({ color: 0x17171b, roughness: 0.82 });
+  const stitched = mat({ color: 0x302922, roughness: 0.95 });
+  const dashPlastic = mat({ color: 0x121317, roughness: 0.76 });
+  const gaugeDark = mat({ color: 0x090a0c, roughness: 0.42, metalness: 0.15 });
+  const chromeTrim = mat({ color: 0xb9c0cc, roughness: 0.2, metalness: 0.95 });
+  const amber = lit(0xffb648, 1.4);
+
+  /* The first interior was a dash, one bench and a steering-wheel ring. More
+   * importantly, Tony's eye was at y=1.24 while the sedan's solid body shell
+   * reaches y=1.36. The camera was physically inside a block. This cockpit is
+   * built around a 1.55 m seated eye: all seat backs and headrests finish
+   * behind or below it, and the body sill stays below the camera. */
+  const dash = box({
+    name: 'cockpit.dashboard', size: [0.48, 0.28, 1.72], pos: [0.72, 1.20, 0], mat: dashPlastic,
+  });
   interior.add(dash);
-  // Wheel, radio, glove box, mirror
-  const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.028, 8, 20), mat({ color: 0x14141a, roughness: 0.8 }));
-  wheel.position.set(0.52, 1.12, -0.42);
+
+  // Two proper front seats. The headrests are behind Tony, never around him.
+  const seats = [];
+  for (const side of [-1, 1]) {
+    const zSeat = side * 0.43;
+    const seat = group(side < 0 ? 'cockpit.seat.driver' : 'cockpit.seat.passenger');
+    seat.add(box({ name: 'seat.cushion', size: [0.60, 0.12, 0.58], pos: [-0.43, 0.73, zSeat], mat: stitched }));
+    seat.add(box({ name: 'seat.back', size: [0.13, 0.66, 0.56], pos: [-0.77, 1.08, zSeat], mat: stitched }));
+    seat.add(box({ name: 'seat.headrest', size: [0.13, 0.22, 0.32], pos: [-0.80, 1.53, zSeat], mat: vinyl }));
+    interior.add(seat);
+    seats.push(seat);
+  }
+
+  // Rear bench, with a cushion, back and three low headrests visible on a look-back.
+  const rearBench = group('cockpit.rear-bench');
+  rearBench.add(box({ name: 'rear.cushion', size: [0.54, 0.13, 1.64], pos: [-1.28, 0.74, 0], mat: stitched }));
+  rearBench.add(box({ name: 'rear.back', size: [0.13, 0.62, 1.66], pos: [-1.56, 1.06, 0], mat: stitched }));
+  for (const rz of [-0.55, 0, 0.55]) {
+    rearBench.add(box({ name: 'rear.headrest', size: [0.12, 0.17, 0.26], pos: [-1.58, 1.45, rz], mat: vinyl }));
+  }
+  interior.add(rearBench);
+
+  // Wheel, column, instrument binnacle and illuminated analogue gauges.
+  const wheel = new THREE.Mesh(
+    new THREE.TorusGeometry(0.18, 0.024, 8, 24),
+    mat({ color: 0x111216, roughness: 0.76 }),
+  );
+  wheel.name = 'cockpit.steering-wheel';
+  wheel.position.set(0.43, 1.33, -0.43);
   wheel.rotation.y = Math.PI / 2;
-  wheel.rotation.x = 0.5;
+  wheel.rotation.x = 0.32;
   interior.add(wheel);
-  const radioFace = box({ size: [0.03, 0.1, 0.26], pos: [0.52, 1.06, 0.02], mat: lit(0xffb648, 1.4) });
+  const steeringColumn = cylinderMesh(0.035, 0.44, dashPlastic);
+  steeringColumn.name = 'cockpit.steering-column';
+  steeringColumn.position.set(0.50, 1.22, -0.43);
+  steeringColumn.rotation.z = Math.PI / 2;
+  interior.add(steeringColumn);
+  interior.add(box({ name: 'cockpit.gauge-hood', size: [0.11, 0.24, 0.54], pos: [0.47, 1.45, -0.43], mat: dashPlastic }));
+  const gauges = [];
+  for (const [gz, r] of [[-0.56, 0.075], [-0.39, 0.085], [-0.23, 0.06]]) {
+    const bezel = cylinderMesh(r, 0.018, gaugeDark, 18);
+    bezel.name = 'cockpit.gauge';
+    bezel.position.set(0.405, 1.46, gz);
+    bezel.rotation.z = Math.PI / 2;
+    interior.add(bezel);
+    const needle = box({ name: 'cockpit.gauge-needle', size: [0.012, r * 0.95, 0.008], pos: [0.393, 1.46, gz], mat: amber });
+    needle.rotation.x = 0.55;
+    interior.add(needle);
+    gauges.push(bezel);
+  }
+
+  // Centre stack: radio display, station buttons, vents, glove box and trim.
+  const radioFace = box({ name: 'cockpit.radio-display', size: [0.035, 0.105, 0.28], pos: [0.47, 1.25, 0.03], mat: amber });
   interior.add(radioFace);
-  const gloveLid = box({ size: [0.04, 0.22, 0.42], pos: [0.5, 0.95, 0.44], mat: mat({ color: 0x322619, roughness: 0.9 }) });
+  for (const zButton of [-0.10, -0.05, 0, 0.05, 0.10]) {
+    interior.add(box({ name: 'cockpit.radio-button', size: [0.04, 0.026, 0.026], pos: [0.445, 1.16, zButton], mat: gaugeDark }));
+  }
+  for (const zVent of [-0.18, 0.18]) {
+    interior.add(box({ name: 'cockpit.vent', size: [0.04, 0.085, 0.14], pos: [0.445, 1.39, zVent], mat: gaugeDark }));
+  }
+  const gloveLid = box({ name: 'cockpit.glove-box', size: [0.045, 0.24, 0.44], pos: [0.48, 1.11, 0.48], mat: trim });
   interior.add(gloveLid);
-  interior.add(box({ size: [0.06, 0.5, 1.7], pos: [-0.9, 1.0, 0], mat: trim }));  // rear bench
-  interior.add(box({ size: [0.5, 0.06, 1.7], pos: [-0.55, 0.72, 0], mat: trim })); // seat base
+
+  // Door cards, centre console, shifter, pedals and the little things that sell a cabin.
+  for (const side of [-1, 1]) {
+    interior.add(box({
+      name: side < 0 ? 'cockpit.door.driver' : 'cockpit.door.passenger',
+      size: [1.80, 0.55, 0.055], pos: [-0.25, 1.08, side * 0.86], mat: trim,
+    }));
+    interior.add(box({ name: 'cockpit.door-handle', size: [0.24, 0.035, 0.035], pos: [0.05, 1.28, side * 0.825], mat: chromeTrim }));
+  }
+  const consoleGroup = group('cockpit.center-console');
+  consoleGroup.add(box({ name: 'console.body', size: [0.86, 0.24, 0.24], pos: [-0.22, 0.84, 0], mat: vinyl }));
+  const shifter = cylinderMesh(0.022, 0.20, chromeTrim, 10);
+  shifter.name = 'cockpit.shifter';
+  shifter.position.set(0.03, 1.01, 0);
+  shifter.rotation.z = -0.20;
+  consoleGroup.add(shifter);
+  consoleGroup.add(box({ name: 'cockpit.shifter-knob', size: [0.075, 0.075, 0.07], pos: [0.01, 1.12, 0], mat: dashPlastic }));
+  interior.add(consoleGroup);
+  for (const pz of [-0.52, -0.36]) {
+    interior.add(box({ name: 'cockpit.pedal', size: [0.08, 0.16, 0.10], pos: [0.61, 0.58, pz], mat: gaugeDark, rotZ: -0.18 }));
+  }
+
+  const rearView = box({ name: 'cockpit.rear-view-mirror', size: [0.055, 0.12, 0.34], pos: [0.65, 1.88, 0], mat: chromeTrim });
+  interior.add(rearView);
+  const sunStrip = box({ name: 'cockpit.windscreen-header', size: [0.10, 0.09, 1.70], pos: [0.86, 1.98, 0], mat: vinyl });
+  interior.add(sunStrip);
+  const domeLamp = box({ name: 'cockpit.dome-lamp', size: [0.16, 0.025, 0.28], pos: [-0.25, 1.99, 0], mat: lit(0xffd2a0, 0.75) });
+  interior.add(domeLamp);
+  const domeLight = new THREE.PointLight(0xffd2a0, 0.62, 3.1, 2);
+  domeLight.name = 'cockpit.dome-light';
+  domeLight.position.set(-0.18, 1.82, 0);
+  interior.add(domeLight);
   car.group.add(interior);
 
   // Poses live in car-local space, so changing the parking angle cannot put
   // Tony or the interaction pad through the neighbouring vehicle.
-  const driverLocal = new THREE.Vector3(-0.35, 1.24, -0.42);
+  const driverLocal = new THREE.Vector3(-0.18, 1.55, -0.43);
   const exitLocal = new THREE.Vector3(-0.35, 0, -1.55);
   const worldPoint = (local) => {
     car.group.updateMatrixWorld(true);
@@ -158,6 +254,9 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
     radioFace,
     gloveLid,
     wheel,
+    seats,
+    rearBench,
+    gauges,
     driverLocal,
     exitLocal,
     /** Where the camera sits when you are behind the wheel. */
@@ -168,6 +267,16 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
     driverYaw: () => car.group.rotation.y - Math.PI / 2,
     worldCollider: makeVehicleCollider(car),
   };
+}
+
+/** Small local helper: the shared builder's cylinder returns a Mesh too, but
+ * the cockpit uses several arbitrary-axis cylinders and needs direct access
+ * to their transforms before they join the car. */
+function cylinderMesh(radius, height, material, segments = 14) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, segments), material);
+  mesh.castShadow = false;
+  mesh.receiveShadow = false;
+  return mesh;
 }
 
 /** Fill the lot: Lincolns, Cadillacs, two SUVs, a van, and one dented compact. */
