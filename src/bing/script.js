@@ -304,16 +304,23 @@ export function buildScripts(ctx) {
        * should never read an actor direction out loud. */
       enter: {
         who: 'Lou',
+        line: 'Shut the door.',
+        hold: 3.0,
+        next: 'arrival',
+      },
+      /* The door order is always Lou's first spoken line. If Tony spent most
+       * of the night getting here, Lou's reactive follow-up still survives as
+       * its own beat instead of replacing that recorded opening. */
+      arrival: {
+        who: 'Lou',
         line: () => {
           const w = mission.waited;
           if (w > 8 * 60) return 'Sit down. Or don’t. You’ve had all night to decide.';
           if (w > 5 * 60) return 'There he is.';
-          return 'Shut the door.';
+          return null;
         },
-        /* The old take reads the removed stage direction. Keep this opening
-         * subtitled rather than knowingly playing a mismatched recording. */
         cue: null,
-        hold: 3.0,
+        hold: 1.8,
         next: 'greet',
       },
     greet: {

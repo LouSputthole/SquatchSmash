@@ -25,9 +25,10 @@
 wired; the MP3 has not been generated in this environment because no
 `ELEVENLABS_API_KEY` or `XI_API_KEY` was available to this process.
 
-Lou's cleaned-up opening is intentionally subtitle-only until a take without
-the removed stage direction is recorded. The old recording remains on disk but
-is not played because its spoken words no longer match the subtitle.
+Lou's cleaned-up opening now plays a clean `Shut the door.` cue. Because no
+ElevenLabs key was available, the cue was cut from the established Lou actor's
+existing take at the clean pause after the narrated stage direction; the old
+stage-direction recording was removed so it cannot be wired back accidentally.
 
 ## Verification
 

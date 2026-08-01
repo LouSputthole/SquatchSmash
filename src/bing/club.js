@@ -1350,7 +1350,10 @@ export function buildClub(scene, { renderer } = {}) {
        * cm of depth and read as a white box through the bowl. Keep the wide
        * dimension along the tiled wall and the thin one normal to it. */
       const backplate = box({
-        size: [0.4, 0.78, 0.085], pos: [0.11, 0.82, -0.18], mat: porcelain,
+        /* Local X becomes wall-width after the fixture turns. Local Z is the
+         * wall normal: -9.25cm puts the back face on the tile and the plate's
+         * centre directly behind the bowl rather than 11cm to its right. */
+        size: [0.42, 0.76, 0.085], pos: [0.03, 0.84, -0.0925], mat: porcelain,
       });
       backplate.name = 'urinal-backplate';
       const u = group('urinal',
@@ -1379,14 +1382,25 @@ export function buildClub(scene, { renderer } = {}) {
     add(box({ size: [0.42, 0.72, 0.04], pos: [B.x1 - 0.28, 1.02, 1.8], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
     /* The line on the left-hand lip. Somebody's evening, left where they
      * put it down. main.js makes it usable. */
-    const powder = group('bathroom-powder',
-      box({ size: [0.005, 0.006, 0.16], pos: [0, 0, 0], mat: mat({ color: 0xf4f4f8, roughness: 0.95 }) }),
-      box({ size: [0.09, 0.001, 0.05], pos: [0.03, -0.004, 0.02], rotY: 0.3, mat: mat({ color: 0xe4e4ea, roughness: 1 }) }),
-    );
+    const powderLine = box({
+      size: [0.012, 0.012, 0.18], pos: [0, 0.006, 0],
+      mat: mat({
+        color: 0xffffff, emissive: 0xbfd6ff, emissiveIntensity: 0.72,
+        roughness: 0.72,
+      }),
+    });
+    powderLine.name = 'urinal-line';
+    const powderCard = box({
+      size: [0.10, 0.004, 0.06], pos: [0.035, -0.003, 0.025], rotY: 0.3,
+      mat: mat({ color: 0x33233f, roughness: 0.78 }),
+    });
+    powderCard.name = 'urinal-line-card';
+    const powder = group('bathroom-powder', powderLine, powderCard);
     powder.position.set(B.x1 - 0.31, 1.122, 1.5);
     powder.rotation.y = 0.12;
     add(powder);
     anchors.powder = new THREE.Vector3(B.x1 - 0.31, 1.12, 1.5);
+    anchors.powderMesh = powder;
     anchors.stalls = [];
     for (let i = 0; i < 3; i++) {
       const sx = B.x0 + 1.0 + i * 1.2;
@@ -1415,15 +1429,17 @@ export function buildClub(scene, { renderer } = {}) {
     add(box({ size: [0.06, 1.9, 1.5], pos: [B.x0 + 4.0, 1.0, B.z0 + 0.9], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
 
     // A framed bathroom print, high enough to clear the stall partitions and
-    // set into the north wall rather than floating in the tiled room.
+    // seated just in front of the north wall rather than buried in its tile.
     const bathroomPicture = makeFrame(M, {
-      x: B.x0 + 4.7, y: 2.22, z: B.z0 + 0.026, rotY: 0, w: 0.50, h: 0.38,
+      /* Interior wall face is z0 + 0.125. The old +0.026 put the photograph
+       * inside the wall even though its texture loaded successfully. */
+      x: B.x0 + 4.7, y: 2.18, z: B.z0 + 0.165, rotY: 0, w: 0.72, h: 0.48,
       texture: printed('bing-bathroom-print-placeholder', ['BADA BING', 'BATHROOM'], {
         w: 512, h: 384, bg: '#201824', fg: '#e4d3dc', font: '800 38px "Trebuchet MS", sans-serif',
       }),
       tint: 0x4a3324,
     });
-    artSticker(bathroomPicture.art, 'bing.bathroom.anime4', 0.50);
+    artSticker(bathroomPicture.art, 'bing.bathroom.anime4', 0.72);
     add(bathroomPicture);
     anchors.bathroomPicture = bathroomPicture.group;
 
@@ -2025,10 +2041,43 @@ export function buildClub(scene, { renderer } = {}) {
         stand.add(arm);
         stand.add(sphere({ r: 0.021, pos: [Math.sin(a) * 0.14, 1.775, Math.cos(a) * 0.14], mat: M_BRASS }));
       }
-      // Lou's spare overcoat, hanging off the back of it
-      const coat = box({ size: [0.3, 0.86, 0.14], pos: [-0.02, 1.28, -0.13], mat: mat({ color: 0x24242c, roughness: 0.95 }) });
-      stand.add(coat);
-      stand.add(box({ size: [0.2, 0.1, 0.12], pos: [-0.02, 1.68, -0.11], mat: mat({ color: 0x24242c, roughness: 0.95 }) }));
+      // Lou's spare overcoat: a tapered body, shoulders, sleeves and lapels.
+      // The old version was one 30x86cm black cuboid with a second cuboid on
+      // top, so from the doorway it read exactly as a black square.
+      const coatMat = mat({ color: 0x3a3542, roughness: 0.92 });
+      const coatTrim = mat({ color: 0x211e28, roughness: 0.88 });
+      const overcoat = group('spare-overcoat');
+      const coatBody = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.23, 0.72, 8, 1, false), coatMat,
+      );
+      coatBody.name = 'coat-body';
+      coatBody.position.set(-0.02, 1.27, -0.13);
+      coatBody.scale.z = 0.36;
+      overcoat.add(coatBody);
+      overcoat.add(box({
+        size: [0.40, 0.11, 0.14], pos: [-0.02, 1.60, -0.13], mat: coatMat,
+      }));
+      for (const side of [-1, 1]) {
+        const sleeve = cylinder({
+          r: 0.055, h: 0.54, pos: [side * 0.20, 1.34, -0.13], mat: coatMat,
+        });
+        sleeve.name = `coat-sleeve-${side < 0 ? 'left' : 'right'}`;
+        sleeve.rotation.z = side * 0.16;
+        overcoat.add(sleeve);
+        overcoat.add(cylinder({
+          r: 0.061, h: 0.065, pos: [side * 0.242, 1.08, -0.13], mat: coatTrim,
+        }));
+        overcoat.add(box({
+          size: [0.075, 0.29, 0.025], pos: [side * 0.06, 1.47, -0.205],
+          rotZ: side * 0.32, mat: coatTrim,
+        }));
+      }
+      overcoat.add(new THREE.Mesh(
+        new THREE.TorusGeometry(0.085, 0.018, 6, 16, Math.PI), coatTrim,
+      ));
+      overcoat.children[overcoat.children.length - 1].position.set(-0.02, 1.64, -0.20);
+      overcoat.children[overcoat.children.length - 1].rotation.z = Math.PI;
+      stand.add(overcoat);
       stand.position.set(kx, 0, kz);
       add(stand);
       office.coatStand = stand;
@@ -2061,7 +2110,7 @@ export function buildClub(scene, { renderer } = {}) {
       }));
     }
     const shorePic = makeFrame(M, {
-      x: dx + 0.62, y: 1.76, z: O.z0 + 0.115, rotY: 0, w: 0.44, h: 0.34,
+      x: dx + 0.62, y: 1.76, z: WALLS.north + 0.045, rotY: 0, w: 0.44, h: 0.34,
       texture: printed('lou-family0', ['SUNDAY', 'AT THE SHORE'], {
         w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
       }),
@@ -2073,7 +2122,7 @@ export function buildClub(scene, { renderer } = {}) {
     // behind Lou's desk. artSticker keeps the frame and glass while swapping
     // in the supplied artwork when the shared apartment-art manifest lands.
     const bingPicture = makeFrame(M, {
-      x: dx + 1.36, y: 1.75, z: O.z0 + 0.115, rotY: 0, w: 0.62, h: 0.47,
+      x: dx + 1.36, y: 1.75, z: WALLS.north + 0.045, rotY: 0, w: 0.62, h: 0.465,
       texture: printed('squatches-bing-office-placeholder', ['SILVER SASQUATCHES', 'AT THE BING'], {
         w: 512, h: 384, bg: '#321923', fg: '#f0c7d4', font: '800 34px "Trebuchet MS", sans-serif',
       }),
@@ -2097,18 +2146,21 @@ export function buildClub(scene, { renderer } = {}) {
      * for it: over the filing cabinet in the corner, centred on the cabinet
      * and clear of the north wall by 8.5cm. */
     const officeCrest = makeFrame(M, {
-      x: 7.926, y: 1.86, z: filingZ, rotY: Math.PI / 2, w: 0.38, h: 0.48,
+      x: 7.926, y: 1.86, z: filingZ, rotY: Math.PI / 2, w: 0.38, h: 0.28,
       texture: squatchArt('office-crest', { title: ['BADA BING'], footer: 'EST. 1979' }),
       tint: 0x6a4e1c,
     });
     artSticker(officeCrest.art, 'bing.office.logo.crest', 0.38);
     officeLogos.push(officeCrest);
     const officeShield = makeFrame(M, {
-      x: dx - 0.28, y: 1.72, z: O.z0 + 0.115, rotY: 0, w: 0.3, h: 0.38,
+      /* logo-shield.jpg is 1000x598. Match that landscape aspect instead of
+       * forcing it into the old portrait frame, and stand it in front of the
+       * north dado rather than halfway through it. */
+      x: dx - 0.28, y: 1.72, z: WALLS.north + 0.045, rotY: 0, w: 0.50, h: 0.299,
       texture: squatchArt('office-mark', { title: ['THE', 'FAMILY'], ink: '#d8c8a8', bg: '#241820' }),
       tint: 0x6a4e1c,
     });
-    artSticker(officeShield.art, 'bing.office.logo.shield', 0.3);
+    artSticker(officeShield.art, 'bing.office.logo.shield', 0.50);
     officeLogos.push(officeShield);
     for (const f of officeLogos) add(f);
     office.logos = officeLogos.map((f) => f.group);

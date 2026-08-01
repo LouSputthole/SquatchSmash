@@ -38,10 +38,14 @@ for (const variant of [{}, { gotPackage: true }, { drunk: 0.7 }, { spins: 2 }, {
 }
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
-manifest.sfx = [
-  ...manifest.sfx.filter((cue) => !cue.name.startsWith('vo.bing.full.')),
-  ...[...found.values()].sort((a, b) => a.name.localeCompare(b.name)),
-];
+/* Keep the generated Bing bank in its authored manifest section. Appending it
+ * after every refresh used to move 112 entries past the footsteps/effects
+ * bank, producing thousands of unrelated diff lines for a one-cue change. */
+const withoutBing = manifest.sfx.filter((cue) => !cue.name.startsWith('vo.bing.full.'));
+const effectsStart = withoutBing.findIndex((cue) => cue.name === 'footstep.concrete');
+const insertAt = effectsStart < 0 ? withoutBing.length : effectsStart;
+withoutBing.splice(insertAt, 0, ...[...found.values()].sort((a, b) => a.name.localeCompare(b.name)));
+manifest.sfx = withoutBing;
 fs.writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
 const byVoice = {};
 for (const cue of found.values()) byVoice[cue.voice] = (byVoice[cue.voice] ?? 0) + 1;
