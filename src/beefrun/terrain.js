@@ -11,7 +11,10 @@ import { clamp, lerp, smoothstep, fbm, ridged, rng, solid, mat } from './util.js
 const CHUNK = 500;
 const RADIUS = 5;                           // ~2.5 km of ground, then fog
 const DETAIL = [28, 24, 18, 12, 8, 6];      // segments per chunk by ring distance
-const BUILD_BUDGET = 3;                     // chunks built per frame
+// One terrain chunk includes a full tree scatter. Keep the build on a single
+// frame's budget so flying never turns into a slideshow while new ground
+// streams in.
+const BUILD_BUDGET = 1;
 
 // ---------- Elevation ----------
 

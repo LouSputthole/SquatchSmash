@@ -158,8 +158,9 @@ const mission = new MissionController({
   story,
 });
 
-// Prime the terrain around the field so the first frame is not empty.
-terrain.prime(airfield.anchors.parking.x, airfield.anchors.parking.z);
+// Terrain starts when the mission does. Calling `prime()` here synchronously
+// built 121 chunks (and their forest scatter) before the title card could
+// receive a click, which made the direct preview look frozen.
 
 window.__beefrun = {
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
@@ -167,6 +168,11 @@ window.__beefrun = {
   campaign, story,
   get campaignState() { return campaign.state; },
 };
+
+// Tell the page watchdog the module has finished booting before the first
+// animation frame can do any scene work.
+window.__squatch = window.__squatch || {};
+window.__squatch.beefrun = true;
 
 /* ------------------------------------------------------------------ */
 /* Start / pause                                                      */
@@ -482,7 +488,4 @@ document.addEventListener('visibilitychange', () => {
   else if (game.started) audio.setMasterVolume(0.9);
 });
 
-// Announce ourselves so the watchdog in the page knows the module ran.
-window.__squatch = window.__squatch || {};
-window.__squatch.beefrun = true;
 void clamp; void DIFFICULTY; void EH; void THREE;
