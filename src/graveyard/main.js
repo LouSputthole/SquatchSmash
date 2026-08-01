@@ -18,6 +18,7 @@ import {
   GRAVEYARD_SNOW_BARKS,
   GraveyardMission,
   GRAVES,
+  shouldAutoTriggerEcho,
 } from './mission.js';
 import { buildGraveyard } from './world.js';
 
@@ -197,6 +198,7 @@ function inspect(id) {
     state.echoTriggered = true;
     story.noteEcho();
   }
+  return result;
 }
 
 function payRespect(id) {
@@ -424,6 +426,7 @@ function finishScene() {
 const runtime = {
   story,
   mission,
+  player,
   get campaignState() { return campaign.state; },
   get phase() { return state.phase; },
   get displayClock() { return { day: clock.day, timeMinutes: clock.minutes }; },
@@ -507,7 +510,10 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   player.setKey(event.code, true);
-  if (event.code === 'KeyE') interaction.press();
+  // A completed hold resets InteractionSystem.holding before the physical key
+  // comes up. Ignore OS autorepeat so it cannot begin a second hold whose
+  // eventual release would also be misread as a fresh tap.
+  if (event.code === 'KeyE' && !event.repeat) interaction.press();
   if (event.code === 'KeyP' && !event.repeat) startPee();
   if (event.code === 'KeyQ' && state.pee.active) stopPee();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
@@ -545,7 +551,7 @@ function animate(now) {
     interaction.update(dt);
     updatePee(dt);
     stream.update(dt);
-    if (!mission.echoHeard && player.position.distanceTo(graveyard.echoPosition) < 4.6) {
+    if (!mission.echoHeard && shouldAutoTriggerEcho(player.position, graveyard.echoPosition)) {
       inspect('echo');
     }
     const traitor = currentTraitorGrave();

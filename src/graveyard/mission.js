@@ -71,6 +71,19 @@ export const GRAVEYARD_SNOW_BARKS = Object.freeze({
 
 const TRAITORS = Object.freeze(['brawny', 'whiplash']);
 const GRAVE_COUNT = Object.keys(GRAVES).length;
+export const ECHO_APPROACH_RADIUS = 7.4;
+
+/**
+ * Echo is six metres west of the central path. His encounter therefore needs
+ * an approach volume that reaches the path, not an interaction-sized circle
+ * around the headstone itself.
+ */
+export function shouldAutoTriggerEcho(playerPosition, echoPosition) {
+  const dx = Number(playerPosition?.x) - Number(echoPosition?.x);
+  const dz = Number(playerPosition?.z) - Number(echoPosition?.z);
+  if (!Number.isFinite(dx) || !Number.isFinite(dz)) return false;
+  return dx * dx + dz * dz <= ECHO_APPROACH_RADIUS * ECHO_APPROACH_RADIUS;
+}
 
 export class GraveyardMission {
   constructor(hooks = {}) {
@@ -136,9 +149,12 @@ export class GraveyardMission {
   inspectGrave(id) {
     const grave = GRAVES[id];
     if (!grave) return null;
-    this.inspected.add(id);
-    this.#refreshMemorialObjectives();
-    this.line(grave.line, `vo.graveyard.inspect.${id}`, 'Prospect');
+    const firstInspection = !this.inspected.has(id);
+    if (firstInspection) {
+      this.inspected.add(id);
+      this.#refreshMemorialObjectives();
+      this.line(grave.line, `vo.graveyard.inspect.${id}`, 'Prospect');
+    }
     if (id === 'echo' && !this.echoHeard) {
       this.echoHeard = true;
       this.hooks.onRumble?.();

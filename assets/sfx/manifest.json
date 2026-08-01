@@ -7105,6 +7105,46 @@
       "prompt": "single footstep on thin worn motel carpet over concrete, soft dead thud with a faint synthetic fibre brush, no ring, interior, no voice, no music"
     },
     {
+      "name": "footstep.gravel",
+      "duration": 0.5,
+      "prompt": "single footstep onto loose gravel, sharp crunch of small stones settling and shifting, outdoors, close, no voice, no music"
+    },
+    {
+      "name": "footstep.metal",
+      "duration": 0.5,
+      "prompt": "single footstep on a steel fire-escape grating, dull boot impact with a bright metallic clang and a short rattling ring, outdoors, no voice, no music"
+    },
+    {
+      "name": "footstep.lino",
+      "duration": 0.5,
+      "prompt": "single footstep on scuffed linoleum in a commercial kitchen, flat rubbery slap with a slight tacky peel as the sole lifts, interior, no voice, no music"
+    },
+    {
+      "name": "footstep.grass",
+      "duration": 0.5,
+      "prompt": "single footstep on dry grass over soft soil, quiet muffled compression with a light papery rustle of blades, outdoors, close, no voice, no music"
+    },
+    {
+      "name": "footstep.dirt",
+      "duration": 0.5,
+      "prompt": "single footstep on dry packed dirt, low soft thud with a small puff of loose soil and grit, outdoors, close, no voice, no music"
+    },
+    {
+      "name": "footstep.leaves",
+      "duration": 0.5,
+      "prompt": "single footstep into a drift of dry fallen leaves, brittle crackle and rustle collapsing under the weight, woodland, close, no voice, no music"
+    },
+    {
+      "name": "footstep.snow",
+      "duration": 0.5,
+      "prompt": "single footstep into cold dry packed snow, tight high-pitched squeaky crunch compressing under the boot, outdoors, quiet, no voice, no music"
+    },
+    {
+      "name": "footstep.puddle",
+      "duration": 0.5,
+      "prompt": "single footstep landing in a shallow standing puddle, sharp water splash and slop with the sole lifting out wet, outdoors on pavement, no voice, no music"
+    },
+    {
       "name": "slot.pull",
       "duration": 1,
       "prompt": "the arm of a mechanical slot machine pulled down and released, heavy spring-loaded lever travel with a solid metal clunk at the bottom, close, no voice, no music"
