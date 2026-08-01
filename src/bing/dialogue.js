@@ -42,6 +42,7 @@ export class Dialogue {
     this._bookmarks = new WeakMap();
     this._resumable = false;
     this._inReplyRange = true;
+    this.lockMovement = false;
   }
 
   /**
@@ -70,23 +71,25 @@ export class Dialogue {
    *   the thread has completed. One-shot interjections (a door line, a
    *   package line) start without it and never disturb a saved thread.
    */
-  start(tree, at, speaker = null, { resume = false, lockMovement = false } = {}) {
-    if (this.active) this.end('interrupted');
+  start(tree, at, speaker = null, { resume = false, lockMovement = null } = {}) {
+    /* A package pickup can hand off to a follow-up node while Lou's required
+     * brief is still active. An omitted option preserves that live lock; an
+     * explicit false releases it. Keep the callback edge-triggered so a
+     * handoff cannot briefly unlock Tony or notify the scene twice. */
+    const nextLock = lockMovement == null
+      ? (this.active && this.lockMovement)
+      : Boolean(lockMovement);
+    if (this.active) this.end('interrupted', { keepMovementLock: nextLock });
     this.tree = tree;
     this.speaker = speaker;
     this.active = true;
     this._resumable = resume;
-    /* A package pickup can start a follow-up node while Lou's required brief
-     * is still active. Keep that lock through the handoff unless the caller
-     * deliberately changes it; otherwise the second node silently frees Tony
-     * halfway through the objective conversation. */
-    const nextLock = lockMovement ?? this._movementLocked === true;
-    if (nextLock !== this._movementLocked) this.hooks.onMovementLock?.(nextLock);
-    this._movementLocked = nextLock;
     this._inReplyRange = true;
-    this.lockMovement = Boolean(lockMovement);
+    if (nextLock !== this.lockMovement) {
+      this.lockMovement = nextLock;
+      this.hooks.onMovementLock?.(nextLock);
+    }
     this.hooks.onActive?.(true);
-    this.hooks.onMovementLock?.(this.lockMovement);
     const bookmark = resume ? this._bookmarks.get(tree) : null;
     this.go(bookmark && tree[bookmark] ? bookmark : at);
   }
@@ -160,7 +163,7 @@ export class Dialogue {
     return true;
   }
 
-  end(reason = 'done') {
+  end(reason = 'done', { keepMovementLock = false } = {}) {
     if (!this.active) return;
     if (this.tree) {
       /* Lapsing (walked away, interrupted) bookmarks the node for next time.
@@ -177,10 +180,10 @@ export class Dialogue {
     this._pending = null;
     this._inReplyRange = true;
     const lockedMovement = this.lockMovement;
-    this.lockMovement = false;
+    if (!keepMovementLock) this.lockMovement = false;
     this.ui.root.classList.add('hidden');
     this.ui.options.classList.add('hidden');
-    if (lockedMovement) this.hooks.onMovementLock?.(false);
+    if (lockedMovement && !keepMovementLock) this.hooks.onMovementLock?.(false);
     this.hooks.onActive?.(false);
     this.hooks.onEnd?.(reason);
   }
