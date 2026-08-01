@@ -166,7 +166,14 @@ export class Phone {
    * @param {object} o.audio
    * @param {object[]} o.calls scheduled calls; pass [] when story owns them
    */
-  constructor({ time, audio, calls = CALLS, threads = THREADS, onThreadRead = null } = {}) {
+  constructor({
+    time,
+    audio,
+    calls = CALLS,
+    threads = THREADS,
+    onThreadRead = null,
+    onCallState = null,
+  } = {}) {
     this.time = time;
     this.audio = audio;
     this.canvas = document.createElement('canvas');
@@ -178,6 +185,8 @@ export class Phone {
     this.setThreads(threads);
     this.calls = calls.slice();
     this.onThreadRead = onThreadRead;
+    /** Notifies the scene when a connected call starts or ends. */
+    this.onCallState = onCallState;
     /** Calls that have already happened, newest first. */
     this.recents = [];
 
@@ -257,6 +266,7 @@ export class Phone {
     this.call.t = 0;
     this.call.line = -1;
     this.call.hold = 0;
+    this.onCallState?.(true, this.call.def);
     this.onAnswered?.(this.call.def);
     if (this.call.def.meeting) this.onMeeting?.();
   }
@@ -275,6 +285,7 @@ export class Phone {
     });
     if (state === 'ringing') this.missed++;
     this.call = null;
+    if (state === 'talking') this.onCallState?.(false, def);
   }
 
   _stamp() {

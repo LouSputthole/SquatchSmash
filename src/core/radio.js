@@ -41,6 +41,8 @@ const SONG_FADE_OUT = 3.5;
 const SONG_START_FRAC = 0.20;
 const DEFAULT_VOLUME = 0.07;
 const VOLUME_STEP = 0.07;
+/** A connected phone call leaves 34% of the radio level: roughly 66% down. */
+const PHONE_CALL_RADIO_SCALE = 0.34;
 
 export class Radio {
   /**
@@ -61,6 +63,9 @@ export class Radio {
     // A small receiver across the room, not a nightclub PA. The physical
     // knob lets the player change this without changing the whole game mix.
     this.volume = DEFAULT_VOLUME;
+    this._phoneDucked = false;
+    this._talkBase = 0.055;
+    this._focusMuffled = false;
     this.el = null;
     this.source = null;
     this.position = new THREE.Vector3();
@@ -87,6 +92,8 @@ export class Radio {
 
   get station() { return this.stations[this.stationIndex]; }
   get volumePercent() { return Math.round(this.volume * 100); }
+  get phoneDucked() { return this._phoneDucked; }
+  get mixScale() { return this._phoneDucked ? PHONE_CALL_RADIO_SCALE : 1; }
 
   /**
    * Every record this radio is allowed to air. Unscoped legacy tracks remain
@@ -115,15 +122,40 @@ export class Radio {
 
   setVolume(value) {
     this.volume = THREE.MathUtils.clamp(value, 0, 1);
-    if (this.gain && this._songT >= 0) this._fadeTo(0.85 * this.volume, 0.08);
+    if (this.gain && this._songT >= 0) this._fadeTo(this._level(0.85), 0.08);
+    if (this._voice) this.audio.setPlaybackVolume?.(this._voice, this._level(1), 0.08);
     if (this.on && !this.songPlaying && this._broadcastT <= 0) {
-      this.audio.setLoopVolume?.('radio.talk', 0.055 * this.volume, 0.08);
+      this._setTalkVolume(this._talkBase, 0.08);
     }
     return this.volume;
   }
 
   adjustVolume(direction) {
     return this.setVolume(this.volume + Math.sign(direction || 0) * VOLUME_STEP);
+  }
+
+  _level(base) {
+    return base * this.volume * this.mixScale;
+  }
+
+  _setTalkVolume(base, ramp = 0.3) {
+    this._talkBase = base;
+    this.audio.setLoopVolume?.('radio.talk', this._level(base), ramp);
+  }
+
+  /**
+   * Duck only the in-world radio while a connected phone call owns the room.
+   * The knob's actual volume never changes, so hang-up restores the exact
+   * level the player selected rather than resetting it to a default.
+   */
+  setPhoneDucked(on) {
+    const next = on === true;
+    if (this._phoneDucked === next) return this.mixScale;
+    this._phoneDucked = next;
+    if (this.gain && this.songPlaying) this._fadeTo(this._level(0.85), 0.24);
+    if (this._voice) this.audio.setPlaybackVolume?.(this._voice, this._level(1), 0.24);
+    if (this.on) this._setTalkVolume(this._talkBase, 0.24);
+    return this.mixScale;
   }
 
   /** Build the audio graph lazily -- it needs a running AudioContext. */
@@ -249,13 +281,14 @@ export class Radio {
 
     if (this.el) this.el.pause();
     // A murmuring voice bed under the words, so the room is not silent.
+    this._talkBase = 0.055;
     this.audio.startLoop('radio.talk', {
-      volume: 0.055 * this.volume, position: this.position, ref: 2.6, maxDist: 20,
+      volume: this._level(this._talkBase), position: this.position, ref: 2.6, maxDist: 20,
     });
     this._show = null;
     this._pump();
     if (announce) {
-      this.audio.play(st.ident, { position: this.position, volume: 0.55 * this.volume });
+      this.audio.play(st.ident, { position: this.position, volume: this._level(0.55) });
     }
     return;
   }
@@ -373,7 +406,7 @@ export class Radio {
     this._segT = 0;
     // Hearing it counts as knowing it.
     if (s.notice) this.onNotice?.();
-    if (s.cue) this.audio.play(s.cue, { position: this.position, volume: 0.5 * this.volume });
+    if (s.cue) this.audio.play(s.cue, { position: this.position, volume: this._level(0.5) });
 
     // The hosts are recorded now, so hold a line on air for exactly as long as
     // it takes to say. Anything without a clip -- the dynamically composed
@@ -391,7 +424,7 @@ export class Radio {
      * default 1.4m rolloff is a murmur by the time you are at the fridge, so
      * from anywhere but the sideboard the station read as dead air. */
     this._voice = v ? this.audio.play(v.cue, {
-      position: this.position, volume: 1.0 * this.volume, ref: 3.4, maxDist: 26,
+      position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
     }) : null;
     this._dwell = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP
@@ -416,7 +449,7 @@ export class Radio {
     this._line = line;
     this._showOsd();
     this._voice = cue ? this.audio.play(cue, {
-      position: this.position, volume: 1.0 * this.volume, ref: 3.4, maxDist: 26,
+      position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
     }) : null;
     this._broadcastT = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP
@@ -475,9 +508,9 @@ export class Radio {
 
     const p = this.el.play();
     if (p && p.catch) p.catch(() => { /* the error handler covers it */ });
-    this._fadeTo(0.85 * this.volume, SONG_FADE_IN);
+    this._fadeTo(this._level(0.85), SONG_FADE_IN);
     // The murmuring talk bed would sit under the music otherwise.
-    this.audio.setLoopVolume?.('radio.talk', 0.006 * this.volume, 0.6);
+    this._setTalkVolume(0.006, 0.6);
 
     this._songT = 0;
     this._line = `${track.artist ? `${track.artist} \u2014 ` : ''}${track.title || track.file}`;
@@ -498,8 +531,8 @@ export class Radio {
       try { this.el.pause(); } catch { /* already stopped */ }
       this._fadeTo(0, 0);
     }
-    this.audio.play('radio.cut', { position: this.position, volume: 0.75 * this.volume });
-    this.audio.setLoopVolume?.('radio.talk', 0.04 * this.volume, 0.8);
+    this.audio.play('radio.cut', { position: this.position, volume: this._level(0.75) });
+    this._setTalkVolume(0.04, 0.8);
 
     // Jump the queue: whatever the station was going to say next waits.
     this._queue.unshift(...MEETING_NOTICE);
@@ -515,7 +548,7 @@ export class Radio {
     this._fadeTo(0, fade);
     const el = this.el;
     setTimeout(() => { if (!this.songPlaying && el) el.pause(); }, fade * 1000 + 120);
-    this.audio.setLoopVolume?.('radio.talk', 0.04 * this.volume, 1.2);
+    this._setTalkVolume(0.04, 1.2);
     this._line = null;
     this._segT = 0;
     /* The gap is measured from the moment the record is actually GONE, not
@@ -577,12 +610,13 @@ export class Radio {
 
   /** Muffle further when the player is heads-down in the game. */
   setFocusMuffle(on) {
+    this._focusMuffled = on;
     if (!this.tone) return;
     this.tone.frequency.linearRampToValueAtTime(
       on ? 1400 : 6200,
       this.audio.ctx.currentTime + 0.4,
     );
-    this.audio.setLoopVolume('radio.talk', (on ? 0.018 : 0.04) * this.volume, 0.4);
+    this._setTalkVolume(on ? 0.018 : 0.04, 0.4);
   }
 }
 

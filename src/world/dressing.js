@@ -184,31 +184,6 @@ function lanyard(M, { x, y, z, rotY = 0 }) {
   return g;
 }
 
-/** The shirt he wore to the Squatchfather, stepped out of and left there. */
-function bloodShirt(M, { x, y, z, rotY = 0 }) {
-  const g = group('dress:bloodShirt');
-  g.position.set(x, y, z);
-  g.rotation.y = rotY;
-  const cloth = mat({ color: 0x2a2f38, roughness: 1 });
-  const stain = mat({ color: 0x3a1010, roughness: 1 });
-  // A heap: three crumples of cloth at different angles.
-  for (const [dx, dz, sx, sz, r] of [
-    [0, 0, 0.34, 0.26, 0.1], [0.09, 0.06, 0.22, 0.20, -0.7], [-0.08, 0.05, 0.19, 0.15, 0.9],
-  ]) {
-    const m = box({ size: [sx, 0.055, sz], pos: [dx, 0.028, dz], mat: cloth, rotY: r });
-    m.scale.y = 0.9;
-    g.add(m);
-  }
-  // Two dark patches down the front of it. Not discussed.
-  for (const [dx, dz, r] of [[0.02, -0.04, 0.055], [-0.03, 0.03, 0.038]]) {
-    const s = new THREE.Mesh(new THREE.CircleGeometry(r, 12), stain);
-    s.rotation.x = -Math.PI / 2;
-    s.position.set(dx, 0.057, dz);
-    g.add(s);
-  }
-  return g;
-}
-
 /** A book of matches from a club. Flat, tiny, and the first souvenir. */
 function matchbook(M, { x, y, z, rotY = 0, colour = 0x8c1f2b }) {
   const g = group('dress:matches');
@@ -603,7 +578,6 @@ export function buildDressing(M, { root, fridgeDoor, at }) {
     pieces.get(id).group.position.set(-0.034, at.willy.y, at.willy.z);
   }
 
-  add('bloodShirt', bloodShirt(M, at.bloodShirt));
   add('cashSmall', cash(M, { ...at.cashSmall, n: 1 }));
   add('bingMatches', matchbook(M, at.bingMatches));
 

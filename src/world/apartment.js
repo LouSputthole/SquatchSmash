@@ -1000,7 +1000,6 @@ export async function buildApartment(ctx) {
     at: {
       lanyard: { x: -0.80, y: sideboard.top, z: 4.30, rotY: 0.5 },
       willy: { y: 1.12, z: -0.52 },
-      bloodShirt: { x: -1.62, y: 0.001, z: -3.62, rotY: 0.5 },
       /* The money lands where he drops it as he comes in, so it lives at the
        * FRONT of the sideboard rather than behind the photographs -- a stack
        * of notes nobody can see is not a stack of notes. */

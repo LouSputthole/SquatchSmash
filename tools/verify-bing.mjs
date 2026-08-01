@@ -2433,6 +2433,31 @@ const punchHud = await page.evaluate(async () => {
   const phoneRead = b.phone.threads.find((thread) => thread.id === threadBeforeWheel)?.unread === false;
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
 
+  // Every physical phone uses the same connected-call contract. The club has
+  // separate DJ, office-radio and car-radio loops, so prove all three duck and
+  // restore here rather than assuming the apartment Radio test covers them.
+  const loopVolume = (key) => b.audio.loops.get(key)?.volume ?? null;
+  const radioBefore = {
+    club: loopVolume('music.club'),
+    office: loopVolume('office.radio'),
+    car: loopVolume('car.radio'),
+  };
+  b.phone.ring({ from: 'TEST', vo: 'test', lines: ['Testing.'] });
+  b.phone.answer();
+  const radioDuring = {
+    scale: b.game.phoneRadioScale,
+    club: loopVolume('music.club'),
+    office: loopVolume('office.radio'),
+    car: loopVolume('car.radio'),
+  };
+  b.phone.hangUp();
+  const radioAfter = {
+    scale: b.game.phoneRadioScale,
+    club: loopVolume('music.club'),
+    office: loopVolume('office.radio'),
+    car: loopVolume('car.radio'),
+  };
+
   // The tip: money in the air, and the objective ticks.
   const tipPad = findPad('Tip the');
   b.game.money = 200;
@@ -2459,6 +2484,9 @@ const punchHud = await page.evaluate(async () => {
     threadBeforeWheel,
     threadAfterWheel,
     phoneRead,
+    radioBefore,
+    radioDuring,
+    radioAfter,
     bills,
     objectives,
     clockDay: story.day,
@@ -2482,6 +2510,18 @@ check('the phone comes out of the pocket in the club',
 check('the raised phone opens readable threads, marks the opened thread read, and navigates by wheel',
   !!punchHud.threadBeforeWheel && punchHud.threadBeforeWheel !== punchHud.threadAfterWheel && punchHud.phoneRead,
   JSON.stringify({ before: punchHud.threadBeforeWheel, after: punchHud.threadAfterWheel, read: punchHud.phoneRead }));
+check('a connected club phone call ducks every radio/music source by 66 percent and restores them',
+  punchHud.radioDuring.scale === 0.34
+    && punchHud.radioAfter.scale === 1
+    && ['club', 'office', 'car'].every((key) => {
+      const before = punchHud.radioBefore[key];
+      const during = punchHud.radioDuring[key];
+      const after = punchHud.radioAfter[key];
+      return before > 0
+        && Math.abs(during / before - 0.34) < 0.001
+        && Math.abs(after - before) < 0.001;
+    }),
+  JSON.stringify({ before: punchHud.radioBefore, during: punchHud.radioDuring, after: punchHud.radioAfter }));
 /* The phone is a dedicated lower-right pocket, not a duplicate row printed
  * beneath the campaign card. It appears when carried, disappears when it is
  * not, and [P] answers to exactly the same state. */

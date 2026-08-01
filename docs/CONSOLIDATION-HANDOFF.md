@@ -670,3 +670,28 @@ post-fall blood wounds         4 at size 0.31, DoubleSide, render order 4
 
 The post-shot runtime capture is
 `docs/validation/2026-08-01/squatchfather-blood-after-shots.png`.
+
+## 2026-08-01 — Campaign phone radio duck and Day Two cleanup
+
+Every connected call now lowers in-world radio/program audio by 66%, leaving
+34% underneath the conversation. Ringing by itself does not duck the mix. The
+shared `Phone` announces both connection and hang-up, and the apartment
+`Radio` applies the duck without changing its volume knob, so it restores the
+player's exact setting afterward. Bada Bing applies the same contract to the
+DJ record, its underlying music bed, Lou's office radio, and Tony's car radio;
+rain and crowd ambience remain present.
+
+The Day Two bloody-shirt pile is no longer merely hidden by chapter dressing:
+its builder, placement, and dressing entry have been removed, so no stale
+visibility state can put it back on the apartment floor.
+
+Fresh evidence for this pass:
+
+```text
+npm test                 95/95 passed
+npm run verify:day-one   37/37 passed
+npm run verify:day-two   26/26 passed
+npm run verify:big-night 19/19 passed
+npm run verify:bing      143/143 passed
+runtime console errors   0 across all four browser suites
+```
