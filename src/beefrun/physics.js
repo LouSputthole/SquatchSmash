@@ -371,6 +371,30 @@ export class AircraftPhysics {
     this._prevVel.copy(this.velocity);
     sTmp.copy(sForce).applyQuaternion(this.quat);
     sTmp.y -= this.mass * G;
+
+    /* A parking brake needs a static-friction state. The rolling-friction
+     * equation above is proportional to wheel speed, so at exactly zero it
+     * contributes exactly zero: one idling engine could creep the aircraft
+     * half a metre and yaw it nearly twenty degrees during startup while the
+     * cockpit still said PARKING BRAKE SET. If the aircraft is nearly stopped
+     * and the tyre load can oppose the horizontal force, hold the contact patch
+     * still. Once power exceeds that capacity (or the brake is released), the
+     * ordinary tyre model takes over again. */
+    const planarSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+    const brakeCapacity = (this.wheelLoad[1] + this.wheelLoad[2]) * 0.7;
+    const planarForce = Math.hypot(sTmp.x, sTmp.z);
+    const parkingHeld = anyContact && c.parkingBrake
+      && planarSpeed < 0.75 && planarForce <= brakeCapacity;
+    if (parkingHeld) {
+      sTmp.x = 0;
+      sTmp.z = 0;
+      this.velocity.x = 0;
+      this.velocity.z = 0;
+      // Static lateral tyre force also resists the yaw moment from starting
+      // only one engine; without this the aeroplane pivots in place.
+      sTorque.y = 0;
+      this.omega.y = 0;
+    }
     this.velocity.addScaledVector(sTmp, dt / this.mass);
 
     if (anyContact && this.velocity.lengthSq() < 0.04 && c.throttleL + c.throttleR < 0.06) {

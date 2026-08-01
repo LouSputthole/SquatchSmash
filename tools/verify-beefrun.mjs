@@ -513,6 +513,78 @@ check('each crate loads directly with E, without a cart or hold-bay steps',
     && directLoading.doorClosed && directLoading.completed,
   JSON.stringify(directLoading));
 
+const runwayStart = await page.evaluate(() => {
+  const b = window.__beefrun;
+  const m = b.mission;
+  m.disarmBoardingTarget();
+  m.flags.louAboard = false;
+  m.flags.inCockpit = false;
+  m.setPhase('boarding');
+  const hiddenUntilLouSeats = !m.boardTarget;
+
+  // A direct or stale interaction cannot cut away while Lou is still climbing.
+  m.enterCockpit();
+  const earlyBoardBlocked = m.phase === 'boarding' && !m.flags.inCockpit;
+  m.updateBoarding(3.5);
+  const offeredAfterLouSeats = m.flags.louAboard && !!m.boardTarget;
+  m.enterCockpit();
+
+  const target = m.airfield.anchors.lineUp;
+  const staged = {
+    phase: m.phase,
+    flagged: m.flags.runwayStaged,
+    x: b.physics.position.x,
+    z: b.physics.position.z,
+    targetX: target.x,
+    targetZ: target.z,
+    heading: b.physics.headingDeg,
+    targetHeading: m.airfield.anchors.departHeading,
+    speed: b.physics.velocity.length(),
+    inputBrake: b.input.parkingBrake,
+    physicsBrake: b.physics.controls.parkingBrake,
+  };
+
+  // Complete the checklist state and release the brake: the next phase must be
+  // takeoff on this same centreline, never the removed player-taxi leg.
+  b.engines.forceRunning();
+  b.input.throttle = 0.1;
+  b.input.parkingBrake = false;
+  b.physics.controls.parkingBrake = false;
+  m.updateStartup(0.016);
+
+  return {
+    hiddenUntilLouSeats,
+    earlyBoardBlocked,
+    offeredAfterLouSeats,
+    staged,
+    takeoffPhase: m.phase,
+    lineupReady: m.flags.lineupReady,
+    objective: m.objective,
+  };
+});
+check('Lou seats first, then boarding cuts the stopped aircraft to runway 18',
+  runwayStart.hiddenUntilLouSeats
+    && runwayStart.earlyBoardBlocked
+    && runwayStart.offeredAfterLouSeats
+    && runwayStart.staged.phase === 'startup'
+    && runwayStart.staged.flagged
+    && Math.abs(runwayStart.staged.x - runwayStart.staged.targetX) < 0.01
+    && Math.abs(runwayStart.staged.z - runwayStart.staged.targetZ) < 0.01
+    && Math.abs(runwayStart.staged.heading - runwayStart.staged.targetHeading) < 0.01
+    && runwayStart.staged.speed < 0.01
+    && runwayStart.staged.inputBrake
+    && runwayStart.staged.physicsBrake,
+  JSON.stringify(runwayStart));
+check('finishing the runway startup goes directly to takeoff, not taxi',
+  runwayStart.takeoffPhase === 'lineup'
+    && runwayStart.lineupReady
+    && /take off/i.test(runwayStart.objective),
+  JSON.stringify({
+    phase: runwayStart.takeoffPhase,
+    lineupReady: runwayStart.lineupReady,
+    objective: runwayStart.objective,
+  }));
+
 const chain = await page.evaluate(() => {
     const m = window.__beefrun.mission;
     const out = [];
