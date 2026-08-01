@@ -227,6 +227,26 @@ console.log('Brushrunner flight model\n');
 }
 
 /* ---------------------------------------------------------------- */
+/* 2c. The parking brake holds during the one-engine start           */
+/* ---------------------------------------------------------------- */
+{
+  const { p, eng } = rig();
+  p.setPose(new THREE.Vector3(0, GH + AC.gearY, 0), 180, 0);
+  eng.kill(1);
+  throttle(p, eng, 0.1);
+  p.controls.parkingBrake = true;
+  const start = p.position.clone();
+  const heading = p.headingDeg;
+  for (let i = 0; i < 60 * 10; i++) { eng.update(dt, p.tas); p.advance(dt); }
+  const moved = Math.hypot(p.position.x - start.x, p.position.z - start.z);
+  const yawed = Math.abs(((p.headingDeg - heading + 540) % 360) - 180);
+  console.log('\nParking brake during a one-engine start:');
+  expect('aircraft stays at the start point', moved, 0, 0.05, ' m');
+  expect('aircraft stays pointed down the runway', yawed, 0, 1, ' deg');
+  console.log(results.splice(0).join('\n'));
+}
+
+/* ---------------------------------------------------------------- */
 /* 3. Cruise and turn                                                */
 /* ---------------------------------------------------------------- */
 {

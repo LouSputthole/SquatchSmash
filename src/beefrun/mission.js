@@ -21,6 +21,7 @@ import { setPose, speak, updateFigure, walkTo, scatterCrows, makeAssociate } fro
 import { yawToward } from '../world/build.js';
 import { Loading } from './loading.js';
 import { evaluateLineupGate } from './lineup-gate.js';
+import { stageRunwayStartup } from './runway-start.js';
 
 /** The four places the mission will put you back. */
 const CHECKPOINT_ORDER = ['takeoff', 'approach', 'departure', 'return'];
@@ -70,6 +71,7 @@ export class MissionController {
       stoveWalked: false,
       chocksWarned: false,
       runupDone: false,
+      runwayStaged: false,
       lineupReady: false,
       rotateCalled: false,
       clearCalled: false,
@@ -209,7 +211,6 @@ export class MissionController {
         this.gunLoad?.disarm();
         // Lou gets in. Slowly, and with one hand on the door frame.
         this.louBoarding = { t: 0, from: this.lou.group.position.clone() };
-        this.armBoardingTarget();
         break;
       }
 
@@ -235,9 +236,16 @@ export class MissionController {
         break;
 
       case 'lineup':
-        this.flags.lineupReady = false;
-        this.setObjective(OBJECTIVES.lineup);
-        this.dialogue.play('lineup.begin', { once: true, delay: 0.4 });
+        this.flags.lineupReady = this.flags.runwayStaged;
+        if (this.flags.lineupReady) {
+          // Boarding has already placed the outbound flight on the centreline.
+          this.setObjective(OBJECTIVES.takeoff);
+          this.dialogue.play('lineup.ready', { once: true });
+          this.dialogue.play('takeoff.brief', { once: true, delay: 4.7 });
+        } else {
+          this.setObjective(OBJECTIVES.lineup);
+          this.dialogue.play('lineup.begin', { once: true, delay: 0.4 });
+        }
         this.saveCheckpoint('takeoff');
         break;
 
@@ -353,6 +361,7 @@ export class MissionController {
   }
 
   enterCockpit() {
+    if (this.phase === 'boarding' && !this.flags.louAboard) return;
     this.disarmBoardingTarget();
     this.flags.inCockpit = true;
     this.player.enabled = false;
@@ -367,8 +376,20 @@ export class MissionController {
     // Every time he gets in, not just the first time.
     this.flightHud.show(true);
     this.flightHud.showControls(true);
-    if (this.phase === 'boarding') this.setPhase('startup');
-    else if (this.phase === 'boarding2') this.setPhase('heavyTakeoff');
+    if (this.phase === 'boarding') {
+      stageRunwayStartup({
+        physics: this.physics,
+        input: this.input,
+        engines: this.engines,
+        aircraft: this.aircraft,
+        runway: this.airfield.anchors.lineUp,
+        elevation: WP.elev,
+        gearHeight: AC.gearY,
+        heading: this.airfield.anchors.departHeading,
+      });
+      this.flags.runwayStaged = true;
+      this.setPhase('startup');
+    } else if (this.phase === 'boarding2') this.setPhase('heavyTakeoff');
   }
 
   exitCockpit() {
@@ -583,6 +604,10 @@ export class MissionController {
       if (k >= 1) {
         this.louBoarding = null;
         this.flags.louAboard = true;
+        // The player's boarding target is the scene-cut trigger. Exposing it
+        // sooner changes phase while Lou is still halfway through an animation
+        // which only the boarding phase updates.
+        this.armBoardingTarget();
       }
     }
     if (this.preflight.chocksIn && !this.flags.chocksWarned) {
@@ -621,7 +646,9 @@ export class MissionController {
       this.dialogue.play('start.brake', { once: true });
       return;
     }
-    this.setPhase('taxi');
+    // A fresh departure is already stopped on runway 18. Keep the taxi states
+    // for older checkpoints and diagnostics, but skip them in the story flow.
+    this.setPhase(this.flags.runwayStaged ? 'lineup' : 'taxi');
   }
 
   updateTaxi(dt) {
