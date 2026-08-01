@@ -17,6 +17,7 @@ const TYPES = {
   '.json': 'application/json; charset=utf-8',
   '.mp3': 'audio/mpeg',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.jpg': 'image/jpeg',
 };
 const SENTINEL = '{"version":999,"canonical":"preview verifier must not touch this"}';
@@ -77,7 +78,13 @@ async function storageSnapshot() {
 }
 
 function unchanged(snapshot) {
-  return JSON.stringify(snapshot) === JSON.stringify({
+  // Preview isolation owns the campaign namespace, not every browser setting
+  // another scene may legitimately remember (mute state, read markers, etc.).
+  // Comparing the entire origin made one harmless setting written by Bing
+  // poison every later save-isolation assertion in this same browser page.
+  const campaign = Object.fromEntries(Object.entries(snapshot)
+    .filter(([key]) => key.startsWith('squatchlife.campaign')));
+  return JSON.stringify(campaign) === JSON.stringify({
     'squatchlife.campaign': SENTINEL,
   });
 }

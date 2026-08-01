@@ -63,7 +63,11 @@ function check(name, ok, detail = '') {
 try {
   /* ---- pass one: the save-isolated preview, played through ---- */
 
-  const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
+  const page = await browser.newPage({
+    viewport: { width: 960, height: 600 },
+    // Exercise the renderer cap on the high-DPI display it is meant to tame.
+    deviceScaleFactor: 2,
+  });
   await page.addInitScript((sentinel) => {
     if (localStorage.getItem('squatchlife.campaign') === null) {
       localStorage.setItem('squatchlife.campaign', sentinel);
@@ -83,13 +87,27 @@ try {
   await page.goto(`http://localhost:${PORT}/beefrun.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__beefrun?.story, null, { timeout: 60000 });
 
-  const booted = await page.evaluate(() => ({
-    scene: window.__beefrun.campaignState.scene.id,
-    mission: window.__beefrun.campaignState.missions.airstrip_smuggling,
-    squatchfather: window.__beefrun.campaignState.missions.squatchfather.status,
-    booski: window.__beefrun.campaignState.events.booski_day_two_call.status,
-    previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
-  }));
+  const booted = await page.evaluate(() => {
+    const b = window.__beefrun;
+    const terrainBefore = { chunks: b.terrain.chunks.size, queued: b.terrain.queue.length };
+    const parking = b.mission.airfield.anchors.parking;
+    b.terrain.update(parking.x, parking.z, 0);
+    const builtInOneUpdate = b.terrain.chunks.size;
+    b.terrain.clear();
+    return {
+      scene: b.campaignState.scene.id,
+      mission: b.campaignState.missions.airstrip_smuggling,
+      squatchfather: b.campaignState.missions.squatchfather.status,
+      booski: b.campaignState.events.booski_day_two_call.status,
+      previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
+      watchdogReady: window.__squatch?.beefrun === true,
+      pixelRatio: b.mission.renderer.getPixelRatio(),
+      shadowType: b.mission.renderer.shadowMap.type,
+      shadowMap: [b.weather.sun.shadow.mapSize.x, b.weather.sun.shadow.mapSize.y],
+      terrainBefore,
+      builtInOneUpdate,
+    };
+  });
   check('the preview boots with the airstrip available and its prerequisites seeded',
     booted.scene === 'airstrip_smuggling'
       && booted.mission.status === 'available'
@@ -97,6 +115,23 @@ try {
       && booted.booski === 'answered'
       && booted.previewNotice,
     JSON.stringify(booted));
+  check('the preview defers terrain and caps high-DPI shadow work before Start',
+    booted.watchdogReady
+      && booted.pixelRatio === 1.25
+      && booted.shadowType === 1
+      && booted.shadowMap[0] === 1024
+      && booted.shadowMap[1] === 1024
+      && booted.terrainBefore.chunks === 0
+      && booted.terrainBefore.queued === 0
+      && booted.builtInOneUpdate === 1,
+    JSON.stringify({
+      watchdogReady: booted.watchdogReady,
+      pixelRatio: booted.pixelRatio,
+      shadowType: booted.shadowType,
+      shadowMap: booted.shadowMap,
+      terrainBefore: booted.terrainBefore,
+      builtInOneUpdate: booted.builtInOneUpdate,
+    }));
 
   /* Pressing start decodes the whole sample bank before the mission begins,
    * and that bank is now over a thousand recordings. On a software renderer
@@ -107,15 +142,24 @@ try {
    * rasteriser never does. The listener only wants the event. */
   await page.evaluate(() => document.getElementById('start-btn').click());
   await page.waitForFunction(() => window.__beefrun.mission.phase === 'arrival', null, { timeout: 300000 });
-  const started = await page.evaluate(() => ({
-    phase: window.__beefrun.mission.phase,
-    status: window.__beefrun.campaignState.missions.airstrip_smuggling.status,
-    checkpoint: window.__beefrun.campaignState.missions.airstrip_smuggling.checkpoint,
-  }));
+  const started = await page.evaluate(() => {
+    const b = window.__beefrun;
+    const cx = Math.round(b.player.position.x / 500);
+    const cz = Math.round(b.player.position.z / 500);
+    return {
+      phase: b.mission.phase,
+      status: b.campaignState.missions.airstrip_smuggling.status,
+      checkpoint: b.campaignState.missions.airstrip_smuggling.checkpoint,
+      terrainChunks: b.terrain.chunks.size,
+      centreChunkReady: b.terrain.chunks.has(`${cx},${cz}`),
+    };
+  });
   check('starting the mission records in_progress at the airstrip checkpoint',
     started.phase === 'arrival'
       && started.status === 'in_progress'
-      && started.checkpoint === 'airstrip',
+      && started.checkpoint === 'airstrip'
+      && started.terrainChunks >= 1
+      && started.centreChunkReady,
     JSON.stringify(started));
 
   const eye = await page.evaluate(() => {
