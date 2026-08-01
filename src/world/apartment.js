@@ -17,7 +17,7 @@ import { resolveGear } from './gear.js';
 import { Inventory, bindHeldItem } from '../core/inventory.js';
 import { loadModels } from './models.js';
 import {
-  CHAPTER_ORDER, buildDressing, dressingFor, makeAnswerMachine, makeMorningGuest,
+  buildDressing, dressingFor, makeAnswerMachine, makeMorningGuest,
 } from './dressing.js';
 
 export const ROOM = { x0: -5, x1: 5, z0: -4.5, z1: 4.5, h: 2.75, wall: 0.16 };
@@ -1024,9 +1024,18 @@ export async function buildApartment(ctx) {
       piece.group.visible = plan.shown.has(id);
     }
     dressing.get('rain').group.visible = plan.air.rain > 0;
-    /* One waiting message per chapter past the first, unless the caller knows
-     * better. Derived, so it cannot disagree with the room around it. */
-    machineWaiting = messages ?? Math.max(0, CHAPTER_ORDER.indexOf(chapter));
+    /* NO WAKE and the date share one Day 3 tape: returning from the harbor
+     * changes Tony, not the number on the machine. Keep the display authored
+     * instead of deriving it from a chapter count now that a single day can
+     * contain two chapters. */
+    const authoredMessageCount = {
+      day_one: 0,
+      day_two: 1,
+      no_wake: 2,
+      date: 2,
+      big_night: 3,
+    };
+    machineWaiting = messages ?? authoredMessageCount[chapter] ?? 0;
     state.dressChapter = chapter;
     state.dressTitle = plan.title;
     state.raining = plan.air.rain > 0;

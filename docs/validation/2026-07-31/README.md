@@ -31,3 +31,11 @@ Added later the same day, from the Margo and Family-floor passes:
 | `family-blackjack-group.png` | Willy seated at the felt, Ape at the rail; Tony's seat open. |
 | `family-stage-tables.png` | Hog Mama, the Shubenator, Rippinflow — and Sasole's post-Beef-Run table. |
 | `family-booski-beat.png` | The thirty-second shot beat: bouncer hustling the glass over. |
+
+Added from the NO WAKE production-scene browser verification:
+
+| File | What it proves |
+|---|---|
+| `no-wake-gate-c.png` | The authored South Harbor Gate C arrival, 38-foot cruiser, crew, objective HUD, and developer-preview isolation banner. |
+| `no-wake-open-water.png` | The released cruiser underway beyond the marked channel after the fixed 90-second drive gate, with the helm view and wake active. |
+| `no-wake-execution-ready.png` | The campaign's irreversible authored moment: Willy back on deck, the weapon raised, and control waiting on Tony's click. |

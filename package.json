@@ -27,6 +27,7 @@
     "verify:preview": "node tools/verify-preview.mjs",
     "verify:beefrun": "node tools/verify-beefrun.mjs",
     "verify:silver": "node tools/verify-silver.mjs",
+    "verify:no-wake": "node tools/verify-no-wake.mjs",
     "preverify:bundle": "node tools/bundle-preview.mjs",
     "verify:bundle": "node tools/verify-bundle.mjs",
     "balance:silver": "node tools/balance-silver.mjs",

@@ -4,9 +4,9 @@ The owner's authoritative four-day shape. Where this document and the code
 disagree, this document is the intent and the code is the current state; every
 divergence is listed at the bottom rather than silently resolved.
 
-Two scenes here **do not exist and must not be built** until the owner says so:
-the Day-3 informant hit and the Day-4 heist. The Initiation is WIP and frozen
-until the owner has playtested it.
+The owner has now authorized and built the Day-3 informant hit as **NO WAKE**.
+The Day-4 heist still must not be built until separately authorized. The
+Initiation is WIP and frozen until the owner has playtested it.
 
 ## Day 1 — Welcome to the Life
 
@@ -53,12 +53,12 @@ more valuable to the family.
 ## Day 3 — Loyalty Gets Ugly
 
 **Apartment, morning.** The atmosphere turns: rain or grey light, radio news
-about the motel, a **missed** call from Margo, Lou telling him to dress
+about the motel, Margo not yet having called, Lou telling him to dress
 casually and meet at the docks, the call unusually vague, and **Willy gone
 from his contacts and messages**. The player should know something is wrong
 before knowing what.
 
-**The informant hit — NOT BUILT, DO NOT BUILD.** The boat: dock, board with
+**NO WAKE — BUILT.** The boat: dock, board with
 Lou Sputthole, Booski, Willy and the Prospect, open water, conversation
 souring, Willy's betrayal revealed, Willy goes to the bathroom, the others
 prepare, he returns, they shoot him, body disposal, a silent ride back. The
@@ -112,19 +112,12 @@ killing directly before Front and Center.
 
 ## Divergences between this document and the build (2026-07-31)
 
-1. **Day 3 routing.** The doc sends the player to the docks for the hit, then
-   to Front and Center. The boat does not exist, so the build routes Day 3 as
-   Margo's call → the Silver Room. The Day-3 morning carries the doc's
-   atmosphere; the destination stays the one that exists.
-2. **Day 4 routing.** The doc runs the heist before the Initiation. The heist
+1. **Day 4 routing.** The doc runs the heist before the Initiation. The heist
    does not exist, so the build routes Day 4 as Booskibro's call → the
    Initiation.
-3. **Bing scene two recognition beats** (bartender's new lines, dealer and
+2. **Bing scene two recognition beats** (bartender's new lines, dealer and
    performer campaign comments, Lou covering drinks, informant hints, a nervous
    Willy) are only partly implemented — the Family floor and its talk exist,
    the campaign-specific second-visit variants largely do not.
-4. **The Day-3 apartment's missed Margo call** conflicts with the build, where
-   Margo's answered call is what unlocks the evening. Tone implemented, unlock
-   preserved.
-5. The Front and Center closing **cutscene of the apartment with Margo** is not
+3. The Front and Center closing **cutscene of the apartment with Margo** is not
    built; Day 4 opens with her in the bed instead.

@@ -1,6 +1,6 @@
 # Squatch Life
 
-Six playable or preserved experiences live in this repo.
+Nine playable or preserved experiences live in this repo.
 
 | | |
 |---|---|
@@ -9,6 +9,7 @@ Six playable or preserved experiences live in this repo.
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Snow is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
+| **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three's production boat mission: South Harbor startup, player-driven open-water run, Willy's betrayal, execution, disposal, and silent return. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
@@ -20,11 +21,13 @@ npm start        # the apartment -> http://localhost:5173
                  # Squatchfather -> http://localhost:5173/squatchfather.html
                  # the Beef Run  -> http://localhost:5173/beefrun.html
                  # the Motel     -> http://localhost:5173/motel.html
+                 # NO WAKE       -> http://localhost:5173/nowake.html
+                 # Silver Room   -> http://localhost:5173/silver.html
                  # the game      -> http://localhost:5173/game/
                  # Initiation    -> http://localhost:5173/initiation.html
 ```
 
-All six are static ES-module sites with no build step, served by the same
+All nine are static ES-module experiences with no build step, served by the same
 `npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
@@ -50,10 +53,13 @@ integrated: answering Booskibro routes the apartment door to
 and landing rank persist through the campaign save, a mid-mission reload
 resumes in the cockpit, and the end card returns home for Lou's second call.
 
-Sleeping off the Jerky Motel opens Day Three at noon, and Day Three is not
-work. Margo Salas — who runs the kitchen at an all-night place on Ashland, and
-who has no stake in Lou or the Bing or anybody in the family — rings once that
-afternoon, and the apartment door routes to the Silver Room
+Sleeping off the Jerky Motel opens Day Three at noon in the `no_wake` chapter.
+Lou's vague dock call unlocks South Harbor; NO WAKE carries the campaign through
+the boat startup, player-driven channel run, betrayal, execution, disposal and
+return. Completion opens the `date` chapter at 4:40 PM. Margo Salas — who runs
+the kitchen at an all-night place on Ashland, and who has no stake in Lou or
+the Bing or anybody in the family — rings once after Tony gets home, and the
+apartment door routes to the Silver Room
 ([`silver.html`](./silver.html)) for a nine o'clock table. The evening's
 outcome is folded back into the campaign save; coming home and sleeping again
 is what finally turns the page onto the Day Four big night, Booskibro's call,
@@ -72,12 +78,13 @@ literal sasquatches. Prospect One's execution and gore remain. See
 For playtesting later scenes before naturally reaching them, open
 <http://localhost:5173/preview.html>. Preview state is page-local memory: it
 does not read, migrate, overwrite, or advance the player's canonical
-`localStorage` save. The preview page currently exposes the Motel, Bing Scene
-Two, Squatchfather, and the unchanged Initiation reference, and every preview
+`localStorage` save. The preview page exposes all eight campaign scenes,
+including NO WAKE, and every preview
 shows a persistent temporary-progress banner and an exit back to the saved
 apartment game.
 
-Final screenshots from the Bada Bing and Motel repair pass are versioned in
+Final screenshots from NO WAKE are versioned in
+[`docs/validation/2026-07-31/`](./docs/validation/2026-07-31/), and the Bada Bing and Motel repair pass is in
 [`docs/validation/2026-07-29/`](./docs/validation/2026-07-29/README.md).
 
 `src/core/campaign.js` is also the authoritative scene registry. Each location

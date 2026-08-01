@@ -45,6 +45,9 @@ class SilverStory {
     if (state.missions[MISSION_IDS.JERKY_MOTEL].status !== 'complete') {
       return { ok: false, reason: 'motel_incomplete' };
     }
+    if (state.missions[MISSION_IDS.NO_WAKE].status !== 'complete') {
+      return { ok: false, reason: 'no_wake_incomplete' };
+    }
     if (state.events[EVENT_IDS.MARGO_DATE_CALL].status !== 'answered') {
       return { ok: false, reason: 'margo_call_incomplete' };
     }

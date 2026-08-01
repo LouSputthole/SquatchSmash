@@ -45,7 +45,9 @@ deferred pending the owner's playtest.
 - The post-airstrip apartment state, Big Uncle Lou's second call, reused Bada
   Bing Scene Two, direct Jerky Motel handoff, Motel completion, and apartment
   return are implemented.
-- The post-Motel sleep opens the Day 3 `date` chapter, Margo's one-shot call
+- The post-Motel sleep opens the Day 3 `no_wake` chapter. Lou's dock call,
+  NO WAKE mission, persistent checkpoints, execution requirements, and silent
+  return are integrated; completion opens `date`, then Margo's one-shot call
   unlocks the Silver Room, the apartment door routes to `silver.html`, the
   evening folds back into campaign state, and the walk home plus a second sleep
   turns the page onto the Day 4 big night. Browser-verified end to end
@@ -61,7 +63,9 @@ deferred pending the owner's playtest.
 - Standalone scene boot failures show Reload and Apartment recovery.
 - Scene/spawn validation, atomic transitions, failed-navigation rollback, and
   browser-storage fallback are implemented.
-- Campaign save schema v2 explicitly migrates v1 saves, preserves malformed or
+- Campaign save schema v3 explicitly migrates v1/v2 saves, inserts NO WAKE for
+  campaigns that have not reached the date, treats older date/Initiation saves
+  as already past it, preserves malformed or
   future-version data in a recovery journal, visibly warns the player, and
   refuses unsafe scene transitions when persistence fails.
 - Campaign time is event-driven. Real waiting no longer moves story time;

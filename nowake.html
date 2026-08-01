@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>NO WAKE · Squatch Life</title>
+  <link rel="stylesheet" href="src/style.css" />
+  <link rel="stylesheet" href="src/nowake/nowake.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body class="no-wake">
+  <canvas id="scene"></canvas>
+  <div id="fx-grade" aria-hidden="true"></div>
+  <div id="letterbox" aria-hidden="true"><i></i><i></i></div>
+
+  <div id="hud" aria-hidden="true">
+    <div id="crosshair"><span></span></div>
+    <div id="prompt" class="hidden"><kbd class="key">E</kbd><span class="label">Interact</span><div class="holdbar"><i></i></div></div>
+    <div id="subtitle" class="hidden"></div>
+    <div id="hands"><div id="hotbar" class="hidden"></div><div id="hand-item" class="hidden"><div class="icon"></div><div class="meta"><span class="name"></span><span class="hint"></span></div></div></div>
+    <div id="radio-osd" class="hidden"><div class="rtitle"><span></span></div><div class="rtrack"></div></div>
+    <div id="clock"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
+    <div id="bladder" class="hidden"><span class="cap"></span><div class="bar"><i></i></div></div>
+    <div id="toast-stack"></div>
+
+    <section id="mission-card">
+      <small>NO WAKE</small>
+      <strong id="objective">Meet Lou at Gate C</strong>
+      <span id="objective-detail">South Harbor · 12:45 PM</span>
+    </section>
+    <section id="helm-hud" class="hidden">
+      <div><small>THROTTLE</small><strong id="throttle-readout">N</strong></div>
+      <div><small>SPEED</small><strong><span id="speed-readout">0</span> kn</strong></div>
+      <div><small>ENGINE</small><strong><span id="rpm-readout">0</span> rpm</strong></div>
+      <div class="route"><i id="route-progress"></i></div>
+    </section>
+    <div id="execution-prompt" class="hidden"><span>Willy</span><strong>CLICK TO FIRE</strong></div>
+    <div id="speaker" class="hidden"><small></small><span></span></div>
+  </div>
+
+  <div id="overlay">
+    <div class="panel">
+      <p class="eyebrow">SQUATCH LIFE · DAY THREE</p>
+      <h1>NO <span>WAKE</span></h1>
+      <p class="tag">South Harbor. Gate C. Lou said plain clothes and no phone. He did not say why Willy needed a boat.</p>
+      <button id="start-btn">Walk down to Gate C</button>
+      <ul class="controls">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move / helm · mouse look</li>
+        <li><kbd>E</kbd> interact · hold when asked · <kbd>Q</kbd> leave helm</li>
+        <li><kbd>Click</kbd> fire only when the moment is yours · <kbd>B</kbd> bloom</li>
+        <li><kbd>Esc</kbd> release mouse · subtitles are always shown</li>
+      </ul>
+      <p class="fine">A production campaign scene. Progress saves through campaign schema v3; developer preview stays temporary.</p>
+    </div>
+  </div>
+
+  <div id="loading"><div class="bar"><i></i></div><span>Finding Gate C…</span></div>
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong><span data-boot-detail></span>
+    <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./index.html">APARTMENT</a></div>
+  </div>
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="NO_WAKE" data-scene="NO WAKE"></script>
+  <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s)s.textContent=t;};</script>
+  <script type="module" src="src/nowake/main.js" onerror="window.__squatchSceneFail('Could not load NO WAKE','src/nowake/main.js failed to load.')"></script>
+</body>
+</html>

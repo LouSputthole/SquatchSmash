@@ -21,7 +21,7 @@ import * as THREE from 'three';
 import { box, cylinder, group, mat, plane } from './build.js';
 
 /** The campaign's chapters, in the order sleeping walks through them. */
-export const CHAPTER_ORDER = Object.freeze(['day_one', 'day_two', 'date', 'big_night']);
+export const CHAPTER_ORDER = Object.freeze(['day_one', 'day_two', 'no_wake', 'date', 'big_night']);
 
 /**
  * The table.
@@ -50,7 +50,7 @@ export const DAY_DRESSING = Object.freeze({
    * there yesterday and a message on the machine; the floor stays clear. */
   day_two: Object.freeze({
     title: 'Trusted With Business',
-    adds: Object.freeze(['cashSmall', 'bingMatches']),
+    adds: Object.freeze(['bloodShirt', 'cashSmall', 'bingMatches']),
     // He replied to HR. He is not going back, and the badge went in a drawer.
     removes: Object.freeze(['lanyard']),
     air: Object.freeze({ rain: 0, tint: 1, warmth: 1 }),
@@ -59,13 +59,22 @@ export const DAY_DRESSING = Object.freeze({
   /* "Loyalty Gets Ugly." Grey, wet, and quieter than it should be. The motel
    * left a key on the sideboard and Willy has come off the fridge door, and
    * nobody says a word about either. */
-  date: Object.freeze({
+  no_wake: Object.freeze({
     title: 'Loyalty Gets Ugly',
     adds: Object.freeze(['motelKey', 'cashMid', 'casualJacket', 'willyGap']),
     /* Willy comes off the fridge door between Day Two and Day Three. Nobody
      * takes it down on screen and nobody mentions it. What is left is the
      * magnet and a clean rectangle where the sun did not get at the paint. */
     removes: Object.freeze(['willyPhoto']),
+    air: Object.freeze({ rain: 1, tint: 0.48, warmth: 0.35 }),
+  }),
+
+  /* He returns from the harbor into the same wet afternoon. No new props and
+   * no miraculous weather break: the chapter changes because he did. */
+  date: Object.freeze({
+    title: 'Front and Center',
+    adds: Object.freeze([]),
+    removes: Object.freeze([]),
     air: Object.freeze({ rain: 1, tint: 0.48, warmth: 0.35 }),
   }),
 
