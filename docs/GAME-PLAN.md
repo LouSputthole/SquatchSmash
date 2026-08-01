@@ -246,7 +246,7 @@ line he says. Change it there and the entire performance changes together.
 ```bash
 npm run sfx:voices   # list the voices on your account
 # paste an id into assets/sfx/manifest.json -> voices.player.id
-npm run sfx:vo       # generate just the spoken lines
+npm run sfx:vo       # playable spoken lines; skips the future Initiation party catalog
 npm run sfx          # everything
 ```
 

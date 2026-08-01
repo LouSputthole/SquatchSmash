@@ -6,6 +6,13 @@ let master = null;
 let noiseBuf = null;
 let muted = false;
 
+const VOICE_PREFIX = 'vo.initiation.';
+const voiceFiles = new Set();
+const voiceBuffers = new Map();
+export const voiceRequested = new Set();
+let voiceIndexPromise = null;
+let voiceSource = null;
+
 export function init() {
   if (ctx) return;
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -18,6 +25,74 @@ export function init() {
   noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  loadVoiceIndex();
+}
+
+function loadVoiceSample(name) {
+  if (!ctx || voiceBuffers.has(name) || !voiceFiles.has(name)) return;
+  voiceBuffers.set(name, null);
+  fetch(`assets/sfx/${name}.mp3`)
+    .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(String(res.status)))))
+    .then((bytes) => ctx.decodeAudioData(bytes))
+    .then((buffer) => voiceBuffers.set(name, buffer))
+    .catch(() => voiceBuffers.delete(name));
+}
+
+function loadVoiceIndex() {
+  if (!ctx || voiceIndexPromise) return voiceIndexPromise;
+  voiceIndexPromise = fetch('assets/sfx/index.json', { cache: 'force-cache' })
+    .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+    .then((index) => {
+      for (const file of index.files || []) {
+        if (!file.startsWith(VOICE_PREFIX) || !file.endsWith('.mp3')) continue;
+        voiceFiles.add(file.slice(0, -4));
+      }
+      // The ceremony is the live scene today. Party lines remain catalogued
+      // and load on first request when the post-initiation party is connected.
+      for (const name of voiceFiles) {
+        if (name.startsWith(`${VOICE_PREFIX}ceremony.`)) loadVoiceSample(name);
+      }
+    })
+    .catch(() => {});
+  return voiceIndexPromise;
+}
+
+/** Play one exact authored line; return its real duration or zero. */
+export function voice(name, { volume = 0.92 } = {}) {
+  if (!name) return 0;
+  voiceRequested.add(name);
+  /* Advancing the ceremony silences the prior actor even while the next take
+   * is still waiting on the recording handoff. */
+  stopVoice();
+  if (!ctx) return 0;
+  const buffer = voiceBuffers.get(name);
+  if (!buffer) {
+    loadVoiceSample(name);
+    return 0;
+  }
+  const source = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  source.buffer = buffer;
+  gain.gain.value = volume;
+  source.connect(gain).connect(master);
+  source.start();
+  voiceSource = source;
+  return buffer.duration;
+}
+
+export function stopVoice() {
+  if (!voiceSource) return;
+  try { voiceSource.stop(); } catch { /* already ended */ }
+  voiceSource = null;
+}
+
+export function voiceCoverage() {
+  const requested = [...voiceRequested];
+  return {
+    requested,
+    recorded: requested.filter((name) => voiceFiles.has(name)),
+    onDisk: [...voiceFiles],
+  };
 }
 
 export function setMuted(m) {

@@ -21,7 +21,13 @@
 // exist. In the browser both specifiers resolve to the same URL, so THREE
 // stays a single instance.
 import * as THREE from '../../vendor/three.module.min.js';
-import { STATIONS, showAt, voiceOf, MEETING_NOTICE } from './stations.js';
+import {
+  STATIONS,
+  showAt,
+  showIntroLine,
+  voiceOf,
+  MEETING_NOTICE,
+} from './stations.js';
 import { loadJson, assetUrl } from './assets.js';
 
 const MUSIC_DIR = 'assets/music/';
@@ -299,7 +305,7 @@ export class Radio {
     const show = showAt(st, this.time ? this.time.hour : 9);
     if (show !== this._show) {
       this._show = show;
-      this._queue.push({ line: `ANNOUNCER: Next on 97.8 The Squatch \u2014 ${show.name}. ${show.strap}`, cue: 'radio.jingle' });
+      this._queue.push({ line: showIntroLine(show), cue: 'radio.jingle' });
       return;
     }
 
@@ -418,6 +424,7 @@ export class Radio {
     if (!this.on) this.turnOn({ tuneIn: false });
     this._ensureGraph();
     this._stopBeds();
+    try { this._voice?.stop(); } catch { /* already finished */ }
     this._line = line;
     this._showOsd();
     this._voice = cue ? this.audio.play(cue, {

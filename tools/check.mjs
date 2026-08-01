@@ -201,10 +201,94 @@ try {
     // And the other way round, so a reworded line does not leave a cue behind
     // carrying words nobody says any more.
     const live = new Set(script.allCues().map((l) => `vo.${l.cue}.1`));
+    const expected = new Map(script.allCues().map((line) => {
+      const speaker = script.SPEAKERS[line.who] ?? script.SPEAKERS.SASOLE;
+      return [`vo.${line.cue}.1`, {
+        say: line.text,
+        voice: speaker.voice ?? speaker.name.toLowerCase().replace(/\s+/g, '-'),
+      }];
+    }));
+    const drifted = sfxManifest.sfx.filter((cue) => {
+      const wanted = expected.get(cue.name);
+      return wanted && (cue.say !== wanted.say || cue.voice !== wanted.voice);
+    });
+    if (drifted.length) {
+      fail(`${drifted.length} Beef Run cue(s) have stale text or casting `
+        + `(first: ${drifted[0].name}). Run \`npm run vo:beefrun\`.`);
+    }
     const stale = [...allCues].filter((n) => n.startsWith('vo.beefrun.') && !live.has(n));
     if (stale.length) {
       fail(`${stale.length} stale Beef Run cue(s) in assets/sfx/manifest.json `
         + `(first: ${stale[0]}). Run \`npm run vo:beefrun\`.`);
+    }
+  }
+
+  /* Exact-cue scenes derive names in their catalogs rather than spelling
+   * every one at a call site. Hold the manifest to the same catalog in both
+   * directions, including words and casting, so the generated recording
+   * sheet cannot silently omit a whole scene. */
+  const manifestByName = new Map(sfxManifest.sfx.map((cue) => [cue.name, cue]));
+  const duplicateCueNames = [...new Set(sfxManifest.sfx
+    .map((cue) => cue.name)
+    .filter((name, index, all) => all.indexOf(name) !== index))];
+  if (duplicateCueNames.length) {
+    fail(`assets/sfx/manifest.json has ${duplicateCueNames.length} duplicate cue name(s) `
+      + `(first: ${duplicateCueNames[0]}).`);
+  }
+  const checkCatalog = (label, prefix, expected, command) => {
+    const wanted = new Map(expected.map((cue) => [cue.name, cue]));
+    const missing = expected.filter((cue) => !manifestByName.has(cue.name));
+    const stale = sfxManifest.sfx.filter((cue) => cue.name.startsWith(prefix) && !wanted.has(cue.name));
+    const drifted = expected.filter((cue) => {
+      const actual = manifestByName.get(cue.name);
+      return actual && (actual.say !== cue.say || actual.voice !== cue.voice);
+    });
+    if (missing.length || stale.length || drifted.length) {
+      fail(`${label} voice catalog drift: ${missing.length} missing, ${stale.length} stale, `
+        + `${drifted.length} changed. Run \`${command}\`.`);
+    }
+  };
+  {
+    const { allMotelVoiceLines } = await import('../src/motel/voice-catalog.js');
+    checkCatalog('Motel', 'vo.motel.', allMotelVoiceLines().map((line) => ({
+      name: `${line.cue}.1`, voice: line.voice, say: line.text,
+    })), 'npm run vo:motel');
+  }
+  {
+    const { allSilverVoiceLines } = await import('../src/silver/voice-catalog.js');
+    checkCatalog('Silver Room', 'vo.silver.', allSilverVoiceLines().map((line) => ({
+      name: line.name, voice: line.voice, say: line.text,
+    })), 'npm run vo:silver');
+  }
+  {
+    const { checkBingVoiceManifest } = await import('./bing-vo.mjs');
+    const drift = checkBingVoiceManifest(sfxManifest);
+    if (drift.length) {
+      fail(`Bing generated voice catalog drift: ${drift.length} problem(s). `
+        + 'Run `npm run vo:bing`.');
+    }
+  }
+  {
+    const { checkNoWakeVoiceManifest } = await import('./nowake-vo.mjs');
+    const drift = checkNoWakeVoiceManifest(sfxManifest);
+    if (drift.length) {
+      fail(`NO WAKE voice catalog drift: ${drift.length} problem(s). `
+        + 'Run `npm run vo:nowake`.');
+    }
+  }
+  {
+    const {
+      initiationManifestCues,
+      initiationManifestDrift,
+      initiationVoiceProfileGaps,
+    } = await import('./initiation-vo-lib.mjs');
+    const expected = initiationManifestCues();
+    const drift = initiationManifestDrift(sfxManifest, expected);
+    const total = Object.values(drift).reduce((sum, rows) => sum + rows.length, 0);
+    const missingProfiles = initiationVoiceProfileGaps(sfxManifest, expected);
+    if (total || missingProfiles.length) {
+      fail(`Initiation voice catalog drift: ${total} cue problem(s), `
+        + `${missingProfiles.length} undefined voice profile(s). Run \`npm run vo:initiation\`.`);
     }
   }
 
@@ -303,10 +387,16 @@ try {
   const { voiceCues, voiceOf, STATIONS } = await import('../src/core/stations.js');
   const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
   const cues = voiceCues();
-  const declared = new Set(sfxManifest.sfx.filter((c) => c.name.startsWith('radio.vo.')).map((c) => c.name));
+  const declared = new Map(sfxManifest.sfx
+    .filter((cue) => cue.name.startsWith('radio.vo.'))
+    .map((cue) => [cue.name, cue]));
 
   for (const c of cues) {
     if (!declared.has(c.name)) fail(`radio cue ${c.name} is not in assets/sfx/manifest.json — run npm run radio:cues`);
+    const actual = declared.get(c.name);
+    if (actual && (actual.say !== c.say || actual.voice !== c.voice)) {
+      fail(`radio cue ${c.name} has stale text or casting — run npm run radio:cues`);
+    }
     if (!sfxManifest.voices?.[c.voice]) fail(`radio cue ${c.name} wants voice "${c.voice}", which has no entry`);
     if (/^[A-Z][A-Z '’]*:/.test(c.say)) fail(`radio cue ${c.name} still has a speaker label: "${c.say}"`);
     if (c.say.includes('(')) fail(`radio cue ${c.name} still has a stage direction: "${c.say}"`);

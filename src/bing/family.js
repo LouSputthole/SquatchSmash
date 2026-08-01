@@ -20,6 +20,7 @@
  */
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { Npc, STOOL_SIT } from './cast.js';
+import { applyBingVoiceCues } from './script.js';
 
 /* ------------------------------------------------------------------ */
 /* The roster                                                          */
@@ -479,7 +480,7 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
     line2: 'Lou says I’m the muscle. Booski says I’m the heart. I say ow.',
   });
 
-  return {
+  return applyBingVoiceCues({
     [CHARACTER_IDS.LAG]: lag,
     [CHARACTER_IDS.GRATIN]: gratin,
     [CHARACTER_IDS.ERIC]: eric,
@@ -497,5 +498,5 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
     [CHARACTER_IDS.SHUBENATOR]: shubenator,
     [CHARACTER_IDS.NUMBSKULL]: numbskull,
     booskiShot,
-  };
+  });
 }

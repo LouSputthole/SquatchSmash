@@ -23,12 +23,15 @@
  *   --only <name,...>  generate just these cues
  *   --cast <voice,...> just the spoken lines of these voice profiles
  *   --voice-only       just the spoken lines
+ *   --live-only        exclude authored dialogue that is not reachable yet
+ *   --include-future   explicitly allow unreachable future dialogue
  *   --sfx-only         just the sound effects
  *   --dry-run          list what would be generated and exit
  *   --voices           list the voices on the account and exit
  *
- * Nothing here is required to play the game: every cue has a procedural
- * WebAudio fallback in src/core/audio.js. This just makes it sound real.
+ * Nothing here is required to progress the game: missing sound effects keep a
+ * procedural WebAudio fallback, while missing dialogue remains subtitled but
+ * silent. Recordings make the authored performance audible.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -57,7 +60,7 @@ const valueOf = (f) => {
  * the account, and reports success. Nothing downstream can tell that apart
  * from the run you meant. */
 const TAKES_VALUE = new Set(['--only', '--cast']);
-const KNOWN = new Set([...TAKES_VALUE, '--force', '--dry-run', '--voices', '--voice-only', '--sfx-only']);
+const KNOWN = new Set([...TAKES_VALUE, '--force', '--dry-run', '--voices', '--voice-only', '--sfx-only', '--live-only', '--include-future']);
 const unknown = args.filter((a, i) => a.startsWith('--')
   && !KNOWN.has(a)
   && !TAKES_VALUE.has(args[i - 1]));
@@ -75,10 +78,14 @@ const DRY = has('--dry-run');
 const LIST_VOICES = has('--voices');
 const VOICE_ONLY = has('--voice-only');
 const SFX_ONLY = has('--sfx-only');
+const LIVE_ONLY = has('--live-only');
+const INCLUDE_FUTURE = has('--include-future');
 const ONLY = valueOf('--only')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
 const CAST = valueOf('--cast')?.split(',').map((s) => s.trim()).filter(Boolean) ?? null;
 
 const isSpoken = (cue) => typeof cue.say === 'string';
+const isFutureInitiationPartyCue = (cue) => cue.name.startsWith('vo.initiation.party.')
+  || cue.name.startsWith('vo.initiation.ambient.');
 
 const API_KEY = process.env.ELEVENLABS_API_KEY || process.env.XI_API_KEY;
 
@@ -93,6 +100,10 @@ async function main() {
   if (CAST) cues = cues.filter((c) => isSpoken(c) && CAST.includes(c.voice || 'player'));
   if (VOICE_ONLY) cues = cues.filter(isSpoken);
   if (SFX_ONLY) cues = cues.filter((c) => !isSpoken(c));
+  /* Future dialogue is opt-in even for a hand-built --only list. This guards
+   * automation that reads every missing manifest voice and would otherwise
+   * spend a production run on the party catalog before its scene exists. */
+  if (LIVE_ONLY || !INCLUDE_FUTURE) cues = cues.filter((cue) => !isFutureInitiationPartyCue(cue));
 
   // A spoken cue is useless until somebody has pasted a voice id in. Say so
   // once, clearly, instead of failing forty times against the API.
@@ -152,7 +163,7 @@ async function main() {
       'Get a key at https://elevenlabs.io, then:\n' +
       '  export ELEVENLABS_API_KEY=sk_...\n' +
       '  npm run sfx\n\n' +
-      'The game runs without this — every cue falls back to procedural audio.',
+      'The game runs without this: effects use procedural fallbacks and dialogue remains subtitled.',
     );
     process.exitCode = 1;
     return;

@@ -31,3 +31,13 @@ Added later the same day, from the Margo and Family-floor passes:
 | `family-blackjack-group.png` | Willy seated at the felt, Ape at the rail; Tony's seat open. |
 | `family-stage-tables.png` | Hog Mama, the Shubenator, Rippinflow — and Sasole's post-Beef-Run table. |
 | `family-booski-beat.png` | The thirty-second shot beat: bouncer hustling the glass over. |
+
+Added from the NO WAKE production verifier:
+
+| File | What it proves |
+|---|---|
+| `no-wake-startup-panel.png`, `no-wake-execution-ready.png` | The mission opens from its real campaign gate and presents the playable objective cleanly. |
+| `no-wake-bow-line-access.png`, `no-wake-waterline.png` | Tony can reach the bow line and the hull sits at the authored waterline. |
+| `no-wake-open-water.png` | The underway boat, horizon, landmarks, and helm view remain readable together. |
+| `no-wake-gate-c.png` | Gate C remains a visible navigational destination during the run. |
+| `no-wake-willy-profile.png` | Willy's in-scene profile and character presentation load correctly. |

@@ -1,3 +1,5 @@
+import { applyBingVoiceCues } from './script.js';
+
 const STATES = [
   'lot',
   'outside',
@@ -163,7 +165,7 @@ export class SecondVisitMission {
 }
 
 export function buildSecondVisitLouScript({ mission }) {
-  return {
+  return applyBingVoiceCues({ lou: {
     enter: {
       who: 'Lou',
       line: '<em>(Lou closes the ledger.)</em> Back already. Shut the door.',
@@ -269,5 +271,5 @@ export function buildSecondVisitLouScript({ mission }) {
       line: 'Comfortable? Good. Now listen.',
       hold: 2.2,
     },
-  };
+  } }).lou;
 }

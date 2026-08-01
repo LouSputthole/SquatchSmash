@@ -1,43 +1,46 @@
-# Audio
+# Audio production sources
 
-Every sound in SquatchSmash is currently **synthesised at runtime** with the WebAudio
-API (`src/audio.js` for the campground, `src/motel/audio.js` for the motel). There are
-no audio files in the repo and the game needs none to run.
+The runtime audio authority is [`assets/sfx/manifest.json`](../sfx/manifest.json).
+Recorded files live in `assets/sfx/`; [`assets/sfx/index.json`](../sfx/index.json)
+is the generated list of files the browser may fetch. Missing manifest effects
+retain procedural WebAudio fallbacks. Missing spoken cues remain subtitled but
+silent until their recordings arrive.
 
-`sound-queue.json` is the production queue: every cue the game plays or wants, with the
-code hook it belongs to, so real audio can be recorded or generated later and dropped in
-against stable ids.
-
-## Regenerating the queue
+The handoff for the voice and sound team is generated from the live manifest,
+the runtime index, and the legacy review queue:
 
 ```sh
-node tools/sound-queue.mjs          # rewrite sound-queue.json and check coverage
-node tools/sound-queue.mjs --check  # check only — non-zero exit if the queue has drifted
+npm run audio:todo
+npm run audio:todo:check
 ```
 
-The tool scans `src/**/*.js` for `sfx.<cue>` usage and fails if the code plays a cue with
-no queue entry, or if the queue briefs a cue the code no longer has. Voice lines are read
-straight out of `src/motel/dialogue.js`, so the queue can never fall behind the script.
+After approved MP3s are delivered under the exact filenames in the handoff,
+run `npm run sfx:listen`. That rebuilds the runtime index and the local audition
+page.
 
-## Fields
+## Legacy production queue
 
-| Field | Meaning |
-| --- | --- |
-| `id` | Stable identifier — `<scene>.<category>.<file>` |
-| `file` | Where the produced asset should land |
-| `call` | The audio-module export this asset replaces. `null` = briefed but nothing triggers it yet |
-| `seconds` | Target length |
-| `variations` | How many alternates to produce; the game will round-robin them |
-| `loop` | Must be seamless |
-| `status` | `todo` → `recorded` → `in-game` |
+`sound-queue.json` predates the shared manifest. It describes proposed Motel and
+Squatch Smash sound effects, ambience, music, and an older Motel voice pass.
+Its `audio/.../*.wav` paths are production-design targets, not files the current
+runtime loads. Do not send the queue straight to a producer or drop WAVs under
+those paths expecting them to play. Reconcile and promote an approved brief to
+the shared manifest first.
 
-Voice entries carry `speaker`, the exact `line`, and the `context` it plays in. Prospect is
-a sasquatch; Manny is family and also a sasquatch; **everyone else in the motel is human**,
-which should be audible — the sellers are smaller, faster-talking and more frightened than
-the two of them.
+```sh
+npm run audio:legacy        # rewrite the legacy review queue
+npm run audio:legacy:check  # read-only coverage and drift check
+```
 
-## When the assets exist
+The legacy checker covers only the two procedural systems it owns:
+`src/motel/` and `game/src/`. It intentionally does not claim coverage of the
+rest of the campaign.
 
-Add a small loader that maps `id → AudioBuffer` and have the `sfx.*` functions play the
-buffer when one is loaded, falling back to the synthesised version when it is not. Nothing
-else in the game needs to change: gameplay only ever calls the named cue.
+## Production status
+
+- `VOICE-LINES-TODO.md` is the direct-delivery sheet for shared-manifest pickup
+  recordings and effects.
+- The legacy section in that sheet is a reconciliation backlog only.
+- `npm test` fails when the committed handoff drifts from its sources.
+- No automated check can prove that a human-delivered recording says the right
+  words. Audition the take against the printed transcript before approval.

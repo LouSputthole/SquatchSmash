@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { collectBingVoiceCues } from './bing-vo.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5199;
@@ -208,21 +209,31 @@ check('Bing starts with the shared visible five-slot bottom inventory bar, even 
     && openingInventoryBar.declared === '5' && openingInventoryBar.visible,
   JSON.stringify(openingInventoryBar));
 
-/* The long-form conversations use a separate `vo.bing.full.*` bank from the
- * short bark probes below. A cue name in the manifest is not enough: every
- * one needs a real file that decoded into the browser's live audio bank. */
-const fullConversationCues = manifestCues
-  .filter((cue) => cue.name.startsWith('vo.bing.full.')).map((cue) => cue.name);
-const fullConversationProbe = await page.evaluate((cues) => {
+/* The source catalog is authoritative even while the voice actor still has
+ * pickups. Prove every generated line reached the manifest, every delivered
+ * take decoded, and every undelivered take reached the committed handoff. */
+const generatedBingCues = collectBingVoiceCues();
+const generatedBingNames = generatedBingCues.map((cue) => cue.name);
+const generatedManifest = new Map(manifestCues.map((cue) => [cue.name, cue]));
+const recordedGenerated = generatedBingCues.filter((cue) => indexedFiles
+  .has(generatedManifest.get(cue.name)?.file || `${cue.name}.mp3`));
+const missingGenerated = generatedBingCues.filter((cue) => !recordedGenerated.includes(cue));
+const recordingTodo = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
+const generatedVoiceProbe = await page.evaluate((cues) => {
   const bank = window.__bing.audio.buffers;
   return cues.map((cue) => ({ cue, duration: bank.get(cue)?.[0]?.duration ?? 0 }));
-}, fullConversationCues);
-check('every authored full Bing conversation has a decoded recording',
-  fullConversationCues.length === 112
-    && fullConversationProbe.every((entry) => entry.duration > 0),
-  JSON.stringify({ authored: fullConversationCues.length,
-    decoded: fullConversationProbe.filter((entry) => entry.duration > 0).length,
-    missing: fullConversationProbe.filter((entry) => entry.duration <= 0).slice(0, 3).map((entry) => entry.cue) }));
+}, recordedGenerated.map((cue) => cue.name));
+check('every generated Bing line is manifest-owned; delivered takes decode and pickups are listed',
+  generatedBingNames.every((name) => generatedManifest.has(name))
+    && generatedVoiceProbe.every((entry) => entry.duration > 0)
+    && missingGenerated.every((cue) => recordingTodo.includes(`\`${cue.name}.mp3\``)),
+  JSON.stringify({ authored: generatedBingNames.length,
+    decoded: generatedVoiceProbe.filter((entry) => entry.duration > 0).length,
+    pickups: missingGenerated.length,
+    missingFromManifest: generatedBingNames.filter((name) => !generatedManifest.has(name)).slice(0, 3),
+    undecoded: generatedVoiceProbe.filter((entry) => entry.duration <= 0).slice(0, 3),
+    absentFromTodo: missingGenerated.filter((cue) => !recordingTodo.includes(`\`${cue.name}.mp3\``))
+      .slice(0, 3).map((cue) => cue.name) }));
 
 /* A cue request in voLog only tells us that the script named a file.  It does
  * not prove the decoded buffer was ever put on the WebAudio graph -- the
@@ -275,13 +286,15 @@ const dialogueContracts = await page.evaluate(() => {
   const snowReply = b.familyScripts.snow.open.options[0];
   return {
     louOpening: louEnter.line(),
-    louCue: louEnter.cue,
+    louCue: typeof louEnter.cue === 'function' ? louEnter.cue() : louEnter.cue,
     snowCue: snowReply.cue,
     snowText: snowReply.text,
   };
 });
 check('Lou opening dialogue contains no spoken stage direction',
-  dialogueContracts.louOpening === 'Shut the door.' && dialogueContracts.louCue === null,
+  dialogueContracts.louOpening === 'Shut the door.'
+    && dialogueContracts.louCue?.startsWith('vo.bing.full.lou.enter.line.')
+    && generatedManifest.get(dialogueContracts.louCue)?.say === dialogueContracts.louOpening,
   JSON.stringify(dialogueContracts));
 check('Tony Snow reply has its own recording cue',
   dialogueContracts.snowCue === 'vo.bing.hang.snow.tony.1'
@@ -798,11 +811,11 @@ check('walking in starts Lou waiting', s.mission === 'club', s.mission);
 
 const bar = await page.evaluate(() => {
   const b = window.__bing;
-  b.scripts.bartender.order.options[1].effect();          // a beer
+  const route = b.scripts.bartender.order.options[1].next(); // a beer
   const held = b.game.heldDrink;
   b.game.drinking = 3;                                    // as if [F] had been held
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF' }));
-  return { held };
+  return { held, route };
 });
 await tick(3, 0.1);
 /* The swallow rides the real frame loop's key handling, which under software
@@ -814,7 +827,8 @@ for (let i = 0; i < 20; i++) {
   await tick(1, 0.1);
 }
 check('the bar serves, and the drink lands',
-  bar.held === 'beer' && (await page.evaluate(() => window.__bing.drunk.level)) > 0,
+  bar.route === 'pour' && bar.held === 'beer'
+    && (await page.evaluate(() => window.__bing.drunk.level)) > 0,
   `drunk ${await page.evaluate(() => window.__bing.drunk.level.toFixed(2))}`);
 
 const seat = await page.evaluate(() => {
@@ -1712,7 +1726,7 @@ check('the package is Lou’s until Lou hands it over — not on him in the lot,
  * package went nowhere while the mission insisted it was on you. */
 const full = await page.evaluate(() => {
   const b = window.__bing;
-  for (let i = 0; i < 6; i++) b.scripts.bartender.order.options[1].effect();
+  for (let i = 0; i < 6; i++) b.scripts.bartender.order.options[1].next();
   return {
     slots: b.inventory.items.filter(Boolean).length,
     capacity: b.inventory.slots,

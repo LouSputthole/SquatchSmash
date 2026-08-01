@@ -13,6 +13,7 @@ import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
 import { Player } from './core/player.js';
 import { Radio } from './core/radio.js';
+import { SPOOKY_RADIO_LINES, voiceOf as radioVoiceOf } from './core/stations.js';
 import { Narrator } from './core/narrator.js';
 import { buildApartment } from './world/apartment.js';
 import { createArcade } from './arcade/mount.js';
@@ -313,9 +314,13 @@ const spooky = new Spooky({
     // One word of something that is not on the schedule, then back to normal.
     if (!radio.on) return false;
     audio.play('radio.static', { volume: 0.30, position: apartment.radioPos });
-    hud.say('<em>&mdash; and he is still in the flat with y&mdash;</em>', 2600);
-    setTimeout(() => hud.say('…which is the traffic. Back to Lou.', 3200), 2800);
-    audio.say('spooky', { chance: 0.7, delay: 2.0 });
+    const [intrusion, recovery] = SPOOKY_RADIO_LINES;
+    radio.broadcast({ cue: radioVoiceOf(intrusion.line)?.cue, line: intrusion.line });
+    hud.say(`<em>${intrusion.line}</em>`, 2600);
+    setTimeout(() => {
+      radio.broadcast({ cue: radioVoiceOf(recovery.line)?.cue, line: recovery.line });
+      hud.say(recovery.line, 3200);
+    }, 2800);
   },
 });
 // Booski, typing into a server nobody is in. The second way to find out.

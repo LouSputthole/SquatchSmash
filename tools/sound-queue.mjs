@@ -12,8 +12,8 @@
 //        node tools/sound-queue.mjs --check    (check only, non-zero on drift)
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const checkOnly = process.argv.includes('--check');
@@ -120,8 +120,11 @@ const sfx = [
   ['campground', 'rangers', 'dartHit', 'tranq_hit', 'Dart finding fur.', 0.5, 3],
   ['campground', 'ui', 'chime', 'time_bonus', 'Golden cooler: seconds added to the clock.', 0.8, 1],
   ['campground', 'ui', 'powerup', 'powerup_collect', 'Power-up collected.', 0.6, 1],
+  ['campground', 'ui', 'goalDing', 'goal_complete', 'A Squatch Smash goal completes: brief, bright, and readable over the rampage.', 0.8, 1],
   ['campground', 'ui', 'frenzyJingle', 'final_frenzy', 'Final frenzy alarm: everything is worth double.', 1.2, 1],
   ['campground', 'ui', 'sting', 'run_end_sting', 'End-of-run sting.', 2.0, 1],
+  ['campground', 'boss', 'bossHit', 'boss_hit', 'A ranger captain takes a full sasquatch hit without losing the fight.', 0.7, 3],
+  ['campground', 'boss', 'bossDown', 'boss_down', 'The ranger captain finally drops: armour, body, and a short victory accent.', 1.4, 2],
 ];
 
 const ambience = [
@@ -241,12 +244,18 @@ function sourceCues() {
         for (const m of src.matchAll(/\bsfx\.([a-zA-Z0-9_]+)/g)) {
           const name = m[1];
           if (!found.has(name)) found.set(name, new Set());
-          found.get(name).add(p.replace(root + '/', ''));
+          found.get(name).add(relative(root, p));
         }
       }
     }
   };
-  walk(join(root, 'src'));
+  // This production queue predates the shared campaign manifest and owns only
+  // the two procedural-audio scenes it was written for. Scanning all of src/
+  // made unrelated modules such as the Initiation look like missing entries,
+  // while the relocated Squatch Smash game under game/src was not scanned at
+  // all. Keep this legacy check honest about the surface it actually covers.
+  walk(join(root, 'src', 'motel'));
+  walk(join(root, 'game', 'src'));
   return found;
 }
 
@@ -254,9 +263,11 @@ function sourceCues() {
 const NON_AUDIO_EXPORTS = new Set([
   'init', 'resume', 'setMuted', 'isMuted', 'setMusic', 'stopMusic', 'startMusic',
   'startAmbience', 'stopAmbience', 'setTension', 'shutdown',
+  'voice', 'voiceBusy', 'voiceCoverage', 'voiceRequested',
+  'setEngineSpeed', 'stopEngine',
 ]);
 
-const dialogue = await import(join(root, 'src', 'motel', 'dialogue.js'));
+const dialogue = await import(pathToFileURL(join(root, 'src', 'motel', 'dialogue.js')).href);
 const queue = buildQueue(dialogue);
 
 const cues = sourceCues();
@@ -268,10 +279,24 @@ for (const [name, files] of cues) {
 }
 const orphans = [...queued].filter((c) => !cues.has(c));
 
+let queueDrift = false;
+if (checkOnly) {
+  try {
+    const onDisk = JSON.parse(readFileSync(OUT, 'utf8'));
+    queueDrift = JSON.stringify(onDisk) !== JSON.stringify(queue);
+  } catch {
+    queueDrift = true;
+  }
+}
+
 if (!checkOnly) {
   mkdirSync(dirname(OUT), { recursive: true });
   writeFileSync(OUT, `${JSON.stringify(queue, null, 2)}\n`);
-  console.log(`wrote ${OUT.replace(root + '/', '')}`);
+  console.log(`wrote ${relative(root, OUT)}`);
+} else if (queueDrift) {
+  console.error('production queue: OUT OF DATE - run `node tools/sound-queue.mjs`');
+} else {
+  console.log('production queue: up to date');
 }
 console.log(`queue: ${queue.counts.sfx} sfx · ${queue.counts.ambience} ambience · `
   + `${queue.counts.music} music · ${queue.counts.voice} voice lines (${queue.counts.total} assets)`);
@@ -283,5 +308,5 @@ if (missing.length) {
 if (orphans.length) {
   console.error(`\nQueued cues that no longer exist in code:\n  ${orphans.join('\n  ')}`);
 }
-if (missing.length || orphans.length) process.exit(1);
+if (missing.length || orphans.length || queueDrift) process.exit(1);
 console.log('coverage: every cue played by the code has a queue entry ✓');

@@ -549,12 +549,13 @@ try {
   /* Lines ask the audio layer for a recording and survive not getting one. */
   const voiceWiring = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
+    const line = 'Seatbelt. Or do not.';
     const before = motel.voice.requested.length;
-    motel.voice.say('Snow', 'Testing the wire.', 2, motel.voice.cueFor('Snow', 'probe'));
+    motel.voice.say('Snow', line, 2, motel.voice.cueForLine('Snow', line));
     const coverage = motel.voice.coverage();
     return {
       grew: motel.voice.requested.length > before,
-      asked: coverage.requested.includes('vo.motel.snow.probe'),
+      asked: coverage.requested.includes(motel.voice.cueForLine('Snow', line)),
       namespaced: coverage.requested.every((cue) => cue.startsWith('vo.motel.')),
       recorded: coverage.recorded.length,
       subtitle: document.getElementById('subtitle').textContent,
@@ -566,7 +567,7 @@ try {
       && voiceWiring.asked
       && voiceWiring.namespaced
       && voiceWiring.shown
-      && voiceWiring.subtitle.includes('Testing the wire.'),
+      && voiceWiring.subtitle.includes('Seatbelt. Or do not.'),
     JSON.stringify(voiceWiring));
   await capture(previewPage, 'after-lot-first-person');
 

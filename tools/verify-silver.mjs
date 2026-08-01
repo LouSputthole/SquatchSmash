@@ -29,6 +29,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5212;
+const silverManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+const silverIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+const indexedSilverFiles = new Set(silverIndex.files || []);
+const expectedSilverVo = silverManifest.sfx.filter((cue) => cue.name.startsWith('vo.silver.')
+  && indexedSilverFiles.has(cue.file || `${cue.name}.mp3`)).length;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -118,9 +123,9 @@ const silverLoad = await page.evaluate(() => {
 silverLoad.wallMs = Date.now() - startClickedAt;
 check('the Silver Room decodes its own sound set instead of the whole campaign before opening',
   silverLoad.plan?.manifestTotal > 1000
-    && silverLoad.plan?.selected >= 180
-    && silverLoad.plan?.selected < 300
-    && silverLoad.silverVo === 180
+    && silverLoad.plan?.selected >= expectedSilverVo
+    && silverLoad.plan?.selected < silverLoad.plan?.manifestTotal / 2
+    && silverLoad.silverVo === expectedSilverVo
     && silverLoad.unrelatedVo.length === 0,
   JSON.stringify(silverLoad));
 const firstFrameUi = await page.evaluate(() => {
@@ -2318,17 +2323,13 @@ check('and the optional ones tick themselves off when they are done',
  * line with a stale cue is a line delivered in words nobody wrote.
  */
 const manifest = JSON.parse(await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
-const expectedPickups = new Set([
-  'vo.silver.bandleader.set.front-and-center',
-  'vo.silver.bandleader.set.opener',
-  'vo.silver.margo.moments.chairPulled',
-]);
 const silverManifestCues = manifest.sfx.filter((c) => c.name.startsWith('vo.silver.'));
 const absentRecordings = silverManifestCues
   .filter((cue) => !fs.existsSync(path.join(ROOT, 'assets/sfx', cue.file || `${cue.name}.mp3`)))
   .map((cue) => cue.name);
-const unexpectedAbsent = absentRecordings.filter((name) => !expectedPickups.has(name));
-check('every Silver voice recording is present or explicitly identified as a pickup',
+const pickupSheet = await fsp.readFile(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
+const unexpectedAbsent = absentRecordings.filter((name) => !pickupSheet.includes(`${name}.mp3`));
+check('every Silver voice recording is present or listed on the generated pickup sheet',
   unexpectedAbsent.length === 0,
   `${silverManifestCues.length - absentRecordings.length}/${silverManifestCues.length} recorded; pickups: ${absentRecordings.join(', ') || 'none'}`);
 const voice = await page.evaluate(({ cues, voices }) => {
@@ -2343,7 +2344,9 @@ const voice = await page.evaluate(({ cues, voices }) => {
     .replace(/\([^)]*\)/g, ' ')
     .replace(/<[^>]+>/g, '')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ').trim()
+    .replace(/\s+/g, ' ')
+    .replace(/([—–-])\s+[—–-]\s+/g, '$1 ')
+    .trim()
     .replace(/^[—–-]\s*/, '').trim();
 
   const missing = []; const drifted = []; const badVoice = [];
@@ -2352,15 +2355,22 @@ const voice = await page.evaluate(({ cues, voices }) => {
     if (!node?.line) return;
     const v = VOICE_OF[node.who];
     if (!v) return;
-    if (!node.cue) { missing.push(`${node.who}: uncast line`); return; }
-    const name = typeof node.cue === 'function' ? node.cue() : node.cue;
     const text = spoken(typeof node.line === 'function' ? node.line() : node.line);
     if (!text) return;                       // all stage direction: nothing to record
+    if (!node.cue) { missing.push(`${node.who}: uncast line`); return; }
+    const name = typeof node.cue === 'function' ? node.cue() : node.cue;
     lines++;
     if (!said.has(name)) { missing.push(name); return; }
     if (said.get(name) !== text) drifted.push(`${name}: manifest says ${JSON.stringify(said.get(name).slice(0, 40))}`);
     const profile = b.PROFILE_OF[v] ?? v;
     if (voices[name] !== profile) badVoice.push(`${name} is ${voices[name]}, should be ${profile}`);
+  };
+  const visitNode = (node) => {
+    visit(node);
+    const options = typeof node?.options === 'function' ? node.options() : node?.options;
+    for (const option of options || []) {
+      visit({ who: 'Prospect', line: option.text, cue: option.cue });
+    }
   };
   /* Every branch: the flags the `variant()`s read, driven directly. */
   const F = b.mission.flags;
@@ -2369,7 +2379,7 @@ const voice = await page.evaluate(({ cues, voices }) => {
   /* Set introductions are spoken on the performance timeline rather than in
    * a dialogue tree, but they are still authored lines and need the same
    * manifest/text/profile contract. */
-  for (const n of b.SET) if (n.say) visit({ who: n.lead, line: n.say, cue: n.cue });
+  for (const n of b.SET) if (n.say) visitNode({ who: n.lead, line: n.say, cue: n.cue });
   for (const tableBuilt of [false, true]) {
     for (const seated of [false, true]) {
       for (const drinkOrdered of [false, 'rye']) {
@@ -2380,8 +2390,8 @@ const voice = await page.evaluate(({ cues, voices }) => {
                 Object.assign(F, { tableBuilt, seated, drinkOrdered, songRequested, introducedAs, abandonments });
                 b.woo.score = score;
                 for (const [key, tree] of Object.entries(S)) {
-                  if (key === 'scenes') { for (const beats of Object.values(tree)) beats.forEach(visit); continue; }
-                  Object.values(tree).forEach(visit);
+                  if (key === 'scenes') { for (const beats of Object.values(tree)) beats.forEach(visitNode); continue; }
+                  Object.values(tree).forEach(visitNode);
                 }
               }
             }

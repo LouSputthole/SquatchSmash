@@ -300,9 +300,12 @@ npm run sfx:dry                                # list what would run, generate n
 
 ```bash
 npm run sfx:voices                             # list voices on your account
-npm run sfx:vo                                 # just the spoken lines
+npm run sfx:vo                                 # missing spoken lines in playable scenes; skips the future Initiation party
 npm run sfx -- --sfx-only                      # just the sound effects
 ```
+
+Future, unreachable dialogue is opt-in: add `--include-future` only when that
+scene has been approved for production.
 
 There are two kinds of cue in `manifest.json` and they go to different
 endpoints. A cue with `prompt` is a sound effect, described in words, and goes

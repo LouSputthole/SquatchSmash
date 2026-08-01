@@ -48,7 +48,12 @@ import { makeSlotMachine, SlotMachine } from './slots.js';
 import { Blackjack, BETS } from './blackjack.js';
 import { makePlayerCar, populateLot } from './vehicles.js';
 import { Dialogue } from './dialogue.js';
-import { buildScripts, applyBingVoiceCues, AMBIENT, NOTES } from './script.js';
+import {
+  buildScripts,
+  applyBingVoiceCues,
+  AMBIENT,
+  NOTES,
+} from './script.js';
 import { Mission, ENDINGS } from './mission.js';
 import {
   SecondVisitMission,
@@ -291,11 +296,16 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   if (!name) return false;
   game.voLog.push(name);
   if (game.voLog.length > 60) game.voLog.shift();
+  /* A new subtitle owns the floor even when its take is still a pickup. If
+   * the availability check ran first, the previous actor kept talking over
+   * the next character's unrecorded line. */
+  if (solo) {
+    audio._vo?.stop?.();
+    audio._vo = null;
+  }
   if (!audio.ready) return false;
   const bank = audio.buffers?.get(name);
   if (!bank?.length) return false;
-  // One voice at a time, unless this line is scheduled behind another.
-  if (solo) audio._vo?.stop?.();
   const src = audio.play(name, { volume, delay });
   if (solo) audio._vo = src;
   const secs = src?.buffer ? src.buffer.duration : 1.6;
@@ -991,23 +1001,22 @@ function paintCarrying() {
 
 function serveDrink(what) {
   const kind = what === 'whiskey' ? 'whiskey' : what === 'beer' ? 'beer' : 'soft';
+  /* Reject before any pour/crack sound. The dialogue tree owns the refusal
+   * line, so Tony's selected reply gets its full hold before the bartender
+   * answers and the tree never advances into the successful-pour nodes. */
+  if (kind !== 'soft' && inventory.full) return false;
   audio.play(kind === 'soft' ? 'glass.set' : 'can.crack', { volume: 0.5, position: club.anchors.barService });
   audio.play('till.ring', { volume: 0.3, delay: 0.6, position: club.anchors.barService });
   if (kind === 'soft') {
     hud.toast('Club soda. Very professional.', '');
-    return;
-  }
-  /* Five pockets' worth is the limit, and there is nowhere in a club to put a
-   * beer down, so the bar stops serving rather than pouring into the void. */
-  if (inventory.full) {
-    hud.say('<em>Bartender:</em> Finish one of those first. I am not a shelf.', 4200);
-    return;
+    return true;
   }
   game.heldDrink = kind;
   inventory.add(kind === 'whiskey' ? 'whiskey' : 'beer');
   hud.setHand({ ...ITEMS[kind === 'whiskey' ? 'whiskey' : 'beer'], hint: 'Hold [F] to drink' });
   hud.setInventory(inventory, ITEMS);
   mission.drank();
+  return true;
 }
 
 function drinkTick(dt) {
@@ -2221,6 +2230,7 @@ function startShotBeat() {
   bartender.carryingShot = false;
   let phase = 'pour';
   let t = 0;
+  let bartenderVoiceUntil = 0;
   game.shotBeat = {
     phase, pour: 0, awaitingDrink: false, drank: false, bartenderLine: false,
   };
@@ -2274,7 +2284,9 @@ function startShotBeat() {
       if (t > 0.55 && !game.shotBeat.bartenderLine) {
         game.shotBeat.bartenderLine = true;
         hud.say('<em>Bartender:</em> House rye. If he asks, it was twenty-nine seconds.', 3600);
-        voiceCue('vo.bing.bartender.booski-shot.pour', { volume: 0.86 });
+        const bartenderCue = 'vo.bing.bartender.booski-shot.pour';
+        voiceCue(bartenderCue, { volume: 0.86 });
+        bartenderVoiceUntil = t + Math.max(3.6, cueSeconds(bartenderCue) + 0.4);
       }
       if (hijacked) {
         /* Hold the bar, then hand the frame over to the man with the tray as
@@ -2289,7 +2301,8 @@ function startShotBeat() {
         frameOn(aim.x, aim.z, dt, 2.4 + near * 1.6);
       }
       const d = Math.hypot(bp.x - SHOT_BAR_STAND.x, bp.z - SHOT_BAR_STAND.z);
-      if (d < 0.6 || t > 16) {
+      const bartenderFinished = game.shotBeat.bartenderLine && t >= bartenderVoiceUntil;
+      if ((d < 0.6 && bartenderFinished) || t > 16) {
         if (t > 16) bartender.group.position.set(SHOT_BAR_STAND.x, 0, SHOT_BAR_STAND.z);
         phase = 'handoff';
         t = 0;
@@ -2931,7 +2944,10 @@ function checkStage() {
  * flagged, and it reads as the person you were talking to saying it. */
 function ambientChatter(dt) {
   game.ambientAt -= dt;
-  if (dialogue.active) {
+  /* Ambient speech owns a real voice now. Keep it out of cutscenes, table
+   * games and any currently held voice instead of letting a random patron
+   * interrupt a story line or blackjack exchange. */
+  if (dialogue.active || game.beat || game.seatedIn === 'table' || audio.busy()) {
     game.ambientAt = Math.max(game.ambientAt, 3);
     return;
   }
@@ -2941,7 +2957,8 @@ function ambientChatter(dt) {
   let i = (Math.random() * AMBIENT.length) | 0;
   if (i === game.lastAmbient) i = (i + 1) % AMBIENT.length;
   game.lastAmbient = i;
-  const [who, line] = AMBIENT[i];
+  const [who, line, cue] = AMBIENT[i];
+  voiceCue(cue, { volume: 0.58 });
   hud.say(`<em>${who}:</em> ${line}`, 4200);
 }
 

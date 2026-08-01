@@ -97,6 +97,22 @@ try {
     JSON.stringify({ visible: initial.inventoryVisible, slots: initial.inventorySlots }));
   check('all scene modules and face textures load', missing.length === 0, missing.join(' | '));
 
+  const voiceProbe = await page.evaluate(() => window.INITIATION.speakVoiceProbe());
+  check('ceremony subtitles ask the Initiation audio receiver for their exact cue',
+    voiceProbe.speaker === 'BOOSKIBRO'
+      && voiceProbe.line.includes('Arms DOWN')
+      && voiceProbe.cue.startsWith('vo.initiation.ceremony.')
+      && voiceProbe.requested.includes(voiceProbe.cue),
+    JSON.stringify(voiceProbe));
+
+  const quizVoiceProbe = await page.evaluate(() => window.INITIATION.speakQuizVoiceProbe());
+  check('Tony reads the selected founders answer through the live ceremony voice bank',
+    quizVoiceProbe.speaker === 'PROSPECT TWO'
+      && quizVoiceProbe.line.includes('Deathmegatron')
+      && quizVoiceProbe.cue.startsWith('vo.initiation.ceremony.prospect-two.')
+      && quizVoiceProbe.requested.includes(quizVoiceProbe.cue),
+    JSON.stringify(quizVoiceProbe));
+
   await page.evaluate(() => window.INITIATION.skipToGauntlet());
   await page.waitForFunction(() => window.INITIATION.phase === 'gauntlet_in');
   check('the debug route can enter the interactive Gauntlet',

@@ -667,6 +667,18 @@ export const STATIONS = [
   },
 ];
 
+/** Exact written copy for the station's dynamically selected show link. */
+export function showIntroLine(show) {
+  const separator = /[.!?]$/.test(show.name) ? ' ' : '. ';
+  return `ANNOUNCER: Next on 97.8 The Squatch — ${show.name}${separator}${show.strap}`;
+}
+
+/** The two voices that briefly break into the apartment radio's schedule. */
+export const SPOOKY_RADIO_LINES = Object.freeze([
+  Object.freeze({ line: '— and he is still in the flat with y—', voice: 'unknown' }),
+  Object.freeze({ line: '…which is the traffic. Back to Lou.', voice: 'announcer' }),
+]);
+
 /* ------------------------------------------------------------------ */
 
 /**
@@ -760,6 +772,11 @@ function buildVoiceIndex() {
   };
 
   for (const st of STATIONS) {
+    /* `_refill()` composes these from the clock-selected show. Enumerate the
+     * finite schedule here so dynamic copy still receives stable exact cues. */
+    for (const show of [...(st.shows ?? []), st.overnight].filter(Boolean)) {
+      add(showIntroLine(show), 'announcer');
+    }
     /* Two Lous, because "two guys called Lou" only reads as a joke if you can
      * hear that there are two of them. Which Lou a line belongs to is decided
      * by the line itself, not by its position -- alternating on encounter
@@ -796,6 +813,7 @@ function buildVoiceIndex() {
      * it. It tells you to go and add files, which is not something a radio
      * host says, and it cannot air at all once there is music. Not voiced. */
   }
+  for (const interruption of SPOOKY_RADIO_LINES) add(interruption.line, interruption.voice);
   return byLine;
 }
 

@@ -110,7 +110,8 @@ export class DialogueSystem {
     }
     const line = this.queue.shift();
     this.current = line;
-    this.timer = line.hold ?? 2.4;
+    const recordedSeconds = this.audio?.line(line) || 0;
+    this.timer = Math.max(line.hold ?? 2.4, recordedSeconds > 0 ? recordedSeconds + 0.45 : 0);
 
     const speaker = SPEAKERS[line.who] ?? SPEAKERS.SASOLE;
     const headsetMark = this.headset && (line.who === 'SASOLE' || line.who === 'PROSPECT')
@@ -121,7 +122,7 @@ export class DialogueSystem {
     );
     this.onLine?.(line, speaker);
     // The voice bank is optional: a cue that has never been recorded simply
-    // does not play, and the line still reads.
-    this.audio?.line(line);
+    // does not play, and the line still reads. Its decoded duration above is
+    // a floor so a delivered take is never cut off by the next subtitle.
   }
 }

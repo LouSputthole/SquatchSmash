@@ -1,4 +1,5 @@
 // Canonical Initiation party behavior.
+import { initiationVoiceLine, uniqueInitiationVoiceLines } from './voice.js';
 /**
  * THE NPC SYSTEM — how the Circle reacts to you at the party.
  *
@@ -36,9 +37,25 @@ export const ARCHETYPE = {
 // face: path under assets/faces (null = photo not cut yet; renders faceless).
 // seat: where they hang at the party, for the scene to place them.
 // Every member is human. "Sasquatch" is family status, not species.
+const PARTY_VOICE = Object.freeze({
+  booski: 'booski',
+  lou: 'lou',
+  rippinflow: 'rippinflow',
+  shubes: 'shubenator',
+  deathmegatron: 'deathmegatron',
+  hogmama: 'hogmama',
+  ape: 'ape',
+  irish: 'irish',
+  erican: 'eric',
+  gratin: 'gratin',
+  captain_lou_sasole: 'lou2',
+  snow: 'snow',
+});
+
 const circleMember = (definition) => ({
   species: 'human',
   founder: false,
+  voice: PARTY_VOICE[definition.id],
   ...definition,
 });
 
@@ -235,6 +252,45 @@ export const AMBIENT = [
   [['lou', "Booski, do your toast where people can see your hands."], ['booski', "Why."], ['lou', "Humor me."], null, { rat: true }],
 ];
 
+function bankFor(member) {
+  const base = BANKS[member.archetype] || BANKS[ARCHETYPE.UTILITY];
+  return member.executioner ? base.concat(EXECUTIONER_LINES) : base;
+}
+
+function voicedPartyLine(member, line) {
+  return initiationVoiceLine({
+    scope: 'party',
+    speaker: member.id,
+    voice: member.voice,
+    who: member.name,
+    text: line.text,
+  });
+}
+
+export function voicedAmbientLine(member, text) {
+  if (!member?.id || !member?.voice) {
+    throw new Error(`Unknown Initiation ambient speaker for: ${String(text ?? '')}`);
+  }
+  return initiationVoiceLine({
+    scope: 'ambient',
+    speaker: member.id,
+    voice: member.voice,
+    who: member.name,
+    text,
+  });
+}
+
+/** Every line the authored party system can actually ask an actor to read. */
+export function allNpcVoiceLines() {
+  const party = ROSTER.flatMap((member) => bankFor(member)
+    .map((line) => voicedPartyLine(member, line)));
+  const byId = new Map(ROSTER.map((member) => [member.id, member]));
+  const ambient = AMBIENT.flatMap((exchange) => exchange
+    .filter((step) => Array.isArray(step))
+    .map(([id, text]) => voicedAmbientLine(byId.get(id), text)));
+  return uniqueInitiationVoiceLines(party, ambient);
+}
+
 // ---------- The system ----------
 export class NpcSystem {
   /**
@@ -304,7 +360,14 @@ export class NpcSystem {
     // SOMEONE ELSE nervous — the more you talk, the more the hum builds.
     n.standing = clamp(n.standing + 1, -100, 100);
     if (this.route === 'rat') this._raiseSuspicionElsewhere(n.id);
-    return { name: n.name, text: line.text };
+    const voiced = voicedPartyLine(n, line);
+    return {
+      name: n.name,
+      text: line.text,
+      cue: voiced.cue,
+      voice: voiced.voice,
+      say: voiced.say,
+    };
   }
 
   _pick(n, { probing, ignoreSaid = false }) {
@@ -338,8 +401,7 @@ export class NpcSystem {
   }
 
   _bankFor(n) {
-    const base = BANKS[n.archetype] || BANKS[ARCHETYPE.UTILITY];
-    return n.executioner ? base.concat(EXECUTIONER_LINES) : base;
+    return bankFor(n);
   }
 
   _raiseSuspicionElsewhere(exceptId) {
@@ -384,7 +446,18 @@ export class NpcSystem {
     this._ambientSaid.add(idx);
     return AMBIENT[idx]
       .filter((step) => Array.isArray(step))
-      .map(([who, text]) => ({ who, name: (this.get(who) || {}).name || who, text }));
+      .map(([who, text]) => {
+        const member = this.get(who);
+        const voiced = voicedAmbientLine(member, text);
+        return {
+          who,
+          name: member?.name || who,
+          text,
+          cue: voiced.cue,
+          voice: voiced.voice,
+          say: voiced.say,
+        };
+      });
   }
 }
 

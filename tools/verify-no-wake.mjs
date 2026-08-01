@@ -56,6 +56,8 @@ function check(name, ok, detail = '') {
 
 const authoredVoice = allNoWakeVoiceLines();
 const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+const indexedFiles = new Set(soundIndex.files || []);
 const manifestVoice = soundManifest.sfx.filter((cue) => cue.name.startsWith('vo.nowake.'));
 const manifestByName = new Map(manifestVoice.map((cue) => [cue.name, cue]));
 check('all 18 NO WAKE lines have stable cue ids, cast voices and exact manifest text',
@@ -68,10 +70,9 @@ check('all 18 NO WAKE lines have stable cue ids, cast voices and exact manifest 
   JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
 
 const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
-check('the generated voice-line markdown exposes every NO WAKE delivery filename and line',
-  recordingSheet.includes('## Voice — NO WAKE')
-    && authoredVoice.every((line) => recordingSheet.includes(`vo.nowake.${line.cue}.1.mp3`)
-      && recordingSheet.includes(JSON.stringify(line.text))),
+check('every NO WAKE delivery is indexed and the generated handoff reports no voice pickups',
+  authoredVoice.every((line) => indexedFiles.has(`vo.nowake.${line.cue}.1.mp3`))
+    && recordingSheet.includes('Nothing outstanding. Every manifest-authored spoken cue has an indexed recording.'),
   'VOICE-LINES-TODO.md');
 
 const shots = path.join(ROOT, 'docs', 'validation', '2026-07-31');

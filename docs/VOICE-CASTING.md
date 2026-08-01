@@ -58,17 +58,21 @@ recast — his voice stands.
 3. Station voices `uncle` (98.8) and `ksqch` (101.7) keep their old stock
    ids — the sheet supplied one radio voice and 97.8 got it. Shout if those
    two should recast as well.
-4. Still provisional (no sheet row): `hr`, `unknown` (the caller), `lookout`.
-   Sheet rows that could serve: "Boston (Side char)" `UZvBfqEdvCFLqsBOo9Zr`,
-   "Southern for an NPC" `x9G2ivoqdzPgvaOC8XUa`, "old man for NPC"
-   `NOpBlnGInO9m6vDvFkFC` — owner's call, nothing blocks on it.
+4. Still provisional: `hr`, `unknown` (the caller), `lookout`, `motel-rico`,
+   `motel-chino`, and `npc-male`. The last three now use the owner's reserved
+   Boston, Southern, and old-man NPC rows respectively so their lines can be
+   auditioned without borrowing Cecilio or the Bing doorman. The voice lead
+   must approve or replace those three ids before locking the final cast.
 
 ## Everyone else from the sheet
 
 | Sheet row | profile | id | where it speaks |
 |---|---|---|---|
 | Date Copacabana **Margo** | `margo` | `XlDdozLmuTofIxK4BjPD` | Silver Room date + her call (4 lines to redo — this closes the "recast Margo off the hogmama placeholder" item) |
-| Spanish-ish Motel antagonist | `cecilio` | `IpCcRCVYm2nsZJjBFn4H` | CORRECTION 2026-07-31: `cecilio` is Don Cecilio Barriga, the Beef Run's other end (`vo.beefrun.*`, 7 lines redone under this id). The actual Motel antagonists (Rico/Chino) have NO cues yet — when their lines are authored, the owner should say whether this sheet id belongs to them instead of Cecilio |
+| Don Cecilio Barriga | `cecilio` | `IpCcRCVYm2nsZJjBFn4H` | The Beef Run's other end (`vo.beefrun.*`). LOCKED; never reuse for a scene-local Motel antagonist. |
+| Boston side character *(provisional Rico)* | `motel-rico` | `UZvBfqEdvCFLqsBOo9Zr` | Rico's exact Motel catalog. Audition takes exist; voice-lead approval required before locking the cast. |
+| Southern NPC *(provisional Chino)* | `motel-chino` | `x9G2ivoqdzPgvaOC8XUa` | Chino's exact Motel catalog. Audition takes exist; voice-lead approval required before locking the cast. |
+| Old man NPC pool *(provisional scene locals)* | `npc-male` | `NOpBlnGInO9m6vDvFkFC` | Motel sellers/lookouts/clerk and the Bing contractor. Audition takes exist; voice-lead approval required before locking the cast. |
 | Dealer, cards, in Bada | `dealer` *(new)* | `snyKKuaGYk1VUEh42zbW` | blackjack VO below |
 | Bartender in Bada | `bartender` *(new)* | `nUEpF21E0nXsKMw4L4CS` | bar barks below |
 | Side guards / doorman, Bing | `doorman` *(new)* | `fhZTG3MTnv8OnksvofJI` | door barks below; backups `7fbQ7yJuEo56rYjrYaEh` (deep), `Je8d8oi82sj0l8L1VM0l` |
@@ -88,8 +92,9 @@ npm run sfx -- --force --cast gratin,eric,hogmama,lou,lou1,lou2,booski,irish,ape
 # 2. The 97.8 station voice — 62 lines:
 npm run sfx -- --force --cast announcer
 
-# 3. The brand-new lines below, once merged into the manifest (no --force needed):
-npm run sfx -- --voice-only
+# 3. Every missing, currently playable voice line (no --force needed).
+#    This command excludes the authored but unreachable Initiation party:
+npm run sfx:vo
 
 # 4. Rebuild the audio index the game fetches from:
 npm run sfx:listen

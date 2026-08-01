@@ -1,11 +1,22 @@
+import { CHARACTER_REGISTRY } from '../core/characters.js';
+
 const VOICE_BY_SCOPE = Object.freeze({
   bouncer: 'doorman', bartender: 'bartender', hallGuard: 'doorman', security: 'doorman',
   dealer: 'dealer', lou: 'lou', associate: 'doorman', dj: 'announcer', margo: 'margo',
 });
 
 function plainWords(value) {
-  return String(value ?? '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+  return String(value ?? '')
+    /* Every <em> in this script is an actor direction, not emphasized speech.
+     * Remove the direction itself so it never reaches the recording sheet. */
+    .replace(/<em\b[^>]*>[\s\S]*?<\/em>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
+
+function hasSpokenWords(value) { return /[a-z0-9]/i.test(plainWords(value)); }
 
 function textHash(value) {
   let h = 2166136261;
@@ -29,13 +40,13 @@ export function applyBingVoiceCues(scripts) {
     Object.defineProperty(tree, '__bingVoiceDecorated', { value: true });
     for (const [nodeId, node] of Object.entries(tree)) {
       if (!node || typeof node !== 'object') continue;
-      if (node.line && !Object.hasOwn(node, 'cue')) {
+      if (node.line && !Object.hasOwn(node, 'cue') && hasSpokenWords(valueOf(node.line))) {
         const line = node.line;
         node.cue = () => generatedCue(scope, nodeId, 'line', valueOf(line));
       }
       if (!node.options) continue;
       const decorate = (options) => (options || []).map((option) => {
-        if (!option?.text || option.cue) return option;
+        if (!option?.text || option.cue || !hasSpokenWords(valueOf(option.text))) return option;
         const text = option.text;
         return { ...option, cue: () => generatedCue(scope, nodeId, 'tony', valueOf(text)) };
       });
@@ -49,6 +60,21 @@ export function applyBingVoiceCues(scripts) {
 }
 
 export function bingVoiceForScope(scope) { return VOICE_BY_SCOPE[scope] ?? 'player'; }
+export function bingVoiceForSpeaker(scope, speaker) {
+  const normalize = (value) => String(value ?? '')
+    .toLocaleLowerCase('en-US')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  const wanted = normalize(speaker);
+  if (wanted) {
+    const owner = Object.values(CHARACTER_REGISTRY).find((entry) => (
+      [entry.id, entry.canonicalName, entry.subtitleName, ...entry.legacyAliases]
+        .some((name) => normalize(name) === wanted)
+    ));
+    if (owner?.voiceProfile) return owner.voiceProfile;
+  }
+  return bingVoiceForScope(scope);
+}
 export { plainWords };
 
 /**
@@ -189,10 +215,17 @@ export function buildScripts(ctx) {
       cue: 'vo.bing.bar.1',
       options: [
         { tone: 'Club soda', text: 'Club soda. I’m working.', next: 'soda', effect: () => ctx.order('soda') },
-        { tone: 'Beer', text: 'Beer.', next: 'pour', effect: () => ctx.order('beer') },
-        { tone: 'Whiskey', text: 'Whiskey. Neat.', next: 'pour', effect: () => ctx.order('whiskey') },
+        { tone: 'Beer', text: 'Beer.', next: () => (ctx.order('beer') ? 'pour' : 'capacity') },
+        { tone: 'Whiskey', text: 'Whiskey. Neat.', next: () => (ctx.order('whiskey') ? 'pour' : 'capacity') },
         { tone: 'Coffee', text: 'Whatever Lou drinks.', next: 'lou-drink', effect: () => ctx.order('coffee') },
       ],
+    },
+    capacity: {
+      who: BARTENDER_CAPACITY_LINE.who,
+      line: BARTENDER_CAPACITY_LINE.line,
+      cue: BARTENDER_CAPACITY_LINE.cue,
+      hold: 3.2,
+      next: 'order',
     },
     /* The third recorded bar line, and the only place in the club it belongs. */
     tab: {
@@ -310,9 +343,8 @@ export function buildScripts(ctx) {
           if (w > 5 * 60) return 'There he is.';
           return 'Shut the door.';
         },
-        /* The old take reads the removed stage direction. Keep this opening
-         * subtitled rather than knowingly playing a mismatched recording. */
-        cue: null,
+        /* The old take reads the removed stage direction, so this line uses a
+         * generated exact cue instead of knowingly playing that stale take. */
         hold: 3.0,
         next: 'greet',
       },
@@ -666,9 +698,9 @@ export function buildScripts(ctx) {
     },
   };
 
-  return {
+  return applyBingVoiceCues({
     bouncer, bartender, hallGuard, security, dealer, lou, associate, dj, margo,
-  };
+  });
 }
 
 /** Things patrons say as you go past. Never repeated back to back. */
@@ -683,6 +715,32 @@ export const AMBIENT = [
   ['a patron', 'That’s the prospect. Don’t look at him, you’ll set him off.'],
   ['a regular', 'Wednesday. Seven. Everybody keeps saying it like I’ve got a diary.'],
 ];
+
+/** A spoken bar-service refusal that lives outside the conversation trees. */
+export const BARTENDER_CAPACITY_LINE = Object.freeze({
+  who: 'Bartender',
+  line: 'Finish one of those first. I am not a shelf.',
+  cue: 'vo.bing.bartender.capacity',
+  voice: 'bartender',
+});
+
+/* Keep exact cue and casting data beside each ambient subtitle. The arrays
+ * retain their original [who, line] shape for callers that only need copy. */
+const AMBIENT_VOICES = Object.freeze([
+  'doorman', 'doorman', 'doorman', 'doorman', 'performer',
+  'doorman', 'npc-male', 'doorman', 'doorman',
+]);
+for (const [index, line] of AMBIENT.entries()) {
+  line.push(`vo.bing.ambient.${String(index + 1).padStart(2, '0')}`, AMBIENT_VOICES[index]);
+}
+
+/** Spoken lines outside buildScripts(), consumed by runtime and VO tooling. */
+export function bingStandaloneVoiceLines() {
+  return [
+    BARTENDER_CAPACITY_LINE,
+    ...AMBIENT.map(([who, line, cue, voice]) => ({ who, line, cue, voice })),
+  ];
+}
 
 /** What the narrator says about the place, when nothing else is happening. */
 export const NOTES = {

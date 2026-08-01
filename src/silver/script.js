@@ -79,11 +79,23 @@ export const DATE = {
  */
 export const VOICE_OF = {
   [DATE.name]: 'margo',
+  Prospect: 'player',
   'the host': 'host',
   'the manager': 'manager',
   'the waiter': 'waiter',
   'the bandleader': 'bandleader',
   Ape: 'ape',
+  'the driver': 'driver',
+  Vinny: 'vinny',
+  'the cellarman': 'cellarman',
+  'the porter': 'porter',
+  Chef: 'chef',
+  'a cook': 'cook',
+  'the dishwasher': 'dishwasher',
+  'the service bar': 'servicebar',
+  'coat check': 'coatcheck',
+  'the photographer': 'photographer',
+  'the announcer': 'announcer',
 };
 
 /**
@@ -98,14 +110,61 @@ export const VOICE_OF = {
  */
 export const PROFILE_OF = {
   margo: 'margo',
+  player: 'player',
   ape: 'ape',
   host: 'waiter',
   manager: 'waiter',
   waiter: 'waiter',
   bandleader: 'waiter',
+  driver: 'doorman',
+  vinny: 'doorman',
+  cellarman: 'waiter',
+  porter: 'waiter',
+  chef: 'waiter',
+  cook: 'waiter',
+  dishwasher: 'waiter',
+  servicebar: 'waiter',
+  coatcheck: 'waiter',
+  photographer: 'waiter',
+  announcer: 'announcer',
   /** The building overheard: "a cook", "the pass", "a porter". */
   room: 'waiter',
 };
+
+function silverCueWords(value) {
+  return String(value ?? '')
+    .replace(/<em>\s*\([^)]*\)\s*<\/em>/gi, ' ')
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    // A spoken dash on each side of an inline stage direction becomes one
+    // natural pause after the direction is removed, not "— —" in the take.
+    .replace(/([—–-])\s+[—–-]\s+/g, '$1 ')
+    .trim()
+    .replace(/^[—–-]\s*/, '')
+    .trim();
+}
+
+export function silverSpokenWords(value) {
+  return silverCueWords(value)
+    .replace(/(?:\s*[—–]\s*){2,}/g, ' — ')
+    .replace(/\s+([,.;:!?])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function silverTextHash(value) {
+  let hash = 2166136261;
+  /* Direction cleanup changes actor copy, not stable filenames for takes
+   * already delivered against the same authored display line. */
+  for (const ch of silverCueWords(value)) {
+    hash ^= ch.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
 
 /**
  * Stamp `vo.silver.<who>.<tree>.<node>` onto every line somebody cast can say.
@@ -125,12 +184,35 @@ export const PROFILE_OF = {
 function voiced(tree, nodes) {
   for (const [id, node] of Object.entries(nodes)) {
     const voice = VOICE_OF[node?.who];
-    if (!voice || !node.line) continue;
+    if (voice && node.line) {
     /* The tree's name is dropped when it is already the speaker's, so the
      * host's own tree is `vo.silver.host.open` and Margo's line in it, if
      * she ever gets one, is `vo.silver.margo.host.open`. */
-    const base = `vo.silver.${voice}.${tree === voice ? '' : `${tree}.`}${id}`;
-    node.cue = node.variant ? () => `${base}.${node.variant()}` : base;
+      const base = `vo.silver.${voice}.${tree === voice ? '' : `${tree}.`}${id}`;
+      const cue = () => {
+        const line = typeof node.line === 'function' ? node.line() : node.line;
+        if (!/[\p{L}\p{N}]/u.test(silverSpokenWords(line))) return null;
+        if (node.variant) return `${base}.${node.variant()}`;
+        return typeof node.line === 'function' ? `${base}.${silverTextHash(line)}` : base;
+      };
+      node.cue = (node.variant || typeof node.line === 'function') ? cue : cue();
+    }
+
+    const decorate = (options) => (options || []).map((option) => {
+      if (!option?.text || option.cue) return option;
+      const cue = () => {
+        const text = typeof option.text === 'function' ? option.text() : option.text;
+        const words = silverSpokenWords(text);
+        return /[\p{L}\p{N}]/u.test(words)
+          ? `vo.silver.player.${tree}.${id}.${silverTextHash(words)}`
+          : null;
+      };
+      return { ...option, cue: typeof option.text === 'function' ? cue : cue() };
+    });
+    if (typeof node?.options === 'function') {
+      const options = node.options;
+      node.options = (...args) => decorate(options(...args));
+    } else if (node?.options) node.options = decorate(node.options);
   }
   return nodes;
 }

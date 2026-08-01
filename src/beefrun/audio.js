@@ -265,7 +265,16 @@ export class MissionAudio {
    */
   line(line) {
     const cue = line.cue ?? `beefrun.${String(line.who || 'sasole').toLowerCase()}`;
-    this.engine?.say(cue, { chance: 1, volume: this.headset ? 0.9 : 1 });
+    if (!this.engine) return 0;
+    /* A new subtitle owns the intercom even when this take is still missing. */
+    this.engine._vo?.stop?.();
+    this.engine._vo = null;
+    const prefix = `vo.${cue}.`;
+    const duration = Math.max(0, ...[...this.engine.buffers.entries()]
+      .filter(([name]) => name.startsWith(prefix))
+      .flatMap(([, bank]) => bank.map((buffer) => buffer.duration || 0)));
+    const started = this.engine.say(cue, { chance: 1, volume: this.headset ? 0.9 : 1 });
+    return started ? duration : 0;
   }
 
   /* ---------------------------------------------------------------- */

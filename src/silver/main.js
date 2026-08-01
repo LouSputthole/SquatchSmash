@@ -295,10 +295,13 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   if (!name) return false;
   game.voLog.push(name);
   if (game.voLog.length > 256) game.voLog.shift();
+  if (solo) {
+    audio._vo?.stop?.();
+    audio._vo = null;
+  }
   if (!audio.ready) return false;
   const bank = audio.buffers?.get(name);
   if (!bank?.length) return false;
-  if (solo) audio._vo?.stop?.();
   const src = audio.play(name, { volume, delay });
   if (solo) audio._vo = src;
   audio.hold(delay + (src?.buffer ? src.buffer.duration : 1.6) + 0.25);
@@ -307,6 +310,7 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
 
 /** A node's or a reply's cue: a string, or a function when the line is one. */
 const nodeCue = (owner) => (typeof owner?.cue === 'function' ? owner.cue() : owner?.cue);
+const cueSeconds = (name) => audio.buffers?.get(name)?.[0]?.duration ?? 0;
 
 const dialogue = new Dialogue(ui.dialogue, {
   onLine: (text, who, node) => {
@@ -317,6 +321,7 @@ const dialogue = new Dialogue(ui.dialogue, {
    * the hook is here so that when he gets one it is a `cue` on the option and
    * nothing else has to move. */
   onChoice: (opt) => voiceCue(nodeCue(opt)),
+  cueSeconds,
   onEnd: () => {
     performance_.setDucked(false);
     game.talkingTo = null;
@@ -352,10 +357,18 @@ const performance_ = new Performance({
     }
     if (n.theOne) {
       // Three separate people said the third number was the one.
-      if (game.known.has('third-number')) woo.fire('Woo.CallbackUsed');
-      date.watch(band.leader.group, 4);
-      date.bark('show', DATE_BARKS.show);
-      offerSway();
+      const answerBandleader = () => {
+        if (game.known.has('third-number')) woo.fire('Woo.CallbackUsed');
+        date.watch(band.leader.group, 4);
+        date.bark('show', DATE_BARKS.show);
+        offerSway();
+      };
+      /* Margo is another solo voice. Let the bandleader finish naming the
+       * number before her callback replaces him; five seconds is the authored
+       * subtitle hold, and a longer delivered take extends it. */
+      const bandleaderHold = n.say ? Math.max(5, cueSeconds(n.cue) + 0.4) : 0;
+      if (bandleaderHold > 0) setTimeout(answerBandleader, bandleaderHold * 1000);
+      else answerBandleader();
     }
   },
   onApplause: () => { if (date.mode === 'seated') date.npc.say(1.2); },

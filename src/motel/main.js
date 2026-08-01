@@ -20,6 +20,9 @@ import {
 } from '../core/campaign.js';
 import { createMotelStory } from '../core/motel-story.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
+import { motelVoiceCue } from './voice.js';
+import { motelVoiceCueSet } from './voice-catalog.js';
+import { nextLineDelayMs, resolveLineHold } from './dialogue-timing.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -487,15 +490,30 @@ function toast(text, cls = '', sub = '') {
  * and the words in the room end together. With nothing recorded the scene
  * behaves exactly as it always has.
  */
+const authoredMotelVoice = motelVoiceCueSet();
+
 function say(who, line, seconds = 3.4, cue = null) {
   const cls = who === 'Prospect' ? 'who prospect' : who === '*' ? 'stage' : 'who';
   subtitleEl.innerHTML = who === '*'
     ? `<span class="stage">${line}</span>`
     : `<span class="${cls}">${who}</span> — ${line}`;
   subtitleEl.classList.add('show');
-  const spoken = cue ? sfx.voice(cue) : 0;
-  subtitleT = spoken > 0 ? spoken + 0.5 : seconds;
+  /* Exact words, not an optional call-site argument, own the recording. That
+   * makes it impossible for a character subtitle to silently bypass VO. */
+  const requestedCue = who === '*' ? null : motelVoiceCue(who, line);
+  if (requestedCue && !authoredMotelVoice.has(requestedCue)) {
+    console.error(`Uncatalogued Motel voice line: ${who}: ${line}`);
+  }
+  const spoken = requestedCue ? sfx.voice(requestedCue) : 0;
+  subtitleT = resolveLineHold(seconds, spoken);
   if (spoken <= 0) sfx.blip();
+  void cue; // legacy beat arguments remain accepted while exact cues take over
+  return subtitleT;
+}
+
+/** Give the current take ownership of the voice floor before continuing. */
+function afterLine(holdSeconds, next, gapSeconds = undefined) {
+  return setTimeout(next, nextLineDelayMs(holdSeconds, gapSeconds));
 }
 
 /** Cue id for a spoken line: `snow.brief`, `rico.atdoor`, and so on. */
@@ -611,8 +629,8 @@ function startScene() {
   clerk = spawnActor({ ...CAST.clerk(), x: -44, z: -8.2, state: 'idle' });
   clerk.faceAt(-44, -4);                 // across his own counter at z = -7
 
-  say(ALLY, 'Room twelve. Meat first. Money second.', 4.2, cueFor(ALLY, 'arrive'));
-  setTimeout(() => { if (phase === 'car') openDialogue('snowBrief'); }, 1400);
+  const briefingHold = say(ALLY, 'Room twelve. Meat first. Money second.', 4.2, cueFor(ALLY, 'arrive'));
+  afterLine(briefingHold, () => { if (phase === 'car') openDialogue('snowBrief'); });
   clock.getDelta();
   return true;
 }
@@ -897,10 +915,10 @@ addInteract({
     if (phase === 'room') {
       addHeat(6);
       addRead(8);
-      say('Prospect', `Eight packages. Numbered labels. ${shipment.grade === 'genuine' ? 'Seals all intact.' : 'Two of these seals have been opened and re-pressed.'}`, 4.6);
+      const countHold = say('Prospect', `Eight packages. Numbered labels. ${shipment.grade === 'genuine' ? 'Seals all intact.' : 'Two of these seals have been opened and re-pressed.'}`, 4.6);
       if (shipment.grade !== 'genuine') inspection.evidence -= 0.15;
       if (chino) chino.talkT = 1.6;
-      setTimeout(() => say('Chino', 'You buying or writing a cookbook?', 3), 1800);
+      afterLine(countHold, () => say('Chino', 'You buying or writing a cookbook?', 3));
     } else {
       takeJerkyCase();
     }
@@ -940,8 +958,8 @@ addInteract({
       addRead(14);
       S.slicerKnown = true;
       completeObjective('thirdman');
-      say('Prospect', 'There is a man breathing in your bathroom, Rico.', 3.6);
-      setTimeout(() => { if (!S.betrayed) maybeBetray('bathroom'); }, 900);
+      const warningHold = say('Prospect', 'There is a man breathing in your bathroom, Rico.', 3.6);
+      afterLine(warningHold, () => { if (!S.betrayed) maybeBetray('bathroom'); });
     } else {
       slamBathDoor();
     }
@@ -1374,17 +1392,17 @@ function enterRoom() {
   setTimeout(() => {
     closeDoor(refs.frontDoor);
     sfx.doorSlam();
-    say('Chino', 'Door stays shut. Air conditioning.', 3);
+    const doorHold = say('Chino', 'Door stays shut. Air conditioning.', 3);
     addHeat(6);
     addRead(10);
+    afterLine(doorHold, () => {
+      if (phase !== 'room' || S.betrayed) return;
+      S.sampleOut = true;
+      sfx.packaging();
+      say('Rico', 'Mountain reserve. Eleven-year cure. No fillers.', 4);
+      toast('SAMPLE PRESENTED', '', 'Walk up to the table and press E to inspect it properly');
+    });
   }, 1400);
-
-  setTimeout(() => {
-    S.sampleOut = true;
-    sfx.packaging();
-    say('Rico', 'Mountain reserve. Eleven-year cure. No fillers.', 4);
-    toast('SAMPLE PRESENTED', '', 'Walk up to the table and press E to inspect it properly');
-  }, 2600);
 
   scheduleRoomEvents();
 }
@@ -1453,29 +1471,18 @@ function pickDialogue(style) {
   if (!opt) return;
   closeDialogue();
   sfx.select();
-  say('Prospect', opt.text, 3.4, cueFor('Prospect', `${nodeId}.${style}`));
+  const choiceHold = say('Prospect', opt.text, 3.4, cueFor('Prospect', `${nodeId}.${style}`));
   addHeat(opt.heat || 0);
   addRead(opt.read || 0);
-
-  if (opt.reply) {
-    setTimeout(() => {
-      if (phase === 'end') return;
-      say(opt.reply[0], opt.reply[1], 3.6, cueFor(opt.reply[0], `${nodeId}.${style}.reply`));
-    }, 1900);
-  }
 
   if (nodeId === 'atDoor') {
     S.doorOpened = true;
     openDoor(refs.frontDoor);
-    setTimeout(() => {
-      say('Rico', 'Come in before the neighbours smell it.', 3);
-      toast('DOOR OPEN', '', 'Step inside when you are ready — nobody is pushing you');
-    }, 3200);
+    toast('DOOR OPEN', '', 'Step inside when you are ready — nobody is pushing you');
   }
 
   if (nodeId === 'sample' && opt.nervous) {
     addHeat(8);
-    setTimeout(() => { if (!S.betrayed) say('Chino', 'Rico. He is asking who handled it.', 3); }, 3400);
   }
 
   if (opt.revealStash) {
@@ -1485,7 +1492,6 @@ function pickDialogue(style) {
   }
   if (opt.demandStash) {
     addHeat(8);
-    setTimeout(() => { if (!S.betrayed) maybeBetray('counterfeit'); }, 2600);
   }
   if (opt.hintsThird) {
     S.slicerKnown = true;
@@ -1496,9 +1502,23 @@ function pickDialogue(style) {
     toast('SECRET COOPERATION', 'warn', "Rico thinks you are taking his side. Snow's trust will not survive this");
     addHeat(-25);
   }
-  if (nodeId === 'getaway') {
-    setTimeout(() => startDrive(), 2600);
-  }
+  const afterReply = () => {
+    if (phase === 'end') return;
+    if (nodeId === 'atDoor') say('Rico', 'Come in before the neighbours smell it.', 3);
+    if (nodeId === 'sample' && opt.nervous && !S.betrayed) {
+      say('Chino', 'Rico. He is asking who handled it.', 3);
+    }
+    if (opt.demandStash && !S.betrayed) maybeBetray('counterfeit');
+    if (nodeId === 'getaway') startDrive();
+  };
+
+  afterLine(choiceHold, () => {
+    if (phase === 'end') return;
+    if (!opt.reply) { afterReply(); return; }
+    const replyHold = say(opt.reply[0], opt.reply[1], 3.6, cueFor(opt.reply[0], `${nodeId}.${style}.reply`));
+    afterLine(replyHold, afterReply);
+  });
+
   if (nodeId === 'snowBrief') {
     setTimeout(() => toast('TIP', '', 'Look around the lot before you knock — every warning sign pays off'), 3000);
   }
@@ -1522,10 +1542,18 @@ function closeInspection() {
     S.sampleTalked = true;
     setTimeout(() => {
       if (phase !== 'room') return;
-      say('Prospect', 'This smoke is real.', 3);
-      setTimeout(() => say('Rico', 'I told you.', 2.4), 2400);
-      setTimeout(() => say('Prospect', 'I did not say the meat was real.', 3), 4200);
-      setTimeout(() => { if (phase === 'room' && !dialogue && !S.betrayed) openDialogue('sample'); }, 6400);
+      const smokeHold = say('Prospect', 'This smoke is real.', 3);
+      afterLine(smokeHold, () => {
+        if (phase !== 'room' || S.betrayed) return;
+        const answerHold = say('Rico', 'I told you.', 2.4);
+        afterLine(answerHold, () => {
+          if (phase !== 'room' || S.betrayed) return;
+          const correctionHold = say('Prospect', 'I did not say the meat was real.', 3);
+          afterLine(correctionHold, () => {
+            if (phase === 'room' && !dialogue && !S.betrayed) openDialogue('sample');
+          });
+        });
+      });
     }, 900);
   }
 }
@@ -1569,30 +1597,35 @@ function runInspection(id) {
   addRead(6);
   completeObjective('inspect');
   sfx.packaging();
-  say('*', res.line, 4.2);
-  if (res.prospect) setTimeout(() => say('Prospect', res.prospect, 3.4), 2200);
+  const inspectionHold = say('*', res.line, 4.2);
   renderInspection();
 
-  if (res.revealed) {
-    if (inspection.verdict === 'counterfeit') {
-      if (inspection.correct()) {
-        completeObjective('counterfeit');
-        award('grain');
-      }
-      toast('COUNTERFEIT', 'warn', 'Somebody in this room sold you a wrapper');
-      setTimeout(() => {
+  const finishInspectionBeat = () => {
+    if (res.revealed) {
+      if (inspection.verdict === 'counterfeit') {
+        if (inspection.correct()) {
+          completeObjective('counterfeit');
+          award('grain');
+        }
+        toast('COUNTERFEIT', 'warn', 'Somebody in this room sold you a wrapper');
         closeInspection();
         if (!S.betrayed) openDialogue('counterfeit');
-      }, 1800);
-    } else {
-      toast('GENUINE RESERVE', '', 'Dark red interior, marbled fat, serialised butcher stamp');
-      if (shipment.grade !== 'genuine') {
-        toast('...OR IS IT', 'warn', 'The sample was real. That is not the same as the shipment');
+      } else {
+        toast('GENUINE RESERVE', '', 'Dark red interior, marbled fat, serialised butcher stamp');
+        if (shipment.grade !== 'genuine') {
+          toast('...OR IS IT', 'warn', 'The sample was real. That is not the same as the shipment');
+        }
       }
     }
-  }
 
-  if (S.heat >= 100 && !S.betrayed) maybeBetray('heat');
+    if (S.heat >= 100 && !S.betrayed) maybeBetray('heat');
+  };
+
+  afterLine(inspectionHold, () => {
+    if (!res.prospect) { finishInspectionBeat(); return; }
+    const prospectHold = say('Prospect', res.prospect, 3.4);
+    afterLine(prospectHold, finishInspectionBeat);
+  });
 }
 
 // ---------- The betrayal ----------
@@ -1609,11 +1642,15 @@ function maybeBetray(trigger) {
   sfx.setMusic('fight');
   sfx.setTension(1);
 
-  say('Rico', 'Bring out the cutting board.', 3.4);
+  const betrayalHold = say('Rico', 'Bring out the cutting board.', 3.4);
   toast('IT IS HAPPENING', 'warn', `Trigger: ${trigger}`);
 
   // The bathroom door opens and the third man walks out
-  setTimeout(() => {
+  afterLine(betrayalHold, () => {
+    // Tony can be put down while Rico's recorded line is still playing. Once
+    // capture has moved the scene past the fight, this reveal is stale: letting
+    // it fire in the bathtub/recovery state dealt an unavoidable surprise hit.
+    if (phase !== 'fight' || S.captured) return;
     openDoor(refs.bathDoor);
     sfx.doorOpen();
     sfx.sliceWhir();
@@ -1628,7 +1665,7 @@ function maybeBetray(trigger) {
         say('Prospect', 'I know. I heard you breathing an hour ago.', 3.2);
       }
     }
-  }, S.reactionBonus ? 1500 : 900);
+  }, S.reactionBonus ? 0.78 : undefined);
 
   // Chino blocks the exit, Rico goes for the money
   if (chino) {
@@ -1658,14 +1695,14 @@ function snowJoins(reason) {
   snow.state = 'follow';
   snow.hp = Math.max(60, snow.hp);
   const barkIdx = Math.floor(Math.random() * SNOW_FIGHT_BARKS.length);
-  say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
+  const entranceHold = say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
   toast('MANNY IS IN', '', `He heard ${reason}`);
   if (!S.windowBroken && !refs.frontDoor.open) breakWindow(true);
   // He brings the crowbar from the trunk — thrown to you if you're
   // empty-handed, kept and visibly wielded if you're not.
   if (S.weapon === 'fists') {
     dropWeaponPickup('crowbar', pos.x + 1.4, pos.z + 0.6);
-    setTimeout(() => say(ALLY, 'Crowbar. Catch it.', 3, cueFor(ALLY, 'crowbar')), 1600);
+    afterLine(entranceHold, () => say(ALLY, 'Crowbar. Catch it.', 3, cueFor(ALLY, 'crowbar')));
   } else {
     snow.equip('crowbar');
   }
@@ -2301,8 +2338,8 @@ function boardGetaway() {
     S.wrongCase = true;
   }
   sfx.carDoor();
-  say(ALLY, 'Tell me that was worth it.', 3.4, cueFor(ALLY, 'boarded'));
-  setTimeout(() => openDialogue('getaway'), 1400);
+  const boardedHold = say(ALLY, 'Tell me that was worth it.', 3.4, cueFor(ALLY, 'boarded'));
+  afterLine(boardedHold, () => { if (phase === 'boarding') openDialogue('getaway'); });
 }
 
 // ---------- Doors ----------
@@ -3012,8 +3049,10 @@ function updateDrive(dt) {
     drive.snowBiteT = 11 + Math.random() * 8;
     freshness.damage(4, 'Snow "checking quality"');
     sfx.chew();
-    say(ALLY, 'Checking quality.', 3, cueFor(ALLY, 'bite'));
-    setTimeout(() => say('Prospect', 'Stop eating the shipment!', 3, cueFor('Prospect', 'bite')), 1500);
+    const qualityHold = say(ALLY, 'Checking quality.', 3, cueFor(ALLY, 'bite'));
+    afterLine(qualityHold, () => {
+      if (phase === 'drive') say('Prospect', 'Stop eating the shipment!', 3, cueFor('Prospect', 'bite'));
+    });
   }
 
   if (S.windowBroken) freshness.damage(dt * 0.55, 'wind over the packages');
@@ -3129,6 +3168,7 @@ function showEnding(kind) {
       ? `<div class="stage">${line}</div>`
       : `<div><span class="who${who === 'Prospect' ? ' prospect' : ''}">${who}</span> — ${line}</div>`
   ).join('');
+  playEndingVoices(lines);
 
   // Achievements
   if (haul && S.packagesIntact >= 8 && freshness.value > 0) award('rareform');
@@ -3183,6 +3223,22 @@ function showEnding(kind) {
   $('end').classList.remove('hidden');
   if (kind === 'home' && haul) setTimeout(() => sfx.bite(), 900);
   sfx.sting();
+}
+
+/* The ending card used to draw its whole exchange without ever touching the
+ * voice bus. Read the character turns in order; stage copy remains silent. */
+let endingVoiceTimer = null;
+function playEndingVoices(lines) {
+  clearTimeout(endingVoiceTimer);
+  const spoken = lines.filter(([who, line]) => motelVoiceCue(who, line));
+  let index = 0;
+  const next = () => {
+    if (index >= spoken.length) return;
+    const [who, line] = spoken[index++];
+    const duration = sfx.voice(motelVoiceCue(who, line));
+    endingVoiceTimer = setTimeout(next, Math.max(2.8, duration + 0.55) * 1000);
+  };
+  next();
 }
 
 // ---------- Ambient life ----------
@@ -3456,6 +3512,7 @@ window.MOTEL = {
   voice: {
     say: (who, line, seconds, cue) => say(who, line, seconds, cue),
     cueFor,
+    cueForLine: motelVoiceCue,
     coverage: () => sfx.voiceCoverage(),
     get requested() { return [...sfx.voiceRequested]; },
     busy: () => sfx.voiceBusy(),

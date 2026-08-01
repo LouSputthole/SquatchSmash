@@ -8,6 +8,18 @@ import { MEMBER_PALETTE, Person } from '../core/person.js';
 import { DebrisSystem } from '../../game/src/debris.js';
 import { Effects } from '../../game/src/effects.js';
 import * as sfx from './audio.js';
+import {
+  SPEECH,
+  Q1_LINES,
+  Q2_LINES,
+  CORRECT_LINES,
+  WRONG_LINES,
+  ENDURED_LINES,
+  ROAR_LINES,
+  ANOINT_LINES,
+  RETRY_LINE,
+  QUIZ_OPTIONS,
+} from './dialogue.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 
 // ============================================================
@@ -83,56 +95,6 @@ const FEATURED = [
 ];
 // Second-row slots for the unnamed members
 const CROWD_ROW2 = [130, 150, 190, 210, 230];
-
-// ---------- Placeholder script — rewrite these lines freely, the
-// flow won't care. Gesture tag 'slam' makes the speaker slam/gesture. ----------
-const SPEECH = [
-  ['BOOSKIBRO', 'Brothers. Sisters. Silverbacks of the Circle.'],
-  ['BOOSKIBRO', 'Before there were bandanas... there was a fire. And before this fire... there were FIVE.', 'slam'],
-  ['BOOSKIBRO', 'Five who walked out of their apartments and into the pines. Five who heard the forest — and answered it.'],
-  ['BOOSKIBRO', 'Tonight, five prospects stand where the five once stood. The forest is watching. I am ALSO watching.', 'slam'],
-  ['BIG UNCLE LOU SPUTTHOLE', 'What Booskibro means is: welcome. This is a family. A large, damp, forest family.', 'slam'],
-  ['BIG UNCLE LOU SPUTTHOLE', 'Also — whoever keeps leaving beer cans at the fire pit, knock it off. The raccoons are ORGANIZING.'],
-  ['BOOSKIBRO', 'ENOUGH. Prospects! Your first trial is not of the body... but of the MIND.', 'slam'],
-];
-const Q1_LINES = [
-  ['BOOSKIBRO', 'Prospect One. Step forward.'],
-  ['BOOSKIBRO', 'Who are the FIVE founding members of the Silver Sasquatches?'],
-  ['PROSPECT ONE', 'Oh — uh. Booskibro... Big Uncle Lou... uhh. Bigfoot? Garfield?? ...the GEICO Gecko???'],
-  ['BIG UNCLE LOU SPUTTHOLE', 'Oof.'],
-  ['BOOSKIBRO', 'WRONG.', 'slam'],
-];
-const Q2_LINES = [
-  ['BIG UNCLE LOU SPUTTHOLE', '...Anyway!'],
-  ['BOOSKIBRO', 'Prospect Two. Same question.'],
-  ['BIG UNCLE LOU SPUTTHOLE', 'No pressure. Well. Some pressure. A specific, recently demonstrated amount of pressure.'],
-];
-const CORRECT_LINES = [
-  ['BOOSKIBRO', 'CORRECT. Myself. Big Uncle Lou Sputthole. Rippinflow. The Shubenator. Deathmegatron. The FIVE.', 'slam'],
-  ['BIG UNCLE LOU SPUTTHOLE', 'Somebody did the reading!'],
-  ['BOOSKIBRO', 'The mind is sharp. Now we test the BODY. Clear the line — THE GAUNTLET AWAITS.', 'slam'],
-];
-const WRONG_LINES = [
-  ['BOOSKIBRO', 'WRONG.', 'slam'],
-  ['BIG UNCLE LOU SPUTTHOLE', 'Oh no. Same as the last guy. Word for word almost.'],
-];
-const ENDURED_LINES = [
-  ['BOOSKIBRO', 'ENOUGH.'],
-  ['BOOSKIBRO', 'Beaten down to a stump... and still on two feet. The Circle sees you, prospect.'],
-  ['BOOSKIBRO', 'Second trial: THE ROAR. The forest must learn your voice. Let it OUT.'],
-];
-const ROAR_LINES = [
-  ['BOOSKIBRO', 'HA! Birds three ridges over just quit their nests.'],
-  ['BOOSKIBRO', 'Final trial: THE TIMBER. That old deadfall has mocked this clearing long enough. SMASH IT.', 'slam'],
-];
-const ANOINT_LINES = [
-  ['BOOSKIBRO', 'You took the Circle’s fists. You gave the forest your voice. You turned a log into a suggestion.'],
-  ['BOOSKIBRO', 'Tony Squatchtana. You walked into this clearing a prospect.'],
-  ['BOOSKIBRO', 'Walk out a SQUATCH.', 'slam'],
-];
-const RETRY_LINE = [
-  ['BOOSKIBRO', 'The Circle forgives once. Arms DOWN this time, prospect.'],
-];
 
 // ---------- Renderer / scene / bloom ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -804,10 +766,11 @@ let sayAutoT = 0;
 const dialogActive = () => sayQueue.length > 0;
 
 function showCurrentLine() {
-  const [who, text, gesture] = sayQueue[0];
+  const { who, text, gesture, cue } = sayQueue[0];
   speakerEl.textContent = who;
   lineEl.textContent = text;
-  sayAutoT = 3.2 + text.length * 0.03;
+  const voiced = sfx.voice(cue);
+  sayAutoT = Math.max(3.2 + text.length * 0.03, voiced > 0 ? voiced + 0.35 : 0);
   if (gesture === 'slam') {
     (who === 'BIG UNCLE LOU SPUTTHOLE' ? louStage : boosk).startSmash();
     sfx.stomp();
@@ -826,6 +789,7 @@ function advanceSay() {
   if (!dialogActive()) return;
   sayQueue.shift();
   if (sayQueue.length === 0) {
+    sfx.stopVoice();
     dialogEl.classList.remove('show');
     const done = sayDone;
     sayDone = null;
@@ -988,18 +952,13 @@ setTimeout(() => { fadeEl.style.opacity = 0; }, 120);
 
 // ---------- The founders quiz ----------
 const quizEl = $('quiz');
-const QUIZ_OPTIONS = [
-  { text: 'Booskibro, Big Uncle Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron', correct: true },
-  { text: 'Booskibro, Big Uncle Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko', correct: false },
-  { text: 'Booskibro, Snow, Hogmama, Erican, and two raccoons in a coat', correct: false },
-];
-
 function showQuiz() {
   const opts = [...QUIZ_OPTIONS].sort(() => Math.random() - 0.5);
   quizEl.querySelectorAll('.quiz-opt').forEach((btn, i) => {
     btn.innerHTML = `<span class="num">${i + 1}.</span>`;
     btn.appendChild(document.createTextNode(opts[i].text));
     btn.dataset.correct = opts[i].correct ? '1' : '0';
+    btn.dataset.cue = opts[i].cue;
   });
   quizEl.classList.add('show');
 }
@@ -1014,8 +973,11 @@ function chooseAnswer(i) {
   if (!btn) return;
   hideQuiz();
   setPhase('q2_result');
-  if (btn.dataset.correct === '1') {
-    say(CORRECT_LINES, () => {
+  const selected = QUIZ_OPTIONS.find((option) => option.cue === btn.dataset.cue);
+  if (!selected) return;
+  say([selected], () => {
+    if (selected.correct) {
+      say(CORRECT_LINES, () => {
       respondQueue.push(0.2, 0.6);
       // The surviving prospects clear out to the crowd's edge
       for (let i2 = 1; i2 < prospects.length; i2++) {
@@ -1023,9 +985,9 @@ function chooseAnswer(i) {
         p.stepTo = { x: p.home.x * 1.8 + 2, z: -14.5 };
       }
       setPhase('clear_line');
-    });
-  } else {
-    say(WRONG_LINES, () => {
+      });
+    } else {
+      say(WRONG_LINES, () => {
       setPhase('exec_player');
       startExecution({
         getPos: () => player.position,
@@ -1042,8 +1004,9 @@ function chooseAnswer(i) {
           setPhase('failed');
         },
       });
-    });
-  }
+      });
+    }
+  });
 }
 
 quizEl.querySelectorAll('.quiz-opt').forEach((btn) => {
@@ -1914,10 +1877,30 @@ window.INITIATION = {
   smashAction,
   roarAction,
   advanceSay,
+  /** Exercise the real subtitle/audio delivery path without moving the scene. */
+  speakVoiceProbe() {
+    say(RETRY_LINE);
+    return {
+      speaker: speakerEl.textContent,
+      line: lineEl.textContent,
+      cue: RETRY_LINE[0].cue,
+      requested: [...sfx.voiceRequested],
+    };
+  },
+  speakQuizVoiceProbe() {
+    say([QUIZ_OPTIONS[0]]);
+    return {
+      speaker: speakerEl.textContent,
+      line: lineEl.textContent,
+      cue: QUIZ_OPTIONS[0].cue,
+      requested: [...sfx.voiceRequested],
+    };
+  },
   // Jump the ceremony forward for testing
   skipToGauntlet() {
     player.group.position.set(PLAYER_SLOT.x, 0, PLAYER_SLOT.z);
     spotMark.visible = false;
+    sfx.stopVoice();
     sayQueue = [];
     sayDone = null;
     dialogEl.classList.remove('show');
@@ -1925,6 +1908,7 @@ window.INITIATION = {
     startGauntlet(false);
   },
   skipToInduction() {
+    sfx.stopVoice();
     sayQueue = [];
     sayDone = null;
     dialogEl.classList.remove('show');

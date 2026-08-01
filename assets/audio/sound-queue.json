@@ -945,6 +945,18 @@
       "status": "todo"
     },
     {
+      "id": "campground.ui.goal_complete",
+      "scene": "campground",
+      "category": "ui",
+      "file": "audio/campground/ui/goal_complete.wav",
+      "call": "goalDing",
+      "description": "A Squatch Smash goal completes: brief, bright, and readable over the rampage.",
+      "seconds": 0.8,
+      "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
       "id": "campground.ui.final_frenzy",
       "scene": "campground",
       "category": "ui",
@@ -965,6 +977,30 @@
       "description": "End-of-run sting.",
       "seconds": 2,
       "variations": 1,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.boss.boss_hit",
+      "scene": "campground",
+      "category": "boss",
+      "file": "audio/campground/boss/boss_hit.wav",
+      "call": "bossHit",
+      "description": "A ranger captain takes a full sasquatch hit without losing the fight.",
+      "seconds": 0.7,
+      "variations": 3,
+      "loop": false,
+      "status": "todo"
+    },
+    {
+      "id": "campground.boss.boss_down",
+      "scene": "campground",
+      "category": "boss",
+      "file": "audio/campground/boss/boss_down.wav",
+      "call": "bossDown",
+      "description": "The ranger captain finally drops: armour, body, and a short victory accent.",
+      "seconds": 1.4,
+      "variations": 2,
       "loop": false,
       "status": "todo"
     }
@@ -1092,75 +1128,75 @@
   ],
   "voice": [
     {
-      "id": "vo.manny.room_twelve_they_show_the_meat_first_you_show_th",
-      "speaker": "Manny",
-      "line": "Room twelve. They show the meat first. You show the money second.",
-      "context": "dialogue node \"mannyBrief\" — prompt",
-      "file": "audio/motel/voice/manny/room_twelve_they_show_the_meat_first_you_show_th.wav",
+      "id": "vo.snow.room_twelve_meat_first_money_second",
+      "speaker": "Snow",
+      "line": "Room twelve. Meat first. Money second.",
+      "context": "dialogue node \"snowBrief\" — prompt",
+      "file": "audio/motel/voice/snow/room_twelve_meat_first_money_second.wav",
       "status": "todo"
     },
     {
       "id": "vo.prospect.that_is_how_business_works",
       "speaker": "Prospect",
       "line": "That is how business works.",
-      "context": "dialogue node \"mannyBrief\" — calm answer",
+      "context": "dialogue node \"snowBrief\" — calm answer",
       "file": "audio/motel/voice/prospect/that_is_how_business_works.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.good_business_not_opera",
-      "speaker": "Manny",
+      "id": "vo.snow.good_business_not_opera",
+      "speaker": "Snow",
       "line": "Good. Business. Not opera.",
-      "context": "dialogue node \"mannyBrief\" — reply to calm",
-      "file": "audio/motel/voice/manny/good_business_not_opera.wav",
+      "context": "dialogue node \"snowBrief\" — reply to calm",
+      "file": "audio/motel/voice/snow/good_business_not_opera.wav",
       "status": "todo"
     },
     {
       "id": "vo.prospect.if_they_waste_my_time_they_lose_more_than_jerky",
       "speaker": "Prospect",
       "line": "If they waste my time, they lose more than jerky.",
-      "context": "dialogue node \"mannyBrief\" — threat answer",
+      "context": "dialogue node \"snowBrief\" — threat answer",
       "file": "audio/motel/voice/prospect/if_they_waste_my_time_they_lose_more_than_jerky.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.prospect_we_buy_the_meat_we_leave_no_speeches",
-      "speaker": "Manny",
-      "line": "Prospect. We buy the meat, we leave. No speeches.",
-      "context": "dialogue node \"mannyBrief\" — reply to threat",
-      "file": "audio/motel/voice/manny/prospect_we_buy_the_meat_we_leave_no_speeches.wav",
+      "id": "vo.snow.buy_leave_no_speeches",
+      "speaker": "Snow",
+      "line": "Buy. Leave. No speeches.",
+      "context": "dialogue node \"snowBrief\" — reply to threat",
+      "file": "audio/motel/voice/snow/buy_leave_no_speeches.wav",
       "status": "todo"
     },
     {
       "id": "vo.prospect.this_motel_smells_like_boiled_carpet",
       "speaker": "Prospect",
       "line": "This motel smells like boiled carpet.",
-      "context": "dialogue node \"mannyBrief\" — insult answer",
+      "context": "dialogue node \"snowBrief\" — insult answer",
       "file": "audio/motel/voice/prospect/this_motel_smells_like_boiled_carpet.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.that_is_the_pool_nobody_has_drained_it_since_the",
-      "speaker": "Manny",
-      "line": "That is the pool. Nobody has drained it since the eighties.",
-      "context": "dialogue node \"mannyBrief\" — reply to insult",
-      "file": "audio/motel/voice/manny/that_is_the_pool_nobody_has_drained_it_since_the.wav",
+      "id": "vo.snow.the_pool_nobody_drained_it_since_the_eighties",
+      "speaker": "Snow",
+      "line": "The pool. Nobody drained it since the eighties.",
+      "context": "dialogue node \"snowBrief\" — reply to insult",
+      "file": "audio/motel/voice/snow/the_pool_nobody_drained_it_since_the_eighties.wav",
       "status": "todo"
     },
     {
       "id": "vo.prospect.if_the_grain_runs_sideways_we_walk",
       "speaker": "Prospect",
       "line": "If the grain runs sideways, we walk.",
-      "context": "dialogue node \"mannyBrief\" — expert answer",
+      "context": "dialogue node \"snowBrief\" — expert answer",
       "file": "audio/motel/voice/prospect/if_the_grain_runs_sideways_we_walk.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.if_the_grain_runs_sideways_i_am_already_driving",
-      "speaker": "Manny",
-      "line": "If the grain runs sideways I am already driving.",
-      "context": "dialogue node \"mannyBrief\" — reply to expert",
-      "file": "audio/motel/voice/manny/if_the_grain_runs_sideways_i_am_already_driving.wav",
+      "id": "vo.snow.grain_runs_sideways_i_am_driving",
+      "speaker": "Snow",
+      "line": "Grain runs sideways, I am driving.",
+      "context": "dialogue node \"snowBrief\" — reply to expert",
+      "file": "audio/motel/voice/snow/grain_runs_sideways_i_am_driving.wav",
       "status": "todo"
     },
     {
@@ -1412,11 +1448,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.prospect.manny_stays_say_the_next_part_carefully",
+      "id": "vo.prospect.snow_stays_say_the_next_part_carefully",
       "speaker": "Prospect",
-      "line": "Manny stays. Say the next part carefully.",
+      "line": "Snow stays. Say the next part carefully.",
       "context": "dialogue node \"ricoOffer\" — calm answer",
-      "file": "audio/motel/voice/prospect/manny_stays_say_the_next_part_carefully.wav",
+      "file": "audio/motel/voice/prospect/snow_stays_say_the_next_part_carefully.wav",
       "status": "todo"
     },
     {
@@ -1476,11 +1512,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.manny.tell_me_that_was_worth_it",
-      "speaker": "Manny",
+      "id": "vo.snow.tell_me_that_was_worth_it",
+      "speaker": "Snow",
       "line": "Tell me that was worth it.",
       "context": "dialogue node \"getaway\" — prompt",
-      "file": "audio/motel/voice/manny/tell_me_that_was_worth_it.wav",
+      "file": "audio/motel/voice/snow/tell_me_that_was_worth_it.wav",
       "status": "todo"
     },
     {
@@ -1492,11 +1528,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.manny.then_we_are_rich_and_i_am_shaking_for_no_reason",
-      "speaker": "Manny",
-      "line": "Then we are rich and I am shaking for no reason.",
+      "id": "vo.snow.then_we_are_rich_i_am_still_shaking",
+      "speaker": "Snow",
+      "line": "Then we are rich. I am still shaking.",
       "context": "dialogue node \"getaway\" — reply to calm",
-      "file": "audio/motel/voice/manny/then_we_are_rich_and_i_am_shaking_for_no_reason.wav",
+      "file": "audio/motel/voice/snow/then_we_are_rich_i_am_still_shaking.wav",
       "status": "todo"
     },
     {
@@ -1508,11 +1544,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.manny.driving_driving",
-      "speaker": "Manny",
+      "id": "vo.snow.driving_driving",
+      "speaker": "Snow",
       "line": "Driving. Driving.",
       "context": "dialogue node \"getaway\" — reply to threat",
-      "file": "audio/motel/voice/manny/driving_driving.wav",
+      "file": "audio/motel/voice/snow/driving_driving.wav",
       "status": "todo"
     },
     {
@@ -1524,11 +1560,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.manny.i_parked_facing_the_exit_the_building_was_an_acc",
-      "speaker": "Manny",
-      "line": "I parked facing the exit. The building was an accident.",
+      "id": "vo.snow.i_parked_facing_the_exit_mostly",
+      "speaker": "Snow",
+      "line": "I parked facing the exit. Mostly.",
       "context": "dialogue node \"getaway\" — reply to insult",
-      "file": "audio/motel/voice/manny/i_parked_facing_the_exit_the_building_was_an_acc.wav",
+      "file": "audio/motel/voice/snow/i_parked_facing_the_exit_mostly.wav",
       "status": "todo"
     },
     {
@@ -1540,11 +1576,11 @@
       "status": "todo"
     },
     {
-      "id": "vo.manny.humidity_touched_all_of_us_tonight",
-      "speaker": "Manny",
-      "line": "Humidity touched all of us tonight.",
+      "id": "vo.snow.humidity_touched_everything_tonight",
+      "speaker": "Snow",
+      "line": "Humidity touched everything tonight.",
       "context": "dialogue node \"getaway\" — reply to expert",
-      "file": "audio/motel/voice/manny/humidity_touched_all_of_us_tonight.wav",
+      "file": "audio/motel/voice/snow/humidity_touched_everything_tonight.wav",
       "status": "todo"
     },
     {
@@ -1724,35 +1760,43 @@
       "status": "todo"
     },
     {
-      "id": "vo.manny.there_is_a_second_car_running_out_here_nobody_is",
-      "speaker": "Manny",
-      "line": "There is a second car running out here. Nobody is in the front seat.",
-      "context": "ambient Manny bark in the lot",
-      "file": "audio/motel/voice/manny/there_is_a_second_car_running_out_here_nobody_is.wav",
+      "id": "vo.snow.buy_the_meat_leave_no_speeches",
+      "speaker": "Snow",
+      "line": "Buy the meat. Leave. No speeches.",
+      "context": "ambient Snow bark in the lot",
+      "file": "audio/motel/voice/snow/buy_the_meat_leave_no_speeches.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.i_do_not_like_the_upstairs_somebody_keeps_not_lo",
-      "speaker": "Manny",
-      "line": "I do not like the upstairs. Somebody keeps not looking at me.",
-      "context": "ambient Manny bark in the lot",
-      "file": "audio/motel/voice/manny/i_do_not_like_the_upstairs_somebody_keeps_not_lo.wav",
+      "id": "vo.snow.second_car_running_nobody_in_it",
+      "speaker": "Snow",
+      "line": "Second car. Running. Nobody in it.",
+      "context": "ambient Snow bark in the lot",
+      "file": "audio/motel/voice/snow/second_car_running_nobody_in_it.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.two_minutes_and_i_start_honking",
-      "speaker": "Manny",
-      "line": "Two minutes and I start honking.",
-      "context": "ambient Manny bark in the lot",
-      "file": "audio/motel/voice/manny/two_minutes_and_i_start_honking.wav",
+      "id": "vo.snow.the_upstairs_somebody_keeps_not_looking_at_me",
+      "speaker": "Snow",
+      "line": "The upstairs. Somebody keeps not looking at me.",
+      "context": "ambient Snow bark in the lot",
+      "file": "audio/motel/voice/snow/the_upstairs_somebody_keeps_not_looking_at_me.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.if_they_show_you_one_package_ask_for_the_case",
-      "speaker": "Manny",
-      "line": "If they show you one package, ask for the case.",
-      "context": "ambient Manny bark in the lot",
-      "file": "audio/motel/voice/manny/if_they_show_you_one_package_ask_for_the_case.wav",
+      "id": "vo.snow.two_minutes_then_i_honk",
+      "speaker": "Snow",
+      "line": "Two minutes. Then I honk.",
+      "context": "ambient Snow bark in the lot",
+      "file": "audio/motel/voice/snow/two_minutes_then_i_honk.wav",
+      "status": "todo"
+    },
+    {
+      "id": "vo.snow.one_package_ask_for_the_case",
+      "speaker": "Snow",
+      "line": "One package? Ask for the case.",
+      "context": "ambient Snow bark in the lot",
+      "file": "audio/motel/voice/snow/one_package_ask_for_the_case.wav",
       "status": "todo"
     },
     {
@@ -1796,51 +1840,51 @@
       "status": "todo"
     },
     {
-      "id": "vo.manny.which_case_is_ours",
-      "speaker": "Manny",
+      "id": "vo.snow.which_case_is_ours",
+      "speaker": "Snow",
       "line": "Which case is ours?",
-      "context": "Manny combat bark",
-      "file": "audio/motel/voice/manny/which_case_is_ours.wav",
+      "context": "Snow combat bark",
+      "file": "audio/motel/voice/snow/which_case_is_ours.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.i_am_coming_in_do_not_swing_at_me",
-      "speaker": "Manny",
-      "line": "I am coming in! Do not swing at me!",
-      "context": "Manny combat bark",
-      "file": "audio/motel/voice/manny/i_am_coming_in_do_not_swing_at_me.wav",
+      "id": "vo.snow.coming_in_do_not_swing",
+      "speaker": "Snow",
+      "line": "Coming in. Do not swing.",
+      "context": "Snow combat bark",
+      "file": "audio/motel/voice/snow/coming_in_do_not_swing.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.car_is_running_move",
-      "speaker": "Manny",
+      "id": "vo.snow.car_is_running_move",
+      "speaker": "Snow",
       "line": "Car is running! Move!",
-      "context": "Manny combat bark",
-      "file": "audio/motel/voice/manny/car_is_running_move.wav",
+      "context": "Snow combat bark",
+      "file": "audio/motel/voice/snow/car_is_running_move.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.they_came_from_the_pool_side",
-      "speaker": "Manny",
-      "line": "They came from the pool side!",
-      "context": "Manny combat bark",
-      "file": "audio/motel/voice/manny/they_came_from_the_pool_side.wav",
+      "id": "vo.snow.pool_side",
+      "speaker": "Snow",
+      "line": "Pool side!",
+      "context": "Snow combat bark",
+      "file": "audio/motel/voice/snow/pool_side.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.how_much_of_it_survived",
-      "speaker": "Manny",
-      "line": "How much of it survived?",
+      "id": "vo.snow.how_much_survived",
+      "speaker": "Snow",
+      "line": "How much survived?",
       "context": "closing exchange on the road",
-      "file": "audio/motel/voice/manny/how_much_of_it_survived.wav",
+      "file": "audio/motel/voice/snow/how_much_survived.wav",
       "status": "todo"
     },
     {
-      "id": "vo.manny.well",
-      "speaker": "Manny",
+      "id": "vo.snow.well",
+      "speaker": "Snow",
       "line": "Well?",
       "context": "closing exchange on the road",
-      "file": "audio/motel/voice/manny/well.wav",
+      "file": "audio/motel/voice/snow/well.wav",
       "status": "todo"
     },
     {
@@ -1853,10 +1897,10 @@
     }
   ],
   "counts": {
-    "sfx": 80,
+    "sfx": 83,
     "ambience": 9,
     "music": 4,
-    "voice": 95,
-    "total": 188
+    "voice": 96,
+    "total": 192
   }
 }

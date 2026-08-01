@@ -114,28 +114,31 @@ async function loadVoiceIndex() {
  */
 export function voice(cue, { volume = 0.95 } = {}) {
   if (!cue) return 0;
-  voiceRequested.add(`${VOICE_PREFIX}${cue}`);
+  const fullCue = cue.startsWith(VOICE_PREFIX) ? cue : `${VOICE_PREFIX}${cue}`;
+  voiceRequested.add(fullCue);
+  /* The next subtitle replaces the previous speaker even if this line has no
+   * delivered take yet. */
+  stopVoice();
   if (!ctx || !voiceFiles.size) return 0;
 
-  let bank = voiceBanks.get(cue);
+  let bank = voiceBanks.get(fullCue);
   if (!bank) {
-    const stem = `${VOICE_PREFIX}${cue}.`;
+    const stem = `${fullCue}.`;
     bank = [...voiceFiles].filter((n) => n.startsWith(stem)).sort();
-    voiceBanks.set(cue, bank);
+    voiceBanks.set(fullCue, bank);
   }
   if (!bank.length) return 0;
 
   // Never the same take twice running — that is what makes VO sound canned.
   let pick = bank[(Math.random() * bank.length) | 0];
-  for (let guard = 0; bank.length > 1 && pick === voiceLast.get(cue) && guard < 8; guard++) {
+  for (let guard = 0; bank.length > 1 && pick === voiceLast.get(fullCue) && guard < 8; guard++) {
     pick = bank[(Math.random() * bank.length) | 0];
   }
   const buf = samples.get(pick);
   if (!buf) return 0;
-  voiceLast.set(cue, pick);
+  voiceLast.set(fullCue, pick);
 
   // One voice at a time. Nobody in this motel is a chorus.
-  stopVoice();
   const src = ctx.createBufferSource();
   src.buffer = buf;
   const g = ctx.createGain();
@@ -148,9 +151,11 @@ export function voice(cue, { volume = 0.95 } = {}) {
 }
 
 export function stopVoice() {
-  if (!currentVoice) return;
-  try { currentVoice.stop(); } catch { /* already finished */ }
+  if (currentVoice) {
+    try { currentVoice.stop(); } catch { /* already finished */ }
+  }
   currentVoice = null;
+  if (ctx) voiceUntil = ctx.currentTime;
 }
 
 /** True while somebody is still mid-sentence. */
