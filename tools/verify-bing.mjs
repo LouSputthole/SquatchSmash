@@ -2000,13 +2000,14 @@ check('the ledge is long enough for the radio and the intercom, and both stand o
   office.ledgeLong > 2.4 && office.radioOnLedge && office.intercomOnLedge
     && office.intercomParts >= 16,
   JSON.stringify({ len: office.ledgeLong, r: office.radioOnLedge, i: office.intercomOnLedge }));
-check('the mini fridge is black, detailed and stickered',
-  office.fridgeBlack && office.fridgeStickers >= 2, `${office.fridgeStickers} stickers`);
-check('both fridge stickers are the flat’s real artwork, die-cut, not the drawn stand-in',
-  office.stickerArt.length === 2
+check('the mini fridge is black, detailed and has all three stickers',
+  office.fridgeBlack && office.fridgeStickers >= 3, `${office.fridgeStickers} stickers`);
+check('all three fridge stickers are real artwork, die-cut, not drawn stand-ins',
+  office.stickerArt.length === 3
     && office.stickerArt.every((s) => s.real && s.cut && s.onTheDoor && /\.(png|jpe?g)$/i.test(s.file))
     && office.stickerArt.some((s) => s.slot === 'sticker.fridge' && s.file === 'sticker-pinup.png')
-    && office.stickerArt.some((s) => s.slot === 'crest.round' && s.file === 'logo-crest.png'),
+    && office.stickerArt.some((s) => s.slot === 'crest.round' && s.file === 'logo-crest.png')
+    && office.stickerArt.some((s) => s.slot === 'bing.office.fridge.sticker.toy' && s.file === 'lou-office-fridge-toy.png'),
   JSON.stringify(office.stickerArt));
 check('the filing cabinet has drawer fronts and the corner has a lamp in it',
   office.drawerParts >= 18 && office.floorLamp > 0 && office.floorLamp < 8,
@@ -2123,6 +2124,14 @@ const backOfHouse = await page.evaluate(() => {
   })();
   const dryer = boxOf(b.club.root.getObjectByName('hand-dryer'));
   const body = boxOf(b.club.storeroom.body);
+  const bathroomPicture = b.club.anchors.bathroomPicture;
+  const bathroomPictureBox = boxOf(bathroomPicture);
+  let bathroomPictureArt = null;
+  bathroomPicture.traverse((o) => {
+    if (o.userData?.art?.slot === 'bing.bathroom.anime4') bathroomPictureArt = o;
+  });
+  const bathroomPictureSrc = bathroomPictureArt?.material?.map?.image?.src
+    || bathroomPictureArt?.material?.map?.image?.currentSrc || '';
   return {
     toilets: toilets.length,
     partitions: partitions.length,
@@ -2147,6 +2156,12 @@ const backOfHouse = await page.evaluate(() => {
     bodyInStoreRoom: body.min.x > 5.6 && body.max.x < 13.6 && body.min.z > -15 && body.max.z < -9.6,
     bodyLowProfile: +(body.max.y - body.min.y).toFixed(2),
     powderThere: !!b.club.root.getObjectByName('bathroom-powder'),
+    bathroomPicture: {
+      real: bathroomPictureArt?.userData?.art?.real === true,
+      file: bathroomPictureSrc.split('/').pop(),
+      onNorthWall: bathroomPictureBox.min.x > B.x0 && bathroomPictureBox.max.x < B.x1
+        && bathroomPictureBox.max.z < B.z0 + 0.12 && bathroomPictureBox.min.y > 1.9,
+    },
   };
 });
 check('the men’s room stalls no longer stand inside their own toilets',
@@ -2159,6 +2174,11 @@ check('the basins and the urinals have plumbing on them',
   backOfHouse.basins === 2 && backOfHouse.basinParts >= 24
     && backOfHouse.urinals === 2 && backOfHouse.urinalParts >= 16,
   JSON.stringify({ b: backOfHouse.basinParts, u: backOfHouse.urinalParts }));
+check('the supplied bathroom print is framed high on the wall',
+  backOfHouse.bathroomPicture.real
+    && backOfHouse.bathroomPicture.file === 'bing-bathroom-anime4.jpg'
+    && backOfHouse.bathroomPicture.onNorthWall,
+  JSON.stringify(backOfHouse.bathroomPicture));
 check('there is a man under a tarpaulin in the store room, and he is lying down',
   backOfHouse.bodyInStoreRoom && backOfHouse.bodyLowProfile < 0.5,
   JSON.stringify(backOfHouse.bodyLowProfile));

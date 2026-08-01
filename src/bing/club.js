@@ -1371,6 +1371,19 @@ export function buildClub(scene, { renderer } = {}) {
     solid(B.x0 + 0.3, B.z0 + 0.1, B.x0 + 4.05, B.z0 + 1.6, 0, 2.0);
     add(box({ size: [0.06, 1.9, 1.5], pos: [B.x0 + 4.0, 1.0, B.z0 + 0.9], mat: mat({ color: 0x25302f, roughness: 0.8 }) }));
 
+    // A framed bathroom print, high enough to clear the stall partitions and
+    // set into the north wall rather than floating in the tiled room.
+    const bathroomPicture = makeFrame(M, {
+      x: B.x0 + 4.7, y: 2.22, z: B.z0 + 0.026, rotY: 0, w: 0.50, h: 0.38,
+      texture: printed('bing-bathroom-print-placeholder', ['BADA BING', 'BATHROOM'], {
+        w: 512, h: 384, bg: '#201824', fg: '#e4d3dc', font: '800 38px "Trebuchet MS", sans-serif',
+      }),
+      tint: 0x4a3324,
+    });
+    artSticker(bathroomPicture.art, 'bing.bathroom.anime4', 0.50);
+    add(bathroomPicture);
+    anchors.bathroomPicture = bathroomPicture.group;
+
     const tube = box({ size: [1.6, 0.07, 0.15], pos: [bx, CEIL_BACK - 0.1, 0.6], mat: lit(0xd8f0e8, 2.0), cast: false });
     add(tube);
     const bl = new THREE.PointLight(0xd0e8e0, 10, 9, 2);
@@ -1828,18 +1841,10 @@ export function buildClub(scene, { renderer } = {}) {
           fridge.add(cylinder({ r: 0.022, h: 0.04, pos: [sx * 0.22, 0.02, sz * 0.2], mat: seam }));
         }
       }
-      /* The stickers. Somebody's name, and the house.
-       *
-       * Both are the flat's own artwork rather than a second drawing of it,
-       * pulled through assets/art/manifest.json by the slot the image already
-       * belongs to: TAMMY is `sticker.fridge`, the die-cut pin-up that has
-       * been on Tony's own fridge door since before he lived there, and the
-       * mark under it is `crest.round`, the crest off his shelf. Same file,
-       * same sticker, two buildings.
-       *
-       * The lettered and drawn versions below are the fallback the art system
-       * guarantees: a slot whose file is missing keeps what it was built with,
-       * so a deleted PNG is a plainer sticker and never a bare fridge door. */
+      /* Three real, die-cut stickers dress Lou's office fridge. TAMMY and the
+       * crest reuse apartment art; the third is office-specific. Each travels
+       * through assets/art/manifest.json, while the built-in drawing remains a
+       * safe fallback if a PNG is missing so the fridge never becomes bare. */
       const tammy = artSticker(sign(printed('fridge-tammy', ['TAMMY'], {
         w: 256, h: 128, bg: '#e8d84a', fg: '#2a1a10', font: '900 62px "Trebuchet MS", sans-serif', rotate: -0.09,
       }), 0.2, 0.1, { x: 0.09, y: 0.62, z: 0.3 }), 'sticker.fridge', 0.2, -0.09);
@@ -1848,7 +1853,12 @@ export function buildClub(scene, { renderer } = {}) {
         0.15, 0.15, { x: 0.05, y: 0.34, z: 0.3 }), 'crest.round', 0.17, 0.14);
       mark.rotation.z = 0.14;
       fridge.add(mark);
-      office.fridgeStickers = { tammy, mark };
+      const officeToyFallback = sign(printed('fridge-office-toy', ['LOU\'S', 'STICKER'], {
+        w: 192, h: 192, bg: '#2e2232', fg: '#edd7dc', font: '800 30px "Trebuchet MS", sans-serif',
+      }), 0.15, 0.15, { x: -0.09, y: 0.54, z: 0.3 });
+      const officeToy = artSticker(officeToyFallback, 'bing.office.fridge.sticker.toy', 0.15, -0.06);
+      fridge.add(officeToy);
+      office.fridgeStickers = { tammy, mark, officeToy };
       fridge.position.set(fx, 0, fz);
       /* Door into the ROOM. It stands against the north wall, and every part
        * of it that is worth building -- the seam, the handle, the stickers --

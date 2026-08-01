@@ -366,6 +366,18 @@
       "file": "logo-shield.jpg",
       "title": "Silver Sasquatches shield",
       "caption": "The apartment wall mark, framed in the Bing."
+    },
+    {
+      "slot": "bing.office.fridge.sticker.toy",
+      "file": "lou-office-fridge-toy.png",
+      "title": "Lou's office sticker",
+      "caption": "A die-cut sticker on the office mini fridge."
+    },
+    {
+      "slot": "bing.bathroom.anime4",
+      "file": "bing-bathroom-anime4.jpg",
+      "title": "Bada Bing bathroom print",
+      "caption": "A framed print high on the bathroom wall."
     }
   ]
 }
