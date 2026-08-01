@@ -214,11 +214,11 @@ try {
       && familyArt.coast.file === 'squatchfather-coast-squatch.png'
       && familyArt.coast.width >= 3.8,
     JSON.stringify(familyArt.coast));
-  check('the eleven supplied Family portraits replace Squatchfather filler art',
-    familyArt.portraits.length === 11
+  check('the twelve supplied Family portraits replace Squatchfather filler art',
+    familyArt.portraits.length === 12
       && familyArt.portraits.every((portrait) => portrait.real)
       && familyArt.portraits.map((portrait) => portrait.file).join(',')
-        === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp',
+        === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp,family-portrait-deathmegatron.webp',
     JSON.stringify(familyArt.portraits));
   check('the direct preview exposes a playable start button',
     await previewPage.locator('#startBtn').isVisible()

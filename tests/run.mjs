@@ -7,6 +7,7 @@ const TEST_MODULES = [
   './fresh-save-campaign-route.test.mjs',
   './daynight.test.mjs',
   './characters.test.mjs',
+  './bing-family.test.mjs',
   './initiation-canon.test.mjs',
   './initiation-voice.test.mjs',
   './motel-voice.test.mjs',

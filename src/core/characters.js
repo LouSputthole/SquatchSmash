@@ -103,7 +103,7 @@ export const CHARACTER_REGISTRY = Object.freeze({
   }),
   /* The rest of the Family, one record per row of the owner's locked sheet
    * (docs/VOICE-CASTING.md). Voice profiles are the manifest's `voices` keys;
-   * aliases carry the spellings other assets already use — `erican` is Eric's
+   * aliases carry spellings older assets already use — `erican` is Ericran's
    * face photo, `shubes` is the Shubenator's, `stove` is the cue slug. */
   [CHARACTER_IDS.LAG]: character({
     id: CHARACTER_IDS.LAG,
@@ -123,12 +123,12 @@ export const CHARACTER_REGISTRY = Object.freeze({
   }),
   [CHARACTER_IDS.ERIC]: character({
     id: CHARACTER_IDS.ERIC,
-    canonicalName: 'Eric',
-    subtitleName: 'Eric',
+    canonicalName: 'Ericran',
+    subtitleName: 'Ericran',
     voiceProfile: 'eric',
     species: 'human',
     role: 'family_member',
-    legacyAliases: ['erican'],
+    legacyAliases: ['ericran', 'erican'],
   }),
   [CHARACTER_IDS.HOG_MAMA]: character({
     id: CHARACTER_IDS.HOG_MAMA,

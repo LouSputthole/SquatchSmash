@@ -39,6 +39,7 @@ test('approved story names and aliases resolve without merging the two Lous', ()
   assert.equal(resolveCharacterId('lou_sputthole'), CHARACTER_IDS.LOU);
   assert.equal(resolveCharacterId('sasole'), CHARACTER_IDS.CAPTAIN_LOU_SASOLE);
   assert.equal(resolveCharacterId('booskibro'), CHARACTER_IDS.BOOSKI);
+  assert.equal(resolveCharacterId('ericran'), CHARACTER_IDS.ERIC);
 
   assert.notEqual(resolveCharacterId('lou1'), resolveCharacterId('lou2'));
   assert.notEqual(voiceProfileFor(CHARACTER_IDS.LOU), voiceProfileFor(CHARACTER_IDS.CAPTAIN_LOU_SASOLE));
@@ -60,6 +61,8 @@ test('approved story names and aliases resolve without merging the two Lous', ()
 
   assert.equal(getCharacter(CHARACTER_IDS.PROSPECT).subtitleName, 'Prospect');
   assert.equal(getCharacter(CHARACTER_IDS.BOOSKI).subtitleName, 'Booskibro');
+  assert.equal(getCharacter(CHARACTER_IDS.ERIC).canonicalName, 'Ericran');
+  assert.equal(getCharacter(CHARACTER_IDS.ERIC).subtitleName, 'Ericran');
 });
 
 test('rejected and unknown character names do not silently become canon', () => {

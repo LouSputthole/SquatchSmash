@@ -82,7 +82,7 @@ export const RETRY_LINE = CEREMONY_BEATS.retry;
 export const QUIZ_OPTIONS = Object.freeze([
   ['Booskibro, Big Uncle Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron', true],
   ['Booskibro, Big Uncle Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko', false],
-  ['Booskibro, Snow, Hogmama, Erican, and two raccoons in a coat', false],
+  ['Booskibro, Snow, Hogmama, Ericran, and two raccoons in a coat', false],
 ].map(([text, correct]) => initiationVoiceLine({
   /* Quiz answers are part of the live ceremony preload bank. */
   scope: 'ceremony',

@@ -88,7 +88,7 @@ const FEATURED = [
   { name: 'DEATHMEGATRON', face: 'assets/faces/deathmegatron.png', shirt: 0x9aa0ab, angle: 140, r: 5.5 },
   { name: 'RIPPINFLOW', face: 'assets/faces/rippinflow.png', shirt: 0x2f62d9, angle: 160, r: 5.5 },
   { name: 'SNOW', face: 'assets/faces/snow.png', shirt: 0xf0f0ec, angle: 180, r: 5.5 },
-  { name: 'ERICAN', face: 'assets/faces/erican.png', shirt: 0xe8e4d4, angle: 200, r: 5.5 },
+  { name: 'ERICRAN', face: 'assets/faces/erican.png', shirt: 0xe8e4d4, angle: 200, r: 5.5 },
   { name: 'HOGMAMA', face: 'assets/faces/hogmama.png', shirt: 0x3a3a44, angle: 220, r: 5.5 },
   { name: 'GRATIN', face: 'assets/faces/gratin.png', shirt: 0x5a4a6e, angle: 240, r: 5.5 },
   { name: 'CAPTAIN LOU SASOLE', face: 'assets/faces/sasole.png', shirt: 0x2e3a5e, angle: 170, r: 8.3 },

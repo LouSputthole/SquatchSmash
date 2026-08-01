@@ -4,6 +4,26 @@ Last updated: 2026-08-01
 GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
 Current published checkpoint: current `main` (verify with `git rev-parse origin/main`)
+
+## Family gallery and first-talk follow-up — 2026-08-01
+
+- The supplied DeathMegatron portrait is stored as
+  `assets/art/family-portrait-deathmegatron.webp` and gets a new frame in both
+  the Bada Bing rear hallway and the Squatchfather dining-room gallery. It does
+  not replace any existing portrait.
+- Eric's canonical player-facing name is now **Ericran**. His stable character
+  id and voice profile remain `eric`, while `erican` remains a legacy alias and
+  face filename. The dormant Initiation-party exact-cue speaker slug also stays
+  `erican`, preserving its recorded catalog while the runtime identity is `eric`.
+- The first time Tony talks to Irish during each Bada Bing visit, Irish adds
+  $100 to the scene's real gambling/tip wallet. Re-entering the interaction in
+  that visit cannot award the money again; the conversation then continues
+  into Irish's existing egg story.
+- The Bada Bing exchange authors two Irish gift lines, Tony's food question,
+  and two Ericran chicken-shawarma lines. Renaming Ericran inside the existing
+  spoken Initiation quiz answer also creates one exact replacement Tony cue.
+  All six exact cues remain in the recording backlog until ElevenLabs generates
+  the matching MP3 takes; do not substitute unrelated recordings.
 Live Pages: <https://lousputthole.github.io/SquatchSmash/>
 Canonical integration line: `main`. The recovered playtest, flight, supplied-art,
 campaign-flow, save-migration, and apartment-dressing work has been consolidated

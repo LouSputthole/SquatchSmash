@@ -25,14 +25,14 @@ document is the ledger. `tools/generate-sfx.mjs` gained `--cast <voice,...>`
 |---|---|---|---|---|---|
 | Lag | `lag` *(new)* | `fBD19tfE58bkETeiwUoC` | — | 0 | **MISSING** |
 | Gratin | `gratin` | `UgBBYS2sOqTuMpoF3BR0` | pqHfZKP7… | 13 | `gratin.png` |
-| Eric | `eric` | `A7AUsa1uITCDpK29MG3m` | cjVigY5q… | 13 | `erican.png` |
+| Ericran | `eric` | `A7AUsa1uITCDpK29MG3m` | cjVigY5q… | 15 | `erican.png` |
 | Hog Mama | `hogmama` | `052jzHJceQiZr7ltnY0C` | FGY2WhTY… | 24 | `hogmama.png` |
 | DeathMegatron | `deathmegatron` *(new)* | `bD9maNcCuQQS75DGuteM` | — | 0 | `deathmegatron.png` |
 | Big Uncle Lou Sputthole | `lou` + `lou1` | `M9UAxraM2w5tCjpOaIB0` | bIHbv24M… | 35 | `lou.png` |
 | Booskibro | `booski` | `s2wvuS7SwITYg8dqsJdn` | N2lVS1w4… | 27 | `booski.png` |
 | Captain Lou Sasole | `lou2` | `QzTKubutNn9TjrB7Xb2Q` | TX3LPaxm… | **155** | `sasole.png` |
 | Willy | `willy` *(new)* | `R9EZoy8pXSL8Yh4yxiew` | — | 0 | **MISSING** |
-| Irish | `irish` | `qwaVDEGNsBllYcZO1ZOJ` | JBFqnCBs… | 24 | **MISSING** |
+| Irish | `irish` | `qwaVDEGNsBllYcZO1ZOJ` | JBFqnCBs… | 26 | **MISSING** |
 | Ape | `ape` | `pI7p9goUOVAfkfaP1k9Z` | CwhRBWXz… | 30 | **MISSING** |
 | Old Stove | `old-stove` | `lUTamkMw7gOzZbFIwmq4` | nPczCjzI… | 10 | **MISSING** |
 | Snow | `snow` *(new)* | `OhisAd2u8Q6qSA4xXAAT` | — | 0 | `snow.png` |
@@ -136,9 +136,12 @@ Naming: `vo.bing.hang.<char>.<n>` for hangout lines,
 2. "Sit. Eat something. You look like a prospect who skips lunch, and dead men skip lunch." (6s)
 - Tony: "I ate an egg today, actually." (3s)
 
-**Eric** (`eric`)
+**Ericran** (`eric`)
 1. "Big things happening overseas, Prospect. Nobody in this club reads. I read. Ask me anything." (6s)
 2. "Off the record? The family's press situation is terrible, because we shoot the press." (6s)
+3. "The chicken shawarma nearby is unbelievable. Best thing within walking distance, and I have checked repeatedly." (6s)
+4. "Garlic sauce, pickles, crispy edges. That rotating spit has done more for this neighborhood than local government." (6s)
+- Tony: "What should I eat nearby?"
 
 **Hog Mama** (`hogmama`)
 1. "Gimme a word, baby. Any word. I'll make a whole bit out of it, right here, no net." (6s)
@@ -167,8 +170,10 @@ Naming: `vo.bing.hang.<char>.<n>` for hangout lines,
 2. "You want my seat? It's the best seat. That's why I'm in it. I test 'em all after close." (5.5s)
 
 **Irish** (`irish`)
-1. "Sit down, sit down — I was just gettin' to the good part. So the egg, right, the SAME egg—" (6s)
-2. "Nobody finishes a story anymore. Attention spans. Now — where was I. Start over. So. Eggs." (6s)
+1. "Before you say anything — here. One hundred dollars. I had it earmarked for eggs, but you look like a developing situation." (7s)
+2. "A man should have walking-around money. Also, now you are financially invested in hearing the egg story." (6s)
+3. "Sit down, sit down — I was just gettin' to the good part. So the egg, right, the SAME egg—" (6s)
+4. "Nobody finishes a story anymore. Attention spans. Now — where was I. Start over. So. Eggs." (6s)
 - Tony: "You told me the egg one, Irish." (2.5s)
 
 **Ape** (`ape`)

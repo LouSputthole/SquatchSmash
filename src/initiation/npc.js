@@ -30,7 +30,7 @@ export const ARCHETYPE = {
   MUSCLE: 'MUSCLE',         // Deathmegatron — communicates in nods and headlocks
   MATRIARCH: 'MATRIARCH',   // Hog Mama — runs logistics on everything, incl. the bodies
   GRIEVANCE: 'GRIEVANCE',   // Irish — permanently mid-complaint about procedure
-  UTILITY: 'UTILITY',       // Erican / Gratin / Sasole / Snow — background, lighter bank
+  UTILITY: 'UTILITY',       // Ericran / Gratin / Sasole / Snow — background, lighter bank
 };
 
 // ---------- The roster ----------
@@ -46,7 +46,7 @@ const PARTY_VOICE = Object.freeze({
   hogmama: 'hogmama',
   ape: 'ape',
   irish: 'irish',
-  erican: 'eric',
+  eric: 'eric',
   gratin: 'gratin',
   captain_lou_sasole: 'lou2',
   snow: 'snow',
@@ -68,7 +68,7 @@ export const ROSTER = [
   circleMember({ id: 'hogmama', name: 'HOG MAMA', archetype: ARCHETYPE.MATRIARCH, face: 'assets/faces/hogmama.png', seat: 'fire' }),
   circleMember({ id: 'ape', name: 'APE', archetype: ARCHETYPE.ROASTER, face: null, seat: 'keg' }),
   circleMember({ id: 'irish', name: 'IRISH', archetype: ARCHETYPE.GRIEVANCE, face: null, seat: 'fire' }),
-  circleMember({ id: 'erican', name: 'ERICAN', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/erican.png', seat: 'fire' }),
+  circleMember({ id: 'eric', name: 'ERICRAN', voiceCueId: 'erican', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/erican.png', seat: 'fire' }),
   circleMember({ id: 'gratin', name: 'GRATIN', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/gratin.png', seat: 'bong' }),
   circleMember({ id: 'captain_lou_sasole', name: 'CAPTAIN LOU SASOLE', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/sasole.png', seat: 'keg' }),
   circleMember({ id: 'snow', name: 'SNOW', archetype: ARCHETYPE.UTILITY, face: 'assets/faces/snow.png', seat: 'treeline', executioner: true }),
@@ -260,7 +260,7 @@ function bankFor(member) {
 function voicedPartyLine(member, line) {
   return initiationVoiceLine({
     scope: 'party',
-    speaker: member.id,
+    speaker: member.voiceCueId || member.id,
     voice: member.voice,
     who: member.name,
     text: line.text,
@@ -273,7 +273,7 @@ export function voicedAmbientLine(member, text) {
   }
   return initiationVoiceLine({
     scope: 'ambient',
-    speaker: member.id,
+    speaker: member.voiceCueId || member.id,
     voice: member.voice,
     who: member.name,
     text,

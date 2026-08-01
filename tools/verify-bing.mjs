@@ -1553,18 +1553,18 @@ const bjDeal = await page.evaluate(() => {
 check('the dealer calls the cards in on every deal',
   bjDeal.sayCalls.includes('bing.blackjack.dealer.deal'),
   JSON.stringify(bjDeal.sayCalls));
-await tick(3, 0.2);
 /* Real time, not simulated.
  *
  * The table gives the verdict a one-second floor after the deal patter so
  * the croupier calling the cards in cannot mute the payoff two seconds
  * later -- and that floor is measured on the wall clock, because it is
  * about how the room SOUNDS. tick() steps three simulated seconds in about
- * twenty real milliseconds, so a hand that settles on the deal (a natural)
- * used to land inside the gap and the verdict went unspoken. Wait it out
- * the way a player does.
+ * twenty real milliseconds. Wait out the real-time floor before advancing
+ * the cards, so a natural that settles during that first tick reaches the
+ * same verdict path a player hears at normal frame time.
  */
 await page.waitForTimeout(1300);
+await tick(3, 0.2);
 await page.evaluate(() => {
   const b = window.__bing;
   if (b.blackjack.state === 'player') b.blackjack.stand();
@@ -2052,6 +2052,8 @@ check('every performer keeps her height, wears real hair, and has her edges take
     'vo.bing.hang.lag.tony.1', 'vo.bing.hang.gratin.tony.1',
     'vo.bing.hang.hogmama.tony.1', 'vo.bing.hang.sasole.tony.1',
     'vo.bing.hang.irish.tony.1', 'vo.bing.booski.shot.tony.1',
+    'vo.bing.hang.eric.shawarma.1', 'vo.bing.hang.eric.shawarma.2',
+    'vo.bing.hang.irish.gift.1', 'vo.bing.hang.irish.gift.2',
   ];
   const unwired = mustBeWired.filter((cue) => !wired.includes(cue));
   const unauthored = wired.filter((cue) => !authored.has(cue));
@@ -2115,6 +2117,30 @@ const tonyLines = await page.evaluate(() => {
 check('every one of Tony’s authored replies plays, and none of them is cut off',
   tonyLines.length === 5 && tonyLines.every((r) => r.picked && r.spoke && r.loaded > 0 && r.uncut),
   JSON.stringify(tonyLines));
+
+const irishGift = await page.evaluate(() => {
+  const b = window.__bing;
+  b.game.irishGifted = false;
+  b.game.money = 340;
+  const node = b.familyScripts.irish.gift;
+  node.enter();
+  const afterFirst = b.game.money;
+  node.enter();
+  return {
+    afterFirst,
+    afterSecond: b.game.money,
+    gifted: b.game.irishGifted,
+    cue: node.cue,
+    continuesTo: b.familyScripts.irish.giftReason.next,
+  };
+});
+check('Irish gives exactly $100 on the first conversation of each Bing visit',
+  irishGift.afterFirst === 440
+    && irishGift.afterSecond === 440
+    && irishGift.gifted
+    && irishGift.cue === 'vo.bing.hang.irish.gift.1'
+    && irishGift.continuesTo === 'open',
+  JSON.stringify(irishGift));
 
 /* ---- 11, 12: the bottom of the screen ---- */
 const talkUi = await page.evaluate(async () => {
@@ -2188,11 +2214,11 @@ const hallwayGallery = await page.evaluate(async () => {
     };
   });
 });
-check('the eleven supplied Family portraits make the rear-hall gallery to Lou’s office',
-  hallwayGallery.length === 11
+check('the twelve supplied Family portraits make the rear-hall gallery to Lou’s office',
+  hallwayGallery.length === 12
     && hallwayGallery.every((portrait) => portrait.real && portrait.wallBound)
     && hallwayGallery.map((portrait) => portrait.file).join(',')
-      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp',
+      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp,family-portrait-deathmegatron.webp',
   JSON.stringify(hallwayGallery));
 
 /* ---- 14 to 21: Lou's office ---- */

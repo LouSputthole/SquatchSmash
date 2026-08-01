@@ -29,7 +29,7 @@ own drunk curve into a different bank.
   or `null` where we haven't cut one yet: Ape and Irish), and a party `seat`.
 - **Archetypes** — `PATRIARCH` (Booskibro), `LIEUTENANT` (Big Uncle Lou), `QUIET`
   (Rippinflow), `ROASTER` (Ape), `CRIER` (Shubes), `MUSCLE` (Deathmegatron),
-  `MATRIARCH` (Hog Mama), `GRIEVANCE` (Irish), `UTILITY` (Erican/Gratin/Captain Lou Sasole/
+  `MATRIARCH` (Hog Mama), `GRIEVANCE` (Irish), `UTILITY` (Ericran/Gratin/Captain Lou Sasole/
   Snow). Snow also carries the executioner specials.
 - **Standing** (−100..100) → tier `stranger / prospect / brother / beloved`,
   **seeded from your initiation run** and nudged up as you work the room.

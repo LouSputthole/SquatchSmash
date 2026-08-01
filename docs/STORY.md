@@ -119,7 +119,7 @@ Garfield?? ...the GEICO Gecko???
 
 **BOOSKIBRO:** WRONG. *(slam)*
 
-*(SNOW hands his beer to ERICAN without being asked. Walks out of the
+*(SNOW hands his beer to ERICRAN without being asked. Walks out of the
 semicircle unhurried, like a man asked to feed a meter. Draws. Eight rounds.
 The first two put Prospect One down; the other six are policy. What's left in
 the rust-colored shirt stops being a person and starts being a warning. The
@@ -135,7 +135,7 @@ demonstrated, still-cooling amount of pressure.
 *(THE QUIZ. Options shuffled:)*
 1. Booskibro, Big Uncle Lou Sputthole, Rippinflow, The Shubenator, Deathmegatron ✓
 2. Booskibro, Big Uncle Lou Sputthole, Bigfoot, Garfield, the GEICO Gecko
-3. Booskibro, Snow, Hogmama, Erican, and two raccoons in a coat
+3. Booskibro, Snow, Hogmama, Ericran, and two raccoons in a coat
 
 **On correct — BOOSKIBRO:** CORRECT. Myself. Big Uncle Lou Sputthole. Rippinflow. The
 Shubenator. Deathmegatron. The FIVE. *(slam)*

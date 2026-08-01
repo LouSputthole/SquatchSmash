@@ -22,6 +22,7 @@ import { createApartmentStory } from '../core/apartment-story.js';
 import { PostFX } from '../core/postfx.js';
 import { Inventory, ITEMS } from '../core/inventory.js';
 import {
+  CHARACTER_IDS,
   EVENT_IDS,
   ITEM_IDS,
   MISSION_IDS,
@@ -256,6 +257,7 @@ const game = {
   stagedOn: false,
   louTalking: false,
   booskiShotDone: false,
+  irishGifted: false,
   beat: null,          // the one scripted camera beat (Booski's shot delivery)
   lastHand: null,      // last blackjack outcome, for the table's voice
   clubRecord: null,    // the actual record selected for this visit's DJ set
@@ -1334,7 +1336,8 @@ function talkTo(npc, tree, at = 'open') {
     onUse: () => {
       npc.faceToward(player.position.x, player.position.z);
       noteSpokeTo(npc);
-      dialogue.start(tree, at, npc, { resume: true });
+      const startAt = typeof at === 'function' ? at() : at;
+      dialogue.start(tree, startAt, npc, { resume: true });
     },
   };
 }
@@ -1395,10 +1398,22 @@ reg(cast.byName.lou.group, {
 const familyScripts = buildFamilyScripts({
   shotDone: () => game.booskiShotDone,
   startShot: () => startShotBeat(),
+  irishGifted: () => game.irishGifted,
+  grantIrishGift: () => {
+    if (game.irishGifted) return false;
+    game.irishGifted = true;
+    addMoney(100);
+    moneyBurst(7);
+    hud.toast('Irish gave you $100', 'good');
+    return true;
+  },
 });
 for (const npc of family.all) {
   const tree = familyScripts[npc.characterId];
-  if (tree) reg(npc.group, talkTo(npc, tree));
+  const startAt = npc.characterId === CHARACTER_IDS.IRISH
+    ? () => (game.irishGifted ? 'open' : 'gift')
+    : 'open';
+  if (tree) reg(npc.group, talkTo(npc, tree, startAt));
 }
 
 /* ---- the office ---- */

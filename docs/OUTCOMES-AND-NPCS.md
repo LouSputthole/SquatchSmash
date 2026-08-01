@@ -299,7 +299,7 @@ down their own curve.
 | **THE MUSCLE** | Deathmegatron | Few words, all physical. Communicates in nods and headlocks. The one who'd have choked you out if you'd failed the Roar, now your biggest fan. | *(a nod. a beer pressed into your hand hard enough to bruise.)* "Voice on this guy." |
 | **THE MATRIARCH** | Hog Mama | Practical, unbothered, has seen worse and cleaned it up. Runs logistics on everything including the murders. | "You eat? There's dogs on the fire. Real ones. Don't make it weird." |
 | **THE GRIEVANCE** | Irish | Always mid-complaint about something procedural and unrelated. Never once addresses the murder or the party directly. | "Nobody has answered my question about the eggs. You're new — *you* answer it. What is the egg situation." |
-| **THE UTILITY** | Erican, Gratin, Captain Lou Sasole, Snow | Background crew, lighter banks, keep the circle populated and drinking. | Toasts, "welcome brother," a story about their own initiation that's clearly worse than yours. |
+| **THE UTILITY** | Ericran, Gratin, Captain Lou Sasole, Snow | Background crew, lighter banks, keep the circle populated and drinking. | Toasts, "welcome brother," a story about their own initiation that's clearly worse than yours. |
 
 ### The reaction rules  *(look-at → line)*
 

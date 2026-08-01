@@ -472,7 +472,7 @@
     {
       "slot": "bing.hallway.eric",
       "file": "family-portrait-eric.webp",
-      "title": "Eric",
+      "title": "Ericran",
       "caption": "A Family portrait in the rear hall."
     },
     {
@@ -485,6 +485,12 @@
       "slot": "bing.hallway.seff",
       "file": "family-portrait-seff.webp",
       "title": "Seff",
+      "caption": "A Family portrait in the rear hall."
+    },
+    {
+      "slot": "bing.hallway.deathmegatron",
+      "file": "family-portrait-deathmegatron.webp",
+      "title": "DeathMegatron",
       "caption": "A Family portrait in the rear hall."
     },
     {
@@ -514,7 +520,7 @@
     {
       "slot": "squatchfather.portrait.eric",
       "file": "family-portrait-eric.webp",
-      "title": "Eric",
+      "title": "Ericran",
       "caption": "The Family portrait on the dining-room wall."
     },
     {
@@ -527,6 +533,12 @@
       "slot": "squatchfather.portrait.seff",
       "file": "family-portrait-seff.webp",
       "title": "Seff",
+      "caption": "The Family portrait on the dining-room wall."
+    },
+    {
+      "slot": "squatchfather.portrait.deathmegatron",
+      "file": "family-portrait-deathmegatron.webp",
+      "title": "DeathMegatron",
       "caption": "The Family portrait on the dining-room wall."
     }
   ]

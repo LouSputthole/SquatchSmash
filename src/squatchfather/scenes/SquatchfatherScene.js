@@ -52,6 +52,7 @@ export const SQUATCHFATHER_ART_SLOTS = [
   'squatchfather.portrait.eric',
   'squatchfather.portrait.irish',
   'squatchfather.portrait.seff',
+  'squatchfather.portrait.deathmegatron',
 ];
 
 // ---------- Shared caches ----------
@@ -872,6 +873,7 @@ export function buildSquatchfatherScene(scene, renderer) {
     ['squatchfather.portrait.eric', 'family-portrait-eric.webp', 1.25, 5.25],
     ['squatchfather.portrait.irish', 'family-portrait-irish.webp', 1.25, 6.65],
     ['squatchfather.portrait.seff', 'family-portrait-seff.webp', 1.25, 8.05],
+    ['squatchfather.portrait.deathmegatron', 'family-portrait-deathmegatron.webp', 1.25, 9.45],
   ].map(([slot, file, y, z]) => {
     const portrait = framed(T.portrait, 0.46, 0.62, 6.96, y, z, -Math.PI / 2);
     portrait.art.userData.art = { slot, real: false };

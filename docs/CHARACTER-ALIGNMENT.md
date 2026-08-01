@@ -44,7 +44,7 @@ sasquatch after Tony is admitted.
 | `hogmama` | HOG MAMA | `assets/faces/hogmama.png` | Matriarch |
 | `ape` | APE | Face not supplied | Roaster |
 | `irish` | IRISH | Face not supplied | Procedure/grievance voice |
-| `erican` | ERICAN | `assets/faces/erican.png` | Member |
+| `eric` | ERICRAN | `assets/faces/erican.png` | Member |
 | `gratin` | GRATIN | `assets/faces/gratin.png` | Member |
 | `captain_lou_sasole` | CAPTAIN LOU SASOLE | `assets/faces/sasole.png` | Member and airstrip captain |
 | `snow` | SNOW | `assets/faces/snow.png` | Member and executioner |
