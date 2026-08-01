@@ -384,6 +384,11 @@ export class Player {
         this.velocity.set(0, 0, 0);
       }
     }
+    /* Moving or rotated worlds cannot be represented by the axis-aligned
+     * boxes above without turning a thin railing into an enormous diagonal
+     * wall. Scenes that own a moving local frame may resolve the same capsule
+     * in that frame after the ordinary static pass. */
+    this.world.resolvePlayer?.(this, axis, RADIUS);
   }
 
   /** Which floor material the player is standing on (drives footstep cue). */

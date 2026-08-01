@@ -273,14 +273,15 @@ export function makePerson(o = {}) {
    * and the seated pose is measured against the floor. */
   function leg(side) {
     const pivot = group('leg');
+    const legT = t * (1 + gutOn * .12);
     // A little more daylight between the legs than the rounded frame had, or
     // two slabs this close read as one column with a seam down it.
-    pivot.position.set(side * (curvy ? 0.118 : 0.108) * t, 0.90, 0);
-    pivot.add(slab({ name: 'thigh', size: [0.175 * t, 0.44, 0.205 * t], pos: [0, -0.22, 0], mat: trousers }));
+    pivot.position.set(side * (curvy ? 0.118 : 0.108) * legT, 0.90, 0);
+    pivot.add(slab({ name: 'thigh', size: [0.175 * legT, 0.44, 0.205 * legT], pos: [0, -0.22, 0], mat: trousers }));
     const shin = group('shin');
     shin.position.set(0, -0.44, 0);
-    shin.add(slab({ name: 'knee', size: [0.158 * t, 0.11, 0.188 * t], pos: [0, 0, 0], mat: trousers }));
-    shin.add(slab({ name: 'shin', size: [0.15 * t, 0.42, 0.175 * t], pos: [0, -0.21, 0], mat: trousers }));
+    shin.add(slab({ name: 'knee', size: [0.158 * legT, 0.11, 0.188 * legT], pos: [0, 0, 0], mat: trousers }));
+    shin.add(slab({ name: 'shin', size: [0.15 * legT, 0.42, 0.175 * legT], pos: [0, -0.21, 0], mat: trousers }));
     shin.add(box({ size: [0.135, 0.068, 0.29], pos: [0, -0.436, 0.05], mat: shoe }));
     shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: shoe }));
     pivot.add(shin);
@@ -296,7 +297,7 @@ export function makePerson(o = {}) {
    * than as separate lumps. The performers get the hips and the chest pushed
    * out; nobody else does. */
   const hipHalf = (curvy ? 0.205 : 0.155) * t
-    * (build > 1.15 ? 1.06 : 1) * (showgirl ? 1.08 : 1);
+    * (build > 1.15 ? 1.06 : 1) * (showgirl ? 1.08 : 1) * (1 + gutOn * .45);
   const hips = slab({
     name: 'hips',
     size: [hipHalf * 2, (curvy ? 0.14 : 0.105) * 2, (curvy ? D * 1.08 : D * 0.94) * 2],
@@ -312,9 +313,9 @@ export function makePerson(o = {}) {
     size: [
       // Close to the chest on a man so the trunk is one shape; cut in on a
       // woman, where the waist is the line the rest of the figure works from.
-      (curvy ? 0.144 : 0.164) * t * (showgirl ? 0.86 : 1) * 2,
+      (curvy ? 0.144 : 0.164) * t * (showgirl ? 0.86 : 1) * (1 + gutOn * .48) * 2,
       0.135 * 2,
-      D * 0.9 * 2,
+      D * (0.9 + gutOn * .28) * 2,
     ],
     pos: [0, 1.15, lean],
     mat: performanceWear ? skinMat : (dress === 'suit' ? jacket : cloth),
@@ -338,42 +339,23 @@ export function makePerson(o = {}) {
     }));
   }
   /* ---- gut ----
-   * A real belly, general enough for any figure the cast wants one on --
-   * Willy is the first, not the only. `build` thickens the whole frame
-   * evenly and tops out in the modest paunch above; `gut` is a shape on top
-   * of that, sized on its own. One rounded mass, built from `softBox` --
-   * the recent chamfer pass's own language, the one already used for the
-   * stage roles -- because a belly this size in hard-edged boxes reads as a
-   * crate strapped to a man's front rather than the man himself. Coloured in
-   * `cloth`, not skin, so what shows is the shirt stretched over it.
-   *
-   * Kept narrower than the hips and pulled up clear of where a seated thigh
-   * swings to (a seat folds the thigh to roughly horizontal, and its
-   * bounding box then tops out around y=1.01 regardless of build -- this
-   * sits above that with room to spare): a gut that reaches out sideways as
-   * far as it reaches forward stops being a belly and starts being a barrel
-   * and clips the hanging arm beside it, and one built down to knee height
-   * sits inside the thigh the moment the figure takes a chair. Depth is
-   * where a big gut actually reads, so depth is where this spends its size.
-   *
-   * Named so the belly can be measured on its own -- pinned against the
-   * family's other seated men in tools/verify-bing.mjs -- and so an arm can
-   * be checked against it directly rather than against the whole torso,
-   * which an arm is supposed to sit close beside.
+   * A fat man needs volume through his whole middle and one broad, round belly
+   * blended into it. The old shape was only 24 cm wide while projecting nearly
+   * 40 cm forward, so it read exactly like a tube attached to a flat torso.
+   * This ellipsoid spends size in width, height and depth together, overlaps
+   * the widened waist behind it, and keeps the shirt material continuous.
    */
   if (gutOn > 0) {
     const gutMat = dress === 'suit' ? jacket : cloth;
-    const gutW = (0.19 + gutOn * 0.05) * t;               // full width
-    const front = (0.11 + gutOn * 0.27) * t;              // full reach off the centreline
-    const back = (0.03 - gutOn * 0.07) * t;                // sinks into the torso behind it
-    const gutH = 0.22 + Math.min(gutOn, 1.4) * 0.02;       // full height -- not built from `t`,
-                                                            // like the waist and hips above it
-    body.add(softBox({
-      name: 'person.gut.belly',
-      size: [gutW, gutH, front - back],
-      pos: [0, 1.15, lean + (front + back) / 2],
-      mat: gutMat, r: 0.06,
-    }));
+    const belly = sphere({
+      r: (.275 + gutOn * .018) * t,
+      ry: .24 + Math.min(gutOn, 1.5) * .035,
+      rz: (.21 + gutOn * .018) * t,
+      pos: [0, 1.17, lean + .045 + gutOn * .010],
+      mat: gutMat,
+    });
+    belly.name = 'person.gut.belly';
+    body.add(belly);
   }
   /* The ribcage stops above the navel rather than running down to the hips.
    * A chest slab that reaches the waistband hides the waist behind it and the
@@ -381,13 +363,13 @@ export function makePerson(o = {}) {
    * most obviously on the dancers. */
   const torso = slab({
     name: 'ribcage',
-    size: [(curvy ? 0.192 : 0.188) * t * 2, 0.16 * 2, D * 2],
+    size: [(curvy ? 0.192 : 0.188) * t * (1 + gutOn * .32) * 2, 0.16 * 2, D * (1 + gutOn * .22) * 2],
     pos: [0, 1.365, lean],
     mat: performanceWear ? skinMat : cloth,
   });
   body.add(torso);
   // Shoulders: a slab the width of the frame, capped with square deltoids
-  body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
+  body.add(slab({ name: 'shoulders', size: [SH * 2.04 * (1 + gutOn * .16), 0.13, D * (1 + gutOn * .18) * 2.0], pos: [0, 1.465, lean], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
   for (const sx of [-1, 1]) {
     body.add(slab({
       name: 'deltoid',
@@ -701,12 +683,17 @@ export function makePerson(o = {}) {
    */
   function arm(side) {
     const pivot = group('arm');
-    pivot.position.set(side * SH, 1.44, lean);
-    pivot.add(slab({ name: 'upperarm', size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
+    const armT = t * (1 + gutOn * .10);
+    /* A broad middle also needs a broad resting arm line. This is measured
+     * from the belly's widest point plus the upper-arm half width; the old
+     * .13 coefficient left the generic short/heavy build touching the belly
+     * by less than a centimetre even in a neutral stand. */
+    pivot.position.set(side * (SH + gutOn * .15 * t), 1.44, lean);
+    pivot.add(slab({ name: 'upperarm', size: [0.115 * armT, 0.30, 0.125 * armT], pos: [0, -0.15, 0], mat: sleeve }));
     const fore = group('forearm');
     fore.position.set(0, -0.30, 0);
-    fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: sleeve }));
-    fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
+    fore.add(slab({ name: 'elbow', size: [0.105 * armT, 0.10, 0.115 * armT], pos: [0, 0, 0], mat: sleeve }));
+    fore.add(slab({ name: 'forearm', size: [0.10 * armT, 0.27, 0.105 * armT], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
     fore.add(slab({ name: 'hand', size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
     pivot.add(fore);
     pivot.userData.fore = fore;
@@ -1192,16 +1179,15 @@ export class Npc {
       default: {
         this.parts.body.rotation.z = Math.sin(t * 0.4) * 0.018;
         if (this.folded && this.gutted) {
-          /* The same fold, lifted higher: pitching an upper arm forward from
-           * the shoulder drops its far end the LESS forward it goes (an arm
-           * pitched almost flat is almost level with the shoulder; one
-           * pitched only a little hangs almost straight down), so clearing
-           * the belly below takes MORE forward pitch than the ordinary fold
-           * uses, not less, and the crossed forearms come with it. */
-          this.parts.armL.rotation.set(-1.35, 0, 0.5);
-          this.parts.armR.rotation.set(-1.35, 0, -0.5);
-          this.parts.foreL.rotation.set(-1.55, 0.5, 0);
-          this.parts.foreR.rotation.set(-1.55, -0.5, 0);
+          /* A large belly leaves no honest path for the ordinary inward
+           * crossed-arm pose. Bring the elbows forward and slightly OUT,
+           * then fold the forearms back up beside the chest. It keeps the
+           * guarded silhouette without routing either upper arm through the
+           * widest part of the torso. */
+          this.parts.armL.rotation.set(-1.45, 0, -0.34);
+          this.parts.armR.rotation.set(-1.45, 0, 0.34);
+          this.parts.foreL.rotation.set(-1.55, 0, 0);
+          this.parts.foreR.rotation.set(-1.55, 0, 0);
         } else if (this.folded) {
           // Arms crossed: lifted well forward first, so the elbows sit ON the
           // chest and the forearms cross in front of it rather than inside it

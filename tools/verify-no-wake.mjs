@@ -74,6 +74,17 @@ try {
       gut: npc.parts.profile.gut ?? 0,
     }])),
     boatName: window.NO_WAKE.boat.root.name,
+    dimensions: window.NO_WAKE.boat.root.userData.dimensions,
+    detailMeshes: window.NO_WAKE.boat.root.userData.detailMeshes,
+    controls: Object.fromEntries(Object.entries(window.NO_WAKE.boat.controls)
+      .filter(([, value]) => value?.root)
+      .map(([id, value]) => [id, value.root.name])),
+    lines: {
+      bow: window.NO_WAKE.boat.targets.bowLine.userData,
+      stern: window.NO_WAKE.boat.targets.sternLine.userData,
+    },
+    localColliders: window.NO_WAKE.boat.localColliders.length,
+    waterVertices: window.NO_WAKE.world.water.mesh.geometry.attributes.position.count,
     buoyCount: window.NO_WAKE.world.buoys.length,
     preview: Boolean(document.getElementById('squatch-preview-notice')),
   }));
@@ -81,14 +92,104 @@ try {
     boot.phase === 'dock' && boot.mission.status === 'in_progress'
       && boot.scene.id === 'no_wake' && boot.scene.spawn === 'gate_c' && boot.preview,
     JSON.stringify(boot));
-  check('the production world contains the authored cruiser and marked channel',
-    /38-foot cabin cruiser/.test(boot.boatName) && boot.buoyCount >= 10,
-    JSON.stringify({ boat: boot.boatName, buoys: boot.buoyCount }));
+  check('the production world contains the larger detailed cruiser and marked channel',
+    /42-foot cabin cruiser/.test(boot.boatName)
+      && boot.dimensions.length >= 13 && boot.dimensions.beam >= 4.8
+      && boot.detailMeshes >= 150 && boot.buoyCount >= 10,
+    JSON.stringify({ boat: boot.boatName, dimensions: boot.dimensions, details: boot.detailMeshes, buoys: boot.buoyCount }));
+  check('startup controls are modeled objects and both physical dock ropes begin attached',
+    /battery rocker/.test(boot.controls.battery)
+      && /blower push/.test(boot.controls.blower)
+      && /ignition key/.test(boot.controls.ignition)
+      && boot.lines.bow.attached === true && boot.lines.stern.attached === true,
+    JSON.stringify({ controls: boot.controls, lines: boot.lines }));
+  check('railings and deck furniture have local collision while the water has a dense displaced surface',
+    boot.localColliders >= 10 && boot.waterVertices >= 40000,
+    JSON.stringify({ colliders: boot.localColliders, waterVertices: boot.waterVertices }));
   check('stable character identities drive the cast and Willy keeps his permanent belly',
     boot.cast.lou.characterId === 'lou' && boot.cast.booski.characterId === 'booski'
       && boot.cast.willy.characterId === 'willy' && boot.cast.willy.gut >= 1,
     JSON.stringify(boot.cast));
+  const bellyShape = await page.evaluate(() => {
+    let belly = null;
+    window.NO_WAKE.boat.cast.willy.group.traverse((object) => {
+      if (object.name === 'person.gut.belly') belly = object;
+    });
+    belly.geometry.computeBoundingBox();
+    const size = belly.geometry.boundingBox.getSize(new belly.position.constructor());
+    const scale = belly.getWorldScale(new belly.position.constructor());
+    size.multiply(scale);
+    return { width: size.x, height: size.y, depth: size.z };
+  });
+  check('Willy has a broad rounded fat silhouette instead of a narrow forward tube',
+    bellyShape.width > .55 && bellyShape.height > .48 && bellyShape.depth > .48
+      && bellyShape.depth / bellyShape.width < 1.30,
+    JSON.stringify(bellyShape));
+  const armClearance = await page.evaluate(async () => {
+    const game = window.NO_WAKE;
+    const { Npc } = await import('./src/bing/cast.js');
+    const gutBox = (npc) => {
+      let box = null;
+      const Box3 = game.boat.localColliders[0].constructor;
+      npc.group.traverse((object) => {
+        if (!object.isMesh || !/^person\.gut\./.test(object.name)) return;
+        const candidate = new Box3().setFromObject(object);
+        if (!box) box = candidate;
+        else box.union(candidate);
+      });
+      return box;
+    };
+    const clear = (npc) => {
+      npc.group.updateMatrixWorld(true);
+      const belly = gutBox(npc);
+      if (!belly) return true;
+      for (const arm of [npc.parts.armL, npc.parts.armR]) {
+        let clipped = false;
+        arm.traverse((object) => {
+          if (object.isMesh && new belly.constructor().setFromObject(object).intersectsBox(belly)) clipped = true;
+        });
+        if (clipped) return false;
+      }
+      return true;
+    };
+    const willy = game.boat.cast.willy;
+    willy.job = 'stand';
+    willy.folded = true;
+    willy._syncJob(true);
+    for (let i = 0; i < 5; i++) willy.update(1 / 20, null);
+    const willyFolded = clear(willy);
+    willy.folded = false;
+    willy.job = 'sit';
+    willy._syncJob(true);
+
+    const other = new Npc(game.boat.root, {
+      name: 'NO WAKE verifier', tier: 'hero', job: 'stand', x: 40, z: 40,
+      model: { height: 1.62, build: 1.35, gut: 1.2, dress: 'tracksuit' },
+    });
+    for (let i = 0; i < 5; i++) other.update(1 / 20, null);
+    const genericStand = clear(other);
+    other.folded = true;
+    for (let i = 0; i < 5; i++) other.update(1 / 20, null);
+    const genericFolded = clear(other);
+    game.boat.root.remove(other.group);
+    return { willyFolded, genericStand, genericFolded };
+  });
+  check('fat-body arm poses remain outside the rounded belly on Willy and the shared builder',
+    armClearance.willyFolded && armClearance.genericStand && armClearance.genericFolded,
+    JSON.stringify(armClearance));
   await page.screenshot({ path: path.join(shots, 'no-wake-gate-c.png') });
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.player.mode = 'frozen';
+    game.player.position.copy(game.world.fromBoatLocal(
+      new game.player.position.constructor(.62, 2.42, .28),
+    ));
+    game.player.yaw = 0;
+    game.player.pitch = -.18;
+    game.player.update(.016);
+  });
+  await page.waitForTimeout(100);
+  await page.screenshot({ path: path.join(shots, 'no-wake-startup-panel.png') });
 
   const moored = await page.evaluate(() => {
     const b = window.NO_WAKE.physics;
@@ -111,8 +212,45 @@ try {
     checkpoint: window.NO_WAKE.campaignState.missions.no_wake.checkpoint,
   }));
   check('released cruiser accelerates and records the underway checkpoint',
-    underway.phase === 'drive' && underway.distance > 10 && underway.speed > 1
+    underway.phase === 'drive' && underway.distance > 8 && underway.speed > 1
       && underway.checkpoint === 'underway', JSON.stringify(underway));
+
+  const deckRide = await page.evaluate(async () => {
+    const game = window.NO_WAKE;
+    game.physics.speed = .2;
+    game.leaveHelm({ force: true });
+    const before = game.world.toBoatLocal(game.player.position).clone();
+    const startDistance = game.physics.distance;
+    game.physics.speed = 2.2;
+    game.physics.throttle = 1;
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    const after = game.world.toBoatLocal(game.player.position).clone();
+    return {
+      atHelm: game.state.atHelm,
+      throttle: game.physics.throttle,
+      coasted: game.physics.distance - startDistance,
+      localDelta: before.distanceTo(after),
+    };
+  });
+  check('leaving the helm neutralizes propulsion while a coasting deck carries the player with it',
+    deckRide.atHelm === false
+      && Math.abs(deckRide.throttle) < .02
+      && deckRide.coasted > .2
+      && deckRide.localDelta < .08,
+    JSON.stringify(deckRide));
+
+  const railCollision = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const insideRail = new game.world.water.mesh.position.constructor(2.28, 2.68, 2.0);
+    game.player.position.copy(game.world.fromBoatLocal(insideRail));
+    game.world.resolvePlayer(game.player, 'x', .30);
+    return game.world.toBoatLocal(game.player.position).x;
+  });
+  check('the moving-frame collision pass ejects the player from a side railing',
+    railCollision < 2.08 || railCollision > 2.60,
+    JSON.stringify({ resolvedLocalX: railCollision }));
+
+  await page.evaluate(() => window.NO_WAKE.startUnderway());
 
   await page.evaluate(() => window.NO_WAKE.skipDrive());
   await page.waitForTimeout(350);
@@ -153,6 +291,28 @@ try {
     armed.phase === 'ready_to_fire' && armed.playerGun && armed.willyVisible,
     JSON.stringify(armed));
   await page.screenshot({ path: path.join(shots, 'no-wake-execution-ready.png') });
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.state.focus = null;
+    game.player.position.copy(game.world.fromBoatLocal(
+      new game.player.position.constructor(-1.90, 2.44, 3.82),
+    ));
+    game.player.yaw = -1.82;
+    game.player.pitch = -.10;
+    game.player.update(.016);
+  });
+  await page.waitForTimeout(80);
+  await page.screenshot({ path: path.join(shots, 'no-wake-willy-profile.png') });
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.player.position.copy(game.world.fromBoatLocal(
+      new game.player.position.constructor(0, 2.68, 1.72),
+    ));
+    game.player.yaw = game.physics.heading + Math.PI;
+    game.player.pitch = -.08;
+    game.state.focus = 'willy';
+    game.player.update(.016);
+  });
 
   await page.evaluate(() => window.NO_WAKE.fire());
   await page.waitForTimeout(1100);
@@ -165,7 +325,7 @@ try {
     body.phase === 'body' && body.shots >= 4 && body.fell, JSON.stringify(body));
 
   await page.evaluate(() => window.NO_WAKE.disposeBody());
-  await page.waitForTimeout(1750);
+  await page.waitForTimeout(2600);
   const disposal = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
     disposed: window.NO_WAKE.state.bodyDisposed,

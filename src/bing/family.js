@@ -124,7 +124,7 @@ export const FAMILY = [
      * does not suddenly inflate him the moment that scene lands. `build` only
      * moves a little; the belly is doing the work. */
     model: {
-      height: 1.7, build: 1.1, gut: 1, dress: 'shirt', shirt: 0x2e2438,
+      height: 1.7, build: 1.34, gut: 1.15, dress: 'shirt', shirt: 0x4a3658,
       hair: 'receding', hairColour: 0x5a3a20, beard: true, skin: 0xd9a97f,
     },
   },

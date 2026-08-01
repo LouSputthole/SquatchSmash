@@ -5,7 +5,7 @@ const MAX_STEPS = 10;
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-/** Arcade-realistic displacement-hull handling on the Beef Run fixed-step pattern. */
+/** Weighty displacement-hull handling on the Beef Run fixed-step pattern. */
 export class BoatPhysics {
   constructor() {
     this.position = new THREE.Vector2(0, 0);
@@ -51,16 +51,18 @@ export class BoatPhysics {
   step(dt) {
     this.time += dt;
     const requested = this.running && this.mooringReleased ? this.throttle : 0;
-    const targetSpeed = requested >= 0 ? requested * 10.5 : requested * 3.4;
-    const thrustResponse = requested === 0 ? 0.65 : 0.42;
+    const targetSpeed = requested >= 0 ? requested * 8.6 : requested * 2.9;
+    // Twin diesels move a 42-foot cruiser, not a jet ski. Neutral coasts down
+    // instead of applying an invisible brake, while reverse builds sooner.
+    const thrustResponse = requested === 0 ? 3.4 : requested > 0 ? 2.35 : 1.75;
     this.speed += (targetSpeed - this.speed) * (1 - Math.exp(-dt / thrustResponse));
-    this.speed *= Math.exp(-dt * (0.055 + Math.abs(this.steer) * 0.018));
+    this.speed *= Math.exp(-dt * (0.032 + Math.abs(this.steer) * 0.022));
 
     // Rudder authority grows with flow, but a turning hull carries inertia.
-    const authority = clamp(Math.abs(this.speed) / 4.5, 0.12, 1.35);
-    const desiredYaw = -this.steer * authority * 0.48 * Math.sign(this.speed || 1);
-    this.yawRate += (desiredYaw - this.yawRate) * (1 - Math.exp(-dt / 0.48));
-    this.yawRate *= Math.exp(-dt * 0.3);
+    const authority = clamp(Math.abs(this.speed) / 5.2, 0.035, 1);
+    const desiredYaw = -this.steer * authority * 0.31 * Math.sign(this.speed || 1);
+    this.yawRate += (desiredYaw - this.yawRate) * (1 - Math.exp(-dt / .92));
+    this.yawRate *= Math.exp(-dt * .42);
     this.heading += this.yawRate * dt;
 
     const dx = Math.sin(this.heading) * this.speed * dt;
@@ -75,11 +77,11 @@ export class BoatPhysics {
   motion() {
     const waveA = Math.sin(this.time * 1.15 + this.position.y * 0.018);
     const waveB = Math.sin(this.time * 1.83 + this.position.x * 0.027 + 1.7);
-    const speedK = clamp(Math.abs(this.speed) / 10.5, 0, 1);
+    const speedK = clamp(Math.abs(this.speed) / 8.6, 0, 1);
     return {
-      heave: waveA * 0.08 + waveB * 0.035 + speedK * 0.10,
-      roll: waveB * 0.018 - this.yawRate * 0.12,
-      pitch: waveA * 0.012 - speedK * 0.032,
+      heave: waveA * .065 + waveB * .028 + speedK * .075,
+      roll: waveB * .014 - this.yawRate * .10,
+      pitch: waveA * .010 - speedK * .022,
       bowLift: speedK,
     };
   }

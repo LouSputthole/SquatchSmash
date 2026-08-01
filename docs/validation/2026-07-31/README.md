@@ -36,6 +36,8 @@ Added from the NO WAKE production-scene browser verification:
 
 | File | What it proves |
 |---|---|
-| `no-wake-gate-c.png` | The authored South Harbor Gate C arrival, 38-foot cruiser, crew, objective HUD, and developer-preview isolation banner. |
-| `no-wake-open-water.png` | The released cruiser underway beyond the marked channel after the fixed 90-second drive gate, with the helm view and wake active. |
+| `no-wake-gate-c.png` | The rebuilt South Harbor Gate C arrival: 42-foot cruiser, physical stern line, individual dock planks, marina equipment, crew, objective HUD, and developer-preview isolation banner. |
+| `no-wake-startup-panel.png` | The driving station's labeled battery rocker, blower button and ignition key beside its gauges, chartplotter, VHF and wheel. |
+| `no-wake-open-water.png` | The released cruiser underway beyond the marked channel after the fixed 90-second drive gate, with the detailed helm, layered water and directional wake active. |
 | `no-wake-execution-ready.png` | The campaign's irreversible authored moment: Willy back on deck, the weapon raised, and control waiting on Tony's click. |
+| `no-wake-willy-profile.png` | Willy's rebuilt broad body and integrated rounded belly in profile, without the old forward-projecting tube silhouette. |

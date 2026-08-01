@@ -83,6 +83,8 @@ const state = {
 const DRIVE_SECONDS = 90;
 const boat = world.boat;
 const local = new THREE.Vector3();
+const carriedLocal = new THREE.Vector3();
+const carriedWorld = new THREE.Vector3();
 const localCamera = new THREE.Vector3();
 let lastHeading = 0;
 let lastTime = performance.now();
@@ -148,8 +150,8 @@ function registerInteractions() {
     enabled: () => !state.boarded,
     onUse: () => {
       state.boarded = true;
-      player.position.set(-1.65, 2.58, 4.25);
-      player.ground = .92;
+      player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.86, 2.68, 3.72)));
+      player.ground = boat.deck.height;
       player.yaw = 0;
       hud.toast('Aboard · Gate C', 'good');
       setObjective('Start the boat', 'Battery · blower · ignition');
@@ -161,6 +163,7 @@ function registerInteractions() {
     enabled: () => state.boarded && !state.battery,
     onUse: () => {
       state.battery = true;
+      boat.controls.battery.setOn(true);
       audio.play('switch.click', { volume: .75 });
       hud.toast('Battery on', 'good');
     },
@@ -171,6 +174,7 @@ function registerInteractions() {
     hold: 1.1,
     onUse: () => {
       state.blower = true;
+      boat.controls.blower.setOn(true);
       audio.play('switch.click', { volume: .7 });
       audio.startLoop('bilge', { name: 'fan.pc', volume: .08 });
       hud.toast('Bilge clear', 'good');
@@ -186,6 +190,7 @@ function registerInteractions() {
         return;
       }
       state.engine = true;
+      boat.controls.ignition.setOn(true);
       physics.running = true;
       audio.stopLoop('bilge', .25);
       audio.play('switch.click', { volume: .7 });
@@ -201,8 +206,10 @@ function registerInteractions() {
       label: `Release ${name} line`,
       enabled: () => state.engine && !state[key],
       hold: .85,
-      onUse: () => {
+      onUse: (line) => {
         state[key] = true;
+        line.userData.attached = false;
+        line.visible = false;
         audio.play('cloth.rustle', { volume: .7, rate: .8 });
         hud.toast(`${name[0].toUpperCase()}${name.slice(1)} line clear`, 'good');
         if (state.bowLine && state.sternLine) {
@@ -228,7 +235,7 @@ function registerInteractions() {
 
 function enterHelm() {
   state.atHelm = true;
-  phase('drive');
+  if (state.phase !== 'coast') phase('drive');
   player.mode = 'seated';
   player.enabled = true;
   player.yawCenter = null;
@@ -237,12 +244,25 @@ function enterHelm() {
   player.pitchMax = .42;
   player.yaw = physics.heading;
   player.pitch = -.05;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.82, 2.12, .10)));
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.16, 2.43, .24)));
   physics.throttle = 0;
+  physics.steer = 0;
+  lastHeading = physics.heading;
+  boat.controls.throttle.setValue(0);
   helmHud.classList.remove('hidden');
   setObjective('Run for open water', 'Clear the marina · follow the channel markers');
   story.checkpoint('underway');
   hud.say('Easy astern. Get the stern clear, then take her out.', 4300);
+}
+
+function setStartupCompleteVisuals() {
+  boat.controls.battery.setOn(true);
+  boat.controls.blower.setOn(true);
+  boat.controls.ignition.setOn(true);
+  for (const line of [boat.targets.bowLine, boat.targets.sternLine]) {
+    line.userData.attached = false;
+    line.visible = false;
+  }
 }
 
 const AMBIENT = [
@@ -343,15 +363,15 @@ function prepareGuns() {
 
 function willyReturns() {
   phase('ready_to_fire');
-  boat.cast.lou.group.position.set(-1.22, .92, 1.45);
-  boat.cast.booski.group.position.set(1.22, .92, 1.55);
+  boat.cast.lou.group.position.set(-1.45, 1.02, 2.72);
+  boat.cast.booski.group.position.set(1.45, 1.02, 2.90);
   boat.cast.willy.job = 'stand';
   boat.cast.willy._syncJob(true);
-  boat.cast.willy.group.position.set(0, .92, 3.05);
+  boat.cast.willy.group.position.set(0, 1.02, 4.48);
   boat.cast.willy.group.rotation.y = Math.PI;
   state.playerGun.visible = true;
   player.mode = 'frozen';
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(0, 2.14, .05)));
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(0, 2.68, 1.72)));
   player.yaw = physics.heading + Math.PI;
   player.pitch = -.08;
   interaction.setPaused(true);
@@ -399,7 +419,7 @@ function dropWilly() {
   boat.cast.willy.group.position.y = .48;
   state.playerGun.visible = false;
   state.focus = null;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(0, 2.45, 3.85)));
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(0, 2.68, 5.08)));
   player.yaw = physics.heading;
   player.pitch = -.35;
   player.mode = 'seated';
@@ -470,40 +490,95 @@ function updateReturn(dt) {
   if (k >= 1) completeMission();
 }
 
+function leaveHelm({ force = false } = {}) {
+  if (!state.atHelm) return false;
+  if (!force && Math.abs(physics.speed) > .45) {
+    hud.say('Bring both throttles to neutral first.', 2400);
+    return false;
+  }
+  state.atHelm = false;
+  physics.throttle = 0;
+  physics.steer = 0;
+  boat.controls.throttle.setValue(0);
+  player.clearKeys();
+  player.mode = 'walk';
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.ground = boat.root.position.y + boat.deck.height;
+  // Stand fully behind the pedestal rather than inside its capsule margin.
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.16, 2.68, 1.22)));
+  player.yawCenter = null;
+  player.yawRange = Math.PI;
+  player.pitchMin = -Math.PI / 2 + .05;
+  player.pitchMax = Math.PI / 2 - .05;
+  helmHud.classList.add('hidden');
+  setObjective('Take the helm', 'The controls are in neutral');
+  return true;
+}
+
 function updateBoat(dt) {
-  if (['drive', 'coast'].includes(state.phase)) {
+  const active = ['drive', 'coast'].includes(state.phase);
+  const carryDeckPlayer = active && state.boarded && !state.atHelm && player.mode === 'walk';
+  const headingBefore = boat.root.rotation.y;
+  if (carryDeckPlayer) world.toBoatLocal(player.position, carriedLocal);
+
+  if (active) {
+    let requestedThrottle = 0;
+    let requestedSteer = 0;
+    if (state.atHelm) {
+      const forward = player.keys.has('KeyW');
+      const reverse = player.keys.has('KeyS');
+      if (forward !== reverse) requestedThrottle = forward ? 1 : -.48;
+      requestedSteer = (player.keys.has('KeyD') ? 1 : 0) - (player.keys.has('KeyA') ? 1 : 0);
+    }
+    // Keys command a real spring-loaded twin lever: release returns to neutral,
+    // and leaving the wheel removes propulsion instead of preserving an old value.
+    const throttleRate = requestedThrottle === 0 ? 2.8 : requestedThrottle > 0 ? 1.25 : 1.65;
+    physics.throttle += (requestedThrottle - physics.throttle)
+      * (1 - Math.exp(-dt * throttleRate));
+    physics.steer += (requestedSteer - physics.steer) * (1 - Math.exp(-dt * 4.2));
+    if (!state.atHelm) {
+      physics.throttle = 0;
+      physics.steer *= Math.exp(-dt * 8);
+    }
+
+    physics.advance(dt);
+    const motion = physics.motion();
+    boat.root.position.set(physics.position.x, motion.heave, physics.position.y);
+    boat.root.rotation.set(motion.pitch, physics.heading, motion.roll, 'YXZ');
+    boat.wheel.rotation.z = physics.steer * .7;
+    boat.controls.throttle.setValue(physics.throttle);
+    boat.controls.gaugeNeedles.rpm.rotation.z = -.95 + Math.abs(physics.throttle) * 1.9;
+    boat.controls.gaugeNeedles.speed.rotation.z = -.95 + Math.min(1, Math.abs(physics.speed) / 8.5) * 1.9;
+    boat.controls.gaugeNeedles.fuel.rotation.z = .45;
+    const wakeAt = boat.root.localToWorld(new THREE.Vector3(0, 0, 6.55));
+    world.wake.emit(wakeAt, physics.heading, Math.abs(physics.speed), dt);
+    audio.setLoopVolume('engine', .11 + Math.abs(physics.throttle) * .16, .12);
+
+    if (carryDeckPlayer) {
+      world.fromBoatLocal(carriedLocal, carriedWorld);
+      player.position.copy(carriedWorld);
+      player.yaw += boat.root.rotation.y - headingBefore;
+      player.ground = boat.root.position.y + boat.deck.height;
+    }
+
     if (state.phase === 'drive') {
-      if (player.keys.has('KeyW')) physics.throttle += dt * .45;
-      if (player.keys.has('KeyS')) physics.throttle -= dt * .55;
-      physics.throttle = THREE.MathUtils.clamp(physics.throttle, -1, 1);
-      physics.steer = (player.keys.has('KeyD') ? 1 : 0) - (player.keys.has('KeyA') ? 1 : 0);
-      if (Math.abs(physics.speed) > .8) state.driveSeconds += dt;
+      if (state.atHelm && Math.abs(physics.speed) > .8) state.driveSeconds += dt;
       const nextAmbient = AMBIENT[state.ambientIndex];
       if (nextAmbient && state.driveSeconds >= nextAmbient.at) {
         driveLine(nextAmbient);
         state.ambientIndex++;
       }
       if (state.driveSeconds >= DRIVE_SECONDS && physics.distance >= 360) reachOpenWater();
-    } else {
-      if (player.keys.has('KeyS')) physics.throttle -= dt * .75;
-      else physics.throttle += (0 - physics.throttle) * Math.min(1, dt * 1.5);
-      physics.steer *= Math.max(0, 1 - dt * 2);
-      if (Math.abs(physics.throttle) < .08 && Math.abs(physics.speed) < .75) beginConfrontation();
+    } else if (Math.abs(physics.throttle) < .08 && Math.abs(physics.speed) < .62) {
+      beginConfrontation();
     }
-    physics.advance(dt);
-    const motion = physics.motion();
-    boat.root.position.set(physics.position.x, motion.heave, physics.position.y);
-    boat.root.rotation.set(motion.pitch, physics.heading, motion.roll, 'YXZ');
-    boat.wheel.rotation.z = physics.steer * .7;
-    const wakeAt = boat.root.localToWorld(new THREE.Vector3(0, 0, 5.7));
-    world.wake.emit(wakeAt, physics.heading, Math.abs(physics.speed), dt);
-    audio.setLoopVolume('engine', .11 + Math.abs(physics.throttle) * .16, .12);
   }
 
-  if (state.atHelm && ['drive', 'coast'].includes(state.phase)) {
+  if (state.atHelm && active) {
     const deltaHeading = physics.heading - lastHeading;
     player.yaw += deltaHeading;
-    player.position.copy(boat.root.localToWorld(local.set(-.82, 2.12, .10)));
+    player.position.copy(boat.root.localToWorld(local.set(-1.16, 2.43, .24)));
     player.sway.roll = physics.motion().roll * .32;
     lastHeading = physics.heading;
     throttleReadout.textContent = Math.abs(physics.throttle) < .04
@@ -549,6 +624,7 @@ function resumeCheckpoint() {
   Object.assign(state, {
     boarded: true, battery: true, blower: true, engine: true, bowLine: true, sternLine: true,
   });
+  setStartupCompleteVisuals();
   physics.running = true;
   physics.mooringReleased = true;
   if (checkpoint === 'underway') {
@@ -565,6 +641,11 @@ function resumeCheckpoint() {
     phase('coast');
     state.atHelm = true;
     player.mode = 'seated';
+    player.enabled = true;
+    player.yaw = physics.heading;
+    player.pitch = -.05;
+    player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.16, 2.43, .24)));
+    lastHeading = physics.heading;
     helmHud.classList.remove('hidden');
     setObjective('Bring her to idle', 'Open water · throttle back to neutral');
   } else {
@@ -593,6 +674,7 @@ const runtime = {
     Object.assign(state, {
       boarded: true, battery: true, blower: true, engine: true, bowLine: true, sternLine: true,
     });
+    setStartupCompleteVisuals();
     physics.running = true;
     physics.mooringReleased = true;
     enterHelm();
@@ -613,6 +695,7 @@ const runtime = {
   fire: fireExecution,
   beginConfrontation,
   prepareExecution() { prepareGuns(); willyReturns(); },
+  leaveHelm(options) { return leaveHelm({ force: options?.force === true }); },
   dropWilly,
   disposeBody,
   beginReturn,
@@ -649,14 +732,7 @@ document.addEventListener('keydown', (event) => {
   player.setKey(event.code, true);
   if (event.code === 'KeyE') interaction.press();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
-  if (event.code === 'KeyQ' && state.atHelm) {
-    if (Math.abs(physics.speed) > .35) hud.say('Not while she is moving.', 2200);
-    else {
-      state.atHelm = false;
-      player.mode = 'walk';
-      helmHud.classList.add('hidden');
-    }
-  }
+  if (event.code === 'KeyQ' && state.atHelm) leaveHelm();
 });
 document.addEventListener('keyup', (event) => {
   player.setKey(event.code, false);
