@@ -69,6 +69,19 @@ try {
       && state.geometry.colliders > 0
       && state.geometry.floorZones > 0,
     JSON.stringify(state.squadAnchors));
+  check('THE TAKE starts with the shared visible five-slot loadout',
+    state.inventory.slots === 5
+      && state.inventory.declared === '5'
+      && state.inventory.visible
+      && state.inventory.items.slice(0, 4).join(',') === 'carbine,sidearm,magazines,duffel',
+    JSON.stringify(state.inventory));
+  check('every heist voice line is decoded before play and drives real subtitle timing',
+    state.voice.authored === 44
+      && state.voice.decoded === state.voice.authored
+      && state.voice.longest > 0
+      && state.voice.lastPlayback?.duration > 0
+      && state.voice.subtitleRemaining > 0,
+    JSON.stringify(state.voice));
   check('the player capsule is physically ejected from authored solids',
     (await page.evaluate(() => window.__heistDebug.probeCollision())).resolved);
   await shot('02-safehouse-briefing');

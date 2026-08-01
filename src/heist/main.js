@@ -35,6 +35,8 @@ import { AuthoredNavigationGraph, SquadDirector } from './navigation.js';
 import { PoliceDirector } from './police.js';
 import { HEIST_DIALOGUE, dialogueLine } from './script.js';
 
+const HEIST_VOICE_CUES = Object.freeze(Object.values(HEIST_DIALOGUE).map((line) => line.cue));
+
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
@@ -340,6 +342,8 @@ function debugForceDriveRecovery() {
 }
 
 function debugSnapshot() {
+  const hotbar = document.getElementById('hotbar');
+  const heistPlaybacks = audio.playbacks.filter((entry) => HEIST_VOICE_CUES.includes(entry.name));
   return {
     state: machine.state,
     phase: activePhase,
@@ -358,6 +362,25 @@ function debugSnapshot() {
     audioZone,
     missionCompleted,
     simulationPaused,
+    inventory: {
+      slots: hotbar?.children.length ?? 0,
+      declared: hotbar?.dataset.slotCount ?? null,
+      visible: !!hotbar && !hotbar.classList.contains('hidden'),
+      items: [...sceneInventory.items],
+    },
+    voice: {
+      authored: HEIST_VOICE_CUES.length,
+      decoded: HEIST_VOICE_CUES.filter((cue) => audio.hasSample(cue)).length,
+      longest: Math.max(0, ...HEIST_VOICE_CUES.map((cue) => audio.sampleDuration(cue) ?? 0)),
+      lastPlayback: heistPlaybacks.at(-1)
+        ? {
+          name: heistPlaybacks.at(-1).name,
+          duration: heistPlaybacks.at(-1).decodedDuration,
+          naturalEnd: heistPlaybacks.at(-1).naturalEnd,
+        }
+        : null,
+      subtitleRemaining: Math.max(0, dialogueEndAt - performance.now() / 1000),
+    },
     geometry: {
       colliders: level.world.colliders.length,
       floorZones: level.world.floorZones.length,
@@ -1309,8 +1332,7 @@ async function begin() {
   sceneInventory.show();
   syncHeistInventory();
   await audio.init();
-  const voiceCues = Object.values(HEIST_DIALOGUE).map((line) => line.cue);
-  await audio.loadManifest({ names: voiceCues, prefixes: ['heist.'] });
+  await audio.loadManifest({ names: HEIST_VOICE_CUES, prefixes: ['heist.'] });
   const opening = story.begin();
   if (!opening.ok) {
     if (opening.reason === 'already_complete') {
