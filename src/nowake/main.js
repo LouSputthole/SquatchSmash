@@ -12,6 +12,12 @@ import { PostFX } from '../core/postfx.js';
 import { Radio } from '../core/radio.js';
 import { BulletHoles } from '../world/bullets.js';
 import { makeNineMillimeterPistol, makeRevolver } from '../world/props.js';
+import {
+  NO_WAKE_AMBIENT_LINES,
+  NO_WAKE_BELOW_LINES,
+  NO_WAKE_EPILOGUE_LINE,
+  buildNoWakeConfrontation,
+} from './dialogue.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
 
@@ -143,7 +149,7 @@ function advanceDialogue() {
   const line = d.lines[d.at];
   d.left = line.seconds ?? Math.max(2.6, Math.min(6.2, line.text.length / 15));
   showSpeaker(line.who, line.text);
-  audio.say(`nowake.${line.voice ?? line.who.toLowerCase().replaceAll(' ', '_')}.${line.cue ?? d.at + 1}`);
+  audio.say(`nowake.${line.cue}`);
   audio.hold(d.left);
   if (line.focus) state.focus = line.focus;
 }
@@ -292,15 +298,9 @@ function setStartupCompleteVisuals() {
   }
 }
 
-const AMBIENT = [
-  { at: 12, who: 'Willy', text: 'This old girl still smells like Lou’s cigars. He sold the ashtrays but kept the smell.' },
-  { at: 31, who: 'Booskibro', text: 'Red markers to starboard, Tony. Unless you want the Harbor Patrol in the conversation.' },
-  { at: 53, who: 'Willy', text: 'Nice to get out. Everybody has been looking at me funny since the Motel.' },
-  { at: 72, who: 'Big Uncle Lou', text: 'Nobody is looking at anybody, Willy. Enjoy the water.' },
-];
-
 function driveLine(line) {
   showSpeaker(line.who, line.text);
+  audio.say(`nowake.${line.cue}`);
   audio.hold(4.6);
   setTimeout(() => {
     if (!state.dialogue && ['drive', 'coast'].includes(state.phase)) hideSpeaker();
@@ -329,23 +329,10 @@ function beginConfrontation() {
   setObjective('Listen', 'The engines tick in the swell');
   const motel = campaign.state.missions[MISSION_IDS.JERKY_MOTEL];
   const beef = campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
-  const motelFact = motel.policeHeat > 55
-    ? 'The Bureau was on the Motel road before the first siren. That did not happen by luck.'
-    : 'The Bureau knew the Motel, the room, and what was in the cases before Cecilio opened the door.';
-  const beefFact = beef.detected
-    ? 'The Beef Run drew eyes because somebody gave them a tail number and a day.'
-    : 'The Beef Run was clean. Then a Bureau report named the strip, the cargo, and all four crates.';
-  dialogue([
-    { who: 'Big Uncle Lou', voice: 'lou', focus: 'lou', text: 'Kill the engines in your head for a minute, kid. We need the quiet.' },
-    { who: 'Willy', voice: 'willy', focus: 'willy', text: 'What is this, Lou? You said a ride. I brought sandwiches.' },
-    { who: 'Big Uncle Lou', voice: 'lou', focus: 'lou', text: beefFact },
-    { who: 'Booskibro', voice: 'booski', focus: 'booski', text: 'Four people knew the reserve pickup. Lou, me, Tony, and the man who asked twice which room.' },
-    { who: 'Willy', voice: 'willy', focus: 'willy', text: 'I ask things. I am interested. That is a crime now?' },
-    { who: 'Big Uncle Lou', voice: 'lou', focus: 'lou', text: motelFact },
-    { who: 'Willy', voice: 'willy', focus: 'willy', text: 'You think I talked to the Bureau? After all these years?' },
-    { who: 'Big Uncle Lou', voice: 'lou', focus: 'lou', text: 'We know you did. The only question left is whether you make us hear you deny it again.' },
-    { who: 'Willy', voice: 'willy', focus: 'willy', text: 'I need the head.' },
-  ], willyBelow);
+  dialogue(buildNoWakeConfrontation({
+    beefDetected: beef.detected,
+    motelPoliceHeat: motel.policeHeat,
+  }), willyBelow);
 }
 
 function willyBelow() {
@@ -356,10 +343,7 @@ function willyBelow() {
   setTimeout(() => {
     if (state.phase !== 'below') return;
     prepareGuns();
-    dialogue([
-      { who: 'Booskibro', voice: 'booski', focus: 'booski', text: 'When he comes back, do not look at Lou. Look at Willy.' },
-      { who: 'Big Uncle Lou', voice: 'lou', focus: 'lou', text: 'You fire with us. Not after us.' },
-    ], willyReturns);
+    dialogue(NO_WAKE_BELOW_LINES, willyReturns);
   }, 4300);
 }
 
@@ -508,7 +492,8 @@ function completeMission() {
     state.leaving = false;
     return;
   }
-  showSpeaker('Tony', 'The phone will ring when it rings.');
+  showSpeaker(NO_WAKE_EPILOGUE_LINE.who, NO_WAKE_EPILOGUE_LINE.text);
+  audio.say(`nowake.${NO_WAKE_EPILOGUE_LINE.cue}`);
   setTimeout(() => {
     navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door', location });
   }, 3600);
@@ -602,7 +587,7 @@ function updateBoat(dt) {
 
     if (state.phase === 'drive') {
       if (state.atHelm && Math.abs(physics.speed) > .8) state.driveSeconds += dt;
-      const nextAmbient = AMBIENT[state.ambientIndex];
+      const nextAmbient = NO_WAKE_AMBIENT_LINES[state.ambientIndex];
       if (nextAmbient && state.driveSeconds >= nextAmbient.at) {
         driveLine(nextAmbient);
         state.ambientIndex++;

@@ -82,6 +82,12 @@ const VOICE_DIRECTION = {
   'caib-radio': 'Bureau radio. Procedural, bored, filtered — a man reading a checklist '
     + 'at somebody he cannot see.',
   lookout: 'A man on a hill with binoculars who has been there since dawn.',
+  lou: 'Big Uncle Lou. Keep him controlled and almost gentle. He has already decided '
+    + 'what happens to Willy; the quiet certainty is more important than menace.',
+  willy: 'Willy. Talkative and defensive, not comic relief. He starts by trying to make '
+    + 'the boat ride normal, then realizes why he was invited and cannot talk his way out.',
+  booski: 'Booskibro. Usually the room\'s loudest man, but deliberately low and precise '
+    + 'here. He is helping Lou close a family betrayal, not performing for the room.',
 };
 
 const bankOf = (name) => name.split('.').slice(0, -1).join('.');
@@ -96,8 +102,10 @@ out += 'Drop the mp3s in `assets/sfx/` under the filename given, then run '
  * of its lines is its own cue, so grouping it the way the flat is grouped would
  * make a hundred and ninety one one-line sections. It gets its own chapter,
  * ordered by who is speaking. */
-const flatVoice = voice.filter((c) => !c.name.startsWith('vo.beefrun.'));
+const flatVoice = voice.filter((c) => !c.name.startsWith('vo.beefrun.')
+  && !c.name.startsWith('vo.nowake.'));
 const missionVoice = voice.filter((c) => c.name.startsWith('vo.beefrun.'));
+const noWakeVoice = voice.filter((c) => c.name.startsWith('vo.nowake.'));
 
 if (flatVoice.length) {
   out += '## Voice — the flat\n\nAll in the player voice unless the name says otherwise. These have '
@@ -133,6 +141,27 @@ if (missionVoice.length) {
     if (VOICE_DIRECTION[who]) out += `${VOICE_DIRECTION[who]}\n\n`;
     for (const c of list) {
       out += `${(c.file || `${c.name}.mp3`).padEnd(46)}  ${JSON.stringify(c.say)}\n`;
+    }
+    out += '\n';
+  }
+}
+
+if (noWakeVoice.length) {
+  out += `## Voice — NO WAKE\n\n${noWakeVoice.length} line(s), including both `
+    + 'campaign-dependent evidence variants. The filename is the delivery filename. '
+    + 'Regenerate this cue list with `npm run vo:nowake` after editing '
+    + '`src/nowake/dialogue.js`.\n\n';
+  const byWho = new Map();
+  for (const cue of noWakeVoice) {
+    const who = cue.voice || 'player';
+    if (!byWho.has(who)) byWho.set(who, []);
+    byWho.get(who).push(cue);
+  }
+  for (const [who, list] of [...byWho].sort((a, b) => b[1].length - a[1].length)) {
+    out += `### ${who.replace(/-/g, ' ').toUpperCase()} — ${list.length}\n\n`;
+    if (VOICE_DIRECTION[who]) out += `${VOICE_DIRECTION[who]}\n\n`;
+    for (const cue of list) {
+      out += `${(cue.file || `${cue.name}.mp3`).padEnd(56)}  ${JSON.stringify(cue.say)}\n`;
     }
     out += '\n';
   }
