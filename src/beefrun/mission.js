@@ -716,6 +716,7 @@ export class MissionController {
       this.flags.clearCalled = true;
       this.dialogue.play('takeoff.clear');
       this.dialogue.play('takeoff.fly', { once: true });
+      this.dialogue.play('takeoff.okay', { once: true });
     }
     if (p.position.z < WP.z - 1200) this.setPhase('south');
   }
@@ -1101,7 +1102,9 @@ export class MissionController {
     if (this.score.fuelRemaining < 0.18) warn.add('fuel');
     if (p.damage.gear > 0.3) warn.add('gear');
     if (Math.abs(p.rollDeg) > 45) this.dialogue.bark('banked');
-    if (!p.onGround && p.agl > 90 && (Math.abs(p.rollDeg) > 32 || Math.abs(p.pitchDeg) > 18)) {
+    if (!p.onGround && p.agl > 90 && (Math.abs(p.rollDeg) > 56 || Math.abs(p.pitchDeg) > 28)) {
+      this.dialogue.bark('holy');
+    } else if (!p.onGround && p.agl > 90 && (Math.abs(p.rollDeg) > 32 || Math.abs(p.pitchDeg) > 18)) {
       this.dialogue.bark('rough');
     }
     // Captain Sasole can see the same marker the player can. These only fire

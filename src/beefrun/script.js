@@ -198,6 +198,9 @@ export const BEATS = {
     L('Let me hear you fly.', 2.0),
     L('You are piping hot right now. El Hueso is south; keep the white diamond and compass arrow centered.', 5.4),
   ],
+  // Spelled for Captain Sasole's delivery rather than formal orthography: he
+  // draws both words out after Tony gets the old Brushrunner airborne.
+  'takeoff.okay': [L('Ohhhh kay.', 2.0)],
   'takeoff.grass': [
     L('That’s the grass. The grass is not the runway.', 3.2),
     L('Bring her back round and do it with more conviction.', 3.4),
@@ -423,6 +426,9 @@ export const BARKS = {
     'Easy on the yoke. You are flying an aeroplane, not shaking a vending machine.',
     'Stop stirring the sky. Small inputs.',
     'Your hands have opinions. I need them to have fewer.',
+  ],
+  holy: [
+    'Holee leee.',
   ],
   offCourseLeft: [
     'Marker is left. Turn left and bring the diamond back into the glass.',
