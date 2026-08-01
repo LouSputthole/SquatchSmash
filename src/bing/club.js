@@ -2005,20 +2005,19 @@ export function buildClub(scene, { renderer } = {}) {
     add(shorePic);
     office.shorePicture = shorePic.group;
 
-    // Lou's private show poster belongs on the wall behind his desk, where it
-    // reads as deliberate office decor rather than a loose, floating decal.
-    // artSticker swaps the stand-in for the supplied portrait image after the
-    // shared art manifest has resolved, retaining the frame and glass.
-    const hogMamaPicture = makeFrame(M, {
-      x: dx + 1.36, y: 1.75, z: O.z0 + 0.115, rotY: 0, w: 0.42, h: 0.63,
-      texture: printed('hog-mama-office-placeholder', ['HOG MAMA', 'SHOW'], {
-        w: 320, h: 480, bg: '#321923', fg: '#f0c7d4', font: '800 38px "Trebuchet MS", sans-serif',
+    // The Silver Sasquatches Bada Bing portrait replaces the old placeholder
+    // behind Lou's desk. artSticker keeps the frame and glass while swapping
+    // in the supplied artwork when the shared apartment-art manifest lands.
+    const bingPicture = makeFrame(M, {
+      x: dx + 1.36, y: 1.75, z: O.z0 + 0.115, rotY: 0, w: 0.62, h: 0.47,
+      texture: printed('squatches-bing-office-placeholder', ['SILVER SASQUATCHES', 'AT THE BING'], {
+        w: 512, h: 384, bg: '#321923', fg: '#f0c7d4', font: '800 34px "Trebuchet MS", sans-serif',
       }),
       tint: 0x3a2618,
     });
-    artSticker(hogMamaPicture.art, 'bing.office.hog_mama', 0.42);
-    add(hogMamaPicture);
-    office.hogMamaPicture = hogMamaPicture.group;
+    artSticker(bingPicture.art, 'bing.office.squatches_bing', 0.62);
+    add(bingPicture);
+    office.bingPicture = bingPicture.group;
     anchors.photos = new THREE.Vector3(O.x0 + 0.9, 1.9, O.z0 + 4.0);
 
     /* The house mark, framed, twice: the crest over the door wall and a
@@ -2033,18 +2032,23 @@ export function buildClub(scene, { renderer } = {}) {
      * side of it, being -z -- to the one piece of wall in here that was asking
      * for it: over the filing cabinet in the corner, centred on the cabinet
      * and clear of the north wall by 8.5cm. */
-    officeLogos.push(makeFrame(M, {
+    const officeCrest = makeFrame(M, {
       x: 7.926, y: 1.86, z: filingZ, rotY: Math.PI / 2, w: 0.38, h: 0.48,
       texture: squatchArt('office-crest', { title: ['BADA BING'], footer: 'EST. 1979' }),
       tint: 0x6a4e1c,
-    }));
-    officeLogos.push(makeFrame(M, {
+    });
+    artSticker(officeCrest.art, 'bing.office.logo.crest', 0.38);
+    officeLogos.push(officeCrest);
+    const officeShield = makeFrame(M, {
       x: dx - 0.28, y: 1.72, z: O.z0 + 0.115, rotY: 0, w: 0.3, h: 0.38,
       texture: squatchArt('office-mark', { title: ['THE', 'FAMILY'], ink: '#d8c8a8', bg: '#241820' }),
       tint: 0x6a4e1c,
-    }));
+    });
+    artSticker(officeShield.art, 'bing.office.logo.shield', 0.3);
+    officeLogos.push(officeShield);
     for (const f of officeLogos) add(f);
     office.logos = officeLogos.map((f) => f.group);
+    office.logoArt = officeLogos.map((f) => f.art);
 
     const safePic = makeFrame(M, {
       x: O.x1 - 0.13, y: 1.85, z: O.z0 + 1.2, rotY: -Math.PI / 2, w: 0.62, h: 0.48,

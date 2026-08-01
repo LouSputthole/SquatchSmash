@@ -350,10 +350,22 @@
       "caption": "Somewhere in the second half. Nobody in this photograph is watching the game."
     },
     {
-      "slot": "bing.office.hog_mama",
-      "file": "lou-office-hog-mama.png",
-      "title": "Hog Mama's Show",
-      "caption": "Framed in Big Uncle Lou's office."
+      "slot": "bing.office.squatches_bing",
+      "file": "lou-office-squatches-bing.png",
+      "title": "Silver Sasquatches at the Bada Bing",
+      "caption": "Framed behind Big Uncle Lou's desk."
+    },
+    {
+      "slot": "bing.office.logo.crest",
+      "file": "logo-crest.png",
+      "title": "Silver Sasquatches crest",
+      "caption": "An apartment crest brought into Uncle Lou's office."
+    },
+    {
+      "slot": "bing.office.logo.shield",
+      "file": "logo-shield.jpg",
+      "title": "Silver Sasquatches shield",
+      "caption": "The apartment wall mark, framed in the Bing."
     }
   ]
 }
