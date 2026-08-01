@@ -24,6 +24,8 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 | `desk.left`   | north wall, left of the monitor |
 | `desk.right`  | north wall, right of the monitor |
 | `door.side`   | south wall, beside the front door |
+| `east.golf-trip` | east wall, above the kitchen-side gallery — square framed Denver golf-trip print |
+| `east.casa-bonita` | east wall, above the kitchen-side gallery — tall framed Casa Bonita photo |
 | `banner.main` | north-east wall — rendered as a hanging cloth banner, not a frame |
 | `bing.office.squatches_bing` | Bada Bing, framed behind Big Uncle Lou's desk |
 | `bing.office.logo.crest` | Bada Bing, Silver Sasquatches crest above Lou's filing cabinet |
