@@ -9,6 +9,7 @@ Each listed cue stays live until an owner selects a candidate after listening.
 |---|---|---|---|---|
 | `glue.squeeze` | Day One crooked-picture repair | The old opening sound reads as dry plastic/hinge creak. | Three short takes of a partly clogged white PVA glue pump bottle: thick wet squeeze, adhesive shifting and a tacky release; no wood, cabinet, or hinge creak. | Starts wet and glue-like at low volume, remains clear beneath Tony's subtitle, and does not sound like the same bottle cue stacked eight times. |
 | `train.rail.clatter` | Squatchfather elevated-train approach | Current rail-joint rhythm reads synthetic/cheap. | Three takes of a heavy elevated train passing over rail joints: distant at first, regular steel cadence, low mass, no toy click or typewriter rhythm. | Fits under the final table dialogue without masking it; intensity can rise cleanly through `TrainSequence` without a harsh loop seam. |
+| `train.horn.far` | Squatchfather exterior/train ambience | A regenerated take exists but has not been selected. | Compare the live cue with `assets/audio/auditions/train.horn.far.take-1.mp3`; keep the candidate outside `assets/sfx/` until approved. | Owner chooses the take after sampling it in the listener and, ideally, in the restaurant mix. |
 
 ## Process
 
