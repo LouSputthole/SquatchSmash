@@ -88,6 +88,10 @@ export const WALL_SLOTS = [
    * to the right of the fridge, staggered so they read as hung separately. */
   { slot: 'east.square', x: 4.97, y: 1.74, z: 2.85, rotY: -Math.PI / 2, h: 0.46 },
   { slot: 'east.small', x: 4.97, y: 1.42, z: 3.45, rotY: -Math.PI / 2, h: 0.36 },
+  // New memories go above the kitchen-side pair instead of replacing either
+  // one. This part of the east wall is clear of the fridge and cabinetry.
+  { slot: 'east.golf-trip', x: 4.97, y: 2.31, z: 2.85, rotY: -Math.PI / 2, h: 0.40 },
+  { slot: 'east.casa-bonita', x: 4.97, y: 2.24, z: 3.75, rotY: -Math.PI / 2, h: 0.52 },
   { slot: 'door.side', x: 0.92, y: 1.74, z: 4.40, rotY: Math.PI, h: 0.46 },
   { slot: 'south.a', x: -2.10, y: 1.88, z: 4.40, rotY: Math.PI, h: 0.38 },
   { slot: 'south.b', x: -2.10, y: 1.36, z: 4.40, rotY: Math.PI, h: 0.34 },

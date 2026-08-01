@@ -122,6 +122,18 @@
       "caption": "Two hot dogs, one cart, zero holes played."
     },
     {
+      "slot": "east.golf-trip",
+      "file": "denver-golf-trip.jpg",
+      "title": "Denver golf trip 2026",
+      "caption": "Silver Sasquatches. Denver. Golf and disc golf, both taken too seriously."
+    },
+    {
+      "slot": "east.casa-bonita",
+      "file": "casabonita.jpg",
+      "title": "Casa Bonita",
+      "caption": "Two friends outside the pink palace, having a good day."
+    },
+    {
       "slot": "door.side",
       "file": "iem-dallas-2024-night.jpg",
       "title": "Dallas, after hours",
