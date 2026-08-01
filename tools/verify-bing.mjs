@@ -32,6 +32,7 @@ const TYPES = {
   '.json': 'application/json; charset=utf-8',
   '.mp3': 'audio/mpeg',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.jpg': 'image/jpeg',
 };
 
@@ -1882,7 +1883,7 @@ check('the eleven supplied Family portraits make the rear-hall gallery to Lou’
   hallwayGallery.length === 11
     && hallwayGallery.every((portrait) => portrait.real && portrait.wallBound)
     && hallwayGallery.map((portrait) => portrait.file).join(',')
-      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.png,family-portrait-lag.png,family-portrait-hogmama.png,family-portrait-ape.png,family-portrait-eric.png,family-portrait-irish.png,family-portrait-seff.png',
+      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp',
   JSON.stringify(hallwayGallery));
 
 /* ---- 14 to 21: Lou's office ---- */

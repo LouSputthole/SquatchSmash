@@ -20,6 +20,7 @@ const TYPES = {
   '.json': 'application/json; charset=utf-8',
   '.mp3': 'audio/mpeg',
   '.png': 'image/png',
+  '.webp': 'image/webp',
 };
 
 let chromium;
@@ -217,7 +218,7 @@ try {
     familyArt.portraits.length === 11
       && familyArt.portraits.every((portrait) => portrait.real)
       && familyArt.portraits.map((portrait) => portrait.file).join(',')
-        === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.png,family-portrait-lag.png,family-portrait-hogmama.png,family-portrait-ape.png,family-portrait-eric.png,family-portrait-irish.png,family-portrait-seff.png',
+        === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png,family-portrait-sauce.webp,family-portrait-lag.webp,family-portrait-hogmama.webp,family-portrait-ape.webp,family-portrait-eric.webp,family-portrait-irish.webp,family-portrait-seff.webp',
     JSON.stringify(familyArt.portraits));
   check('the direct preview exposes a playable start button',
     await previewPage.locator('#startBtn').isVisible()

@@ -865,13 +865,13 @@ export function buildSquatchfatherScene(scene, renderer) {
     ['squatchfather.portrait.rippinflow', 'bing-hallway-rippinflow.png', 2.32, 3.2],
     ['squatchfather.portrait.booskibro', 'bing-hallway-booskibro.png', 2.32, 4.6],
     ['squatchfather.portrait.shubenator', 'bing-hallway-shubenator.png', 2.32, 6.0],
-    ['squatchfather.portrait.sauce', 'family-portrait-sauce.png', 2.32, 7.4],
-    ['squatchfather.portrait.lag', 'family-portrait-lag.png', 2.32, 8.8],
-    ['squatchfather.portrait.hogmama', 'family-portrait-hogmama.png', 1.25, 2.45],
-    ['squatchfather.portrait.ape', 'family-portrait-ape.png', 1.25, 3.85],
-    ['squatchfather.portrait.eric', 'family-portrait-eric.png', 1.25, 5.25],
-    ['squatchfather.portrait.irish', 'family-portrait-irish.png', 1.25, 6.65],
-    ['squatchfather.portrait.seff', 'family-portrait-seff.png', 1.25, 8.05],
+    ['squatchfather.portrait.sauce', 'family-portrait-sauce.webp', 2.32, 7.4],
+    ['squatchfather.portrait.lag', 'family-portrait-lag.webp', 2.32, 8.8],
+    ['squatchfather.portrait.hogmama', 'family-portrait-hogmama.webp', 1.25, 2.45],
+    ['squatchfather.portrait.ape', 'family-portrait-ape.webp', 1.25, 3.85],
+    ['squatchfather.portrait.eric', 'family-portrait-eric.webp', 1.25, 5.25],
+    ['squatchfather.portrait.irish', 'family-portrait-irish.webp', 1.25, 6.65],
+    ['squatchfather.portrait.seff', 'family-portrait-seff.webp', 1.25, 8.05],
   ].map(([slot, file, y, z]) => {
     const portrait = framed(T.portrait, 0.46, 0.62, 6.96, y, z, -Math.PI / 2);
     portrait.art.userData.art = { slot, real: false };
