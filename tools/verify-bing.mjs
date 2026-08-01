@@ -1861,6 +1861,30 @@ check('stepping out of reach takes the replies down and leaves the bookmark',
     && talkUi.gone.bookmarked,
   JSON.stringify(talkUi));
 
+/* ---- rear-hall gallery ---- */
+const hallwayGallery = await page.evaluate(async () => {
+  const b = window.__bing;
+  await b.club.artReady;
+  const T = b.THREE;
+  const H = b.club.rooms.hallway;
+  const boxOf = (o) => { o.updateMatrixWorld(true); return new T.Box3().setFromObject(o); };
+  return b.club.anchors.hallwayPortraitArt.map((art) => {
+    const box = boxOf(art);
+    return {
+      ...art.userData.art,
+      x: Number(art.getWorldPosition(new T.Vector3()).x.toFixed(3)),
+      z: Number(art.getWorldPosition(new T.Vector3()).z.toFixed(3)),
+      wallBound: box.min.z >= H.z0 && box.max.z <= H.z1,
+    };
+  });
+});
+check('the supplied Family portraits make the rear-hall gallery to Lou’s office',
+  hallwayGallery.length === 4
+    && hallwayGallery.every((portrait) => portrait.real && portrait.wallBound)
+    && hallwayGallery.map((portrait) => portrait.file).join(',')
+      === 'bing-hallway-uncle-lou.png,bing-hallway-rippinflow.png,bing-hallway-booskibro.png,bing-hallway-shubenator.png',
+  JSON.stringify(hallwayGallery));
+
 /* ---- 14 to 21: Lou's office ---- */
 const office = await page.evaluate(async () => {
   const b = window.__bing;

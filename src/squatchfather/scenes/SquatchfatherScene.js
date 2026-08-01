@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Figure, buildHead } from '../characters/Figure.js';
+import { resolveGear } from '../../world/gear.js';
 
 // The whole set: wet street under the elevated line, the dining room, the
 // narrow hallway, and the bathroom with the thing behind the toilet.
@@ -37,6 +38,14 @@ export const ROOM = {
   bath: { x0: 2.0, x1: 6.4, z0: 15, z1: 19.2, h: 2.7 },
   sidewalk: { x0: -22, x1: 12, z0: -4.6, z1: 0 },
 };
+
+export const SQUATCHFATHER_ART_SLOTS = [
+  'squatchfather.dining.coast',
+  'squatchfather.portrait.uncle_lou',
+  'squatchfather.portrait.rippinflow',
+  'squatchfather.portrait.booskibro',
+  'squatchfather.portrait.shubenator',
+];
 
 // ---------- Shared caches ----------
 
@@ -833,16 +842,27 @@ export function buildSquatchfatherScene(scene, renderer) {
     g.position.set(x, y, z);
     g.rotation.y = ry;
     scene.add(g);
-    return g;
+    return { group: g, art };
   }
 
   framed(T.clipping, 1.0, 0.62, -6.96, 2.0, 3.4, Math.PI / 2);   // Sasquatches clipping
-  framed(T.specials, 0.85, 1.15, -6.96, 1.9, 8.2, Math.PI / 2);   // The Great Includer
-  for (let i = 0; i < 6; i++) {
-    const y = i % 2 ? 1.75 : 2.25;
-    framed(T.portrait, 0.34, 0.42, 6.96, y, 2.2 + i * 1.25, -Math.PI / 2);
-  }
-  for (let i = 0; i < 3; i++) framed(T.portrait, 0.34, 0.42, -6.96, 2.3, 5.0 + i * 0.55, Math.PI / 2);
+  // The supplied coastal Squatch print is the dining room's hero piece: a
+  // large landscape frame, clear of the smaller newspaper clippings.
+  const coastPicture = framed(T.specials, 3.8, 2.15, -6.96, 1.72, 8.35, Math.PI / 2);
+  coastPicture.art.userData.art = { slot: 'squatchfather.dining.coast', real: false };
+  // These replace the old repeated filler portraits with the four Family
+  // portraits supplied for the campaign. They are deliberately grouped on
+  // the dining-room wall rather than scattered through the restaurant.
+  const familyPortraits = [
+    ['squatchfather.portrait.uncle_lou', 2.15],
+    ['squatchfather.portrait.rippinflow', 4.25],
+    ['squatchfather.portrait.booskibro', 6.35],
+    ['squatchfather.portrait.shubenator', 8.45],
+  ].map(([slot, z]) => {
+    const portrait = framed(T.portrait, 0.52, 0.70, 6.96, 1.92, z, -Math.PI / 2);
+    portrait.art.userData.art = { slot, real: false };
+    return { slot, width: 0.52, ...portrait };
+  });
 
   // ================= HALLWAY =================
 
@@ -1180,12 +1200,40 @@ export function buildSquatchfatherScene(scene, renderer) {
     props: {
       table, chairHit, searchHit, wrapped, mirror, prospectChair,
       prospectGlass, salGlass, mcGlass, toilet, getawayCar, parkedCar,
+      coastPicture: coastPicture.group, coastPictureArt: coastPicture.art,
+      familyPortraits: familyPortraits.map((portrait) => portrait.group),
+      familyPortraitArt: familyPortraits.map((portrait) => portrait.art),
     },
     bystanders: { waiter, cook, diner1, diner2 },
     figures: { waiter: waiterFig, diner1: diner1Fig, diner2: diner2Fig },
     flicker: 0,
     t: 0,
   };
+
+  // The scene builds synchronously; the supplied print lands after its image
+  // request resolves. The canvas texture remains as a fallback if it fails.
+  const suppliedArt = [
+    { slot: 'squatchfather.dining.coast', file: 'squatchfather-coast-squatch.png', width: 3.8, ...coastPicture },
+    ...familyPortraits.map((portrait) => ({
+      slot: portrait.slot,
+      file: `bing-hallway-${portrait.slot.split('.').at(-1).replace('uncle_lou', 'uncle-lou')}.png`,
+      ...portrait,
+    })),
+  ];
+  state.artReady = resolveGear(SQUATCHFATHER_ART_SLOTS).then((gear) => {
+    const dressed = [];
+    for (const entry of suppliedArt) {
+      const supplied = gear.get(entry.slot);
+      if (!supplied?.real) continue;
+      entry.art.geometry.dispose();
+      entry.art.geometry = new THREE.PlaneGeometry(entry.width, entry.width / supplied.aspect);
+      entry.art.material.dispose();
+      entry.art.material = new THREE.MeshLambertMaterial({ map: supplied.texture });
+      entry.art.userData.art = { slot: entry.slot, real: true, file: entry.file };
+      dressed.push(entry.slot);
+    }
+    return dressed;
+  }).catch(() => []);
 
   // Ambient motion: candle flicker, bathroom light stutter, traffic loop,
   // and the rigged bystanders breathing.

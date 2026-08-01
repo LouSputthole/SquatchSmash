@@ -29,6 +29,12 @@ export const CEIL_MAIN = 4.5;
 export const CEIL_BACK = 2.6;
 export const DOOR_H = 2.05;
 export const STAGE_H = 0.75;
+export const BING_HALLWAY_ART_SLOTS = [
+  'bing.hallway.uncle_lou',
+  'bing.hallway.rippinflow',
+  'bing.hallway.booskibro',
+  'bing.hallway.shubenator',
+];
 
 export const ROOMS = {
   lot: { x0: -30, x1: 30, z0: 15.4, z1: 56 },
@@ -187,6 +193,7 @@ export function buildClub(scene, { renderer } = {}) {
       });
       if (entry.tilt !== null) entry.mesh.rotation.z = entry.tilt;
       entry.mesh.userData.art.real = true;
+      entry.mesh.userData.art.file = g.file;
       dressed.push(entry.slot);
     }
     return dressed;
@@ -1173,14 +1180,28 @@ export function buildClub(scene, { renderer } = {}) {
       if (i === 2) neon.push({ mesh: tube, light: l, base: 6, next: rand(1, 4), on: true, kind: 'fluoro' });
     }
 
-    for (let i = 0; i < 3; i++) {
-      add(makeFrame(M, {
-        x: 5.73, y: 1.62, z: -8.4 + i * 1.1, rotY: Math.PI / 2, w: 0.34, h: 0.44,
-        texture: printed(`permit${i}`, ['LICENCE', 'TO SERVE', 'ESSEX CO.'], {
-          w: 256, h: 320, bg: '#d8d0bc', fg: '#3a3020', font: '700 32px "Trebuchet MS", sans-serif',
+    // The hallway on the way to Lou's office is the Family gallery. These
+    // replace the old repeated liquor-permit filler frames with the supplied
+    // portraits, mounted high enough to clear the service hardware below.
+    const hallwayPortraits = [
+      ['bing.hallway.uncle_lou', ['BIG UNCLE', 'LOU'], -8.55],
+      ['bing.hallway.rippinflow', ['RIPPIN', 'FLOW'], -7.25],
+      ['bing.hallway.booskibro', ['BOOSKI', 'BRO'], -5.95],
+      ['bing.hallway.shubenator', ['SHUBE', 'NATOR'], -2.85],
+    ].map(([slot, label, z]) => {
+      const portrait = makeFrame(M, {
+        x: 5.73, y: 1.82, z, rotY: Math.PI / 2, w: 0.42, h: 0.56,
+        texture: printed(`hall-portrait-${slot}`, label, {
+          w: 384, h: 512, bg: '#1b1520', fg: '#e2d4e6', font: '800 34px "Trebuchet MS", sans-serif',
         }),
-      }));
-    }
+        tint: 0x281b20,
+      });
+      artSticker(portrait.art, slot, 0.42);
+      add(portrait);
+      return portrait;
+    });
+    anchors.hallwayPortraits = hallwayPortraits.map((portrait) => portrait.group);
+    anchors.hallwayPortraitArt = hallwayPortraits.map((portrait) => portrait.art);
     // Fire extinguisher, junction box, and a cleaning cart permanently in the way
     add(group('ext',
       cylinder({ r: 0.08, h: 0.42, pos: [5.78, 0.95, -4.4], mat: mat({ color: 0xa02020, roughness: 0.5 }) }),
