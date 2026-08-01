@@ -323,7 +323,7 @@ Hold <kbd>E</kbd> on the set to interact with the station.
 **97.8 THE SQUATCH** is a combined talk-and-music station, and what is on
 depends on the authored campaign clock.
 Lou & Lou from six (two Lous, zero preparation), Booski & Ape's CS Gambling Show
-at noon, Irish's Deep Dives at three, Eric & Gratin's *What's Happening in
+at noon, Irish's Deep Dives at three, Erican & Gratin's *What's Happening in
 India!* at five, Hog Mama's Late Night Improv after ten, and an automated
 overnight nobody is in the building for. Every few segments the sixty-second
 station commercial comes round in full. Between talk blocks it plays whatever
@@ -644,7 +644,7 @@ In the console, `__bing` exposes the scene, the club, the cast, the mission and
 ## A Morning at Silver Pines
 
 Late morning on Day Four, after overnight rain, on a private course in North
-Jersey that was more prestigious twenty years ago. Lou has the scorecard, Eric
+Jersey that was more prestigious twenty years ago. Lou has the scorecard, Erican
 has the clubs, Rippin is taking practice swings at nothing, and nobody has
 asked the Prospect to carry anything, meet anybody, or move any beef jerky.
 
@@ -670,7 +670,7 @@ npm test                   # includes 28 Silver Pines unit tests
 ### Hole 1 — The Invitation, par 3, 167 yards
 
 Elevated tee, water short and right, bunker front-left, pin middle-right where
-it tempts you over the corner of the pond. Eric tells you to aim at the middle
+it tempts you over the corner of the pond. Erican tells you to aim at the middle
 of the green and ignore the flag, and the hole is built so that he is right:
 the centre line finishes about seventeen feet from the pin and the flag line
 finishes wet.

@@ -198,7 +198,7 @@ const npcShots = await page.evaluate(async () => {
   }
   return out;
 });
-check('19a. Eric hits the middle of the green',
+check('19a. Erican hits the middle of the green',
   npcShots.erican.finish === 'green' && npcShots.erican.feet < 30,
   `${npcShots.erican.feet.toFixed(0)} ft`);
 check('19b. Rippin finds the front bunker',
@@ -294,7 +294,7 @@ check('8/9. the ball launches, lands and stops',
 check('10. an iron reaches the green',
   ranges.ironGreen.surface === 'green',
   `${ranges.ironGreen.total.toFixed(0)} yds, finishes on the ${ranges.ironGreen.surface}`);
-check("10b. Eric's advice is real: the flag line brings the water in",
+check("10b. Erican's advice is real: the flag line brings the water in",
   ranges.ironAtPin.surface === 'water' || ranges.ironAtPin.state === 'water',
   `same swing at the pin finishes in the ${ranges.ironAtPin.surface}`);
 check('11. a driver dramatically overshoots the green',

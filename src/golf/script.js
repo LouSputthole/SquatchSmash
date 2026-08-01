@@ -137,7 +137,7 @@ cue('golf.h1.rippin.know_what_im_doing', RIPPIN,
 
 cue('golf.h1.eric.selected_driver', ERIC,
   'You have selected a driver.',
-  { direction: 'Perfectly level. This is how Eric roasts people.', priority: PRIORITY.STORY, once: true });
+  { direction: 'Perfectly level. This is how Erican roasts people.', priority: PRIORITY.STORY, once: true });
 
 cue('golf.h1.rippin.visualizing_hole_two', RIPPIN,
   'I’m visualizing Hole Two.',
@@ -152,7 +152,7 @@ cue('golf.h1.prospect.why_am_i_here', PROSPECT,
  *
  * Two sentences and a pause. The first sentence takes the excuse away; the
  * second one is the reason. `hold` is three seconds because nobody says
- * anything after it — Eric's line has to arrive *late*, into a silence that
+ * anything after it — Erican's line has to arrive *late*, into a silence that
  * has already become uncomfortable, or the moment is just dialogue. */
 cue('golf.h1.lou.invited_you', LOU,
   'We can find a fourth. We invited you.',
@@ -203,7 +203,7 @@ cue('golf.h1.eric.already_not', ERIC, 'It is already not all love.',
 /* ================================================================== */
 
 cue('golf.h1.rippin.not_cricket', RIPPIN,
-  'Eric, this isn’t cricket.',
+  'Erican, this isn’t cricket.',
   { direction: 'Heckling for the sake of it.', priority: PRIORITY.REACTION, once: true });
 
 cue('golf.h1.eric.cricket_rules', ERIC,
@@ -260,7 +260,7 @@ cue('golf.h1.lou.middle_swing_once', LOU,
   'Middle of the green. Swing once.',
   {
     direction: 'The only coaching he gives all morning, and it is the same '
-      + 'advice Eric gave. That is the point.',
+      + 'advice Erican gave. That is the point.',
     priority: PRIORITY.STORY, once: true, interruptible: false,
   });
 
@@ -271,7 +271,7 @@ cue('golf.h1.lou.middle_swing_once', LOU,
 cue('golf.h1.rippin.piping_hot', RIPPIN, 'Piping hot.',
   { direction: 'Genuine. He is pleased and slightly annoyed about being pleased.', priority: PRIORITY.REACTION });
 cue('golf.h1.eric.that_will_play', ERIC, 'That will play.',
-  { direction: 'The highest praise Eric gives.', priority: PRIORITY.REACTION });
+  { direction: 'The highest praise Erican gives.', priority: PRIORITY.REACTION });
 cue('golf.h1.lou.pick_up_the_tee', LOU, 'Pick up the tee.',
   { direction: 'No congratulation. Moving him along, which IS the congratulation.', priority: PRIORITY.REACTION });
 
@@ -340,7 +340,7 @@ cue('golf.h1.rippin.absolutely_not', RIPPIN, 'No. Absolutely not.',
     priority: PRIORITY.STORY, once: true, interruptible: false,
   });
 cue('golf.h1.eric.that_went_in', ERIC, 'That went in.',
-  { direction: 'Quietly astonished, which for Eric is a shout.', priority: PRIORITY.STORY, once: true });
+  { direction: 'Quietly astonished, which for Erican is a shout.', priority: PRIORITY.STORY, once: true });
 cue('golf.h1.rippin.reject_the_event', RIPPIN,
   'Let it be known, I reject the event.',
   { direction: 'Formally.', priority: PRIORITY.STORY, once: true });
@@ -507,7 +507,7 @@ cue('golf.h1.rippin.close_the_face', RIPPIN,
   'Or close the face and hit the ball directly.',
   { direction: 'Confidently wrong.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h1.eric.do_not_do_that', ERIC, 'Do not do that.',
-  { direction: 'Fast, and the only time Eric raises his voice all morning.', priority: PRIORITY.REACTION, once: true });
+  { direction: 'Fast, and the only time Erican raises his voice all morning.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h1.rippin.two_schools', RIPPIN, 'Two schools of thought.',
   { direction: 'Serene.', priority: PRIORITY.REACTION, once: true });
 
@@ -792,7 +792,7 @@ cue('golf.h2.lou.same_sand', LOU, 'Same sand.',
   { direction: 'Walking past him.', priority: PRIORITY.REACTION, once: true });
 
 cue('golf.h2.rippin.eric_hits_it_nowhere', RIPPIN,
-  'Eric hits it nowhere and finds it every time.',
+  'Erican hits it nowhere and finds it every time.',
   { direction: 'The closest he gets to a compliment.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h2.eric.that_is_the_game', ERIC, 'That is the game.',
   { direction: 'Mid-swing.', priority: PRIORITY.REACTION, once: true });
@@ -835,12 +835,12 @@ cue('golf.h2.eric.it_was_windy', ERIC, 'It was windy.',
 
 cue('golf.h2.eric.gratin_butter_chicken', ERIC,
   'Gratin still owes me a proper butter chicken. He has been to India. He has *seen* it done.',
-  { direction: 'The one subject Eric will not let go of.', priority: PRIORITY.BANTER, once: true });
+  { direction: 'The one subject Erican will not let go of.', priority: PRIORITY.BANTER, once: true });
 cue('golf.h2.rippin.he_uses_a_jar', RIPPIN, 'He uses a jar.',
   { direction: 'Betraying a friend without hesitating.', priority: PRIORITY.BANTER, once: true });
 cue('golf.h2.eric.i_know_he_uses_a_jar', ERIC,
   'I know he uses a jar. That is the entire problem.',
-  { direction: 'The only time Eric sounds genuinely wounded all morning.', priority: PRIORITY.BANTER, once: true });
+  { direction: 'The only time Erican sounds genuinely wounded all morning.', priority: PRIORITY.BANTER, once: true });
 
 cue('golf.h2.rippin.irish_and_the_eggs', RIPPIN,
   'Irish is still looking into the eggs.',
@@ -1012,7 +1012,7 @@ cue('golf.h3.eric.leave_it_rip', ERIC, 'Leave it, Rip.',
 
 cue('golf.h3.eric.last_green_of_the_day', ERIC,
   'Last green. Take a second on it.',
-  { direction: 'Kind, and the most Eric thing he says all morning.', priority: PRIORITY.REACTION, once: true });
+  { direction: 'Kind, and the most Erican thing he says all morning.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h3.rippin.im_taking_two_seconds', RIPPIN, 'I’m taking two.',
   { direction: 'Softer than usual.', priority: PRIORITY.REACTION, once: true });
 cue('golf.h3.lou.breaks_toward_the_building', LOU,

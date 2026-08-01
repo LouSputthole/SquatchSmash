@@ -112,7 +112,7 @@ export const CLUBHOUSE_AREA = Object.freeze({ x: -22, z: -388, rx: 34, rz: 22 })
 /**
  * Drives, and the last authored shots of the morning.
  *
- * Eric down the middle, as he has been all day. Lou short and straight and
+ * Erican down the middle, as he has been all day. Lou short and straight and
  * absolutely fine. Rippin enormous and in the fairway bunker, which is the
  * only place on this hole it is possible to be inconvenienced, and he has
  * found it — the last joke the course makes at his expense.

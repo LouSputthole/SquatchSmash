@@ -160,7 +160,7 @@ export const GOLF_LOU_CALL = Object.freeze({
   vo: 'call.lou.golf',
   lines: Object.freeze([
     'Silver Pines. Off Route Twenty-Three, past the quarry, second gate.',
-    'Half ten. Rippin and Eric are already complaining about the time.',
+    'Half ten. Rippin and Erican are already complaining about the time.',
     'No, you do not need to bring anything. That is not what this is.',
     'Wear something you can walk in. And Tony — the ceremony is at seven. '
       + 'You have got all morning.',

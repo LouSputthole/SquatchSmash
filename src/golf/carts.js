@@ -188,7 +188,7 @@ export class Cart {
  * The two carts and who is in which.
  *
  * Cart one is Lou driving and the Prospect riding, which is the only reason
- * the ride exists. Cart two is Eric driving and Rippin riding, deliberately —
+ * the ride exists. Cart two is Erican driving and Rippin riding, deliberately —
  * putting Rippin in the other cart is what makes the first one quiet.
  */
 export class CartPair {

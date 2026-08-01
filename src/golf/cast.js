@@ -1,5 +1,5 @@
 /**
- * Lou, Rippin, Eric and the Prospect, dressed for a Thursday morning.
+ * Lou, Rippin, Erican and the Prospect, dressed for a Thursday morning.
  *
  * Built on the Bing's `makePerson` and `Npc` — the same slabs, the same faces,
  * the same behaviour class — with golf added on top and nothing else changed.
@@ -9,7 +9,7 @@
  * The swing is one timeline driven by a single parameter, and every difference
  * between these four is a number on that timeline. Lou takes no practice swing
  * and has picked up his tee before the ball lands. Rippin takes three, and
- * holds the follow-through long after it has stopped being interesting. Eric
+ * holds the follow-through long after it has stopped being interesting. Erican
  * takes one and does not react to a good one. That is the characterisation,
  * and it is in the data rather than in four hand-written animations.
  */

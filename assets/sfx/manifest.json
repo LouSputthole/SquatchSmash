@@ -60,7 +60,7 @@
     },
     "eric": {
       "id": "A7AUsa1uITCDpK29MG3m",
-      "_note": "Eric, of What's Happening in India. Tries to run a real news segment.",
+      "_note": "Erican, of What's Happening in India. Tries to run a real news segment.",
       "model": "eleven_multilingual_v2",
       "stability": 0.48,
       "similarity": 0.82,
@@ -3179,9 +3179,9 @@
       "say": "\"Tonight: is Big Egg suppressing the pasture-raised truth? We investigate… for way longer than necessary.\""
     },
     {
-      "name": "radio.vo.announcer.04ofbcl",
+      "name": "radio.vo.announcer.17bbpky",
       "voice": "announcer",
-      "say": "Then at 5 PM, don’t miss Eric & Gratin’s \"What’s Happening in India!\""
+      "say": "Then at 5 PM, don’t miss Erican & Gratin’s \"What’s Happening in India!\""
     },
     {
       "name": "radio.vo.announcer.1ob7c1m",
@@ -5239,7 +5239,7 @@
       "name": "vo.golf.h1.eric.selected_driver",
       "voice": "eric",
       "say": "You have selected a driver.",
-      "direction": "Perfectly level. This is how Eric roasts people."
+      "direction": "Perfectly level. This is how Erican roasts people."
     },
     {
       "name": "vo.golf.h1.rippin.visualizing_hole_two",
@@ -5317,7 +5317,7 @@
     {
       "name": "vo.golf.h1.rippin.not_cricket",
       "voice": "rippinflow",
-      "say": "Eric, this isn’t cricket.",
+      "say": "Erican, this isn’t cricket.",
       "direction": "Heckling for the sake of it."
     },
     {
@@ -5438,7 +5438,7 @@
       "name": "vo.golf.h1.lou.middle_swing_once",
       "voice": "lou1",
       "say": "Middle of the green. Swing once.",
-      "direction": "The only coaching he gives all morning, and it is the same advice Eric gave. That is the point."
+      "direction": "The only coaching he gives all morning, and it is the same advice Erican gave. That is the point."
     },
     {
       "name": "vo.golf.h1.rippin.piping_hot",
@@ -5450,7 +5450,7 @@
       "name": "vo.golf.h1.eric.that_will_play",
       "voice": "eric",
       "say": "That will play.",
-      "direction": "The highest praise Eric gives."
+      "direction": "The highest praise Erican gives."
     },
     {
       "name": "vo.golf.h1.lou.pick_up_the_tee",
@@ -5600,7 +5600,7 @@
       "name": "vo.golf.h1.eric.that_went_in",
       "voice": "eric",
       "say": "That went in.",
-      "direction": "Quietly astonished, which for Eric is a shout."
+      "direction": "Quietly astonished, which for Erican is a shout."
     },
     {
       "name": "vo.golf.h1.rippin.reject_the_event",
@@ -5881,7 +5881,7 @@
       "name": "vo.golf.h1.eric.do_not_do_that",
       "voice": "eric",
       "say": "Do not do that.",
-      "direction": "Fast, and the only time Eric raises his voice all morning."
+      "direction": "Fast, and the only time Erican raises his voice all morning."
     },
     {
       "name": "vo.golf.h1.rippin.two_schools",
@@ -6427,7 +6427,7 @@
     {
       "name": "vo.golf.h2.rippin.eric_hits_it_nowhere",
       "voice": "rippinflow",
-      "say": "Eric hits it nowhere and finds it every time.",
+      "say": "Erican hits it nowhere and finds it every time.",
       "direction": "The closest he gets to a compliment."
     },
     {
@@ -6506,7 +6506,7 @@
       "name": "vo.golf.h2.eric.gratin_butter_chicken",
       "voice": "eric",
       "say": "Gratin still owes me a proper butter chicken. He has been to India. He has *seen* it done.",
-      "direction": "The one subject Eric will not let go of."
+      "direction": "The one subject Erican will not let go of."
     },
     {
       "name": "vo.golf.h2.rippin.he_uses_a_jar",
@@ -6518,7 +6518,7 @@
       "name": "vo.golf.h2.eric.i_know_he_uses_a_jar",
       "voice": "eric",
       "say": "I know he uses a jar. That is the entire problem.",
-      "direction": "The only time Eric sounds genuinely wounded all morning."
+      "direction": "The only time Erican sounds genuinely wounded all morning."
     },
     {
       "name": "vo.golf.h2.rippin.irish_and_the_eggs",
@@ -6826,7 +6826,7 @@
       "name": "vo.golf.h3.eric.last_green_of_the_day",
       "voice": "eric",
       "say": "Last green. Take a second on it.",
-      "direction": "Kind, and the most Eric thing he says all morning."
+      "direction": "Kind, and the most Erican thing he says all morning."
     },
     {
       "name": "vo.golf.h3.rippin.im_taking_two_seconds",

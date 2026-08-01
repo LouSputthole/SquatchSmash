@@ -86,7 +86,7 @@ const VOICE_DIRECTION = {
     + 'comfortable enough with these men to let the silence after a line do the work.',
   rippinflow: 'Rippinflow. The mouth of the morning: fast, pleased with himself and always '
     + 'half a beat from another story. Warm underneath it, but never sentimental.',
-  eric: 'Erican, called Eric here. Spare, steady and warm. He says only what is useful; '
+  erican: 'Erican. Spare, steady and warm. He says only what is useful; '
     + 'when he adds a second sentence it matters.',
 };
 
@@ -154,7 +154,7 @@ if (golfVoice.length) {
     + 'the existing `eric` story/radio voice. These are the same characters, not golf recasts.\n\n';
   const byWho = new Map();
   for (const c of golfVoice) {
-    const who = c.voice || 'player';
+    const who = c.voice === 'eric' ? 'erican' : (c.voice || 'player');
     if (!byWho.has(who)) byWho.set(who, []);
     byWho.get(who).push(c);
   }

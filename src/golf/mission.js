@@ -53,7 +53,7 @@ export const BEAT = {
 const TEE_ORDER = [ERIC, RIPPIN, LOU];
 
 /* What each man is called in the sequence table. The campaign ids are
- * `erican` and `rippinflow`; the script calls them Eric and Rippin, because
+ * `erican` and `rippinflow`; the script calls them Erican and Rippin, because
  * that is what the other three call them. One table, so the two spellings can
  * never drift apart again. */
 const SCRIPT_KEY = {
@@ -452,7 +452,7 @@ export class Round {
     this._npcPhase = 'before';
   }
 
-  /* ---- Eric, Rippin, Lou ---- */
+  /* ---- Erican, Rippin, Lou ---- */
 
   _updateNpcTee(dt) {
     if (this._npcIndex >= TEE_ORDER.length) {
@@ -602,7 +602,7 @@ export class Round {
   /**
    * Everybody gets in.
    *
-   * Lou drives the Prospect; Eric takes Rippin. That split is the only reason
+   * Lou drives the Prospect; Erican takes Rippin. That split is the only reason
    * the first cart is quiet enough for the conversation it exists to hold.
    */
   _startCartRide() {
@@ -756,7 +756,7 @@ export class Round {
       const club = onGreen ? 'putter' : 'iron';
 
       /* Their last authored stroke goes in; everything before it gets close.
-       * This is what makes Eric two-putt for par and Rippin take five. */
+       * This is what makes Erican two-putt for par and Rippin take five. */
       const isLast = strokes + 1 >= plan.finish;
       const target = isLast
         ? { x: HOLE.pin.x, z: HOLE.pin.z }
@@ -818,7 +818,7 @@ export class Round {
    *
    * An NPC whose authored last stroke lipped out is given the tap-in rather
    * than being simulated until it drops, because a hole that cannot end is a
-   * worse bug than a hole where Eric got a gimme.
+   * worse bug than a hole where Erican got a gimme.
    */
   _finishStragglers() {
     for (const id of [ERIC, LOU, RIPPIN]) {

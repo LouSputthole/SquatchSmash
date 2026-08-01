@@ -103,17 +103,16 @@ export const CHARACTER_REGISTRY = Object.freeze({
   /**
    * The adult in the foursome.
    *
-   * `erican` is the Circle id and stays the save key; `Eric` is what the other
-   * three call him to his face, so that is the subtitle. Nobody on a golf
-   * course says a man's full handle before telling him to aim at the middle of
-   * the green.
+   * `erican` is the Circle id, save key, and proper in-game name. The shorter
+   * `eric` spelling survives only as the established audio-profile key and a
+   * legacy alias; it must never leak into player-facing labels.
    */
   [CHARACTER_IDS.ERICAN]: character({
     id: CHARACTER_IDS.ERICAN,
     canonicalName: 'Erican',
-    subtitleName: 'Eric',
-    /* Same Eric heard throughout the story and on What's Happening in India.
-     * `erican` remains this archived scene's save/face alias, not a new voice. */
+    subtitleName: 'Erican',
+    /* Same Erican heard throughout the story and on What's Happening in India.
+     * The technical `eric` profile keeps that established voice continuity. */
     voiceProfile: 'eric',
     species: 'human',
     role: 'family_member',

@@ -62,7 +62,7 @@ const COMMERCIAL = [
   seg('At 3 PM, it’s Irish’s Deep Dives… bringing you Real News You Can Trust.', 'radio.kazoo'),
   seg('"Tonight: is Big Egg suppressing the pasture-raised truth? '
     + 'We investigate… for way longer than necessary."'),
-  seg('Then at 5 PM, don’t miss Eric & Gratin’s "What’s Happening in India!"'),
+  seg('Then at 5 PM, don’t miss Erican & Gratin’s "What’s Happening in India!"'),
   seg('Covering headlines, cricket scores, technology, food, and somehow always '
     + 'ending with a discussion about butter chicken.'),
   seg('And when the sun goes down…', 'radio.crowd'),
@@ -336,82 +336,82 @@ const SQUATCH_SHOWS = [
   {
     from: 17, to: 20,
     name: "What\u2019s Happening in India!",
-    strap: "With Eric & Gratin.",
+    strap: "With Erican & Gratin.",
     exchanges: [
       [
-        "ERIC: Headlines, cricket scores, technology, food. In that order. Usually.",
+        "ERICAN: Headlines, cricket scores, technology, food. In that order. Usually.",
       ],
       [
         "GRATIN: The scores first. Then, inevitably, butter chicken.",
       ],
       [
-        "ERIC: We are not going to talk about butter chicken today.",
+        "ERICAN: We are not going to talk about butter chicken today.",
       ],
       [
         "GRATIN: We are going to talk about butter chicken today.",
       ],
       [
-        "ERIC: An enormous tech story out of Bengaluru, and we have four minutes.",
+        "ERICAN: An enormous tech story out of Bengaluru, and we have four minutes.",
       ],
       [
         "GRATIN: Make it two. I want to get to the butter chicken.",
       ],
       [
-        "ERIC: A listener has sent in a recipe. Gratin has already left the studio.",
+        "ERICAN: A listener has sent in a recipe. Gratin has already left the studio.",
       ],
       [
         "GRATIN: I am in the car park. I am fine. Read the recipe.",
       ],
       [
-        "ERIC: Drive time on 97.8. If you are driving, this is your show. If not, also.",
+        "ERICAN: Drive time on 97.8. If you are driving, this is your show. If not, also.",
       ],
       [
         "GRATIN: Cricket first. Somebody scored a lot of runs. It was very good.",
       ],
       [
-        "ERIC: That is the whole report. He does not follow it, he just likes the numbers.",
+        "ERICAN: That is the whole report. He does not follow it, he just likes the numbers.",
       ],
       [
         "GRATIN: I like the numbers. The numbers go up. It is a good sport.",
       ],
       [
-        "ERIC: Mumbai traffic update, for our listeners in Mumbai, of whom there are none.",
+        "ERICAN: Mumbai traffic update, for our listeners in Mumbai, of whom there are none.",
       ],
       [
         "GRATIN: There is one. He writes in every week. Hello, Sanjay.",
       ],
       [
-        "ERIC: Sanjay says the traffic update is inaccurate and he has stopped listening.",
+        "ERICAN: Sanjay says the traffic update is inaccurate and he has stopped listening.",
       ],
       [
         "GRATIN: Hello anyway, Sanjay.",
       ],
       [
-        "ERIC: Tech story: a company in Hyderabad has done something clever with batteries.",
+        "ERICAN: Tech story: a company in Hyderabad has done something clever with batteries.",
       ],
       [
         "GRATIN: Does it cook anything?",
       ],
       [
-        "ERIC: It does not cook anything.",
+        "ERICAN: It does not cook anything.",
       ],
       [
         "GRATIN: Then I have no follow-up questions.",
       ],
       [
-        "ERIC: I am going to get through one headline today without food coming up.",
+        "ERICAN: I am going to get through one headline today without food coming up.",
       ],
       [
         "GRATIN: A new bridge has opened. Near a restaurant. A very good restaurant.",
       ],
       [
-        "ERIC: We were four seconds from it. Four.",
+        "ERICAN: We were four seconds from it. Four.",
       ],
       [
         "GRATIN: If you are heading out this evening, eat first. That is not news, it is advice.",
       ],
       [
-        "ERIC: Some of our audience are getting ready to go somewhere right now. Godspeed.",
+        "ERICAN: Some of our audience are getting ready to go somewhere right now. Godspeed.",
       ],
       [
         "GRATIN: Shower. Clean shirt. Eat. In that order. It is not complicated.",
@@ -665,6 +665,7 @@ const SPEAKERS = {
   'BOOSKI': 'booski',
   'APE': 'ape',
   'IRISH': 'irish',
+  'ERICAN': 'eric',
   'ERIC': 'eric',
   'GRATIN': 'gratin',
   'HOG MAMA': 'hogmama',

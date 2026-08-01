@@ -138,7 +138,7 @@ function clamp01(v) { return clamp(v, 0, 1); }
  * The swing an NPC makes.
  *
  * They go through `launchFor` and the same ball as the player; only the way
- * the numbers are arrived at differs. Personality is in the spread: Eric is
+ * the numbers are arrived at differs. Personality is in the spread: Erican is
  * boringly repeatable, Rippin swings out of his shoes, Lou does not miss by
  * much because he is not trying to do anything difficult.
  */

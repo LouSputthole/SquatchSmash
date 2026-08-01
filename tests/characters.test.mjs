@@ -8,6 +8,7 @@ import {
   resolveCharacterId,
   voiceProfileFor,
 } from '../src/core/characters.js';
+import { voiceCues } from '../src/core/stations.js';
 
 test('the campaign has one immutable identity record for each established recurring character', () => {
   assert.deepEqual(
@@ -60,10 +61,22 @@ test('approved story names and aliases resolve without merging the two Lous', ()
 
   assert.equal(getCharacter(CHARACTER_IDS.PROSPECT).subtitleName, 'Prospect');
   assert.equal(getCharacter(CHARACTER_IDS.BOOSKI).subtitleName, 'Booskibro');
+  assert.equal(getCharacter(CHARACTER_IDS.ERICAN).canonicalName, 'Erican');
+  assert.equal(getCharacter(CHARACTER_IDS.ERICAN).subtitleName, 'Erican');
+  assert.equal(voiceProfileFor(CHARACTER_IDS.ERICAN), 'eric');
 });
 
 test('rejected and unknown character names do not silently become canon', () => {
   assert.equal(resolveCharacterId('tony_squatchmontana'), null);
   assert.equal(getCharacter('not_a_character'), null);
   assert.equal(voiceProfileFor('not_a_character'), null);
+});
+
+test('the radio calls Erican by his proper name while preserving his voice', () => {
+  const cues = voiceCues();
+  const ericanLines = cues.filter((cue) => cue.voice === 'eric');
+  assert.equal(ericanLines.length, 13);
+  assert.ok(ericanLines.some((cue) => cue.say.startsWith('Headlines, cricket scores')));
+  assert.ok(cues.some((cue) => cue.say.includes('Erican & Gratin')));
+  assert.equal(cues.some((cue) => /\bEric & Gratin\b/.test(cue.say)), false);
 });

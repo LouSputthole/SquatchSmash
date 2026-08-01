@@ -154,7 +154,7 @@ test('the green falls back to front and tilts toward the water', () => {
 });
 
 test('the hole teaches its own safe line', () => {
-  /* Eric says "middle of the green, ignore the flag" and the hole has to make
+  /* Erican says "middle of the green, ignore the flag" and the hole has to make
    * him right, or the best advice in the scene is decoration. */
   const lie = lieAt(TEE);
   const swing = { power: 0.85, accuracy: 0, lie };
@@ -245,7 +245,7 @@ test("the NPCs' authored tee shots really fly where the writing says", () => {
   });
 
   const eric = shot(CHARACTER_IDS.ERICAN);
-  assert.equal(eric.surface, SURFACE.GREEN, 'Eric hits the middle of the green');
+  assert.equal(eric.surface, SURFACE.GREEN, 'Erican hits the middle of the green');
   assert.ok(toFeet(Math.hypot(eric.landedAt.x - PIN.x, eric.landedAt.z - PIN.z)) < 30);
 
   const rippin = shot(CHARACTER_IDS.RIPPINFLOW);
@@ -326,7 +326,7 @@ test('the foursome is the campaign cast, not four new people', () => {
     CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW,
     CHARACTER_IDS.ERICAN, CHARACTER_IDS.PROSPECT,
   ]);
-  assert.deepEqual(FOURSOME.map((g) => g.name), ['Big Uncle Lou', 'Rippin', 'Eric', 'Prospect']);
+  assert.deepEqual(FOURSOME.map((g) => g.name), ['Big Uncle Lou', 'Rippin', 'Erican', 'Prospect']);
   // The Prospect hits last, always.
   assert.equal(TEE_ORDER[TEE_ORDER.length - 1], CHARACTER_IDS.PROSPECT);
   // Lou takes no practice swing and does not watch it land.
@@ -336,7 +336,7 @@ test('the foursome is the campaign cast, not four new people', () => {
   assert.ok(rippin.practiceSwings >= 3, 'Rippin takes too many');
   assert.equal(voiceProfileFor(CHARACTER_IDS.RIPPINFLOW), 'rippinflow');
   assert.equal(voiceProfileFor(CHARACTER_IDS.ERICAN), 'eric',
-    'Erican is the established Eric voice, not a golf-only recast');
+    'Erican keeps the established eric audio profile, not a golf-only recast');
 });
 
 test('every line in the script can be heard, and none is addressed by position', () => {
@@ -527,8 +527,8 @@ test('the authored NPC scores are the ones the writing depends on', () => {
       setActiveHole(number);
       const plan = HOLE.npcPlan;
       assert.ok(plan, `hole ${number} has no authored scores`);
-      // Eric and Lou play to par; Rippin does not, on any hole.
-      assert.equal(plan.erican.finish, HOLE.par, `hole ${number}: Eric makes par`);
+      // Erican and Lou play to par; Rippin does not, on any hole.
+      assert.equal(plan.erican.finish, HOLE.par, `hole ${number}: Erican makes par`);
       assert.equal(plan.lou.finish, HOLE.par, `hole ${number}: Lou makes par`);
       assert.ok(plan.rippinflow.finish > HOLE.par, `hole ${number}: Rippin does not`);
     }

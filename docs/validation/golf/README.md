@@ -14,7 +14,7 @@ Current automated state (August 1, 2026):
 ## Content still required
 
 - Record the 291 entries under **Voice — A Morning at Silver Pines** in
-  `VOICE-LINES-TODO.md`. Lou has 103, Rippin has 102, Eric has 66, and the
+  `VOICE-LINES-TODO.md`. Lou has 103, Rippin has 102, Erican has 66, and the
   Prospect has 20. Every filename includes its exact line and direction.
 - Voice continuity is locked to the established cast: Rippinflow uses
   `rHWSYoq8UlV0YIBKMryp`, and Erican resolves to the existing `eric` profile

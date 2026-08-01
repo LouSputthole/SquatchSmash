@@ -108,7 +108,7 @@ export const CLUBHOUSE = Object.freeze({ x: 196, z: -486, rot: -0.6 });
 /**
  * Deterministic tee shots, and this time they are drives.
  *
- * Eric plays the corner properly — out to the wide side, leaving the angle.
+ * Erican plays the corner properly — out to the wide side, leaving the angle.
  * Rippin aims at the corner itself, because of course he does, and finds the
  * bunker that is there for precisely that reason. Lou hits it nowhere near as
  * far as either of them and is in the middle of the fairway, which is the

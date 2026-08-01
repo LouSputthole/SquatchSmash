@@ -188,7 +188,7 @@ export const FOURSOME = Object.freeze([
      * to make it everybody else's problem. */
     tempo: 1.22, practiceSwings: 3, watchesBall: 1.0,
   }),
-  golfer(CHARACTER_IDS.ERICAN, 'ERIC', {
+  golfer(CHARACTER_IDS.ERICAN, 'ERI', {
     tempo: 1.0, practiceSwings: 1, watchesBall: 0.55,
   }),
   golfer(CHARACTER_IDS.PROSPECT, 'YOU', {
