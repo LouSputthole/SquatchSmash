@@ -595,6 +595,7 @@ function updateRoom() {
 }
 
 function teleport(x, z, yaw = player.yaw) {
+  player.mode = 'walk';
   player.position.set(x, 1.66, z);
   player.velocity.set(0, 0, 0);
   player.yaw = yaw;
