@@ -370,16 +370,20 @@ export function buildGraveyard(scene) {
   temporary.visible = false;
   root.add(temporary);
 
-  // Babs's bench makes the monument a place instead of only a larger slab.
+  // Babs's bench runs along the west side of her plot and faces the grave.
+  // Keeping it parallel to the burial bed leaves the headstone and the aisle
+  // open instead of stretching the bench across the monument's approach.
   const bench = group('babs.bench');
+  bench.position.set(-8.15, 0, -2.25);
+  bench.rotation.y = Math.PI / 2;
   bench.add(
-    box({ size: [2.0, 0.14, 0.52], pos: [-8.5, 0.52, -3.0], mat: STONE_LIGHT }),
-    box({ size: [2.0, 0.65, 0.13], pos: [-8.5, 0.86, -3.25], mat: STONE_LIGHT }),
-    box({ size: [0.15, 0.48, 0.42], pos: [-9.2, 0.25, -3.0], mat: STONE_LIGHT }),
-    box({ size: [0.15, 0.48, 0.42], pos: [-7.8, 0.25, -3.0], mat: STONE_LIGHT }),
+    box({ size: [2.0, 0.14, 0.52], pos: [0, 0.52, 0], mat: STONE_LIGHT }),
+    box({ size: [2.0, 0.65, 0.13], pos: [0, 0.86, -0.25], mat: STONE_LIGHT }),
+    box({ size: [0.15, 0.48, 0.42], pos: [-0.7, 0.25, 0], mat: STONE_LIGHT }),
+    box({ size: [0.15, 0.48, 0.42], pos: [0.7, 0.25, 0], mat: STONE_LIGHT }),
   );
   root.add(bench);
-  colliders.push(collider([-9.55, 0, -3.35], [-7.45, 1.25, -2.65], 0.03));
+  colliders.push(collider([-8.5, 0, -3.3], [-7.8, 1.25, -1.2], 0.03));
 
   const car = parkedCar();
   root.add(car);
