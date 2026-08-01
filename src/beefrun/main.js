@@ -57,10 +57,14 @@ try {
   window.__squatchFail?.('This browser cannot open WebGL', err?.message || String(err));
   throw err;
 }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// The airstrip's procedural terrain, clouds and shadowed aircraft are already
+// the expensive part of the frame. A 2x retina backbuffer turned the direct
+// preview into a 3 FPS slideshow on ordinary laptops, so cap it at a practical
+// quality level instead of spending four times the pixels on the same scene.
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.06;
 renderer.outputColorSpace = THREE.SRGBColorSpace;

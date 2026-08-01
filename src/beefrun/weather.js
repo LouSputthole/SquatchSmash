@@ -42,7 +42,9 @@ export class WeatherSystem {
     scene.add(this.hemi);
     this.sun = new THREE.DirectionalLight(0xfff2d8, 2.4);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    // A 1024 map keeps the grounded aircraft legible without paying a full
+    // 2048 soft-shadow pass every frame over a streamed outdoor level.
+    this.sun.shadow.mapSize.set(1024, 1024);
     const cam = this.sun.shadow.camera;
     cam.left = -70; cam.right = 70; cam.top = 70; cam.bottom = -70;
     cam.near = 1; cam.far = 400;
