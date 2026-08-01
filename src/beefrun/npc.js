@@ -407,10 +407,11 @@ export function makeLou() {
     shades: true,            // in the photograph, where they belong
     hat: 'headset',
     build: 0.55,
-    /* His actual face. The crop takes the cap down to the moustache and no
-     * further — the shirt and the railing behind him are not part of him. */
+    /* His actual face. The crop keeps the backwards cap, headset mic and
+     * moustache while leaving the shirt and the transparent edge out of the
+     * square face plate. */
     face: 'assets/faces/sasole.png',
-    faceCrop: [0.276, 0.44, 0.48, 0.56],
+    faceCrop: [0.08, 0.28, 0.84, 0.63],
   });
   setPose(f, 'lean');
   // The cup. It goes where he goes until he gets in the aeroplane.
