@@ -20,6 +20,7 @@ import { clamp, lerp, smoothstep, damp, headingDelta } from './util.js';
 import { setPose, speak, updateFigure, walkTo, scatterCrows, makeAssociate } from './npc.js';
 import { yawToward } from '../world/build.js';
 import { Loading } from './loading.js';
+import { evaluateLineupGate } from './lineup-gate.js';
 
 /** The four places the mission will put you back. */
 const CHECKPOINT_ORDER = ['takeoff', 'approach', 'departure', 'return'];
@@ -677,17 +678,24 @@ export class MissionController {
     const target = this.airfield.anchors.lineUp;
     const distance = Math.hypot(p.position.x - target.x, p.position.z - target.z);
     const headingError = Math.abs(headingDelta(p.headingDeg, this.airfield.anchors.departHeading));
+    const gate = evaluateLineupGate({
+      distance,
+      headingError,
+      groundSpeed: p.groundSpeed,
+      onGround: p.onGround,
+      agl: p.agl,
+      airspeedKnots: p.ias * KT,
+    });
 
     /* Holding short is not the same as being on the runway. Do not let the
      * takeoff state start from the taxiway: the player gets a concrete arrow,
      * a centreline to follow, and a clear southbound alignment before power. */
     if (!this.flags.lineupReady) {
       this.setObjective(`${OBJECTIVES.lineup} (${Math.ceil(distance)} m)`);
-      const airborne = !p.onGround && (p.agl > 2 || p.ias * KT > 40);
-      if ((distance < 13 && headingError < 24 && p.groundSpeed < 8) || airborne) {
+      if (gate.ready) {
         this.flags.lineupReady = true;
         this.setObjective(OBJECTIVES.takeoff);
-        if (!airborne) {
+        if (!gate.airborne) {
           this.dialogue.play('lineup.ready', { once: true });
           this.dialogue.play('takeoff.brief', { once: true, delay: 4.7 });
         }
