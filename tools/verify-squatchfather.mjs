@@ -544,7 +544,21 @@ try {
     current.beat === 'RETURN_TO_TABLE' && current.hasWeapon,
     `${current.beat}, weapon ${current.hasWeapon}`);
 
-  await go('TRAIN_APPROACH');
+  const finalHorn = await page.evaluate(() => {
+    const sf = window.squatchfather;
+    const count = () => sf.audio.playLog().filter((n) => n === 'train.horn.far').length;
+    const before = count();
+    sf.go('TRAIN_APPROACH');
+    sf.tick(0.2);
+    return {
+      ready: sf.audio.sampleReady('train.horn.far'),
+      played: count() - before,
+      intensity: sf.train.target,
+    };
+  });
+  check('the deep train horn sounds under maximum vibration before Tony draws',
+    finalHorn.ready && finalHorn.played === 1 && finalHorn.intensity === 1,
+    JSON.stringify(finalHorn));
   await page.evaluate(() => {
     window.squatchfather.pressFire();
     window.squatchfather.tick(0.8);
@@ -611,6 +625,11 @@ try {
         m.parent === sf.sal.fig.neck || m.parent === sf.sal.fig.torso
           || m.parent === sf.mcclawsky.fig.neck || m.parent === sf.mcclawsky.fig.torso
       )),
+      woundVisuals: sf.blood.pool.filter((m) => m.visible).map((m) => ({
+        size: m.geometry.parameters.width,
+        side: m.material.side,
+        renderOrder: m.renderOrder,
+      })),
     };
   });
   const sum = (a) => a.reduce((x, y) => x + y, 0);
@@ -647,6 +666,24 @@ try {
   check('shooting McClawsky requires the weapon drop', current.beat === 'DROP_WEAPON', current.beat);
   check('the wounds stay attached to the men as they fall',
     shotCost.woundsFollowBodies === true, JSON.stringify(shotCost.woundsFollowBodies));
+  check('four large red wounds remain visible from either side after both men fall',
+    shotCost.woundVisuals.length === 4
+      && shotCost.woundVisuals.every((w) => w.size >= 0.3 && w.side === 2 && w.renderOrder >= 4),
+    JSON.stringify(shotCost.woundVisuals));
+  if (process.env.CAPTURE) {
+    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      const sf = window.squatchfather;
+      sf.tick(0.9);
+      sf.scene.updateMatrixWorld(true);
+      sf.renderer.render(sf.scene, sf.camera);
+    });
+    const captureDir = path.join(ROOT, 'docs', 'validation', '2026-08-01');
+    await fsp.mkdir(captureDir, { recursive: true });
+    await page.screenshot({
+      path: path.join(captureDir, 'squatchfather-blood-after-shots.png'),
+    });
+  }
 
   // ---- The room really cowers: the waiter runs to the back corner and goes
   // down; the diners are off their chairs, low, arms wrapped over their

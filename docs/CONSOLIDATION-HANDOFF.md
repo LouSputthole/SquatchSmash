@@ -647,3 +647,26 @@ node --check         changed Bing source and verifier files passed
 Visual captures are under `docs/validation/2026-08-01/`:
 `bing-arrival-car-interior.png`, `bing-phone-large.png`, and
 `bing-booski-bartender-pour.png`.
+
+## 2026-08-01 — Squatchfather blood and final train horn
+
+The shot wounds on Sal and McClusky are now 0.31-meter, brighter red,
+double-sided decals with elevated render order. They stay parented to the hit
+body parts and remain readable against the dark suits after both men fall.
+
+The replacement deep `train.horn.far` sample now plays once when the final
+train approach reaches maximum vibration, immediately before Tony draws. The
+earlier exterior horn remains the distant establishing call; the new cue is
+the close, heavy horn requested for the shooting setup.
+
+Fresh Squatchfather evidence for this pass:
+
+```text
+npm run verify:squatchfather  40/40 passed
+runtime console errors         0
+deep final-approach horn       ready, played once at intensity 1
+post-fall blood wounds         4 at size 0.31, DoubleSide, render order 4
+```
+
+The post-shot runtime capture is
+`docs/validation/2026-08-01/squatchfather-blood-after-shots.png`.
