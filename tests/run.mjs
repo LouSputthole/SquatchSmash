@@ -15,3 +15,4 @@ import './squatch-smash-goals.test.mjs';
 import './preview-mode.test.mjs';
 import './radio-tape.test.mjs';
 import './sfx-index.test.mjs';
+import './audio-engine.test.mjs';

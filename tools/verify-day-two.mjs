@@ -267,9 +267,9 @@ try {
     volume: window.__squatch.radio.volume,
     bulletin: [...(window.__squatch.game.newsHeard || [])].includes('news.radio.day_two'),
   }));
-  check('Day Two starts with the radio quietly on and the murder bulletin queued first',
+  check('Day Two starts with the radio audibly on and the murder bulletin queued first',
     dayTwoRadio.on === true
-      && Math.abs(dayTwoRadio.volume - 0.07) < 0.001
+      && Math.abs(dayTwoRadio.volume - 0.70) < 0.001
       && dayTwoRadio.bulletin === true,
     JSON.stringify(dayTwoRadio));
   const radioKnob = await page.evaluate(() => {
@@ -282,19 +282,19 @@ try {
     return { before, louder, after: game.radio.volumePercent, label: knob?.userData.interact?.label?.() };
   });
   check('the visible radio knob raises and lowers the radio volume in seven-percent steps',
-    radioKnob.before === 7
-      && radioKnob.louder === 14
-      && radioKnob.after === 7
-      && /7%/.test(radioKnob.label || ''),
+    radioKnob.before === 70
+      && radioKnob.louder === 77
+      && radioKnob.after === 70
+      && /70%/.test(radioKnob.label || ''),
     JSON.stringify(radioKnob));
 
   /* ---------------------------------------------------------------- */
   /* The flat on the second morning                                    */
   /* ---------------------------------------------------------------- */
 
-  /* Day Two has the proof of last night without dumping an ugly shirt pile on
-   * the bedroom floor: the first fold of money and Bing's matchbook remain,
-   * while the lanyard and the old floor clothes are gone. */
+  /* The room itself carries last night forward: the bloodied shirt, the first
+   * fold of money and Bing's matchbook remain, while the day-job lanyard is
+   * gone. This is the authored Day Two continuity, not generic floor clutter. */
   const room = await page.evaluate(() => {
     const game = window.__squatch;
     const shown = [];
@@ -310,9 +310,9 @@ try {
   });
   check('the second morning is a visibly different flat from the first',
     room.chapter === 'day_two'
+      && room.shown.includes('bloodShirt')
       && room.shown.includes('cashSmall')
       && room.shown.includes('bingMatches')
-      && !room.shown.includes('bloodShirt')
       && !room.shown.includes('lanyard')
       && !room.shown.includes('cashStacks')
       && !room.shown.includes('gunCase')
@@ -337,15 +337,27 @@ try {
 
   // Use Playwright's keyboard rather than a synthetic document event: Escape
   // is one of the keys browsers may reserve while pointer lock is involved.
-  await page.evaluate(() => { window.__squatch.game.started = true; window.__squatch.game.paused = false; });
+  const loadedBeforePause = await page.evaluate(() => {
+    window.__squatch.game.started = true;
+    window.__squatch.game.paused = false;
+    return window.__squatch.audio.loadedCount;
+  });
   await page.keyboard.press('Escape');
   const paused = await page.evaluate(() => window.__squatch.game.paused
     && !document.querySelector('#overlay')?.classList.contains('hidden'));
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => window.__squatch.game.paused === false, null, { timeout: 10000 });
-  const escapePause = { paused, resumed: true };
-  check('Escape always opens and closes pause, including a Day Two browser preview',
-    escapePause.paused && escapePause.resumed,
+  const loadedAfterResume = await page.evaluate(() => window.__squatch.audio.loadedCount);
+  const escapePause = {
+    paused,
+    resumed: true,
+    loadedBeforePause,
+    loadedAfterResume,
+  };
+  check('Escape opens and closes pause without decoding the audio library again',
+    escapePause.paused
+      && escapePause.resumed
+      && escapePause.loadedAfterResume === escapePause.loadedBeforePause,
     JSON.stringify(escapePause));
 
   const ringing = await page.evaluate(() => {

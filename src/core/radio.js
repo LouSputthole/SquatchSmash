@@ -39,7 +39,10 @@ const SONG_FADE_OUT = 3.5;
 /* Where in the track to start. A fifth in usually clears the intro and lands
  * somewhere with words on it. */
 const SONG_START_FRAC = 0.20;
-const DEFAULT_VOLUME = 0.07;
+/* The authored cue gains already make this a small room radio. This is a
+ * linear WebAudio gain, not a percentage in decibels: 0.07 would cut the
+ * previously audible mix by 23 dB and make the bulletin vanish across room. */
+const DEFAULT_VOLUME = 0.70;
 const VOLUME_STEP = 0.07;
 
 export class Radio {
@@ -184,11 +187,11 @@ export class Radio {
     this.on ? this.turnOff() : this.turnOn();
   }
 
-  turnOn() {
+  turnOn({ tuneIn = true } = {}) {
     this.audio.play('radio.click', { position: this.position, volume: 0.8 });
     this._ensureGraph();
     this.on = true;
-    this._tuneIn(true);
+    if (tuneIn) this._tuneIn(true);
   }
 
   turnOff() {
@@ -398,7 +401,9 @@ export class Radio {
 
   /** Put an urgent bulletin ahead of the ordinary running order. */
   broadcast({ cue, line }) {
-    if (!this.on) this.turnOn();
+    // Power up without starting a random host line that the bulletin would
+    // interrupt a moment later.
+    if (!this.on) this.turnOn({ tuneIn: false });
     this._ensureGraph();
     this._stopBeds();
     this._line = line;

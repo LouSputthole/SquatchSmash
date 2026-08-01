@@ -768,8 +768,13 @@ boot().catch((err) => {
 startBtn.addEventListener('click', async () => {
   if (game.left) return;          // the ending card owns the button now
   await audio.init();
-  const sfx = await audio.loadManifest();
-  console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
+  /* Loading every recording is the expensive first-start gate. A pause may
+   * legitimately resume the AudioContext, but it must never fetch and decode
+   * the entire library again or append duplicate AudioBuffers to the cache. */
+  if (!game.started) {
+    const sfx = await audio.loadManifest();
+    console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
+  }
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
@@ -966,6 +971,8 @@ document.addEventListener('keydown', (e) => {
    * menu disappear exactly when it was most needed. */
   if (e.code === 'Escape' && !e.repeat) {
     if (!game.started || game.left) return;
+    // The seated DOM arcade deliberately owns its keyboard, including Escape.
+    if (game.seated && arcade.inputMode === 'dom') return;
     e.preventDefault();
     if (game.paused) {
       startBtn.click();
@@ -2882,11 +2889,16 @@ function startDayTwoOpening() {
   const state = campaign.state;
   if (state.story.chapter !== 'day_two'
     || state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL]?.status === 'answered') return false;
-  if (!radio.on) radio.turnOn();
+  if (!radio.on) radio.turnOn({ tuneIn: false });
   apartment.state.radioOn = radio.on;
-  const announced = playNews('radio');
-  if (announced) apartmentStory.beginMorning({ delay: DAY_TWO_CALL_AFTER_BULLETIN, reset: true });
-  return announced;
+  return playNews('radio', {
+    // The authored twenty seconds begins when the bulletin is actually heard,
+    // not while its short power-up delay is still running.
+    onStart: () => apartmentStory.beginMorning({
+      delay: DAY_TWO_CALL_AFTER_BULLETIN,
+      reset: true,
+    }),
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -2971,20 +2983,23 @@ function playMessages() {
  * reporting. Never names him -- a bulletin that named him would be a plot
  * point, and this is weather.
  */
-function playNews(station) {
+function playNews(station, { onStart = null } = {}) {
   const bulletin = apartmentStory.news()?.[station];
   if (!bulletin || game.newsHeard?.has(bulletin.vo)) return false;
   (game.newsHeard ??= new Set()).add(bulletin.vo);
   setTimeout(() => {
     if (station === 'radio') {
       const hold = radio.broadcast({ cue: `vo.${bulletin.vo}.1`, line: bulletin.line });
+      apartment.state.radioOn = radio.on;
+      onStart?.({ hold, bulletin });
       hud.say(`<em>97.8 · the wire</em> ${bulletin.line}`, Math.round(hold * 1000));
       return;
     }
-    speakLine(`vo.${bulletin.vo}.1`, bulletin.line, {
+    const hold = speakLine(`vo.${bulletin.vo}.1`, bulletin.line, {
       volume: 0.75,
       subtitle: `<em>${station === 'radio' ? '97.8 · the wire' : 'KSQCH · news'}</em> ${bulletin.line}`,
     });
+    onStart?.({ hold, bulletin });
   }, 900);
   return true;
 }

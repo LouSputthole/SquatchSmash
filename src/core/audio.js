@@ -45,6 +45,7 @@ export class AudioEngine {
     this.loops = new Map();
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
+    this._manifestLoadPromise = null;
     this._lastStep = 0;
     /* A small, factual record of sample playback.  `voLog` says that a scene
      * asked for a line; this says whether a decoded buffer was really put on
@@ -109,7 +110,19 @@ export class AudioEngine {
    * 404s. `npm run sfx` rewrites it; hand-added files can be listed manually.
    * If the index is missing entirely we fall back to probing every cue.
    */
-  async loadManifest() {
+  loadManifest() {
+    if (!this._manifestLoadPromise) {
+      this._manifestLoadPromise = this._loadManifestOnce().catch((error) => {
+        // A transient manifest failure may be retried, but a successful load
+        // is immutable for this page. This also coalesces double-clicked starts.
+        this._manifestLoadPromise = null;
+        throw error;
+      });
+    }
+    return this._manifestLoadPromise;
+  }
+
+  async _loadManifestOnce() {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
     const cues = this.manifest.sfx || [];
