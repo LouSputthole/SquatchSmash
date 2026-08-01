@@ -1,18 +1,20 @@
 # Squatch Life
 
-Nine playable or preserved experiences live in this repo.
+Eleven playable or preserved experiences live in this repo.
 
 | | |
 |---|---|
 | **Squatch Life** (repo root) | First-person apartment hub. Wake up, answer Lou’s call, get ready, use the PC, and leave for the first mission. |
-| **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; the campaign also reuses the same club for his post-airstrip assignment. |
+| **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; the Day Two return becomes the Billy HotDog incident and cleanup. |
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
+| **The Squatch Graveyard** ([`graveyard.html`](./graveyard.html)) | Carry and bury Billy HotDog, then optionally inspect, respect, or disrespect the Family memorials before the Motel. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Snow is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three's harbor and open-water betrayal: Lou, Booski, Willy, the revolvers, and the silent return. It bridges the Motel to Front and Center. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house and connected to Day Three campaign state. |
-| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, routed from the apartment by Booskibro's Day Four big-night call after the Silver Room. Its authored ceremony and outcome are unchanged pending the owner's playtest; it now uses the shared inventory bar. |
+| **THE TAKE** ([`heist.html`](./heist.html)) | Day Four’s complete bank-job climax: briefing, bank and vault, street withdrawal, garage, vehicle swap, escape, and safehouse settlement. |
+| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved terminal scene, routed from the apartment after THE TAKE and its cleanup. Its authored ceremony and outcome remain frozen pending the owner's playtest; it uses the shared inventory bar. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
@@ -20,20 +22,22 @@ npm start        # the apartment -> http://localhost:5173
                  # the Bing      -> http://localhost:5173/bing.html
                  # Squatchfather -> http://localhost:5173/squatchfather.html
                  # the Beef Run  -> http://localhost:5173/beefrun.html
+                 # graveyard     -> http://localhost:5173/graveyard.html
                  # the Motel     -> http://localhost:5173/motel.html
                  # NO WAKE       -> http://localhost:5173/nowake.html
                  # Silver Room   -> http://localhost:5173/silver.html
+                 # THE TAKE      -> http://localhost:5173/heist.html
                  # the game      -> http://localhost:5173/game/
                  # Initiation    -> http://localhost:5173/initiation.html
 ```
 
-All nine are static ES-module sites with no build step, served by the same
+All eleven are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
-isolated; the apartment, Bing, Squatchfather, Beef Run, Motel, NO WAKE, Silver
-Room, and Initiation share campaign identities and reusable story-scene
+isolated; the apartment, Bing, Squatchfather, Beef Run, graveyard, Motel,
+NO WAKE, Silver Room, THE TAKE, and Initiation share campaign identities and reusable story-scene
 foundations.
 
 The campaign spine connects every story location through
@@ -47,8 +51,8 @@ package as the bathroom weapon. Finishing the restaurant records the dropped
 weapon and returns to the apartment again. Sleeping creates a persistent Day
 Two checkpoint at 7:00 AM; Booskibro then calls once and unlocks the airstrip job
 with Captain Lou Sasole kept distinct from Lou. The post-airstrip state
-contract, Lou’s second call, the reused Bing assignment, direct Motel
-transition, and Motel return are implemented. The Beef Run flight mission is
+contract, Lou’s second call, the reused Bing assignment, Billy HotDog cleanup,
+graveyard burial, Motel transition, and Motel return are implemented. The Beef Run flight mission is
 integrated: answering Booskibro routes the apartment door to
 [`beefrun.html`](./beefrun.html), the mission's checkpoints, cargo, detection,
 and landing rank persist through the campaign save, a mid-mission reload
@@ -62,8 +66,11 @@ in Lou or the Bing or anybody in the family — then rings once, and the
 apartment door routes to the Silver Room
 ([`silver.html`](./silver.html)) for a nine o'clock table. The evening's
 outcome is folded back into the campaign save; coming home and sleeping again
-is what finally turns the page onto the Day Four big night, Booskibro's call,
-and the Initiation at seven.
+turns the page onto Day Four. Margo wakes beside Tony, Lou calls with THE TAKE,
+and seven physical loadout pickups gate the apartment door. The heist persists
+its briefing, bank, vault, street, garage, vehicle-swap, driving, injury, loot,
+and settlement state. It returns Tony home for three physical cleanup tasks;
+only then does the door open onto the Initiation.
 
 The Initiation branch history, face art, NPC writing, post-processing modules,
 and playable ceremony are preserved while the shared inventory bar is added. Tony
@@ -79,7 +86,7 @@ For playtesting later scenes before naturally reaching them, open
 <http://localhost:5173/preview.html>. Preview state is page-local memory: it
 does not read, migrate, overwrite, or advance the player's canonical
 `localStorage` save. The preview page currently exposes the Beef Run, Motel,
-NO WAKE, Bing Scene Two, Squatchfather, the Silver Room, and the authored
+NO WAKE, Bing Scene Two, the graveyard, Squatchfather, the Silver Room, THE TAKE, and the authored
 Initiation reference. Every preview shows a persistent temporary-progress
 banner and an exit back to the saved apartment game.
 
@@ -420,7 +427,8 @@ npm run verify:squatchfather # runtime: stages the package, plays, returns home
 npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
 npm run verify:no-wake # runtime: harbor, betrayal, body disposal, campaign return
 npm run verify:beefrun # runtime: Beef Run campaign wiring, isolation, resume
-npm run verify:big-night # runtime: post-date sleep, Booskibro's last call, the door to Initiation
+npm run verify:big-night # runtime: Day Four wake, Lou's call, loadout, door to THE TAKE
+npm run verify:heist # runtime: all THE TAKE checkpoints, combat, loot, escape, settlement
 npm run verify:silver # runtime: the Silver Room evening end to end
 npm run balance:silver # the date's scoring economy, accounted against the source
 npm run check:flight # headless flight-model bench for the Brushrunner
@@ -429,7 +437,7 @@ npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
 npm run verify:initiation # runtime: human cast, canonical names, human induction
 npm run verify:silver # runtime: plays the whole Silver Room evening, headless
 npm run verify:silver-story # runtime: the date's campaign seam, door to door
-npm run verify:big-night # runtime: post-date sleep, Booskibro, route to Initiation
+npm run verify:big-night # runtime: post-date sleep, Margo, Lou, route to THE TAKE
 npm run verify:preview # runtime: later-scene previews never touch the real save
 npm run verify:boot-errors # blocked scene modules show reload/home recovery
 npm run bundle       # bake the whole thing into one self-contained HTML file
@@ -437,7 +445,7 @@ npm run bundle       # bake the whole thing into one self-contained HTML file
 
 `verify:campaign-route` is the focused campaign-state acceptance contract. It
 starts with a fresh Tony, uses the public story APIs, reloads at the apartment
-returns, and follows every currently connected mission into an in-progress
+returns, and follows every connected mission—including the graveyard and THE TAKE—into an in-progress
 Initiation. It intentionally does not call that campaign complete: the frozen
 Initiation still has no completion event or outbound edge.
 

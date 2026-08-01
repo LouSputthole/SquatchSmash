@@ -31,6 +31,7 @@ const EXPECTED_SCENE_LINKS = Object.freeze({
   motel: 'motel.html?preview=1',
   'no-wake': 'nowake.html?preview=1',
   silver: 'silver.html?preview=1',
+  heist: 'heist.html?preview=1&checkpoint=safehouse',
   initiation: 'initiation.html?preview=1',
 });
 const APARTMENT_PREVIEW_CASES = Object.freeze([
@@ -77,12 +78,12 @@ const APARTMENT_PREVIEW_CASES = Object.freeze([
   Object.freeze({
     variant: 'after-silver-room', spawn: 'front_door', chapter: 'date', day: 3,
     timeMinutes: 23 * 60 + 20, mission: 'silver_room', missionStatus: 'complete',
-    pendingEvent: 'booski_big_night_call',
+    pendingEvent: 'lou_heist_call',
   }),
   Object.freeze({
-    variant: 'day-four-wake', spawn: 'wake', chapter: 'big_night', day: 4,
-    timeMinutes: 10 * 60, mission: 'initiation', missionStatus: 'locked',
-    pendingEvent: 'booski_big_night_call',
+    variant: 'day-four-wake', spawn: 'wake', chapter: 'heist_day', day: 4,
+    timeMinutes: 10 * 60, mission: 'bank_heist', missionStatus: 'locked',
+    pendingEvent: 'lou_heist_call',
   }),
 ]);
 const EXPECTED_APARTMENT_RETURN_SOURCES = Object.freeze({
@@ -414,6 +415,37 @@ try {
       && silver.previewNotice,
     JSON.stringify(silver));
   check('opening the Silver Room leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
+  await page.goto(
+    `http://localhost:${PORT}/heist.html?preview=1&checkpoint=safehouse`,
+    { waitUntil: 'load' },
+  );
+  await page.waitForFunction(() => window.__heistDebug?.start, null, { timeout: 180000 });
+  const heistOpening = await page.evaluate(() => ({
+    preview: window.__heistDebug.preview,
+    difficulty: window.__heistDebug.difficulty,
+    crewHuman: window.__heistDebug.crewHuman,
+    notice: Boolean(document.querySelector('#squatch-preview-notice')),
+  }));
+  check('THE TAKE preview opens safely with the canonical human crew',
+    heistOpening.preview && heistOpening.difficulty === 'normal'
+      && heistOpening.crewHuman && heistOpening.notice,
+    JSON.stringify(heistOpening));
+  await page.evaluate(() => document.getElementById('start').click());
+  await page.waitForFunction(() => window.__heistDebug.state === 'CREW_INTRO', null, {
+    timeout: 180000,
+  });
+  const heistStarted = await page.evaluate(() => ({
+    state: window.__heistDebug.state,
+    slots: document.getElementById('hotbar')?.children.length ?? 0,
+    visible: !document.getElementById('hotbar')?.classList.contains('hidden'),
+  }));
+  check('THE TAKE starts with the shared visible five-slot inventory',
+    heistStarted.state === 'CREW_INTRO'
+      && heistStarted.slots === 5 && heistStarted.visible,
+    JSON.stringify(heistStarted));
+  check('opening THE TAKE leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/initiation.html?preview=1`, { waitUntil: 'load' });

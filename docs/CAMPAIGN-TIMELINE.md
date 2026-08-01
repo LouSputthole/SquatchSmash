@@ -1,13 +1,9 @@
-# Campaign timeline — the owner's structure (updated 2026-08-01)
+# Campaign timeline — current production flow (updated 2026-08-01)
 
-The owner's authoritative four-day shape. Where this document and the code
-disagree, this document is the intent and the code is the current state; every
-divergence is listed at the bottom rather than silently resolved.
-
-The Day-3 informant hit now exists as **NO WAKE** and is part of the connected
-campaign. The Day-4 heist still **does not exist and must not be built** until
-the owner says so. The Initiation is WIP and frozen until the owner has
-playtested it.
+The owner's authoritative four-day shape and the connected route implemented
+by campaign schema v7. NO WAKE, the Billy HotDog incident and graveyard, Front
+and Center, and the Day Four heist are all built and connected. The Initiation
+is still a terminal WIP and remains frozen until the owner has playtested it.
 
 ## Campaign premise
 
@@ -32,13 +28,13 @@ by `npm run verify:campaign-route`:
 | Day | Apartment gate | Mission route | Return / chapter change |
 |---|---|---|---|
 | 1 | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → apartment whiskey nerve-settle → Squatchfather | Return home and sleep |
-| 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two → Jerky Motel | Return home 4:30 AM and sleep |
+| 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two / HotDog incident → Squatch Graveyard → Jerky Motel | Return home 4:30 AM and sleep |
 | 3 | Wake noon, answer Big Uncle Lou's vague harbor call | NO WAKE → apartment, answer Margo → Front and Center | Return home and sleep |
-| 4 | Margo's morning-after beat, answer Booskibro | Initiation reference | Terminal WIP: mission remains `in_progress` |
+| 4 | Margo's morning-after beat, answer Big Uncle Lou, collect seven loadout pieces | THE TAKE → apartment cleanup → Initiation reference | Terminal WIP: Initiation remains `in_progress` |
 
 Every external mission owns a registered scene/spawn and either returns to the
 apartment or hands directly to the next mission. The save survives reloads at
-each seam; the current final gap is an approved Initiation completion event and
+each seam; the final campaign gap is an approved Initiation completion event and
 outbound ending, not a missing route into the final day.
 
 ## Day 1 — Welcome to the Life
@@ -77,11 +73,14 @@ and emails, and a different outfit to choose.
 restaurants and clubs, and proof that family business is ridiculous,
 dangerous, and surprisingly organised.
 
-**Bada Bing two.** A victory lap that becomes another assignment. People
-recognise him; the bartender has new lines; performers and dealers comment on
-the campaign; Lou may cover his drinks; side conversations hint that somebody
-is leaking information; **Willy appears and is slightly nervous** without
-giving the twist away. This is the informant plot's planting scene.
+**Bada Bing two / the Billy HotDog incident.** The return begins as a closed
+party and becomes a sudden attack, a body problem, and a physical cleanup. Tony
+must secure and load HotDog before the route can move on.
+
+**The Squatch Graveyard.** Tony carries HotDog to the plot, places him, and
+buries him. The required burial unlocks the Motel; the surrounding markers,
+tributes, and disrespect choices form an optional memorial museum with durable
+state.
 
 **The Jerky Motel.** The grimier underbelly — the point where the campaign
 stops feeling glamorous. Day 2 ends with the Prospect exhausted, rattled, and
@@ -120,13 +119,16 @@ clothes, club memorabilia, weapons, photographs, mission souvenirs — the den o
 a newly minted Squatch criminal who has accumulated money, enemies, souvenirs,
 and one extremely questionable laundry basket.
 
-**The heist — NOT BUILT, DO NOT BUILD.** Crew: the Prospect, Numbskull,
+**THE TAKE — built and connected.** Crew: the Prospect, Numbskull,
 Rippinflow, the Shubenator, DeathMegatron, Snow. The mechanical climax
 combining everything taught: driving, instructions, weapons, crowd control,
 timed objectives, carrying loot, crew coordination, police response, escape
 routing, injuries, decisions under pressure. It does not end at the escape —
 it decompresses: vehicle swap, safehouse, counting money, arguing over
-mistakes, checking who survived, and Lou saying be at the Bada Bing tonight.
+mistakes, checking who survived, and the invitation to tonight. Its briefing,
+bank, vault, street, garage, vehicle-swap, driving, loot, injuries, settlement,
+and retry checkpoints persist. The safehouse returns Tony home, where washing,
+changing, and hiding the gear are physical door requirements.
 
 **Initiation night — WIP, DO NOT TOUCH.** The ceremonial payoff at the Bada
 Bing, not another action sequence: old faces return, the Prospect is praised
@@ -145,22 +147,24 @@ killing directly before Front and Center.
 
 **The apartment must visibly evolve after every chapter.**
 
-## Divergences between this document and the build (2026-08-01)
+## Remaining design or production gaps (2026-08-01)
 
-1. **Day 4 routing.** The doc runs the heist before the Initiation. The heist
-   does not exist, so the build routes Day 4 as Booskibro's call → the
-   Initiation.
-2. **Bing scene two recognition beats** (bartender's new lines, dealer and
+1. **Bing scene two recognition beats** (bartender's new lines, dealer and
    performer campaign comments, Lou covering drinks, informant hints, a nervous
-   Willy) are only partly implemented — the Family floor and its talk exist,
-   the campaign-specific second-visit variants largely do not.
-3. The Front and Center closing **cutscene of the apartment with Margo** is not
+   Willy) belong to the older club-shaped draft. The connected second visit is
+   now the dedicated HotDog party, so any revival must be designed into that
+   scene instead of restoring the obsolete route.
+2. The Front and Center closing **cutscene of the apartment with Margo** is not
    built; Day 4 opens with her in the bed instead.
-4. **The current Initiation is not a campaign-complete state.** The apartment
-   can route Tony into the frozen Pines scene, but that scene does not claim the
+3. **The current Initiation is not a campaign-complete state.** The apartment
+   routes Tony into the frozen Pines scene after THE TAKE, but that scene does not claim the
    campaign, record completion, or expose an outbound edge. The focused route
    contract therefore ends with Initiation `in_progress`, not `complete`.
-5. **The finale has two authored shapes.** This timeline places an oath and
+4. **The finale has two authored shapes.** This timeline places an oath and
    callback ceremony at the Bada Bing, while `docs/STORY.md` preserves the
    Pines quiz, execution, gauntlet, roar, timber, and anointing. Reconcile those
    designs after the required playtest before wiring the final checkpoint.
+5. **Silver Pines golf is archived, not discarded.** Its complete prototype is
+   preserved at `archive/silver-pines-golf-20260730`, but it conflicts with the
+   current Day Four route and needs its own placement, voice, inventory, Pages,
+   and performance pass before it can become campaign canon.
