@@ -1345,10 +1345,18 @@ export function buildClub(scene, { renderer } = {}) {
       bowl.position.set(0.03, 0.85, 0);
       // Wide enough to read as a bowl from the door rather than as a pipe.
       bowl.scale.set(1.18, 1, 1.1);
+      /* The parent turns the fixture to face into the room. The old plate was
+       * authored as though it stayed unrotated, so its 40 cm width became 40
+       * cm of depth and read as a white box through the bowl. Keep the wide
+       * dimension along the tiled wall and the thin one normal to it. */
+      const backplate = box({
+        size: [0.4, 0.78, 0.085], pos: [0.11, 0.82, -0.18], mat: porcelain,
+      });
+      backplate.name = 'urinal-backplate';
       const u = group('urinal',
         bowl,
         // Back plate against the tile, rolled lip, and the sump
-        box({ size: [0.09, 0.78, 0.4], pos: [0.11, 0.82, 0], mat: porcelain }),
+        backplate,
         cylinder({ r: 0.23, h: 0.06, pos: [0.03, 1.09, 0], mat: porcelain }),
         cylinder({ r: 0.15, h: 0.08, pos: [0.03, 0.6, 0], mat: porcelain }),
         cylinder({ r: 0.045, h: 0.06, pos: [0.03, 0.57, 0], mat: mat({ color: 0x3a3a42, roughness: 0.5 }) }),
@@ -1556,19 +1564,30 @@ export function buildClub(scene, { renderer } = {}) {
       const body = group('back-room-body');
       body.position.set(bx, 0, bz);
       body.rotation.y = -0.42;
-      // The shape under the tarp: shoulders high, hips lower, one arm out
-      body.add(box({ size: [0.62, 0.3, 1.15], pos: [0, 0.15, -0.1], mat: tarpMat }));
-      body.add(box({ size: [0.52, 0.22, 0.5], pos: [0.02, 0.11, 0.6], mat: tarpMat }));
-      const fold = box({ size: [0.7, 0.04, 0.5], pos: [-0.02, 0.29, 0.28], mat: tarpMat });
-      fold.rotation.x = 0.12;
-      body.add(fold);
-      // What the tarp does not cover
-      for (const sx of [-0.14, 0.14]) {
-        body.add(box({ size: [0.15, 0.16, 0.26], pos: [sx, 0.08, 0.99], mat: mat({ color: 0x14141a, roughness: 0.55 }) }));
-        body.add(box({ size: [0.13, 0.1, 0.14], pos: [sx, 0.05, 1.16], mat: mat({ color: 0x14141a, roughness: 0.5 }) }));
+      const addBody = (name, part) => {
+        part.name = name;
+        body.add(part);
+        return part;
+      };
+      // A low, readable silhouette under a weighted tarp: shoulder mound,
+      // sloping torso and hips instead of a single rectangular green block.
+      addBody('tarp-shoulders', box({ size: [0.66, 0.23, 0.42], pos: [0, 0.23, -0.46], mat: tarpMat }));
+      const torso = addBody('tarp-torso', box({ size: [0.60, 0.25, 0.86], pos: [0, 0.16, 0.08], mat: tarpMat }));
+      torso.rotation.x = 0.10;
+      const hips = addBody('tarp-hips', box({ size: [0.52, 0.18, 0.43], pos: [0.02, 0.105, 0.63], mat: tarpMat }));
+      hips.rotation.x = -0.08;
+      // Creased edges keep the cloth from reading like a crate lid.
+      for (const [i, x, z, yaw] of [[0, -0.31, -0.1, 0.12], [1, 0.3, 0.02, -0.10], [2, -0.04, 0.47, 0.04]]) {
+        const seam = addBody(`tarp-fold-${i}`, box({ size: [0.035, 0.026, 0.58], pos: [x, 0.30, z], mat: mat({ color: 0x18221e, roughness: 1 }) }));
+        seam.rotation.y = yaw;
       }
-      body.add(box({ size: [0.34, 0.12, 0.13], pos: [-0.4, 0.06, -0.36], rotY: 0.5, mat: mat({ color: 0x2a2a32, roughness: 0.9 }) }));
-      body.add(box({ size: [0.1, 0.05, 0.16], pos: [-0.6, 0.025, -0.5], rotY: 0.5, mat: mat({ color: 0xc99a72, roughness: 0.85 }) }));
+      // What the tarp does not cover: two shoes and a limp jacket sleeve/hand.
+      for (const sx of [-0.14, 0.14]) {
+        addBody(`body-shoe-${sx < 0 ? 'left' : 'right'}`, box({ size: [0.15, 0.16, 0.26], pos: [sx, 0.08, 0.99], mat: mat({ color: 0x14141a, roughness: 0.55 }) }));
+        addBody(`body-sole-${sx < 0 ? 'left' : 'right'}`, box({ size: [0.13, 0.1, 0.14], pos: [sx, 0.05, 1.16], mat: mat({ color: 0x14141a, roughness: 0.5 }) }));
+      }
+      addBody('body-sleeve', box({ size: [0.34, 0.12, 0.13], pos: [-0.4, 0.06, -0.36], rotY: 0.5, mat: mat({ color: 0x2a2a32, roughness: 0.9 }) }));
+      addBody('body-hand', box({ size: [0.1, 0.05, 0.16], pos: [-0.6, 0.025, -0.5], rotY: 0.5, mat: mat({ color: 0xc99a72, roughness: 0.85 }) }));
       // What has run out from under it, soaking into the grout
       const stain = new THREE.Mesh(
         new THREE.CircleGeometry(0.52, 18),

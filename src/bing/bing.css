@@ -212,17 +212,12 @@ body.talking #subtitle {
   transition: opacity 0.3s;
 }
 #kit.hidden { opacity: 0; }
-#kit .head,
-#kit .foot {
+#kit .head {
   color: var(--bing);
   font-size: 9px;
   letter-spacing: 2.2px;
 }
 #kit .head { margin-bottom: 5px; }
-#kit .foot {
-  margin-top: 6px;
-  color: var(--bing-dim);
-}
 #kit kbd {
   font-family: inherit;
   font-size: 9px;
@@ -251,6 +246,49 @@ body.talking #subtitle {
 @keyframes kit-ring {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
+}
+
+/* ---------------- The phone, in a separate pocket ---------------- */
+
+/* The left card describes campaign items only. Drinks live in the shared
+ * hotbar; the phone gets its own lower-right pocket so it is always where the
+ * player expects to raise it from without creating a second inventory. */
+#phone-pocket {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 104px;
+  padding: 7px 10px;
+  color: var(--paper);
+  background: rgba(8, 6, 10, 0.68);
+  border: 1px solid rgba(255, 61, 139, 0.32);
+  border-radius: 5px;
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  transition: opacity 0.2s, transform 0.2s;
+}
+#phone-pocket.hidden { opacity: 0; transform: translateY(9px); }
+#phone-pocket .icon { font-size: 15px; letter-spacing: 0; }
+#phone-pocket kbd {
+  margin-left: auto;
+  font-family: inherit;
+  font-size: 10px;
+  color: var(--ink);
+  background: var(--amber);
+  border-radius: 2px;
+  padding: 1px 4px;
+}
+#phone-pocket.ringing {
+  color: var(--amber);
+  border-color: var(--amber);
+  animation: phone-pocket-ring 0.9s ease-in-out infinite;
+}
+@keyframes phone-pocket-ring {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }
 
 /* ---------------- The phone, held up ---------------- */

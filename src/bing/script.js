@@ -29,7 +29,7 @@ export function applyBingVoiceCues(scripts) {
     Object.defineProperty(tree, '__bingVoiceDecorated', { value: true });
     for (const [nodeId, node] of Object.entries(tree)) {
       if (!node || typeof node !== 'object') continue;
-      if (node.line && !node.cue) {
+      if (node.line && !Object.hasOwn(node, 'cue')) {
         const line = node.line;
         node.cue = () => generatedCue(scope, nodeId, 'line', valueOf(line));
       }
@@ -299,18 +299,23 @@ export function buildScripts(ctx) {
   /* Lou                                                               */
   /* ---------------------------------------------------------------- */
   const lou = {
-    /* He does not look up straight away. That is the whole character. */
-    enter: {
-      who: 'Lou',
-      line: () => {
-        const w = mission.waited;
-        if (w > 8 * 60) return '<em>(He does not look up.)</em> Sit down. Or don’t. You’ve had all night to decide.';
-        if (w > 5 * 60) return '<em>(He does not look up.)</em> There he is.';
-        return '<em>(He keeps writing for a moment.)</em> Shut the door.';
+      /* He does not look up straight away. That is the whole character. The
+       * action belongs in the staging, not in the line: a subtitle or voice
+       * should never read an actor direction out loud. */
+      enter: {
+        who: 'Lou',
+        line: () => {
+          const w = mission.waited;
+          if (w > 8 * 60) return 'Sit down. Or don’t. You’ve had all night to decide.';
+          if (w > 5 * 60) return 'There he is.';
+          return 'Shut the door.';
+        },
+        /* The old take reads the removed stage direction. Keep this opening
+         * subtitled rather than knowingly playing a mismatched recording. */
+        cue: null,
+        hold: 3.0,
+        next: 'greet',
       },
-      hold: 3.0,
-      next: 'greet',
-    },
     greet: {
       who: 'Lou',
       line: () => {

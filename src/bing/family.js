@@ -444,7 +444,7 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
 
   const snow = hangout('Snow', 'snow', {
     line1: 'Cold in here. Good.',
-    reply: { text: 'You want them to turn the heat up?' },
+    reply: { text: 'You want them to turn the heat up?', cue: 'vo.bing.hang.snow.tony.1' },
     line2: 'You talk a lot for a guy on a checklist.',
   });
 

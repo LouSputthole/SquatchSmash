@@ -150,6 +150,25 @@ check('Bing voice buffers reach a nonzero-gain SFX graph and run to natural comp
       && playback.gain > 0 && playback.connectedToSfx && playback.naturalEnd),
   JSON.stringify(completedVoices));
 
+const dialogueContracts = await page.evaluate(() => {
+  const b = window.__bing;
+  const louEnter = b.scripts.lou.enter;
+  const snowReply = b.familyScripts.snow.open.options[0];
+  return {
+    louOpening: louEnter.line(),
+    louCue: louEnter.cue,
+    snowCue: snowReply.cue,
+    snowText: snowReply.text,
+  };
+});
+check('Lou opening dialogue contains no spoken stage direction',
+  dialogueContracts.louOpening === 'Shut the door.' && dialogueContracts.louCue === null,
+  JSON.stringify(dialogueContracts));
+check('Tony Snow reply has its own recording cue',
+  dialogueContracts.snowCue === 'vo.bing.hang.snow.tony.1'
+    && dialogueContracts.snowText === 'You want them to turn the heat up?',
+  JSON.stringify(dialogueContracts));
+
 /** Step the game's own update path for `secs` of simulated time. */
 async function tick(secs = 1, step = 0.25) {
   await page.evaluate(([secs, step]) => {
@@ -1155,7 +1174,7 @@ check('a lapsed Family thread resumes; a finished one replays',
   JSON.stringify(famResume));
 
 /* ---- Booski's shot, end to end ----
- * Talk → offer → the yell → the bouncer hustles the shot across the room
+ * Talk → offer → the yell → the bartender hustles the shot across the room
  * under a held camera → handoff → Tony holds a whiskey he did not order.
  * The beat is stepped here the way the frame loop steps it. */
 await walkTo(-17.3, 1.5, Math.PI / 2);
@@ -1182,7 +1201,7 @@ async function tickBeat(secs, step = 0.25) {
   await page.evaluate(([secs, step]) => {
     const b = window.__bing;
     for (let t = 0; t < secs && b.game.beat; t += step) {
-      b.cast.byName.bouncer.update(step, b.player.position);
+      b.cast.byName.bartender.update(step, b.player.position);
       b.game.beat(step);
       b.dialogue.update(step, b.player.position);
     }
@@ -1193,23 +1212,26 @@ await tickBeat(30);
 const afterBeat = await page.evaluate(() => {
   const b = window.__bing;
   const post = b.club.anchors.bouncerPost;
-  const bp = b.cast.byName.bouncer.group.position;
+  const bouncer = b.cast.byName.bouncer;
+  const bartender = b.cast.byName.bartender;
+  const station = b.club.anchors.bartender;
   return {
     beatOver: b.game.beat === null,
     walk: b.player.mode === 'walk',
     holdingShot: b.game.heldDrink === 'whiskey',
     inSlot: b.inventory.items.filter(Boolean).includes('whiskey'),
-    bouncerHome: Math.hypot(bp.x - post.x, bp.z - post.z) < 1,
-    folded: b.cast.byName.bouncer.folded,
+    bartenderHome: Math.hypot(bartender.group.position.x - station.x, bartender.group.position.z - station.z) < 0.3,
+    bartenderWorking: bartender.job === 'work',
+    bouncerStayed: Math.hypot(bouncer.group.position.x - post.x, bouncer.group.position.z - post.z) < 0.1,
     handoffSaid: b.dialogue.history.has('handoff') && b.dialogue.history.has('tony'),
     voiced: ['vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
       'vo.bing.booski.shot.handoff', 'vo.bing.booski.shot.tony.1']
       .every((cue) => b.game.voLog.includes(cue)),
   };
 });
-check('the shot lands and control comes back cleanly, bouncer back on his post',
+check('the shot lands and control comes back cleanly, bartender back at the service station',
   afterBeat.beatOver && afterBeat.walk && afterBeat.holdingShot && afterBeat.inSlot
-    && afterBeat.bouncerHome && afterBeat.folded,
+    && afterBeat.bartenderHome && afterBeat.bartenderWorking && afterBeat.bouncerStayed,
   JSON.stringify(afterBeat));
 check('the beat spoke its four authored cues in order of appearance',
   afterBeat.handoffSaid && afterBeat.voiced,
@@ -2149,6 +2171,12 @@ const backOfHouse = await page.evaluate(() => {
   })();
   const dryer = boxOf(b.club.root.getObjectByName('hand-dryer'));
   const body = boxOf(b.club.storeroom.body);
+  const urinalBackplates = [];
+  const bodyParts = [];
+  b.club.root.traverse((o) => {
+    if (o.name === 'urinal-backplate') urinalBackplates.push(boxOf(o));
+    if (/^(tarp-|body-)/.test(o.name || '')) bodyParts.push(o.name);
+  });
   const bathroomPicture = b.club.anchors.bathroomPicture;
   const bathroomPictureBox = boxOf(bathroomPicture);
   let bathroomPictureArt = null;
@@ -2178,8 +2206,13 @@ const backOfHouse = await page.evaluate(() => {
       b.club.root.traverse((o) => { if (o.name === 'urinal') o.traverse((m) => { if (m.isMesh) n += 1; }); });
       return n;
     })(),
+    urinalBackplates: urinalBackplates.map((plate) => ({
+      depth: +(plate.max.x - plate.min.x).toFixed(3),
+      onWall: plate.max.x <= B.x1 + 0.015 && plate.min.x >= B.x1 - 0.18,
+    })),
     bodyInStoreRoom: body.min.x > 5.6 && body.max.x < 13.6 && body.min.z > -15 && body.max.z < -9.6,
     bodyLowProfile: +(body.max.y - body.min.y).toFixed(2),
+    bodyParts,
     powderThere: !!b.club.root.getObjectByName('bathroom-powder'),
     bathroomPicture: {
       real: bathroomPictureArt?.userData?.art?.real === true,
@@ -2199,14 +2232,20 @@ check('the basins and the urinals have plumbing on them',
   backOfHouse.basins === 2 && backOfHouse.basinParts >= 24
     && backOfHouse.urinals === 2 && backOfHouse.urinalParts >= 16,
   JSON.stringify({ b: backOfHouse.basinParts, u: backOfHouse.urinalParts }));
+check('urinal backplates stay thin against the tiled wall',
+  backOfHouse.urinalBackplates.length === 2
+    && backOfHouse.urinalBackplates.every((plate) => plate.depth <= 0.1 && plate.onWall),
+  JSON.stringify(backOfHouse.urinalBackplates));
 check('the supplied bathroom print is framed high on the wall',
   backOfHouse.bathroomPicture.real
     && backOfHouse.bathroomPicture.file === 'bing-bathroom-anime4.jpg'
     && backOfHouse.bathroomPicture.onNorthWall,
   JSON.stringify(backOfHouse.bathroomPicture));
 check('there is a man under a tarpaulin in the store room, and he is lying down',
-  backOfHouse.bodyInStoreRoom && backOfHouse.bodyLowProfile < 0.5,
-  JSON.stringify(backOfHouse.bodyLowProfile));
+  backOfHouse.bodyInStoreRoom && backOfHouse.bodyLowProfile < 0.5
+    && ['tarp-shoulders', 'tarp-torso', 'body-hand', 'body-shoe-left', 'body-shoe-right']
+      .every((part) => backOfHouse.bodyParts.includes(part)),
+  JSON.stringify({ profile: backOfHouse.bodyLowProfile, parts: backOfHouse.bodyParts }));
 
 /* ---- 24, 25, 27, 28, 30, 32: the things he could not reach ---- */
 const punchHud = await page.evaluate(async () => {
@@ -2240,6 +2279,7 @@ const punchHud = await page.evaluate(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyI' }));
       return [...document.querySelectorAll('#kit li')].map((li) => li.textContent);
     })(),
+    pocketHidden: document.getElementById('phone-pocket').classList.contains('hidden'),
     raised: (() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
       const up = !document.getElementById('phone-osd').classList.contains('hidden');
@@ -2288,6 +2328,7 @@ const punchHud = await page.evaluate(async () => {
     hasPackage: kit.some((t) => /package/i.test(t)),
     hasMoney: kit.some((t) => /\$/.test(t)),
     hasPhone: kit.some((t) => /Phone/.test(t)),
+    phonePocket: !document.getElementById('phone-pocket').classList.contains('hidden'),
     phoneUp,
     phoneCanvas,
     ringing,
@@ -2304,8 +2345,8 @@ const punchHud = await page.evaluate(async () => {
     focusBefore: b.game.focus || 0,
   };
 });
-check('the club has an inventory readout, and it takes the package',
-  punchHud.hasPackage && punchHud.hasMoney && punchHud.hasPhone,
+check('the club has one campaign-item readout, and it takes the package',
+  punchHud.hasPackage && punchHud.hasMoney && !punchHud.hasPhone,
   JSON.stringify(punchHud.kit));
 check('the phone comes out of the pocket in the club',
   punchHud.phoneUp && punchHud.phoneCanvas && punchHud.ringing === false,
@@ -2313,16 +2354,16 @@ check('the phone comes out of the pocket in the club',
 check('the raised phone opens readable threads, marks the opened thread read, and navigates by wheel',
   !!punchHud.threadBeforeWheel && punchHud.threadBeforeWheel !== punchHud.threadAfterWheel && punchHud.phoneRead,
   JSON.stringify({ before: punchHud.threadBeforeWheel, after: punchHud.threadAfterWheel, read: punchHud.phoneRead }));
-/* The phone row is the campaign's `carried` entry, the one the flat writes
- * when he takes it off the nightstand -- not a line printed under the money
- * whatever the truth is. It appears when it is on him, it is gone when it is
- * not, and [P] answers to exactly the same question. */
-check('the phone is in the kit because he is carrying it — no phone carried, no phone row and nothing to raise',
+/* The phone is a dedicated lower-right pocket, not a duplicate row printed
+ * beneath the campaign card. It appears when carried, disappears when it is
+ * not, and [P] answers to exactly the same state. */
+check('the phone uses its own lower-right pocket — no phone carried, no pocket and nothing to raise',
   punchHud.noPhone.carried === false
     && !punchHud.noPhone.kit.some((t) => /Phone/.test(t))
+    && punchHud.noPhone.pocketHidden
     && punchHud.noPhone.raised === false
-    && punchHud.hasPhone && punchHud.phoneUp,
-  JSON.stringify({ without: punchHud.noPhone.kit, with: punchHud.kit }));
+    && !punchHud.hasPhone && punchHud.phonePocket && punchHud.phoneUp,
+  JSON.stringify({ without: punchHud.noPhone, with: { kit: punchHud.kit, pocket: punchHud.phonePocket } }));
 check('tipping the runway puts money in the air',
   punchHud.bills >= 6, String(punchHud.bills));
 {

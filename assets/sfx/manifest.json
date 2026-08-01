@@ -5920,6 +5920,12 @@
       "duration": 3.5
     },
     {
+      "name": "vo.bing.hang.snow.tony.1",
+      "voice": "player",
+      "say": "You want them to turn the heat up?",
+      "duration": 2.5
+    },
+    {
       "name": "vo.bing.hang.rippinflow.1",
       "voice": "rippinflow",
       "say": "Prospect on the floor, yeah, walkin' like rent's due — that's a bar, that's free, someone write that down.",
