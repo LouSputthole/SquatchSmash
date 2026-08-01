@@ -1,20 +1,16 @@
-# Publish the apartment and the club to GitHub Pages.
+# Publish the complete campaign to GitHub Pages.
 #
 # The game is plain ES modules with no build step, so "deploying" is just
 # copying the repository somewhere that serves files over HTTP. That is the
 # whole point of the vendored three.js and the importmap in index.html.
 #
-# This is the full game, unlike dist/squatch-apartment.html: every voice clip,
-# every track, nothing dropped for a size budget. Both entry points go up:
-# index.html is the flat, bing.html is the club, and they share src/ and
-# vendor/ so the second one costs a copy of one HTML file.
+# This is the full game: every scene, voice clip, and track is published.
 name: Pages
 
 on:
   push:
     branches:
       - main
-      - claude/apartment-game-squatch-smash-5aw8oc
   workflow_dispatch:
 
 permissions:
@@ -42,8 +38,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Check the manifests
-        run: node tools/check.mjs
+      - name: Verify the campaign
+        run: |
+          npm test
+          npm run check
+          npm run check:flight
+          npm run verify:campaign-route
 
       # Everything the browser asks for, and nothing else. The tools only run
       # here and on a developer's machine; they are no use to a visitor.
