@@ -47,6 +47,10 @@ export class AudioEngine {
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
     this._manifestLoadPromise = null;
+    this._catalogLoadPromise = null;
+    this._availableCues = [];
+    this._loadedFiles = new Set();
+    this._loadingFiles = new Map();
     this._lastStep = 0;
     /* A small, factual record of sample playback.  `voLog` says that a scene
      * asked for a line; this says whether a decoded buffer was really put on
@@ -118,6 +122,35 @@ export class AudioEngine {
   }
 
   async _loadManifestOnce() {
+    const { cues, wanted } = await loadOnceRetriable(
+      this,
+      '_catalogLoadPromise',
+      () => this._loadCatalogOnce(),
+    );
+    await this._loadWanted(wanted);
+    return { total: cues.length, loaded: this.loadedCount };
+  }
+
+  /**
+   * Decode only the cues a scene needs at its first playable frame.
+   * loadManifest() can run immediately afterward and shares every in-flight
+   * fetch, so a staged start never downloads a recording twice.
+   */
+  async loadSamples({ names = [], prefixes = [] } = {}) {
+    const exact = new Set(names);
+    const { wanted } = await loadOnceRetriable(
+      this,
+      '_catalogLoadPromise',
+      () => this._loadCatalogOnce(),
+    );
+    const selected = wanted.filter((cue) => exact.has(cue.name)
+      || prefixes.some((prefix) => cue.name.startsWith(prefix)));
+    await this._loadWanted(selected);
+    const loaded = selected.filter((cue) => this._loadedFiles.has(this._cueFile(cue))).length;
+    return { total: selected.length, loaded };
+  }
+
+  async _loadCatalogOnce() {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
     const cues = this.manifest.sfx || [];
@@ -135,9 +168,8 @@ export class AudioEngine {
         ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
         : cues;
     }
-
-    await this._loadWanted(wanted);
-    return { total: cues.length, loaded: this.loadedCount };
+    this._availableCues = wanted;
+    return { cues, wanted };
   }
 
   /**
@@ -150,7 +182,23 @@ export class AudioEngine {
   }
 
   async _loadOne(cue) {
-    const file = cue.file || `${cue.name}.mp3`;
+    const file = this._cueFile(cue);
+    if (this._loadedFiles.has(file)) return;
+    if (this._loadingFiles.has(file)) return this._loadingFiles.get(file);
+    const loading = this._loadOneFile(cue, file);
+    this._loadingFiles.set(file, loading);
+    try {
+      await loading;
+    } finally {
+      this._loadingFiles.delete(file);
+    }
+  }
+
+  _cueFile(cue) {
+    return cue.file || `${cue.name}.mp3`;
+  }
+
+  async _loadOneFile(cue, file) {
     try {
       // The content hash from index.json rides along as a query so the URL
       // changes whenever a recording is regenerated under the same name --
@@ -166,7 +214,11 @@ export class AudioEngine {
       const list = this.buffers.get(cue.name) || [];
       list.push(buf);
       this.buffers.set(cue.name, list);
+      this._loadedFiles.add(file);
       this.loadedCount++;
+      // A VO group may have been queried while the background library was
+      // still decoding. Rebuild its index so newly arrived takes participate.
+      this._voBanks = null;
     } catch {
       /* fall back to the synth for this cue */
     }
@@ -440,6 +492,12 @@ export class AudioEngine {
       })
       .catch(() => this.loops.delete(key));
     return handle;
+  }
+
+  /** Replace a streamed record under the same mix key with a short crossfade. */
+  replaceMusicLoop(key, url, opts = {}) {
+    this.stopLoop(key, opts.crossfade ?? 0.65);
+    return this.startMusicLoop(key, url, opts);
   }
 
   stopLoop(key, fade = 0.5) {

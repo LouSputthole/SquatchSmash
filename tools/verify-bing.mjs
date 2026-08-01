@@ -240,6 +240,20 @@ console.log('Driving the mission…');
 
 let s = await state();
 check('starts behind the wheel in the lot', s.mission === 'lot', s.mission);
+const carRadioStart = await page.evaluate(() => {
+  const b = window.__bing;
+  return {
+    on: b.carRadio.on,
+    paused: b.carRadio._paused,
+    station: b.carRadio.station.dial,
+    line: b.carRadio._line,
+    talkBed: b.audio.loops.has('radio.talk'),
+  };
+});
+check('the car starts with the real 97.8 receiver on, not a fake noise loop',
+  carRadioStart.on && !carRadioStart.paused && carRadioStart.station === '97.8'
+    && carRadioStart.talkBed && !!carRadioStart.line,
+  JSON.stringify(carRadioStart));
 /* Empty-handed. The one thing this night is for is Lou putting the package on
  * the desk, so the prospect cannot already have it while he is still in the
  * car park. Held here and asserted again after the handoff. */
@@ -330,6 +344,17 @@ const carExit = await page.evaluate(() => {
 check('getting out of the car lands on validated clear ground',
   carExit.seated === null && carExit.mode === 'walk' && carExit.safe && carExit.room === 'lot',
   JSON.stringify(carExit));
+const carRadioReentry = await page.evaluate(() => {
+  const b = window.__bing;
+  const pausedOutside = b.carRadio._paused && !b.audio.loops.has('radio.talk');
+  b.getInCar();
+  const resumed = b.carRadio.on && !b.carRadio._paused && b.audio.loops.has('radio.talk');
+  const engineRestarted = b.audio.loops.has('car.engine.idle');
+  b.getOutOfCar();
+  return { pausedOutside, resumed, engineRestarted, backOutside: b.game.seatedIn === null };
+});
+check('leaving pauses the car receiver and re-entry restores radio plus engine audio',
+  Object.values(carRadioReentry).every(Boolean), JSON.stringify(carRadioReentry));
 
 /* The open portal must be visually clear as well as collider-clear. */
 const frontPortal = await page.evaluate(() => {
@@ -2551,7 +2576,7 @@ check('the pictures by the entrance carry the real squatch mark, drawn not lette
 check('nothing threw on the way round', problems.length === 0, problems.slice(0, 3).join(' / '));
 
 await browser.close();
-server.close();
+await new Promise((resolve) => server.close(resolve));
 
 const failed = results.filter((r) => !r.ok);
 console.log(failed.length ? `\n${failed.length} of ${results.length} checks failed.` : `\nAll ${results.length} checks passed.`);

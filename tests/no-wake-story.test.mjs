@@ -91,7 +91,7 @@ test('schema v3 date saves migrate past NO WAKE without replaying Willy', () => 
   assert.equal(migrated.events[EVENT_IDS.LOU_NO_WAKE_CALL].status, 'answered');
 });
 
-test('schema v2 saves chain through whiskey v3 and NO WAKE v4 migrations', () => {
+test('schema v2 saves chain through whiskey v3, NO WAKE v4 and radio v5 migrations', () => {
   const storage = new MemoryStorage();
   const legacy = createCampaign({ storage: new MemoryStorage() }).state;
   legacy.version = 2;

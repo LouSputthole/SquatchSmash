@@ -1,7 +1,7 @@
 # NO WAKE production scene
 
 NO WAKE is the Day Three bridge from the Jerky Motel to Front and Center. It is
-not a standalone greybox: it is registered in campaign schema v4 and uses the
+not a standalone greybox: it is registered in campaign schema v5 and uses the
 same player, HUD, interaction, audio, post-processing, character, preview,
 navigation, save-recovery, bullet-impact and browser-verification foundations
 as the rest of Squatch Life.
@@ -17,7 +17,8 @@ existing call to unlock Front and Center.
 Schema v3 saves already at `date`, Silver Room, or Initiation are migrated as
 having completed NO WAKE so an update never rewinds an existing player. Earlier
 v3 saves receive the new mission normally; v2 saves first receive the canonical
-whiskey migration and then follow the same v3-to-v4 inference.
+whiskey migration, follow the same v3-to-v4 inference, and then gain the v5
+radio continuity record.
 
 ## Playable flow
 

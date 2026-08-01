@@ -1,53 +1,46 @@
 {
-  "_comment": "Radio playlists. Drop audio files (mp3/ogg/m4a/wav) into this folder and list them here. `station` says which dial position a track belongs to — \"uncle\" for 98.8 UNCLE SQUATCH BEATS, \"ksqch\" for 101.7 KSQCH. Leave it out and the track lands on the first music station. Each station plays its own list in order and loops; a station with no tracks tunes to static and says why.",
+  "_comment": "The record library for 97.8 The Squatch. Tracks play in order inside the station running order, and the next-track cursor persists in the campaign save.",
   "tracks": [
     {
       "file": "good-ole-days.mp3",
-      "station": "uncle",
       "artist": "Silver Sasquatches",
       "title": "Good Ole Days"
     },
     {
       "file": "squatch-up.mp3",
-      "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "Squatch Up"
     },
     {
       "file": "10-drunk-cigarettes.mp3",
-      "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "10 Drunk Cigarettes"
     },
     {
       "file": "booskibro.mp3",
-      "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "BooskiBro"
     },
     {
       "file": "i-aint-gay.mp3",
-      "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "I Ain't Gay"
     },
     {
       "file": "sallie-j.mp3",
-      "station": "ksqch",
       "artist": "Silver Sasquatches",
-      "title": "Sallie J"
+      "title": "Sallie J",
+      "venue": "bada_bing"
     },
     {
       "file": "squatches-in-the-house.mp3",
-      "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "Squatches in the House",
       "venue": "bada_bing"
     },
     {
-      "_comment": "Plays from the top and gets exactly 15 seconds before the station cuts it dead for the meeting notice. `start` pins it to 0 so the 15s is the recording's 15s, not 15s from wherever the usual random drop-in landed.",
+      "_comment": "On Day One only, plays from the top and gets exactly 15 seconds before the station cuts it dead for the single meeting notice. In later chapters the full excerpt plays.",
       "file": "nehoo-with-a-guu.mp3",
-      "station": "ksqch",
       "artist": "Silver Sasquatches",
       "title": "Nehoo With a Guu",
       "start": 0,

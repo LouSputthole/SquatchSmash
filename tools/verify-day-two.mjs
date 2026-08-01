@@ -262,10 +262,13 @@ try {
       && woke.panel.at(-1).text === 'Answer Booskibro’s call'
       && !woke.panel.some((row) => /Lou/.test(row.text)),
     JSON.stringify(woke.panel));
+  await page.waitForFunction(() => window.__squatch.campaign.state.radio.heardBulletins
+    .includes('news.radio.day_two'), null, { timeout: 4000 });
   const dayTwoRadio = await page.evaluate(() => ({
     on: window.__squatch.radio.on,
     volume: window.__squatch.radio.volume,
-    bulletin: [...(window.__squatch.game.newsHeard || [])].includes('news.radio.day_two'),
+    bulletin: window.__squatch.campaign.state.radio.heardBulletins
+      .includes('news.radio.day_two'),
   }));
   check('Day Two starts with the radio audibly on and the murder bulletin queued first',
     dayTwoRadio.on === true

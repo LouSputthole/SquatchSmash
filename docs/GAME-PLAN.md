@@ -197,25 +197,27 @@ Three ways, none of them a pop-up:
   four of them mentioning Wednesday. The monitor shows an unread count you can
   see from across the room and ignore all game. Reading it is holding [E] on
   the panel, not walking past it. The last one is just `ok`.
-- **The radio** ✅ — 97.8 reads a community notice every eleven segments:
-  Wednesday, seven, come showered and fed. Hearing it is knowing it, so
-  leaving the set on is enough on its own.
+- **The radio** ✅ — 97.8 has one concise Day One community announcement:
+  the Squatch Meeting is Wednesday at seven. Hearing it is knowing it, and the
+  announcement expires when Day One ends.
 
 ---
 
 ## The radio ✅
 
 The current radio is one combined local station. It interleaves talk blocks,
-community notices, commercials, and the roster's local music instead of making
+the Day One community notice, commercials, and the roster's local music instead of making
 the player tune between separate talk and music frequencies.
 
 | Dial | Station | What |
 |---|---|---|
-| **97.8** | THE SQUATCH | Scheduled talk, the station commercial, notices, and local tracks from `assets/music/`. |
+| **97.8** | THE SQUATCH | Scheduled talk, the station commercial, one Day One notice, and local tracks from `assets/music/`. |
 
 Every written line and its speaker mapping lives in `src/core/stations.js`.
 Generated recordings are preferred when present; the radio retains text and
 audio fallbacks when a cue or local track is unavailable.
+Running-order coverage, playlist position, receiver power, volume, and heard
+bulletins persist through the campaign save and continue across scenes.
 
 ---
 

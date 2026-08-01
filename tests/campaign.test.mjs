@@ -12,6 +12,7 @@ import {
   SCENE_IDS,
   TIME_EVENT_IDS,
   createCampaign,
+  createCampaignRadioAdapter,
   navigateCampaign,
 } from '../src/core/campaign.js';
 
@@ -44,6 +45,43 @@ test('a new campaign starts in the apartment with both Lous kept distinct', () =
   assert.equal(campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
   assert.equal(campaign.state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status, 'pending');
   assert.equal(campaign.state.missions[MISSION_IDS.NO_WAKE].status, 'locked');
+});
+
+test('radio rotation, receiver power and bulletin history survive scene reloads', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  const apartment = createCampaignRadioAdapter(campaign, {
+    receiverId: 'apartment', defaultPower: true,
+  });
+
+  assert.equal(apartment.load().power, true);
+  apartment.save({
+    volume: 0.49,
+    cursor: 3,
+    cycle: 17,
+    selections: { 'squatch:show:Lou & Lou': 4 },
+    songReactionCursor: 2,
+    adReactionCursor: 1,
+    power: false,
+  });
+  assert.equal(apartment.markBulletinHeard('news.no_wake'), true);
+  assert.equal(apartment.markBulletinHeard('news.no_wake'), false);
+
+  const reloaded = createCampaign({ storage });
+  const savedApartment = createCampaignRadioAdapter(reloaded, {
+    receiverId: 'apartment', defaultPower: true,
+  }).load();
+  const car = createCampaignRadioAdapter(reloaded, {
+    receiverId: 'bing_car', defaultPower: true,
+  }).load();
+
+  assert.equal(savedApartment.volume, 0.49);
+  assert.equal(savedApartment.cursor, 3);
+  assert.equal(savedApartment.cycle, 17);
+  assert.equal(savedApartment.selections['squatch:show:Lou & Lou'], 4);
+  assert.equal(savedApartment.power, false);
+  assert.deepEqual(savedApartment.heardBulletins, ['news.no_wake']);
+  assert.equal(car.power, true, 'receiver power is physical, not station-global');
 });
 
 test('a confirmed campaign reset replaces story progress and clears obsolete recovery data', () => {

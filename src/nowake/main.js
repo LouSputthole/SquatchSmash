@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
 import {
-  MISSION_IDS, SCENE_IDS, createCampaign, navigateCampaign,
+  MISSION_IDS, SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
 } from '../core/campaign.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -90,7 +90,13 @@ const DRIVE_SECONDS = 90;
 const boat = world.boat;
 const radioClock = new AuthoredClock(12.75);
 radioClock.setTime(3, 12 * 60 + 45);
-const radio = new Radio(audio, hud, radioClock);
+const radio = new Radio(audio, hud, radioClock, {
+  state: createCampaignRadioAdapter(campaign, {
+    receiverId: 'no_wake_boat',
+    defaultPower: false,
+  }),
+  canPlayNotice: () => false,
+});
 const radioPosition = new THREE.Vector3();
 boat.targets.radio.getWorldPosition(radioPosition);
 radio.setPosition(radioPosition);
@@ -334,7 +340,7 @@ function beginConfrontation() {
   helmHud.classList.add('hidden');
   player.mode = 'frozen';
   if (radio.on) {
-    radio.turnOff();
+    radio.turnOff({ remember: false });
     boat.controls.radio.setOn(false);
   }
   setObjective('Listen', 'The engines tick in the swell');
@@ -764,10 +770,12 @@ startButton.addEventListener('click', async () => {
   resumeCheckpoint();
   await audio.init();
   await radioReady;
-  // Decoding the global library is deliberately background work. The shared
-  // engine upgrades cues as buffers land; it must not hold the harbor behind
-  // a title card while unrelated campaign VO decodes.
-  audio.loadManifest();
+  await audio.loadSamples({
+    prefixes: ['radio.', 'vo.radio.', 'vo.nowake.', 'boat.', 'ambience.rain'],
+  });
+  // Unrelated scene recordings remain background work. The audio module
+  // shares all cue fetches with the critical set above.
+  audio.loadManifest().catch((error) => console.warn('[sfx] background load failed', error));
   audio.startLoop('harbor', { name: 'ambience.rain', volume: .08, ambience: true });
   document.body.classList.add('playing');
   overlay.classList.add('out');
@@ -778,6 +786,10 @@ startButton.addEventListener('click', async () => {
 
 document.addEventListener('pointerlockchange', () => {
   player.enabled = document.pointerLockElement === canvas || state.atHelm;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) radio.pause();
+  else radio.resume();
 });
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);

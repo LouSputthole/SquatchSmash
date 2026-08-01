@@ -216,7 +216,7 @@ while you are sitting, which is rather the point. The radio still plays, but
 standing around does not burn campaign time. Hold <kbd>E</kbd> on the bed to
 lie back down, and <kbd>E</kbd> again to use an authored sleep checkpoint.
 
-**The radio.** One local station combining scheduled talk, notices,
+**The radio.** One local station combining scheduled talk, one Day One notice,
 commercials, and the crew's records. See below.
 
 **The PC.** Six applications are installed. See below.
@@ -257,7 +257,7 @@ exact format.
 
 Drop audio files in and list them in `manifest.json`. Playback is positional:
 the radio genuinely sounds like it's across the room, and it muffles when you're
-heads-down at the PC. With no tracks the radio tunes to static.
+heads-down at the PC. With no tracks it keeps airing talk and skips music slots.
 
 ### `assets/art/` — squatch gear on the walls
 
@@ -323,8 +323,8 @@ depends on the authored campaign clock.
 Lou & Lou from six (two Lous, zero preparation), Booski & Ape's CS Gambling Show
 at noon, Irish's Deep Dives at three, Eric & Gratin's *What's Happening in
 India!* at five, Hog Mama's Late Night Improv after ten, and an automated
-overnight nobody is in the building for. Every few segments the sixty-second
-station commercial comes round in full. Between talk blocks it plays whatever
+overnight nobody is in the building for. The station commercial comes round in
+full. Between talk blocks it plays whatever
 is listed in `assets/music/manifest.json`.
 
 The station uses generated recordings when a matching cue exists and retains
@@ -333,6 +333,9 @@ served from the repository's local files and the station says so plainly when
 none are available.
 
 Everything on the station lives in `src/core/stations.js`.
+Its running order, playlist cursor, receiver power and heard bulletins live in
+campaign schema v5, so the apartment, Bing car and NO WAKE boat do not restart
+the station when a scene changes.
 
 ---
 

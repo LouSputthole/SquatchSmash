@@ -174,6 +174,26 @@ try {
   check('starting Scene Two persists its own in-progress mission',
     current.bingTwo.status === 'in_progress' && current.missionState === 'lot',
     JSON.stringify(current.bingTwo));
+  const djSet = await page.evaluate(() => {
+    const bing = window.__bing;
+    const initial = bing.game.clubRecord;
+    const request = bing.scripts.dj.open.options()[0];
+    request.effect();
+    return {
+      initial,
+      requested: bing.game.songRequested,
+      playing: bing.game.clubRecord,
+      loop: bing.audio.loops.has('music.club'),
+      objectiveDone: bing.optionalObjectives().some((item) => item.id === 'song' && item.done),
+    };
+  });
+  check('visit two opens on Sallie J and the DJ request really changes the record',
+    djSet.initial === 'sallie-j.mp3'
+      && djSet.requested === 'horns'
+      && djSet.playing === 'squatches-in-the-house.mp3'
+      && djSet.loop
+      && djSet.objectiveDone,
+    JSON.stringify(djSet));
 
   await page.evaluate(() => {
     const bing = window.__bing;

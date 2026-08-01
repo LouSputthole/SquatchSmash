@@ -241,6 +241,17 @@ try {
   check('the live apartment wakes in bed at ten on Day Four',
     woke.day === 4 && Math.abs(woke.minutes - 10 * 60) < 1 && woke.mode === 'bed',
     JSON.stringify(woke));
+  await page.waitForFunction(() => window.__squatch.campaign.state.radio.heardBulletins
+    .includes('news.radio.big_night'), null, { timeout: 5000 });
+  const morningRadio = await page.evaluate(() => ({
+    on: window.__squatch.radio.on,
+    bulletin: window.__squatch.campaign.state.radio.heardBulletins
+      .includes('news.radio.big_night'),
+    meetingEligible: window.__squatch.radio.canPlayNotice(),
+  }));
+  check('Day Four powers up 97.8 for its new bulletin without reviving the meeting notice',
+    morningRadio.on && morningRadio.bulletin && !morningRadio.meetingEligible,
+    JSON.stringify(morningRadio));
 
   /* ---------------------------------------------------------------- */
   /* The fourth morning: the den, and the woman in it                  */

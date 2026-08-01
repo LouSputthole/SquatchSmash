@@ -1,16 +1,15 @@
 /**
  * What is on the radio.
  *
- * Three stations. 97.8 THE SQUATCH is talk radio, and what is on depends on
- * the in-game hour -- the schedule below is the one the station advertises,
- * and it keeps to it. The other two are music, and each has its own playlist:
- * tracks in assets/music/manifest.json name the station they belong to.
+ * One station. 97.8 THE SQUATCH is talk, records, commercials and submitted
+ * tapes, and what is on depends on the in-game hour. The schedule below is the
+ * one the station advertises, and it keeps to it.
  *
- * Nothing here is spoken by a voice actor. You hear a radio murmuring from
- * across the room and read what it is saying, which is roughly the
- * experience of having a radio on in another room anyway.
+ * Every authored line is indexed into a generated voice cue at the bottom of
+ * this file. The same writing drives both the recording tool and playback, so
+ * rearranging a show cannot silently attach the wrong recording.
  *
- * The 60-second station commercial is the one the player wrote, with one
+ * The station commercial is the one the player wrote, with one
  * exception: the original "Irish's Deep Dives" teaser was an antisemitic
  * conspiracy line, and that is not going in a repository. The Deep Dives
  * slot keeps its format, its kazoo and its tone; the target is now Big Egg
@@ -29,27 +28,25 @@ const seg = (line, cue = null) => ({ line, cue });
  * radio on at all, you cannot really miss it, which is the point: the game
  * never gates on you having found something.
  *
- * Segments tagged `notice: true` mark you as knowing about the meeting.
+ * The notice deliberately has one segment. Repeating eight versions of the
+ * same instruction made the station feel like an objective system instead of
+ * a station, and most of those lines outlived the day they described.
  */
+export const MEETING_NOTICE_ID = 'notice.meeting.day_one';
 export const MEETING_NOTICE = [
-  { line: 'ANNOUNCER: Community notice, and we read this one properly.', cue: 'radio.jingle', notice: true },
-  { line: 'ANNOUNCER: The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.', notice: true },
-  { line: 'ANNOUNCER: Same room as always. Doors at half six. Do not turn up at half seven.', notice: true },
-  { line: 'ANNOUNCER: Somebody always turns up at half seven.', notice: true },
-  { line: 'ANNOUNCER: Come showered. Come dressed. Come having eaten something.', notice: true },
-  { line: 'ANNOUNCER: That is not us being rude, that is a direct request from the room.', notice: true },
-  { line: 'ANNOUNCER: If you are new: it is not that kind of meeting. Bring nothing. Turn up.', notice: true },
-  { line: 'ANNOUNCER: Wednesday. Seven. 97.8 The Squatch, reminding you where to be.', notice: true },
+  {
+    line: 'ANNOUNCER: The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.',
+    cue: 'radio.jingle',
+    notice: true,
+    bulletinId: MEETING_NOTICE_ID,
+  },
 ];
-
-/** How many ordinary segments air between readings of the notice. */
-export const NOTICE_EVERY = 11;
 
 /* ------------------------------------------------------------------ */
 /* 97.8 THE SQUATCH                                                    */
 /* ------------------------------------------------------------------ */
 
-/** The 60-second station commercial, beat by beat. */
+/** The station commercial, beat by beat. */
 const COMMERCIAL = [
   seg('…', 'radio.riff'),
   seg('Tired of boring radio stations that care about "facts" and "professionalism"?'),
@@ -152,10 +149,6 @@ const SQUATCH_SHOWS = [
       [
         "LOU: Weather: it is doing something out there. Look out of a window.",
         "LOU: Traffic report. There is traffic. It is on the roads.",
-      ],
-      [
-        "LOU: Somebody has a meeting tomorrow night and has told everyone about it twice.",
-        "LOU: That is not a bit. Somebody genuinely rang in about that.",
       ],
       [
         "LOU: Quick reminder that this show is four hours long and nobody made us do that.",
@@ -439,15 +432,6 @@ const SQUATCH_SHOWS = [
         "APE: \"Dear Squatch, is it normal to have four.\" That is a different letter.",
       ],
       [
-        "APE: Somebody has written in about tomorrow night. Big meeting. Big turnout expected.",
-      ],
-      [
-        "APE: You know the one. Wednesday. Seven o\u2019clock. Do not be the one who forgets.",
-      ],
-      [
-        "APE: I say that every week and every week somebody forgets.",
-      ],
-      [
         "APE: The building is empty. The lights are on a timer and the timer has opinions.",
       ],
       [
@@ -547,9 +531,6 @@ const SQUATCH_SHOWS = [
       [
         "HOG MAMA: Last one. Give me a location. \u2026The apartment. Fine. The apartment.",
       ],
-      [
-        "HOG MAMA: There is a man in the apartment and he has somewhere to be tomorrow.",
-      ],
     ],
   },
 ];
@@ -611,10 +592,6 @@ export const STATIONS = [
     shows: SQUATCH_SHOWS,
     overnight: OVERNIGHT,
     commercial: COMMERCIAL,
-    /** Exchanges between airings of the commercial. */
-    commercialEvery: 6,
-    /** Exchanges between records. Every other block is music. */
-    songEvery: 2,
     /** This station reads the community notice. */
     notices: true,
     /**
@@ -624,8 +601,6 @@ export const STATIONS = [
      * while first means you find it rather than are handed it.
      */
     noticeAfter: 5,
-    /** Exchanges between repeats of the notice, once it has started. */
-    noticeEvery: 9,
     /** Lines the DJ drops over the top and tail of a record. */
     lines: [
       'That was one of ours. All of them are ours.',
@@ -637,7 +612,6 @@ export const STATIONS = [
       'Somebody mixed this in a basement on monitors that cost forty dollars.',
       'That was written in one night. You can tell. We are not hiding it.',
       'No royalties have ever been paid. No royalties have ever been owed.',
-      'This one was recorded the night before somebody had somewhere to be.',
       'Turn it up. Nobody in this building is going to stop you.',
       '97.8 The Squatch. The roster, on the roster.',
     ],
