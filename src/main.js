@@ -2889,7 +2889,7 @@ function startDayTwoOpening() {
   const state = campaign.state;
   if (state.story.chapter !== 'day_two'
     || state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL]?.status === 'answered') return false;
-  if (!radio.on) radio.turnOn({ tuneIn: false });
+  radio.prepareBroadcast();
   apartment.state.radioOn = radio.on;
   return playNews('radio', {
     // The authored twenty seconds begins when the bulletin is actually heard,

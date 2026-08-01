@@ -61,3 +61,28 @@ test('a tape airs intro, recording and outro, and holds for the recording', asyn
   assert.equal(played.at(-1), tape.cue);
   assert.ok(radio._dwell > 34, `tape dwell was ${radio._dwell}s, shorter than the recording`);
 });
+
+test('preparing a bulletin cannot pump ordinary radio before it starts', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const audio = {
+    ready: false,
+    play() { return null; },
+    startLoop() {}, stopLoop() {}, setLoopVolume() {}, say() {},
+  };
+  const radio = new Radio(audio, { setRadio() {}, toast() {} }, { hour: 7 });
+  let tuned = 0;
+  radio._tuneIn = () => { tuned++; };
+
+  radio.prepareBroadcast();
+  assert.equal(radio.on, true);
+  assert.equal(tuned, 0);
+  assert.equal(radio._broadcastT, Number.POSITIVE_INFINITY);
+
+  radio.update(10);
+  assert.equal(tuned, 0);
+  assert.equal(radio._broadcastT, Number.POSITIVE_INFINITY);
+
+  radio.broadcast({ cue: 'vo.news.radio.day_two.1', line: 'Breaking news.' });
+  assert.ok(Number.isFinite(radio._broadcastT));
+  assert.equal(tuned, 0);
+});

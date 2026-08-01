@@ -208,6 +208,18 @@ export class Radio {
     this.hud.setRadio(null);
   }
 
+  /** Silence the running order while an imminent bulletin powers up. */
+  prepareBroadcast() {
+    if (!this.on) this.turnOn({ tuneIn: false });
+    else this._stopBeds();
+    this._songT = -1;
+    this._line = null;
+    // The frame loop must not pump a replacement host during the short delay.
+    // broadcast() replaces this sentinel with the bulletin's real hold time.
+    this._broadcastT = Number.POSITIVE_INFINITY;
+    this._showOsd();
+  }
+
   /** Move to the next station on the dial. Turns the set on if it was off. */
   tune() {
     this.stationIndex = (this.stationIndex + 1) % this.stations.length;
