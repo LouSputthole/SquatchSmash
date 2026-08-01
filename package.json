@@ -25,6 +25,7 @@
     "verify:bing-two": "node tools/verify-bing-two.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",
     "verify:motel": "node tools/verify-motel.mjs",
+    "verify:no-wake": "node tools/verify-no-wake.mjs",
     "verify:initiation": "node tools/verify-initiation.mjs",
     "verify:preview": "node tools/verify-preview.mjs",
     "verify:beefrun": "node tools/verify-beefrun.mjs",

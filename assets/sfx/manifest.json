@@ -2111,6 +2111,20 @@
       "prompt": "old american v8 engine idling steadily, low rumble with a slight lope, seamless loop, exterior, no music, no voice"
     },
     {
+      "_comment": "NO WAKE cruiser underway bed. The procedural fallback keeps the mission playable until this recording is generated.",
+      "name": "boat.engine.idle",
+      "duration": 8,
+      "promptInfluence": 0.5,
+      "prompt": "twin early 1990s marine diesel engines idling steadily inside a 42 foot fiberglass cabin cruiser, low mechanical rumble and gentle hull resonance, seamless loop, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE body disposal splash; intentionally remains on the audio todo list until generated.",
+      "name": "water.splash",
+      "duration": 2.2,
+      "promptInfluence": 0.55,
+      "prompt": "one heavy human-sized object dropped over the side of a boat into open water, deep impact splash, churning water and short receding ripples, exterior, no music, no voice"
+    },
+    {
       "name": "car.engine.rev",
       "duration": 2.4,
       "promptInfluence": 0.5,

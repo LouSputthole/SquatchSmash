@@ -2338,6 +2338,7 @@ window.addEventListener('mouseup', (e) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.repeat) return;
+  if (e.code === 'Space') e.preventDefault();
   keys.add(e.code);
   player.setKey(e.code, true);
 

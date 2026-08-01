@@ -220,8 +220,10 @@ export const FAMILY = [
  */
 export function familyPresent(campaignState) {
   const beefRunFlown = campaignState?.missions?.airstrip_smuggling?.status === 'complete';
+  const noWakeComplete = campaignState?.missions?.no_wake?.status === 'complete';
   return FAMILY.filter((m) => (
-    m.id !== CHARACTER_IDS.CAPTAIN_LOU_SASOLE || beefRunFlown
+    (m.id !== CHARACTER_IDS.CAPTAIN_LOU_SASOLE || beefRunFlown)
+      && (m.id !== CHARACTER_IDS.WILLY || !noWakeComplete)
   ));
 }
 

@@ -18,6 +18,8 @@ const SPEED_SPRINT = 4.05;
 const SPEED_CROUCH = 1.25;
 const ACCEL = 12;
 const FRICTION = 11;
+const JUMP_SPEED = 4.65;
+const JUMP_GRAVITY = 13.5;
 
 export class Player {
   constructor(camera, world) {
@@ -34,6 +36,9 @@ export class Player {
     this.targetEye = EYE_STAND;
     this.crouching = false;
     this.sprinting = false;
+    this.jumpHeight = 0;
+    this.grounded = true;
+    this._jumpHeld = false;
 
     /* Height of the floor under him. Zero everywhere in the flat; the Bing has
      * a stage, so the world may supply a groundAt(x, z) and the eye rides on
@@ -262,7 +267,12 @@ export class Player {
     }
 
     if (this.mode === 'walk' && this.enabled) this._updateWalk(dt);
-    else this.velocity.set(0, 0, 0);
+    else {
+      this.velocity.set(0, 0, 0);
+      this.jumpHeight = 0;
+      this.grounded = true;
+      this._jumpHeld = false;
+    }
 
     this._applyCamera(dt);
   }
@@ -337,7 +347,25 @@ export class Player {
     const ground = this.world.groundAt ? this.world.groundAt(this.position.x, this.position.z) : 0;
     this.ground += (ground - this.ground) * Math.min(1, dt * 9);
     if (Math.abs(ground - this.ground) < 0.002) this.ground = ground;
-    this.position.y = this.ground + this.eyeHeight;
+
+    const jumpPressed = k.has('Space');
+    if (jumpPressed && !this._jumpHeld && this.grounded && !this.crouching) {
+      this.velocity.y = JUMP_SPEED;
+      this.grounded = false;
+    }
+    this._jumpHeld = jumpPressed;
+    if (!this.grounded) {
+      this.velocity.y -= JUMP_GRAVITY * dt;
+      this.jumpHeight += this.velocity.y * dt;
+      if (this.jumpHeight <= 0) {
+        this.jumpHeight = 0;
+        this.velocity.y = 0;
+        this.grounded = true;
+      }
+    } else {
+      this.velocity.y = 0;
+    }
+    this.position.y = this.ground + this.eyeHeight + this.jumpHeight;
 
     this._stepDist += moved;
     const stride = this.crouching ? 1.05 : this.sprinting ? 0.92 : 0.78;
@@ -381,9 +409,12 @@ export class Player {
         else if (m === toMaxX) p.x = box.max.x + RADIUS;
         else if (m === toMinZ) p.z = box.min.z - RADIUS;
         else p.z = box.max.z + RADIUS;
-        this.velocity.set(0, 0, 0);
+        this.velocity.x = 0;
+        this.velocity.z = 0;
       }
     }
+    /* Moving/rotated scenes resolve the capsule in their own local frame. */
+    this.world.resolvePlayer?.(this, axis, RADIUS);
   }
 
   /** Which floor material the player is standing on (drives footstep cue). */
@@ -400,7 +431,9 @@ export class Player {
   _applyCamera(dt) {
     const cam = this.camera;
 
-    let y = this.mode === 'walk' ? this.ground + this.eyeHeight : this.position.y;
+    let y = this.mode === 'walk'
+      ? this.ground + this.eyeHeight + this.jumpHeight
+      : this.position.y;
     let bobX = 0;
     if (this.mode === 'walk') {
       y += Math.sin(this.bobPhase * 2) * 0.022 * this.bobAmount;

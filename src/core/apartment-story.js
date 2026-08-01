@@ -110,6 +110,7 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.AIRSTRIP_SMUGGLING]: 'the airstrip',
   [SCENE_IDS.BADA_BING_TWO]: 'the Bada Bing',
   [SCENE_IDS.JERKY_MOTEL]: 'the Jerky Motel',
+  [SCENE_IDS.NO_WAKE]: 'South Harbor',
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
   [SCENE_IDS.INITIATION]: 'the Initiation',
 });
@@ -132,6 +133,11 @@ const CHAPTER_PLAN = Object.freeze({
   day_two: Object.freeze({
     event: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
     caller: 'Booskibro',
+    routineRequired: false,
+  }),
+  no_wake: Object.freeze({
+    event: EVENT_IDS.LOU_NO_WAKE_CALL,
+    caller: 'Big Uncle Lou',
     routineRequired: false,
   }),
   date: Object.freeze({
@@ -242,6 +248,29 @@ export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
   ]),
 });
 
+/** The call that never says why four men need a boat on a grey afternoon. */
+export const NO_WAKE_LOU_CALL = Object.freeze({
+  eventId: EVENT_IDS.LOU_NO_WAKE_CALL,
+  characterId: CHARACTER_IDS.LOU,
+  targetCharacterId: CHARACTER_IDS.WILLY,
+  targetSceneId: SCENE_IDS.NO_WAKE,
+  from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
+  vo: 'call.lou.no_wake',
+  lines: Object.freeze([
+    'Kid. South Harbor. Gate C. Quarter to one.',
+    'Plain clothes. Leave the phone in the glovebox when you get there.',
+    'Booski and Willy are already on their way. We are taking a ride.',
+    'Do not be late, and do not ring me back.',
+  ]),
+  replies: Object.freeze([
+    'Gate C. Quarter to one.',
+    'No phone. Understood.',
+    'All four of us?',
+    'I will be there.',
+  ]),
+});
+
 /**
  * The one call in the campaign that is not work.
  *
@@ -295,7 +324,7 @@ const SLEEP_CHAPTERS = Object.freeze([
   }),
   Object.freeze({
     from: 'day_two',
-    to: 'date',
+    to: 'no_wake',
     requires: MISSION_IDS.JERKY_MOTEL,
     incomplete: 'day_two_incomplete',
     day: 3,
@@ -355,6 +384,7 @@ export const BIG_NIGHT_BOOSKI_CALL = Object.freeze({
 /** Which one-shot time event records that a chapter's messages were played. */
 const MESSAGE_EVENTS = Object.freeze({
   day_two: TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO,
+  no_wake: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
   date: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
   big_night: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
 });
@@ -371,6 +401,20 @@ export const CHAPTER_MESSAGES = Object.freeze({
         'I heard about the restaurant. I did not hear it from you and that is how I want it to stay.',
         'You did what was asked and you did not stand about afterwards. People noticed the second part.',
         'Sleep. Somebody will ring you in the morning, and it will not be me.',
+      ]),
+    }),
+  ]),
+  no_wake: Object.freeze([
+    Object.freeze({
+      from: 'Big Uncle Lou',
+      characterId: CHARACTER_IDS.LOU,
+      vo: 'machine.lou.date',
+      at: 'Today, 5:14 AM',
+      lines: Object.freeze([
+        'It is me. Do not ring back, I am not near this phone.',
+        'Wear something plain today. Nothing anybody would describe.',
+        'There is a thing that may need doing and it may not. I will know later.',
+        'And if Willy calls you, you have not spoken to me. Say it back to yourself until it is true.',
       ]),
     }),
   ]),
@@ -429,6 +473,21 @@ export const CHAPTER_NEWS = Object.freeze({
       voice: 'ksqch',
       line: '…the restaurant remains closed this morning. Staff describe a man who came in, '
         + 'did not order, and left. That is the whole description. That is what we have.',
+    }),
+  }),
+  no_wake: Object.freeze({
+    radio: Object.freeze({
+      vo: 'news.radio.date',
+      voice: 'announcer',
+      line: 'Wet one out there today. Also on the wire — that motel out on the county road. '
+        + 'Fire crews were there before dawn. Nobody is saying what for, and the county road '
+        + 'is shut both ways.',
+    }),
+    tv: Object.freeze({
+      vo: 'news.tv.date',
+      voice: 'ksqch',
+      line: '…the Jerky Motel. We are told there is nothing to tell. We have been told that '
+        + 'four times this morning, by four different people, using the same four words.',
     }),
   }),
   date: Object.freeze({
@@ -555,6 +614,14 @@ class ApartmentStory {
       this.campaign.advanceTime(TIME_EVENT_IDS.LOU_SECOND_CALL, (state) => {
         state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
         state.missions[MISSION_IDS.BADA_BING_TWO].status = 'available';
+      });
+      return true;
+    }
+    if (definition?.eventId === EVENT_IDS.LOU_NO_WAKE_CALL
+      && !this.#eventAnswered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_NO_WAKE_CALL, (state) => {
+        state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+        state.missions[MISSION_IDS.NO_WAKE].status = 'available';
       });
       return true;
     }
@@ -702,6 +769,18 @@ class ApartmentStory {
         kind: 'go',
         destination: SCENE_IDS.INITIATION,
       };
+    }
+    if (state.story.chapter === 'no_wake') {
+      if (!this.#eventAnswered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.LOU_NO_WAKE_CALL,
+          line: 'Lou said he would call when he knew. I am not chasing him today.',
+        };
+      }
+      if (state.missions[MISSION_IDS.NO_WAKE].status !== 'complete') {
+        return { kind: 'go', destination: SCENE_IDS.NO_WAKE };
+      }
     }
     /* Day 3. Nothing about the family happens today, which is the point of it.
      * He waits for her to ring, he goes, and he comes back. */
@@ -897,6 +976,10 @@ class ApartmentStory {
     if (state.story.chapter === 'date'
       && !this.#eventAnswered(EVENT_IDS.MARGO_DATE_CALL)) {
       return DATE_MARGO_CALL;
+    }
+    if (state.story.chapter === 'no_wake'
+      && !this.#eventAnswered(EVENT_IDS.LOU_NO_WAKE_CALL)) {
+      return NO_WAKE_LOU_CALL;
     }
     if (state.story.chapter === 'day_two'
       && state.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete'

@@ -17,6 +17,11 @@ const TYPES = {
 };
 const CASES = [
   {
+    page: 'nowake.html',
+    module: 'src/nowake/main.js',
+    scene: 'NO WAKE',
+  },
+  {
     page: 'motel.html',
     module: 'src/motel/main.js',
     scene: 'Jerky Motel',

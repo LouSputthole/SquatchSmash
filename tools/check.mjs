@@ -170,9 +170,15 @@ try {
   })('src');
   for (const file of cueFiles) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
-    for (const m of src.matchAll(/(?:audio\??|missionAudio)\.(?:play|startLoop)\(\s*'([^']+)'/g)) {
-      if (!allCues.has(m[1])) {
-        fail(`${file}: audio.play('${m[1]}') is not in assets/sfx/manifest.json `
+    const referencedCues = [
+      ...[...src.matchAll(/(?:audio\??|missionAudio)\.play\(\s*'([^']+)'/g)]
+        .map((match) => match[1]),
+      ...[...src.matchAll(/(?:audio\??|missionAudio)\.startLoop\(\s*'([^']+)'(?:\s*,\s*\{([\s\S]*?)\})?/g)]
+        .map((match) => match[2]?.match(/\bname\s*:\s*'([^']+)'/)?.[1] ?? match[1]),
+    ];
+    for (const cue of referencedCues) {
+      if (!allCues.has(cue)) {
+        fail(`${file}: referenced audio cue '${cue}' is not in assets/sfx/manifest.json `
           + '— it will fall through to the synth and can never be recorded');
       }
     }

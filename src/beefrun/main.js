@@ -327,6 +327,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') return;             // pointer lock handles this
   if (game.paused) return;
   if (e.repeat) return;
+  if (e.code === 'Space') e.preventDefault();
   player.setKey(e.code, true);
   input.key(e.code, true);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.press();

@@ -1226,6 +1226,11 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 0.36, type: 'lowpass', freq: 380, gain: 0.34, sweep: 0.3 });
       burst(ctx, dest, t + 0.16, { dur: 0.28, type: 'lowpass', freq: 260, gain: 0.18, sweep: 0.4 });
       break;
+    case 'water.splash':
+      burst(ctx, dest, t, { dur: 0.65, type: 'lowpass', freq: 720, gain: 0.32 });
+      burst(ctx, dest, t + 0.05, { dur: 1.1, type: 'bandpass', freq: 1450, gain: 0.18 });
+      tone(ctx, dest, t, { freq: 92, to: 48, dur: 0.48, gain: 0.12, type: 'sine' });
+      break;
     case 'drunk.heartbeat':
       // Two thumps per beat, four beats, slowing down.
       for (let i = 0; i < 4; i++) {
@@ -1646,6 +1651,7 @@ function synthLoop(engine, name, dest) {
       noise('highpass', 6200, 2, 0.012);
       break;
     case 'engine.idle':
+    case 'boat.engine.idle':
       osc('sawtooth', 34, 0.06);
       osc('sine', 68, 0.03);
       noise('lowpass', 220, 0.8, 0.10);

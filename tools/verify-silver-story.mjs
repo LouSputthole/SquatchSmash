@@ -3,7 +3,7 @@
  * Ride the Silver Room's campaign seam in a real browser.
  *
  * Not the evening itself — `npm run verify:silver` plays that end to end. This
- * is the join: waking on Day 3 after the Motel, Margo ringing the physical
+ * is the join: returning on Day 3 after NO WAKE, Margo ringing the physical
  * phone, the apartment door routing to `silver.html`, the mission's own story
  * gate opening, the ending folding into campaign state, the walk home, and the
  * sleep that finally turns the page onto the Day 4 big night.
@@ -75,19 +75,19 @@ function check(name, ok, detail = '') {
 }
 
 /*
- * Exactly what the Motel's end card leaves behind: Day 3, half four in the
- * morning, at his own front door, every job done and nothing booked.
+ * Exactly what NO WAKE's return leaves behind: Day 3, 4:40 in the afternoon,
+ * at his own front door, the body gone and Margo's call still pending.
  */
 await page.addInitScript(() => {
   if (localStorage.getItem('squatchlife.campaign')) return;
   localStorage.setItem('squatchlife.campaign', JSON.stringify({
-    version: 2,
+    version: 3,
     revision: 44,
     scene: { id: 'apartment', spawn: 'front_door' },
     story: {
-      chapter: 'day_two',
+      chapter: 'date',
       day: 3,
-      timeMinutes: 4 * 60 + 30,
+      timeMinutes: 16 * 60 + 40,
       meetingKnown: true,
       meetingLearnedFrom: 'lou_call',
       timeEvents: [
@@ -95,7 +95,8 @@ await page.addInitScript(() => {
         'activity.change_clothes', 'call.lou_first', 'travel.bada_bing_one',
         'call.booski_day_two', 'travel.airstrip', 'mission.airstrip',
         'call.lou_second', 'travel.bada_bing_two', 'mission.bada_bing_two',
-        'travel.jerky_motel', 'mission.jerky_motel',
+        'travel.jerky_motel', 'mission.jerky_motel', 'call.lou_no_wake',
+        'travel.no_wake', 'mission.no_wake',
       ],
     },
     activities: {
@@ -114,6 +115,10 @@ await page.addInitScript(() => {
         status: 'complete', ending: 'home', cargoRecovered: true,
         packagesIntact: 6, freshness: 74, policeHeat: 12,
       },
+      no_wake: {
+        status: 'complete', checkpoint: 'returned', betrayalConfirmed: true,
+        playerFired: true, bodyDisposed: true,
+      },
       silver_room: { status: 'locked' },
       initiation: { status: 'locked' },
     },
@@ -121,6 +126,7 @@ await page.addInitScript(() => {
       lou_first_call: { status: 'answered' },
       booski_day_two_call: { status: 'answered' },
       lou_second_call: { status: 'answered' },
+      lou_no_wake_call: { status: 'answered' },
       margo_date_call: { status: 'pending' },
       booski_big_night_call: { status: 'pending' },
     },
@@ -128,42 +134,44 @@ await page.addInitScript(() => {
 });
 
 try {
-  /* ---- 1. sleep off the Motel into the date chapter ---- */
+  /* ---- 1. return from NO WAKE into the date chapter ---- */
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
 
-  const slept = await page.evaluate(() => {
+  const returned = await page.evaluate(() => {
     const game = window.__squatch;
-    game.lieOnBed();
-    game.sleepInBed();
     const state = game.campaign.state;
     return {
       story: state.story,
+      noWake: state.missions.no_wake,
       silver: state.missions.silver_room.status,
       initiation: state.missions.initiation.status,
       call: state.events.margo_date_call.status,
     };
   });
-  check('sleeping off the Motel opens the date chapter at noon on Day 3',
-    slept.story.chapter === 'date'
-      && slept.story.day === 3
-      && slept.story.timeMinutes === 12 * 60,
-    JSON.stringify(slept.story));
+  check('returning from NO WAKE opens the date chapter at 4:40 PM on Day 3',
+    returned.story.chapter === 'date'
+      && returned.story.day === 3
+      && returned.story.timeMinutes === 16 * 60 + 40
+      && returned.noWake.status === 'complete'
+      && returned.noWake.bodyDisposed === true,
+    JSON.stringify(returned));
   check('and the date is still locked until she actually rings',
-    slept.silver === 'locked' && slept.call === 'pending' && slept.initiation === 'locked',
-    JSON.stringify(slept));
+    returned.silver === 'locked'
+      && returned.call === 'pending'
+      && returned.initiation === 'locked',
+    JSON.stringify(returned));
 
-  await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
-    timeout: 15000,
-  });
   const woke = await page.evaluate(() => ({
     day: window.__squatch.time.day,
     minutes: window.__squatch.time.minutes,
     tag: document.querySelector('#overlay .tag')?.textContent ?? '',
   }));
-  check('the live apartment clock wakes at noon on Day 3',
-    woke.day === 3 && Math.abs(woke.minutes - 12 * 60) < 1,
+  check('the live apartment clock and return card preserve NO WAKE time',
+    woke.day === 3
+      && Math.abs(woke.minutes - (16 * 60 + 40)) < 1
+      && woke.tag.includes('South Harbor'),
     JSON.stringify(woke));
 
   /* ---- 2. the door waits for her, then she rings ---- */
@@ -214,7 +222,7 @@ try {
     answered.inCall
       && answered.call === 'answered'
       && answered.silver === 'available'
-      && answered.timeMinutes === 12 * 60 + 5,
+      && answered.timeMinutes === 16 * 60 + 45,
     JSON.stringify(answered));
   check('the apartment door now routes to the Silver Room',
     answered.door?.kind === 'go' && answered.door?.destination === 'silver_room',

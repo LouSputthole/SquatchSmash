@@ -182,17 +182,24 @@ const returningFromBing = returningToApartment
  * home with a finished Motel behind you. Newest completed thing wins. */
 const returningFromSilver = returningToApartment
   && campaignAtLoad.missions[MISSION_IDS.SILVER_ROOM].status === 'complete';
+const returningFromNoWake = returningToApartment
+  && !returningFromSilver
+  && campaignAtLoad.missions[MISSION_IDS.NO_WAKE].status === 'complete';
 const returningFromMotel = returningToApartment
   && !returningFromSilver
+  && !returningFromNoWake
   && campaignAtLoad.missions[MISSION_IDS.JERKY_MOTEL].status === 'complete';
 const returningFromSquatchfather = returningToApartment
   && !returningFromSilver
+  && !returningFromNoWake
   && !returningFromMotel
   && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
 const apartmentGunUnlocked =
   campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
 const wakingOnDayTwo = !returningToApartment
   && campaignAtLoad.story.chapter === 'day_two';
+const wakingOnNoWake = !returningToApartment
+  && campaignAtLoad.story.chapter === 'no_wake';
 const wakingOnDate = !returningToApartment
   && campaignAtLoad.story.chapter === 'date';
 const wakingOnBigNight = !returningToApartment
@@ -215,6 +222,9 @@ time.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
 if (wakingOnDayTwo) {
   overlay.querySelector('.tag').textContent =
     'Day Two, 7:00 AM. Booskibro has the next job. The phone is on the nightstand.';
+} else if (wakingOnNoWake) {
+  overlay.querySelector('.tag').textContent =
+    'Day Three, 12:00 PM. Grey water weather. Lou said he would call.';
 } else if (wakingOnDate) {
   overlay.querySelector('.tag').textContent =
     'Day Three, 12:00 PM. Nothing on today. She said she would ring.';
@@ -701,6 +711,8 @@ async function boot() {
       ? 'Back from the Bing. Lou’s package is still under your jacket.'
       : returningFromSilver
         ? 'Back from the Silver Room. Tomorrow is the big night. Sleep on it.'
+        : returningFromNoWake
+          ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
           ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
           : 'Back from the restaurant. The business is settled.';
@@ -801,6 +813,9 @@ startBtn.addEventListener('click', async () => {
         hud.say(date.seeingHerAgain
           ? 'Home. And she said yes to the next one. <em>Tomorrow is the other thing.</em>'
           : 'Home. That went how it went. <em>Tomorrow is the other thing.</em>', 4800);
+      } else if (returningFromNoWake) {
+        hud.toast('NO WAKE', '');
+        hud.say('Home. The boat is clean. <em>The phone will ring when it rings.</em>', 5200);
       } else if (returningFromMotel) {
         hud.toast('The jerky run is done', 'good');
         hud.say('Home. Every bit of that took all night. <em>Bed.</em>', 4800);
@@ -2412,6 +2427,10 @@ function leaveForMission(destination) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_TWO);
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.NO_WAKE) {
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_NO_WAKE);
+    syncClockFromCampaign();
+  }
   if (destination === SCENE_IDS.SILVER_ROOM) {
     // The mission's own story class flips it to in_progress on the pavement.
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_ROOM);
@@ -3187,13 +3206,15 @@ function killingTimeOnDayOne() {
 /** What the night that just ended was, named by the chapter it closed. */
 const CHAPTER_DONE = Object.freeze({
   day_two: 'Day One is done',
-  date: 'Day Two is done',
+  no_wake: 'Day Two is done',
+  date: 'The harbor is behind you',
   big_night: 'The Silver Room is behind you',
 });
 
 /** And what the morning it opened onto is for. */
 const WAKE_LINES = Object.freeze({
   day_two: 'Booskibro said he would call.',
+  no_wake: 'Grey out. Lou said he would call.',
   date: 'Nothing on today. She said she would ring.',
   big_night: 'Tonight is the thing. Booskibro said he would call.',
 });

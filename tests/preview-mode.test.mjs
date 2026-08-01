@@ -42,6 +42,9 @@ test('preview query and route resolution preserve existing query parameters', ()
   };
   assert.equal(isPreviewMode(current), true);
   assert.equal(previewSceneForLocation(current), SCENE_IDS.BADA_BING_TWO);
+  assert.equal(previewSceneForLocation({
+    pathname: '/game/nowake.html', search: '?preview=1',
+  }), SCENE_IDS.NO_WAKE);
   assert.equal(
     previewNavigationHref('bing.html?visit=2#lot', current),
     'bing.html?visit=2&preview=1#lot',
@@ -114,10 +117,22 @@ test('Squatchfather and Bing Two previews receive only temporary prerequisites',
       },
     },
     {
+      location: { pathname: '/nowake.html', search: '?preview=1' },
+      scene: SCENE_IDS.NO_WAKE,
+      verify(state) {
+        assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+        assert.equal(state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status, 'answered');
+        assert.equal(state.missions[MISSION_IDS.NO_WAKE].status, 'available');
+        assert.equal(state.story.chapter, 'no_wake');
+        assert.equal(state.story.day, 3);
+      },
+    },
+    {
       location: { pathname: '/silver.html', search: '?preview=1' },
       scene: SCENE_IDS.SILVER_ROOM,
       verify(state) {
         assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.NO_WAKE].status, 'complete');
         assert.equal(state.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');

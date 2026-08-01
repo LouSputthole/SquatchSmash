@@ -17,8 +17,10 @@ import {
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
+  NO_WAKE_LOU_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
+import { createNoWakeStory } from '../src/core/no-wake-story.js';
 import { RING_SECONDS, callScript } from '../src/core/phone.js';
 
 /** Every call the campaign makes, in the order Tony gets them. */
@@ -27,6 +29,7 @@ const CAMPAIGN_CALLS = [
   DAY_ONE_LOU_ATTABOY_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
+  NO_WAKE_LOU_CALL,
   DATE_MARGO_CALL,
   BIG_NIGHT_BOOSKI_CALL,
 ];
@@ -423,8 +426,10 @@ test('each chapter of sleep refuses until its own mission is finished', () => {
   campaign.update((state) => {
     state.missions[MISSION_IDS.JERKY_MOTEL].status = 'complete';
   });
-  // The Motel opens the date, not the big night.
-  assert.equal(story.sleep().chapter, 'date');
+  // The Motel opens NO WAKE, not the date or the big night.
+  assert.equal(story.sleep().chapter, 'no_wake');
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'unknown_chapter' });
+  finishNoWake(campaign, story);
   assert.deepEqual(story.sleep(), { ok: false, reason: 'date_incomplete' });
 
   campaign.update((state) => {
@@ -659,6 +664,18 @@ function afterTheMotel(storage = new MemoryStorage()) {
   return campaign;
 }
 
+function finishNoWake(campaign, apartment = createApartmentStory({ campaign, ring: () => true })) {
+  assert.equal(apartment.callAnswered(NO_WAKE_LOU_CALL), true);
+  campaign.enter(SCENE_IDS.NO_WAKE, { spawn: 'gate_c' });
+  const noWake = createNoWakeStory({ campaign });
+  assert.deepEqual(noWake.begin(), { ok: true, resumed: false });
+  assert.equal(noWake.complete({
+    betrayalConfirmed: true, playerFired: true, bodyDisposed: true,
+  }), true);
+  campaign.enter(SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+  return campaign;
+}
+
 test('the door sends Tony to bed after the Motel instead of straight to the Circle', () => {
   const campaign = afterTheMotel();
   const calls = [];
@@ -684,23 +701,24 @@ test('the door sends Tony to bed after the Motel instead of straight to the Circ
   assert.equal(campaign.state.missions[MISSION_IDS.INITIATION].status, 'locked');
 });
 
-test('sleep after the Motel creates a persistent Day Three date checkpoint', () => {
+test('sleep after the Motel creates a persistent Day Three NO WAKE checkpoint', () => {
   const storage = new MemoryStorage();
   const campaign = afterTheMotel(storage);
   const story = createApartmentStory({ campaign, ring: () => true });
 
   // He was up until half four, so noon of the same calendar day: the chapter
-  // turns without the day turning with it. Day 3 is the date, not the verdict.
+  // turns without the day turning with it. NO WAKE comes before the date.
   assert.deepEqual(story.sleep(), {
-    ok: true, chapter: 'date', day: 3, timeMinutes: 12 * 60,
+    ok: true, chapter: 'no_wake', day: 3, timeMinutes: 12 * 60,
   });
 
   const restored = createCampaign({ storage }).state;
-  assert.equal(restored.story.chapter, 'date');
+  assert.equal(restored.story.chapter, 'no_wake');
   assert.equal(restored.story.day, 3);
   assert.equal(restored.story.timeMinutes, 12 * 60);
   assert.deepEqual(restored.scene, { id: SCENE_IDS.APARTMENT, spawn: 'wake' });
   assert.equal(restored.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
+  assert.equal(restored.missions[MISSION_IDS.NO_WAKE].status, 'locked');
   assert.equal(restored.missions[MISSION_IDS.SILVER_ROOM].status, 'locked');
   assert.equal(restored.missions[MISSION_IDS.INITIATION].status, 'locked');
   assert.equal(restored.events[EVENT_IDS.MARGO_DATE_CALL].status, 'pending');
@@ -714,6 +732,7 @@ test('Margo rings once on the afternoon of the date and unlocks the Silver Room'
     ring: () => true,
   });
   story.sleep();
+  finishNoWake(story.campaign, story);
 
   const calls = [];
   const woken = createApartmentStory({
@@ -741,7 +760,7 @@ test('Margo rings once on the afternoon of the date and unlocks the Silver Room'
   assert.equal(answered.events[EVENT_IDS.MARGO_DATE_CALL].status, 'answered');
   assert.equal(answered.missions[MISSION_IDS.SILVER_ROOM].status, 'available');
   // +5 minutes on the authored clock, once.
-  assert.equal(answered.story.timeMinutes, 12 * 60 + 5);
+  assert.equal(answered.story.timeMinutes, 16 * 60 + 45);
   assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DATE_CALL));
   assert.equal(woken.callAnswered(DATE_MARGO_CALL), false);
 
@@ -763,6 +782,7 @@ test('the date door waits for Margo, then routes to the Silver Room', () => {
   const campaign = afterTheMotel();
   const story = createApartmentStory({ campaign, ring: () => true });
   story.sleep();
+  finishNoWake(campaign, story);
 
   assert.deepEqual(story.tryLeave({}), {
     kind: 'call',
@@ -792,6 +812,7 @@ function afterTheDate(storage) {
   const campaign = afterTheMotel(storage);
   const story = createApartmentStory({ campaign, ring: () => true });
   story.sleep();
+  finishNoWake(campaign, story);
   campaign.update((state) => {
     state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
     state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';

@@ -1,0 +1,83 @@
+import {
+  EVENT_IDS,
+  MISSION_IDS,
+  SCENE_IDS,
+  TIME_EVENT_IDS,
+} from './campaign.js';
+
+const CHECKPOINTS = Object.freeze([
+  'dock', 'underway', 'open_water', 'execution', 'returned',
+]);
+
+/** Campaign boundary for NO WAKE. Runtime detail stays in the scene. */
+class NoWakeStory {
+  constructor({ campaign }) {
+    this.campaign = campaign;
+  }
+
+  /** Read-only eligibility check used before the player commits on Start. */
+  canBegin() {
+    const state = this.campaign.state;
+    const mission = state.missions[MISSION_IDS.NO_WAKE];
+    if (mission.status === 'in_progress') return { ok: true, resumed: true };
+    if (mission.status === 'complete') return { ok: false, reason: 'already_complete' };
+    if (state.missions[MISSION_IDS.JERKY_MOTEL].status !== 'complete') {
+      return { ok: false, reason: 'motel_incomplete' };
+    }
+    if (state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status !== 'answered') {
+      return { ok: false, reason: 'lou_call_incomplete' };
+    }
+    if (mission.status !== 'available') return { ok: false, reason: 'mission_locked' };
+
+    return { ok: true, resumed: false };
+  }
+
+  begin() {
+    const eligibility = this.canBegin();
+    if (!eligibility.ok || eligibility.resumed) return eligibility;
+
+    this.campaign.update((next) => {
+      next.missions[MISSION_IDS.NO_WAKE].status = 'in_progress';
+      next.missions[MISSION_IDS.NO_WAKE].checkpoint ??= 'dock';
+    });
+    return eligibility;
+  }
+
+  checkpoint(value) {
+    if (!CHECKPOINTS.includes(value)) return false;
+    const current = this.campaign.state.missions[MISSION_IDS.NO_WAKE];
+    if (current.status !== 'in_progress') return false;
+    const oldIndex = CHECKPOINTS.indexOf(current.checkpoint);
+    const newIndex = CHECKPOINTS.indexOf(value);
+    if (oldIndex >= newIndex) return false;
+    this.campaign.update((state) => {
+      state.missions[MISSION_IDS.NO_WAKE].checkpoint = value;
+    });
+    return true;
+  }
+
+  complete(report = {}) {
+    const current = this.campaign.state.missions[MISSION_IDS.NO_WAKE];
+    if (current.status !== 'in_progress'
+      || report.betrayalConfirmed !== true
+      || report.playerFired !== true
+      || report.bodyDisposed !== true) return false;
+
+    this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_NO_WAKE, (state) => {
+      const mission = state.missions[MISSION_IDS.NO_WAKE];
+      mission.status = 'complete';
+      mission.checkpoint = 'returned';
+      mission.betrayalConfirmed = true;
+      mission.playerFired = true;
+      mission.bodyDisposed = true;
+      // Same calendar day. Returning from the docks opens Margo's date beat.
+      state.story.chapter = 'date';
+      state.scene = { id: SCENE_IDS.NO_WAKE, spawn: 'gate_c' };
+    });
+    return true;
+  }
+}
+
+export function createNoWakeStory(options) {
+  return new NoWakeStory(options);
+}

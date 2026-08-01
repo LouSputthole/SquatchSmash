@@ -3166,6 +3166,81 @@ export function makeRevolver(M, { x, y, z, rotY = 0 }) {
 }
 
 /**
+ * A compact double-stack 9mm semi-automatic pistol.
+ *
+ * Like the revolver it points along -Z, so character hands, first-person
+ * view-models and muzzle effects can share one convention.
+ */
+export function makeNineMillimeterPistol(M, { x, y, z, rotY = 0 }) {
+  const g = group('9mm semi-automatic pistol');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const slideSteel = mat({ color: 0x343a40, roughness: 0.30, metalness: 0.86 });
+  const slideDark = mat({ color: 0x171b1f, roughness: 0.40, metalness: 0.70 });
+  const polymer = mat({ color: 0x202326, roughness: 0.76 });
+  const inset = mat({ color: 0x0a0c0e, roughness: 0.95 });
+
+  g.add(box({ size: [0.032, 0.038, 0.164], pos: [0, 0.038, -0.050], mat: slideSteel }));
+  g.add(box({ size: [0.026, 0.008, 0.074], pos: [0, 0.060, -0.018], mat: slideDark }));
+  g.add(box({ size: [0.018, 0.010, 0.029], pos: [0, 0.058, -0.005], mat: inset }));
+  g.add(cylinder({
+    r: 0.0062, h: 0.013, pos: [0, 0.038, -0.137], rotX: Math.PI / 2, mat: inset,
+  }));
+
+  g.add(box({ size: [0.005, 0.010, 0.010], pos: [0, 0.067, -0.122], mat: inset }));
+  for (const sx of [-1, 1]) {
+    g.add(box({ size: [0.006, 0.010, 0.010], pos: [sx * 0.010, 0.067, 0.020], mat: inset }));
+  }
+
+  g.add(box({ size: [0.030, 0.030, 0.122], pos: [0, 0.012, -0.044], mat: polymer }));
+  g.add(box({ size: [0.034, 0.012, 0.064], pos: [0, -0.004, -0.082], mat: polymer }));
+  for (const zRail of [-0.100, -0.082, -0.064]) {
+    g.add(box({ size: [0.037, 0.005, 0.006], pos: [0, -0.012, zRail], mat: inset }));
+  }
+  g.add(cylinder({
+    r: 0.0045, h: 0.038, pos: [0, 0.020, 0.004], rotZ: Math.PI / 2, mat: slideDark,
+  }));
+
+  const grip = new THREE.Group();
+  grip.position.set(0, 0.003, 0.025);
+  grip.rotation.x = 0.20;
+  grip.add(box({ size: [0.033, 0.098, 0.047], pos: [0, -0.046, 0.022], mat: polymer }));
+  for (const sx of [-1, 1]) {
+    grip.add(box({ size: [0.0035, 0.068, 0.034], pos: [sx * 0.018, -0.044, 0.022], mat: inset }));
+  }
+  grip.add(box({ size: [0.039, 0.009, 0.052], pos: [0, -0.099, 0.030], mat: slideDark }));
+  g.add(grip);
+
+  const trigger = box({
+    size: [0.006, 0.022, 0.007], pos: [0, -0.010, 0.000], mat: slideDark, rotX: 0.32,
+  });
+  g.add(trigger);
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0035, 6, 16, Math.PI), polymer);
+  guard.position.set(0, -0.011, -0.001);
+  guard.rotation.set(Math.PI / 2, 0, Math.PI);
+  guard.rotateX(Math.PI / 2);
+  g.add(guard);
+
+  for (const sx of [-1, 1]) {
+    for (let i = 0; i < 4; i++) {
+      g.add(box({
+        size: [0.003, 0.026, 0.004],
+        pos: [sx * 0.017, 0.038, 0.004 + i * 0.009],
+        mat: inset,
+        rotX: -0.18,
+      }));
+    }
+  }
+
+  return {
+    group: g,
+    trigger,
+    muzzle: new THREE.Vector3(0, 0.038, -0.144),
+  };
+}
+
+/**
  * The television, on its stand, facing the couch.
  *
  * `screen` is the mesh the channel canvas maps onto -- same arrangement as the

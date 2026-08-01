@@ -16,11 +16,13 @@ import {
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
   DAY_TWO_LOU_SECOND_CALL,
+  NO_WAKE_LOU_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createAirstripStory } from '../src/core/airstrip-story.js';
 import { createBadaBingTwoStory } from '../src/core/bada-bing-two-story.js';
 import { createMotelStory } from '../src/core/motel-story.js';
+import { createNoWakeStory } from '../src/core/no-wake-story.js';
 import { createSilverStory } from '../src/core/silver-story.js';
 import { createSquatchfatherStory } from '../src/core/squatchfather-story.js';
 
@@ -161,14 +163,27 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   }), true);
   route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
 
-  // The post-Motel reload also proves the campaign has moved into the date
-  // chapter only by sleeping at home, never by a scene shortcut.
+  // The post-Motel reload proves NO WAKE opens only after sleeping at home.
   campaign = reload(storage);
   apartment = createApartmentStory({ campaign, ring: () => true });
   assert.equal(campaign.state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
   assert.deepEqual(apartment.sleep(), {
-    ok: true, chapter: 'date', day: 3, timeMinutes: 12 * 60,
+    ok: true, chapter: 'no_wake', day: 3, timeMinutes: 12 * 60,
   });
+  assert.equal(apartment.callAnswered(NO_WAKE_LOU_CALL), true);
+  assert.deepEqual(apartmentExit(apartment, campaign), {
+    kind: 'go', destination: SCENE_IDS.NO_WAKE,
+  });
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_NO_WAKE);
+  route(campaign, SCENE_IDS.NO_WAKE, 'gate_c', 'nowake.html');
+  const noWake = createNoWakeStory({ campaign });
+  assert.deepEqual(noWake.begin(), { ok: true, resumed: false });
+  assert.equal(noWake.complete({
+    betrayalConfirmed: true, playerFired: true, bodyDisposed: true,
+  }), true);
+  route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
+
+  apartment = createApartmentStory({ campaign, ring: () => true });
   assert.equal(apartment.callAnswered(DATE_MARGO_CALL), true);
   assert.deepEqual(apartmentExit(apartment, campaign), {
     kind: 'go', destination: SCENE_IDS.SILVER_ROOM,

@@ -96,12 +96,40 @@ try {
     links: [...document.querySelectorAll('[data-preview-scene]')]
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
   }));
-  check('the launcher exposes all six requested previews',
+  check('the launcher exposes all eight requested previews',
     launcher.title === 'Scene preview'
-      && launcher.links.length === 7
+      && launcher.links.length === 8
       && launcher.links.every(([, href]) => href.includes('preview=1')),
     JSON.stringify(launcher));
   check('opening the launcher leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
+  await page.goto(`http://localhost:${PORT}/nowake.html?preview=1`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
+  const noWakeBeforeStart = await page.evaluate(() => ({
+    mission: window.NO_WAKE.campaignState.missions.no_wake.status,
+    scene: window.NO_WAKE.campaignState.scene.id,
+  }));
+  check('loading NO WAKE preview is read-only until Start',
+    noWakeBeforeStart.mission === 'available' && noWakeBeforeStart.scene === 'no_wake',
+    JSON.stringify(noWakeBeforeStart));
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => window.NO_WAKE.campaignState.missions.no_wake.status === 'in_progress');
+  const noWake = await page.evaluate(() => ({
+    mission: window.NO_WAKE.campaignState.missions.no_wake,
+    motel: window.NO_WAKE.campaignState.missions.jerky_motel.status,
+    call: window.NO_WAKE.campaignState.events.lou_no_wake_call.status,
+    chapter: window.NO_WAKE.campaignState.story.chapter,
+    previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
+  }));
+  check('NO WAKE starts with temporary prerequisites and a preview notice',
+    noWake.mission.status === 'in_progress'
+      && noWake.motel === 'complete'
+      && noWake.call === 'answered'
+      && noWake.chapter === 'no_wake'
+      && noWake.previewNotice,
+    JSON.stringify(noWake));
+  check('NO WAKE preview leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
   await page.goto(`http://localhost:${PORT}/motel.html?preview=1`, { waitUntil: 'load' });

@@ -42,6 +42,8 @@ test('a new campaign starts in the apartment with both Lous kept distinct', () =
   assert.notEqual(CHARACTER_IDS.LOU, CHARACTER_IDS.CAPTAIN_LOU_SASOLE);
   assert.equal(campaign.state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status, 'pending');
   assert.equal(campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
+  assert.equal(campaign.state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status, 'pending');
+  assert.equal(campaign.state.missions[MISSION_IDS.NO_WAKE].status, 'locked');
 });
 
 test('a confirmed campaign reset replaces story progress and clears obsolete recovery data', () => {
@@ -132,6 +134,8 @@ test('the Day Two through Day Four mission beats land on their authored clocks',
     [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO, 3, 45],
     [TIME_EVENT_IDS.DEPART_JERKY_MOTEL, 3, 60 + 30],
     [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL, 3, 4 * 60 + 30],
+    [TIME_EVENT_IDS.DEPART_NO_WAKE, 3, 12 * 60 + 45],
+    [TIME_EVENT_IDS.COMPLETE_NO_WAKE, 3, 16 * 60 + 40],
     /* Day 3 is the date. He sleeps the morning off, she rings in the
      * afternoon, and he leaves at half seven for a nine o'clock table. */
     [TIME_EVENT_IDS.DEPART_SILVER_ROOM, 3, 19 * 60 + 30],
@@ -242,6 +246,8 @@ test('every registered scene has a deterministic default spawn', () => {
     [SCENE_IDS.AIRSTRIP_SMUGGLING, 'hangar'],
     [SCENE_IDS.BADA_BING_TWO, 'driver_seat'],
     [SCENE_IDS.JERKY_MOTEL, 'passenger_seat'],
+    [SCENE_IDS.NO_WAKE, 'gate_c'],
+    [SCENE_IDS.SILVER_ROOM, 'kerb'],
     [SCENE_IDS.INITIATION, 'gathering'],
   ]);
 

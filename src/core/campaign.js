@@ -41,6 +41,7 @@ export const SCENE_IDS = Object.freeze({
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
+  NO_WAKE: 'no_wake',
   SILVER_ROOM: 'silver_room',
   INITIATION: 'initiation',
 });
@@ -61,6 +62,7 @@ export const MISSION_IDS = Object.freeze({
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
   BADA_BING_TWO: 'bada_bing_two',
   JERKY_MOTEL: 'jerky_motel',
+  NO_WAKE: 'no_wake',
   SILVER_ROOM: 'silver_room',
   INITIATION: 'initiation',
 });
@@ -75,6 +77,7 @@ export const EVENT_IDS = Object.freeze({
   LOU_ATTABOY_CALL: 'lou_attaboy_call',
   BOOSKI_DAY_TWO_CALL: 'booski_day_two_call',
   LOU_SECOND_CALL: 'lou_second_call',
+  LOU_NO_WAKE_CALL: 'lou_no_wake_call',
   MARGO_DATE_CALL: 'margo_date_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
 });
@@ -106,6 +109,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   LOU_ATTABOY_CALL: 'call.lou_attaboy',
   BOOSKI_DAY_TWO_CALL: 'call.booski_day_two',
   LOU_SECOND_CALL: 'call.lou_second',
+  LOU_NO_WAKE_CALL: 'call.lou_no_wake',
   MARGO_DATE_CALL: 'call.margo_date',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
@@ -121,6 +125,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_BADA_BING_TWO: 'mission.bada_bing_two',
   DEPART_JERKY_MOTEL: 'travel.jerky_motel',
   COMPLETE_JERKY_MOTEL: 'mission.jerky_motel',
+  DEPART_NO_WAKE: 'travel.no_wake',
+  COMPLETE_NO_WAKE: 'mission.no_wake',
   DEPART_SILVER_ROOM: 'travel.silver_room',
   COMPLETE_SILVER_ROOM: 'mission.silver_room',
   DEPART_INITIATION: 'travel.initiation',
@@ -150,6 +156,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.LOU_ATTABOY_CALL]: Object.freeze({ minutes: 2 }),
   [TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.LOU_NO_WAKE_CALL]: Object.freeze({ minutes: 4 }),
   [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
@@ -186,6 +193,14 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 4 * 60 + 30 }),
   }),
+  // A deliberately vague call, then the drive down to South Harbor.
+  [TIME_EVENT_IDS.DEPART_NO_WAKE]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 12 * 60 + 45 }),
+  }),
+  // Dock work, the run offshore, and the silent return consume the afternoon.
+  [TIME_EVENT_IDS.COMPLETE_NO_WAKE]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 16 * 60 + 40 }),
+  }),
   /* Day 3 is the calm before the verdict. He wakes at noon off the back of the
    * Motel, Margo rings in the afternoon, and he leaves at half seven for a
    * nine o'clock table -- the Silver Room's own evening. */
@@ -204,7 +219,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 3;
+export const CAMPAIGN_VERSION = 4;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -219,6 +234,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.INITIATION,
     ]),
@@ -251,6 +267,12 @@ const SCENES = Object.freeze({
     href: 'motel.html',
     defaultSpawn: 'passenger_seat',
     spawns: Object.freeze(['passenger_seat']),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  [SCENE_IDS.NO_WAKE]: Object.freeze({
+    href: 'nowake.html',
+    defaultSpawn: 'gate_c',
+    spawns: Object.freeze(['gate_c']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   /* The date. One continuous scene with no loads of its own, so it has a single
@@ -346,6 +368,13 @@ function initialState() {
         freshness: 0,
         policeHeat: 0,
       },
+      [MISSION_IDS.NO_WAKE]: {
+        status: 'locked',
+        checkpoint: null,
+        betrayalConfirmed: false,
+        playerFired: false,
+        bodyDisposed: false,
+      },
       /* The date's durable summary. The mission itself keeps a much larger
        * record while it is running; this is only what a later scene could
        * reasonably ask about an evening it did not watch. */
@@ -374,6 +403,9 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.LOU_SECOND_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.LOU_NO_WAKE_CALL]: {
         status: 'pending',
       },
       [EVENT_IDS.MARGO_DATE_CALL]: {
@@ -410,6 +442,36 @@ const MIGRATIONS = Object.freeze({
       activities: {
         ...saved.activities,
         whiskeyRelaxed: saved.activities?.whiskeyRelaxed === true,
+      },
+    };
+  },
+  3(saved) {
+    const silverStatus = saved.missions?.[MISSION_IDS.SILVER_ROOM]?.status;
+    const initiationStatus = saved.missions?.[MISSION_IDS.INITIATION]?.status;
+    const progressed = ['available', 'in_progress', 'complete'];
+    const alreadyPastNoWake = progressed.includes(silverStatus)
+      || progressed.includes(initiationStatus)
+      || ['date', 'big_night'].includes(saved.story?.chapter);
+    return {
+      ...saved,
+      version: 4,
+      missions: {
+        ...saved.missions,
+        [MISSION_IDS.NO_WAKE]: alreadyPastNoWake
+          ? {
+            status: 'complete', checkpoint: 'returned', betrayalConfirmed: true,
+            playerFired: true, bodyDisposed: true,
+          }
+          : {
+            status: 'locked', checkpoint: null, betrayalConfirmed: false,
+            playerFired: false, bodyDisposed: false,
+          },
+      },
+      events: {
+        ...saved.events,
+        [EVENT_IDS.LOU_NO_WAKE_CALL]: {
+          status: alreadyPastNoWake ? 'answered' : 'pending',
+        },
       },
     };
   },
@@ -484,6 +546,9 @@ function normalize(saved) {
   const motel = saved.missions?.[MISSION_IDS.JERKY_MOTEL] ?? {};
   const motelStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(motel.status) ? motel.status : base.missions.jerky_motel.status;
+  const noWake = saved.missions?.[MISSION_IDS.NO_WAKE] ?? {};
+  const noWakeStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(noWake.status) ? noWake.status : base.missions.no_wake.status;
   const silver = saved.missions?.[MISSION_IDS.SILVER_ROOM] ?? {};
   const silverStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(silver.status) ? silver.status : base.missions.silver_room.status;
@@ -494,6 +559,7 @@ function normalize(saved) {
   const attaboyCall = saved.events?.[EVENT_IDS.LOU_ATTABOY_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
+  const louNoWakeCall = saved.events?.[EVENT_IDS.LOU_NO_WAKE_CALL] ?? {};
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
 
@@ -557,6 +623,14 @@ function normalize(saved) {
         freshness: boundedNumber(motel.freshness, 0, 100, 0),
         policeHeat: boundedNumber(motel.policeHeat, 0, 100, 0),
       },
+      [MISSION_IDS.NO_WAKE]: {
+        status: noWakeStatus,
+        checkpoint: ['dock', 'underway', 'open_water', 'execution', 'returned']
+          .includes(noWake.checkpoint) ? noWake.checkpoint : null,
+        betrayalConfirmed: noWake.betrayalConfirmed === true,
+        playerFired: noWake.playerFired === true,
+        bodyDisposed: noWake.bodyDisposed === true,
+      },
       [MISSION_IDS.SILVER_ROOM]: {
         status: silverStatus,
         outcome: [
@@ -599,6 +673,10 @@ function normalize(saved) {
       },
       [EVENT_IDS.LOU_SECOND_CALL]: {
         status: louSecondCall.status === 'answered' || bingTwoStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      [EVENT_IDS.LOU_NO_WAKE_CALL]: {
+        status: louNoWakeCall.status === 'answered' || noWakeStatus !== 'locked'
           ? 'answered' : 'pending',
       },
       // An exposed Silver Room is proof Margo already rang.
@@ -916,6 +994,7 @@ function seedPreviewCampaign(campaign, sceneId) {
     const airstrip = state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
     const secondBing = state.missions[MISSION_IDS.BADA_BING_TWO];
     const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
+    const noWake = state.missions[MISSION_IDS.NO_WAKE];
     const silver = state.missions[MISSION_IDS.SILVER_ROOM];
     const initiation = state.missions[MISSION_IDS.INITIATION];
 
@@ -930,6 +1009,7 @@ function seedPreviewCampaign(campaign, sceneId) {
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
@@ -958,6 +1038,7 @@ function seedPreviewCampaign(campaign, sceneId) {
     if ([
       SCENE_IDS.BADA_BING_TWO,
       SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
@@ -978,6 +1059,7 @@ function seedPreviewCampaign(campaign, sceneId) {
 
     if ([
       SCENE_IDS.JERKY_MOTEL,
+      SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
@@ -986,10 +1068,28 @@ function seedPreviewCampaign(campaign, sceneId) {
       motel.status = 'available';
     }
 
-    if ([SCENE_IDS.SILVER_ROOM, SCENE_IDS.INITIATION].includes(sceneId)) {
+    if ([SCENE_IDS.NO_WAKE, SCENE_IDS.SILVER_ROOM, SCENE_IDS.INITIATION].includes(sceneId)) {
       motel.status = 'complete';
       motel.ending = 'home';
       motel.cargoRecovered = true;
+    }
+
+    if (sceneId === SCENE_IDS.NO_WAKE) {
+      state.story.chapter = 'no_wake';
+      state.story.day = 3;
+      state.story.timeMinutes = 12 * 60 + 45;
+      state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+      noWake.status = 'available';
+      return;
+    }
+
+    if ([SCENE_IDS.SILVER_ROOM, SCENE_IDS.INITIATION].includes(sceneId)) {
+      noWake.status = 'complete';
+      noWake.checkpoint = 'returned';
+      noWake.betrayalConfirmed = true;
+      noWake.playerFired = true;
+      noWake.bodyDisposed = true;
+      state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
       state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
     }
 
