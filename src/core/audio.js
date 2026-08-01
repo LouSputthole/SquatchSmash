@@ -14,6 +14,7 @@
  */
 import * as THREE from 'three';
 import { loadJson, assetUrl, isBundled } from './assets.js';
+import { loadOnceRetriable, runWorkerPool } from './load-queue.js';
 
 const SFX_DIR = 'assets/sfx/';
 
@@ -111,15 +112,9 @@ export class AudioEngine {
    * If the index is missing entirely we fall back to probing every cue.
    */
   loadManifest() {
-    if (!this._manifestLoadPromise) {
-      this._manifestLoadPromise = this._loadManifestOnce().catch((error) => {
-        // A transient manifest failure may be retried, but a successful load
-        // is immutable for this page. This also coalesces double-clicked starts.
-        this._manifestLoadPromise = null;
-        throw error;
-      });
-    }
-    return this._manifestLoadPromise;
+    // A transient failure may be retried, while a successful load remains
+    // immutable for this page and coalesces double-clicked starts.
+    return loadOnceRetriable(this, '_manifestLoadPromise', () => this._loadManifestOnce());
   }
 
   async _loadManifestOnce() {
@@ -151,15 +146,7 @@ export class AudioEngine {
    * keeps the pipe busy without turning first start into a browser stress test.
    */
   async _loadWanted(wanted, concurrency = 32) {
-    let cursor = 0;
-    const worker = async () => {
-      while (cursor < wanted.length) {
-        const cue = wanted[cursor++];
-        await this._loadOne(cue);
-      }
-    };
-    const count = Math.min(Math.max(1, concurrency), wanted.length);
-    await Promise.all(Array.from({ length: count }, () => worker()));
+    await runWorkerPool(wanted, (cue) => this._loadOne(cue), concurrency);
   }
 
   async _loadOne(cue) {
