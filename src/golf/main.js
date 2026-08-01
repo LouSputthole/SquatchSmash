@@ -35,6 +35,9 @@ import {
 import { heightAt, surfaceAt } from './field.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { HOLE, setActiveHole, builtHoles } from './hole.js';
+import {
+  CourseAudio, GOLF_AUDIO_SCOPE, playRecordedGolfCue, recordedGolfClip,
+} from './audio.js';
 
 /* ------------------------------------------------------------------ */
 /* Campaign                                                            */
@@ -150,21 +153,30 @@ player.mode = 'walk';
 const interaction = new InteractionSystem(camera, hud);
 
 let courseAudio = null;
+let activeVoice = null;
 const cues = new CueQueue({
   say: (cue, secs) => {
     const who = cue.speaker === CHARACTER_IDS.PROSPECT ? 'Prospect'
       : golfers[cue.speaker]?.name ?? '';
     hud.say(`<em>${who}</em> ${cue.text}`, secs * 1000);
     golfers[cue.speaker]?.say(secs);
+    activeVoice?.stop?.();
+    activeVoice = playRecordedGolfCue(audio, cue.id, {
+      volume: 0.88,
+      position: golfers[cue.speaker]?.position ?? null,
+      ref: 2.2,
+      maxDist: 34,
+    });
     courseAudio?.duck(true);
   },
-  clear: () => { courseAudio?.duck(false); },
-  /* No clips exist yet, so subtitle reading time is what times every line.
-   * The moment `assets/sfx/manifest.json` carries `vo.golf.*`, this starts
-   * returning real durations and the timing follows the performance instead. */
+  clear: (reason) => {
+    if (reason === 'interrupted' || reason === 'reset') activeVoice?.stop?.();
+    courseAudio?.duck(false);
+  },
+  /* Recorded performance owns subtitle timing; reading speed is the fallback. */
   clipLength: (id) => {
-    const buf = audio.buffers?.get?.(`vo.${id}`);
-    return buf ? buf.duration : null;
+    const clip = recordedGolfClip(audio, id);
+    return clip?.duration ?? null;
   },
 });
 
@@ -689,7 +701,8 @@ async function boot() {
   }
 
   await audio.init?.().catch?.(() => {});
-  courseAudio = new (await import('./audio.js')).CourseAudio(audio);
+  await audio.loadManifest?.(GOLF_AUDIO_SCOPE).catch?.(() => {});
+  courseAudio = new CourseAudio(audio);
   round.audio = courseAudio;
   courseAudio.start();
 

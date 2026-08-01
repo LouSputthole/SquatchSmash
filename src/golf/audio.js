@@ -16,6 +16,37 @@
 import { SURFACE, surfaceProps } from './course.js';
 import { HOLE } from './hole.js';
 
+/** Every recordable non-voice cue owned by this scene. */
+export const GOLF_EFFECT_CUES = Object.freeze([
+  'ambience.course', 'mower.distant', 'sprinkler', 'cart.motor',
+  'bird', 'sprinkler.tick',
+  'golf.hit.driver', 'golf.hit.iron', 'golf.hit.putt',
+  'golf.hit.sand', 'golf.hit.rough',
+  'golf.land.green', 'golf.land.sand', 'golf.land.path', 'golf.land.grass',
+  'golf.splash', 'golf.cup', 'golf.flag', 'golf.tee', 'golf.pickup', 'golf.bag',
+]);
+
+/** The smallest useful slice of the shared sound manifest for Silver Pines. */
+export const GOLF_AUDIO_SCOPE = Object.freeze({
+  names: Object.freeze([...GOLF_EFFECT_CUES, 'ui.select']),
+  prefixes: Object.freeze(['vo.golf.', 'footstep.']),
+});
+
+/** The first decoded take for a stable golf cue, or null while unrecorded. */
+export function recordedGolfClip(engine, cueId) {
+  const bank = engine?.buffers?.get?.(`vo.${cueId}`);
+  return Array.isArray(bank) ? bank[0] ?? null : bank ?? null;
+}
+
+/**
+ * Play recorded speech without falling through to AudioEngine's development
+ * tick. Subtitles remain the intentional fallback when a line is unrecorded.
+ */
+export function playRecordedGolfCue(engine, cueId, opts = {}) {
+  if (!recordedGolfClip(engine, cueId)) return null;
+  return engine.play(`vo.${cueId}`, opts);
+}
+
 /* Bird calls are one-shots on a long random timer rather than a loop, because
  * a looping bird is the fastest way to make a wood sound like a menu screen. */
 const BIRD_MIN = 3.4;

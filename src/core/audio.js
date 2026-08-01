@@ -103,10 +103,19 @@ export class AudioEngine {
    * 404s. `npm run sfx` rewrites it; hand-added files can be listed manually.
    * If the index is missing entirely we fall back to probing every cue.
    */
-  async loadManifest() {
+  async loadManifest({ names = [], prefixes = [] } = {}) {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
-    const cues = this.manifest.sfx || [];
+    const allCues = this.manifest.sfx || [];
+    const exact = new Set(names);
+    /* Later scenes can carry hundreds of lines while sharing this one
+     * manifest. A scene that names its bank should only decode that bank;
+     * callers which omit a scope keep the original load-everything behaviour. */
+    const scoped = exact.size > 0 || prefixes.length > 0;
+    const cues = scoped
+      ? allCues.filter((cue) => exact.has(cue.name)
+        || prefixes.some((prefix) => cue.name.startsWith(prefix)))
+      : allCues;
     let wanted;
     if (isBundled()) {
       /* A bundle has no folder to look in. Whatever was baked in is a data

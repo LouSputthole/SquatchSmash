@@ -15,10 +15,17 @@ import { Scorecard } from '../src/golf/scorecard.js';
 import {
   CUES, SEQUENCES, buildScripts, unreachableCues, pastMissionBanter,
 } from '../src/golf/script.js';
-import { TEE_MARKS, GREEN, PIN, POND, BUNKER, NPC_TEE_SHOTS } from '../src/golf/hole1.js';
+import {
+  TEE_MARKS, GREEN, PIN, POND, BUNKER, NPC_TEE_SHOTS, LAYOUT as HOLE1,
+} from '../src/golf/hole1.js';
+import { LAYOUT as HOLE2 } from '../src/golf/hole2.js';
+import { LAYOUT as HOLE3 } from '../src/golf/hole3.js';
 import { builtHoles, setActiveHole, HOLE } from '../src/golf/hole.js';
 import { bunkers } from '../src/golf/field.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import {
+  GOLF_EFFECT_CUES, playRecordedGolfCue, recordedGolfClip,
+} from '../src/golf/audio.js';
 
 /* These are the facts about the hole that the browser verifier cannot state
  * cheaply and that a careless edit to the layout would silently change. The
@@ -77,6 +84,50 @@ test('the hole is laid out the way the marker describes it', () => {
   assert.ok(POND.z > GREEN.z, 'the pond is short of the green');
   assert.ok(BUNKER.x < GREEN.x, 'the bunker is left of the green');
   assert.ok(BUNKER.z > GREEN.z, 'the bunker is short of the green');
+});
+
+test('each hole preserves the visual composition it was designed around', () => {
+  /* The clubhouse regression passed every physics check because no test said
+   * Hole 3 was designed to end on that building. State those visual promises. */
+  const h1 = HOLE1;
+  assert.ok(h1.pond && h1.pond.x > h1.green.x && h1.pond.z > h1.green.z,
+    'Hole 1 keeps water short-right of the green');
+  assert.ok(h1.bunker.x < h1.green.x && h1.bunker.z > h1.green.z,
+    'Hole 1 keeps the bail-out bunker short-left');
+
+  const path = HOLE2.corridor.path;
+  assert.ok(path.at(-1).x - path[0].x > 120, 'Hole 2 still turns decisively right');
+  assert.ok(path[0].halfWidth - Math.min(...path.map((p) => p.halfWidth)) >= 10,
+    'Hole 2 still narrows at the conversation corner');
+  assert.ok(Math.hypot(HOLE2.cornerBunker.x - path[2].x,
+    HOLE2.cornerBunker.z - path[2].z) < 30,
+    'Hole 2 keeps the bunker at the inside of the dogleg');
+
+  const tee = HOLE3.teeMarks.ball;
+  const forward = { x: HOLE3.green.x - tee.x, z: HOLE3.green.z - tee.z };
+  const progress = (p) => (p.x - tee.x) * forward.x + (p.z - tee.z) * forward.z;
+  assert.equal(HOLE3.lot, null, 'Hole 3 deliberately has no car park');
+  assert.ok(HOLE3.clubhouse, 'Hole 3 is staged on the clubhouse');
+  assert.ok(progress(HOLE3.clubhouse) > progress(HOLE3.green),
+    'the clubhouse remains behind the last green');
+  assert.ok(Math.hypot(HOLE3.clubhouse.x - HOLE3.green.x,
+    HOLE3.clubhouse.z - HOLE3.green.z) < 36, 'the clubhouse remains close enough to read');
+});
+
+test('recorded golf speech is timed and played without a synthetic voice fallback', () => {
+  const clip = { duration: 2.75 };
+  const calls = [];
+  const engine = {
+    buffers: new Map([['vo.golf.h1.lou.there_he_is', [clip]]]),
+    play: (...args) => { calls.push(args); return { stop() {} }; },
+  };
+  assert.equal(recordedGolfClip(engine, 'golf.h1.lou.there_he_is'), clip);
+  assert.equal(recordedGolfClip(engine, 'golf.h1.eric.morning'), null);
+  assert.ok(playRecordedGolfCue(engine, 'golf.h1.lou.there_he_is', { volume: 0.8 }));
+  assert.equal(playRecordedGolfCue(engine, 'golf.h1.eric.morning'), null);
+  assert.deepEqual(calls, [['vo.golf.h1.lou.there_he_is', { volume: 0.8 }]]);
+  assert.equal(new Set(GOLF_EFFECT_CUES).size, GOLF_EFFECT_CUES.length,
+    'the recordable effect bank contains no duplicate cues');
 });
 
 test('the pond bed is under the waterline everywhere it is called water', () => {

@@ -107,6 +107,19 @@ check('3. all four characters are in the scene',
   world.golfers.length === 3 && world.hasCourse,
   `${world.golfers.join(', ')} + the first-person Prospect`);
 
+const audioBank = await page.evaluate(async () => {
+  const g = window.__golf;
+  const { GOLF_EFFECT_CUES } = await import('/src/golf/audio.js');
+  const names = new Set(g.audio.manifest.sfx.map((cue) => cue.name));
+  return {
+    voices: [...names].filter((name) => name.startsWith('vo.golf.')).length,
+    missingEffects: GOLF_EFFECT_CUES.filter((name) => !names.has(name)),
+  };
+});
+check('3b. the scene loads its complete recordable audio bank',
+  audioBank.voices === 291 && audioBank.missingEffects.length === 0,
+  `${audioBank.voices} voice cues; ${audioBank.missingEffects.length} missing effects`);
+
 const bagCheck = await page.evaluate(() => {
   const g = window.__golf;
   const before = g.round.hasBag;
@@ -420,6 +433,21 @@ const played = await page.evaluate(() => {
   const seen = new Set();
   const beats = [];
   const holesPlayed = [g.HOLE.number];
+  const visualState = () => {
+    const names = [];
+    g.course.holeGroup.traverse((object) => { if (object.name) names.push(object.name); });
+    const clubhouse = g.course.holeGroup.getObjectByName('clubhouse');
+    return {
+      hole: g.HOLE.number,
+      names,
+      hasLot: !!g.LAYOUT.lot,
+      clubhouse: clubhouse
+        ? { x: clubhouse.position.x, z: clubhouse.position.z }
+        : null,
+      expectedClubhouse: g.LAYOUT.clubhouse,
+    };
+  };
+  const visuals = [visualState()];
   let louPrivate = false;
   let cartMoved = false;
   const startCart = g.carts.lead.distance;
@@ -452,7 +480,10 @@ const played = await page.evaluate(() => {
      * runs faster than the fade, so it takes the same transition directly. */
     if (g.round.beat === 'next_tee') {
       const n = g.advanceToNextHole();
-      if (n !== null) holesPlayed.push(n);
+      if (n !== null) {
+        holesPlayed.push(n);
+        visuals.push(visualState());
+      }
     }
     g.step(0.05);
     if (g.round.beat === 'done') break;
@@ -467,7 +498,7 @@ const played = await page.evaluate(() => {
     lines: g.round.card.lines().map((l) => `${l.card}:${l.strokes}`),
     roundStrokes: line.strokes,
     roundToPar: line.label,
-    built: g.round.holes,
+    built: g.round.holes, visuals,
   };
 });
 check('20. the cart ride begins and the carts actually move',
@@ -482,6 +513,23 @@ check('28. the end card appears when the round is over',
 check('28b. the round plays every hole the course has built',
   played.holesPlayed.join(',') === played.built.join(','),
   `played ${played.holesPlayed.join(', ')} of ${played.built.join(', ')} — ${played.roundStrokes} strokes, ${played.roundToPar}`);
+const visualByHole = new Map(played.visuals.map((visual) => [visual.hole, visual]));
+const visualBase = ['flag', 'hole-marker', 'tee-marker-left', 'tee-marker-right', 'clubhouse'];
+check('28c. every hole builds its authored visual anchors',
+  [1, 2, 3].every((hole) => visualBase.every((name) => visualByHole.get(hole)?.names.includes(name)))
+    && visualByHole.get(1)?.names.includes('pond')
+    && !visualByHole.get(2)?.names.includes('pond')
+    && !visualByHole.get(3)?.names.includes('pond')
+    && visualByHole.get(1)?.names.includes('next-tee-hint')
+    && visualByHole.get(2)?.names.includes('next-tee-hint')
+    && !visualByHole.get(3)?.names.includes('next-tee-hint'),
+  played.visuals.map((visual) => `H${visual.hole}: ${visual.names.join(', ')}`).join(' | '));
+const lastVisual = visualByHole.get(3);
+check('28d. Hole 3 renders the clubhouse even though it has no car park',
+  lastVisual?.hasLot === false && !!lastVisual.clubhouse
+    && Math.abs(lastVisual.clubhouse.x - lastVisual.expectedClubhouse.x) < 0.01
+    && Math.abs(lastVisual.clubhouse.z - lastVisual.expectedClubhouse.z) < 0.01,
+  lastVisual ? `clubhouse ${lastVisual.clubhouse?.x},${lastVisual.clubhouse?.z}; lot ${lastVisual.hasLot}` : 'Hole 3 missing');
 
 /* ------------------------------------------------------------------ */
 /* 26 · every score branch                                             */

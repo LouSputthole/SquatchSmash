@@ -353,6 +353,7 @@ function buildPond(scene) {
 
 function buildFlag(scene) {
   const g = new THREE.Group();
+  g.name = 'flag';
   const base = heightAt(HOLE.pin.x, HOLE.pin.z);
   g.position.set(HOLE.pin.x, base, HOLE.pin.z);
 
@@ -400,6 +401,7 @@ function buildTeeMarkers(scene) {
     const x = HOLE.teeMarks.ball.x + side * 2.6;
     const z = HOLE.teeMarks.ball.z + 0.4;
     m.position.set(x, heightAt(x, z) + 0.17, z);
+    m.name = side < 0 ? 'tee-marker-left' : 'tee-marker-right';
     m.castShadow = true;
     scene.add(m);
   }
@@ -438,6 +440,7 @@ function signTexture(lines) {
  */
 function buildHoleMarker(scene) {
   const g = new THREE.Group();
+  g.name = 'hole-marker';
   const x = HOLE.teeMarks.ball.x - 4.6;
   const z = HOLE.teeMarks.ball.z + 2.4;
   g.position.set(x, heightAt(x, z), z);
@@ -486,6 +489,7 @@ function buildHoleMarker(scene) {
  */
 function buildClubhouse(scene, colliders) {
   const g = new THREE.Group();
+  g.name = 'clubhouse';
   const y = heightAt(HOLE.clubhouse.x, HOLE.clubhouse.z);
   g.position.set(HOLE.clubhouse.x, y, HOLE.clubhouse.z);
   g.rotation.y = HOLE.clubhouse.rot;
@@ -533,6 +537,7 @@ function buildClubhouse(scene, colliders) {
 /** The next tee, over the trees. Scenery, and a promise about the round. */
 function buildNextHint(scene) {
   const g = new THREE.Group();
+  g.name = 'next-tee-hint';
   const t = HOLE.nextHint.tee;
   const marker = new THREE.Mesh(
     new THREE.BoxGeometry(0.9, 0.7, 0.1),

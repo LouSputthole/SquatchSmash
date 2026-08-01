@@ -164,6 +164,9 @@ try {
     ...fs.readdirSync(path.join(ROOT, 'src/silver'))
       .filter((f) => f.endsWith('.js'))
       .map((f) => `src/silver/${f}`),
+    ...fs.readdirSync(path.join(ROOT, 'src/golf'))
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => `src/golf/${f}`),
   ];
   for (const file of cueFiles) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -196,6 +199,41 @@ try {
     if (stale.length) {
       fail(`${stale.length} stale Beef Run cue(s) in assets/sfx/manifest.json `
         + `(first: ${stale[0]}). Run \`npm run vo:beefrun\`.`);
+    }
+  }
+
+  /* Silver Pines derives every filename from a stable script id. Keep the
+   * words, actor direction and authored silence in lockstep with the scene. */
+  {
+    const script = await import('../src/golf/script.js');
+    const characters = await import('../src/core/characters.js');
+    const declared = new Map(sfxManifest.sfx
+      .filter((cue) => cue.name.startsWith('vo.golf.'))
+      .map((cue) => [cue.name, cue]));
+    const live = new Set();
+    for (const cue of Object.values(script.CUES)) {
+      const name = `vo.${cue.id}`;
+      live.add(name);
+      const entry = declared.get(name);
+      if (!entry) {
+        fail(`Silver Pines cue ${cue.id} is absent from assets/sfx/manifest.json — run npm run vo:golf`);
+        continue;
+      }
+      if (entry.say !== cue.text || entry.direction !== cue.direction
+        || (entry.postLineHold ?? 0) !== cue.hold) {
+        fail(`Silver Pines cue ${cue.id} is stale — run npm run vo:golf`);
+      }
+      const profile = characters.voiceProfileFor(cue.speaker);
+      if (entry.voice !== profile || !sfxManifest.voices?.[profile]) {
+        fail(`Silver Pines cue ${cue.id} has no valid ${profile ?? 'speaker'} voice profile`);
+      }
+    }
+    const stale = [...declared.keys()].filter((name) => !live.has(name));
+    if (stale.length) fail(`${stale.length} stale Silver Pines voice cue(s) — run npm run vo:golf`);
+
+    const golfAudio = await import('../src/golf/audio.js');
+    for (const name of golfAudio.GOLF_EFFECT_CUES) {
+      if (!allCues.has(name)) fail(`Silver Pines effect ${name} is absent from assets/sfx/manifest.json`);
     }
   }
 

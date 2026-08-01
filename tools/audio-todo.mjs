@@ -82,6 +82,12 @@ const VOICE_DIRECTION = {
   'caib-radio': 'Bureau radio. Procedural, bored, filtered — a man reading a checklist '
     + 'at somebody he cannot see.',
   lookout: 'A man on a hill with binoculars who has been there since dawn.',
+  lou1: 'Big Uncle Lou. Older, dry, unhurried, and never performing the joke. He is '
+    + 'comfortable enough with these men to let the silence after a line do the work.',
+  rippinflow: 'Rippinflow. The mouth of the morning: fast, pleased with himself and always '
+    + 'half a beat from another story. Warm underneath it, but never sentimental.',
+  erican: 'Erican, called Eric here. Spare, steady and warm. He says only what is useful; '
+    + 'when he adds a second sentence it matters.',
 };
 
 const bankOf = (name) => name.split('.').slice(0, -1).join('.');
@@ -96,8 +102,10 @@ out += 'Drop the mp3s in `assets/sfx/` under the filename given, then run '
  * of its lines is its own cue, so grouping it the way the flat is grouped would
  * make a hundred and ninety one one-line sections. It gets its own chapter,
  * ordered by who is speaking. */
-const flatVoice = voice.filter((c) => !c.name.startsWith('vo.beefrun.'));
+const flatVoice = voice.filter((c) => !c.name.startsWith('vo.beefrun.')
+  && !c.name.startsWith('vo.golf.'));
 const missionVoice = voice.filter((c) => c.name.startsWith('vo.beefrun.'));
+const golfVoice = voice.filter((c) => c.name.startsWith('vo.golf.'));
 
 if (flatVoice.length) {
   out += '## Voice — the flat\n\nAll in the player voice unless the name says otherwise. These have '
@@ -135,6 +143,31 @@ if (missionVoice.length) {
       out += `${(c.file || `${c.name}.mp3`).padEnd(46)}  ${JSON.stringify(c.say)}\n`;
     }
     out += '\n';
+  }
+}
+
+if (golfVoice.length) {
+  out += `## Voice — A Morning at Silver Pines\n\n${golfVoice.length} line(s), one stable cue per `
+    + 'subtitle. The line-specific direction and authored post-line silence come directly '
+    + 'from `src/golf/script.js`; regenerate with `npm run vo:golf` after any script edit.\n\n'
+    + '**Casting still required:** `rippinflow` and `erican` have placeholder voice IDs in '
+    + '`assets/sfx/manifest.json`. Choose those two voices before running `npm run sfx:vo`.\n\n';
+  const byWho = new Map();
+  for (const c of golfVoice) {
+    const who = c.voice || 'player';
+    if (!byWho.has(who)) byWho.set(who, []);
+    byWho.get(who).push(c);
+  }
+  for (const [who, list] of [...byWho].sort((a, b) => b[1].length - a[1].length)) {
+    out += `### ${who.replace(/-/g, ' ').toUpperCase()} — ${list.length}\n\n`;
+    if (VOICE_DIRECTION[who]) out += `${VOICE_DIRECTION[who]}\n\n`;
+    for (const c of list) {
+      out += `- \`${c.file || `${c.name}.mp3`}\`\n`
+        + `  - Line: ${JSON.stringify(c.say)}\n`
+        + `  - Direction: ${c.direction || '(direction missing)'}\n`;
+      if (c.postLineHold) out += `  - Silence after: ${c.postLineHold.toFixed(1)} seconds\n`;
+      out += '\n';
+    }
   }
 }
 

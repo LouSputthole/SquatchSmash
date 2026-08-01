@@ -663,8 +663,8 @@ tees, so draw calls stay flat however far the course grows.
 
 ```bash
 npm start                  # http://localhost:5173/golf.html
-npm run verify:golf        # 40 browser checks, car park to end card
-npm test                   # includes 20 Silver Pines unit tests
+npm run verify:golf        # 44 browser checks, car park to end card
+npm test                   # includes 28 Silver Pines unit tests
 ```
 
 ### Hole 1 — The Invitation, par 3, 167 yards
@@ -723,3 +723,12 @@ Hole 3 is the only conversation in the round that says the hour out loud. A
 per-hole fallback means a hole only overrides the lines that actually differ:
 `tee.arrival` on Hole 2 looks for `h2.tee.arrival` and takes the shared one
 when there is not a different thing to say.
+
+`npm run vo:golf` rebuilds all 291 manifest entries from that script, including
+the actor direction and authored silence after the line; `npm run audio:todo`
+lists every missing recording in `VOICE-LINES-TODO.md`. Recorded clips are
+loaded as a Silver-Pines-only bank, play spatially from the speaker, and own the
+subtitle timing. Unrecorded lines stay as subtitles without a synthetic voice.
+
+The automated round does not replace a human playtest. The current acceptance
+gate and the exact feel/pacing questions are in `docs/validation/golf/README.md`.
