@@ -7997,6 +7997,96 @@
       "name": "car.radio",
       "duration": 12,
       "prompt": "a car radio playing quietly through door speakers heard from outside the car, thin muffled broadcast with a little static, no discernible words, continuous, no clear music melody"
+    },
+    {
+      "name": "vo.nowake.cruise.willy.cigars.1",
+      "voice": "willy",
+      "say": "This old girl still smells like Lou’s cigars. He sold the ashtrays but kept the smell."
+    },
+    {
+      "name": "vo.nowake.cruise.booski.markers.1",
+      "voice": "booski",
+      "say": "Red markers to starboard, Tony. Unless you want the Harbor Patrol in the conversation."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.motel.1",
+      "voice": "willy",
+      "say": "Nice to get out. Everybody has been looking at me funny since the Motel."
+    },
+    {
+      "name": "vo.nowake.cruise.lou.water.1",
+      "voice": "lou",
+      "say": "Nobody is looking at anybody, Willy. Enjoy the water."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.quiet.1",
+      "voice": "lou",
+      "say": "Kill the engines in your head for a minute, kid. We need the quiet."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.sandwiches.1",
+      "voice": "willy",
+      "say": "What is this, Lou? You said a ride. I brought sandwiches."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.beef-detected.1",
+      "voice": "lou",
+      "say": "The Beef Run drew eyes because somebody gave them a tail number and a day."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.beef-clean.1",
+      "voice": "lou",
+      "say": "The Beef Run was clean. Then a Bureau report named the strip, the cargo, and all four crates."
+    },
+    {
+      "name": "vo.nowake.reveal.booski.pickup.1",
+      "voice": "booski",
+      "say": "Four people knew the reserve pickup. Lou, me, Tony, and the man who asked twice which room."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.questions.1",
+      "voice": "willy",
+      "say": "I ask things. I am interested. That is a crime now?"
+    },
+    {
+      "name": "vo.nowake.reveal.lou.motel-hot.1",
+      "voice": "lou",
+      "say": "The Bureau was on the Motel road before the first siren. That did not happen by luck."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.motel-clean.1",
+      "voice": "lou",
+      "say": "The Bureau knew the Motel, the room, and what was in the cases before Cecilio opened the door."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.bureau.1",
+      "voice": "willy",
+      "say": "You think I talked to the Bureau? After all these years?"
+    },
+    {
+      "name": "vo.nowake.reveal.lou.confirmed.1",
+      "voice": "lou",
+      "say": "We know you did. The only question left is whether you make us hear you deny it again."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.head.1",
+      "voice": "willy",
+      "say": "I need the head."
+    },
+    {
+      "name": "vo.nowake.below.booski.look.1",
+      "voice": "booski",
+      "say": "When he comes back, do not look at Lou. Look at Willy."
+    },
+    {
+      "name": "vo.nowake.below.lou.fire.1",
+      "voice": "lou",
+      "say": "You fire with us. Not after us."
+    },
+    {
+      "name": "vo.nowake.epilogue.tony.phone.1",
+      "voice": "player",
+      "say": "The phone will ring when it rings."
     }
   ]
 }

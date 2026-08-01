@@ -5,6 +5,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { allNoWakeVoiceLines } from '../src/nowake/dialogue.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5215;
@@ -52,6 +53,26 @@ function check(name, ok, detail = '') {
   results.push({ name, ok });
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` — ${detail}` : ''}`);
 }
+
+const authoredVoice = allNoWakeVoiceLines();
+const soundManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+const manifestVoice = soundManifest.sfx.filter((cue) => cue.name.startsWith('vo.nowake.'));
+const manifestByName = new Map(manifestVoice.map((cue) => [cue.name, cue]));
+check('all 18 NO WAKE lines have stable cue ids, cast voices and exact manifest text',
+  authoredVoice.length === 18
+    && manifestVoice.length === authoredVoice.length
+    && authoredVoice.every((line) => {
+      const cue = manifestByName.get(`vo.nowake.${line.cue}.1`);
+      return cue?.voice === line.voice && cue?.say === line.text;
+    }),
+  JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
+
+const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
+check('the generated voice-line markdown exposes every NO WAKE delivery filename and line',
+  recordingSheet.includes('## Voice — NO WAKE')
+    && authoredVoice.every((line) => recordingSheet.includes(`vo.nowake.${line.cue}.1.mp3`)
+      && recordingSheet.includes(JSON.stringify(line.text))),
+  'VOICE-LINES-TODO.md');
 
 const shots = path.join(ROOT, 'docs', 'validation', '2026-07-31');
 if (WRITE_SCREENSHOTS) await fsp.mkdir(shots, { recursive: true });
