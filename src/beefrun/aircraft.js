@@ -594,10 +594,11 @@ export class Brushrunner {
     this.parts.lighter = lighter;
 
     // Where the cameras and the copilot live.
-    /* Seated eye: left seat, a hand's width below the cabin roof at y = 0.97,
-     * which is where a head goes and where the windshield's glazing actually
-     * is. The old 0.62 sat the pilot's eye level with the glare shield. */
-    this.pilotEye = new THREE.Vector3(-0.42, 0.80, 2.22);
+    /* Seated eye: left seat, just below the cabin roof at y = 0.97, where a
+     * pilot can see over the coaming without looking through it. The old 0.62
+     * sat eye level with the glare shield; the 0.87 correction still read low
+     * in the actual flight view, so the final seat height is 0.93. */
+    this.pilotEye = new THREE.Vector3(-0.42, 0.93, 2.22);
     this.copilotSeat = new THREE.Vector3(0.42, -0.28, 1.66);
   }
 

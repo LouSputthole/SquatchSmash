@@ -93,7 +93,11 @@ export class FlightInput {
     if (!this.usingGamepad) {
       const want = {
         pitch: (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0),
-        roll: (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
+        /* The campaign's keyboard roll convention is deliberately reversed
+         * from the raw aileron axis: A banks right and D banks left. It is the
+         * direction the current flight view reads to the player, and the HUD
+         * names both directions so there is no second guessing in the air. */
+        roll: (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) - (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0),
         yaw: (k.has('KeyE') ? 0 : 0) + (k.has('Period') ? 1 : 0) - (k.has('Comma') ? 1 : 0),
       };
       // Q and E are rudder in the air; E is also "interact" on the ground, so

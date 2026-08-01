@@ -14,7 +14,10 @@
 import { BEATS, BARKS, SPEAKERS, cueOf, barkCueOf } from './script.js';
 import { clamp } from './util.js';
 
-const BARK_COOLDOWN = { default: 9, stall: 4, terrain: 3.5, smooth: 40, banked: 14 };
+const BARK_COOLDOWN = {
+  default: 9, stall: 4, terrain: 3.5, smooth: 40, banked: 14,
+  rough: 16, offCourseLeft: 18, offCourseRight: 18, taxiLost: 14,
+};
 
 export class DialogueSystem {
   constructor(hud, { audio = null, onLine = null } = {}) {
