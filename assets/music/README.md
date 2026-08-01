@@ -19,11 +19,11 @@ the sideboard, press <kbd>E</kbd> to toggle power and <kbd>R</kbd> to skip.
 The next-track cursor is part of the campaign save, so changing scenes or
 reloading does not restart the playlist.
 
-The Bada Bing DJ uses its own positional authored set from `src/bing/main.js`:
-visit one opens on *Squatches in the House*, visit two opens on *Sallie J*, and
-the second-visit request changes the deck back to the requested record.
-Those two manifest entries retain `"venue": "bada_bing"` so asset audits can
-verify every record the club names is registered here.
+The Bada Bing DJ uses its own positional authored set from `src/bing/main.js`.
+The player's first visit always opens on *Sallie J*. Later visits choose a
+random floor record, while *Squatches in the House* stays out of that opening
+rotation so the DJ request always produces an audible change. Every record in
+the club pool carries `"venue": "bada_bing"` for asset verification.
 
 With no tracks listed the radio still turns on and airs its talk schedule; it
 simply skips the music slots.

@@ -2491,8 +2491,10 @@ const beds = await page.evaluate(() => {
       && beds.crowd < 0.2,
     JSON.stringify({ bed: beds.bed, record: beds.record, crowd: beds.crowd }));
   const music = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'music', 'manifest.json'), 'utf8'));
-  check('the DJ selected a registered record, including Squatches in the House in its set',
-    music.tracks.some((track) => track.file === beds.clubRecord)
+  check('the first Bada Bing visit opens on the registered Sallie J record',
+    beds.clubRecord === 'sallie-j.mp3'
+      && music.tracks.some((track) => track.file === beds.clubRecord
+        && track.venue === 'bada_bing')
       && music.tracks.some((track) => track.file === 'squatches-in-the-house.mp3'
         && track.venue === 'bada_bing'),
     JSON.stringify({ record: beds.clubRecord }));

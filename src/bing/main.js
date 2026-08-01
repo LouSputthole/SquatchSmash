@@ -62,15 +62,20 @@ const DRINK_TIME = 2.4;
 /* How much of the synthesised club bed survives under the real record. */
 const BED_UNDER_RECORD = 0.16;
 
-/* The two visits have authored sets. A refresh must not turn the first visit
- * into the second set or hand both visits the same record by accident. */
+/* Sallie J owns the player's first walk into the club. Later visits can open
+ * on any of the other floor records, except the horn-break record the player
+ * can request from the DJ -- keeping that interaction an audible change. */
 const CLUB_DJ_RECORDS = Object.freeze([
-  { file: 'squatches-in-the-house.mp3', title: 'Squatches in the House' },
   { file: 'sallie-j.mp3', title: 'Sallie J' },
+  { file: 'squatch-up.mp3', title: 'Squatch Up' },
+  { file: 'booskibro.mp3', title: 'BooskiBro' },
+  { file: 'squatches-in-the-house.mp3', title: 'Squatches in the House', requested: true },
 ]);
 
 function clubDjRecordForVisit(secondVisit) {
-  return CLUB_DJ_RECORDS[secondVisit ? 1 : 0];
+  if (!secondVisit) return CLUB_DJ_RECORDS[0];
+  const rotation = CLUB_DJ_RECORDS.filter((record) => !record.requested);
+  return rotation[(Math.random() * rotation.length) | 0];
 }
 
 const canvas = document.getElementById('scene');
@@ -699,9 +704,9 @@ const scriptContext = {
     game.songRequested = what;
     audio.play('radio.tune', { volume: 0.35, position: club.anchors.dj });
     // Both authored requests point at the roster record with the horn break.
-    // The second visit opens on Sallie J, so the choice now changes the deck
-    // instead of merely ticking the optional objective.
-    switchClubRecord(CLUB_DJ_RECORDS[0], { requested: true });
+    // It is excluded from the arrival rotation so asking always changes the
+    // deck instead of merely ticking the optional objective.
+    switchClubRecord(CLUB_DJ_RECORDS.find((record) => record.requested), { requested: true });
   },
   sitAtTable: () => sitAtTable(),
   showParcel: () => {

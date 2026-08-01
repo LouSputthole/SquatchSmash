@@ -187,10 +187,11 @@ try {
       objectiveDone: bing.optionalObjectives().some((item) => item.id === 'song' && item.done),
     };
   });
-  check('visit two opens on Sallie J and the DJ request really changes the record',
-    djSet.initial === 'sallie-j.mp3'
+  check('visit two randomizes its opening set and the DJ request really changes the record',
+    ['sallie-j.mp3', 'squatch-up.mp3', 'booskibro.mp3'].includes(djSet.initial)
       && djSet.requested === 'horns'
       && djSet.playing === 'squatches-in-the-house.mp3'
+      && djSet.playing !== djSet.initial
       && djSet.loop
       && djSet.objectiveDone,
     JSON.stringify(djSet));
