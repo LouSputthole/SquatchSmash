@@ -20,6 +20,8 @@ const PORT = Number(process.env.PORT) || 5218;
 const CASES = [
   { page: 'squatchfather.html', start: '#startBtn', label: 'Squatchfather' },
   { page: 'beefrun.html', start: '#start-btn', label: 'Beef Run' },
+  { page: 'bing.html?visit=2', start: '#start-btn', label: 'HotDog Incident' },
+  { page: 'graveyard.html', start: '#start-btn', label: 'Squatch Graveyard' },
   { page: 'motel.html', start: '#startBtn', label: 'Jerky Motel' },
   { page: 'nowake.html', start: '#start-btn', label: 'NO WAKE' },
   { page: 'silver.html', start: '#start-btn', label: 'Silver Room' },

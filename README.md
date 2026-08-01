@@ -1,14 +1,16 @@
 # Squatch Life
 
-Eight playable or preserved experiences live in this repo.
+Ten playable or preserved experiences live in this repo.
 
 | | |
 |---|---|
 | **Squatch Life** (repo root) | First-person apartment hub. Wake up, answer Lou’s call, get ready, use the PC, and leave for the first mission. |
-| **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; the campaign also reuses the same club for his post-airstrip assignment. |
+| **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; visit two is Billy HotDog's closed welcome-home party, murder, and cleanup. |
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
+| **The Squatch Graveyard** ([`graveyard.html`](./graveyard.html)) | Snow and the Prospect dispose of HotDog under the headlights, with the Family's dead preserved as optional memorial interactions. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Snow is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
+| **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three harbor and boat mission connecting the Motel aftermath to the Silver Room date chapter. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house and connected to Day Three campaign state. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, routed from the apartment by Booskibro's Day Four big-night call after the Silver Room. The scene itself is unchanged pending the owner's playtest. |
@@ -19,18 +21,23 @@ npm start        # the apartment -> http://localhost:5173
                  # the Bing      -> http://localhost:5173/bing.html
                  # Squatchfather -> http://localhost:5173/squatchfather.html
                  # the Beef Run  -> http://localhost:5173/beefrun.html
+                 # HotDog party  -> http://localhost:5173/bing.html?visit=2
+                 # the graveyard -> http://localhost:5173/graveyard.html
                  # the Motel     -> http://localhost:5173/motel.html
+                 # NO WAKE       -> http://localhost:5173/nowake.html
+                 # Silver Room   -> http://localhost:5173/silver.html
                  # the game      -> http://localhost:5173/game/
                  # Initiation    -> http://localhost:5173/initiation.html
 ```
 
-All eight are static ES-module sites with no build step, served by the same
+All ten are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
-isolated; the apartment, Bing, Squatchfather, Beef Run, Motel, Silver Room,
-and Initiation share campaign identities and reusable story-scene foundations.
+isolated; the apartment, Bing, Squatchfather, Beef Run, graveyard, Motel,
+NO WAKE, Silver Room, and Initiation share campaign identities and reusable
+story-scene foundations.
 
 The campaign spine connects every story location through
 `src/core/campaign.js`. On Day One, Lou’s one-shot call rings through the
@@ -43,15 +50,18 @@ package as the bathroom weapon. Finishing the restaurant records the dropped
 weapon and returns to the apartment again. Sleeping creates a persistent Day
 Two checkpoint at 7:00 AM; Booskibro then calls once and unlocks the airstrip job
 with Captain Lou Sasole kept distinct from Lou. The post-airstrip state
-contract, Lou’s second call, the reused Bing assignment, direct Motel
-transition, and Motel return are implemented. The Beef Run flight mission is
+contract and Lou’s second call lead to Billy HotDog's closed party at the
+reused Bing. Ape's sudden attack becomes a compact cleanup, then Snow and the
+Prospect take the body to the Squatch Graveyard before continuing to the Motel.
+The Beef Run flight mission is
 integrated: answering Booskibro routes the apartment door to
 [`beefrun.html`](./beefrun.html), the mission's checkpoints, cargo, detection,
 and landing rank persist through the campaign save, a mid-mission reload
 resumes in the cockpit, and the end card returns home for Lou's second call.
 
-Sleeping off the Jerky Motel opens Day Three at noon, and Day Three is not
-work. Margo Salas — who runs the kitchen at an all-night place on Ashland, and
+Sleeping off the Jerky Motel opens NO WAKE on Day Three at noon. Completing the
+harbor job turns the chapter over to the date. Margo Salas — who runs the
+kitchen at an all-night place on Ashland, and
 who has no stake in Lou or the Bing or anybody in the family — rings once that
 afternoon, and the apartment door routes to the Silver Room
 ([`silver.html`](./silver.html)) for a nine o'clock table. The evening's
@@ -72,10 +82,11 @@ literal sasquatches. Prospect One's execution and gore remain. See
 For playtesting later scenes before naturally reaching them, open
 <http://localhost:5173/preview.html>. Preview state is page-local memory: it
 does not read, migrate, overwrite, or advance the player's canonical
-`localStorage` save. The preview page currently exposes the Beef Run, Motel,
-Bing Scene Two, Squatchfather, the Silver Room, and the unchanged Initiation
-reference. Every preview shows a persistent temporary-progress banner and an
-exit back to the saved apartment game.
+`localStorage` save. The launcher exposes all ten meaningful apartment wakes
+and returns plus every major mission scene, including the HotDog party,
+graveyard, NO WAKE, Silver Room, and the unchanged Initiation reference. Every
+preview shows a persistent temporary-progress banner and an exit back to the
+saved apartment game.
 
 Final screenshots from the Bada Bing and Motel repair pass are versioned in
 [`docs/validation/2026-07-29/`](./docs/validation/2026-07-29/README.md).
@@ -387,7 +398,11 @@ src/arcade/             SquatchOS, its six apps, and the mount/input boundary
 src/bing/               the Bada Bing: the club, its people, the script, the
                         mission, and two ways to lose money
 src/squatchfather/      restaurant scene, timeline, dialogue, and controller
+src/beefrun/            Day Two aircraft, airfields, cargo, patrol, and mission
+src/graveyard/          wooded HotDog burial, memorials, headlights, and pee
 src/motel/              first-person Motel mission, human cast, level, and audio
+src/nowake/             harbor, collidered cruiser, radio, physics, and betrayal
+src/silver/             Silver Room date, cast, performance, and campaign seam
 src/initiation/         preserved ceremony reference and NPC system
 tools/                  static server, ElevenLabs generator, static check,
                         runtime art-placement check, single-file bundler
@@ -405,7 +420,7 @@ npm run verify:art   # runtime: boots the flat headless and measures the geometr
 npm run verify:day-one # runtime: Lou's call, chore gate, apartment -> Bing
 npm run verify:day-two # runtime: sleep, reload, Booskibro call, non-replay
 npm run verify:bing  # runtime: plays the club and returns home, headless
-npm run verify:bing-two # runtime: reuses the club for the second assignment
+npm run verify:bing-two # runtime: HotDog party -> graveyard -> Motel handoff
 npm run verify:squatchfather # runtime: stages the package, plays, returns home
 npm run verify:motel # runtime: Motel outcomes, reload, and apartment return
 npm run verify:beefrun # runtime: Beef Run campaign wiring, isolation, resume
@@ -481,10 +496,10 @@ apartment.
 each unlocked developer preview, and proves the sentinel is unchanged after
 scene state and navigation are exercised.
 
-`verify:boot-errors` deliberately blocks the Motel, Squatchfather, Initiation,
-and Silver Room entry modules. Their classic-script guard must show a useful
-error, Reload, and Apartment recovery before any Three.js module has
-successfully executed.
+`verify:boot-errors` deliberately blocks every registered campaign entry
+module, including the HotDog and graveyard pages. Each classic-script guard
+must show a useful error, Reload, and Apartment recovery before any Three.js
+module has successfully executed.
 
 `verify:silver` plays the Silver Room evening itself — the walk in through the
 kitchen, the table, the band, the invitation — while `verify:silver-story`

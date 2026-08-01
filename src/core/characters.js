@@ -81,6 +81,23 @@ export const CHARACTER_REGISTRY = Object.freeze({
     role: 'family_member',
     legacyAliases: ['APE'],
   }),
+  [CHARACTER_IDS.BILLY_HOTDOG]: character({
+    id: CHARACTER_IDS.BILLY_HOTDOG,
+    canonicalName: 'Billy HotDog',
+    subtitleName: 'Billy HotDog',
+    voiceProfile: 'hotdog',
+    species: 'human',
+    role: 'family_member',
+    legacyAliases: ['hotdog', 'billy_hot_dog'],
+  }),
+  [CHARACTER_IDS.AUBBIE]: character({
+    id: CHARACTER_IDS.AUBBIE,
+    canonicalName: 'Aubbie',
+    subtitleName: 'Aubbie',
+    voiceProfile: 'aubbie',
+    species: 'human',
+    role: 'family_member',
+  }),
   /**
    * The date, and the only named person in the campaign with no stake in it.
    *
@@ -128,7 +145,7 @@ export const CHARACTER_REGISTRY = Object.freeze({
     voiceProfile: 'eric',
     species: 'human',
     role: 'family_member',
-    legacyAliases: ['erican'],
+    legacyAliases: ['erican', 'ericran'],
   }),
   [CHARACTER_IDS.HOG_MAMA]: character({
     id: CHARACTER_IDS.HOG_MAMA,

@@ -37,6 +37,7 @@ import {
   navigateCampaign,
 } from './core/campaign.js';
 import {
+  apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
   createApartmentStory,
 } from './core/apartment-story.js';
@@ -176,24 +177,13 @@ const recoveryNotice = campaign.recoveredNow
   : null;
 const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
   && campaignAtLoad.scene.spawn === 'front_door';
-const returningFromBing = returningToApartment
-  && campaign.hasItem(ITEM_IDS.LOU_PACKAGE);
-/* Checked before the Motel, because coming home from the date is also coming
- * home with a finished Motel behind you. Newest completed thing wins. */
-const returningFromSilver = returningToApartment
-  && campaignAtLoad.missions[MISSION_IDS.SILVER_ROOM].status === 'complete';
-const returningFromNoWake = returningToApartment
-  && !returningFromSilver
-  && campaignAtLoad.missions[MISSION_IDS.NO_WAKE].status === 'complete';
-const returningFromMotel = returningToApartment
-  && !returningFromSilver
-  && !returningFromNoWake
-  && campaignAtLoad.missions[MISSION_IDS.JERKY_MOTEL].status === 'complete';
-const returningFromSquatchfather = returningToApartment
-  && !returningFromSilver
-  && !returningFromNoWake
-  && !returningFromMotel
-  && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
+const returnSource = apartmentReturnSource(campaignAtLoad);
+const returningFromBing = returnSource === SCENE_IDS.BADA_BING_ONE;
+const returningFromSilver = returnSource === SCENE_IDS.SILVER_ROOM;
+const returningFromNoWake = returnSource === SCENE_IDS.NO_WAKE;
+const returningFromMotel = returnSource === SCENE_IDS.JERKY_MOTEL;
+const returningFromAirstrip = returnSource === SCENE_IDS.AIRSTRIP_SMUGGLING;
+const returningFromSquatchfather = returnSource === SCENE_IDS.SQUATCHFATHER;
 const apartmentGunUnlocked =
   campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
 const wakingOnDayTwo = !returningToApartment
@@ -737,7 +727,7 @@ async function boot() {
   //   __squatch.teleport(0, 2, 'north')
   window.__squatch = {
     scene, camera, renderer, player, apartment, arcade, audio, radio, game, interaction, hud, campaign,
-    apartmentStory,
+    apartmentStory, apartmentReturnSource: returnSource,
     drunk, highs, smoke, stream, showerFx, cig, time, passOut, fart, startPee, stopPee,
     hitBong, eatShrooms,
     sitOnToilet, standFromToilet, takeZyn,
@@ -819,6 +809,12 @@ startBtn.addEventListener('click', async () => {
       } else if (returningFromMotel) {
         hud.toast('The jerky run is done', 'good');
         hud.say('Home. Every bit of that took all night. <em>Bed.</em>', 4800);
+      } else if (returningFromAirstrip) {
+        hud.toast('8:30 PM · The Beef Run is home', 'good');
+        hud.say(
+          'Home from the airfield. The plane and cargo made it back. <em>Lou said he would call.</em>',
+          5200,
+        );
       } else if (returningFromSquatchfather) {
         hud.toast('The business is settled', 'good');
         hud.say('Home again. The weapon did not come back with you.', 4800);

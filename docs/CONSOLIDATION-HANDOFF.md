@@ -1,6 +1,6 @@
 # SquatchSmash Consolidation Handoff
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
 Current published checkpoint: current `main` (verify with `git rev-parse origin/main`)
@@ -42,14 +42,16 @@ deferred pending the owner's playtest.
   apartment departure, story-gated start, persisted checkpoints/cargo/
   detection/completion, mid-mission resume, authored travel and completion
   time, the end-card return home, and a save-isolated preview.
-- The post-airstrip apartment state, Big Uncle Lou's second call, reused Bada
-  Bing Scene Two, direct Jerky Motel handoff, Motel completion, and apartment
-  return are implemented.
-- The post-Motel sleep opens the Day 3 `date` chapter, Margo's one-shot call
-  unlocks the Silver Room, the apartment door routes to `silver.html`, the
-  evening folds back into campaign state, and the walk home plus a second sleep
-  turns the page onto the Day 4 big night. Browser-verified end to end
-  (`verify:silver-story`, 20).
+- The post-airstrip apartment state and Big Uncle Lou's second call now lead to
+  the production Bada Bing Two: HotDog's closed party, the sudden attack, a
+  compact cleanup, and Snow/Tony taking the body to the Squatch Graveyard.
+  Burying HotDog unlocks the existing Jerky Motel, whose completion returns to
+  the apartment.
+- Sleeping after the Motel opens Day 3's `no_wake` chapter. Lou's one-shot call
+  unlocks the production South Harbor/boat mission; its completion returns home
+  and exposes Margo's call. The apartment then routes to `silver.html`, the
+  evening folds back into campaign state, and the next sleep turns the page
+  onto the Day 4 big night.
 - The final apartment return, the post-date sleep into the `big_night`
   chapter, Booskibro's one-shot big-night call, and the door route into the
   unchanged Initiation are implemented and browser-verified
@@ -65,9 +67,10 @@ deferred pending the owner's playtest.
 - Standalone scene boot failures show Reload and Apartment recovery.
 - Scene/spawn validation, atomic transitions, failed-navigation rollback, and
   browser-storage fallback are implemented.
-- Campaign save schema v3 explicitly migrates v1 and v2 saves, preserves malformed or
-  future-version data in a recovery journal, visibly warns the player, and
-  refuses unsafe scene transitions when persistence fails.
+- Campaign save schema v5 chains the v1-v3 migrations through NO WAKE v4 and
+  the HotDog/graveyard v5 route, preserves malformed or future-version data in
+  a recovery journal, visibly warns the player, and refuses unsafe scene
+  transitions when persistence fails.
 - Campaign time is event-driven. Real waiting no longer moves story time;
   first-time tasks, calls, travel, missions, and sleep own named idempotent
   clock events. Day One starts at 6:04 AM and the first Bing travel event lands
@@ -157,13 +160,13 @@ thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
 ## Campaign order — confirmed by the owner 2026-07-30
 
 Apartment → Bada Bing One → apartment → Squatchfather → apartment →
-Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment →
-**Silver Room date** → apartment → Initiation on Day 4. This matches what is
-built; the owner confirmed position 9 is the Jerky Motel. Every arrow in that
-chain is a real campaign transition, including the last one into the unchanged
-Initiation. The owner also confirmed the previously blocked character/performer
-decisions stand as originally specified (Squatchfather character style
-everywhere, detailed performers, Lou's face photo without the bandana).
+Beef Run → apartment → Bada Bing Two / HotDog incident → Squatch Graveyard →
+Jerky Motel → apartment/sleep → **NO WAKE** → apartment → **Silver Room date**
+→ apartment/sleep → Initiation on Day 4. Every arrow in that chain is a real
+campaign transition, including the last one into the unchanged Initiation. The
+owner also confirmed the previously blocked character/performer decisions stand
+as originally specified (Squatchfather character style everywhere, detailed
+performers, Lou's face photo without the bandana).
 
 ### The Silver Room is integrated
 
@@ -171,15 +174,18 @@ everywhere, detailed performers, Lou's face photo without the bandana).
 ruled on 2026-07-30: **Day 3 evening**, between the Motel and the Initiation.
 The Goodfellas calm-before-the-verdict beat.
 
-- Sleeping off the Motel opens a new `date` chapter at **Day 3, 12:00 PM**.
-- **Margo** rings the physical phone that afternoon (`MARGO_DATE_CALL`,
-  +5 authored minutes) and unlocks `MISSION_IDS.SILVER_ROOM`.
+- Sleeping off the Motel opens the `no_wake` chapter at **Day 3, 12:00 PM**.
+- Lou's call and the South Harbor mission run first. Completing NO WAKE at
+  **Day 3, 4:40 PM** changes the chapter to `date`; **Margo** then rings the
+  physical phone (`MARGO_DATE_CALL`, +5 authored minutes) and unlocks
+  `MISSION_IDS.SILVER_ROOM`.
 - The apartment door routes to `SCENE_IDS.SILVER_ROOM` (`silver.html`);
   `travel.silver_room` advances to at least **Day 3, 7:30 PM**.
-- `src/core/silver-story.js` gates the mission on the Motel being complete and
-  her call being answered, and folds the mission's own `persist()` payload into
-  campaign state. The old private `squatch.frontAndCenter` localStorage key is
-  gone; nothing writes it and a verifier asserts it stays empty.
+- `src/core/silver-story.js` gates the mission on the Motel and NO WAKE being
+  complete and her call being answered, and folds the mission's own `persist()`
+  payload into campaign state. The old private `squatch.frontAndCenter`
+  localStorage key is gone; nothing writes it and a verifier asserts it stays
+  empty.
 - Completion advances to at least **Day 3, 11:20 PM**; the end card's button is
   `Go Home` and navigates through `navigateCampaign`.
 - Sleeping off the *date* is what finally turns the calendar: **`big_night`
@@ -286,9 +292,13 @@ Current authored beats:
 | Beef Run completion | Advance to at least Day 2, 8:30 PM |
 | Big Uncle Lou's second answered call | +5 minutes |
 | Leave for Bada Bing Scene Two | Advance to at least Day 2, 11:00 PM |
-| Bada Bing Scene Two completion | Advance to at least Day 3, 12:45 AM |
+| Arrive at the Squatch Graveyard | Advance to at least Day 3, 12:15 AM |
+| Bury HotDog / complete Bada Bing Two | Advance to at least Day 3, 12:45 AM |
 | Drive to the Jerky Motel | Advance to at least Day 3, 1:30 AM |
 | Jerky Motel completion | Advance to at least Day 3, 4:30 AM |
+| Big Uncle Lou's NO WAKE call | +4 minutes |
+| Leave for South Harbor | Advance to at least Day 3, 12:45 PM |
+| NO WAKE completion | Advance to at least Day 3, 4:40 PM |
 | Margo's answered date call | +5 minutes |
 | Leave for the Silver Room | Advance to at least Day 3, 7:30 PM |
 | Silver Room completion | Advance to at least Day 3, 11:20 PM |
@@ -310,7 +320,7 @@ chapter is still deliberately separate from calendar day. `SLEEP_CHAPTERS` in
 | Chapter | Requires | Wakes at | Next chapter |
 |---|---|---|---|
 | `day_one` | Squatchfather complete | Day 2, 7:00 AM | `day_two` |
-| `day_two` | Jerky Motel complete | Day 3, 12:00 PM | `date` |
+| `day_two` | Jerky Motel complete | Day 3, 12:00 PM | `no_wake` |
 | `date` | Silver Room complete | Day 4, 10:00 AM | `big_night` |
 
 `big_night` is the last chapter, so sleeping again returns
@@ -409,12 +419,13 @@ through ordinary campaign state without a single change to the scene:
 
 ### Safe preview
 
-Open <http://localhost:5173/preview.html> for the Beef Run, Motel, Bing Scene
-Two, Squatchfather, **the Silver Room** (SCENE PREVIEW 07), or the unchanged
+Open <http://localhost:5173/preview.html> for ten apartment wake/return states
+and nine mission scenes: Bada Bing One, Squatchfather, Beef Run, the HotDog
+incident, Squatch Graveyard, Motel, NO WAKE, Silver Room, and the unchanged
 Initiation reference. Preview campaign state is in-memory and page-local. It
 never reads, migrates, overwrites, or advances the canonical browser save.
-`npm run verify:silver` now boots through `silver.html?preview=1` for exactly
-that reason: the story gate has to open without a real save existing.
+`npm run verify:preview` checks every card and its seeded state; focused scene
+verifiers still enter through their corresponding `?preview=1` URL.
 
 The final Bada Bing and Motel captures are committed under
 [`docs/validation/2026-07-29/`](./validation/2026-07-29/README.md), including
@@ -478,6 +489,18 @@ npm run verify:silver         112/112 passed
 npm run verify:art             50 art pieces checked, all good
 npm run verify:bundle           3 strict-CSP policies passed; 295 voice clips embedded
 npm run audio:todo             superseded — see current 0 voice / 0 effects queue below
+```
+
+Fresh checks for the August 1 HotDog/graveyard/schema-v5 feature branch:
+
+```text
+npm test                       127/127 passed
+npm run check                  208 source files, 4 manifests, all good
+node tools/verify-bing-two.mjs  15/15 passed
+node tools/verify-preview.mjs   34/34 passed
+node tools/verify-direct-entry.mjs 21/21 passed
+node tools/verify-boot-errors.mjs  14/14 passed
+npm run audio:todo             0 voice, 0 effects
 ```
 
 The audio count above is preserved as a historical milestone only. The

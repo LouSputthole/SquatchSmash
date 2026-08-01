@@ -1,4 +1,4 @@
-# Campaign timeline — the owner's structure (2026-07-31)
+# Campaign timeline — the owner's structure (2026-08-01)
 
 The owner's authoritative four-day shape. Where this document and the code
 disagree, this document is the intent and the code is the current state; every
@@ -55,11 +55,21 @@ and emails, and a different outfit to choose.
 restaurants and clubs, and proof that family business is ridiculous,
 dangerous, and surprisingly organised.
 
-**Bada Bing two.** A victory lap that becomes another assignment. People
-recognise him; the bartender has new lines; performers and dealers comment on
-the campaign; Lou may cover his drinks; side conversations hint that somebody
-is leaking information; **Willy appears and is slightly nervous** without
-giving the twist away. This is the informant plot's planting scene.
+**Bada Bing two — the HotDog incident.** The club is closed for Billy
+HotDog's welcome-home party. HogMama's stand-up and a dense Family crowd give
+the Prospect one last relaxed beat before HotDog's bullying pushes Ape into a
+sudden attack. The Prospect kicks away HotDog's gun, then works Lou's compact
+cleanup list: bathrooms, cleaning kit, missing evidence, final sweep, wrapping,
+and loading. The murder is short; the consequences and everybody's practical
+cleanup roles are the scene.
+
+**Squatch Graveyard.** Snow and the Prospect take HotDog's body down a wooded
+dirt road before the Motel. Car headlights turn the burial ground into a small
+museum of the Family's dead: Babs, Brawny, Whiplash, Sheep, Echo, Colton,
+GeeWiz, and Sauce's ominously reserved open plot. Inspecting the memorials,
+hearing the still-buried Echo, and disrespecting the two traitor graves are
+optional. Burying HotDog in a fresh plot is the one required task and is what
+unlocks the Motel.
 
 **The Jerky Motel.** The grimier underbelly — the point where the campaign
 stops feeling glamorous. Day 2 ends with the Prospect exhausted, rattled, and
@@ -68,18 +78,19 @@ more valuable to the family.
 ## Day 3 — Loyalty Gets Ugly
 
 **Apartment, morning.** The atmosphere turns: rain or grey light, radio news
-about the motel, a **missed** call from Margo, Lou telling him to dress
-casually and meet at the docks, the call unusually vague, and **Willy gone
-from his contacts and messages**. The player should know something is wrong
-before knowing what.
+about the Motel, Lou telling him to dress casually and meet at South Harbor,
+the call unusually vague, and **Willy gone from his contacts and messages**.
+Margo has not called yet. The player should know something is wrong before
+knowing what.
 
-**The informant hit — NOT BUILT, DO NOT BUILD.** The boat: dock, board with
-Lou Sputthole, Booski, Willy and the Prospect, open water, conversation
-souring, Willy's betrayal revealed, Willy goes to the bathroom, the others
-prepare, he returns, they shoot him, body disposal, a silent ride back. The
-emotional low point — the restaurant's dead were enemies; Willy was one of
-them. **Willy's large belly must be permanent in his model before his earlier
-appearances are finalised**, so he does not inflate between scenes.
+**NO WAKE — BUILT.** The Day Three harbor and boat mission now carries the
+informant-hit spine into production: the Prospect meets Lou and Booski at the
+dock, frees and boards the cruiser, takes the wheel into open water, and learns
+why Willy was invited. The existing player, HUD, interaction, campaign, radio,
+boat-physics, audio, and post-processing systems own the scene. Willy's betrayal
+and death form the emotional low point — the restaurant's dead were enemies;
+Willy was one of them. Returning home after the job exposes Margo's afternoon
+call and the Silver Room date.
 
 **Front and Center.** The Copacabana date with Margo, deliberately placed
 after the hit for the tonal whiplash: that afternoon he killed a friend; that
@@ -125,22 +136,21 @@ killing directly before Front and Center.
 
 **The apartment must visibly evolve after every chapter.**
 
-## Divergences between this document and the build (2026-07-31)
+## Build notes and remaining divergences (2026-08-01)
 
-1. **Day 3 routing.** The doc sends the player to the docks for the hit, then
-   to Front and Center. The boat does not exist, so the build routes Day 3 as
-   Margo's call → the Silver Room. The Day-3 morning carries the doc's
-   atmosphere; the destination stays the one that exists.
+1. **Day 3 routing now matches the intended spine.** Sleeping after the Motel
+   opens NO WAKE at noon; completing the harbor job returns Tony home, exposes
+   Margo's afternoon call, and then routes him to the Silver Room.
 2. **Day 4 routing.** The doc runs the heist before the Initiation. The heist
    does not exist, so the build routes Day 4 as Booskibro's call → the
    Initiation.
-3. **Bing scene two recognition beats** (bartender's new lines, dealer and
-   performer campaign comments, Lou covering drinks, informant hints, a nervous
-   Willy) are only partly implemented — the Family floor and its talk exist,
-   the campaign-specific second-visit variants largely do not.
-4. **The Day-3 apartment's missed Margo call** conflicts with the build, where
-   Margo's answered call is what unlocks the evening. Tone implemented, unlock
-   preserved.
+3. **Bing scene two was deliberately replaced.** The older recognition lap and
+   direct office assignment are no longer the target. The HotDog party,
+   incident cleanup, and separate graveyard stop now form one continuous
+   mission before the existing Motel.
+4. **The early outline's missed Margo call was not retained.** Margo's one
+   answered call arrives after NO WAKE and remains the explicit unlock for the
+   evening.
 5. The Front and Center closing **cutscene of the apartment with Margo** is not
    built; Day 4 opens with her in the bed instead.
 6. **The current Initiation is not a campaign-complete state.** The apartment

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Squatch Graveyard · Squatch Life</title>
+  <link rel="stylesheet" href="src/style.css" />
+  <link rel="stylesheet" href="src/graveyard/graveyard.css" />
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body class="graveyard">
+  <canvas id="scene"></canvas>
+  <div id="fx-grade" aria-hidden="true"></div>
+  <div id="letterbox" aria-hidden="true"><i></i><i></i></div>
+
+  <div id="hud" aria-hidden="true">
+    <div id="crosshair"><span></span></div>
+    <div id="prompt" class="hidden"><kbd class="key">E</kbd><span class="label">Interact</span><div class="holdbar"><i></i></div></div>
+    <div id="subtitle" class="hidden"></div>
+    <div id="hands"><div id="hotbar" class="hidden"></div><div id="hand-item" class="hidden"><div class="icon"></div><div class="meta"><span class="name"></span><span class="hint"></span></div></div></div>
+    <div id="radio-osd" class="hidden"><div class="rtitle"><span></span></div><div class="rtrack"></div></div>
+    <div id="clock"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
+    <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
+    <div id="toast-stack"></div>
+    <div id="posture" class="hidden"><kbd>Q</kbd><span>stop</span></div>
+
+    <section id="mission-card">
+      <small>THE HOTDOG INCIDENT · DISPOSAL</small>
+      <strong id="objective">Bury Billy HotDog</strong>
+      <span id="objective-detail">Family graveyard · the Motel comes after</span>
+      <ol id="grave-objectives"></ol>
+    </section>
+    <div id="speaker" class="hidden"><small></small><span></span></div>
+    <div id="pee-hint" class="hidden"><kbd>P</kbd><span>hold to disrespect traitor</span></div>
+  </div>
+
+  <div id="overlay">
+    <div class="panel">
+      <p class="eyebrow">SQUATCH LIFE · AFTER MIDNIGHT</p>
+      <h1>FAMILY <span>PLOT</span></h1>
+      <p class="tag">Snow left the car idling at the end of a dirt road. The headlights found every person the Family stopped talking about.</p>
+      <button id="start-btn">Unload HotDog</button>
+      <ul class="controls">
+        <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump · mouse look</li>
+        <li><kbd>E</kbd> inspect / interact · hold for body work · <kbd>P</kbd> hold to urinate when offered</li>
+        <li><kbd>Q</kbd> stop · <kbd>B</kbd> bloom · <kbd>Esc</kbd> release mouse</li>
+        <li>The memorials are optional. Burying HotDog is not.</li>
+      </ul>
+      <p class="fine">This disposal scene completes the Bada Bing incident. The Jerky Motel unlocks only after the grave is filled.</p>
+    </div>
+  </div>
+
+  <div id="ending" class="hidden">
+    <div class="panel">
+      <p class="eyebrow">MISSION COMPLETE</p>
+      <h1>THE HOTDOG <span>INCIDENT</span></h1>
+      <p class="tag">The headlights sweep off the stones. Echo goes quiet again. Snow still will not explain the Motel.</p>
+      <button id="motel-btn">Continue to the Motel</button>
+    </div>
+  </div>
+
+  <div id="loading"><div class="bar"><i></i></div><span>Following the headlights…</span></div>
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong><span data-boot-detail></span>
+    <div class="actions"><button type="button" data-boot-reload>RELOAD</button><a href="./index.html">APARTMENT</a></div>
+  </div>
+  <script src="./src/core/boot-guard.js" data-target="bootFailure" data-ready="GRAVEYARD" data-scene="SQUATCH GRAVEYARD"></script>
+  <script>window.__squatchStage=function(t){var s=document.querySelector('#loading span');if(s)s.textContent=t;};</script>
+  <script type="module" src="src/graveyard/main.js" onerror="window.__squatchSceneFail('Could not load the graveyard','src/graveyard/main.js failed to load.')"></script>
+</body>
+</html>

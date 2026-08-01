@@ -32,6 +32,8 @@ export const CHARACTER_IDS = Object.freeze({
   SEFF: 'seff',
   SHUBENATOR: 'shubenator',
   NUMBSKULL: 'numbskull',
+  AUBBIE: 'aubbie',
+  BILLY_HOTDOG: 'billy_hotdog',
 });
 
 export const SCENE_IDS = Object.freeze({
@@ -40,6 +42,7 @@ export const SCENE_IDS = Object.freeze({
   SQUATCHFATHER: 'squatchfather',
   AIRSTRIP_SMUGGLING: 'airstrip_smuggling',
   BADA_BING_TWO: 'bada_bing_two',
+  SQUATCH_GRAVEYARD: 'squatch_graveyard',
   JERKY_MOTEL: 'jerky_motel',
   NO_WAKE: 'no_wake',
   SILVER_ROOM: 'silver_room',
@@ -122,6 +125,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   DEPART_AIRSTRIP: 'travel.airstrip',
   COMPLETE_AIRSTRIP: 'mission.airstrip',
   DEPART_BADA_BING_TWO: 'travel.bada_bing_two',
+  ARRIVE_SQUATCH_GRAVEYARD: 'travel.squatch_graveyard',
   COMPLETE_BADA_BING_TWO: 'mission.bada_bing_two',
   DEPART_JERKY_MOTEL: 'travel.jerky_motel',
   COMPLETE_JERKY_MOTEL: 'mission.jerky_motel',
@@ -181,6 +185,10 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.DEPART_BADA_BING_TWO]: Object.freeze({
     atLeast: Object.freeze({ day: 2, timeMinutes: 23 * 60 }),
   }),
+  // Lockdown, cleanup, loading the body, and the drive into the woods.
+  [TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD]: Object.freeze({
+    atLeast: Object.freeze({ day: 3, timeMinutes: 15 }),
+  }),
   // Lou's assignment lands after the club crosses midnight.
   [TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 45 }),
@@ -201,9 +209,9 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_NO_WAKE]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 16 * 60 + 40 }),
   }),
-  /* Day 3 is the calm before the verdict. He wakes at noon off the back of the
-   * Motel, Margo rings in the afternoon, and he leaves at half seven for a
-   * nine o'clock table -- the Silver Room's own evening. */
+  /* Day 3 turns through NO WAKE first. He wakes at noon off the back of the
+   * Motel, completes the harbor job, takes Margo's afternoon call, and leaves
+   * at half seven for a nine o'clock table -- the Silver Room's own evening. */
   [TIME_EVENT_IDS.DEPART_SILVER_ROOM]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 19 * 60 + 30 }),
   }),
@@ -219,7 +227,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 4;
+export const CAMPAIGN_VERSION = 5;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -233,6 +241,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.SQUATCHFATHER,
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.SQUATCH_GRAVEYARD,
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
@@ -261,6 +270,12 @@ const SCENES = Object.freeze({
     href: 'bing.html?visit=2',
     defaultSpawn: 'driver_seat',
     spawns: Object.freeze(['driver_seat', 'club_entrance']),
+    next: Object.freeze([SCENE_IDS.SQUATCH_GRAVEYARD]),
+  }),
+  [SCENE_IDS.SQUATCH_GRAVEYARD]: Object.freeze({
+    href: 'graveyard.html',
+    defaultSpawn: 'headlights',
+    spawns: Object.freeze(['headlights']),
     next: Object.freeze([SCENE_IDS.JERKY_MOTEL]),
   }),
   [SCENE_IDS.JERKY_MOTEL]: Object.freeze({
@@ -358,7 +373,15 @@ function initialState() {
       },
       [MISSION_IDS.BADA_BING_TWO]: {
         status: 'locked',
+        checkpoint: null,
         assignment: null,
+        gunKicked: false,
+        cleanupTasks: [],
+        bodyWrapped: false,
+        bodyLoaded: false,
+        burialComplete: false,
+        echoHeard: false,
+        urinatedOn: [],
       },
       [MISSION_IDS.JERKY_MOTEL]: {
         status: 'locked',
@@ -428,6 +451,24 @@ function uniqueStrings(value) {
     : [];
 }
 
+function storyAfterTimeEvent(story, eventId) {
+  const event = TIME_EVENTS[eventId];
+  const day = Number.isSafeInteger(story?.day) && story.day > 0 ? story.day : 1;
+  const timeMinutes = Number.isFinite(story?.timeMinutes) ? story.timeMinutes : 0;
+  const before = (day - 1) * MINUTES_PER_DAY + timeMinutes;
+  const target = event.atLeast
+    ? (event.atLeast.day - 1) * MINUTES_PER_DAY + event.atLeast.timeMinutes
+    : before + event.minutes;
+  const absolute = Math.max(before, target);
+  const timeEvents = uniqueStrings(story?.timeEvents);
+  return {
+    ...story,
+    day: Math.floor(absolute / MINUTES_PER_DAY) + 1,
+    timeMinutes: absolute % MINUTES_PER_DAY,
+    timeEvents: timeEvents.includes(eventId) ? timeEvents : [...timeEvents, eventId],
+  };
+}
+
 const MIGRATIONS = Object.freeze({
   1(saved) {
     return {
@@ -472,6 +513,46 @@ const MIGRATIONS = Object.freeze({
         [EVENT_IDS.LOU_NO_WAKE_CALL]: {
           status: alreadyPastNoWake ? 'answered' : 'pending',
         },
+      },
+    };
+  },
+  4(saved) {
+    const old = saved.missions?.[MISSION_IDS.BADA_BING_TWO] ?? {};
+    const motel = saved.missions?.[MISSION_IDS.JERKY_MOTEL] ?? {};
+    const motelStatus = motel.status;
+    const alreadyPastIncident = old.status === 'complete'
+      || ['available', 'in_progress', 'complete'].includes(motelStatus);
+    const resumesAtParty = old.status === 'in_progress' && !alreadyPastIncident;
+    return {
+      ...saved,
+      version: 5,
+      story: alreadyPastIncident
+        ? storyAfterTimeEvent(saved.story, TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO)
+        : saved.story,
+      missions: {
+        ...saved.missions,
+        [MISSION_IDS.BADA_BING_TWO]: {
+          ...old,
+          status: alreadyPastIncident ? 'complete' : old.status,
+          checkpoint: alreadyPastIncident ? 'buried' : (resumesAtParty ? 'party' : null),
+          assignment: alreadyPastIncident
+            ? (typeof old.assignment === 'string' && old.assignment.trim()
+              ? old.assignment : 'reserve_pickup')
+            : old.assignment,
+          gunKicked: alreadyPastIncident,
+          cleanupTasks: alreadyPastIncident
+            ? ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep']
+            : [],
+          bodyWrapped: alreadyPastIncident,
+          bodyLoaded: alreadyPastIncident,
+          burialComplete: alreadyPastIncident,
+          echoHeard: false,
+          urinatedOn: [],
+        },
+        [MISSION_IDS.JERKY_MOTEL]: alreadyPastIncident
+          && !['available', 'in_progress', 'complete'].includes(motelStatus)
+          ? { ...motel, status: 'available' }
+          : motel,
       },
     };
   },
@@ -613,7 +694,19 @@ function normalize(saved) {
       },
       [MISSION_IDS.BADA_BING_TWO]: {
         status: bingTwoStatus,
+        checkpoint: ['party', 'attack', 'cleanup', 'body_loaded', 'graveyard', 'buried']
+          .includes(bingTwo.checkpoint) ? bingTwo.checkpoint : null,
         assignment: typeof bingTwo.assignment === 'string' ? bingTwo.assignment : null,
+        gunKicked: bingTwo.gunKicked === true,
+        cleanupTasks: uniqueStrings(bingTwo.cleanupTasks)
+          .filter((task) => ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep']
+            .includes(task)),
+        bodyWrapped: bingTwo.bodyWrapped === true,
+        bodyLoaded: bingTwo.bodyLoaded === true,
+        burialComplete: bingTwo.burialComplete === true,
+        echoHeard: bingTwo.echoHeard === true,
+        urinatedOn: uniqueStrings(bingTwo.urinatedOn)
+          .filter((grave) => ['brawny', 'whiplash'].includes(grave)),
       },
       [MISSION_IDS.JERKY_MOTEL]: {
         status: motelStatus,
@@ -987,7 +1080,185 @@ function boundedNumber(value, min, max, fallback, integer = false) {
   return integer ? Math.round(bounded) : bounded;
 }
 
-function seedPreviewCampaign(campaign, sceneId) {
+const APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
+  'day-one-wake': Object.freeze({
+    progress: 0, spawn: 'wake', chapter: 'day_one', day: 1, timeMinutes: 6 * 60 + 4,
+  }),
+  'after-bing-one': Object.freeze({
+    progress: 1, spawn: 'front_door', chapter: 'day_one', day: 1,
+    timeMinutes: 23 * 60 + 41,
+  }),
+  'after-squatchfather': Object.freeze({
+    progress: 2, spawn: 'front_door', chapter: 'day_one', day: 2,
+    timeMinutes: 3 * 60,
+  }),
+  'day-two-wake': Object.freeze({
+    progress: 2, spawn: 'wake', chapter: 'day_two', day: 2, timeMinutes: 7 * 60,
+  }),
+  'after-beef-run': Object.freeze({
+    progress: 3, spawn: 'front_door', chapter: 'day_two', day: 2,
+    timeMinutes: 20 * 60 + 30,
+  }),
+  'after-motel': Object.freeze({
+    progress: 4, spawn: 'front_door', chapter: 'day_two', day: 3,
+    timeMinutes: 4 * 60 + 30,
+  }),
+  'day-three-wake': Object.freeze({
+    progress: 4, spawn: 'wake', chapter: 'no_wake', day: 3, timeMinutes: 12 * 60,
+  }),
+  'after-no-wake': Object.freeze({
+    progress: 5, spawn: 'front_door', chapter: 'date', day: 3,
+    timeMinutes: 16 * 60 + 40,
+  }),
+  'after-silver-room': Object.freeze({
+    progress: 6, spawn: 'front_door', chapter: 'date', day: 3,
+    timeMinutes: 23 * 60 + 20,
+  }),
+  'day-four-wake': Object.freeze({
+    progress: 6, spawn: 'wake', chapter: 'big_night', day: 4, timeMinutes: 10 * 60,
+  }),
+});
+
+const PREVIEW_CLEANUP_TASKS = Object.freeze([
+  'bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep',
+]);
+
+function previewCarry(state, itemId, { concealed = false } = {}) {
+  state.inventory.carried = state.inventory.carried.filter((id) => id !== itemId);
+  state.inventory.concealed = state.inventory.concealed.filter((id) => id !== itemId);
+  state.inventory[concealed ? 'concealed' : 'carried'].push(itemId);
+}
+
+function seedApartmentPreviewCampaign(state, variant) {
+  const checkpoint = APARTMENT_PREVIEW_CHECKPOINTS[variant];
+  if (!checkpoint) return null;
+
+  const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
+  const squatchfather = state.missions[MISSION_IDS.SQUATCHFATHER];
+  const airstrip = state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+  const secondBing = state.missions[MISSION_IDS.BADA_BING_TWO];
+  const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
+  const noWake = state.missions[MISSION_IDS.NO_WAKE];
+  const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+  const completedTimeEvents = [];
+  const markTime = (...eventIds) => completedTimeEvents.push(...eventIds);
+
+  if (checkpoint.progress >= 1) {
+    firstBing.status = 'complete';
+    firstBing.packageReceived = true;
+    firstBing.ending = 'clean';
+    squatchfather.status = 'available';
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+    previewCarry(state, ITEM_IDS.PHONE);
+    previewCarry(state, ITEM_IDS.LOU_PACKAGE, { concealed: true });
+    Object.assign(state.activities, {
+      eaten: true,
+      showered: true,
+      pooped: true,
+      changedClothes: true,
+      emailChecked: true,
+    });
+    markTime(TIME_EVENT_IDS.LOU_FIRST_CALL, TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
+  }
+
+  if (checkpoint.progress >= 2) {
+    squatchfather.status = 'complete';
+    squatchfather.weaponStaged = true;
+    squatchfather.weaponDropped = true;
+    state.activities.whiskeyRelaxed = true;
+    state.inventory.carried = state.inventory.carried
+      .filter((id) => id !== ITEM_IDS.LOU_PACKAGE);
+    state.inventory.concealed = state.inventory.concealed
+      .filter((id) => id !== ITEM_IDS.LOU_PACKAGE);
+    markTime(TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER);
+  }
+
+  if (checkpoint.progress >= 3) {
+    state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+    airstrip.status = 'complete';
+    airstrip.checkpoint = 'landed_home';
+    airstrip.cargoLoaded = true;
+    airstrip.detected = false;
+    airstrip.landingQuality = 'smooth';
+    markTime(
+      TIME_EVENT_IDS.BOOSKI_DAY_TWO_CALL,
+      TIME_EVENT_IDS.DEPART_AIRSTRIP,
+      TIME_EVENT_IDS.COMPLETE_AIRSTRIP,
+    );
+  }
+
+  if (checkpoint.progress >= 4) {
+    state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+    secondBing.status = 'complete';
+    secondBing.checkpoint = 'buried';
+    secondBing.assignment = 'reserve_pickup';
+    secondBing.gunKicked = true;
+    secondBing.cleanupTasks = [...PREVIEW_CLEANUP_TASKS];
+    secondBing.bodyWrapped = true;
+    secondBing.bodyLoaded = true;
+    secondBing.burialComplete = true;
+    motel.status = 'complete';
+    motel.ending = 'home';
+    motel.cargoRecovered = true;
+    motel.packagesIntact = 3;
+    motel.freshness = 78;
+    motel.policeHeat = 18;
+    markTime(
+      TIME_EVENT_IDS.LOU_SECOND_CALL,
+      TIME_EVENT_IDS.DEPART_BADA_BING_TWO,
+      TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD,
+      TIME_EVENT_IDS.COMPLETE_BADA_BING_TWO,
+      TIME_EVENT_IDS.DEPART_JERKY_MOTEL,
+      TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL,
+    );
+  }
+
+  if (checkpoint.progress >= 5) {
+    state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+    noWake.status = 'complete';
+    noWake.checkpoint = 'returned';
+    noWake.betrayalConfirmed = true;
+    noWake.playerFired = true;
+    noWake.bodyDisposed = true;
+    markTime(
+      TIME_EVENT_IDS.LOU_NO_WAKE_CALL,
+      TIME_EVENT_IDS.DEPART_NO_WAKE,
+      TIME_EVENT_IDS.COMPLETE_NO_WAKE,
+    );
+  }
+
+  if (checkpoint.progress >= 6) {
+    state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+    silver.status = 'complete';
+    silver.outcome = 'strong';
+    silver.woo = 74;
+    silver.band = 'midnight_pines';
+    silver.tippedEverybody = true;
+    silver.rememberedDrink = true;
+    silver.seeingHerAgain = true;
+    silver.knowsWhatHeDoes = true;
+    markTime(
+      TIME_EVENT_IDS.MARGO_DATE_CALL,
+      TIME_EVENT_IDS.DEPART_SILVER_ROOM,
+      TIME_EVENT_IDS.COMPLETE_SILVER_ROOM,
+    );
+  }
+
+  if (checkpoint.spawn === 'wake') {
+    state.activities.eaten = false;
+    state.activities.showered = false;
+    state.activities.pooped = false;
+    state.activities.changedClothes = false;
+  }
+  state.story.chapter = checkpoint.chapter;
+  state.story.day = checkpoint.day;
+  state.story.timeMinutes = checkpoint.timeMinutes;
+  state.story.timeEvents = completedTimeEvents;
+  return checkpoint.spawn;
+}
+
+function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
+  let apartmentSpawn = null;
   campaign.update((state) => {
     const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
     const squatchfather = state.missions[MISSION_IDS.SQUATCHFATHER];
@@ -997,6 +1268,11 @@ function seedPreviewCampaign(campaign, sceneId) {
     const noWake = state.missions[MISSION_IDS.NO_WAKE];
     const silver = state.missions[MISSION_IDS.SILVER_ROOM];
     const initiation = state.missions[MISSION_IDS.INITIATION];
+
+    if (sceneId === SCENE_IDS.APARTMENT) {
+      apartmentSpawn = seedApartmentPreviewCampaign(state, apartmentVariant);
+      return;
+    }
 
     if (sceneId === SCENE_IDS.BADA_BING_ONE) {
       firstBing.status = 'available';
@@ -1008,6 +1284,7 @@ function seedPreviewCampaign(campaign, sceneId) {
       SCENE_IDS.SQUATCHFATHER,
       SCENE_IDS.AIRSTRIP_SMUGGLING,
       SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.SQUATCH_GRAVEYARD,
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
@@ -1037,6 +1314,7 @@ function seedPreviewCampaign(campaign, sceneId) {
 
     if ([
       SCENE_IDS.BADA_BING_TWO,
+      SCENE_IDS.SQUATCH_GRAVEYARD,
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
@@ -1057,6 +1335,22 @@ function seedPreviewCampaign(campaign, sceneId) {
       return;
     }
 
+    if (sceneId === SCENE_IDS.SQUATCH_GRAVEYARD) {
+      secondBing.status = 'in_progress';
+      secondBing.checkpoint = 'body_loaded';
+      secondBing.assignment = 'reserve_pickup';
+      secondBing.gunKicked = true;
+      secondBing.cleanupTasks = ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep'];
+      secondBing.bodyWrapped = true;
+      secondBing.bodyLoaded = true;
+      motel.status = 'locked';
+      state.story = storyAfterTimeEvent(
+        state.story,
+        TIME_EVENT_IDS.ARRIVE_SQUATCH_GRAVEYARD,
+      );
+      return;
+    }
+
     if ([
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
@@ -1064,7 +1358,13 @@ function seedPreviewCampaign(campaign, sceneId) {
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       secondBing.status = 'complete';
+      secondBing.checkpoint = 'buried';
       secondBing.assignment = 'reserve_pickup';
+      secondBing.gunKicked = true;
+      secondBing.cleanupTasks = ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep'];
+      secondBing.bodyWrapped = true;
+      secondBing.bodyLoaded = true;
+      secondBing.burialComplete = true;
       motel.status = 'available';
     }
 
@@ -1118,7 +1418,7 @@ function seedPreviewCampaign(campaign, sceneId) {
     }
   });
 
-  const spawn = SCENES[sceneId]?.defaultSpawn;
+  const spawn = apartmentSpawn ?? SCENES[sceneId]?.defaultSpawn;
   campaign.enter(sceneId, { spawn });
 }
 
@@ -1129,7 +1429,7 @@ export function createCampaign(options = {}) {
   const campaign = new Campaign(storage);
 
   if (preview && !preview.seeded) {
-    seedPreviewCampaign(campaign, preview.sceneId);
+    seedPreviewCampaign(campaign, preview.sceneId, preview.apartmentVariant);
     preview.seeded = true;
   }
   if (preview) installPreviewNotice();

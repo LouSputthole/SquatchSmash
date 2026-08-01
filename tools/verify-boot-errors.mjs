@@ -14,8 +14,21 @@ const PORT = Number(process.env.PORT) || 5209;
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
 };
 const CASES = [
+  {
+    page: 'bing.html',
+    module: 'src/bing/router.js',
+    scene: 'Bada Bing router',
+    surface: 'bing',
+  },
+  {
+    page: 'bing.html?visit=2',
+    module: 'src/bing/hotdog-main.js',
+    scene: 'HotDog Incident routed module',
+    surface: 'bing',
+  },
   {
     page: 'nowake.html',
     module: 'src/nowake/main.js',
@@ -25,6 +38,12 @@ const CASES = [
     page: 'motel.html',
     module: 'src/motel/main.js',
     scene: 'Jerky Motel',
+  },
+  {
+    page: 'graveyard.html',
+    module: 'src/graveyard/main.js',
+    scene: 'Squatch Graveyard',
+    title: 'Could not load the graveyard',
   },
   {
     page: 'squatchfather.html',
@@ -81,19 +100,38 @@ try {
     const page = await browser.newPage({ viewport: { width: 640, height: 360 } });
     await page.route(`**/${spec.module}`, (route) => route.abort('failed'));
     await page.goto(`http://localhost:${PORT}/${spec.page}`, { waitUntil: 'load' });
-    await page.waitForSelector('#bootFailure:not([hidden])', { timeout: 10000 });
+    const selector = spec.surface === 'bing'
+      ? '#loading.failed'
+      : '#bootFailure:not([hidden])';
+    await page.waitForSelector(selector, { timeout: 10000 });
 
-    const failure = await page.evaluate(() => {
-      const el = document.querySelector('#bootFailure');
+    const failure = await page.evaluate((surface) => {
+      const el = document.querySelector(surface === 'bing' ? '#loading' : '#bootFailure');
+      if (surface === 'bing') {
+        return {
+          title: el.querySelector('strong')?.textContent,
+          detail: el.querySelector('span')?.textContent,
+          visible: el.classList.contains('failed'),
+        };
+      }
       return {
         title: el.querySelector('[data-boot-title]')?.textContent,
         detail: el.querySelector('[data-boot-detail]')?.textContent,
         apartment: el.querySelector('a')?.getAttribute('href'),
         reload: Boolean(el.querySelector('[data-boot-reload]')),
       };
-    });
+    }, spec.surface);
+    if (spec.surface === 'bing') {
+      check(`${spec.scene} reports its blocked router path`,
+        failure.visible
+          && failure.title === 'Could not load the game code'
+          && failure.detail.includes(path.basename(spec.module)),
+        JSON.stringify(failure));
+      await page.close();
+      continue;
+    }
     check(`${spec.scene} reports a blocked entry module`,
-      failure.title === 'Could not load the scene'
+      failure.title === (spec.title ?? 'Could not load the scene')
         && failure.detail.includes(spec.module),
       JSON.stringify(failure));
     check(`${spec.scene} offers reload and apartment recovery`,

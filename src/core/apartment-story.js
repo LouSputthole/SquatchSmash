@@ -109,6 +109,7 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.SQUATCHFATHER]: 'the Squatchfather',
   [SCENE_IDS.AIRSTRIP_SMUGGLING]: 'the airstrip',
   [SCENE_IDS.BADA_BING_TWO]: 'the Bada Bing',
+  [SCENE_IDS.SQUATCH_GRAVEYARD]: 'the Squatch graveyard',
   [SCENE_IDS.JERKY_MOTEL]: 'the Jerky Motel',
   [SCENE_IDS.NO_WAKE]: 'South Harbor',
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
@@ -236,13 +237,13 @@ export const DAY_TWO_LOU_SECOND_CALL = Object.freeze({
   vo: 'call.lou.bing_second',
   lines: Object.freeze([
     'Kid. Back to the Bing.',
-    'I have another assignment. This one starts in person.',
-    'Bring nothing and come straight to the back office.',
+    'Billy HotDog is home. Closed party. Family only.',
+    'Bring nothing. Come through the front and keep your phone in your pocket.',
     'You will leave from here. You are not going home first.',
   ]),
   replies: Object.freeze([
     'I was just there.',
-    'In person. Understood.',
+    'Closed party. Understood.',
     'Nothing. Got it.',
     'Then I will not pack.',
   ]),
@@ -340,6 +341,35 @@ const SLEEP_CHAPTERS = Object.freeze([
   }),
 ]);
 const LAST_CHAPTER = SLEEP_CHAPTERS[SLEEP_CHAPTERS.length - 1].to;
+
+const APARTMENT_RETURN_PRIORITY = Object.freeze([
+  SCENE_IDS.SILVER_ROOM,
+  SCENE_IDS.NO_WAKE,
+  SCENE_IDS.JERKY_MOTEL,
+  SCENE_IDS.AIRSTRIP_SMUGGLING,
+  SCENE_IDS.SQUATCHFATHER,
+]);
+
+/**
+ * Name the story beat that brought the player through the apartment's front
+ * door. Mission completion accumulates, so this must prefer the newest beat;
+ * otherwise a Beef Run return looks like the older restaurant return simply
+ * because Squatchfather is also complete.
+ */
+export function apartmentReturnSource(state) {
+  if (state?.scene?.id !== SCENE_IDS.APARTMENT
+    || state.scene.spawn !== 'front_door') return null;
+
+  const inventory = [
+    ...(Array.isArray(state.inventory?.carried) ? state.inventory.carried : []),
+    ...(Array.isArray(state.inventory?.concealed) ? state.inventory.concealed : []),
+  ];
+  if (inventory.includes(ITEM_IDS.LOU_PACKAGE)) return SCENE_IDS.BADA_BING_ONE;
+
+  return APARTMENT_RETURN_PRIORITY.find((sceneId) => (
+    state.missions?.[sceneId]?.status === 'complete'
+  )) ?? null;
+}
 
 /**
  * The last call Tony gets as a prospect.
@@ -829,6 +859,13 @@ class ApartmentStory {
         };
       }
       if (state.missions[MISSION_IDS.BADA_BING_TWO].status !== 'complete') {
+        if (['body_loaded', 'graveyard']
+          .includes(state.missions[MISSION_IDS.BADA_BING_TWO].checkpoint)) {
+          return {
+            kind: 'go',
+            destination: SCENE_IDS.SQUATCH_GRAVEYARD,
+          };
+        }
         return {
           kind: 'go',
           destination: SCENE_IDS.BADA_BING_TWO,

@@ -50,10 +50,10 @@ export function phoneThreadsForCampaign(state) {
     family.push(message('BOOSKIBRO', 'Beef Run in the morning. Sasole has the plane.'));
   }
   if (missions[MISSION_IDS.AIRSTRIP_SMUGGLING]?.status === 'complete') {
-    family.push(message('BOOSKIBRO', 'You made it back. Lou wants you at the Bing.'));
+    family.push(message('BOOSKIBRO', 'You made it back. HotDog party at the Bing. Family only.'));
   }
   if (missions[MISSION_IDS.BADA_BING_TWO]?.status === 'complete') {
-    family.push(message('SNOW', 'Motel is open. I\'ll keep the clerk busy.'));
+    family.push(message('SNOW', 'HotDog is handled. Motel next. Room twelve.'));
   }
   if (missions[MISSION_IDS.JERKY_MOTEL]?.status === 'complete') {
     family.push(message('BOOSKIBRO', 'Good work. Sleep. Big night after that.'));
@@ -73,7 +73,7 @@ export function phoneThreadsForCampaign(state) {
     lou.push(message('UNCLE LOU', 'Keep the package close. We will talk after.'));
   }
   if (missions[MISSION_IDS.AIRSTRIP_SMUGGLING]?.status === 'complete') {
-    lou.push(message('UNCLE LOU', 'Back office. Same place.'));
+    lou.push(message('UNCLE LOU', 'Bing. Closed party. Front room.'));
   }
 
   return [

@@ -27,11 +27,21 @@
 
 ```
 Day One apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep
-Day Two apartment → Beef Run → apartment → Bada Bing Two → Jerky Motel
-→ apartment/sleep
-Day Three apartment → Silver Room → apartment/sleep
+Day Two apartment → Beef Run → apartment → Bada Bing Two / HotDog incident
+→ Squatch Graveyard → Jerky Motel → apartment/sleep
+Day Three apartment → NO WAKE → apartment → Silver Room → apartment/sleep
 Day Four apartment/big-night call → THE PINES / Initiation
 ```
+
+The graveyard is the HotDog incident's body-disposal finale, not a separate
+errand competing with the Motel. Snow and Tony bury HotDog under the parked
+car's headlights; the surrounding graves are an optional, interactive archive
+of dead Family members. Completing the burial advances the same Bada Bing Two
+mission and opens the existing Motel scene.
+
+After sleeping off the Motel, Day Three opens NO WAKE at South Harbor. Its
+boat job carries the Willy informant plot into production and returns Tony to
+the apartment before Margo's afternoon call unlocks the Silver Room.
 
 Campaign time advances through authored tasks, calls, missions, travel, and
 sleep; the final meeting is not locked to the old Tuesday/Wednesday real-time
@@ -44,8 +54,9 @@ reachable from both the normal Day Four route and the save-isolated preview,
 but it does not yet complete the campaign or expose an outbound edge. After
 user playtesting, rewrite its verdict around completed campaign
 accomplishments, failed-prospect deaths, Tony's admission, and the mass
-sasquatch transformation. The intended Day Three informant hit and Day Four
-heist remain unbuilt and require separate owner approval before implementation.
+sasquatch transformation. The Day Three informant hit is shipped as NO WAKE;
+the Day Four heist remains unbuilt and requires separate owner approval before
+implementation.
 
 ---
 

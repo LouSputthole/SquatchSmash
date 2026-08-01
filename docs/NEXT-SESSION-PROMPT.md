@@ -45,8 +45,9 @@ Current product facts:
   and sleep. Idle real time must not move campaign time.
 - The whole confirmed order is now connected end to end through campaign state:
   apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep →
-  Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment/sleep →
-  **the Silver Room date** → apartment/sleep → Initiation on Day 4.
+  Beef Run → apartment → Bada Bing Two / HotDog incident → Squatch Graveyard →
+  Jerky Motel → apartment/sleep → **NO WAKE** → apartment → **the Silver Room
+  date** → apartment/sleep → Initiation on Day 4.
 - `npm run verify:campaign-route` is the focused fresh-save state contract. It
   traverses every current mission seam, reloads at the apartment returns, and
   deliberately ends with Initiation `in_progress`; it does not claim the
@@ -57,18 +58,20 @@ Current product facts:
   and the end card returns home. `verify:beefrun` (22) and `check:flight`
   cover it. Preserve its flight model, terrain, and mission geography as
   canonical.
-- The post-airstrip state contract, Lou's second call, reused Bada Bing Two,
-  direct Jerky Motel transition, and Motel return exist.
-- **The Silver Room is integrated (2026-07-30).** Home from the Motel at
-  4:30 AM on Day 3, the door refuses until Tony sleeps; sleeping opens the new
-  `date` chapter at Day 3 noon; **Margo Salas** rings once that afternoon
-  (`DATE_MARGO_CALL`, `vo.call.margo.date.*`, +5 minutes) and unlocks
+- The post-airstrip contract and Lou's second call lead into the production
+  HotDog party/attack/cleanup. Snow and Tony take the body to the Squatch
+  Graveyard; completing the burial unlocks the Motel and preserves the direct
+  overnight mission flow.
+- **NO WAKE and the Silver Room are integrated.** Home from the Motel at
+  4:30 AM on Day 3, the door refuses until Tony sleeps; sleeping opens
+  `no_wake` at noon. Lou's call routes the door to South Harbor, and the boat
+  mission completes at 4:40 PM. **Margo Salas** then rings once
+  (`MARGO_DATE_CALL`, `vo.call.margo.date.*`, +5 minutes) and unlocks
   `MISSION_IDS.SILVER_ROOM`; the door applies `travel.silver_room` (Day 3,
-  7:30 PM) and navigates to `silver.html`. `src/core/silver-story.js` gates the
-  evening and folds the mission's `persist()` payload into campaign state;
-  completion applies `mission.silver_room` (Day 3, 11:20 PM) and the end card
-  goes home. `verify:silver` (112) plays the evening; `verify:silver-story` (20)
-  rides the campaign seam.
+  7:30 PM) and navigates to `silver.html`. `src/core/silver-story.js` requires
+  both Motel and NO WAKE completion, folds the evening's `persist()` payload
+  into campaign state, and completion applies `mission.silver_room` (Day 3,
+  11:20 PM) before the end card goes home.
 - The final apartment return is connected. After the date the door refuses
   until Tony sleeps; sleeping opens `big_night` at **Day 4, 10:00 AM**;
   Booskibro rings once about the big night (`vo.call.booski.bignight.*`,
@@ -77,14 +80,16 @@ Current product facts:
   `initiation.html`. `verify:big-night` (19) covers the whole beat.
 - Sleep is the chapter machine and chapter is still separate from calendar day:
   `day_one` → `day_two` (needs Squatchfather, wakes Day 2 7:00 AM) →
-  `date` (needs the Motel, wakes Day 3 12:00 PM) → `big_night` (needs the
-  Silver Room, wakes **Day 4 10:00 AM**). `big_night` is the last chapter.
+  `no_wake` (needs the Motel, wakes Day 3 12:00 PM). NO WAKE completion turns
+  that same day into `date`; sleeping after the Silver Room opens `big_night`
+  at **Day 4 10:00 AM**. `big_night` is the last chapter.
 - `SCENE_IDS.INITIATION` is registered with no outbound edge because the scene
   does not read the campaign or report completion. `src/initiation/*` and
   `initiation.html` are byte-identical to the pre-consolidation build.
-- `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, **the
-  Silver Room**, and the unchanged Initiation in page-local memory without
-  reading or writing the real save. `verify:preview` (16) lists six.
+- `preview.html` opens ten apartment wake/return states plus nine mission
+  scenes, including the HotDog incident, Squatch Graveyard, NO WAKE, Silver
+  Room, and unchanged Initiation. Preview memory is page-local and never reads
+  or writes the real save; `verify:preview` checks all 19 entries.
 - The apartment/computer, Squatchfather spawn, Bada Bing geometry/NPC/rain,
   and first-person Motel/Snow/pool/interior playtest fixes are implemented and
   verified. Preserve those fixes.
@@ -125,11 +130,11 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
-IMMEDIATE PICKUP (2026-07-31): fetch `main` and run the
-stated safe-pickup commands before trusting any historical SHA or PR status.
-The current focused follow-up adds campaign reset, objective-dialogue movement
-locks, actual phone audio playback verification, and a freshly generated
-`VOICE-LINES-TODO.md`.
+IMMEDIATE PICKUP (2026-08-01): fetch `main` and run the stated safe-pickup
+commands before trusting any historical SHA or PR status. The current focused
+follow-up adds the production HotDog incident, Squatch Graveyard body-disposal
+finale, schema-v5 migration, all ten apartment previews, and a complete
+46-of-46 recorded scene ledger in `VOICE-LINES-TODO.md`.
 
 Current recording queue: **0 voice lines and 0 effects**. The recovered 112
 Bada Bing full-conversation takes are indexed and browser-verified as decoded

@@ -41,6 +41,7 @@
     "audio:todo": "node tools/audio-todo.mjs",
     "vo:beefrun": "node tools/beefrun-vo.mjs",
     "vo:nowake": "node tools/nowake-vo.mjs",
+    "vo:hotdog": "node tools/hotdog-vo.mjs",
     "vo:bing": "node tools/bing-vo.mjs",
     "verify:silver-story": "node tools/verify-silver-story.mjs"
   },

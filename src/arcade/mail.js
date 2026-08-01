@@ -275,6 +275,30 @@ const MESSAGES = [
     ],
   },
   {
+    /* Aubbie is already the person people call when a lock or wire acts up;
+     * the HotDog cleanup is not his introduction to the world. This mundane
+     * building note puts his name in the apartment before Tony sees him at
+     * the Bing, without turning optional email into campaign progression. */
+    from: 'Cedar Court Management',
+    addr: 'office@cedarcourt-apts.com',
+    subject: 'Building buzzer — repaired',
+    time: 'Mon 6:18 PM',
+    unread: false,
+    body: [
+      'Residents,',
+      '',
+      'The front-door buzzer has been repaired. Aubbie replaced the relay and '
+        + 'asked us to remind everyone that holding every apartment button at '
+        + 'once is not a reset procedure.',
+      '',
+      'His utility entry may appear in the service contact list, but it is '
+        + 'management-only and cannot be called from resident handsets.',
+      '',
+      'Thank you,',
+      'Cedar Court Management',
+    ],
+  },
+  {
     from: 'Vehicle Services Dept.',
     addr: 'final-notice@vehicle-services-dept.net',
     subject: 'FINAL NOTICE regarding your vehicle warranty',

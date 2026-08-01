@@ -65,6 +65,24 @@
     font-weight: 800;
   }
   .safe::before { content: "●"; font-size: 9px; }
+  .section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 24px;
+    margin: 30px 0 14px;
+  }
+  .section-heading h2 {
+    margin: 0;
+    font-size: clamp(25px, 4vw, 38px);
+    letter-spacing: -.025em;
+  }
+  .section-heading p {
+    max-width: 520px;
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.45;
+  }
   .grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -81,6 +99,9 @@
     box-shadow: 0 18px 40px rgba(0, 0, 0, .22);
   }
   .card.primary { border-color: rgba(255, 101, 177, .46); }
+  .card.apartment-card { border-color: rgba(117, 224, 181, .25); }
+  .card.apartment-card .number { color: var(--green); }
+  .card.apartment-card .play { background: var(--green); }
   .number {
     color: var(--pink);
     font-size: 11px;
@@ -115,6 +136,7 @@
   footer a { color: var(--green); }
   @media (max-width: 700px) {
     .grid { grid-template-columns: 1fr; }
+    .section-heading { align-items: start; flex-direction: column; gap: 8px; }
     footer { flex-direction: column; }
   }
 </style>
@@ -130,12 +152,101 @@
   </p>
   <div class="safe">Your saved campaign is not read or written in preview mode</div>
 
+  <div class="section-heading">
+    <h2>Apartment timeline</h2>
+    <p>Review every authored return and chapter-changing wake-up with the right temporary mission, call, clock, inventory, and dressing state.</p>
+  </div>
+
+  <section class="grid" aria-label="Apartment timeline previews">
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 01 · DAY 1, 6:04 AM</span>
+      <h2>Day One Wake</h2>
+      <p>The untouched opening morning: no calls answered, no jobs complete, and the phone still waiting in the flat.</p>
+      <a class="play" data-preview-apartment="day-one-wake" href="index.html?preview=1&amp;apartment=day-one-wake">Wake up on Day One →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 02 · DAY 1, 11:41 PM</span>
+      <h2>Home from the First Bing</h2>
+      <p>Enter through the front door with Lou's package concealed, the phone in hand, and the Squatchfather meeting now available.</p>
+      <a class="play" data-preview-apartment="after-bing-one" href="index.html?preview=1&amp;apartment=after-bing-one">Return from the Bing →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 03 · DAY 2, 3:00 AM</span>
+      <h2>Home from Squatchfather</h2>
+      <p>The weapon is gone, the business is settled, and Lou's brief attaboy call can still arrive before bed.</p>
+      <a class="play" data-preview-apartment="after-squatchfather" href="index.html?preview=1&amp;apartment=after-squatchfather">Return from the restaurant →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 04 · DAY 2, 7:00 AM</span>
+      <h2>Day Two Wake</h2>
+      <p>A reset morning routine, updated flat dressing and news, and Booskibro's Beef Run call still waiting to ring.</p>
+      <a class="play" data-preview-apartment="day-two-wake" href="index.html?preview=1&amp;apartment=day-two-wake">Wake up on Day Two →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 05 · DAY 2, 8:30 PM</span>
+      <h2>Home from the Beef Run</h2>
+      <p>The plane and cargo are safely home. Lou's second call has not rung yet, leaving the HotDog party as the next beat.</p>
+      <a class="play" data-preview-apartment="after-beef-run" href="index.html?preview=1&amp;apartment=after-beef-run">Return from the airstrip →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 06 · DAY 3, 4:30 AM</span>
+      <h2>Home from the Motel</h2>
+      <p>HotDog is buried, the motel shipment is recovered, and the only correct next move is finally going to bed.</p>
+      <a class="play" data-preview-apartment="after-motel" href="index.html?preview=1&amp;apartment=after-motel">Return from the motel →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 07 · DAY 3, 12:00 PM</span>
+      <h2>Day Three Wake</h2>
+      <p>Grey-water weather, the NO WAKE apartment dressing, and Lou's harbor call still pending.</p>
+      <a class="play" data-preview-apartment="day-three-wake" href="index.html?preview=1&amp;apartment=day-three-wake">Wake up before NO WAKE →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 08 · DAY 3, 4:40 PM</span>
+      <h2>Home from NO WAKE</h2>
+      <p>The boat job is complete, the chapter has turned to the date, and Margo has not called yet.</p>
+      <a class="play" data-preview-apartment="after-no-wake" href="index.html?preview=1&amp;apartment=after-no-wake">Return from the harbor →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 09 · DAY 3, 11:20 PM</span>
+      <h2>Home from the Silver Room</h2>
+      <p>A strong date is behind the Prospect, Margo will see him again, and tomorrow's initiation waits beyond sleep.</p>
+      <a class="play" data-preview-apartment="after-silver-room" href="index.html?preview=1&amp;apartment=after-silver-room">Return from the date →</a>
+    </article>
+
+    <article class="card apartment-card">
+      <span class="number">APARTMENT 10 · DAY 4, 10:00 AM</span>
+      <h2>Day Four Wake</h2>
+      <p>The big-night dressing is live, Margo's one-time wake sequence is still owed, and Booskibro's initiation call is pending.</p>
+      <a class="play" data-preview-apartment="day-four-wake" href="index.html?preview=1&amp;apartment=day-four-wake">Wake up on the big day →</a>
+    </article>
+  </section>
+
+  <div class="section-heading">
+    <h2>Mission scenes</h2>
+    <p>Launch the major playable scenes directly with only the temporary prerequisites each one needs.</p>
+  </div>
+
   <section class="grid" aria-label="Playable scene previews">
     <article class="card">
       <span class="number">SCENE PREVIEW 01</span>
       <h2>Bada Bing · Scene One</h2>
       <p>The first night at the club: the bouncer, the floor, the games, and Lou's package in the back office.</p>
       <a class="play" data-preview-scene="bing-one" href="bing.html?preview=1">Play scene one →</a>
+    </article>
+
+    <article class="card">
+      <span class="number">SCENE PREVIEW 02</span>
+      <h2>Squatchfather</h2>
+      <p>Enter the restaurant meeting with Lou's package already concealed and the scene ready to begin.</p>
+      <a class="play" data-preview-scene="squatchfather" href="squatchfather.html?preview=1">Play meeting →</a>
     </article>
 
     <article class="card primary">
@@ -146,42 +257,42 @@
     </article>
 
     <article class="card">
+      <span class="number">SCENE PREVIEW 04</span>
+      <h2>The HotDog Incident</h2>
+      <p>Billy HotDog's closed welcome-home party turns into a fast murder and a club-wide cleanup under Lou's direction.</p>
+      <a class="play" data-preview-scene="bing-two" href="bing.html?visit=2&amp;preview=1">Play the incident →</a>
+    </article>
+
+    <article class="card primary">
       <span class="number">SCENE PREVIEW 05</span>
+      <h2>Squatch Graveyard</h2>
+      <p>Dispose of HotDog beneath the headlights and walk the Family's neglected memorial ground before the motel.</p>
+      <a class="play" data-preview-scene="graveyard" href="graveyard.html?preview=1">Bury HotDog →</a>
+    </article>
+
+    <article class="card">
+      <span class="number">SCENE PREVIEW 06</span>
       <h2>The Jerky Motel</h2>
       <p>Start in Manny's car, inspect the shipment, survive the room, and make the drive home.</p>
       <a class="play" data-preview-scene="motel" href="motel.html?preview=1">Play motel →</a>
     </article>
 
     <article class="card">
-      <span class="number">SCENE PREVIEW 04</span>
-      <h2>Bada Bing · Scene Two</h2>
-      <p>Return to Lou's office for the reserve-pickup assignment that leads directly to the motel.</p>
-      <a class="play" data-preview-scene="bing-two" href="bing.html?visit=2&amp;preview=1">Play scene two →</a>
-    </article>
-
-    <article class="card">
-      <span class="number">SCENE PREVIEW 02</span>
-      <h2>Squatchfather</h2>
-      <p>Enter the restaurant meeting with Lou's package already concealed and the scene ready to begin.</p>
-      <a class="play" data-preview-scene="squatchfather" href="squatchfather.html?preview=1">Play meeting →</a>
-    </article>
-
-    <article class="card">
-      <span class="number">SCENE PREVIEW 06</span>
+      <span class="number">SCENE PREVIEW 07</span>
       <h2>NO WAKE</h2>
       <p>Meet Lou at South Harbor, take the cruiser into open water, and learn why Willy was invited.</p>
       <a class="play" data-preview-scene="no-wake" href="nowake.html?preview=1">Take the boat →</a>
     </article>
 
     <article class="card">
-      <span class="number">SCENE PREVIEW 07</span>
+      <span class="number">SCENE PREVIEW 08</span>
       <h2>The Silver Room</h2>
       <p>Day three's date with Margo: the hired car, the alley, the kitchen walk, the table, and the Midnight Pines.</p>
       <a class="play" data-preview-scene="silver" href="silver.html?preview=1">Play the date →</a>
     </article>
 
     <article class="card">
-      <span class="number">SCENE PREVIEW 08</span>
+      <span class="number">SCENE PREVIEW 09</span>
       <h2>The Initiation</h2>
       <p>Test the current initiation build directly. This preview does not alter its story design.</p>
       <a class="play" data-preview-scene="initiation" href="initiation.html?preview=1">Play initiation →</a>

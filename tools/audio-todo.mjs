@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Everything the game asks for and does not have a recording of.
+ * Everything the game asks for and does not have a recording of, plus the
+ * permanent delivery ledger for the HotDog Incident and graveyard scenes.
  *
  *   npm run audio:todo        -> writes VOICE-LINES-TODO.md
  *
@@ -21,12 +22,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { allHotDogVoiceLines } from '../src/core/hotdog-voice-catalog.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => JSON.parse(fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
 const have = new Set(read('assets/sfx/index.json').files || []);
-const cues = read('assets/sfx/manifest.json').sfx || [];
+const manifest = read('assets/sfx/manifest.json');
+const cues = manifest.sfx || [];
+const voiceProfiles = manifest.voices || {};
 const missing = cues.filter((c) => !have.has(c.file || `${c.name}.mp3`));
 
 const voice = missing.filter((c) => c.say);
@@ -88,6 +92,16 @@ const VOICE_DIRECTION = {
     + 'the boat ride normal, then realizes why he was invited and cannot talk his way out.',
   booski: 'Booskibro. Usually the room\'s loudest man, but deliberately low and precise '
     + 'here. He is helping Lou close a family betrayal, not performing for the room.',
+  hotdog: 'Billy HotDog. Loud, comfortable and casually cruel. He thinks the whole room '
+    + 'will keep laughing because it always has; the final insult is quieter, not bigger.',
+  aubbie: 'Aubbie. Tired utility man, practical and very dry. The joke should sound like '
+    + 'a repair estimate he has already priced.',
+  lawnmower: 'Lawnmower. One affectionate heckle from inside a closed Family party, thrown '
+    + 'fast enough to make Gratin choke.',
+  echo: 'Echo. Frightened and plainly alive. Record clean; the grave muffling and rumble '
+    + 'belong to scene playback, not the master delivery.',
+  snow: 'Snow. Minimal words, flat authority. At the graveyard he treats every impossible '
+    + 'sound as weather and keeps the job moving.',
 };
 
 const bankOf = (name) => name.split('.').slice(0, -1).join('.');
@@ -102,10 +116,23 @@ out += 'Drop the mp3s in `assets/sfx/` under the filename given, then run '
  * of its lines is its own cue, so grouping it the way the flat is grouped would
  * make a hundred and ninety one one-line sections. It gets its own chapter,
  * ordered by who is speaking. */
+const isHotDogCue = (cue) => cue.name.startsWith('vo.bing2.')
+  || cue.name.startsWith('vo.graveyard.');
 const flatVoice = voice.filter((c) => !c.name.startsWith('vo.beefrun.')
-  && !c.name.startsWith('vo.nowake.'));
+  && !c.name.startsWith('vo.nowake.') && !isHotDogCue(c));
 const missionVoice = voice.filter((c) => c.name.startsWith('vo.beefrun.'));
 const noWakeVoice = voice.filter((c) => c.name.startsWith('vo.nowake.'));
+const hotDogVoice = voice.filter(isHotDogCue);
+const hotDogLedger = allHotDogVoiceLines().map((line) => {
+  const file = `${line.cue}.mp3`;
+  return {
+    name: line.cue,
+    file,
+    voice: line.voice,
+    say: line.text,
+    recorded: have.has(file),
+  };
+});
 
 if (flatVoice.length) {
   out += '## Voice — the flat\n\nAll in the player voice unless the name says otherwise. These have '
@@ -162,6 +189,70 @@ if (noWakeVoice.length) {
     if (VOICE_DIRECTION[who]) out += `${VOICE_DIRECTION[who]}\n\n`;
     for (const cue of list) {
       out += `${(cue.file || `${cue.name}.mp3`).padEnd(56)}  ${JSON.stringify(cue.say)}\n`;
+    }
+    out += '\n';
+  }
+}
+
+if (hotDogVoice.length) {
+  out += `## Outstanding voice — The HotDog Incident and Squatch Graveyard\n\n${hotDogVoice.length} line(s). `
+    + 'The filenames, words and speakers are synchronized directly from the playable '
+    + 'party and graveyard mission scripts. Regenerate after a script edit with '
+    + '`npm run vo:hotdog`, then rerun this sheet.\n\n';
+
+  const sceneGroups = [
+    ['Closed Bada Bing party', hotDogVoice.filter((cue) => cue.name.startsWith('vo.bing2.'))],
+    ['Squatch graveyard', hotDogVoice.filter((cue) => cue.name.startsWith('vo.graveyard.'))],
+  ];
+  for (const [scene, sceneCues] of sceneGroups) {
+    if (!sceneCues.length) continue;
+    out += `### ${scene} — ${sceneCues.length}\n\n`;
+    const byWho = new Map();
+    for (const cue of sceneCues) {
+      const who = cue.voice || 'player';
+      if (!byWho.has(who)) byWho.set(who, []);
+      byWho.get(who).push(cue);
+    }
+    for (const [who, list] of [...byWho].sort((a, b) => b[1].length - a[1].length)) {
+      const profile = voiceProfiles[who];
+      const castRequired = !profile?.id || /^<.*>$/.test(profile.id);
+      out += `#### ${who.replace(/-/g, ' ').toUpperCase()} — ${list.length}`
+        + `${castRequired ? ' — **CAST REQUIRED**' : ''}\n\n`;
+      if (VOICE_DIRECTION[who]) out += `${VOICE_DIRECTION[who]}\n\n`;
+      for (const cue of list) {
+        out += `${(cue.file || `${cue.name}.mp3`).padEnd(56)}  ${JSON.stringify(cue.say)}\n`;
+      }
+      out += '\n';
+    }
+  }
+}
+
+const hotDogRecorded = hotDogLedger.filter((cue) => cue.recorded).length;
+const hotDogOutstanding = hotDogLedger.length - hotDogRecorded;
+out += '## Complete authored ledger — The HotDog Incident and Squatch Graveyard\n\n'
+  + `${hotDogLedger.length} authored cue(s): ${hotDogRecorded} **RECORDED**, `
+  + `${hotDogOutstanding} **NEEDS RECORDING**. `
+  + 'This permanent ledger is synchronized from the playable scene scripts; '
+  + 'delivery status comes from the runtime audio index.\n\n';
+
+const hotDogLedgerScenes = [
+  ['Closed Bada Bing party', hotDogLedger.filter((cue) => cue.name.startsWith('vo.bing2.'))],
+  ['Squatch graveyard', hotDogLedger.filter((cue) => cue.name.startsWith('vo.graveyard.'))],
+];
+for (const [scene, sceneCues] of hotDogLedgerScenes) {
+  out += `### ${scene} — ${sceneCues.length}\n\n`;
+  const byWho = new Map();
+  for (const cue of sceneCues) {
+    const who = cue.voice || 'player';
+    if (!byWho.has(who)) byWho.set(who, []);
+    byWho.get(who).push(cue);
+  }
+  for (const [who, list] of [...byWho].sort((a, b) => b[1].length - a[1].length)) {
+    out += `#### ${who.replace(/-/g, ' ').toUpperCase()} — ${list.length}\n\n`;
+    if (VOICE_DIRECTION[who]) out += `${VOICE_DIRECTION[who]}\n\n`;
+    for (const cue of list) {
+      const status = cue.recorded ? '**RECORDED**' : '**NEEDS RECORDING**';
+      out += `- ${status} \`${cue.file}\` — ${JSON.stringify(cue.say)}\n`;
     }
     out += '\n';
   }

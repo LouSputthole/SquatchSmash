@@ -1,7 +1,8 @@
 # NO WAKE production scene
 
 NO WAKE is the Day Three bridge from the Jerky Motel to Front and Center. It is
-not a standalone greybox: it is registered in campaign schema v4 and uses the
+not a standalone greybox: it was introduced in campaign schema v4 and remains
+registered in the current schema v5 route, using the
 same player, HUD, interaction, audio, post-processing, character, preview,
 navigation, save-recovery, bullet-impact and browser-verification foundations
 as the rest of Squatch Life.
