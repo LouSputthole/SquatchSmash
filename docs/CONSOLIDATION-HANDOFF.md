@@ -1,6 +1,6 @@
 # SquatchSmash Consolidation Handoff
 
-Last updated: 2026-07-31
+Last updated: 2026-08-01
 GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
 Current published checkpoint: current `main` (verify with `git rev-parse origin/main`)
@@ -9,6 +9,47 @@ Active integration line: `codex/recovered-playtest-fixes-20260731`.
 It carries the current recovery and playtest work ahead of `main`; do not
 discard its in-progress changes while picking the work back up. `main` remains
 the deployed production branch until that line has passed review and merged.
+
+## Current reconciliation - 2026-08-01
+
+This checkout has an additional validated, uncommitted follow-up on the active
+integration line. It is not yet the Pages build and must be committed on this
+branch before any PR or merge decision.
+
+- `Cosmic Drift` is in `assets/music/cosmic-drift.mp3`, registered with
+  `venue: "apartment"`, and protected by a radio regression test. Apartment
+  radio filters venue-scoped records, so the track cannot enter Bada Bing's
+  separate DJ rotation.
+- Scene startup decodes only the current scene's spoken bank and uses a
+  six-request audio queue. This prevents the generated voice corpus from
+  overwhelming browser request slots. The apartment computer browser check
+  observes the bound directly.
+- Day Two now keeps the floor clear of the rejected shirt pile. Escape pause
+  resumes immediately instead of reloading the apartment audio bank.
+- The Beef Run fuel-sample footprint stands one metre outboard of each drain,
+  making the marked interaction reachable with the normal look cone.
+- Preview mode now isolates *all* browser storage used by its scenes: the Bing
+  DJ rotation and Silver Room checkpoint use page-local preview memory instead
+  of changing the live game's next record or checkpoint. Bing Two preview
+  starts from its six immediate Lou lines while the full club bank loads in the
+  background; this keeps the direct-test route usable.
+- Directly rerun after this pass: `npm test` (94), `npm run check`,
+  `npm run verify:day-two` (25), `npm run verify:big-night` (19),
+  `npm run verify:computer` (30), `npm run verify:beefrun` (27),
+  `npm run verify:bing` (136), `npm run verify:boot-errors` (8),
+  `npm run verify:preview` (16), `npm run verify:squatch-smash` (8),
+  `npm run verify:bundle`, and `npm run check:flight`.
+  See `docs/validation/2026-08-01-audio-and-runtime-reconciliation.md`.
+
+The recording backlog is **20 voice lines and 0 effects**, not the older
+zero-line claim below. `npm run audio:todo` is the authoritative generator;
+the open items are one Tony/Snow Bing reply and 19 Captain Sasole Beef Run
+direction/reaction lines.
+
+The normal hosted build serves `Cosmic Drift` from `assets/music/`. The
+self-contained bundle intentionally has a zero music budget, so it omits this
+track along with every existing radio record; that bundle limitation is not a
+missing hosted asset.
 
 This file is the pickup point for another Codex session. Resume from the active
 integration line above; `main` is the deployed canonical game. Read this file, `README.md`,
@@ -133,8 +174,9 @@ thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
   confirms Tony returns to normal walking after the dialogue reaches its
   authored end. `verify:day-one` proves Big Uncle Lou's first call is a
   decoded, nonzero-gain WebAudio buffer playback.
-- The live `VOICE-LINES-TODO.md` inventory now lists **0 voice lines and 0
-  effects**. The 112 Bada Bing full-conversation recordings (including Big
+- At the July 31 checkpoint, `VOICE-LINES-TODO.md` listed **0 voice lines and
+  0 effects**. That historical count is superseded by the August 1 queue near
+  the top of this handoff. The 112 Bada Bing full-conversation recordings (including Big
   Uncle Lou, bouncer, bartender, dealer, Margo, and Tony replies) are present,
   indexed, and browser-verified as decoded audio buffers. After any future
   recording intake, run `npm run sfx:listen`, then regenerate the report with
@@ -466,10 +508,11 @@ npm run verify:bundle           3 strict-CSP policies passed; 295 voice clips em
 npm run audio:todo             superseded — see current 0 voice / 0 effects queue below
 ```
 
-The audio count above is preserved as a historical milestone only. The
+The `0 voice / 0 effects` command line above is historical only and is not the
+current recording backlog. The audio count above is preserved as a historical milestone only. The
 authoritative live queue is [VOICE-LINES-TODO.md](../VOICE-LINES-TODO.md),
 regenerated after each delivery with `npm run audio:todo`; it currently reports
-zero outstanding voice lines and effects.
+20 outstanding voice lines and zero effects.
 
 The Day Two repair is test-only: the four-angle bed probe moves the camera
 directly, so it now refreshes the Three.js scene's world matrices before

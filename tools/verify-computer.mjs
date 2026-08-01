@@ -120,6 +120,7 @@ async function computerState() {
       quitConnected: app?.quit?.isConnected === true,
       quitText: app?.quitLabel?.textContent ?? null,
       quitHow: app?.quitHow?.textContent ?? null,
+      audioLoad: { ...game.audio.loadReport },
       /* The pointer is unlocked for a framed app, and the room hides the
        * cursor over its own canvas whenever it is locked. If that rule is
        * still in force there is a way out on screen that nobody can aim at. */
@@ -181,6 +182,12 @@ try {
   await page.waitForFunction(() => window.__squatch?.arcade, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
   await page.click('#start-btn');
+  /* A real player cannot reach the PC until the start handler has finished
+   * loading audio. Await that same boundary so this test does not race the
+   * scene bootstrap and mistake a deliberately in-progress load for runtime
+   * errors from the computer. */
+  await page.waitForFunction(() => window.__squatch?.game?.started === true,
+    null, { timeout: 120000 });
 
   /* Walk up with a wound-up yaw, the way a player who has turned round the
    * flat a few times arrives at the desk.
@@ -245,6 +252,11 @@ try {
     JSON.stringify(appIds) === JSON.stringify(['mail', 'smash', 'shoot', 'counter', 'yuka', 'doom'])
       && new Set(appIds).size === appIds.length,
     JSON.stringify(state.apps));
+  check('the shared audio bank starts through a bounded request queue',
+    state.audioLoad.requested > 0
+      && state.audioLoad.peakConcurrent > 0
+      && state.audioLoad.peakConcurrent <= state.audioLoad.concurrency,
+    JSON.stringify(state.audioLoad));
 
   const geometry = await monitorGeometry();
   check('the monitor neck stays behind the display instead of clipping through it',

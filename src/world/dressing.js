@@ -50,6 +50,9 @@ export const DAY_DRESSING = Object.freeze({
    * there yesterday and a message on the machine; the floor stays clear. */
   day_two: Object.freeze({
     title: 'Trusted With Business',
+    // The shirt pile made the Day Two floor read as broken clutter. The
+    // campaign remembers the restaurant; the apartment only keeps the proof
+    // Tony would plausibly leave out: a little cash and the Bing matchbook.
     adds: Object.freeze(['cashSmall', 'bingMatches']),
     // He replied to HR. He is not going back, and the badge went in a drawer.
     removes: Object.freeze(['lanyard']),

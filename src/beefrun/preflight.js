@@ -573,7 +573,15 @@ export class Preflight {
       // The footprint only earns its place when the part is out of reach of it.
       const drop = anchor.y - (ground + 0.06);
       this.markerFoot.visible = drop > 0.7;
-      this.markerFoot.position.y = -drop;
+      /* A footprint directly below the drain tells the player to stand under
+       * the wing root and aim vertically at their own feet. That makes a
+       * visible marker but not a usable fuel-sample prompt. Step the marker
+       * one metre outboard for the drains: from there the valve is inside the
+       * normal look cone, clear of the fuselage, and still unmistakably tied
+       * to the highlighted side of the aeroplane. */
+      const drain = this.next?.name === 'sample' ? this.markerTarget() : null;
+      const outboard = drain ? Math.sign(drain.position.x || 1) * 1.05 : 0;
+      this.markerFoot.position.set(outboard, -drop, 0);
       this.markerFoot.scale.setScalar(pulse);
     } else {
       this.marker.visible = false;

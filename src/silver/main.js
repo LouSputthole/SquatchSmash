@@ -13,7 +13,7 @@
  * here can be walked out of, including the one about what you do for a living.
  */
 import * as THREE from 'three';
-import { AudioEngine } from '../core/audio.js';
+import { AudioEngine, AUDIO_PRELOAD } from '../core/audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
@@ -36,6 +36,7 @@ import { Performance, Sway, SET } from './perform.js';
 import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
+import { getPreviewRuntime } from '../core/preview-mode.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
  * class gates the evening on the Motel being finished and on Margo having
@@ -1583,7 +1584,11 @@ function saveCheckpoint(state) {
     },
   };
   try {
-    localStorage.setItem('squatch.fac.checkpoint', JSON.stringify(game.checkpoint));
+    /* A preview can save a checkpoint for its own session, but never into the
+     * saved game's browser storage. The campaign already uses this same
+     * page-local preview store. */
+    const storage = getPreviewRuntime()?.storage ?? globalThis.localStorage;
+    storage.setItem('squatch.fac.checkpoint', JSON.stringify(game.checkpoint));
   } catch { /* nothing to do about it */ }
 }
 
@@ -2086,7 +2091,8 @@ startBtn.addEventListener('click', async () => {
     }
   }
   await audio.init();
-  const sfx = await audio.loadManifest();
+  window.__squatchStage?.('Loading Silver Room audio…');
+  const sfx = await audio.loadManifest(AUDIO_PRELOAD.silver);
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
 
   overlay.classList.add('hidden');

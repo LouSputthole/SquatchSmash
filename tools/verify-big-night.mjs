@@ -185,9 +185,10 @@ try {
       && !dateRoom.shown.includes('willyPhoto')
       && dateRoom.shown.includes('motelKey')
       && dateRoom.shown.includes('casualJacket')
-      // Still an accumulating flat: Day Two's things are all still here.
-      && dateRoom.shown.includes('bloodShirt')
-      && dateRoom.shown.includes('cashSmall'),
+      // Still an accumulating flat: Day Two's proof is still here, without
+      // putting the rejected shirt pile back on the floor.
+      && dateRoom.shown.includes('cashSmall')
+      && !dateRoom.shown.includes('bloodShirt'),
     JSON.stringify(dateRoom.shown));
   check('Lou has stopped saying things, and the Motel is on the news',
     dateRoom.messages === 2
@@ -255,8 +256,9 @@ try {
       && ['cashStacks', 'suitBag', 'gunCase', 'jerkyHaul', 'silverMatches', 'laundryHeap']
         .every((id) => peak.shown.includes(id))
       // Everything he accumulated on the way here is still here.
-      && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
+      && ['cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
         .every((id) => peak.shown.includes(id))
+      && !peak.shown.includes('bloodShirt')
       && !peak.shown.includes('lanyard')
       && !peak.shown.includes('willyPhoto')
       && peak.raining === false,

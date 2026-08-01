@@ -11,7 +11,7 @@
  * everybody would expect at the end.
  */
 import * as THREE from 'three';
-import { AudioEngine } from '../core/audio.js';
+import { AudioEngine, AUDIO_PRELOAD } from '../core/audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
@@ -32,6 +32,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
+import { getPreviewRuntime } from '../core/preview-mode.js';
 import { makeHeldDrinks } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -69,12 +70,24 @@ const CLUB_DJ_RECORDS = Object.freeze([
   { file: 'sallie-j.mp3', title: 'Sallie J' },
 ]);
 const CLUB_DJ_INDEX_KEY = 'squatch.bing.dj.record';
+/* Preview mode needs a playable second visit now, not after every recording
+ * in the first visit has decoded. The six lines that can immediately play in
+ * that preview are ready before input; the full club bank continues loading
+ * in the background. Production visits still block on their full audio bank. */
+const BING_TWO_PREVIEW_AUDIO = Object.freeze({
+  prefixes: Object.freeze(['vo.bing.lou.brief2.']),
+  includeEffects: false,
+});
 
 function nextClubDjRecord() {
   try {
-    const saved = Number.parseInt(localStorage.getItem(CLUB_DJ_INDEX_KEY), 10);
+    /* Preview mode is a hard storage boundary, not merely a campaign-save
+     * boundary. Rotating the club record while inspecting a scene must not
+     * change the saved game's next DJ selection. */
+    const storage = getPreviewRuntime()?.storage ?? globalThis.localStorage;
+    const saved = Number.parseInt(storage.getItem(CLUB_DJ_INDEX_KEY), 10);
     const index = Number.isInteger(saved) && saved >= 0 ? saved % CLUB_DJ_RECORDS.length : 0;
-    localStorage.setItem(CLUB_DJ_INDEX_KEY, String((index + 1) % CLUB_DJ_RECORDS.length));
+    storage.setItem(CLUB_DJ_INDEX_KEY, String((index + 1) % CLUB_DJ_RECORDS.length));
     return CLUB_DJ_RECORDS[index];
   } catch {
     return CLUB_DJ_RECORDS[0];
@@ -176,6 +189,7 @@ const drunk = new Drunk();
 const highs = new Highs();
 const inventory = new Inventory(4);
 const campaign = createCampaign();
+const previewRuntime = getPreviewRuntime();
 const requestedVisit = new URLSearchParams(location.search).get('visit');
 const isSecondVisit = requestedVisit === '2'
   || campaign.state.scene.id === SCENE_IDS.BADA_BING_TWO;
@@ -2452,8 +2466,18 @@ startBtn.addEventListener('click', async () => {
     game.storyStarted = true;
   }
   await audio.init();
-  const sfx = await audio.loadManifest();
+  window.__squatchStage?.('Loading Bada Bing audio…');
+  const audioScope = previewRuntime && isSecondVisit
+    ? BING_TWO_PREVIEW_AUDIO
+    : AUDIO_PRELOAD.bing;
+  const sfx = await audio.loadManifest(audioScope);
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
+  if (previewRuntime && isSecondVisit) {
+    /* Do not make a direct developer preview wait for the whole first-visit
+     * corpus, but do keep its later lines upgrading to their recordings while
+     * the preview is open. `loadManifest` deduplicates the six critical lines. */
+    void audio.loadManifest(AUDIO_PRELOAD.bing);
+  }
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');

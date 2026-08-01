@@ -16,6 +16,44 @@ import * as THREE from 'three';
 import { loadJson, assetUrl, isBundled } from './assets.js';
 
 const SFX_DIR = 'assets/sfx/';
+/* The production bank now includes every recorded line for every scene.
+ * Starting every fetch and decode at once exhausts Chromium's request pool,
+ * especially on a lower-spec machine. Keep this small enough that a scene can
+ * finish loading cleanly while still using the available connection slots. */
+const SAMPLE_LOAD_CONCURRENCY = 6;
+
+/**
+ * Spoken banks that must be ready before their location accepts input.
+ *
+ * The manifest is deliberately one shared catalogue so recordings have one
+ * authoritative home.  That does not mean a player who clicks "Play Beef
+ * Run" should wait for the apartment, Bing, Silver Room, and future-mission
+ * dialogue to decode first.  Effects stay shared because they are a small
+ * bank (and a scene may legitimately use a common door, car, or footstep
+ * cue); dialogue is scoped to the location that can currently speak it.
+ */
+export const AUDIO_PRELOAD = Object.freeze({
+  apartment: Object.freeze({
+    prefixes: Object.freeze([
+      'vo.call.',
+      'vo.news.',
+      'vo.margo.wake.',
+    ]),
+    includeEffects: true,
+  }),
+  bing: Object.freeze({
+    prefixes: Object.freeze(['vo.bing.']),
+    includeEffects: true,
+  }),
+  beefrun: Object.freeze({
+    prefixes: Object.freeze(['vo.beefrun.']),
+    includeEffects: true,
+  }),
+  silver: Object.freeze({
+    prefixes: Object.freeze(['vo.silver.']),
+    includeEffects: true,
+  }),
+});
 
 /**
  * The bytes out of a `data:...;base64,...` URI, without going through fetch().
@@ -45,6 +83,12 @@ export class AudioEngine {
     this.loops = new Map();
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
+    this.loadReport = {
+      requested: 0,
+      loaded: 0,
+      peakConcurrent: 0,
+      concurrency: SAMPLE_LOAD_CONCURRENCY,
+    };
     this._lastStep = 0;
     /* A small, factual record of sample playback.  `voLog` says that a scene
      * asked for a line; this says whether a decoded buffer was really put on
@@ -109,7 +153,14 @@ export class AudioEngine {
    * 404s. `npm run sfx` rewrites it; hand-added files can be listed manually.
    * If the index is missing entirely we fall back to probing every cue.
    */
-  async loadManifest() {
+  /**
+   * @param {{ prefixes?: string[], includeEffects?: boolean }} options
+   *
+   * With no options this remains a complete manifest load for tooling and
+   * direct developer use. Production scene entry points pass a named scope
+   * from AUDIO_PRELOAD so unrelated dialogue is never a startup dependency.
+   */
+  async loadManifest({ prefixes = null, includeEffects = true } = {}) {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
 
     const cues = this.manifest.sfx || [];
@@ -128,8 +179,52 @@ export class AudioEngine {
         : cues;
     }
 
-    await Promise.all(wanted.map((cue) => this._loadOne(cue)));
-    return { total: cues.length, loaded: this.loadedCount };
+    if (prefixes) {
+      const scopedPrefixes = prefixes.filter(Boolean);
+      wanted = wanted.filter((cue) => {
+        const spoken = typeof cue.say === 'string' && cue.say.length > 0;
+        if (!spoken) return includeEffects;
+        return scopedPrefixes.some((prefix) => cue.name.startsWith(prefix));
+      });
+    }
+
+    /* `loadManifest()` is intentionally safe to call again. A second scene
+     * bootstrap used to decode the entire bank a second time; apart from the
+     * memory waste, the old Promise.all launched hundreds of requests at once.
+     * One buffer per cue is all the playback code needs. */
+    const seen = new Set();
+    wanted = wanted.filter((cue) => {
+      if (seen.has(cue.name) || this.buffers.has(cue.name)) return false;
+      seen.add(cue.name);
+      return true;
+    });
+
+    this.loadReport = {
+      requested: wanted.length,
+      loaded: 0,
+      peakConcurrent: 0,
+      concurrency: SAMPLE_LOAD_CONCURRENCY,
+    };
+    let next = 0;
+    let inFlight = 0;
+    const worker = async () => {
+      while (next < wanted.length) {
+        const cue = wanted[next++];
+        inFlight++;
+        this.loadReport.peakConcurrent = Math.max(this.loadReport.peakConcurrent, inFlight);
+        try {
+          await this._loadOne(cue);
+          this.loadReport.loaded++;
+        } finally {
+          inFlight--;
+        }
+      }
+    };
+    await Promise.all(Array.from(
+      { length: Math.min(SAMPLE_LOAD_CONCURRENCY, wanted.length) },
+      () => worker(),
+    ));
+    return { total: wanted.length, loaded: this.loadedCount };
   }
 
   async _loadOne(cue) {

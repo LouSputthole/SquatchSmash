@@ -9,7 +9,7 @@
  */
 import * as THREE from 'three';
 
-import { AudioEngine } from '../core/audio.js';
+import { AudioEngine, AUDIO_PRELOAD } from '../core/audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
@@ -212,7 +212,8 @@ startBtn.addEventListener('click', async () => {
   }
 
   await audio.init();
-  const sfx = await audio.loadManifest();
+  window.__squatchStage?.('Loading flight audio…');
+  const sfx = await audio.loadManifest(AUDIO_PRELOAD.beefrun);
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
   missionAudio.init();
 

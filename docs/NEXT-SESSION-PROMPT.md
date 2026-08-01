@@ -128,12 +128,17 @@ The current focused follow-up adds campaign reset, objective-dialogue movement
 locks, actual phone audio playback verification, and a freshly generated
 `VOICE-LINES-TODO.md`.
 
-Current recording queue: **0 voice lines and 0 effects**. The recovered 112
+Current recording queue: **20 voice lines and 0 effects**. The recovered 112
 Bada Bing full-conversation takes are indexed and browser-verified as decoded
-audio. The Day Two `vo.call.booski.airstrip.*` and second-Bing
-`vo.call.lou.bing_second.*` banks are also present in the manifest and indexed;
-do not recreate them. After any future recording pass run `npm run sfx:listen`,
-then `npm run audio:todo` and the affected browser gates.
+audio. Do not recreate those takes. The current open queue is one Tony/Snow
+Bing reply plus 19 Captain Sasole Beef Run direction/reaction lines; the exact
+filenames and text are in `VOICE-LINES-TODO.md`. After any future recording
+pass run `npm run sfx:listen`, then `npm run audio:todo` and the affected
+browser gates.
+
+`Cosmic Drift` was added on 2026-08-01 as an **apartment-only** radio record:
+`assets/music/cosmic-drift.mp3` has `venue: "apartment"` in the music manifest.
+Do not add it to `CLUB_DJ_RECORDS` or the Bada Bing rotation.
 
 The phone is campaign-derived: it has a readable Family thread, dynamic
 mission texts, wheel navigation in the apartment and Bing, and persisted read

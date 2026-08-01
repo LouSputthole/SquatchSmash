@@ -61,3 +61,26 @@ test('a tape airs intro, recording and outro, and holds for the recording', asyn
   assert.equal(played.at(-1), tape.cue);
   assert.ok(radio._dwell > 34, `tape dwell was ${radio._dwell}s, shorter than the recording`);
 });
+
+test('venue-scoped records stay in their intended in-world music system', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const audio = { ready: false };
+  const hud = { setRadio() {}, toast() {} };
+  const tracks = [
+    { file: 'legacy.mp3', title: 'Legacy rotation' },
+    { file: 'cosmic-drift.mp3', title: 'Cosmic Drift', venue: 'apartment' },
+    { file: 'club-only.mp3', title: 'Club only', venue: 'bada_bing' },
+  ];
+
+  const apartment = new Radio(audio, hud, { hour: 9 });
+  apartment.tracks = tracks;
+  assert.deepEqual(apartment.playlist.map((track) => track.file), [
+    'legacy.mp3', 'cosmic-drift.mp3',
+  ]);
+
+  const club = new Radio(audio, hud, { hour: 9 }, { venue: 'bada_bing' });
+  club.tracks = tracks;
+  assert.deepEqual(club.playlist.map((track) => track.file), [
+    'legacy.mp3', 'club-only.mp3',
+  ]);
+});

@@ -8,7 +8,7 @@
  * src/arcade/ for that one.
  */
 import * as THREE from 'three';
-import { AudioEngine } from './core/audio.js';
+import { AudioEngine, AUDIO_PRELOAD } from './core/audio.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
 import { Player } from './core/player.js';
@@ -767,15 +767,21 @@ boot().catch((err) => {
 
 startBtn.addEventListener('click', async () => {
   if (game.left) return;          // the ending card owns the button now
+  const starting = !game.started;
   await audio.init();
-  const sfx = await audio.loadManifest();
+  window.__squatchStage?.('Loading apartment audio…');
+  /* The decoded bank belongs to first launch, not Resume. Re-decoding it
+   * after Escape made the pause menu look like it had stopped responding. */
+  const sfx = starting
+    ? await audio.loadManifest(AUDIO_PRELOAD.apartment)
+    : { loaded: audio.loadedCount, total: 0 };
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
   requestLock();
 
-  if (!game.started) {
+  if (starting) {
     game.started = true;
     // First thing he sees, if it happened at all.
     if (recoveryNotice) hud.toast(recoveryNotice, 'bad', 12000);
@@ -1253,6 +1259,12 @@ function sleepInBed() {
   hud.hidePrompt();
   audio.say('sleep');
   const storySleep = apartmentStory.sleep();
+  /* Commit the next chapter's physical state at the same moment its campaign
+   * state is committed. The blackout still hides the swap, and
+   * startNewMorning() repeats this idempotently on wake, but this prevents a
+   * late frame or reload from leaving Day Four's save on the Day Three prop
+   * set after the campaign has already advanced. */
+  if (storySleep.ok) apartment.applyChapterDressing(storySleep.chapter);
   /* Named by the chapter that is ENDING, not hardcoded to the first one. This
    * said "Day One is done" on every night in the campaign, so going to bed on
    * Day Two and again before the big night both announced a day that was two
