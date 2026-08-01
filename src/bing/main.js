@@ -31,6 +31,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
+import { getPreviewRuntime } from '../core/preview-mode.js';
 import { makeHeldDrinks } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -77,9 +78,11 @@ const CLUB_DJ_INDEX_KEY = 'squatch.bing.dj.record';
 
 function nextClubDjRecord() {
   try {
-    const saved = Number.parseInt(localStorage.getItem(CLUB_DJ_INDEX_KEY), 10);
+    // Scene previews must never rotate the canonical campaign's next record.
+    const storage = getPreviewRuntime()?.storage ?? globalThis.localStorage;
+    const saved = Number.parseInt(storage.getItem(CLUB_DJ_INDEX_KEY), 10);
     const index = Number.isInteger(saved) && saved >= 0 ? saved % CLUB_DJ_RECORDS.length : 0;
-    localStorage.setItem(CLUB_DJ_INDEX_KEY, String((index + 1) % CLUB_DJ_RECORDS.length));
+    storage.setItem(CLUB_DJ_INDEX_KEY, String((index + 1) % CLUB_DJ_RECORDS.length));
     return CLUB_DJ_RECORDS[index];
   } catch {
     return CLUB_DJ_RECORDS[0];

@@ -401,7 +401,12 @@ try {
       const target = pf.markerTarget();
       const V = b.physics.position.constructor;
       const wp = new V(); target.getWorldPosition(wp);
-      const mk = pf.marker.position.clone();
+      /* The bright marker stays on the actual valve; its footprint is the
+       * player-facing stand point. The fuel drains deliberately put that
+       * footprint outboard of the wing root so the player can see and reach
+       * the valve rather than standing directly underneath it. */
+      const mk = new V();
+      pf.markerFoot.getWorldPosition(mk);
       b.player.position.x = mk.x;
       b.player.position.z = mk.z;
       b.player.ground = b.player.position.y - b.player.eyeHeight;

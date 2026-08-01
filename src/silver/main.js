@@ -36,6 +36,7 @@ import { Performance, Sway, SET } from './perform.js';
 import { makeTaxi } from './vehicle.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
+import { getPreviewRuntime } from '../core/preview-mode.js';
 
 /* The campaign owns the save. Loading this page claims the scene; the story
  * class gates the evening on the Motel being finished and on Margo having
@@ -1736,7 +1737,9 @@ function saveCheckpoint(state) {
     },
   };
   try {
-    localStorage.setItem('squatch.fac.checkpoint', JSON.stringify(game.checkpoint));
+    // Developer previews keep checkpoints in their page-local campaign store.
+    const storage = getPreviewRuntime()?.storage ?? globalThis.localStorage;
+    storage.setItem('squatch.fac.checkpoint', JSON.stringify(game.checkpoint));
   } catch { /* nothing to do about it */ }
 }
 

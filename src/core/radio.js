@@ -52,10 +52,17 @@ const DEFAULT_VOLUME = 0.70;
 const VOLUME_STEP = 0.07;
 
 export class Radio {
-  constructor(audio, hud, time) {
+  /**
+   * @param {{ venue?: string }} options
+   * `venue` is deliberately separate from the station: a record can belong
+   * to the radio rotation without leaking into a different in-world music
+   * system such as the Bada Bing DJ.
+   */
+  constructor(audio, hud, time, { venue = 'apartment' } = {}) {
     this.audio = audio;
     this.hud = hud;
     this.time = time;
+    this.venue = venue;
     this.tracks = [];
     /** Each station keeps its own place in its own playlist. */
     this.index = new Map();
@@ -90,8 +97,13 @@ export class Radio {
   get station() { return this.stations[this.stationIndex]; }
   get volumePercent() { return Math.round(this.volume * 100); }
 
-  /** Every record the station owns. There is one station, so: all of them. */
-  get playlist() { return this.tracks; }
+  /**
+   * Every record this radio is allowed to air. Unscoped legacy tracks remain
+   * available here; venue-scoped records must opt into this exact location.
+   */
+  get playlist() {
+    return this.tracks.filter((track) => !track.venue || track.venue === this.venue);
+  }
 
   /** True while a record is on air, so nothing talks over it. */
   get songPlaying() { return this._songT >= 0; }

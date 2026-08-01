@@ -86,3 +86,26 @@ test('preparing a bulletin cannot pump ordinary radio before it starts', async (
   assert.ok(Number.isFinite(radio._broadcastT));
   assert.equal(tuned, 0);
 });
+
+test('venue-scoped records stay in their intended in-world music system', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const audio = { ready: false };
+  const hud = { setRadio() {}, toast() {} };
+  const tracks = [
+    { file: 'legacy.mp3', title: 'Legacy rotation' },
+    { file: 'cosmic-drift.mp3', title: 'Cosmic Drift', venue: 'apartment' },
+    { file: 'club-only.mp3', title: 'Club only', venue: 'bada_bing' },
+  ];
+
+  const apartment = new Radio(audio, hud, { hour: 9 });
+  apartment.tracks = tracks;
+  assert.deepEqual(apartment.playlist.map((track) => track.file), [
+    'legacy.mp3', 'cosmic-drift.mp3',
+  ]);
+
+  const club = new Radio(audio, hud, { hour: 9 }, { venue: 'bada_bing' });
+  club.tracks = tracks;
+  assert.deepEqual(club.playlist.map((track) => track.file), [
+    'legacy.mp3', 'club-only.mp3',
+  ]);
+});

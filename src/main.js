@@ -1285,6 +1285,9 @@ function sleepInBed() {
   hud.hidePrompt();
   audio.say('sleep');
   const storySleep = apartmentStory.sleep();
+  // Commit the next chapter's physical dressing with its campaign checkpoint.
+  // Reapplying it on wake remains idempotent and the blackout hides the swap.
+  if (storySleep.ok) apartment.applyChapterDressing(storySleep.chapter);
   /* Named by the chapter that is ENDING, not hardcoded to the first one. This
    * said "Day One is done" on every night in the campaign, so going to bed on
    * Day Two and again before the big night both announced a day that was two
