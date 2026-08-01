@@ -64,6 +64,31 @@ recast — his voice stands.
    auditioned without borrowing Cecilio or the Bing doorman. The voice lead
    must approve or replace those three ids before locking the final cast.
 
+### HotDog incident casting gaps
+
+The closed-party/graveyard pass adds three dedicated profiles whose cue banks
+are already authoritative and visible in `VOICE-LINES-TODO.md`. HotDog, Aubbie,
+and Echo are owner-cast. Lawnmower is Snow in this sequence and retains the
+existing locked `snow` voice:
+
+| Role | profile | bank | direction |
+|---|---|---|---|
+| Billy HotDog | `hotdog` | `vo.bing2.hotdog.*` | `Pcfg2Zc6kmNWQ9ji3J5F`; loud, comfortable, casually cruel; final insult gets quieter |
+| Aubbie | `aubbie` | `vo.bing2.aubbie.*` | `3Qc2SrJq4us6etYTOtzn`; tired, practical, dry repair-estimate delivery |
+| Lawnmower / Snow | `snow` | `vo.bing2.lawnmower.*` | Existing locked Snow voice; one fast affectionate heckle |
+| Echo | `echo` | `vo.graveyard.echo.*` | `fbIG6gEosVIM95R5qOna`; clean frightened delivery, runtime supplies grave muffling |
+
+All HotDog incident voice profiles are now cast. To generate any future missing
+clips from these banks, run:
+
+```bash
+npm run sfx -- --voice-only --cast hotdog,aubbie,echo,snow
+npm run sfx:listen
+```
+
+Do not cast Ericran separately: `erican` and `ericran` are compatibility
+spellings for the existing Eric identity and `eric` voice.
+
 ## Everyone else from the sheet
 
 | Sheet row | profile | id | where it speaks |

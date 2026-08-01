@@ -1,12 +1,43 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as THREE from 'three';
 
 import {
+  SECOND_VISIT_CLEANUP_TASKS,
   SecondVisitMission,
-  buildSecondVisitLouScript,
+  buildHotDogPartySequence,
 } from '../src/bing/second-visit.js';
+import { createPartyCollider } from '../src/bing/party-collision.js';
+import { restoreHotDogCleanupPresentation } from '../src/bing/hotdog-cleanup-presentation.js';
 
-test('the second Bing visit reuses the club but has its own assignment flow', () => {
+test('party colliders follow moving props and park themselves when hidden', () => {
+  const scene = new THREE.Scene();
+  const parent = new THREE.Group();
+  const target = new THREE.Group();
+  scene.add(parent);
+  parent.add(target);
+  parent.position.set(2, 0.25, -3);
+  target.position.set(1, 0.5, 2);
+
+  const collision = createPartyCollider({
+    id: 'test.mover', target, halfX: 0.3, halfZ: 0.2, minY: -0.1, maxY: 1.1,
+  });
+  assert.equal(collision.active, true);
+  assert.deepEqual(collision.snapshot(), {
+    active: true,
+    min: [2.7, 0.65, -1.2],
+    max: [3.3, 1.85, -0.8],
+  });
+
+  target.position.x += 2;
+  assert.deepEqual(collision.snapshot().min, [4.7, 0.65, -1.2]);
+
+  parent.visible = false;
+  assert.equal(collision.active, false);
+  assert.ok(collision.box.min.x > 10_000);
+});
+
+test('the second Bing visit turns the closed party into a short cleanup mission', () => {
   const objectiveSnapshots = [];
   const mission = new SecondVisitMission({
     onObjective: (objectives) => objectiveSnapshots.push(structuredClone(objectives)),
@@ -14,46 +45,71 @@ test('the second Bing visit reuses the club but has its own assignment flow', ()
 
   assert.equal(mission.state, 'lot');
   assert.equal(mission.readyToLeave, false);
-  assert.equal(mission.flags.gotPackage, false);
   assert.deepEqual(mission.objectives, [
-    { id: 'lou', text: 'Meet Lou in the back office', done: false },
+    { id: 'party', text: 'Join the closed party at the main bar', done: false },
   ]);
 
   mission.enteredClub();
-  mission.reachedHallway();
-  mission.enteredOffice();
-  assert.equal(mission.state, 'office');
-  assert.equal(mission.objectives.find((objective) => objective.id === 'speak')?.done, false);
+  assert.equal(mission.state, 'party');
+  assert.equal(mission.startPerformance(), true);
+  assert.equal(mission.state, 'performance');
+  assert.equal(mission.finishPerformance(), true);
+  assert.equal(mission.state, 'tension');
+  assert.equal(mission.startAttack(), true);
+  assert.equal(mission.state, 'attack');
 
+  assert.equal(mission.completeCleanup(SECOND_VISIT_CLEANUP_TASKS[0]), false);
+  assert.equal(mission.kickGun(), true);
+  assert.equal(mission.state, 'cleanup');
+  for (const task of SECOND_VISIT_CLEANUP_TASKS) {
+    assert.equal(mission.completeCleanup(task), true, task);
+  }
+  assert.equal(mission.wrapBody(), true);
   assert.equal(mission.assign('reserve_pickup'), true);
-  assert.equal(mission.assignment, 'reserve_pickup');
   assert.equal(mission.readyToLeave, true);
-  assert.equal(mission.flags.gotPackage, false);
-  assert.equal(mission.state, 'briefed');
-  assert.equal(mission.objectives.find((objective) => objective.id === 'speak')?.done, true);
-  assert.equal(mission.objectives.find((objective) => objective.id === 'leave')?.done, false);
-
-  mission.leftOffice();
-  mission.backInLot();
-  assert.equal(mission.state, 'lot-return');
-  assert.equal(mission.finish(), 'motel');
+  assert.equal(mission.finish(), 'graveyard');
   assert.equal(mission.state, 'done');
-  assert.equal(mission.objectives.find((objective) => objective.id === 'leave')?.done, true);
+  assert.equal(mission.objectives.find((objective) => objective.id === 'load')?.done, true);
   assert.ok(objectiveSnapshots.length >= 5);
 });
 
-test('Lou assigns the Motel without pretending to hand over the first package', () => {
-  const mission = new SecondVisitMission();
-  mission.enteredClub();
-  mission.reachedHallway();
-  mission.enteredOffice();
-  const lou = buildSecondVisitLouScript({ mission });
+test('the authored party sequence keeps the relaxed set, escalation, sudden attack, and motel handoff', () => {
+  const sequence = buildHotDogPartySequence();
+  const text = sequence.map((beat) => `${beat.who}: ${beat.line}`).join('\n');
 
-  assert.match(lou.assignment.line, /Jerky Motel/i);
-  assert.match(lou.assignment.line, /room twelve/i);
-  assert.equal(mission.readyToLeave, false);
-  lou.confirm.enter();
-  assert.equal(mission.assignment, 'reserve_pickup');
-  assert.equal(mission.readyToLeave, true);
-  assert.equal(mission.flags.gotPackage, false);
+  assert.match(text, /Hog Mama/i);
+  assert.match(text, /fur brush/i);
+  assert.match(text, /He didn.t leave\. He went quiet/i);
+  assert.match(text, /Nobody leaves/i);
+  assert.match(text, /motel/i);
+  assert.ok(sequence.some((beat) => beat.action === 'attack'));
+  assert.ok(sequence.some((beat) => beat.action === 'enable-gun-kick'));
+});
+
+test('completed cleanup tasks restore every matching party prop and pad', () => {
+  const visible = () => ({ visible: true });
+  const party = {
+    banner: visible(),
+    food: { group: visible() },
+    cleanup: {
+      bathroomPads: { mens: visible(), ladies: visible() },
+      kit: visible(),
+      cufflink: visible(),
+      lapel: visible(),
+      brokenStool: visible(),
+      blood: { material: { opacity: 0.88 } },
+    },
+  };
+
+  restoreHotDogCleanupPresentation(party, SECOND_VISIT_CLEANUP_TASKS);
+
+  assert.equal(party.cleanup.bathroomPads.mens.visible, false);
+  assert.equal(party.cleanup.bathroomPads.ladies.visible, false);
+  assert.equal(party.cleanup.kit.visible, false);
+  assert.equal(party.cleanup.cufflink.visible, false);
+  assert.equal(party.cleanup.lapel.visible, false);
+  assert.equal(party.banner.visible, false);
+  assert.equal(party.food.group.visible, false);
+  assert.equal(party.cleanup.brokenStool.visible, false);
+  assert.equal(party.cleanup.blood.material.opacity, 0.2);
 });

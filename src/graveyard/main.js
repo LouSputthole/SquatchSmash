@@ -1,0 +1,493 @@
+import * as THREE from 'three';
+
+import { AudioEngine } from '../core/audio.js';
+import { AuthoredClock } from '../core/authored-clock.js';
+import {
+  MISSION_IDS,
+  SCENE_IDS,
+  createCampaign,
+} from '../core/campaign.js';
+import { createGraveyardStory } from '../core/graveyard-story.js';
+import { Hud } from '../core/hud.js';
+import { InteractionSystem } from '../core/interaction.js';
+import { Player } from '../core/player.js';
+import { PostFX } from '../core/postfx.js';
+import { StreamSystem } from '../world/stream.js';
+import {
+  GRAVEYARD_ARRIVAL_LINES,
+  GRAVEYARD_SNOW_BARKS,
+  GraveyardMission,
+  GRAVES,
+} from './mission.js';
+import { buildGraveyard } from './world.js';
+
+const canvas = document.getElementById('scene');
+const overlay = document.getElementById('overlay');
+const ending = document.getElementById('ending');
+const loading = document.getElementById('loading');
+const startButton = document.getElementById('start-btn');
+const motelButton = document.getElementById('motel-btn');
+const objectiveEl = document.getElementById('objective');
+const objectiveDetailEl = document.getElementById('objective-detail');
+const objectivesEl = document.getElementById('grave-objectives');
+const speakerEl = document.getElementById('speaker');
+const peeHint = document.getElementById('pee-hint');
+
+const campaign = createCampaign();
+const story = createGraveyardStory({ campaign });
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.4));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.96;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x030a08);
+scene.fog = new THREE.FogExp2(0x07100c, 0.027);
+const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.04, 180);
+scene.add(camera);
+
+const moon = new THREE.DirectionalLight(0x8ea7b7, 1.05);
+moon.position.set(-15, 22, 8);
+moon.castShadow = true;
+moon.shadow.mapSize.set(1536, 1536);
+moon.shadow.camera.left = -24;
+moon.shadow.camera.right = 24;
+moon.shadow.camera.top = 24;
+moon.shadow.camera.bottom = -24;
+scene.add(moon);
+scene.add(new THREE.HemisphereLight(0x2d4b49, 0x0b0b08, 0.78));
+const clearingFill = new THREE.PointLight(0xd0b77c, 6.2, 24, 2);
+clearingFill.position.set(0, 3.2, 4);
+scene.add(clearingFill);
+
+window.__squatchStage?.('Raising the old stones…');
+const graveyard = buildGraveyard(scene);
+const world = {
+  colliders: graveyard.colliders,
+  floorZones: graveyard.floorZones,
+  groundAt: () => 0,
+};
+const hud = new Hud();
+const player = new Player(camera, world);
+// Arrive off the rear quarter instead of directly behind the open trunk. The
+// first read should be car + wrapped body + headlight path, not the camera
+// buried in a wall of boot-lid geometry.
+player.position.set(5.2, 1.66, 21.2);
+player.yaw = 0.08;
+player.pitch = -0.08;
+player.mode = 'walk';
+player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
+const interaction = new InteractionSystem(camera, hud);
+const audio = new AudioEngine();
+const postfx = new PostFX(renderer, scene, camera);
+postfx.enable();
+if (postfx.bloom) {
+  postfx.bloom.threshold = 0.72;
+  postfx.bloom.strength = 0.5;
+  postfx.bloom.radius = 0.42;
+}
+const stream = new StreamSystem(scene);
+stream.setColliders(world.colliders);
+
+const clock = new AuthoredClock();
+clock.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
+
+const state = {
+  phase: 'menu',
+  elapsed: 0,
+  lines: [],
+  activeLine: null,
+  bodyMoving: false,
+  echoTriggered: false,
+  sauceSuggested: false,
+  endingShown: false,
+  pee: {
+    active: false,
+    graveId: null,
+    time: 0,
+    bladder: 1,
+    impactStart: 0,
+  },
+};
+
+function queueLine(text, { cue = null, who = 'Prospect', seconds = null } = {}) {
+  state.lines.push({ text, cue, who, seconds });
+}
+
+const mission = new GraveyardMission({
+  onLine: (text, meta = {}) => queueLine(text, meta),
+  onRumble: () => {
+    graveyard.startEchoRumble();
+    audio.play('car.impact.metal', { volume: 0.22, position: graveyard.echoPosition });
+  },
+  onObjective: repaintObjectives,
+});
+
+function repaintObjectives() {
+  objectivesEl.replaceChildren(...mission.objectives.map((objective) => {
+    const li = document.createElement('li');
+    li.className = `${objective.done ? 'done' : ''}${objective.optional ? ' optional' : ''}`;
+    li.textContent = objective.text;
+    return li;
+  }));
+  if (mission.bodyBuried) {
+    objectiveEl.textContent = 'Return to Snow\'s car';
+    objectiveDetailEl.textContent = 'The Motel is next · Snow is still not explaining it';
+  } else if (mission.bodyLowered) {
+    objectiveEl.textContent = 'Fill HotDog\'s grave';
+    objectiveDetailEl.textContent = 'Use the shovel beside the fresh plot';
+  }
+}
+repaintObjectives();
+
+function cueSeconds(name) {
+  const bank = audio.buffers?.get(name);
+  return bank?.length ? bank[0].duration : 0;
+}
+
+function playCue(name) {
+  if (!name || !audio.ready) return false;
+  const bank = audio.buffers?.get(name);
+  if (!bank?.length) return false;
+  audio._vo?.stop?.();
+  const source = audio.play(name, { volume: 0.9 });
+  audio._vo = source;
+  return true;
+}
+
+function updateDialogue(dt) {
+  if (!state.activeLine && state.lines.length) {
+    const line = state.lines.shift();
+    const recorded = cueSeconds(line.cue);
+    const duration = line.seconds ?? Math.max(recorded + 0.35, 2.5 + line.text.length * 0.025);
+    state.activeLine = { ...line, remaining: duration };
+    speakerEl.querySelector('small').textContent = line.who || 'Prospect';
+    speakerEl.querySelector('span').textContent = line.text;
+    speakerEl.classList.remove('hidden');
+    playCue(line.cue);
+  }
+  if (!state.activeLine) return;
+  state.activeLine.remaining -= dt;
+  if (state.activeLine.remaining <= 0) {
+    state.activeLine = null;
+    speakerEl.classList.add('hidden');
+  }
+}
+
+function inspect(id) {
+  const result = mission.inspectGrave(id);
+  if (id === 'sauce' && !state.sauceSuggested) {
+    state.sauceSuggested = true;
+    mission.suggestSaucePlot();
+  }
+  if (result?.kind === 'echo') {
+    state.echoTriggered = true;
+    story.noteEcho();
+  }
+}
+
+for (const [id, marker] of Object.entries(graveyard.graves)) {
+  interaction.register(marker, {
+    label: () => {
+      const desecrated = mission.urinatedOn.has(id);
+      if (GRAVES[id].traitor && !desecrated) return `Inspect <b>${GRAVES[id].name}</b> · <kbd>P</kbd> disrespect`;
+      return `Read <b>${GRAVES[id].name}</b>`;
+    },
+    enabled: () => state.phase === 'active' && !state.pee.active && !state.bodyMoving,
+    onUse: () => inspect(id),
+  });
+}
+
+interaction.register(graveyard.body, {
+  label: 'Hold to <b>lower HotDog into the fresh grave</b>',
+  hold: 1.7,
+  enabled: () => state.phase === 'active' && !mission.bodyLowered && !state.bodyMoving,
+  onTap: () => hud.say('Snow already dug the hole. Hold steady and lower him.', 3400),
+  onUse: () => {
+    if (!mission.lowerBody()) return;
+    state.bodyMoving = true;
+    interaction.setPaused(true);
+    player.clearKeys();
+    audio.play('cloth.suit.movement', { volume: 0.75, position: graveyard.body.position });
+    graveyard.lowerBody(() => {
+      state.bodyMoving = false;
+      interaction.setPaused(false);
+      repaintObjectives();
+      hud.toast('HotDog lowered', 'good');
+    });
+  },
+});
+
+interaction.register(graveyard.shovel, {
+  label: 'Hold to <b>fill HotDog\'s grave</b>',
+  hold: 2.25,
+  enabled: () => state.phase === 'active' && mission.bodyLowered && !mission.bodyBuried,
+  onTap: () => hud.say('It is a whole grave, not a decorative scoop. Hold it.', 3000),
+  onHoldProgress: (progress) => {
+    if (progress > 0.1 && Math.floor(progress * 10) % 3 === 0) {
+      audio.play('footstep.dirt', { volume: 0.18, position: graveyard.freshPosition });
+    }
+  },
+  onUse: completeBurial,
+});
+
+function completeBurial() {
+  if (!mission.finishBurial()) return false;
+  graveyard.finishBurial();
+  const choices = {
+    bodyBuried: true,
+    echoHeard: mission.echoHeard,
+    urinatedOn: [...mission.urinatedOn],
+  };
+  if (!story.complete(choices)) {
+    console.error('[graveyard] burial did not complete campaign', choices, campaign.state);
+    hud.toast('Campaign save failed', 'bad', 5200);
+    return false;
+  }
+  clock.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
+  repaintObjectives();
+  hud.toast('THE HOTDOG INCIDENT · COMPLETE', 'good', 4600);
+  return true;
+}
+
+interaction.register(graveyard.snow.group, {
+  label: 'Talk to <b>Snow</b>',
+  enabled: () => state.phase === 'active' && !state.pee.active,
+  onUse: () => {
+    graveyard.snow.faceToward(player.position.x, player.position.z);
+    graveyard.snow.say(2.5);
+    if (mission.bodyBuried) {
+      queueLine(GRAVEYARD_SNOW_BARKS.car.text, {
+        cue: GRAVEYARD_SNOW_BARKS.car.cue,
+        who: GRAVEYARD_SNOW_BARKS.car.who,
+        seconds: GRAVEYARD_SNOW_BARKS.car.seconds,
+      });
+    } else {
+      queueLine(GRAVEYARD_SNOW_BARKS.plot.text, {
+        cue: GRAVEYARD_SNOW_BARKS.plot.cue,
+        who: GRAVEYARD_SNOW_BARKS.plot.who,
+        seconds: GRAVEYARD_SNOW_BARKS.plot.seconds,
+      });
+    }
+  },
+});
+
+interaction.register(graveyard.car, {
+  label: 'Hold to <b>leave for the Jerky Motel</b>',
+  hold: 1.25,
+  enabled: () => state.phase === 'active' && mission.readyToLeave && !state.endingShown,
+  onTap: () => hud.say('Snow is waiting. Hold to get in.', 2500),
+  onUse: () => finishScene(),
+});
+
+function currentTraitorGrave() {
+  const id = interaction.current?.userData?.graveId;
+  return id && GRAVES[id]?.traitor && !mission.urinatedOn.has(id) ? id : null;
+}
+
+function startPee() {
+  const id = currentTraitorGrave();
+  if (!id || state.pee.active || state.pee.bladder <= 0.08) return false;
+  state.pee.active = true;
+  state.pee.graveId = id;
+  state.pee.time = 0;
+  stream.resetStats();
+  state.pee.impactStart = stream.stats.total;
+  audio.play('pee.zip', { volume: 0.65 });
+  audio.startLoop('pee.stream', { volume: 0, fade: 0.2 });
+  audio.startLoop('pee.miss', { volume: 0, fade: 0.2 });
+  hud.setPosture('stop');
+  hud.say(`A private Family service for ${GRAVES[id].name}.`, 2800);
+  return true;
+}
+
+function stopPee() {
+  if (!state.pee.active) return;
+  const id = state.pee.graveId;
+  const earned = state.pee.time >= 1.05
+    && stream.stats.total - state.pee.impactStart >= 10;
+  state.pee.active = false;
+  state.pee.graveId = null;
+  hud.setPosture(null);
+  audio.stopLoop('pee.stream', 0.25);
+  audio.stopLoop('pee.miss', 0.25);
+  audio.play('pee.zip', { volume: 0.6 });
+  if (earned && mission.urinateOn(id)) {
+    story.recordUrination(id);
+    hud.toast(`${GRAVES[id].name} · properly disrespected`, 'good');
+  }
+}
+
+const peeOrigin = new THREE.Vector3();
+const peeDirection = new THREE.Vector3();
+const peeAimPoint = new THREE.Vector3();
+function updatePee(dt) {
+  hud.setBladder(state.pee.bladder, state.pee.active, 'bladder');
+  if (!state.pee.active) return;
+  state.pee.time += dt;
+  state.pee.bladder = Math.max(0, state.pee.bladder - dt * 0.055);
+  const ramp = Math.min(1, state.pee.time / 0.38);
+  const power = ramp * Math.min(1, 0.32 + state.pee.bladder * 1.8);
+  const level = 0.1 + power * 0.22;
+  audio.setLoopVolume('pee.stream', level * 0.68, 0.12);
+  audio.setLoopVolume('pee.miss', level * 0.46, 0.12);
+  camera.getWorldPosition(peeOrigin);
+  camera.getWorldDirection(peeDirection);
+  peeAimPoint.copy(peeOrigin).addScaledVector(peeDirection, 1.25);
+  peeOrigin.addScaledVector(peeDirection, 0.18);
+  peeOrigin.y -= 0.58;
+  peeDirection.copy(peeAimPoint).sub(peeOrigin).normalize();
+  stream.emit(peeOrigin, peeDirection, dt, power);
+  if (state.pee.bladder <= 0.01) stopPee();
+}
+
+function finishScene() {
+  if (state.endingShown || !mission.readyToLeave) return false;
+  mission.finish();
+  state.endingShown = true;
+  state.phase = 'complete';
+  player.enabled = false;
+  player.clearKeys();
+  interaction.setPaused(true);
+  audio.play('car.engine.start', { volume: 0.82, position: graveyard.car.position });
+  audio.startLoop('car.engine.idle', { volume: 0.2 });
+  document.exitPointerLock?.();
+  setTimeout(() => ending.classList.remove('hidden'), 850);
+  return true;
+}
+
+const runtime = {
+  story,
+  mission,
+  get campaignState() { return campaign.state; },
+  get phase() { return state.phase; },
+  get displayClock() { return { day: clock.day, timeMinutes: clock.minutes }; },
+  inspect,
+  startPee,
+  stopPee,
+  lowerBody: () => mission.lowerBody(),
+  bury: completeBurial,
+};
+window.GRAVEYARD = runtime;
+
+function requestGamePointerLock() {
+  try {
+    const pending = canvas.requestPointerLock?.();
+    pending?.catch?.(() => {});
+  } catch {
+    // Embedded previews can deny pointer lock without invalidating the scene.
+  }
+}
+window.__squatchSceneReady?.('GRAVEYARD ready');
+
+startButton.addEventListener('click', async () => {
+  const entry = story.begin();
+  if (!entry.ok) {
+    overlay.querySelector('.tag').textContent = entry.reason === 'already_complete'
+      ? 'HotDog is already buried in this save. Continue to the Motel.'
+      : 'The body is not loaded. Finish the Bada Bing cleanup before coming here.';
+    startButton.textContent = entry.reason === 'already_complete' ? 'GO TO MOTEL' : 'SCENE UNAVAILABLE';
+    if (entry.reason === 'already_complete') {
+      startButton.onclick = () => story.continueAfterCompletion({ location });
+    } else {
+      startButton.disabled = true;
+    }
+    return;
+  }
+  if (campaign.state.scene.id !== SCENE_IDS.SQUATCH_GRAVEYARD) {
+    campaign.enter(SCENE_IDS.SQUATCH_GRAVEYARD, { spawn: 'headlights' });
+  }
+  mission.restoreProgress(campaign.state.missions[MISSION_IDS.BADA_BING_TWO]);
+  state.echoTriggered = mission.echoHeard;
+  startButton.disabled = true;
+  startButton.textContent = 'Loading graveyard audio...';
+  clock.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
+  await audio.init();
+  await audio.loadManifest();
+  audio.startLoop('graveyard.wind', { name: 'ambience.rain', volume: 0.065, ambience: true, fade: 1.5 });
+  audio.startLoop('car.engine.idle', { volume: 0.12, ambience: true, fade: 1.2 });
+  state.phase = 'active';
+  startButton.disabled = false;
+  player.enabled = true;
+  document.body.classList.add('playing');
+  overlay.classList.add('hidden');
+  requestGamePointerLock();
+  for (const line of GRAVEYARD_ARRIVAL_LINES) {
+    queueLine(line.text, { cue: line.cue, who: line.who, seconds: line.seconds });
+  }
+});
+
+motelButton.addEventListener('click', () => {
+  story.continueAfterCompletion({ location });
+});
+
+document.addEventListener('pointerlockchange', () => {
+  if (state.phase === 'active') player.enabled = document.pointerLockElement === canvas;
+});
+document.addEventListener('mousemove', (event) => {
+  if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
+});
+document.addEventListener('keydown', (event) => {
+  if (state.phase !== 'active') return;
+  if (event.code === 'Space') event.preventDefault();
+  player.setKey(event.code, true);
+  if (event.code === 'KeyE') interaction.press();
+  if (event.code === 'KeyP' && !event.repeat) startPee();
+  if (event.code === 'KeyQ' && state.pee.active) stopPee();
+  if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
+});
+document.addEventListener('keyup', (event) => {
+  player.setKey(event.code, false);
+  if (event.code === 'KeyE') interaction.release();
+  if (event.code === 'KeyP') stopPee();
+});
+document.addEventListener('mousedown', (event) => {
+  if (event.button === 0 && document.pointerLockElement === canvas) interaction.press();
+});
+document.addEventListener('mouseup', (event) => {
+  if (event.button === 0) interaction.release();
+});
+canvas.addEventListener('click', () => {
+  if (state.phase === 'active' && document.pointerLockElement !== canvas) requestGamePointerLock();
+});
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  postfx.setSize(innerWidth, innerHeight);
+});
+
+let lastTime = performance.now();
+function animate(now) {
+  requestAnimationFrame(animate);
+  const dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
+  lastTime = now;
+  state.elapsed += dt;
+  if (state.phase === 'active') {
+    player.update(dt);
+    interaction.update(dt);
+    updatePee(dt);
+    stream.update(dt);
+    if (!mission.echoHeard && player.position.distanceTo(graveyard.echoPosition) < 4.6) {
+      inspect('echo');
+    }
+    const traitor = currentTraitorGrave();
+    peeHint.classList.toggle('hidden', !traitor || state.pee.active);
+  }
+  updateDialogue(dt);
+  graveyard.update(dt, state.elapsed, player.position);
+  clock.update(dt);
+  hud.setClock(clock.day, clock.clock12, clock.elapsedReal);
+  postfx.render();
+  postfx.sample(dt);
+}
+requestAnimationFrame(animate);
+
+setTimeout(() => loading.classList.add('out'), 160);
+setTimeout(() => loading.remove(), 760);

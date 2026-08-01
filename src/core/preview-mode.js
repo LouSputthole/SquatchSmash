@@ -9,6 +9,28 @@
 const PREVIEW_RUNTIME_KEY = '__squatchLifePreviewRuntime';
 const PREVIEW_VALUE = '1';
 
+/**
+ * Canonical apartment checkpoints worth reviewing as distinct scenes.
+ *
+ * The wake variants are included alongside literal front-door returns because
+ * sleep is the chapter transition that changes the flat's dressing, calls,
+ * news, and available work. Mission retries and half-finished checkpoints are
+ * intentionally excluded: they are recovery states, not authored apartment
+ * iterations.
+ */
+export const APARTMENT_PREVIEW_VARIANTS = Object.freeze([
+  'day-one-wake',
+  'after-bing-one',
+  'after-squatchfather',
+  'day-two-wake',
+  'after-beef-run',
+  'after-motel',
+  'day-three-wake',
+  'after-no-wake',
+  'after-silver-room',
+  'day-four-wake',
+]);
+
 export class PreviewMemoryStorage {
   constructor() {
     this.values = new Map();
@@ -51,10 +73,20 @@ export function isPreviewMode(locationLike = globalThis.location) {
   return searchParams(locationLike).get('preview') === PREVIEW_VALUE;
 }
 
+export function previewApartmentVariantForLocation(locationLike = globalThis.location) {
+  const pathname = String(locationLike?.pathname || '').toLowerCase();
+  if (!(pathname.endsWith('/index.html') || pathname.endsWith('index.html'))) return null;
+  const variant = searchParams(locationLike).get('apartment');
+  return APARTMENT_PREVIEW_VARIANTS.includes(variant) ? variant : null;
+}
+
 export function previewSceneForLocation(locationLike = globalThis.location) {
   const pathname = String(locationLike?.pathname || '').toLowerCase();
   if (pathname.endsWith('/motel.html') || pathname.endsWith('motel.html')) {
     return 'jerky_motel';
+  }
+  if (pathname.endsWith('/graveyard.html') || pathname.endsWith('graveyard.html')) {
+    return 'squatch_graveyard';
   }
   if (pathname.endsWith('/squatchfather.html') || pathname.endsWith('squatchfather.html')) {
     return 'squatchfather';
@@ -101,6 +133,7 @@ export function getPreviewRuntime(locationLike = globalThis.location) {
   const runtime = {
     signature,
     sceneId: previewSceneForLocation(locationLike),
+    apartmentVariant: previewApartmentVariantForLocation(locationLike),
     storage: new PreviewMemoryStorage(),
     seeded: false,
   };

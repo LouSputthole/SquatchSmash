@@ -14,6 +14,8 @@ identity.
 | `lou` | Big Uncle Lou Sputthole | Big Uncle Lou | `lou1` | Human | Founder, family uncle, first Bing contact |
 | `captain_lou_sasole` | Captain Lou Sasole | Captain Lou Sasole | `lou2` | Human | Circle member and airstrip captain |
 | `booski` | Booskibro | Booskibro | `booski` | Human | Founder, patriarch, Day Two caller, ceremony leader |
+| `billy_hotdog` | Billy HotDog | Billy HotDog | `hotdog` | Human | Established Family irritant and victim of the closed-party incident |
+| `aubbie` | Aubbie | Aubbie | `aubbie` | Human | Quiet Family utility man for locks, wiring, repairs, and service access |
 
 The two Lous are separate people. Big Uncle Lou owns the Bing story thread;
 Captain Lou Sasole owns the airstrip thread and is the same person represented
@@ -26,6 +28,13 @@ planned ending rewrite, successful Initiation changes both membership and
 literal form: Tony transforms into a sasquatch after the verdict. His surname
 is **Squatchtana**. `Squatchmontana` is rejected and is not accepted as a
 registry alias.
+
+Aubbie is deliberately introduced as somebody who was already around. The
+Bing's visit-one service panel bears his name before he appears at HotDog's
+party, the apartment/phone writing may mention him as the person who fixes the
+building buzzer, and later scenes can use him for practical work without
+retconning him into a founder or splitting another character's identity.
+Eric, Erican, and the proposed spelling Ericran remain one person (`eric`).
 
 ## Circle canon
 

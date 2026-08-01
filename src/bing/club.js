@@ -1539,6 +1539,14 @@ export function buildClub(scene, { renderer } = {}) {
     solid(S.x1 - 1.6, S.z1 - 1.75, S.x1 - 0.6, S.z1 - 0.85, 0, 1.8);
     add(box({ size: [0.62, 0.5, 0.5], pos: [S.x0 + 0.7, 0.4, S.z1 - 1.0], mat: M_STEEL }));
     add(box({ size: [0.42, 0.9, 0.3], pos: [S.x0 + 4.9, 1.3, S.z0 + 0.2], mat: mat({ color: 0x2e2e36, roughness: 0.8 }) }));
+    /* Aubbie predates the HotDog incident even though this is the first scene
+     * that needs him on camera. His service label is already on the Bing's
+     * electrical panel during visit one: quiet environmental continuity, not
+     * a new mission beat or a line the player has to stop and hear. */
+    add(sign(printed('aubbie-service-label', ['AUBBIE', 'SERVICE / KEYS', 'DO NOT RESET'], {
+      w: 320, h: 220, bg: '#d8d2b8', fg: '#29251f', font: '800 30px "Trebuchet MS", sans-serif',
+    }), 0.34, 0.24, { x: S.x0 + 4.9, y: 1.42, z: S.z0 + 0.365 }));
+    anchors.aubbiePanel = new THREE.Vector3(S.x0 + 4.9, 1.42, S.z0 + 0.8);
     // A broken sign that used to say something
     add(sign(neonText('broken-bin', 'BIN', { font: '900 130px "Trebuchet MS", sans-serif' }), 1.3, 0.4,
       { x: S.x0 + 5.6, y: 1.5, z: S.z0 + 0.25, emissive: 0x2a2a30, intensity: 0.3 })).rotation.z = 0.35;

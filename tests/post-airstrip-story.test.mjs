@@ -13,7 +13,11 @@ import {
   DAY_TWO_LOU_SECOND_CALL,
   createApartmentStory,
 } from '../src/core/apartment-story.js';
-import { createBadaBingTwoStory } from '../src/core/bada-bing-two-story.js';
+import {
+  BADA_BING_TWO_CLEANUP_TASKS,
+  createBadaBingTwoStory,
+} from '../src/core/bada-bing-two-story.js';
+import { createGraveyardStory } from '../src/core/graveyard-story.js';
 import { createMotelStory } from '../src/core/motel-story.js';
 
 class MemoryStorage {
@@ -101,22 +105,30 @@ test('the apartment door waits for Lou after the airstrip', () => {
   });
 });
 
-test('Bada Bing Scene Two requires Lou, then unlocks a direct motel transition', () => {
+test('Bada Bing Scene Two requires Lou, then unlocks the graveyard route to the Motel', () => {
   const storage = new MemoryStorage();
   const campaign = campaignAfterAirstrip(storage);
   const apartment = createApartmentStory({ campaign, ring: () => true });
   apartment.callAnswered(DAY_TWO_LOU_SECOND_CALL);
   const story = createBadaBingTwoStory({ campaign });
 
-  assert.deepEqual(story.begin(), { ok: true, resumed: false });
+  assert.deepEqual(story.begin(), { ok: true, resumed: false, checkpoint: 'party' });
   assert.equal(campaign.state.missions[MISSION_IDS.BADA_BING_TWO].status, 'in_progress');
-  assert.equal(story.complete({ assignment: 'reserve_pickup' }), true);
+  assert.equal(story.recordAttack({ gunKicked: true }), true);
+  for (const task of BADA_BING_TWO_CLEANUP_TASKS) assert.equal(story.recordCleanup(task), true);
+  assert.equal(story.completeClub({
+    assignment: 'reserve_pickup', bodyWrapped: true, bodyLoaded: true,
+  }), true);
+  campaign.transition(SCENE_IDS.SQUATCH_GRAVEYARD, { spawn: 'headlights' });
+  const graveyard = createGraveyardStory({ campaign });
+  assert.deepEqual(graveyard.begin(), { ok: true, resumed: false });
+  assert.equal(graveyard.complete({ bodyBuried: true }), true);
   const state = campaign.state;
   assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].status, 'complete');
   assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].assignment, 'reserve_pickup');
   assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'available');
 
-  campaign.enter(SCENE_IDS.BADA_BING_TWO, { spawn: 'club_entrance' });
+  campaign.enter(SCENE_IDS.SQUATCH_GRAVEYARD, { spawn: 'headlights' });
   const calls = [];
   navigateCampaign(campaign, SCENE_IDS.JERKY_MOTEL, {
     spawn: 'passenger_seat',
@@ -124,7 +136,7 @@ test('Bada Bing Scene Two requires Lou, then unlocks a direct motel transition',
   });
   assert.deepEqual(calls, ['motel.html']);
   assert.deepEqual(campaign.state.lastTransition, {
-    from: SCENE_IDS.BADA_BING_TWO,
+    from: SCENE_IDS.SQUATCH_GRAVEYARD,
     to: SCENE_IDS.JERKY_MOTEL,
     spawn: 'passenger_seat',
   });

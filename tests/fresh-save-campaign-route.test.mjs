@@ -20,7 +20,11 @@ import {
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createAirstripStory } from '../src/core/airstrip-story.js';
-import { createBadaBingTwoStory } from '../src/core/bada-bing-two-story.js';
+import {
+  BADA_BING_TWO_CLEANUP_TASKS,
+  createBadaBingTwoStory,
+} from '../src/core/bada-bing-two-story.js';
+import { createGraveyardStory } from '../src/core/graveyard-story.js';
 import { createMotelStory } from '../src/core/motel-story.js';
 import { createNoWakeStory } from '../src/core/no-wake-story.js';
 import { createSilverStory } from '../src/core/silver-story.js';
@@ -152,8 +156,16 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   route(campaign, SCENE_IDS.BADA_BING_TWO, 'driver_seat', 'bing.html?visit=2');
 
   const bingTwo = createBadaBingTwoStory({ campaign });
-  assert.deepEqual(bingTwo.begin(), { ok: true, resumed: false });
-  assert.equal(bingTwo.complete({ assignment: 'reserve_pickup' }), true);
+  assert.deepEqual(bingTwo.begin(), { ok: true, resumed: false, checkpoint: 'party' });
+  assert.equal(bingTwo.recordAttack({ gunKicked: true }), true);
+  for (const task of BADA_BING_TWO_CLEANUP_TASKS) assert.equal(bingTwo.recordCleanup(task), true);
+  assert.equal(bingTwo.completeClub({
+    assignment: 'reserve_pickup', bodyWrapped: true, bodyLoaded: true,
+  }), true);
+  route(campaign, SCENE_IDS.SQUATCH_GRAVEYARD, 'headlights', 'graveyard.html');
+  const graveyard = createGraveyardStory({ campaign });
+  assert.deepEqual(graveyard.begin(), { ok: true, resumed: false });
+  assert.equal(graveyard.complete({ bodyBuried: true }), true);
   campaign.advanceTime(TIME_EVENT_IDS.DEPART_JERKY_MOTEL);
   route(campaign, SCENE_IDS.JERKY_MOTEL, 'passenger_seat', 'motel.html');
   const motel = createMotelStory({ campaign });

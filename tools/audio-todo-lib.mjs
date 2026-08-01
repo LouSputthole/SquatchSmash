@@ -17,6 +17,8 @@ const VOICE_SCENES = [
   ['Jerky Motel', (name) => name.startsWith('vo.motel.')],
   ['NO WAKE', (name) => name.startsWith('vo.nowake.')],
   ['The Silver Room', (name) => name.startsWith('vo.silver.')],
+  ['The HotDog Incident', (name) => name.startsWith('vo.bing2.')],
+  ['Squatch Graveyard', (name) => name.startsWith('vo.graveyard.')],
   ['Initiation', (name) => name.startsWith('vo.initiation.')],
   ['Radio', (name) => name.startsWith('radio.')],
 ];
@@ -47,6 +49,10 @@ const VOICE_DIRECTION = {
   lou: 'Big Uncle Lou. Controlled and almost gentle. The quiet certainty matters more than menace.',
   willy: 'Willy. Talkative and defensive, not comic relief. He starts by making the ride normal, then realizes why he was invited.',
   booski: 'Booskibro. Usually the room\'s loudest man; deliberately low and precise when family business turns serious.',
+  hotdog: 'Billy HotDog. Loud, comfortable, and casually cruel. The final insult gets quieter, not bigger.',
+  aubbie: 'Aubbie. Tired utility man, practical and dry. Every joke should sound like a repair estimate.',
+  echo: 'Echo. Frightened and plainly alive. Record clean; the grave muffling belongs to scene playback.',
+  snow: 'Snow. Minimal words and flat authority. He treats every impossible graveyard sound as weather.',
 };
 
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
@@ -104,7 +110,8 @@ function renderVoice(out, voice, voices) {
   const reuse = voiceReusePlan(voice);
   const order = [
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
-    'Jerky Motel', 'NO WAKE', 'The Silver Room', 'Initiation', 'Radio',
+    'Jerky Motel', 'NO WAKE', 'The Silver Room', 'The HotDog Incident',
+    'Squatch Graveyard', 'Initiation', 'Radio',
   ];
 
   if (!voice.length) {
@@ -132,6 +139,29 @@ function renderVoice(out, voice, voices) {
       }
       out.push('');
     }
+  }
+}
+
+function renderHotDogLedger(out, cues, have) {
+  const authored = cues.filter((cue) => cue.name.startsWith('vo.bing2.')
+    || cue.name.startsWith('vo.graveyard.'));
+  if (!authored.length) return;
+
+  const recorded = authored.filter((cue) => have.has(fileOf(cue))).length;
+  out.push('## Complete authored ledger - The HotDog Incident and Squatch Graveyard', '');
+  out.push(`${authored.length} authored cue(s): ${recorded} **RECORDED**, ${authored.length - recorded} **NEEDS RECORDING**.`, '');
+
+  for (const [scene, owns] of [
+    ['Closed Bada Bing party', (cue) => cue.name.startsWith('vo.bing2.')],
+    ['Squatch graveyard', (cue) => cue.name.startsWith('vo.graveyard.')],
+  ]) {
+    const sceneCues = authored.filter(owns).sort((a, b) => a.name.localeCompare(b.name));
+    out.push(`### ${scene} (${sceneCues.length})`, '');
+    for (const cue of sceneCues) {
+      const status = have.has(fileOf(cue)) ? '**RECORDED**' : '**NEEDS RECORDING**';
+      out.push(`- ${status} \`${fileOf(cue)}\` - ${JSON.stringify(cue.say)}`);
+    }
+    out.push('');
   }
 }
 
@@ -296,6 +326,7 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
     total: futureInitiationPartyAll.length,
     indexed: futureInitiationPartyAll.length - futureInitiationParty.length,
   });
+  renderHotDogLedger(out, allManifestVoice, have);
   renderManifestEffects(out, effects);
   renderLegacy(out, legacyQueue);
 
