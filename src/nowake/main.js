@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
+import { AuthoredClock } from '../core/authored-clock.js';
 import {
   MISSION_IDS, SCENE_IDS, createCampaign, navigateCampaign,
 } from '../core/campaign.js';
@@ -8,7 +9,9 @@ import { InteractionSystem } from '../core/interaction.js';
 import { createNoWakeStory } from '../core/no-wake-story.js';
 import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
+import { Radio } from '../core/radio.js';
 import { BulletHoles } from '../world/bullets.js';
+import { makeNineMillimeterPistol, makeRevolver } from '../world/props.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
 
@@ -82,6 +85,13 @@ const state = {
 
 const DRIVE_SECONDS = 90;
 const boat = world.boat;
+const radioClock = new AuthoredClock(12.75);
+radioClock.setTime(3, 12 * 60 + 45);
+const radio = new Radio(audio, hud, radioClock);
+const radioPosition = new THREE.Vector3();
+boat.targets.radio.getWorldPosition(radioPosition);
+radio.setPosition(radioPosition);
+const radioReady = radio.loadManifest();
 const local = new THREE.Vector3();
 const carriedLocal = new THREE.Vector3();
 const carriedWorld = new THREE.Vector3();
@@ -151,7 +161,7 @@ function registerInteractions() {
     onUse: () => {
       state.boarded = true;
       player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72)));
-      player.ground = boat.deck.height;
+      player.ground = boat.root.position.y + boat.deck.height;
       player.yaw = 0;
       hud.toast('Aboard · Gate C', 'good');
       setObjective('Start the boat', 'Battery · blower · ignition');
@@ -197,6 +207,23 @@ function registerInteractions() {
       audio.startLoop('engine', { name: 'engine.idle', volume: .17 });
       setObjective('Release the mooring lines', 'Bow and stern · then take the helm');
       hud.toast('Twin diesels alive', 'good');
+    },
+  });
+  interaction.register(boat.targets.radio, {
+    label: () => (radio.on
+      ? 'Turn off the <b>boat radio</b> · hold to <b>tune</b> &nbsp;<span style="opacity:.6">[R] skip</span>'
+      : 'Turn on the <b>boat radio</b> · hold to <b>tune</b>'),
+    enabled: () => state.boarded && !state.dialogue,
+    hold: .8,
+    onTap: () => {
+      radio.toggle();
+      boat.controls.radio.setOn(radio.on);
+      hud.toast(radio.on ? `${radio.station.dial} · ${radio.station.name}` : 'Boat radio off');
+    },
+    onUse: () => {
+      radio.tune();
+      boat.controls.radio.setOn(radio.on);
+      hud.toast(`${radio.station.dial} · ${radio.station.name}`);
     },
   });
   for (const [key, target, name] of [
@@ -295,6 +322,10 @@ function beginConfrontation() {
   state.atHelm = false;
   helmHud.classList.add('hidden');
   player.mode = 'frozen';
+  if (radio.on) {
+    radio.turnOff();
+    boat.controls.radio.setOn(false);
+  }
   setObjective('Listen', 'The engines tick in the swell');
   const motel = campaign.state.missions[MISSION_IDS.JERKY_MOTEL];
   const beef = campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
@@ -332,31 +363,38 @@ function willyBelow() {
   }, 4300);
 }
 
-function makeGun() {
-  const gun = new THREE.Group();
-  const dark = new THREE.MeshStandardMaterial({ color: 0x17191a, roughness: .35, metalness: .72 });
-  const grip = new THREE.MeshStandardMaterial({ color: 0x4a2d1e, roughness: .8 });
-  const barrel = new THREE.Mesh(new THREE.BoxGeometry(.07, .08, .42), dark);
-  barrel.position.z = -.18;
-  const handle = new THREE.Mesh(new THREE.BoxGeometry(.09, .26, .12), grip);
-  handle.position.set(0, -.13, .04);
-  handle.rotation.x = -.25;
-  gun.add(barrel, handle);
+function executionGun(model, name, calibre, scale = 1) {
+  const gun = model.group;
+  gun.name = name;
+  gun.scale.setScalar(scale);
+  gun.userData.weaponModel = calibre;
+  gun.userData.muzzle = model.muzzle.clone();
   return gun;
 }
 
 function prepareGuns() {
   if (state.gunsReady) return;
   state.gunsReady = true;
-  state.louGun = makeGun();
-  state.booskiGun = makeGun();
+  state.louGun = executionGun(
+    makeNineMillimeterPistol(null, { x: 0, y: 0, z: 0 }),
+    'Lou 9mm pistol', '9mm semi-automatic', 1.15,
+  );
+  state.booskiGun = executionGun(
+    makeNineMillimeterPistol(null, { x: 0, y: 0, z: 0 }),
+    'Booski 9mm pistol', '9mm semi-automatic', 1.15,
+  );
   boat.cast.lou.parts.foreR.add(state.louGun);
   boat.cast.booski.parts.foreR.add(state.booskiGun);
-  state.louGun.position.set(0, -.22, -.12);
+  state.louGun.position.set(0, -.20, -.10);
+  state.louGun.rotation.set(-.05, 0, 0);
   state.booskiGun.position.copy(state.louGun.position);
-  state.playerGun = makeGun();
-  state.playerGun.position.set(.26, -.24, -.52);
-  state.playerGun.rotation.set(-.08, 0, 0);
+  state.booskiGun.rotation.copy(state.louGun.rotation);
+  state.playerGun = executionGun(
+    makeRevolver(null, { x: 0, y: 0, z: 0 }),
+    'Tony revolver', 'six-shot revolver', 1.35,
+  );
+  state.playerGun.position.set(.20, -.24, -.34);
+  state.playerGun.rotation.set(.06, -.16, 0);
   state.playerGun.visible = false;
   camera.add(state.playerGun);
 }
@@ -389,7 +427,7 @@ function fireExecution() {
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(0, 1.35, .22));
   const normal = camera.position.clone().sub(impact).normalize();
   audio.play('gun.shot', { volume: 1 });
-  blood.muzzle(camera.localToWorld(new THREE.Vector3(.25, -.18, -.72)));
+  blood.muzzle(state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone()));
   blood.punch(impact, normal);
   state.executionShots = 1;
   state.playerGun.rotation.x = .32;
@@ -401,7 +439,7 @@ function fireExecution() {
 
 function npcShot(npc, gun) {
   if (state.phase !== 'execution') return;
-  const muzzle = gun.localToWorld(new THREE.Vector3(0, 0, -.42));
+  const muzzle = gun.localToWorld(gun.userData.muzzle.clone());
   audio.play('gun.shot', { volume: .92, position: muzzle });
   blood.muzzle(muzzle);
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(
@@ -480,9 +518,9 @@ function updateReturn(dt) {
   if (state.phase !== 'return') return;
   const k = Math.min(1, state.phaseTime / 16);
   const ease = k * k * (3 - 2 * k);
-  boat.root.position.lerpVectors(state.returnFrom, new THREE.Vector3(0, 0, 0), ease);
+  boat.root.position.lerpVectors(state.returnFrom, new THREE.Vector3(0, boat.floatY, 0), ease);
   boat.root.rotation.y = THREE.MathUtils.lerp(state.returnHeading, 0, ease);
-  boat.root.position.y = Math.sin(state.phaseTime * 1.2) * .05;
+  boat.root.position.y = boat.floatY + Math.sin(state.phaseTime * 1.2) * .05;
   camera.position.lerp(new THREE.Vector3(
     boat.root.position.x + 7, boat.root.position.y + 4.4, boat.root.position.z + 13,
   ), Math.min(1, dt * 1.6));
@@ -544,7 +582,7 @@ function updateBoat(dt) {
 
     physics.advance(dt);
     const motion = physics.motion();
-    boat.root.position.set(physics.position.x, motion.heave, physics.position.y);
+    boat.root.position.set(physics.position.x, boat.floatY + motion.heave, physics.position.y);
     boat.root.rotation.set(motion.pitch, physics.heading, motion.roll, 'YXZ');
     boat.wheel.rotation.z = physics.steer * .7;
     boat.controls.throttle.setValue(physics.throttle);
@@ -635,7 +673,7 @@ function resumeCheckpoint() {
   physics.distance = 430;
   physics.heading = 0;
   physics.throttle = 0;
-  boat.root.position.set(0, 0, -430);
+  boat.root.position.set(0, boat.floatY, -430);
   state.boarded = true;
   if (checkpoint === 'open_water') {
     phase('coast');
@@ -669,7 +707,8 @@ resumeCheckpoint();
 const runtime = {
   get phase() { return state.phase; }, set phase(v) { state.phase = v; },
   get campaignState() { return campaign.state; },
-  state, physics, world, boat, player, interaction, story, postfx, dialogueLog: state.dialogueLog,
+  state, physics, world, boat, player, interaction, story, postfx, radio, radioReady,
+  dialogueLog: state.dialogueLog,
   startUnderway() {
     Object.assign(state, {
       boarded: true, battery: true, blower: true, engine: true, bowLine: true, sternLine: true,
@@ -710,6 +749,7 @@ startButton.addEventListener('click', async () => {
     return;
   }
   await audio.init();
+  await radioReady;
   // Decoding the global library is deliberately background work. The shared
   // engine upgrades cues as buffers land; it must not hold the harbor behind
   // a title card while unrelated campaign VO decodes.
@@ -732,6 +772,7 @@ document.addEventListener('keydown', (event) => {
   if (event.code === 'Space') event.preventDefault();
   player.setKey(event.code, true);
   if (event.code === 'KeyE') interaction.press();
+  if (event.code === 'KeyR' && radio.on) radio.next();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
   if (event.code === 'KeyQ' && state.atHelm) leaveHelm();
 });
@@ -770,6 +811,10 @@ function animate(now) {
   updateReturn(dt);
   blood.update(dt);
   if (state.playerGun) state.playerGun.rotation.x += (0 - state.playerGun.rotation.x) * Math.min(1, dt * 9);
+  boat.targets.radio.getWorldPosition(radioPosition);
+  radio.setPosition(radioPosition);
+  radioClock.update(dt);
+  radio.update(dt);
   world.update(elapsed, dt);
   hud.setClock(3, state.phase === 'complete' ? '4:40 PM' : '12:45 PM', elapsed);
   postfx.render();

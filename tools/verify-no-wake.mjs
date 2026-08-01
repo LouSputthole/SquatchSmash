@@ -75,6 +75,7 @@ try {
     }])),
     boatName: window.NO_WAKE.boat.root.name,
     dimensions: window.NO_WAKE.boat.root.userData.dimensions,
+    waterline: window.NO_WAKE.boat.root.userData.waterline,
     detailMeshes: window.NO_WAKE.boat.root.userData.detailMeshes,
     controls: Object.fromEntries(Object.entries(window.NO_WAKE.boat.controls)
       .filter(([, value]) => value?.root)
@@ -103,9 +104,78 @@ try {
       && /ignition key/.test(boot.controls.ignition)
       && boot.lines.bow.attached === true && boot.lines.stern.attached === true,
     JSON.stringify({ controls: boot.controls, lines: boot.lines }));
+  check('the cruiser sits at a measured displacement waterline instead of riding on its chine',
+    boot.waterline.restingY < -.1
+      && boot.waterline.draft > .85 && boot.waterline.draft < 1.05
+      && boot.waterline.sideFreeboard > .70 && boot.waterline.sideFreeboard < .95
+      && boot.waterline.deckFreeboard > .95 && boot.waterline.deckFreeboard < 1.15,
+    JSON.stringify(boot.waterline));
+  const boatRadio = await page.evaluate(async () => {
+    const game = window.NO_WAKE;
+    await game.radioReady;
+    game.state.boarded = true;
+    const desc = game.boat.targets.radio.userData.interact;
+    const V = game.player.position.constructor;
+    game.player.mode = 'frozen';
+    game.player.position.copy(game.world.fromBoatLocal(new V(.62, 2.42, .28)));
+    game.player.update(.016);
+    const target = new V();
+    game.boat.targets.radio.getWorldPosition(target);
+    const delta = target.sub(game.player.camera.position);
+    game.player.yaw = Math.atan2(-delta.x, -delta.z);
+    game.player.pitch = Math.asin(delta.y / delta.length());
+    game.player.update(.016);
+    game.player.camera.updateMatrixWorld(true);
+    game.interaction.update(.016);
+    const targeted = game.interaction.current === game.boat.targets.radio;
+    desc.onTap();
+    game.radio.update(.1);
+    const on = {
+      powered: game.radio.on,
+      stationCount: game.radio.stations.length,
+      station: game.radio.station.name,
+      dial: game.radio.station.dial,
+      tracks: game.radio.tracks.length,
+      osdVisible: !document.getElementById('radio-osd').classList.contains('hidden'),
+      model: game.boat.targets.radio.name,
+      modelMeshes: (() => {
+        let n = 0;
+        game.boat.targets.radio.traverse((object) => { if (object.isMesh) n++ });
+        return n;
+      })(),
+      hold: desc.hold,
+      targeted,
+    };
+    desc.onTap();
+    return { ...on, poweredOff: !game.radio.on };
+  });
+  check('the modeled boat stereo runs the shared station schedule, music manifest and radio OSD',
+    /marine stereo radio/.test(boatRadio.model)
+      && boatRadio.modelMeshes >= 4 && boatRadio.hold > 0 && boatRadio.targeted
+      && boatRadio.powered && boatRadio.poweredOff
+      && boatRadio.stationCount >= 1 && /97\.8/.test(boatRadio.dial)
+      && boatRadio.tracks >= 1 && boatRadio.osdVisible,
+    JSON.stringify(boatRadio));
   const marinaRefinement = await page.evaluate(() => {
     const game = window.NO_WAKE;
     const Box3 = game.boat.localColliders[0].constructor;
+    const exteriorFaces = (hull) => {
+      const p = hull.geometry.attributes.position;
+      const V = hull.position.constructor;
+      let outward = 0;
+      let sideFaces = 0;
+      for (let i = 0; i < p.count; i += 3) {
+        const a = new V().fromBufferAttribute(p, i);
+        const b = new V().fromBufferAttribute(p, i + 1);
+        const c = new V().fromBufferAttribute(p, i + 2);
+        if (Math.max(a.z, b.z, c.z) - Math.min(a.z, b.z, c.z) < .01) continue;
+        const centerX = (a.x + b.x + c.x) / 3;
+        const normal = b.clone().sub(a).cross(c.clone().sub(a));
+        sideFaces++;
+        if (normal.x * centerX > 0) outward++;
+      }
+      return { outward, sideFaces };
+    };
     const controlBoxes = ['battery', 'blower', 'ignition'].map((id) => ({
       id,
       box: new Box3().setFromObject(game.boat.controls[id].root),
@@ -126,16 +196,25 @@ try {
         name: boat.name,
         details: boat.userData.detailMeshes,
         hullVertices: hull.geometry.attributes.position.count,
+        exterior: exteriorFaces(hull),
       };
     });
-    return { controlSpan: maxX - minX, overlaps, neighbors };
+    const cruiserHull = game.boat.root.getObjectByName('deep-v hull');
+    return {
+      controlSpan: maxX - minX,
+      overlaps,
+      neighbors,
+      cruiserExterior: exteriorFaces(cruiserHull),
+    };
   });
   check('the compact startup cluster keeps three distinct non-overlapping controls',
     marinaRefinement.controlSpan < 1.05 && marinaRefinement.overlaps.length === 0,
     JSON.stringify({ span: marinaRefinement.controlSpan, overlaps: marinaRefinement.overlaps }));
   check('the nearby floating shapes are three detailed boats with tapered hulls',
     marinaRefinement.neighbors.length === 3
-      && marinaRefinement.neighbors.every((boat) => boat.details >= 25 && boat.hullVertices >= 30),
+      && marinaRefinement.neighbors.every((boat) => boat.details >= 25 && boat.hullVertices >= 30
+        && boat.exterior.outward === boat.exterior.sideFaces)
+      && marinaRefinement.cruiserExterior.outward === marinaRefinement.cruiserExterior.sideFaces,
     JSON.stringify(marinaRefinement.neighbors));
   check('railings and deck furniture have local collision while the water has a dense displaced surface',
     boot.localColliders >= 10 && boot.waterVertices >= 40000,
@@ -214,6 +293,20 @@ try {
   await page.screenshot({ path: path.join(shots, 'no-wake-gate-c.png') });
   await page.evaluate(() => {
     const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    game.player.mode = 'frozen';
+    game.player.position.set(7.0, 1.34, -6.2);
+    game.player.update(.016);
+    const aim = game.world.fromBoatLocal(new V(0, .30, -.4));
+    const delta = aim.clone().sub(game.player.camera.position);
+    game.player.yaw = Math.atan2(-delta.x, -delta.z);
+    game.player.pitch = Math.asin(delta.y / delta.length());
+    game.player.update(.016);
+  });
+  await page.waitForTimeout(80);
+  await page.screenshot({ path: path.join(shots, 'no-wake-waterline.png') });
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
     game.player.mode = 'frozen';
     game.player.position.copy(game.world.fromBoatLocal(
       new game.player.position.constructor(.62, 2.42, .28),
@@ -231,7 +324,7 @@ try {
     game.boat.targets.board.userData.interact.onUse();
     game.player.mode = 'walk';
     game.player.enabled = true;
-    game.player.ground = game.boat.deck.height;
+    game.player.ground = game.boat.root.position.y + game.boat.deck.height;
     game.player.position.copy(game.world.fromBoatLocal(new V(-1.68, 2.68, 3.72)));
     game.player.yaw = 0;
     game.player.clearKeys();
@@ -244,7 +337,7 @@ try {
       .distanceToPoint(game.player.position);
 
     game.player.position.copy(game.world.fromBoatLocal(new V(-1.68, 2.68, -4.75)));
-    game.player.ground = game.boat.deck.height;
+    game.player.ground = game.boat.root.position.y + game.boat.deck.height;
     game.player.jumpHeight = 0;
     game.player.grounded = true;
     game.player.velocity.set(0, 0, 0);
@@ -278,7 +371,7 @@ try {
     game.state.blower = true;
     game.state.engine = true;
       game.player.position.copy(game.world.fromBoatLocal(new V(-1.68, 2.68, -5.12)));
-      game.player.ground = game.boat.deck.height;
+      game.player.ground = game.boat.root.position.y + game.boat.deck.height;
       game.player.update(1 / 60);
       const aim = game.world.fromBoatLocal(new V(-2.22, 1.37, -5.35));
       const delta = aim.clone().sub(game.player.camera.position);
@@ -392,10 +485,23 @@ try {
     phase: window.NO_WAKE.phase,
     playerGun: window.NO_WAKE.state.playerGun?.visible,
     willyVisible: window.NO_WAKE.boat.cast.willy.group.visible,
+    weapons: Object.fromEntries(['playerGun', 'louGun', 'booskiGun'].map((key) => {
+      const gun = window.NO_WAKE.state[key];
+      let meshes = 0;
+      gun?.traverse((object) => { if (object.isMesh) meshes++ });
+      return [key, { name: gun?.name, model: gun?.userData.weaponModel, meshes }];
+    })),
   }));
   check('Willy returns to three armed men and waits for the player-authored shot',
     armed.phase === 'ready_to_fire' && armed.playerGun && armed.willyVisible,
     JSON.stringify(armed));
+  check('Tony carries the shared revolver while Lou and Booski carry detailed reusable 9mm pistols',
+    armed.weapons.playerGun.model === 'six-shot revolver'
+      && armed.weapons.playerGun.meshes >= 15
+      && armed.weapons.louGun.model === '9mm semi-automatic'
+      && armed.weapons.booskiGun.model === '9mm semi-automatic'
+      && armed.weapons.louGun.meshes >= 20 && armed.weapons.booskiGun.meshes >= 20,
+    JSON.stringify(armed.weapons));
   await page.screenshot({ path: path.join(shots, 'no-wake-execution-ready.png') });
   await page.evaluate(() => {
     const game = window.NO_WAKE;

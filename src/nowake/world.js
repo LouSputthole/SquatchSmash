@@ -26,6 +26,11 @@ const _to = new THREE.Vector3();
 const _direction = new THREE.Vector3();
 const _localPlayer = new THREE.Vector3();
 const _worldPlayer = new THREE.Vector3();
+const WATER_LEVEL = -0.18;
+// Settle both the cruiser and its neighboring boats into the surface instead
+// of balancing them on the chine. The main hull then draws about .94 m and
+// keeps .81 m of side freeboard, appropriate for this 42-foot cruiser.
+const BOAT_FLOAT_Y = -0.14;
 
 function beamBetween(from, to, radius, material, sides = 10) {
   _from.copy(from);
@@ -122,10 +127,10 @@ function buildWater(scene) {
   });
   const water = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000, 220, 220), material);
   water.rotation.x = -Math.PI / 2;
-  water.position.y = -0.18;
+  water.position.y = WATER_LEVEL;
   water.receiveShadow = true;
   scene.add(water);
-  return { mesh: water, material };
+  return { mesh: water, material, level: WATER_LEVEL };
 }
 
 function marinaHullGeometry(length, beam) {
@@ -148,7 +153,10 @@ function marinaHullGeometry(length, beam) {
       const bt = [side * b.w, .54, b.z];
       const bc = [side * b.w * .78, -.12, b.z];
       const bk = [0, -.68, b.z];
-      if (side < 0) {
+      // Winding faces away from the centreline on both sides. The original
+      // branch was reversed, so Three culled every exterior hull panel and
+      // left the rub strip and transom looking detached above the water.
+      if (side > 0) {
         tri(at, bt, bc); tri(at, bc, ac); tri(ac, bc, bk); tri(ac, bk, ak);
       } else {
         tri(at, bc, bt); tri(at, ac, bc); tri(ac, bk, bc); tri(ac, ak, bk);
@@ -324,7 +332,7 @@ function buildMarina(scene) {
     const cabinLight = new THREE.PointLight(0xf2d49a, 1.6, 7, 2);
     cabinLight.position.set(0, 1.46, -.85);
     other.add(cabinLight);
-    other.position.set(x, 0, z);
+    other.position.set(x, BOAT_FLOAT_Y, z);
     other.rotation.y = yaw;
     let details = 0;
     other.traverse((object) => { if (object.isMesh) details++; });
@@ -367,7 +375,7 @@ function cruiserHullGeometry() {
       const bt = [side * b.w, .72, b.z];
       const bc = [side * b.w * .82, -.28, b.z];
       const bk = [0, -1.03, b.z];
-      if (side < 0) {
+      if (side > 0) {
         tri(at, bt, bc); tri(at, bc, ac); tri(ac, bc, bk); tri(ac, bk, ak);
       } else {
         tri(at, bc, bt); tri(at, ac, bc); tri(ac, bk, bc); tri(ac, ak, bk);
@@ -388,6 +396,7 @@ function buildBoat(scene, marina) {
   const root = new THREE.Group();
   root.name = '42-foot cabin cruiser';
   root.userData.dimensions = { length: 13.2, beam: 4.96, deckHeight: 1.02 };
+  root.position.y = BOAT_FLOAT_Y;
   const white = mat(0xd7d4c9, 0.66);
   const ivory = mat(0xeee9dc, .7);
   const navy = mat(0x172b34, 0.55);
@@ -586,11 +595,35 @@ function buildBoat(scene, marina) {
   throttle.position.set(.05, 1.53, -.74);
   root.add(throttle);
 
-  const radio = box([.46, .26, .18], black, 1.04, 2.40, -.88);
-  root.add(radio);
+  const vhf = box([.46, .26, .18], black, 1.04, 2.40, -.88);
+  vhf.name = 'marine VHF radio';
+  root.add(vhf);
   const radioFace = textPlate('VHF 16', .43, .15, { foreground: '#78c8b7', background: '#0b1719', border: '#273234', font: 30 });
   radioFace.position.set(1.04, 2.41, -.785);
   root.add(radioFace);
+
+  // Entertainment stereo beside the VHF. It drives the same station and
+  // music system as the apartment radio; the physical face and power lamp
+  // make its state readable without relying on the HUD.
+  const stereo = new THREE.Group();
+  stereo.name = 'marine stereo radio';
+  stereo.add(box([.50, .26, .18], black, 0, 0, 0));
+  const stereoFace = textPlate('97.8 FM', .32, .14, {
+    foreground: '#e6c86f', background: '#111719', border: '#364044', font: 31,
+  });
+  stereoFace.position.set(-.035, .012, .096);
+  stereo.add(stereoFace);
+  const tuneKnob = cylinder(.045, .045, chrome, .195, .010, .100, 18);
+  tuneKnob.rotation.x = Math.PI / 2;
+  stereo.add(tuneKnob);
+  const stereoLedMat = new THREE.MeshStandardMaterial({
+    color: 0x24312b, emissive: 0x000000, emissiveIntensity: 0,
+  });
+  const stereoLed = cylinder(.016, .018, stereoLedMat, .195, -.072, .104, 14);
+  stereoLed.rotation.x = Math.PI / 2;
+  stereo.add(stereoLed);
+  stereo.position.set(.54, 2.40, -.88);
+  root.add(stereo);
   const compass = mesh(new THREE.SphereGeometry(.16, 22, 14, 0, Math.PI * 2, 0, Math.PI / 2), glass, .20, 2.46, -1.32);
   root.add(compass);
 
@@ -692,8 +725,8 @@ function buildBoat(scene, marina) {
     scene.add(line);
     return line;
   }
-  const bowLine = mooringLine('bow', new THREE.Vector3(-2.22, 1.32, -5.35), marina.dockCleats.bow);
-  const sternLine = mooringLine('stern', new THREE.Vector3(-2.22, 1.32, 5.25), marina.dockCleats.stern);
+  const bowLine = mooringLine('bow', new THREE.Vector3(-2.22, 1.32 + BOAT_FLOAT_Y, -5.35), marina.dockCleats.bow);
+  const sternLine = mooringLine('stern', new THREE.Vector3(-2.22, 1.32 + BOAT_FLOAT_Y, 5.25), marina.dockCleats.stern);
 
   const controls = {
     battery: {
@@ -717,17 +750,27 @@ function buildBoat(scene, marina) {
       root: throttle,
       setValue(value) { throttlePivot.rotation.x = THREE.MathUtils.clamp(value, -1, 1) * -.62; },
     },
+    radio: {
+      root: stereo,
+      setOn(on) {
+        stereoLedMat.color.setHex(on ? 0x5bd889 : 0x24312b);
+        stereoLedMat.emissive.setHex(on ? 0x1d9a52 : 0x000000);
+        stereoLedMat.emissiveIntensity = on ? 1.8 : 0;
+      },
+    },
     gaugeNeedles,
   };
   controls.battery.setOn(false);
   controls.blower.setOn(false);
   controls.ignition.setOn(false);
+  controls.radio.setOn(false);
 
   const targets = {
     board,
     battery,
     blower,
     ignition,
+    radio: stereo,
     helm: wheel,
     bowLine,
     sternLine,
@@ -779,8 +822,20 @@ function buildBoat(scene, marina) {
   let detailMeshes = 0;
   root.traverse((object) => { if (object.isMesh) detailMeshes++; });
   root.userData.detailMeshes = detailMeshes;
+  const keelY = BOAT_FLOAT_Y + .05 - 1.03;
+  const sheerY = BOAT_FLOAT_Y + .05 + .72;
+  root.userData.waterline = {
+    surfaceY: WATER_LEVEL,
+    restingY: BOAT_FLOAT_Y,
+    keelY,
+    sheerY,
+    draft: WATER_LEVEL - keelY,
+    sideFreeboard: sheerY - WATER_LEVEL,
+    deckFreeboard: BOAT_FLOAT_Y + 1.02 - WATER_LEVEL,
+  };
   return {
     root, targets, controls, cast, wheel, localColliders,
+    floatY: BOAT_FLOAT_Y,
     deck: { halfBeam: 2.25, bow: -5.75, stern: 5.70, height: 1.02 },
   };
 }

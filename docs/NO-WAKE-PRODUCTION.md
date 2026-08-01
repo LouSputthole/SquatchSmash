@@ -21,8 +21,10 @@ v2 saves receive the new mission normally.
 ## Playable flow
 
 1. Walk the rebuilt Gate C marina and board the 42-foot early-1990s cabin cruiser.
-2. Operate the modeled battery rocker, bilge-blower button, ignition key, bow
-   line, stern line, and helm. The two mooring ropes physically span the boat
+2. Operate the modeled battery rocker, bilge-blower button, ignition key, boat
+   stereo, bow line, stern line, and helm. The stereo runs the shared 97.8
+   station schedule, talk segments and music manifest, with <kbd>R</kbd> skip.
+   The two mooring ropes physically span the boat
    and dock cleats until Tony removes them. A full-width port side deck leads
    from the boarding gap to the bow line, with collidered rails at the stem.
 3. Reverse out and drive the marked channel for at least 90 seconds. Fixed-step
@@ -37,14 +39,19 @@ v2 saves receive the new mission normally.
 7. Hold the body interaction, then ride back in silence.
 
 The cruiser now carries an authored wheelhouse, instrument cluster,
-chartplotter, VHF, compass, twin throttle, seating, engine hatches, safety
+chartplotter, VHF, interactive marine stereo, compass, twin throttle, seating, engine hatches, safety
 equipment, fenders, navigation lights and deck hardware. Its rails, cabin,
 helm, seats and deck equipment have boat-local collision so their blockers
 move and rotate with the vessel. The marina adds individual dock planks,
 pilings, bumpers, shore power, hose and safety equipment. Its neighboring
 craft are detailed tapered-hull runabouts rather than floating box stand-ins.
 The startup controls occupy one compact, non-overlapping fascia, while layered
-wave, fresnel, ripple and glint shading provides the denser water surface.
+wave, fresnel, ripple and glint shading provides the denser water surface. Its
+resting hull is lowered 14 cm from the prototype pose, producing a measured
+0.94 m draft, 0.81 m side freeboard and 1.06 m deck freeboard instead of
+visually balancing on the chine. The generated port and starboard hull panels
+also use outward triangle winding; exterior faces no longer disappear through
+back-face culling and leave the rub strip or transom apparently detached.
 
 The shared player controller now supports a grounded <kbd>Space</kbd> jump.
 Jump height is measured above the current floor frame, allowing the deck to
@@ -53,6 +60,10 @@ heave and turn under Tony without detaching him from the cruiser.
 Willy, Lou and Booski use stable campaign identities and the Bing figure rig.
 Willy's permanent profile now uses a broad waist, ribcage, hips and limbs with
 an integrated rounded belly instead of a narrow forward-projecting gut mesh.
+Tony's execution view-model reuses the canonical six-shot revolver carried
+forward from the Motel. Lou and Booski use a reusable detailed 9mm
+semi-automatic model with a separate slide, frame, barrel, sights, controls,
+trigger, guard, grip, magazine base and authoritative muzzle point.
 
 ## Verification
 
@@ -63,10 +74,11 @@ npm run verify:preview   # launcher plus byte-preserved canonical storage
 ```
 
 The NO WAKE verifier checks production boot, cruiser scale and detail,
-modeled compact startup controls, connected mooring ropes, bow-line access,
+modeled compact startup controls, shared boat radio, measured waterline,
+connected mooring ropes, bow-line access,
 grounded jump/landing, detailed neighboring craft, boat-local collision,
 stable cast identity, Willy's rounded body shape, safe mooring, helm-neutral
 propulsion, moving-deck player carry, checkpoints, dense water and wake,
-campaign-aware reveal, four-shot execution, disposal, date handoff, preview
+campaign-aware reveal, canonical revolver and detailed 9mm models, four-shot execution, disposal, date handoff, preview
 isolation and uncaught browser errors. It writes representative frames in
 `docs/validation/2026-07-31/`.

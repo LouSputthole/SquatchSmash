@@ -9,7 +9,7 @@ Nine playable or preserved experiences live in this repo.
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Snow is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
-| **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three's production boat mission: South Harbor startup, player-driven open-water run, Willy's betrayal, execution, disposal, and silent return. |
+| **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three's production boat mission: measured cruiser waterline, shared 97.8 radio, South Harbor startup, player-driven open-water run, canonical revolver/9mm weapons, Willy's betrayal, execution, disposal, and silent return. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
