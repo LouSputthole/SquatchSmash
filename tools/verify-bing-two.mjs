@@ -132,6 +132,9 @@ async function state() {
       bingOne: bing.campaign.state.missions.bada_bing_one,
       bingTwo: bing.campaign.state.missions.bada_bing_two,
       motel: bing.campaign.state.missions.jerky_motel,
+      scene: bing.campaign.state.scene,
+      day: bing.campaign.state.story.day,
+      timeMinutes: bing.campaign.state.story.timeMinutes,
       castCount: bing.cast.all.length,
       nextHref: document.getElementById('next-level')?.getAttribute('href') ?? null,
     };
@@ -147,6 +150,12 @@ try {
   check('Scene Two selects the reused Bada Bing runtime',
     current.isSecondVisit && current.castCount >= 20,
     `${current.castCount} cast members`);
+  check('loading Scene Two does not claim it or advance campaign time before Start',
+    current.bingTwo.status === 'available'
+      && current.scene.id === 'bada_bing_two'
+      && current.day === 2
+      && current.timeMinutes === 20 * 60 + 15,
+    JSON.stringify({ mission: current.bingTwo, scene: current.scene, day: current.day, time: current.timeMinutes }));
   /* Nothing of the first night's is handed back: the package went to the
    * Squatchfather and stays gone. The phone is not that kind of item -- it is
    * the one thing he has carried since Day One, in `carried` for good, and the
@@ -237,6 +246,29 @@ try {
       && motel.scene.spawn === 'passenger_seat'
       && motel.mission.status === 'available',
     JSON.stringify(motel));
+
+  const blockedContext = await browser.newContext({ viewport: { width: 480, height: 300 } });
+  const blockedPage = await blockedContext.newPage();
+  await blockedPage.goto(`http://localhost:${PORT}/bing.html?visit=2`, { waitUntil: 'load' });
+  await blockedPage.waitForFunction(() => window.__bing?.secondVisitStory, null, { timeout: 60000 });
+  const beforeBlockedStart = await blockedPage.evaluate(() => ({
+    scene: window.__bing.campaign.state.scene,
+    story: window.__bing.campaign.state.story,
+    mission: window.__bing.campaign.state.missions.bada_bing_two,
+  }));
+  await blockedPage.click('#start-btn');
+  await blockedPage.waitForFunction(() => document.getElementById('start-btn').disabled, null, { timeout: 10000 });
+  const afterBlockedStart = await blockedPage.evaluate(() => ({
+    scene: window.__bing.campaign.state.scene,
+    story: window.__bing.campaign.state.story,
+    mission: window.__bing.campaign.state.missions.bada_bing_two,
+  }));
+  check('an unauthorized direct Scene Two URL cannot alter a fresh campaign',
+    JSON.stringify(afterBlockedStart) === JSON.stringify(beforeBlockedStart)
+      && afterBlockedStart.scene.id === 'apartment'
+      && afterBlockedStart.mission.status === 'locked',
+    JSON.stringify(afterBlockedStart));
+  await blockedContext.close();
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {
   await browser.close();

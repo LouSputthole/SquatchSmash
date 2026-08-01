@@ -180,18 +180,23 @@ const requestedVisit = new URLSearchParams(location.search).get('visit');
 const isSecondVisit = requestedVisit === '2'
   || campaign.state.scene.id === SCENE_IDS.BADA_BING_TWO;
 const activeSceneId = isSecondVisit ? SCENE_IDS.BADA_BING_TWO : SCENE_IDS.BADA_BING_ONE;
-if (campaign.state.scene.id !== activeSceneId) {
-  campaign.enter(activeSceneId, { spawn: 'driver_seat' });
-}
+const secondVisitStory = isSecondVisit ? createBadaBingTwoStory({ campaign }) : null;
 /* The drive over. Both visits book their travel time on ARRIVAL rather than
  * on departure -- the campaign already knows the hour the prospect pulls
  * into this lot (23:41 on the first night), and until this ran the club sat
  * at whatever time he last got out of bed. `advanceTime` only ever moves the
- * clock forward, so re-entering a scene cannot rewind the evening. */
-campaign.advanceTime(isSecondVisit
-  ? TIME_EVENT_IDS.DEPART_BADA_BING_TWO
-  : TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
-const secondVisitStory = isSecondVisit ? createBadaBingTwoStory({ campaign }) : null;
+ * clock forward, so re-entering a scene cannot rewind the evening.
+ *
+ * Scene Two is deliberately claimed only after its story guard succeeds on
+ * Start. Merely opening `bing.html?visit=2` must not move a fresh save into a
+ * locked mission or advance its clock. Scene One retains its established
+ * arrival behavior. */
+if (!isSecondVisit) {
+  if (campaign.state.scene.id !== activeSceneId) {
+    campaign.enter(activeSceneId, { spawn: 'driver_seat' });
+  }
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
+}
 
 /* ---- he arrives empty-handed ----
  * The whole point of the first visit is Lou putting the package on the desk
@@ -2456,6 +2461,10 @@ startBtn.addEventListener('click', async () => {
       startBtn.disabled = true;
       return;
     }
+    if (campaign.state.scene.id !== activeSceneId) {
+      campaign.enter(activeSceneId, { spawn: 'driver_seat' });
+    }
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_BADA_BING_TWO);
     game.storyStarted = true;
   }
   await audio.init();
