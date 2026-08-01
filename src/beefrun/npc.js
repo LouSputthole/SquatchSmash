@@ -189,6 +189,12 @@ export function makeFigure(o = {}) {
 
   return {
     group: g, hips, neck, head, arms, legs,
+    // Figures face +Z when authored. Mission setup needs an immediate body
+    // turn before the first animation frame, rather than waiting for the
+    // neck-only look-at behaviour in updateFigure().
+    faceToward(x, z) {
+      g.rotation.y = Math.atan2(x - g.position.x, z - g.position.z);
+    },
     pose: 'idle',
     t: Math.random() * 10,
     talk: 0,

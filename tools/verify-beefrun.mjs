@@ -134,6 +134,9 @@ try {
   const scenePass = await page.evaluate(() => {
     const m = window.__beefrun.mission;
     const rows = m.preflight.checklist;
+    const dx = m.player.position.x - m.lou.group.position.x;
+    const dz = m.player.position.z - m.lou.group.position.z;
+    const facing = Math.abs(Math.atan2(Math.sin(m.lou.group.rotation.y - Math.atan2(dx, dz)), Math.cos(m.lou.group.rotation.y - Math.atan2(dx, dz))));
     return {
       next: m.preflight.next?.name,
       rows: rows.length,
@@ -141,15 +144,19 @@ try {
       markerInScene: !!m.preflight.marker?.parent,
       wingtipClear: m.airfield.anchors.parking.z + 17.2 / 2 < 396,
       stoveInHangar: m.stove.group.position.z > 396,
+      louFaceToward: typeof m.lou.faceToward === 'function',
+      louFacingPlayer: +facing.toFixed(3),
     };
   });
-  check('the walkaround is guided and the parked aeroplane fits the field',
+  check('the walkaround is guided, Lou faces Tony, and the parked aeroplane fits the field',
     scenePass.next === 'chocks'
       && scenePass.rows === 6
       && scenePass.states === 'next,todo,todo,todo,todo,todo'
       && scenePass.markerInScene
       && scenePass.wingtipClear
-      && scenePass.stoveInHangar,
+      && scenePass.stoveInHangar
+      && scenePass.louFaceToward
+      && scenePass.louFacingPlayer < 0.01,
     JSON.stringify(scenePass));
 
   /* The two men on the apron are named, and the names ride with them. */
