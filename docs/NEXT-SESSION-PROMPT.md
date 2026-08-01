@@ -128,13 +128,12 @@ The current focused follow-up adds campaign reset, objective-dialogue movement
 locks, actual phone audio playback verification, and a freshly generated
 `VOICE-LINES-TODO.md`.
 
-Current recording queue: **112 Bada Bing voice lines and 0 effects**.
-They are unrecorded full-conversation exchanges, including Big Uncle Lou,
-bouncer, bartender, dealer, Margo, and Tony replies; do not mistake them for
-an index/cue bug. The Day Two `vo.call.booski.airstrip.*` and second-Bing
-`vo.call.lou.bing_second.*` banks are already present in the manifest and
-indexed, so do not recreate them. After a recording pass run
-`npm run sfx:listen`, then `npm run audio:todo` and the affected browser gates.
+Current recording queue: **0 voice lines and 0 effects**. The recovered 112
+Bada Bing full-conversation takes are indexed and browser-verified as decoded
+audio. The Day Two `vo.call.booski.airstrip.*` and second-Bing
+`vo.call.lou.bing_second.*` banks are also present in the manifest and indexed;
+do not recreate them. After any future recording pass run `npm run sfx:listen`,
+then `npm run audio:todo` and the affected browser gates.
 
 The phone is campaign-derived: it has a readable Family thread, dynamic
 mission texts, wheel navigation in the apartment and Bing, and persisted read

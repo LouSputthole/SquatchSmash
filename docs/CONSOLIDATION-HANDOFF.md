@@ -133,11 +133,12 @@ thread. Calls retain their distinct `[Q] decline` / `[E] hang up` instructions.
   confirms Tony returns to normal walking after the dialogue reaches its
   authored end. `verify:day-one` proves Big Uncle Lou's first call is a
   decoded, nonzero-gain WebAudio buffer playback.
-- The live `VOICE-LINES-TODO.md` inventory currently lists **112 Bada Bing
-  voice lines and 0 effects**. They are the unrecorded full-conversation
-  exchanges (including Big Uncle Lou, bouncer, bartender, dealer, Margo, and
-  Tony replies), not a cue-loader failure. Run `npm run sfx:listen` after
-  adding MP3s, then regenerate the report with `npm run audio:todo`.
+- The live `VOICE-LINES-TODO.md` inventory now lists **0 voice lines and 0
+  effects**. The 112 Bada Bing full-conversation recordings (including Big
+  Uncle Lou, bouncer, bartender, dealer, Margo, and Tony replies) are present,
+  indexed, and browser-verified as decoded audio buffers. After any future
+  recording intake, run `npm run sfx:listen`, then regenerate the report with
+  `npm run audio:todo`.
 
 ## Campaign order — confirmed by the owner 2026-07-30
 

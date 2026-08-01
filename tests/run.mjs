@@ -1,4 +1,5 @@
 import './campaign.test.mjs';
+import './fresh-save-campaign-route.test.mjs';
 import './daynight.test.mjs';
 import './characters.test.mjs';
 import './initiation-canon.test.mjs';

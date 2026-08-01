@@ -93,6 +93,23 @@ await page.click('#start-btn');
 await page.waitForFunction(() => window.__bing?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__bing.postfx.disable?.());
 
+/* The long-form conversations use a separate `vo.bing.full.*` bank from the
+ * short bark probes below. A cue name in the manifest is not enough: every
+ * one needs a real file that decoded into the browser's live audio bank. */
+const fullConversationCues = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'),
+).sfx.filter((cue) => cue.name.startsWith('vo.bing.full.')).map((cue) => cue.name);
+const fullConversationProbe = await page.evaluate((cues) => {
+  const bank = window.__bing.audio.buffers;
+  return cues.map((cue) => ({ cue, duration: bank.get(cue)?.[0]?.duration ?? 0 }));
+}, fullConversationCues);
+check('every authored full Bing conversation has a decoded recording',
+  fullConversationCues.length === 112
+    && fullConversationProbe.every((entry) => entry.duration > 0),
+  JSON.stringify({ authored: fullConversationCues.length,
+    decoded: fullConversationProbe.filter((entry) => entry.duration > 0).length,
+    missing: fullConversationProbe.filter((entry) => entry.duration <= 0).slice(0, 3).map((entry) => entry.cue) }));
+
 /* A cue request in voLog only tells us that the script named a file.  It does
  * not prove the decoded buffer was ever put on the WebAudio graph -- the
  * exact failure that made a fully-recorded Bing sound silent.  Exercise one
