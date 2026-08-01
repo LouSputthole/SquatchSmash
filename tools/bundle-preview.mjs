@@ -123,6 +123,7 @@ function rewrite({ src, rel }) {
 const inline = {};
 for (const [dir, name] of [
   ['assets/art/', 'manifest.json'],
+  ['assets/arcade/', 'manifest.json'],
   ['assets/models/', 'manifest.json'],
   ['assets/music/', 'manifest.json'],
   ['assets/sfx/', 'manifest.json'],
@@ -299,7 +300,7 @@ function bakeMusic(limit) {
 }
 
 /** Re-encode one image through headless Chromium, since there is no PIL here. */
-async function shrinkAll(files) {   // files: [{ file, max }]
+async function shrinkAll(files, dir = 'assets/art/') {   // files: [{ file, max }]
   if (FULL) return new Map();
   let chromium;
   try {
@@ -327,7 +328,7 @@ async function shrinkAll(files) {   // files: [{ file, max }]
   const out = new Map();
   for (const { file, max } of files) {
     const ext = path.extname(file).toLowerCase();
-    const buf = read('assets/art/' + file);
+    const buf = read(dir + file);
     const url = await page.evaluate(async ({ src, max, q }) => {
       const img = new Image();
       img.src = src;
@@ -368,9 +369,12 @@ for (const e of entries) {
   budget.set(e.file, Math.max(budget.get(e.file) || 0, want));
 }
 const artFiles = [...budget].map(([file, max]) => ({ file, max }));
+const arcadeEntries = (inline['assets/arcade/manifest.json'].images || []).filter((e) => e.file);
+const arcadeFiles = arcadeEntries.map(({ file }) => ({ file, max: MAX_EDGE }));
 
-console.log(`Bundling ${modules.size} modules and ${artFiles.length} images…`);
-const shrunk = await shrinkAll(artFiles);
+console.log(`Bundling ${modules.size} modules, ${artFiles.length} apartment images, and ${arcadeFiles.length} computer images…`);
+const shrunk = await shrinkAll(artFiles, 'assets/art/');
+const shrunkArcade = await shrinkAll(arcadeFiles, 'assets/arcade/');
 
 let artBytes = 0;
 for (const entry of entries) {
@@ -379,6 +383,11 @@ for (const entry of entries) {
   entry.aspect = got?.aspect;
   entry.file = got?.url || dataUri(MIME[ext] || 'image/jpeg', read('assets/art/' + entry.file));
   artBytes += entry.file.length;
+}
+for (const entry of arcadeEntries) {
+  const ext = path.extname(entry.file).toLowerCase();
+  const got = shrunkArcade.get(entry.file);
+  entry.file = got?.url || dataUri(MIME[ext] || 'image/jpeg', read('assets/arcade/' + entry.file));
 }
 
 /* ------------------------------------------------------------------ */

@@ -1,0 +1,20 @@
+{
+  "_comment": "Images used only by the desk computer. Keeping them in a small manifest means the normal game and the single-file preview resolve the same assets.",
+  "images": [
+    {
+      "id": "counter-squatch.teamplay",
+      "file": "counter-squatch-teamplay.png",
+      "title": "TeamPlay"
+    },
+    {
+      "id": "counter-squatch.baiters-brain",
+      "file": "counter-squatch-baiters-brain.png",
+      "title": "Baiter's Brain"
+    },
+    {
+      "id": "counter-squatch.match-result",
+      "file": "counter-squatch-match-result.jpg",
+      "title": "Match Result"
+    }
+  ]
+}
