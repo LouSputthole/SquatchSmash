@@ -15,6 +15,8 @@
  *   onKey(code,down)     returns true if it consumed the key
  *   glow()               { colour, intensity } for the room's screen spill
  */
+import { loadJson, assetUrl } from '../core/assets.js';
+
 
 export const W = 640;
 export const H = 360;
@@ -38,6 +40,11 @@ export class SquatchOS {
     this.cursor = { x: W / 2, y: H / 2 };
     this.clock = '6:04 AM';
     this.exitHintText = 'TAB = EXIT TO DESKTOP';
+    this.wallpaper = null;
+    /* The real Silver Sasquatches shield comes from the same art manifest as
+     * the apartment frames. That keeps the desktop from growing a second,
+     * fake logo and lets the self-contained preview receive the inlined copy. */
+    void this._loadWallpaper();
 
     this._boot = [
       'SQUATCH BIOS v4.04',
@@ -255,6 +262,16 @@ export class SquatchOS {
   /** Fed from the apartment clock so the taskbar agrees with the wall. */
   setClock(text) { this.clock = text; }
 
+  async _loadWallpaper() {
+    const manifest = await loadJson('assets/art/', 'manifest.json');
+    const entry = (manifest?.art || []).find(({ slot }) => slot === 'desk.right')
+      || (manifest?.art || []).find(({ file }) => file === 'logo-shield.jpg');
+    if (!entry?.file || typeof Image === 'undefined') return;
+    const image = new Image();
+    image.onload = () => { this.wallpaper = image; };
+    image.src = assetUrl('assets/art/', entry.file);
+  }
+
   /* ---------------------------------------------------------------- */
   /* Chrome                                                            */
   /* ---------------------------------------------------------------- */
@@ -287,6 +304,15 @@ export class SquatchOS {
     for (let i = 0; i < 30; i++) {
       const x = (i * 137.5) % W;
       g.fillRect(x, 0, 1, H);
+    }
+    if (this.wallpaper?.naturalWidth && this.wallpaper?.naturalHeight) {
+      const scale = Math.min(W / this.wallpaper.naturalWidth, H / this.wallpaper.naturalHeight) * 0.82;
+      const w = this.wallpaper.naturalWidth * scale;
+      const h = this.wallpaper.naturalHeight * scale;
+      g.save();
+      g.globalAlpha = 0.42;
+      g.drawImage(this.wallpaper, (W - w) / 2, (H - h) / 2 - 9, w, h);
+      g.restore();
     }
 
     for (let i = 0; i < this.apps.length; i++) {

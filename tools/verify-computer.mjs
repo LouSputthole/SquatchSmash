@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verify the apartment computer as one lifecycle rather than six unrelated
+ * Verify the apartment computer as one lifecycle rather than eight unrelated
  * demos: sit down, launch every installed app, return to the desktop, leave
  * the chair, and resume a framed game without losing the apartment.
  */
@@ -248,10 +248,22 @@ try {
   check('the apartment PC boots while the player is seated',
     state.seated && state.playerMode === 'seated' && state.osMode === 'desktop',
     JSON.stringify(state));
-  check('all six known applications are installed once',
-    JSON.stringify(appIds) === JSON.stringify(['mail', 'smash', 'shoot', 'counter', 'yuka', 'doom'])
+  check('all eight known applications are installed once',
+    JSON.stringify(appIds) === JSON.stringify([
+      'mail', 'smash', 'shoot', 'counter', 'counter-guide', 'match-result', 'yuka', 'doom',
+    ])
       && new Set(appIds).size === appIds.length,
     JSON.stringify(state.apps));
+  await page.waitForFunction(() => window.__squatch?.arcade?.wallpaper?.naturalWidth > 0,
+    null, { timeout: 30000 });
+  const wallpaper = await page.evaluate(() => ({
+    width: window.__squatch.arcade.wallpaper.naturalWidth,
+    height: window.__squatch.arcade.wallpaper.naturalHeight,
+    src: window.__squatch.arcade.wallpaper.currentSrc || window.__squatch.arcade.wallpaper.src,
+  }));
+  check('the desktop wallpaper uses the real Silver Sasquatches shield',
+    wallpaper.width > 0 && wallpaper.height > 0 && /assets\/art\/logo-shield\.jpg$/.test(wallpaper.src),
+    JSON.stringify(wallpaper));
   check('the shared audio bank starts through a bounded request queue',
     state.audioLoad.requested > 0
       && state.audioLoad.peakConcurrent > 0
@@ -314,7 +326,7 @@ try {
       && mailInput.mode === 'desktop' && mailInput.appId === null,
     JSON.stringify(mailInput));
 
-  for (const id of ['shoot', 'counter', 'yuka']) {
+  for (const id of ['shoot', 'counter', 'counter-guide', 'match-result', 'yuka']) {
     const lifecycle = await page.evaluate((appId) => {
       const os = window.__squatch.arcade;
       const app = os.apps.find(({ id: candidate }) => candidate === appId);
@@ -333,6 +345,39 @@ try {
       lifecycle.entered && lifecycle.consumed && lifecycle.mode === 'desktop' && lifecycle.appId === null,
       JSON.stringify(lifecycle));
   }
+
+  const counterDeck = await page.evaluate(async () => {
+    const os = window.__squatch.arcade;
+    const app = os.apps.find(({ id }) => id === 'counter-guide');
+    os.launch(app);
+    await app.loading;
+    os.update(0.1);
+    const first = { slide: app.slide, teamplay: app.images.has('counter-squatch.teamplay') };
+    app.onKey('ArrowRight', true);
+    os.update(0.1);
+    const second = { slide: app.slide, baiters: app.images.has('counter-squatch.baiters-brain') };
+    os.onKey('Tab', true);
+    return { first, second, mode: os.mode };
+  });
+  check('the Counter-Squatch guide presents TeamPlay and Baiter’s Brain as readable slides',
+    counterDeck.first.slide === 0 && counterDeck.first.teamplay
+      && counterDeck.second.slide === 1 && counterDeck.second.baiters
+      && counterDeck.mode === 'desktop',
+    JSON.stringify(counterDeck));
+
+  const matchPhoto = await page.evaluate(async () => {
+    const os = window.__squatch.arcade;
+    const app = os.apps.find(({ id }) => id === 'match-result');
+    os.launch(app);
+    await app.loading;
+    os.update(0.1);
+    const imageLoaded = app.images.has('counter-squatch.match-result');
+    os.onKey('Tab', true);
+    return { imageLoaded, mode: os.mode };
+  });
+  check('the saved Counter-Squatch match result opens as its own desktop picture',
+    matchPhoto.imageLoaded && matchPhoto.mode === 'desktop',
+    JSON.stringify(matchPhoto));
 
   const smashLaunch = await page.evaluate(() => {
     const os = window.__squatch.arcade;

@@ -18,12 +18,15 @@
  *
  * That object is SquatchOS, which supplies the boot sequence, the desktop
  * and the CRT treatment and hands each installed app the drawing context
- * while it has focus. Five things are installed:
+ * while it has focus. Eight things are installed:
  *
  *   Squatch Mail    the inbox. One of the messages is the day going wrong
  *   Squatch Smash   the campground rampage game in game/, running for real
  *   Squatch Shoot   the shooting gallery, which used to have Smash's name
  *   Counter-Squatch a Counter-Strike parody you are not allowed to win
+ *   How To Counter  a two-slide TeamPlay / Baiter's Brain training deck
+ *   Match Result    the screenshot somebody saved after queueing
+ *   Yuka vs Olive   a food-scanner comparison page
  *   DOOM            mrdoob's port, framed from where it is published
  *
  * Three of those draw into the context the OS hands them. Smash and DOOM do
@@ -40,6 +43,7 @@ import { Mail } from './mail.js';
 import { Campground } from './campground.js';
 import { SquatchShoot } from './squatchshoot.js';
 import { CounterSquatch } from './counterstrike.js';
+import { CounterSquatchGuide, CounterSquatchMatchPhoto } from './counter-squatch-guide.js';
 import { Doom } from './doom.js';
 import { Yuka } from './yuka.js';
 
@@ -52,6 +56,8 @@ export function createArcade(opts = {}) {
   os.register(framed[0]);
   os.register(new SquatchShoot({ ...opts, os }));
   os.register(new CounterSquatch({ ...opts, os }));
+  os.register(new CounterSquatchGuide({ ...opts, os }));
+  os.register(new CounterSquatchMatchPhoto({ ...opts, os }));
   os.register(new Yuka({ ...opts, os }));
   os.register(framed[1]);
 

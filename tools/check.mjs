@@ -69,6 +69,7 @@ const manifests = [
   ['assets/sfx/manifest.json', (d) => Array.isArray(d.sfx) || 'missing "sfx" array'],
   ['assets/music/manifest.json', (d) => Array.isArray(d.tracks) || 'missing "tracks" array'],
   ['assets/art/manifest.json', (d) => Array.isArray(d.art) || 'missing "art" array'],
+  ['assets/arcade/manifest.json', (d) => Array.isArray(d.images) || 'missing "images" array'],
   ['assets/sfx/index.json', (d) => Array.isArray(d.files) || 'missing "files" array'],
 ];
 
@@ -128,6 +129,17 @@ try {
       fail(`assets/music/manifest.json: "${t.file}" not found`);
     }
   }
+  const arcade = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/arcade/manifest.json'), 'utf8'));
+  const ids = new Set();
+  for (const image of arcade.images || []) {
+    if (!image.id) fail('assets/arcade/manifest.json: image is missing "id"');
+    else if (ids.has(image.id)) fail(`assets/arcade/manifest.json: duplicate id "${image.id}"`);
+    else ids.add(image.id);
+    if (!image.file) fail(`assets/arcade/manifest.json: "${image.id || 'image'}" is missing "file"`);
+    else if (!fs.existsSync(path.join(ROOT, 'assets/arcade', image.file))) {
+      fail(`assets/arcade/manifest.json: "${image.file}" not found`);
+    }
+  }
 } catch (err) {
   fail(err.message);
 }
@@ -139,7 +151,11 @@ try {
 try {
   const sfxManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
   const voCues = sfxManifest.sfx.filter((c) => c.name.startsWith('vo.')).map((c) => c.name);
-  for (const file of ['src/main.js', 'src/world/apartment.js']) {
+  for (const file of [
+    'src/main.js',
+    'src/world/apartment.js',
+    'src/arcade/counter-squatch-guide.js',
+  ]) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     for (const m of src.matchAll(/audio\.say\(\s*'([^']+)'/g)) {
       const group = m[1];

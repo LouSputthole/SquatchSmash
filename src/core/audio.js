@@ -36,6 +36,7 @@ export const AUDIO_PRELOAD = Object.freeze({
   apartment: Object.freeze({
     prefixes: Object.freeze([
       'vo.call.',
+      'vo.computer.',
       'vo.news.',
       'vo.margo.wake.',
     ]),

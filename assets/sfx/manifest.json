@@ -7853,6 +7853,21 @@
       "name": "vo.bing.full.security.open.tony.56elm3",
       "voice": "player",
       "say": "I’m checking the structural integrity."
+    },
+    {
+      "name": "vo.computer.cs.teamplay.1",
+      "voice": "player",
+      "say": "TeamPlay. You trust the call, throw the smoke, and do not turn a round into a referendum on your childhood. Revolutionary."
+    },
+    {
+      "name": "vo.computer.cs.baiters.1",
+      "voice": "player",
+      "say": "Baiter's Brain. Every call is wrong until it is his, made alone at the other bombsite. Clinically fascinating."
+    },
+    {
+      "name": "vo.computer.cs.result.1",
+      "voice": "player",
+      "say": "Thirteen to ten. Not a loss. A collection of individual career decisions, all made at once."
     }
   ]
 }
