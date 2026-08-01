@@ -124,6 +124,9 @@ export const WALL_SLOTS = [
 export const BATH_SLOTS = [
   // East wall above the toilet. You look up at this one, at length.
   { slot: 'bath.toilet', x: -0.31, y: 1.98, z: -6.55, rotY: -Math.PI / 2, h: 0.34 },
+  // The portrait-format beach poster beside it. Keeps the existing red-plane
+  // print over the toilet and leaves both clear of the mirror cabinet.
+  { slot: 'bath.toilet.poster', x: -0.31, y: 2.05, z: -5.90, rotY: -Math.PI / 2, h: 0.42 },
   // Above and behind the cistern.
   { slot: 'bath.far', x: -1.30, y: 2.10, z: -7.09, rotY: 0, h: 0.36 },
   // Over the mirror cabinet.

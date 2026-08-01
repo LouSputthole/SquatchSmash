@@ -182,6 +182,12 @@
       "caption": "He threw up in there."
     },
     {
+      "slot": "bath.toilet.poster",
+      "file": "bathroom-anime1.png",
+      "title": "Beach day",
+      "caption": "A bathroom poster hung beside the toilet, exactly where it will get noticed."
+    },
+    {
       "slot": "bath.high",
       "file": "plane-tarmac.jpg",
       "title": "On the tarmac",
