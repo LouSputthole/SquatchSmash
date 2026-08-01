@@ -523,7 +523,6 @@ export class MissionController {
       player: this.player,
       groundAt: () => WP.elev,
       stackAt: a.stoveCrates,
-      cartAt: a.stoveCart,
       kind: 'guns',
       count: 3,
       briefBeat: 'stove.loading',
@@ -541,8 +540,7 @@ export class MissionController {
     const n = this.cargo.crateCount;
     this.setObjective(
       n < 3 ? `${OBJECTIVES.loadGuns} — ${n}/3 aboard`
-        : !this.cargo.allStrapped ? OBJECTIVES.strap
-          : 'Close and latch the cargo door',
+        : 'Cargo secured — stand by',
     );
   }
 
@@ -815,8 +813,7 @@ export class MissionController {
     const n = this.cargo.crateCount;
     this.setObjective(
       n < 3 ? `${OBJECTIVES.load} — ${n}/3 aboard`
-        : !this.cargo.allStrapped ? OBJECTIVES.strap
-          : 'Close and latch the cargo door',
+        : 'Cargo secured — stand by',
     );
     // The guard dog develops an interest in the open crate.
     if (this.airfield.dog && !this.dogSent && n >= 1) {
@@ -1291,6 +1288,9 @@ export class MissionController {
       if (rough > 0.5) this.score.patience = clamp(this.score.patience - dt * 0.02 * rough, 0, 1);
       else this.score.patience = clamp(this.score.patience + dt * 0.004, 0, 1);
     }
+    const onApron = !this.flags.louAboard
+      && ['arrival', 'preflight', 'stove', 'loadGuns'].includes(this.phase);
+    if (onApron) this.lou.faceToward(this.player.position.x, this.player.position.z);
     updateFigure(this.lou, dt, this.flags.inCockpit ? this.camera.position : this.player.position);
     // The cup and the name tag both belong to the man on the apron. Once he is
     // in the right seat you are half a metre from him and you know who he is.

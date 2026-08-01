@@ -322,11 +322,62 @@ try {
       sharedSideArt: sides.length === 2 && sides[0].material.map === sides[1].material.map,
     };
   });
-  check("the gun crates carry a rifle on the lid and Stove's story on both sides",
-    crates.lid && crates.lidPainted && crates.bothFaces && crates.sharedSideArt,
-    JSON.stringify(crates));
+check("the gun crates carry a rifle on the lid and Stove's story on both sides",
+  crates.lid && crates.lidPainted && crates.bothFaces && crates.sharedSideArt,
+  JSON.stringify(crates));
 
-  const chain = await page.evaluate(() => {
+/* Loading used to be a cart-routing minigame: lift, park, push, choose a bay,
+ * strap, then close the door. The authored route is now deliberately direct:
+ * each E on a crate secures the next bay and the third closes the door. */
+const directLoading = await page.evaluate(async () => {
+  const b = window.__beefrun;
+  const { Loading } = await import('/src/beefrun/loading.js');
+  const { CargoWeightSystem } = await import('/src/beefrun/cargo.js');
+  const Group = b.aircraft.group.constructor;
+  const stage = new Group();
+  const hold = new Group();
+  b.mission.scene.add(stage);
+  const cargo = new CargoWeightSystem(hold);
+  const loading = new Loading({
+    scene: stage,
+    interaction: b.interaction,
+    aircraft: { group: new Group() },
+    cargo,
+    dialogue: { play() {} },
+    audio: { play() {} },
+    groundAt: () => 0,
+    stackAt: { x: 9000, z: 9000 },
+    kind: 'jerky',
+    count: 3,
+  });
+  let completed = false;
+  loading.onComplete = () => { completed = true; };
+  loading.arm();
+  const openedForCrates = loading.doorOpen && !loading.doorLatched;
+  const targets = loading.registered.length;
+  const labels = loading.crates.map((crate) => loading.loadCrate(crate));
+  const result = {
+    noCart: !loading.cart,
+    openedForCrates,
+    targets,
+    labels,
+    aboard: cargo.crateCount,
+    strapped: cargo.allStrapped,
+    doorClosed: !loading.doorOpen && loading.doorLatched,
+    completed,
+  };
+  loading.dispose();
+  stage.parent?.remove(stage);
+  return result;
+});
+check('each crate loads directly with E, without a cart or hold-bay steps',
+  directLoading.noCart && directLoading.openedForCrates
+    && directLoading.targets === 3 && directLoading.labels.every(Boolean)
+    && directLoading.aboard === 3 && directLoading.strapped
+    && directLoading.doorClosed && directLoading.completed,
+  JSON.stringify(directLoading));
+
+const chain = await page.evaluate(() => {
     const m = window.__beefrun.mission;
     const out = [];
     const record = () => {

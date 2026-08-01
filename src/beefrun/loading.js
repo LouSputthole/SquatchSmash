@@ -1,41 +1,33 @@
 /**
  * Putting things in the aeroplane, and taking them back out.
  *
- * The cargo sequence is played, not watched: open the door, lift a crate, put
- * it on the handcart, push the cart to the aeroplane, put each crate in one of
- * three marked positions, strap them, shut the door. The balance diagram on the
- * HUD reacts as it happens, so "all three in the back" is a thing the player
- * sees go red rather than a thing they are told afterwards.
+ * The cargo sequence stays physical without becoming a logistics minigame:
+ * walk to each crate and press E. It is immediately loaded into the next safe
+ * position, secured, and shown on the balance diagram. The door closes after
+ * the final crate, so no cart, hold-marker hunt, or strap loop can strand the
+ * player between the flight beats.
  *
  * The same class runs twice. At Whispering Pines it is three long crates of
  * Old Stove's tractor parts; at El Hueso those come out and three crates of
  * Silverback Reserve go in. Only the factory, the stack position and the
  * dialogue differ, so `kind` is the whole of the difference.
  *
- * Crates can also be carried by hand, one at a time, if somebody would rather
- * do it the slow way. Cecilio has a view about that too.
  */
-import * as THREE from 'three';
-import { clamp, damp, group, mesh, boxGeo, mat } from './util.js';
-import { makeCrate, makeGunCrate, makeHandcart, CRATE_MASS } from './cargo.js';
-
-const CARRY_OFFSET = new THREE.Vector3(0, -0.42, 0.85);
+import { mesh, boxGeo, mat } from './util.js';
+import { makeCrate, makeGunCrate } from './cargo.js';
 
 export class Loading {
   /**
    * @param {object} deps
-   *   { scene, interaction, aircraft, cargo, dialogue, audio, camera, player,
-   *     groundAt, stackAt, cartAt, kind, count, briefBeat }
-   *   `kind` is 'jerky' or 'guns'; `stackAt`/`cartAt` are world positions.
+   *   { scene, interaction, aircraft, cargo, dialogue, audio, player,
+   *     groundAt, stackAt, kind, count, briefBeat }
+   *   `kind` is 'jerky' or 'guns'; `stackAt` is a world position.
    */
   constructor(deps) {
     Object.assign(this, deps);
     this.kind = this.kind || 'jerky';
     this.count = this.count || 3;
     this.crates = [];
-    this.cart = null;
-    this.carried = null;
-    this.pushing = false;
     this.registered = [];
     this.zoneHits = {};
     this.doorOpen = false;
@@ -74,15 +66,8 @@ export class Loading {
       this.cargo.loose.push(crate);
     }
 
-    // The handcart.
-    this.cart = makeHandcart();
-    const cart = this.cartAt || { x: stack.x + 3.4, z: stack.z + 1 };
-    this.cart.group.position.set(cart.x, this.groundAt(cart.x, cart.z), cart.z);
-    this.cart.group.rotation.y = -0.4;
-    this.scene.add(this.cart.group);
-    this.cart.load = [];
-
-    // Hit targets for the three positions inside the cabin.
+    // Targets still exist for unloading on the far strip. Loading itself is
+    // deliberately direct: the player uses each visible crate once.
     for (const [name, zone] of Object.entries(this.cargo.zones)) {
       const hit = mesh(boxGeo(1.2, 0.1, 1.0), mat({
         color: 0xd8c86a, roughness: 1, transparent: true, opacity: 0.22,
@@ -97,7 +82,6 @@ export class Loading {
   /* ---------------------------------------------------------------- */
 
   get loadedCount() { return this.cargo.crateCount; }
-  get onCart() { return this.cart.load.length; }
   get allAboard() { return this.cargo.crateCount >= this.count; }
   get finished() {
     return this.allAboard && this.cargo.allStrapped && this.doorLatched && !this.doorOpen;
@@ -111,63 +95,18 @@ export class Loading {
       this.registered.push(m);
     };
 
-    // ---- The door ----
-    reg(this.aircraft.parts.doorHandle, {
-      label: () => (this.doorOpen ? 'Close and <b>latch</b> the cargo door' : 'Open the <b>cargo door</b>'),
-      key: 'E',
-      hold: 0.6,
-      onHoldProgress: (t) => { this.aircraft.parts.doorLever.rotation.x = (this.doorOpen ? 1 - t : t) * Math.PI * 0.5; },
-      onUse: () => {
-        this.doorOpen = !this.doorOpen;
-        this.doorLatched = !this.doorOpen;
-        this.audio?.play('door.knob', { volume: 0.8 });
-        this.showZones(this.doorOpen);
-        if (!this.doorOpen && this.allAboard) {
-          this.dialogue.play('load.done', { once: true });
-          this.checkFinished();
-        }
-      },
-      onTap: () => {
-        if (this.doorOpen) this.dialogue.play('load.done', { once: true });
-      },
-    });
+    // The cargo door is opened for this short sequence and closes itself once
+    // all three crates are loaded. The only player action is E on a crate.
+    this.doorOpen = true;
+    this.doorLatched = false;
+    this.showZones(false);
 
-    // ---- The crates ----
     for (const crate of this.crates) {
       reg(crate.group, {
-        label: () => (this.carried ? 'Hands <b>full</b>' : 'Lift the <b>crate</b>'),
+        label: () => crate.zone ? '<b>Crate aboard</b>' : 'Load this <b>crate</b>',
         key: 'E',
-        enabled: () => !this.carried && !crate.zone,
-        onUse: () => this.pickUp(crate),
-      });
-    }
-
-    // ---- The cart ----
-    reg(this.cart.handle, {
-      label: () => {
-        if (this.carried) return 'Put the crate <b>on the cart</b>';
-        return this.pushing ? 'Let go of the <b>cart</b>' : 'Push the <b>cart</b>';
-      },
-      key: 'E',
-      onUse: () => {
-        if (this.carried) this.putOnCart();
-        else this.pushing = !this.pushing;
-      },
-    });
-
-    // ---- The three positions ----
-    for (const [name, hit] of Object.entries(this.zoneHits)) {
-      reg(hit, {
-        label: () => {
-          const zone = this.cargo.zones[name];
-          if (zone.crate) return zone.strapped ? `<b>${name}</b> secured` : `Hold to <b>strap</b> the ${name} crate`;
-          return this.haveCrate ? `Load into <b>${name}</b>` : `<b>${name}</b> position`;
-        },
-        key: 'E',
-        hold: 0.8,
-        enabled: () => this.doorOpen,
-        onUse: () => this.strap(name),
-        onTap: () => this.place(name),
+        enabled: () => !crate.zone && !this.finished,
+        onUse: () => this.loadCrate(crate),
       });
     }
   }
@@ -184,75 +123,24 @@ export class Loading {
     this.cargo.showMarkers(on);
   }
 
-  get haveCrate() {
-    return !!this.carried || this.cart.load.length > 0;
-  }
-
-  /* ---------------------------------------------------------------- */
-
-  pickUp(crate) {
-    this.carried = crate;
-    const i = this.cart.load.indexOf(crate);
-    if (i >= 0) this.cart.load.splice(i, 1);
-    this.camera.add(crate.group);
-    crate.group.position.copy(CARRY_OFFSET);
-    crate.group.rotation.set(0, 0, 0);
-    crate.group.scale.setScalar(0.62);       // held close, so it reads as heavy
-    this.audio?.play('pizza.take', { volume: 0.6 });
-    // Carrying two hundred kilos of cured meat slows a person down.
-    if (this.player) this.player.moveScale = 0.62;
-  }
-
-  drop(crate, position) {
-    this.scene.add(crate.group);
-    crate.group.position.copy(position);
-    crate.group.position.y = this.groundAt(position.x, position.z);
-    crate.group.scale.setScalar(1);
-    crate.group.rotation.set(0, 0, 0);
-    if (this.carried === crate) this.carried = null;
-    if (this.player) this.player.moveScale = 1;
-  }
-
-  putOnCart() {
-    const crate = this.carried;
-    if (!crate) return;
-    if (this.cart.load.length >= 3) return;
-    this.cart.group.add(crate.group);
-    const slot = this.cart.load.length;
-    crate.group.position.set(0, 0.5 + slot * 0.86, 0.1);
-    crate.group.rotation.set(0, 0, 0);
-    crate.group.scale.setScalar(1);
-    this.cart.load.push(crate);
-    this.carried = null;
-    if (this.player) this.player.moveScale = 1;
-    this.audio?.play('can.set', { volume: 0.7 });
-  }
-
-  /** Put whatever is to hand into a marked position. */
-  place(name) {
-    const zone = this.cargo.zones[name];
-    if (!zone || zone.crate || !this.doorOpen) return false;
-    const crate = this.carried || this.cart.load[this.cart.load.length - 1];
-    if (!crate) return false;
-    if (this.carried === crate) {
-      this.carried = null;
-      if (this.player) this.player.moveScale = 1;
-    } else {
-      this.cart.load.pop();
-    }
+  /** Load this crate into the next empty hold position and secure it. */
+  loadCrate(crate) {
+    if (crate.zone) return false;
+    const name = Object.keys(this.cargo.zones)
+      .find((zoneName) => !this.cargo.zones[zoneName].crate);
+    if (!name) return false;
     this.cargo.load(name, crate);
+    this.cargo.strap(name);
     this.audio?.play('can.set', { volume: 0.9 });
     if (this.briefBeat) this.dialogue.play(this.briefBeat, { once: true });
     this.checkBalance();
-    return true;
-  }
-
-  strap(name) {
-    const zone = this.cargo.zones[name];
-    if (!zone?.crate || zone.strapped) return false;
-    this.cargo.strap(name);
-    this.audio?.play('frame.adjust', { volume: 0.7 });
-    this.checkFinished();
+    if (this.allAboard) {
+      this.doorOpen = false;
+      this.doorLatched = true;
+      this.audio?.play('door.knob', { volume: 0.8 });
+      this.dialogue.play('load.done', { once: true });
+      this.checkFinished();
+    }
     return true;
   }
 
@@ -265,10 +153,6 @@ export class Loading {
     } else if (state === 'nose' && !this.warned.nose) {
       this.warned.nose = true;
       this.dialogue.play('load.nose', { urgent: true });
-    }
-    if (this.allAboard && !this.cargo.allStrapped && !this.warned.strap) {
-      this.warned.strap = true;
-      this.dialogue.play('load.strap');
     }
   }
 
@@ -348,27 +232,7 @@ export class Loading {
   /* ---------------------------------------------------------------- */
 
   update(dt, playerPos, playerYaw) {
-    // The cart follows a couple of metres in front of whoever is pushing it.
-    if (this.pushing) {
-      const want = new THREE.Vector3(
-        playerPos.x - Math.sin(playerYaw) * 1.7,
-        0,
-        playerPos.z - Math.cos(playerYaw) * 1.7,
-      );
-      want.y = this.groundAt(want.x, want.z);
-      this.cart.group.position.x = damp(this.cart.group.position.x, want.x, 7, dt);
-      this.cart.group.position.z = damp(this.cart.group.position.z, want.z, 7, dt);
-      this.cart.group.position.y = damp(this.cart.group.position.y, want.y, 7, dt);
-      this.cart.group.rotation.y = damp(this.cart.group.rotation.y, playerYaw, 6, dt);
-    }
-
-    // A carried crate sways with the walk.
-    if (this.carried) {
-      const t = performance.now() / 1000;
-      this.carried.group.rotation.z = Math.sin(t * 4.4) * 0.035;
-      this.carried.group.position.y = CARRY_OFFSET.y + Math.sin(t * 8.8) * 0.012;
-    }
-    void clamp; void group; void CRATE_MASS;
+    void dt; void playerPos; void playerYaw;
   }
 
   /** Everything this sequence added, taken back out for a checkpoint restart. */
@@ -378,7 +242,6 @@ export class Loading {
       crate.group.parent?.remove(crate.group);
     }
     this.crates.length = 0;
-    this.cart.group.parent?.remove(this.cart.group);
     for (const hit of Object.values(this.zoneHits)) hit.parent?.remove(hit);
   }
 }
