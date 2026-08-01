@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { makeRevolver } from '../world/props.js';
 import { Npc } from './cast.js';
@@ -373,10 +374,7 @@ export async function buildHotDogParty(scene, club) {
   const hotdog = makeNpc(scene, club, {
     name: 'Billy HotDog', characterId: CHARACTER_IDS.BILLY_HOTDOG,
     x: -16.2, z: -0.2, yaw: -2.4, job: 'stand',
-    model: {
-      height: 1.8, build: 1.16, gut: 0.58, dress: 'suit', shirt: 0x4c1c25,
-      hair: 'receding', hairColour: 0x3a2418, skin: 0xd9a97f, chain: true,
-    },
+    model: BILLY_HOTDOG_MODEL,
   });
   const aubbie = makeNpc(scene, club, {
     name: 'Aubbie', characterId: CHARACTER_IDS.AUBBIE,

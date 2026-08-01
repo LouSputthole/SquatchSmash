@@ -64,6 +64,7 @@ body.graveyard {
 .graveyard #mission-card > span { display: block; margin-top: 3px; color: #989b92; font-size: 11px; }
 .graveyard #grave-objectives { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .graveyard #grave-objectives li { color: #bbb8aa; font-size: 10px; }
+.graveyard #grave-objectives li.optional { opacity: .7; }
 .graveyard #grave-objectives li::before { content: '○'; display: inline-block; width: 18px; color: #8c8677; }
 .graveyard #grave-objectives li.done { color: #687069; text-decoration: line-through; }
 .graveyard #grave-objectives li.done::before { content: '●'; color: #b49754; }

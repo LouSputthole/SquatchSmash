@@ -67,8 +67,9 @@ deferred pending the owner's playtest.
 - Standalone scene boot failures show Reload and Apartment recovery.
 - Scene/spawn validation, atomic transitions, failed-navigation rollback, and
   browser-storage fallback are implemented.
-- Campaign save schema v5 chains the v1-v3 migrations through NO WAKE v4 and
-  the HotDog/graveyard v5 route, preserves malformed or future-version data in
+- Campaign save schema v6 chains the v1-v3 migrations through NO WAKE v4,
+  the HotDog/graveyard v5 route, and the persistent memorial ledger in v6;
+  it preserves malformed or future-version data in
   a recovery journal, visibly warns the player, and refuses unsafe scene
   transitions when persistence fails.
 - Campaign time is event-driven. Real waiting no longer moves story time;
@@ -491,12 +492,12 @@ npm run verify:bundle           3 strict-CSP policies passed; 295 voice clips em
 npm run audio:todo             superseded — see current 0 voice / 0 effects queue below
 ```
 
-Fresh checks for the August 1 HotDog/graveyard/schema-v5 feature branch:
+Fresh checks for the August 1 HotDog/graveyard/schema-v6 feature branch:
 
 ```text
-npm test                       127/127 passed
-npm run check                  208 source files, 4 manifests, all good
-node tools/verify-bing-two.mjs  15/15 passed
+npm test                       131/131 passed
+npm run check                  209 source files, 4 manifests, all good
+node tools/verify-bing-two.mjs  17/17 passed
 node tools/verify-preview.mjs   34/34 passed
 node tools/verify-direct-entry.mjs 21/21 passed
 node tools/verify-boot-errors.mjs  14/14 passed

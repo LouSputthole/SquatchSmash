@@ -67,9 +67,11 @@ cleanup roles are the scene.
 dirt road before the Motel. Car headlights turn the burial ground into a small
 museum of the Family's dead: Babs, Brawny, Whiplash, Sheep, Echo, Colton,
 GeeWiz, and Sauce's ominously reserved open plot. Inspecting the memorials,
-hearing the still-buried Echo, and disrespecting the two traitor graves are
-optional. Burying HotDog in a fresh plot is the one required task and is what
-unlocks the Motel.
+hearing the still-buried Echo, and choosing respect or disrespect are optional
+and persist across reloads. The required task is physical: lift the real
+HotDog figure from Snow's trunk, carry him down the headlight corridor, place
+him head-first toward the marker, and fill the grave. Only that burial unlocks
+the Motel.
 
 **The Jerky Motel.** The grimier underbelly — the point where the campaign
 stops feeling glamorous. Day 2 ends with the Prospect exhausted, rattled, and

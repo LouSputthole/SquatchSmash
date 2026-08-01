@@ -64,6 +64,8 @@ test('HotDog must be secured and loaded before the graveyard, and burial alone u
   const graveyard = createGraveyardStory({ campaign });
   assert.deepEqual(graveyard.begin(), { ok: true, resumed: false });
   assert.equal(graveyard.complete({ bodyBuried: false }), false);
+  assert.equal(graveyard.recordInspection('babs'), true);
+  assert.equal(graveyard.recordRespect('babs'), true);
   assert.equal(graveyard.noteEcho(), true);
   assert.equal(graveyard.recordUrination('brawny'), true);
   assert.equal(graveyard.recordUrination('whiplash'), true);
@@ -76,6 +78,11 @@ test('HotDog must be secured and loaded before the graveyard, and burial alone u
   assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].checkpoint, 'buried');
   assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].burialComplete, true);
   assert.equal(state.missions[MISSION_IDS.BADA_BING_TWO].echoHeard, true);
+  assert.deepEqual(
+    state.missions[MISSION_IDS.BADA_BING_TWO].inspectedGraves,
+    ['babs', 'brawny', 'whiplash'],
+  );
+  assert.deepEqual(state.missions[MISSION_IDS.BADA_BING_TWO].respectedGraves, ['babs']);
   assert.deepEqual(state.missions[MISSION_IDS.BADA_BING_TWO].urinatedOn, ['brawny', 'whiplash']);
   assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'available');
   assert.equal(state.story.day, 3);
@@ -88,7 +95,7 @@ test('current saves carry a durable HotDog incident shape', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const incident = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
 
-  assert.equal(CAMPAIGN_VERSION, 5);
+  assert.equal(CAMPAIGN_VERSION, 6);
   assert.deepEqual(incident, {
     status: 'locked',
     checkpoint: null,
@@ -99,8 +106,33 @@ test('current saves carry a durable HotDog incident shape', () => {
     bodyLoaded: false,
     burialComplete: false,
     echoHeard: false,
+    inspectedGraves: [],
+    respectedGraves: [],
     urinatedOn: [],
   });
+});
+
+test('v5 graveyard saves migrate the memorial ledger without losing disrespect', () => {
+  const storage = new MemoryStorage();
+  const legacy = createCampaign({ storage: new MemoryStorage() }).state;
+  legacy.version = 5;
+  const incident = legacy.missions[MISSION_IDS.BADA_BING_TWO];
+  incident.status = 'in_progress';
+  incident.checkpoint = 'graveyard';
+  incident.bodyLoaded = true;
+  incident.urinatedOn = ['brawny'];
+  delete incident.inspectedGraves;
+  delete incident.respectedGraves;
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
+
+  const campaign = createCampaign({ storage });
+  const migrated = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
+
+  assert.equal(campaign.state.version, CAMPAIGN_VERSION);
+  assert.deepEqual(migrated.inspectedGraves, ['brawny']);
+  assert.deepEqual(migrated.respectedGraves, []);
+  assert.deepEqual(migrated.urinatedOn, ['brawny']);
+  assert.equal(campaign.recovery, null);
 });
 
 test('an in-progress graveyard resumes from persisted evidence state', () => {
@@ -119,6 +151,9 @@ test('an in-progress graveyard resumes from persisted evidence state', () => {
   campaign.enter(SCENE_IDS.SQUATCH_GRAVEYARD, { spawn: 'headlights' });
   const firstVisit = createGraveyardStory({ campaign });
   assert.equal(firstVisit.noteEcho(), true);
+  assert.equal(firstVisit.recordInspection('babs'), true);
+  assert.equal(firstVisit.recordInspection('brawny'), true);
+  assert.equal(firstVisit.recordRespect('babs'), true);
   assert.equal(firstVisit.recordUrination('brawny'), true);
 
   const reloaded = createCampaign({ storage });
@@ -130,6 +165,14 @@ test('an in-progress graveyard resumes from persisted evidence state', () => {
   });
   assert.deepEqual(resumed.begin(), { ok: true, resumed: true });
   assert.equal(reloaded.state.missions[MISSION_IDS.BADA_BING_TWO].echoHeard, true);
+  assert.deepEqual(
+    reloaded.state.missions[MISSION_IDS.BADA_BING_TWO].inspectedGraves,
+    ['babs', 'brawny'],
+  );
+  assert.deepEqual(
+    reloaded.state.missions[MISSION_IDS.BADA_BING_TWO].respectedGraves,
+    ['babs'],
+  );
   assert.deepEqual(
     reloaded.state.missions[MISSION_IDS.BADA_BING_TWO].urinatedOn,
     ['brawny'],
@@ -226,6 +269,8 @@ test('a v4 Bada Bing Two save resumes the new incident from the party', () => {
     bodyLoaded: false,
     burialComplete: false,
     echoHeard: false,
+    inspectedGraves: [],
+    respectedGraves: [],
     urinatedOn: [],
   });
   assert.deepEqual(createBadaBingTwoStory({ campaign }).begin(), {
@@ -277,7 +322,7 @@ test('a completed v4 Bada Bing Two save migrates past the inserted burial atomic
     ok: false,
     reason: 'already_complete',
   });
-  assert.equal(JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY)).version, 5);
+  assert.equal(JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY)).version, CAMPAIGN_VERSION);
   assert.equal(campaign.recovery, null);
 });
 

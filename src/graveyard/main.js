@@ -41,17 +41,18 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 1.4));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.96;
+renderer.toneMappingExposure = 1.08;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x030a08);
-scene.fog = new THREE.FogExp2(0x07100c, 0.027);
+scene.background = new THREE.Color(0x06100f);
+scene.fog = new THREE.FogExp2(0x091412, 0.023);
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.04, 180);
+camera.name = 'graveyard.camera';
 scene.add(camera);
 
-const moon = new THREE.DirectionalLight(0x8ea7b7, 1.05);
+const moon = new THREE.DirectionalLight(0xa9c5d2, 1.48);
 moon.position.set(-15, 22, 8);
 moon.castShadow = true;
 moon.shadow.mapSize.set(1536, 1536);
@@ -60,7 +61,7 @@ moon.shadow.camera.right = 24;
 moon.shadow.camera.top = 24;
 moon.shadow.camera.bottom = -24;
 scene.add(moon);
-scene.add(new THREE.HemisphereLight(0x2d4b49, 0x0b0b08, 0.78));
+scene.add(new THREE.HemisphereLight(0x38585a, 0x0b0b08, 0.94));
 const clearingFill = new THREE.PointLight(0xd0b77c, 6.2, 24, 2);
 clearingFill.position.set(0, 3.2, 4);
 scene.add(clearingFill);
@@ -77,9 +78,9 @@ const player = new Player(camera, world);
 // Arrive off the rear quarter instead of directly behind the open trunk. The
 // first read should be car + wrapped body + headlight path, not the camera
 // buried in a wall of boot-lid geometry.
-player.position.set(5.2, 1.66, 21.2);
-player.yaw = 0.08;
-player.pitch = -0.08;
+player.position.set(4.5, 1.66, 21.5);
+player.yaw = 0.34;
+player.pitch = -0.1;
 player.mode = 'walk';
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 const interaction = new InteractionSystem(camera, hud);
@@ -138,9 +139,15 @@ function repaintObjectives() {
   if (mission.bodyBuried) {
     objectiveEl.textContent = 'Return to Snow\'s car';
     objectiveDetailEl.textContent = 'The Motel is next · Snow is still not explaining it';
-  } else if (mission.bodyLowered) {
+  } else if (mission.bodyPlaced) {
     objectiveEl.textContent = 'Fill HotDog\'s grave';
     objectiveDetailEl.textContent = 'Use the shovel beside the fresh plot';
+  } else if (mission.bodyCarried) {
+    objectiveEl.textContent = 'Carry HotDog to the fresh plot';
+    objectiveDetailEl.textContent = 'Past GeeWiz · head toward the marker';
+  } else {
+    objectiveEl.textContent = 'Lift HotDog out of Snow\'s trunk';
+    objectiveDetailEl.textContent = 'Carry him to the fresh plot before you bury him';
   }
 }
 repaintObjectives();
@@ -181,6 +188,7 @@ function updateDialogue(dt) {
 
 function inspect(id) {
   const result = mission.inspectGrave(id);
+  if (result) story.recordInspection(id);
   if (id === 'sauce' && !state.sauceSuggested) {
     state.sauceSuggested = true;
     mission.suggestSaucePlot();
@@ -191,42 +199,87 @@ function inspect(id) {
   }
 }
 
+function payRespect(id) {
+  if (!mission.inspected.has(id)) inspect(id);
+  if (!mission.payRespect(id)) return false;
+  story.recordRespect(id);
+  hud.toast(`${GRAVES[id].name} · respects paid`, 'good');
+  return true;
+}
+
 for (const [id, marker] of Object.entries(graveyard.graves)) {
   interaction.register(marker, {
     label: () => {
-      const desecrated = mission.urinatedOn.has(id);
-      if (GRAVES[id].traitor && !desecrated) return `Inspect <b>${GRAVES[id].name}</b> · <kbd>P</kbd> disrespect`;
-      return `Read <b>${GRAVES[id].name}</b>`;
+      const choice = mission.tributeFor(id);
+      if (choice) return `<b>${GRAVES[id].name}</b> · ${choice === 'respect' ? 'respects paid' : 'disrespected'}`;
+      if (GRAVES[id].traitor) {
+        return `Tap to read <b>${GRAVES[id].name}</b> · hold to respect · <kbd>P</kbd> disrespect`;
+      }
+      return `Tap to read <b>${GRAVES[id].name}</b> · hold to pay respects`;
     },
+    holdLabel: () => `Pay respects at <b>${GRAVES[id].name}</b>`,
+    hold: 0.85,
     enabled: () => state.phase === 'active' && !state.pee.active && !state.bodyMoving,
-    onUse: () => inspect(id),
+    onTap: () => inspect(id),
+    onUse: () => payRespect(id),
   });
 }
 
+function pickUpHotDog() {
+  if (!graveyard.pickUpBody(camera)) return false;
+  if (!mission.pickUpBody()) {
+    console.error('[graveyard] visual body picked up outside mission state');
+    return false;
+  }
+  player.clearKeys();
+  audio.play('cloth.suit.movement', { volume: 0.75, position: player.position });
+  repaintObjectives();
+  hud.toast('Billy HotDog · carrying', 'good');
+  return true;
+}
+
+function placeHotDog() {
+  if (mission.state !== 'carried' || state.bodyMoving) return false;
+  state.bodyMoving = true;
+  interaction.setPaused(true);
+  player.clearKeys();
+  audio.play('cloth.suit.movement', { volume: 0.75, position: graveyard.freshPosition });
+  if (!graveyard.placeBody(() => {
+    if (!mission.placeBody()) {
+      console.error('[graveyard] visual body placed outside mission state');
+    }
+    state.bodyMoving = false;
+    interaction.setPaused(false);
+    repaintObjectives();
+    hud.toast('HotDog placed · head to the marker', 'good');
+  })) {
+    state.bodyMoving = false;
+    interaction.setPaused(false);
+    return false;
+  }
+  return true;
+}
+
 interaction.register(graveyard.body, {
-  label: 'Hold to <b>lower HotDog into the fresh grave</b>',
-  hold: 1.7,
-  enabled: () => state.phase === 'active' && !mission.bodyLowered && !state.bodyMoving,
-  onTap: () => hud.say('Snow already dug the hole. Hold steady and lower him.', 3400),
-  onUse: () => {
-    if (!mission.lowerBody()) return;
-    state.bodyMoving = true;
-    interaction.setPaused(true);
-    player.clearKeys();
-    audio.play('cloth.suit.movement', { volume: 0.75, position: graveyard.body.position });
-    graveyard.lowerBody(() => {
-      state.bodyMoving = false;
-      interaction.setPaused(false);
-      repaintObjectives();
-      hud.toast('HotDog lowered', 'good');
-    });
-  },
+  label: 'Hold to <b>lift Billy HotDog out of the trunk</b>',
+  hold: 1.35,
+  enabled: () => state.phase === 'active' && mission.state === 'arrival' && !state.bodyMoving,
+  onTap: () => hud.say('That is Billy. Get both arms under him and hold.', 3000),
+  onUse: pickUpHotDog,
+});
+
+interaction.register(graveyard.freshPlot, {
+  label: 'Hold to <b>place HotDog in the fresh grave</b>',
+  hold: 1.6,
+  enabled: () => state.phase === 'active' && mission.state === 'carried' && !state.bodyMoving,
+  onTap: () => hud.say('Head by the marker. Feet toward the road. Hold steady.', 3200),
+  onUse: placeHotDog,
 });
 
 interaction.register(graveyard.shovel, {
   label: 'Hold to <b>fill HotDog\'s grave</b>',
   hold: 2.25,
-  enabled: () => state.phase === 'active' && mission.bodyLowered && !mission.bodyBuried,
+  enabled: () => state.phase === 'active' && mission.bodyPlaced && !mission.bodyBuried,
   onTap: () => hud.say('It is a whole grave, not a decorative scoop. Hold it.', 3000),
   onHoldProgress: (progress) => {
     if (progress > 0.1 && Math.floor(progress * 10) % 3 === 0) {
@@ -237,8 +290,15 @@ interaction.register(graveyard.shovel, {
 });
 
 function completeBurial() {
+  if (mission.state !== 'placed' || graveyard.bodyPresentation().phase !== 'placed') {
+    console.error('[graveyard] burial refused because mission and body placement are out of sync');
+    return false;
+  }
   if (!mission.finishBurial()) return false;
-  graveyard.finishBurial();
+  if (!graveyard.finishBurial()) {
+    console.error('[graveyard] mission buried a body that was not visually placed');
+    return false;
+  }
   const choices = {
     bodyBuried: true,
     echoHeard: mission.echoHeard,
@@ -287,7 +347,7 @@ interaction.register(graveyard.car, {
 
 function currentTraitorGrave() {
   const id = interaction.current?.userData?.graveId;
-  return id && GRAVES[id]?.traitor && !mission.urinatedOn.has(id) ? id : null;
+  return id && GRAVES[id]?.traitor && !mission.tributeFor(id) ? id : null;
 }
 
 function startPee() {
@@ -368,9 +428,12 @@ const runtime = {
   get phase() { return state.phase; },
   get displayClock() { return { day: clock.day, timeMinutes: clock.minutes }; },
   inspect,
+  respect: payRespect,
   startPee,
   stopPee,
-  lowerBody: () => mission.lowerBody(),
+  pickupBody: pickUpHotDog,
+  placeBody: placeHotDog,
+  bodyPresentation: () => graveyard.bodyPresentation(),
   bury: completeBurial,
 };
 window.GRAVEYARD = runtime;
@@ -435,6 +498,14 @@ document.addEventListener('mousemove', (event) => {
 document.addEventListener('keydown', (event) => {
   if (state.phase !== 'active') return;
   if (event.code === 'Space') event.preventDefault();
+  if (mission.state === 'carried'
+    && ['Space', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
+    player.setKey(event.code, false);
+    if (event.code === 'Space' && !event.repeat) {
+      hud.say('Not with HotDog in both arms.', 2200);
+    }
+    return;
+  }
   player.setKey(event.code, true);
   if (event.code === 'KeyE') interaction.press();
   if (event.code === 'KeyP' && !event.repeat) startPee();

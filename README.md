@@ -8,7 +8,7 @@ Ten playable or preserved experiences live in this repo.
 | **The Bada Bing** ([`bing.html`](./bing.html)) | First-person, same engine. The first visit delivers Lou’s package; visit two is Billy HotDog's closed welcome-home party, murder, and cleanup. |
 | **The Squatchfather** ([`squatchfather.html`](./squatchfather.html)) | First-person restaurant mission. Lou’s package is staged as the bathroom weapon before the meeting. |
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
-| **The Squatch Graveyard** ([`graveyard.html`](./graveyard.html)) | Snow and the Prospect dispose of HotDog under the headlights, with the Family's dead preserved as optional memorial interactions. |
+| **The Squatch Graveyard** ([`graveyard.html`](./graveyard.html)) | Snow and the Prospect carry and bury HotDog under the headlights; all eight named graves persist optional inspection/respect, while the traitors can be disrespected. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Snow is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three harbor and boat mission connecting the Motel aftermath to the Silver Room date chapter. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |

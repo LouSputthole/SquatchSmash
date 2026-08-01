@@ -133,7 +133,7 @@ Locked character/story canon:
 IMMEDIATE PICKUP (2026-08-01): fetch `main` and run the stated safe-pickup
 commands before trusting any historical SHA or PR status. The current focused
 follow-up adds the production HotDog incident, Squatch Graveyard body-disposal
-finale, schema-v5 migration, all ten apartment previews, and a complete
+finale, schema-v6 memorial persistence, all ten apartment previews, and a complete
 46-of-46 recorded scene ledger in `VOICE-LINES-TODO.md`.
 
 Current recording queue: **0 voice lines and 0 effects**. The recovered 112

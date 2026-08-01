@@ -227,9 +227,14 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 5;
+export const CAMPAIGN_VERSION = 6;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
+
+const MEMORIAL_GRAVE_IDS = Object.freeze([
+  'babs', 'brawny', 'whiplash', 'sheep', 'echo', 'colton', 'geewiz', 'sauce',
+]);
+const TRAITOR_GRAVE_IDS = Object.freeze(['brawny', 'whiplash']);
 
 const SCENES = Object.freeze({
   [SCENE_IDS.APARTMENT]: Object.freeze({
@@ -381,6 +386,8 @@ function initialState() {
         bodyLoaded: false,
         burialComplete: false,
         echoHeard: false,
+        inspectedGraves: [],
+        respectedGraves: [],
         urinatedOn: [],
       },
       [MISSION_IDS.JERKY_MOTEL]: {
@@ -556,6 +563,24 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  5(saved) {
+    const incident = saved.missions?.[MISSION_IDS.BADA_BING_TWO] ?? {};
+    const urinatedOn = Array.isArray(incident.urinatedOn) ? incident.urinatedOn : [];
+    return {
+      ...saved,
+      version: 6,
+      missions: {
+        ...saved.missions,
+        [MISSION_IDS.BADA_BING_TWO]: {
+          ...incident,
+          inspectedGraves: Array.isArray(incident.inspectedGraves)
+            ? incident.inspectedGraves : urinatedOn,
+          respectedGraves: Array.isArray(incident.respectedGraves)
+            ? incident.respectedGraves : [],
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -624,6 +649,15 @@ function normalize(saved) {
   const bingTwo = saved.missions?.[MISSION_IDS.BADA_BING_TWO] ?? {};
   const bingTwoStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(bingTwo.status) ? bingTwo.status : base.missions.bada_bing_two.status;
+  const urinatedGraves = uniqueStrings(bingTwo.urinatedOn)
+    .filter((grave) => TRAITOR_GRAVE_IDS.includes(grave));
+  const respectedGraves = uniqueStrings(bingTwo.respectedGraves)
+    .filter((grave) => MEMORIAL_GRAVE_IDS.includes(grave) && !urinatedGraves.includes(grave));
+  const inspectedGraves = uniqueStrings([
+    ...(Array.isArray(bingTwo.inspectedGraves) ? bingTwo.inspectedGraves : []),
+    ...respectedGraves,
+    ...urinatedGraves,
+  ]).filter((grave) => MEMORIAL_GRAVE_IDS.includes(grave));
   const motel = saved.missions?.[MISSION_IDS.JERKY_MOTEL] ?? {};
   const motelStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(motel.status) ? motel.status : base.missions.jerky_motel.status;
@@ -705,8 +739,9 @@ function normalize(saved) {
         bodyLoaded: bingTwo.bodyLoaded === true,
         burialComplete: bingTwo.burialComplete === true,
         echoHeard: bingTwo.echoHeard === true,
-        urinatedOn: uniqueStrings(bingTwo.urinatedOn)
-          .filter((grave) => ['brawny', 'whiplash'].includes(grave)),
+        inspectedGraves,
+        respectedGraves,
+        urinatedOn: urinatedGraves,
       },
       [MISSION_IDS.JERKY_MOTEL]: {
         status: motelStatus,
