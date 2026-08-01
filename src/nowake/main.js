@@ -150,7 +150,7 @@ function registerInteractions() {
     enabled: () => !state.boarded,
     onUse: () => {
       state.boarded = true;
-      player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.86, 2.68, 3.72)));
+      player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72)));
       player.ground = boat.deck.height;
       player.yaw = 0;
       hud.toast('Aboard · Gate C', 'good');
@@ -244,7 +244,7 @@ function enterHelm() {
   player.pitchMax = .42;
   player.yaw = physics.heading;
   player.pitch = -.05;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.16, 2.43, .24)));
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.72, 2.43, .24)));
   physics.throttle = 0;
   physics.steer = 0;
   lastHeading = physics.heading;
@@ -506,7 +506,7 @@ function leaveHelm({ force = false } = {}) {
   player.targetEye = 1.66;
   player.ground = boat.root.position.y + boat.deck.height;
   // Stand fully behind the pedestal rather than inside its capsule margin.
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.16, 2.68, 1.22)));
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 1.65)));
   player.yawCenter = null;
   player.yawRange = Math.PI;
   player.pitchMin = -Math.PI / 2 + .05;
@@ -578,7 +578,7 @@ function updateBoat(dt) {
   if (state.atHelm && active) {
     const deltaHeading = physics.heading - lastHeading;
     player.yaw += deltaHeading;
-    player.position.copy(boat.root.localToWorld(local.set(-1.16, 2.43, .24)));
+    player.position.copy(boat.root.localToWorld(local.set(-.72, 2.43, .24)));
     player.sway.roll = physics.motion().roll * .32;
     lastHeading = physics.heading;
     throttleReadout.textContent = Math.abs(physics.throttle) < .04
@@ -644,7 +644,7 @@ function resumeCheckpoint() {
     player.enabled = true;
     player.yaw = physics.heading;
     player.pitch = -.05;
-    player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.16, 2.43, .24)));
+    player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.72, 2.43, .24)));
     lastHeading = physics.heading;
     helmHud.classList.remove('hidden');
     setObjective('Bring her to idle', 'Open water · throttle back to neutral');
@@ -729,6 +729,7 @@ document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);
 });
 document.addEventListener('keydown', (event) => {
+  if (event.code === 'Space') event.preventDefault();
   player.setKey(event.code, true);
   if (event.code === 'KeyE') interaction.press();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');

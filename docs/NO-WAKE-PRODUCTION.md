@@ -23,7 +23,8 @@ v2 saves receive the new mission normally.
 1. Walk the rebuilt Gate C marina and board the 42-foot early-1990s cabin cruiser.
 2. Operate the modeled battery rocker, bilge-blower button, ignition key, bow
    line, stern line, and helm. The two mooring ropes physically span the boat
-   and dock cleats until Tony removes them.
+   and dock cleats until Tony removes them. A full-width port side deck leads
+   from the boarding gap to the bow line, with collidered rails at the stem.
 3. Reverse out and drive the marked channel for at least 90 seconds. Fixed-step
    handling models forward/reverse thrust, speed-dependent rudder authority,
    drag, turning inertia, RPM, heave, roll, pitch, bow lift and a pooled wake.
@@ -40,8 +41,14 @@ chartplotter, VHF, compass, twin throttle, seating, engine hatches, safety
 equipment, fenders, navigation lights and deck hardware. Its rails, cabin,
 helm, seats and deck equipment have boat-local collision so their blockers
 move and rotate with the vessel. The marina adds individual dock planks,
-pilings, bumpers, shore power, hose and safety equipment; layered wave,
-fresnel, ripple and glint shading provides the denser water surface.
+pilings, bumpers, shore power, hose and safety equipment. Its neighboring
+craft are detailed tapered-hull runabouts rather than floating box stand-ins.
+The startup controls occupy one compact, non-overlapping fascia, while layered
+wave, fresnel, ripple and glint shading provides the denser water surface.
+
+The shared player controller now supports a grounded <kbd>Space</kbd> jump.
+Jump height is measured above the current floor frame, allowing the deck to
+heave and turn under Tony without detaching him from the cruiser.
 
 Willy, Lou and Booski use stable campaign identities and the Bing figure rig.
 Willy's permanent profile now uses a broad waist, ribcage, hips and limbs with
@@ -56,7 +63,8 @@ npm run verify:preview   # launcher plus byte-preserved canonical storage
 ```
 
 The NO WAKE verifier checks production boot, cruiser scale and detail,
-modeled startup controls, connected mooring ropes, boat-local collision,
+modeled compact startup controls, connected mooring ropes, bow-line access,
+grounded jump/landing, detailed neighboring craft, boat-local collision,
 stable cast identity, Willy's rounded body shape, safe mooring, helm-neutral
 propulsion, moving-deck player carry, checkpoints, dense water and wake,
 campaign-aware reveal, four-shot execution, disposal, date handoff, preview

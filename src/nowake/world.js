@@ -128,6 +128,43 @@ function buildWater(scene) {
   return { mesh: water, material };
 }
 
+function marinaHullGeometry(length, beam) {
+  const half = beam / 2;
+  const sections = [
+    { z: -length / 2, w: .08 },
+    { z: -length * .39, w: half * .68 },
+    { z: -length * .18, w: half * .96 },
+    { z: length * .34, w: half },
+    { z: length / 2, w: half * .82 },
+  ];
+  const positions = [];
+  const tri = (a, b, c) => positions.push(...a, ...b, ...c);
+  for (let i = 0; i < sections.length - 1; i++) {
+    const a = sections[i]; const b = sections[i + 1];
+    for (const side of [-1, 1]) {
+      const at = [side * a.w, .54, a.z];
+      const ac = [side * a.w * .78, -.12, a.z];
+      const ak = [0, -.68, a.z];
+      const bt = [side * b.w, .54, b.z];
+      const bc = [side * b.w * .78, -.12, b.z];
+      const bk = [0, -.68, b.z];
+      if (side < 0) {
+        tri(at, bt, bc); tri(at, bc, ac); tri(ac, bc, bk); tri(ac, bk, ak);
+      } else {
+        tri(at, bc, bt); tri(at, ac, bc); tri(ac, bk, bc); tri(ac, ak, bk);
+      }
+    }
+  }
+  const stern = sections.at(-1);
+  tri([-stern.w, .54, stern.z], [stern.w, -.12, stern.z], [stern.w, .54, stern.z]);
+  tri([-stern.w, .54, stern.z], [-stern.w * .78, -.12, stern.z], [stern.w, -.12, stern.z]);
+  tri([-stern.w * .78, -.12, stern.z], [0, -.68, stern.z], [stern.w, -.12, stern.z]);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function buildMarina(scene) {
   const wood = mat(0x493b2f, .92);
   const woodLight = mat(0x66523e, .9);
@@ -222,25 +259,78 @@ function buildMarina(scene) {
   }
   scene.add(dock);
 
-  // Neighboring boats carry decks, windscreens, rails and cabin lights.
-  for (const [x, z, yaw, color] of [
-    [9, 5, .08, 0xc2b59a], [15, -9, -.12, 0x586b73], [-16, -8, .04, 0xe0ded4],
+  // Proper neighboring runabouts: tapered hulls at the waterline, open
+  // cockpits, framed glass, deck hardware and engines. The former rectangular
+  // blocks were the two unidentified floating shapes visible from Gate C.
+  const neighborBoats = [];
+  for (const [x, z, yaw, color, accent] of [
+    [9, 5, .08, 0xc2b59a, 0x294755],
+    [15, -9, -.12, 0x586b73, 0xc9b276],
+    [-16, -8, .04, 0xe0ded4, 0x254455],
   ]) {
     const other = new THREE.Group();
-    const hull = box([4.2, 1.25, 9.5], mat(color), 0, .18, 0);
-    hull.geometry.translate(0, 0, -.3);
-    other.add(hull, box([3.4, 1.3, 3.8], mat(0xe7e2d4), 0, 1.05, -.6));
-    other.add(box([3.0, .48, .06], mat(0x284852), 0, 1.45, -2.53));
-    other.add(box([3.65, .08, 7.6], mat(0x6c5640), 0, .84, .35));
+    other.name = 'detailed neighboring marina boat';
+    const length = 9.2;
+    const beam = 3.45;
+    const neighborHull = mesh(marinaHullGeometry(length, beam), mat(color), 0, 0, 0);
+    neighborHull.name = 'tapered neighboring hull';
+    other.add(neighborHull);
+    other.add(box([3.12, .12, 7.65], mat(0x83664a), 0, .61, .20));
+    other.add(box([3.32, .10, 8.25], mat(0xe4dfd2), 0, .55, .12));
     for (const sx of [-1, 1]) {
-      other.add(beamBetween(new THREE.Vector3(sx * 1.85, 1.0, -3.8), new THREE.Vector3(sx * 1.85, 1.55, 3.9), .025, steel, 7));
+      other.add(box([.08, .18, 7.9], mat(accent), sx * 1.64, .22, .18));
     }
+
+    // Compact wheelhouse and a recognisable open aft cockpit.
+    other.add(box([2.35, .62, 2.45], mat(0xe7e2d4), 0, .94, -1.18));
+    other.add(box([2.58, .12, 2.72], mat(accent), 0, 1.67, -1.10));
+    const frontGlass = box([2.14, .52, .055], mat(0x284852), 0, 1.36, -2.43);
+    frontGlass.rotation.x = -.12;
+    other.add(frontGlass);
+    for (const sx of [-1, 1]) {
+      const sideGlass = box([.055, .50, 1.74], mat(0x284852), sx * 1.17, 1.36, -1.12);
+      other.add(sideGlass);
+      other.add(box([.10, .66, .10], mat(0xe7e2d4), sx * 1.18, 1.31, -2.38));
+      other.add(box([.10, .66, .10], mat(0xe7e2d4), sx * 1.18, 1.31, .08));
+    }
+
+    // Rails trace the sheer instead of one long diagonal bar.
+    for (const sx of [-1, 1]) {
+      other.add(beamBetween(new THREE.Vector3(sx * .18, 1.04, -4.42), new THREE.Vector3(sx * 1.52, 1.22, -3.32), .025, steel, 7));
+      other.add(beamBetween(new THREE.Vector3(sx * 1.52, 1.22, -3.32), new THREE.Vector3(sx * 1.58, 1.22, 3.70), .025, steel, 7));
+      for (const railZ of [-3.25, -1.2, .9, 3.55]) {
+        other.add(cylinder(.025, .62, steel, sx * 1.57, .92, railZ, 7));
+      }
+    }
+
+    other.add(box([2.42, .18, .72], mat(0xd5d1c6), 0, .88, 3.17));
+    other.add(box([2.24, .45, .14], mat(0xb8b4a9), 0, 1.10, 3.48));
+    other.add(box([.78, .16, .68], mat(0xb8b4a9), -.62, .84, 1.38));
+    other.add(box([.78, .16, .68], mat(0xb8b4a9), .62, .84, 1.38));
+    for (const sx of [-1, 1]) {
+      other.add(box([.34, .58, .42], mat(0x242a2c), sx * .48, .20, 4.72));
+      other.add(box([.20, .18, .30], mat(accent), sx * .48, -.15, 4.91));
+      for (const cleatZ of [-3.45, 3.52]) {
+        other.add(box([.34, .055, .10], steel, sx * 1.42, .73, cleatZ));
+      }
+    }
+    other.add(cylinder(.045, 1.08, steel, 0, 2.25, -1.12, 8));
+    const radar = mesh(new THREE.SphereGeometry(.25, 16, 10), mat(0xe7e2d4), 0, 2.77, -1.12);
+    radar.scale.y = .38;
+    other.add(radar);
+    other.add(beamBetween(new THREE.Vector3(.56, 1.68, -.85), new THREE.Vector3(.86, 3.05, -1.10), .014, steel, 6));
+    other.add(cylinder(.035, .10, mat(0xc73b32), -.92, 1.76, -2.34, 10));
+    other.add(cylinder(.035, .10, mat(0x3ebf72), .92, 1.76, -2.34, 10));
     const cabinLight = new THREE.PointLight(0xf2d49a, 1.6, 7, 2);
-    cabinLight.position.set(0, 1.55, -.5);
+    cabinLight.position.set(0, 1.46, -.85);
     other.add(cabinLight);
     other.position.set(x, 0, z);
     other.rotation.y = yaw;
+    let details = 0;
+    other.traverse((object) => { if (object.isMesh) details++; });
+    other.userData.detailMeshes = details;
     scene.add(other);
+    neighborBoats.push(other);
   }
 
   const shoreline = box([420, 7, 36], mat(0x334338), 0, 1.2, 78);
@@ -257,7 +347,7 @@ function buildMarina(scene) {
     new THREE.Box3(new THREE.Vector3(-6.75, .15, 16.0), new THREE.Vector3(-5.9, 2.0, 16.65)),
     new THREE.Box3(new THREE.Vector3(-6.2, .1, -14.9), new THREE.Vector3(-4.55, 1.4, -13.9)),
   ];
-  return { root: dock, dockCleats, colliders };
+  return { root: dock, dockCleats, colliders, neighborBoats };
 }
 
 function cruiserHullGeometry() {
@@ -337,32 +427,32 @@ function buildBoat(scene, marina) {
   }
 
   // Forward cabin trunk, opening hatch, windows and bow hardware.
-  root.add(box([3.90, .52, 3.72], white, 0, 1.27, -4.18));
+  root.add(box([2.50, .52, 3.72], white, 0, 1.27, -4.18));
   root.add(box([2.10, .10, 1.05], glass, 0, 1.57, -4.70));
   root.add(box([1.26, .08, .76], black, 0, 1.62, -5.36));
   const hatch = box([1.10, .07, .62], glass, 0, 1.67, -5.34);
   hatch.rotation.x = -.08;
   root.add(hatch);
   for (const sx of [-1, 1]) {
-    const port = mesh(new THREE.CircleGeometry(.26, 24), glass, sx * 1.96, 1.18, -4.1);
+    const port = mesh(new THREE.CircleGeometry(.22, 24), glass, sx * 1.25, 1.18, -4.1);
     port.rotation.y = sx * Math.PI / 2;
     root.add(port);
   }
 
   // Open wheelhouse: framed panes with gaps between every structural member.
-  root.add(box([4.26, .18, 4.25], white, 0, 3.20, -.68));
-  for (const x of [-2.02, -.70, .70, 2.02]) {
+  root.add(box([2.90, .18, 4.25], white, 0, 3.20, -.68));
+  for (const x of [-1.32, -.44, .44, 1.32]) {
     root.add(box([.11, 1.54, .12], white, x, 2.36, -2.71));
   }
-  for (const [x, width] of [[-1.36, 1.14], [0, 1.22], [1.36, 1.14]]) {
+  for (const [x, width] of [[-.88, .72], [0, .76], [.88, .72]]) {
     root.add(box([width, 1.22, .045], glass, x, 2.38, -2.70));
   }
   for (const sx of [-1, 1]) {
-    for (const z of [-2.35, -.95, .45, 1.18]) root.add(box([.12, 1.50, .12], white, sx * 2.02, 2.36, z));
-    for (const z of [-1.65, -.25, .81]) root.add(box([.045, 1.20, 1.16], glass, sx * 2.01, 2.38, z));
+    for (const z of [-2.35, -.95, .45, 1.18]) root.add(box([.12, 1.50, .12], white, sx * 1.32, 2.36, z));
+    for (const z of [-1.65, -.25, .81]) root.add(box([.045, 1.20, 1.16], glass, sx * 1.315, 2.38, z));
   }
   // Wipers sit on the glass rather than passing through it.
-  for (const x of [-.92, .92]) {
+  for (const x of [-.64, .64]) {
     const wiper = beamBetween(new THREE.Vector3(x - .30, 1.92, -2.655), new THREE.Vector3(x + .28, 2.58, -2.655), .018, black, 7);
     root.add(wiper);
   }
@@ -388,10 +478,12 @@ function buildBoat(scene, marina) {
   }
   root.add(beamBetween(new THREE.Vector3(-2.25, 1.78, 5.75), new THREE.Vector3(2.25, 1.78, 5.75), .032, chrome, 8));
   for (const x of [-2.25, -.75, .75, 2.25]) root.add(cylinder(.029, .78, chrome, x, 1.39, 5.75, 8));
+  // Pale non-slip side decks make the now-walkable bow routes legible.
+  for (const sx of [-1, 1]) root.add(box([.42, .025, 8.15], ivory, sx * 1.72, 1.08, -1.10));
 
-  // Helm console and a visibly modeled control station.
-  root.add(box([1.62, 1.16, .82], navy, -1.16, 1.63, -1.43));
-  const dash = box([1.68, .18, .70], black, -1.16, 2.18, -1.40);
+  // Helm console and a compact, visibly modeled control station.
+  root.add(box([1.24, 1.16, .82], navy, -.68, 1.63, -1.43));
+  const dash = box([2.55, .18, .70], black, 0, 2.18, -1.40);
   dash.rotation.x = -.20;
   root.add(dash);
   const wheel = new THREE.Group();
@@ -406,7 +498,7 @@ function buildBoat(scene, marina) {
       new THREE.Vector3(Math.cos(a) * .30, Math.sin(a) * .30, 0), .014, chrome, 7,
     ));
   }
-  wheel.position.set(-1.16, 2.02, -1.00);
+  wheel.position.set(-.68, 2.02, -1.00);
   wheel.rotation.x = .16;
   root.add(wheel);
 
@@ -425,61 +517,61 @@ function buildBoat(scene, marina) {
     return needle;
   }
   const gaugeNeedles = {
-    rpm: gauge('RPM', -1.50, 2.34), speed: gauge('KNOTS', -1.14, 2.35), fuel: gauge('FUEL', -.79, 2.34),
+    rpm: gauge('RPM', -1.01, 2.34), speed: gauge('KNOTS', -.68, 2.35), fuel: gauge('FUEL', -.35, 2.34),
   };
-  const plotter = box([.58, .34, .055], mat(0x101719), -.36, 2.16, -1.02);
+  const plotter = box([.48, .31, .055], mat(0x101719), -.10, 2.15, -1.02);
   root.add(plotter);
-  const plotterScreen = textPlate('DEPTH 18.4', .50, .25, { foreground: '#83d9d4', background: '#0c242a', border: '#253a3c', font: 28 });
-  plotterScreen.position.set(-.36, 2.16, -.985);
+  const plotterScreen = textPlate('DEPTH 18.4', .41, .22, { foreground: '#83d9d4', background: '#0c242a', border: '#253a3c', font: 28 });
+  plotterScreen.position.set(-.10, 2.15, -.985);
   root.add(plotterScreen);
 
   // Startup panel: guarded battery rocker, blower push-button and a real ignition key.
-  const startPanel = box([1.35, .60, .11], black, .66, 1.77, -1.00);
+  const startPanel = box([1.10, .54, .11], black, .68, 1.78, -1.00);
   root.add(startPanel);
-  const startTitle = textPlate('ENGINE START', 1.12, .12, { foreground: '#e7dec0', background: '#171d1f', border: '#555e5f', font: 29 });
-  startTitle.position.set(.66, 2.02, -.935);
+  const startTitle = textPlate('ENGINE START', .92, .11, { foreground: '#e7dec0', background: '#171d1f', border: '#555e5f', font: 29 });
+  startTitle.position.set(.68, 2.01, -.935);
   root.add(startTitle);
 
   const battery = new THREE.Group();
   battery.name = 'battery rocker switch';
-  battery.add(box([.30, .28, .08], mat(0x5b1e19), 0, 0, 0));
-  const batteryLever = box([.18, .20, .10], mat(0xd45742), 0, 0, .07);
+  battery.add(box([.23, .24, .08], mat(0x5b1e19), 0, 0, 0));
+  const batteryLever = box([.14, .17, .10], mat(0xd45742), 0, 0, .07);
   battery.add(batteryLever);
-  const batteryLabel = textPlate('BATTERY', .36, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 28 });
-  batteryLabel.position.set(0, -.20, .075);
+  const batteryLabel = textPlate('BATTERY', .29, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 25 });
+  batteryLabel.position.set(0, -.17, .075);
   battery.add(batteryLabel);
-  battery.position.set(.22, 1.78, -.91);
+  battery.position.set(.36, 1.79, -.91);
   root.add(battery);
 
   const blower = new THREE.Group();
   blower.name = 'bilge blower push button';
-  const blowerBezel = cylinder(.13, .07, chrome, 0, 0, 0, 24);
+  const blowerBezel = cylinder(.105, .07, chrome, 0, 0, 0, 24);
   blowerBezel.rotation.x = Math.PI / 2;
-  const blowerButton = cylinder(.095, .085, mat(0xd3a529), 0, 0, .065, 24);
+  const blowerButton = cylinder(.076, .085, mat(0xd3a529), 0, 0, .065, 24);
   blowerButton.rotation.x = Math.PI / 2;
-  const blowerLabel = textPlate('BLOWER', .34, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 28 });
-  blowerLabel.position.set(0, -.20, .075);
+  const blowerLabel = textPlate('BLOWER', .29, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 25 });
+  blowerLabel.position.set(0, -.17, .075);
   blower.add(blowerBezel, blowerButton, blowerLabel);
-  blower.position.set(.67, 1.78, -.91);
+  blower.position.set(.68, 1.79, -.91);
   root.add(blower);
 
   const ignition = new THREE.Group();
   ignition.name = 'ignition key';
-  const ignitionBarrel = cylinder(.12, .065, chrome, 0, 0, 0, 24);
+  const ignitionBarrel = cylinder(.095, .065, chrome, 0, 0, 0, 24);
   ignitionBarrel.rotation.x = Math.PI / 2;
   const keyTurn = new THREE.Group();
-  const key = box([.055, .30, .035], mat(0xc6b67c, .34, .55), 0, -.10, .075);
-  const fob = box([.13, .13, .045], rubber, 0, -.29, .075);
+  const key = box([.050, .21, .035], mat(0xc6b67c, .34, .55), 0, -.07, .075);
+  const fob = box([.11, .10, .045], rubber, 0, -.20, .075);
   keyTurn.add(key, fob);
   ignition.add(ignitionBarrel, keyTurn);
-  const ignitionLabel = textPlate('IGNITION', .38, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 26 });
-  ignitionLabel.position.set(0, -.43, .075);
+  const ignitionLabel = textPlate('IGNITION', .30, .09, { foreground: '#e6e0ce', background: '#171d1f', border: '#171d1f', font: 24 });
+  ignitionLabel.position.set(0, -.31, .075);
   ignition.add(ignitionLabel);
-  ignition.position.set(1.10, 1.85, -.91);
+  ignition.position.set(1.00, 1.82, -.91);
   root.add(ignition);
 
   const indicatorMat = new THREE.MeshStandardMaterial({ color: 0x25312d, emissive: 0x000000, emissiveIntensity: 0 });
-  const indicator = cylinder(.04, .035, indicatorMat, 1.12, 2.00, -.90, 16);
+  const indicator = cylinder(.035, .035, indicatorMat, 1.01, 1.99, -.90, 16);
   indicator.rotation.x = Math.PI / 2;
   root.add(indicator);
 
@@ -491,29 +583,29 @@ function buildBoat(scene, marina) {
   throttlePivot.add(box([.17, .13, .13], black, 0, .43, 0));
   throttlePivot.position.set(0, .02, 0);
   throttle.add(throttlePivot);
-  throttle.position.set(-.17, 1.53, -.74);
+  throttle.position.set(.05, 1.53, -.74);
   root.add(throttle);
 
-  const radio = box([.52, .28, .18], black, 1.45, 2.42, -.88);
+  const radio = box([.46, .26, .18], black, 1.04, 2.40, -.88);
   root.add(radio);
   const radioFace = textPlate('VHF 16', .43, .15, { foreground: '#78c8b7', background: '#0b1719', border: '#273234', font: 30 });
-  radioFace.position.set(1.45, 2.43, -.785);
+  radioFace.position.set(1.04, 2.41, -.785);
   root.add(radioFace);
-  const compass = mesh(new THREE.SphereGeometry(.18, 22, 14, 0, Math.PI * 2, 0, Math.PI / 2), glass, -.22, 2.48, -1.32);
+  const compass = mesh(new THREE.SphereGeometry(.16, 22, 14, 0, Math.PI * 2, 0, Math.PI / 2), glass, .20, 2.46, -1.32);
   root.add(compass);
 
   // Two proper pedestal seats and aft-deck furniture.
   function helmSeat(x, z) {
     const seat = new THREE.Group();
     seat.add(cylinder(.085, .48, chrome, 0, .24, 0, 12));
-    seat.add(box([.76, .16, .72], vinyl, 0, .55, 0));
-    seat.add(box([.76, .72, .16], vinyl, 0, .88, .28));
-    seat.add(box([.68, .05, .64], teakDark, 0, .45, 0));
+    seat.add(box([.66, .16, .68], vinyl, 0, .55, 0));
+    seat.add(box([.66, .72, .16], vinyl, 0, .88, .26));
+    seat.add(box([.58, .05, .60], teakDark, 0, .45, 0));
     seat.position.set(x, 1.01, z);
     root.add(seat);
   }
-  helmSeat(-1.18, .28);
-  helmSeat(1.18, .28);
+  helmSeat(-.72, .28);
+  helmSeat(.72, .28);
   root.add(box([3.72, .42, .66], ivory, 0, 1.21, 5.32));
   root.add(box([3.48, .16, .61], vinyl, 0, 1.49, 5.25));
   root.add(box([3.48, .58, .15], vinyl, 0, 1.70, 5.53));
@@ -582,6 +674,19 @@ function buildBoat(scene, marina) {
       boatEnd.clone(), new THREE.Vector3().lerpVectors(boatEnd, middle, .55),
       middle, new THREE.Vector3().lerpVectors(middle, dockEnd, .55), dockEnd.clone(),
     ], .035, ropeMat));
+    // The rope is only a few centimetres thick. Give its cleat end a forgiving
+    // pickup volume so releasing a line feels like using the cleat, not
+    // threading the crosshair through a single-pixel strand.
+    const pickup = box([.68, .54, .72], new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      colorWrite: false,
+    }), boatEnd.x, boatEnd.y + .05, boatEnd.z);
+    pickup.name = `${id} line cleat interaction`;
+    pickup.castShadow = false;
+    pickup.receiveShadow = false;
+    line.add(pickup);
     line.userData.lineId = id;
     line.userData.attached = true;
     scene.add(line);
@@ -635,11 +740,13 @@ function buildBoat(scene, marina) {
     new THREE.Box3(new THREE.Vector3(-2.60, .96, -5.70), new THREE.Vector3(-2.08, 1.92, 2.82)),
     new THREE.Box3(new THREE.Vector3(-2.60, .96, 4.60), new THREE.Vector3(-2.08, 1.92, 5.65)),
     new THREE.Box3(new THREE.Vector3(-2.48, .96, 5.52), new THREE.Vector3(2.48, 1.92, 6.00)),
-    new THREE.Box3(new THREE.Vector3(-2.08, .98, -2.82), new THREE.Vector3(2.08, 2.95, -2.54)),
-    new THREE.Box3(new THREE.Vector3(-2.02, .98, -1.92), new THREE.Vector3(-.30, 2.38, -.82)),
-    new THREE.Box3(new THREE.Vector3(-1.62, .98, -.12), new THREE.Vector3(-.72, 2.14, .78)),
-    new THREE.Box3(new THREE.Vector3(.72, .98, -.12), new THREE.Vector3(1.62, 2.14, .78)),
-    new THREE.Box3(new THREE.Vector3(-2.02, .98, -5.82), new THREE.Vector3(2.02, 1.72, -2.78)),
+    new THREE.Box3(new THREE.Vector3(-2.42, .96, -6.75), new THREE.Vector3(-.06, 1.92, -5.42)),
+    new THREE.Box3(new THREE.Vector3(.06, .96, -6.75), new THREE.Vector3(2.42, 1.92, -5.42)),
+    new THREE.Box3(new THREE.Vector3(-1.36, .98, -2.82), new THREE.Vector3(1.36, 2.95, -2.54)),
+    new THREE.Box3(new THREE.Vector3(-1.32, .98, -1.92), new THREE.Vector3(-.04, 2.38, -.82)),
+    new THREE.Box3(new THREE.Vector3(-1.12, .98, -.12), new THREE.Vector3(-.32, 2.14, .78)),
+    new THREE.Box3(new THREE.Vector3(.32, .98, -.12), new THREE.Vector3(1.12, 2.14, .78)),
+    new THREE.Box3(new THREE.Vector3(-1.28, .98, -5.82), new THREE.Vector3(1.28, 1.72, -2.78)),
     new THREE.Box3(new THREE.Vector3(-1.95, .98, 5.00), new THREE.Vector3(1.95, 2.00, 5.78)),
     new THREE.Box3(new THREE.Vector3(1.02, .98, 3.28), new THREE.Vector3(2.12, 2.04, 4.12)),
   ];

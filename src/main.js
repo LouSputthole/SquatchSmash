@@ -188,9 +188,15 @@ const returningFromMotel = returningToApartment
   && !returningFromSilver
   && !returningFromNoWake
   && campaignAtLoad.missions[MISSION_IDS.JERKY_MOTEL].status === 'complete';
+const returningFromAirstrip = returningToApartment
+  && !returningFromSilver
+  && !returningFromNoWake
+  && !returningFromMotel
+  && campaignAtLoad.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status === 'complete';
 const returningFromSquatchfather = returningToApartment
   && !returningFromSilver
   && !returningFromMotel
+  && !returningFromAirstrip
   && campaignAtLoad.missions[MISSION_IDS.SQUATCHFATHER].status === 'complete';
 const apartmentGunUnlocked =
   campaignAtLoad.missions[MISSION_IDS.BADA_BING_ONE].packageReceived === true;
@@ -700,6 +706,8 @@ async function boot() {
           ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
           ? 'Back from the Jerky Motel. It is half four in the morning. Go to bed.'
+          : returningFromAirstrip
+            ? 'Back from the Beef Run. The cargo made it home. Lou will call.'
           : 'Back from the restaurant. The business is settled.';
     startBtn.textContent = 'Go Inside';
   } else {
@@ -799,6 +807,9 @@ startBtn.addEventListener('click', async () => {
       } else if (returningFromMotel) {
         hud.toast('The jerky run is done', 'good');
         hud.say('Home. Every bit of that took all night. <em>Bed.</em>', 4800);
+      } else if (returningFromAirstrip) {
+        hud.toast('The Beef Run is complete', 'good');
+        hud.say('Home. The cargo made it and the Bureau did not. <em>Wait for Lou.</em>', 5000);
       } else if (returningFromSquatchfather) {
         hud.toast('The business is settled', 'good');
         hud.say('Home again. The weapon did not come back with you.', 4800);
@@ -1007,6 +1018,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
+  if (e.code === 'Space') e.preventDefault();
   player.setKey(e.code, true);
 
   switch (e.code) {

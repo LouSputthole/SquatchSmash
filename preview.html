@@ -104,6 +104,27 @@
     text-decoration: none;
   }
   .primary .play { background: var(--pink); color: #1b0711; }
+  .return-section { margin-top: 34px; }
+  .return-section > h2 { margin: 0 0 6px; font-size: 30px; }
+  .return-section > p { margin: 0 0 16px; color: var(--muted); line-height: 1.45; }
+  .return-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .return-card {
+    min-height: 154px;
+    display: flex;
+    flex-direction: column;
+    padding: 18px;
+    border: 1px solid rgba(117, 224, 181, .24);
+    border-radius: 13px;
+    background: rgba(20, 29, 34, .82);
+  }
+  .return-card h3 { margin: 7px 0 6px; font-size: 19px; }
+  .return-card p { flex: 1; margin: 0 0 14px; color: var(--muted); line-height: 1.4; }
+  .return-card .number { color: var(--green); }
+  .return-card .play { padding: 8px 11px; background: var(--green); }
   footer {
     display: flex;
     justify-content: space-between;
@@ -115,6 +136,7 @@
   footer a { color: var(--green); }
   @media (max-width: 700px) {
     .grid { grid-template-columns: 1fr; }
+    .return-grid { grid-template-columns: 1fr; }
     footer { flex-direction: column; }
   }
 </style>
@@ -186,6 +208,49 @@
       <p>Test the current initiation build directly. This preview does not alter its story design.</p>
       <a class="play" data-preview-scene="initiation" href="initiation.html?preview=1">Play initiation →</a>
     </article>
+  </section>
+
+  <section class="return-section" aria-label="Apartment return previews">
+    <h2>Apartment returns</h2>
+    <p>Preview each authored homecoming at the front door with the correct campaign state, clock, inventory, and arrival dialogue.</p>
+    <div class="return-grid">
+      <article class="return-card">
+        <span class="number">RETURN 01</span>
+        <h3>After the first Bing</h3>
+        <p>Come home with Lou's package still concealed under Tony's jacket.</p>
+        <a class="play" data-preview-scene="apartment-bing" href="index.html?preview=1&amp;return=bing">Preview return &rarr;</a>
+      </article>
+      <article class="return-card">
+        <span class="number">RETURN 02</span>
+        <h3>After Squatchfather</h3>
+        <p>Arrive at 3:00 AM with the weapon left behind and the business settled.</p>
+        <a class="play" data-preview-scene="apartment-squatchfather" href="index.html?preview=1&amp;return=squatchfather">Preview return &rarr;</a>
+      </article>
+      <article class="return-card">
+        <span class="number">RETURN 03</span>
+        <h3>After the Beef Run</h3>
+        <p>Land home after dark with the cargo safe and Lou's next call pending.</p>
+        <a class="play" data-preview-scene="apartment-beef-run" href="index.html?preview=1&amp;return=beef-run">Preview return &rarr;</a>
+      </article>
+      <article class="return-card">
+        <span class="number">RETURN 04</span>
+        <h3>After the Jerky Motel</h3>
+        <p>Reach the flat at 4:30 AM after recovering the cargo and surviving the room.</p>
+        <a class="play" data-preview-scene="apartment-motel" href="index.html?preview=1&amp;return=motel">Preview return &rarr;</a>
+      </article>
+      <article class="return-card">
+        <span class="number">RETURN 05</span>
+        <h3>After NO WAKE</h3>
+        <p>Come back from South Harbor with the boat clean and Margo's call ahead.</p>
+        <a class="play" data-preview-scene="apartment-no-wake" href="index.html?preview=1&amp;return=no-wake">Preview return &rarr;</a>
+      </article>
+      <article class="return-card">
+        <span class="number">RETURN 06</span>
+        <h3>After the Silver Room</h3>
+        <p>Return from the date with tomorrow's big night waiting after sleep.</p>
+        <a class="play" data-preview-scene="apartment-silver-room" href="index.html?preview=1&amp;return=silver-room">Preview return &rarr;</a>
+      </article>
+    </div>
   </section>
 
   <footer>

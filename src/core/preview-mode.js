@@ -8,6 +8,14 @@
 
 const PREVIEW_RUNTIME_KEY = '__squatchLifePreviewRuntime';
 const PREVIEW_VALUE = '1';
+const APARTMENT_RETURN_VALUES = new Set([
+  'bing',
+  'squatchfather',
+  'beef-run',
+  'motel',
+  'no-wake',
+  'silver-room',
+]);
 
 export class PreviewMemoryStorage {
   constructor() {
@@ -82,6 +90,13 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   return 'apartment';
 }
 
+/** Which authored homecoming should an apartment preview stage, if any. */
+export function previewApartmentReturnForLocation(locationLike = globalThis.location) {
+  if (previewSceneForLocation(locationLike) !== 'apartment') return null;
+  const value = searchParams(locationLike).get('return');
+  return APARTMENT_RETURN_VALUES.has(value) ? value : null;
+}
+
 function locationSignature(locationLike) {
   return `${String(locationLike?.pathname || '')}${String(locationLike?.search || '')}`;
 }
@@ -101,6 +116,7 @@ export function getPreviewRuntime(locationLike = globalThis.location) {
   const runtime = {
     signature,
     sceneId: previewSceneForLocation(locationLike),
+    apartmentReturn: previewApartmentReturnForLocation(locationLike),
     storage: new PreviewMemoryStorage(),
     seeded: false,
   };

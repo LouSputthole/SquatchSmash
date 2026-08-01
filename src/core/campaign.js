@@ -971,7 +971,7 @@ function boundedNumber(value, min, max, fallback, integer = false) {
   return integer ? Math.round(bounded) : bounded;
 }
 
-function seedPreviewCampaign(campaign, sceneId) {
+function seedPreviewCampaign(campaign, sceneId, apartmentReturn = null) {
   campaign.update((state) => {
     const firstBing = state.missions[MISSION_IDS.BADA_BING_ONE];
     const squatchfather = state.missions[MISSION_IDS.SQUATCHFATHER];
@@ -981,6 +981,88 @@ function seedPreviewCampaign(campaign, sceneId) {
     const noWake = state.missions[MISSION_IDS.NO_WAKE];
     const silver = state.missions[MISSION_IDS.SILVER_ROOM];
     const initiation = state.missions[MISSION_IDS.INITIATION];
+
+    if (sceneId === SCENE_IDS.APARTMENT && apartmentReturn) {
+      const rank = {
+        bing: 1,
+        squatchfather: 2,
+        'beef-run': 3,
+        motel: 4,
+        'no-wake': 5,
+        'silver-room': 6,
+      }[apartmentReturn] ?? 0;
+      const rememberTime = (id) => {
+        if (!state.story.timeEvents.includes(id)) state.story.timeEvents.push(id);
+      };
+
+      firstBing.status = 'complete';
+      firstBing.packageReceived = true;
+      state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+      squatchfather.status = rank === 1 ? 'available' : 'complete';
+      state.story.day = 1;
+      state.story.timeMinutes = 23 * 60 + 41;
+      rememberTime(TIME_EVENT_IDS.DEPART_BADA_BING_ONE);
+      if (rank === 1) {
+        if (!state.inventory.concealed.includes(ITEM_IDS.LOU_PACKAGE)) {
+          state.inventory.concealed.push(ITEM_IDS.LOU_PACKAGE);
+        }
+      } else {
+        state.inventory.carried = state.inventory.carried.filter((id) => id !== ITEM_IDS.LOU_PACKAGE);
+        state.inventory.concealed = state.inventory.concealed.filter((id) => id !== ITEM_IDS.LOU_PACKAGE);
+        squatchfather.weaponStaged = true;
+        squatchfather.weaponDropped = true;
+        state.story.day = 2;
+        state.story.timeMinutes = 3 * 60;
+        rememberTime(TIME_EVENT_IDS.COMPLETE_SQUATCHFATHER);
+      }
+
+      if (rank >= 3) {
+        state.events[EVENT_IDS.BOOSKI_DAY_TWO_CALL].status = 'answered';
+        airstrip.status = 'complete';
+        airstrip.checkpoint = 'landed_home';
+        airstrip.cargoLoaded = true;
+        state.story.chapter = 'day_two';
+        state.story.day = 2;
+        state.story.timeMinutes = 20 * 60 + 30;
+        rememberTime(TIME_EVENT_IDS.COMPLETE_AIRSTRIP);
+      }
+
+      if (rank >= 4) {
+        state.events[EVENT_IDS.LOU_SECOND_CALL].status = 'answered';
+        secondBing.status = 'complete';
+        secondBing.assignment = 'reserve_pickup';
+        motel.status = 'complete';
+        motel.ending = 'home';
+        motel.cargoRecovered = true;
+        state.story.day = 3;
+        state.story.timeMinutes = 4 * 60 + 30;
+        rememberTime(TIME_EVENT_IDS.COMPLETE_JERKY_MOTEL);
+      }
+
+      if (rank >= 5) {
+        state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status = 'answered';
+        noWake.status = 'complete';
+        noWake.checkpoint = 'returned';
+        noWake.betrayalConfirmed = true;
+        noWake.playerFired = true;
+        noWake.bodyDisposed = true;
+        state.story.chapter = 'date';
+        state.story.day = 3;
+        state.story.timeMinutes = 16 * 60 + 40;
+        rememberTime(TIME_EVENT_IDS.COMPLETE_NO_WAKE);
+      }
+
+      if (rank >= 6) {
+        state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
+        silver.status = 'complete';
+        silver.outcome = 'strong';
+        silver.woo = 74;
+        silver.seeingHerAgain = true;
+        state.story.timeMinutes = 23 * 60 + 20;
+        rememberTime(TIME_EVENT_IDS.COMPLETE_SILVER_ROOM);
+      }
+      return;
+    }
 
     if (sceneId === SCENE_IDS.BADA_BING_ONE) {
       firstBing.status = 'available';
@@ -1102,7 +1184,9 @@ function seedPreviewCampaign(campaign, sceneId) {
     }
   });
 
-  const spawn = SCENES[sceneId]?.defaultSpawn;
+  const spawn = sceneId === SCENE_IDS.APARTMENT && apartmentReturn
+    ? 'front_door'
+    : SCENES[sceneId]?.defaultSpawn;
   campaign.enter(sceneId, { spawn });
 }
 
@@ -1113,7 +1197,7 @@ export function createCampaign(options = {}) {
   const campaign = new Campaign(storage);
 
   if (preview && !preview.seeded) {
-    seedPreviewCampaign(campaign, preview.sceneId);
+    seedPreviewCampaign(campaign, preview.sceneId, preview.apartmentReturn);
     preview.seeded = true;
   }
   if (preview) installPreviewNotice();

@@ -51,18 +51,24 @@ const browser = await chromium.launch({
     '--autoplay-policy=no-user-gesture-required',
   ],
 });
-const page = await browser.newPage({ viewport: { width: 960, height: 600 } });
-await page.addInitScript((sentinel) => {
+const context = await browser.newContext({ viewport: { width: 960, height: 600 } });
+await context.addInitScript((sentinel) => {
   if (localStorage.getItem('squatchlife.campaign') === null) {
     localStorage.setItem('squatchlife.campaign', sentinel);
   }
 }, SENTINEL);
 
 const browserProblems = [];
-page.on('pageerror', (error) => browserProblems.push(error.message));
-page.on('console', (message) => {
-  if (message.type() === 'error') browserProblems.push(message.text().slice(0, 240));
-});
+let page = null;
+async function openPreview(url) {
+  await page?.close();
+  page = await context.newPage();
+  page.on('pageerror', (error) => browserProblems.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') browserProblems.push(message.text().slice(0, 240));
+  });
+  await page.goto(url, { waitUntil: 'load' });
+}
 
 const results = [];
 function check(name, ok, detail = '') {
@@ -84,21 +90,53 @@ function unchanged(snapshot) {
 }
 
 try {
-  await page.goto(`http://localhost:${PORT}/preview.html`, { waitUntil: 'load' });
+  await openPreview(`http://localhost:${PORT}/preview.html`);
   const launcher = await page.evaluate(() => ({
     title: document.querySelector('h1')?.textContent,
     links: [...document.querySelectorAll('[data-preview-scene]')]
       .map((link) => [link.dataset.previewScene, link.getAttribute('href')]),
   }));
-  check('the launcher exposes all eight requested previews',
+  check('the launcher exposes eight scenes and all six apartment returns',
     launcher.title === 'Scene preview'
-      && launcher.links.length === 8
+      && launcher.links.length === 14
+      && launcher.links.filter(([id]) => id.startsWith('apartment-')).length === 6
       && launcher.links.every(([, href]) => href.includes('preview=1')),
     JSON.stringify(launcher));
   check('opening the launcher leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
-  await page.goto(`http://localhost:${PORT}/nowake.html?preview=1`, { waitUntil: 'load' });
+  const apartmentReturns = [
+    { id: 'bing', text: /Back from the Bing/, day: 1, time: 23 * 60 + 41 },
+    { id: 'squatchfather', text: /Back from the restaurant/, day: 2, time: 3 * 60 },
+    { id: 'beef-run', text: /Back from the Beef Run/, day: 2, time: 20 * 60 + 30 },
+    { id: 'motel', text: /Back from the Jerky Motel/, day: 3, time: 4 * 60 + 30 },
+    { id: 'no-wake', text: /Back from South Harbor/, day: 3, time: 16 * 60 + 40 },
+    { id: 'silver-room', text: /Back from the Silver Room/, day: 3, time: 23 * 60 + 20 },
+  ];
+  const apartmentEvidence = [];
+  for (const expected of apartmentReturns) {
+    await openPreview(`http://localhost:${PORT}/index.html?preview=1&return=${expected.id}`);
+    await page.waitForFunction(() => window.__squatch?.campaign, null, { timeout: 180000 });
+    const home = await page.evaluate(() => ({
+      tag: document.querySelector('#overlay .tag')?.textContent,
+      start: document.querySelector('#start-btn')?.textContent,
+      scene: window.__squatch.campaign.state.scene,
+      day: window.__squatch.campaign.state.story.day,
+      time: window.__squatch.campaign.state.story.timeMinutes,
+      notice: Boolean(document.querySelector('#squatch-preview-notice')),
+    }));
+    apartmentEvidence.push({ id: expected.id, ...home });
+    check(`the ${expected.id} apartment return opens at its authored front-door state`,
+      expected.text.test(home.tag)
+        && home.start === 'Go Inside'
+        && home.scene.id === 'apartment' && home.scene.spawn === 'front_door'
+        && home.day === expected.day && home.time === expected.time && home.notice,
+      JSON.stringify(home));
+    check(`the ${expected.id} apartment return leaves the canonical save untouched`,
+      unchanged(await storageSnapshot()));
+  }
+
+  await openPreview(`http://localhost:${PORT}/nowake.html?preview=1`);
   await page.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
   const noWake = await page.evaluate(() => ({
     mission: window.NO_WAKE.campaignState.missions.no_wake,
@@ -117,7 +155,7 @@ try {
   check('NO WAKE preview leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
-  await page.goto(`http://localhost:${PORT}/motel.html?preview=1`, { waitUntil: 'load' });
+  await openPreview(`http://localhost:${PORT}/motel.html?preview=1`);
   await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 180000 });
   let motel = await page.evaluate(() => ({
     phase: window.MOTEL.phase,
@@ -145,7 +183,7 @@ try {
   check('playing the Motel leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
-  await page.goto(`http://localhost:${PORT}/bing.html?visit=2&preview=1`, { waitUntil: 'load' });
+  await openPreview(`http://localhost:${PORT}/bing.html?visit=2&preview=1`);
   await page.waitForFunction(() => window.__bing?.secondVisitStory, null, { timeout: 180000 });
   let bing = await page.evaluate(() => ({
     secondVisit: window.__bing.isSecondVisit,
@@ -171,7 +209,7 @@ try {
   check('playing Bada Bing Scene Two leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
-  await page.goto(`http://localhost:${PORT}/squatchfather.html?preview=1`, { waitUntil: 'load' });
+  await openPreview(`http://localhost:${PORT}/squatchfather.html?preview=1`);
   await page.waitForFunction(() => window.squatchfather?.campaignStory, null, { timeout: 180000 });
   let meeting = await page.evaluate(() => ({
     mission: window.squatchfather.campaign.state.missions.squatchfather,
@@ -201,7 +239,7 @@ try {
   check('playing Squatchfather leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
-  await page.goto(`http://localhost:${PORT}/silver.html?preview=1`, { waitUntil: 'load' });
+  await openPreview(`http://localhost:${PORT}/silver.html?preview=1`);
   await page.waitForFunction(() => window.__silver?.story, null, { timeout: 180000 });
   const silver = await page.evaluate(() => ({
     mission: window.__silver.campaignState.missions.silver_room,
@@ -222,7 +260,7 @@ try {
   check('opening the Silver Room leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
-  await page.goto(`http://localhost:${PORT}/initiation.html?preview=1`, { waitUntil: 'load' });
+  await openPreview(`http://localhost:${PORT}/initiation.html?preview=1`);
   await page.waitForFunction(() => window.INITIATION?.player, null, { timeout: 180000 });
   const initiation = await page.evaluate(() => ({
     phase: window.INITIATION.phase,

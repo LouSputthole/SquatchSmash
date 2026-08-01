@@ -103,6 +103,40 @@ try {
       && /ignition key/.test(boot.controls.ignition)
       && boot.lines.bow.attached === true && boot.lines.stern.attached === true,
     JSON.stringify({ controls: boot.controls, lines: boot.lines }));
+  const marinaRefinement = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const Box3 = game.boat.localColliders[0].constructor;
+    const controlBoxes = ['battery', 'blower', 'ignition'].map((id) => ({
+      id,
+      box: new Box3().setFromObject(game.boat.controls[id].root),
+    }));
+    const overlaps = [];
+    for (let i = 0; i < controlBoxes.length; i++) {
+      for (let j = i + 1; j < controlBoxes.length; j++) {
+        if (controlBoxes[i].box.intersectsBox(controlBoxes[j].box)) {
+          overlaps.push(`${controlBoxes[i].id}:${controlBoxes[j].id}`);
+        }
+      }
+    }
+    const minX = Math.min(...controlBoxes.map((entry) => entry.box.min.x));
+    const maxX = Math.max(...controlBoxes.map((entry) => entry.box.max.x));
+    const neighbors = game.world.marina.neighborBoats.map((boat) => {
+      const hull = boat.getObjectByName('tapered neighboring hull');
+      return {
+        name: boat.name,
+        details: boat.userData.detailMeshes,
+        hullVertices: hull.geometry.attributes.position.count,
+      };
+    });
+    return { controlSpan: maxX - minX, overlaps, neighbors };
+  });
+  check('the compact startup cluster keeps three distinct non-overlapping controls',
+    marinaRefinement.controlSpan < 1.05 && marinaRefinement.overlaps.length === 0,
+    JSON.stringify({ span: marinaRefinement.controlSpan, overlaps: marinaRefinement.overlaps }));
+  check('the nearby floating shapes are three detailed boats with tapered hulls',
+    marinaRefinement.neighbors.length === 3
+      && marinaRefinement.neighbors.every((boat) => boat.details >= 25 && boat.hullVertices >= 30),
+    JSON.stringify(marinaRefinement.neighbors));
   check('railings and deck furniture have local collision while the water has a dense displaced surface',
     boot.localColliders >= 10 && boot.waterVertices >= 40000,
     JSON.stringify({ colliders: boot.localColliders, waterVertices: boot.waterVertices }));
@@ -190,6 +224,78 @@ try {
   });
   await page.waitForTimeout(100);
   await page.screenshot({ path: path.join(shots, 'no-wake-startup-panel.png') });
+
+  const deckAccess = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    game.boat.targets.board.userData.interact.onUse();
+    game.player.mode = 'walk';
+    game.player.enabled = true;
+    game.player.ground = game.boat.deck.height;
+    game.player.position.copy(game.world.fromBoatLocal(new V(-1.68, 2.68, 3.72)));
+    game.player.yaw = 0;
+    game.player.clearKeys();
+    game.player.setKey('KeyW', true);
+    for (let i = 0; i < 300; i++) game.player.update(1 / 60);
+    game.player.setKey('KeyW', false);
+    const reached = game.world.toBoatLocal(game.player.position).clone();
+    const Box3 = game.boat.localColliders[0].constructor;
+    const lineDistance = new Box3().setFromObject(game.boat.targets.bowLine)
+      .distanceToPoint(game.player.position);
+
+    game.player.position.copy(game.world.fromBoatLocal(new V(-1.68, 2.68, -4.75)));
+    game.player.ground = game.boat.deck.height;
+    game.player.jumpHeight = 0;
+    game.player.grounded = true;
+    game.player.velocity.set(0, 0, 0);
+    game.player.setKey('Space', true);
+    let maxJump = 0;
+    for (let i = 0; i < 24; i++) {
+      game.player.update(1 / 60);
+      maxJump = Math.max(maxJump, game.player.jumpHeight);
+      if (i === 0) game.player.setKey('Space', false);
+    }
+    for (let i = 0; i < 80; i++) game.player.update(1 / 60);
+    return {
+      reached: { x: reached.x, z: reached.z },
+      lineDistance,
+      maxJump,
+      landed: game.player.grounded && game.player.jumpHeight === 0,
+    };
+  });
+  check('the port side deck is wide enough to walk from boarding gap to the bow line',
+    deckAccess.reached.z < -4.7
+      && deckAccess.reached.x > -1.82 && deckAccess.reached.x < -1.52
+      && deckAccess.lineDistance < 2.7,
+    JSON.stringify(deckAccess));
+  check('Space performs a grounded jump and lands back on the moving-deck frame',
+    deckAccess.maxJump > .45 && deckAccess.landed,
+    JSON.stringify({ maxJump: deckAccess.maxJump, landed: deckAccess.landed }));
+  const bowTargeted = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    game.state.battery = true;
+    game.state.blower = true;
+    game.state.engine = true;
+      game.player.position.copy(game.world.fromBoatLocal(new V(-1.68, 2.68, -5.12)));
+      game.player.ground = game.boat.deck.height;
+      game.player.update(1 / 60);
+      const aim = game.world.fromBoatLocal(new V(-2.22, 1.37, -5.35));
+      const delta = aim.clone().sub(game.player.camera.position);
+      game.player.yaw = Math.atan2(-delta.x, -delta.z);
+      game.player.pitch = Math.asin(delta.y / delta.length());
+      game.player.update(1 / 60);
+      game.player.camera.updateMatrixWorld(true);
+      game.interaction.update(1 / 60);
+      return {
+        matched: game.interaction.current === game.boat.targets.bowLine,
+        current: game.interaction.current?.name ?? null,
+      };
+    });
+  check('the bow line enters the crosshair interaction from the reachable side deck',
+    bowTargeted.matched, JSON.stringify(bowTargeted));
+  await page.waitForTimeout(80);
+  await page.screenshot({ path: path.join(shots, 'no-wake-bow-line-access.png') });
 
   const moored = await page.evaluate(() => {
     const b = window.NO_WAKE.physics;

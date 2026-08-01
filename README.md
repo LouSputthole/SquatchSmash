@@ -79,7 +79,8 @@ For playtesting later scenes before naturally reaching them, open
 <http://localhost:5173/preview.html>. Preview state is page-local memory: it
 does not read, migrate, overwrite, or advance the player's canonical
 `localStorage` save. The preview page exposes all eight campaign scenes,
-including NO WAKE, and every preview
+including NO WAKE, plus the six authored front-door returns after the first
+Bing, Squatchfather, Beef Run, Motel, NO WAKE, and Silver Room. Every preview
 shows a persistent temporary-progress banner and an exit back to the saved
 apartment game.
 
