@@ -539,6 +539,60 @@ try {
       && memorialInteractions.respectedBabsCount === 1
       && Object.values(memorialInteractions.cues).every((count) => count === 1),
     JSON.stringify(memorialInteractions));
+
+  await page.evaluate(() => {
+    const runtime = window.GRAVEYARD;
+    // Stand within interaction range on Brawny's approach and look at the
+    // centre of the ruined marker. This uses the actual document key handlers
+    // below rather than calling the mission's urination method directly.
+    runtime.player.position.set(-2.3, 1.66, -1.75);
+    runtime.player.velocity.set(0, 0, 0);
+    runtime.player.yaw = 0;
+    runtime.player.pitch = -0.38;
+  });
+  await page.waitForFunction(
+    () => window.GRAVEYARD.interactionTarget === 'brawny',
+    null,
+    { timeout: 10000 },
+  );
+  await page.keyboard.press('p');
+  await page.waitForTimeout(120);
+  const legacyPWasInert = await page.evaluate(() => !window.GRAVEYARD.disrespecting);
+  await page.keyboard.down('e');
+  await page.waitForFunction(() => window.GRAVEYARD.disrespecting, null, { timeout: 3000 });
+  await page.waitForTimeout(1650);
+  await page.keyboard.up('e');
+  await page.waitForFunction(
+    () => !window.GRAVEYARD.disrespecting
+      && window.GRAVEYARD.mission.tributeFor('brawny') === 'disrespect',
+    null,
+    { timeout: 5000 },
+  );
+  await page.keyboard.press('e');
+  await page.waitForTimeout(160);
+  const primaryDisrespect = await page.evaluate((pWasInert) => {
+    const runtime = window.GRAVEYARD;
+    const incident = runtime.campaignState.missions.bada_bing_two;
+    const peeCues = window.__graveyardEmittedLines
+      .filter((line) => line.cue === 'vo.graveyard.prospect.pee.brawny').length;
+    return {
+      pWasInert,
+      tribute: runtime.mission.tributeFor('brawny'),
+      urinatedCount: incident.urinatedOn.filter((id) => id === 'brawny').length,
+      respectedCount: incident.respectedGraves.filter((id) => id === 'brawny').length,
+      peeCues,
+      stillDisrespecting: runtime.disrespecting,
+    };
+  }, legacyPWasInert);
+  check('E automatically performs a traitor disrespect once while the removed P shortcut is inert',
+    primaryDisrespect.pWasInert
+      && primaryDisrespect.tribute === 'disrespect'
+      && primaryDisrespect.urinatedCount === 1
+      && primaryDisrespect.respectedCount === 0
+      && primaryDisrespect.peeCues === 1
+      && !primaryDisrespect.stillDisrespecting,
+    JSON.stringify(primaryDisrespect));
+
   const bodyMove = await page.evaluate(() => {
     const graveyardRuntime = window.GRAVEYARD;
     const initial = graveyardRuntime.bodyPresentation();

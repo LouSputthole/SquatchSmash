@@ -495,12 +495,15 @@ npm run audio:todo             superseded — see current 0 voice / 0 effects qu
 Fresh checks for the August 1 HotDog/graveyard/schema-v6 feature branch:
 
 ```text
-npm test                       135/135 passed
-npm run check                  209 source files, 4 manifests, all good
-node tools/verify-bing-two.mjs  19/19 passed
+npm test                       138/138 passed
+npm run check                  210 source files, 4 manifests, all good
+node tools/verify-bing-two.mjs  20/20 passed
+npm run verify:bing           136/136 passed
 node tools/verify-preview.mjs   34/34 passed
 node tools/verify-direct-entry.mjs 21/21 passed
 node tools/verify-boot-errors.mjs  14/14 passed
+npm run verify:art             52 art pieces checked, all good
+npm run verify:bundle           3 strict-CSP policies passed; 261 voice clips embedded
 npm run audio:todo             0 voice, 0 effects
 ```
 

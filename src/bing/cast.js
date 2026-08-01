@@ -341,20 +341,18 @@ export function makePerson(o = {}) {
    * A real belly, general enough for any figure the cast wants one on --
    * Willy is the first, not the only. `build` thickens the whole frame
    * evenly and tops out in the modest paunch above; `gut` is a shape on top
-   * of that, sized on its own. One rounded mass, built from `softBox` --
-   * the recent chamfer pass's own language, the one already used for the
-   * stage roles -- because a belly this size in hard-edged boxes reads as a
-   * crate strapped to a man's front rather than the man himself. Coloured in
-   * `cloth`, not skin, so what shows is the shirt stretched over it.
+   * of that, sized on its own. One ellipsoid gives it a genuinely round
+   * silhouette; the old deep, narrow softBox read like a tube strapped to a
+   * man's front. Coloured in `cloth`, not skin, so what shows is the shirt
+   * stretched over it.
    *
    * Kept narrower than the hips and pulled up clear of where a seated thigh
    * swings to (a seat folds the thigh to roughly horizontal, and its
    * bounding box then tops out around y=1.01 regardless of build -- this
-   * sits above that with room to spare): a gut that reaches out sideways as
-   * far as it reaches forward stops being a belly and starts being a barrel
-   * and clips the hanging arm beside it, and one built down to knee height
-   * sits inside the thigh the moment the figure takes a chair. Depth is
-   * where a big gut actually reads, so depth is where this spends its size.
+   * sits above that with room to spare). It is deliberately broader than it
+   * is deep so Billy and Willy read as fat men rather than men with a hose
+   * projecting from the waist. The gutted arm poses below keep the extra
+   * width clear.
    *
    * Named so the belly can be measured on its own -- pinned against the
    * family's other seated men in tools/verify-bing.mjs -- and so an arm can
@@ -363,17 +361,19 @@ export function makePerson(o = {}) {
    */
   if (gutOn > 0) {
     const gutMat = dress === 'suit' ? jacket : cloth;
-    const gutW = (0.19 + gutOn * 0.05) * t;               // full width
-    const front = (0.11 + gutOn * 0.27) * t;              // full reach off the centreline
-    const back = (0.03 - gutOn * 0.07) * t;                // sinks into the torso behind it
-    const gutH = 0.22 + Math.min(gutOn, 1.4) * 0.02;       // full height -- not built from `t`,
-                                                            // like the waist and hips above it
-    body.add(softBox({
-      name: 'person.gut.belly',
-      size: [gutW, gutH, front - back],
+    const gutW = (0.30 + gutOn * 0.25) * t;               // full width
+    const front = (0.16 + gutOn * 0.22) * t;              // front reach from centreline
+    const back = -0.075 * t;                               // sunk into the torso behind it
+    const gutH = 0.34 + Math.min(gutOn, 1.4) * 0.10;       // full height
+    const belly = sphere({
+      r: gutW / 2,
+      ry: gutH / 2,
+      rz: (front - back) / 2,
       pos: [0, 1.15, lean + (front + back) / 2],
-      mat: gutMat, r: 0.06,
-    }));
+      mat: gutMat,
+    });
+    belly.name = 'person.gut.belly';
+    body.add(belly);
   }
   /* The ribcage stops above the navel rather than running down to the hips.
    * A chest slab that reaches the waistband hides the waist behind it and the
@@ -701,7 +701,11 @@ export function makePerson(o = {}) {
    */
   function arm(side) {
     const pivot = group('arm');
-    pivot.position.set(side * SH, 1.44, lean);
+    // A real belly widens the whole resting silhouette. Move the shoulder
+    // socket out with it so a gutted figure's upper arm does not begin inside
+    // his side before the seated/folded pose has a chance to splay it.
+    const gutArmSpread = gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0;
+    pivot.position.set(side * (SH + gutArmSpread), 1.44, lean);
     pivot.add(slab({ name: 'upperarm', size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
     const fore = group('forearm');
     fore.position.set(0, -0.30, 0);
@@ -1192,16 +1196,13 @@ export class Npc {
       default: {
         this.parts.body.rotation.z = Math.sin(t * 0.4) * 0.018;
         if (this.folded && this.gutted) {
-          /* The same fold, lifted higher: pitching an upper arm forward from
-           * the shoulder drops its far end the LESS forward it goes (an arm
-           * pitched almost flat is almost level with the shoulder; one
-           * pitched only a little hangs almost straight down), so clearing
-           * the belly below takes MORE forward pitch than the ordinary fold
-           * uses, not less, and the crossed forearms come with it. */
-          this.parts.armL.rotation.set(-1.35, 0, 0.5);
-          this.parts.armR.rotation.set(-1.35, 0, -0.5);
-          this.parts.foreL.rotation.set(-1.55, 0.5, 0);
-          this.parts.foreR.rotation.set(-1.55, -0.5, 0);
+          /* A broad gut has no safe chest-width fold. Rest both elbows out
+           * and bring the forearms forward beside the belly instead of
+           * crossing them through its volume. */
+          this.parts.armL.rotation.set(-0.9, 0, -0.65);
+          this.parts.armR.rotation.set(-0.9, 0, 0.65);
+          this.parts.foreL.rotation.set(-1.1, 0, 0);
+          this.parts.foreR.rotation.set(-1.1, 0, 0);
         } else if (this.folded) {
           // Arms crossed: lifted well forward first, so the elbows sit ON the
           // chest and the forearms cross in front of it rather than inside it

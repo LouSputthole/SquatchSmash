@@ -11,6 +11,8 @@ import './airstrip-mission.test.mjs';
 import './beefrun-lineup.test.mjs';
 import './post-airstrip-story.test.mjs';
 import './bada-bing-two-mission.test.mjs';
+import './graveyard-controls.test.mjs';
+import './gut-presentation.test.mjs';
 import './graveyard-mission.test.mjs';
 import './hotdog-graveyard-story.test.mjs';
 import './hotdog-voice-catalog.test.mjs';

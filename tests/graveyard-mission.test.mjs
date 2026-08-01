@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
+import * as THREE from 'three';
 
 import { BILLY_HOTDOG_MODEL } from '../src/core/hotdog-model.js';
 import * as graveyardMissionModule from '../src/graveyard/mission.js';
@@ -26,6 +27,24 @@ test('authored grave portraits map to their markers without duplicating Colton\'
   assert.equal(GRAVE_ART_PRESENTATION.brawny.embeddedName, false);
   assert.equal(GRAVE_ART_PRESENTATION.whiplash.embeddedName, false);
   assert.equal(GRAVE_ART_PRESENTATION.whiplash.transparent, true);
+  assert.ok(
+    GRAVE_ART_PRESENTATION.whiplash.panelBottom - 0.0275
+      >= GRAVE_ART_PRESENTATION.whiplash.nameplateY
+        + GRAVE_ART_PRESENTATION.whiplash.nameplateHeight / 2
+        + 0.01,
+    'Whiplash portrait frame clears the full nameplate instead of covering its top edge',
+  );
+  assert.ok(
+    GRAVE_ART_PRESENTATION.whiplash.panelBottom
+      + GRAVE_ART_PRESENTATION.whiplash.panelHeight
+      + 0.0275 <= 0.98,
+    'Whiplash portrait remains completely mounted on the ruined stone',
+  );
+  assert.ok(
+    GRAVE_ART_PRESENTATION.whiplash.nameplateZ
+      - GRAVE_ART_PRESENTATION.whiplash.panelZ >= 0.02,
+    'Whiplash nameplate sits far enough ahead of the transparent portrait to avoid alpha fighting',
+  );
   assert.equal(GRAVE_ART_PRESENTATION.echo.embeddedName, false);
   assert.equal(GRAVE_ART_PRESENTATION.colton.embeddedName, true);
 });
@@ -45,12 +64,33 @@ test('the graveyard body is the canonical Billy HotDog character, not a bundle p
   assert.equal(body.parts.profile.height, BILLY_HOTDOG_MODEL.height);
   assert.equal(body.parts.profile.gut, BILLY_HOTDOG_MODEL.gut);
   assert.ok(body.group.getObjectByName('hotdog.figure'));
+  const belly = body.group.getObjectByName('person.gut.belly');
+  assert.ok(belly, 'Billy keeps a distinct belly mass');
+  assert.equal(belly.geometry.type, 'SphereGeometry');
+  assert.ok(belly.scale.x > belly.scale.z * 1.2, 'the belly is broad, not a forward-pointing tube');
+  assert.ok(belly.scale.y >= belly.scale.z * 0.9, 'the belly stays round through its vertical silhouette');
+  body.group.updateMatrixWorld(true);
+  const bellyBounds = new THREE.Box3().setFromObject(belly);
+  for (const arm of [body.parts.armL, body.parts.armR]) {
+    arm.traverse((node) => {
+      if (!node.isMesh) return;
+      assert.equal(
+        new THREE.Box3().setFromObject(node).intersectsBox(bellyBounds),
+        false,
+        `${node.name || 'arm mesh'} stays outside Billy's rounded belly`,
+      );
+    });
+  }
   const wrapBands = [];
   body.group.traverse((node) => {
     if (node.name === 'hotdog.wrap-band') wrapBands.push(node);
   });
   assert.equal(wrapBands.length, 3);
-  assert.equal(wrapBands.every((band) => band.geometry.type === 'TubeGeometry'), true);
+  assert.equal(wrapBands.every((band) => band.userData.presentation === 'flat-wrap'), true);
+  assert.equal(
+    wrapBands.some((band) => ['TubeGeometry', 'CylinderGeometry', 'CapsuleGeometry'].includes(band.geometry.type)),
+    false,
+  );
 });
 
 test('HotDog must be picked up, carried to the plot, and placed before burial', () => {
