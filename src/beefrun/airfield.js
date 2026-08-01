@@ -283,6 +283,25 @@ export function buildAirfield(scene, { terrain } = {}) {
   taxiway.rotation.x = -Math.PI / 2;
   root.add(taxiway);
 
+  /* The departure route has to read from the left seat without a map: a faded
+   * yellow centreline leaves the parking spot, turns through the taxiway, and
+   * ends at two hold-short bars before runway 18. The HUD arrow points to the
+   * same hold point, so the physical world and the mission objective agree. */
+  const taxiPaint = unlit(0xe2bd3c, { transparent: true, opacity: 0.88 });
+  const taxiStripe = (name, x, z, width, length) => {
+    const stripe = flatMesh(planeGeo(width, length), taxiPaint, x, ELEV + 0.065, z);
+    stripe.name = name;
+    stripe.rotation.x = -Math.PI / 2;
+    root.add(stripe);
+  };
+  // Parking -> apron -> taxiway -> hold short on the west side of the runway.
+  taxiStripe('taxi-route-parking', -44.5, 385, 21, 0.16);
+  taxiStripe('taxi-route-turn', -34, 390.5, 0.16, 11);
+  taxiStripe('taxi-route-apron', -24.5, 396, 19, 0.16);
+  // The double bars that say the briefing is over and the runway begins.
+  taxiStripe('taxi-route-hold-short-a', -14.25, 396, 0.22, 12.5);
+  taxiStripe('taxi-route-hold-short-b', -13.75, 396, 0.22, 12.5);
+
   floorZones.push({
     box: new THREE.Box3(new THREE.Vector3(-70, 0, 368), new THREE.Vector3(-12, 10, 424)),
     surface: 'tile',

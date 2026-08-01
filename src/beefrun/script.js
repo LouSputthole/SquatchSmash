@@ -158,6 +158,16 @@ export const BEATS = {
   'start.rightCatch': [L('There she is.', 2.0)],
   'start.brake': [L('Parking brake off. Gently. They’re more of a written suggestion.', 4.0)],
 
+  'lineup.begin': [
+    L('Run-up is good. Follow the arrow onto runway eighteen, point the nose south, then stop on the centerline.', 5.4),
+  ],
+  'lineup.ready': [
+    L('There. Centerline under your nose. Full power when you are ready; at sixty, ease her off.', 4.8),
+  ],
+
+  'taxi.route': [
+    L('Follow the faded yellow line out of the apron. It jogs right to the double bars at runway eighteen.', 5.4),
+  ],
   'taxi.begin': [
     L('Taxi out. Little bursts of power, then let her roll.', 3.6),
     L('She doesn’t steer like a truck. She steers like an argument.', 3.8),
@@ -184,6 +194,13 @@ export const BEATS = {
   'takeoff.clear': [
     L('Congratulations. You have now flown exactly far enough to be blamed.', 4.4),
   ],
+  'takeoff.fly': [
+    L('Let me hear you fly.', 2.0),
+    L('You are piping hot right now. El Hueso is south; keep the white diamond and compass arrow centered.', 5.4),
+  ],
+  // Spelled for Captain Sasole's delivery rather than formal orthography: he
+  // draws both words out after Tony gets the old Brushrunner airborne.
+  'takeoff.okay': [L('Ohhhh kay.', 2.0)],
   'takeoff.grass': [
     L('That’s the grass. The grass is not the runway.', 3.2),
     L('Bring her back round and do it with more conviction.', 3.4),
@@ -403,6 +420,29 @@ export const BARKS = {
   smooth: [
     'That’s better. Keep doing whatever that was.',
     'Good. Boring. Boring is the whole job.',
+    'There. Small inputs. The plane likes that.',
+  ],
+  rough: [
+    'Easy on the yoke. You are flying an aeroplane, not shaking a vending machine.',
+    'Stop stirring the sky. Small inputs.',
+    'Your hands have opinions. I need them to have fewer.',
+  ],
+  holy: [
+    'Holee leee.',
+  ],
+  offCourseLeft: [
+    'Marker is left. Turn left and bring the diamond back into the glass.',
+    'You are right of course. Ease left; the compass is asking politely.',
+    'The arrow wants left. It is better at directions than either of us.',
+  ],
+  offCourseRight: [
+    'Marker is right. Turn right and put the diamond back in the middle.',
+    'You are left of course. Ease right; the compass is asking politely.',
+    'The arrow wants right. It is better at directions than either of us.',
+  ],
+  taxiLost: [
+    'Yellow line to the double bars. That is hold short for runway eighteen.',
+    'The runway is east of the apron. Follow the yellow stripe; we painted it for this exact moment.',
   ],
   cargoShift: [
     'Something moved back there. That is never good news.',
@@ -450,8 +490,9 @@ export const OBJECTIVES = {
   unloadGuns: 'Get Old Stove’s crates out of the aeroplane',
   board: 'Get in the left seat',
   start: 'Start both engines',
-  taxi: 'Taxi to the runway',
+  taxi: 'Follow the yellow line to hold short, runway 18',
   runup: 'Hold short and run the engines up',
+  lineup: 'Taxi onto runway 18 and line up southbound',
   takeoff: 'Take off — rotate at 60 knots',
   south: 'Follow Lou’s landmarks south',
   approach: 'Find El Hueso and land uphill',

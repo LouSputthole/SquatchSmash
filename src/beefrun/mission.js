@@ -69,6 +69,7 @@ export class MissionController {
       stoveWalked: false,
       chocksWarned: false,
       runupDone: false,
+      lineupReady: false,
       rotateCalled: false,
       clearCalled: false,
       landmarksSeen: new Set(),
@@ -222,7 +223,8 @@ export class MissionController {
 
       case 'taxi':
         this.setObjective(OBJECTIVES.taxi);
-        this.dialogue.play('taxi.begin', { once: true, delay: 1.2 });
+        this.taxi = { bestDistance: Infinity };
+        this.dialogue.play('taxi.route', { once: true, delay: 1.2 });
         break;
 
       case 'runup':
@@ -232,8 +234,9 @@ export class MissionController {
         break;
 
       case 'lineup':
-        this.setObjective(OBJECTIVES.takeoff);
-        this.dialogue.play('takeoff.brief', { once: true, delay: 0.6 });
+        this.flags.lineupReady = false;
+        this.setObjective(OBJECTIVES.lineup);
+        this.dialogue.play('lineup.begin', { once: true, delay: 0.4 });
         this.saveCheckpoint('takeoff');
         break;
 
@@ -621,13 +624,23 @@ export class MissionController {
   }
 
   updateTaxi(dt) {
-    void dt;
     const p = this.physics;
     const hold = this.airfield.anchors.holdShort;
+    // An older checkpoint can resume directly into taxi. Give it the same
+    // route-tracking state as a clean phase entry instead of losing the guide.
+    this.taxi ??= { bestDistance: Infinity };
+    if (this.dialogue.seen('taxi.route') && !this.dialogue.busy && !this.dialogue.seen('taxi.begin')) {
+      this.dialogue.play('taxi.begin', { once: true });
+    }
     const d = Math.hypot(p.position.x - hold.x, p.position.z - hold.z);
+    this.taxi.bestDistance = Math.min(this.taxi.bestDistance, d);
+    this.setObjective(`${OBJECTIVES.taxi} (${Math.ceil(d)} m)`);
     if (p.groundSpeed * KT > 30) this.dialogue.bark('smooth') || this.dialogue.play('taxi.fast', { once: true });
-    if (d < 26) this.setPhase('runup');
-    // Wandering off the paving is not a failure, just slower and bumpier.
+    // The player has had a fair chance to see the yellow route. If they are
+    // making the distance worse, Captain Sasole names the thing to follow.
+    if (this.phaseTime > 15 && d > this.taxi.bestDistance + 9) this.dialogue.bark('taxiLost');
+    if (d < 18 && p.groundSpeed < 7) this.setPhase('runup');
+    void dt;
   }
 
   updateRunup(dt) {
@@ -661,6 +674,27 @@ export class MissionController {
   updateLineup(dt) {
     void dt;
     const p = this.physics;
+    const target = this.airfield.anchors.lineUp;
+    const distance = Math.hypot(p.position.x - target.x, p.position.z - target.z);
+    const headingError = Math.abs(headingDelta(p.headingDeg, this.airfield.anchors.departHeading));
+
+    /* Holding short is not the same as being on the runway. Do not let the
+     * takeoff state start from the taxiway: the player gets a concrete arrow,
+     * a centreline to follow, and a clear southbound alignment before power. */
+    if (!this.flags.lineupReady) {
+      this.setObjective(`${OBJECTIVES.lineup} (${Math.ceil(distance)} m)`);
+      const airborne = !p.onGround && (p.agl > 2 || p.ias * KT > 40);
+      if ((distance < 13 && headingError < 24 && p.groundSpeed < 8) || airborne) {
+        this.flags.lineupReady = true;
+        this.setObjective(OBJECTIVES.takeoff);
+        if (!airborne) {
+          this.dialogue.play('lineup.ready', { once: true });
+          this.dialogue.play('takeoff.brief', { once: true, delay: 4.7 });
+        }
+      } else {
+        return;
+      }
+    }
     // Rotation call, and the trees at the end.
     if (!this.flags.rotateCalled && p.ias * KT > 58 && p.onGround) {
       this.flags.rotateCalled = true;
@@ -685,6 +719,8 @@ export class MissionController {
     if (!this.flags.clearCalled && p.agl > 130) {
       this.flags.clearCalled = true;
       this.dialogue.play('takeoff.clear');
+      this.dialogue.play('takeoff.fly', { once: true });
+      this.dialogue.play('takeoff.okay', { once: true });
     }
     if (p.position.z < WP.z - 1200) this.setPhase('south');
   }
@@ -931,11 +967,20 @@ export class MissionController {
 
   /**
    * Where the compass guidance points right now: El Hueso on the way out,
-   * home on the way back, nothing while the aeroplane is being taxied around
-   * either field with the destination in plain sight.
+   * home on the way back, and the real hold-short / runway anchors while the
+   * aeroplane is being taxied. The painted yellow route and the cockpit arrow
+   * both use these exact points.
    */
   navTarget() {
     switch (this.phase) {
+      case 'taxi': case 'runup': {
+        const hold = this.airfield.anchors.holdShort;
+        return { label: 'HOLD SHORT - RWY 18', x: hold.x, z: hold.z };
+      }
+      case 'lineup': {
+        const lineUp = this.airfield.anchors.lineUp;
+        return { label: 'RUNWAY 18 - SOUTH', x: lineUp.x, z: lineUp.z };
+      }
       case 'climbout': case 'south': case 'approach':
         return { label: 'EL HUESO', x: EH.x, z: (EH.zLow + EH.zHigh) / 2 };
       case 'heavyTakeoff': case 'return': case 'home': case 'final':
@@ -1012,14 +1057,16 @@ export class MissionController {
     // The compass while flying: a bearing bug on the heading tape plus the
     // distance to the current objective, in the units the placards use.
     const nav = this.navTarget();
+    let navDelta = 0;
     if (nav) {
       const dx = nav.x - p.position.x;
       const dz = nav.z - p.position.z;
       const bearing = ((Math.atan2(dx, dz) * 180) / Math.PI + 360) % 360;
       const nm = Math.hypot(dx, dz) / 1852;
+      navDelta = headingDelta(p.headingDeg, bearing);
       this.flightHud.setNav({
         label: nav.label,
-        delta: headingDelta(p.headingDeg, bearing),
+        delta: navDelta,
         nm,
       });
       this.flightHud.setDirection(this.projectNav(nav, nm));
@@ -1059,6 +1106,19 @@ export class MissionController {
     if (this.score.fuelRemaining < 0.18) warn.add('fuel');
     if (p.damage.gear > 0.3) warn.add('gear');
     if (Math.abs(p.rollDeg) > 45) this.dialogue.bark('banked');
+    if (!p.onGround && p.agl > 90 && (Math.abs(p.rollDeg) > 56 || Math.abs(p.pitchDeg) > 28)) {
+      this.dialogue.bark('holy');
+    } else if (!p.onGround && p.agl > 90 && (Math.abs(p.rollDeg) > 32 || Math.abs(p.pitchDeg) > 18)) {
+      this.dialogue.bark('rough');
+    }
+    // Captain Sasole can see the same marker the player can. These only fire
+    // once the aircraft is established and the destination is materially off
+    // the nose; the dialogue cooldown keeps him from becoming a metronome.
+    if (!p.onGround && p.agl > 90
+      && ['climbout', 'south', 'return'].includes(this.phase)
+      && Math.abs(navDelta) > 38) {
+      this.dialogue.bark(navDelta > 0 ? 'offCourseRight' : 'offCourseLeft');
+    }
     if (this.detection.active) {
       if (this.detection.state === 'searching') warn.add('patrol');
       if (this.detection.state === 'located') warn.add('located');

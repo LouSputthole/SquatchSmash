@@ -93,6 +93,8 @@ export class FlightInput {
     if (!this.usingGamepad) {
       const want = {
         pitch: (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0),
+        // Keep keyboard steering conventional and consistent with the gamepad:
+        // A/Left banks left, while D/Right banks right.
         roll: (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0),
         yaw: (k.has('KeyE') ? 0 : 0) + (k.has('Period') ? 1 : 0) - (k.has('Comma') ? 1 : 0),
       };

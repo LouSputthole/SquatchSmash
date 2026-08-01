@@ -8,6 +8,7 @@ import './phone.test.mjs';
 import './squatchfather-story.test.mjs';
 import './airstrip-story.test.mjs';
 import './airstrip-mission.test.mjs';
+import './beefrun-lineup.test.mjs';
 import './post-airstrip-story.test.mjs';
 import './bada-bing-two-mission.test.mjs';
 import './silver-story.test.mjs';

@@ -589,16 +589,96 @@ const chain = await page.evaluate(() => {
       hudUp: !document.getElementById('br-hud').classList.contains('hidden'),
       controlsUp: !document.getElementById('br-controls').classList.contains('hidden'),
       controlKeys: document.querySelectorAll('#br-controls kbd').length,
+      controlsText: document.getElementById('br-controls').textContent,
     };
   });
   check('the left seat looks over the panel at where the nose is pointing',
     seat.facesNose > 0.99
+      && seat.eyeY >= 0.93
       && seat.eyeY > seat.coamingTopY && seat.eyeY > seat.panelTopY
       && seat.gaugesFacePilot,
     JSON.stringify(seat));
   check('the flight HUD and the controls legend are up for the flight',
     seat.hudUp && seat.controlsUp && seat.controlKeys >= 16,
     JSON.stringify({ hudUp: seat.hudUp, controlsUp: seat.controlsUp, keys: seat.controlKeys }));
+  check('keyboard bank labels match conventional flight controls',
+    /A\s*bank left/i.test(seat.controlsText) && /D\s*bank right/i.test(seat.controlsText),
+    seat.controlsText.replace(/\s+/g, ' ').trim());
+
+  const groundGuidance = await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    const phase = b.mission.phase;
+    b.mission.phase = 'taxi';
+    const taxi = b.mission.navTarget();
+    b.mission.phase = 'lineup';
+    const lineup = b.mission.navTarget();
+    b.mission.phase = phase;
+    return { taxi, lineup };
+  });
+  check('taxi and runway lineup have named physical guidance targets',
+    /HOLD SHORT/.test(groundGuidance.taxi?.label || '')
+      && /RUNWAY 18/.test(groundGuidance.lineup?.label || ''),
+    JSON.stringify(groundGuidance));
+
+  const taxiRoute = await resumePage.evaluate(() => {
+    const root = window.__beefrun.mission.airfield.root;
+    return [
+      'taxi-route-parking', 'taxi-route-turn', 'taxi-route-apron',
+      'taxi-route-hold-short-a', 'taxi-route-hold-short-b',
+    ].map((name) => ({ name, found: !!root.getObjectByName(name) }));
+  });
+  check('the parking stand has a continuous painted taxi route and hold-short bars',
+    taxiRoute.every((part) => part.found),
+    JSON.stringify(taxiRoute));
+
+  const rollKeys = await resumePage.evaluate(() => {
+    const input = window.__beefrun.input;
+    const axis = (code) => {
+      input.clear();
+      input.usingGamepad = false;
+      input.keys.add(code);
+      input.update(0.2);
+      return input.axes.roll;
+    };
+    const a = axis('KeyA');
+    const d = axis('KeyD');
+    input.clear();
+    return { a, d };
+  });
+  check('A rolls left and D rolls right like the gamepad',
+    rollKeys.a < 0 && rollKeys.d > 0,
+    JSON.stringify(rollKeys));
+
+  const skippedLineup = await resumePage.evaluate(async () => {
+    const { MissionController } = await import('/src/beefrun/mission.js');
+    const fake = {
+      physics: {
+        position: { x: 1000, z: 1000 },
+        headingDeg: 90,
+        groundSpeed: 30,
+        ias: 65 / 1.943844,
+        onGround: false,
+        agl: 20,
+      },
+      airfield: { anchors: { lineUp: { x: 0, z: 0 }, departHeading: 180 } },
+      flags: { lineupReady: false, rotateCalled: false, grassOffs: 0 },
+      score: { patience: 1 },
+      dialogue: { play() {} },
+      setObjective(text) { this.objective = text; },
+      gradeTakeoff() { this.graded = true; },
+      setPhase(phase) { this.phase = phase; },
+      restoreCheckpoint() {},
+    };
+    MissionController.prototype.updateLineup.call(fake, 0.016);
+    return {
+      lineupReady: fake.flags.lineupReady,
+      graded: fake.graded === true,
+      phase: fake.phase,
+    };
+  });
+  check('taking off without stopping on the lineup target cannot softlock the mission',
+    skippedLineup.lineupReady && skippedLineup.graded && skippedLineup.phase === 'climbout',
+    JSON.stringify(skippedLineup));
 
   /* Where the mission wants the nose: on the glass, both on and off screen. */
   const pointing = await resumePage.evaluate(() => {

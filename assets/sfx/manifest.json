@@ -4530,6 +4530,21 @@
       "say": "Parking brake off. Gently. They’re more of a written suggestion."
     },
     {
+      "name": "vo.beefrun.sasole.lineup.begin-1.1",
+      "voice": "lou2",
+      "say": "Run-up is good. Follow the arrow onto runway eighteen, point the nose south, then stop on the centerline."
+    },
+    {
+      "name": "vo.beefrun.sasole.lineup.ready-1.1",
+      "voice": "lou2",
+      "say": "There. Centerline under your nose. Full power when you are ready; at sixty, ease her off."
+    },
+    {
+      "name": "vo.beefrun.sasole.taxi.route-1.1",
+      "voice": "lou2",
+      "say": "Follow the faded yellow line out of the apron. It jogs right to the double bars at runway eighteen."
+    },
+    {
       "name": "vo.beefrun.sasole.taxi.begin-1.1",
       "voice": "lou2",
       "say": "Taxi out. Little bursts of power, then let her roll."
@@ -4593,6 +4608,21 @@
       "name": "vo.beefrun.sasole.takeoff.clear-1.1",
       "voice": "lou2",
       "say": "Congratulations. You have now flown exactly far enough to be blamed."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.fly-1.1",
+      "voice": "lou2",
+      "say": "Let me hear you fly."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.fly-2.1",
+      "voice": "lou2",
+      "say": "You are piping hot right now. El Hueso is south; keep the white diamond and compass arrow centered."
+    },
+    {
+      "name": "vo.beefrun.sasole.takeoff.okay-1.1",
+      "voice": "lou2",
+      "say": "Ohhhh kay."
     },
     {
       "name": "vo.beefrun.sasole.takeoff.grass-1.1",
@@ -5138,6 +5168,71 @@
       "name": "vo.beefrun.sasole.bark-smooth-2.1",
       "voice": "lou2",
       "say": "Good. Boring. Boring is the whole job."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-smooth-3.1",
+      "voice": "lou2",
+      "say": "There. Small inputs. The plane likes that."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-rough-1.1",
+      "voice": "lou2",
+      "say": "Easy on the yoke. You are flying an aeroplane, not shaking a vending machine."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-rough-2.1",
+      "voice": "lou2",
+      "say": "Stop stirring the sky. Small inputs."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-rough-3.1",
+      "voice": "lou2",
+      "say": "Your hands have opinions. I need them to have fewer."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-holy-1.1",
+      "voice": "lou2",
+      "say": "Holee leee."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-offCourseLeft-1.1",
+      "voice": "lou2",
+      "say": "Marker is left. Turn left and bring the diamond back into the glass."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-offCourseLeft-2.1",
+      "voice": "lou2",
+      "say": "You are right of course. Ease left; the compass is asking politely."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-offCourseLeft-3.1",
+      "voice": "lou2",
+      "say": "The arrow wants left. It is better at directions than either of us."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-offCourseRight-1.1",
+      "voice": "lou2",
+      "say": "Marker is right. Turn right and put the diamond back in the middle."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-offCourseRight-2.1",
+      "voice": "lou2",
+      "say": "You are left of course. Ease right; the compass is asking politely."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-offCourseRight-3.1",
+      "voice": "lou2",
+      "say": "The arrow wants right. It is better at directions than either of us."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-taxiLost-1.1",
+      "voice": "lou2",
+      "say": "Yellow line to the double bars. That is hold short for runway eighteen."
+    },
+    {
+      "name": "vo.beefrun.sasole.bark-taxiLost-2.1",
+      "voice": "lou2",
+      "say": "The runway is east of the apron. Follow the yellow stripe; we painted it for this exact moment."
     },
     {
       "name": "vo.beefrun.sasole.bark-cargoShift-1.1",

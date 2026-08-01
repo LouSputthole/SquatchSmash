@@ -23,8 +23,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MANIFEST = path.join(ROOT, 'assets/sfx/manifest.json');
 
 const manifest = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
-const kept = manifest.sfx.filter((c) => !c.name.startsWith('vo.beefrun.'));
-const dropped = manifest.sfx.length - kept.length;
+const nonBeefRun = manifest.sfx.filter((c) => !c.name.startsWith('vo.beefrun.'));
+const dropped = manifest.sfx.length - nonBeefRun.length;
 
 const lines = allCues();
 const added = lines.map((l) => {
@@ -36,7 +36,13 @@ const added = lines.map((l) => {
   };
 });
 
-manifest.sfx = [...kept, ...added];
+/* Keep the authored cue block before the post-Bing `woo` effects. The old
+ * version appended it after every unrelated effect, turning one added line
+ * into a four-thousand-line manifest reorder that hid the meaningful review. */
+const insertAt = nonBeefRun.findIndex((c) => c.name === 'woo.up');
+manifest.sfx = insertAt < 0
+  ? [...nonBeefRun, ...added]
+  : [...nonBeefRun.slice(0, insertAt), ...added, ...nonBeefRun.slice(insertAt)];
 fs.writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
 
 const byWho = {};

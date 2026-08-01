@@ -14,7 +14,11 @@
 import { BEATS, BARKS, SPEAKERS, cueOf, barkCueOf } from './script.js';
 import { clamp } from './util.js';
 
-const BARK_COOLDOWN = { default: 9, stall: 4, terrain: 3.5, smooth: 40, banked: 14 };
+const BARK_COOLDOWN = {
+  default: 9, stall: 4, terrain: 3.5, smooth: 40, banked: 14,
+  rough: 16, holy: 24, offCourseLeft: 18, offCourseRight: 18, taxiLost: 14,
+};
+const GLOBAL_BARK_COOLDOWN = 5;
 
 export class DialogueSystem {
   constructor(hud, { audio = null, onLine = null } = {}) {
@@ -28,6 +32,7 @@ export class DialogueSystem {
     this.played = new Set();
     this._barkAt = Object.create(null);
     this._barkIndex = Object.create(null);
+    this._lastBarkAt = -999;
     this.t = 0;
     this.enabled = true;
   }
@@ -66,8 +71,10 @@ export class DialogueSystem {
     if (!lines || !this.enabled) return false;
     const cd = BARK_COOLDOWN[pool] ?? BARK_COOLDOWN.default;
     if (!force && this.t - (this._barkAt[pool] ?? -999) < cd) return false;
+    if (!force && this.t - this._lastBarkAt < GLOBAL_BARK_COOLDOWN) return false;
     if (this.busy && !force) return false;
     this._barkAt[pool] = this.t;
+    this._lastBarkAt = this.t;
     const i = (this._barkIndex[pool] = ((this._barkIndex[pool] ?? -1) + 1) % lines.length);
     this.queue.push({ who: 'SASOLE', text: lines[i], hold: 2.6, bark: true, cue: barkCueOf(pool, i) });
     return true;
