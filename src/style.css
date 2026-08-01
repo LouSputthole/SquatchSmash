@@ -252,9 +252,7 @@ kbd.key, .controls kbd {
 #hands {
   position: absolute;
   right: 22px;
-  /* The phone owns the lowest right-hand position. This keeps its P hint out
-     of the four-slot drink inventory rather than layering two widgets. */
-  bottom: 66px;
+  bottom: 22px;
 }
 #hand-item {
   display: flex;

@@ -253,6 +253,8 @@ body.talking #subtitle {
 /* The left card describes campaign items only. Drinks live in the shared
  * hotbar; the phone gets its own lower-right pocket so it is always where the
  * player expects to raise it from without creating a second inventory. */
+body.bing #hands { bottom: 66px; }
+
 #phone-pocket {
   position: fixed;
   right: 22px;

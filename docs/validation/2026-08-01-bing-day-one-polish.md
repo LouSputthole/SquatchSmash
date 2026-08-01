@@ -12,6 +12,8 @@
 - Removed duplicate phone and drink rows from the bottom-left `ON YOU` card.
   Campaign items and cash remain there; drinks use the four-slot hotbar at the
   lower right; the phone has its own persistent lower-right `[P]` pocket.
+- Scoped the raised hotbar offset to `body.bing`, so this club-only phone
+  pocket cannot move the apartment or other scenes' shared hand UI.
 - Removed Lou's parenthetical writing direction from dialogue text and audio
   playback. The current opening is the spoken line `Shut the door.` only.
 - Registered Tony's reply to Snow as `vo.bing.hang.snow.tony.1`.
@@ -23,13 +25,14 @@
 wired; the MP3 has not been generated in this environment because no
 `ELEVENLABS_API_KEY` or `XI_API_KEY` was available to this process.
 
+Lou's cleaned-up opening is intentionally subtitle-only until a take without
+the removed stage direction is recorded. The old recording remains on disk but
+is not played because its spoken words no longer match the subtitle.
+
 ## Verification
 
-- `node --check src/bing/main.js src/bing/script.js src/bing/family.js src/bing/club.js tools/verify-bing.mjs`
-- `npm run audio:todo`
-- `$env:PORT = '5205'; npm run verify:bing` — 136/136 checks passed.
-
-`npm run check` is currently blocked before source validation: it emits
-`undefined` failures for all 187 files, including untouched files. The direct
-syntax checks above isolate this as a repository checker/runtime issue rather
-than a failure caused by this Bing pass.
+- `npm test` — 108/108 passed.
+- `npm run check` — 195 source files parsed; four manifests validated.
+- `npm run verify:bing` — 136/136 checks passed.
+- `npm run verify:bing-two` — 12/12 checks passed, including the direct-entry
+  save guard and Motel handoff.
