@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Verify the final apartment return in a real browser: home from the Jerky
- * Motel before dawn, the post-Motel sleep, Booskibro's one-shot big-night call,
- * and the apartment door actually routing to the unchanged Initiation.
+ * Verify the Day Four handoff in a real browser: the Silver Room return,
+ * Margo's morning, Lou's one-shot heist call, preparation, and the apartment
+ * door routing into THE TAKE while Initiation remains locked.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -210,24 +210,21 @@ try {
       scene: state.scene,
       motel: state.missions.jerky_motel.status,
       silver: state.missions.silver_room.status,
+      heist: state.missions.bank_heist.status,
       initiation: state.missions.initiation.status,
-      call: state.events.booski_big_night_call.status,
-      sleepCopy: document.querySelector('#subtitle')?.textContent ?? '',
+      call: state.events.lou_heist_call.status,
     };
   });
-  check('sleep writes the Day Four big-night checkpoint at ten in the morning',
-    slept.story.chapter === 'big_night'
+  check('sleep writes the Day Four heist checkpoint at ten in the morning',
+    slept.story.chapter === 'heist_day'
       && slept.story.day === 4
       && slept.story.timeMinutes === 10 * 60
       && slept.scene.spawn === 'wake',
     JSON.stringify(slept));
   check('the campaign so far survives the last sleep',
     slept.motel === 'complete' && slept.silver === 'complete', JSON.stringify(slept));
-  check('sleeping after the date names the Silver Room, not the Motel',
-    /Silver Room/i.test(slept.sleepCopy) && !/jerky|motel/i.test(slept.sleepCopy),
-    slept.sleepCopy);
-  check('the big-night call and the Initiation stay shut until he wakes',
-    slept.call === 'pending' && slept.initiation === 'locked',
+  check('Lou, THE TAKE, and the Initiation stay shut until he wakes',
+    slept.call === 'pending' && slept.heist === 'locked' && slept.initiation === 'locked',
     JSON.stringify(slept));
 
   await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
@@ -255,8 +252,11 @@ try {
     return { chapter: game.apartment.dressedChapter(), shown, raining: game.apartment.state.raining };
   });
   check('by Day Four the flat is the den of a newly minted Squatch criminal',
-    peak.chapter === 'big_night'
+    peak.chapter === 'heist_day'
       && ['cashStacks', 'suitBag', 'gunCase', 'jerkyHaul', 'silverMatches', 'laundryHeap']
+        .every((id) => peak.shown.includes(id))
+      && ['heistArmor', 'heistGloves', 'heistMask', 'heistCarbine',
+        'heistSidearm', 'heistMagazines', 'heistDuffel']
         .every((id) => peak.shown.includes(id))
       // Everything he accumulated on the way here is still here.
       && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
@@ -317,8 +317,8 @@ try {
     story: window.__squatch.campaign.state.story,
     scene: window.__squatch.campaign.state.scene,
   }));
-  check('a reload restores the big-night wake checkpoint',
-    reload.story.chapter === 'big_night'
+  check('a reload restores the heist-day wake checkpoint',
+    reload.story.chapter === 'heist_day'
       && reload.story.day === 4
       && reload.story.timeMinutes === 10 * 60
       && reload.scene.spawn === 'wake'
@@ -340,12 +340,13 @@ try {
       lines: definition?.lines?.length ?? 0,
     };
   });
-  check('Booskibro rings the physical phone about the big night',
+  check('Big Uncle Lou rings the physical phone about THE TAKE',
     ringing.ringing
-      && ringing.eventId === 'booski_big_night_call'
-      && ringing.characterId === 'booski'
-      && ringing.from === 'Booskibro'
-      && ringing.vo === 'call.booski.bignight'
+      && ringing.eventId === 'lou_heist_call'
+      && ringing.characterId === 'lou'
+      && ringing.from === 'Big Uncle Lou'
+      && ringing.vo === 'call.lou.heist'
+      && ringing.targetSceneId === 'bank_heist'
       && ringing.lines === 4,
     JSON.stringify(ringing));
 
@@ -353,23 +354,30 @@ try {
     const game = window.__squatch;
     game.apartment.inventory.add('phone');
     game.phone.press();
+    for (const itemId of ['armor', 'gloves', 'mask', 'carbine', 'sidearm', 'magazines', 'duffel']) {
+      game.apartmentStory.collectHeistPreparation(itemId);
+    }
     const story = game.campaign.state.story;
     return {
       inCall: game.phone.inCall,
-      call: game.campaign.state.events.booski_big_night_call.status,
+      call: game.campaign.state.events.lou_heist_call.status,
+      heist: game.campaign.state.missions.bank_heist.status,
       initiation: game.campaign.state.missions.initiation.status,
+      preparation: game.campaign.state.missions.bank_heist.preparation,
       timeMinutes: story.timeMinutes,
       door: game.apartmentStory.tryLeave({}),
     };
   });
-  check('answering the big-night call unlocks the Initiation on the authored clock',
+  check('answering Lou unlocks THE TAKE but keeps Initiation locked',
     answered.inCall
       && answered.call === 'answered'
-      && answered.initiation === 'available'
-      && answered.timeMinutes === 10 * 60 + 5,
+      && answered.heist === 'available'
+      && answered.initiation === 'locked'
+      && answered.timeMinutes === 10 * 60 + 3
+      && Object.values(answered.preparation).filter(Boolean).length >= 7,
     JSON.stringify(answered));
-  check('the apartment door now routes to the Initiation',
-    answered.door?.kind === 'go' && answered.door?.destination === 'initiation',
+  check('the prepared apartment door now routes to THE TAKE',
+    answered.door?.kind === 'go' && answered.door?.destination === 'bank_heist',
     JSON.stringify(answered.door));
 
   const departed = await page.evaluate(() => {
@@ -379,27 +387,31 @@ try {
       day: state.story.day,
       timeMinutes: state.story.timeMinutes,
       events: state.story.timeEvents,
+      heist: state.missions.bank_heist.status,
       initiation: state.missions.initiation.status,
     };
   });
-  check('leaving for the Circle lands at Day 4, 7:00 PM through the authored clock',
+  check('leaving for THE TAKE lands at Day 4, 11:15 AM through the authored clock',
     departed.day === 4
-      && departed.timeMinutes === 19 * 60
-      && departed.events.includes('travel.initiation')
-      && departed.initiation === 'in_progress',
+      && departed.timeMinutes === 11 * 60 + 15
+      && departed.events.includes('travel.bank_heist')
+      && departed.heist === 'in_progress'
+      && departed.initiation === 'locked',
     JSON.stringify(departed));
 
-  // The door's fade-out really navigates. Ride it into the unchanged scene.
-  await page.waitForURL(/initiation\.html/, { timeout: 20000 });
-  await page.waitForFunction(() => window.INITIATION?.player, null, { timeout: 60000 });
+  // The door's fade-out really navigates into the new mission boundary.
+  await page.waitForURL(/heist\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__heistDebug, null, { timeout: 60000 });
   const arrived = await page.evaluate(() => ({
-    phase: window.INITIATION.phase,
+    state: window.__heistDebug.state,
+    crewHuman: window.__heistDebug.crewHuman,
     savedScene: JSON.parse(localStorage.getItem('squatchlife.campaign')).scene,
   }));
-  check('the departure really lands in the Initiation with the scene saved',
-    typeof arrived.phase === 'string'
-      && arrived.savedScene.id === 'initiation'
-      && arrived.savedScene.spawn === 'gathering',
+  check('the departure really lands in THE TAKE with the scene saved',
+    typeof arrived.state === 'string'
+      && arrived.crewHuman === true
+      && arrived.savedScene.id === 'bank_heist'
+      && arrived.savedScene.spawn === 'safehouse',
     JSON.stringify(arrived));
 
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
@@ -411,16 +423,18 @@ try {
     const state = game.campaign.state;
     return {
       call: game.phone.call?.def?.eventId ?? null,
-      answered: state.events.booski_big_night_call.status,
+      answered: state.events.lou_heist_call.status,
       timeMinutes: state.story.timeMinutes,
+      heist: state.missions.bank_heist.status,
       door: game.apartmentStory.tryLeave({}),
     };
   });
-  check('coming back home does not replay the call or refarm the evening',
+  check('coming back home does not replay Lou or lose the interrupted heist',
     replay.call === null
       && replay.answered === 'answered'
-      && replay.timeMinutes === 19 * 60
-      && replay.door?.destination === 'initiation',
+      && replay.timeMinutes === 11 * 60 + 15
+      && replay.heist === 'in_progress'
+      && replay.door?.destination === 'bank_heist',
     JSON.stringify(replay));
 
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
