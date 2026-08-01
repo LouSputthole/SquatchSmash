@@ -1358,7 +1358,7 @@ const louBriefLock = await page.evaluate(() => {
   };
 });
 check('Lou’s objective briefing holds Tony in place until the authored dialogue ends',
-  louBriefLock.lockMovement && louBriefLock.mode === 'frozen'
+  louBriefLock.lockMovement && louBriefLock.mode === 'briefing'
     && louBriefLock.moved < 0.001 && louBriefLock.stillTalking,
   JSON.stringify(louBriefLock));
 
