@@ -18,6 +18,7 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 
 | Slot | Where it hangs |
 |---|---|
+| `bath.toilet.poster` | apartment bathroom, portrait-format frame beside the existing print over the toilet |
 | `bed.above`   | west wall, over the bed |
 | `couch.left`  | west wall, over the couch (nearer the bed) |
 | `couch.right` | west wall, over the couch (nearer the door) |
