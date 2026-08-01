@@ -612,12 +612,18 @@ async function boot() {
   if (savedActivities.pooped) apartment.state.bowel = 0;
 
   /* Once he has pocketed the phone he has it everywhere and for good, so a
-   * flat rebuilt on a later morning starts with it already in his hand and an
-   * empty nightstand. Done out here rather than inside buildApartment because
+   * flat rebuilt on a later morning starts with it in a pocket and an empty
+   * nightstand. Inventory.add selects a new item by design, so explicitly
+   * select an empty hand afterwards: waking up should never boot into a phone
+   * blocking the view. Done here rather than inside buildApartment because
    * the inventory does not exist yet at the point the nightstand is dressed. */
   if (campaign.hasItem(ITEM_IDS.PHONE) && !apartment.inventory.has('phone')) {
     apartment.inventory.add('phone');
     apartment.phoneProp.group.visible = false;
+  }
+  if (apartment.state.heldItem === 'phone') {
+    const emptyHand = apartment.inventory.items.indexOf(null);
+    if (emptyHand >= 0) apartment.inventory.select(emptyHand);
   }
 
   world.colliders = apartment.colliders;
@@ -955,6 +961,20 @@ document.addEventListener('mouseup', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
+  /* Do not rely on a pointer-lock change to surface pause. Some embedded
+   * previews consume Escape without sending that event, which made the pause
+   * menu disappear exactly when it was most needed. */
+  if (e.code === 'Escape' && !e.repeat) {
+    if (!game.started || game.left) return;
+    e.preventDefault();
+    if (game.paused) {
+      startBtn.click();
+    } else {
+      pauseGame();
+      if (document.pointerLockElement) document.exitPointerLock?.();
+    }
+    return;
+  }
   if (e.repeat) {
     // Still needs to reach the hold-to-drink accumulator.
     if (e.code === 'KeyF') return;
