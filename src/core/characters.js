@@ -112,7 +112,9 @@ export const CHARACTER_REGISTRY = Object.freeze({
     id: CHARACTER_IDS.ERICAN,
     canonicalName: 'Erican',
     subtitleName: 'Eric',
-    voiceProfile: 'erican',
+    /* Same Eric heard throughout the story and on What's Happening in India.
+     * `erican` remains this archived scene's save/face alias, not a new voice. */
+    voiceProfile: 'eric',
     species: 'human',
     role: 'family_member',
     legacyAliases: ['eric', 'ERICAN'],

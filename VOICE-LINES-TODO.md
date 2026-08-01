@@ -12,7 +12,7 @@ Nothing outstanding. Every written line has a recording.
 
 291 line(s), one stable cue per subtitle. The line-specific direction and authored post-line silence come directly from `src/golf/script.js`; regenerate with `npm run vo:golf` after any script edit.
 
-**Casting still required:** `rippinflow` and `erican` have placeholder voice IDs in `assets/sfx/manifest.json`. Choose those two voices before running `npm run sfx:vo`.
+**Continuity:** Rippinflow uses the locked `rippinflow` story voice and Erican uses the existing `eric` story/radio voice. These are the same characters, not golf recasts.
 
 ### LOU1 — 103
 
@@ -860,7 +860,7 @@ Rippinflow. The mouth of the morning: fast, pleased with himself and always half
   - Direction: Said as an ordinary arrangement, which is the single warmest thing anybody says to him all day — because it assumes a next week.
   - Silence after: 1.8 seconds
 
-### ERICAN — 66
+### ERIC — 66
 
 Erican, called Eric here. Spare, steady and warm. He says only what is useful; when he adds a second sentence it matters.
 

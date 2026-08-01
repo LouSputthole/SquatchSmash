@@ -23,6 +23,7 @@ import { LAYOUT as HOLE3 } from '../src/golf/hole3.js';
 import { builtHoles, setActiveHole, HOLE } from '../src/golf/hole.js';
 import { bunkers } from '../src/golf/field.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { voiceProfileFor } from '../src/core/characters.js';
 import {
   GOLF_EFFECT_CUES, playRecordedGolfCue, recordedGolfClip,
 } from '../src/golf/audio.js';
@@ -333,6 +334,9 @@ test('the foursome is the campaign cast, not four new people', () => {
   assert.equal(lou.practiceSwings, 0);
   const rippin = FOURSOME.find((g) => g.id === CHARACTER_IDS.RIPPINFLOW);
   assert.ok(rippin.practiceSwings >= 3, 'Rippin takes too many');
+  assert.equal(voiceProfileFor(CHARACTER_IDS.RIPPINFLOW), 'rippinflow');
+  assert.equal(voiceProfileFor(CHARACTER_IDS.ERICAN), 'eric',
+    'Erican is the established Eric voice, not a golf-only recast');
 });
 
 test('every line in the script can be heard, and none is addressed by position', () => {

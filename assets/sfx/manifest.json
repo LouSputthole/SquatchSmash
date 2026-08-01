@@ -59,7 +59,7 @@
       "style": 0.65
     },
     "eric": {
-      "id": "cjVigY5qzO86Huf0OWal",
+      "id": "A7AUsa1uITCDpK29MG3m",
       "_note": "Eric, of What's Happening in India. Tries to run a real news segment.",
       "model": "eleven_multilingual_v2",
       "stability": 0.48,
@@ -99,20 +99,12 @@
       "style": 0.7
     },
     "rippinflow": {
-      "id": "<set-rippinflow-voice-id>",
-      "_note": "Rippinflow at Silver Pines. Fast, pleased with himself, warm underneath it, never sentimental. Cast a distinct voice before generating golf VO.",
+      "id": "rHWSYoq8UlV0YIBKMryp",
+      "_note": "Rippinflow — founder. LOCKED (2026-07-30). Retired freestyler; it keeps happening anyway.",
       "model": "eleven_multilingual_v2",
-      "stability": 0.34,
-      "similarity": 0.82,
-      "style": 0.58
-    },
-    "erican": {
-      "id": "<set-erican-voice-id>",
-      "_note": "Erican at Silver Pines. Spare, steady and warm; he says only what is useful. Cast a distinct voice before generating golf VO.",
-      "model": "eleven_multilingual_v2",
-      "stability": 0.58,
-      "similarity": 0.84,
-      "style": 0.25
+      "stability": 0.3,
+      "similarity": 0.78,
+      "style": 0.7
     },
     "lou": {
       "id": "bIHbv24MWmeRgasZH58o",
@@ -5167,7 +5159,7 @@
     },
     {
       "name": "vo.golf.h1.eric.morning",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Morning.",
       "direction": "Flat, warm, complete. He has already said everything he needs to."
     },
@@ -5191,7 +5183,7 @@
     },
     {
       "name": "vo.golf.h1.eric.and_yet",
-      "voice": "erican",
+      "voice": "eric",
       "say": "And yet these were the ones you brought.",
       "direction": "Gentle. He is not scoring a point, he is closing a door."
     },
@@ -5215,7 +5207,7 @@
     },
     {
       "name": "vo.golf.h1.eric.he_does",
-      "voice": "erican",
+      "voice": "eric",
       "say": "He does.",
       "direction": "Confirming a fact, not agreeing with a joke."
     },
@@ -5227,7 +5219,7 @@
     },
     {
       "name": "vo.golf.h1.eric.middle_of_green",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Middle of the green. Ignore the flag.",
       "direction": "To the Prospect, quietly. The single most useful sentence anybody says today."
     },
@@ -5245,7 +5237,7 @@
     },
     {
       "name": "vo.golf.h1.eric.selected_driver",
-      "voice": "erican",
+      "voice": "eric",
       "say": "You have selected a driver.",
       "direction": "Perfectly level. This is how Eric roasts people."
     },
@@ -5270,7 +5262,7 @@
     },
     {
       "name": "vo.golf.h1.eric.that_is_different",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is different.",
       "direction": "Into the silence, after it has gone on slightly too long. He is telling the Prospect what just happened, because Lou never will."
     },
@@ -5294,7 +5286,7 @@
     },
     {
       "name": "vo.golf.h1.eric.you_have_clubs",
-      "voice": "erican",
+      "voice": "eric",
       "say": "You have clubs.",
       "direction": "The quiet last line. Do not push it."
     },
@@ -5318,7 +5310,7 @@
     },
     {
       "name": "vo.golf.h1.eric.already_not",
-      "voice": "erican",
+      "voice": "eric",
       "say": "It is already not all love.",
       "direction": "Flat. Closing the exchange."
     },
@@ -5330,7 +5322,7 @@
     },
     {
       "name": "vo.golf.h1.eric.cricket_rules",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Cricket would have more rules and somehow less waiting.",
       "direction": "Mid-address. He does not stop what he is doing to say it."
     },
@@ -5342,7 +5334,7 @@
     },
     {
       "name": "vo.golf.h1.eric.on_the_green",
-      "voice": "erican",
+      "voice": "eric",
       "say": "On the green.",
       "direction": "A fact."
     },
@@ -5354,7 +5346,7 @@
     },
     {
       "name": "vo.golf.h1.eric.yes",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Yes.",
       "direction": "Conceding nothing at all."
     },
@@ -5378,7 +5370,7 @@
     },
     {
       "name": "vo.golf.h1.eric.wanted_bunker",
-      "voice": "erican",
+      "voice": "eric",
       "say": "You wanted the bunker?",
       "direction": "Sincere curiosity, which is worse."
     },
@@ -5438,7 +5430,7 @@
     },
     {
       "name": "vo.golf.h1.eric.nobody_wants_that",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Nobody wants that.",
       "direction": "Immediate."
     },
@@ -5456,7 +5448,7 @@
     },
     {
       "name": "vo.golf.h1.eric.that_will_play",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That will play.",
       "direction": "The highest praise Eric gives."
     },
@@ -5468,7 +5460,7 @@
     },
     {
       "name": "vo.golf.h1.eric.boring_works",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Middle of the green. Boring works.",
       "direction": "Approving."
     },
@@ -5522,7 +5514,7 @@
     },
     {
       "name": "vo.golf.h1.eric.you_have_a_shot",
-      "voice": "erican",
+      "voice": "eric",
       "say": "You have a shot.",
       "direction": "Encouraging and technically true."
     },
@@ -5540,7 +5532,7 @@
     },
     {
       "name": "vo.golf.h1.eric.bushes_do_not_float",
-      "voice": "erican",
+      "voice": "eric",
       "say": "The bushes do not float.",
       "direction": "Correcting the record."
     },
@@ -5582,7 +5574,7 @@
     },
     {
       "name": "vo.golf.h1.eric.one_hundred_sixty_seven",
-      "voice": "erican",
+      "voice": "eric",
       "say": "He is putting from one hundred and sixty-seven yards.",
       "direction": "Stating it for the record, and for Rippin."
     },
@@ -5606,7 +5598,7 @@
     },
     {
       "name": "vo.golf.h1.eric.that_went_in",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That went in.",
       "direction": "Quietly astonished, which for Eric is a shout."
     },
@@ -5737,7 +5729,7 @@
     },
     {
       "name": "vo.golf.h1.eric.lou_said_you_noticed",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Lou said you noticed the car.",
       "direction": "Making conversation, and passing on that Lou talks about him."
     },
@@ -5797,7 +5789,7 @@
     },
     {
       "name": "vo.golf.h1.eric.neither_was_your_tee_shot",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Neither was your tee shot.",
       "direction": "The kill."
     },
@@ -5815,7 +5807,7 @@
     },
     {
       "name": "vo.golf.h1.eric.land_a_plane",
-      "voice": "erican",
+      "voice": "eric",
       "say": "He can land a plane. He can land an iron.",
       "direction": "Vouching for him, lightly."
     },
@@ -5875,7 +5867,7 @@
     },
     {
       "name": "vo.golf.h1.eric.open_the_face",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Open the face. Hit behind the ball.",
       "direction": "Actual instruction. It actually works."
     },
@@ -5887,7 +5879,7 @@
     },
     {
       "name": "vo.golf.h1.eric.do_not_do_that",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Do not do that.",
       "direction": "Fast, and the only time Eric raises his voice all morning."
     },
@@ -5899,7 +5891,7 @@
     },
     {
       "name": "vo.golf.h1.eric.good_shot",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Good shot.",
       "direction": "Plain and meant."
     },
@@ -5923,7 +5915,7 @@
     },
     {
       "name": "vo.golf.h1.eric.roll_the_ball",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Do not hit the hole. Roll the ball to the hole.",
       "direction": "Teaching, gently."
     },
@@ -5935,7 +5927,7 @@
     },
     {
       "name": "vo.golf.h1.eric.not_what_i_said",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is not what I said.",
       "direction": "Patient."
     },
@@ -5953,7 +5945,7 @@
     },
     {
       "name": "vo.golf.h1.eric.less_than_rippin_says",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Less than Rippin says.",
       "direction": "Immediate."
     },
@@ -5965,7 +5957,7 @@
     },
     {
       "name": "vo.golf.h1.eric.exactly_that_much",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Exactly that much.",
       "direction": "The quiet last line again. Let it sit."
     },
@@ -5989,7 +5981,7 @@
     },
     {
       "name": "vo.golf.h1.eric.only_if_first_goes_well",
-      "voice": "erican",
+      "voice": "eric",
       "say": "The second one is only fun if the first one goes well.",
       "direction": "Levelling it."
     },
@@ -6013,7 +6005,7 @@
     },
     {
       "name": "vo.golf.h1.eric.that_does_happen",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That does happen.",
       "direction": "Flatly confirming it."
     },
@@ -6031,7 +6023,7 @@
     },
     {
       "name": "vo.golf.h1.eric.did_not_survive",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That sentence did not survive the putt.",
       "direction": "Immediate."
     },
@@ -6049,7 +6041,7 @@
     },
     {
       "name": "vo.golf.h1.eric.needed_the_rest",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Needed the rest of the putt.",
       "direction": "Helpfully unhelpful."
     },
@@ -6067,7 +6059,7 @@
     },
     {
       "name": "vo.golf.h1.eric.yes_2",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Yes.",
       "direction": "Watching it go."
     },
@@ -6097,7 +6089,7 @@
     },
     {
       "name": "vo.golf.h1.eric.take_your_time",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Take your time.",
       "direction": "Kind."
     },
@@ -6127,7 +6119,7 @@
     },
     {
       "name": "vo.golf.h1.eric.you_watched_it",
-      "voice": "erican",
+      "voice": "eric",
       "say": "You watched it happen.",
       "direction": "Reasonable."
     },
@@ -6163,7 +6155,7 @@
     },
     {
       "name": "vo.golf.h1.eric.birdie_on_the_first",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Birdie on the first.",
       "direction": "Noting it for the card."
     },
@@ -6175,7 +6167,7 @@
     },
     {
       "name": "vo.golf.h1.eric.par",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Par.",
       "direction": "A fact worth stating."
     },
@@ -6199,7 +6191,7 @@
     },
     {
       "name": "vo.golf.h1.eric.useful_clarification",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Useful clarification.",
       "direction": "Dry."
     },
@@ -6223,7 +6215,7 @@
     },
     {
       "name": "vo.golf.h1.eric.that_matters",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That matters.",
       "direction": "Quiet and completely sincere."
     },
@@ -6253,7 +6245,7 @@
     },
     {
       "name": "vo.golf.h1.eric.it_was_a_bunker",
-      "voice": "erican",
+      "voice": "eric",
       "say": "It was a bunker.",
       "direction": "Immovable."
     },
@@ -6313,7 +6305,7 @@
     },
     {
       "name": "vo.golf.h1.eric.par_five",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Par five.",
       "direction": "Precise."
     },
@@ -6344,7 +6336,7 @@
     },
     {
       "name": "vo.golf.h1.eric.we_are_standing_here",
-      "voice": "erican",
+      "voice": "eric",
       "say": "We are standing here.",
       "direction": "Reasonable."
     },
@@ -6356,7 +6348,7 @@
     },
     {
       "name": "vo.golf.h1.eric.thats_a_lot_of_club",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is a lot of club for a hundred and sixty-seven yards.",
       "direction": "Observing, not stopping him."
     },
@@ -6380,7 +6372,7 @@
     },
     {
       "name": "vo.golf.h2.eric.dogleg_right",
-      "voice": "erican",
+      "voice": "eric",
       "say": "It doglegs right at the pines. You cannot see the corner from here.",
       "direction": "Information, offered before anybody asks for it."
     },
@@ -6404,7 +6396,7 @@
     },
     {
       "name": "vo.golf.h2.eric.there_is_sand_there",
-      "voice": "erican",
+      "voice": "eric",
       "say": "There is sand there.",
       "direction": "Flat."
     },
@@ -6416,7 +6408,7 @@
     },
     {
       "name": "vo.golf.h2.eric.that_is_the_sand",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is the sand.",
       "direction": "Not gloating. Reporting."
     },
@@ -6440,7 +6432,7 @@
     },
     {
       "name": "vo.golf.h2.eric.that_is_the_game",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is the game.",
       "direction": "Mid-swing."
     },
@@ -6464,7 +6456,7 @@
     },
     {
       "name": "vo.golf.h2.eric.he_thinks_weather_is_rigged",
-      "voice": "erican",
+      "voice": "eric",
       "say": "He thinks the weather is rigged.",
       "direction": "Deadpan."
     },
@@ -6482,7 +6474,7 @@
     },
     {
       "name": "vo.golf.h2.eric.he_had_a_point",
-      "voice": "erican",
+      "voice": "eric",
       "say": "It came on while he was over the ball. He had a point.",
       "direction": "Fair-minded to a fault."
     },
@@ -6506,13 +6498,13 @@
     },
     {
       "name": "vo.golf.h2.eric.it_was_windy",
-      "voice": "erican",
+      "voice": "eric",
       "say": "It was windy.",
       "direction": "Closing it down, kindly."
     },
     {
       "name": "vo.golf.h2.eric.gratin_butter_chicken",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Gratin still owes me a proper butter chicken. He has been to India. He has *seen* it done.",
       "direction": "The one subject Eric will not let go of."
     },
@@ -6524,7 +6516,7 @@
     },
     {
       "name": "vo.golf.h2.eric.i_know_he_uses_a_jar",
-      "voice": "erican",
+      "voice": "eric",
       "say": "I know he uses a jar. That is the entire problem.",
       "direction": "The only time Eric sounds genuinely wounded all morning."
     },
@@ -6560,7 +6552,7 @@
     },
     {
       "name": "vo.golf.h2.eric.that_is_not_what_happened",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is not what happened.",
       "direction": "Tired."
     },
@@ -6604,7 +6596,7 @@
     },
     {
       "name": "vo.golf.h2.eric.thats_the_second_night",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is the second night, yes.",
       "direction": "Confirming a fixture."
     },
@@ -6622,7 +6614,7 @@
     },
     {
       "name": "vo.golf.h2.eric.let_him_think",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Let him think.",
       "direction": "Quiet."
     },
@@ -6646,7 +6638,7 @@
     },
     {
       "name": "vo.golf.h2.eric.green_is_long",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Green’s long and it runs away from you at the back.",
       "direction": "The read, offered as always without being asked."
     },
@@ -6671,7 +6663,7 @@
     },
     {
       "name": "vo.golf.h2.eric.six",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Six.",
       "direction": "Writing nothing. Just saying it."
     },
@@ -6701,7 +6693,7 @@
     },
     {
       "name": "vo.golf.h2.eric.clubhouse_behind_the_last",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Last one comes back to the clubhouse.",
       "direction": "A fact about geography."
     },
@@ -6726,7 +6718,7 @@
     },
     {
       "name": "vo.golf.h3.eric.provisionally",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Provisionally.",
       "direction": "Dry."
     },
@@ -6744,7 +6736,7 @@
     },
     {
       "name": "vo.golf.h3.eric.there_is_sand_at_two_ten",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Sand at two hundred and ten. Right side.",
       "direction": "To the Prospect, not to Rippin."
     },
@@ -6756,7 +6748,7 @@
     },
     {
       "name": "vo.golf.h3.eric.two_eleven",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Two hundred and eleven.",
       "direction": "Watching it come down."
     },
@@ -6826,13 +6818,13 @@
     },
     {
       "name": "vo.golf.h3.eric.leave_it_rip",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Leave it, Rip.",
       "direction": "And Rippin does, which tells you he understood."
     },
     {
       "name": "vo.golf.h3.eric.last_green_of_the_day",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Last green. Take a second on it.",
       "direction": "Kind, and the most Eric thing he says all morning."
     },
@@ -6874,7 +6866,7 @@
     },
     {
       "name": "vo.golf.h3.eric.that_is_devastating",
-      "voice": "erican",
+      "voice": "eric",
       "say": "That is devastating.",
       "direction": "Impressed."
     },
@@ -6893,7 +6885,7 @@
     },
     {
       "name": "vo.golf.h3.eric.good_morning_for_it",
-      "voice": "erican",
+      "voice": "eric",
       "say": "Good morning for it.",
       "direction": "Looking at the sky, meaning something else."
     },

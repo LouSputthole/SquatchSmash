@@ -86,7 +86,7 @@ const VOICE_DIRECTION = {
     + 'comfortable enough with these men to let the silence after a line do the work.',
   rippinflow: 'Rippinflow. The mouth of the morning: fast, pleased with himself and always '
     + 'half a beat from another story. Warm underneath it, but never sentimental.',
-  erican: 'Erican, called Eric here. Spare, steady and warm. He says only what is useful; '
+  eric: 'Erican, called Eric here. Spare, steady and warm. He says only what is useful; '
     + 'when he adds a second sentence it matters.',
 };
 
@@ -150,8 +150,8 @@ if (golfVoice.length) {
   out += `## Voice — A Morning at Silver Pines\n\n${golfVoice.length} line(s), one stable cue per `
     + 'subtitle. The line-specific direction and authored post-line silence come directly '
     + 'from `src/golf/script.js`; regenerate with `npm run vo:golf` after any script edit.\n\n'
-    + '**Casting still required:** `rippinflow` and `erican` have placeholder voice IDs in '
-    + '`assets/sfx/manifest.json`. Choose those two voices before running `npm run sfx:vo`.\n\n';
+    + '**Continuity:** Rippinflow uses the locked `rippinflow` story voice and Erican uses '
+    + 'the existing `eric` story/radio voice. These are the same characters, not golf recasts.\n\n';
   const byWho = new Map();
   for (const c of golfVoice) {
     const who = c.voice || 'player';

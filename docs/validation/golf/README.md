@@ -16,8 +16,9 @@ Current automated state (August 1, 2026):
 - Record the 291 entries under **Voice — A Morning at Silver Pines** in
   `VOICE-LINES-TODO.md`. Lou has 103, Rippin has 102, Eric has 66, and the
   Prospect has 20. Every filename includes its exact line and direction.
-- Cast final ElevenLabs voices for `rippinflow` and `erican`; their manifest
-  IDs are deliberately placeholders rather than another character's voice.
+- Voice continuity is locked to the established cast: Rippinflow uses
+  `rHWSYoq8UlV0YIBKMryp`, and Erican resolves to the existing `eric` profile
+  (`A7AUsa1uITCDpK29MG3m`) used throughout the story.
 - The 21 golf-specific effects have authored prompts and procedural fallbacks,
   but recordings remain optional polish rather than a playability blocker.
 
