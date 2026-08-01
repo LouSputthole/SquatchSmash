@@ -41,12 +41,14 @@ not by itself fix scene construction or oversized audio residency.
 ## Repository and deployment control
 
 `main` is the sole release line. At the start of this consolidation, fetched
-local `main` and `origin/main` matched at `2324b456`, and the current GitHub
-query reports zero open pull requests. One proven-superseded remote branch,
-`claude/sasquatch-friend-photos-h4hlfr`, remains a cleanup target; its obsolete
-standalone page was already removed/replaced on `main`. Older local recovery
-lines have archive tags, so their branch refs can be retired without discarding
-the preserved checkpoints.
+local `main` and `origin/main` matched at `2324b456`, and the GitHub query
+reported zero open pull requests. During release packaging, `origin/main`
+advanced to `62dbfc8` with the NO WAKE recording sheet and the newer
+`codex/beef-run-runway-start` branch appeared at `f167a41`; both were reconciled
+into this candidate instead of overwritten. Release cleanup retires that
+integrated branch and the proven-obsolete
+`claude/sasquatch-friend-photos-h4hlfr` ref. Older local recovery lines retain
+archive tags, so their branch refs can be retired without discarding checkpoints.
 
 This working candidate is not deployment proof. The release is current only
 after the exact verified commit is pushed to `main`, the GitHub Pages workflow
@@ -267,8 +269,8 @@ harness before and after; none is a network-transfer or cross-device benchmark.
 The Silver figure is a cue-residency count, not a measured network-load-time
 claim.
 
-The current Pages artifact is also materially large: about 1,841 files and
-162.50 MiB, of which assets account for 156.68 MiB. The main payload groups are
+The current Pages artifact is also materially large: 1,860 files and about
+162.92 MiB, of which assets account for 157.04 MiB. The main payload groups are
 sound effects (75.31 MiB), art (40.55 MiB), music (24.54 MiB), and video
 (13.79 MiB). That makes caching, deferred decoding, and right-sized runtime
 derivatives higher-value than changing engines for the immediate demo.
@@ -316,7 +318,7 @@ current friend demo after the exact live Pages smoke, not final-release quality.
 
 ### Automated evidence captured for this candidate
 
-- Core Node suite: 123/123 in-process, including exact-slot, shared-inventory,
+- Core Node suite: 124/124 in-process, including the runway-start, exact-slot, shared-inventory,
   and scoped Apartment-audio regressions.
 - Fresh-save campaign route: 1/1 in-process, including NO WAKE and arrival at
   Initiation.
@@ -325,14 +327,14 @@ current friend demo after the exact live Pages smoke, not final-release quality.
 - Apartment computer lifecycle: 29/29 across all six apps, including both
   pointer/held-Tab and click escape paths from cross-origin DOOM.
 - Day Four apartment / big-night handoff: 20/20.
-- Beef Run: 40/40, including the return checkpoint, measured landing, exact
+- Beef Run: 42/42, including the runway-start cut, return checkpoint, measured landing, exact
   224-cue residency, zero unrelated campaign VO, and the 0.560 s Start capture.
 - Bada Bing visit two: 12/12.
 - Bada Bing full scene: 146/146, including exact-slot preservation, the staged
   shot, all 348 required resident cues, and zero missing, unexpected, or
   unrelated loaded cues.
 - Jerky Motel: 38/38.
-- NO WAKE: 26/26.
+- NO WAKE: 28/28, including exact cue/recording-sheet ownership.
 - Squatchfather: 38/38.
 - Silver story: 20/20.
 - Silver full scene: 120/120.

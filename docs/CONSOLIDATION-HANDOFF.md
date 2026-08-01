@@ -53,7 +53,7 @@ deferred pending the owner's playtest.
   turns the page onto the Day 4 big night.
 - The final apartment return, the post-date sleep into the `big_night`
   chapter, Booskibro's one-shot big-night call, and the door route into the
-  unchanged Initiation are implemented and browser-verified
+  authored Initiation ceremony are implemented and browser-verified
   (`verify:big-night`, 20).
 - `tests/fresh-save-campaign-route.test.mjs` follows a brand-new Tony through
   every currently connected mission, reloads at the apartment returns, and
@@ -164,7 +164,7 @@ sleep → **NO WAKE** → apartment → **Silver Room date** → apartment →
 Initiation on Day 4. This matches what is built; the owner confirmed position 9
 is the Jerky Motel. Every arrow in that chain is a real campaign transition,
 including NO WAKE's same-day handoff into the date chapter and the last one into
-the unchanged Initiation. The owner also confirmed the previously blocked
+the Initiation's unchanged authored ceremony. The owner also confirmed the previously blocked
 character/performer decisions stand as originally specified (Squatchfather
 character style everywhere, detailed performers, Lou's face photo without the
 bandana).
@@ -265,7 +265,7 @@ apartment calls and messages, Motel, Initiation, tests, and story documents.
 Tony now uses the shared human `src/core/person.js` rig in Motel and Initiation.
 The old literal transformation rig remains recoverable from Git history at
 `ae9deef:src/initiation/sasquatch.js`. Do not restore it yet: the user wants to
-playtest the current Initiation unchanged before the ending rewrite.
+playtest the current Initiation ceremony before the ending rewrite.
 
 ## Authored campaign time
 
@@ -353,8 +353,8 @@ through ordinary campaign state without a single change to the scene:
 - The door then returns `{ kind: 'go', destination: SCENE_IDS.INITIATION }`.
   `leaveForMission` applies `travel.initiation`, marks the mission
   `in_progress`, and navigates to `initiation.html`.
-- `src/initiation/*` and `initiation.html` are byte-identical to the
-  pre-existing build. The scene does not read the campaign, claim its scene, or
+- The Initiation's authored ceremony, NPC writing, and outcome logic remain
+  preserved; `src/initiation/main.js` now mounts the shared inventory bar. The scene does not read the campaign, claim its scene, or
   report completion, so `SCENE_IDS.INITIATION` has no outbound edge and the
   door keeps letting Tony back in rather than latching shut behind him. That is
   the accepted state until the user has playtested it.
@@ -419,7 +419,7 @@ through ordinary campaign state without a single change to the scene:
 ### Safe preview
 
 Open <http://localhost:5173/preview.html> for the Beef Run, Motel, Bing Scene
-Two, Squatchfather, **the Silver Room** (SCENE PREVIEW 07), or the unchanged
+Two, Squatchfather, **the Silver Room** (SCENE PREVIEW 07), or the authored
 Initiation reference. Preview campaign state is in-memory and page-local. It
 never reads, migrates, overwrites, or advances the canonical browser save.
 `npm run verify:silver` now boots through `silver.html?preview=1` for exactly
@@ -441,10 +441,9 @@ Three.js. The adapted boundaries:
 
 - The contact speaks as `SASOLE` — Captain Lou Sasole, voice profile `lou2` —
   and the prospect uses the `player` voice. The cue namespace is
-  `vo.beefrun.sasole.*` (never `lou`, which is Big Uncle Lou). 191 manifest
-  cues regenerate through `npm run vo:beefrun`; 171 are generatable with
-  voices the manifest already has. Old Stove, Cecilio, CAIB radio, and the
-  lookout still need ElevenLabs voice ids in the `voices` block.
+  `vo.beefrun.sasole.*` (never `lou`, which is Big Uncle Lou). All 237 manifest
+  cues regenerate through `npm run vo:beefrun` and resolve configured voice
+  keys for Sasole, Tony, Old Stove, Cecilio, CAIB radio, and the lookout.
 - `beefrun.html` is the airstrip scene href. Entering claims the scene;
   `createAirstripStory` gates the start on Booskibro's answered call and the
   completed Squatchfather, with door-voice reasons on the title screen.
@@ -465,8 +464,8 @@ Three.js. The adapted boundaries:
 Fresh checks on the complete consolidation candidate before publication:
 
 ```text
-npm test                      123/123 passed
-npm run check                  200 source files, 4 manifests, all good
+npm test                      124/124 passed
+npm run check                  204 source files, 4 manifests, all good
 npm run check:flight           flight-model bench, all envelopes hold
 npm run verify:campaign-route   1/1 passed; fresh save reaches Initiation in progress
 npm run verify:day-one         38/38 passed
@@ -477,9 +476,9 @@ npm run verify:squatch-smash    8/8 passed
 npm run verify:boot-errors     10/10 passed
 npm run verify:direct-entry    15/15 passed
 npm run verify:preview         19/19 passed
-npm run verify:beefrun         40/40 passed
+npm run verify:beefrun         42/42 passed
 npm run verify:motel           38/38 passed
-npm run verify:no-wake         26/26 passed
+npm run verify:no-wake         28/28 passed
 npm run verify:squatchfather   38/38 passed
 npm run verify:initiation      11/11 passed
 npm run verify:bing-two        12/12 passed

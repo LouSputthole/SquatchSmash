@@ -52,10 +52,13 @@ jobs:
           mkdir -p _site
           cp index.html bing.html squatchfather.html motel.html beefrun.html \
              nowake.html silver.html initiation.html preview.html roster.html _site/
-          cp -r src vendor assets game _site/
+          cp -r src vendor assets game lib _site/
           test -f _site/nowake.html
           test -f _site/src/nowake/main.js
+          test -f _site/lib/jsm/postprocessing/EffectComposer.js
+          test -f _site/lib/jsm/postprocessing/UnrealBloomPass.js
           grep -q 'src/nowake/main.js' _site/nowake.html
+          grep -q '../../lib/jsm/postprocessing/EffectComposer.js' _site/src/initiation/main.js
           echo "Staged $(du -sh _site | cut -f1)"
 
       # Pages has to be switched on once, by hand, before this can deploy:

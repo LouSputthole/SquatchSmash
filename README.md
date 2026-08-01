@@ -12,7 +12,7 @@ Nine playable or preserved experiences live in this repo.
 | **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three's harbor and open-water betrayal: Lou, Booski, Willy, the revolvers, and the silent return. It bridges the Motel to Front and Center. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house and connected to Day Three campaign state. |
-| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, routed from the apartment by Booskibro's Day Four big-night call after the Silver Room. The scene itself is unchanged pending the owner's playtest. |
+| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, routed from the apartment by Booskibro's Day Four big-night call after the Silver Room. Its authored ceremony and outcome are unchanged pending the owner's playtest; it now uses the shared inventory bar. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
@@ -66,9 +66,9 @@ is what finally turns the page onto the Day Four big night, Booskibro's call,
 and the Initiation at seven.
 
 The Initiation branch history, face art, NPC writing, post-processing modules,
-and playable scene are preserved without overwriting shared systems. Tony
+and playable ceremony are preserved while the shared inventory bar is added. Tony
 Squatchtana and the Circle present as humans before Initiation. The current
-standalone scene intentionally remains unchanged until it has been playtested.
+standalone scene's authored ceremony and outcome intentionally remain unchanged until it has been playtested.
 The approved future rewrite will review Tony's campaign accomplishments, kill
 the rival prospects who failed, admit Tony only when the required campaign work
 is complete, and visibly transform Tony and every recognized family member into
@@ -79,7 +79,7 @@ For playtesting later scenes before naturally reaching them, open
 <http://localhost:5173/preview.html>. Preview state is page-local memory: it
 does not read, migrate, overwrite, or advance the player's canonical
 `localStorage` save. The preview page currently exposes the Beef Run, Motel,
-NO WAKE, Bing Scene Two, Squatchfather, the Silver Room, and the unchanged
+NO WAKE, Bing Scene Two, Squatchfather, the Silver Room, and the authored
 Initiation reference. Every preview shows a persistent temporary-progress
 banner and an exit back to the saved apartment game.
 
@@ -104,8 +104,9 @@ You wake up in your apartment on Day One at 6:04 AM. There's a fridge with beer 
 radio on the sideboard, squatch gear on the walls, and a gaming PC on the desk
 that runs a game called **Squatch Smash**.
 
-First-person, fully modelled, no build step. Three.js is vendored, every texture
-and sound is generated at runtime, and the whole thing runs off a static server.
+First-person, fully modelled, no build step. Three.js is vendored; procedural
+textures and audio fallbacks coexist with shipped art, music, video, and voice
+recordings; the whole thing runs off a static server.
 
 ```bash
 npm start          # http://localhost:5173
@@ -313,10 +314,10 @@ the manifest, which is the only place a voice id appears in the project. One
 id, one voice, every line the character says. Paste yours in before running
 `npm run sfx:vo`; nothing spoken generates until you do.
 
-**This step is optional.** Every cue has a procedural WebAudio fallback in
-`src/core/audio.js`, so the apartment is fully audible with no API key and no
-files. Generating samples upgrades the sound with no code change; the engine
-prefers a real file whenever one exists.
+**This step is optional for effects.** Effect cues have procedural WebAudio
+fallbacks in `src/core/audio.js`, so core interactions remain audible with no
+API key and no generated files. Unrecorded voice cues retain their subtitles
+but play silence; generating their samples supplies the actual performance.
 
 ---
 

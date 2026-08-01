@@ -87,12 +87,12 @@ Current product facts:
   does not read the campaign or report completion. Its authored ceremony and
   outcome logic remain frozen; shared campaign-HUD work does not change them.
 - `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, **NO
-  WAKE**, **the Silver Room**, and the unchanged Initiation in page-local memory
+  WAKE**, **the Silver Room**, and the authored Initiation in page-local memory
   without reading or writing the real save.
 - The apartment/computer, Squatchfather spawn, Bada Bing geometry/NPC/rain,
   and first-person Motel/Snow/pool/interior playtest fixes are implemented and
   verified. Preserve those fixes.
-- Initiation is intentionally unchanged until the user has tested it.
+- Initiation's authored ceremony and outcome are intentionally unchanged until the user has tested it; the shared inventory bar is mounted.
 - Apartment pause includes an explicit two-step **Restart campaign** action.
   It resets the story save to Day One but preserves Squatch Smash career/high
   score storage. Big Uncle Lou's Bada Bing objective briefing locks movement
@@ -164,8 +164,8 @@ date are all complete and verified (2026-07-30). Continue in this order:
 
 1. **A human playtest of the current Initiation is the next gate.** The
    apartment door now reaches it through ordinary campaign state, and the scene
-   is deliberately still unchanged. Nothing in `src/initiation/*` may change
-   until the user has played it. After that playtest, implement the approved
+   retains its authored ceremony and outcome; only shared-system integration
+   such as the inventory bar has changed. After that playtest, implement the approved
    ending: accomplishment review, rival deaths, Tony's verdict, mass
    transformation, plus the scene's first `campaign.enter` claim, completion
    time event, and outbound edge home.
