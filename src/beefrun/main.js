@@ -102,9 +102,6 @@ window.addEventListener('resize', () => {
  * cargo, detection, and completion against Captain Lou Sasole's mission. In
  * preview mode createCampaign() gives page-local memory storage instead. */
 const campaign = createCampaign();
-if (campaign.state.scene.id !== SCENE_IDS.AIRSTRIP_SMUGGLING) {
-  campaign.enter(SCENE_IDS.AIRSTRIP_SMUGGLING, { spawn: 'hangar' });
-}
 const story = createAirstripStory({ campaign });
 
 const audio = new AudioEngine();
@@ -217,6 +214,9 @@ startBtn.addEventListener('click', async () => {
       startBtn.disabled = true;
       startBtn.textContent = 'Mission unavailable';
       return;
+    }
+    if (campaign.state.scene.id !== SCENE_IDS.AIRSTRIP_SMUGGLING) {
+      campaign.enter(SCENE_IDS.AIRSTRIP_SMUGGLING, { spawn: 'hangar' });
     }
     game.resume = started.resumed ? RESUME_CHECKPOINT[started.checkpoint] : null;
   }

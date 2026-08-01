@@ -42,9 +42,6 @@ import { createSilverStory } from '../core/silver-story.js';
  * rung, and folds the ending into campaign state. In preview mode
  * createCampaign() hands back page-local memory instead of localStorage. */
 const campaign = createCampaign();
-if (campaign.state.scene.id !== SCENE_IDS.SILVER_ROOM) {
-  campaign.enter(SCENE_IDS.SILVER_ROOM, { spawn: 'kerb' });
-}
 const story = createSilverStory({ campaign });
 
 /** Why the evening cannot start, in the same one-excuse voice as the door. */
@@ -2083,6 +2080,9 @@ startBtn.addEventListener('click', async () => {
       startBtn.disabled = true;
       startBtn.textContent = 'Not tonight';
       return;
+    }
+    if (campaign.state.scene.id !== SCENE_IDS.SILVER_ROOM) {
+      campaign.enter(SCENE_IDS.SILVER_ROOM, { spawn: 'kerb' });
     }
   }
   await audio.init();

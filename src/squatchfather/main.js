@@ -85,9 +85,6 @@ const ui = {
 };
 
 const campaign = createCampaign();
-if (campaign.state.scene.id !== SCENE_IDS.SQUATCHFATHER) {
-  campaign.enter(SCENE_IDS.SQUATCHFATHER, { spawn: 'development_entry' });
-}
 const campaignStory = createSquatchfatherStory({ campaign });
 let campaignMissionStarted = false;
 
@@ -1166,6 +1163,9 @@ function startScene(fresh = true) {
       }[result.reason] || 'This mission cannot start from the current save.';
       ui.menu.querySelector('.subtitle').textContent = reason;
       return;
+    }
+    if (campaign.state.scene.id !== SCENE_IDS.SQUATCHFATHER) {
+      campaign.enter(SCENE_IDS.SQUATCHFATHER, { spawn: 'development_entry' });
     }
     campaignMissionStarted = true;
   }

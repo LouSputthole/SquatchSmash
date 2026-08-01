@@ -20,6 +20,7 @@
     "verify:computer": "node tools/verify-computer.mjs",
     "verify:squatch-smash": "node tools/verify-squatch-smash.mjs",
     "verify:boot-errors": "node tools/verify-boot-errors.mjs",
+    "verify:direct-entry": "node tools/verify-direct-entry.mjs",
     "verify:bing": "node tools/verify-bing.mjs",
     "verify:bing-two": "node tools/verify-bing-two.mjs",
     "verify:squatchfather": "node tools/verify-squatchfather.mjs",

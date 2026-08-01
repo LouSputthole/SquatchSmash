@@ -43,9 +43,6 @@ const ALLY = 'Snow';
 const ALLY_FACE = 'assets/faces/snow.png';
 
 const campaign = createCampaign();
-if (campaign.state.scene.id !== SCENE_IDS.JERKY_MOTEL) {
-  campaign.enter(SCENE_IDS.JERKY_MOTEL, { spawn: 'passenger_seat' });
-}
 const motelStory = createMotelStory({ campaign });
 let lastEndingKind = null;
 
@@ -575,6 +572,9 @@ function startScene() {
     $('startBtn').textContent = 'MISSION UNAVAILABLE';
     $('startBtn').disabled = true;
     return false;
+  }
+  if (campaign.state.scene.id !== SCENE_IDS.JERKY_MOTEL) {
+    campaign.enter(SCENE_IDS.JERKY_MOTEL, { spawn: 'passenger_seat' });
   }
   sfx.init();
   sfx.resume();
