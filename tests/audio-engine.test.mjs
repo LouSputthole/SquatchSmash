@@ -36,3 +36,22 @@ test('a failed manifest load can be retried', async () => {
   assert.deepEqual(await audio.loadManifest(), { total: 1, loaded: 1 });
   assert.equal(calls, 2);
 });
+
+test('sample loading is bounded instead of flooding the browser', async () => {
+  const audio = new AudioEngine();
+  let active = 0;
+  let peak = 0;
+  let loaded = 0;
+  audio._loadOne = async () => {
+    active++;
+    peak = Math.max(peak, active);
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    active--;
+    loaded++;
+  };
+
+  await audio._loadWanted(Array.from({ length: 48 }, (_, i) => ({ name: `cue.${i}` })), 7);
+  assert.equal(loaded, 48);
+  assert.ok(peak > 1, `expected parallel work, observed ${peak}`);
+  assert.ok(peak <= 7, `expected at most 7 concurrent loads, observed ${peak}`);
+});

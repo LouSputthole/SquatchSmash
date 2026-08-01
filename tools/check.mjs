@@ -158,21 +158,16 @@ try {
    * Cues are allowed to be synth-only on purpose, so the manifest is the
    * authority and this only reports names that appear nowhere in it. */
   const allCues = new Set(sfxManifest.sfx.map((c) => c.name));
-  const cueFiles = [
-    'src/main.js', 'src/world/apartment.js', 'src/core/radio.js',
-    /* The Beef Run reaches the same engine through its own thin wrapper, so it
-     * can go wrong in exactly the same silent way. */
-    ...fs.readdirSync(path.join(ROOT, 'src/beefrun'))
-      .filter((f) => f.endsWith('.js'))
-      .map((f) => `src/beefrun/${f}`),
-    /* The Silver Room synthesises nearly all of its own sound — a working
-     * kitchen, five ambience beds, a live band. Every one of those cue names
-     * still has to exist in the manifest or it can never be replaced with a
-     * recording, which is exactly the silent failure this scan is for. */
-    ...fs.readdirSync(path.join(ROOT, 'src/silver'))
-      .filter((f) => f.endsWith('.js'))
-      .map((f) => `src/silver/${f}`),
-  ];
+  /* Scan every scene rather than maintaining a list that silently misses new
+   * games. The Bing and arcade once had live cue names that no generator or
+   * manifest validation could see because this list had drifted. */
+  const cueFiles = [];
+  (function walkCues(dir) {
+    for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      if (entry.isDirectory()) walkCues(`${dir}/${entry.name}`);
+      else if (entry.name.endsWith('.js')) cueFiles.push(`${dir}/${entry.name}`);
+    }
+  })('src');
   for (const file of cueFiles) {
     const src = fs.readFileSync(path.join(ROOT, file), 'utf8');
     for (const m of src.matchAll(/(?:audio\??|missionAudio)\.(?:play|startLoop)\(\s*'([^']+)'/g)) {

@@ -141,8 +141,25 @@ export class AudioEngine {
         : cues;
     }
 
-    await Promise.all(wanted.map((cue) => this._loadOne(cue)));
+    await this._loadWanted(wanted);
     return { total: cues.length, loaded: this.loadedCount };
+  }
+
+  /**
+   * Fetching more than fifteen hundred clips at once can exhaust Chromium's
+   * request/decode resources and silently drop recordings. A small worker pool
+   * keeps the pipe busy without turning first start into a browser stress test.
+   */
+  async _loadWanted(wanted, concurrency = 32) {
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < wanted.length) {
+        const cue = wanted[cursor++];
+        await this._loadOne(cue);
+      }
+    };
+    const count = Math.min(Math.max(1, concurrency), wanted.length);
+    await Promise.all(Array.from({ length: count }, () => worker()));
   }
 
   async _loadOne(cue) {
