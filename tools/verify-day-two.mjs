@@ -226,6 +226,7 @@ try {
       showered: window.__squatch.apartment.state.showered,
       dressed: window.__squatch.apartment.state.dressed,
       panState: window.__squatch.apartment.state.panState,
+      heldItem: window.__squatch.apartment.state.heldItem,
     },
   }));
   check('the live apartment wakes in bed at 7:00 AM on Day Two',
@@ -251,7 +252,8 @@ try {
     woke.flat.fed === false
       && woke.flat.showered === false
       && woke.flat.dressed === false
-      && woke.flat.panState === null,
+      && woke.flat.panState === null
+      && woke.flat.heldItem !== 'phone',
     JSON.stringify(woke.flat));
   check('the objectives panel lists the Day Two morning and Booskibro’s call',
     woke.panel.length === 5
@@ -332,6 +334,19 @@ try {
       && reload.scene.spawn === 'wake'
       && reload.tag.includes('Day Two'),
     JSON.stringify(reload));
+
+  // Use Playwright's keyboard rather than a synthetic document event: Escape
+  // is one of the keys browsers may reserve while pointer lock is involved.
+  await page.evaluate(() => { window.__squatch.game.started = true; window.__squatch.game.paused = false; });
+  await page.keyboard.press('Escape');
+  const paused = await page.evaluate(() => window.__squatch.game.paused
+    && !document.querySelector('#overlay')?.classList.contains('hidden'));
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.__squatch.game.paused === false, null, { timeout: 10000 });
+  const escapePause = { paused, resumed: true };
+  check('Escape always opens and closes pause, including a Day Two browser preview',
+    escapePause.paused && escapePause.resumed,
+    JSON.stringify(escapePause));
 
   const ringing = await page.evaluate(() => {
     const game = window.__squatch;
