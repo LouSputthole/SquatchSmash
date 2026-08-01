@@ -386,7 +386,7 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
     },
     yell: {
       who: 'Booskibro',
-      line: 'AY! I want that shot in thirty FUCKING seconds!',
+      line: 'Ay. I want that shot in thirty fucking seconds.',
       cue: 'vo.bing.booski.shot.yell',
       enter: () => startShot(),
       hold: 2.6,

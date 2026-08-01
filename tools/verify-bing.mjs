@@ -312,6 +312,30 @@ const vehicles = await page.evaluate(() => {
     contained: measured.every((v) => v.contained),
     bayCentred,
     playerColliderLive: b.club.colliders.includes(b.car.worldCollider),
+    cockpit: (() => {
+      const eye = b.car.driverPosition();
+      const names = [];
+      const clips = [];
+      b.car.interior.traverse((o) => {
+        if (o.name) names.push(o.name);
+        if (!o.isMesh) return;
+        o.updateMatrixWorld(true);
+        if (new b.THREE.Box3().setFromObject(o).containsPoint(eye)) clips.push(o.name || '(unnamed)');
+      });
+      return {
+        eyeY: eye.y,
+        bodyShellTop: 0.36 + 1.0,
+        clips,
+        namedParts: names.filter((name) => name.startsWith('cockpit.')).length,
+        seats: b.car.seats.length,
+        gauges: b.car.gauges.length,
+        wheelAhead: b.car.wheel.position.x > b.car.driverLocal.x,
+        headrestsBehind: b.car.seats.every((seat) => {
+          const head = seat.getObjectByName('seat.headrest');
+          return head && head.position.x < b.car.driverLocal.x - 0.3;
+        }),
+      };
+    })(),
   };
 });
 check('all eighteen vehicles are grounded and separated',
@@ -320,6 +344,15 @@ check('all eighteen vehicles are grounded and separated',
 check('every visible car is contained by its matching collider',
   vehicles.contained && vehicles.playerColliderLive);
 check('the ordinary parked cars sit on the painted bay centres', vehicles.bayCentred);
+check('Tony sits above the solid body shell instead of spawning inside a block',
+  vehicles.cockpit.eyeY > vehicles.cockpit.bodyShellTop + 0.1
+    && vehicles.cockpit.clips.length === 0,
+  JSON.stringify(vehicles.cockpit));
+check('the arrival sedan has a finished cockpit around that clear eye point',
+  vehicles.cockpit.namedParts >= 20 && vehicles.cockpit.seats === 2
+    && vehicles.cockpit.gauges === 3 && vehicles.cockpit.wheelAhead
+    && vehicles.cockpit.headrestsBehind,
+  JSON.stringify(vehicles.cockpit));
 
 await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ' })));
 await tick(1.2, 0.1);
@@ -1181,35 +1214,62 @@ check('a lapsed Family thread resumes; a finished one replays',
   JSON.stringify(famResume));
 
 /* ---- Booski's shot, end to end ----
- * Talk → offer → the yell → the bartender hustles the shot across the room
- * under a held camera → handoff → Tony holds a whiskey he did not order.
- * The beat is stepped here the way the frame loop steps it. */
+ * Talk → offer → the relaxed thirty-second line → the bartender stays in
+ * front of Tony and pours over the rail with live mouselook → handoff → Tony
+ * holds a whiskey he did not order. */
 await walkTo(-17.3, 1.5, Math.PI / 2);
-await page.evaluate(() => {
+const midBeat = await page.evaluate(() => {
   const b = window.__bing;
   b.dialogue.start(b.familyScripts.booski, 'open', b.family.byId.booski, { resume: true });
   b.dialogue.choose(0);
+  /* Step just the conversation until its yell starts the pour. This avoids a
+   * wall-clock assertion whose answer changes with the generated recording's
+   * duration. */
+  for (let t = 0; t < 30 && !b.game.beat; t += 0.1) {
+    b.dialogue.update(0.1, b.player.position);
+  }
+  const bartender = b.cast.byName.bartender;
+  const station = b.club.anchors.bartender;
+  const beforeYaw = b.player.yaw;
+  b.player.handleMouseMove(70, 0);
+  const view = new b.THREE.Vector3(-Math.sin(beforeYaw), 0, -Math.cos(beforeYaw));
+  const toBartender = bartender.group.position.clone().sub(b.player.position).setY(0).normalize();
+  return {
+    mode: b.player.mode,
+    running: !!b.game.beat,
+    kind: b.game.beat?.kind ?? null,
+    phase: b.game.beat?.phase ?? null,
+    oneShot: b.game.booskiShotDone,
+    lookMoved: Math.abs(b.player.yaw - beforeYaw) > 0.02,
+    bartenderAtStation: Math.hypot(
+      bartender.group.position.x - station.x,
+      bartender.group.position.z - station.z,
+    ) < 0.08,
+    bartenderInFront: view.dot(toBartender) > 0.72,
+    bartenderJob: bartender.job,
+    glass: !!b.scene.getObjectByName('booski-shot.glass'),
+    bottle: !!b.scene.getObjectByName('booski-shot.bottle'),
+  };
 });
-/* Long enough for the offer AND the yell. A node's hold is now at least as
- * long as its own recording (see dialogue.js `_cueHold`), so the three-line
- * run to the yell takes as long as the three recordings do -- which is the
- * entire point of the fix, and six seconds no longer covers it. */
-await tick(14);
-const midBeat = await page.evaluate(() => ({
-  frozen: window.__bing.player.mode === 'frozen',
-  running: !!window.__bing.game.beat,
-  oneShot: window.__bing.game.booskiShotDone,
-}));
-check('the yell hands the room to the delivery — camera held, beat running',
-  midBeat.frozen && midBeat.running && midBeat.oneShot,
+check('the yell starts a front-of-player pour, not a bartender sprint through the bar',
+  midBeat.running && midBeat.oneShot && midBeat.kind === 'booski-shot-pour'
+    && midBeat.phase === 'pour' && midBeat.bartenderAtStation
+    && midBeat.bartenderInFront && midBeat.bartenderJob === 'pourShot'
+    && midBeat.glass && midBeat.bottle,
+  JSON.stringify(midBeat));
+check('the pour holds Tony in place without freezing his camera',
+  midBeat.mode === 'briefing' && midBeat.lookMoved,
   JSON.stringify(midBeat));
 
 async function tickBeat(secs, step = 0.25) {
   await page.evaluate(([secs, step]) => {
     const b = window.__bing;
-    for (let t = 0; t < secs && b.game.beat; t += step) {
+    /* The pour beat deliberately gives control back before Booski and Tony
+     * finish their handoff. A real frame keeps advancing dialogue after the
+     * prop beat has torn itself down, so the verifier must do the same. */
+    for (let t = 0; t < secs; t += step) {
+      b.game.beat?.(step);
       b.cast.byName.bartender.update(step, b.player.position);
-      b.game.beat(step);
       b.dialogue.update(step, b.player.position);
     }
   }, [secs, step]);
@@ -1229,6 +1289,8 @@ const afterBeat = await page.evaluate(() => {
     inSlot: b.inventory.items.filter(Boolean).includes('whiskey'),
     bartenderHome: Math.hypot(bartender.group.position.x - station.x, bartender.group.position.z - station.z) < 0.3,
     bartenderWorking: bartender.job === 'work',
+    propsGone: !b.scene.getObjectByName('booski-shot.glass')
+      && !b.scene.getObjectByName('booski-shot.bottle'),
     bouncerStayed: Math.hypot(bouncer.group.position.x - post.x, bouncer.group.position.z - post.z) < 0.1,
     handoffSaid: b.dialogue.history.has('handoff') && b.dialogue.history.has('tony'),
     voiced: ['vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
@@ -1238,7 +1300,8 @@ const afterBeat = await page.evaluate(() => {
 });
 check('the shot lands and control comes back cleanly, bartender back at the service station',
   afterBeat.beatOver && afterBeat.walk && afterBeat.holdingShot && afterBeat.inSlot
-    && afterBeat.bartenderHome && afterBeat.bartenderWorking && afterBeat.bouncerStayed,
+    && afterBeat.bartenderHome && afterBeat.bartenderWorking && afterBeat.bouncerStayed
+    && afterBeat.propsGone,
   JSON.stringify(afterBeat));
 check('the beat spoke its four authored cues in order of appearance',
   afterBeat.handoffSaid && afterBeat.voiced,
@@ -2359,6 +2422,8 @@ const punchHud = await page.evaluate(async () => {
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
   const phoneUp = !document.getElementById('phone-osd').classList.contains('hidden');
   const phoneCanvas = !!document.querySelector('#phone-osd canvas');
+  const phoneWidth = document.getElementById('phone-osd').getBoundingClientRect().width;
+  const phonePocketWidth = document.getElementById('phone-pocket').getBoundingClientRect().width;
   const ringing = b.phone ? b.phone.ringing : null;
   b.phone.press(); // home -> messages
   b.phone.press(); // messages -> thread
@@ -2388,6 +2453,8 @@ const punchHud = await page.evaluate(async () => {
     phonePocket: !document.getElementById('phone-pocket').classList.contains('hidden'),
     phoneUp,
     phoneCanvas,
+    phoneWidth,
+    phonePocketWidth,
     ringing,
     threadBeforeWheel,
     threadAfterWheel,
@@ -2406,8 +2473,12 @@ check('the club has one campaign-item readout, and it takes the package',
   punchHud.hasPackage && punchHud.hasMoney && !punchHud.hasPhone,
   JSON.stringify(punchHud.kit));
 check('the phone comes out of the pocket in the club',
-  punchHud.phoneUp && punchHud.phoneCanvas && punchHud.ringing === false,
-  JSON.stringify({ up: punchHud.phoneUp, canvas: punchHud.phoneCanvas }));
+  punchHud.phoneUp && punchHud.phoneCanvas && punchHud.ringing === false
+    && punchHud.phoneWidth >= 310 && punchHud.phonePocketWidth >= 120,
+  JSON.stringify({
+    up: punchHud.phoneUp, canvas: punchHud.phoneCanvas,
+    width: punchHud.phoneWidth, pocket: punchHud.phonePocketWidth,
+  }));
 check('the raised phone opens readable threads, marks the opened thread read, and navigates by wheel',
   !!punchHud.threadBeforeWheel && punchHud.threadBeforeWheel !== punchHud.threadAfterWheel && punchHud.phoneRead,
   JSON.stringify({ before: punchHud.threadBeforeWheel, after: punchHud.threadAfterWheel, read: punchHud.phoneRead }));

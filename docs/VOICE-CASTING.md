@@ -197,7 +197,7 @@ Naming: `vo.bing.hang.<char>.<n>` for hangout lines,
 ### Booski's shot (the owner's booked beat)
 
 - `vo.bing.booski.shot.offer` (`booski`): "You look empty-handed, Prospect. That's a ME problem now. You want a shot? Course you want a shot." (6s)
-- `vo.bing.booski.shot.yell` (`booski`): "AY! I want that shot in thirty FUCKING seconds!" (4s)
+- `vo.bing.booski.shot.yell` (`booski`): "Ay. I want that shot in thirty fucking seconds." (4s; relaxed delivery, stability 0.58, style 0.22)
 - `vo.bing.booski.shot.handoff` (`booski`): "Twenty-eight. He's growin' on me. Drink, baby." (4s)
 - `vo.bing.booski.shot.tony.1` (`player`): "Thanks. I was gonna say no, and then I heard the yelling." (4s)
 

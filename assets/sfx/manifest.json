@@ -5968,7 +5968,9 @@
     {
       "name": "vo.bing.booski.shot.yell",
       "voice": "booski",
-      "say": "AY! I want that shot in thirty FUCKING seconds!",
+      "say": "Ay. I want that shot in thirty fucking seconds.",
+      "stability": 0.58,
+      "style": 0.22,
       "duration": 4
     },
     {

@@ -606,3 +606,44 @@ implementation and should be reviewed before the final Initiation wiring:
 
 Do not generate replacement faces, voices, or models until those decisions are
 answered.
+
+## 2026-08-01 — Bada Bing arrival car, Booski shot, and phone
+
+The Day One arrival car is no longer a shell around Tony's head. The seated
+eye moved from `y=1.24` (inside the sedan body, whose top is `y=1.36`) to
+`y=1.55`, with a finished cockpit around it: separate front seats and rear
+bench, headrests, dashboard, steering column and wheel, three lit gauges,
+radio stack, vents, glove box, door cards and handles, centre console,
+shifter, pedals, mirror, windscreen header, and a restrained dome light.
+`verify:bing` measures the eye/shell clearance and the named cockpit parts.
+
+Booskibro's shot is now poured by the bartender at his service station,
+directly in front of Tony. The old path sent the bartender through the bar and
+behind the player while taking the camera. The new beat uses a physical bottle
+and shot glass, holds only movement during the pour, leaves mouselook live,
+returns control before the handoff dialogue, removes both temporary props, and
+restores the bartender's work pose. Finishing the original resumable Booski
+thread before the one-shot handoff also prevents the thirty-second order from
+being bookmarked and repeated on the next conversation.
+
+The Bing phone is now 360 px wide on a normal display and uses nearly the full
+width on very small viewports; its lower-right pocket is larger as well.
+
+The written line and future generation settings are now deliberately relaxed:
+`Ay. I want that shot in thirty fucking seconds.` with stability `0.58` and
+style `0.22`. This checkout had no `ELEVENLABS_API_KEY`, so no honest new
+performance could be generated. The playable MP3 was tempo/pitch softened as
+an interim take; generate a new Booskibro performance from the manifest when
+ElevenLabs credentials are available.
+
+Fresh evidence for this pass:
+
+```text
+npm test             94/94 passed
+npm run verify:bing  142/142 passed
+node --check         changed Bing source and verifier files passed
+```
+
+Visual captures are under `docs/validation/2026-08-01/`:
+`bing-arrival-car-interior.png`, `bing-phone-large.png`, and
+`bing-booski-bartender-pour.png`.

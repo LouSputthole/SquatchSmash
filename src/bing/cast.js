@@ -1135,6 +1135,18 @@ export class Npc {
         }
         break;
       }
+      case 'pourShot': {
+        /* Booski's booked shot. The bartender stays behind the bar, squarely
+         * in front of Tony, and reaches over the rail with both hands. The
+         * bottle and glass are real scene props owned by main.js; this is the
+         * matching body pose. */
+        this.parts.armR.rotation.set(-0.82, 0, 0.10);
+        this.parts.foreR.rotation.set(-1.30, 0, 0.04);
+        this.parts.armL.rotation.set(-0.56, 0, -0.10);
+        this.parts.foreL.rotation.set(-1.02, 0, -0.04);
+        this.parts.body.rotation.x = 0.08;
+        break;
+      }
       case 'deal': {
         // Deal, collect, pay, wait. Mostly wait.
         const cycle = (t * 0.6) % 6;
