@@ -85,8 +85,8 @@ for (const [rel, validate] of manifests) {
 }
 
 /* ---- wall slots referenced by the art manifest must exist ----
- * Read straight out of apartment.js rather than kept as a second list here,
- * which would only ever drift out of date.
+ * Read them straight out of their scene sources rather than keeping a second
+ * list here, which would only ever drift out of date.
  */
 const VALID_SLOTS = (() => {
   const src = fs.readFileSync(path.join(ROOT, 'src/world/apartment.js'), 'utf8');
@@ -99,6 +99,8 @@ const VALID_SLOTS = (() => {
   for (const m of src.matchAll(/const \w*SLOTS = \[([^\]]*)\]/g)) {
     for (const s of m[1].matchAll(/'([^']+)'/g)) slots.add(s[1]);
   }
+  const bing = fs.readFileSync(path.join(ROOT, 'src/bing/club.js'), 'utf8');
+  for (const m of bing.matchAll(/artSticker\([^,]+,\s*'([^']+)'/g)) slots.add(m[1]);
   return slots;
 })();
 if (VALID_SLOTS.size < 20) fail(`only found ${VALID_SLOTS.size} slots in apartment.js`);

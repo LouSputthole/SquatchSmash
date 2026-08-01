@@ -25,6 +25,7 @@ Images dropped here hang on the apartment walls. List them in `manifest.json`:
 | `desk.right`  | north wall, right of the monitor |
 | `door.side`   | south wall, beside the front door |
 | `banner.main` | north-east wall — rendered as a hanging cloth banner, not a frame |
+| `bing.office.hog_mama` | Bada Bing, on the wall behind Big Uncle Lou's desk |
 
 Frames size themselves to each image's aspect ratio, so portrait and landscape
 both hang correctly; `scale` (default `1`) nudges one bigger or smaller.

@@ -2004,6 +2004,21 @@ export function buildClub(scene, { renderer } = {}) {
     });
     add(shorePic);
     office.shorePicture = shorePic.group;
+
+    // Lou's private show poster belongs on the wall behind his desk, where it
+    // reads as deliberate office decor rather than a loose, floating decal.
+    // artSticker swaps the stand-in for the supplied portrait image after the
+    // shared art manifest has resolved, retaining the frame and glass.
+    const hogMamaPicture = makeFrame(M, {
+      x: dx + 1.36, y: 1.75, z: O.z0 + 0.115, rotY: 0, w: 0.42, h: 0.63,
+      texture: printed('hog-mama-office-placeholder', ['HOG MAMA', 'SHOW'], {
+        w: 320, h: 480, bg: '#321923', fg: '#f0c7d4', font: '800 38px "Trebuchet MS", sans-serif',
+      }),
+      tint: 0x3a2618,
+    });
+    artSticker(hogMamaPicture.art, 'bing.office.hog_mama', 0.42);
+    add(hogMamaPicture);
+    office.hogMamaPicture = hogMamaPicture.group;
     anchors.photos = new THREE.Vector3(O.x0 + 0.9, 1.9, O.z0 + 4.0);
 
     /* The house mark, framed, twice: the crest over the door wall and a

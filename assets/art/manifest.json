@@ -348,6 +348,12 @@
       "file": "major-austin-stands.jpg",
       "title": "In the stands, Austin",
       "caption": "Somewhere in the second half. Nobody in this photograph is watching the game."
+    },
+    {
+      "slot": "bing.office.hog_mama",
+      "file": "lou-office-hog-mama.png",
+      "title": "Hog Mama's Show",
+      "caption": "Framed in Big Uncle Lou's office."
     }
   ]
 }

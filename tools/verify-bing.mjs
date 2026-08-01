@@ -1853,6 +1853,7 @@ const office = await page.evaluate(async () => {
   const O = b.club.rooms.office;
   const boxOf = (o) => { o.updateMatrixWorld(true); return new T.Box3().setFromObject(o); };
   const shore = boxOf(b.club.office.shorePicture);
+  const hogMama = boxOf(b.club.office.hogMamaPicture);
   // The office's own north wall, which THE OLD PLACE used to be inside
   const oldPlace = (() => {
     let hit = null;
@@ -1917,6 +1918,10 @@ const office = await page.evaluate(async () => {
       && crest.min.y > filing.max.y,
     crestOnTheWall: +(crest.min.x - W.west).toFixed(3),
     shoreBehindLou: shore.max.z < O.z0 + 0.4 && shore.min.x > 10.5,
+    hogMamaFramedBehindLou: hogMama.max.z < O.z0 + 0.4
+      && hogMama.min.x > shore.max.x + 0.12
+      && hogMama.max.y < 2.2
+      && hogMama.min.y > 1.3,
     oldPlaceClear: !!oldPlace && oldPlace.max.z < O.z1 - 0.2,
     logos: b.club.office.logos.length,
     ledgeLong: +(ledge.max.z - ledge.min.z).toFixed(2),
@@ -1959,6 +1964,8 @@ const office = await page.evaluate(async () => {
 });
 check('the shore picture hangs on the wall behind Lou',
   office.shoreBehindLou, JSON.stringify(office.shoreBehindLou));
+check("Hog Mama's Show is framed beside Lou's desk without crowding the shore picture",
+  office.hogMamaFramedBehindLou, JSON.stringify(office.hogMamaFramedBehindLou));
 check('THE OLD PLACE is out of the wall it was clipped into',
   office.oldPlaceClear);
 check('two framed squatch marks hang in the office',

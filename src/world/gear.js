@@ -53,6 +53,7 @@ const FALLBACKS = {
   'label.beer': () => posterPlaceholder('Amber', 'ALE', 276),
   'label.whiskey': () => posterPlaceholder('Jack And', 'DANIELS', 30),
   'eggs.carton': () => posterPlaceholder('Pasture', 'RAISED', 82),
+  'bing.office.hog_mama': () => posterPlaceholder('Hog Mama', 'SHOW', 340),
   'cereal.box': () => posterPlaceholder('Oops All', 'LOBBYS', 200),
   'crest.round': () => posterPlaceholder('Crest', 'EST. 2021', 270),
   'shelf.photo': () => posterPlaceholder('Someone', 'YOU KNOW', 200),
