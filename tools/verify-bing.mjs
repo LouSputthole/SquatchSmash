@@ -781,7 +781,7 @@ const familyState = await page.evaluate(() => {
     lag: 'lag.png', willy: 'willy.png', irish: 'irish.png', ape: 'ape.png',
     old_stove: 'stove.png', seff: 'seff.png', numbskull: 'numbskull.png',
   };
-  check('real faces where the photos exist; authored heads staged for the seven to come',
+  check('real faces where the photos exist; authored heads staged for any faces still to come',
     familyState.members.every((m) => (familyState.faces.includes(m.photo)
       ? m.hasFace
       : !m.hasFace && m.eyes === 2 && ledger[m.id] === m.photo)),
