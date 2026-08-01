@@ -8,6 +8,7 @@
   "scripts": {
     "start": "node tools/serve.mjs",
     "test": "node tests/run.mjs",
+    "verify:campaign-route": "node --test tests/fresh-save-campaign-route.test.mjs",
     "sfx": "node tools/generate-sfx.mjs",
     "sfx:dry": "node tools/generate-sfx.mjs --dry-run",
     "check": "node tools/check.mjs",

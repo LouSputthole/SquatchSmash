@@ -8,6 +8,21 @@ Two scenes here **do not exist and must not be built** until the owner says so:
 the Day-3 informant hit and the Day-4 heist. The Initiation is WIP and frozen
 until the owner has playtested it.
 
+## Campaign premise
+
+The Silver Sasquatches are a gaming organization whose mascot is a silver
+Bigfoot sasquatch. Tony Squatchtana is pledging the organization as a Prospect:
+the fraternity-style errand boy who has to prove he can be trusted before he is
+initiated as a Squatch.
+
+The organization adopts a Cosa Nostra-family persona and plays it completely
+straight inside the campaign. Missions restage and remix recognizable mafia
+and other movie situations as deadpan parody; the comedy comes from the Family's
+absolute seriousness, the gaming-organization details inside genre scenes, and
+the humiliating distance between Tony's status as an errand boy and the grandeur
+the Family assigns to every job. The campaign endpoint is Tony's formal
+initiation into the Silver Sasquatches.
+
 ## Day 1 — Welcome to the Life
 
 **Apartment, morning.** The player wakes as an unknown Prospect. The flat is
@@ -128,3 +143,11 @@ killing directly before Front and Center.
    preserved.
 5. The Front and Center closing **cutscene of the apartment with Margo** is not
    built; Day 4 opens with her in the bed instead.
+6. **The current Initiation is not a campaign-complete state.** The apartment
+   can route Tony into the frozen Pines scene, but that scene does not claim the
+   campaign, record completion, or expose an outbound edge. The focused route
+   contract therefore ends with Initiation `in_progress`, not `complete`.
+7. **The finale has two authored shapes.** This timeline places an oath and
+   callback ceremony at the Bada Bing, while `docs/STORY.md` preserves the
+   Pines quiz, execution, gauntlet, roar, timber, and anointing. Reconcile those
+   designs after the required playtest before wiring the final checkpoint.

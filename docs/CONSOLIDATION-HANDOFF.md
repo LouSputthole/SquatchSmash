@@ -5,20 +5,20 @@ GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`
 Current published checkpoint: current `main` (verify with `git rev-parse origin/main`)
 Live Pages: <https://lousputthole.github.io/SquatchSmash/>
-Active integration line: `codex/recovered-playtest-fixes-20260731`.
-It carries the current recovery and playtest work ahead of `main`; do not
-discard its in-progress changes while picking the work back up. `main` remains
-the deployed production branch until that line has passed review and merged.
+Canonical integration line: `main`. The recovered playtest, flight, supplied-art,
+campaign-flow, save-migration, and apartment-dressing work has been consolidated
+there; do not revive a historical feature branch as a newer source of truth.
 
-This file is the pickup point for another Codex session. Resume from the active
-integration line above; `main` is the deployed canonical game. Read this file, `README.md`,
-`docs/CHARACTER-ALIGNMENT.md`, and `docs/GAME-PLAN.md` before editing.
+This file is the pickup point for another Codex session. Resume from `main`, the
+deployed canonical game. Read this file, `README.md`,
+`docs/CAMPAIGN-TIMELINE.md`, `docs/CHARACTER-ALIGNMENT.md`, and
+`docs/GAME-PLAN.md` before editing.
 
 ## Safe pickup
 
 ```powershell
 git fetch origin
-git switch codex/recovered-playtest-fixes-20260731
+git switch main
 git pull --ff-only
 git status --short
 npm test
@@ -54,6 +54,10 @@ deferred pending the owner's playtest.
   chapter, Booskibro's one-shot big-night call, and the door route into the
   unchanged Initiation are implemented and browser-verified
   (`verify:big-night`, 19).
+- `tests/fresh-save-campaign-route.test.mjs` follows a brand-new Tony through
+  every currently connected mission, reloads at the apartment returns, and
+  proves the saved route reaches an in-progress Initiation. Run it directly
+  with `npm run verify:campaign-route`.
 - Squatchfather, Motel, and Initiation history/content are preserved without
   overwriting the apartment-era shared systems.
 - Squatch Smash is an apartment-computer game with its enhanced goals, Ranger
@@ -61,7 +65,7 @@ deferred pending the owner's playtest.
 - Standalone scene boot failures show Reload and Apartment recovery.
 - Scene/spawn validation, atomic transitions, failed-navigation rollback, and
   browser-storage fallback are implemented.
-- Campaign save schema v2 explicitly migrates v1 saves, preserves malformed or
+- Campaign save schema v3 explicitly migrates v1 and v2 saves, preserves malformed or
   future-version data in a recovery journal, visibly warns the player, and
   refuses unsafe scene transitions when persistence fails.
 - Campaign time is event-driven. Real waiting no longer moves story time;
@@ -119,6 +123,16 @@ surface footsteps, and returns through campaign state. The Beef Run verifier
 proves the full preview mission, durable checkpoints, Captain Sasole identity,
 and error-free completion. The future Initiation ending remains intentionally
 deferred until the owner playtests it.
+
+The fresh campaign-flow audit on the consolidated line adds a focused
+route gate without overstating the terminal scene:
+
+```text
+npm run verify:campaign-route  1/1 passed; fresh save reaches Initiation in progress
+npm test                       95/95 passed
+npm run check                  187 source files, 4 manifests, all good
+npm run check:flight           all flight envelopes passed
+```
 
 The phone's `[Q] pocket` hint is intentionally present on **every idle phone
 screen** (home, Messages, a thread, and Recents), not only while browsing a
@@ -535,19 +549,33 @@ imported into the shipped game.
    chapter-complete checkpoint. That work is also what gives
    `SCENE_IDS.INITIATION` its first outbound edge, a completion time event, and
    a reason to claim the scene with `campaign.enter`.
-4. Run the entire waking-apartment-through-Initiation acceptance path, including
-   reloads at every apartment return.
-5. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather
+4. ~~Add a fresh-save public-state acceptance path through every current
+   mission, including reloads at the apartment returns.~~ **DONE 2026-07-31**
+   in `tests/fresh-save-campaign-route.test.mjs` and exposed as
+   `npm run verify:campaign-route`. A single-browser, all-scenes playthrough is
+   still a separate runtime gate and has not been claimed here.
+5. After the ending design is unlocked, capture that single-browser
+   waking-apartment-through-completed-Initiation path, including reloads at
+   every apartment return.
+6. Work the scene-polish backlog the user dictated on 2026-07-29 (Squatchfather
    chair orientation and revolver, Bada Bing character style/performer detail,
    Motel pool/doors/windows, driving-scene car interior and lights, gambling
    rework, apartment glue-gag tuning, sound and voice generation).
-6. Keep `main` green through focused reviewed PRs; the deferred Initiation
+7. Keep `main` green through focused reviewed PRs; the deferred Initiation
    ending is the only remaining campaign-completion P0.
 
 ## Design questions to resolve with the user
 
 The character picture is now understood. These remaining choices affect
 implementation and should be reviewed before the final Initiation wiring:
+
+- Decide the final-night geography: Pines verdict/trials followed by a Bada
+  Bing oath and party, the Pines alone, or the Bada Bing ceremony alone.
+  `docs/CAMPAIGN-TIMELINE.md` and `docs/STORY.md` currently specify different
+  finales.
+- Confirm whether the Day-3 informant hit and Day-4 heist are now approved for
+  production. Both remain explicit do-not-build gates in the authoritative
+  timeline.
 
 1. Squatchfather dialogue says Sal's side “shot Booskibro,” but Booskibro calls
    Tony on Day Two. Was Booskibro wounded and recovered, and should the game

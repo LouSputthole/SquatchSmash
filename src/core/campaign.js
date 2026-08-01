@@ -204,7 +204,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 2;
+export const CAMPAIGN_VERSION = 3;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -403,6 +403,16 @@ const MIGRATIONS = Object.freeze({
       version: 2,
     };
   },
+  2(saved) {
+    return {
+      ...saved,
+      version: 3,
+      activities: {
+        ...saved.activities,
+        whiskeyRelaxed: saved.activities?.whiskeyRelaxed === true,
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -549,7 +559,10 @@ function normalize(saved) {
       },
       [MISSION_IDS.SILVER_ROOM]: {
         status: silverStatus,
-        outcome: ['perfect', 'strong', 'good', 'gentleman', 'awkward', 'insult', 'disaster']
+        outcome: [
+          'perfect', 'strong', 'good', 'gentleman', 'polite',
+          'from-a-distance', 'awkward', 'insult', 'disaster',
+        ]
           .includes(silver.outcome) ? silver.outcome : null,
         woo: boundedNumber(silver.woo, 0, 100, 0, true),
         band: typeof silver.band === 'string' ? silver.band : null,

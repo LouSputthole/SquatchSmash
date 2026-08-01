@@ -1,6 +1,6 @@
 # Squatch Life
 
-Six playable or preserved experiences live in this repo.
+Eight playable or preserved experiences live in this repo.
 
 | | |
 |---|---|
@@ -10,8 +10,8 @@ Six playable or preserved experiences live in this repo.
 | **The Beef Run** ([`beefrun.html`](./beefrun.html)) | Captain Lou Sasole's Day Two flight mission: preflight, the mountain strip, the loaded return, and the Bureau in between. |
 | **The Jerky Motel** ([`motel.html`](./motel.html)) | First-person Motel deal, inspection, betrayal, recovery, and escape; Snow is Tony's human ally and the scene is campaign-owned after the second Bing visit. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
-| **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house. Standalone-verified; campaign wiring in flight. |
-| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, now routed from the apartment by Booskibro's big-night call after the Motel. The scene itself is unchanged pending the owner's playtest. |
+| **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house and connected to Day Three campaign state. |
+| **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved branch scene, routed from the apartment by Booskibro's Day Four big-night call after the Silver Room. The scene itself is unchanged pending the owner's playtest. |
 
 ```bash
 npm start        # the apartment -> http://localhost:5173
@@ -24,15 +24,15 @@ npm start        # the apartment -> http://localhost:5173
                  # Initiation    -> http://localhost:5173/initiation.html
 ```
 
-All six are static ES-module sites with no build step, served by the same
+All eight are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
-isolated; the apartment, Bing, Squatchfather, Motel, and Initiation share
-campaign identities and reusable story-scene foundations.
+isolated; the apartment, Bing, Squatchfather, Beef Run, Motel, Silver Room,
+and Initiation share campaign identities and reusable story-scene foundations.
 
-The campaign spine connects the apartment, the Bing, and Squatchfather through
+The campaign spine connects every story location through
 `src/core/campaign.js`. On Day One, Lou’s one-shot call rings through the
 physical phone. The apartment door then requires eating, showering, pooping,
 and changing clothes; email is optional. Activity flags, call state,
@@ -72,10 +72,10 @@ literal sasquatches. Prospect One's execution and gore remain. See
 For playtesting later scenes before naturally reaching them, open
 <http://localhost:5173/preview.html>. Preview state is page-local memory: it
 does not read, migrate, overwrite, or advance the player's canonical
-`localStorage` save. The preview page currently exposes the Motel, Bing Scene
-Two, Squatchfather, and the unchanged Initiation reference, and every preview
-shows a persistent temporary-progress banner and an exit back to the saved
-apartment game.
+`localStorage` save. The preview page currently exposes the Beef Run, Motel,
+Bing Scene Two, Squatchfather, the Silver Room, and the unchanged Initiation
+reference. Every preview shows a persistent temporary-progress banner and an
+exit back to the saved apartment game.
 
 Final screenshots from the Bada Bing and Motel repair pass are versioned in
 [`docs/validation/2026-07-29/`](./docs/validation/2026-07-29/README.md).
@@ -400,6 +400,7 @@ The apartment is laid out on a fixed grid: x runs −5 (west) to +5 (east), z ru
 ```bash
 npm run check        # static: parses every source file, validates the manifests
 npm test             # campaign, apartment-story, and physical-phone contracts
+npm run verify:campaign-route # state: fresh save through every current mission seam and reload
 npm run verify:art   # runtime: boots the flat headless and measures the geometry
 npm run verify:day-one # runtime: Lou's call, chore gate, apartment -> Bing
 npm run verify:day-two # runtime: sleep, reload, Booskibro call, non-replay
@@ -422,6 +423,12 @@ npm run verify:preview # runtime: later-scene previews never touch the real save
 npm run verify:boot-errors # blocked scene modules show reload/home recovery
 npm run bundle       # bake the whole thing into one self-contained HTML file
 ```
+
+`verify:campaign-route` is the focused campaign-state acceptance contract. It
+starts with a fresh Tony, uses the public story APIs, reloads at the apartment
+returns, and follows every currently connected mission into an in-progress
+Initiation. It intentionally does not call that campaign complete: the frozen
+Initiation still has no completion event or outbound edge.
 
 `check` is worth running after editing JSON by hand, since a bad manifest
 otherwise shows up as a silently missing texture. `verify:art` catches the

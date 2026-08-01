@@ -20,7 +20,8 @@ import {
  */
 
 const OUTCOMES = Object.freeze([
-  'perfect', 'strong', 'good', 'gentleman', 'awkward', 'insult', 'disaster',
+  'perfect', 'strong', 'good', 'gentleman', 'polite',
+  'from-a-distance', 'awkward', 'insult', 'disaster',
 ]);
 
 class SilverStory {

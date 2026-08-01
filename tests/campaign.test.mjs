@@ -430,6 +430,25 @@ test('apartment readiness and learned story context survive a reload', () => {
   assert.equal(restored.story.meetingLearnedFrom, 'lou_call');
 });
 
+test('a valid version two save gains the whiskey flag without corruption recovery', () => {
+  const storage = new MemoryStorage();
+  const versionTwo = createCampaign({ storage: new MemoryStorage() }).state;
+  versionTwo.version = 2;
+  versionTwo.activities.eaten = true;
+  delete versionTwo.activities.whiskeyRelaxed;
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(versionTwo));
+
+  const campaign = createCampaign({ storage });
+  const persisted = JSON.parse(storage.getItem(CAMPAIGN_STORAGE_KEY));
+
+  assert.equal(campaign.state.activities.eaten, true);
+  assert.equal(campaign.state.activities.whiskeyRelaxed, false);
+  assert.equal(campaign.recoveredNow, false);
+  assert.equal(campaign.recovery, null);
+  assert.equal(persisted.version, CAMPAIGN_VERSION);
+  assert.equal(persisted.activities.whiskeyRelaxed, false);
+});
+
 test('older Day One saves gain the Day Two event and airstrip mission without losing progress', () => {
   const storage = new MemoryStorage();
   storage.setItem('squatchlife.campaign', JSON.stringify({

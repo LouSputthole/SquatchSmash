@@ -6,26 +6,26 @@ Copy everything below into a new Codex session.
 
 You are taking over the SquatchSmash consolidation as lead developer and
 technical director. Continue from the documented GitHub checkpoint; do not
-restart the repository audit. `main` is the deployed canonical game, while
-`codex/recovered-playtest-fixes-20260731` is the active integration line that
-carries the current recovery and playtest work.
+restart the repository audit. `main` is the deployed canonical game and the
+single integration source of truth.
 
 Repository:
 
 - GitHub: `https://github.com/LouSputthole/SquatchSmash`
 - Canonical production branch: `main`
 - Published checkpoint: current `main` (verify with `git rev-parse origin/main`)
-- Active integration branch: `codex/recovered-playtest-fixes-20260731`
+- Active integration branch: `main`
 - Live Pages: `https://lousputthole.github.io/SquatchSmash/`
 - Never force-push or overwrite `main`; make focused branches and reviewed PRs.
 
 First:
 
-1. Fetch origin, switch to `codex/recovered-playtest-fixes-20260731`, pull
-   fast-forward-only, and inspect `git status --short`. Preserve any active
-   in-progress work on that integration line; do not reset it to `main`.
+1. Fetch origin, switch to `main`, pull fast-forward-only, and inspect
+   `git status --short`. Do not treat a surviving historical feature branch as
+   newer than the consolidated production line.
 2. Read these files completely before changing code:
    - `docs/CONSOLIDATION-HANDOFF.md` (historical; read its supersession note)
+   - `docs/CAMPAIGN-TIMELINE.md` (owner-authoritative target campaign)
    - `docs/CHARACTER-ALIGNMENT.md`
    - `docs/NEXT-SESSION-PROMPT.md`
    - `README.md`
@@ -47,6 +47,10 @@ Current product facts:
   apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep →
   Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment/sleep →
   **the Silver Room date** → apartment/sleep → Initiation on Day 4.
+- `npm run verify:campaign-route` is the focused fresh-save state contract. It
+  traverses every current mission seam, reloads at the apartment returns, and
+  deliberately ends with Initiation `in_progress`; it does not claim the
+  frozen scene completes the campaign.
 - The Beef Run is integrated at `beefrun.html`: Booskibro's answered call
   routes the apartment door there, the mission persists checkpoints, cargo,
   detection, landing rank, and completion, a reload resumes in the cockpit,
@@ -122,7 +126,7 @@ Locked character/story canon:
   member into literal sasquatches. Do not implement this rewrite until the
   user has playtested the current scene.
 
-IMMEDIATE PICKUP (2026-07-31): fetch the active recovery branch and run the
+IMMEDIATE PICKUP (2026-07-31): fetch `main` and run the
 stated safe-pickup commands before trusting any historical SHA or PR status.
 The current focused follow-up adds campaign reset, objective-dialogue movement
 locks, actual phone audio playback verification, and a freshly generated
