@@ -44,8 +44,13 @@ export const FAMILY = [
      * the stool, not in it: see STOOL_SIT. */
     spot: { x: -18.7, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
     model: {
-      height: 1.8, build: 1.15, dress: 'tracksuit', shirt: 0x1c2f4a,
-      hairColour: 0x2a1c14, skin: 0xd9a97f, chain: true,
+      /* Patriarch money, not crew uniform: a midnight-blue open knit with
+       * restrained gold ribs, a layered founder chain and a real watch. */
+      height: 1.8, build: 1.2, dress: 'shirt', shirt: 0x20365f,
+      hairColour: 0x2a1c14, skin: 0xd9a97f,
+      neckline: 'v', luxury: true, shirtAccent: 0x405a86,
+      chain: 'gold', chainStyle: 'layered', pendant: true,
+      pendantStyle: 'crest', watch: 'gold',
     },
   },
   {

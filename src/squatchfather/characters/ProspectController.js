@@ -42,18 +42,26 @@ export class ProspectController {
     this.autoDone = null;
 
     // ---- Body, for the mirror only (layer 1; the main camera never sees it)
+    // Tony is still a human prospect here. Literal silver fur belongs after
+    // the Initiation verdict, not in the restaurant on Day One.
     this.fig = new Figure({
       coat: 0x191a22,
       shirt: 0xdcd8cc,
       tie: 0x6a45c0,     // subtle purple
-      skin: 0x9aa0ab,    // silver fur
-      hair: 0x7e848f,
+      skin: 0xd2a074,
+      hair: 0x3a2a20,
       bulk: 1.16,
       height: 1.02,
-      fur: true,
+      fur: false,
       iris: 0x4a3418,    // amber, for the mirror moment
       browTilt: 0.06,
     });
+    this.fig.group.userData.characterPresentation = {
+      id: 'prospect',
+      species: 'human',
+      skin: 0xd2a074,
+      sceneOutfit: 'charcoal_suit_cream_shirt_purple_tie',
+    };
     this.fig.group.traverse((o) => o.layers.set(1));
     scene.add(this.fig.group);
 
@@ -70,8 +78,9 @@ export class ProspectController {
     revolver.group.position.set(0, -0.02, -0.02);
     this.weapon.add(revolver.group);
     // A hand on the raked grip, so it isn't floating in front of his face
-    const fur = new THREE.MeshLambertMaterial({ color: 0x9aa0ab });
-    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.11), fur);
+    const skin = new THREE.MeshLambertMaterial({ color: 0xd2a074 });
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.12, 0.11), skin);
+    hand.name = 'prospect.viewmodel.hand';
     hand.position.set(0, -0.055, 0.09);
     hand.rotation.x = -0.42;
     this.weapon.add(hand);

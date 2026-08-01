@@ -42,8 +42,8 @@ sasquatch after Tony is admitted.
 | `shubes` | THE SHUBENATOR | `assets/faces/shubes.png` | Founder |
 | `deathmegatron` | DEATHMEGATRON | `assets/faces/deathmegatron.png` | Founder and muscle |
 | `hogmama` | HOG MAMA | `assets/faces/hogmama.png` | Matriarch |
-| `ape` | APE | Face not supplied | Roaster |
-| `irish` | IRISH | Face not supplied | Procedure/grievance voice |
+| `ape` | APE | `assets/faces/ape.png` | Roaster |
+| `irish` | IRISH | `assets/faces/irish.png` | Procedure/grievance voice |
 | `erican` | ERICAN | `assets/faces/erican.png` | Member |
 | `gratin` | GRATIN | `assets/faces/gratin.png` | Member |
 | `captain_lou_sasole` | CAPTAIN LOU SASOLE | `assets/faces/sasole.png` | Member and airstrip captain |
@@ -92,12 +92,66 @@ profile and non-nude bikini outfit. That presentation is specific to those
 performer roles; it must not leak into generic patrons or other recurring
 characters.
 
+## Current wardrobe direction
+
+The August 2026 clothing pass keeps each character recognizable by silhouette,
+colour and job instead of putting the entire cast in the same suit.
+
+| Character | Canonical pre-Initiation presentation |
+|---|---|
+| Tony Squatchtana | Human. Dark charcoal suit, warm cream shirt and restrained purple tie for the Squatchfather meeting. His first-person apartment body remains unseen; the restaurant mirror and gun hand must use human skin, never silver fur. |
+| Big Uncle Lou Sputthole | Warm camel open V-neck luxury knit with subtle gold ribbing, layered heavy-gold founder chains, an inset crest and an expensive gold watch. Broad, rich and comfortable rather than nightclub security. |
+| Booskibro | Midnight-blue open V-neck luxury knit with restrained gold detail, layered founder chains, an inset crest and an expensive gold watch. Similar wealth tier to Lou, but a cooler palette and cleaner silhouette. |
+| Captain Lou Sasole | Brown leather flight jacket, cream shirt, khakis and aviation headset. His working-pilot outfit deliberately distinguishes him from Uncle Lou's nightclub wealth. |
+| Margo | Navy evening gown for Front and Center. |
+| Snow | Blue work shirt and dark trousers while working the Bing; the Motel can preserve its mission-ready variation without changing his identity. |
+| Sal Sorrento | Tailored charcoal suit with burgundy tie. |
+| Capt. McClawsky | Blue-grey suit with dark tie. |
+
+The supplied Circle face photos stay authoritative. Other Circle members keep
+the varied role-specific outfits in `src/bing/family.js`; a later art pass may
+refine those clothes, but must not flatten everyone into a cloned black-suit
+uniform. The current Initiation staging and outfits remain unchanged until the
+owner's playtest.
+
+### Family floor wardrobe inventory
+
+This is the current Bing presentation pass for the recurring Family. It is an
+inventory of what actually renders, not a demand that every outfit is final.
+
+| Character | Current Bing outfit and silhouette |
+|---|---|
+| DeathMegatron | Slate suit; broad founder/muscle build. |
+| Seff | Oxblood-brown suit; medium, clean silhouette. |
+| Irish | Dark forest open shirt, short hair and beard. |
+| Gratin | Olive-brown shirt; broad seated silhouette. |
+| Old Stove | Blue-grey shirt, receding grey hair and beard. |
+| Lag | Dark green tracksuit, cropped hair and glasses. |
+| Eric | Steel-blue shirt with warm brown hair. |
+| Willy | Deep-purple shirt and the roster's deliberately largest belly. |
+| Ape | Black tee, broad standing build and open-elbow guard stance. |
+| Hog Mama | Wine shirt, curvy adult silhouette and authoritative face photo. |
+| The Shubenator | Bright blue tee and the broadest founder build. |
+| Rippinflow | Deep-purple tee with one thin silver chain and no pendant. |
+| Captain Lou Sasole | Blue shirt while visiting the Bing after the Beef Run; brown leather flight gear remains his canonical mission outfit. |
+| Snow | Dark blue-grey work uniform while he is the Bing janitor. |
+| Numbskull | Charcoal tee, bald head and the tallest/heaviest floor silhouette. |
+
+Booskibro and Uncle Lou use the richer founder wardrobes above. Their shared
+wealth vocabulary is intentional, but palette, location and silhouette keep
+them distinct. Rippinflow's single silver line is intentionally not upgraded
+to the founder crest; Captain Lou's functional flight clothes are intentionally
+not turned into Uncle Lou's nightclub clothes.
+
 ## Presentation rules
 
 - Core identity is data; model/rig choice is presentation.
 - Tony and every Circle member use human presentation before the Initiation
   verdict.
 - Named Circle members use their supplied face photos.
+- Standing security and members use open elbows with hands held forward or at
+  their sides. Do not cross upper arms through the chest; shoulder sockets must
+  scale with both torso width and upper-arm width on broad characters.
 - Booskibro is the subtitle and display name; `booski` remains the stable save
   ID and existing voice-bank key.
 - Do not alter the current Initiation runtime before its user playtest. In the
