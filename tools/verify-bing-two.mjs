@@ -223,6 +223,27 @@ try {
       && current.motel.status === 'locked',
     JSON.stringify(current));
 
+  const movementBefore = await page.evaluate(() => ({
+    mode: window.HOTDOG_INCIDENT.player.mode,
+    position: window.HOTDOG_INCIDENT.player.position.toArray(),
+  }));
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(650);
+  await page.keyboard.up('KeyW');
+  const movementAfter = await page.evaluate(() => ({
+    mode: window.HOTDOG_INCIDENT.player.mode,
+    position: window.HOTDOG_INCIDENT.player.position.toArray(),
+  }));
+  const spawnMoveDelta = Math.hypot(
+    movementAfter.position[0] - movementBefore.position[0],
+    movementAfter.position[2] - movementBefore.position[2],
+  );
+  check('the party spawn enters walk mode and accepts movement input',
+    movementBefore.mode === 'walk'
+      && movementAfter.mode === 'walk'
+      && spawnMoveDelta > 0.08,
+    JSON.stringify({ movementBefore, movementAfter, spawnMoveDelta }));
+
   const physical = await page.evaluate(() => {
     const incident = window.HOTDOG_INCIDENT;
     const { party, club } = incident;
