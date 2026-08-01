@@ -2260,6 +2260,13 @@ const office = await page.evaluate(async () => {
   const filing = boxOf(b.club.office.filing);
   const lamp = boxOf(b.club.root.getObjectByName('floor-lamp'));
   const crest = boxOf(b.club.office.logos[0]);
+  const shield = boxOf(b.club.office.logos[1]);
+  const shieldArt = boxOf(b.club.office.logoArt[1]);
+  let bingPictureArt = null;
+  b.club.office.bingPicture.traverse((o) => {
+    if (o.userData?.art?.slot === 'bing.office.squatches_bing') bingPictureArt = o;
+  });
+  const bingPictureArtBox = boxOf(bingPictureArt);
   const louDoorway = b.club.doors.lou.box;
   // The two photographs on the door wall, in wall order: THE NEPHEWS, then
   // THE OLD PLACE. Everything hung on that wall shares its x, so z sorts them.
@@ -2268,7 +2275,10 @@ const office = await page.evaluate(async () => {
     if (o.name !== 'frame') return;
     const bb = boxOf(o);
     if (bb.min.x < 7.8 || bb.max.x > 8.1) return;
-    if (bb.max.y < 2.0 || bb.max.y > 2.1) return;       // the two 0.26 photos
+    /* The two 0.26 photographs top out at 2.065m. The correctly-proportioned
+     * crest over the filing cabinet now tops out at 2.035m, so keep this
+     * selector on the photographs instead of counting every small frame. */
+    if (bb.max.y < 2.04 || bb.max.y > 2.1) return;
     wallPictures.push(bb);
   });
   wallPictures.sort((a, c) => a.min.z - c.min.z);
@@ -2298,7 +2308,19 @@ const office = await page.evaluate(async () => {
     bingPictureFramedBehindLou: bingPicture.max.z < O.z0 + 0.4
       && bingPicture.min.x > shore.max.x + 0.12
       && bingPicture.max.y < 2.2
-      && bingPicture.min.y > 1.3,
+      && bingPicture.min.y > 1.3
+      && bingPicture.min.z > W.north,
+    bingPictureArt: {
+      real: bingPictureArt?.userData?.art?.real === true,
+      aspect: +((bingPictureArtBox.max.x - bingPictureArtBox.min.x)
+        / (bingPictureArtBox.max.y - bingPictureArtBox.min.y)).toFixed(3),
+    },
+    shieldFit: {
+      artAspect: +((shieldArt.max.x - shieldArt.min.x)
+        / (shieldArt.max.y - shieldArt.min.y)).toFixed(3),
+      landscapeFrame: (shield.max.x - shield.min.x) > (shield.max.y - shield.min.y) * 1.4,
+      inFrontOfWall: shield.min.z > W.north,
+    },
     officeLogoArt: b.club.office.logoArt.map((art) => {
       const src = art?.material?.map?.image?.src || art?.material?.map?.image?.currentSrc || '';
       return { slot: art?.userData?.art?.slot ?? null, real: art?.userData?.art?.real === true, file: src.split('/').pop() };
@@ -2339,6 +2361,17 @@ const office = await page.evaluate(async () => {
     deskLamp: b.club.office.deskLight.intensity,
     coatOutOfTheDoor: coat.min.x > doorArc.x1 || coat.max.z > doorArc.z1 || coat.min.z < doorArc.z0,
     coatParts: (() => { let n = 0; b.club.office.coatStand.traverse((o) => { if (o.isMesh) n += 1; }); return n; })(),
+    overcoat: (() => {
+      const garment = b.club.office.coatStand.getObjectByName('spare-overcoat');
+      let parts = 0;
+      garment?.traverse((o) => { if (o.isMesh) parts += 1; });
+      return {
+        parts,
+        taperedBody: garment?.getObjectByName('coat-body')?.geometry?.type === 'CylinderGeometry',
+        sleeves: ['coat-sleeve-left', 'coat-sleeve-right']
+          .every((name) => !!garment?.getObjectByName(name)),
+      };
+    })(),
     glass: (b.club.doors.lou.glass || []).length,
     glassSolid: b.club.colliders.some((c) => c.min.x > 7.7 && c.max.x < 7.9 && c.min.z < -7.6),
   };
@@ -2346,7 +2379,9 @@ const office = await page.evaluate(async () => {
 check('the shore picture hangs on the wall behind Lou',
   office.shoreBehindLou, JSON.stringify(office.shoreBehindLou));
 check('the Silver Sasquatches Bada Bing portrait is framed beside Lou\'s desk without crowding the shore picture',
-  office.bingPictureFramedBehindLou, JSON.stringify(office.bingPictureFramedBehindLou));
+  office.bingPictureFramedBehindLou && office.bingPictureArt.real
+    && Math.abs(office.bingPictureArt.aspect - (4 / 3)) < 0.02,
+  JSON.stringify({ placed: office.bingPictureFramedBehindLou, art: office.bingPictureArt }));
 check('THE OLD PLACE is out of the wall it was clipped into',
   office.oldPlaceClear);
 check('two framed apartment Silver Sasquatches marks hang in the office',
@@ -2356,6 +2391,10 @@ check('two framed apartment Silver Sasquatches marks hang in the office',
     && office.officeLogoArt.some((logo) => logo.slot === 'bing.office.logo.crest' && logo.file === 'logo-crest.png')
     && office.officeLogoArt.some((logo) => logo.slot === 'bing.office.logo.shield' && logo.file === 'logo-shield.jpg'),
   JSON.stringify(office.officeLogoArt));
+check('the shield behind Lou uses the supplied photo\'s landscape proportions and clears the wall',
+  office.shieldFit.landscapeFrame && office.shieldFit.inFrontOfWall
+    && Math.abs(office.shieldFit.artAspect - (1000 / 598)) < 0.02,
+  JSON.stringify(office.shieldFit));
 check('the ledge is long enough for the radio and the intercom, and both stand on it',
   office.ledgeLong > 2.4 && office.radioOnLedge && office.intercomOnLedge
     && office.intercomParts >= 16,
@@ -2372,8 +2411,10 @@ check('all three fridge stickers are real artwork, die-cut, not drawn stand-ins'
 check('the filing cabinet has drawer fronts and the corner has a lamp in it',
   office.drawerParts >= 18 && office.floorLamp > 0 && office.floorLamp < 8,
   `${office.drawerParts} parts, lamp ${office.floorLamp}`);
-check('the coat stand is a coat stand, and it is not in the doorway',
-  office.coatParts >= 12 && office.coatOutOfTheDoor);
+check('the coat stand carries a shaped overcoat instead of a black box, and stays out of the doorway',
+  office.coatParts >= 12 && office.coatOutOfTheDoor
+    && office.overcoat.parts >= 9 && office.overcoat.taperedBody && office.overcoat.sleeves,
+  JSON.stringify(office.overcoat));
 check('the office door is glazed and the glass is solid',
   office.glass === 3 && office.glassSolid, `${office.glass} panes`);
 
@@ -2498,6 +2539,11 @@ const backOfHouse = await page.evaluate(() => {
   });
   const bathroomPictureSrc = bathroomPictureArt?.material?.map?.image?.src
     || bathroomPictureArt?.material?.map?.image?.currentSrc || '';
+  const bathroomPictureArtBox = boxOf(bathroomPictureArt);
+  const powder = b.club.anchors.powderMesh;
+  const powderLine = powder?.getObjectByName('urinal-line');
+  const powderCard = powder?.getObjectByName('urinal-line-card');
+  const eastWallFace = B.x1 - 0.125;
   return {
     toilets: toilets.length,
     partitions: partitions.length,
@@ -2521,17 +2567,27 @@ const backOfHouse = await page.evaluate(() => {
     })(),
     urinalBackplates: urinalBackplates.map((plate) => ({
       depth: +(plate.max.x - plate.min.x).toFixed(3),
-      onWall: plate.max.x <= B.x1 + 0.015 && plate.min.x >= B.x1 - 0.18,
-    })),
+      flush: +Math.abs(plate.max.x - eastWallFace).toFixed(3),
+      centerZ: +((plate.min.z + plate.max.z) / 2).toFixed(3),
+    })).sort((a, c) => a.centerZ - c.centerZ),
     bodyInStoreRoom: body.min.x > 5.6 && body.max.x < 13.6 && body.min.z > -15 && body.max.z < -9.6,
     bodyLowProfile: +(body.max.y - body.min.y).toFixed(2),
     bodyParts,
     powderThere: !!b.club.root.getObjectByName('bathroom-powder'),
+    powderHighlight: {
+      linked: powder === b.club.root.getObjectByName('bathroom-powder'),
+      line: !!powderLine,
+      card: !!powderCard,
+      emissive: powderLine?.material?.emissive?.getHex?.() ?? 0,
+      intensity: powderLine?.material?.emissiveIntensity ?? 0,
+    },
     bathroomPicture: {
       real: bathroomPictureArt?.userData?.art?.real === true,
       file: bathroomPictureSrc.split('/').pop(),
+      aspect: +((bathroomPictureArtBox.max.x - bathroomPictureArtBox.min.x)
+        / (bathroomPictureArtBox.max.y - bathroomPictureArtBox.min.y)).toFixed(3),
       onNorthWall: bathroomPictureBox.min.x > B.x0 && bathroomPictureBox.max.x < B.x1
-        && bathroomPictureBox.max.z < B.z0 + 0.12 && bathroomPictureBox.min.y > 1.9,
+        && bathroomPictureBox.min.z > B.z0 + 0.125 && bathroomPictureBox.min.y > 1.9,
     },
   };
 });
@@ -2547,13 +2603,22 @@ check('the basins and the urinals have plumbing on them',
   JSON.stringify({ b: backOfHouse.basinParts, u: backOfHouse.urinalParts }));
 check('urinal backplates stay thin against the tiled wall',
   backOfHouse.urinalBackplates.length === 2
-    && backOfHouse.urinalBackplates.every((plate) => plate.depth <= 0.1 && plate.onWall),
+    && backOfHouse.urinalBackplates.every((plate) => plate.depth <= 0.1 && plate.flush <= 0.005)
+    && Math.abs(backOfHouse.urinalBackplates[0].centerZ - 1.53) < 0.01
+    && Math.abs(backOfHouse.urinalBackplates[1].centerZ - 2.13) < 0.01,
   JSON.stringify(backOfHouse.urinalBackplates));
 check('the supplied bathroom print is framed high on the wall',
   backOfHouse.bathroomPicture.real
     && backOfHouse.bathroomPicture.file === 'bing-bathroom-anime4.jpg'
-    && backOfHouse.bathroomPicture.onNorthWall,
+    && backOfHouse.bathroomPicture.onNorthWall
+    && Math.abs(backOfHouse.bathroomPicture.aspect - 1.5) < 0.02,
   JSON.stringify(backOfHouse.bathroomPicture));
+check('the urinal line has a visible high-contrast treatment and a live interaction target',
+  backOfHouse.powderThere && backOfHouse.powderHighlight.linked
+    && backOfHouse.powderHighlight.line && backOfHouse.powderHighlight.card
+    && backOfHouse.powderHighlight.emissive !== 0
+    && backOfHouse.powderHighlight.intensity >= 0.7,
+  JSON.stringify(backOfHouse.powderHighlight));
 check('there is a man under a tarpaulin in the store room, and he is lying down',
   backOfHouse.bodyInStoreRoom && backOfHouse.bodyLowProfile < 0.5
     && ['tarp-shoulders', 'tarp-torso', 'body-hand', 'body-shoe-left', 'body-shoe-right']
@@ -2771,14 +2836,15 @@ const clocksAndPowder = await page.evaluate(() => {
     agree,
     focus,
     fovBefore,
+    consumed: b.game.powderConsumed && !b.club.anchors.powderMesh?.parent,
   };
 });
 check('every clock on the wall reads the campaign clock',
   clocksAndPowder.clocks >= 2 && clocksAndPowder.agree,
   JSON.stringify(clocksAndPowder));
 check('the line on the urinal is usable and buys twenty-odd seconds',
-  clocksAndPowder.focus > 20 && clocksAndPowder.focus <= 26,
-  String(clocksAndPowder.focus));
+  clocksAndPowder.focus > 20 && clocksAndPowder.focus <= 26 && clocksAndPowder.consumed,
+  JSON.stringify({ focus: clocksAndPowder.focus, consumed: clocksAndPowder.consumed }));
 
 /* ---- 26: the hum and the static ----
  * The owner heard a loud hum and a hiss he assumed was rain. Both were

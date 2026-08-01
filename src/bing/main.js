@@ -261,6 +261,7 @@ const game = {
   louTalking: false,
   booskiShotDone: false,
   irishGifted: false,
+  powderConsumed: false,
   beat: null,          // the one scripted camera beat (Booski's shot delivery)
   lastHand: null,      // last blackjack outcome, for the table's voice
   clubRecord: null,    // the actual record selected for this visit's DJ set
@@ -1792,15 +1793,18 @@ const stageTalk = {
   powderPad.position.copy(club.anchors.powder);
   scene.add(powderPad);
   reg(powderPad, {
-    label: () => (game.focus > 0 ? 'You are fine. You are <b>great</b>.' : 'The line on the <b>urinal</b>'),
+    label: () => (game.powderConsumed
+      ? 'The empty <b>urinal lip</b>'
+      : game.focus > 0 ? 'You are fine. You are <b>great</b>.' : 'The line on the <b>urinal</b>'),
     hold: 1.1,
     onTap: () => hud.say('A line of something white on the lip of the urinal, laid out with a card and left. '
       + 'It has been there a while. Nobody in this building is coming back for it.', 5200),
     onUse: () => {
-      if (game.focus > 0) {
+      if (game.powderConsumed) {
         hud.say('There is nothing left and you knew that before you bent down.', 3200);
         return;
       }
+      game.powderConsumed = true;
       club.anchors.powderMesh?.parent?.remove(club.anchors.powderMesh);
       startFocus(25);
       audio.play('bing.line.snort', { volume: 0.5 });
