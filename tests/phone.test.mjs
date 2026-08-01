@@ -43,6 +43,19 @@ test('the phone turns durable campaign progress into readable Family texts and r
   assert.equal(restored.find((thread) => thread.id === 'family').unread, false);
 });
 
+test('Lou uses the phone to stage the Bing, never the removed Day One email', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  const initialLou = phoneThreadsForCampaign(campaign.state).find((thread) => thread.id === 'lou');
+  assert.ok(initialLou.messages.every((message) => !/email|read it properly/i.test(message.text)));
+  assert.match(initialLou.messages.map((message) => message.text).join(' '), /phone|face to face/i);
+
+  campaign.advanceTime(TIME_EVENT_IDS.LOU_FIRST_CALL, (state) => {
+    state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+  });
+  const answeredLou = phoneThreadsForCampaign(campaign.state).find((thread) => thread.id === 'lou');
+  assert.match(answeredLou.messages.at(-1).text, /Bing tonight/i);
+});
+
 test('reading the selected phone thread marks it through the shared campaign callback', () => {
   const read = [];
   const phone = new Phone({

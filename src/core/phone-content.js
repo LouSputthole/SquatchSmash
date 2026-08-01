@@ -63,9 +63,12 @@ export function phoneThreadsForCampaign(state) {
   }
 
   const lou = [
-    message('UNCLE LOU', 'Sent you an email. Read it properly.'),
-    message('UNCLE LOU', 'Not on the phone. Properly.'),
+    message('UNCLE LOU', 'Keep your phone on. I will call.'),
+    message('UNCLE LOU', 'We will talk face to face.'),
   ];
+  if (events[EVENT_IDS.LOU_FIRST_CALL]?.status === 'answered') {
+    lou.push(message('UNCLE LOU', 'Bing tonight. Do not make me wait.'));
+  }
   if (missions[MISSION_IDS.BADA_BING_ONE]?.packageReceived) {
     lou.push(message('UNCLE LOU', 'Keep the package close. We will talk after.'));
   }
