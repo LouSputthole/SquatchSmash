@@ -89,17 +89,130 @@ if (failedToLoad) {
   process.exit(1);
 }
 
+const manifestCues = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'),
+).sfx;
+const audioIndex = JSON.parse(
+  fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'),
+);
+const indexedFiles = new Set(audioIndex.files || []);
+const bingRuntimeEffects = new Set([
+  'phone.ring', 'phone.hangup',
+  'radio.talk', 'radio.tune',
+  'slot.pull', 'slot.reel', 'slot.stop', 'slot.win', 'slot.jackpot',
+  'card.deal', 'card.flip', 'chips.place', 'chip.stack',
+  'gun.pickup', 'glass.set', 'can.crack', 'can.sip', 'can.crush',
+  'till.ring', 'bing.money.flutter', 'bing.line.snort',
+  'door.locked', 'door.knob', 'door.creak', 'alarm.chirp',
+  'chair.sit', 'rope.clip', 'duck.quack',
+  'car.door', 'car.engine.start', 'car.engine.idle', 'neighbours.thump',
+  'whiskey.swig', 'whiskey.cap', 'whiskey.pour',
+  'ambience.rain', 'ambience.bing.rain.muffled',
+  'ambience.club', 'ambience.crowd',
+]);
+const isExpectedBingCue = (cue) => cue.name.startsWith('vo.bing.')
+  || cue.name.startsWith('vo.bj.')
+  || cue.name.startsWith('vo.slots.')
+  || cue.name.startsWith('vo.call.')
+  || cue.name.startsWith('footstep.')
+  || bingRuntimeEffects.has(cue.name);
+const availableManifestCues = manifestCues.filter((cue) => indexedFiles
+  .has(cue.file || `${cue.name}.mp3`));
+const expectedResidentCues = availableManifestCues.filter(isExpectedBingCue);
+const expectedResidentNames = expectedResidentCues.map((cue) => cue.name).sort();
+const byteSize = (cues) => cues.reduce((sum, cue) => {
+  const file = cue.file || `${cue.name}.mp3`;
+  try { return sum + fs.statSync(path.join(ROOT, 'assets', 'sfx', file)).size; } catch { return sum; }
+}, 0);
+const allAvailableBytes = byteSize(availableManifestCues);
+const expectedResidentBytes = byteSize(expectedResidentCues);
+
+const startClickedAt = performance.now();
 await page.click('#start-btn');
-/* Starting loads the whole sample bank, which is several hundred files. */
 await page.waitForFunction(() => window.__bing?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__bing.postfx.disable?.());
+
+const bingAudioResidency = await page.evaluate((expected) => {
+  const audio = window.__bing.audio;
+  const loaded = [...audio.buffers.keys()].sort();
+  const wanted = new Set(expected);
+  return {
+    plan: audio.preloadStats ?? null,
+    loaded: loaded.length,
+    missing: expected.filter((name) => !audio.buffers.has(name)),
+    unexpected: loaded.filter((name) => !wanted.has(name)),
+    unrelatedVo: loaded.filter((name) => name.startsWith('vo.')
+      && !name.startsWith('vo.bing.')
+      && !name.startsWith('vo.bj.')
+      && !name.startsWith('vo.slots.')
+      && !name.startsWith('vo.call.')),
+    unrelatedRadio: loaded.filter((name) => name.startsWith('radio.')
+      && name !== 'radio.talk' && name !== 'radio.tune'),
+  };
+}, expectedResidentNames);
+bingAudioResidency.wallMs = Math.round(performance.now() - startClickedAt);
+bingAudioResidency.before = {
+  cues: availableManifestCues.length,
+  mib: Number((allAvailableBytes / 1048576).toFixed(2)),
+};
+bingAudioResidency.after = {
+  cues: expectedResidentNames.length,
+  mib: Number((expectedResidentBytes / 1048576).toFixed(2)),
+};
+check('the Bing decodes its complete scene-owned resident set and no unrelated campaign audio',
+  bingAudioResidency.plan?.manifestTotal === manifestCues.length
+    && bingAudioResidency.plan?.selected === expectedResidentNames.length
+    && bingAudioResidency.loaded === expectedResidentNames.length
+    && bingAudioResidency.missing.length === 0
+    && bingAudioResidency.unexpected.length === 0
+    && bingAudioResidency.unrelatedVo.length === 0
+    && bingAudioResidency.unrelatedRadio.length === 0,
+  JSON.stringify({
+    plan: bingAudioResidency.plan,
+    loaded: bingAudioResidency.loaded,
+    wallMs: bingAudioResidency.wallMs,
+    before: bingAudioResidency.before,
+    after: bingAudioResidency.after,
+    missing: { count: bingAudioResidency.missing.length, sample: bingAudioResidency.missing.slice(0, 5) },
+    unexpected: { count: bingAudioResidency.unexpected.length, sample: bingAudioResidency.unexpected.slice(0, 5) },
+    unrelatedVo: { count: bingAudioResidency.unrelatedVo.length, sample: bingAudioResidency.unrelatedVo.slice(0, 5) },
+    unrelatedRadio: {
+      count: bingAudioResidency.unrelatedRadio.length,
+      sample: bingAudioResidency.unrelatedRadio.slice(0, 5),
+    },
+  }));
+
+/* A focused mode makes before/after residency measurements cheap while the
+ * normal command continues through every story and presentation contract. */
+if (process.argv.includes('--audio-only')) {
+  await browser.close();
+  server.close();
+  const failed = results.filter((result) => !result.ok);
+  console.log(failed.length
+    ? `\n${failed.length} of ${results.length} audio checks failed.`
+    : `\nAll ${results.length} audio checks passed.`);
+  process.exit(failed.length ? 1 : 0);
+}
+
+const openingInventoryBar = await page.evaluate(() => {
+  const bar = document.getElementById('hotbar');
+  return {
+    slots: window.__bing.inventory.slots,
+    boxes: bar?.children.length ?? 0,
+    declared: bar?.dataset.slotCount,
+    visible: !!bar && !bar.classList.contains('hidden'),
+  };
+});
+check('Bing starts with the shared visible five-slot bottom inventory bar, even empty',
+  openingInventoryBar.slots === 5 && openingInventoryBar.boxes === 5
+    && openingInventoryBar.declared === '5' && openingInventoryBar.visible,
+  JSON.stringify(openingInventoryBar));
 
 /* The long-form conversations use a separate `vo.bing.full.*` bank from the
  * short bark probes below. A cue name in the manifest is not enough: every
  * one needs a real file that decoded into the browser's live audio bank. */
-const fullConversationCues = JSON.parse(
-  fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'),
-).sfx.filter((cue) => cue.name.startsWith('vo.bing.full.')).map((cue) => cue.name);
+const fullConversationCues = manifestCues
+  .filter((cue) => cue.name.startsWith('vo.bing.full.')).map((cue) => cue.name);
 const fullConversationProbe = await page.evaluate((cues) => {
   const bank = window.__bing.audio.buffers;
   return cues.map((cue) => ({ cue, duration: bank.get(cue)?.[0]?.duration ?? 0 }));
@@ -134,7 +247,13 @@ const playbackProbe = await page.evaluate((cues) => {
 check('representative Bing voice recordings are decoded before playback',
   playbackProbe.started.every(Boolean) && playbackProbe.longest > 0,
   JSON.stringify(playbackProbe));
-await page.waitForTimeout(Math.ceil((playbackProbe.longest + 0.45) * 1000));
+/* SwiftShader plus the scene's full audio decode can delay an ended event even
+ * after the decoded duration has elapsed. Poll the actual playback contract
+ * with a bounded allowance instead of racing it with a fixed wall-clock nap. */
+await page.waitForFunction((cues) => cues.every((cue) => window.__bing.audio.playbacks
+  .some((playback) => playback.name === cue && playback.naturalEnd)), voicedSurfaces, {
+  timeout: Math.ceil((playbackProbe.longest + 15) * 1000),
+}).catch(() => {});
 const completedVoices = await page.evaluate((cues) => window.__bing.audio.playbacks
   .filter((playback) => cues.includes(playback.name))
   .map((playback) => ({
@@ -1152,6 +1271,7 @@ check('the belly is a general builder option, not a Willy-only shape — a secon
     ...['lag', 'gratin', 'hogmama', 'sasole', 'irish'].map((slug) => `vo.bing.hang.${slug}.tony.1`),
     'vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
     'vo.bing.booski.shot.handoff', 'vo.bing.booski.shot.tony.1',
+    'vo.bing.bartender.booski-shot.pour', 'vo.bing.booski.shot.after',
     'vo.bing.blackjack.dealer.deal.1', 'vo.bing.blackjack.dealer.deal.2',
     'vo.bing.blackjack.dealer.win', 'vo.bing.blackjack.dealer.lose',
     'vo.bing.blackjack.dealer.push', 'vo.bing.blackjack.dealer.bust',
@@ -1217,13 +1337,40 @@ await page.evaluate(() => {
  * run to the yell takes as long as the three recordings do -- which is the
  * entire point of the fix, and six seconds no longer covers it. */
 await tick(14);
-const midBeat = await page.evaluate(() => ({
-  frozen: window.__bing.player.mode === 'frozen',
-  running: !!window.__bing.game.beat,
-  oneShot: window.__bing.game.booskiShotDone,
-}));
+await tickBeat(1.1, 0.1);
+const midBeat = await page.evaluate(() => {
+  const b = window.__bing;
+  const T = b.THREE;
+  const bottle = b.scene.getObjectByName('booski-shot.bottle');
+  const stream = b.scene.getObjectByName('booski-shot.stream');
+  const glass = b.scene.getObjectByName('booski-shot.glass');
+  const halfStream = stream.geometry.parameters.height / 2;
+  const streamEnds = [
+    stream.localToWorld(new T.Vector3(0, halfStream, 0)),
+    stream.localToWorld(new T.Vector3(0, -halfStream, 0)),
+  ];
+  const mouth = bottle.localToWorld(new T.Vector3(0, 0.3075, 0));
+  const rim = glass.localToWorld(new T.Vector3(0, glass.geometry.parameters.height / 2, 0));
+  return {
+    frozen: b.player.mode === 'frozen',
+    running: !!b.game.beat,
+    oneShot: b.game.booskiShotDone,
+    phase: b.game.shotBeat?.phase,
+    bottle: bottle?.visible,
+    stream: stream?.visible,
+    fill: b.scene.getObjectByName('booski-shot.fill')?.scale.y,
+    pourPose: b.cast.byName.bartender.parts.armR.rotation.x,
+    mouthGap: Math.min(...streamEnds.map((point) => point.distanceTo(mouth))),
+    rimGap: Math.min(...streamEnds.map((point) => point.distanceTo(rim))),
+  };
+});
 check('the yell hands the room to the delivery — camera held, beat running',
   midBeat.frozen && midBeat.running && midBeat.oneShot,
+  JSON.stringify(midBeat));
+check('the bartender visibly pours bottle to stream to a filling shot before walking it over',
+  midBeat.phase === 'pour' && midBeat.bottle && midBeat.stream
+    && midBeat.fill > 0.05 && midBeat.fill < 1 && midBeat.pourPose < -0.5
+    && midBeat.mouthGap < 0.012 && midBeat.rimGap < 0.012,
   JSON.stringify(midBeat));
 
 async function tickBeat(secs, step = 0.25) {
@@ -1236,6 +1383,23 @@ async function tickBeat(secs, step = 0.25) {
     }
   }, [secs, step]);
 }
+await tickBeat(1.3, 0.1);
+const deliveryProp = await page.evaluate(() => {
+  const b = window.__bing;
+  const tray = b.scene.getObjectByName('booski-shot.delivery');
+  const bartender = b.cast.byName.bartender;
+  return {
+    visible: tray?.visible,
+    carriedByBartender: tray?.parent === bartender.group,
+    moving: bartender.job === 'patrol',
+    carryingPose: bartender.carryingShot === true,
+    filled: b.scene.getObjectByName('booski-shot.delivery-fill')?.visible,
+  };
+});
+check('the bartender carries the filled glass over on a visible tray',
+  deliveryProp.visible && deliveryProp.carriedByBartender && deliveryProp.moving
+    && deliveryProp.carryingPose && deliveryProp.filled,
+  JSON.stringify(deliveryProp));
 await tickBeat(30);
 await tickBeat(30);
 const afterBeat = await page.evaluate(() => {
@@ -1247,11 +1411,14 @@ const afterBeat = await page.evaluate(() => {
   return {
     beatOver: b.game.beat === null,
     walk: b.player.mode === 'walk',
-    holdingShot: b.game.heldDrink === 'whiskey',
+    holdingShot: b.game.heldDrink === 'booski-shot',
     inSlot: b.inventory.items.filter(Boolean).includes('whiskey'),
     bartenderHome: Math.hypot(bartender.group.position.x - station.x, bartender.group.position.z - station.z) < 0.3,
     bartenderWorking: bartender.job === 'work',
     bouncerStayed: Math.hypot(bouncer.group.position.x - post.x, bouncer.group.position.z - post.z) < 0.1,
+    waitingForE: b.game.shotBeat?.phase === 'await-drink'
+      && b.game.shotBeat?.awaitingDrink === true,
+    didNotAutoDrink: b.game.shotBeat?.drank === false && !b.game.autoDrink,
     handoffSaid: b.dialogue.history.has('handoff') && b.dialogue.history.has('tony'),
     voiced: ['vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
       'vo.bing.booski.shot.handoff', 'vo.bing.booski.shot.tony.1']
@@ -1262,6 +1429,106 @@ check('the shot lands and control comes back cleanly, bartender back at the serv
   afterBeat.beatOver && afterBeat.walk && afterBeat.holdingShot && afterBeat.inSlot
     && afterBeat.bartenderHome && afterBeat.bartenderWorking && afterBeat.bouncerStayed,
   JSON.stringify(afterBeat));
+check('the delivered shot waits for the player to press E and never auto-drinks',
+  afterBeat.waitingForE && afterBeat.didNotAutoDrink,
+  JSON.stringify(afterBeat));
+const shotLift = await page.evaluate(() => {
+  const b = window.__bing;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' }));
+  b.shotDrinkTick(0.55);
+  const glass = b.scene.getObjectByName('booski-shot.held');
+  return {
+    phase: b.game.shotBeat?.phase,
+    visible: glass?.visible,
+    y: glass?.position.y,
+    tilt: glass?.rotation.x,
+    fill: b.scene.getObjectByName('booski-shot.held-fill')?.scale.y,
+  };
+});
+check('E visibly lifts and tilts the filled shot glass toward Tony',
+  shotLift.phase === 'drinking' && shotLift.visible
+    && shotLift.y > -0.22 && shotLift.tilt < -0.2,
+  JSON.stringify(shotLift));
+const shotDrank = await page.evaluate(() => {
+  const b = window.__bing;
+  const before = b.drunk.level;
+  b.shotDrinkTick(1);
+  b.shotDrinkTick(0);
+  return {
+    phase: b.game.shotBeat?.phase,
+    drank: b.game.shotBeat?.drank,
+    tookShot: b.mission.flags.tookShot,
+    held: b.game.heldDrink,
+    inSlot: b.inventory.items.includes('whiskey'),
+    glassVisible: b.scene.getObjectByName('booski-shot.held')?.visible,
+    stronger: b.drunk.level > before,
+    sounds: ['whiskey.cap', 'whiskey.pour', 'whiskey.swig', 'glass.set']
+      .every((name) => b.audio.playbacks.some((playback) => playback.name === name)),
+    newCues: ['vo.bing.bartender.booski-shot.pour', 'vo.bing.booski.shot.after']
+      .every((cue) => b.game.voLog.includes(cue)),
+  };
+});
+check('finishing the E animation consumes the glass and records the real drink',
+  shotDrank.phase === 'drank' && shotDrank.drank && shotDrank.tookShot
+    && shotDrank.held === null && !shotDrank.inSlot && !shotDrank.glassVisible
+    && shotDrank.stronger,
+  JSON.stringify(shotDrank));
+check('the pour, swallow and glass sounds play and both new subtitled lines fire their cues',
+  shotDrank.sounds && shotDrank.newCues,
+  JSON.stringify(shotDrank));
+const duplicateWhiskeyShot = await page.evaluate(() => {
+  const b = window.__bing;
+  b.dialogue.end('duplicate-whiskey-shot-regression');
+  b.inventory.clear();
+  b.inventory.add('whiskey');
+  const olderSlot = b.inventory.selected;
+  b.game.shotBeat = { phase: 'await-drink', awaitingDrink: true, drank: false };
+  b.giveShot();
+  const deliveredSlot = b.game.shotBeat.inventorySlot;
+  b.inventory.select(olderSlot);
+  b.startBooskiShotDrink();
+  b.shotDrinkTick(2);
+  const result = {
+    olderSlot,
+    deliveredSlot,
+    selected: b.inventory.selected,
+    olderItem: b.inventory.items[olderSlot],
+    deliveredItem: b.inventory.items[deliveredSlot],
+    whiskeyCount: b.inventory.items.filter((item) => item === 'whiskey').length,
+    held: b.game.heldDrink,
+  };
+  b.inventory.clear();
+  return result;
+});
+check('drinking Booski\'s delivered glass preserves an older whiskey after selection changes',
+  duplicateWhiskeyShot.olderSlot !== duplicateWhiskeyShot.deliveredSlot
+    && duplicateWhiskeyShot.selected === duplicateWhiskeyShot.olderSlot
+    && duplicateWhiskeyShot.olderItem === 'whiskey'
+    && duplicateWhiskeyShot.deliveredItem === null
+    && duplicateWhiskeyShot.whiskeyCount === 1
+    && duplicateWhiskeyShot.held === null,
+  JSON.stringify(duplicateWhiskeyShot));
+const fullSlotShot = await page.evaluate(() => {
+  const b = window.__bing;
+  b.dialogue.end('full-slot-shot-regression');
+  b.inventory.clear();
+  for (const item of ['whiskey', 'beer', 'beer', 'beer', 'beer']) b.inventory.add(item);
+  const before = b.inventory.items.filter((item) => item === 'whiskey').length;
+  b.game.shotBeat = { phase: 'await-drink', awaitingDrink: true, drank: false };
+  b.giveShot();
+  const inInventory = b.game.shotBeat.inInventory;
+  b.startBooskiShotDrink();
+  b.shotDrinkTick(2);
+  const after = b.inventory.items.filter((item) => item === 'whiskey').length;
+  const held = b.game.heldDrink;
+  b.inventory.clear();
+  return { before, after, inInventory, held };
+});
+check('an un-slotted Booski glass never consumes an older whiskey from a full inventory',
+  fullSlotShot.before === 1 && fullSlotShot.after === 1
+    && fullSlotShot.inInventory === false && fullSlotShot.held === null,
+  JSON.stringify(fullSlotShot));
 check('the beat spoke its four authored cues in order of appearance',
   afterBeat.handoffSaid && afterBeat.voiced,
   JSON.stringify(afterBeat));
@@ -1470,15 +1737,21 @@ check('the package is Lou’s until Lou hands it over — not on him in the lot,
   packageAtStart && s.campaign?.inventory?.concealed?.includes('parcel') === true,
   JSON.stringify({ atStart: packageAtStart, afterHandoff: s.carrying }));
 
-/* The case the reviewer found: four drinks and no drop key used to mean the
+/* The case the reviewer found: five drinks and no drop key used to mean the
  * package went nowhere while the mission insisted it was on you. */
 const full = await page.evaluate(() => {
   const b = window.__bing;
   for (let i = 0; i < 6; i++) b.scripts.bartender.order.options[1].effect();
-  return { slots: b.inventory.items.filter(Boolean).length, carrying: b.game.carrying, full: b.inventory.full };
+  return {
+    slots: b.inventory.items.filter(Boolean).length,
+    capacity: b.inventory.slots,
+    carrying: b.game.carrying,
+    full: b.inventory.full,
+  };
 });
 check('a full hotbar cannot lose the package',
-  full.full && full.slots === 4 && full.carrying === 'parcel', JSON.stringify(full));
+  full.full && full.slots === full.capacity && full.capacity === 5
+    && full.carrying === 'parcel', JSON.stringify(full));
 
 for (let i = 0; i < 10; i++) {
   const st = await state();

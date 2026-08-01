@@ -275,6 +275,27 @@ export function buildAirfield(scene, { terrain } = {}) {
   runway.rotation.x = -Math.PI / 2;
   root.add(runway);
 
+  /* The county never repaired the real runway lights. For the dusk return,
+   * locals lay out battery lamps along both edges; one instanced mesh keeps the
+   * whole readable runway to a single draw call. */
+  const runwayLightGeo = new THREE.SphereGeometry(0.16, 6, 4);
+  const runwayLightMat = unlit(0xfff1b8);
+  const runwayLights = new THREE.InstancedMesh(runwayLightGeo, runwayLightMat, 24);
+  runwayLights.name = 'runway-36-edge-lights';
+  runwayLights.visible = false;
+  const lightDummy = new THREE.Object3D();
+  let runwayLightIndex = 0;
+  for (const z of [-405, -330, -255, -180, -105, 0, 105, 180, 255, 330, 405, 425]) {
+    for (const x of [-WP.rwyWidth, WP.rwyWidth]) {
+      lightDummy.position.set(x, ELEV + 0.22, z);
+      lightDummy.updateMatrix();
+      runwayLights.setMatrixAt(runwayLightIndex++, lightDummy.matrix);
+    }
+  }
+  runwayLights.instanceMatrix.needsUpdate = true;
+  runwayLights.frustumCulled = true;
+  root.add(runwayLights);
+
   const apronMat = solid(0x4a4a4c, { roughness: 0.96 });
   const apron = flatMesh(planeGeo(34, 52), apronMat, -52, ELEV + 0.035, 396);
   apron.rotation.x = -Math.PI / 2;
@@ -527,6 +548,7 @@ export function buildAirfield(scene, { terrain } = {}) {
       state.truckLights = on;
       for (const l of truck.lights) l.material = unlit(on ? 0xfff0c8 : 0x2a2a24);
       truck.beam.intensity = on ? 260 : 0;
+      runwayLights.visible = on;
     },
     /** Drive the truck round to light the threshold. */
     moveTruckToThreshold() {

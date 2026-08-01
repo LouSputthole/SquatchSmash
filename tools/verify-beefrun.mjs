@@ -10,6 +10,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { allCues, BARKS } from '../src/beefrun/script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5211;
@@ -59,6 +60,64 @@ function check(name, ok, detail = '') {
   results.push({ name, ok });
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? ` - ${detail}` : ''}`);
 }
+
+/* Script is the authority for spoken words. This closes the silent failure
+ * where a subtitle exists but no exact cue reaches the manifest/audio bank. */
+const authoredCues = allCues();
+const authoredNames = authoredCues.map((line) => `vo.${line.cue}.1`);
+const authoredNameSet = new Set(authoredNames);
+const authoredFileSet = new Set(authoredNames.map((name) => `${name}.mp3`));
+const voiceManifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'manifest.json'), 'utf8'));
+const beefManifest = voiceManifest.sfx.filter((cue) => cue.name.startsWith('vo.beefrun.'));
+const manifestByName = new Map(beefManifest.map((cue) => [cue.name, cue]));
+const cueMismatches = authoredCues.filter((line) => {
+  const manifestCue = manifestByName.get(`vo.${line.cue}.1`);
+  return !manifestCue || manifestCue.say !== line.text;
+});
+const recordedFiles = fs.readdirSync(path.join(ROOT, 'assets', 'sfx'))
+  .filter((name) => name.startsWith('vo.beefrun.') && name.endsWith('.mp3'));
+const orphanedRecordings = recordedFiles.filter((name) => !authoredFileSet.has(name));
+const audioIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', 'index.json'), 'utf8'));
+const indexedFiles = new Set(audioIndex.files || []);
+const unindexedRecordings = recordedFiles.filter((name) => !indexedFiles.has(name));
+const runtimeSharedCues = new Set([
+  'gun.dry',
+  'neighbours.thump',
+  'switch.click',
+  'gun.impact',
+  'can.set',
+  'pc.boot',
+  'can.crack',
+  'gun.shot',
+  'can.crush',
+  'glue.slip',
+  'ui.select',
+  'frame.adjust',
+  'door.knob',
+  'closet.slide',
+]);
+const expectedResidentCues = voiceManifest.sfx
+  .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+  .filter((cue) => cue.name.startsWith('vo.beefrun.')
+    || cue.name.startsWith('beefrun.')
+    || cue.name.startsWith('footstep.')
+    || cue.name.startsWith('ambience.')
+    || runtimeSharedCues.has(cue.name))
+  .map((cue) => cue.name);
+check('every spoken line has one unique exact cue in the voice manifest',
+  authoredNameSet.size === authoredNames.length
+    && beefManifest.length === authoredNames.length
+    && cueMismatches.length === 0,
+  JSON.stringify({ authored: authoredNames.length, manifest: beefManifest.length, mismatches: cueMismatches.length }));
+check('every Beef Run recording still maps to an authored line',
+  orphanedRecordings.length === 0 && unindexedRecordings.length === 0,
+  JSON.stringify({ recorded: recordedFiles.length, orphaned: orphanedRecordings,
+    unindexed: unindexedRecordings }));
+check('Sasole has a full stable-flight rotation and contextual final-approach pools',
+  BARKS.cruise.length >= 6
+    && ['finalLine', 'finalFast', 'finalHigh', 'finalFlare'].every((pool) => BARKS[pool]?.length >= 3),
+  JSON.stringify({ cruise: BARKS.cruise.length,
+    final: Object.fromEntries(['finalLine', 'finalFast', 'finalHigh', 'finalFlare'].map((pool) => [pool, BARKS[pool]?.length])) }));
 
 try {
   /* ---- pass one: the save-isolated preview, played through ---- */
@@ -140,10 +199,14 @@ try {
   /* Dispatched rather than clicked: Playwright's actionability check waits for
    * the page to go quiet, and a page rendering a mountain range on a software
    * rasteriser never does. The listener only wants the event. */
+  const audioLoadStartedAt = Date.now();
   await page.evaluate(() => document.getElementById('start-btn').click());
   await page.waitForFunction(() => window.__beefrun.mission.phase === 'arrival', null, { timeout: 300000 });
-  const started = await page.evaluate(() => {
+  const audioLoadMs = Date.now() - audioLoadStartedAt;
+  const started = await page.evaluate((expectedCues) => {
     const b = window.__beefrun;
+    const audioEngine = b.audio.engine;
+    const residentNames = [...audioEngine.buffers.keys()];
     const cx = Math.round(b.player.position.x / 500);
     const cz = Math.round(b.player.position.z / 500);
     return {
@@ -152,8 +215,21 @@ try {
       checkpoint: b.campaignState.missions.airstrip_smuggling.checkpoint,
       terrainChunks: b.terrain.chunks.size,
       centreChunkReady: b.terrain.chunks.has(`${cx},${cz}`),
+      inventorySlots: document.querySelectorAll('#hotbar .slot').length,
+      inventoryVisible: !!document.getElementById('hotbar')
+        && !document.getElementById('hotbar').classList.contains('hidden'),
+      inventorySlotCount: document.getElementById('hotbar')?.dataset.slotCount ?? null,
+      audio: {
+        manifestTotal: audioEngine.preloadStats?.manifestTotal ?? null,
+        selected: audioEngine.preloadStats?.selected ?? null,
+        loaded: audioEngine.loadedCount,
+        residentNames: residentNames.length,
+        missingExpected: expectedCues.filter((name) => !audioEngine.buffers.has(name)),
+        unrelatedCampaignVo: residentNames.filter((name) => name.startsWith('vo.')
+          && !name.startsWith('vo.beefrun.')),
+      },
     };
-  });
+  }, expectedResidentCues);
   check('starting the mission records in_progress at the airstrip checkpoint',
     started.phase === 'arrival'
       && started.status === 'in_progress'
@@ -161,6 +237,17 @@ try {
       && started.terrainChunks >= 1
       && started.centreChunkReady,
     JSON.stringify(started));
+  check('Beef Run keeps the shared five-box inventory visible during gameplay',
+    started.inventoryVisible && started.inventorySlots === 5 && started.inventorySlotCount === '5',
+    JSON.stringify({ visible: started.inventoryVisible, slots: started.inventorySlots,
+      slotCount: started.inventorySlotCount }));
+  check('Beef Run decodes only its complete recorded audio set',
+    started.audio.manifestTotal === voiceManifest.sfx.length
+      && started.audio.selected === expectedResidentCues.length
+      && started.audio.loaded === expectedResidentCues.length
+      && started.audio.missingExpected.length === 0
+      && started.audio.unrelatedCampaignVo.length === 0,
+    JSON.stringify({ ...started.audio, expected: expectedResidentCues.length, loadMs: audioLoadMs }));
 
   const eye = await page.evaluate(() => {
     const p = window.__beefrun.player;
@@ -306,6 +393,11 @@ try {
     for (const n of ['chocks', 'caps', 'props']) pf.tasks[n].done = true;
     const standAtMarker = () => {
       pf.update(0.016, b.physics, b.mission.camera);
+      /* The scoped audio bank makes Start fast enough that this synthetic
+       * teleport can run before the renderer's first post-begin matrix pass.
+       * A player cannot interact before a displayed frame; mirror that frame
+       * boundary so the drain's child hit proxy has its current world matrix. */
+      b.mission.scene.updateMatrixWorld(true);
       const target = pf.markerTarget();
       const V = b.physics.position.constructor;
       const wp = new V(); target.getWorldPosition(wp);
@@ -666,7 +758,7 @@ const chain = await page.evaluate(() => {
   });
   check('the left seat looks over the panel at where the nose is pointing',
     seat.facesNose > 0.99
-      && seat.eyeY >= 0.93
+      && seat.eyeY >= 0.96
       && seat.eyeY > seat.coamingTopY && seat.eyeY > seat.panelTopY
       && seat.gaugesFacePilot,
     JSON.stringify(seat));
@@ -684,13 +776,29 @@ const chain = await page.evaluate(() => {
     const taxi = b.mission.navTarget();
     b.mission.phase = 'lineup';
     const lineup = b.mission.navTarget();
+    b.mission.phase = 'south';
+    const outbound = b.mission.navTarget();
+    b.mission.phase = 'return';
+    const returning = b.mission.navTarget();
+    b.mission.phase = 'home';
+    const home = b.mission.navTarget();
+    b.mission.phase = 'final';
+    const final = b.mission.navTarget();
     b.mission.phase = phase;
-    return { taxi, lineup };
+    return { taxi, lineup, outbound, returning, home, final };
   });
   check('taxi and runway lineup have named physical guidance targets',
     /HOLD SHORT/.test(groundGuidance.taxi?.label || '')
       && /RUNWAY 18/.test(groundGuidance.lineup?.label || ''),
     JSON.stringify(groundGuidance));
+  check('both flights progress through named approach, threshold, and touchdown targets',
+    /EL HUESO RUNWAY/.test(groundGuidance.outbound?.label || '')
+      && /WHISPERING PINES APPROACH/.test(groundGuidance.returning?.label || '')
+      && /RWY 36 THRESHOLD/.test(groundGuidance.home?.label || '')
+      && /RWY 36 TOUCHDOWN/.test(groundGuidance.final?.label || '')
+      && groundGuidance.home.z < groundGuidance.final.z,
+    JSON.stringify({ outbound: groundGuidance.outbound, returning: groundGuidance.returning,
+      home: groundGuidance.home, final: groundGuidance.final }));
 
   const taxiRoute = await resumePage.evaluate(() => {
     const root = window.__beefrun.mission.airfield.root;
@@ -787,6 +895,96 @@ const chain = await page.evaluate(() => {
       && pointing.behind.y > 90
       && /WHISPERING PINES/.test(pointing.ahead.tag),
     JSON.stringify(pointing));
+
+  const barkRotation = await resumePage.evaluate(async () => {
+    const { DialogueSystem } = await import('/src/beefrun/dialogue.js');
+    const heard = [];
+    const d = new DialogueSystem({ say() {} }, { audio: { line: (line) => heard.push(line) } });
+    const queued = [];
+    for (let i = 0; i < 7; i++) {
+      d.bark('cruise', { force: true });
+      const line = d.queue[d.queue.length - 1];
+      queued.push({ text: line.text, cue: line.cue });
+      d.clear();
+    }
+    return queued;
+  });
+  check('Sasole exhausts the stable-flight pool before any line repeats and every bark is cued',
+    new Set(barkRotation.slice(0, 6).map((line) => line.text)).size === 6
+      && barkRotation[6].text === barkRotation[0].text
+      && barkRotation.every((line) => /^beefrun\.sasole\.bark-cruise-\d+$/.test(line.cue)),
+    JSON.stringify(barkRotation));
+
+  const homeSetup = await resumePage.evaluate(async () => {
+    const b = window.__beefrun;
+    const { HOME_APPROACH } = await import('/src/beefrun/config.js');
+    const { TerrainStreamingSystem } = await import('/src/beefrun/terrain.js');
+    const Scene = b.mission.scene.constructor;
+    const isolated = new TerrainStreamingSystem(new Scene());
+    isolated.prime(HOME_APPROACH.entry.x, HOME_APPROACH.entry.z);
+    const terrain = { chunks: isolated.chunks.size, queued: isolated.queue.length };
+    isolated.clear();
+
+    b.mission.restoreCheckpoint('return');
+    const nav = b.mission.navTarget();
+    const gates = b.mission.approachGates;
+    const runwayLights = b.mission.airfield.root.getObjectByName('runway-36-edge-lights');
+    return {
+      phase: b.mission.phase,
+      position: {
+        x: +b.physics.position.x.toFixed(1),
+        y: +b.physics.position.y.toFixed(1),
+        z: +b.physics.position.z.toFixed(1),
+      },
+      entry: HOME_APPROACH.entry,
+      nav,
+      gates: {
+        name: gates?.name,
+        count: gates?.children.length,
+        faceFlightPath: gates?.children.every((gate) => Math.abs(gate.rotation.x) < 0.01),
+      },
+      runwayLights: { visible: runwayLights?.visible, count: runwayLights?.count },
+      guide: document.getElementById('br-guide').textContent,
+      terrain,
+    };
+  });
+  check('the saved return begins on the authored runway profile, not a dive over the threshold',
+    homeSetup.phase === 'home'
+      && homeSetup.position.x === homeSetup.entry.x
+      && homeSetup.position.y === +homeSetup.entry.y.toFixed(1)
+      && homeSetup.position.z === homeSetup.entry.z,
+    JSON.stringify({ phase: homeSetup.phase, position: homeSetup.position, entry: homeSetup.entry }));
+  check('the return identifies RWY 36 and lights a ten-gate path plus both runway edges',
+    /RWY 36 THRESHOLD/.test(homeSetup.nav?.label || '')
+      && homeSetup.gates.name === 'home-approach-gates'
+      && homeSetup.gates.count === 10
+      && homeSetup.gates.faceFlightPath
+      && homeSetup.runwayLights.visible
+      && homeSetup.runwayLights.count === 24
+      && /RWY 36/.test(homeSetup.guide),
+    JSON.stringify({ nav: homeSetup.nav, gates: homeSetup.gates,
+      runwayLights: homeSetup.runwayLights, guide: homeSetup.guide }));
+  check('checkpoint restart warms only nearby terrain and streams the far rings',
+    homeSetup.terrain.chunks >= 1 && homeSetup.terrain.chunks <= 9 && homeSetup.terrain.queued >= 100,
+    JSON.stringify(homeSetup.terrain));
+
+  const touchdownCoaching = await resumePage.evaluate(async () => {
+    const { MissionController } = await import('/src/beefrun/mission.js');
+    const called = [];
+    const fake = {
+      phase: 'final', missionTime: 1, _touchdowns: [],
+      audio: { play() {} }, cameras: { addShake() {} },
+      score: { patience: 1 },
+      dialogue: { bark() {}, play: (id) => called.push(id) },
+      setObjective(text) { this.objective = text; },
+    };
+    MissionController.prototype.onTouchdown.call(fake, 1.2, 1, 'both');
+    return { objective: fake.objective, called };
+  });
+  check('touchdown immediately cues braking and its matching Sasole line',
+    /hold B/i.test(touchdownCoaching.objective || '')
+      && touchdownCoaching.called.includes('home.brake'),
+    JSON.stringify(touchdownCoaching));
   check('no console errors during the resume', resumeProblems.length === 0,
     resumeProblems.join(' | '));
   await resumePage.close();

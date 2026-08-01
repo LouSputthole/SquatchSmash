@@ -20,6 +20,7 @@ import {
 } from './dialogue.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 
 const canvas = document.getElementById('scene');
 const overlay = document.getElementById('overlay');
@@ -53,6 +54,7 @@ const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, .04, 18
 scene.add(camera);
 const world = buildNoWakeWorld(scene);
 const hud = new Hud();
+const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 const player = new Player(camera, world);
 const interaction = new InteractionSystem(camera, hud);
 const audio = new AudioEngine();
@@ -398,6 +400,7 @@ function prepareGuns() {
   state.playerGun.rotation.set(.06, -.16, 0);
   state.playerGun.visible = false;
   camera.add(state.playerGun);
+  sceneInventory.set([{ icon: '🔫', label: "Tony's revolver · concealed" }]);
 }
 
 function willyReturns() {
@@ -778,6 +781,7 @@ startButton.addEventListener('click', async () => {
   audio.loadManifest().catch((error) => console.warn('[sfx] background load failed', error));
   audio.startLoop('harbor', { name: 'ambience.rain', volume: .08, ambience: true });
   document.body.classList.add('playing');
+  sceneInventory.show();
   overlay.classList.add('out');
   player.enabled = true;
   canvas.requestPointerLock?.();

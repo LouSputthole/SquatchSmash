@@ -315,6 +315,14 @@ try {
 
   await previewPage.click('#startBtn');
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'car');
+  const motelInventory = await previewPage.evaluate(() => ({
+    visible: Boolean(document.querySelector('#hotbar'))
+      && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',
+    slots: document.querySelectorAll('#hotbar .slot').length,
+  }));
+  check('the Motel uses the shared five-slot bottom inventory',
+    motelInventory.visible && motelInventory.slots === 5,
+    JSON.stringify(motelInventory));
   // SwiftShader can need several frames to compile the first motel materials.
   // Capture after that warm-up, but before the opening dialogue wheel appears.
   await previewPage.waitForTimeout(800);

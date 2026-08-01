@@ -221,6 +221,10 @@ export class Player {
 
   /** Place the player lying in bed at the start of the game. */
   layInBed(pos, yaw) {
+    // A wake/reset pose supersedes every in-flight posture transition. Without
+    // this, a throttled lie-down tween can finish after waking and restore its
+    // old pose (and run stale UI callbacks such as the Day One ceiling line).
+    this._tween = null;
     this.mode = 'bed';
     this.position.set(pos.x, pos.y, pos.z);
     this.yaw = yaw;

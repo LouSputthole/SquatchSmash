@@ -1,22 +1,35 @@
-import './campaign.test.mjs';
-import './fresh-save-campaign-route.test.mjs';
-import './daynight.test.mjs';
-import './characters.test.mjs';
-import './initiation-canon.test.mjs';
-import './apartment-story.test.mjs';
-import './phone.test.mjs';
-import './squatchfather-story.test.mjs';
-import './airstrip-story.test.mjs';
-import './airstrip-mission.test.mjs';
-import './beefrun-lineup.test.mjs';
-import './beefrun-runway-start.test.mjs';
-import './post-airstrip-story.test.mjs';
-import './bada-bing-two-mission.test.mjs';
-import './bing-dialogue-lock.test.mjs';
-import './no-wake-story.test.mjs';
-import './silver-story.test.mjs';
-import './squatch-smash-goals.test.mjs';
-import './preview-mode.test.mjs';
-import './radio-tape.test.mjs';
-import './sfx-index.test.mjs';
-import './audio-engine.test.mjs';
+import { ensureThreeShim } from '../tools/three-shim.mjs';
+
+ensureThreeShim();
+
+const TEST_MODULES = [
+  './campaign.test.mjs',
+  './fresh-save-campaign-route.test.mjs',
+  './daynight.test.mjs',
+  './characters.test.mjs',
+  './initiation-canon.test.mjs',
+  './apartment-story.test.mjs',
+  './phone.test.mjs',
+  './squatchfather-story.test.mjs',
+  './airstrip-story.test.mjs',
+  './airstrip-mission.test.mjs',
+  './beefrun-lineup.test.mjs',
+  './beefrun-runway-start.test.mjs',
+  './post-airstrip-story.test.mjs',
+  './bada-bing-two-mission.test.mjs',
+  './bing-dialogue-lock.test.mjs',
+  './bing-audio.test.mjs',
+  './no-wake-story.test.mjs',
+  './silver-story.test.mjs',
+  './squatch-smash-goals.test.mjs',
+  './preview-mode.test.mjs',
+  './radio-tape.test.mjs',
+  './sfx-index.test.mjs',
+  './audio-engine.test.mjs',
+  './apartment-audio.test.mjs',
+  './inventory.test.mjs',
+  './inventory-view.test.mjs',
+  './player.test.mjs',
+];
+
+for (const modulePath of TEST_MODULES) await import(modulePath);

@@ -1216,6 +1216,27 @@ export class Npc {
       }
     }
 
+    /* One authored bar beat needs hands that match the prop instead of the
+     * generic stand/patrol cycle. These flags are set only on the bartender:
+     * first the right hand tips the bottle while the left steadies the glass,
+     * then both forearms stay level under the tray while the patrol route
+     * carries it to Booski. */
+    if (this.pouringShot) {
+      this.parts.armR.rotation.x = -0.88;
+      this.parts.foreR.rotation.x = -1.22;
+      this.parts.armR.rotation.z = 0.28;
+      this.parts.armL.rotation.x = -0.64;
+      this.parts.foreL.rotation.x = -1.05;
+      this.parts.armL.rotation.z = -0.2;
+    } else if (this.carryingShot) {
+      this.parts.armR.rotation.x = -0.58;
+      this.parts.foreR.rotation.x = -1.22;
+      this.parts.armR.rotation.z = 0.18;
+      this.parts.armL.rotation.x = -0.58;
+      this.parts.foreL.rotation.x = -1.22;
+      this.parts.armL.rotation.z = -0.18;
+    }
+
     // Talking: the jaw works, the head nods, one hand does the explaining.
     // The hand turns OUT while it explains -- swung inward it crossed the
     // sternum and the forearm ran through the speaker's own chest.

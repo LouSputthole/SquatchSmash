@@ -17,6 +17,7 @@ import { clamp } from './util.js';
 const BARK_COOLDOWN = {
   default: 9, stall: 4, terrain: 3.5, smooth: 40, banked: 14,
   rough: 16, holy: 24, offCourseLeft: 18, offCourseRight: 18, taxiLost: 14,
+  cruise: 20, finalLine: 8, finalFast: 8, finalHigh: 8, finalFlare: 8,
 };
 const GLOBAL_BARK_COOLDOWN = 5;
 

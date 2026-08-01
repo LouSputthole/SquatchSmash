@@ -406,6 +406,12 @@ export function buildFamilyScripts({ shotDone = () => false, startShot = () => {
       cue: 'vo.bing.booski.shot.tony.1',
       hold: 3.0,
     },
+    after: {
+      who: 'Booskibro',
+      line: 'There he is. Now you look like you belong in here.',
+      cue: 'vo.bing.booski.shot.after',
+      hold: 3.5,
+    },
   };
 
   const captain_lou_sasole = hangout('Captain Lou Sasole', 'sasole', {

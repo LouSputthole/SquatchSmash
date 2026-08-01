@@ -1,19 +1,91 @@
 /**
  * The Beef Run's sound.
  *
- * One-shots and the room go through the apartment's AudioEngine unchanged —
- * same cue names, same synth fallback, same manifest — because everything that
- * happens once is already handled there. What the apartment has no need for is
- * sound that never stops and never repeats: two piston engines whose pitch is
- * an RPM readout, airframe wind that is an airspeed readout, and rain.
+ * One-shots and the room keep the apartment AudioEngine's cue names, playback,
+ * and synth fallback. BeefAudioEngine only narrows which recorded samples are
+ * decoded for this page. What the apartment has no need for is sound that never
+ * stops and never repeats: two piston engines whose pitch is an RPM readout,
+ * airframe wind that is an airspeed readout, and rain.
  *
  * So those are built here as live graphs on the engine's own AudioContext and
  * bussed through it, which means one mute switch, one limiter, and one
  * listener still control everything.
  */
+import { AudioEngine } from '../core/audio.js';
+import { isBundled, loadJson } from '../core/assets.js';
+import { loadOnceRetriable } from '../core/load-queue.js';
 import { clamp, lerp } from './util.js';
 
 const MAX_RPM = 2450;
+const SFX_DIR = 'assets/sfx/';
+
+/* One-off recordings shared with the apartment that Beef Run calls by name.
+ * Keeping this list beside the scene-specific engine makes an accidental new
+ * cue visible in review instead of quietly re-expanding the resident bank to
+ * the whole campaign. */
+export const BEEF_SHARED_CUES = new Set([
+  'gun.dry',
+  'neighbours.thump',
+  'switch.click',
+  'gun.impact',
+  'can.set',
+  'pc.boot',
+  'can.crack',
+  'gun.shot',
+  'can.crush',
+  'glue.slip',
+  'ui.select',
+  'frame.adjust',
+  'door.knob',
+  'closet.slide',
+]);
+
+/** Recorded cues that the airstrip page can request. */
+export function isBeefPreloadCue(cue) {
+  const name = typeof cue === 'string' ? cue : cue?.name;
+  return !!name && (
+    name.startsWith('vo.beefrun.')
+    || name.startsWith('beefrun.')
+    || name.startsWith('footstep.')
+    || name.startsWith('ambience.')
+    || BEEF_SHARED_CUES.has(name)
+  );
+}
+
+/**
+ * Keep the shared playback/synthesis behavior while decoding only recordings
+ * that this self-contained mission can use.
+ */
+export class BeefAudioEngine extends AudioEngine {
+  loadManifest() {
+    return loadOnceRetriable(this, '_manifestLoadPromise', () => this._loadBeefManifestOnce());
+  }
+
+  async _loadBeefManifestOnce() {
+    this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
+    const cues = this.manifest.sfx || [];
+    let availableCues;
+
+    if (isBundled()) {
+      availableCues = cues.filter((cue) => /^data:/.test(cue.file || ''));
+    } else {
+      const index = await loadJson(SFX_DIR, 'index.json');
+      const available = index ? new Set(index.files || []) : null;
+      this._fileVersions = index?.versions || {};
+      availableCues = available
+        ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
+        : cues;
+    }
+
+    const wanted = availableCues.filter(isBeefPreloadCue);
+    this.preloadStats = {
+      manifestTotal: cues.length,
+      selected: wanted.length,
+    };
+    await this._loadWanted(wanted);
+    return { total: wanted.length, loaded: this.loadedCount };
+  }
+}
 
 export class MissionAudio {
   constructor(engine) {

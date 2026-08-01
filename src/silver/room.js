@@ -228,6 +228,16 @@ export function buildRoom(scene, { renderer } = {}) {
   const platforms = [];   // raised or lowered floors: { box, y }
   const doors = {};
   const anchors = {};
+  /* One authored route shared by floor layout, cutscene choreography and the
+   * verifier. The middle mark gives the carry a gentle curve through the
+   * service lane instead of a diagonal through whichever table random jitter
+   * happened to put there on this load. */
+  const TABLE_CARRY_ROUTE = [
+    new THREE.Vector3(-11.7, 0, 1.4),
+    new THREE.Vector3(-13.2, 0, -1.0),
+    new THREE.Vector3(-16.0, 0, -5.2),
+  ];
+  anchors.tableCarryRoute = TABLE_CARRY_ROUTE.map((p) => p.clone());
   const neon = [];
   const ticking = [];
   /* The two ramps, declared up here because the stair builds the one going
@@ -1640,16 +1650,64 @@ export function buildRoom(scene, { renderer } = {}) {
     const COLUMNS = [[-8, 6], [-8, 16], [-20, 6], [-20, 16]];
     const inAColumn = (x, z) => COLUMNS.some(([cx, cz]) => Math.abs(x - cx) < 1.45
       && Math.abs(z - cz) < 1.45);
+    const tableJitter = (row, col, salt) => {
+      /* Stable integer hash: the dining room is authored scenery, not a new
+       * procedural floor plan every time the player reloads a checkpoint. */
+      let n = ((row + 1) * 73856093) ^ ((col + 1) * 19349663) ^ (salt * 83492791);
+      n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+      n = Math.imul(n ^ (n >>> 16), 0x45d9f3b);
+      n ^= n >>> 16;
+      return ((n >>> 0) / 4294967295) * 0.8 - 0.4;
+    };
+    const carryAt = (k) => {
+      const u = 1 - k;
+      const [a, m, z] = TABLE_CARRY_ROUTE;
+      return new THREE.Vector3(
+        u * u * a.x + 2 * u * k * m.x + k * k * z.x,
+        0,
+        u * u * a.z + 2 * u * k * m.z + k * k * z.z,
+      );
+    };
+    const inCarryLane = (x, z) => {
+      for (let i = 0; i <= 20; i++) {
+        const p = carryAt(i / 20);
+        /* Table radius + carrier + elbow room. */
+        if (Math.hypot(x - p.x, z - p.z) < 2.05) return true;
+      }
+      return false;
+    };
     for (let row = 0; row < 5; row++) {
       for (let col = 0; col < 5; col++) {
-        const tx = -25 + col * 5.4 + rand(-0.4, 0.4);
-        const tz = -4.5 + row * 5.4 + rand(-0.4, 0.4);
+        const tx = -25 + col * 5.4 + tableJitter(row, col, 1);
+        const tz = -4.5 + row * 5.4 + tableJitter(row, col, 2);
         if (inAColumn(tx, tz)) continue;
         if (Math.hypot(tx - 0.5, tz - 24.2) < 4) continue;   // keep the host station clear
         if (Math.abs(tx - (-16)) < 3 && tz < -2) continue;   // and the front of the stage
+        if (inCarryLane(tx, tz)) continue;                    // two staff and a table pass here
         if (Math.hypot(tx - (-8.6), tz - 1.6) < 2.6) continue; // the crew's table is authored below
         diningTable(tx, tz, col % 2 ? 4 : 2);
       }
+    }
+
+    /* A low-contrast burgundy runner makes the service line legible without
+     * spoiling the reveal. Eight short pieces follow the same curve the table
+     * and camera use; they are decorative and deliberately have no collider. */
+    const runnerMat = mat({ color: 0x32161b, roughness: 0.98 });
+    let lastRunner = carryAt(0);
+    for (let i = 1; i <= 8; i++) {
+      const next = carryAt(i / 8);
+      const dx = next.x - lastRunner.x;
+      const dz = next.z - lastRunner.z;
+      const runner = box({
+        name: 'front-service-runner',
+        size: [0.92, 0.018, Math.hypot(dx, dz) + 0.06],
+        pos: [(lastRunner.x + next.x) / 2, 0.012, (lastRunner.z + next.z) / 2],
+        rotY: Math.atan2(dx, dz),
+        mat: runnerMat,
+        cast: false,
+      });
+      add(runner);
+      lastRunner = next;
     }
 
     /* The table by the pillar, laid by hand. The men who send the champagne
@@ -1809,14 +1867,27 @@ export function buildRoom(scene, { renderer } = {}) {
   const front = group('front-table');
   {
     const cloth = mat({ color: 0xf2ede2, roughness: 0.95 });
-    front.add(cylinder({ r: 0.09, h: 0.72, pos: [0, 0.36, 0], mat: M_DARKWOOD }));
-    front.add(cylinder({ r: 0.34, h: 0.05, pos: [0, 0.03, 0], mat: M_DARKWOOD }));
-    const top = cylinder({ r: 0.68, h: 0.05, pos: [0, 0.74, 0], mat: cloth });
+    const pedestal = cylinder({ r: 0.09, h: 0.72, pos: [0, 0.36, 0], mat: M_DARKWOOD });
+    pedestal.name = 'front-pedestal';
+    front.add(pedestal);
+    const foot = cylinder({ r: 0.34, h: 0.05, pos: [0, 0.03, 0], mat: M_DARKWOOD });
+    foot.name = 'front-foot';
+    front.add(foot);
+    /* A real bare table comes out first. The first cutscene used to hide the
+     * top, so the staff carried a pedestal across the room and a white disc
+     * appeared only once it landed. The linen is a second, paper-thin top
+     * laid over this one with the skirt. */
+    const top = cylinder({ r: 0.68, h: 0.05, pos: [0, 0.74, 0], mat: M_DARKWOOD });
+    top.name = 'front-top';
     front.add(top);
+    const clothTop = cylinder({ r: 0.69, h: 0.012, pos: [0, 0.771, 0], mat: cloth, cast: false });
+    clothTop.name = 'front-cloth-top';
+    clothTop.visible = false;
+    front.add(clothTop);
     const skirt = cylinder({ rTop: 0.68, rBottom: 0.64, h: 0.46, pos: [0, 0.52, 0], mat: cloth });
+    skirt.name = 'front-cloth';
     skirt.visible = false;                      // laid during the cutscene
     front.add(skirt);
-    top.visible = false;
 
     const lampG = group('front-lamp');
     lampG.add(cylinder({ r: 0.05, h: 0.2, pos: [0, 0.86, 0], mat: M_BRASS }));
@@ -1866,7 +1937,7 @@ export function buildRoom(scene, { renderer } = {}) {
 
   /* Front and center: four metres out from the stage lip, dead on the middle
    * of it, which is the only place in this room worth carrying a table to. */
-  anchors.frontTable = new THREE.Vector3(-16, 0, -5.2);
+  anchors.frontTable = TABLE_CARRY_ROUTE[2].clone();
   /**
    * The two chairs, either side of the line between the table and the stage.
    *
@@ -1902,7 +1973,7 @@ export function buildRoom(scene, { renderer } = {}) {
   /* Where the staff pick the table up. In the service lane between the two
    * ranks of tables — it used to be at (-9.5, 0.5), which is 640mm inside a
    * laid four-top, so the manager stood in a table to look at a table. */
-  anchors.tableStaging = new THREE.Vector3(-11.7, 0, 1.4);
+  anchors.tableStaging = TABLE_CARRY_ROUTE[0].clone();
 
   /* ================================================================ */
   /* Ground height, and the update loop                                */

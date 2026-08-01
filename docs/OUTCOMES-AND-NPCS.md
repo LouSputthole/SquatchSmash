@@ -12,10 +12,11 @@
 
 This is future writing, not the active route. The current production spine is
 apartment → Bada Bing One → Squatchfather → Beef Run → Bada Bing Two → Jerky
-Motel → Silver Room → apartment/big-night call → Initiation. The current
-ceremony is reachable through that route and from the save-isolated
-`preview.html` launcher, but remains frozen for user playtesting and does not
-yet record campaign completion or expose an outbound edge.
+Motel → apartment/sleep → NO WAKE → apartment → Silver Room →
+apartment/big-night call → Initiation. The current ceremony is reachable
+through that route and from the save-isolated `preview.html` launcher, but
+remains frozen for user playtesting and does not yet record campaign completion
+or expose an outbound edge.
 
 The material below is a writing archive for later review. It is not an active
 build order and must not override the current Initiation freeze or the canon

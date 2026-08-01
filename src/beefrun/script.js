@@ -381,6 +381,9 @@ export const BEATS = {
   'home.final': [
     L('Crosswind from the left. Point the nose into it and land on the wheel that’s low.', 5.0),
   ],
+  'home.brake': [
+    L('Feet down. Hold the brakes and keep her straight. We still need the hangar.', 4.4),
+  ],
 
   'end.bucket': [
     P('So that was the job?', 2.2),
@@ -412,6 +415,8 @@ export const BARKS = {
   ],
   gearHard: [
     'Feel that? That was the landing gear’s entire remaining career.',
+    'That noise came out of the maintenance budget.',
+    'If the wheels are still round, buy them dinner.',
   ],
   banked: [
     'Level it. My coffee has opinions.',
@@ -429,6 +434,8 @@ export const BARKS = {
   ],
   holy: [
     'Holee leee.',
+    'If you meant to do that, never do it again.',
+    'My stomach just filed a transfer request.',
   ],
   offCourseLeft: [
     'Marker is left. Turn left and bring the diamond back into the glass.',
@@ -446,9 +453,41 @@ export const BARKS = {
   ],
   cargoShift: [
     'Something moved back there. That is never good news.',
+    'The jerky changed seats. Fly like it has another vote.',
+    'Cargo is walking around back there. Smooth it out.',
   ],
   patrolClose: [
     'Lower. Trees are free cover and nobody bills you for them.',
+    'Keep the ridge between us and the badge.',
+    'Cloud or canyon. Either one has fewer forms.',
+  ],
+  cruise: [
+    'Hold this line. The aeroplane finally believes you.',
+    'That is good flying. Do not celebrate where the plane can hear you.',
+    'Needles steady, cargo quiet. This is the part nobody puts in the movie.',
+    'Keep the diamond centered and let the engines earn their fuel.',
+    'Small corrections. We are smuggling beef, not wrestling weather.',
+    'Look outside once in a while. The mountains are doing most of the navigating.',
+  ],
+  finalLine: [
+    'Runway is under the lights. Bring the nose back to center.',
+    'You are drifting off the pavement. Correct gently.',
+    'Centerline first. Pride later.',
+  ],
+  finalFast: [
+    'Too fast for this runway. Power back and let the nose rise.',
+    'Slow it down. Asphalt is cheaper than forest, but there is less of it.',
+    'We need wheels on pavement, not a low pass for the county.',
+  ],
+  finalHigh: [
+    'You are high. Power back and follow the light ladder down.',
+    'The runway is below us, which is useful only if we descend.',
+    'Ease the nose down. We are out of sky before we are out of runway.',
+  ],
+  finalFlare: [
+    'Eyes at the far end. Hold it off.',
+    'Easy now. Let the runway come to you.',
+    'Small pull. Keep it straight. Let her settle.',
   ],
 };
 

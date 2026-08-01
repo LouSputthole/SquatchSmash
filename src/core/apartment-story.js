@@ -306,9 +306,9 @@ export const DATE_MARGO_CALL = Object.freeze({
  * What sleeping in his own bed does, chapter by chapter.
  *
  * Story chapter and calendar day are deliberately separate. Tony gets home
- * from the Jerky Motel at half four in the morning of Day 3, so the `date`
- * chapter opens at noon on that same Day 3 rather than on a fourth day: he was
- * up all night, and the table is not until nine that evening.
+ * from the Jerky Motel at half four in the morning of Day 3, so sleep opens
+ * the `no_wake` chapter at noon on that same Day 3. Completing NO WAKE advances
+ * directly into `date`; it does not consume another night before Margo calls.
  *
  * Sleeping off the date is what finally moves the calendar. The big night is
  * Day 4 — he wakes at ten, Booskibro rings, and the ceremony is at seven.

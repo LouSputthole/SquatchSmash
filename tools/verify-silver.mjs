@@ -67,7 +67,10 @@ const browser = await chromium.launch({
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader',
     '--autoplay-policy=no-user-gesture-required'],
 });
-const page = await browser.newPage({ viewport: { width: 320, height: 200 } });
+/* Exercise the scene's high-DPI guard as well as its smallest supported HUD.
+ * A 2x screen used to make this already dense room render four times the
+ * fragments even though the club's grain hides that extra resolution. */
+const page = await browser.newPage({ viewport: { width: 320, height: 200 }, deviceScaleFactor: 2 });
 
 const problems = [];
 page.on('pageerror', (e) => problems.push(`${e.message}`));
@@ -97,9 +100,52 @@ if (failedToLoad) {
 /* Clicked in-page rather than through the mouse: this panel is taller than
  * the Bing's and the button falls outside the deliberately tiny viewport,
  * which every pixel of is drawn on the CPU. */
+const startClickedAt = Date.now();
 await page.evaluate(() => document.getElementById('start-btn').click());
 await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__silver.postfx.disable?.());
+const silverLoad = await page.evaluate(() => {
+  const audio = window.__silver.audio;
+  const loaded = [...audio.buffers.keys()];
+  return {
+    elapsedMs: Date.now() - performance.timeOrigin,
+    wallMs: 0,
+    plan: audio.preloadStats ?? null,
+    silverVo: loaded.filter((name) => name.startsWith('vo.silver.')).length,
+    unrelatedVo: loaded.filter((name) => name.startsWith('vo.') && !name.startsWith('vo.silver.')).slice(0, 5),
+  };
+});
+silverLoad.wallMs = Date.now() - startClickedAt;
+check('the Silver Room decodes its own sound set instead of the whole campaign before opening',
+  silverLoad.plan?.manifestTotal > 1000
+    && silverLoad.plan?.selected >= 180
+    && silverLoad.plan?.selected < 300
+    && silverLoad.silverVo === 180
+    && silverLoad.unrelatedVo.length === 0,
+  JSON.stringify(silverLoad));
+const firstFrameUi = await page.evaluate(() => {
+  const b = window.__silver;
+  const bar = document.getElementById('hotbar');
+  const rect = bar.getBoundingClientRect();
+  return {
+    slots: b.inventory.slots,
+    boxes: bar.querySelectorAll('.slot').length,
+    empty: [...bar.querySelectorAll('.slot')].every((el) => el.textContent === ''),
+    selected: bar.querySelectorAll('.slot.on').length,
+    declared: Number(bar.dataset.slotCount),
+    visible: !bar.classList.contains('hidden') && getComputedStyle(bar).display !== 'none',
+    bottom: Math.round(rect.bottom),
+    viewport: innerHeight,
+    pixelRatio: b.renderer.getPixelRatio(),
+  };
+});
+check('gameplay opens with the shared five-slot bottom inventory visible, even while empty',
+  firstFrameUi.slots === 5 && firstFrameUi.boxes === 5 && firstFrameUi.declared === 5
+    && firstFrameUi.empty && firstFrameUi.selected === 1 && firstFrameUi.visible
+    && firstFrameUi.bottom <= firstFrameUi.viewport + 1,
+  JSON.stringify(firstFrameUi));
+check('the dense room caps high-DPI rendering without lowering game detail',
+  firstFrameUi.pixelRatio <= 1.25, `${firstFrameUi.pixelRatio}x backing resolution on a 2x display`);
 
 /**
  * Step the game's own update path for `secs` of simulated time.
@@ -120,6 +166,7 @@ async function tick(secs = 1, step = 0.25) {
       b.room.update(st, b.player.position);
       b.dialogue.update(st, b.player.position);
       b.date.update(st, b.player.position, b.player.yaw);
+      b.game.scene?.pose?.();
       b.performance.update(st);
       b.mission.update(st, { trailing: b.date.isTrailing });
       b.__zones();
@@ -423,14 +470,15 @@ const dressing = await page.evaluate(() => {
   /* (c) the wayfinding exists: a service plate at the alley end of the
    * frontage, a painted lane through the kitchen, FLOOR plates both sides of
    * the swing doors, and a marquee whose emissive is a sign, not a flare. */
-  let plates = 0; let lanes = 0; let service = null; let marquee = null;
+  let plates = 0; let lanes = 0; let runners = 0; let service = null; let marquee = null;
   b.scene.traverse((o) => {
     if (o.name === 'floor-plate') plates++;
     if (o.name === 'service-lane') lanes++;
+    if (o.name === 'front-service-runner') runners++;
     if (o.name === 'service-plate') service = { x: +o.position.x.toFixed(1), z: +o.position.z.toFixed(1) };
     if (o.name === 'marquee') marquee = { intensity: o.material.emissiveIntensity };
   });
-  out.signs = { plates, lanes, service, marquee };
+  out.signs = { plates, lanes, runners, service, marquee };
 
   /* (d) nobody on their feet is inside a wall or a piece of furniture. The
    * service bar man used to work from inside the corridor's east wainscot. */
@@ -486,6 +534,8 @@ check('the side entrance is signposted from the street and the marquee is a sign
 check('the way from the kitchen to the floor is painted on it, with a plate over each door',
   dressing.signs.lanes >= 4 && dressing.signs.plates === 2,
   `${dressing.signs.lanes} lane stripes, ${dressing.signs.plates} plates`);
+check('the front-table service lane is clear and visually carried through the room',
+  dressing.signs.runners >= 8, `${dressing.signs.runners} curved runner pieces`);
 check('nobody on their feet is standing inside a wall or the furniture',
   dressing.inside.length === 0, dressing.inside.join('; ') || 'all clear');
 check('chairs belong to their tables: none in a column, the crew on their own chairs, every diner in one',
@@ -1186,7 +1236,18 @@ const cut = await page.evaluate(() => {
   let t = 0;
   let maxStep = 0;
   let yawAtNine = null;
+  let tableMaxStep = 0;
+  let moverMaxStep = 0;
+  let carriedFrames = 0;
+  let flankedFrames = 0;
+  let bareTopFrames = 0;
+  let trackedFrames = 0;
+  let trackingFrames = 0;
+  let carryPoseFrames = 0;
   const last = b.player.position.clone();
+  const tableLast = b.room.frontTable.group.position.clone();
+  const movers = [b.cast.byName.mover1, b.cast.byName.mover2];
+  const moverLast = movers.map((m) => m.group.position.clone());
   for (let i = 0; i < 120; i++) {
     const st = 0.25;
     b.player.update(st);
@@ -1201,6 +1262,7 @@ const cut = await page.evaluate(() => {
     b.__seatTick(st);
     b.__host();
     b.__evening(st);
+    b.game.scene?.pose?.();
     t += st;
     if (i > 0) maxStep = Math.max(maxStep, b.player.position.distanceTo(last));
     last.copy(b.player.position);
@@ -1210,12 +1272,64 @@ const cut = await page.evaluate(() => {
       const want = Math.atan2(-(A.host.x - 1.2 - b.player.position.x), -(A.host.z - 0.3 - b.player.position.z));
       yawAtNine = Math.abs(Math.atan2(Math.sin(b.player.yaw - want), Math.cos(b.player.yaw - want)));
     }
+    const table = b.room.frontTable.group;
+    if (table.visible) {
+      tableMaxStep = Math.max(tableMaxStep, table.position.distanceTo(tableLast));
+      const fromStart = table.position.distanceTo(A.tableStaging);
+      const fromEnd = table.position.distanceTo(A.frontTable);
+      if (fromStart > 0.3 && fromEnd > 0.3) {
+        carriedFrames++;
+        const gaps = movers.map((m) => m.group.position.distanceTo(table.position));
+        if (gaps.every((gap) => gap > 0.45 && gap < 1.8)
+          && movers[0].group.position.distanceTo(movers[1].group.position) > 1.1) flankedFrames++;
+        const top = table.children.find((c) => c.name === 'front-top');
+        const cloth = table.children.find((c) => c.name === 'front-cloth');
+        if (top?.visible && !cloth?.visible) bareTopFrames++;
+        if (movers.every((m) => m.parts.armL.rotation.x < -0.6
+          && m.parts.armR.rotation.x < -0.6)) carryPoseFrames++;
+      }
+      if (b.game.scene?.t >= 10.5 && b.game.scene?.t <= 18) {
+        const dx = table.position.x - b.player.position.x;
+        const dz = table.position.z - b.player.position.z;
+        const want = Math.atan2(-dx, -dz);
+        const off = Math.abs(Math.atan2(Math.sin(b.player.yaw - want), Math.cos(b.player.yaw - want)));
+        trackingFrames++;
+        if (off < 0.65) trackedFrames++;
+      }
+    }
+    tableLast.copy(table.position);
+    movers.forEach((m, n) => {
+      moverMaxStep = Math.max(moverMaxStep, m.group.position.distanceTo(moverLast[n]));
+      moverLast[n].copy(m.group.position);
+    });
   }
-  return { maxStep: +maxStep.toFixed(2), yawAtNine: yawAtNine === null ? null : +yawAtNine.toFixed(2) };
+  return {
+    maxStep: +maxStep.toFixed(2),
+    yawAtNine: yawAtNine === null ? null : +yawAtNine.toFixed(2),
+    tableMaxStep: +tableMaxStep.toFixed(2),
+    moverMaxStep: +moverMaxStep.toFixed(2),
+    carriedFrames,
+    flankedFrames,
+    bareTopFrames,
+    trackedFrames,
+    trackingFrames,
+    carryPoseFrames,
+  };
 });
 check('the camera never cuts mid-scene, and holds the host while the manager overrules him',
   cut.maxStep < 2.0 && cut.yawAtNine !== null && cut.yawAtNine < 0.6,
   `worst step ${cut.maxStep}m, ${cut.yawAtNine} rad off the host at 9s`);
+check('two waiters visibly carry the same bare table across the room before setting it',
+  cut.carriedFrames >= 12
+    && cut.flankedFrames >= cut.carriedFrames * 0.8
+    && cut.bareTopFrames >= cut.carriedFrames * 0.8
+    && cut.carryPoseFrames >= cut.carriedFrames * 0.8
+    && cut.tableMaxStep < 0.8
+    && cut.moverMaxStep < 0.8,
+  JSON.stringify(cut));
+check('the table camera follows the work instead of looking at an empty mark',
+  cut.trackingFrames >= 20 && cut.trackedFrames >= cut.trackingFrames * 0.75,
+  `${cut.trackedFrames}/${cut.trackingFrames} tracked frames`);
 s = await state();
 check('the scene ends and gives control back', s.scene === false && s.mission === 'seating', s.mission);
 
@@ -1451,8 +1565,8 @@ check('seven of them, on stage, with the house down and the near table lamps sti
  * were built at yaw π — pointed at the back wall — with the bar-wipe idle
  * loop re-posing their arms twenty times a second underneath the show
  * animation. Facing the room now, with instrument poses that the frame order
- * lets stand: horns at the mouth, a bass worked, brushes trading, a leader
- * out front with the mic. */
+ * lets stand: horns at the mouth, a bass worked, brushes trading, and a real
+ * violin and moving bow in the leader's hands. */
 const stagecraft = await page.evaluate(() => {
   const b = window.__silver;
   const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -1463,21 +1577,32 @@ const stagecraft = await page.evaluate(() => {
     foreL: +m.parts.foreL.rotation.x.toFixed(2),
     armR: +m.parts.armR.rotation.x.toFixed(2),
   }));
+  const leader = b.band.members.find((m) => m.holds === 'violin');
+  const violin = leader?.group.getObjectByName('lead-violin');
+  const bow = leader?.group.getObjectByName('lead-bow');
+  const before = bow?.position.clone();
+  b.performance.update(0.31);
+  const size = violin ? new b.THREE.Box3().setFromObject(violin).getSize(new b.THREE.Vector3()) : null;
   return {
     facing: members.every((m) => Math.abs(m.yaw) < 0.9),
     noWipers: members.every((m) => m.job !== 'work'),
     hornsUp: members.filter((m) => m.holds === 'horn').every((m) => m.foreL < -1.0),
     leadWorking: (() => {
-      const l = members.find((m) => m.holds === 'lead');
+      const l = members.find((m) => m.holds === 'violin');
       return !!l && l.armR < -0.2;
     })(),
+    violinVisible: !!violin && violin.visible && size.x > 0.45 && size.y > 0.15,
+    bowVisible: !!bow && bow.visible && before.distanceTo(bow.position) > 0.01,
+    violinSize: size ? size.toArray().map((n) => +n.toFixed(2)) : null,
     members,
   };
 });
 check('the band faces the audience and plays its instruments rather than shaking',
-  stagecraft.facing && stagecraft.noWipers && stagecraft.hornsUp && stagecraft.leadWorking,
+  stagecraft.facing && stagecraft.noWipers && stagecraft.hornsUp && stagecraft.leadWorking
+    && stagecraft.violinVisible && stagecraft.bowVisible,
   JSON.stringify({ facing: stagecraft.facing, noWipers: stagecraft.noWipers,
-    hornsUp: stagecraft.hornsUp, lead: stagecraft.leadWorking }));
+    hornsUp: stagecraft.hornsUp, lead: stagecraft.leadWorking,
+    violin: stagecraft.violinVisible, bow: stagecraft.bowVisible, size: stagecraft.violinSize }));
 
 /* A cutscene takes her over, and the end of one used to hand her back to
  * `follow` unconditionally — so the champagne stood her up out of her chair for
@@ -2193,6 +2318,19 @@ check('and the optional ones tick themselves off when they are done',
  * line with a stale cue is a line delivered in words nobody wrote.
  */
 const manifest = JSON.parse(await fsp.readFile(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+const expectedPickups = new Set([
+  'vo.silver.bandleader.set.front-and-center',
+  'vo.silver.bandleader.set.opener',
+  'vo.silver.margo.moments.chairPulled',
+]);
+const silverManifestCues = manifest.sfx.filter((c) => c.name.startsWith('vo.silver.'));
+const absentRecordings = silverManifestCues
+  .filter((cue) => !fs.existsSync(path.join(ROOT, 'assets/sfx', cue.file || `${cue.name}.mp3`)))
+  .map((cue) => cue.name);
+const unexpectedAbsent = absentRecordings.filter((name) => !expectedPickups.has(name));
+check('every Silver voice recording is present or explicitly identified as a pickup',
+  unexpectedAbsent.length === 0,
+  `${silverManifestCues.length - absentRecordings.length}/${silverManifestCues.length} recorded; pickups: ${absentRecordings.join(', ') || 'none'}`);
 const voice = await page.evaluate(({ cues, voices }) => {
   const b = window.__silver;
   const S = b.scripts;
@@ -2228,6 +2366,10 @@ const voice = await page.evaluate(({ cues, voices }) => {
   const F = b.mission.flags;
   const was = { ...F };
   const wooWas = b.woo.score;
+  /* Set introductions are spoken on the performance timeline rather than in
+   * a dialogue tree, but they are still authored lines and need the same
+   * manifest/text/profile contract. */
+  for (const n of b.SET) if (n.say) visit({ who: n.lead, line: n.say, cue: n.cue });
   for (const tableBuilt of [false, true]) {
     for (const seated of [false, true]) {
       for (const drinkOrdered of [false, 'rye']) {
@@ -2260,13 +2402,18 @@ const voice = await page.evaluate(({ cues, voices }) => {
     drifted: [...new Set(drifted)].slice(0, 4),
     nDrifted: new Set(drifted).size,
     badVoice: badVoice.slice(0, 4),
+    specials: [
+      'vo.silver.bandleader.set.front-and-center',
+      'vo.silver.bandleader.set.opener',
+      'vo.silver.margo.moments.chairPulled',
+    ].filter((name) => b.game.voLog.includes(name)),
   };
 }, {
   cues: manifest.sfx.filter((c) => c.name.startsWith('vo.silver.')).map((c) => ({ name: c.name, say: c.say })),
   voices: Object.fromEntries(manifest.sfx.filter((c) => c.name.startsWith('vo.silver.')).map((c) => [c.name, c.voice])),
 });
 check('the evening actually asked for its voice, line by line, rather than staying silent',
-  voice.asked > 40 && voice.distinct > 25,
+  voice.asked > 40 && voice.distinct > 25 && voice.specials.length === 3,
   `${voice.asked} cues asked for, ${voice.distinct} distinct — e.g. ${voice.sample.join(', ')}`);
 check('and every line anybody cast can say has a cue in the manifest that says the same words',
   voice.nMissing === 0 && voice.nDrifted === 0 && voice.badVoice.length === 0,

@@ -1,3 +1,5 @@
+import { renderInventorySlots } from './scene-inventory.js';
+
 /** Thin wrapper over the DOM overlay so game code never touches elements directly. */
 export class Hud {
   constructor() {
@@ -90,17 +92,12 @@ export class Hud {
       this.hotbar.replaceChildren();
       return;
     }
-    const nodes = [];
-    for (let i = 0; i < inv.slots; i++) {
-      const id = inv.items[i];
-      const el = document.createElement('div');
-      el.className = `slot${i === inv.selected ? ' on' : ''}`;
-      el.dataset.key = String(i + 1);
-      el.textContent = id ? (items[id]?.icon ?? '?') : '';
-      nodes.push(el);
-    }
-    this.hotbar.replaceChildren(...nodes);
-    this.hotbar.classList.remove('hidden');
+    renderInventorySlots(this.hotbar, {
+      slots: inv.slots,
+      items: inv.items,
+      selected: inv.selected,
+      catalog: items,
+    });
   }
 
   /**

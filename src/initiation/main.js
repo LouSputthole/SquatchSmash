@@ -8,6 +8,7 @@ import { MEMBER_PALETTE, Person } from '../core/person.js';
 import { DebrisSystem } from '../../game/src/debris.js';
 import { Effects } from '../../game/src/effects.js';
 import * as sfx from './audio.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 
 // ============================================================
 // THE INITIATION — current chapter endpoint.
@@ -21,6 +22,11 @@ const BOUNDS = 88;
 const BASE_SPEED = 10;
 const SPRINT_SPEED = 15;
 const BASE_FOV = 55;
+
+// The rites start with empty hands, but the same five pockets remain visible
+// as every other campaign scene. Scene loadouts replace these contents; the
+// inventory language itself never changes underneath the player.
+const sceneInventory = new SceneInventoryBar({ slots: 5, visible: true });
 
 const MAX_HP = 100;
 const STOP_HP = MAX_HP / 5; // the Circle stops the beating at one fifth

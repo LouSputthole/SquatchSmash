@@ -46,7 +46,8 @@ Current product facts:
 - The whole confirmed order is now connected end to end through campaign state:
   apartment → Bada Bing One → apartment → Squatchfather → apartment/sleep →
   Beef Run → apartment → Bada Bing Two → Jerky Motel → apartment/sleep →
-  **the Silver Room date** → apartment/sleep → Initiation on Day 4.
+  **NO WAKE** → apartment → **the Silver Room date** → apartment/sleep →
+  Initiation on Day 4.
 - `npm run verify:campaign-route` is the focused fresh-save state contract. It
   traverses every current mission seam, reloads at the apartment returns, and
   deliberately ends with Initiation `in_progress`; it does not claim the
@@ -54,41 +55,44 @@ Current product facts:
 - The Beef Run is integrated at `beefrun.html`: Booskibro's answered call
   routes the apartment door there, the mission persists checkpoints, cargo,
   detection, landing rank, and completion, a reload resumes in the cockpit,
-  and the end card returns home. `verify:beefrun` (22) and `check:flight`
+  and the end card returns home. `verify:beefrun` (40) and `check:flight`
   cover it. Preserve its flight model, terrain, and mission geography as
   canonical.
 - The post-airstrip state contract, Lou's second call, reused Bada Bing Two,
   direct Jerky Motel transition, and Motel return exist.
-- **The Silver Room is integrated (2026-07-30).** Home from the Motel at
-  4:30 AM on Day 3, the door refuses until Tony sleeps; sleeping opens the new
-  `date` chapter at Day 3 noon; **Margo Salas** rings once that afternoon
+- **NO WAKE and the Silver Room are integrated.** Home from the Motel at
+  4:30 AM on Day 3, the door refuses until Tony sleeps; sleeping opens
+  `no_wake` at Day 3 noon. Big Uncle Lou's harbor call routes Tony into the
+  betrayal, and completion returns him home in the same afternoon and advances
+  directly to `date`. **Margo Salas** then rings once
   (`DATE_MARGO_CALL`, `vo.call.margo.date.*`, +5 minutes) and unlocks
   `MISSION_IDS.SILVER_ROOM`; the door applies `travel.silver_room` (Day 3,
   7:30 PM) and navigates to `silver.html`. `src/core/silver-story.js` gates the
   evening and folds the mission's `persist()` payload into campaign state;
   completion applies `mission.silver_room` (Day 3, 11:20 PM) and the end card
-  goes home. `verify:silver` (112) plays the evening; `verify:silver-story` (20)
+  goes home. `verify:silver` (120) plays the evening; `verify:silver-story` (20)
   rides the campaign seam.
 - The final apartment return is connected. After the date the door refuses
   until Tony sleeps; sleeping opens `big_night` at **Day 4, 10:00 AM**;
   Booskibro rings once about the big night (`vo.call.booski.bignight.*`,
   +5 minutes) and unlocks the Initiation; the door then applies
   `travel.initiation` (**Day 4, 7:00 PM**) and really navigates to
-  `initiation.html`. `verify:big-night` (19) covers the whole beat.
+  `initiation.html`. `verify:big-night` (20) covers the whole beat.
 - Sleep is the chapter machine and chapter is still separate from calendar day:
   `day_one` → `day_two` (needs Squatchfather, wakes Day 2 7:00 AM) →
-  `date` (needs the Motel, wakes Day 3 12:00 PM) → `big_night` (needs the
-  Silver Room, wakes **Day 4 10:00 AM**). `big_night` is the last chapter.
+  `no_wake` (needs the Motel, wakes Day 3 12:00 PM) → `date` (advanced by
+  NO WAKE completion on the same day) → `big_night` (needs the Silver Room,
+  wakes **Day 4 10:00 AM**). `big_night` is the last chapter.
 - `SCENE_IDS.INITIATION` is registered with no outbound edge because the scene
-  does not read the campaign or report completion. `src/initiation/*` and
-  `initiation.html` are byte-identical to the pre-consolidation build.
-- `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, **the
-  Silver Room**, and the unchanged Initiation in page-local memory without
-  reading or writing the real save. `verify:preview` (16) lists six.
+  does not read the campaign or report completion. Its authored ceremony and
+  outcome logic remain frozen; shared campaign-HUD work does not change them.
+- `preview.html` opens the Beef Run, Motel, Bing Two, Squatchfather, **NO
+  WAKE**, **the Silver Room**, and the authored Initiation in page-local memory
+  without reading or writing the real save.
 - The apartment/computer, Squatchfather spawn, Bada Bing geometry/NPC/rain,
   and first-person Motel/Snow/pool/interior playtest fixes are implemented and
   verified. Preserve those fixes.
-- Initiation is intentionally unchanged until the user has tested it.
+- Initiation's authored ceremony and outcome are intentionally unchanged until the user has tested it; the shared inventory bar is mounted.
 - Apartment pause includes an explicit two-step **Restart campaign** action.
   It resets the story save to Day One but preserves Squatch Smash career/high
   score storage. Big Uncle Lou's Bada Bing objective briefing locks movement
@@ -131,9 +135,12 @@ The current focused follow-up adds campaign reset, objective-dialogue movement
 locks, actual phone audio playback verification, and a freshly generated
 `VOICE-LINES-TODO.md`.
 
-Current recording queue: **0 voice lines and 0 effects**. The recovered 112
-Bada Bing full-conversation takes are indexed and browser-verified as decoded
-audio. The Day Two `vo.call.booski.airstrip.*` and second-Bing
+Current recording queue: **70 voice lines and 14 effects**. This is 69 newly
+authored pickups (46 Beef Run, 18 NO WAKE, two Bada Bing, and three Silver Room lines) plus
+one pre-existing missing Snow/Tony line; the effects have procedural fallbacks
+and are audible now. The recovered 112 Bada
+Bing full-conversation takes are indexed and browser-verified as decoded audio.
+The Day Two `vo.call.booski.airstrip.*` and second-Bing
 `vo.call.lou.bing_second.*` banks are also present in the manifest and indexed;
 do not recreate them. After any future recording pass run `npm run sfx:listen`,
 then `npm run audio:todo` and the affected browser gates.
@@ -157,8 +164,8 @@ date are all complete and verified (2026-07-30). Continue in this order:
 
 1. **A human playtest of the current Initiation is the next gate.** The
    apartment door now reaches it through ordinary campaign state, and the scene
-   is deliberately still unchanged. Nothing in `src/initiation/*` may change
-   until the user has played it. After that playtest, implement the approved
+   retains its authored ceremony and outcome; only shared-system integration
+   such as the inventory bar has changed. After that playtest, implement the approved
    ending: accomplishment review, rival deaths, Tony's verdict, mass
    transformation, plus the scene's first `campaign.enter` claim, completion
    time event, and outbound edge home.

@@ -1,12 +1,13 @@
-# Campaign timeline — the owner's structure (2026-07-31)
+# Campaign timeline — the owner's structure (updated 2026-08-01)
 
 The owner's authoritative four-day shape. Where this document and the code
 disagree, this document is the intent and the code is the current state; every
 divergence is listed at the bottom rather than silently resolved.
 
-Two scenes here **do not exist and must not be built** until the owner says so:
-the Day-3 informant hit and the Day-4 heist. The Initiation is WIP and frozen
-until the owner has playtested it.
+The Day-3 informant hit now exists as **NO WAKE** and is part of the connected
+campaign. The Day-4 heist still **does not exist and must not be built** until
+the owner says so. The Initiation is WIP and frozen until the owner has
+playtested it.
 
 ## Campaign premise
 
@@ -23,19 +24,40 @@ the humiliating distance between Tony's status as an errand boy and the grandeur
 the Family assigns to every job. The campaign endpoint is Tony's formal
 initiation into the Silver Sasquatches.
 
+## Current connected route
+
+This is the production route implemented by `src/core/campaign.js` and covered
+by `npm run verify:campaign-route`:
+
+| Day | Apartment gate | Mission route | Return / chapter change |
+|---|---|---|---|
+| 1 | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → apartment whiskey nerve-settle → Squatchfather | Return home and sleep |
+| 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two → Jerky Motel | Return home 4:30 AM and sleep |
+| 3 | Wake noon, answer Big Uncle Lou's vague harbor call | NO WAKE → apartment, answer Margo → Front and Center | Return home and sleep |
+| 4 | Margo's morning-after beat, answer Booskibro | Initiation reference | Terminal WIP: mission remains `in_progress` |
+
+Every external mission owns a registered scene/spawn and either returns to the
+apartment or hands directly to the next mission. The save survives reloads at
+each seam; the current final gap is an approved Initiation completion event and
+outbound ending, not a missing route into the final day.
+
 ## Day 1 — Welcome to the Life
 
 **Apartment, morning.** The player wakes as an unknown Prospect. The flat is
 anonymous: **no trophies from previous missions**, because there have been
 none. Day 1 is deliberately unhurried — he wakes early and has to kill time
-until the club that night. Tutorial beats, all optional:
+until the club that night. The door's four readiness beats are required:
 
-- eat · shower · use the bathroom · change clothes · check email
-- explore the apartment computer and play Squatch Smash
-- Lou's phone call: come to the Bada Bing later
+- eat · shower · poop · change clothes
+- answer Lou's physical phone call: come to the Bada Bing later
 
-A player who does not want to wait can **nap, or get a drink and pass out**,
-and the game should tell them so.
+Everything else is optional characterization and play:
+
+- check email · explore the apartment · use the phone and answering machine
+- use the computer and play Squatch Smash
+
+Story time advances through those authored actions rather than real waiting;
+idle exploration never silently moves the campaign clock.
 
 **Bada Bing, scene one.** Exciting, not threatening. The Prospect thinks he has
 found the coolest group of lunatics on Earth.
@@ -67,19 +89,17 @@ more valuable to the family.
 
 ## Day 3 — Loyalty Gets Ugly
 
-**Apartment, morning.** The atmosphere turns: rain or grey light, radio news
-about the motel, a **missed** call from Margo, Lou telling him to dress
-casually and meet at the docks, the call unusually vague, and **Willy gone
-from his contacts and messages**. The player should know something is wrong
-before knowing what.
+**Apartment, noon.** The atmosphere turns: rain or grey light, radio news about
+the motel, Lou telling him to dress casually and meet at the docks, the call
+unusually vague, and **Willy gone from his contacts and messages**. The player
+should know something is wrong before knowing what.
 
-**The informant hit — NOT BUILT, DO NOT BUILD.** The boat: dock, board with
-Lou Sputthole, Booski, Willy and the Prospect, open water, conversation
-souring, Willy's betrayal revealed, Willy goes to the bathroom, the others
-prepare, he returns, they shoot him, body disposal, a silent ride back. The
-emotional low point — the restaurant's dead were enemies; Willy was one of
-them. **Willy's large belly must be permanent in his model before his earlier
-appearances are finalised**, so he does not inflate between scenes.
+**NO WAKE — built and connected.** The boat: dock, board with Lou Sputthole,
+Booski, Willy and the Prospect, open water, conversation souring, Willy's
+betrayal revealed, the others prepare, they shoot him, body disposal, and a
+silent ride back. The emotional low point — the restaurant's dead were
+enemies; Willy was one of them. Willy's permanent large-belly model is shared
+with his earlier appearance so his body does not change between scenes.
 
 **Front and Center.** The Copacabana date with Margo, deliberately placed
 after the hit for the tonal whiplash: that afternoon he killed a friend; that
@@ -125,29 +145,22 @@ killing directly before Front and Center.
 
 **The apartment must visibly evolve after every chapter.**
 
-## Divergences between this document and the build (2026-07-31)
+## Divergences between this document and the build (2026-08-01)
 
-1. **Day 3 routing.** The doc sends the player to the docks for the hit, then
-   to Front and Center. The boat does not exist, so the build routes Day 3 as
-   Margo's call → the Silver Room. The Day-3 morning carries the doc's
-   atmosphere; the destination stays the one that exists.
-2. **Day 4 routing.** The doc runs the heist before the Initiation. The heist
+1. **Day 4 routing.** The doc runs the heist before the Initiation. The heist
    does not exist, so the build routes Day 4 as Booskibro's call → the
    Initiation.
-3. **Bing scene two recognition beats** (bartender's new lines, dealer and
+2. **Bing scene two recognition beats** (bartender's new lines, dealer and
    performer campaign comments, Lou covering drinks, informant hints, a nervous
    Willy) are only partly implemented — the Family floor and its talk exist,
    the campaign-specific second-visit variants largely do not.
-4. **The Day-3 apartment's missed Margo call** conflicts with the build, where
-   Margo's answered call is what unlocks the evening. Tone implemented, unlock
-   preserved.
-5. The Front and Center closing **cutscene of the apartment with Margo** is not
+3. The Front and Center closing **cutscene of the apartment with Margo** is not
    built; Day 4 opens with her in the bed instead.
-6. **The current Initiation is not a campaign-complete state.** The apartment
+4. **The current Initiation is not a campaign-complete state.** The apartment
    can route Tony into the frozen Pines scene, but that scene does not claim the
    campaign, record completion, or expose an outbound edge. The focused route
    contract therefore ends with Initiation `in_progress`, not `complete`.
-7. **The finale has two authored shapes.** This timeline places an oath and
+5. **The finale has two authored shapes.** This timeline places an oath and
    callback ceremony at the Bada Bing, while `docs/STORY.md` preserves the
    Pines quiz, execution, gauntlet, roar, timber, and anointing. Reconcile those
    designs after the required playtest before wiring the final checkpoint.

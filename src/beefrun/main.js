@@ -2,19 +2,19 @@
  * The Beef Run — boot, wiring, and the frame.
  *
  * A second playable space alongside the apartment, built out of the same parts:
- * the apartment's AudioEngine, Hud, InteractionSystem and first-person Player
- * are imported unchanged, and everything specific to the mission lives in this
- * folder. Nothing in `src/core` or `src/world` had to change to make room for
- * it, which is the point — the flat is the main scene, and this hangs off it.
+ * the shared audio playback, Hud, InteractionSystem and first-person Player
+ * remain the foundation, while Beef Run scopes sample residency and everything
+ * mission-specific to this folder. Nothing in `src/core` or `src/world` had to
+ * change to make room for it — the flat is the main scene, and this hangs off it.
  */
 import * as THREE from 'three';
 
-import { AudioEngine } from '../core/audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createAirstripStory } from '../core/airstrip-story.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { roomEnvironment } from '../world/textures.js';
 
 import { WP, EH, AC, DIFFICULTY } from './config.js';
@@ -31,7 +31,7 @@ import { buildLandmarks } from './landmarks.js';
 import { FlightHud } from './hud.js';
 import { CameraManager } from './cameras.js';
 import { FlightInput } from './input.js';
-import { MissionAudio } from './audio.js';
+import { BeefAudioEngine, MissionAudio } from './audio.js';
 import { DialogueSystem } from './dialogue.js';
 import { Preflight } from './preflight.js';
 import { MissionController } from './mission.js';
@@ -104,10 +104,13 @@ window.addEventListener('resize', () => {
 const campaign = createCampaign();
 const story = createAirstripStory({ campaign });
 
-const audio = new AudioEngine();
+const audio = new BeefAudioEngine();
 const missionAudio = new MissionAudio(audio);
 const hud = new Hud();
 const flightHud = new FlightHud();
+// Beef Run resets the carried loadout, but keeps the campaign's five-box
+// inventory language visible from the apron through the final taxi.
+const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 const interaction = new InteractionSystem(camera, hud);
 // The flat has a floor at zero; this place has mountains. The player rides
 // whatever world.groundAt returns, exactly like the Bing's stage.
@@ -166,6 +169,7 @@ const mission = new MissionController({
 window.__beefrun = {
   mission, physics, engines, cargo, detection, weather, aircraft, terrain,
   player, cameras, dialogue, interaction, input, audio: missionAudio, hud, flightHud,
+  sceneInventory,
   campaign, story,
   get campaignState() { return campaign.state; },
 };
@@ -228,6 +232,8 @@ startBtn.addEventListener('click', async () => {
 
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
+  sceneInventory.set([]);
+  sceneInventory.show();
   requestLock();
 
   if (!game.started) {

@@ -19,6 +19,7 @@ import { rand, pick } from '../bing/kit.js';
 import { TIP_POINTS } from './woo.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { getCharacter } from '../core/characters.js';
+import { box, cylinder, sphere, group, mat } from '../world/build.js';
 
 export { TIP_POINTS, TIP_TOTAL } from './woo.js';
 
@@ -313,6 +314,54 @@ export function populate(scene, room) {
 }
 
 /**
+ * The bandleader's violin is an actual readable stage prop, not a label on an
+ * NPC. Its broad orange bouts and pale bow are deliberately a little larger
+ * than strict scale so they survive the dark room and the front-table camera.
+ */
+function makeViolin() {
+  const wood = mat({ color: 0xb65a24, roughness: 0.38, metalness: 0.04 });
+  const edge = mat({ color: 0x5a2412, roughness: 0.48 });
+  const ebony = mat({ color: 0x171313, roughness: 0.3 });
+  const string = mat({ color: 0xd8c9a5, roughness: 0.22, metalness: 0.55 });
+
+  const violin = group('lead-violin');
+  const lower = sphere({ r: 0.14, ry: 0.125, rz: 0.035, pos: [0.11, -0.005, 0], mat: wood });
+  lower.name = 'lead-violin-lower-bout';
+  const upper = sphere({ r: 0.105, ry: 0.10, rz: 0.032, pos: [-0.075, 0.005, 0], mat: wood });
+  upper.name = 'lead-violin-upper-bout';
+  violin.add(
+    lower,
+    upper,
+    box({ name: 'lead-violin-waist', size: [0.12, 0.11, 0.055], pos: [0.015, 0, 0], mat: edge }),
+    box({ name: 'lead-violin-neck', size: [0.34, 0.032, 0.036], pos: [-0.285, 0, 0.004], mat: edge }),
+    box({ name: 'lead-violin-fingerboard', size: [0.44, 0.026, 0.020], pos: [-0.18, 0, 0.042], mat: ebony }),
+    box({ name: 'lead-violin-tailpiece', size: [0.13, 0.055, 0.020], pos: [0.12, 0, 0.048], mat: ebony }),
+    box({ name: 'lead-violin-bridge', size: [0.018, 0.15, 0.025], pos: [0.015, 0, 0.056], mat: string }),
+    box({ name: 'lead-violin-strings', size: [0.58, 0.009, 0.009], pos: [-0.12, 0, 0.071], mat: string, cast: false }),
+  );
+  const scroll = cylinder({ r: 0.045, h: 0.065, pos: [-0.475, 0, 0.008], rotX: Math.PI / 2, mat: edge });
+  scroll.name = 'lead-violin-scroll';
+  violin.add(scroll);
+  violin.position.set(-0.01, 1.35, 0.205);
+  violin.rotation.set(-0.08, 0, -0.12);
+
+  const bow = group('lead-bow');
+  const stick = cylinder({ r: 0.009, h: 0.72, pos: [0, 0, 0], mat: edge });
+  stick.name = 'lead-bow-stick';
+  bow.add(
+    stick,
+    box({ name: 'lead-bow-hair', size: [0.006, 0.67, 0.007], pos: [0.022, -0.01, 0], mat: string, cast: false }),
+    box({ name: 'lead-bow-frog', size: [0.045, 0.075, 0.028], pos: [0.012, -0.31, 0], mat: ebony }),
+  );
+  bow.position.set(0.045, 1.34, 0.305);
+  bow.rotation.z = 0.16;
+  bow.userData.restPosition = bow.position.clone();
+  bow.userData.restZ = bow.rotation.z;
+
+  return { group: violin, bow };
+}
+
+/**
  * The band. They are behind a closed curtain until they are not, so they are
  * built with the room and made visible by the second cutscene.
  *
@@ -329,7 +378,7 @@ export function makeBand(scene, room) {
     [2.1, -1.9, 0x1b1b22, 'horn'],
     [4.2, -1.2, 0x1b1b22, 'bass'],
     [1.6, -3.0, 0x1b1b22, 'drums'],
-    [-2.6, 0.4, 0x2a2028, 'lead'],
+    [-2.6, 0.4, 0x2a2028, 'violin'],
   ];
   layout.forEach(([ox, oz, shirt, holds], i) => {
     const npc = new Npc(scene, {
@@ -347,6 +396,10 @@ export function makeBand(scene, room) {
       },
     });
     npc.holds = holds;
+    if (holds === 'violin') {
+      npc.violin = makeViolin();
+      npc.parts.body.add(npc.violin.group, npc.violin.bow);
+    }
     npc.group.visible = false;
     members.push(npc);
   });

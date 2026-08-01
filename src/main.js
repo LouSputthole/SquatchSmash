@@ -8,7 +8,7 @@
  * src/arcade/ for that one.
  */
 import * as THREE from 'three';
-import { AudioEngine } from './core/audio.js';
+import { ApartmentAudioEngine } from './core/apartment-audio.js';
 import { Hud } from './core/hud.js';
 import { InteractionSystem } from './core/interaction.js';
 import { Player } from './core/player.js';
@@ -152,7 +152,7 @@ window.addEventListener('resize', () => {
 /* Systems                                                             */
 /* ------------------------------------------------------------------ */
 
-const audio = new AudioEngine();
+const audio = new ApartmentAudioEngine();
 const hud = new Hud();
 const interaction = new InteractionSystem(camera, hud);
 const world = { colliders: [], floorZones: [] };
@@ -872,27 +872,25 @@ startBtn.addEventListener('click', async () => {
 /* Pointer lock is how this is meant to be played, but some embeddings refuse
  * it -- a sandboxed frame without allow-pointer-lock, for one. Rather than
  * leave the game unplayable there, fall back to hold-the-left-button-and-drag
- * to look. `dragLook` is set the first time a lock request is denied. */
+ * to look. The fallback is not permanent: later user gestures, including
+ * standing up from a framed PC app, still retry native pointer lock. */
 let dragLook = false;
 let dragging = false;
 
 function requestLock() {
-  if (dragLook) {
-    enableInput();
-    return;
-  }
   const p = canvas.requestPointerLock?.();
   // Chrome returns a promise from requestPointerLock; older builds throw or
   // simply never fire pointerlockchange, so both paths are covered.
   if (p && p.catch) p.catch(() => fallBackToDragLook());
   setTimeout(() => {
-    if (!dragLook && document.pointerLockElement !== canvas && !game.paused) {
+    if (document.pointerLockElement !== canvas && !game.paused) {
       fallBackToDragLook();
     }
   }, 600);
 }
 
 function fallBackToDragLook() {
+  if (document.pointerLockElement === canvas) return;
   if (dragLook) return;
   dragLook = true;
   enableInput();
@@ -919,12 +917,12 @@ window.addEventListener('wheel', (e) => {
 }, { passive: true });
 
 document.addEventListener('pointerlockchange', () => {
-  if (dragLook) return;
   const locked = document.pointerLockElement === canvas;
   const computerDomInput = game.seated && arcade.inputMode === 'dom';
-  player.enabled = locked || computerDomInput;
-  document.body.classList.toggle('unlocked', !locked && !computerDomInput);
-  if (!locked && game.started && !computerDomInput) pauseGame();
+  if (locked) dragLook = false;
+  player.enabled = locked || computerDomInput || dragLook;
+  document.body.classList.toggle('unlocked', !locked && !computerDomInput && !dragLook);
+  if (!locked && game.started && !computerDomInput && !dragLook) pauseGame();
 });
 
 function pauseGame() {
@@ -1210,8 +1208,15 @@ function sitAtPC() {
 function standFromPC() {
   hud.setPosture(null);
   if (!game.seated) return;
+  /* Q works even while the parent-owned framed-app exit control has focus.
+   * In that path the iframe deliberately released pointer lock, and dropping
+   * `seated` before setSeated(false) means the input-mode callback correctly
+   * declines to re-lock for a seated player. Remember that transition and
+   * restore first-person input explicitly once the DOM overlay is gone. */
+  const leavingDomApp = arcade.inputMode === 'dom';
   game.seated = false;
   arcade.setSeated?.(false);
+  if (leavingDomApp && game.started && !game.paused) requestLock();
   hud.setMode('walk');
   audio.setMuffle(false);
   radio.setFocusMuffle(false);

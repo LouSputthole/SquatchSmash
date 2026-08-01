@@ -215,6 +215,7 @@ try {
     day: window.__squatch.time.day,
     minutes: window.__squatch.time.minutes,
     mode: window.__squatch.player.mode,
+    transitionPending: !!window.__squatch.player._tween,
     clockDay: document.querySelector('#clock .day')?.textContent,
     clockTime: document.querySelector('#clock .time')?.textContent,
     subtitle: document.querySelector('#subtitle')?.textContent?.trim(),
@@ -230,8 +231,14 @@ try {
     },
   }));
   check('the live apartment wakes in bed at 7:00 AM on Day Two',
-    woke.day === 2 && Math.abs(woke.minutes - 420) < 1 && woke.mode === 'bed',
-    JSON.stringify({ day: woke.day, minutes: woke.minutes, mode: woke.mode }));
+    woke.day === 2 && Math.abs(woke.minutes - 420) < 1
+      && woke.mode === 'bed' && !woke.transitionPending,
+    JSON.stringify({
+      day: woke.day,
+      minutes: woke.minutes,
+      mode: woke.mode,
+      transitionPending: woke.transitionPending,
+    }));
   /* The bug the owner hit: the second morning presented as the first one. The
    * clock, the line he says on waking and the panel all have to name Day Two,
    * and none of them may mention Day One or the man who rang yesterday. */
@@ -321,6 +328,48 @@ try {
       && !room.shown.includes('gunCase')
       && room.raining === false,
     JSON.stringify(room.shown));
+
+  const apartmentVisuals = await page.evaluate(async () => {
+    const apartment = window.__squatch.apartment;
+    const blood = apartment.dressing.get('bloodShirt')?.group;
+    const meshes = [];
+    blood?.traverse((node) => {
+      if (!node.isMesh) return;
+      node.geometry?.computeBoundingBox?.();
+      const box = node.geometry?.boundingBox;
+      if (!box) return;
+      const width = (box.max.x - box.min.x) * Math.abs(node.scale.x || 1);
+      const depth = (box.max.z - box.min.z) * Math.abs(node.scale.z || 1);
+      meshes.push({ width, depth, color: node.material?.color?.getHex?.() ?? null });
+    });
+
+    apartment.state.closetOpen = true;
+    /* Software-rendered Chromium may deliver only a handful of rAF frames in
+     * 900 real milliseconds. Advance the room's real updater deterministically
+     * so this measures the authored final pose, not host scheduling noise. */
+    for (let frame = 0; frame < 120; frame++) apartment.update(1 / 60, frame / 60);
+    const hangers = apartment.closet?.hangers ?? [];
+    const closet = hangers.map((hanger) => ({
+      x: hanger.mesh.position.x,
+      yaw: hanger.mesh.rotation.y,
+    }));
+    return { meshes, closet };
+  });
+  const bloodWidth = apartmentVisuals.meshes.reduce((sum, mesh) => sum + mesh.width, 0);
+  const bloodHasReadableFabric = apartmentVisuals.meshes.some((mesh) => {
+    if (mesh.color == null) return false;
+    const r = (mesh.color >> 16) & 255;
+    const g = (mesh.color >> 8) & 255;
+    const b = mesh.color & 255;
+    return (r + g + b) / (3 * 255) >= 0.38;
+  });
+  check('the bloody shirt reads as a full discarded garment instead of dark floor clutter',
+    bloodWidth >= 0.90 && bloodHasReadableFabric,
+    JSON.stringify({ width: bloodWidth, meshes: apartmentVisuals.meshes }));
+  check('opening the closet moves every garment fully to one side',
+    apartmentVisuals.closet.length >= 4
+      && apartmentVisuals.closet.every((hanger) => hanger.x >= 4.78 && Math.abs(hanger.yaw) >= 1.05),
+    JSON.stringify(apartmentVisuals.closet));
 
 
   await page.reload({ waitUntil: 'load' });
