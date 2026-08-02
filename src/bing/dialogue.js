@@ -34,6 +34,7 @@ export class Dialogue {
     this.options = [];
     this.timer = 0;
     this.active = false;
+    this.lastEndReason = null;
     this.history = new Set();
     /* Where each tree lapsed, keyed by the tree itself. Walking off
      * mid-sentence used to mean the whole conversation started over next
@@ -83,6 +84,7 @@ export class Dialogue {
     this.tree = tree;
     this.speaker = speaker;
     this.active = true;
+    this.lastEndReason = null;
     this._resumable = resume;
     this._inReplyRange = true;
     if (nextLock !== this.lockMovement) {
@@ -174,6 +176,7 @@ export class Dialogue {
       else if (reason === 'done' && this._resumable) this._bookmarks.delete(this.tree);
     }
     this.active = false;
+    this.lastEndReason = reason;
     this.node = null;
     this.nodeId = null;
     this.options = [];

@@ -16,6 +16,7 @@ export const CLUB_IDS = Object.freeze(['driver', 'iron', 'putter']);
  *   speed        ball speed at full power, m/s
  *   loft         launch angle, degrees
  *   dispersion   degrees of azimuth error at full mis-hit
+ *   curve        relative side-spin available for a shaped airborne shot
  *   powerCurve   exponent on the power input; >1 gives finer control low down
  *   minSpeed     floor so a barely-tapped shot still moves
  *   rollScale    multiplier on the surface's rolling friction after landing
@@ -32,6 +33,7 @@ export const CLUBS = Object.freeze({
     speed: 80.0,
     loft: 11.5,
     dispersion: 7.5,
+    curve: 1.25,
     powerCurve: 1.0,
     minSpeed: 6,
     rollScale: 1.0,
@@ -48,6 +50,7 @@ export const CLUBS = Object.freeze({
     speed: 54.0,
     loft: 22.0,
     dispersion: 4.2,
+    curve: 0.78,
     powerCurve: 1.18,
     minSpeed: 3,
     rollScale: 1.0,
@@ -63,6 +66,7 @@ export const CLUBS = Object.freeze({
     speed: 7.2,
     loft: 0,
     dispersion: 0.9,
+    curve: 0,
     powerCurve: 1.35,
     minSpeed: 0.35,
     rollScale: 1.0,
@@ -111,12 +115,18 @@ export function launchFor(club, { power, accuracy = 0, lie, uphill = 0 }) {
 
   /* Direction of the miss follows its sign, and the lie adds its own spread on
    * top — a flier out of the rough goes where it goes. */
-  const dispersionDeg = accuracy * c.dispersion + Math.sign(accuracy || 1) * miss * lie.spread;
+  /* Face angle starts the ball a little offline; side spin does most of the
+   * visible work after launch. That makes a fade/slice or draw/hook curve
+   * through the sky instead of being a straight shot pointed elsewhere. */
+  const dispersionDeg = accuracy * c.dispersion * (c.grounded ? 1 : 0.35)
+    + Math.sign(accuracy || 1) * miss * lie.spread * (c.grounded ? 1 : 0.35);
+  const sideSpin = c.grounded ? 0 : accuracy * c.curve;
 
   return {
     speed,
     loftDeg: loft,
     offsetDeg: dispersionDeg,
+    sideSpin,
     club: c.id,
     grounded: c.grounded,
   };

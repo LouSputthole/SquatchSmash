@@ -92,6 +92,28 @@ test('delivered provisional takes stay visible as casting review work', () => {
   assert.match(markdown, /playable demo takes, not automatic approval/);
 });
 
+test('the golf handoff lists every authored line even after its take is delivered', () => {
+  const markdown = buildAudioTodo({
+    manifest: {
+      voices: {
+        eric: { id: 'existing-eric-voice', _note: 'Established Erican delivery.' },
+        rippinflow: { id: 'existing-rippin-voice', _note: 'Established Rippinflow delivery.' },
+      },
+      sfx: [
+        { name: 'vo.golf.h1.eric.test', voice: 'eric', say: 'Middle of the green.' },
+        { name: 'vo.golf.h1.rippin.test', voice: 'rippinflow', say: 'Give it a ride.' },
+      ],
+    },
+    index: { files: ['vo.golf.h1.eric.test.mp3'] },
+    legacyQueue: {},
+  });
+
+  assert.match(markdown, /Complete authored ledger — A Morning at Silver Pines/);
+  assert.match(markdown, /2 authored cue\(s\): 1 \*\*RECORDED\*\*, 1 \*\*NEEDS RECORDING\*\*/);
+  assert.match(markdown, /\*\*RECORDED\*\* `vo\.golf\.h1\.eric\.test\.mp3`/);
+  assert.match(markdown, /\*\*NEEDS RECORDING\*\* `vo\.golf\.h1\.rippin\.test\.mp3`/);
+});
+
 test('the committed recording handoff matches the current production sources', () => {
   const readJson = (relative) => JSON.parse(fs.readFileSync(path.join(ROOT, relative), 'utf8'));
   const expected = buildAudioTodo({

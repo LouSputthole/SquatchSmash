@@ -173,6 +173,29 @@ function renderHotDogLedger(out, cues, have) {
   }
 }
 
+function renderGolfLedger(out, cues, voices, have) {
+  const authored = cues.filter((cue) => cue.name.startsWith('vo.golf.'));
+  if (!authored.length) return;
+
+  const recorded = authored.filter((cue) => have.has(fileOf(cue))).length;
+  out.push('## Complete authored ledger — A Morning at Silver Pines', '');
+  out.push(`${authored.length} authored cue(s): ${recorded} **RECORDED**, ${authored.length - recorded} **NEEDS RECORDING**. Every playable golf line stays listed here after delivery so the scene can be audited as one recording script.`, '');
+
+  const byProfile = group(authored, (cue) => cue.voice || 'player');
+  for (const [profile, profileCues] of [...byProfile].sort(([a], [b]) => a.localeCompare(b))) {
+    out.push(`### ${profile.replace(/-/g, ' ').toUpperCase()} (${profileCues.length})`, '');
+    out.push(`Voice profile: \`${profile}\`.`);
+    const direction = voiceDirection(profile, voices);
+    if (direction) out.push('', direction);
+    out.push('');
+    for (const cue of [...profileCues].sort((a, b) => a.name.localeCompare(b.name))) {
+      const status = have.has(fileOf(cue)) ? '**RECORDED**' : '**NEEDS RECORDING**';
+      out.push(`- ${status} \`${fileOf(cue)}\` — ${JSON.stringify(cue.say)}`);
+    }
+    out.push('');
+  }
+}
+
 function renderFutureInitiationParty(out, cues, voices, { total, indexed }) {
   if (!total) return;
   out.push(`## Future Initiation party dialogue — ${total} total; ${indexed} indexed; ${cues.length} missing`, '');
@@ -334,6 +357,7 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
     total: futureInitiationPartyAll.length,
     indexed: futureInitiationPartyAll.length - futureInitiationParty.length,
   });
+  renderGolfLedger(out, allManifestVoice, manifest.voices || {}, have);
   renderHotDogLedger(out, allManifestVoice, have);
   renderManifestEffects(out, effects);
   renderLegacy(out, legacyQueue);

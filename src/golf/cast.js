@@ -59,9 +59,9 @@ const WARDROBE = {
 /* ------------------------------------------------------------------ */
 
 const CLUB_LOOK = {
-  driver: { shaft: 1.10, lean: 0.035, hosel: 0.070, carryAngle: 1.10 },
-  iron: { shaft: 0.96, lean: 0.030, hosel: 0.065, carryAngle: 0.95 },
-  putter: { shaft: 0.92, lean: 0.024, hosel: 0.060, carryAngle: 0.87 },
+  driver: { shaft: 1.10, lean: 0.035, hosel: 0.070, carryAngle: 1.17 },
+  iron: { shaft: 0.96, lean: 0.030, hosel: 0.065, carryAngle: 1.02 },
+  putter: { shaft: 0.92, lean: 0.024, hosel: 0.060, carryAngle: 0.91 },
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -337,6 +337,42 @@ export function makeBall(scene, colour = 0xf4f6f8) {
   m.castShadow = true;
   scene.add(m);
   return m;
+}
+
+/**
+ * Ground-level finder for the Prospect's regulation-size ball.
+ *
+ * Readability belongs to this translucent marker rather than to the ball's
+ * collision mesh, so the visual assist cannot change shot physics.
+ */
+export function makeBallMarker(scene) {
+  const group = new THREE.Group();
+  group.name = 'player-ball-ground-marker';
+  group.userData.radius = 0.52;
+
+  const glow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.43, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0xb998ff, transparent: true, opacity: 0.16,
+      depthWrite: false, side: THREE.DoubleSide,
+    }),
+  );
+  glow.name = 'ball-marker-glow';
+  glow.rotation.x = -Math.PI / 2;
+  group.add(glow);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.52, 0.035, 8, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0xd8c5ff, transparent: true, opacity: 0.92, depthWrite: false,
+    }),
+  );
+  ring.name = 'ball-marker-ring';
+  ring.rotation.x = Math.PI / 2;
+  group.add(ring);
+
+  scene.add(group);
+  return group;
 }
 
 /* ------------------------------------------------------------------ */

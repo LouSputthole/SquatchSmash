@@ -86,8 +86,22 @@ const check = (name, ok, detail = '') => {
 console.log('\nSilver Pines — Full Round\n');
 
 const GOLF_URL = `http://localhost:${PORT}/golf.html?preview=1`;
+const GOLF_CANONICAL_URL = `http://localhost:${PORT}/golf.html`;
 await page.goto(GOLF_URL, { waitUntil: 'load' });
-await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+try {
+  await page.waitForFunction('window.__golfReady === true', null, { timeout: 30000 });
+} catch (error) {
+  console.error('Golf failed before exposing its verification handle:');
+  for (const problem of problems) console.error(`  ${problem}`);
+  throw error;
+}
+/* Preview mode supplies the same temporary prerequisites as the apartment's
+ * offered route while keeping canonical storage isolated. */
+await page.evaluate(() => window.__golf.campaign.update((state) => {
+  state.missions.silver_room.status = 'complete';
+  state.missions.silver_pines.status = 'available';
+  state.events.lou_golf_call.status = 'answered';
+}));
 let startError = '';
 try {
   await page.locator('#start-btn').click({ timeout: 2000 });
@@ -482,6 +496,30 @@ const address = await page.evaluate(() => {
 });
 check('5. the player can address the ball', address.ok && address.mode === 'address');
 
+const playerClubView = await page.evaluate(() => {
+  const rig = window.__golf.scene.getObjectByName('player-club-rig');
+  const selected = rig?.children.find((child) => child.userData.kind && child.visible);
+  return {
+    visible: !!rig?.visible,
+    selected: selected?.userData.kind ?? '',
+    cameraMounted: rig?.parent?.type === 'PerspectiveCamera',
+    head: selected?.children.find((child) => child.name?.startsWith('club-head-'))
+      ?.geometry?.type ?? '',
+    plan: window.__golf.plan(),
+  };
+});
+check('5a. addressing the ball shows the selected club in the player hands',
+  playerClubView.visible && playerClubView.selected === 'iron'
+    && playerClubView.cameraMounted && !!playerClubView.head,
+  JSON.stringify(playerClubView));
+check('5a2. the first tee recommends the safe middle instead of the water-side pin',
+  playerClubView.plan.club === 'iron' && playerClubView.plan.label === 'MIDDLE GREEN'
+    && Math.hypot(
+      playerClubView.plan.target.x - 11.4,
+      playerClubView.plan.target.z - (-150.4),
+    ) > 3,
+  JSON.stringify(playerClubView.plan));
+
 await page.waitForTimeout(100);
 const addressGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
 check('5b. addressing the ball teaches the first swing click',
@@ -553,6 +591,39 @@ const aimed = await page.evaluate(() => {
   return { moved: Math.abs(g.aimYaw - start) > 0.15 };
 });
 check('6. the player can aim', aimed.moved);
+
+const shotOriginReturn = await page.evaluate(() => {
+  const g = window.__golf;
+  const originalBall = { ...g.round.playerBall.position };
+  const originalPlayer = { x: g.player.position.x, z: g.player.position.z };
+  g.round.playerBall.placeAt(originalBall.x + 35, originalBall.z - 70);
+  g.leaveAddress();
+  const returned = { x: g.player.position.x, z: g.player.position.z };
+  g.round.playerBall.placeAt(originalBall.x, originalBall.z);
+  g.enterAddress();
+  return {
+    fromOrigin: Math.hypot(returned.x - originalPlayer.x, returned.z - originalPlayer.z),
+    fromLanding: Math.hypot(returned.x - (originalBall.x + 35), returned.z - (originalBall.z - 70)),
+  };
+});
+check('6b. flight cleanup returns the player to the shot origin instead of teleporting to the landing',
+  shotOriginReturn.fromOrigin < 0.1 && shotOriginReturn.fromLanding > 10,
+  JSON.stringify(shotOriginReturn));
+
+const pointerFallback = await page.evaluate(() => {
+  const g = window.__golf;
+  document.exitPointerLock?.();
+  g.swing.reset();
+  const beforeAim = g.aimYaw;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', bubbles: true }));
+  window.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+  const result = { phase: g.swing.phase, aimDelta: Math.abs(g.aimYaw - beforeAim) };
+  g.swing.reset();
+  return result;
+});
+check('6c. pointer lock is optional: keyboard aim and an unlocked click can start the swing',
+  pointerFallback.phase === 'power' && pointerFallback.aimDelta > 0.005,
+  JSON.stringify(pointerFallback));
 
 const meter = await page.evaluate(async () => {
   const { Swing, SWING_PHASE } = await import('/src/golf/swing.js');
@@ -744,7 +815,18 @@ const strokeCount = await page.evaluate(() => {
   const g = window.__golf;
   const before = g.round.card.hole('prospect', 1).strokes;
   g.round.playerBall.placeAt(g.LAYOUT.pin.x, g.LAYOUT.pin.z + 3);
-  g.hit(0.3, 0);
+  g.setClub('putter');
+  g.setAim(Math.atan2(
+    g.LAYOUT.pin.x - g.round.playerBall.position.x,
+    g.LAYOUT.pin.z - g.round.playerBall.position.z,
+  ));
+  g.swing.reset();
+  g.swing.click();
+  g.swing.marker = 0.30;
+  g.swing.click();
+  g.swing.marker = 0;
+  g.swing.click();
+  g.fireSwing();
   return { before, after: g.round.card.hole('prospect', 1).strokes };
 });
 check('18. the stroke count updates on every shot',
@@ -755,8 +837,68 @@ check('18. the stroke count updates on every shot',
 /* 20–21, 24–25 · the cart, Lou, the green, finishing                  */
 /* ------------------------------------------------------------------ */
 
-const played = await page.evaluate(() => {
+await page.waitForFunction(() => !window.__golf.round.playerBall.moving, null, { timeout: 15000 });
+await page.waitForTimeout(120);
+const shotPresentation = await page.evaluate(() => {
+  const result = document.getElementById('shot-result');
+  const tracer = window.__golf.scene.getObjectByName('player-shot-tracer');
+  return {
+    visible: !!result && !result.classList.contains('hidden'),
+    quality: result?.querySelector('.quality')?.textContent?.trim() || '',
+    outcome: result?.querySelector('.outcome')?.textContent?.trim() || '',
+    tracerPoints: tracer?.geometry?.attributes?.position?.count ?? 0,
+  };
+});
+check('18b. a real swing leaves a readable flight trace and landing result',
+  shotPresentation.visible && /pured/i.test(shotPresentation.quality)
+    && /(yds.*ft to pin|in the cup)/i.test(shotPresentation.outcome)
+    && shotPresentation.tracerPoints >= 3,
+  JSON.stringify(shotPresentation));
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.screenshot({
+  path: path.join(ROOT, 'docs', 'validation', 'golf', '12-shot-result.png'),
+});
+await page.setViewportSize({ width: 480, height: 300 });
+
+const cartEvidence = await page.evaluate(() => {
   const g = window.__golf;
+  g.leaveAddress();
+  for (let i = 0; i < 5000 && g.round.beat !== 'cart'; i++) {
+    if (g.dialogue.active && g.dialogue.options.length) g.dialogue.choose(0);
+    g.step(0.05);
+  }
+  const start = { x: g.carts.lead.position.x, z: g.carts.lead.position.z };
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }));
+  for (let i = 0; i < 80 && g.round.beat === 'cart'; i++) {
+    if (g.dialogue.active && g.dialogue.options.length) g.dialogue.choose(0);
+    g.step(0.05);
+  }
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' }));
+  return {
+    beat: g.round.beat,
+    drove: g.carts.playerDriving,
+    moved: Math.hypot(g.carts.lead.position.x - start.x, g.carts.lead.position.z - start.z),
+  };
+});
+check('20a. live throttle input moves the player cart before the mission can advance',
+  cartEvidence.beat === 'cart' && cartEvidence.drove && cartEvidence.moved > 4,
+  JSON.stringify(cartEvidence));
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.waitForTimeout(120);
+await page.screenshot({
+  path: path.join(ROOT, 'docs', 'validation', 'golf', '11-cart-drive.png'),
+});
+const cartGuide = await page.evaluate(() => ({
+  exit: window.__golf.round.cartExitState(),
+  text: document.getElementById('golf-guide')?.textContent?.trim() || '',
+}));
+check('20a2. the driving HUD keeps pointing to a distant ball instead of telling the player to park',
+  cartGuide.exit.distance > 12 && /drive/i.test(cartGuide.text) && !/park beside/i.test(cartGuide.text),
+  JSON.stringify(cartGuide));
+await page.setViewportSize({ width: 480, height: 300 });
+const played = await page.evaluate(async () => {
+  const g = window.__golf;
+  const { layoutFor } = await import('/src/golf/hole.js');
   const seen = new Set();
   const beats = [];
   const holesPlayed = [g.HOLE.number];
@@ -766,6 +908,8 @@ const played = await page.evaluate(() => {
     const clubhouse = g.course.holeGroup.getObjectByName('clubhouse');
     return {
       hole: g.HOLE.number,
+      cardHole: document.querySelector('#golfcard .hole')?.textContent?.trim() || '',
+      plan: g.plan(),
       names,
       hasLot: !!g.LAYOUT.lot,
       clubhouse: clubhouse
@@ -777,11 +921,81 @@ const played = await page.evaluate(() => {
   const visuals = [visualState()];
   let louPrivate = false;
   let cartMoved = false;
-  const startCart = g.carts.lead.distance;
+  let playerDrove = false;
+  let earlyExitBlocked = false;
+  let parkedCount = 0;
+  let louRodePassenger = false;
+  let followStayedClose = false;
+  let cartStart = null;
+  let cartHole = null;
+  let npcActionsProper = true;
+  let soloRetrievalSeen = false;
+  const npcActionSamples = [];
+  const effectCounts = { 'golf.tee': 0, 'golf.pickup': 0, 'golf.flag': 0 };
+  const countedPlaybacks = new WeakSet();
+  const sampleEffects = () => {
+    for (const playback of g.audio.playbacks) {
+      if (countedPlaybacks.has(playback)) continue;
+      countedPlaybacks.add(playback);
+      if (Object.hasOwn(effectCounts, playback.name)) effectCounts[playback.name]++;
+    }
+  };
+  sampleEffects();
 
-  for (let i = 0; i < 20000; i++) {
+  /* Player-driven retrieval and physical NPC walks take materially longer
+   * than the old rail-cart round. Keep enough simulated time for Hole 3's
+   * split lies while the terminal snapshot below still diagnoses a true
+   * non-progressing job. */
+  for (let i = 0; i < 50000; i++) {
     if (!seen.has(g.round.beat)) { seen.add(g.round.beat); beats.push(g.round.beat); }
-    if (g.round.beat === 'cart' && g.carts.lead.distance > startCart + 5) cartMoved = true;
+    if (g.round.beat === 'cart') {
+      soloRetrievalSeen ||= g.round._cartFromTee === false;
+      if (cartHole !== g.HOLE.number) {
+        cartHole = g.HOLE.number;
+        cartStart = { x: g.carts.lead.position.x, z: g.carts.lead.position.z };
+      }
+      playerDrove ||= g.carts.playerDriving;
+      cartMoved ||= Math.hypot(
+        g.carts.lead.position.x - cartStart.x,
+        g.carts.lead.position.z - cartStart.z,
+      ) > 5;
+      followStayedClose ||= g.carts.follow.position.distanceTo(g.carts.lead.position) < 24;
+
+      const lou = g.golfers.lou.position;
+      const passenger = g.carts.lead.seatWorld('passenger');
+      const driver = g.carts.lead.seatWorld('driver');
+      louRodePassenger ||= Math.hypot(lou.x - passenger.x, lou.z - passenger.z) < 0.25
+        && Math.hypot(lou.x - driver.x, lou.z - driver.z) > 0.4;
+
+      if (!earlyExitBlocked && typeof g.round.leaveCart === 'function') {
+        const early = g.round.leaveCart();
+        earlyExitBlocked = !early.ok && g.round.beat === 'cart';
+      }
+
+      const ball = g.round.playerBall.position;
+      const cart = g.carts.lead;
+      const dx = ball.x - cart.position.x;
+      const dz = ball.z - cart.position.z;
+      const distance = Math.hypot(dx, dz);
+      const wanted = Math.atan2(dx, dz);
+      let delta = (wanted - cart.group.rotation.y) % (Math.PI * 2);
+      if (delta > Math.PI) delta -= Math.PI * 2;
+      if (delta < -Math.PI) delta += Math.PI * 2;
+      if (distance > 9) {
+        g.player.setKey('KeyW', true);
+        g.player.setKey('KeyA', delta > 0.08);
+        g.player.setKey('KeyD', delta < -0.08);
+        g.player.setKey('Space', false);
+      } else {
+        g.player.setKey('KeyW', false);
+        g.player.setKey('KeyA', false);
+        g.player.setKey('KeyD', false);
+        g.player.setKey('Space', true);
+        if (Math.abs(cart.velocity) <= 0.55 && !g.dialogue.active && !g.cues.busy) {
+          if (g.round.leaveCart().ok) parkedCount++;
+        }
+      }
+    }
     if (g.cues.heard('golf.h1.lou.you_did_good')) louPrivate = true;
     if (g.dialogue.active && g.dialogue.options.length) g.dialogue.choose(0);
 
@@ -802,7 +1016,9 @@ const played = await page.evaluate(() => {
       g.hit(solved.power, 0);
     }
     if (g.round.needsRelief()) g.round.takeDrop();
-    if (g.round.beat === 'walk_off') g.teleport(g.LAYOUT.cartPark.x, g.LAYOUT.cartPark.z);
+    if (g.round.beat === 'walk_off') {
+      g.teleport(g.carts.lead.position.x, g.carts.lead.position.z);
+    }
     /* Walk onto the next tee. The scene does this behind a fade; the harness
      * runs faster than the fade, so it takes the same transition directly. */
     if (g.round.beat === 'next_tee') {
@@ -812,17 +1028,40 @@ const played = await page.evaluate(() => {
         visuals.push(visualState());
       }
     }
+    const beforeNpc = ['eric', 'lou', 'rippinflow'].map((id) => ({
+      id,
+      strokes: g.round.card.hole(id, g.HOLE.number).strokes,
+      ball: { x: g.round.ballFor(id).position.x, z: g.round.ballFor(id).position.z },
+      launched: g.round._npcApproachJobs.get(id)?.launched === true,
+    }));
     g.step(0.05);
+    for (const before of beforeNpc) {
+      const after = g.round.card.hole(before.id, g.HOLE.number).strokes;
+      const launched = g.round._npcApproachJobs.get(before.id)?.launched === true;
+      if (after <= before.strokes || before.strokes < 1 || before.launched || !launched) continue;
+      const golfer = g.golfers[before.id].position;
+      const distance = Math.hypot(golfer.x - before.ball.x, golfer.z - before.ball.z);
+      npcActionSamples.push({ hole: g.HOLE.number, id: before.id, distance });
+      npcActionsProper &&= distance < 1.6;
+    }
+    sampleEffects();
     if (g.round.beat === 'done') break;
   }
   const h = g.round.card.hole('prospect', 1);
   const line = g.round.card.line('prospect');
-  const effectCounts = {};
-  for (const cue of ['golf.tee', 'golf.pickup', 'golf.flag']) {
-    effectCounts[cue] = g.audio.playbacks.filter(({ name }) => name === cue).length;
+  const npcTotals = {};
+  const expectedNpcTotals = {};
+  for (const id of ['eric', 'lou', 'rippinflow']) {
+    npcTotals[id] = g.round.card.line(id).strokes;
+    expectedNpcTotals[id] = g.round.holes.reduce((sum, hole) => (
+      sum + (layoutFor(hole)?.npcPlan?.[id]?.finish ?? 0)
+    ), 0);
   }
   return {
-    beats, louPrivate, cartMoved, holesPlayed,
+    beats, louPrivate, cartMoved, playerDrove, earlyExitBlocked, parkedCount,
+    louRodePassenger, followStayedClose, soloRetrievalSeen,
+    npcActionsProper, npcActionSamples, holesPlayed,
+    npcTotals, expectedNpcTotals,
     finished: h.finished, strokes: h.strokes,
     beat: g.round.beat,
     allFinished: g.round.card.allFinished(1),
@@ -831,17 +1070,69 @@ const played = await page.evaluate(() => {
     roundToPar: line.label,
     built: g.round.holes, visuals, effectCounts,
     replayVisible: document.getElementById('endcard-again')?.hidden === false,
+    stuck: {
+      hole: g.HOLE.number,
+      beat: g.round.beat,
+      ball: {
+        state: g.round.playerBall.state,
+        moving: g.round.playerBall.moving,
+        x: g.round.playerBall.position.x,
+        y: g.round.playerBall.position.y,
+        z: g.round.playerBall.position.z,
+      },
+      resultPlayed: g.round._resultPlayed,
+      wait: g.round._wait,
+      pending: g.round._pending.length,
+      cue: g.cues.current?.id ?? null,
+      queued: g.cues.queue.map((cue) => cue.id),
+      dialogue: g.dialogue.active,
+      npc: ['eric', 'lou', 'rippinflow'].map((id) => ({
+        id,
+        card: g.round.card.hole(id, g.HOLE.number),
+        ball: {
+          state: g.round.ballFor(id).state,
+          moving: g.round.ballFor(id).moving,
+          x: g.round.ballFor(id).position.x,
+          z: g.round.ballFor(id).position.z,
+        },
+        golfer: {
+          state: g.golfers[id].state,
+          walking: g.golfers[id].walking,
+          x: g.golfers[id].position.x,
+          z: g.golfers[id].position.z,
+        },
+        job: g.round._npcApproachJobs.get(id) ?? null,
+        pendingHoleOut: g.round._pendingHoleOut?.has(id) ?? false,
+      })),
+    },
   };
 });
-check('20. the cart ride begins and the carts actually move',
-  played.beats.includes('cart') && played.cartMoved);
+check('20. the player drives and parks the lead cart beside the ball',
+  played.beats.includes('cart') && played.playerDrove && played.cartMoved
+    && played.earlyExitBlocked && played.parkedCount >= played.built.length,
+  JSON.stringify({ drove: played.playerDrove, moved: played.cartMoved,
+    earlyExitBlocked: played.earlyExitBlocked, parked: played.parkedCount }));
+check('20b. Lou rides beside the player and Erican keeps the second cart with them',
+  played.louRodePassenger && played.followStayedClose,
+  JSON.stringify({ louPassenger: played.louRodePassenger, followClose: played.followStayedClose }));
+check('20c. long approach shots send the player back to the live cart for retrieval',
+  played.soloRetrievalSeen && played.parkedCount > played.built.length,
+  JSON.stringify({ soloRetrieval: played.soloRetrievalSeen, parked: played.parkedCount }));
 check("21. Lou's private conversation triggers on the ride", played.louPrivate);
+check('21b. every NPC walks to his live ball before each approach swing',
+  played.npcActionsProper && played.npcActionSamples.length >= 9,
+  played.npcActionSamples.map((s) => `H${s.hole} ${s.id} ${s.distance.toFixed(1)}m`).join(' · '));
+check('21c. the simulated NPC cards finish on their authored story scores',
+  Object.keys(played.expectedNpcTotals)
+    .every((id) => played.npcTotals[id] === played.expectedNpcTotals[id]),
+  JSON.stringify({ actual: played.npcTotals, expected: played.expectedNpcTotals }));
 check('24. the group reaches the green and everybody finishes',
   played.allFinished, played.lines.join(' '));
 check('25. the player can complete the hole',
   played.finished && played.strokes > 0, `${played.strokes} strokes`);
 check('28. the end card appears when the round is over',
-  played.beat === 'done', `beats: ${played.beats.join(' → ')}`);
+  played.beat === 'done',
+  played.beat === 'done' ? `beats: ${played.beats.join(' → ')}` : JSON.stringify(played.stuck));
 check('28b. the round plays every hole the course has built',
   played.holesPlayed.join(',') === played.built.join(','),
   `played ${played.holesPlayed.join(', ')} of ${played.built.join(', ')} — ${played.roundStrokes} strokes, ${played.roundToPar}`);
@@ -868,6 +1159,20 @@ check('28e. tee, pickup, and flag cues all fire during the real round',
     && played.effectCounts['golf.flag'] >= 1,
   JSON.stringify(played.effectCounts));
 check('28f. disposable preview rounds honestly offer replay', played.replayVisible);
+check('28g. the persistent score HUD follows the active hole',
+  played.visuals.every((visual) => visual.cardHole.startsWith(`HOLE ${visual.hole} ·`)),
+  played.visuals.map((visual) => `H${visual.hole}: ${visual.cardHole}`).join(' | '));
+check('28h. each tee opens with an authored safe target and the right club',
+  playerClubView.plan.club === 'iron'
+    && playerClubView.plan.label === 'MIDDLE GREEN'
+    && visualByHole.get(2)?.plan.club === 'driver'
+    && visualByHole.get(2)?.plan.label === 'SAFE SIDE'
+    && visualByHole.get(3)?.plan.club === 'driver'
+    && visualByHole.get(3)?.plan.label === 'LEFT FAIRWAY',
+  [`H1: ${playerClubView.plan.club} at ${playerClubView.plan.label}`]
+    .concat(played.visuals.filter((visual) => visual.hole > 1)
+      .map((visual) => `H${visual.hole}: ${visual.plan.club} at ${visual.plan.label}`))
+    .join(' | '));
 
 /* ------------------------------------------------------------------ */
 /* 26 · every score branch                                             */
@@ -968,6 +1273,55 @@ const restarted = await page.evaluate(() => ({
 check('29. the scene restarts cleanly',
   restarted.beat === 'lot' && restarted.strokes === 0,
   `beat: ${restarted.beat}`);
+
+await page.goto(GOLF_CANONICAL_URL, { waitUntil: 'load' });
+await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+await page.evaluate(() => window.__golf.campaign.update((state) => {
+  state.scene = { id: 'silver_pines', spawn: 'car_park' };
+  state.story.chapter = 'golf_morning';
+  if (!state.story.timeEvents.includes('travel.silver_pines')) {
+    state.story.timeEvents.push('travel.silver_pines');
+  }
+  state.missions.silver_room.status = 'complete';
+  state.events.lou_golf_call.status = 'answered';
+  state.missions.silver_pines = {
+    ...state.missions.silver_pines,
+    status: 'in_progress',
+    holesPlayed: 2,
+    strokes: 9,
+    penalties: 1,
+    toPar: 1,
+    holes: [
+      { hole: 1, par: 3, strokes: 4, penalties: 1 },
+      { hole: 2, par: 5, strokes: 5, penalties: 0 },
+    ],
+    heardInvitation: true,
+    rodeWithLou: true,
+  };
+}));
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+await page.click('#start-btn');
+await page.waitForFunction(
+  'window.__golf.HOLE.number === 3 && window.__golf.round.beat === "tee_talk"',
+  null,
+  { timeout: 60000 },
+);
+const resumed = await page.evaluate(() => ({
+  hole: window.__golf.HOLE.number,
+  priorStrokes: window.__golf.round.card.line('prospect').strokes,
+  priorHoles: window.__golf.round.card.line('prospect').holes
+    .filter((hole) => hole.finished).map((hole) => hole.hole),
+  npcPrior: window.__golf.round.card.finished('eric', 1)
+    && window.__golf.round.card.finished('eric', 2),
+  hasBag: window.__golf.round.hasBag,
+  card: document.querySelector('#golfcard .hole')?.textContent?.trim() || '',
+}));
+check('29b. reloading an in-progress round resumes at the first unfinished tee',
+  resumed.hole === 3 && resumed.priorStrokes === 9
+    && resumed.priorHoles.join(',') === '1,2' && resumed.npcPrior && resumed.hasBag
+    && resumed.card.startsWith('HOLE 3 ·'),
+  JSON.stringify(resumed));
 
 /* ------------------------------------------------------------------ */
 /* Script integrity                                                    */

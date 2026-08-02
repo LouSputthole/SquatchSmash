@@ -17,7 +17,7 @@ import {
 } from './course.js';
 
 /** What Lou will admit to on a hole that got away from somebody. */
-const MERCY_CAP = 8;
+export const MERCY_CAP = 8;
 
 function blankHole(holeNumber) {
   const hole = getHole(holeNumber);
@@ -52,6 +52,21 @@ export class Scorecard {
     if (!p) return null;
     if (!p.holes.has(holeNumber)) p.holes.set(holeNumber, blankHole(holeNumber));
     return p.holes.get(holeNumber);
+  }
+
+  /** Restore one already-finished hole from the campaign's compact card. */
+  restoreHole(playerId, entry = {}) {
+    const p = this.players.get(playerId);
+    const holeNumber = Number.isFinite(entry.hole) ? Math.round(entry.hole) : null;
+    if (!p || !holeNumber || !getHole(holeNumber)) return null;
+    const h = blankHole(holeNumber);
+    h.par = Number.isFinite(entry.par) ? Math.max(1, Math.round(entry.par)) : h.par;
+    h.strokes = Number.isFinite(entry.strokes) ? Math.max(1, Math.round(entry.strokes)) : 1;
+    h.penalties = Number.isFinite(entry.penalties) ? Math.max(0, Math.round(entry.penalties)) : 0;
+    h.finished = true;
+    h.closestApproach = 0;
+    p.holes.set(holeNumber, h);
+    return h;
   }
 
   /** A stroke played. Every shot, including the one that goes in the water. */
