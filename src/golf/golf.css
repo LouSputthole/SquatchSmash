@@ -188,15 +188,46 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
   clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
   background: linear-gradient(
     to top,
-    rgba(154, 111, 240, 0.00) 0%,
-    rgba(154, 111, 240, 0.14) 55%,
-    rgba(154, 111, 240, 0.22) 100%);
+    rgba(255, 216, 74, 0.00) 0%,
+    rgba(255, 216, 74, 0.12) 55%,
+    rgba(255, 216, 74, 0.24) 100%);
   transform: translateY(-64px);
 }
 #aim .label {
   font-size: 11px; letter-spacing: 2px; opacity: 0.7;
   color: var(--pines-cream); text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
-  transform: translateY(-58px);
+  transform: translateY(-88px);
+}
+#aim .distance {
+  /* The projected landing ring owns the distance read. Keep this node as the
+   * accessibility/test source without drawing the same number twice. */
+  display: none;
+}
+
+#landing-reticle {
+  position: fixed; left: 50%; top: 50%; z-index: 6;
+  transform: translate(-50%, -50%);
+  pointer-events: none; text-align: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.72));
+}
+#landing-reticle.hidden { display: none; }
+#landing-reticle .ring {
+  position: relative; width: 72px; height: 26px;
+  border: 3px solid #ffe36b; border-radius: 50%;
+  background: rgba(255, 216, 74, 0.10);
+  box-shadow: 0 0 13px rgba(255, 216, 74, 0.72), inset 0 0 8px rgba(255, 216, 74, 0.30);
+}
+#landing-reticle .ring i,
+#landing-reticle .ring b {
+  position: absolute; left: 50%; top: 50%; display: block;
+  background: rgba(255, 227, 107, 0.88); transform: translate(-50%, -50%);
+}
+#landing-reticle .ring i { width: 32%; height: 2px; }
+#landing-reticle .ring b { width: 2px; height: 44%; }
+#landing-reticle span {
+  display: inline-block; margin-top: 5px; padding: 2px 6px;
+  color: #ffe36b; background: rgba(18, 29, 15, 0.72);
+  border-radius: 2px; font-size: 9px; font-weight: 900; letter-spacing: 1.6px;
 }
 
 /* The compact post-shot read stays long enough to survive the flight-camera

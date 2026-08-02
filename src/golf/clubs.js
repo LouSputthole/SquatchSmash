@@ -155,6 +155,33 @@ export function estimateCarry(club, power, lie) {
 }
 
 /**
+ * Readable pre-shot landing area for the world-space yellow circle.
+ *
+ * This deliberately uses the same approximate distance already shown in the
+ * HUD, then turns club and lie dispersion into an uncertainty radius. It is a
+ * planning aid in the Hot Shots tradition, not a promise from the integrator.
+ */
+export function landingPreviewFor({
+  from, aim = 0, club = 'iron', power = 0, lie,
+} = {}) {
+  const origin = from ?? { x: 0, z: 0 };
+  const resolvedLie = lie ?? { power: 1, launch: 0, roll: 1, spread: 0 };
+  const c = getClub(club);
+  const distance = estimateCarry(c.id, power, resolvedLie);
+  const spreadDeg = c.dispersion * (c.grounded ? 0.28 : 0.68)
+    + Math.max(0, resolvedLie.spread ?? 0);
+  const rawRadius = Math.tan(spreadDeg * Math.PI / 180) * distance;
+  const radius = Math.max(c.grounded ? 0.45 : 2.2, Math.min(20, rawRadius));
+  return {
+    x: origin.x + Math.sin(aim) * distance,
+    z: origin.z + Math.cos(aim) * distance,
+    distance,
+    radius,
+    spreadDeg,
+  };
+}
+
+/**
  * Recommended meter position for a requested carry/roll distance.
  *
  * This intentionally solves against the same approximate range the HUD shows,

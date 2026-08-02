@@ -40,15 +40,15 @@ export const DEAD_ZONE = 0.09;
 export const SWING_CONTROL = Object.freeze({
   driver: Object.freeze({
     safePower: 0.86, deadZone: 0.075, missScale: 0.27,
-    strikeSpeed: 1.68, fadeBias: 0.22,
+    strikeSpeed: 1.48, fadeBias: 0.22,
   }),
   iron: Object.freeze({
     safePower: 0.91, deadZone: DEAD_ZONE, missScale: 0.34,
-    strikeSpeed: 1.52, fadeBias: 0.14,
+    strikeSpeed: 1.34, fadeBias: 0.14,
   }),
   putter: Object.freeze({
     safePower: 0.97, deadZone: 0.115, missScale: 0.44,
-    strikeSpeed: 1.18, fadeBias: 0.025,
+    strikeSpeed: 1.04, fadeBias: 0.025,
   }),
 });
 

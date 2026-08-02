@@ -15,11 +15,15 @@
 
 import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
+import { AuthoredClock } from '../core/authored-clock.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
-import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
+import {
+  SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
+} from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
+import { Radio } from '../core/radio.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 
@@ -29,7 +33,9 @@ import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
 import { Swing, SWING_PHASE, controlWindow } from './swing.js';
-import { CLUB_IDS, getClub, estimateCarry, powerForCarry } from './clubs.js';
+import {
+  CLUB_IDS, getClub, estimateCarry, landingPreviewFor, powerForCarry,
+} from './clubs.js';
 import { BALL_STATE, solveShot } from './ball.js';
 import {
   SURFACE, surfaceProps, toYards, toFeet, getHole, HOLES, relativeLabel, scoreName,
@@ -90,6 +96,10 @@ const ui = {
   meterRiskCopy: document.querySelector('#meter .risk-copy'),
   meterHint: document.querySelector('#meter .hint'),
   aim: document.getElementById('aim'),
+  aimDistance: document.querySelector('#aim .distance'),
+  landingReticle: document.getElementById('landing-reticle'),
+  landingReticleRing: document.querySelector('#landing-reticle .ring'),
+  landingReticleLabel: document.querySelector('#landing-reticle span'),
   shotResult: document.getElementById('shot-result'),
   shotQuality: document.querySelector('#shot-result .quality'),
   shotOutcome: document.querySelector('#shot-result .outcome'),
@@ -172,23 +182,77 @@ ballMeshes.set(CHARACTER_IDS.PROSPECT, playerBallMesh);
 const playerBallMarker = makeBallMarker(scene);
 playerBallMarker.visible = false;
 
+/* Hot Shots-style pre-shot read: a bright world-space landing area whose
+ * distance follows club, lie and the live power bar. The ring is an estimate,
+ * not an aim-bot point, so the uncertainty grows with dispersion. */
+const landingPreview = new THREE.Group();
+landingPreview.name = 'golf-landing-preview';
+const landingDisk = new THREE.Mesh(
+  new THREE.CircleGeometry(1, 48),
+  new THREE.MeshBasicMaterial({
+    color: 0xffd84a, transparent: true, opacity: 0.11,
+    depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+  }),
+);
+landingDisk.rotation.x = -Math.PI / 2;
+landingDisk.name = 'golf-landing-preview-fill';
+landingDisk.renderOrder = 900;
+landingPreview.add(landingDisk);
+const landingRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.82, 1, 64),
+  new THREE.MeshBasicMaterial({
+    color: 0xffdf57, transparent: true, opacity: 0.92,
+    depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+  }),
+);
+landingRing.rotation.x = -Math.PI / 2;
+landingRing.name = 'golf-landing-preview-ring';
+landingRing.renderOrder = 901;
+landingPreview.add(landingRing);
+for (const rotation of [0, Math.PI / 2]) {
+  const line = new THREE.Mesh(
+    new THREE.BoxGeometry(1.25, 0.025, 0.035),
+    new THREE.MeshBasicMaterial({
+      color: 0xffe36b, transparent: true, opacity: 0.85,
+      depthTest: false, depthWrite: false,
+    }),
+  );
+  line.rotation.y = rotation;
+  line.position.y = 0.018;
+  line.renderOrder = 902;
+  landingPreview.add(line);
+}
+landingPreview.visible = false;
+landingPreview.renderOrder = 4;
+scene.add(landingPreview);
+
 /* Camera-mounted first-person clubs. The golfers use the same silhouettes,
  * so the club selected in the HUD is the club the player sees in his hands. */
 const playerClubRig = new THREE.Group();
 playerClubRig.name = 'player-club-rig';
-playerClubRig.position.set(0.48, 0.30, -0.92);
-playerClubRig.scale.setScalar(0.52);
+playerClubRig.position.set(0.63, 0.42, -1.18);
+playerClubRig.scale.setScalar(0.48);
 playerClubRig.visible = false;
 for (const kind of CLUB_IDS) {
   const model = makeClub(kind);
   model.userData.kind = kind;
   model.visible = kind === 'iron';
-  model.rotation.y = 0.18;
+  /* Show the actual striking face from first person, not the cavity/back. */
+  model.rotation.y = Math.PI - 0.22;
   model.traverse((object) => {
     if (!object.isMesh) return;
     object.renderOrder = 1000;
-    object.material = object.material.clone();
-    object.material.depthTest = false;
+    /* The camera rig is an overlay, so scene lighting can otherwise turn a
+     * silver iron into a black rectangle against the turf. Preserve the
+     * authored colours while making the silhouette and face details read. */
+    object.material = new THREE.MeshBasicMaterial({
+      color: object.material.color?.clone?.() ?? new THREE.Color(0xffffff),
+      transparent: object.material.transparent,
+      opacity: object.material.opacity,
+      side: object.material.side,
+      fog: false,
+    });
+    object.material.depthTest = true;
     object.material.depthWrite = false;
   });
   playerClubRig.add(model);
@@ -206,7 +270,7 @@ for (const hand of [
   mesh.scale.set(0.82, 1.0, 0.78);
   mesh.rotation.z = hand.rz;
   mesh.renderOrder = 1001;
-  mesh.material.depthTest = false;
+  mesh.material.depthTest = true;
   mesh.material.depthWrite = false;
   playerClubRig.add(mesh);
 }
@@ -218,6 +282,19 @@ camera.add(playerClubRig);
 
 const hud = new Hud();
 const audio = new AudioEngine();
+const radioClock = new AuthoredClock(8);
+radioClock.setTime(4, 8 * 60);
+const cartRadio = new Radio(audio, hud, radioClock, {
+  venue: 'apartment',
+  state: createCampaignRadioAdapter(campaign, {
+    receiverId: 'silver_pines_lead_cart',
+    defaultPower: true,
+  }),
+  /* This quiet morning does not replay campaign meeting interruptions. */
+  canPlayNotice: () => false,
+});
+const cartRadioPosition = new THREE.Vector3();
+const cartRadioReady = cartRadio.loadManifest();
 const player = new Player(camera, course);
 player.position.set(HOLE.lot.playerStart.x, 1.66, HOLE.lot.playerStart.z);
 /* Face the actual opening action. The old PI heading looked directly away
@@ -248,10 +325,12 @@ const cues = new CueQueue({
       maxDist: 34,
     });
     courseAudio?.duck(true);
+    cartRadio.setPhoneDucked(true);
   },
   clear: (reason) => {
     if (reason === 'interrupted' || reason === 'reset') activeVoice?.stop?.();
     courseAudio?.duck(false);
+    cartRadio.setPhoneDucked(false);
   },
   /* Recorded performance owns subtitle timing; reading speed is the fallback. */
   clipLength: (id) => {
@@ -356,7 +435,7 @@ function paintPlayerClub() {
     const span = Math.max(0.05, swing.power + 0.30);
     pose = ((swing.marker + 0.30) / span) * 0.62 - 0.22;
   }
-  playerClubRig.rotation.set(-0.04, -0.12, -0.10 + pose);
+  playerClubRig.rotation.set(-0.04, -0.12, -0.34 + pose);
 }
 
 function recommendedClubForShot() {
@@ -513,6 +592,8 @@ function leaveAddress() {
   ui.shot.classList.add('hidden');
   ui.meter.classList.add('hidden');
   ui.aim.classList.add('hidden');
+  landingPreview.visible = false;
+  ui.landingReticle?.classList.add('hidden');
   playerClubRig.visible = false;
   /* The flight camera follows the live ball; gameplay returns to the stance
    * where the shot began, never teleports to the landing. */
@@ -559,10 +640,9 @@ function applyCartCamera() {
   camera.position.copy(_v);
   player.position.copy(_v);
   /* He keeps the look. The cart decides where he is, never where he is
-   * looking — that is the whole reason this is not a cutscene. */
-  /* Three's camera looks down local -Z while the cart model travels along its
-   * local +Z. The half-turn keeps the windshield in front and the follow cart
-   * behind instead of presenting a backwards-driving view. */
+   * looking — that is the whole reason this is not a cutscene. Three's camera
+   * looks down local -Z while the cart drives down local +Z, hence the half
+   * turn. Without it the player was literally driving while looking backward. */
   const e = new THREE.Euler(
     player.pitch,
     carts.lead.group.rotation.y + Math.PI + player.yawOffset,
@@ -705,15 +785,15 @@ function guideState() {
         if (!exit.ok && /Lou/i.test(exit.reason)) {
           return {
             task: 'Drive to your ball with Lou',
-            detail: 'W/S drive / A/D steer / Space brakes / keep listening',
-            pause: 'Drive toward YOUR BALL on the top map while Lou finishes talking.',
+            detail: 'W/S drive · A/D steer · Space brakes · R radio · keep listening',
+            pause: 'Drive toward YOUR BALL on the top map while Lou finishes talking. R powers the cart radio; T tunes; N skips.',
           };
         }
         if (!exit.ok && /Stop/i.test(exit.reason)) {
           return {
             task: 'Park beside your ball',
-            detail: 'Release W or hold Space to stop / then press E',
-            pause: 'Stop the cart beside your ball, then press E to get out.',
+            detail: 'Release W or hold Space to stop · R radio · then press E',
+            pause: 'Stop the cart beside your ball, then press E to get out. R powers the radio; T tunes; N skips.',
           };
         }
         if (exit.ok) {
@@ -726,8 +806,8 @@ function guideState() {
       }
       return {
         task: 'Drive to your ball',
-        detail: 'Follow YOUR BALL on the top map / W/S drive / A/D steer / Space brakes',
-        pause: 'Drive toward YOUR BALL on the top map. W/S drive, A/D steer, Space brakes.',
+        detail: 'Follow YOUR BALL · W/S drive · A/D steer · Space brakes · R radio',
+        pause: 'Drive toward YOUR BALL on the top map. W/S drive, A/D steer, Space brakes. R powers the radio; T tunes; N skips.',
       };
     case BEAT.APPROACH:
       if (!round.playerBall.moving && round.playerBall.distanceToPin() <= 0.8) {
@@ -1025,6 +1105,62 @@ function paintAim() {
     : `${Math.abs(off).toFixed(0)}° ${off > 0 ? 'RIGHT' : 'LEFT'}`;
 }
 
+function paintLandingPreview() {
+  if (camMode !== CAM.ADDRESS) {
+    landingPreview.visible = false;
+    ui.landingReticle?.classList.add('hidden');
+    return;
+  }
+  const lie = surfaceProps(round.playerSurface());
+  const plan = shotPlan();
+  const targetPower = powerForCarry(club, plan.distance, lie);
+  const power = swing.phase === SWING_PHASE.IDLE
+    ? targetPower
+    : swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power;
+  const preview = landingPreviewFor({
+    from: round.playerBall.position, aim: aimYaw, club, power, lie,
+  });
+  landingPreview.position.set(
+    preview.x, heightAt(preview.x, preview.z) + 0.075, preview.z,
+  );
+  landingPreview.scale.set(preview.radius, 1, preview.radius);
+  landingPreview.userData.distance = preview.distance;
+  landingPreview.userData.radius = preview.radius;
+  landingPreview.userData.club = club;
+  landingPreview.visible = preview.distance > 0.2;
+  if (ui.aimDistance) {
+    ui.aimDistance.textContent = getClub(club).grounded
+      ? `${Math.round(toFeet(preview.distance))} FT LANDING AREA`
+      : `${Math.round(toYards(preview.distance))} YD LANDING AREA`;
+  }
+  if (ui.landingReticle && ui.landingReticleRing && ui.landingReticleLabel) {
+    camera.updateMatrixWorld(true);
+    const centre = _v.set(
+      preview.x, heightAt(preview.x, preview.z) + 0.16, preview.z,
+    ).project(camera);
+    const edge = _look.set(
+      preview.x + preview.radius, heightAt(preview.x, preview.z) + 0.16, preview.z,
+    ).project(camera);
+    const onScreen = centre.z > -1 && centre.z < 1
+      && centre.x > -1.15 && centre.x < 1.15
+      && centre.y > -1.15 && centre.y < 1.15;
+    if (onScreen) {
+      const radiusPx = Math.max(27, Math.min(88,
+        Math.abs(edge.x - centre.x) * window.innerWidth * 0.5));
+      ui.landingReticle.style.left = `${(centre.x * 0.5 + 0.5) * window.innerWidth}px`;
+      ui.landingReticle.style.top = `${(-centre.y * 0.5 + 0.5) * window.innerHeight}px`;
+      ui.landingReticleRing.style.width = `${radiusPx * 2}px`;
+      ui.landingReticleRing.style.height = `${Math.max(20, radiusPx * 0.62)}px`;
+      ui.landingReticleLabel.textContent = getClub(club).grounded
+        ? `${Math.round(toFeet(preview.distance))} FT`
+        : `${Math.round(toYards(preview.distance))} YDS`;
+      ui.landingReticle.classList.remove('hidden');
+    } else {
+      ui.landingReticle.classList.add('hidden');
+    }
+  }
+}
+
 /* The meter runs from the late end of the strike sweep to full power, not from
  * zero to full power.
  *
@@ -1099,6 +1235,8 @@ function fireSwing() {
   flightTimer = 0;
   ui.shot.classList.add('hidden');
   ui.aim.classList.add('hidden');
+  landingPreview.visible = false;
+  ui.landingReticle?.classList.add('hidden');
   const warning = result.risk > 0.05 ? ' · OVERSWING' : '';
   const kind = result.shape === 'straight' ? 'good'
     : result.shape === 'slice' || result.shape === 'hook' ? 'bad' : '';
@@ -1215,9 +1353,30 @@ window.addEventListener('keydown', (e) => {
       if (camMode === CAM.ADDRESS) leaveAddress();
       break;
     case 'KeyR':
-      if (round.needsRelief()) round.takeDrop(
-        round.playerBall.state === BALL_STATE.OUT_OF_BOUNDS ? 'oob' : 'water',
-      );
+      if (camMode === CAM.CART) {
+        cartRadio.toggle();
+        carts.lead.setRadioOn(cartRadio.on);
+        hud.toast(cartRadio.on
+          ? `${cartRadio.station.dial} Â· ${cartRadio.station.name}`
+          : 'Cart radio off');
+      } else if (round.needsRelief()) {
+        round.takeDrop(
+          round.playerBall.state === BALL_STATE.OUT_OF_BOUNDS ? 'oob' : 'water',
+        );
+      }
+      break;
+    case 'KeyT':
+      if (camMode === CAM.CART) {
+        cartRadio.tune();
+        carts.lead.setRadioOn(cartRadio.on);
+        hud.toast(`${cartRadio.station.dial} Â· ${cartRadio.station.name}`);
+      }
+      break;
+    case 'KeyN':
+      if (camMode === CAM.CART && cartRadio.on) {
+        cartRadio.next();
+        hud.toast('Next radio block', 'hint', 1500);
+      }
       break;
     case 'KeyG': {
       const result = round.takeGimme();
@@ -1240,6 +1399,10 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
   if (e.code === 'KeyE') interaction.release();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) cartRadio.pause();
+  else cartRadio.resume();
 });
 
 function nearBall() {
@@ -1415,7 +1578,8 @@ const pauseMenu = createPauseMenu({
   canPause: () => running && !ended,
   getObjective: currentObjective,
   instructions: [
-    'In the cart: W/S - drive. A/D - steer. Space - brake. E - get out by your ball.',
+    'In the cart: W/S — drive. A/D — steer. Space — brake. E — get out by your ball.',
+    'Cart radio: R — power. T — tune station. N — next song or block.',
     'W A S D — walk. E or Click — interact.',
     'At your ball: E — address it. Q — back off.',
     '1 — driver. 2 — iron. 3 — putter.',
@@ -1465,6 +1629,7 @@ function frame() {
     applyAddressCamera();
     paintShot();
     paintAim();
+    paintLandingPreview();
     paintMeter();
     paintPlayerClub();
   } else if (camMode === CAM.FLIGHT) {
@@ -1494,6 +1659,8 @@ function frame() {
       player.enabled = false;
       player.mode = 'frozen';
       player.yawOffset = 0;
+      if (cartRadio.preferredOn && !cartRadio.on) cartRadio.turnOn({ remember: false });
+      carts.lead.setRadioOn(cartRadio.on);
     }
   }
 
@@ -1501,6 +1668,11 @@ function frame() {
   course.update(dt, player.position);
   applyCartControls();
   carts.update(dt);
+  carts.lead.radioWorld(cartRadioPosition);
+  cartRadio.setPosition(cartRadioPosition);
+  carts.lead.setRadioOn(cartRadio.on);
+  radioClock.update(dt);
+  cartRadio.update(dt);
   for (const g of Object.values(golfers)) g.update(dt, player.position);
 
   for (const [id, mesh] of ballMeshes) {
@@ -1595,10 +1767,18 @@ async function boot() {
   }
 
   await audio.init?.().catch?.(() => {});
-  await audio.loadManifest?.(GOLF_START_AUDIO_SCOPE).catch?.(() => {});
+  await cartRadioReady.catch?.(() => {});
+  const radioCueNames = cartRadio.preloadCueNames({ hours: [8] });
+  await audio.loadManifest?.({
+    names: [...new Set([...GOLF_START_AUDIO_SCOPE.names, ...radioCueNames])],
+    prefixes: [...GOLF_START_AUDIO_SCOPE.prefixes],
+  }).catch?.(() => {});
   courseAudio = new CourseAudio(audio);
   round.audio = courseAudio;
   courseAudio.start();
+  carts.lead.radioWorld(cartRadioPosition);
+  cartRadio.setPosition(cartRadioPosition);
+  carts.lead.setRadioOn(false);
 
   if (begun.resumed && resumeHole > 1) {
     await audio.loadAdditional?.({ prefixes: [`vo.golf.h${resumeHole}.`] }).catch?.(() => {});
@@ -1654,6 +1834,7 @@ frame();
  */
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
+  cartRadio, landingPreview,
   player, camera, scene, audio,
   get beat() { return round.beat; },
   get camMode() { return camMode; },

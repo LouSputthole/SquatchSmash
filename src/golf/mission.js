@@ -27,6 +27,24 @@ const PROSPECT = CHARACTER_IDS.PROSPECT;
 const CART_RETRIEVAL_DISTANCE = 38;
 const NPC_TEE_SOLUTION_CACHE = new Map();
 
+/**
+ * A right-handed golfer stands beside the ball with his shoulders parallel to
+ * the target line. Keeping this in one pure helper prevents tee shots and
+ * ready-golf approaches from drifting back to a front-facing stance.
+ */
+export function golfStanceFor(ball, target, distance = 0.72) {
+  const dx = (target?.x ?? ball.x) - ball.x;
+  const dz = (target?.z ?? ball.z - 1) - ball.z;
+  const shotYaw = Math.atan2(dx, dz);
+  const offset = Math.max(0.45, Number.isFinite(distance) ? distance : 0.72);
+  return {
+    x: ball.x - Math.cos(shotYaw) * offset,
+    z: ball.z + Math.sin(shotYaw) * offset,
+    yaw: shotYaw + Math.PI / 2,
+    shotYaw,
+  };
+}
+
 export const BEAT = {
   LOT: 'lot',
   WALK_TO_TEE: 'walk_to_tee',
@@ -589,12 +607,18 @@ export class Round {
         // He walks up to the ball. Nobody appears over it.
         if (!this._steppedUp) {
           this._steppedUp = true;
-          golfer?.setClub(HOLE.npcTeeShots[id].club);
-          golfer?.walkTo(HOLE.teeMarks.ball.x - 0.55, HOLE.teeMarks.ball.z - 0.1, { speed: 1.4 });
+          const spec = HOLE.npcTeeShots[id];
+          const stance = golfStanceFor(HOLE.teeMarks.ball, spec.target ?? HOLE.pin);
+          golfer?.setClub(spec.club);
+          golfer?.walkTo(stance.x, stance.z, { speed: 1.4 });
           break;
         }
         if (golfer?.walking) break;
-        golfer?.faceToward(HOLE.pin.x, HOLE.pin.z, true);
+        {
+          const target = HOLE.npcTeeShots[id].target ?? HOLE.pin;
+          const stance = golfStanceFor(HOLE.teeMarks.ball, target);
+          golfer?.placeAt(golfer.position.x, golfer.position.z, stance.yaw);
+        }
         golfer?.address();
         this._wait = 0.6 + (golfer?.practiceSwings ?? 0) * 1.0;
         this._npcPhase = 'swing';
@@ -980,19 +1004,13 @@ export class Round {
         continue;
       }
       const from = { x: ball.position.x, z: ball.position.z };
-      const dx = HOLE.pin.x - from.x;
-      const dz = HOLE.pin.z - from.z;
-      const length = Math.hypot(dx, dz) || 1;
       const surface = surfaceAt(from.x, from.z);
       const onGreen = surface === SURFACE.GREEN || surface === SURFACE.FRINGE;
       const club = onGreen ? 'putter' : 'iron';
+      const stance = golfStanceFor(from, HOLE.pin);
       const golfer = this.golfers[id];
       golfer?.setClub(club);
-      golfer?.walkTo(
-        from.x - (dx / length) * 0.82,
-        from.z - (dz / length) * 0.82,
-        { speed: 1.65 },
-      );
+      golfer?.walkTo(stance.x, stance.z, { speed: 1.65 });
       this._npcApproachJobs.set(id, {
         id,
         phase: 'walk',
@@ -1001,6 +1019,7 @@ export class Round {
          * with it. This preserves character without multiplying dead time. */
         practice: id === RIPPIN && !onGreen ? 1 : 0,
         timer: 0,
+        stanceYaw: stance.yaw,
         isLast: false,
       });
     }
@@ -1014,7 +1033,7 @@ export class Round {
 
     if (job.phase === 'walk') {
       if (golfer.walking) return false;
-      golfer.faceToward(HOLE.pin.x, HOLE.pin.z, true);
+      golfer.placeAt(golfer.position.x, golfer.position.z, job.stanceYaw);
       golfer.address({ practice: job.practice });
       job.phase = 'address';
       job.timer = 0.42;

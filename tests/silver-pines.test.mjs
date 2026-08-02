@@ -11,13 +11,13 @@ import {
 } from '../src/golf/field.js';
 import { simulate, solveShot, Ball } from '../src/golf/ball.js';
 import {
-  launchFor, CLUB_IDS, estimateCarry, powerForCarry,
+  launchFor, CLUB_IDS, estimateCarry, powerForCarry, landingPreviewFor,
 } from '../src/golf/clubs.js';
 import {
   Swing, SWING_PHASE, DEAD_ZONE, controlWindow, resolveStrike, shotShape,
 } from '../src/golf/swing.js';
 import { Scorecard } from '../src/golf/scorecard.js';
-import { Round, BEAT } from '../src/golf/mission.js';
+import { Round, BEAT, golfStanceFor } from '../src/golf/mission.js';
 import {
   CUES, SEQUENCES, buildScripts, unreachableCues, pastMissionBanter,
 } from '../src/golf/script.js';
@@ -351,6 +351,10 @@ test('ready golf walks every NPC to his live ball before an approach stroke', ()
           this.position.set(x, 0, z);
           this.walking = false;
         },
+        placeAt(x, z, yaw) {
+          this.position.set(x, 0, z);
+          actions.get(id).state.yaw = yaw;
+        },
         faceToward() {},
         address() { actions.get(id).addresses++; },
         swing({ onImpact, onDone } = {}) {
@@ -537,6 +541,39 @@ test('driver, iron and putter have three readable head silhouettes and angled ho
     'the putter needs a long, genuinely flat blade');
 });
 
+test('a golfer addresses from beside the ball with his shoulders square to the shot line', () => {
+  const ball = { x: 12, z: -40 };
+  const target = { x: 12, z: -120 };
+  const stance = golfStanceFor(ball, target);
+  const shotYaw = Math.atan2(target.x - ball.x, target.z - ball.z);
+  const shoulderDelta = Math.atan2(
+    Math.sin(stance.yaw - shotYaw),
+    Math.cos(stance.yaw - shotYaw),
+  );
+
+  assert.ok(Math.abs(Math.abs(shoulderDelta) - Math.PI / 2) < 1e-6,
+    'the golfer should face sideways rather than looking down the target line');
+  assert.ok(Math.abs(Math.hypot(stance.x - ball.x, stance.z - ball.z) - 0.72) < 1e-6,
+    'the golfer should stand beside the ball at address distance');
+  assert.ok(Math.abs(stance.z - ball.z) < 1e-6,
+    'a straight north/south shot should not place the golfer behind the ball');
+});
+
+test('the yellow landing preview follows aim and live club distance without promising a point', () => {
+  const lie = lieAt(TEE);
+  const aim = Math.PI / 2;
+  const preview = landingPreviewFor({
+    from: TEE, aim, club: 'iron', power: 0.85, lie,
+  });
+
+  assert.ok(preview.distance > 140 && preview.distance < 175,
+    `the 85% iron preview should be a useful full-shot read, got ${preview.distance.toFixed(1)}m`);
+  assert.ok(Math.abs(preview.x - (TEE.x + preview.distance)) < 1e-6);
+  assert.ok(Math.abs(preview.z - TEE.z) < 1e-6);
+  assert.ok(preview.radius > 2 && preview.radius < 20,
+    'the preview should be a readable uncertainty circle, not an exact landing dot');
+});
+
 test('the stand bag contains three complete clubs with their heads above the rim', () => {
   const scene = new THREE.Scene();
   const bag = makeBag(scene, 0, 0);
@@ -699,6 +736,21 @@ test('club choice and a bad lie change how much timing help the player gets', ()
     'driver, iron and putter should have increasingly forgiving sweet spots');
   assert.ok(roughIron.deadZone < iron.deadZone,
     'heavy rough should make an iron harder to square');
+  assert.ok(driver.strikeSpeed < 1.55 && iron.strikeSpeed < 1.40 && putter.strikeSpeed <= 1.05,
+    'the return/strike bar should be slower and readable without becoming automatic');
+});
+
+test('both golf carts carry a visible dashboard radio receiver', () => {
+  const scene = new THREE.Scene();
+  const carts = new CartPair(scene);
+  for (const cart of [carts.lead, carts.follow]) {
+    assert.ok(cart.radio, 'the cart needs an addressable radio face');
+    assert.equal(cart.radio.name, 'golf-cart-radio');
+    assert.ok(cart.group.getObjectByName('golf-cart-radio-display'));
+    assert.ok(cart.group.getObjectByName('golf-cart-radio-power'));
+    const world = cart.radioWorld(new THREE.Vector3());
+    assert.ok(Number.isFinite(world.x) && Number.isFinite(world.y) && Number.isFinite(world.z));
+  }
 });
 
 test('the card keeps what happened and what Lou wrote down', () => {

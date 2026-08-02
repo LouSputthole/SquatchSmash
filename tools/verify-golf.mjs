@@ -204,12 +204,21 @@ const world = await page.evaluate(() => {
     trees: g.course.treeCount,
     beat: g.round.beat,
     hasCourse: !!g.course.mesh,
+    cartRadio: {
+      face: !!g.carts.lead.group.getObjectByName('golf-cart-radio-display'),
+      power: !!g.carts.lead.group.getObjectByName('golf-cart-radio-power'),
+      position: g.carts.lead.radioWorld().toArray(),
+    },
     clubs: Object.keys(g.round.balls.constructor === Map ? {} : {}),
   };
 });
 check('3. all four characters are in the scene',
   world.golfers.length === 3 && world.hasCourse,
   `${world.golfers.join(', ')} + the first-person Prospect`);
+check('3a. both carts have a physical dashboard radio receiver',
+  world.cartRadio.face && world.cartRadio.power
+    && world.cartRadio.position.every(Number.isFinite),
+  JSON.stringify(world.cartRadio));
 
 const clubArt = await page.evaluate(async () => {
   const g = window.__golf;
@@ -234,6 +243,11 @@ const clubArt = await page.evaluate(async () => {
     inHand[kind] = {
       head: head?.geometry?.type ?? null,
       hosel: !!golfer.club.getObjectByName('club-hosel'),
+      refinement: kind === 'driver'
+        ? !!golfer.club.getObjectByName('club-alignment-driver')
+        : kind === 'iron'
+          ? !!golfer.club.getObjectByName('club-cavity-iron')
+          : !!golfer.club.getObjectByName('club-alignment-putter'),
       clearance: headBox.min.y - ground,
       carryAngle: golfer.club.rotation.x,
     };
@@ -255,7 +269,7 @@ check('3d. every in-hand club swaps to its own head silhouette',
   clubArt.inHand.driver.head === 'SphereGeometry'
     && clubArt.inHand.iron.head === 'ExtrudeGeometry'
     && clubArt.inHand.putter.head === 'BoxGeometry'
-    && Object.values(clubArt.inHand).every((club) => club.hosel),
+    && Object.values(clubArt.inHand).every((club) => club.hosel && club.refinement),
   JSON.stringify(clubArt.inHand));
 check('3e. every idle club head stays visible at turf height',
   Object.values(clubArt.inHand).every((club) => club.clearance >= -0.04
@@ -403,17 +417,24 @@ const npcShots = await page.evaluate(async () => {
   const { solveShot } = await import('/src/golf/ball.js');
   const { SURFACE_PROPS, toFeet } = await import('/src/golf/course.js');
   const { surfaceAt } = await import('/src/golf/field.js');
+  const { golfStanceFor } = await import('/src/golf/mission.js');
   const H = await import('/src/golf/hole1.js');
   const from = { x: H.TEE_MARKS.ball.x, z: H.TEE_MARKS.ball.z };
   const lie = SURFACE_PROPS[surfaceAt(from.x, from.z)];
   const out = {};
   for (const [who, spec] of Object.entries(H.NPC_TEE_SHOTS)) {
     const r = solveShot({ from, target: spec.target, club: spec.club, lie, loftBias: spec.loftBias });
+    const stance = golfStanceFor(from, spec.target);
+    const yawDelta = Math.atan2(
+      Math.sin(stance.yaw - stance.shotYaw),
+      Math.cos(stance.yaw - stance.shotYaw),
+    );
     out[who] = {
       finish: r.surface,
       landing: r.landing?.surface ?? null,
       feet: toFeet(Math.hypot(r.landedAt.x - H.PIN.x, r.landedAt.z - H.PIN.z)),
       error: r.error,
+      stanceSideOn: Math.abs(Math.abs(yawDelta) - Math.PI / 2) < 1e-6,
     };
   }
   return out;
@@ -427,6 +448,10 @@ check('19c. Lou lands short and releases onto the green',
   npcShots.lou.finish === 'green' && npcShots.lou.landing !== 'green'
   && npcShots.lou.feet < npcShots.rippinflow.feet,
   `lands on ${npcShots.lou.landing}, finishes ${npcShots.lou.feet.toFixed(0)} ft — inside Rippin's ${npcShots.rippinflow.feet.toFixed(0)} ft`);
+
+check('19s. every golfer addresses side-on to his authored target line',
+  Object.values(npcShots).every((shot) => shot.stanceSideOn),
+  JSON.stringify(npcShots));
 
 const npcPlayed = await page.evaluate(() => {
   const g = window.__golf;
@@ -524,8 +549,39 @@ check('5a. address shows the recommended club and hands in first person',
   playerClubView.visible && playerClubView.selected === 'iron'
     && playerClubView.cameraMounted && playerClubView.hands === 2,
   JSON.stringify(playerClubView));
-check('5a2. Hole 1 opens on the authored safe middle-green plan',
-  playerClubView.plan.club === 'iron' && playerClubView.plan.label === 'MIDDLE GREEN',
+await page.waitForTimeout(100);
+const landingPreview = await page.evaluate(() => {
+  const g = window.__golf;
+  const marker = g.scene.getObjectByName('golf-landing-preview');
+  const ring = marker?.getObjectByName('golf-landing-preview-ring');
+  return {
+    visible: !!marker?.visible,
+    distance: marker?.userData.distance ?? 0,
+    radius: marker?.userData.radius ?? 0,
+    club: marker?.userData.club ?? '',
+    yellow: ring?.material?.color?.getHex?.() ?? 0,
+    label: document.querySelector('#aim .distance')?.textContent?.trim() ?? '',
+    reticleVisible: !document.getElementById('landing-reticle')?.classList.contains('hidden'),
+    reticleWidth: parseFloat(document.querySelector('#landing-reticle .ring')?.style.width || '0'),
+  };
+});
+check('5a1. addressing shows a yellow, distance-driven landing area in the world',
+  landingPreview.visible && landingPreview.club === 'iron'
+    && landingPreview.distance > 140 && landingPreview.radius > 2
+    && landingPreview.yellow === 0xffdf57 && /yd landing area/i.test(landingPreview.label)
+    && landingPreview.reticleVisible && landingPreview.reticleWidth >= 54,
+  JSON.stringify(landingPreview));
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.screenshot({
+  path: path.join(ROOT, 'docs', 'validation', 'golf', '13-landing-preview.png'),
+});
+await page.setViewportSize({ width: 480, height: 300 });
+check('5a2. the first tee recommends the safe middle instead of the water-side pin',
+  playerClubView.plan.club === 'iron' && playerClubView.plan.label === 'MIDDLE GREEN'
+    && Math.hypot(
+      playerClubView.plan.target.x - 11.4,
+      playerClubView.plan.target.z - (-150.4),
+    ) > 3,
   JSON.stringify(playerClubView.plan));
 
 await page.waitForTimeout(100);
@@ -659,12 +715,14 @@ const tempo = await page.evaluate(async () => {
   return {
     narrower: hard.deadZone < safe.deadZone,
     faster: hard.strikeSpeed > safe.strikeSpeed,
+    readableSpeed: safe.strikeSpeed < 1.55,
     centered: shotShape(centered.accuracy),
     early: shotShape(early.accuracy),
   };
 });
 check('7b. overswinging makes the timing harder and produces golf shot shapes',
-  tempo.narrower && tempo.faster && tempo.centered === 'fade' && tempo.early === 'slice',
+  tempo.narrower && tempo.faster && tempo.readableSpeed
+    && tempo.centered === 'fade' && tempo.early === 'slice',
   JSON.stringify(tempo));
 
 const ranges = await page.evaluate(async () => {
@@ -898,35 +956,66 @@ const cartEvidence = await page.evaluate(() => {
 check('20a. live throttle input moves the player cart before the mission can advance',
   cartEvidence.beat === 'cart' && cartEvidence.drove && cartEvidence.moved > 4,
   JSON.stringify(cartEvidence));
-if (CAPTURE_SCREENSHOTS) {
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await page.waitForTimeout(120);
-  await page.screenshot({
-    path: path.join(ROOT, 'docs', 'validation', 'golf', '11-cart-drive.png'),
-  });
-  await page.setViewportSize({ width: 480, height: 300 });
-}
-/* The synthetic drive above advances the simulation synchronously inside one
- * page task. Give the real render loop one frame to apply the cart camera
- * before measuring its forward vector. */
-await page.waitForTimeout(50);
-const cartGuide = await page.evaluate(() => {
+await page.setViewportSize({ width: 1280, height: 720 });
+/* The verification stepper owns game state, while the real animation frame
+ * owns the first-person camera. Let one frame apply the cart view before
+ * inspecting and capturing it. */
+await page.waitForTimeout(120);
+const cartView = await page.evaluate(() => {
   const g = window.__golf;
   const forward = g.camera.getWorldDirection(g.player.position.clone());
-  const yaw = g.carts.lead.group.rotation.y;
+  const cartForward = g.player.position.clone().set(0, 0, 1)
+    .applyQuaternion(g.carts.lead.group.quaternion).normalize();
+  const radioWorld = g.carts.lead.radio.getWorldPosition(g.player.position.clone());
+  const radioDirection = radioWorld.clone().sub(g.camera.position).normalize();
+  const radioScreen = radioWorld.project(g.camera);
   return {
-    exit: g.round.cartExitState(),
-    distance: g.round.cartDistanceToBall(),
-    text: document.getElementById('golf-guide')?.textContent?.trim() || '',
-    forwardAlignment: forward.x * Math.sin(yaw) + forward.z * Math.cos(yaw),
+    forwardDot: forward.dot(cartForward),
+    radioOnScreen: forward.dot(radioDirection) > 0
+      && Math.abs(radioScreen.x) < 0.96
+      && Math.abs(radioScreen.y) < 0.96 && radioScreen.z > -1 && radioScreen.z < 1,
+    radioScreen: radioScreen.toArray(),
   };
 });
+check('20a1. the driver looks forward and can see the physical cart radio',
+  cartView.forwardDot > 0.94 && cartView.radioOnScreen,
+  JSON.stringify(cartView));
+const cartGuide = await page.evaluate(() => ({
+  exit: window.__golf.round.cartExitState(),
+  distance: window.__golf.round.cartDistanceToBall(),
+  text: document.getElementById('golf-guide')?.textContent?.trim() || '',
+}));
 check('20a2. the driving HUD keeps pointing to a distant ball instead of telling the player to park',
   cartGuide.distance > 12 && /drive/i.test(cartGuide.text) && !/park beside/i.test(cartGuide.text),
   JSON.stringify(cartGuide));
-check('20a3. the driving camera faces through the windshield, not back at the follow cart',
-  cartGuide.forwardAlignment > 0.8, `alignment ${cartGuide.forwardAlignment.toFixed(2)}`);
-
+const cartRadioControl = await page.evaluate(() => {
+  const g = window.__golf;
+  const before = g.cartRadio.on;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR' }));
+  const toggled = g.cartRadio.on;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT' }));
+  const tuned = g.cartRadio.on;
+  const lamp = g.carts.lead.group.getObjectByName('golf-cart-radio-power');
+  return {
+    mode: g.camMode,
+    before, toggled, tuned,
+    station: g.cartRadio.station?.dial ?? '',
+    lamp: lamp?.material?.color?.getHex?.() ?? 0,
+  };
+});
+check('20a3. the cart radio powers, tunes, lights its dash, and uses the shared station',
+  cartRadioControl.mode === 'cart'
+    && cartRadioControl.toggled !== cartRadioControl.before
+    && cartRadioControl.tuned === true
+    && !!cartRadioControl.station && cartRadioControl.lamp === 0x6dff9c,
+  JSON.stringify(cartRadioControl));
+if (CAPTURE_SCREENSHOTS) {
+  await page.waitForTimeout(100);
+  await page.screenshot({
+    path: path.join(ROOT, 'docs', 'validation', 'golf', '11-cart-drive.png'),
+  });
+}
+await page.setViewportSize({ width: 480, height: 300 });
 const played = await page.evaluate(() => {
   const g = window.__golf;
   const seen = new Set();

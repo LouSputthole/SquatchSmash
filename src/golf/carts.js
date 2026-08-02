@@ -83,8 +83,51 @@ function buildCart(scene) {
   wheelRim.rotation.x = -0.5;
   g.add(wheelRim);
 
+  /* A real receiver in the dash, not just music following the camera. The
+   * face sits between the seats and nose where it remains visible from the
+   * driver's first-person view; named parts let the scene animate its power
+   * lamp and position the shared spatial radio mix at the speaker. */
+  const radio = new THREE.Group();
+  radio.name = 'golf-cart-radio';
+  /* Driver-left keeps the receiver visible instead of hiding it behind Lou
+   * in the passenger seat. It is intentionally chunky enough to read as a
+   * physical dashboard prop from the first-person cart camera. */
+  radio.position.set(-0.26, 1.20, 0.69);
+  radio.scale.setScalar(1.12);
+  radio.rotation.x = -0.16;
+  const radioCase = new THREE.Mesh(
+    new THREE.BoxGeometry(0.43, 0.17, 0.09),
+    mat({ color: 0x24282b, roughness: 0.72, metalness: 0.18 }),
+  );
+  radioCase.name = 'golf-cart-radio-case';
+  radio.add(radioCase);
+  const display = new THREE.Mesh(
+    new THREE.BoxGeometry(0.24, 0.072, 0.012),
+    mat({ color: 0x8fc6a5, roughness: 0.42, emissive: 0x143824, emissiveIntensity: 0.65 }),
+  );
+  display.name = 'golf-cart-radio-display';
+  display.position.set(0, 0.018, -0.051);
+  radio.add(display);
+  const power = new THREE.Mesh(
+    new THREE.SphereGeometry(0.018, 8, 6),
+    mat({ color: 0x5c1914, roughness: 0.55, emissive: 0x210000, emissiveIntensity: 0.35 }),
+  );
+  power.name = 'golf-cart-radio-power';
+  power.position.set(0.165, 0.035, -0.057);
+  radio.add(power);
+  for (const x of [-0.165, 0.165]) {
+    const knob = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.035, 0.025, 10),
+      mat({ color: 0xb7b2a5, roughness: 0.58, metalness: 0.34 }),
+    );
+    knob.rotation.x = Math.PI / 2;
+    knob.position.set(x, -0.040, -0.060);
+    radio.add(knob);
+  }
+  g.add(radio);
+
   scene.add(g);
-  return { group: g, wheels };
+  return { group: g, wheels, radio, radioPower: power };
 }
 
 /** Distance along the path, in metres, to a world point and a heading. */
@@ -125,6 +168,8 @@ export class Cart {
     const built = buildCart(scene);
     this.group = built.group;
     this.wheels = built.wheels;
+    this.radio = built.radio;
+    this.radioPower = built.radioPower;
     this.distance = startDistance;
     this.speed = speed;
     this.velocity = 0;
@@ -240,7 +285,19 @@ export class Cart {
     return this.group.localToWorld(out);
   }
 
-  /** First-person driving eye, centred so neither roof post blocks the road. */
+  /** Speaker position for the spatial station mix. */
+  radioWorld(out = new THREE.Vector3()) {
+    return this.radio.getWorldPosition(out);
+  }
+
+  setRadioOn(on) {
+    if (!this.radioPower?.material) return;
+    this.radioPower.material.color.setHex(on ? 0x6dff9c : 0x5c1914);
+    this.radioPower.material.emissive?.setHex(on ? 0x1d8f4d : 0x210000);
+    this.radioPower.material.emissiveIntensity = on ? 1.25 : 0.35;
+  }
+
+  /** First-person driving eye, centred enough that neither roof post blinds it. */
   driverViewWorld(out = new THREE.Vector3()) {
     out.set(-0.08, 1.39, 0.04);
     return this.group.localToWorld(out);

@@ -59,9 +59,9 @@ const WARDROBE = {
 /* ------------------------------------------------------------------ */
 
 const CLUB_LOOK = {
-  driver: { shaft: 1.10, lean: 0.035, hosel: 0.070, carryAngle: 1.10 },
-  iron: { shaft: 0.96, lean: 0.030, hosel: 0.065, carryAngle: 0.95 },
-  putter: { shaft: 0.92, lean: 0.024, hosel: 0.060, carryAngle: 0.87 },
+  driver: { shaft: 1.10, lean: 0.105, hosel: 0.070, carryAngle: 1.17 },
+  iron: { shaft: 0.96, lean: 0.090, hosel: 0.065, carryAngle: 1.02 },
+  putter: { shaft: 0.92, lean: 0.065, hosel: 0.060, carryAngle: 0.91 },
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -110,6 +110,14 @@ function addDriverHead(group, heel) {
   sole.position.set(heel.x + 0.12, heel.y - 0.115, heel.z + 0.015);
   sole.rotation.z = -0.05;
   group.add(sole);
+
+  const alignment = new THREE.Mesh(
+    new THREE.BoxGeometry(0.012, 0.008, 0.070),
+    mat({ color: 0xe8e5d7, roughness: 0.68 }),
+  );
+  alignment.name = 'club-alignment-driver';
+  alignment.position.set(heel.x + 0.135, heel.y + 0.073, heel.z + 0.005);
+  group.add(alignment);
 }
 
 function addIronHead(group, heel) {
@@ -146,6 +154,15 @@ function addIronHead(group, heel) {
     groove.rotation.z = -0.08;
     group.add(groove);
   }
+
+  const cavity = new THREE.Mesh(
+    new THREE.BoxGeometry(0.105, 0.060, 0.008),
+    mat({ color: 0x60666d, roughness: 0.55, metalness: 0.62 }),
+  );
+  cavity.name = 'club-cavity-iron';
+  cavity.position.set(heel.x + 0.095, heel.y - 0.064, heel.z + 0.027);
+  cavity.rotation.z = -0.08;
+  group.add(cavity);
 }
 
 function addPutterHead(group, heel) {
@@ -169,6 +186,14 @@ function addPutterHead(group, heel) {
   insert.position.set(heel.x + 0.105, heel.y - 0.036, heel.z - 0.036);
   insert.rotation.z = -0.025;
   group.add(insert);
+
+  const line = new THREE.Mesh(
+    new THREE.BoxGeometry(0.010, 0.006, 0.048),
+    mat({ color: 0xf0e8c8, roughness: 0.72 }),
+  );
+  line.name = 'club-alignment-putter';
+  line.position.set(heel.x + 0.095, heel.y - 0.013, heel.z + 0.006);
+  group.add(line);
 }
 
 /**
@@ -187,7 +212,7 @@ export function makeClub(kind = 'iron') {
   const shaftTop = new THREE.Vector3(0, -0.23, 0);
   const shaftBottom = new THREE.Vector3(-look.lean, -0.23 - look.shaft, 0);
   const heel = new THREE.Vector3(
-    look.hosel,
+    shaftBottom.x + look.hosel,
     shaftBottom.y - (kind === 'putter' ? 0.075 : 0.09),
     kind === 'driver' ? 0.015 : 0,
   );
@@ -200,7 +225,7 @@ export function makeClub(kind = 'iron') {
   g.add(grip);
 
   const shaft = tubeBetween(
-    shaftTop, shaftBottom, 0.0085,
+    shaftTop, shaftBottom, 0.0095,
     mat({ color: 0xcbd0d6, roughness: 0.26, metalness: 0.82 }),
     'club-shaft', 7,
   );
@@ -311,9 +336,9 @@ export function makeBag(scene, x, z, yaw = 0) {
   /* A club is stored grip-first. Reusing the exact in-hand model means the
    * three heads in the bag cannot drift from the three heads the golfers use. */
   const stored = [
-    { kind: 'driver', x: -0.080, z: 0.015, rz: Math.PI + 0.13, ry: 0, rx: 0.045, scale: 0.90 },
+    { kind: 'driver', x: -0.095, z: 0.015, rz: Math.PI + 0.24, ry: 0, rx: 0.045, scale: 0.90 },
     { kind: 'iron', x: 0.070, z: -0.035, rz: Math.PI + 0.015, ry: 0, rx: -0.025, scale: 0.92 },
-    { kind: 'putter', x: 0.180, z: 0.030, rz: Math.PI - 0.13, ry: Math.PI, rx: 0.040, scale: 0.90 },
+    { kind: 'putter', x: 0.165, z: 0.030, rz: Math.PI - 0.24, ry: Math.PI, rx: 0.040, scale: 0.90 },
   ];
   for (const spec of stored) {
     const club = makeClub(spec.kind);

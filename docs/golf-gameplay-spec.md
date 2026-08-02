@@ -7,23 +7,32 @@ is not a bag-management simulator and it is not laser-guided golf.
 
 ## Complete player loop
 
-1. **Read the shot.** Show pin and plan distance, lie, wind, hazards, and a
-   truthful dispersion area. Each tee supplies a safe default target; the
-   player may override it.
+1. **Read the shot.** Show pin and target distance, lie, wind, elevation,
+   hazards, and a truthful dispersion area. Each hole supplies a safe default
+   landing target; the player may aim elsewhere. A bright projected landing
+   circle previews distance and uncertainty without promising an exact result.
 2. **Choose a tool.** Driver is long and least controlled, iron covers full
    shots through chips, and putter stays on the ground. The UI recommends but
    never forces a club.
-3. **Execute.** Click or Space to start, set power, and strike. Controlled
-   power is forgiving; overswing narrows and accelerates the timing window.
-4. **Watch the shot.** First-person hands and the selected club animate during
-   the live swing. A short world tracer and result card report strike, power,
-   total distance, lie, and remaining distance.
-5. **Retrieve.** Control returns to the pre-shot stance after the flight
-   camera. Long shots use the live carts; short shots remain walkable.
-6. **Recover.** Water and OOB block address until a legal one-stroke drop. A
-   true tap-in may be picked up with G for exactly one stroke.
-7. **Score and continue.** The current-hole HUD follows every rebuild, each
-   finished hole persists once, and reload resumes at the next unfinished tee.
+3. **Execute.** Click once to start, again to set power, and again at the strike
+   line. Controlled power is forgiving. Overswing narrows and accelerates the
+   timing window. Early opens the face; late closes it. The strike sweep stays
+   slower than the power sweep so a first-time player can read the second click.
+4. **Watch a golf shot.** Fade, draw, slice, and hook must curve in flight, not
+   merely start offline. The player sees a club impact, short tracer, bounce,
+   landing material, carry, total distance, lie, and remaining distance.
+5. **Retrieve.** A tee shot or any long follow-up enters a reusable transit
+   phase. Drive to the live ball, stop beside it, and get out. Short shots remain
+   walkable. The group walks to and plays every live NPC lie.
+6. **Recover.** Water, OOB, or an unplayable position blocks address. A legal
+   drop costs exactly one penalty and returns to the pending transit/approach
+   route; it cannot skip the cart dialogue or another required beat.
+7. **Score.** Record every settled shot once: carry, total, hazards, proximity,
+   putts, fairway, and green in regulation. A story-mode pickup/gimme prevents
+   an endless hole while preserving actual and written scores.
+8. **Continue.** Hole completion shows the current card, loads the next tee,
+   restores control, and records the hole. Reload resumes at the next unfinished
+   hole. Restart hole and restart round are explicit destructive choices.
 
 ## Non-negotiable story and control rules
 
@@ -39,13 +48,23 @@ is not a bag-management simulator and it is not laser-guided golf.
 
 ## Presentation and verification gates
 
-- Driver, iron, and putter are readable in the camera-mounted hand rig.
-- The regulation ball keeps its physics scale; marker and tracer carry
-  visibility.
-- Essential UI remains legible at 1280×720 and a 480×300 verifier viewport.
+- A first-person hands-and-club rig makes driver, iron, and putter readable at
+  address and launches the ball at its impact frame.
+- Every golfer addresses the ball from the side with shoulders perpendicular
+  to the target line; nobody faces the pin like they are throwing the club.
+- Both carts carry a visible, spatial dashboard radio using the campaign's
+  established stations, with power and tuning controls listed in instructions.
+- The regulation ball never changes physics scale; a halo/tracer and ground
+  marker carry visibility.
+- The minimap includes pin, player, ball, carts, path, water, bunkers, wind, and
+  selected-club landing range.
+- Hole 1 is pond and bunker, Hole 2 is dogleg and corner bunker, and Hole 3 is
+  the clubhouse finish. A tee/approach crop should identify the hole.
+- Essential UI remains legible without relying on colour and does not overlap
+  two subtitle lines at 1280×720 or at a 900 px viewport.
 - Browser coverage proves shot planning, current-hole HUD, pointer-lock
-  fallback, shot-origin restoration, tracer/result presentation, live cart
-  driving, dialogue gates, all-hole completion, save/resume, and console health.
+  fallback, shot-origin restoration, landing preview, radio controls, forward
+  cart view, all-hole completion, save/resume, and console health.
 - Human gate: play all three holes and record swing feel, cart feel, camera
   comfort, missed dialogue, and any moment where the next action is unclear.
 
