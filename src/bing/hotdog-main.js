@@ -14,6 +14,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { buildClub, roomAt } from './club.js';
 import { hotDogAudioLoadOptions } from './hotdog-audio.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
@@ -71,6 +72,7 @@ if (postfx.bloom) {
 
 const audio = new AudioEngine();
 const hud = new Hud();
+const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 const world = { colliders: [], floorZones: [], groundAt: () => 0 };
 const player = new Player(camera, world);
 const interaction = new InteractionSystem(camera, hud);
@@ -698,6 +700,8 @@ startButton.addEventListener('click', async () => {
   startButton.disabled = false;
   overlay.classList.add('hidden');
   document.body.classList.add('playing', 'hotdog-party');
+  sceneInventory.set([]);
+  sceneInventory.show();
   player.enabled = true;
   // Start just inside the closed club. The exterior arrival was dead walking
   // before the scene's actual premise; this gets the player to the packed room

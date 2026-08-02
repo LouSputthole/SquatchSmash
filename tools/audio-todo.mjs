@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildAudioTodo } from './audio-todo-lib.mjs';
+import { buildAudioTodo, normalizeAudioTodo } from './audio-todo-lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEST = path.join(ROOT, 'VOICE-LINES-TODO.md');
@@ -39,7 +39,7 @@ if (CHECK) {
   } catch {
     // A missing handoff is simply an out-of-date handoff.
   }
-  if (current !== markdown) {
+  if (normalizeAudioTodo(current) !== normalizeAudioTodo(markdown)) {
     console.error('VOICE-LINES-TODO.md is out of date. Run `npm run audio:todo`.');
     process.exit(1);
   }

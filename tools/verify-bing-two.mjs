@@ -152,6 +152,18 @@ async function incidentState(page) {
   });
 }
 
+async function inventoryBarState(page) {
+  return page.evaluate(() => {
+    const bar = document.getElementById('hotbar');
+    return {
+      present: !!bar,
+      visible: !!bar && !bar.classList.contains('hidden'),
+      slots: bar?.children.length ?? 0,
+      declared: bar?.dataset.slotCount ?? null,
+    };
+  });
+}
+
 try {
   const context = await browser.newContext({ viewport: { width: 640, height: 400 } });
   await context.addInitScript(({ key, value }) => {
@@ -214,6 +226,13 @@ try {
 
   await page.click('#start-btn');
   await page.waitForFunction(() => window.HOTDOG_INCIDENT.game.started, null, { timeout: 90000 });
+  const partyInventory = await inventoryBarState(page);
+  check('the HotDog party uses the shared visible five-slot inventory bar',
+    partyInventory.present
+      && partyInventory.visible
+      && partyInventory.slots === 5
+      && partyInventory.declared === '5',
+    JSON.stringify(partyInventory));
   await page.waitForFunction(() => {
     const handle = window.HOTDOG_INCIDENT.audio.loops.get('party.record');
     return handle?.streamed && handle.element?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
@@ -501,6 +520,13 @@ try {
 
   await page.click('#start-btn');
   await page.waitForFunction(() => window.GRAVEYARD.phase === 'active', null, { timeout: 90000 });
+  const graveyardInventory = await inventoryBarState(page);
+  check('the Graveyard uses the shared visible five-slot inventory bar',
+    graveyardInventory.present
+      && graveyardInventory.visible
+      && graveyardInventory.slots === 5
+      && graveyardInventory.declared === '5',
+    JSON.stringify(graveyardInventory));
   await page.evaluate(() => {
     const runtime = window.GRAVEYARD;
     const originalOnLine = runtime.mission.hooks.onLine;

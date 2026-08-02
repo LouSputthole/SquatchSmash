@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildAudioTodo } from '../tools/audio-todo-lib.mjs';
+import { buildAudioTodo, normalizeAudioTodo } from '../tools/audio-todo-lib.mjs';
 import { voiceProfileFor } from '../src/core/characters.js';
 import { HEIST_DIALOGUE } from '../src/heist/script.js';
 
@@ -213,6 +213,13 @@ test('the committed recording handoff matches the current production sources', (
   });
   const committed = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
 
-  assert.equal(committed, expected,
+  assert.equal(normalizeAudioTodo(committed), normalizeAudioTodo(expected),
     'VOICE-LINES-TODO.md drifted; run `npm run audio:todo` after cue or recording changes');
+});
+
+test('the recording handoff check treats Windows and Unix line endings equally', () => {
+  const unix = '# Voice Lines\n\n- One cue\n';
+  const windows = unix.replace(/\n/g, '\r\n');
+
+  assert.equal(normalizeAudioTodo(windows), normalizeAudioTodo(unix));
 });

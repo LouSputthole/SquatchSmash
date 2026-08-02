@@ -12,6 +12,7 @@ import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { StreamSystem } from '../world/stream.js';
 import { graveyardAudioLoadOptions } from './audio.js';
 import { createPrimaryGraveControl } from './controls.js';
@@ -77,6 +78,7 @@ const world = {
   groundAt: () => 0,
 };
 const hud = new Hud();
+const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 const player = new Player(camera, world);
 // Arrive off the rear quarter instead of directly behind the open trunk. The
 // first read should be car + wrapped body + headlight path, not the camera
@@ -493,6 +495,8 @@ startButton.addEventListener('click', async () => {
   startButton.disabled = false;
   player.enabled = true;
   document.body.classList.add('playing');
+  sceneInventory.set([]);
+  sceneInventory.show();
   overlay.classList.add('hidden');
   requestGamePointerLock();
   for (const line of GRAVEYARD_ARRIVAL_LINES) {

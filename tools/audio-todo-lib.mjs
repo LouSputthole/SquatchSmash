@@ -28,6 +28,15 @@ const VOICE_SCENES = [
   ['Radio', (name) => name.startsWith('radio.')],
 ];
 
+/**
+ * Git may check the generated handoff out with CRLF on Windows even though
+ * the generator builds it with LF. Line endings are not production-content
+ * drift, so every check compares the canonical LF representation.
+ */
+export function normalizeAudioTodo(text = '') {
+  return String(text).replace(/\r\n?/g, '\n');
+}
+
 const EFFECT_SCENES = [
   ['Silver Pines', (name) => name === 'ambience.course'
     || name === 'mower.distant' || name === 'sprinkler'
