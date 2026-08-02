@@ -59,10 +59,117 @@ const WARDROBE = {
 /* ------------------------------------------------------------------ */
 
 const CLUB_LOOK = {
-  driver: { shaft: 1.10, headW: 0.15, headH: 0.10, headD: 0.11, headColour: 0x1c1c22 },
-  iron: { shaft: 0.95, headW: 0.10, headH: 0.08, headD: 0.035, headColour: 0xb9bcc0 },
-  putter: { shaft: 0.92, headW: 0.12, headH: 0.035, headD: 0.05, headColour: 0x8d939c },
+  driver: { shaft: 1.10, lean: 0.035, hosel: 0.070 },
+  iron: { shaft: 0.96, lean: 0.030, hosel: 0.065 },
+  putter: { shaft: 0.92, lean: 0.024, hosel: 0.060 },
 };
+
+const UP = new THREE.Vector3(0, 1, 0);
+
+/** A low-poly tube aligned between authored endpoints. */
+function tubeBetween(from, to, radius, material, name, segments = 7) {
+  const direction = new THREE.Vector3().subVectors(to, from);
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, direction.length(), segments),
+    material,
+  );
+  mesh.position.copy(from).add(to).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(UP, direction.normalize());
+  mesh.name = name;
+  mesh.castShadow = true;
+  return mesh;
+}
+
+function addDriverHead(group, heel) {
+  /* A wood is a volume, not a stretched putter. The crown is deliberately
+   * oversized enough to read from the gallery and deep from face to back. */
+  const head = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 14, 9),
+    mat({ color: 0x171a20, roughness: 0.27, metalness: 0.62 }),
+  );
+  head.name = 'club-head-driver';
+  head.scale.set(0.19, 0.105, 0.145);
+  head.position.set(heel.x + 0.115, heel.y - 0.025, heel.z + 0.018);
+  head.rotation.set(0.04, -0.08, -0.05);
+  head.castShadow = true;
+  group.add(head);
+
+  const face = new THREE.Mesh(
+    new THREE.BoxGeometry(0.205, 0.078, 0.014),
+    mat({ color: 0xb8bec6, roughness: 0.35, metalness: 0.78 }),
+  );
+  face.name = 'club-face-driver';
+  face.position.set(heel.x + 0.095, heel.y - 0.035, heel.z - 0.105);
+  face.rotation.y = -0.08;
+  group.add(face);
+
+  const sole = new THREE.Mesh(
+    new THREE.BoxGeometry(0.13, 0.012, 0.10),
+    mat({ color: 0x7653bd, roughness: 0.48, metalness: 0.35 }),
+  );
+  sole.position.set(heel.x + 0.12, heel.y - 0.115, heel.z + 0.015);
+  sole.rotation.z = -0.05;
+  group.add(sole);
+}
+
+function addIronHead(group, heel) {
+  /* Classic cavity-blade outline: high at the heel, lower toward the toe,
+   * thin through the face, with the sole wider than the top line. */
+  const outline = new THREE.Shape();
+  outline.moveTo(0.000, 0.055);
+  outline.lineTo(0.135, 0.030);
+  outline.lineTo(0.185, -0.025);
+  outline.lineTo(0.160, -0.115);
+  outline.lineTo(0.018, -0.098);
+  outline.closePath();
+  const head = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(outline, {
+      depth: 0.042, steps: 1, curveSegments: 1,
+      bevelEnabled: true, bevelSegments: 1, bevelSize: 0.006, bevelThickness: 0.005,
+    }),
+    mat({ color: 0xb9bec5, roughness: 0.32, metalness: 0.78 }),
+  );
+  head.name = 'club-head-iron';
+  head.position.set(heel.x - 0.005, heel.y - 0.050, heel.z - 0.021);
+  head.rotation.z = -0.08;
+  head.castShadow = true;
+  group.add(head);
+
+  /* Three dark score lines make the face read as an iron instead of a silver
+   * wedge of scenery, even at the low-poly scale of the cast. */
+  for (let i = 0; i < 3; i++) {
+    const groove = new THREE.Mesh(
+      new THREE.BoxGeometry(0.095, 0.004, 0.004),
+      mat({ color: 0x555a60, roughness: 0.75, metalness: 0.35 }),
+    );
+    groove.position.set(heel.x + 0.095, heel.y - 0.070 - i * 0.025, heel.z - 0.027);
+    groove.rotation.z = -0.08;
+    group.add(groove);
+  }
+}
+
+function addPutterHead(group, heel) {
+  /* A blade putter: long heel-to-toe, nearly flat vertically, with a shallow
+   * face-to-back body and a contrasting strike insert. */
+  const head = new THREE.Mesh(
+    new THREE.BoxGeometry(0.245, 0.038, 0.076),
+    mat({ color: 0x777e87, roughness: 0.38, metalness: 0.72 }),
+  );
+  head.name = 'club-head-putter';
+  head.position.set(heel.x + 0.095, heel.y - 0.035, heel.z + 0.006);
+  head.rotation.z = -0.025;
+  head.castShadow = true;
+  group.add(head);
+
+  const insert = new THREE.Mesh(
+    new THREE.BoxGeometry(0.17, 0.021, 0.007),
+    mat({ color: 0xe6e2d5, roughness: 0.7, metalness: 0.1 }),
+  );
+  insert.name = 'club-face-putter';
+  insert.position.set(heel.x + 0.105, heel.y - 0.036, heel.z - 0.036);
+  insert.rotation.z = -0.025;
+  group.add(insert);
+}
 
 /**
  * A club, hung off the right forearm so it inherits the arm's motion.
@@ -71,76 +178,149 @@ const CLUB_LOOK = {
  * end of the arms and the club is on the end of the hands, so rotating the arm
  * is the swing.
  */
-function makeClub(kind = 'iron') {
+export function makeClub(kind = 'iron') {
   const look = CLUB_LOOK[kind] ?? CLUB_LOOK.iron;
   const g = new THREE.Group();
+  g.name = `golf-club-${kind}`;
 
-  const grip = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.017, 0.015, 0.24, 6),
-    mat({ color: 0x1a1a1f, roughness: 0.95 }),
+  const gripTop = new THREE.Vector3(0, 0.02, 0);
+  const shaftTop = new THREE.Vector3(0, -0.23, 0);
+  const shaftBottom = new THREE.Vector3(-look.lean, -0.23 - look.shaft, 0);
+  const heel = new THREE.Vector3(
+    look.hosel,
+    shaftBottom.y - (kind === 'putter' ? 0.075 : 0.09),
+    kind === 'driver' ? 0.015 : 0,
   );
-  grip.position.y = -0.10;
+
+  const grip = tubeBetween(
+    gripTop, shaftTop, 0.017,
+    mat({ color: 0x17181c, roughness: 0.94 }),
+    'club-grip', 8,
+  );
   g.add(grip);
 
-  const shaft = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.008, 0.011, look.shaft, 6),
-    mat({ color: 0xc8ccd4, roughness: 0.35, metalness: 0.5 }),
+  const shaft = tubeBetween(
+    shaftTop, shaftBottom, 0.0085,
+    mat({ color: 0xcbd0d6, roughness: 0.26, metalness: 0.82 }),
+    'club-shaft', 7,
   );
-  shaft.position.y = -0.22 - look.shaft / 2;
   g.add(shaft);
 
-  const head = new THREE.Mesh(
-    new THREE.BoxGeometry(look.headW, look.headH, look.headD),
-    mat({ color: look.headColour, roughness: 0.4, metalness: 0.45 }),
+  /* The visible angled neck is the detail the old centered box heads lacked:
+   * the shaft finishes heel-side, then the hosel turns down and into the head. */
+  const hosel = tubeBetween(
+    shaftBottom, heel, kind === 'driver' ? 0.013 : 0.011,
+    mat({ color: 0xaeb4bc, roughness: 0.3, metalness: 0.78 }),
+    'club-hosel', 7,
   );
-  head.position.set(look.headW * 0.28, -0.22 - look.shaft - look.headH * 0.3, 0.02);
-  g.add(head);
+  g.add(hosel);
+
+  if (kind === 'driver') addDriverHead(g, heel);
+  else if (kind === 'putter') addPutterHead(g, heel);
+  else addIronHead(g, heel);
 
   g.userData.kind = kind;
+  g.userData.hoselOffset = heel.x - shaftBottom.x;
   return g;
 }
 
-/** A stand bag with three clubs sticking out of it. */
+/** A proper stand bag with three complete clubs stored head-up. */
 export function makeBag(scene, x, z, yaw = 0) {
   const g = new THREE.Group();
+  g.name = 'three-club-stand-bag';
   g.position.set(x, heightAt(x, z), z);
   g.rotation.y = yaw;
 
   const body = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.16, 0.19, 0.92, 10),
-    mat({ color: 0x2b2f3a, roughness: 0.9 }),
+    new THREE.CylinderGeometry(0.195, 0.255, 0.90, 12),
+    mat({ color: 0x252b36, roughness: 0.78 }),
   );
-  body.position.y = 0.46;
+  body.name = 'bag-body';
+  body.position.y = 0.49;
   body.castShadow = true;
   g.add(body);
 
-  const band = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.165, 0.165, 0.13, 10),
-    mat({ color: 0x7b4fd9, roughness: 0.85 }),
+  const base = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.245, 0.265, 0.09, 12),
+    mat({ color: 0x141820, roughness: 0.86 }),
   );
-  band.position.y = 0.62;
+  base.position.y = 0.045;
+  base.castShadow = true;
+  g.add(base);
+
+  const opening = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.175, 0.175, 0.038, 12),
+    mat({ color: 0x080a0e, roughness: 0.96 }),
+  );
+  opening.name = 'bag-opening';
+  opening.position.y = 0.955;
+  g.add(opening);
+
+  const rim = new THREE.Mesh(
+    new THREE.TorusGeometry(0.202, 0.024, 6, 14),
+    mat({ color: 0x7252b7, roughness: 0.65, metalness: 0.10 }),
+  );
+  rim.name = 'bag-rim';
+  rim.position.y = 0.962;
+  rim.rotation.x = Math.PI / 2;
+  g.add(rim);
+
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.207, 0.220, 0.16, 12),
+    mat({ color: 0x6846aa, roughness: 0.72 }),
+  );
+  band.position.y = 0.73;
   g.add(band);
 
-  // Exactly three. That is the joke and also the inventory.
-  const kinds = ['driver', 'iron', 'putter'];
-  for (let i = 0; i < kinds.length; i++) {
-    const a = (i - 1) * 0.30;
-    const shaft = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.009, 0.009, 1.0, 5),
-      mat({ color: 0xc8ccd4, roughness: 0.4, metalness: 0.5 }),
+  const pocket = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 10, 7),
+    mat({ color: 0x343b48, roughness: 0.82 }),
+  );
+  pocket.name = 'bag-front-pocket';
+  pocket.scale.set(0.165, 0.255, 0.085);
+  pocket.position.set(0, 0.42, 0.205);
+  pocket.castShadow = true;
+  g.add(pocket);
+
+  const patch = new THREE.Mesh(
+    new THREE.BoxGeometry(0.105, 0.115, 0.014),
+    mat({ color: 0x8a63db, roughness: 0.70 }),
+  );
+  patch.position.set(0, 0.48, 0.286);
+  patch.rotation.x = -0.10;
+  g.add(patch);
+
+  const legMaterial = mat({ color: 0xaeb4bc, roughness: 0.42, metalness: 0.62 });
+  for (const side of [-1, 1]) {
+    const leg = tubeBetween(
+      new THREE.Vector3(side * 0.13, 0.72, -0.13),
+      new THREE.Vector3(side * 0.29, 0.035, -0.42),
+      0.014, legMaterial, 'bag-stand-leg', 6,
     );
-    shaft.position.set(Math.sin(a) * 0.09, 1.24, Math.cos(a) * 0.09 - 0.04);
-    shaft.rotation.x = -0.20;
-    shaft.rotation.z = a * 0.5;
-    g.add(shaft);
-    const grip = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.019, 0.017, 0.2, 6),
-      mat({ color: 0x1a1a1f, roughness: 0.95 }),
-    );
-    grip.position.set(Math.sin(a) * 0.13, 1.74, Math.cos(a) * 0.13 - 0.14);
-    grip.rotation.x = -0.20;
-    grip.rotation.z = a * 0.5;
-    g.add(grip);
+    g.add(leg);
+  }
+
+  const strapMaterial = mat({ color: 0x11151c, roughness: 0.92 });
+  const strapTop = new THREE.Vector3(-0.20, 0.80, 0.00);
+  const strapMid = new THREE.Vector3(-0.34, 0.55, 0.02);
+  const strapBottom = new THREE.Vector3(-0.22, 0.23, 0.02);
+  g.add(tubeBetween(strapTop, strapMid, 0.022, strapMaterial, 'bag-shoulder-strap', 6));
+  g.add(tubeBetween(strapMid, strapBottom, 0.022, strapMaterial, 'bag-shoulder-strap', 6));
+
+  /* A club is stored grip-first. Reusing the exact in-hand model means the
+   * three heads in the bag cannot drift from the three heads the golfers use. */
+  const stored = [
+    { kind: 'driver', x: -0.080, z: 0.015, rz: Math.PI + 0.13, ry: 0, rx: 0.045, scale: 0.90 },
+    { kind: 'iron', x: 0.070, z: -0.035, rz: Math.PI + 0.015, ry: 0, rx: -0.025, scale: 0.92 },
+    { kind: 'putter', x: 0.180, z: 0.030, rz: Math.PI - 0.13, ry: Math.PI, rx: 0.040, scale: 0.90 },
+  ];
+  for (const spec of stored) {
+    const club = makeClub(spec.kind);
+    club.name = `bag-${spec.kind}`;
+    club.position.set(spec.x, 0.70, spec.z);
+    club.rotation.set(spec.rx, spec.ry, spec.rz);
+    club.scale.setScalar(spec.scale);
+    g.add(club);
   }
 
   scene.add(g);

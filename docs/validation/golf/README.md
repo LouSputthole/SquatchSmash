@@ -2,15 +2,19 @@
 
 Current automated state (August 1, 2026):
 
-- `npm test`: 104/104 repository tests, including 28 focused Silver Pines tests.
-- `npm run check`: 200 source files and all four manifests valid.
-- `npm run verify:golf`: 45/45 live browser checks from the real start button
+- `npm test`: 106/106 repository tests, including 30 focused Silver Pines tests.
+- `npm run check`: 201 source files and all four manifests valid.
+- `npm run verify:golf`: 60/60 live browser checks from the real start button
   through all three holes.
 - The verifier plays the real round with the game's real objects and solver,
   records all three holes, completes the mission, checks recovery and restart,
   and sees no browser console errors.
 - The live render now asserts the authored anchors on every rebuild. Hole 3 in
   particular must render `clubhouse` while its `lot` is null.
+- The equipment pass is now structural as well as visual: the driver has a
+  deep wood head, the iron a thin extruded blade, and the putter a flat blade;
+  all three use angled hosels, swap into NPC hands, and appear as complete,
+  fanned, head-up clubs in the rebuilt stand bag.
 
 ## Content still required
 

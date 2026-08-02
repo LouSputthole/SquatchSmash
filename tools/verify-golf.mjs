@@ -207,6 +207,46 @@ check('3. all four characters are in the scene',
   world.golfers.length === 3 && world.hasCourse,
   `${world.golfers.join(', ')} + the first-person Prospect`);
 
+const clubArt = await page.evaluate(() => {
+  const g = window.__golf;
+  const bag = g.scene.getObjectByName('three-club-stand-bag');
+  const inBag = (bag?.children || [])
+    .filter((child) => ['driver', 'iron', 'putter'].includes(child.userData.kind))
+    .map((model) => ({
+      kind: model.userData.kind,
+      head: model.getObjectByName(`club-head-${model.userData.kind}`)?.geometry?.type ?? null,
+      hosel: !!model.getObjectByName('club-hosel'),
+    }));
+
+  const golfer = g.golfers.erican;
+  const inHand = {};
+  for (const kind of ['driver', 'iron', 'putter']) {
+    golfer.setClub(kind);
+    inHand[kind] = {
+      head: golfer.club.getObjectByName(`club-head-${kind}`)?.geometry?.type ?? null,
+      hosel: !!golfer.club.getObjectByName('club-hosel'),
+    };
+  }
+  golfer.setClub('iron');
+  return {
+    bagParts: bag?.children.map((child) => child.name).filter(Boolean) ?? [],
+    inBag,
+    inHand,
+  };
+});
+check('3c. the live stand bag contains three complete, fanned clubs',
+  clubArt.inBag.map((club) => club.kind).sort().join(',') === 'driver,iron,putter'
+    && clubArt.inBag.every((club) => club.head && club.hosel)
+    && clubArt.bagParts.includes('bag-rim')
+    && clubArt.bagParts.includes('bag-front-pocket'),
+  JSON.stringify(clubArt.inBag));
+check('3d. every in-hand club swaps to its own head silhouette',
+  clubArt.inHand.driver.head === 'SphereGeometry'
+    && clubArt.inHand.iron.head === 'ExtrudeGeometry'
+    && clubArt.inHand.putter.head === 'BoxGeometry'
+    && Object.values(clubArt.inHand).every((club) => club.hosel),
+  JSON.stringify(clubArt.inHand));
+
 const audioBank = await page.evaluate(async () => {
   const g = window.__golf;
   const { GOLF_EFFECT_CUES } = await import('/src/golf/audio.js');

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 
 import {
   HOLES, COURSE_PAR, getHole, nextHole, scoreName, scoreBand, relativeLabel,
@@ -27,6 +28,7 @@ import { voiceProfileFor } from '../src/core/characters.js';
 import {
   GOLF_EFFECT_CUES, playRecordedGolfCue, recordedGolfClip,
 } from '../src/golf/audio.js';
+import { makeBag, makeClub } from '../src/golf/cast.js';
 
 /* These are the facts about the hole that the browser verifier cannot state
  * cheaply and that a careless edit to the layout would silently change. The
@@ -190,6 +192,60 @@ test('three clubs, and each one is for something different', () => {
   // The putter never leaves the ground, wherever it is used from.
   const putter = go('putter', 1);
   assert.ok(putter.apex < heightAt(TEE.x, TEE.z) + 0.4, 'the putter got airborne');
+});
+
+test('driver, iron and putter have three readable head silhouettes and angled hosels', () => {
+  const models = Object.fromEntries(CLUB_IDS.map((kind) => [kind, makeClub(kind)]));
+  const headSize = {};
+
+  for (const [kind, model] of Object.entries(models)) {
+    model.updateMatrixWorld(true);
+    const head = model.getObjectByName(`club-head-${kind}`);
+    const shaft = model.getObjectByName('club-shaft');
+    const hosel = model.getObjectByName('club-hosel');
+    assert.ok(head, `${kind} needs a named, inspectable head`);
+    assert.ok(shaft, `${kind} needs a shaft`);
+    assert.ok(hosel, `${kind} needs an angled hosel between shaft and head`);
+    assert.ok(model.userData.hoselOffset >= 0.05,
+      `${kind} shaft still enters the center of the head`);
+    headSize[kind] = new THREE.Box3().setFromObject(head).getSize(new THREE.Vector3());
+  }
+
+  assert.equal(models.driver.getObjectByName('club-head-driver').geometry.type, 'SphereGeometry');
+  assert.ok(headSize.driver.z > headSize.iron.z * 4,
+    'the driver needs a deep wood head rather than an iron-shaped block');
+  assert.equal(models.iron.getObjectByName('club-head-iron').geometry.type, 'ExtrudeGeometry');
+  assert.ok(headSize.iron.y > headSize.putter.y * 2.5 && headSize.iron.z < 0.07,
+    'the iron needs a tall, thin, angled blade');
+  assert.equal(models.putter.getObjectByName('club-head-putter').geometry.type, 'BoxGeometry');
+  assert.ok(headSize.putter.x > 0.20 && headSize.putter.y < 0.05,
+    'the putter needs a long, genuinely flat blade');
+});
+
+test('the stand bag contains three complete clubs with their heads above the rim', () => {
+  const scene = new THREE.Scene();
+  const bag = makeBag(scene, 0, 0);
+  bag.updateMatrixWorld(true);
+  const rim = bag.getObjectByName('bag-rim');
+  const clubs = bag.children.filter((child) => CLUB_IDS.includes(child.userData.kind));
+
+  assert.ok(rim, 'the bag needs a readable opening and rim');
+  assert.deepEqual(clubs.map((club) => club.userData.kind).sort(), [...CLUB_IDS].sort());
+  const rimY = rim.getWorldPosition(new THREE.Vector3()).y;
+  const headXs = [];
+  for (const club of clubs) {
+    const head = club.getObjectByName(`club-head-${club.userData.kind}`);
+    assert.ok(head, `${club.userData.kind} is only a bare shaft in the bag`);
+    const headPosition = head.getWorldPosition(new THREE.Vector3());
+    headXs.push(headPosition.x);
+    assert.ok(headPosition.y > rimY + 0.30,
+      `${club.userData.kind} head does not visibly clear the bag opening`);
+  }
+  assert.ok(Math.max(...headXs) - Math.min(...headXs) > 0.45,
+    'the three heads need to fan out instead of hiding in one clump');
+  assert.ok(bag.getObjectByName('bag-front-pocket'), 'the bag needs a front pocket silhouette');
+  assert.equal(bag.getObjectsByProperty('name', 'bag-stand-leg').length, 2,
+    'the stand bag needs both deployed legs');
 });
 
 test('the lie is most of what a shot costs', () => {
