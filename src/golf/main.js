@@ -70,6 +70,12 @@ const ui = {
   carry: document.querySelector('#shot .carry'),
   lie: document.querySelector('#shot .lie'),
   wind: document.querySelector('#shot .wind'),
+  guide: document.getElementById('golf-guide'),
+  guideTask: document.querySelector('#golf-guide .task'),
+  guideDetail: document.querySelector('#golf-guide .detail'),
+  waypoint: document.getElementById('golf-waypoint'),
+  waypointLabel: document.querySelector('#golf-waypoint .label'),
+  waypointDistance: document.querySelector('#golf-waypoint .distance'),
   meter: document.getElementById('meter'),
   meterFill: document.querySelector('#meter .fill'),
   meterMark: document.querySelector('#meter .mark'),
@@ -148,7 +154,13 @@ const hud = new Hud();
 const audio = new AudioEngine();
 const player = new Player(camera, course);
 player.position.set(HOLE.lot.playerStart.x, 1.66, HOLE.lot.playerStart.z);
-player.yaw = Math.PI;
+/* Face the actual opening action. The old PI heading looked directly away
+ * from Erican, the bag and the parked carts, which made a populated car park
+ * read as an empty field on the very first controllable frame. */
+player.yaw = Math.atan2(
+  HOLE.lot.playerStart.x - HOLE.lot.bag.x,
+  HOLE.lot.playerStart.z - HOLE.lot.bag.z,
+);
 player.mode = 'walk';
 
 const interaction = new InteractionSystem(camera, hud);
@@ -306,6 +318,207 @@ function paintCard() {
   ui.pin.textContent = d < 27 ? `${Math.round(toFeet(d))} ft` : `${Math.round(toYards(d))} yds`;
 }
 
+/* The authored scene can stay quiet; the interaction contract cannot. Each
+ * state names one verb and (when movement is required) one physical target.
+ * The pause screen reads this same state, so the persistent HUD and Tab never
+ * contradict one another. */
+function guideState() {
+  if (camMode === CAM.ADDRESS) {
+    if (swing.phase === SWING_PHASE.POWER) {
+      return {
+        task: 'Set your power',
+        detail: 'Click a second time near the power you want',
+        pause: 'Set the shot power with your second click.',
+      };
+    }
+    if (swing.phase === SWING_PHASE.STRIKE) {
+      return {
+        task: 'Hit the strike line',
+        detail: 'Click a third time when the marker reaches the center band',
+        pause: 'Time your third click inside the center strike band.',
+      };
+    }
+    return {
+      task: 'Aim your shot',
+      detail: 'Move the mouse · click once to start the swing',
+      pause: 'Aim with the mouse, then click once to start the three-click swing.',
+    };
+  }
+
+  if (round.needsRelief()) {
+    return {
+      task: 'Take a drop',
+      detail: 'Press R to place the ball somewhere playable',
+      pause: 'Press R to take a legal drop and continue the hole.',
+    };
+  }
+
+  switch (round.beat) {
+    case BEAT.LOT:
+      if (round.hasBag) {
+        return {
+          task: 'Join the group at the first tee',
+          detail: 'Carry the bag to the marked tee box',
+          pause: 'Carry the bag from the car park to the marked first tee.',
+          target: { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z, label: 'FIRST TEE' },
+        };
+      }
+      return {
+        task: 'Pick up the golf bag',
+        detail: 'Walk to the marked bag beside Erican · press E',
+        pause: 'Walk to the golf bag beside Erican and press E to pick it up.',
+        target: { x: bag.position.x, z: bag.position.z, y: bag.position.y + 1.25, label: 'GOLF BAG' },
+      };
+    case BEAT.WALK_TO_TEE:
+      return {
+        task: 'Join the group at the first tee',
+        detail: 'Carry the bag to the marked tee box',
+        pause: 'Carry the bag from the car park to the marked first tee.',
+        target: { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z, label: 'FIRST TEE' },
+      };
+    case BEAT.TEE_TALK:
+      if (dialogue.active && dialogue.options.length) {
+        return {
+          task: 'Answer Lou',
+          detail: 'Press the number beside the response you want',
+          pause: 'Answer Lou with the number key beside your chosen response.',
+        };
+      }
+      return {
+        task: 'Listen at the first tee',
+        detail: 'Stay with the group while the conversation finishes',
+        pause: 'Stay with the group and listen to the first-tee conversation.',
+      };
+    case BEAT.NPC_TEE:
+      return {
+        task: 'Watch the group tee off',
+        detail: 'Your turn is next · F skips shots after you have seen one',
+        pause: 'Watch Erican, Rippin and Lou tee off. F skips ahead after the first shot.',
+      };
+    case BEAT.PLAYER_TEE:
+      return {
+        task: 'Take your tee shot',
+        detail: 'Walk to your marked ball · press E to address it',
+        pause: 'Walk to your ball and press E. Aim with the mouse, then click three times to swing.',
+        target: {
+          x: round.playerBall.position.x, z: round.playerBall.position.z,
+          y: round.playerBall.position.y + 0.55, label: 'YOUR BALL',
+        },
+      };
+    case BEAT.TEE_RESULT:
+      return {
+        task: 'Watch your ball',
+        detail: 'The group will move when the tee-shot reaction finishes',
+        pause: 'Watch where the tee shot finishes, then follow the group to the carts.',
+      };
+    case BEAT.CART:
+      return {
+        task: 'Ride with Lou',
+        detail: dialogue.active && dialogue.options.length
+          ? 'Press the number beside your response'
+          : 'Look around and listen',
+        pause: 'Ride with Lou and listen. Use number keys when response choices appear.',
+      };
+    case BEAT.APPROACH:
+      return {
+        task: 'Play your ball into the cup',
+        detail: 'Walk to your marked ball · press E before every shot',
+        pause: 'Play your ball into the cup. Walk to it and press E before every shot.',
+        target: {
+          x: round.playerBall.position.x, z: round.playerBall.position.z,
+          y: round.playerBall.position.y + 0.55, label: 'YOUR BALL',
+        },
+      };
+    case BEAT.HOLE_OUT:
+    case BEAT.SCORECARD:
+      return {
+        task: 'Let the group finish',
+        detail: 'The scorecard comes next',
+        pause: 'Wait for the group to finish the hole and mark the scorecard.',
+      };
+    case BEAT.WALK_OFF:
+      return {
+        task: 'Return to the carts',
+        detail: 'Walk to the carts to finish this hole',
+        pause: 'Walk back to the carts to finish this hole.',
+        target: { x: HOLE.cartPark.x, z: HOLE.cartPark.z, label: 'CARTS' },
+      };
+    case BEAT.NEXT_TEE:
+      return {
+        task: 'Next hole', detail: 'The next tee is being set',
+        pause: 'The next tee is being set. The round will continue in a moment.',
+      };
+    case BEAT.DONE:
+      return { task: 'Round complete', detail: '', pause: 'The round is complete.' };
+    default:
+      return {
+        task: 'Stay with the group', detail: 'Follow the current golf card',
+        pause: 'Stay with Lou, Erican and Rippin and follow the current golf card.',
+      };
+  }
+}
+
+const _guideWorld = new THREE.Vector3();
+const _guideProjected = new THREE.Vector3();
+const _guideCamera = new THREE.Vector3();
+let _guideCopy = '';
+
+function paintGuide() {
+  if (!running || ended) {
+    ui.guide.classList.add('hidden');
+    ui.waypoint.classList.add('hidden');
+    return;
+  }
+
+  const state = guideState();
+  const copy = `${state.task}\n${state.detail}`;
+  if (copy !== _guideCopy) {
+    ui.guideTask.textContent = state.task;
+    ui.guideDetail.textContent = state.detail;
+    _guideCopy = copy;
+  }
+  ui.guide.classList.remove('hidden');
+
+  if (!state.target || camMode !== CAM.WALK) {
+    ui.waypoint.classList.add('hidden');
+    return;
+  }
+
+  const { target } = state;
+  const y = target.y ?? (heightAt(target.x, target.z) + 1.15);
+  _guideWorld.set(target.x, y, target.z);
+  camera.updateMatrixWorld();
+  _guideCamera.copy(_guideWorld).applyMatrix4(camera.matrixWorldInverse);
+  _guideProjected.copy(_guideWorld).project(camera);
+
+  const behind = _guideCamera.z >= -0.05;
+  let nx = _guideProjected.x;
+  let ny = _guideProjected.y;
+  if (behind) {
+    nx = _guideCamera.x >= 0 ? 1 : -1;
+    ny = -0.62;
+  }
+
+  const edgeX = 58;
+  const top = window.innerWidth <= 900 ? 168 : 88;
+  const bottom = 76;
+  const rawX = (nx * 0.5 + 0.5) * window.innerWidth;
+  const rawY = (-ny * 0.5 + 0.5) * window.innerHeight;
+  const x = Math.max(edgeX, Math.min(window.innerWidth - edgeX, rawX));
+  const yScreen = Math.max(top, Math.min(window.innerHeight - bottom, rawY));
+  const offscreen = behind || rawX !== x || rawY !== yScreen;
+  const distance = Math.hypot(player.position.x - target.x, player.position.z - target.z);
+
+  ui.waypoint.style.left = `${Math.round(x)}px`;
+  ui.waypoint.style.top = `${Math.round(yScreen)}px`;
+  ui.waypointLabel.textContent = target.label;
+  ui.waypointDistance.textContent = distance < 10
+    ? `${distance.toFixed(1)} m`
+    : `${Math.round(distance)} m`;
+  ui.waypoint.classList.toggle('offscreen', offscreen);
+  ui.waypoint.classList.remove('hidden');
+}
+
 function paintShot() {
   const c = getClub(club);
   const surface = round.playerSurface();
@@ -403,6 +616,16 @@ function onClick() {
   if (phase === SWING_PHASE.DONE) fireSwing();
 }
 
+function explainBlockedBall() {
+  if (!round.hasBag) return 'Pick up the golf bag beside Erican first.';
+  if (round.beat === BEAT.TEE_TALK) return 'Stay with Lou. The first-tee conversation is not finished.';
+  if (round.beat === BEAT.NPC_TEE) return 'Wait for Erican, Rippin and Lou. Your turn is next.';
+  if (round.beat === BEAT.TEE_RESULT) return 'Watch where that shot finishes. The group will move next.';
+  if (round.playerBall.moving) return 'Wait for the ball to stop.';
+  if (round.playerBall.state === BALL_STATE.HOLED) return 'That ball is already in the cup.';
+  return 'It is not your turn to play this ball yet.';
+}
+
 window.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   if (document.pointerLockElement !== canvas) return;
@@ -452,7 +675,11 @@ window.addEventListener('keydown', (e) => {
   switch (e.code) {
     case 'KeyE':
       if (camMode === CAM.ADDRESS) return;
-      if (round.canAddress() && nearBall()) { enterAddress(); return; }
+      if (nearBall()) {
+        if (round.canAddress()) { enterAddress(); return; }
+        hud.toast(explainBlockedBall(), 'hint', 3800);
+        return;
+      }
       interaction.press();
       break;
     case 'Escape':
@@ -626,24 +853,7 @@ let booting = false;
 let paused = false;
 
 function currentObjective() {
-  switch (round.beat) {
-    case BEAT.LOT: return 'Walk to the golf bag beside Erican and press E to pick it up.';
-    case BEAT.WALK_TO_TEE: return 'Carry the bag from the car park to the first tee and join the group.';
-    case BEAT.TEE_TALK: return dialogue.active
-      ? 'Listen to Lou. When answers appear, press the matching number key.'
-      : 'Stay with the group while the first-tee conversation finishes.';
-    case BEAT.NPC_TEE: return 'Watch Erican, Rippin and Lou tee off. Press F only if you want to skip ahead.';
-    case BEAT.PLAYER_TEE: return 'Walk to your ball, press E to address it, aim with the mouse, then click three times to swing.';
-    case BEAT.TEE_RESULT: return 'Watch where your tee shot finishes, then follow the group to the carts.';
-    case BEAT.CART: return 'Ride with Lou and listen. Number keys answer him when choices appear.';
-    case BEAT.APPROACH: return 'Play your ball into the cup. Walk to it and press E before every shot.';
-    case BEAT.HOLE_OUT:
-    case BEAT.SCORECARD: return 'Wait for the group to finish the hole and mark the scorecard.';
-    case BEAT.WALK_OFF: return 'Walk back to the carts to finish this hole.';
-    case BEAT.NEXT_TEE: return 'The next tee is being set. The round will continue in a moment.';
-    case BEAT.DONE: return 'The round is complete.';
-    default: return 'Stay with Lou, Erican and Rippin and follow the current golf card.';
-  }
+  return guideState().pause;
 }
 
 const pauseMenu = createPauseMenu({
@@ -742,6 +952,7 @@ function frame() {
 
   audio.updateListener(camera);
   paintCard();
+  paintGuide();
   renderer.render(scene, camera);
 }
 
@@ -785,6 +996,10 @@ async function boot() {
 
   loading?.classList.add('hidden');
   overlay.classList.add('hidden');
+  /* Shared HUD styling is opt-in through body.playing. Without this class the
+   * card, dialogue, interaction prompts, swing meter and all guidance exist in
+   * the DOM at opacity zero — logic tests pass while a human sees nothing. */
+  document.body.classList.add('playing');
   document.getElementById('hud')?.setAttribute('aria-hidden', 'false');
   ui.card.classList.remove('hidden');
 
@@ -793,6 +1008,7 @@ async function boot() {
   running = true;
   round.begin();
   paintCard();
+  paintGuide();
   booting = false;
 }
 

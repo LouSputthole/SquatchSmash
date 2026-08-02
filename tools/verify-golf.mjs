@@ -133,6 +133,60 @@ check('1d. Tab returns control to the round',
   !resumedFromTab.paused && resumedFromTab.hidden,
   JSON.stringify(resumedFromTab));
 
+/* Shared HUD visibility fades in; assert the settled player-facing state,
+ * not an arbitrary point inside its 400 ms presentation transition. */
+await page.waitForTimeout(450);
+const openingGuide = await page.evaluate(() => {
+  const g = window.__golf;
+  g.camera.updateMatrixWorld();
+  const forward = new g.player.position.constructor();
+  g.camera.getWorldDirection(forward);
+  const toBag = new g.player.position.constructor(
+    g.LAYOUT.lot.bag.x - g.camera.position.x,
+    0,
+    g.LAYOUT.lot.bag.z - g.camera.position.z,
+  ).normalize();
+  const guide = document.getElementById('golf-guide');
+  const waypoint = document.getElementById('golf-waypoint');
+  return {
+    hudOpacity: Number(getComputedStyle(document.getElementById('hud')).opacity),
+    guideVisible: !!guide && !guide.classList.contains('hidden'),
+    task: guide?.querySelector('.task')?.textContent?.trim() || '',
+    detail: guide?.querySelector('.detail')?.textContent?.trim() || '',
+    waypointVisible: !!waypoint && !waypoint.classList.contains('hidden'),
+    waypointLabel: waypoint?.querySelector('.label')?.textContent?.trim() || '',
+    facingBag: forward.dot(toBag),
+  };
+});
+check('1e. control opens facing the group and the golf bag',
+  openingGuide.facingBag > 0.75,
+  `camera/target alignment ${openingGuide.facingBag.toFixed(2)}`);
+check('1e2. the gameplay HUD is actually visible after control begins',
+  openingGuide.hudOpacity > 0.9,
+  `computed opacity ${openingGuide.hudOpacity}`);
+check('1f. the first required action stays visible without opening a menu',
+  openingGuide.guideVisible
+    && /golf bag/i.test(`${openingGuide.task} ${openingGuide.detail}`)
+    && /press e/i.test(openingGuide.detail),
+  JSON.stringify(openingGuide));
+check('1g. the golf bag has a visible waypoint from spawn',
+  openingGuide.waypointVisible && /golf bag/i.test(openingGuide.waypointLabel),
+  JSON.stringify(openingGuide));
+
+const blockedBall = await page.evaluate(() => {
+  const g = window.__golf;
+  const start = { x: g.player.position.x, z: g.player.position.z };
+  const b = g.round.playerBall.position;
+  g.teleport(b.x, b.z + 1);
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
+  const feedback = [...document.querySelectorAll('#toast-stack .toast')]
+    .map((el) => el.textContent.trim()).join(' | ');
+  g.teleport(start.x, start.z);
+  return feedback;
+});
+check('1h. trying the ball early explains the missing prerequisite',
+  /bag/i.test(blockedBall), blockedBall || 'no feedback');
+
 /* ------------------------------------------------------------------ */
 /* 1–4 · the scene, the cast, the bag                                  */
 /* ------------------------------------------------------------------ */
@@ -174,6 +228,21 @@ const bagCheck = await page.evaluate(() => {
 });
 check('4. the bag holds a driver, an iron and a putter',
   !bagCheck.before && bagCheck.after);
+
+await page.waitForTimeout(100);
+const teeGuide = await page.evaluate(() => {
+  const guide = document.getElementById('golf-guide');
+  const waypoint = document.getElementById('golf-waypoint');
+  return {
+    task: guide?.querySelector('.task')?.textContent?.trim() || '',
+    detail: guide?.querySelector('.detail')?.textContent?.trim() || '',
+    waypointLabel: waypoint?.querySelector('.label')?.textContent?.trim() || '',
+  };
+});
+check('4c. picking up the bag immediately redirects the player to the first tee',
+  /first tee/i.test(`${teeGuide.task} ${teeGuide.detail}`)
+    && /first tee/i.test(teeGuide.waypointLabel),
+  JSON.stringify(teeGuide));
 
 const clubList = await page.evaluate(async () => {
   const m = await import('/src/golf/clubs.js');
@@ -269,6 +338,21 @@ check('19. all three NPC tee shots complete',
   npcPlayed.beat === 'player_tee' && npcPlayed.strokes.every((s) => s === 1),
   `beat: ${npcPlayed.beat}, strokes: ${npcPlayed.strokes.join('/')}`);
 
+await page.waitForTimeout(100);
+const playerTurnGuide = await page.evaluate(() => {
+  const guide = document.getElementById('golf-guide');
+  const waypoint = document.getElementById('golf-waypoint');
+  return {
+    text: guide?.textContent?.trim() || '',
+    waypointLabel: waypoint?.querySelector('.label')?.textContent?.trim() || '',
+  };
+});
+check('19d. the HUD clearly announces the player turn and marks the ball',
+  /your tee shot|take your tee shot/i.test(playerTurnGuide.text)
+    && /press e/i.test(playerTurnGuide.text)
+    && /your ball/i.test(playerTurnGuide.waypointLabel),
+  JSON.stringify(playerTurnGuide));
+
 /* ------------------------------------------------------------------ */
 /* 5–12 · the swing and the ball                                       */
 /* ------------------------------------------------------------------ */
@@ -281,6 +365,24 @@ const address = await page.evaluate(() => {
   return { ok, mode: g.camMode, canAddress: g.round.canAddress() };
 });
 check('5. the player can address the ball', address.ok && address.mode === 'address');
+
+await page.waitForTimeout(100);
+const addressGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
+check('5b. addressing the ball teaches the first swing click',
+  /aim/i.test(addressGuide) && /click once/i.test(addressGuide), addressGuide);
+
+await page.evaluate(() => window.__golf.swing.click());
+await page.waitForTimeout(100);
+const powerGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
+check('5c. the live swing coach teaches the power click',
+  /power/i.test(powerGuide) && /second/i.test(powerGuide), powerGuide);
+
+await page.evaluate(() => window.__golf.swing.click());
+await page.waitForTimeout(100);
+const strikeGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
+check('5d. the live swing coach teaches the strike click',
+  /strike/i.test(strikeGuide) && /third/i.test(strikeGuide), strikeGuide);
+await page.evaluate(() => window.__golf.swing.reset());
 
 const aimed = await page.evaluate(() => {
   const g = window.__golf;

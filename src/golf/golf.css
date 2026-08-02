@@ -49,6 +49,71 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
   font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums;
 }
 
+/* ---------------- live objective + waypoint ---------------- */
+
+#golf-guide {
+  position: absolute; top: 18px; left: 50%; z-index: 8;
+  transform: translateX(-50%);
+  width: min(430px, calc(100vw - 540px));
+  min-width: 330px;
+  padding: 9px 15px 10px;
+  color: var(--pines-cream);
+  text-align: center;
+  background: rgba(13, 27, 17, 0.88);
+  border: 1px solid var(--pines-line);
+  border-top: 2px solid var(--pines-purple);
+  border-radius: 4px;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+#golf-guide.hidden { display: none; }
+#golf-guide .cap {
+  font-size: 9px; font-weight: 800; letter-spacing: 2.8px;
+  color: #c8aff8; opacity: 0.9;
+}
+#golf-guide .task {
+  margin-top: 2px; font-size: 16px; font-weight: 900; letter-spacing: 0.5px;
+}
+#golf-guide .detail {
+  margin-top: 2px; font-size: 11px; letter-spacing: 0.65px; opacity: 0.72;
+}
+
+#golf-waypoint {
+  position: fixed; left: 50%; top: 50%; z-index: 7;
+  transform: translate(-50%, -50%);
+  display: grid; grid-template-columns: 15px auto auto;
+  gap: 6px; align-items: center;
+  padding: 5px 9px 5px 7px;
+  border-radius: 3px;
+  color: var(--pines-cream);
+  background: rgba(13, 27, 17, 0.82);
+  border: 1px solid rgba(236, 234, 223, 0.28);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  white-space: nowrap; pointer-events: none;
+}
+#golf-waypoint.hidden { display: none; }
+#golf-waypoint i {
+  width: 9px; height: 9px;
+  border: 2px solid #c9affd;
+  transform: rotate(45deg);
+  box-shadow: 0 0 7px rgba(154, 111, 240, 0.72);
+}
+#golf-waypoint.offscreen i {
+  background: var(--pines-purple);
+}
+#golf-waypoint .label {
+  font-size: 10px; font-weight: 900; letter-spacing: 1.3px;
+}
+#golf-waypoint .distance {
+  font-size: 10px; font-variant-numeric: tabular-nums; opacity: 0.58;
+}
+
+@media (max-width: 900px) {
+  #golf-guide {
+    top: 96px; width: min(430px, calc(100vw - 36px)); min-width: 0;
+  }
+}
+
 /* ---------------- over the ball ---------------- */
 
 #shot {
