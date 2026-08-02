@@ -134,6 +134,19 @@ test('Space is a hold-to-deploy air brake and clears without latching', () => {
   assert.equal(controls.airBrake, 0);
 });
 
+test('a generic Chrome Shift event raises and releases the throttle', () => {
+  const input = new FlightInput();
+  input.pollGamepad = () => null;
+
+  input.keyEvent({ key: 'Shift', code: '' }, true);
+  input.update(0.5);
+  assert.ok(input.keys.has('Shift'));
+  assert.ok(input.throttle > 0.3, `Shift throttle was ${input.throttle}`);
+
+  input.keyEvent({ key: 'Shift', code: '' }, false);
+  assert.ok(!input.keys.has('Shift'));
+});
+
 test('Q and E use the corrected cockpit rudder polarity', () => {
   const q = new FlightInput();
   q.rudderKeys = true;

@@ -41,6 +41,24 @@ export class FlightInput {
     }
   }
 
+  /**
+   * Record a browser keyboard event without depending on its physical key
+   * code.  Chrome normally exposes ShiftLeft/ShiftRight, but a few focus and
+   * accessibility paths expose only the logical modifier name.  Treat either
+   * one as the same throttle control.
+   * @param {{ key?: string, code?: string }} event
+   * @param {boolean} down
+   * @returns {string} the normalized control code
+   */
+  keyEvent(event, down) {
+    const key = event?.key;
+    const code = key === 'Shift' ? 'Shift'
+      : key === 'Control' ? 'Control'
+        : event?.code || key || '';
+    if (code) this.key(code, down);
+    return code;
+  }
+
   action(code) {
     const map = {
       KeyC: 'camera', KeyE: 'interact', KeyB: 'brakeToggle',
@@ -126,9 +144,13 @@ export class FlightInput {
           this.axes[axis] = clamp(this.axes[axis] + Math.sign(target) * RATE[axis] * dt, -1, 1);
         }
       }
-      // Throttle on Shift / Control, and it moves like a lever.
-      const up = k.has('ShiftLeft') || k.has('ShiftRight');
-      const down = k.has('ControlLeft') || k.has('ControlRight');
+      /* Throttle on Shift / Control, and it moves like a lever.  Chrome
+       * normally supplies a physical left/right `code`, but virtual
+       * keyboards, accessibility layers, and a few browser focus paths only
+       * expose the logical modifier name.  Accept both representations so a
+       * pilot is never stuck at idle because the browser omitted a side. */
+      const up = k.has('Shift') || k.has('ShiftLeft') || k.has('ShiftRight');
+      const down = k.has('Control') || k.has('ControlLeft') || k.has('ControlRight');
       if (up) this.throttle = clamp(this.throttle + dt * 0.75, 0, 1);
       if (down) this.throttle = clamp(this.throttle - dt * 0.75, 0, 1);
       this.brake = k.has('KeyB') ? 1 : 0;

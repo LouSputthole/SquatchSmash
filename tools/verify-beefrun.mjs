@@ -275,20 +275,46 @@ try {
     }));
     const menu = document.querySelector('[data-scene-pause]');
     const button = [...(menu?.querySelectorAll('button') || [])]
-      .find((candidate) => candidate.textContent.trim() === 'Restart from checkpoint');
+      .find((candidate) => candidate.textContent.trim() === 'Restart scene');
     const state = {
       checkpoint: b.mission.checkpoint,
       opened: !!menu && !menu.classList.contains('hidden'),
-      restartHidden: !!button && (button.hidden || button.disabled),
+      restartVisible: !!button && !button.hidden && !button.disabled,
     };
     window.__scenePause?.resume();
     state.closed = !!menu && menu.classList.contains('hidden');
     return state;
   });
-  check('restart stays unavailable until the first real flight checkpoint',
+  check('Tab always exposes a scene restart before the first flight checkpoint',
     earlyRestart.checkpoint === null
-      && earlyRestart.opened && earlyRestart.restartHidden && earlyRestart.closed,
+      && earlyRestart.opened && earlyRestart.restartVisible && earlyRestart.closed,
     JSON.stringify(earlyRestart));
+
+  const genericChromeShift = await page.evaluate(() => {
+    const b = window.__beefrun;
+    b.input.clear();
+    b.input.usingGamepad = false;
+    b.input.enabled = true;
+    b.input.throttle = 0;
+    /* Exercise the same event normalizer the document listener uses. Browser
+     * automation's synthetic events do not always cross pointer-lock focus,
+     * so direct dispatch here would test Playwright rather than the control. */
+    b.input.keyEvent(new KeyboardEvent('keydown', {
+      code: '', key: 'Shift', bubbles: true, cancelable: true,
+    }), true);
+    b.input.update(.5);
+    const held = b.input.keys.has('Shift');
+    const throttle = b.input.throttle;
+    b.input.keyEvent(new KeyboardEvent('keyup', {
+      code: '', key: 'Shift', bubbles: true, cancelable: true,
+    }), false);
+    const released = !b.input.keys.has('Shift');
+    b.input.clear();
+    return { held, throttle, released };
+  });
+  check('a generic Chrome Shift modifier raises throttle and releases cleanly',
+    genericChromeShift.held && genericChromeShift.throttle > .3 && genericChromeShift.released,
+    JSON.stringify(genericChromeShift));
 
   const eye = await page.evaluate(() => {
     const p = window.__beefrun.player;
@@ -1333,8 +1359,8 @@ const chain = await page.evaluate(() => {
     JSON.stringify(restartGuard));
   check('every Beef Run control card points restart through the pause menu',
     restartGuard.pauseInstructions.some((line) => /use the button in this menu/i.test(line))
-      && restartGuard.titleControls.some((line) => /Tab.*restart from checkpoint/i.test(line))
-      && restartGuard.flightControls.some((line) => /Tab.*restart menu/i.test(line)),
+      && restartGuard.titleControls.some((line) => /Tab.*restart/i.test(line))
+      && restartGuard.flightControls.some((line) => /Tab.*restart/i.test(line)),
     JSON.stringify({ pause: restartGuard.pauseInstructions,
       title: restartGuard.titleControls, flight: restartGuard.flightControls }));
 

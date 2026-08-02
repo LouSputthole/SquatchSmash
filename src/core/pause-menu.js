@@ -147,7 +147,7 @@ function read(value, fallback = '') {
  * @param {function(): void} options.onPause
  * @param {function(): void} options.onResume
  * @param {function(): void} [options.onRestart]
- * @param {string} [options.restartLabel]
+ * @param {string|function(): string} [options.restartLabel]
  * @param {function(): boolean} [options.canRestart]
  * @param {{label: string, onSelect: function(): void, secondary?: boolean, close?: boolean}[]} [options.actions]
  */
@@ -225,6 +225,7 @@ export function createPauseMenu({
     objective.textContent = read(getObjective, 'Review the instructions, then return when you are ready.');
     if (restartButton) {
       const available = Boolean(canRestart());
+      restartButton.textContent = read(restartLabel, 'Restart scene');
       restartButton.disabled = !available;
       restartButton.hidden = !available;
       restartButton.setAttribute('aria-hidden', String(!available));

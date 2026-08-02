@@ -260,6 +260,11 @@ let dragLook = false;
 let dragging = false;
 
 function requestLock() {
+  /* Keyboard flight controls do not actually require pointer lock.  Enable
+   * them before Chrome settles the pointer-lock promise, otherwise a browser
+   * that rejects or delays the lock can leave Shift apparently dead for the
+   * first part of a cockpit run. */
+  input.enabled = true;
   if (dragLook) { enableInput(); return; }
   const p = canvas.requestPointerLock?.();
   if (p && p.catch) p.catch(() => fallBackToDragLook());
@@ -310,7 +315,7 @@ const pauseMenu = createPauseMenu({
     'In the aircraft: W/S — pitch. A/D — roll. Q/E — rudder.',
     'Shift/Ctrl — throttle. F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop each engine.',
-    'C — camera. Restart from checkpoint — use the button in this menu.',
+    'C — camera. Restart scene / checkpoint — use the button in this menu.',
     'Tab — pause or resume.',
   ],
   onPause: () => {
@@ -332,9 +337,15 @@ const pauseMenu = createPauseMenu({
     last = performance.now();
     requestLock();
   },
-  onRestart: () => mission.requestRestart(),
-  restartLabel: 'Restart from checkpoint',
-  canRestart: () => Boolean(mission.checkpoint),
+  /* There is always a recoverable choice in Tab: before flight creates a
+   * checkpoint it restarts the scene; afterwards it restores the authored
+   * checkpoint. Raw R remains deliberately inert. */
+  onRestart: () => {
+    if (mission.checkpoint) mission.requestRestart();
+    else window.location.reload();
+  },
+  restartLabel: () => mission.checkpoint ? 'Restart from checkpoint' : 'Restart scene',
+  canRestart: () => game.started && !mission.finished,
 });
 
 /* ------------------------------------------------------------------ */
@@ -361,21 +372,32 @@ document.addEventListener('mouseup', (e) => {
   if (!mission.flags.inCockpit) interaction.release();
 });
 
+/* Capture at document rather than the window. It still wins over focused UI
+ * controls, while matching the real keyboard dispatch path Chrome uses for
+ * the game canvas and accessibility-focused document. */
 document.addEventListener('keydown', (e) => {
   if (!game.started) return;
   if (e.code === 'Escape') return;             // pointer lock handles this
   if (game.paused) return;
   if (e.repeat) return;
-  if (e.code === 'Space') e.preventDefault();
+  const code = input.keyEvent(e, true);
+  if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
   player.setKey(e.code, true);
-  input.key(e.code, true);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.press();
-});
+}, true);
 
 document.addEventListener('keyup', (e) => {
+  const code = input.keyEvent(e, false);
   player.setKey(e.code, false);
-  input.key(e.code, false);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.release();
+}, true);
+
+/* Do not keep a modifier pressed if Chrome moves focus to its UI or another
+ * tab while the player is holding it. */
+window.addEventListener('blur', () => {
+  dragging = false;
+  player.clearKeys();
+  input.clear();
 });
 
 input.onAction = (name) => {
