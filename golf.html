@@ -64,6 +64,24 @@
     </div>
   </div>
 
+  <!-- The round is intentionally conversational, but its verbs cannot be.
+       This remains visible while the player has control and changes at every
+       mission handoff: bag, tee, ball, swing and recovery. -->
+  <div id="golf-guide" class="hidden" role="status" aria-live="polite">
+    <div class="cap">WHAT TO DO</div>
+    <div class="task"></div>
+    <div class="detail"></div>
+  </div>
+
+  <!-- Projected from the live target in main.js. It clamps to the screen edge
+       when the target is off camera, so turning the wrong way never removes
+       the player's only clue. -->
+  <div id="golf-waypoint" class="hidden" aria-hidden="true">
+    <i></i>
+    <span class="label"></span>
+    <span class="distance"></span>
+  </div>
+
   <!-- Only while he is over the ball. -->
   <div id="shot" class="hidden">
     <div class="club">IRON</div>
