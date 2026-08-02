@@ -486,15 +486,57 @@ check('5b. addressing the ball teaches the first swing click',
 
 await page.evaluate(() => window.__golf.swing.click());
 await page.waitForTimeout(100);
-const powerGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
+const powerHud = await page.evaluate(() => {
+  const meter = document.getElementById('meter');
+  return {
+    guide: document.getElementById('golf-guide')?.textContent?.trim() || '',
+    visible: !meter?.classList.contains('hidden'),
+    ideal: meter?.querySelector('.ideal')?.textContent?.trim() || '',
+    risk: meter?.querySelector('.risk-copy')?.textContent?.trim() || '',
+    targetLeft: meter?.querySelector('.target')?.style.left || '',
+    riskWidth: meter?.querySelector('.risk-zone')?.style.width || '',
+  };
+});
 check('5c. the live swing coach teaches the power click',
-  /power/i.test(powerGuide) && /second/i.test(powerGuide), powerGuide);
+  /power/i.test(powerHud.guide) && /second/i.test(powerHud.guide), powerHud.guide);
+check('5e. the power meter shows both the ideal target and overswing zone',
+  powerHud.visible && /ideal \d+%/i.test(powerHud.ideal)
+    && /overswing \d+%\+/i.test(powerHud.risk)
+    && /%$/.test(powerHud.targetLeft) && parseFloat(powerHud.riskWidth) > 0,
+  JSON.stringify(powerHud));
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.waitForTimeout(120);
+await fsp.mkdir(path.join(ROOT, 'docs', 'validation', 'golf'), { recursive: true });
+await page.screenshot({
+  path: path.join(ROOT, 'docs', 'validation', 'golf', '08-swing-power.png'),
+});
+await page.setViewportSize({ width: 480, height: 300 });
 
 await page.evaluate(() => window.__golf.swing.click());
 await page.waitForTimeout(100);
-const strikeGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
+const strikeHud = await page.evaluate(() => ({
+  guide: document.getElementById('golf-guide')?.textContent?.trim() || '',
+  left: document.querySelector('#meter .ideal')?.textContent?.trim() || '',
+  right: document.querySelector('#meter .risk-copy')?.textContent?.trim() || '',
+}));
 check('5d. the live swing coach teaches the strike click',
-  /strike/i.test(strikeGuide) && /third/i.test(strikeGuide), strikeGuide);
+  /strike/i.test(strikeHud.guide) && /third/i.test(strikeHud.guide), strikeHud.guide);
+check('5f. the strike meter teaches the direction of early and late misses',
+  /late.*draw.*hook/i.test(strikeHud.left) && /early.*fade.*slice/i.test(strikeHud.right),
+  JSON.stringify(strikeHud));
+/* Freeze only the verifier's evidence frame. A 1280px software-rendered
+ * screenshot can take longer than the entire return sweep; allowing that time
+ * to advance would auto-fire a shot while the harness is photographing it. */
+await page.evaluate(() => {
+  window.__golf.swing.marker = Math.max(0.45, window.__golf.swing.marker);
+  window.__golf.swing.strikeSpeed = 0;
+});
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.waitForTimeout(80);
+await page.screenshot({
+  path: path.join(ROOT, 'docs', 'validation', 'golf', '09-swing-strike.png'),
+});
+await page.setViewportSize({ width: 480, height: 300 });
 await page.evaluate(() => window.__golf.swing.reset());
 
 const aimed = await page.evaluate(() => {
@@ -519,6 +561,23 @@ const meter = await page.evaluate(async () => {
 check('7. the swing meter completes',
   meter.phase === 'done' && meter.result && meter.power > 0.3,
   `power ${meter.power.toFixed(2)}, accuracy ${meter.accuracy.toFixed(2)}`);
+
+const tempo = await page.evaluate(async () => {
+  const { controlWindow, resolveStrike, shotShape } = await import('/src/golf/swing.js');
+  const safe = controlWindow({ club: 'driver', power: 0.82, lieSpread: 0 });
+  const hard = controlWindow({ club: 'driver', power: 1, lieSpread: 0 });
+  const centered = resolveStrike({ club: 'driver', power: 1, strike: 0 });
+  const early = resolveStrike({ club: 'driver', power: 1, strike: 0.15 });
+  return {
+    narrower: hard.deadZone < safe.deadZone,
+    faster: hard.strikeSpeed > safe.strikeSpeed,
+    centered: shotShape(centered.accuracy),
+    early: shotShape(early.accuracy),
+  };
+});
+check('7b. overswinging makes the timing harder and produces golf shot shapes',
+  tempo.narrower && tempo.faster && tempo.centered === 'fade' && tempo.early === 'slice',
+  JSON.stringify(tempo));
 
 const ranges = await page.evaluate(async () => {
   const { Ball } = await import('/src/golf/ball.js');

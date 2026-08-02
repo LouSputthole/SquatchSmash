@@ -164,20 +164,45 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
 /* ---------------- the swing meter ---------------- */
 
 #meter {
-  position: absolute; left: 50%; bottom: 84px;
+  position: absolute; left: 50%; bottom: clamp(118px, 19vh, 150px);
   transform: translateX(-50%);
-  width: 320px; text-align: center;
+  width: min(390px, calc(100vw - 40px)); text-align: center;
 }
 #meter.hidden { display: none; }
 #meter .track {
-  position: relative; height: 15px;
+  position: relative; height: 18px;
   background: rgba(10, 18, 12, 0.72);
   border: 1px solid var(--pines-line);
-  border-radius: 8px; overflow: hidden;
+  border-radius: 9px; overflow: hidden;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+}
+#meter .late-zone {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: rgba(143, 49, 41, 0.24);
+  border-right: 1px solid rgba(236, 234, 223, 0.42);
+}
+#meter .risk-zone {
+  position: absolute; top: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(217, 84, 46, 0.30) 0,
+    rgba(217, 84, 46, 0.30) 5px,
+    rgba(217, 84, 46, 0.12) 5px,
+    rgba(217, 84, 46, 0.12) 10px);
+  border-left: 1px solid rgba(255, 185, 94, 0.72);
 }
 #meter .fill {
   position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
   background: linear-gradient(90deg, #4f8f43, #d7c24a 72%, #d9542e 100%);
+  opacity: 0.92;
+}
+#meter.strike .fill { opacity: 0.38; }
+#meter .target {
+  position: absolute; top: -2px; bottom: -2px; width: 3px;
+  background: #75e39b;
+  box-shadow: 0 0 8px rgba(117, 227, 155, 0.95);
+  transform: translateX(-1.5px);
+  z-index: 2;
 }
 /* The line the strike is measured against, with the forgiving middle drawn
  * around it so a player can see the size of the target he is being given.
@@ -189,16 +214,35 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
   background: rgba(236, 234, 223, 0.20);
   border-left: 1px solid rgba(236, 234, 223, 0.45);
   border-right: 2px solid var(--pines-cream);
+  z-index: 2;
 }
+#meter:not(.strike) .line { opacity: 0; }
+#meter.strike .target { opacity: 0; }
+#meter.strike .risk-zone { opacity: 0.15; }
 #meter .mark {
   position: absolute; top: -3px; bottom: -3px; width: 3px;
   background: var(--pines-cream);
   box-shadow: 0 0 7px rgba(255, 255, 255, 0.75);
   transform: translateX(-1.5px);
+  z-index: 3;
 }
 #meter.strike .mark { background: #ffd75e; box-shadow: 0 0 9px rgba(255, 215, 94, 0.9); }
+#meter.overswing .mark {
+  background: #ff9a62;
+  box-shadow: 0 0 10px rgba(255, 104, 66, 0.95);
+}
+#meter .readout {
+  display: flex; justify-content: space-between; gap: 12px;
+  margin-top: 5px; min-height: 12px;
+  font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; text-shadow: 0 2px 5px rgba(0, 0, 0, 0.9);
+}
+#meter .ideal { color: #8cf0ad; }
+#meter .risk-copy { color: #ffad77; }
+#meter.strike .ideal { color: #dba28e; }
+#meter.strike .risk-copy { color: #ffbd7d; }
 #meter .hint {
-  margin-top: 5px; font-size: 11px; letter-spacing: 2.4px;
+  margin-top: 3px; font-size: 11px; letter-spacing: 2.1px;
   color: var(--pines-cream); opacity: 0.75;
   text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
 }

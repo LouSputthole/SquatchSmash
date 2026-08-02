@@ -144,6 +144,28 @@ export function estimateCarry(club, power, lie) {
   return vacuum * FLIGHT_EFFICIENCY;
 }
 
+/**
+ * Recommended meter position for a requested carry/roll distance.
+ *
+ * This intentionally solves against the same approximate range the HUD shows,
+ * not the hidden trajectory integrator. It is a planning aid rather than an
+ * aim bot, and remains honest when the lie or club changes.
+ */
+export function powerForCarry(club, distance, lie) {
+  const wanted = Math.max(0, Number.isFinite(distance) ? distance : 0);
+  if (wanted <= 0) return 0;
+  if (estimateCarry(club, 1, lie) <= wanted) return 1;
+
+  let low = 0;
+  let high = 1;
+  for (let i = 0; i < 24; i++) {
+    const mid = (low + high) * 0.5;
+    if (estimateCarry(club, mid, lie) < wanted) low = mid;
+    else high = mid;
+  }
+  return (low + high) * 0.5;
+}
+
 /* Carry as a fraction of the vacuum range, once drag and lift have had their
  * say. Measured against the real integrator in tools/verify-golf.mjs; if the
  * flight model changes, this number is expected to change with it. */
