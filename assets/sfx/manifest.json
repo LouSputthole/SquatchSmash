@@ -2898,12 +2898,16 @@
     {
       "name": "vo.call.lou.bing_second.2",
       "voice": "lou1",
-      "say": "I have another assignment. This one starts in person."
+      "say": "Billy HotDog is home. Closed party. Family only.",
+      "needsRerecord": true,
+      "_note": "Existing take contains the retired assignment wording. Replace it with this current HotDog-party line, then remove needsRerecord."
     },
     {
       "name": "vo.call.lou.bing_second.3",
       "voice": "lou1",
-      "say": "Bring nothing and come straight to the back office."
+      "say": "Bring nothing. Come through the front and keep your phone in your pocket.",
+      "needsRerecord": true,
+      "_note": "Existing take contains the retired back-office wording. Replace it with this current arrival instruction, then remove needsRerecord."
     },
     {
       "name": "vo.call.lou.bing_second.4",
@@ -2919,8 +2923,10 @@
     {
       "name": "vo.call.lou.bing_second.tony.2",
       "voice": "player",
-      "say": "In person. Understood.",
-      "duration": 2.5
+      "say": "Closed party. Understood.",
+      "duration": 2.5,
+      "needsRerecord": true,
+      "_note": "Existing take says the retired in-person reply. Replace it with this current closed-party reply, then remove needsRerecord."
     },
     {
       "name": "vo.call.lou.bing_second.tony.3",
@@ -3646,12 +3652,16 @@
     {
       "name": "vo.silver.margo.bandleader.her-pick",
       "voice": "margo",
-      "say": "Horns. All of them. I don’t want a backing track, I want to watch seven people be slightly out of breath."
+      "say": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling.",
+      "needsRerecord": true,
+      "_note": "Existing take contains the retired horns/backing-track request. Replace it with this Bananaphone line, then remove needsRerecord."
     },
     {
       "name": "vo.silver.margo.bandleader.horns",
       "voice": "margo",
-      "say": "How did you — I said that in the car. I said one sentence about horns in a car nine blocks long."
+      "say": "You came prepared to say that out loud. Fine. If he smiles, it doesn’t count.",
+      "needsRerecord": true,
+      "_note": "Existing take refers to the retired horn request. Replace it with this Bananaphone reaction, then remove needsRerecord."
     },
     {
       "name": "vo.silver.margo.bark.alley.1",
@@ -4246,7 +4256,9 @@
     {
       "name": "vo.silver.player.bandleader.open.1e0ys9u",
       "voice": "player",
-      "say": "Something with the horns. All of them."
+      "say": "Bananaphone. Straight. Like it’s Carnegie Hall.",
+      "needsRerecord": true,
+      "_note": "Existing take asks for all the horns. Replace it with this Bananaphone request, then remove needsRerecord."
     },
     {
       "name": "vo.silver.player.bandleader.open.cmq3w6",
@@ -7209,6 +7221,26 @@
       "name": "vo.news.tv.date.1",
       "voice": "ksqch",
       "say": "…the Jerky Motel. We are told there is nothing to tell. We have been told that four times this morning, by four different people, using the same four words."
+    },
+    {
+      "name": "vo.news.radio.heist_day.1",
+      "voice": "announcer",
+      "say": "Clear over downtown this morning. Traffic crews report lane work near Mercer, so give yourself time and mind the diversions."
+    },
+    {
+      "name": "vo.news.tv.heist_day.1",
+      "voice": "ksqch",
+      "say": "A quiet opening downtown. Cumberland Fidelity begins commercial service at nine, and the city says the construction outside will not affect customers."
+    },
+    {
+      "name": "vo.news.radio.post_heist.1",
+      "voice": "announcer",
+      "say": "Downtown remains sealed after the robbery at Cumberland Fidelity. Police have not released names, faces, or a reliable count of the missing cash."
+    },
+    {
+      "name": "vo.news.tv.post_heist.1",
+      "voice": "ksqch",
+      "say": "Helicopter pictures show abandoned vehicles on Bank Avenue and Mercer Street. Investigators say the crew changed cars before leaving the industrial district."
     },
     {
       "name": "vo.news.radio.big_night.1",
@@ -11745,6 +11777,46 @@
       "name": "vo.call.lou.golf.tony.4",
       "voice": "player",
       "say": "Home by half ten. Understood."
+    },
+    {
+      "name": "vo.call.lou.heist.1",
+      "voice": "lou1",
+      "say": "Kid. Listen once. There is a car coming for you."
+    },
+    {
+      "name": "vo.call.lou.heist.2",
+      "voice": "lou1",
+      "say": "Gray suit. Armor underneath. Gloves, mask, both guns, every magazine on the table."
+    },
+    {
+      "name": "vo.call.lou.heist.3",
+      "voice": "lou1",
+      "say": "You are meeting Snow at a closed laundry. Once he starts talking, he is in charge."
+    },
+    {
+      "name": "vo.call.lou.heist.4",
+      "voice": "lou1",
+      "say": "Bring your nerve and leave your name at home."
+    },
+    {
+      "name": "vo.call.lou.heist.tony.1",
+      "voice": "player",
+      "say": "I am listening."
+    },
+    {
+      "name": "vo.call.lou.heist.tony.2",
+      "voice": "player",
+      "say": "Suit, armor, gloves, mask, guns, magazines."
+    },
+    {
+      "name": "vo.call.lou.heist.tony.3",
+      "voice": "player",
+      "say": "Snow is in charge."
+    },
+    {
+      "name": "vo.call.lou.heist.tony.4",
+      "voice": "player",
+      "say": "When does the car arrive?"
     },
     {
       "name": "vo.golf.h1.eric.already_not",

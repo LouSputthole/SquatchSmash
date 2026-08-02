@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   EVENT_IDS,
@@ -7,7 +11,10 @@ import {
   createCampaign,
 } from '../src/core/campaign.js';
 import { createSilverStory } from '../src/core/silver-story.js';
-import { Sway } from '../src/silver/perform.js';
+import { Mission } from '../src/silver/mission.js';
+import { Performance, SET, Sway } from '../src/silver/perform.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 class MemoryStorage {
   constructor() {
@@ -67,4 +74,250 @@ test('the supper-club dance has forgiving default and assist windows while two o
   assert.equal(sway.press(), false);
   assert.equal(sway.hits, 2);
   assert.equal(sway.result, 'good');
+});
+
+test('Bananaphone is the streamed, non-looping featured Front and Center performance', () => {
+  const third = SET.find((number) => number.id === 'third');
+  assert.equal(third?.title, 'Bananaphone');
+  assert.equal(third?.track, 'assets/music/front-and-center-bananaphone-e786d7fe.mp3');
+  assert.ok(third?.dur >= 192 && third?.dur <= 193,
+    `featured performance fallback was ${third?.dur}s`);
+
+  const file = path.join(ROOT, third.track);
+  const bytes = fs.readFileSync(file);
+  assert.equal(bytes.length, 4_666_221, 'the supplied Bananaphone master changed');
+  assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),
+    'e786d7fe7a7f311d0c45ee6748aa9fc16639991ae1a3ab45c1c3d8238547d2bb');
+
+  const calls = [];
+  const audio = {
+    ready: true,
+    startLoop: (key, options) => calls.push(['startLoop', key, options]),
+    startMusicLoop: (key, url, options) => {
+      calls.push(['startMusicLoop', key, url, options]);
+      return { element: { currentTime: 0, paused: false }, volume: options.volume };
+    },
+    setLoopVolume: (key, volume) => calls.push(['setLoopVolume', key, volume]),
+    stopLoop: (key) => calls.push(['stopLoop', key]),
+    play: () => null,
+    busy: () => false,
+  };
+  const performance = new Performance({ audio, band: { members: [] } });
+  performance.begin();
+  assert.equal(calls.some((call) => call[0] === 'startMusicLoop'), false,
+    'the full song must not load with the opening number');
+
+  performance._next(SET.indexOf(third));
+  const start = calls.find((call) => call[0] === 'startMusicLoop');
+  assert.deepEqual(start?.slice(0, 3), ['startMusicLoop', 'band.feature', third.track]);
+  assert.equal(start?.[3]?.loop, false);
+  assert.equal(typeof start?.[3]?.onEnded, 'function');
+});
+
+test('a failed featured recording falls back to the live band and still completes the number', () => {
+  const third = SET.find((number) => number.id === 'third');
+  const calls = [];
+  const featureHandle = { element: { currentTime: 0, paused: true }, released: false };
+  const audio = {
+    ready: true,
+    startLoop: (key, options) => calls.push(['startLoop', key, options]),
+    startMusicLoop: (key, url, options) => {
+      calls.push(['startMusicLoop', key, url, options]);
+      return featureHandle;
+    },
+    setLoopVolume: (key, volume) => calls.push(['setLoopVolume', key, volume]),
+    setLoopCutoff: () => null,
+    stopLoop: (key) => calls.push(['stopLoop', key]),
+    play: () => null,
+    busy: () => false,
+  };
+  const errors = [];
+  const completed = [];
+  const performance = new Performance({
+    audio,
+    band: { members: [] },
+    onNumberError: (number, error) => errors.push([number.id, error.message]),
+    onNumberEnd: (number) => completed.push(number.id),
+  });
+  performance.begin();
+  performance._next(SET.indexOf(third));
+  const start = calls.find((call) => call[0] === 'startMusicLoop');
+  const afterStart = calls.length;
+
+  start[3].onError(featureHandle, new Error('the master could not be decoded'));
+  performance.update(third.dur + 0.1);
+
+  assert.deepEqual(errors, [['third', 'the master could not be decoded']]);
+  assert.equal(calls.slice(afterStart).some(
+    (call) => call[0] === 'setLoopVolume' && call[1] === 'band.rhythm' && call[2] > 0,
+  ), true, 'the procedural house band should carry a failed master');
+  assert.deepEqual(completed, ['third'], 'the invitation gate must remain reachable');
+});
+
+test('a featured recording rejected on resume is released before the live-band fallback', async () => {
+  const third = SET.find((number) => number.id === 'third');
+  const calls = [];
+  const loops = new Map();
+  const element = {
+    currentTime: 0,
+    paused: false,
+    pause() { this.paused = true; },
+    play() { return Promise.reject(new Error('resume was rejected')); },
+  };
+  const featureHandle = { element, released: false };
+  const audio = {
+    ready: true,
+    loops,
+    startLoop: (key, options) => calls.push(['startLoop', key, options]),
+    startMusicLoop: (key, url, options) => {
+      calls.push(['startMusicLoop', key, url, options]);
+      loops.set(key, featureHandle);
+      return featureHandle;
+    },
+    setLoopVolume: (key, volume) => calls.push(['setLoopVolume', key, volume]),
+    setLoopCutoff: () => null,
+    stopLoop: (key) => {
+      calls.push(['stopLoop', key]);
+      loops.delete(key);
+      featureHandle.released = true;
+    },
+    play: () => null,
+    busy: () => false,
+  };
+  const errors = [];
+  const completed = [];
+  const performance = new Performance({
+    audio,
+    band: { members: [] },
+    onNumberError: (number, error) => errors.push([number.id, error.message]),
+    onNumberEnd: (number) => completed.push(number.id),
+  });
+
+  performance.begin();
+  performance._next(SET.indexOf(third));
+  performance.pause();
+  performance.resume();
+  await Promise.resolve();
+  await Promise.resolve();
+
+  assert.deepEqual(errors, [['third', 'resume was rejected']]);
+  assert.equal(loops.has('band.feature'), false, 'the rejected media graph must not leak');
+  assert.equal(performance._featureHandle, null);
+  assert.equal(performance._featureFallback, true);
+  assert.equal(calls.some((call) => call[0] === 'stopLoop' && call[1] === 'band.feature'), true);
+
+  performance.update(third.dur + 0.1);
+  assert.deepEqual(completed, ['third'], 'resume fallback must preserve the invitation gate');
+});
+
+test('pausing freezes the inter-number applause gap before the next number starts', () => {
+  const audio = {
+    startLoop: () => null,
+    setLoopVolume: () => null,
+    stopLoop: () => null,
+    play: () => null,
+    busy: () => false,
+  };
+  const performance = new Performance({ audio, band: { members: [] } });
+  performance.begin();
+  performance.update(SET[0].dur + 0.1);
+  assert.equal(performance.current, null, 'the band should be inside its applause gap');
+
+  performance.pause();
+  performance.update(10);
+  assert.equal(performance.current, null, 'paused time cannot consume the applause gap');
+
+  performance.resume();
+  performance.update(2.39);
+  assert.equal(performance.current, null);
+  performance.update(0.02);
+  assert.equal(performance.current?.id, 'second');
+  performance.finish();
+});
+
+test('pausing also freezes performance-owned dialogue callbacks', () => {
+  const audio = {
+    startLoop: () => null,
+    setLoopVolume: () => null,
+    stopLoop: () => null,
+    play: () => null,
+    busy: () => false,
+  };
+  const performance = new Performance({ audio, band: { members: [] } });
+  let callbacks = 0;
+  performance.begin();
+  performance.defer(4, () => { callbacks++; });
+
+  performance.pause();
+  performance.update(20);
+  assert.equal(callbacks, 0);
+  performance.resume();
+  performance.update(3.99);
+  assert.equal(callbacks, 0);
+  performance.update(0.02);
+  assert.equal(callbacks, 1);
+  performance.finish();
+});
+
+test('finishing the show cancels an inter-number transition', () => {
+  const audio = {
+    startLoop: () => null,
+    setLoopVolume: () => null,
+    stopLoop: () => null,
+    play: () => null,
+    busy: () => false,
+  };
+  const performance = new Performance({ audio, band: { members: [] } });
+  performance.begin();
+  performance.update(SET[0].dur + 0.1);
+  performance.finish();
+  performance.update(10);
+
+  assert.equal(performance.playing, false);
+  assert.equal(performance.current, null);
+  assert.deepEqual(performance.numbersPlayed, ['opener']);
+});
+
+test('a post-feature restore returns to an honest quiet between-set room', () => {
+  const calls = [];
+  const band = { members: [{ group: { visible: false } }] };
+  const room = { openStageCurtain: (amount) => calls.push(['curtain', amount]) };
+  const audio = {
+    startLoop: (key) => calls.push(['startLoop', key]),
+    setLoopVolume: () => null,
+    stopLoop: (key) => calls.push(['stopLoop', key]),
+    play: () => null,
+    busy: () => false,
+  };
+  const performance = new Performance({ audio, band, room });
+  performance.begin();
+  performance.restoreBetweenSets();
+
+  assert.equal(performance.playing, false);
+  assert.equal(performance.setEnded, true);
+  assert.equal(performance.current, null);
+  assert.equal(band.members[0].group.visible, true);
+  assert.equal(calls.some(([kind, amount]) => kind === 'curtain' && amount === 1), true);
+  for (const stem of ['rhythm', 'horns', 'piano', 'vocal']) {
+    assert.equal(calls.some(([kind, key]) => kind === 'stopLoop' && key === `band.${stem}`), true);
+  }
+});
+
+test('the date cannot end before the featured third number completes across a mission checkpoint', () => {
+  const mission = new Mission();
+  mission.state = 'performance';
+  mission.inState = 999;
+  mission.flags.showStarted = true;
+  mission.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
+  assert.equal(mission.invitationReady, false);
+  assert.equal(mission.offerInvitation(), false);
+
+  mission.flags.mainPerformanceStarted = true;
+  mission.flags.mainPerformanceComplete = true;
+  assert.equal(mission.invitationReady, true);
+
+  const restored = new Mission();
+  restored.restore(mission.checkpoint());
+  assert.equal(restored.flags.mainPerformanceComplete, true);
+  assert.equal(restored.invitationReady, true);
 });

@@ -18,8 +18,13 @@ const VOICE_SCENES = [
   ['NO WAKE', (name) => name.startsWith('vo.nowake.')],
   ['The Silver Room', (name) => name.startsWith('vo.silver.')],
   ['Day Four apartment', (name) => name.startsWith('vo.call.lou.golf.')
+    || name.startsWith('vo.call.lou.heist.')
     || name.startsWith('vo.machine.lou.golf_morning.')
-    || name.startsWith('vo.machine.lou.heist_day.')],
+    || name.startsWith('vo.machine.lou.heist_day.')
+    || name.startsWith('vo.news.radio.heist_day.')
+    || name.startsWith('vo.news.tv.heist_day.')
+    || name.startsWith('vo.news.radio.post_heist.')
+    || name.startsWith('vo.news.tv.post_heist.')],
   ['Silver Pines', (name) => name.startsWith('vo.golf.')],
   ['THE TAKE', (name) => name.startsWith('heist.')],
   ['The HotDog Incident', (name) => name.startsWith('vo.bing2.')],
@@ -148,7 +153,7 @@ function renderVoice(out, voice, voices) {
   ];
 
   if (!voice.length) {
-    out.push('## Voice pickups', '', 'Nothing outstanding. Every manifest-authored spoken cue has an indexed recording.', '');
+    out.push('## Voice pickups', '', 'Nothing outstanding. Every manifest-authored spoken cue has an indexed, current recording.', '');
     return;
   }
 
@@ -164,6 +169,9 @@ function renderVoice(out, voice, voices) {
       if (direction) out.push('', direction);
       out.push('');
       for (const cue of [...cues].sort((a, b) => a.name.localeCompare(b.name))) {
+        const replacement = cue.needsRerecord
+          ? ' **RE-RECORD: the indexed take contains retired wording. Replace it, then remove `needsRerecord` from the manifest.**'
+          : '';
         const repeated = reuse.byCue.get(cue.name);
         const instruction = !repeated ? '' : repeated.master
           ? ` **PERFORMANCE REUSE GROUP ${repeated.group}: record once; ${repeated.count} exact cue files share this approved take.**`
@@ -171,7 +179,7 @@ function renderVoice(out, voice, voices) {
         const performance = cue.direction
           ? ` **Performance:** ${String(cue.direction).trim()}`
           : '';
-        out.push(`- \`${fileOf(cue)}\` — ${JSON.stringify(cue.say)}${performance}${instruction}`);
+        out.push(`- \`${fileOf(cue)}\` — ${JSON.stringify(cue.say)}${performance}${replacement}${instruction}`);
       }
       out.push('');
     }
@@ -316,7 +324,9 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
   const cues = Array.isArray(manifest.sfx) ? manifest.sfx : [];
   const have = new Set(Array.isArray(index.files) ? index.files : []);
   const missing = cues.filter((cue) => !have.has(fileOf(cue)));
-  const allVoice = missing.filter((cue) => typeof cue.say === 'string' && cue.say.trim());
+  const rerecord = cues.filter((cue) => cue.needsRerecord === true && have.has(fileOf(cue)));
+  const pending = [...missing, ...rerecord];
+  const allVoice = pending.filter((cue) => typeof cue.say === 'string' && cue.say.trim());
   const allManifestVoice = cues.filter((cue) => typeof cue.say === 'string' && cue.say.trim());
   const futureInitiationPartyAll = allManifestVoice.filter(isFutureInitiationPartyCue);
   const futureInitiationParty = allVoice.filter(isFutureInitiationPartyCue);
@@ -342,6 +352,7 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
     '## Coverage snapshot',
     '',
     `- Shared manifest: ${plural(cues.length, 'cue')}; ${indexedManifest} have indexed recordings and ${missing.length} are missing.`,
+    `- Script drift: ${plural(rerecord.length, 'indexed take')} explicitly marked for re-recording because the playable words changed.`,
     `- Ready for direct delivery: ${plural(voice.length, 'voice cue file')} representing ${plural(reuse.performances, 'unique profile/text performance')}, plus ${plural(effects.length, 'manifest effect')}.`,
     `- Performance reuse: ${plural(reuse.groups, 'duplicate group')} avoids ${plural(reuse.redundant, 'redundant recording')} while retaining every exact runtime filename.`,
     `- Future authored Initiation party dialogue: ${futureInitiationPartyAll.length} total; ${futureInitiationPartyAll.length - futureInitiationParty.length} indexed and ${futureInitiationParty.length} missing. The catalog is not reachable in the playable scene and is excluded from the direct line run.`,

@@ -486,7 +486,7 @@ export class AudioEngine {
     filter.type = 'lowpass';
     filter.frequency.value = 20000;
     gain.connect(filter);
-    const bus = ambience ? this.busAmb : this.busSfx;
+    const bus = opts.bus === 'music' ? this.busMusic : ambience ? this.busAmb : this.busSfx;
     let panner = null;
     if (position) {
       panner = this._makePanner(position, opts.ref ?? 1.2, opts.maxDist ?? 14);
@@ -514,7 +514,14 @@ export class AudioEngine {
    */
   startMusicLoop(key, url, opts = {}) {
     if (!this.ready || this.loops.has(key)) return this.loops.get(key);
-    const { volume = 0.3, fade = 1.6 } = opts;
+    const {
+      volume = 0.3,
+      fade = 1.6,
+      loop = true,
+      preload = 'auto',
+      onEnded = null,
+      onError = null,
+    } = opts;
     const { gain, filter, panner } = this._loopChain(
       opts.position ?? null,
       opts.ambience ?? true,
@@ -522,8 +529,8 @@ export class AudioEngine {
     );
     const element = new Audio();
     if (!/^data:/.test(url)) element.crossOrigin = 'anonymous';
-    element.preload = 'auto';
-    element.loop = true;
+    element.preload = preload;
+    element.loop = loop !== false;
     element.volume = 1;
 
     const node = this.ctx.createMediaElementSource(element);
@@ -540,6 +547,14 @@ export class AudioEngine {
       released: false,
       autoplayBlocked: false,
       retryPlayback: null,
+      ended: false,
+      failed: false,
+    };
+
+    const ended = () => {
+      if (handle.released || handle.ended) return;
+      handle.ended = true;
+      if (typeof onEnded === 'function') onEnded(handle);
     };
 
     const retryEvents = ['pointerdown', 'keydown', 'touchend'];
@@ -562,6 +577,7 @@ export class AudioEngine {
       handle.released = true;
       disarmRetry();
       element.removeEventListener('error', failed);
+      element.removeEventListener('ended', ended);
       try { element.pause(); } catch { /* already stopped */ }
       element.removeAttribute('src');
       try { element.load(); } catch { /* detached media element */ }
@@ -569,9 +585,20 @@ export class AudioEngine {
       this._disconnectLoopChain(handle);
     };
     const failed = (error) => {
+      if (handle.released || handle.failed) return;
+      handle.failed = true;
       handle.lastError = error?.name || 'media-error';
       if (this.loops.get(key) === handle) this.loops.delete(key);
-      release();
+      try {
+        if (typeof onError === 'function') onError(handle, error);
+      } catch (callbackError) {
+        /* A scene's fallback must not prevent the media graph from being
+         * released. Keep the diagnostic on the handle for a verifier/debugger
+         * without turning one bad recovery hook into a second unhandled error. */
+        handle.callbackError = callbackError;
+      } finally {
+        release();
+      }
     };
     const retryOrFail = (error) => {
       handle.playPending = false;
@@ -630,6 +657,7 @@ export class AudioEngine {
     };
     handle.release = release;
     element.addEventListener('error', failed, { once: true });
+    element.addEventListener('ended', ended, { once: true });
     this.loops.set(key, handle);
     element.src = url;
     attemptPlayback();

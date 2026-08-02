@@ -40,7 +40,7 @@ function scriptContext(flags, score, knows) {
 
 const CASES = Object.freeze([
   { score: 20, knows: false, flags: {} },
-  { score: 65, knows: true, flags: { tableBuilt: true, seated: true, drinkOrdered: 'rye', songRequested: 'horns', introducedAs: 'right', driverTipped: true, hazardSeen: true, abandonments: 2 } },
+  { score: 65, knows: true, flags: { tableBuilt: true, seated: true, drinkOrdered: 'rye', songRequested: 'banana', introducedAs: 'right', driverTipped: true, hazardSeen: true, abandonments: 2 } },
   { score: 92, knows: true, flags: { tableBuilt: false, seated: true, drinkOrdered: false, songRequested: false, introducedAs: 'wrong', driverTipped: false, hazardSeen: false, abandonments: 0 } },
   { score: 45, knows: false, flags: { seated: true, drinkOrdered: 'wrong', songRequested: 'slow', introducedAs: 'job', abandonments: 2 } },
   { score: 10, knows: true, flags: { seated: false, drinkOrdered: 'asked', songRequested: 'horns', introducedAs: 'right', abandonments: 0 } },

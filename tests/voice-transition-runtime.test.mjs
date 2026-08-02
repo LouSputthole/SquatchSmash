@@ -29,7 +29,9 @@ test('Silver dialogue holds each subtitle for its delivered recording duration',
 test('Silver waits for the bandleader before Margo answers the third number', () => {
   const silver = source('src/silver/main.js');
   assert.match(silver, /const bandleaderHold = n\.say \? Math\.max\(5, cueSeconds\(n\.cue\) \+ 0\.4\) : 0/);
-  assert.match(silver, /setTimeout\(answerBandleader, bandleaderHold \* 1000\)/);
+  assert.match(silver, /performance_\.defer\(bandleaderHold, answerBandleader\)/);
+  assert.doesNotMatch(silver, /setTimeout\(answerBandleader/,
+    'the callback must advance on pause-aware performance time');
 });
 
 test('voiced Bing ambience waits for cutscenes, blackjack and an occupied voice floor', () => {

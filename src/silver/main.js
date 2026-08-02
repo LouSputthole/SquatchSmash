@@ -359,6 +359,8 @@ const performance_ = new Performance({
       voiceCue(n.cue);
     }
     if (n.theOne) {
+      mission.flags.mainPerformanceStarted = true;
+      mission.refreshBoard();
       // Three separate people said the third number was the one.
       const answerBandleader = () => {
         if (game.known.has('third-number')) woo.fire('Woo.CallbackUsed');
@@ -370,9 +372,21 @@ const performance_ = new Performance({
        * number before her callback replaces him; five seconds is the authored
        * subtitle hold, and a longer delivered take extends it. */
       const bandleaderHold = n.say ? Math.max(5, cueSeconds(n.cue) + 0.4) : 0;
-      if (bandleaderHold > 0) setTimeout(answerBandleader, bandleaderHold * 1000);
+      if (bandleaderHold > 0) performance_.defer(bandleaderHold, answerBandleader);
       else answerBandleader();
     }
+  },
+  onNumberEnd: (n) => {
+    if (!n.theOne || mission.flags.mainPerformanceComplete) return;
+    mission.flags.mainPerformanceComplete = true;
+    mission.refreshBoard();
+    saveCheckpoint(mission.state);
+  },
+  onNumberError: (n, error) => {
+    if (!n.theOne) return;
+    hud.toast('THE HOUSE BAND CARRIES IT LIVE', 'bad');
+    hud.say('<em>The featured recording drops out. The Midnight Pines do not. They carry the number live.</em>', 5600);
+    console.warn(`Featured performance fallback: ${error?.message || 'stream unavailable'}`);
   },
   onApplause: () => { if (date.mode === 'seated') date.npc.say(1.2); },
   /* The set ends. It used to wrap round to the top and play forever, which
@@ -1456,7 +1470,8 @@ const ROUND_QUEUE = [
    * it is going well rather than being handed a button that says so. */
   { id: 'another', after: 300, run: () => waiterComesOver('another') },
   { id: 'toast', after: 355, run: () => raiseAGlass() },
-  { id: 'dessert', after: 430, run: () => waiterComesOver('dessert') },
+  { id: 'dessert', after: 430, ready: () => mission.flags.mainPerformanceComplete,
+    run: () => waiterComesOver('dessert') },
 ];
 
 let queueAt = 0;
@@ -1470,6 +1485,7 @@ function runSeatedQueue(dt) {
   const next = ROUND_QUEUE[queueAt];
   if (!next || seatedFor < next.after) return;
   if (dialogue.active) return;
+  if (next.ready && !next.ready()) return;
   queueAt++;
   if (next.run) next.run();
   else beginRound(next.id);
@@ -1570,10 +1586,10 @@ function raiseAGlass() {
 function offerSway() {
   if (mission.flags.swayed || !game.seated) return;
   mission.addObjective('sway', 'Get up, if you are getting up', { optional: true });
-  setTimeout(() => {
+  performance_.defer(4, () => {
     if (dialogue.active || game.scene || mission.flags.swayed) return;
     dialogue.start(scripts.sway, 'open', date.npc);
-  }, 4000);
+  });
 }
 
 /**
@@ -1787,6 +1803,18 @@ function restoreCheckpoint(cp = game.checkpoint) {
    * restore that skipped this lost the thank-you (and its objective) for the
    * rest of a champagne-sent evening: the raycaster only sees visible pads. */
   thanksPad.visible = !!mission.flags.champagneSent;
+  /* A performance checkpoint stores story progress, not a media decoder or an
+   * exact bar of the set. Before the feature, restart the authored set. After
+   * it, restore the honest between-set room instead of claiming the remaining
+   * slow number resumed from state we never saved. */
+  if (mission.flags.showStarted) {
+    if (mission.flags.mainPerformanceComplete) {
+      performance_.restoreBetweenSets();
+      audio.setLoopVolume('ambience.diners', 0.26, 1.2);
+    } else {
+      performance_.begin();
+    }
+  }
 
   game.swayRunning = false;
   game.swayStarting = false;
@@ -1873,10 +1901,7 @@ function updateZones() {
   audio.setLoopVolume('ambience.cellar', mix.cellar, 1.1);
   audio.setLoopVolume('ambience.kitchen', mix.kitchen, 1.1);
   audio.setLoopVolume('ambience.diners', mix.diners, 1.1);
-  for (const s of ['rhythm', 'horns', 'piano', 'vocal']) {
-    const n = performance_.current;
-    if (n) audio.setLoopVolume(`band.${s}`, n.stems[s] * mix.band, 1.1);
-  }
+  performance_.setRoomMix(mix.band, 1.1);
   // Behind a closed door, everything gets a blanket over it
   audio.setMuffle(nextZone === 'cellar' || nextZone === 'kitchen', 900);
 
@@ -2062,12 +2087,14 @@ const pauseMenu = createPauseMenu({
     player.clearKeys();
     interaction.release();
     interaction.setPaused(true);
+    performance_.pause();
     audio.ctx?.suspend?.();
   },
   onResume: () => {
     game.paused = false;
     interaction.setPaused(false);
     audio.ctx?.resume?.();
+    performance_.resume();
     clock.getDelta();
     requestLock();
   },
@@ -2402,8 +2429,8 @@ function frame() {
 
 /* ------------------------------------------------------------------ */
 
-assetStatus.innerHTML = 'Everything in here is drawn and synthesised at load time — '
-  + 'no models, no textures, no audio files.';
+assetStatus.innerHTML = 'The room is drawn at load time. Voice and effect banks load for this scene; '
+  + 'the featured song streams only when its number begins.';
 loading.classList.add('hidden');
 
 window.__silver = {

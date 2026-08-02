@@ -34,14 +34,21 @@ export const SET = [
     stems: { rhythm: 0.46, horns: 0.18, piano: 0.3, vocal: 0.34 },
   },
   {
-    /* The one everybody warned you about. The horns are the whole point, and
-     * she said one sentence about horns in a car nine blocks long. */
+    /* The one everybody warned you about: a house violinist playing the
+     * dumbest possible request with absolute supper-club conviction. */
     id: 'third',
-    title: 'Front and Center',
+    title: 'Bananaphone',
     lead: 'the bandleader',
     say: 'This one is for the table nobody had a table for.',
     cue: 'vo.silver.bandleader.set.front-and-center',
-    dur: 74,
+    /* The supplied master runs 194.36 seconds, with its audible ending at
+     * 192.62. It is streamed only when this number begins; the final silence
+     * is where the house applause takes over. */
+    dur: 192.62,
+    track: 'assets/music/front-and-center-bananaphone-e786d7fe.mp3',
+    trackVolume: 0.42,
+    trackDuck: 0.20,
+    bpm: 93.75,
     stems: { rhythm: 0.55, horns: 0.5, piano: 0.3, vocal: 0.3 },
     theOne: true,
   },
@@ -60,13 +67,18 @@ const STEMS = ['rhythm', 'horns', 'piano', 'vocal'];
 
 export class Performance {
   /**
-   * @param {object} o { audio, room, band, hud, onNumber, onApplause, onSetEnd }
+   * @param {object} o { audio, room, band, onNumber, onNumberEnd,
+   *   onNumberError, onApplause, onSetEnd }
    */
-  constructor({ audio, room, band, onNumber, onApplause, onSetEnd } = {}) {
+  constructor({
+    audio, room, band, onNumber, onNumberEnd, onNumberError, onApplause, onSetEnd,
+  } = {}) {
     this.audio = audio;
     this.room = room;
     this.band = band;
     this.onNumber = onNumber;
+    this.onNumberEnd = onNumberEnd;
+    this.onNumberError = onNumberError;
     this.onApplause = onApplause;
     this.onSetEnd = onSetEnd;
 
@@ -81,6 +93,14 @@ export class Performance {
     this._duckTarget = 0;
     this._requested = null;
     this.numbersPlayed = [];
+    this.roomMix = 1;
+    this._featureHandle = null;
+    this._featureFallback = false;
+    this._resumeFeature = false;
+    this._advancing = false;
+    this._transition = null;
+    this._paused = false;
+    this._deferred = [];
   }
 
   get current() { return this.index >= 0 ? SET[this.index] : null; }
@@ -101,11 +121,15 @@ export class Performance {
 
   /**
    * Ask for a number. Used by the bandleader conversation: asking for the
-   * horns moves the third number up rather than starting it immediately,
+   * featured song moves the third number up rather than starting it immediately,
    * because a band that changes song mid-bar is a jukebox.
    */
   request(kind) {
-    this._requested = kind === 'horns' ? 'third' : kind === 'slow' ? 'slow' : null;
+    /* `horns` remains accepted for checkpoints created before Bananaphone
+     * became the featured request. */
+    this._requested = ['banana', 'horns'].includes(kind)
+      ? 'third'
+      : kind === 'slow' ? 'slow' : null;
     return this._requested;
   }
 
@@ -130,15 +154,116 @@ export class Performance {
   }
 
   _next(i) {
+    if (!this.playing || this.setEnded) return false;
+    this._transition = null;
+    this._advancing = false;
     this.index = i;
     this.t = 0;
     const n = SET[i];
     if (!n) { this.endSet(); return; }
     this.numbersPlayed.push(n.id);
-    for (const s of STEMS) {
-      this.audio?.setLoopVolume(`band.${s}`, n.stems[s], 1.4);
+    this._stopFeatured(0.35);
+    this._featureFallback = false;
+    if (n.track) {
+      for (const s of STEMS) this.audio?.setLoopVolume(`band.${s}`, 0, 0.8);
+      const handle = this.audio?.startMusicLoop('band.feature', n.track, {
+        volume: 0,
+        fade: 0.7,
+        loop: false,
+        bus: 'music',
+        ambience: true,
+        position: this.room?.anchors?.stageCentre ?? null,
+        ref: 5,
+        maxDist: 48,
+        onEnded: () => {
+          if (this.current?.id === n.id) this._completeNumber(n);
+        },
+        onError: (failedHandle, error) => this._handleFeatureError(n, failedHandle, error),
+      }) ?? null;
+      /* A synchronous play() failure can invoke onError before startMusicLoop
+       * returns. Do not put its already-released handle back into the clock. */
+      if (!this._featureFallback && handle && !handle.released && !handle.failed) {
+        this._featureHandle = handle;
+      }
+      if (!handle) {
+        this._handleFeatureError(n, null, new Error('featured recording is unavailable'));
+      } else if ((handle.released || handle.failed) && !this._featureFallback) {
+        this._handleFeatureError(n, handle, new Error(handle.lastError || 'featured recording failed'));
+      }
     }
+    this._applyMix(1.4);
     this.onNumber?.(n, i);
+    return true;
+  }
+
+  _stopFeatured(fade = 0.4) {
+    if (this._featureHandle) this.audio?.stopLoop('band.feature', fade);
+    this._featureHandle = null;
+    this._resumeFeature = false;
+  }
+
+  /** Keep the authored number playable when a streamed master cannot run. */
+  _handleFeatureError(expected, handle, error) {
+    if (this.current !== expected || this._advancing || this._featureFallback) return false;
+    if (this._featureHandle && handle && this._featureHandle !== handle) return false;
+    /* startMusicLoop removes a failed handle before its onError callback, but
+     * resume() owns its separate play() promise. If that promise rejects, the
+     * media graph is still registered and must be released before the house
+     * band takes over. Calling stopLoop after a core-owned failure is harmless
+     * because that path has already removed the key. */
+    if (handle && this._featureHandle === handle) this.audio?.stopLoop('band.feature', 0);
+    this._featureHandle = null;
+    this._resumeFeature = false;
+    this._featureFallback = true;
+    this._applyMix(0.45);
+    this.onNumberError?.(expected, error);
+    return true;
+  }
+
+  /** Apply room distance and dialogue ducking to whichever kind of number is live. */
+  _applyMix(ramp = 0.25) {
+    const n = this.current;
+    if (!n) return;
+    if (n.track && !this._featureFallback) {
+      for (const s of STEMS) this.audio?.setLoopVolume(`band.${s}`, 0, ramp);
+      const duck = 1 - this.duck * (1 - (n.trackDuck ?? 0.2));
+      this.audio?.setLoopVolume('band.feature', (n.trackVolume ?? 0.42) * this.roomMix * duck, ramp);
+      this.audio?.setLoopCutoff?.('band.feature', this.duck > 0.05 ? 3200 : 20000, ramp);
+      return;
+    }
+    const duckByStem = { rhythm: 0, horns: 0.62, piano: 0.3, vocal: 0.8 };
+    for (const s of STEMS) {
+      const duck = 1 - this.duck * duckByStem[s];
+      this.audio?.setLoopVolume(`band.${s}`, n.stems[s] * this.roomMix * duck, ramp);
+    }
+  }
+
+  setRoomMix(value, ramp = 1.1) {
+    this.roomMix = Math.max(0, Number(value) || 0);
+    this._applyMix(ramp);
+  }
+
+  /** Schedule a performance beat on game time, so opening Tab freezes it. */
+  defer(seconds, callback) {
+    if (!this.playing || this.setEnded || typeof callback !== 'function') return false;
+    this._deferred.push({ remaining: Math.max(0, Number(seconds) || 0), callback });
+    return true;
+  }
+
+  _updateDeferred(dt) {
+    if (!this._deferred.length) return;
+    const pending = this._deferred;
+    const ready = [];
+    this._deferred = [];
+    for (const item of pending) {
+      item.remaining -= Math.max(0, dt);
+      if (item.remaining <= 0) ready.push(item.callback);
+      else this._deferred.push(item);
+    }
+    for (const callback of ready) {
+      if (!this.playing || this.setEnded) break;
+      callback();
+    }
   }
 
   applaud(strength = 1) {
@@ -154,9 +279,61 @@ export class Performance {
    */
   setDucked(on) { this._duckTarget = on ? 1 : 0; }
 
+  pause() {
+    if (this._paused) return;
+    this._paused = true;
+    const element = this._featureHandle?.element;
+    this._resumeFeature = !!element && !element.paused;
+    if (this._resumeFeature) element.pause();
+  }
+
+  resume() {
+    if (!this._paused) return;
+    this._paused = false;
+    const expected = this.current;
+    const handle = this._featureHandle;
+    const element = this._featureHandle?.element;
+    if (!element || !this._resumeFeature) return;
+    this._resumeFeature = false;
+    try {
+      Promise.resolve(element.play()).catch((error) => this._handleFeatureError(expected, handle, error));
+    } catch (error) {
+      this._handleFeatureError(expected, handle, error);
+    }
+  }
+
   finish() {
     this.playing = false;
+    this._paused = false;
+    this._transition = null;
+    this._advancing = false;
+    this._deferred = [];
+    this._stopFeatured(0.6);
+    this._featureFallback = false;
     for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 2.2);
+  }
+
+  /**
+   * Restore a checkpoint taken after the featured number without pretending
+   * the decoder position or the unplayed fourth number was persisted. The
+   * stage remains visible and the room settles into its between-set ambience.
+   */
+  restoreBetweenSets() {
+    this.playing = false;
+    this.setEnded = true;
+    this.index = -1;
+    this.t = 0;
+    this.curtain = 1;
+    this._paused = false;
+    this._transition = null;
+    this._advancing = false;
+    this._deferred = [];
+    this._stopFeatured(0.25);
+    this._featureFallback = false;
+    for (const member of this.band?.members ?? []) member.group.visible = true;
+    this.room?.openStageCurtain?.(1);
+    for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 0.8);
+    return true;
   }
 
   /**
@@ -173,32 +350,55 @@ export class Performance {
     this.playing = false;
     this.index = -1;
     this.t = 0;
+    this._paused = false;
+    this._transition = null;
+    this._advancing = false;
+    this._deferred = [];
+    this._stopFeatured(0.6);
+    this._featureFallback = false;
     for (const s of STEMS) this.audio?.stopLoop(`band.${s}`, 6);
     this.onSetEnd?.(this.numbersPlayed.slice());
   }
 
   update(dt) {
+    if (this._paused) return;
     // The curtain, once, over about two and a half seconds
     if (this.playing && this.curtain < 1) {
       this.curtain = Math.min(1, this.curtain + dt / 2.5);
       this.room?.openStageCurtain(this.curtain);
     }
     if (!this.playing) return;
+    this._updateDeferred(dt);
+    if (!this.playing) return;
 
-    const d = this._duckTarget - this.duck;
-    if (Math.abs(d) > 0.001) {
-      this.duck += d * Math.min(1, dt * 4);
-      const n = this.current;
-      if (n) {
-        this.audio?.setLoopVolume('band.horns', n.stems.horns * (1 - this.duck * 0.62), 0.25);
-        this.audio?.setLoopVolume('band.vocal', n.stems.vocal * (1 - this.duck * 0.8), 0.25);
-        this.audio?.setLoopVolume('band.piano', n.stems.piano * (1 - this.duck * 0.3), 0.25);
-      }
+    if (this._transition) {
+      this._transition.remaining -= Math.max(0, dt);
+      if (this._transition.remaining > 0) return;
+      const nextIndex = this._transition.nextIndex;
+      this._transition = null;
+      if (nextIndex < 0) this.endSet();
+      else this._next(nextIndex);
+      return;
     }
 
-    this.t += dt;
+    const targetDuck = this._duckTarget || this.audio?.busy?.() ? 1 : 0;
+    const d = targetDuck - this.duck;
+    if (Math.abs(d) > 0.001) {
+      this.duck += d * Math.min(1, dt * 4);
+      this._applyMix(0.25);
+    }
+
     const n = this.current;
     if (!n) return;
+    if (n.track && !this._featureFallback && this._featureHandle?.element) {
+      const mediaTime = Number(this._featureHandle.element.currentTime);
+      /* The recording is the clock. A test/debug fast-forward may place `t`
+       * ahead deliberately; never drag that backwards to a stalled media
+       * element, but ordinary rendering follows currentTime exactly. */
+      if (Number.isFinite(mediaTime) && (mediaTime > this.t || this.t < 1)) this.t = mediaTime;
+    } else {
+      this.t += dt;
+    }
 
     /* Musicians, playing their actual instruments.
      *
@@ -212,7 +412,7 @@ export class Performance {
      * who walks the front of the stage and puts the mic up when there is a
      * vocal to put it up for. Every figure is a beat or two out of phase with
      * the next, because seven people nodding in unison is a metronome. */
-    const beat = this.t * 2.4;
+    const beat = n.bpm ? this.t * n.bpm * Math.PI / 30 : this.t * 2.4;
     for (let i = 0; i < this.band.members.length; i++) {
       const m = this.band.members[i];
       const P = m.parts;
@@ -286,16 +486,23 @@ export class Performance {
       }
     }
 
-    if (this.t >= n.dur) {
-      this.applaud(n.theOne ? 1.3 : 1);
-      /* A request moves the queue rather than interrupting: whatever is
-       * playing finishes, and the next thing up is what was asked for. */
-      const nextIndex = this._queue();
-      this.index = -1;
-      this.t = 0;
-      if (nextIndex < 0) { setTimeout(() => this.endSet(), 2400); return; }
-      setTimeout(() => this._next(nextIndex), 2400);
-    }
+    if (this.t >= n.dur) this._completeNumber(n);
+  }
+
+  _completeNumber(expected = this.current) {
+    const n = this.current;
+    if (!n || n !== expected || this._advancing) return false;
+    this._advancing = true;
+    if (n.track) this._stopFeatured(0.35);
+    this.onNumberEnd?.(n, this.index);
+    this.applaud(n.theOne ? 1.3 : 1);
+    /* A request moves the queue rather than interrupting: whatever is
+     * playing finishes, and the next thing up is what was asked for. */
+    const nextIndex = this._queue();
+    this.index = -1;
+    this.t = 0;
+    this._transition = { remaining: 2.4, nextIndex };
+    return true;
   }
 }
 

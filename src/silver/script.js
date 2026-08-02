@@ -1429,8 +1429,9 @@ export function buildScripts(ctx) {
           { tone: 'Go on', text: 'Play it well.', next: null },
         ]
         : [
-          { tone: 'Her band', text: 'Something with the horns. All of them.', next: 'horns',
-            effect: () => { flags.songRequested = 'horns'; fire('Woo.PerformancePreferenceRemembered'); } },
+          { tone: 'Her band', text: 'Bananaphone. Straight. Like it’s Carnegie Hall.',
+            cue: 'vo.silver.player.bandleader.open.1e0ys9u', next: 'horns',
+            effect: () => { flags.songRequested = 'banana'; fire('Woo.PerformancePreferenceRemembered'); } },
           { tone: 'Slow', text: 'Something slow.', next: 'slow',
             effect: () => { flags.songRequested = 'slow'; fire('Woo.SongRequested'); } },
           { tone: 'Ask her', text: '<em>(Look at Margo.)</em>', next: 'her-pick' },
@@ -1439,9 +1440,8 @@ export function buildScripts(ctx) {
     },
     horns: {
       who: DATE.name,
-      line: '<em>(Sharply, to you.)</em> How did you — <em>(She stops. She works it '
-        + 'out.)</em> I said that in the car. I said one sentence about horns in a car '
-        + 'nine blocks long.',
+      line: '<em>(She looks from you to the violin.)</em> You came prepared to say that '
+        + 'out loud. Fine. If he smiles, it doesn’t count.',
       next: 'band-go',
     },
     slow: {
@@ -1451,9 +1451,9 @@ export function buildScripts(ctx) {
     },
     'her-pick': {
       who: DATE.name,
-      line: 'Horns. All of them. I don’t want a backing track, I want to watch seven '
-        + 'people be slightly out of breath.',
-      effect: () => { flags.songRequested = 'horns'; },
+      line: 'Bananaphone. Completely straight. I want that violinist fighting for his '
+        + 'life and nobody smiling.',
+      effect: () => { flags.songRequested = 'banana'; },
       next: 'band-go',
     },
     tipped: {
@@ -1550,9 +1550,9 @@ export function buildScripts(ctx) {
   const sway = {
     open: {
       who: DATE.name,
-      variant: () => (flags.songRequested === 'horns' ? 'her-horns' : 'floor-is-up'),
-      line: () => (flags.songRequested === 'horns'
-        ? '<em>(The horns come in on the third number and she is on her feet before the '
+      variant: () => (['banana', 'horns'].includes(flags.songRequested) ? 'her-horns' : 'floor-is-up'),
+      line: () => (['banana', 'horns'].includes(flags.songRequested)
+        ? '<em>(The violin lands the first Bananaphone phrase and she is on her feet before the '
           + 'second bar.)</em> No. Up. Now. This one you don’t sit through.'
         : '<em>(She is watching the floor beside the stage, where two couples are '
           + 'already up.)</em>'),

@@ -101,7 +101,7 @@ const BOARD = [
   { id: 'song', from: 'performance', until: 'ending', optional: true, text: 'Ask the band for something', done: (m) => !!m.flags.songRequested },
   { id: 'sway', from: 'performance', until: 'ending', optional: true, text: 'Dance with her', done: (m) => !!m.flags.swayed },
   { id: 'toast', from: 'performance', until: 'ending', optional: true, text: 'Raise a glass', done: (m) => !!m.flags.toast },
-  { id: 'ask', from: 'performance', until: 'ending', text: 'Ask her about seeing her again' },
+  { id: 'ask', from: 'performance', until: 'ending', text: 'Stay for the third number, then ask her about seeing her again' },
 ];
 
 export class Mission {
@@ -148,6 +148,8 @@ export class Mission {
       familyMet: [],          // which recurring characters shook her hand
       /* the show */
       showStarted: false,
+      mainPerformanceStarted: false,
+      mainPerformanceComplete: false,
       songRequested: null,
       swayed: null,           // 'good' | 'bad' | 'refused' | 'forced' | null
       photo: false,
@@ -313,6 +315,7 @@ export class Mission {
     if (this.state === 'invitation' || this.state === 'ending' || this.state === 'done') return true;
     if (!this.flags.showStarted) return false;
     if (this.state === 'performance-cutscene') return false;
+    if (!this.flags.mainPerformanceComplete) return false;
     return this.inState >= 90 || this.roundsDone.size >= 4;
   }
 

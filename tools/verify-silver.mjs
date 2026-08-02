@@ -77,6 +77,26 @@ const browser = await chromium.launch({
  * fragments even though the club's grain hides that extra resolution. */
 const page = await browser.newPage({ viewport: { width: 320, height: 200 }, deviceScaleFactor: 2 });
 
+/* Long-form music must stay out of the decoded startup bank. Keep both sides
+ * of that contract observable: network requests tell us when the supplied
+ * master is first fetched, while the connection ledger proves the streamed
+ * media node terminates on the music bus instead of ambience or SFX. */
+const bananaTrackRequests = [];
+page.on('request', (request) => {
+  if (/\/front-and-center-bananaphone-[0-9a-f]+\.mp3(?:[?#]|$)/i.test(request.url())) {
+    bananaTrackRequests.push(request.url());
+  }
+});
+await page.addInitScript(() => {
+  window.__silverAudioConnections = [];
+  if (!globalThis.AudioNode?.prototype?.connect) return;
+  const connect = AudioNode.prototype.connect;
+  AudioNode.prototype.connect = function silverVerifyConnect(destination, ...args) {
+    window.__silverAudioConnections.push({ source: this, destination });
+    return connect.call(this, destination, ...args);
+  };
+});
+
 const problems = [];
 page.on('pageerror', (e) => problems.push(`${e.message}`));
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text().slice(0, 240)); });
@@ -126,6 +146,7 @@ check('a second Tab returns control to Front and Center',
   !silverPause.paused, JSON.stringify(silverPause));
 const silverLoad = await page.evaluate(() => {
   const audio = window.__silver.audio;
+  const feature = window.__silver.SET.find((number) => number.theOne);
   const loaded = [...audio.buffers.keys()];
   return {
     elapsedMs: Date.now() - performance.timeOrigin,
@@ -133,6 +154,13 @@ const silverLoad = await page.evaluate(() => {
     plan: audio.preloadStats ?? null,
     silverVo: loaded.filter((name) => name.startsWith('vo.silver.')).length,
     unrelatedVo: loaded.filter((name) => name.startsWith('vo.') && !name.startsWith('vo.silver.')).slice(0, 5),
+    feature: {
+      title: feature?.title ?? null,
+      track: feature?.track ?? null,
+      dur: feature?.dur ?? null,
+      decoded: loaded.includes('band.feature') || loaded.includes(feature?.track),
+      active: audio.loops.has('band.feature'),
+    },
   };
 });
 silverLoad.wallMs = Date.now() - startClickedAt;
@@ -143,6 +171,14 @@ check('the Silver Room decodes its own sound set instead of the whole campaign b
     && silverLoad.silverVo === expectedSilverVo
     && silverLoad.unrelatedVo.length === 0,
   JSON.stringify(silverLoad));
+check('Bananaphone is the versioned, full-length third number',
+  silverLoad.feature.title === 'Bananaphone'
+    && /^assets\/music\/front-and-center-bananaphone-[0-9a-f]{8}\.mp3$/i.test(silverLoad.feature.track)
+    && silverLoad.feature.dur > 190,
+  JSON.stringify(silverLoad.feature));
+check('the featured master is neither decoded nor requested during startup',
+  !silverLoad.feature.decoded && !silverLoad.feature.active && bananaTrackRequests.length === 0,
+  JSON.stringify({ feature: silverLoad.feature, requests: bananaTrackRequests }));
 const firstFrameUi = await page.evaluate(() => {
   const b = window.__silver;
   const bar = document.getElementById('hotbar');
@@ -1907,6 +1943,145 @@ const impatience = await page.evaluate(() => {
 check('so she starts noticing being kept waiting again',
   impatience.heard.length > 0, `${impatience.state}: ${impatience.heard.join(', ') || 'silence'}`);
 
+/* ---- the supplied main performance ----
+ * Advance the ordinary first two numbers, then let the media element own the
+ * feature's completion. Assigning `p.t` here is only the deterministic skip to
+ * the start of Bananaphone; its own end below comes through the exact `ended`
+ * event a browser emits at the end of the supplied master. */
+for (let i = 0; i < 3; i++) {
+  const onFeature = await page.evaluate(() => window.__silver.performance.current?.theOne === true);
+  if (onFeature) break;
+  await page.evaluate(() => {
+    const p = window.__silver.performance;
+    if (p.current) p.t = p.current.dur + 0.05;
+  });
+  await tick(0.4, 0.2);
+  await tick(2.6, 0.2);
+}
+await page.waitForFunction(() => {
+  const b = window.__silver;
+  return b.performance.current?.theOne === true && b.audio.loops.has('band.feature');
+}, null, { timeout: 10000 });
+
+const featureLive = await page.evaluate(() => {
+  const b = window.__silver;
+  const number = b.performance.current;
+  const handle = b.audio.loops.get('band.feature');
+  const endpoint = handle?.panner ?? handle?.filter;
+  const mediaUrl = handle?.element?.currentSrc || handle?.element?.src || '';
+  return {
+    id: number?.id ?? null,
+    title: number?.title ?? null,
+    authoredTrack: number?.track ?? null,
+    mediaPath: mediaUrl ? new URL(mediaUrl, location.href).pathname.replace(/^\//, '') : null,
+    streamed: handle?.streamed === true,
+    loop: handle?.element?.loop ?? null,
+    preload: handle?.element?.preload ?? null,
+    onMusicBus: !!endpoint && (window.__silverAudioConnections || []).some(
+      (link) => link.source === endpoint && link.destination === b.audio.busMusic,
+    ),
+    decoded: b.audio.buffers.has('band.feature') || b.audio.buffers.has(number?.track),
+    started: b.mission.flags.mainPerformanceStarted,
+    complete: b.mission.flags.mainPerformanceComplete,
+    invitationReady: b.mission.invitationReady,
+    enoughEvening: b.mission.inState >= 90 || b.mission.roundsDone.size >= 4,
+  };
+});
+const requestedBananaUrls = [...new Set(bananaTrackRequests)];
+check('the third number opens the supplied versioned master as a one-shot stream',
+  featureLive.id === 'third' && featureLive.title === 'Bananaphone'
+    && featureLive.mediaPath === featureLive.authoredTrack
+    && /^assets\/music\/front-and-center-bananaphone-[0-9a-f]{8}\.mp3$/i.test(featureLive.mediaPath)
+    && featureLive.streamed && featureLive.loop === false && !featureLive.decoded
+    && requestedBananaUrls.length === 1,
+  JSON.stringify({ ...featureLive, requests: bananaTrackRequests }));
+check('the streamed performance is mixed through the music bus',
+  featureLive.onMusicBus, JSON.stringify(featureLive));
+check('starting the main performance does not unlock the invitation before it ends',
+  featureLive.started && !featureLive.complete && featureLive.enoughEvening
+    && !featureLive.invitationReady,
+  JSON.stringify(featureLive));
+
+/* Put the live seated queue on its dessert entry without exposing production
+ * internals. A checkpoint is the public round-trip for queueAt/seatedFor, so
+ * stage the gate through one, exercise it, then restore the evening exactly. */
+const dessertGate = await page.evaluate(() => {
+  const b = window.__silver;
+  b.dialogue.end();
+  const original = JSON.parse(JSON.stringify(b.debug.save()));
+  b.game.checkpoint.queueAt = 10;               // ROUND_QUEUE's dessert entry
+  b.game.checkpoint.seatedFor = 431;
+  b.game.checkpoint.mission.flags.mainPerformanceComplete = false;
+  b.debug.load();
+  b.dialogue.end();
+  b.__seatTick(0);
+  const before = {
+    active: b.dialogue.active,
+    node: b.dialogue.nodeId,
+    complete: b.mission.flags.mainPerformanceComplete,
+  };
+  b.mission.flags.mainPerformanceComplete = true;
+  b.__seatTick(0);
+  const after = {
+    active: b.dialogue.active,
+    node: b.dialogue.nodeId,
+    complete: b.mission.flags.mainPerformanceComplete,
+  };
+  b.dialogue.end();
+  b.game.checkpoint = original;
+  b.debug.load();
+  return { before, after, restoredComplete: b.mission.flags.mainPerformanceComplete };
+});
+check('dessert waits for the main performance, then enters exactly once it is complete',
+  !dessertGate.before.active && dessertGate.before.complete === false
+    && dessertGate.after.active && dessertGate.after.node === 'dessert'
+    && dessertGate.after.complete === true && dessertGate.restoredComplete === false,
+  JSON.stringify(dessertGate));
+
+const featureEnd = await page.evaluate(() => {
+  const b = window.__silver;
+  const p = b.performance;
+  const handle = b.audio.loops.get('band.feature');
+  const onNumberEnd = p.onNumberEnd;
+  window.__bananaNumberEnds = 0;
+  p.onNumberEnd = (...args) => {
+    if (args[0]?.theOne) window.__bananaNumberEnds++;
+    return onNumberEnd?.(...args);
+  };
+  handle.element.dispatchEvent(new Event('ended'));
+  handle.element.dispatchEvent(new Event('ended'));
+  return {
+    endCallbacks: window.__bananaNumberEnds,
+    started: b.mission.flags.mainPerformanceStarted,
+    complete: b.mission.flags.mainPerformanceComplete,
+    checkpointComplete: b.game.checkpoint?.mission?.flags?.mainPerformanceComplete,
+    invitationReady: b.mission.invitationReady,
+    featureActive: b.audio.loops.has('band.feature'),
+    thirdCount: p.numbersPlayed.filter((id) => id === 'third').length,
+  };
+});
+check('the media ending completes and checkpoints the performance exactly once',
+  featureEnd.endCallbacks === 1 && featureEnd.started && featureEnd.complete
+    && featureEnd.checkpointComplete && featureEnd.invitationReady
+    && !featureEnd.featureActive && featureEnd.thirdCount === 1,
+  JSON.stringify(featureEnd));
+await tick(2.6, 0.2);
+await tick(0.4, 0.2);
+const afterFeature = await page.evaluate(() => {
+  const b = window.__silver;
+  return {
+    current: b.performance.current?.id ?? null,
+    endCallbacks: window.__bananaNumberEnds,
+    complete: b.mission.flags.mainPerformanceComplete,
+    featureActive: b.audio.loops.has('band.feature'),
+    thirdCount: b.performance.numbersPlayed.filter((id) => id === 'third').length,
+  };
+});
+check('the set moves on without restarting or completing Bananaphone twice',
+  afterFeature.current !== 'third' && afterFeature.endCallbacks === 1
+    && afterFeature.complete && !afterFeature.featureActive && afterFeature.thirdCount === 1,
+  JSON.stringify(afterFeature));
+
 /* ---- the set ends ----
  * It used to wrap round to the top and play forever, so the third number — the
  * one three separate people tell you is *the* one — came round again, and with
@@ -1919,7 +2094,7 @@ for (let i = 0; i < 7; i++) {
     if (p.current) p.t = p.current.dur + 0.05;
   });
   await tick(0.4, 0.2);
-  await page.waitForTimeout(2600);
+  await tick(2.6, 0.2);
 }
 const setEnd = await page.evaluate(() => {
   const b = window.__silver;
@@ -2001,6 +2176,8 @@ const reload = await page.evaluate(() => {
     state: x.mission.state, rounds: [...x.mission.roundsDone].sort().join(','),
     objectives: x.mission.objectives.length, ledger: x.woo.ledger.length,
     seated: x.game.seated, swayed: x.mission.flags.swayed, hers: x.date.mode,
+    performanceStarted: x.mission.flags.mainPerformanceStarted,
+    performanceComplete: x.mission.flags.mainPerformanceComplete,
   });
   b.dialogue.end();
   const cp = b.debug.save();
@@ -2012,6 +2189,8 @@ const reload = await page.evaluate(() => {
   b.mission.roundsDone.clear();
   b.mission.objectives.length = 0;
   b.mission.flags.swayed = null;
+  b.mission.flags.mainPerformanceStarted = false;
+  b.mission.flags.mainPerformanceComplete = false;
   b.game.seated = false;
   b.game.money = 7;
   b.date.follow();
@@ -2025,7 +2204,8 @@ check('a checkpoint restores the score and the ledger',
   reload.after.woo === reload.before.woo && reload.after.tips === reload.before.tips
     && reload.after.ledger === reload.before.ledger,
   JSON.stringify(reload.after));
-const cpFields = ['state', 'rounds', 'objectives', 'seated', 'swayed', 'hers', 'money'];
+const cpFields = ['state', 'rounds', 'objectives', 'seated', 'swayed', 'hers', 'money',
+  'performanceStarted', 'performanceComplete'];
 const cpWrong = cpFields.filter((k) => reload.after[k] !== reload.before[k]);
 check('and it round-trips the evening it claims to: state, rounds, chairs and all',
   reload.saved && cpWrong.length === 0,
@@ -2140,6 +2320,7 @@ const rushing = await page.evaluate(() => {
   const fresh = (secs) => {
     const m = new Mission();
     m.flags.showStarted = true;
+    m.flags.mainPerformanceComplete = true;
     m.setState('performance');
     m.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
     m.inState = secs;
@@ -2149,13 +2330,26 @@ const rushing = await page.evaluate(() => {
   };
   const declined = new Mission();
   declined.flags.showStarted = true;
+  declined.flags.mainPerformanceComplete = true;
   declined.setState('performance');
   declined.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
   declined.inState = 2;
   declined.offerInvitation();
   declined.flags.invitation = 'none';
-  return { early: fresh(4), late: fresh(140), declined: declined.rushedIt };
+  const blocked = new Mission();
+  blocked.flags.showStarted = true;
+  blocked.setState('performance');
+  blocked.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
+  blocked.inState = 140;
+  const blockedOk = blocked.offerInvitation();
+  return {
+    early: fresh(4), late: fresh(140), declined: declined.rushedIt,
+    blocked: { ok: blockedOk, state: blocked.state, ready: blocked.invitationReady },
+  };
 });
+check('even a complete evening cannot offer the invitation before the main performance ends',
+  !rushing.blocked.ok && !rushing.blocked.ready && rushing.blocked.state === 'performance',
+  JSON.stringify(rushing.blocked));
 check('but asking four seconds after the curtain is rushing it',
   rushing.early.ok && rushing.early.rushed && !rushing.late.rushed,
   JSON.stringify(rushing));

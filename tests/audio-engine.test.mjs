@@ -193,6 +193,7 @@ test('long music loops stream through a media element and release it when stoppe
   engine.ready = true;
   engine.busAmb = audioNode();
   engine.busSfx = audioNode();
+  engine.busMusic = audioNode();
 
   const handle = engine.startMusicLoop('club.record', 'assets/music/long-record.mp3', {
     volume: 0.2,
@@ -211,6 +212,24 @@ test('long music loops stream through a media element and release it when stoppe
   assert.equal(handle.element.paused, false);
   assert.equal(handle.node.connections.includes(handle.gain), true);
 
+  let ended = 0;
+  const oneShot = engine.startMusicLoop('stage.feature', 'assets/music/featured-record.mp3', {
+    volume: 0.25,
+    fade: 0,
+    loop: false,
+    bus: 'music',
+    onEnded: () => { ended++; },
+  });
+  await Promise.resolve();
+  assert.equal(oneShot.element.loop, false, 'a featured performance must not restart from the top');
+  assert.equal(oneShot.filter.connections.includes(engine.busMusic), true,
+    'featured music belongs on the music bus');
+  oneShot.element.listeners.get('ended')?.();
+  assert.equal(ended, 1, 'the performance owner needs the media element\'s natural ending');
+  engine.stopLoop('stage.feature', 0);
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.equal(oneShot.element.listeners.has('ended'), false, 'release removes the ended callback');
+
   engine.stopLoop('club.record', 0);
   await new Promise((resolve) => setTimeout(resolve, 80));
   assert.equal(handle.element.paused, true);
@@ -223,9 +242,15 @@ test('long music loops stream through a media element and release it when stoppe
 
   throwOnPlay = true;
   let rejectedHandle;
+  let rejectedError = null;
   assert.doesNotThrow(() => {
-    rejectedHandle = engine.startMusicLoop('blocked.record', 'assets/music/blocked.mp3');
+    rejectedHandle = engine.startMusicLoop('blocked.record', 'assets/music/blocked.mp3', {
+      onError: (handle_, error) => { rejectedError = { handle: handle_, error }; },
+    });
   });
+  assert.strictEqual(rejectedError?.handle, rejectedHandle,
+    'the performance owner is told which streamed handle failed');
+  assert.match(rejectedError?.error?.message ?? '', /media policy rejected playback/);
   assert.equal(engine.loops.has('blocked.record'), false);
   assert.equal(rejectedHandle.released, true);
   assert.equal(rejectedHandle.element.src, '');

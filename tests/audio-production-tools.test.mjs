@@ -68,6 +68,26 @@ test('the recording handoff groups manifest pickups and quarantines legacy brief
   assert.match(markdown, /UNWIRED DESIGN BRIEF/);
 });
 
+test('indexed takes with retired wording stay in the voice pickup handoff', () => {
+  const markdown = buildAudioTodo({
+    manifest: {
+      voices: {},
+      sfx: [{
+        name: 'vo.call.lou.changed.1',
+        voice: 'lou1',
+        say: 'The current playable words.',
+        needsRerecord: true,
+      }],
+    },
+    index: { files: ['vo.call.lou.changed.1.mp3'] },
+    legacyQueue: {},
+  });
+
+  assert.match(markdown, /Script drift: 1 indexed take explicitly marked for re-recording/);
+  assert.match(markdown, /vo\.call\.lou\.changed\.1\.mp3/);
+  assert.match(markdown, /RE-RECORD: the indexed take contains retired wording/);
+});
+
 test('same-word lines with different acting directions remain separate performances', () => {
   const directions = [
     'Cheerful.',
@@ -151,7 +171,7 @@ test('THE TAKE voice and effect pickups have their own production section and di
   assert.doesNotMatch(markdown, /^## Manifest effect pickups .* Shared \/ other/m);
 });
 
-test('NO WAKE and THE TAKE production briefs stay unrecorded and visible in the handoff', () => {
+test('NO WAKE and THE TAKE production briefs have delivered indexed recordings', () => {
   const readJson = (relative) => JSON.parse(fs.readFileSync(path.join(ROOT, relative), 'utf8'));
   const manifest = readJson('assets/sfx/manifest.json');
   const index = readJson('assets/sfx/index.json');
@@ -198,7 +218,7 @@ test('NO WAKE and THE TAKE production briefs stay unrecorded and visible in the 
   };
 
   for (const [scene, names] of Object.entries(expected)) {
-    assert.match(handoff, new RegExp(`^## Manifest effect pickups .* ${scene} \\(${names.length}\\)$`, 'm'));
+    assert.doesNotMatch(handoff, new RegExp(`^## Manifest effect pickups .* ${scene}`, 'm'));
     for (const name of names) {
       const cue = cues.get(name);
       assert.ok(cue, `${name} must have a manifest production brief`);
@@ -206,9 +226,12 @@ test('NO WAKE and THE TAKE production briefs stay unrecorded and visible in the 
       assert.ok(cue.prompt.length >= 40, `${name} prompt must be production-ready`);
       assert.ok(Number.isFinite(cue.duration) && cue.duration > 0,
         `${name} must have an authored duration`);
-      assert.equal(indexed.has(`${name}.mp3`), false,
-        `${name} must not claim a recording before one is delivered`);
-      assert.match(handoff, new RegExp(name.replaceAll('.', '\\.') + '\\.mp3'));
+      assert.equal(indexed.has(`${name}.mp3`), true,
+        `${name} must keep its delivered recording in the runtime index`);
+      assert.ok(fs.statSync(path.join(ROOT, 'assets/sfx', `${name}.mp3`)).size > 512,
+        `${name} must have a non-placeholder delivered recording`);
+      assert.doesNotMatch(handoff, new RegExp(name.replaceAll('.', '\\.') + '\\.mp3'),
+        `${name} must leave the pickup list after delivery`);
     }
   }
 });
