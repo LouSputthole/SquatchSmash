@@ -9,6 +9,10 @@ import {
 } from '../src/bing/second-visit.js';
 import { createPartyCollider } from '../src/bing/party-collision.js';
 import { restoreHotDogCleanupPresentation } from '../src/bing/hotdog-cleanup-presentation.js';
+import {
+  SHUBENATOR_SIGNATURE_TAKES,
+  SHUBENATOR_SIGNATURE_TEXT,
+} from '../src/core/shubenator-signature.js';
 
 test('party colliders follow moving props and park themselves when hidden', () => {
   const scene = new THREE.Scene();
@@ -84,6 +88,24 @@ test('the authored party sequence keeps the relaxed set, escalation, sudden atta
   assert.match(text, /motel/i);
   assert.ok(sequence.some((beat) => beat.action === 'attack'));
   assert.ok(sequence.some((beat) => beat.action === 'enable-gun-kick'));
+
+  const signature = sequence.find((beat) => beat.cue === SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath.cue);
+  const music = sequence.findIndex((beat) => beat.cue === 'vo.bing2.shubenator.music');
+  assert.deepEqual(
+    {
+      who: signature?.who,
+      line: signature?.line,
+      direction: signature?.direction,
+      reaction: signature?.reaction,
+    },
+    {
+      who: 'Shubenator',
+      line: SHUBENATOR_SIGNATURE_TEXT,
+      direction: SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath.direction,
+      reaction: 'shubenator-aftermath',
+    },
+  );
+  assert.equal(sequence.indexOf(signature), music + 1, 'signature lands immediately after the music cut');
 });
 
 test('completed cleanup tasks restore every matching party prop and pad', () => {

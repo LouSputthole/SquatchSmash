@@ -134,10 +134,10 @@ test('the Bing recording ledger includes every generated line in every runtime b
   }
 });
 
-test('ambient chatter and the bar capacity refusal are exact-cued and ledger-owned', () => {
+test('ambient chatter, Shubenator signature, and bar capacity refusal are ledger-owned', () => {
   const standalone = bingStandaloneVoiceLines();
   const ledger = new Map(collectBingVoiceCues().map((cue) => [cue.name, cue]));
-  assert.equal(standalone.length, AMBIENT.length + 1);
+  assert.equal(standalone.length, AMBIENT.length + 2);
   assert.equal(BARTENDER_CAPACITY_LINE.voice, 'bartender');
   assert.equal(standalone.find((line) => line.cue === 'vo.bing.ambient.05')?.voice, 'performer');
   for (const line of standalone) {
@@ -146,6 +146,7 @@ test('ambient chatter and the bar capacity refusal are exact-cued and ledger-own
       name: line.cue,
       voice: line.voice,
       say: plainWords(line.line),
+      ...(line.direction ? { direction: line.direction } : {}),
     });
   }
 });

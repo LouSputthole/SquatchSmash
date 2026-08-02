@@ -3,6 +3,10 @@ import test from 'node:test';
 
 import { buildFamilyScripts } from '../src/bing/family.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import {
+  SHUBENATOR_SIGNATURE_TAKES,
+  SHUBENATOR_SIGNATURE_TEXT,
+} from '../src/core/shubenator-signature.js';
 
 test('Eric keeps the stable character id and has the nearby shawarma conversation', () => {
   const scripts = buildFamilyScripts();
@@ -39,4 +43,25 @@ test('Irish grants the first-talk cash once and then continues into his regular 
   assert.equal(grants, 1);
   assert.equal(gifted, true);
   assert.equal(irish.open.who, 'Irish');
+});
+
+test('Shubenator opens his first meeting with the cheerful signature without losing his hangout', () => {
+  const shubenator = buildFamilyScripts()[CHARACTER_IDS.SHUBENATOR];
+
+  assert.equal(shubenator.signatureCheerful.line, SHUBENATOR_SIGNATURE_TEXT);
+  assert.equal(shubenator.signatureCheerful.cue, SHUBENATOR_SIGNATURE_TAKES.firstMeeting.cue);
+  assert.equal(shubenator.signatureCheerful.direction, SHUBENATOR_SIGNATURE_TAKES.firstMeeting.direction);
+  assert.equal(shubenator.signatureCheerful.next, 'open');
+  assert.equal(shubenator.open.cue, 'vo.bing.hang.shubenator.1');
+  assert.match(shubenator.open.line, /nine hundred push-ups/i);
+  assert.equal(shubenator.more.cue, 'vo.bing.hang.shubenator.2');
+});
+
+test('the campaign owns three separately directed recordings of the same signature wording', () => {
+  const takes = Object.values(SHUBENATOR_SIGNATURE_TAKES);
+
+  assert.equal(takes.length, 3);
+  assert.equal(new Set(takes.map((take) => take.cue)).size, 3);
+  assert.equal(new Set(takes.map((take) => take.direction)).size, 3);
+  assert.deepEqual(takes.map((take) => take.text), Array(3).fill(SHUBENATOR_SIGNATURE_TEXT));
 });

@@ -6744,6 +6744,12 @@
       "duration": 5.5
     },
     {
+      "name": "vo.bing.hang.shubenator.signature.cheerful",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?",
+      "direction": "Cheerful and casually late to the conversation. A friendly first hello; he genuinely believes nothing in the room is tense."
+    },
+    {
       "name": "vo.bing.hang.shubenator.1",
       "voice": "shubenator",
       "say": "I did nine hundred push-ups today. The number is not the impressive part. The floor was.",
@@ -8238,6 +8244,12 @@
       "say": "Music. Right. Sorry."
     },
     {
+      "name": "vo.bing2.shubenator.signature.gleeful",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?",
+      "direction": "Gleeful and brightly oblivious, immediately after the violence. Do not acknowledge the body or play the darkness of the room."
+    },
+    {
       "name": "vo.bing2.lou.lockdown",
       "voice": "lou1",
       "say": "Nobody leaves. Congratulations, everybody. You are all involved now."
@@ -9376,6 +9388,12 @@
       "name": "heist.rippin_aid",
       "voice": "rippinflow",
       "say": "The van had one job and chose performance art. Wrap the leg tighter."
+    },
+    {
+      "name": "heist.shubes_signature_cleanup",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?",
+      "direction": "Pleasant, deadpan, and entirely untroubled during mission cleanup. He sounds as though he has just joined an ordinary group chat."
     },
     {
       "name": "heist.shubes_defend",

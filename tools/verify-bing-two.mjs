@@ -193,6 +193,22 @@ try {
     ['performance', 'tension', 'attack', 'aftermath', 'handoff']
       .every((phase) => current.phases.includes(phase)),
     current.phases.join(', '));
+  const signatureBeat = await page.evaluate(() => {
+    const sequence = window.HOTDOG_INCIDENT.sequence;
+    const matches = sequence
+      .map((beat, index) => ({ ...beat, index }))
+      .filter((beat) => beat.line === 'Hey guys, what’s going on?');
+    const music = sequence.findIndex((beat) => beat.cue === 'vo.bing2.shubenator.music');
+    return { matches, music };
+  });
+  check('the HotDog aftermath has one gleeful Shubenator signature immediately after the music cut',
+    signatureBeat.matches.length === 1
+      && signatureBeat.matches[0].who === 'Shubenator'
+      && signatureBeat.matches[0].cue === 'vo.bing2.shubenator.signature.gleeful'
+      && signatureBeat.matches[0].reaction === 'shubenator-aftermath'
+      && /gleeful/i.test(signatureBeat.matches[0].direction)
+      && signatureBeat.matches[0].index === signatureBeat.music + 1,
+    JSON.stringify(signatureBeat));
   check('the party set has solid furniture, a supported cake, live cast bodies, and nonblocking evidence',
     current.collision.castCount === current.castCount
       && [

@@ -276,6 +276,7 @@ const game = {
   louTalking: false,
   booskiShotDone: false,
   irishGifted: false,
+  shubenatorSignatureHeard: false,
   powderConsumed: false,
   beat: null,          // the one scripted camera beat (Booski's shot delivery)
   lastHand: null,      // last blackjack outcome, for the table's voice
@@ -1485,7 +1486,13 @@ for (const npc of family.all) {
   const tree = familyScripts[npc.characterId];
   const startAt = npc.characterId === CHARACTER_IDS.IRISH
     ? () => (!isSecondVisit && !game.irishGifted ? 'gift' : 'open')
-    : 'open';
+    : npc.characterId === CHARACTER_IDS.SHUBENATOR
+      ? () => {
+        if (isSecondVisit || game.shubenatorSignatureHeard) return 'open';
+        game.shubenatorSignatureHeard = true;
+        return 'signatureCheerful';
+      }
+      : 'open';
   if (tree) reg(npc.group, talkTo(npc, tree, startAt));
 }
 

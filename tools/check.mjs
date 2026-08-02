@@ -271,7 +271,9 @@ try {
     const stale = sfxManifest.sfx.filter((cue) => cue.name.startsWith(prefix) && !wanted.has(cue.name));
     const drifted = expected.filter((cue) => {
       const actual = manifestByName.get(cue.name);
-      return actual && (actual.say !== cue.say || actual.voice !== cue.voice);
+      return actual && (actual.say !== cue.say
+        || actual.voice !== cue.voice
+        || (actual.direction ?? '') !== (cue.direction ?? ''));
     });
     if (missing.length || stale.length || drifted.length) {
       fail(`${label} voice catalog drift: ${missing.length} missing, ${stale.length} stale, `

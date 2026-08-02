@@ -107,7 +107,12 @@ function voiceDirection(profile, voices) {
 }
 
 function voiceReusePlan(cues) {
-  const duplicateGroups = [...group(cues, (cue) => `${cue.voice || 'player'}\u0000${cue.say}`).values()]
+  /* Direction is part of a performance's identity. Identical words can be
+   * authored as cheerful, gleeful or deadpan takes; those must be recorded
+   * separately instead of copied from one master file. */
+  const duplicateGroups = [...group(cues, (cue) => (
+    `${cue.voice || 'player'}\u0000${cue.say}\u0000${String(cue.direction ?? '').trim()}`
+  )).values()]
     .filter((items) => items.length > 1)
     .map((items) => [...items].sort((a, b) => a.name.localeCompare(b.name)))
     .sort((a, b) => a[0].name.localeCompare(b[0].name));
@@ -161,7 +166,10 @@ function renderVoice(out, voice, voices) {
         const instruction = !repeated ? '' : repeated.master
           ? ` **PERFORMANCE REUSE GROUP ${repeated.group}: record once; ${repeated.count} exact cue files share this approved take.**`
           : ` **PERFORMANCE REUSE GROUP ${repeated.group}: copy the approved master take; do not record again.**`;
-        out.push(`- \`${fileOf(cue)}\` — ${JSON.stringify(cue.say)}${instruction}`);
+        const performance = cue.direction
+          ? ` **Performance:** ${String(cue.direction).trim()}`
+          : '';
+        out.push(`- \`${fileOf(cue)}\` — ${JSON.stringify(cue.say)}${performance}${instruction}`);
       }
       out.push('');
     }
@@ -185,7 +193,10 @@ function renderHotDogLedger(out, cues, have) {
     out.push(`### ${scene} (${sceneCues.length})`, '');
     for (const cue of sceneCues) {
       const status = have.has(fileOf(cue)) ? '**RECORDED**' : '**NEEDS RECORDING**';
-      out.push(`- ${status} \`${fileOf(cue)}\` - ${JSON.stringify(cue.say)}`);
+      const performance = cue.direction
+        ? ` **Performance:** ${String(cue.direction).trim()}`
+        : '';
+      out.push(`- ${status} \`${fileOf(cue)}\` - ${JSON.stringify(cue.say)}${performance}`);
     }
     out.push('');
   }

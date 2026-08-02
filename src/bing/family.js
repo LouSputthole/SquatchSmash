@@ -19,6 +19,7 @@
  * photo lands on the same skull with no code changes.
  */
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { SHUBENATOR_SIGNATURE_TAKES } from '../core/shubenator-signature.js';
 import { Npc, STOOL_SIT } from './cast.js';
 import { APE_FAMILY_MEMBER } from './family-ape.js';
 import { applyBingVoiceCues } from './script.js';
@@ -516,11 +517,22 @@ export function buildFamilyScripts({
     last: 'I’m not doing that, Seff.',
   });
 
-  const shubenator = hangout('The Shubenator', 'shubenator', {
+  const shubenatorHangout = hangout('The Shubenator', 'shubenator', {
     line1: 'I did nine hundred push-ups today. The number is not the impressive part. The floor was.',
     reply: { text: 'What did the floor do?', replyTone: 'Ask' },
     line2: 'You need mass, Prospect. Order the shrimp. Order nine shrimp.',
   });
+  const shubenator = {
+    signatureCheerful: {
+      who: 'The Shubenator',
+      line: SHUBENATOR_SIGNATURE_TAKES.firstMeeting.text,
+      cue: SHUBENATOR_SIGNATURE_TAKES.firstMeeting.cue,
+      direction: SHUBENATOR_SIGNATURE_TAKES.firstMeeting.direction,
+      hold: 2.4,
+      next: 'open',
+    },
+    ...shubenatorHangout,
+  };
 
   const numbskull = hangout('Numbskull', 'numbskull', {
     line1: 'I like you. I decided this morning. It’s done now, so don’t worry about it.',

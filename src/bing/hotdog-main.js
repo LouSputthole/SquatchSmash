@@ -194,6 +194,15 @@ function react(reaction) {
   if (reaction === 'ape-laugh') party.byId.ape?.say(3.2);
   if (reaction === 'lou-warning-look') party.extra.lou.faceToward(party.extra.hotdog.position.x, party.extra.hotdog.position.z);
   if (reaction === 'eric-recording') party.byId.eric?.faceToward(-12, -5.7);
+  if (reaction === 'shubenator-aftermath') {
+    const shubenator = party.byId.shubenator;
+    if (shubenator) {
+      shubenator.route = null;
+      shubenator.job = 'stand';
+      shubenator.group.position.set(-13.6, 0, 1.05);
+      shubenator.faceToward(party.extra.hotdog.position.x, party.extra.hotdog.position.z, true);
+    }
+  }
   if (reaction === 'room-laugh') {
     for (let i = 0; i < all.length; i += 2) all[i].say(1.8 + (i % 3) * 0.3);
   }

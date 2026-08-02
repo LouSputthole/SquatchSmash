@@ -1,8 +1,9 @@
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { getCharacter } from '../core/characters.js';
+import { SHUBENATOR_SIGNATURE_TAKES } from '../core/shubenator-signature.js';
 import { DIALOGUE_PRIORITY } from './dialogue.js';
 
-function line(id, speakerId, text, priority, states, cue = id) {
+function line(id, speakerId, text, priority, states, cue = id, direction = '') {
   const speaker = getCharacter(speakerId);
   return Object.freeze({
     id,
@@ -17,6 +18,7 @@ function line(id, speakerId, text, priority, states, cue = id) {
     priority,
     states: Object.freeze(states),
     cue: `heist.${cue}`,
+    ...(direction ? { direction } : {}),
   });
 }
 
@@ -147,6 +149,15 @@ export const HEIST_DIALOGUE = Object.freeze({
     'The van had one job and chose performance art. Wrap the leg tighter.', P.INJURY, ['FIRST_AID']),
   shubes_defend: line('shubes_defend', CHARACTER_IDS.SHUBENATOR,
     'The vault opened on schedule. The alarm was a separate and inferior system.', P.BARK, ['DEBRIEF']),
+  shubes_signature_cleanup: line(
+    'shubes_signature_cleanup',
+    CHARACTER_IDS.SHUBENATOR,
+    SHUBENATOR_SIGNATURE_TAKES.heistCleanup.text,
+    P.OBJECTIVE,
+    ['DEBRIEF'],
+    'shubes_signature_cleanup',
+    SHUBENATOR_SIGNATURE_TAKES.heistCleanup.direction,
+  ),
   death_ammo: line('death_ammo', CHARACTER_IDS.DEATHMEGATRON,
     'Ammunition accounted for. Everybody else is somebody else’s paperwork.', P.BARK, ['DEBRIEF']),
   numb_home: line('numb_home', CHARACTER_IDS.NUMBSKULL,

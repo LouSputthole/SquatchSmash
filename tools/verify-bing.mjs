@@ -2105,6 +2105,7 @@ check('every performer keeps her height, wears real hair, and has her edges take
     'vo.bing.hang.irish.tony.1', 'vo.bing.booski.shot.tony.1',
     'vo.bing.hang.eric.shawarma.1', 'vo.bing.hang.eric.shawarma.2',
     'vo.bing.hang.irish.gift.1', 'vo.bing.hang.irish.gift.2',
+    'vo.bing.hang.shubenator.signature.cheerful',
   ];
   const unwired = mustBeWired.filter((cue) => !wired.includes(cue));
   const unauthored = wired.filter((cue) => !authored.has(cue));
@@ -2192,6 +2193,40 @@ check('Irish gives exactly $100 on the first conversation of Bing One',
     && irishGift.cue === 'vo.bing.hang.irish.gift.1'
     && irishGift.continuesTo === 'open',
   JSON.stringify(irishGift));
+
+const shubenatorSignature = await page.evaluate(() => {
+  const b = window.__bing;
+  const shubenator = b.family.byId.shubenator;
+  const use = shubenator.group.userData.interact.onUse;
+  b.game.shubenatorSignatureHeard = false;
+  b.game.voLog.length = 0;
+  use();
+  const first = {
+    node: b.dialogue.nodeId,
+    text: document.querySelector('#dialogue .line')?.textContent,
+    cue: b.game.voLog.at(-1),
+    heard: b.game.shubenatorSignatureHeard,
+  };
+  b.dialogue.end('done');
+  b.game.voLog.length = 0;
+  use();
+  const second = {
+    node: b.dialogue.nodeId,
+    text: document.querySelector('#dialogue .line')?.textContent,
+    cue: b.game.voLog.at(-1),
+  };
+  b.dialogue.end('done');
+  return { first, second };
+});
+check('Shubenator says the cheerful signature once at his first Bing introduction',
+  shubenatorSignature.first.node === 'signatureCheerful'
+    && shubenatorSignature.first.text === 'Hey guys, what’s going on?'
+    && shubenatorSignature.first.cue === 'vo.bing.hang.shubenator.signature.cheerful'
+    && shubenatorSignature.first.heard
+    && shubenatorSignature.second.node === 'open'
+    && /nine hundred push-ups/i.test(shubenatorSignature.second.text)
+    && shubenatorSignature.second.cue === 'vo.bing.hang.shubenator.1',
+  JSON.stringify(shubenatorSignature));
 
 /* ---- 11, 12: the bottom of the screen ---- */
 const talkUi = await page.evaluate(async () => {

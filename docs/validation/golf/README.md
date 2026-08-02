@@ -2,14 +2,17 @@
 
 Current automated snapshot (August 2, 2026):
 
-- `npm test`: 336/336 repository tests, including recovery, save/resume,
+- `npm test`: 339/339 repository tests, including recovery, save/resume,
   club/lie/overswing, curved flight, and player-driven cart models.
-- `npm run check`: 282 source files and all five manifests valid.
-- `npm run verify:golf`: 86/86 live browser checks from the real start button
+- `npm run check`: 283 source files and all five manifests valid.
+- `npm run verify:golf`: 89/89 live browser checks from the real start button
   through all three holes.
 - The verifier plays the real round with the game's real objects and solver,
-  records all three holes, completes the mission, checks recovery and restart,
-  and sees no browser console errors.
+  records all three holes, observes each rendered address pose, proves the cart
+  radio is decoded and spatial, checks long-shot retrieval, authored NPC totals,
+  restart and reload-resume, completes the mission, and sees no console errors.
+- The start gate decodes eight radio control/intro cues; the remaining 93-cue
+  8 AM station bank prefetches after control opens instead of blocking play.
 - The live render now asserts the authored anchors on every rebuild. Hole 3 in
   particular must render `clubhouse` while its `lot` is null.
 - The equipment pass is now structural as well as visual: the driver has a

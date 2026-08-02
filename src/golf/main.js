@@ -285,7 +285,7 @@ const audio = new AudioEngine();
 const radioClock = new AuthoredClock(8);
 radioClock.setTime(4, 8 * 60);
 const cartRadio = new Radio(audio, hud, radioClock, {
-  venue: 'apartment',
+  venue: 'silver_pines',
   state: createCampaignRadioAdapter(campaign, {
     receiverId: 'silver_pines_lead_cart',
     defaultPower: true,
@@ -295,6 +295,8 @@ const cartRadio = new Radio(audio, hud, radioClock, {
 });
 const cartRadioPosition = new THREE.Vector3();
 const cartRadioReady = cartRadio.loadManifest();
+const cartRadioAudioPlan = { startup: [], full: [] };
+let cartRadioAudioReady = Promise.resolve({ total: 0, loaded: 0 });
 const player = new Player(camera, course);
 player.position.set(HOLE.lot.playerStart.x, 1.66, HOLE.lot.playerStart.z);
 /* Face the actual opening action. The old PI heading looked directly away
@@ -1357,7 +1359,7 @@ window.addEventListener('keydown', (e) => {
         cartRadio.toggle();
         carts.lead.setRadioOn(cartRadio.on);
         hud.toast(cartRadio.on
-          ? `${cartRadio.station.dial} Â· ${cartRadio.station.name}`
+          ? `${cartRadio.station.dial} · ${cartRadio.station.name}`
           : 'Cart radio off');
       } else if (round.needsRelief()) {
         round.takeDrop(
@@ -1369,7 +1371,7 @@ window.addEventListener('keydown', (e) => {
       if (camMode === CAM.CART) {
         cartRadio.tune();
         carts.lead.setRadioOn(cartRadio.on);
-        hud.toast(`${cartRadio.station.dial} Â· ${cartRadio.station.name}`);
+        hud.toast(`${cartRadio.station.dial} · ${cartRadio.station.name}`);
       }
       break;
     case 'KeyN':
@@ -1746,6 +1748,14 @@ function prefetchLaterGolfAudio() {
   })();
 }
 
+function prefetchCartRadioAudio() {
+  cartRadioAudioPlan.full = cartRadio.preloadCueNames({ hours: [8] });
+  cartRadioAudioReady = audio.loadAdditional?.({ names: cartRadioAudioPlan.full })
+    ?.catch?.(() => ({ total: 0, loaded: 0 }))
+    ?? Promise.resolve({ total: 0, loaded: 0 });
+  return cartRadioAudioReady;
+}
+
 async function boot() {
   if (running || booting) return;
   booting = true;
@@ -1768,9 +1778,12 @@ async function boot() {
 
   await audio.init?.().catch?.(() => {});
   await cartRadioReady.catch?.(() => {});
-  const radioCueNames = cartRadio.preloadCueNames({ hours: [8] });
+  /* The cart is several minutes away. Decode only its controls, station IDs
+   * and current show intro before opening play; the full 8 AM bank streams in
+   * behind the first tee instead of adding 93 MP3 decodes to the start gate. */
+  cartRadioAudioPlan.startup = cartRadio.preloadCueNames({ hours: [8], startupOnly: true });
   await audio.loadManifest?.({
-    names: [...new Set([...GOLF_START_AUDIO_SCOPE.names, ...radioCueNames])],
+    names: [...new Set([...GOLF_START_AUDIO_SCOPE.names, ...cartRadioAudioPlan.startup])],
     prefixes: [...GOLF_START_AUDIO_SCOPE.prefixes],
   }).catch?.(() => {});
   courseAudio = new CourseAudio(audio);
@@ -1806,6 +1819,7 @@ async function boot() {
   } else {
     round.begin();
   }
+  prefetchCartRadioAudio();
   prefetchLaterGolfAudio();
   running = true;
   paintCard();
@@ -1835,6 +1849,8 @@ frame();
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
   cartRadio, landingPreview,
+  cartRadioAudioPlan,
+  waitForCartRadioAudio: () => cartRadioAudioReady,
   player, camera, scene, audio,
   get beat() { return round.beat; },
   get camMode() { return camMode; },

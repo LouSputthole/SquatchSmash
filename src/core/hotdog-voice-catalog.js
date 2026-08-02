@@ -29,12 +29,15 @@ export const HOTDOG_VOICE_BY_SPEAKER = Object.freeze({
   Echo: 'echo',
 });
 
-function catalogLine({ cue, text, speaker }) {
+function catalogLine({ cue, text, speaker, direction = '' }) {
   const voice = HOTDOG_VOICE_BY_SPEAKER[speaker];
   if (!cue?.startsWith('vo.') || !text || !voice) {
     throw new Error(`Uncatalogued HotDog voice line: ${speaker ?? 'unknown'} / ${cue ?? 'no cue'}`);
   }
-  return Object.freeze({ cue, text, speaker, voice });
+  return Object.freeze({
+    cue, text, speaker, voice,
+    ...(direction ? { direction } : {}),
+  });
 }
 
 function unique(lines) {
@@ -51,6 +54,7 @@ export function hotDogPartyVoiceLines() {
     cue: beat.cue,
     text: beat.line,
     speaker: beat.who,
+    direction: beat.direction,
   })));
 }
 

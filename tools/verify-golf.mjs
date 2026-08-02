@@ -86,6 +86,7 @@ const check = (name, ok, detail = '') => {
 console.log('\nSilver Pines — Full Round\n');
 
 const GOLF_URL = `http://localhost:${PORT}/golf.html?preview=1`;
+const GOLF_CANONICAL_URL = `http://localhost:${PORT}/golf.html`;
 await page.goto(GOLF_URL, { waitUntil: 'load' });
 await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
 let startError = '';
@@ -280,7 +281,10 @@ const audioBank = await page.evaluate(async () => {
   const g = window.__golf;
   const { CUES } = await import('/src/golf/script.js');
   const { GOLF_EFFECT_CUES, GOLF_LATER_AUDIO_SCOPES } = await import('/src/golf/audio.js');
-  await Promise.all(GOLF_LATER_AUDIO_SCOPES.map((scope) => g.audio.loadAdditional(scope)));
+  await Promise.all([
+    ...GOLF_LATER_AUDIO_SCOPES.map((scope) => g.audio.loadAdditional(scope)),
+    g.waitForCartRadioAudio(),
+  ]);
   const manifest = g.audio.manifest.sfx || [];
   const names = new Set(manifest.map((cue) => cue.name));
   const expectedVoices = Object.keys(CUES).map((id) => `vo.${id}`);
@@ -288,17 +292,27 @@ const audioBank = await page.evaluate(async () => {
   const available = g.audio._availableFiles || new Set();
   const indexed = manifest.filter((cue) => golfNames.has(cue.name)
     && available.has(cue.file || `${cue.name}.mp3`));
+  const radioIndexed = g.cartRadioAudioPlan.full.filter((name) => {
+    const cue = manifest.find((entry) => entry.name === name);
+    return cue && available.has(cue.file || `${cue.name}.mp3`);
+  });
   return {
     voices: expectedVoices.filter((name) => names.has(name)).length,
     expectedVoices: expectedVoices.length,
     missingEffects: GOLF_EFFECT_CUES.filter((name) => !names.has(name)),
     missingDecoded: indexed.filter((cue) => !g.audio.buffers.has(cue.name)).map((cue) => cue.name),
+    radioStartup: g.cartRadioAudioPlan.startup.length,
+    radioFull: g.cartRadioAudioPlan.full.length,
+    missingRadioDecoded: radioIndexed.filter((name) => !g.audio.hasSample(name)),
   };
 });
-check('3b. the scene loads its complete recordable audio catalog and indexed takes',
+check('3b. complete Golf audio loads while the larger cart-radio bank stays off the start gate',
   audioBank.voices === audioBank.expectedVoices && audioBank.missingEffects.length === 0
-    && audioBank.missingDecoded.length === 0,
-  `${audioBank.voices}/${audioBank.expectedVoices} voice cues; ${audioBank.missingEffects.length} missing effects; ${audioBank.missingDecoded.length} indexed takes not decoded`);
+    && audioBank.missingDecoded.length === 0
+    && audioBank.radioStartup > 0 && audioBank.radioStartup <= 20
+    && audioBank.radioFull >= 50 && audioBank.radioStartup < audioBank.radioFull
+    && audioBank.missingRadioDecoded.length === 0,
+  `${audioBank.voices}/${audioBank.expectedVoices} Golf voices; radio ${audioBank.radioStartup} startup / ${audioBank.radioFull} background; ${audioBank.missingRadioDecoded.length} radio takes not decoded`);
 
 const bagCheck = await page.evaluate(() => {
   const g = window.__golf;
@@ -417,24 +431,17 @@ const npcShots = await page.evaluate(async () => {
   const { solveShot } = await import('/src/golf/ball.js');
   const { SURFACE_PROPS, toFeet } = await import('/src/golf/course.js');
   const { surfaceAt } = await import('/src/golf/field.js');
-  const { golfStanceFor } = await import('/src/golf/mission.js');
   const H = await import('/src/golf/hole1.js');
   const from = { x: H.TEE_MARKS.ball.x, z: H.TEE_MARKS.ball.z };
   const lie = SURFACE_PROPS[surfaceAt(from.x, from.z)];
   const out = {};
   for (const [who, spec] of Object.entries(H.NPC_TEE_SHOTS)) {
     const r = solveShot({ from, target: spec.target, club: spec.club, lie, loftBias: spec.loftBias });
-    const stance = golfStanceFor(from, spec.target);
-    const yawDelta = Math.atan2(
-      Math.sin(stance.yaw - stance.shotYaw),
-      Math.cos(stance.yaw - stance.shotYaw),
-    );
     out[who] = {
       finish: r.surface,
       landing: r.landing?.surface ?? null,
       feet: toFeet(Math.hypot(r.landedAt.x - H.PIN.x, r.landedAt.z - H.PIN.z)),
       error: r.error,
-      stanceSideOn: Math.abs(Math.abs(yawDelta) - Math.PI / 2) < 1e-6,
     };
   }
   return out;
@@ -449,22 +456,48 @@ check('19c. Lou lands short and releases onto the green',
   && npcShots.lou.feet < npcShots.rippinflow.feet,
   `lands on ${npcShots.lou.landing}, finishes ${npcShots.lou.feet.toFixed(0)} ft — inside Rippin's ${npcShots.rippinflow.feet.toFixed(0)} ft`);
 
-check('19s. every golfer addresses side-on to his authored target line',
-  Object.values(npcShots).every((shot) => shot.stanceSideOn),
-  JSON.stringify(npcShots));
-
 const npcPlayed = await page.evaluate(() => {
   const g = window.__golf;
+  const order = ['eric', 'rippinflow', 'lou'];
+  const liveStances = {};
   for (let i = 0; i < 4000 && g.round.beat === 'npc_tee'; i++) {
-    g.round.skipRequested = true;
+    const id = order[g.round._npcIndex];
+    if (id && g.round._npcPhase === 'swing' && !liveStances[id]) {
+      const golfer = g.golfers[id];
+      const ball = g.LAYOUT.teeMarks.ball;
+      const target = g.LAYOUT.npcTeeShots[id].target ?? g.LAYOUT.pin;
+      const shotYaw = Math.atan2(target.x - ball.x, target.z - ball.z);
+      const yawDelta = Math.atan2(
+        Math.sin(golfer.group.rotation.y - shotYaw),
+        Math.cos(golfer.group.rotation.y - shotYaw),
+      );
+      const distance = Math.hypot(golfer.position.x - ball.x, golfer.position.z - ball.z);
+      if (['address', 'practice'].includes(golfer.state) && distance < 1.2) {
+        liveStances[id] = {
+          distance,
+          yawDelta,
+          sideOn: Math.abs(Math.abs(yawDelta) - Math.PI / 2) < 0.01,
+          state: golfer.state,
+        };
+      }
+    }
+    /* A helper-only assertion missed a real staging regression before. Let
+     * every golfer walk, address and swing without the scene's skip path. */
+    g.round.skipRequested = false;
     g.step(0.05);
   }
   return {
     beat: g.round.beat,
     strokes: ['lou', 'rippinflow', 'eric'].map((id) => g.round.card.hole(id, 1).strokes),
     teeEffect: g.audio.playbacks.filter(({ name }) => name === 'golf.tee').length,
+    liveStances,
   };
 });
+check('19s. every rendered golfer reaches a real side-on address pose',
+  Object.keys(npcPlayed.liveStances).length === 3
+    && Object.values(npcPlayed.liveStances).every((stance) => stance.sideOn
+      && stance.distance > 0.35 && stance.distance < 1.1),
+  JSON.stringify(npcPlayed.liveStances));
 check('19. all three NPC tee shots complete',
   npcPlayed.beat === 'player_tee' && npcPlayed.strokes.every((s) => s === 1),
   `beat: ${npcPlayed.beat}, strokes: ${npcPlayed.strokes.join('/')}`);
@@ -571,11 +604,13 @@ check('5a1. addressing shows a yellow, distance-driven landing area in the world
     && landingPreview.yellow === 0xffdf57 && /yd landing area/i.test(landingPreview.label)
     && landingPreview.reticleVisible && landingPreview.reticleWidth >= 54,
   JSON.stringify(landingPreview));
-await page.setViewportSize({ width: 1280, height: 720 });
-await page.screenshot({
-  path: path.join(ROOT, 'docs', 'validation', 'golf', '13-landing-preview.png'),
-});
-await page.setViewportSize({ width: 480, height: 300 });
+if (CAPTURE_SCREENSHOTS) {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.screenshot({
+    path: path.join(ROOT, 'docs', 'validation', 'golf', '13-landing-preview.png'),
+  });
+  await page.setViewportSize({ width: 480, height: 300 });
+}
 check('5a2. the first tee recommends the safe middle instead of the water-side pin',
   playerClubView.plan.club === 'iron' && playerClubView.plan.label === 'MIDDLE GREEN'
     && Math.hypot(
@@ -988,26 +1023,52 @@ const cartGuide = await page.evaluate(() => ({
 check('20a2. the driving HUD keeps pointing to a distant ball instead of telling the player to park',
   cartGuide.distance > 12 && /drive/i.test(cartGuide.text) && !/park beside/i.test(cartGuide.text),
   JSON.stringify(cartGuide));
-const cartRadioControl = await page.evaluate(() => {
+const cartRadioControl = await page.evaluate(async () => {
   const g = window.__golf;
+  await g.waitForCartRadioAudio();
+  g.audio.clearPlaybackLog();
   const before = g.cartRadio.on;
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyR' }));
   const toggled = g.cartRadio.on;
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyT' }));
   const tuned = g.cartRadio.on;
   const lamp = g.carts.lead.group.getObjectByName('golf-cart-radio-power');
+  const ident = g.cartRadio.station?.ident ?? '';
+  const panner = g.cartRadio.panner;
+  const pannerPosition = panner?.positionX
+    ? [panner.positionX.value, panner.positionY.value, panner.positionZ.value]
+    : [];
+  const sourcePosition = g.cartRadio.position.toArray();
   return {
     mode: g.camMode,
     before, toggled, tuned,
     station: g.cartRadio.station?.dial ?? '',
     lamp: lamp?.material?.color?.getHex?.() ?? 0,
+    ident,
+    audibleIdent: g.audio.playbacks.some((playback) => (
+      playback.name === ident && playback.source === 'buffer'
+    )),
+    pannerPosition,
+    sourcePosition,
+    savedPower: g.cartRadio.state?.load?.().power,
+    preferredOn: g.cartRadio.preferredOn,
+    venue: g.cartRadio.venue,
+    playlist: g.cartRadio.playlist.map((track) => track.title),
   };
 });
-check('20a3. the cart radio powers, tunes, lights its dash, and uses the shared station',
+check('20a3. the cart radio is audible, spatial, persistent, and course-scoped',
   cartRadioControl.mode === 'cart'
     && cartRadioControl.toggled !== cartRadioControl.before
     && cartRadioControl.tuned === true
-    && !!cartRadioControl.station && cartRadioControl.lamp === 0x6dff9c,
+    && !!cartRadioControl.station && cartRadioControl.lamp === 0x6dff9c
+    && cartRadioControl.audibleIdent
+    && cartRadioControl.pannerPosition.length === 3
+    && cartRadioControl.pannerPosition.every((value, index) => (
+      Math.abs(value - cartRadioControl.sourcePosition[index]) < 0.001
+    ))
+    && cartRadioControl.savedPower === cartRadioControl.preferredOn
+    && cartRadioControl.venue === 'silver_pines'
+    && !cartRadioControl.playlist.includes('Cosmic Drift'),
   JSON.stringify(cartRadioControl));
 if (CAPTURE_SCREENSHOTS) {
   await page.waitForTimeout(100);
@@ -1016,8 +1077,9 @@ if (CAPTURE_SCREENSHOTS) {
   });
 }
 await page.setViewportSize({ width: 480, height: 300 });
-const played = await page.evaluate(() => {
+const played = await page.evaluate(async () => {
   const g = window.__golf;
+  const { layoutFor } = await import('/src/golf/hole.js');
   const seen = new Set();
   const beats = [];
   const holesPlayed = [g.HOLE.number];
@@ -1048,11 +1110,13 @@ const played = await page.evaluate(() => {
   let cartStart = null;
   let cartHole = null;
   let npcActionsProper = true;
+  let soloRetrievalSeen = false;
   const npcActionSamples = [];
 
-  for (let i = 0; i < 40000; i++) {
+  for (let i = 0; i < 50000; i++) {
     if (!seen.has(g.round.beat)) { seen.add(g.round.beat); beats.push(g.round.beat); }
     if (g.round.beat === 'cart') {
+      soloRetrievalSeen ||= g.round._cartFromTee === false;
       if (cartHole !== g.HOLE.number) {
         cartHole = g.HOLE.number;
         cartStart = { x: g.carts.lead.position.x, z: g.carts.lead.position.z };
@@ -1138,11 +1202,13 @@ const played = await page.evaluate(() => {
         x: g.round.ballFor(id).position.x,
         z: g.round.ballFor(id).position.z,
       },
+      launched: g.round._npcApproachJobs.get(id)?.launched === true,
     }));
     g.step(0.05);
     for (const before of beforeNpc) {
       const after = g.round.card.hole(before.id, g.HOLE.number).strokes;
-      if (after <= before.strokes || before.strokes < 1) continue;
+      const launched = g.round._npcApproachJobs.get(before.id)?.launched === true;
+      if (after <= before.strokes || before.strokes < 1 || before.launched || !launched) continue;
       const golfer = g.golfers[before.id].position;
       const distance = Math.hypot(golfer.x - before.ball.x, golfer.z - before.ball.z);
       npcActionSamples.push({ hole: g.HOLE.number, id: before.id, distance });
@@ -1152,13 +1218,23 @@ const played = await page.evaluate(() => {
   }
   const h = g.round.card.hole('prospect', 1);
   const line = g.round.card.line('prospect');
+  const npcTotals = {};
+  const expectedNpcTotals = {};
+  for (const id of ['eric', 'lou', 'rippinflow']) {
+    npcTotals[id] = g.round.card.line(id).strokes;
+    expectedNpcTotals[id] = g.round.holes.reduce((sum, hole) => (
+      sum + (layoutFor(hole)?.npcPlan?.[id]?.finish ?? 0)
+    ), 0);
+  }
   const effectCounts = {};
   for (const cue of ['golf.tee', 'golf.pickup', 'golf.flag']) {
     effectCounts[cue] = g.audio.playbacks.filter(({ name }) => name === cue).length;
   }
   return {
     beats, louPrivate, cartMoved, playerDrove, earlyExitBlocked, parkedCount,
-    louRodePassenger, followStayedClose, npcActionsProper, npcActionSamples, holesPlayed,
+    louRodePassenger, followStayedClose, soloRetrievalSeen,
+    npcActionsProper, npcActionSamples, holesPlayed,
+    npcTotals, expectedNpcTotals,
     finished: h.finished, strokes: h.strokes,
     beat: g.round.beat,
     allFinished: g.round.card.allFinished(1),
@@ -1194,10 +1270,17 @@ check('20. the player drives and parks the lead cart beside the ball',
 check('20b. Lou rides beside the player and Erican keeps the second cart with them',
   played.louRodePassenger && played.followStayedClose,
   JSON.stringify({ louPassenger: played.louRodePassenger, followClose: played.followStayedClose }));
+check('20c. long approach shots return the player to the live cart for retrieval',
+  played.soloRetrievalSeen && played.parkedCount > played.built.length,
+  JSON.stringify({ soloRetrieval: played.soloRetrievalSeen, parked: played.parkedCount }));
 check("21. Lou's private conversation triggers on the ride", played.louPrivate);
 check('21b. every NPC walks to his live ball before each approach swing',
   played.npcActionsProper && played.npcActionSamples.length >= 9,
   played.npcActionSamples.map((s) => `H${s.hole} ${s.id} ${s.distance.toFixed(1)}m`).join(' / '));
+check('21c. NPC cards finish on their authored story scores',
+  Object.keys(played.expectedNpcTotals)
+    .every((id) => played.npcTotals[id] === played.expectedNpcTotals[id]),
+  JSON.stringify({ actual: played.npcTotals, expected: played.expectedNpcTotals }));
 check('24. the group reaches the green and everybody finishes',
   played.allFinished, played.lines.join(' '));
 check('25. the player can complete the hole',
@@ -1344,6 +1427,55 @@ const restarted = await page.evaluate(() => ({
 check('29. the scene restarts cleanly',
   restarted.beat === 'lot' && restarted.strokes === 0,
   `beat: ${restarted.beat}`);
+
+await page.goto(GOLF_CANONICAL_URL, { waitUntil: 'load' });
+await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+await page.evaluate(() => window.__golf.campaign.update((state) => {
+  state.scene = { id: 'silver_pines', spawn: 'car_park' };
+  state.story.chapter = 'golf_morning';
+  if (!state.story.timeEvents.includes('travel.silver_pines')) {
+    state.story.timeEvents.push('travel.silver_pines');
+  }
+  state.missions.silver_room.status = 'complete';
+  state.events.lou_golf_call.status = 'answered';
+  state.missions.silver_pines = {
+    ...state.missions.silver_pines,
+    status: 'in_progress',
+    holesPlayed: 2,
+    strokes: 9,
+    penalties: 1,
+    toPar: 1,
+    holes: [
+      { hole: 1, par: 3, strokes: 4, penalties: 1 },
+      { hole: 2, par: 5, strokes: 5, penalties: 0 },
+    ],
+    heardInvitation: true,
+    rodeWithLou: true,
+  };
+}));
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+await page.click('#start-btn');
+await page.waitForFunction(
+  'window.__golf.HOLE.number === 3 && window.__golf.round.beat === "tee_talk"',
+  null,
+  { timeout: 60000 },
+);
+const resumedRound = await page.evaluate(() => ({
+  hole: window.__golf.HOLE.number,
+  priorStrokes: window.__golf.round.card.line('prospect').strokes,
+  priorHoles: window.__golf.round.card.line('prospect').holes
+    .filter((hole) => hole.finished).map((hole) => hole.hole),
+  npcPrior: window.__golf.round.card.finished('eric', 1)
+    && window.__golf.round.card.finished('eric', 2),
+  hasBag: window.__golf.round.hasBag,
+  card: document.querySelector('#golfcard .hole')?.textContent?.trim() || '',
+}));
+check('29b. reloading an in-progress round resumes at the first unfinished tee',
+  resumedRound.hole === 3 && resumedRound.priorStrokes === 9
+    && resumedRound.priorHoles.join(',') === '1,2' && resumedRound.npcPrior
+    && resumedRound.hasBag && resumedRound.card.startsWith('HOLE 3 ·'),
+  JSON.stringify(resumedRound));
 
 /* ------------------------------------------------------------------ */
 /* Script integrity                                                    */

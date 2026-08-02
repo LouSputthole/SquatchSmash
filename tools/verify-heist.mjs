@@ -285,6 +285,14 @@ try {
       && state.checkpoint === 'vehicle_swap', JSON.stringify(state.swap));
   await use('safehouse-armor');
   await use('briefing-map');
+  state = await snapshot();
+  check('Shubenator opens mission cleanup with his deadpan signature take',
+    state.voice.currentDialogue?.id === 'shubes_signature_cleanup'
+      && state.voice.currentDialogue?.cue === 'heist.shubes_signature_cleanup'
+      && state.voice.currentDialogue?.text === 'Hey guys, what\u2019s going on?'
+      && state.voice.currentDialogue?.direction?.includes('deadpan')
+      && (await page.locator('#subtitle').textContent()).includes('Hey guys, what\u2019s going on?'),
+    JSON.stringify(state.voice.currentDialogue));
   await shot('11-safehouse-money-count');
   await use('safehouse-loadout');
   await use('van-door');

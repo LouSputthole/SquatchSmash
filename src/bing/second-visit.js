@@ -1,4 +1,5 @@
 import { applyBingVoiceCues } from './script.js';
+import { SHUBENATOR_SIGNATURE_TAKES } from '../core/shubenator-signature.js';
 
 export const SECOND_VISIT_CLEANUP_TASKS = Object.freeze([
   'bathrooms',
@@ -31,6 +32,7 @@ const STATES = Object.freeze([
  * so the scene can be verified without rendering it.
  */
 export function buildHotDogPartySequence() {
+  const signature = SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath;
   return [
     { phase: 'performance', who: 'Shubenator', line: 'Club is closed, glasses are full. Hog Mama, save us from one another.', cue: 'vo.bing2.shubenator.intro', seconds: 3.2 },
     { phase: 'performance', who: 'Hog Mama', line: 'Billy HotDog comes home after eight months and asks if we still water the liquor. Billy, you drank hand sanitizer in county.', cue: 'vo.bing2.hogmama.set.1', seconds: 4.4, reaction: 'numbskull-early-laugh' },
@@ -53,6 +55,11 @@ export function buildHotDogPartySequence() {
     { phase: 'attack', who: 'Ape', line: 'Remember this.', cue: 'vo.bing2.ape.attack', seconds: 1.4 },
     { phase: 'attack', who: 'Prospect', line: 'Gun!', cue: 'vo.bing2.prospect.gun', seconds: 1.0, action: 'enable-gun-kick' },
     { phase: 'attack', who: 'Shubenator', line: 'Music. Right. Sorry.', cue: 'vo.bing2.shubenator.music', seconds: 2.0, action: 'music-cut' },
+    {
+      phase: 'aftermath', who: 'Shubenator', line: signature.text,
+      cue: signature.cue, direction: signature.direction, seconds: 2.4,
+      reaction: 'shubenator-aftermath',
+    },
     { phase: 'aftermath', who: 'Big Uncle Lou', line: 'Nobody leaves. Congratulations, everybody. You are all involved now.', cue: 'vo.bing2.lou.lockdown', seconds: 4.0, action: 'cleanup-start' },
     { phase: 'aftermath', who: 'Aubbie', line: 'The bar, yes. Ape requires a specialist.', cue: 'vo.bing2.aubbie.bar', seconds: 3.0 },
     { phase: 'handoff', who: 'Big Uncle Lou', line: 'Snow takes HotDog. Prospect goes with him. Bury this problem, then handle the Motel, room twelve.', cue: 'vo.bing2.lou.handoff', seconds: 4.4 },

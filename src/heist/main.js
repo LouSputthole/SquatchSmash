@@ -442,6 +442,14 @@ function debugSnapshot() {
       authored: HEIST_VOICE_CUES.length,
       decoded: HEIST_VOICE_CUES.filter((cue) => audio.hasSample(cue)).length,
       longest: Math.max(0, ...HEIST_VOICE_CUES.map((cue) => audio.sampleDuration(cue) ?? 0)),
+      currentDialogue: dialogue.current
+        ? {
+          id: dialogue.current.id,
+          cue: dialogue.current.cue,
+          text: dialogue.current.text,
+          direction: dialogue.current.direction ?? '',
+        }
+        : null,
       lastPlayback: heistPlaybacks.at(-1)
         ? {
           name: heistPlaybacks.at(-1).name,
@@ -1131,7 +1139,8 @@ function refreshInteractions() {
       const summary = loot.summary();
       hud.setObjective(`${summary.recoveredBags} bags. $${summary.grossRecovered.toLocaleString()} gross. Talk it through.`);
       advanceTo('DEBRIEF');
-      say('shubes_defend'); say('death_ammo'); say('numb_home'); say('snow_good');
+      say('shubes_signature_cleanup'); say('shubes_defend');
+      say('death_ammo'); say('numb_home'); say('snow_good');
     }, { hold: 1.8 });
     use(p.safehouse.interactables.loadout, 'Put the weapons down', () => {
       if (machine.state !== 'DEBRIEF') return;

@@ -60,7 +60,9 @@ function valueOf(value) {
 
 function recordCue(found, cue) {
   const prior = found.get(cue.name);
-  if (prior && (prior.voice !== cue.voice || prior.say !== cue.say)) {
+  if (prior && (prior.voice !== cue.voice
+    || prior.say !== cue.say
+    || (prior.direction ?? '') !== (cue.direction ?? ''))) {
     throw new Error(
       `Bing cue collision for ${cue.name}: ${JSON.stringify(prior)} versus ${JSON.stringify(cue)}`,
     );
@@ -106,6 +108,7 @@ export function collectBingVoiceCues() {
       name: line.cue,
       voice: line.voice,
       say: plainWords(line.line),
+      ...(line.direction ? { direction: line.direction } : {}),
     });
   }
   const firstVisitVariants = [
@@ -152,6 +155,7 @@ export function syncBingVoiceManifest(manifest) {
 function isGeneratedBingCue(name) {
   return name?.startsWith('vo.bing.full.')
     || name?.startsWith('vo.bing.ambient.')
+    || name === 'vo.bing.hang.shubenator.signature.cheerful'
     || name === 'vo.bing.bartender.capacity';
 }
 
@@ -168,7 +172,9 @@ export function checkBingVoiceManifest(manifest) {
   for (const [name, cue] of expected) {
     const actual = declared.get(name);
     if (!actual) failures.push(`missing cue ${name}`);
-    else if (actual.voice !== cue.voice || actual.say !== cue.say) {
+    else if (actual.voice !== cue.voice
+      || actual.say !== cue.say
+      || (actual.direction ?? '') !== (cue.direction ?? '')) {
       failures.push(`drifted cue ${name}`);
     }
   }

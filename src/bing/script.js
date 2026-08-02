@@ -1,4 +1,5 @@
 import { CHARACTER_REGISTRY } from '../core/characters.js';
+import { SHUBENATOR_SIGNATURE_TAKES } from '../core/shubenator-signature.js';
 
 const VOICE_BY_SCOPE = Object.freeze({
   bouncer: 'doorman', bartender: 'bartender', hallGuard: 'doorman', security: 'doorman',
@@ -738,6 +739,13 @@ for (const [index, line] of AMBIENT.entries()) {
 export function bingStandaloneVoiceLines() {
   return [
     BARTENDER_CAPACITY_LINE,
+    {
+      who: 'The Shubenator',
+      line: SHUBENATOR_SIGNATURE_TAKES.firstMeeting.text,
+      cue: SHUBENATOR_SIGNATURE_TAKES.firstMeeting.cue,
+      voice: 'shubenator',
+      direction: SHUBENATOR_SIGNATURE_TAKES.firstMeeting.direction,
+    },
     ...AMBIENT.map(([who, line, cue, voice]) => ({ who, line, cue, voice })),
   ];
 }

@@ -56,8 +56,9 @@ is not a bag-management simulator and it is not laser-guided golf.
   established stations, with power and tuning controls listed in instructions.
 - The regulation ball never changes physics scale; a halo/tracer and ground
   marker carry visibility.
-- The minimap includes pin, player, ball, carts, path, water, bunkers, wind, and
-  selected-club landing range.
+- The minimap includes pin, player, ball, carts, and the course path. Water,
+  bunker, wind, and selected-club range overlays remain part of the map pass
+  below; the current truthful landing-area preview lives in the 3D world.
 - Hole 1 is pond and bunker, Hole 2 is dogleg and corner bunker, and Hole 3 is
   the clubhouse finish. A tee/approach crop should identify the hole.
 - Essential UI remains legible without relying on colour and does not overlap

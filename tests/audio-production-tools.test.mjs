@@ -68,6 +68,35 @@ test('the recording handoff groups manifest pickups and quarantines legacy brief
   assert.match(markdown, /UNWIRED DESIGN BRIEF/);
 });
 
+test('same-word lines with different acting directions remain separate performances', () => {
+  const directions = [
+    'Cheerful.',
+    'Gleeful.',
+    'Innocently oblivious.',
+    'Pleasantly deadpan.',
+  ];
+  const markdown = buildAudioTodo({
+    manifest: {
+      voices: {},
+      sfx: directions.map((direction, index) => ({
+        name: `vo.bing2.shubenator.signature.${index + 1}`,
+        voice: 'shubenator',
+        say: 'Hey guys, what’s going on?',
+        direction,
+      })),
+    },
+    index: { files: [] },
+    legacyQueue: {},
+  });
+
+  assert.match(markdown, /4 voice cue files representing 4 unique profile\/text performances/);
+  assert.match(markdown, /0 duplicate groups avoids 0 redundant recordings/);
+  assert.doesNotMatch(markdown, /PERFORMANCE REUSE GROUP/);
+  for (const direction of directions) {
+    assert.match(markdown, new RegExp(`Performance:\\*\\* ${direction.replace('.', '\\.')}`));
+  }
+});
+
 test('the standard voice generation command excludes unreachable party dialogue', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const generator = fs.readFileSync(path.join(ROOT, 'tools/generate-sfx.mjs'), 'utf8');
@@ -201,6 +230,8 @@ test('every THE TAKE spoken line has exact text and role-specific casting in the
     assert.equal(cue.say, line.text, `${line.cue} text must match the playable subtitle exactly`);
     assert.equal(cue.voice, sceneSpecificVoices[line.subtitleName] ?? voiceProfileFor(line.speakerId),
       `${line.cue} must use the canonical speaker voice`);
+    assert.equal(cue.direction ?? '', line.direction ?? '',
+      `${line.cue} must preserve its authored performance direction`);
   }
 });
 

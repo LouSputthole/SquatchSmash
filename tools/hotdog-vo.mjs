@@ -24,6 +24,7 @@ const added = lines.map((line) => ({
   name: line.cue,
   voice: line.voice,
   say: line.text,
+  ...(line.direction ? { direction: line.direction } : {}),
 }));
 
 /* Keep authored story VO together, immediately before the NO WAKE block when

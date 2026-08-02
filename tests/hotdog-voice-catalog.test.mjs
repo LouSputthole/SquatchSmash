@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import test from 'node:test';
 
 import { CHARACTER_IDS } from '../src/core/campaign.js';
+import { SHUBENATOR_SIGNATURE_TAKES } from '../src/core/shubenator-signature.js';
 import { Mail } from '../src/arcade/mail.js';
 import {
   getCharacter,
@@ -95,6 +96,10 @@ test('the runtime party and graveyard scripts are the authoritative voice catalo
   assert.equal(party.find((line) => line.cue === 'vo.bing2.hotdog.last')?.voice, 'hotdog');
   assert.equal(party.find((line) => line.cue === 'vo.bing2.aubbie.bar')?.voice, 'aubbie');
   assert.equal(party.find((line) => line.cue === 'vo.bing2.lawnmower.heckle')?.voice, 'snow');
+  assert.equal(
+    party.find((line) => line.cue === SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath.cue)?.direction,
+    SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath.direction,
+  );
   assert.equal(graveyard.find((line) => line.cue === 'vo.graveyard.echo.alive')?.voice, 'echo');
 });
 
@@ -106,8 +111,12 @@ test('the sound manifest mirrors every HotDog incident and graveyard line exactl
   for (const line of catalog) {
     assert.ok(manifest.voices[line.voice], `${line.cue} needs voice profile ${line.voice}`);
     assert.deepEqual(
-      { say: byCue.get(line.cue)?.say, voice: byCue.get(line.cue)?.voice },
-      { say: line.text, voice: line.voice },
+      {
+        say: byCue.get(line.cue)?.say,
+        voice: byCue.get(line.cue)?.voice,
+        direction: byCue.get(line.cue)?.direction ?? '',
+      },
+      { say: line.text, voice: line.voice, direction: line.direction ?? '' },
       line.cue,
     );
   }
@@ -146,6 +155,8 @@ test('the generated recording handoff keeps a complete authored ledger after del
   assert.match(sheet, /\*\*RECORDED\*\*.*vo\.graveyard\.inspect\.colton\.mp3/);
   assert.match(sheet, /"Colton\. His grave smells like Asian feet\. That is all I have\."/);
 
-  assert.equal(outstandingCount, 0);
-  assert.doesNotMatch(sheet, /## Outstanding voice/);
+  assert.deepEqual(
+    catalog.filter((line) => !recordedFiles.has(`${line.cue}.mp3`)).map((line) => line.cue),
+    [SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath.cue],
+  );
 });
