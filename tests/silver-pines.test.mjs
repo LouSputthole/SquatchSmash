@@ -10,8 +10,12 @@ import {
   heightAt, surfaceAt, slopeAt, dropPointFor, recoveryPointFor, isOutOfBounds,
 } from '../src/golf/field.js';
 import { simulate, solveShot, Ball } from '../src/golf/ball.js';
-import { launchFor, CLUB_IDS } from '../src/golf/clubs.js';
-import { Swing, SWING_PHASE, DEAD_ZONE } from '../src/golf/swing.js';
+import {
+  launchFor, CLUB_IDS, estimateCarry, powerForCarry,
+} from '../src/golf/clubs.js';
+import {
+  Swing, SWING_PHASE, DEAD_ZONE, controlWindow, resolveStrike, shotShape,
+} from '../src/golf/swing.js';
 import { Scorecard } from '../src/golf/scorecard.js';
 import { Round } from '../src/golf/mission.js';
 import {
@@ -345,6 +349,52 @@ test('the swing is forgiving in the middle and punishing at the edges', () => {
   left._resolve(-0.3);
   assert.ok(right.accuracy > 0 && left.accuracy < 0);
   assert.equal(Math.abs(right.accuracy), Math.abs(left.accuracy));
+});
+
+test('the power target recommends a useful club-specific shot instead of full power', () => {
+  const lie = lieAt(TEE);
+  const distance = Math.hypot(PIN.x - TEE.x, PIN.z - TEE.z);
+  const iron = powerForCarry('iron', distance, lie);
+  const driver = powerForCarry('driver', distance, lie);
+
+  assert.ok(iron > 0.82 && iron < 0.89,
+    `the 167-yard iron should read near 85%, got ${(iron * 100).toFixed(0)}%`);
+  assert.ok(driver < iron,
+    `the longer driver should need less power (${driver.toFixed(2)} vs ${iron.toFixed(2)})`);
+  assert.ok(Math.abs(estimateCarry('iron', iron, lie) - distance) < 1,
+    'the ideal-power marker should agree with the HUD carry estimate');
+});
+
+test('overswinging shrinks the sweet spot and turns an open face into a slice', () => {
+  const safeWindow = controlWindow({ club: 'driver', power: 0.82, lieSpread: 0 });
+  const hardWindow = controlWindow({ club: 'driver', power: 1, lieSpread: 0 });
+  assert.equal(safeWindow.risk, 0);
+  assert.ok(hardWindow.risk > 0.95, 'full driver should be in the overswing zone');
+  assert.ok(hardWindow.deadZone < safeWindow.deadZone * 0.65,
+    'overswinging should visibly shrink the straight-shot band');
+  assert.ok(hardWindow.strikeSpeed > safeWindow.strikeSpeed,
+    'overswinging should make the return sweep quicker');
+
+  const controlled = resolveStrike({ club: 'driver', power: 0.82, strike: 0 });
+  const full = resolveStrike({ club: 'driver', power: 1, strike: 0 });
+  const early = resolveStrike({ club: 'driver', power: 1, strike: 0.15 });
+  assert.equal(shotShape(controlled.accuracy), 'straight');
+  assert.equal(shotShape(full.accuracy), 'fade',
+    'even a centered 100% driver should carry a small controllable fade');
+  assert.equal(shotShape(early.accuracy), 'slice',
+    'an early strike at 100% should compound into a slice');
+});
+
+test('club choice and a bad lie change how much timing help the player gets', () => {
+  const driver = controlWindow({ club: 'driver', power: 0.8, lieSpread: 0 });
+  const iron = controlWindow({ club: 'iron', power: 0.8, lieSpread: 0 });
+  const putter = controlWindow({ club: 'putter', power: 0.8, lieSpread: 0 });
+  const roughIron = controlWindow({ club: 'iron', power: 0.8, lieSpread: 5 });
+
+  assert.ok(driver.deadZone < iron.deadZone && iron.deadZone < putter.deadZone,
+    'driver, iron and putter should have increasingly forgiving sweet spots');
+  assert.ok(roughIron.deadZone < iron.deadZone,
+    'heavy rough should make an iron harder to square');
 });
 
 test('the card keeps what happened and what Lou wrote down', () => {
