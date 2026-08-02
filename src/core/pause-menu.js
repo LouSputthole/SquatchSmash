@@ -147,6 +147,8 @@ function read(value, fallback = '') {
  * @param {function(): void} options.onPause
  * @param {function(): void} options.onResume
  * @param {function(): void} [options.onRestart]
+ * @param {string} [options.restartLabel]
+ * @param {function(): boolean} [options.canRestart]
  * @param {{label: string, onSelect: function(): void, secondary?: boolean, close?: boolean}[]} [options.actions]
  */
 export function createPauseMenu({
@@ -158,6 +160,8 @@ export function createPauseMenu({
   onPause = () => {},
   onResume = () => {},
   onRestart = null,
+  restartLabel = 'Restart scene',
+  canRestart = () => true,
   actions: extraActions = [],
 } = {}) {
   installStyle();
@@ -188,16 +192,17 @@ export function createPauseMenu({
   const actions = root.querySelector('.scene-pause-actions');
   const resumeButton = root.querySelector('[data-scene-pause-resume]');
 
+  let restartButton = null;
   if (onRestart) {
-    const restart = document.createElement('button');
-    restart.type = 'button';
-    restart.className = 'secondary';
-    restart.textContent = 'Restart scene';
-    restart.addEventListener('click', () => {
+    restartButton = document.createElement('button');
+    restartButton.type = 'button';
+    restartButton.className = 'secondary';
+    restartButton.textContent = restartLabel;
+    restartButton.addEventListener('click', () => {
       resume();
       onRestart();
     });
-    actions.appendChild(restart);
+    actions.appendChild(restartButton);
   }
 
   for (const action of extraActions) {
@@ -218,6 +223,12 @@ export function createPauseMenu({
 
   function refresh() {
     objective.textContent = read(getObjective, 'Review the instructions, then return when you are ready.');
+    if (restartButton) {
+      const available = Boolean(canRestart());
+      restartButton.disabled = !available;
+      restartButton.hidden = !available;
+      restartButton.setAttribute('aria-hidden', String(!available));
+    }
     const rows = typeof instructions === 'function' ? instructions() : instructions;
     list.replaceChildren(...(Array.isArray(rows) ? rows : []).map((line) => {
       const li = document.createElement('li');

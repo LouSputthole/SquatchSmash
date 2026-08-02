@@ -206,7 +206,140 @@ export function makeFigure(o = {}) {
     gestureAt: 3 + Math.random() * 7,
     base: null,     // what the pose set, so idle life can add rather than fight
     _breath: 0,
+    faceRig: null,  // authored named faces can add blinking and speech movement
   };
+}
+
+/**
+ * Give Don Cecilio a face authored for conversation distance.
+ *
+ * Cecilio is not a Circle member and has no supplied authoritative face photo,
+ * so borrowing somebody else's photograph would create a second identity. His
+ * face instead follows the project's current procedural-character language:
+ * separate brows and eyes, a two-part nose, a jaw and a real opening mouth.
+ * The named pieces are handed to updateFigure() as a tiny face rig so blinks,
+ * eye movement and speech all belong to the same man as his voice turn.
+ */
+export function buildCecilioFace(f) {
+  const skin = solid(0xb07a4e, { roughness: 1 });
+  const hair = solid(0x211814, { roughness: 1 });
+  const white = solid(0xe8dfd1, { roughness: 0.65 });
+  const iris = solid(0x51331f, { roughness: 0.45 });
+  const pupil = solid(0x100c0a, { roughness: 0.45 });
+  const mouthDark = solid(0x351719, { roughness: 0.8 });
+  const lip = solid(0x75453a, { roughness: 0.8 });
+
+  const root = group('cecilio-face');
+  f.neck.add(root);
+
+  const put = (name, size, material, pos, rotZ = 0, parent = root) => {
+    const part = mesh(boxGeo(...size), material, ...pos);
+    part.name = name;
+    part.rotation.z = rotZ;
+    part.userData.dim = { w: size[0], h: size[1], d: size[2] };
+    parent.add(part);
+    return part;
+  };
+
+  // A broad lower face and cheek planes keep the stock box from reading as a
+  // blank mask when he turns under the shelter light.
+  put('cecilio-face-cheek-right', [0.072, 0.062, 0.026], skin, [-0.067, 0.132, 0.127]);
+  put('cecilio-face-cheek-left', [0.072, 0.062, 0.026], skin, [0.067, 0.132, 0.127]);
+
+  const eyes = [];
+  const pupils = [];
+  const lids = [];
+  const brows = [];
+  for (const sx of [-1, 1]) {
+    const side = sx < 0 ? 'right' : 'left';
+    const brow = put(
+      `cecilio-face-brow-${side}`,
+      [0.064, sx < 0 ? 0.019 : 0.016, 0.018],
+      hair,
+      [sx * 0.057, sx < 0 ? 0.232 : 0.226, 0.132],
+      -sx * 0.08,
+    );
+    brows.push(brow);
+    put(`cecilio-face-eye-${side}`, [0.052, 0.028, 0.014], white, [sx * 0.057, 0.198, 0.132]);
+    const eye = put(`cecilio-face-iris-${side}`, [0.021, 0.021, 0.009], iris, [sx * 0.057, 0.197, 0.141]);
+    const dot = put(`cecilio-face-pupil-${side}`, [0.009, 0.011, 0.007], pupil, [sx * 0.057, 0.197, 0.147]);
+    const lid = put(`cecilio-face-lid-${side}`, [0.055, 0.028, 0.012], skin, [sx * 0.057, 0.198, 0.153]);
+    lid.scale.y = 0.08;
+    eye.userData.baseX = eye.position.x;
+    dot.userData.baseX = dot.position.x;
+    eyes.push(eye);
+    pupils.push(dot);
+    lids.push(lid);
+  }
+
+  put('cecilio-nose-bridge', [0.03, 0.062, 0.028], skin, [0, 0.174, 0.135]);
+  put('cecilio-nose', [0.052, 0.03, 0.044], skin, [0, 0.145, 0.15]);
+
+  // Two lobes and weighted ends make his moustache a silhouette, not a bar
+  // painted over the middle of his head.
+  const moustache = group('cecilio-moustache');
+  root.add(moustache);
+  put('cecilio-moustache-right', [0.092, 0.027, 0.022], hair, [-0.044, 0.119, 0.156], 0.12, moustache);
+  put('cecilio-moustache-left', [0.092, 0.027, 0.022], hair, [0.044, 0.119, 0.156], -0.12, moustache);
+  put('cecilio-moustache-drop-right', [0.024, 0.048, 0.021], hair, [-0.083, 0.101, 0.154], 0.08, moustache);
+  put('cecilio-moustache-drop-left', [0.024, 0.048, 0.021], hair, [0.083, 0.101, 0.154], -0.08, moustache);
+
+  put('cecilio-face-lip-upper', [0.052, 0.009, 0.015], lip, [0, 0.098, 0.143]);
+  const mouth = put('cecilio-face-mouth', [0.058, 0.027, 0.012], mouthDark, [0, 0.087, 0.141]);
+  mouth.scale.y = 0.18;
+
+  const jaw = group('cecilio-face-jaw');
+  jaw.userData.baseY = 0;
+  root.add(jaw);
+  put('cecilio-face-lip-lower', [0.057, 0.014, 0.015], lip, [0, 0.076, 0.147], 0, jaw);
+  put('cecilio-face-chin', [0.09, 0.043, 0.034], skin, [0, 0.052, 0.133], 0, jaw);
+
+  f.faceRig = {
+    root, eyes, pupils, lids, brows, jaw, mouth,
+    lidRest: 0.08,
+    mouthRest: 0.18,
+    blink: 0,
+    blinkDuration: 0.18,
+    nextBlink: f.t + 1.8,
+  };
+  return f;
+}
+
+/** Animate an authored face without changing anybody else's block figure. */
+function updateAuthoredFace(f, dt, talking) {
+  const face = f.faceRig;
+  if (!face) return;
+
+  if (face.blink <= 0 && f.t >= face.nextBlink) {
+    face.blink = face.blinkDuration;
+    // Deterministic uneven spacing: no rapid double blink and no clockwork
+    // five-second loop visible during the long handoff conversation.
+    face.nextBlink = f.t + 3.7 + (Math.sin(f.t * 0.73) + 1) * 1.15;
+  }
+  let closed = 0;
+  if (face.blink > 0) {
+    face.blink = Math.max(0, face.blink - dt);
+    closed = Math.sin((1 - face.blink / face.blinkDuration) * Math.PI);
+  }
+  for (const lid of face.lids) {
+    lid.scale.y = damp(lid.scale.y, face.lidRest + closed, 28, dt);
+  }
+
+  const eyeShift = Math.sin(f.t * 0.39 + 0.8) * 0.0025
+    + clamp(f.neck.rotation.y / 1.1, -1, 1) * 0.004;
+  for (const eye of [...face.eyes, ...face.pupils]) {
+    eye.position.x = damp(eye.position.x, eye.userData.baseX + eyeShift, 7, dt);
+  }
+
+  const syllable = talking
+    ? Math.abs(Math.sin(f.t * 15.7)) * 0.68 + Math.abs(Math.sin(f.t * 8.9 + 0.4)) * 0.32
+    : 0;
+  face.mouth.scale.y = damp(face.mouth.scale.y, face.mouthRest + syllable * 1.05, 18, dt);
+  face.jaw.position.y = damp(face.jaw.position.y, face.jaw.userData.baseY - syllable * 0.022, 16, dt);
+  for (const [i, brow] of face.brows.entries()) {
+    const emphasis = talking ? syllable * (i ? 0.014 : -0.01) : 0;
+    brow.rotation.z = damp(brow.rotation.z, (i ? -0.08 : 0.08) + emphasis, 10, dt);
+  }
 }
 
 /** Put a figure into one of a handful of hand-authored poses. */
@@ -352,12 +485,14 @@ export function updateFigure(f, dt, camPos = null) {
     }
   }
 
-  if (f.talk > 0) {
+  const talking = f.talk > 0;
+  if (talking) {
     f.talk -= dt;
     f.neck.rotation.x = Math.sin(f.t * 13) * 0.045 - 0.02;
   } else {
     f.neck.rotation.x = damp(f.neck.rotation.x, 0, 6, dt);
   }
+  updateAuthoredFace(f, dt, talking);
 
   if (f.sick > 0) {
     // Weight shifting, a hand toward the stomach, and a slow forward lean.
@@ -497,7 +632,7 @@ export function makeOldStove() {
 }
 
 export function makeCecilio() {
-  const f = makeFigure({
+  const f = buildCecilioFace(makeFigure({
     name: 'cecilio',
     skin: 0xb07a4e,
     shirt: 0xf1e3c3,
@@ -507,17 +642,11 @@ export function makeCecilio() {
     hair: 0x211814,
     hat: 'cowboy',
     build: 0.82,
-  });
+  }));
   setPose(f, 'inspect');
   // Cecilio is the only man at the shelter with a tailored jacket, a face the
   // player can read at conversation distance, and a name. The rear henchmen
   // deliberately keep their existing anonymous field clothes.
-  const moustache = mesh(boxGeo(0.18, 0.035, 0.025), solid(0x211814, { roughness: 1 }), 0, 0.105, 0.135);
-  moustache.name = 'cecilio-moustache';
-  f.neck.add(moustache);
-  const nose = mesh(boxGeo(0.045, 0.06, 0.045), solid(0xb07a4e, { roughness: 1 }), 0, 0.16, 0.145);
-  nose.name = 'cecilio-nose';
-  f.neck.add(nose);
   const gold = solid(0xe8c04a, { roughness: 0.25, metalness: 0.9 });
   const medallion = mesh(sphereGeo(0.045, 10, 6), gold, 0, 0.43, 0.185);
   medallion.name = 'cecilio-medallion';

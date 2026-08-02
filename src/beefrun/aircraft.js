@@ -63,6 +63,13 @@ function apartmentCrestTexture() {
   return tex;
 }
 
+/** The old apartment-fridge pin-up, carried into the cockpit unchanged. */
+function tammyStickerTexture() {
+  const tex = new THREE.TextureLoader().load(assetUrl('assets/art/', 'sticker-pinup.png'));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 /** Mission tally: little footprints under the completed-run markings. */
 function tallyTexture() {
   const c = document.createElement('canvas');
@@ -107,6 +114,7 @@ function memberBetween(a, b, w, d, material) {
   const m = mesh(boxGeo(w, a.distanceTo(b), d), material);
   m.position.copy(a).add(b).multiplyScalar(0.5);
   m.quaternion.setFromUnitVectors(_up, _dir.copy(b).sub(a).normalize());
+  m.userData.memberEnds = { a: a.clone(), b: b.clone() };
   return m;
 }
 const _up = new THREE.Vector3(0, 1, 0);
@@ -120,7 +128,6 @@ export class Brushrunner {
       propPhase: [0, 0],
       bobble: new THREE.Vector2(),
       bobbleVel: new THREE.Vector2(),
-      cup: 0, cupVel: 0,
       cargoDoor: 0,
       flapVisual: 0,
       airBrakeVisual: 0,
@@ -285,6 +292,50 @@ export class Brushrunner {
     elevPivot.add(mesh(boxGeo(5.4, 0.14, 0.7), patch, 0, 0, -0.35));
     g.add(elevPivot);
     this.parts.elevator = elevPivot;
+
+    /* The horizontal tail is wire-braced into the rear boom. Besides giving
+     * the old utility airframe the right hand-built silhouette, named endpoints
+     * guarantee every bar actually terminates in structure instead of floating
+     * a few inches shy of the fuselage. These are visual children only: no
+     * collider or flight-model dimensions change. */
+    const tailFrame = group('tail-support-frame');
+    for (const sx of [-1, 1]) {
+      const upper = memberBetween(
+        new THREE.Vector3(sx * 2.15, 0.58, -5.72),
+        new THREE.Vector3(sx * 0.34, -0.22, -4.92),
+        0.08, 0.08, metal,
+      );
+      upper.name = `tail-brace-${sx < 0 ? 'port' : 'starboard'}-forward`;
+      tailFrame.add(upper);
+      const aft = memberBetween(
+        new THREE.Vector3(sx * 2.15, 0.58, -6.10),
+        new THREE.Vector3(sx * 0.30, -0.18, -5.50),
+        0.07, 0.07, metal,
+      );
+      aft.name = `tail-brace-${sx < 0 ? 'port' : 'starboard'}-aft`;
+      tailFrame.add(aft);
+    }
+    g.add(tailFrame);
+    this.parts.tailSupport = tailFrame;
+
+    // Cowling clamp bands and an aft radio aerial add readable scale outside.
+    const exteriorDetails = group('aircraft-exterior-details');
+    for (const sx of [-1, 1]) {
+      for (const z of [1.42, 2.18]) {
+        const band = mesh(boxGeo(1.05, 0.99, 0.055), metal, sx * 3.05, 1.0, z);
+        band.name = `nacelle-band-${sx < 0 ? 'port' : 'starboard'}-${z < 2 ? 'aft' : 'forward'}`;
+        exteriorDetails.add(band);
+      }
+    }
+    const aerial = memberBetween(
+      new THREE.Vector3(0, 0.98, -2.15),
+      new THREE.Vector3(0.08, 1.62, -2.36),
+      0.035, 0.035, dark,
+    );
+    aerial.name = 'vhf-radio-aerial';
+    exteriorDetails.add(aerial);
+    g.add(exteriorDetails);
+    this.parts.exteriorDetails = exteriorDetails;
 
     // ---- Landing gear: fixed, rugged, and slightly bent ----
     this.parts.gear = [];
@@ -467,12 +518,54 @@ export class Brushrunner {
     // Glare shield and coaming.
     g.add(mesh(boxGeo(1.7, 0.1, 0.5), trimMat, 0, 0.70, 2.9));
 
-    // Radio stack in the centre pedestal.
-    const stack = mesh(boxGeo(0.36, 0.62, 0.28), panelDark, 0, 0.1, 2.7);
-    g.add(stack);
-    for (let i = 0; i < 3; i++) {
-      g.add(flatMesh(boxGeo(0.28, 0.07, 0.02), unlit(0x2fa85c), 0, 0.3 - i * 0.16, 2.56));
+    /* A complete radio stack rather than three anonymous green bars: three
+     * separate boxes, lit frequency windows, tuning knobs, and a guarded power
+     * switch. It is still decorative, but it now reads as equipment from either
+     * seat and the exterior aerial makes the installation make sense. */
+    const radio = group('cockpit-radio-stack');
+    // Keep the stack below the forward sightline, but high enough that its
+    // frequency windows are in the normal cockpit scan instead of below the
+    // bottom of the screen. The slightly smaller housing fits between gauges.
+    radio.position.set(0, 0.57, 2.87);
+    radio.scale.setScalar(0.72);
+    const radioShell = mesh(boxGeo(0.42, 0.62, 0.22), trimMat);
+    radioShell.name = 'radio-stack-housing';
+    radio.add(radioShell);
+    const radioRows = [
+      ['COM 1', '121.50'],
+      ['SQUATCH FM', '97.80'],
+      ['XPDR', '1200'],
+    ];
+    for (let i = 0; i < radioRows.length; i++) {
+      const y = 0.2 - i * 0.2;
+      const unit = mesh(boxGeo(0.38, 0.17, 0.08), panelDark, 0, y, -0.13);
+      unit.name = `radio-unit-${i + 1}`;
+      radio.add(unit);
+      const display = flatMesh(
+        new THREE.PlaneGeometry(0.23, 0.075),
+        new THREE.MeshBasicMaterial({
+          map: signTexture(radioRows[i], {
+            w: 384, h: 128, bg: '#07130c', fg: '#72e593', border: '#26352d', rough: false,
+          }),
+          toneMapped: false,
+        }),
+        -0.025, y, -0.172,
+      );
+      display.name = `radio-display-${i + 1}`;
+      display.rotation.y = Math.PI;
+      radio.add(display);
+      for (const x of [-0.16, 0.16]) {
+        const knob = mesh(cylGeo(0.035, 0.035, 0.035, 10), metal, x, y, -0.18);
+        knob.rotation.x = Math.PI / 2;
+        knob.name = `radio-knob-${i + 1}-${x < 0 ? 'left' : 'right'}`;
+        radio.add(knob);
+      }
     }
+    const radioGuard = mesh(boxGeo(0.09, 0.035, 0.035), solid(0xc44636, { roughness: 0.65 }), 0.13, -0.29, -0.18);
+    radioGuard.name = 'radio-master-guard';
+    radio.add(radioGuard);
+    g.add(radio);
+    this.parts.radioStack = radio;
 
     // Two yokes.
     this.parts.yoke = [];
@@ -554,29 +647,25 @@ export class Brushrunner {
     g.add(bobble);
     this.parts.bobble = bobHead;
 
-    // Tammy's mug, parked on the upper-right wood rail where the pilot can
-    // actually read it (and where it still has room to slide in a bad bank).
-    const cup = new THREE.Group();
-    cup.name = 'tammy-mug';
-    cup.position.set(0.63, 0.77, 2.86);
-    cup.add(mesh(cylGeo(0.045, 0.04, 0.11, 10), solid(0xe8e2d4, { roughness: 0.75 }), 0, 0.055, 0));
-    const handle = mesh(cylGeo(0.022, 0.022, 0.014, 8), solid(0xe8e2d4, { roughness: 0.75 }), 0.052, 0.055, 0);
-    handle.rotation.x = Math.PI / 2;
-    cup.add(handle);
-    const cupLabel = flatMesh(
-      new THREE.PlaneGeometry(0.074, 0.024),
+    /* Tammy is the exact old sticker from the apartment fridge: the pin-up
+     * holding the AK, not a procedural text mug. Mirror the old mug's upper
+     * rail position from +X to -X so it is both on the requested opposite side
+     * and visible in the pilot's ordinary forward scan. */
+    const tammy = flatMesh(
+      new THREE.PlaneGeometry(0.24, 0.24),
       new THREE.MeshBasicMaterial({
-        map: signTexture(['TAMMY'], { w: 256, h: 80, bg: '#e8e2d4', fg: '#7d2432', border: null, rough: false }),
-        transparent: true,
+        map: tammyStickerTexture(), transparent: true, alphaTest: 0.06,
+        side: THREE.DoubleSide, toneMapped: false,
       }),
-      0, 0.064, -0.043,
+      -0.63, 0.77, 2.82,
     );
-    cupLabel.name = 'tammy-mug-label';
-    cupLabel.rotation.y = Math.PI;
-    cup.add(cupLabel);
-    g.add(cup);
-    this.parts.cup = cup;
-    this.parts.cupHome = cup.position.clone();
+    tammy.name = 'tammy-golden-ak-sticker';
+    tammy.rotation.y = Math.PI;
+    tammy.renderOrder = 2;
+    tammy.userData.sourceSlot = 'sticker.fridge';
+    tammy.userData.sourceFile = 'sticker-pinup.png';
+    g.add(tammy);
+    this.parts.tammySticker = tammy;
 
     // Placards: the ones somebody wrote by hand and meant.
     const placard = (text, w, h, x, y, z, opts) => {
@@ -713,15 +802,6 @@ export class Brushrunner {
     a.bobble.y = clamp(a.bobble.y + a.bobbleVel.y * dt, -0.6, 0.6);
     this.parts.bobble.rotation.z = a.bobble.x;
     this.parts.bobble.rotation.x = a.bobble.y;
-
-    // Lou's coffee slides across the coaming in a bank and comes back.
-    const lat = clamp(state.gLat || 0, -3, 3);
-    a.cupVel += (-lat * 0.16 - a.cup * 5.5 - a.cupVel * 2.4) * dt;
-    // Its new home is already near the right edge, so keep the loose-cup gag
-    // on the wood rail instead of letting a hard bank send it through glass.
-    a.cup = clamp(a.cup + a.cupVel * dt, -0.28, 0.14);
-    this.parts.cup.position.x = this.parts.cupHome.x + a.cup;
-    this.parts.cup.rotation.z = -a.cup * 0.6;
 
     // GENERAL CONCERN. Nobody has ever established what it means.
     const concerned = state.concern ?? (phys.stalled || engines.engines.some((e) => e.temp > 240 || !e.running));

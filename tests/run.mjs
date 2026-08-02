@@ -32,6 +32,8 @@ const TEST_MODULES = [
   './airstrip-mission.test.mjs',
   './beefrun-lineup.test.mjs',
   './beefrun-mission-rules.test.mjs',
+  './beefrun-flight-safety.test.mjs',
+  './beefrun-cecilio-face.test.mjs',
   './beefrun-runway-start.test.mjs',
   './post-airstrip-story.test.mjs',
   './bada-bing-two-mission.test.mjs',

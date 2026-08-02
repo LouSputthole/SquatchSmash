@@ -48,7 +48,10 @@ export class MissionController {
     this.finished = false;
     this.paused = false;
 
-    this.checkpoint = 'takeoff';
+    // There is no flight checkpoint until the aircraft reaches the runway.
+    // Keeping this null prevents an early pause-menu restart from skipping the
+    // apron story, preflight, cargo loading, and Sasole's boarding sequence.
+    this.checkpoint = null;
     this.checkpointData = null;
 
     this.score = {
@@ -415,6 +418,11 @@ export class MissionController {
     this.flightHud.setDirection(null);
     this.interaction.setPaused(false);
     this.audio.setHeadset(false);
+    // Flight-only loops and annunciators must not survive the transition back
+    // to the on-foot scene, even if the last airborne frame was stalled.
+    this.audio.setStallHorn(false);
+    this.audio.setAirspeed(0);
+    this.flightHud.setWarnings([]);
     this.dialogue.setHeadset(false);
     this.input.rudderKeys = false;
     this.input.clear();
@@ -629,13 +637,15 @@ export class MissionController {
       const k = clamp(this.louBoarding.t / 3.4, 0, 1);
       const seat = this.aircraft.copilotSeat.clone().applyMatrix4(this.aircraft.group.matrixWorld);
       this.lou.group.position.lerpVectors(this.louBoarding.from, seat, smoothstep(0, 1, k));
-      if (k > 0.55 && this.lou.pose !== 'sit') {
-        setPose(this.lou, 'sit');
+      if (k > 0.55 && this.lou.pose !== 'sit') setPose(this.lou, 'sit');
+      if (k >= 1) {
+        /* Keep the whole climb in world space, then reparent exactly once at
+         * the seat. Reparenting halfway through used to make the next frame's
+         * world-space interpolation land in aircraft-local coordinates, which
+         * launched Lou kilometres away and left an empty right seat. */
         this.aircraft.group.add(this.lou.group);
         this.lou.group.position.copy(this.aircraft.copilotSeat);
         this.lou.group.rotation.set(0, 0, 0);
-      }
-      if (k >= 1) {
         this.louBoarding = null;
         this.flags.louAboard = true;
         // The player's boarding target is the scene-cut trigger. Exposing it
@@ -697,7 +707,7 @@ export class MissionController {
     const d = Math.hypot(p.position.x - hold.x, p.position.z - hold.z);
     this.taxi.bestDistance = Math.min(this.taxi.bestDistance, d);
     this.setObjective(`${OBJECTIVES.taxi} (${Math.ceil(d)} m)`);
-    if (p.groundSpeed * KT > 30) this.dialogue.bark('smooth') || this.dialogue.play('taxi.fast', { once: true });
+    if (p.groundSpeed * KT > 30) this.dialogue.play('taxi.fast', { once: true });
     // The player has had a fair chance to see the yellow route. If they are
     // making the distance worse, Captain Sasole names the thing to follow.
     if (this.phaseTime > 15 && d > this.taxi.bestDistance + 9) this.dialogue.bark('taxiLost');
@@ -881,7 +891,6 @@ export class MissionController {
     const d = this.player.position.distanceTo(cecilio.group.position);
     if (d < 8) {
       cecilio.lookAt = this.player.position;
-      speak(cecilio, 1.5);
       if (this.score.gunsDelivered > 0 && !this.dialogue.seen('guns.done') && !this.dialogue.busy) {
         this.dialogue.play('guns.done', { once: true });
       } else if (!this.dialogue.seen('cecilio.meet') && !this.dialogue.busy) {
@@ -1176,14 +1185,14 @@ export class MissionController {
     this.score.roughAir += Math.max(0, rough - 3) * dt;
 
     // Warnings and Lou's barks.
-    if (p.stallT > 0.35) {
+    if (!p.onGround && p.stallT > 0.35) {
       warn.add('stall');
       this.audio.setStallHorn(true);
       this.dialogue.bark('stall');
     } else {
-      this.audio.setStallHorn(p.stallT > 0.2);
+      this.audio.setStallHorn(!p.onGround && p.stallT > 0.2);
     }
-    if (p.ias > AC.vne * 0.92) {
+    if (!p.onGround && p.ias > AC.vne * 0.92) {
       warn.add('overspeed');
       this.dialogue.bark('overspeed');
       this.cameras.addShake(dt * 2);
@@ -1195,11 +1204,11 @@ export class MissionController {
     if (this.engines.engines.some((e) => e.temp > 245)) warn.add('hot');
     if (this.cargo.shift > 0.5) {
       warn.add('cargo');
-      this.dialogue.bark('cargoShift');
+      if (!p.onGround) this.dialogue.bark('cargoShift');
     }
     if (this.score.fuelRemaining < 0.18) warn.add('fuel');
     if (p.damage.gear > 0.3) warn.add('gear');
-    if (Math.abs(p.rollDeg) > 45) this.dialogue.bark('banked');
+    if (!p.onGround && Math.abs(p.rollDeg) > 45) this.dialogue.bark('banked');
     if (!p.onGround && p.agl > 90 && (Math.abs(p.rollDeg) > 56 || Math.abs(p.pitchDeg) > 28)) {
       this.dialogue.bark('holy');
     } else if (!p.onGround && p.agl > 90 && (Math.abs(p.rollDeg) > 32 || Math.abs(p.pitchDeg) > 18)) {
@@ -1415,7 +1424,9 @@ export class MissionController {
         this.cameras.addShake(0.8);
         break;
       case 'failed':
-        this.dialogue.bark('stall', { force: true });
+        if (this.flags.inCockpit && !this.physics.onGround) {
+          this.dialogue.bark('stall', { force: true });
+        }
         break;
       default:
         break;
@@ -1544,6 +1555,11 @@ export class MissionController {
    * is embarrassing rather than fatal.
    */
   restoreCheckpoint(name = this.checkpoint, { soft = false } = {}) {
+    if (!CHECKPOINT_ORDER.includes(name)) return false;
+    // A durable campaign resume does not carry the in-memory checkpoint blob,
+    // but it is still a real checkpoint. Record its name so the pause menu
+    // restarts this leg instead of falling back to the outbound runway.
+    this.checkpoint = name;
     const data = this.checkpointData?.name === name ? this.checkpointData : null;
     this.failed = null;
     this.dialogue.clear();
@@ -1551,7 +1567,7 @@ export class MissionController {
     this.detection.clear();
     this.flightHud.hideComplete();
     // Every checkpoint restore lands in the cockpit, so the walkaround's
-    // marker and checklist must not survive an R pressed mid-preflight.
+    // marker and checklist must not survive a checkpoint restore.
     this.preflight.disarm();
     this.flightHud.showChecklist(false);
     this._touchdowns.length = 0;
@@ -1642,9 +1658,10 @@ export class MissionController {
     this.flightHud.show(true);
     this.flightHud.showControls(true);
 
-    (setup[name] || setup.takeoff)();
+    setup[name]();
     this.terrain.prime(this.physics.position.x, this.physics.position.z);
     this.aircraft.syncTo(this.physics);
+    return true;
   }
 
   restoreCargo(saved) {
@@ -1683,8 +1700,8 @@ export class MissionController {
     this.audio.setPhase('silent');
     this.audio.setStallHorn(false);
     this.dialogue.clear();
-    this.hud.say(`<em>${reason}</em> Press <b>R</b> to restart from the ${this.checkpoint} checkpoint.`, 12000);
-    this.flightHud.showCheckpoint('PRESS R TO RESTART');
+    this.hud.say(`<em>${reason}</em> Open the <b>Tab menu</b> and choose <b>Restart from checkpoint</b> to return to the ${this.checkpoint} checkpoint.`, 12000);
+    this.flightHud.showCheckpoint('TAB MENU — RESTART FROM CHECKPOINT');
   }
 
   runEnding() {
@@ -1791,10 +1808,10 @@ export class MissionController {
 
   /* ---------------------------------------------------------------- */
 
-  /** Player pressed R. */
+  /** Player chose Restart from checkpoint in the pause menu. */
   requestRestart() {
-    if (this.finished) return;
-    this.restoreCheckpoint(this.checkpoint);
+    if (this.finished || !this.checkpoint) return false;
+    return this.restoreCheckpoint(this.checkpoint);
   }
 
   get checkpointList() { return CHECKPOINT_ORDER; }

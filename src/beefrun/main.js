@@ -310,8 +310,8 @@ const pauseMenu = createPauseMenu({
     'In the aircraft: W/S — pitch. A/D — roll. Q/E — rudder.',
     'Shift/Ctrl — throttle. F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop each engine.',
-    'C — camera. R — restart at the latest checkpoint.',
-    'Tab or P — pause or resume.',
+    'C — camera. Restart from checkpoint — use the button in this menu.',
+    'Tab — pause or resume.',
   ],
   onPause: () => {
     game.paused = true;
@@ -333,6 +333,8 @@ const pauseMenu = createPauseMenu({
     requestLock();
   },
   onRestart: () => mission.requestRestart(),
+  restartLabel: 'Restart from checkpoint',
+  canRestart: () => Boolean(mission.checkpoint),
 });
 
 /* ------------------------------------------------------------------ */
@@ -422,9 +424,6 @@ input.onAction = (name) => {
       }
       break;
     }
-    case 'restart':
-      mission.requestRestart();
-      break;
     case 'help':
       hud.toast(flightHud.toggleControls() ? 'CONTROLS SHOWN' : 'CONTROLS HIDDEN');
       break;
@@ -501,7 +500,7 @@ function frame() {
     for (const c of airfield.crows) updateCrow(c, dt);
     updateDog(airfield.dog, dt, WP.elev);
     for (const g of airstrip.guards) updateFigure(g, dt, null);
-    updateFigure(airstrip.cecilio, dt, null);
+    updateFigure(airstrip.cecilio, dt, inCockpit ? null : player.position);
     for (const a of mission.associates) updateFigure(a, dt, null);
     updateFigure(stove, dt, inCockpit ? null : player.position);
 

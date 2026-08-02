@@ -268,6 +268,28 @@ try {
       && started.audio.unrelatedCampaignVo.length === 0,
     JSON.stringify({ ...started.audio, expected: expectedResidentCues.length, loadMs: audioLoadMs }));
 
+  const earlyRestart = await page.evaluate(() => {
+    const b = window.__beefrun;
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      code: 'Tab', bubbles: true, cancelable: true,
+    }));
+    const menu = document.querySelector('[data-scene-pause]');
+    const button = [...(menu?.querySelectorAll('button') || [])]
+      .find((candidate) => candidate.textContent.trim() === 'Restart from checkpoint');
+    const state = {
+      checkpoint: b.mission.checkpoint,
+      opened: !!menu && !menu.classList.contains('hidden'),
+      restartHidden: !!button && (button.hidden || button.disabled),
+    };
+    window.__scenePause?.resume();
+    state.closed = !!menu && menu.classList.contains('hidden');
+    return state;
+  });
+  check('restart stays unavailable until the first real flight checkpoint',
+    earlyRestart.checkpoint === null
+      && earlyRestart.opened && earlyRestart.restartHidden && earlyRestart.closed,
+    JSON.stringify(earlyRestart));
+
   const eye = await page.evaluate(() => {
     const p = window.__beefrun.player;
     return { y: p.position.y, ground: p.ground, eye: p.position.y - p.ground };
@@ -585,8 +607,15 @@ const runwayStart = await page.evaluate(() => {
   // A direct or stale interaction cannot cut away while Lou is still climbing.
   m.enterCockpit();
   const earlyBoardBlocked = m.phase === 'boarding' && !m.flags.inCockpit;
-  m.updateBoarding(3.5);
+  // Real frames cross the reparent point before the climb finishes. Advancing
+  // in slices catches world/local transform bugs that a single 3.5 s jump hides.
+  for (let i = 0; i < 14; i++) m.updateBoarding(0.25);
   const offeredAfterLouSeats = m.flags.louAboard && !!m.boardTarget;
+  const louSeat = {
+    parented: m.lou.group.parent === b.aircraft.group,
+    localError: m.lou.group.position.distanceTo(b.aircraft.copilotSeat),
+    pose: m.lou.pose,
+  };
   m.enterCockpit();
 
   const target = m.airfield.anchors.lineUp;
@@ -616,6 +645,7 @@ const runwayStart = await page.evaluate(() => {
     hiddenUntilLouSeats,
     earlyBoardBlocked,
     offeredAfterLouSeats,
+    louSeat,
     staged,
     takeoffPhase: m.phase,
     lineupReady: m.flags.lineupReady,
@@ -626,6 +656,9 @@ check('Lou seats first, then boarding cuts the stopped aircraft to runway 18',
   runwayStart.hiddenUntilLouSeats
     && runwayStart.earlyBoardBlocked
     && runwayStart.offeredAfterLouSeats
+    && runwayStart.louSeat.parented
+    && runwayStart.louSeat.localError < 0.001
+    && runwayStart.louSeat.pose === 'sit'
     && runwayStart.staged.phase === 'startup'
     && runwayStart.staged.flagged
     && Math.abs(runwayStart.staged.x - runwayStart.staged.targetX) < 0.01
@@ -711,6 +744,14 @@ const chain = await page.evaluate(() => {
   });
   check('the simulation freezes under the report card',
     frozen.completeUp === true && frozen.moved < 0.01, JSON.stringify(frozen));
+  const endPauseState = await page.evaluate(() => {
+    const wasPaused = window.__scenePause?.isPaused() ?? false;
+    window.__scenePause?.resume();
+    return { wasPaused, closed: !window.__scenePause?.isPaused() };
+  });
+  check('the pause layer is closed before the completion-card action',
+    endPauseState.closed,
+    JSON.stringify(endPauseState));
   await page.click('#br-home');
   await page.waitForFunction(
     () => /index\.html/.test(location.pathname) || location.pathname.endsWith('/'),
@@ -782,6 +823,7 @@ const chain = await page.evaluate(() => {
       phase: b.mission.phase,
       inCockpit: b.mission.flags.inCockpit,
       checkpoint: b.campaignState.missions.airstrip_smuggling.checkpoint,
+      restartCheckpoint: b.mission.checkpoint,
       cargoLoaded: b.campaignState.missions.airstrip_smuggling.cargoLoaded,
       position: { x: b.physics.position.x, y: b.physics.position.y, z: b.physics.position.z },
       start,
@@ -801,6 +843,7 @@ const chain = await page.evaluate(() => {
     resumed.inCockpit
       && resumed.phase === 'heavyTakeoff'
       && resumed.checkpoint === 'returning'
+      && resumed.restartCheckpoint === 'departure'
       && resumed.cargoLoaded,
     JSON.stringify(resumed));
   check('the Cecilio handoff repairs, refuels, restarts, and stages the return aeroplane',
@@ -831,6 +874,17 @@ const chain = await page.evaluate(() => {
       (c) => c.geometry?.parameters?.width === 1.62,
     );
     const gauges = panel?.children.find((c) => c.material?.map === ac.parts.panelTex);
+    ac.group.updateMatrixWorld(true);
+    cam.updateMatrixWorld(true);
+    const project = (object) => {
+      if (!object) return null;
+      const point = new V();
+      object.getWorldPosition(point);
+      point.project(cam);
+      return { x: point.x, y: point.y, z: point.z,
+        visible: Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && point.z >= -1 && point.z <= 1 };
+    };
+    const tammyImage = ac.parts.tammySticker?.material?.map?.image;
     return {
       facesNose: +camFwd.dot(noseFwd).toFixed(3),
       eyeY: ac.pilotEye.y,
@@ -842,11 +896,29 @@ const chain = await page.evaluate(() => {
       controlKeys: document.querySelectorAll('#br-controls kbd').length,
       controlsText: document.getElementById('br-controls').textContent,
       airBrakeHud: document.getElementById('br-airbrake')?.textContent,
-      mug: {
-        name: ac.parts.cup?.name,
-        x: ac.parts.cup?.position.x,
-        label: !!ac.parts.cup?.getObjectByName('tammy-mug-label'),
+      tammy: {
+        name: ac.parts.tammySticker?.name,
+        x: ac.parts.tammySticker?.position.x,
+        sourceSlot: ac.parts.tammySticker?.userData.sourceSlot,
+        sourceFile: ac.parts.tammySticker?.userData.sourceFile,
+        imageSrc: tammyImage?.currentSrc || tammyImage?.src || '',
+        loadedWidth: tammyImage?.naturalWidth || tammyImage?.width || 0,
+        projected: project(ac.parts.tammySticker),
       },
+      radio: {
+        name: ac.parts.radioStack?.name,
+        units: ac.parts.radioStack?.children.filter((c) => /^radio-unit-/.test(c.name)).length,
+        displays: ac.parts.radioStack?.children.filter((c) => /^radio-display-/.test(c.name)).length,
+        knobs: ac.parts.radioStack?.children.filter((c) => /^radio-knob-/.test(c.name)).length,
+        projected: project(ac.parts.radioStack),
+      },
+      tailSupport: ac.parts.tailSupport?.children.map((brace) => ({
+        name: brace.name,
+        endpoints: !!brace.userData.memberEnds?.a && !!brace.userData.memberEnds?.b,
+        span: brace.userData.memberEnds?.a?.distanceTo(brace.userData.memberEnds?.b),
+        geometryLength: brace.geometry?.parameters?.height,
+      })),
+      exterior: ac.parts.exteriorDetails?.children.map((part) => part.name),
       airBrakePanels: ac.parts.airBrake?.map((panel) => panel.name),
     };
   });
@@ -868,15 +940,58 @@ const chain = await page.evaluate(() => {
       && seat.airBrakePanels?.length === 2,
     JSON.stringify({ text: seat.controlsText.replace(/\s+/g, ' ').trim(),
       hud: seat.airBrakeHud, panels: seat.airBrakePanels }));
-  check('Tammy’s labelled mug sits on the upper-right wood dash rail',
-    seat.mug.name === 'tammy-mug' && seat.mug.x > 0.5 && seat.mug.label,
-    JSON.stringify(seat.mug));
+  check('the apartment-fridge Tammy sticker moved to the opposite dash side',
+    seat.tammy.name === 'tammy-golden-ak-sticker'
+      && seat.tammy.x < -0.5
+      && seat.tammy.sourceSlot === 'sticker.fridge'
+      && seat.tammy.sourceFile === 'sticker-pinup.png'
+      && /assets\/art\/sticker-pinup\.png(?:\?|$)/.test(seat.tammy.imageSrc)
+      && seat.tammy.loadedWidth > 1
+      && seat.tammy.projected?.visible,
+    JSON.stringify(seat.tammy));
+  check('the cockpit carries a complete readable radio stack',
+    seat.radio.name === 'cockpit-radio-stack'
+      && seat.radio.units === 3
+      && seat.radio.displays === 3
+      && seat.radio.knobs === 6
+      && seat.radio.projected?.visible,
+    JSON.stringify(seat.radio));
+  check('tail braces, cowling bands, and the VHF aerial are attached visual detail',
+    seat.tailSupport?.length === 4
+      && seat.tailSupport.every((brace) => brace.endpoints)
+      && seat.tailSupport.every((brace) => Math.abs(brace.span - brace.geometryLength) < 0.001)
+      && seat.exterior?.filter((name) => name.startsWith('nacelle-band-')).length === 4
+      && seat.exterior?.includes('vhf-radio-aerial'),
+    JSON.stringify({ tailSupport: seat.tailSupport, exterior: seat.exterior }));
 
-  const remotePresentation = await resumePage.evaluate(() => {
+  const remotePresentation = await resumePage.evaluate(async () => {
     const b = window.__beefrun;
     const m = b.mission;
     const falls = m.landmarks.marks.falls.group;
     const cecilio = m.airstrip.cecilio;
+    const { speak, updateFigure } = await import('/src/beefrun/npc.js');
+    const mouthRest = cecilio.faceRig?.mouthRest;
+    const lidRest = cecilio.faceRig?.lidRest;
+    cecilio.t = 0.37;
+    speak(cecilio, 1);
+    updateFigure(cecilio, 0.05, null);
+    const talkingFace = {
+      mouth: cecilio.faceRig?.mouth.scale.y,
+      jaw: cecilio.faceRig?.jaw.position.y,
+    };
+    cecilio.talk = 0;
+    for (let i = 0; i < 20; i += 1) updateFigure(cecilio, 0.05, null);
+    cecilio.faceRig.nextBlink = cecilio.t + 0.01;
+    updateFigure(cecilio, 0.05, null);
+    const blinkScale = cecilio.faceRig?.lids[0].scale.y;
+    const nearCecilio = cecilio.group.position.clone();
+    nearCecilio.z += 2;
+    updateFigure(cecilio, 0.05, nearCecilio);
+    const tagVisible = cecilio.tag?.visible;
+    const tagOpacity = cecilio.tag?.material?.opacity;
+    cecilio.talk = 0;
+    for (let i = 0; i < 20; i += 1) updateFigure(cecilio, 0.05, nearCecilio);
+    const settledMouth = cecilio.faceRig?.mouth.scale.y;
     return {
       falls: {
         centrelineOffset: Math.abs(falls.position.x - m.airstrip.anchors.threshold.x),
@@ -895,10 +1010,21 @@ const chain = await page.evaluate(() => {
       },
       cecilio: {
         tag: cecilio.tag?.userData.text,
+        authoredFace: !!cecilio.group.getObjectByName('cecilio-face'),
+        eyes: cecilio.faceRig?.eyes.length,
+        brows: cecilio.faceRig?.brows.length,
+        mouth: !!cecilio.group.getObjectByName('cecilio-face-mouth'),
         moustache: !!cecilio.group.getObjectByName('cecilio-moustache'),
         nose: !!cecilio.group.getObjectByName('cecilio-nose'),
         medallion: !!cecilio.group.getObjectByName('cecilio-medallion'),
         jacketColour: cecilio.hips.children[0]?.material?.color?.getHex(),
+        mouthRest,
+        lidRest,
+        talkingFace,
+        blinkScale,
+        tagVisible,
+        tagOpacity,
+        settledMouth,
       },
       guardsUntouched: m.airstrip.guards.every((guard) =>
         !guard.group.getObjectByName('cecilio-moustache')
@@ -918,12 +1044,29 @@ const chain = await page.evaluate(() => {
     JSON.stringify(remotePresentation.jungle));
   check('Don Cecilio has a readable identity and tailored outfit while the rear guards stay unchanged',
     remotePresentation.cecilio.tag === 'DON CECILIO'
+      && remotePresentation.cecilio.authoredFace
+      && remotePresentation.cecilio.eyes === 2
+      && remotePresentation.cecilio.brows === 2
+      && remotePresentation.cecilio.mouth
       && remotePresentation.cecilio.moustache
       && remotePresentation.cecilio.nose
       && remotePresentation.cecilio.medallion
       && remotePresentation.cecilio.jacketColour === 0x6f3029
       && remotePresentation.guardsUntouched,
     JSON.stringify(remotePresentation));
+  check('Cecilio’s authored face speaks and blinks during the live handoff',
+    remotePresentation.cecilio.talkingFace.mouth > remotePresentation.cecilio.mouthRest
+      && remotePresentation.cecilio.talkingFace.jaw < 0
+      && remotePresentation.cecilio.blinkScale > remotePresentation.cecilio.lidRest
+      && remotePresentation.cecilio.tagVisible
+      && remotePresentation.cecilio.tagOpacity > 0
+      && Math.abs(remotePresentation.cecilio.settledMouth - remotePresentation.cecilio.mouthRest) < 0.001,
+    JSON.stringify({ mouthRest: remotePresentation.cecilio.mouthRest,
+      lidRest: remotePresentation.cecilio.lidRest,
+      talking: remotePresentation.cecilio.talkingFace,
+      blink: remotePresentation.cecilio.blinkScale,
+      tag: { visible: remotePresentation.cecilio.tagVisible, opacity: remotePresentation.cecilio.tagOpacity },
+      settledMouth: remotePresentation.cecilio.settledMouth }));
 
   const cecilioProximity = await resumePage.evaluate(async () => {
     const b = window.__beefrun;
@@ -953,12 +1096,14 @@ const chain = await page.evaluate(() => {
     busy = false;
     fake.player.position.set(2, 0, 0);
     MissionController.prototype.updateOnFootStrip.call(fake, 0.016);
-    return { onEntry, whileFar, afterApproach: heard.slice(), objective: fake.objective };
+    return { onEntry, whileFar, afterApproach: heard.slice(), objective: fake.objective,
+      talkAfterApproach: fake.airstrip.cecilio.talk };
   });
   check('Cecilio and his crew wait until the player is actually in conversation range',
     cecilioProximity.onEntry.length === 0
       && cecilioProximity.whileFar.length === 0
       && cecilioProximity.afterApproach[0] === 'cecilio.meet'
+      && cecilioProximity.talkAfterApproach === 0
       && /Cecilio/i.test(cecilioProximity.objective),
     JSON.stringify(cecilioProximity));
 
@@ -1109,9 +1254,190 @@ const chain = await page.evaluate(() => {
     input.clear();
     return { a, d };
   });
-  check('A rolls left and D rolls right like the gamepad',
-    rollKeys.a < 0 && rollKeys.d > 0,
+  check('A and D use the cockpit-visible bank polarity',
+    rollKeys.a > 0 && rollKeys.d < 0,
     JSON.stringify(rollKeys));
+
+  const gamepadAxes = await resumePage.evaluate(() => {
+    const input = window.__beefrun.input;
+    const originalPoll = input.pollGamepad;
+    input.clear();
+    input.usingGamepad = false;
+    input.pollGamepad = () => ({ axes: [1, 0, 1, 0], buttons: [] });
+    input.update(0.016);
+    const right = { roll: input.axes.roll, yaw: input.axes.yaw };
+    input.clear();
+    input.usingGamepad = false;
+    input.pollGamepad = () => ({ axes: [-1, 0, -1, 0], buttons: [] });
+    input.update(0.016);
+    const left = { roll: input.axes.roll, yaw: input.axes.yaw };
+    input.pollGamepad = originalPoll;
+    input.clear();
+    input.usingGamepad = false;
+    return { right, left };
+  });
+  check('gamepad roll and rudder match the corrected cockpit-visible polarity',
+    gamepadAxes.right.roll < 0 && gamepadAxes.right.yaw < 0
+      && gamepadAxes.left.roll > 0 && gamepadAxes.left.yaw > 0,
+    JSON.stringify(gamepadAxes));
+
+  const restartGuard = await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    const original = b.mission.requestRestart;
+    let restartCalls = 0;
+    b.mission.requestRestart = () => { restartCalls++; };
+
+    document.dispatchEvent(new KeyboardEvent('keydown', {
+      code: 'KeyR', bubbles: true, cancelable: true,
+    }));
+    document.dispatchEvent(new KeyboardEvent('keyup', {
+      code: 'KeyR', bubbles: true, cancelable: true,
+    }));
+    const afterRawR = restartCalls;
+
+    window.dispatchEvent(new KeyboardEvent('keydown', {
+      code: 'Tab', bubbles: true, cancelable: true,
+    }));
+    const menu = document.querySelector('[data-scene-pause]');
+    const restartButton = [...(menu?.querySelectorAll('button') || [])]
+      .find((button) => button.textContent.trim() === 'Restart from checkpoint');
+    const opened = !!menu && !menu.classList.contains('hidden');
+    const pauseInstructions = [...(menu?.querySelectorAll('[data-scene-pause-instructions] li') || [])]
+      .map((line) => line.textContent.trim());
+    const titleControls = [...document.querySelectorAll('#overlay .controls li')]
+      .map((line) => line.textContent.trim());
+    const flightControls = [...document.querySelectorAll('#br-controls li')]
+      .map((line) => line.textContent.trim());
+    restartButton?.click();
+    const afterMenu = restartCalls;
+    const closed = !!menu && menu.classList.contains('hidden');
+
+    b.mission.requestRestart = original;
+    return {
+      afterRawR,
+      opened,
+      restartLabel: restartButton?.textContent.trim() || '',
+      pauseInstructions,
+      titleControls,
+      flightControls,
+      afterMenu,
+      closed,
+    };
+  });
+  check('raw R is inert and checkpoint restart only runs from the pause menu button',
+    restartGuard.afterRawR === 0
+      && restartGuard.opened
+      && restartGuard.restartLabel === 'Restart from checkpoint'
+      && restartGuard.afterMenu === 1
+      && restartGuard.closed,
+    JSON.stringify(restartGuard));
+  check('every Beef Run control card points restart through the pause menu',
+    restartGuard.pauseInstructions.some((line) => /use the button in this menu/i.test(line))
+      && restartGuard.titleControls.some((line) => /Tab.*restart from checkpoint/i.test(line))
+      && restartGuard.flightControls.some((line) => /Tab.*restart menu/i.test(line)),
+    JSON.stringify({ pause: restartGuard.pauseInstructions,
+      title: restartGuard.titleControls, flight: restartGuard.flightControls }));
+
+  const failureRestartCopy = await resumePage.evaluate(async () => {
+    const { MissionController } = await import('/src/beefrun/mission.js');
+    let hud = '';
+    let checkpoint = '';
+    const fake = {
+      failed: false,
+      finished: false,
+      checkpoint: 'return',
+      audio: { setPhase() {}, setStallHorn() {} },
+      dialogue: { clear() {} },
+      hud: { say: (text) => { hud = text; } },
+      flightHud: { showCheckpoint: (text) => { checkpoint = text; } },
+    };
+    MissionController.prototype.fail.call(fake, 'Test failure.');
+    return { hud, checkpoint };
+  });
+  check('failure copy directs the player to Tab and Restart from checkpoint instead of raw R',
+    /Tab menu/i.test(failureRestartCopy.hud)
+      && /Restart from checkpoint/i.test(failureRestartCopy.hud)
+      && /TAB MENU/i.test(failureRestartCopy.checkpoint)
+      && !/PRESS R/i.test(failureRestartCopy.checkpoint),
+    JSON.stringify(failureRestartCopy));
+
+  const flightSafety = await resumePage.evaluate(async () => {
+    const { MissionController } = await import('/src/beefrun/mission.js');
+    const THREE = await import('/vendor/three.module.min.js');
+    const horn = [];
+    const barks = [];
+    const warningSets = [];
+    const fake = {
+      physics: {
+        position: new THREE.Vector3(0, 1, 0),
+        velocity: new THREE.Vector3(),
+        wind: new THREE.Vector3(),
+        gust: new THREE.Vector3(),
+        agl: 0.3, onGround: true, tas: 80, ias: 80, vspeed: 0,
+        stallT: 0.9, rollDeg: 55, pitchDeg: 0, gLoad: 1,
+        groundSpeed: 0, thrustL: 0, thrustR: 0,
+        suspension: [0, 0, 0],
+        damage: { wing: 0, gear: 0, tireBurst: false },
+      },
+      phase: 'taxi', _ambientBarkTimer: 30, _lastTas: 0,
+      score: { roughAir: 0, fuelRemaining: 1, cargoDamage: 0, patrolPeak: 0, damage: 0 },
+      weather: { sampleAir() {}, inCloud: () => false },
+      audio: { setStallHorn: (on) => horn.push(on) },
+      dialogue: { bark: (pool) => { barks.push(pool); return true; } },
+      engines: {
+        fuel: 100,
+        engines: [{ temp: 100, health: 1, dead: false }, { temp: 100, health: 1, dead: false }],
+      },
+      cargo: { shift: 0.8, intact: 1, update() {}, applyTo() {} },
+      detection: { active: false, patrols: [], state: 'unnoticed', attention: 0, locatedFor: 0 },
+      cameras: { addShake() {} },
+      flightHud: {
+        setNav() {}, setDirection() {}, ageControls() {},
+        setWarnings: (warnings) => warningSets.push([...warnings]),
+        setPatrol() {}, hidePatrol() {},
+      },
+      approachGates: null,
+      navTarget: () => null,
+      lateralG: () => 0,
+      fail() {},
+    };
+    MissionController.prototype.updateFlightCommon.call(fake, 0.016);
+
+    const exitHorn = [];
+    const exitWarnings = [];
+    const exitFake = {
+      flags: { inCockpit: true },
+      flightHud: {
+        showControls() {}, setDirection() {},
+        setWarnings: (warnings) => exitWarnings.push([...warnings]),
+      },
+      interaction: { setPaused() {} },
+      audio: { setHeadset() {}, setStallHorn: (on) => exitHorn.push(on), setAirspeed() {} },
+      dialogue: { setHeadset() {} },
+      input: { rudderKeys: true, clear() {} },
+      physics: { position: new THREE.Vector3(), quat: new THREE.Quaternion() },
+      player: {
+        position: new THREE.Vector3(), velocity: new THREE.Vector3(),
+        enabled: false, mode: 'frozen', ground: 0, yaw: 0, pitch: 0,
+      },
+    };
+    MissionController.prototype.exitCockpit.call(exitFake);
+    return {
+      groundHorn: horn.at(-1),
+      groundWarnings: warningSets.at(-1),
+      groundBarks: barks,
+      exitHorn: exitHorn.at(-1),
+      exitWarnings: exitWarnings.at(-1),
+    };
+  });
+  check('ground handling suppresses flight alarms and Sasole flight barks',
+    flightSafety.groundHorn === false
+      && !flightSafety.groundWarnings.includes('stall')
+      && !flightSafety.groundBarks.some((pool) => ['stall', 'overspeed', 'cargoShift', 'banked'].includes(pool)),
+    JSON.stringify(flightSafety));
+  check('leaving the aircraft clears the stall horn and warning panel immediately',
+    flightSafety.exitHorn === false && flightSafety.exitWarnings.length === 0,
+    JSON.stringify(flightSafety));
 
   const skippedLineup = await resumePage.evaluate(async () => {
     const { MissionController } = await import('/src/beefrun/mission.js');

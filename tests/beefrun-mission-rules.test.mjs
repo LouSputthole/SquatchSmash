@@ -1,9 +1,56 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import * as THREE from 'three';
 
 import { selectApproachCall } from '../src/beefrun/approach-coaching.js';
+import { CameraManager } from '../src/beefrun/cameras.js';
 import { FlightInput } from '../src/beefrun/input.js';
+import { MissionController } from '../src/beefrun/mission.js';
+import { AircraftPhysics } from '../src/beefrun/physics.js';
 import { stageRemoteDeparture } from '../src/beefrun/remote-departure.js';
+
+function cockpitHorizonAfter(keyCode) {
+  const input = new FlightInput();
+  input.pollGamepad = () => null;
+  input.key(keyCode, true);
+  input.update(0.3);
+
+  const physics = new AircraftPhysics({ getHeight: () => 0 });
+  physics.setPose(new THREE.Vector3(0, 500, 0), 0, 55);
+  physics.controls.parkingBrake = false;
+  physics.assist = {
+    stability: 0,
+    autoRudder: 0,
+    stallGuard: 0,
+    groundAssist: 0,
+    torque: 0,
+  };
+  input.applyTo(physics.controls);
+  for (let i = 0; i < 60; i++) physics.step(1 / 120);
+
+  const body = new THREE.Group();
+  body.position.copy(physics.position);
+  body.quaternion.copy(physics.quat);
+  const camera = new THREE.PerspectiveCamera(66, 1, 0.1, 5000);
+  new CameraManager(camera).update(0, physics, body, new THREE.Vector3());
+  camera.updateMatrixWorld();
+
+  const horizon = [
+    new THREE.Vector3(-100, 500, 1000).project(camera),
+    new THREE.Vector3(100, 500, 1000).project(camera),
+  ].sort((a, b) => a.x - b.x);
+  return { leftY: horizon[0].y, rightY: horizon[1].y };
+}
+
+test('A banks left and D banks right in the cockpit view', () => {
+  const a = cockpitHorizonAfter('KeyA');
+  const d = cockpitHorizonAfter('KeyD');
+
+  assert.ok(a.leftY > a.rightY,
+    `A showed a right bank: ${JSON.stringify(a)}`);
+  assert.ok(d.leftY < d.rightY,
+    `D showed a left bank: ${JSON.stringify(d)}`);
+});
 
 test('the terminal high-approach warning cannot repeat forever', () => {
   let approachCalls = 0;
@@ -100,4 +147,45 @@ test('Q and E use the corrected cockpit rudder polarity', () => {
 
   assert.ok(q.axes.yaw > 0, `Q rudder was ${q.axes.yaw}`);
   assert.ok(e.axes.yaw < 0, `E rudder was ${e.axes.yaw}`);
+});
+
+test('gamepad right roll and rudder match D and E in the cockpit', () => {
+  const right = new FlightInput();
+  right.pollGamepad = () => ({ axes: [1, 0, 1, 0], buttons: [] });
+  right.update(0.016);
+
+  const left = new FlightInput();
+  left.pollGamepad = () => ({ axes: [-1, 0, -1, 0], buttons: [] });
+  left.update(0.016);
+
+  assert.ok(right.axes.roll < 0, `right-stick roll was ${right.axes.roll}`);
+  assert.ok(right.axes.yaw < 0, `right-stick rudder was ${right.axes.yaw}`);
+  assert.ok(left.axes.roll > 0, `left-stick roll was ${left.axes.roll}`);
+  assert.ok(left.axes.yaw > 0, `left-stick rudder was ${left.axes.yaw}`);
+});
+
+test('R is inert so checkpoint restart requires the pause menu', () => {
+  const input = new FlightInput();
+  const actions = [];
+  input.onAction = (action) => actions.push(action);
+
+  input.key('KeyR', true);
+
+  assert.deepEqual(actions, []);
+});
+
+test('restart cannot skip the apron flow before a checkpoint exists', () => {
+  const restored = [];
+  const fake = {
+    finished: false,
+    checkpoint: null,
+    restoreCheckpoint: (name) => { restored.push(name); return true; },
+  };
+
+  assert.equal(MissionController.prototype.requestRestart.call(fake), false);
+  assert.deepEqual(restored, []);
+
+  fake.checkpoint = 'departure';
+  assert.equal(MissionController.prototype.requestRestart.call(fake), true);
+  assert.deepEqual(restored, ['departure']);
 });
