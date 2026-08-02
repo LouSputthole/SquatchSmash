@@ -48,6 +48,7 @@ const TEST_MODULES = [
   './sfx-index.test.mjs',
   './audio-production-tools.test.mjs',
   './audio-engine.test.mjs',
+  './media-performance.test.mjs',
   './apartment-audio.test.mjs',
   './inventory.test.mjs',
   './inventory-view.test.mjs',

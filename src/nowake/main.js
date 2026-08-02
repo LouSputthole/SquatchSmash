@@ -717,7 +717,7 @@ showEntryAvailability();
 const runtime = {
   get phase() { return state.phase; }, set phase(v) { state.phase = v; },
   get campaignState() { return campaign.state; },
-  state, physics, world, boat, player, interaction, story, postfx, radio, radioReady,
+  state, physics, world, boat, player, interaction, story, postfx, audio, radio, radioReady,
   dialogueLog: state.dialogueLog,
   startUnderway() {
     Object.assign(state, {
@@ -779,7 +779,11 @@ startButton.addEventListener('click', async () => {
   // NO WAKE crosses three authored shows. Decode those exact station banks
   // plus this mission rather than the entire 100+ MiB campaign library.
   const radioCueNames = radio.preloadCueNames({ hours: [12.75, 15, 17] });
-  await audio.loadManifest(noWakeAudioLoadOptions(radioCueNames));
+  const loadedAudio = await audio.loadManifest(noWakeAudioLoadOptions(radioCueNames));
+  audio.preloadStats = {
+    manifestTotal: audio.manifest.sfx.length,
+    selected: loadedAudio.total,
+  };
   audio.startLoop('harbor', { name: 'ambience.rain', volume: .08, ambience: true });
   document.body.classList.add('playing');
   sceneInventory.show();

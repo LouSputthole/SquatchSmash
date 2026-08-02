@@ -408,7 +408,7 @@ export class AudioEngine {
       fade = 1.2,
     } = opts;
 
-    const { gain, filter } = this._loopChain(position, ambience, opts);
+    const { gain, filter, panner } = this._loopChain(position, ambience, opts);
 
     let node;
     const bank = this.buffers.get(name);
@@ -423,7 +423,7 @@ export class AudioEngine {
     }
 
     gain.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + fade);
-    const handle = { node, gain, filter, volume, cutoff: 20000 };
+    const handle = { node, gain, filter, panner, volume, cutoff: 20000 };
     this.loops.set(key, handle);
     return handle;
   }
@@ -437,45 +437,152 @@ export class AudioEngine {
     filter.frequency.value = 20000;
     gain.connect(filter);
     const bus = ambience ? this.busAmb : this.busSfx;
+    let panner = null;
     if (position) {
-      const panner = this._makePanner(position, opts.ref ?? 1.2, opts.maxDist ?? 14);
+      panner = this._makePanner(position, opts.ref ?? 1.2, opts.maxDist ?? 14);
       filter.connect(panner);
       panner.connect(bus);
     } else {
       filter.connect(bus);
     }
-    return { gain, filter };
+    return { gain, filter, panner };
+  }
+
+  /** Disconnect every node this loop owns, including a positional tail. */
+  _disconnectLoopChain(handle) {
+    for (const node of [handle?.gain, handle?.filter, handle?.panner]) {
+      try { node?.disconnect(); } catch { /* already disconnected */ }
+    }
   }
 
   /**
    * Start a looping music track from a URL (assets/music/*, not the sfx
-   * manifest). Silent until the file decodes; a fetch failure just removes
-   * the loop rather than falling back to a synth bed.
+   * manifest). Long records stay in an HTMLMediaElement so the browser can
+   * decode them as they play instead of retaining the whole song as PCM. The
+   * MediaElementSource still enters the normal WebAudio graph, so spatial
+   * falloff, room filters, fades and global ducking remain unchanged.
    */
   startMusicLoop(key, url, opts = {}) {
     if (!this.ready || this.loops.has(key)) return this.loops.get(key);
     const { volume = 0.3, fade = 1.6 } = opts;
-    const { gain, filter } = this._loopChain(opts.position ?? null, opts.ambience ?? true, opts);
-    const handle = { node: null, gain, filter, volume, cutoff: 20000 };
+    const { gain, filter, panner } = this._loopChain(
+      opts.position ?? null,
+      opts.ambience ?? true,
+      opts,
+    );
+    const element = new Audio();
+    if (!/^data:/.test(url)) element.crossOrigin = 'anonymous';
+    element.preload = 'auto';
+    element.loop = true;
+    element.volume = 1;
+
+    const node = this.ctx.createMediaElementSource(element);
+    node.connect(gain);
+    const handle = {
+      node,
+      element,
+      gain,
+      filter,
+      panner,
+      volume,
+      cutoff: 20000,
+      streamed: true,
+      released: false,
+      autoplayBlocked: false,
+      retryPlayback: null,
+    };
+
+    const retryEvents = ['pointerdown', 'keydown', 'touchend'];
+    let retryTarget = null;
+    let retryListener = null;
+
+    const disarmRetry = () => {
+      if (retryTarget && retryListener) {
+        for (const event of retryEvents) {
+          retryTarget.removeEventListener(event, retryListener, true);
+        }
+      }
+      retryTarget = null;
+      retryListener = null;
+      handle.retryPlayback = null;
+    };
+
+    const release = () => {
+      if (handle.released) return;
+      handle.released = true;
+      disarmRetry();
+      element.removeEventListener('error', failed);
+      try { element.pause(); } catch { /* already stopped */ }
+      element.removeAttribute('src');
+      try { element.load(); } catch { /* detached media element */ }
+      try { node.disconnect(); } catch { /* already disconnected */ }
+      this._disconnectLoopChain(handle);
+    };
+    const failed = (error) => {
+      handle.lastError = error?.name || 'media-error';
+      if (this.loops.get(key) === handle) this.loops.delete(key);
+      release();
+    };
+    const retryOrFail = (error) => {
+      handle.playPending = false;
+      if (handle.released) return;
+      if (this.loops.get(key) !== handle) {
+        release();
+        return;
+      }
+      if (error?.name !== 'NotAllowedError') {
+        failed(error);
+        return;
+      }
+
+      // Safari/Firefox may expire transient activation while a scene awaits
+      // its voice bank. Keep the valid media graph and retry synchronously on
+      // the player's next input instead of turning one policy rejection into
+      // permanent silence for this page.
+      handle.autoplayBlocked = true;
+      handle.retryPlayback = attemptPlayback;
+      if (retryListener) return;
+      const target = globalThis.window;
+      if (!target?.addEventListener) return;
+      retryTarget = target;
+      retryListener = () => {
+        disarmRetry();
+        attemptPlayback();
+      };
+      for (const event of retryEvents) {
+        target.addEventListener(event, retryListener, { capture: true });
+      }
+    };
+    const attemptPlayback = () => {
+      if (handle.released || handle.playPending || this.loops.get(key) !== handle) return;
+      handle.playPending = true;
+      let playback;
+      try {
+        // Keep play() on the caller's stack when possible: some browsers grant
+        // media playback only to the interaction that started the scene.
+        playback = element.play();
+      } catch (error) {
+        retryOrFail(error);
+        return;
+      }
+      Promise.resolve(playback)
+        .then(() => {
+          handle.playPending = false;
+          if (this.loops.get(key) !== handle) {
+            release();
+            return;
+          }
+          disarmRetry();
+          handle.autoplayBlocked = false;
+          gain.gain.linearRampToValueAtTime(handle.volume, this.ctx.currentTime + fade);
+        })
+        .catch(retryOrFail);
+    };
+    handle.release = release;
+    element.addEventListener('error', failed, { once: true });
     this.loops.set(key, handle);
-    fetch(url)
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
-      .then((buf) => this.ctx.decodeAudioData(buf))
-      .then((decoded) => {
-        if (this.loops.get(key) !== handle) return; // stopped while loading
-        const node = this.ctx.createBufferSource();
-        node.buffer = decoded;
-        node.loop = true;
-        node.connect(gain);
-        node.start();
-        handle.node = node;
-        gain.gain.linearRampToValueAtTime(handle.volume, this.ctx.currentTime + fade);
-      })
-      .catch(() => {
-        // A replacement may already own this mix key by the time an older
-        // request fails. Never let the stale request delete the new handle.
-        if (this.loops.get(key) === handle) this.loops.delete(key);
-      });
+    element.src = url;
+    attemptPlayback();
     return handle;
   }
 
@@ -494,11 +601,16 @@ export class AudioEngine {
     h.gain.gain.setValueAtTime(h.gain.gain.value, t);
     h.gain.gain.linearRampToValueAtTime(0.0001, t + fade);
     setTimeout(() => {
+      if (h.release) {
+        h.release();
+        return;
+      }
       try {
         h.node.stop ? h.node.stop() : h.node.forEach?.((n) => n.stop());
       } catch {
         /* already stopped */
       }
+      this._disconnectLoopChain(h);
     }, fade * 1000 + 60);
   }
 

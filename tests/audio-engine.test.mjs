@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { AudioEngine } from '../src/core/audio.js';
 import { loadOnceRetriable, runWorkerPool } from '../src/core/load-queue.js';
 
 test('concurrent and repeated manifest loads share one immutable result', async () => {
@@ -55,4 +56,159 @@ test('sample loading is bounded instead of flooding the browser', async () => {
   assert.equal(loaded, 48);
   assert.ok(peak > 1, `expected parallel work, observed ${peak}`);
   assert.ok(peak <= 7, `expected at most 7 concurrent loads, observed ${peak}`);
+});
+
+function audioParam(value = 0) {
+  return {
+    value,
+    cancelScheduledValues() {},
+    setValueAtTime(next) { this.value = next; },
+    linearRampToValueAtTime(next) { this.value = next; },
+  };
+}
+
+function audioNode(extra = {}) {
+  return {
+    connections: [],
+    connect(target) { this.connections.push(target); return target; },
+    disconnect() { this.disconnected = true; },
+    ...extra,
+  };
+}
+
+test('long music loops stream through a media element and release it when stopped', async (t) => {
+  const RealAudio = globalThis.Audio;
+  const realWindow = globalThis.window;
+  const realFetch = globalThis.fetch;
+  const elements = [];
+  const inputListeners = new Map();
+  let fetches = 0;
+  let throwOnPlay = false;
+  let blockOnPlay = false;
+
+  const fakeWindow = {
+    addEventListener(name, listener) { inputListeners.set(name, listener); },
+    removeEventListener(name, listener) {
+      if (inputListeners.get(name) === listener) inputListeners.delete(name);
+    },
+    dispatch(name) { inputListeners.get(name)?.({ type: name, isTrusted: true }); },
+  };
+
+  class FakeAudio {
+    constructor() {
+      this.listeners = new Map();
+      this.paused = true;
+      elements.push(this);
+    }
+
+    addEventListener(name, listener) { this.listeners.set(name, listener); }
+    removeEventListener(name) { this.listeners.delete(name); }
+    play() {
+      if (throwOnPlay) throw new Error('media policy rejected playback');
+      if (blockOnPlay) {
+        const error = new Error('a fresh gesture is required');
+        error.name = 'NotAllowedError';
+        return Promise.reject(error);
+      }
+      this.paused = false;
+      return Promise.resolve();
+    }
+    pause() { this.paused = true; }
+    removeAttribute(name) { if (name === 'src') this.src = ''; }
+    load() { this.released = !this.src; }
+  }
+
+  globalThis.Audio = FakeAudio;
+  globalThis.window = fakeWindow;
+  globalThis.fetch = async () => {
+    fetches++;
+    return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) };
+  };
+  t.after(() => {
+    globalThis.Audio = RealAudio;
+    globalThis.window = realWindow;
+    globalThis.fetch = realFetch;
+  });
+
+  const mediaSources = [];
+  const ctx = {
+    currentTime: 4,
+    createGain: () => audioNode({ gain: audioParam() }),
+    createBiquadFilter: () => audioNode({ frequency: audioParam(20_000) }),
+    createPanner: () => audioNode({
+      positionX: { value: 0 },
+      positionY: { value: 0 },
+      positionZ: { value: 0 },
+    }),
+    createMediaElementSource: (element) => {
+      const source = audioNode({ mediaElement: element });
+      mediaSources.push(source);
+      return source;
+    },
+  };
+  const engine = new AudioEngine();
+  engine.ctx = ctx;
+  engine.ready = true;
+  engine.busAmb = audioNode();
+  engine.busSfx = audioNode();
+
+  const handle = engine.startMusicLoop('club.record', 'assets/music/long-record.mp3', {
+    volume: 0.2,
+    fade: 0,
+    position: { x: 1, y: 2, z: 3 },
+  });
+  await Promise.resolve();
+
+  assert.equal(fetches, 0, 'music must not be fetched into an ArrayBuffer');
+  assert.equal(elements.length, 1);
+  assert.strictEqual(handle.element, elements[0]);
+  assert.strictEqual(handle.node, mediaSources[0]);
+  assert.equal(handle.element.src, 'assets/music/long-record.mp3');
+  assert.equal(handle.element.loop, true);
+  assert.equal(handle.element.preload, 'auto');
+  assert.equal(handle.element.paused, false);
+  assert.equal(handle.node.connections.includes(handle.gain), true);
+
+  engine.stopLoop('club.record', 0);
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.equal(handle.element.paused, true);
+  assert.equal(handle.element.src, '');
+  assert.equal(handle.element.released, true);
+  assert.equal(handle.node.disconnected, true);
+  assert.equal(handle.gain.disconnected, true);
+  assert.equal(handle.filter.disconnected, true);
+  assert.equal(handle.panner.disconnected, true);
+
+  throwOnPlay = true;
+  let rejectedHandle;
+  assert.doesNotThrow(() => {
+    rejectedHandle = engine.startMusicLoop('blocked.record', 'assets/music/blocked.mp3');
+  });
+  assert.equal(engine.loops.has('blocked.record'), false);
+  assert.equal(rejectedHandle.released, true);
+  assert.equal(rejectedHandle.element.src, '');
+  assert.equal(rejectedHandle.node.disconnected, true);
+
+  throwOnPlay = false;
+  blockOnPlay = true;
+  const retryHandle = engine.startMusicLoop('retry.record', 'assets/music/retry.mp3');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(engine.loops.get('retry.record'), retryHandle);
+  assert.equal(retryHandle.released, false);
+  assert.equal(retryHandle.autoplayBlocked, true);
+  assert.equal(typeof retryHandle.retryPlayback, 'function');
+  assert.deepEqual([...inputListeners.keys()].sort(), ['keydown', 'pointerdown', 'touchend']);
+
+  blockOnPlay = false;
+  fakeWindow.dispatch('pointerdown');
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(retryHandle.element.paused, false);
+  assert.equal(retryHandle.autoplayBlocked, false);
+  assert.equal(retryHandle.retryPlayback, null);
+  assert.equal(inputListeners.size, 0);
+
+  engine.stopLoop('retry.record', 0);
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  assert.equal(retryHandle.released, true);
 });

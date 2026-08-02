@@ -214,6 +214,24 @@ try {
 
   await page.click('#start-btn');
   await page.waitForFunction(() => window.HOTDOG_INCIDENT.game.started, null, { timeout: 90000 });
+  await page.waitForFunction(() => {
+    const handle = window.HOTDOG_INCIDENT.audio.loops.get('party.record');
+    return handle?.streamed && handle.element?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+  }, null, { timeout: 30000 });
+  const partyRecord = await page.evaluate(() => {
+    const handle = window.HOTDOG_INCIDENT.audio.loops.get('party.record');
+    return {
+      streamed: handle?.streamed === true,
+      sourceOwnsElement: handle?.node?.mediaElement === handle?.element,
+      hasDecodedBuffer: !!handle?.node?.buffer,
+      paused: handle?.element?.paused ?? true,
+      duration: handle?.element?.duration ?? 0,
+    };
+  });
+  check('the HotDog party record streams through the shared mix without a retained AudioBuffer',
+    partyRecord.streamed && partyRecord.sourceOwnsElement && !partyRecord.hasDecodedBuffer
+      && !partyRecord.paused && partyRecord.duration > 0,
+    JSON.stringify(partyRecord));
   current = await incidentState(page);
   check('Start claims only the party checkpoint',
     current.phase === 'active'

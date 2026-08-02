@@ -94,8 +94,17 @@ A service worker caches compressed MP3 bytes. It cannot persist decoded
    **Landed in this release; interaction-level lazy loading remains optional.**
 3. Stream long music through an `HTMLAudioElement`/WebAudio gain path while
    retaining decoded one-shot effects and speech.
+   **Landed in this release.** Bada Bing's two opening records previously held
+   4,098,038 compressed bytes as about 61.6 MiB of decoded stereo Float32 PCM.
+   They now retain zero music `AudioBuffer` PCM while still entering the same
+   positional gain/filter/ducking graph. The browser may still download the
+   compressed MP3; the win is incremental decode and bounded playback memory.
 4. Relocate `hog-mamas-show.mp4` metadata to the front with FFmpeg
    `-c copy -movflags +faststart`; this changes no video frames.
+   **Landed in this release.** The `moov` box moved from byte 7,364,221 to byte
+   32 (96.62% fewer bytes before playback metadata). File size remains
+   7,621,825 bytes, all 7,969 video and 11,444 audio packets remain, and the
+   encoded video/audio stream hashes are unchanged.
 5. Generate visually verified, right-sized runtime art while retaining source
    originals outside the staged runtime. Seven older 1122 x 1402 family WebPs
    are about 1.37–1.48 MiB each; the equally sized optimized DeathMegatron WebP

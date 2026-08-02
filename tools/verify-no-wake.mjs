@@ -6,6 +6,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { allNoWakeVoiceLines } from '../src/nowake/dialogue.js';
+import { isNoWakeAudioPreloadCue } from '../src/nowake/audio.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5215;
@@ -87,12 +88,48 @@ const capture = (name) => (WRITE_SCREENSHOTS
 try {
   await page.goto(`http://localhost:${PORT}/nowake.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.NO_WAKE?.story, null, { timeout: 180000 });
+  const radioCueNames = await page.evaluate(() => window.NO_WAKE.radio.preloadCueNames({
+    hours: [12.75, 15, 17],
+  }));
+  const expectedResidentNames = soundManifest.sfx
+    .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
+    .filter((cue) => isNoWakeAudioPreloadCue(cue, radioCueNames))
+    .map((cue) => cue.name)
+    .sort();
   await page.evaluate(() => {
     window.NO_WAKE.postfx?.disable?.();
     document.getElementById('start-btn').click();
   });
   await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 30000 });
   await page.waitForTimeout(250);
+
+  const noWakeAudioResidency = await page.evaluate((expected) => {
+    const audio = window.NO_WAKE.audio;
+    const resident = audio ? [...audio.buffers.keys()].sort() : [];
+    const wanted = new Set(expected);
+    return {
+      exposed: Boolean(audio),
+      plan: audio?.preloadStats ?? null,
+      loaded: audio?.loadedCount ?? null,
+      resident: resident.length,
+      missing: expected.filter((name) => !audio?.buffers.has(name)),
+      unexpected: resident.filter((name) => !wanted.has(name)),
+    };
+  }, expectedResidentNames);
+  check('NO WAKE decodes exactly its mission and bounded persistent-radio bank',
+    noWakeAudioResidency.exposed
+      && noWakeAudioResidency.plan?.manifestTotal === soundManifest.sfx.length
+      && noWakeAudioResidency.plan?.selected === expectedResidentNames.length
+      && noWakeAudioResidency.loaded === expectedResidentNames.length
+      && noWakeAudioResidency.resident === expectedResidentNames.length
+      && noWakeAudioResidency.missing.length === 0
+      && noWakeAudioResidency.unexpected.length === 0,
+    JSON.stringify({
+      ...noWakeAudioResidency,
+      expected: expectedResidentNames.length,
+      missing: noWakeAudioResidency.missing.slice(0, 5),
+      unexpected: noWakeAudioResidency.unexpected.slice(0, 5),
+    }));
 
   const noWakeInventory = await page.evaluate(() => ({
     visible: Boolean(document.querySelector('#hotbar'))

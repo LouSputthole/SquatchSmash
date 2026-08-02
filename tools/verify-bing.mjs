@@ -57,12 +57,15 @@ const server = http.createServer(async (req, res) => {
 });
 await new Promise((r) => server.listen(PORT, r));
 
+const browserArgs = ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'];
+if (!process.env.SQUATCH_STRICT_AUTOPLAY) {
+  browserArgs.push('--autoplay-policy=no-user-gesture-required');
+}
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM
     || (process.env.PLAYWRIGHT_BROWSERS_PATH
       ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
-  args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader',
-    '--autoplay-policy=no-user-gesture-required'],
+  args: browserArgs,
 });
 /* Small viewport: every pixel here is drawn on the CPU. */
 const page = await browser.newPage({ viewport: { width: 320, height: 200 } });
@@ -193,6 +196,28 @@ check('the Bing decodes its complete scene-owned resident set and no unrelated c
       sample: bingAudioResidency.unrelatedRadio.slice(0, 5),
     },
   }));
+
+await page.waitForFunction(() => ['music.club', 'office.radio'].every((key) => {
+  const handle = window.__bing?.audio?.loops?.get(key);
+  return handle?.streamed && handle.element?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+}), null, { timeout: 30000 });
+const streamedVenueMusic = await page.evaluate(() => ['music.club', 'office.radio'].map((key) => {
+  const handle = window.__bing.audio.loops.get(key);
+  return {
+    key,
+    streamed: handle?.streamed === true,
+    sourceOwnsElement: handle?.node?.mediaElement === handle?.element,
+    hasDecodedBuffer: !!handle?.node?.buffer,
+    paused: handle?.element?.paused ?? true,
+    readyState: handle?.element?.readyState ?? 0,
+    duration: handle?.element?.duration ?? 0,
+  };
+}));
+check('long Bing records stream through WebAudio without retained music AudioBuffers',
+  streamedVenueMusic.every((entry) => entry.streamed && entry.sourceOwnsElement
+    && !entry.hasDecodedBuffer && !entry.paused && entry.readyState >= 2
+    && Number.isFinite(entry.duration) && entry.duration > 0),
+  JSON.stringify(streamedVenueMusic));
 
 /* A focused mode makes before/after residency measurements cheap while the
  * normal command continues through every story and presentation contract. */
@@ -2951,18 +2976,35 @@ const requestSwitch = await page.evaluate(() => {
     handleReplaced: b.audio.loops.get('music.club') !== beforeHandle,
   };
 });
-await page.waitForFunction(() => window.__bing.audio.loops.get('music.club')?.node?.buffer, null, {
+await page.waitForFunction(() => {
+  const handle = window.__bing.audio.loops.get('music.club');
+  return handle?.streamed && handle.element?.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+    && !handle.element.paused;
+}, null, {
   timeout: 30000,
 });
-requestSwitch.decodedDuration = await page.evaluate(
-  () => window.__bing.audio.loops.get('music.club')?.node?.buffer?.duration ?? 0,
-);
+requestSwitch.stream = await page.evaluate(() => {
+  const handle = window.__bing.audio.loops.get('music.club');
+  return {
+    streamed: handle?.streamed === true,
+    sourceOwnsElement: handle?.node?.mediaElement === handle?.element,
+    hasDecodedBuffer: !!handle?.node?.buffer,
+    paused: handle?.element?.paused ?? true,
+    readyState: handle?.element?.readyState ?? 0,
+    duration: handle?.element?.duration ?? 0,
+  };
+});
 check('the DJ request replaces the live record with an audible Squatches in the House loop',
   requestSwitch.beforeRecord === 'sallie-j.mp3'
     && requestSwitch.afterRecord === 'squatches-in-the-house.mp3'
     && requestSwitch.switched
     && requestSwitch.handleReplaced
-    && requestSwitch.decodedDuration > 0,
+    && requestSwitch.stream.streamed
+    && requestSwitch.stream.sourceOwnsElement
+    && !requestSwitch.stream.hasDecodedBuffer
+    && !requestSwitch.stream.paused
+    && requestSwitch.stream.readyState >= 2
+    && requestSwitch.stream.duration > 0,
   JSON.stringify(requestSwitch));
 
 /* ---- 29: Margo, on her stool and wearing her own head ---- */
