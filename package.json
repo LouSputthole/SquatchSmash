@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Squatch Life -- a first-person apartment you wake up in, with a gaming PC that runs Squatch Smash.",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "start": "node tools/serve.mjs",
