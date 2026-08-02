@@ -147,6 +147,21 @@ await page.click('#start-btn');
 await page.waitForFunction(() => window.__bing?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__bing.postfx.disable?.());
 
+await page.keyboard.press('Tab');
+await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+let bingPause = await page.evaluate(() => ({
+  paused: window.__bing.game.paused,
+  objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+  instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+}));
+check('Tab opens the Bing pause screen with current instructions',
+  bingPause.paused && bingPause.objective.length > 0 && bingPause.instructions >= 4,
+  JSON.stringify(bingPause));
+await page.keyboard.press('Tab');
+await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
+bingPause = await page.evaluate(() => ({ paused: window.__bing.game.paused }));
+check('a second Tab returns control to the Bing', !bingPause.paused, JSON.stringify(bingPause));
+
 const bingAudioResidency = await page.evaluate((expected) => {
   const audio = window.__bing.audio;
   const loaded = [...audio.buffers.keys()].sort();

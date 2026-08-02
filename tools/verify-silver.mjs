@@ -109,6 +109,21 @@ const startClickedAt = Date.now();
 await page.evaluate(() => document.getElementById('start-btn').click());
 await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__silver.postfx.disable?.());
+await page.keyboard.press('Tab');
+await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+let silverPause = await page.evaluate(() => ({
+  paused: window.__silver.game.paused,
+  objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+  instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+}));
+check('Tab opens the Front and Center pause screen with current instructions',
+  silverPause.paused && silverPause.objective.length > 0 && silverPause.instructions >= 4,
+  JSON.stringify(silverPause));
+await page.keyboard.press('Tab');
+await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
+silverPause = await page.evaluate(() => ({ paused: window.__silver.game.paused }));
+check('a second Tab returns control to Front and Center',
+  !silverPause.paused, JSON.stringify(silverPause));
 const silverLoad = await page.evaluate(() => {
   const audio = window.__silver.audio;
   const loaded = [...audio.buffers.keys()];
