@@ -12,6 +12,7 @@ import {
 } from '../src/core/campaign.js';
 import {
   DATE_MARGO_CALL,
+  DAY_FOUR_LOU_GOLF_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
   DAY_ONE_LOU_CALL,
   DAY_TWO_BOOSKI_CALL,
@@ -28,6 +29,7 @@ import {
   createBadaBingTwoStory,
 } from '../src/core/bada-bing-two-story.js';
 import { createGraveyardStory } from '../src/core/graveyard-story.js';
+import { createGolfStory } from '../src/core/golf-story.js';
 import { createMotelStory } from '../src/core/motel-story.js';
 import { createNoWakeStory } from '../src/core/no-wake-story.js';
 import { createSilverStory } from '../src/core/silver-story.js';
@@ -215,8 +217,37 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
 
   apartment = createApartmentStory({ campaign, ring: () => true });
   assert.deepEqual(apartment.sleep(), {
-    ok: true, chapter: 'heist_day', day: 4, timeMinutes: 10 * 60,
+    ok: true, chapter: 'golf_morning', day: 4, timeMinutes: 7 * 60,
   });
+  assert.equal(apartment.callAnswered(DAY_FOUR_LOU_GOLF_CALL), true);
+  assert.deepEqual(apartmentExit(apartment, campaign), {
+    kind: 'go', destination: SCENE_IDS.SILVER_PINES,
+  });
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_PINES);
+  route(campaign, SCENE_IDS.SILVER_PINES, 'car_park', 'golf.html');
+
+  const golf = createGolfStory({ campaign });
+  assert.deepEqual(golf.begin(), { ok: true, resumed: false, unrouted: false });
+  assert.equal(golf.recordHole({
+    hole: 1, par: 3, strokes: 4, heardInvitation: true, rodeWithLou: true,
+  }), true);
+  assert.equal(golf.recordHole({
+    hole: 2, par: 5, strokes: 6, foundWater: true,
+  }), true);
+  assert.equal(golf.recordHole({
+    hole: 3, par: 4, strokes: 5, hitGreenInRegulation: true,
+  }), true);
+  assert.equal(golf.complete(), true);
+  route(campaign, SCENE_IDS.APARTMENT, 'front_door', 'index.html');
+
+  // The round is a durable chapter boundary; reloading home must not replay it.
+  campaign = reload(storage);
+  assert.equal(campaign.state.story.chapter, 'heist_day');
+  assert.equal(campaign.state.story.day, 4);
+  assert.equal(campaign.state.story.timeMinutes, 10 * 60 + 30);
+  assert.equal(campaign.state.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
+  assert.equal(campaign.state.missions[MISSION_IDS.SILVER_PINES].holesPlayed, 3);
+  apartment = createApartmentStory({ campaign, ring: () => true });
   assert.equal(apartment.callAnswered(DAY_FOUR_LOU_HEIST_CALL), true);
   for (const item of HEIST_PREPARATION_ITEMS) {
     assert.equal(apartment.collectHeistPreparation(item.id), true);

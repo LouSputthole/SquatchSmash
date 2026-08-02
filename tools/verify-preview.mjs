@@ -31,6 +31,7 @@ const EXPECTED_SCENE_LINKS = Object.freeze({
   motel: 'motel.html?preview=1',
   'no-wake': 'nowake.html?preview=1',
   silver: 'silver.html?preview=1',
+  golf: 'golf.html?preview=1',
   heist: 'heist.html?preview=1&checkpoint=safehouse',
   initiation: 'initiation.html?preview=1',
 });
@@ -78,11 +79,16 @@ const APARTMENT_PREVIEW_CASES = Object.freeze([
   Object.freeze({
     variant: 'after-silver-room', spawn: 'front_door', chapter: 'date', day: 3,
     timeMinutes: 23 * 60 + 20, mission: 'silver_room', missionStatus: 'complete',
-    pendingEvent: 'lou_heist_call',
+    pendingEvent: 'lou_golf_call',
   }),
   Object.freeze({
-    variant: 'day-four-wake', spawn: 'wake', chapter: 'heist_day', day: 4,
-    timeMinutes: 10 * 60, mission: 'bank_heist', missionStatus: 'locked',
+    variant: 'day-four-wake', spawn: 'wake', chapter: 'golf_morning', day: 4,
+    timeMinutes: 7 * 60, mission: 'silver_pines', missionStatus: 'locked',
+    pendingEvent: 'lou_golf_call',
+  }),
+  Object.freeze({
+    variant: 'after-golf', spawn: 'front_door', chapter: 'heist_day', day: 4,
+    timeMinutes: 10 * 60 + 30, mission: 'silver_pines', missionStatus: 'complete',
     pendingEvent: 'lou_heist_call',
   }),
 ]);
@@ -93,6 +99,7 @@ const EXPECTED_APARTMENT_RETURN_SOURCES = Object.freeze({
   'after-motel': 'jerky_motel',
   'after-no-wake': 'no_wake',
   'after-silver-room': 'silver_room',
+  'after-golf': 'silver_pines',
 });
 
 let chromium;
@@ -415,6 +422,32 @@ try {
       && silver.previewNotice,
     JSON.stringify(silver));
   check('opening the Silver Room leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
+  await page.goto(`http://localhost:${PORT}/golf.html?preview=1`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__golfReady && window.__golf?.campaign, null, {
+    timeout: 180000,
+  });
+  const golf = await page.evaluate(() => {
+    const state = window.__golf.campaign.state;
+    return {
+      mission: state.missions.silver_pines,
+      silver: state.missions.silver_room.status,
+      call: state.events.lou_golf_call.status,
+      chapter: state.story.chapter,
+      day: state.story.day,
+      previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
+    };
+  });
+  check('Silver Pines opens after the date with Lou already rung',
+    golf.mission.status === 'available'
+      && golf.silver === 'complete'
+      && golf.call === 'answered'
+      && golf.chapter === 'golf_morning'
+      && golf.day === 4
+      && golf.previewNotice,
+    JSON.stringify(golf));
+  check('opening Silver Pines leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
   await page.goto(

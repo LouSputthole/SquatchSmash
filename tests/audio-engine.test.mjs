@@ -58,6 +58,46 @@ test('sample loading is bounded instead of flooding the browser', async () => {
   assert.ok(peak <= 7, `expected at most 7 concurrent loads, observed ${peak}`);
 });
 
+test('large scenes can prefetch a later audio chapter without decoding it at startup', async () => {
+  const engine = new AudioEngine();
+  engine.manifest = {
+    sfx: [
+      { name: 'vo.golf.h1.lou.open' },
+      { name: 'vo.golf.h2.lou.open' },
+      { name: 'vo.golf.h3.lou.open' },
+      { name: 'golf.cup' },
+    ],
+  };
+  engine._manifestLoadPromise = Promise.resolve({ total: 1, loaded: 1 });
+  engine._availableFiles = new Set(engine.manifest.sfx.map((cue) => `${cue.name}.mp3`));
+  engine.buffers.set('vo.golf.h1.lou.open', [{}]);
+  const decoded = [];
+  engine._loadWanted = async (wanted) => {
+    for (const cue of wanted) {
+      decoded.push(cue.name);
+      engine.buffers.set(cue.name, [{}]);
+      engine.loadedCount++;
+    }
+  };
+
+  assert.deepEqual(await engine.loadAdditional({
+    names: ['golf.cup'],
+    prefixes: ['vo.golf.h2.', 'vo.golf.h3.'],
+  }), { total: 3, loaded: 3 });
+  assert.deepEqual(decoded, [
+    'vo.golf.h2.lou.open',
+    'vo.golf.h3.lou.open',
+    'golf.cup',
+  ]);
+
+  // The same prefetch scope is idempotent and never decodes a second copy.
+  assert.deepEqual(await engine.loadAdditional({
+    names: ['golf.cup'],
+    prefixes: ['vo.golf.h2.', 'vo.golf.h3.'],
+  }), { total: 3, loaded: 3 });
+  assert.equal(decoded.length, 3);
+});
+
 function audioParam(value = 0) {
   return {
     value,

@@ -183,6 +183,7 @@ const returningToApartment = campaignAtLoad.scene.id === SCENE_IDS.APARTMENT
   && campaignAtLoad.scene.spawn === 'front_door';
 const returnSource = apartmentReturnSource(campaignAtLoad);
 const returningFromHeist = returnSource === SCENE_IDS.BANK_HEIST;
+const returningFromGolf = returnSource === SCENE_IDS.SILVER_PINES;
 const returningFromBing = returnSource === SCENE_IDS.BADA_BING_ONE;
 const returningFromSilver = returnSource === SCENE_IDS.SILVER_ROOM;
 const returningFromNoWake = returnSource === SCENE_IDS.NO_WAKE;
@@ -199,6 +200,8 @@ const wakingOnDate = !returningToApartment
   && campaignAtLoad.story.chapter === 'date';
 const wakingOnBigNight = !returningToApartment
   && campaignAtLoad.story.chapter === 'big_night';
+const wakingOnGolfMorning = !returningToApartment
+  && campaignAtLoad.story.chapter === 'golf_morning';
 const wakingOnHeistDay = !returningToApartment
   && campaignAtLoad.story.chapter === 'heist_day';
 if (campaignAtLoad.scene.id !== SCENE_IDS.APARTMENT) {
@@ -228,6 +231,9 @@ if (wakingOnDayTwo) {
 } else if (wakingOnBigNight) {
   overlay.querySelector('.tag').textContent =
     'Day Four, 10:00 AM. Tonight is the big night. Booskibro will call about it.';
+} else if (wakingOnGolfMorning) {
+  overlay.querySelector('.tag').textContent =
+    'Day Four, 7:00 AM. Margo is still here. Lou has plans for the quiet part of the morning.';
 } else if (wakingOnHeistDay) {
   overlay.querySelector('.tag').textContent =
     'Day Four, 10:00 AM. Margo is still here. Lou will call when she leaves.';
@@ -722,6 +728,8 @@ async function boot() {
     apartmentStory.beginMorning();
     overlay.querySelector('.tag').textContent = returningFromHeist
       ? 'Back from THE TAKE. Clean up, change, and put every piece of it away.'
+      : returningFromGolf
+        ? 'Back from Silver Pines. One job left before seven. Lou will call.'
       : returningFromBing
         ? 'Back from the Bing. Lou’s package is still under your jacket.'
       : returningFromSilver
@@ -845,6 +853,9 @@ startBtn.addEventListener('click', async () => {
       if (returningFromHeist) {
         hud.toast('All six made it home', 'good');
         hud.say('Home. Wash it off, change, and hide the gear. <em>Then the Bing.</em>', 5200);
+      } else if (returningFromGolf) {
+        hud.toast('Three holes at Silver Pines', 'good');
+        hud.say('Home from the course. <em>One job left before seven.</em> Lou will call.', 5200);
       } else if (returningFromBing) {
         hud.toast('Lou’s package · inside your jacket', 'good');
         hud.say('Home again. The package came back with you.', 4800);
@@ -2563,6 +2574,11 @@ function leaveForMission(destination) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_ROOM);
     syncClockFromCampaign();
   }
+  if (destination === SCENE_IDS.SILVER_PINES) {
+    // The round claims its own mission only after its story guard accepts Start.
+    campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_PINES);
+    syncClockFromCampaign();
+  }
   if (destination === SCENE_IDS.BANK_HEIST) {
     campaign.advanceTime(TIME_EVENT_IDS.DEPART_BANK_HEIST, (state) => {
       state.missions[MISSION_IDS.BANK_HEIST].status = 'in_progress';
@@ -3353,6 +3369,7 @@ const CHAPTER_DONE = Object.freeze({
   day_two: 'Day One is done',
   no_wake: 'Day Two is done',
   date: 'The harbor is behind you',
+  golf_morning: 'The Silver Room is behind you',
   big_night: 'The Silver Room is behind you',
   heist_day: 'The Silver Room is behind you',
 });
@@ -3362,6 +3379,7 @@ const WAKE_LINES = Object.freeze({
   day_two: 'Booskibro said he would call.',
   no_wake: 'Grey out. Lou said he would call.',
   date: 'Nothing on today. She said she would ring.',
+  golf_morning: 'Margo is still here. Lou can wait until she leaves.',
   big_night: 'Tonight is the thing. Booskibro said he would call.',
   heist_day: 'Margo is still here. Lou can wait until she leaves.',
 });

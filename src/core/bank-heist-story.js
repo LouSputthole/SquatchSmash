@@ -71,10 +71,17 @@ class BankHeistStory {
   begin() {
     const state = this.campaign.state;
     const mission = state.missions[MISSION_IDS.BANK_HEIST];
+    if (mission.status === 'complete') return { ok: false, reason: 'already_complete' };
+    /* THE TAKE is the afternoon half of Day Four. Version 9 grandfathers
+     * saves that had already reached the heist before Silver Pines existed,
+     * so every current route -- including a resumed checkpoint -- can state
+     * this prerequisite honestly. */
+    if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
+      return { ok: false, reason: 'golf_incomplete' };
+    }
     if (mission.status === 'in_progress') {
       return { ok: true, resumed: true, checkpoint: mission.checkpoint };
     }
-    if (mission.status === 'complete') return { ok: false, reason: 'already_complete' };
     if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
       return { ok: false, reason: 'silver_incomplete' };
     }

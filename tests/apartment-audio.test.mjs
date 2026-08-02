@@ -14,6 +14,14 @@ const index = JSON.parse(fs.readFileSync(new URL('../assets/sfx/index.json', imp
 const available = new Set(index.files || []);
 const recorded = (manifest.sfx || [])
   .filter((cue) => available.has(cue.file || `${cue.name}.mp3`));
+const golfOnlyEffectNames = new Set([
+  'ambience.course',
+  'bird',
+  'cart.motor',
+  'mower.distant',
+  'sprinkler',
+  'sprinkler.tick',
+]);
 
 const apartmentRuntimeFiles = [
   '../src/main.js',
@@ -38,10 +46,12 @@ test('the apartment keeps every recorded cue except proven scene-only banks', ()
   const excluded = [
     'vo.beefrun.', 'vo.silver.', 'vo.bing.', 'vo.sf.',
     'vo.motel.', 'vo.initiation.', 'vo.bj.', 'vo.bing2.', 'vo.graveyard.', 'vo.nowake.',
+    'vo.golf.', 'golf.',
     'heist.',
   ];
   const expected = recorded.filter((cue) => cue.name.startsWith('heist.apartment.')
-    || !excluded.some((prefix) => cue.name.startsWith(prefix)));
+    || (!golfOnlyEffectNames.has(cue.name)
+      && !excluded.some((prefix) => cue.name.startsWith(prefix))));
   const selected = recorded.filter(isApartmentPreloadCue);
 
   assert.deepEqual(selected.map((cue) => cue.name), expected.map((cue) => cue.name));
@@ -174,6 +184,7 @@ test('standalone mission banks stay out while apartment heist cleanup remains re
     'vo.bing2.',
     'vo.graveyard.',
     'vo.nowake.',
+    'vo.golf.',
   ];
 
   for (const prefix of missionVoicePrefixes) {
@@ -186,20 +197,28 @@ test('standalone mission banks stay out while apartment heist cleanup remains re
   const missionHeist = recorded.filter((cue) => cue.name.startsWith('heist.')
     && !cue.name.startsWith('heist.apartment.'));
   const apartmentHeist = recorded.filter((cue) => cue.name.startsWith('heist.apartment.'));
+  const golfEffects = recorded.filter((cue) => cue.name.startsWith('golf.')
+    || golfOnlyEffectNames.has(cue.name));
   assert.ok(missionHeist.length > 0, 'THE TAKE must have a recorded standalone-scene bank');
   assert.ok(missionHeist.every((cue) => !isApartmentPreloadCue(cue)),
     'THE TAKE mission bank leaked into Apartment');
   assert.ok(apartmentHeist.length > 0, 'Apartment cleanup must have recorded heist cues');
   assert.ok(apartmentHeist.every(isApartmentPreloadCue),
     'Apartment cleanup cues must remain resident');
+  assert.equal(golfEffects.length, 21, 'Silver Pines must retain its complete effect bank');
+  assert.ok(golfEffects.every((cue) => !isApartmentPreloadCue(cue)),
+    'Silver Pines effects leaked into Apartment');
 });
 
-test('shared non-voice recordings stay available while mission-only voice stays out', () => {
+test('shared non-voice recordings stay available while scene-only banks stay out', () => {
   const nonVoice = recorded.filter((cue) => !cue.name.startsWith('vo.')
-    && (!cue.name.startsWith('heist.') || cue.name.startsWith('heist.apartment.')));
+    && (!cue.name.startsWith('heist.') || cue.name.startsWith('heist.apartment.'))
+    && !cue.name.startsWith('golf.')
+    && !golfOnlyEffectNames.has(cue.name));
   const excludedPrefixes = [
     'vo.beefrun.', 'vo.silver.', 'vo.bing.', 'vo.sf.',
     'vo.motel.', 'vo.initiation.', 'vo.bj.', 'vo.bing2.', 'vo.graveyard.', 'vo.nowake.',
+    'vo.golf.',
   ];
 
   assert.ok(nonVoice.length > 100);

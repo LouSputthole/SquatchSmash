@@ -1059,6 +1059,8 @@ export async function buildApartment(ctx) {
       no_wake: 2,
       date: 2,
       big_night: 3,
+      golf_morning: 3,
+      heist_day: 3,
     };
     machineWaiting = messages ?? authoredMessageCount[chapter] ?? 0;
     state.dressChapter = chapter;

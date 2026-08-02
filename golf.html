@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>A Morning at Silver Pines</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#9971;</text></svg>" />
+<link rel="stylesheet" href="src/style.css" />
+<link rel="stylesheet" href="src/golf/golf.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body class="golf">
+
+<canvas id="scene"></canvas>
+
+<div id="blackout"><span></span></div>
+
+<div id="hud" aria-hidden="true">
+  <div id="crosshair"><span></span></div>
+
+  <div id="prompt" class="hidden">
+    <kbd class="key">E</kbd>
+    <span class="label">Interact</span>
+    <div class="holdbar"><i></i></div>
+  </div>
+
+  <div id="subtitle" class="hidden"></div>
+  <div id="posture" class="hidden"><kbd class="key">Q</kbd><span></span></div>
+  <div id="pushes" class="hidden"></div>
+
+  <div id="hands">
+    <div id="hotbar" class="hidden"></div>
+    <div id="hand-item" class="hidden">
+      <div class="icon"></div>
+      <div class="meta"><span class="name"></span><span class="hint"></span></div>
+    </div>
+  </div>
+
+  <div id="radio-osd" class="hidden">
+    <div class="rtitle">📻 <span></span></div>
+    <div class="rtrack"></div>
+  </div>
+
+  <div id="clock"><span class="day"></span><span class="time"></span><span class="spent"></span></div>
+  <div id="bladder" class="hidden"><span class="cap">bladder</span><div class="bar"><i></i></div></div>
+  <div id="toast-stack"></div>
+
+  <!-- ===== the round's own HUD ===== -->
+
+  <!-- What hole this is, and where he stands on it. Always up: a golfer who
+       has to open a menu to find out how many he has hit is not playing golf. -->
+  <div id="golfcard" class="hidden">
+    <div class="hole">HOLE 1 · THE INVITATION</div>
+    <div class="par">PAR 3 · 167 YDS</div>
+    <div class="row">
+      <span class="cap">STROKES</span><span class="strokes">0</span>
+      <span class="cap">TO PIN</span><span class="pin">—</span>
+    </div>
+  </div>
+
+  <!-- Only while he is over the ball. -->
+  <div id="shot" class="hidden">
+    <div class="club">IRON</div>
+    <div class="carry">—</div>
+    <div class="meta"><span class="lie">Tee</span> · <span class="wind">5 MPH L → R</span></div>
+    <div class="keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> club &middot; <kbd>Q</kbd> back off</div>
+  </div>
+
+  <!-- A cone, never a line: roughly where this club off this lie tends to
+       finish. An exact trajectory would remove the only judgement in the game. -->
+  <div id="aim" class="hidden">
+    <div class="cone"></div>
+    <div class="label">AT THE PIN</div>
+  </div>
+
+  <div id="meter" class="hidden">
+    <div class="track"><i class="fill"></i><i class="line"></i><i class="mark"></i></div>
+    <div class="hint">CLICK: POWER</div>
+  </div>
+
+  <!-- Conversation. Never modal: you can walk off mid-sentence, here as
+       everywhere else in this game. -->
+  <div id="dialogue" class="hidden">
+    <div class="who"></div>
+    <div class="line"></div>
+    <div class="options hidden"></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="panel">
+    <h1>A MORNING AT<span>SILVER PINES</span></h1>
+    <p class="tag">Eight o'clock, North Jersey, and the rain stopped some time in the night.
+      Lou has the scorecard, Eric has the clubs, and Rippin is taking practice swings
+      at nothing in particular. Nobody has asked you to carry anything.</p>
+    <button id="start-btn" disabled>Walk over</button>
+    <ul class="controls">
+      <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk &middot; <kbd>E</kbd> / <kbd>Click</kbd> interact</li>
+      <li><kbd>E</kbd> at your ball to <b>address</b> it &middot; <kbd>Q</kbd> to back off</li>
+      <li><kbd>1</kbd> driver &middot; <kbd>2</kbd> iron &middot; <kbd>3</kbd> putter</li>
+      <li>mouse aims &middot; <b>click</b> to start, again for power, again for the strike</li>
+      <li><kbd>1</kbd>–<kbd>4</kbd> answer, whenever somebody has asked you something</li>
+      <li><kbd>R</kbd> take a drop &middot; <kbd>F</kbd> skip a tee shot you have seen</li>
+      <li><kbd>M</kbd> mute &middot; <kbd>Esc</kbd> release mouse</li>
+    </ul>
+    <p class="fine">Three holes: a par 3, a par 5, a par 4. This is the first one.</p>
+  </div>
+</div>
+
+<!-- Reused between holes, then as the completed-round card. -->
+<div id="endcard" class="hidden">
+  <div class="panel">
+    <div class="kicker">HOLE 1 COMPLETE</div>
+    <h1>THE INVITATION</h1>
+    <div class="result">PAR</div>
+    <div class="strokes">3 strokes · E</div>
+    <div class="stats"></div>
+    <div class="next">NEXT: THE LONG WALK<br><span>PAR 5 · 520 YARDS</span></div>
+    <div class="actions">
+      <button id="endcard-again">Play it again</button>
+      <button id="endcard-home">Go home</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading"><div class="bar"><i></i></div><span>Driving out to Silver Pines…</span></div>
+
+<!-- The same recovery panel every other standalone scene uses: a scene that
+     cannot boot must offer a reload and a way back to the flat, rather than a
+     dead loading bar. -->
+<div id="bootFailure" class="boot-failure" hidden role="alert">
+  <strong data-boot-title></strong>
+  <span data-boot-detail></span>
+  <div class="actions">
+    <button type="button" data-boot-reload>RELOAD</button>
+    <a href="./index.html">APARTMENT</a>
+  </div>
+</div>
+
+<script src="./src/core/boot-guard.js"
+  data-target="bootFailure"
+  data-ready="__golfReady"
+  data-scene="Silver Pines"></script>
+<script>
+window.__squatchStage = function (text) {
+  var el = document.getElementById('loading');
+  var s = el && el.querySelector('span');
+  if (s) s.textContent = text;
+};
+</script>
+
+<script type="module" src="src/golf/main.js"
+  onerror="window.__squatchSceneFail('Could not load the scene', 'src/golf/main.js failed to load.')"></script>
+</body>
+</html>

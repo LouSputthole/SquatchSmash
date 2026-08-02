@@ -17,6 +17,10 @@ const VOICE_SCENES = [
   ['Jerky Motel', (name) => name.startsWith('vo.motel.')],
   ['NO WAKE', (name) => name.startsWith('vo.nowake.')],
   ['The Silver Room', (name) => name.startsWith('vo.silver.')],
+  ['Day Four apartment', (name) => name.startsWith('vo.call.lou.golf.')
+    || name.startsWith('vo.machine.lou.golf_morning.')
+    || name.startsWith('vo.machine.lou.heist_day.')],
+  ['Silver Pines', (name) => name.startsWith('vo.golf.')],
   ['The HotDog Incident', (name) => name.startsWith('vo.bing2.')],
   ['Squatch Graveyard', (name) => name.startsWith('vo.graveyard.')],
   ['Initiation', (name) => name.startsWith('vo.initiation.')],
@@ -24,6 +28,10 @@ const VOICE_SCENES = [
 ];
 
 const EFFECT_SCENES = [
+  ['Silver Pines', (name) => name === 'ambience.course'
+    || name === 'mower.distant' || name === 'sprinkler'
+    || name === 'sprinkler.tick' || name === 'cart.motor'
+    || name === 'bird' || name.startsWith('golf.')],
   ['NO WAKE', (name) => name.startsWith('boat.') || name === 'water.splash'],
   ['Bada Bing', (name) => name.startsWith('ambience.rain')
     || name.startsWith('ambience.club') || name.startsWith('ambience.crowd')
@@ -110,8 +118,8 @@ function renderVoice(out, voice, voices) {
   const reuse = voiceReusePlan(voice);
   const order = [
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
-    'Jerky Motel', 'NO WAKE', 'The Silver Room', 'The HotDog Incident',
-    'Squatch Graveyard', 'Initiation', 'Radio',
+    'Jerky Motel', 'NO WAKE', 'The Silver Room', 'Day Four apartment',
+    'Silver Pines', 'The HotDog Incident', 'Squatch Graveyard', 'Initiation', 'Radio',
   ];
 
   if (!voice.length) {
@@ -205,7 +213,7 @@ function renderProvisionalCastingReview(out, cues, voices, have) {
 
 function renderManifestEffects(out, effects) {
   const byScene = group(effects, (cue) => effectScene(cue.name));
-  const order = ['NO WAKE', 'Bada Bing', 'Shared movement', 'Shared / other'];
+  const order = ['Silver Pines', 'NO WAKE', 'Bada Bing', 'Shared movement', 'Shared / other'];
 
   if (!effects.length) {
     out.push('## Manifest effect pickups', '', 'Nothing outstanding.', '');

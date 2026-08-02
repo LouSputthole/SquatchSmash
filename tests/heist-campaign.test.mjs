@@ -69,12 +69,14 @@ test('the current campaign schema registers THE TAKE and a normalized durable mi
   assert.equal(campaign.state.scene.id, SCENE_IDS.APARTMENT);
 });
 
-test('v2 saves still waiting on the old big-night call migrate onto heist day', () => {
+test('v2 saves still waiting on the old big-night call receive Golf before heist day', () => {
   const storage = new MemoryStorage(v2Save());
   const state = createCampaign({ storage }).state;
 
   assert.equal(state.version, CAMPAIGN_VERSION);
-  assert.equal(state.story.chapter, 'heist_day');
+  assert.equal(state.story.chapter, 'golf_morning');
+  assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
+  assert.equal(state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'pending');
   assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
   assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
 });

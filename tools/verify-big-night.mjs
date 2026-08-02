@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * Verify the Day Four handoff in a real browser: the Silver Room return,
- * Margo's morning, Lou's one-shot heist call, preparation, and the apartment
- * door routing into THE TAKE while Initiation remains locked.
+ * Margo's morning, Lou's Silver Pines call, the three-hole round and return,
+ * then Lou's heist call, preparation, and the apartment door routing into
+ * THE TAKE while Initiation remains locked.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -69,10 +70,10 @@ function check(name, ok, detail = '') {
 /*
  * The state the Silver Room's end card leaves behind: Day 3, twenty past
  * eleven at night, standing at his own front door with the Motel long done,
- * the date behind him, and nothing on the calendar but the big night.
+ * the date behind him, and the Golf morning before the big job and big night.
  *
- * Day 3 is the `date` chapter. Sleeping it off is what turns the page onto
- * Day 4, which is the only day the Initiation happens.
+ * Day 3 is the `date` chapter. Sleeping it off turns the page onto Day 4's
+ * `golf_morning`; completing Silver Pines opens `heist_day` later that morning.
  */
 await page.addInitScript(() => {
   if (localStorage.getItem('squatchlife.campaign')) return;
@@ -210,21 +211,27 @@ try {
       scene: state.scene,
       motel: state.missions.jerky_motel.status,
       silver: state.missions.silver_room.status,
+      golf: state.missions.silver_pines.status,
       heist: state.missions.bank_heist.status,
       initiation: state.missions.initiation.status,
-      call: state.events.lou_heist_call.status,
+      golfCall: state.events.lou_golf_call.status,
+      heistCall: state.events.lou_heist_call.status,
     };
   });
-  check('sleep writes the Day Four heist checkpoint at ten in the morning',
-    slept.story.chapter === 'heist_day'
+  check('sleep writes the Day Four Golf checkpoint at seven in the morning',
+    slept.story.chapter === 'golf_morning'
       && slept.story.day === 4
-      && slept.story.timeMinutes === 10 * 60
+      && slept.story.timeMinutes === 7 * 60
       && slept.scene.spawn === 'wake',
     JSON.stringify(slept));
   check('the campaign so far survives the last sleep',
     slept.motel === 'complete' && slept.silver === 'complete', JSON.stringify(slept));
-  check('Lou, THE TAKE, and the Initiation stay shut until he wakes',
-    slept.call === 'pending' && slept.heist === 'locked' && slept.initiation === 'locked',
+  check('Lou, Silver Pines, THE TAKE, and the Initiation stay shut until he wakes',
+    slept.golfCall === 'pending'
+      && slept.heistCall === 'pending'
+      && slept.golf === 'locked'
+      && slept.heist === 'locked'
+      && slept.initiation === 'locked',
     JSON.stringify(slept));
 
   await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
@@ -235,8 +242,8 @@ try {
     minutes: window.__squatch.time.minutes,
     mode: window.__squatch.player.mode,
   }));
-  check('the live apartment wakes in bed at ten on Day Four',
-    woke.day === 4 && Math.abs(woke.minutes - 10 * 60) < 1 && woke.mode === 'bed',
+  check('the live apartment wakes in bed at seven on Day Four',
+    woke.day === 4 && Math.abs(woke.minutes - 7 * 60) < 1 && woke.mode === 'bed',
     JSON.stringify(woke));
 
   /* ---------------------------------------------------------------- */
@@ -251,13 +258,13 @@ try {
     }
     return { chapter: game.apartment.dressedChapter(), shown, raining: game.apartment.state.raining };
   });
-  check('by Day Four the flat is the den of a newly minted Squatch criminal',
-    peak.chapter === 'heist_day'
+  check('Day Four starts in the accumulated flat before heist gear appears',
+    peak.chapter === 'golf_morning'
       && ['cashStacks', 'suitBag', 'gunCase', 'jerkyHaul', 'silverMatches', 'laundryHeap']
         .every((id) => peak.shown.includes(id))
       && ['heistArmor', 'heistGloves', 'heistMask', 'heistCarbine',
         'heistSidearm', 'heistMagazines', 'heistDuffel']
-        .every((id) => peak.shown.includes(id))
+        .every((id) => !peak.shown.includes(id))
       // Everything he accumulated on the way here is still here.
       && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
         .every((id) => peak.shown.includes(id))
@@ -302,7 +309,7 @@ try {
       && handedBack.visible === false
       && handedBack.owed === false
       && handedBack.events.includes('scene.margo_wake')
-      && handedBack.minutes === 10 * 60
+      && handedBack.minutes === 7 * 60
       // Exactly the pose an ordinary morning hands over.
       && handedBack.mode === 'bed'
       && handedBack.pitch === 0.95
@@ -317,15 +324,15 @@ try {
     story: window.__squatch.campaign.state.story,
     scene: window.__squatch.campaign.state.scene,
   }));
-  check('a reload restores the heist-day wake checkpoint',
-    reload.story.chapter === 'heist_day'
+  check('a reload restores the Golf-morning wake checkpoint',
+    reload.story.chapter === 'golf_morning'
       && reload.story.day === 4
-      && reload.story.timeMinutes === 10 * 60
+      && reload.story.timeMinutes === 7 * 60
       && reload.scene.spawn === 'wake'
       && reload.tag.includes('Day Four'),
     JSON.stringify(reload));
 
-  const ringing = await page.evaluate(() => {
+  const golfRinging = await page.evaluate(() => {
     const game = window.__squatch;
     game.getUp();
     game.apartmentStory.update(6.1);
@@ -340,15 +347,199 @@ try {
       lines: definition?.lines?.length ?? 0,
     };
   });
-  check('Big Uncle Lou rings the physical phone about THE TAKE',
-    ringing.ringing
-      && ringing.eventId === 'lou_heist_call'
-      && ringing.characterId === 'lou'
-      && ringing.from === 'Big Uncle Lou'
-      && ringing.vo === 'call.lou.heist'
-      && ringing.targetSceneId === 'bank_heist'
-      && ringing.lines === 4,
-    JSON.stringify(ringing));
+  check('Big Uncle Lou rings the physical phone about Silver Pines',
+    golfRinging.ringing
+      && golfRinging.eventId === 'lou_golf_call'
+      && golfRinging.characterId === 'lou'
+      && golfRinging.from === 'Big Uncle Lou'
+      && golfRinging.vo === 'call.lou.golf'
+      && golfRinging.targetSceneId === 'silver_pines'
+      && golfRinging.lines === 4,
+    JSON.stringify(golfRinging));
+
+  const golfAnswered = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.apartment.inventory.add('phone');
+    game.phone.press();
+    const story = game.campaign.state.story;
+    return {
+      inCall: game.phone.inCall,
+      golfCall: game.campaign.state.events.lou_golf_call.status,
+      heistCall: game.campaign.state.events.lou_heist_call.status,
+      golf: game.campaign.state.missions.silver_pines.status,
+      heist: game.campaign.state.missions.bank_heist.status,
+      initiation: game.campaign.state.missions.initiation.status,
+      timeMinutes: story.timeMinutes,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('answering Lou unlocks only Silver Pines at 7:03',
+    golfAnswered.inCall
+      && golfAnswered.golfCall === 'answered'
+      && golfAnswered.heistCall === 'pending'
+      && golfAnswered.golf === 'available'
+      && golfAnswered.heist === 'locked'
+      && golfAnswered.initiation === 'locked'
+      && golfAnswered.timeMinutes === 7 * 60 + 3,
+    JSON.stringify(golfAnswered));
+  check('the apartment door now routes to Silver Pines',
+    golfAnswered.door?.kind === 'go'
+      && golfAnswered.door?.destination === 'silver_pines',
+    JSON.stringify(golfAnswered.door));
+
+  const golfDeparted = await page.evaluate(() => {
+    window.__squatch.tryLeave();
+    const state = window.__squatch.campaign.state;
+    return {
+      day: state.story.day,
+      chapter: state.story.chapter,
+      timeMinutes: state.story.timeMinutes,
+      events: state.story.timeEvents,
+      golf: state.missions.silver_pines.status,
+      heist: state.missions.bank_heist.status,
+      initiation: state.missions.initiation.status,
+    };
+  });
+  check('leaving for Silver Pines lands at Day 4, 7:30 AM through the authored clock',
+    golfDeparted.day === 4
+      && golfDeparted.chapter === 'golf_morning'
+      && golfDeparted.timeMinutes === 7 * 60 + 30
+      && golfDeparted.events.includes('travel.silver_pines')
+      && golfDeparted.golf === 'available'
+      && golfDeparted.heist === 'locked'
+      && golfDeparted.initiation === 'locked',
+    JSON.stringify(golfDeparted));
+
+  await page.waitForURL(/golf\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__golfReady === true, null, { timeout: 60000 });
+  const golfStarted = await page.evaluate(async () => {
+    const result = await window.__golf.boot();
+    const state = window.__golf.campaign.state;
+    return {
+      result,
+      scene: state.scene,
+      chapter: state.story.chapter,
+      timeMinutes: state.story.timeMinutes,
+      golf: state.missions.silver_pines.status,
+      heist: state.missions.bank_heist.status,
+    };
+  });
+  check('the departure really boots Silver Pines with the round in progress',
+    golfStarted.result?.ok === true
+      && golfStarted.result?.resumed === false
+      && golfStarted.scene.id === 'silver_pines'
+      && golfStarted.scene.spawn === 'car_park'
+      && golfStarted.chapter === 'golf_morning'
+      && golfStarted.timeMinutes === 7 * 60 + 30
+      && golfStarted.golf === 'in_progress'
+      && golfStarted.heist === 'locked',
+    JSON.stringify(golfStarted));
+
+  const golfFinished = await page.evaluate(() => {
+    const game = window.__golf;
+    const holes = [
+      { hole: 1, par: 3, strokes: 4, penalties: 0, heardInvitation: true, rodeWithLou: true },
+      { hole: 2, par: 5, strokes: 6, penalties: 1, foundWater: true },
+      { hole: 3, par: 4, strokes: 5, penalties: 0, hitGreenInRegulation: true },
+    ];
+    const recorded = holes.map((hole) => game.story.recordHole(hole));
+    const completed = game.story.complete();
+    const state = game.campaign.state;
+    return {
+      recorded,
+      completed,
+      scene: state.scene,
+      story: state.story,
+      golf: state.missions.silver_pines,
+      heist: state.missions.bank_heist.status,
+      heistCall: state.events.lou_heist_call.status,
+      initiation: state.missions.initiation.status,
+    };
+  });
+  check('three persisted holes close Silver Pines at 10:30 and open heist day',
+    golfFinished.recorded.every(Boolean)
+      && golfFinished.completed === true
+      && golfFinished.story.chapter === 'heist_day'
+      && golfFinished.story.day === 4
+      && golfFinished.story.timeMinutes === 10 * 60 + 30
+      && golfFinished.story.timeEvents.includes('mission.silver_pines')
+      && golfFinished.golf.status === 'complete'
+      && golfFinished.golf.holesPlayed === 3
+      && golfFinished.golf.holes.length === 3
+      && golfFinished.golf.strokes === 15
+      && golfFinished.golf.penalties === 1
+      && golfFinished.golf.toPar === 3
+      && golfFinished.golf.heardInvitation === true
+      && golfFinished.golf.rodeWithLou === true
+      && golfFinished.heistCall === 'pending'
+      && golfFinished.heist === 'locked'
+      && golfFinished.initiation === 'locked',
+    JSON.stringify(golfFinished));
+
+  await page.evaluate(() => document.querySelector('#endcard-home')?.click());
+  await page.waitForURL(/index\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
+  await page.evaluate(() => window.__squatch.postfx.disable?.());
+
+  const golfReturn = await page.evaluate(() => {
+    const game = window.__squatch;
+    const shown = [];
+    for (const [id, piece] of game.apartment.dressing) {
+      if (piece.group.visible) shown.push(id);
+    }
+    return {
+      tag: document.querySelector('#overlay .tag')?.textContent ?? '',
+      returnSource: game.apartmentReturnSource,
+      story: game.campaign.state.story,
+      scene: game.campaign.state.scene,
+      golf: game.campaign.state.missions.silver_pines,
+      shown,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('the Silver Pines Home control returns to the heist-day apartment',
+    golfReturn.tag.includes('Back from Silver Pines')
+      && golfReturn.tag.includes('One job left before seven')
+      && golfReturn.returnSource === 'silver_pines'
+      && golfReturn.story.chapter === 'heist_day'
+      && golfReturn.story.day === 4
+      && golfReturn.story.timeMinutes === 10 * 60 + 30
+      && golfReturn.scene.id === 'apartment'
+      && golfReturn.scene.spawn === 'front_door'
+      && golfReturn.golf.status === 'complete'
+      && golfReturn.golf.holesPlayed === 3
+      && golfReturn.door?.kind === 'call'
+      && golfReturn.door?.id === 'lou_heist_call',
+    JSON.stringify(golfReturn));
+  check('THE TAKE loadout appears only after the round',
+    ['heistArmor', 'heistGloves', 'heistMask', 'heistCarbine',
+      'heistSidearm', 'heistMagazines', 'heistDuffel']
+      .every((id) => golfReturn.shown.includes(id)),
+    JSON.stringify(golfReturn.shown));
+
+  const heistRinging = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.apartmentStory.update(6.1);
+    const definition = game.phone.call?.def;
+    return {
+      ringing: game.phone.ringing,
+      eventId: definition?.eventId,
+      characterId: definition?.characterId,
+      from: definition?.from,
+      vo: definition?.vo,
+      targetSceneId: definition?.targetSceneId,
+      lines: definition?.lines?.length ?? 0,
+    };
+  });
+  check('Big Uncle Lou now rings the physical phone about THE TAKE',
+    heistRinging.ringing
+      && heistRinging.eventId === 'lou_heist_call'
+      && heistRinging.characterId === 'lou'
+      && heistRinging.from === 'Big Uncle Lou'
+      && heistRinging.vo === 'call.lou.heist'
+      && heistRinging.targetSceneId === 'bank_heist'
+      && heistRinging.lines === 4,
+    JSON.stringify(heistRinging));
 
   const answered = await page.evaluate(() => {
     const game = window.__squatch;
@@ -360,7 +551,9 @@ try {
     const story = game.campaign.state.story;
     return {
       inCall: game.phone.inCall,
+      golfCall: game.campaign.state.events.lou_golf_call.status,
       call: game.campaign.state.events.lou_heist_call.status,
+      golf: game.campaign.state.missions.silver_pines.status,
       heist: game.campaign.state.missions.bank_heist.status,
       initiation: game.campaign.state.missions.initiation.status,
       preparation: game.campaign.state.missions.bank_heist.preparation,
@@ -368,12 +561,14 @@ try {
       door: game.apartmentStory.tryLeave({}),
     };
   });
-  check('answering Lou unlocks THE TAKE but keeps Initiation locked',
+  check('answering Lou unlocks THE TAKE but keeps the completed round and Initiation locked',
     answered.inCall
+      && answered.golfCall === 'answered'
       && answered.call === 'answered'
+      && answered.golf === 'complete'
       && answered.heist === 'available'
       && answered.initiation === 'locked'
-      && answered.timeMinutes === 10 * 60 + 3
+      && answered.timeMinutes === 10 * 60 + 33
       && Object.values(answered.preparation).filter(Boolean).length >= 7,
     JSON.stringify(answered));
   check('the prepared apartment door now routes to THE TAKE',

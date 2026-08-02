@@ -29,6 +29,7 @@ export const APARTMENT_PREVIEW_VARIANTS = Object.freeze([
   'after-no-wake',
   'after-silver-room',
   'day-four-wake',
+  'after-golf',
 ]);
 
 export class PreviewMemoryStorage {
@@ -116,6 +117,9 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   }
   if (pathname.endsWith('/silver.html') || pathname.endsWith('silver.html')) {
     return 'silver_room';
+  }
+  if (pathname.endsWith('/golf.html') || pathname.endsWith('golf.html')) {
+    return 'silver_pines';
   }
   if (pathname.endsWith('/heist.html') || pathname.endsWith('heist.html')) {
     return 'bank_heist';

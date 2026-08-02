@@ -83,7 +83,7 @@ test('radio running order, receiver power and bulletin history persist across sc
   assert.equal(car.power, true, 'power belongs to the physical receiver');
 });
 
-test('schema v8 adds radio state without disturbing heist or graveyard progress', () => {
+test('schema v9 preserves heist/graveyard progress and grandfathers the inserted round', () => {
   const storage = new MemoryStorage();
   const legacy = createCampaign({ storage: new MemoryStorage() }).state;
   legacy.version = 7;
@@ -98,6 +98,9 @@ test('schema v8 adds radio state without disturbing heist or graveyard progress'
   assert.equal(migrated.version, CAMPAIGN_VERSION);
   assert.equal(migrated.missions[MISSION_IDS.BADA_BING_TWO].checkpoint, 'buried');
   assert.equal(migrated.missions[MISSION_IDS.BANK_HEIST].checkpoint, 'vault_open');
+  assert.equal(migrated.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
+  assert.equal(migrated.missions[MISSION_IDS.SILVER_PINES].grandfathered, true);
+  assert.equal(migrated.events[EVENT_IDS.LOU_GOLF_CALL].status, 'answered');
   assert.deepEqual(migrated.radio, {
     volume: 0.7,
     cursor: 0,
@@ -108,6 +111,61 @@ test('schema v8 adds radio state without disturbing heist or graveyard progress'
     heardBulletins: [],
     receivers: {},
   });
+});
+
+test('schema v9 inserts Golf only for a pristine old Day Four wake', () => {
+  const storage = new MemoryStorage();
+  const legacy = createCampaign({ storage: new MemoryStorage() }).state;
+  legacy.version = 8;
+  legacy.story.chapter = 'heist_day';
+  legacy.story.day = 4;
+  legacy.story.timeMinutes = 10 * 60;
+  legacy.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+  legacy.missions[MISSION_IDS.BANK_HEIST].status = 'locked';
+  legacy.events[EVENT_IDS.LOU_HEIST_CALL].status = 'pending';
+  delete legacy.missions[MISSION_IDS.SILVER_PINES];
+  delete legacy.events[EVENT_IDS.LOU_GOLF_CALL];
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
+
+  const migrated = createCampaign({ storage }).state;
+  assert.equal(migrated.story.chapter, 'golf_morning');
+  assert.equal(migrated.story.day, 4);
+  assert.equal(migrated.story.timeMinutes, 7 * 60);
+  assert.equal(migrated.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
+  assert.equal(migrated.missions[MISSION_IDS.SILVER_PINES].grandfathered, false);
+  assert.equal(migrated.events[EVENT_IDS.LOU_GOLF_CALL].status, 'pending');
+  assert.equal(migrated.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
+  assert.equal(migrated.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
+});
+
+test('Golf card normalization deduplicates holes and derives every total', () => {
+  const storage = new MemoryStorage();
+  const raw = createCampaign({ storage: new MemoryStorage() }).state;
+  Object.assign(raw.missions[MISSION_IDS.SILVER_PINES], {
+    status: 'in_progress',
+    holesPlayed: 99,
+    strokes: 999,
+    penalties: 999,
+    toPar: 999,
+    holes: [
+      { hole: 3, par: 4, strokes: 6, penalties: 1 },
+      { hole: 1, par: 3, strokes: 5, penalties: 2 },
+      { hole: 1, par: 3, strokes: 4, penalties: 0 },
+      { hole: 8, par: 7, strokes: 1000, penalties: -4 },
+      { hole: 2, strokes: 'bad' },
+    ],
+  });
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(raw));
+
+  const golf = createCampaign({ storage }).state.missions[MISSION_IDS.SILVER_PINES];
+  assert.deepEqual(golf.holes, [
+    { hole: 1, par: 3, strokes: 4, penalties: 0 },
+    { hole: 3, par: 4, strokes: 6, penalties: 1 },
+  ]);
+  assert.equal(golf.holesPlayed, 2);
+  assert.equal(golf.strokes, 10);
+  assert.equal(golf.penalties, 1);
+  assert.equal(golf.toPar, 3);
 });
 
 test('radio save normalization bounds counters and rejects malformed maps', () => {

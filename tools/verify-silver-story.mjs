@@ -6,7 +6,8 @@
  * is the join: returning on Day 3 after NO WAKE, Margo ringing the physical
  * phone, the apartment door routing to `silver.html`, the mission's own story
  * gate opening, the ending folding into campaign state, the walk home, and the
- * sleep that finally turns the page onto the Day 4 big night.
+ * sleep that turns the page onto the Day 4 golf morning, Lou's invitation,
+ * and the apartment departure that actually routes to Silver Pines.
  *
  * The whole point is that none of these are seams the unit tests can see: each
  * one is a different page, and a save that survives one of them can still be
@@ -325,8 +326,8 @@ try {
     home.door?.kind === 'stay' && home.door?.id === 'sleep_before_big_night',
     JSON.stringify(home.door));
 
-  /* ---- 7. sleep turns the page onto Day 4 ---- */
-  const heistMorning = await page.evaluate(() => {
+  /* ---- 7. sleep turns the page onto the Day 4 golf morning ---- */
+  const golfMorning = await page.evaluate(() => {
     const game = window.__squatch;
     game.lieOnBed();
     game.sleepInBed();
@@ -334,17 +335,22 @@ try {
     return {
       story: state.story,
       silver: state.missions.silver_room.status,
-      call: state.events.lou_heist_call.status,
+      golf: state.missions.silver_pines.status,
+      golfCall: state.events.lou_golf_call.status,
+      heistCall: state.events.lou_heist_call.status,
     };
   });
-  check('sleeping off the date opens THE TAKE morning on Day 4 at ten',
-    heistMorning.story.chapter === 'heist_day'
-      && heistMorning.story.day === 4
-      && heistMorning.story.timeMinutes === 10 * 60,
-    JSON.stringify(heistMorning.story));
-  check('the date survives the page turn and Lou has not rung yet',
-    heistMorning.silver === 'complete' && heistMorning.call === 'pending',
-    JSON.stringify(heistMorning));
+  check('sleeping off the date opens golf morning on Day 4 at seven',
+    golfMorning.story.chapter === 'golf_morning'
+      && golfMorning.story.day === 4
+      && golfMorning.story.timeMinutes === 7 * 60,
+    JSON.stringify(golfMorning.story));
+  check('the date survives while Golf and THE TAKE remain locked behind their calls',
+    golfMorning.silver === 'complete'
+      && golfMorning.golf === 'locked'
+      && golfMorning.golfCall === 'pending'
+      && golfMorning.heistCall === 'pending',
+    JSON.stringify(golfMorning));
 
   await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
     timeout: 15000,
@@ -357,15 +363,69 @@ try {
       ringing: game.phone.ringing,
       eventId: game.phone.call?.def?.eventId,
       from: game.phone.call?.def?.from,
+      targetSceneId: game.phone.call?.def?.targetSceneId,
     };
   });
-  check('and Big Uncle Lou rings about THE TAKE on the far side of the date',
+  check('and Big Uncle Lou rings with the Silver Pines invitation',
     lou.ringing
-      && lou.eventId === 'lou_heist_call'
-      && lou.from === 'Big Uncle Lou',
+      && lou.eventId === 'lou_golf_call'
+      && lou.from === 'Big Uncle Lou'
+      && lou.targetSceneId === 'silver_pines',
     JSON.stringify(lou));
 
-  /* ---- 8. and none of it replays ---- */
+  const golfUnlocked = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.apartment.inventory.add('phone');
+    game.phone.press();
+    const state = game.campaign.state;
+    return {
+      call: state.events.lou_golf_call.status,
+      golf: state.missions.silver_pines.status,
+      heistCall: state.events.lou_heist_call.status,
+      door: game.apartmentStory.tryLeave({}),
+    };
+  });
+  check('answering Lou unlocks Golf, not THE TAKE, and points the door to Silver Pines',
+    golfUnlocked.call === 'answered'
+      && golfUnlocked.golf === 'available'
+      && golfUnlocked.heistCall === 'pending'
+      && golfUnlocked.door?.kind === 'go'
+      && golfUnlocked.door?.destination === 'silver_pines',
+    JSON.stringify(golfUnlocked));
+
+  const golfDeparture = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.tryLeave();
+    const state = game.campaign.state;
+    return {
+      story: state.story,
+      scene: state.scene,
+    };
+  });
+  check('the apartment spends the Silver Pines travel marker at 7:30',
+    golfDeparture.story.day === 4
+      && golfDeparture.story.timeMinutes === 7 * 60 + 30
+      && golfDeparture.story.timeEvents.includes('travel.silver_pines'),
+    JSON.stringify(golfDeparture));
+
+  await page.waitForURL(/golf\.html/, { timeout: 20000 });
+  await page.waitForFunction(() => window.__golfReady === true, null, { timeout: 120000 });
+  const atGolf = await page.evaluate(() => {
+    const state = window.__golf.campaign.state;
+    return {
+      scene: state.scene,
+      story: state.story,
+      golf: state.missions.silver_pines.status,
+    };
+  });
+  check('the real route arrives at Silver Pines with the round ready to start',
+    atGolf.scene.id === 'silver_pines'
+      && atGolf.scene.spawn === 'car_park'
+      && atGolf.story.chapter === 'golf_morning'
+      && atGolf.golf === 'available',
+    JSON.stringify(atGolf));
+
+  /* ---- 8. and none of the completed date or Golf call replays ---- */
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__squatch?.apartmentStory, null, { timeout: 60000 });
   const replay = await page.evaluate(() => {
@@ -377,14 +437,22 @@ try {
       call: game.phone.call?.def?.eventId ?? null,
       margo: state.events.margo_date_call.status,
       silver: state.missions.silver_room.status,
+      golfCall: state.events.lou_golf_call.status,
+      golf: state.missions.silver_pines.status,
+      heistCall: state.events.lou_heist_call.status,
+      chapter: state.story.chapter,
       day: state.story.day,
     };
   });
-  check('a reload cannot replay Margo or reopen a finished evening',
+  check('a reload cannot replay Margo, reopen the date, or ring Lou twice',
     replay.margo === 'answered'
       && replay.silver === 'complete'
       && replay.day === 4
-      && replay.call === 'lou_heist_call',
+      && replay.chapter === 'golf_morning'
+      && replay.golfCall === 'answered'
+      && replay.golf === 'available'
+      && replay.heistCall === 'pending'
+      && replay.call === null,
     JSON.stringify(replay));
 
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));

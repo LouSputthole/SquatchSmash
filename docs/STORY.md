@@ -30,7 +30,7 @@ Day One apartment → Bada Bing One → apartment → Squatchfather → apartmen
 Day Two apartment → Beef Run → apartment → Bada Bing Two / HotDog → Squatch Graveyard → Jerky Motel
 → apartment/sleep
 Day Three apartment → NO WAKE → apartment → Silver Room → apartment/sleep
-Day Four apartment/Lou's heist call → THE TAKE → apartment cleanup → THE PINES / Initiation
+Day Four apartment/Margo wake → Silver Pines → apartment/Lou's heist call → THE TAKE → apartment cleanup → THE PINES / Initiation
 ```
 
 Campaign time advances through authored tasks, calls, missions, travel, and
@@ -46,7 +46,8 @@ user playtesting, rewrite its verdict around completed campaign
 accomplishments, failed-prospect deaths, Tony's admission, and the mass
 sasquatch transformation. The Day Three informant hit is connected as NO WAKE,
 and the Day Four heist is connected as THE TAKE. Both feed the campaign record
-that the eventual Initiation rewrite must judge.
+that the eventual Initiation rewrite must judge. Silver Pines now sits between
+the Day Four wake and THE TAKE as the quiet Family check-in before the job.
 
 ---
 
