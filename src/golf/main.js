@@ -23,7 +23,7 @@ import { createGolfStory } from '../core/golf-story.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 
 import { Course } from './terrain.js';
-import { Golfer, makeBag, makeBall } from './cast.js';
+import { Golfer, makeBag, makeBall, makeBallMarker } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
@@ -76,6 +76,9 @@ const ui = {
   waypoint: document.getElementById('golf-waypoint'),
   waypointLabel: document.querySelector('#golf-waypoint .label'),
   waypointDistance: document.querySelector('#golf-waypoint .distance'),
+  map: document.getElementById('golf-map'),
+  mapCanvas: document.querySelector('#golf-map canvas'),
+  mapDistance: document.querySelector('#golf-map .ball-distance'),
   meter: document.getElementById('meter'),
   meterFill: document.querySelector('#meter .fill'),
   meterMark: document.querySelector('#meter .mark'),
@@ -150,6 +153,8 @@ for (const id of [CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW, CHARACTER_IDS.ERI
 }
 const playerBallMesh = makeBall(scene, 0xffffff);
 ballMeshes.set(CHARACTER_IDS.PROSPECT, playerBallMesh);
+const playerBallMarker = makeBallMarker(scene);
+playerBallMarker.visible = false;
 
 /* ------------------------------------------------------------------ */
 /* Player, HUD, audio                                                  */
@@ -302,8 +307,9 @@ function applyFlightCamera(dt) {
 }
 
 function applyCartCamera() {
-  carts.lead.seatWorld('passenger', _v);
+  carts.lead.driverViewWorld(_v);
   camera.position.copy(_v);
+  player.position.copy(_v);
   /* He keeps the look. The cart decides where he is, never where he is
    * looking — that is the whole reason this is not a cutscene. */
   const e = new THREE.Euler(player.pitch, carts.lead.group.rotation.y + player.yawOffset, 0, 'YXZ');
@@ -421,12 +427,41 @@ function guideState() {
         pause: 'Watch where the tee shot finishes, then follow the group to the carts.',
       };
     case BEAT.CART:
+      if (dialogue.active && dialogue.options.length) {
+        return {
+          task: 'Answer Lou while you drive',
+          detail: 'Press the number beside your response',
+          pause: 'Drive with W/S and A/D. Answer Lou with the number beside your response.',
+        };
+      }
+      {
+        const exit = round.cartExitState();
+        if (!exit.ok && /Lou/i.test(exit.reason)) {
+          return {
+            task: 'Drive to your ball with Lou',
+            detail: 'W/S drive · A/D steer · Space brakes · keep listening',
+            pause: 'Drive toward YOUR BALL on the top map while Lou finishes talking.',
+          };
+        }
+        if (!exit.ok && /Stop/i.test(exit.reason)) {
+          return {
+            task: 'Park beside your ball',
+            detail: 'Release W or hold Space to stop · then press E',
+            pause: 'Stop the cart beside your ball, then press E to get out.',
+          };
+        }
+        if (exit.ok) {
+          return {
+            task: 'Get out at your ball',
+            detail: 'Press E to park and continue on foot',
+            pause: 'Press E to get out beside your ball and play the next shot.',
+          };
+        }
+      }
       return {
-        task: 'Ride with Lou',
-        detail: dialogue.active && dialogue.options.length
-          ? 'Press the number beside your response'
-          : 'Look around and listen',
-        pause: 'Ride with Lou and listen. Use number keys when response choices appear.',
+        task: 'Drive to your ball',
+        detail: 'Follow YOUR BALL on the top map · W/S drive · A/D steer · Space brakes',
+        pause: 'Drive toward YOUR BALL on the top map. W/S drive, A/D steer, Space brakes.',
       };
     case BEAT.APPROACH:
       return {
@@ -526,6 +561,125 @@ function paintGuide() {
     : `${Math.round(distance)} m`;
   ui.waypoint.classList.toggle('offscreen', offscreen);
   ui.waypoint.classList.remove('hidden');
+}
+
+/* ------------------------------------------------------------------ */
+/* Ball finder                                                        */
+/* ------------------------------------------------------------------ */
+
+const MAP_BEATS = new Set([
+  BEAT.PLAYER_TEE, BEAT.TEE_RESULT, BEAT.CART, BEAT.APPROACH,
+]);
+
+function paintBallFinder(now = performance.now()) {
+  const ball = round.playerBall;
+  const show = running && !ended && MAP_BEATS.has(round.beat)
+    && ball.state !== BALL_STATE.HOLED
+    && ball.state !== BALL_STATE.WATER
+    && ball.state !== BALL_STATE.OUT_OF_BOUNDS;
+  ui.map?.classList.toggle('hidden', !show);
+
+  const settled = show && !ball.moving;
+  playerBallMarker.visible = settled;
+  if (settled) {
+    playerBallMarker.position.set(
+      ball.position.x, heightAt(ball.position.x, ball.position.z) + 0.035, ball.position.z,
+    );
+    const pulse = 1 + Math.sin(now * 0.0048) * 0.10;
+    playerBallMarker.scale.setScalar(pulse);
+  }
+  if (!show || !ui.mapCanvas) return;
+
+  const origin = camMode === CAM.CART ? carts.lead.position : player.position;
+  const metres = Math.hypot(origin.x - ball.position.x, origin.z - ball.position.z);
+  ui.mapDistance.textContent = metres < 27
+    ? `${Math.round(toFeet(metres))} ft`
+    : `${Math.round(toYards(metres))} yds`;
+
+  const canvas2d = ui.mapCanvas;
+  const ctx = canvas2d.getContext('2d');
+  const w = canvas2d.width;
+  const h = canvas2d.height;
+  const pad = 9;
+  const bounds = HOLE.bounds;
+  const spanX = Math.max(1, bounds.maxX - bounds.minX);
+  const spanZ = Math.max(1, bounds.maxZ - bounds.minZ);
+  const point = (p) => ({
+    x: pad + ((p.x - bounds.minX) / spanX) * (w - pad * 2),
+    y: pad + ((p.z - bounds.minZ) / spanZ) * (h - pad * 2),
+  });
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#14251a';
+  ctx.fillRect(0, 0, w, h);
+
+  // The played line and the path give the map enough shape to orient a turn.
+  const played = [HOLE.teeMarks.ball, ...HOLE.corridor.path, HOLE.green];
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#385f37';
+  ctx.lineWidth = 13;
+  traceMapLine(ctx, played, point);
+  ctx.strokeStyle = '#5d8250';
+  ctx.lineWidth = 5;
+  traceMapLine(ctx, played, point);
+  ctx.strokeStyle = '#9b9587';
+  ctx.lineWidth = 2;
+  traceMapLine(ctx, HOLE.cartPath, point);
+
+  const pin = point(HOLE.pin);
+  ctx.strokeStyle = '#f2eee0';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pin.x, pin.y + 5); ctx.lineTo(pin.x, pin.y - 5); ctx.stroke();
+  ctx.fillStyle = '#ea765d';
+  ctx.beginPath(); ctx.arc(pin.x, pin.y - 5, 3.2, 0, Math.PI * 2); ctx.fill();
+
+  for (const cart of [carts.lead, carts.follow]) {
+    const p = point(cart.position);
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(-cart.group.rotation.y);
+    ctx.fillStyle = '#d8d2be';
+    ctx.fillRect(-2.2, -3.4, 4.4, 6.8);
+    ctx.restore();
+  }
+
+  const you = point(origin);
+  const ballPoint = point(ball.position);
+  ctx.save();
+  ctx.setLineDash([3, 4]);
+  ctx.strokeStyle = 'rgba(216, 197, 255, 0.72)';
+  ctx.lineWidth = 1.25;
+  ctx.beginPath(); ctx.moveTo(you.x, you.y); ctx.lineTo(ballPoint.x, ballPoint.y); ctx.stroke();
+  ctx.restore();
+
+  const heading = camMode === CAM.CART ? carts.lead.group.rotation.y : player.yaw;
+  ctx.save();
+  ctx.translate(you.x, you.y);
+  ctx.rotate(-heading);
+  ctx.fillStyle = '#f4f0df';
+  ctx.beginPath(); ctx.moveTo(0, -5); ctx.lineTo(3.8, 4); ctx.lineTo(0, 2.5);
+  ctx.lineTo(-3.8, 4); ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  const pulse = 5.2 + Math.sin(now * 0.006) * 1.2;
+  ctx.strokeStyle = '#d8c5ff';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(ballPoint.x, ballPoint.y, pulse, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = '#b998ff';
+  ctx.beginPath(); ctx.arc(ballPoint.x, ballPoint.y, 2.6, 0, Math.PI * 2); ctx.fill();
+}
+
+function traceMapLine(ctx, points, project) {
+  if (!points?.length) return;
+  const first = project(points[0]);
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  for (let i = 1; i < points.length; i++) {
+    const p = project(points[i]);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.stroke();
 }
 
 function paintShot() {
@@ -718,6 +872,12 @@ window.addEventListener('keydown', (e) => {
   switch (e.code) {
     case 'KeyE':
       if (camMode === CAM.ADDRESS) return;
+      if (camMode === CAM.CART) {
+        const exit = round.leaveCart();
+        if (!exit.ok) hud.toast(exit.reason, 'hint', 2800);
+        else hud.toast('Cart parked. Play your ball.', 'good', 2200);
+        return;
+      }
       if (nearBall()) {
         if (round.canAddress()) { enterAddress(); return; }
         hud.toast(explainBlockedBall(), 'hint', 3800);
@@ -899,11 +1059,22 @@ function currentObjective() {
   return guideState().pause;
 }
 
+function applyCartControls() {
+  if (round.beat !== BEAT.CART) return;
+  const keys = player.keys;
+  carts.setPlayerInput({
+    throttle: (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0),
+    steer: (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0),
+    brake: keys.has('Space'),
+  });
+}
+
 const pauseMenu = createPauseMenu({
   title: 'A Morning at Silver Pines',
   canPause: () => running && !ended,
   getObjective: currentObjective,
   instructions: [
+    'In the cart: W/S — drive. A/D — steer. Space — brake. E — get out by your ball.',
     'W A S D — walk. E or Click — interact.',
     'At your ball: E — address it. Q — back off.',
     '1 — driver. 2 — iron. 3 — putter.',
@@ -968,8 +1139,10 @@ function frame() {
       player.mode = 'walk';
       player.yaw += player.yawOffset;
       player.yawOffset = 0;
-      player.position.x = HOLE.cartPark.x + 1.6;
-      player.position.z = HOLE.cartPark.z + 1.2;
+      const exit = carts.lead.exitWorld('driver', _v);
+      player.position.x = exit.x;
+      player.position.y = heightAt(exit.x, exit.z) + 1.66;
+      player.position.z = exit.z;
     }
   } else {
     player.update(dt);
@@ -984,6 +1157,7 @@ function frame() {
 
   // --- world ---
   course.update(dt, player.position);
+  applyCartControls();
   carts.update(dt);
   for (const g of Object.values(golfers)) g.update(dt, player.position);
 
@@ -997,6 +1171,7 @@ function frame() {
   audio.updateListener(camera);
   paintCard();
   paintGuide();
+  paintBallFinder();
   renderer.render(scene, camera);
 }
 
@@ -1053,6 +1228,7 @@ async function boot() {
   round.begin();
   paintCard();
   paintGuide();
+  paintBallFinder();
   booting = false;
 }
 
@@ -1101,6 +1277,7 @@ window.__golf = {
     cues.update(dt);
     dialogue.update(dt, player.position);
     round.update(dt, player.position);
+    applyCartControls();
     carts.update(dt);
     for (const g of Object.values(golfers)) g.update(dt, player.position);
     courseAudio?.update(dt);

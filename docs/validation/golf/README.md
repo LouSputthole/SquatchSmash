@@ -2,9 +2,10 @@
 
 Current automated state (August 2, 2026):
 
-- `npm test`: 109/109 repository tests, including the club/lie/overswing model.
+- `npm test`: 110/110 repository tests, including the club/lie/overswing and
+  player-driven cart models.
 - `npm run check`: 201 source files and all four manifests valid.
-- `npm run verify:golf`: 63/63 live browser checks from the real start button
+- `npm run verify:golf`: 68/68 live browser checks from the real start button
   through all three holes.
 - The verifier plays the real round with the game's real objects and solver,
   records all three holes, completes the mission, checks recovery and restart,
@@ -20,11 +21,22 @@ Current automated state (August 2, 2026):
   windows; difficult lies reduce forgiveness; and the visible orange
   overswing zone narrows and speeds the strike window while adding a
   controllable fade that compounds into a slice on an early strike.
+- After every tee shot the Prospect drives the lead cart with W/S, steers with
+  A/D, brakes with Space, and gets out with E only after Lou finishes and the
+  cart is stopped beside the live ball. Lou rides passenger; Erican drives
+  Rippin in a second cart that follows the group. All three NPCs then walk to
+  every new lie before addressing and swinging, in concurrent ready-golf jobs.
+- The regulation-size player ball has a separate pulsing ground ring plus a
+  top-right hole map. The map draws the player, both carts, pin, live ball,
+  distance, and a dashed direction line from the player to the ball.
 - `08-swing-power.png` and `09-swing-strike.png` are live 1280×720 meter
   evidence. The green target, orange risk zone and pale straight-shot band are
   computed from the same values used by the swing resolver rather than
   duplicated CSS guesses. The meter is raised clear of spoken subtitles, and
   the strike band appears only when it is the player's active target.
+- `10-ball-finder.png` verifies the physical ring, edge waypoint and top map.
+  `11-cart-drive.png` verifies the live driver camera, cart objective and the
+  same map while the cart is moving.
 
 ## Content still required
 
@@ -51,15 +63,17 @@ another pacing or feel pass begins.
    three-second silence land, drag, or get broken by movement or ambience?
 4. On Hole 2, does the long conversation arrive naturally at walking pace, or
    does the player outrun, bunch up, or miss lines?
-5. Do the between-hole fades start and end cleanly, and does control return at
+5. Does the cart accelerate, steer and brake pleasantly on keyboard, and can
+   the player find an ordinary fairway or rough ball without hunting?
+6. Do the between-hole fades start and end cleanly, and does control return at
    each new tee without a dead input or camera jump?
-6. Is the Hole 3 clubhouse readable behind the green during ordinary play,
+7. Is the Hole 3 clubhouse readable behind the green during ordinary play,
    not just in `07-hole3-green.png`?
-7. Can the player intentionally hit water, go out of bounds, recover, and still
+8. Can the player intentionally hit water, go out of bounds, recover, and still
    understand what stroke and penalty were recorded?
-8. Does the final card clearly communicate completion, and does **Return home**
+9. Does the final card clearly communicate completion, and does **Return home**
    reach the apartment with the completed three-hole record intact?
-9. After a reload and after **Play again**, is it clear whether the player is
+10. After a reload and after **Play again**, is it clear whether the player is
    resuming campaign progress or starting a fresh standalone round?
 
 Record the device, browser, total round time, hole-by-hole score, any missed

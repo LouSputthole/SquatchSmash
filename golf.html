@@ -82,6 +82,15 @@
     <span class="distance"></span>
   </div>
 
+  <!-- A small, honest top-down read of the live hole. The purple marker is
+       always the Prospect's ball; carts and the player update in real time so
+       a drive into the rough cannot make the next shot impossible to find. -->
+  <div id="golf-map" class="hidden" aria-label="Course map and ball finder">
+    <div class="map-head"><span class="ball-label">YOUR BALL</span><span class="ball-distance">—</span></div>
+    <canvas width="196" height="128" aria-hidden="true"></canvas>
+    <div class="map-key"><span><i class="you"></i>YOU</span><span><i class="ball"></i>BALL</span><span><i class="pin"></i>PIN</span></div>
+  </div>
+
   <!-- Only while he is over the ball. -->
   <div id="shot" class="hidden">
     <div class="club">IRON</div>
@@ -128,6 +137,7 @@
     <button id="start-btn" disabled>Walk over</button>
     <ul class="controls">
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk &middot; <kbd>E</kbd> / <kbd>Click</kbd> interact</li>
+      <li>in the cart: <kbd>W</kbd>/<kbd>S</kbd> drive &middot; <kbd>A</kbd>/<kbd>D</kbd> steer &middot; <kbd>Space</kbd> brake &middot; <kbd>E</kbd> get out by your ball</li>
       <li><kbd>E</kbd> at your ball to <b>address</b> it &middot; <kbd>Q</kbd> to back off</li>
       <li><kbd>1</kbd> driver &middot; <kbd>2</kbd> iron &middot; <kbd>3</kbd> putter</li>
       <li>mouse aims &middot; <b>click</b> to start, again near ideal power, again in the strike band</li>

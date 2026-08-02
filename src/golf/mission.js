@@ -148,6 +148,8 @@ export class Round {
     this._greenTalked = false;
     this._bunkerTalked = false;
     this._holeOutPlayed = false;
+    this._npcApproachJobs = new Map();
+    this._npcApproachDelay = new Map();
     /* Deferred calls ride the round's own clock rather than a real timer, so
      * pausing the game pauses them too. There is exactly one customer: the two
      * seconds of silence after a hole in one. */
@@ -608,7 +610,9 @@ export class Round {
   _startCartRide() {
     this._go(BEAT.CART);
     this.carts?.stage();
-    this.carts?.driveToGreen();
+    this.carts?.beginPlayerDrive();
+    /* The Prospect has the wheel. Lou takes the passenger seat so the private
+     * conversation still happens beside him instead of becoming a radio call. */
     this.golfers[LOU]?.sitInCart();
     this.golfers[ERIC]?.sitInCart();
     this.golfers[RIPPIN]?.sitInCart();
@@ -625,15 +629,49 @@ export class Round {
     if (this.carts) this.audio?.cartMotor(this.carts.rolling, this.carts.lead.position);
     this._rideAlong();
 
-    // The ride ends when the carts stop AND Lou has finished, not before.
-    if (this.carts && !this.carts.arrived) return;
-    if (this.dialogue.active || this.cues.busy) return;
+    /* This beat is now owned by the player. It advances through leaveCart(),
+     * only after the cart is stopped beside the ball and Lou has finished. */
+  }
+
+  cartDistanceToBall() {
+    if (!this.carts) return Infinity;
+    return Math.hypot(
+      this.carts.lead.position.x - this.playerBall.position.x,
+      this.carts.lead.position.z - this.playerBall.position.z,
+    );
+  }
+
+  /** Why E may or may not park the cart right now. */
+  cartExitState() {
+    if (this.beat !== BEAT.CART || !this.carts) {
+      return { ok: false, reason: 'You are not in the cart.' };
+    }
+    if (this.dialogue.active || this.cues.busy) {
+      return { ok: false, reason: 'Stay with Lou until he finishes.' };
+    }
+    const distance = this.cartDistanceToBall();
+    if (distance > 12) {
+      return { ok: false, reason: 'Drive closer to your ball.', distance };
+    }
+    if (Math.abs(this.carts.lead.velocity) > 0.55) {
+      return { ok: false, reason: 'Stop the cart before getting out.', distance };
+    }
+    return { ok: true, distance };
+  }
+
+  /** Park, return foot control and send every NPC to his own live ball. */
+  leaveCart() {
+    const state = this.cartExitState();
+    if (!state.ok) return state;
+    this.carts.parkPlayerCarts();
     this.audio?.cartMotor(false);
     this.cues.suppressBanter(false);
     for (const id of [LOU, ERIC, RIPPIN]) this.golfers[id]?.standUp();
     this._go(BEAT.APPROACH);
-    this._placeGroupNearGreen();
-    this._npcPlayTimer = 1.4;
+    this._placeGroupAfterDrive();
+    this._npcApproachJobs.clear();
+    this._npcApproachDelay = new Map([[ERIC, 1.4], [LOU, 2.1], [RIPPIN, 2.8]]);
+    return { ok: true, distance: state.distance };
   }
 
   /**
@@ -654,7 +692,7 @@ export class Round {
       golfer.group.position.set(s.x, s.y - 0.92, s.z);
       golfer.group.rotation.y = cart.group.rotation.y;
     };
-    seat(this.golfers[LOU], this.carts.lead, 'driver');
+    seat(this.golfers[LOU], this.carts.lead, 'passenger');
     seat(this.golfers[ERIC], this.carts.follow, 'driver');
     seat(this.golfers[RIPPIN], this.carts.follow, 'passenger');
   }
@@ -667,15 +705,22 @@ export class Round {
    * of the player, which is the difference between three men playing golf and
    * three men being repositioned between shots.
    */
-  _placeGroupNearGreen() {
-    const spread = [-1.6, 0, 1.6];
-    let i = 0;
+  _placeGroupAfterDrive() {
+    const starts = {
+      [LOU]: { cart: this.carts?.lead, seat: 'passenger' },
+      [ERIC]: { cart: this.carts?.follow, seat: 'driver' },
+      [RIPPIN]: { cart: this.carts?.follow, seat: 'passenger' },
+    };
     for (const id of [ERIC, RIPPIN, LOU]) {
       const b = this.balls.get(id);
       const g = this.golfers[id];
       if (!b || !g) continue;
-      g.placeAt(HOLE.cartPark.x + spread[i], HOLE.cartPark.z + 1.4 - i * 0.5);
-      i++;
+      const start = starts[id];
+      /* Three.js localToWorld requires a Vector3 in production. Cart exposes
+       * an exit point so this remains a world action instead of a teleport to
+       * the green. */
+      const out = start?.cart?.exitWorld(start.seat);
+      g.placeAt(out?.x ?? HOLE.cartPark.x, out?.z ?? HOLE.cartPark.z);
       const dx = HOLE.pin.x - b.position.x;
       const dz = HOLE.pin.z - b.position.z;
       const len = Math.hypot(dx, dz) || 1;
@@ -731,14 +776,25 @@ export class Round {
      * roster, and keeps playing, and is on two hundred and fifty-six. */
     this._finishStragglers();
 
-    this._npcPlayTimer = (this._npcPlayTimer ?? 2) - dt;
-    if (this._npcPlayTimer > 0) return;
-    this._npcPlayTimer = 2.6 + Math.random() * 2.2;
+    /* Each man owns his own live job. That is ready golf: all three can walk
+     * to separate lies while the Prospect plays, but no one can swing until
+     * his body has actually arrived at his ball. */
+    for (const [id, job] of [...this._npcApproachJobs]) {
+      if (this._updateNpcApproachJob(job, dt)) {
+        this._npcApproachJobs.delete(id);
+        this._npcApproachDelay.set(id, 1.6 + Math.random() * 1.4);
+      }
+    }
 
     for (const id of [ERIC, LOU, RIPPIN]) {
+      if (this._npcApproachJobs.has(id)) continue;
       if (this.card.finished(id, HOLE.number)) continue;
       const ball = this.balls.get(id);
-      if (ball.moving) return;
+      if (ball.moving) continue;
+
+      const delay = (this._npcApproachDelay.get(id) ?? 1.2) - dt;
+      this._npcApproachDelay.set(id, delay);
+      if (delay > 0) continue;
 
       const strokes = this.card.hole(id, HOLE.number).strokes;
       const plan = npcPlanFor(id);
@@ -750,33 +806,89 @@ export class Round {
         continue;
       }
       const from = { x: ball.position.x, z: ball.position.z };
+      const dx = HOLE.pin.x - from.x;
+      const dz = HOLE.pin.z - from.z;
+      const length = Math.hypot(dx, dz) || 1;
       const surface = surfaceAt(from.x, from.z);
-      const lie = surfaceProps(surface);
       const onGreen = surface === SURFACE.GREEN || surface === SURFACE.FRINGE;
       const club = onGreen ? 'putter' : 'iron';
+      const golfer = this.golfers[id];
+      golfer?.setClub(club);
+      golfer?.walkTo(
+        from.x - (dx / length) * 0.82,
+        from.z - (dz / length) * 0.82,
+        { speed: 1.65 },
+      );
+      this._npcApproachJobs.set(id, {
+        id, phase: 'walk', club,
+        /* Rippin keeps one rehearsal away from the tee; the others get on
+         * with it. This preserves character without multiplying dead time. */
+        practice: id === RIPPIN && !onGreen ? 1 : 0,
+        timer: 0,
+        isLast: false,
+      });
+    }
+  }
 
-      /* Their last authored stroke goes in; everything before it gets close.
-       * This is what makes Erican two-putt for par and Rippin take five. */
-      const isLast = strokes + 1 >= plan.finish;
-      const target = isLast
-        ? { x: HOLE.pin.x, z: HOLE.pin.z }
-        : this._nearPin(from, 1.1 + Math.random() * 1.4);
+  /** Advance one golfer's walk/address/swing/watch sequence. */
+  _updateNpcApproachJob(job, dt) {
+    const golfer = this.golfers[job.id];
+    const ball = this.balls.get(job.id);
+    if (!golfer || !ball) return true;
 
-      const solved = solveShot({ from, target, club, lie });
-      ball.placeAt(from.x, from.z);
-      ball.strike(solved.aim, solved.launch);
-      this.card.addStroke(id, HOLE.number);
-      this.audio?.strike(club, surface, solved.power, { ...ball.position });
-      this.golfers[id]?.setClub(club);
-      this.golfers[id]?.swing();
+    if (job.phase === 'walk') {
+      if (golfer.walking) return false;
+      golfer.faceToward(HOLE.pin.x, HOLE.pin.z, true);
+      golfer.address({ practice: job.practice });
+      job.phase = 'address';
+      job.timer = 0.42;
+      return false;
+    }
 
-      /* A ball that was supposed to drop and did not still has to finish, or
-       * the hole never ends. One tap-in, granted, and it is granted quietly. */
-      if (isLast) {
-        this._pendingHoleOut = this._pendingHoleOut ?? new Set();
-        this._pendingHoleOut.add(id);
-      }
-      return;
+    if (job.phase === 'address') {
+      if (golfer.busy) return false;
+      job.timer -= dt;
+      if (job.timer > 0) return false;
+      job.phase = 'swing';
+      golfer.swing({
+        onImpact: () => this._strikeNpcApproach(job),
+        onDone: () => { job.phase = 'watch'; },
+      });
+      return false;
+    }
+
+    if (job.phase === 'swing' || ball.moving) return false;
+    if (!job.isLast) {
+      const at = surfaceAt(ball.position.x, ball.position.z);
+      if (at === SURFACE.GREEN || at === SURFACE.FRINGE) golfer.markBall();
+      else golfer.leanOnClub();
+    }
+    return true;
+  }
+
+  /** Launch the shot at the animation's impact frame, from the live lie. */
+  _strikeNpcApproach(job) {
+    if (job.launched) return;
+    job.launched = true;
+    const ball = this.balls.get(job.id);
+    const from = { x: ball.position.x, z: ball.position.z };
+    const surface = surfaceAt(from.x, from.z);
+    const lie = surfaceProps(surface);
+    const strokes = this.card.hole(job.id, HOLE.number).strokes;
+    const plan = npcPlanFor(job.id);
+    job.isLast = strokes + 1 >= plan.finish;
+    const target = job.isLast
+      ? { x: HOLE.pin.x, z: HOLE.pin.z }
+      : this._nearPin(from, 1.1 + Math.random() * 1.4);
+    const solved = solveShot({ from, target, club: job.club, lie });
+    ball.placeAt(from.x, from.z);
+    ball.strike(solved.aim, solved.launch);
+    this.card.addStroke(job.id, HOLE.number);
+    this.audio?.strike(job.club, surface, solved.power, { ...ball.position });
+
+    if (job.isLast) {
+      this._pendingHoleOut = this._pendingHoleOut ?? new Set();
+      this._pendingHoleOut.add(job.id);
     }
   }
 
@@ -826,7 +938,14 @@ export class Round {
       const ball = this.balls.get(id);
       if (ball.moving) continue;
       if (ball.state === BALL_STATE.HOLED || this._pendingHoleOut?.has(id)) {
-        if (ball.state !== BALL_STATE.HOLED) this.card.addStroke(id, HOLE.number);
+        /* The authored last stroke was already counted at impact. If the
+         * deterministic solver leaves it on the lip, finish that same stroke
+         * in the cup; adding a silent extra stroke made every written score a
+         * shot worse than the plan and looked like a remote tap-in. */
+        if (ball.state !== BALL_STATE.HOLED) {
+          ball.placeAt(HOLE.pin.x, HOLE.pin.z);
+          ball.state = BALL_STATE.HOLED;
+        }
         this.card.finish(id, HOLE.number);
         this.golfers[id]?.retrieveFromCup();
         this.audio?.holed({ ...ball.position });
@@ -898,6 +1017,8 @@ export class Round {
     this._afterGreenTalk = 0;
     this._groupHeadingToTee = true;
     this._pendingHoleOut = new Set();
+    this._npcApproachJobs.clear();
+    this._npcApproachDelay.clear();
     this._pending.length = 0;
     this.cues.suppressBanter(false);
 

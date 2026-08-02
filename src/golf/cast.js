@@ -338,6 +338,42 @@ export function makeBall(scene, colour = 0xf4f6f8) {
   return m;
 }
 
+/**
+ * A ground-level finder for the Prospect's ball.
+ *
+ * The ball remains regulation size; this is a separate translucent course
+ * marker, so making it readable never changes the collision or shot physics.
+ */
+export function makeBallMarker(scene) {
+  const group = new THREE.Group();
+  group.name = 'player-ball-ground-marker';
+  group.userData.radius = 0.52;
+
+  const glow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.43, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0xb998ff, transparent: true, opacity: 0.16,
+      depthWrite: false, side: THREE.DoubleSide,
+    }),
+  );
+  glow.name = 'ball-marker-glow';
+  glow.rotation.x = -Math.PI / 2;
+  group.add(glow);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.52, 0.035, 8, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0xd8c5ff, transparent: true, opacity: 0.92, depthWrite: false,
+    }),
+  );
+  ring.name = 'ball-marker-ring';
+  ring.rotation.x = Math.PI / 2;
+  group.add(ring);
+
+  scene.add(group);
+  return group;
+}
+
 /* ------------------------------------------------------------------ */
 /* The swing                                                           */
 /* ------------------------------------------------------------------ */

@@ -33,6 +33,7 @@ import {
   GOLF_EFFECT_CUES, playRecordedGolfCue, recordedGolfClip,
 } from '../src/golf/audio.js';
 import { makeBag, makeClub } from '../src/golf/cast.js';
+import { CartPair } from '../src/golf/carts.js';
 
 /* These are the facts about the hole that the browser verifier cannot state
  * cheaply and that a careless edit to the layout would silently change. The
@@ -91,6 +92,26 @@ test('the hole is laid out the way the marker describes it', () => {
   assert.ok(POND.z > GREEN.z, 'the pond is short of the green');
   assert.ok(BUNKER.x < GREEN.x, 'the bunker is left of the green');
   assert.ok(BUNKER.z > GREEN.z, 'the bunker is short of the green');
+});
+
+test('the player can throttle and steer the lead cart while the second cart follows', () => {
+  setActiveHole(1);
+  const carts = new CartPair(new THREE.Scene());
+  carts.stage();
+  const start = carts.lead.position.clone();
+  const startYaw = carts.lead.group.rotation.y;
+
+  carts.beginPlayerDrive();
+  carts.setPlayerInput({ throttle: 1, steer: 0, brake: false });
+  for (let i = 0; i < 180; i++) carts.update(1 / 60);
+  assert.ok(carts.lead.position.distanceTo(start) > 5, 'holding W should move the lead cart');
+
+  carts.setPlayerInput({ throttle: 1, steer: 1, brake: false });
+  for (let i = 0; i < 90; i++) carts.update(1 / 60);
+  assert.ok(Math.abs(carts.lead.group.rotation.y - startYaw) > 0.25,
+    'holding A or D should change the cart heading');
+  assert.ok(carts.follow.position.distanceTo(carts.lead.position) < 24,
+    'Erican should keep the second cart with the group');
 });
 
 test('each hole preserves the visual composition it was designed around', () => {
