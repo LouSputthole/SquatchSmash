@@ -1,10 +1,10 @@
 # Silver Pines validation and remaining gate
 
-Current automated state (August 1, 2026):
+Current automated state (August 2, 2026):
 
-- `npm test`: 106/106 repository tests, including 30 focused Silver Pines tests.
+- `npm test`: 109/109 repository tests, including the club/lie/overswing model.
 - `npm run check`: 201 source files and all four manifests valid.
-- `npm run verify:golf`: 60/60 live browser checks from the real start button
+- `npm run verify:golf`: 63/63 live browser checks from the real start button
   through all three holes.
 - The verifier plays the real round with the game's real objects and solver,
   records all three holes, completes the mission, checks recovery and restart,
@@ -15,6 +15,16 @@ Current automated state (August 1, 2026):
   deep wood head, the iron a thin extruded blade, and the putter a flat blade;
   all three use angled hosels, swap into NPC hands, and appear as complete,
   fanned, head-up clubs in the rebuilt stand bag.
+- The three-click swing now recommends a useful power for the club, lie and
+  remaining distance. Driver, iron and putter have different tempo/control
+  windows; difficult lies reduce forgiveness; and the visible orange
+  overswing zone narrows and speeds the strike window while adding a
+  controllable fade that compounds into a slice on an early strike.
+- `08-swing-power.png` and `09-swing-strike.png` are live 1280×720 meter
+  evidence. The green target, orange risk zone and pale straight-shot band are
+  computed from the same values used by the swing resolver rather than
+  duplicated CSS guesses. The meter is raised clear of spoken subtitles, and
+  the strike band appears only when it is the player's active target.
 
 ## Content still required
 

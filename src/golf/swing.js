@@ -5,11 +5,11 @@
  * oldest golf interface there is because it is the one a player understands
  * inside a single shot, which is the requirement here.
  *
- * The forgiving bit is deliberate and central: a strike inside the dead zone
- * is *pure*, not merely good. A player should be able to hit the middle of the
- * green without practising, and should still be able to miss it by trying to
- * squeeze the last five yards out of the meter. The punishment lives at the
- * top of the power bar, not in the timing.
+ * The forgiving bit is deliberate and central: a controlled strike inside the
+ * dead zone is *pure*, not merely good. Chasing the red end of the power bar
+ * narrows that dead zone, quickens the return sweep, and adds an open-face
+ * bias. A perfect player can hold a hard swing to a fade; an early third click
+ * compounds that bias into a slice. Club and lie decide how much help remains.
  *
  * No DOM and no Three.js — main.js draws it, this decides it.
  */
@@ -26,16 +26,95 @@ export const SWING_PHASE = {
 const POWER_TIME = 1.05;
 /* The strike sweep is quicker — this is the part that is supposed to be a
  * reflex — and it runs past zero so that being late is a real miss. */
-const STRIKE_SPEED = 1.55;
 const STRIKE_FLOOR = -0.30;
 
-/** Inside this of the line, the strike is pure. */
-export const DEAD_ZONE = 0.085;
-/** Beyond this, it is as bad as it gets. */
-const MISS_SCALE = 0.34;
+/** The iron's clean-lie sweet spot. Kept public for old verifier call sites. */
+export const DEAD_ZONE = 0.09;
+
+/**
+ * Each club has its own tempo and amount of face control. `safePower` is not a
+ * distance target; it is the point beyond which the player is swinging harder
+ * than that club can be controlled comfortably. The distance target is worked
+ * out per shot in clubs.js.
+ */
+export const SWING_CONTROL = Object.freeze({
+  driver: Object.freeze({
+    safePower: 0.86, deadZone: 0.075, missScale: 0.27,
+    strikeSpeed: 1.68, fadeBias: 0.22,
+  }),
+  iron: Object.freeze({
+    safePower: 0.91, deadZone: DEAD_ZONE, missScale: 0.34,
+    strikeSpeed: 1.52, fadeBias: 0.14,
+  }),
+  putter: Object.freeze({
+    safePower: 0.97, deadZone: 0.115, missScale: 0.44,
+    strikeSpeed: 1.18, fadeBias: 0.025,
+  }),
+});
+
+/**
+ * The live timing window for one selected swing.
+ *
+ * Power above the club's control point progressively removes forgiveness. A
+ * difficult lie also shrinks the band, but never enough to turn golf into a
+ * one-frame input. Returning this as data lets the HUD draw the exact rule the
+ * physics will use.
+ */
+export function controlWindow({ club = 'iron', power = 0, lieSpread = 0 } = {}) {
+  const tuning = SWING_CONTROL[club] ?? SWING_CONTROL.iron;
+  const p = clamp01(power);
+  const overswing = clamp01((p - tuning.safePower) / (1 - tuning.safePower));
+  const risk = smoothstep(overswing);
+  const lieRisk = clamp01(Math.max(0, lieSpread) / 8);
+
+  return {
+    club: SWING_CONTROL[club] ? club : 'iron',
+    safePower: tuning.safePower,
+    risk,
+    lieRisk,
+    deadZone: tuning.deadZone * (1 - 0.48 * risk) * (1 - 0.28 * lieRisk),
+    missScale: tuning.missScale * (1 - 0.20 * risk) * (1 - 0.18 * lieRisk),
+    strikeSpeed: tuning.strikeSpeed * (1 + 0.18 * risk) * (1 + 0.08 * lieRisk),
+    fadeBias: tuning.fadeBias,
+  };
+}
+
+/** Translate the signed face result into the shot shape the player sees. */
+export function shotShape(accuracy) {
+  const a = Math.abs(accuracy);
+  if (a <= 0.08) return 'straight';
+  if (a < 0.42) return accuracy > 0 ? 'fade' : 'draw';
+  return accuracy > 0 ? 'slice' : 'hook';
+}
+
+/** Pure resolution function used by Swing, tests, and balance tools. */
+export function resolveStrike({
+  club = 'iron', power = 0, strike = 0, lieSpread = 0,
+} = {}) {
+  const control = controlWindow({ club, power, lieSpread });
+  const raw = Number.isFinite(strike) ? strike : 0;
+  const outside = Math.abs(raw) <= control.deadZone
+    ? 0
+    : Math.sign(raw) * (Math.abs(raw) - control.deadZone);
+  const timingAccuracy = clamp(outside / control.missScale, -1, 1);
+
+  /* An overswing tends to leave the face open. A late click can counter it;
+   * an early click adds to it. Even at full power the centered result is a
+   * playable fade, not a dice-roll penalty. */
+  const faceBias = control.risk * control.fadeBias
+    * (0.65 + 0.35 * clamp01(Math.abs(raw) / Math.max(control.deadZone, 0.001)));
+  const accuracy = clamp(timingAccuracy + faceBias, -1, 1);
+
+  return {
+    power: clamp01(power), strike: raw, accuracy, timingAccuracy, faceBias,
+    shape: shotShape(accuracy), ...control,
+  };
+}
 
 export class Swing {
-  constructor() {
+  constructor({ club = 'iron', lieSpread = 0 } = {}) {
+    this.club = SWING_CONTROL[club] ? club : 'iron';
+    this.lieSpread = Math.max(0, lieSpread);
     this.phase = SWING_PHASE.IDLE;
     this.marker = 0;
     this.power = 0;
@@ -43,6 +122,7 @@ export class Swing {
     /** True while the marker is on its way back down the power bar. */
     this.falling = false;
     this.result = null;
+    this._applyControl(controlWindow({ club: this.club, lieSpread: this.lieSpread }));
   }
 
   get active() {
@@ -56,6 +136,32 @@ export class Swing {
     this.accuracy = 0;
     this.falling = false;
     this.result = null;
+    this._applyControl(controlWindow({ club: this.club, lieSpread: this.lieSpread }));
+  }
+
+  /** Configure the shot before the first click. */
+  configure({ club = this.club, lieSpread = this.lieSpread } = {}) {
+    this.club = SWING_CONTROL[club] ? club : 'iron';
+    this.lieSpread = Math.max(0, lieSpread);
+    this._applyControl(controlWindow({
+      club: this.club, power: this.power, lieSpread: this.lieSpread,
+    }));
+    return this;
+  }
+
+  _applyControl(control) {
+    this.safePower = control.safePower;
+    this.risk = control.risk;
+    this.deadZone = control.deadZone;
+    this.missScale = control.missScale;
+    this.strikeSpeed = control.strikeSpeed;
+  }
+
+  _setPower(power) {
+    this.power = clamp01(power);
+    this._applyControl(controlWindow({
+      club: this.club, power: this.power, lieSpread: this.lieSpread,
+    }));
   }
 
   /**
@@ -70,7 +176,7 @@ export class Swing {
         return this.phase;
 
       case SWING_PHASE.POWER:
-        this.power = clamp01(this.marker);
+        this._setPower(this.marker);
         this.phase = SWING_PHASE.STRIKE;
         return this.phase;
 
@@ -93,14 +199,14 @@ export class Swing {
       if (this.marker <= 0 && this.falling) {
         // He let the whole thing go by. That is a decision too: a tap.
         this.marker = 0;
-        this.power = 0.06;
+        this._setPower(0.06);
         this.phase = SWING_PHASE.STRIKE;
       }
       return;
     }
 
     if (this.phase === SWING_PHASE.STRIKE) {
-      this.marker -= dt * STRIKE_SPEED;
+      this.marker -= dt * this.strikeSpeed;
       if (this.marker <= STRIKE_FLOOR) this._resolve(STRIKE_FLOOR);
     }
   }
@@ -109,13 +215,13 @@ export class Swing {
     /* `at` is where the marker was when he hit it, measured against the line
      * at zero. Positive is early — the club arrives open and the ball leaks
      * right; negative is late and it goes left. */
-    const raw = at;
-    const outside = Math.abs(raw) <= DEAD_ZONE
-      ? 0
-      : Math.sign(raw) * (Math.abs(raw) - DEAD_ZONE);
-    this.accuracy = clamp(outside / MISS_SCALE, -1, 1);
+    const resolved = resolveStrike({
+      club: this.club, power: this.power, strike: at, lieSpread: this.lieSpread,
+    });
+    this._applyControl(resolved);
+    this.accuracy = resolved.accuracy;
     this.phase = SWING_PHASE.DONE;
-    this.result = { power: this.power, accuracy: this.accuracy, strike: raw };
+    this.result = resolved;
   }
 
   /**
@@ -123,16 +229,20 @@ export class Swing {
    * about it. Purely presentational — the physics only ever sees `accuracy`.
    */
   strikeLabel() {
-    const a = Math.abs(this.accuracy);
-    if (a === 0) return 'PURED';
-    if (a < 0.3) return 'SOLID';
-    if (a < 0.65) return this.accuracy > 0 ? 'FADED' : 'DRAWN';
-    return this.accuracy > 0 ? 'SLICED' : 'HOOKED';
+    const shape = this.result?.shape ?? shotShape(this.accuracy);
+    if (shape === 'straight') return 'PURED';
+    if (shape === 'fade') return 'FADED';
+    if (shape === 'draw') return 'DRAWN';
+    return shape === 'slice' ? 'SLICED' : 'HOOKED';
   }
 }
 
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 function clamp01(v) { return clamp(v, 0, 1); }
+function smoothstep(v) {
+  const x = clamp01(v);
+  return x * x * (3 - 2 * x);
+}
 
 /**
  * The swing an NPC makes.

@@ -27,8 +27,8 @@ import { Golfer, makeBag, makeBall } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
-import { Swing, SWING_PHASE, DEAD_ZONE } from './swing.js';
-import { CLUB_IDS, getClub, estimateCarry } from './clubs.js';
+import { Swing, SWING_PHASE, controlWindow } from './swing.js';
+import { CLUB_IDS, getClub, estimateCarry, powerForCarry } from './clubs.js';
 import { BALL_STATE, solveShot } from './ball.js';
 import {
   SURFACE, surfaceProps, toYards, toFeet, getHole, HOLES, relativeLabel, scoreName,
@@ -80,6 +80,11 @@ const ui = {
   meterFill: document.querySelector('#meter .fill'),
   meterMark: document.querySelector('#meter .mark'),
   meterLine: document.querySelector('#meter .line'),
+  meterTarget: document.querySelector('#meter .target'),
+  meterLate: document.querySelector('#meter .late-zone'),
+  meterRisk: document.querySelector('#meter .risk-zone'),
+  meterIdeal: document.querySelector('#meter .ideal'),
+  meterRiskCopy: document.querySelector('#meter .risk-copy'),
   meterHint: document.querySelector('#meter .hint'),
   aim: document.getElementById('aim'),
   dialogue: {
@@ -247,6 +252,7 @@ function enterAddress() {
   player.enabled = false;
   player.mode = 'frozen';
   swing.reset();
+  swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
   const b = round.playerBall.position;
   aimYaw = Math.atan2(HOLE.pin.x - b.x, HOLE.pin.z - b.z);
   ui.shot.classList.remove('hidden');
@@ -324,18 +330,21 @@ function paintCard() {
  * contradict one another. */
 function guideState() {
   if (camMode === CAM.ADDRESS) {
+    const target = powerForCarry(club, round.distanceToPin(), surfaceProps(round.playerSurface()));
+    const targetPct = Math.round(target * 100);
     if (swing.phase === SWING_PHASE.POWER) {
       return {
         task: 'Set your power',
-        detail: 'Click a second time near the power you want',
-        pause: 'Set the shot power with your second click.',
+        detail: `Click a second time near the green ${targetPct}% marker · orange risks a fade or slice`,
+        pause: `Set power with your second click. The suggestion is ${targetPct}%; orange is an overswing.`,
       };
     }
     if (swing.phase === SWING_PHASE.STRIKE) {
+      const warning = swing.risk > 0.05 ? ' · overswing gives you a smaller sweet spot' : '';
       return {
         task: 'Hit the strike line',
-        detail: 'Click a third time when the marker reaches the center band',
-        pause: 'Time your third click inside the center strike band.',
+        detail: `Click a third time inside the pale band for a straight shot${warning}`,
+        pause: `Click inside the pale band. Early fades right; late draws left${warning}.`,
       };
     }
     return {
@@ -526,11 +535,15 @@ function paintShot() {
   ui.club.textContent = c.name.toUpperCase();
   ui.lie.textContent = lie.label;
   ui.wind.textContent = `${HOLE.wind.mph} MPH ${HOLE.wind.label}`;
-  const power = swing.phase === SWING_PHASE.IDLE ? 1 : Math.max(swing.power, swing.marker);
+  const targetPower = powerForCarry(club, round.distanceToPin(), lie);
+  const power = swing.phase === SWING_PHASE.IDLE
+    ? targetPower
+    : swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power;
   const est = estimateCarry(club, power, lie);
-  ui.carry.textContent = c.grounded
+  const carry = c.grounded
     ? `≈ ${Math.round(toFeet(est))} ft`
     : `≈ ${Math.round(toYards(est))} yds`;
+  ui.carry.textContent = `${carry} · ideal ${Math.round(targetPower * 100)}%`;
 }
 
 /**
@@ -551,7 +564,7 @@ function paintAim() {
   while (off > 180) off -= 360;
   while (off < -180) off += 360;
   ui.aim.querySelector('.label').textContent = Math.abs(off) < 1
-    ? 'AT THE HOLE.pin'
+    ? 'AT THE PIN'
     : `${Math.abs(off).toFixed(0)}° ${off > 0 ? 'RIGHT' : 'LEFT'}`;
 }
 
@@ -563,8 +576,9 @@ function paintAim() {
  * left edge and being *late* looked identical to being perfect. The whole
  * point of the third click is that you can see yourself miss it. */
 const METER_FLOOR = -0.30;
-const meterPct = (v) => `${Math.max(0, Math.min(100,
-  ((v - METER_FLOOR) / (1 - METER_FLOOR)) * 100))}%`;
+const meterValue = (v) => Math.max(0, Math.min(100,
+  ((v - METER_FLOOR) / (1 - METER_FLOOR)) * 100));
+const meterPct = (v) => `${meterValue(v)}%`;
 
 function paintMeter() {
   if (!swing.active && swing.phase !== SWING_PHASE.DONE) {
@@ -574,19 +588,39 @@ function paintMeter() {
   ui.meter.classList.remove('hidden');
 
   const striking = swing.phase !== SWING_PHASE.POWER;
-  ui.meterFill.style.width = meterPct(striking ? swing.power : swing.marker);
+  const livePower = striking ? swing.power : swing.marker;
+  const lie = surfaceProps(round.playerSurface());
+  const liveControl = controlWindow({ club, power: livePower, lieSpread: lie.spread });
+  const targetPower = powerForCarry(club, round.distanceToPin(), lie);
+  const zero = meterValue(0);
+  const fillEnd = meterValue(livePower);
+  ui.meterFill.style.left = `${Math.min(zero, fillEnd)}%`;
+  ui.meterFill.style.width = `${Math.abs(fillEnd - zero)}%`;
   ui.meterMark.style.left = meterPct(swing.marker);
+  ui.meterLate.style.width = `${zero}%`;
+  ui.meterRisk.style.left = meterPct(swing.safePower);
+  ui.meterRisk.style.width = `${100 - meterValue(swing.safePower)}%`;
+  ui.meterTarget.style.left = meterPct(targetPower);
+  ui.meterIdeal.textContent = striking
+    ? 'late · draw / hook'
+    : `ideal ${Math.round(targetPower * 100)}%`;
+  ui.meterRiskCopy.textContent = striking
+    ? 'early · fade / slice'
+    : `overswing ${Math.round(swing.safePower * 100)}%+`;
 
   /* The forgiving middle, drawn where it actually is, so a player can see the
    * size of the target he is being given rather than having to infer it. */
-  ui.meterLine.style.left = meterPct(-DEAD_ZONE);
+  ui.meterLine.style.left = meterPct(-swing.deadZone);
   ui.meterLine.style.width =
-    `${((DEAD_ZONE * 2) / (1 - METER_FLOOR)) * 100}%`;
+    `${((swing.deadZone * 2) / (1 - METER_FLOOR)) * 100}%`;
 
   ui.meterHint.textContent = swing.phase === SWING_PHASE.POWER
-    ? 'CLICK: POWER'
-    : swing.phase === SWING_PHASE.STRIKE ? 'CLICK: STRIKE' : swing.strikeLabel();
+    ? liveControl.risk > 0.05 ? 'OVERSWING · CLICK TO RISK IT' : 'CLICK: SET POWER'
+    : swing.phase === SWING_PHASE.STRIKE
+      ? swing.risk > 0.05 ? 'CLICK: SMALLER SWEET SPOT' : 'CLICK: STRIKE'
+      : swing.strikeLabel();
   ui.meter.classList.toggle('strike', swing.phase === SWING_PHASE.STRIKE);
+  ui.meter.classList.toggle('overswing', liveControl.risk > 0.05);
 }
 
 /* ------------------------------------------------------------------ */
@@ -597,6 +631,7 @@ player.yawOffset = 0;
 
 function fireSwing() {
   const result = swing.result;
+  const strikeLabel = swing.strikeLabel();
   swing.reset();
   ui.meter.classList.add('hidden');
   const shot = round.playerSwing({
@@ -607,7 +642,10 @@ function fireSwing() {
   flightTimer = 0;
   ui.shot.classList.add('hidden');
   ui.aim.classList.add('hidden');
-  hud.toast(swing.strikeLabel ? '' : '');
+  const warning = result.risk > 0.05 ? ' · OVERSWING' : '';
+  const kind = result.shape === 'straight' ? 'good'
+    : result.shape === 'slice' || result.shape === 'hook' ? 'bad' : '';
+  hud.toast(`${strikeLabel} · ${Math.round(result.power * 100)}% POWER${warning}`, kind, 2600);
 }
 
 function onClick() {
@@ -662,7 +700,12 @@ window.addEventListener('keydown', (e) => {
     }
     const idx = Number(e.code.slice(5)) - 1;
     if (idx < CLUB_IDS.length && round.hasBag) {
+      if (camMode === CAM.ADDRESS && swing.phase !== SWING_PHASE.IDLE) {
+        hud.toast('Club is locked once the swing starts. Press Q to reset.', 'hint');
+        return;
+      }
       club = CLUB_IDS[idx];
+      swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
       audio.play('golf.bag', { volume: 0.4 });
       if (club === 'driver' && round.beat === BEAT.PLAYER_TEE) {
         cues.playSequence('bark.driver_on_par_three');
@@ -864,7 +907,8 @@ const pauseMenu = createPauseMenu({
     'W A S D — walk. E or Click — interact.',
     'At your ball: E — address it. Q — back off.',
     '1 — driver. 2 — iron. 3 — putter.',
-    'While addressing: mouse — aim; click — start, power, then strike.',
+    'While addressing: mouse — aim; click — start, set power, then hit the strike band.',
+    'Orange power overswings: early fades/slices right; late draws/hooks left.',
     'During dialogue: number keys — answer.',
     'R — take a drop. F — skip an NPC tee shot. M — mute.',
     'Tab — pause or resume.',
@@ -1035,7 +1079,10 @@ window.__golf = {
   get beat() { return round.beat; },
   get camMode() { return camMode; },
   get club() { return club; },
-  setClub: (c) => { club = c; },
+  setClub: (c) => {
+    club = c;
+    swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
+  },
   get aimYaw() { return aimYaw; },
   setAim: (a) => { aimYaw = a; },
   enterAddress,
