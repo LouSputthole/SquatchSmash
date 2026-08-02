@@ -42,6 +42,7 @@ export class InteractionSystem {
     this.raycaster.far = MAX_DISTANCE;
     this.targets = [];
     this.occluders = [];
+    this.exclusiveTarget = null;
     this.current = null;
     this.holdTime = 0;
     this.holding = false;
@@ -64,6 +65,14 @@ export class InteractionSystem {
   /** Geometry that may block a target without itself becoming interactive. */
   setOccluders(objects = []) { this.occluders = [...objects]; }
 
+  /** Temporarily make one authored target the whole interaction surface. */
+  setExclusiveTarget(target = null) {
+    this.release();
+    this.exclusiveTarget = target;
+    this.current = null;
+    this.hud.hidePrompt();
+  }
+
   /** Walk up the parent chain to find the object that owns the descriptor. */
   _ownerOf(object) {
     let o = object;
@@ -84,7 +93,8 @@ export class InteractionSystem {
     }
 
     this.raycaster.setFromCamera(ORIGIN, this.camera);
-    const hits = this.raycaster.intersectObjects([...this.targets, ...this.occluders], true);
+    const targets = this.exclusiveTarget ? [this.exclusiveTarget] : this.targets;
+    const hits = this.raycaster.intersectObjects([...targets, ...this.occluders], true);
 
     let found = null;
     let soft = null;

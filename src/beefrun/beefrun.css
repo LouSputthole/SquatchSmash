@@ -207,7 +207,7 @@ body.beefrun { background: #0c0c10; }
 .eng.dead .val { color: var(--br-red); text-decoration: line-through; }
 
 .misc { font-size: 0.7rem; letter-spacing: 0.1em; line-height: 1.7; opacity: 0.85; }
-#br-flaps.out { color: var(--br-amber); opacity: 1; }
+#br-flaps.out, #br-airbrake.out { color: var(--br-amber); opacity: 1; }
 #br-cargo.warn { color: var(--br-amber); }
 
 /* ---- Balance diagram ---- */

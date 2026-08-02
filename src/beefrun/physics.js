@@ -51,7 +51,7 @@ export class AircraftPhysics {
     this.controls = {
       pitch: 0, roll: 0, yaw: 0,
       throttleL: 0, throttleR: 0,
-      flaps: 0, brake: 0, parkingBrake: true,
+      flaps: 0, brake: 0, airBrake: 0, parkingBrake: true,
     };
 
     this.mass = AC.emptyMass + AC.fuelMass;
@@ -173,6 +173,7 @@ export class AircraftPhysics {
     const CD = AC.CD0 + this.damage.wing * 0.05
       + AC.kInduced * CL * CL * geDrag
       + AC.flapCD * c.flaps
+      + AC.airBrakeCD * clamp(c.airBrake || 0, 0, 1)
       + stallT * 0.09;
     const D = qbar * S * CD;
     const sideF = qbar * S * (-1.15 * beta);
@@ -317,7 +318,7 @@ export class AircraftPhysics {
       sLat.copy(sSide).multiplyScalar(-clamp(latSpeed * 0.6, -1, 1) * mu * N);
 
       // Enough to hold a run-up at three quarters power, and not much more.
-      const brakeMu = w.brake ? (c.parkingBrake ? 0.7 : c.brake * 0.58) : 0.015;
+      const brakeMu = w.brake ? (c.parkingBrake ? 0.7 : c.brake * 0.72) : 0.015;
       const rollMu = 0.02 + (this.damage.tireBurst && i === 1 ? 0.14 : 0);
       const longMag = -(brakeMu + rollMu) * N * Math.sign(fwdSpeed) * Math.min(1, Math.abs(fwdSpeed) / 1.1);
       sLong.copy(sFwd).multiplyScalar(longMag);

@@ -370,7 +370,9 @@ try {
     JSON.stringify({ width: bloodWidth, meshes: apartmentVisuals.meshes }));
   check('opening the closet moves every garment fully to one side',
     apartmentVisuals.closet.length >= 4
-      && apartmentVisuals.closet.every((hanger) => hanger.x >= 4.78 && Math.abs(hanger.yaw) >= 1.05),
+      && apartmentVisuals.closet.every((hanger) => hanger.x >= 4.88 && Math.abs(hanger.yaw) >= 1.48)
+      && Math.max(...apartmentVisuals.closet.map((hanger) => hanger.x))
+        - Math.min(...apartmentVisuals.closet.map((hanger) => hanger.x)) <= 0.05,
     JSON.stringify(apartmentVisuals.closet));
 
 

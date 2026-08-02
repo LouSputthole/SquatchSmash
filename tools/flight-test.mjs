@@ -194,9 +194,32 @@ console.log('Brushrunner flight model\n');
     throttle(p, eng, 0);
     for (let i = 0; i < 60 * 60 && p.groundSpeed > 1.5; i++) { eng.update(dt, p.tas); p.advance(dt); }
     expect('stops before runway end', p.position.z, -WP.rwyHalf, WP.rwyHalf, ' m');
-    expect('braking distance home', p.position.z - z0, 60, 460, ' m');
+    expect('braking distance home', p.position.z - z0, 60, 330, ' m');
     console.log(results.splice(0).join('\n'));
   }
+}
+
+/* ---------------------------------------------------------------- */
+/* The air brake is a real aerodynamic control, not just a HUD lamp  */
+/* ---------------------------------------------------------------- */
+{
+  const coast = (airBrake) => {
+    const { p, eng } = rig();
+    p.setPose(new THREE.Vector3(0, 900, 0), 0, 55);
+    p.controls.airBrake = airBrake;
+    p.controls.parkingBrake = false;
+    throttle(p, eng, 0);
+    for (let i = 0; i < 60 * 5; i++) {
+      eng.update(dt, p.tas);
+      p.advance(dt);
+    }
+    return p.ias;
+  };
+  const clean = coast(0);
+  const deployed = coast(1);
+  console.log('\nAir brake from cruise speed:');
+  expect('five-second speed reduction beyond clean drag', clean - deployed, 5, 30, ' m/s');
+  console.log(results.splice(0).join('\n'));
 }
 
 /* ---------------------------------------------------------------- */
@@ -456,7 +479,7 @@ console.log('Brushrunner flight model\n');
     p.controls.brake = 1;
     throttle(p, eng, 0);
     for (let i = 0; i < 60 * 60 && p.groundSpeed > 1.5; i++) { eng.update(dt, p.tas); p.advance(dt); }
-    expect('braking distance', z0 - p.position.z, 60, 460, ' m');
+    expect('braking distance', z0 - p.position.z, 60, 330, ' m');
     console.log(results.splice(0).join('\n'));
   }
 }

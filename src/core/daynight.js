@@ -38,6 +38,14 @@ const KEYS = [
     sun: { i: 0.26, c: 0x8fa4dd }, hemi: { i: 0.34, sky: 0x33405f, ground: 0x111219 },
     amb: { i: 0.20, c: 0x4c587a }, fog: 0x0a0e18, fill: 0.18, exposure: 1.28,
   },
+  /* Day One opens at 06:04. Give that authored wake a fully dawn-painted
+   * exterior rather than making it the tail end of a night-to-dawn dissolve:
+   * through the apartment window the old blend still read as deep night. */
+  {
+    h: 5.75, sky: 'dawn',
+    sun: { i: 0.68, c: 0xf39a72 }, hemi: { i: 0.52, sky: 0x596985, ground: 0x271f1d },
+    amb: { i: 0.31, c: 0x747d96 }, fog: 0x15151e, fill: 0.33, exposure: 1.23,
+  },
   {
     h: 6.5, sky: 'dawn',
     sun: { i: 1.55, c: 0xffb478 }, hemi: { i: 0.75, sky: 0x6d7d9e, ground: 0x352a20 },

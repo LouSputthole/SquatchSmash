@@ -370,17 +370,20 @@ export function makeBall(scene, colour = 0xf4f6f8) {
  * The ball remains regulation size. This is a separate translucent course
  * marker, so readability never changes collision or shot physics.
  */
-export function makeBallMarker(scene) {
+export function makeBallMarker(scene, {
+  name = 'player-ball-ground-marker', colour = 0xb998ff,
+  radius = 0.52, glowOpacity = 0.16,
+} = {}) {
   const group = new THREE.Group();
-  group.name = 'player-ball-ground-marker';
-  group.userData.radius = 0.52;
+  group.name = name;
+  group.userData.radius = radius;
 
   const glow = new THREE.Mesh(
-    new THREE.CircleGeometry(0.43, 32),
+    new THREE.CircleGeometry(radius * 0.83, 32),
     new THREE.MeshBasicMaterial({
-      color: 0xb998ff,
+      color: colour,
       transparent: true,
-      opacity: 0.16,
+      opacity: glowOpacity,
       depthWrite: false,
       side: THREE.DoubleSide,
     }),
@@ -390,9 +393,9 @@ export function makeBallMarker(scene) {
   group.add(glow);
 
   const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.52, 0.035, 8, 40),
+    new THREE.TorusGeometry(radius, Math.max(0.018, radius * 0.067), 8, 40),
     new THREE.MeshBasicMaterial({
-      color: 0xd8c5ff,
+      color: colour,
       transparent: true,
       opacity: 0.92,
       depthWrite: false,
@@ -473,6 +476,20 @@ export class Golfer {
     });
     this.parts = this.npc.parts;
     this.group = this.npc.group;
+
+    /* The shared club figure's `body` pivots at ground level because its
+     * ordinary animations are small. A golf turn is not small: rotating that
+     * whole group made the chest orbit away from the planted hips. Reparent
+     * the upper body under a real hip-height hinge while leaving the pelvis
+     * and both legs on the original root. `attach` preserves every authored
+     * world transform, face, accessory and outfit detail. */
+    const upper = this.parts.body.children.filter((child) => child !== this.parts.hips);
+    this.swingPivot = new THREE.Group();
+    this.swingPivot.name = 'golf-upper-body-pivot';
+    this.swingPivot.position.y = 0.98;
+    this.parts.body.add(this.swingPivot);
+    this.parts.body.updateMatrixWorld(true);
+    for (const child of upper) this.swingPivot.attach(child);
 
     /* The club hangs off the right forearm. `foreR` is a group pivoting at the
      * elbow with the forearm running down −Y, so a club parented here points
@@ -732,8 +749,13 @@ export class Golfer {
     this._setPlayingClubPose();
     p.armL.rotation.x = pose.arm;
     p.armR.rotation.x = pose.arm;
-    p.body.rotation.x = pose.bend;
-    p.body.rotation.y = pose.turn;
+    /* Hips share a little turn; shoulders do the rest around the hip hinge.
+     * There is no ground-level forward rotation, so the waist cannot detach
+     * from the legs at the top or finish. */
+    p.body.rotation.x = 0;
+    p.body.rotation.y = pose.turn * 0.24;
+    this.swingPivot.rotation.x = pose.bend * 0.72;
+    this.swingPivot.rotation.y = pose.turn * 0.76;
     // The head stays down on the ball while the shoulders turn under it.
     p.head.rotation.y = -pose.turn * 0.45;
     p.head.rotation.x = 0.22 - pose.bend * 0.3;
@@ -823,6 +845,7 @@ export class Golfer {
   }
 
   _pickup() {
+    this._resetSwingPivot();
     const dur = 0.85;
     const k = Math.min(1, this._t / dur);
     // Down, pinch, up.
@@ -841,6 +864,7 @@ export class Golfer {
   }
 
   _lean() {
+    this._resetSwingPivot();
     const p = this.parts;
     // Both hands stacked on the grip, weight on it, in no hurry at all.
     p.armR.rotation.x = 0.95;
@@ -850,6 +874,7 @@ export class Golfer {
   }
 
   _crouchAction(dur) {
+    this._resetSwingPivot();
     const k = Math.min(1, this._t / dur);
     const down = Math.sin(k * Math.PI);
     const p = this.parts;
@@ -874,8 +899,13 @@ export class Golfer {
     p.shinL.rotation.x = 0;
     p.shinR.rotation.x = 0;
     p.body.rotation.set(0, 0, 0);
+    this._resetSwingPivot();
     p.head.rotation.set(0, 0, 0);
     this._setCarryClubPose();
+  }
+
+  _resetSwingPivot() {
+    this.swingPivot?.rotation.set(0, 0, 0);
   }
 }
 

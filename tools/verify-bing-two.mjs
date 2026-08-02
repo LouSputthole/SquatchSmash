@@ -297,6 +297,59 @@ try {
       && spawnMoveDelta > 0.08,
     JSON.stringify({ movementBefore, movementAfter, spawnMoveDelta }));
 
+  const partyPresentation = await page.evaluate(() => {
+    const { party } = window.HOTDOG_INCIDENT;
+    const photoFaces = ['ape', 'hogmama', 'shubenator', 'snow'].map((id) => {
+      const npc = party.byId[id];
+      let mapped = 0;
+      npc?.parts.head.traverse((node) => {
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        mapped += materials.filter((material) => material?.map).length;
+      });
+      return { id, mapped };
+    });
+    const wrapBody = party.cleanup.wrap.getObjectByName('hotdog.wrap-body');
+    return {
+      lawnmowerIsSnow: party.extra.lawnmower === party.byId.snow,
+      castUnique: new Set(party.all).size === party.all.length,
+      aliases: party.byId.snow.aliases,
+      photoFaces,
+      hogMamaZ: party.byId.hogmama.position.z,
+      micZ: party.stage.mic.getWorldPosition(new window.HOTDOG_INCIDENT.three.Vector3()).z,
+      spotlight: {
+        name: party.stage.spotlight.name,
+        intensity: party.stage.spotlight.intensity,
+      },
+      bloodPresentation: party.cleanup.blood.userData.presentation,
+      bloodGeometry: party.cleanup.blood.children.map((child) => child.geometry?.type),
+      wrapGeometry: wrapBody?.geometry?.type,
+      wrapRadius: wrapBody?.geometry?.parameters?.radius,
+      evidenceMarkers: Object.keys(party.cleanup.evidenceMarkers),
+      serviceGuide: {
+        visible: party.cleanup.serviceGuide.visible,
+        text: party.cleanup.serviceGuide.userData.guidanceText,
+        parts: party.cleanup.serviceGuide.children.length,
+      },
+    };
+  });
+  check('the closed party uses canonical faces, one Snow/Lawnmower identity, and readable cleanup presentation',
+    partyPresentation.lawnmowerIsSnow
+      && partyPresentation.castUnique
+      && partyPresentation.aliases.includes('Lawnmower')
+      && partyPresentation.photoFaces.every(({ mapped }) => mapped >= 1)
+      && partyPresentation.hogMamaZ > -4
+      && partyPresentation.micZ > -4
+      && partyPresentation.spotlight.name === 'hogmama.spotlight'
+      && partyPresentation.spotlight.intensity === 0
+      && partyPresentation.bloodPresentation === 'irregular-floor-splatter'
+      && !partyPresentation.bloodGeometry.includes('CircleGeometry')
+      && partyPresentation.wrapGeometry === 'CapsuleGeometry'
+      && partyPresentation.wrapRadius >= 0.4
+      && partyPresentation.evidenceMarkers.length === 2
+      && !partyPresentation.serviceGuide.visible
+      && partyPresentation.serviceGuide.parts >= 4,
+    JSON.stringify(partyPresentation));
+
   const physical = await page.evaluate(() => {
     const incident = window.HOTDOG_INCIDENT;
     const { party, club } = incident;
@@ -438,10 +491,38 @@ try {
       && !physical.tinyEvidenceIsSolid,
     JSON.stringify(physical));
 
+  await page.evaluate(() => window.HOTDOG_INCIDENT.beginSequence());
+  await page.waitForFunction(
+    () => window.HOTDOG_INCIDENT.state.director.current?.who === 'Shubenator',
+    null,
+    { timeout: 5000 },
+  );
+  const directedOpening = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    return {
+      missionState: incident.mission.state,
+      current: incident.state.director.current?.who,
+      cinematic: incident.state.cinematic.active,
+      shot: incident.state.cinematic.shot,
+      spotlight: incident.party.stage.spotlight.intensity,
+      camera: incident.camera?.position?.toArray?.() || null,
+      gapAfter: incident.state.director.current?.gapAfter,
+    };
+  });
+  check('Shubenator finishes the pre-set introduction under an authored stage camera and dedicated spotlight',
+    directedOpening.missionState === 'performance'
+      && directedOpening.current === 'Shubenator'
+      && directedOpening.cinematic
+      && directedOpening.shot === 'hogmama-stage-edge'
+      && directedOpening.spotlight > 0
+      && directedOpening.gapAfter > 0,
+    JSON.stringify(directedOpening));
+
   const attack = await page.evaluate(() => {
     const incident = window.HOTDOG_INCIDENT;
     incident.mission.enteredClub();
-    const performance = incident.mission.startPerformance();
+    incident.state.director.running = false;
+    const performance = incident.mission.state === 'performance' || incident.mission.startPerformance();
     const setFinished = incident.mission.finishPerformance();
     const attacked = incident.mission.startAttack();
     incident.state.director.waitingForGun = true;
@@ -470,13 +551,14 @@ try {
   const cleanup = await page.evaluate((tasks) => {
     const incident = window.HOTDOG_INCIDENT;
     const completed = tasks.map((task) => [task, incident.completeCleanupTask(task)]);
-    const wrapped = incident.mission.wrapBody();
-    const assigned = incident.mission.assign('reserve_pickup');
-    const banked = incident.story.completeClub({
-      assignment: incident.mission.assignment,
-      bodyWrapped: incident.mission.flags.bodyWrapped,
-      bodyLoaded: incident.mission.flags.bodyLoaded,
-    });
+    incident.party.extra.hotdog.group.userData.interact.onUse();
+    const wrapped = incident.mission.flags.bodyWrapped && incident.state.wrapped;
+    const guideAfterWrap = incident.party.cleanup.serviceGuide.visible;
+    const loadObjective = incident.mission.objectives.find((objective) => objective.id === 'load')?.text;
+    incident.party.cleanup.loadPad.userData.interact.onUse();
+    const assigned = incident.mission.assignment === 'reserve_pickup';
+    const guideAfterLoad = incident.party.cleanup.serviceGuide.visible;
+    const banked = incident.campaignState.missions.bada_bing_two.checkpoint === 'body_loaded';
 
     // The authored handoff remains the thing that exposes the route button.
     const handoffAt = incident.sequence.findIndex((beat) => beat.phase === 'handoff');
@@ -489,13 +571,16 @@ try {
       incident.state.director.remaining = 0;
       if (incident.game.phase === 'complete') clearInterval(window.__fastHotDogHandoff);
     }, 12);
-    return { completed, wrapped, assigned, banked };
+    return { completed, wrapped, assigned, banked, guideAfterWrap, guideAfterLoad, loadObjective };
   }, CLEANUP_TASKS);
   check('the compact cleanup banks all four jobs, wrapping, and loading',
     cleanup.completed.every(([, ok]) => ok)
       && cleanup.wrapped
       && cleanup.assigned
-      && cleanup.banked,
+      && cleanup.banked
+      && cleanup.guideAfterWrap
+      && !cleanup.guideAfterLoad
+      && /service-exit arrows/i.test(cleanup.loadObjective),
     JSON.stringify(cleanup));
 
   await page.waitForFunction(

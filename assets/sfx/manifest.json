@@ -2228,6 +2228,56 @@
       "prompt": "open-water bow wash and foaming wake sliding along both sides of a medium cabin cruiser at steady speed, rhythmic chop against fiberglass, seamless loop, isolated water stem, no engine, no music, no voice"
     },
     {
+      "_comment": "NO WAKE static marina bed at Gate C and under the open-water quiet.",
+      "name": "ambience.harbor",
+      "duration": 10,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "South Harbor marina in early afternoon, small water laps against pilings and fiberglass hulls, distant rigging ticks, soft open-water air, sparse far-off marina activity, seamless loop, no rain, no engine, no voices, no music"
+    },
+    {
+      "_comment": "NO WAKE intermittent wildlife layer, kept isolated so the runtime can vary its timing.",
+      "name": "seagull.distant",
+      "duration": 2.2,
+      "promptInfluence": 0.55,
+      "prompt": "one distant herring gull calling twice over an open marina, natural spacing and broad outdoor air, isolated bird, no waves, no people, no music"
+    },
+    {
+      "_comment": "NO WAKE slow hull movement while tied up or drifting at idle.",
+      "name": "boat.hull.creak",
+      "duration": 2.4,
+      "promptInfluence": 0.55,
+      "prompt": "fiberglass cabin cruiser rocking gently at a dock, one restrained hull flex creak, fender rubber squeeze and light stainless fitting tick, close exterior, no engine, no voice, no music"
+    },
+    {
+      "_comment": "Margo apartment dress-help foley variation 1 of 4; randomize without immediate repeats.",
+      "name": "margo.dress.body-impact.1",
+      "duration": 0.75,
+      "promptInfluence": 0.58,
+      "prompt": "soft comedic impact of two heavy clothed pieces of meat bumping together once, dense rounded body slap, close apartment interior, restrained and nonsexual, no voice, no music"
+    },
+    {
+      "_comment": "Margo apartment dress-help foley variation 2 of 4; slightly lower and heavier.",
+      "name": "margo.dress.body-impact.2",
+      "duration": 0.8,
+      "promptInfluence": 0.56,
+      "prompt": "one low heavy clothed body bump with a soft double slap and short fabric rustle, like two cuts of meat meeting through clothes, close interior, comedic restraint, no voice, no music"
+    },
+    {
+      "_comment": "Margo apartment dress-help foley variation 3 of 4; quicker fabric-led hit.",
+      "name": "margo.dress.body-impact.3",
+      "duration": 0.65,
+      "promptInfluence": 0.57,
+      "prompt": "quick soft clothed hip-to-body bump, compact meaty thump followed by a tiny fabric brush, dry apartment room, playful physical comedy, no voice, no music"
+    },
+    {
+      "_comment": "Margo apartment dress-help foley variation 4 of 4; broadest rounded slap.",
+      "name": "margo.dress.body-impact.4",
+      "duration": 0.85,
+      "promptInfluence": 0.55,
+      "prompt": "broad rounded clothed body slap with two close soft impacts and a faint bed-spring response, heavy but harmless physical comedy, apartment interior, no voice, no music"
+    },
+    {
       "name": "boat.rope.release",
       "duration": 1.5,
       "promptInfluence": 0.56,
@@ -13586,6 +13636,16 @@
       "say": "Eat. Dress plain. I will call when the car is moving."
     },
     {
+      "name": "vo.nowake.start.lou.platform.1",
+      "voice": "lou",
+      "say": "Prospect. The platform is down. Walk it onto the port deck and do not make me come back for you."
+    },
+    {
+      "name": "vo.nowake.start.booski.sequence.1",
+      "voice": "booski",
+      "say": "Battery, blower, ignition. Then both lines. The helm is through the open port side."
+    },
+    {
       "name": "vo.nowake.cruise.willy.cigars.1",
       "voice": "willy",
       "say": "This old girl still smells like Lou’s cigars. He sold the ashtrays but kept the smell."
@@ -13656,9 +13716,9 @@
       "say": "We know you did. The only question left is whether you make us hear you deny it again."
     },
     {
-      "name": "vo.nowake.reveal.willy.head.1",
+      "name": "vo.nowake.reveal.willy.head-v2.1",
       "voice": "willy",
-      "say": "I need the head."
+      "say": "I need the head. Too much coffee on the ride down. Everybody relax."
     },
     {
       "name": "vo.nowake.below.booski.look.1",

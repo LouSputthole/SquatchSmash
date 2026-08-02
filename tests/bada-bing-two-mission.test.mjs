@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import * as THREE from 'three';
 
@@ -106,6 +107,28 @@ test('the authored party sequence keeps the relaxed set, escalation, sudden atta
     },
   );
   assert.equal(sequence.indexOf(signature), music + 1, 'signature lands immediately after the music cut');
+  assert.ok(
+    sequence.filter((beat) => ['tension', 'attack'].includes(beat.phase)).every((beat) => beat.gapAfter >= 0.25),
+    'the argument and murder beats breathe instead of firing as one continuous subtitle block',
+  );
+});
+
+test('the closed-party stage and cleanup read clearly from the playable floor', () => {
+  const source = fs.readFileSync(new URL('../src/bing/hotdog-party.js', import.meta.url), 'utf8');
+  assert.match(source, /new THREE\.SpotLight/);
+  assert.match(source, /mic\.position\.set\(-12, 0, -3\.45\)/);
+  assert.match(source, /new THREE\.ShapeGeometry\(shape\)/);
+  assert.doesNotMatch(source, /new THREE\.CircleGeometry\(1\.15/);
+  assert.match(source, /new THREE\.CapsuleGeometry\(0\.46, 1\.25/);
+  assert.match(source, /const evidenceMarkers = \{/);
+  assert.match(source, /const serviceGuide = group\('service-exit-guide'\)/);
+});
+
+test('the HotDog runtime uses canonical faces and one Snow/Lawnmower body', () => {
+  const source = fs.readFileSync(new URL('../src/bing/hotdog-party.js', import.meta.url), 'utf8');
+  assert.match(source, /await loadFaceIndex\(\)/);
+  assert.match(source, /const lawnmower = byId\[CHARACTER_IDS\.SNOW\]/);
+  assert.doesNotMatch(source, /makeNpc\(scene, club, \{\s*name: 'Lawnmower'/);
 });
 
 test('completed cleanup tasks restore every matching party prop and pad', () => {

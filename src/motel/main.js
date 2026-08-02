@@ -7,6 +7,10 @@ import { Effects } from '../../game/src/effects.js';
 import { lambert } from '../../game/src/world.js';
 import * as sfx from './audio.js';
 import {
+  prepareVoice as prepareMotelVoice,
+  stopVoice as stopMotelVoice,
+} from './audio.js';
+import {
   NODES, STYLES, STYLE_LABEL, SELLER_BARKS, PROSPECT_BARKS, SNOW_BARKS,
   FIGHT_BARKS, SNOW_FIGHT_BARKS, ENDING,
 } from './dialogue.js';
@@ -22,7 +26,7 @@ import { createMotelStory } from '../core/motel-story.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { motelVoiceCue } from './voice.js';
 import { motelVoiceCueSet } from './voice-catalog.js';
-import { nextLineDelayMs, resolveLineHold } from './dialogue-timing.js';
+import { DialogueFloor, nextLineDelayMs, resolveLineHold } from './dialogue-timing.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 
 // ---------------------------------------------------------------------------
@@ -268,6 +272,8 @@ let inspecting = false;
 let playerMoving = false;
 let dialogue = null;    // { nodeId, node, opts }
 let subtitleT = 0;
+const speechFloor = new DialogueFloor({ nowSeconds: () => performance.now() / 1000 });
+const speechTimers = new Set();
 const carriedCases = { money: null, jerky: null };
 
 // ---------- Input ----------
@@ -526,22 +532,50 @@ function toast(text, cls = '', sub = '') {
 const authoredMotelVoice = motelVoiceCueSet();
 
 function say(who, line, seconds = 3.4, cue = null) {
+  if (phase === 'end') return 0;
   const cls = who === 'Prospect' ? 'who prospect' : who === '*' ? 'stage' : 'who';
+  const show = () => {
   subtitleEl.innerHTML = who === '*'
     ? `<span class="stage">${line}</span>`
     : `<span class="${cls}">${who}</span> — ${line}`;
   subtitleEl.classList.add('show');
+  };
   /* Exact words, not an optional call-site argument, own the recording. That
    * makes it impossible for a character subtitle to silently bypass VO. */
   const requestedCue = who === '*' ? null : motelVoiceCue(who, line);
   if (requestedCue && !authoredMotelVoice.has(requestedCue)) {
     console.error(`Uncatalogued Motel voice line: ${who}: ${line}`);
   }
-  const spoken = requestedCue ? sfx.voice(requestedCue) : 0;
-  subtitleT = resolveLineHold(seconds, spoken);
-  if (spoken <= 0) sfx.blip();
+  const prepared = requestedCue ? prepareMotelVoice(requestedCue) : { duration: 0, play: () => 0 };
+  const hold = resolveLineHold(seconds, prepared.duration);
+  const slot = speechFloor.reserve(hold);
+  const begin = () => {
+    show();
+    subtitleT = slot.holdSeconds;
+    const spoken = prepared.play();
+    if (spoken <= 0) sfx.blip();
+    const actor = actors.find((candidate) => candidate.name === who);
+    if (actor) actor.talkT = slot.holdSeconds;
+  };
+  if (slot.delaySeconds > 0) {
+    const timer = setTimeout(() => {
+      speechTimers.delete(timer);
+      if (phase !== 'end') begin();
+    }, slot.delaySeconds * 1000);
+    speechTimers.add(timer);
+  } else {
+    begin();
+  }
   void cue; // legacy beat arguments remain accepted while exact cues take over
-  return subtitleT;
+  return slot.totalSeconds;
+}
+
+function resetSpeechFloor() {
+  for (const timer of speechTimers) clearTimeout(timer);
+  speechTimers.clear();
+  speechFloor.reset();
+  subtitleT = 0;
+  stopMotelVoice();
 }
 
 /** Give the current take ownership of the voice floor before continuing. */
@@ -629,6 +663,7 @@ function startScene() {
   if (campaign.state.scene.id !== SCENE_IDS.JERKY_MOTEL) {
     campaign.enter(SCENE_IDS.JERKY_MOTEL, { spawn: 'passenger_seat' });
   }
+  resetSpeechFloor();
   sfx.init();
   sfx.resume();
   sfx.startAmbience();
@@ -684,6 +719,7 @@ function finishScene(kind) {
   }
   lastEndingKind = kind;
   phase = 'end';
+  resetSpeechFloor();
   sfx.setMusic('none');
   sfx.stopAmbience();
   sfx.stopEngine();
@@ -1471,7 +1507,7 @@ function offerBetrayal() {
 function openDialogue(nodeId) {
   const node = NODES[nodeId];
   if (!node) return;
-  dialogue = { nodeId, node };
+  dialogue = { nodeId, node, readyAt: Infinity };
   wheelHeadEl.innerHTML = `<span class="who">${node.speaker}</span> — ${node.line}`;
   wheelOptsEl.innerHTML = '';
   STYLES.forEach((style, i) => {
@@ -1479,6 +1515,7 @@ function openDialogue(nodeId) {
     if (!opt) return;
     const b = document.createElement('button');
     b.className = 'opt';
+    b.disabled = true;
     b.dataset.style = style;
     b.innerHTML = `<span class="key">${i + 1}</span><span><span class="style">${STYLE_LABEL[style]}</span>${opt.text}</span>`;
     b.addEventListener('click', () => pickDialogue(style));
@@ -1487,7 +1524,13 @@ function openDialogue(nodeId) {
   wheelEl.classList.add('show');
   slowTintEl.classList.add('on');
   timeScale = 0.35;   // time slows; it does not stop
-  say(node.speaker, node.line, 4.5, cueFor(node.speaker, nodeId));
+  const promptHold = say(node.speaker, node.line, 4.5, cueFor(node.speaker, nodeId));
+  const opened = dialogue;
+  opened.readyAt = performance.now() + promptHold * 1000;
+  afterLine(promptHold, () => {
+    if (dialogue !== opened) return;
+    for (const button of wheelOptsEl.querySelectorAll('button.opt')) button.disabled = false;
+  }, 0);
 }
 
 function closeDialogue() {
@@ -1499,6 +1542,7 @@ function closeDialogue() {
 
 function pickDialogue(style) {
   if (!dialogue) return;
+  if (performance.now() < dialogue.readyAt) return;
   const { nodeId, node } = dialogue;
   const opt = node.options[style];
   if (!opt) return;
@@ -2665,8 +2709,11 @@ function updateViewmodel() {
   if (kind !== viewmodelKind) {
     viewmodelKind = kind;
     viewmodel.clear();
+    viewmodel.userData.equippedWeapon = null;
     if (kind) {
       const mesh = buildWeaponMesh(kind);
+      mesh.userData.presentation = 'first-person-equipped';
+      mesh.userData.weaponKind = kind;
       /* The world meshes are built to sit in somebody's fist at arm's length.
        * Held against the lens they want turning muzzle-forward, scaling down,
        * and re-centring on their own bounding box — the builders put their
@@ -2689,6 +2736,7 @@ function updateViewmodel() {
         }
       });
       viewmodel.add(mesh);
+      viewmodel.userData.equippedWeapon = kind;
     }
   }
   viewmodel.visible = !!kind && phase !== 'menu' && phase !== 'end'
@@ -2730,7 +2778,8 @@ function inventoryItems() {
     items.push({
       id: `weapon:${S.weapon}`,
       icon: weapon.ammo ? '🔫' : '🔧',
-      text: weapon.name + (weapon.ammo ? ` · ${S.ammo} rounds` : ''),
+      text: `${weapon.name} · EQUIPPED${weapon.ammo ? ` · ${S.ammo}/${weapon.ammo}` : ''}`,
+      selected: true,
     });
   }
   if (S.carryingMoney && !S.couponOnly) items.push({ id: 'money', icon: '💼', text: '$40,000, mostly' });
@@ -2761,7 +2810,7 @@ function renderInventory() {
   packBoxEl.classList.toggle('empty', items.length === 0);
   packListEl.innerHTML = items.map((item) => {
     const fresh = packShown.has(item.id) ? '' : ' new';
-    return `<div class="item${item.dim ? ' dim' : ''}${fresh}">`
+    return `<div class="item${item.dim ? ' dim' : ''}${item.selected ? ' equipped' : ''}${fresh}">`
       + `<span class="tag">${item.icon}</span> ${item.text}</div>`;
   }).join('');
   packShown = new Set(items.map((item) => item.id));
@@ -2769,8 +2818,8 @@ function renderInventory() {
 
 function updateGear() {
   const st = WEAPON_STATS[S.weapon] || WEAPON_STATS.fists;
-  weaponNameEl.textContent = st.name + (st.ammo ? ` · ${S.ammo}` : '');
-  weaponSubEl.textContent = `${st.improvised === false ? 'seized' : 'improvised'} · ${st.lethal ? 'lethal' : 'non-lethal'}`;
+  weaponNameEl.textContent = st.name + (st.ammo ? ` · ${S.ammo}/${st.ammo}` : '');
+  weaponSubEl.textContent = `EQUIPPED · ${st.improvised === false ? 'seized' : 'improvised'} · ${st.lethal ? 'lethal' : 'non-lethal'}`;
   const carry = [];
   if (S.carryingMoney) carry.push('💼 $40,000');
   if (S.couponOnly) carry.push('🎟️ one expired coupon');
@@ -3310,7 +3359,7 @@ function updateAmbient(dt) {
 
   // Chatter
   barkT -= dt;
-  if (barkT <= 0) {
+  if (barkT <= 0 && !speechFloor.busy()) {
     barkT = 7 + Math.random() * 7;
     if (phase === 'room' && !dialogue && !S.betrayed) {
       const i = Math.floor(Math.random() * SELLER_BARKS.length);
@@ -3548,7 +3597,8 @@ window.MOTEL = {
     cueForLine: motelVoiceCue,
     coverage: () => sfx.voiceCoverage(),
     get requested() { return [...sfx.voiceRequested]; },
-    busy: () => sfx.voiceBusy(),
+    busy: () => speechFloor.busy(),
+    playing: () => sfx.voiceBusy(),
   },
   /* The HUD inventory and the thing in his hands, for the verifier. */
   get inventory() { return inventoryItems(); },

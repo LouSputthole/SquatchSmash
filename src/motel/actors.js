@@ -73,6 +73,8 @@ function buildHumanRig(cfg = {}) {
   const head = new THREE.Group();
   head.position.set(0, 1.84, 0);
   const eyes = [];
+  let face = null;
+  let mouth = null;
   if (cfg.face) {
     /* A photographed Family face: the picture on the +z side of the skull and
      * hair colour on the other five, the same technique the Initiation and the
@@ -86,9 +88,13 @@ function buildHumanRig(cfg = {}) {
       [wrap, wrap, wrap, wrap, faceMat, wrap],
     );
     skull.castShadow = true;
+    skull.name = `actor.face.${cfg.identity || cfg.name?.toLowerCase() || 'photo'}`;
+    face = skull;
     head.add(skull);
   } else {
     const skull = box(0.25, 0.3, 0.25, skin);
+    skull.name = `actor.face.${cfg.identity || cfg.name?.toLowerCase() || 'procedural'}`;
+    face = skull;
     head.add(skull);
     const hairCap = box(0.27, 0.09, 0.27, hair);
     hairCap.position.y = 0.15;
@@ -102,6 +108,10 @@ function buildHumanRig(cfg = {}) {
       head.add(e);
       eyes.push(e);
     }
+    mouth = box(0.105, 0.018, 0.022, cfg.mouthColor ?? 0x4b1d1d);
+    mouth.name = 'actor.mouth';
+    mouth.position.set(0, -0.085, 0.137);
+    head.add(mouth);
   }
   body.add(head);
 
@@ -172,7 +182,7 @@ function buildHumanRig(cfg = {}) {
   group.traverse((o) => { if (o.isMesh) o.castShadow = true; });
 
   return {
-    group, body, head, torso, armL, armR, legL, legR, eyes,
+    group, body, head, faceMesh: face, mouth, torso, armL, armR, legL, legR, eyes,
     height: 1.9, handY: -0.72, radius: 0.42, species: 'human',
     face: cfg.face ?? null,
   };
@@ -423,13 +433,39 @@ const WEAPON_BUILDERS = {
   },
   revolver: () => {
     const g = new THREE.Group();
-    g.add(box(0.1, 0.24, 0.14, 0x3a3a42));
+    g.name = 'revolver';
+    const frame = box(0.13, 0.2, 0.22, 0x3a3a42);
+    frame.name = 'revolver.frame';
+    g.add(frame);
     const barrel = box(0.09, 0.1, 0.42, 0x55555f);
-    barrel.position.set(0, 0.08, 0.24);
+    barrel.name = 'revolver.barrel';
+    barrel.position.set(0, 0.08, 0.3);
     g.add(barrel);
-    const drum = box(0.14, 0.14, 0.16, 0x6a6a72);
-    drum.position.set(0, 0.06, 0.06);
+    const drum = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.105, 0.105, 0.18, 12),
+      lambert(0x6a6a72, { emissive: 0x18181c }),
+    );
+    drum.name = 'revolver.cylinder';
+    drum.rotation.z = Math.PI / 2;
+    drum.position.set(0, 0.04, 0.09);
     g.add(drum);
+    const grip = box(0.12, 0.32, 0.16, 0x4b2b1c);
+    grip.name = 'revolver.grip';
+    grip.position.set(0, -0.23, -0.01);
+    grip.rotation.x = -0.22;
+    g.add(grip);
+    const muzzle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.045, 0.012, 6, 14),
+      lambert(0x24242a, { emissive: 0x0b0b0d }),
+    );
+    muzzle.name = 'revolver.muzzle';
+    muzzle.position.set(0, 0.08, 0.515);
+    g.add(muzzle);
+    const hammer = box(0.07, 0.09, 0.08, 0x303038);
+    hammer.name = 'revolver.hammer';
+    hammer.position.set(0, 0.15, -0.05);
+    hammer.rotation.x = -0.35;
+    g.add(hammer);
     return g;
   },
 };
@@ -610,6 +646,7 @@ export class Actor {
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     this.attackCd = Math.max(0, this.attackCd - dt);
     this.gestureT = Math.max(0, this.gestureT - dt);
+    this.talkT = Math.max(0, this.talkT - dt);
 
     let moving = false;
     let speed = this.speed;
@@ -637,7 +674,6 @@ export class Actor {
 
         case 'deal': // standing in the room, working the conversation
           this.faceTo(px, pz, dt, 4);
-          if (this.talkT > 0) this.talkT -= dt;
           break;
 
         case 'guard': { // hold a spot, drift back to it
@@ -790,6 +826,11 @@ export class Actor {
       this.rig.armR.rotation.x = -gait * 0.7;
     }
     this.rig.body.position.y = moving ? Math.abs(Math.sin(this.walkT)) * 0.06 : 0;
+    if (this.rig.mouth) {
+      this.rig.mouth.scale.y = this.talkT > 0
+        ? 1.35 + Math.abs(Math.sin((this.walkT + this.talkT) * 11)) * 1.1
+        : 1;
+    }
 
     // Hit flash
     if (this.hitFlash > 0) {
@@ -853,7 +894,7 @@ export const CAST = {
     hp: 160, speed: 5.4, scale: 1.08,
   }),
   rico: () => ({
-    name: 'Rico', role: 'seller', skin: SKIN_TONES[1], hair: 0x1d140e,
+    identity: 'rico', name: 'Rico', role: 'seller', skin: SKIN_TONES[1], hair: 0x1d140e,
     shirt: 0xe8dcc0, pants: 0xe8e4d8, shoes: 0xf0ece0,   // suspiciously clean shoes
     tropical: 0xd94f8a, shades: true, mustache: true, chain: true,
     hp: 95, speed: 5.4, weapon: 'thermometer', scale: 1.02,

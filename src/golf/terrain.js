@@ -358,7 +358,7 @@ function buildFlag(scene) {
   g.position.set(HOLE.pin.x, base, HOLE.pin.z);
 
   const pole = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.022, 0.022, HOLE.flagHeight, 6),
+    new THREE.CylinderGeometry(0.032, 0.032, HOLE.flagHeight, 8),
     mat({ color: 0xe8e8ec, roughness: 0.5 }),
   );
   pole.position.y = HOLE.flagHeight / 2;
@@ -374,10 +374,26 @@ function buildFlag(scene) {
   liner.position.y = -0.15;
   g.add(liner);
 
+  /* A readable cup target that does not alter ball physics. The translucent
+   * ring sits on the turf and remains legible through the mist on holes two
+   * and three; standing over it still reveals the regulation-size liner. */
+  const halo = new THREE.Mesh(
+    new THREE.RingGeometry(0.42, 0.55, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0xd6c4ff, transparent: true, opacity: 0.42,
+      depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+    }),
+  );
+  halo.name = `hole-${HOLE.number}-cup-halo`;
+  halo.rotation.x = -Math.PI / 2;
+  halo.position.y = 0.025;
+  halo.renderOrder = 75;
+  g.add(halo);
+
   /* Club colours, on the one piece of the course everybody looks at from a
    * hundred and sixty-seven yards away. Its own material because it moves. */
-  const clothGeo = new THREE.PlaneGeometry(0.76, 0.48, 8, 3);
-  clothGeo.translate(0.38, 0, 0);      // hinge at the pole, not the middle
+  const clothGeo = new THREE.PlaneGeometry(1.02, 0.62, 8, 3);
+  clothGeo.translate(0.51, 0, 0);      // hinge at the pole, not the middle
   const clothMat = new THREE.MeshStandardMaterial({
     color: 0x9a6ff0, roughness: 0.8, side: THREE.DoubleSide,
     emissive: 0x2a1550, emissiveIntensity: 0.5,
@@ -388,7 +404,7 @@ function buildFlag(scene) {
   g.add(cloth);
 
   scene.add(g);
-  return { group: g, cloth, base };
+  return { group: g, cloth, halo, base };
 }
 
 /** The purple-and-silver markers this club uses instead of tee boxes. */

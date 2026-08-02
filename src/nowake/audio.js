@@ -1,6 +1,9 @@
 /** Recorded one-shots and beds requested directly by the NO WAKE runtime. */
 export const NO_WAKE_AUDIO_CUE_NAMES = Object.freeze([
-  'ambience.rain',
+  'ambience.harbor',
+  'seagull.distant',
+  'boat.hull.creak',
+  'bird',
   'cloth.suit.movement',
   'drunk.collapse',
   'gun.shot',

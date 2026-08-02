@@ -123,6 +123,10 @@ try {
       scene: state.scene.id,
       timeMinutes: state.story.timeMinutes,
       liveMinutes: window.__squatch.time.minutes,
+      phase: window.__squatch.time.phase,
+      skyFrom: window.__squatch.time.skyFrom,
+      skyTo: window.__squatch.time.skyTo,
+      dayness: window.__squatch.time.dayness,
       gunVisible: apartmentGun?.visible,
     };
   });
@@ -133,6 +137,12 @@ try {
     initial.gunVisible === false, String(initial.gunVisible));
   check('Day One starts at the authored 6:04 AM checkpoint',
     initial.timeMinutes === 6 * 60 + 4 && initial.liveMinutes === 6 * 60 + 4,
+    JSON.stringify(initial));
+  check('the first view outside is committed dawn rather than a night dissolve',
+    initial.phase === 'dawn'
+      && initial.skyFrom === 'dawn'
+      && initial.skyTo === 'dawn'
+      && initial.dayness >= 0.18,
     JSON.stringify(initial));
 
   const coffee = await page.evaluate(() => {

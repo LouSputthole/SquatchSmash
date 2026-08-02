@@ -117,6 +117,11 @@ export class Dialogue {
     // Options may be a function so they can depend on what has happened
     const opts = (typeof node.options === 'function' ? node.options() : node.options) || [];
     this.options = opts.filter((o) => !o.when || o.when());
+    /* A decision node is allowed to contain replies without a preceding
+     * spoken line. Golf uses this for the first two tee questions. The old
+     * code painted the option elements into a root that was still hidden,
+     * leaving a live conversation with no visible way to answer it. */
+    if (this.options.length) this.ui.root.classList.remove('hidden');
     this._paintOptions();
 
     // A node with no options runs on its own after a beat

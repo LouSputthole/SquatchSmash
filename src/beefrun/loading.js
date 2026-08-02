@@ -180,7 +180,11 @@ export class Loading {
     };
 
     reg(this.aircraft.parts.doorHandle, {
-      label: () => (this.doorOpen ? 'Close the <b>cargo door</b>' : 'Open the <b>cargo door</b>'),
+      label: () => (this.doorOpen
+        ? 'Close the <b>cargo door</b>'
+        : this.kind === 'guns'
+          ? 'Open the <b>cargo door</b> — deliver Old Stove’s crates'
+          : 'Open the <b>cargo door</b>'),
       key: 'E',
       hold: 0.6,
       onHoldProgress: (t) => { this.aircraft.parts.doorLever.rotation.x = (this.doorOpen ? 1 - t : t) * Math.PI * 0.5; },
@@ -197,7 +201,9 @@ export class Loading {
         label: () => {
           const zone = this.cargo.zones[name];
           if (!zone.crate) return `<b>${name}</b> — empty`;
-          return `Take the crate out of <b>${name}</b>`;
+          return this.kind === 'guns'
+            ? `Deliver Old Stove’s crate from the <b>${name}</b> bay`
+            : `Take the crate out of <b>${name}</b>`;
         },
         key: 'E',
         enabled: () => this.doorOpen && !!this.cargo.zones[name].crate,

@@ -5,7 +5,12 @@ import * as THREE from 'three';
 
 import { BILLY_HOTDOG_MODEL } from '../src/core/hotdog-model.js';
 import * as graveyardMissionModule from '../src/graveyard/mission.js';
-import { GraveyardMission, GRAVES } from '../src/graveyard/mission.js';
+import {
+  GraveyardMission,
+  GRAVEYARD_ARRIVAL_LINES,
+  GRAVES,
+  resolveGraveyardLineHold,
+} from '../src/graveyard/mission.js';
 import {
   BABS_BENCH_PRESENTATION,
   GRAVE_ART_PRESENTATION,
@@ -49,11 +54,19 @@ test('authored grave portraits map to their markers without duplicating Colton\'
   assert.equal(GRAVE_ART_PRESENTATION.colton.embeddedName, true);
 });
 
-test('Babs\'s bench stays beside the plot and turns around without blocking the aisle', () => {
-  assert.deepEqual(BABS_BENCH_PRESENTATION.position, [-8.15, 0, -2.25]);
-  assert.equal(BABS_BENCH_PRESENTATION.yaw, -Math.PI / 2);
-  assert.deepEqual(BABS_BENCH_PRESENTATION.colliderMin, [-8.5, 0, -3.3]);
-  assert.deepEqual(BABS_BENCH_PRESENTATION.colliderMax, [-7.8, 1.25, -1.2]);
+test('Babs\'s bench faces back toward the graves from the forest edge without blocking the aisle', () => {
+  assert.deepEqual(BABS_BENCH_PRESENTATION.position, [-9.35, 0, -2.25]);
+  assert.equal(BABS_BENCH_PRESENTATION.yaw, Math.PI / 2);
+  assert.deepEqual(BABS_BENCH_PRESENTATION.colliderMin, [-9.7, 0, -3.3]);
+  assert.deepEqual(BABS_BENCH_PRESENTATION.colliderMax, [-9, 1.25, -1.2]);
+});
+
+test('Snow owns the arrival voice floor through the end of his recorded opening', () => {
+  const [snow, prospect] = GRAVEYARD_ARRIVAL_LINES;
+  assert.equal(snow.who, 'Snow');
+  assert.equal(prospect.who, 'Prospect');
+  assert.equal(resolveGraveyardLineHold(snow, 5.7), 6.05);
+  assert.equal(resolveGraveyardLineHold(prospect, 0), prospect.seconds);
 });
 
 test('the graveyard body is the canonical Billy HotDog character, not a bundle primitive', () => {

@@ -142,3 +142,28 @@ test('tee, pickup, and flag effects follow their actual round transitions', () =
     assert.ok(Number.isFinite(effect.position.z));
   }
 });
+
+test('watching the first NPC tee shot unlocks F to skip the remaining shots', () => {
+  const noop = () => {};
+  const round = new Round({
+    cues: {
+      busy: false,
+      lengthOf: () => 0,
+      play: noop,
+      playSequence: noop,
+      suppressBanter: noop,
+    },
+    dialogue: {},
+  });
+  round.beat = BEAT.NPC_TEE;
+  round._npcIndex = 0;
+  round._npcPhase = 'settle';
+  round._wait = 0;
+  round.golfers.eric = { walkTo: noop };
+
+  assert.equal(round.requestSkip(), false, 'nothing can be skipped before one shot is watched');
+  round._updateNpcTee(0);
+  assert.equal(round.npcShotsSeen, true);
+  assert.equal(round.requestSkip(), true, 'F skips only the shots still remaining');
+  assert.equal(round.skipRequested, true);
+});

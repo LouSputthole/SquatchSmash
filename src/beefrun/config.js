@@ -114,6 +114,7 @@ export const AC = {
   kInduced: 0.055,
   flapCL: 0.42,         // per full flap
   flapCD: 0.055,
+  airBrakeCD: 0.18,      // hold Space: spoiler drag without extra lift
   thrustMax: 5200,      // N per engine, static
   vThrustFade: 96,      // m/s where static thrust has bled off
   Ixx: 9000, Iyy: 11000, Izz: 10200,   // roll / pitch / yaw
@@ -163,7 +164,9 @@ export const LANDMARKS = [
   { id: 'river',   name: 'Horseshoe river',    x: 260,   z: -3300, kind: 'river' },
   { id: 'volcano', name: 'Smoking volcano',    x: -520,  z: -5250, kind: 'volcano' },
   { id: 'cliff',   name: 'Red cliff face',     x: 420,   z: -6900, kind: 'cliff' },
-  { id: 'falls',   name: 'The waterfall',      x: 60,    z: -9200, kind: 'falls' },
+  // Kept east of final so the unmistakable landmark leads to the valley
+  // without putting a 300-metre visual cliff directly across the centreline.
+  { id: 'falls',   name: 'The waterfall',      x: 300,   z: -9200, kind: 'falls' },
 ];
 
 export const CHECKPOINTS = ['takeoff', 'approach', 'departure', 'return'];

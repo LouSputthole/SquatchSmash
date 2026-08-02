@@ -55,7 +55,7 @@ const PHONE_CALL_RADIO_SCALE = 0.34;
 
 export class Radio {
   /**
-   * @param {{ venue?: string, state?: object, canPlayNotice?: Function }} options
+   * @param {{ venue?: string, state?: object, canPlayNotice?: Function, fullSongs?: boolean }} options
    * `venue` is deliberately separate from the station: a record can belong
    * to the radio rotation without leaking into a different in-world music
    * system such as the Bada Bing DJ.
@@ -64,6 +64,7 @@ export class Radio {
     venue = 'apartment',
     state = null,
     canPlayNotice = () => true,
+    fullSongs = false,
   } = {}) {
     this.audio = audio;
     this.hud = hud;
@@ -71,6 +72,11 @@ export class Radio {
     this.venue = venue;
     this.state = state;
     this.canPlayNotice = typeof canPlayNotice === 'function' ? canPlayNotice : () => true;
+    /* Most receivers air short radio edits. Silver Pines is the deliberate
+     * exception: it is a player-controlled cart stereo and plays a selected
+     * song from its opening through the media element's natural `ended`
+     * event. Other scenes keep their thirty-second pacing unchanged. */
+    this.fullSongs = fullSongs === true;
     const saved = this.state?.load?.() ?? {};
     this.tracks = [];
     /** Each station keeps its own place in its own playlist. */
@@ -727,7 +733,8 @@ export class Radio {
     const seek = () => {
       const d = this.el.duration;
       if (Number.isFinite(d) && d > SONG_SECONDS + 4) {
-        try { this.el.currentTime = d * (track.start ?? SONG_START_FRAC); } catch { /* not seekable */ }
+        const start = track.start ?? (this.fullSongs ? 0 : SONG_START_FRAC);
+        try { this.el.currentTime = d * start; } catch { /* not seekable */ }
       }
     };
     if (this.el.readyState >= 1) seek();
@@ -831,7 +838,7 @@ export class Radio {
       // summed dt drifts.
       const cut = this._noticeEligible() ? this._track?.cutAt : null;
       if (cut && this.el && this.el.currentTime >= cut) { this._cutSong(); return; }
-      if (this._songT >= SONG_SECONDS - SONG_FADE_OUT) this._endSong();
+      if (!this.fullSongs && this._songT >= SONG_SECONDS - SONG_FADE_OUT) this._endSong();
       return;
     }
 

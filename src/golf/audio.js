@@ -24,6 +24,7 @@ export const GOLF_EFFECT_CUES = Object.freeze([
   'golf.hit.sand', 'golf.hit.rough',
   'golf.land.green', 'golf.land.sand', 'golf.land.path', 'golf.land.grass',
   'golf.splash', 'golf.cup', 'golf.flag', 'golf.tee', 'golf.pickup', 'golf.bag',
+  'can.crack', 'can.sip', 'can.crush', 'cig.pack', 'zyn.tin',
 ]);
 
 /** The playable first-tee slice of the shared sound manifest. */

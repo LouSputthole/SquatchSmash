@@ -177,6 +177,24 @@ test('the first music block starts the first manifest track and saves the next c
   assert.equal(radio._track.title, 'First');
 });
 
+test('the Silver Pines full-song receiver does not apply the apartment excerpt timer', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const radio = new Radio({ ready: false }, { setRadio() {}, toast() {} }, { hour: 9 }, {
+    venue: 'silver_pines',
+    fullSongs: true,
+    canPlayNotice: () => false,
+  });
+  radio.on = true;
+  radio._songT = 0;
+  radio._track = { file: 'whole-song.mp3', title: 'Whole Song' };
+  radio.el = { currentTime: 31, duration: 180 };
+
+  radio.update(31);
+
+  assert.equal(radio.songPlaying, true,
+    'a cart song continues past the shared thirty-second radio excerpt');
+});
+
 test('spoken timing has one explicit gap rather than counting it twice', async () => {
   const { Radio } = await import('../src/core/radio.js');
   const audio = {

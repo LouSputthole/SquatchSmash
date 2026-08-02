@@ -22,6 +22,8 @@ import { yawToward } from '../world/build.js';
 import { Loading } from './loading.js';
 import { evaluateLineupGate } from './lineup-gate.js';
 import { stageRunwayStartup } from './runway-start.js';
+import { selectApproachCall } from './approach-coaching.js';
+import { stageRemoteDeparture } from './remote-departure.js';
 
 /** The four places the mission will put you back. */
 const CHECKPOINT_ORDER = ['takeoff', 'approach', 'departure', 'return'];
@@ -200,10 +202,7 @@ export class MissionController {
         break;
 
       case 'unloadGuns':
-        this.setObjective(OBJECTIVES.unloadGuns);
-        this.dialogue.play('guns.arrive', { once: true });
-        this.dialogue.play('guns.unloading', { once: true });
-        this.startGunUnload();
+        this.setObjective(OBJECTIVES.meetCecilioForDelivery);
         break;
 
       case 'boarding': {
@@ -277,7 +276,6 @@ export class MissionController {
 
       case 'onfoot-strip':
         this.setObjective(OBJECTIVES.meetCecilio);
-        this.dialogue.play('cecilio.meet', { delay: 1.2 });
         break;
 
       case 'loading':
@@ -299,7 +297,7 @@ export class MissionController {
         break;
 
       case 'heavyTakeoff':
-        this.setObjective(OBJECTIVES.depart);
+        this.setObjective(OBJECTIVES.remoteTakeoff);
         this.dialogue.play('depart.downhill', { once: true, delay: 0.8 });
         this.audio.setPhase('ret');
         break;
@@ -392,7 +390,23 @@ export class MissionController {
       });
       this.flags.runwayStaged = true;
       this.setPhase('startup');
-    } else if (this.phase === 'boarding2') this.setPhase('heavyTakeoff');
+    } else if (this.phase === 'boarding2') {
+      this.prepareRemoteDeparture();
+      this.setPhase('heavyTakeoff');
+    }
+  }
+
+  /** Cecilio's crew returns a repaired, refuelled aeroplane to the high end. */
+  prepareRemoteDeparture() {
+    return stageRemoteDeparture({
+      physics: this.physics,
+      input: this.input,
+      engines: this.engines,
+      aircraft: this.aircraft,
+      runway: this.airstrip.anchors.departStart,
+      gearHeight: AC.gearY,
+      heading: this.airstrip.anchors.departHeading,
+    });
   }
 
   exitCockpit() {
@@ -579,13 +593,30 @@ export class MissionController {
     this.gunLoad.groundAt = (x, z) => terrainHeight(x, z);
     this.gunLoad.onComplete = () => {
       this.score.gunsDelivered = 3;
-      this.dialogue.play('guns.done', { once: true });
       this.gunLoad.disarm();
       this.setPhase('onfoot-strip');
     };
   }
 
   updateGunUnload(dt) {
+    const cecilio = this.airstrip.cecilio;
+    const d = this.player.position.distanceTo(cecilio.group.position);
+    if (!this.dialogue.seen('guns.arrive')) {
+      this.setObjective(OBJECTIVES.meetCecilioForDelivery);
+      if (d < 9 && !this.dialogue.busy) {
+        cecilio.lookAt = this.player.position;
+        speak(cecilio, 2.2);
+        this.dialogue.play('guns.arrive', { once: true });
+      }
+      return;
+    }
+    if (this.dialogue.busy) return;
+    if (!this.dialogue.seen('guns.unloading')) {
+      this.setObjective(OBJECTIVES.meetCecilioForDelivery);
+      if (d < 10) this.dialogue.play('guns.unloading', { once: true });
+      return;
+    }
+    if (!this.gunLoad?.armed) this.startGunUnload();
     this.gunLoad?.update(dt, this.player.position, this.player.yaw);
     const left = this.cargo.crateCount;
     this.setObjective(left ? `${OBJECTIVES.unloadGuns} — ${left} left` : OBJECTIVES.unloadGuns);
@@ -811,17 +842,18 @@ export class MissionController {
       const toGo = Math.max(1, p.position.z - EH.zLow);
       const wantHeight = toGo * 0.09;                      // roughly six degrees
       const ias = p.ias * KT;
-      let call = null;
-      if (height > wantHeight * 2.1 && toGo < 1400) {
-        this.flags.approachCalls++;
-        call = this.flags.approachCalls > 2 ? 'approach.high3'
-          : this.flags.approachCalls > 1 ? 'approach.high2' : 'approach.high';
-      } else if (height < wantHeight * 0.45 && toGo < 1200) call = 'approach.low';
-      else if (ias < 62 && toGo < 1600) call = 'approach.slow';
-      else if (ias > 105 && toGo < 1200) call = 'approach.fast';
-      else if (height < 22 && toGo < 260) call = 'approach.flare';
+      const coaching = selectApproachCall({
+        height,
+        wantHeight,
+        toGo,
+        ias,
+        approachCalls: this.flags.approachCalls,
+        highFinalSeen: this.dialogue.seen('approach.high3'),
+      });
+      this.flags.approachCalls = coaching.approachCalls;
+      const { call } = coaching;
       if (call) {
-        this.dialogue.play(call);
+        this.dialogue.play(call, { once: call === 'approach.high3' });
         this._callTimer = 4.2;
       }
     }
@@ -850,8 +882,14 @@ export class MissionController {
     if (d < 8) {
       cecilio.lookAt = this.player.position;
       speak(cecilio, 1.5);
-      if (this.dialogue.seen('cecilio.meet') && !this.dialogue.busy && !this.dialogue.seen('cecilio.silence')) {
-        this.dialogue.play('cecilio.silence');
+      if (this.score.gunsDelivered > 0 && !this.dialogue.seen('guns.done') && !this.dialogue.busy) {
+        this.dialogue.play('guns.done', { once: true });
+      } else if (!this.dialogue.seen('cecilio.meet') && !this.dialogue.busy) {
+        this.dialogue.play('cecilio.meet', { once: true });
+      }
+      if ((this.score.gunsDelivered === 0 || this.dialogue.seen('guns.done'))
+        && this.dialogue.seen('cecilio.meet') && !this.dialogue.busy && !this.dialogue.seen('cecilio.silence')) {
+        this.dialogue.play('cecilio.silence', { once: true });
       }
       if (this.dialogue.seen('cecilio.silence') && !this.dialogue.busy) {
         this.setPhase('loading');
@@ -1547,12 +1585,7 @@ export class MissionController {
         this.setPhase('approach');
       },
       departure: () => {
-        const a = this.airstrip.anchors.departStart;
-        this.physics.setPose(new THREE.Vector3(a.x, a.y + AC.gearY, a.z), EH.zHigh ? 0 : 0, 0);
-        this.engines.forceRunning();
-        this.input.throttle = 0;
-        this.input.flaps = 0.5;
-        this.physics.controls.parkingBrake = false;
+        this.prepareRemoteDeparture();
         // The crates are aboard and strapped, wherever they were put.
         this.restoreCargo(data?.cargo);
         this.weather.setConditions({ dusk: 0.15, rain: 0.1, turbulence: 0.7, cloudDensity: 0.7 });
@@ -1750,7 +1783,7 @@ export class MissionController {
       'Silverback Reserve Dashboard Ornament',
       'Brushrunner Aircraft Access',
       'El Hueso Airstrip in Free Flight',
-      '“World’s Okayest Pilot” Coffee Cup',
+      'Tammy’s Dashboard Mug',
     ];
 
     return { stats, rank: ranks[tier], tier, total, unlocks };

@@ -101,6 +101,7 @@ const state = {
     running: false,
     index: 0,
     remaining: 0,
+    gapRemaining: 0,
     current: null,
     waitingForGun: false,
     handoffReady: false,
@@ -115,6 +116,12 @@ const state = {
   loaded: false,
   lineHistory: [],
   endingShown: false,
+  cinematic: {
+    active: false,
+    shot: null,
+    eye: new THREE.Vector3(),
+    look: new THREE.Vector3(),
+  },
 };
 
 let mission = null;
@@ -152,6 +159,63 @@ function playCue(name) {
   return true;
 }
 
+function setCinematicShot(name, eye, look) {
+  state.cinematic.active = true;
+  state.cinematic.shot = name;
+  state.cinematic.eye.set(...eye);
+  state.cinematic.look.set(...look);
+  player.clearKeys();
+  interaction.setPaused(true);
+}
+
+function releaseCinematic({ x = null, z = null, lookAt = null } = {}) {
+  state.cinematic.active = false;
+  state.cinematic.shot = null;
+  interaction.setPaused(false);
+  if (Number.isFinite(x) && Number.isFinite(z)) {
+    let yaw = player.yaw;
+    if (lookAt) {
+      const dx = lookAt.x - x;
+      const dz = lookAt.z - z;
+      yaw = Math.atan2(-dx, -dz);
+    }
+    teleport(x, z, yaw);
+  }
+}
+
+function applyCinematicCamera() {
+  if (!state.cinematic.active) return;
+  camera.position.copy(state.cinematic.eye);
+  camera.lookAt(state.cinematic.look);
+  camera.updateMatrixWorld(true);
+}
+
+function directBeatCamera(beat) {
+  if (beat.phase === 'performance') {
+    if (beat.who === 'Billy HotDog') {
+      setCinematicShot('hotdog-interrupt', [-10.3, 2.15, 1.95], [-15.4, 1.35, -0.15]);
+    } else {
+      setCinematicShot('hogmama-stage-edge', [-7.1, 2.25, 0.2], [-12, 1.62, -3.45]);
+    }
+    return;
+  }
+  if (beat.phase === 'tension') {
+    setCinematicShot('ape-hotdog-two-shot', [-10.4, 2.2, 2.2], [-15.15, 1.25, -0.15]);
+    return;
+  }
+  if (beat.phase === 'attack') {
+    setCinematicShot('ape-attack-wide', [-10.7, 2.45, 1.7], [-15.45, 0.75, -0.35]);
+    return;
+  }
+  if (beat.phase === 'aftermath') {
+    setCinematicShot('aftermath-room', [-9.8, 2.3, 2.65], [-15.35, 0.72, -0.35]);
+    return;
+  }
+  if (beat.phase === 'handoff') {
+    setCinematicShot('lou-handoff', [-7.8, 2.25, 1.3], [-14.6, 1.25, 0.4]);
+  }
+}
+
 function actorFor(name) {
   const normalized = String(name).toLowerCase();
   if (normalized.includes('lou')) return party.extra.lou;
@@ -175,7 +239,16 @@ function showLine(beat) {
   state.lineHistory.push({ who, line: beat.line, cue: beat.cue });
   const actor = actorFor(who);
   actor?.say(Math.max(1.5, beat.seconds ?? 2.5));
-  actor?.faceToward(player.position.x, player.position.z);
+  const ape = party.byId.ape;
+  const hotdog = party.extra.hotdog;
+  if (actor === ape) actor.faceToward(hotdog.position.x, hotdog.position.z, true);
+  else if (actor === hotdog) actor.faceToward(ape.position.x, ape.position.z, true);
+  else if (actor === party.byId.hogmama) actor.faceToward(-7.2, -0.2, true);
+  else if (actor === party.byId.shubenator && beat.phase === 'performance') {
+    actor.faceToward(party.byId.hogmama.position.x, party.byId.hogmama.position.z, true);
+  } else if (actor === party.extra.lou) actor.faceToward(hotdog.position.x, hotdog.position.z, true);
+  else actor?.faceToward(player.position.x, player.position.z);
+  directBeatCamera(beat);
   playCue(beat.cue);
 }
 
@@ -193,7 +266,7 @@ function react(reaction) {
   }
   if (reaction === 'ape-laugh') party.byId.ape?.say(3.2);
   if (reaction === 'lou-warning-look') party.extra.lou.faceToward(party.extra.hotdog.position.x, party.extra.hotdog.position.z);
-  if (reaction === 'eric-recording') party.byId.eric?.faceToward(-12, -5.7);
+  if (reaction === 'eric-recording') party.byId.eric?.faceToward(-12, -3.45);
   if (reaction === 'shubenator-aftermath') {
     const shubenator = party.byId.shubenator;
     if (shubenator) {
@@ -242,6 +315,7 @@ function stageAttack() {
   party.cleanup.blood.visible = true;
   party.cleanup.brokenStool.visible = true;
   party.cleanup.gun.visible = true;
+  for (const marker of Object.values(party.cleanup.evidenceMarkers)) marker.visible = true;
   audio.play('glass.wine.fall', { volume: 0.95, position: hotdog.position });
   setTimeout(() => audio.play('gun.drop.wood', { volume: 0.76, position: party.cleanup.gun.position }), 420);
   hud.toast('HOTDOG IS REACHING FOR A GUN', 'bad', 4200);
@@ -262,9 +336,11 @@ function assignCleanupRoles() {
   set(party.byId.ape, 4.25, -4.5, 'sit', -Math.PI / 2);
   set(party.byId.deathmegatron, 3.25, -3.7, 'stand', -Math.PI / 2);
   party.byId.deathmegatron.folded = true;
-  set(party.byId.rippinflow, -14.4, -1.4, 'stand', 1.2);
-  set(party.byId.numbskull, -13.4, -1.6, 'stand', 1.5);
-  set(party.extra.aubbie, -17.0, -1.5, 'work', 1.2);
+  // Keep the east side of the body and both evidence approaches open for the
+  // player; the helpers work from the bar side instead of becoming blockers.
+  set(party.byId.rippinflow, -16.8, 1.15, 'stand', 2.5);
+  set(party.byId.numbskull, -17.65, -2.15, 'stand', 0.65);
+  set(party.extra.aubbie, -18.25, 0.15, 'work', 1.45);
   set(party.byId.booski, -18.2, 1.9, 'work', Math.PI / 2);
   set(party.byId.hogmama, -2.4, 5.8, 'work', -2.8);
   set(party.byId.gratin, -1.0, 5.8, 'work', 2.8);
@@ -276,16 +352,25 @@ function assignCleanupRoles() {
 }
 
 function applyBeatAction(action) {
-  if (action === 'performance-finish') mission.finishPerformance();
+  if (action === 'performance-finish') {
+    mission.finishPerformance();
+    party.stage.setSpotlight(false);
+  }
   if (action === 'ape-leaves') moveApeOut();
   if (action === 'ape-returns') returnApe();
   if (action === 'attack') stageAttack();
   if (action === 'enable-gun-kick') {
     state.director.waitingForGun = true;
     state.director.running = false;
+    releaseCinematic({
+      x: -10.55,
+      z: 0.75,
+      lookAt: party.cleanup.gun.position,
+    });
   }
   if (action === 'music-cut') audio.setLoopVolume('party.record', 0, 0.25);
   if (action === 'cleanup-start') assignCleanupRoles();
+  if (action === 'release-cutscene') releaseCinematic({ x: -9.4, z: 2.4, lookAt: { x: -15.5, z: -0.4 } });
 }
 
 function beginSequence() {
@@ -293,24 +378,35 @@ function beginSequence() {
   state.director.running = true;
   state.director.index = 0;
   state.director.remaining = 0;
+  state.director.gapRemaining = 0;
   audio.setLoopVolume('party.record', 0.12, 0.8);
+  party.stage.setSpotlight(true);
+  setCinematicShot('show-opening', [-7.1, 2.25, 0.2], [-12, 1.62, -3.45]);
   return true;
 }
 
 function updateDirector(dt) {
   const d = state.director;
   if (!d.running) return;
+  if (d.gapRemaining > 0) {
+    d.gapRemaining -= dt;
+    if (d.gapRemaining > 0) return;
+  }
   if (d.remaining > 0) {
     d.remaining -= dt;
     if (d.remaining > 0) return;
-    applyBeatAction(d.current?.action);
+    const completed = d.current;
+    applyBeatAction(completed?.action);
     d.current = null;
     hideLine();
     if (!d.running) return;
+    d.gapRemaining = completed?.gapAfter ?? 0.18;
+    if (d.gapRemaining > 0) return;
   }
   const next = sequence[d.index];
   if (!next) {
     d.running = false;
+    releaseCinematic();
     if (mission.readyToLeave) finishParty();
     return;
   }
@@ -370,6 +466,7 @@ interaction.register(party.cleanup.gun, {
     audio.play('gun.drop.wood', { volume: 0.9, position: party.cleanup.gun.position });
     state.director.waitingForGun = false;
     state.director.running = true;
+    setCinematicShot('gun-kicked-aftermath', [-9.8, 2.3, 2.65], [-15.35, 0.72, -0.35]);
     repaintObjectives();
     hud.toast('GUN SECURED', 'good');
   },
@@ -410,6 +507,7 @@ for (const [id, prop] of [['cufflink', party.cleanup.cufflink], ['lapel', party.
     onUse: () => {
       state.evidence.add(id);
       prop.visible = false;
+      party.cleanup.evidenceMarkers[id].visible = false;
       audio.play('gun.pickup', { volume: 0.34, rate: 1.28, position: prop.position });
       hud.say(id === 'cufflink'
         ? 'One cufflink. Booski can stop saying “one cufflink.”'
@@ -463,9 +561,10 @@ interaction.register(party.extra.hotdog.group, {
     state.wrapped = true;
     party.extra.hotdog.group.visible = false;
     party.cleanup.wrap.visible = true;
+    party.cleanup.serviceGuide.visible = true;
     audio.play('cloth.snap', { volume: 0.82, position: party.cleanup.wrap.position });
     repaintObjectives();
-    hud.say('Plastic tight, face covered, nothing loose. Snow opens the service exit.', 4000);
+    hud.say('Plastic tight, face covered, nothing loose. Follow the amber arrows through the rear-right hall to Snow at the service exit.', 5000);
   },
 });
 
@@ -478,6 +577,7 @@ interaction.register(party.cleanup.loadPad, {
     if (!mission.assign('reserve_pickup')) return;
     state.loaded = true;
     party.cleanup.wrap.visible = false;
+    party.cleanup.serviceGuide.visible = false;
     audio.play('car.door.close.heavy', { volume: 0.75, position: party.cleanup.loadPad.position });
     const banked = story.completeClub({
       assignment: mission.assignment,
@@ -557,6 +657,7 @@ function restoreFromCampaign() {
     state.wrapped = true;
     party.extra.hotdog.group.visible = false;
     party.cleanup.wrap.visible = true;
+    party.cleanup.serviceGuide.visible = true;
   }
   repaintObjectives();
 }
@@ -641,6 +742,8 @@ const runtime = {
   party,
   cast,
   club,
+  camera,
+  three: THREE,
   player,
   interaction,
   audio,
@@ -765,14 +868,17 @@ function animate(now) {
   lastTime = now;
   state.elapsed += dt;
   if (state.phase === 'active') {
-    player.update(dt);
-    interaction.update(dt);
+    if (!state.cinematic.active) {
+      player.update(dt);
+      interaction.update(dt);
+    }
     updateRoom();
     updateDirector(dt);
     for (const npc of party.all) {
       if (state.fallen && npc === party.extra.hotdog) continue;
       npc.update(dt, player.position);
     }
+    applyCinematicCamera();
   }
   club.update(dt, player.position);
   clock.update(dt);

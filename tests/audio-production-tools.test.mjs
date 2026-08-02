@@ -160,6 +160,9 @@ test('NO WAKE and THE TAKE production briefs stay unrecorded and visible in the 
   const cues = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
   const expected = {
     'NO WAKE': [
+      'ambience.harbor',
+      'seagull.distant',
+      'boat.hull.creak',
       'boat.board.step',
       'boat.engine.start',
       'boat.engine.underway',

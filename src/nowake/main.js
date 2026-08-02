@@ -17,6 +17,7 @@ import {
   NO_WAKE_AFTERMATH_LINES,
   NO_WAKE_BELOW_LINES,
   NO_WAKE_EPILOGUE_LINE,
+  NO_WAKE_START_LINES,
   buildNoWakeConfrontation,
 } from './dialogue.js';
 import { noWakeAudioLoadOptions } from './audio.js';
@@ -73,6 +74,7 @@ const blood = new BulletHoles(scene, 'blood');
 const state = {
   phase: 'dock',
   boarded: false,
+  boarding: false,
   battery: false,
   blower: false,
   engine: false,
@@ -91,7 +93,11 @@ const state = {
   executionShots: 0,
   bodyDisposed: false,
   returnFrom: new THREE.Vector3(),
+  returnControl: new THREE.Vector3(),
+  returnTo: new THREE.Vector3(),
   returnHeading: 0,
+  nextGullAt: 8,
+  nextCreakAt: 5,
   leaving: false,
 };
 
@@ -116,6 +122,7 @@ const local = new THREE.Vector3();
 const carriedLocal = new THREE.Vector3();
 const carriedWorld = new THREE.Vector3();
 const localCamera = new THREE.Vector3();
+const returnTangent = new THREE.Vector3();
 let lastHeading = 0;
 let lastTime = performance.now();
 let elapsed = 0;
@@ -194,19 +201,8 @@ function updateDialogue(dt) {
 function registerInteractions() {
   interaction.register(boat.targets.board, {
     label: 'Step aboard <em>Lou’s cruiser</em>',
-    enabled: () => !state.boarded,
-    onUse: () => {
-      state.boarded = true;
-      boat.boardingBridge.visible = false;
-      boat.targets.board.visible = false;
-      audio.play('boat.board.step', { volume: .8 });
-      player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72)));
-      player.ground = boat.root.position.y + boat.deck.height;
-      player.yaw = 0;
-      hud.toast('Aboard · Gate C', 'good');
-      setObjective('Start the boat', 'Battery · blower · ignition');
-      story.checkpoint('dock');
-    },
+    enabled: () => !state.boarded && !state.boarding,
+    onUse: beginBoarding,
   });
   interaction.register(boat.targets.battery, {
     label: () => state.battery ? 'Battery switch <em>ON</em>' : 'Turn on battery switch',
@@ -301,6 +297,42 @@ function registerInteractions() {
   });
 }
 
+/** Cross the visible boarding platform instead of teleporting through it. */
+function beginBoarding() {
+  if (state.boarded || state.boarding) return false;
+  state.boarding = true;
+  player.clearKeys();
+  interaction.setPaused(true);
+  const deck = boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72));
+  const yaw = boat.root.rotation.y;
+  setObjective('Step aboard', 'Cross the boarding platform to the port deck');
+  audio.play('boat.board.step', { volume: .8 });
+  player.sitAt({
+    position: deck,
+    yaw,
+    pitch: -.10,
+    dur: 1.15,
+    yawRange: Math.PI,
+  }, () => {
+    state.boarding = false;
+    state.boarded = true;
+    boat.boardingBridge.visible = false;
+    boat.targets.board.visible = false;
+    player.mode = 'walk';
+    player.enabled = document.pointerLockElement === canvas;
+    player.ground = boat.root.position.y + boat.deck.height;
+    player.eyeHeight = 1.66;
+    player.targetEye = 1.66;
+    player.yawCenter = null;
+    player.yawRange = Math.PI;
+    interaction.setPaused(false);
+    hud.toast('Aboard · Gate C', 'good');
+    setObjective('Start the boat', 'Battery · blower · ignition');
+    story.checkpoint('dock');
+  });
+  return true;
+}
+
 function enterHelm() {
   state.atHelm = true;
   if (state.phase !== 'coast') phase('drive');
@@ -353,6 +385,27 @@ function nonBlockingLine(line, seconds = 3.2) {
   setTimeout(() => {
     if (state.nonBlockingLine === token && !state.dialogue) hideSpeaker();
   }, seconds * 1000);
+}
+
+function playDockInstructions() {
+  nonBlockingLine(NO_WAKE_START_LINES[0], 4.5);
+  setTimeout(() => {
+    if (!document.body.classList.contains('playing') || state.dialogue) return;
+    nonBlockingLine(NO_WAKE_START_LINES[1], 4.2);
+  }, 4700);
+}
+
+function updateHarborWildlife() {
+  if (!document.body.classList.contains('playing')) return;
+  if (elapsed >= state.nextGullAt) {
+    const cue = audio.buffers.has('seagull.distant') ? 'seagull.distant' : 'bird';
+    audio.play(cue, { volume: cue === 'bird' ? .10 : .26, rate: .88 + Math.random() * .18 });
+    state.nextGullAt = elapsed + 10 + Math.random() * 15;
+  }
+  if (elapsed >= state.nextCreakAt && audio.buffers.has('boat.hull.creak')) {
+    audio.play('boat.hull.creak', { volume: .15, rate: .92 + Math.random() * .12 });
+    state.nextCreakAt = elapsed + 7 + Math.random() * 12;
+  }
 }
 
 function aftermathVoiceWindow(line, authoredSeconds) {
@@ -487,6 +540,11 @@ function prepareGuns() {
   state.louGun.rotation.set(-.05, 0, 0);
   state.booskiGun.position.copy(state.louGun.position);
   state.booskiGun.rotation.copy(state.louGun.rotation);
+  for (const gun of [state.louGun, state.booskiGun]) {
+    gun.userData.basePosition = gun.position.clone();
+    gun.userData.baseRotation = gun.rotation.clone();
+    gun.userData.recoil = 0;
+  }
   state.playerGun = executionGun(
     makeRevolver(null, { x: 0, y: 0, z: 0 }),
     'Tony revolver', 'six-shot revolver', 1.35,
@@ -501,7 +559,9 @@ function prepareGuns() {
 function willyReturns() {
   phase('ready_to_fire');
   boat.cast.lou.group.position.set(-1.45, 1.02, 2.72);
+  boat.cast.lou.group.rotation.y = 0;
   boat.cast.booski.group.position.set(1.45, 1.02, 2.90);
+  boat.cast.booski.group.rotation.y = 0;
   boat.cast.willy.job = 'stand';
   boat.cast.willy._syncJob(true);
   boat.cast.willy.group.position.set(0, 1.02, 4.48);
@@ -527,7 +587,9 @@ function fireExecution() {
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(0, 1.35, .22));
   const normal = camera.position.clone().sub(impact).normalize();
   audio.play('boat.gunshot.deck', { volume: 1 });
-  blood.muzzle(state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone()));
+  const playerMuzzle = state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone());
+  blood.muzzle(playerMuzzle);
+  showShotTracer(playerMuzzle, impact, 0xffe2a3);
   blood.punch(impact, normal);
   state.executionShots = 1;
   state.playerGun.rotation.x = .32;
@@ -545,9 +607,40 @@ function npcShot(npc, gun) {
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(
     (Math.random() - .5) * .18, 1.2 + Math.random() * .35, .18,
   ));
+  showShotTracer(muzzle, impact, 0xffc86b);
   blood.punch(impact, camera.position.clone().sub(impact).normalize());
   state.executionShots++;
+  gun.userData.recoil = 1;
   npc.speaking = .2;
+}
+
+function showShotTracer(from, to, colour) {
+  const tracer = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([from, to]),
+    new THREE.LineBasicMaterial({ color: colour, transparent: true, opacity: .95 }),
+  );
+  tracer.name = 'no-wake-shot-tracer';
+  tracer.renderOrder = 1200;
+  scene.add(tracer);
+  setTimeout(() => {
+    scene.remove(tracer);
+    tracer.geometry.dispose();
+    tracer.material.dispose();
+  }, 95);
+}
+
+function poseExecutionShooter(npc, gun, dt) {
+  if (!npc || !gun) return;
+  npc.parts.armR.rotation.set(-1.18, 0, .08);
+  npc.parts.foreR.rotation.set(-.28, 0, 0);
+  npc.parts.armL.rotation.set(-1.00, 0, -.18);
+  npc.parts.foreL.rotation.set(-.72, 0, 0);
+  gun.userData.recoil = Math.max(0, (gun.userData.recoil ?? 0) - dt * 7.5);
+  const kick = gun.userData.recoil;
+  gun.position.copy(gun.userData.basePosition);
+  gun.position.z -= kick * .075;
+  gun.rotation.copy(gun.userData.baseRotation);
+  gun.rotation.x -= kick * .34;
 }
 
 function dropWilly() {
@@ -697,6 +790,18 @@ function beginReturn() {
   phase('return');
   state.returnFrom.copy(boat.root.position);
   state.returnHeading = physics.heading;
+  state.returnTo.set(0, boat.floatY, 0);
+  const dx = state.returnTo.x - state.returnFrom.x;
+  const dz = state.returnTo.z - state.returnFrom.z;
+  const distance = Math.max(1, Math.hypot(dx, dz));
+  const side = Math.min(110, Math.max(52, distance * .25));
+  /* A broad quadratic arc reads as Lou turning back into the marked channel;
+   * the old point-to-point lerp slid the entire cruiser sideways home. */
+  state.returnControl.set(
+    (state.returnFrom.x + state.returnTo.x) * .5 + (dz / distance) * side,
+    boat.floatY,
+    (state.returnFrom.z + state.returnTo.z) * .5 - (dx / distance) * side,
+  );
   state.atHelm = false;
   // Match the physical tableau to the narration: Lou owns the controls while
   // Booski watches the water beside the newly empty stern deck.
@@ -740,8 +845,23 @@ function updateReturn(dt) {
   if (state.phase !== 'return') return;
   const k = Math.min(1, state.phaseTime / 16);
   const ease = k * k * (3 - 2 * k);
-  boat.root.position.lerpVectors(state.returnFrom, new THREE.Vector3(0, boat.floatY, 0), ease);
-  boat.root.rotation.y = THREE.MathUtils.lerp(state.returnHeading, 0, ease);
+  const inverse = 1 - ease;
+  boat.root.position.x = inverse * inverse * state.returnFrom.x
+    + 2 * inverse * ease * state.returnControl.x
+    + ease * ease * state.returnTo.x;
+  boat.root.position.z = inverse * inverse * state.returnFrom.z
+    + 2 * inverse * ease * state.returnControl.z
+    + ease * ease * state.returnTo.z;
+  returnTangent.set(
+    2 * inverse * (state.returnControl.x - state.returnFrom.x)
+      + 2 * ease * (state.returnTo.x - state.returnControl.x),
+    0,
+    2 * inverse * (state.returnControl.z - state.returnFrom.z)
+      + 2 * ease * (state.returnTo.z - state.returnControl.z),
+  );
+  if (returnTangent.lengthSq() > .001) {
+    boat.root.rotation.y = Math.atan2(returnTangent.x, returnTangent.z);
+  }
   boat.root.position.y = boat.floatY + Math.sin(state.phaseTime * 1.2) * .05;
   cameraDirector.frameReturn(state.phaseTime);
   if (k >= 1) completeMission();
@@ -857,6 +977,10 @@ function updateCast(dt) {
   localCamera.copy(camera.position);
   boat.root.worldToLocal(localCamera);
   for (const npc of Object.values(boat.cast)) npc.update(dt, localCamera);
+  if (state.phase === 'ready_to_fire' || state.phase === 'execution') {
+    poseExecutionShooter(boat.cast.lou, state.louGun, dt);
+    poseExecutionShooter(boat.cast.booski, state.booskiGun, dt);
+  }
   if (state.phase === 'below') {
     const w = boat.cast.willy.group;
     w.position.z += (-1.0 - w.position.z) * Math.min(1, dt * 1.8);
@@ -994,12 +1118,26 @@ startButton.addEventListener('click', async () => {
     manifestTotal: audio.manifest.sfx.length,
     selected: loadedAudio.total,
   };
-  audio.startLoop('harbor', { name: 'ambience.rain', volume: .08, ambience: true });
+  if (audio.buffers.has('ambience.harbor')) {
+    audio.startLoop('harbor', { name: 'ambience.harbor', volume: .11, ambience: true });
+  } else {
+    /* Existing production fallback until the dedicated harbor bed is
+     * delivered: quiet hull water, never unrelated city rain. */
+    audio.startLoop('harbor', { name: 'boat.hull.wake', volume: .035, ambience: true });
+  }
   document.body.classList.add('playing');
   sceneInventory.show();
   overlay.classList.add('out');
   player.enabled = true;
+  playDockInstructions();
   setTimeout(() => overlay.remove(), 850);
+});
+
+canvas.addEventListener('click', () => {
+  if (!document.body.classList.contains('playing')) return;
+  if (document.pointerLockElement === canvas || state.phase === 'ready_to_fire') return;
+  const pending = canvas.requestPointerLock?.();
+  pending?.catch?.(() => {});
 });
 
 document.addEventListener('pointerlockchange', () => {
@@ -1060,6 +1198,7 @@ function animate(now) {
   radio.setPosition(radioPosition);
   radioClock.update(dt);
   radio.update(dt);
+  updateHarborWildlife();
   world.update(elapsed, dt);
   hud.setClock(3, state.phase === 'complete' ? '4:40 PM' : '12:45 PM', elapsed);
   postfx.render();

@@ -181,6 +181,22 @@ const playerBallMesh = makeBall(scene, 0xffffff);
 ballMeshes.set(CHARACTER_IDS.PROSPECT, playerBallMesh);
 const playerBallMarker = makeBallMarker(scene);
 playerBallMarker.visible = false;
+/* Regulation balls disappear against a 500-yard hole. These are presentation
+ * halos, never physics meshes: each follows an NPC ball only while it is in
+ * motion, so the player can actually watch the shot they are being asked to
+ * watch without turning every resting ball into a beach ball. */
+const npcBallMarkers = new Map([
+  [CHARACTER_IDS.ERIC, makeBallMarker(scene, {
+    name: 'npc-ball-flight-marker-eric', colour: 0x70d9ff, radius: 0.28, glowOpacity: 0.24,
+  })],
+  [CHARACTER_IDS.RIPPINFLOW, makeBallMarker(scene, {
+    name: 'npc-ball-flight-marker-rippinflow', colour: 0xffc85c, radius: 0.30, glowOpacity: 0.24,
+  })],
+  [CHARACTER_IDS.LOU, makeBallMarker(scene, {
+    name: 'npc-ball-flight-marker-lou', colour: 0xc2a2ff, radius: 0.30, glowOpacity: 0.24,
+  })],
+]);
+for (const marker of npcBallMarkers.values()) marker.visible = false;
 
 /* Hot Shots-style pre-shot read: a bright world-space landing area whose
  * distance follows club, lie and the live power bar. The ring is an estimate,
@@ -286,6 +302,7 @@ const radioClock = new AuthoredClock(8);
 radioClock.setTime(4, 8 * 60);
 const cartRadio = new Radio(audio, hud, radioClock, {
   venue: 'silver_pines',
+  fullSongs: true,
   state: createCampaignRadioAdapter(campaign, {
     receiverId: 'silver_pines_lead_cart',
     defaultPower: true,
@@ -356,6 +373,7 @@ const dialogue = new Dialogue(ui.dialogue, {
 /* ------------------------------------------------------------------ */
 
 let ended = false;
+let pendingHoleTransition = null;
 const round = new Round({
   cues,
   dialogue,
@@ -383,6 +401,7 @@ const round = new Round({
 const CAM = { WALK: 'walk', ADDRESS: 'address', FLIGHT: 'flight', CART: 'cart' };
 let camMode = CAM.WALK;
 let aimYaw = Math.PI;
+let plannedDistance = null;
 const swing = new Swing();
 let club = 'iron';
 let flightTimer = 0;
@@ -491,10 +510,29 @@ function shotPlan(withClub = club) {
     target = corridorTarget(ball, 205);
     label = 'FAIRWAY';
   }
+  const naturalDistance = Math.hypot(target.x - ball.x, target.z - ball.z);
   return {
-    club: recommendedClubForShot(), target, label,
-    distance: Math.hypot(target.x - ball.x, target.z - ball.z),
+    club: recommendedClubForShot(), target, label, naturalDistance,
+    distance: Number.isFinite(plannedDistance) ? plannedDistance : naturalDistance,
   };
+}
+
+/** W/S changes the intended carry without rotating the shot line. */
+function adjustPlannedDistance(direction) {
+  const lie = surfaceProps(round.playerSurface());
+  const selected = getClub(club);
+  const plan = shotPlan();
+  const step = selected.grounded ? 1.524 : 9.144; // five feet or ten yards
+  const minimum = selected.grounded ? 0.61 : 9.144;
+  const maximum = Math.max(minimum, estimateCarry(club, 1, lie));
+  const current = Number.isFinite(plannedDistance) ? plannedDistance : plan.distance;
+  plannedDistance = THREE.MathUtils.clamp(current + direction * step, minimum, maximum);
+  const copy = selected.grounded
+    ? `${Math.round(toFeet(plannedDistance))} FT PLANNED`
+    : `${Math.round(toYards(plannedDistance))} YDS PLANNED`;
+  hud.toast(copy, 'hint', 1100);
+  paintShot();
+  return plannedDistance;
 }
 
 function clearShotTracer() {
@@ -575,7 +613,9 @@ function enterAddress() {
   swing.reset();
   swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
   const b = round.playerBall.position;
+  plannedDistance = null;
   const plan = shotPlan();
+  plannedDistance = plan.distance;
   aimYaw = Math.atan2(plan.target.x - b.x, plan.target.z - b.z);
   ui.shot.classList.remove('hidden');
   ui.aim.classList.remove('hidden');
@@ -597,6 +637,7 @@ function leaveAddress() {
   landingPreview.visible = false;
   ui.landingReticle?.classList.add('hidden');
   playerClubRig.visible = false;
+  plannedDistance = null;
   /* The flight camera follows the live ball; gameplay returns to the stance
    * where the shot began, never teleports to the landing. */
   if (addressReturn) {
@@ -694,8 +735,8 @@ function guideState() {
     }
     return {
       task: 'Aim your shot',
-      detail: `${getClub(club).name} toward ${plan.label} · mouse or A/D aims · click once or press Space`,
-      pause: `The suggested play is ${getClub(club).name} toward ${plan.label}. Aim with the mouse or A/D, then click or press Space to start.`,
+      detail: `${getClub(club).name} toward ${plan.label} · A/D aims · W/S changes distance · click once`,
+      pause: `The suggested play is ${getClub(club).name} toward ${plan.label}. Aim with the mouse or A/D, set planned distance with W/S, then click or press Space to start.`,
     };
   }
 
@@ -1295,6 +1336,18 @@ window.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
+  if (pendingHoleTransition && ['KeyR', 'Space', 'Enter'].includes(e.code)) {
+    advanceHoleTransition();
+    e.preventDefault();
+    return;
+  }
+  if (camMode === CAM.ADDRESS
+    && ['ArrowUp', 'ArrowDown', 'KeyW', 'KeyS'].includes(e.code)) {
+    const farther = e.code === 'ArrowUp' || e.code === 'KeyW';
+    adjustPlannedDistance(farther ? 1 : -1);
+    e.preventDefault();
+    return;
+  }
   if (camMode === CAM.ADDRESS
     && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(e.code)) {
     const left = e.code === 'ArrowLeft' || e.code === 'KeyA';
@@ -1422,6 +1475,48 @@ interaction.register(bag, {
   onUse: () => round.takeBag(),
 });
 
+let cartBeersRemaining = carts.lead.amenities?.beers?.length ?? 0;
+interaction.register(carts.lead.amenities.cooler, {
+  label: () => cartBeersRemaining > 0
+    ? `Crush a <b>cart beer</b> · ${cartBeersRemaining} cold`
+    : 'The <b>cooler</b> is empty',
+  enabled: () => camMode === CAM.WALK,
+  onUse: () => {
+    if (cartBeersRemaining <= 0) {
+      hud.toast('Cooler is empty.', 'hint', 1400);
+      return;
+    }
+    const can = carts.lead.amenities.beers[cartBeersRemaining - 1];
+    can.visible = false;
+    cartBeersRemaining--;
+    const at = carts.lead.amenities.cooler.getWorldPosition(new THREE.Vector3());
+    audio.play('can.crack', { volume: 0.72, position: at });
+    window.setTimeout(() => audio.play('can.sip', { volume: 0.62, position: at }), 380);
+    window.setTimeout(() => audio.play('can.crush', { volume: 0.72, position: at }), 980);
+    hud.toast(cartBeersRemaining ? `${cartBeersRemaining} beers left in the cart.` : 'Last cart beer.', 'good', 1900);
+  },
+});
+
+interaction.register(carts.lead.amenities.cigarettes, {
+  label: 'Check the <b>cigarettes</b>',
+  enabled: () => camMode === CAM.WALK,
+  onUse: () => {
+    const at = carts.lead.amenities.cigarettes.getWorldPosition(new THREE.Vector3());
+    audio.play('cig.pack', { volume: 0.5, position: at });
+    hud.toast('Cigarettes. Lou packed for eighteen holes.', 'hint', 1900);
+  },
+});
+
+interaction.register(carts.lead.amenities.zyn, {
+  label: 'Tap the <b>Zyn tin</b>',
+  enabled: () => camMode === CAM.WALK,
+  onUse: () => {
+    const at = carts.lead.amenities.zyn.getWorldPosition(new THREE.Vector3());
+    audio.play('zyn.tin', { volume: 0.55, position: at });
+    hud.toast('Wintergreen. Naturally.', 'hint', 1600);
+  },
+});
+
 interaction.register(course.marker, {
   label: () => {
     const hole = getHole(HOLE.number);
@@ -1462,14 +1557,17 @@ function showHoleCard(summary, next) {
   card.querySelector('.stats').textContent = holeStats(summary).join(' · ');
   const upcoming = getHole(next);
   card.querySelector('.next').innerHTML = upcoming
-    ? `NEXT: ${upcoming.name.toUpperCase()}<br><span>PAR ${upcoming.par} · ${upcoming.yards} YARDS</span>`
+    ? `NEXT: ${upcoming.name.toUpperCase()}<br><span>PAR ${upcoming.par} · ${upcoming.yards} YARDS</span><br><span>R / SPACE · CONTINUE NOW</span>`
     : '';
   card.querySelector('.actions').classList.add('hidden');
   card.classList.remove('hidden');
 
   player.enabled = false;
   running = false;
-  window.setTimeout(() => {
+  const advance = () => {
+    if (!pendingHoleTransition || pendingHoleTransition.next !== next) return;
+    window.clearTimeout(pendingHoleTransition.timer);
+    pendingHoleTransition = null;
     round.startHole(next);
     const t = HOLE.teeMarks.ball;
     player.position.set(t.x, HOLE.tee.y + 1.66, t.z + 4);
@@ -1483,7 +1581,16 @@ function showHoleCard(summary, next) {
     card.classList.add('hidden');
     card.querySelector('.actions').classList.remove('hidden');
     paintCard();
-  }, 3400);
+  };
+  pendingHoleTransition = {
+    next,
+    advance,
+    timer: window.setTimeout(advance, 3400),
+  };
+}
+
+function advanceHoleTransition() {
+  pendingHoleTransition?.advance?.();
 }
 
 const PIN_X = () => HOLE.pin.x;
@@ -1585,7 +1692,7 @@ const pauseMenu = createPauseMenu({
     'W A S D — walk. E or Click — interact.',
     'At your ball: E — address it. Q — back off.',
     '1 — driver. 2 — iron. 3 — putter.',
-    'While addressing: mouse or A/D — aim; click or Space — start, set power, then hit the strike band.',
+    'While addressing: mouse or A/D — aim; W/S — planned distance; click or Space — start, set power, then hit the strike band.',
     'Orange power overswings: early fades/slices right; late draws/hooks left.',
     'During dialogue: number keys — answer.',
     'R — take a drop. G — pick up a tap-in. F — skip an NPC tee shot. M — mute.',
@@ -1682,6 +1789,11 @@ function frame() {
     if (!b) continue;
     mesh.position.set(b.position.x, b.position.y + 0.0213, b.position.z);
     mesh.visible = b.state !== BALL_STATE.WATER;
+    const marker = npcBallMarkers.get(id);
+    if (marker) {
+      marker.position.set(b.position.x, b.position.y + 0.055, b.position.z);
+      marker.visible = b.moving && b.state !== BALL_STATE.WATER;
+    }
   }
 
   updateShotPresentation(dt);
@@ -1848,7 +1960,7 @@ frame();
  */
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
-  cartRadio, landingPreview,
+  cartRadio, landingPreview, npcBallMarkers,
   cartRadioAudioPlan,
   waitForCartRadioAudio: () => cartRadioAudioReady,
   player, camera, scene, audio,
@@ -1858,6 +1970,9 @@ window.__golf = {
   setClub: (c) => selectClub(c),
   get aimYaw() { return aimYaw; },
   setAim: (a) => { aimYaw = a; },
+  get plannedDistance() { return plannedDistance; },
+  adjustPlannedDistance,
+  advanceHoleTransition,
   plan: () => {
     const plannedClub = recommendedClubForShot();
     return { ...shotPlan(plannedClub), club: plannedClub };

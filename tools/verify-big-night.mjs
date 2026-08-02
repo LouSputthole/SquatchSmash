@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5213;
+const CAPTURE = process.argv.find((arg) => arg.startsWith('--capture='))?.slice('--capture='.length) || null;
 const TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -197,6 +198,12 @@ try {
       && dateRoom.motelOnTheWire === true,
     JSON.stringify(dateRoom));
 
+  /* Enter through the same first gesture as a player. This starts WebAudio,
+   * hides the return card, and lets the visual/audio assertions below inspect
+   * the actual scene rather than a simulation running behind the title card. */
+  await page.locator('#start-btn').click();
+  await page.waitForFunction(() => window.__squatch.game.started === true, null, { timeout: 30000 });
+
   check('the door sends him to bed instead of out to the Circle',
     home.door?.kind === 'stay' && home.door?.id === 'sleep_before_big_night',
     JSON.stringify(home.door));
@@ -256,7 +263,19 @@ try {
     for (const [id, piece] of game.apartment.dressing) {
       if (piece.group.visible) shown.push(id);
     }
-    return { chapter: game.apartment.dressedChapter(), shown, raining: game.apartment.state.raining };
+    const mug = game.apartment.dressing.get('tammyDashboardMug')?.group;
+    const mugParts = [];
+    mug?.traverse((object) => { if (object.name) mugParts.push(object.name); });
+    return {
+      chapter: game.apartment.dressedChapter(),
+      shown,
+      raining: game.apartment.state.raining,
+      mug: {
+        label: mug?.userData.label,
+        continuityName: mug?.userData.continuityName,
+        parts: mugParts,
+      },
+    };
   });
   check('Day Four starts in the accumulated flat before heist gear appears',
     peak.chapter === 'golf_morning'
@@ -266,12 +285,34 @@ try {
         'heistSidearm', 'heistMagazines', 'heistDuffel']
         .every((id) => !peak.shown.includes(id))
       // Everything he accumulated on the way here is still here.
-      && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
+      && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap', 'tammyDashboardMug']
         .every((id) => peak.shown.includes(id))
       && !peak.shown.includes('lanyard')
       && !peak.shown.includes('willyPhoto')
       && peak.raining === false,
     JSON.stringify(peak.shown));
+  check('Beef Run’s keepsake returns as Tammy’s Dashboard Mug with the cockpit label',
+    peak.mug.label === 'Tammy’s Dashboard Mug'
+      && peak.mug.continuityName === 'tammy-mug'
+      && peak.mug.parts.includes('tammy-mug')
+      && peak.mug.parts.includes('tammy-mug-label'),
+    JSON.stringify(peak.mug));
+
+  const laterCloset = await page.evaluate(() => {
+    const apartment = window.__squatch.apartment;
+    apartment.state.closetOpen = true;
+    for (let i = 0; i < 120; i++) apartment.update(1 / 60, i / 60);
+    return apartment.closet.hangers.map((hanger) => ({
+      x: hanger.mesh.position.x,
+      yaw: hanger.mesh.rotation.y,
+    }));
+  });
+  check('the closet still clears fully in the later accumulated apartment',
+    laterCloset.length >= 4
+      && laterCloset.every((hanger) => hanger.x >= 4.88 && Math.abs(hanger.yaw) >= 1.48)
+      && Math.max(...laterCloset.map((hanger) => hanger.x))
+        - Math.min(...laterCloset.map((hanger) => hanger.x)) <= 0.05,
+    JSON.stringify(laterCloset));
 
   /* The cutscene. It runs on the fourth morning only, it is one-shot against
    * the campaign's own clock, and -- the part that matters -- it hands
@@ -289,6 +330,124 @@ try {
   check('the fourth morning opens with somebody else in the bed',
     scene.running === true && scene.visible === true && scene.mode === 'bed',
     JSON.stringify(scene));
+
+  await page.waitForFunction(
+    () => window.__squatch.game.margoScene?.awaitingHelp === true,
+    null,
+    { timeout: 120000 },
+  );
+  await page.waitForTimeout(180);
+  const helpReady = await page.evaluate(() => {
+    const game = window.__squatch;
+    game.interaction.update(1 / 60);
+    const names = [];
+    game.apartment.margo.group.traverse((object) => {
+      if (object.name) names.push(object.name);
+    });
+    return {
+      identity: game.apartment.margo.identity,
+      outfit: game.apartment.margo.outfit,
+      pose: game.apartment.margo.pose,
+      knees: game.apartment.margo.knees.map((knee) => knee.rotation.x),
+      canonicalFace: names.includes('margo.face.skull')
+        && names.includes('margo.face.eye.left')
+        && names.includes('margo.hair.fall.main'),
+      shapedClothes: names.includes('margo.silhouette.seat.left')
+        && names.includes('margo.silhouette.seat.right'),
+      targetVisible: game.apartment.margo.helpTarget.visible,
+      targetCurrent: game.interaction.current === game.apartment.margo.helpTarget,
+      prompt: document.querySelector('#prompt .label')?.textContent ?? '',
+    };
+  });
+  check('morning Margo is the Front and Center character in different clothes',
+    helpReady.identity === 'margo'
+      && helpReady.outfit === 'morning_blouse_and_jeans'
+      && helpReady.canonicalFace
+      && helpReady.shapedClothes,
+    JSON.stringify(helpReady));
+  check('the dress-help beat stages her on both knees and puts the target under the crosshair',
+    helpReady.pose === 'kneeling'
+      && helpReady.knees.every((angle) => angle < -1.5)
+      && helpReady.targetVisible
+      && helpReady.targetCurrent
+      && /help margo/i.test(helpReady.prompt),
+    JSON.stringify(helpReady));
+  if (CAPTURE) {
+    const capturePath = path.resolve(CAPTURE);
+    await fsp.mkdir(path.dirname(capturePath), { recursive: true });
+    await page.setViewportSize({ width: 960, height: 600 });
+    const overlayDisplay = await page.evaluate(() => {
+      const overlay = document.getElementById('overlay');
+      const previous = overlay?.style.display ?? '';
+      if (overlay) overlay.style.display = 'none';
+      return previous;
+    });
+    await page.waitForTimeout(120);
+    await page.screenshot({ path: capturePath });
+    await page.evaluate((display) => {
+      const overlay = document.getElementById('overlay');
+      if (overlay) overlay.style.display = display;
+    }, overlayDisplay);
+    console.log(`  note  captured Margo dress-help frame at ${capturePath}`);
+  }
+
+  const helpHold = await page.evaluate(() => {
+    const game = window.__squatch;
+    const target = game.apartment.margo.helpTarget;
+    const reachable = game.interaction.current === target;
+    /* Continue far enough to report all downstream checks even if camera
+     * reachability failed; the `reachable` assertion above still fails. */
+    if (!reachable) game.interaction.current = target;
+    game.interaction.press();
+    for (let i = 0; i < 9; i++) game.interaction.update(0.1);
+    return {
+      reachable,
+      progress: game.game.margoScene?.dressProgress ?? 0,
+      modelProgress: game.apartment.margo.dressHelpProgress,
+      width: document.querySelector('#prompt .holdbar i')?.style.width ?? '',
+      holding: document.querySelector('#prompt')?.classList.contains('holding') ?? false,
+      label: document.querySelector('#prompt .label')?.textContent ?? '',
+    };
+  });
+  check('holding E shows a readable middle on the dress-help progress bar',
+    helpHold.reachable
+      && helpHold.progress >= 0.4 && helpHold.progress <= 0.65
+      && helpHold.modelProgress === helpHold.progress
+      && helpHold.holding
+      && Number.parseInt(helpHold.width, 10) >= 40,
+    JSON.stringify(helpHold));
+
+  const dressImpacts = await page.evaluate(() => {
+    const game = window.__squatch;
+    const interaction = game.interaction;
+    for (let i = 0; i < 12; i++) interaction.update(0.1);
+    interaction.release();
+    const margoScene = game.game.margoScene;
+    return {
+      candidates: margoScene?.dressImpactCandidates ?? [],
+      history: margoScene?.dressImpactHistory ?? [],
+      available: (margoScene?.dressImpactCandidates ?? []).filter((cue) => game.audio.hasSample(cue)),
+      fallbackDecoded: game.audio.hasSample('drunk.collapse'),
+      audioReady: game.audio.ready,
+      played: game.audio.playbacks.slice(-6).map((playback) => playback.name),
+    };
+  });
+  check('dress help uses four no-repeat authored impacts with the shipped body-impact fallback',
+    JSON.stringify(dressImpacts.candidates) === JSON.stringify([
+      'margo.dress.body-impact.1',
+      'margo.dress.body-impact.2',
+      'margo.dress.body-impact.3',
+      'margo.dress.body-impact.4',
+    ])
+      && dressImpacts.history.length === 2
+      && dressImpacts.history.every((cue) => cue === 'drunk.collapse' || dressImpacts.available.includes(cue))
+      && (dressImpacts.available.length === 0
+        ? dressImpacts.audioReady
+          && dressImpacts.history.every((cue) => cue === 'drunk.collapse')
+        : true)
+      && (dressImpacts.available.length <= 1
+        || dressImpacts.history[0] !== dressImpacts.history[1]),
+    JSON.stringify(dressImpacts));
   await page.waitForFunction(() => !window.__squatch.game.margoScene, null, { timeout: 180000 });
   const handedBack = await page.evaluate(() => {
     const game = window.__squatch;

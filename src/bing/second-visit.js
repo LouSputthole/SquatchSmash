@@ -33,7 +33,7 @@ const STATES = Object.freeze([
  */
 export function buildHotDogPartySequence() {
   const signature = SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath;
-  return [
+  const sequence = [
     { phase: 'performance', who: 'Shubenator', line: 'Club is closed, glasses are full. Hog Mama, save us from one another.', cue: 'vo.bing2.shubenator.intro', seconds: 3.2 },
     { phase: 'performance', who: 'Hog Mama', line: 'Billy HotDog comes home after eight months and asks if we still water the liquor. Billy, you drank hand sanitizer in county.', cue: 'vo.bing2.hogmama.set.1', seconds: 4.4, reaction: 'numbskull-early-laugh' },
     { phase: 'performance', who: 'Lawnmower', line: 'It was name-brand sanitizer!', cue: 'vo.bing2.lawnmower.heckle', seconds: 2.2, reaction: 'gratin-choke' },
@@ -61,11 +61,22 @@ export function buildHotDogPartySequence() {
       reaction: 'shubenator-aftermath',
     },
     { phase: 'aftermath', who: 'Big Uncle Lou', line: 'Nobody leaves. Congratulations, everybody. You are all involved now.', cue: 'vo.bing2.lou.lockdown', seconds: 4.0, action: 'cleanup-start' },
-    { phase: 'aftermath', who: 'Aubbie', line: 'The bar, yes. Ape requires a specialist.', cue: 'vo.bing2.aubbie.bar', seconds: 3.0 },
+    { phase: 'aftermath', who: 'Aubbie', line: 'The bar, yes. Ape requires a specialist.', cue: 'vo.bing2.aubbie.bar', seconds: 3.0, action: 'release-cutscene' },
     { phase: 'handoff', who: 'Big Uncle Lou', line: 'Snow takes HotDog. Prospect goes with him. Bury this problem, then handle the Motel, room twelve.', cue: 'vo.bing2.lou.handoff', seconds: 4.4 },
     { phase: 'handoff', who: 'Prospect', line: 'What is at room twelve?', cue: 'vo.bing2.prospect.motel', seconds: 2.3 },
     { phase: 'handoff', who: 'Snow', line: 'Not here. And not before the graveyard.', cue: 'vo.bing2.snow.not-here', seconds: 3.0 },
   ];
+  return sequence.map((beat) => ({
+    ...beat,
+    // A tense scene still needs silence. These pauses let reaction animation,
+    // eyelines and the dropped gun register before the next line starts.
+    gapAfter: beat.gapAfter ?? (
+      beat.phase === 'tension' ? 0.55
+        : beat.phase === 'attack' ? 0.42
+          : beat.phase === 'aftermath' ? 0.34
+            : 0.22
+    ),
+  }));
 }
 
 export class SecondVisitMission {
@@ -195,7 +206,7 @@ export class SecondVisitMission {
     this.flags.bodyWrapped = true;
     this.complete('wrap');
     this.setState('body-ready');
-    this.addObjective('load', 'Load HotDog into Snow\'s car');
+    this.addObjective('load', 'Follow the service-exit arrows and load HotDog into Snow\'s car');
     return true;
   }
 

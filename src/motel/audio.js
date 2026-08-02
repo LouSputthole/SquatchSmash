@@ -112,14 +112,12 @@ async function loadVoiceIndex() {
  * Speak a line, if that line has been recorded.
  * @returns {number} seconds of audio started, or 0 when nothing played.
  */
-export function voice(cue, { volume = 0.95 } = {}) {
-  if (!cue) return 0;
+export function prepareVoice(cue, { volume = 0.95 } = {}) {
+  const silent = { duration: 0, play: () => 0 };
+  if (!cue) return silent;
   const fullCue = cue.startsWith(VOICE_PREFIX) ? cue : `${VOICE_PREFIX}${cue}`;
   voiceRequested.add(fullCue);
-  /* The next subtitle replaces the previous speaker even if this line has no
-   * delivered take yet. */
-  stopVoice();
-  if (!ctx || !voiceFiles.size) return 0;
+  if (!ctx || !voiceFiles.size) return silent;
 
   let bank = voiceBanks.get(fullCue);
   if (!bank) {
@@ -127,7 +125,7 @@ export function voice(cue, { volume = 0.95 } = {}) {
     bank = [...voiceFiles].filter((n) => n.startsWith(stem)).sort();
     voiceBanks.set(fullCue, bank);
   }
-  if (!bank.length) return 0;
+  if (!bank.length) return silent;
 
   // Never the same take twice running — that is what makes VO sound canned.
   let pick = bank[(Math.random() * bank.length) | 0];
@@ -135,19 +133,36 @@ export function voice(cue, { volume = 0.95 } = {}) {
     pick = bank[(Math.random() * bank.length) | 0];
   }
   const buf = samples.get(pick);
-  if (!buf) return 0;
-  voiceLast.set(fullCue, pick);
+  if (!buf) return silent;
 
-  // One voice at a time. Nobody in this motel is a chorus.
-  const src = ctx.createBufferSource();
-  src.buffer = buf;
-  const g = ctx.createGain();
-  g.gain.value = volume;
-  src.connect(g).connect(master);
-  src.start();
-  currentVoice = src;
-  voiceUntil = ctx.currentTime + buf.duration;
-  return buf.duration;
+  return {
+    duration: buf.duration,
+    play() {
+      // Playback begins only when the dialogue reservation owns the floor.
+      stopVoice();
+      voiceLast.set(fullCue, pick);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.value = volume;
+      src.connect(g).connect(master);
+      src.start();
+      currentVoice = src;
+      voiceUntil = ctx.currentTime + buf.duration;
+      return buf.duration;
+    },
+  };
+}
+
+export function voice(cue, options = {}) {
+  // Compatibility callers still mean "speak now", so an unavailable pickup
+  // clears the old soloist. The Motel runtime itself uses prepareVoice() and
+  // only starts a take once its queued turn owns the floor.
+  stopVoice();
+  if (!ctx) return 0;
+  const prepared = prepareVoice(cue, options);
+  prepared.play();
+  return prepared.duration;
 }
 
 export function stopVoice() {

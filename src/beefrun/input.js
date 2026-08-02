@@ -23,6 +23,7 @@ export class FlightInput {
     this.throttleSplit = 0;      // -1 all left, +1 all right; used for the hot engine
     this.flaps = 0;
     this.brake = 0;
+    this.airBrake = 0;
     this.parkingBrake = true;
     this.gamepadIndex = null;
     this.usingGamepad = false;
@@ -53,6 +54,8 @@ export class FlightInput {
   clear() {
     this.keys.clear();
     this.axes.pitch = this.axes.roll = this.axes.yaw = 0;
+    this.brake = 0;
+    this.airBrake = 0;
   }
 
   /** Poll a gamepad, if there is one. Analogue always wins over the keyboard. */
@@ -78,7 +81,8 @@ export class FlightInput {
       // Triggers: right for power, left for brakes.
       const rt = pad.buttons[7]?.value ?? 0;
       const lt = pad.buttons[6]?.value ?? 0;
-      if (Math.abs(pitch) + Math.abs(roll) + Math.abs(yaw) + rt + lt > 0.05) {
+      const airBrake = pad.buttons[5]?.value ?? 0;
+      if (Math.abs(pitch) + Math.abs(roll) + Math.abs(yaw) + rt + lt + airBrake > 0.05) {
         this.usingGamepad = true;
       }
       if (this.usingGamepad) {
@@ -87,6 +91,7 @@ export class FlightInput {
         this.axes.yaw = yaw;
         if (rt > 0.02) this.throttle = rt;
         this.brake = lt;
+        this.airBrake = airBrake;
       }
     }
 
@@ -118,6 +123,9 @@ export class FlightInput {
       if (up) this.throttle = clamp(this.throttle + dt * 0.75, 0, 1);
       if (down) this.throttle = clamp(this.throttle - dt * 0.75, 0, 1);
       this.brake = k.has('KeyB') ? 1 : 0;
+      // A momentary control: releasing Space retracts it immediately, so an
+      // interrupted landing cannot leave hidden drag latched on the return.
+      this.airBrake = k.has('Space') ? 1 : 0;
     }
 
     // Split throttle for the overheating engine: [ and ] trim the left one.
@@ -135,6 +143,7 @@ export class FlightInput {
     controls.throttleR = clamp(this.throttle * (1 - Math.max(split, 0)), 0, 1);
     controls.flaps = this.flaps;
     controls.brake = this.brake;
+    controls.airBrake = this.airBrake;
     controls.parkingBrake = this.parkingBrake;
   }
 

@@ -51,10 +51,10 @@ export const GRAVE_ART_PRESENTATION = Object.freeze({
 });
 
 export const BABS_BENCH_PRESENTATION = Object.freeze({
-  position: Object.freeze([-8.15, 0, -2.25]),
-  yaw: -Math.PI / 2,
-  colliderMin: Object.freeze([-8.5, 0, -3.3]),
-  colliderMax: Object.freeze([-7.8, 1.25, -1.2]),
+  position: Object.freeze([-9.35, 0, -2.25]),
+  yaw: Math.PI / 2,
+  colliderMin: Object.freeze([-9.7, 0, -3.3]),
+  colliderMax: Object.freeze([-9, 1.25, -1.2]),
 });
 
 const GRAVE_ART_DIR = 'assets/art/';
@@ -506,9 +506,9 @@ export function buildGraveyard(scene) {
   temporary.visible = false;
   root.add(temporary);
 
-  // Babs's bench runs along the west side of her plot, turned outward toward
-  // the trees. Keeping it parallel to the burial bed leaves the headstone and
-  // aisle open instead of stretching it across the monument's approach.
+  // Move Babs's bench into the west tree line and turn it 180 degrees back
+  // toward the clearing. It keeps the headstone approach and central aisle
+  // open while giving the requested forest-edge view.
   const bench = group('babs.bench');
   bench.position.set(...BABS_BENCH_PRESENTATION.position);
   bench.rotation.y = BABS_BENCH_PRESENTATION.yaw;

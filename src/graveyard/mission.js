@@ -54,6 +54,19 @@ export const GRAVEYARD_ARRIVAL_LINES = Object.freeze([
   }),
 ]);
 
+/**
+ * Keep the current speaker on the floor until both the authored beat and the
+ * delivered recording are finished. The old runtime preferred `seconds`
+ * whenever it existed, which cut Snow off and let Prospect start talking over
+ * the back of his opening take.
+ */
+export function resolveGraveyardLineHold(line, recordedSeconds = 0) {
+  const authored = Number.isFinite(line?.seconds) ? line.seconds : 0;
+  const reading = 2.5 + String(line?.text ?? '').length * 0.025;
+  const delivered = recordedSeconds > 0 ? recordedSeconds + 0.35 : 0;
+  return Math.max(authored, delivered, authored > 0 ? 0 : reading);
+}
+
 export const GRAVEYARD_SNOW_BARKS = Object.freeze({
   car: Object.freeze({
     who: 'Snow',

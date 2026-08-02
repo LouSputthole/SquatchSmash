@@ -2943,8 +2943,11 @@ export function makeCloset(M, { x0, x1, z0, z1, h = 2.05, garments = [], back = 
       mesh: hung,
       home: gx,
       homeYaw: 0,
-      bunch: x1 - 0.045 - i * 0.025,
-      bunchYaw: Math.PI * (0.42 + (i % 2) * 0.035),
+      /* Pack the centres into 3.6cm at the jamb and turn every shoulder
+       * essentially edge-on. The previous 7.5cm fan technically moved to the
+       * side but the printed shirts still occupied a third of the opening. */
+      bunch: x1 - 0.025 - i * 0.012,
+      bunchYaw: Math.PI / 2 + (i - (garments.length - 1) / 2) * 0.018,
     });
 
     // Hanger: hook and two shoulders.

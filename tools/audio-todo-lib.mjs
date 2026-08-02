@@ -42,11 +42,13 @@ const EFFECT_SCENES = [
     || name === 'mower.distant' || name === 'sprinkler'
     || name === 'sprinkler.tick' || name === 'cart.motor'
     || name === 'bird' || name.startsWith('golf.')],
-  ['NO WAKE', (name) => name.startsWith('boat.') || name === 'water.splash'],
+  ['NO WAKE', (name) => name.startsWith('boat.') || name === 'water.splash'
+    || name === 'ambience.harbor' || name === 'seagull.distant'],
   ['THE TAKE', (name) => name.startsWith('heist.')],
   ['Bada Bing', (name) => name.startsWith('ambience.rain')
     || name.startsWith('ambience.club') || name.startsWith('ambience.crowd')
     || name.startsWith('car.radio')],
+  ['Apartment — Margo', (name) => name.startsWith('margo.dress.')],
   ['Shared movement', (name) => name.startsWith('footstep.')],
 ];
 
@@ -242,7 +244,8 @@ function renderProvisionalCastingReview(out, cues, voices, have) {
 
 function renderManifestEffects(out, effects) {
   const byScene = group(effects, (cue) => effectScene(cue.name));
-  const order = ['Silver Pines', 'NO WAKE', 'THE TAKE', 'Bada Bing', 'Shared movement', 'Shared / other'];
+  const order = ['Silver Pines', 'NO WAKE', 'THE TAKE', 'Bada Bing',
+    'Apartment — Margo', 'Shared movement', 'Shared / other'];
 
   if (!effects.length) {
     out.push('## Manifest effect pickups', '', 'Nothing outstanding.', '');

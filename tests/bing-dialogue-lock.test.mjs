@@ -4,7 +4,12 @@ import test from 'node:test';
 import { Dialogue } from '../src/bing/dialogue.js';
 
 function classList() {
-  return { add() {}, remove() {} };
+  const values = new Set(['hidden']);
+  return {
+    add(...names) { names.forEach((name) => values.add(name)); },
+    remove(...names) { names.forEach((name) => values.delete(name)); },
+    contains(name) { return values.has(name); },
+  };
 }
 
 function ui() {
@@ -69,4 +74,26 @@ test('a dynamic dialogue hold resolves to seconds instead of becoming a stuck ti
   dialogue.update(0.3);
   assert.equal(dialogue.active, false);
   assert.equal(dialogue.lastEndReason, 'done');
+});
+
+test('a reply-only dialogue node makes its choices visible', () => {
+  const priorDocument = globalThis.document;
+  globalThis.document = {
+    createElement: () => ({ className: '', innerHTML: '' }),
+  };
+  const nodes = ui();
+  const dialogue = new Dialogue(nodes);
+  dialogue.start({
+    choose: {
+      line: null,
+      options: [{ text: 'Tell me why.', next: null }],
+    },
+  }, 'choose');
+
+  assert.equal(dialogue.active, true);
+  assert.equal(dialogue.options.length, 1);
+  assert.equal(nodes.root.classList.contains('hidden'), false,
+    'the dialogue panel must open even when the node only contains replies');
+  assert.equal(nodes.options.classList.contains('hidden'), false);
+  globalThis.document = priorDocument;
 });

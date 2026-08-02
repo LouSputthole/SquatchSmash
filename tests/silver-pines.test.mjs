@@ -34,7 +34,7 @@ import {
   GOLF_EFFECT_CUES, GOLF_LATER_AUDIO_SCOPES, GOLF_START_AUDIO_SCOPE,
   playRecordedGolfChoice, playRecordedGolfCue, recordedGolfClip,
 } from '../src/golf/audio.js';
-import { makeBag, makeClub } from '../src/golf/cast.js';
+import { Golfer, makeBag, makeClub } from '../src/golf/cast.js';
 import { CartPair } from '../src/golf/carts.js';
 
 /* These are the facts about the hole that the browser verifier cannot state
@@ -559,6 +559,19 @@ test('a golfer addresses from beside the ball with his shoulders square to the s
     'a straight north/south shot should not place the golfer behind the ball');
 });
 
+test('a golf swing hinges the upper body at the hips instead of rotating the torso from the ground', () => {
+  const scene = new THREE.Scene();
+  const golfer = new Golfer(scene, CHARACTER_IDS.PROSPECT, { x: 0, z: 0 });
+  golfer._poseAt({ arm: -1.1, turn: -0.9, bend: 0.3 });
+
+  assert.equal(golfer.swingPivot.parent, golfer.parts.body);
+  assert.ok(golfer.swingPivot.position.y > 0.9, 'the swing hinge sits at pelvis height');
+  assert.equal(golfer.parts.body.rotation.x, 0,
+    'the root at the feet must not pitch the entire torso away from the legs');
+  assert.ok(Math.abs(golfer.swingPivot.rotation.x) > 0.15);
+  assert.ok(Math.abs(golfer.parts.body.rotation.y) < Math.abs(golfer.swingPivot.rotation.y));
+});
+
 test('the yellow landing preview follows aim and live club distance without promising a point', () => {
   const lie = lieAt(TEE);
   const aim = Math.PI / 2;
@@ -750,6 +763,19 @@ test('both golf carts carry a visible dashboard radio receiver', () => {
     assert.ok(cart.group.getObjectByName('golf-cart-radio-power'));
     const world = cart.radioWorld(new THREE.Vector3());
     assert.ok(Number.isFinite(world.x) && Number.isFinite(world.y) && Number.isFinite(world.z));
+  }
+});
+
+test('both golf carts carry rear bags, a cooler and the clubhouse vice shelf', () => {
+  const scene = new THREE.Scene();
+  const carts = new CartPair(scene);
+  for (const cart of [carts.lead, carts.follow]) {
+    assert.equal(cart.amenities.bags.length, 2);
+    assert.equal(cart.amenities.beers.length, 4);
+    assert.equal(cart.amenities.cooler.name, 'golf-cart-cooler');
+    assert.equal(cart.amenities.cigarettes.name, 'golf-cart-cigarettes');
+    assert.equal(cart.amenities.zyn.name, 'golf-cart-zyn-tin');
+    assert.ok(cart.group.getObjectByName('golf-cart-rear-bag'));
   }
 });
 

@@ -394,6 +394,51 @@ export function buildAirstrip(scene) {
     }
   }
 
+  /* A second, broader canopy line gives El Hueso an actual jungle wall rather
+   * than ninety identical palms floating in otherwise bare terrain. It is
+   * instanced (two draw calls total), so the richer silhouette does not turn
+   * final approach into hundreds more scene objects. */
+  const jungleCount = 44;
+  const jungleTrunks = new THREE.InstancedMesh(
+    cylGeo(0.45, 0.7, 8, 6),
+    solid(0x443522, { roughness: 1 }),
+    jungleCount,
+  );
+  jungleTrunks.name = 'el-hueso-jungle-trunks';
+  const jungleCrowns = new THREE.InstancedMesh(
+    coneGeo(5.2, 13, 7),
+    solid(0x245f32, { roughness: 1 }),
+    jungleCount,
+  );
+  jungleCrowns.name = 'el-hueso-jungle-canopy';
+  const tree = new THREE.Object3D();
+  for (let i = 0; i < jungleCount; i++) {
+    let side; let x; let z; let tries = 0;
+    do {
+      side = rand() < 0.5 ? -1 : 1;
+      x = EH.x + side * (EH.rwyWidth + 34 + rand() * 44);
+      z = EH.zHigh - 60 + rand() * (stripLen + 160);
+      tries++;
+    } while (side < 0 && x > EH.x - 78 && z < EH.zHigh + 145 && z > EH.zHigh && tries < 12);
+    const y = terrainHeight(x, z);
+    const scale = 0.78 + rand() * 0.58;
+    tree.position.set(x, y + 4 * scale, z);
+    tree.rotation.set(0, rand() * Math.PI * 2, (rand() - 0.5) * 0.08);
+    tree.scale.set(scale, scale, scale);
+    tree.updateMatrix();
+    jungleTrunks.setMatrixAt(i, tree.matrix);
+    tree.position.set(x, y + 11.7 * scale, z);
+    tree.rotation.set(0, rand() * Math.PI * 2, 0);
+    tree.scale.set(scale * (0.9 + rand() * 0.25), scale, scale * (0.9 + rand() * 0.25));
+    tree.updateMatrix();
+    jungleCrowns.setMatrixAt(i, tree.matrix);
+  }
+  jungleTrunks.instanceMatrix.needsUpdate = true;
+  jungleCrowns.instanceMatrix.needsUpdate = true;
+  jungleTrunks.computeBoundingSphere();
+  jungleCrowns.computeBoundingSphere();
+  root.add(jungleTrunks, jungleCrowns);
+
   /* ---- Anchors ---- */
   const touchdownZ = EH.zLow - 60;
   const anchors = {

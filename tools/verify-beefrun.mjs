@@ -518,6 +518,42 @@ check('each crate loads directly with E, without a cart or hold-bay steps',
     && directLoading.doorClosed && directLoading.completed,
   JSON.stringify(directLoading));
 
+const stoveDelivery = await page.evaluate(async () => {
+  const { Loading } = await import('/src/beefrun/loading.js');
+  const { CargoWeightSystem } = await import('/src/beefrun/cargo.js');
+  const Group = window.__beefrun.aircraft.group.constructor;
+  const aircraft = {
+    group: new Group(),
+    parts: { doorHandle: new Group(), doorLever: new Group() },
+  };
+  const cargo = new CargoWeightSystem(aircraft.group);
+  const interaction = {
+    register(mesh, desc) { mesh.userData.interact = desc; },
+    unregister(mesh) { delete mesh.userData.interact; },
+  };
+  const loading = new Loading({
+    scene: new Group(), interaction, aircraft, cargo,
+    dialogue: { play() {} }, audio: { play() {} },
+    groundAt: () => 0, stackAt: { x: 0, z: 0 }, kind: 'guns', count: 3,
+  });
+  loading.arm();
+  loading.crates.forEach((crate) => loading.loadCrate(crate));
+  loading.armUnload({ x: 8, z: 8 });
+  const door = aircraft.parts.doorHandle.userData.interact;
+  const doorLabel = door.label();
+  door.onUse();
+  const bayLabels = Object.values(loading.zoneHits).map((hit) => hit.userData.interact.label());
+  const visibleBays = Object.values(loading.zoneHits).every((hit) => hit.visible);
+  loading.dispose();
+  return { doorLabel, bayLabels, visibleBays };
+});
+check('Old Stove delivery names the door action and every marked cargo bay',
+  /Old Stove/i.test(stoveDelivery.doorLabel)
+    && stoveDelivery.visibleBays
+    && stoveDelivery.bayLabels.length === 3
+    && stoveDelivery.bayLabels.every((label) => /Deliver Old Stove.+bay/i.test(label)),
+  JSON.stringify(stoveDelivery));
+
 const runwayStart = await page.evaluate(() => {
   const b = window.__beefrun;
   const m = b.mission;
@@ -719,17 +755,44 @@ const chain = await page.evaluate(() => {
     null,
     { timeout: 300000 },
   );
-  const resumed = await resumePage.evaluate(() => ({
-    phase: window.__beefrun.mission.phase,
-    inCockpit: window.__beefrun.mission.flags.inCockpit,
-    checkpoint: window.__beefrun.campaignState.missions.airstrip_smuggling.checkpoint,
-    cargoLoaded: window.__beefrun.campaignState.missions.airstrip_smuggling.cargoLoaded,
-  }));
+  const resumed = await resumePage.evaluate(async () => {
+    const b = window.__beefrun;
+    const { AC } = await import('/src/beefrun/config.js');
+    const start = b.mission.airstrip.anchors.departStart;
+    return {
+      phase: b.mission.phase,
+      inCockpit: b.mission.flags.inCockpit,
+      checkpoint: b.campaignState.missions.airstrip_smuggling.checkpoint,
+      cargoLoaded: b.campaignState.missions.airstrip_smuggling.cargoLoaded,
+      position: { x: b.physics.position.x, y: b.physics.position.y, z: b.physics.position.z },
+      start,
+      fuel: b.engines.fuel,
+      fullFuel: AC.fuelMass,
+      enginesRunning: b.engines.bothRunning,
+      damage: { ...b.physics.damage },
+      input: {
+        throttle: b.input.throttle,
+        flaps: b.input.flaps,
+        airBrake: b.input.airBrake,
+        parkingBrake: b.input.parkingBrake,
+      },
+    };
+  });
   check('a saved returning checkpoint resumes loaded in the cockpit at departure',
     resumed.inCockpit
       && resumed.phase === 'heavyTakeoff'
       && resumed.checkpoint === 'returning'
       && resumed.cargoLoaded,
+    JSON.stringify(resumed));
+  check('the Cecilio handoff repairs, refuels, restarts, and stages the return aeroplane',
+    Math.abs(resumed.position.x - resumed.start.x) < 0.01
+      && Math.abs(resumed.position.y - (resumed.start.y + 1.62)) < 0.01
+      && Math.abs(resumed.position.z - resumed.start.z) < 0.01
+      && resumed.fuel === resumed.fullFuel
+      && resumed.enginesRunning
+      && resumed.damage.wing === 0 && resumed.damage.gear === 0 && !resumed.damage.tireBurst
+      && resumed.input.throttle === 0 && resumed.input.flaps === 0.5
+      && resumed.input.airBrake === 0 && resumed.input.parkingBrake,
     JSON.stringify(resumed));
 
   /* The seat looks where the aeroplane is going, over the top of its own
@@ -759,6 +822,13 @@ const chain = await page.evaluate(() => {
       controlsUp: !document.getElementById('br-controls').classList.contains('hidden'),
       controlKeys: document.querySelectorAll('#br-controls kbd').length,
       controlsText: document.getElementById('br-controls').textContent,
+      airBrakeHud: document.getElementById('br-airbrake')?.textContent,
+      mug: {
+        name: ac.parts.cup?.name,
+        x: ac.parts.cup?.position.x,
+        label: !!ac.parts.cup?.getObjectByName('tammy-mug-label'),
+      },
+      airBrakePanels: ac.parts.airBrake?.map((panel) => panel.name),
     };
   });
   check('the left seat looks over the panel at where the nose is pointing',
@@ -773,6 +843,196 @@ const chain = await page.evaluate(() => {
   check('keyboard bank labels match conventional flight controls',
     /A\s*bank left/i.test(seat.controlsText) && /D\s*bank right/i.test(seat.controlsText),
     seat.controlsText.replace(/\s+/g, ' ').trim());
+  check('the cockpit teaches and visibly models the hold-to-deploy air brake',
+    /Space\s*hold air brake/i.test(seat.controlsText)
+      && /AIR BRAKE STOWED/i.test(seat.airBrakeHud || '')
+      && seat.airBrakePanels?.length === 2,
+    JSON.stringify({ text: seat.controlsText.replace(/\s+/g, ' ').trim(),
+      hud: seat.airBrakeHud, panels: seat.airBrakePanels }));
+  check('Tammy’s labelled mug sits on the upper-right wood dash rail',
+    seat.mug.name === 'tammy-mug' && seat.mug.x > 0.5 && seat.mug.label,
+    JSON.stringify(seat.mug));
+
+  const remotePresentation = await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    const m = b.mission;
+    const falls = m.landmarks.marks.falls.group;
+    const cecilio = m.airstrip.cecilio;
+    return {
+      falls: {
+        centrelineOffset: Math.abs(falls.position.x - m.airstrip.anchors.threshold.x),
+        waterlineOffset: Math.abs(
+          falls.position.x + (falls.userData.waterSheets?.[0]?.position.x || 0)
+            - m.airstrip.anchors.threshold.x,
+        ),
+        cliffPieces: falls.getObjectByName('waterfall-cliff-wall')?.children.length || 0,
+        sheets: falls.userData.waterSheets?.length || 0,
+        mist: falls.userData.mist?.length || 0,
+        foliagePieces: falls.getObjectByName('waterfall-foliage')?.children.length || 0,
+      },
+      jungle: {
+        trunks: m.airstrip.root.getObjectByName('el-hueso-jungle-trunks')?.count || 0,
+        crowns: m.airstrip.root.getObjectByName('el-hueso-jungle-canopy')?.count || 0,
+      },
+      cecilio: {
+        tag: cecilio.tag?.userData.text,
+        moustache: !!cecilio.group.getObjectByName('cecilio-moustache'),
+        nose: !!cecilio.group.getObjectByName('cecilio-nose'),
+        medallion: !!cecilio.group.getObjectByName('cecilio-medallion'),
+        jacketColour: cecilio.hips.children[0]?.material?.color?.getHex(),
+      },
+      guardsUntouched: m.airstrip.guards.every((guard) =>
+        !guard.group.getObjectByName('cecilio-moustache')
+        && !guard.group.getObjectByName('cecilio-medallion')),
+    };
+  });
+  check('the waterfall is a layered landmark safely clear of the runway centreline',
+    remotePresentation.falls.centrelineOffset >= 200
+      && remotePresentation.falls.waterlineOffset <= 100
+      && remotePresentation.falls.cliffPieces >= 12
+      && remotePresentation.falls.sheets === 3
+      && remotePresentation.falls.mist >= 6
+      && remotePresentation.falls.foliagePieces >= 30,
+    JSON.stringify(remotePresentation.falls));
+  check('El Hueso has a low-draw-call secondary jungle wall',
+    remotePresentation.jungle.trunks === 44 && remotePresentation.jungle.crowns === 44,
+    JSON.stringify(remotePresentation.jungle));
+  check('Don Cecilio has a readable identity and tailored outfit while the rear guards stay unchanged',
+    remotePresentation.cecilio.tag === 'DON CECILIO'
+      && remotePresentation.cecilio.moustache
+      && remotePresentation.cecilio.nose
+      && remotePresentation.cecilio.medallion
+      && remotePresentation.cecilio.jacketColour === 0x6f3029
+      && remotePresentation.guardsUntouched,
+    JSON.stringify(remotePresentation));
+
+  const cecilioProximity = await resumePage.evaluate(async () => {
+    const b = window.__beefrun;
+    const { MissionController } = await import('/src/beefrun/mission.js');
+    const Vector3 = b.player.position.constructor;
+    const heard = [];
+    const played = new Set();
+    let busy = false;
+    const fake = {
+      phase: 'onfoot-strip',
+      objective: '',
+      score: { gunsDelivered: 0 },
+      setObjective(text) { this.objective = text; },
+      setPhase(name) { this.phase = name; },
+      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null } },
+      player: { position: new Vector3(30, 0, 0) },
+      dialogue: {
+        get busy() { return busy; },
+        seen(id) { return played.has(id); },
+        play(id) { played.add(id); heard.push(id); busy = true; return true; },
+      },
+    };
+    MissionController.prototype.onEnterPhase.call(fake, 'onfoot-strip');
+    const onEntry = heard.slice();
+    MissionController.prototype.updateOnFootStrip.call(fake, 0.016);
+    const whileFar = heard.slice();
+    busy = false;
+    fake.player.position.set(2, 0, 0);
+    MissionController.prototype.updateOnFootStrip.call(fake, 0.016);
+    return { onEntry, whileFar, afterApproach: heard.slice(), objective: fake.objective };
+  });
+  check('Cecilio and his crew wait until the player is actually in conversation range',
+    cecilioProximity.onEntry.length === 0
+      && cecilioProximity.whileFar.length === 0
+      && cecilioProximity.afterApproach[0] === 'cecilio.meet'
+      && /Cecilio/i.test(cecilioProximity.objective),
+    JSON.stringify(cecilioProximity));
+
+  const deliveryProximity = await resumePage.evaluate(async () => {
+    const b = window.__beefrun;
+    const { MissionController } = await import('/src/beefrun/mission.js');
+    const Vector3 = b.player.position.constructor;
+    const heard = [];
+    const played = new Set();
+    let busy = false;
+    const fake = {
+      objective: '', started: false,
+      setObjective(text) { this.objective = text; },
+      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null } },
+      player: { position: new Vector3(30, 0, 0), yaw: 0 },
+      cargo: { crateCount: 3 },
+      gunLoad: { armed: false, update() {} },
+      startGunUnload() { this.started = true; this.gunLoad.armed = true; },
+      dialogue: {
+        get busy() { return busy; },
+        seen(id) { return played.has(id); },
+        play(id) { played.add(id); heard.push(id); busy = true; return true; },
+      },
+    };
+    MissionController.prototype.onEnterPhase.call(fake, 'unloadGuns');
+    const entryObjective = fake.objective;
+    const onEntry = heard.slice();
+    MissionController.prototype.updateGunUnload.call(fake, 0.016);
+    const whileFar = heard.slice();
+    fake.player.position.set(2, 0, 0);
+    MissionController.prototype.updateGunUnload.call(fake, 0.016);
+    const atShelter = heard.slice();
+    busy = false;
+    MissionController.prototype.updateGunUnload.call(fake, 0.016);
+    const briefing = heard.slice();
+    busy = false;
+    MissionController.prototype.updateGunUnload.call(fake, 0.016);
+    return { onEntry, whileFar, atShelter, briefing, started: fake.started,
+      entryObjective, unloadObjective: fake.objective };
+  });
+  check('the Old Stove handoff and unloading briefing are also proximity-gated',
+    deliveryProximity.onEntry.length === 0
+      && deliveryProximity.whileFar.length === 0
+      && deliveryProximity.atShelter[0] === 'guns.arrive'
+      && deliveryProximity.briefing[1] === 'guns.unloading'
+      && deliveryProximity.started
+      && /Cecilio.+shelter/i.test(deliveryProximity.entryObjective)
+      && /cargo door.+press E/i.test(deliveryProximity.unloadObjective),
+    JSON.stringify(deliveryProximity));
+
+  const deliveredReaction = await resumePage.evaluate(async () => {
+    const b = window.__beefrun;
+    const { MissionController } = await import('/src/beefrun/mission.js');
+    const Vector3 = b.player.position.constructor;
+    const heard = [];
+    const played = new Set();
+    const fake = {
+      phase: 'onfoot-strip', score: { gunsDelivered: 3 },
+      airstrip: { cecilio: { group: { position: new Vector3(0, 0, 0) }, talk: 0, lookAt: null } },
+      player: { position: new Vector3(2, 0, 0) },
+      dialogue: {
+        busy: false,
+        seen(id) { return played.has(id); },
+        play(id) { played.add(id); heard.push(id); this.busy = true; return true; },
+      },
+      setPhase(name) { this.phase = name; },
+    };
+    MissionController.prototype.updateOnFootStrip.call(fake, 0.016);
+    return heard;
+  });
+  check('Cecilio waits for Tony to return before reacting to the delivered crates',
+    deliveredReaction.length === 1 && deliveredReaction[0] === 'guns.done',
+    JSON.stringify(deliveredReaction));
+
+  const terminalApproachCall = await resumePage.evaluate(async () => {
+    const { selectApproachCall } = await import('/src/beefrun/approach-coaching.js');
+    let approachCalls = 0; let highFinalSeen = false;
+    const heard = [];
+    for (let i = 0; i < 6; i++) {
+      const next = selectApproachCall({
+        height: 260, wantHeight: 80, toGo: 900, ias: 78,
+        approachCalls, highFinalSeen,
+      });
+      approachCalls = next.approachCalls;
+      if (next.call) heard.push(next.call);
+      if (next.call === 'approach.high3') highFinalSeen = true;
+    }
+    return heard;
+  });
+  check('“Now you’re proving a point” is the terminal high-approach call, not a loop',
+    JSON.stringify(terminalApproachCall)
+      === JSON.stringify(['approach.high', 'approach.high2', 'approach.high3']),
+    JSON.stringify(terminalApproachCall));
 
   const groundGuidance = await resumePage.evaluate(() => {
     const b = window.__beefrun;

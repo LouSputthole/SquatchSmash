@@ -405,6 +405,32 @@ try {
   check('the passenger-seat sightline is clear of opaque car panels',
     passengerSightline.length > 0 && passengerSightline[0].distance > 2,
     JSON.stringify(passengerSightline));
+
+  const revolverPresentation = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    motel.forceInteract('glovebox');
+    motel.scene.updateMatrixWorld(true);
+    const held = motel.camera.children.find((child) => child.type === 'Group')?.children[0];
+    const partNames = [];
+    held?.traverse((node) => { if (node.name) partNames.push(node.name); });
+    const item = motel.inventory.find((entry) => entry.id === 'weapon:revolver');
+    return {
+      kind: motel.viewmodel.kind,
+      visible: motel.viewmodel.visible,
+      partNames,
+      inventoryText: item?.text || '',
+      selected: item?.selected === true,
+    };
+  });
+  check('the glovebox revolver is a readable equipped gun with ammo in the shared inventory',
+    revolverPresentation.kind === 'revolver'
+      && revolverPresentation.visible
+      && revolverPresentation.selected
+      && revolverPresentation.inventoryText.includes('EQUIPPED')
+      && revolverPresentation.inventoryText.includes('6/6')
+      && ['revolver.barrel', 'revolver.cylinder', 'revolver.grip', 'revolver.muzzle']
+        .every((name) => revolverPresentation.partNames.includes(name)),
+    JSON.stringify(revolverPresentation));
   const clerkSpawn = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     const clerk = motel.actors.find((actor) => actor.identity === 'clerk');
@@ -491,11 +517,13 @@ try {
     text: document.getElementById('packList').textContent,
     weapon: window.MOTEL.S.weapon,
   }));
-  check('the carrying HUD lists what Tony has and updates on pickup',
+  check('the carrying HUD keeps one equipped slot and updates it on pickup',
     !packBefore.hidden
       && packBefore.items.includes('money')
-      && packAfter.items.length > packBefore.items.length
-      && packAfter.items.some((id) => id.startsWith('weapon:'))
+      && packBefore.items.includes('weapon:revolver')
+      && packAfter.items.includes('money')
+      && packAfter.items.filter((id) => id.startsWith('weapon:')).length === 1
+      && packAfter.items.includes('weapon:crowbar')
       && packAfter.text.includes('crowbar'),
     JSON.stringify({ before: packBefore.items, after: packAfter.items, weapon: packAfter.weapon }));
 
@@ -558,17 +586,27 @@ try {
       asked: coverage.requested.includes(motel.voice.cueForLine('Snow', line)),
       namespaced: coverage.requested.every((cue) => cue.startsWith('vo.motel.')),
       recorded: coverage.recorded.length,
-      subtitle: document.getElementById('subtitle').textContent,
-      shown: document.getElementById('subtitle').classList.contains('show'),
+      immediateSubtitle: document.getElementById('subtitle').textContent,
+      queued: motel.voice.busy(),
     };
   });
+  await previewPage.waitForFunction(
+    () => document.getElementById('subtitle')?.textContent.includes('Seatbelt. Or do not.'),
+    null,
+    { timeout: 20000 },
+  );
+  const deliveredSubtitle = await previewPage.evaluate(() => ({
+    subtitle: document.getElementById('subtitle').textContent,
+    shown: document.getElementById('subtitle').classList.contains('show'),
+  }));
   check('spoken lines ask for a recording and still read without one',
     voiceWiring.grew
       && voiceWiring.asked
       && voiceWiring.namespaced
-      && voiceWiring.shown
-      && voiceWiring.subtitle.includes('Seatbelt. Or do not.'),
-    JSON.stringify(voiceWiring));
+      && voiceWiring.queued
+      && deliveredSubtitle.shown
+      && deliveredSubtitle.subtitle.includes('Seatbelt. Or do not.'),
+    JSON.stringify({ ...voiceWiring, ...deliveredSubtitle }));
   await capture(previewPage, 'after-lot-first-person');
 
   const geometry = await geometryState(previewPage);
@@ -627,6 +665,28 @@ try {
   check('knocking brings Rico to the door of room twelve',
     await previewPage.evaluate(() => window.MOTEL.phase === 'door'
       && window.MOTEL.actors.some((actor) => actor.name === 'Rico')));
+  await previewPage.evaluate(() => {
+    const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
+    rico.talkT = 1.2;
+  });
+  await previewPage.waitForTimeout(120);
+  const ricoPresentation = await previewPage.evaluate(() => {
+    const rico = window.MOTEL.actors.find((actor) => actor.name === 'Rico');
+    return {
+      identity: rico.identity,
+      face: rico.rig.faceMesh?.name || null,
+      mouth: rico.rig.mouth?.name || null,
+      mouthOpen: rico.rig.mouth?.scale.y > 1,
+      talkRemaining: rico.talkT,
+    };
+  });
+  check('Rico keeps his own face identity and visibly mouths his lines',
+    ricoPresentation.identity === 'rico'
+      && ricoPresentation.face === 'actor.face.rico'
+      && ricoPresentation.mouth === 'actor.mouth'
+      && ricoPresentation.mouthOpen
+      && ricoPresentation.talkRemaining > 0,
+    JSON.stringify(ricoPresentation));
   await previewPage.evaluate(() => {
     window.MOTEL.S.doorOpened = true;
     window.MOTEL.forceInteract('enterRoom');

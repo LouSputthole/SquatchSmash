@@ -6,7 +6,7 @@ import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { makeRevolver } from '../world/props.js';
 import { Npc } from './cast.js';
 import { STAGE_H } from './club.js';
-import { populateFamily } from './family.js';
+import { loadFaceIndex, populateFamily } from './family.js';
 import { printed, sign } from './kit.js';
 import { createPartyCollider } from './party-collision.js';
 
@@ -95,20 +95,21 @@ function buffet() {
   return { group: g, cake, cakePedestal };
 }
 
-function stageRig() {
+export function buildHotDogStageRig() {
   const g = group('party.stage-rig');
   const steel = mat({ color: 0x383b3d, roughness: 0.45, metalness: 0.72 });
   const mic = group('hogmama.microphone');
+  mic.position.set(-12, 0, -3.45);
   mic.add(
-    cylinder({ r: 0.022, h: 1.35, seg: 10, pos: [-12, STAGE_H + 0.67, -5.7], mat: steel }),
-    cylinder({ r: 0.12, h: 0.035, seg: 14, pos: [-12, STAGE_H + 0.02, -5.7], mat: steel }),
-    cylinder({ r: 0.055, h: 0.18, seg: 12, pos: [-12, STAGE_H + 1.42, -5.7], mat: mat({ color: 0x181a1b, roughness: 0.7 }), rotZ: Math.PI / 2 }),
+    cylinder({ r: 0.022, h: 1.35, seg: 10, pos: [0, STAGE_H + 0.67, 0], mat: steel }),
+    cylinder({ r: 0.12, h: 0.035, seg: 14, pos: [0, STAGE_H + 0.02, 0], mat: steel }),
+    cylinder({ r: 0.055, h: 0.18, seg: 12, pos: [0, STAGE_H + 1.42, 0], mat: mat({ color: 0x181a1b, roughness: 0.7 }), rotZ: Math.PI / 2 }),
   );
   const cable = new THREE.Mesh(
     new THREE.TorusGeometry(0.62, 0.012, 5, 30, Math.PI * 1.35),
     mat({ color: 0x0c0d0e, roughness: 0.95 }),
   );
-  cable.position.set(-11.55, STAGE_H + 0.03, -5.5);
+  cable.position.set(0.45, STAGE_H + 0.03, 0.2);
   cable.rotation.x = Math.PI / 2;
   mic.add(cable);
   g.add(mic);
@@ -123,10 +124,29 @@ function stageRig() {
     controls.add(box({ size: [0.06, 0.035, 0.16], pos: [-0.25 + i * 0.1, 0.92, 0], mat: emissive(i < 2 ? 0xd64235 : 0x4c9b60, 1.8), cast: false }));
   }
   g.add(controls);
-  return { group: g, controls, mic };
+
+  // A dedicated authored key means the set never relies on the club's moving
+  // ambience landing on Hog Mama by chance. It fades up with Shubenator's
+  // introduction and stays aimed at the front edge of the stage.
+  const spotlight = new THREE.SpotLight(0xffdfad, 0, 42, 0.42, 0.55, 1.25);
+  spotlight.name = 'hogmama.spotlight';
+  spotlight.position.set(-8.2, 5.4, 0.4);
+  spotlight.castShadow = true;
+  spotlight.shadow.mapSize.set(768, 768);
+  const target = new THREE.Object3D();
+  target.name = 'hogmama.spotlight-target';
+  target.position.set(-12, STAGE_H + 1.05, -3.45);
+  spotlight.target = target;
+  g.add(spotlight, target);
+  const setSpotlight = (on) => {
+    spotlight.intensity = on ? 48 : 0;
+    controls.userData.spotlightOn = Boolean(on);
+  };
+  setSpotlight(false);
+  return { group: g, controls, mic, spotlight, setSpotlight };
 }
 
-function cleanupProps() {
+export function buildHotDogCleanupProps() {
   const g = group('hotdog.cleanup-props');
   const plastic = mat({ color: 0xd7dbe0, roughness: 0.48, transparent: true, opacity: 0.72 });
   const kit = group('aubbie.cleanup-kit');
@@ -142,24 +162,63 @@ function cleanupProps() {
   kit.add(label);
   g.add(kit);
 
-  const cufflink = cylinder({ r: 0.055, h: 0.025, seg: 12, pos: [-15.7, 0.045, 0.2], mat: mat({ color: 0xd2bd68, roughness: 0.22, metalness: 0.88 }) });
+  const cufflink = cylinder({ r: 0.075, h: 0.032, seg: 12, pos: [-13.15, 0.05, 0.72], mat: emissive(0xd2bd68, 1.15) });
   cufflink.name = 'hotdog.cufflink';
-  const lapel = box({ size: [0.12, 0.025, 0.08], pos: [-10.45, 0.03, -1.0], mat: mat({ color: 0xb3212c, roughness: 0.35, metalness: 0.22 }) });
+  const lapel = box({ size: [0.16, 0.032, 0.11], pos: [-10.45, 0.04, -1.0], mat: emissive(0xb3212c, 1.05) });
   lapel.name = 'hotdog.lapel-pin';
   g.add(cufflink, lapel);
 
-  const revolver = makeRevolver(null, { x: -15.1, y: 0.08, z: -0.62, rotY: 0.9 });
+  const evidenceMarker = (name, object, color) => {
+    const marker = group(`evidence-marker.${name}`);
+    marker.position.copy(object.position);
+    marker.position.y = 0.035;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.27, 0.024, 7, 28),
+      emissive(color, 2.1),
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.castShadow = false;
+    marker.add(ring);
+    const beacon = sphere({ r: 0.035, ry: 2.3, pos: [0, 0.24, 0], mat: emissive(color, 2.4), cast: false });
+    marker.add(beacon);
+    marker.visible = false;
+    g.add(marker);
+    return marker;
+  };
+  const evidenceMarkers = {
+    cufflink: evidenceMarker('cufflink', cufflink, 0xffdf72),
+    lapel: evidenceMarker('lapel', lapel, 0xff5c68),
+  };
+
+  const revolver = makeRevolver(null, { x: -12.85, y: 0.08, z: -0.2, rotY: 0.9 });
   revolver.group.scale.setScalar(1.45);
   revolver.group.visible = false;
   g.add(revolver.group);
 
-  const blood = new THREE.Mesh(
-    new THREE.CircleGeometry(1.15, 28),
-    mat({ color: 0x32080a, roughness: 1, transparent: true, opacity: 0.88, unique: true }),
-  );
-  blood.rotation.x = -Math.PI / 2;
-  blood.position.set(-16.1, 0.012, -0.55);
-  blood.scale.set(1.25, 0.7, 1);
+  const blood = group('hotdog.blood-splatter');
+  blood.userData.presentation = 'irregular-floor-splatter';
+  const bloodMaterial = mat({ color: 0x32080a, roughness: 1, transparent: true, opacity: 0.82, unique: true });
+  const splashes = [
+    { x: -15.95, z: -0.48, rx: 1.2, rz: 0.64, seed: 0.4 },
+    { x: -15.15, z: -0.1, rx: 0.5, rz: 0.25, seed: 1.6 },
+    { x: -16.7, z: -0.9, rx: 0.34, rz: 0.18, seed: 2.7 },
+  ];
+  for (const splash of splashes) {
+    const shape = new THREE.Shape();
+    for (let i = 0; i < 13; i++) {
+      const angle = i / 12 * Math.PI * 2;
+      const wobble = 0.8 + Math.sin(i * 2.7 + splash.seed) * 0.13 + Math.cos(i * 4.1) * 0.08;
+      const x = Math.cos(angle) * splash.rx * wobble;
+      const y = Math.sin(angle) * splash.rz * wobble;
+      if (i === 0) shape.moveTo(x, y); else shape.lineTo(x, y);
+    }
+    const decal = new THREE.Mesh(new THREE.ShapeGeometry(shape), bloodMaterial.clone());
+    decal.rotation.x = -Math.PI / 2;
+    decal.position.set(splash.x, 0.006, splash.z);
+    decal.renderOrder = 2;
+    decal.castShadow = false;
+    blood.add(decal);
+  }
   blood.visible = false;
   g.add(blood);
 
@@ -175,10 +234,20 @@ function cleanupProps() {
 
   const wrap = group('hotdog.wrap');
   wrap.position.set(-15.9, 0, -0.45);
-  wrap.add(
-    box({ size: [0.86, 0.14, 1.9], pos: [0, 0.12, 0], mat: plastic }),
-    box({ size: [0.93, 0.04, 1.95], pos: [0, 0.23, 0], mat: plastic }),
-  );
+  const wrappedBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.46, 1.25, 8, 16), plastic);
+  wrappedBody.name = 'hotdog.wrap-body';
+  wrappedBody.rotation.x = Math.PI / 2;
+  wrappedBody.position.y = 0.49;
+  wrappedBody.castShadow = true;
+  wrap.add(wrappedBody);
+  for (const z of [-0.42, 0, 0.42]) {
+    const band = new THREE.Mesh(
+      new THREE.TorusGeometry(0.47, 0.024, 7, 24),
+      mat({ color: 0xe7eaed, roughness: 0.5, transparent: true, opacity: 0.88 }),
+    );
+    band.position.set(0, 0.49, z);
+    wrap.add(band);
+  }
   wrap.visible = false;
   g.add(wrap);
 
@@ -197,11 +266,37 @@ function cleanupProps() {
   loadPad.name = 'service-loading-pad';
   g.add(loadPad);
 
+  const serviceGuide = group('service-exit-guide');
+  serviceGuide.userData.guidanceText = 'SERVICE EXIT / SNOW';
+  const arrowShape = new THREE.Shape();
+  arrowShape.moveTo(0, -0.55);
+  arrowShape.lineTo(0.42, 0.08);
+  arrowShape.lineTo(0.16, 0.08);
+  arrowShape.lineTo(0.16, 0.55);
+  arrowShape.lineTo(-0.16, 0.55);
+  arrowShape.lineTo(-0.16, 0.08);
+  arrowShape.lineTo(-0.42, 0.08);
+  arrowShape.closePath();
+  for (const [x, z, yaw] of [[3.5, -9.8, 0.3], [6.3, -11.8, 0.5], [8.35, -13.25, 0]]) {
+    const arrow = new THREE.Mesh(new THREE.ShapeGeometry(arrowShape), emissive(0xffc34e, 2.2));
+    arrow.rotation.x = -Math.PI / 2;
+    arrow.rotation.z = yaw;
+    arrow.position.set(x, 0.018, z);
+    arrow.castShadow = false;
+    serviceGuide.add(arrow);
+  }
+  const exitLamp = box({ size: [1.1, 0.26, 0.08], pos: [8.92, 2.15, -14.02], mat: emissive(0xffb638, 2.4), cast: false });
+  serviceGuide.add(exitLamp);
+  serviceGuide.visible = false;
+  g.add(serviceGuide);
+
   return {
     group: g, kit, cufflink, lapel, blood, brokenStool, wrap,
+    evidenceMarkers,
     bathroomPads: { mens: mensPad, ladies: ladiesPad },
     gun: revolver.group,
     loadPad,
+    serviceGuide,
   };
 }
 
@@ -242,8 +337,8 @@ function installPartyColliders(club, {
     halfX: 0.4, halfZ: 0.3, maxY: 1.02,
   });
   add({
-    id: 'prop.stage-microphone', target: stage.group,
-    center: offsetCenter(-12, STAGE_H, -5.7),
+    id: 'prop.stage-microphone', target: stage.mic,
+    center: offsetCenter(0, STAGE_H, 0),
     halfX: 0.08, halfZ: 0.08, minY: 0, maxY: 1.55,
   });
   add({
@@ -257,7 +352,7 @@ function installPartyColliders(club, {
   });
   add({
     id: 'prop.wrapped-body', target: cleanup.wrap,
-    halfX: 0.48, halfZ: 0.99, minY: -0.03, maxY: 0.32,
+    halfX: 0.5, halfZ: 1.12, minY: -0.03, maxY: 0.98,
   });
 
   const cast = [];
@@ -308,6 +403,7 @@ function installPartyColliders(club, {
     ['trigger.bathroom-men', cleanup.bathroomPads.mens],
     ['trigger.bathroom-ladies', cleanup.bathroomPads.ladies],
     ['trigger.service-load', cleanup.loadPad],
+    ['guide.service-exit', cleanup.serviceGuide],
   ].map(([id, object]) => {
     object.userData.partyCollision = { id, mode: 'nonblocking' };
     return { id, object };
@@ -323,10 +419,10 @@ function installPartyColliders(club, {
 }
 
 export async function buildHotDogParty(scene, club) {
-  // The closed-party cast uses the established procedural face fallback. It
-  // keeps this dense one-off crowd deterministic and avoids holding the whole
-  // incident behind an optional face-photo request.
-  const faces = new Set();
+  // This is the same Family as every other Bing visit. Load the canonical face
+  // ledger before population so the closed party cannot silently downgrade
+  // Ape, Snow, Hog Mama, Shubenator and the rest to generic heads.
+  const faces = await loadFaceIndex();
   window.__squatchStage?.('Bringing the Family to the main bar...');
   const family = populateFamily(scene, club, { faces });
   const byId = family.byId;
@@ -343,7 +439,7 @@ export async function buildHotDogParty(scene, club) {
     [CHARACTER_IDS.ERIC]: [-8.6, 4.1, -2.7],
     [CHARACTER_IDS.WILLY]: [-18.3, 5.4, 1.4],
     [CHARACTER_IDS.APE]: [-14.2, 0.2, 1.35],
-    [CHARACTER_IDS.HOG_MAMA]: [-12.0, -5.9, 0],
+    [CHARACTER_IDS.HOG_MAMA]: [-12.0, -3.45, 0],
     [CHARACTER_IDS.SHUBENATOR]: [-6.0, -7.8, 2.6],
     [CHARACTER_IDS.RIPPINFLOW]: [-12.8, 2.8, 2.3],
     [CHARACTER_IDS.CAPTAIN_LOU_SASOLE]: [-10.2, 3.2, 2.4],
@@ -386,10 +482,13 @@ export async function buildHotDogParty(scene, club) {
   });
   aubbie.folded = true;
   attachAubbieTools(aubbie);
-  const lawnmower = makeNpc(scene, club, {
-    name: 'Lawnmower', x: -7.2, z: 2.8, yaw: -2.5, job: 'stand',
-    model: { height: 1.75, build: 1.0, dress: 'work', shirt: 0x36503b, hair: 'crop', hairColour: 0x3c2c1e, skin: 0xc08a5e },
-  });
+  // Lawnmower is Snow's nickname in the authored voice catalog. Keep the
+  // alias, but never create a second body or second face for the same person.
+  const lawnmower = byId[CHARACTER_IDS.SNOW];
+  if (lawnmower) {
+    lawnmower.group.userData.aliases = ['Lawnmower'];
+    lawnmower.aliases = ['Lawnmower'];
+  }
   const sauce = makeNpc(scene, club, {
     name: 'Sauce', x: -1.4, z: 4.9, yaw: -2.8, job: 'work',
     model: { height: 1.72, build: 1.08, dress: 'chef', shirt: 0xe7e2d6, hair: 'short', hairColour: 0x241913, skin: 0xe8c39c },
@@ -399,8 +498,8 @@ export async function buildHotDogParty(scene, club) {
 
   const banner = partyBanner();
   const food = buffet();
-  const stage = stageRig();
-  const cleanup = cleanupProps();
+  const stage = buildHotDogStageRig();
+  const cleanup = buildHotDogCleanupProps();
   scene.add(banner, food.group, stage.group, cleanup.group);
 
   const closedSign = sign(printed('blackjack-closed-party', ['TABLE CLOSED', 'FAMILY PARTY'], {
@@ -431,7 +530,7 @@ export async function buildHotDogParty(scene, club) {
 
   window.__squatchStage?.('Party ready...');
 
-  const all = [...family.all, lou, hotdog, aubbie, lawnmower, sauce];
+  const all = [...new Set([...family.all, lou, hotdog, aubbie, lawnmower, sauce].filter(Boolean))];
   const extra = { lou, hotdog, aubbie, lawnmower, sauce };
   const collision = installPartyColliders(club, {
     food,

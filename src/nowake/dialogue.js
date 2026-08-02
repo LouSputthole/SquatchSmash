@@ -32,6 +32,17 @@ export const NO_WAKE_AMBIENT_LINES = Object.freeze([
   ),
 ]);
 
+export const NO_WAKE_START_LINES = Object.freeze([
+  line(
+    'start.lou.platform', 'Big Uncle Lou', 'lou',
+    'Prospect. The platform is down. Walk it onto the port deck and do not make me come back for you.',
+  ),
+  line(
+    'start.booski.sequence', 'Booskibro', 'booski',
+    'Battery, blower, ignition. Then both lines. The helm is through the open port side.',
+  ),
+]);
+
 const REVEAL = Object.freeze({
   quiet: line(
     'reveal.lou.quiet', 'Big Uncle Lou', 'lou',
@@ -84,8 +95,8 @@ const REVEAL = Object.freeze({
     { focus: 'lou' },
   ),
   head: line(
-    'reveal.willy.head', 'Willy', 'willy',
-    'I need the head.',
+    'reveal.willy.head-v2', 'Willy', 'willy',
+    'I need the head. Too much coffee on the ride down. Everybody relax.',
     { focus: 'willy' },
   ),
 });
@@ -144,6 +155,7 @@ export const NO_WAKE_EPILOGUE_LINE = line(
 /** Every possible spoken line, including both campaign-dependent variants. */
 export function allNoWakeVoiceLines() {
   return [
+    ...NO_WAKE_START_LINES,
     ...NO_WAKE_AMBIENT_LINES,
     ...Object.values(REVEAL),
     ...NO_WAKE_BELOW_LINES,

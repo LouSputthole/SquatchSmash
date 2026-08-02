@@ -130,27 +130,81 @@ function redCliff(x, z) {
 function waterfall(x, z) {
   const g = group('landmark-falls');
   const y = terrainHeight(x, z);
-  const rock = solid(0x4a5244, { roughness: 1 });
-  g.add(mesh(boxGeo(300, 300, 90), rock, 0, y + 150, -40));
-  // The fall itself: a bright sheet with a mist ball at the bottom.
-  const sheet = flatMesh(planeGeo(52, 240), mat({ color: 0xdfeef4, roughness: 0.1, emissive: 0xaac8d8, emissiveIntensity: 0.35 }), 0, y + 150, 8);
-  g.add(sheet);
+  const rand = rng(0xfa115);
+  // The cliff mass stays safely east of final, while the water itself drops
+  // on its runway-side shoulder: "fly toward the waterfall" now points the
+  // nose into the correct valley instead of 260 metres away from the strip.
+  const fallX = -205;
+  const fallY = terrainHeight(x + fallX, z);
+  const rock = solid(0x465044, { roughness: 1 });
+  const mossRock = solid(0x354a38, { roughness: 1 });
+  const cliff = group('waterfall-cliff-wall');
+  // A broken wall of overlapping rock columns reads as terrain instead of the
+  // old single washing-machine slab, while keeping the same long-range mass.
+  for (let i = 0; i < 13; i++) {
+    const boulder = mesh(sphereGeo(1, 8, 6), i % 3 === 0 ? mossRock : rock);
+    const h = 95 + rand() * 95;
+    boulder.scale.set(24 + rand() * 20, h, 28 + rand() * 18);
+    boulder.position.set(-132 + i * 22, y + h * 0.72, -32 - rand() * 20);
+    boulder.rotation.set(rand() * 0.2, rand() * 0.5, (rand() - 0.5) * 0.18);
+    cliff.add(boulder);
+  }
+  const shoulder = mesh(sphereGeo(1, 8, 6), mossRock);
+  shoulder.name = 'waterfall-shoulder';
+  shoulder.scale.set(42, 150, 34);
+  shoulder.position.set(fallX, fallY + 120, -28);
+  cliff.add(shoulder);
+  g.add(cliff);
+
+  // Three translucent ribbons move at slightly different rates, so the fall
+  // remains visibly alive from the cockpit rather than becoming a white card.
+  const waterSheets = [];
+  for (let i = 0; i < 3; i++) {
+    const sheet = flatMesh(planeGeo(18 + i * 9, 232 - i * 12), mat({
+      color: i === 0 ? 0xf0fbff : 0xb9dce8,
+      roughness: 0.08,
+      emissive: 0x89b8c9,
+      emissiveIntensity: 0.22,
+      transparent: true,
+      opacity: 0.72 - i * 0.13,
+      depthWrite: false,
+    }), fallX - 7 + i * 7, fallY + 154 - i * 5, 13 + i * 0.6);
+    sheet.name = `waterfall-sheet-${i + 1}`;
+    sheet.userData.baseY = sheet.position.y;
+    g.add(sheet);
+    waterSheets.push(sheet);
+  }
   const mistMat = new THREE.MeshBasicMaterial({ color: 0xe4eef2, transparent: true, opacity: 0.42, depthWrite: false });
   const mist = [];
   for (let i = 0; i < 6; i++) {
     const m = new THREE.Mesh(sphereGeo(1, 7, 5), mistMat);
     const s = 18 + i * 6;
     m.scale.set(s, s * 0.7, s);
-    m.position.set((Math.random() - 0.5) * 40, y + 24 + Math.random() * 26, 16 + Math.random() * 20);
+    m.position.set(fallX + (rand() - 0.5) * 40, fallY + 24 + rand() * 26, 16 + rand() * 20);
     g.add(m);
     mist.push(m);
   }
   // The pool, and the river leaving it toward the strip.
-  const pool = flatMesh(new THREE.CircleGeometry(60, 16), mat({ color: 0x3f7f9a, roughness: 0.15 }), 0, y + 3, 40);
+  const pool = flatMesh(new THREE.CircleGeometry(60, 16), mat({ color: 0x3f7f9a, roughness: 0.15 }), fallX, fallY + 3, 40);
+  pool.name = 'waterfall-pool';
   pool.rotation.x = -Math.PI / 2;
   g.add(pool);
+  // Dark-green crowns and trunks frame the water and tie it into El Hueso's
+  // jungle palette without adding another streamed terrain chunk.
+  const foliage = group('waterfall-foliage');
+  for (let i = 0; i < 18; i++) {
+    const tx = -150 + i * 18 + (rand() - 0.5) * 12;
+    const tz = -4 + (rand() - 0.5) * 70;
+    const gy = terrainHeight(x + tx, z + tz);
+    foliage.add(mesh(cylGeo(0.9, 1.4, 15 + rand() * 9, 6), solid(0x3d3221, { roughness: 1 }), tx, gy + 8, tz));
+    const crown = mesh(coneGeo(8 + rand() * 5, 18 + rand() * 10, 7), solid(i % 2 ? 0x245b31 : 0x31703b, { roughness: 1 }), tx, gy + 22, tz);
+    foliage.add(crown);
+  }
+  g.add(foliage);
   g.position.set(x, 0, z);
   g.userData.mist = mist;
+  g.userData.waterSheets = waterSheets;
+  g.userData.fallX = fallX;
   return g;
 }
 
@@ -308,6 +362,11 @@ export function buildLandmarks(scene) {
         for (let i = 0; i < falls.userData.mist.length; i++) {
           const m = falls.userData.mist[i];
           m.scale.setScalar((18 + i * 6) * (1 + Math.sin(t * 1.2 + i) * 0.12));
+        }
+        for (let i = 0; i < falls.userData.waterSheets.length; i++) {
+          const sheet = falls.userData.waterSheets[i];
+          sheet.position.y = sheet.userData.baseY + Math.sin(t * (2.1 + i * 0.35) + i) * 0.9;
+          sheet.material.opacity = 0.52 + Math.sin(t * 1.7 + i) * 0.08;
         }
       }
       for (const tw of towers) {

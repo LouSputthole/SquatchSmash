@@ -21,6 +21,95 @@ const BODY = 0xd8d2be;      // beige, and it was beige twenty years ago too
 const TRIM = 0x4a4a52;
 const ROOF = 0xe4e0d2;
 
+function buildAmenities(cart) {
+  const root = new THREE.Group();
+  root.name = 'golf-cart-amenities';
+
+  /* Two actual bags ride in the rear rack. They are intentionally simpler
+   * than the carried three-club bag, but retain the same silhouette: tapered
+   * body, open rim and visible metal shafts above it. */
+  const bags = [];
+  for (const x of [-0.31, 0.31]) {
+    const bag = new THREE.Group();
+    bag.name = 'golf-cart-rear-bag';
+    bag.position.set(x, 0.82, -1.16);
+    bag.rotation.x = -0.18;
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.20, 0.76, 10),
+      mat({ color: x < 0 ? 0x4a3378 : 0x747983, roughness: 0.82 }),
+    );
+    body.position.y = 0.32;
+    bag.add(body);
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.145, 0.022, 7, 18),
+      mat({ color: 0x20232a, roughness: 0.72 }),
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.71;
+    bag.add(rim);
+    for (const sx of [-0.07, 0, 0.07]) {
+      const shaft = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.008, 0.008, 0.56, 6),
+        mat({ color: 0xbfc5cb, roughness: 0.3, metalness: 0.74 }),
+      );
+      shaft.position.set(sx, 0.96, 0);
+      shaft.rotation.z = sx * 1.4;
+      bag.add(shaft);
+    }
+    root.add(bag);
+    bags.push(bag);
+  }
+
+  const cooler = new THREE.Group();
+  cooler.name = 'golf-cart-cooler';
+  cooler.position.set(0.73, 0.70, -0.64);
+  const coolerBody = new THREE.Mesh(
+    new THREE.BoxGeometry(0.42, 0.34, 0.50),
+    mat({ color: 0xd8e1e5, roughness: 0.78 }),
+  );
+  cooler.add(coolerBody);
+  const lid = new THREE.Mesh(
+    new THREE.BoxGeometry(0.44, 0.07, 0.52),
+    mat({ color: 0x6f86a0, roughness: 0.7 }),
+  );
+  lid.name = 'golf-cart-cooler-lid';
+  lid.position.y = 0.20;
+  cooler.add(lid);
+  root.add(cooler);
+
+  const beers = [];
+  for (let i = 0; i < 4; i++) {
+    const can = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.038, 0.038, 0.15, 12),
+      mat({ color: i % 2 ? 0xc8cdd2 : 0x7f5ab7, roughness: 0.38, metalness: 0.58 }),
+    );
+    can.name = `golf-cart-beer-${i + 1}`;
+    can.position.set(0.60 + (i % 2) * 0.085, 0.99, -0.76 + Math.floor(i / 2) * 0.10);
+    root.add(can);
+    beers.push(can);
+  }
+
+  const cigarettes = new THREE.Mesh(
+    new THREE.BoxGeometry(0.14, 0.035, 0.09),
+    mat({ color: 0xf1eee3, roughness: 0.78 }),
+  );
+  cigarettes.name = 'golf-cart-cigarettes';
+  cigarettes.position.set(0.28, 1.15, 0.70);
+  cigarettes.rotation.y = 0.22;
+  root.add(cigarettes);
+
+  const zyn = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.066, 0.066, 0.026, 20),
+    mat({ color: 0x3f78b8, roughness: 0.62 }),
+  );
+  zyn.name = 'golf-cart-zyn-tin';
+  zyn.position.set(0.46, 1.16, 0.69);
+  root.add(zyn);
+
+  cart.add(root);
+  return { root, bags, cooler, beers, cigarettes, zyn };
+}
+
 function buildCart(scene) {
   const g = new THREE.Group();
 
@@ -93,7 +182,7 @@ function buildCart(scene) {
    * in the passenger seat. It is intentionally chunky enough to read as a
    * physical dashboard prop from the first-person cart camera. */
   radio.position.set(-0.26, 1.20, 0.69);
-  radio.scale.setScalar(1.12);
+  radio.scale.setScalar(0.86);
   radio.rotation.x = -0.16;
   const radioCase = new THREE.Mesh(
     new THREE.BoxGeometry(0.43, 0.17, 0.09),
@@ -126,8 +215,10 @@ function buildCart(scene) {
   }
   g.add(radio);
 
+  const amenities = buildAmenities(g);
+
   scene.add(g);
-  return { group: g, wheels, radio, radioPower: power };
+  return { group: g, wheels, radio, radioPower: power, amenities };
 }
 
 /** Distance along the path, in metres, to a world point and a heading. */
@@ -170,6 +261,7 @@ export class Cart {
     this.wheels = built.wheels;
     this.radio = built.radio;
     this.radioPower = built.radioPower;
+    this.amenities = built.amenities;
     this.distance = startDistance;
     this.speed = speed;
     this.velocity = 0;

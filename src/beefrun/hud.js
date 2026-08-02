@@ -45,6 +45,7 @@ export class FlightHud {
     this.warnings = $('br-warnings');
     this.engines = [$('br-eng-l'), $('br-eng-r')];
     this.flaps = $('br-flaps');
+    this.airBrake = $('br-airbrake');
     this.cargo = $('br-cargo');
     this.cg = $('br-cg');
     this.cgNeedle = $('br-cg-needle');
@@ -132,6 +133,14 @@ export class FlightHud {
     this._flaps = label;
     this.flaps.textContent = `FLAPS ${label}`;
     this.flaps.classList.toggle('out', v > 0);
+  }
+
+  setAirBrake(v) {
+    const out = v > 0.05;
+    if (this._airBrake === out) return;
+    this._airBrake = out;
+    this.airBrake.textContent = out ? 'AIR BRAKE DEPLOYED' : 'AIR BRAKE STOWED';
+    this.airBrake.classList.toggle('out', out);
   }
 
   /**

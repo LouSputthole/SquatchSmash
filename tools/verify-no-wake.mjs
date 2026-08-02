@@ -61,8 +61,8 @@ const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', '
 const indexedFiles = new Set(soundIndex.files || []);
 const manifestVoice = soundManifest.sfx.filter((cue) => cue.name.startsWith('vo.nowake.'));
 const manifestByName = new Map(manifestVoice.map((cue) => [cue.name, cue]));
-check('all 22 NO WAKE lines have stable cue ids, cast voices and exact manifest text',
-  authoredVoice.length === 22
+check('all 24 NO WAKE lines have stable cue ids, cast voices and exact manifest text',
+  authoredVoice.length === 24
     && manifestVoice.length === authoredVoice.length
     && authoredVoice.every((line) => {
       const cue = manifestByName.get(`vo.nowake.${line.cue}.1`);
@@ -76,11 +76,14 @@ const expectedNoWakePickups = [
   'vo.nowake.execution.lou.move.1.mp3',
   'vo.nowake.execution.prospect.lift.1.mp3',
   'vo.nowake.return.lou.lesson.1.mp3',
+  'vo.nowake.reveal.willy.head-v2.1.mp3',
+  'vo.nowake.start.booski.sequence.1.mp3',
+  'vo.nowake.start.lou.platform.1.mp3',
 ];
 const noWakePickupFiles = authoredVoice
   .map((line) => `vo.nowake.${line.cue}.1.mp3`)
   .filter((file) => recordingSheet.includes(`\`${file}\``));
-check('every NO WAKE delivery is indexed or one of the four approved aftermath pickups',
+check('every NO WAKE delivery is indexed or an explicitly approved production pickup',
   authoredVoice.every((line) => {
     const file = `vo.nowake.${line.cue}.1.mp3`;
     return indexedFiles.has(file) || expectedNoWakePickups.includes(file);
@@ -109,11 +112,14 @@ try {
     .filter((cue) => !indexedFiles.has(cue.file || `${cue.name}.mp3`))
     .map((cue) => cue.name).sort();
   const expectedPendingNoWakeNames = [
+    'ambience.harbor',
     'boat.board.step', 'boat.body.drag', 'boat.body.rail', 'boat.engine.shutdown',
-    'boat.engine.start', 'boat.engine.underway', 'boat.gunshot.deck', 'boat.hull.wake',
+    'boat.engine.start', 'boat.engine.underway', 'boat.gunshot.deck', 'boat.hull.creak', 'boat.hull.wake',
     'boat.rope.release', 'vo.nowake.execution.booski.lift.1',
     'vo.nowake.execution.lou.move.1', 'vo.nowake.execution.prospect.lift.1',
-    'vo.nowake.return.lou.lesson.1',
+    'vo.nowake.return.lou.lesson.1', 'vo.nowake.reveal.willy.head-v2.1',
+    'vo.nowake.start.booski.sequence.1', 'vo.nowake.start.lou.platform.1',
+    'seagull.distant',
   ].sort();
   await page.evaluate(() => window.NO_WAKE.postfx?.disable?.());
   // Use a trusted browser gesture so the same click that starts the mission can
@@ -121,6 +127,20 @@ try {
   await page.click('#start-btn');
   await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 30000 });
   await page.waitForTimeout(250);
+
+  const initialPointerLock = await page.evaluate(() => (
+    document.pointerLockElement === document.querySelector('canvas')
+  ));
+  await page.evaluate(() => document.exitPointerLock?.());
+  await page.waitForFunction(() => document.pointerLockElement === null);
+  await page.click('canvas', { position: { x: 640, y: 360 } });
+  await page.waitForFunction(() => (
+    document.pointerLockElement === document.querySelector('canvas')
+  ));
+  check('the canvas reacquires mouse control after the player clicks out and back in',
+    initialPointerLock && await page.evaluate(() => (
+      document.pointerLockElement === document.querySelector('canvas')
+    )));
 
   const noWakeAudioResidency = await page.evaluate((expected) => {
     const audio = window.NO_WAKE.audio;
@@ -386,6 +406,13 @@ try {
   await capture('no-wake-boarding-bridge.png');
   await page.keyboard.press('e');
   await page.waitForTimeout(100);
+  const crossingPlatform = await page.evaluate(() => ({
+    boarding: window.NO_WAKE.state.boarding,
+    boarded: window.NO_WAKE.state.boarded,
+    bridgeStillDown: window.NO_WAKE.boat.boardingBridge.visible,
+    mode: window.NO_WAKE.player.mode,
+  }));
+  await page.waitForFunction(() => window.NO_WAKE.state.boarded === true);
   const boardedByPlayer = await page.evaluate(() => {
     const game = window.NO_WAKE;
     return {
@@ -395,9 +422,12 @@ try {
     };
   });
   check('the player boards through the bridge target with real crosshair and E input',
-    boardingAim.targeted && boardedByPlayer.boarded && boardedByPlayer.bridgeStowed
+    boardingAim.targeted
+      && crossingPlatform.boarding && !crossingPlatform.boarded
+      && crossingPlatform.bridgeStillDown && crossingPlatform.mode === 'frozen'
+      && boardedByPlayer.boarded && boardedByPlayer.bridgeStowed
       && boardedByPlayer.playerLocal[2] > 3.2 && boardedByPlayer.playerLocal[2] < 4.2,
-    JSON.stringify({ ...boardingAim, ...boardedByPlayer }));
+    JSON.stringify({ ...boardingAim, crossingPlatform, ...boardedByPlayer }));
   await page.evaluate(() => {
     const game = window.NO_WAKE;
     const V = game.player.position.constructor;
@@ -861,6 +891,16 @@ try {
     const V = game.player.position.constructor;
     const booski = game.boat.cast.booski.group.localToWorld(new V(0, 1.42, 0))
       .project(game.player.camera).toArray();
+    const from = game.state.returnFrom;
+    const to = game.state.returnTo;
+    const control = game.state.returnControl;
+    const position = game.boat.root.position;
+    const chordX = to.x - from.x;
+    const chordZ = to.z - from.z;
+    const chordLength = Math.max(.001, Math.hypot(chordX, chordZ));
+    const crossTrack = (point) => Math.abs(
+      chordX * (from.z - point.z) - (from.x - point.x) * chordZ
+    ) / chordLength;
     return {
       shot: game.cameraDirector.shot?.id ?? null,
       authoredPosition: game.cameraDirector.shot?.position ?? null,
@@ -868,6 +908,14 @@ try {
       booski,
       louAtHelm: game.boat.cast.lou.group.position.z < .2,
       emptyStern: !game.boat.cast.willy.group.visible,
+      route: {
+        from: from.toArray(),
+        control: control.toArray(),
+        to: to.toArray(),
+        position: position.toArray(),
+        controlCrossTrack: crossTrack(control),
+        boatCrossTrack: crossTrack(position),
+      },
     };
   });
   check('the return middle shot clears the wheelhouse and holds on Booski beside the empty stern',
@@ -876,6 +924,10 @@ try {
       && Math.abs(silentDeckFrame.booski[0]) < .82 && Math.abs(silentDeckFrame.booski[1]) < .82
       && silentDeckFrame.louAtHelm && silentDeckFrame.emptyStern,
     JSON.stringify(silentDeckFrame));
+  check('the ride home follows a broad turning arc instead of sliding straight to the dock',
+    silentDeckFrame.route.controlCrossTrack >= 50
+      && silentDeckFrame.route.boatCrossTrack >= 20,
+    JSON.stringify(silentDeckFrame.route));
   await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 10.85; });
   await page.waitForTimeout(450);
   await capture('no-wake-return-harbor-ahead.png');

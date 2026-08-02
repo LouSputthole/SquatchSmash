@@ -18,7 +18,8 @@
  * restore. If the save says `date`, the flat is the `date` flat, full stop.
  */
 import * as THREE from 'three';
-import { box, cylinder, group, mat, plane } from './build.js';
+import { box, cylinder, group, mat, plane, sphere } from './build.js';
+import { restyleMargoHead } from '../silver/margo.js';
 
 /** The campaign's chapters, in the order sleeping walks through them. */
 export const CHAPTER_ORDER = Object.freeze([
@@ -165,6 +166,19 @@ export function allDressingIds() {
   return [...ids];
 }
 
+/**
+ * Souvenirs earned by missions rather than by reaching a calendar chapter.
+ *
+ * These are deliberately folded from campaign truth on every apartment boot:
+ * returning from a mission, reloading, and advancing to a later morning all
+ * produce the same shelf. A trophy never appears before it was earned.
+ */
+export function persistentDressingForCampaign(state = {}) {
+  const shown = new Set();
+  if (state.missions?.airstrip_smuggling?.status === 'complete') shown.add('tammyDashboardMug');
+  return shown;
+}
+
 /* ------------------------------------------------------------------ */
 /* The props themselves                                                */
 /* ------------------------------------------------------------------ */
@@ -282,6 +296,53 @@ function motelKey(M, { x, y, z, rotY = 0 }) {
     size: [0.010, 0.0022, 0.052], pos: [0.036, 0.0026, 0.0],
     mat: mat({ color: 0xbfc4c9, roughness: 0.3, metalness: 0.8 }),
   }));
+  return g;
+}
+
+/** Tammy's cockpit mug from Beef Run, brought home beside the gaming PC. */
+function tammyDashboardMug(M, { x, y, z, rotY = 0 }) {
+  const g = group('dress:tammyDashboardMug');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+  const ceramic = mat({ color: 0xe5dfd2, roughness: 0.58 });
+  const coffee = mat({ color: 0x2b1810, roughness: 0.72 });
+
+  const cup = cylinder({ r: 0.052, h: 0.105, pos: [0, 0.053, 0], mat: ceramic });
+  cup.name = 'tammy-mug';
+  g.add(cup);
+  const drink = cylinder({ r: 0.046, h: 0.003, pos: [0, 0.106, 0], mat: coffee, cast: false });
+  drink.name = 'tammy-mug-coffee';
+  g.add(drink);
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.041, 0.008, 7, 16, Math.PI * 1.65), ceramic);
+  handle.name = 'tammy-mug-handle';
+  handle.position.set(0.054, 0.060, 0);
+  handle.rotation.y = Math.PI / 2;
+  handle.rotation.z = -Math.PI * 0.82;
+  g.add(handle);
+
+  /* Match the cockpit prop's cream-and-burgundy TAMMY mark. At mug scale a
+   * few geometry bars read as a generic badge; the actual name is the visual
+   * continuity players can recognise when the keepsake appears at home. */
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 80;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#e8e2d4';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#7d2432';
+  context.font = '700 44px Georgia, serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText('TAMMY', canvas.width / 2, canvas.height / 2 + 2);
+  const labelTexture = new THREE.CanvasTexture(canvas);
+  labelTexture.colorSpace = THREE.SRGBColorSpace;
+  const label = plane(0.078, 0.026, new THREE.MeshBasicMaterial({ map: labelTexture }));
+  label.name = 'tammy-mug-label';
+  label.position.set(0, 0.064, 0.0525);
+  g.add(label);
+
+  g.userData.label = 'Tammy’s Dashboard Mug';
+  g.userData.continuityName = 'tammy-mug';
   return g;
 }
 
@@ -537,43 +598,143 @@ export function makeAnswerMachine(M, { x, y, z, rotY = 0 }) {
  * without either floating or sinking, and this is a scene where she does all
  * three in about forty seconds.
  *
- * Deliberately not the Person rig from the story scenes: that one is built at
- * Sasquatch scale for rooms with four metres of headroom, and this is a studio
- * flat with a bed in it.
+ * This remains a compact apartment rig rather than the Sasquatch-scale story
+ * rig, but her authored face is shared with Front and Center. Clothes and pose
+ * can change overnight; identity cannot.
  */
 export function makeMorningGuest(M) {
   const g = group('margo');
-  const skin = mat({ color: 0xe0ab84, roughness: 0.9 });
-  const hair = mat({ color: 0x2c1c14, roughness: 0.95 });
   const shirt = mat({ color: 0xd8d2c4, roughness: 1 });
-  const jeans = mat({ color: 0x35405a, roughness: 1 });
+  const shirtShade = mat({ color: 0xbab3a4, roughness: 1 });
+  const jeans = mat({ color: 0x25334d, roughness: 1 });
+  const denimShade = mat({ color: 0x1d273b, roughness: 1 });
 
   const upper = group('margo.upper');
   g.add(upper);
-  upper.add(box({ size: [0.34, 0.50, 0.20], pos: [0, 0.25, 0], mat: shirt }));
-  upper.add(box({ size: [0.40, 0.08, 0.21], pos: [0, 0.47, 0], mat: shirt }));
+  const blouse = group('margo.outfit.blouse');
+  upper.add(blouse);
+  /* Three tapered masses instead of one half-metre rectangle: the authored
+   * face deserves a body that still reads as human when the camera sees her
+   * back at close range. */
+  blouse.add(box({
+    name: 'margo.outfit.blouse.waist', size: [0.28, 0.20, 0.19], pos: [0, 0.14, 0], mat: shirt,
+  }));
+  blouse.add(box({
+    name: 'margo.outfit.blouse.ribs', size: [0.33, 0.24, 0.205], pos: [0, 0.34, 0], mat: shirt,
+  }));
+  blouse.add(box({
+    name: 'margo.outfit.blouse.shoulders', size: [0.40, 0.08, 0.215], pos: [0, 0.48, 0], mat: shirt,
+  }));
+  /* A visible centre seam gives the interaction a real garment to finish,
+   * rather than asking the player to hold E against an undifferentiated box. */
+  const dressClosure = box({
+    name: 'margo.outfit.dress-closure', size: [0.018, 0.31, 0.014],
+    pos: [0, 0.265, -0.108], mat: shirtShade,
+  });
+  upper.add(dressClosure);
+
   const head = group('margo.head');
-  head.position.y = 0.66;
+  head.position.y = 0.56;
   upper.add(head);
-  head.add(box({ size: [0.17, 0.20, 0.18], pos: [0, 0, 0], mat: skin }));
-  head.add(box({ size: [0.19, 0.10, 0.20], pos: [0, 0.10, -0.01], mat: hair }));
-  head.add(box({ size: [0.20, 0.24, 0.09], pos: [0, -0.02, -0.08], mat: hair }));
-  for (const s of [-1, 1]) {
-    head.add(box({ size: [0.025, 0.02, 0.02], pos: [0.045 * s, 0.01, 0.092], mat: mat({ color: 0x24242c, roughness: 0.5 }) }));
-  }
+  const faceParts = restyleMargoHead({ head }, { skin: 0xd8a878, hairColour: 0x2a1c14 });
+
   const arms = [];
   for (const s of [-1, 1]) {
-    const arm = box({ size: [0.075, 0.44, 0.09], pos: [0.205 * s, 0.22, 0], mat: shirt });
+    const side = s < 0 ? 'right' : 'left';
+    const arm = group(`margo.arm.${side}`);
+    arm.position.set(0.205 * s, 0.43, 0);
+    const sleeve = box({
+      name: `margo.arm.${side}.sleeve`, size: [0.075, 0.34, 0.09],
+      pos: [0, -0.17, 0], mat: shirt,
+    });
+    const forearm = box({
+      name: `margo.arm.${side}.forearm`, size: [0.062, 0.18, 0.07],
+      pos: [0, -0.42, 0.015], mat: mat({ color: 0xd8a878, roughness: 0.88 }),
+    });
+    arm.add(sleeve, forearm);
     arm.rotation.z = 0.06 * -s;
     upper.add(arm);
     arms.push(arm);
   }
 
+  /* Hips and seat are rounded, stylised clothing forms. They add the missing
+   * human silhouette from the side and rear without adding anatomical detail. */
+  const hips = box({
+    name: 'margo.silhouette.hips', size: [0.36, 0.16, 0.23], pos: [0, 0, -0.01], mat: jeans,
+  });
+  g.add(hips);
+  for (const s of [-1, 1]) {
+    const seat = sphere({ r: 0.14, ry: 0.155, rz: 0.17, pos: [s * 0.075, -0.015, -0.075], mat: jeans });
+    seat.name = `margo.silhouette.seat.${s < 0 ? 'right' : 'left'}`;
+    g.add(seat);
+  }
+  g.add(box({
+    name: 'margo.outfit.jeans.waistband', size: [0.35, 0.045, 0.235],
+    pos: [0, 0.075, -0.01], mat: denimShade,
+  }));
+
   const legs = group('margo.legs');
   g.add(legs);
+  const thighs = [];
+  const knees = [];
   for (const s of [-1, 1]) {
-    legs.add(box({ size: [0.13, 0.78, 0.15], pos: [0.085 * s, -0.39, 0], mat: jeans }));
+    const side = s < 0 ? 'right' : 'left';
+    const thigh = group(`margo.leg.${side}.thigh`);
+    thigh.position.x = 0.085 * s;
+    thigh.add(box({
+      name: `margo.leg.${side}.thigh.denim`, size: [0.145, 0.42, 0.17],
+      pos: [0, -0.21, 0], mat: jeans,
+    }));
+    const knee = group(`margo.leg.${side}.knee`);
+    knee.position.y = -0.41;
+    knee.add(box({
+      name: `margo.leg.${side}.shin`, size: [0.13, 0.40, 0.15],
+      pos: [0, -0.20, 0], mat: jeans,
+    }));
+    knee.add(box({
+      name: `margo.leg.${side}.shoe`, size: [0.14, 0.10, 0.24],
+      pos: [0, -0.41, 0.045], mat: mat({ color: 0x262326, roughness: 0.82 }),
+    }));
+    thigh.add(knee);
+    legs.add(thigh);
+    thighs.push(thigh);
+    knees.push(knee);
   }
+
+  /* Stable, generous hit volume behind the blouse. It follows her pose but
+   * stays invisible; the garment seam above is the visual target. */
+  const helpTarget = box({
+    name: 'margo-dress-help', size: [0.48, 0.58, 0.38], pos: [0, 0.32, -0.12],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  g.add(helpTarget);
+
+  const rig = {
+    group: g,
+    head,
+    upper,
+    legs,
+    arms,
+    thighs,
+    knees,
+    helpTarget,
+    dressClosure,
+    faceParts,
+    identity: 'margo',
+    outfit: 'morning_blouse_and_jeans',
+    pose: 'lying',
+    dressHelpProgress: 0,
+    setPose: null,
+    setDressHelpProgress: null,
+  };
+
+  const resetLimbs = () => {
+    legs.rotation.set(0, 0, 0);
+    upper.rotation.set(0, 0, 0);
+    thighs.forEach((thigh) => thigh.rotation.set(0, 0, 0));
+    knees.forEach((knee) => knee.rotation.set(0, 0, 0));
+    arms.forEach((arm, i) => arm.rotation.set(0, 0, (i ? -1 : 1) * -0.06));
+  };
 
   /**
    * Where she is, and what shape she is in.
@@ -584,9 +745,12 @@ export function makeMorningGuest(M) {
    * the lens. She is on his east side throughout, which is the open side of
    * the bed and the side the rest of the flat is on.
    *
-   * @param {'lying'|'sitting'|'standing'} pose
+   * @param {'lying'|'sitting'|'kneeling'|'standing'} pose
    */
   const setPose = (pose) => {
+    resetLimbs();
+    rig.pose = pose;
+    helpTarget.visible = pose === 'kneeling';
     if (pose === 'lying') {
       /* On her side beside him. Laid down by rotating the standing rig a
        * quarter turn about X, so her head runs toward the headboard and her
@@ -612,18 +776,50 @@ export function makeMorningGuest(M) {
        * enough that the angle up to her frames a person and not a ceiling. */
       g.position.set(-3.12, 0.72, -3.30);
       g.rotation.set(0, Math.PI / 2 - 0.35, 0);
-      legs.rotation.x = -1.20;
+      thighs.forEach((thigh) => { thigh.rotation.x = -1.20; });
+      knees.forEach((knee) => { knee.rotation.x = 1.18; });
       upper.rotation.x = 0.04;
       return;
     }
-    g.position.set(-2.86, 0.78, -3.10);
-    g.rotation.set(0, Math.PI / 2 - 0.2, 0);
-    legs.rotation.x = 0;
-    upper.rotation.x = 0;
+    if (pose === 'kneeling') {
+      /* Beside the open side of the bed, three-quarter back to the player.
+       * Both knees reach the floor and both lower legs fold behind her, so the
+       * pose reads at a glance instead of looking like a shortened standing rig. */
+      g.position.set(-2.55, 0.41, -3.00);
+      g.rotation.set(0, 1.90, 0);
+      thighs.forEach((thigh, i) => {
+        thigh.rotation.x = -0.16 + i * 0.03;
+      });
+      knees.forEach((knee, i) => {
+        knee.rotation.x = -2.06 - i * 0.04;
+      });
+      upper.rotation.x = 0.08;
+      arms.forEach((arm, i) => {
+        arm.rotation.x = -0.32 + i * 0.08;
+        arm.rotation.z = i ? -0.12 : 0.12;
+      });
+      return;
+    }
+    g.position.set(-2.55, 0.78, -3.00);
+    g.rotation.set(0, 1.90, 0);
   };
+
+  const setDressHelpProgress = (progress) => {
+    const p = Math.max(0, Math.min(1, Number(progress) || 0));
+    rig.dressHelpProgress = p;
+    dressClosure.scale.y = 0.18 + p * 0.82;
+    dressClosure.position.y = 0.16 + p * 0.105;
+    /* She settles her shoulders as the fastening closes. The movement is
+     * intentionally slight so the interaction reads without turning into a
+     * repeated canned animation. */
+    if (rig.pose === 'kneeling') upper.rotation.x = 0.08 - p * 0.05;
+  };
+  rig.setPose = setPose;
+  rig.setDressHelpProgress = setDressHelpProgress;
+  setDressHelpProgress(0);
   setPose('lying');
   g.visible = false;
-  return { group: g, head, upper, legs, arms, setPose };
+  return rig;
 }
 
 /**
@@ -657,6 +853,7 @@ export function buildDressing(M, { root, fridgeDoor, at }) {
   add('motelKey', motelKey(M, at.motelKey));
   add('cashMid', cash(M, { ...at.cashMid, n: 3 }));
   add('casualJacket', casualJacket(M, at.casualJacket));
+  add('tammyDashboardMug', tammyDashboardMug(M, at.tammyDashboardMug));
 
   add('cashStacks', cash(M, { ...at.cashStacks, n: 6, wide: true }));
   add('heistCut', cash(M, {

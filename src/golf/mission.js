@@ -642,6 +642,10 @@ export class Round {
         if (this._wait > 0 || this.cues.busy) break;
         // Back to his own spot on the tee box, on his own feet.
         golfer?.walkTo(HOLE.teeMarks[id].x, HOLE.teeMarks[id].z);
+        /* One full shot has now been watched. From this point F may collapse
+         * only the remaining tee shots; it can never skip the first one or
+         * the authored exchange that brought the group here. */
+        this.npcShotsSeen = true;
         this._npcIndex++;
         this._npcPhase = 'before';
         this._steppedUp = false;

@@ -308,7 +308,7 @@ const pauseMenu = createPauseMenu({
   instructions: [
     'On foot: W A S D — move. E — interact.',
     'In the aircraft: W/S — pitch. A/D — roll. Q/E — rudder.',
-    'Shift/Ctrl — throttle. F/G — flaps. B — brakes. V — parking brake.',
+    'Shift/Ctrl — throttle. F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop each engine.',
     'C — camera. R — restart at the latest checkpoint.',
     'Tab or P — pause or resume.',
@@ -517,6 +517,7 @@ function frame() {
       flightHud.setEngines(engines);
       flightHud.setCargo(cargo);
       flightHud.setFlaps(physics.controls.flaps);
+      flightHud.setAirBrake(physics.controls.airBrake);
     }
     audio.updateListener(camera);
   }

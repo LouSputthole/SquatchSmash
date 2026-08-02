@@ -500,15 +500,32 @@ export function makeCecilio() {
   const f = makeFigure({
     name: 'cecilio',
     skin: 0xb07a4e,
-    shirt: 0xe8e2d0,
-    trousers: 0x2e2e34,
-    boots: 0x3a2a1a,
+    shirt: 0xf1e3c3,
+    jacket: 0x6f3029,
+    trousers: 0x27282d,
+    boots: 0x241812,
+    hair: 0x211814,
     hat: 'cowboy',
-    build: 0.7,
+    build: 0.82,
   });
   setPose(f, 'inspect');
+  // Cecilio is the only man at the shelter with a tailored jacket, a face the
+  // player can read at conversation distance, and a name. The rear henchmen
+  // deliberately keep their existing anonymous field clothes.
+  const moustache = mesh(boxGeo(0.18, 0.035, 0.025), solid(0x211814, { roughness: 1 }), 0, 0.105, 0.135);
+  moustache.name = 'cecilio-moustache';
+  f.neck.add(moustache);
+  const nose = mesh(boxGeo(0.045, 0.06, 0.045), solid(0xb07a4e, { roughness: 1 }), 0, 0.16, 0.145);
+  nose.name = 'cecilio-nose';
+  f.neck.add(nose);
+  const gold = solid(0xe8c04a, { roughness: 0.25, metalness: 0.9 });
+  const medallion = mesh(sphereGeo(0.045, 10, 6), gold, 0, 0.43, 0.185);
+  medallion.name = 'cecilio-medallion';
+  f.hips.add(medallion);
   // The watch. It cost more than the aeroplane.
-  f.arms[1].elbow.add(mesh(boxGeo(0.09, 0.04, 0.09), solid(0xe8c04a, { roughness: 0.25, metalness: 0.9 }), 0, -0.24, 0.04));
+  f.arms[1].elbow.add(mesh(boxGeo(0.09, 0.04, 0.09), gold, 0, -0.24, 0.04));
+  f.tag = nameTag('DON CECILIO', '#d98a5a');
+  f.group.add(f.tag);
   return f;
 }
 

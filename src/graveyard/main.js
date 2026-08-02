@@ -21,6 +21,7 @@ import {
   GRAVEYARD_SNOW_BARKS,
   GraveyardMission,
   GRAVES,
+  resolveGraveyardLineHold,
   shouldAutoTriggerEcho,
 } from './mission.js';
 import { buildGraveyard } from './world.js';
@@ -176,7 +177,7 @@ function updateDialogue(dt) {
   if (!state.activeLine && state.lines.length) {
     const line = state.lines.shift();
     const recorded = cueSeconds(line.cue);
-    const duration = line.seconds ?? Math.max(recorded + 0.35, 2.5 + line.text.length * 0.025);
+    const duration = resolveGraveyardLineHold(line, recorded);
     state.activeLine = { ...line, remaining: duration };
     speakerEl.querySelector('small').textContent = line.who || 'Prospect';
     speakerEl.querySelector('span').textContent = line.text;
@@ -323,7 +324,10 @@ function completeBurial() {
 
 interaction.register(graveyard.snow.group, {
   label: 'Talk to <b>Snow</b>',
-  enabled: () => state.phase === 'active' && !state.pee.active,
+  enabled: () => state.phase === 'active'
+    && !state.pee.active
+    && !state.activeLine
+    && state.lines.length === 0,
   onUse: () => {
     graveyard.snow.faceToward(player.position.x, player.position.z);
     graveyard.snow.say(2.5);

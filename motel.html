@@ -94,6 +94,7 @@
   #packList .item { font-size: 13px; font-weight: 700; color: #dbe3f0; line-height: 1.45; }
   #packList .item .tag { color: var(--turq); font-weight: 900; }
   #packList .item.dim { color: #8e99ad; }
+  #packList .item.equipped { color: #fff0b8; text-shadow: 0 0 10px rgba(255,196,78,.28); }
   #packList .item.new { animation: packIn .5s ease-out; }
   @keyframes packIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
 
@@ -147,6 +148,7 @@
     color: #eef1f7; font-family: inherit; transition: transform .08s, border-color .12s;
   }
   .opt:hover, .opt.sel { transform: translateY(-2px); border-color: var(--pink); }
+  .opt:disabled { opacity: .42; cursor: wait; transform: none; border-color: rgba(255,255,255,.12); }
   .opt .key {
     flex: 0 0 auto; width: 22px; height: 22px; border-radius: 5px; background: rgba(255,255,255,.12);
     display: grid; place-items: center; font-size: 12px; font-weight: 900; color: var(--yellow);

@@ -238,6 +238,7 @@ const PROP_SLOTS = ['zyn.lid', 'label.beer', 'label.whiskey', 'eggs.carton', 'ce
 export async function buildApartment(ctx) {
   const { scene, audio, hud, interaction, time } = ctx;
   const gunUnlocked = ctx.gunUnlocked === true;
+  const persistentDressing = new Set(ctx.persistentDressing || []);
   const M = makeMaterials();
 
   // Resolved up front: some of it is wall art, but some is the label on the
@@ -1009,6 +1010,7 @@ export async function buildApartment(ctx) {
       motelKey: { x: -1.36, y: sideboard.top, z: 4.32, rotY: 0.4 },
       cashMid: { x: -1.36, y: sideboard.top, z: 4.06, rotY: 0.5 },
       casualJacket: { x: 1.70, y: 1.00, z: -2.96, rotY: Math.PI + 0.12 },
+      tammyDashboardMug: { x: 2.62, y: desk.top, z: -3.78, rotY: -0.32 },
       cashStacks: { x: -3.24, y: table.top, z: 0.48, rotY: 0.2 },
       suitBag: { x: (CLOSET.x0 + CLOSET.x1) / 2, y: CLOSET.h - 0.05, z: 4.64, rotY: 0.06 },
       gunCase: { x: -4.15, y: 0.73, z: -2.70, rotY: 0.35 },
@@ -1048,7 +1050,7 @@ export async function buildApartment(ctx) {
     dressAir = plan.air;
     for (const [id, piece] of dressing) {
       if (id === 'rain') continue;          // weather, not a possession
-      piece.group.visible = plan.shown.has(id);
+      piece.group.visible = plan.shown.has(id) || persistentDressing.has(id);
     }
     dressing.get('rain').group.visible = plan.air.rain > 0;
     /* NO WAKE and the date share one Day 3 tape. Returning from the harbor
@@ -2292,6 +2294,8 @@ export async function buildApartment(ctx) {
     dressedChapter() { return dressedChapter; },
     /** Every dressing piece by id, so a verifier can look at the room. */
     dressing,
+    /** Mission-earned souvenirs that survive every later chapter. */
+    persistentDressing,
     /** The working rail and hanger poses, exposed for scene verifiers. */
     closet,
     /** The blinking box on the sideboard, and what is waiting on it. */

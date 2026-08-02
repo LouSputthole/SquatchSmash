@@ -31,11 +31,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Fail the build rather than the browser: a manifest naming a file that
       # is not there is a 404 at runtime and a silent fallback in the game.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
       - name: Verify the campaign
@@ -74,9 +74,9 @@ jobs:
       # `enablement: true` cannot do it -- creating the site needs admin scope,
       # and the workflow token is not given that no matter what permissions
       # this file asks for.
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

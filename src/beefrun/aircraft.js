@@ -123,6 +123,7 @@ export class Brushrunner {
       cup: 0, cupVel: 0,
       cargoDoor: 0,
       flapVisual: 0,
+      airBrakeVisual: 0,
       concern: 0,
       lighterSpark: 0,
     };
@@ -203,6 +204,18 @@ export class Brushrunner {
       pivot.add(surf);
       g.add(pivot);
       this.parts.flap.push(pivot);
+    }
+    // Twin spoilers give the new drag control a visible mechanical cause.
+    // They sit inboard of the ailerons and hinge up only while Space is held.
+    this.parts.airBrake = [];
+    for (const sx of [-1, 1]) {
+      const pivot = new THREE.Group();
+      pivot.name = `air-brake-${sx < 0 ? 'left' : 'right'}`;
+      pivot.position.set(sx * 2.25, 1.33, 0.55);
+      const panel = mesh(boxGeo(2.2, 0.07, 0.52), patch, 0, 0, -0.24);
+      pivot.add(panel);
+      g.add(pivot);
+      this.parts.airBrake.push(pivot);
     }
 
     // ---- Engines ----
@@ -541,13 +554,26 @@ export class Brushrunner {
     g.add(bobble);
     this.parts.bobble = bobHead;
 
-    // "World's Okayest Pilot", parked on the coaming where it will not stay.
+    // Tammy's mug, parked on the upper-right wood rail where the pilot can
+    // actually read it (and where it still has room to slide in a bad bank).
     const cup = new THREE.Group();
-    cup.position.set(-0.2, 0.77, 2.86);            // and so does the coffee
+    cup.name = 'tammy-mug';
+    cup.position.set(0.63, 0.77, 2.86);
     cup.add(mesh(cylGeo(0.045, 0.04, 0.11, 10), solid(0xe8e2d4, { roughness: 0.75 }), 0, 0.055, 0));
     const handle = mesh(cylGeo(0.022, 0.022, 0.014, 8), solid(0xe8e2d4, { roughness: 0.75 }), 0.052, 0.055, 0);
     handle.rotation.x = Math.PI / 2;
     cup.add(handle);
+    const cupLabel = flatMesh(
+      new THREE.PlaneGeometry(0.074, 0.024),
+      new THREE.MeshBasicMaterial({
+        map: signTexture(['TAMMY'], { w: 256, h: 80, bg: '#e8e2d4', fg: '#7d2432', border: null, rough: false }),
+        transparent: true,
+      }),
+      0, 0.064, -0.043,
+    );
+    cupLabel.name = 'tammy-mug-label';
+    cupLabel.rotation.y = Math.PI;
+    cup.add(cupLabel);
     g.add(cup);
     this.parts.cup = cup;
     this.parts.cupHome = cup.position.clone();
@@ -638,6 +664,9 @@ export class Brushrunner {
     a.flapVisual = damp(a.flapVisual, c.flaps, 4, dt);
     this.parts.flap[0].rotation.x = a.flapVisual * 0.62;
     this.parts.flap[1].rotation.x = a.flapVisual * 0.62;
+    a.airBrakeVisual = damp(a.airBrakeVisual, c.airBrake || 0, 9, dt);
+    this.parts.airBrake[0].rotation.x = a.airBrakeVisual * 0.95;
+    this.parts.airBrake[1].rotation.x = a.airBrakeVisual * 0.95;
 
     if (this.parts.cockpit) {
       for (const yoke of this.parts.yoke) {
@@ -688,7 +717,9 @@ export class Brushrunner {
     // Lou's coffee slides across the coaming in a bank and comes back.
     const lat = clamp(state.gLat || 0, -3, 3);
     a.cupVel += (-lat * 0.16 - a.cup * 5.5 - a.cupVel * 2.4) * dt;
-    a.cup = clamp(a.cup + a.cupVel * dt, -0.34, 0.34);
+    // Its new home is already near the right edge, so keep the loose-cup gag
+    // on the wood rail instead of letting a hard bank send it through glass.
+    a.cup = clamp(a.cup + a.cupVel * dt, -0.28, 0.14);
     this.parts.cup.position.x = this.parts.cupHome.x + a.cup;
     this.parts.cup.rotation.z = -a.cup * 0.6;
 
