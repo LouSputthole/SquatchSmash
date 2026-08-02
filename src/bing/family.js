@@ -20,6 +20,7 @@
  */
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { Npc, STOOL_SIT } from './cast.js';
+import { APE_FAMILY_MEMBER } from './family-ape.js';
 import { applyBingVoiceCues } from './script.js';
 
 /* ------------------------------------------------------------------ */
@@ -134,16 +135,7 @@ export const FAMILY = [
       hair: 'receding', hairColour: 0x5a3a20, beard: true, skin: 0xd9a97f,
     },
   },
-  {
-    id: CHARACTER_IDS.APE, name: 'Ape', slug: 'ape', photo: 'ape.png',
-    // Standing at the blackjack rail, statements for entertainment only.
-    // South with the felt, so he is still at the rail and not behind it.
-    spot: { x: -11.35, z: 8.33, yaw: -2.2, job: 'stand', folded: true },
-    model: {
-      height: 1.88, build: 1.3, dress: 'tee', shirt: 0x14141a,
-      hair: 'crop', hairColour: 0x14100e, beard: true, skin: 0x8d5a3a,
-    },
-  },
+  APE_FAMILY_MEMBER,
   {
     id: CHARACTER_IDS.HOG_MAMA, name: 'Hog Mama', slug: 'hogmama', photo: 'hogmama.png',
     // A two-top near the stage, working the floor for a bit.

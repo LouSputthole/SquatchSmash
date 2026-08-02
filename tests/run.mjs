@@ -39,6 +39,7 @@ const TEST_MODULES = [
   './bing-audio.test.mjs',
   './no-wake-story.test.mjs',
   './silver-story.test.mjs',
+  './silver-ape-continuity.test.mjs',
   './silver-voice-catalog.test.mjs',
   './golf-story.test.mjs',
   './silver-pines.test.mjs',

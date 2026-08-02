@@ -7,6 +7,7 @@ import {
   createCampaign,
 } from '../src/core/campaign.js';
 import { createSilverStory } from '../src/core/silver-story.js';
+import { Sway } from '../src/silver/perform.js';
 
 class MemoryStorage {
   constructor() {
@@ -41,4 +42,29 @@ function completedDate(outcome) {
 test('every ending authored by the Silver Room mission survives the campaign handoff', () => {
   assert.equal(completedDate('polite').outcome, 'polite');
   assert.equal(completedDate('from-a-distance').outcome, 'from-a-distance');
+});
+
+test('the supper-club dance has forgiving default and assist windows while two of four still succeeds', () => {
+  const sway = new Sway();
+  sway.start(false);
+  const defaultWindowMs = sway.beatLength * sway.window * 1000;
+  assert.ok(defaultWindowMs >= 300, `default timing window was only ${defaultWindowMs.toFixed(0)}ms`);
+
+  sway.start(true);
+  const assistWindowMs = sway.beatLength * sway.window * 1000;
+  assert.ok(assistWindowMs >= 420, `assist timing window was only ${assistWindowMs.toFixed(0)}ms`);
+  assert.ok(assistWindowMs > defaultWindowMs);
+
+  sway.start(false);
+  const beat = sway.beatLength;
+  sway.update(beat * 0.5);
+  assert.equal(sway.press(), true);
+  sway.update(beat);
+  assert.equal(sway.press(), true);
+  sway.update(beat * 0.5);
+  assert.equal(sway.press(), false);
+  sway.update(beat);
+  assert.equal(sway.press(), false);
+  assert.equal(sway.hits, 2);
+  assert.equal(sway.result, 'good');
 });

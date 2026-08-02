@@ -3394,52 +3394,52 @@
     },
     {
       "name": "vo.silver.manager.do",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "…It’ll do. I’ll pass that to the men who carried it."
     },
     {
       "name": "vo.silver.manager.more",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "You didn’t ask for anything. That’s rather the point of the arrangement. Ma’am."
     },
     {
       "name": "vo.silver.manager.open.moment",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "Mr — Prospect. One moment."
     },
     {
       "name": "vo.silver.manager.open.settled",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "Everything as it should be?"
     },
     {
       "name": "vo.silver.manager.scene-table.1",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "No."
     },
     {
       "name": "vo.silver.manager.scene-table.10",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "For that."
     },
     {
       "name": "vo.silver.manager.scene-table.3",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "Then bring something else."
     },
     {
       "name": "vo.silver.manager.scene-table.5",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "Two-top. Front and center. Now."
     },
     {
       "name": "vo.silver.manager.scene-table.8",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "Give us a minute."
     },
     {
       "name": "vo.silver.manager.took",
-      "voice": "waiter",
+      "voice": "npc-male",
       "say": "The band’s on at half past. You’ll want to be sitting for the third number, not the first. Trust me on the third number."
     },
     {
