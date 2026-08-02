@@ -669,18 +669,20 @@ export function buildRoom(scene, { renderer } = {}) {
     add(serviceLight);
     houseLights.push({ light: serviceLight, exterior: true });
 
-    // A wet street reads mostly as reflections of things you cannot see
-    for (let i = 0; i < 9; i++) {
-      const px = rand(-18, 18);
-      const pz = rand(35, 52);
-      /* Each one on its own 2mm shelf. Two of them landed on top of each
-       * other at the same height and fought about it, which on a wet road is
-       * the one artefact you cannot look away from. */
+    // A wet street reads mostly as reflections of things you cannot see.
+    // Keep the patches authored and separated instead of letting seeded
+    // random rectangles overlap by a few pixels and shimmer at street range.
+    const puddleSpots = [
+      [-15.0, 37.0], [-10.0, 43.0], [-5.0, 49.0],
+      [0.0, 38.0], [5.0, 45.0], [10.0, 51.0],
+      [15.0, 40.0], [-14.0, 52.0], [14.0, 35.5],
+    ];
+    for (const [px, pz] of puddleSpots) {
       /* 25mm off the tarmac, not 3. At 3mm these are inside what the depth
-        * buffer can tell apart forty metres down a street with a 300m far
-        * plane, and the whole road shimmered as you walked along it. */
-        add(box({
-        size: [rand(1.2, 3.4), 0.01, rand(0.8, 2.2)], pos: [px, 0.025 + i * 0.002, pz],
+       * buffer can tell apart forty metres down a street with a 300m far
+       * plane, and the whole road shimmered as you walked along it. */
+      add(box({
+        size: [rand(1.2, 3.4), 0.01, rand(0.8, 2.2)], pos: [px, 0.025, pz],
         mat: mat({ color: 0x1a1c24, roughness: 0.06, metalness: 0.55 }), cast: false,
       }));
     }

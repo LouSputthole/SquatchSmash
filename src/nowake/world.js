@@ -491,7 +491,10 @@ function buildBoat(scene, marina) {
   for (const sx of [-1, 1]) root.add(box([.42, .025, 8.15], ivory, sx * 1.72, 1.08, -1.10));
 
   // Helm console and a compact, visibly modeled control station.
-  root.add(box([1.24, 1.16, .82], navy, -.68, 1.63, -1.43));
+  // Shift the helm furniture toward the centreline.  The former port-biased
+  // console and chair left only centimetres of capsule clearance between the
+  // boarding gap and the controls.
+  root.add(box([1.24, 1.16, .82], navy, .14, 1.63, -1.43));
   const dash = box([2.55, .18, .70], black, 0, 2.18, -1.40);
   dash.rotation.x = -.20;
   root.add(dash);
@@ -507,9 +510,16 @@ function buildBoat(scene, marina) {
       new THREE.Vector3(Math.cos(a) * .30, Math.sin(a) * .30, 0), .014, chrome, 7,
     ));
   }
-  wheel.position.set(-.68, 2.02, -1.00);
+  wheel.position.set(.14, 2.02, -1.00);
   wheel.rotation.x = .16;
   root.add(wheel);
+  const helmTarget = box([1.62, 1.30, .76], new THREE.MeshBasicMaterial({
+    transparent: true, opacity: 0, depthWrite: false, colorWrite: false,
+  }), .14, 2.02, -.62);
+  helmTarget.name = 'broad helm interaction proxy';
+  helmTarget.castShadow = false;
+  helmTarget.receiveShadow = false;
+  root.add(helmTarget);
 
   function gauge(label, x, y) {
     const g = new THREE.Group();
@@ -526,7 +536,7 @@ function buildBoat(scene, marina) {
     return needle;
   }
   const gaugeNeedles = {
-    rpm: gauge('RPM', -1.01, 2.34), speed: gauge('KNOTS', -.68, 2.35), fuel: gauge('FUEL', -.35, 2.34),
+    rpm: gauge('RPM', -.19, 2.34), speed: gauge('KNOTS', .14, 2.35), fuel: gauge('FUEL', .47, 2.34),
   };
   const plotter = box([.48, .31, .055], mat(0x101719), -.10, 2.15, -1.02);
   root.add(plotter);
@@ -637,8 +647,8 @@ function buildBoat(scene, marina) {
     seat.position.set(x, 1.01, z);
     root.add(seat);
   }
-  helmSeat(-.72, .28);
-  helmSeat(.72, .28);
+  helmSeat(.14, .28);
+  helmSeat(1.48, .28);
   root.add(box([3.72, .42, .66], ivory, 0, 1.21, 5.32));
   root.add(box([3.48, .16, .61], vinyl, 0, 1.49, 5.25));
   root.add(box([3.48, .58, .15], vinyl, 0, 1.70, 5.53));
@@ -694,8 +704,43 @@ function buildBoat(scene, marina) {
   root.add(radar);
   root.add(beamBetween(new THREE.Vector3(.80, 3.20, -.2), new THREE.Vector3(1.28, 5.15, -.45), .018, chrome, 7));
 
-  const board = box([1.35, 1.65, 1.65], new THREE.MeshBasicMaterial({ visible: false }), -2.55, 1.15, 3.75);
+  // A real boarding bridge makes the route onto the cruiser readable from the
+  // dock.  It is hinged to the port quarter so it can be stowed as soon as the
+  // player boards instead of trailing behind the moving boat.
+  const boardingBridge = new THREE.Group();
+  boardingBridge.name = 'visible physical boarding bridge';
+  const gangwayDeck = box([1.82, .13, 1.04], teak, -3.10, .68, 3.75);
+  gangwayDeck.rotation.z = .39;
+  gangwayDeck.name = 'boarding bridge nonslip deck';
+  const gangwayPortEdge = box([1.86, .10, .075], mat(0xd6b94c, .72), -3.10, .75, 3.24);
+  gangwayPortEdge.rotation.z = .39;
+  const gangwayStarboardEdge = gangwayPortEdge.clone();
+  gangwayStarboardEdge.position.z = 4.26;
+  const dockStep = box([.62, .20, 1.14], teakDark, -3.90, .32, 3.75);
+  const hinge = cylinder(.09, 1.18, chrome, -2.25, 1.02, 3.75, 12);
+  hinge.rotation.x = Math.PI / 2;
+  boardingBridge.add(gangwayDeck, gangwayPortEdge, gangwayStarboardEdge, dockStep, hinge);
+  root.add(boardingBridge);
+
+  // The forgiving target spans the whole bridge rather than requiring the
+  // crosshair to find one narrow plank edge from the dock.
+  const board = box([2.35, 2.05, 2.15], new THREE.MeshBasicMaterial({ visible: false }), -3.05, 1.10, 3.75);
+  board.name = 'forgiving boarding bridge interaction';
   root.add(board);
+
+  const bodyMarker = new THREE.Group();
+  bodyMarker.name = 'Willy body objective marker';
+  const markerMaterial = new THREE.MeshStandardMaterial({
+    color: 0xe2c75a, emissive: 0x8e641c, emissiveIntensity: 1.35,
+    roughness: .42, metalness: .16,
+  });
+  bodyMarker.add(mesh(new THREE.TorusGeometry(.24, .032, 8, 28), markerMaterial));
+  const markerArrow = mesh(new THREE.ConeGeometry(.075, .22, 10), markerMaterial, 0, -.38, 0);
+  markerArrow.rotation.z = Math.PI;
+  bodyMarker.add(markerArrow);
+  bodyMarker.position.set(.88, 1.56, 4.38);
+  bodyMarker.visible = false;
+  root.add(bodyMarker);
 
   // Two true catenary ropes run between the boat and dock cleats until removed.
   function mooringLine(id, boatEnd, dockEnd) {
@@ -771,7 +816,7 @@ function buildBoat(scene, marina) {
     blower,
     ignition,
     radio: stereo,
-    helm: wheel,
+    helm: helmTarget,
     bowLine,
     sternLine,
   };
@@ -786,9 +831,9 @@ function buildBoat(scene, marina) {
     new THREE.Box3(new THREE.Vector3(-2.42, .96, -6.75), new THREE.Vector3(-.06, 1.92, -5.42)),
     new THREE.Box3(new THREE.Vector3(.06, .96, -6.75), new THREE.Vector3(2.42, 1.92, -5.42)),
     new THREE.Box3(new THREE.Vector3(-1.36, .98, -2.82), new THREE.Vector3(1.36, 2.95, -2.54)),
-    new THREE.Box3(new THREE.Vector3(-1.32, .98, -1.92), new THREE.Vector3(-.04, 2.38, -.82)),
-    new THREE.Box3(new THREE.Vector3(-1.12, .98, -.12), new THREE.Vector3(-.32, 2.14, .78)),
-    new THREE.Box3(new THREE.Vector3(.32, .98, -.12), new THREE.Vector3(1.12, 2.14, .78)),
+    new THREE.Box3(new THREE.Vector3(-.50, .98, -1.92), new THREE.Vector3(.78, 2.38, -.82)),
+    new THREE.Box3(new THREE.Vector3(-.26, .98, -.12), new THREE.Vector3(.54, 2.14, .78)),
+    new THREE.Box3(new THREE.Vector3(1.08, .98, -.12), new THREE.Vector3(1.88, 2.14, .78)),
     new THREE.Box3(new THREE.Vector3(-1.28, .98, -5.82), new THREE.Vector3(1.28, 1.72, -2.78)),
     new THREE.Box3(new THREE.Vector3(-1.95, .98, 5.00), new THREE.Vector3(1.95, 2.00, 5.78)),
     new THREE.Box3(new THREE.Vector3(1.02, .98, 3.28), new THREE.Vector3(2.12, 2.04, 4.12)),
@@ -834,7 +879,7 @@ function buildBoat(scene, marina) {
     deckFreeboard: BOAT_FLOAT_Y + 1.02 - WATER_LEVEL,
   };
   return {
-    root, targets, controls, cast, wheel, localColliders,
+    root, targets, controls, cast, wheel, boardingBridge, bodyMarker, localColliders,
     floatY: BOAT_FLOAT_Y,
     deck: { halfBeam: 2.25, bow: -5.75, stern: 5.70, height: 1.02 },
   };
@@ -995,6 +1040,10 @@ export function buildNoWakeWorld(scene) {
     },
     update(t, dt) {
       water.material.uniforms.uTime.value = t;
+      if (boat.bodyMarker.visible) {
+        boat.bodyMarker.position.y = 1.56 + Math.sin(t * 3.1) * .07;
+        boat.bodyMarker.rotation.z += dt * .75;
+      }
       for (let i = 0; i < buoys.length; i++) {
         buoys[i].position.y = Math.sin(t * 1.4 + i) * .09;
         buoys[i].rotation.z = Math.sin(t * .8 + i * 1.3) * .035;

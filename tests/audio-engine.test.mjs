@@ -104,6 +104,8 @@ function audioParam(value = 0) {
     cancelScheduledValues() {},
     setValueAtTime(next) { this.value = next; },
     linearRampToValueAtTime(next) { this.value = next; },
+    exponentialRampToValueAtTime(next) { this.value = next; },
+    setTargetAtTime(next) { this.value = next; },
   };
 }
 
@@ -251,4 +253,101 @@ test('long music loops stream through a media element and release it when stoppe
   engine.stopLoop('retry.record', 0);
   await new Promise((resolve) => setTimeout(resolve, 80));
   assert.equal(retryHandle.released, true);
+});
+
+function proceduralAudioHarness() {
+  let starts = 0;
+  const startedNode = (extra = {}) => audioNode({
+    start() { starts++; },
+    stop() {},
+    ...extra,
+  });
+  const ctx = {
+    currentTime: 1,
+    sampleRate: 8_000,
+    createBuffer: (_channels, length) => ({
+      getChannelData: () => new Float32Array(length),
+    }),
+    createBufferSource: () => startedNode({
+      playbackRate: audioParam(1),
+      loop: false,
+    }),
+    createOscillator: () => startedNode({
+      frequency: audioParam(),
+      type: 'sine',
+    }),
+    createBiquadFilter: () => audioNode({
+      frequency: audioParam(),
+      Q: audioParam(),
+      type: 'lowpass',
+    }),
+    createGain: () => audioNode({ gain: audioParam() }),
+  };
+  const engine = new AudioEngine();
+  engine.ctx = ctx;
+  engine.ready = true;
+  engine.busSfx = audioNode();
+  engine.busAmb = audioNode();
+  return {
+    engine,
+    starts: () => starts,
+  };
+}
+
+test('new NO WAKE and THE TAKE one-shots have authored procedural sound designs', () => {
+  const { engine, starts } = proceduralAudioHarness();
+  const cues = [
+    'boat.board.step',
+    'boat.engine.start',
+    'boat.engine.shutdown',
+    'boat.rope.release',
+    'boat.body.drag',
+    'boat.body.rail',
+    'boat.gunshot.deck',
+    'heist.map.paper',
+    'heist.gear.armor.pickup',
+    'heist.gear.carbine.pickup',
+    'heist.van.door',
+    'heist.bank.entry',
+    'heist.guard.draw',
+    'heist.guard.weapon.drop',
+    'heist.weapon.carbine.indoor',
+    'heist.crowd.react',
+    'heist.body.marble',
+    'heist.cash.lift',
+    'heist.cash.drop',
+    'heist.police.gunshot',
+    'heist.bullet.whiz',
+    'heist.bullet.impact',
+  ];
+
+  for (const cue of cues) {
+    const before = starts();
+    engine.play(cue);
+    assert.ok(starts() - before >= 2, `${cue} must not use the generic single-tick fallback`);
+  }
+});
+
+test('new NO WAKE and THE TAKE beds have layered seamless procedural loops', () => {
+  const { engine, starts } = proceduralAudioHarness();
+  const cues = [
+    'boat.engine.underway',
+    'boat.hull.wake',
+    'heist.ambience.safehouse.prep',
+    'heist.ambience.van',
+    'heist.bank.alarm',
+    'heist.vehicle.engine.load',
+    'heist.vehicle.tires.road',
+  ];
+
+  for (const cue of cues) {
+    const before = starts();
+    const handle = engine.startLoop(`fallback:${cue}`, {
+      name: cue,
+      ambience: true,
+      fade: 0,
+    });
+    assert.ok(handle, `${cue} must start through the public loop API`);
+    assert.ok(starts() - before >= 2, `${cue} must not use the generic single-noise loop`);
+  }
 });

@@ -5,7 +5,7 @@ import fsp from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { allNoWakeVoiceLines } from '../src/nowake/dialogue.js';
+import { allNoWakeVoiceLines, NO_WAKE_AFTERMATH_LINES } from '../src/nowake/dialogue.js';
 import { isNoWakeAudioPreloadCue } from '../src/nowake/audio.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -61,8 +61,8 @@ const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', '
 const indexedFiles = new Set(soundIndex.files || []);
 const manifestVoice = soundManifest.sfx.filter((cue) => cue.name.startsWith('vo.nowake.'));
 const manifestByName = new Map(manifestVoice.map((cue) => [cue.name, cue]));
-check('all 18 NO WAKE lines have stable cue ids, cast voices and exact manifest text',
-  authoredVoice.length === 18
+check('all 22 NO WAKE lines have stable cue ids, cast voices and exact manifest text',
+  authoredVoice.length === 22
     && manifestVoice.length === authoredVoice.length
     && authoredVoice.every((line) => {
       const cue = manifestByName.get(`vo.nowake.${line.cue}.1`);
@@ -71,12 +71,21 @@ check('all 18 NO WAKE lines have stable cue ids, cast voices and exact manifest 
   JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
 
 const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
+const expectedNoWakePickups = [
+  'vo.nowake.execution.booski.lift.1.mp3',
+  'vo.nowake.execution.lou.move.1.mp3',
+  'vo.nowake.execution.prospect.lift.1.mp3',
+  'vo.nowake.return.lou.lesson.1.mp3',
+];
 const noWakePickupFiles = authoredVoice
   .map((line) => `vo.nowake.${line.cue}.1.mp3`)
   .filter((file) => recordingSheet.includes(`\`${file}\``));
-check('every NO WAKE delivery is indexed and the generated handoff reports no voice pickups',
-  authoredVoice.every((line) => indexedFiles.has(`vo.nowake.${line.cue}.1.mp3`))
-    && noWakePickupFiles.length === 0,
+check('every NO WAKE delivery is indexed or one of the four approved aftermath pickups',
+  authoredVoice.every((line) => {
+    const file = `vo.nowake.${line.cue}.1.mp3`;
+    return indexedFiles.has(file) || expectedNoWakePickups.includes(file);
+  })
+    && JSON.stringify(noWakePickupFiles.sort()) === JSON.stringify(expectedNoWakePickups.sort()),
   JSON.stringify({ noWakePickupFiles }));
 
 const shots = path.join(ROOT, 'docs', 'validation', '2026-07-31');
@@ -91,15 +100,25 @@ try {
   const radioCueNames = await page.evaluate(() => window.NO_WAKE.radio.preloadCueNames({
     hours: [12.75, 15, 17],
   }));
-  const expectedResidentNames = soundManifest.sfx
+  const selectedNoWakeCues = soundManifest.sfx
+    .filter((cue) => isNoWakeAudioPreloadCue(cue, radioCueNames));
+  const expectedResidentNames = selectedNoWakeCues
     .filter((cue) => indexedFiles.has(cue.file || `${cue.name}.mp3`))
-    .filter((cue) => isNoWakeAudioPreloadCue(cue, radioCueNames))
-    .map((cue) => cue.name)
-    .sort();
-  await page.evaluate(() => {
-    window.NO_WAKE.postfx?.disable?.();
-    document.getElementById('start-btn').click();
-  });
+    .map((cue) => cue.name).sort();
+  const pendingNoWakeNames = selectedNoWakeCues
+    .filter((cue) => !indexedFiles.has(cue.file || `${cue.name}.mp3`))
+    .map((cue) => cue.name).sort();
+  const expectedPendingNoWakeNames = [
+    'boat.board.step', 'boat.body.drag', 'boat.body.rail', 'boat.engine.shutdown',
+    'boat.engine.start', 'boat.engine.underway', 'boat.gunshot.deck', 'boat.hull.wake',
+    'boat.rope.release', 'vo.nowake.execution.booski.lift.1',
+    'vo.nowake.execution.lou.move.1', 'vo.nowake.execution.prospect.lift.1',
+    'vo.nowake.return.lou.lesson.1',
+  ].sort();
+  await page.evaluate(() => window.NO_WAKE.postfx?.disable?.());
+  // Use a trusted browser gesture so the same click that starts the mission can
+  // legally acquire pointer lock, as it does for a player.
+  await page.click('#start-btn');
   await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 30000 });
   await page.waitForTimeout(250);
 
@@ -119,17 +138,22 @@ try {
   check('NO WAKE decodes exactly its mission and bounded persistent-radio bank',
     noWakeAudioResidency.exposed
       && noWakeAudioResidency.plan?.manifestTotal === soundManifest.sfx.length
-      && noWakeAudioResidency.plan?.selected === expectedResidentNames.length
+      && noWakeAudioResidency.plan?.selected === selectedNoWakeCues.length
       && noWakeAudioResidency.loaded === expectedResidentNames.length
       && noWakeAudioResidency.resident === expectedResidentNames.length
       && noWakeAudioResidency.missing.length === 0
       && noWakeAudioResidency.unexpected.length === 0,
     JSON.stringify({
       ...noWakeAudioResidency,
+      selected: selectedNoWakeCues.length,
       expected: expectedResidentNames.length,
+      pending: pendingNoWakeNames,
       missing: noWakeAudioResidency.missing.slice(0, 5),
       unexpected: noWakeAudioResidency.unexpected.slice(0, 5),
     }));
+  check('only the approved NO WAKE production SFX and aftermath lines remain pending',
+    JSON.stringify(pendingNoWakeNames) === JSON.stringify(expectedPendingNoWakeNames),
+    JSON.stringify(pendingNoWakeNames));
 
   const noWakeInventory = await page.evaluate(() => ({
     visible: Boolean(document.querySelector('#hotbar'))
@@ -159,6 +183,22 @@ try {
       bow: window.NO_WAKE.boat.targets.bowLine.userData,
       stern: window.NO_WAKE.boat.targets.sternLine.userData,
     },
+    boarding: {
+      bridgeName: window.NO_WAKE.boat.boardingBridge?.name ?? null,
+      bridgeVisible: window.NO_WAKE.boat.boardingBridge?.visible ?? false,
+      bridgeMeshes: (() => {
+        let count = 0;
+        window.NO_WAKE.boat.boardingBridge?.traverse((object) => { if (object.isMesh) count++ });
+        return count;
+      })(),
+      targetName: window.NO_WAKE.boat.targets.board?.name ?? null,
+    },
+    helmTarget: (() => {
+      const target = window.NO_WAKE.boat.targets.helm;
+      const Box3 = window.NO_WAKE.boat.localColliders[0].constructor;
+      const size = new Box3().setFromObject(target).getSize(target.position.clone());
+      return { name: target.name, size: size.toArray() };
+    })(),
     localColliders: window.NO_WAKE.boat.localColliders.length,
     waterVertices: window.NO_WAKE.world.water.mesh.geometry.attributes.position.count,
     buoyCount: window.NO_WAKE.world.buoys.length,
@@ -179,15 +219,27 @@ try {
       && /ignition key/.test(boot.controls.ignition)
       && boot.lines.bow.attached === true && boot.lines.stern.attached === true,
     JSON.stringify({ controls: boot.controls, lines: boot.lines }));
+  check('a visible physical boarding bridge and forgiving named target connect Gate C to the cruiser',
+    /boarding bridge/.test(boot.boarding.bridgeName ?? '')
+      && boot.boarding.bridgeVisible && boot.boarding.bridgeMeshes >= 4
+      && /boarding bridge/.test(boot.boarding.targetName ?? ''),
+    JSON.stringify(boot.boarding));
+  check('a broad named helm proxy makes the driving position legible from the open port route',
+    /helm interaction proxy/.test(boot.helmTarget.name)
+      && boot.helmTarget.size[0] >= 1.4 && boot.helmTarget.size[1] >= 1.1
+      && boot.helmTarget.size[2] >= .65,
+    JSON.stringify(boot.helmTarget));
   check('the cruiser sits at a measured displacement waterline instead of riding on its chine',
     boot.waterline.restingY < -.1
       && boot.waterline.draft > .85 && boot.waterline.draft < 1.05
       && boot.waterline.sideFreeboard > .70 && boot.waterline.sideFreeboard < .95
       && boot.waterline.deckFreeboard > .95 && boot.waterline.deckFreeboard < 1.15,
     JSON.stringify(boot.waterline));
+  await capture('no-wake-gate-c.png');
   const boatRadio = await page.evaluate(async () => {
     const game = window.NO_WAKE;
     await game.radioReady;
+    const boardedBefore = game.state.boarded;
     game.state.boarded = true;
     const desc = game.boat.targets.radio.userData.interact;
     const V = game.player.position.constructor;
@@ -222,6 +274,7 @@ try {
       targeted,
     };
     desc.onTap();
+    game.state.boarded = boardedBefore;
     return { ...on, poweredOff: !game.radio.on };
   });
   check('the modeled boat stereo runs the shared station schedule, music manifest and radio OSD',
@@ -265,6 +318,13 @@ try {
     }
     const minX = Math.min(...controlBoxes.map((entry) => entry.box.min.x));
     const maxX = Math.max(...controlBoxes.map((entry) => entry.box.max.x));
+    const portRail = game.boat.localColliders.find((box) => box.min.x < -2.5 && box.max.x < -2);
+    const routeObstacles = game.boat.localColliders.filter((box) => box !== portRail
+      && box.max.z > -2.05 && box.min.z < 2.80
+      && box.min.x > portRail.max.x && box.min.x < 1.9);
+    const portRouteClearance = Math.min(...routeObstacles.map((box) => (
+      box.min.x - portRail.max.x - .60
+    )));
     const neighbors = game.world.marina.neighborBoats.map((boat) => {
       const hull = boat.getObjectByName('tapered neighboring hull');
       return {
@@ -278,6 +338,7 @@ try {
     return {
       controlSpan: maxX - minX,
       overlaps,
+      portRouteClearance,
       neighbors,
       cruiserExterior: exteriorFaces(cruiserHull),
     };
@@ -285,6 +346,9 @@ try {
   check('the compact startup cluster keeps three distinct non-overlapping controls',
     marinaRefinement.controlSpan < 1.05 && marinaRefinement.overlaps.length === 0,
     JSON.stringify({ span: marinaRefinement.controlSpan, overlaps: marinaRefinement.overlaps }));
+  check('the port boarding-to-helm route preserves at least 0.9 metres of usable capsule clearance',
+    marinaRefinement.portRouteClearance >= .9,
+    JSON.stringify({ usableMetres: marinaRefinement.portRouteClearance }));
   check('the nearby floating shapes are three detailed boats with tapered hulls',
     marinaRefinement.neighbors.length === 3
       && marinaRefinement.neighbors.every((boat) => boat.details >= 25 && boat.hullVertices >= 30
@@ -298,7 +362,42 @@ try {
     boot.cast.lou.characterId === 'lou' && boot.cast.booski.characterId === 'booski'
       && boot.cast.willy.characterId === 'willy' && boot.cast.willy.gut >= 1,
     JSON.stringify(boot.cast));
-  await capture('no-wake-gate-c.png');
+  const boardingAim = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    game.state.boarded = false;
+    game.player.mode = 'walk';
+    game.player.enabled = true;
+    game.player.position.set(-4.28, 1.86, 3.75);
+    game.player.ground = .2;
+    game.player.update(.016);
+    const target = game.boat.targets.board.getWorldPosition(new V());
+    const delta = target.sub(game.player.camera.position);
+    game.player.yaw = Math.atan2(-delta.x, -delta.z);
+    game.player.pitch = Math.asin(delta.y / delta.length());
+    game.player.update(.016);
+    game.player.camera.updateMatrixWorld(true);
+    game.interaction.update(.016);
+    return {
+      targeted: game.interaction.current === game.boat.targets.board,
+      target: game.interaction.current?.name ?? null,
+    };
+  });
+  await capture('no-wake-boarding-bridge.png');
+  await page.keyboard.press('e');
+  await page.waitForTimeout(100);
+  const boardedByPlayer = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    return {
+      boarded: game.state.boarded,
+      bridgeStowed: !game.boat.boardingBridge.visible,
+      playerLocal: game.world.toBoatLocal(game.player.position.clone()).toArray(),
+    };
+  });
+  check('the player boards through the bridge target with real crosshair and E input',
+    boardingAim.targeted && boardedByPlayer.boarded && boardedByPlayer.bridgeStowed
+      && boardedByPlayer.playerLocal[2] > 3.2 && boardedByPlayer.playerLocal[2] < 4.2,
+    JSON.stringify({ ...boardingAim, ...boardedByPlayer }));
   await page.evaluate(() => {
     const game = window.NO_WAKE;
     const V = game.player.position.constructor;
@@ -329,7 +428,6 @@ try {
   const deckAccess = await page.evaluate(() => {
     const game = window.NO_WAKE;
     const V = game.player.position.constructor;
-    game.boat.targets.board.userData.interact.onUse();
     game.player.mode = 'walk';
     game.player.enabled = true;
     game.player.ground = game.boat.root.position.y + game.boat.deck.height;
@@ -407,8 +505,42 @@ try {
   check('fixed-step boat thrust cannot move against attached mooring lines',
     moored.distance === 0 && moored.speed === 0, JSON.stringify(moored));
 
+  const helmAim = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    Object.assign(game.state, {
+      boarded: true, battery: true, blower: true, engine: true, bowLine: true, sternLine: true,
+    });
+    game.physics.running = true;
+    game.physics.mooringReleased = true;
+    game.boat.targets.bowLine.visible = false;
+    game.boat.targets.sternLine.visible = false;
+    game.player.mode = 'walk';
+    game.player.position.copy(game.world.fromBoatLocal(new V(-1.55, 2.68, .92)));
+    game.player.ground = game.boat.root.position.y + game.boat.deck.height;
+    game.player.update(.016);
+    const target = game.boat.targets.helm.getWorldPosition(new V());
+    const delta = target.sub(game.player.camera.position);
+    game.player.yaw = Math.atan2(-delta.x, -delta.z);
+    game.player.pitch = Math.asin(delta.y / delta.length());
+    game.player.update(.016);
+    game.player.camera.updateMatrixWorld(true);
+    game.interaction.update(.016);
+    return {
+      targeted: game.interaction.current === game.boat.targets.helm,
+      target: game.interaction.current?.name ?? null,
+    };
+  });
+  await page.keyboard.press('e');
+  await page.waitForTimeout(100);
+  const helmEntered = await page.evaluate(() => ({
+    atHelm: window.NO_WAKE.state.atHelm,
+    phase: window.NO_WAKE.phase,
+  }));
+  check('the player takes the broad helm proxy with real crosshair and E input',
+    helmAim.targeted && helmEntered.atHelm && helmEntered.phase === 'drive',
+    JSON.stringify({ ...helmAim, ...helmEntered }));
   await page.evaluate(() => {
-    window.NO_WAKE.startUnderway();
     window.NO_WAKE.physics.throttle = .82;
     for (let i = 0; i < 360; i++) window.NO_WAKE.physics.advance(1 / 120);
   });
@@ -457,9 +589,26 @@ try {
     railCollision < 2.08 || railCollision > 2.60,
     JSON.stringify({ resolvedLocalX: railCollision }));
 
-  await page.evaluate(() => window.NO_WAKE.startUnderway());
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    game.physics.speed = 0;
+    game.player.update(.016);
+    const target = game.boat.targets.helm.getWorldPosition(new V());
+    const delta = target.sub(game.player.camera.position);
+    game.player.yaw = Math.atan2(-delta.x, -delta.z);
+    game.player.pitch = Math.asin(delta.y / delta.length());
+    game.player.update(.016);
+    game.player.camera.updateMatrixWorld(true);
+    game.interaction.update(.016);
+  });
+  await page.keyboard.press('e');
+  await page.waitForTimeout(100);
 
-  await page.evaluate(() => window.NO_WAKE.skipDrive());
+  await page.evaluate(() => {
+    window.NO_WAKE.skipDrive();
+    window.NO_WAKE.physics.speed = 2;
+  });
   await page.waitForTimeout(350);
   const offshore = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
@@ -472,7 +621,39 @@ try {
       && offshore.checkpoint === 'open_water', JSON.stringify(offshore));
   await capture('no-wake-open-water.png');
 
-  await page.evaluate(() => window.NO_WAKE.beginConfrontation());
+  await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.player.clearKeys();
+    game.physics.throttle = 0;
+    game.physics.speed = 0;
+  });
+  await page.waitForFunction(() => window.NO_WAKE.phase === 'confrontation');
+  await page.waitForTimeout(900);
+  const revealFraming = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const speaker = game.boat.cast[game.state.focus];
+    const target = speaker.group.localToWorld(new V(0, 1.48, 0));
+    const forward = new V();
+    game.player.camera.getWorldDirection(forward);
+    const toSpeaker = target.sub(game.player.camera.position);
+    const wheel = game.boat.wheel.getWorldPosition(new V());
+    const speakerLocal = game.world.toBoatLocal(speaker.group.getWorldPosition(new V())).toArray();
+    return {
+      focus: game.state.focus,
+      angle: Math.acos(Math.max(-1, Math.min(1, forward.dot(toSpeaker.normalize())))) * 180 / Math.PI,
+      distanceFromWheel: wheel.distanceTo(game.player.camera.position),
+      cameraLocal: game.world.toBoatLocal(game.player.camera.position.clone()).toArray(),
+      speakerLocal,
+    };
+  });
+  check('the confrontation automatically leaves the helm and frames its current speaker',
+    revealFraming.focus === 'lou' && revealFraming.angle <= 6
+      && revealFraming.distanceFromWheel >= 1.8
+      && revealFraming.cameraLocal[2] > 1.3
+      && revealFraming.cameraLocal[2] < revealFraming.speakerLocal[2],
+    JSON.stringify(revealFraming));
+  await capture('no-wake-reveal-lou.png');
   for (let i = 0; i < 12; i++) {
     await page.evaluate(() => window.NO_WAKE.skipDialogue());
     await page.waitForTimeout(90);
@@ -510,6 +691,26 @@ try {
       && armed.weapons.booskiGun.model === '9mm semi-automatic'
       && armed.weapons.louGun.meshes >= 20 && armed.weapons.booskiGun.meshes >= 20,
     JSON.stringify(armed.weapons));
+  const executionFrame = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    game.player.camera.updateMatrixWorld(true);
+    return {
+      shot: game.cameraDirector.shot?.id ?? null,
+      cameraLocal: game.world.toBoatLocal(game.player.camera.position.clone()).toArray(),
+      cast: Object.fromEntries(Object.entries(game.boat.cast).map(([id, npc]) => {
+        const ndc = npc.group.localToWorld(new V(0, 1.42, 0)).project(game.player.camera);
+        return [id, ndc.toArray()];
+      })),
+    };
+  });
+  check('the execution uses an over-shoulder composition with Willy, Lou and Booski readable',
+    executionFrame.shot === 'execution-over-shoulder'
+      && executionFrame.cameraLocal[1] > 2.5
+      && Object.values(executionFrame.cast).every(([x, y, z]) => (
+        Math.abs(x) <= .88 && Math.abs(y) <= .92 && z >= -1 && z <= 1
+      )),
+    JSON.stringify(executionFrame));
   await capture('no-wake-execution-ready.png');
   await page.evaluate(() => {
     const game = window.NO_WAKE;
@@ -534,29 +735,189 @@ try {
     game.player.update(.016);
   });
 
-  await page.evaluate(() => window.NO_WAKE.fire());
-  await page.waitForTimeout(1100);
+  await page.mouse.click(640, 360);
+  // CPU-constrained screenshot runs can delay the authored setTimeouts; wait
+  // for the actual collapse phase instead of sampling a wall-clock guess.
+  await page.waitForFunction(() => window.NO_WAKE.phase === 'body');
+  await page.waitForTimeout(80);
+  const collapseFrame = await page.evaluate(() => ({
+    shot: window.NO_WAKE.cameraDirector.shot?.id ?? null,
+    cameraLocal: window.NO_WAKE.world.toBoatLocal(
+      window.NO_WAKE.player.camera.position.clone(),
+    ).toArray(),
+  }));
+  check('the collapse cuts to a low side profile instead of staring down at deck fragments',
+    collapseFrame.shot === 'execution-collapse-profile'
+      && collapseFrame.cameraLocal[1] < 2.65 && collapseFrame.cameraLocal[0] < -1.5,
+    JSON.stringify(collapseFrame));
+  await capture('no-wake-execution-collapse.png');
+  await page.waitForTimeout(3000);
   const body = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
     shots: window.NO_WAKE.state.executionShots,
     fell: Math.abs(window.NO_WAKE.boat.cast.willy.group.rotation.z) > 1,
+    mode: window.NO_WAKE.player.mode,
+    fullPitch: window.NO_WAKE.player.pitchMin < -1.2 && window.NO_WAKE.player.pitchMax > 1.2,
+    targeted: window.NO_WAKE.interaction.current === window.NO_WAKE.boat.cast.willy.group,
+    promptVisible: !document.getElementById('prompt').classList.contains('hidden'),
+    cinematicReleased: !window.NO_WAKE.cameraDirector.active,
+    bodyOriginY: window.NO_WAKE.boat.cast.willy.group.position.y,
+    deckY: window.NO_WAKE.boat.deck.height,
   }));
-  check('Tony fires first, Lou and Booski join, and Willy falls on deck',
-    body.phase === 'body' && body.shots >= 4 && body.fell, JSON.stringify(body));
+  check('the real click fires first, shows Willy fall, then restores a playable body interaction',
+    body.phase === 'body' && body.shots >= 4 && body.fell
+      && body.mode === 'walk' && body.fullPitch && body.targeted
+      && body.promptVisible && body.cinematicReleased
+      && body.bodyOriginY >= body.deckY,
+    JSON.stringify(body));
+  await capture('no-wake-body-interaction.png');
 
-  await page.evaluate(() => window.NO_WAKE.disposeBody());
-  await page.waitForTimeout(2600);
+  await page.keyboard.down('e');
+  await page.waitForTimeout(6500);
+  await page.keyboard.up('e');
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 0; });
+  await page.waitForTimeout(100);
+  const disposalStart = await page.evaluate(() => ({
+    phase: window.NO_WAKE.phase,
+    position: window.NO_WAKE.boat.cast.willy.group.position.toArray(),
+    rotation: window.NO_WAKE.boat.cast.willy.group.rotation.toArray(),
+    shot: window.NO_WAKE.cameraDirector.shot?.id ?? null,
+  }));
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = .82; });
+  await page.waitForTimeout(120);
+  const disposalDrag = await page.evaluate(() => ({
+    position: window.NO_WAKE.boat.cast.willy.group.position.toArray(),
+    rotation: window.NO_WAKE.boat.cast.willy.group.rotation.toArray(),
+    shot: window.NO_WAKE.cameraDirector.shot?.id ?? null,
+  }));
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 1.68; });
+  await page.waitForTimeout(120);
+  const disposalLift = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const center = game.boat.cast.willy.group.localToWorld(
+      new game.player.position.constructor(0, .92, 0),
+    ).project(game.player.camera);
+    return {
+      position: game.boat.cast.willy.group.position.toArray(),
+      rotation: game.boat.cast.willy.group.rotation.toArray(),
+      booski: game.boat.cast.booski.group.position.toArray(),
+      screen: center.toArray(),
+    };
+  });
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 1.95; });
+  await page.waitForTimeout(120);
+  await capture('no-wake-body-overboard.png');
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 2.48; });
+  await page.waitForTimeout(120);
+  const disposalOverboard = await page.evaluate(() => ({
+    position: window.NO_WAKE.boat.cast.willy.group.position.toArray(),
+    rotation: window.NO_WAKE.boat.cast.willy.group.rotation.toArray(),
+    visible: window.NO_WAKE.boat.cast.willy.group.visible,
+    halfBeam: window.NO_WAKE.boat.deck.halfBeam,
+  }));
+  check('the disposal shot visibly drags, lifts and rolls Willy beyond the side rail',
+    disposalStart.phase === 'dispose'
+      && disposalStart.shot === 'disposal-transom-side'
+      && disposalDrag.shot === 'disposal-transom-side'
+      && disposalDrag.position[0] > disposalStart.position[0] + .45
+      && disposalLift.position[0] > disposalDrag.position[0] + .45
+      && disposalLift.position[1] > disposalDrag.position[1] + .3
+      && Math.abs(disposalLift.rotation[2] - disposalDrag.rotation[2]) > .3
+      && Math.abs(disposalLift.screen[0]) < .82 && Math.abs(disposalLift.screen[1]) < .82
+      && disposalOverboard.position[0] > disposalOverboard.halfBeam
+      && disposalOverboard.position[1] < disposalLift.position[1] - .45
+      && disposalOverboard.visible,
+    JSON.stringify({ disposalStart, disposalDrag, disposalLift, disposalOverboard }));
+
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 3.18; });
+  await page.waitForTimeout(450);
   const disposal = await page.evaluate(() => ({
     phase: window.NO_WAKE.phase,
     disposed: window.NO_WAKE.state.bodyDisposed,
     willyVisible: window.NO_WAKE.boat.cast.willy.group.visible,
+    splashCount: window.NO_WAKE.state.disposal?.splashCount ?? 0,
+    returnCount: window.NO_WAKE.state.disposal?.returnCount ?? 0,
+    activeAftermath: (window.NO_WAKE.state.aftermathCueLog ?? [])
+      .filter((entry) => entry.status !== 'complete').length,
   }));
   check('body disposal enters the silent return with Willy removed from the boat',
-    disposal.phase === 'return' && disposal.disposed && !disposal.willyVisible,
+    disposal.phase === 'return' && disposal.disposed && !disposal.willyVisible
+      && disposal.splashCount === 1 && disposal.returnCount === 1
+      && disposal.activeAftermath > 0,
     JSON.stringify(disposal));
 
-  await page.evaluate(() => window.NO_WAKE.completeMission());
-  await page.waitForTimeout(250);
+  await capture('no-wake-return-wake-wide.png');
+  await page.evaluate(() => {
+    window.NO_WAKE.state.phaseTime = 5.55;
+    // Screenshot capture can be slower than the authored clock in headless
+    // mode. Force a fresh cut after the deliberate time jump so this samples
+    // the shot itself, not a stale transition from the preceding wide.
+    window.NO_WAKE.cameraDirector.shot = null;
+  });
+  await page.waitForTimeout(450);
+  await capture('no-wake-return-silent-deck.png');
+  const silentDeckFrame = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const booski = game.boat.cast.booski.group.localToWorld(new V(0, 1.42, 0))
+      .project(game.player.camera).toArray();
+    return {
+      shot: game.cameraDirector.shot?.id ?? null,
+      authoredPosition: game.cameraDirector.shot?.position ?? null,
+      cameraLocal: game.world.toBoatLocal(game.player.camera.position.clone()).toArray(),
+      booski,
+      louAtHelm: game.boat.cast.lou.group.position.z < .2,
+      emptyStern: !game.boat.cast.willy.group.visible,
+    };
+  });
+  check('the return middle shot clears the wheelhouse and holds on Booski beside the empty stern',
+    silentDeckFrame.shot === 'return-silent-deck'
+      && silentDeckFrame.cameraLocal[0] < -3.5 && silentDeckFrame.authoredPosition?.[2] > 6
+      && Math.abs(silentDeckFrame.booski[0]) < .82 && Math.abs(silentDeckFrame.booski[1]) < .82
+      && silentDeckFrame.louAtHelm && silentDeckFrame.emptyStern,
+    JSON.stringify(silentDeckFrame));
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 10.85; });
+  await page.waitForTimeout(450);
+  await capture('no-wake-return-harbor-ahead.png');
+  const montage = await page.evaluate(() => ({
+    shots: [...window.NO_WAKE.cameraDirector.seenShots]
+      .filter((id) => id.startsWith('return-')),
+    active: window.NO_WAKE.cameraDirector.shot?.id ?? null,
+  }));
+  check('the silent ride home uses three authored return montage shots',
+    ['return-wake-wide', 'return-silent-deck', 'return-harbor-ahead']
+      .every((id) => montage.shots.includes(id))
+      && montage.active === 'return-harbor-ahead',
+    JSON.stringify(montage));
+
+  const aftermathExpected = Object.values(NO_WAKE_AFTERMATH_LINES);
+  await page.waitForFunction(() => {
+    const log = window.NO_WAKE.state.aftermathCueLog ?? [];
+    return log.length === 4 && log.every((entry) => entry.status !== 'queued');
+  }, null, { timeout: 20000 });
+  const aftermathSequence = await page.evaluate((expectedTexts) => {
+    const entries = window.NO_WAKE.state.aftermathCueLog ?? [];
+    const subtitles = window.NO_WAKE.dialogueLog
+      .filter((line) => expectedTexts.includes(line.text))
+      .map((line) => line.text);
+    return {
+      cues: entries.map((entry) => entry.cue),
+      statuses: entries.map((entry) => entry.status),
+      windows: entries.map((entry) => [entry.startAt, entry.endAt]),
+      subtitles,
+    };
+  }, aftermathExpected.map((line) => line.text));
+  check('all four aftermath cues and subtitles are requested in order without overlapping voice windows',
+    JSON.stringify(aftermathSequence.cues) === JSON.stringify(aftermathExpected.map((line) => line.cue))
+      && aftermathSequence.statuses.every((status) => ['started', 'complete'].includes(status))
+      && aftermathSequence.windows.every((window, index, windows) => (
+        index === 0 || window[0] >= windows[index - 1][1] - .001
+      ))
+      && JSON.stringify(aftermathSequence.subtitles) === JSON.stringify(aftermathExpected.map((line) => line.text)),
+    JSON.stringify(aftermathSequence));
+
+  await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 15.98; });
+  await page.waitForFunction(() => window.NO_WAKE.campaignState.missions.no_wake.status === 'complete');
   const completed = await page.evaluate(() => ({
     mission: window.NO_WAKE.campaignState.missions.no_wake,
     chapter: window.NO_WAKE.campaignState.story.chapter,

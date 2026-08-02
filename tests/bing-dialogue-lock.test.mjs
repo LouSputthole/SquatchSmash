@@ -50,3 +50,23 @@ test('an explicit unlocked handoff releases a Bing briefing exactly once', () =>
   assert.equal(dialogue.lockMovement, false);
   assert.deepEqual(movement, [true, false]);
 });
+
+test('a dynamic dialogue hold resolves to seconds instead of becoming a stuck timer', () => {
+  let holdCalls = 0;
+  const dialogue = new Dialogue(ui());
+  dialogue.start({
+    callback: {
+      line: null,
+      hold: () => { holdCalls++; return 1.25; },
+      next: null,
+    },
+  }, 'callback');
+
+  assert.equal(holdCalls, 1);
+  assert.equal(dialogue.timer, 1.25);
+  dialogue.update(1.0);
+  assert.equal(dialogue.active, true);
+  dialogue.update(0.3);
+  assert.equal(dialogue.active, false);
+  assert.equal(dialogue.lastEndReason, 'done');
+});

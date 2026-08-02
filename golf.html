@@ -82,6 +82,15 @@
     <span class="distance"></span>
   </div>
 
+  <!-- A small top-down read of the live hole. The purple marker is always the
+       Prospect's ball; carts and the player update in real time so a drive
+       into the rough cannot make the next shot impossible to find. -->
+  <div id="golf-map" class="hidden" aria-label="Course map and ball finder">
+    <div class="map-head"><span class="ball-label">YOUR BALL</span><span class="ball-distance">&mdash;</span></div>
+    <canvas width="196" height="128" aria-hidden="true"></canvas>
+    <div class="map-key"><span><i class="you"></i>YOU</span><span><i class="ball"></i>BALL</span><span><i class="pin"></i>PIN</span></div>
+  </div>
+
   <!-- Only while he is over the ball. -->
   <div id="shot" class="hidden">
     <div class="club">IRON</div>
@@ -95,6 +104,13 @@
   <div id="aim" class="hidden">
     <div class="cone"></div>
     <div class="label">AT THE PIN</div>
+  </div>
+
+  <!-- The strike meter tells the player what they did; this card tells them
+       what the ball actually did once it has landed. -->
+  <div id="shot-result" class="hidden" aria-live="polite">
+    <div class="quality">PURED · 85% POWER</div>
+    <div class="outcome">169 YDS · GREEN · 21 FT TO PIN</div>
   </div>
 
   <div id="meter" class="hidden">
@@ -128,12 +144,13 @@
     <button id="start-btn" disabled>Walk over</button>
     <ul class="controls">
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk &middot; <kbd>E</kbd> / <kbd>Click</kbd> interact</li>
+      <li>in the cart: <kbd>W</kbd>/<kbd>S</kbd> drive &middot; <kbd>A</kbd>/<kbd>D</kbd> steer &middot; <kbd>Space</kbd> brake &middot; <kbd>E</kbd> get out by your ball</li>
       <li><kbd>E</kbd> at your ball to <b>address</b> it &middot; <kbd>Q</kbd> to back off</li>
       <li><kbd>1</kbd> driver &middot; <kbd>2</kbd> iron &middot; <kbd>3</kbd> putter</li>
-      <li>mouse aims &middot; <b>click</b> to start, again near ideal power, again in the strike band</li>
+      <li>mouse or <kbd>A</kbd>/<kbd>D</kbd> aims &middot; <b>click</b> or <kbd>Space</kbd> to start, set power, and strike</li>
       <li>orange power risks a fade / slice &middot; an early strike goes right, a late strike goes left</li>
       <li><kbd>1</kbd>–<kbd>4</kbd> answer, whenever somebody has asked you something</li>
-      <li><kbd>R</kbd> take a drop &middot; <kbd>F</kbd> skip a tee shot you have seen</li>
+      <li><kbd>R</kbd> take a drop &middot; <kbd>G</kbd> pick up a tap-in &middot; <kbd>F</kbd> skip a tee shot you have seen</li>
       <li><kbd>M</kbd> mute &middot; <kbd>Tab</kbd> pause / instructions &middot; <kbd>Esc</kbd> release mouse</li>
     </ul>
     <p class="fine">Three holes: a par 3, a par 5, a par 4. This is the first one.</p>

@@ -30,6 +30,9 @@ const GRAVITY = 9.81;
  * the distances the brief asks for no matter how hard it is hit. */
 const DRAG = 0.00380;
 const LIFT = 0.00165;
+/* Horizontal Magnus term. The signed, club-scaled side spin comes from the
+ * strike. Small enough to preserve control, large enough that a slice bends. */
+const SIDE_LIFT = 0.00036;
 
 /* Wind is felt as air that is already moving: drag is computed against the
  * ball's speed *through the air*, which is the only place wind belongs.
@@ -85,6 +88,7 @@ export class Ball {
     this.landing = null;
     this._carryDone = false;
     this._stuckTimer = 0;
+    this.sideSpin = 0;
   }
 
   get moving() {
@@ -110,6 +114,7 @@ export class Ball {
     this.landing = null;
     this._carryDone = true;
     this._stuckTimer = 0;
+    this.sideSpin = 0;
     return this;
   }
 
@@ -132,6 +137,7 @@ export class Ball {
     this.velocity.z = Math.cos(dir) * horizontal;
     this.velocity.y = vertical;
     this.position.y = heightAt(this.position.x, this.position.z) + 0.03;
+    this.sideSpin = Number.isFinite(launch.sideSpin) ? launch.sideSpin : 0;
 
     this.state = launch.grounded ? BALL_STATE.ROLL : BALL_STATE.FLIGHT;
     this.bounces = 0;
@@ -185,6 +191,15 @@ export class Ball {
     fx += lift * lx;
     fy += lift * ly;
     fz += lift * lz;
+
+    /* Signed side spin bends around the vertical axis. Positive is the open
+     * face: fade/slice to the player's right; negative draws/hooks left. */
+    if (Math.abs(this.sideSpin) > 1e-5) {
+      const side = SIDE_LIFT * this.sideSpin * air * air;
+      fx += side * (az / horiz);
+      fz -= side * (ax / horiz);
+      this.sideSpin *= Math.exp(-dt * 0.12);
+    }
 
     v.x += fx * dt;
     v.y += fy * dt;
@@ -448,7 +463,7 @@ export function simulate(from, aimRad, launch, limit = 45) {
  * that flight, and both are repeated. Converges in well under a hundred
  * simulated shots, which is a few milliseconds at load time.
  */
-export function solveShot({ from, target, club, lie, loftBias = 1, passes = 3 }) {
+export function solveShot({ from, target, club, lie, loftBias = 1, passes = 2 }) {
   let aim = Math.atan2(target.x - from.x, target.z - from.z);
   let power = 0.75;
 
@@ -464,7 +479,7 @@ export function solveShot({ from, target, club, lie, loftBias = 1, passes = 3 })
     // --- distance, by bisection on power ---
     let lo = 0.05;
     let hi = 1.0;
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       const mid = (lo + hi) / 2;
       const b = shoot(mid, aim);
       const got = Math.hypot(b.position.x - from.x, b.position.z - from.z);

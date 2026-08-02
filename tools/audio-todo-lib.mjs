@@ -21,6 +21,7 @@ const VOICE_SCENES = [
     || name.startsWith('vo.machine.lou.golf_morning.')
     || name.startsWith('vo.machine.lou.heist_day.')],
   ['Silver Pines', (name) => name.startsWith('vo.golf.')],
+  ['THE TAKE', (name) => name.startsWith('heist.')],
   ['The HotDog Incident', (name) => name.startsWith('vo.bing2.')],
   ['Squatch Graveyard', (name) => name.startsWith('vo.graveyard.')],
   ['Initiation', (name) => name.startsWith('vo.initiation.')],
@@ -33,6 +34,7 @@ const EFFECT_SCENES = [
     || name === 'sprinkler.tick' || name === 'cart.motor'
     || name === 'bird' || name.startsWith('golf.')],
   ['NO WAKE', (name) => name.startsWith('boat.') || name === 'water.splash'],
+  ['THE TAKE', (name) => name.startsWith('heist.')],
   ['Bada Bing', (name) => name.startsWith('ambience.rain')
     || name.startsWith('ambience.club') || name.startsWith('ambience.crowd')
     || name.startsWith('car.radio')],
@@ -46,7 +48,7 @@ const LEGACY_SCENE_NAMES = {
 
 const VOICE_DIRECTION = {
   lou2: 'Captain Lou Sasole. Late fifties, forty years of this, and something wrong with his stomach the whole way. Deadpan and unhurried; he genuinely finds all of this unremarkable.',
-  player: 'Tony Squatchtana. Younger, competent, and aware he is the only person treating any of this as unusual. Flat and dry rather than nervous.',
+  player: 'Tony Squatchtana. Younger, competent, and aware he is the only person treating any of this as unusual. Flat and dry rather than nervous. During THE TAKE he is prepared but still the prospect, so confidence never becomes command.',
   'old-stove': 'Old Stove. Pleasant, unhurried, and completely immovable. Warm enough that every refusal lands as friendly.',
   cecilio: 'Don Cecilio Barriga. Courteous, slow, and never once says what is in the crates.',
   'motel-rico': 'Rico, the Jerky Motel antagonist. PROVISIONAL audition casting from the owner\'s Boston side-character pool; voice lead must approve or recast this profile before locking the final cast.',
@@ -60,7 +62,14 @@ const VOICE_DIRECTION = {
   hotdog: 'Billy HotDog. Loud, comfortable, and casually cruel. The final insult gets quieter, not bigger.',
   aubbie: 'Aubbie. Tired utility man, practical and dry. Every joke should sound like a repair estimate.',
   echo: 'Echo. Frightened and plainly alive. Record clean; the grave muffling belongs to scene playback.',
-  snow: 'Snow. Minimal words and flat authority. He treats every impossible graveyard sound as weather.',
+  snow: 'Snow. Minimal words and flat authority. He treats every impossible graveyard sound as weather; during THE TAKE he leads without raising his voice and makes the clock sound final.',
+  rippinflow: 'Rippinflow. Retired freestyler turned getaway driver. Loose rhythm in the safehouse, clipped route calls behind the wheel, and humor used to keep panic from spreading.',
+  shubenator: 'The Shubenator. Technical specialist with total faith in his own preparation. Precise, mildly offended by improvisation, and never hurried even when the alarm is running.',
+  deathmegatron: 'DeathMegatron. A huge doom-metal voice delivering practical, protective instructions. Menace belongs to the name; the performance is disciplined and unexpectedly considerate.',
+  numbskull: 'Numbskull. Big, warm, slow, and completely unbothered. Lobby-control lines land as plain facts; he is never played stupid or frantic.',
+  'heist-guard': 'Bank security guard. Professional command voice turning urgent as he draws; alert and dangerous, not swaggering or villainous.',
+  'heist-customer': 'Bank customer caught in the lobby. Frightened, breath-controlled, and trying to keep everyone alive; the words are a plea, not a heroic speech.',
+  'heist-manager': 'Bank manager under armed pressure. Formal, controlled, and buying time through procedure; fear leaks through the authority without becoming melodrama.',
 };
 
 const plural = (count, one, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
@@ -119,7 +128,7 @@ function renderVoice(out, voice, voices) {
   const order = [
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
     'Jerky Motel', 'NO WAKE', 'The Silver Room', 'Day Four apartment',
-    'Silver Pines', 'The HotDog Incident', 'Squatch Graveyard', 'Initiation', 'Radio',
+    'Silver Pines', 'THE TAKE', 'The HotDog Incident', 'Squatch Graveyard', 'Initiation', 'Radio',
   ];
 
   if (!voice.length) {
@@ -213,7 +222,7 @@ function renderProvisionalCastingReview(out, cues, voices, have) {
 
 function renderManifestEffects(out, effects) {
   const byScene = group(effects, (cue) => effectScene(cue.name));
-  const order = ['Silver Pines', 'NO WAKE', 'Bada Bing', 'Shared movement', 'Shared / other'];
+  const order = ['Silver Pines', 'NO WAKE', 'THE TAKE', 'Bada Bing', 'Shared movement', 'Shared / other'];
 
   if (!effects.length) {
     out.push('## Manifest effect pickups', '', 'Nothing outstanding.', '');

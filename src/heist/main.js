@@ -19,10 +19,14 @@ import {
 } from '../core/preview-mode.js';
 import { FixedStepRunner } from '../core/vehicles/fixed-step.js';
 import { GroundVehicle } from '../core/vehicles/ground-vehicle.js';
-import { buildHeistCrew, HEIST_CREW_IDS, setCrewMasked, updateCrew } from './cast.js';
+import {
+  buildHeistCrew, crewHeadingForPhase, HEIST_CREW_IDS, setCrewMasked, updateCrew,
+} from './cast.js';
+import { BankGuardThreat } from './bank-threat.js';
 import { CheckpointDirector } from './checkpoints.js';
 import {
-  HEIST_STATES, PERFORMANCE_BUDGET, PHASE_FOR_STATE, PREVIEW_START_STATE,
+  HEIST_ESCAPE_VEHICLE_CONFIG, HEIST_STATES, PERFORMANCE_BUDGET,
+  PHASE_FOR_STATE, PREVIEW_START_STATE,
 } from './config.js';
 import { CivilianController } from './civilians.js';
 import { DialogueArbiter } from './dialogue.js';
@@ -33,6 +37,7 @@ import { createHeistBags, LootLedger } from './loot.js';
 import { HeistMissionMachine } from './mission.js';
 import { AuthoredNavigationGraph, SquadDirector } from './navigation.js';
 import { PoliceDirector } from './police.js';
+import { SafehousePreparation } from './safehouse.js';
 import { HEIST_DIALOGUE, dialogueLine } from './script.js';
 
 const HEIST_VOICE_CUES = Object.freeze(Object.values(HEIST_DIALOGUE).map((line) => line.cue));
@@ -91,17 +96,42 @@ const police = new PoliceDirector({
 const civilians = Array.from({ length: 16 }, (_, index) => new CivilianController({
   id: `civilian_${index + 1}`, nerve: 0.18 + (index % 5) * 0.12, anchor: `lobby_${index + 1}`,
 }));
-const vehicle = new GroundVehicle({
-  acceleration: 4.8,
-  maxForwardSpeed: 11,
-  maxReverseSpeed: 5,
-});
+const vehicle = new GroundVehicle(HEIST_ESCAPE_VEHICLE_CONFIG);
 vehicle.x = 0;
 vehicle.z = 18;
 vehicle.heading = Math.PI;
 const fixedStep = new FixedStepRunner({ hz: 120, maxSteps: 8 });
 const checkpoints = new CheckpointDirector();
 const crew = buildHeistCrew(level.phases.safehouse.group);
+const preparation = new SafehousePreparation();
+const guardThreat = new BankGuardThreat({ windowSeconds: 2.75 });
+const lobbyGuardActor = new CombatActor({
+  id: 'bank_lobby_guard', faction: FACTIONS.POLICE, maxHealth: 38, armor: 0,
+});
+level.phases.bank.interactables.guard.traverse((object) => {
+  if (object.isMesh) object.userData.combatActor = lobbyGuardActor;
+});
+const CREW_ROLE_LABEL = Object.freeze({
+  leader: 'LEAD', driver: 'WHEELS', technical: 'SYSTEMS', heavy: 'BAGS', control: 'LOBBY',
+});
+const CREW_INTRO_LINE = Object.freeze({
+  [CHARACTER_IDS.SNOW]: 'crew_snow',
+  [CHARACTER_IDS.RIPPINFLOW]: 'crew_rippin',
+  [CHARACTER_IDS.SHUBENATOR]: 'crew_shubes',
+  [CHARACTER_IDS.DEATHMEGATRON]: 'crew_death',
+  [CHARACTER_IDS.NUMBSKULL]: 'crew_numb',
+});
+const crewStrip = document.getElementById('crew-strip');
+for (const actor of crew.values()) {
+  const item = document.createElement('div');
+  item.className = 'crew';
+  const name = document.createElement('b');
+  name.textContent = actor.identity.subtitleName;
+  const role = document.createElement('small');
+  role.textContent = CREW_ROLE_LABEL[actor.role] ?? actor.role.toUpperCase();
+  item.append(name, role);
+  crewStrip.append(item);
+}
 const SQUAD_FORMATIONS = Object.freeze({
   safehouse: Object.freeze([[-3.4, -1.2], [-1.7, -2.4], [0, -2.6], [1.8, -2.3], [3.5, -1.1]]),
   van: Object.freeze([[-1.15, 1.45], [1.15, 1.2], [-1.15, 0], [1.15, -0.25], [0, -1.45]]),
@@ -169,10 +199,10 @@ const dialogue = new DialogueArbiter({
 dialogue.setState(machine.state);
 
 let started = false;
-let armorReady = false;
-let loadoutReady = false;
 let lobbyControlled = false;
 let rearGuardSecured = false;
+let managerEscortProgress = 0;
+let guardFailures = 0;
 let bankBagsStaged = 0;
 let carryingBag = null;
 let droppedBagDecision = null;
@@ -186,12 +216,13 @@ let driveCollisionCooldown = 0;
 let driveInvalidFor = 0;
 let driveStuckFor = 0;
 let inventorySignature = '';
+const crewIntroduced = new Set();
 
 function syncHeistInventory() {
   const items = [
-    'carbine',
-    'sidearm',
-    'magazines',
+    preparation.loadoutReady ? 'carbine' : null,
+    preparation.loadoutReady ? 'sidearm' : null,
+    preparation.loadoutReady ? 'magazines' : null,
     carryingBag ? 'cash_bag' : 'duffel',
     driving ? 'keys' : null,
   ];
@@ -207,6 +238,7 @@ const swapProgress = {
   jackets: false, weapons: false, wiped: false,
 };
 let latestCheckpoint = null;
+let recoveryCheckpoint = null;
 let activePhase = null;
 let missionCompleted = false;
 let simulationPaused = false;
@@ -214,6 +246,7 @@ const activeEffects = [];
 const clock = new THREE.Clock();
 const raycaster = new THREE.Raycaster();
 const lineOfSightRaycaster = new THREE.Raycaster();
+const pursuitTarget = new THREE.Vector3();
 const muzzle = new THREE.PointLight(0xffc35c, 0, 4, 2);
 camera.add(muzzle);
 const impactPool = Array.from({ length: Math.min(32, PERFORMANCE_BUDGET.maxImpactParticles) }, () => {
@@ -256,6 +289,7 @@ window.__heistDebug = {
   driveToNextNode: () => debugDriveToNextNode(),
   forceDriveRecovery: () => debugForceDriveRecovery(),
   poseForEvidence: (name) => debugPoseForEvidence(name),
+  poseForCrew: (id) => debugPoseForCrew(id),
   probeCollision: () => debugProbeCollision(),
   fail: (reason = 'verifier_failure') => failMission(reason),
   snapshot: () => debugSnapshot(),
@@ -282,6 +316,11 @@ function debugProbeCollision() {
 /** Deterministic camera marks used only by browser evidence capture. */
 function debugPoseForEvidence(name) {
   const poses = {
+    briefing: { phase: 'safehouse', position: [0, 1.66, 2.55], yaw: 0, pitch: -0.28 },
+    armor: { phase: 'safehouse', position: [-5.5, 1.66, 4.45], yaw: 0, pitch: -0.18 },
+    loadout: { phase: 'safehouse', position: [4.7, 1.66, 4.25], yaw: 0, pitch: -0.38 },
+    bank_guard: { phase: 'bank', position: [0, 1.66, 8.5], yaw: 0.9273 },
+    bank_lobby: { phase: 'bank', position: [-0.6, 1.66, 5.6], yaw: -0.88, pitch: -0.1 },
     bank_exit: { phase: 'street', position: [-4, 1.66, 28], yaw: -2.5536 },
     downtown_firefight: { phase: 'street', position: [0, 1.66, 27], yaw: 0 },
     vehicle_swap: { phase: 'driving', position: [14, 1.66, -657], yaw: -2.158 },
@@ -291,6 +330,27 @@ function debugPoseForEvidence(name) {
   player.position.fromArray(pose.position);
   player.velocity.set(0, 0, 0);
   player.yaw = pose.yaw;
+  player.pitch = pose.pitch ?? 0;
+  player.update(1 / 60);
+  return true;
+}
+
+function debugPoseForCrew(id) {
+  if (activePhase !== 'safehouse') return false;
+  const actor = crew.get(id);
+  if (!actor) return false;
+  const outward = actor.group.position.clone();
+  outward.y = 0;
+  if (outward.lengthSq() < 0.01) outward.set(0, 0, -1);
+  outward.normalize();
+  player.position.set(
+    actor.group.position.x + outward.x * 1.65,
+    1.66,
+    actor.group.position.z + outward.z * 1.65,
+  );
+  const dx = actor.group.position.x - player.position.x;
+  const dz = actor.group.position.z - player.position.z;
+  player.yaw = Math.atan2(-dx, -dz);
   player.pitch = 0;
   player.update(1 / 60);
   return true;
@@ -356,7 +416,17 @@ function debugSnapshot() {
     policeActive: activePoliceMeshes().length,
     policeTotal: policeMeshes.length,
     routeIndex,
-    vehicle: vehicle.snapshot(),
+    vehicle: {
+      ...vehicle.snapshot(),
+      maxForwardSpeed: HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed,
+      pursuitVisible: level.phases.driving.pursuit.visible,
+      pursuitDistance: level.phases.driving.pursuit.position.distanceTo(level.phases.driving.car.position),
+      pursuitInFrame: (() => {
+        if (activePhase !== 'driving' || !level.phases.driving.pursuit.visible) return false;
+        const ndc = level.phases.driving.pursuit.getWorldPosition(new THREE.Vector3()).project(camera);
+        return ndc.z >= -1 && ndc.z <= 1 && Math.abs(ndc.x) <= 0.96 && Math.abs(ndc.y) <= 0.96;
+      })(),
+    },
     swap: { ...swapProgress },
     squadAnchors: { ...window.__heistDebug.squadAnchors },
     audioZone,
@@ -387,6 +457,43 @@ function debugSnapshot() {
       bankCivilians: level.phases.bank.civilians.length,
     },
     civilianStates: civilians.map((civilian) => civilian.state),
+    civilianVisualStates: level.phases.bank.civilians.map((civilian) => civilian.userData.visualState ?? 'ambient'),
+    guardThreat: guardThreat.snapshot(),
+    guardFailures,
+    managerEscortProgress,
+    managerPosition: level.phases.bank.interactables.manager.position.toArray(),
+    interactionTargets: interaction.targets.map((target) => ({
+      name: target.name,
+      label: typeof target.userData.interact?.label === 'string' ? target.userData.interact.label : null,
+    })),
+    currentInteraction: interaction.current ? {
+      name: interaction.current.name,
+      label: typeof interaction.current.userData.interact?.label === 'string'
+        ? interaction.current.userData.interact.label : null,
+    } : null,
+    presentation: {
+      crew: [...crew.values()].map((actor) => {
+        const target = activePhase === 'safehouse' ? { x: 0, z: 0.2 } : { x: 0, z: -7 };
+        const dx = target.x - actor.group.position.x;
+        const dz = target.z - actor.group.position.z;
+        const length = Math.max(0.001, Math.hypot(dx, dz));
+        return {
+          id: actor.id,
+          name: actor.identity.subtitleName,
+          role: actor.role,
+          facingDot: (Math.sin(actor.group.rotation.y) * dx + Math.cos(actor.group.rotation.y) * dz) / length,
+          introduced: crewIntroduced.has(actor.id),
+        };
+      }),
+      numbskullFace: !!crew.get(CHARACTER_IDS.NUMBSKULL)?.group.getObjectByName('numbskull-nose'),
+      armorVisible: level.phases.safehouse.group.getObjectByName('armor-vest-body')?.visible === true,
+      carbineVisible: level.phases.safehouse.group.getObjectByName('loadout-carbine-receiver')?.visible === true,
+      lockers: (() => {
+        let count = 0;
+        level.phases.safehouse.group.traverse((object) => { if (object.userData.kind === 'prep-locker') count++; });
+        return count;
+      })(),
+    },
     campaignMission: campaign.state.missions[MISSION_IDS.BANK_HEIST],
     campaignState: campaign.state,
   };
@@ -411,6 +518,7 @@ function emitFromPool(pool, position, life, velocity) {
 
 function emitImpact(position) {
   emitFromPool(impactPool, position, 0.32, new THREE.Vector3(0, 0.35, 0));
+  audio.play('heist.bullet.impact', { position, volume: 0.62, ref: 1.1, maxDist: 22 });
 }
 
 function emitCasing() {
@@ -435,14 +543,17 @@ function updateEffectPools(dt) {
 }
 
 let audioZone = null;
+let audioZoneCue = null;
 function setAudioZone(id) {
   if (audioZone === id) return;
-  if (audioZone) {
-    audio.stopLoop(`heist.ambience.${audioZone}`, 0.8);
+  if (audioZoneCue) {
+    audio.stopLoop(audioZoneCue, 0.8);
+    if (audioZone === 'bank') audio.stopLoop('heist.bank.alarm', 0.35);
     if (['street', 'garage', 'driving'].includes(audioZone)) audio.stopLoop('heist.police.sirens', 0.6);
   }
   audioZone = id;
-  audio.startLoop(`heist.ambience.${id}`, { volume: id === 'safehouse' ? 0.12 : 0.2, ambience: true, fade: 0.8 });
+  audioZoneCue = id === 'safehouse' ? 'heist.ambience.safehouse.prep' : `heist.ambience.${id}`;
+  audio.startLoop(audioZoneCue, { volume: id === 'safehouse' ? 0.12 : 0.2, ambience: true, fade: 0.8 });
   if (['street', 'garage', 'driving'].includes(id)) {
     audio.startLoop('heist.police.sirens', { volume: 0.16, ambience: true, fade: 0.5 });
   }
@@ -461,6 +572,8 @@ function placeCrew(phaseId) {
     squad.assign(actor.id, phaseId);
     const [x, z] = squadAnchorPositions.get(actor.anchor);
     actor.group.position.set(x, 0, z);
+    actor.person.heading = crewHeadingForPhase(phaseId, { x, z });
+    actor.group.rotation.y = actor.person.heading;
   }
   window.__heistDebug.squadAnchors = Object.fromEntries(
     [...crew.values()].map((actor) => [actor.id, actor.anchor]),
@@ -471,12 +584,15 @@ function activatePhase(id, preservePlayer = false) {
   if (activePhase === id) return level.phases[id];
   const phase = level.activate(id);
   activePhase = id;
+  scene.fog.density = id === 'driving' ? 0.0045 : (id === 'bank' ? 0.012 : 0.018);
+  renderer.toneMappingExposure = id === 'driving' ? 1.32
+    : (id === 'safehouse' ? 1.02 : (id === 'bank' ? 1.06 : 0.94));
   placeCrew(id);
   if (!preservePlayer) {
     player.position.copy(phase.spawn);
     player.velocity.set(0, 0, 0);
     player.yaw = 0;
-    player.pitch = 0;
+    player.pitch = id === 'safehouse' ? -0.12 : 0;
   }
   window.__heistDebug.phase = id;
   interaction.setOccluders([phase.group]);
@@ -498,6 +614,22 @@ function use(mesh, label, onUse, options = {}) {
   });
 }
 
+function syncSafehousePresentation() {
+  level.phases.safehouse.interactables.armor.userData.setEquipped?.(preparation.armorReady);
+  level.phases.safehouse.interactables.loadout.userData.setEquipped?.(preparation.loadoutReady);
+}
+
+function registerCrewIntroductions() {
+  for (const actor of crew.values()) {
+    const role = CREW_ROLE_LABEL[actor.role] ?? actor.role.toUpperCase();
+    use(actor.group, `${actor.identity.subtitleName} — ${role}`, () => {
+      if (crewIntroduced.has(actor.id)) return;
+      crewIntroduced.add(actor.id);
+      say(CREW_INTRO_LINE[actor.id]);
+    }, { enabled: () => !crewIntroduced.has(actor.id) });
+  }
+}
+
 function stateIndex(name) { return HEIST_STATES.indexOf(name); }
 
 function advanceTo(target) {
@@ -512,6 +644,7 @@ function advanceTo(target) {
 function recordCheckpoint(id, resumeState, facts = {}) {
   if (!story.checkpoint(id, facts)) return false;
   latestCheckpoint = id;
+  recoveryCheckpoint = id;
   checkpoints.capture(id, { state: resumeState, phase: phaseIdForState(resumeState) });
   window.__heistDebug.checkpoint = id;
   return true;
@@ -527,10 +660,52 @@ function startVanRide() {
   say('snow_time');
 }
 
+function resetLobbyGuardThreat() {
+  guardThreat.reset();
+  lobbyGuardActor.restore({
+    id: lobbyGuardActor.id,
+    health: lobbyGuardActor.maxHealth,
+    armor: 0,
+    injury: 'none',
+    incapacitated: false,
+    suppression: 0,
+    role: 'lobby_guard',
+    anchor: 'bank_entry',
+    carrying: null,
+  });
+  level.phases.bank.interactables.guard.userData.resetThreatPose?.();
+  hud.setThreat(false);
+}
+
+function neutralizeLobbyGuard(source = 'player_shot') {
+  const result = guardThreat.resolve({ source });
+  if (!result.ok) return result;
+  level.phases.bank.interactables.guard.userData.setNeutralized?.();
+  hud.setThreat(false);
+  audio.play('heist.guard.weapon.drop');
+  audio.play('heist.body.marble', { delay: 0.12, volume: 0.75 });
+  advanceTo('LOBBY_CONTROL');
+  dialogue.reset();
+  dialogue.setState(machine.state);
+  say('prospect_counterstrike');
+  say('snow_scoreboard');
+  hud.setObjective('Guard down. Aim across the lobby and order everyone to the floor.');
+  refreshInteractions();
+  return result;
+}
+
 function enterBank() {
   advanceTo('BANK_ENTRY');
   activatePhase('bank');
-  hud.setObjective('Follow Snow. Aim at the visible guard and press E.');
+  resetLobbyGuardThreat();
+  guardThreat.start();
+  checkpoints.capture('bank_entry_retry', { state: 'BANK_ENTRY', phase: 'bank' });
+  recoveryCheckpoint = 'bank_entry_retry';
+  audio.play('heist.bank.entry');
+  audio.play('heist.guard.draw', { delay: 0.12 });
+  hud.setObjective('The lobby guard is drawing on a teller. Shoot him before he fires.');
+  hud.setThreat(true, guardThreat.snapshot().remaining, guardThreat.windowSeconds);
+  say('guard_warning');
   say('snow_guard');
 }
 
@@ -574,16 +749,23 @@ function beginDriving() {
   activatePhase('driving');
   driving = true;
   routeIndex = 0;
+  level.phases.driving.pursuit.visible = true;
+  level.phases.driving.pursuit.position.set(-2.7, 0, 28);
   interaction.setPaused(true);
   player.mode = 'frozen';
   hud.setDriving(true, 0, 'LEFT OUT — WAREHOUSE DISTRICT');
   hud.setObjective('Drive the secondary car to the canal-side swap.');
+  audio.startLoop('heist.vehicle.engine.load', { volume: 0.14, ambience: true, fade: 0.2 });
+  audio.startLoop('heist.vehicle.tires.road', { volume: 0.08, ambience: true, fade: 0.25 });
   say('rippin_drive');
 }
 
 function reachSwap() {
   driving = false;
   vehicle.setInput();
+  audio.stopLoop('heist.vehicle.engine.load', 0.35);
+  audio.stopLoop('heist.vehicle.tires.road', 0.35);
+  level.phases.driving.pursuit.visible = false;
   advanceTo('VEHICLE_SWAP');
   player.mode = 'walk';
   player.position.set(20, 1.66, -650);
@@ -631,15 +813,18 @@ function showMissionCard() {
   document.getElementById('return-home').addEventListener('click', returnToApartment);
 }
 
-async function returnToApartment() {
+function returnToApartment() {
   /* THE TAKE decodes its complete voice/effects bank. Close that scene's audio
    * graph before asking the Apartment to create and decode another one; leaving
    * both contexts for browser GC can starve Chromium's decoder pool and strand
    * the next scene behind its Start card. Mission state is already durable. */
   try {
-    if (audio.ctx && audio.ctx.state !== 'closed') await audio.ctx.close();
+    /* Start teardown immediately, but never make campaign navigation wait for
+     * Chromium to settle every decoded source. Some WebAudio implementations
+     * leave close() pending until page unload, which would strand this button. */
+    if (audio.ctx && audio.ctx.state !== 'closed') audio.ctx.close().catch(() => {});
     /* AudioBuffer references survive a closed context until the old page is
-     * collected. Release the 44-line heist bank explicitly so the Apartment's
+     * collected. Release the complete heist bank explicitly so the Apartment's
      * decoder does not compete with unreachable mission PCM during navigation. */
     audio.buffers.clear();
     audio.playbacks.length = 0;
@@ -675,29 +860,41 @@ function refreshInteractions() {
   const p = level.phases;
 
   if (activePhase === 'safehouse' && stateIndex(state) < stateIndex('BOARD_VAN')) {
+    syncSafehousePresentation();
+    registerCrewIntroductions();
     use(p.safehouse.interactables.briefing,
       state === 'CREW_INTRO' ? 'Gather for Snow’s briefing' : 'Review the route with Snow', () => {
         if (state === 'CREW_INTRO') {
+          audio.play('heist.map.paper', { volume: 0.65 });
           advanceTo('BRIEFING'); say('snow_plan'); say('snow_rules'); say('rippin_route');
           hud.setObjective('Inspect the plan, then prepare the loadout.');
         } else if (machine.state === 'BRIEFING') {
+          audio.play('heist.map.paper', { volume: 0.65 });
           advanceTo('LOADOUT'); say('shubes_case'); say('death_bags'); say('numb_alarm');
-          hud.setObjective('Put on armor and check the carbine.');
+          hud.setObjective('Equip the vest, then lift and check the carbine and magazines.');
         }
       });
-    use(p.safehouse.interactables.armor, armorReady ? 'Armor secured' : 'Put on concealable armor', () => {
-      armorReady = true; audio.play('heist.armor.strap'); refreshInteractions();
-    }, { enabled: () => machine.state === 'LOADOUT' && !armorReady });
-    use(p.safehouse.interactables.loadout, loadoutReady ? 'Carbine ready' : 'Check carbine and magazines', () => {
-      loadoutReady = true; audio.play('heist.weapon.check'); hud.setAmmo(weapon.magazine, weapon.reserveMagazines * 20, 'CONTROLLED'); refreshInteractions();
-    }, { enabled: () => machine.state === 'LOADOUT' && !loadoutReady });
+    use(p.safehouse.interactables.armor, preparation.armorReady ? 'Armor secured' : 'Equip the armor vest', () => {
+      if (!preparation.equipArmor().changed) return;
+      p.safehouse.interactables.armor.userData.setEquipped?.(true);
+      audio.play('heist.gear.armor.pickup');
+      refreshInteractions();
+    }, { enabled: () => machine.state === 'LOADOUT' && !preparation.armorReady, hold: 0.65 });
+    use(p.safehouse.interactables.loadout, preparation.loadoutReady ? 'Weapons ready' : 'Lift and check the carbine', () => {
+      if (!preparation.readyWeapons().changed) return;
+      p.safehouse.interactables.loadout.userData.setEquipped?.(true);
+      audio.play('heist.gear.carbine.pickup');
+      hud.setAmmo(weapon.magazine, weapon.reserveMagazines * 20, 'CONTROLLED');
+      refreshInteractions();
+    }, { enabled: () => machine.state === 'LOADOUT' && !preparation.loadoutReady, hold: 0.65 });
     use(p.safehouse.interactables.van, 'Board the primary van', () => {
-      if (!armorReady || !loadoutReady || machine.state !== 'LOADOUT') return;
+      if (!preparation.ready || machine.state !== 'LOADOUT') return;
       advanceTo('BOARD_VAN');
       say('prospect_ready');
+      audio.play('heist.van.door');
       startVanRide();
       recordCheckpoint('safehouse_ready', 'VAN_APPROACH');
-    }, { enabled: () => armorReady && loadoutReady && machine.state === 'LOADOUT' });
+    }, { enabled: () => preparation.ready && machine.state === 'LOADOUT' });
     return;
   }
 
@@ -708,6 +905,7 @@ function refreshInteractions() {
           advanceTo('MASKS_ON'); setCrewMasked(crew, true); say('shubes_loop'); say('death_breathe');
           hud.setObjective('Masks on. Wait for the doors.');
         } else {
+          audio.play('heist.van.door');
           advanceTo('CREW_EXIT'); enterBank();
         }
       });
@@ -715,11 +913,8 @@ function refreshInteractions() {
   }
 
   if (activePhase === 'bank') {
-    use(p.bank.interactables.guard, state === 'BANK_ENTRY' ? 'ORDER GUARD DOWN' : 'Guard secured', () => {
-      if (machine.state !== 'BANK_ENTRY') return;
-      advanceTo('LOBBY_CONTROL');
-      hud.setObjective('Support DeathMegatron. Order the lobby down.');
-      say('death_floor');
+    use(p.bank.interactables.guard, 'Security guard drawing — LEFT CLICK TO FIRE', () => {}, {
+      enabled: () => machine.state === 'BANK_ENTRY' && guardThreat.state === 'drawing',
     });
     use(p.bank.interactables.crowd, 'ORDER LOBBY DOWN', () => {
       if (machine.state !== 'LOBBY_CONTROL' || lobbyControlled) return;
@@ -728,12 +923,17 @@ function refreshInteractions() {
         p.bank.civilians[index]?.userData.setState?.(nextState);
       }
       lobbyControlled = true;
+      audio.play('heist.crowd.react');
+      say('death_floor');
+      say('civilian_please');
       hud.setObjective('Stop the second guard from reaching the rear hallway.');
       refreshInteractions();
     }, { enabled: () => machine.state === 'LOBBY_CONTROL' && !lobbyControlled });
     use(p.bank.interactables.rearGuard, rearGuardSecured ? 'Rear guard secured' : 'ORDER REAR GUARD DOWN', () => {
       if (machine.state !== 'LOBBY_CONTROL' || !lobbyControlled) return;
       rearGuardSecured = true;
+      p.bank.interactables.rearGuard.userData.setNeutralized?.();
+      audio.play('heist.guard.weapon.drop');
       advanceTo('GUARDS_SECURED');
       say('numb_manager');
       hud.setObjective('Escort the bank manager to the vault corridor.');
@@ -741,8 +941,12 @@ function refreshInteractions() {
     use(p.bank.interactables.manager, 'Move the manager to the vault', () => {
       if (machine.state !== 'GUARDS_SECURED' || !rearGuardSecured) return;
       advanceTo('MANAGER_ESCORT');
+      managerEscortProgress = 0;
+      say('manager_delay');
+      say('shubes_answer');
       recordCheckpoint('bank_secured', 'MANAGER_ESCORT', { guardsDisarmed: 2, civiliansHarmed: 0 });
-      hud.setObjective('Cover Shubenator while he bypasses the vault.');
+      hud.setObjective('Walk the manager to the vault. Keep the lobby covered.');
+      refreshInteractions();
     });
     use(p.bank.interactables.vault,
       state === 'MANAGER_ESCORT' ? 'Open the access panel' : 'Complete the vault bypass', () => {
@@ -755,10 +959,14 @@ function refreshInteractions() {
           advanceTo('CASH_LOADING');
           recordCheckpoint('vault_open', 'CASH_LOADING', { alarmTriggered: true, bagsStaged: 0 });
           hud.setObjective('Move two cash bags to the exit. The crew handles the rest.');
-          say('snow_clock');
+          say('snow_clock'); say('snow_insured');
           audio.play('heist.vault.open');
         }
-      }, { hold: state === 'VAULT_BYPASS' ? 1.8 : undefined });
+      }, {
+        hold: state === 'VAULT_BYPASS' ? 1.8 : undefined,
+        enabled: () => machine.state === 'VAULT_BYPASS'
+          || (machine.state === 'MANAGER_ESCORT' && managerEscortProgress >= 1),
+      });
 
     for (let i = 1; i <= 8; i++) {
       const bagId = `cash_${i}`;
@@ -767,6 +975,7 @@ function refreshInteractions() {
         if (machine.state !== 'CASH_LOADING' || carryingBag || !loot.carry(bagId, CHARACTER_IDS.PROSPECT)) return;
         carryingBag = bagId;
         bagMesh.userData.carried = true;
+        audio.play('heist.cash.lift');
         hud.setBag(loot.get(bagId).value, 1);
       }, { enabled: () => machine.state === 'CASH_LOADING' && !carryingBag && !loot.get(bagId).recovered });
     }
@@ -777,6 +986,7 @@ function refreshInteractions() {
           loot.drop(bagId, { anchor: 'bank_exit', position: { x: 0, y: 0.3, z: 8.8 } });
           carryingBag = null;
           bankBagsStaged++;
+          audio.play('heist.cash.drop');
           p.bank.group.getObjectByName(bagId.replace('_', '-')).userData.carried = false;
           hud.setBag(0, 0);
           if (bankBagsStaged >= 2) {
@@ -787,6 +997,7 @@ function refreshInteractions() {
               if (loot.get(id).carrier) loot.drop(id, { anchor: 'bank_exit', position: { x: (i - 4) * 0.4, y: 0.3, z: 8.5 } });
             }
             bankBagsStaged = 8;
+            audio.startLoop('heist.bank.alarm', { volume: 0.34, ambience: true, fade: 0.15 });
             advanceTo('ALARM_DISCOVERED'); say('numb_signal'); say('rippin_street');
             advanceTo('EXIT_ORDER'); say('snow_exit');
             hud.setObjective('Take the bags and leave together.');
@@ -980,7 +1191,7 @@ function fireWeapon() {
   const shot = weapon.fire();
   if (!shot.fired) { if (shot.reason === 'empty') audio.play('heist.weapon.empty'); return; }
   hud.setAmmo(weapon.magazine, weapon.reserveMagazines * weapon.definition.magazineSize, weapon.definition.name ?? 'CONTROLLED');
-  audio.play('heist.weapon.carbine', { volume: 0.9 });
+  audio.play(activePhase === 'bank' ? 'heist.weapon.carbine.indoor' : 'heist.weapon.carbine', { volume: 0.9 });
   emitCasing();
   muzzle.intensity = 8;
   camera.rotation.z += (Math.random() - 0.5) * 0.008;
@@ -996,7 +1207,9 @@ function fireWeapon() {
       attacker: { faction: FACTIONS.CREW }, damage: shot.damage,
       penetration: shot.penetration, matrix: factionMatrix, playerShot: true,
     });
-    if (resolved[0]?.result?.fatal) {
+    if (hit.object.userData.combatActor === lobbyGuardActor && resolved[0]?.result?.fatal) {
+      neutralizeLobbyGuard('player_shot');
+    } else if (resolved[0]?.result?.fatal) {
       hit.object.visible = false;
       officersDown++;
       police.remove(hit.object.userData.block);
@@ -1025,6 +1238,8 @@ function updatePoliceCombat(dt) {
   lineOfSightRaycaster.set(origin, direction);
   lineOfSightRaycaster.far = Math.max(0, distance - 0.8);
   if (lineOfSightRaycaster.intersectObject(level.phases[activePhase].group, true).length) return;
+  audio.play('heist.police.gunshot', { position: origin, volume: 0.72, ref: 1.6, maxDist: 55 });
+  audio.play('heist.bullet.whiz', { volume: 0.42 });
   suppression.noteNearMiss(0.16, Math.max(0.2, distance / 48));
   emitImpact(player.position.clone().add(new THREE.Vector3(
     (Math.random() - 0.5) * 1.4, -0.6 + Math.random() * 1.4, (Math.random() - 0.5) * 1.4,
@@ -1041,6 +1256,41 @@ function updatePoliceCombat(dt) {
   hud.setHealth((playerActor.health / playerActor.maxHealth) * 100);
   audio.play('heist.player.hit', { volume: 0.75 });
   if (result.fatal) failMission('prospect_incapacitated');
+}
+
+function updateBankSequence(dt) {
+  if (activePhase !== 'bank' || machine.state === 'FAILED') return;
+  if (guardThreat.state === 'drawing') {
+    const outcome = guardThreat.update(dt);
+    const snapshot = guardThreat.snapshot();
+    level.phases.bank.interactables.guard.userData.setThreatProgress?.(snapshot.progress);
+    hud.setThreat(true, snapshot.remaining, guardThreat.windowSeconds);
+    if (outcome.event === 'fired') {
+      guardFailures++;
+      hud.setThreat(false);
+      audio.play('heist.weapon.carbine.indoor');
+      level.phases.bank.civilians[0]?.userData.setState?.('protecting');
+      hud.setObjective('The guard fired on the lobby. Restoring the last safe checkpoint.');
+      failMission('guard_shot_civilian');
+      return;
+    }
+  }
+  if (machine.state === 'MANAGER_ESCORT' && managerEscortProgress < 1) {
+    const previous = managerEscortProgress;
+    managerEscortProgress = Math.min(1, managerEscortProgress + dt / 2.6);
+    const manager = level.phases.bank.interactables.manager;
+    manager.userData.setEscortProgress?.(managerEscortProgress);
+    const escort = crew.get(CHARACTER_IDS.NUMBSKULL);
+    if (escort) {
+      escort.group.position.set(manager.position.x + 0.9, 0, manager.position.z + 0.55);
+      escort.person.heading = crewHeadingForPhase('bank', escort.group.position);
+      escort.group.rotation.y = escort.person.heading;
+    }
+    if (previous < 1 && managerEscortProgress >= 1) {
+      hud.setObjective('Manager in position. Open the panel for Shubenator.');
+      refreshInteractions();
+    }
+  }
 }
 
 function dropCarriedBag() {
@@ -1060,15 +1310,16 @@ function dropCarriedBag() {
 function failMission(reason) {
   if (!machine.fail(reason)) return;
   const fade = document.getElementById('fade');
-  fade.querySelector('span').textContent = latestCheckpoint
+  const restoreId = recoveryCheckpoint ?? latestCheckpoint;
+  fade.querySelector('span').textContent = restoreId
     ? 'RESTORING LAST SAFE POSITION' : 'RESTARTING THE BRIEFING';
   fade.style.opacity = '1';
   setTimeout(() => {
-    if (!latestCheckpoint) {
+    if (!restoreId) {
       machine.restore('CREW_INTRO');
       activatePhase('safehouse');
-      armorReady = false;
-      loadoutReady = false;
+      preparation.reset();
+      syncSafehousePresentation();
       player.mode = 'walk';
       player.moveScale = 1;
       hud.setObjective('Meet Snow and the crew at the briefing table.');
@@ -1076,14 +1327,20 @@ function failMission(reason) {
       refreshInteractions();
       return;
     }
-    const snapshot = checkpoints.snapshot(latestCheckpoint);
-    checkpoints.restore(latestCheckpoint);
+    const snapshot = checkpoints.snapshot(restoreId);
+    checkpoints.restore(restoreId);
     machine.restore(snapshot.meta.state);
     activatePhase(snapshot.meta.phase);
     interaction.setPaused(driving);
     hud.setDriving(driving, Math.abs(vehicle.speed) * 2.237);
     player.mode = driving ? 'frozen' : 'walk';
     fade.style.opacity = '0';
+    if (restoreId === 'bank_entry_retry') {
+      hud.setObjective('The lobby guard is drawing on a teller. Shoot him before he fires.');
+      hud.setThreat(true, guardThreat.snapshot().remaining, guardThreat.windowSeconds);
+      audio.play('heist.guard.draw');
+      say('snow_guard');
+    }
     refreshInteractions();
   }, 800);
 }
@@ -1148,18 +1405,19 @@ checkpoints.register('dialogue', { capture: () => dialogue.capture(), reset: () 
 checkpoints.register('effects', { capture: () => activeEffects, reset: () => { activeEffects.length = 0; }, restore: (s) => activeEffects.push(...s) });
 checkpoints.register('mission-local', {
   capture: () => ({
-    armorReady, loadoutReady, bankBagsStaged, carryingBag, droppedBagDecision,
-    lobbyControlled, rearGuardSecured,
+    preparation: preparation.capture(), bankBagsStaged, carryingBag, droppedBagDecision,
+    lobbyControlled, rearGuardSecured, managerEscortProgress,
+    guardThreat: guardThreat.capture(), lobbyGuardActor: lobbyGuardActor.snapshot(),
     officersDown, driving, roadblockHit, routeIndex, offroadHitCooldown,
     driveCollisionCooldown, policeFireClock, swapProgress: { ...swapProgress },
     driveInvalidFor, driveStuckFor, drivingRecovery,
     suppression: suppression.value,
   }),
   reset: () => {
-    armorReady = false;
-    loadoutReady = false;
+    preparation.reset();
     lobbyControlled = false;
     rearGuardSecured = false;
+    managerEscortProgress = 0;
     bankBagsStaged = 0;
     carryingBag = null;
     droppedBagDecision = null;
@@ -1175,12 +1433,16 @@ checkpoints.register('mission-local', {
     policeFireClock = 0.8;
     Object.keys(swapProgress).forEach((key) => { swapProgress[key] = false; });
     suppression.value = 0;
+    resetLobbyGuardThreat();
+    level.phases.bank.interactables.rearGuard.userData.resetThreatPose?.();
+    level.phases.bank.interactables.manager.userData.setEscortProgress?.(0);
+    syncSafehousePresentation();
   },
   restore: (snapshot) => {
-    armorReady = snapshot.armorReady === true;
-    loadoutReady = snapshot.loadoutReady === true;
+    preparation.restore(snapshot.preparation ?? snapshot);
     lobbyControlled = snapshot.lobbyControlled === true;
     rearGuardSecured = snapshot.rearGuardSecured === true;
+    managerEscortProgress = snapshot.managerEscortProgress ?? 0;
     bankBagsStaged = snapshot.bankBagsStaged ?? 0;
     carryingBag = snapshot.carryingBag ?? null;
     droppedBagDecision = snapshot.droppedBagDecision ?? null;
@@ -1196,6 +1458,17 @@ checkpoints.register('mission-local', {
     policeFireClock = snapshot.policeFireClock ?? 0.8;
     Object.assign(swapProgress, snapshot.swapProgress ?? {});
     suppression.value = snapshot.suppression ?? 0;
+    guardThreat.restore(snapshot.guardThreat);
+    if (snapshot.lobbyGuardActor) lobbyGuardActor.restore(snapshot.lobbyGuardActor);
+    level.phases.bank.interactables.guard.userData.resetThreatPose?.();
+    if (guardThreat.state === 'neutralized') level.phases.bank.interactables.guard.userData.setNeutralized?.();
+    else if (guardThreat.state === 'drawing') {
+      level.phases.bank.interactables.guard.userData.setThreatProgress?.(guardThreat.snapshot().progress);
+    }
+    level.phases.bank.interactables.rearGuard.userData.resetThreatPose?.();
+    if (rearGuardSecured) level.phases.bank.interactables.rearGuard.userData.setNeutralized?.();
+    level.phases.bank.interactables.manager.userData.setEscortProgress?.(managerEscortProgress);
+    syncSafehousePresentation();
   },
 });
 checkpoints.register('crew', {
@@ -1230,10 +1503,16 @@ checkpoints.register('crew', {
 });
 checkpoints.register('civilians', {
   capture: () => civilians.map((civilian) => civilian.capture()),
-  reset: () => civilians.forEach((civilian) => civilian.restore({
-    id: civilian.id, state: 'ambient', panic: 0, compliance: 0, anchor: civilian.anchor,
-  })),
-  restore: (snapshot) => snapshot.forEach((record, index) => civilians[index]?.restore(record)),
+  reset: () => civilians.forEach((civilian, index) => {
+    civilian.restore({
+      id: civilian.id, state: 'ambient', panic: 0, compliance: 0, anchor: civilian.anchor,
+    });
+    level.phases.bank.civilians[index]?.userData.setState?.('ambient');
+  }),
+  restore: (snapshot) => snapshot.forEach((record, index) => {
+    civilians[index]?.restore(record);
+    level.phases.bank.civilians[index]?.userData.setState?.(record.state);
+  }),
 });
 
 function seedLootForCheckpoint(checkpoint, mission) {
@@ -1261,8 +1540,8 @@ function seedLootForCheckpoint(checkpoint, mission) {
 
 function resumePersistedCheckpoint(checkpoint) {
   const mission = campaign.state.missions[MISSION_IDS.BANK_HEIST];
-  armorReady = true;
-  loadoutReady = true;
+  preparation.restore({ armorReady: true, loadoutReady: true });
+  syncSafehousePresentation();
   seedLootForCheckpoint(checkpoint, mission);
   const setup = {
     safehouse_ready: {
@@ -1419,7 +1698,7 @@ document.addEventListener('keyup', (event) => {
   if (event.code === 'KeyE') interaction.release();
 });
 document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && document.pointerLockElement === canvas) fireWeapon();
+  if (event.button === 0 && (document.pointerLockElement === canvas || isPreviewMode())) fireWeapon();
   if (event.button === 2) weapon.setAimed(true);
 });
 document.addEventListener('mouseup', (event) => { if (event.button === 2) weapon.setAimed(false); });
@@ -1481,9 +1760,25 @@ function updateDriving(dt) {
   car.rotation.y = vehicle.heading - Math.PI / 2;
   const forwardX = Math.sin(vehicle.heading);
   const forwardZ = Math.cos(vehicle.heading);
-  camera.position.set(vehicle.x - forwardX * 6.5, 3.4, vehicle.z - forwardZ * 6.5);
-  camera.lookAt(vehicle.x + forwardX * 5, 1.1, vehicle.z + forwardZ * 5);
+  const pursuit = drivePhase.pursuit;
+  const chaseDistance = 5.8 + Math.sin(performance.now() * 0.0023) * 0.7;
+  pursuitTarget.set(
+    vehicle.x - forwardX * chaseDistance + forwardZ * 2.7,
+    0,
+    vehicle.z - forwardZ * chaseDistance - forwardX * 2.7,
+  );
+  pursuit.position.lerp(pursuitTarget, 1 - Math.exp(-dt * 8));
+  pursuit.rotation.y = vehicle.heading - Math.PI / 2 + Math.sin(performance.now() * 0.003) * 0.055;
+  camera.position.set(
+    vehicle.x - forwardX * 13.5 - forwardZ * 1.45,
+    4.5,
+    vehicle.z - forwardZ * 13.5 + forwardX * 1.45,
+  );
+  camera.lookAt(vehicle.x + forwardX * 6, 1.05, vehicle.z + forwardZ * 6);
   hud.setDriving(true, Math.abs(vehicle.speed) * 2.237);
+  const speedRatio = Math.min(1, Math.abs(vehicle.speed) / HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed);
+  audio.setLoopVolume('heist.vehicle.engine.load', 0.12 + speedRatio * 0.28, 0.18);
+  audio.setLoopVolume('heist.vehicle.tires.road', 0.04 + speedRatio * 0.26, 0.18);
 
   if (machine.state === 'PLAYER_TAKES_WHEEL' && Math.hypot(vehicle.x, vehicle.z - 18) > 8) {
     advanceTo('GARAGE_ESCAPE');
@@ -1569,6 +1864,7 @@ function animate() {
       player.update(dt);
       constrainPlayerToPhase();
       interaction.update(dt);
+      updateBankSequence(dt);
       updatePoliceCombat(dt);
     }
     updateCrew(crew, dt);

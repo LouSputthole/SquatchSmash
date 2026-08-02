@@ -162,6 +162,30 @@
       "similarity": 0.8,
       "style": 0.35
     },
+    "heist-guard": {
+      "id": "NOpBlnGInO9m6vDvFkFC",
+      "_note": "THE TAKE bank security guard. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.56,
+      "similarity": 0.8,
+      "style": 0.3
+    },
+    "heist-customer": {
+      "id": "NOpBlnGInO9m6vDvFkFC",
+      "_note": "THE TAKE frightened bank customer. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.38,
+      "similarity": 0.8,
+      "style": 0.5
+    },
+    "heist-manager": {
+      "id": "NOpBlnGInO9m6vDvFkFC",
+      "_note": "THE TAKE bank manager. PROVISIONAL reuse of the scene-local male audition id; recast independently before the final voice run.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.8,
+      "style": 0.25
+    },
     "lookout": {
       "id": "cjVigY5qzO86Huf0OWal",
       "_note": "PROVISIONAL casting (eric id) — a man on a hill with binoculars. Swap id + regenerate to recast.",
@@ -2165,6 +2189,68 @@
       "loop": true,
       "promptInfluence": 0.5,
       "prompt": "twin early 1990s marine diesel engines idling steadily inside a 42 foot fiberglass cabin cruiser, low mechanical rumble and gentle hull resonance, seamless loop, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE boarding transition; keep the dock, shoe and floating hull readable as three separate materials.",
+      "name": "boat.board.step",
+      "duration": 1.2,
+      "promptInfluence": 0.55,
+      "prompt": "one heavy dress shoe steps from a wooden marina dock onto the teak and fiberglass deck of a floating cabin cruiser, short dock knock, deck footfall and gentle hull creak, close exterior, no water splash, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE cold start before the existing idle loop takes over.",
+      "name": "boat.engine.start",
+      "duration": 4.5,
+      "promptInfluence": 0.52,
+      "prompt": "twin early 1990s marine diesel starters crank inside a 42 foot fiberglass cabin cruiser, port engine catches first, starboard engine catches a beat later, both settle into a steady low idle with cabin resonance, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE propulsion layer. Mix gain and playback rate from real boat speed; do not bake wake or wind into this stem.",
+      "name": "boat.engine.underway",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "two marine diesel engines under firm cruising load inside a 42 foot fiberglass cabin cruiser, steady mechanical rise above idle with restrained hull resonance, seamless loop, isolated engine stem, no water, no wind, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE confrontation transition from running engines into open-water quiet.",
+      "name": "boat.engine.shutdown",
+      "duration": 4,
+      "promptInfluence": 0.52,
+      "prompt": "twin marine diesel engines fall from idle and shut down one after the other inside a fiberglass cruiser, final engine shudder followed by cooling metal ticks and quiet hull resonance, no music, no voice"
+    },
+    {
+      "_comment": "NO WAKE water-only motion layer. Mix from hull speed separately from the engine stem.",
+      "name": "boat.hull.wake",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "open-water bow wash and foaming wake sliding along both sides of a medium cabin cruiser at steady speed, rhythmic chop against fiberglass, seamless loop, isolated water stem, no engine, no music, no voice"
+    },
+    {
+      "name": "boat.rope.release",
+      "duration": 1.5,
+      "promptInfluence": 0.56,
+      "prompt": "thick damp mooring rope pulled free from a stainless boat cleat, tight fibers scrape and release with one small metal knock, close marina exterior, no clothing movement, no music, no voice"
+    },
+    {
+      "name": "boat.body.drag",
+      "duration": 2.8,
+      "promptInfluence": 0.52,
+      "prompt": "one very heavy clothed human body dragged several feet across teak and fiberglass boat decking, dense fabric scrape, shoes catching twice and deck flex, restrained realistic weight, no impact, no splash, no voice"
+    },
+    {
+      "name": "boat.body.rail",
+      "duration": 1.2,
+      "promptInfluence": 0.55,
+      "prompt": "a heavy clothed body lifted into and over a stainless boat transom rail, dull body thump, brief metal rattle and strained fabric, close exterior, no splash, no voice"
+    },
+    {
+      "_comment": "NO WAKE open-water execution report; do not reuse the apartment's indoor revolver recording.",
+      "name": "boat.gunshot.deck",
+      "duration": 2.5,
+      "promptInfluence": 0.55,
+      "prompt": "one powerful handgun shot fired on the open aft deck of a cabin cruiser, hard muzzle crack, short fiberglass deck reflection and broad distant echo over open water, exterior with no room slap, no music, no voice"
     },
     {
       "_comment": "NO WAKE body disposal splash; intentionally remains on the audio todo list until generated.",
@@ -8287,136 +8373,6 @@
       "say": "That closes the HotDog incident. The Motel does not close this easy."
     },
     {
-      "name": "vo.nowake.cruise.willy.cigars.1",
-      "voice": "willy",
-      "say": "This old girl still smells like Lou’s cigars. He sold the ashtrays but kept the smell."
-    },
-    {
-      "name": "vo.nowake.cruise.booski.markers.1",
-      "voice": "booski",
-      "say": "Red markers to starboard, Tony. Unless you want the Harbor Patrol in the conversation."
-    },
-    {
-      "name": "vo.nowake.cruise.willy.motel.1",
-      "voice": "willy",
-      "say": "Nice to get out. Everybody has been looking at me funny since the Motel."
-    },
-    {
-      "name": "vo.nowake.cruise.lou.water.1",
-      "voice": "lou",
-      "say": "Nobody is looking at anybody, Willy. Enjoy the water."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.quiet.1",
-      "voice": "lou",
-      "say": "Kill the engines in your head for a minute, kid. We need the quiet."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.sandwiches.1",
-      "voice": "willy",
-      "say": "What is this, Lou? You said a ride. I brought sandwiches."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.beef-detected.1",
-      "voice": "lou",
-      "say": "The Beef Run drew eyes because somebody gave them a tail number and a day."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.beef-clean.1",
-      "voice": "lou",
-      "say": "The Beef Run was clean. Then a Bureau report named the strip, the cargo, and all four crates."
-    },
-    {
-      "name": "vo.nowake.reveal.booski.pickup.1",
-      "voice": "booski",
-      "say": "Four people knew the reserve pickup. Lou, me, Tony, and the man who asked twice which room."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.questions.1",
-      "voice": "willy",
-      "say": "I ask things. I am interested. That is a crime now?"
-    },
-    {
-      "name": "vo.nowake.reveal.lou.motel-hot.1",
-      "voice": "lou",
-      "say": "The Bureau was on the Motel road before the first siren. That did not happen by luck."
-    },
-    {
-      "name": "vo.nowake.reveal.lou.motel-clean.1",
-      "voice": "lou",
-      "say": "The Bureau knew the Motel, the room, and what was in the cases before Cecilio opened the door."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.bureau.1",
-      "voice": "willy",
-      "say": "You think I talked to the Bureau? After all these years?"
-    },
-    {
-      "name": "vo.nowake.reveal.lou.confirmed.1",
-      "voice": "lou",
-      "say": "We know you did. The only question left is whether you make us hear you deny it again."
-    },
-    {
-      "name": "vo.nowake.reveal.willy.head.1",
-      "voice": "willy",
-      "say": "I need the head."
-    },
-    {
-      "name": "vo.nowake.below.booski.look.1",
-      "voice": "booski",
-      "say": "When he comes back, do not look at Lou. Look at Willy."
-    },
-    {
-      "name": "vo.nowake.below.lou.fire.1",
-      "voice": "lou",
-      "say": "You fire with us. Not after us."
-    },
-    {
-      "name": "vo.nowake.epilogue.tony.phone.1",
-      "voice": "player",
-      "say": "The phone will ring when it rings."
-    },
-    {
-      "name": "vo.call.lou.no_wake.1",
-      "voice": "lou1",
-      "say": "Kid. South Harbor. Gate C. Quarter to one."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.1",
-      "voice": "player",
-      "say": "Gate C. Quarter to one."
-    },
-    {
-      "name": "vo.call.lou.no_wake.2",
-      "voice": "lou1",
-      "say": "Plain clothes. Leave the phone in the glovebox when you get there."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.2",
-      "voice": "player",
-      "say": "No phone. Understood."
-    },
-    {
-      "name": "vo.call.lou.no_wake.3",
-      "voice": "lou1",
-      "say": "Booski and Willy are already on their way. We are taking a ride."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.3",
-      "voice": "player",
-      "say": "All four of us?"
-    },
-    {
-      "name": "vo.call.lou.no_wake.4",
-      "voice": "lou1",
-      "say": "Do not be late, and do not ring me back."
-    },
-    {
-      "name": "vo.call.lou.no_wake.tony.4",
-      "voice": "player",
-      "say": "I will be there."
-    },
-    {
       "name": "vo.initiation.ceremony.speech-booskibro.107itai.1",
       "voice": "booski",
       "say": "Brothers. Sisters. Silverbacks of the Circle."
@@ -9172,6 +9128,31 @@
       "say": "Thirteen to ten. Not a loss. A collection of individual career decisions, all made at once."
     },
     {
+      "name": "heist.crew_snow",
+      "voice": "snow",
+      "say": "Snow. I call the move. You keep the clock honest."
+    },
+    {
+      "name": "heist.crew_rippin",
+      "voice": "rippinflow",
+      "say": "Rippinflow. I drive us in. If the day gets ambitious, you drive us out."
+    },
+    {
+      "name": "heist.crew_shubes",
+      "voice": "shubenator",
+      "say": "Shubenator. Blue case, vault panel, and every wire you do not touch."
+    },
+    {
+      "name": "heist.crew_death",
+      "voice": "deathmegatron",
+      "say": "DeathMegatron. I move bags and bad ideas out of doorways."
+    },
+    {
+      "name": "heist.crew_numb",
+      "voice": "numbskull",
+      "say": "Numbskull. I own the lobby. People calm down when I sound bored."
+    },
+    {
       "name": "heist.snow_arrival",
       "voice": "snow",
       "say": "Door shut. Phone off. We use names until the masks go on."
@@ -9232,9 +9213,24 @@
       "say": "Breathe now. It costs more in there."
     },
     {
+      "name": "heist.guard_warning",
+      "voice": "heist-guard",
+      "say": "Stop right there. Hands where I can see them."
+    },
+    {
       "name": "heist.snow_guard",
       "voice": "snow",
       "say": "Prospect, visible guard. Put him on the floor."
+    },
+    {
+      "name": "heist.prospect_counterstrike",
+      "voice": "player",
+      "say": "Good thing about all that Counter-Strike I've been playing."
+    },
+    {
+      "name": "heist.snow_scoreboard",
+      "voice": "snow",
+      "say": "Save the scoreboard. Watch the lobby."
     },
     {
       "name": "heist.death_floor",
@@ -9242,9 +9238,24 @@
       "say": "Hands clear. Eyes down. Nobody here needs to be brave."
     },
     {
+      "name": "heist.civilian_please",
+      "voice": "heist-customer",
+      "say": "Nobody move. Please, just do what they say."
+    },
+    {
       "name": "heist.numb_manager",
       "voice": "numbskull",
       "say": "Manager is mine. Teller line is listening."
+    },
+    {
+      "name": "heist.manager_delay",
+      "voice": "heist-manager",
+      "say": "You do not know the delay. That door will not care who is holding the gun."
+    },
+    {
+      "name": "heist.shubes_answer",
+      "voice": "shubenator",
+      "say": "He does not have to know it. I know the panel."
     },
     {
       "name": "heist.shubes_vault",
@@ -9257,6 +9268,11 @@
       "say": "Four minutes became two. Fill the bags we have and leave the rest."
     },
     {
+      "name": "heist.snow_insured",
+      "voice": "snow",
+      "say": "We came for insured paper, not uninsured people. Keep it clean."
+    },
+    {
       "name": "heist.numb_signal",
       "voice": "numbskull",
       "say": "Foot switch. I stopped the teller. I did not stop what she already sent."
@@ -9267,9 +9283,9 @@
       "say": "Blue lights on both ends. Route Green is turning brown."
     },
     {
-      "name": "heist.snow_exit",
+      "name": "heist.snow_exit_alarm",
       "voice": "snow",
-      "say": "Bags. Tools. People. Move."
+      "say": "The sirens are the clock now. Bags, tools, people. Move."
     },
     {
       "name": "heist.snow_contact",
@@ -9369,7 +9385,7 @@
     {
       "name": "heist.death_ammo",
       "voice": "deathmegatron",
-      "say": "Ammunition accounted for. Everybody else is somebody else's paperwork."
+      "say": "Ammunition accounted for. Everybody else is somebody else’s paperwork."
     },
     {
       "name": "heist.numb_home",
@@ -9392,8 +9408,17 @@
       "say": "We got out. Everybody came home."
     },
     {
+      "_comment": "Legacy THE TAKE safehouse bed retained for compatibility. New scene work should request heist.ambience.safehouse.prep.",
       "name": "heist.ambience.safehouse",
-      "prompt": "subtle enclosed safehouse room tone, distant washing machines, fluorescent hum, restrained, seamless loop, no voices"
+      "prompt": "subtle enclosed warehouse safehouse room tone, steady ventilation, restrained fluorescent electrical hum and distant building resonance, seamless loop, no laundry machinery, no voices"
+    },
+    {
+      "_comment": "Replacement THE TAKE prep-room bed for the rebuilt safehouse set. Keep missing until the no-laundry recording is delivered.",
+      "name": "heist.ambience.safehouse.prep",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "converted warehouse gear-room ambience, broad ventilation airflow, restrained fluorescent electrical hum, faint distant city structure and occasional building tick, seamless loop, no washing machines, no music, no voices"
     },
     {
       "name": "heist.ambience.bank",
@@ -9410,6 +9435,128 @@
     {
       "name": "heist.ambience.driving",
       "prompt": "car interior at speed through city streets, engine load, tire noise and suspension, restrained seamless loop, no siren"
+    },
+    {
+      "_comment": "THE TAKE primary-van interior bed; this closes the only phase that previously fell through to generic synthesized noise.",
+      "name": "heist.ambience.van",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.48,
+      "prompt": "enclosed cargo van interior moving through downtown traffic, muted diesel engine, suspension vibration, loose equipment barely shifting and tires filtered through the metal body, restrained seamless loop, no siren, no music, no voices"
+    },
+    {
+      "name": "heist.map.paper",
+      "duration": 1.8,
+      "promptInfluence": 0.55,
+      "prompt": "large folded street map and bank floor plan spread firmly across a wooden briefing table, heavy paper unfolding, palms smoothing creases and one metal route marker placed down, close dry room, no voice"
+    },
+    {
+      "name": "heist.gear.armor.pickup",
+      "duration": 1.7,
+      "promptInfluence": 0.52,
+      "prompt": "concealable ballistic vest lifted from a wooden equipment table, dense armor panels flex, nylon straps slide and one buckle taps the tabletop, close controlled handling, no velcro fastening, no voice"
+    },
+    {
+      "name": "heist.gear.carbine.pickup",
+      "duration": 1.8,
+      "promptInfluence": 0.54,
+      "prompt": "compact carbine lifted from a padded safehouse table with both hands, sling hardware shifts, polymer stock and metal receiver make two restrained handling clicks, no magazine check, no firing, no voice"
+    },
+    {
+      "name": "heist.van.door",
+      "duration": 2.2,
+      "promptInfluence": 0.53,
+      "prompt": "heavy cargo van rear doors unlatch and swing open quickly, paired metal latch clacks, door seals pull free and hinges stop with a solid body-panel shudder, close exterior, no engine, no voice"
+    },
+    {
+      "name": "heist.bank.entry",
+      "duration": 2.5,
+      "promptInfluence": 0.5,
+      "prompt": "armed crew rushes through heavy glass-and-brass bank doors into a large marble lobby, doors strike their stops, five urgent shoe impacts bloom into sharp lobby reverb, no gunshot, no intelligible speech"
+    },
+    {
+      "name": "heist.guard.draw",
+      "duration": 1.1,
+      "promptInfluence": 0.58,
+      "prompt": "bank security guard snaps open a leather retention holster and draws a metal service pistol in one urgent motion, close clothing rustle and hard mechanical click, no gunshot, no voice"
+    },
+    {
+      "name": "heist.guard.weapon.drop",
+      "duration": 1.2,
+      "promptInfluence": 0.57,
+      "prompt": "metal service pistol falls from hand height onto a polished marble bank floor, one sharp impact, short metallic bounce and final slide in a large reverberant lobby, no gunshot, no voice"
+    },
+    {
+      "_comment": "THE TAKE bank-lobby weapon report; keep separate from the existing exterior carbine cue.",
+      "name": "heist.weapon.carbine.indoor",
+      "duration": 2.2,
+      "promptInfluence": 0.56,
+      "prompt": "single compact carbine shot fired inside a large marble bank lobby, extremely sharp controlled report, violent early reflections and a long hard architectural tail, no automatic burst, no shell impacts, no music, no voice"
+    },
+    {
+      "name": "heist.crowd.react",
+      "duration": 2.6,
+      "promptInfluence": 0.46,
+      "prompt": "sixteen bank customers react together to an armed entrance, startled gasps, shoes scraping marble, bags dropping and bodies lowering toward the floor, frightened but controlled, no intelligible words, no gunshot"
+    },
+    {
+      "name": "heist.body.marble",
+      "duration": 1.4,
+      "promptInfluence": 0.54,
+      "prompt": "adult body in a security uniform collapses heavily onto polished marble, knees and torso land in sequence with dense clothing impact and short lobby reverb, restrained, no gore, no voice"
+    },
+    {
+      "name": "heist.bank.alarm",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "commercial bank robbery alarm sounding through a large marble lobby, urgent electronic pulse with harsh architectural reflections, steady seamless loop, no police siren, no announcement, no voice"
+    },
+    {
+      "name": "heist.cash.lift",
+      "duration": 1.6,
+      "promptInfluence": 0.5,
+      "prompt": "heavy canvas cash bag packed with bundled currency lifted from a low vault cart, handles pull tight, canvas strains and paper bundles shift with convincing weight, close interior, no coins, no voice"
+    },
+    {
+      "name": "heist.cash.drop",
+      "duration": 1.3,
+      "promptInfluence": 0.52,
+      "prompt": "heavy canvas cash bag packed with bundled currency set down hard on a marble floor, dense padded thump, paper bundles settle and metal zipper taps once, close bank interior, no coins, no voice"
+    },
+    {
+      "name": "heist.police.gunshot",
+      "duration": 1.8,
+      "promptInfluence": 0.54,
+      "prompt": "single police patrol-rifle shot fired across a downtown street, sharp distant crack with concrete and glass building reflections, exterior urban tail, no automatic burst, no impact, no siren, no voice"
+    },
+    {
+      "name": "heist.bullet.whiz",
+      "duration": 1.1,
+      "promptInfluence": 0.58,
+      "prompt": "one supersonic rifle bullet passes dangerously close to the listener outdoors, abrupt ballistic snap followed by a fast narrow air hiss, no muzzle report, no impact, no voice"
+    },
+    {
+      "name": "heist.bullet.impact",
+      "duration": 1,
+      "promptInfluence": 0.56,
+      "prompt": "single rifle bullet strikes a concrete street planter nearby, hard stone crack, brief chips and grit scattering onto pavement, exterior city reflections, no muzzle report, no ricochet ring, no voice"
+    },
+    {
+      "_comment": "THE TAKE speed-reactive engine stem. Drive gain and playback rate from vehicle speed instead of baking it into ambience.driving.",
+      "name": "heist.vehicle.engine.load",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "older unmarked sedan engine pulling steadily under medium-high load from inside the cabin, strong mechanical rise with restrained exhaust tone, seamless isolated propulsion loop, no tires, no impacts, no siren, no music, no voice"
+    },
+    {
+      "_comment": "THE TAKE speed-reactive road stem. Mix independently from the engine for acceleration, braking and surface changes.",
+      "name": "heist.vehicle.tires.road",
+      "duration": 8,
+      "loop": true,
+      "promptInfluence": 0.5,
+      "prompt": "four sedan tires rolling quickly over patched downtown asphalt from an interior perspective, continuous road texture, mild suspension vibration and speed air, seamless isolated motion loop, no engine, no skid, no siren, no music, no voice"
     },
     {
       "name": "heist.police.sirens",
@@ -13419,6 +13566,156 @@
       "name": "vo.machine.lou.heist_day.3",
       "voice": "lou1",
       "say": "Eat. Dress plain. I will call when the car is moving."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.cigars.1",
+      "voice": "willy",
+      "say": "This old girl still smells like Lou’s cigars. He sold the ashtrays but kept the smell."
+    },
+    {
+      "name": "vo.nowake.cruise.booski.markers.1",
+      "voice": "booski",
+      "say": "Red markers to starboard, Tony. Unless you want the Harbor Patrol in the conversation."
+    },
+    {
+      "name": "vo.nowake.cruise.willy.motel.1",
+      "voice": "willy",
+      "say": "Nice to get out. Everybody has been looking at me funny since the Motel."
+    },
+    {
+      "name": "vo.nowake.cruise.lou.water.1",
+      "voice": "lou",
+      "say": "Nobody is looking at anybody, Willy. Enjoy the water."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.quiet.1",
+      "voice": "lou",
+      "say": "Kill the engines in your head for a minute, kid. We need the quiet."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.sandwiches.1",
+      "voice": "willy",
+      "say": "What is this, Lou? You said a ride. I brought sandwiches."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.beef-detected.1",
+      "voice": "lou",
+      "say": "The Beef Run drew eyes because somebody gave them a tail number and a day."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.beef-clean.1",
+      "voice": "lou",
+      "say": "The Beef Run was clean. Then a Bureau report named the strip, the cargo, and all four crates."
+    },
+    {
+      "name": "vo.nowake.reveal.booski.pickup.1",
+      "voice": "booski",
+      "say": "Four people knew the reserve pickup. Lou, me, Tony, and the man who asked twice which room."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.questions.1",
+      "voice": "willy",
+      "say": "I ask things. I am interested. That is a crime now?"
+    },
+    {
+      "name": "vo.nowake.reveal.lou.motel-hot.1",
+      "voice": "lou",
+      "say": "The Bureau was on the Motel road before the first siren. That did not happen by luck."
+    },
+    {
+      "name": "vo.nowake.reveal.lou.motel-clean.1",
+      "voice": "lou",
+      "say": "The Bureau knew the Motel, the room, and what was in the cases before Cecilio opened the door."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.bureau.1",
+      "voice": "willy",
+      "say": "You think I talked to the Bureau? After all these years?"
+    },
+    {
+      "name": "vo.nowake.reveal.lou.confirmed.1",
+      "voice": "lou",
+      "say": "We know you did. The only question left is whether you make us hear you deny it again."
+    },
+    {
+      "name": "vo.nowake.reveal.willy.head.1",
+      "voice": "willy",
+      "say": "I need the head."
+    },
+    {
+      "name": "vo.nowake.below.booski.look.1",
+      "voice": "booski",
+      "say": "When he comes back, do not look at Lou. Look at Willy."
+    },
+    {
+      "name": "vo.nowake.below.lou.fire.1",
+      "voice": "lou",
+      "say": "You fire with us. Not after us."
+    },
+    {
+      "name": "vo.nowake.execution.lou.move.1",
+      "voice": "lou",
+      "say": "That’s done. Help Booski get him over the side."
+    },
+    {
+      "name": "vo.nowake.execution.booski.lift.1",
+      "voice": "booski",
+      "say": "Shoulders, Prospect. I’ve got his legs."
+    },
+    {
+      "name": "vo.nowake.execution.prospect.lift.1",
+      "voice": "player",
+      "say": "I’ve got him."
+    },
+    {
+      "name": "vo.nowake.return.lou.lesson.1",
+      "voice": "lou",
+      "say": "You did what you were told. Leave the rest of it out here."
+    },
+    {
+      "name": "vo.nowake.epilogue.tony.phone.1",
+      "voice": "player",
+      "say": "The phone will ring when it rings."
+    },
+    {
+      "name": "vo.call.lou.no_wake.1",
+      "voice": "lou1",
+      "say": "Kid. South Harbor. Gate C. Quarter to one."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.1",
+      "voice": "player",
+      "say": "Gate C. Quarter to one."
+    },
+    {
+      "name": "vo.call.lou.no_wake.2",
+      "voice": "lou1",
+      "say": "Plain clothes. Leave the phone in the glovebox when you get there."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.2",
+      "voice": "player",
+      "say": "No phone. Understood."
+    },
+    {
+      "name": "vo.call.lou.no_wake.3",
+      "voice": "lou1",
+      "say": "Booski and Willy are already on their way. We are taking a ride."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.3",
+      "voice": "player",
+      "say": "All four of us?"
+    },
+    {
+      "name": "vo.call.lou.no_wake.4",
+      "voice": "lou1",
+      "say": "Do not be late, and do not ring me back."
+    },
+    {
+      "name": "vo.call.lou.no_wake.tony.4",
+      "voice": "player",
+      "say": "I will be there."
     }
   ]
 }

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { FixedStepRunner } from '../src/core/vehicles/fixed-step.js';
 import { GroundVehicle } from '../src/core/vehicles/ground-vehicle.js';
+import { HEIST_ESCAPE_VEHICLE_CONFIG } from '../src/heist/config.js';
 
 function simulate(fps, seconds) {
   const runner = new FixedStepRunner({ hz: 120, maxSteps: 8 });
@@ -55,4 +56,20 @@ test('vehicle damage changes handling and survives checkpoint restore', () => {
   restored.restore(snapshot);
   assert.deepEqual(restored.snapshot(), snapshot);
   assert.equal(restored.lastStableNode, 'canal_entry');
+});
+
+test('THE TAKE escape car reaches a cinematic road speed without losing fixed-step control', () => {
+  assert.ok(HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed >= 24);
+  assert.ok(HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed <= 28);
+  assert.ok(HEIST_ESCAPE_VEHICLE_CONFIG.acceleration >= 10);
+
+  const car = new GroundVehicle(HEIST_ESCAPE_VEHICLE_CONFIG);
+  const runner = new FixedStepRunner({ hz: 120, maxSteps: 8 });
+  car.setInput({ throttle: 1 });
+  for (let frame = 0; frame < 60 * 7; frame++) {
+    runner.advance(1 / 60, (dt) => car.step(dt));
+  }
+
+  assert.ok(car.speed * 2.237 >= 45, `only reached ${(car.speed * 2.237).toFixed(1)} mph`);
+  assert.ok(car.speed <= HEIST_ESCAPE_VEHICLE_CONFIG.maxForwardSpeed);
 });

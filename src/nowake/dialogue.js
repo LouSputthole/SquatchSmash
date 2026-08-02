@@ -117,6 +117,25 @@ export const NO_WAKE_BELOW_LINES = Object.freeze([
   ),
 ]);
 
+export const NO_WAKE_AFTERMATH_LINES = Object.freeze({
+  move: line(
+    'execution.lou.move', 'Big Uncle Lou', 'lou',
+    'That’s done. Help Booski get him over the side.',
+  ),
+  lift: line(
+    'execution.booski.lift', 'Booskibro', 'booski',
+    'Shoulders, Prospect. I’ve got his legs.',
+  ),
+  prospect: line(
+    'execution.prospect.lift', 'Tony', 'player',
+    'I’ve got him.',
+  ),
+  lesson: line(
+    'return.lou.lesson', 'Big Uncle Lou', 'lou',
+    'You did what you were told. Leave the rest of it out here.',
+  ),
+});
+
 export const NO_WAKE_EPILOGUE_LINE = line(
   'epilogue.tony.phone', 'Tony', 'player',
   'The phone will ring when it rings.',
@@ -128,6 +147,7 @@ export function allNoWakeVoiceLines() {
     ...NO_WAKE_AMBIENT_LINES,
     ...Object.values(REVEAL),
     ...NO_WAKE_BELOW_LINES,
+    ...Object.values(NO_WAKE_AFTERMATH_LINES),
     NO_WAKE_EPILOGUE_LINE,
   ];
 }

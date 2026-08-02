@@ -6,6 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildAudioTodo } from '../tools/audio-todo-lib.mjs';
+import { voiceProfileFor } from '../src/core/characters.js';
+import { HEIST_DIALOGUE } from '../src/heist/script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -90,6 +92,116 @@ test('delivered provisional takes stay visible as casting review work', () => {
   assert.match(markdown, /Provisional casting review — 1 voice profile/);
   assert.match(markdown, /MOTEL RICO — 1 indexed, 0 missing/);
   assert.match(markdown, /playable demo takes, not automatic approval/);
+});
+
+test('THE TAKE voice and effect pickups have their own production section and direction', () => {
+  const markdown = buildAudioTodo({
+    manifest: {
+      voices: {},
+      sfx: [
+        {
+          name: 'heist.rippin.test',
+          voice: 'rippinflow',
+          say: 'The route changed. Keep up.',
+        },
+        {
+          name: 'heist.guard.draw',
+          prompt: 'a bank guard drawing a handgun from a leather holster',
+        },
+      ],
+    },
+    index: { files: [] },
+    legacyQueue: {},
+  });
+
+  assert.match(markdown, /^## Voice pickups .* THE TAKE \(1\)$/m);
+  assert.match(markdown, /RIPPINFLOW \(1\)/);
+  assert.match(markdown, /Retired freestyler turned getaway driver/);
+  assert.match(markdown, /^## Manifest effect pickups .* THE TAKE \(1\)$/m);
+  assert.doesNotMatch(markdown, /^## Voice pickups .* Apartment and shared hub/m);
+  assert.doesNotMatch(markdown, /^## Manifest effect pickups .* Shared \/ other/m);
+});
+
+test('NO WAKE and THE TAKE production briefs stay unrecorded and visible in the handoff', () => {
+  const readJson = (relative) => JSON.parse(fs.readFileSync(path.join(ROOT, relative), 'utf8'));
+  const manifest = readJson('assets/sfx/manifest.json');
+  const index = readJson('assets/sfx/index.json');
+  const handoff = buildAudioTodo({ manifest, index, legacyQueue: {} });
+  const indexed = new Set(index.files);
+  const cues = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
+  const expected = {
+    'NO WAKE': [
+      'boat.board.step',
+      'boat.engine.start',
+      'boat.engine.underway',
+      'boat.engine.shutdown',
+      'boat.hull.wake',
+      'boat.rope.release',
+      'boat.body.drag',
+      'boat.body.rail',
+      'boat.gunshot.deck',
+    ],
+    'THE TAKE': [
+      'heist.ambience.safehouse.prep',
+      'heist.ambience.van',
+      'heist.map.paper',
+      'heist.gear.armor.pickup',
+      'heist.gear.carbine.pickup',
+      'heist.van.door',
+      'heist.bank.entry',
+      'heist.guard.draw',
+      'heist.guard.weapon.drop',
+      'heist.weapon.carbine.indoor',
+      'heist.crowd.react',
+      'heist.body.marble',
+      'heist.bank.alarm',
+      'heist.cash.lift',
+      'heist.cash.drop',
+      'heist.police.gunshot',
+      'heist.bullet.whiz',
+      'heist.bullet.impact',
+      'heist.vehicle.engine.load',
+      'heist.vehicle.tires.road',
+    ],
+  };
+
+  for (const [scene, names] of Object.entries(expected)) {
+    assert.match(handoff, new RegExp(`^## Manifest effect pickups .* ${scene} \\(${names.length}\\)$`, 'm'));
+    for (const name of names) {
+      const cue = cues.get(name);
+      assert.ok(cue, `${name} must have a manifest production brief`);
+      assert.equal(typeof cue.prompt, 'string', `${name} must have a generation prompt`);
+      assert.ok(cue.prompt.length >= 40, `${name} prompt must be production-ready`);
+      assert.ok(Number.isFinite(cue.duration) && cue.duration > 0,
+        `${name} must have an authored duration`);
+      assert.equal(indexed.has(`${name}.mp3`), false,
+        `${name} must not claim a recording before one is delivered`);
+      assert.match(handoff, new RegExp(name.replaceAll('.', '\\.') + '\\.mp3'));
+    }
+  }
+});
+
+test('every THE TAKE spoken line has exact text and role-specific casting in the manifest', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/sfx/manifest.json'), 'utf8'));
+  const authored = manifest.sfx.filter((cue) => cue.name.startsWith('heist.')
+    && typeof cue.say === 'string');
+  const byName = new Map(authored.map((cue) => [cue.name, cue]));
+  const sceneSpecificVoices = {
+    'Security Guard': 'heist-guard',
+    'Bank Customer': 'heist-customer',
+    'Bank Manager': 'heist-manager',
+    'Big Uncle Lou': 'lou',
+  };
+
+  assert.equal(byName.size, Object.keys(HEIST_DIALOGUE).length,
+    'THE TAKE manifest must not contain missing, duplicate, or retired spoken cues');
+  for (const line of Object.values(HEIST_DIALOGUE)) {
+    const cue = byName.get(line.cue);
+    assert.ok(cue, `${line.cue} must be recordable from the shared manifest`);
+    assert.equal(cue.say, line.text, `${line.cue} text must match the playable subtitle exactly`);
+    assert.equal(cue.voice, sceneSpecificVoices[line.subtitleName] ?? voiceProfileFor(line.speakerId),
+      `${line.cue} must use the canonical speaker voice`);
+  }
 });
 
 test('the committed recording handoff matches the current production sources', () => {

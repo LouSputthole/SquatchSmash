@@ -15,6 +15,19 @@ export const HEIST_STATES = Object.freeze([
 
 export const MISSION_START_STATE = 'SAFEHOUSE_ARRIVAL';
 
+export const HEIST_ESCAPE_VEHICLE_CONFIG = Object.freeze({
+  acceleration: 12.5,
+  reverseAcceleration: 6.5,
+  brakeForce: 16,
+  drag: 0.014,
+  rollingResistance: 0.55,
+  maxForwardSpeed: 26,
+  maxReverseSpeed: 8,
+  maxSteer: 0.62,
+  steerRate: 3.4,
+  lateralGrip: 7.6,
+});
+
 export const HEIST_CHECKPOINT_STATE = Object.freeze({
   safehouse_ready: 'BOARD_VAN',
   bank_secured: 'MANAGER_ESCORT',

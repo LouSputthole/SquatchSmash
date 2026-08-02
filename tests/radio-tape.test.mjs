@@ -245,6 +245,28 @@ test('scoped preload names cover the current show without loading every radio vo
   assert.ok(names.size < voiceCues().length, `${names.size} was not a scoped preload`);
 });
 
+test('the Apartment start gate can warm only the first audible radio beat', async () => {
+  const { Radio } = await import('../src/core/radio.js');
+  const radio = new Radio({ ready: false }, { setRadio() {}, toast() {} }, { hour: 23.7 }, {
+    canPlayNotice: () => false,
+  });
+  const full = new Set(radio.preloadCueNames());
+  const startup = new Set(radio.preloadCueNames({ startupOnly: true }));
+  const show = showAt(radio.station, 23.7);
+  const intro = voiceOf(showIntroLine(show));
+  const firstExchange = voiceOf(show.exchanges[0][0]);
+
+  assert.ok(startup.has('radio.talk'));
+  assert.ok(startup.has('radio.jingle'));
+  assert.ok(startup.has(radio.station.ident));
+  assert.ok(startup.has(intro.cue));
+  assert.equal(startup.has(firstExchange.cue), false,
+    'later talk belongs in the background resident load, not the Start gate');
+  assert.ok(startup.size <= 12, `startup radio bank unexpectedly grew to ${startup.size} cues`);
+  assert.ok(startup.size < full.size / 3,
+    `startup ${startup.size} cues did not materially reduce full window ${full.size}`);
+});
+
 test('venue-scoped records stay in their intended in-world music system', async () => {
   const { Radio } = await import('../src/core/radio.js');
   const audio = { ready: false };

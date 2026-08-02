@@ -12,15 +12,58 @@ export const HEIST_CREW_IDS = Object.freeze([
   CHARACTER_IDS.NUMBSKULL,
 ]);
 
-const PRESENTATION = Object.freeze({
+export const HEIST_CREW_PRESENTATION = Object.freeze({
   [CHARACTER_IDS.SNOW]: { face: 'assets/faces/snow.png', shirt: 0x313740, shirtDark: 0x20252c },
   [CHARACTER_IDS.RIPPINFLOW]: { face: 'assets/faces/rippinflow.png', shirt: 0x3d4039, shirtDark: 0x252720 },
   [CHARACTER_IDS.SHUBENATOR]: { face: 'assets/faces/shubes.png', shirt: 0x2d3440, shirtDark: 0x171c26 },
   [CHARACTER_IDS.DEATHMEGATRON]: { face: 'assets/faces/deathmegatron.png', shirt: 0x38332f, shirtDark: 0x201d1a },
   // No canonical photo is present for Numbskull. Person's procedural human
   // head is the deliberate fallback; another person's identity is never used.
-  [CHARACTER_IDS.NUMBSKULL]: { face: null, shirt: 0x3f4247, shirtDark: 0x24262a, hair: 0x3a2a1e },
+  [CHARACTER_IDS.NUMBSKULL]: {
+    face: null,
+    shirt: 0x3f4247,
+    shirtDark: 0x24262a,
+    hair: 0x3a2a1e,
+    proceduralFace: Object.freeze({ treatment: 'round_glasses', brows: true, nose: true }),
+  },
 });
+
+const PHASE_FOCUS = Object.freeze({
+  safehouse: Object.freeze({ x: 0, z: 0.2 }),
+  van: Object.freeze({ x: 0, z: -3.1 }),
+  bank: Object.freeze({ x: 0, z: -7 }),
+  street: Object.freeze({ x: 0, z: 5 }),
+  garage: Object.freeze({ x: 0, z: -8 }),
+  driving: Object.freeze({ x: 20, z: -652 }),
+});
+
+export function crewHeadingForPhase(phaseId, position) {
+  const focus = PHASE_FOCUS[phaseId] ?? PHASE_FOCUS.safehouse;
+  return Math.atan2(focus.x - position.x, focus.z - position.z);
+}
+
+function addNumbskullFace(person) {
+  const dark = new THREE.MeshLambertMaterial({ color: 0x16181b });
+  const skin = new THREE.MeshLambertMaterial({ color: 0xb98967 });
+  for (const side of [-1, 1]) {
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.092, 0.014, 6, 18), dark);
+    rim.name = `numbskull-glasses-${side < 0 ? 'left' : 'right'}`;
+    rim.position.set(side * 0.105, 0.04, 0.255);
+    person.head.add(rim);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.025), dark);
+    brow.position.set(side * 0.105, 0.16, 0.247);
+    brow.rotation.z = side * -0.08;
+    person.head.add(brow);
+  }
+  const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.018, 0.018), dark);
+  bridge.position.set(0, 0.04, 0.255);
+  person.head.add(bridge);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.11, 7), skin);
+  nose.name = 'numbskull-nose';
+  nose.rotation.x = Math.PI / 2;
+  nose.position.set(0, -0.035, 0.267);
+  person.head.add(nose);
+}
 
 function weaponMesh(heavy = false) {
   const group = new THREE.Group();
@@ -51,9 +94,11 @@ export function buildHeistCrew(scene) {
   for (const [id, x, z] of positions) {
     const identity = getCharacter(id);
     if (identity?.species !== 'human') throw new Error(`${id} must remain human before Initiation`);
-    const person = new Person({ ...PRESENTATION[id], bandana: null, pants: 0x20242a });
+    const person = new Person({ ...HEIST_CREW_PRESENTATION[id], bandana: null, pants: 0x20242a });
     person.position.set(x, 0, z);
-    person.group.rotation.y = Math.PI;
+    person.heading = crewHeadingForPhase('safehouse', { x, z });
+    person.group.rotation.y = person.heading;
+    if (id === CHARACTER_IDS.NUMBSKULL) addNumbskullFace(person);
     person.group.add(weaponMesh(id === CHARACTER_IDS.DEATHMEGATRON));
     person.group.userData.characterId = id;
     person.group.userData.subtitleName = identity.subtitleName;

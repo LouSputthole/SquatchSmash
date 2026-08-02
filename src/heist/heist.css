@@ -19,6 +19,10 @@ body { font-family: "Arial Narrow", "Segoe UI", sans-serif; color: #f3efe6; }
 #objective { position: absolute; left: 24px; top: 84px; width: min(360px, calc(100vw - 48px)); padding: 11px 13px; background: rgba(8,10,13,.75); border: 1px solid rgba(255,255,255,.15); }
 #objective b { display: block; color: var(--amber); font-size: 10px; letter-spacing: .18em; }
 #objective span { display: block; margin-top: 4px; font-size: 15px; }
+#guard-threat { position: absolute; left: 50%; top: 92px; width: 260px; transform: translateX(-50%); padding: 9px 12px 12px; background: rgba(55,5,8,.9); border: 1px solid #db5a50; text-align: center; box-shadow: 0 0 28px rgba(179,31,35,.28); }
+#guard-threat b { color: #ffb3aa; font-size: 12px; letter-spacing: .18em; }
+#guard-threat span { display: block; margin-top: 3px; font-size: 20px; font-weight: 900; }
+#guard-threat i { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: #df4b41; transform-origin: left center; }
 #crew-strip { position: absolute; left: 24px; bottom: 30px; display: flex; gap: 5px; }
 .crew { min-width: 77px; padding: 6px 8px; background: rgba(8,10,13,.78); border-top: 2px solid var(--green); }
 .crew.hurt { border-color: var(--amber); }

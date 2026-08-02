@@ -1706,6 +1706,118 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t + 0.04, { dur: 0.18, type: 'bandpass', freq: 780, q: 2, gain: 0.18 });
       break;
 
+    /* -------- NO WAKE production fallbacks -------- */
+    case 'boat.board.step':
+      tone(ctx, dest, t, { freq: 115, to: 72, dur: r(0.11), gain: 0.24, type: 'triangle' });
+      burst(ctx, dest, t + r(0.018), { dur: r(0.12), type: 'bandpass', freq: 880, q: 1.7, gain: 0.16, sweep: 0.55 });
+      tone(ctx, dest, t + r(0.055), { freq: 310, to: 205, dur: r(0.16), gain: 0.07, type: 'sine' });
+      break;
+    case 'boat.engine.start':
+      burst(ctx, dest, t, { dur: r(0.55), type: 'lowpass', freq: 240, q: 0.8, gain: 0.22, sweep: 1.35 });
+      tone(ctx, dest, t + r(0.12), { freq: 31, to: 57, dur: r(0.72), gain: 0.20, type: 'sawtooth' });
+      tone(ctx, dest, t + r(0.42), { freq: 35, to: 61, dur: r(0.68), gain: 0.17, type: 'sawtooth' });
+      break;
+    case 'boat.engine.shutdown':
+      tone(ctx, dest, t, { freq: 58, to: 26, dur: r(0.72), gain: 0.22, type: 'sawtooth' });
+      tone(ctx, dest, t + r(0.16), { freq: 62, to: 25, dur: r(0.82), gain: 0.16, type: 'triangle' });
+      burst(ctx, dest, t + r(0.72), { dur: r(0.16), type: 'bandpass', freq: 1450, q: 4.2, gain: 0.08 });
+      break;
+    case 'boat.rope.release':
+      burst(ctx, dest, t, { dur: r(0.34), type: 'bandpass', freq: 720, q: 0.9, gain: 0.16, sweep: 1.55 });
+      burst(ctx, dest, t + r(0.16), { dur: r(0.12), type: 'highpass', freq: 2600, q: 1.2, gain: 0.10 });
+      tone(ctx, dest, t + r(0.25), { freq: 690, to: 430, dur: r(0.10), gain: 0.08, type: 'triangle' });
+      break;
+    case 'boat.body.drag':
+      burst(ctx, dest, t, { dur: r(0.76), type: 'bandpass', freq: 430, q: 0.8, gain: 0.24, sweep: 0.58 });
+      burst(ctx, dest, t + r(0.16), { dur: r(0.52), type: 'bandpass', freq: 1500, q: 0.7, gain: 0.12, sweep: 0.72 });
+      tone(ctx, dest, t + r(0.38), { freq: 104, to: 64, dur: r(0.16), gain: 0.18, type: 'triangle' });
+      break;
+    case 'boat.body.rail':
+      tone(ctx, dest, t, { freq: 92, to: 48, dur: r(0.24), gain: 0.34, type: 'triangle' });
+      burst(ctx, dest, t + r(0.035), { dur: r(0.25), type: 'bandpass', freq: 1180, q: 2.8, gain: 0.16, sweep: 0.58 });
+      burst(ctx, dest, t + r(0.11), { dur: r(0.22), type: 'highpass', freq: 2350, q: 1.6, gain: 0.09 });
+      break;
+    case 'boat.gunshot.deck':
+      burst(ctx, dest, t, { dur: r(0.035), type: 'highpass', freq: 2450, gain: 0.78 });
+      burst(ctx, dest, t + r(0.004), { dur: r(0.30), type: 'lowpass', freq: 410, gain: 0.56, sweep: 0.28 });
+      burst(ctx, dest, t + r(0.07), { dur: r(0.72), type: 'bandpass', freq: 920, q: 0.55, gain: 0.13, sweep: 0.38 });
+      break;
+
+    /* -------- THE TAKE production fallbacks -------- */
+    case 'heist.map.paper':
+      burst(ctx, dest, t, { dur: r(0.52), type: 'highpass', freq: 1900, q: 0.7, gain: 0.15, sweep: 1.45 });
+      burst(ctx, dest, t + r(0.18), { dur: r(0.38), type: 'bandpass', freq: 1150, q: 0.9, gain: 0.11, sweep: 0.68 });
+      tone(ctx, dest, t + r(0.46), { freq: 760, to: 510, dur: r(0.08), gain: 0.08, type: 'triangle' });
+      break;
+    case 'heist.gear.armor.pickup':
+      burst(ctx, dest, t, { dur: r(0.44), type: 'bandpass', freq: 980, q: 0.85, gain: 0.19, sweep: 0.62 });
+      tone(ctx, dest, t + r(0.08), { freq: 122, to: 82, dur: r(0.20), gain: 0.17, type: 'triangle' });
+      burst(ctx, dest, t + r(0.31), { dur: r(0.06), type: 'bandpass', freq: 2600, q: 4.5, gain: 0.09 });
+      break;
+    case 'heist.gear.carbine.pickup':
+      tone(ctx, dest, t, { freq: 180, to: 115, dur: r(0.16), gain: 0.14, type: 'triangle' });
+      burst(ctx, dest, t + r(0.07), { dur: r(0.045), type: 'bandpass', freq: 1880, q: 4, gain: 0.14 });
+      burst(ctx, dest, t + r(0.18), { dur: r(0.05), type: 'bandpass', freq: 2850, q: 4.8, gain: 0.11 });
+      break;
+    case 'heist.van.door':
+      tone(ctx, dest, t, { freq: 138, to: 66, dur: r(0.28), gain: 0.30, type: 'triangle' });
+      burst(ctx, dest, t, { dur: r(0.08), type: 'bandpass', freq: 1450, q: 3, gain: 0.20 });
+      burst(ctx, dest, t + r(0.23), { dur: r(0.28), type: 'lowpass', freq: 520, q: 0.8, gain: 0.18, sweep: 0.48 });
+      break;
+    case 'heist.bank.entry':
+      burst(ctx, dest, t, { dur: r(0.14), type: 'highpass', freq: 2200, q: 0.8, gain: 0.24 });
+      tone(ctx, dest, t + r(0.025), { freq: 170, to: 92, dur: r(0.22), gain: 0.23, type: 'triangle' });
+      burst(ctx, dest, t + r(0.08), { dur: r(0.48), type: 'bandpass', freq: 880, q: 0.55, gain: 0.12, sweep: 0.52 });
+      break;
+    case 'heist.guard.draw':
+      burst(ctx, dest, t, { dur: r(0.20), type: 'bandpass', freq: 1250, q: 1.1, gain: 0.14, sweep: 1.35 });
+      burst(ctx, dest, t + r(0.11), { dur: r(0.035), type: 'bandpass', freq: 3300, q: 5.5, gain: 0.17 });
+      break;
+    case 'heist.guard.weapon.drop':
+      burst(ctx, dest, t, { dur: r(0.045), type: 'bandpass', freq: 2450, q: 4.8, gain: 0.27 });
+      tone(ctx, dest, t + r(0.04), { freq: 980, to: 610, dur: r(0.14), gain: 0.13, type: 'triangle' });
+      burst(ctx, dest, t + r(0.16), { dur: r(0.16), type: 'highpass', freq: 1750, q: 1.2, gain: 0.08, sweep: 0.52 });
+      break;
+    case 'heist.weapon.carbine.indoor':
+      burst(ctx, dest, t, { dur: r(0.026), type: 'highpass', freq: 2600, gain: 0.88 });
+      burst(ctx, dest, t + r(0.003), { dur: r(0.34), type: 'lowpass', freq: 440, gain: 0.72, sweep: 0.25 });
+      burst(ctx, dest, t + r(0.028), { dur: r(0.82), type: 'bandpass', freq: 1250, q: 0.65, gain: 0.23, sweep: 0.42 });
+      break;
+    case 'heist.crowd.react':
+      burst(ctx, dest, t, { dur: r(0.74), type: 'bandpass', freq: 610, q: 1.3, gain: 0.20, sweep: 0.72 });
+      burst(ctx, dest, t + r(0.035), { dur: r(0.58), type: 'bandpass', freq: 1550, q: 1.0, gain: 0.13, sweep: 0.58 });
+      burst(ctx, dest, t + r(0.20), { dur: r(0.46), type: 'highpass', freq: 3100, q: 0.7, gain: 0.08 });
+      break;
+    case 'heist.body.marble':
+      tone(ctx, dest, t, { freq: 104, to: 48, dur: r(0.26), gain: 0.40, type: 'triangle' });
+      burst(ctx, dest, t + r(0.025), { dur: r(0.22), type: 'lowpass', freq: 590, q: 0.9, gain: 0.28, sweep: 0.42 });
+      burst(ctx, dest, t + r(0.12), { dur: r(0.30), type: 'bandpass', freq: 1300, q: 0.7, gain: 0.10, sweep: 0.48 });
+      break;
+    case 'heist.cash.lift':
+      burst(ctx, dest, t, { dur: r(0.55), type: 'bandpass', freq: 820, q: 0.8, gain: 0.18, sweep: 0.62 });
+      burst(ctx, dest, t + r(0.06), { dur: r(0.42), type: 'highpass', freq: 2350, q: 0.7, gain: 0.10, sweep: 0.78 });
+      tone(ctx, dest, t + r(0.24), { freq: 118, to: 86, dur: r(0.21), gain: 0.12, type: 'triangle' });
+      break;
+    case 'heist.cash.drop':
+      tone(ctx, dest, t, { freq: 112, to: 51, dur: r(0.25), gain: 0.34, type: 'triangle' });
+      burst(ctx, dest, t + r(0.018), { dur: r(0.32), type: 'lowpass', freq: 660, q: 0.8, gain: 0.20, sweep: 0.48 });
+      burst(ctx, dest, t + r(0.15), { dur: r(0.08), type: 'bandpass', freq: 2150, q: 4.2, gain: 0.08 });
+      break;
+    case 'heist.police.gunshot':
+      burst(ctx, dest, t, { dur: r(0.028), type: 'highpass', freq: 2850, gain: 0.68 });
+      burst(ctx, dest, t + r(0.006), { dur: r(0.26), type: 'lowpass', freq: 390, gain: 0.42, sweep: 0.30 });
+      burst(ctx, dest, t + r(0.10), { dur: r(0.68), type: 'bandpass', freq: 980, q: 0.55, gain: 0.12, sweep: 0.40 });
+      break;
+    case 'heist.bullet.whiz':
+      tone(ctx, dest, t, { freq: 4400, to: 980, dur: r(0.14), gain: 0.18, type: 'sine' });
+      burst(ctx, dest, t + r(0.012), { dur: r(0.18), type: 'highpass', freq: 4200, q: 0.9, gain: 0.22, sweep: 0.35 });
+      break;
+    case 'heist.bullet.impact':
+      burst(ctx, dest, t, { dur: r(0.045), type: 'bandpass', freq: 1900, q: 2.8, gain: 0.35, sweep: 0.42 });
+      tone(ctx, dest, t + r(0.006), { freq: 220, to: 86, dur: r(0.16), gain: 0.20, type: 'triangle' });
+      burst(ctx, dest, t + r(0.05), { dur: r(0.24), type: 'highpass', freq: 3100, q: 0.8, gain: 0.12, sweep: 0.54 });
+      break;
+
     default:
       // Unknown cue: a soft neutral tick rather than silence, which makes
       // missing wiring obvious during development without being ugly.
@@ -1751,8 +1863,18 @@ function synthLoop(engine, name, dest) {
 
   switch (name) {
     case 'heist.ambience.safehouse':
-      noise('lowpass', 520, 0.7, 0.06);
-      osc('sine', 60, 0.018);
+    case 'heist.ambience.safehouse.prep':
+      // Rebuilt prep room: warehouse air and fluorescent ballast, never the
+      // washing-machine rhythm that made the old staging read as a laundromat.
+      noise('lowpass', 460, 0.75, 0.055);
+      osc('sine', 100, 0.020);
+      osc('sine', 200.4, 0.008);
+      noise('highpass', 5900, 2.4, 0.010);
+      break;
+    case 'heist.ambience.van':
+      noise('lowpass', 680, 0.72, 0.085);
+      noise('bandpass', 1450, 2.2, 0.020);
+      osc('sawtooth', 46, 0.026);
       break;
     case 'heist.ambience.bank':
       noise('lowpass', 900, 0.5, 0.045);
@@ -1769,6 +1891,23 @@ function synthLoop(engine, name, dest) {
     case 'heist.ambience.driving':
       noise('lowpass', 720, 0.8, 0.1);
       osc('sawtooth', 55, 0.025);
+      break;
+    case 'heist.bank.alarm':
+      // Two close alarm oscillators beat against each other without an
+      // envelope seam; the recorded replacement can provide the real room.
+      osc('square', 760, 0.022);
+      osc('square', 970, 0.018);
+      noise('highpass', 4200, 1.4, 0.010);
+      break;
+    case 'heist.vehicle.engine.load':
+      osc('sawtooth', 58, 0.042);
+      osc('sine', 116, 0.024);
+      noise('lowpass', 330, 0.9, 0.075);
+      break;
+    case 'heist.vehicle.tires.road':
+      noise('lowpass', 520, 0.72, 0.080);
+      noise('bandpass', 1350, 0.85, 0.055);
+      noise('highpass', 3400, 0.75, 0.018);
       break;
     case 'heist.police.sirens': {
       const a = osc('sine', 710, 0.025);
@@ -1922,6 +2061,16 @@ function synthLoop(engine, name, dest) {
       osc('sawtooth', 34, 0.06);
       osc('sine', 68, 0.03);
       noise('lowpass', 220, 0.8, 0.10);
+      break;
+    case 'boat.engine.underway':
+      osc('sawtooth', 43, 0.072);
+      osc('sine', 86, 0.034);
+      noise('lowpass', 320, 0.82, 0.12);
+      break;
+    case 'boat.hull.wake':
+      noise('lowpass', 230, 0.72, 0.11);
+      noise('bandpass', 860, 0.68, 0.13);
+      noise('highpass', 2700, 0.75, 0.035);
       break;
 
     /* -------- the Silver Room --------

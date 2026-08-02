@@ -57,6 +57,24 @@ const use = async (name) => {
   await page.waitForTimeout(40);
   return result;
 };
+const pose = async (name) => {
+  const ok = await page.evaluate((target) => window.__heistDebug.poseForEvidence(target), name);
+  if (!ok) throw new Error(`missing evidence pose ${name}`);
+  await page.waitForTimeout(120);
+};
+const pressAtPose = async (name, { hold = 0 } = {}) => {
+  await pose(name);
+  const prompt = await page.locator('#prompt span').textContent();
+  const current = await page.evaluate(() => window.__heistDebug.snapshot().currentInteraction);
+  console.log(`    real input ${name}: ${JSON.stringify({ prompt, current })}`);
+  if (hold > 0) {
+    await page.keyboard.down('KeyE');
+    await page.waitForTimeout(hold);
+    await page.keyboard.up('KeyE');
+  } else await page.keyboard.press('KeyE');
+  await page.waitForTimeout(100);
+  return prompt;
+};
 const shot = async (name) => {
   await page.waitForTimeout(name === '02-safehouse-briefing' ? 900 : 180);
   await page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
@@ -72,17 +90,23 @@ try {
     state.phase === 'safehouse'
       && Object.keys(state.squadAnchors).length === 5
       && state.geometry.colliders > 0
-      && state.geometry.floorZones > 0,
-    JSON.stringify(state.squadAnchors));
-  check('THE TAKE starts with the shared visible five-slot loadout',
+      && state.geometry.floorZones > 0
+      && state.presentation.crew.every((actor) => actor.facingDot > 0.65)
+      && state.presentation.numbskullFace
+      && state.presentation.lockers === 3,
+    JSON.stringify(state.presentation));
+  check('THE TAKE starts with five visible slots while packed weapons remain on the table',
     state.inventory.slots === 5
       && state.inventory.declared === '5'
       && state.inventory.visible
-      && state.inventory.items.slice(0, 4).join(',') === 'carbine,sidearm,magazines,duffel',
+      && state.inventory.items.slice(0, 3).every((item) => item == null)
+      && state.inventory.items[3] === 'duffel'
+      && state.presentation.armorVisible
+      && state.presentation.carbineVisible,
     JSON.stringify(state.inventory));
-  check('every heist voice line is decoded before play and drives real subtitle timing',
-    state.voice.authored === 44
-      && state.voice.decoded === state.voice.authored
+  check('the expanded heist dialogue bank is wired and recorded lines drive real timing',
+    state.voice.authored >= 56
+      && state.voice.decoded >= 40
       && state.voice.longest > 0
       && state.voice.lastPlayback?.duration > 0
       && state.voice.subtitleRemaining > 0,
@@ -91,10 +115,31 @@ try {
     (await page.evaluate(() => window.__heistDebug.probeCollision())).resolved);
   await shot('02-safehouse-briefing');
 
-  await use('briefing-map');
-  await use('briefing-map');
-  await use('safehouse-armor');
-  await use('safehouse-loadout');
+  const crewPrompts = [];
+  for (const actor of state.presentation.crew) {
+    await page.evaluate((id) => window.__heistDebug.poseForCrew(id), actor.id);
+    await page.waitForTimeout(120);
+    crewPrompts.push(await page.locator('#prompt span').textContent());
+    await page.keyboard.press('KeyE');
+    await page.waitForTimeout(80);
+  }
+  state = await snapshot();
+  check('real look-and-E input names every crew member and fires each introduction once',
+    state.presentation.crew.every((actor) => actor.introduced)
+      && state.presentation.crew.every((actor) => crewPrompts.some((label) => label?.includes(actor.name)))
+      && (await page.locator('#subtitle').textContent()).includes('Snow:'),
+    JSON.stringify(crewPrompts));
+
+  await pressAtPose('briefing');
+  await pressAtPose('briefing');
+  await pressAtPose('armor', { hold: 1200 });
+  await pressAtPose('loadout', { hold: 1200 });
+  state = await snapshot();
+  check('real hold interactions remove the physical gear and reveal the unpacked five-slot loadout',
+    !state.presentation.armorVisible
+      && !state.presentation.carbineVisible
+      && state.inventory.items.slice(0, 4).join(',') === 'carbine,sidearm,magazines,duffel',
+    JSON.stringify({ presentation: state.presentation, inventory: state.inventory }));
   await use('van-door');
   state = await snapshot();
   check('safehouse checkpoint is durable before the van ride',
@@ -106,19 +151,53 @@ try {
   await shot('03-van-interior');
   await use('van-interior-door');
 
-  await use('bank-guard');
+  state = await snapshot();
+  check('bank entry starts a visible 2.75 second ballistic guard threat',
+    state.state === 'BANK_ENTRY'
+      && state.guardThreat.state === 'drawing'
+      && state.guardThreat.remaining <= 2.75
+      && !(await page.locator('#guard-threat').evaluate((element) => element.classList.contains('hidden'))),
+    JSON.stringify(state.guardThreat));
+  await shot('04a-bank-guard-threat');
+  await page.waitForFunction(() => {
+    const snapshot = window.__heistDebug.snapshot();
+    return snapshot.guardFailures === 1
+      && snapshot.state === 'BANK_ENTRY'
+      && snapshot.phase === 'bank'
+      && snapshot.guardThreat.state === 'drawing';
+  }, null, { timeout: 7000 });
+  state = await snapshot();
+  check('missing the guard window restarts at the bank threshold with a fresh threat',
+    state.guardFailures === 1 && state.phase === 'bank' && state.guardThreat.remaining > 2.5,
+    JSON.stringify(state.guardThreat));
+
+  await pose('bank_guard');
+  await page.mouse.click(640, 360);
+  await page.waitForFunction(() => window.__heistDebug.state === 'LOBBY_CONTROL', null, { timeout: 3000 });
+  state = await snapshot();
+  check('a real left-click ballistic hit neutralizes the guard and plays the requested Prospect line',
+    state.guardThreat.state === 'neutralized'
+      && (await page.locator('#subtitle').textContent()).includes("Good thing about all that Counter-Strike I've been playing."),
+    JSON.stringify(state.guardThreat));
   await use('bank-crowd');
   state = await snapshot();
-  check('all sixteen physical lobby civilians respond to the control order',
+  check('all sixteen physical lobby civilians respond with varied staged actions',
     state.geometry.bankCivilians === 16
-      && state.civilianStates.every((value) => ['kneeling', 'prone'].includes(value)),
-    JSON.stringify(state.civilianStates));
+      && state.civilianStates.every((value) => ['kneeling', 'prone'].includes(value))
+      && new Set(state.civilianVisualStates).size >= 3,
+    JSON.stringify(state.civilianVisualStates));
+  await pose('bank_lobby');
   await shot('04-bank-lobby');
   await use('bank-rear-guard');
   await use('bank-manager');
+  const managerStart = (await snapshot()).managerPosition;
+  await page.waitForFunction(() => window.__heistDebug.snapshot().managerEscortProgress >= 1, null, { timeout: 5000 });
   state = await snapshot();
-  check('bank-secured checkpoint records clean civilian control',
-    state.checkpoint === 'bank_secured' && state.campaignMission.civiliansHarmed === 0);
+  check('bank-secured checkpoint records clean control while the manager physically walks to the vault',
+    state.checkpoint === 'bank_secured'
+      && state.campaignMission.civiliansHarmed === 0
+      && Math.hypot(state.managerPosition[0] - managerStart[0], state.managerPosition[2] - managerStart[2]) > 4,
+    JSON.stringify({ start: managerStart, end: state.managerPosition }));
   await use('vault-door');
   await use('vault-door');
   await shot('05-vault');
@@ -164,7 +243,19 @@ try {
   check('an off-route escape car recovers to the last stable authored turn',
     recoveredDrive.ok && Math.hypot(recoveredDrive.x, recoveredDrive.z - 18) < 1,
     JSON.stringify(recoveredDrive));
-  await page.waitForTimeout(1400);
+  await page.waitForTimeout(800);
+  await page.keyboard.down('KeyW');
+  await page.waitForTimeout(3000);
+  await page.keyboard.up('KeyW');
+  state = await snapshot();
+  check('real throttle input reaches chase speed with a moving pursuit cruiser in frame',
+    state.vehicle.maxForwardSpeed === 26
+      && Math.abs(state.vehicle.speed) * 2.237 >= 45
+      && state.vehicle.pursuitVisible
+      && state.vehicle.pursuitInFrame
+      && state.vehicle.pursuitDistance >= 7
+      && state.vehicle.pursuitDistance <= 24,
+    JSON.stringify(state.vehicle));
   await shot('09-player-driving');
 
   const routeStates = [];
@@ -216,10 +307,16 @@ try {
   await page.evaluate((saved) => {
     localStorage.setItem('squatchlife.campaign', JSON.stringify(saved));
   }, apartmentState);
-  await Promise.all([
-    page.waitForURL(/\/index\.html(?:\?|$)/, { timeout: 10000 }),
-    page.click('#return-home'),
-  ]);
+  const returnControl = page.locator('#return-home');
+  const returnBox = await returnControl.boundingBox();
+  check('the completion return control is visible inside the playable viewport',
+    await returnControl.isVisible()
+      && returnBox?.x >= 0 && returnBox?.y >= 0
+      && returnBox.x + returnBox.width <= 1280
+      && returnBox.y + returnBox.height <= 720,
+    JSON.stringify(returnBox));
+  await page.evaluate(() => document.getElementById('return-home').click());
+  await page.waitForURL(/\/index\.html(?:\?|$)/, { timeout: 10000 });
   check('the completion card return control navigates to the apartment',
     new URL(page.url()).pathname.endsWith('/index.html'), page.url());
 

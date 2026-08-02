@@ -339,6 +339,48 @@ export function makeBall(scene, colour = 0xf4f6f8) {
   return m;
 }
 
+/**
+ * Ground-level finder for the Prospect's ball.
+ *
+ * The ball remains regulation size. This is a separate translucent course
+ * marker, so readability never changes collision or shot physics.
+ */
+export function makeBallMarker(scene) {
+  const group = new THREE.Group();
+  group.name = 'player-ball-ground-marker';
+  group.userData.radius = 0.52;
+
+  const glow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.43, 32),
+    new THREE.MeshBasicMaterial({
+      color: 0xb998ff,
+      transparent: true,
+      opacity: 0.16,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  glow.name = 'ball-marker-glow';
+  glow.rotation.x = -Math.PI / 2;
+  group.add(glow);
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(0.52, 0.035, 8, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0xd8c5ff,
+      transparent: true,
+      opacity: 0.92,
+      depthWrite: false,
+    }),
+  );
+  ring.name = 'ball-marker-ring';
+  ring.rotation.x = Math.PI / 2;
+  group.add(ring);
+
+  scene.add(group);
+  return group;
+}
+
 /* ------------------------------------------------------------------ */
 /* The swing                                                           */
 /* ------------------------------------------------------------------ */
@@ -445,11 +487,17 @@ export class Golfer {
   }
 
   _setCarryClubPose() {
-    if (this.club) this.club.rotation.set(this.club.userData.carryAngle ?? 0, 0, 0);
+    if (!this.club) return;
+    /* Carry the head clear of uneven tee turf. The playing pose restores the
+     * authored hand height, so this never changes address or swing geometry. */
+    this.club.position.y = -0.24;
+    this.club.rotation.set(this.club.userData.carryAngle ?? 0, 0, 0);
   }
 
   _setPlayingClubPose() {
-    if (this.club) this.club.rotation.set(0, 0, 0);
+    if (!this.club) return;
+    this.club.position.y = -0.30;
+    this.club.rotation.set(0, 0, 0);
   }
 
   say(secs = 2) { this.npc.say(secs); }

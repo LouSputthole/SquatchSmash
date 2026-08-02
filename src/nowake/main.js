@@ -14,11 +14,13 @@ import { BulletHoles } from '../world/bullets.js';
 import { makeNineMillimeterPistol, makeRevolver } from '../world/props.js';
 import {
   NO_WAKE_AMBIENT_LINES,
+  NO_WAKE_AFTERMATH_LINES,
   NO_WAKE_BELOW_LINES,
   NO_WAKE_EPILOGUE_LINE,
   buildNoWakeConfrontation,
 } from './dialogue.js';
 import { noWakeAudioLoadOptions } from './audio.js';
+import { NoWakeCameraDirector } from './camera-director.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -80,6 +82,10 @@ const state = {
   driveSeconds: 0,
   dialogue: null,
   dialogueLog: [],
+  aftermathCueLog: [],
+  aftermathVoiceQueue: [],
+  aftermathVoiceActive: null,
+  aftermathVoiceTimer: null,
   ambientIndex: 0,
   phaseTime: 0,
   executionShots: 0,
@@ -91,6 +97,7 @@ const state = {
 
 const DRIVE_SECONDS = 90;
 const boat = world.boat;
+const cameraDirector = new NoWakeCameraDirector(camera, boat);
 const radioClock = new AuthoredClock(12.75);
 radioClock.setTime(3, 12 * 60 + 45);
 const radio = new Radio(audio, hud, radioClock, {
@@ -172,7 +179,10 @@ function advanceDialogue() {
   showSpeaker(line.who, line.text);
   playDialogueCue(`nowake.${line.cue}`);
   audio.hold(d.left);
-  if (line.focus) state.focus = line.focus;
+  if (line.focus) {
+    state.focus = line.focus;
+    cameraDirector.frameSpeaker(line.focus);
+  }
 }
 
 function updateDialogue(dt) {
@@ -187,6 +197,9 @@ function registerInteractions() {
     enabled: () => !state.boarded,
     onUse: () => {
       state.boarded = true;
+      boat.boardingBridge.visible = false;
+      boat.targets.board.visible = false;
+      audio.play('boat.board.step', { volume: .8 });
       player.position.copy(boat.root.localToWorld(new THREE.Vector3(-1.68, 2.68, 3.72)));
       player.ground = boat.root.position.y + boat.deck.height;
       player.yaw = 0;
@@ -231,7 +244,8 @@ function registerInteractions() {
       physics.running = true;
       audio.stopLoop('bilge', .25);
       audio.play('switch.click', { volume: .7 });
-      audio.startLoop('engine', { name: 'boat.engine.idle', volume: .17 });
+      audio.play('boat.engine.start', { volume: .9 });
+      audio.startLoop('engine-idle', { name: 'boat.engine.idle', volume: .17, fade: .55 });
       setObjective('Release the mooring lines', 'Bow and stern · then take the helm');
       hud.toast('Twin diesels alive', 'good');
     },
@@ -264,7 +278,7 @@ function registerInteractions() {
         state[key] = true;
         line.userData.attached = false;
         line.visible = false;
-        audio.play('cloth.suit.movement', { volume: .7, rate: .8 });
+        audio.play('boat.rope.release', { volume: .78, rate: .8 });
         hud.toast(`${name[0].toUpperCase()}${name.slice(1)} line clear`, 'good');
         if (state.bowLine && state.sternLine) {
           physics.mooringReleased = true;
@@ -281,7 +295,7 @@ function registerInteractions() {
   interaction.register(boat.cast.willy.group, {
     label: 'Roll Willy to the transom',
     holdLabel: 'Move the body overboard',
-    hold: 1.8,
+    hold: .85,
     enabled: () => state.phase === 'body' && !state.bodyDisposed,
     onUse: disposeBody,
   });
@@ -298,7 +312,7 @@ function enterHelm() {
   player.pitchMax = .42;
   player.yaw = physics.heading;
   player.pitch = -.05;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.72, 2.43, .24)));
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(.14, 2.43, .24)));
   physics.throttle = 0;
   physics.steer = 0;
   lastHeading = physics.heading;
@@ -310,6 +324,8 @@ function enterHelm() {
 }
 
 function setStartupCompleteVisuals() {
+  boat.boardingBridge.visible = false;
+  boat.targets.board.visible = false;
   boat.controls.battery.setOn(true);
   boat.controls.blower.setOn(true);
   boat.controls.ignition.setOn(true);
@@ -328,6 +344,78 @@ function driveLine(line) {
   }, 4700);
 }
 
+function nonBlockingLine(line, seconds = 3.2) {
+  const token = {};
+  state.nonBlockingLine = token;
+  showSpeaker(line.who, line.text);
+  playDialogueCue(`nowake.${line.cue}`);
+  audio.hold(seconds);
+  setTimeout(() => {
+    if (state.nonBlockingLine === token && !state.dialogue) hideSpeaker();
+  }, seconds * 1000);
+}
+
+function aftermathVoiceWindow(line, authoredSeconds) {
+  const prefix = `vo.nowake.${line.cue}`;
+  let decodedSeconds = 0;
+  for (const name of audio.buffers.keys()) {
+    if (name !== prefix && !name.startsWith(`${prefix}.`)) continue;
+    decodedSeconds = Math.max(decodedSeconds, audio.sampleDuration(name) ?? 0);
+  }
+  // The authored reading beat is the minimum. A longer delivered take owns
+  // the voice channel until its sample has actually finished.
+  return Math.max(authoredSeconds, decodedSeconds + .18);
+}
+
+function scheduleAftermathVoice() {
+  if (state.aftermathVoiceActive || state.aftermathVoiceTimer) return;
+  const entry = state.aftermathVoiceQueue[0];
+  if (!entry) return;
+  const now = performance.now() / 1000;
+  const waitSeconds = Math.max(0, entry.notBefore - now);
+  state.aftermathVoiceTimer = setTimeout(() => {
+    state.aftermathVoiceTimer = null;
+    const startedAt = performance.now() / 1000;
+    entry.status = 'started';
+    entry.startAt = startedAt;
+    entry.endAt = startedAt + entry.windowSeconds;
+    state.aftermathVoiceActive = entry;
+    nonBlockingLine(entry.line, entry.windowSeconds);
+    state.aftermathVoiceTimer = setTimeout(() => {
+      entry.status = 'complete';
+      entry.completedAt = performance.now() / 1000;
+      state.aftermathVoiceQueue.shift();
+      state.aftermathVoiceActive = null;
+      state.aftermathVoiceTimer = null;
+      scheduleAftermathVoice();
+    }, entry.windowSeconds * 1000);
+  }, waitSeconds * 1000);
+}
+
+function queueAftermathLine(line, authoredSeconds, { delay = 0 } = {}) {
+  const requestedAt = performance.now() / 1000;
+  const notBefore = requestedAt + delay;
+  const windowSeconds = aftermathVoiceWindow(line, authoredSeconds);
+  const predecessor = state.aftermathCueLog.at(-1);
+  const startAt = Math.max(notBefore, predecessor?.endAt ?? notBefore);
+  const entry = {
+    cue: line.cue,
+    who: line.who,
+    text: line.text,
+    line,
+    requestedAt,
+    notBefore,
+    windowSeconds,
+    startAt,
+    endAt: startAt + windowSeconds,
+    status: 'queued',
+  };
+  state.aftermathCueLog.push(entry);
+  state.aftermathVoiceQueue.push(entry);
+  scheduleAftermathVoice();
+  return entry;
+}
+
 function reachOpenWater() {
   if (state.phase !== 'drive') return;
   phase('coast');
@@ -340,6 +428,10 @@ function beginConfrontation() {
   if (state.phase !== 'coast') return;
   phase('confrontation');
   physics.throttle = 0;
+  audio.stopLoop('engine-idle', .65);
+  audio.stopLoop('underway', .65);
+  audio.stopLoop('wake', .65);
+  audio.play('boat.engine.shutdown', { volume: .82 });
   state.atHelm = false;
   helmHud.classList.add('hidden');
   player.mode = 'frozen';
@@ -423,6 +515,7 @@ function willyReturns() {
   setObjective('Do what Lou brought you here to do', 'Willy is back on deck');
   executionPrompt.classList.remove('hidden');
   state.focus = 'willy';
+  cameraDirector.frameExecution();
   hud.say('Willy comes back up. Lou does not look at you.', 4200);
 }
 
@@ -433,7 +526,7 @@ function fireExecution() {
   story.checkpoint('execution');
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(0, 1.35, .22));
   const normal = camera.position.clone().sub(impact).normalize();
-  audio.play('gun.shot', { volume: 1 });
+  audio.play('boat.gunshot.deck', { volume: 1 });
   blood.muzzle(state.playerGun.localToWorld(state.playerGun.userData.muzzle.clone()));
   blood.punch(impact, normal);
   state.executionShots = 1;
@@ -447,7 +540,7 @@ function fireExecution() {
 function npcShot(npc, gun) {
   if (state.phase !== 'execution') return;
   const muzzle = gun.localToWorld(gun.userData.muzzle.clone());
-  audio.play('gun.shot', { volume: .92, position: muzzle });
+  audio.play('boat.gunshot.deck', { volume: .92, position: muzzle });
   blood.muzzle(muzzle);
   const impact = boat.cast.willy.group.localToWorld(new THREE.Vector3(
     (Math.random() - .5) * .18, 1.2 + Math.random() * .35, .18,
@@ -461,19 +554,50 @@ function dropWilly() {
   if (state.phase !== 'execution') return;
   phase('body');
   boat.cast.willy.group.rotation.z = -1.38;
-  boat.cast.willy.group.position.y = .48;
+  // Npc origins sit at the feet. Once rotated onto his side the old .48 pivot
+  // buried nearly all of Willy below the deck, leaving only a leg visible.
+  boat.cast.willy.group.position.y = 1.06;
   state.playerGun.visible = false;
   state.focus = null;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(0, 2.68, 5.08)));
-  player.yaw = physics.heading;
-  player.pitch = -.35;
-  player.mode = 'seated';
-  player.enabled = true;
-  player.yawCenter = player.yaw;
-  player.yawRange = .65;
-  interaction.setPaused(false);
-  setObjective('Put Willy over the side', 'Hold E at the body');
+  cameraDirector.frameCollapse();
+  player.mode = 'frozen';
+  interaction.setPaused(true);
+  document.body.classList.add('cinematic');
   audio.play('drunk.collapse', { volume: .78 });
+  setObjective('Willy is down', 'Watch the deck');
+  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.move, 4.0, { delay: .22 });
+  setTimeout(enableBodyInteraction, 1250);
+}
+
+function enableBodyInteraction() {
+  if (state.phase !== 'body' || state.bodyDisposed) return;
+  cameraDirector.clear();
+  document.body.classList.remove('cinematic');
+  boat.bodyMarker.visible = true;
+  player.clearKeys();
+  player.mode = 'walk';
+  player.enabled = true;
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.ground = boat.root.position.y + boat.deck.height;
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.15, 2.68, 4.66)));
+  player.velocity.set(0, 0, 0);
+  player.yawCenter = null;
+  player.yawRange = Math.PI;
+  player.pitchMin = -Math.PI / 2 + .05;
+  player.pitchMax = Math.PI / 2 - .05;
+  // Settle the walking capsule before deriving the aim; the old stern pose sat
+  // inside the bench collider and invalidated the angle one frame later.
+  player.update(.016);
+  const target = new THREE.Box3().setFromObject(boat.cast.willy.group)
+    .getCenter(new THREE.Vector3());
+  const delta = target.sub(player.position);
+  player.yaw = Math.atan2(-delta.x, -delta.z);
+  player.pitch = Math.asin(delta.y / delta.length());
+  player.update(.016);
+  interaction.setPaused(false);
+  interaction.update(.016);
+  setObjective('Put Willy over the side', 'Body marker · hold E to lift with Booski');
   hud.say('Nobody says his name. The water knocks against the hull.', 5000);
 }
 
@@ -482,13 +606,91 @@ function disposeBody() {
   state.bodyDisposed = true;
   interaction.setPaused(true);
   phase('dispose');
+  boat.bodyMarker.visible = false;
+  player.clearKeys();
+  player.mode = 'frozen';
+  document.body.classList.add('cinematic');
+  cameraDirector.frameDisposal();
+  state.disposal = {
+    bodyStart: boat.cast.willy.group.position.clone(),
+    bodyRotationZ: boat.cast.willy.group.rotation.z,
+    booskiStart: boat.cast.booski.group.position.clone(),
+    railSound: false,
+    prospectLine: false,
+    splash: false,
+    splashCount: 0,
+    returned: false,
+    returnCount: 0,
+  };
+  if (state.booskiGun) state.booskiGun.visible = false;
+  if (state.louGun) state.louGun.visible = false;
   setObjective('Let go', 'There will be no wake for him');
-  audio.play('cloth.suit.movement', { volume: .7 });
-  setTimeout(() => {
-    boat.cast.willy.group.visible = false;
+  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.lift, 2.5);
+  audio.play('boat.body.drag', { volume: .82 });
+}
+
+function smoothBeat(start, end, time) {
+  const value = THREE.MathUtils.clamp((time - start) / (end - start), 0, 1);
+  return value * value * (3 - 2 * value);
+}
+
+function updateDisposal() {
+  if (state.phase !== 'dispose' || !state.disposal) return;
+  const timeline = state.disposal;
+  const time = state.phaseTime;
+  const willy = boat.cast.willy.group;
+  const booski = boat.cast.booski;
+  const dragEnd = new THREE.Vector3(.74, 1.07, 4.34);
+  const liftEnd = new THREE.Vector3(1.78, 1.64, 4.38);
+  const overboardEnd = new THREE.Vector3(3.18, -1.20, 4.54);
+  const booskiDrag = new THREE.Vector3(1.18, 1.02, 3.58);
+  const booskiLift = new THREE.Vector3(1.10, 1.02, 3.82);
+
+  if (time < .95) {
+    const k = smoothBeat(0, .95, time);
+    willy.position.lerpVectors(timeline.bodyStart, dragEnd, k);
+    willy.rotation.z = THREE.MathUtils.lerp(timeline.bodyRotationZ, -1.52, k);
+    booski.group.position.lerpVectors(timeline.booskiStart, booskiDrag, k);
+  } else if (time < 1.85) {
+    const k = smoothBeat(.95, 1.85, time);
+    willy.position.lerpVectors(dragEnd, liftEnd, k);
+    willy.rotation.z = THREE.MathUtils.lerp(-1.52, -2.28, k);
+    booski.group.position.lerpVectors(booskiDrag, booskiLift, k);
+  } else {
+    const k = smoothBeat(1.85, 2.80, time);
+    willy.position.lerpVectors(liftEnd, overboardEnd, k);
+    willy.rotation.z = THREE.MathUtils.lerp(-2.28, -4.10, k);
+    booski.group.position.copy(booskiLift);
+  }
+
+  // Booski visibly owns the other end of the lift instead of watching a body
+  // teleport away. This runs after the normal cast update so the authored pose
+  // wins for the disposal beat.
+  booski.group.rotation.y = Math.PI;
+  booski.parts.armL.rotation.set(-.92, 0, -.34);
+  booski.parts.armR.rotation.set(-.92, 0, .34);
+  booski.parts.foreL.rotation.set(-1.18, 0, 0);
+  booski.parts.foreR.rotation.set(-1.18, 0, 0);
+
+  if (time >= 1.08 && !timeline.railSound) {
+    timeline.railSound = true;
+    audio.play('boat.body.rail', { volume: .9 });
+  }
+  if (time >= 1.55 && !timeline.prospectLine) {
+    timeline.prospectLine = true;
+    queueAftermathLine(NO_WAKE_AFTERMATH_LINES.prospect, 1.8);
+  }
+  if (time >= 2.80 && !timeline.splash) {
+    timeline.splash = true;
+    timeline.splashCount++;
+    willy.visible = false;
     audio.play('water.splash', { volume: .9 });
+  }
+  if (time >= 3.15 && !timeline.returned) {
+    timeline.returned = true;
+    timeline.returnCount++;
     beginReturn();
-  }, 1450);
+  }
 }
 
 function beginReturn() {
@@ -496,14 +698,26 @@ function beginReturn() {
   state.returnFrom.copy(boat.root.position);
   state.returnHeading = physics.heading;
   state.atHelm = false;
+  // Match the physical tableau to the narration: Lou owns the controls while
+  // Booski watches the water beside the newly empty stern deck.
+  boat.cast.lou.group.position.set(.14, 1.02, -.20);
+  boat.cast.lou.group.rotation.y = Math.PI;
+  boat.cast.booski.group.position.set(1.72, 1.02, 2.70);
+  boat.cast.booski.group.rotation.y = Math.PI / 2;
   setObjective('Ride back', 'Nobody speaks');
   document.body.classList.add('cinematic');
+  audio.startLoop('underway', { name: 'boat.engine.underway', volume: .13, fade: .75 });
+  audio.startLoop('wake', { name: 'boat.hull.wake', volume: .09, fade: .9 });
+  cameraDirector.frameReturn(0);
   hud.say('Lou takes the helm. Booski watches the water close.', 4800);
+  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.lesson, 5.0, { delay: .72 });
 }
 
 function completeMission() {
   if (state.leaving) return;
   state.leaving = true;
+  audio.stopLoop('underway', .8);
+  audio.stopLoop('wake', .8);
   phase('complete');
   document.body.classList.add('cinematic');
   setObjective('NO WAKE', 'South Harbor · 4:40 PM');
@@ -529,10 +743,7 @@ function updateReturn(dt) {
   boat.root.position.lerpVectors(state.returnFrom, new THREE.Vector3(0, boat.floatY, 0), ease);
   boat.root.rotation.y = THREE.MathUtils.lerp(state.returnHeading, 0, ease);
   boat.root.position.y = boat.floatY + Math.sin(state.phaseTime * 1.2) * .05;
-  camera.position.lerp(new THREE.Vector3(
-    boat.root.position.x + 7, boat.root.position.y + 4.4, boat.root.position.z + 13,
-  ), Math.min(1, dt * 1.6));
-  camera.lookAt(boat.root.position.x, boat.root.position.y + 1.1, boat.root.position.z);
+  cameraDirector.frameReturn(state.phaseTime);
   if (k >= 1) completeMission();
 }
 
@@ -599,7 +810,14 @@ function updateBoat(dt) {
     boat.controls.gaugeNeedles.fuel.rotation.z = .45;
     const wakeAt = boat.root.localToWorld(new THREE.Vector3(0, 0, 6.55));
     world.wake.emit(wakeAt, physics.heading, Math.abs(physics.speed), dt);
-    audio.setLoopVolume('engine', .11 + Math.abs(physics.throttle) * .16, .12);
+    const propulsion = Math.min(1, Math.abs(physics.speed) / 8.5);
+    if (Math.abs(physics.speed) > .25) {
+      audio.startLoop('underway', { name: 'boat.engine.underway', volume: .03, fade: .45 });
+      audio.startLoop('wake', { name: 'boat.hull.wake', volume: .015, fade: .55 });
+    }
+    audio.setLoopVolume('engine-idle', .10 + Math.abs(physics.throttle) * .09, .12);
+    audio.setLoopVolume('underway', .025 + propulsion * .20, .12);
+    audio.setLoopVolume('wake', .01 + propulsion * .17, .12);
 
     if (carryDeckPlayer) {
       world.fromBoatLocal(carriedLocal, carriedWorld);
@@ -624,7 +842,7 @@ function updateBoat(dt) {
   if (state.atHelm && active) {
     const deltaHeading = physics.heading - lastHeading;
     player.yaw += deltaHeading;
-    player.position.copy(boat.root.localToWorld(local.set(-.72, 2.43, .24)));
+    player.position.copy(boat.root.localToWorld(local.set(.14, 2.43, .24)));
     player.sway.roll = physics.motion().roll * .32;
     lastHeading = physics.heading;
     throttleReadout.textContent = Math.abs(physics.throttle) < .04
@@ -633,19 +851,6 @@ function updateBoat(dt) {
     rpmReadout.textContent = Math.round(physics.rpm / 50) * 50;
     routeProgress.style.width = `${Math.min(100, state.driveSeconds / DRIVE_SECONDS * 100)}%`;
   }
-}
-
-function updateFocus(dt) {
-  if (!state.focus || state.phase === 'return') return;
-  const npc = boat.cast[state.focus];
-  if (!npc) return;
-  const target = npc.group.localToWorld(new THREE.Vector3(0, 1.48, 0));
-  const desired = new THREE.Quaternion();
-  const ghost = new THREE.Object3D();
-  ghost.position.copy(camera.position);
-  ghost.lookAt(target);
-  desired.copy(ghost.quaternion);
-  camera.quaternion.slerp(desired, Math.min(1, dt * 7));
 }
 
 function updateCast(dt) {
@@ -685,7 +890,7 @@ function resumeCheckpoint() {
     player.enabled = true;
     player.yaw = physics.heading;
     player.pitch = -.05;
-    player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.72, 2.43, .24)));
+    player.position.copy(boat.root.localToWorld(new THREE.Vector3(.14, 2.43, .24)));
     lastHeading = physics.heading;
     helmHud.classList.remove('hidden');
     setObjective('Bring her to idle', 'Open water · throttle back to neutral');
@@ -718,6 +923,7 @@ const runtime = {
   get phase() { return state.phase; }, set phase(v) { state.phase = v; },
   get campaignState() { return campaign.state; },
   state, physics, world, boat, player, interaction, story, postfx, audio, radio, radioReady,
+  cameraDirector,
   dialogueLog: state.dialogueLog,
   startUnderway() {
     Object.assign(state, {
@@ -773,6 +979,10 @@ startButton.addEventListener('click', async () => {
   if (campaign.state.scene.id !== SCENE_IDS.NO_WAKE) {
     campaign.enter(SCENE_IDS.NO_WAKE, { spawn: 'gate_c' });
   }
+  // Pointer lock must be requested while the start click still owns transient
+  // user activation. Waiting for the audio banks first makes real browsers
+  // reject the request even though the player did click Start.
+  canvas.requestPointerLock?.();
   resumeCheckpoint();
   await audio.init();
   await radioReady;
@@ -789,7 +999,6 @@ startButton.addEventListener('click', async () => {
   sceneInventory.show();
   overlay.classList.add('out');
   player.enabled = true;
-  canvas.requestPointerLock?.();
   setTimeout(() => overlay.remove(), 850);
 });
 
@@ -842,8 +1051,9 @@ function animate(now) {
   if (state.phase !== 'return') player.update(dt);
   interaction.update(dt);
   updateCast(dt);
-  updateFocus(dt);
+  updateDisposal();
   updateReturn(dt);
+  cameraDirector.update(dt);
   blood.update(dt);
   if (state.playerGun) state.playerGun.rotation.x += (0 - state.playerGun.rotation.x) * Math.min(1, dt * 9);
   boat.targets.radio.getWorldPosition(radioPosition);

@@ -180,15 +180,17 @@ export class Radio {
    * Scene loaders can decode this set instead of blocking on the entire
    * 17-MiB radio archive. It is read-only and never advances the rotation.
    */
-  preloadCueNames({ hours = null } = {}) {
+  preloadCueNames({ hours = null, startupOnly = false } = {}) {
     const requestedHours = Array.isArray(hours) && hours.length
       ? hours : [this.time?.hour ?? 9];
     const cues = new Set([
       'radio.click', 'radio.tune', 'radio.static', 'radio.talk',
       'radio.jingle', 'radio.cut',
     ]);
-    for (let i = 1; i <= 6; i++) cues.add(`vo.radio.song.${i}`);
-    for (let i = 1; i <= 4; i++) cues.add(`vo.radio.ad.${i}`);
+    if (!startupOnly) {
+      for (let i = 1; i <= 6; i++) cues.add(`vo.radio.song.${i}`);
+      for (let i = 1; i <= 4; i++) cues.add(`vo.radio.ad.${i}`);
+    }
     const addLine = (line) => {
       const voice = voiceOf(line);
       if (voice?.cue) cues.add(voice.cue);
@@ -199,10 +201,12 @@ export class Radio {
       const shows = new Set(requestedHours.map((hour) => showAt(station, hour)).filter(Boolean));
       for (const show of shows) {
         addLine(showIntroLine(show));
+        if (startupOnly) continue;
         for (const exchange of show.exchanges ?? []) {
           for (const line of exchange) addLine(line);
         }
       }
+      if (startupOnly) continue;
       for (const segment of station.commercial ?? []) {
         if (segment.cue) cues.add(segment.cue);
         addLine(segment.line);

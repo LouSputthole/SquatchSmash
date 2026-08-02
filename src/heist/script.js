@@ -20,9 +20,36 @@ function line(id, speakerId, text, priority, states, cue = id) {
   });
 }
 
+function npcLine(id, subtitleName, text, priority, states, cue = id) {
+  return Object.freeze({
+    id,
+    speakerId: id.split('_')[0],
+    subtitleName,
+    text,
+    fallbackDuration: Math.max(1.35, text.length / 19),
+    recordedDuration: null,
+    lookTarget: null,
+    gesture: null,
+    interruptible: priority < DIALOGUE_PRIORITY.TACTICAL,
+    priority,
+    states: Object.freeze(states),
+    cue: `heist.${cue}`,
+  });
+}
+
 const P = DIALOGUE_PRIORITY;
 
 export const HEIST_DIALOGUE = Object.freeze({
+  crew_snow: line('crew_snow', CHARACTER_IDS.SNOW,
+    'Snow. I call the move. You keep the clock honest.', P.BARK, ['CREW_INTRO', 'BRIEFING', 'LOADOUT']),
+  crew_rippin: line('crew_rippin', CHARACTER_IDS.RIPPINFLOW,
+    'Rippinflow. I drive us in. If the day gets ambitious, you drive us out.', P.BARK, ['CREW_INTRO', 'BRIEFING', 'LOADOUT']),
+  crew_shubes: line('crew_shubes', CHARACTER_IDS.SHUBENATOR,
+    'Shubenator. Blue case, vault panel, and every wire you do not touch.', P.BARK, ['CREW_INTRO', 'BRIEFING', 'LOADOUT']),
+  crew_death: line('crew_death', CHARACTER_IDS.DEATHMEGATRON,
+    'DeathMegatron. I move bags and bad ideas out of doorways.', P.BARK, ['CREW_INTRO', 'BRIEFING', 'LOADOUT']),
+  crew_numb: line('crew_numb', CHARACTER_IDS.NUMBSKULL,
+    'Numbskull. I own the lobby. People calm down when I sound bored.', P.BARK, ['CREW_INTRO', 'BRIEFING', 'LOADOUT']),
   snow_arrival: line('snow_arrival', CHARACTER_IDS.SNOW,
     'Door shut. Phone off. We use names until the masks go on.', P.OBJECTIVE, ['CREW_INTRO']),
   snow_plan: line('snow_plan', CHARACTER_IDS.SNOW,
@@ -49,22 +76,36 @@ export const HEIST_DIALOGUE = Object.freeze({
   death_breathe: line('death_breathe', CHARACTER_IDS.DEATHMEGATRON,
     'Breathe now. It costs more in there.', P.BARK, ['MASKS_ON']),
 
+  guard_warning: npcLine('guard_warning', 'Security Guard',
+    'Stop right there. Hands where I can see them.', P.TACTICAL, ['BANK_ENTRY']),
   snow_guard: line('snow_guard', CHARACTER_IDS.SNOW,
     'Prospect, visible guard. Put him on the floor.', P.TACTICAL, ['BANK_ENTRY', 'LOBBY_CONTROL']),
+  prospect_counterstrike: line('prospect_counterstrike', CHARACTER_IDS.PROSPECT,
+    "Good thing about all that Counter-Strike I've been playing.", P.TACTICAL, ['LOBBY_CONTROL']),
+  snow_scoreboard: line('snow_scoreboard', CHARACTER_IDS.SNOW,
+    'Save the scoreboard. Watch the lobby.', P.OBJECTIVE, ['LOBBY_CONTROL']),
   death_floor: line('death_floor', CHARACTER_IDS.DEATHMEGATRON,
     'Hands clear. Eyes down. Nobody here needs to be brave.', P.TACTICAL, ['LOBBY_CONTROL']),
+  civilian_please: npcLine('civilian_please', 'Bank Customer',
+    'Nobody move. Please, just do what they say.', P.BARK, ['LOBBY_CONTROL', 'GUARDS_SECURED']),
   numb_manager: line('numb_manager', CHARACTER_IDS.NUMBSKULL,
     'Manager is mine. Teller line is listening.', P.OBJECTIVE, ['GUARDS_SECURED']),
+  manager_delay: npcLine('manager_delay', 'Bank Manager',
+    'You do not know the delay. That door will not care who is holding the gun.', P.OBJECTIVE, ['MANAGER_ESCORT']),
+  shubes_answer: line('shubes_answer', CHARACTER_IDS.SHUBENATOR,
+    'He does not have to know it. I know the panel.', P.OBJECTIVE, ['MANAGER_ESCORT']),
   shubes_vault: line('shubes_vault', CHARACTER_IDS.SHUBENATOR,
     'Panel first. Time-delay second. Nobody touches the leads.', P.OBJECTIVE, ['VAULT_BYPASS']),
   snow_clock: line('snow_clock', CHARACTER_IDS.SNOW,
     'Four minutes became two. Fill the bags we have and leave the rest.', P.TACTICAL, ['CASH_LOADING']),
+  snow_insured: line('snow_insured', CHARACTER_IDS.SNOW,
+    'We came for insured paper, not uninsured people. Keep it clean.', P.BARK, ['CASH_LOADING']),
   numb_signal: line('numb_signal', CHARACTER_IDS.NUMBSKULL,
     'Foot switch. I stopped the teller. I did not stop what she already sent.', P.WARNING, ['ALARM_DISCOVERED', 'EXIT_ORDER']),
   rippin_street: line('rippin_street', CHARACTER_IDS.RIPPINFLOW,
     'Blue lights on both ends. Route Green is turning brown.', P.WARNING, ['ALARM_DISCOVERED', 'EXIT_ORDER']),
   snow_exit: line('snow_exit', CHARACTER_IDS.SNOW,
-    'Bags. Tools. People. Move.', P.TACTICAL, ['EXIT_ORDER']),
+    'The sirens are the clock now. Bags, tools, people. Move.', P.TACTICAL, ['EXIT_ORDER'], 'snow_exit_alarm'),
 
   snow_contact: line('snow_contact', CHARACTER_IDS.SNOW,
     'Planters first. Prospect, right side!', P.TACTICAL, ['BANK_DOOR_CONTACT', 'STREET_BLOCK_ONE']),

@@ -34,6 +34,7 @@ export class Dialogue {
     this.options = [];
     this.timer = 0;
     this.active = false;
+    this.lastEndReason = null;
     this.history = new Set();
     /* Where each tree lapsed, keyed by the tree itself. Walking off
      * mid-sentence used to mean the whole conversation started over next
@@ -80,6 +81,7 @@ export class Dialogue {
       ? (this.active && this.lockMovement)
       : Boolean(lockMovement);
     if (this.active) this.end('interrupted', { keepMovementLock: nextLock });
+    this.lastEndReason = null;
     this.tree = tree;
     this.speaker = speaker;
     this.active = true;
@@ -118,7 +120,11 @@ export class Dialogue {
     this._paintOptions();
 
     // A node with no options runs on its own after a beat
-    this.timer = this._cueHold(node, node.hold ?? (text ? Math.max(2.2, text.length / 18) : 0.6));
+    const authoredHold = typeof node.hold === 'function' ? node.hold() : node.hold;
+    this.timer = this._cueHold(
+      node,
+      authoredHold ?? (text ? Math.max(2.2, text.length / 18) : 0.6),
+    );
     return node;
   }
 
@@ -174,6 +180,7 @@ export class Dialogue {
       else if (reason === 'done' && this._resumable) this._bookmarks.delete(this.tree);
     }
     this.active = false;
+    this.lastEndReason = reason;
     this.node = null;
     this.nodeId = null;
     this.options = [];

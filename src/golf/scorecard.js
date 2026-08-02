@@ -17,7 +17,7 @@ import {
 } from './course.js';
 
 /** What Lou will admit to on a hole that got away from somebody. */
-const MERCY_CAP = 8;
+export const MERCY_CAP = 8;
 
 function blankHole(holeNumber) {
   const hole = getHole(holeNumber);

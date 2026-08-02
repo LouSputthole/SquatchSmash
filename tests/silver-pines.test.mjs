@@ -17,7 +17,7 @@ import {
   Swing, SWING_PHASE, DEAD_ZONE, controlWindow, resolveStrike, shotShape,
 } from '../src/golf/swing.js';
 import { Scorecard } from '../src/golf/scorecard.js';
-import { Round } from '../src/golf/mission.js';
+import { Round, BEAT } from '../src/golf/mission.js';
 import {
   CUES, SEQUENCES, buildScripts, unreachableCues, pastMissionBanter,
 } from '../src/golf/script.js';
@@ -35,6 +35,7 @@ import {
   playRecordedGolfChoice, playRecordedGolfCue, recordedGolfClip,
 } from '../src/golf/audio.js';
 import { makeBag, makeClub } from '../src/golf/cast.js';
+import { CartPair } from '../src/golf/carts.js';
 
 /* These are the facts about the hole that the browser verifier cannot state
  * cheaply and that a careless edit to the layout would silently change. The
@@ -43,6 +44,173 @@ import { makeBag, makeClub } from '../src/golf/cast.js';
 
 const TEE = { x: TEE_MARKS.ball.x, z: TEE_MARKS.ball.z };
 const lieAt = (p) => surfaceProps(surfaceAt(p.x, p.z));
+
+function makeRound() {
+  return new Round({
+    cues: {
+      busy: false,
+      play() {},
+      playSequence() {},
+      suppressBanter() {},
+      lengthOf() { return 0; },
+    },
+    dialogue: {},
+  });
+}
+
+test('a water or out-of-bounds ball must be dropped before it can be addressed', () => {
+  const round = makeRound();
+  round.beat = BEAT.APPROACH;
+  round.playerBall.state = 'water';
+  assert.equal(round.needsRelief(), true);
+  assert.equal(round.canAddress(), false);
+  round.playerBall.state = 'oob';
+  assert.equal(round.needsRelief(), true);
+  assert.equal(round.canAddress(), false);
+});
+
+test('taking tee-shot relief cannot skip the required cart beat', () => {
+  const round = makeRound();
+  round.beat = BEAT.TEE_RESULT;
+  round._resultPlayed = true;
+  round.playerBall.state = 'water';
+  round.takeDrop('water');
+  assert.equal(round.beat, BEAT.TEE_RESULT,
+    'the tee-result beat must remain responsible for starting the cart ride');
+});
+
+test('a tap-in gimme costs one stroke and ends at the live cup', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  round.beat = BEAT.APPROACH;
+  round.playerBall.placeAt(HOLE1.pin.x, HOLE1.pin.z + 0.65);
+  round.card.addStroke(CHARACTER_IDS.PROSPECT, 1);
+  const before = round.card.hole(CHARACTER_IDS.PROSPECT, 1).strokes;
+  const result = round.takeGimme();
+  assert.equal(result.ok, true);
+  assert.equal(round.card.hole(CHARACTER_IDS.PROSPECT, 1).strokes, before + 1);
+  assert.equal(round.playerBall.state, 'holed');
+  assert.ok(round.playerBall.distanceToPin() < 0.01);
+});
+
+test('the mercy cap picks up an endless ball instead of softlocking the round', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  round.beat = BEAT.APPROACH;
+  round.playerBall.placeAt(HOLE1.green.x, HOLE1.green.z + 5);
+  for (let i = 0; i < 8; i++) round.card.addStroke(CHARACTER_IDS.PROSPECT, 1);
+  round._updateApproach(0.05, { x: HOLE1.green.x, z: HOLE1.green.z + 5 });
+  assert.equal(round.playerBall.state, 'holed');
+  assert.equal(round.card.finished(CHARACTER_IDS.PROSPECT, 1), true);
+  assert.equal(round.beat, BEAT.HOLE_OUT);
+});
+
+test('walking away cannot permanently skip the first-tee invitation', () => {
+  const round = makeRound();
+  const lou = { group: { position: { x: 0, z: 0 } }, npc: {} };
+  round.golfers[CHARACTER_IDS.LOU] = lou;
+  round.dialogue = {
+    active: false,
+    lastEndReason: 'walked-away',
+    starts: 0,
+    start() { this.active = true; this.lastEndReason = null; this.starts++; },
+  };
+  round.beat = BEAT.TEE_TALK;
+  round._step = 1;
+  round._wait = 0;
+
+  round._updateTeeTalk(0, { x: 30, z: 0 });
+  assert.equal(round.beat, BEAT.TEE_TALK);
+  assert.equal(round.dialogue.starts, 0, 'the exchange waits until the player comes back');
+
+  round._updateTeeTalk(0, { x: 3, z: 0 });
+  assert.equal(round.beat, BEAT.TEE_TALK);
+  assert.equal(round.dialogue.starts, 1, 'the unanswered exchange is offered again near Lou');
+
+  round.dialogue.active = false;
+  round.dialogue.lastEndReason = 'interrupted';
+  round._updateTeeTalk(0, { x: 30, z: 0 });
+  assert.equal(round.beat, BEAT.TEE_TALK,
+    'an interrupted required exchange cannot be mistaken for completion');
+
+  round._updateTeeTalk(0, { x: 3, z: 0 });
+  assert.equal(round.dialogue.starts, 2, 'an interrupted exchange resumes near Lou too');
+
+  round.dialogue.active = false;
+  round.dialogue.lastEndReason = 'done';
+  round._updateTeeTalk(0, { x: 3, z: 0 });
+  assert.equal(round.beat, BEAT.NPC_TEE, 'only a completed branch releases the tee');
+});
+
+test('fade and slice visibly curve during flight instead of only launching offline', () => {
+  setActiveHole(1);
+  const from = { x: HOLE1.teeMarks.ball.x, z: HOLE1.teeMarks.ball.z };
+  const lie = surfaceProps(surfaceAt(from.x, from.z));
+  const trace = (accuracy) => {
+    const ball = new Ball();
+    ball.placeAt(from.x, from.z);
+    ball.strike(0, launchFor('driver', { power: 0.9, accuracy, lie }));
+    let elapsed = 0;
+    let early = null;
+    while (ball.moving && elapsed < 2.6) {
+      ball.update(1 / 120);
+      elapsed += 1 / 120;
+      if (!early && elapsed >= 0.35) early = { x: ball.position.x, z: ball.position.z };
+    }
+    return { early, late: { x: ball.position.x, z: ball.position.z } };
+  };
+  const straight = trace(0);
+  const fade = trace(1);
+  const earlyAngle = Math.atan2(
+    fade.early.x - straight.early.x,
+    fade.early.z - from.z,
+  );
+  const lateAngle = Math.atan2(
+    fade.late.x - straight.late.x,
+    fade.late.z - from.z,
+  );
+  assert.ok(lateAngle > earlyAngle + 0.012,
+    `shot shape should build in flight: early ${earlyAngle}, late ${lateAngle}`);
+});
+
+test('a long approach starts a reusable solo cart retrieval without replaying dialogue', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  let drives = 0;
+  round.carts = {
+    lead: { position: { x: 0, z: -100 }, velocity: 0 },
+    beginPlayerDrive(options) { drives++; this.options = options; },
+  };
+  round.dialogue = { active: false };
+  round.beat = BEAT.APPROACH;
+  round._approachShotPending = true;
+  round.playerBall.placeAt(0, -100);
+  round._updateApproach(0.016, { x: 0, z: 0 });
+  assert.equal(round.beat, BEAT.CART);
+  assert.equal(round._cartFromTee, false);
+  assert.equal(drives, 1);
+  assert.deepEqual(round.carts.options, { follow: false });
+  let reseated = 0;
+  round._rideAlong = () => { reseated++; };
+  round._updateCart(0.016);
+  assert.equal(reseated, 0, 'the live group keeps playing instead of teleporting into the carts');
+  assert.equal(round.cartExitState().ok, true,
+    'later retrievals do not wait on the one-time private conversation');
+});
+
+test('walking back to the cart completes at the place the player actually parked it', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  let completed = 0;
+  round.hooks.onHoleComplete = () => { completed++; };
+  round.carts = { lead: { position: { x: 42, z: -118 } } };
+  round.beat = BEAT.WALK_OFF;
+
+  round._updateWalkOff(0.016, { x: 42, z: -118 });
+
+  assert.equal(completed, 1, 'the live lead cart is the walk-off destination');
+  assert.equal(round.beat, BEAT.NEXT_TEE);
+});
 
 test('the round is a par 3, a par 5 and a par 4, in that order', () => {
   assert.deepEqual(HOLES.map((h) => h.par), [3, 5, 4]);
@@ -93,6 +261,142 @@ test('the hole is laid out the way the marker describes it', () => {
   assert.ok(POND.z > GREEN.z, 'the pond is short of the green');
   assert.ok(BUNKER.x < GREEN.x, 'the bunker is left of the green');
   assert.ok(BUNKER.z > GREEN.z, 'the bunker is short of the green');
+});
+
+test('the Prospect drives the lead cart while Erican keeps the follow cart with the group', () => {
+  setActiveHole(1);
+  const carts = new CartPair(new THREE.Scene());
+  carts.stage();
+  const start = carts.lead.position.clone();
+  const startYaw = carts.lead.group.rotation.y;
+
+  carts.beginPlayerDrive();
+  carts.setPlayerInput({ throttle: 1, steer: 0, brake: false });
+  for (let i = 0; i < 180; i++) carts.update(1 / 60);
+  assert.ok(carts.lead.position.distanceTo(start) > 5, 'holding W should move the lead cart');
+
+  carts.setPlayerInput({ throttle: 1, steer: 1, brake: false });
+  for (let i = 0; i < 90; i++) carts.update(1 / 60);
+  assert.ok(Math.abs(carts.lead.group.rotation.y - startYaw) > 0.25,
+    'holding A or D should change the cart heading');
+  assert.ok(carts.follow.position.distanceTo(carts.lead.position) < 24,
+    'Erican should keep the second cart with the group');
+
+  carts.setPlayerInput({ throttle: 0, steer: 0, brake: true });
+  for (let i = 0; i < 120; i++) carts.update(1 / 60);
+  assert.ok(Math.abs(carts.lead.velocity) < 0.05, 'holding Space should stop the lead cart');
+});
+
+test('getting out is gated by Lou, cart speed and proximity to the live ball', () => {
+  setActiveHole(1);
+  const scene = new THREE.Scene();
+  const carts = new CartPair(scene);
+  const dialogue = { active: true };
+  const cues = {
+    busy: false,
+    suppressBanter() {},
+    play() {},
+    playSequence() {},
+    lengthOf() { return 0; },
+  };
+  const golfers = Object.fromEntries(
+    [CHARACTER_IDS.LOU, CHARACTER_IDS.ERIC, CHARACTER_IDS.RIPPINFLOW]
+      .map((id) => [id, {
+        standUp() {},
+        placeAt() {},
+        walkTo() {},
+      }]),
+  );
+  const round = new Round({ cues, dialogue, golfers, carts });
+  round.beat = 'cart';
+  carts.stage();
+  carts.beginPlayerDrive();
+
+  assert.match(round.cartExitState().reason, /Lou/i, 'the talk finishes before an exit');
+  dialogue.active = false;
+  carts.lead.group.position.set(
+    round.playerBall.position.x + 25,
+    0,
+    round.playerBall.position.z,
+  );
+  assert.match(round.cartExitState().reason, /closer/i, 'a distant exit stays blocked');
+
+  carts.lead.group.position.set(
+    round.playerBall.position.x + 5,
+    0,
+    round.playerBall.position.z,
+  );
+  carts.lead.velocity = 2;
+  assert.match(round.cartExitState().reason, /Stop/i, 'a moving exit stays blocked');
+
+  carts.lead.velocity = 0;
+  const exit = round.leaveCart();
+  assert.equal(exit.ok, true);
+  assert.equal(round.beat, 'approach');
+  assert.equal(carts.playerDriving, false);
+});
+
+test('ready golf walks every NPC to his live ball before an approach stroke', () => {
+  setActiveHole(1);
+  const actions = new Map();
+  const golfers = Object.fromEntries(
+    [CHARACTER_IDS.ERIC, CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW].map((id) => {
+      const state = { position: new THREE.Vector3(), walking: false, busy: false };
+      actions.set(id, { walks: [], swings: 0, addresses: 0, state });
+      return [id, {
+        ...state,
+        setClub() {},
+        walkTo(x, z) {
+          actions.get(id).walks.push({ x, z });
+          this.position.set(x, 0, z);
+          this.walking = false;
+        },
+        faceToward() {},
+        address() { actions.get(id).addresses++; },
+        swing({ onImpact, onDone } = {}) {
+          actions.get(id).swings++;
+          onImpact?.();
+          onDone?.();
+        },
+        markBall() {},
+        leanOnClub() {},
+        retrieveFromCup() {},
+      }];
+    }),
+  );
+  const cues = {
+    busy: false,
+    suppressBanter() {},
+    play() {},
+    playSequence() {},
+    lengthOf() { return 0; },
+  };
+  const round = new Round({
+    cues,
+    dialogue: { active: false },
+    golfers,
+    hooks: {},
+  });
+  round.beat = 'approach';
+
+  round.update(3, { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z });
+  for (const id of [CHARACTER_IDS.ERIC, CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW]) {
+    assert.equal(actions.get(id).walks.length, 1, `${id} should start toward his own ball`);
+    assert.equal(round.card.hole(id, HOLE.number).strokes, 0,
+      `${id} cannot record a remote stroke before addressing`);
+  }
+
+  round.update(0.05, { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z });
+  round.update(0.5, { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z });
+  for (const id of [CHARACTER_IDS.ERIC, CHARACTER_IDS.LOU, CHARACTER_IDS.RIPPINFLOW]) {
+    const ball = round.ballFor(id).position;
+    const golfer = actions.get(id).state.position;
+    assert.ok(Math.hypot(golfer.x - ball.x, golfer.z - ball.z) < 1.2,
+      `${id} should swing from the live lie, not a staging anchor`);
+    assert.equal(actions.get(id).addresses, 1);
+    assert.equal(actions.get(id).swings, 1);
+    assert.equal(round.card.hole(id, HOLE.number).strokes, 1);
+  }
 });
 
 test('each hole preserves the visual composition it was designed around', () => {

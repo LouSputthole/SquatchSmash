@@ -812,7 +812,11 @@ function exactDefinitionCueNames(definition) {
 
 function apartmentStartupCueNames() {
   const names = new Set([
-    ...radio.preloadCueNames(),
+    /* Only the receiver bed, ident and current show introduction can be heard
+     * immediately. The rest of the bounded station window joins the broader
+     * Apartment resident load after control opens, instead of holding the
+     * post-mission Start card over dozens of later radio exchanges. */
+    ...radio.preloadCueNames({ startupOnly: true }),
     'ambience.city.day', 'ambience.city.night', 'ambience.room',
   ]);
   for (const cue of exactDefinitionCueNames(apartmentStory.pendingCall())) names.add(cue);

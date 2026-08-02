@@ -114,7 +114,10 @@ test('tee, pickup, and flag effects follow their actual round transitions', () =
     playSequence: noop,
     suppressBanter: noop,
   };
-  const dialogue = { active: false, start: noop };
+  /* This effect-focused harness skips the authored conversation, so model it
+   * as explicitly completed instead of leaving the new required-dialogue
+   * contract in an indeterminate state. */
+  const dialogue = { active: false, lastEndReason: 'done', start: noop };
   const round = new Round({ cues, dialogue, audio });
 
   round.begin();

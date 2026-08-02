@@ -3,6 +3,9 @@ export class HeistHud {
     this.root = document.getElementById('heist-hud');
     this.phase = document.getElementById('phase-label');
     this.objective = document.querySelector('#objective span');
+    this.threat = document.getElementById('guard-threat');
+    this.threatTime = this.threat.querySelector('span');
+    this.threatBar = this.threat.querySelector('i');
     this.subtitle = document.getElementById('subtitle');
     this.prompt = document.getElementById('prompt');
     this.promptLabel = this.prompt.querySelector('span');
@@ -24,6 +27,12 @@ export class HeistHud {
   show() { this.root.classList.remove('hidden'); }
   setPhase(value) { this.phase.textContent = String(value).replaceAll('_', ' '); }
   setObjective(value) { this.objective.textContent = value; }
+  setThreat(active, remaining = 0, total = 1) {
+    this.threat.classList.toggle('hidden', !active);
+    if (!active) return;
+    this.threatTime.textContent = `${Math.max(0, remaining).toFixed(2)} SEC`;
+    this.threatBar.style.transform = `scaleX(${Math.max(0, Math.min(1, remaining / Math.max(0.01, total)))})`;
+  }
   showPrompt(label, key = 'E') { this.promptLabel.innerHTML = label; this.promptKey.textContent = key; this.prompt.classList.remove('hidden'); }
   hidePrompt() { this.prompt.classList.add('hidden'); this.setHold(null); }
   setHold(value) { this.promptBar.style.width = value == null ? '0%' : `${Math.round(value * 100)}%`; }

@@ -7,8 +7,9 @@
  * nothing while Lou talks. Taking the view off him here would turn the one
  * private conversation in the morning into something he watches.
  *
- * Carts follow the authored cart path, which `field.js` grades flat across its
- * width, so they track the ground without any suspension model.
+ * Carts can follow the authored path or leave it under player control. The
+ * free-drive handling still samples the live course height, so a fairway or
+ * rough route tracks the ground without needing a suspension simulation.
  */
 
 import * as THREE from 'three';
@@ -48,10 +49,10 @@ function buildCart(scene) {
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const post = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.035, 0.035, 1.12, 6),
+        new THREE.CylinderGeometry(0.022, 0.022, 1.12, 6),
         mat({ color: 0xb9bcc0, roughness: 0.5, metalness: 0.4 }),
       );
-      post.position.set(sx * 0.55, 1.26, sz * 0.86);
+      post.position.set(sx * 0.62, 1.26, sz * 0.86);
       g.add(post);
     }
   }
@@ -126,6 +127,9 @@ export class Cart {
     this.wheels = built.wheels;
     this.distance = startDistance;
     this.speed = speed;
+    this.velocity = 0;
+    this.driveMode = null;
+    this.driveInput = { throttle: 0, steer: 0, brake: false };
     this.moving = false;
     this.arrived = false;
     this.stopAt = pathLength();
@@ -141,6 +145,8 @@ export class Cart {
   /** Park it somewhere that is not on the path — the car park, for instance. */
   parkAt(x, z, yaw = 0) {
     this.moving = false;
+    this.velocity = 0;
+    this.driveMode = null;
     this.group.position.set(x, heightAt(x, z), z);
     this.group.rotation.y = yaw;
   }
@@ -148,11 +154,83 @@ export class Cart {
   start(stopAt = null) {
     if (stopAt !== null) this.stopAt = stopAt;
     this.moving = true;
+    this.driveMode = 'path';
     this.arrived = false;
   }
 
   stop() {
     this.moving = false;
+    this.velocity = 0;
+    this.driveMode = null;
+  }
+
+  /** Give this cart to a player instead of advancing it along a rail. */
+  beginPlayerDrive() {
+    this.driveMode = 'player';
+    this.velocity = 0;
+    this.moving = false;
+    this.arrived = false;
+  }
+
+  setDriveInput({ throttle = 0, steer = 0, brake = false } = {}) {
+    this.driveInput.throttle = Math.max(-1, Math.min(1, throttle));
+    this.driveInput.steer = Math.max(-1, Math.min(1, steer));
+    this.driveInput.brake = !!brake;
+  }
+
+  /**
+   * Small, forgiving golf-cart handling. Reverse is deliberately slower,
+   * steering remains generous, and rolling drag lets the player park without
+   * fighting an accelerator-only arcade model.
+   */
+  _driveFree(dt, input = this.driveInput) {
+    const throttle = input.throttle ?? 0;
+    const brake = input.brake ?? false;
+    const acceleration = throttle >= 0 ? 4.8 : 3.2;
+    if (brake) {
+      this.velocity = approach(this.velocity, 0, 9 * dt);
+    } else if (Math.abs(throttle) > 0.01) {
+      this.velocity += throttle * acceleration * dt;
+    } else {
+      this.velocity = approach(this.velocity, 0, 1.25 * dt);
+    }
+    this.velocity = Math.max(-2.8, Math.min(8.2, this.velocity));
+
+    const speedRatio = Math.min(1, Math.abs(this.velocity) / 3.5);
+    const direction = this.velocity < 0 ? -1 : 1;
+    this.group.rotation.y += (input.steer ?? 0) * direction * speedRatio * 1.28 * dt;
+
+    const travel = this.velocity * dt;
+    this.group.position.x += Math.sin(this.group.rotation.y) * travel;
+    this.group.position.z += Math.cos(this.group.rotation.y) * travel;
+
+    /* A cart can cut across the rough, but it cannot leave the authored piece
+     * of course. A missed turn becomes a bump at the edge, never a fall out of
+     * the scene. */
+    const margin = 1.2;
+    const x = Math.max(HOLE.bounds.minX + margin,
+      Math.min(HOLE.bounds.maxX - margin, this.group.position.x));
+    const z = Math.max(HOLE.bounds.minZ + margin,
+      Math.min(HOLE.bounds.maxZ - margin, this.group.position.z));
+    if (x !== this.group.position.x || z !== this.group.position.z) this.velocity *= 0.22;
+    this.group.position.x = x;
+    this.group.position.z = z;
+    this.group.position.y = heightAt(x, z);
+    this.moving = Math.abs(this.velocity) > 0.08;
+    this._spinWheels(travel);
+  }
+
+  /** Chase a world point with the same handling used by the player cart. */
+  driveToward(target, dt) {
+    this.driveMode = 'follow';
+    const dx = target.x - this.group.position.x;
+    const dz = target.z - this.group.position.z;
+    const distance = Math.hypot(dx, dz);
+    const wanted = Math.atan2(dx, dz);
+    const delta = angleDelta(this.group.rotation.y, wanted);
+    const steer = Math.max(-1, Math.min(1, delta * 1.7));
+    const throttle = Math.abs(delta) > 1.25 ? 0.18 : distance > 3.5 ? 0.82 : 0;
+    this._driveFree(dt, { throttle, steer, brake: distance < 2.8 });
   }
 
   /** World position of a seat, for putting a rider or a camera in it. */
@@ -162,8 +240,25 @@ export class Cart {
     return this.group.localToWorld(out);
   }
 
+  /** First-person driving eye, centred so neither roof post blocks the road. */
+  driverViewWorld(out = new THREE.Vector3()) {
+    out.set(-0.08, 1.39, 0.04);
+    return this.group.localToWorld(out);
+  }
+
+  /** Ground beside a seat, used when a rider gets out. */
+  exitWorld(which, out = new THREE.Vector3()) {
+    const side = which === 'driver' ? -1 : 1;
+    out.set(side * 1.05, 0, -0.16);
+    return this.group.localToWorld(out);
+  }
+
   update(dt) {
-    if (this.moving) {
+    if (this.driveMode === 'player') {
+      this._driveFree(dt);
+      return;
+    }
+    if (this.driveMode === 'path' && this.moving) {
       this.distance += this.speed * dt;
       if (this.distance >= this.stopAt) {
         this.distance = this.stopAt;
@@ -175,10 +270,15 @@ export class Cart {
     /* Wheels turn whenever the cart does. A cart with static wheels reads as
      * a prop being slid along the ground, which is what it is, so the wheels
      * are what stop anybody noticing. */
-    if (this.moving) {
+    if (this.driveMode === 'path' && this.moving) {
       const spin = (this.speed * dt) / 0.28;
       for (const w of this.wheels) w.rotation.y += spin;
     }
+  }
+
+  _spinWheels(travel) {
+    const spin = travel / 0.28;
+    for (const w of this.wheels) w.rotation.y += spin;
   }
 
   get position() { return this.group.position; }
@@ -187,19 +287,25 @@ export class Cart {
 /**
  * The two carts and who is in which.
  *
- * Cart one is Lou driving and the Prospect riding, which is the only reason
- * the ride exists. Cart two is Eric driving and Rippin riding, deliberately —
- * putting Rippin in the other cart is what makes the first one quiet.
+ * Cart one is the Prospect driving with Lou beside him. Cart two is Erican
+ * driving with Rippin, deliberately: putting Rippin in the other cart is what
+ * makes the first one quiet.
  */
 export class CartPair {
   constructor(scene) {
     this.lead = new Cart(scene, { startDistance: 0, speed: 4.2 });
     this.follow = new Cart(scene, { startDistance: 0, speed: 4.2 });
     this.rolling = false;
+    this.playerDriving = false;
+    this.followPlayer = true;
   }
 
   /** Put both on the path at the tee end, one behind the other. */
   stage() {
+    this.playerDriving = false;
+    this.rolling = false;
+    this.lead.stop();
+    this.follow.stop();
     this.lead.distance = 2;
     this.follow.distance = -6.5;
     this.lead._place();
@@ -220,13 +326,62 @@ export class CartPair {
     this.rolling = true;
   }
 
+  /** Prospect drives the lead cart; Erican keeps the second one behind him. */
+  beginPlayerDrive({ follow = true } = {}) {
+    this.lead.beginPlayerDrive();
+    this.followPlayer = follow;
+    if (follow) {
+      this.follow.driveMode = 'follow';
+      this.follow.velocity = 0;
+    } else {
+      this.follow.stop();
+    }
+    this.playerDriving = true;
+  }
+
+  setPlayerInput(input) {
+    this.lead.setDriveInput(input);
+  }
+
+  parkPlayerCarts() {
+    this.playerDriving = false;
+    this.lead.stop();
+    this.follow.stop();
+    this.rolling = false;
+  }
+
   get arrived() {
     return this.lead.arrived && !this.lead.moving;
   }
 
   update(dt) {
     this.lead.update(dt);
-    this.follow.update(dt);
-    if (this.rolling && !this.lead.moving && !this.follow.moving) this.rolling = false;
+    if (this.playerDriving && this.followPlayer) {
+      const yaw = this.lead.group.rotation.y;
+      const target = {
+        x: this.lead.position.x - Math.sin(yaw) * 7.5,
+        z: this.lead.position.z - Math.cos(yaw) * 7.5,
+      };
+      this.follow.driveToward(target, dt);
+      this.rolling = this.lead.moving || this.follow.moving;
+    } else if (this.playerDriving) {
+      this.rolling = this.lead.moving;
+    } else if (!this.playerDriving) {
+      this.follow.update(dt);
+      if (this.rolling && !this.lead.moving && !this.follow.moving) this.rolling = false;
+    }
   }
+}
+
+function approach(value, target, amount) {
+  if (value < target) return Math.min(target, value + amount);
+  if (value > target) return Math.max(target, value - amount);
+  return value;
+}
+
+function angleDelta(from, to) {
+  let d = (to - from) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return d;
 }
