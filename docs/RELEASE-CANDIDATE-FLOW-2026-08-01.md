@@ -127,10 +127,10 @@ edge.
 `VOICE-LINES-TODO.md` is generated from that manifest plus the recorded-file
 index. Do not hand-edit the handoff.
 
-The release manifest contains 2,176 cues: 2,169 indexed recordings and seven
-missing playable voice files. The seven direct
-pickups are two Eric lines, two Irish lines, two Big Uncle Lou lines, and one
-Tony line in Bada Bing. There are zero missing manifest effects. The 116
+The release manifest contains 2,176 cues and all 2,176 have indexed
+recordings. The final seven pickups were selectively recovered from the late
+audio-production branch: two Eric lines, two Irish lines, two Big Uncle Lou
+lines, and one Tony line in Bada Bing. There are zero missing manifest effects. The 116
 future Initiation-party lines are recorded but their party body is not
 instantiated by the playable frozen scene; they are correctly separated from
 the direct recording run.
@@ -142,9 +142,10 @@ All playable authored speech must satisfy three different checks:
 3. scene selector to decoded playback for every resident cue the scene can ask
    for.
 
-Subtitles and duration fallback keep a missing pickup playable, but "wired" is
-not the same as "recorded." After the seven files are delivered, rebuild the
-index and run `npm run audio:todo:check`, `npm test`, and `npm run check`.
+Subtitles and duration fallback keep a future missing pickup playable, but
+"wired" is not the same as "recorded." For this release the generated direct
+pickup list is empty; `npm run audio:todo:check`, `npm test`, and
+`npm run check` enforce that state.
 
 ## Repository reconciliation
 
@@ -158,8 +159,9 @@ not treated as safe wholesale merges:
   restore obsolete route/audio behavior. Only the compatible visual, music,
   and persistent-radio semantics were ported.
 - `agent/remaining-audio-20260801` supplied the missing footsteps, heist bank,
-  and Counter-Squatch recordings. Those assets were selectively integrated and
-  the derived index/TODO rebuilt.
+  Counter-Squatch recordings, and a late monitored batch containing the final
+  seven Bada Bing pickups. Canonical assets were selectively integrated and the
+  derived index/TODO rebuilt; stale Golf/radio metadata was not merged.
 - `agent/family-interactions-20260801` supplied selected character interactions,
   but its global identity rename and frozen Initiation edits conflict with the
   current campaign and were intentionally not merged wholesale.
@@ -182,7 +184,6 @@ it is still live.
 | Severity | Gap | Consequence | Close condition |
 |---|---|---|---|
 | P1 | Initiation has no durable completion/outro/outbound edge | The campaign cannot honestly claim completion | Owner approves the finale; implement oath/result/callbacks, completion state, credits/outro, and fresh-save browser route |
-| P2 | Seven playable Bada Bing recordings remain | Those exact lines subtitle into silence | Voice lead records exact filenames; rebuild index/TODO; decoded-playback verification |
 | P2 | No full fresh-save human playthrough on this exact candidate | Automated contracts cannot judge fun, pacing, camera comfort, or first-time control readability | Owner/friend plays the deployed commit and logs route/scene notes |
 | P2 | Beef Run landing feel and Front-and-Center staging need human review | Source and automation can pass while the experience still feels awkward | Full return landing without assists; watch table/shot/performance without skipping |
 | P2 | Front-and-Center closing apartment cutscene is absent | Margo continuity jumps from the venue result to the Day Four opening | Author and build the short closing beat, or approve the current intentional ellipsis |
@@ -192,8 +193,8 @@ it is still live.
 
 ## Performance and packaging
 
-The measured Pages staging audit is 2,655 files / 211.08 MiB; assets are 204.82 MiB.
-The current recorded bank is 2,169 files / 104.78 MiB and can expand to at
+The measured Pages staging audit is 2,662 files / 211.67 MiB; assets are 205.41 MiB.
+The current manifest-owned recorded bank is 2,176 files / 105.36 MiB and can expand to at
 least 1,166 MiB of decoded mono PCM. The web platform is not the root problem;
 eager audio decoding and oversized runtime art are.
 

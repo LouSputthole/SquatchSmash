@@ -58,7 +58,7 @@ player presses Start. These are raw local bytes, not WAN timing claims:
 
 ## Audio is the first-order problem
 
-The recorded manifest currently contains 2,169 cues, 104.78 MiB compressed and
+The recorded manifest currently contains 2,176 cues, 105.36 MiB compressed and
 about 1.93 hours long. Decoding the whole bank requires about 1,150 MiB of
 mono 44.1-kHz Float32 PCM; stereo recordings can double that estimate.
 
@@ -66,10 +66,10 @@ mono 44.1-kHz Float32 PCM; stereo recordings can double that estimate.
 |---|---:|---:|---:|
 | Apartment resident plan | 864 | 43.19 MiB | about 480 MiB |
 | Post-heist Apartment start gate | 104 | 6.86 MiB | bounded opening bank |
-| Bada Bing | 412 | 17.38 MiB | 191 MiB |
+| Bada Bing | 493 | 23.05 MiB | about 254 MiB |
 | Front and Center | 381 | 21.87 MiB | 241 MiB |
 | Beef Run | 281 | 12.40 MiB | 137 MiB |
-| Unscoped base engine | 2,169 | 104.78 MiB | about 1,150 MiB |
+| Unscoped base engine | 2,176 | 105.36 MiB | about 1,150 MiB |
 
 Before this release pass, HotDog and Graveyard awaited the entire unscoped bank
 and NO WAKE decoded it in the background. Their authored banks are only about
