@@ -2099,11 +2099,11 @@ check('every performer keeps her height, wears real hair, and has her edges take
     unauthored.length === 0, unauthored.slice(0, 3).join(' / '));
   const louBrief = [...Array(10)].map((_, i) => `vo.bing.lou.brief.${i + 1}`);
   const louBrief2 = [...Array(6)].map((_, i) => `vo.bing.lou.brief2.${i + 1}`);
-  check('Lou’s office brief is authored for both visits, subtitled and awaiting a take',
+  check('Lou’s live office brief is wired and both brief banks are authored',
     louBrief.every((c) => authored.has(c) && wired.includes(c))
       && louBrief2.every((c) => authored.has(c)),
     `${louBrief.length} + ${louBrief2.length}`);
-  check('the stage and Margo have authored cues waiting for a recording',
+  check('the stage and Margo retain their authored cue banks',
     ['vo.bing.stage.1', 'vo.bing.stage.2'].every((c) => authored.has(c))
       && [...Array(6)].map((_, i) => `vo.bing.margo.${i + 1}`).every((c) => authored.has(c))
       && authored.has('vo.bing.margo.1b'),
