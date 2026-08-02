@@ -6845,7 +6845,10 @@
       "name": "vo.bing.booski.shot.yell",
       "voice": "booski",
       "say": "AY! I want that shot in thirty FUCKING seconds!",
-      "duration": 4
+      "duration": 4,
+      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him.",
+      "needsRerecord": true,
+      "rerecordReason": "The indexed take is too high-pitched. Replace it with this low, chill delivery, then remove `needsRerecord` from the manifest."
     },
     {
       "name": "vo.bing.booski.shot.handoff",

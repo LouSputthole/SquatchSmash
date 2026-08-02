@@ -169,8 +169,11 @@ function renderVoice(out, voice, voices) {
       if (direction) out.push('', direction);
       out.push('');
       for (const cue of [...cues].sort((a, b) => a.name.localeCompare(b.name))) {
+        const rerecordReason = String(cue.rerecordReason
+          || 'the indexed take contains retired wording. Replace it, then remove `needsRerecord` from the manifest.')
+          .trim();
         const replacement = cue.needsRerecord
-          ? ' **RE-RECORD: the indexed take contains retired wording. Replace it, then remove `needsRerecord` from the manifest.**'
+          ? ` **RE-RECORD: ${rerecordReason}**`
           : '';
         const repeated = reuse.byCue.get(cue.name);
         const instruction = !repeated ? '' : repeated.master
@@ -352,7 +355,7 @@ export function buildAudioTodo({ manifest = {}, index = {}, legacyQueue = {} }) 
     '## Coverage snapshot',
     '',
     `- Shared manifest: ${plural(cues.length, 'cue')}; ${indexedManifest} have indexed recordings and ${missing.length} are missing.`,
-    `- Script drift: ${plural(rerecord.length, 'indexed take')} explicitly marked for re-recording because the playable words changed.`,
+    `- Replacement takes: ${plural(rerecord.length, 'indexed take')} explicitly marked for re-recording.`,
     `- Ready for direct delivery: ${plural(voice.length, 'voice cue file')} representing ${plural(reuse.performances, 'unique profile/text performance')}, plus ${plural(effects.length, 'manifest effect')}.`,
     `- Performance reuse: ${plural(reuse.groups, 'duplicate group')} avoids ${plural(reuse.redundant, 'redundant recording')} while retaining every exact runtime filename.`,
     `- Future authored Initiation party dialogue: ${futureInitiationPartyAll.length} total; ${futureInitiationPartyAll.length - futureInitiationParty.length} indexed and ${futureInitiationParty.length} missing. The catalog is not reachable in the playable scene and is excluded from the direct line run.`,

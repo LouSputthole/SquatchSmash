@@ -83,9 +83,30 @@ test('indexed takes with retired wording stay in the voice pickup handoff', () =
     legacyQueue: {},
   });
 
-  assert.match(markdown, /Script drift: 1 indexed take explicitly marked for re-recording/);
+  assert.match(markdown, /Replacement takes: 1 indexed take explicitly marked for re-recording/);
   assert.match(markdown, /vo\.call\.lou\.changed\.1\.mp3/);
   assert.match(markdown, /RE-RECORD: the indexed take contains retired wording/);
+});
+
+test('a performance-only rerecord keeps its specific actor direction in the handoff', () => {
+  const markdown = buildAudioTodo({
+    manifest: {
+      voices: {},
+      sfx: [{
+        name: 'vo.bing.booski.shot.yell',
+        voice: 'booski',
+        say: 'AY! I want that shot in thirty FUCKING seconds!',
+        direction: 'Low, calm, and unhurried. The pressure comes from certainty, not volume.',
+        needsRerecord: true,
+        rerecordReason: 'The indexed take is too high-pitched. Replace it with this low, chill delivery, then remove `needsRerecord` from the manifest.',
+      }],
+    },
+    index: { files: ['vo.bing.booski.shot.yell.mp3'] },
+    legacyQueue: {},
+  });
+
+  assert.match(markdown, /Performance:\*\* Low, calm, and unhurried/);
+  assert.match(markdown, /RE-RECORD: The indexed take is too high-pitched/);
 });
 
 test('same-word lines with different acting directions remain separate performances', () => {

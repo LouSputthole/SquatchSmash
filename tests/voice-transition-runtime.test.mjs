@@ -53,9 +53,15 @@ test('Bing drink refusal waits for Tony and cannot enter the successful pour bra
   assert.doesNotMatch(serve, /voiceCue\(/);
 });
 
-test('Booski shot handoff waits for the bartender delivery line to finish', () => {
+test('Booski gets the full yell before the bartender takes the voice floor, then the handoff waits for him', () => {
+  const family = source('src/bing/family.js');
+  const yell = between(family, "yell: {", '};\n  };\n\n  const booskiShot');
+  assert.doesNotMatch(yell, /enter:\s*\(\)\s*=>\s*startShot\(\)/);
+  assert.match(yell, /next:\s*\(\)\s*=>\s*\{\s*startShot\(\);\s*return null;/);
+
   const bing = source('src/bing/main.js');
   const shot = between(bing, 'function startShotBeat(', 'function sendAssociate(');
-  assert.match(shot, /bartenderVoiceUntil = t \+ Math\.max\(3\.6, cueSeconds\(bartenderCue\) \+ 0\.4\)/);
-  assert.match(shot, /d < 0\.6 && bartenderFinished/);
+  assert.match(bing, /const SHOT_PASS_SECONDS = 1\.25/);
+  assert.match(shot, /shotDelivery\.root\.position\.lerpVectors\(SHOT_TRAY_HOME, SHOT_TRAY_PASS, pass\)/);
+  assert.match(shot, /if \(beatTime < bartenderVoiceUntil\) return/);
 });

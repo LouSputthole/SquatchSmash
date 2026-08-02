@@ -1359,20 +1359,52 @@ check('a lapsed Family thread resumes; a finished one replays',
   JSON.stringify(famResume));
 
 /* ---- Booski's shot, end to end ----
- * Talk → offer → the yell → the bartender hustles the shot across the room
- * under a held camera → handoff → Tony holds a whiskey he did not order.
+ * Talk → offer → Booski gets his full yell → bartender pours and passes the
+ * tray over the counter under a held camera → handoff → Tony holds a whiskey
+ * he did not order.
  * The beat is stepped here the way the frame loop steps it. */
 await walkTo(-17.3, 1.5, Math.PI / 2);
-await page.evaluate(() => {
+const yellTiming = await page.evaluate(() => {
   const b = window.__bing;
   b.dialogue.start(b.familyScripts.booski, 'open', b.family.byId.booski, { resume: true });
   b.dialogue.choose(0);
+  /* Walk the real dialogue timers until the yell starts, but stop at the
+   * node boundary. The old fixed 14-second advance happened to cross every
+   * beat; it is no longer valid once the yell itself has an intentional tail
+   * before the delivery is allowed to begin. */
+  let leadIn = 0;
+  while (leadIn < 16 && b.dialogue.active && b.dialogue.nodeId !== 'yell') {
+    b.dialogue.update(0.05, b.player.position);
+    leadIn += 0.05;
+  }
+  return {
+    leadIn,
+    cueSeconds: b.audio.buffers.get('vo.bing.booski.shot.yell')?.[0]?.duration || 0,
+    active: b.dialogue.active,
+    node: b.dialogue.nodeId,
+    beatStarted: !!b.game.beat,
+    markedDone: b.game.booskiShotDone,
+  };
 });
-/* Long enough for the offer AND the yell. A node's hold is now at least as
- * long as its own recording (see dialogue.js `_cueHold`), so the three-line
- * run to the yell takes as long as the three recordings do -- which is the
- * entire point of the fix, and six seconds no longer covers it. */
-await tick(14);
+check('the Booski yell owns the floor before the bartender is allowed to begin',
+  yellTiming.active && yellTiming.node === 'yell' && !yellTiming.beatStarted && !yellTiming.markedDone,
+  JSON.stringify(yellTiming));
+/* Dialogue's cue-aware hold is recording duration plus 0.45 seconds. Advance
+ * past the recording but not its tail: the delivery must still be absent. */
+await tick(Math.max(0.5, yellTiming.cueSeconds + 0.2));
+const yellTail = await page.evaluate(() => {
+  const b = window.__bing;
+  return {
+    active: b.dialogue.active,
+    node: b.dialogue.nodeId,
+    beatStarted: !!b.game.beat,
+    markedDone: b.game.booskiShotDone,
+  };
+});
+check('the bartender cannot interrupt the tail of the thirty-second recording',
+  yellTail.active && yellTail.node === 'yell' && !yellTail.beatStarted && !yellTail.markedDone,
+  JSON.stringify(yellTail));
+await tick(0.6);
 await tickBeat(1.1, 0.1);
 const midBeat = await page.evaluate(() => {
   const b = window.__bing;
@@ -1400,7 +1432,7 @@ const midBeat = await page.evaluate(() => {
     rimGap: Math.min(...streamEnds.map((point) => point.distanceTo(rim))),
   };
 });
-check('the yell hands the room to the delivery — camera held, beat running',
+check('after the completed yell, the room hands cleanly to the delivery — camera held, beat running',
   midBeat.frozen && midBeat.running && midBeat.oneShot,
   JSON.stringify(midBeat));
 check('the bartender visibly pours bottle to stream to a filling shot before walking it over',
@@ -1424,20 +1456,28 @@ const deliveryProp = await page.evaluate(() => {
   const b = window.__bing;
   const tray = b.scene.getObjectByName('booski-shot.delivery');
   const bartender = b.cast.byName.bartender;
+  const station = b.club.anchors.bartender;
   return {
     visible: tray?.visible,
     carriedByBartender: tray?.parent === bartender.group,
-    moving: bartender.job === 'patrol',
+    phase: b.game.shotBeat?.phase,
+    pass: b.game.shotBeat?.pass,
+    localForward: tray?.position.z,
+    staysAtStation: Math.hypot(bartender.group.position.x - station.x, bartender.group.position.z - station.z) < 0.1,
     carryingPose: bartender.carryingShot === true,
     filled: b.scene.getObjectByName('booski-shot.delivery-fill')?.visible,
   };
 });
-check('the bartender carries the filled glass over on a visible tray',
-  deliveryProp.visible && deliveryProp.carriedByBartender && deliveryProp.moving
-    && deliveryProp.carryingPose && deliveryProp.filled,
+check('the bartender visibly passes the filled tray across the bar instead of stalling against it',
+  deliveryProp.visible && deliveryProp.carriedByBartender && deliveryProp.phase === 'pass'
+    && deliveryProp.pass > 0 && deliveryProp.localForward > 0.38
+    && deliveryProp.staysAtStation && deliveryProp.carryingPose && deliveryProp.filled,
   JSON.stringify(deliveryProp));
-await tickBeat(30);
-await tickBeat(30);
+await tickBeat(8, 0.1);
+/* The delivery now ends as soon as the tray lands. Let its post-handoff
+ * dialogue advance independently, rather than keeping the camera lock alive
+ * just so Tony's reply has time to appear. */
+await tick(9);
 const afterBeat = await page.evaluate(() => {
   const b = window.__bing;
   const post = b.club.anchors.bouncerPost;
@@ -1454,6 +1494,7 @@ const afterBeat = await page.evaluate(() => {
     bouncerStayed: Math.hypot(bouncer.group.position.x - post.x, bouncer.group.position.z - post.z) < 0.1,
     waitingForE: b.game.shotBeat?.phase === 'await-drink'
       && b.game.shotBeat?.awaitingDrink === true,
+    deliverySeconds: b.game.shotBeat?.deliverySeconds,
     didNotAutoDrink: b.game.shotBeat?.drank === false && !b.game.autoDrink,
     handoffSaid: b.dialogue.history.has('handoff') && b.dialogue.history.has('tony'),
     voiced: ['vo.bing.booski.shot.offer', 'vo.bing.booski.shot.yell',
@@ -1465,26 +1506,36 @@ check('the shot lands and control comes back cleanly, bartender back at the serv
   afterBeat.beatOver && afterBeat.walk && afterBeat.holdingShot && afterBeat.inSlot
     && afterBeat.bartenderHome && afterBeat.bartenderWorking && afterBeat.bouncerStayed,
   JSON.stringify(afterBeat));
+check('the counter pass completes in a short, authored beat rather than a long stalled stare',
+  afterBeat.deliverySeconds > 0 && afterBeat.deliverySeconds < 5.4,
+  JSON.stringify(afterBeat));
 check('the delivered shot waits for the player to press E and never auto-drinks',
   afterBeat.waitingForE && afterBeat.didNotAutoDrink,
   JSON.stringify(afterBeat));
 const shotLift = await page.evaluate(() => {
   const b = window.__bing;
+  const T = b.THREE;
+  const glass = b.scene.getObjectByName('booski-shot.held');
+  const rim = new T.Vector3(0, 0.043, 0);
+  const initialRim = b.camera.worldToLocal(glass.localToWorld(rim.clone()));
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
   window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' }));
   b.shotDrinkTick(0.55);
-  const glass = b.scene.getObjectByName('booski-shot.held');
+  const liftedRim = b.camera.worldToLocal(glass.localToWorld(rim.clone()));
   return {
     phase: b.game.shotBeat?.phase,
     visible: glass?.visible,
     y: glass?.position.y,
     tilt: glass?.rotation.x,
+    initialRimZ: initialRim.z,
+    rimZ: liftedRim.z,
     fill: b.scene.getObjectByName('booski-shot.held-fill')?.scale.y,
   };
 });
 check('E visibly lifts and tilts the filled shot glass toward Tony',
   shotLift.phase === 'drinking' && shotLift.visible
-    && shotLift.y > -0.22 && shotLift.tilt < -0.2,
+    && shotLift.y > -0.22 && shotLift.tilt > 0.2
+    && shotLift.rimZ > shotLift.initialRimZ + 0.01,
   JSON.stringify(shotLift));
 const shotDrank = await page.evaluate(() => {
   const b = window.__bing;

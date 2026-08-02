@@ -388,7 +388,9 @@ export function buildFamilyScripts({
   });
 
   /* Booskibro carries the shot beat: first walk-up goes line one, the offer,
-   * the yell — and the yell starts the bar-length delivery main.js runs.
+   * the yell — and only after the yell's own cue-aware hold does the
+   * delivery in main.js begin. Starting the beat in `enter` let the
+   * bartender's exclusive line cut Booski off mid-take.
    * Once the shot has landed this visit, he is back to ordinary hangout. */
   const booski = {
     open: {
@@ -415,8 +417,14 @@ export function buildFamilyScripts({
       who: 'Booskibro',
       line: 'AY! I want that shot in thirty FUCKING seconds!',
       cue: 'vo.bing.booski.shot.yell',
-      enter: () => startShot(),
       hold: 2.6,
+      /* Dialogue applies the actual recording duration plus its tail before
+       * resolving this `next`. That is the timing contract for the bartender:
+       * he may start moving only once Booski has actually finished speaking. */
+      next: () => {
+        startShot();
+        return null;
+      },
     },
   };
 

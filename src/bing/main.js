@@ -847,7 +847,10 @@ function poseHeldShot(progress = 0) {
     -0.25 + 0.22 * e,
     -0.36 + 0.18 * e,
   );
-  heldShot.root.rotation.set(-1.38 * e, 0.08 * e, 0.28 * e);
+  /* Camera space looks down local -Z. A positive pitch brings the rim back
+   * toward local +Z (Tony) as it rises; the old negative pitch tipped the
+   * glass farther down-range, away from the player. */
+  heldShot.root.rotation.set(1.38 * e, 0.08 * e, 0.28 * e);
   /* The last half of the tilt drains the amber toward the rim. It remains a
    * single cheap mesh; the silhouette and motion sell the drink. */
   heldShot.fill.scale.y = 1 - 0.94 * Math.max(0, (e - 0.45) / 0.55);
@@ -2236,15 +2239,22 @@ function getOutOfCar() {
  * Booski's shot — the owner's booked beat.
  *
  * Talk to Booski at the bar and he offers a shot, then yells the
- * thirty-seconds line across the room. The yell starts this: a short camera
- * beat that follows the bartender hustling the shot over from the service
- * station, the
+ * thirty-seconds line across the room. Once that line has actually finished,
+ * this short camera beat shows the bartender pour, then deliberately pass the
+ * tray over the counter, followed by the
  * handoff line when it arrives, and the prospect holding a whiskey he did
  * not order. One-shot per visit. The camera hijack is the gentlest the club
- * allows — the player is frozen only while the bartender crosses the room,
+ * allows — the player is frozen only while the bartender makes the pass,
  * and control comes back the moment the glass lands, before the toast.
  * ------------------------------------------------------------------ */
-const SHOT_BAR_STAND = { x: -17.75, z: 2.5 };
+/* These are local to the bartender (who faces across the bar on +local Z).
+ * The tray begins just inside the service rail and ends visibly over its
+ * front edge. This is an authored counter pass, not an NPC route through the
+ * solid bar geometry, so it cannot stall at the counter for sixteen seconds. */
+const SHOT_TRAY_HOME = new THREE.Vector3(0, 1.15, 0.38);
+const SHOT_TRAY_PASS = new THREE.Vector3(0, 1.15, 1.10);
+const SHOT_POUR_SECONDS = 2.2;
+const SHOT_PASS_SECONDS = 1.25;
 
 function giveShot() {
   game.heldDrink = 'booski-shot';
@@ -2332,11 +2342,15 @@ function startShotBeat() {
   bartender.pouringShot = true;
   bartender.carryingShot = false;
   let phase = 'pour';
-  let t = 0;
-  let bartenderVoiceUntil = 0;
+  let phaseTime = 0;
+  let beatTime = 0;
+  let bartenderVoiceUntil = Infinity;
+  const trayWorld = new THREE.Vector3();
   game.shotBeat = {
-    phase, pour: 0, awaitingDrink: false, drank: false, bartenderLine: false,
+    phase, pour: 0, pass: 0, awaitingDrink: false, drank: false,
+    bartenderLine: false, beatTime: 0, bartenderVoiceUntil: null,
   };
+  shotDelivery.root.position.copy(SHOT_TRAY_HOME);
   poseShotPour(0.001);
   audio.play('whiskey.cap', { volume: 0.5, position: club.anchors.barService });
   audio.play('whiskey.pour', { volume: 0.65, delay: 0.18, position: club.anchors.barService });
@@ -2360,98 +2374,92 @@ function startShotBeat() {
     player.yaw += Math.abs(step) > MAX_SLEW * dt2 ? Math.sign(step) * MAX_SLEW * dt2 : step;
     player.pitch += (-0.04 - player.pitch) * Math.min(1, dt2 * 2.4);
   };
+  const startBartenderLine = () => {
+    if (game.shotBeat.bartenderLine) return;
+    game.shotBeat.bartenderLine = true;
+    hud.say('<em>Bartender:</em> House rye. If he asks, it was twenty-nine seconds.', 3600);
+    const bartenderCue = 'vo.bing.bartender.booski-shot.pour';
+    const cueTime = Math.max(3.6, cueSeconds(bartenderCue) + 0.4);
+    voiceCue(bartenderCue, { volume: 0.86 });
+    /* The dedicated tray pose keeps both hands stable while this gives the
+     * bartender a living face for the line. */
+    bartender.say(Math.max(1.5, cueTime - 0.4));
+    bartenderVoiceUntil = beatTime + cueTime;
+    game.shotBeat.bartenderVoiceUntil = bartenderVoiceUntil;
+  };
 
   game.beat = (dt) => {
-    t += dt;
-    const bp = bartender.group.position;
+    beatTime += dt;
+    phaseTime += dt;
+    game.shotBeat.beatTime = beatTime;
     if (phase === 'pour') {
-      const pour = Math.min(1, t / 2.2);
+      const pour = Math.min(1, phaseTime / SHOT_POUR_SECONDS);
       poseShotPour(pour);
       game.shotBeat.phase = phase;
       game.shotBeat.pour = pour;
       if (hijacked) frameOn(openAim.x, openAim.z, dt, 3.2);
+      /* Let him make the timing joke while the audience can see why they are
+       * looking at him: the pour is still happening. The Booski cue has
+       * already ended before this beat exists. */
+      if (pour >= 0.3) startBartenderLine();
       if (pour >= 1) {
         shotPour.root.visible = false;
         shotDelivery.root.visible = true;
         bartender.pouringShot = false;
         bartender.carryingShot = true;
-        phase = 'to-bar';
+        bartender.faceToward(player.position.x, player.position.z);
+        phase = 'pass';
         game.shotBeat.phase = phase;
-        t = 0;
-        bartender.job = 'patrol';
-        bartender.speed = 2.3;
-        bartender.route = [{ x: SHOT_BAR_STAND.x, z: SHOT_BAR_STAND.z }];
-        bartender.routeAt = 0;
+        phaseTime = 0;
+        shotDelivery.root.position.copy(SHOT_TRAY_HOME);
       }
-    } else if (phase === 'to-bar') {
-      if (t > 0.55 && !game.shotBeat.bartenderLine) {
-        game.shotBeat.bartenderLine = true;
-        hud.say('<em>Bartender:</em> House rye. If he asks, it was twenty-nine seconds.', 3600);
-        const bartenderCue = 'vo.bing.bartender.booski-shot.pour';
-        voiceCue(bartenderCue, { volume: 0.86 });
-        bartenderVoiceUntil = t + Math.max(3.6, cueSeconds(bartenderCue) + 0.4);
-      }
+    } else if (phase === 'pass') {
+      const pass = Math.min(1, phaseTime / SHOT_PASS_SECONDS);
+      game.shotBeat.phase = phase;
+      game.shotBeat.pass = pass;
+      shotDelivery.root.position.lerpVectors(SHOT_TRAY_HOME, SHOT_TRAY_PASS, pass);
+      shotDelivery.root.getWorldPosition(trayWorld);
       if (hijacked) {
-        /* Hold the bar, then hand the frame over to the man with the tray as
-         * he comes into it. `near` is 1 when he is on top of the delivery. */
-        const away = Math.hypot(bp.x - openAim.x, bp.z - openAim.z);
-        const near = Math.min(1, Math.max(0, (9 - away) / 6));
-        aim.set(
-          openAim.x + (bp.x - openAim.x) * near,
-          1.35,
-          openAim.z + (bp.z - openAim.z) * near,
-        );
-        frameOn(aim.x, aim.z, dt, 2.4 + near * 1.6);
+        /* The camera follows the tray itself as it crosses the rail. That
+         * makes the four-second beat a readable handoff instead of a held
+         * stare at a bartender who cannot walk through his own bar. */
+        frameOn(trayWorld.x, trayWorld.z, dt, 4.5);
       }
-      const d = Math.hypot(bp.x - SHOT_BAR_STAND.x, bp.z - SHOT_BAR_STAND.z);
-      const bartenderFinished = game.shotBeat.bartenderLine && t >= bartenderVoiceUntil;
-      if ((d < 0.6 && bartenderFinished) || t > 16) {
-        if (t > 16) bartender.group.position.set(SHOT_BAR_STAND.x, 0, SHOT_BAR_STAND.z);
+      if (pass >= 1) {
         phase = 'handoff';
-        t = 0;
-        bartender.job = 'stand';
-        bartender.carryingShot = false;
-        shotDelivery.root.visible = false;
-        bartender.faceToward(
-          booski ? booski.position.x : player.position.x,
-          booski ? booski.position.z : player.position.z,
-        );
-        audio.play('glass.set', { volume: 0.55, position: club.anchors.barService });
-        giveShot();
-        game.shotBeat.phase = 'await-drink';
-        game.shotBeat.awaitingDrink = true;
-        /* Control back BEFORE the toast -- the club's rule is that nobody
-         * important talking ever costs you the sticks. */
-        if (hijacked) {
-          player.mode = 'walk';
-          interaction.setPaused(false);
-        }
-        if (booski) dialogue.start(familyScripts.booskiShot, 'handoff', booski);
+        phaseTime = 0;
       }
     } else if (phase === 'handoff') {
-      /* The bartender can head back to work; Tony keeps the filled glass
-       * until the player presses E. No timer is allowed to drink for him. */
-      if (t > 2.2) {
-        phase = 'return';
-        t = 0;
-        bartender.job = 'patrol';
-        bartender.route = [{ x: station.x, z: station.z }];
-        bartender.routeAt = 0;
+      shotDelivery.root.position.copy(SHOT_TRAY_PASS);
+      shotDelivery.root.getWorldPosition(trayWorld);
+      if (hijacked) frameOn(trayWorld.x, trayWorld.z, dt, 4.5);
+      /* The counter pass is already complete; this very short held endpoint
+       * only protects the bartender's line from Booski's handoff cue. */
+      if (beatTime < bartenderVoiceUntil) return;
+
+      shotDelivery.root.visible = false;
+      shotDelivery.root.position.copy(SHOT_TRAY_HOME);
+      bartender.group.position.set(station.x, 0, station.z);
+      bartender.job = station.job;
+      bartender.folded = false;
+      bartender.speed = station.speed ?? bartender.speed;
+      bartender.group.rotation.y = station.yaw;
+      bartender.targetYaw = undefined;
+      bartender.pouringShot = false;
+      bartender.carryingShot = false;
+      audio.play('glass.set', { volume: 0.55, position: club.anchors.barService });
+      giveShot();
+      game.shotBeat.phase = 'await-drink';
+      game.shotBeat.awaitingDrink = true;
+      game.shotBeat.deliverySeconds = beatTime;
+      /* Control back BEFORE the toast -- the club's rule is that nobody
+       * important talking ever costs you the sticks. */
+      if (hijacked) {
+        player.mode = 'walk';
+        interaction.setPaused(false);
       }
-    } else if (phase === 'return') {
-      const d = Math.hypot(bp.x - station.x, bp.z - station.z);
-      if (d < 0.7 || t > 24) {
-        bartender.group.position.set(station.x, 0, station.z);
-        bartender.job = station.job;
-        bartender.folded = false;
-        bartender.speed = station.speed ?? bartender.speed;
-        bartender.group.rotation.y = station.yaw;
-        bartender.targetYaw = undefined;
-        bartender.pouringShot = false;
-        bartender.carryingShot = false;
-        shotDelivery.root.visible = false;
-        game.beat = null;
-      }
+      if (booski) dialogue.start(familyScripts.booskiShot, 'handoff', booski);
+      game.beat = null;
     }
   };
 }

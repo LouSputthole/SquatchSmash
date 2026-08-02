@@ -1409,9 +1409,14 @@ export class Npc {
       const mb = this.parts.mouth.userData.base;
       this.parts.mouth.scale.set(mb.x, mb.y * (1 + Math.abs(Math.sin(t * 11)) * 2.6), mb.z);
       this.parts.head.rotation.x = Math.sin(t * 6) * 0.05;
-      this.parts.armR.rotation.x = -0.35 + Math.sin(t * 4.5) * 0.14;
-      this.parts.armR.rotation.z = 0.16;
-      this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;
+      /* During Booski's delivery the bartender talks while his two hands are
+       * committed to the tray. Keep the lips and head alive but do not let a
+       * generic talking gesture pull his hand through the glass. */
+      if (!this.pouringShot && !this.carryingShot) {
+        this.parts.armR.rotation.x = -0.35 + Math.sin(t * 4.5) * 0.14;
+        this.parts.armR.rotation.z = 0.16;
+        this.parts.foreR.rotation.x = -1.0 + Math.sin(t * 4.5 + 1) * 0.35;
+      }
     } else {
       this.parts.mouth.scale.copy(this.parts.mouth.userData.base);
     }
