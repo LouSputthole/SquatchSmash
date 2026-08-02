@@ -34,7 +34,12 @@ const browser = await chromium.launch({
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-await page.addInitScript((value) => localStorage.setItem('squatchlife.campaign', value), SENTINEL);
+await page.addInitScript((value) => {
+  const marker = 'squatchlife.verify.heist.seeded';
+  if (sessionStorage.getItem(marker)) return;
+  localStorage.setItem('squatchlife.campaign', value);
+  sessionStorage.setItem(marker, '1');
+}, SENTINEL);
 
 const problems = [];
 page.on('pageerror', (error) => problems.push(error.message));
@@ -203,6 +208,14 @@ try {
     await page.evaluate((value) => localStorage.getItem('squatchlife.campaign') === value, SENTINEL));
 
   const apartmentState = structuredClone(state.campaignState);
+  apartmentState.scene = { id: 'apartment', spawn: 'front_door' };
+  /* The preview-isolation assertion is complete. Seed that exact in-memory
+   * result only now, so the return button exercises the same one-tab teardown
+   * and Apartment boot as a real campaign instead of creating a second GPU and
+   * decoder-heavy Apartment beside the first. */
+  await page.evaluate((saved) => {
+    localStorage.setItem('squatchlife.campaign', JSON.stringify(saved));
+  }, apartmentState);
   await Promise.all([
     page.waitForURL(/\/index\.html(?:\?|$)/, { timeout: 10000 }),
     page.click('#return-home'),
@@ -210,17 +223,13 @@ try {
   check('the completion card return control navigates to the apartment',
     new URL(page.url()).pathname.endsWith('/index.html'), page.url());
 
-  /* Re-open the actual apartment with the completed in-memory campaign. This
-   * is a second isolated page, so it can verify physical cleanup props without
-   * weakening the preview-storage assertion above. */
-  apartmentState.scene = { id: 'apartment', spawn: 'front_door' };
-  const apartmentPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-  apartmentPage.on('pageerror', (error) => problems.push(error.message));
-  apartmentPage.on('console', (message) => { if (message.type() === 'error') problems.push(message.text()); });
-  await apartmentPage.addInitScript((saved) => {
-    localStorage.setItem('squatchlife.campaign', JSON.stringify(saved));
-  }, apartmentState);
-  await apartmentPage.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+  /* The preview router correctly preserves `?preview=1`; remove that testing
+   * isolation flag in the same tab so the seeded completed campaign becomes
+   * the production Apartment state we are validating below. */
+  await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
+
+  /* Continue in the same tab and verify the physical cleanup handoff. */
+  const apartmentPage = page;
   await apartmentPage.waitForFunction(() => window.__squatch?.apartment?.dressing, null, { timeout: 120000 });
   let apartment = await apartmentPage.evaluate(() => ({
     prep: ['heistArmor', 'heistGloves', 'heistMask', 'heistCarbine', 'heistSidearm', 'heistMagazines', 'heistDuffel']
@@ -234,14 +243,35 @@ try {
       && apartment.cleanup.every(Boolean)
       && ['heistWash', 'heistChange', 'heistGearSecured'].every((id) => apartment.targets.includes(id)),
     JSON.stringify(apartment));
-  await apartmentPage.evaluate(() => {
-    document.getElementById('start-btn').click();
-  });
-  await apartmentPage.waitForFunction(() => document.getElementById('overlay')?.classList.contains('hidden'), null, {
-    timeout: 10000,
-  });
+  /* Use a DOM click in this post-navigation fixture. A trusted Playwright click
+   * acquires pointer lock in headless Chromium and immediately loses it when
+   * automation resumes, correctly reopening PAUSED before this assertion can
+   * observe the completed first-start gate. Real Start-button input has its own
+  * browser contract; this check owns the heist-to-cleanup state handoff. */
+  const apartmentStartAt = Date.now();
+  await apartmentPage.evaluate(() => document.getElementById('start-btn').click());
+  let apartmentAudio = null;
+  for (let elapsed = 0; elapsed < 120 && !apartmentAudio?.started; elapsed++) {
+    await apartmentPage.waitForTimeout(1000);
+    apartmentAudio = await apartmentPage.evaluate(() => ({
+      started: window.__squatch?.game?.started === true,
+      buffers: window.__squatch?.audio?.buffers?.size ?? 0,
+      loaded: window.__squatch?.audio?.loadedCount ?? 0,
+      plan: window.__squatch?.audio?.preloadStats ?? null,
+      context: window.__squatch?.audio?.ctx?.state ?? null,
+    }));
+    if ((elapsed + 1) % 10 === 0 && !apartmentAudio.started) {
+      console.log(`    Apartment audio ${elapsed + 1}s: ${JSON.stringify(apartmentAudio)}`);
+    }
+  }
+  apartmentAudio.elapsedMs = Date.now() - apartmentStartAt;
+  check('post-heist Apartment completes its recorded-audio start gate',
+    apartmentAudio.started && apartmentAudio.elapsedMs <= 30000,
+    JSON.stringify(apartmentAudio));
+  if (!apartmentAudio.started) throw new Error(`Apartment audio start stalled: ${JSON.stringify(apartmentAudio)}`);
   await apartmentPage.evaluate(() => {
     const game = window.__squatch;
+    document.getElementById('overlay').classList.add('hidden');
     game.postfx.disable?.();
     game.teleport(0, 2.2, 'north');
     game.hud.hidePrompt();

@@ -242,7 +242,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 7;
+export const CAMPAIGN_VERSION = 8;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -402,6 +402,19 @@ function initialState() {
       changedClothes: false,
       emailChecked: false,
       whiskeyRelaxed: false,
+    },
+    /* 97.8 is one running station heard through several physical receivers.
+     * The running order and bulletin history are shared, while each receiver
+     * remembers its own power switch. */
+    radio: {
+      volume: 0.70,
+      cursor: 0,
+      cycle: 0,
+      selections: {},
+      songReactionCursor: 0,
+      adReactionCursor: 0,
+      heardBulletins: [],
+      receivers: {},
     },
     inventory: {
       carried: [],
@@ -719,6 +732,23 @@ const MIGRATIONS = Object.freeze({
         : saved.story,
     };
   },
+  7(saved) {
+    return {
+      ...saved,
+      version: 8,
+      radio: {
+        volume: 0.70,
+        cursor: 0,
+        cycle: 0,
+        selections: {},
+        songReactionCursor: 0,
+        adReactionCursor: 0,
+        heardBulletins: [],
+        receivers: {},
+        ...(saved.radio && typeof saved.radio === 'object' ? saved.radio : {}),
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -761,6 +791,7 @@ function hasCurrentShape(saved) {
     && saved.scene && typeof saved.scene === 'object'
     && saved.story && typeof saved.story === 'object'
     && saved.activities && typeof saved.activities === 'object'
+    && saved.radio && typeof saved.radio === 'object'
     && saved.inventory && typeof saved.inventory === 'object'
     && saved.missions && typeof saved.missions === 'object'
     && saved.events && typeof saved.events === 'object';
@@ -819,6 +850,23 @@ function normalize(saved) {
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
   const louHeistCall = saved.events?.[EVENT_IDS.LOU_HEIST_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
+  const radio = saved.radio ?? {};
+  const radioSelections = Object.fromEntries(
+    Object.entries(radio.selections && typeof radio.selections === 'object'
+      ? radio.selections : {})
+      .filter(([key, value]) => typeof key === 'string'
+        && key.length <= 120
+        && Number.isSafeInteger(value)
+        && value >= 0)
+      .map(([key, value]) => [key, Math.min(value, 1_000_000)]),
+  );
+  const radioReceivers = Object.fromEntries(
+    Object.entries(radio.receivers && typeof radio.receivers === 'object'
+      ? radio.receivers : {})
+      .filter(([key, value]) => typeof key === 'string'
+        && key.length <= 80
+        && typeof value === 'boolean'),
+  );
 
   const state = {
     version: CAMPAIGN_VERSION,
@@ -844,6 +892,16 @@ function normalize(saved) {
       Object.keys(base.activities)
         .map((key) => [key, saved.activities?.[key] === true]),
     ),
+    radio: {
+      volume: boundedNumber(radio.volume, 0, 1, base.radio.volume),
+      cursor: boundedNumber(radio.cursor, 0, 1_000_000, 0, true),
+      cycle: boundedNumber(radio.cycle, 0, 1_000_000, 0, true),
+      selections: radioSelections,
+      songReactionCursor: boundedNumber(radio.songReactionCursor, 0, 1_000_000, 0, true),
+      adReactionCursor: boundedNumber(radio.adReactionCursor, 0, 1_000_000, 0, true),
+      heardBulletins: uniqueStrings(radio.heardBulletins).slice(-64),
+      receivers: radioReceivers,
+    },
     inventory: {
       carried: uniqueStrings(saved.inventory?.carried),
       concealed: uniqueStrings(saved.inventory?.concealed),
@@ -1743,6 +1801,64 @@ export function createCampaign(options = {}) {
   }
   if (preview) installPreviewNotice();
   return campaign;
+}
+
+/**
+ * Give one physical radio receiver access to the campaign's shared station.
+ * The radio runtime only sees this narrow snapshot interface; save repair and
+ * localStorage ownership remain inside Campaign.
+ */
+export function createCampaignRadioAdapter(
+  campaign,
+  { receiverId, defaultPower = true } = {},
+) {
+  if (!campaign || typeof campaign.update !== 'function') {
+    throw new TypeError('Campaign radio adapter requires a campaign');
+  }
+  if (typeof receiverId !== 'string' || !receiverId) {
+    throw new TypeError('Campaign radio adapter requires a receiverId');
+  }
+
+  return Object.freeze({
+    load() {
+      const radio = campaign.state.radio;
+      return {
+        ...radio,
+        selections: { ...radio.selections },
+        heardBulletins: [...radio.heardBulletins],
+        power: typeof radio.receivers[receiverId] === 'boolean'
+          ? radio.receivers[receiverId] : defaultPower,
+      };
+    },
+
+    save(snapshot) {
+      campaign.update((state) => {
+        const radio = state.radio;
+        radio.volume = snapshot.volume;
+        radio.cursor = snapshot.cursor;
+        radio.cycle = snapshot.cycle;
+        radio.selections = { ...snapshot.selections };
+        radio.songReactionCursor = snapshot.songReactionCursor;
+        radio.adReactionCursor = snapshot.adReactionCursor;
+        if (typeof snapshot.power === 'boolean') {
+          radio.receivers[receiverId] = snapshot.power;
+        }
+      });
+    },
+
+    hasHeardBulletin(id) {
+      return typeof id === 'string' && campaign.state.radio.heardBulletins.includes(id);
+    },
+
+    markBulletinHeard(id) {
+      if (typeof id !== 'string' || !id || this.hasHeardBulletin(id)) return false;
+      campaign.update((state) => {
+        state.radio.heardBulletins.push(id);
+        state.radio.heardBulletins = uniqueStrings(state.radio.heardBulletins).slice(-64);
+      });
+      return true;
+    },
+  });
 }
 
 export function navigateCampaign(

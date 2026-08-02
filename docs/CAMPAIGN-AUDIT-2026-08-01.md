@@ -1,5 +1,10 @@
 # SquatchSmash campaign audit — 2026-08-01
 
+> **Superseded:** This pre-heist snapshot is retained as historical evidence.
+> Use `RELEASE-CANDIDATE-FLOW-2026-08-01.md` for the current schema-v8 route,
+> repository reconciliation, voice backlog, performance figures, and release
+> gates.
+
 This is the working source of truth for the playable campaign, its remaining
 gaps, and the next release decisions. It reflects the current `main` candidate
 in this repository, not merely the older design documents.

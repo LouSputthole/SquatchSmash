@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
 import {
-  MISSION_IDS, SCENE_IDS, createCampaign, navigateCampaign,
+  MISSION_IDS, SCENE_IDS, createCampaign, createCampaignRadioAdapter, navigateCampaign,
 } from '../core/campaign.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -18,6 +18,7 @@ import {
   NO_WAKE_EPILOGUE_LINE,
   buildNoWakeConfrontation,
 } from './dialogue.js';
+import { noWakeAudioLoadOptions } from './audio.js';
 import { BoatPhysics } from './physics.js';
 import { buildNoWakeWorld } from './world.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
@@ -92,7 +93,14 @@ const DRIVE_SECONDS = 90;
 const boat = world.boat;
 const radioClock = new AuthoredClock(12.75);
 radioClock.setTime(3, 12 * 60 + 45);
-const radio = new Radio(audio, hud, radioClock);
+const radio = new Radio(audio, hud, radioClock, {
+  venue: 'apartment',
+  state: createCampaignRadioAdapter(campaign, {
+    receiverId: 'no_wake_boat',
+    defaultPower: false,
+  }),
+  canPlayNotice: () => false,
+});
 const radioPosition = new THREE.Vector3();
 boat.targets.radio.getWorldPosition(radioPosition);
 radio.setPosition(radioPosition);
@@ -336,7 +344,8 @@ function beginConfrontation() {
   helmHud.classList.add('hidden');
   player.mode = 'frozen';
   if (radio.on) {
-    radio.turnOff();
+    // Willy owns this silence, not the physical switch the player chose.
+    radio.turnOff({ remember: false });
     boat.controls.radio.setOn(false);
   }
   setObjective('Listen', 'The engines tick in the swell');
@@ -767,10 +776,10 @@ startButton.addEventListener('click', async () => {
   resumeCheckpoint();
   await audio.init();
   await radioReady;
-  // Decoding the global library is deliberately background work. The shared
-  // engine upgrades cues as buffers land; it must not hold the harbor behind
-  // a title card while unrelated campaign VO decodes.
-  audio.loadManifest();
+  // NO WAKE crosses three authored shows. Decode those exact station banks
+  // plus this mission rather than the entire 100+ MiB campaign library.
+  const radioCueNames = radio.preloadCueNames({ hours: [12.75, 15, 17] });
+  await audio.loadManifest(noWakeAudioLoadOptions(radioCueNames));
   audio.startLoop('harbor', { name: 'ambience.rain', volume: .08, ambience: true });
   document.body.classList.add('playing');
   sceneInventory.show();
@@ -782,6 +791,10 @@ startButton.addEventListener('click', async () => {
 
 document.addEventListener('pointerlockchange', () => {
   player.enabled = document.pointerLockElement === canvas || state.atHelm;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) radio.pause();
+  else radio.resume();
 });
 document.addEventListener('mousemove', (event) => {
   if (document.pointerLockElement === canvas) player.handleMouseMove(event.movementX, event.movementY);

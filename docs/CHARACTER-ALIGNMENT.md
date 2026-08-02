@@ -34,7 +34,11 @@ Bing's visit-one service panel bears his name before he appears at HotDog's
 party, the apartment/phone writing may mention him as the person who fixes the
 building buzzer, and later scenes can use him for practical work without
 retconning him into a founder or splitting another character's identity.
-Eric, Erican, and the proposed spelling Ericran remain one person (`eric`).
+Eric, Erican, and the proposed spelling Ericran remain one person. Production
+uses the stable id, canonical display, subtitle, and voice profile `eric` /
+**Eric**. The frozen Initiation prototype and its face filename still contain
+the legacy `erican` / `ERICAN` spelling; that is an alias, not a second person
+or a global rename decision.
 
 ## Circle canon
 
@@ -53,7 +57,7 @@ sasquatch after Tony is admitted.
 | `hogmama` | HOG MAMA | `assets/faces/hogmama.png` | Matriarch |
 | `ape` | APE | `assets/faces/ape.png` | Roaster |
 | `irish` | IRISH | `assets/faces/irish.png` | Procedure/grievance voice |
-| `erican` | ERICAN | `assets/faces/erican.png` | Member |
+| `eric` (`erican` legacy alias) | ERIC *(frozen Initiation card: ERICAN)* | `assets/faces/erican.png` | Member |
 | `gratin` | GRATIN | `assets/faces/gratin.png` | Member |
 | `captain_lou_sasole` | CAPTAIN LOU SASOLE | `assets/faces/sasole.png` | Member and airstrip captain |
 | `snow` | SNOW | `assets/faces/snow.png` | Member and executioner |

@@ -1,7 +1,7 @@
 # Campaign timeline — current production flow (updated 2026-08-01)
 
 The owner's authoritative four-day shape and the connected route implemented
-by campaign schema v7. NO WAKE, the Billy HotDog incident and graveyard, Front
+by campaign schema v8. NO WAKE, the Billy HotDog incident and graveyard, Front
 and Center, and the Day Four heist are all built and connected. The Initiation
 is still a terminal WIP and remains frozen until the owner has playtested it.
 

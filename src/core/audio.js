@@ -471,8 +471,18 @@ export class AudioEngine {
         handle.node = node;
         gain.gain.linearRampToValueAtTime(handle.volume, this.ctx.currentTime + fade);
       })
-      .catch(() => this.loops.delete(key));
+      .catch(() => {
+        // A replacement may already own this mix key by the time an older
+        // request fails. Never let the stale request delete the new handle.
+        if (this.loops.get(key) === handle) this.loops.delete(key);
+      });
     return handle;
+  }
+
+  /** Replace a streamed record under the same mix key with a short crossfade. */
+  replaceMusicLoop(key, url, opts = {}) {
+    this.stopLoop(key, opts.crossfade ?? 0.65);
+    return this.startMusicLoop(key, url, opts);
   }
 
   stopLoop(key, fade = 0.5) {

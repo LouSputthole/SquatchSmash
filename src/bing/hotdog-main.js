@@ -15,6 +15,7 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
 import { buildClub, roomAt } from './club.js';
+import { hotDogAudioLoadOptions } from './hotdog-audio.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
 import { buildHotDogParty } from './hotdog-party.js';
 import {
@@ -686,7 +687,7 @@ startButton.addEventListener('click', async () => {
   // The authored party is almost entirely voiced. Do not let a fast player
   // reach Hog Mama's controls while the recordings are still decoding and
   // silently fall through to subtitle-only playback.
-  await audio.loadManifest();
+  await audio.loadManifest(hotDogAudioLoadOptions());
   audio.startLoop('party.rain', { name: 'ambience.rain', volume: 0.3, ambience: true, fade: 1.2 });
   audio.startLoop('party.crowd', { name: 'ambience.crowd', volume: 0.02, ambience: true, fade: 1.2 });
   audio.startMusicLoop('party.record', 'assets/music/good-ole-days.mp3', {

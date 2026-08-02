@@ -35,6 +35,7 @@ import {
   SCENE_IDS,
   TIME_EVENT_IDS,
   createCampaign,
+  createCampaignRadioAdapter,
   navigateCampaign,
 } from './core/campaign.js';
 import {
@@ -231,8 +232,15 @@ if (wakingOnDayTwo) {
   overlay.querySelector('.tag').textContent =
     'Day Four, 10:00 AM. Margo is still here. Lou will call when she leaves.';
 }
-// The talk station reads the clock to decide what is on air.
-const radio = new Radio(audio, hud, time);
+// One station, several physical receivers. The running order follows the
+// campaign while this apartment keeps its own power switch.
+const radio = new Radio(audio, hud, time, {
+  state: createCampaignRadioAdapter(campaign, {
+    receiverId: 'apartment',
+    defaultPower: true,
+  }),
+  canPlayNotice: () => campaign.state.story.chapter === 'day_one',
+});
 const DAY_TWO_CALL_AFTER_BULLETIN = 20;
 // Nothing happens in here. Somebody should say so.
 const narrator = new Narrator(hud, time, audio);
@@ -784,15 +792,42 @@ boot().catch((err) => {
 /* Start / pause                                                       */
 /* ------------------------------------------------------------------ */
 
+function exactDefinitionCueNames(definition) {
+  if (!definition?.vo) return [];
+  const cues = (definition.lines || []).map((_, index) => `vo.${definition.vo}.${index + 1}`);
+  definition.replies?.forEach((reply, index) => {
+    if (reply) cues.push(`vo.${definition.vo}.tony.${index + 1}`);
+  });
+  return cues;
+}
+
+function apartmentStartupCueNames() {
+  const names = new Set([
+    ...radio.preloadCueNames(),
+    'ambience.city.day', 'ambience.city.night', 'ambience.room',
+  ]);
+  for (const cue of exactDefinitionCueNames(apartmentStory.pendingCall())) names.add(cue);
+  const news = apartmentStory.news();
+  for (const bulletin of Object.values(news || {})) {
+    if (bulletin?.vo) names.add(`vo.${bulletin.vo}.1`);
+  }
+  if (apartmentStory.margoWakeOwed()) {
+    for (const cue of exactDefinitionCueNames(BIG_NIGHT_MARGO_WAKE)) names.add(cue);
+    names.add('cloth.snap');
+  }
+  return [...names];
+}
+
 startBtn.addEventListener('click', async () => {
   if (game.left) return;          // the ending card owns the button now
   await audio.init();
-  /* Loading the Apartment's recorded bank is the expensive first-start gate. A pause may
-   * legitimately resume the AudioContext, but it must never fetch and decode
-   * that bank again or append duplicate AudioBuffers to the cache. */
+  /* Decode only sounds that can happen automatically during the opening beat,
+   * including this exact radio hour. The broader Apartment library fills in
+   * behind play instead of holding the Start card over hundreds of optional
+   * activity/PC recordings. */
   if (!game.started) {
-    const sfx = await audio.loadManifest();
-    console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
+    const startup = await audio.loadStartup({ names: apartmentStartupCueNames() });
+    console.info(`[sfx] ${startup.loaded}/${startup.total} startup samples loaded.`);
   }
 
   overlay.classList.add('hidden');
@@ -839,6 +874,11 @@ startBtn.addEventListener('click', async () => {
         hud.toast('The business is settled', 'good');
         hud.say('Home again. The weapon did not come back with you.', 4800);
       }
+      if (radio.preferredOn) {
+        radio.turnOn({ remember: false });
+        apartment.state.radioOn = radio.on;
+        playNews('radio');
+      }
     } else {
       audio.play('bed.rustle', { volume: 0.5 });
       audio.say('wake', { delay: 1.1 });
@@ -847,11 +887,7 @@ startBtn.addEventListener('click', async () => {
        * introduce itself rather than wait to be discovered. Holding [E] on it
        * turns it off if you want the quiet. Started here rather than at boot
        * because the AudioContext does not exist until the first gesture. */
-      const dayTwoOpening = startDayTwoOpening();
-      if (!dayTwoOpening) {
-        radio.turnOn();
-        apartment.state.radioOn = radio.on;
-      }
+      startMorningRadio();
       hud.say('<em>6:04 AM.</em> You are awake. That was not the plan.', 5200);
       /* Except on the fourth morning, when he is not the only one awake. The
        * cutscene owns the first minute and hands control back itself. */
@@ -862,8 +898,14 @@ startBtn.addEventListener('click', async () => {
         }, 3600);
       }
     }
+    void audio.loadManifest()
+      .then((sfx) => console.info(
+        `[sfx] ${sfx.loaded}/${sfx.total} Apartment samples resident; the rest are synthesised.`,
+      ))
+      .catch((error) => console.warn('[sfx] Apartment background load failed', error));
   }
   game.paused = false;
+  radio.resume();
 });
 
 /* Pointer lock is how this is meant to be played, but some embeddings refuse
@@ -924,6 +966,7 @@ document.addEventListener('pointerlockchange', () => {
 
 function pauseGame() {
   game.paused = true;
+  radio.pause();
   player.clearKeys();
   interaction.release();
   overlay.classList.remove('hidden');
@@ -3010,6 +3053,16 @@ function startDayTwoOpening() {
   });
 }
 
+/** Resume the saved receiver on every authored morning, not only Day Two. */
+function startMorningRadio() {
+  if (startDayTwoOpening()) return true;
+  if (!radio.preferredOn) return false;
+  radio.turnOn({ remember: false });
+  apartment.state.radioOn = radio.on;
+  playNews('radio');
+  return true;
+}
+
 /* ------------------------------------------------------------------ */
 /* What the flat has to say about yesterday                            */
 /* ------------------------------------------------------------------ */
@@ -3094,9 +3147,11 @@ function playMessages() {
  */
 function playNews(station, { onStart = null } = {}) {
   const bulletin = apartmentStory.news()?.[station];
-  if (!bulletin || game.newsHeard?.has(bulletin.vo)) return false;
-  (game.newsHeard ??= new Set()).add(bulletin.vo);
+  if (!bulletin || radio.hasHeardBulletin(bulletin.vo)) return false;
   setTimeout(() => {
+    if (station === 'radio' && !radio.on) return;
+    if (radio.hasHeardBulletin(bulletin.vo)) return;
+    radio.markBulletinHeard(bulletin.vo);
     if (station === 'radio') {
       const hold = radio.broadcast({ cue: `vo.${bulletin.vo}.1`, line: bulletin.line });
       apartment.state.radioOn = radio.on;
@@ -3456,7 +3511,7 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
     blackout.classList.remove('on');
     audio.play('bed.rustle', { volume: 0.5 });
     hud.say(wakeUpLine(storySleep, voluntary), 6000);
-    if (storySleep?.ok) startDayTwoOpening();
+    if (storySleep?.ok) startMorningRadio();
     /* Sleeping off the Silver Room is the usual way anybody reaches the fourth
      * morning, so the cutscene has to hang off waking up as well as off a cold
      * load into it. Both routes ask the campaign, not a flag. */
@@ -3737,6 +3792,11 @@ frame();
 
 /* Pausing the tab should not leave the radio blaring. */
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && game.started) audio.setMasterVolume(0);
-  else audio.setMasterVolume(0.9);
+  if (document.hidden && game.started) {
+    radio.pause();
+    audio.setMasterVolume(0);
+  } else {
+    audio.setMasterVolume(0.9);
+    if (!game.paused) radio.resume();
+  }
 });

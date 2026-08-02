@@ -5,6 +5,7 @@ import test from 'node:test';
 import {
   ApartmentAudioEngine,
   isApartmentPreloadCue,
+  isApartmentStartupCue,
   planApartmentAudioPreload,
 } from '../src/core/apartment-audio.js';
 
@@ -33,9 +34,14 @@ const apartmentRuntimeSource = apartmentRuntimeFiles
   .map((name) => fs.readFileSync(new URL(name, import.meta.url), 'utf8'))
   .join('\n');
 
-test('the apartment keeps every recorded cue except proven scene-only voice banks', () => {
-  const excluded = ['vo.beefrun.', 'vo.silver.', 'vo.bing.', 'vo.sf.'];
-  const expected = recorded.filter((cue) => !excluded.some((prefix) => cue.name.startsWith(prefix)));
+test('the apartment keeps every recorded cue except proven scene-only banks', () => {
+  const excluded = [
+    'vo.beefrun.', 'vo.silver.', 'vo.bing.', 'vo.sf.',
+    'vo.motel.', 'vo.initiation.', 'vo.bj.', 'vo.bing2.', 'vo.graveyard.', 'vo.nowake.',
+    'heist.',
+  ];
+  const expected = recorded.filter((cue) => cue.name.startsWith('heist.apartment.')
+    || !excluded.some((prefix) => cue.name.startsWith(prefix)));
   const selected = recorded.filter(isApartmentPreloadCue);
 
   assert.deepEqual(selected.map((cue) => cue.name), expected.map((cue) => cue.name));
@@ -110,9 +116,91 @@ test('Apartment runtime literals and connected voice banks all remain resident',
   assert.deepEqual(missing, []);
 });
 
-test('all non-voice recordings stay available while mission-only voice stays out', () => {
-  const nonVoice = recorded.filter((cue) => !cue.name.startsWith('vo.'));
-  const excludedPrefixes = ['vo.beefrun.', 'vo.silver.', 'vo.bing.', 'vo.sf.'];
+test('Apartment startup loads automatic cues and the exact radio window before the optional bank', async () => {
+  const dataFile = 'data:audio/mpeg;base64,ZmFrZQ==';
+  globalThis.__SQUATCH_INLINE = {
+    'assets/sfx/manifest.json': {
+      sfx: [
+        { name: 'bed.rustle', file: dataFile },
+        { name: 'vo.wake.1', file: dataFile },
+        { name: 'radio.vo.lou.hour', file: dataFile },
+        { name: 'vo.beer.good.1', file: dataFile },
+        { name: 'vo.motel.rico.scene-only', file: dataFile },
+      ],
+    },
+  };
+  try {
+    const audio = new ApartmentAudioEngine();
+    const batches = [];
+    audio._loadWanted = async (cues) => {
+      batches.push(cues.map((cue) => cue.name));
+      audio.loadedCount += cues.length;
+    };
+
+    const startup = await audio.loadStartup({ names: ['radio.vo.lou.hour'] });
+    const resident = await audio.loadManifest();
+
+    assert.deepEqual(batches[0], ['bed.rustle', 'vo.wake.1', 'radio.vo.lou.hour']);
+    assert.deepEqual(batches[1], ['vo.beer.good.1']);
+    assert.deepEqual(startup, { total: 3, loaded: 3 });
+    assert.deepEqual(resident, { total: 4, loaded: 4 });
+    assert.deepEqual(audio.startupStats, { selected: 3 });
+  } finally {
+    delete globalThis.__SQUATCH_INLINE;
+  }
+});
+
+test('Apartment startup predicate keeps calls, wake scene, cleanup, and requested radio cues', () => {
+  const opening = new Set([
+    'radio.vo.lou.hour', 'ambience.room', 'vo.call.lou.heist.1',
+    'vo.news.radio.day_two.1', 'vo.margo.wake.1', 'cloth.snap',
+  ]);
+  for (const cue of [
+    'ambience.room', 'bed.rustle', 'phone.ring', 'vo.wake.1',
+    'vo.getup.1', 'vo.call.lou.heist.1', 'vo.news.radio.day_two.1',
+    'vo.margo.wake.1', 'heist.apartment.washed', 'radio.vo.lou.hour',
+  ]) assert.equal(isApartmentStartupCue(cue, opening), true, cue);
+  assert.equal(isApartmentStartupCue('ambience.city.rain', opening), false);
+  assert.equal(isApartmentStartupCue('vo.call.booski.other.1', opening), false);
+  assert.equal(isApartmentStartupCue('vo.beer.good.1', opening), false);
+  assert.equal(isApartmentStartupCue('vo.motel.rico.scene-only', opening), false);
+});
+
+test('standalone mission banks stay out while apartment heist cleanup remains resident', () => {
+  const missionVoicePrefixes = [
+    'vo.motel.',
+    'vo.initiation.',
+    'vo.bj.',
+    'vo.bing2.',
+    'vo.graveyard.',
+    'vo.nowake.',
+  ];
+
+  for (const prefix of missionVoicePrefixes) {
+    const bank = recorded.filter((cue) => cue.name.startsWith(prefix));
+    assert.ok(bank.length > 0, `${prefix} must name a recorded standalone-scene bank`);
+    assert.ok(!apartmentRuntimeSource.includes(prefix), `${prefix} is referenced by Apartment runtime source`);
+    assert.ok(bank.every((cue) => !isApartmentPreloadCue(cue)), `${prefix} leaked into Apartment`);
+  }
+
+  const missionHeist = recorded.filter((cue) => cue.name.startsWith('heist.')
+    && !cue.name.startsWith('heist.apartment.'));
+  const apartmentHeist = recorded.filter((cue) => cue.name.startsWith('heist.apartment.'));
+  assert.ok(missionHeist.length > 0, 'THE TAKE must have a recorded standalone-scene bank');
+  assert.ok(missionHeist.every((cue) => !isApartmentPreloadCue(cue)),
+    'THE TAKE mission bank leaked into Apartment');
+  assert.ok(apartmentHeist.length > 0, 'Apartment cleanup must have recorded heist cues');
+  assert.ok(apartmentHeist.every(isApartmentPreloadCue),
+    'Apartment cleanup cues must remain resident');
+});
+
+test('shared non-voice recordings stay available while mission-only voice stays out', () => {
+  const nonVoice = recorded.filter((cue) => !cue.name.startsWith('vo.')
+    && (!cue.name.startsWith('heist.') || cue.name.startsWith('heist.apartment.')));
+  const excludedPrefixes = [
+    'vo.beefrun.', 'vo.silver.', 'vo.bing.', 'vo.sf.',
+    'vo.motel.', 'vo.initiation.', 'vo.bj.', 'vo.bing2.', 'vo.graveyard.', 'vo.nowake.',
+  ];
 
   assert.ok(nonVoice.length > 100);
   assert.ok(nonVoice.every(isApartmentPreloadCue));

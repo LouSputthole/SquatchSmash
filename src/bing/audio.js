@@ -59,11 +59,15 @@ export function isBingPreloadCue(cue) {
 }
 
 export class BingAudioEngine extends AudioEngine {
-  loadManifest() {
-    return loadOnceRetriable(this, '_manifestLoadPromise', () => this._loadBingManifestOnce());
+  loadManifest({ names = [] } = {}) {
+    return loadOnceRetriable(
+      this,
+      '_manifestLoadPromise',
+      () => this._loadBingManifestOnce(names),
+    );
   }
 
-  async _loadBingManifestOnce() {
+  async _loadBingManifestOnce(names = []) {
     this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
     const cues = this.manifest.sfx || [];
     let availableCues;
@@ -79,7 +83,9 @@ export class BingAudioEngine extends AudioEngine {
         : cues;
     }
 
-    const wanted = availableCues.filter(isBingPreloadCue);
+    const supplemental = new Set(names);
+    const wanted = availableCues.filter((cue) => isBingPreloadCue(cue)
+      || supplemental.has(cue.name));
     this.preloadStats = {
       manifestTotal: cues.length,
       selected: wanted.length,

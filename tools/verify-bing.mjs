@@ -119,7 +119,18 @@ const isExpectedBingCue = (cue) => cue.name.startsWith('vo.bing.')
   || bingRuntimeEffects.has(cue.name);
 const availableManifestCues = manifestCues.filter((cue) => indexedFiles
   .has(cue.file || `${cue.name}.mp3`));
-const expectedResidentCues = availableManifestCues.filter(isExpectedBingCue);
+await page.waitForFunction(() => window.__bing?.carRadio && window.__bing?.campaign, null, {
+  timeout: 90000,
+});
+const carRadioPreloadNames = await page.evaluate(() => {
+  const b = window.__bing;
+  return b.carRadio.preloadCueNames({
+    hours: [b.campaign.state.story.timeMinutes / 60],
+  });
+});
+const carRadioPreloadSet = new Set(carRadioPreloadNames);
+const expectedResidentCues = availableManifestCues.filter((cue) => isExpectedBingCue(cue)
+  || carRadioPreloadSet.has(cue.name));
 const expectedResidentNames = expectedResidentCues.map((cue) => cue.name).sort();
 const byteSize = (cues) => cues.reduce((sum, cue) => {
   const file = cue.file || `${cue.name}.mp3`;
@@ -142,13 +153,8 @@ const bingAudioResidency = await page.evaluate((expected) => {
     loaded: loaded.length,
     missing: expected.filter((name) => !audio.buffers.has(name)),
     unexpected: loaded.filter((name) => !wanted.has(name)),
-    unrelatedVo: loaded.filter((name) => name.startsWith('vo.')
-      && !name.startsWith('vo.bing.')
-      && !name.startsWith('vo.bj.')
-      && !name.startsWith('vo.slots.')
-      && !name.startsWith('vo.call.')),
-    unrelatedRadio: loaded.filter((name) => name.startsWith('radio.')
-      && name !== 'radio.talk' && name !== 'radio.tune'),
+    unrelatedVo: loaded.filter((name) => name.startsWith('vo.') && !wanted.has(name)),
+    unrelatedRadio: loaded.filter((name) => name.startsWith('radio.') && !wanted.has(name)),
   };
 }, expectedResidentNames);
 bingAudioResidency.wallMs = Math.round(performance.now() - startClickedAt);
@@ -159,6 +165,10 @@ bingAudioResidency.before = {
 bingAudioResidency.after = {
   cues: expectedResidentNames.length,
   mib: Number((expectedResidentBytes / 1048576).toFixed(2)),
+};
+bingAudioResidency.carRadio = {
+  requested: carRadioPreloadNames.length,
+  resident: expectedResidentNames.filter((name) => carRadioPreloadSet.has(name)).length,
 };
 check('the Bing decodes its complete scene-owned resident set and no unrelated campaign audio',
   bingAudioResidency.plan?.manifestTotal === manifestCues.length
@@ -174,6 +184,7 @@ check('the Bing decodes its complete scene-owned resident set and no unrelated c
     wallMs: bingAudioResidency.wallMs,
     before: bingAudioResidency.before,
     after: bingAudioResidency.after,
+    carRadio: bingAudioResidency.carRadio,
     missing: { count: bingAudioResidency.missing.length, sample: bingAudioResidency.missing.slice(0, 5) },
     unexpected: { count: bingAudioResidency.unexpected.length, sample: bingAudioResidency.unexpected.slice(0, 5) },
     unrelatedVo: { count: bingAudioResidency.unrelatedVo.length, sample: bingAudioResidency.unrelatedVo.slice(0, 5) },
@@ -2690,28 +2701,47 @@ const punchHud = await page.evaluate(async () => {
   window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
 
   // Every physical phone uses the same connected-call contract. The club has
-  // separate DJ, office-radio and car-radio loops, so prove all three duck and
-  // restore here rather than assuming the apartment Radio test covers them.
+  // a DJ record, Lou's office loop and a campaign-backed physical car receiver.
+  // The player is on foot here, so deliberately power that receiver for this
+  // fixture without changing its persisted switch preference, then measure its
+  // real 97.8 talk bed rather than the removed fake `car.radio` loop.
   const loopVolume = (key) => b.audio.loops.get(key)?.volume ?? null;
+  const preferredBeforeFixture = b.carRadio.preferredOn;
+  b.carRadio.turnOff({ remember: false });
+  b.carRadio.turnOn({ remember: false });
+  b.game.radioOn = true;
   const radioBefore = {
+    receiverOn: b.carRadio.on,
+    receiverDucked: b.carRadio.phoneDucked,
+    receiverScale: b.carRadio.mixScale,
+    preferred: b.carRadio.preferredOn,
+    preferredBeforeFixture,
     club: loopVolume('music.club'),
     office: loopVolume('office.radio'),
-    car: loopVolume('car.radio'),
+    car: loopVolume('radio.talk'),
   };
   b.phone.ring({ from: 'TEST', vo: 'test', lines: ['Testing.'] });
   b.phone.answer();
   const radioDuring = {
     scale: b.game.phoneRadioScale,
+    receiverOn: b.carRadio.on,
+    receiverDucked: b.carRadio.phoneDucked,
+    receiverScale: b.carRadio.mixScale,
+    preferred: b.carRadio.preferredOn,
     club: loopVolume('music.club'),
     office: loopVolume('office.radio'),
-    car: loopVolume('car.radio'),
+    car: loopVolume('radio.talk'),
   };
   b.phone.hangUp();
   const radioAfter = {
     scale: b.game.phoneRadioScale,
+    receiverOn: b.carRadio.on,
+    receiverDucked: b.carRadio.phoneDucked,
+    receiverScale: b.carRadio.mixScale,
+    preferred: b.carRadio.preferredOn,
     club: loopVolume('music.club'),
     office: loopVolume('office.radio'),
-    car: loopVolume('car.radio'),
+    car: loopVolume('radio.talk'),
   };
 
   // The tip: money in the air, and the objective ticks.
@@ -2761,7 +2791,19 @@ check('the raised phone opens readable threads, marks the opened thread read, an
   !!punchHud.threadBeforeWheel && punchHud.threadBeforeWheel !== punchHud.threadAfterWheel && punchHud.phoneRead,
   JSON.stringify({ before: punchHud.threadBeforeWheel, after: punchHud.threadAfterWheel, read: punchHud.phoneRead }));
 check('a connected club phone call ducks every radio/music source by 66 percent and restores them',
-  punchHud.radioDuring.scale === 0.34
+  punchHud.radioBefore.receiverOn
+    && punchHud.radioBefore.receiverDucked === false
+    && punchHud.radioBefore.receiverScale === 1
+    && punchHud.radioDuring.receiverOn
+    && punchHud.radioDuring.receiverDucked
+    && punchHud.radioDuring.receiverScale === 0.34
+    && punchHud.radioAfter.receiverOn
+    && punchHud.radioAfter.receiverDucked === false
+    && punchHud.radioAfter.receiverScale === 1
+    && punchHud.radioBefore.preferred === punchHud.radioBefore.preferredBeforeFixture
+    && punchHud.radioDuring.preferred === punchHud.radioBefore.preferredBeforeFixture
+    && punchHud.radioAfter.preferred === punchHud.radioBefore.preferredBeforeFixture
+    && punchHud.radioDuring.scale === 0.34
     && punchHud.radioAfter.scale === 1
     && ['club', 'office', 'car'].every((key) => {
       const before = punchHud.radioBefore[key];
@@ -2885,12 +2927,43 @@ const beds = await page.evaluate(() => {
       && beds.crowd < 0.2,
     JSON.stringify({ bed: beds.bed, record: beds.record, crowd: beds.crowd }));
   const music = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'music', 'manifest.json'), 'utf8'));
-  check('the DJ selected a registered record, including Squatches in the House in its set',
-    music.tracks.some((track) => track.file === beds.clubRecord)
-      && music.tracks.some((track) => track.file === 'squatches-in-the-house.mp3'
-        && track.venue === 'bada_bing'),
-    JSON.stringify({ record: beds.clubRecord }));
+  const clubSet = ['sallie-j.mp3', 'squatch-up.mp3', 'booskibro.mp3', 'squatches-in-the-house.mp3'];
+  check('the first Bada Bing visit opens on Sallie J and every club record is registered',
+    beds.clubRecord === 'sallie-j.mp3'
+      && clubSet.every((file) => music.tracks.some((track) => track.file === file
+        && track.venue === 'bada_bing')),
+    JSON.stringify({ record: beds.clubRecord, clubSet }));
 }
+
+const requestSwitch = await page.evaluate(() => {
+  const b = window.__bing;
+  const beforeRecord = b.game.clubRecord;
+  const beforeHandle = b.audio.loops.get('music.club');
+  const switched = b.switchClubRecord({
+    file: 'squatches-in-the-house.mp3',
+    title: 'Squatches in the House',
+    requested: true,
+  }, { requested: true });
+  return {
+    beforeRecord,
+    afterRecord: b.game.clubRecord,
+    switched,
+    handleReplaced: b.audio.loops.get('music.club') !== beforeHandle,
+  };
+});
+await page.waitForFunction(() => window.__bing.audio.loops.get('music.club')?.node?.buffer, null, {
+  timeout: 30000,
+});
+requestSwitch.decodedDuration = await page.evaluate(
+  () => window.__bing.audio.loops.get('music.club')?.node?.buffer?.duration ?? 0,
+);
+check('the DJ request replaces the live record with an audible Squatches in the House loop',
+  requestSwitch.beforeRecord === 'sallie-j.mp3'
+    && requestSwitch.afterRecord === 'squatches-in-the-house.mp3'
+    && requestSwitch.switched
+    && requestSwitch.handleReplaced
+    && requestSwitch.decodedDuration > 0,
+  JSON.stringify(requestSwitch));
 
 /* ---- 29: Margo, on her stool and wearing her own head ---- */
 const her = await page.evaluate(() => {

@@ -6,6 +6,9 @@ _*.mjs
 # rebuildable in one command, so they do not belong in the history.
 dist/
 
+# Browser verifier screenshots are local release evidence, not runtime files.
+artifacts/
+
 # Generated sound effects are large and rebuildable from assets/sfx/manifest.json
 # with `npm run sfx`. Uncomment to keep them out of the repo:
 # assets/sfx/*.mp3

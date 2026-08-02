@@ -12,6 +12,7 @@ import {
   SCENE_IDS,
   TIME_EVENT_IDS,
   createCampaign,
+  createCampaignRadioAdapter,
   navigateCampaign,
 } from '../src/core/campaign.js';
 
@@ -44,6 +45,95 @@ test('a new campaign starts in the apartment with both Lous kept distinct', () =
   assert.equal(campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status, 'locked');
   assert.equal(campaign.state.events[EVENT_IDS.LOU_NO_WAKE_CALL].status, 'pending');
   assert.equal(campaign.state.missions[MISSION_IDS.NO_WAKE].status, 'locked');
+});
+
+test('radio running order, receiver power and bulletin history persist across scenes', () => {
+  const storage = new MemoryStorage();
+  const campaign = createCampaign({ storage });
+  const apartment = createCampaignRadioAdapter(campaign, {
+    receiverId: 'apartment', defaultPower: true,
+  });
+
+  apartment.save({
+    volume: 0.49,
+    cursor: 3,
+    cycle: 17,
+    selections: { 'squatch:show:Lou & Lou': 4 },
+    songReactionCursor: 2,
+    adReactionCursor: 1,
+    power: false,
+  });
+  assert.equal(apartment.markBulletinHeard('news.radio.day_two'), true);
+  assert.equal(apartment.markBulletinHeard('news.radio.day_two'), false);
+
+  const reloaded = createCampaign({ storage });
+  const savedApartment = createCampaignRadioAdapter(reloaded, {
+    receiverId: 'apartment', defaultPower: true,
+  }).load();
+  const car = createCampaignRadioAdapter(reloaded, {
+    receiverId: 'bing_car', defaultPower: true,
+  }).load();
+
+  assert.equal(savedApartment.volume, 0.49);
+  assert.equal(savedApartment.cursor, 3);
+  assert.equal(savedApartment.cycle, 17);
+  assert.equal(savedApartment.selections['squatch:show:Lou & Lou'], 4);
+  assert.equal(savedApartment.power, false);
+  assert.deepEqual(savedApartment.heardBulletins, ['news.radio.day_two']);
+  assert.equal(car.power, true, 'power belongs to the physical receiver');
+});
+
+test('schema v8 adds radio state without disturbing heist or graveyard progress', () => {
+  const storage = new MemoryStorage();
+  const legacy = createCampaign({ storage: new MemoryStorage() }).state;
+  legacy.version = 7;
+  delete legacy.radio;
+  legacy.missions[MISSION_IDS.BADA_BING_TWO].status = 'complete';
+  legacy.missions[MISSION_IDS.BADA_BING_TWO].checkpoint = 'buried';
+  legacy.missions[MISSION_IDS.BANK_HEIST].status = 'in_progress';
+  legacy.missions[MISSION_IDS.BANK_HEIST].checkpoint = 'vault_open';
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
+
+  const migrated = createCampaign({ storage }).state;
+  assert.equal(migrated.version, CAMPAIGN_VERSION);
+  assert.equal(migrated.missions[MISSION_IDS.BADA_BING_TWO].checkpoint, 'buried');
+  assert.equal(migrated.missions[MISSION_IDS.BANK_HEIST].checkpoint, 'vault_open');
+  assert.deepEqual(migrated.radio, {
+    volume: 0.7,
+    cursor: 0,
+    cycle: 0,
+    selections: {},
+    songReactionCursor: 0,
+    adReactionCursor: 0,
+    heardBulletins: [],
+    receivers: {},
+  });
+});
+
+test('radio save normalization bounds counters and rejects malformed maps', () => {
+  const storage = new MemoryStorage();
+  const raw = createCampaign({ storage: new MemoryStorage() }).state;
+  raw.radio = {
+    volume: 8,
+    cursor: -2,
+    cycle: 2_000_000,
+    selections: { good: 12, negative: -1, decimal: 1.5, ["x".repeat(121)]: 3 },
+    songReactionCursor: 2_000_000,
+    adReactionCursor: -5,
+    heardBulletins: [...Array.from({ length: 70 }, (_, i) => `bulletin.${i}`), 'bulletin.69'],
+    receivers: { apartment: false, bad: 'yes', ["r".repeat(81)]: true },
+  };
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(raw));
+
+  const radio = createCampaign({ storage }).state.radio;
+  assert.equal(radio.volume, 1);
+  assert.equal(radio.cursor, 0);
+  assert.equal(radio.cycle, 1_000_000);
+  assert.deepEqual(radio.selections, { good: 12 });
+  assert.equal(radio.songReactionCursor, 1_000_000);
+  assert.equal(radio.adReactionCursor, 0);
+  assert.equal(radio.heardBulletins.length, 64);
+  assert.deepEqual(radio.receivers, { apartment: false });
 });
 
 test('a confirmed campaign reset replaces story progress and clears obsolete recovery data', () => {

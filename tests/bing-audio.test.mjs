@@ -79,14 +79,15 @@ test('BingAudioEngine makes only owned available cues resident', async () => {
 
   try {
     const audio = new ProbeBingAudioEngine();
-    const result = await audio.loadManifest();
+    const result = await audio.loadManifest({ names: ['radio.vo.lou1.0d4c90q'] });
     assert.deepEqual(audio.wanted.map((cue) => cue.name), [
       'vo.bing.hang.booski.1',
       'phone.ring',
       'radio.talk',
+      'radio.vo.lou1.0d4c90q',
     ]);
-    assert.deepEqual(audio.preloadStats, { manifestTotal: 5, selected: 3 });
-    assert.deepEqual(result, { total: 3, loaded: 3 });
+    assert.deepEqual(audio.preloadStats, { manifestTotal: 5, selected: 4 });
+    assert.deepEqual(result, { total: 4, loaded: 4 });
   } finally {
     if (priorInline === undefined) delete globalThis.__SQUATCH_INLINE;
     else globalThis.__SQUATCH_INLINE = priorInline;

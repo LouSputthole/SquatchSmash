@@ -429,7 +429,7 @@ try {
     notice: Boolean(document.querySelector('#squatch-preview-notice')),
   }));
   check('THE TAKE preview opens safely with the canonical human crew',
-    heistOpening.preview && heistOpening.difficulty === 'normal'
+    heistOpening.preview && heistOpening.difficulty === 'professional'
       && heistOpening.crewHuman && heistOpening.notice,
     JSON.stringify(heistOpening));
   await page.evaluate(() => document.getElementById('start').click());

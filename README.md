@@ -82,6 +82,12 @@ is complete, and visibly transform Tony and every recognized family member into
 literal sasquatches. Prospect One's execution and gore remain. See
 [`docs/CHARACTER-ALIGNMENT.md`](./docs/CHARACTER-ALIGNMENT.md).
 
+The authoritative release flow, scene-by-scene gap ledger, verification record,
+and finish order are in
+[`docs/RELEASE-CANDIDATE-FLOW-2026-08-01.md`](./docs/RELEASE-CANDIDATE-FLOW-2026-08-01.md).
+The canonical-browser, installable-PWA, performance, and optional Tauri map is
+in [`docs/WEB-PERFORMANCE-AND-PWA.md`](./docs/WEB-PERFORMANCE-AND-PWA.md).
+
 For playtesting later scenes before naturally reaching them, open
 <http://localhost:5173/preview.html>. Preview state is page-local memory: it
 does not read, migrate, overwrite, or advance the player's canonical

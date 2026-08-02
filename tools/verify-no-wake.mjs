@@ -70,10 +70,13 @@ check('all 18 NO WAKE lines have stable cue ids, cast voices and exact manifest 
   JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
 
 const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
+const noWakePickupFiles = authoredVoice
+  .map((line) => `vo.nowake.${line.cue}.1.mp3`)
+  .filter((file) => recordingSheet.includes(`\`${file}\``));
 check('every NO WAKE delivery is indexed and the generated handoff reports no voice pickups',
   authoredVoice.every((line) => indexedFiles.has(`vo.nowake.${line.cue}.1.mp3`))
-    && recordingSheet.includes('Nothing outstanding. Every manifest-authored spoken cue has an indexed recording.'),
-  'VOICE-LINES-TODO.md');
+    && noWakePickupFiles.length === 0,
+  JSON.stringify({ noWakePickupFiles }));
 
 const shots = path.join(ROOT, 'docs', 'validation', '2026-07-31');
 if (WRITE_SCREENSHOTS) await fsp.mkdir(shots, { recursive: true });

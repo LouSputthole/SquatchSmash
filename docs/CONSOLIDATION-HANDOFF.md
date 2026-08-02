@@ -1,5 +1,9 @@
 # SquatchSmash Consolidation Handoff
 
+> **Superseded:** This handoff preserves the earlier consolidation history.
+> Use `RELEASE-CANDIDATE-FLOW-2026-08-01.md` for the current release candidate,
+> including THE TAKE, schema v8, current audio counts, and the final gap ledger.
+
 Last updated: 2026-08-01
 GitHub: <https://github.com/LouSputthole/SquatchSmash>
 Production branch: `main`

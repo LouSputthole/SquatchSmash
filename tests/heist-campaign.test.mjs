@@ -43,7 +43,7 @@ function v2Save(overrides = {}) {
   });
 }
 
-test('campaign v7 registers THE TAKE and a normalized durable mission record', () => {
+test('the current campaign schema registers THE TAKE and a normalized durable mission record', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const mission = campaign.state.missions[MISSION_IDS.BANK_HEIST];
 

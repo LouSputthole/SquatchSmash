@@ -35,7 +35,9 @@ export const GRAVE_ART_PRESENTATION = Object.freeze({
     embeddedName: false,
   }),
   whiplash: Object.freeze({
-    slot: 'grave.whiplash', file: 'graveyard/whiplash.webp', aspect: 853 / 1280, panelHeight: 0.72,
+    slot: 'grave.whiplash', file: 'graveyard/whiplash.webp', aspect: 853 / 1280,
+    panelHeight: 0.56, panelBottom: 0.39, panelZ: 0.147,
+    nameplateHeight: 0.14, nameplateY: 0.27, nameplateZ: 0.174,
     embeddedName: false, transparent: true,
   }),
   echo: Object.freeze({
@@ -152,8 +154,10 @@ function graveMarker(id, x, z, yaw = 0) {
 
   if (art) {
     const panelWidth = art.panelHeight * art.aspect;
-    const panelBottom = id === 'babs' ? 0.35 : id === 'colton' ? 0.22 : id === 'echo' ? 0.42 : 0.24;
+    const panelBottom = art.panelBottom
+      ?? (id === 'babs' ? 0.35 : id === 'colton' ? 0.22 : id === 'echo' ? 0.42 : 0.24);
     const panelY = panelBottom + art.panelHeight / 2;
+    const panelZ = art.panelZ ?? 0.147;
     const frame = box({
       size: [panelWidth + 0.055, art.panelHeight + 0.055, 0.035],
       pos: [0, panelY, 0.127],
@@ -173,7 +177,8 @@ function graveMarker(id, x, z, yaw = 0) {
       }),
     );
     panel.name = `grave.${id}.art`;
-    panel.position.set(0, panelY, 0.147);
+    panel.position.set(0, panelY, panelZ);
+    panel.renderOrder = art.transparent ? 1 : 0;
     panel.userData.memorialArt = {
       graveId: id,
       file: `${GRAVE_ART_DIR}${art.file}`,
@@ -182,7 +187,7 @@ function graveMarker(id, x, z, yaw = 0) {
     g.add(frame, panel);
 
     if (!art.embeddedName) {
-      const nameplateHeight = monument ? 0.23 : 0.16;
+      const nameplateHeight = art.nameplateHeight ?? (monument ? 0.23 : 0.16);
       const nameplate = new THREE.Mesh(
         new THREE.PlaneGeometry(width * 0.78, nameplateHeight),
         new THREE.MeshBasicMaterial({
@@ -194,7 +199,12 @@ function graveMarker(id, x, z, yaw = 0) {
         }),
       );
       nameplate.name = `grave.${id}.name`;
-      nameplate.position.set(0, monument ? 0.31 : 0.32, 0.154);
+      nameplate.position.set(
+        0,
+        art.nameplateY ?? (monument ? 0.31 : 0.32),
+        art.nameplateZ ?? 0.154,
+      );
+      nameplate.renderOrder = 2;
       nameplate.userData.memorialName = data.name;
       g.add(nameplate);
     }
@@ -356,7 +366,7 @@ export function hotDogBody() {
   // capsule. The actual HotDog rig remains the thing being carried.
   const plastic = new THREE.MeshStandardMaterial({
     color: 0xe8e2d5, roughness: 0.7, transparent: true, opacity: 0.33,
-    depthWrite: false,
+    depthWrite: false, side: THREE.DoubleSide,
   });
   const wraps = [
     { z: -0.42, width: 0.27, height: 0.16 },
@@ -364,15 +374,13 @@ export function hotDogBody() {
     { z: 0.63, width: 0.25, height: 0.13 },
   ];
   for (const { z, width, height } of wraps) {
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-width, 0.055, z),
-      new THREE.Vector3(-width * 0.5, height * 0.82, z),
-      new THREE.Vector3(0, height, z),
-      new THREE.Vector3(width * 0.5, height * 0.82, z),
-      new THREE.Vector3(width, 0.055, z),
-    ]);
-    const band = new THREE.Mesh(new THREE.TubeGeometry(curve, 20, 0.012, 6, false), plastic);
+    // A broad, flat sheet of plastic reads as wrapping. The old curved
+    // TubeGeometry left a literal hose end sticking out of Billy's side.
+    const band = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 0.075), plastic);
     band.name = 'hotdog.wrap-band';
+    band.userData.presentation = 'flat-wrap';
+    band.position.set(0, height + 0.008, z);
+    band.rotation.x = -Math.PI / 2;
     band.castShadow = false;
     body.add(band);
   }

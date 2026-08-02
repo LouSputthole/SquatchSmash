@@ -1166,6 +1166,11 @@ class ApartmentStory {
     return CHAPTER_NEWS[this.campaign.state.story.chapter] ?? null;
   }
 
+  /** Exact call definition that can ring next, for startup voice prewarming. */
+  pendingCall() {
+    return this.#pendingCall();
+  }
+
   /**
    * The fourth morning's cutscene: whether it is owed, and marking it spent.
    *

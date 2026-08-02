@@ -29,21 +29,19 @@ const seg = (line, cue = null) => ({ line, cue });
  * radio on at all, you cannot really miss it, which is the point: the game
  * never gates on you having found something.
  *
- * Segments tagged `notice: true` mark you as knowing about the meeting.
+ * This is one durable bulletin rather than eight variants of the same
+ * objective. Once it airs, campaign radio history keeps it from resurfacing
+ * in another room or on a later day.
  */
+export const MEETING_NOTICE_ID = 'notice.meeting.day_one';
 export const MEETING_NOTICE = [
-  { line: 'ANNOUNCER: Community notice, and we read this one properly.', cue: 'radio.jingle', notice: true },
-  { line: 'ANNOUNCER: The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.', notice: true },
-  { line: 'ANNOUNCER: Same room as always. Doors at half six. Do not turn up at half seven.', notice: true },
-  { line: 'ANNOUNCER: Somebody always turns up at half seven.', notice: true },
-  { line: 'ANNOUNCER: Come showered. Come dressed. Come having eaten something.', notice: true },
-  { line: 'ANNOUNCER: That is not us being rude, that is a direct request from the room.', notice: true },
-  { line: 'ANNOUNCER: If you are new: it is not that kind of meeting. Bring nothing. Turn up.', notice: true },
-  { line: 'ANNOUNCER: Wednesday. Seven. 97.8 The Squatch, reminding you where to be.', notice: true },
+  {
+    line: 'ANNOUNCER: The Squatch Meeting is Wednesday. Tomorrow. Seven in the evening.',
+    cue: 'radio.jingle',
+    notice: true,
+    bulletinId: MEETING_NOTICE_ID,
+  },
 ];
-
-/** How many ordinary segments air between readings of the notice. */
-export const NOTICE_EVERY = 11;
 
 /* ------------------------------------------------------------------ */
 /* 97.8 THE SQUATCH                                                    */
@@ -152,10 +150,6 @@ const SQUATCH_SHOWS = [
       [
         "LOU: Weather: it is doing something out there. Look out of a window.",
         "LOU: Traffic report. There is traffic. It is on the roads.",
-      ],
-      [
-        "LOU: Somebody has a meeting tomorrow night and has told everyone about it twice.",
-        "LOU: That is not a bit. Somebody genuinely rang in about that.",
       ],
       [
         "LOU: Quick reminder that this show is four hours long and nobody made us do that.",
@@ -439,15 +433,6 @@ const SQUATCH_SHOWS = [
         "APE: \"Dear Squatch, is it normal to have four.\" That is a different letter.",
       ],
       [
-        "APE: Somebody has written in about tomorrow night. Big meeting. Big turnout expected.",
-      ],
-      [
-        "APE: You know the one. Wednesday. Seven o\u2019clock. Do not be the one who forgets.",
-      ],
-      [
-        "APE: I say that every week and every week somebody forgets.",
-      ],
-      [
         "APE: The building is empty. The lights are on a timer and the timer has opinions.",
       ],
       [
@@ -547,9 +532,6 @@ const SQUATCH_SHOWS = [
       [
         "HOG MAMA: Last one. Give me a location. \u2026The apartment. Fine. The apartment.",
       ],
-      [
-        "HOG MAMA: There is a man in the apartment and he has somewhere to be tomorrow.",
-      ],
     ],
   },
 ];
@@ -611,10 +593,6 @@ export const STATIONS = [
     shows: SQUATCH_SHOWS,
     overnight: OVERNIGHT,
     commercial: COMMERCIAL,
-    /** Exchanges between airings of the commercial. */
-    commercialEvery: 6,
-    /** Exchanges between records. Every other block is music. */
-    songEvery: 2,
     /** This station reads the community notice. */
     notices: true,
     /**
@@ -624,8 +602,6 @@ export const STATIONS = [
      * while first means you find it rather than are handed it.
      */
     noticeAfter: 5,
-    /** Exchanges between repeats of the notice, once it has started. */
-    noticeEvery: 9,
     /** Lines the DJ drops over the top and tail of a record. */
     lines: [
       'That was one of ours. All of them are ours.',
@@ -637,7 +613,6 @@ export const STATIONS = [
       'Somebody mixed this in a basement on monitors that cost forty dollars.',
       'That was written in one night. You can tell. We are not hiding it.',
       'No royalties have ever been paid. No royalties have ever been owed.',
-      'This one was recorded the night before somebody had somewhere to be.',
       'Turn it up. Nobody in this building is going to stop you.',
       '97.8 The Squatch. The roster, on the roster.',
     ],

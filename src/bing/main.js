@@ -17,6 +17,7 @@ import { Player } from '../core/player.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { Phone } from '../core/phone.js';
+import { Radio } from '../core/radio.js';
 import { phoneThreadsForCampaign } from '../core/phone-content.js';
 import { createApartmentStory } from '../core/apartment-story.js';
 import { PostFX } from '../core/postfx.js';
@@ -29,6 +30,7 @@ import {
   SCENE_IDS,
   TIME_EVENT_IDS,
   createCampaign,
+  createCampaignRadioAdapter,
   navigateCampaign,
 } from '../core/campaign.js';
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
@@ -67,26 +69,38 @@ const DRINK_TIME = 2.4;
 /* How much of the synthesised club bed survives under the real record. */
 const BED_UNDER_RECORD = 0.16;
 
-/* The DJ alternates these by visit. They are genuine positional records on
- * the club floor, not apartment-radio tracks pasted over the room. Keeping
- * the last index in local storage makes a refresh change the set instead of
- * randomly handing a player the same song all night. */
+/* Sallie J owns the player's first walk into the club. Legacy later visits
+ * rotate through the other floor records using preview-safe storage. The
+ * horn-break record is reserved for the player's request, so asking the DJ
+ * always produces an audible change instead of only ticking an objective. */
 const CLUB_DJ_RECORDS = Object.freeze([
-  { file: 'squatches-in-the-house.mp3', title: 'Squatches in the House' },
   { file: 'sallie-j.mp3', title: 'Sallie J' },
+  { file: 'squatch-up.mp3', title: 'Squatch Up' },
+  { file: 'booskibro.mp3', title: 'BooskiBro' },
+  { file: 'squatches-in-the-house.mp3', title: 'Squatches in the House', requested: true },
 ]);
+const CLUB_DJ_OPENING_RECORDS = Object.freeze(
+  CLUB_DJ_RECORDS.filter((record) => !record.requested),
+);
+const CLUB_DJ_REQUEST_RECORD = CLUB_DJ_RECORDS.find((record) => record.requested);
 const CLUB_DJ_INDEX_KEY = 'squatch.bing.dj.record';
 
-function nextClubDjRecord() {
+function clubDjRecordForVisit(secondVisit) {
+  if (!secondVisit) return CLUB_DJ_RECORDS[0];
   try {
     // Scene previews must never rotate the canonical campaign's next record.
     const storage = getPreviewRuntime()?.storage ?? globalThis.localStorage;
     const saved = Number.parseInt(storage.getItem(CLUB_DJ_INDEX_KEY), 10);
-    const index = Number.isInteger(saved) && saved >= 0 ? saved % CLUB_DJ_RECORDS.length : 0;
-    storage.setItem(CLUB_DJ_INDEX_KEY, String((index + 1) % CLUB_DJ_RECORDS.length));
-    return CLUB_DJ_RECORDS[index];
+    const index = Number.isInteger(saved) && saved >= 0
+      ? saved % CLUB_DJ_OPENING_RECORDS.length
+      : 0;
+    storage.setItem(
+      CLUB_DJ_INDEX_KEY,
+      String((index + 1) % CLUB_DJ_OPENING_RECORDS.length),
+    );
+    return CLUB_DJ_OPENING_RECORDS[index];
   } catch {
-    return CLUB_DJ_RECORDS[0];
+    return CLUB_DJ_OPENING_RECORDS[0];
   }
 }
 
@@ -265,6 +279,7 @@ const game = {
   beat: null,          // the one scripted camera beat (Booski's shot delivery)
   lastHand: null,      // last blackjack outcome, for the table's voice
   clubRecord: null,    // the actual record selected for this visit's DJ set
+  radioOn: false,
   phoneRadioScale: 1, // connected calls leave 34% of radios/music underneath
   voLog: [],           // recent exact-cue voice attempts, for the verifier
   /* The objective card reads the mission, the Family and half a dozen other
@@ -647,6 +662,23 @@ const car = makePlayerCar(scene, {
 });
 club.colliders.push(car.worldCollider);
 const lot = populateLot(scene, club.colliders, club.anchors);
+const carRadioClock = {
+  get hour() { return campaign.state.story.timeMinutes / 60; },
+};
+const carRadio = new Radio(audio, hud, carRadioClock, {
+  // All physical 97.8 receivers use the same venue filter so a shared track
+  // cursor always indexes the same playlist. The club DJ remains separate.
+  venue: 'apartment',
+  state: createCampaignRadioAdapter(campaign, {
+    receiverId: 'bing_car',
+    defaultPower: true,
+  }),
+  canPlayNotice: () => campaign.state.story.chapter === 'day_one',
+});
+const carRadioPosition = new THREE.Vector3();
+car.radioFace.getWorldPosition(carRadioPosition);
+carRadio.setPosition(carRadioPosition);
+const carRadioReady = carRadio.loadManifest();
 
 /* Put him behind the wheel before the first frame. Booting at the origin and
  * tweening out to the car meant the zone system spent a second convinced he
@@ -850,6 +882,25 @@ function poseDrink(which, k) {
 }
 poseDrink(null, 0);
 
+function switchClubRecord(record, { requested = false } = {}) {
+  if (!record || game.clubRecord === record.file) {
+    if (requested && record) hud.toast(`${record.title} is already on`, 'good');
+    return false;
+  }
+  game.clubRecord = record.file;
+  audio.replaceMusicLoop('music.club', `assets/music/${record.file}`, {
+    volume: 0.04,
+    ambience: true,
+    position: club.anchors.dj,
+    ref: 3.5,
+    maxDist: 34,
+    fade: 0.8,
+    crossfade: 0.65,
+  });
+  if (requested) hud.toast(`Request playing · ${record.title}`, 'good');
+  return true;
+}
+
 /* ------------------------------------------------------------------ */
 /* Script                                                              */
 /* ------------------------------------------------------------------ */
@@ -867,7 +918,7 @@ const scriptContext = {
   request: (what) => {
     game.songRequested = what;
     audio.play('radio.tune', { volume: 0.35, position: club.anchors.dj });
-    hud.toast('Request in', 'good');
+    switchClubRecord(CLUB_DJ_REQUEST_RECORD, { requested: true });
   },
   sitAtTable: () => sitAtTable(),
   showParcel: () => {
@@ -1196,9 +1247,9 @@ const phone = new Phone({
 });
 
 /**
- * The club has three program sources rather than the apartment's Radio class:
- * the DJ record and its synth bed, Lou's office radio, and Tony's car radio.
- * They follow the same 66% phone duck and leave rain/crowd alone, so a caller
+ * The club has three program sources: the DJ record and its synth bed, Lou's
+ * office radio, and Tony's campaign-backed car receiver. They follow the same
+ * 66% phone duck and leave rain/crowd alone, so a caller
  * is intelligible without making the whole building unnaturally silent.
  */
 function setPhoneAudioDucked(connected) {
@@ -1207,7 +1258,7 @@ function setPhoneAudioDucked(connected) {
   audio.setLoopVolume('ambience.club', music * BED_UNDER_RECORD * game.phoneRadioScale, 0.24);
   audio.setLoopVolume('music.club', music * 0.9 * game.phoneRadioScale, 0.24);
   audio.setLoopVolume('office.radio', 0.22 * game.phoneRadioScale, 0.24);
-  audio.setLoopVolume('car.radio', 0.3 * game.phoneRadioScale, 0.24);
+  carRadio.setPhoneDucked(connected);
 }
 let phoneContentRevision = campaign.state.revision;
 function syncPhoneThreads() {
@@ -1994,11 +2045,11 @@ function leaveByFrontDoor() {
   });
 
   reg(car.radioFace, {
-    label: () => (game.radioOn === false ? 'Radio <b>on</b>' : 'Radio <b>off</b>'),
+    label: () => (carRadio.on ? 'Radio <b>off</b>' : 'Radio <b>on</b>'),
     enabled: () => game.seatedIn === 'car',
     onUse: () => {
-      game.radioOn = game.radioOn === false;
-      audio.setLoopVolume('car.radio', game.radioOn ? 0.3 : 0, 0.4);
+      carRadio.toggle();
+      game.radioOn = carRadio.on;
       hud.toast(game.radioOn ? 'The Squatch, 97.8' : 'Off. Better.', '');
     },
   });
@@ -2148,6 +2199,11 @@ function getInCar() {
     pitchMin: -0.8,
     pitchMax: 0.5,
   });
+  audio.startLoop('car.engine.idle', { volume: 0.22, ambience: false });
+  if (game.radioOn) {
+    if (carRadio.on) carRadio.resume();
+    else carRadio.turnOn({ remember: false });
+  }
   if (mission.state === 'lot-return' || mission.readyToLeave) {
     hud.say(isSecondVisit
       ? 'Room twelve, product first. <em>Hold [E] on the wheel to drive to the motel.</em>'
@@ -2161,7 +2217,7 @@ function getOutOfCar() {
   if (!target) return;
   game.seatedIn = null;
   audio.play('car.door', { volume: 0.6 });
-  audio.stopLoop('car.radio', 0.6);
+  carRadio.pause();
   audio.stopLoop('car.engine.idle', 0.8);
   hud.setMode('walk');
   hud.setPosture(null);
@@ -2490,6 +2546,7 @@ function showEnding(kind) {
     });
   }
   game.paused = true;
+  carRadio.pause();
   player.enabled = false;
   blackout.classList.remove('on');
   overlay.classList.remove('hidden');
@@ -2714,6 +2771,7 @@ window.addEventListener('keydown', (e) => {
      * how that one turns out, and the croupier calling it first would step on it. */
     if (e.code === 'KeyR') blackjack.double();
   }
+  if (e.code === 'KeyR' && game.seatedIn === 'car' && carRadio.on) carRadio.next();
   if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') {
     const n = Number(e.code.slice(-1)) - 1;
     if (dialogue.active && dialogue.options.length) {
@@ -2747,6 +2805,10 @@ window.addEventListener('wheel', (e) => {
   paintPhone();
 }, { passive: false });
 window.addEventListener('blur', () => { keys.clear(); player.clearKeys(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) carRadio.pause();
+  else if (!game.paused && game.seatedIn === 'car' && game.radioOn) carRadio.resume();
+});
 
 canvas.addEventListener('click', () => {
   if (!game.started || game.paused) return;
@@ -2775,7 +2837,11 @@ startBtn.addEventListener('click', async () => {
     game.storyStarted = true;
   }
   await audio.init();
-  const sfx = await audio.loadManifest();
+  await carRadioReady;
+  const radioCueNames = carRadio.preloadCueNames({
+    hours: [campaign.state.story.timeMinutes / 60],
+  });
+  const sfx = await audio.loadManifest({ names: radioCueNames });
   console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
 
   overlay.classList.add('hidden');
@@ -2789,7 +2855,7 @@ startBtn.addEventListener('click', async () => {
     audio.startLoop('ambience.club', { volume: 0.04 * BED_UNDER_RECORD, ambience: true, fade: 2 });
     audio.startLoop('ambience.crowd', { volume: 0.02, ambience: true, fade: 2 });
     // The record actually playing on the floor tonight, from the DJ booth.
-    const clubRecord = nextClubDjRecord();
+    const clubRecord = clubDjRecordForVisit(isSecondVisit);
     game.clubRecord = clubRecord.file;
     audio.startMusicLoop('music.club', `assets/music/${clubRecord.file}`, {
       volume: 0.04, ambience: true, position: club.anchors.dj, ref: 3.5, maxDist: 34, fade: 2,
@@ -2800,8 +2866,7 @@ startBtn.addEventListener('click', async () => {
       volume: 0.22, ambience: true, position: club.anchors.officeRadio, ref: 0.8, maxDist: 9,
     });
     audio.startLoop('car.engine.idle', { volume: 0.22, ambience: false });
-    audio.startLoop('car.radio', { name: 'radio.talk', volume: 0.3 });
-    game.radioOn = true;
+    game.radioOn = carRadio.preferredOn;
     getInCar();
     addMoney(0);
     hud.setInventory(inventory, ITEMS);
@@ -2814,6 +2879,7 @@ startBtn.addEventListener('click', async () => {
     setTimeout(() => hud.say('<em>[Q]</em> to get out of the car.', 4200), 6400);
   }
   game.paused = false;
+  carRadio.resume();
 });
 
 /* ------------------------------------------------------------------ */
@@ -3059,6 +3125,9 @@ function frame() {
   if (game.beat) game.beat(raw);
   interaction.update(dt);
   club.update(dt, player.position);
+  car.radioFace.getWorldPosition(carRadioPosition);
+  carRadio.setPosition(carRadioPosition);
+  carRadio.update(raw);
   slots.update(dt);
   blackjack.update(dt);
   dialogue.update(dt, player.position);
@@ -3103,14 +3172,15 @@ if (isSecondVisit) {
 loading.classList.add('hidden');
 window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
-  interaction, drunk, highs, inventory, campaign, car, lot, associate, scripts,
+  interaction, drunk, highs, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
   family, familyScripts, faceIndex,
   isSecondVisit, secondVisitStory,
   phone, phoneStory, spokeTo, stageTalk, voiceCue,
-  updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck,
+  updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck, getInCar, getOutOfCar,
   paintKit, showKit, showPhone, repaintObjectives, optionalObjectives,
   startFocus, focusTick, moneyBurst, noteSpokeTo,
   giveShot, startBooskiShotDrink, shotDrinkTick,
+  switchClubRecord,
   teleport(x, z, yaw = 0) {
     player.mode = 'walk';
     player.position.set(x, 1.66, z);

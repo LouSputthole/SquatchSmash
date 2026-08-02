@@ -55,23 +55,32 @@ const PHONE_CALL_RADIO_SCALE = 0.34;
 
 export class Radio {
   /**
-   * @param {{ venue?: string }} options
+   * @param {{ venue?: string, state?: object, canPlayNotice?: Function }} options
    * `venue` is deliberately separate from the station: a record can belong
    * to the radio rotation without leaking into a different in-world music
    * system such as the Bada Bing DJ.
    */
-  constructor(audio, hud, time, { venue = 'apartment' } = {}) {
+  constructor(audio, hud, time, {
+    venue = 'apartment',
+    state = null,
+    canPlayNotice = () => true,
+  } = {}) {
     this.audio = audio;
     this.hud = hud;
     this.time = time;
     this.venue = venue;
+    this.state = state;
+    this.canPlayNotice = typeof canPlayNotice === 'function' ? canPlayNotice : () => true;
+    const saved = this.state?.load?.() ?? {};
     this.tracks = [];
     /** Each station keeps its own place in its own playlist. */
-    this.index = new Map();
+    this.index = new Map([['squatch', Number.isSafeInteger(saved.cursor) ? saved.cursor : 0]]);
     this.on = false;
+    this.preferredOn = typeof saved.power === 'boolean' ? saved.power : true;
     // A small receiver across the room, not a nightclub PA. The physical
     // knob lets the player change this without changing the whole game mix.
-    this.volume = DEFAULT_VOLUME;
+    this.volume = Number.isFinite(saved.volume)
+      ? THREE.MathUtils.clamp(saved.volume, 0, 1) : DEFAULT_VOLUME;
     this._phoneDucked = false;
     this._talkBase = 0.055;
     this._focusMuffled = false;
@@ -90,13 +99,25 @@ export class Radio {
     this._dwell = SEGMENT_TIME;
     this._voice = null;
     /** Position in the running order. */
-    this._cycle = 0;
+    this._cycle = Number.isSafeInteger(saved.cycle) ? saved.cycle : 0;
+    this._selections = new Map(Object.entries(saved.selections ?? {}));
+    this._songReactionCursor = Number.isSafeInteger(saved.songReactionCursor)
+      ? saved.songReactionCursor : 0;
+    this._adReactionCursor = Number.isSafeInteger(saved.adReactionCursor)
+      ? saved.adReactionCursor : 0;
     /** Blocks aired since tuning in, so the notice can hold off at first. */
     this._blocks = 0;
     /** Seconds into the record on air, or -1 when none is. */
     this._songT = -1;
+    this._track = null;
     this._show = null;
     this._broadcastT = 0;
+    this._activeBroadcast = null;
+    this._activeSegment = null;
+    this._phase = 'gap';
+    this._gapDuration = 0;
+    this._paused = false;
+    this._lastPersisted = JSON.stringify(this._snapshot());
   }
 
   get station() { return this.stations[this.stationIndex]; }
@@ -119,10 +140,87 @@ export class Radio {
   get cursor() { return this.index.get(this.station.id) || 0; }
   set cursor(v) { this.index.set(this.station.id, v); }
 
+  _snapshot() {
+    return {
+      volume: this.volume,
+      cursor: this.cursor,
+      cycle: this._cycle,
+      selections: Object.fromEntries(this._selections ?? []),
+      songReactionCursor: this._songReactionCursor ?? 0,
+      adReactionCursor: this._adReactionCursor ?? 0,
+      power: this.preferredOn,
+    };
+  }
+
+  _persist() {
+    if (!this.state?.save) return;
+    const snapshot = this._snapshot();
+    const serialized = JSON.stringify(snapshot);
+    if (serialized === this._lastPersisted) return;
+    this.state.save(snapshot);
+    this._lastPersisted = serialized;
+  }
+
+  hasHeardBulletin(id) {
+    return this.state?.hasHeardBulletin?.(id) === true;
+  }
+
+  markBulletinHeard(id) {
+    return this.state?.markBulletinHeard?.(id) ?? false;
+  }
+
   async loadManifest() {
     const data = await loadJson(MUSIC_DIR, 'manifest.json');
     this.tracks = data?.tracks || [];
     return this.tracks.length;
+  }
+
+  /**
+   * Exact recorded cues required by the station over a bounded time window.
+   * Scene loaders can decode this set instead of blocking on the entire
+   * 17-MiB radio archive. It is read-only and never advances the rotation.
+   */
+  preloadCueNames({ hours = null } = {}) {
+    const requestedHours = Array.isArray(hours) && hours.length
+      ? hours : [this.time?.hour ?? 9];
+    const cues = new Set([
+      'radio.click', 'radio.tune', 'radio.static', 'radio.talk',
+      'radio.jingle', 'radio.cut',
+    ]);
+    for (let i = 1; i <= 6; i++) cues.add(`vo.radio.song.${i}`);
+    for (let i = 1; i <= 4; i++) cues.add(`vo.radio.ad.${i}`);
+    const addLine = (line) => {
+      const voice = voiceOf(line);
+      if (voice?.cue) cues.add(voice.cue);
+    };
+
+    for (const station of this.stations) {
+      if (station.ident) cues.add(station.ident);
+      const shows = new Set(requestedHours.map((hour) => showAt(station, hour)).filter(Boolean));
+      for (const show of shows) {
+        addLine(showIntroLine(show));
+        for (const exchange of show.exchanges ?? []) {
+          for (const line of exchange) addLine(line);
+        }
+      }
+      for (const segment of station.commercial ?? []) {
+        if (segment.cue) cues.add(segment.cue);
+        addLine(segment.line);
+      }
+      for (const line of station.lines ?? []) addLine(line);
+      for (const tape of station.tapes ?? []) {
+        if (tape.cue) cues.add(tape.cue);
+        addLine(tape.intro);
+        addLine(tape.outro);
+      }
+      if (station.notices && this.canPlayNotice()) {
+        for (const segment of MEETING_NOTICE) {
+          if (segment.cue) cues.add(segment.cue);
+          addLine(segment.line);
+        }
+      }
+    }
+    return [...cues];
   }
 
   setPosition(v) {
@@ -136,6 +234,7 @@ export class Radio {
     if (this.on && !this.songPlaying && this._broadcastT <= 0) {
       this._setTalkVolume(this._talkBase, 0.08);
     }
+    this._persist();
     return this.volume;
   }
 
@@ -163,7 +262,7 @@ export class Radio {
     this._phoneDucked = next;
     if (this.gain && this.songPlaying) this._fadeTo(this._level(0.85), 0.24);
     if (this._voice) this.audio.setPlaybackVolume?.(this._voice, this._level(1), 0.24);
-    if (this.on) this._setTalkVolume(this._talkBase, 0.24);
+    if (this.on && !this._paused) this._setTalkVolume(this._talkBase, 0.24);
     return this.mixScale;
   }
 
@@ -179,7 +278,7 @@ export class Radio {
     this.el.addEventListener('ended', () => this.next(true));
     this.el.addEventListener('error', () => {
       if (this.on && this.playlist.length) {
-        this.hud.toast(`Could not play ${this._current()?.title || 'track'}`, 'bad');
+        this.hud.toast(`Could not play ${this._track?.title || 'track'}`, 'bad');
         this.next(true);
       }
     });
@@ -237,17 +336,28 @@ export class Radio {
     this.on ? this.turnOff() : this.turnOn();
   }
 
-  turnOn({ tuneIn = true } = {}) {
+  turnOn({ tuneIn = true, remember = true } = {}) {
     this.audio.play('radio.click', { position: this.position, volume: 0.8 });
     this._ensureGraph();
     this.on = true;
+    this._paused = false;
+    if (remember) {
+      this.preferredOn = true;
+      this._persist();
+    }
     if (tuneIn) this._tuneIn(true);
   }
 
-  turnOff() {
+  turnOff({ remember = true } = {}) {
     this.audio.play('radio.click', { position: this.position, volume: 0.8 });
     this.on = false;
+    this._paused = false;
+    if (remember) {
+      this.preferredOn = false;
+      this._persist();
+    }
     this._broadcastT = 0;
+    this._activeBroadcast = null;
     this._stopBeds();
     if (this.el) {
       this._fadeTo(0, 0.25);
@@ -258,11 +368,45 @@ export class Radio {
     this.hud.setRadio(null);
   }
 
+  /** Freeze this physical receiver without changing its saved power switch. */
+  pause() {
+    if (!this.on || this._paused) return;
+    this._paused = true;
+    this.audio.stopLoop('radio.static', 0.08);
+    this.audio.stopLoop('radio.talk', 0.08);
+    try { this._voice?.stop(); } catch { /* already finished */ }
+    this._voice = null;
+    if (this.el && this.songPlaying) this.el.pause();
+    this.hud.setRadio(null);
+  }
+
+  /** Resume the same block after pause rather than advancing it off-screen. */
+  resume() {
+    if (!this.on || !this._paused) return;
+    this._paused = false;
+    this.audio.startLoop('radio.talk', {
+      volume: this._level(this.songPlaying ? 0.006 : this._talkBase),
+      position: this.position, ref: 2.6, maxDist: 20,
+    });
+    if (this.songPlaying && this.el) {
+      const playing = this.el.play();
+      if (playing?.catch) playing.catch(() => {});
+      this._fadeTo(this._level(0.85), 0.2);
+    } else if (this._activeBroadcast) {
+      this._playBroadcast(this._activeBroadcast);
+    } else if (this._activeSegment && this._phase === 'air') {
+      this._segT = 0;
+      this._playSegmentAudio(this._activeSegment);
+    }
+    this._showOsd();
+  }
+
   /** Silence the running order while an imminent bulletin powers up. */
   prepareBroadcast() {
     if (!this.on) this.turnOn({ tuneIn: false });
     else this._stopBeds();
     this._songT = -1;
+    this._track = null;
     this._line = null;
     // The frame loop must not pump a replacement host during the short delay.
     // broadcast() replaces this sentinel with the bulletin's real hold time.
@@ -296,9 +440,13 @@ export class Radio {
     this._queue = [];
     this._line = null;
     this._segT = 0;
-    this._cycle = 0;
     this._songT = -1;
+    this._track = null;
     this._blocks = 0;
+    this._activeBroadcast = null;
+    this._activeSegment = null;
+    this._phase = 'gap';
+    this._gapDuration = 0;
 
     if (this.el) this.el.pause();
     // A murmuring voice bed under the words, so the room is not silent.
@@ -329,7 +477,13 @@ export class Radio {
       return;
     }
     this._queue.length = 0;
-    this._segT = this._dwell;      // next block on the following frame
+    try { this._voice?.stop(); } catch { /* already finished */ }
+    this._voice = null;
+    this._activeSegment = null;
+    this._line = null;
+    this._phase = 'gap';
+    this._gapDuration = 0;
+    this._segT = 0;                // next block on the following frame
   }
 
   /* ---------------------------------------------------------------- */
@@ -381,39 +535,64 @@ export class Radio {
       if (slot === 'song') {
         if (noMusic) continue;               // no records: straight to more talk
         this._queue.push({ song: true });
+        this._persist();
         return;
       }
       if (slot === 'link') {
         // The station saying its own name, between a record and a show.
-        this._queue.push({ line: pick(st.lines), cue: null });
+        this._queue.push({ line: this._pick(`${st.id}:links`, st.lines), cue: null });
+        this._persist();
         return;
       }
       if (slot === 'tape') {
         // Announcer in, the recording whole, announcer out.
-        const tape = pick(st.tapes);
+        const tape = this._pick(`${st.id}:tapes`, st.tapes);
         if (!tape) continue;
         this._queue.push(
           { line: tape.intro, cue: 'radio.jingle' },
           { line: tape.title, clip: tape.cue },
           { line: tape.outro, cue: null },
         );
+        this._persist();
         return;
       }
       if (slot === 'ad') {
-        this._queue.push(...st.commercial);
-        this.audio.say?.('radio.ad', { chance: 0.4, delay: 6 });
+        this._queue.push(...st.commercial, { reaction: 'ad' });
+        this._persist();
         return;
       }
       if (slot === 'notice') {
         // Still holds off at the very start of a listen.
-        if (!st.notices || this._blocks < (st.noticeAfter ?? 5)) continue;
-        this._queue.push(...MEETING_NOTICE);
+        if (!st.notices
+          || !this._noticeEligible()
+          || this._blocks < (st.noticeAfter ?? 5)) continue;
+        this._queue.push(...MEETING_NOTICE.filter((segment) => !segment.bulletinId
+          || !this.hasHeardBulletin(segment.bulletinId)));
+        this._persist();
         return;
       }
       // talk: a whole exchange, which is the point of the whole rewrite.
-      for (const line of pick(show.exchanges)) this._queue.push({ line, cue: null });
+      for (const line of this._pick(`${st.id}:show:${show.name}`, show.exchanges)) {
+        this._queue.push({ line, cue: null });
+      }
+      this._persist();
       return;
     }
+  }
+
+  /** Deterministic coverage: every authored item airs before any repeats. */
+  _pick(key, list) {
+    if (!list?.length) return '';
+    const cursor = Number.isSafeInteger(this._selections.get(key))
+      ? this._selections.get(key) : 0;
+    this._selections.set(key, cursor + 1);
+    return list[cursor % list.length];
+  }
+
+  _noticeEligible() {
+    return this.canPlayNotice()
+      && MEETING_NOTICE.some((segment) => !segment.bulletinId
+        || !this.hasHeardBulletin(segment.bulletinId));
   }
 
   /** Move the next segment on air. */
@@ -423,10 +602,43 @@ export class Radio {
     if (!s) return;
     this._blocks++;
     if (s.song) { this._startSong(); return; }
+    if (s.reaction) {
+      const isSong = s.reaction === 'song';
+      const count = isSong ? 6 : 4;
+      const cursorKey = isSong ? '_songReactionCursor' : '_adReactionCursor';
+      const cue = `vo.radio.${s.reaction}.${(this[cursorKey] % count) + 1}`;
+      this[cursorKey]++;
+      this._activeSegment = { ...s, reactionCue: cue };
+      this._line = null;
+      this._segT = 0;
+      this._phase = 'air';
+      this._playSegmentAudio(this._activeSegment);
+      this._persist();
+      this._showOsd();
+      return;
+    }
+    this._activeSegment = s;
     this._line = s.line;
     this._segT = 0;
+    this._phase = 'air';
     // Hearing it counts as knowing it.
-    if (s.notice) this.onNotice?.();
+    if (s.notice) {
+      if (s.bulletinId) this.markBulletinHeard(s.bulletinId);
+      this.onNotice?.();
+    }
+    this._playSegmentAudio(s);
+
+    this._showOsd();
+  }
+
+  _playSegmentAudio(s) {
+    if (s.reactionCue) {
+      this._voice = this.audio.play(s.reactionCue, {
+        position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
+      });
+      this._dwell = this._voice?.buffer?.duration ?? 2.2;
+      return;
+    }
     if (s.cue) this.audio.play(s.cue, { position: this.position, volume: this._level(0.5) });
 
     // The hosts are recorded now, so hold a line on air for exactly as long as
@@ -448,9 +660,8 @@ export class Radio {
       position: this.position, volume: this._level(1), ref: 3.4, maxDist: 26,
     }) : null;
     this._dwell = this._voice?.buffer
-      ? this._voice.buffer.duration + SEGMENT_GAP
+      ? this._voice.buffer.duration
       : (s.line && s.line.length > 90 ? SEGMENT_TIME + 2.5 : SEGMENT_TIME);
-    this._showOsd();
   }
 
   _showOsd() {
@@ -469,7 +680,12 @@ export class Radio {
     if (!this.on) this.turnOn({ tuneIn: false });
     this._ensureGraph();
     this._stopBeds();
-    try { this._voice?.stop(); } catch { /* already finished */ }
+    this._activeBroadcast = { cue, line };
+    this._playBroadcast(this._activeBroadcast);
+    return this._broadcastT;
+  }
+
+  _playBroadcast({ cue, line }) {
     this._line = line;
     this._showOsd();
     this._voice = cue ? this.audio.play(cue, {
@@ -478,7 +694,6 @@ export class Radio {
     this._broadcastT = this._voice?.buffer
       ? this._voice.buffer.duration + SEGMENT_GAP
       : SEGMENT_TIME;
-    return this._broadcastT;
   }
 
   /* ---------------------------------------------------------------- */
@@ -492,9 +707,11 @@ export class Radio {
   _startSong() {
     const list = this.playlist;
     if (!list.length) { this._songT = -1; this._pump(); return; }
-    this.cursor = (this.cursor + 1) % list.length;
     const track = this._current();
     if (!track) { this._songT = -1; this._pump(); return; }
+    this.cursor = (this.cursor + 1) % list.length;
+    this._track = track;
+    this._persist();
 
     this._ensureGraph();
     if (!this.el) { this._songT = -1; this._pump(); return; }
@@ -516,9 +733,9 @@ export class Radio {
      * does the cutting, but rAF throttles to about 1fps in a background tab
      * while the audio keeps rolling -- so the element's own clock gets a say
      * too. Whichever notices first wins; _cutSong is idempotent. */
-    if (track.cutAt) {
+    if (track.cutAt && this._noticeEligible()) {
       const watch = () => {
-        if (this._songT < 0 || this._current() !== track) {
+        if (this._songT < 0 || this._track !== track) {
           this.el.removeEventListener('timeupdate', watch);
           return;
         }
@@ -550,7 +767,9 @@ export class Radio {
    */
   _cutSong() {
     if (this._songT < 0) return;   // the frame loop and the media clock can both land on this tick
+    if (!this._noticeEligible()) return;
     this._songT = -1;
+    this._track = null;
     if (this.el) {
       try { this.el.pause(); } catch { /* already stopped */ }
       this._fadeTo(0, 0);
@@ -559,7 +778,8 @@ export class Radio {
     this._setTalkVolume(0.04, 0.8);
 
     // Jump the queue: whatever the station was going to say next waits.
-    this._queue.unshift(...MEETING_NOTICE);
+    this._queue.unshift(...MEETING_NOTICE.filter((segment) => !segment.bulletinId
+      || !this.hasHeardBulletin(segment.bulletinId)));
     this._line = null;
     this._segT = 0;
     this._dwell = 0;
@@ -569,23 +789,27 @@ export class Radio {
   _endSong(fade = SONG_FADE_OUT) {
     if (this._songT < 0) return;
     this._songT = -1;
+    this._track = null;
     this._fadeTo(0, fade);
     const el = this.el;
     setTimeout(() => { if (!this.songPlaying && el) el.pause(); }, fade * 1000 + 120);
     this._setTalkVolume(0.04, 1.2);
     this._line = null;
     this._segT = 0;
+    this._activeSegment = null;
     /* The gap is measured from the moment the record is actually GONE, not
      * from the moment the fade starts -- otherwise a host opens his mouth
      * two seconds into a still-audible outro, which is exactly the thing
      * the running order exists to prevent. */
-    this._dwell = SEGMENT_GAP + fade;
+    this._phase = 'gap';
+    this._gapDuration = SEGMENT_GAP + fade;
+    this._queue.unshift({ reaction: 'song' });
     this._showOsd();
   }
 
   /** Called once a frame by main.js. */
   update(dt) {
-    if (!this.on) return;
+    if (!this.on || this._paused) return;
 
     if (this._broadcastT > 0) {
       this._broadcastT -= dt;
@@ -601,24 +825,26 @@ export class Radio {
       // element's own clock rather than accumulated frame time, because "the
       // 15 second mark" has to mean the recording's 15 second mark exactly and
       // summed dt drifts.
-      const cut = this._current()?.cutAt;
+      const cut = this._noticeEligible() ? this._track?.cutAt : null;
       if (cut && this.el && this.el.currentTime >= cut) { this._cutSong(); return; }
       if (this._songT >= SONG_SECONDS - SONG_FADE_OUT) this._endSong();
       return;
     }
 
     this._segT += dt;
-    const dwell = this._dwell ?? SEGMENT_TIME;
-    if (this._segT >= dwell) {
-      // A beat of nothing between segments, so it does not read as a wall.
-      if (this._line !== null) {
+    if (this._phase === 'air') {
+      const dwell = this._dwell ?? SEGMENT_TIME;
+      if (this._segT >= dwell) {
         this._line = null;
-        this._segT = dwell - SEGMENT_GAP;
+        this._activeSegment = null;
+        this._phase = 'gap';
+        this._gapDuration = SEGMENT_GAP;
+        this._segT = 0;
         this._showOsd();
-        return;
       }
-      this._pump();
+      return;
     }
+    if (this._segT >= this._gapDuration) this._pump();
   }
 
   /* ---------------------------------------------------------------- */
@@ -643,31 +869,3 @@ export class Radio {
     this._setTalkVolume(on ? 0.018 : 0.04, 0.4);
   }
 }
-
-/**
- * A shuffle bag per list: every line airs once before any line airs twice.
- * Plain random re-picks far sooner than you would think, and on a station you
- * leave on for twenty minutes that reads as a much shorter script than it is.
- * The reshuffle avoids putting the old last line first, so the seam is quiet.
- */
-const _bags = new WeakMap();
-function pick(arr) {
-  if (!arr || !arr.length) return '';
-  if (arr.length < 2) return arr[0];
-  let bag = _bags.get(arr);
-  if (!bag || !bag.length) {
-    bag = arr.slice();
-    for (let i = bag.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
-      [bag[i], bag[j]] = [bag[j], bag[i]];
-    }
-    if (bag[bag.length - 1] === _last.get(arr) && bag.length > 1) {
-      [bag[bag.length - 1], bag[0]] = [bag[0], bag[bag.length - 1]];
-    }
-    _bags.set(arr, bag);
-  }
-  const v = bag.pop();
-  _last.set(arr, v);
-  return v;
-}
-const _last = new WeakMap();

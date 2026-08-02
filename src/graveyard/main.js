@@ -13,6 +13,8 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
 import { StreamSystem } from '../world/stream.js';
+import { graveyardAudioLoadOptions } from './audio.js';
+import { createPrimaryGraveControl } from './controls.js';
 import {
   GRAVEYARD_ARRIVAL_LINES,
   GRAVEYARD_SNOW_BARKS,
@@ -215,7 +217,7 @@ for (const [id, marker] of Object.entries(graveyard.graves)) {
       const choice = mission.tributeFor(id);
       if (choice) return `<b>${GRAVES[id].name}</b> · ${choice === 'respect' ? 'respects paid' : 'disrespected'}`;
       if (GRAVES[id].traitor) {
-        return `Tap to read <b>${GRAVES[id].name}</b> · hold to respect · <kbd>P</kbd> disrespect`;
+        return `Hold to automatically disrespect <b>${GRAVES[id].name}</b>`;
       }
       return `Tap to read <b>${GRAVES[id].name}</b> · hold to pay respects`;
     },
@@ -352,8 +354,8 @@ function currentTraitorGrave() {
   return id && GRAVES[id]?.traitor && !mission.tributeFor(id) ? id : null;
 }
 
-function startPee() {
-  const id = currentTraitorGrave();
+function startPee(id = currentTraitorGrave()) {
+  if (id !== currentTraitorGrave()) return false;
   if (!id || state.pee.active || state.pee.bladder <= 0.08) return false;
   state.pee.active = true;
   state.pee.graveId = id;
@@ -384,6 +386,14 @@ function stopPee() {
     hud.toast(`${GRAVES[id].name} · properly disrespected`, 'good');
   }
 }
+
+const primaryControl = createPrimaryGraveControl({
+  interaction,
+  currentTraitor: currentTraitorGrave,
+  startDisrespect: startPee,
+  stopDisrespect: stopPee,
+  isDisrespecting: () => state.pee.active,
+});
 
 const peeOrigin = new THREE.Vector3();
 const peeDirection = new THREE.Vector3();
@@ -430,6 +440,8 @@ const runtime = {
   get campaignState() { return campaign.state; },
   get phase() { return state.phase; },
   get displayClock() { return { day: clock.day, timeMinutes: clock.minutes }; },
+  get interactionTarget() { return interaction.current?.userData?.graveId ?? null; },
+  get disrespecting() { return state.pee.active; },
   inspect,
   respect: payRespect,
   startPee,
@@ -474,7 +486,7 @@ startButton.addEventListener('click', async () => {
   startButton.textContent = 'Loading graveyard audio...';
   clock.setTime(campaign.state.story.day, campaign.state.story.timeMinutes);
   await audio.init();
-  await audio.loadManifest();
+  await audio.loadManifest(graveyardAudioLoadOptions());
   audio.startLoop('graveyard.wind', { name: 'ambience.rain', volume: 0.065, ambience: true, fade: 1.5 });
   audio.startLoop('car.engine.idle', { volume: 0.12, ambience: true, fade: 1.2 });
   state.phase = 'active';
@@ -513,21 +525,19 @@ document.addEventListener('keydown', (event) => {
   // A completed hold resets InteractionSystem.holding before the physical key
   // comes up. Ignore OS autorepeat so it cannot begin a second hold whose
   // eventual release would also be misread as a fresh tap.
-  if (event.code === 'KeyE' && !event.repeat) interaction.press();
-  if (event.code === 'KeyP' && !event.repeat) startPee();
+  if (event.code === 'KeyE' && !event.repeat) primaryControl.press();
   if (event.code === 'KeyQ' && state.pee.active) stopPee();
   if (event.code === 'KeyB') hud.toast(postfx.toggle() ? 'Bloom on' : 'Bloom off', 'good');
 });
 document.addEventListener('keyup', (event) => {
   player.setKey(event.code, false);
-  if (event.code === 'KeyE') interaction.release();
-  if (event.code === 'KeyP') stopPee();
+  if (event.code === 'KeyE') primaryControl.release();
 });
 document.addEventListener('mousedown', (event) => {
-  if (event.button === 0 && document.pointerLockElement === canvas) interaction.press();
+  if (event.button === 0 && document.pointerLockElement === canvas) primaryControl.press();
 });
 document.addEventListener('mouseup', (event) => {
-  if (event.button === 0) interaction.release();
+  if (event.button === 0) primaryControl.release();
 });
 canvas.addEventListener('click', () => {
   if (state.phase === 'active' && document.pointerLockElement !== canvas) requestGamePointerLock();

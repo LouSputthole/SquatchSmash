@@ -628,9 +628,26 @@ function showMissionCard() {
     </table>
     <button id="return-home">RETURN TO APARTMENT</button>`;
   card.classList.remove('hidden');
-  document.getElementById('return-home').addEventListener('click', () => {
-    navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
-  });
+  document.getElementById('return-home').addEventListener('click', returnToApartment);
+}
+
+async function returnToApartment() {
+  /* THE TAKE decodes its complete voice/effects bank. Close that scene's audio
+   * graph before asking the Apartment to create and decode another one; leaving
+   * both contexts for browser GC can starve Chromium's decoder pool and strand
+   * the next scene behind its Start card. Mission state is already durable. */
+  try {
+    if (audio.ctx && audio.ctx.state !== 'closed') await audio.ctx.close();
+    /* AudioBuffer references survive a closed context until the old page is
+     * collected. Release the 44-line heist bank explicitly so the Apartment's
+     * decoder does not compete with unreachable mission PCM during navigation. */
+    audio.buffers.clear();
+    audio.playbacks.length = 0;
+    audio._voBanks?.clear?.();
+  } catch {
+    /* Navigation is still the safe fallback if a browser rejects close(). */
+  }
+  navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
 }
 
 function completeMission() {
@@ -1336,7 +1353,7 @@ async function begin() {
   const opening = story.begin();
   if (!opening.ok) {
     if (opening.reason === 'already_complete') {
-      navigateCampaign(campaign, SCENE_IDS.APARTMENT, { spawn: 'front_door' });
+      await returnToApartment();
       return;
     }
     started = false;

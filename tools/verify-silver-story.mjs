@@ -326,7 +326,7 @@ try {
     JSON.stringify(home.door));
 
   /* ---- 7. sleep turns the page onto Day 4 ---- */
-  const bigNight = await page.evaluate(() => {
+  const heistMorning = await page.evaluate(() => {
     const game = window.__squatch;
     game.lieOnBed();
     game.sleepInBed();
@@ -334,22 +334,22 @@ try {
     return {
       story: state.story,
       silver: state.missions.silver_room.status,
-      call: state.events.booski_big_night_call.status,
+      call: state.events.lou_heist_call.status,
     };
   });
-  check('sleeping off the date opens the big night on Day 4 at ten',
-    bigNight.story.chapter === 'big_night'
-      && bigNight.story.day === 4
-      && bigNight.story.timeMinutes === 10 * 60,
-    JSON.stringify(bigNight.story));
-  check('the date survives the page turn and Booskibro has not rung yet',
-    bigNight.silver === 'complete' && bigNight.call === 'pending',
-    JSON.stringify(bigNight));
+  check('sleeping off the date opens THE TAKE morning on Day 4 at ten',
+    heistMorning.story.chapter === 'heist_day'
+      && heistMorning.story.day === 4
+      && heistMorning.story.timeMinutes === 10 * 60,
+    JSON.stringify(heistMorning.story));
+  check('the date survives the page turn and Lou has not rung yet',
+    heistMorning.silver === 'complete' && heistMorning.call === 'pending',
+    JSON.stringify(heistMorning));
 
   await page.waitForFunction(() => window.__squatch.game.passingOut === false, null, {
     timeout: 15000,
   });
-  const booski = await page.evaluate(() => {
+  const lou = await page.evaluate(() => {
     const game = window.__squatch;
     game.getUp();
     game.apartmentStory.update(6.1);
@@ -359,11 +359,11 @@ try {
       from: game.phone.call?.def?.from,
     };
   });
-  check('and Booskibro rings about the big night on the far side of the date',
-    booski.ringing
-      && booski.eventId === 'booski_big_night_call'
-      && booski.from === 'Booskibro',
-    JSON.stringify(booski));
+  check('and Big Uncle Lou rings about THE TAKE on the far side of the date',
+    lou.ringing
+      && lou.eventId === 'lou_heist_call'
+      && lou.from === 'Big Uncle Lou',
+    JSON.stringify(lou));
 
   /* ---- 8. and none of it replays ---- */
   await page.goto(`http://localhost:${PORT}/index.html`, { waitUntil: 'load' });
@@ -384,7 +384,7 @@ try {
     replay.margo === 'answered'
       && replay.silver === 'complete'
       && replay.day === 4
-      && replay.call === 'booski_big_night_call',
+      && replay.call === 'lou_heist_call',
     JSON.stringify(replay));
 
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
