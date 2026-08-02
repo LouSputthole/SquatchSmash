@@ -29,8 +29,8 @@ the next page local and fast.
 
 ## Measured production payload
 
-The current Pages job stages 2,655 files totaling 211.08 MiB. Assets account for
-204.82 MiB:
+The current Pages job stages 2,662 files totaling 211.67 MiB. Assets account for
+205.41 MiB:
 
 | Runtime group | Staged size |
 |---|---:|
@@ -89,6 +89,7 @@ A service worker caches compressed MP3 bytes. It cannot persist decoded
 ## No-loss optimization order
 
 1. Scope HotDog, Graveyard, and NO WAKE audio and enforce selector coverage.
+   **Landed in this release.**
 2. Remove mission-only recordings from the Apartment and phase the opening bank.
    **Landed in this release; interaction-level lazy loading remains optional.**
 3. Stream long music through an `HTMLAudioElement`/WebAudio gain path while
