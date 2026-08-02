@@ -131,6 +131,28 @@ try {
   await page.waitForFunction(() => window.__squatch?.arcade, null, { timeout: 60000 });
   await page.evaluate(() => window.__squatch.postfx.disable?.());
   await page.click('#start-btn');
+  await page.waitForFunction(() => window.__squatch?.game.started === true);
+  // The async start handler marks `started` before its final input-state write.
+  // Let that same click finish before testing a separate Tab gesture.
+  await page.waitForTimeout(200);
+
+  await page.keyboard.press('Tab');
+  let apartmentPause = await page.evaluate(() => ({
+    paused: window.__squatch.game.paused,
+    menu: window.__scenePause?.isPaused() ?? false,
+    objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+  }));
+  check('Tab away from the computer opens the apartment pause instructions',
+    apartmentPause.paused && apartmentPause.menu && apartmentPause.objective.length > 0,
+    JSON.stringify(apartmentPause));
+  await page.keyboard.press('Tab');
+  apartmentPause = await page.evaluate(() => ({
+    paused: window.__squatch.game.paused,
+    menu: window.__scenePause?.isPaused() ?? true,
+  }));
+  check('a second Tab returns control to the apartment',
+    !apartmentPause.paused && !apartmentPause.menu,
+    JSON.stringify(apartmentPause));
 
   await page.evaluate(() => {
     const game = window.__squatch;
@@ -147,6 +169,12 @@ try {
   check('the apartment PC boots while the player is seated',
     state.seated && state.playerMode === 'seated' && state.osMode === 'desktop',
     JSON.stringify(state));
+
+  await page.keyboard.press('Tab');
+  const desktopTab = await computerState();
+  check('while seated at SquatchOS, Tab stays with the computer and never opens pause',
+    desktopTab.seated && desktopTab.osMode === 'desktop' && !desktopTab.paused,
+    JSON.stringify(desktopTab));
   check('all six known applications are installed once',
     JSON.stringify(appIds) === JSON.stringify(['mail', 'smash', 'shoot', 'counter', 'yuka', 'doom'])
       && new Set(appIds).size === appIds.length,

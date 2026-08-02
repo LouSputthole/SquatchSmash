@@ -18,6 +18,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { createMotelStory } from '../core/motel-story.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 
 // ---------------------------------------------------------------------------
 // THE JERKY MOTEL — scene controller.
@@ -114,6 +115,7 @@ const driveHudEl = $('driveHud');
 let phase = 'menu';   // menu | car | lot | door | room | fight | recover | escape | drive | end
 let paused = false;
 let timeScale = 1;
+let sharedPauseMenu = null;
 
 const S = {
   hp: 100,
@@ -277,7 +279,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyF': onAttack(); break;
     case 'KeyR': onRanged(); break;
     case 'KeyG': dropWeapon(); break;
-    case 'Tab': e.preventDefault(); objListEl.classList.toggle('show'); break;
+    case 'Tab': e.preventDefault(); togglePause(); break;
     case 'KeyM': toggleMute(); break;
     case 'KeyP': togglePause(); break;
     case 'Escape':
@@ -333,6 +335,10 @@ function toggleMute() {
 }
 
 function togglePause() {
+  if (sharedPauseMenu) {
+    sharedPauseMenu.toggle();
+    return;
+  }
   if (phase === 'menu' || phase === 'end') return;
   paused = !paused;
   if (paused) {
@@ -348,6 +354,33 @@ function togglePause() {
     clock.getDelta();
   }
 }
+
+sharedPauseMenu = createPauseMenu({
+  title: 'The Jerky Motel',
+  canPause: () => phase !== 'menu' && phase !== 'end',
+  getObjective: () => objTitleEl.textContent?.trim() || 'Reach room twelve and inspect the jerky deal.',
+  instructions: [
+    'W A S D — move. Shift — sprint. Space — jump.',
+    'E — interact. F or left click — attack. R or right click — ranged attack.',
+    'G — drop the held weapon.',
+    'During dialogue or inspection: number keys — choose.',
+    'Tab or P — pause and review the current objective.',
+    'Escape closes an inspection first, then pauses.',
+  ],
+  onPause: () => {
+    paused = true;
+    keys.clear();
+    sfx.stopMusic();
+  },
+  onResume: () => {
+    paused = false;
+    sfx.setMusic(phase === 'fight' || phase === 'recover' || phase === 'escape' ? 'fight' : phase === 'drive' ? 'chase' : 'tense');
+    clock.getDelta();
+    const pending = renderer.domElement.requestPointerLock?.();
+    pending?.catch?.(() => {});
+  },
+  actions: [{ label: 'Walk away', onSelect: () => finishScene('walked') }],
+});
 
 // Touch controls
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {

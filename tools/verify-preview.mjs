@@ -82,6 +82,24 @@ function unchanged(snapshot) {
   });
 }
 
+async function verifyTabPause(label) {
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+  const paused = await page.evaluate(() => ({
+    visible: !document.querySelector('[data-scene-pause]')?.classList.contains('hidden'),
+    objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+    instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+  }));
+  check(`${label}: Tab opens current instructions`,
+    paused.visible && paused.objective.length > 0 && paused.instructions >= 4,
+    JSON.stringify(paused));
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
+  const resumed = await page.evaluate(() =>
+    document.querySelector('[data-scene-pause]')?.classList.contains('hidden') === true);
+  check(`${label}: Tab returns control`, resumed);
+}
+
 try {
   await page.goto(`http://localhost:${PORT}/preview.html`, { waitUntil: 'load' });
   const launcher = await page.evaluate(() => ({
@@ -107,6 +125,14 @@ try {
   check('opening the launcher leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
+  await page.goto(`http://localhost:${PORT}/beefrun.html?preview=1`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__beefrun?.mission, null, { timeout: 60000 });
+  await page.click('#start-btn');
+  await page.waitForFunction(() => document.getElementById('overlay')?.classList.contains('hidden'));
+  await verifyTabPause('The Beef Run');
+  check('playing The Beef Run leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
   await page.goto(`http://localhost:${PORT}/motel.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 60000 });
   let motel = await page.evaluate(() => ({
@@ -129,6 +155,7 @@ try {
   }));
   check('the Motel preview starts playing', motel.phase === 'car' && motel.status === 'in_progress',
     JSON.stringify(motel));
+  await verifyTabPause('The Jerky Motel');
   check('playing the Motel leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
@@ -152,6 +179,7 @@ try {
   }));
   check('Bada Bing Scene Two starts playing',
     bing.started && bing.status === 'in_progress', JSON.stringify(bing));
+  await verifyTabPause('Bada Bing Scene Two');
   check('playing Bada Bing Scene Two leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
@@ -179,6 +207,7 @@ try {
       && meeting.mission.status === 'in_progress'
       && meeting.mission.weaponStaged,
     JSON.stringify(meeting));
+  await verifyTabPause('The Squatchfather');
   check('playing Squatchfather leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
@@ -200,6 +229,9 @@ try {
       && silver.day === 3
       && silver.previewNotice,
     JSON.stringify(silver));
+  await page.click('#start-btn');
+  await page.waitForFunction(() => window.__silver?.game.started === true, null, { timeout: 60000 });
+  await verifyTabPause('The Silver Room');
   check('opening the Silver Room leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 

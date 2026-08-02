@@ -94,6 +94,20 @@ try {
 
   await page.click('#startBtn');
   await page.waitForFunction(() => window.SQUATCH.state === 'playing');
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+  state = await page.evaluate(() => ({
+    game: window.SQUATCH.state,
+    objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+    instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+  }));
+  check('standalone Tab pauses Squatch Smash and shows its instructions',
+    state.game === 'paused' && state.objective.length > 0 && state.instructions >= 4,
+    JSON.stringify(state));
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.SQUATCH.state === 'playing');
+  check('standalone Tab resumes Squatch Smash',
+    await page.evaluate(() => window.__scenePause?.isPaused() === false));
   await page.evaluate(() => { window.SQUATCH.timeLeft = 30; });
   await page.waitForFunction(() => window.SQUATCH.boss.active, null, { timeout: 5000 });
 

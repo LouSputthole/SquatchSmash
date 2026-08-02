@@ -31,6 +31,7 @@ import {
   navigateCampaign,
 } from '../core/campaign.js';
 import { createSquatchfatherStory } from '../core/squatchfather-story.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 
 // ---------------------------------------------------------------- boot
 
@@ -131,6 +132,7 @@ let firePressed = false;
 let paused = false;
 let running = false;
 let pointerLocked = false;
+let sharedPauseMenu = null;
 
 const KEYMAP = {
   KeyW: 'forward', ArrowUp: 'forward',
@@ -169,6 +171,33 @@ function lockPointer() {
   const p = renderer.domElement.requestPointerLock();
   if (p && typeof p.catch === 'function') p.catch(() => {});
 }
+
+sharedPauseMenu = createPauseMenu({
+  title: 'The Squatchfather',
+  canPause: () => running,
+  getObjective: () => ui.objectiveText.textContent?.trim()
+    || 'Enter the restaurant and follow Sal’s instructions.',
+  instructions: [
+    'W A S D or arrows — move. Mouse — look.',
+    'E — interact; hold E when the prompt asks for it.',
+    'Left click — fire when the weapon is drawn.',
+    'M — mute.',
+    'Tab or Escape — pause and review the current objective.',
+  ],
+  onPause: () => {
+    paused = true;
+    for (const key of Object.keys(keys)) keys[key] = false;
+    audio.suspend();
+  },
+  onResume: () => {
+    paused = false;
+    audio.resume();
+    clock.getDelta();
+    lockPointer();
+  },
+  onRestart: () => hardRestart(),
+  actions: [{ label: 'Back to apartment', onSelect: () => returnToApartment() }],
+});
 
 renderer.domElement.addEventListener('mousedown', (e) => {
   if (!running) return;
@@ -939,6 +968,10 @@ function frame() {
 // ---------------------------------------------------------------- flow
 
 function togglePause() {
+  if (sharedPauseMenu) {
+    sharedPauseMenu.toggle();
+    return;
+  }
   if (!running) return;
   paused = !paused;
   ui.pause.classList.toggle('hidden', !paused);

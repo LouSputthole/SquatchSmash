@@ -9,6 +9,7 @@ import { Boss, BOSS_NAME } from './boss.js';
 import { buildGoals, GoalTracker, renderGoalList, renderGoalSummary } from './goals.js';
 import { loadMeta, recordRun, setSkin, renderCareer, renderSkins, ratingFor, rankFor, nextRank } from './meta.js';
 import * as sfx from './audio.js';
+import { createPauseMenu } from '../../src/core/pause-menu.js';
 
 const GAME_TIME = 90;
 const BASE_SPEED = 10;
@@ -107,6 +108,7 @@ const bossFillEl = $('bossFill');
 
 // ---------- Game state ----------
 let state = 'menu'; // 'menu' | 'playing' | 'paused' | 'over'
+let sharedPauseMenu = null;
 let score = 0;
 let timeLeft = GAME_TIME;
 let destroyed = 0;
@@ -274,6 +276,10 @@ function toggleMute() {
 }
 
 function togglePause() {
+  if (sharedPauseMenu) {
+    sharedPauseMenu.toggle();
+    return;
+  }
   if (state === 'playing') {
     state = 'paused';
     sfx.stopMusic();
@@ -290,6 +296,34 @@ function togglePause() {
     clock.getDelta(); // swallow the paused time
   }
 }
+
+sharedPauseMenu = createPauseMenu({
+  title: 'Squatch Smash',
+  canPause: () => state === 'playing' || state === 'paused',
+  // The apartment owns Tab while this page is running on the desk monitor.
+  // P and Escape still pause the hidden run when SquatchOS closes the app.
+  canHandleTab: () => window.top === window && (state === 'playing' || state === 'paused'),
+  getObjective: () => `Smash the campground before time runs out. ${Math.ceil(timeLeft)} seconds remain; ${goals.completed} of ${goals.total} goals complete.`,
+  instructions: [
+    'W A S D or arrows — move. Shift — charge.',
+    'Space or left click — smash.',
+    'F or right click — ground stomp.',
+    'R — rage mode when the bar is full. M — mute.',
+    'Standalone: Tab, P or Escape — pause.',
+    'At the apartment desk: Tab — exit to SquatchOS; Q — leave the desk.',
+  ],
+  onPause: () => {
+    state = 'paused';
+    keys.clear();
+    sfx.stopMusic();
+  },
+  onResume: () => {
+    state = 'playing';
+    sfx.startMusic();
+    clock.getDelta();
+  },
+  actions: [{ label: 'Give up', onSelect: () => endGame(false) }],
+});
 
 // ---------- Touch controls ----------
 const touch = { active: false, x: 0, y: 0 };

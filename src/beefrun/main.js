@@ -15,6 +15,7 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createAirstripStory } from '../core/airstrip-story.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 import { roomEnvironment } from '../world/textures.js';
 
 import { WP, EH, AC, DIFFICULTY } from './config.js';
@@ -278,15 +279,45 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 function pauseGame() {
-  game.paused = true;
-  mission.paused = true;
-  player.clearKeys();
-  input.clear();
-  interaction.release();
-  overlay.classList.remove('hidden');
-  overlay.querySelector('h1').innerHTML = 'PAUSED<span>THE BEEF RUN</span>';
-  startBtn.textContent = 'Resume';
+  pauseMenu.pause();
 }
+
+const pauseMenu = createPauseMenu({
+  title: 'The Beef Run',
+  canPause: () => game.started && !mission.finished,
+  getObjective: () => document.getElementById('br-objective')?.textContent?.trim()
+    || (mission.flags.inCockpit
+      ? 'Follow Captain Sasole’s current start-up or flight instruction.'
+      : 'Go to Captain Sasole and follow the current mission instruction.'),
+  instructions: [
+    'On foot: W A S D — move. E — interact.',
+    'In the aircraft: W/S — pitch. A/D — roll. Q/E — rudder.',
+    'Shift/Ctrl — throttle. F/G — flaps. B — brakes. V — parking brake.',
+    '3 — battery. 4 — fuel. 1/2 — start or stop each engine.',
+    'C — camera. R — restart at the latest checkpoint.',
+    'Tab or P — pause or resume.',
+  ],
+  onPause: () => {
+    game.paused = true;
+    mission.paused = true;
+    player.enabled = false;
+    input.enabled = false;
+    player.clearKeys();
+    input.clear();
+    interaction.release();
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    game.paused = false;
+    mission.paused = false;
+    player.enabled = !mission.flags.inCockpit;
+    input.enabled = true;
+    audio.ctx?.resume?.();
+    last = performance.now();
+    requestLock();
+  },
+  onRestart: () => mission.requestRestart(),
+});
 
 /* ------------------------------------------------------------------ */
 /* Input                                                              */
@@ -381,6 +412,7 @@ input.onAction = (name) => {
       audio.setMasterVolume(audio.master?.gain.value > 0.05 ? 0 : 0.9);
       break;
     case 'pause':
+      pauseMenu.toggle();
       break;
     default:
       break;

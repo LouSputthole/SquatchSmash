@@ -20,6 +20,7 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createGolfStory } from '../core/golf-story.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 
 import { Course } from './terrain.js';
 import { Golfer, makeBag, makeBall } from './cast.js';
@@ -622,11 +623,69 @@ document.getElementById('endcard-again')?.addEventListener('click', () => {
 const clock = new THREE.Clock();
 let running = false;
 let booting = false;
+let paused = false;
+
+function currentObjective() {
+  switch (round.beat) {
+    case BEAT.LOT: return 'Walk to the golf bag beside Erican and press E to pick it up.';
+    case BEAT.WALK_TO_TEE: return 'Carry the bag from the car park to the first tee and join the group.';
+    case BEAT.TEE_TALK: return dialogue.active
+      ? 'Listen to Lou. When answers appear, press the matching number key.'
+      : 'Stay with the group while the first-tee conversation finishes.';
+    case BEAT.NPC_TEE: return 'Watch Erican, Rippin and Lou tee off. Press F only if you want to skip ahead.';
+    case BEAT.PLAYER_TEE: return 'Walk to your ball, press E to address it, aim with the mouse, then click three times to swing.';
+    case BEAT.TEE_RESULT: return 'Watch where your tee shot finishes, then follow the group to the carts.';
+    case BEAT.CART: return 'Ride with Lou and listen. Number keys answer him when choices appear.';
+    case BEAT.APPROACH: return 'Play your ball into the cup. Walk to it and press E before every shot.';
+    case BEAT.HOLE_OUT:
+    case BEAT.SCORECARD: return 'Wait for the group to finish the hole and mark the scorecard.';
+    case BEAT.WALK_OFF: return 'Walk back to the carts to finish this hole.';
+    case BEAT.NEXT_TEE: return 'The next tee is being set. The round will continue in a moment.';
+    case BEAT.DONE: return 'The round is complete.';
+    default: return 'Stay with Lou, Erican and Rippin and follow the current golf card.';
+  }
+}
+
+const pauseMenu = createPauseMenu({
+  title: 'A Morning at Silver Pines',
+  canPause: () => running && !ended,
+  getObjective: currentObjective,
+  instructions: [
+    'W A S D — walk. E or Click — interact.',
+    'At your ball: E — address it. Q — back off.',
+    '1 — driver. 2 — iron. 3 — putter.',
+    'While addressing: mouse — aim; click — start, power, then strike.',
+    'During dialogue: number keys — answer.',
+    'R — take a drop. F — skip an NPC tee shot. M — mute.',
+    'Tab — pause or resume.',
+  ],
+  onPause: () => {
+    paused = true;
+    player.clearKeys();
+    player.enabled = false;
+    interaction.release();
+    interaction.setPaused(true);
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    paused = false;
+    interaction.setPaused(false);
+    player.enabled = camMode === CAM.WALK;
+    audio.ctx?.resume?.();
+    clock.getDelta();
+    requestMouseCapture();
+  },
+  onRestart: () => window.location.reload(),
+});
 
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.05);
   if (!running) return;
+  if (paused) {
+    renderer.render(scene, camera);
+    return;
+  }
 
   cues.update(dt);
   dialogue.update(dt, player.position);
@@ -739,7 +798,7 @@ async function boot() {
 
 startBtn?.addEventListener('click', () => { boot(); });
 canvas.addEventListener('click', () => {
-  if (running && document.pointerLockElement !== canvas && !ended) requestMouseCapture();
+  if (running && !pauseMenu.isPaused() && document.pointerLockElement !== canvas && !ended) requestMouseCapture();
 });
 
 frame();

@@ -35,6 +35,7 @@ import {
   navigateCampaign,
 } from './core/campaign.js';
 import { createApartmentStory } from './core/apartment-story.js';
+import { createPauseMenu } from './core/pause-menu.js';
 import { DayNight } from './core/daynight.js';
 import { SmokeSystem } from './world/smoke.js';
 import { StreamSystem } from './world/stream.js';
@@ -758,16 +759,44 @@ document.addEventListener('pointerlockchange', () => {
 });
 
 function pauseGame() {
-  game.paused = true;
-  player.clearKeys();
-  interaction.release();
-  overlay.classList.remove('hidden');
-  overlay.querySelector('h1').innerHTML = 'PAUSED<span>SQUATCH LIFE</span>';
-  overlay.querySelector('.tag').textContent = game.seated
-    ? 'Still at the desk. The meeting is not until tomorrow.'
-    : 'The fridge is not going anywhere.';
-  startBtn.textContent = 'Resume';
+  pauseMenu.pause();
 }
+
+function apartmentObjective() {
+  if (game.inBed || player.mode === 'bed') return 'Press E to get out of bed.';
+  if (game.onToilet) return 'Press E to stand up from the toilet.';
+  if (game.showering !== null) return 'Finish the shower, or step back out when you are ready.';
+  if (apartment?.state?.heldItem === 'phone') return 'Use E to read or answer the phone; the wheel moves through messages.';
+  if (returningToApartment) return 'You are home. Use the apartment freely; the front door continues the story when another scene is ready.';
+  return 'Explore the apartment and take care of the morning. Lou will call when he is ready.';
+}
+
+const pauseMenu = createPauseMenu({
+  title: 'Squatch Life — Apartment',
+  canPause: () => game.started && !game.left && !game.seated && !game.passingOut,
+  getObjective: apartmentObjective,
+  instructions: [
+    'W A S D — move. Shift — sprint. C — crouch.',
+    'E or Click — interact. Hold E for the alternate interaction.',
+    'F — drink or smoke. Q — drop an item, stand up, or leave the desk.',
+    'Mouse wheel — change the held item. T — flashlight. R — skip the current radio item.',
+    'At the computer, Tab exits the current app to SquatchOS; Q leaves the desk.',
+    'Away from the computer, Tab — pause or resume.',
+  ],
+  onPause: () => {
+    game.paused = true;
+    player.enabled = false;
+    player.clearKeys();
+    interaction.release();
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    game.paused = false;
+    audio.ctx?.resume?.();
+    clock.getDelta();
+    requestLock();
+  },
+});
 
 /* ------------------------------------------------------------------ */
 /* Input                                                               */
