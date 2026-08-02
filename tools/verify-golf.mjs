@@ -2,7 +2,8 @@
 /**
  * Play Silver Pines headlessly, from the car park through all three holes.
  *
- *   node tools/verify-golf.mjs        (npm run verify:golf)
+ *   node tools/verify-golf.mjs                 (npm run verify:golf)
+ *   node tools/verify-golf.mjs --screenshots   (refresh meter evidence)
  *
  * Same reasoning as verify-silver.mjs. A golf hole is a physics system wired
  * to a conversation, and almost everything that can go wrong with it is
@@ -30,6 +31,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5219;
+const CAPTURE_SCREENSHOTS = process.argv.includes('--screenshots')
+  || process.env.GOLF_SCREENSHOTS === '1';
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -504,13 +507,15 @@ check('5e. the power meter shows both the ideal target and overswing zone',
     && /overswing \d+%\+/i.test(powerHud.risk)
     && /%$/.test(powerHud.targetLeft) && parseFloat(powerHud.riskWidth) > 0,
   JSON.stringify(powerHud));
-await page.setViewportSize({ width: 1280, height: 720 });
-await page.waitForTimeout(120);
-await fsp.mkdir(path.join(ROOT, 'docs', 'validation', 'golf'), { recursive: true });
-await page.screenshot({
-  path: path.join(ROOT, 'docs', 'validation', 'golf', '08-swing-power.png'),
-});
-await page.setViewportSize({ width: 480, height: 300 });
+if (CAPTURE_SCREENSHOTS) {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.waitForTimeout(120);
+  await fsp.mkdir(path.join(ROOT, 'docs', 'validation', 'golf'), { recursive: true });
+  await page.screenshot({
+    path: path.join(ROOT, 'docs', 'validation', 'golf', '08-swing-power.png'),
+  });
+  await page.setViewportSize({ width: 480, height: 300 });
+}
 
 await page.evaluate(() => window.__golf.swing.click());
 await page.waitForTimeout(100);
@@ -531,12 +536,14 @@ await page.evaluate(() => {
   window.__golf.swing.marker = Math.max(0.45, window.__golf.swing.marker);
   window.__golf.swing.strikeSpeed = 0;
 });
-await page.setViewportSize({ width: 1280, height: 720 });
-await page.waitForTimeout(80);
-await page.screenshot({
-  path: path.join(ROOT, 'docs', 'validation', 'golf', '09-swing-strike.png'),
-});
-await page.setViewportSize({ width: 480, height: 300 });
+if (CAPTURE_SCREENSHOTS) {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.waitForTimeout(80);
+  await page.screenshot({
+    path: path.join(ROOT, 'docs', 'validation', 'golf', '09-swing-strike.png'),
+  });
+  await page.setViewportSize({ width: 480, height: 300 });
+}
 await page.evaluate(() => window.__golf.swing.reset());
 
 const aimed = await page.evaluate(() => {
