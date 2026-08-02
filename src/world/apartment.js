@@ -213,7 +213,7 @@ const FRIDGE_PHOTOS = [
 /**
  * Inside the closet.
  *
- * `closet.back` is the whole reason the closet exists: it hangs where the
+ * `shrine.a` is the whole reason the closet exists: it hangs where the
  * clothes cover it, and you only find it by shoving them out of the way. The
  * two shirts are on the rail in front of it; the two shrine photographs are
  * propped on the floor underneath, which is not where you keep photographs of
@@ -997,7 +997,6 @@ export async function buildApartment(ctx) {
     at: {
       lanyard: { x: -0.80, y: sideboard.top, z: 4.30, rotY: 0.5 },
       willy: { y: 1.12, z: -0.52 },
-      bloodShirt: { x: -1.62, y: 0.001, z: -3.62, rotY: 0.5 },
       /* The money lands where he drops it as he comes in, so it lives at the
        * FRONT of the sideboard rather than behind the photographs -- a stack
        * of notes nobody can see is not a stack of notes. */
@@ -1021,6 +1020,19 @@ export async function buildApartment(ctx) {
    * stayed the night, not a possession he accumulated. */
   const margo = makeMorningGuest(M);
   root.add(margo.group);
+  const margoRepairHit = box({
+    size: [0.78, 1.12, 0.86],
+    pos: [-2.82, 0.76, -2.56],
+    mat: new THREE.MeshBasicMaterial({ visible: false }),
+    cast: false,
+    receive: false,
+  });
+  root.add(margoRepairHit);
+  interaction.register(margoRepairHit, {
+    label: 'Give Margo a <b>hand</b>',
+    enabled: () => margo.group.visible && ctx.margoDressRepairOwed?.() === true,
+    onUse: () => ctx.onMargoDressRepair?.(),
+  });
 
   /** Weather and light for the morning currently on show. */
   let dressAir = dressingFor('day_one').air;
@@ -1166,11 +1178,11 @@ export async function buildApartment(ctx) {
     if (!g?.real || !g.texture?.image) return null;
     try { return T.dieCut(g.texture.image); } catch { return null; }
   };
-  const closetBack = gear.get('closet.back');
+  const closetBack = gear.get('shrine.a');
   const closet = P.makeCloset(M, {
     x0: CLOSET.x0 + 0.02, x1: CLOSET.x1 - 0.02, z0: z1, z1: CLOSET.back, h: CLOSET.h,
     back: closetBack?.real
-      ? { texture: closetBack.texture, w: 0.40, h: 0.40 / (closetBack.aspect || 0.75), y: 1.16 }
+      ? { texture: closetBack.texture, w: 0.50, h: 0.50 / (closetBack.aspect || 0.75), y: 1.25 }
       : null,
     garments: [
       { cut: dieCutSlot('closet.shirt.a'), colour: 0x6b4f9e, w: 0.34, h: 0.58 },
@@ -1180,6 +1192,9 @@ export async function buildApartment(ctx) {
     ],
   });
   root.add(closet.group);
+  if (closet.picture && closetBack?.real) {
+    frames.push({ slot: 'shrine.a', mesh: closet.picture, info: closetBack, behindClothes: true });
+  }
 
   /* A closet is a box with one open side, so nothing in it catches the ceiling
    * spot and the whole interior renders as a silhouette -- the shirts came out
@@ -1226,18 +1241,11 @@ export async function buildApartment(ctx) {
     }
   });
 
-  /* The shrine. Two photographs of Booski on the closet floor, propped against
-   * the back wall. Nobody keeps photographs of their friend on the floor of a
-   * cupboard. These are on the floor of a cupboard. */
-  /* One of them is the shrine and the other is a supporting photograph, so
-   * they are not the same size. The big one sits square against the back wall
-   * with the candles in front of it; the small one is off to the side, tilted,
-   * the way a second picture ends up when there was only room for one. */
+  /* The second Booski photograph remains propped on the closet floor. The
+   * podium portrait is now the large framed reveal on the back wall, directly
+   * behind the garments where the owner asked for it. */
   for (const [slot, sx, tilt, dz, size] of [
-    /* shrine.b pulled in and pushed forward. At +0.19 its outer edge reached
-     * x 4.982 against a closet that stops at 4.96 -- it was inside the side
-     * wall -- and it was still touching shrine.a with 13mm of overlap. */
-    ['shrine.a', -0.02, 0.05, 0, 0.22], ['shrine.b', 0.145, -0.26, 0.155, 0.125],
+    ['shrine.b', 0.145, -0.26, 0.155, 0.125],
   ]) {
     const g = gear.get(slot);
     if (!g?.real) continue;
@@ -2291,6 +2299,9 @@ export async function buildApartment(ctx) {
     setMessagesWaiting(n) { machineWaiting = Math.max(0, n | 0); },
     /** Whoever stayed over, and the door she leaves by. */
     margo,
+    margoRepairHit,
+    /** The back-wall podium portrait and the garments that conceal it. */
+    closet,
     frontDoorPivot: frontDoor.pivot,
     /** The frame that has been crooked for months, and putting it right. */
     crookedFrame,

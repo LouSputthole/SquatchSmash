@@ -817,9 +817,44 @@ function afterTheDate(storage) {
     state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
     state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
     state.missions[MISSION_IDS.SILVER_ROOM].outcome = 'strong';
+    state.missions[MISSION_IDS.SILVER_ROOM].tookMargoHome = true;
   });
   return campaign;
 }
+
+test('Margo comes home only by invitation, the dress repair is one-shot, and only then can she wake beside him', () => {
+  const campaign = afterTheDate();
+  const story = createApartmentStory({ campaign, ring: () => true });
+
+  assert.equal(story.margoStayingTonight(), true);
+  assert.equal(story.margoDressRepairOwed(), true);
+
+  const blockedSleep = story.sleep();
+  assert.deepEqual(blockedSleep, { ok: false, reason: 'margo_repair_incomplete' });
+  assert.equal(campaign.state.story.chapter, 'date');
+  assert.equal(story.margoDressRepairOwed(), true);
+
+  assert.equal(story.margoDressRepairDone(), true);
+  assert.equal(story.margoDressRepairOwed(), false);
+  assert.equal(story.margoDressRepairDone(), false);
+  assert.ok(campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DRESS_REPAIR));
+
+  story.sleep();
+  assert.equal(story.margoWakeOwed(), true);
+  assert.equal(story.margoWakeDone(), true);
+  assert.equal(story.margoWakeOwed(), false);
+
+  const declined = afterTheDate();
+  declined.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].tookMargoHome = false;
+  });
+  const emptyFlat = createApartmentStory({ campaign: declined, ring: () => true });
+  assert.equal(emptyFlat.margoStayingTonight(), false);
+  assert.equal(emptyFlat.margoDressRepairOwed(), false);
+  assert.equal(emptyFlat.margoDressRepairDone(), false);
+  emptyFlat.sleep();
+  assert.equal(emptyFlat.margoWakeOwed(), false);
+});
 
 test('Booskibro rings once about the big night and unlocks the Initiation', () => {
   const storage = new MemoryStorage();
@@ -827,6 +862,7 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
     campaign: afterTheDate(storage),
     ring: () => true,
   });
+  assert.equal(story.margoDressRepairDone(), true);
   story.sleep();
 
   const calls = [];
@@ -878,6 +914,7 @@ test('Booskibro rings once about the big night and unlocks the Initiation', () =
 test('the big-night door waits for Booskibro, then routes to the Initiation', () => {
   const campaign = afterTheDate();
   const story = createApartmentStory({ campaign, ring: () => true });
+  assert.equal(story.margoDressRepairDone(), true);
   story.sleep();
 
   assert.deepEqual(story.tryLeave({}), {

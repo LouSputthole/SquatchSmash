@@ -199,11 +199,13 @@ test('every authored apartment iteration receives a coherent isolated campaign c
     {
       variant: 'after-silver-room', spawn: 'front_door', chapter: 'date', day: 3,
       time: 23 * 60 + 20,
-      verify(state) {
+      verify(state, campaign) {
         const silver = state.missions[MISSION_IDS.SILVER_ROOM];
         assert.equal(silver.status, 'complete');
         assert.equal(silver.outcome, 'strong');
         assert.equal(silver.seeingHerAgain, true);
+        assert.equal(silver.tookMargoHome, true);
+        assert.equal(createApartmentStory({ campaign }).margoDressRepairOwed(), true);
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
       },
     },
@@ -213,6 +215,8 @@ test('every authored apartment iteration receives a coherent isolated campaign c
       verify(state, campaign) {
         assert.equal(state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'pending');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
+        assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].tookMargoHome, true);
+        assert.equal(createApartmentStory({ campaign }).margoDressRepairOwed(), false);
         assert.equal(createApartmentStory({ campaign }).margoWakeOwed(), true);
       },
     },

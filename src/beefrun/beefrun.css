@@ -410,6 +410,43 @@ body.beefrun { background: #0c0c10; }
   background: rgba(232, 200, 106, 0.12);
 }
 
+/* Developer review points, visible only when main.js confirms ?preview=1. */
+#br-preview-skips {
+  position: fixed;
+  top: max(0.7rem, env(safe-area-inset-top));
+  left: max(0.7rem, env(safe-area-inset-left));
+  z-index: 40;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-width: min(36rem, calc(100vw - 1.4rem));
+  padding: 0.5rem;
+  border: 1px solid rgba(232, 200, 106, 0.52);
+  background: rgba(15, 13, 10, 0.88);
+  box-shadow: 0 0.6rem 1.8rem rgba(0, 0, 0, 0.3);
+  font: 700 0.68rem/1 "Trebuchet MS", "Segoe UI", sans-serif;
+}
+#br-preview-skips.hidden { display: none; }
+#br-preview-skips strong {
+  align-self: center;
+  padding: 0 0.25rem;
+  color: var(--br-amber);
+  letter-spacing: 0.16em;
+}
+#br-preview-skips button {
+  padding: 0.38rem 0.52rem;
+  border: 1px solid rgba(232, 226, 208, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  color: #e8e2d0;
+  cursor: pointer;
+  font: inherit;
+}
+#br-preview-skips button:hover,
+#br-preview-skips button:focus-visible {
+  border-color: var(--br-amber);
+  background: rgba(232, 200, 106, 0.16);
+}
+
 /* ------------------------------------------------------------------ */
 /* Mission complete                                                   */
 /* ------------------------------------------------------------------ */

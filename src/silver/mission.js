@@ -144,6 +144,7 @@ export class Mission {
       drinkOrdered: null,     // 'rye' | 'wrong' | 'asked' | 'house' | 'bottle' | null
       champagneSent: false,
       champagneThanked: false,
+      dessert: null,          // 'figs' | 'asked' | 'skipped'
       funnyHow: false,
       familyMet: [],          // which recurring characters shook her hand
       /* the show */
@@ -311,6 +312,10 @@ export class Mission {
    */
   get invitationReady() {
     if (this.state === 'invitation' || this.state === 'ending' || this.state === 'done') return true;
+    /* Dessert is the authored final table beat. This guard also closes the
+     * legacy R-key shortcut, so every path reaches the invitation only after
+     * the waiter has offered dessert and the player has answered. */
+    if (!this.flags.dessert) return false;
     if (!this.flags.showStarted) return false;
     if (this.state === 'performance-cutscene') return false;
     return this.inState >= 90 || this.roundsDone.size >= 4;
@@ -477,13 +482,16 @@ export class Mission {
    */
   persist(woo) {
     const w = woo.snapshot();
+    const homeInvitation = ['home', 'callback', 'wry', 'plain', 'open'].includes(this.flags.invitation);
+    const tookMargoHome = homeInvitation && ['perfect', 'strong'].includes(this.flags.outcome);
     return {
       mission: 'front-and-center',
       completedAt: this.elapsed,
       woo: w.score,
       band: w.band,
       outcome: this.flags.outcome,
-      cameHome: ['perfect', 'strong'].includes(this.flags.outcome),
+      cameHome: tookMargoHome,
+      tookMargoHome,
       seeingHerAgain: ['perfect', 'strong', 'good', 'gentleman'].includes(this.flags.outcome),
       tippedEverybody: w.streak,
       tipsGiven: w.tips.length,

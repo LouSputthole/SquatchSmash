@@ -226,7 +226,9 @@ export function setPose(f, pose) {
       R.shoulder.rotation.x = -1.5;
       R.shoulder.rotation.z = -0.35;
       R.elbow.rotation.x = -0.5;
-      L.shoulder.rotation.z = 0.18;
+      // Left is side -1: negative Z opens that arm away from the ribs. The
+      // former positive angle folded the whole upper arm through his jacket.
+      L.shoulder.rotation.z = -0.16;
       f.legs[1].hip.rotation.x = 0.12;
       break;
     case 'gut':                       // hand pressed to the stomach

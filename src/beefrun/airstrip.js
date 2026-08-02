@@ -18,6 +18,15 @@ import { EH } from './config.js';
 import { terrainHeight } from './terrain.js';
 import { makeChicken, updateChicken, makeGuard, makeCecilio } from './npc.js';
 
+export const REMOTE_AIRFIELD_DETAIL_NAMES = Object.freeze([
+  'el-hueso-edge-markers',
+  'el-hueso-threshold',
+  'el-hueso-generator',
+  'el-hueso-workbench',
+  'el-hueso-clothesline',
+  'el-hueso-sign',
+]);
+
 /** Rutted dirt with tyre tracks down the middle. */
 function dirtTexture() {
   const c = document.createElement('canvas');
@@ -327,6 +336,80 @@ export function buildAirstrip(scene) {
   for (let i = 0; i < 3; i++) {
     place(makeCargoStack(0x900 + i * 17), EH.x - 17 - i * 6, EH.zHigh + 46 + rand() * 8, rand());
   }
+
+  /* ---- The remote strip reads as an operated place, not bare terrain ---- */
+  const edgeMarkers = group('el-hueso-edge-markers');
+  const edgeWhite = solid(0xd8d0b8, { roughness: 1 });
+  const edgeRed = solid(0xa83c2a, { roughness: 1 });
+  for (let i = 0; i < 9; i++) {
+    const z = EH.zHigh + 38 + i * ((stripLen - 76) / 8);
+    for (const side of [-1, 1]) {
+      const x = EH.x + side * (EH.rwyWidth + 2.4);
+      const y = terrainHeight(x, z);
+      const post = mesh(cylGeo(0.18, 0.24, 0.7, 7), i % 2 ? edgeWhite : edgeRed, x, y + 0.35, z);
+      post.rotation.y = rand() * 0.3;
+      edgeMarkers.add(post);
+    }
+  }
+  root.add(edgeMarkers);
+
+  const thresholdDetail = group('el-hueso-threshold');
+  const thresholdZ = EH.zLow - 18;
+  for (const dx of [-5.2, -1.8, 1.8, 5.2]) {
+    const x = EH.x + dx;
+    const bar = mesh(boxGeo(2.2, 0.05, 1.2), edgeWhite, x, terrainHeight(x, thresholdZ) + 0.1, thresholdZ);
+    thresholdDetail.add(bar);
+  }
+  root.add(thresholdDetail);
+
+  const generator = group('el-hueso-generator');
+  const genOlive = solid(0x4d5636, { roughness: 0.86, metalness: 0.18 });
+  generator.add(mesh(boxGeo(1.6, 0.9, 0.9), genOlive, 0, 0.55, 0));
+  generator.add(mesh(cylGeo(0.22, 0.22, 1.2, 10), solid(0x2a2c28, { roughness: 0.7 }), 0, 0.62, 0));
+  generator.children[1].rotation.z = Math.PI / 2;
+  generator.add(mesh(cylGeo(0.055, 0.055, 1.5, 7), solid(0x4a4640, { roughness: 0.7, metalness: 0.35 }), 0.5, 1.45, -0.2));
+  // Beyond the first hut's downhill corner, with a full walking gap between.
+  const genX = shelterX - 16, genZ = shelterZ + 18;
+  place(generator, genX, genZ, -0.2);
+  addCollider(genX, genZ, 1.0, 0.7, 1.8);
+
+  const workbench = group('el-hueso-workbench');
+  const benchWood = solid(0x6f5434, { roughness: 1 });
+  workbench.add(mesh(boxGeo(3.2, 0.16, 0.9), benchWood, 0, 1.0, 0));
+  for (const x of [-1.35, 1.35]) {
+    workbench.add(mesh(boxGeo(0.14, 1.0, 0.14), benchWood, x, 0.5, -0.28));
+    workbench.add(mesh(boxGeo(0.14, 1.0, 0.14), benchWood, x, 0.5, 0.28));
+  }
+  workbench.add(mesh(boxGeo(0.55, 0.12, 0.18), solid(0x5d6268, { roughness: 0.52, metalness: 0.5 }), -0.65, 1.16, 0));
+  workbench.add(mesh(cylGeo(0.06, 0.06, 0.7, 7), solid(0xb14b32, { roughness: 0.8 }), 0.65, 1.2, 0));
+  workbench.children.at(-1).rotation.z = Math.PI / 2;
+  const benchX = shelterX - 1, benchZ = shelterZ + 8.5;
+  place(workbench, benchX, benchZ, 0.12);
+  addCollider(benchX, benchZ, 1.7, 0.65, 1.3);
+
+  const clothesline = group('el-hueso-clothesline');
+  const postMat = solid(0x6b5432, { roughness: 1 });
+  for (const x of [-2.7, 2.7]) clothesline.add(mesh(cylGeo(0.07, 0.09, 2.8, 6), postMat, x, 1.4, 0));
+  clothesline.add(mesh(boxGeo(5.4, 0.025, 0.025), solid(0xb8aa8c, { roughness: 1 }), 0, 2.55, 0));
+  for (let i = 0; i < 4; i++) {
+    const cloth = mesh(boxGeo(0.9, 0.75 + (i % 2) * 0.25, 0.035), solid([0xa83a2a, 0xd0b66a, 0x405f78, 0xd8d2c0][i], { roughness: 1 }), -1.8 + i * 1.2, 2.05, 0);
+    cloth.rotation.z = (i - 1.5) * 0.035;
+    clothesline.add(cloth);
+  }
+  place(clothesline, EH.x - 35, EH.zHigh + 116, 0.18);
+
+  const airstripSign = group('el-hueso-sign');
+  for (const x of [-1.25, 1.25]) airstripSign.add(mesh(boxGeo(0.12, 2.2, 0.12), postMat, x, 1.1, 0));
+  const sign = flatMesh(
+    planeGeo(3.4, 1.2),
+    new THREE.MeshBasicMaterial({
+      map: signTexture(['EL HUESO', 'NO QUESTIONS'], { w: 512, h: 192, bg: '#d7c695', fg: '#3c2c1d', border: '#6d4c2c', rough: true }),
+      side: THREE.DoubleSide,
+    }),
+    0, 2.0, 0,
+  );
+  airstripSign.add(sign);
+  place(airstripSign, EH.x - 13, EH.zHigh + 15, 0.08);
 
   /* ---- The departure arrow, painted on a barrel ---- */
   const arrowBarrel = makeDrum(0xd8d2c0);

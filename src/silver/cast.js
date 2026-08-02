@@ -24,6 +24,7 @@ export { TIP_POINTS, TIP_TOTAL } from './woo.js';
 
 const SUIT_DINERS = [0x1b1b22, 0x232430, 0x2a2028, 0x1e2430];
 const GOWNS = [0x5a1430, 0x1a2a4a, 0x2a4a3a, 0x4a3a10, 0x3a1a3a];
+export const SILVER_WAITER_FACE = 'assets/faces/silver-waiter.png';
 
 
 /* ------------------------------------------------------------------ */
@@ -204,7 +205,11 @@ export function populate(scene, room) {
     name: 'the waiter', tier: 'hero', job: 'patrol',
     x: -8, z: 8, yaw: 0,
     route: [{ x: -8, z: 8 }, { x: -18, z: 4 }, { x: -12, z: -2 }, { x: -4, z: 6 }],
-    model: { height: 1.78, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'crop' },
+    model: {
+      height: 1.78, dress: 'waistcoat', shirt: 0xd8d4cc,
+      face: SILVER_WAITER_FACE,
+      faceCrop: [0.15, 0.08, 0.70, 0.88],
+    },
   }));
 
   add('photographer', new Npc(scene, {
@@ -266,7 +271,10 @@ export function populate(scene, room) {
       add(`diner${diner}`, new Npc(scene, {
         name: 'a diner', tier: near && diner < 10 ? 'ambient' : 'background',
         job: Math.random() < 0.4 ? 'drink' : 'sit',
-        x: seat.x, z: seat.z, yaw: seat.yaw, look: near,
+        /* Their chairs already face their table partners. Player-tracking made
+         * the pair directly behind Margo hold an unbroken stare through the
+         * entire date, so dining-room extras keep their attention in-room. */
+        x: seat.x, z: seat.z, yaw: seat.yaw, look: false,
         model: {
           height: inGown ? rand(1.6, 1.78) : rand(1.68, 1.9),
           build: rand(0.92, 1.3),

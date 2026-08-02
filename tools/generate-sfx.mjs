@@ -125,7 +125,10 @@ async function main() {
     if (!isSpoken(cue) && typeof cue.prompt !== 'string') { synthOnly++; continue; }
     const file = cue.file || `${cue.name}.mp3`;
     const dest = path.join(SFX_DIR, file);
-    if (!FORCE && (await exists(dest))) continue;
+    /* `_recast` means the existing filename contains a previous performance.
+     * Treat it as pending without requiring --force; the marker is cleared
+     * only after a successful replacement below. */
+    if (!FORCE && !cue._recast && (await exists(dest))) continue;
     pending.push({ cue, dest, file });
   }
   if (synthOnly) console.log(`${synthOnly} synth-only cue(s) skipped.\n`);
@@ -162,12 +165,17 @@ async function main() {
 
   let ok = 0;
   let failed = 0;
+  let manifestChanged = false;
   // Sequential on purpose: friendlier to rate limits, and the log stays readable.
   for (const { cue, dest, file } of pending) {
     process.stdout.write(`  ${cue.name.padEnd(24)} … `);
     try {
       const bytes = isSpoken(cue) ? await speak(cue, voices) : await generate(cue);
       await fs.writeFile(dest, bytes);
+      if (isSpoken(cue) && cue._recast) {
+        delete cue._recast;
+        manifestChanged = true;
+      }
       console.log(`ok  (${(bytes.length / 1024).toFixed(0)} KB → assets/sfx/${file})`);
       ok++;
     } catch (err) {
@@ -177,6 +185,10 @@ async function main() {
   }
 
   const indexed = await writeIndex(SFX_DIR);
+  if (manifestChanged) {
+    await fs.writeFile(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
+    console.log('Cleared completed voice recast markers in assets/sfx/manifest.json.');
+  }
   console.log(`\nWrote assets/sfx/index.json (${indexed.length} file(s)).`);
 
   console.log(`\nDone. ${ok} generated, ${failed} failed.`);

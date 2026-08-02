@@ -25,6 +25,9 @@ const BROWN = 0x7a5230;
 const BROWN_DARK = 0x4f351f;
 const METAL = 0x9aa0a6;
 
+/** The same Tammy art used on both apartment and Bada Bing refrigerators. */
+export const TAMMY_STICKER_FILE = 'sticker-pinup.png';
+
 /**
  * The Squatch Family emblem, painted on both sides of the fuselage. The real
  * squatch — the shared silhouette off the flat's posters, the arcade cabinet
@@ -126,6 +129,8 @@ export class Brushrunner {
       concern: 0,
       lighterSpark: 0,
     };
+    this.destroyed = false;
+    this.explosion = null;
     this.build();
     if (withCockpit) this.buildCockpit();
     this.instruments = withCockpit ? new Instruments(this.parts.panelCanvas) : null;
@@ -451,6 +456,27 @@ export class Brushrunner {
     face.rotation.y = Math.PI;
     panel.add(face);
 
+    /* Tammy migrated from the apartment fridge to the Bada Bing office fridge
+     * and, apparently, into Sasole's flight bag. Reuse the actual die-cut art
+     * instead of painting a new approximation onto the panel canvas. */
+    const tammyTex = new THREE.TextureLoader().load(assetUrl('assets/art/', TAMMY_STICKER_FILE));
+    tammyTex.colorSpace = THREE.SRGBColorSpace;
+    const tammy = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.13, 0.21),
+      new THREE.MeshBasicMaterial({
+        map: tammyTex, transparent: true, alphaTest: 0.06,
+        depthWrite: false, toneMapped: false,
+      }),
+    );
+    tammy.name = 'dashboard-tammy-sticker';
+    tammy.userData.artSlot = 'sticker.fridge';
+    tammy.position.set(-0.57, -0.20, -0.058);
+    tammy.rotation.y = Math.PI;
+    tammy.rotation.z = -0.1;
+    tammy.renderOrder = 2;
+    panel.add(tammy);
+    this.parts.tammySticker = tammy;
+
     // Glare shield and coaming.
     g.add(mesh(boxGeo(1.7, 0.1, 0.5), trimMat, 0, 0.70, 2.9));
 
@@ -613,6 +639,10 @@ export class Brushrunner {
    * @param {object} state  { cargoDoorOpen, dusk, gLat, warnings }
    */
   update(dt, phys, engines, state = {}) {
+    if (this.destroyed) {
+      this.updateExplosion(dt);
+      return;
+    }
     const a = this.anim;
     const c = phys.controls;
 
@@ -718,6 +748,82 @@ export class Brushrunner {
       this._compassAccum = 0;
       this.drawCompass(phys.headingDeg);
     }
+  }
+
+  /** Replace the intact airframe with a short-lived fireball and debris fan. */
+  explode() {
+    if (this.destroyed) return false;
+    this.destroyed = true;
+    for (const child of this.group.children) child.visible = false;
+
+    const fx = group('brushrunner-explosion');
+    fx.userData.age = 0;
+    const fire = [
+      [0xffe06a, 1.5, 0, 0.2, 1.0],
+      [0xff7a24, 2.2, -0.7, 0.0, 0.3],
+      [0xd92e18, 2.8, 0.8, -0.2, 0.1],
+    ];
+    for (const [colour, radius, x, y, z] of fire) {
+      const material = new THREE.MeshBasicMaterial({
+        color: colour, transparent: true, opacity: 0.96,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      const ball = mesh(sphereGeo(radius, 14, 9), material, x, y, z);
+      ball.userData.fireball = true;
+      fx.add(ball);
+    }
+    for (let i = 0; i < 7; i++) {
+      const smoke = mesh(
+        sphereGeo(0.9 + (i % 3) * 0.35, 9, 6),
+        new THREE.MeshBasicMaterial({ color: 0x2a2522, transparent: true, opacity: 0.76, depthWrite: false }),
+        (i - 3) * 0.58, 0.6 + (i % 2) * 0.5, (i % 3) * 0.65 - 0.5,
+      );
+      smoke.userData.smoke = true;
+      fx.add(smoke);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const debris = mesh(
+        boxGeo(0.15 + (i % 3) * 0.1, 0.08, 0.35 + (i % 2) * 0.2),
+        solid(i % 2 ? BROWN : METAL, { roughness: 0.8, metalness: i % 2 ? 0 : 0.5 }),
+        Math.cos(a) * 1.2, (i % 4) * 0.24 - 0.2, Math.sin(a) * 1.2,
+      );
+      debris.userData.debris = true;
+      debris.userData.velocity = new THREE.Vector3(Math.cos(a) * (4 + i % 3), 3 + (i % 5), Math.sin(a) * (4 + i % 3));
+      fx.add(debris);
+    }
+    this.group.add(fx);
+    this.explosion = fx;
+    return true;
+  }
+
+  updateExplosion(dt) {
+    const fx = this.explosion;
+    if (!fx) return;
+    fx.userData.age += dt;
+    const age = fx.userData.age;
+    for (const child of fx.children) {
+      if (child.userData.fireball) {
+        child.scale.setScalar(1 + age * 2.8);
+        child.material.opacity = clamp(1 - age / 1.15, 0, 1);
+      } else if (child.userData.smoke) {
+        child.position.y += dt * 2.1;
+        child.scale.addScalar(dt * 0.8);
+        child.material.opacity = clamp(0.76 - age * 0.18, 0.12, 0.76);
+      } else if (child.userData.debris) {
+        child.position.addScaledVector(child.userData.velocity, dt);
+        child.userData.velocity.y -= 9.8 * dt;
+        child.rotation.x += dt * 5;
+        child.rotation.z += dt * 3;
+      }
+    }
+  }
+
+  resetDestruction() {
+    if (this.explosion) this.group.remove(this.explosion);
+    this.explosion = null;
+    this.destroyed = false;
+    for (const child of this.group.children) child.visible = true;
   }
 
   drawCompass(heading) {

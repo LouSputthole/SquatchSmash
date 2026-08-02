@@ -19,6 +19,18 @@
 
 <canvas id="scene"></canvas>
 
+<!-- Isolated-preview review points. They never appear in campaign play and
+     only call the mission's existing safe checkpoint/setup paths. -->
+<aside id="br-preview-skips" class="hidden" aria-label="Beef Run preview skips">
+  <strong>PREVIEW</strong>
+  <button data-beefrun-skip="preflight">Walkaround</button>
+  <button data-beefrun-skip="takeoff">Home takeoff</button>
+  <button data-beefrun-skip="flight">Outbound flight</button>
+  <button data-beefrun-skip="mountain-landing">Mountain landing</button>
+  <button data-beefrun-skip="remote-takeoff">Remote takeoff</button>
+  <button data-beefrun-skip="home-landing">Home landing</button>
+</aside>
+
 <!-- The apartment's HUD, reused as-is. Its constructor expects all of these to
      exist; the ones the mission has no use for are simply never shown. -->
 <div id="hud" aria-hidden="true">

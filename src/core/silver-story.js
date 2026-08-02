@@ -92,6 +92,7 @@ class SilverStory {
        * they disagree on an `awkward` evening, and conflating them has the
        * front door congratulating him on a night that did not go well. */
       done.seeingHerAgain = report.seeingHerAgain === true;
+      done.tookMargoHome = (report.tookMargoHome ?? report.cameHome) === true;
       done.knowsWhatHeDoes = report.date?.knowsWhatHeDoes === true;
     });
     this.campaign.advanceTime(TIME_EVENT_IDS.COMPLETE_SILVER_ROOM);

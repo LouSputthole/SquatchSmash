@@ -94,6 +94,7 @@ const report = await page.evaluate(async (TILE) => {
     f.mesh.updateWorldMatrix(true, true);
     return {
       slot: f.slot, real: !!f.info.real, onFloor: !!f.onFloor,
+      behindClothes: f.behindClothes === true,
       bb: new THREE.Box3().setFromObject(f.mesh),
     };
   });
@@ -113,6 +114,33 @@ const report = await page.evaluate(async (TILE) => {
      * shrine in the closet -- only has to not be UNDER it. */
     const min = items[i].onFloor ? -0.005 : 0.05;
     if (bb.min.y < min) problems.push(`${slot} is through the floor (${bb.min.y.toFixed(2)})`);
+  }
+
+  /* The owner-directed closet reveal: one large Booski podium portrait,
+   * mounted on the back wall behind the garments, never duplicated on the
+   * floor. */
+  const podiums = items.filter((item) => item.slot === 'shrine.a');
+  const podium = podiums[0];
+  const closetClothes = S.apartment.closet?.clothes;
+  if (podiums.length !== 1 || !podium) {
+    problems.push(`expected one shrine.a podium portrait, found ${podiums.length}`);
+  } else {
+    const size = podium.bb.getSize(new THREE.Vector3());
+    if (podium.onFloor || !podium.behindClothes) {
+      problems.push('shrine.a is not flagged as the back-wall clothes reveal');
+    }
+    if (size.x < 0.48 || size.y < 0.36) {
+      problems.push(`shrine.a is too small (${size.x.toFixed(2)} x ${size.y.toFixed(2)}m)`);
+    }
+    if (!closetClothes) {
+      problems.push('closet garments are missing from the art verifier');
+    } else {
+      closetClothes.updateWorldMatrix(true, true);
+      const clothesBox = new THREE.Box3().setFromObject(closetClothes);
+      if (podium.bb.min.z <= clothesBox.max.z + 0.10) {
+        problems.push('shrine.a is not mounted behind the garment rail');
+      }
+    }
   }
 
   /* ---- 3: doors, swept through their full travel ---- */

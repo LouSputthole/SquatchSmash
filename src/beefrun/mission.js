@@ -25,6 +25,24 @@ import { evaluateLineupGate } from './lineup-gate.js';
 /** The four places the mission will put you back. */
 const CHECKPOINT_ORDER = ['takeoff', 'approach', 'departure', 'return'];
 
+/** Developer-only entry points exposed by the isolated preview. */
+export const PREVIEW_SKIP_PHASES = Object.freeze([
+  { id: 'preflight', label: 'Walkaround' },
+  { id: 'takeoff', label: 'Home takeoff' },
+  { id: 'flight', label: 'Outbound flight' },
+  { id: 'mountain-landing', label: 'Mountain landing' },
+  { id: 'remote-takeoff', label: 'Remote takeoff' },
+  { id: 'home-landing', label: 'Home landing' },
+]);
+
+const PREVIEW_CHECKPOINT = Object.freeze({
+  takeoff: 'takeoff',
+  flight: 'cruise',
+  'mountain-landing': 'approach',
+  'remote-takeoff': 'departure',
+  'home-landing': 'return',
+});
+
 /** Scratch, for putting the destination on the glass every frame. */
 const _navPos = new THREE.Vector3();
 const _navView = new THREE.Matrix4();
@@ -151,6 +169,52 @@ export class MissionController {
     this.setPhase('arrival');
   }
 
+  /** Jump to an authored review point without changing campaign persistence. */
+  previewSkip(id) {
+    if (id === 'preflight') {
+      const park = this.airfield.anchors.parking;
+      if (this.lou?.group?.parent === this.aircraft?.group) this.scene?.add(this.lou.group);
+      if (this.lou && this.airfield.anchors.louStand) {
+        this.lou.group.position.copy(this.airfield.anchors.louStand);
+        setPose(this.lou, 'lean');
+      }
+      if (this.stove && this.airfield.anchors.stoveHangar) {
+        this.stove.group.position.copy(this.airfield.anchors.stoveHangar);
+        setPose(this.stove, 'idle');
+      }
+      this.flags.inCockpit = false;
+      this.flags.louAboard = false;
+      this.flags.stoveWalked = false;
+      this.louBoarding = null;
+      this.aircraft?.resetDestruction?.();
+      this.physics?.setPose?.(
+        new THREE.Vector3(park.x, park.y + AC.gearY, park.z),
+        this.airfield.anchors.parkingHeading,
+        0,
+      );
+      if (this.physics) this.aircraft?.syncTo?.(this.physics);
+      this.engines?.reset?.(false);
+      this.input?.clear?.();
+      if (this.input) this.input.rudderKeys = false;
+      this.interaction?.setPaused?.(false);
+      this.audio?.setHeadset?.(false);
+      this.dialogue?.setHeadset?.(false);
+      this.flightHud?.show?.(false);
+      this.flightHud?.showControls?.(false);
+      this.player.position.set(park.x - 5.5, WP.elev + 1.66, park.z - 4.5);
+      this.player.ground = WP.elev;
+      this.player.yaw = yawToward(this.player.position, park);
+      this.player.mode = 'walk';
+      this.player.enabled = true;
+      this.setPhase('preflight');
+      return true;
+    }
+    const checkpoint = PREVIEW_CHECKPOINT[id];
+    if (!checkpoint) return false;
+    this.restoreCheckpoint(checkpoint);
+    return true;
+  }
+
   /** Whichever cargo sequence currently owns the cargo door. */
   get activeLoad() {
     return this.jerkyLoad?.armed ? this.jerkyLoad : (this.gunLoad?.armed ? this.gunLoad : (this.jerkyLoad || this.gunLoad));
@@ -189,6 +253,15 @@ export class MissionController {
         this.setObjective(OBJECTIVES.meetStove);
         this.preflight.disarm();
         this.flightHud.showChecklist(false);
+        /* The handoff is a three-man beat, not a voice coming from the hangar.
+         * Stove has already walked most of the way out; Sasole closes a couple
+         * of steps too, and the player's view is gently caught toward Stove
+         * long enough to establish who just joined them. */
+        if (this.airfield.anchors.louStoveStand) {
+          const p = this.airfield.anchors.louStoveStand;
+          walkTo(this.lou, p.x, p.z, { speed: 1.05, pose: 'idle' });
+        }
+        this.groundLook = { target: this.stove.group, t: 0, duration: 1.15 };
         break;
 
       case 'loadGuns':
@@ -352,8 +425,22 @@ export class MissionController {
     this.boardTarget = null;
   }
 
+  /** Finish Captain Sasole's climb and lock him to the right seat. */
+  seatLou() {
+    this.aircraft.group.add(this.lou.group);
+    this.lou.group.position.copy(this.aircraft.copilotSeat);
+    this.lou.group.rotation.set(0, 0, 0);
+    setPose(this.lou, 'sit');
+    this.flags.louAboard = true;
+    this.louBoarding = null;
+  }
+
   enterCockpit() {
     this.disarmBoardingTarget();
+    /* E used to advance the state machine before the Captain's 3.4 second
+     * boarding animation had finished. `updateBoarding()` then stopped being
+     * called and he remained outside the aeroplane for the whole flight. */
+    this.seatLou();
     this.flags.inCockpit = true;
     this.player.enabled = false;
     this.player.mode = 'frozen';
@@ -414,6 +501,7 @@ export class MissionController {
 
     // Lou: increasingly unwell, and reacting to the flying.
     this.updateLou(dt);
+    this.updateGroundLook(dt);
 
     switch (this.phase) {
       case 'arrival': this.updateArrival(dt); break;
@@ -443,6 +531,30 @@ export class MissionController {
     }
 
     if (this.flags.inCockpit) this.updateFlightCommon(dt);
+  }
+
+  /** A short on-foot authored glance used to introduce Old Stove. */
+  updateGroundLook(dt) {
+    const look = this.groundLook;
+    if (!look || this.flags.inCockpit || !this.player.enabled) return;
+    look.t += dt;
+    look.target.updateWorldMatrix?.(true, false);
+    look.target.getWorldPosition(_navPos);
+    _navPos.y += 1.35;
+    const dx = _navPos.x - this.player.position.x;
+    const dz = _navPos.z - this.player.position.z;
+    const eyeY = this.player.ground + this.player.eyeHeight;
+    const wantYaw = yawToward(this.player.position, _navPos);
+    const turn = ((wantYaw - this.player.yaw + Math.PI) % (Math.PI * 2) + Math.PI * 2)
+      % (Math.PI * 2) - Math.PI;
+    const k = clamp(dt * 7.5, 0, 1);
+    this.player.yaw += turn * k;
+    this.player.pitch = lerp(
+      this.player.pitch,
+      Math.atan2(_navPos.y - eyeY, Math.max(0.1, Math.hypot(dx, dz))),
+      k,
+    );
+    if (look.t >= look.duration) this.groundLook = null;
   }
 
   /* ---- Ground, before the aeroplane ---- */
@@ -576,14 +688,11 @@ export class MissionController {
       this.lou.group.position.lerpVectors(this.louBoarding.from, seat, smoothstep(0, 1, k));
       if (k > 0.55 && this.lou.pose !== 'sit') {
         setPose(this.lou, 'sit');
-        this.aircraft.group.add(this.lou.group);
-        this.lou.group.position.copy(this.aircraft.copilotSeat);
-        this.lou.group.rotation.set(0, 0, 0);
       }
-      if (k >= 1) {
-        this.louBoarding = null;
-        this.flags.louAboard = true;
-      }
+      /* Keep the interpolation in world space until it is finished. Reparenting
+       * halfway through made the next world's position become a giant local
+       * offset for the remainder of the climb. */
+      if (k >= 1) this.seatLou();
     }
     if (this.preflight.chocksIn && !this.flags.chocksWarned) {
       this.flags.chocksWarned = true;
@@ -1243,14 +1352,25 @@ export class MissionController {
   }
 
   onImpact(severity, what) {
-    if (severity <= 0) return;
+    if (severity <= 0 || this.aircraft.destroyed) return;
     const p = this.physics;
-    if (severity > 2.4) {
+    /* Wheel contact and a shallow brush are deliberately survivable. A real
+     * explosion is reserved for a high-energy structural strike, not a wingtip
+     * touching a forgiving hillside while the player corrects. */
+    if (severity > 3.2) {
       p.damage.wing = clamp(p.damage.wing + severity * 0.06, 0, 1);
       this.cameras.addShake(0.6);
       this.audio.play('gun.impact', { volume: 0.7 });
     }
-    if (severity > 6.5 || p.damage.wing >= 1) {
+    const hardCrash = severity >= 7.6;
+    if (hardCrash && !this.aircraft.destroyed) {
+      this.aircraft.explode();
+      this.audio.explosion?.();
+      this.cameras.addShake(1.6);
+      for (let i = 0; i < 2; i++) this.engines.kill(i, 'destroyed');
+      p.controls.throttleL = p.controls.throttleR = 0;
+      p.velocity.multiplyScalar(0.04);
+      p.omega.set(0, 0, 0);
       this.fail(what === 'terrain' ? 'You flew it into the ground.' : 'The aeroplane is finished.');
     }
   }
@@ -1358,7 +1478,7 @@ export class MissionController {
     }
     const onApron = !this.flags.louAboard
       && ['arrival', 'preflight', 'stove', 'loadGuns'].includes(this.phase);
-    if (onApron) this.lou.faceToward(this.player.position.x, this.player.position.z);
+    if (onApron && !this.lou.walk) this.lou.faceToward(this.player.position.x, this.player.position.z);
     updateFigure(this.lou, dt, this.flags.inCockpit ? this.camera.position : this.player.position);
     // The cup and the name tag both belong to the man on the apron. Once he is
     // in the right seat you are half a metre from him and you know who he is.
@@ -1415,6 +1535,7 @@ export class MissionController {
     this.input.clear();
     this.detection.clear();
     this.flightHud.hideComplete();
+    this.aircraft.resetDestruction?.();
     // Every checkpoint restore lands in the cockpit, so the walkaround's
     // marker and checklist must not survive an R pressed mid-preflight.
     this.preflight.disarm();
@@ -1434,6 +1555,20 @@ export class MissionController {
         this.flags.rotateCalled = false;
         this.flags.clearCalled = false;
         this.setPhase('lineup');
+      },
+      cruise: () => {
+        const z = -3400;
+        const y = terrainHeight(WP.x, z) + 430;
+        this.physics.setPose(new THREE.Vector3(WP.x, y, z), 180, 58);
+        this.engines.forceRunning();
+        this.input.throttle = 0.62;
+        this.input.flaps = 0;
+        this.physics.controls.parkingBrake = false;
+        this.weather.setConditions({ dusk: 0, rain: 0, turbulence: 0.48, cloudDensity: 0.45 });
+        this.audio.setPhase('south');
+        this.flags.clearCalled = true;
+        this.flags.turbStarted = true;
+        this.setPhase('south');
       },
       approach: () => {
         const z = EH.zLow + 2600;
@@ -1490,13 +1625,7 @@ export class MissionController {
     }
 
     // Put Lou back in the right seat, wherever he was.
-    if (!this.flags.louAboard) {
-      this.aircraft.group.add(this.lou.group);
-      this.lou.group.position.copy(this.aircraft.copilotSeat);
-      this.lou.group.rotation.set(0, 0, 0);
-      setPose(this.lou, 'sit');
-      this.flags.louAboard = true;
-    }
+    if (!this.flags.louAboard) this.seatLou();
     this.flags.inCockpit = true;
     this.player.enabled = false;
     this.player.mode = 'frozen';

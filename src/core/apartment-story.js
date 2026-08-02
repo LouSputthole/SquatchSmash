@@ -583,6 +583,29 @@ export const BIG_NIGHT_MARGO_WAKE = Object.freeze({
   ]),
 });
 
+/**
+ * The post-date dress repair. Every line before the final pair avoids naming
+ * the object: the player sees two clothed silhouettes, hears instructions that
+ * sound much worse out of context, and only gets the mundane answer when the
+ * camera widens onto the repaired back seam.
+ */
+export const MARGO_DRESS_REPAIR = Object.freeze({
+  characterId: CHARACTER_IDS.MARGO,
+  from: getCharacter(CHARACTER_IDS.MARGO).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.MARGO),
+  vo: 'margo.repair',
+  lines: Object.freeze([
+    'It is stuck. Get behind me and put some weight into it.',
+    'Both hands. Rhythm helps.',
+    'There. The zip is back on its teeth.',
+  ]),
+  replies: Object.freeze([
+    'That is what I am doing.',
+    'I have got a rhythm.',
+    'You could have said zip earlier.',
+  ]),
+});
+
 class ApartmentStory {
   constructor({ campaign, ring }) {
     this.campaign = campaign;
@@ -692,6 +715,13 @@ class ApartmentStory {
     }
     if (state.missions[step.requires].status !== 'complete') {
       return { ok: false, reason: step.incomplete };
+    }
+    /* The post-date repair is part of the chapter boundary, not merely a UI
+     * prompt. Without this invariant a direct caller could advance into the
+     * next morning without writing the repair marker, leaving both the night
+     * scene and Margo's wake scene permanently unowed. */
+    if (this.margoDressRepairOwed()) {
+      return { ok: false, reason: 'margo_repair_incomplete' };
     }
 
     this.campaign.update((next) => {
@@ -987,7 +1017,38 @@ class ApartmentStory {
   margoWakeOwed() {
     const state = this.campaign.state;
     return state.story.chapter === 'big_night'
+      && state.missions[MISSION_IDS.SILVER_ROOM].tookMargoHome === true
+      && state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DRESS_REPAIR)
       && !state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE);
+  }
+
+  /**
+   * The night after the Silver Room. Margo came upstairs by an explicit player
+   * choice, and her dress repair is a playable one-shot rather than an
+   * assumption inferred from the date score.
+   */
+  margoDressRepairOwed() {
+    const state = this.campaign.state;
+    const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    return state.story.chapter === 'date'
+      && silver.status === 'complete'
+      && silver.tookMargoHome === true
+      && !state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DRESS_REPAIR);
+  }
+
+  /** She accepted the invitation and remains in the flat until he sleeps. */
+  margoStayingTonight() {
+    const state = this.campaign.state;
+    const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    return state.story.chapter === 'date'
+      && silver.status === 'complete'
+      && silver.tookMargoHome === true;
+  }
+
+  /** The clasp is fixed. The one-shot marker is written once. */
+  margoDressRepairDone() {
+    if (!this.margoDressRepairOwed()) return false;
+    return this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_DRESS_REPAIR).applied === true;
   }
 
   /** She got dressed and went. Twelve minutes on the clock. */

@@ -67,8 +67,9 @@ deferred pending the owner's playtest.
 - Standalone scene boot failures show Reload and Apartment recovery.
 - Scene/spawn validation, atomic transitions, failed-navigation rollback, and
   browser-storage fallback are implemented.
-- Campaign save schema v6 chains the v1-v3 migrations through NO WAKE v4,
-  the HotDog/graveyard v5 route, and the persistent memorial ledger in v6;
+- Campaign save schema v7 chains the v1-v3 migrations through NO WAKE v4,
+  the HotDog/graveyard v5 route, the persistent memorial ledger in v6, and
+  Front and Center's explicit Margo take-home/dress-repair handoff in v7;
   it preserves malformed or future-version data in
   a recovery journal, visibly warns the player, and refuses unsafe scene
   transitions when persistence fails.

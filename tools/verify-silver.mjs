@@ -461,13 +461,22 @@ const dressing = await page.evaluate(() => {
     return npc && room.anchors.crewSeats.some((s) => Math.hypot(npc.group.position.x - s.x, npc.group.position.z - s.z) < 0.3);
   });
   let dinersOffChair = 0;
+  let dinersTrackingPlayer = 0;
   for (const [key, npc] of Object.entries(b.cast.byName)) {
     if (!/^diner\d+$/.test(key)) continue;
+    if (npc.look) dinersTrackingPlayer++;
     const p = npc.group.position;
     const seated = room.anchors.tableSeats.some((t) => t.seats.some((s) => Math.hypot(p.x - s.x, p.z - s.z) < 0.3));
     if (!seated) dinersOffChair++;
   }
   out.dinersOffChair = dinersOffChair;
+  out.dinersTrackingPlayer = dinersTrackingPlayer;
+  let waiterFace = false;
+  b.cast.byName.waiter.parts.head.traverse((part) => {
+    const materials = Array.isArray(part.material) ? part.material : [part.material];
+    if (materials.some((material) => material?.map)) waiterFace = true;
+  });
+  out.waiterFace = waiterFace;
 
   return out;
 });
@@ -491,6 +500,9 @@ check('nobody on their feet is standing inside a wall or the furniture',
 check('chairs belong to their tables: none in a column, the crew on their own chairs, every diner in one',
   dressing.chairsInColumns === 0 && dressing.crewSeated && dressing.dinersOffChair === 0,
   JSON.stringify({ inColumns: dressing.chairsInColumns, crew: dressing.crewSeated, offChair: dressing.dinersOffChair }));
+check('the table waiter has his authored face and nearby diners do not stare through Margo',
+  dressing.waiterFace && dressing.dinersTrackingPlayer === 0,
+  JSON.stringify({ waiterFace: dressing.waiterFace, dinersTrackingPlayer: dressing.dinersTrackingPlayer }));
 
 /* ---- and she can walk it, rather than being teleported down it ----
  *
@@ -1387,6 +1399,12 @@ check('somebody from the family stops by the table',
   JSON.stringify({ met: s.flags.familyMet, as: s.flags.introducedAs }));
 check('the champagne arrives from the table by the pillar',
   s.flags.champagneSent === true, String(s.flags.champagneSent));
+const tableOrder = await page.evaluate(() => window.__silver.game.tableBeatLog.slice());
+const tablePositions = ['drinks', 'champagne', 'champagne-complete', 'family']
+  .map((beat) => tableOrder.indexOf(beat));
+check('waiter service, champagne identification, and Ape happen in strict sequence',
+  tablePositions.every((at, i) => at >= 0 && (i === 0 || at > tablePositions[i - 1])),
+  tableOrder.join(' → '));
 
 /* ---- "funny how?" ----
  * Reached by taking the first answer every time, which is the point: the
@@ -1858,6 +1876,20 @@ check('the dev panel is absent without ?dev',
  * menu. The harness never saw it, because it called the ending resolver
  * directly and never once used the invitation the game offers.
  */
+const dessertBeforeInvite = await page.evaluate(() => {
+  const b = window.__silver;
+  b.dialogue.end();
+  b.debug.dessert();
+  return b.dialogue.options.map((option) => option.tone);
+});
+check('dessert is offered before the final question',
+  dessertBeforeInvite.includes('Yes') && dessertBeforeInvite.includes('No'),
+  dessertBeforeInvite.join(', '));
+await choose(0);
+await tick(3);
+check('answering dessert closes the meal before the invitation',
+  await page.evaluate(() => !!window.__silver.mission.flags.dessert), '');
+
 const asked = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
@@ -1879,6 +1911,7 @@ const rushing = await page.evaluate(() => {
   const fresh = (secs) => {
     const m = new Mission();
     m.flags.showStarted = true;
+    m.flags.dessert = 'figs';
     m.setState('performance');
     m.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
     m.inState = secs;
@@ -1888,6 +1921,7 @@ const rushing = await page.evaluate(() => {
   };
   const declined = new Mission();
   declined.flags.showStarted = true;
+  declined.flags.dessert = 'skipped';
   declined.setState('performance');
   declined.roundsDone = new Set(['entrance', 'drinks', 'family', 'personal']);
   declined.inState = 2;
@@ -2234,12 +2268,17 @@ const voice = await page.evaluate(({ cues, voices }) => {
         for (const songRequested of [false, 'horns']) {
           for (const introducedAs of ['right', 'wrong']) {
             for (const abandonments of [0, 2]) {
-              for (const score of [20, 65, 92]) {
-                Object.assign(F, { tableBuilt, seated, drinkOrdered, songRequested, introducedAs, abandonments });
-                b.woo.score = score;
-                for (const [key, tree] of Object.entries(S)) {
-                  if (key === 'scenes') { for (const beats of Object.values(tree)) beats.forEach(visit); continue; }
-                  Object.values(tree).forEach(visit);
+              for (const invitation of ['see-again', 'home']) {
+                for (const score of [20, 65, 92]) {
+                  Object.assign(F, {
+                    tableBuilt, seated, drinkOrdered, songRequested,
+                    introducedAs, abandonments, invitation,
+                  });
+                  b.woo.score = score;
+                  for (const [key, tree] of Object.entries(S)) {
+                    if (key === 'scenes') { for (const beats of Object.values(tree)) beats.forEach(visit); continue; }
+                    Object.values(tree).forEach(visit);
+                  }
                 }
               }
             }
@@ -2274,8 +2313,8 @@ check('and every line anybody cast can say has a cue in the manifest that says t
     ? `${voice.nMissing} missing (${voice.missing.join(', ')}); ${voice.nDrifted} drifted (${voice.drifted.join('; ')}); ${voice.badVoice.join('; ')}`
     : `${voice.lines} lines across ${new Set(Object.values(await page.evaluate(() => window.__silver.VOICE_OF))).size} voices`);
 /* The bank is who is speaking; the profile is whose larynx it comes out of,
- * and only the second one needs an id on the owner's sheet. Four of the six
- * banks in this scene share the wait staff's. */
+ * and only the second one needs an id on the owner's sheet. The named table
+ * waiter now has his own profile; the other floor jobs retain wait staff. */
 const profiles = await page.evaluate(() => window.__silver.PROFILE_OF);
 check('every voice the scene names resolves to a profile with an id behind it',
   Object.values(await page.evaluate(() => window.__silver.VOICE_OF))

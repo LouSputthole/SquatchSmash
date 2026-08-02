@@ -118,7 +118,7 @@ await page.addInitScript(() => {
       silver_room: {
         status: 'complete', outcome: 'strong', woo: 74, band: 'strong',
         tippedEverybody: true, rememberedDrink: true,
-        seeingHerAgain: true, knowsWhatHeDoes: true,
+        seeingHerAgain: true, tookMargoHome: true, knowsWhatHeDoes: true,
       },
       initiation: { status: 'locked' },
     },
@@ -185,8 +185,8 @@ try {
       && !dateRoom.shown.includes('willyPhoto')
       && dateRoom.shown.includes('motelKey')
       && dateRoom.shown.includes('casualJacket')
-      // Still an accumulating flat: Day Two's things are all still here.
-      && dateRoom.shown.includes('bloodShirt')
+      // Still an accumulating flat, minus the removed broken floor shirt.
+      && !dateRoom.shown.includes('bloodShirt')
       && dateRoom.shown.includes('cashSmall'),
     JSON.stringify(dateRoom.shown));
   check('Lou has stopped saying things, and the Motel is on the news',
@@ -199,6 +199,40 @@ try {
   check('the door sends him to bed instead of out to the Circle',
     home.door?.kind === 'stay' && home.door?.id === 'sleep_before_big_night',
     JSON.stringify(home.door));
+
+  const repaired = await page.evaluate(() => {
+    const game = window.__squatch;
+    const started = game.startMargoDressRepair();
+    /* The dialogue timers are presentation; drive the exact same timing bar
+     * directly so the verifier proves the gameplay state without waiting for
+     * six recorded lines in software rendering. */
+    game.margoRepair.intro = false;
+    game.margoRepair.bar.start();
+    for (let i = 0; i < game.margoRepair.bar.total; i++) {
+      game.margoRepair.bar.pos = 0.78;
+      game.margoRepair.bar.press();
+    }
+    game.updateMargoDressRepair(0.8);
+    const state = game.campaign.state;
+    const result = {
+      started,
+      repaired: state.story.timeEvents.includes('scene.margo_dress_repair'),
+      owed: game.apartmentStory.margoDressRepairOwed(),
+      staying: game.apartmentStory.margoStayingTonight(),
+      pose: game.apartment.margo.pose(),
+      visible: game.apartment.margo.group.visible,
+    };
+    game.finishMargoDressRepair();
+    return result;
+  });
+  check('Margo is physically home and the timing repair reveals the dress seam before bed',
+    repaired.started === true
+      && repaired.repaired === true
+      && repaired.owed === false
+      && repaired.staying === true
+      && repaired.pose === 'waiting'
+      && repaired.visible === true,
+    JSON.stringify(repaired));
 
   const slept = await page.evaluate(() => {
     const game = window.__squatch;
@@ -259,8 +293,9 @@ try {
       && ['cashStacks', 'suitBag', 'gunCase', 'jerkyHaul', 'silverMatches', 'laundryHeap']
         .every((id) => peak.shown.includes(id))
       // Everything he accumulated on the way here is still here.
-      && ['bloodShirt', 'cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
+      && ['cashSmall', 'bingMatches', 'motelKey', 'casualJacket', 'willyGap']
         .every((id) => peak.shown.includes(id))
+      && !peak.shown.includes('bloodShirt')
       && !peak.shown.includes('lanyard')
       && !peak.shown.includes('willyPhoto')
       && peak.raining === false,

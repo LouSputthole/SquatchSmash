@@ -77,12 +77,12 @@ const APARTMENT_PREVIEW_CASES = Object.freeze([
   Object.freeze({
     variant: 'after-silver-room', spawn: 'front_door', chapter: 'date', day: 3,
     timeMinutes: 23 * 60 + 20, mission: 'silver_room', missionStatus: 'complete',
-    pendingEvent: 'booski_big_night_call',
+    pendingEvent: 'booski_big_night_call', repairOwed: true, margoVisible: true,
   }),
   Object.freeze({
     variant: 'day-four-wake', spawn: 'wake', chapter: 'big_night', day: 4,
     timeMinutes: 10 * 60, mission: 'initiation', missionStatus: 'locked',
-    pendingEvent: 'booski_big_night_call',
+    pendingEvent: 'booski_big_night_call', repairOwed: false, wakeOwed: true,
   }),
 ]);
 const EXPECTED_APARTMENT_RETURN_SOURCES = Object.freeze({
@@ -208,6 +208,9 @@ try {
         missions: state.missions,
         events: state.events,
         returnSource: window.__squatch.apartmentReturnSource,
+        repairOwed: window.__squatch.apartmentStory.margoDressRepairOwed(),
+        wakeOwed: window.__squatch.apartmentStory.margoWakeOwed(),
+        margoVisible: window.__squatch.apartment.margo.group.visible,
         previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
       };
     });
@@ -221,6 +224,9 @@ try {
         && apartment.events[expected.pendingEvent].status === 'pending'
         && apartment.returnSource
           === (EXPECTED_APARTMENT_RETURN_SOURCES[expected.variant] ?? null)
+        && (expected.repairOwed === undefined || apartment.repairOwed === expected.repairOwed)
+        && (expected.wakeOwed === undefined || apartment.wakeOwed === expected.wakeOwed)
+        && (expected.margoVisible === undefined || apartment.margoVisible === expected.margoVisible)
         && apartment.previewNotice,
       JSON.stringify({
         scene: apartment.scene,

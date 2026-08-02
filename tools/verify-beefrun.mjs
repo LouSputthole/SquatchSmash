@@ -106,6 +106,16 @@ try {
       shadowMap: [b.weather.sun.shadow.mapSize.x, b.weather.sun.shadow.mapSize.y],
       terrainBefore,
       builtInOneUpdate,
+      previewSkips: [...document.querySelectorAll('[data-beefrun-skip]')].map((el) => el.dataset.beefrunSkip),
+      previewSkipsVisible: !document.getElementById('br-preview-skips')?.classList.contains('hidden'),
+      tammy: {
+        slot: b.aircraft.parts.tammySticker?.userData.artSlot,
+        textureLoaded: Boolean(b.aircraft.parts.tammySticker?.material.map?.image?.width),
+      },
+      remoteDetail: [
+        'el-hueso-edge-markers', 'el-hueso-threshold', 'el-hueso-generator',
+        'el-hueso-workbench', 'el-hueso-clothesline', 'el-hueso-sign',
+      ].map((name) => ({ name, found: Boolean(b.mission.airstrip.root.getObjectByName(name)) })),
     };
   });
   check('the preview boots with the airstrip available and its prerequisites seeded',
@@ -132,6 +142,16 @@ try {
       terrainBefore: booted.terrainBefore,
       builtInOneUpdate: booted.builtInOneUpdate,
     }));
+  check('the isolated preview exposes every authored review skip',
+    booted.previewSkipsVisible
+      && booted.previewSkips.join(',')
+        === 'preflight,takeoff,flight,mountain-landing,remote-takeoff,home-landing',
+    JSON.stringify(booted.previewSkips));
+  check('the cockpit carries the canonical Tammy sticker and El Hueso is fully dressed',
+    booted.tammy.slot === 'sticker.fridge'
+      && booted.tammy.textureLoaded
+      && booted.remoteDetail.every((part) => part.found),
+    JSON.stringify({ tammy: booted.tammy, remoteDetail: booted.remoteDetail }));
 
   /* Pressing start decodes the whole sample bank before the mission begins,
    * and that bank is now over a thousand recordings. On a software renderer
@@ -203,6 +223,50 @@ try {
       && scenePass.louFacingPlayer < 0.01,
     JSON.stringify(scenePass));
 
+  const stoveBeat = await page.evaluate(async () => {
+    const b = window.__beefrun;
+    const m = b.mission;
+    const npc = await import('/src/beefrun/npc.js');
+    m.stove.group.position.copy(m.airfield.anchors.stoveStand);
+    m.stove.walk = null;
+    m.lou.group.position.copy(m.airfield.anchors.louStand);
+    m.lou.walk = null;
+    m.player.position.set(-56.5, m.airfield.elevation + m.player.eyeHeight, 379.5);
+    m.player.ground = m.airfield.elevation;
+    m.player.velocity.set(0, 0, 0);
+    m.setPhase('stove');
+    const louBefore = m.lou.group.position.clone();
+    const lookDuration = m.groundLook?.duration ?? 0;
+    const walkTarget = m.lou.walk ? { x: m.lou.walk.x, z: m.lou.walk.z } : null;
+    for (let i = 0; i < 58; i++) {
+      npc.updateFigure(m.lou, 0.02, m.player.position);
+      m.player.update(0.02);
+      m.updateGroundLook(0.02);
+    }
+    m.player.update(0.02);
+    const V = b.physics.position.constructor;
+    const view = new V(0, 0, -1).applyQuaternion(m.camera.quaternion).normalize();
+    const stoveHead = m.stove.group.position.clone();
+    stoveHead.y += 1.35;
+    const toStove = stoveHead.sub(m.camera.position).normalize();
+    const result = {
+      lookDuration,
+      walkTarget,
+      louMoved: +m.lou.group.position.distanceTo(louBefore).toFixed(2),
+      stoveDistance: +m.player.position.distanceTo(m.stove.group.position).toFixed(2),
+      cameraOnStove: +view.dot(toStove).toFixed(3),
+    };
+    m.setPhase('arrival');
+    return result;
+  });
+  check('Old Stove steps into the group, the camera catches him, and Sasole closes in too',
+    stoveBeat.lookDuration >= 0.8 && stoveBeat.lookDuration <= 1.6
+      && stoveBeat.walkTarget
+      && stoveBeat.louMoved > 1
+      && stoveBeat.stoveDistance < 12
+      && stoveBeat.cameraOnStove > 0.96,
+    JSON.stringify(stoveBeat));
+
   /* The two men on the apron are named, and the names ride with them. */
   const tags = await page.evaluate(async () => {
     const m = window.__beefrun.mission;
@@ -262,12 +326,14 @@ try {
       sway: span(seen.hipX),
       lean: span(seen.hipZ),
       gesture: span(seen.arm),
+      leftArmOut: m.lou.arms[0].shoulder.rotation.z <= 0,
     };
   });
   check("Captain Sasole wears his own photograph and does not stand like a post",
     sasole.photoSkull && sasole.faceOnFront && sasole.textureLoaded
       && sasole.src === 'faces/sasole.png'
-      && sasole.sway > 0.01 && sasole.lean > 0.01 && sasole.gesture > 0.3,
+      && sasole.sway > 0.01 && sasole.lean > 0.01 && sasole.gesture > 0.3
+      && sasole.leftArmOut,
     JSON.stringify(sasole));
 
   /* The walkaround marker stands on the part, not on the grass behind it. */
@@ -590,6 +656,12 @@ const chain = await page.evaluate(() => {
       controlsUp: !document.getElementById('br-controls').classList.contains('hidden'),
       controlKeys: document.querySelectorAll('#br-controls kbd').length,
       controlsText: document.getElementById('br-controls').textContent,
+      copilot: {
+        aboard: b.mission.flags.louAboard,
+        parented: b.mission.lou.group.parent === ac.group,
+        seatOffset: +b.mission.lou.group.position.distanceTo(ac.copilotSeat).toFixed(3),
+        visible: b.mission.lou.group.visible,
+      },
     };
   });
   check('the left seat looks over the panel at where the nose is pointing',
@@ -601,6 +673,10 @@ const chain = await page.evaluate(() => {
   check('the flight HUD and the controls legend are up for the flight',
     seat.hudUp && seat.controlsUp && seat.controlKeys >= 16,
     JSON.stringify({ hudUp: seat.hudUp, controlsUp: seat.controlsUp, keys: seat.controlKeys }));
+  check('Captain Sasole occupies the right seat throughout the flight',
+    seat.copilot.aboard && seat.copilot.parented
+      && seat.copilot.seatOffset < 0.01 && seat.copilot.visible,
+    JSON.stringify(seat.copilot));
   check('keyboard bank labels match conventional flight controls',
     /A\s*bank left/i.test(seat.controlsText) && /D\s*bank right/i.test(seat.controlsText),
     seat.controlsText.replace(/\s+/g, ' ').trim());
@@ -645,8 +721,8 @@ const chain = await page.evaluate(() => {
     input.clear();
     return { a, d };
   });
-  check('A rolls left and D rolls right like the gamepad',
-    rollKeys.a < 0 && rollKeys.d > 0,
+  check('A and D bank in the cockpit-visible direction',
+    rollKeys.a > 0 && rollKeys.d < 0,
     JSON.stringify(rollKeys));
 
   const skippedLineup = await resumePage.evaluate(async () => {
@@ -715,6 +791,42 @@ const chain = await page.evaluate(() => {
       && pointing.behind.y > 90
       && /WHISPERING PINES/.test(pointing.ahead.tag),
     JSON.stringify(pointing));
+
+  const crash = await resumePage.evaluate(() => {
+    const b = window.__beefrun;
+    const m = b.mission;
+    let explosionSounds = 0;
+    const originalExplosion = m.audio.explosion.bind(m.audio);
+    m.audio.explosion = () => { explosionSounds++; };
+    m.onImpact(7.3, 'terrain');
+    const brushSurvived = !b.aircraft.destroyed && !m.failed;
+    m.onImpact(7.8, 'terrain');
+    const hard = {
+      destroyed: b.aircraft.destroyed,
+      effect: b.aircraft.explosion?.name,
+      fireballs: b.aircraft.explosion?.children.filter((child) => child.userData.fireball).length ?? 0,
+      enginesDead: b.engines.engines.every((engine) => engine.dead && !engine.running),
+      failed: Boolean(m.failed),
+      explosionSounds,
+    };
+    m.audio.explosion = originalExplosion;
+    m.restoreCheckpoint('departure');
+    return {
+      brushSurvived,
+      hard,
+      reset: !b.aircraft.destroyed && !b.aircraft.explosion && b.engines.bothRunning,
+    };
+  });
+  check('a terrain brush is forgiven while a hard crash explodes and destroys the plane',
+    crash.brushSurvived
+      && crash.hard.destroyed
+      && crash.hard.effect === 'brushrunner-explosion'
+      && crash.hard.fireballs >= 3
+      && crash.hard.enginesDead
+      && crash.hard.failed
+      && crash.hard.explosionSounds === 1
+      && crash.reset,
+    JSON.stringify(crash));
   check('no console errors during the resume', resumeProblems.length === 0,
     resumeProblems.join(' | '));
   await resumePage.close();

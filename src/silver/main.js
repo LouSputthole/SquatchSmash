@@ -34,6 +34,7 @@ import { Dialogue } from '../bing/dialogue.js';
 import { buildScripts, DATE, DATE_BARKS, BARKS, NOTES, VOICE_OF, PROFILE_OF } from './script.js';
 import { Performance, Sway, SET } from './perform.js';
 import { makeTaxi } from './vehicle.js';
+import { SeatedDinnerFlow } from './dinner-flow.js';
 import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js';
 import { createSilverStory } from '../core/silver-story.js';
 
@@ -226,6 +227,8 @@ const game = {
   /* Every voice cue the evening has asked for, recorded or not. The only way
    * to see that a line is wired before the recording exists. */
   voLog: [],
+  /* Permanent verification trace for the table's authored social order. */
+  tableBeatLog: [],
 };
 
 window.__squatchStage?.('Wetting the pavement…');
@@ -1153,6 +1156,7 @@ function startTableCutscene() {
 /* ---- the champagne ---- */
 
 let champagneSent = false;
+let champagneComplete = false;
 function sendChampagne() {
   if (champagneSent || !game.seated) return;
   champagneSent = true;
@@ -1161,7 +1165,18 @@ function sendChampagne() {
   const waiter = comesToTable(cast.byName.waiter, { x: 1.2, z: 1.4 });
   audio.play('cork.pop', { volume: 0.55, position: target });
 
-  game.scene = new Cutscene(scripts.scenes.champagne.map((b) => ({ ...b })), {
+  const beats = [
+    ...scripts.scenes.champagne.map((b) => ({ ...b })),
+    {
+      at: 2.5,
+      run: () => {
+        waiter?.faceToward(cast.crewTable.x, cast.crewTable.z, true);
+        waiter?.say(3.8);
+      },
+    },
+    { at: 6.4, run: () => waiter?.faceToward(player.position.x, player.position.z, true) },
+  ];
+  game.scene = new Cutscene(beats, {
     dateSeat: room.anchors.frontSeats[1],
     camera: [
       { at: 0, to: player.position.clone(), look: { x: target.x + 1.2, y: 1.4, z: target.z + 1.4 }, dur: 1.5 },
@@ -1171,6 +1186,8 @@ function sendChampagne() {
       // Control comes back sitting down, which is where it was.
       player.mode = 'seated';
       goesBack(waiter);
+      champagneComplete = true;
+      game.tableBeatLog.push('champagne-complete');
       mission.addObjective('thanks', 'Acknowledge the table by the pillar', { optional: true });
       thanksPad.visible = true;
       hud.say('<em>Look over at the pillar and [E] to lift a glass at them.</em>', 4600);
@@ -1265,40 +1282,42 @@ function beginRound(id) {
   date.watch(null, 0);
 }
 
-const ROUND_QUEUE = [
-  { id: 'table', after: 0 },
-  { id: 'entrance', after: 6 },
-  { id: 'work', after: 26 },
-  /* Skipped if the order already happened — the waiter patrols within reach
-   * of the front table, so a player can wave him down before the queue does,
-   * and the round must not then play a second time. */
-  { id: 'drinks', after: 48, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
-  { id: 'family', after: 96, run: () => apeComesOver() },
-  { id: 'funny', after: 150 },
-  { id: 'personal', after: 186 },
-  { id: 'show', after: 240, run: () => startShowCutscene() },
-  /* After the band. The evening keeps having things in it — this is the
-   * window the brief asks for, where the player works out for himself that
-   * it is going well rather than being handed a button that says so. */
-  { id: 'another', after: 300, run: () => waiterComesOver('another') },
-  { id: 'toast', after: 355, run: () => raiseAGlass() },
-  { id: 'dessert', after: 430, run: () => waiterComesOver('dessert') },
-];
-
-let queueAt = 0;
-let seatedFor = 0;
+const seatedFlow = new SeatedDinnerFlow();
 function runSeatedQueue(dt) {
-  if (!game.seated || game.scene) return;
-  seatedFor += dt;
-  // The champagne arrives on its own clock, between the drinks and the family
-  if (seatedFor > 74 && !champagneSent && !dialogue.active) sendChampagne();
+  if (!game.seated) return;
+  seatedFlow.advance(dt);
+  const next = seatedFlow.next({
+    busy: !!game.scene || dialogue.active,
+    roundsDone: mission.roundsDone,
+    champagneComplete,
+    dessertComplete: !!mission.flags.dessert,
+    invitationReady: mission.invitationReady,
+  });
+  if (!next) return;
+  game.tableBeatLog.push(next);
 
-  const next = ROUND_QUEUE[queueAt];
-  if (!next || seatedFor < next.after) return;
-  if (dialogue.active) return;
-  queueAt++;
-  if (next.run) next.run();
-  else beginRound(next.id);
+  /* At most one piece of table business starts in a frame. An overdue clock
+   * used to start champagne and then send Ape into the same patch of carpet
+   * before the waiter had even identified who bought the bottle. */
+  if (next === 'drinks') {
+    if (!mission.roundsDone.has('drinks')) waiterComesOver();
+  } else if (next === 'champagne') {
+    sendChampagne();
+  } else if (next === 'family') {
+    apeComesOver();
+  } else if (next === 'show') {
+    startShowCutscene();
+  } else if (next === 'another') {
+    waiterComesOver('another');
+  } else if (next === 'toast') {
+    raiseAGlass();
+  } else if (next === 'dessert') {
+    waiterComesOver('dessert');
+  } else if (next === 'invitation') {
+    offerInvitation();
+  } else {
+    beginRound(next);
+  }
 }
 
 /**
@@ -1517,7 +1536,8 @@ function finish(outcome) {
   if (saved.rememberedDrink) extras.push('You remembered the ice cube.');
   if (saved.funnyHow) extras.push('You made a room go quiet for a second and a half.');
   if (saved.swayed === 'good') extras.push('And you can, very slightly, dance.');
-  if (saved.seeingHerAgain) extras.push('<b>She will pick up if you ring the station.</b>');
+  if (saved.tookMargoHome) extras.push('<b>Margo is coming home with you.</b>');
+  else if (saved.seeingHerAgain) extras.push('<b>She will pick up if you ring the station.</b>');
   assetStatus.innerHTML = `${e.body}<br><br>${extras.join(' ')}`;
   /* The evening ends where every other mission ends: at his own front door.
    * Replaying it is a preview/debug affordance, not the way out. */
@@ -1567,14 +1587,15 @@ function saveCheckpoint(state) {
     noted: [...game.noted],
     seated: game.seated,
     round: game.round,
-    queueAt,
-    seatedFor,
+    queueAt: seatedFlow.index,
+    seatedFor: seatedFlow.elapsed,
     /* The module latches. Every one of these is a "this has already happened"
      * that lives in a closure rather than in the mission, and every one of them
      * would otherwise happen a second time. */
     latches: {
       tableCutsceneStarted,
       champagneSent,
+      champagneComplete,
       showStarted,
       taxiGone,
     },
@@ -1594,12 +1615,12 @@ function restoreCheckpoint(cp = game.checkpoint) {
   game.greeted = new Set(cp.greeted ?? []);
   game.noted = new Set(cp.noted ?? []);
   game.round = cp.round ?? null;
-  queueAt = cp.queueAt;
-  seatedFor = cp.seatedFor;
+  seatedFlow.restore({ index: cp.queueAt, elapsed: cp.seatedFor });
 
   const l = cp.latches ?? {};
   tableCutsceneStarted = !!l.tableCutsceneStarted;
   champagneSent = !!l.champagneSent;
+  champagneComplete = l.champagneComplete ?? !!mission.flags.champagneSent;
   showStarted = !!l.showStarted;
   if (l.taxiGone && !taxiGone) leaveTaxi();
 
@@ -2244,6 +2265,7 @@ window.__silver = {
     sitDown() { sitAtTable(); },
     seatHer() { date.sitAt(room.anchors.frontSeats[1]); },
     waiter() { waiterComesOver(); },
+    dessert() { waiterComesOver('dessert'); },
     toast() { raiseAGlass(); },
     askAgain() { return askAgain(); },
     events() { return Object.keys(EVENTS); },
@@ -2289,7 +2311,7 @@ if (new URLSearchParams(location.search).has('dev')) {
       ['table', () => { D.phase('table'); D.seatHer(); D.sitDown(); }]],
     scene: [['table scene', () => { mission.setState('host'); D.table(); }],
       ['champagne', () => D.champagne()], ['band', () => D.show()],
-      ['waiter', () => D.waiter()], ['sway', () => startSway()],
+      ['waiter', () => D.waiter()], ['dessert', () => D.dessert()], ['sway', () => startSway()],
       ['invite', () => { mission.flags.showStarted = true; mission.setState('performance'); mission.inState = 999; D.invite(); }]],
     woo: [['−10', () => D.addWoo(-10)], ['+10', () => D.addWoo(10)],
       ['0', () => D.setWoo(0)], ['50', () => D.setWoo(50)], ['100', () => D.setWoo(100)],

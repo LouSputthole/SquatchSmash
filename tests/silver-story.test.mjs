@@ -22,7 +22,7 @@ class MemoryStorage {
   }
 }
 
-function completedDate(outcome) {
+function completedDate(outcome, report = {}) {
   const storage = new MemoryStorage();
   const campaign = createCampaign({ storage });
   campaign.update((state) => {
@@ -34,11 +34,16 @@ function completedDate(outcome) {
 
   const silver = createSilverStory({ campaign });
   assert.deepEqual(silver.begin(), { ok: true, resumed: false });
-  assert.equal(silver.complete({ outcome, woo: 20 }), true);
+  assert.equal(silver.complete({ outcome, woo: 20, ...report }), true);
   return createCampaign({ storage }).state.missions[MISSION_IDS.SILVER_ROOM];
 }
 
 test('every ending authored by the Silver Room mission survives the campaign handoff', () => {
   assert.equal(completedDate('polite').outcome, 'polite');
   assert.equal(completedDate('from-a-distance').outcome, 'from-a-distance');
+});
+
+test('the explicit take-home choice survives the Silver Room campaign handoff', () => {
+  assert.equal(completedDate('strong', { tookMargoHome: true }).tookMargoHome, true);
+  assert.equal(completedDate('strong', { tookMargoHome: false }).tookMargoHome, false);
 });

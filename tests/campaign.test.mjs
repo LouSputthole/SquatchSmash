@@ -457,6 +457,28 @@ test('a valid version two save gains the whiskey flag without corruption recover
   assert.equal(persisted.activities.whiskeyRelaxed, false);
 });
 
+test('v6 date saves migrate the inferred take-home state without stranding the Day Four wake', () => {
+  const storage = new MemoryStorage();
+  const legacy = createCampaign({ storage: new MemoryStorage() }).state;
+  legacy.version = 6;
+  legacy.story.chapter = 'big_night';
+  legacy.story.day = 4;
+  legacy.story.timeMinutes = 10 * 60;
+  legacy.story.timeEvents = legacy.story.timeEvents
+    .filter((id) => id !== TIME_EVENT_IDS.MARGO_DRESS_REPAIR);
+  const silver = legacy.missions[MISSION_IDS.SILVER_ROOM];
+  silver.status = 'complete';
+  silver.outcome = 'strong';
+  delete silver.tookMargoHome;
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
+
+  const migrated = createCampaign({ storage });
+  assert.equal(migrated.state.version, CAMPAIGN_VERSION);
+  assert.equal(migrated.state.missions[MISSION_IDS.SILVER_ROOM].tookMargoHome, true);
+  assert.ok(migrated.state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_DRESS_REPAIR));
+  assert.equal(migrated.recovery, null);
+});
+
 test('older Day One saves gain the Day Two event and airstrip mission without losing progress', () => {
   const storage = new MemoryStorage();
   storage.setItem('squatchlife.campaign', JSON.stringify({

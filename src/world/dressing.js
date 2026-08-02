@@ -50,7 +50,7 @@ export const DAY_DRESSING = Object.freeze({
    * there yesterday and a message on the machine; the floor stays clear. */
   day_two: Object.freeze({
     title: 'Trusted With Business',
-    adds: Object.freeze(['bloodShirt', 'cashSmall', 'bingMatches']),
+    adds: Object.freeze(['cashSmall', 'bingMatches']),
     // He replied to HR. He is not going back, and the badge went in a drawer.
     removes: Object.freeze(['lanyard']),
     air: Object.freeze({ rain: 0, tint: 1, warmth: 1 }),
@@ -187,31 +187,6 @@ function lanyard(M, { x, y, z, rotY = 0 }) {
     size: [0.055, 0.0016, 0.022], pos: [0.02, 0.0072, 0.062],
     mat: mat({ color: 0x2b6bb0, roughness: 0.8 }), rotY: 0.35,
   }));
-  return g;
-}
-
-/** The shirt he wore to the Squatchfather, stepped out of and left there. */
-function bloodShirt(M, { x, y, z, rotY = 0 }) {
-  const g = group('dress:bloodShirt');
-  g.position.set(x, y, z);
-  g.rotation.y = rotY;
-  const cloth = mat({ color: 0x2a2f38, roughness: 1 });
-  const stain = mat({ color: 0x3a1010, roughness: 1 });
-  // A heap: three crumples of cloth at different angles.
-  for (const [dx, dz, sx, sz, r] of [
-    [0, 0, 0.34, 0.26, 0.1], [0.09, 0.06, 0.22, 0.20, -0.7], [-0.08, 0.05, 0.19, 0.15, 0.9],
-  ]) {
-    const m = box({ size: [sx, 0.055, sz], pos: [dx, 0.028, dz], mat: cloth, rotY: r });
-    m.scale.y = 0.9;
-    g.add(m);
-  }
-  // Two dark patches down the front of it. Not discussed.
-  for (const [dx, dz, r] of [[0.02, -0.04, 0.055], [-0.03, 0.03, 0.038]]) {
-    const s = new THREE.Mesh(new THREE.CircleGeometry(r, 12), stain);
-    s.rotation.x = -Math.PI / 2;
-    s.position.set(dx, 0.057, dz);
-    g.add(s);
-  }
   return g;
 }
 
@@ -506,11 +481,13 @@ export function makeMorningGuest(M) {
   const hair = mat({ color: 0x2c1c14, roughness: 0.95 });
   const shirt = mat({ color: 0xd8d2c4, roughness: 1 });
   const jeans = mat({ color: 0x35405a, roughness: 1 });
+  const dressMat = mat({ color: 0x241a28, roughness: 0.92 });
 
   const upper = group('margo.upper');
   g.add(upper);
-  upper.add(box({ size: [0.34, 0.50, 0.20], pos: [0, 0.25, 0], mat: shirt }));
-  upper.add(box({ size: [0.40, 0.08, 0.21], pos: [0, 0.47, 0], mat: shirt }));
+  const shirtBody = box({ size: [0.34, 0.50, 0.20], pos: [0, 0.25, 0], mat: shirt });
+  const shirtShoulders = box({ size: [0.40, 0.08, 0.21], pos: [0, 0.47, 0], mat: shirt });
+  upper.add(shirtBody, shirtShoulders);
   const head = group('margo.head');
   head.position.y = 0.66;
   upper.add(head);
@@ -528,11 +505,56 @@ export function makeMorningGuest(M) {
     arms.push(arm);
   }
 
+  /* The Silver Room dress is a complete opaque shell over the same compact
+   * rig. It is shown only for the post-date repair and waiting poses; the
+   * morning scene keeps its established shirt-and-jeans look. The gag is in
+   * framing and motion, never in missing clothes or body geometry. */
+  const dress = group('margo.dress');
+  upper.add(dress);
+  dress.add(box({ size: [0.38, 0.48, 0.235], pos: [0, 0.25, 0], mat: dressMat }));
+  dress.add(box({ size: [0.44, 0.30, 0.27], pos: [0, -0.11, 0.015], mat: dressMat }));
+  // The stuck back seam is the reveal once the camera widens.
+  dress.add(box({
+    size: [0.014, 0.31, 0.008], pos: [0, 0.17, -0.122],
+    mat: mat({ color: 0xb8a47e, roughness: 0.42, metalness: 0.42 }),
+  }));
+  dress.visible = false;
+
   const legs = group('margo.legs');
   g.add(legs);
+  const jeanLegs = [];
   for (const s of [-1, 1]) {
-    legs.add(box({ size: [0.13, 0.78, 0.15], pos: [0.085 * s, -0.39, 0], mat: jeans }));
+    const leg = box({ size: [0.13, 0.78, 0.15], pos: [0.085 * s, -0.39, 0], mat: jeans });
+    legs.add(leg);
+    jeanLegs.push(leg);
   }
+
+  /* A sewing tin, folded cloth and two supporting forearms. From the locked
+   * first-person angle the kit is below the bed line; after completion Margo
+   * stands and the camera eases wide enough to show exactly what Tony was
+   * working on. */
+  const repairKit = group('margo.repair-kit');
+  repairKit.add(box({
+    size: [0.18, 0.045, 0.12], pos: [0.28, -0.64, 0.16],
+    mat: mat({ color: 0x6c5842, roughness: 0.76 }),
+  }));
+  repairKit.add(cylinder({
+    r: 0.026, h: 0.035, pos: [0.25, -0.59, 0.15], rotZ: Math.PI / 2,
+    mat: mat({ color: 0x8c3150, roughness: 0.9 }),
+  }));
+  g.add(repairKit);
+  repairKit.visible = false;
+
+  const supportArms = group('margo.repair-supports');
+  for (const s of [-1, 1]) {
+    const forearm = box({
+      size: [0.075, 0.48, 0.09], pos: [0.18 * s, -0.22, 0.48], mat: shirt,
+    });
+    forearm.rotation.x = -0.12;
+    supportArms.add(forearm);
+  }
+  g.add(supportArms);
+  supportArms.visible = false;
 
   /**
    * Where she is, and what shape she is in.
@@ -545,7 +567,50 @@ export function makeMorningGuest(M) {
    *
    * @param {'lying'|'sitting'|'standing'} pose
    */
+  let currentPose = 'lying';
   const setPose = (pose) => {
+    currentPose = pose;
+    g.rotation.set(0, 0, 0);
+    upper.rotation.set(0, 0, 0);
+    legs.rotation.set(0, 0, 0);
+    for (const [i, arm] of arms.entries()) {
+      arm.rotation.set(0, 0, 0.06 * (i === 0 ? 1 : -1));
+      arm.visible = true;
+    }
+    shirtBody.visible = true;
+    shirtShoulders.visible = true;
+    jeanLegs.forEach((leg) => { leg.visible = true; });
+    dress.visible = false;
+    repairKit.visible = false;
+    supportArms.visible = false;
+
+    if (pose === 'repair') {
+      /* Fully clothed, leaning over the edge of the bed. Her head and hands are
+       * north, Tony is south behind the stuck back seam. The torso is nearly
+       * horizontal and the knees stay below it, creating the intended shadow
+       * read without any explicit contact. */
+      g.position.set(-2.82, 0.73, -2.56);
+      g.rotation.set(0, Math.PI, 0);
+      upper.rotation.x = Math.PI / 2 - 0.10;
+      legs.rotation.x = -0.78;
+      arms.forEach((arm) => { arm.visible = false; });
+      shirtBody.visible = false;
+      shirtShoulders.visible = false;
+      dress.visible = true;
+      repairKit.visible = true;
+      supportArms.visible = true;
+      return;
+    }
+    if (pose === 'waiting') {
+      g.position.set(-3.10, 0.72, -3.28);
+      g.rotation.set(0, Math.PI / 2 - 0.35, 0);
+      legs.rotation.x = -1.20;
+      upper.rotation.x = 0.04;
+      shirtBody.visible = false;
+      shirtShoulders.visible = false;
+      dress.visible = true;
+      return;
+    }
     if (pose === 'lying') {
       /* On her side beside him. Laid down by rotating the standing rig a
        * quarter turn about X, so her head runs toward the headboard and her
@@ -582,7 +647,10 @@ export function makeMorningGuest(M) {
   };
   setPose('lying');
   g.visible = false;
-  return { group: g, head, upper, legs, arms, setPose };
+  return {
+    group: g, head, upper, legs, arms, dress, repairKit, setPose,
+    pose: () => currentPose,
+  };
 }
 
 /**
@@ -609,7 +677,6 @@ export function buildDressing(M, { root, fridgeDoor, at }) {
     pieces.get(id).group.position.set(-0.034, at.willy.y, at.willy.z);
   }
 
-  add('bloodShirt', bloodShirt(M, at.bloodShirt));
   add('cashSmall', cash(M, { ...at.cashSmall, n: 1 }));
   add('bingMatches', matchbook(M, at.bingMatches));
 

@@ -503,7 +503,10 @@ export function buildAirfield(scene, { terrain } = {}) {
      * opening (x -65..-55), officially not present — and walks out to
      * stoveStand near the end of the preflight to wait beside his crates. */
     stoveHangar: new THREE.Vector3(-62, ELEV, 401),
-    stoveStand: new THREE.Vector3(-64, ELEV, 386),
+    // Stove steps fully out of the hangar and into the little triangle made by
+    // Tony, Sasole and the cargo. The old mark left him twelve metres away.
+    stoveStand: new THREE.Vector3(-60.5, ELEV, 384),
+    louStoveStand: new THREE.Vector3(-54.8, ELEV, 382.1),
     stoveCrates: new THREE.Vector3(-62, ELEV, 382),
     stoveCart: new THREE.Vector3(-58, ELEV, 380),
   };

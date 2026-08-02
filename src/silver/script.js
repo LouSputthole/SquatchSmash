@@ -69,10 +69,10 @@ export const DATE = {
  * The `who` on a node is what the player reads; this is what gets recorded.
  * A speaker who is not in here has no cue, plays no audio, and is subtitled
  * exactly as before — which is the right answer for the driver, the doorman
- * and the chef, none of whom have been cast. The four men on the floor share
- * one profile because the owner's sheet has one row for wait staff; they are
- * still four separate banks of cues, so recasting any of them is a voice id
- * and nothing else.
+ * and the chef, none of whom have been cast. The named table waiter now has
+ * his own profile; the host, manager, bandleader and overheard room retain the
+ * general wait-staff profile. Their cue banks remain separate, so recasting
+ * one job never renames another job's lines.
  *
  * Exported because the manifest is authored from it and the verifier holds
  * the two in step.
@@ -91,17 +91,16 @@ export const VOICE_OF = {
  *
  * Two different things, deliberately. The bank is who is speaking and names
  * the cue; the profile is whose larynx it comes out of and is what the
- * generator sends to ElevenLabs. The four men working the room share one
- * profile because the owner's sheet has one row for wait staff — and keeping
- * the banks separate anyway is what makes recasting any one of them a line in
- * the manifest rather than a rename across ninety cues.
+ * generator sends to ElevenLabs. Keeping the banks separate is what lets the
+ * table waiter take a dedicated casting slot without changing the host,
+ * manager, bandleader or anonymous room voices.
  */
 export const PROFILE_OF = {
   margo: 'margo',
   ape: 'ape',
   host: 'waiter',
   manager: 'waiter',
-  waiter: 'waiter',
+  waiter: 'silver-waiter',
   bandleader: 'waiter',
   /** The building overheard: "a cook", "the pass", "a porter". */
   room: 'waiter',
@@ -1162,9 +1161,11 @@ export function buildScripts(ctx) {
       line: 'Anything sweet? Chef does something with figs that people write letters about.',
       options: [
         { tone: 'Yes', text: 'Two. And tell him she asked.', next: 'figs',
-          effect: () => fire('Woo.ContextualTip') },
-        { tone: 'Ask her', text: 'Are we doing dessert?', next: 'her-call' },
-        { tone: 'No', text: 'Not tonight.', next: null },
+          effect: () => { flags.dessert = 'figs'; fire('Woo.ContextualTip'); } },
+        { tone: 'Ask her', text: 'Are we doing dessert?', next: 'her-call',
+          effect: () => { flags.dessert = 'asked'; } },
+        { tone: 'No', text: 'Not tonight.', next: null,
+          effect: () => { flags.dessert = 'skipped'; } },
       ],
     },
     figs: {
@@ -1188,7 +1189,7 @@ export function buildScripts(ctx) {
 
   const champagne = [
     { at: 0.0, who: '', line: '<em>(A waiter arrives at the table with a bucket nobody ordered.)</em>' },
-    { at: 2.6, who: 'the waiter', line: 'From the gentlemen by the pillar. With respect, they said.' },
+    { at: 2.6, who: 'the waiter', line: '<em>(He sets the bucket, then points cleanly past Margo with two fingers.)</em> From the gentlemen by the pillar. With respect, they said.' },
     { at: 6.0, who: '', line: '<em>(Four men at a round table. One of them lifts two fingers off the cloth. It is the bouncer from the Bing, in a suit that is nearly his size.)</em>' },
     { at: 11.0, who: DATE.name, line: '<em>(Not looking away from them.)</em> …With respect.' },
   ];
@@ -1543,13 +1544,13 @@ export function buildScripts(ctx) {
         return '<em>(She checks the time on your watch rather than asking.)</em>';
       },
       options: () => [
-        { tone: 'Plain', text: 'You want to come back for a drink?', next: 'judge',
-          effect: () => { flags.invitation = 'plain'; } },
+        { tone: 'See her again', text: 'I want to see you again. When can I call you?', next: 'judge',
+          effect: () => { flags.invitation = 'see-again'; } },
+        { tone: 'Take her home', text: 'Come back to my apartment for a drink?', next: 'judge',
+          effect: () => { flags.invitation = 'home'; } },
         { tone: 'Callback', text: 'I’ve got a better bottle of the rye at the apartment.', next: 'judge',
           when: () => flags.drinkOrdered === 'rye',
           effect: () => { flags.invitation = 'callback'; fire('Woo.CallbackUsed'); } },
-        { tone: 'Open', text: 'The night doesn’t have to end here.', next: 'judge',
-          effect: () => { flags.invitation = 'open'; } },
         { tone: 'Self-deprecating', text: 'You should see the place when nobody’s threatening to repossess it.', next: 'judge',
           effect: () => { flags.invitation = 'wry'; fire('Woo.MadeHerLaugh'); } },
         /* The line costs what it costs wherever the evening had got to. A
@@ -1573,15 +1574,23 @@ export function buildScripts(ctx) {
     /* Her answers, chosen by mission.resolve() */
     perfect: {
       who: DATE.name,
-      line: 'You’ve been inviting me back for about twenty minutes without actually '
-        + 'saying it. <em>(She is already reaching for her coat ticket.)</em> Are you '
-        + 'going to keep talking, or are we leaving?',
+      variant: () => (flags.invitation === 'see-again' ? 'see-again' : 'home'),
+      line: () => (flags.invitation === 'see-again'
+        ? 'You’re asking when you can call me while I’m putting on my coat? Tomorrow. '
+          + 'Not before noon. I have standards about the time, if not the company.'
+        : 'You’ve been inviting me back for about twenty minutes without actually '
+          + 'saying it. <em>(She is already reaching for her coat ticket.)</em> Are you '
+          + 'going to keep talking, or are we leaving?'),
       hold: 5.4,
     },
     strong: {
       who: DATE.name,
-      line: 'One drink. <em>(Beat.)</em> And if your building has a service entrance, '
-        + 'I’m getting back in the car and you can explain it to the man on the door.',
+      variant: () => (flags.invitation === 'see-again' ? 'see-again' : 'home'),
+      line: () => (flags.invitation === 'see-again'
+        ? 'Yes. Call the station after midnight and ask for me. If Hector answers, '
+          + 'hang up and try again. He’ll make it weird.'
+        : 'One drink. <em>(Beat.)</em> And if your building has a service entrance, '
+          + 'I’m getting back in the car and you can explain it to the man on the door.'),
       hold: 4.8,
     },
     good: {

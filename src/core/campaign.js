@@ -106,6 +106,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   PHONE_READ_FAMILY: 'phone.read.family',
   PHONE_READ_LOU: 'phone.read.lou',
   PHONE_READ_MUM: 'phone.read.mum',
+  /** The deliberately misleading dress repair after the Silver Room. */
+  MARGO_DRESS_REPAIR: 'scene.margo_dress_repair',
   /** Margo waking up beside him on the fourth morning, and leaving. */
   MARGO_WAKE: 'scene.margo_wake',
   LOU_FIRST_CALL: 'call.lou_first',
@@ -148,6 +150,10 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.PHONE_READ_FAMILY]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_LOU]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_MUM]: Object.freeze({ minutes: 0 }),
+  /* A one-shot scene marker, not a clock gate. The Silver Room return and the
+   * next morning are both authored checkpoints, so the gag must not move
+   * either pinned time. */
+  [TIME_EVENT_IDS.MARGO_DRESS_REPAIR]: Object.freeze({ minutes: 0 }),
   /* Costs nothing on the clock. This one is a marker rather than an errand:
    * the big night's morning is an authored ten o'clock checkpoint and the
    * ceremony is an authored seven, and putting a quarter of an hour between
@@ -227,7 +233,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 6;
+export const CAMPAIGN_VERSION = 7;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -416,6 +422,7 @@ function initialState() {
         tippedEverybody: false,
         rememberedDrink: false,
         seeingHerAgain: false,
+        tookMargoHome: false,
         knowsWhatHeDoes: false,
       },
       [MISSION_IDS.INITIATION]: {
@@ -577,6 +584,33 @@ const MIGRATIONS = Object.freeze({
             ? incident.inspectedGraves : urinatedOn,
           respectedGraves: Array.isArray(incident.respectedGraves)
             ? incident.respectedGraves : [],
+        },
+      },
+    };
+  },
+  6(saved) {
+    const silver = saved.missions?.[MISSION_IDS.SILVER_ROOM] ?? {};
+    const tookMargoHome = silver.tookMargoHome === true
+      || silver.cameHome === true
+      || ['perfect', 'strong'].includes(silver.outcome);
+    const repairAlreadyHappened = tookMargoHome && saved.story?.chapter === 'big_night';
+    const timeEvents = uniqueStrings(saved.story?.timeEvents);
+    return {
+      ...saved,
+      version: 7,
+      story: repairAlreadyHappened && !timeEvents.includes(TIME_EVENT_IDS.MARGO_DRESS_REPAIR)
+        ? { ...saved.story, timeEvents: [...timeEvents, TIME_EVENT_IDS.MARGO_DRESS_REPAIR] }
+        : saved.story,
+      missions: {
+        ...saved.missions,
+        [MISSION_IDS.SILVER_ROOM]: {
+          ...silver,
+          /* The old mission payload called this `cameHome`, but campaign v6
+           * did not retain it. Its authored outcomes were deterministic, so
+           * preserve established completed saves without inventing a guest
+           * for weaker endings. New v7 runs store the player's explicit
+           * answer instead. */
+          tookMargoHome,
         },
       },
     };
@@ -771,6 +805,7 @@ function normalize(saved) {
         tippedEverybody: silver.tippedEverybody === true,
         rememberedDrink: silver.rememberedDrink === true,
         seeingHerAgain: silver.seeingHerAgain === true,
+        tookMargoHome: silver.tookMargoHome === true,
         knowsWhatHeDoes: silver.knowsWhatHeDoes === true,
       },
       [MISSION_IDS.INITIATION]: {
@@ -1271,12 +1306,16 @@ function seedApartmentPreviewCampaign(state, variant) {
     silver.tippedEverybody = true;
     silver.rememberedDrink = true;
     silver.seeingHerAgain = true;
+    silver.tookMargoHome = true;
     silver.knowsWhatHeDoes = true;
     markTime(
       TIME_EVENT_IDS.MARGO_DATE_CALL,
       TIME_EVENT_IDS.DEPART_SILVER_ROOM,
       TIME_EVENT_IDS.COMPLETE_SILVER_ROOM,
     );
+    if (checkpoint.chapter === 'big_night') {
+      markTime(TIME_EVENT_IDS.MARGO_DRESS_REPAIR);
+    }
   }
 
   if (checkpoint.spawn === 'wake') {
@@ -1443,6 +1482,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       silver.outcome = 'strong';
       silver.woo = 74;
       silver.seeingHerAgain = true;
+      silver.tookMargoHome = true;
       /* And then he slept off the date, which is the page turn into the big
        * night: Day 4, ten in the morning, ceremony at seven. */
       state.story.chapter = 'big_night';

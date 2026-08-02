@@ -39,6 +39,7 @@ import {
 import {
   apartmentReturnSource,
   BIG_NIGHT_MARGO_WAKE,
+  MARGO_DRESS_REPAIR,
   createApartmentStory,
 } from './core/apartment-story.js';
 import { DayNight } from './core/daynight.js';
@@ -560,6 +561,8 @@ async function boot() {
     onEat: eatEggs,
     onLeave: tryLeave,
     onGlue: startGluing,
+    margoDressRepairOwed: () => apartmentStory.margoDressRepairOwed(),
+    onMargoDressRepair: startMargoDressRepair,
     onTap: () => {
       audio.say('tap', { chance: 0.8, delay: 1.4 });
       hud.say('<em>Water.</em> Good. That still works.', 4200);
@@ -681,6 +684,13 @@ async function boot() {
   radio.setPosition(apartment.radioPos);
   const trackCount = await radio.loadManifest();
 
+  /* Margo is physically present for the whole post-date apartment, including
+   * a reload after the repair. The campaign's explicit invitation choice is
+   * the authority; a good score by itself never puts her in the room. */
+  if (apartmentStory.margoStayingTonight()) {
+    apartment.margo.setPose(apartmentStory.margoDressRepairOwed() ? 'repair' : 'waiting');
+    apartment.margo.group.visible = true;
+  }
 
   if (returningToApartment) {
     player.mode = 'walk';
@@ -700,7 +710,9 @@ async function boot() {
     overlay.querySelector('.tag').textContent = returningFromBing
       ? 'Back from the Bing. Lou’s package is still under your jacket.'
       : returningFromSilver
-        ? 'Back from the Silver Room. Tomorrow is the big night. Sleep on it.'
+        ? (apartmentStory.margoStayingTonight()
+          ? 'Back from the Silver Room. Margo came upstairs. She is waiting by the bed.'
+          : 'Back from the Silver Room. Tomorrow is the big night. Sleep on it.')
         : returningFromNoWake
           ? 'Back from South Harbor. Margo said she would ring about tonight.'
         : returningFromMotel
@@ -738,7 +750,9 @@ async function boot() {
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
     heldSlice, updateConsume,
-    playMessages, playNews, startMargoWake, finishMargoWake, updateMargoWake,
+    playMessages, playNews,
+    margoRepair, startMargoDressRepair, updateMargoDressRepair, finishMargoDressRepair,
+    startMargoWake, finishMargoWake, updateMargoWake,
     readChat,
     teleport(x, z, facing = 'north') {
       const yaws = { north: 0, south: Math.PI, west: Math.PI / 2, east: -Math.PI / 2 };
@@ -797,12 +811,16 @@ startBtn.addEventListener('click', async () => {
         /* The one time he comes home from something that was not work. The
          * campaign knows how the evening went; the door only says that it did. */
         const date = campaignAtLoad.missions[MISSION_IDS.SILVER_ROOM];
-        hud.toast(date.seeingHerAgain
-          ? 'She is seeing you again'
-          : 'The evening is over', date.seeingHerAgain ? 'good' : '');
-        hud.say(date.seeingHerAgain
-          ? 'Home. And she said yes to the next one. <em>Tomorrow is the other thing.</em>'
-          : 'Home. That went how it went. <em>Tomorrow is the other thing.</em>', 4800);
+        hud.toast(date.tookMargoHome
+          ? 'Margo came upstairs'
+          : date.seeingHerAgain
+            ? 'She is seeing you again'
+            : 'The evening is over', date.seeingHerAgain ? 'good' : '');
+        hud.say(date.tookMargoHome
+          ? 'Margo is by the bed. She needs a hand with something. <em>Go over to her.</em>'
+          : date.seeingHerAgain
+            ? 'Home. And she said yes to the next one. <em>Tomorrow is the other thing.</em>'
+            : 'Home. That went how it went. <em>Tomorrow is the other thing.</em>', 5600);
       } else if (returningFromNoWake) {
         hud.toast('NO WAKE', '');
         hud.say('Home. The boat is clean. <em>The phone will ring when it rings.</em>', 5200);
@@ -1012,6 +1030,14 @@ document.addEventListener('keydown', (e) => {
     if (game.peeing) stopPee(); else startPee();
     e.preventDefault();
     return;
+  }
+
+  if (margoRepair.bar.active) {
+    if (e.code === 'KeyE') {
+      margoRepair.bar.press();
+      e.preventDefault();
+      return;
+    }
   }
 
   if (glue.bar.active) {
@@ -1249,6 +1275,11 @@ function standFromSeat() {
 function lieOnBed() {
   if (game.seated || game.onToilet || game.passingOut) return;
   if (player.mode === 'bed') return;
+  if (apartmentStory.margoDressRepairOwed()) {
+    hud.toast('Margo is waiting', 'bad');
+    hud.say('Not yet. She asked for a hand with something by the bed.', 3800);
+    return;
+  }
   game.sitting = null;
   game.inBed = true;
   interaction.setPaused(true);
@@ -1267,6 +1298,11 @@ function lieOnBed() {
 function sleepInBed() {
   hud.setPosture(null);
   if (!game.inBed || game.passingOut) return;
+  if (apartmentStory.margoDressRepairOwed()) {
+    hud.say('Margo is still waiting. <em>Sort that out first.</em>', 3600);
+    hud.setPosture('get up');
+    return;
+  }
   game.inBed = false;
   hud.hidePrompt();
   audio.say('sleep');
@@ -2014,6 +2050,167 @@ function eatEggs() {
    * excuse guarding it could not fire either. Two eggs put you most of the way
    * there, which is both funnier and true. It still takes a while to arrive. */
   st.bowel = Math.min(1, st.bowel + 0.62);
+}
+
+/* ------------------------------------------------------------------ */
+/* Margo's dress                                                       */
+/* ------------------------------------------------------------------ */
+
+/*
+ * A separate timing sequence with the same readable sweep contract as the
+ * crooked-frame mechanic. The composition is deliberately suggestive but the
+ * models remain completely clothed and never make explicit contact: Margo is
+ * leaning over the bed, Tony is one arm's length behind, and the stuck seam
+ * stays hidden until the last pull widens the camera.
+ */
+const MARGO_REPAIR_CAMERA = Object.freeze({ x: -2.82, y: 1.20, z: -1.58 });
+const margoRepair = {
+  active: false,
+  intro: false,
+  reveal: -1,
+  revealed: false,
+  thrust: 0,
+  bar: new TimingBar({
+    hits: 7,
+    window: [0.70, 0.86],
+    speed: 0.76,
+    ramp: 1.13,
+    onHit: onMargoRepairHit,
+    onMiss: () => audio.play('bed.creak', { volume: 0.28, rate: 1.08 }),
+    onDone: beginMargoRepairReveal,
+  }),
+};
+
+function startMargoDressRepair() {
+  if (margoRepair.active || !apartmentStory.margoDressRepairOwed()) return false;
+  margoRepair.active = true;
+  margoRepair.intro = true;
+  margoRepair.reveal = -1;
+  margoRepair.revealed = false;
+  margoRepair.thrust = 0;
+  margoRepair.bar.reset();
+
+  apartment.margo.setPose('repair');
+  apartment.margo.group.visible = true;
+  interaction.setPaused(true);
+  player.clearKeys();
+  player.mode = 'frozen';
+  player.velocity.set(0, 0, 0);
+  hud.setMode('seated');
+  hud.setPosture('finish helping Margo');
+  hud.hidePrompt();
+
+  const intro = [0, 1].flatMap((i) => [
+    {
+      cue: `vo.${MARGO_DRESS_REPAIR.vo}.${i + 1}`,
+      text: `Margo: ${MARGO_DRESS_REPAIR.lines[i]}`,
+    },
+    {
+      cue: `vo.${MARGO_DRESS_REPAIR.vo}.tony.${i + 1}`,
+      text: `You: ${MARGO_DRESS_REPAIR.replies[i]}`,
+    },
+  ]);
+  speakSequence(intro, {
+    onDone: () => {
+      if (!margoRepair.active || margoRepair.reveal >= 0) return;
+      margoRepair.intro = false;
+      margoRepair.bar.start();
+      hud.say('Keep the rhythm. Press <b>[E]</b> in the marked window.', 4800);
+    },
+  });
+  return true;
+}
+
+function onMargoRepairHit(n, total) {
+  margoRepair.thrust = 1;
+  const p = n / total;
+  audio.play('cloth.snap', { volume: 0.28 + p * 0.34, rate: 0.82 + p * 0.16 });
+  if (n === total - 2) audio.say('heave.a', { volume: 0.66, delay: 0.05 });
+  else if (n === total - 1) audio.say('heave.b', { volume: 0.74, delay: 0.05 });
+  else if (n === total) audio.say('heave.c', { volume: 0.82, delay: 0.05 });
+  hud.toast(`${n}/${total}`, n >= total - 1 ? 'good' : '');
+}
+
+function beginMargoRepairReveal() {
+  margoRepair.reveal = 0;
+  margoRepair.thrust = 0;
+  hud.setTiming(null);
+  audio.play('cloth.snap', { volume: 0.72, rate: 1.18 });
+}
+
+function finishMargoDressRepair() {
+  if (!margoRepair.active) return;
+  margoRepair.active = false;
+  margoRepair.intro = false;
+  margoRepair.reveal = -1;
+  margoRepair.thrust = 0;
+  margoRepair.bar.stop();
+  hud.setTiming(null);
+  hud.setPosture(null);
+  hud.setMode('walk');
+  interaction.setPaused(false);
+
+  apartment.margo.setPose('waiting');
+  apartment.margo.group.visible = apartmentStory.margoStayingTonight();
+  player.mode = 'walk';
+  player.position.set(-2.10, 1.66, -1.42);
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.pitch = -0.06;
+  player.yaw = 0;
+  player.yawCenter = null;
+  player.pitchMin = -Math.PI / 2 + 0.05;
+  player.pitchMax = Math.PI / 2 - 0.05;
+  player.velocity.set(0, 0, 0);
+  player.update(0);
+  hud.toast('Dress repaired', 'good');
+  hud.say('The zip. That was the whole problem. <em>Of course it was.</em>', 4400);
+}
+
+function updateMargoDressRepair(dt) {
+  if (!margoRepair.active) return;
+
+  if (margoRepair.bar.active) {
+    margoRepair.bar.update(dt);
+    hud.setTiming(margoRepair.bar.view);
+  }
+  margoRepair.thrust = Math.max(0, margoRepair.thrust - dt * 4.8);
+
+  /* Fixed first-person composition. Each good timing press produces a short
+   * fore-aft body movement; no mesh contact is required for the silhouette to
+   * sell the wrong idea. The reveal pulls back and lifts toward the seam. */
+  const revealPull = margoRepair.reveal >= 0
+    ? Math.min(1, margoRepair.reveal / 0.9)
+    : 0;
+  player.mode = 'frozen';
+  player.position.set(
+    MARGO_REPAIR_CAMERA.x,
+    MARGO_REPAIR_CAMERA.y + revealPull * 0.22,
+    MARGO_REPAIR_CAMERA.z - margoRepair.thrust * 0.10 + revealPull * 0.34,
+  );
+  player.yaw = 0;
+  player.pitch = -0.42 + revealPull * 0.10;
+  player.velocity.set(0, 0, 0);
+
+  if (margoRepair.reveal < 0) return;
+  margoRepair.reveal += dt;
+  if (margoRepair.revealed || margoRepair.reveal < 0.72) return;
+  margoRepair.revealed = true;
+  apartment.margo.setPose('waiting');
+  apartmentStory.margoDressRepairDone();
+  syncClockFromCampaign();
+
+  const i = 2;
+  speakSequence([
+    {
+      cue: `vo.${MARGO_DRESS_REPAIR.vo}.${i + 1}`,
+      text: `Margo: ${MARGO_DRESS_REPAIR.lines[i]}`,
+    },
+    {
+      cue: `vo.${MARGO_DRESS_REPAIR.vo}.tony.${i + 1}`,
+      text: `You: ${MARGO_DRESS_REPAIR.replies[i]}`,
+    },
+  ], { onDone: finishMargoDressRepair });
 }
 
 /* ------------------------------------------------------------------ */
@@ -3352,7 +3549,13 @@ function passOut({ voluntary = false, storySleep = null } = {}) {
      * every getting-ready interaction answered "you have already done that"
      * is why the second morning felt like the first one with the wrong number
      * on the clock. The phone stays in his pocket -- that is not a chore. */
-    if (storySleep?.ok) startNewMorning();
+    if (storySleep?.ok) {
+      startNewMorning();
+      /* Do not leave the post-repair sitting pose visible for the second
+       * between blackout and the authored wake scene. She is placed under the
+       * duvet by startMargoWake, which is the next time the player sees her. */
+      if (storySleep.chapter === 'big_night') apartment.margo.group.visible = false;
+    }
     else apartment.state.heldItem = null;
     hud.setHand(null);
     game.passingOut = false;
@@ -3560,6 +3763,7 @@ function frame() {
       player.moveScale = highs.moveScale;
       player.lookDrag = highs.lookDrag;
 
+      updateMargoDressRepair(dt);
       player.update(dt);
       apartment.update(hdt, elapsed);
       updateMargoWake(dt);
@@ -3591,6 +3795,7 @@ function frame() {
         /* A call is on the list now that he answers them out loud. Two of his
          * own voice at once is not a joke twice, it is one of them ruined. */
         busy: game.passingOut || game.seated || game.peeing || game.onToilet
+          || margoRepair.active
           || cig.t >= 0 || player.mode === 'frozen' || phone.inCall,
         moving: player.velocity.lengthSq() > 0.04,
       });

@@ -292,9 +292,9 @@ try {
   /* The flat on the second morning                                    */
   /* ---------------------------------------------------------------- */
 
-  /* The room itself carries last night forward: the bloodied shirt, the first
-   * fold of money and Bing's matchbook remain, while the day-job lanyard is
-   * gone. This is the authored Day Two continuity, not generic floor clutter. */
+  /* The room itself carries last night forward through the first fold of money
+   * and Bing's matchbook, while the day-job lanyard is gone. The broken floor
+   * shirt was deliberately removed from every apartment iteration. */
   const room = await page.evaluate(() => {
     const game = window.__squatch;
     const shown = [];
@@ -310,7 +310,7 @@ try {
   });
   check('the second morning is a visibly different flat from the first',
     room.chapter === 'day_two'
-      && room.shown.includes('bloodShirt')
+      && !room.shown.includes('bloodShirt')
       && room.shown.includes('cashSmall')
       && room.shown.includes('bingMatches')
       && !room.shown.includes('lanyard')

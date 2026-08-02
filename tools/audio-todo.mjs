@@ -31,7 +31,11 @@ const have = new Set(read('assets/sfx/index.json').files || []);
 const manifest = read('assets/sfx/manifest.json');
 const cues = manifest.sfx || [];
 const voiceProfiles = manifest.voices || {};
-const missing = cues.filter((c) => !have.has(c.file || `${c.name}.mp3`));
+/* A delivered file can still be outstanding when its manifest marks it for a
+ * cast change. The generator clears `_recast` only after that exact cue is
+ * successfully regenerated, so the handoff sheet cannot mistake an old
+ * performance under the right filename for completed new casting. */
+const missing = cues.filter((c) => c._recast || !have.has(c.file || `${c.name}.mp3`));
 
 const voice = missing.filter((c) => c.say);
 const effects = missing.filter((c) => !c.say);
@@ -146,7 +150,15 @@ if (flatVoice.length) {
   for (const [bank, list] of banks) {
     out += `### \`${bank}.*\` — ${list.length}\n\n`;
     if (DIRECTION[bank]) out += `${DIRECTION[bank]}\n\n`;
-    for (const c of list) out += `${(c.file || `${c.name}.mp3`).padEnd(24)}  ${JSON.stringify(c.say)}\n`;
+    const cast = [...new Set(list.map((cue) => cue.voice || 'player'))];
+    out += `Cast: ${cast.map((name) => {
+      const id = voiceProfiles[name]?.id;
+      return `\`${name}\`${id ? ` (\`${id}\`)` : ' (**CAST REQUIRED**)'};`;
+    }).join(' ')}\n\n`;
+    for (const c of list) {
+      const recast = c._recast ? 'RECAST  ' : '';
+      out += `${recast}${(c.file || `${c.name}.mp3`).padEnd(24)}  ${JSON.stringify(c.say)}\n`;
+    }
     out += '\n';
   }
 } else {

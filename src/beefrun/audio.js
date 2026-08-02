@@ -183,6 +183,13 @@ export class MissionAudio {
     this.engine?.play(name, opts);
   }
 
+  /** Dedicated aircraft blast with short impact layers for mechanical bite. */
+  explosion() {
+    this.play('plane.crash.explosion', { volume: 1 });
+    this.play('can.crush', { volume: 0.42, delay: 0.025 });
+    this.play('gun.impact', { volume: 0.35, delay: 0.07 });
+  }
+
   /**
    * A spoken line, if that exact line has been recorded.
    *

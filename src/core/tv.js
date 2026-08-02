@@ -287,10 +287,23 @@ const COUNTER_SQUATCH_LEGENDS = {
  * The file being missing is normal -- a bundled build has no assets/ folder to
  * fetch from -- so a failure is a card on screen, not an exception.
  */
-function videoChannel({ name, file, card, glow }) {
+export function createVideoChannel({ name, file, card, glow, startAt = 0 }) {
   let el = null;
   let wired = false;
   let failed = false;
+
+  function seekPastDiscardedOpening() {
+    if (!el || startAt <= 0) return;
+    try {
+      const atEnd = Number.isFinite(el.duration)
+        && el.duration > 0
+        && el.currentTime >= el.duration - 0.05;
+      if (el.currentTime < startAt || atEnd) el.currentTime = startAt;
+    } catch {
+      // Chromium can reject a seek before metadata is available. The
+      // loadedmetadata listener below retries at the first legal moment.
+    }
+  }
 
   return {
     name,
@@ -299,10 +312,18 @@ function videoChannel({ name, file, card, glow }) {
       if (!el) {
         el = document.createElement('video');
         el.src = assetUrl(VIDEO_DIR, file);
-        el.loop = true;
+        el.loop = startAt <= 0;
         el.playsInline = true;
         el.preload = 'auto';
         el.addEventListener('error', () => { failed = true; });
+        if (startAt > 0) {
+          el.addEventListener('loadedmetadata', seekPastDiscardedOpening);
+          el.addEventListener('ended', () => {
+            seekPastDiscardedOpening();
+            const replay = el.play();
+            replay?.catch?.(() => {});
+          });
+        }
       }
       /* No audio system (the club office set) or none running yet: play it
        * muted rather than blaring out of the middle of the player's head. */
@@ -342,6 +363,7 @@ function videoChannel({ name, file, card, glow }) {
         }
       }
       if (!wired) el.muted = true;
+      seekPastDiscardedOpening();
       const p = el.play();
       if (p && p.catch) p.catch(() => { /* the card covers it */ });
     },
@@ -373,7 +395,7 @@ function videoChannel({ name, file, card, glow }) {
  * Somebody's tape of the Austin trip, on the shelf under the telly, played
  * more times than anyone will admit to.
  */
-const AUSTIN_TAPE = videoChannel({
+const AUSTIN_TAPE = createVideoChannel({
   name: 'THE AUSTIN TAPE',
   file: 'austin-2.mp4',
   card: 'NO TAPE IN THE MACHINE',
@@ -381,11 +403,12 @@ const AUSTIN_TAPE = videoChannel({
 });
 
 /** Hog Mama's local stand-up programme, received as a finished tape. */
-const HOG_MAMAS_SHOW = videoChannel({
+const HOG_MAMAS_SHOW = createVideoChannel({
   name: "HOG MAMA'S SHOW",
   file: 'hog-mamas-show.mp4',
   card: "HOG MAMA'S SHOW IS OFF AIR",
   glow: { colour: 0xe08ab1, intensity: 1.25 },
+  startAt: 6,
 });
 
 export const CHANNELS = [

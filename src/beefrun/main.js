@@ -34,7 +34,7 @@ import { FlightInput } from './input.js';
 import { MissionAudio } from './audio.js';
 import { DialogueSystem } from './dialogue.js';
 import { Preflight } from './preflight.js';
-import { MissionController } from './mission.js';
+import { MissionController, PREVIEW_SKIP_PHASES } from './mission.js';
 import { makeLou, makeOldStove, updateFigure, updateDog, updateCrow, speak } from './npc.js';
 import { clamp } from './util.js';
 
@@ -180,6 +180,31 @@ window.__squatch.beefrun = true;
 /* ------------------------------------------------------------------ */
 
 const game = { started: false, paused: true, difficulty: 'standard', resume: null };
+const isPreview = new URLSearchParams(location.search).get('preview') === '1';
+const previewSkips = document.getElementById('br-preview-skips');
+let pendingPreviewSkip = null;
+
+if (isPreview && previewSkips) {
+  const allowed = new Set(PREVIEW_SKIP_PHASES.map((entry) => entry.id));
+  previewSkips.classList.remove('hidden');
+  previewSkips.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-beefrun-skip]');
+    const id = button?.dataset.beefrunSkip;
+    if (!allowed.has(id)) return;
+    pendingPreviewSkip = id;
+    if (!game.started) {
+      startBtn.click();
+      return;
+    }
+    mission.previewSkip(id);
+    pendingPreviewSkip = null;
+    game.paused = false;
+    mission.paused = false;
+    overlay.classList.add('hidden');
+    hud.toast(`PREVIEW — ${button.textContent.trim().toUpperCase()}`);
+    requestLock();
+  });
+}
 
 for (const btn of diffButtons) {
   btn.addEventListener('click', () => {
@@ -234,7 +259,11 @@ startBtn.addEventListener('click', async () => {
     game.started = true;
     mission.begin(game.difficulty);
     audio.startLoop('ambience.city.day', { volume: 0.03, ambience: true, fade: 3 });
-    if (game.resume) {
+    if (pendingPreviewSkip) {
+      mission.previewSkip(pendingPreviewSkip);
+      pendingPreviewSkip = null;
+      hud.say('<em>Preview checkpoint loaded.</em>', 2600);
+    } else if (game.resume) {
       mission.restoreCheckpoint(game.resume);
       hud.say('<em>Back where you left it.</em>', 4200);
     } else {

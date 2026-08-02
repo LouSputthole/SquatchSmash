@@ -282,6 +282,14 @@
       "similarity": 0.8,
       "style": 0.4
     },
+    "silver-waiter": {
+      "id": "gAMZphRyrWJnLMDnom6H",
+      "_note": "The named Front and Center table waiter -- owner-cast 2026-08-02. Restrained, precise, and dryly patient; separate from the host, manager, bandleader, and anonymous floor staff.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.48,
+      "similarity": 0.8,
+      "style": 0.34
+    },
     "hotdog": {
       "id": "Pcfg2Zc6kmNWQ9ji3J5F",
       "_note": "Billy HotDog ? owner-cast 2026-08-01. Loud welcome-home guest, casually cruel because he has been getting away with it for years; the final insult gets quieter.",
@@ -2107,6 +2115,13 @@
       "duration": 1.8,
       "promptInfluence": 0.65,
       "prompt": "a single massive revolver gunshot fired indoors, deep concussive boom with a hard mechanical crack, chest-punching low end, heavy room slap and a long ringing tail, no music, no voice"
+    },
+    {
+      "_comment": "Beef Run hard-crash payoff. Light terrain brushes deliberately never reach this cue.",
+      "name": "plane.crash.explosion",
+      "duration": 4,
+      "promptInfluence": 0.7,
+      "prompt": "violent hard impact and fuel explosion of a small twin-engine propeller aircraft hitting rocky terrain, one deep concussive blast followed by metal tearing, scattered debris and a brief fire roar, cinematic but realistic, no voices, no music"
     },
     {
       "_comment": "The clunk of a cheap TV's power button, plus the tick of the panel waking up.",
@@ -6549,12 +6564,32 @@
       "say": "You’ve been inviting me back for about twenty minutes without actually saying it. Are you going to keep talking, or are we leaving?"
     },
     {
+      "name": "vo.silver.margo.invitation.perfect.see-again",
+      "voice": "margo",
+      "say": "You’re asking when you can call me while I’m putting on my coat? Tomorrow. Not before noon. I have standards about the time, if not the company."
+    },
+    {
+      "name": "vo.silver.margo.invitation.perfect.home",
+      "voice": "margo",
+      "say": "You’ve been inviting me back for about twenty minutes without actually saying it. Are you going to keep talking, or are we leaving?"
+    },
+    {
       "name": "vo.silver.margo.invitation.polite",
       "voice": "margo",
       "say": "That’s kind."
     },
     {
       "name": "vo.silver.margo.invitation.strong",
+      "voice": "margo",
+      "say": "One drink. And if your building has a service entrance, I’m getting back in the car and you can explain it to the man on the door."
+    },
+    {
+      "name": "vo.silver.margo.invitation.strong.see-again",
+      "voice": "margo",
+      "say": "Yes. Call the station after midnight and ask for me. If Hector answers, hang up and try again. He’ll make it weird."
+    },
+    {
+      "name": "vo.silver.margo.invitation.strong.home",
       "voice": "margo",
       "say": "One drink. And if your building has a service entrance, I’m getting back in the car and you can explain it to the man on the door."
     },
@@ -6980,62 +7015,74 @@
     },
     {
       "name": "vo.silver.waiter.another",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Another for the table?"
     },
     {
       "name": "vo.silver.waiter.band-round",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "…Yes, sir."
     },
     {
       "name": "vo.silver.waiter.bottle",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "…The manager drinks milk, sir. For his stomach. Shall I bring the rye instead."
     },
     {
       "name": "vo.silver.waiter.dessert",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Anything sweet? Chef does something with figs that people write letters about."
     },
     {
       "name": "vo.silver.waiter.his",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "And for yourself?"
     },
     {
       "name": "vo.silver.waiter.open.checking",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Sir. Everything as it should be over here?"
     },
     {
       "name": "vo.silver.waiter.open.expected",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Good evening. The kitchen knows you’re here. Drinks?"
     },
     {
       "name": "vo.silver.waiter.open.menus",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Good evening. Something to drink for the lady?"
     },
     {
       "name": "vo.silver.waiter.open.passing",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Sir. Your table is ahead of you."
     },
     {
       "name": "vo.silver.waiter.rye",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Rye, one cube. Sir?"
     },
     {
       "name": "vo.silver.waiter.scene-champagne.1",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "From the gentlemen by the pillar. With respect, they said."
     },
     {
       "name": "vo.silver.waiter.thanks",
-      "voice": "waiter",
+      "voice": "silver-waiter",
+      "_recast": "gAMZphRyrWJnLMDnom6H",
       "say": "Very good, sir. He tipped the dish room. Nobody tips the dish room."
     },
     {
@@ -7291,6 +7338,36 @@
       "name": "vo.news.tv.big_night.1",
       "voice": "ksqch",
       "say": "…and no further comment from anybody about anything. Back to the weather, which is the only thing left that will talk to us."
+    },
+    {
+      "name": "vo.margo.repair.1",
+      "voice": "margo",
+      "say": "It is stuck. Get behind me and put some weight into it."
+    },
+    {
+      "name": "vo.margo.repair.tony.1",
+      "voice": "player",
+      "say": "That is what I am doing."
+    },
+    {
+      "name": "vo.margo.repair.2",
+      "voice": "margo",
+      "say": "Both hands. Rhythm helps."
+    },
+    {
+      "name": "vo.margo.repair.tony.2",
+      "voice": "player",
+      "say": "I have got a rhythm."
+    },
+    {
+      "name": "vo.margo.repair.3",
+      "voice": "margo",
+      "say": "There. The zip is back on its teeth."
+    },
+    {
+      "name": "vo.margo.repair.tony.3",
+      "voice": "player",
+      "say": "You could have said zip earlier."
     },
     {
       "name": "vo.margo.wake.1",
