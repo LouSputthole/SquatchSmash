@@ -59,9 +59,9 @@ const WARDROBE = {
 /* ------------------------------------------------------------------ */
 
 const CLUB_LOOK = {
-  driver: { shaft: 1.10, lean: 0.035, hosel: 0.070 },
-  iron: { shaft: 0.96, lean: 0.030, hosel: 0.065 },
-  putter: { shaft: 0.92, lean: 0.024, hosel: 0.060 },
+  driver: { shaft: 1.10, lean: 0.035, hosel: 0.070, carryAngle: 1.10 },
+  iron: { shaft: 0.96, lean: 0.030, hosel: 0.065, carryAngle: 0.95 },
+  putter: { shaft: 0.92, lean: 0.024, hosel: 0.060, carryAngle: 0.87 },
 };
 
 const UP = new THREE.Vector3(0, 1, 0);
@@ -221,6 +221,7 @@ export function makeClub(kind = 'iron') {
 
   g.userData.kind = kind;
   g.userData.hoselOffset = heel.x - shaftBottom.x;
+  g.userData.carryAngle = look.carryAngle;
   return g;
 }
 
@@ -411,6 +412,7 @@ export class Golfer {
      * at the ball at address and swings when the arm does. */
     this.club = makeClub('iron');
     this.club.position.y = -0.30;
+    this.club.rotation.x = this.club.userData.carryAngle;
     this.parts.foreR.add(this.club);
 
     this.state = GOLF_STATE.IDLE;
@@ -433,6 +435,21 @@ export class Golfer {
     this.club = makeClub(kind);
     this.club.position.y = -0.30;
     this.parts.foreR.add(this.club);
+    if ([GOLF_STATE.ADDRESS, GOLF_STATE.PRACTICE, GOLF_STATE.SWING,
+      GOLF_STATE.WATCH, GOLF_STATE.PICKUP, GOLF_STATE.LEAN,
+      GOLF_STATE.MARK, GOLF_STATE.RETRIEVE].includes(this.state)) {
+      this._setPlayingClubPose();
+    } else {
+      this._setCarryClubPose();
+    }
+  }
+
+  _setCarryClubPose() {
+    if (this.club) this.club.rotation.set(this.club.userData.carryAngle ?? 0, 0, 0);
+  }
+
+  _setPlayingClubPose() {
+    if (this.club) this.club.rotation.set(0, 0, 0);
   }
 
   say(secs = 2) { this.npc.say(secs); }
@@ -450,6 +467,7 @@ export class Golfer {
   walkTo(x, z, { speed = 1.55, onArrive = null } = {}) {
     this._walk = { x, z, speed, onArrive };
     this.state = GOLF_STATE.WALK;
+    this._setCarryClubPose();
     return this;
   }
 
@@ -520,6 +538,7 @@ export class Golfer {
    */
   address({ practice = null } = {}) {
     this.state = GOLF_STATE.ADDRESS;
+    this._setPlayingClubPose();
     this._t = 0;
     this._swings = 0;
     this._practiceTarget = practice ?? this.practiceSwings;
@@ -538,6 +557,7 @@ export class Golfer {
    */
   swing({ onImpact = null, onDone = null } = {}) {
     this.state = GOLF_STATE.SWING;
+    this._setPlayingClubPose();
     this._t = 0;
     this._onImpact = onImpact;
     this._impactFired = false;
@@ -558,6 +578,7 @@ export class Golfer {
   /** Stand on the club and wait for somebody to finish being interesting. */
   leanOnClub() {
     this.state = GOLF_STATE.LEAN;
+    this._setPlayingClubPose();
     this._t = 0;
     return this;
   }
@@ -578,6 +599,7 @@ export class Golfer {
 
   sitInCart() {
     this.state = GOLF_STATE.CART;
+    this._setCarryClubPose();
     this.npc.sit();
     return this;
   }
@@ -585,12 +607,14 @@ export class Golfer {
   standUp() {
     if (this.state === GOLF_STATE.CART) this.npc.stand();
     this.state = GOLF_STATE.IDLE;
+    this._setCarryClubPose();
     return this;
   }
 
   idle() {
     this.state = GOLF_STATE.IDLE;
     this._t = 0;
+    this._setCarryClubPose();
     return this;
   }
 
@@ -632,6 +656,7 @@ export class Golfer {
 
   _poseAt(pose) {
     const p = this.parts;
+    this._setPlayingClubPose();
     p.armL.rotation.x = pose.arm;
     p.armR.rotation.x = pose.arm;
     p.body.rotation.x = pose.bend;
@@ -777,6 +802,7 @@ export class Golfer {
     p.shinR.rotation.x = 0;
     p.body.rotation.set(0, 0, 0);
     p.head.rotation.set(0, 0, 0);
+    this._setCarryClubPose();
   }
 }
 

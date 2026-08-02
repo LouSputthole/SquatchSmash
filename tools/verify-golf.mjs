@@ -208,8 +208,9 @@ check('3. all four characters are in the scene',
   world.golfers.length === 3 && world.hasCourse,
   `${world.golfers.join(', ')} + the first-person Prospect`);
 
-const clubArt = await page.evaluate(() => {
+const clubArt = await page.evaluate(async () => {
   const g = window.__golf;
+  const { Box3 } = await import('/vendor/three.module.min.js');
   const bag = g.scene.getObjectByName('three-club-stand-bag');
   const inBag = (bag?.children || [])
     .filter((child) => ['driver', 'iron', 'putter'].includes(child.userData.kind))
@@ -220,12 +221,18 @@ const clubArt = await page.evaluate(() => {
     }));
 
   const golfer = g.golfers.eric;
+  const ground = g.heightAt(golfer.position.x, golfer.position.z);
   const inHand = {};
   for (const kind of ['driver', 'iron', 'putter']) {
     golfer.setClub(kind);
+    golfer.group.updateMatrixWorld(true);
+    const head = golfer.club.getObjectByName(`club-head-${kind}`);
+    const headBox = new Box3().setFromObject(head);
     inHand[kind] = {
-      head: golfer.club.getObjectByName(`club-head-${kind}`)?.geometry?.type ?? null,
+      head: head?.geometry?.type ?? null,
       hosel: !!golfer.club.getObjectByName('club-hosel'),
+      clearance: headBox.min.y - ground,
+      carryAngle: golfer.club.rotation.x,
     };
   }
   golfer.setClub('iron');
@@ -246,6 +253,10 @@ check('3d. every in-hand club swaps to its own head silhouette',
     && clubArt.inHand.iron.head === 'ExtrudeGeometry'
     && clubArt.inHand.putter.head === 'BoxGeometry'
     && Object.values(clubArt.inHand).every((club) => club.hosel),
+  JSON.stringify(clubArt.inHand));
+check('3e. every idle club head stays visible at turf height',
+  Object.values(clubArt.inHand).every((club) => club.clearance >= -0.04
+    && club.clearance <= 0.20 && club.carryAngle >= 0.80),
   JSON.stringify(clubArt.inHand));
 
 const audioBank = await page.evaluate(async () => {
