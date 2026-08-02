@@ -199,6 +199,31 @@ body.golf #hud { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
   transform: translateY(-58px);
 }
 
+/* The compact post-shot read. It stays long enough to survive the flight
+ * camera handback without competing with the scorecard or dialogue. */
+#shot-result {
+  position: absolute; left: 50%; top: clamp(118px, 18vh, 156px);
+  transform: translateX(-50%);
+  min-width: min(360px, calc(100vw - 40px));
+  padding: 9px 16px 8px;
+  border-top: 2px solid var(--pines-purple);
+  border-radius: 3px;
+  background: rgba(11, 27, 19, 0.88);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.34);
+  color: var(--pines-cream); text-align: center;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+}
+#shot-result.hidden { display: none; }
+#shot-result .quality {
+  font-size: 13px; font-weight: 900; letter-spacing: 2.2px;
+}
+#shot-result .outcome {
+  margin-top: 3px; font-size: 10px; letter-spacing: 1.5px; opacity: 0.78;
+}
+#shot-result.good { border-top-color: #75e39b; }
+#shot-result.bad { border-top-color: #ed765f; }
+
 /* ---------------- the swing meter ---------------- */
 
 #meter {

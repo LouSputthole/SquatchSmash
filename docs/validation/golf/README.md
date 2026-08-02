@@ -2,10 +2,10 @@
 
 Current automated state (August 2, 2026):
 
-- `npm test`: 110/110 repository tests, including the club/lie/overswing and
-  player-driven cart models.
+- `npm test`: 119/119 repository tests, including recovery, save/resume,
+  club/lie/overswing, curved flight, and player-driven cart models.
 - `npm run check`: 201 source files and all four manifests valid.
-- `npm run verify:golf`: 68/68 live browser checks from the real start button
+- `npm run verify:golf`: 77/77 live browser checks from the real start button
   through all three holes.
 - The verifier plays the real round with the game's real objects and solver,
   records all three holes, completes the mission, checks recovery and restart,
@@ -21,7 +21,16 @@ Current automated state (August 2, 2026):
   windows; difficult lies reduce forgiveness; and the visible orange
   overswing zone narrows and speeds the strike window while adding a
   controllable fade that compounds into a slice on an early strike.
-- After every tee shot the Prospect drives the lead cart with W/S, steers with
+- Every tee now opens on an authored safe play instead of blindly aiming at
+  the pin: iron to the middle of Hole 1's green, driver to the safe side of
+  Hole 2's dogleg, and driver to Hole 3's left fairway. The player can override
+  both club and aim.
+- Driver, iron and putter now appear in a camera-mounted first-person hand rig
+  and animate through the live three-click swing. A fading world-space tracer
+  follows the ball and a post-shot card reports strike, power, total distance,
+  lie, and distance remaining.
+- After every tee shot and every later shot beyond walking range, the Prospect
+  returns to the live lead cart, drives with W/S, steers with
   A/D, brakes with Space, and gets out with E only after Lou finishes and the
   cart is stopped beside the live ball. Lou rides passenger; Erican drives
   Rippin in a second cart that follows the group. All three NPCs then walk to
@@ -37,6 +46,19 @@ Current automated state (August 2, 2026):
 - `10-ball-finder.png` verifies the physical ring, edge waypoint and top map.
   `11-cart-drive.png` verifies the live driver camera, cart objective and the
   same map while the cart is moving.
+- `12-shot-result.png` verifies the post-shot result card after a real
+  three-click swing; the same check asserts that the tracer contains live ball
+  positions.
+- Water and out-of-bounds block address until a legal one-stroke drop. A ball
+  inside 0.8 m can be picked up with `G` for one stroke, and an eight-stroke
+  mercy cap prevents an endless hole. Player and NPC watchdogs replace any
+  ball that falls below the world.
+- Completed holes, penalties, the invitation, the cart conversation, the NPC
+  card and bag state survive reload. An in-progress save resumes at the first
+  unfinished tee; direct standalone practice does not mutate campaign state.
+- Story-critical NPC tee solutions are cached during loading/fades. Incidental
+  ready-golf approaches use the cheaper solver pass, so an impact frame no
+  longer owns the full search cost.
 
 ## Content still required
 
@@ -48,6 +70,30 @@ Current automated state (August 2, 2026):
   (`A7AUsa1uITCDpK29MG3m`) used throughout the story.
 - The 21 golf-specific effects have authored prompts and procedural fallbacks,
   but recordings remain optional polish rather than a playability blocker.
+
+## Known technical gaps and implementation plan
+
+1. **Shared solid obstacles:** player walking uses course collision, but balls
+   and carts still do not share a broad-phase tree/clubhouse collision field.
+   Add a compact authored obstacle index per hole, sweep balls against trunks
+   during physics substeps, use the same index for cart depenetration, and add
+   a browser check that a Hole 2 corner-cut hits the forest instead of passing
+   through it.
+2. **Mid-hole persistence:** save/load preserves completed holes and resumes at
+   the next unfinished tee; it does not serialize a partially played hole's
+   live balls, NPC jobs, carts, dialogue cursor, or stroke context. Either keep
+   the tee-checkpoint rule and state it explicitly in the pause menu, or add a
+   versioned `liveHole` snapshot and migration tests. Do not serialize Three.js
+   objects or animation timers directly.
+3. **Restart granularity:** pause-menu restart currently reloads the scene. Add
+   separate **Restart hole** and **Restart round** confirmations, with routed
+   campaign rollback rules and verifier coverage for both.
+4. **Map detail:** the map proves player, ball, pin, carts and course route, but
+   it should still add hazard fills, wind arrow and a selected-club landing arc.
+   Keep these reads derived from the same hole/club data as physics.
+5. **Feel and timing:** swing tempo, cart handling, first-tee silence and Hole 2
+   walking dialogue remain human-only gates. Tune them only from recorded
+   playtest notes, not from the solver-driven verifier.
 
 ## Human playtest gate
 

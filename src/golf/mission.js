@@ -16,15 +16,16 @@ import { SURFACE, surfaceProps, scoreBand, toYards, toFeet } from './course.js';
 import { Ball, BALL_STATE, solveShot } from './ball.js';
 import { launchFor, getClub } from './clubs.js';
 import { heightAt, surfaceAt, distanceToPin, isOnGreen } from './field.js';
-import { Scorecard } from './scorecard.js';
+import { Scorecard, MERCY_CAP } from './scorecard.js';
 import { buildScripts, SEQUENCES, pastMissionBanter } from './script.js';
-import { builtHoles } from './hole.js';
-import { HOLE } from './hole.js';
+import { builtHoles, layoutFor, HOLE } from './hole.js';
 
 const LOU = CHARACTER_IDS.LOU;
 const RIPPIN = CHARACTER_IDS.RIPPINFLOW;
 const ERIC = CHARACTER_IDS.ERICAN;
 const PROSPECT = CHARACTER_IDS.PROSPECT;
+const CART_RETRIEVAL_DISTANCE = 38;
+const NPC_TEE_SOLUTION_CACHE = new Map();
 
 export const BEAT = {
   LOT: 'lot',
@@ -127,6 +128,7 @@ export class Round {
     }
     this.playerBall = this.balls.get(PROSPECT);
     this.playerBall.placeAt(HOLE.teeMarks.ball.x, HOLE.teeMarks.ball.z);
+    this._prepareNpcTeeShots();
 
     this.scripts = buildScripts({
       play: (id) => this.cues.play(id),
@@ -150,6 +152,8 @@ export class Round {
     this._holeOutPlayed = false;
     this._npcApproachJobs = new Map();
     this._npcApproachDelay = new Map();
+    this._approachShotPending = false;
+    this._cartFromTee = true;
     /* Deferred calls ride the round's own clock rather than a real timer, so
      * pausing the game pauses them too. There is exactly one customer: the two
      * seconds of silence after a hole in one. */
@@ -212,6 +216,40 @@ export class Round {
     return distanceToPin(b.position.x, b.position.z);
   }
 
+  /**
+   * Rebuild the compact campaign card before loading the next unfinished tee.
+   * The player's stored numbers are authoritative. NPC scores are authored per
+   * hole, so they can be reconstructed exactly without expanding save data.
+   */
+  restoreProgress(progress = {}) {
+    const built = this.holes;
+    const saved = Array.isArray(progress.holes)
+      ? progress.holes
+        .filter((h) => h && built.includes(Math.round(h.hole)))
+        .sort((a, b) => a.hole - b.hole)
+      : [];
+    const completed = new Set();
+    for (const entry of saved) {
+      const hole = Math.round(entry.hole);
+      if (completed.has(hole)) continue;
+      completed.add(hole);
+      this.card.restoreHole(PROSPECT, entry);
+      const plan = layoutFor(hole)?.npcPlan ?? {};
+      for (const id of [ERIC, RIPPIN, LOU]) {
+        const finish = plan[id]?.finish;
+        if (Number.isFinite(finish)) {
+          this.card.restoreHole(id, {
+            hole, par: layoutFor(hole)?.par, strokes: finish, penalties: 0,
+          });
+        }
+      }
+    }
+    this.hasBag = saved.length > 0;
+    this.heardInvitation = progress.heardInvitation === true;
+    this.rodeWithLou = progress.rodeWithLou === true;
+    return built.find((hole) => !completed.has(hole)) ?? null;
+  }
+
   /* ---------------------------------------------------------------- */
   /* The player's shot                                                 */
   /* ---------------------------------------------------------------- */
@@ -227,6 +265,7 @@ export class Round {
   canAddress() {
     if (this.playerBall.moving) return false;
     if (this.playerBall.state === BALL_STATE.HOLED) return false;
+    if (this.needsRelief()) return false;
     return this.beat === BEAT.PLAYER_TEE || this.beat === BEAT.APPROACH;
   }
 
@@ -248,7 +287,9 @@ export class Round {
     ball.strike(aim, launch);
 
     this.audio?.strike(club, surface, power, { ...ball.position });
-    this._shotContext = { club, surface, before, wasTeeShot: this.beat === BEAT.PLAYER_TEE };
+    const wasTeeShot = this.beat === BEAT.PLAYER_TEE;
+    this._shotContext = { club, surface, before, wasTeeShot };
+    if (!wasTeeShot) this._approachShotPending = true;
     this.card.addStroke(PROSPECT, HOLE.number);
     if (surface === SURFACE.BUNKER) this.card.markBunker(PROSPECT, HOLE.number);
     this.hooks.onStroke?.(this.card.hole(PROSPECT, HOLE.number));
@@ -278,8 +319,34 @@ export class Round {
     this.hooks.onToast?.(
       reason === 'oob' ? 'Out of bounds. Drop, plus one.' : 'Drop, plus one.',
     );
-    if (this.beat === BEAT.TEE_RESULT && this._resultPlayed) this.beat = BEAT.APPROACH;
     return point;
+  }
+
+  /** Pick up a true tap-in. It still counts as the next stroke. */
+  takeGimme() {
+    const ball = this.playerBall;
+    const distance = ball.distanceToPin();
+    if (this.beat !== BEAT.APPROACH || ball.moving || ball.state === BALL_STATE.HOLED) {
+      return { ok: false, reason: 'There is no tap-in to pick up.', distance };
+    }
+    if (distance > 0.8) {
+      return { ok: false, reason: 'That is outside gimme range.', distance };
+    }
+    this.card.addStroke(PROSPECT, HOLE.number, { toPin: 0 });
+    this.hooks.onStroke?.(this.card.hole(PROSPECT, HOLE.number));
+    this._finishPlayerBall('Gimme. One stroke added.');
+    return { ok: true, distance };
+  }
+
+  _finishPlayerBall(message = '') {
+    const ball = this.playerBall;
+    ball.placeAt(HOLE.pin.x, HOLE.pin.z);
+    ball.state = BALL_STATE.HOLED;
+    this._approachShotPending = false;
+    this.card.finish(PROSPECT, HOLE.number);
+    this.audio?.holed({ ...ball.position });
+    if (message) this.hooks.onToast?.(message);
+    this._go(BEAT.HOLE_OUT);
   }
 
   /** Does the ball need rescuing? Drives the [R] prompt. */
@@ -371,13 +438,13 @@ export class Round {
     for (const ball of this.balls.values()) {
       ball.update(dt);
       const trouble = ball.watchdog(dt);
-      if (trouble && ball === this.playerBall) {
+      if (trouble) {
         /* The ball has done something a golf ball cannot recover from on its
          * own. Put it somewhere legal and tell him why, rather than leaving
          * him staring at a fairway with no ball on it. */
         const point = ball.dropPoint();
         ball.placeAt(point.x, point.z);
-        this.hooks.onToast?.('Unplayable. Ball replaced.');
+        if (ball === this.playerBall) this.hooks.onToast?.('Unplayable. Ball replaced.');
       }
     }
 
@@ -448,10 +515,23 @@ export class Round {
       this.dialogue.start(this.scripts.firstTee, 'open', this.golfers[LOU]?.npc ?? null);
       return;
     }
+    /* Walking away ends the non-modal dialogue UI, but it cannot erase the
+     * scene's central exchange. Keep the tee blocked and offer the unanswered
+     * branch again only after the player walks back within speaking range. */
+    if (this.dialogue.lastEndReason === 'walked-away') {
+      const lou = this.golfers[LOU]?.group?.position;
+      if (playerPos && lou && Math.hypot(playerPos.x - lou.x, playerPos.z - lou.z) < 5.5) {
+        this.cues.suppressBanter(true);
+        this.dialogue.start(this.scripts.firstTee, 'open', this.golfers[LOU]?.npc ?? null);
+      }
+      return;
+    }
     this.cues.suppressBanter(false);
     this._go(BEAT.NPC_TEE);
     this._npcIndex = 0;
     this._npcPhase = 'before';
+    this.npcShotsSeen = false;
+    this.skipRequested = false;
   }
 
   /* ---- Erican, Rippin, Lou ---- */
@@ -535,7 +615,7 @@ export class Round {
     const from = { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z };
     const lie = surfaceProps(surfaceAt(from.x, from.z));
 
-    const solved = solveShot({
+    const solved = this._npcTeeSolutions.get(id) ?? solveShot({
       from, target: spec.target, club: spec.club, lie, loftBias: spec.loftBias,
     });
     ball.placeAt(from.x, from.z);
@@ -552,7 +632,43 @@ export class Round {
     return solved;
   }
 
+  /** Solve authored drives while the hole is loading, never at impact. */
+  _prepareNpcTeeShots() {
+    if (NPC_TEE_SOLUTION_CACHE.has(HOLE.number)) {
+      this._npcTeeSolutions = NPC_TEE_SOLUTION_CACHE.get(HOLE.number);
+      return;
+    }
+    this._npcTeeSolutions = new Map();
+    const from = { x: HOLE.teeMarks.ball.x, z: HOLE.teeMarks.ball.z };
+    const lie = surfaceProps(surfaceAt(from.x, from.z));
+    for (const id of TEE_ORDER) {
+      const spec = HOLE.npcTeeShots?.[id];
+      if (!spec) continue;
+      this._npcTeeSolutions.set(id, solveShot({
+        from, target: spec.target, club: spec.club, lie, loftBias: spec.loftBias,
+      }));
+    }
+    NPC_TEE_SOLUTION_CACHE.set(HOLE.number, this._npcTeeSolutions);
+  }
+
   /* ---- how his tee shot went ---- */
+
+  _recordPlayerShotResult() {
+    const ball = this.playerBall;
+    const ctx = this._shotContext;
+    const h = this.card.hole(PROSPECT, HOLE.number);
+    const pin = ball.distanceToPin();
+    const yards = toYards(ball.travelled);
+    if (!ctx?.recorded) {
+      if (yards > h.longestShot) h.longestShot = yards;
+      if (pin < h.closestApproach) h.closestApproach = pin;
+      if (isOnGreen(ball.position.x, ball.position.z) && h.strokes <= HOLE.par - 2) {
+        this.card.markGreenInRegulation(PROSPECT, HOLE.number, true);
+      }
+      if (ctx) ctx.recorded = true;
+    }
+    return { h, pin, yards };
+  }
 
   _updateTeeResult(dt) {
     const ball = this.playerBall;
@@ -570,13 +686,7 @@ export class Round {
     this._resultPlayed = true;
     const ctx = this._shotContext ?? {};
     const surface = ball.surface;
-    const pin = ball.distanceToPin();
-    const yards = toYards(ball.travelled);
-
-    this.card.markGreenInRegulation(PROSPECT, HOLE.number, isOnGreen(ball.position.x, ball.position.z));
-    const h = this.card.hole(PROSPECT, HOLE.number);
-    if (yards > h.longestShot) h.longestShot = yards;
-    if (pin < h.closestApproach) h.closestApproach = pin;
+    const { pin } = this._recordPlayerShotResult();
 
     let sequence = 'tee.result.rough';
     if (ball.state === BALL_STATE.HOLED) sequence = 'tee.result.ace';
@@ -609,8 +719,9 @@ export class Round {
    */
   _startCartRide() {
     this._go(BEAT.CART);
+    this._cartFromTee = true;
     this.carts?.stage();
-    this.carts?.beginPlayerDrive();
+    this.carts?.beginPlayerDrive({ follow: true });
     /* The Prospect has the wheel. Lou takes the passenger seat so the private
      * conversation still happens beside him instead of becoming a radio call. */
     this.golfers[LOU]?.sitInCart();
@@ -646,7 +757,7 @@ export class Round {
     if (this.beat !== BEAT.CART || !this.carts) {
       return { ok: false, reason: 'You are not in the cart.' };
     }
-    if (this.dialogue.active || this.cues.busy) {
+    if (this._cartFromTee && (this.dialogue.active || this.cues.busy)) {
       return { ok: false, reason: 'Stay with Lou until he finishes.' };
     }
     const distance = this.cartDistanceToBall();
@@ -666,12 +777,22 @@ export class Round {
     this.carts.parkPlayerCarts();
     this.audio?.cartMotor(false);
     this.cues.suppressBanter(false);
-    for (const id of [LOU, ERIC, RIPPIN]) this.golfers[id]?.standUp();
     this._go(BEAT.APPROACH);
-    this._placeGroupAfterDrive();
-    this._npcApproachJobs.clear();
-    this._npcApproachDelay = new Map([[ERIC, 1.4], [LOU, 2.1], [RIPPIN, 2.8]]);
+    if (this._cartFromTee) {
+      for (const id of [LOU, ERIC, RIPPIN]) this.golfers[id]?.standUp();
+      this._placeGroupAfterDrive();
+      this._npcApproachJobs.clear();
+      this._npcApproachDelay = new Map([[ERIC, 1.4], [LOU, 2.1], [RIPPIN, 2.8]]);
+    }
     return { ok: true, distance: state.distance };
+  }
+
+  /** Put the player back in the nearby lead cart after a long later shot. */
+  _startApproachTransit() {
+    this._cartFromTee = false;
+    this._go(BEAT.CART);
+    this.carts?.beginPlayerDrive({ follow: false });
+    this.audio?.cartMotor(true, this.carts?.lead.position);
   }
 
   /**
@@ -736,6 +857,32 @@ export class Round {
 
   _updateApproach(dt, playerPos) {
     const ball = this.playerBall;
+
+    const playerHole = this.card.hole(PROSPECT, HOLE.number);
+    if (!ball.moving && ball.state !== BALL_STATE.HOLED && playerHole.strokes >= MERCY_CAP) {
+      this._finishPlayerBall(`Lou picks it up. ${MERCY_CAP} goes on the card.`);
+      return;
+    }
+
+    if (this._approachShotPending && !ball.moving) {
+      this._recordPlayerShotResult();
+      if (ball.state === BALL_STATE.HOLED) {
+        this._approachShotPending = false;
+      } else if (this.needsRelief()) {
+        /* Relief owns the next action. Keep the pending route so the legal
+         * drop can still enter transit when it finishes far from the player. */
+        return;
+      } else {
+        const distance = playerPos
+          ? Math.hypot(playerPos.x - ball.position.x, playerPos.z - ball.position.z)
+          : 0;
+        this._approachShotPending = false;
+        if (this.carts && distance > CART_RETRIEVAL_DISTANCE) {
+          this._startApproachTransit();
+          return;
+        }
+      }
+    }
 
     // Conversations that belong to a place rather than to a beat.
     if (!this._bunkerTalked && !ball.moving
@@ -880,7 +1027,9 @@ export class Round {
     const target = job.isLast
       ? { x: HOLE.pin.x, z: HOLE.pin.z }
       : this._nearPin(from, 1.1 + Math.random() * 1.4);
-    const solved = solveShot({ from, target, club: job.club, lie });
+    /* Approach outcomes are not dialogue-critical coordinates; one correction
+     * is accurate enough and keeps ready-golf swings under a frame budget. */
+    const solved = solveShot({ from, target, club: job.club, lie, passes: 1 });
     ball.placeAt(from.x, from.z);
     ball.strike(solved.aim, solved.launch);
     this.card.addStroke(job.id, HOLE.number);
@@ -967,7 +1116,8 @@ export class Round {
      * to the cart himself. Fading out on a man standing on a green is taking
      * the ending off him. */
     if (!playerPos) return;
-    const d = Math.hypot(playerPos.x - HOLE.cartPark.x, playerPos.z - HOLE.cartPark.z);
+    const cartPark = this.carts?.lead?.position ?? HOLE.cartPark;
+    const d = Math.hypot(playerPos.x - cartPark.x, playerPos.z - cartPark.z);
     if (d >= 4.5) return;
 
     const finished = this.summary();
@@ -995,6 +1145,7 @@ export class Round {
    */
   startHole(number) {
     this.hooks.onLoadHole?.(number);
+    this._prepareNpcTeeShots();
 
     for (const [id, ball] of this.balls) {
       void id;
@@ -1010,6 +1161,8 @@ export class Round {
     this._npcIndex = 0;
     this._npcPhase = 'before';
     this._steppedUp = false;
+    this.npcShotsSeen = false;
+    this.skipRequested = false;
     this._resultPlayed = false;
     this._greenTalked = false;
     this._bunkerTalked = false;

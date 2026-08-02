@@ -27,13 +27,17 @@ import { LAYOUT as HOLE2 } from '../src/golf/hole2.js';
 import { LAYOUT as HOLE3 } from '../src/golf/hole3.js';
 import { builtHoles, setActiveHole, HOLE } from '../src/golf/hole.js';
 import { bunkers } from '../src/golf/field.js';
-import { CHARACTER_IDS } from '../src/core/campaign.js';
+import {
+  CHARACTER_IDS, EVENT_IDS, MISSION_IDS, createCampaign,
+} from '../src/core/campaign.js';
+import { createGolfStory } from '../src/core/golf-story.js';
 import { voiceProfileFor } from '../src/core/characters.js';
 import {
   GOLF_EFFECT_CUES, playRecordedGolfCue, recordedGolfClip,
 } from '../src/golf/audio.js';
 import { makeBag, makeClub } from '../src/golf/cast.js';
 import { CartPair } from '../src/golf/carts.js';
+import { Round, BEAT } from '../src/golf/mission.js';
 
 /* These are the facts about the hole that the browser verifier cannot state
  * cheaply and that a careless edit to the layout would silently change. The
@@ -42,6 +46,191 @@ import { CartPair } from '../src/golf/carts.js';
 
 const TEE = { x: TEE_MARKS.ball.x, z: TEE_MARKS.ball.z };
 const lieAt = (p) => surfaceProps(surfaceAt(p.x, p.z));
+
+function makeRound() {
+  return new Round({
+    cues: { busy: false, play() {}, playSequence() {}, suppressBanter() {}, lengthOf() { return 0; } },
+    dialogue: {},
+  });
+}
+
+test('a water or out-of-bounds ball must be dropped before it can be addressed', () => {
+  const round = makeRound();
+  round.beat = BEAT.APPROACH;
+  round.playerBall.state = 'water';
+  assert.equal(round.needsRelief(), true);
+  assert.equal(round.canAddress(), false);
+  round.playerBall.state = 'oob';
+  assert.equal(round.needsRelief(), true);
+  assert.equal(round.canAddress(), false);
+});
+
+test('taking tee-shot relief cannot skip the required cart beat', () => {
+  const round = makeRound();
+  round.beat = BEAT.TEE_RESULT;
+  round._resultPlayed = true;
+  round.playerBall.state = 'water';
+  round.takeDrop('water');
+  assert.equal(round.beat, BEAT.TEE_RESULT,
+    'the tee-result beat must remain responsible for starting the cart ride');
+});
+
+test('a tap-in gimme costs one stroke and ends at the live cup', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  round.beat = BEAT.APPROACH;
+  round.playerBall.placeAt(HOLE1.pin.x, HOLE1.pin.z + 0.65);
+  round.card.addStroke(CHARACTER_IDS.PROSPECT, 1);
+  const before = round.card.hole(CHARACTER_IDS.PROSPECT, 1).strokes;
+  const result = round.takeGimme();
+  assert.equal(result.ok, true);
+  assert.equal(round.card.hole(CHARACTER_IDS.PROSPECT, 1).strokes, before + 1);
+  assert.equal(round.playerBall.state, 'holed');
+  assert.ok(round.playerBall.distanceToPin() < 0.01);
+});
+
+test('the mercy cap picks up an endless ball instead of softlocking the round', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  round.beat = BEAT.APPROACH;
+  round.playerBall.placeAt(HOLE1.green.x, HOLE1.green.z + 5);
+  for (let i = 0; i < 8; i++) round.card.addStroke(CHARACTER_IDS.PROSPECT, 1);
+  round._updateApproach(0.05, { x: HOLE1.green.x, z: HOLE1.green.z + 5 });
+  assert.equal(round.playerBall.state, 'holed');
+  assert.equal(round.card.finished(CHARACTER_IDS.PROSPECT, 1), true);
+  assert.equal(round.beat, BEAT.HOLE_OUT);
+});
+
+test('walking away cannot permanently skip the first-tee invitation', () => {
+  const round = makeRound();
+  const lou = { group: { position: { x: 0, z: 0 } }, npc: {} };
+  round.golfers[CHARACTER_IDS.LOU] = lou;
+  round.dialogue = {
+    active: false,
+    lastEndReason: 'walked-away',
+    starts: 0,
+    start() { this.active = true; this.lastEndReason = null; this.starts++; },
+  };
+  round.beat = BEAT.TEE_TALK;
+  round._step = 1;
+  round._wait = 0;
+
+  round._updateTeeTalk(0, { x: 30, z: 0 });
+  assert.equal(round.beat, BEAT.TEE_TALK);
+  assert.equal(round.dialogue.starts, 0, 'the exchange waits until the player comes back');
+
+  round._updateTeeTalk(0, { x: 3, z: 0 });
+  assert.equal(round.beat, BEAT.TEE_TALK);
+  assert.equal(round.dialogue.starts, 1, 'the unanswered exchange is offered again near Lou');
+
+  round.dialogue.active = false;
+  round.dialogue.lastEndReason = 'done';
+  round._updateTeeTalk(0, { x: 3, z: 0 });
+  assert.equal(round.beat, BEAT.NPC_TEE, 'only a completed branch releases the tee');
+});
+
+test('saved holes hydrate the card and resume at the first unfinished tee', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  const next = round.restoreProgress({
+    holes: [{ hole: 1, par: 3, strokes: 4, penalties: 1 }],
+    heardInvitation: true,
+    rodeWithLou: true,
+  });
+  assert.equal(next, 2);
+  assert.deepEqual(round.card.result(CHARACTER_IDS.PROSPECT, 1), {
+    strokes: 4,
+    par: 3,
+    penalties: 1,
+    name: 'BOGEY',
+    band: 'bogey',
+    toPar: 1,
+    written: 4,
+    merciful: false,
+    hitGreenInRegulation: false,
+    foundWater: false,
+    foundBunker: false,
+    longestShotYards: 0,
+    closestApproachFeet: 0,
+  });
+  assert.equal(round.card.finished(CHARACTER_IDS.ERICAN, 1), true,
+    'the deterministic NPC card is also reconstructed for the final scorecard');
+  assert.equal(round.hasBag, true);
+  assert.equal(round.heardInvitation, true);
+  assert.equal(round.rodeWithLou, true);
+});
+
+test('opening golf out of sequence is a non-persistent practice round', () => {
+  const campaign = createCampaign({ storage: null });
+  const story = createGolfStory({ campaign });
+  const result = story.begin();
+  assert.equal(result.unrouted, true);
+  assert.equal(result.persistent, false);
+  assert.equal(campaign.state.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
+  assert.equal(story.recordHole({ hole: 1, par: 3, strokes: 3 }), false);
+
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
+    state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+  });
+  const routed = createGolfStory({ campaign }).begin();
+  assert.equal(routed.unrouted, false);
+  assert.equal(routed.persistent, true);
+  assert.equal(campaign.state.missions[MISSION_IDS.SILVER_PINES].status, 'in_progress');
+});
+
+test('fade and slice visibly curve during flight instead of only launching offline', () => {
+  setActiveHole(1);
+  const from = { x: HOLE1.teeMarks.ball.x, z: HOLE1.teeMarks.ball.z };
+  const lie = surfaceProps(surfaceAt(from.x, from.z));
+  const trace = (accuracy) => {
+    const ball = new Ball();
+    ball.placeAt(from.x, from.z);
+    ball.strike(0, launchFor('driver', { power: 0.9, accuracy, lie }));
+    let elapsed = 0;
+    let early = null;
+    while (ball.moving && elapsed < 2.6) {
+      ball.update(1 / 120);
+      elapsed += 1 / 120;
+      if (!early && elapsed >= 0.35) early = { x: ball.position.x, z: ball.position.z };
+    }
+    return { early, late: { x: ball.position.x, z: ball.position.z } };
+  };
+  const straight = trace(0);
+  const fade = trace(1);
+  const earlyAngle = Math.atan2(
+    fade.early.x - straight.early.x,
+    fade.early.z - from.z,
+  );
+  const lateAngle = Math.atan2(
+    fade.late.x - straight.late.x,
+    fade.late.z - from.z,
+  );
+  assert.ok(lateAngle > earlyAngle + 0.012,
+    `shot shape should build in flight: early ${earlyAngle}, late ${lateAngle}`);
+});
+
+test('a long approach starts a reusable solo cart retrieval without replaying dialogue', () => {
+  setActiveHole(1);
+  const round = makeRound();
+  let drives = 0;
+  round.carts = {
+    lead: { position: { x: 0, z: -100 }, velocity: 0 },
+    beginPlayerDrive(options) { drives++; this.options = options; },
+  };
+  round.dialogue = { active: false };
+  round.beat = BEAT.APPROACH;
+  round._approachShotPending = true;
+  round.playerBall.placeAt(0, -100);
+  round._updateApproach(0.016, { x: 0, z: 0 });
+  assert.equal(round.beat, BEAT.CART);
+  assert.equal(round._cartFromTee, false);
+  assert.equal(drives, 1);
+  assert.deepEqual(round.carts.options, { follow: false });
+  assert.equal(round.cartExitState().ok, true,
+    'later retrievals do not wait on the one-time private conversation');
+});
 
 test('the round is a par 3, a par 5 and a par 4, in that order', () => {
   assert.deepEqual(HOLES.map((h) => h.par), [3, 5, 4]);

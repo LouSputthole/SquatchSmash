@@ -41,8 +41,12 @@ class GolfStory {
   begin() {
     const state = this.campaign.state;
     const status = this.mission.status;
-    if (status === 'in_progress') return { ok: true, resumed: true, unrouted: false };
-    if (status === 'complete') return { ok: false, reason: 'already_complete' };
+    if (status === 'in_progress') {
+      return { ok: true, resumed: true, unrouted: false, persistent: true };
+    }
+    if (status === 'complete') {
+      return { ok: false, reason: 'already_complete', persistent: true };
+    }
 
     /* Unrouted means the campaign never offered this: the Silver Room is not
      * finished, or Lou never rang, or both. The round runs anyway and says so
@@ -50,6 +54,12 @@ class GolfStory {
     const unrouted = status === 'locked'
       || state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete'
       || state.events[EVENT_IDS.LOU_GOLF_CALL].status !== 'answered';
+    /* A direct URL remains playable as a practice round, but it must not claim
+     * a locked story mission or jump the canonical clock to Day 4. Only the
+     * apartment's offered route is allowed to persist golf progress. */
+    if (unrouted) {
+      return { ok: true, resumed: false, unrouted: true, persistent: false };
+    }
     /* Claiming the mission, and nothing else. The drive out is the door's
      * time to spend — `travel.silver_pines` is applied by the apartment when
      * he leaves, the way every other departure is, so opening this page
@@ -57,7 +67,7 @@ class GolfStory {
     this.campaign.update((next) => {
       next.missions[MISSION_IDS.SILVER_PINES].status = 'in_progress';
     });
-    return { ok: true, resumed: false, unrouted };
+    return { ok: true, resumed: false, unrouted: false, persistent: true };
   }
 
   /**

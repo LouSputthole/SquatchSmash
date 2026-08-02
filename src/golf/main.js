@@ -23,7 +23,7 @@ import { createGolfStory } from '../core/golf-story.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 
 import { Course } from './terrain.js';
-import { Golfer, makeBag, makeBall, makeBallMarker } from './cast.js';
+import { Golfer, makeBag, makeBall, makeBallMarker, makeClub } from './cast.js';
 import { CartPair } from './carts.js';
 import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
@@ -90,6 +90,9 @@ const ui = {
   meterRiskCopy: document.querySelector('#meter .risk-copy'),
   meterHint: document.querySelector('#meter .hint'),
   aim: document.getElementById('aim'),
+  shotResult: document.getElementById('shot-result'),
+  shotQuality: document.querySelector('#shot-result .quality'),
+  shotOutcome: document.querySelector('#shot-result .outcome'),
   dialogue: {
     root: document.getElementById('dialogue'),
     name: document.querySelector('#dialogue .who'),
@@ -122,6 +125,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(66, window.innerWidth / window.innerHeight, 0.08, 700);
+scene.add(camera);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -155,6 +159,46 @@ const playerBallMesh = makeBall(scene, 0xffffff);
 ballMeshes.set(CHARACTER_IDS.PROSPECT, playerBallMesh);
 const playerBallMarker = makeBallMarker(scene);
 playerBallMarker.visible = false;
+
+/* Camera-mounted first-person clubs. The golfers use the same silhouettes,
+ * so the club selected in the HUD is the club the player sees in his hands. */
+const playerClubRig = new THREE.Group();
+playerClubRig.name = 'player-club-rig';
+playerClubRig.position.set(0.48, 0.30, -0.92);
+playerClubRig.scale.setScalar(0.52);
+playerClubRig.visible = false;
+for (const kind of CLUB_IDS) {
+  const model = makeClub(kind);
+  model.userData.kind = kind;
+  model.visible = kind === 'iron';
+  model.rotation.y = 0.18;
+  model.traverse((object) => {
+    if (!object.isMesh) return;
+    object.renderOrder = 1000;
+    object.material = object.material.clone();
+    object.material.depthTest = false;
+    object.material.depthWrite = false;
+  });
+  playerClubRig.add(model);
+}
+const handMaterial = new THREE.MeshStandardMaterial({ color: 0xc8916d, roughness: 0.82 });
+for (const hand of [
+  { x: -0.025, y: -0.20, z: 0.015, rz: -0.18 },
+  { x: 0.035, y: -0.25, z: -0.005, rz: 0.14 },
+]) {
+  const mesh = new THREE.Mesh(
+    new THREE.CapsuleGeometry(0.040, 0.055, 4, 8), handMaterial.clone(),
+  );
+  mesh.name = 'player-hand';
+  mesh.position.set(hand.x, hand.y, hand.z);
+  mesh.scale.set(0.82, 1.0, 0.78);
+  mesh.rotation.z = hand.rz;
+  mesh.renderOrder = 1001;
+  mesh.material.depthTest = false;
+  mesh.material.depthWrite = false;
+  playerClubRig.add(mesh);
+}
+camera.add(playerClubRig);
 
 /* ------------------------------------------------------------------ */
 /* Player, HUD, audio                                                  */
@@ -242,8 +286,153 @@ let aimYaw = Math.PI;
 const swing = new Swing();
 let club = 'iron';
 let flightTimer = 0;
+let addressReturn = null;
+let shotPresentation = null;
+let shotResultTimer = 0;
+let shotTracer = null;
+let shotTracerAge = 0;
+const shotTracerPoints = [];
 const _v = new THREE.Vector3();
 const _look = new THREE.Vector3();
+
+function syncPlayerClub() {
+  for (const object of playerClubRig.children) {
+    if (object.userData.kind) object.visible = object.userData.kind === club;
+  }
+}
+
+function paintPlayerClub() {
+  playerClubRig.visible = camMode === CAM.ADDRESS;
+  if (!playerClubRig.visible) return;
+  syncPlayerClub();
+  let pose = 0;
+  if (swing.phase === SWING_PHASE.POWER) pose = swing.marker * 0.62;
+  else if (swing.phase === SWING_PHASE.STRIKE) {
+    const span = Math.max(0.05, swing.power + 0.30);
+    pose = ((swing.marker + 0.30) / span) * 0.62 - 0.22;
+  }
+  playerClubRig.rotation.set(-0.04, -0.12, -0.10 + pose);
+}
+
+function recommendedClubForShot() {
+  const surface = round.playerSurface();
+  const distance = round.distanceToPin();
+  if (surface === SURFACE.GREEN || (surface === SURFACE.FRINGE && distance < 24)) return 'putter';
+  if (surface === SURFACE.BUNKER || surface === SURFACE.DEEP_ROUGH) return 'iron';
+  return distance > 195 ? 'driver' : 'iron';
+}
+
+/** A playable point farther along the authored fairway, including doglegs. */
+function corridorTarget(from, advance) {
+  const path = HOLE.corridor?.path;
+  if (!path || path.length < 2) return { ...HOLE.pin };
+  let nearest = { distance: Infinity, progress: 0 };
+  let total = 0;
+  const segments = [];
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i + 1];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const length = Math.hypot(dx, dz);
+    segments.push({ a, b, dx, dz, length, start: total });
+    const t = Math.max(0, Math.min(1,
+      ((from.x - a.x) * dx + (from.z - a.z) * dz) / Math.max(0.001, length * length)));
+    const x = a.x + dx * t;
+    const z = a.z + dz * t;
+    const distance = Math.hypot(from.x - x, from.z - z);
+    if (distance < nearest.distance) nearest = { distance, progress: total + length * t };
+    total += length;
+  }
+  const wanted = Math.min(total, nearest.progress + advance);
+  const segment = segments.find((part) => wanted <= part.start + part.length)
+    ?? segments[segments.length - 1];
+  const t = Math.max(0, Math.min(1, (wanted - segment.start) / Math.max(0.001, segment.length)));
+  return { x: segment.a.x + segment.dx * t, z: segment.a.z + segment.dz * t };
+}
+
+function shotPlan(withClub = club) {
+  const ball = round.playerBall.position;
+  const holeCard = round.card.hole(CHARACTER_IDS.PROSPECT, HOLE.number);
+  const firstShot = holeCard.strokes === 0 && round.playerSurface() === SURFACE.TEE;
+  let target = HOLE.pin;
+  let label = 'PIN';
+  if (firstShot && HOLE.npcTeeShots?.[CHARACTER_IDS.ERICAN]?.target) {
+    target = HOLE.npcTeeShots[CHARACTER_IDS.ERICAN].target;
+    label = HOLE.number === 1 ? 'MIDDLE GREEN'
+      : HOLE.number === 2 ? 'SAFE SIDE' : 'LEFT FAIRWAY';
+  } else if (withClub === 'driver' && round.distanceToPin() > 180) {
+    target = corridorTarget(ball, 205);
+    label = 'FAIRWAY';
+  }
+  return {
+    club: recommendedClubForShot(), target, label,
+    distance: Math.hypot(target.x - ball.x, target.z - ball.z),
+  };
+}
+
+function clearShotTracer() {
+  if (!shotTracer) return;
+  scene.remove(shotTracer);
+  shotTracer.geometry.dispose();
+  shotTracer.material.dispose();
+  shotTracer = null;
+  shotTracerPoints.length = 0;
+}
+
+function beginShotTracer() {
+  clearShotTracer();
+  const b = round.playerBall.position;
+  shotTracerPoints.push(new THREE.Vector3(b.x, b.y + 0.06, b.z));
+  shotTracer = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(shotTracerPoints),
+    new THREE.LineBasicMaterial({
+      color: 0xc6abff, transparent: true, opacity: 0.86, depthWrite: false,
+    }),
+  );
+  shotTracer.name = 'player-shot-tracer';
+  shotTracer.renderOrder = 30;
+  scene.add(shotTracer);
+  shotTracerAge = 0;
+}
+
+function updateShotPresentation(dt) {
+  if (shotTracer && round.playerBall.moving) {
+    const b = round.playerBall.position;
+    const point = new THREE.Vector3(b.x, b.y + 0.06, b.z);
+    const prior = shotTracerPoints[shotTracerPoints.length - 1];
+    /* A short putt still deserves a visible read, while the point cap keeps a
+     * full drive cheap. Twenty-centimetre spacing is smooth at both scales. */
+    if (!prior || prior.distanceToSquared(point) > 0.04) {
+      shotTracerPoints.push(point);
+      if (shotTracerPoints.length > 240) shotTracerPoints.shift();
+      shotTracer.geometry.setFromPoints(shotTracerPoints);
+    }
+  } else if (shotTracer) {
+    shotTracerAge += dt;
+    shotTracer.material.opacity = Math.max(0, 0.86 * (1 - shotTracerAge / 4.2));
+    if (shotTracerAge >= 4.2) clearShotTracer();
+  }
+
+  if (shotPresentation && !shotPresentation.shown && !round.playerBall.moving) {
+    const ball = round.playerBall;
+    const lie = surfaceProps(ball.surface).label.toUpperCase();
+    const yards = Math.round(toYards(ball.travelled));
+    const feet = Math.round(toFeet(ball.distanceToPin()));
+    ui.shotQuality.textContent = `${shotPresentation.strike} · ${Math.round(shotPresentation.power * 100)}% POWER`;
+    ui.shotOutcome.textContent = ball.state === BALL_STATE.HOLED
+      ? `${yards} YDS · IN THE CUP`
+      : `${yards} YDS · ${lie} · ${feet} FT TO PIN`;
+    ui.shotResult.classList.remove('hidden', 'good', 'bad');
+    ui.shotResult.classList.add(shotPresentation.kind || 'good');
+    shotResultTimer = 4.2;
+    shotPresentation.shown = true;
+  }
+  if (shotResultTimer > 0) {
+    shotResultTimer -= dt;
+    if (shotResultTimer <= 0) ui.shotResult.classList.add('hidden');
+  }
+}
 
 function ballPos() {
   const b = round.playerBall.position;
@@ -253,15 +442,24 @@ function ballPos() {
 /** Stand over it: eye down, club out, and the group still in shot. */
 function enterAddress() {
   if (!round.canAddress()) return false;
+  addressReturn = {
+    x: player.position.x, y: player.position.y, z: player.position.z,
+    yaw: player.yaw, pitch: player.pitch,
+  };
   camMode = CAM.ADDRESS;
   player.enabled = false;
   player.mode = 'frozen';
+  club = recommendedClubForShot();
   swing.reset();
   swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
   const b = round.playerBall.position;
-  aimYaw = Math.atan2(HOLE.pin.x - b.x, HOLE.pin.z - b.z);
+  const plan = shotPlan();
+  aimYaw = Math.atan2(plan.target.x - b.x, plan.target.z - b.z);
   ui.shot.classList.remove('hidden');
   ui.aim.classList.remove('hidden');
+  ui.shotResult.classList.add('hidden');
+  playerClubRig.visible = true;
+  syncPlayerClub();
   hud.hidePrompt();
   return true;
 }
@@ -274,11 +472,21 @@ function leaveAddress() {
   ui.shot.classList.add('hidden');
   ui.meter.classList.add('hidden');
   ui.aim.classList.add('hidden');
-  // Stand where he was standing, beside the ball.
-  const b = round.playerBall.position;
-  player.position.x = b.x - Math.sin(aimYaw) * 0.9;
-  player.position.z = b.z - Math.cos(aimYaw) * 0.9;
-  player.yaw = aimYaw;
+  playerClubRig.visible = false;
+  /* Return to the stance the shot started from. The flight camera follows the
+   * live ball, so using the ball's current position here teleported the player
+   * to the landing and skipped every walk or cart retrieval in between. */
+  if (addressReturn) {
+    player.position.set(addressReturn.x, addressReturn.y, addressReturn.z);
+    player.yaw = addressReturn.yaw;
+    player.pitch = addressReturn.pitch;
+  } else {
+    const b = round.playerBall.position;
+    player.position.x = b.x - Math.sin(aimYaw) * 0.9;
+    player.position.z = b.z - Math.cos(aimYaw) * 0.9;
+    player.yaw = aimYaw;
+  }
+  addressReturn = null;
 }
 
 function applyAddressCamera() {
@@ -321,8 +529,8 @@ function applyCartCamera() {
 /* ------------------------------------------------------------------ */
 
 function paintCard() {
-  const hole = getHole(1);
-  const h = round.card.hole(CHARACTER_IDS.PROSPECT, 1);
+  const hole = getHole(HOLE.number);
+  const h = round.card.hole(CHARACTER_IDS.PROSPECT, HOLE.number);
   ui.hole.textContent = `HOLE ${hole.number} · ${hole.name.toUpperCase()}`;
   ui.par.textContent = `PAR ${hole.par} · ${hole.yards} YDS`;
   ui.strokes.textContent = h ? `${h.strokes}` : '0';
@@ -336,27 +544,28 @@ function paintCard() {
  * contradict one another. */
 function guideState() {
   if (camMode === CAM.ADDRESS) {
-    const target = powerForCarry(club, round.distanceToPin(), surfaceProps(round.playerSurface()));
+    const plan = shotPlan();
+    const target = powerForCarry(club, plan.distance, surfaceProps(round.playerSurface()));
     const targetPct = Math.round(target * 100);
     if (swing.phase === SWING_PHASE.POWER) {
       return {
         task: 'Set your power',
-        detail: `Click a second time near the green ${targetPct}% marker · orange risks a fade or slice`,
-        pause: `Set power with your second click. The suggestion is ${targetPct}%; orange is an overswing.`,
+        detail: `Click a second time or press Space near the ${targetPct}% plan marker · orange risks a fade or slice`,
+        pause: `Set power with your second click or Space. The suggestion is ${targetPct}%; orange is an overswing.`,
       };
     }
     if (swing.phase === SWING_PHASE.STRIKE) {
       const warning = swing.risk > 0.05 ? ' · overswing gives you a smaller sweet spot' : '';
       return {
         task: 'Hit the strike line',
-        detail: `Click a third time inside the pale band for a straight shot${warning}`,
-        pause: `Click inside the pale band. Early fades right; late draws left${warning}.`,
+        detail: `Click a third time or press Space inside the pale band for a straight shot${warning}`,
+        pause: `Click or press Space inside the pale band. Early fades right; late draws left${warning}.`,
       };
     }
     return {
       task: 'Aim your shot',
-      detail: 'Move the mouse · click once to start the swing',
-      pause: 'Aim with the mouse, then click once to start the three-click swing.',
+      detail: `${getClub(club).name} toward ${plan.label} · mouse or A/D aims · click once or press Space`,
+      pause: `The suggested play is ${getClub(club).name} toward ${plan.label}. Aim with the mouse or A/D, then click or press Space to start.`,
     };
   }
 
@@ -397,6 +606,15 @@ function guideState() {
           task: 'Answer Lou',
           detail: 'Press the number beside the response you want',
           pause: 'Answer Lou with the number key beside your chosen response.',
+        };
+      }
+      if (dialogue.lastEndReason === 'walked-away') {
+        const lou = golfers[CHARACTER_IDS.LOU]?.group?.position;
+        return {
+          task: 'Return to Lou',
+          detail: 'The first-tee conversation is not finished',
+          pause: 'Return to Lou at the first tee to finish the required conversation.',
+          target: lou ? { x: lou.x, y: lou.y + 1.4, z: lou.z, label: 'LOU' } : null,
         };
       }
       return {
@@ -464,6 +682,17 @@ function guideState() {
         pause: 'Drive toward YOUR BALL on the top map. W/S drive, A/D steer, Space brakes.',
       };
     case BEAT.APPROACH:
+      if (!round.playerBall.moving && round.playerBall.distanceToPin() <= 0.8) {
+        return {
+          task: 'Finish the tap-in',
+          detail: 'Press G to pick it up (+1) · or press E to putt it',
+          pause: 'This ball is inside gimme range. Press G to add the tap-in stroke, or press E to putt it.',
+          target: {
+            x: round.playerBall.position.x, z: round.playerBall.position.z,
+            y: round.playerBall.position.y + 0.55, label: 'TAP-IN',
+          },
+        };
+      }
       return {
         task: 'Play your ball into the cup',
         detail: 'Walk to your marked ball · press E before every shot',
@@ -481,12 +710,15 @@ function guideState() {
         pause: 'Wait for the group to finish the hole and mark the scorecard.',
       };
     case BEAT.WALK_OFF:
+      {
+        const cartPark = carts?.lead?.position ?? HOLE.cartPark;
       return {
         task: 'Return to the carts',
         detail: 'Walk to the carts to finish this hole',
         pause: 'Walk back to the carts to finish this hole.',
-        target: { x: HOLE.cartPark.x, z: HOLE.cartPark.z, label: 'CARTS' },
+        target: { x: cartPark.x, z: cartPark.z, label: 'CARTS' },
       };
+      }
     case BEAT.NEXT_TEE:
       return {
         task: 'Next hole', detail: 'The next tee is being set',
@@ -689,7 +921,8 @@ function paintShot() {
   ui.club.textContent = c.name.toUpperCase();
   ui.lie.textContent = lie.label;
   ui.wind.textContent = `${HOLE.wind.mph} MPH ${HOLE.wind.label}`;
-  const targetPower = powerForCarry(club, round.distanceToPin(), lie);
+  const plan = shotPlan();
+  const targetPower = powerForCarry(club, plan.distance, lie);
   const power = swing.phase === SWING_PHASE.IDLE
     ? targetPower
     : swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power;
@@ -697,7 +930,7 @@ function paintShot() {
   const carry = c.grounded
     ? `≈ ${Math.round(toFeet(est))} ft`
     : `≈ ${Math.round(toYards(est))} yds`;
-  ui.carry.textContent = `${carry} · ideal ${Math.round(targetPower * 100)}%`;
+  ui.carry.textContent = `${carry} · plan ${Math.round(targetPower * 100)}%`;
 }
 
 /**
@@ -713,12 +946,13 @@ function paintAim() {
   const spreadDeg = c.dispersion * 0.8 + lie.spread;
   ui.aim.style.setProperty('--spread', `${Math.min(46, spreadDeg * 3.4)}px`);
   const b = round.playerBall.position;
-  const toPin = Math.atan2(HOLE.pin.x - b.x, HOLE.pin.z - b.z);
-  let off = ((aimYaw - toPin) * 180) / Math.PI;
+  const plan = shotPlan();
+  const toTarget = Math.atan2(plan.target.x - b.x, plan.target.z - b.z);
+  let off = ((aimYaw - toTarget) * 180) / Math.PI;
   while (off > 180) off -= 360;
   while (off < -180) off += 360;
   ui.aim.querySelector('.label').textContent = Math.abs(off) < 1
-    ? 'AT THE PIN'
+    ? `AT ${plan.label}`
     : `${Math.abs(off).toFixed(0)}° ${off > 0 ? 'RIGHT' : 'LEFT'}`;
 }
 
@@ -745,7 +979,7 @@ function paintMeter() {
   const livePower = striking ? swing.power : swing.marker;
   const lie = surfaceProps(round.playerSurface());
   const liveControl = controlWindow({ club, power: livePower, lieSpread: lie.spread });
-  const targetPower = powerForCarry(club, round.distanceToPin(), lie);
+  const targetPower = powerForCarry(club, shotPlan().distance, lie);
   const zero = meterValue(0);
   const fillEnd = meterValue(livePower);
   ui.meterFill.style.left = `${Math.min(zero, fillEnd)}%`;
@@ -799,6 +1033,12 @@ function fireSwing() {
   const warning = result.risk > 0.05 ? ' · OVERSWING' : '';
   const kind = result.shape === 'straight' ? 'good'
     : result.shape === 'slice' || result.shape === 'hook' ? 'bad' : '';
+  shotPresentation = {
+    strike: strikeLabel, power: result.power, shape: result.shape,
+    kind, shown: false,
+  };
+  beginShotTracer();
+  playerClubRig.visible = false;
   hud.toast(`${strikeLabel} · ${Math.round(result.power * 100)}% POWER${warning}`, kind, 2600);
 }
 
@@ -820,8 +1060,12 @@ function explainBlockedBall() {
 
 window.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
+  if (camMode === CAM.ADDRESS) {
+    onClick();
+    if (document.pointerLockElement !== canvas) requestMouseCapture();
+    return;
+  }
   if (document.pointerLockElement !== canvas) return;
-  if (camMode === CAM.ADDRESS) { onClick(); return; }
   interaction.press();
 });
 window.addEventListener('mouseup', () => interaction.release());
@@ -842,6 +1086,18 @@ window.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('keydown', (e) => {
+  if (camMode === CAM.ADDRESS
+    && ['ArrowLeft', 'ArrowRight', 'KeyA', 'KeyD'].includes(e.code)) {
+    const left = e.code === 'ArrowLeft' || e.code === 'KeyA';
+    aimYaw += (left ? 1 : -1) * (e.shiftKey ? 0.07 : 0.022);
+    e.preventDefault();
+    return;
+  }
+  if (camMode === CAM.ADDRESS && (e.code === 'Space' || e.code === 'Enter')) {
+    if (!e.repeat) onClick();
+    e.preventDefault();
+    return;
+  }
   if (e.repeat) return;
 
   /* The one input rule that matters. Number keys pick a reply when replies are
@@ -860,6 +1116,7 @@ window.addEventListener('keydown', (e) => {
       }
       club = CLUB_IDS[idx];
       swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
+      syncPlayerClub();
       audio.play('golf.bag', { volume: 0.4 });
       if (club === 'driver' && round.beat === BEAT.PLAYER_TEE) {
         cues.playSequence('bark.driver_on_par_three');
@@ -897,6 +1154,11 @@ window.addEventListener('keydown', (e) => {
         round.playerBall.state === BALL_STATE.OUT_OF_BOUNDS ? 'oob' : 'water',
       );
       break;
+    case 'KeyG': {
+      const result = round.takeGimme();
+      if (!result.ok) hud.toast(result.reason, 'hint', 2200);
+      break;
+    }
     case 'KeyF':
       if (round.requestSkip()) hud.toast('Skipping ahead.');
       break;
@@ -1078,7 +1340,7 @@ const pauseMenu = createPauseMenu({
     'W A S D — walk. E or Click — interact.',
     'At your ball: E — address it. Q — back off.',
     '1 — driver. 2 — iron. 3 — putter.',
-    'While addressing: mouse — aim; click — start, set power, then hit the strike band.',
+    'While addressing: mouse or A/D — aim; click or Space — start, set power, then hit the strike band.',
     'Orange power overswings: early fades/slices right; late draws/hooks left.',
     'During dialogue: number keys — answer.',
     'R — take a drop. F — skip an NPC tee shot. M — mute.',
@@ -1125,6 +1387,7 @@ function frame() {
     paintShot();
     paintAim();
     paintMeter();
+    paintPlayerClub();
   } else if (camMode === CAM.FLIGHT) {
     flightTimer += dt;
     applyFlightCamera(dt);
@@ -1167,6 +1430,8 @@ function frame() {
     mesh.position.set(b.position.x, b.position.y + 0.0213, b.position.z);
     mesh.visible = b.state !== BALL_STATE.WATER;
   }
+
+  updateShotPresentation(dt);
 
   audio.updateListener(camera);
   paintCard();
@@ -1225,7 +1490,19 @@ async function boot() {
   requestMouseCapture();
   player.enabled = true;
   running = true;
-  round.begin();
+  const resumeHole = begun.resumed ? round.restoreProgress(story.mission) : null;
+  if (resumeHole && story.mission.holes.length > 0) {
+    round.startHole(resumeHole);
+    const tee = HOLE.teeMarks.ball;
+    player.position.set(tee.x, HOLE.tee.y + 1.66, tee.z + 4);
+    player.yaw = Math.atan2(PIN_X() - tee.x, PIN_Z() - tee.z) + Math.PI;
+    player.mode = 'walk';
+    player.enabled = true;
+    club = 'iron';
+    hud.toast(`Round resumed at Hole ${resumeHole}.`, 'good', 3200);
+  } else {
+    round.begin();
+  }
   paintCard();
   paintGuide();
   paintBallFinder();
@@ -1258,11 +1535,17 @@ window.__golf = {
   setClub: (c) => {
     club = c;
     swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
+    syncPlayerClub();
   },
   get aimYaw() { return aimYaw; },
   setAim: (a) => { aimYaw = a; },
+  plan: () => {
+    const plannedClub = recommendedClubForShot();
+    return { ...shotPlan(plannedClub), club: plannedClub };
+  },
   enterAddress,
   leaveAddress,
+  fireSwing,
   boot,
   /** Take a shot without the meter, for the harness. */
   hit: (power, accuracy = 0) => round.playerSwing({ club, power, accuracy, aim: aimYaw }),
@@ -1296,6 +1579,7 @@ window.__golf = {
     player.mode = 'walk';
     player.enabled = true;
     ended = false;
+    paintCard();
     return HOLE.number;
   },
   teleport: (x, z) => {

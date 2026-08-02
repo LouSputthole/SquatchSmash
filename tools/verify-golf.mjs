@@ -84,6 +84,13 @@ console.log('\nSilver Pines — Hole 1\n');
 
 await page.goto(`http://localhost:${PORT}/golf.html`, { waitUntil: 'load' });
 await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+/* Exercise the canonical apartment-offered route. Direct URL play is now an
+ * intentionally non-persistent practice round and has its own unit coverage. */
+await page.evaluate(() => window.__golf.campaign.update((state) => {
+  state.missions.silver_room.status = 'complete';
+  state.missions.silver_pines.status = 'available';
+  state.events.lou_golf_call.status = 'answered';
+}));
 let startError = '';
 try {
   await page.locator('#start-btn').click({ timeout: 2000 });
@@ -430,6 +437,30 @@ const address = await page.evaluate(() => {
 });
 check('5. the player can address the ball', address.ok && address.mode === 'address');
 
+const playerClubView = await page.evaluate(() => {
+  const rig = window.__golf.scene.getObjectByName('player-club-rig');
+  const selected = rig?.children.find((child) => child.userData.kind && child.visible);
+  return {
+    visible: !!rig?.visible,
+    selected: selected?.userData.kind ?? '',
+    cameraMounted: rig?.parent?.type === 'PerspectiveCamera',
+    head: selected?.children.find((child) => child.name?.startsWith('club-head-'))
+      ?.geometry?.type ?? '',
+    plan: window.__golf.plan(),
+  };
+});
+check('5a. addressing the ball shows the selected club in the player hands',
+  playerClubView.visible && playerClubView.selected === 'iron'
+    && playerClubView.cameraMounted && !!playerClubView.head,
+  JSON.stringify(playerClubView));
+check('5a2. the first tee recommends the safe middle instead of the water-side pin',
+  playerClubView.plan.club === 'iron' && playerClubView.plan.label === 'MIDDLE GREEN'
+    && Math.hypot(
+      playerClubView.plan.target.x - 11.4,
+      playerClubView.plan.target.z - (-150.4),
+    ) > 3,
+  JSON.stringify(playerClubView.plan));
+
 await page.waitForTimeout(100);
 const addressGuide = await page.evaluate(() => document.getElementById('golf-guide')?.textContent?.trim() || '');
 check('5b. addressing the ball teaches the first swing click',
@@ -497,6 +528,39 @@ const aimed = await page.evaluate(() => {
   return { moved: Math.abs(g.aimYaw - start) > 0.15 };
 });
 check('6. the player can aim', aimed.moved);
+
+const shotOriginReturn = await page.evaluate(() => {
+  const g = window.__golf;
+  const originalBall = { ...g.round.playerBall.position };
+  const originalPlayer = { x: g.player.position.x, z: g.player.position.z };
+  g.round.playerBall.placeAt(originalBall.x + 35, originalBall.z - 70);
+  g.leaveAddress();
+  const returned = { x: g.player.position.x, z: g.player.position.z };
+  g.round.playerBall.placeAt(originalBall.x, originalBall.z);
+  g.enterAddress();
+  return {
+    fromOrigin: Math.hypot(returned.x - originalPlayer.x, returned.z - originalPlayer.z),
+    fromLanding: Math.hypot(returned.x - (originalBall.x + 35), returned.z - (originalBall.z - 70)),
+  };
+});
+check('6b. flight cleanup returns the player to the shot origin instead of teleporting to the landing',
+  shotOriginReturn.fromOrigin < 0.1 && shotOriginReturn.fromLanding > 10,
+  JSON.stringify(shotOriginReturn));
+
+const pointerFallback = await page.evaluate(() => {
+  const g = window.__golf;
+  document.exitPointerLock?.();
+  g.swing.reset();
+  const beforeAim = g.aimYaw;
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', bubbles: true }));
+  window.dispatchEvent(new MouseEvent('mousedown', { button: 0, bubbles: true }));
+  const result = { phase: g.swing.phase, aimDelta: Math.abs(g.aimYaw - beforeAim) };
+  g.swing.reset();
+  return result;
+});
+check('6c. pointer lock is optional: keyboard aim and an unlocked click can start the swing',
+  pointerFallback.phase === 'power' && pointerFallback.aimDelta > 0.005,
+  JSON.stringify(pointerFallback));
 
 const meter = await page.evaluate(async () => {
   const { Swing, SWING_PHASE } = await import('/src/golf/swing.js');
@@ -688,7 +752,18 @@ const strokeCount = await page.evaluate(() => {
   const g = window.__golf;
   const before = g.round.card.hole('prospect', 1).strokes;
   g.round.playerBall.placeAt(g.LAYOUT.pin.x, g.LAYOUT.pin.z + 3);
-  g.hit(0.3, 0);
+  g.setClub('putter');
+  g.setAim(Math.atan2(
+    g.LAYOUT.pin.x - g.round.playerBall.position.x,
+    g.LAYOUT.pin.z - g.round.playerBall.position.z,
+  ));
+  g.swing.reset();
+  g.swing.click();
+  g.swing.marker = 0.30;
+  g.swing.click();
+  g.swing.marker = 0;
+  g.swing.click();
+  g.fireSwing();
   return { before, after: g.round.card.hole('prospect', 1).strokes };
 });
 check('18. the stroke count updates on every shot',
@@ -698,6 +773,29 @@ check('18. the stroke count updates on every shot',
 /* ------------------------------------------------------------------ */
 /* 20–21, 24–25 · the cart, Lou, the green, finishing                  */
 /* ------------------------------------------------------------------ */
+
+await page.waitForFunction(() => !window.__golf.round.playerBall.moving, null, { timeout: 15000 });
+await page.waitForTimeout(120);
+const shotPresentation = await page.evaluate(() => {
+  const result = document.getElementById('shot-result');
+  const tracer = window.__golf.scene.getObjectByName('player-shot-tracer');
+  return {
+    visible: !!result && !result.classList.contains('hidden'),
+    quality: result?.querySelector('.quality')?.textContent?.trim() || '',
+    outcome: result?.querySelector('.outcome')?.textContent?.trim() || '',
+    tracerPoints: tracer?.geometry?.attributes?.position?.count ?? 0,
+  };
+});
+check('18b. a real swing leaves a readable flight trace and landing result',
+  shotPresentation.visible && /pured/i.test(shotPresentation.quality)
+    && /(yds.*ft to pin|in the cup)/i.test(shotPresentation.outcome)
+    && shotPresentation.tracerPoints >= 3,
+  JSON.stringify(shotPresentation));
+await page.setViewportSize({ width: 1280, height: 720 });
+await page.screenshot({
+  path: path.join(ROOT, 'docs', 'validation', 'golf', '12-shot-result.png'),
+});
+await page.setViewportSize({ width: 480, height: 300 });
 
 const cartEvidence = await page.evaluate(() => {
   const g = window.__golf;
@@ -747,6 +845,8 @@ const played = await page.evaluate(() => {
     const clubhouse = g.course.holeGroup.getObjectByName('clubhouse');
     return {
       hole: g.HOLE.number,
+      cardHole: document.querySelector('#golfcard .hole')?.textContent?.trim() || '',
+      plan: g.plan(),
       names,
       hasLot: !!g.LAYOUT.lot,
       clubhouse: clubhouse
@@ -766,11 +866,13 @@ const played = await page.evaluate(() => {
   let cartStart = null;
   let cartHole = null;
   let npcActionsProper = true;
+  let soloRetrievalSeen = false;
   const npcActionSamples = [];
 
   for (let i = 0; i < 40000; i++) {
     if (!seen.has(g.round.beat)) { seen.add(g.round.beat); beats.push(g.round.beat); }
     if (g.round.beat === 'cart') {
+      soloRetrievalSeen ||= g.round._cartFromTee === false;
       if (cartHole !== g.HOLE.number) {
         cartHole = g.HOLE.number;
         cartStart = { x: g.carts.lead.position.x, z: g.carts.lead.position.z };
@@ -837,7 +939,9 @@ const played = await page.evaluate(() => {
       g.hit(solved.power, 0);
     }
     if (g.round.needsRelief()) g.round.takeDrop();
-    if (g.round.beat === 'walk_off') g.teleport(g.LAYOUT.cartPark.x, g.LAYOUT.cartPark.z);
+    if (g.round.beat === 'walk_off') {
+      g.teleport(g.carts.lead.position.x, g.carts.lead.position.z);
+    }
     /* Walk onto the next tee. The scene does this behind a fade; the harness
      * runs faster than the fade, so it takes the same transition directly. */
     if (g.round.beat === 'next_tee') {
@@ -867,7 +971,8 @@ const played = await page.evaluate(() => {
   const line = g.round.card.line('prospect');
   return {
     beats, louPrivate, cartMoved, playerDrove, earlyExitBlocked, parkedCount,
-    louRodePassenger, followStayedClose, npcActionsProper, npcActionSamples, holesPlayed,
+    louRodePassenger, followStayedClose, soloRetrievalSeen,
+    npcActionsProper, npcActionSamples, holesPlayed,
     finished: h.finished, strokes: h.strokes,
     beat: g.round.beat,
     allFinished: g.round.card.allFinished(1),
@@ -879,12 +984,15 @@ const played = await page.evaluate(() => {
 });
 check('20. the player drives and parks the lead cart beside the ball',
   played.beats.includes('cart') && played.playerDrove && played.cartMoved
-    && played.earlyExitBlocked && played.parkedCount === played.built.length,
+    && played.earlyExitBlocked && played.parkedCount >= played.built.length,
   JSON.stringify({ drove: played.playerDrove, moved: played.cartMoved,
     earlyExitBlocked: played.earlyExitBlocked, parked: played.parkedCount }));
 check('20b. Lou rides beside the player and Erican keeps the second cart with them',
   played.louRodePassenger && played.followStayedClose,
   JSON.stringify({ louPassenger: played.louRodePassenger, followClose: played.followStayedClose }));
+check('20c. long approach shots send the player back to the live cart for retrieval',
+  played.soloRetrievalSeen && played.parkedCount > played.built.length,
+  JSON.stringify({ soloRetrieval: played.soloRetrievalSeen, parked: played.parkedCount }));
 check("21. Lou's private conversation triggers on the ride", played.louPrivate);
 check('21b. every NPC walks to his live ball before each approach swing',
   played.npcActionsProper && played.npcActionSamples.length >= 9,
@@ -915,6 +1023,20 @@ check('28d. Hole 3 renders the clubhouse even though it has no car park',
     && Math.abs(lastVisual.clubhouse.x - lastVisual.expectedClubhouse.x) < 0.01
     && Math.abs(lastVisual.clubhouse.z - lastVisual.expectedClubhouse.z) < 0.01,
   lastVisual ? `clubhouse ${lastVisual.clubhouse?.x},${lastVisual.clubhouse?.z}; lot ${lastVisual.hasLot}` : 'Hole 3 missing');
+check('28e. the persistent score HUD follows the active hole',
+  played.visuals.every((visual) => visual.cardHole.startsWith(`HOLE ${visual.hole} ·`)),
+  played.visuals.map((visual) => `H${visual.hole}: ${visual.cardHole}`).join(' | '));
+check('28f. each tee opens with an authored safe target and the right club',
+  playerClubView.plan.club === 'iron'
+    && playerClubView.plan.label === 'MIDDLE GREEN'
+    && visualByHole.get(2)?.plan.club === 'driver'
+    && visualByHole.get(2)?.plan.label === 'SAFE SIDE'
+    && visualByHole.get(3)?.plan.club === 'driver'
+    && visualByHole.get(3)?.plan.label === 'LEFT FAIRWAY',
+  [`H1: ${playerClubView.plan.club} at ${playerClubView.plan.label}`]
+    .concat(played.visuals.filter((visual) => visual.hole > 1)
+      .map((visual) => `H${visual.hole}: ${visual.plan.club} at ${visual.plan.label}`))
+    .join(' | '));
 
 /* ------------------------------------------------------------------ */
 /* 26 · every score branch                                             */
@@ -1015,6 +1137,50 @@ const restarted = await page.evaluate(() => ({
 check('29. the scene restarts cleanly',
   restarted.beat === 'lot' && restarted.strokes === 0,
   `beat: ${restarted.beat}`);
+
+await page.evaluate(() => {
+  const key = 'squatchlife.campaign';
+  const state = JSON.parse(localStorage.getItem(key));
+  state.scene = { id: 'silver_pines', spawn: 'car_park' };
+  state.missions.silver_pines = {
+    ...state.missions.silver_pines,
+    status: 'in_progress',
+    holesPlayed: 2,
+    strokes: 9,
+    penalties: 1,
+    toPar: 1,
+    holes: [
+      { hole: 1, par: 3, strokes: 4, penalties: 1 },
+      { hole: 2, par: 5, strokes: 5, penalties: 0 },
+    ],
+    heardInvitation: true,
+    rodeWithLou: true,
+  };
+  localStorage.setItem(key, JSON.stringify(state));
+});
+await page.reload({ waitUntil: 'load' });
+await page.waitForFunction('window.__golfReady === true', null, { timeout: 60000 });
+await page.click('#start-btn');
+await page.waitForFunction(
+  'window.__golf.HOLE.number === 3 && window.__golf.round.beat === "tee_talk"',
+  null,
+  { timeout: 60000 },
+);
+const resumed = await page.evaluate(() => ({
+  hole: window.__golf.HOLE.number,
+  priorStrokes: window.__golf.round.card.line('prospect').strokes,
+  priorHoles: window.__golf.round.card.line('prospect').holes
+    .filter((hole) => hole.finished).map((hole) => hole.hole),
+  npcPrior: window.__golf.round.card.finished('erican', 1)
+    && window.__golf.round.card.finished('erican', 2),
+  hasBag: window.__golf.round.hasBag,
+  card: document.querySelector('#golfcard .hole')?.textContent?.trim() || '',
+}));
+check('29b. reloading an in-progress round resumes at the first unfinished tee',
+  resumed.hole === 3 && resumed.priorStrokes === 9
+    && resumed.priorHoles.join(',') === '1,2' && resumed.npcPrior && resumed.hasBag
+    && resumed.card.startsWith('HOLE 3 ·'),
+  JSON.stringify(resumed));
 
 /* ------------------------------------------------------------------ */
 /* Script integrity                                                    */

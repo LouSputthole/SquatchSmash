@@ -25,6 +25,7 @@ export class Dialogue {
     this.options = [];
     this.timer = 0;
     this.active = false;
+    this.lastEndReason = null;
     this.history = new Set();
   }
 
@@ -37,6 +38,7 @@ export class Dialogue {
     this.tree = tree;
     this.speaker = speaker;
     this.active = true;
+    this.lastEndReason = null;
     this.go(at);
   }
 
@@ -114,6 +116,7 @@ export class Dialogue {
   end(reason = 'done') {
     if (!this.active) return;
     this.active = false;
+    this.lastEndReason = reason;
     this.node = null;
     this.options = [];
     this._pending = null;

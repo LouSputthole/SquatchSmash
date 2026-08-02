@@ -296,6 +296,7 @@ export class CartPair {
     this.follow = new Cart(scene, { startDistance: 0, speed: 4.2 });
     this.rolling = false;
     this.playerDriving = false;
+    this.followPlayer = true;
   }
 
   /** Put both on the path at the tee end, one behind the other. */
@@ -325,10 +326,15 @@ export class CartPair {
   }
 
   /** Prospect drives the lead cart; Erican keeps the second one behind him. */
-  beginPlayerDrive() {
+  beginPlayerDrive({ follow = true } = {}) {
     this.lead.beginPlayerDrive();
-    this.follow.driveMode = 'follow';
-    this.follow.velocity = 0;
+    this.followPlayer = follow;
+    if (follow) {
+      this.follow.driveMode = 'follow';
+      this.follow.velocity = 0;
+    } else {
+      this.follow.stop();
+    }
     this.playerDriving = true;
   }
 
@@ -349,7 +355,7 @@ export class CartPair {
 
   update(dt) {
     this.lead.update(dt);
-    if (this.playerDriving) {
+    if (this.playerDriving && this.followPlayer) {
       const yaw = this.lead.group.rotation.y;
       const target = {
         x: this.lead.position.x - Math.sin(yaw) * 7.5,
@@ -357,7 +363,7 @@ export class CartPair {
       };
       this.follow.driveToward(target, dt);
       this.rolling = this.lead.moving || this.follow.moving;
-    } else {
+    } else if (!this.playerDriving) {
       this.follow.update(dt);
       if (this.rolling && !this.lead.moving && !this.follow.moving) this.rolling = false;
     }
