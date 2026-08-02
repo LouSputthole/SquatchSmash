@@ -49,6 +49,8 @@ export class AudioEngine {
     this.manifest = { sfx: [] };
     this.loadedCount = 0;
     this._manifestLoadPromise = null;
+    this._availableFiles = null;
+    this._additionalLoads = new Map();
     this._lastStep = 0;
     /* A small, factual record of sample playback.  `voLog` says that a scene
      * asked for a line; this says whether a decoded buffer was really put on
@@ -141,6 +143,7 @@ export class AudioEngine {
     } else {
       const index = await loadJson(SFX_DIR, 'index.json');
       const available = index ? new Set(index.files || []) : null;
+      this._availableFiles = available;
       this._fileVersions = index?.versions || {};
       wanted = available
         ? cues.filter((cue) => available.has(cue.file || `${cue.name}.mp3`))
@@ -149,6 +152,53 @@ export class AudioEngine {
 
     await this._loadWanted(wanted, 24);
     return { total: cues.length, loaded: this.loadedCount };
+  }
+
+  /**
+   * Decode another narrow manifest slice after the first playable slice has
+   * loaded. This deliberately does not replace loadManifest(): most scenes
+   * still want one immutable bank. Large, chaptered scenes can put Hole/Act 1
+   * on the critical path and prefetch later dialogue after interaction begins.
+   */
+  async loadAdditional({ names = null, prefixes = [] } = {}) {
+    if (this._manifestLoadPromise) await this._manifestLoadPromise;
+    else {
+      this.manifest = (await loadJson(SFX_DIR, 'manifest.json')) || this.manifest;
+      if (!isBundled()) {
+        const index = await loadJson(SFX_DIR, 'index.json');
+        this._availableFiles = index ? new Set(index.files || []) : null;
+        this._fileVersions = index?.versions || {};
+      }
+    }
+
+    const selectedNames = names ? new Set(names) : null;
+    const key = JSON.stringify([
+      selectedNames ? [...selectedNames].sort() : null,
+      [...prefixes].sort(),
+    ]);
+    if (this._additionalLoads.has(key)) return this._additionalLoads.get(key);
+
+    const task = (async () => {
+      const cues = (this.manifest.sfx || []).filter((cue) => (
+        (selectedNames?.has(cue.name) || prefixes.some((prefix) => cue.name.startsWith(prefix)))
+        && !this.buffers.has(cue.name)
+      ));
+      const wanted = isBundled()
+        ? cues.filter((cue) => /^data:/.test(cue.file || ''))
+        : this._availableFiles
+          ? cues.filter((cue) => this._availableFiles.has(cue.file || `${cue.name}.mp3`))
+          : cues;
+      const before = this.loadedCount;
+      await this._loadWanted(wanted, 12);
+      return { total: cues.length, loaded: this.loadedCount - before };
+    })();
+    this._additionalLoads.set(key, task);
+    try {
+      return await task;
+    } catch (error) {
+      this._additionalLoads.delete(key);
+      throw error;
+    }
   }
 
   /**

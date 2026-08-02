@@ -17,6 +17,7 @@ import { SilverAudioEngine } from './audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
@@ -227,8 +228,10 @@ const game = {
   greeted: new Set(),
   scene: null,               // the running cutscene, if any
   round: null,               // which conversation round is up
+  pausedSeatedRound: null,   // Margo's exact table thread, paused by standing
   barkAt: 14,
   lastBark: -1,
+  floorFrontDoorBarked: false,
   swayRunning: false,
   /** Up between "get up" and the first bar, which is not nothing. */
   swayStarting: false,
@@ -278,10 +281,9 @@ const mission = new Mission({
 /* ------------------------------------------------------------------ *
  * Exact-cue voice.
  *
- * The scene has been subtitles-only since it was written, with four
- * recordings of Margo sitting in the manifest that nothing in the building
- * could reach. This is the same arrangement the Bing uses and for the same
- * reason: `audio.say()` picks among `vo.<group>.<n>` siblings, which is
+ * The scene now has one exact recording slot for every authored line. This is
+ * the same arrangement the Bing uses and for the same reason: `audio.say()`
+ * picks among `vo.<group>.<n>` siblings, which is
  * right for a bark and wrong for a script — a subtitled line has to play ITS
  * recording, and half the trees in here belong to two people at once, so a
  * group pick would put the waiter's words in Margo's mouth.
@@ -842,14 +844,29 @@ function seatPlayer(done) {
 /** Sit down. His chair, her chair, and the club carries on around it. */
 function sitAtTable() {
   if (game.seated) return;
+  const firstSit = !mission.flags.seated;
   seatPlayer(() => {
     mission.satDown();
-    beginRound('table');
+    if (game.pausedSeatedRound) {
+      const round = game.pausedSeatedRound;
+      game.pausedSeatedRound = null;
+      beginRound(round, { resume: true });
+    } else if (firstSit) {
+      beginRound('table');
+    }
   });
 }
 
 function standFromTable() {
   if (!game.seated) return;
+  /* Standing is a pause, not a rewind. Dialogue already owns a per-tree
+   * bookmark; end only Margo's seated tree with a resumable reason and reopen
+   * that exact round after the chair tween. Service conversations keep their
+   * ordinary walk-away semantics. */
+  if (dialogue.active && dialogue.tree === scripts.seated) {
+    game.pausedSeatedRound = game.round;
+    dialogue.end('seated-paused');
+  }
   game.seated = false;
   hud.setMode('walk');
   hud.setPosture(null);
@@ -1407,8 +1424,8 @@ function holdTheRoom(on) {
  * another table, the band. That is the difference between a conversation and a
  * dialogue menu.
  */
-function beginRound(id) {
-  if (mission.roundsDone.has(id) || game.round === id) return;
+function beginRound(id, { resume = false } = {}) {
+  if (mission.roundsDone.has(id) || (!resume && game.round === id)) return;
   game.round = id;
   const at = {
     table: 'table',
@@ -1418,7 +1435,7 @@ function beginRound(id) {
     personal: 'personal',
   }[id];
   if (!at) return;
-  dialogue.start(scripts.seated, at, date.npc);
+  dialogue.start(scripts.seated, at, date.npc, { resume });
   date.watch(null, 0);
 }
 
@@ -1512,10 +1529,10 @@ function apeComesOver() {
   const target = room.anchors.frontTable;
   ape.stand();
   ape.job = 'stand';
-  /* His own spot on the far corner of the table — NOT the waiter's mark. The
-   * two offsets used to be 22cm apart, so the round where the ape lingers put
-   * him inside whichever waiter was next summoned. */
-  ape.group.position.set(target.x + 1.7, 0, target.z + 0.5);
+  /* His own spot on the open side of the table — NOT behind Tony and not at
+   * the waiter's mark. The old offsets were only 22cm apart, so the round
+   * where the ape lingered put him inside whichever waiter arrived next. */
+  ape.group.position.set(target.x, 0, target.z + 1.6);
   ape.faceToward(player.position.x, player.position.z, true);
   /* Through greet, not around it: greet records him as `talkingTo`, and
    * `talkingTo` is how the conversation's end knows whose walk home to run.
@@ -1907,16 +1924,26 @@ function checkHostStation() {
 function barks(dt) {
   game.barkAt -= dt;
   if (game.barkAt > 0 || dialogue.active || game.scene) return;
-  game.barkAt = 11 + Math.random() * 12;
   const key = { street: null, alley: 'alley', stair: 'alley', cellar: 'cellar',
     drystore: 'cellar', walkin: 'cellar', prep: 'kitchen', kitchen: 'kitchen',
     dish: 'kitchen', corridor: 'corridor', floor: 'floor', lobby: 'floor' }[where];
   const list = BARKS[key];
+  /* The floor is where the player spends the long half of the evening. At the
+   * kitchen cadence it sounded like a diner was performing material at him,
+   * and the front-door civilian joke kept coming back. Give the room air and
+   * retire that one line after its first appearance. */
+  game.barkAt = key === 'floor' ? 28 + Math.random() * 20 : 11 + Math.random() * 12;
   if (!list) return;
-  let i = (Math.random() * list.length) | 0;
-  if (i === game.lastBark) i = (i + 1) % list.length;
+  const available = list.map((line, i) => ({ line, i }))
+    .filter(({ i }) => !(key === 'floor' && i === 5 && game.floorFrontDoorBarked));
+  let picked = (Math.random() * available.length) | 0;
+  if (available.length > 1 && available[picked].i === game.lastBark) {
+    picked = (picked + 1) % available.length;
+  }
+  const { line: bark, i } = available[picked];
   game.lastBark = i;
-  const [who, line] = list[i];
+  if (key === 'floor' && i === 5) game.floorFrontDoorBarked = true;
+  const [who, line] = bark;
   hud.say(`<em>${who}:</em> ${line}`, 4200);
   /* The room's own voices. Anonymous by design — "a cook", "the pass" — so
    * they share the wait staff's profile and are named by where and which,
@@ -2015,6 +2042,37 @@ function fallBackToDragLook() {
   hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
 }
 
+const pauseMenu = createPauseMenu({
+  title: 'Front and Center',
+  canPause: () => game.started && !game.over,
+  getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
+    || 'Stay with Margo and finish the evening.',
+  instructions: [
+    'W A S D — move. E or Click — interact.',
+    'Q — stand up or leave the current seat.',
+    'During dialogue: number keys — answer.',
+    'At the table: R — say the next planned toast or invitation when it is ready.',
+    'During the sway: press E on the beat.',
+    'Tab — pause and review the current objective.',
+  ],
+  onPause: () => {
+    game.paused = true;
+    player.enabled = false;
+    keys.clear();
+    player.clearKeys();
+    interaction.release();
+    interaction.setPaused(true);
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    game.paused = false;
+    interaction.setPaused(false);
+    audio.ctx?.resume?.();
+    clock.getDelta();
+    requestLock();
+  },
+});
+
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   player.enabled = locked || dragLook;
@@ -2077,7 +2135,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') document.exitPointerLock?.();
   if (e.code === 'Tab') {
     e.preventDefault();
-    ui.objectives.classList.toggle('hidden');
+    pauseMenu.toggle();
   }
 });
 
@@ -2365,6 +2423,7 @@ window.__silver = {
   __zones: () => updateZones(),
   __seatTick: (dt) => runSeatedQueue(dt),
   __host: () => checkHostStation(),
+  __barks: (dt) => barks(dt),
   /* The car, the dance, and the two things she notices about being ignored.
    * The driver has to step this or it is testing a game nobody plays. */
   __evening: (dt) => evening(dt),

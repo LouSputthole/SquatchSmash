@@ -6,6 +6,7 @@ import {
   EVENT_IDS,
   MISSION_IDS,
   SCENE_IDS,
+  TIME_EVENT_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
 import {
@@ -27,17 +28,43 @@ function dayFourCampaign() {
   campaign.update((state) => {
     state.story.chapter = 'heist_day';
     state.story.day = 4;
-    state.story.timeMinutes = 10 * 60;
+    state.story.timeMinutes = 10 * 60 + 30;
     state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
+    state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+    state.story.timeEvents.push(
+      TIME_EVENT_IDS.MARGO_WAKE,
+      TIME_EVENT_IDS.LOU_GOLF_CALL,
+      TIME_EVENT_IDS.DEPART_SILVER_PINES,
+      TIME_EVENT_IDS.COMPLETE_SILVER_PINES,
+    );
   });
   return campaign;
 }
+
+test('THE TAKE cannot start before the Day Four round is complete', () => {
+  const campaign = dayFourCampaign();
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'locked';
+    state.missions[MISSION_IDS.BANK_HEIST].status = 'available';
+    state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
+    Object.keys(state.missions[MISSION_IDS.BANK_HEIST].preparation)
+      .filter((key) => key !== 'extraMagazine')
+      .forEach((key) => { state.missions[MISSION_IDS.BANK_HEIST].preparation[key] = true; });
+    state.missions[MISSION_IDS.BANK_HEIST].preparationComplete = true;
+  });
+
+  assert.deepEqual(createBankHeistStory({ campaign }).begin(), {
+    ok: false, reason: 'golf_incomplete',
+  });
+  assert.equal(campaign.state.missions[MISSION_IDS.BANK_HEIST].status, 'available');
+});
 
 test('Lou gates THE TAKE until every required apartment item is physically collected', () => {
   const campaign = dayFourCampaign();
   const apartment = createApartmentStory({ campaign, ring: () => true });
 
-  assert.equal(apartment.margoWakeOwed(), true);
+  assert.equal(apartment.margoWakeOwed(), false);
   assert.deepEqual(apartment.tryLeave(), {
     kind: 'call',
     id: EVENT_IDS.LOU_HEIST_CALL,

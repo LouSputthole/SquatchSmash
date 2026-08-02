@@ -1,6 +1,6 @@
 # Squatch Life
 
-Eleven playable or preserved experiences live in this repo.
+Twelve playable or preserved experiences live in this repo.
 
 | | |
 |---|---|
@@ -13,6 +13,7 @@ Eleven playable or preserved experiences live in this repo.
 | **NO WAKE** ([`nowake.html`](./nowake.html)) | Day Three's harbor and open-water betrayal: Lou, Booski, Willy, the revolvers, and the silent return. It bridges the Motel to Front and Center. |
 | **The campground game** ([`game/`](./game)) | The apartment-computer version of Squatch Smash, with goals, Ranger Captain boss, ranks, and persistent career unlocks. |
 | **The Silver Room** ([`silver.html`](./silver.html)) | Front and Center: the Goodfellas Copacabana date, played straight through the back of the house and connected to Day Three campaign state. |
+| **A Morning at Silver Pines** ([`golf.html`](./golf.html)) | Day Four's three-hole round with Big Uncle Lou, Rippinflow, and Eric: a quiet status reward before THE TAKE. |
 | **THE TAKE** ([`heist.html`](./heist.html)) | Day Four’s complete bank-job climax: briefing, bank and vault, street withdrawal, garage, vehicle swap, escape, and safehouse settlement. |
 | **The Initiation reference** ([`initiation.html`](./initiation.html)) | Preserved terminal scene, routed from the apartment after THE TAKE and its cleanup. Its authored ceremony and outcome remain frozen pending the owner's playtest; it uses the shared inventory bar. |
 
@@ -26,18 +27,19 @@ npm start        # the apartment -> http://localhost:5173
                  # the Motel     -> http://localhost:5173/motel.html
                  # NO WAKE       -> http://localhost:5173/nowake.html
                  # Silver Room   -> http://localhost:5173/silver.html
+                 # Silver Pines  -> http://localhost:5173/golf.html
                  # THE TAKE      -> http://localhost:5173/heist.html
                  # the game      -> http://localhost:5173/game/
                  # Initiation    -> http://localhost:5173/initiation.html
 ```
 
-All eleven are static ES-module sites with no build step, served by the same
+All twelve are static ES-module sites with no build step, served by the same
 `npm start`. The campground game keeps its own Three.js runtime, its own
 README and its own single-file bundler (`game/tools/bundle.mjs`) so it stays
 completely self-contained; the apartment and the Bing share
 `vendor/three.module.min.js` and everything in `src/core`. The campground stays
 isolated; the apartment, Bing, Squatchfather, Beef Run, graveyard, Motel,
-NO WAKE, Silver Room, THE TAKE, and Initiation share campaign identities and reusable story-scene
+  NO WAKE, Silver Room, Silver Pines, THE TAKE, and Initiation share campaign identities and reusable story-scene
 foundations.
 
 The campaign spine connects every story location through
@@ -66,8 +68,9 @@ in Lou or the Bing or anybody in the family — then rings once, and the
 apartment door routes to the Silver Room
 ([`silver.html`](./silver.html)) for a nine o'clock table. The evening's
 outcome is folded back into the campaign save; coming home and sleeping again
-turns the page onto Day Four. Margo wakes beside Tony, Lou calls with THE TAKE,
-and seven physical loadout pickups gate the apartment door. The heist persists
+turns the page onto Day Four. Margo wakes beside Tony and Lou calls him to three
+holes at Silver Pines. The completed round returns him home; Lou then calls with
+THE TAKE, and seven physical loadout pickups gate the apartment door. The heist persists
 its briefing, bank, vault, street, garage, vehicle-swap, driving, injury, loot,
 and settlement state. It returns Tony home for three physical cleanup tasks;
 only then does the door open onto the Initiation.
@@ -436,6 +439,7 @@ npm run verify:beefrun # runtime: Beef Run campaign wiring, isolation, resume
 npm run verify:big-night # runtime: Day Four wake, Lou's call, loadout, door to THE TAKE
 npm run verify:heist # runtime: all THE TAKE checkpoints, combat, loot, escape, settlement
 npm run verify:silver # runtime: the Silver Room evening end to end
+npm run verify:golf # runtime: all three Silver Pines holes, story handoff, scorecard
 npm run balance:silver # the date's scoring economy, accounted against the source
 npm run check:flight # headless flight-model bench for the Brushrunner
 npm run verify:computer # runtime: every apartment PC app launches/exits cleanly
@@ -443,7 +447,7 @@ npm run verify:squatch-smash # runtime: goals, boss, rank, career, bundle
 npm run verify:initiation # runtime: human cast, canonical names, human induction
 npm run verify:silver # runtime: plays the whole Silver Room evening, headless
 npm run verify:silver-story # runtime: the date's campaign seam, door to door
-npm run verify:big-night # runtime: post-date sleep, Margo, Lou, route to THE TAKE
+npm run verify:big-night # runtime: post-date sleep, Margo, Golf, heist call, route to THE TAKE
 npm run verify:preview # runtime: later-scene previews never touch the real save
 npm run verify:boot-errors # blocked scene modules show reload/home recovery
 npm run bundle       # bake the whole thing into one self-contained HTML file
@@ -451,7 +455,8 @@ npm run bundle       # bake the whole thing into one self-contained HTML file
 
 `verify:campaign-route` is the focused campaign-state acceptance contract. It
 starts with a fresh Tony, uses the public story APIs, reloads at the apartment
-returns, and follows every connected mission—including the graveyard and THE TAKE—into an in-progress
+returns, and follows every connected mission—including the graveyard, Silver
+Pines, and THE TAKE—into an in-progress
 Initiation. It intentionally does not call that campaign complete: the frozen
 Initiation still has no completion event or outbound edge.
 
@@ -515,7 +520,9 @@ successfully executed.
 kitchen, the table, the band, the invitation — while `verify:silver-story`
 covers the join to the rest of the game: waking on Day 3, Margo's call, the
 door, the ending folding into campaign state, the walk home, and the sleep that
-opens the Day 4 big night.
+opens the Day 4 golf morning. `verify:golf` plays all three built holes, records
+the scorecard and memorable outcomes, and proves the round returns Tony to the
+apartment before Lou exposes the heist preparation.
 
 In the browser console, `__squatch` exposes the scene, player, arcade, radio,
 narrator and clock, plus `__squatch.teleport(x, z, 'north')` for jumping around

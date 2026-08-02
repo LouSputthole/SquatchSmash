@@ -46,6 +46,7 @@ export const SCENE_IDS = Object.freeze({
   JERKY_MOTEL: 'jerky_motel',
   NO_WAKE: 'no_wake',
   SILVER_ROOM: 'silver_room',
+  SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
   INITIATION: 'initiation',
 });
@@ -68,6 +69,7 @@ export const MISSION_IDS = Object.freeze({
   JERKY_MOTEL: 'jerky_motel',
   NO_WAKE: 'no_wake',
   SILVER_ROOM: 'silver_room',
+  SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
   INITIATION: 'initiation',
 });
@@ -84,6 +86,7 @@ export const EVENT_IDS = Object.freeze({
   LOU_SECOND_CALL: 'lou_second_call',
   LOU_NO_WAKE_CALL: 'lou_no_wake_call',
   MARGO_DATE_CALL: 'margo_date_call',
+  LOU_GOLF_CALL: 'lou_golf_call',
   LOU_HEIST_CALL: 'lou_heist_call',
   BOOSKI_BIG_NIGHT_CALL: 'booski_big_night_call',
 });
@@ -117,6 +120,7 @@ export const TIME_EVENT_IDS = Object.freeze({
   LOU_SECOND_CALL: 'call.lou_second',
   LOU_NO_WAKE_CALL: 'call.lou_no_wake',
   MARGO_DATE_CALL: 'call.margo_date',
+  LOU_GOLF_CALL: 'call.lou_golf',
   LOU_HEIST_CALL: 'call.lou_heist',
   BOOSKI_BIG_NIGHT_CALL: 'call.booski_big_night',
   DEPART_BADA_BING_ONE: 'travel.bada_bing_one',
@@ -137,6 +141,8 @@ export const TIME_EVENT_IDS = Object.freeze({
   COMPLETE_NO_WAKE: 'mission.no_wake',
   DEPART_SILVER_ROOM: 'travel.silver_room',
   COMPLETE_SILVER_ROOM: 'mission.silver_room',
+  DEPART_SILVER_PINES: 'travel.silver_pines',
+  COMPLETE_SILVER_PINES: 'mission.silver_pines',
   DEPART_BANK_HEIST: 'travel.bank_heist',
   COMPLETE_BANK_HEIST: 'mission.bank_heist',
   DEPART_INITIATION: 'travel.initiation',
@@ -154,12 +160,9 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.PHONE_READ_FAMILY]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_LOU]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.PHONE_READ_MUM]: Object.freeze({ minutes: 0 }),
-  /* Costs nothing on the clock. This one is a marker rather than an errand:
-   * the big night's morning is an authored ten o'clock checkpoint and the
-   * ceremony is an authored seven, and putting a quarter of an hour between
-   * them buys the story nothing while moving two pinned times. She wakes him
-   * at ten and it is still ten when she goes, which is also how the morning
-   * after actually plays. */
+  /* Costs nothing on the clock. This is a one-shot cutscene marker rather than
+   * an errand: Day 4 already opens at the authored seven-o'clock checkpoint,
+   * and Margo leaving should not move the Golf call or either departure. */
   [TIME_EVENT_IDS.MARGO_WAKE]: Object.freeze({ minutes: 0 }),
   [TIME_EVENT_IDS.LOU_FIRST_CALL]: Object.freeze({ minutes: 3 }),
   // Shorter than the rest. Lou is not asking for anything, so it is short.
@@ -168,6 +171,7 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.LOU_SECOND_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.LOU_NO_WAKE_CALL]: Object.freeze({ minutes: 4 }),
   [TIME_EVENT_IDS.MARGO_DATE_CALL]: Object.freeze({ minutes: 5 }),
+  [TIME_EVENT_IDS.LOU_GOLF_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.LOU_HEIST_CALL]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.BOOSKI_BIG_NIGHT_CALL]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.DEPART_BADA_BING_ONE]: Object.freeze({
@@ -226,7 +230,16 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.COMPLETE_SILVER_ROOM]: Object.freeze({
     atLeast: Object.freeze({ day: 3, timeMinutes: 23 * 60 + 20 }),
   }),
-  // Margo leaves at ten; Lou's crew collects Tony late that morning.
+  /* Margo wakes him at seven. Lou's short invitation sends Tony out at half
+   * seven for an eight-o'clock tee time; three holes and the return trip put
+   * him back in the flat before THE TAKE begins. */
+  [TIME_EVENT_IDS.DEPART_SILVER_PINES]: Object.freeze({
+    atLeast: Object.freeze({ day: 4, timeMinutes: 7 * 60 + 30 }),
+  }),
+  [TIME_EVENT_IDS.COMPLETE_SILVER_PINES]: Object.freeze({
+    atLeast: Object.freeze({ day: 4, timeMinutes: 10 * 60 + 30 }),
+  }),
+  // After the round, Lou's crew collects Tony late that morning.
   [TIME_EVENT_IDS.DEPART_BANK_HEIST]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 11 * 60 + 15 }),
   }),
@@ -242,7 +255,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 8;
+export const CAMPAIGN_VERSION = 9;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -281,6 +294,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ]),
@@ -334,6 +348,14 @@ const SCENES = Object.freeze({
     href: 'silver.html',
     defaultSpawn: 'kerb',
     spawns: Object.freeze(['kerb']),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
+  /* Silver Pines is a three-hole Day 4 morning chapter. Two spawns keep the
+   * ordinary car-park arrival and the first-tee preview seam explicit. */
+  [SCENE_IDS.SILVER_PINES]: Object.freeze({
+    href: 'golf.html',
+    defaultSpawn: 'car_park',
+    spawns: Object.freeze(['car_park', 'first_tee']),
     next: Object.freeze([SCENE_IDS.APARTMENT]),
   }),
   /* THE TAKE owns all of its internal phases and checkpoints behind one scene
@@ -480,6 +502,22 @@ function initialState() {
         seeingHerAgain: false,
         knowsWhatHeDoes: false,
       },
+      /* The durable card, plus the two moments later scenes can reasonably
+       * remember: Lou explaining the invitation and Tony taking the ride. */
+      [MISSION_IDS.SILVER_PINES]: {
+        status: 'locked',
+        holesPlayed: 0,
+        strokes: 0,
+        penalties: 0,
+        toPar: 0,
+        holes: [],
+        heardInvitation: false,
+        rodeWithLou: false,
+        ace: false,
+        foundWater: false,
+        hitGreenInRegulation: false,
+        grandfathered: false,
+      },
       [MISSION_IDS.BANK_HEIST]: {
         status: 'locked',
         checkpoint: null,
@@ -555,6 +593,9 @@ function initialState() {
         status: 'pending',
       },
       [EVENT_IDS.MARGO_DATE_CALL]: {
+        status: 'pending',
+      },
+      [EVENT_IDS.LOU_GOLF_CALL]: {
         status: 'pending',
       },
       [EVENT_IDS.LOU_HEIST_CALL]: {
@@ -749,6 +790,104 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  8(saved) {
+    /* Version 8 opened Day 4 directly on THE TAKE. Insert the golf morning for
+     * saves that had only reached that wake-up, while never rewinding a player
+     * who had answered the heist call, exposed the bank, or reached a later
+     * chapter. A recovered Silver Pines save is preserved as real play rather
+     * than being mistaken for a grandfathered skip. */
+    const progressed = ['available', 'in_progress', 'complete'];
+    const oldGolf = saved.missions?.[MISSION_IDS.SILVER_PINES] ?? {};
+    const oldGolfStatus = ['locked', ...progressed].includes(oldGolf.status)
+      ? oldGolf.status : null;
+    const heistStatus = saved.missions?.[MISSION_IDS.BANK_HEIST]?.status;
+    const initiationStatus = saved.missions?.[MISSION_IDS.INITIATION]?.status;
+    const heistProgressed = saved.scene?.id === SCENE_IDS.BANK_HEIST
+      || saved.scene?.id === SCENE_IDS.INITIATION
+      || saved.events?.[EVENT_IDS.LOU_HEIST_CALL]?.status === 'answered'
+      || progressed.includes(heistStatus)
+      || progressed.includes(initiationStatus)
+      || ['post_heist', 'big_night'].includes(saved.story?.chapter);
+    const golfWasOffered = ['available', 'in_progress'].includes(oldGolfStatus)
+      || saved.scene?.id === SCENE_IDS.SILVER_PINES;
+    const golfWasPlayed = oldGolfStatus === 'complete';
+    const grandfathered = heistProgressed && !golfWasPlayed;
+    const golfStatus = heistProgressed || golfWasPlayed
+      ? 'complete'
+      : (oldGolfStatus === 'locked'
+        && saved.events?.[EVENT_IDS.LOU_GOLF_CALL]?.status === 'answered'
+        ? 'available'
+        : (oldGolfStatus ?? 'locked'));
+    const pristineHeistWake = saved.story?.chapter === 'heist_day'
+      && !heistProgressed
+      && !golfWasOffered
+      && !golfWasPlayed;
+
+    let story = saved.story;
+    if (pristineHeistWake) {
+      story = {
+        ...saved.story,
+        chapter: 'golf_morning',
+        day: 4,
+        timeMinutes: 7 * 60,
+        /* A pending heist call must not retain a spent marker: advanceTime
+         * deliberately does not replay callbacks for a marker already seen. */
+        timeEvents: uniqueStrings(saved.story?.timeEvents).filter((eventId) => ![
+          TIME_EVENT_IDS.LOU_HEIST_CALL,
+          TIME_EVENT_IDS.DEPART_BANK_HEIST,
+          TIME_EVENT_IDS.COMPLETE_BANK_HEIST,
+        ].includes(eventId)),
+      };
+    } else if (golfWasOffered && !heistProgressed && !golfWasPlayed) {
+      story = { ...saved.story, chapter: 'golf_morning' };
+    }
+
+    const golfMarkers = [];
+    if (golfStatus !== 'locked') golfMarkers.push(TIME_EVENT_IDS.LOU_GOLF_CALL);
+    if (['in_progress', 'complete'].includes(golfStatus)) {
+      golfMarkers.push(TIME_EVENT_IDS.DEPART_SILVER_PINES);
+    }
+    if (golfStatus === 'complete') {
+      story = storyAfterTimeEvent(story, TIME_EVENT_IDS.COMPLETE_SILVER_PINES);
+    }
+    story = {
+      ...story,
+      timeEvents: uniqueStrings([
+        ...uniqueStrings(story?.timeEvents),
+        ...golfMarkers,
+      ]),
+    };
+
+    return {
+      ...saved,
+      version: 9,
+      story,
+      missions: {
+        ...saved.missions,
+        [MISSION_IDS.SILVER_PINES]: {
+          status: golfStatus,
+          holesPlayed: oldGolf.holesPlayed ?? 0,
+          strokes: oldGolf.strokes ?? 0,
+          penalties: oldGolf.penalties ?? 0,
+          toPar: oldGolf.toPar ?? 0,
+          holes: Array.isArray(oldGolf.holes) ? oldGolf.holes : [],
+          heardInvitation: oldGolf.heardInvitation === true,
+          rodeWithLou: oldGolf.rodeWithLou === true,
+          ace: oldGolf.ace === true,
+          foundWater: oldGolf.foundWater === true,
+          hitGreenInRegulation: oldGolf.hitGreenInRegulation === true,
+          grandfathered: oldGolf.grandfathered === true || grandfathered,
+        },
+      },
+      events: {
+        ...saved.events,
+        [EVENT_IDS.LOU_GOLF_CALL]: {
+          status: saved.events?.[EVENT_IDS.LOU_GOLF_CALL]?.status === 'answered'
+            || golfStatus !== 'locked' ? 'answered' : 'pending',
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -836,6 +975,31 @@ function normalize(saved) {
   const silver = saved.missions?.[MISSION_IDS.SILVER_ROOM] ?? {};
   const silverStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(silver.status) ? silver.status : base.missions.silver_room.status;
+  const golf = saved.missions?.[MISSION_IDS.SILVER_PINES] ?? {};
+  const golfStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(golf.status) ? golf.status : base.missions.silver_pines.status;
+  const golfHolesByNumber = new Map();
+  if (Array.isArray(golf.holes)) {
+    for (const card of golf.holes) {
+      if (!card || !Number.isFinite(card.hole) || !Number.isFinite(card.strokes)) continue;
+      const hole = Math.round(card.hole);
+      if (hole < 1 || hole > 3) continue;
+      golfHolesByNumber.set(hole, {
+        hole,
+        par: boundedNumber(card.par, 3, 5, 3, true),
+        strokes: boundedNumber(card.strokes, 1, 99, 1, true),
+        penalties: boundedNumber(card.penalties, 0, 99, 0, true),
+      });
+    }
+  }
+  const golfHoles = [...golfHolesByNumber.values()]
+    .sort((a, b) => a.hole - b.hole);
+  const golfStrokes = golfHoles.reduce((total, card) => total + card.strokes, 0);
+  const golfPenalties = golfHoles.reduce((total, card) => total + card.penalties, 0);
+  const golfToPar = golfHoles.reduce(
+    (total, card) => total + card.strokes - card.par,
+    0,
+  );
   const bankHeist = saved.missions?.[MISSION_IDS.BANK_HEIST] ?? {};
   const bankHeistStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(bankHeist.status) ? bankHeist.status : base.missions.bank_heist.status;
@@ -848,6 +1012,7 @@ function normalize(saved) {
   const louSecondCall = saved.events?.[EVENT_IDS.LOU_SECOND_CALL] ?? {};
   const louNoWakeCall = saved.events?.[EVENT_IDS.LOU_NO_WAKE_CALL] ?? {};
   const margoCall = saved.events?.[EVENT_IDS.MARGO_DATE_CALL] ?? {};
+  const golfCall = saved.events?.[EVENT_IDS.LOU_GOLF_CALL] ?? {};
   const louHeistCall = saved.events?.[EVENT_IDS.LOU_HEIST_CALL] ?? {};
   const booskiBigNightCall = saved.events?.[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL] ?? {};
   const radio = saved.radio ?? {};
@@ -973,6 +1138,20 @@ function normalize(saved) {
         seeingHerAgain: silver.seeingHerAgain === true,
         knowsWhatHeDoes: silver.knowsWhatHeDoes === true,
       },
+      [MISSION_IDS.SILVER_PINES]: {
+        status: golfStatus,
+        holesPlayed: golfHoles.length,
+        strokes: golfStrokes,
+        penalties: golfPenalties,
+        toPar: golfToPar,
+        holes: golfHoles,
+        heardInvitation: golf.heardInvitation === true,
+        rodeWithLou: golf.rodeWithLou === true,
+        ace: golf.ace === true,
+        foundWater: golf.foundWater === true,
+        hitGreenInRegulation: golf.hitGreenInRegulation === true,
+        grandfathered: golf.grandfathered === true,
+      },
       [MISSION_IDS.BANK_HEIST]: {
         status: bankHeistStatus,
         checkpoint: BANK_HEIST_CHECKPOINT_IDS.includes(bankHeist.checkpoint)
@@ -1064,6 +1243,11 @@ function normalize(saved) {
       // An exposed Silver Room is proof Margo already rang.
       [EVENT_IDS.MARGO_DATE_CALL]: {
         status: margoCall.status === 'answered' || silverStatus !== 'locked'
+          ? 'answered' : 'pending',
+      },
+      // Once the round is exposed, Lou's Silver Pines invitation has landed.
+      [EVENT_IDS.LOU_GOLF_CALL]: {
+        status: golfCall.status === 'answered' || golfStatus !== 'locked'
           ? 'answered' : 'pending',
       },
       // Once THE TAKE is exposed, Lou's Day 4 call has already landed.
@@ -1428,13 +1612,38 @@ const APARTMENT_PREVIEW_CHECKPOINTS = Object.freeze({
     timeMinutes: 23 * 60 + 20,
   }),
   'day-four-wake': Object.freeze({
-    progress: 6, spawn: 'wake', chapter: 'heist_day', day: 4, timeMinutes: 10 * 60,
+    progress: 6, spawn: 'wake', chapter: 'golf_morning', day: 4, timeMinutes: 7 * 60,
+  }),
+  'after-golf': Object.freeze({
+    progress: 7, spawn: 'front_door', chapter: 'heist_day', day: 4,
+    timeMinutes: 10 * 60 + 30,
   }),
 });
 
 const PREVIEW_CLEANUP_TASKS = Object.freeze([
   'bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep',
 ]);
+
+function seedCompletedGolfRound(golf) {
+  Object.assign(golf, {
+    status: 'complete',
+    holesPlayed: 3,
+    strokes: 14,
+    penalties: 0,
+    toPar: 2,
+    holes: [
+      { hole: 1, par: 3, strokes: 4, penalties: 0 },
+      { hole: 2, par: 5, strokes: 5, penalties: 0 },
+      { hole: 3, par: 4, strokes: 5, penalties: 0 },
+    ],
+    heardInvitation: true,
+    rodeWithLou: true,
+    ace: false,
+    foundWater: false,
+    hitGreenInRegulation: true,
+    grandfathered: false,
+  });
+}
 
 function previewCarry(state, itemId, { concealed = false } = {}) {
   state.inventory.carried = state.inventory.carried.filter((id) => id !== itemId);
@@ -1453,6 +1662,7 @@ function seedApartmentPreviewCampaign(state, variant) {
   const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
   const noWake = state.missions[MISSION_IDS.NO_WAKE];
   const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+  const golf = state.missions[MISSION_IDS.SILVER_PINES];
   const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
   const completedTimeEvents = [];
   const markTime = (...eventIds) => completedTimeEvents.push(...eventIds);
@@ -1556,10 +1766,19 @@ function seedApartmentPreviewCampaign(state, variant) {
       TIME_EVENT_IDS.DEPART_SILVER_ROOM,
       TIME_EVENT_IDS.COMPLETE_SILVER_ROOM,
     );
-    if (checkpoint.chapter === 'heist_day') {
-      state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'pending';
-      bankHeist.status = 'locked';
-    }
+  }
+
+  if (checkpoint.progress >= 7) {
+    state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+    seedCompletedGolfRound(golf);
+    markTime(
+      TIME_EVENT_IDS.MARGO_WAKE,
+      TIME_EVENT_IDS.LOU_GOLF_CALL,
+      TIME_EVENT_IDS.DEPART_SILVER_PINES,
+      TIME_EVENT_IDS.COMPLETE_SILVER_PINES,
+    );
+    state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'pending';
+    bankHeist.status = 'locked';
   }
 
   if (checkpoint.spawn === 'wake') {
@@ -1585,6 +1804,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     const motel = state.missions[MISSION_IDS.JERKY_MOTEL];
     const noWake = state.missions[MISSION_IDS.NO_WAKE];
     const silver = state.missions[MISSION_IDS.SILVER_ROOM];
+    const golf = state.missions[MISSION_IDS.SILVER_PINES];
     const bankHeist = state.missions[MISSION_IDS.BANK_HEIST];
     const initiation = state.missions[MISSION_IDS.INITIATION];
 
@@ -1607,6 +1827,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
@@ -1638,6 +1859,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
@@ -1676,6 +1898,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       SCENE_IDS.JERKY_MOTEL,
       SCENE_IDS.NO_WAKE,
       SCENE_IDS.SILVER_ROOM,
+      SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
@@ -1691,7 +1914,8 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     }
 
     if ([
-      SCENE_IDS.NO_WAKE, SCENE_IDS.SILVER_ROOM, SCENE_IDS.BANK_HEIST,
+      SCENE_IDS.NO_WAKE, SCENE_IDS.SILVER_ROOM, SCENE_IDS.SILVER_PINES,
+      SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
     ].includes(sceneId)) {
       motel.status = 'complete';
@@ -1708,7 +1932,10 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if ([SCENE_IDS.SILVER_ROOM, SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION]
+    if ([
+      SCENE_IDS.SILVER_ROOM, SCENE_IDS.SILVER_PINES,
+      SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION,
+    ]
       .includes(sceneId)) {
       noWake.status = 'complete';
       noWake.checkpoint = 'returned';
@@ -1729,17 +1956,51 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       return;
     }
 
-    if ([SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION].includes(sceneId)) {
+    if ([SCENE_IDS.SILVER_PINES, SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION]
+      .includes(sceneId)) {
       silver.status = 'complete';
       silver.outcome = 'strong';
       silver.woo = 74;
       silver.seeingHerAgain = true;
-      state.story.chapter = 'heist_day';
+    }
+
+    if (sceneId === SCENE_IDS.SILVER_PINES) {
+      state.story.chapter = 'golf_morning';
       state.story.day = 4;
-      state.story.timeMinutes = 11 * 60 + 15;
+      state.story.timeMinutes = 7 * 60 + 30;
       if (!state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE)) {
         state.story.timeEvents.push(TIME_EVENT_IDS.MARGO_WAKE);
       }
+      if (!state.story.timeEvents.includes(TIME_EVENT_IDS.LOU_GOLF_CALL)) {
+        state.story.timeEvents.push(TIME_EVENT_IDS.LOU_GOLF_CALL);
+      }
+      /* Preview models the same arrival contract as the apartment route. The
+       * GolfStory guard requires both this marker and the scene transition;
+       * `seedPreviewCampaign` performs the transition immediately below. */
+      if (!state.story.timeEvents.includes(TIME_EVENT_IDS.DEPART_SILVER_PINES)) {
+        state.story.timeEvents.push(TIME_EVENT_IDS.DEPART_SILVER_PINES);
+      }
+      state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+      golf.status = 'available';
+      return;
+    }
+
+    if ([SCENE_IDS.BANK_HEIST, SCENE_IDS.INITIATION].includes(sceneId)) {
+      seedCompletedGolfRound(golf);
+      state.story.chapter = 'heist_day';
+      state.story.day = 4;
+      state.story.timeMinutes = 11 * 60 + 15;
+      for (const eventId of [
+        TIME_EVENT_IDS.MARGO_WAKE,
+        TIME_EVENT_IDS.LOU_GOLF_CALL,
+        TIME_EVENT_IDS.DEPART_SILVER_PINES,
+        TIME_EVENT_IDS.COMPLETE_SILVER_PINES,
+      ]) {
+        if (!state.story.timeEvents.includes(eventId)) {
+          state.story.timeEvents.push(eventId);
+        }
+      }
+      state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
       state.events[EVENT_IDS.LOU_HEIST_CALL].status = 'answered';
     }
 

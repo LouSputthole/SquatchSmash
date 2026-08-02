@@ -51,6 +51,7 @@ function moduleIIFE(path, returns, binding) {
 
 const parts = [
   threeBundle,
+  moduleIIFE('../src/core/pause-menu.js', ['createPauseMenu'], '{ createPauseMenu }'),
   moduleIIFE('src/audio.js',
     ['init', 'setMuted', 'isMuted', 'smash', 'crack', 'whiff', 'clang', 'step', 'scream', 'chime',
      'squish', 'boom', 'stomp', 'buzz', 'dart', 'dartHit', 'powerup', 'frenzyJingle',

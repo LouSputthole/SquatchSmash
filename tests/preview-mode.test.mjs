@@ -57,6 +57,9 @@ test('preview query and route resolution preserve existing query parameters', ()
   assert.equal(previewSceneForLocation({
     pathname: '/game/graveyard.html', search: '?preview=1',
   }), SCENE_IDS.SQUATCH_GRAVEYARD);
+  assert.equal(previewSceneForLocation({
+    pathname: '/game/golf.html', search: '?preview=1',
+  }), SCENE_IDS.SILVER_PINES);
   assert.equal(previewApartmentVariantForLocation({
     pathname: '/game/index.html',
     search: '?preview=1&apartment=after-beef-run',
@@ -66,6 +69,7 @@ test('preview query and route resolution preserve existing query parameters', ()
     search: '?preview=1&apartment=not-a-checkpoint',
   }), null);
   assert.ok(APARTMENT_PREVIEW_VARIANTS.includes('day-four-wake'));
+  assert.ok(APARTMENT_PREVIEW_VARIANTS.includes('after-golf'));
   assert.equal(
     previewNavigationHref('bing.html?visit=2#lot', current),
     'bing.html?visit=2&preview=1#lot',
@@ -225,13 +229,30 @@ test('every authored apartment iteration receives a coherent isolated campaign c
       },
     },
     {
-      variant: 'day-four-wake', spawn: 'wake', chapter: 'heist_day', day: 4,
-      time: 10 * 60,
+      variant: 'day-four-wake', spawn: 'wake', chapter: 'golf_morning', day: 4,
+      time: 7 * 60,
       verify(state, campaign) {
-        assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
+        assert.equal(state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'pending');
+        assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'locked');
         assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
         assert.equal(createApartmentStory({ campaign }).margoWakeOwed(), true);
+      },
+    },
+    {
+      variant: 'after-golf', spawn: 'front_door', chapter: 'heist_day', day: 4,
+      time: 10 * 60 + 30,
+      verify(state, campaign) {
+        assert.equal(state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'answered');
+        assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
+        assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
+        assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
+        assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'locked');
+        assert.equal(
+          state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE),
+          true,
+        );
+        assert.equal(createApartmentStory({ campaign }).margoWakeOwed(), false);
       },
     },
   ];
@@ -246,6 +267,7 @@ test('every authored apartment iteration receives a coherent isolated campaign c
     ['after-no-wake', SCENE_IDS.NO_WAKE],
     ['after-silver-room', SCENE_IDS.SILVER_ROOM],
     ['day-four-wake', null],
+    ['after-golf', SCENE_IDS.SILVER_PINES],
   ]);
 
   assert.deepEqual(cases.map(({ variant }) => variant), [...APARTMENT_PREVIEW_VARIANTS]);
@@ -341,11 +363,37 @@ test('standalone mission previews receive only temporary prerequisites', () => {
       },
     },
     {
+      location: { pathname: '/golf.html', search: '?preview=1' },
+      scene: SCENE_IDS.SILVER_PINES,
+      verify(state) {
+        assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'complete');
+        assert.equal(state.events[EVENT_IDS.LOU_GOLF_CALL].status, 'answered');
+        assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'available');
+        assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
+        assert.equal(state.story.chapter, 'golf_morning');
+        assert.equal(state.story.day, 4);
+      },
+    },
+    {
+      location: { pathname: '/heist.html', search: '?preview=1' },
+      scene: SCENE_IDS.BANK_HEIST,
+      verify(state) {
+        assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
+        assert.equal(state.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
+        assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'available');
+        assert.equal(state.story.chapter, 'heist_day');
+        assert.equal(state.story.day, 4);
+      },
+    },
+    {
       location: { pathname: '/initiation.html', search: '?preview=1' },
       scene: SCENE_IDS.INITIATION,
       verify(state) {
         assert.equal(state.missions[MISSION_IDS.JERKY_MOTEL].status, 'complete');
         assert.equal(state.missions[MISSION_IDS.SILVER_ROOM].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.SILVER_PINES].status, 'complete');
+        assert.equal(state.missions[MISSION_IDS.BANK_HEIST].status, 'complete');
         assert.equal(state.events[EVENT_IDS.BOOSKI_BIG_NIGHT_CALL].status, 'answered');
         assert.equal(state.missions[MISSION_IDS.INITIATION].status, 'available');
         // The date is behind him, so the big night is the next calendar day.

@@ -109,6 +109,21 @@ const startClickedAt = Date.now();
 await page.evaluate(() => document.getElementById('start-btn').click());
 await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 90000 });
 await page.evaluate(() => window.__silver.postfx.disable?.());
+await page.keyboard.press('Tab');
+await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+let silverPause = await page.evaluate(() => ({
+  paused: window.__silver.game.paused,
+  objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+  instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+}));
+check('Tab opens the Front and Center pause screen with current instructions',
+  silverPause.paused && silverPause.objective.length > 0 && silverPause.instructions >= 4,
+  JSON.stringify(silverPause));
+await page.keyboard.press('Tab');
+await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
+silverPause = await page.evaluate(() => ({ paused: window.__silver.game.paused }));
+check('a second Tab returns control to Front and Center',
+  !silverPause.paused, JSON.stringify(silverPause));
 const silverLoad = await page.evaluate(() => {
   const audio = window.__silver.audio;
   const loaded = [...audio.buffers.keys()];
@@ -1477,6 +1492,48 @@ check('with bloom on, the table lamp does not glare and she is visible across th
   `clipped ${(acrossTheTable.clippedFrac * 100).toFixed(2)}% of the frame, her face at `
     + `${acrossTheTable.her}/255`);
 
+/* ---- floor chatter is atmosphere, not a repeating bit ----
+ * Drive the same bark tick as frame(), pinning the random picks to civilian,
+ * waiter, civilian. The front-door joke may land once; it must then leave the
+ * deck, and the crowded dining room should breathe longer than the kitchen. */
+const floorChatter = await page.evaluate(() => {
+  const b = window.__silver;
+  const was = {
+    active: b.dialogue.active,
+    barkAt: b.game.barkAt,
+    lastBark: b.game.lastBark,
+    frontDoorBarked: b.game.floorFrontDoorBarked,
+    say: b.hud.say,
+    random: Math.random,
+    voLength: b.game.voLog.length,
+  };
+  const lines = [];
+  const delays = [];
+  b.dialogue.active = false;
+  b.game.lastBark = -1;
+  b.hud.say = (line) => lines.push(String(line));
+  /* 0.75 picks floor line six. Audio may consume random numbers too, so pin
+   * the value rather than relying on a call-count sequence. */
+  Math.random = () => 0.75;
+  for (let i = 0; i < 3; i++) {
+    b.game.barkAt = 0;
+    b.__barks(1);
+    delays.push(b.game.barkAt);
+  }
+  Math.random = was.random;
+  b.hud.say = was.say;
+  b.dialogue.active = was.active;
+  b.game.barkAt = was.barkAt;
+  b.game.lastBark = was.lastBark;
+  b.game.floorFrontDoorBarked = was.frontDoorBarked;
+  b.game.voLog.length = was.voLength;
+  return { lines, delays };
+});
+const frontDoorBarks = floorChatter.lines.filter((line) => line.includes('front door')).length;
+check('the civilian front-door diner speaks once and floor ambience waits at least 28 seconds',
+  frontDoorBarks === 1 && floorChatter.delays.every((delay) => delay >= 28),
+  JSON.stringify({ frontDoorBarks, delays: floorChatter.delays, lines: floorChatter.lines }));
+
 /* ---- the conversation ---- */
 await tick(2);
 check('sitting down starts her talking', (await state()).options > 0, String((await state()).options));
@@ -1488,15 +1545,82 @@ await tick(6);
  * own pace with somebody pressing 1 every time it stops. */
 let sawShowScene = false;
 let sawDrinks = false;
+let seatedResume = null;
+let apeAtTable = null;
 for (let i = 0; i < 140; i++) {
   const st = await state();
   if (st.flags.drinkOrdered) sawDrinks = true;
   if (st.scene && st.flags.showStarted === false && sawDrinks) sawShowScene = true;
   if (st.mission === 'performance') break;
+  if (!apeAtTable) {
+    apeAtTable = await page.evaluate(() => {
+      const b = window.__silver;
+      const ape = b.cast.byName.ape;
+      if (b.game.talkingTo !== ape) return null;
+      const table = b.room.anchors.frontTable;
+      const his = b.room.anchors.frontSeats[0];
+      const waiterMark = { x: table.x + 1.1, z: table.z + 1.0 };
+      return {
+        tableX: +(ape.group.position.x - table.x).toFixed(2),
+        tableZ: +(ape.group.position.z - table.z).toFixed(2),
+        fromTony: +Math.hypot(
+          ape.group.position.x - his.x,
+          ape.group.position.z - his.z,
+        ).toFixed(2),
+        fromWaiter: +Math.hypot(
+          ape.group.position.x - waiterMark.x,
+          ape.group.position.z - waiterMark.z,
+        ).toFixed(2),
+      };
+    });
+  }
+  if (!seatedResume) {
+    const candidate = await page.evaluate(() => {
+      const b = window.__silver;
+      return b.game.round !== 'table'
+        && b.dialogue.active
+        && b.dialogue.tree === b.scripts.seated
+        && b.dialogue.nodeId;
+    });
+    if (candidate) {
+      const before = await page.evaluate(() => {
+        const b = window.__silver;
+        return {
+          round: b.game.round,
+          node: b.dialogue.nodeId,
+          line: b.dialogue.ui.line.textContent,
+          tableOpenings: b.game.voLog.filter((cue) => cue === 'vo.silver.margo.seated.table').length,
+        };
+      });
+      await page.evaluate(() => {
+        const chairPad = window.__silver.game.chairPads.his.userData.interact;
+        chairPad.onUse(); // stand, pausing the live date thread
+        chairPad.onUse(); // sit straight back down
+      });
+      await tick(2.5, 0.1);
+      const after = await page.evaluate(() => {
+        const b = window.__silver;
+        return {
+          round: b.game.round,
+          node: b.dialogue.nodeId,
+          line: b.dialogue.ui.line.textContent,
+          tableOpenings: b.game.voLog.filter((cue) => cue === 'vo.silver.margo.seated.table').length,
+        };
+      });
+      seatedResume = { before, after };
+    }
+  }
   if (st.options > 0) await choose(0);
   else await tick(6, 0.5);
 }
 s = await state();
+check('standing pauses the live date thread and sitting resumes its exact node without replaying the opening',
+  seatedResume
+    && seatedResume.after.round === seatedResume.before.round
+    && seatedResume.after.node === seatedResume.before.node
+    && seatedResume.after.line === seatedResume.before.line
+    && seatedResume.after.tableOpenings === seatedResume.before.tableOpenings,
+  JSON.stringify(seatedResume));
 check('the whole roster, front and back, can be looked after',
   s.tipsLeft <= 1, `${s.tips} tipped, ${s.tipsLeft} left`);
 check('the drink order happens and she gets what she drinks',
@@ -1504,6 +1628,13 @@ check('the drink order happens and she gets what she drinks',
 check('somebody from the family stops by the table',
   s.flags.familyMet?.length > 0 || s.flags.introducedAs !== null,
   JSON.stringify({ met: s.flags.familyMet, as: s.flags.introducedAs }));
+check('Ape stands on the open side of the table, clear of Tony and the waiter mark',
+  apeAtTable
+    && Math.abs(apeAtTable.tableX) <= 0.1
+    && apeAtTable.tableZ >= 1.5
+    && apeAtTable.fromTony >= 1.5
+    && apeAtTable.fromWaiter >= 1,
+  JSON.stringify(apeAtTable));
 check('the champagne arrives from the table by the pillar',
   s.flags.champagneSent === true, String(s.flags.champagneSent));
 
@@ -2307,9 +2438,8 @@ check('and the optional ones tick themselves off when they are done',
 
 /* ---- the voice ----
  *
- * The scene was subtitles-only with four recordings of Margo sitting in the
- * manifest that nothing in the building could reach, so there are two
- * separate things to prove and neither is "an mp3 played".
+ * The scene has an exact recording slot for every authored line, so there are
+ * two separate things to prove and neither is merely "an mp3 played".
  *
  * First, that the wiring fires: `game.voLog` collects every cue the evening
  * asks for whether or not a file exists behind it, so the run above — which

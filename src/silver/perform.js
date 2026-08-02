@@ -322,7 +322,7 @@ export class Sway {
     this.beat = 0;
     this.t = 0;
     /** How wide the window is. Widened by the accessibility setting. */
-    this.window = 0.26;
+    this.window = 0.62;
     /** Which beat indices have already been judged. One each, and no more. */
     this._judged = new Set();
     this._flash = null;
@@ -336,7 +336,10 @@ export class Sway {
     this.t = 0;
     this._judged = new Set();
     this._flash = null;
-    this.window = assist ? 0.46 : 0.26;
+    /* At 118 BPM these are roughly 437ms with assist and 315ms by default.
+     * The old 132ms default belonged in a rhythm game, not an optional date
+     * beat after twenty minutes of first-person navigation and conversation. */
+    this.window = assist ? 0.86 : 0.62;
   }
 
   get beatLength() { return 60 / this.bpm; }

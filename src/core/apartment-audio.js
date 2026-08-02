@@ -23,7 +23,20 @@ const APARTMENT_EXCLUDED_CUE_PREFIXES = Object.freeze([
   'vo.bing2.',
   'vo.graveyard.',
   'vo.nowake.',
+  'vo.golf.',
+  'golf.',
   'heist.',
+]);
+
+/* Silver Pines also owns a handful of effects whose names predate the
+ * scene-prefix convention. None are requested by the Apartment runtime. */
+const APARTMENT_EXCLUDED_CUE_NAMES = new Set([
+  'ambience.course',
+  'bird',
+  'cart.motor',
+  'mower.distant',
+  'sprinkler',
+  'sprinkler.tick',
 ]);
 
 /* THE TAKE owns the broad `heist.` bank, but its homecoming cleanup is an
@@ -48,7 +61,8 @@ const APARTMENT_STARTUP_CUE_PREFIXES = Object.freeze([
 export function isApartmentPreloadCue(cue) {
   const name = typeof cue === 'string' ? cue : cue?.name;
   return !!name && (APARTMENT_INCLUDED_CUE_PREFIXES.some((prefix) => name.startsWith(prefix))
-    || !APARTMENT_EXCLUDED_CUE_PREFIXES.some((prefix) => name.startsWith(prefix)));
+    || (!APARTMENT_EXCLUDED_CUE_NAMES.has(name)
+      && !APARTMENT_EXCLUDED_CUE_PREFIXES.some((prefix) => name.startsWith(prefix))));
 }
 
 /** True when a cue must be decoded before the Apartment opens for play. */

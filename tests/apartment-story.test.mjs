@@ -13,6 +13,7 @@ import {
 import {
   BIG_NIGHT_BOOSKI_CALL,
   DATE_MARGO_CALL,
+  DAY_FOUR_LOU_GOLF_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
   HEIST_PREPARATION_ITEMS,
   DAY_ONE_LOU_ATTABOY_CALL,
@@ -23,6 +24,7 @@ import {
   createApartmentStory,
 } from '../src/core/apartment-story.js';
 import { createNoWakeStory } from '../src/core/no-wake-story.js';
+import { createGolfStory } from '../src/core/golf-story.js';
 import { RING_SECONDS, callScript } from '../src/core/phone.js';
 
 /** Every call the campaign makes, in the order Tony gets them. */
@@ -33,6 +35,7 @@ const CAMPAIGN_CALLS = [
   DAY_TWO_LOU_SECOND_CALL,
   NO_WAKE_LOU_CALL,
   DATE_MARGO_CALL,
+  DAY_FOUR_LOU_GOLF_CALL,
   DAY_FOUR_LOU_HEIST_CALL,
   BIG_NIGHT_BOOSKI_CALL,
 ];
@@ -438,7 +441,12 @@ test('each chapter of sleep refuses until its own mission is finished', () => {
   campaign.update((state) => {
     state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
   });
-  assert.equal(story.sleep().chapter, 'heist_day');
+  assert.equal(story.sleep().chapter, 'golf_morning');
+  assert.deepEqual(story.sleep(), { ok: false, reason: 'unknown_chapter' });
+  campaign.update((state) => {
+    state.missions[MISSION_IDS.SILVER_PINES].status = 'complete';
+    state.story.chapter = 'heist_day';
+  });
   assert.deepEqual(story.sleep(), { ok: false, reason: 'already_heist_day' });
 });
 
@@ -824,7 +832,7 @@ function afterTheDate(storage) {
   return campaign;
 }
 
-test('Lou rings once on Day 4 and unlocks THE TAKE preparation', () => {
+test('Lou rings once on the Day 4 wake and unlocks Silver Pines', () => {
   const storage = new MemoryStorage();
   const story = createApartmentStory({
     campaign: afterTheDate(storage),
@@ -844,23 +852,25 @@ test('Lou rings once on Day 4 and unlocks THE TAKE preparation', () => {
   woken.update(5.9);
   assert.deepEqual(calls, []);
   woken.update(0.2);
-  assert.deepEqual(calls, [DAY_FOUR_LOU_HEIST_CALL]);
-  assert.equal(DAY_FOUR_LOU_HEIST_CALL.characterId, CHARACTER_IDS.LOU);
-  assert.equal(DAY_FOUR_LOU_HEIST_CALL.from, 'Big Uncle Lou');
-  assert.equal(DAY_FOUR_LOU_HEIST_CALL.voiceProfile, 'lou1');
-  assert.equal(DAY_FOUR_LOU_HEIST_CALL.vo, 'call.lou.heist');
-  assert.equal(DAY_FOUR_LOU_HEIST_CALL.targetSceneId, SCENE_IDS.BANK_HEIST);
-  assert.notEqual(DAY_FOUR_LOU_HEIST_CALL.vo, DAY_TWO_LOU_SECOND_CALL.vo);
+  assert.deepEqual(calls, [DAY_FOUR_LOU_GOLF_CALL]);
+  assert.equal(DAY_FOUR_LOU_GOLF_CALL.characterId, CHARACTER_IDS.LOU);
+  assert.equal(DAY_FOUR_LOU_GOLF_CALL.from, 'Big Uncle Lou');
+  assert.equal(DAY_FOUR_LOU_GOLF_CALL.voiceProfile, 'lou1');
+  assert.equal(DAY_FOUR_LOU_GOLF_CALL.vo, 'call.lou.golf');
+  assert.equal(DAY_FOUR_LOU_GOLF_CALL.targetSceneId, SCENE_IDS.SILVER_PINES);
+  assert.notEqual(DAY_FOUR_LOU_GOLF_CALL.vo, DAY_FOUR_LOU_HEIST_CALL.vo);
 
-  assert.equal(woken.callAnswered(DAY_FOUR_LOU_HEIST_CALL), true);
+  assert.equal(woken.callAnswered(DAY_FOUR_LOU_GOLF_CALL), true);
   const answered = createCampaign({ storage }).state;
-  assert.equal(answered.events[EVENT_IDS.LOU_HEIST_CALL].status, 'answered');
-  assert.equal(answered.missions[MISSION_IDS.BANK_HEIST].status, 'available');
+  assert.equal(answered.events[EVENT_IDS.LOU_GOLF_CALL].status, 'answered');
+  assert.equal(answered.missions[MISSION_IDS.SILVER_PINES].status, 'available');
+  assert.equal(answered.events[EVENT_IDS.LOU_HEIST_CALL].status, 'pending');
+  assert.equal(answered.missions[MISSION_IDS.BANK_HEIST].status, 'locked');
   assert.equal(answered.missions[MISSION_IDS.INITIATION].status, 'locked');
   assert.equal(answered.story.day, 4);
-  assert.equal(answered.story.timeMinutes, 10 * 60 + 3);
-  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.LOU_HEIST_CALL));
-  assert.equal(woken.callAnswered(DAY_FOUR_LOU_HEIST_CALL), false);
+  assert.equal(answered.story.timeMinutes, 7 * 60 + 3);
+  assert.ok(answered.story.timeEvents.includes(TIME_EVENT_IDS.LOU_GOLF_CALL));
+  assert.equal(woken.callAnswered(DAY_FOUR_LOU_GOLF_CALL), false);
 
   const replayed = [];
   const afterReload = createApartmentStory({
@@ -875,17 +885,38 @@ test('Lou rings once on Day 4 and unlocks THE TAKE preparation', () => {
   assert.deepEqual(replayed, []);
 });
 
-test('the Day 4 door waits for Lou and the heist kit, then routes to THE TAKE', () => {
+test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
   const campaign = afterTheDate();
   const story = createApartmentStory({ campaign, ring: () => true });
   story.sleep();
 
   assert.deepEqual(story.tryLeave({}), {
     kind: 'call',
+    id: EVENT_IDS.LOU_GOLF_CALL,
+    line: 'Lou said he would call about this morning. I am not guessing where.',
+  });
+
+  story.callAnswered(DAY_FOUR_LOU_GOLF_CALL);
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'go',
+    destination: SCENE_IDS.SILVER_PINES,
+  });
+  campaign.advanceTime(TIME_EVENT_IDS.DEPART_SILVER_PINES);
+  campaign.enter(SCENE_IDS.SILVER_PINES, { spawn: 'car_park' });
+  const golf = createGolfStory({ campaign });
+  assert.equal(golf.begin().ok, true);
+  for (const card of [
+    { hole: 1, par: 3, strokes: 4 },
+    { hole: 2, par: 5, strokes: 6 },
+    { hole: 3, par: 4, strokes: 5 },
+  ]) assert.equal(golf.recordHole(card), true);
+  assert.equal(golf.complete(), true);
+
+  assert.deepEqual(story.tryLeave({}), {
+    kind: 'call',
     id: EVENT_IDS.LOU_HEIST_CALL,
     line: 'Lou said he would call. Today is not a day to guess.',
   });
-
   story.callAnswered(DAY_FOUR_LOU_HEIST_CALL);
   for (const item of HEIST_PREPARATION_ITEMS) story.collectHeistPreparation(item.id);
   assert.deepEqual(story.tryLeave({}), {

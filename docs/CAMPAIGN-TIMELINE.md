@@ -1,9 +1,10 @@
 # Campaign timeline — current production flow (updated 2026-08-01)
 
 The owner's authoritative four-day shape and the connected route implemented
-by campaign schema v8. NO WAKE, the Billy HotDog incident and graveyard, Front
-and Center, and the Day Four heist are all built and connected. The Initiation
-is still a terminal WIP and remains frozen until the owner has playtested it.
+by campaign schema v9. NO WAKE, the Billy HotDog incident and graveyard, Front
+and Center, Silver Pines, and the Day Four heist are all built and connected.
+The Initiation is still a terminal WIP and remains frozen until the owner has
+playtested it.
 
 ## Campaign premise
 
@@ -30,7 +31,7 @@ by `npm run verify:campaign-route`:
 | 1 | Eat, shower, poop, change clothes, answer Big Uncle Lou | Bada Bing one → apartment whiskey nerve-settle → Squatchfather | Return home and sleep |
 | 2 | Wake 7:00 AM, answer Booskibro | Beef Run → apartment, answer Big Uncle Lou → Bada Bing two / HotDog incident → Squatch Graveyard → Jerky Motel | Return home 4:30 AM and sleep |
 | 3 | Wake noon, answer Big Uncle Lou's vague harbor call | NO WAKE → apartment, answer Margo → Front and Center | Return home and sleep |
-| 4 | Margo's morning-after beat, answer Big Uncle Lou, collect seven loadout pieces | THE TAKE → apartment cleanup → Initiation reference | Terminal WIP: Initiation remains `in_progress` |
+| 4 | Margo's morning-after beat, answer Big Uncle Lou's Silver Pines call | Silver Pines → apartment, answer Lou's heist call and collect seven loadout pieces → THE TAKE → apartment cleanup → Initiation reference | Terminal WIP: Initiation remains `in_progress` |
 
 Every external mission owns a registered scene/spawn and either returns to the
 apartment or hands directly to the next mission. The save survives reloads at
@@ -113,11 +114,18 @@ Ends with a cutscene of the apartment with Margo.
 Margo wakes beside him, gives a line or two — warm but not sentimental,
 slightly awkward, she enjoyed last night, she may tease him about acting
 important — dresses, and leaves before the criminal plot takes over. Then the
-phone rings: Lou says the big job is today, and the player prepares clothing,
-weapons and equipment. **The flat now shows his rise**: cash, expensive
+phone rings: Lou invites him to three holes at Silver Pines before the big job.
+**The flat now shows his rise**: cash, expensive
 clothes, club memorabilia, weapons, photographs, mission souvenirs — the den of
 a newly minted Squatch criminal who has accumulated money, enemies, souvenirs,
 and one extremely questionable laundry basket.
+
+**A Morning at Silver Pines — built and connected.** Lou, Rippinflow, and Eric
+take Tony through three holes. The quiet, invitation-only round is a status
+reward after Front and Center and a pressure-release before the mechanical
+climax. Its scorecard, strokes, penalties, memorable golf outcomes, and Lou's
+invitation conversation persist. Completing the third hole returns Tony home;
+only then does Lou call about the heist and the seven-piece loadout appear.
 
 **THE TAKE — built and connected.** Crew: the Prospect, Numbskull,
 Rippinflow, the Shubenator, DeathMegatron, Snow. The mechanical climax
@@ -141,9 +149,10 @@ club, a television quietly reports the search for the heist crew, credits.
 ## Rhythm
 
 Day 1 introduction and first blood · Day 2 trust, competence, expanding work ·
-Day 3 betrayal, darkness, then glamorous reward · Day 4 personal payoff, the
-heist, formal acceptance. The structural keystone is putting the informant
-killing directly before Front and Center.
+Day 3 betrayal, darkness, then glamorous reward · Day 4 personal payoff, a quiet
+invitation into the inner circle, the heist, formal acceptance. The structural
+keystone is putting the informant killing directly before Front and Center;
+Silver Pines then gives the climax one last breath before THE TAKE.
 
 **The apartment must visibly evolve after every chapter.**
 
@@ -157,14 +166,15 @@ killing directly before Front and Center.
 2. The Front and Center closing **cutscene of the apartment with Margo** is not
    built; Day 4 opens with her in the bed instead.
 3. **The current Initiation is not a campaign-complete state.** The apartment
-   routes Tony into the frozen Pines scene after THE TAKE, but that scene does not claim the
+   routes Tony into the frozen Initiation scene after THE TAKE, but that scene does not claim the
    campaign, record completion, or expose an outbound edge. The focused route
    contract therefore ends with Initiation `in_progress`, not `complete`.
 4. **The finale has two authored shapes.** This timeline places an oath and
    callback ceremony at the Bada Bing, while `docs/STORY.md` preserves the
    Pines quiz, execution, gauntlet, roar, timber, and anointing. Reconcile those
    designs after the required playtest before wiring the final checkpoint.
-5. **Silver Pines golf is archived, not discarded.** Its complete prototype is
-   preserved at `archive/silver-pines-golf-20260730`, but it conflicts with the
-   current Day Four route and needs its own placement, voice, inventory, Pages,
-   and performance pass before it can become campaign canon.
+5. **Silver Pines needs a human pacing and performance pass.** Its campaign,
+   inventory, preview, Pages, scorecard, and three-hole route are now canonical.
+   The owner still needs to judge shot feel, walk/ride pacing, camera comfort,
+   dialogue repetition, and the handoff into heist preparation in one continuous
+   Day Four playthrough.

@@ -29,12 +29,12 @@ the next page local and fast.
 
 ## Measured production payload
 
-The current Pages job stages 2,662 files totaling 211.67 MiB. Assets account for
-205.41 MiB:
+The current Pages job stages 2,986 files totaling 221.77 MiB. Assets account for
+215.16 MiB:
 
 | Runtime group | Staged size |
 |---|---:|
-| Sound effects and voice | 112.55 MiB |
+| Sound effects and voice | 122.90 MiB |
 | Art | 42.15 MiB |
 | Music | 28.12 MiB |
 | Video | 13.79 MiB |
@@ -58,9 +58,11 @@ player presses Start. These are raw local bytes, not WAN timing claims:
 
 ## Audio is the first-order problem
 
-The recorded manifest currently contains 2,176 cues, 105.36 MiB compressed and
-about 1.93 hours long. Decoding the whole bank requires about 1,150 MiB of
-mono 44.1-kHz Float32 PCM; stereo recordings can double that estimate.
+The manifest currently contains 2,518 cues. Of those, 2,476 have indexed
+recordings totaling 115.01 MiB compressed; the 42 missing voice files are
+listed exactly in `VOICE-LINES-TODO.md`. Decoding the whole recorded bank still
+requires more than a gigabyte of mono 44.1-kHz Float32 PCM; stereo recordings
+can double that estimate.
 
 | Loader | Cues made resident | Compressed | Minimum decoded PCM |
 |---|---:|---:|---:|
@@ -69,7 +71,7 @@ mono 44.1-kHz Float32 PCM; stereo recordings can double that estimate.
 | Bada Bing | 493 | 23.05 MiB | about 254 MiB |
 | Front and Center | 381 | 21.87 MiB | 241 MiB |
 | Beef Run | 281 | 12.40 MiB | 137 MiB |
-| Unscoped base engine | 2,176 | 105.36 MiB | about 1,150 MiB |
+| Unscoped base engine | 2,518 | 115.01 MiB recorded | more than 1,150 MiB |
 
 Before this release pass, HotDog and Graveyard awaited the entire unscoped bank
 and NO WAKE decoded it in the background. Their authored banks are only about
@@ -82,6 +84,12 @@ The Apartment now removes 479 proven mission-owned recordings (23.30 MiB),
 retains an 864-cue resident contract, and opens on a small automatic/chapter
 bank while the optional activity/PC library continues in the background. A
 later pass can make those optional banks fully interaction-lazy.
+
+Silver Pines follows the same browser-first rule: Start waits only for its
+effects, footsteps, and Hole One dialogue, then prefetches Hole Two and Hole
+Three speech in the background. A resumed round waits for its current-hole bank
+instead of decoding all 305 course voice cues up front. This benefits the normal
+GitHub Pages version directly; it does not depend on a PWA or desktop wrapper.
 
 A service worker caches compressed MP3 bytes. It cannot persist decoded
 `AudioBuffer` objects, so a PWA alone cannot solve this CPU and memory cost.

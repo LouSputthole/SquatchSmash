@@ -15,6 +15,7 @@
  */
 import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
+import { APE_FACE_URL, APE_FAMILY_MEMBER } from '../bing/family-ape.js';
 import { rand, pick } from '../bing/kit.js';
 import { TIP_POINTS } from './woo.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
@@ -25,6 +26,26 @@ export { TIP_POINTS, TIP_TOTAL } from './woo.js';
 
 const SUIT_DINERS = [0x1b1b22, 0x232430, 0x2a2028, 0x1e2430];
 const GOWNS = [0x5a1430, 0x1a2a4a, 0x2a4a3a, 0x4a3a10, 0x3a1a3a];
+
+/**
+ * The Silver Room owns Ape's seat and visit choreography, but not a second
+ * version of the man. This is the Bing FAMILY model plus its supplied face.
+ */
+export const SILVER_APE_PRESENTATION = Object.freeze({
+  characterId: APE_FAMILY_MEMBER.id,
+  photo: APE_FAMILY_MEMBER.photo,
+  face: APE_FACE_URL,
+  model: Object.freeze({ ...APE_FAMILY_MEMBER.model, face: APE_FACE_URL }),
+});
+
+/** Stamp the stable story identity onto the scene-local NPC wrapper. */
+export function identifySilverApe(npc) {
+  npc.characterId = APE_FAMILY_MEMBER.id;
+  npc.familyMember = APE_FAMILY_MEMBER;
+  npc.group.userData.npc.characterId = APE_FAMILY_MEMBER.id;
+  npc.group.userData.npc.family = true;
+  return npc;
+}
 
 
 /* ------------------------------------------------------------------ */
@@ -284,14 +305,13 @@ export function populate(scene, room) {
   }
 
   /* ---- the table by the pillar, who send the champagne ---- */
-  /* Ape is a real Circle member with a locked id, not a lookalike: the same
-   * person Tony will be roasted by on the big night. His subtitle name comes
-   * from the campaign registry so the two scenes cannot drift apart. */
+  /* Ape is the exact Bing FAMILY figure and face, not a Silver Room
+   * approximation. Only his seat and behaviour belong to this room. */
   const APE = getCharacter(CHARACTER_IDS.APE);
   const pillar = new THREE.Vector3(-8.6, 0, 1.6);
   const crew = [
     ['bing-bouncer', 'the bouncer', { height: 1.94, build: 1.45, dress: 'suit', shirt: 0x14141a, hair: 'bald', beard: true }],
-    [CHARACTER_IDS.APE, APE.subtitleName, { height: 1.77, build: 1.05, dress: 'suit', shirt: 0x232430, hair: 'crop', glasses: true }],
+    [CHARACTER_IDS.APE, APE.subtitleName, SILVER_APE_PRESENTATION.model],
     ['crew1', 'a Sasquatch', { height: 1.82, build: 1.2, dress: 'suit', shirt: 0x1b1b22, hair: 'receding' }],
     ['crew2', 'a Sasquatch', { height: 1.7, build: 1.15, dress: 'suit', shirt: 0x2a2028, hair: 'short', bandana: true }],
   ];
@@ -300,13 +320,14 @@ export function populate(scene, room) {
    * here that only roughly agreed with wherever the table grid had landed. */
   crew.forEach(([key, name, model], i) => {
     const seat = a.crewSeats[i % a.crewSeats.length];
-    add(key, new Npc(scene, {
+    const npc = add(key, new Npc(scene, {
       name,
       tier: i < 2 ? 'hero' : 'ambient', job: 'sit',
       x: seat.x, z: seat.z,
       yaw: seat.yaw,
       model,
     }));
+    if (key === CHARACTER_IDS.APE) identifySilverApe(npc);
   });
   by.ape.homeSeat = { x: by.ape.group.position.x, z: by.ape.group.position.z, yaw: by.ape.group.rotation.y };
 

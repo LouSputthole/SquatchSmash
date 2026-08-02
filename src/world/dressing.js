@@ -22,7 +22,8 @@ import { box, cylinder, group, mat, plane } from './build.js';
 
 /** The campaign's chapters, in the order sleeping walks through them. */
 export const CHAPTER_ORDER = Object.freeze([
-  'day_one', 'day_two', 'no_wake', 'date', 'big_night', 'heist_day', 'post_heist',
+  'day_one', 'day_two', 'no_wake', 'date', 'big_night', 'golf_morning',
+  'heist_day', 'post_heist',
 ]);
 
 /**
@@ -89,6 +90,17 @@ export const DAY_DRESSING = Object.freeze({
     ]),
     removes: Object.freeze([]),
     air: Object.freeze({ rain: 0, tint: 1, warmth: 1.08 }),
+  }),
+
+  /* The same accumulated Day Four flat, before Lou turns it into an armoury.
+   * Keeping this after `big_night` in the fold preserves the cash, clothes and
+   * souvenirs at the wake while the actual heist loadout remains exclusive to
+   * `heist_day`, after the round. */
+  golf_morning: Object.freeze({
+    title: 'A Morning at Silver Pines',
+    adds: Object.freeze([]),
+    removes: Object.freeze([]),
+    air: Object.freeze({ rain: 0, tint: 1, warmth: 1.04 }),
   }),
 
   heist_day: Object.freeze({

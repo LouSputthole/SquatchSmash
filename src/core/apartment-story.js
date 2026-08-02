@@ -113,6 +113,7 @@ const SCENE_LABELS = Object.freeze({
   [SCENE_IDS.JERKY_MOTEL]: 'the Jerky Motel',
   [SCENE_IDS.NO_WAKE]: 'South Harbor',
   [SCENE_IDS.SILVER_ROOM]: 'the Silver Room',
+  [SCENE_IDS.SILVER_PINES]: 'Silver Pines',
   [SCENE_IDS.BANK_HEIST]: 'THE TAKE',
   [SCENE_IDS.INITIATION]: 'the Initiation',
 });
@@ -145,6 +146,11 @@ const CHAPTER_PLAN = Object.freeze({
   date: Object.freeze({
     event: EVENT_IDS.MARGO_DATE_CALL,
     caller: 'Margo',
+    routineRequired: false,
+  }),
+  golf_morning: Object.freeze({
+    event: EVENT_IDS.LOU_GOLF_CALL,
+    caller: 'Big Uncle Lou',
     routineRequired: false,
   }),
   heist_day: Object.freeze({
@@ -331,6 +337,28 @@ export const DATE_MARGO_CALL = Object.freeze({
   ]),
 });
 
+/** Lou's invitation to a quiet three-hole conversation before THE TAKE. */
+export const DAY_FOUR_LOU_GOLF_CALL = Object.freeze({
+  eventId: EVENT_IDS.LOU_GOLF_CALL,
+  characterId: CHARACTER_IDS.LOU,
+  targetSceneId: SCENE_IDS.SILVER_PINES,
+  from: getCharacter(CHARACTER_IDS.LOU).subtitleName,
+  voiceProfile: voiceProfileFor(CHARACTER_IDS.LOU),
+  vo: 'call.lou.golf',
+  lines: Object.freeze([
+    'Silver Pines. Off Route Twenty-Three, past the quarry, second gate.',
+    'Eight o\'clock. Rippinflow and Eric are already complaining about the hour.',
+    'Bring nothing. Wear something you can walk in.',
+    'Three holes. Home by half ten. After that, your day starts.',
+  ]),
+  replies: Object.freeze([
+    'Silver Pines. Second gate.',
+    'Eight o\'clock.',
+    'Nothing but walking shoes.',
+    'Home by half ten. Understood.',
+  ]),
+});
+
 /** Lou's last job before Tony is invited into the room as family. */
 export const DAY_FOUR_LOU_HEIST_CALL = Object.freeze({
   eventId: EVENT_IDS.LOU_HEIST_CALL,
@@ -361,8 +389,9 @@ export const DAY_FOUR_LOU_HEIST_CALL = Object.freeze({
  * the `no_wake` chapter at noon on that same Day 3. Completing NO WAKE advances
  * directly into `date`; it does not consume another night before Margo calls.
  *
- * Sleeping off the date is what finally moves the calendar. The big night is
- * Day 4 — he wakes at ten, Booskibro rings, and the ceremony is at seven.
+ * Sleeping off the date moves the calendar. Day 4 opens at seven with Margo,
+ * then Lou's Golf call and round hand control to heist_day before the evening
+ * ceremony.
  */
 const SLEEP_CHAPTERS = Object.freeze([
   Object.freeze({
@@ -383,17 +412,20 @@ const SLEEP_CHAPTERS = Object.freeze([
   }),
   Object.freeze({
     from: 'date',
-    to: 'heist_day',
+    to: 'golf_morning',
     requires: MISSION_IDS.SILVER_ROOM,
     incomplete: 'date_incomplete',
     day: 4,
-    timeMinutes: 10 * 60,
+    timeMinutes: 7 * 60,
   }),
 ]);
-const LAST_CHAPTER = SLEEP_CHAPTERS[SLEEP_CHAPTERS.length - 1].to;
+/* Golf returns into heist_day without another sleep; it remains the terminal
+ * sleep chapter even though it is no longer the final SLEEP_CHAPTERS target. */
+const LAST_CHAPTER = 'heist_day';
 
 const APARTMENT_RETURN_PRIORITY = Object.freeze([
   SCENE_IDS.BANK_HEIST,
+  SCENE_IDS.SILVER_PINES,
   SCENE_IDS.SILVER_ROOM,
   SCENE_IDS.NO_WAKE,
   SCENE_IDS.JERKY_MOTEL,
@@ -467,6 +499,7 @@ const MESSAGE_EVENTS = Object.freeze({
   day_two: TIME_EVENT_IDS.HEAR_MESSAGES_DAY_TWO,
   no_wake: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
   date: TIME_EVENT_IDS.HEAR_MESSAGES_DATE,
+  golf_morning: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
   heist_day: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
   big_night: TIME_EVENT_IDS.HEAR_MESSAGES_BIG_NIGHT,
 });
@@ -514,6 +547,19 @@ export const CHAPTER_MESSAGES = Object.freeze({
         'Wear something plain today. Nothing anybody would describe.',
         'There is a thing that may need doing and it may not. I will know later.',
         'And if Willy calls you, you have not spoken to me. Say it back to yourself until it is true.',
+      ]),
+    }),
+  ]),
+  golf_morning: Object.freeze([
+    Object.freeze({
+      from: 'Big Uncle Lou',
+      characterId: CHARACTER_IDS.LOU,
+      vo: 'machine.lou.golf_morning',
+      at: 'Today, 6:02 AM',
+      lines: Object.freeze([
+        'Morning, kid. Keep the line clear and do not ring back.',
+        'Silver Pines has a second gate. You will hear the rest from me.',
+        'Wear something you can walk in. I will call when the car is moving.',
       ]),
     }),
   ]),
@@ -600,6 +646,20 @@ export const CHAPTER_NEWS = Object.freeze({
         + 'four times this morning, by four different people, using the same four words.',
     }),
   }),
+  golf_morning: Object.freeze({
+    radio: Object.freeze({
+      vo: 'news.radio.heist_day',
+      voice: 'announcer',
+      line: 'Clear over downtown this morning. Traffic crews report lane work near Mercer, '
+        + 'so give yourself time and mind the diversions.',
+    }),
+    tv: Object.freeze({
+      vo: 'news.tv.heist_day',
+      voice: 'ksqch',
+      line: 'A quiet opening downtown. Cumberland Fidelity begins commercial service at '
+        + 'nine, and the city says the construction outside will not affect customers.',
+    }),
+  }),
   heist_day: Object.freeze({
     radio: Object.freeze({
       vo: 'news.radio.heist_day',
@@ -648,7 +708,7 @@ export const CHAPTER_NEWS = Object.freeze({
  * Day 4 opens with somebody else in the bed.
  *
  * Margo stayed. She is warm about it and not sentimental about it, she is
- * slightly awkward in the way people are at ten in the morning in somebody
+ * slightly awkward in the way people are early in the morning in somebody
  * else's flat, and she gets dressed and goes -- she has a kitchen to run. She
  * does not ask what he does, and she does tease him about how seriously he has
  * started taking himself.
@@ -753,6 +813,14 @@ class ApartmentStory {
       this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_DATE_CALL, (state) => {
         state.events[EVENT_IDS.MARGO_DATE_CALL].status = 'answered';
         state.missions[MISSION_IDS.SILVER_ROOM].status = 'available';
+      });
+      return true;
+    }
+    if (definition?.eventId === EVENT_IDS.LOU_GOLF_CALL
+      && !this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
+      this.campaign.advanceTime(TIME_EVENT_IDS.LOU_GOLF_CALL, (state) => {
+        state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+        state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
       });
       return true;
     }
@@ -955,6 +1023,23 @@ class ApartmentStory {
         };
       }
       return { kind: 'go', destination: SCENE_IDS.INITIATION };
+    }
+    if (state.story.chapter === 'golf_morning') {
+      if (!this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
+        return {
+          kind: 'call',
+          id: EVENT_IDS.LOU_GOLF_CALL,
+          line: 'Lou said he would call about this morning. I am not guessing where.',
+        };
+      }
+      if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
+        return { kind: 'go', destination: SCENE_IDS.SILVER_PINES };
+      }
+      return {
+        kind: 'stay',
+        id: 'golf_return_pending',
+        line: 'Three holes done. Whatever comes next, Lou will call for it.',
+      };
     }
     if (state.story.chapter === 'heist_day') {
       if (!this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
@@ -1180,11 +1265,11 @@ class ApartmentStory {
    */
   margoWakeOwed() {
     const state = this.campaign.state;
-    return ['heist_day', 'big_night'].includes(state.story.chapter)
+    return ['golf_morning', 'heist_day', 'big_night'].includes(state.story.chapter)
       && !state.story.timeEvents.includes(TIME_EVENT_IDS.MARGO_WAKE);
   }
 
-  /** She got dressed and went. Twelve minutes on the clock. */
+  /** She got dressed and went. The zero-minute cutscene marker prevents replay. */
   margoWakeDone() {
     if (!this.margoWakeOwed()) return false;
     return this.campaign.advanceTime(TIME_EVENT_IDS.MARGO_WAKE).applied === true;
@@ -1200,6 +1285,10 @@ class ApartmentStory {
 
   #pendingCall() {
     const state = this.campaign.state;
+    if (state.story.chapter === 'golf_morning'
+      && !this.#eventAnswered(EVENT_IDS.LOU_GOLF_CALL)) {
+      return DAY_FOUR_LOU_GOLF_CALL;
+    }
     if (state.story.chapter === 'heist_day'
       && !this.#eventAnswered(EVENT_IDS.LOU_HEIST_CALL)) {
       return DAY_FOUR_LOU_HEIST_CALL;

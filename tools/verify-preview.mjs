@@ -31,6 +31,7 @@ const EXPECTED_SCENE_LINKS = Object.freeze({
   motel: 'motel.html?preview=1',
   'no-wake': 'nowake.html?preview=1',
   silver: 'silver.html?preview=1',
+  golf: 'golf.html?preview=1',
   heist: 'heist.html?preview=1&checkpoint=safehouse',
   initiation: 'initiation.html?preview=1',
 });
@@ -78,11 +79,16 @@ const APARTMENT_PREVIEW_CASES = Object.freeze([
   Object.freeze({
     variant: 'after-silver-room', spawn: 'front_door', chapter: 'date', day: 3,
     timeMinutes: 23 * 60 + 20, mission: 'silver_room', missionStatus: 'complete',
-    pendingEvent: 'lou_heist_call',
+    pendingEvent: 'lou_golf_call',
   }),
   Object.freeze({
-    variant: 'day-four-wake', spawn: 'wake', chapter: 'heist_day', day: 4,
-    timeMinutes: 10 * 60, mission: 'bank_heist', missionStatus: 'locked',
+    variant: 'day-four-wake', spawn: 'wake', chapter: 'golf_morning', day: 4,
+    timeMinutes: 7 * 60, mission: 'silver_pines', missionStatus: 'locked',
+    pendingEvent: 'lou_golf_call',
+  }),
+  Object.freeze({
+    variant: 'after-golf', spawn: 'front_door', chapter: 'heist_day', day: 4,
+    timeMinutes: 10 * 60 + 30, mission: 'silver_pines', missionStatus: 'complete',
     pendingEvent: 'lou_heist_call',
   }),
 ]);
@@ -93,6 +99,7 @@ const EXPECTED_APARTMENT_RETURN_SOURCES = Object.freeze({
   'after-motel': 'jerky_motel',
   'after-no-wake': 'no_wake',
   'after-silver-room': 'silver_room',
+  'after-golf': 'silver_pines',
 });
 
 let chromium;
@@ -168,6 +175,24 @@ function linksMatchExpected(links, expected) {
     && entries.every(([key, href]) => links.some(([actualKey, actualHref]) => (
       actualKey === key && actualHref === href
     )));
+}
+
+async function verifyTabPause(label) {
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+  const paused = await page.evaluate(() => ({
+    visible: !document.querySelector('[data-scene-pause]')?.classList.contains('hidden'),
+    objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+    instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+  }));
+  check(`${label}: Tab opens current instructions`,
+    paused.visible && paused.objective.length > 0 && paused.instructions >= 4,
+    JSON.stringify(paused));
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
+  const resumed = await page.evaluate(() =>
+    document.querySelector('[data-scene-pause]')?.classList.contains('hidden') === true);
+  check(`${label}: Tab returns control`, resumed);
 }
 
 try {
@@ -262,6 +287,15 @@ try {
   check('NO WAKE preview leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
+  await page.goto(`http://localhost:${PORT}/beefrun.html?preview=1`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__beefrun?.mission, null, { timeout: 180000 });
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => document.getElementById('overlay')?.classList.contains('hidden'),
+    null, { timeout: 180000 });
+  await verifyTabPause('The Beef Run');
+  check('playing The Beef Run leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
   await page.goto(`http://localhost:${PORT}/motel.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 180000 });
   let motel = await page.evaluate(() => ({
@@ -287,6 +321,7 @@ try {
   }));
   check('the Motel preview starts playing', motel.phase === 'car' && motel.status === 'in_progress',
     JSON.stringify(motel));
+  await verifyTabPause('The Jerky Motel');
   check('playing the Motel leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
@@ -415,6 +450,32 @@ try {
       && silver.previewNotice,
     JSON.stringify(silver));
   check('opening the Silver Room leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
+  await page.goto(`http://localhost:${PORT}/golf.html?preview=1`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__golfReady && window.__golf?.campaign, null, {
+    timeout: 180000,
+  });
+  const golf = await page.evaluate(() => {
+    const state = window.__golf.campaign.state;
+    return {
+      mission: state.missions.silver_pines,
+      silver: state.missions.silver_room.status,
+      call: state.events.lou_golf_call.status,
+      chapter: state.story.chapter,
+      day: state.story.day,
+      previewNotice: Boolean(document.querySelector('#squatch-preview-notice')),
+    };
+  });
+  check('Silver Pines opens after the date with Lou already rung',
+    golf.mission.status === 'available'
+      && golf.silver === 'complete'
+      && golf.call === 'answered'
+      && golf.chapter === 'golf_morning'
+      && golf.day === 4
+      && golf.previewNotice,
+    JSON.stringify(golf));
+  check('opening Silver Pines leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
   await page.goto(

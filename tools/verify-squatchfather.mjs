@@ -296,6 +296,18 @@ try {
 
   await page.click('#startBtn');
   await page.waitForFunction(() => window.squatchfather.state() === 'START_EXTERIOR');
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+  const squatchfatherPause = await page.evaluate(() => ({
+    objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+    instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+  }));
+  check('Tab opens the Squatchfather pause screen with current instructions',
+    squatchfatherPause.objective.length > 0 && squatchfatherPause.instructions >= 4,
+    JSON.stringify(squatchfatherPause));
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
+  check('a second Tab returns control to the Squatchfather', true);
   const squatchfatherInventory = await page.evaluate(() => ({
     visible: Boolean(document.querySelector('#hotbar'))
       && getComputedStyle(document.querySelector('#hotbar')).display !== 'none',

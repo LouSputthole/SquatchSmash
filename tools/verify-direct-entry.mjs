@@ -12,6 +12,8 @@ import { fileURLToPath } from 'node:url';
 
 import {
   CAMPAIGN_STORAGE_KEY,
+  EVENT_IDS,
+  MISSION_IDS,
   createCampaign,
 } from '../src/core/campaign.js';
 
@@ -25,6 +27,7 @@ const CASES = [
   { page: 'motel.html', start: '#startBtn', label: 'Jerky Motel' },
   { page: 'nowake.html', start: '#start-btn', label: 'NO WAKE' },
   { page: 'silver.html', start: '#start-btn', label: 'Silver Room' },
+  { page: 'golf.html', start: '#start-btn', label: 'Silver Pines' },
 ];
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -46,6 +49,20 @@ class MemoryStorage {
 
 const seed = createCampaign({ storage: new MemoryStorage() }).state;
 const seedJson = JSON.stringify(seed);
+const invitedStorage = new MemoryStorage();
+const invitedCampaign = createCampaign({ storage: invitedStorage });
+invitedCampaign.update((state) => {
+  state.story.chapter = 'golf_morning';
+  state.story.day = 4;
+  state.story.timeMinutes = 7 * 60 + 3;
+  state.missions[MISSION_IDS.SILVER_ROOM].status = 'complete';
+  state.events[EVENT_IDS.LOU_GOLF_CALL].status = 'answered';
+  state.missions[MISSION_IDS.SILVER_PINES].status = 'available';
+});
+/* Lou has invited him, but the apartment has not spent the travel marker or
+ * transitioned the save. This is the dangerous direct-URL boundary: it must
+ * look locked and leave the authorized save byte-for-byte unchanged. */
+const invitedGolfJson = JSON.stringify(invitedCampaign.state);
 
 let chromium;
 try {
@@ -108,6 +125,38 @@ try {
       problems.length === 0, problems.join(' | '));
     await context.close();
   }
+
+  const context = await browser.newContext({ viewport: { width: 640, height: 360 } });
+  await context.addInitScript(({ key, value }) => {
+    localStorage.setItem(key, value);
+  }, { key: CAMPAIGN_STORAGE_KEY, value: invitedGolfJson });
+  const page = await context.newPage();
+  const problems = [];
+  page.on('pageerror', (error) => problems.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') problems.push(message.text().slice(0, 240));
+  });
+
+  await page.goto(`http://localhost:${PORT}/golf.html`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__golfReady === true, null, { timeout: 60000 });
+  const afterLoad = await page.evaluate((key) => localStorage.getItem(key), CAMPAIGN_STORAGE_KEY);
+  await page.evaluate(() => document.querySelector('#start-btn')?.click());
+  await page.waitForFunction(() => window.__golfStartBlocked === 'travel_incomplete', null, {
+    timeout: 5000,
+  });
+  const rejected = await page.evaluate((key) => ({
+    saved: localStorage.getItem(key),
+    reason: window.__golfStartBlocked,
+  }), CAMPAIGN_STORAGE_KEY);
+
+  check('Silver Pines invited bare load leaves the not-departed campaign untouched',
+    afterLoad === invitedGolfJson);
+  check('Silver Pines invited bare Start requires the apartment departure',
+    rejected.saved === invitedGolfJson && rejected.reason === 'travel_incomplete',
+    rejected.reason);
+  check('Silver Pines invited bare guard reports no runtime errors',
+    problems.length === 0, problems.join(' | '));
+  await context.close();
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));

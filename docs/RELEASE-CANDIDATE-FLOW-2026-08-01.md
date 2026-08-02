@@ -7,7 +7,7 @@ This replaces the pre-heist status and performance numbers in
 ## Executive assessment
 
 The canonical browser campaign is connected from a fresh apartment wake-up
-through every four-day mission and into the Initiation. Campaign schema v8
+through every four-day mission and into the Initiation. Campaign schema v9
 persists scene, spawn, time, mission checkpoints, inventory, outcomes, and the
 shared 97.8 radio state across page loads and browser reloads.
 
@@ -40,10 +40,12 @@ flowchart TD
   K --> L["NO WAKE"]
   L --> M["Apartment: Margo call"]
   M --> N["Front and Center / Silver Room"]
-  N --> O["Day 4 apartment: Margo morning, Lou call, seven prep items"]
-  O --> P["THE TAKE: safehouse, bank, vault, street, garage, vehicle swap"]
-  P --> Q["Apartment: wash, change, hide gear"]
-  Q --> R["Initiation: reachable terminal WIP"]
+  N --> O["Day 4 apartment: Margo morning, Lou's Silver Pines call"]
+  O --> P["Silver Pines: three holes with Lou, Rippinflow, and Eric"]
+  P --> Q["Apartment: Lou's heist call, seven prep items"]
+  Q --> R["THE TAKE: safehouse, bank, vault, street, garage, vehicle swap"]
+  R --> S["Apartment: wash, change, hide gear"]
+  S --> T["Initiation: reachable terminal WIP"]
 ```
 
 The focused fresh-save contract exercises this exact order, performs mission
@@ -67,7 +69,9 @@ edge.
 | Day Three apartment | Built | Lou's harbor call launches NO WAKE; Margo call later launches Silver | Chapter-specific messages, contact changes, physical phone, radio continuity | Human continuity pass |
 | NO WAKE | Built | Betrayal/fire/disposal persist and return home | Boat receiver joins shared 97.8 state; confrontation owns temporary silence; scene-scoped audio | Human pacing and emotional/camera pass |
 | Front and Center / Silver Room | Built | Date/performance outcome returns home and unlocks sleep | Waiters carry and set one tracked table; camera follows; fixed marks/walkway; violin + bow; saved woo/date outcome | The desired closing apartment-with-Margo cutscene is not built; Day Four instead opens with her already present |
-| Day Four apartment | Built | Margo departure + Lou call + seven physical prep items unlock heist | Apartment reflects Tony's rise; exact preparation and later cleanup gates | Judge morning cutscene and room evolution in a full route |
+| Day Four apartment wake | Built | Margo departure + Lou's call unlock Silver Pines | Apartment reflects Tony's rise without exposing the heist loadout early | Judge morning cutscene and room evolution in a full route |
+| Silver Pines | Built | Three completed holes return Tony home and expose Lou's heist call | Persistent three-hole scorecard and outcomes; shared inventory; preview/direct-entry/Pages seams | Human shot feel, camera, walk/ride pacing, dialogue repetition, and performance pass |
+| Post-golf apartment | Built | Lou's heist call + seven physical prep items unlock THE TAKE | Exact preparation gates appear only after the round | Judge the tonal handoff from quiet status reward to the heist briefing |
 | THE TAKE | Built | Six persistent checkpoints; settlement returns home | Briefing, bank, vault, loot, police response, garage, swap, driving, injuries, result, 44 VO + 25 SFX, stable five-slot loadout | Human difficulty/evidence-camera pass |
 | Post-heist apartment | Built | Wash/change/hide-gear gates Initiation | Three physical cleanup requirements survive reload | Human handoff pacing pass |
 | Initiation | **Terminal WIP** | Entry persists; no completion/outbound | Existing authored scene and shared inventory preserved | Owner playtest and finale decision; then durable oath/completion, outro/credits, callbacks, and regression route |
@@ -127,13 +131,15 @@ edge.
 `VOICE-LINES-TODO.md` is generated from that manifest plus the recorded-file
 index. Do not hand-edit the handoff.
 
-The release manifest contains 2,176 cues and all 2,176 have indexed
-recordings. The final seven pickups were selectively recovered from the late
-audio-production branch: two Eric lines, two Irish lines, two Big Uncle Lou
-lines, and one Tony line in Bada Bing. There are zero missing manifest effects. The 116
-future Initiation-party lines are recorded but their party body is not
-instantiated by the playable frozen scene; they are correctly separated from
-the direct recording run.
+The release manifest contains 2,518 cues. Of those, 2,476 have indexed
+recordings and 42 exact voice files are in the generated pickup run: 16 for the
+Day Four apartment/Golf-call handoff and 26 Silver Pines lines (12
+continuity-revised deliveries plus 14 spoken player choices). Those 42 files
+represent 41 unique performances because the two machine
+announcements deliberately reuse one take. There are zero missing manifest
+effects. The 116 future Initiation-party lines are recorded but their party body
+is not instantiated by the playable frozen scene; they are correctly separated
+from the direct recording run.
 
 All playable authored speech must satisfy three different checks:
 
@@ -142,10 +148,10 @@ All playable authored speech must satisfy three different checks:
 3. scene selector to decoded playback for every resident cue the scene can ask
    for.
 
-Subtitles and duration fallback keep a future missing pickup playable, but
-"wired" is not the same as "recorded." For this release the generated direct
-pickup list is empty; `npm run audio:todo:check`, `npm test`, and
-`npm run check` enforce that state.
+Subtitles and duration fallback keep a missing pickup playable, but "wired" is
+not the same as "recorded." `VOICE-LINES-TODO.md` is the exact 42-file direct
+delivery list; `npm run audio:todo:check`, `npm test`, and `npm run check`
+enforce that it remains synchronized with the runtime.
 
 ## Repository reconciliation
 
@@ -168,12 +174,13 @@ not treated as safe wholesale merges:
 - `codex/hotdog-graveyard-20260801` supplied the current graveyard controls and
   presentation work, which was selectively ported and verified.
 
-The alternative Silver Pines golf prototype is preserved at its original tag
-and at the latest exact start-gate-fixed tip, not discarded. It is not release canon:
-it conflicts with the connected Day Four route, old inventory/audio contracts,
-and current Pages staging. Historical checkpoints remain protected by archive
-tags; obsolete feature and imported working refs can be retired only after the
-consolidation commit is on `main` and live.
+Silver Pines was selectively integrated from the latest start-gate-fixed
+archive rather than merged wholesale. Its three-hole course and authored
+dialogue were adapted to the current campaign identity, shared inventory,
+scene-scoped audio, preview, verification, and GitHub Pages contracts. It is now
+release canon between the Day Four wake and THE TAKE. Historical checkpoints
+remain protected by archive tags; obsolete feature and imported working refs
+can be retired only after the consolidation commit is on `main` and live.
 
 Never copy or inspect the external `ElevenlabsAPi.txt` found in an older audit
 folder. It is outside the repository and must not enter Git; rotate the key if
@@ -185,18 +192,18 @@ it is still live.
 |---|---|---|---|
 | P1 | Initiation has no durable completion/outro/outbound edge | The campaign cannot honestly claim completion | Owner approves the finale; implement oath/result/callbacks, completion state, credits/outro, and fresh-save browser route |
 | P2 | No full fresh-save human playthrough on this exact candidate | Automated contracts cannot judge fun, pacing, camera comfort, or first-time control readability | Owner/friend plays the deployed commit and logs route/scene notes |
-| P2 | Beef Run landing feel and Front-and-Center staging need human review | Source and automation can pass while the experience still feels awkward | Full return landing without assists; watch table/shot/performance without skipping |
+| P2 | Beef Run landing, Front-and-Center staging, and Silver Pines shot/pacing feel need human review | Source and automation can pass while the experience still feels awkward | Full return landing without assists; watch table/shot/performance without skipping; play all three holes in route |
 | P2 | Front-and-Center closing apartment cutscene is absent | Margo continuity jumps from the venue result to the Day Four opening | Author and build the short closing beat, or approve the current intentional ellipsis |
 | P2 | Initial audio/art payload remains larger than necessary | Long waits and memory pressure on weaker machines | Finish scene banks, optional apartment lazy banks, streaming music, fast-start video, optimized runtime art, and budgets |
 | P3 | DJ request exists only in a legacy fallback path | The improved switch is not visible in the normal connected campaign | Intentionally add a Day One/HotDog request beat or leave it as preserved infrastructure |
-| Approval | Silver Pines prototype placement | Competing Day Four structure if restored casually | Decide post-playtest whether it is cut, bonus content, or a later chapter |
 
 ## Performance and packaging
 
-The measured Pages staging audit is 2,662 files / 211.67 MiB; assets are 205.41 MiB.
-The current manifest-owned recorded bank is 2,176 files / 105.36 MiB and can expand to at
-least 1,166 MiB of decoded mono PCM. The web platform is not the root problem;
-eager audio decoding and oversized runtime art are.
+The measured Pages staging audit is 2,986 files / 221.77 MiB; assets are
+215.16 MiB. The current manifest-owned recorded bank is 2,476 files /
+115.01 MiB. Decoding the entire bank still expands past a gigabyte of PCM. The
+web platform is not the root problem; eager audio decoding and oversized
+runtime art are.
 
 This release scopes every production mission loader and reduces the Apartment
 resident plan from 1,343 clips / 66.49 MiB to 864 clips / 43.19 MiB. Apartment
@@ -229,6 +236,8 @@ work is committed. A source-only "looks right" review is insufficient.
       contracts pass.
 - [x] Bing one, HotDog/Bing two, Squatchfather, Beef Run, Motel, Graveyard,
       NO WAKE, Silver, heist, and Initiation browser contracts pass.
+- [x] Silver Pines three-hole, preview, direct-entry, and route contracts pass
+      on the final release commit.
 - [x] Beef Run verifier proves exact voice cues, contextual Sasole pools,
       destination guidance, saved-return setup, touchdown/braking, completion,
       and home route.
@@ -244,10 +253,11 @@ work is committed. A source-only "looks right" review is insufficient.
    verified commit to `main`, push, and wait for Pages.
 3. Confirm the live cache-busted demo and then retire only proven-obsolete
    remote branches/worktrees/imported refs; preserve archive tags.
-4. Give the voice lead the generated seven-file pickup run and reverify the
-   delivered recordings.
+4. Give the voice lead the generated 42-file pickup run (41 unique
+   performances) and reverify the delivered recordings.
 5. Conduct the fresh-save owner/friend playthrough, with special attention to
-   Beef Run's return landing, Booski's shot, Front and Center, and THE TAKE.
+   Beef Run's return landing, Booski's shot, Front and Center, all three Silver
+   Pines holes and their heist handoff, and THE TAKE.
 6. Resolve the Initiation design after that playtest; implement its durable
    completion/outro and final campaign route.
 7. Complete the measured web optimization order, then ship the PWA; add Tauri

@@ -307,6 +307,14 @@ try {
     }
   }
   {
+    const { checkGolfManifest } = await import('./golf-vo.mjs');
+    const drift = checkGolfManifest(sfxManifest);
+    if (drift.length) {
+      fail(`Silver Pines audio catalog drift: ${drift.length} problem(s). `
+        + 'Run `npm run vo:golf`.');
+    }
+  }
+  {
     const {
       initiationManifestCues,
       initiationManifestDrift,

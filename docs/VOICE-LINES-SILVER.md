@@ -1,155 +1,154 @@
-# Front and Center — voice-line manifest
+# Front and Center — voice production contract
 
-Everything anybody says in the Silver Room, and where the file goes.
+This document describes the voice system that the Silver Room actually runs.
+It is a production guide, not a second line list. The generated
+`VOICE-LINES-TODO.md` file is the authority for every recording still needed,
+including the exact filename and spoken text.
 
-## How this works, and why nothing is blocked on it
+## Authoritative catalog and runtime
 
-Same pipeline as the radio and the phone. A line plays `vo.<bank>.<n>`; if the
-mp3 is not there yet the line still appears on screen and holds for a reading
-beat instead. So the mission is fully playable and fully subtitled today, and
-recording it is dropping files into `assets/sfx/vo/` — no code changes, no
-re-timing, no re-wiring.
+`src/silver/voice-catalog.js` builds the complete catalog by exercising the
+authored dialogue trees across their branches, then adding Prospect choices,
+Margo and room barks, cutscene beats, and the Midnight Pines set. The current
+catalog contains **324 unique exact cues**.
 
-That is deliberate. The radio shipped this way and had 214 lines recorded
-afterwards without a line of `radio.js` moving.
+The source-to-browser path is:
 
-**Naming.** `vo.<bank>.<n>.mp3`, where `n` is the index within the bank, one
-based. Reply lines inside a phone call are `vo.<bank>.r<n>.mp3`. This matches
-`src/core/phone.js` and `tools/generate-sfx.mjs`.
+1. `src/silver/script.js` assigns each speakable line or choice its stable
+   `vo.silver.*` cue and maps the speaker bank to a recording profile.
+2. `src/silver/voice-catalog.js` derives the exact cue, profile, and spoken
+   words from the authored runtime scripts.
+3. `npm run vo:silver` synchronizes that catalog into
+   `assets/sfx/manifest.json`; `npm run check:silver-vo` fails on a missing,
+   stale, or changed Silver cue.
+4. `assets/sfx/index.json` lists the recordings the browser may fetch and
+   supplies a content hash for cache busting.
+5. `src/silver/audio.js` preloads only indexed Silver recordings and the
+   scene's music, ambience, footsteps, and shared effects.
+6. The Silver runtime plays the exact cue attached to each NPC line,
+   cutscene beat, bark, band introduction, and Prospect choice. The attempted
+   cue is also written to the runtime VO log for browser verification.
 
-**Timing.** Do not pad. The hold is `duration + 0.45s` when a file exists, so a
-recording with two seconds of room tone on the end reads as a pause the writer
-did not write.
+Do not derive filenames from a speaker's position in an old spreadsheet or
+from a one-based bank counter. Deliver the exact `.mp3` filename emitted by the
+catalog and printed in `VOICE-LINES-TODO.md`. Dynamic dialogue uses stable
+variant tags or a text hash so one branch cannot silently inherit another
+branch's recording.
 
-**Subtitles.** Every intelligible line is already subtitled — the dialogue box
-*is* the subtitle, and it is on for all of them, not just the recorded ones.
-`<em>` is stage direction and renders in amber; it is never spoken.
+Subtitles remain available for every intelligible line. They are the fallback
+when an exact recording is absent, not the scene's primary production state:
+most of Front and Center is already recorded and wired. When a recording is
+present, its actual duration contributes to dialogue hold timing; solo lines
+stop the previous solo voice, and dialogue ducks the live performance mix.
 
----
+## Coverage snapshot
 
-## Margo (bank: `vo.margo`)
+Current Front and Center voice coverage:
 
-The largest part in the mission by some distance, and the only one that has to
-carry a whole personality rather than a job.
+- **324** exact cues in the authored catalog and shared manifest.
+- **314** exact cue recordings listed in `assets/sfx/index.json` and present in
+  `assets/sfx/`.
+- **10** missing recordings, all in the Manager bank after his recast to the
+  scene-local `npc-male` profile.
+- **0** other Front and Center voice pickups.
 
-**Who she is.** Margo Salas, mid-thirties, runs the kitchen at the Blue Hour —
-a twenty-four-hour place on Ashland. She is a **civilian**: no connection to
-Lou, the Bing, the station or anybody in the Silver Room. That is the point of
-her. She is the only person in the mission with nothing at stake, which is what
-makes her good opinion worth earning.
+The previous ten Manager takes used the shared waiter voice. They are retired
+from the runtime and kept only for comparison in
+`assets/audio/auditions/retired-silver-manager-waiter/`. Do not copy those
+takes back into `assets/sfx/`. The `npc-male` casting is a provisional audition
+profile and should be approved by the voice lead before the replacement set is
+locked.
 
-**Direction.** Works nights and sounds like it — warm, a bit worn, not bright.
-Her timing is better than his and she knows it. She has spent fifteen years
-listening to men perform competence in kitchens, so she is never impressed on
-the first take and never sarcastic on the second. When she laughs it should be
-an actual laugh, badly timed, cut off by her own glass; the polite version is a
-different sound and the game uses both.
+## Cue-bank counts
 
-**The thing to get right.** She is the only guest in the building who can read
-the back of house professionally. When she says nobody puts down a pan, she is
-not making an observation — she is pricing it. Play those lines flat and
-technical, not charmed.
+A cue bank identifies the character or role in the filename. A recording
+profile identifies the cast voice used to make that bank. Keeping those two
+concepts separate lets one role be recast without renaming its cues.
 
-| Beat | Bank | Lines | Notes |
-| --- | --- | --- | --- |
-| Bada Bing, first meeting | `vo.margo.bing` | 16 | Tired, guard up, end of a shift. |
-| The phone call | `vo.margo.call` | 5 + 8 replies | Down a phone. Compress the dynamics. |
-| Arrival, the front entrance | `vo.margo.arrive` | 11 | Outdoors, over traffic. |
-| Alley / side door / cellar / kitchen / corridor barks | `vo.margo.route` | 11 | Half of these are over her shoulder while walking. |
-| Reactions to tips, to being recognised | `vo.margo.notice` | 5 | Quiet. Almost to herself. |
-| Left behind, waiting, frustration | `vo.margo.wait` | 5 | Escalating, never shrill. |
-| The table being built | `vo.margo.table` | 5 | The one moment she is genuinely wrong-footed. |
-| Round 1 — the entrance | `vo.margo.r1` | 6 | |
-| Round 2 — what do you do | `vo.margo.r2` | 12 | The construction riff. Dry, not arch. |
-| The drink order | `vo.margo.drink` | 4 | "One. They always bring three." |
-| The family interruption | `vo.margo.ape` | 6 | |
-| "You're funny" / "Funny how?" | `vo.margo.funny` | 5 | See the note below. |
-| Round 6 — the personal question | `vo.margo.personal` | 10 | The burn on her arm. Play it flat — she has told this story a hundred times and it still costs her nothing. |
-| The band | `vo.margo.band` | 5 | Over music; she raises her voice and enjoys it. |
-| The sway | `vo.margo.sway` | 7 | Two of these are her wheezing. |
-| The invitation, all outcomes | `vo.margo.end` | 9 | One per ending. |
-| Ambient, seated | `vo.margo.idle` | 6 | |
+| Cue bank | Recording profile | Cataloged | Indexed | Missing |
+| --- | --- | ---: | ---: | ---: |
+| `announcer` | `announcer` | 1 | 1 | 0 |
+| `ape` | `ape` | 11 | 11 | 0 |
+| `bandleader` | `waiter` | 6 | 6 | 0 |
+| `cellarman` | `waiter` | 3 | 3 | 0 |
+| `chef` | `waiter` | 5 | 5 | 0 |
+| `coatcheck` | `waiter` | 4 | 4 | 0 |
+| `cook` | `waiter` | 4 | 4 | 0 |
+| `dishwasher` | `waiter` | 3 | 3 | 0 |
+| `driver` | `doorman` | 6 | 6 | 0 |
+| `host` | `waiter` | 8 | 8 | 0 |
+| `manager` | `npc-male` | 10 | 0 | 10 |
+| `margo` | `margo` | 116 | 116 | 0 |
+| `photographer` | `waiter` | 3 | 3 | 0 |
+| `player` | `player` | 102 | 102 | 0 |
+| `porter` | `waiter` | 3 | 3 | 0 |
+| `room` | `waiter` | 20 | 20 | 0 |
+| `servicebar` | `waiter` | 3 | 3 | 0 |
+| `vinny` | `doorman` | 4 | 4 | 0 |
+| `waiter` | `waiter` | 12 | 12 | 0 |
+| **Total** |  | **324** | **314** | **10** |
 
-**The "Funny how?" beat.** Her line — *"Funny like a man who has practised that
-question in a mirror"* — has to be delivered without a flicker. She is not
-frightened and she is not playing along; she has stood in front of angrier men
-than this for a living, and she has decided to let him finish it. If she sounds
-like she is enjoying it, the room's silence stops being funny.
+The same catalog grouped by recording profile is: `margo` 116, `player` 102,
+`waiter` 74, `ape` 11, `doorman` 10, `npc-male` 10, and `announcer` 1.
 
-## Prospect (bank: `vo.prospect`)
+## Performance direction
 
-He is the established quiet one. Do not make him suave — the joke is that he is
-running an act that is about two per cent beyond him, and it mostly works.
+**Margo Salas (`margo`, 116 cues).** Mid-thirties, works nights, warm and a
+little worn rather than bright. She has run the Blue Hour kitchen long enough
+to hear rehearsed competence immediately. Her back-of-house observations are
+technical judgments, not wide-eyed admiration. Keep the Funny How response
+flat and unafraid; the joke fails if she sounds frightened or eager to play
+along.
 
-| Beat | Bank | Lines |
-| --- | --- | --- |
-| Phone replies | `vo.prospect.call` | 6 |
-| Arrival, the side entrance | `vo.prospect.arrive` | 8 |
-| Greetings along the route | `vo.prospect.route` | 14 |
-| Table reaction, rounds 1–2 | `vo.prospect.table` | 16 |
-| Drink orders | `vo.prospect.drink` | 8 |
-| Introducing her | `vo.prospect.intro` | 4 |
-| "Funny how?" | `vo.prospect.funny` | 3 |
-| Personal answers | `vo.prospect.personal` | 8 |
-| Band, toast, sway | `vo.prospect.band` | 12 |
-| The invitation | `vo.prospect.invite` | 7 |
+**Prospect (`player`, 102 cues).** He is the established quiet one, not a
+finished smooth operator. The act is just beyond his natural reach and works
+often enough to keep him trying. These are real voiced choices: the dialogue
+runtime fires the selected option's exact cue.
 
-## Staff
+**Ape (`ape`, 11 cues).** Use the same established Ape performer as the rest of
+the campaign. He is delighted that he recognizes Margo's diner and is trying,
+badly, not to show it.
 
-| Who | Bank | Lines | Direction |
-| --- | --- | --- | --- |
-| The driver | `vo.driver` | 6 | A hired car at the end of a long shift. **Not anybody** — no name, no connection, never seen again. He is the only person all night who says thank you out loud for money, and that has to land as ordinary so that everything after it lands as strange. |
-| Vinny, side door | `vo.vinny` | 5 | Opens the door before he speaks. |
-| Marco, cellar | `vo.marco` | 5 | |
-| Delivery driver | `vo.delivery` | 4 | Half under a stack of crates. |
-| Porter | `vo.porter` | 4 | Moving the whole time. |
-| Chef | `vo.chef` | 7 | Shouting at the line between sentences, not at you. |
-| Dishwasher | `vo.dish` | 4 | Cheerful. Talking to nobody. |
-| Service bar | `vo.servicebar` | 5 | |
-| Coat check | `vo.coatcheck` | 5 | The standing-offer line is the important one. |
-| Host | `vo.host` | 6 | Officious until he is overruled, then instantly not. |
-| Manager | `vo.manager` | 8 | Never raises his voice. That is the whole character. |
-| Waiter | `vo.waiter` | 14 | |
-| Photographer | `vo.photog` | 5 | |
-| Announcer | `vo.announcer` | 2 | |
-| Bandleader | `vo.bandleader` | 8 | Out of breath and delighted. |
+**Manager (`npc-male`, 10 pickups).** Distinct from the shared floor-staff
+voice. Controlled authority; never raises his voice. Record or generate all
+ten replacements as one matched set after the audition profile is approved.
 
-## Recurring characters
+**Floor and back-of-house staff (`waiter`, 74 cues across twelve banks).** The
+shared profile is deliberate, while separate cue banks preserve the option to
+recast an individual role later. The room barks are overheard work, not lines
+addressed to the player. Kitchen calls should cross the space with urgency;
+dining-room barks should sit below the date conversation.
 
-| Who | Bank | Lines | Notes |
-| --- | --- | --- | --- |
-| Ape | `vo.ape.silver` | 16 | Established on `Booski & Ape's CS Gambling Show`. Same performer. He eats at her diner and is delighted about it, and he is trying not to be. |
-| The Bing's bouncer | `vo.bouncer.silver` | 2 | In a suit that is nearly his size. |
+**Driver and Vinny (`doorman`, 10 cues).** They share a recording profile but
+remain separate banks. The driver is ordinary and tired; Vinny already knows
+the Prospect.
 
-## Background barks
+**Announcer (`announcer`, 1 cue).** The Midnight Pines introduction is recorded,
+indexed, and wired to the show timeline.
 
-Room tone with words in it. Six to eight takes of each so they do not repeat
-audibly; the game already refuses to play the same one twice running.
+## Delivery workflow
 
-| Zone | Bank | Lines |
-| --- | --- | --- |
-| Alley | `vo.bark.alley` | 2 |
-| Cellar | `vo.bark.cellar` | 2 |
-| Kitchen | `vo.bark.kitchen` | 6 |
-| Corridor | `vo.bark.corridor` | 3 |
-| Dining room | `vo.bark.floor` | 7 |
+`VOICE-LINES-TODO.md` is generated by `npm run audio:todo`. Never hand-edit its
+counts, filenames, or pickup text. Fix the authored line, voice profile, or
+production state and regenerate the file instead.
 
-The kitchen barks are the ones that matter. They are the only thing telling the
-player the room is real, and three of them ("Behind!", "Hot — hot — HOT —",
-"Heard") should be shouted across the player rather than at him.
+For the current Manager pickup:
 
----
+1. Approve or recast the `npc-male` profile in
+   `assets/sfx/manifest.json` before committing replacement performances.
+2. Use the ten exact Manager filenames and lines under **Voice pickups — The
+   Silver Room** in `VOICE-LINES-TODO.md`.
+3. For a repo-generated pass, run `npm run sfx:vo -- --cast npc-male`. For an
+   outside actor or voice service, place the approved files directly in
+   `assets/sfx/` under those exact filenames.
+4. Run `npm run sfx:listen` to rebuild `assets/sfx/index.json`, update each
+   file's cache-busting hash, and audition the delivered takes.
+5. Run `npm run audio:todo` to refresh the generated handoff. The Silver Room
+   pickup section should disappear when all ten replacements are indexed.
+6. Gate the delivery with `npm run check:silver-vo`,
+   `npm run audio:todo:check`, `npm test`, `npm run check`, and
+   `npm run verify:silver`.
 
-## Still to produce
-
-Everything above is written, wired, subtitled and timed. What does not exist
-yet is the audio, plus:
-
-| Item | State | Note |
-| --- | --- | --- |
-| Voice recordings | Not recorded | ~340 lines. Playable and readable without them. |
-| The Midnight Pines' four stems | **Synthesised** | `band.rhythm / horns / piano / vocal` in `core/audio.js`. Real, mixable, and ducking correctly — but they are oscillators. A recorded septet would be a straight swap at the same four keys. |
-| Facial animation | Not supported | The figure has a jaw that opens on speech and eyes that track. There is no viseme system in this engine and this mission did not add one. |
-| Lip sync | Not supported | Same. The jaw works off line duration. |
-| Crowd extras beyond 40 | Deliberate | The dining room runs ~60 figures at three update tiers. More is affordable; more is not better. |
-| A real partner dance | **Deliberately not attempted** | See `perform.js`. Two figures in contact slide in this library and would undo the twenty careful minutes before it. Replaced with the standing sway, the song request, the toast and the photograph, which the brief explicitly allows. |
+When dialogue changes, edit the authored Silver scripts first, then run
+`npm run vo:silver` and `npm run audio:todo`. Do not maintain a parallel manual
+line ledger in this document.
