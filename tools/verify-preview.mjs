@@ -177,6 +177,24 @@ function linksMatchExpected(links, expected) {
     )));
 }
 
+async function verifyTabPause(label) {
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
+  const paused = await page.evaluate(() => ({
+    visible: !document.querySelector('[data-scene-pause]')?.classList.contains('hidden'),
+    objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+    instructions: document.querySelectorAll('[data-scene-pause-instructions] li').length,
+  }));
+  check(`${label}: Tab opens current instructions`,
+    paused.visible && paused.objective.length > 0 && paused.instructions >= 4,
+    JSON.stringify(paused));
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(() => window.__scenePause?.isPaused() === false);
+  const resumed = await page.evaluate(() =>
+    document.querySelector('[data-scene-pause]')?.classList.contains('hidden') === true);
+  check(`${label}: Tab returns control`, resumed);
+}
+
 try {
   await page.goto(`http://localhost:${PORT}/preview.html`, { waitUntil: 'load' });
   const launcher = await page.evaluate(() => ({
@@ -269,6 +287,15 @@ try {
   check('NO WAKE preview leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 
+  await page.goto(`http://localhost:${PORT}/beefrun.html?preview=1`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__beefrun?.mission, null, { timeout: 180000 });
+  await page.evaluate(() => document.getElementById('start-btn').click());
+  await page.waitForFunction(() => document.getElementById('overlay')?.classList.contains('hidden'),
+    null, { timeout: 180000 });
+  await verifyTabPause('The Beef Run');
+  check('playing The Beef Run leaves the canonical save untouched',
+    unchanged(await storageSnapshot()));
+
   await page.goto(`http://localhost:${PORT}/motel.html?preview=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.MOTEL?.story, null, { timeout: 180000 });
   let motel = await page.evaluate(() => ({
@@ -294,6 +321,7 @@ try {
   }));
   check('the Motel preview starts playing', motel.phase === 'car' && motel.status === 'in_progress',
     JSON.stringify(motel));
+  await verifyTabPause('The Jerky Motel');
   check('playing the Motel leaves the canonical save untouched',
     unchanged(await storageSnapshot()));
 

@@ -35,6 +35,7 @@ import {
 } from '../core/campaign.js';
 import { createBadaBingTwoStory } from '../core/bada-bing-two-story.js';
 import { getPreviewRuntime } from '../core/preview-mode.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 import { makeHeldDrinks } from '../world/props.js';
 import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
@@ -2674,6 +2675,37 @@ function fallBackToDragLook() {
   enableInput();
 }
 
+const pauseMenu = createPauseMenu({
+  title: isSecondVisit ? 'Back to the Bada Bing' : 'A Quick Stop at the Bada Bing',
+  canPause: () => game.started && !game.over,
+  getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
+    || (isSecondVisit ? 'Finish your business with Lou.' : 'Return to the car when Lou’s business is settled.'),
+  instructions: [
+    'W A S D — move. E or Click — interact.',
+    'Q — stand up, leave a machine, or get out of the car.',
+    'During dialogue: number keys — answer.',
+    'At blackjack: 1–4 — stake; E — deal or hit; F — stand; R — double.',
+    'At slots: 1/2 — change stake; E — spin.',
+    'Tab — pause and review the current objective.',
+  ],
+  onPause: () => {
+    game.paused = true;
+    player.enabled = false;
+    keys.clear();
+    player.clearKeys();
+    interaction.release();
+    interaction.setPaused(true);
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    game.paused = false;
+    interaction.setPaused(false);
+    audio.ctx?.resume?.();
+    clock.getDelta();
+    requestLock();
+  },
+});
+
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   if (locked) dragLook = false;   // the real thing won; retire the fallback
@@ -2789,7 +2821,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') document.exitPointerLock?.();
   if (e.code === 'Tab') {
     e.preventDefault();
-    ui.objectives.classList.toggle('hidden');
+    pauseMenu.toggle();
   }
 });
 

@@ -103,6 +103,37 @@ check('1a. the visible start button enters the round', !startError,
   startError ? startError.split('\n')[0] : 'opening card dismissed');
 await page.waitForFunction('window.__golf.round.beat !== undefined', null, { timeout: 30000 });
 
+const beforePause = await page.evaluate(() => ({
+  beat: window.__golf.round.beat,
+  x: window.__golf.player.position.x,
+  z: window.__golf.player.position.z,
+}));
+await page.keyboard.press('Tab');
+await page.waitForTimeout(120);
+const tabPause = await page.evaluate(() => ({
+  paused: window.__scenePause?.isPaused() ?? false,
+  visible: !document.querySelector('[data-scene-pause]')?.classList.contains('hidden'),
+  objective: document.querySelector('[data-scene-pause-objective]')?.textContent?.trim() || '',
+  beat: window.__golf.round.beat,
+  x: window.__golf.player.position.x,
+  z: window.__golf.player.position.z,
+}));
+check('1b. Tab opens a pause screen with the current instructions',
+  tabPause.paused && tabPause.visible && tabPause.objective.length > 0,
+  JSON.stringify(tabPause));
+check('1c. pausing does not advance or move the round',
+  tabPause.beat === beforePause.beat && tabPause.x === beforePause.x && tabPause.z === beforePause.z,
+  JSON.stringify({ beforePause, tabPause }));
+await page.keyboard.press('Tab');
+await page.waitForTimeout(120);
+const resumedFromTab = await page.evaluate(() => ({
+  paused: window.__scenePause?.isPaused() ?? true,
+  hidden: document.querySelector('[data-scene-pause]')?.classList.contains('hidden') ?? false,
+}));
+check('1d. Tab returns control to the round',
+  !resumedFromTab.paused && resumedFromTab.hidden,
+  JSON.stringify(resumedFromTab));
+
 /* ------------------------------------------------------------------ */
 /* 1–4 · the scene, the cast, the bag                                  */
 /* ------------------------------------------------------------------ */

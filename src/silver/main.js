@@ -17,6 +17,7 @@ import { SilverAudioEngine } from './audio.js';
 import { Hud } from '../core/hud.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
+import { createPauseMenu } from '../core/pause-menu.js';
 import { Drunk, BEER_UNITS, WHISKEY_UNITS } from '../core/drunk.js';
 import { Highs } from '../core/highs.js';
 import { PostFX } from '../core/postfx.js';
@@ -2041,6 +2042,37 @@ function fallBackToDragLook() {
   hud.say('Pointer lock is blocked here — <em>hold the left button to look around.</em>', 7000);
 }
 
+const pauseMenu = createPauseMenu({
+  title: 'Front and Center',
+  canPause: () => game.started && !game.over,
+  getObjective: () => mission.objectives.find((objective) => !objective.done)?.text
+    || 'Stay with Margo and finish the evening.',
+  instructions: [
+    'W A S D — move. E or Click — interact.',
+    'Q — stand up or leave the current seat.',
+    'During dialogue: number keys — answer.',
+    'At the table: R — say the next planned toast or invitation when it is ready.',
+    'During the sway: press E on the beat.',
+    'Tab — pause and review the current objective.',
+  ],
+  onPause: () => {
+    game.paused = true;
+    player.enabled = false;
+    keys.clear();
+    player.clearKeys();
+    interaction.release();
+    interaction.setPaused(true);
+    audio.ctx?.suspend?.();
+  },
+  onResume: () => {
+    game.paused = false;
+    interaction.setPaused(false);
+    audio.ctx?.resume?.();
+    clock.getDelta();
+    requestLock();
+  },
+});
+
 document.addEventListener('pointerlockchange', () => {
   const locked = document.pointerLockElement === canvas;
   player.enabled = locked || dragLook;
@@ -2103,7 +2135,7 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') document.exitPointerLock?.();
   if (e.code === 'Tab') {
     e.preventDefault();
-    ui.objectives.classList.toggle('hidden');
+    pauseMenu.toggle();
   }
 });
 
