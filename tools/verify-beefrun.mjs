@@ -192,6 +192,25 @@ try {
       builtInOneUpdate: booted.builtInOneUpdate,
     }));
 
+  const keyboardRudder = await page.evaluate(() => {
+    const input = window.__beefrun.input;
+    input.clear();
+    input.usingGamepad = false;
+    input.rudderKeys = true;
+    input.key('KeyQ', true);
+    input.update(.25);
+    const q = input.axes.yaw;
+    input.clear();
+    input.key('KeyE', true);
+    input.update(.25);
+    const e = input.axes.yaw;
+    input.clear();
+    return { q, e };
+  });
+  check('Q and E use the corrected cockpit rudder polarity',
+    keyboardRudder.q > 0 && keyboardRudder.e < 0,
+    JSON.stringify(keyboardRudder));
+
   /* Pressing start decodes the whole sample bank before the mission begins,
    * and that bank is now over a thousand recordings. On a software renderer
    * that is minutes, not seconds — so this wait is budgeted for the load, not

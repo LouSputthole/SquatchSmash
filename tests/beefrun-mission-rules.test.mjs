@@ -86,3 +86,18 @@ test('Space is a hold-to-deploy air brake and clears without latching', () => {
   assert.equal(input.airBrake, 0);
   assert.equal(controls.airBrake, 0);
 });
+
+test('Q and E use the corrected cockpit rudder polarity', () => {
+  const q = new FlightInput();
+  q.rudderKeys = true;
+  q.key('KeyQ', true);
+  q.update(0.25);
+
+  const e = new FlightInput();
+  e.rudderKeys = true;
+  e.key('KeyE', true);
+  e.update(0.25);
+
+  assert.ok(q.axes.yaw > 0, `Q rudder was ${q.axes.yaw}`);
+  assert.ok(e.axes.yaw < 0, `E rudder was ${e.axes.yaw}`);
+});

@@ -106,7 +106,10 @@ export class FlightInput {
       // Q and E are rudder in the air; E is also "interact" on the ground, so
       // the mission enables one or the other, never both.
       if (this.rudderKeys) {
-        want.yaw = (k.has('KeyE') ? 1 : 0) - (k.has('KeyQ') ? 1 : 0);
+        // Keep the keyboard pedals in the cockpit sense players see on screen.
+        // The old polarity made Q/E feel reversed even though the simulation's
+        // internal positive-yaw convention is consistent with the gamepad.
+        want.yaw = (k.has('KeyQ') ? 1 : 0) - (k.has('KeyE') ? 1 : 0);
       }
       for (const axis of ['pitch', 'roll', 'yaw']) {
         const target = clamp(want[axis], -1, 1);
