@@ -29,6 +29,7 @@
     "verify:initiation": "node tools/verify-initiation.mjs",
     "verify:preview": "node tools/verify-preview.mjs",
     "verify:beefrun": "node tools/verify-beefrun.mjs",
+    "verify:beefrun-checkpoints": "node tools/verify-beefrun-checkpoints.mjs",
     "verify:silver": "node tools/verify-silver.mjs",
     "verify:golf": "node tools/verify-golf.mjs",
     "verify:heist": "node tools/verify-heist.mjs",

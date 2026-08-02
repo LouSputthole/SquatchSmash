@@ -16,6 +16,7 @@ import { SCENE_IDS, createCampaign, navigateCampaign } from '../core/campaign.js
 import { createAirstripStory } from '../core/airstrip-story.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { previewBeefRunCheckpointForLocation } from '../core/preview-mode.js';
 import { roomEnvironment } from '../world/textures.js';
 
 import { WP, EH, AC, DIFFICULTY } from './config.js';
@@ -184,7 +185,28 @@ window.__squatch.beefrun = true;
 /* Start / pause                                                      */
 /* ------------------------------------------------------------------ */
 
-const game = { started: false, paused: true, difficulty: 'standard', resume: null };
+const previewCheckpoint = previewBeefRunCheckpointForLocation();
+const PREVIEW_CHECKPOINT_LABELS = Object.freeze({
+  takeoff: 'RUNWAY TAKEOFF',
+  approach: 'EL HUESO APPROACH',
+  departure: 'LOADED DEPARTURE',
+  return: 'HOME APPROACH',
+  landing: 'FINAL LANDING',
+});
+const game = {
+  started: false,
+  paused: true,
+  difficulty: 'standard',
+  resume: null,
+  previewCheckpoint,
+};
+
+if (previewCheckpoint) {
+  const label = PREVIEW_CHECKPOINT_LABELS[previewCheckpoint];
+  const tag = overlay.querySelector('.tag');
+  if (tag) tag.textContent = `Demo checkpoint: ${label}. Progress on this page is temporary.`;
+  startBtn.textContent = `Start ${label.toLowerCase()}`;
+}
 
 for (const btn of diffButtons) {
   btn.addEventListener('click', () => {
@@ -223,7 +245,10 @@ startBtn.addEventListener('click', async () => {
     if (campaign.state.scene.id !== SCENE_IDS.AIRSTRIP_SMUGGLING) {
       campaign.enter(SCENE_IDS.AIRSTRIP_SMUGGLING, { spawn: 'hangar' });
     }
-    game.resume = started.resumed ? RESUME_CHECKPOINT[started.checkpoint] : null;
+    if (game.previewCheckpoint && !story.primePreviewFlightCheckpoint(game.previewCheckpoint)) {
+      throw new Error(`Could not prepare Beef Run preview checkpoint: ${game.previewCheckpoint}`);
+    }
+    game.resume = game.previewCheckpoint ?? (started.resumed ? RESUME_CHECKPOINT[started.checkpoint] : null);
   }
 
   await audio.init();
@@ -242,8 +267,14 @@ startBtn.addEventListener('click', async () => {
     mission.begin(game.difficulty);
     audio.startLoop('ambience.city.day', { volume: 0.03, ambience: true, fade: 3 });
     if (game.resume) {
-      mission.restoreCheckpoint(game.resume);
-      hud.say('<em>Back where you left it.</em>', 4200);
+      const restored = game.resume === 'landing'
+        ? mission.restorePreviewLanding()
+        : mission.restoreCheckpoint(game.resume);
+      if (!restored) throw new Error(`Could not restore Beef Run checkpoint: ${game.resume}`);
+      const label = PREVIEW_CHECKPOINT_LABELS[game.resume];
+      hud.say(game.previewCheckpoint
+        ? `<em>Demo checkpoint:</em> ${label}.`
+        : '<em>Back where you left it.</em>', 4200);
     } else {
       hud.say('<em>Whispering Pines Municipal.</em> Captain Sasole is by the aeroplane.', 5200);
     }

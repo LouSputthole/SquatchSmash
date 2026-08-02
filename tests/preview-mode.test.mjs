@@ -19,6 +19,7 @@ import { createMotelStory } from '../src/core/motel-story.js';
 import {
   APARTMENT_PREVIEW_VARIANTS,
   isPreviewMode,
+  previewBeefRunCheckpointForLocation,
   previewCheckpointForLocation,
   previewDifficultyForLocation,
   previewApartmentVariantForLocation,
@@ -93,6 +94,24 @@ test('heist preview checkpoint and difficulty inputs are bounded', () => {
   assert.equal(previewDifficultyForLocation({
     search: '?preview=1&difficulty=nightmare',
   }), 'professional');
+});
+
+test('Beef Run preview checkpoints are bounded and cannot override a normal save', () => {
+  assert.equal(previewBeefRunCheckpointForLocation({
+    pathname: '/game/beefrun.html', search: '?preview=1&checkpoint=takeoff',
+  }), 'takeoff');
+  assert.equal(previewBeefRunCheckpointForLocation({
+    pathname: '/game/beefrun.html', search: '?preview=1&checkpoint=landing',
+  }), 'landing');
+  assert.equal(previewBeefRunCheckpointForLocation({
+    pathname: '/game/beefrun.html', search: '?preview=1&checkpoint=teleport_everywhere',
+  }), null);
+  assert.equal(previewBeefRunCheckpointForLocation({
+    pathname: '/game/beefrun.html', search: '?checkpoint=takeoff',
+  }), null);
+  assert.equal(previewBeefRunCheckpointForLocation({
+    pathname: '/game/heist.html', search: '?preview=1&checkpoint=takeoff',
+  }), null);
 });
 
 test('motel preview starts unlocked without reading or writing canonical localStorage', () => {

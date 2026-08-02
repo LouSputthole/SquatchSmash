@@ -84,9 +84,35 @@ const HEIST_PREVIEW_CHECKPOINTS = Object.freeze([
   'safehouse_debrief',
 ]);
 
+/* Beef Run has four durable restart points plus one short final-approach
+ * demonstration start.  This list deliberately lives beside the preview URL
+ * parser rather than the campaign checkpoint list: `landing` is a shareable
+ * demo pose, not a fifth state a real campaign can save. */
+const BEEFRUN_PREVIEW_CHECKPOINTS = Object.freeze([
+  'takeoff',
+  'approach',
+  'departure',
+  'return',
+  'landing',
+]);
+
 export function previewCheckpointForLocation(locationLike = globalThis.location) {
   const value = searchParams(locationLike).get('checkpoint');
   return HEIST_PREVIEW_CHECKPOINTS.includes(value) ? value : 'safehouse';
+}
+
+/**
+ * A bounded, preview-only flight start.  Do not fold this into the Heist
+ * helper above: an unknown `checkpoint` must never cause a Beef Run page to
+ * inherit a Heist safehouse value, and non-preview campaign sessions must
+ * always resume their actual saved progress.
+ */
+export function previewBeefRunCheckpointForLocation(locationLike = globalThis.location) {
+  if (!isPreviewMode(locationLike)) return null;
+  const pathname = String(locationLike?.pathname || '').toLowerCase();
+  if (!(pathname.endsWith('/beefrun.html') || pathname.endsWith('beefrun.html'))) return null;
+  const value = searchParams(locationLike).get('checkpoint');
+  return BEEFRUN_PREVIEW_CHECKPOINTS.includes(value) ? value : null;
 }
 
 export function previewDifficultyForLocation(locationLike = globalThis.location) {

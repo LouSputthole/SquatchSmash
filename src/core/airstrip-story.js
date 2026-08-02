@@ -11,6 +11,14 @@ const CHECKPOINTS = Object.freeze([
   'landed_home',
 ]);
 
+const PREVIEW_FLIGHT_CHECKPOINTS = Object.freeze([
+  'takeoff',
+  'approach',
+  'departure',
+  'return',
+  'landing',
+]);
+
 class AirstripStory {
   constructor({ campaign }) {
     this.campaign = campaign;
@@ -68,6 +76,28 @@ class AirstripStory {
       state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].cargoLoaded = true;
     });
     return true;
+  }
+
+  /**
+   * Prepare page-local preview state for a shareable flight link.  The actual
+   * aircraft pose still belongs to MissionController; this only makes a later
+   * direct start coherent if the player flies it through to completion.
+   *
+   * It is intentionally not used for an ordinary saved campaign.  Main calls
+   * it only after the bounded `?preview=1&checkpoint=` URL parser accepts a
+   * value, so no public link can rewrite a player's real save.
+   */
+  primePreviewFlightCheckpoint(checkpoint) {
+    if (!PREVIEW_FLIGHT_CHECKPOINTS.includes(checkpoint)) return false;
+    const mission = this.campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+    if (mission.status !== 'in_progress') return false;
+    if (checkpoint === 'takeoff') return true;
+    if (!this.checkpoint('remote_strip')) return false;
+    if (checkpoint === 'approach') return true;
+    if (!this.loadCargo()) return false;
+    if (!this.checkpoint('returning')) return false;
+    if (checkpoint === 'departure') return true;
+    return this.checkpoint('landed_home');
   }
 
   markDetected() {

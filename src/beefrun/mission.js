@@ -1664,6 +1664,24 @@ export class MissionController {
     return true;
   }
 
+  /**
+   * `landing` is deliberately a preview-only shortcut rather than a campaign
+   * checkpoint.  Build the regular return restore first so cockpit state, Lou,
+   * cargo, audio, HUD, terrain and restart behaviour stay identical to a real
+   * homebound run; only then move the aircraft to a short final approach.
+   */
+  restorePreviewLanding() {
+    if (!this.restoreCheckpoint('return')) return false;
+    const a = HOME_APPROACH.demoLanding;
+    this.physics.setPose(new THREE.Vector3(a.x, a.y, a.z), a.heading, a.speed);
+    this.input.throttle = 0.46;
+    this.input.flaps = 0.5;
+    this.physics.controls.parkingBrake = false;
+    this.terrain.prime(this.physics.position.x, this.physics.position.z);
+    this.aircraft.syncTo(this.physics);
+    return true;
+  }
+
   restoreCargo(saved) {
     // Rebuild the load from the checkpoint. The crates themselves are the ones
     // the player carried; if the sequence was never played they are minted.

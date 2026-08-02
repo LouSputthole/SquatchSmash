@@ -28,6 +28,9 @@ const homeGlideSlope = 0.075;
 // carries through its flare; aiming the mathematical line at the painted
 // touchdown bars made the real wheels arrive beyond the far runway end.
 const homeGlideAimZ = WP.z - WP.rwyHalf - 220;
+// A short, shareable final approach.  It starts before `finalZ` so the normal
+// home phase can light the threshold truck and hand cleanly into final.
+const homeDemoLandingZ = WP.z - 2050;
 export const HOME_APPROACH = Object.freeze({
   acquireZ: WP.z - 4300,
   finalZ: WP.z - 1450,
@@ -39,6 +42,13 @@ export const HOME_APPROACH = Object.freeze({
     x: WP.x,
     z: homeEntryZ,
     y: WP.elev + (homeGlideAimZ - homeEntryZ) * homeGlideSlope,
+    heading: 0,
+    speed: 45,
+  }),
+  demoLanding: Object.freeze({
+    x: WP.x,
+    z: homeDemoLandingZ,
+    y: WP.elev + (homeGlideAimZ - homeDemoLandingZ) * homeGlideSlope,
     heading: 0,
     speed: 45,
   }),

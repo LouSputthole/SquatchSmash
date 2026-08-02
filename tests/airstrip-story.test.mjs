@@ -97,3 +97,23 @@ test('cargo, detection, landing, and completion survive a reload', () => {
     landingQuality: 'clean',
   });
 });
+
+test('preview flight starts prime only the campaign facts their leg needs', () => {
+  const expected = {
+    takeoff: { checkpoint: 'airstrip', cargoLoaded: false },
+    approach: { checkpoint: 'remote_strip', cargoLoaded: false },
+    departure: { checkpoint: 'returning', cargoLoaded: true },
+    return: { checkpoint: 'landed_home', cargoLoaded: true },
+    landing: { checkpoint: 'landed_home', cargoLoaded: true },
+  };
+
+  for (const [checkpoint, want] of Object.entries(expected)) {
+    const campaign = campaignReadyForAirstrip();
+    const story = createAirstripStory({ campaign });
+    assert.equal(story.begin().ok, true, checkpoint);
+    assert.equal(story.primePreviewFlightCheckpoint(checkpoint), true, checkpoint);
+    const saved = campaign.state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING];
+    assert.equal(saved.checkpoint, want.checkpoint, checkpoint);
+    assert.equal(saved.cargoLoaded, want.cargoLoaded, checkpoint);
+  }
+});
