@@ -29,6 +29,19 @@ export class WeatherSystem {
     this.turbulence = 0.35;     // base roughness of the air
     this.cloudDensity = 0.5;
 
+    /* ---- Added for src/enolasquatch (The Enola Squatch) ----
+     * Beef Run's `dusk` only ever needed to reach a purple-ish evening —
+     * nothing in that mission flies past sunset. A genuine night bombing run
+     * wants actual black sky with moonlight, and occasional lightning near
+     * the flak. Both are new, independently-zeroed fields that default to
+     * exactly the behaviour above: `night` at 0 changes nothing in `update()`
+     * below (its lerp factor is 0), and `lightning` at 0 never starts the
+     * flash timer at all. Beef Run never sets either, so this is additive. */
+    this.night = 0;             // 0..1, pushes the sky/fog further toward black than `dusk` alone does
+    this.lightning = 0;         // 0..1, 0 = off; >0 = periodic brief flashes, roughly every (5 / lightning)s
+    this._lightningT = 0;
+    this.lightningFlash = 0;    // 0..1 read-only: how bright the current flash is, for anything that wants to react (tracer visibility, a camera shake hook, etc.)
+
     this.wind = new THREE.Vector3();
     this.gust = new THREE.Vector3();
     this._gustPhase = new THREE.Vector3(Math.random() * 100, Math.random() * 100, Math.random() * 100);
@@ -175,14 +188,47 @@ export class WeatherSystem {
     const pal = zonePalette(focus.z);
     const duskSky = new THREE.Color(0x2a2440);
     const duskHorizon = new THREE.Color(0xd97a3a);
-    const target = pal.sky.clone().lerp(duskHorizon, this.dusk * 0.55).lerp(duskSky, this.dusk * this.dusk * 0.5);
+    let target = pal.sky.clone().lerp(duskHorizon, this.dusk * 0.55).lerp(duskSky, this.dusk * this.dusk * 0.5);
+    let fogTarget = pal.fog.clone().lerp(duskHorizon, this.dusk * 0.4).lerp(duskSky, this.dusk * this.dusk * 0.6);
+
+    /* ---- night (additive, see the field comment above) ----
+     * Zero by default, so `target`/`fogTarget` above are untouched for Beef
+     * Run. Pushed toward a genuine near-black rather than `duskSky` — which
+     * is a purple *lighter* than most of the Enola Squatch's own night zone
+     * palette (see ZONES_EAST in src/enolasquatch/config.js) and would have
+     * brightened the sky at full dusk instead of darkening it. */
+    if (this.night > 0) {
+      const trueNight = new THREE.Color(0x040611);
+      target = target.lerp(trueNight, this.night * 0.85);
+      fogTarget = fogTarget.lerp(trueNight, this.night * 0.7);
+    }
     this.sky.lerp(target, clamp(dt * 1.2, 0, 1));
     this.scene.background = this.sky;
 
-    const fogTarget = pal.fog.clone().lerp(duskHorizon, this.dusk * 0.4).lerp(duskSky, this.dusk * this.dusk * 0.6);
     this.fog.color.lerp(fogTarget, clamp(dt * 1.2, 0, 1));
     this.fog.near = damp(this.fog.near, pal.fogNear * (1 - this.rain * 0.45), 0.8, dt);
     this.fog.far = damp(this.fog.far, pal.fogFar * (1 - this.rain * 0.55) * (1 - this.dusk * 0.3), 0.8, dt);
+
+    /* ---- lightning (additive) ----
+     * A periodic brief flash: the background and both lights kick up for a
+     * couple of frames, then decay. `lightning` at 0 (Beef Run's permanent
+     * value) skips this block entirely — no timer runs, `lightningFlash`
+     * stays 0, nothing about the frame changes. */
+    if (this.lightning > 0) {
+      this._lightningT -= dt;
+      if (this._lightningT <= 0 && this.lightningFlash <= 0.01) {
+        this._lightningT = lerp(9, 2, clamp(this.lightning, 0, 1)) * (0.6 + Math.random() * 0.8);
+        this.lightningFlash = 1;
+      }
+      if (this.lightningFlash > 0) {
+        // Fast in (it's already happened by the time you see it), slower out.
+        this.lightningFlash = Math.max(0, this.lightningFlash - dt * 3.2);
+        const flashColor = new THREE.Color(0xdce8ff);
+        this.scene.background = this.sky.clone().lerp(flashColor, this.lightningFlash * 0.85);
+      }
+    } else {
+      this.lightningFlash = 0;
+    }
 
     // Sun: high and hard at midday, low and orange by the time they get home.
     // 0.28 rad is about sixteen degrees: low enough to read as evening, high
@@ -198,6 +244,10 @@ export class WeatherSystem {
     this.sun.intensity = damp(this.sun.intensity, lerp(2.4, 0.75, this.dusk) * (1 - this.rain * 0.45), 1.5, dt);
     this.hemi.intensity = damp(this.hemi.intensity, lerp(1.05, 0.8, this.dusk) * (1 - this.rain * 0.2), 1.5, dt);
     this.hemi.color.lerp(new THREE.Color(0xcfe4ff).lerp(new THREE.Color(0x8a6a9a), this.dusk), clamp(dt * 2, 0, 1));
+    // Lightning bump, applied after the damp above so it is not immediately
+    // overwritten by it — a flash that the very next line erases is not a
+    // flash. Zero whenever `lightning` is off, per the block above.
+    if (this.lightningFlash > 0) this.hemi.intensity += this.lightningFlash * 1.4;
 
     // Clouds ride with the aeroplane, wrapped into a slab around it.
     const span = 3600;
@@ -236,12 +286,16 @@ export class WeatherSystem {
   }
 
   /** Preset conditions per mission phase. */
-  setConditions({ turbulence, crosswind, rain, cloudDensity, dusk }) {
+  setConditions({ turbulence, crosswind, rain, cloudDensity, dusk, night, lightning }) {
     if (turbulence !== undefined) this.turbulence = turbulence;
     if (crosswind !== undefined) this.crosswind = crosswind;
     if (rain !== undefined) this.rain = rain;
     if (cloudDensity !== undefined) this.cloudDensity = cloudDensity;
     if (dusk !== undefined) this.dusk = dusk;
+    // Both additive — see the field comments in the constructor. Beef Run
+    // never passes either key, so its calls to setConditions are unaffected.
+    if (night !== undefined) this.night = clamp(night, 0, 1);
+    if (lightning !== undefined) this.lightning = clamp(lightning, 0, 1);
   }
 }
 

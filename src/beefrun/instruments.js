@@ -23,9 +23,16 @@ const DIALS = [
 ];
 
 export class Instruments {
-  constructor(canvas) {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {object} [opts]
+   * @param {object} [opts.ac] aircraft tuning profile (dial scaling, fuel
+   *   capacity), defaults to Beef Run's AC.
+   */
+  constructor(canvas, { ac = AC } = {}) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.ac = ac;
     this.dirty = true;
     this.t = 0;
     this.acc = 0;
@@ -54,7 +61,7 @@ export class Instruments {
     n.rpmR = damp(n.rpmR, engines.engines[1].rpm + wob() * 12, 7, dt);
     n.tempL = damp(n.tempL, engines.engines[0].temp, 3, dt);
     n.tempR = damp(n.tempR, engines.engines[1].temp, 3, dt);
-    n.fuel = damp(n.fuel, clamp(engines.fuel / AC.fuelMass, 0, 1), 1.2, dt);
+    n.fuel = damp(n.fuel, clamp(engines.fuel / this.ac.fuelMass, 0, 1), 1.2, dt);
     // Oil pressure reads low and always has. There is a note about it.
     n.oil = damp(n.oil, engines.anyRunning ? 14 + (n.rpmL / 2450) * 42 : 3, 2, dt);
     this.battery = state.battery !== false;

@@ -39,9 +39,10 @@ const RIGHT = new THREE.Vector3(1, 0, 0);
 const _euler = new THREE.Euler();
 
 export class AircraftPhysics {
-  constructor({ getHeight, getNormal = null }) {
+  constructor({ getHeight, getNormal = null, ac = AC }) {
     this.getHeight = getHeight;
     this.getNormal = getNormal;
+    this.ac = ac;
 
     this.position = new THREE.Vector3();
     this.velocity = new THREE.Vector3();
@@ -54,7 +55,7 @@ export class AircraftPhysics {
       flaps: 0, brake: 0, airBrake: 0, parkingBrake: true,
     };
 
-    this.mass = AC.emptyMass + AC.fuelMass;
+    this.mass = this.ac.emptyMass + this.ac.fuelMass;
     this.cgOffset = 0;        // + = nose heavy, - = tail heavy (metres of shift)
     this.wind = new THREE.Vector3();
     this.gust = new THREE.Vector3();
@@ -64,9 +65,9 @@ export class AircraftPhysics {
     this.damage = { wing: 0, gear: 0, tireBurst: false };
 
     this.wheels = [
-      { pos: new THREE.Vector3(0, -AC.gearY, 2.15), steer: true, brake: false },
-      { pos: new THREE.Vector3(-AC.track / 2, -AC.gearY, -0.55), steer: false, brake: true },
-      { pos: new THREE.Vector3(AC.track / 2, -AC.gearY, -0.55), steer: false, brake: true },
+      { pos: new THREE.Vector3(0, -this.ac.gearY, 2.15), steer: true, brake: false },
+      { pos: new THREE.Vector3(-this.ac.track / 2, -this.ac.gearY, -0.55), steer: false, brake: true },
+      { pos: new THREE.Vector3(this.ac.track / 2, -this.ac.gearY, -0.55), steer: false, brake: true },
     ];
 
     // Readouts
@@ -152,16 +153,16 @@ export class AircraftPhysics {
     this.beta = beta;
 
     const qbar = 0.5 * rho * V * V;
-    const S = AC.wingArea;
+    const S = this.ac.wingArea;
 
     // Ground effect inside a wingspan of the surface.
-    const ge = smoothstep(AC.span * 0.9, AC.span * 0.12, Math.max(this.agl, 0));
+    const ge = smoothstep(this.ac.span * 0.9, this.ac.span * 0.12, Math.max(this.agl, 0));
     const geLift = 1 + ge * 0.28;
     const geDrag = 1 - ge * 0.35;
 
     // ---------- Lift / stall ----------
-    let CL = AC.CL0 + AC.CLa * alpha + AC.flapCL * c.flaps;
-    const aStall = AC.alphaStall + c.flaps * 0.02 + this.assist.stallGuard * 0.08;
+    let CL = this.ac.CL0 + this.ac.CLa * alpha + this.ac.flapCL * c.flaps;
+    const aStall = this.ac.alphaStall + c.flaps * 0.02 + this.assist.stallGuard * 0.08;
     const stallT = smoothstep(aStall, aStall + 0.16, Math.abs(alpha));
     this.stallT = stallT;
     this.stalled = stallT > 0.35 && V > 4;
@@ -170,10 +171,10 @@ export class AircraftPhysics {
 
     const wingHealth = 1 - this.damage.wing * 0.4;
     const L = qbar * S * CL * wingHealth;
-    const CD = AC.CD0 + this.damage.wing * 0.05
-      + AC.kInduced * CL * CL * geDrag
-      + AC.flapCD * c.flaps
-      + AC.airBrakeCD * clamp(c.airBrake || 0, 0, 1)
+    const CD = this.ac.CD0 + this.damage.wing * 0.05
+      + this.ac.kInduced * CL * CL * geDrag
+      + this.ac.flapCD * c.flaps
+      + this.ac.airBrakeCD * clamp(c.airBrake || 0, 0, 1)
       + stallT * 0.09;
     const D = qbar * S * CD;
     const sideF = qbar * S * (-1.15 * beta);
@@ -189,15 +190,31 @@ export class AircraftPhysics {
     }
 
     // ---------- Thrust ----------
-    const tL = this.engines ? this.engines.thrust(0, V, rho) : 0;
-    const tR = this.engines ? this.engines.thrust(1, V, rho) : 0;
+    // Sums every engine the aircraft has, not just indices 0/1 -- a 4-engine
+    // layout (see src/enolasquatch) needs its outer two engines to actually
+    // push, not just spin and burn fuel. thrustL/thrustR stay meaningful as
+    // "total thrust on each side" for the asymmetric-yaw term below: engines
+    // are split by whether their configured name contains 'left'/'right'
+    // (falling back to even/odd index for a plain ['left','right'] pair, so
+    // Beef Run's own two-engine math is unchanged).
+    let tL = 0;
+    let tR = 0;
+    if (this.engines) {
+      const names = this.engines.engineNames || ['left', 'right'];
+      for (let i = 0; i < names.length; i++) {
+        const t = this.engines.thrust(i, V, rho);
+        const name = String(names[i]).toLowerCase();
+        const isRight = name.includes('right') || (!name.includes('left') && i % 2 === 1);
+        if (isRight) tR += t; else tL += t;
+      }
+    }
     this.thrustL = tL;
     this.thrustR = tR;
     sForce.z += tL + tR;
 
     // ---------- Moments ----------
     sTorque.set(0, 0, 0);
-    const b = AC.span, ch = AC.chord;
+    const b = this.ac.span, ch = this.ac.chord;
     const Vref = Math.max(V, 12);
     const qSc = qbar * S * ch;
     const qSb = qbar * S * b;
@@ -231,18 +248,22 @@ export class AircraftPhysics {
     // had any air over it, which is not a handling characteristic, it is a
     // parked aeroplane spinning on its nosewheel.
     //
-    // Signs are in the pilot's frame, which is the only frame anybody in this
-    // mission speaks in. The nose is +Z, so a positive moment about +Y swings
+    // Signs are in the pilot's frame, which is the only frame anybody in these
+    // missions speaks in. The nose is +Z, so a positive moment about +Y swings
     // the nose toward +X, and +X is his LEFT. Therefore: the left engine sits
-    // at +3.05 and its thrust yaws him RIGHT (hence the minus), and "she pulls
+    // on +X and its thrust yaws him RIGHT (hence the minus), and "she pulls
     // left" is a positive torque. All three used to carry the other sign, so
     // the left engine lived on the right wing and the aeroplane that Sasole
     // says pulls left pulled right off the centreline every takeoff.
+    //
+    // The constants come off `this.ac` so a second airframe brings its own;
+    // the 3.05 m moment arm does not yet, which is fine for the Brushrunner it
+    // was measured on and approximate for anything wider.
     sTorque.y -= (tL - tR) * 3.05 * 0.9;
-    const slowPower = clamp((tL + tR) / (AC.thrustMax * 2), 0, 1)
+    const slowPower = clamp((tL + tR) / (this.ac.thrustMax * 2), 0, 1)
       * smoothstep(0, 13, V) * clamp(1 - V / 55, 0, 1);
-    sTorque.y += slowPower * AC.torqueYaw * this.assist.torque;
-    sTorque.z -= slowPower * AC.torqueRoll * this.assist.torque;
+    sTorque.y += slowPower * this.ac.torqueYaw * this.assist.torque;
+    sTorque.z -= slowPower * this.ac.torqueRoll * this.assist.torque;
 
     // Stall: nose drops, one wing lets go first.
     if (stallT > 0.3 && !this.onGround) {
@@ -312,7 +333,7 @@ export class AircraftPhysics {
          * end; it looked like an aeroplane that wandered off the runway.
          * Measured open-loop it was unmistakable: full pedal produced twenty-
          * two degrees a second squared of yaw the other way. */
-        const steer = c.yaw * AC.groundSteer * clamp(1 - V / AC.steerFadeV, 0, 1);
+        const steer = c.yaw * this.ac.groundSteer * clamp(1 - V / this.ac.steerFadeV, 0, 1);
         sFwd.applyAxisAngle(UP, steer);
       }
       sSide.copy(sFwd).cross(UP).normalize();
@@ -418,9 +439,9 @@ export class AircraftPhysics {
     }
 
     // Angular integration (diagonal inertia: pitch about X, yaw about Y, roll about Z).
-    this.omega.x += (sTorque.x / AC.Iyy) * dt;
-    this.omega.y += (sTorque.y / AC.Izz) * dt;
-    this.omega.z += (sTorque.z / AC.Ixx) * dt;
+    this.omega.x += (sTorque.x / this.ac.Iyy) * dt;
+    this.omega.y += (sTorque.y / this.ac.Izz) * dt;
+    this.omega.z += (sTorque.z / this.ac.Ixx) * dt;
     this.omega.multiplyScalar(Math.exp(-0.3 * dt));
 
     sQuat.set(this.omega.x * dt * 0.5, this.omega.y * dt * 0.5, this.omega.z * dt * 0.5, 1).normalize();
