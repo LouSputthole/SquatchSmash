@@ -26,6 +26,19 @@ const WARNINGS = {
   located: { text: 'LOCATED', kind: 'red' },
   fuel: { text: 'FUEL LOW', kind: 'amber' },
   gear: { text: 'GEAR DAMAGE', kind: 'amber' },
+
+  /* ---- Added for src/enolasquatch (The Enola Squatch) ----
+   * Purely additive: new keys only, nothing above this renamed or removed.
+   * Shape and lookup path are identical (`setWarnings(active)` already takes
+   * a Set of keys and renders whatever WARNINGS[k] resolves to), so Beef
+   * Run's own warning set is untouched by this addition. See
+   * `src/enolasquatch/config.js`'s `WARNINGS_ENOLA` for the source of truth
+   * on wording/kind — kept identical here so the two never drift. */
+  electrical: { text: 'ELECTRICAL FAULT', kind: 'amber' },
+  bombBay: { text: 'BOMB BAY FAULT', kind: 'red' },
+  payloadArmed: { text: 'PAYLOAD ARMED', kind: 'amber' },
+  flak: { text: 'TAKING FIRE', kind: 'red' },
+  overweight: { text: 'OVERWEIGHT', kind: 'amber' },
 };
 
 export class FlightHud {
