@@ -128,6 +128,30 @@ const anchors = { ...grounds.anchors, ...interior.anchors };
 /* light and spend a second 1536x1536 shadow map for no visual gain. The   */
 /* only lighting-adjacent thing left for this file is renderer-level       */
 /* config (tone mapping, shadow map type), done above.                    */
+/*                                                                        */
+/* Ceilings/soffits reading solid black (this pass's item 9): measured,    */
+/* not guessed. Sampling actual rendered pixels straight up at the hall     */
+/* chandelier and elsewhere showed the roof underside sitting at ~(0-9,    */
+/* 0-5, 0-2) -- genuinely solid black on screen. Both remedies the brief    */
+/* suggested were tried and MEASURED before picking one:                   */
+/*   - HemisphereLight ground-colour brightening: even pushed to a near-   */
+/*     white 0xb0a894 ground at the existing 0.9 intensity, the sampled    */
+/*     roof pixel barely moved (3,2,0) -- negligible.                      */
+/*   - A scene-wide AmbientLight: had to be pushed to ~intensity 50-80      */
+/*     before the SAME roof pixel became clearly non-black -- but at that   */
+/*     intensity the exterior night sky/grass baseline and already-lit      */
+/*     interior walls measured 90-130+/255, blowing the whole night mood    */
+/*     out toward daylight. Neither is a safe, surgical fix in this         */
+/*     engine's lighting-unit convention (point lights get a large inverse- */
+/*     square boost at close range that ambient/hemisphere never get).      */
+/* What DID measurably work (confirmed the same way): a real PointLight     */
+/* placed close to the surface that needs it. So this only adds one more    */
+/* such light, close to the hall's own roof underside above the chandelier   */
+/* -- the single most prominent double-height ceiling in the house --       */
+/* rather than a scene-wide knob that can't hit this target without          */
+/* wrecking everything else. Kitchen/boardroom/trophy/office/basement each   */
+/* already got their own close-to-ceiling fixture in this same pass (see     */
+/* MansionInterior.js), which is the same fix applied room by room.         */
 /* ================================================================== */
 
 /* ================================================================== */

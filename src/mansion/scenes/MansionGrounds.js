@@ -1244,6 +1244,39 @@ export function buildMansionGrounds(scene = null) {
     return g;
   }
 
+  // Deck-level tiki torches -- the patio used to be lit only at the water
+  // itself (`poolLight`, below), so the surrounding deck/lounge chairs/pool
+  // walls vanished into black a few metres out and it read as "a lit
+  // rectangle of water in a void" rather than a patio. A handful of cheap
+  // pole+flame+PointLight fixtures at deck level, in the same family-compound
+  // material idiom as `lampPost()` (M_LAMP_POST pole, warm point light), fixes
+  // that without touching the pool/water build above.
+  const M_TORCH_CAP = mat({ color: 0x3a2a18, roughness: 0.75 });
+  const torchFlames = [];
+  function buildTikiTorch(x, z) {
+    const poleH = 1.5;
+    root.add(cylinder({
+      r: 0.05, h: poleH, pos: [x, GROUND_Y + poleH / 2, z], mat: M_LAMP_POST,
+    }));
+    root.add(cylinder({
+      rTop: 0.1, rBottom: 0.15, h: 0.16, pos: [x, GROUND_Y + poleH + 0.06, z], mat: M_TORCH_CAP,
+    }));
+    const flame = sphere({
+      r: 0.1,
+      pos: [x, GROUND_Y + poleH + 0.22, z],
+      mat: mat({
+        color: 0x000000, emissive: 0xff9a3c, emissiveIntensity: 2.0, roughness: 1, unique: true,
+      }),
+    });
+    root.add(flame);
+    const light = new THREE.PointLight(0xff9a44, 5.5, 13, 2);
+    light.position.set(x, GROUND_Y + poleH + 0.24, z);
+    root.add(light);
+    solid(x - 0.1, x + 0.1, GROUND_Y, GROUND_Y + poleH, z - 0.1, z + 0.1);
+    torchFlames.push({ flame, light, baseIntensity: 5.5, seed: Math.random() * 10 });
+    return { flame, light };
+  }
+
   function buildPoolPatio() {
     const pad = 6;
     const deckSegs = [
@@ -1294,8 +1327,18 @@ export function buildMansionGrounds(scene = null) {
       [11, 80, Math.PI], [11, 84.5, Math.PI], [11, 89, Math.PI],
     ].map(([x, z, yaw]) => buildLoungeChair(x, GROUND_Y, z, yaw));
 
+    // Four deck-level tiki torches at the patio's corners -- clear of the
+    // lounge-chair rows (z:80-89) and the pool itself, spread across the
+    // full deck (x:-13..13, z:75..95) so the chairs/walls/deck boards
+    // actually read at night instead of vanishing a few metres past the
+    // water's own glow.
+    const torches = [
+      buildTikiTorch(-12, 76.5), buildTikiTorch(12, 76.5),
+      buildTikiTorch(-12, 93.5), buildTikiTorch(12, 93.5),
+    ];
+
     return {
-      pool: POOL, waterY: poolWaterY, water, light: poolLight, chairs,
+      pool: POOL, waterY: poolWaterY, water, light: poolLight, chairs, torches,
     };
   }
   const poolPatio = buildPoolPatio();
@@ -1365,9 +1408,15 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   /* Per-frame update: water shader time + the fountain's upward spray  */
   /* ---------------------------------------------------------------- */
+  let torchTime = 0;
   function update(dt) {
     for (const m of waterMaterials) m.uniforms.uTime.value += dt;
     fountain.spray.update(dt);
+    torchTime += dt;
+    for (const t of torchFlames) {
+      const flick = 0.82 + 0.18 * Math.sin(torchTime * 9 + t.seed) * Math.sin(torchTime * 3.1 + t.seed * 2);
+      t.light.intensity = t.baseIntensity * flick;
+    }
   }
 
   return {

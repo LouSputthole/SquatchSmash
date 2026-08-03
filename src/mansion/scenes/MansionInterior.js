@@ -27,7 +27,15 @@ import * as THREE from 'three';
 import {
   mat, box, cylinder, sphere, collider, group,
 } from '../../world/build.js';
-import { rugTex, fabricTex } from '../../world/textures.js';
+import { rugTex, fabricTex, tileTex } from '../../world/textures.js';
+// Basement wall panels + the living room's wall art reuse the exact same
+// idioms MansionGrounds.js's driveway pass already established: `tiled()`
+// (bing/kit.js's own doc comment -- "textures are cached and shared, so
+// clone before retiling") for a concrete/stone-look repeat, and
+// `squatchArt()` (already used for the trophy room's own family-crest look
+// via its shared silhouette) for a quick framed piece of wall art, instead
+// of inventing either from scratch.
+import { tiled, squatchArt } from '../../bing/kit.js';
 import {
   GROUND_Y, UPPER_Y, UPPER_CEILING_Y, BASEMENT_Y, ATRIUM,
 } from './MansionGrounds.js';
@@ -86,6 +94,7 @@ const M_POT = mat({ color: 0x8a8f96, roughness: 0.3, metalness: 0.7 });
 const M_CARD = mat({ color: 0xf2ead8, roughness: 0.5 });
 const M_CRATE = mat({ color: 0x4a3a26, roughness: 0.85 });
 const M_RACK = mat({ color: 0x2a2e33, roughness: 0.5, metalness: 0.55 });
+const M_RACK_BACK = mat({ color: 0x1c1e22, roughness: 0.8 });
 const M_BULB_WARM = mat({
   color: 0x000000, emissive: 0xffe3b0, emissiveIntensity: 1.6, roughness: 1, unique: true,
 });
@@ -100,6 +109,25 @@ const M_JERSEY = mat({ color: 0x1c3d7a, roughness: 0.7 });
 const M_RUG_LIVING = mat({ map: rugTex(), roughness: 0.9 });
 const M_FABRIC_COUCH = mat({ map: fabricTex('#5e161f'), roughness: 0.85 });
 const M_FABRIC_CHAIR = mat({ map: fabricTex('#241a16'), roughness: 0.85 });
+const M_CURTAIN = mat({ map: fabricTex('#33425a'), roughness: 0.82 });
+
+/* ================================================================== */
+/* Basement concrete/stone wall panels -- a damper, rougher surface than  */
+/* upstairs' marble, drawn with the exact same `tileTex()` (one grouted   */
+/* tile square) + `tiled()` (clone-then-retile) idiom MansionGrounds.js's */
+/* driveway pass already uses for its paver material, just with a colder, */
+/* darker, less regular grout/face pair standing in for poured concrete   */
+/* blockwork instead of dressed pavers.                                   */
+/* ================================================================== */
+const concreteBase = tileTex(5, '#2e2b26', '#726c60');
+function concreteMaterial(w, h) {
+  return mat({
+    map: tiled(concreteBase, Math.max(1, Math.round(w / 1.3)), Math.max(1, Math.round(h / 1.3))),
+    color: 0xffffff,
+    roughness: 0.96,
+    unique: true,
+  });
+}
 
 /* ================================================================== */
 /* Canvas-texture label -- checked src/world/ and src/core/ first (see    */
@@ -491,6 +519,18 @@ export function buildMansionInterior(shell = null) {
     chandelierLight.position.set(cp.x, cp.y - 0.3, cp.z);
     root.add(chandelierLight);
 
+    // Roof-wash light -- the double-height atrium's roof underside (the
+    // single most prominent ceiling in the house) still read solid black
+    // even directly above the chandelier: a PointLight aimed downward at
+    // the hall floor doesn't meaningfully light the surface behind/above
+    // itself. This one sits close to the roof instead (measured: a real
+    // PointLight within ~1m of a surface lights it properly; a global
+    // ambient/hemisphere bump does not, at any intensity that doesn't also
+    // blow out the rest of the scene -- see main.js's note on this).
+    const roofWashLight = new THREE.PointLight(0xfff3d8, 9, 13, 2);
+    roofWashLight.position.set(cp.x, UCY - 0.5, cp.z);
+    root.add(roofWashLight);
+
     // Two small statues flanking the entry.
     buildSmallStatue(-2.8, 42, GY, M_SILVER);
     buildSmallStatue(2.8, 42, GY, M_SILVER);
@@ -542,6 +582,54 @@ export function buildMansionInterior(shell = null) {
     makeCouch(-10, 45.6, 0);
     makeCouch(-12.3, 47.9, Math.PI / 2, 2.0);
     makeCouch(-7.7, 47.9, -Math.PI / 2, 2.0);
+
+    // A handful of throw pillows -- small, slightly cocked boxes in a
+    // contrasting fabric, tossed against each couch's back cushion. Purely
+    // decorative (no collider): this room read as the barest-dressed public
+    // room in the house with nothing softening its flat couch boxes.
+    const M_PILLOW_GOLD = mat({ map: fabricTex('#c9a13a'), roughness: 0.85 });
+    const M_PILLOW_CREAM = mat({ map: fabricTex('#e8ddc4'), roughness: 0.85 });
+    const pillows = [
+      [-10.75, GY + 0.62, 45.78, 0.32, M_PILLOW_GOLD],
+      [-9.25, GY + 0.62, 45.78, -0.22, M_PILLOW_CREAM],
+      [-12.3, GY + 0.62, 47.55, Math.PI / 2 + 0.28, M_PILLOW_CREAM],
+      [-7.7, GY + 0.62, 48.25, -Math.PI / 2 - 0.24, M_PILLOW_GOLD],
+    ];
+    for (const [px, py, pz, yaw, pmat] of pillows) {
+      root.add(box({
+        size: [0.32, 0.24, 0.32], pos: [px, py, pz], mat: pmat, rotY: yaw, rotX: 0.14, rotZ: 0.1, name: 'living-pillow',
+      }));
+    }
+
+    // Wall-hung family art on the (bare, solid) west wall -- reuses
+    // bing/kit.js's squatchArt(), the same drawn-silhouette-plus-lettering
+    // idiom already used for the trophy room's championship banner, so the
+    // family crest reads consistently everywhere it appears in the house.
+    const artTex = squatchArt('mansion-living-art', {
+      title: ['THE SILVER', 'SASQUATCHES'], footer: 'FAMILY, FIRST', ink: '#c8a24a', bg: '#20161a',
+    });
+    root.add(box({
+      size: [0.05, 2.15, 1.7], pos: [-15.93, GY + 2.0, 53], mat: M_WOOD_DK, name: 'living-art-frame',
+    }));
+    const art = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.55, 1.95),
+      mat({ map: artTex, roughness: 0.85, unique: true }),
+    );
+    art.rotation.y = Math.PI / 2;
+    art.position.set(-15.88, GY + 2.0, 53);
+    root.add(art);
+
+    // Drape panels flanking the south glass wall -- the window itself stays
+    // clear (it's Phase 1's real glazing), but a curtain panel at each edge
+    // gives the room a dressed, lived-in south wall instead of bare glass.
+    for (const cx of [-15.6, -4.4]) {
+      root.add(box({
+        size: [0.3, 3.5, 0.08], pos: [cx, GY + 1.9, 41.35], mat: M_CURTAIN, name: 'living-curtain',
+      }));
+      root.add(box({
+        size: [0.42, 0.1, 0.1], pos: [cx, GY + 3.68, 41.35], mat: M_WOOD_DK, name: 'living-curtain-rod',
+      }));
+    }
 
     const table = box({
       size: [1.6, 0.4, 0.9], pos: [-10, GY + 0.2, 47.5], mat: M_MARBLE, name: 'living-coffee-table',
@@ -634,8 +722,32 @@ export function buildMansionInterior(shell = null) {
       size: [6.3, 3.5, 0.06], pos: [tableX, GY + 3.0, 57.9], mat: M_WOOD_DK, name: 'screen-bezel',
     }));
 
+    // Ceiling fixture over the table -- previously this room had NO light
+    // source of its own at all (only window spill + the projector screen's
+    // own glow), which left every chair a black silhouette. A small
+    // 4-bulb chandelier-lite, echoing the hall's real chandelier in miniature
+    // (rod + gold arms + warm bulbs) rather than a plain pendant, hangs
+    // above the table's centre.
+    const centerZ = (tableZ0 + tableZ1) / 2;
+    const rodTop = UY - 0.1;
+    const rodBottom = rodTop - 0.55;
+    root.add(cylinder({
+      r: 0.03, h: rodTop - rodBottom, pos: [tableX, (rodTop + rodBottom) / 2, centerZ], mat: M_GOLD,
+    }));
+    for (const [ox, oz] of [[-0.55, 0], [0.55, 0], [0, -0.55], [0, 0.55]]) {
+      root.add(box({
+        size: ox === 0 ? [0.03, 0.03, Math.abs(oz)] : [Math.abs(ox), 0.03, 0.03],
+        pos: [tableX + ox / 2, rodBottom, centerZ + oz / 2],
+        mat: M_GOLD,
+      }));
+      root.add(sphere({ r: 0.08, pos: [tableX + ox, rodBottom - 0.06, centerZ + oz], mat: M_BULB_WARM }));
+    }
+    const boardroomLight = new THREE.PointLight(0xffdba0, 6.5, 17, 2);
+    boardroomLight.position.set(tableX, rodBottom - 0.15, centerZ);
+    root.add(boardroomLight);
+
     return {
-      table: { x: tableX, z0: tableZ0, z1: tableZ1 }, chairs, podium, screen,
+      table: { x: tableX, z0: tableZ0, z1: tableZ1 }, chairs, podium, screen, ceilingLight: boardroomLight,
     };
   }
   const boardroomProps = buildBoardroom();
@@ -670,7 +782,30 @@ export function buildMansionInterior(shell = null) {
         rTop: 0.14, rBottom: 0.16, h: 0.16, pos: [9 + sx, rackY - 0.36, 62], mat: M_POT,
       }));
     }
-    return { island, stove };
+
+    // Ceiling lighting -- this room previously had NO light fixture at all
+    // (genuinely pitch black, per the review). A row of 3 recessed can
+    // lights along the room's centreline, rather than a single pendant,
+    // keeps clear of the pot rack hanging just below the ceiling and lights
+    // the island/stove/corridor spread evenly end to end.
+    const canY = UY - 0.12;
+    const kitchenLights = [];
+    for (const [px, pz] of [[7, 61], [10, 64], [13, 67.5]]) {
+      root.add(cylinder({
+        r: 0.16, h: 0.05, pos: [px, canY, pz], mat: mat({ color: 0x1c1c1e, roughness: 0.5 }),
+      }));
+      root.add(cylinder({
+        r: 0.12, h: 0.02, pos: [px, canY - 0.03, pz], mat: M_BULB_WARM,
+      }));
+      const l = new THREE.PointLight(0xffe9c4, 4.4, 12, 2);
+      l.position.set(px, canY - 0.12, pz);
+      root.add(l);
+      kitchenLights.push(l);
+    }
+
+    return {
+      island, stove, ceilingLights: kitchenLights,
+    };
   }
   const kitchenProps = buildKitchen();
 
@@ -709,7 +844,19 @@ export function buildMansionInterior(shell = null) {
     deskLight.position.set(-9, UY + 1.1, 48);
     root.add(deskLight);
 
-    return { desk };
+    // A real ceiling fixture, not just the desk lamp -- this office was
+    // single-source-lit and read very dark away from the desk itself. A
+    // simple flush ceiling mount + bulb, centred over the room.
+    const ceilingY = UCY - 0.15;
+    root.add(cylinder({
+      rTop: 0.22, rBottom: 0.26, h: 0.1, pos: [-10, ceilingY, 49], mat: mat({ color: 0x2a2118, roughness: 0.6 }),
+    }));
+    root.add(sphere({ r: 0.09, pos: [-10, ceilingY - 0.1, 49], mat: M_BULB_WARM }));
+    const officeCeilingLight = new THREE.PointLight(0xffdca0, 4.6, 13, 2);
+    officeCeilingLight.position.set(-10, ceilingY - 0.18, 49);
+    root.add(officeCeilingLight);
+
+    return { desk, deskLight, ceilingLight: officeCeilingLight };
   }
   const officeProps = buildOffice();
 
@@ -734,6 +881,36 @@ export function buildMansionInterior(shell = null) {
       g.add(box({ size: [w * 0.7 + 0.06, 0.05, 0.08], pos: [0, h * 0.5 + h * 0.3, 0], mat: M_GOLD }));
     }));
 
+    // Display-case interior lights -- this room was single-source-lit (only
+    // whatever spilled in from elsewhere) and read very dark. A small warm
+    // point light just inside each case's glass front (offset along the
+    // case's own local +z, i.e. rotated the same way the case itself is)
+    // makes the trophies/jersey actually pop instead of sitting in shadow.
+    const caseLights = [];
+    for (const c of [
+      { x: 15.6, z: 44, rotY: -Math.PI / 2 }, { x: 15.6, z: 47.5, rotY: -Math.PI / 2 }, { x: 6, z: 41.4, rotY: 0 },
+    ]) {
+      const dx = Math.sin(c.rotY) * 0.3;
+      const dz = Math.cos(c.rotY) * 0.3;
+      const cl = new THREE.PointLight(0xfff2d8, 1.8, 3.6, 2);
+      cl.position.set(c.x + dx, UY + 1.05, c.z + dz);
+      root.add(cl);
+      caseLights.push(cl);
+    }
+
+    // General ceiling fixture -- the cases give the trophies their own pop,
+    // but the room itself (chairs' worth of open floor, the banner) still
+    // wants one practical overhead light rather than depending purely on
+    // spill.
+    const ceilingY = UCY - 0.15;
+    root.add(cylinder({
+      rTop: 0.22, rBottom: 0.26, h: 0.1, pos: [10, ceilingY, 48], mat: mat({ color: 0x2a2118, roughness: 0.6 }),
+    }));
+    root.add(sphere({ r: 0.09, pos: [10, ceilingY - 0.1, 48], mat: M_BULB_WARM }));
+    const trophyCeilingLight = new THREE.PointLight(0xffdca0, 5, 15, 2);
+    trophyCeilingLight.position.set(10, ceilingY - 0.18, 48);
+    root.add(trophyCeilingLight);
+
     // Championship-banner-look wall hanging.
     const bannerTex = makeBannerTexture();
     const banner = new THREE.Mesh(
@@ -747,7 +924,9 @@ export function buildMansionInterior(shell = null) {
       r: 0.03, h: 1.7, pos: [15.6, UY + 5.2, 51], mat: M_GOLD, rotZ: Math.PI / 2,
     }));
 
-    return { cases, banner };
+    return {
+      cases, banner, caseLights, ceilingLight: trophyCeilingLight,
+    };
   }
   const trophyProps = buildTrophyRoom();
 
@@ -755,20 +934,107 @@ export function buildMansionInterior(shell = null) {
   /* Basement armory (below the central hall)                            */
   /* ================================================================== */
   function buildBasement() {
+    const wallTopY = GY - 0.15; // Phase 1's BASEMENT_WALL_TOP, read back here for the panels below
+
+    /* -------------------------------------------------------------- */
+    /* 1. Wall racks -- rebuilt with a mounting backplate plus a few    */
+    /* simple weapon-silhouette shapes hung/leaned against them, instead */
+    /* of just a bar and two legs. Abstract/silhouette-level set        */
+    /* dressing only (M_SILHOUETTE, the same material the office's own  */
+    /* "vague dark silhouette" display case already uses) -- no working  */
+    /* weapons/pickups, per the mission brief.                           */
+    /* -------------------------------------------------------------- */
     function wallRack(x, z, rotY) {
       const g = group('wall-rack',
+        box({
+          size: [1.55, 1.45, 0.05], pos: [0, -0.12, -0.07], mat: M_RACK_BACK, name: 'rack-backplate',
+        }),
         box({ size: [1.4, 0.06, 0.06], pos: [0, 0, 0], mat: M_RACK }),
         box({ size: [0.06, 0.5, 0.06], pos: [-0.6, -0.25, 0], mat: M_RACK }),
         box({ size: [0.06, 0.5, 0.06], pos: [0.6, -0.25, 0], mat: M_RACK }));
+
+      // Two long rifle-shaped silhouettes, mounted vertically against the
+      // backplate with a small strap/clip pinning each to the bar.
+      for (const rx of [-0.38, 0.12]) {
+        g.add(cylinder({
+          rTop: 0.03, rBottom: 0.045, h: 1.05, pos: [rx, -0.22, 0.03], mat: M_SILHOUETTE,
+        }));
+        g.add(box({ size: [0.15, 0.05, 0.05], pos: [rx, 0.02, 0.05], mat: M_RACK }));
+      }
+      // Two smaller pistol-shaped silhouettes (grip + barrel, L-profile)
+      // hung near the rack's outer edges.
+      for (const px of [-0.62, 0.62]) {
+        const barrelX = px + (px < 0 ? 0.09 : -0.09);
+        g.add(box({ size: [0.05, 0.22, 0.05], pos: [px, -0.56, 0.03], mat: M_SILHOUETTE }));
+        g.add(box({ size: [0.2, 0.05, 0.05], pos: [barrelX, -0.47, 0.03], mat: M_SILHOUETTE }));
+      }
+
       g.position.set(x, BY + 1.4, z);
       g.rotation.y = rotY;
       root.add(g);
-      solid(x - 0.75, x + 0.75, BY, BY + 1.5, z - 0.1, z + 0.1);
+      solid(x - 0.8, x + 0.8, BY, BY + 1.55, z - 0.15, z + 0.15);
     }
     wallRack(-3.6, 43, 0);
     wallRack(-3.6, 45.5, 0);
     wallRack(0, 41.4, Math.PI / 2);
 
+    /* -------------------------------------------------------------- */
+    /* 2. Concrete/stone wall panels -- a rougher, damper surface than   */
+    /* the marble upstairs. Phase 1's real basement walls (the actual     */
+    /* collider-bearing geometry) live in MansionGrounds.js's buildShell() */
+    /* and are out of scope to redraw here, so this follows the exact same */
+    /* "thin decorative topping over an already-solid surface" idiom       */
+    /* `topping()` already uses for floors, just applied to the four       */
+    /* vertical wall faces instead -- and reuses the driveway paver pass's */
+    /* own `tileTex()` + `tiled()` recipe (see concreteMaterial() above)    */
+    /* rather than inventing a new canvas pattern.                          */
+    /*                                                                       */
+    /* The basement stairwell (BASEMENT_STAIR) runs almost flush against    */
+    /* the east/north walls (its treads reach x=3.85, 0.15m shy of the real  */
+    /* wall at x=4), so the north and east panels are trimmed to the        */
+    /* stretches actually clear of that stair rather than running the full  */
+    /* wall length and clipping through the treads.                         */
+    /* -------------------------------------------------------------- */
+    const panelInset = 0.19;
+    const panelH = wallTopY - BY;
+    const panelMidY = (BY + wallTopY) / 2;
+    root.add(box({
+      size: [ATRIUM.x1 - ATRIUM.x0 - 0.3, panelH, 0.04],
+      pos: [(ATRIUM.x0 + ATRIUM.x1) / 2, panelMidY, ATRIUM.z0 + panelInset],
+      mat: concreteMaterial(ATRIUM.x1 - ATRIUM.x0, panelH),
+      name: 'basement-wall-panel-south',
+    }));
+    root.add(box({
+      size: [0.04, panelH, ATRIUM.z1 - ATRIUM.z0 - 0.3],
+      pos: [ATRIUM.x0 + panelInset, panelMidY, (ATRIUM.z0 + ATRIUM.z1) / 2],
+      mat: concreteMaterial(ATRIUM.z1 - ATRIUM.z0, panelH),
+      name: 'basement-wall-panel-west',
+    }));
+    {
+      const nx1 = BASEMENT_STAIR.x0 - 0.1;
+      root.add(box({
+        size: [nx1 - ATRIUM.x0, panelH, 0.04],
+        pos: [(ATRIUM.x0 + nx1) / 2, panelMidY, ATRIUM.z1 - panelInset],
+        mat: concreteMaterial(nx1 - ATRIUM.x0, panelH),
+        name: 'basement-wall-panel-north',
+      }));
+    }
+    {
+      const ez1 = BASEMENT_STAIR.z0 - 0.15;
+      root.add(box({
+        size: [0.04, panelH, ez1 - ATRIUM.z0],
+        pos: [ATRIUM.x1 - panelInset, panelMidY, (ATRIUM.z0 + ez1) / 2],
+        mat: concreteMaterial(ez1 - ATRIUM.z0, panelH),
+        name: 'basement-wall-panel-east',
+      }));
+    }
+
+    /* -------------------------------------------------------------- */
+    /* 4. Floor dressing -- a tool bench, an ammo-crate stack, and a     */
+    /* floor drain, plus the original 3 crates. Nothing here beyond what */
+    /* was already here changes shape/scope; this only adds more of the  */
+    /* same primitive-box idiom.                                          */
+    /* -------------------------------------------------------------- */
     for (const [cx, cz] of [[-2.2, 47.5], [-0.6, 47.8], [-2.4, 46]]) {
       root.add(box({
         size: [0.8, 0.6, 0.8], pos: [cx, BY + 0.3, cz], mat: M_CRATE, name: 'basement-crate',
@@ -776,16 +1042,112 @@ export function buildMansionInterior(shell = null) {
       solid(cx - 0.4, cx + 0.4, BY, BY + 0.6, cz - 0.4, cz + 0.4);
     }
 
-    // One bare-bulb fixture for mood.
+    // Tool bench: a plain table with a couple of tool-shaped boxes on top.
+    function buildToolBench(bx, bz) {
+      const topY = BY + 0.75;
+      root.add(box({
+        size: [1.3, 0.08, 0.6], pos: [bx, topY, bz], mat: M_WOOD_DK, name: 'basement-bench-top',
+      }));
+      for (const [lx, lz] of [[-0.55, -0.24], [0.55, -0.24], [-0.55, 0.24], [0.55, 0.24]]) {
+        root.add(box({
+          size: [0.06, 0.7, 0.06], pos: [bx + lx, BY + 0.35, bz + lz], mat: M_WOOD_DK,
+        }));
+      }
+      root.add(box({
+        size: [0.34, 0.07, 0.14], pos: [bx - 0.28, topY + 0.055, bz], mat: M_STEEL, name: 'bench-tool',
+      }));
+      root.add(box({
+        size: [0.15, 0.15, 0.15], pos: [bx + 0.32, topY + 0.1, bz - 0.05], mat: M_RACK, name: 'bench-tool',
+      }));
+      root.add(box({
+        size: [0.4, 0.05, 0.05], pos: [bx + 0.1, topY + 0.06, bz + 0.15], mat: M_STEEL, name: 'bench-tool',
+      }));
+      solid(bx - 0.7, bx + 0.7, BY, topY + 0.05, bz - 0.35, bz + 0.35);
+    }
+    // Placed south of the basement staircase (z<43, well clear of
+    // BASEMENT_STAIR's x:1.5-3.85/z:43-49 descending footprint) -- the
+    // stair's own tread geometry occupies that shaft, so a floor prop
+    // dropped inside it would sit at the flat basement height (BY) while
+    // the walkable surface there actually ramps from GY down to BY, i.e.
+    // it would appear to float free of/clip through the real treads.
+    buildToolBench(3.0, 42.0);
+
+    // A small stack of ammo-box-style crates -- smaller and lighter than
+    // the main storage crates, stacked two-plus-one.
+    function buildAmmoStack(ax, az) {
+      const base = BY;
+      for (const [ox, oz, oy] of [[-0.27, 0, 0.2], [0.27, 0, 0.2], [0, 0, 0.62]]) {
+        root.add(box({
+          size: [0.48, 0.38, 0.48], pos: [ax + ox, base + oy, az + oz], mat: M_CRATE, name: 'basement-ammo-crate',
+        }));
+      }
+      solid(ax - 0.55, ax + 0.55, BY, BY + 0.85, az - 0.3, az + 0.3);
+    }
+    // Same reasoning as the tool bench above: kept out of the stair shaft
+    // and clear of the existing crate cluster/west wall panel.
+    buildAmmoStack(-3.2, 42.0);
+
+    // Floor drain: a simple dark circle decal set flush with the basement
+    // floor -- cheap, primitive-based, matching this room's whole
+    // construction idiom.
+    const drain = new THREE.Mesh(
+      new THREE.CircleGeometry(0.3, 24),
+      mat({ color: 0x0a0a0c, roughness: 0.55, unique: true }),
+    );
+    drain.rotation.x = -Math.PI / 2;
+    drain.position.set(-3.0, BY + 0.006, 44.2);
+    root.add(drain);
+    const drainRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.3, 0.35, 24),
+      mat({ color: 0x2a2a28, roughness: 0.5, unique: true }),
+    );
+    drainRing.rotation.x = -Math.PI / 2;
+    drainRing.position.set(-3.0, BY + 0.007, 44.2);
+    root.add(drainRing);
+
+    /* -------------------------------------------------------------- */
+    /* 3. Lighting -- the single bare bulb (range 10, centred at x=-1)   */
+    /* left the room's east half, plus most of the crates/racks/bench    */
+    /* dressing above, in near-total black. Two more fixtures -- a wall-  */
+    /* mounted work light and a flush ceiling light, for some visual      */
+    /* variety instead of three identical bare bulbs -- close that gap    */
+    /* so the whole 8x8m room is actually visible instead of just the     */
+    /* few metres around one central bulb.                                */
+    /* -------------------------------------------------------------- */
     root.add(cylinder({
       r: 0.012, h: 1.0, pos: [-1, BY + 3.4, 45], mat: M_RACK,
     }));
     root.add(sphere({ r: 0.07, pos: [-1, BY + 2.85, 45], mat: M_BULB_BARE }));
-    const bulbLight = new THREE.PointLight(0xfff0c8, 3.4, 10, 2);
+    const bulbLight = new THREE.PointLight(0xfff0c8, 5.2, 13, 2);
     bulbLight.position.set(-1, BY + 2.8, 45);
     root.add(bulbLight);
 
-    return { bulbLight };
+    root.add(box({
+      size: [0.22, 0.16, 0.1], pos: [2.6, BY + 2.3, 48.72], mat: M_RACK, name: 'basement-sconce',
+    }));
+    root.add(box({
+      size: [0.14, 0.1, 0.03], pos: [2.6, BY + 2.3, 48.66], mat: M_BULB_WARM,
+    }));
+    const workLight = new THREE.PointLight(0xffe3b0, 5.8, 15, 2);
+    workLight.position.set(2.6, BY + 2.3, 48.5);
+    root.add(workLight);
+
+    // Third fixture: a flush ceiling light over the south end of the room
+    // (the tool bench / ammo stack corner), the stretch furthest from both
+    // fixtures above.
+    root.add(cylinder({
+      r: 0.16, h: 0.05, pos: [0.5, wallTopY - 0.05, 42.4], mat: mat({ color: 0x1c1c1e, roughness: 0.5 }),
+    }));
+    root.add(cylinder({
+      r: 0.12, h: 0.02, pos: [0.5, wallTopY - 0.08, 42.4], mat: M_BULB_WARM,
+    }));
+    const ceilingLight = new THREE.PointLight(0xffe9c4, 5, 13, 2);
+    ceilingLight.position.set(0.5, wallTopY - 0.2, 42.4);
+    root.add(ceilingLight);
+
+    return {
+      bulbLight, workLight, ceilingLight, drain,
+    };
   }
   const basementProps = buildBasement();
 
