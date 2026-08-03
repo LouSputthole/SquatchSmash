@@ -829,17 +829,50 @@ export function buildMansionInterior(shell = null) {
     const cands = [];
     if (inRect(HALL, x, z)) {
       cands.push(BY); // the armory floor, always reachable once you've descended
+      // The flat hall floor is always a candidate here, even where a stair
+      // rect ALSO applies below -- not an either/or. GRAND_STAIR's x0 (-3.85)
+      // and BASEMENT_STAIR's x1 (3.85) sit flush against the hall/living and
+      // hall/boardroom archways respectively (partition walls at x=-4/x=4,
+      // half-thickness 0.15, so the archway opening's inner edge is exactly
+      // the stair rect's own edge). Walking straight through either archway
+      // therefore grazes the stair rect's boundary while still at plain
+      // GROUND_Y (never having climbed anything). With only the lerp'd stair
+      // height offered there (the previous if/else), that lerp'd height is
+      // typically well above the one-step tolerance for someone who just
+      // walked in flat, so it got rejected -- leaving BY (the basement, which
+      // always passes the tolerance) as the only candidate left, i.e. a
+      // bogus fall to the basement on an ordinary walk through the archway.
+      // Offering GY unconditionally alongside the stair-specific value fixes
+      // that without weakening real stair climbing (once actually partway up
+      // a stair, its lerp'd height is numerically higher than GY and still
+      // wins the "highest candidate within one step" comparison below).
+      cands.push(GY);
       if (inRect(GRAND_STAIR, x, z)) {
         const t = THREE.MathUtils.clamp((z - GRAND_STAIR.z0) / (GRAND_STAIR.z1 - GRAND_STAIR.z0), 0, 1);
         cands.push(THREE.MathUtils.lerp(GY, UY, t));
       } else if (inRect(BASEMENT_STAIR, x, z)) {
         const t = THREE.MathUtils.clamp((z - BASEMENT_STAIR.z0) / (BASEMENT_STAIR.z1 - BASEMENT_STAIR.z0), 0, 1);
         cands.push(THREE.MathUtils.lerp(GY, BY, t));
-      } else {
-        cands.push(GY);
       }
     }
-    if (inRect(UPPER_HALL_MAIN, x, z) || inRect(BALCONY, x, z)) cands.push(UY);
+    // UPPER_HALL_MAIN (z:49-58) is a genuine two-storey stack, not a void:
+    // Phase 1 poured a real ground-floor slab AND a real upper-floor slab
+    // there (see MansionGrounds.js's `notchedSegs`), and Phase 2 topped the
+    // ground one with marble ("hall-floor-corridor-topping") specifically so
+    // it reads as a walkable extension of the hall -- there is no wall at
+    // z=49 separating it from the hall proper, so a straight walk north from
+    // the front door reaches it directly. Offering only UY here (as before)
+    // meant floorAt() reported the *upper* floor's height for anyone
+    // standing on the *ground* floor of that same footprint -- a bogus
+    // levitation up to UPPER_Y on an ordinary walk through the hall,
+    // discovered while re-verifying the archway fix above (the old,
+    // fountain-blocked front door meant this stretch had never actually
+    // been walked before). BALCONY (z:43-49) has no such ground floor of its
+    // own -- that footprint is squarely inside the HALL/ATRIUM branch above,
+    // which already offers every relevant ground/basement candidate there --
+    // so it keeps offering only UY.
+    if (inRect(UPPER_HALL_MAIN, x, z)) { cands.push(UY); cands.push(GY); }
+    if (inRect(BALCONY, x, z)) cands.push(UY);
     if (inRect(LIVING, x, z)) cands.push(GY);
     if (inRect(BOARDROOM, x, z)) cands.push(GY);
     if (inRect(KITCHEN, x, z)) cands.push(GY);

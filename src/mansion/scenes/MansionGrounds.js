@@ -495,10 +495,37 @@ export function buildMansionGrounds(scene = null) {
     const spray = new FountainSpray(root, new THREE.Vector3(fx, statueY0 + 0.3, fz));
     spray.start();
 
-    const fountainCollider = solid(fx - 6.3, fx + 6.3, 0, 3.6, fz - 6.3, fz + 6.3);
+    // Collision: height-tiered to the basin's *actual* per-tier radius rather
+    // than one box sized to the widest tier (the r=6 base apron) across the
+    // whole 0..3.6 height. That single oversized box (fixed in an earlier
+    // pass) fully engulfed the front-entry steps/portico, 6m away, making the
+    // entrance unreachable on foot from any angle. Two things make the tiered
+    // version correct instead of just smaller:
+    //   1. The base apron (r=6, h=0.4) needs no collider at all: it is
+    //      entirely below a standing player's feet (GROUND_Y=1.2), and
+    //      core/player.js's own _resolve() already treats a collider whose
+    //      top is below the walker's feet as walkable-over -- that 0.4 m
+    //      curb was never actually the thing blocking anyone.
+    //   2. What a walking tour can actually bump into is the riser + upper
+    //      basin body (true radius 3.5-4, y 0.4-2.1) and the narrower
+    //      pedestal + statue above it (radius ~1.2-1.3) -- both much smaller
+    //      than the apron's r=6. Merging the riser/upper-basin into one r=3.6
+    //      tier (rounding up slightly to cover the wider upper-basin flare
+    //      without a third box) keeps the fountain at its spec'd (0,0,35)
+    //      position -- no redesign of the "decided" coordinate -- while
+    //      shrinking the blocked footprint enough that the front steps (see
+    //      buildFrontEntry(), moved back to spec-adjacent z:39-40.5) clear it
+    //      with room to spare.
+    const fountainColliderBody = solid(fx - 3.6, fx + 3.6, 0.3, 2.2, fz - 3.6, fz + 3.6);
+    const fountainColliderPedestal = solid(fx - 1.3, fx + 1.3, 2.2, 6.6, fz - 1.3, fz + 1.3);
 
     return {
-      statue, lowerWater, upperWater, spray, collider: fountainCollider, position: new THREE.Vector3(fx, 0, fz),
+      statue,
+      lowerWater,
+      upperWater,
+      spray,
+      colliders: [fountainColliderBody, fountainColliderPedestal],
+      position: new THREE.Vector3(fx, 0, fz),
     };
   }
   const fountain = buildFountain();
@@ -506,10 +533,18 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   /* Parked family vehicles                                             */
   /* ---------------------------------------------------------------- */
+  // Two of these spots (index 1 and 2, below) originally sat at z=40/41 --
+  // right at the building's south wall (BUILDING.z0=41). At their authored
+  // yaw, the rotated AABB (see makeVehicleCollider()) reached ~0.9m and
+  // ~2.3m respectively past that wall plane into the boardroom/living-room
+  // interior airspace. Both are pulled back to z=30-37.6 here, checked by
+  // hand against every neighbour (the fountain's tiered collider, the front
+  // steps/parapets, the palm at (11,35)/(-11,35), and each other) so nothing
+  // in this new arrangement overlaps anything else either.
   const CAR_SPOTS = [
     { x: 9, z: 30, kind: 'lincoln', color: 0x101014, yaw: -0.4 },
-    { x: 9, z: 40, kind: 'suv', color: 0x2a2a30, yaw: 0.3 },
-    { x: -9, z: 41, kind: 'sedan', color: 0x1c1c22, yaw: 2.6 },
+    { x: 9.5, z: 37.6, kind: 'suv', color: 0x2a2a30, yaw: 0.3 },
+    { x: -9.5, z: 30, kind: 'sedan', color: 0x1c1c22, yaw: 0.35 },
     { x: -19, z: 24, kind: 'lincoln', color: 0x2e2e36, yaw: Math.PI / 2 },
     { x: -19, z: 28, kind: 'suv', color: 0x151519, yaw: Math.PI / 2 },
     { x: -19, z: 32, kind: 'sedan', color: 0x1a1a20, yaw: Math.PI / 2 },
@@ -602,9 +637,17 @@ export function buildMansionGrounds(scene = null) {
   function buildFrontEntry() {
     const x0 = -6;
     const x1 = 6;
-    const zBot = 35;
-    const zTop = 38;
-    const steps = 8;
+    // zBot nudged +1 m past the spec's z=38 (still inside the brief's own
+    // "+/-1m" tolerance for small adjustments) so the run clears the
+    // fountain's collision body (see buildFountain(): tiered, widest
+    // remaining tier r=3.6 around z=35, i.e. blocked up to z=38.6) with a
+    // small margin instead of starting from inside it -- an earlier pass had
+    // this starting at z=35 (the fountain's own centre), which put the
+    // entire staircase inside the fountain's old collider and made the front
+    // door unreachable on foot from any angle.
+    const zBot = 39;
+    const zTop = 40.5;
+    const steps = 6;
     for (let i = 0; i < steps; i++) {
       const t = i / steps;
       const z = THREE.MathUtils.lerp(zBot, zTop, t);
@@ -617,8 +660,9 @@ export function buildMansionGrounds(scene = null) {
     solid(x0 - 0.3, x0, 0, GROUND_Y + 0.2, zBot, zTop);
     solid(x1, x1 + 0.3, 0, GROUND_Y + 0.2, zBot, zTop);
 
-    // Portico landing -- extended 1 m past the spec's z:[38,40] to physically
-    // reach the front door at z=41 (small adjustment, footprint unchanged).
+    // Portico landing -- runs from the top of the stairs to the front door
+    // at z=41 (a short 0.5 m landing), matching the spec's implied door
+    // approach.
     const porticoZ0 = zTop;
     const porticoZ1 = 41;
     root.add(box({
@@ -754,18 +798,30 @@ export function buildMansionGrounds(scene = null) {
     }
 
     // Basement shell, under the central hall only: floor slab + 4 perimeter
-    // walls (collider) rising from BASEMENT_Y to GROUND_Y. No stairwell
+    // walls (collider) rising from BASEMENT_Y up to just shy of GROUND_Y --
+    // NOT exactly to it. Reaching exactly to GROUND_Y put these colliders'
+    // top face flush with the ground floor's own walking surface, and
+    // core/player.js's own boundary skip (`p.y - eyeHeight > box.max.y`, a
+    // strict `>`) does not skip a collider whose top exactly equals the
+    // walker's feet height -- so a wall this tall silently blocked the
+    // ground-floor archways MansionInterior.js cuts into this exact same
+    // wall plane (x=-4 hall/living, x=4 hall/boardroom), since those
+    // archways' x-span overlaps this wall's x-span. Capping the top at
+    // BASEMENT_WALL_TOP (flush with the underside of Phase 2's hall floor
+    // slab, which sits at GROUND_Y-0.1..GROUND_Y) clears that false block
+    // while still fully enclosing the basement below it. No stairwell
     // opening is cut here -- the hall floor above this footprint is Phase
     // 2's to build, and it owns exactly where the descending stair goes.
+    const BASEMENT_WALL_TOP = GROUND_Y - 0.15;
     root.add(box({
       size: [ATRIUM.x1 - ATRIUM.x0, 0.3, ATRIUM.z1 - ATRIUM.z0],
       pos: [0, BASEMENT_Y - 0.15, (ATRIUM.z0 + ATRIUM.z1) / 2],
       mat: M_MARBLE_DK,
     }));
-    ext(ATRIUM.x0, ATRIUM.x1, BASEMENT_Y, GROUND_Y, ATRIUM.z0 - 0.3, ATRIUM.z0, 'basement-wall-south', M_PODIUM);
-    ext(ATRIUM.x0, ATRIUM.x1, BASEMENT_Y, GROUND_Y, ATRIUM.z1, ATRIUM.z1 + 0.3, 'basement-wall-north', M_PODIUM);
-    ext(ATRIUM.x0 - 0.3, ATRIUM.x0, BASEMENT_Y, GROUND_Y, ATRIUM.z0, ATRIUM.z1, 'basement-wall-west', M_PODIUM);
-    ext(ATRIUM.x1, ATRIUM.x1 + 0.3, BASEMENT_Y, GROUND_Y, ATRIUM.z0, ATRIUM.z1, 'basement-wall-east', M_PODIUM);
+    ext(ATRIUM.x0, ATRIUM.x1, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z0 - 0.3, ATRIUM.z0, 'basement-wall-south', M_PODIUM);
+    ext(ATRIUM.x0, ATRIUM.x1, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z1, ATRIUM.z1 + 0.3, 'basement-wall-north', M_PODIUM);
+    ext(ATRIUM.x0 - 0.3, ATRIUM.x0, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z0, ATRIUM.z1, 'basement-wall-west', M_PODIUM);
+    ext(ATRIUM.x1, ATRIUM.x1 + 0.3, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z0, ATRIUM.z1, 'basement-wall-east', M_PODIUM);
 
     // Warm light spilling from the two glass rooms, seen from outside.
     const livingSpill = new THREE.PointLight(0xffc98a, 7, 14, 2);
