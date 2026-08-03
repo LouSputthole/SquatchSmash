@@ -336,6 +336,17 @@ Branch `claude/squatch-life-continuation-2c23z0`, five commits on top of
   untouched by this session, and commit `8156788`'s Ape-attack rework is the
   most recent word on it.
 
+## Parked, by request
+
+- **"Can't You Hear Me Knocking" on the Beef Run takeoff roll, at 45.** Owner's
+  request 2026-08-03, deliberately **not implemented** — the file is coming and
+  nothing should be guessing at a mix for a song nobody has heard in place. The
+  full note, the existing hook it mirrors (`updateTakeoff` in
+  `src/beefrun/mission.js`, where the rotation call already fires off one flag
+  and `p.ias * KT > 58`), and the four things to settle with the file in hand —
+  units, which of the two takeoff rolls, the mix against headset and engines,
+  and what happens on an aborted roll — are in `assets/music/README.md`.
+
 ## Bugs found and left alone
 
 - **`verify:motel` is broken, on this branch and on `8156788` alike.**

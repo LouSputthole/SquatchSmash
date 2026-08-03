@@ -26,15 +26,47 @@ the manifest to mark every track that belongs in the club set.
 
 With no tracks listed the radio still turns on — it just plays static.
 
-## Signature cues — two records still owed
+## Signature cues — three records still owed
 
-Two songs belong to people rather than to a station, and both are wired but
-neither is recorded yet. They live in `src/core/signature-music.js`:
+Some songs belong to a person or a moment rather than to a station. These are
+cues, not programming. Two are wired and waiting on a file; the third is
+waiting on both.
 
-| Cue | File wanted | Fires on | Playing until then |
-|---|---|---|---|
-| **Sensi Lou** | `sensi-lou.mp3` | Tony entering Big Uncle Lou's office at the Bing | `good-ole-days.mp3` |
-| **Baby Snakes** | `baby-snakes.mp3` | Booskibro's first significant appearance — at the Bing, the shot beat where he takes the floor and yells for it | `booskibro.mp3` |
+| Cue | File wanted | Fires on | Playing until then | Wired? |
+|---|---|---|---|---|
+| **Sensi Lou** | `sensi-lou.mp3` | Tony entering Big Uncle Lou's office at the Bing | `good-ole-days.mp3` | yes |
+| **Baby Snakes** | `baby-snakes.mp3` | Booskibro's first significant appearance — at the Bing, the shot beat where he takes the floor and yells for it | `booskibro.mp3` | yes |
+| **Can't You Hear Me Knocking** | `cant-you-hear-me-knocking.mp3` | **Beef Run takeoff roll, at 45 knots** | — | **not yet — owner is supplying the file** |
+
+### Can't You Hear Me Knocking — the note, not the implementation
+
+Owner's request, 2026-08-03: it comes in on the takeoff roll as the Brushrunner
+passes **45** on the runway. Deliberately left unimplemented until the file
+lands, so nothing is guessing at a mix for a song nobody has heard in place.
+
+When it arrives, the hook already exists in the same shape. `updateTakeoff` in
+`src/beefrun/mission.js` fires Sasole's rotation call off one flag and one
+speed test:
+
+```js
+if (!this.flags.rotateCalled && p.ias * KT > 58 && p.onGround) { … }
+```
+
+45 is the same line, thirteen knots earlier and on its own flag — so the music
+starts under the roll and the rotate call lands on top of it. Points to settle
+with the file in hand:
+
+- **Units.** Read as 45 **knots indicated**, matching Sasole's "at sixty, ease
+  her off" and the `p.ias * KT` test above. Say so if it meant something else.
+- **Which rolls.** There are two takeoffs — Whispering Pines outbound and the
+  loaded El Hueso departure. The flag resets at `mission.js` ~1588 with
+  `rotateCalled`, so it will re-arm for the second one unless it is meant to be
+  once a mission.
+- **The mix.** It is a full song against a headset, two engines and Sasole
+  talking. It probably wants its own loop key ducked against `dialogue`, not
+  the ambient bed.
+- **Aborts.** A roll that runs out of runway is a soft failure that puts the
+  player back at the threshold; the track has to stop and re-arm with it.
 
 They are deliberately **not** in `manifest.json`, because `npm run check`
 fails the build for a manifest track with no file on disk. That makes the
