@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Silver Case</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>&#128188;</text></svg>">
+<style>
+  :root {
+    --silver: #cfd4e0;
+    --silver-bright: #eef0f6;
+    --steel: #6b7284;
+    --steel-deep: #3a3f4c;
+    --red: #d9483a;
+    --amber: #e8b463;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #07070a; }
+  body { font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; user-select: none;
+         -webkit-user-select: none; color: #fff; }
+  canvas { display: block; }
+
+  /* ---------- boot failure ---------- */
+  .boot-failure {
+    position: fixed; inset: 0; z-index: 200; display: grid; place-content: center;
+    gap: 14px; padding: 32px; text-align: center; background: rgba(7, 7, 10, .98);
+  }
+  .boot-failure[hidden] { display: none; }
+  .boot-failure strong { font-size: 28px; color: var(--red); }
+  .boot-failure span { max-width: 620px; line-height: 1.55; color: var(--silver); }
+  .boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+  .boot-failure button, .boot-failure a {
+    border: 1px solid var(--amber); border-radius: 6px; padding: 10px 16px;
+    background: #14141a; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+  }
+
+  /* ---------- reticle (decorative only, no JS hook) ---------- */
+  #reticle {
+    position: fixed; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+    border-radius: 50%; background: rgba(255,255,255,.75); box-shadow: 0 0 4px #000;
+    pointer-events: none; z-index: 3;
+  }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
+  #hud.visible { display: block; }
+
+  #objective {
+    position: absolute; top: 34px; left: 50%; transform: translateX(-50%);
+    text-align: center; opacity: 0; transition: opacity .45s ease;
+  }
+  #objective.show { opacity: 1; }
+  #objective .label {
+    font-size: 12px; letter-spacing: 6px; color: var(--silver); font-weight: 800;
+    text-shadow: 0 2px 6px #000;
+  }
+  #objectiveText {
+    display: block; font-size: 21px; font-weight: 800; letter-spacing: 1px;
+    color: var(--silver-bright); text-shadow: 0 2px 8px #000; margin-top: 3px;
+  }
+  #objective.urgent #objectiveText { color: var(--red); animation: throb .5s infinite alternate; }
+  @keyframes throb { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+  #subs {
+    position: absolute; left: 50%; bottom: 90px; transform: translateX(-50%);
+    width: min(820px, 88vw); text-align: center; opacity: 0; transition: opacity .18s;
+  }
+  #subs.show { opacity: 1; }
+  #subsWho {
+    font-size: 13px; letter-spacing: 5px; font-weight: 800; color: var(--amber);
+    text-shadow: 0 2px 6px #000; margin-bottom: 4px; text-transform: uppercase;
+  }
+  #subsLine {
+    font-size: clamp(18px, 2.3vw, 26px); font-weight: 700; line-height: 1.35;
+    color: #f4f2ee; text-shadow: 0 2px 3px #000, 0 4px 16px rgba(0,0,0,.9);
+  }
+
+  #prompt {
+    position: absolute; left: 50%; top: 58%; transform: translateX(-50%);
+    text-align: center; opacity: 0; transition: opacity .2s;
+  }
+  #prompt.show { opacity: 1; }
+  #promptKey {
+    display: inline-block; min-width: 24px; padding: 1px 7px; margin-right: 6px;
+    border: 2px solid rgba(255,255,255,.75); border-radius: 6px;
+    font-weight: 900; font-size: 15px;
+  }
+  #promptText { font-size: 17px; font-weight: 800; letter-spacing: 1px; text-shadow: 0 2px 6px #000; }
+  #holdBar {
+    margin: 8px auto 0; width: 180px; height: 5px; border-radius: 4px;
+    background: rgba(255,255,255,.22); overflow: hidden; opacity: 0; transition: opacity .15s;
+  }
+  #holdBar.show { opacity: 1; }
+  #holdFill { height: 100%; width: 0%; background: var(--silver-bright); }
+
+  #choicePrompt {
+    position: absolute; left: 50%; bottom: 170px; transform: translateX(-50%);
+    width: min(520px, 86vw); padding: 12px 20px; border: 1px solid rgba(207,212,224,.4);
+    border-radius: 8px; background: rgba(15,15,20,.78); opacity: 0; transition: opacity .25s;
+  }
+  #choicePrompt.show { opacity: 1; }
+  #choiceOptions { display: flex; flex-direction: column; gap: 7px; }
+  .choiceOption { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; }
+  .choiceOption .key {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 22px;
+    padding: 1px 6px; border: 2px solid rgba(255,255,255,.7); border-radius: 5px; font-size: 13px;
+  }
+  .choiceOption .txt { color: var(--silver-bright); }
+  #choiceHoldBar {
+    margin-top: 8px; width: 100%; height: 5px; border-radius: 4px;
+    background: rgba(255,255,255,.22); overflow: hidden; opacity: 0; transition: opacity .15s;
+  }
+  #choiceHoldBar.show { opacity: 1; }
+  #choiceHoldFill { height: 100%; width: 0%; background: var(--amber); }
+
+  /* ---------- Overlays ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(7,7,10,.95), rgba(14,12,10,.95));
+    padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  .kicker {
+    font-size: 13px; font-weight: 800; letter-spacing: 8px; color: var(--silver);
+    margin-bottom: 10px;
+  }
+  .kicker .dash { color: var(--red); }
+  .title {
+    font-size: clamp(34px, 7vw, 74px); font-weight: 900; font-style: italic; letter-spacing: 1px;
+    background: linear-gradient(180deg, #f6f8fc 0%, #cdd3e0 42%, #878e9f 52%, #e9ecf3 60%, #b9bfcd 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 2px #100f14;
+    filter: drop-shadow(0 4px 0 var(--steel-deep)) drop-shadow(0 10px 26px rgba(60,64,76,.5));
+    transform: skewX(-4deg); margin-bottom: 8px;
+  }
+  .subtitle { font-size: 17px; color: #b9c1d4; margin-bottom: 22px; max-width: 620px; line-height: 1.6; }
+  .panel {
+    background: rgba(255,255,255,.05); border: 1px solid rgba(207,212,224,.25);
+    border-radius: 12px; padding: 16px 24px; text-align: left;
+    font-size: 15px; line-height: 1.85; color: #dce2f0; margin-bottom: 24px;
+  }
+  .panel h3 { font-size: 12px; letter-spacing: 4px; color: var(--silver);
+    margin-bottom: 8px; font-weight: 800; }
+  .panel b { color: var(--silver-bright); display: inline-block; min-width: 130px; }
+  .btn {
+    font-size: 21px; font-weight: 900; letter-spacing: 1px; padding: 13px 40px;
+    border-radius: 12px; border: none; cursor: pointer; color: #fff;
+    background: linear-gradient(180deg, var(--steel), #464b58);
+    box-shadow: 0 5px 0 #24262e, 0 8px 18px rgba(0,0,0,.5); transition: transform .08s;
+    font-family: inherit;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #24262e; }
+  .credit { margin-top: 24px; font-size: 12px; letter-spacing: 2px; color: #6a7186; }
+
+  #deathTitle { color: #ff6a5a; }
+</style>
+</head>
+<body>
+  <div id="reticle"></div>
+
+  <div id="hud">
+    <div id="objective"><span class="label">OBJECTIVE</span><span id="objectiveText"></span></div>
+    <div id="subs"><div id="subsWho"></div><div id="subsLine"></div></div>
+    <div id="prompt">
+      <span id="promptKey">E</span><span id="promptText"></span>
+      <div id="holdBar"><div id="holdFill"></div></div>
+    </div>
+    <div id="choicePrompt">
+      <div id="choiceOptions"></div>
+      <div id="choiceHoldBar"><div id="choiceHoldFill"></div></div>
+    </div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="kicker"><span class="dash">&mdash;</span> A FAMILY BUSINESS ERRAND <span class="dash">&mdash;</span></div>
+    <div class="title">THE SILVER CASE</div>
+    <div class="subtitle">
+      Three geniuses borrowed something from Lou without asking. Ape is going over there to
+      improve their decision-making. You're just along to carry things.
+    </div>
+    <div class="panel">
+      <h3>CONTROLS</h3>
+      <div><b>WASD / Arrows</b> Move</div>
+      <div><b>Mouse</b> Look (click the window to capture the cursor)</div>
+      <div><b>E</b> Interact &nbsp;&middot;&nbsp; hold E where a prompt asks for it</div>
+      <div><b>Left Click</b> Fire, when it matters</div>
+      <div><b>Right Click</b> Reach for your weapon (don't, unless Ape says so)</div>
+      <div><b>1&ndash;4</b> Pick a response when a choice is on screen</div>
+      <div><b>Tab / Esc</b> Pause &nbsp;&middot;&nbsp; <b>M</b> Mute</div>
+    </div>
+    <button id="beginBtn" class="btn">BEGIN</button>
+    <div class="credit">Silver Sasquatches &mdash; Ape &middot; Prospect</div>
+  </div>
+
+  <div id="deathOverlay" class="overlay hidden">
+    <div class="kicker"><span class="dash">&mdash;</span> TOO SLOW <span class="dash">&mdash;</span></div>
+    <div class="title" id="deathTitle">TOO SLOW</div>
+    <div class="subtitle">Checkpoint: back at the start of the ritual.</div>
+    <button id="retryBtn" class="btn">RETRY FROM THE PRAYER</button>
+  </div>
+
+  <div id="sceneCompleteOverlay" class="overlay hidden">
+    <div class="kicker"><span class="dash">&mdash;</span> CASE CLOSED <span class="dash">&mdash;</span></div>
+    <div class="title">SCENE COMPLETE</div>
+    <div class="subtitle">Always check the bathroom. That's where bad ideas go to load themselves.</div>
+    <button id="playAgainBtn" class="btn">PLAY AGAIN</button>
+  </div>
+
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong>
+    <span data-boot-detail></span>
+    <div class="actions">
+      <button type="button" data-boot-reload>RELOAD</button>
+      <a href="./index.html">APARTMENT</a>
+    </div>
+  </div>
+
+  <script src="./src/core/boot-guard.js"
+    data-target="bootFailure"
+    data-ready="silvercase"
+    data-scene="The Silver Case"></script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+  <script type="module" src="./src/silvercase/main.js"
+    onerror="window.__squatchSceneFail('Could not load the scene', 'src/silvercase/main.js failed to load.')"></script>
+</body>
+</html>
