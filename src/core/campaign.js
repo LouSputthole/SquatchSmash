@@ -34,6 +34,11 @@ export const CHARACTER_IDS = Object.freeze({
   NUMBSKULL: 'numbskull',
   AUBBIE: 'aubbie',
   BILLY_HOTDOG: 'billy_hotdog',
+  /* Not Family, and not local. A foreign intelligence officer the Family
+   * caught and tied to a chair in their own store room, who has a stable id
+   * because he does not stay in it: after the side quest he turns up again,
+   * immaculate, behaving as though the evening never happened. */
+  JAMES_BLOND: 'james_blond',
 });
 
 export const SCENE_IDS = Object.freeze({

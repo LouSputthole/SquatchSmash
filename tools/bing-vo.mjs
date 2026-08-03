@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildFamilyScripts } from '../src/bing/family.js';
+import { buildLicenseToGrillScript } from '../src/bing/license-to-grill.js';
 import {
   bingStandaloneVoiceLines,
   bingVoiceForSpeaker,
@@ -129,6 +130,14 @@ export function collectBingVoiceCues() {
    * the shot. Both shapes must be in the recording ledger. */
   for (const shotDone of [false, true]) {
     collectTrees(found, buildFamilyScripts({ shotDone: () => shotDone }));
+  }
+
+  /* The store room side quest. Its options and several of its lines are
+   * functions of the interrogation's own state — whether the car is on the
+   * table, whether his things have been gone through — so it is collected
+   * under both answers rather than only the opening one. */
+  for (const carAvailable of [false, true]) {
+    collectTrees(found, buildLicenseToGrillScript({ carAvailable: () => carAvailable }));
   }
 
   /* The second visit replaces Lou's whole tree after buildScripts(), so it

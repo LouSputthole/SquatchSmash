@@ -90,6 +90,19 @@ export const CHARACTER_REGISTRY = Object.freeze({
     role: 'family_member',
     legacyAliases: ['hotdog', 'billy_hot_dog'],
   }),
+  /* Surname first, because he introduces himself that way and would want it
+   * recorded correctly. `outsider` rather than `civilian`: he is neither
+   * Family nor a bystander, and the distinction matters for anything that
+   * later asks who in a room belongs to the Circle. */
+  [CHARACTER_IDS.JAMES_BLOND]: character({
+    id: CHARACTER_IDS.JAMES_BLOND,
+    canonicalName: 'James Blond',
+    subtitleName: 'Blond',
+    voiceProfile: 'blond',
+    species: 'human',
+    role: 'outsider',
+    legacyAliases: ['blond', 'james_bond_parody'],
+  }),
   [CHARACTER_IDS.AUBBIE]: character({
     id: CHARACTER_IDS.AUBBIE,
     canonicalName: 'Aubbie',
