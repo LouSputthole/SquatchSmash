@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Enola Squatch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#127775;</text></svg>" />
+<link rel="stylesheet" href="src/style.css" />
+<link rel="stylesheet" href="src/beefrun/beefrun.css" />
+<style>
+  /* ---- The mission-specific player-choice panel (1-5 release lines, the
+       3-option engine emergency) — not present in beefrun.css, modeled on
+       src/silvercase.html's own #choicePrompt inline-style pattern since
+       that scene has the closest equivalent already. ---- */
+  #es-choice {
+    position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%);
+    width: min(560px, 90vw); padding: 14px 20px; border: 1px solid rgba(207,212,224,.4);
+    border-radius: 8px; background: rgba(12,10,20,.82); opacity: 0; pointer-events: none;
+    transition: opacity .2s; z-index: 20; font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+  }
+  #es-choice.show { opacity: 1; }
+  #es-choice-options { display: flex; flex-direction: column; gap: 8px; }
+  .es-choice-row { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 700; color: #eef0f6; }
+  .es-choice-row .key {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 24px;
+    padding: 2px 7px; border: 2px solid rgba(255,255,255,.75); border-radius: 5px; font-size: 13px; color: #fff;
+  }
+  .es-choice-row .txt { color: #d9c2ff; }
+
+  #overlay .beefrun-panel .tag { max-width: 640px; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.min.js"
+  }
+}
+</script>
+</head>
+<body class="beefrun">
+
+<canvas id="scene"></canvas>
+
+<!-- The apartment's HUD, reused as-is. Its constructor expects all of these to
+     exist; this mission (cockpit-only, no on-foot walkaround) only ever uses
+     #subtitle and #toast-stack out of the set, the same accommodation
+     beefrun.html makes for its own unused rows. -->
+<div id="hud" aria-hidden="true">
+  <div id="crosshair"><span></span></div>
+
+  <div id="prompt" class="hidden">
+    <kbd class="key">E</kbd>
+    <span class="label">Interact</span>
+    <div class="holdbar"><i></i></div>
+  </div>
+
+  <div id="subtitle" class="hidden"></div>
+  <div id="posture" class="hidden"><kbd class="key">Q</kbd><span></span></div>
+  <div id="pushes" class="hidden"></div>
+  <div id="timing" class="hidden">
+    <div class="track"><i class="win"></i><i class="mark"></i></div>
+    <div class="pips"></div>
+  </div>
+
+  <div id="hands">
+    <div id="hotbar" class="hidden"></div>
+    <div id="hand-item" class="hidden">
+      <div class="icon"></div>
+      <div class="meta"><span class="name"></span><span class="hint"></span></div>
+    </div>
+  </div>
+
+  <div id="radio-osd" class="hidden">
+    <div class="rtitle">📻 <span></span></div>
+    <div class="rtrack"></div>
+  </div>
+
+  <div id="clock" class="hidden">
+    <span class="day"></span><span class="time"></span><span class="spent"></span>
+  </div>
+
+  <div id="bladder" class="hidden">
+    <span class="cap">bladder</span>
+    <div class="bar"><i></i></div>
+  </div>
+
+  <div id="toast-stack"></div>
+</div>
+
+<!-- ============ The flight HUD — identical ids/structure to beefrun.html's
+     #br-hud, so the reused, unmodified src/beefrun/hud.js's FlightHud can
+     drive it without any changes. ============ -->
+<div id="br-hud" class="hidden">
+  <div id="br-objective" class="hidden"></div>
+
+  <div class="br-left">
+    <div id="br-speed-tape" class="tape">
+      <div class="band"></div>
+      <div class="readout"><span id="br-speed">0</span><em>KT</em></div>
+    </div>
+  </div>
+
+  <div class="br-right">
+    <div class="stack">
+      <div class="readout big"><span id="br-alt">0</span><em>FT</em></div>
+      <div id="br-agl" class="sub">0 AGL</div>
+      <div id="br-vsi" class="sub vsi">0</div>
+    </div>
+  </div>
+
+  <div class="br-top">
+    <div id="br-hdg-tape" class="hdg"><i id="br-bug" class="bug hidden"></i><span id="br-hdg">000</span></div>
+    <div id="br-nav" class="nav hidden"></div>
+  </div>
+
+  <div id="br-warnings" class="warnings"></div>
+
+  <div class="br-bottom">
+    <div class="panel-row">
+      <div class="engs">
+        <div id="br-eng-l" class="eng ok"><span class="lab">L BANK</span><span class="val">OK</span><div class="bar"><i></i></div></div>
+        <div id="br-eng-r" class="eng ok"><span class="lab">R BANK</span><span class="val">OK</span><div class="bar"><i></i></div></div>
+      </div>
+      <div class="misc">
+        <div id="br-flaps">FLAPS UP</div>
+        <div id="br-airbrake">AIR BRAKE STOWED</div>
+        <div id="br-cargo">FAT SQUATCH ABOARD</div>
+      </div>
+      <div id="br-cg" class="cg hidden">
+        <span class="lab">BALANCE</span>
+        <div class="track"><i class="good-band"></i><i id="br-cg-needle" class="needle"></i></div>
+        <div class="ends"><span>TAIL</span><span>NOSE</span></div>
+      </div>
+      <div id="br-patrol" class="patrol hidden">
+        <span class="lab">PATROL</span>
+        <div class="meter"><i id="br-patrol-fill"></i></div>
+        <span id="br-patrol-label">UNNOTICED</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="br-guide" class="guide hidden"></div>
+  <div id="br-checkpoint" class="checkpoint hidden"></div>
+
+  <div id="br-dir" class="dir hidden">
+    <i class="arrow"></i>
+    <span class="tag"></span>
+  </div>
+
+  <div id="br-controls" class="controls-card hidden">
+    <h3>CONTROLS <em>H</em></h3>
+    <ul>
+      <li><kbd>W</kbd><kbd>S</kbd><span>pitch</span></li>
+      <li><kbd>A</kbd><span>bank left</span></li>
+      <li><kbd>D</kbd><span>bank right</span></li>
+      <li><kbd>Q</kbd><kbd>E</kbd><span>rudder</span></li>
+      <li><kbd>Shift</kbd><kbd>Ctrl</kbd><span>throttle</span></li>
+      <li><kbd>F</kbd><kbd>G</kbd><span>flaps</span></li>
+      <li><kbd>Space</kbd><span>hold air brake</span></li>
+      <li><kbd>B</kbd><kbd>V</kbd><span>brakes · parking</span></li>
+      <li><kbd>3</kbd><kbd>4</kbd><span>battery · fuel</span></li>
+      <li><kbd>1</kbd><kbd>2</kbd><span>start / stop engines three &amp; four</span></li>
+      <li><kbd>1</kbd>-<kbd>5</kbd><span>pick a line / emergency option</span></li>
+      <li><kbd>C</kbd><span>camera</span></li>
+      <li><kbd>Tab</kbd><span>pause · restart menu</span></li>
+    </ul>
+  </div>
+</div>
+
+<!-- The preflight checklist — reused verbatim from Beef Run's own markup;
+     src/beefrun/hud.js's showChecklist()/setChecklist() already implement
+     exactly the done/next/todo row pattern this mission's own checklist
+     (engines, payload restraints, bomb-bay panel, parking brake — see
+     src/enolasquatch/main.js) needs, so this mission does not build a second
+     checklist widget. -->
+<div id="br-checklist" class="hidden">
+  <h3>PREFLIGHT</h3>
+  <ul></ul>
+</div>
+
+<!-- The 1-5 release-line choice / the 3-option engine-emergency choice. -->
+<div id="es-choice">
+  <div id="es-choice-options"></div>
+</div>
+
+<!-- ============ Mission complete ============ -->
+<div id="br-complete" class="hidden">
+  <div class="card">
+    <h1>THE ENOLA SQUATCH<span>MISSION COMPLETE</span></h1>
+    <div id="br-rank" class="rank" data-tier="0">—</div>
+    <div id="br-complete-body"></div>
+    <div class="foot">
+      <button id="es-again" class="btn">Fly it again</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Title ============ -->
+<div id="overlay">
+  <div class="panel beefrun-panel">
+    <h1>THE ENOLA<span>SQUATCH</span></h1>
+    <p class="tag">Whispering Pines Municipal, well after dark. Captain Lou Sasole, Irish, Numbskull and
+      the Shubenator are waiting by a much bigger, much heavier aeroplane. Nobody has told you where you're
+      going yet, but it rhymes with "the desert compound."</p>
+
+    <button id="start-btn">Climb aboard</button>
+
+    <ul class="controls">
+      <li><kbd>W</kbd><kbd>S</kbd> pitch &middot; <kbd>A</kbd> bank left &middot; <kbd>D</kbd> bank right &middot; <kbd>Q</kbd><kbd>E</kbd> rudder</li>
+      <li><kbd>Shift</kbd><kbd>Ctrl</kbd> throttle &middot; <kbd>F</kbd><kbd>G</kbd> flaps &middot; hold <kbd>Space</kbd> air brake</li>
+      <li><kbd>B</kbd> wheel brakes &middot; <kbd>V</kbd> parking brake &middot; <kbd>3</kbd> battery &middot; <kbd>4</kbd> fuel</li>
+      <li><kbd>1</kbd><kbd>2</kbd> start engines three &amp; four (one and two are the captain's) &middot; <kbd>C</kbd> camera</li>
+      <li><kbd>1</kbd>-<kbd>5</kbd> pick a line or an emergency option when one is on screen</li>
+      <li><kbd>Tab</kbd> pause, review instructions, or restart from checkpoint</li>
+      <li>Mouse looks around. A gamepad works if one is plugged in.</li>
+    </ul>
+    <p class="fine">Everything here is invented: the aeroplane, the airfield, the compound, the Fat Squatch.</p>
+  </div>
+</div>
+
+<div id="loading"><div class="bar"><i></i></div><span>Loading the Enola Squatch…</span></div>
+
+<script>
+(function () {
+  var shown = false;
+  window.__squatchFail = function (title, detail) {
+    if (shown) return;
+    shown = true;
+    var el = document.getElementById('loading');
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('failed');
+    el.innerHTML = '<strong></strong><span></span>';
+    el.querySelector('strong').textContent = title;
+    el.querySelector('span').textContent = detail || '';
+  };
+  window.__squatchStage = function (text) {
+    if (shown) return;
+    var el = document.getElementById('loading');
+    var s = el && el.querySelector('span');
+    if (s) s.textContent = text;
+  };
+  addEventListener('error', function (e) {
+    window.__squatchFail('Could not start the mission', e.message || String(e.error || e));
+  });
+  addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    window.__squatchFail('Could not start the mission', (r && r.message) || String(r));
+  });
+  setTimeout(function () {
+    if (!(window.__squatch && window.__squatch.enolaSquatch)) {
+      window.__squatchFail(
+        'The mission did not finish loading',
+        'Serve the repo over HTTP (npm start) rather than opening the file directly. '
+        + 'If it is already served, the browser console will have the reason.');
+    }
+  }, 30000);
+})();
+</script>
+
+<script type="module" src="src/enolasquatch/main.js"
+  onerror="window.__squatchFail('Could not load the mission code', 'src/enolasquatch/main.js failed to load.')"></script>
+</body>
+</html>
