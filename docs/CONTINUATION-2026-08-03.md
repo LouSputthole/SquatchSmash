@@ -279,3 +279,94 @@ pause is shared across campaign scenes.
 - A scene that loads is not a scene that is done: verify dialogue, triggers,
   controls, collision, mission progression, save state, failure states, audio
   cues, and the transitions into and out of the apartment hub.
+
+---
+
+# What this session changed (2026-08-03)
+
+Branch `claude/squatch-life-continuation-2c23z0`, five commits on top of
+`8156788`. Gates at the last commit: `npm test` **445/445**, `npm run check`
+**clean**, `npm run check:flight` **every envelope**, `verify:beefrun` **68/68**,
+`verify:bing` **158/158**, `verify:golf` **89/89**, `verify:no-wake` **44/44**.
+
+## Done
+
+1. **Beef Run frame (priority 5).** The nose is `+Z`, so the pilot's left is
+   `+X`; every left/right word was authored from the apron. Mirrored the pilot
+   station, pedals, dash furniture, boarding target and step-down side; moved
+   engine 0 to the left wing and carried its moment arm with it; corrected the
+   P-factor and torque signs so "she pulls left" is true; fixed the
+   port/starboard mesh names and the flight-bench labels. Flight envelope
+   unchanged — `check:flight` passes every gate including centreline drift.
+2. **Ctrl removed from the Beef Run (priority 6).** Throttle-down is `Z`.
+   Ctrl+W closed the tab mid-flight and `preventDefault` cannot stop it. All
+   three control surfaces updated, all three warn, and reaching for the old
+   lever raises a toast.
+3. **Irish on the boat (priority 2).** Six lines: the egg story out, the count
+   and the confirmation inside the confrontation, his hands below decks, the
+   rail after the shot, and the back half he will not tell on the way in. He
+   never fires — there are two guns aboard and neither is his.
+4. **Silverback Commander + the Motel's fast gunfight (priorities 3 and 4).**
+   Snow offers it in the car; it rides concealed so the transaction can still be
+   played without a gun in the room. `X` draws it; drawing before the sellers
+   move starts the fight on Tony's count, and denies the bathroom man his free
+   swing. Costs police attention on the draw and every shot, fails the quiet
+   exit, and abandoning it is worse than abandoning anything else because the
+   crest makes it evidence against the Family.
+5. **Sensi Lou, Baby Snakes, Shubes' cooldown (required audio).** See
+   `src/core/signature-music.js` and `assets/music/README.md` — both records are
+   wired to their trigger with a fallback and are **not** in the music manifest
+   until the files land, because `check.mjs` fails the build for a manifest
+   track with no file. The signature line now goes through a gate: a 210 s
+   cooldown plus a rotation, with the three authored story beats exempt but
+   arming it.
+6. **The crew on the last green (priority 7).** Booskibro, The Shubenator,
+   DeathMegatron, Numbskull and Snow wait between the final green and the
+   clubhouse. Shared identity layer, ambient only, disposed with the hole.
+7. **Twelve more Family interactions at the Bing (priority 1).** A second
+   topic each, on its own branch, dead-ended so resume still has one position
+   per member.
+8. **Vendored the `img2threejs` skill** (Apache-2.0) beside the `threejs-*`
+   notes.
+
+## Not done
+
+- **Priority 8 — the Billy HotDog confrontation, aftermath and cleanup.** Not
+  started. `src/bing/hotdog-*.js` and `src/core/graveyard-story.js` are
+  untouched by this session, and commit `8156788`'s Ape-attack rework is the
+  most recent word on it.
+
+## Bugs found and left alone
+
+- **`verify:motel` is broken, on this branch and on `8156788` alike.**
+  `forceInteract('knock')` runs an interaction only when its own `enabled()`
+  agrees, and the knock's gate is `phase === 'lot' && !dialogue`. The harness
+  reaches it with one of those false, so the call no-ops, Rico is never spawned,
+  and the wait times out. Raising the ceiling to three minutes does not help.
+  Diagnosed in a comment at the failing line; needs one instrumented run to say
+  which gate is open.
+- **`verify:bing-two` fails identically on both commits** at the same
+  five-second wait.
+- **Cockpit head-bob is applied in world space** (`cameras.js`, the `_v.x`
+  nudge after `applyMatrix4`), so the shake runs along world X rather than the
+  airframe's lateral axis. Cosmetic; deliberately not touched, because it is a
+  feel change to a scene the standing rules call canonical.
+
+## Repairs made to the verification harness
+
+`verify:no-wake` could not reach its own scene. Its approved-pickup and
+still-pending lists both named recordings that have since been delivered; its
+title-card wait allowed 30 s for a start that decodes the harbour bank and
+three radio shows; its aftermath wait was hard-coded to four lines and now
+counts the authored list; and the disposal hold accumulates in the scene's
+clamped step rather than wall clock, so a six-second press was measuring the
+rasteriser. `nowake.html` and `graveyard.html` were also the only two pages
+without the favicon link every other page carries, costing them a 404 and a
+console error each.
+
+The disposal itself was a real defect, not a harness artefact: Willy's own
+figure was the hold target, a thin near-horizontal silhouette that Tony stood
+almost directly over, so the ray grazed it and `holdTime` reset before reaching
+the 0.85 s the lift needs — instrumented on `8156788` it peaked at 0.6 s with
+the key held for six and a half seconds. It now has the same broad invisible
+proxy the helm already used.
