@@ -30,6 +30,14 @@ export const NO_WAKE_AMBIENT_LINES = Object.freeze([
     'Nobody is looking at anybody, Willy. Enjoy the water.',
     { at: 72 },
   ),
+  /* Irish spends the ride out doing the only thing he does at the club, and
+   * it is the last ordinary thing that happens on this boat. The back half of
+   * the egg story is deliberately never told. */
+  line(
+    'cruise.irish.egg', 'Irish', 'irish',
+    'I’ll do the back half of the egg story on the way in. There is a back half. Nobody ever gets to it.',
+    { at: 90 },
+  ),
 ]);
 
 export const NO_WAKE_START_LINES = Object.freeze([
@@ -99,6 +107,21 @@ const REVEAL = Object.freeze({
     'I need the head. Too much coffee on the ride down. Everybody relax.',
     { focus: 'willy' },
   ),
+  /* Irish is why this is a proceeding and not a murder. He is the one who
+   * counts, who confirms the man was asked, and who will repeat both of those
+   * things to anyone who wants to relitigate it later. Neither line accuses
+   * Willy of anything Lou has not already established — that is the point of
+   * him. */
+  irishCount: line(
+    'reveal.irish.counted', 'Irish', 'irish',
+    'Four. I counted it on my fingers, twice, sitting in my own kitchen, hoping I’d get five.',
+    { focus: 'irish' },
+  ),
+  irishAsked: line(
+    'reveal.irish.asked', 'Irish', 'irish',
+    'He was asked. Asked, asked again, and now. That is the whole of it and I’ll say so to anybody who asks me.',
+    { focus: 'irish' },
+  ),
 });
 
 export function buildNoWakeConfrontation({ beefDetected, motelPoliceHeat }) {
@@ -107,10 +130,12 @@ export function buildNoWakeConfrontation({ beefDetected, motelPoliceHeat }) {
     REVEAL.sandwiches,
     beefDetected ? REVEAL.beefDetected : REVEAL.beefClean,
     REVEAL.pickup,
+    REVEAL.irishCount,
     REVEAL.questions,
     motelPoliceHeat > 55 ? REVEAL.motelHot : REVEAL.motelClean,
     REVEAL.bureau,
     REVEAL.confirmed,
+    REVEAL.irishAsked,
     REVEAL.head,
   ];
 }
@@ -126,12 +151,25 @@ export const NO_WAKE_BELOW_LINES = Object.freeze([
     'You fire with us. Not after us.',
     { focus: 'lou' },
   ),
+  /* And the reason Irish is aboard, said out loud in the last quiet moment:
+   * his hands stay empty so that his account of this is worth something. */
+  line(
+    'below.irish.hands', 'Irish', 'irish',
+    'My hands stay empty, kid. Somebody on this boat has to be able to say what happened out here.',
+    { focus: 'irish' },
+  ),
 ]);
 
 export const NO_WAKE_AFTERMATH_LINES = Object.freeze({
   move: line(
     'execution.lou.move', 'Big Uncle Lou', 'lou',
     'That’s done. Help Booski get him over the side.',
+  ),
+  /* Irish does the one useful, unbearable thing: he makes it a procedure
+   * again. Clear the rail, mind the props. He does not look at the man. */
+  irishRail: line(
+    'execution.irish.rail', 'Irish', 'irish',
+    'Rail’s clear on this side. Take him wide of the propellers and mind your footing.',
   ),
   lift: line(
     'execution.booski.lift', 'Booskibro', 'booski',
@@ -144,6 +182,13 @@ export const NO_WAKE_AFTERMATH_LINES = Object.freeze({
   lesson: line(
     'return.lou.lesson', 'Big Uncle Lou', 'lou',
     'You did what you were told. Leave the rest of it out here.',
+  ),
+  /* The payoff for the ride out. He offered the back half of the egg story and
+   * now nobody is having it, including him. It is the only grief anybody on
+   * this boat is going to show. */
+  irishNoBackHalf: line(
+    'return.irish.no-back-half', 'Irish', 'irish',
+    'I’m not doing the back half. Not today. Ask me at the club sometime.',
   ),
 });
 

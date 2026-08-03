@@ -347,11 +347,14 @@ export class MissionController {
       new THREE.BoxGeometry(1.2, 1.8, 1.2),
       new THREE.MeshBasicMaterial({ visible: false }),
     );
-    hit.position.set(-1.1, -0.4, 2.0);
+    /* Beside the left seat, which is +X: the nose is +Z, so the aeroplane's
+     * left is the far side from where you would guess standing in front of it.
+     * Sasole boards on the other side and takes the right seat. */
+    hit.position.set(1.1, -0.4, 2.0);
     this.aircraft.group.add(hit);
     this.boardTarget = hit;
     this.interaction.register(hit, {
-      label: () => 'Get into the <b>left seat</b>',
+      label: () => 'Get into the <b>left seat</b> — the aeroplane’s left, not yours',
       key: 'E',
       onUse: () => this.enterCockpit(),
     });
@@ -426,10 +429,10 @@ export class MissionController {
     this.dialogue.setHeadset(false);
     this.input.rudderKeys = false;
     this.input.clear();
-    // Step down onto the ground beside the door.
+    // Step down onto the ground on the left side, where he climbed in.
     const p = this.physics.position;
     const q = this.physics.quat;
-    const off = new THREE.Vector3(-3.2, 0, 0.5).applyQuaternion(q);
+    const off = new THREE.Vector3(3.2, 0, 0.5).applyQuaternion(q);
     const x = p.x + off.x, z = p.z + off.z;
     this.player.position.set(x, terrainHeight(x, z) + 1.66, z);
     this.player.ground = terrainHeight(x, z);

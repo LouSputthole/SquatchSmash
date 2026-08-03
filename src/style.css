@@ -563,6 +563,16 @@ kbd.key, .controls kbd {
   color: #8d846f;
 }
 #overlay .controls li { display: flex; align-items: center; gap: 5px; }
+/* A control line that is a warning about the browser rather than a key to
+   press. It gets the whole row and enough contrast to be read once. */
+#overlay .controls li.warn {
+  flex-basis: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  color: #c0a05a;
+  line-height: 1.7;
+}
 #overlay .fine { margin-top: 22px; font-size: 11px; color: #6b6455; line-height: 1.7; }
 
 /* ---------------- Loading ---------------- */

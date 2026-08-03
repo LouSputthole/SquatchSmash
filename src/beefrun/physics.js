@@ -230,11 +230,19 @@ export class AircraftPhysics {
     // full strength from a standstill gave a 40-degree swing before the rudder
     // had any air over it, which is not a handling characteristic, it is a
     // parked aeroplane spinning on its nosewheel.
-    sTorque.y += (tL - tR) * 3.05 * 0.9;
+    //
+    // Signs are in the pilot's frame, which is the only frame anybody in this
+    // mission speaks in. The nose is +Z, so a positive moment about +Y swings
+    // the nose toward +X, and +X is his LEFT. Therefore: the left engine sits
+    // at +3.05 and its thrust yaws him RIGHT (hence the minus), and "she pulls
+    // left" is a positive torque. All three used to carry the other sign, so
+    // the left engine lived on the right wing and the aeroplane that Sasole
+    // says pulls left pulled right off the centreline every takeoff.
+    sTorque.y -= (tL - tR) * 3.05 * 0.9;
     const slowPower = clamp((tL + tR) / (AC.thrustMax * 2), 0, 1)
       * smoothstep(0, 13, V) * clamp(1 - V / 55, 0, 1);
-    sTorque.y -= slowPower * AC.torqueYaw * this.assist.torque;
-    sTorque.z += slowPower * AC.torqueRoll * this.assist.torque;
+    sTorque.y += slowPower * AC.torqueYaw * this.assist.torque;
+    sTorque.z -= slowPower * AC.torqueRoll * this.assist.torque;
 
     // Stall: nose drops, one wing lets go first.
     if (stallT > 0.3 && !this.onGround) {
@@ -296,14 +304,14 @@ export class AircraftPhysics {
          * yaw control in it at all.
          *
          * The sign matters more than any of the numbers. A positive rotation
-         * about +Y takes the nose toward +X, which is right, and right pedal is
-         * positive — so this is `+steer`. It was `-steer`, which pointed the
-         * tyre away from the pedal and made the ground controls reversed below
-         * the speed where the rudder took over. It never looked like a reversal
-         * because the swing was always leftward and the rudder always won in
-         * the end; it looked like an aeroplane that wandered off the runway.
-         * Measured open-loop it was unmistakable: full right pedal produced
-         * twenty-two degrees a second squared of LEFT yaw. */
+         * about +Y takes the nose toward +X, which is the pilot's left, and
+         * left pedal (Q) is positive — so this is `+steer`. It was `-steer`,
+         * which pointed the tyre away from the pedal and made the ground
+         * controls reversed below the speed where the rudder took over. It
+         * never looked like a reversal because the rudder always won in the
+         * end; it looked like an aeroplane that wandered off the runway.
+         * Measured open-loop it was unmistakable: full pedal produced twenty-
+         * two degrees a second squared of yaw the other way. */
         const steer = c.yaw * AC.groundSteer * clamp(1 - V / AC.steerFadeV, 0, 1);
         sFwd.applyAxisAngle(UP, steer);
       }

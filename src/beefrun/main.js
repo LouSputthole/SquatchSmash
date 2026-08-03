@@ -32,7 +32,7 @@ import { buildAirstrip } from './airstrip.js';
 import { buildLandmarks } from './landmarks.js';
 import { FlightHud } from './hud.js';
 import { CameraManager } from './cameras.js';
-import { FlightInput } from './input.js';
+import { FlightInput, isBrowserReservedChord } from './input.js';
 import { BeefAudioEngine, MissionAudio } from './audio.js';
 import { DialogueSystem } from './dialogue.js';
 import { Preflight } from './preflight.js';
@@ -344,10 +344,11 @@ const pauseMenu = createPauseMenu({
   instructions: [
     'On foot: W A S D — move. E — interact.',
     'In the aircraft: W/S — pitch. A/D — roll. Q/E — rudder.',
-    'Shift/Ctrl — throttle. F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
-    '3 — battery. 4 — fuel. 1/2 — start or stop each engine.',
+    'Shift — throttle up. Z — throttle down. F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
+    '3 — battery. 4 — fuel. 1/2 — start or stop each engine. Engine 1 is the left one.',
     'C — camera. Restart scene / checkpoint — use the button in this menu.',
     'Tab — pause or resume.',
+    'Nothing uses Ctrl or Cmd: with a flight key those are browser shortcuts (Ctrl+W closes the tab) and this page cannot intercept them.',
   ],
   onPause: () => {
     game.paused = true;
@@ -406,13 +407,30 @@ document.addEventListener('mouseup', (e) => {
 /* Capture at document rather than the window. It still wins over focused UI
  * controls, while matching the real keyboard dispatch path Chrome uses for
  * the game canvas and accessibility-focused document. */
+/* Reaching for the throttle lever that is not there any more.
+ *
+ * Ctrl used to lower the throttle, so muscle memory and every stale guide send
+ * a pilot's left hand back to it — and Ctrl held with W, D, S, R or T is a
+ * browser accelerator the page cannot intercept. Say where the lever went,
+ * once, and then not more than every twelve seconds, so the message is a
+ * correction rather than a second thing going wrong. */
+const CTRL_NUDGE_GAP_MS = 12000;
+let lastCtrlNudge = -Infinity;
+function nudgeAwayFromBrowserChord() {
+  const now = performance.now();
+  if (now - lastCtrlNudge < CTRL_NUDGE_GAP_MS) return;
+  lastCtrlNudge = now;
+  hud.toast('THROTTLE DOWN IS Z — CTRL IS THE BROWSER’S', 'bad', 4200);
+}
+
 document.addEventListener('keydown', (e) => {
   if (!game.started) return;
   if (e.code === 'Escape') return;             // pointer lock handles this
   if (game.paused) return;
+  if (isBrowserReservedChord(e)) nudgeAwayFromBrowserChord();
   if (e.repeat) return;
   const code = input.keyEvent(e, true);
-  if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
+  if (code === 'Space' || code === 'Shift') e.preventDefault();
   player.setKey(e.code, true);
   if (!mission.flags.inCockpit && e.code === 'KeyE') interaction.press();
 }, true);

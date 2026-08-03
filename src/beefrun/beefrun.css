@@ -381,6 +381,31 @@ body.beefrun { background: #0c0c10; }
   opacity: 0.9;
 }
 #br-controls li span { margin-left: 0.35rem; opacity: 0.66; }
+/* The one line on this card that is about the browser rather than the
+   aeroplane. It stays legible when the rest of the card fades, because the
+   flight it matters on is the one where somebody reaches for the old Ctrl
+   throttle out of habit. */
+#br-controls .browser-warning {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--br-line);
+  max-width: 15rem;
+  font-size: 0.58rem;
+  line-height: 1.6;
+  letter-spacing: 0.03em;
+  color: var(--br-amber);
+  opacity: 0.85;
+}
+#br-controls .browser-warning kbd {
+  display: inline-block;
+  min-width: 1rem;
+  padding: 0 0.2rem;
+  border: 1px solid var(--br-line);
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: 0.55rem;
+  text-align: center;
+}
 
 /* ------------------------------------------------------------------ */
 /* Title screen additions                                             */

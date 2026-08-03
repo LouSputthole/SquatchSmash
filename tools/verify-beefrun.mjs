@@ -887,6 +887,7 @@ const chain = await page.evaluate(() => {
    * panel, and the gauges face the man who has to read them. */
   const seat = await resumePage.evaluate(() => {
     const b = window.__beefrun;
+    const m = b.mission;
     const cam = b.player.camera;
     const ac = b.aircraft;
     const V = b.physics.position.constructor;
@@ -914,6 +915,11 @@ const chain = await page.evaluate(() => {
     return {
       facesNose: +camFwd.dot(noseFwd).toFixed(3),
       eyeY: ac.pilotEye.y,
+      eyeX: ac.pilotEye.x,
+      copilotX: ac.copilotSeat.x,
+      louSeatedX: m.flags.louAboard ? m.lou.group.position.x : null,
+      // Which side each nacelle is on, indexed the way engines.js names them.
+      nacelleX: ac.parts.prop?.map((hub) => +hub.position.x.toFixed(2)),
       coamingTopY: coaming ? +(coaming.position.y + 0.05).toFixed(3) : null,
       panelTopY: panel ? +(panel.position.y + panel.geometry.parameters.height / 2).toFixed(3) : null,
       gaugesFacePilot: !!gauges && Math.abs(gauges.rotation.y - Math.PI) < 0.01,
@@ -954,6 +960,20 @@ const chain = await page.evaluate(() => {
       && seat.eyeY > seat.coamingTopY && seat.eyeY > seat.panelTopY
       && seat.gaugesFacePilot,
     JSON.stringify(seat));
+  /* The words and the world have to agree. The nose is +Z, so the aeroplane's
+   * left — the seat the objective names and the one Sasole leaves for you — is
+   * +X, Sasole's right seat is -X, and the engine Sasole calls the left one
+   * (index 0, started with key 1) hangs on +X too. All three used to be
+   * mirrored, which is how "get into the left seat" seated the player on the
+   * right while the captain climbed into the left. */
+  check('the pilot is in the aeroplane\'s real left seat and Sasole is in the right',
+    seat.eyeX > 0.2 && seat.copilotX < -0.2
+      && (seat.louSeatedX === null || seat.louSeatedX < -0.2),
+    JSON.stringify({ eyeX: seat.eyeX, copilotX: seat.copilotX, louSeatedX: seat.louSeatedX }));
+  check('the engine Sasole calls the left one is on the aeroplane\'s left',
+    Array.isArray(seat.nacelleX) && seat.nacelleX.length === 2
+      && seat.nacelleX[0] > 0 && seat.nacelleX[1] < 0,
+    JSON.stringify(seat.nacelleX));
   check('the flight HUD and the controls legend are up for the flight',
     seat.hudUp && seat.controlsUp && seat.controlKeys >= 16,
     JSON.stringify({ hudUp: seat.hudUp, controlsUp: seat.controlsUp, keys: seat.controlKeys }));
@@ -966,9 +986,11 @@ const chain = await page.evaluate(() => {
       && seat.airBrakePanels?.length === 2,
     JSON.stringify({ text: seat.controlsText.replace(/\s+/g, ' ').trim(),
       hud: seat.airBrakeHud, panels: seat.airBrakePanels }));
-  check('the apartment-fridge Tammy sticker moved to the opposite dash side',
+  check('the apartment-fridge Tammy sticker rides the flying pilot\'s dash rail',
     seat.tammy.name === 'tammy-golden-ak-sticker'
-      && seat.tammy.x < -0.5
+      // +X is the aeroplane's left, because its nose is +Z. Her rail is the
+      // outboard end of the left seat's dash, away from Sasole.
+      && seat.tammy.x > 0.5
       && seat.tammy.sourceSlot === 'sticker.fridge'
       && seat.tammy.sourceFile === 'sticker-pinup.png'
       && /assets\/art\/sticker-pinup\.png(?:\?|$)/.test(seat.tammy.imageSrc)

@@ -19,6 +19,15 @@ const SPEAKER_SHOTS = Object.freeze({
     targetOffset: [0, 1.46, 0],
     fov: 58,
   },
+  /* Irish stands to port and one pace back, so his shot comes in from the
+   * starboard side of the group and reads as somebody speaking across the
+   * deck rather than another face in the same line-up. */
+  irish: {
+    position: [1.28, 2.54, 1.72],
+    targetNpc: 'irish',
+    targetOffset: [0, 1.46, 0],
+    fov: 56,
+  },
 });
 
 const RETURN_SHOTS = Object.freeze([

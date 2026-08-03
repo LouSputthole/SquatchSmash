@@ -296,9 +296,17 @@ console.log('Brushrunner flight model\n');
 /* 2b. Ground steering points where the pedal points                 */
 /* ---------------------------------------------------------------- */
 /* Measured open-loop, one speed at a time, because closed-loop nothing looked
- * wrong: the swing is always to the left and the rudder always wins in the end,
- * so a reversed nosewheel reads as an aeroplane that wanders off the runway
- * rather than as reversed controls. It cost a heavy departure every time. */
+ * wrong: the swing is always the same way and the rudder always wins in the
+ * end, so a reversed nosewheel reads as an aeroplane that wanders off the
+ * runway rather than as reversed controls. It cost a heavy departure every
+ * time.
+ *
+ * Sides are named in the pilot's frame, the way the mission speaks: the nose
+ * is +Z, so +X and a positive yaw rate are his LEFT. `pedal = +1` is what the
+ * left pedal (Q) sends. These labels used to read the other way, in the
+ * simulation's internal convention, which is the same reading mistake that
+ * once put the pilot in the right seat and the left engine on the right
+ * wing. */
 {
   const yawAccel = (V, pedal, mass) => {
     const { p, eng } = rig(mass);
@@ -312,14 +320,14 @@ console.log('Brushrunner flight model\n');
     return ((p.omega.y - before) / (30 * dt)) * 180 / Math.PI;
   };
   const heavy = AC.emptyMass + AC.fuelMass * 0.7 + AC.maxCargo;
-  console.log('\nGround steering, yaw acceleration from full right pedal:');
+  console.log('\nGround steering, yaw acceleration from full left pedal:');
   let worst = Infinity;
   for (const V of [4, 8, 12, 16, 20, 24]) {
     for (const mass of [null, heavy]) worst = Math.min(worst, yawAccel(V, 1, mass));
   }
-  expect('right pedal yaws right at every ground speed', worst, 4, 200, ' deg/s²');
-  const left = yawAccel(10, -1, null);
-  expect('and left pedal yaws left', left, -200, -4, ' deg/s²');
+  expect('left pedal yaws left at every ground speed', worst, 4, 200, ' deg/s²');
+  const right = yawAccel(10, -1, null);
+  expect('and right pedal yaws right', right, -200, -4, ' deg/s²');
   // The tyre and the fin have to overlap, or there is a band with no control.
   const dip = Math.min(...[14, 18, 20, 22, 24].map((V) => yawAccel(V, 1, heavy)));
   expect('no dead band where the tyre hands over', dip, 4, 200, ' deg/s²');

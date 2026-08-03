@@ -15,6 +15,23 @@ import { clamp, damp } from './util.js';
 const RATE = { pitch: 2.1, roll: 2.6, yaw: 2.8 };      // units per second
 const CENTRE = { pitch: 3.2, roll: 4.0, yaw: 5.0 };    // return-to-centre rate
 
+/**
+ * Modifiers the browser owns and the game may never ask a player to hold.
+ *
+ * `preventDefault` does not reach a browser accelerator. Ctrl used to be the
+ * throttle-down lever, which meant the standard way to descend was to hold
+ * Ctrl and steer — and steering is W. Ctrl+W closes the tab, and it closes it
+ * without asking, in the middle of a smuggling flight, with the checkpoint
+ * however many minutes back. Ctrl+D, Ctrl+S, Ctrl+R, Ctrl+N and Ctrl+T are all
+ * one finger away from the same set of keys.
+ */
+export const BROWSER_RESERVED_MODIFIERS = Object.freeze(['Control', 'Meta']);
+
+/** True when this event is a browser chord rather than a flight control. */
+export function isBrowserReservedChord(event) {
+  return !!(event && (event.ctrlKey || event.metaKey));
+}
+
 export class FlightInput {
   constructor() {
     this.keys = new Set();
@@ -55,6 +72,9 @@ export class FlightInput {
     const code = key === 'Shift' ? 'Shift'
       : key === 'Control' ? 'Control'
         : event?.code || key || '';
+    /* Ctrl and Cmd are still normalized and recorded so the mission can notice
+     * a pilot reaching for the old throttle and tell them where it went, but
+     * nothing in `update()` reads them any more. */
     if (code) this.key(code, down);
     return code;
   }
@@ -144,13 +164,17 @@ export class FlightInput {
           this.axes[axis] = clamp(this.axes[axis] + Math.sign(target) * RATE[axis] * dt, -1, 1);
         }
       }
-      /* Throttle on Shift / Control, and it moves like a lever.  Chrome
-       * normally supplies a physical left/right `code`, but virtual
+      /* Throttle on Shift / Z, and it moves like a lever.  Chrome normally
+       * supplies a physical left/right `code` for Shift, but virtual
        * keyboards, accessibility layers, and a few browser focus paths only
        * expose the logical modifier name.  Accept both representations so a
-       * pilot is never stuck at idle because the browser omitted a side. */
+       * pilot is never stuck at idle because the browser omitted a side.
+       *
+       * Throttle down is Z, not Ctrl. See BROWSER_RESERVED_MODIFIERS: Ctrl is
+       * the browser's, and the game cannot take it back. Z sits under the same
+       * hand as Shift and belongs to nothing else in the cockpit. */
       const up = k.has('Shift') || k.has('ShiftLeft') || k.has('ShiftRight');
-      const down = k.has('Control') || k.has('ControlLeft') || k.has('ControlRight');
+      const down = k.has('KeyZ');
       if (up) this.throttle = clamp(this.throttle + dt * 0.75, 0, 1);
       if (down) this.throttle = clamp(this.throttle - dt * 0.75, 0, 1);
       this.brake = k.has('KeyB') ? 1 : 0;

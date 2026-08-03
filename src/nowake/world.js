@@ -857,10 +857,23 @@ function buildBoat(scene, marina) {
       name: 'Willy', tier: 'hero', x: .62, y: 1.02, z: 4.68, yaw: Math.PI,
       job: 'sit', model: { ...source[CHARACTER_IDS.WILLY].model },
     }),
+    /* Irish came along because somebody always does, and because a thing like
+     * this is not supposed to happen on one man's word. He is the Family's
+     * procedure voice: he is not here to shoot Willy, he is here so that
+     * afterwards nobody can say it was done wrong. He stands to port, one pace
+     * back from the two who will, close enough to hear and far enough to keep
+     * his hands empty. Same id, face and voice as the Bing floor. */
+    irish: new Npc(root, {
+      name: 'Irish', tier: 'hero', x: -1.72, y: 1.02, z: 3.35, yaw: 1.06,
+      job: 'stand', model: {
+        ...source[CHARACTER_IDS.IRISH].model, face: 'assets/faces/irish.png',
+      },
+    }),
   };
   cast.willy.group.userData.characterId = CHARACTER_IDS.WILLY;
   cast.booski.group.userData.characterId = CHARACTER_IDS.BOOSKI;
   cast.lou.group.userData.characterId = CHARACTER_IDS.LOU;
+  cast.irish.group.userData.characterId = CHARACTER_IDS.IRISH;
 
   scene.add(root);
   root.updateMatrixWorld(true);

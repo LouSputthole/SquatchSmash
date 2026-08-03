@@ -61,8 +61,13 @@ const soundIndex = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'sfx', '
 const indexedFiles = new Set(soundIndex.files || []);
 const manifestVoice = soundManifest.sfx.filter((cue) => cue.name.startsWith('vo.nowake.'));
 const manifestByName = new Map(manifestVoice.map((cue) => [cue.name, cue]));
-check('all 24 NO WAKE lines have stable cue ids, cast voices and exact manifest text',
-  authoredVoice.length === 24
+/* Irish joined the boat and brought six lines with him: the egg story on the
+ * way out, the count and the confirmation inside the confrontation, his hands
+ * below decks, the rail after the shot, and the back half he will not tell on
+ * the way in. */
+const AUTHORED_LINE_COUNT = 30;
+check(`all ${AUTHORED_LINE_COUNT} NO WAKE lines have stable cue ids, cast voices and exact manifest text`,
+  authoredVoice.length === AUTHORED_LINE_COUNT
     && manifestVoice.length === authoredVoice.length
     && authoredVoice.every((line) => {
       const cue = manifestByName.get(`vo.nowake.${line.cue}.1`);
@@ -71,14 +76,17 @@ check('all 24 NO WAKE lines have stable cue ids, cast voices and exact manifest 
   JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
 
 const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
+/* The seven lines that used to be listed here have since been recorded and
+ * indexed, which quietly broke this check: it demands that the pickup list and
+ * the recording sheet match exactly, and the sheet had moved on. What is
+ * outstanding now is Irish's pass, and nothing else. */
 const expectedNoWakePickups = [
-  'vo.nowake.execution.booski.lift.1.mp3',
-  'vo.nowake.execution.lou.move.1.mp3',
-  'vo.nowake.execution.prospect.lift.1.mp3',
-  'vo.nowake.return.lou.lesson.1.mp3',
-  'vo.nowake.reveal.willy.head-v2.1.mp3',
-  'vo.nowake.start.booski.sequence.1.mp3',
-  'vo.nowake.start.lou.platform.1.mp3',
+  'vo.nowake.below.irish.hands.1.mp3',
+  'vo.nowake.cruise.irish.egg.1.mp3',
+  'vo.nowake.execution.irish.rail.1.mp3',
+  'vo.nowake.return.irish.no-back-half.1.mp3',
+  'vo.nowake.reveal.irish.asked.1.mp3',
+  'vo.nowake.reveal.irish.counted.1.mp3',
 ];
 const noWakePickupFiles = authoredVoice
   .map((line) => `vo.nowake.${line.cue}.1.mp3`)
@@ -115,17 +123,22 @@ try {
     'ambience.harbor',
     'boat.board.step', 'boat.body.drag', 'boat.body.rail', 'boat.engine.shutdown',
     'boat.engine.start', 'boat.engine.underway', 'boat.gunshot.deck', 'boat.hull.creak', 'boat.hull.wake',
-    'boat.rope.release', 'vo.nowake.execution.booski.lift.1',
-    'vo.nowake.execution.lou.move.1', 'vo.nowake.execution.prospect.lift.1',
-    'vo.nowake.return.lou.lesson.1', 'vo.nowake.reveal.willy.head-v2.1',
-    'vo.nowake.start.booski.sequence.1', 'vo.nowake.start.lou.platform.1',
+    'boat.rope.release',
+    // Irish is wired, subtitled and timed; he is not recorded yet.
+    'vo.nowake.below.irish.hands.1', 'vo.nowake.cruise.irish.egg.1',
+    'vo.nowake.execution.irish.rail.1', 'vo.nowake.return.irish.no-back-half.1',
+    'vo.nowake.reveal.irish.asked.1', 'vo.nowake.reveal.irish.counted.1',
     'seagull.distant',
   ].sort();
   await page.evaluate(() => window.NO_WAKE.postfx?.disable?.());
   // Use a trusted browser gesture so the same click that starts the mission can
   // legally acquire pointer lock, as it does for a player.
   await page.click('#start-btn');
-  await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 30000 });
+  /* Start decodes the harbour bank and three authored radio shows before it
+   * takes the title card down. On a software rasteriser that is comfortably
+   * over half a minute, so the old 30 s ceiling failed this contract on
+   * machine speed rather than on anything the scene did. */
+  await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 180000 });
   await page.waitForTimeout(250);
 
   const initialPointerLock = await page.evaluate(() => (

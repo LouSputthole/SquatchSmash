@@ -13770,6 +13770,11 @@
       "say": "Nobody is looking at anybody, Willy. Enjoy the water."
     },
     {
+      "name": "vo.nowake.cruise.irish.egg.1",
+      "voice": "irish",
+      "say": "I’ll do the back half of the egg story on the way in. There is a back half. Nobody ever gets to it."
+    },
+    {
       "name": "vo.nowake.reveal.lou.quiet.1",
       "voice": "lou",
       "say": "Kill the engines in your head for a minute, kid. We need the quiet."
@@ -13825,6 +13830,16 @@
       "say": "I need the head. Too much coffee on the ride down. Everybody relax."
     },
     {
+      "name": "vo.nowake.reveal.irish.counted.1",
+      "voice": "irish",
+      "say": "Four. I counted it on my fingers, twice, sitting in my own kitchen, hoping I’d get five."
+    },
+    {
+      "name": "vo.nowake.reveal.irish.asked.1",
+      "voice": "irish",
+      "say": "He was asked. Asked, asked again, and now. That is the whole of it and I’ll say so to anybody who asks me."
+    },
+    {
       "name": "vo.nowake.below.booski.look.1",
       "voice": "booski",
       "say": "When he comes back, do not look at Lou. Look at Willy."
@@ -13835,9 +13850,19 @@
       "say": "You fire with us. Not after us."
     },
     {
+      "name": "vo.nowake.below.irish.hands.1",
+      "voice": "irish",
+      "say": "My hands stay empty, kid. Somebody on this boat has to be able to say what happened out here."
+    },
+    {
       "name": "vo.nowake.execution.lou.move.1",
       "voice": "lou",
       "say": "That’s done. Help Booski get him over the side."
+    },
+    {
+      "name": "vo.nowake.execution.irish.rail.1",
+      "voice": "irish",
+      "say": "Rail’s clear on this side. Take him wide of the propellers and mind your footing."
     },
     {
       "name": "vo.nowake.execution.booski.lift.1",
@@ -13853,6 +13878,11 @@
       "name": "vo.nowake.return.lou.lesson.1",
       "voice": "lou",
       "say": "You did what you were told. Leave the rest of it out here."
+    },
+    {
+      "name": "vo.nowake.return.irish.no-back-half.1",
+      "voice": "irish",
+      "say": "I’m not doing the back half. Not today. Ask me at the club sometime."
     },
     {
       "name": "vo.nowake.epilogue.tony.phone.1",

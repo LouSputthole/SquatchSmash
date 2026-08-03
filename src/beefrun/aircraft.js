@@ -230,7 +230,13 @@ export class Brushrunner {
     this.parts.propDisc = [];
     this.parts.exhaust = [];
     for (let i = 0; i < 2; i++) {
-      const sx = i === 0 ? -1 : 1;
+      /* Engine 0 is the LEFT engine everywhere else in this mission — the one
+       * Sasole tells you to start first, the one that runs hot on the way
+       * home. The aeroplane's left is +X (nose is +Z), so engine 0 hangs on
+       * +X. It used to hang on -X, which is the starboard wing, so the "left"
+       * engine coughed, smoked and overheated out of the right-hand window.
+       * `physics.js` carries the matching moment arm. */
+      const sx = i === 0 ? 1 : -1;
       const nx = sx * 3.05;
       const nacelle = mesh(boxGeo(1.02, 0.96, 3.3), skin, nx, 1.0, 0.9);
       g.add(nacelle);
@@ -305,14 +311,17 @@ export class Brushrunner {
         new THREE.Vector3(sx * 0.34, -0.22, -4.92),
         0.08, 0.08, metal,
       );
-      upper.name = `tail-brace-${sx < 0 ? 'port' : 'starboard'}-forward`;
+      /* Port is the aeroplane's left, and the nose is +Z, so port is +X. These
+       * two names were the wrong way round, which is the same reading mistake
+       * that put the pilot in the right seat. */
+      upper.name = `tail-brace-${sx < 0 ? 'starboard' : 'port'}-forward`;
       tailFrame.add(upper);
       const aft = memberBetween(
         new THREE.Vector3(sx * 2.15, 0.58, -6.10),
         new THREE.Vector3(sx * 0.30, -0.18, -5.50),
         0.07, 0.07, metal,
       );
-      aft.name = `tail-brace-${sx < 0 ? 'port' : 'starboard'}-aft`;
+      aft.name = `tail-brace-${sx < 0 ? 'starboard' : 'port'}-aft`;
       tailFrame.add(aft);
     }
     g.add(tailFrame);
@@ -323,7 +332,7 @@ export class Brushrunner {
     for (const sx of [-1, 1]) {
       for (const z of [1.42, 2.18]) {
         const band = mesh(boxGeo(1.05, 0.99, 0.055), metal, sx * 3.05, 1.0, z);
-        band.name = `nacelle-band-${sx < 0 ? 'port' : 'starboard'}-${z < 2 ? 'aft' : 'forward'}`;
+        band.name = `nacelle-band-${sx < 0 ? 'starboard' : 'port'}-${z < 2 ? 'aft' : 'forward'}`;
         exteriorDetails.add(band);
       }
     }
@@ -382,7 +391,7 @@ export class Brushrunner {
       this.parts.gear.push({ leg, wheel, rest: leg.position.y, base: leg.position.y });
     });
 
-    // ---- Cargo door, port side aft ----
+    // ---- Cargo door, starboard side aft (-X; the nose is +Z) ----
     const doorPivot = new THREE.Group();
     doorPivot.position.set(-0.93, -0.1, -0.2);
     const door = mesh(boxGeo(0.08, 1.5, 1.7), patch, 0, 0, -0.85);
@@ -489,6 +498,22 @@ export class Brushrunner {
     const metal = solid(0x9aa0a6, { roughness: 0.4, metalness: 0.7 });
     const seatMat = solid(0x5c4a38, { roughness: 0.95 });
 
+    /* Which way is left.
+     *
+     * The Brushrunner's nose is +Z (the fuselage above) and a seated pilot
+     * faces it. In Three's right-handed frame, facing +Z with +Y up puts his
+     * RIGHT at -X and his LEFT at +X — the mirror of what you read standing on
+     * the apron looking at the aeroplane. Every asymmetric station below is
+     * placed from INSIDE the cabin against these two constants, so "left seat"
+     * means the seat the pilot in command actually occupies and the words
+     * Captain Sasole says on the apron are true once you are sitting down.
+     *
+     * They used to be the other way round: the eye went in at -X, which is the
+     * right seat, while the objective said "get into the left seat" and Sasole
+     * announced he was taking the right one and then climbed into the left. */
+    const LEFT = 1;
+    const RIGHT = -1;
+
     // Instrument panel: one canvas for all six gauges, redrawn in flight.
     const canvas = document.createElement('canvas');
     canvas.width = 1024;
@@ -507,8 +532,8 @@ export class Brushrunner {
     const panel = mesh(boxGeo(1.62, 0.72, 0.1), panelDark, 0, 0.30, 2.86);
     panel.rotation.x = 0.16;
     g.add(panel);
-    /* The gauges hang off the panel's own back face, turned to look at the
-     * left seat. They used to be a plane facing the propeller, which is a
+    /* The gauges hang off the panel's own back face, turned to look into the
+     * cabin. They used to be a plane facing the propeller, which is a
      * single-sided material pointed at nobody: six instruments drawn every
      * frame into a canvas that the only person aboard could not see. */
     const face = flatMesh(new THREE.PlaneGeometry(1.5, 0.64), new THREE.MeshBasicMaterial({ map: panelTex }), 0, 0, -0.052);
@@ -619,10 +644,10 @@ export class Brushrunner {
     compassFace.rotation.y = Math.PI;
     compassHousing.add(compassFace);
 
-    // Rudder pedals.
+    // Rudder pedals, under the flying pilot's feet — so, the left seat.
     this.parts.pedal = [];
     for (const sx of [-1, 1]) {
-      const pedal = mesh(boxGeo(0.12, 0.04, 0.2), metal, sx * 0.16 - 0.42, -0.42, 2.3);
+      const pedal = mesh(boxGeo(0.12, 0.04, 0.2), metal, sx * 0.16 + LEFT * 0.42, -0.42, 2.3);
       pedal.rotation.x = 0.5;
       g.add(pedal);
       this.parts.pedal.push(pedal);
@@ -636,7 +661,7 @@ export class Brushrunner {
 
     // The bobblehead: a sasquatch on a spring, and the honest instrument.
     const bobble = new THREE.Group();
-    bobble.position.set(0.3, 0.70, 2.94);          // stands on the coaming
+    bobble.position.set(RIGHT * 0.3, 0.70, 2.94);  // stands on the coaming, inboard
     const bobBody = mesh(cylGeo(0.035, 0.045, 0.07, 8), solid(0x6b5a44, { roughness: 1 }), 0, 0.03, 0);
     bobble.add(bobBody);
     const bobHead = new THREE.Group();
@@ -648,16 +673,16 @@ export class Brushrunner {
     this.parts.bobble = bobHead;
 
     /* Tammy is the exact old sticker from the apartment fridge: the pin-up
-     * holding the AK, not a procedural text mug. Mirror the old mug's upper
-     * rail position from +X to -X so it is both on the requested opposite side
-     * and visible in the pilot's ordinary forward scan. */
+     * holding the AK, not a procedural text mug. She sits on the outboard end
+     * of the flying pilot's own upper rail — the side away from Sasole, and
+     * inside the ordinary forward scan from the left seat. */
     const tammy = flatMesh(
       new THREE.PlaneGeometry(0.24, 0.24),
       new THREE.MeshBasicMaterial({
         map: tammyStickerTexture(), transparent: true, alphaTest: 0.06,
         side: THREE.DoubleSide, toneMapped: false,
       }),
-      -0.63, 0.77, 2.82,
+      LEFT * 0.63, 0.77, 2.82,
     );
     tammy.name = 'tammy-golden-ak-sticker';
     tammy.rotation.y = Math.PI;
@@ -678,42 +703,45 @@ export class Brushrunner {
       g.add(m);
       return m;
     };
-    placard('IGNORE BELOW 20', 0.3, 0.05, -0.42, 0.05, 2.79);
-    placard('GENERAL CONCERN', 0.26, 0.045, 0.52, 0.72, 2.83, { bg: '#3a3630', fg: '#e8c86a' });
+    placard('IGNORE BELOW 20', 0.3, 0.05, LEFT * 0.42, 0.05, 2.79);
+    placard('GENERAL CONCERN', 0.26, 0.045, RIGHT * 0.52, 0.72, 2.83, { bg: '#3a3630', fg: '#e8c86a' });
 
-    // The warning light itself, above its label.
-    const concern = flatMesh(boxGeo(0.09, 0.045, 0.02), unlit(0x3a2a10), 0.52, 0.77, 2.82);
+    // The warning light itself, above its label, over on Sasole's side.
+    const concern = flatMesh(boxGeo(0.09, 0.045, 0.02), unlit(0x3a2a10), RIGHT * 0.52, 0.77, 2.82);
     g.add(concern);
     this.parts.concernLight = concern;
 
-    // The taped map, wedged behind the copilot's yoke.
+    // The taped map, wedged behind the right-seat yoke — Sasole's, to hold.
     const map = flatMesh(
       new THREE.PlaneGeometry(0.34, 0.24),
       new THREE.MeshBasicMaterial({
         map: signTexture(['EL HUESO', '(approx.)'], { w: 256, h: 192, bg: '#ddd0ab', fg: '#5a4a2a', border: '#9a8a5a', rough: true }),
       }),
-      0.62, 0.2, 2.7,
+      RIGHT * 0.62, 0.2, 2.7,
     );
     map.rotation.set(0.7, -0.3, 0.12);
     g.add(map);
     for (const tx of [-0.14, 0.14]) {
-      const tape = flatMesh(new THREE.PlaneGeometry(0.06, 0.05), unlit(0xe8e2c8, { transparent: true, opacity: 0.7 }), 0.62 + tx, 0.29, 2.69);
+      const tape = flatMesh(new THREE.PlaneGeometry(0.06, 0.05), unlit(0xe8e2c8, { transparent: true, opacity: 0.7 }), RIGHT * 0.62 + tx, 0.29, 2.69);
       tape.rotation.copy(map.rotation);
       g.add(tape);
     }
 
     // Cigarette lighter that sometimes has an opinion.
-    const lighter = flatMesh(cylGeo(0.02, 0.02, 0.02, 8), unlit(0x2a2a2a), -0.6, 0.12, 2.78);
+    const lighter = flatMesh(cylGeo(0.02, 0.02, 0.02, 8), unlit(0x2a2a2a), LEFT * 0.6, 0.12, 2.78);
     lighter.rotation.x = Math.PI / 2 + 0.16;
     g.add(lighter);
     this.parts.lighter = lighter;
 
-    // Where the cameras and the copilot live.
-    /* Seated eye: left seat, just under the 0.97 m cabin roof. Raising the last
-     * 3 cm opens a useful strip of windshield above the coaming without putting
-     * the camera through the fuselage skin. */
-    this.pilotEye = new THREE.Vector3(-0.42, 0.96, 2.22);
-    this.copilotSeat = new THREE.Vector3(0.42, -0.28, 1.66);
+    /* Where the cameras and the copilot live.
+     *
+     * Seated eye: the LEFT seat — +X, per the constants at the top of the
+     * cockpit — just under the 0.97 m cabin roof. Raising the last 3 cm opens a
+     * useful strip of windshield above the coaming without putting the camera
+     * through the fuselage skin. Sasole rides the right seat opposite, which is
+     * what he says he is going to do while he is still on the apron. */
+    this.pilotEye = new THREE.Vector3(LEFT * 0.42, 0.96, 2.22);
+    this.copilotSeat = new THREE.Vector3(RIGHT * 0.42, -0.28, 1.66);
   }
 
   /* ---------------------------------------------------------------- */

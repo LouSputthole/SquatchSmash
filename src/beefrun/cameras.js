@@ -2,9 +2,10 @@
  * CameraManager — three flight cameras, and the walking one.
  *
  * Cockpit is the one the mission is designed around: head in the left seat,
- * instruments readable, Lou in your peripheral vision, and the mouse free to
- * look around. Chase sits behind and above for terrain and for watching the
- * control surfaces move. Landing drops in close behind the tail on final.
+ * instruments readable, Sasole off your right shoulder in the right seat, and
+ * the mouse free to look around. Chase sits behind and above for terrain and
+ * for watching the control surfaces move. Landing drops in close behind the
+ * tail on final.
  *
  * Views never change themselves. The one exception is the cinematic-assist
  * option, which is off unless the player turns it on.

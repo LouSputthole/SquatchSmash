@@ -562,6 +562,11 @@ function willyReturns() {
   boat.cast.lou.group.rotation.y = 0;
   boat.cast.booski.group.position.set(1.45, 1.02, 2.90);
   boat.cast.booski.group.rotation.y = 0;
+  /* Irish closes up with them but stays a pace forward of the firing line, so
+   * the shot that follows is plainly two men and a prospect and not three men
+   * and a witness. */
+  boat.cast.irish.group.position.set(-.62, 1.02, 1.94);
+  boat.cast.irish.group.rotation.y = 0;
   boat.cast.willy.job = 'stand';
   boat.cast.willy._syncJob(true);
   boat.cast.willy.group.position.set(0, 1.02, 4.48);
@@ -659,6 +664,7 @@ function dropWilly() {
   audio.play('drunk.collapse', { volume: .78 });
   setObjective('Willy is down', 'Watch the deck');
   queueAftermathLine(NO_WAKE_AFTERMATH_LINES.move, 4.0, { delay: .22 });
+  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.irishRail, 4.4);
   setTimeout(enableBodyInteraction, 1250);
 }
 
@@ -809,6 +815,11 @@ function beginReturn() {
   boat.cast.lou.group.rotation.y = Math.PI;
   boat.cast.booski.group.position.set(1.72, 1.02, 2.70);
   boat.cast.booski.group.rotation.y = Math.PI / 2;
+  // Irish sits down on the port bench with his back to the empty stern.
+  boat.cast.irish.job = 'sit';
+  boat.cast.irish._syncJob(true);
+  boat.cast.irish.group.position.set(-1.52, 1.02, 4.10);
+  boat.cast.irish.group.rotation.y = -Math.PI / 2;
   setObjective('Ride back', 'Nobody speaks');
   document.body.classList.add('cinematic');
   audio.startLoop('underway', { name: 'boat.engine.underway', volume: .13, fade: .75 });
@@ -816,6 +827,7 @@ function beginReturn() {
   cameraDirector.frameReturn(0);
   hud.say('Lou takes the helm. Booski watches the water close.', 4800);
   queueAftermathLine(NO_WAKE_AFTERMATH_LINES.lesson, 5.0, { delay: .72 });
+  queueAftermathLine(NO_WAKE_AFTERMATH_LINES.irishNoBackHalf, 4.2);
 }
 
 function completeMission() {
