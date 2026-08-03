@@ -58,6 +58,7 @@ const TEST_MODULES = [
   './silver-ape-continuity.test.mjs',
   './silver-voice-catalog.test.mjs',
   './golf-story.test.mjs',
+  './golf-gallery.test.mjs',
   './silver-pines.test.mjs',
   './golf-runtime-polish.test.mjs',
   './squatch-smash-goals.test.mjs',

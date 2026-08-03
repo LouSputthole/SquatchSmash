@@ -140,6 +140,34 @@ export const TREE_BANDS = Object.freeze([
   Object.freeze({ x: 30, z: 8, rx: 20, rz: 24, count: 34, kind: 'mixed' }),
 ]);
 
+/**
+ * The gallery behind the last green.
+ *
+ * Lou's invitation was three holes "before the big job", and the big job is
+ * THE TAKE. So the crew for it is already here, stood between the green and
+ * the clubhouse with nothing to do but watch the fourth man finish: Booskibro,
+ * The Shubenator, DeathMegatron, Numbskull and Snow. Rippinflow is not in this
+ * list because he is playing.
+ *
+ * They are the reason the last hole has an audience and the reason the walk
+ * off the green goes somewhere. Nobody announces them. They are just standing
+ * there when Tony looks up, in a line between him and the building, and the
+ * round stops being a morning off.
+ *
+ * Marks are authored on the clubhouse side of the green (`GREEN` is at
+ * -21,-361 and the building at -24,-392), spread wide enough to read as a
+ * loose group rather than a rank, and far enough back not to stand on the
+ * putting surface or in the cart park at -6,-372. `yaw` faces each of them at
+ * the pin.
+ */
+export const GALLERY = Object.freeze([
+  Object.freeze({ id: 'booski', x: -27.5, z: -376.0, yaw: 0.34 }),
+  Object.freeze({ id: 'shubenator', x: -22.0, z: -378.5, yaw: 0.19 }),
+  Object.freeze({ id: 'deathmegatron', x: -17.2, z: -377.0, yaw: 0.03 }),
+  Object.freeze({ id: 'numbskull', x: -12.4, z: -374.5, yaw: -0.17 }),
+  Object.freeze({ id: 'snow', x: -31.6, z: -373.0, yaw: 0.50 }),
+]);
+
 /** Nothing after this one. */
 export const NEXT_HINT = null;
 
@@ -151,6 +179,7 @@ export const LAYOUT = Object.freeze({
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
   cartPark: CART_PARK, lot: LOT, lotArea: CLUBHOUSE_AREA, teeMarks: TEE_MARKS,
   npcTeeShots: NPC_TEE_SHOTS, npcPlan: NPC_PLAN, treeBands: TREE_BANDS,
+  gallery: GALLERY,
   clubhouse: CLUBHOUSE, nextHint: NEXT_HINT,
   cupRadius: CUP_RADIUS, flagHeight: FLAG_HEIGHT,
 });

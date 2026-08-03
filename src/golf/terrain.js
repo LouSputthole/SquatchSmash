@@ -17,6 +17,8 @@ import { mat } from '../world/build.js';
 import { SURFACE, surfaceProps } from './course.js';
 import { heightAt, surfaceAt } from './field.js';
 import { HOLE, setActiveHole } from './hole.js';
+import { Npc } from '../bing/cast.js';
+import { FAMILY, loadFaceIndex } from '../bing/family.js';
 
 /* Late morning after overnight rain: the light is warm and low-ish, the air
  * still has mist in it, and everything is a shade wetter than it will be by
@@ -499,6 +501,50 @@ function buildHoleMarker(scene) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * The Family, waiting out the last hole between the green and the clubhouse.
+ *
+ * These are the crew for the job that follows the round, so they are the same
+ * people they are everywhere else: the roster, the model and the face photo
+ * all come from `src/bing/family.js` through the shared figure builder, which
+ * is the same route NO WAKE uses to put Lou and Booski on a boat. One id, one
+ * face, one voice, every scene.
+ *
+ * They are scenery with a pulse — no colliders, no routes, no interactions.
+ * Nobody is meant to walk up and talk to them; they are meant to be standing
+ * there when he looks up from the putt.
+ */
+function buildGallery(scene, marks, faces = new Set()) {
+  const byId = Object.fromEntries(FAMILY.map((member) => [member.id, member]));
+  const built = [];
+  for (const mark of marks) {
+    const member = byId[mark.id];
+    if (!member) continue;                       // a roster rename, not a crash
+    /* Only wear a photo that exists. `assets/faces/index.json` is the club's
+     * own answer to this and exists precisely so nothing probes for a PNG that
+     * has not landed — Numbskull has no photograph yet, and asking for one is
+     * a 404 in every console and a failed no-console-errors gate. Without it
+     * he gets the authored head in the shared style, same as at the Bing. */
+    const photo = faces.has(member.photo) ? `assets/faces/${member.photo}` : null;
+    const npc = new Npc(scene, {
+      name: member.name,
+      tier: 'ambient',
+      job: 'stand',
+      x: mark.x,
+      z: mark.z,
+      y: heightAt(mark.x, mark.z),
+      yaw: mark.yaw ?? 0,
+      model: { ...member.model, face: photo },
+    });
+    npc.characterId = member.id;
+    npc.group.userData.npc.characterId = member.id;
+    npc.group.userData.npc.family = true;
+    npc.group.userData.galleryMark = mark;
+    built.push(npc);
+  }
+  return built;
+}
+
+/**
  * The clubhouse: brick and dark timber, and a size that says this place was
  * more impressive twenty years ago. Modelled rather than a card because the
  * player walks past it in the opening.
@@ -646,6 +692,13 @@ export class Course {
     this.renderer = renderer;
     this.onProgress = onProgress;
     this.colliders = [];
+    /* Which Family face photos exist, for the last hole's gallery. Filled in
+     * from `assets/faces/index.json` once it loads; empty until then, which is
+     * the safe answer — an unindexed member simply wears his authored head.
+     * The gallery is only built when hole three is, long after this resolves. */
+    this.faces = new Set();
+    this.gallery = [];
+    loadFaceIndex().then((files) => { this.faces = files; }).catch(() => {});
     /* The core Player wants floor zones for its footstep cue; out here the
      * answer comes from `field.js` instead, so the list is empty on purpose
      * and `surfaceAt` below is what main.js actually asks. */
@@ -725,6 +778,11 @@ export class Course {
      * have one. */
     if (HOLE.clubhouse) buildClubhouse(g, this.colliders);
     if (HOLE.nextHint) buildNextHint(g);
+    /* The crew waiting out the last hole. They belong to the hole group so a
+     * hole change disposes them with everything else, and they are figures
+     * rather than Golfers because they are not playing — nobody hands them a
+     * club, a ball or a scorecard line. */
+    this.gallery = HOLE.gallery ? buildGallery(g, HOLE.gallery, this.faces) : [];
 
     this.grass = new GrassDetail(g);
     this._waterBase = this.water ? this.water.position.y : 0;
@@ -778,6 +836,12 @@ export class Course {
 
   update(dt, playerPos) {
     this._t += dt;
+
+    // The gallery breathes and shifts its weight, and looks at whoever is on
+    // the green. They belong to the hole, so they update with it.
+    if (this.gallery?.length) {
+      for (const npc of this.gallery) npc.update(dt, playerPos);
+    }
 
     // The flag moves in the same light wind the ball flies through.
     const cloth = this.flag.cloth;
