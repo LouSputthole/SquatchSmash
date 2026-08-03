@@ -852,6 +852,13 @@ function apartmentStartupCueNames() {
   if (apartmentStory.margoWakeOwed()) {
     for (const cue of exactDefinitionCueNames(BIG_NIGHT_MARGO_WAKE)) names.add(cue);
     names.add('cloth.snap');
+    /* The dress foley belongs here too. It shipped in 8963415, but it was left
+     * to arrive with the background resident bank, and `playMargoDressImpact`
+     * gates on `hasSample` — a decoded buffer, not a delivered file. The whole
+     * beat is over inside about twenty seconds of the Start card, so the
+     * authored takes lost that race every time and the scene played its
+     * `drunk.collapse` stand-in instead. Four recordings nobody could hear. */
+    for (const cue of MARGO_DRESS_IMPACT_CUES) names.add(cue);
   }
   return [...names];
 }
@@ -3322,9 +3329,11 @@ function playMargoDressImpact() {
     audio.play(cue, { volume: 0.48, position: apartment.margo.group.position, ref: 0.8, maxDist: 5 });
     return cue;
   }
-  /* All four authored takes are deliberately allowed to be missing while the
-   * recording backlog is being produced. A decoded, already-shipped soft body
-   * impact keeps the beat audible instead of asking an unknown cue to synth. */
+  /* Reaching here now means a decode genuinely failed — all four takes are
+   * delivered, indexed and named in the startup set above. It stays as a net
+   * rather than an assertion because a beat that goes silent on a slow decode
+   * is worse than one that thumps; but it is no longer the expected path, and
+   * verify:big-night refuses to pass on the fallback alone. */
   audio.play('drunk.collapse', {
     volume: 0.24,
     rate: 1.45,
@@ -3361,6 +3370,22 @@ function startMargoWake() {
     cameraLiftTarget: 0,
     departAt: null,
   };
+  /* Pull the dress foley now, while she is still lying down.
+   *
+   * The startup decode happens on the Start card, and on the normal route
+   * through the campaign the chapter is still `date` at that point — so
+   * `margoWakeOwed()` is false and these four never make the startup set.
+   * They are in the resident bank, but that fills in behind play and the whole
+   * beat is over inside about twenty seconds. `playMargoDressImpact` gates on
+   * `hasSample`, which wants a decoded buffer rather than a delivered file, so
+   * the authored takes lost that race every time and the scene played its
+   * `drunk.collapse` stand-in instead — four recordings, shipped in 8963415,
+   * that no player has ever heard.
+   *
+   * There is a long VO sequence between here and the hold, which is plenty of
+   * room to decode four short files. Fire and forget: if it loses the race
+   * anyway the fallback still covers the beat. */
+  audio.loadAdditional?.({ names: [...MARGO_DRESS_IMPACT_CUES] })?.catch?.(() => {});
   const margo = apartment.margo;
   margo.setPose('lying');
   margo.group.visible = true;

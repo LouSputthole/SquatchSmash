@@ -14673,6 +14673,741 @@
       "voice": "shubenator",
       "say": "Hey guys, what’s going on?",
       "direction": "Cheerful and casually late to the conversation. A friendly first hello; he genuinely believes nothing in the room is tense."
+    },
+    {
+      "name": "vo.silvercase.car.ape.pitch",
+      "voice": "ape",
+      "say": "Three geniuses borrowed something from Lou without asking. We’re going over there to improve their decision-making."
+    },
+    {
+      "name": "vo.silvercase.car.prospect.ask",
+      "voice": "player",
+      "say": "What’s inside the case?"
+    },
+    {
+      "name": "vo.silvercase.car.ape.benefit",
+      "voice": "ape",
+      "say": "Not knowing is one of the benefits of being new."
+    },
+    {
+      "name": "vo.silvercase.car.ape.jerky.1",
+      "voice": "ape",
+      "say": "You know Big Uncle Lou calls it “jerky.” Not “squatch jerky.” Not “premium cut.” Just jerky. Like there’s only the one kind."
+    },
+    {
+      "name": "vo.silvercase.car.prospect.jerky",
+      "voice": "player",
+      "say": "There’s not?"
+    },
+    {
+      "name": "vo.silvercase.car.ape.jerky.2",
+      "voice": "ape",
+      "say": "There’s nine kinds. He just doesn’t respect you enough yet to tell you which one you’re chewing."
+    },
+    {
+      "name": "vo.silvercase.car.ape.arrive",
+      "voice": "ape",
+      "say": "Anyway. Focus up. We’re here."
+    },
+    {
+      "name": "vo.silvercase.arrival.chester.whoisit",
+      "voice": "npc-male",
+      "say": "Who is it?"
+    },
+    {
+      "name": "vo.silvercase.arrival.ape.committee",
+      "voice": "ape",
+      "say": "Building appreciation committee."
+    },
+    {
+      "name": "vo.silvercase.arrival.ape.doorstall",
+      "voice": "ape",
+      "say": "Door doesn’t close itself. Well — it does. Just not with us on the right side of it."
+    },
+    {
+      "name": "vo.silvercase.control.ape.nice-place",
+      "voice": "ape",
+      "say": "Nice place. Real lived-in."
+    },
+    {
+      "name": "vo.silvercase.control.ape.expecting",
+      "voice": "ape",
+      "say": "You boys expecting company?"
+    },
+    {
+      "name": "vo.silvercase.control.deke.justus",
+      "voice": "npc-male",
+      "say": "Nah, man, it’s just — it’s just us hanging out."
+    },
+    {
+      "name": "vo.silvercase.control.ape.threeofyou",
+      "voice": "ape",
+      "say": "Just the three of you."
+    },
+    {
+      "name": "vo.silvercase.control.ape.wherescase",
+      "voice": "ape",
+      "say": "Where’s Lou’s case?"
+    },
+    {
+      "name": "vo.silvercase.control.chester.whatcase",
+      "voice": "npc-male",
+      "say": "…Case? What case?"
+    },
+    {
+      "name": "vo.silvercase.control.deke.dontknow",
+      "voice": "npc-male",
+      "say": "We don’t know nothin’ about a case, man."
+    },
+    {
+      "name": "vo.silvercase.control.ape.storageunit",
+      "voice": "ape",
+      "say": "Interesting. Because I heard three very specific people carrying something very specific out of a storage unit on Tuesday."
+    },
+    {
+      "name": "vo.silvercase.control.chester.misunderstanding",
+      "voice": "npc-male",
+      "say": "That was — that was a misunderstanding."
+    },
+    {
+      "name": "vo.silvercase.control.ape.alwaysmisunderstanding",
+      "voice": "ape",
+      "say": "It’s always a misunderstanding. Every job I’ve ever worked, somebody’s misunderstanding somewhere."
+    },
+    {
+      "name": "vo.silvercase.control.ape.lookaround",
+      "voice": "ape",
+      "say": "Have a look around, Prospect. Case doesn’t walk itself out either."
+    },
+    {
+      "name": "vo.silvercase.control.ape.civilized",
+      "voice": "ape",
+      "say": "Easy. We came to have a civilized misunderstanding."
+    },
+    {
+      "name": "vo.silvercase.control.ape.putitaway",
+      "voice": "ape",
+      "say": "Put it away. I’ll tell you when."
+    },
+    {
+      "name": "vo.silvercase.control.deke.goodshow",
+      "voice": "npc-male",
+      "say": "That’s — that’s a good show."
+    },
+    {
+      "name": "vo.silvercase.control.chester.drink",
+      "voice": "npc-male",
+      "say": "You, uh — you want a drink or somethin’?"
+    },
+    {
+      "name": "vo.silvercase.case.ape.thereitis",
+      "voice": "ape",
+      "say": "There it is. Lou’s missing luggage."
+    },
+    {
+      "name": "vo.silvercase.case.ape.openit",
+      "voice": "ape",
+      "say": "Open it."
+    },
+    {
+      "name": "vo.silvercase.case.winston.okay",
+      "voice": "npc-male",
+      "say": "…Okay. Okay, yeah."
+    },
+    {
+      "name": "vo.silvercase.case.ape.everythingstillin",
+      "voice": "ape",
+      "say": "Everything still in there?"
+    },
+    {
+      "name": "vo.silvercase.case.ape.paperwork",
+      "voice": "ape",
+      "say": "He nodded. That’s practically paperwork."
+    },
+    {
+      "name": "vo.silvercase.couch.ape.remember",
+      "voice": "ape",
+      "say": "This is the part where we make sure everybody remembers this conversation."
+    },
+    {
+      "name": "vo.silvercase.couch.ape.goahead",
+      "voice": "ape",
+      "say": "Go ahead."
+    },
+    {
+      "name": "vo.silvercase.couch.ape.moreseating",
+      "voice": "ape",
+      "say": "Now we have more seating."
+    },
+    {
+      "name": "vo.silvercase.lou.chester.notpersonal",
+      "voice": "npc-male",
+      "say": "Look, man, it wasn’t personal, we just — we needed the money, we didn’t know whose —"
+    },
+    {
+      "name": "vo.silvercase.lou.ape.evermeet",
+      "voice": "ape",
+      "say": "You ever meet Lou?"
+    },
+    {
+      "name": "vo.silvercase.lou.chester.no",
+      "voice": "npc-male",
+      "say": "No."
+    },
+    {
+      "name": "vo.silvercase.lou.ape.whatlookslike",
+      "voice": "ape",
+      "say": "Do you know what Lou looks like?"
+    },
+    {
+      "name": "vo.silvercase.lou.chester.heardofhim",
+      "voice": "npc-male",
+      "say": "I mean — I’ve heard of him, everybody’s heard of —"
+    },
+    {
+      "name": "vo.silvercase.lou.ape.lookslikeabitch",
+      "voice": "ape",
+      "say": "Does he look like a bitch?"
+    },
+    {
+      "name": "vo.silvercase.lou.ape.reaction.no",
+      "voice": "ape",
+      "say": "Good. Then start acting like it."
+    },
+    {
+      "name": "vo.silvercase.lou.ape.reaction.absolutelynot",
+      "voice": "ape",
+      "say": "Good. Then start acting like it."
+    },
+    {
+      "name": "vo.silvercase.lou.ape.reaction.silent",
+      "voice": "ape",
+      "say": "Nothing to say. Smart, for once."
+    },
+    {
+      "name": "vo.silvercase.lou.ape.reaction.lighting",
+      "voice": "ape",
+      "say": "…No. It does not depend on the lighting."
+    },
+    {
+      "name": "vo.silvercase.prayer.ape.onemoment",
+      "voice": "ape",
+      "say": "Lou believes every man should get one moment to understand why this is happening."
+    },
+    {
+      "name": "vo.silvercase.prayer.ape.line1",
+      "voice": "ape",
+      "say": "Great Beast of the dark timber, steady our hands and mark our trail."
+    },
+    {
+      "name": "vo.silvercase.prayer.ape.line2",
+      "voice": "ape",
+      "say": "Let the loyal walk beneath the silver branches."
+    },
+    {
+      "name": "vo.silvercase.prayer.ape.line3",
+      "voice": "ape",
+      "say": "Let thieves hear the footsteps before they see what’s coming."
+    },
+    {
+      "name": "vo.silvercase.prayer.ape.line4",
+      "voice": "ape",
+      "say": "When the forest closes behind us, let it leave no path for betrayal."
+    },
+    {
+      "name": "vo.silvercase.prayer.ape.line5",
+      "voice": "ape",
+      "say": "Silver above. Family below."
+    },
+    {
+      "name": "vo.silvercase.prayer.prospect.nofootprints",
+      "voice": "player",
+      "say": "No footprints left."
+    },
+    {
+      "name": "vo.silvercase.bathroom.ape.listen",
+      "voice": "ape",
+      "say": "Good. You do listen occasionally."
+    },
+    {
+      "name": "vo.silvercase.bathroom.ape.countedfour",
+      "voice": "ape",
+      "say": "You counted four. I saw you."
+    },
+    {
+      "name": "vo.silvercase.aftermath.ape.witness",
+      "voice": "ape",
+      "say": "Congratulations. You’ve been promoted to witness."
+    },
+    {
+      "name": "vo.silvercase.aftermath.ape.cleanup",
+      "voice": "ape",
+      "say": "Clean this up. All of it. And you were never here."
+    },
+    {
+      "name": "vo.silvercase.aftermath.winston.neverhere",
+      "voice": "npc-male",
+      "say": "Yes — yes sir. Never. I was never here."
+    },
+    {
+      "name": "vo.silvercase.aftermath.ape.ordont",
+      "voice": "ape",
+      "say": "…Or don’t."
+    },
+    {
+      "name": "vo.silvercase.aftermath.ape.badideas",
+      "voice": "ape",
+      "say": "Always check the bathroom. That’s where bad ideas go to load themselves."
+    },
+    {
+      "name": "vo.silvercase.lou.prospect.choice.no",
+      "voice": "player",
+      "say": "No."
+    },
+    {
+      "name": "vo.silvercase.lou.prospect.choice.absolutelynot",
+      "voice": "player",
+      "say": "Absolutely not."
+    },
+    {
+      "name": "vo.silvercase.lou.prospect.choice.lighting",
+      "voice": "player",
+      "say": "Depends on the lighting."
+    },
+    {
+      "name": "vo.enolasquatch.lou.call-opening-1.1",
+      "voice": "lou1",
+      "say": "Remember that little delivery flight?"
+    },
+    {
+      "name": "vo.enolasquatch.prospect.call-opening-2.1",
+      "voice": "player",
+      "say": "The jerky run?"
+    },
+    {
+      "name": "vo.enolasquatch.lou.call-opening-3.1",
+      "voice": "lou1",
+      "say": "This one’s heavier."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.hangar-reveal-1.1",
+      "voice": "lou2",
+      "say": "There she is. The Enola Squatch."
+    },
+    {
+      "name": "vo.enolasquatch.prospect.hangar-reveal-2.1",
+      "voice": "player",
+      "say": "Why does she have purple stripes?"
+    },
+    {
+      "name": "vo.enolasquatch.sasole.hangar-reveal-3.1",
+      "voice": "lou2",
+      "say": "Morale."
+    },
+    {
+      "name": "vo.enolasquatch.prospect.hangar-reveal-4.1",
+      "voice": "player",
+      "say": "And the nose art?"
+    },
+    {
+      "name": "vo.enolasquatch.sasole.hangar-reveal-5.1",
+      "voice": "lou2",
+      "say": "More morale."
+    },
+    {
+      "name": "vo.enolasquatch.prospect.preflight-numbskull-1.1",
+      "voice": "player",
+      "say": "Should you be standing under that?"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.preflight-numbskull-2.1",
+      "voice": "numbskull",
+      "say": "Probably not."
+    },
+    {
+      "name": "vo.enolasquatch.irish.preflight-restraints-1.1",
+      "voice": "irish",
+      "say": "Payload secure?"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.preflight-restraints-2.1",
+      "voice": "numbskull",
+      "say": "Secure enough."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.preflight-bombbay-1.1",
+      "voice": "lou2",
+      "say": "Bomb-bay panel closed and pinned?"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.preflight-bombbay-2.1",
+      "voice": "numbskull",
+      "say": "Closed. Pinned is a strong word."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.preflight-shubes-first-1.1",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?"
+    },
+    {
+      "name": "vo.enolasquatch.sasole.preflight-shubes-first-2.1",
+      "voice": "lou2",
+      "say": "How did you get on this aircraft?"
+    },
+    {
+      "name": "vo.enolasquatch.shubes.preflight-shubes-first-3.1",
+      "voice": "shubenator",
+      "say": "You left the back open."
+    },
+    {
+      "name": "vo.enolasquatch.irish.preflight-shubes-first-4.1",
+      "voice": "irish",
+      "say": "That is not an answer, that is a confession."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.preflight-engineStart-1.1",
+      "voice": "lou2",
+      "say": "Start sequence. One, then two."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.preflight-engineStart-2.1",
+      "voice": "lou2",
+      "say": "Three and four are yours, Prospect. Don’t be gentle, be correct."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.taxi-line-1.1",
+      "voice": "lou2",
+      "say": "Runway’s yours. Long roll on this one — she’s carrying six thousand pounds of opinion."
+    },
+    {
+      "name": "vo.enolasquatch.irish.taxi-line-2.1",
+      "voice": "irish",
+      "say": "Straight line, Prospect. She will not forgive a wander."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.takeoff-rotate-1.1",
+      "voice": "lou2",
+      "say": "Gear up. Complaints down. We’re officially committed."
+    },
+    {
+      "name": "vo.enolasquatch.irish.takeoff-airborne-1.1",
+      "voice": "irish",
+      "say": "Airborne, with the Fat Squatch still aboard. Nobody clap yet."
+    },
+    {
+      "name": "vo.enolasquatch.irish.climb-turn-east-1.1",
+      "voice": "irish",
+      "say": "Climb out on the runway heading, then come right onto zero-nine-zero. We’re going east tonight."
+    },
+    {
+      "name": "vo.enolasquatch.irish.climb-turn-west-1.1",
+      "voice": "irish",
+      "say": "Climb out on the runway heading, then come left onto two-seven-zero. We’re going west tonight."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.cruise-settle-1.1",
+      "voice": "lou2",
+      "say": "Cruise. Lights out in a minute — let your eyes get used to it before we go dark."
+    },
+    {
+      "name": "vo.enolasquatch.irish.cruise-settle-2.1",
+      "voice": "irish",
+      "say": "Radio chatter’s ours to keep quiet from here."
+    },
+    {
+      "name": "vo.enolasquatch.irish.nav-left5-1.1",
+      "voice": "irish",
+      "say": "Come left five degrees."
+    },
+    {
+      "name": "vo.enolasquatch.irish.nav-right5-1.1",
+      "voice": "irish",
+      "say": "Come right five degrees."
+    },
+    {
+      "name": "vo.enolasquatch.irish.nav-wrongWay-1.1",
+      "voice": "irish",
+      "say": "Other left, Lindbergh."
+    },
+    {
+      "name": "vo.enolasquatch.irish.nav-goodLine-1.1",
+      "voice": "irish",
+      "say": "There. Hold that line."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.detect-corridor-1.1",
+      "voice": "lou2",
+      "say": "Valley ahead. Get under the ridgeline and stay there — we go under their radar or we don’t go."
+    },
+    {
+      "name": "vo.enolasquatch.irish.detect-searching-1.1",
+      "voice": "irish",
+      "say": "Searchlight’s hunting, not looking right at us. Hold low."
+    },
+    {
+      "name": "vo.enolasquatch.irish.detect-located-1.1",
+      "voice": "irish",
+      "say": "They’ve got us. So much for quiet."
+    },
+    {
+      "name": "vo.enolasquatch.irish.detect-clear-1.1",
+      "voice": "irish",
+      "say": "Lost them. Nicely flown."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.defense-opening-1.1",
+      "voice": "shubenator",
+      "say": "Are those guys shooting at us?"
+    },
+    {
+      "name": "vo.enolasquatch.irish.defense-opening-2.1",
+      "voice": "irish",
+      "say": "No, Shubes. They’re applauding."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.defense-gunner-on-1.1",
+      "voice": "shubenator",
+      "say": "Rear gun’s hot. Say the word."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.defense-hit-1.1",
+      "voice": "lou2",
+      "say": "That one found us. Report."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.defense-suppressed-1.1",
+      "voice": "shubenator",
+      "say": "I think I got one! I think! There was fire! Fire happened!"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-targetInSight-1.1",
+      "voice": "numbskull",
+      "say": "Target coming into view."
+    },
+    {
+      "name": "vo.enolasquatch.irish.bomb-tenSeconds-1.1",
+      "voice": "irish",
+      "say": "Ten seconds."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bomb-steady-1.1",
+      "voice": "lou2",
+      "say": "Steady. Don’t chase it. Let the target come to you."
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-doorsFail-1.1",
+      "voice": "numbskull",
+      "say": "Doors aren’t opening."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bomb-doorsFail-2.1",
+      "voice": "lou2",
+      "say": "Why?"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-doorsFail-3.1",
+      "voice": "numbskull",
+      "say": "I used the wrong bolts."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bomb-manualReset-1.1",
+      "voice": "lou2",
+      "say": "Then fix it manually and do it fast. Prospect, hold her level — level is the whole job right now."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.bomb-shubesInBay-1.1",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?"
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bomb-shubesInBay-2.1",
+      "voice": "lou2",
+      "say": "GET OUT OF THERE!"
+    },
+    {
+      "name": "vo.enolasquatch.irish.bomb-shubesInBay-3.1",
+      "voice": "irish",
+      "say": "GET OUT OF THERE!"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-shubesInBay-4.1",
+      "voice": "numbskull",
+      "say": "GET OUT OF THERE!"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-doorsFixed-1.1",
+      "voice": "numbskull",
+      "say": "Doors are open! Doors are open, they were always going to open!"
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-releaseStuck-1.1",
+      "voice": "numbskull",
+      "say": "...Nothing. Hang on."
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-releaseKick-1.1",
+      "voice": "numbskull",
+      "say": "Kicking the mount."
+    },
+    {
+      "name": "vo.enolasquatch.numbskull.bomb-packageAway-1.1",
+      "voice": "numbskull",
+      "say": "Package away!"
+    },
+    {
+      "name": "vo.enolasquatch.irish.bomb-packageAway-2.1",
+      "voice": "irish",
+      "say": "That is a very generous definition of away."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bomb-weightLoss-1.1",
+      "voice": "lou2",
+      "say": "There she goes. Plane just lost six thousand pounds of bad intentions."
+    },
+    {
+      "name": "vo.enolasquatch.irish.explosion-reaction-1.1",
+      "voice": "irish",
+      "say": "That seems excessive."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.explosion-reaction-2.1",
+      "voice": "lou2",
+      "say": "That was the conservative setting."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.escape-turn-1.1",
+      "voice": "lou2",
+      "say": "Climb, bank, and don’t look at it. Looking at it doesn’t help."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.escape-gunnerDone-1.1",
+      "voice": "shubenator",
+      "say": "I think we’re out of bullets."
+    },
+    {
+      "name": "vo.enolasquatch.irish.escape-gunnerDone-2.1",
+      "voice": "irish",
+      "say": "You fired into the same truck for four minutes."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.escape-clear-1.1",
+      "voice": "lou2",
+      "say": "Clean air. Keep climbing."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.emergency-overheat-1.1",
+      "voice": "lou2",
+      "say": "Number two’s running hot. Your call — babied throttle and a long way home, or push it and hope."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.emergency-shutdown-1.1",
+      "voice": "lou2",
+      "say": "Shutting two down. She’ll fly on three, she just won’t enjoy it."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.emergency-pushedIt-1.1",
+      "voice": "lou2",
+      "say": "That is not what I meant by hope."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.landing-line-1.1",
+      "voice": "lou2",
+      "say": "Same field we left from. Try to remember which end has the hangar."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.landing-perfect-1.1",
+      "voice": "lou2",
+      "say": "Maybe next time we let you fly something expensive."
+    },
+    {
+      "name": "vo.enolasquatch.irish.landing-hard-1.1",
+      "voice": "irish",
+      "say": "We dropped one package. Didn’t need to drop the aircraft."
+    },
+    {
+      "name": "vo.enolasquatch.lou.arrival-lou-1.1",
+      "voice": "lou1",
+      "say": "Did they get the package?"
+    },
+    {
+      "name": "vo.enolasquatch.prospect.arrival-lou-2.1",
+      "voice": "player",
+      "say": "They signed for it."
+    },
+    {
+      "name": "vo.enolasquatch.lou.arrival-lou-3.1",
+      "voice": "lou1",
+      "say": "Good. Put the plane back where you found it."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bark-heavyBanked-1.1",
+      "voice": "lou2",
+      "say": "Easy. She’s not the little plane. Ease it back."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bark-heavyBanked-2.1",
+      "voice": "lou2",
+      "say": "That bank angle is a request she is declining."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bark-heavySlow-1.1",
+      "voice": "lou2",
+      "say": "Nose down a hair. She climbs like it’s a personal insult when she’s this loaded."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bark-heavySmooth-1.1",
+      "voice": "lou2",
+      "say": "There. Small inputs. She rewards patience."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.bark-gunnerIdle-1.1",
+      "voice": "shubenator",
+      "say": "Rear gunner reporting no targets, several opinions."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.bark-gunnerIdle-2.1",
+      "voice": "shubenator",
+      "say": "Everything back here is fine. I am counting stars."
+    },
+    {
+      "name": "vo.enolasquatch.shubes.bark-gunnerFiring-1.1",
+      "voice": "shubenator",
+      "say": "Eating a lot of tracer up here!"
+    },
+    {
+      "name": "vo.enolasquatch.shubes.bark-gunnerFiring-2.1",
+      "voice": "shubenator",
+      "say": "This gun is louder than I expected and I expected a lot!"
+    },
+    {
+      "name": "vo.enolasquatch.irish.bark-lowFuel-1.1",
+      "voice": "irish",
+      "say": "Fuel’s getting opinions of its own. Keep it efficient."
+    },
+    {
+      "name": "vo.enolasquatch.sasole.bark-terrainClose-1.1",
+      "voice": "lou2",
+      "say": "Terrain. Terrain is a thing that wins arguments."
+    },
+    {
+      "name": "vo.enolasquatch.prospect.release-1.1",
+      "voice": "player",
+      "say": "Send them the Fat Squatch."
+    },
+    {
+      "name": "vo.enolasquatch.prospect.release-2.1",
+      "voice": "player",
+      "say": "Special delivery."
+    },
+    {
+      "name": "vo.enolasquatch.prospect.release-3.1",
+      "voice": "player",
+      "say": "Lou sends his regards."
+    },
+    {
+      "name": "vo.enolasquatch.prospect.release-4.1",
+      "voice": "player",
+      "say": "Hope they’re hungry."
     }
   ]
 }

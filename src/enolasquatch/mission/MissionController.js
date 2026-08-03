@@ -51,7 +51,7 @@ import * as THREE from 'three';
 import {
   AC_ENOLA, enolaMass, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, CHECKPOINTS,
 } from '../config.js';
-import { OBJECTIVES, RELEASE_LINES } from '../dialogue/script.js';
+import { OBJECTIVES, RELEASE_LINES, releaseCueOf } from '../dialogue/script.js';
 import { Defense } from '../combat/Defense.js';
 import { Targeting } from '../combat/Targeting.js';
 import { WP, KT, FT } from '../../beefrun/config.js';
@@ -637,7 +637,7 @@ export class MissionController {
       // RELEASE_LINES) — queued directly in the same `{who, text, hold, cue}`
       // shape `DialogueSystem.play()` produces, so it plays identically.
       this.dialogue.queue.push({
-        who: 'PROSPECT', text: line.text, hold: 2.2, cue: `enolasquatch.prospect.release-${key}`,
+        who: 'PROSPECT', text: line.text, hold: 2.2, cue: releaseCueOf(line.key),
       });
     }
     this.dialogue.play('bomb.releaseStuck', { delay: line.silent ? 0.2 : 1.8 });

@@ -14,9 +14,14 @@ const VOICE_SCENES = [
     || name.startsWith('vo.bj.') || name.startsWith('vo.slots.')],
   ['Squatchfather', (name) => name.startsWith('vo.sf.')],
   ['The Beef Run', (name) => name.startsWith('vo.beefrun.')],
+  ['The Enola Squatch', (name) => name.startsWith('vo.enolasquatch.')],
   ['Jerky Motel', (name) => name.startsWith('vo.motel.')],
   ['NO WAKE', (name) => name.startsWith('vo.nowake.')],
+  /* Order-independent, but only because both patterns keep their trailing
+   * dot: `vo.silvercase.` does not start with `vo.silver.`. Drop either dot
+   * and the whole Silver Case run disappears into the Silver Room's section. */
   ['The Silver Room', (name) => name.startsWith('vo.silver.')],
+  ['The Silver Case', (name) => name.startsWith('vo.silvercase.')],
   ['Day Four apartment', (name) => name.startsWith('vo.call.lou.golf.')
     || name.startsWith('vo.call.lou.heist.')
     || name.startsWith('vo.machine.lou.golf_morning.')
@@ -146,11 +151,19 @@ const isFutureInitiationPartyCue = (cue) => cue.name.startsWith('vo.initiation.p
 function renderVoice(out, voice, voices) {
   const byScene = group(voice, (cue) => voiceScene(cue.name));
   const reuse = voiceReusePlan(voice);
-  const order = [
+  /* Reading order for the sections, roughly campaign order. It is a preference,
+   * not a filter: a scene missing from this list used to vanish from the sheet
+   * while still being counted in the snapshot above it, which made the sheet
+   * quietly disagree with itself — the Silver Case and the Enola Squatch were
+   * both invisible here for exactly that reason. Anything unlisted now falls
+   * to the end rather than off. */
+  const preferred = [
     'Apartment and shared hub', 'Bada Bing', 'Squatchfather', 'The Beef Run',
-    'Jerky Motel', 'NO WAKE', 'The Silver Room', 'Day Four apartment',
+    'The Enola Squatch', 'Jerky Motel', 'NO WAKE', 'The Silver Room',
+    'The Silver Case', 'Day Four apartment',
     'Silver Pines', 'THE TAKE', 'The HotDog Incident', 'Squatch Graveyard', 'Initiation', 'Radio',
   ];
+  const order = [...preferred, ...[...byScene.keys()].filter((s) => !preferred.includes(s)).sort()];
 
   if (!voice.length) {
     out.push('## Voice pickups', '', 'Nothing outstanding. Every manifest-authored spoken cue has an indexed, current recording.', '');

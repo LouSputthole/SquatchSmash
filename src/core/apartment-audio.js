@@ -139,6 +139,35 @@ export class ApartmentAudioEngine extends AudioEngine {
     });
   }
 
+  /**
+   * Decode a named handful right now, ahead of the resident bank.
+   *
+   * The inherited `AudioEngine.loadAdditional` opens by awaiting
+   * `_manifestLoadPromise`, which on this page is the whole Apartment library
+   * filling in behind play — hundreds of files. A caller who wants four short
+   * ones before a beat that starts in twenty seconds therefore gets them
+   * several minutes late, or not at all. That is not hypothetical: it is why
+   * the Margo dress foley had never once played since it shipped.
+   *
+   * The plan promise this awaits instead is only manifest.json plus
+   * index.json, it is memoised, and by the time anything on this page asks for
+   * a cue it has already resolved. Decoding through `_loadApartmentCues` keeps
+   * the same dedupe set and file-version handling as every other load here, so
+   * running alongside the background fill is safe — whichever gets there first,
+   * the other skips the file.
+   */
+  async loadAdditional({ names = null, prefixes = [] } = {}) {
+    const plan = await this._prepareApartmentPlan();
+    const wanted = new Set(names || []);
+    const cues = plan.wanted.filter((cue) => (
+      (wanted.has(cue.name) || prefixes.some((prefix) => cue.name.startsWith(prefix)))
+      && !this.buffers.has(cue.name)
+    ));
+    const before = this.loadedCount;
+    await this._loadApartmentCues(cues, 8);
+    return { total: cues.length, loaded: this.loadedCount - before };
+  }
+
   async _loadApartmentCues(cues, concurrency) {
     this._apartmentLoadedCueFiles ??= new Set();
     const pending = cues.filter((cue) => {

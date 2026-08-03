@@ -418,3 +418,100 @@ almost directly over, so the ray grazed it and `holdTime` reset before reaching
 the 0.85 s the lift needs — instrumented on `8156788` it peaked at 0.6 s with
 the key held for six and a half seconds. It now has the same broad invisible
 proxy the helm already used.
+
+# Second pass (2026-08-03, later)
+
+## The Silver Case and The Enola Squatch had no voice lines on the sheet
+
+Both scenes merged with their writing finished and no way to get it into
+`assets/sfx/manifest.json`. Every other scene owns a `tools/<scene>-vo.mjs`
+that walks its script and syncs a cue block; these two had none, so 147
+authored lines were invisible to `VOICE-LINES-TODO.md` and to the voice run.
+They were not "not yet recorded" — they were not on anybody's list to record.
+
+- `tools/silvercase-vo.mjs` — 60 cues. The script already minted fully
+  qualified `vo.silvercase.*` names through its own `cue()` helper, so the
+  manifest name is that string verbatim with **no take suffix**: the scene's
+  `DialogueController` looks a cue up whole, unlike the Beef Run's `say()`
+  which matches on a `vo.<cue>.` prefix and picks a take. Appending `.1` here
+  would have named files nothing ever asks for.
+- `tools/enolasquatch-vo.mjs` — 87 cues, on the Beef Run's `vo.<cue>.<take>`
+  convention, because the script is deliberately written to that shape.
+
+Both are wired into `npm run vo:sync`, both have a `--check` mode in the same
+family as the other nine, and `tests/new-scene-voice-manifest.test.mjs` holds
+the contracts.
+
+Two things the work turned up on the way:
+
+**The release pick was never going to be recorded.** The Enola Squatch's 1–5
+bomb-release line is a genuine player choice, so it lives in `RELEASE_LINES`
+rather than in `BEATS`, and `allEnolaSquatchLines()` — the export whose whole
+job is "every line, for VO tooling" — did not walk it. Four spoken lines,
+omitted by construction. `releaseCueOf` is now exported and used by both the
+mission controller and the generator so the two cannot drift, and
+`chooseReleaseLine` names the cue after the line it actually plays rather than
+after the key it was handed, which differ when the key is unknown.
+
+**The recording sheet disagreed with itself.** `renderVoice` walked a
+hard-coded scene order and dropped anything not on the list, while the coverage
+snapshot above it counted everything. A new scene's lines were therefore
+tallied at the top of the sheet and then absent from every section under it.
+Unlisted scenes now fall to the end rather than off, and there is a test for it.
+
+### Casting note, needs an owner decision
+
+The Silver Case's three apartment men — Chester (7 lines), Deke (3), Winston
+(2) — all resolve to `npc-male`, which is the shared scene-local pool. That is
+twelve lines in one room from three characters in one voice, and the room is
+small enough that a player will notice. Nothing is broken; it wants a casting
+pass before the voice run, not a code change.
+
+## The Margo dress foley had never played
+
+The four `margo.dress.body-impact.*` takes shipped in `8963415`, are indexed,
+and were audible to nobody. `playMargoDressImpact` gates on `hasSample` — a
+*decoded buffer*, not a delivered file — and the cues were left to arrive with
+the Apartment's background resident bank. The beat is over about twenty seconds
+after the Start card, so the authored takes lost that race every single time
+and the scene played its `drunk.collapse` stand-in instead.
+
+`verify:big-night` passed anyway, because the check accepted `available: []`
+as a legitimate state and two fallbacks as a legitimate history. It had been
+reporting green on a beat that never once used its own recordings.
+
+Three changes:
+
+- `startMargoWake()` asks for the four cues by name as she is still lying down,
+  which leaves the whole VO sequence to decode them.
+- `ApartmentAudioEngine.loadAdditional` is now an override. The inherited one
+  opens by awaiting `_manifestLoadPromise`, which on this page is the entire
+  hub library filling in behind play — measured at over 15 s and still going.
+  Asking for four short files should not queue behind hundreds. The override
+  awaits only the memoised manifest+index plan and decodes through
+  `_loadApartmentCues`, so it shares the dedupe set and version handling with
+  the background fill and the two are safe to run at once. This was a latent
+  problem for *any* on-demand load from the Apartment, not just this one.
+- The verifier's tolerant branch is gone: an empty candidate set is now a
+  failure. It passes on the real takes — history reads
+  `["margo.dress.body-impact.1","margo.dress.body-impact.2"]`.
+
+Adding the cues to `apartmentStartupCueNames()` is kept as well, but on its own
+it does nothing on the normal route: the chapter is still `date` when Start is
+clicked, so `margoWakeOwed()` is false. It only helps a reload that lands
+already inside `golf_morning`.
+
+## Still outside this repository
+
+The Codex working tree on the owner's Windows machine holds work that has never
+been pushed and that nothing here can reach: the copied audition pack at
+`assets/audio/auditions/margo-dress-pending-20260802/`, the handoff at
+`docs/audits/2026-08-02-optimization-handoff.md`, and local changes to Beef Run
+controls and Tammy placement, Bada Bing voice overlap, Hog Mama's +6 s start,
+arrival visibility, Booski closet art, and Margo flow polish.
+
+Confirmed absent rather than assumed: neither path appears in any branch, in
+any commit on any ref, in `git log --diff-filter=D`, or in `git log -S`. Only
+four files have ever been deleted from this repository and none of them is
+related. That tree reports 406 passing tests where this one has 477, so it
+branched before this session and will need a merge rather than a fast-forward.

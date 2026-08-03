@@ -53,6 +53,7 @@ const TEST_MODULES = [
   './license-to-grill.test.mjs',
   './bing-voice-coverage.test.mjs',
   './beefrun-voice-manifest.test.mjs',
+  './new-scene-voice-manifest.test.mjs',
   './bing-audio.test.mjs',
   './no-wake-story.test.mjs',
   './no-wake-irish.test.mjs',

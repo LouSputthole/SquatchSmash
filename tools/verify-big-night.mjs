@@ -432,7 +432,13 @@ try {
       played: game.audio.playbacks.slice(-6).map((playback) => playback.name),
     };
   });
-  check('dress help uses four no-repeat authored impacts with the shipped body-impact fallback',
+  /* This check used to tolerate `available: []` by accepting two
+   * `drunk.collapse` fallbacks, which is exactly what it saw on every run: the
+   * four takes had shipped but were not in the startup decode set, so the
+   * authored foley never once played and the gate reported green anyway. The
+   * takes are delivered and preloaded now, so the tolerant branch is gone —
+   * an empty candidate set is a failure, not an accepted state. */
+  check('dress help plays the four authored impacts, not the fallback',
     JSON.stringify(dressImpacts.candidates) === JSON.stringify([
       'margo.dress.body-impact.1',
       'margo.dress.body-impact.2',
@@ -440,13 +446,9 @@ try {
       'margo.dress.body-impact.4',
     ])
       && dressImpacts.history.length === 2
-      && dressImpacts.history.every((cue) => cue === 'drunk.collapse' || dressImpacts.available.includes(cue))
-      && (dressImpacts.available.length === 0
-        ? dressImpacts.audioReady
-          && dressImpacts.history.every((cue) => cue === 'drunk.collapse')
-        : true)
-      && (dressImpacts.available.length <= 1
-        || dressImpacts.history[0] !== dressImpacts.history[1]),
+      && dressImpacts.available.length === 4
+      && dressImpacts.history.every((cue) => dressImpacts.available.includes(cue))
+      && dressImpacts.history[0] !== dressImpacts.history[1],
     JSON.stringify(dressImpacts));
   await page.waitForFunction(() => !window.__squatch.game.margoScene, null, { timeout: 180000 });
   const handedBack = await page.evaluate(() => {

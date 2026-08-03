@@ -298,6 +298,15 @@ export const cueOf = (beatId, index, who) =>
 export const barkCueOf = (pool, index, who) =>
   `enolasquatch.${who.toLowerCase()}.bark-${pool}-${index + 1}`;
 
+/**
+ * The release-line pick's cue. Exported rather than written out at the call
+ * site because two places need the identical string and they are nowhere near
+ * each other: MissionController queues it, and tools/enolasquatch-vo.mjs puts
+ * it in the sound manifest. A typo in either one is a line that plays silently
+ * forever with nothing to say it was wrong.
+ */
+export const releaseCueOf = (key) => `enolasquatch.prospect.release-${key}`;
+
 /** Flat list of every line, for VO-pickup tooling — mirrors src/beefrun/script.js's own export. */
 export function allEnolaSquatchLines() {
   const out = [];
@@ -306,6 +315,14 @@ export function allEnolaSquatchLines() {
   }
   for (const [pool, lines] of Object.entries(BARKS)) {
     lines.forEach((line, i) => out.push({ cue: barkCueOf(pool, i, line.who), who: line.who, text: line.text, bark: pool }));
+  }
+  /* The release pick is a spoken PROSPECT line like any other — it just is not
+   * reachable from BEATS, because the player chooses it. Omitting it here is
+   * how four recordings go missing from a voice run without anybody noticing.
+   * The silent option is excluded: there is nothing to record. */
+  for (const line of RELEASE_LINES) {
+    if (line.silent) continue;
+    out.push({ cue: releaseCueOf(line.key), who: 'PROSPECT', text: line.text, release: line.key });
   }
   return out;
 }
