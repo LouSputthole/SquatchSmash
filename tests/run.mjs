@@ -24,6 +24,7 @@ const TEST_MODULES = [
   './motel-voice.test.mjs',
   './motel-dialogue-timing.test.mjs',
   './motel-presentation.test.mjs',
+  './motel-silverback.test.mjs',
   './apartment-story.test.mjs',
   './apartment-voice-coverage.test.mjs',
   './phone.test.mjs',

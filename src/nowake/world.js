@@ -810,6 +810,26 @@ function buildBoat(scene, marina) {
   controls.ignition.setOn(false);
   controls.radio.setOn(false);
 
+  /* A broad proxy for the body on the stern deck, for the same reason the helm
+   * has one: a hold that has to stay on a target for most of a second cannot
+   * be aimed at a man lying down while the deck under both of you is moving.
+   * The figure's own group is a thin, near-horizontal silhouette, and Tony
+   * stands close enough to be looking almost straight down at it — the ray
+   * grazed it, `current` flickered, and `holdTime` reset before it ever
+   * reached the 0.85 s the disposal needs. Measured on the previous build the
+   * hold peaked around 0.6 s no matter how long the key was held, so the body
+   * could not reliably be put over the side at all. */
+  const bodyTarget = box([1.90, 1.15, 2.10], new THREE.MeshBasicMaterial({
+    transparent: true, opacity: 0, depthWrite: false, colorWrite: false,
+  }), 0, 1.52, 4.48);
+  bodyTarget.name = 'broad body interaction proxy';
+  /* Invisible through the material, not through `visible` — Three skips
+   * raycasting anything with `visible === false`, which would make this proxy
+   * an elaborate way of changing nothing. */
+  bodyTarget.castShadow = false;
+  bodyTarget.receiveShadow = false;
+  root.add(bodyTarget);
+
   const targets = {
     board,
     battery,
@@ -817,6 +837,7 @@ function buildBoat(scene, marina) {
     ignition,
     radio: stereo,
     helm: helmTarget,
+    body: bodyTarget,
     bowLine,
     sternLine,
   };

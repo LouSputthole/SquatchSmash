@@ -17,6 +17,14 @@ import { motelSpokenWords, motelVoiceCue, motelVoiceProfile } from './voice.js';
 export const MOTEL_STORY_LINES = Object.freeze([
   ['Prospect', 'The coupon expired in March. So did my patience.'],
   ['Prospect', 'Compact revolver. Six in the wheel. For emergencies and disrespect.'],
+  /* The Silverback Commander: Snow hands it over in the car, it rides
+   * concealed through the whole transaction, and Rico only finds out it exists
+   * if Tony chooses to open the room with it. */
+  ['Snow', 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.'],
+  ['Prospect', 'It is under my coat. It stays under my coat.'],
+  ['Prospect', 'Hands. Both of them. On the case.'],
+  ['Rico', 'Whoa — WHOA—'],
+  ['Prospect', 'Third man. Of course there is a third man.'],
   ['Snow', 'Crowbar. And the thing we never mention.'],
   ['Prospect', 'Reserve wrapper. Chewed open, not cut. Somebody in this motel is eating the inventory.'],
   ['Prospect', 'He is watching the road, not the lot. Nobody watches the road unless somebody is coming.'],

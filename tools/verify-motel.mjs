@@ -657,6 +657,18 @@ try {
    * rather than for the clock keeps this honest on a slow renderer, where a
    * frame can outlast the timer and the old fixed sleep stepped into an empty
    * doorway. */
+  /* KNOWN FAILURE, and it predates the Commander: this wait never resolves,
+   * on this commit and on 8156788 before it, and raising the ceiling to three
+   * minutes does not help — Rico is never spawned at all.
+   *
+   * `forceInteract` runs an interaction only when its own `enabled()` agrees,
+   * and the knock's gate is `phase === 'lot' && !dialogue`. When the harness
+   * reaches here with Snow's opening wheel still up, or still in the `car`
+   * phase, the call returns `true` for "the interaction exists" and does
+   * nothing, so the knock never happens and this waits for a man who was
+   * never sent for. Diagnosing which of the two gates is open needs a
+   * instrumented run; leaving the ceiling low so it fails in twenty seconds
+   * rather than three minutes. */
   await previewPage.waitForFunction(
     () => window.MOTEL.actors.some((actor) => actor.name === 'Rico'),
     null,

@@ -154,6 +154,15 @@ const S = {
   fightStarted: false,
   slicerRevealed: false,
   slicerKnown: false,
+  /* The Silverback Commander. Snow's own, and the Family's: silver slide,
+   * crest on the frame, seven rounds. Taking it is not the same as holding it
+   * — it rides concealed through the whole transaction, and drawing it is the
+   * decision that turns a deal into a shooting. `silverbackFast` records that
+   * Tony opened rather than answered, which is the only way anybody walks out
+   * of room twelve in under five seconds. */
+  silverbackTaken: false,
+  silverbackDrawn: false,
+  silverbackFast: false,
   snowSignalled: false,
   snowInside: false,
   snowInjured: false,
@@ -296,6 +305,7 @@ window.addEventListener('keydown', (e) => {
     case 'KeyE': e.preventDefault(); onUse(); break;
     case 'KeyF': onAttack(); break;
     case 'KeyR': onRanged(); break;
+    case 'KeyX': drawSilverback(); break;
     case 'KeyG': dropWeapon(); break;
     case 'Tab': e.preventDefault(); togglePause(); break;
     case 'KeyM': toggleMute(); break;
@@ -380,6 +390,7 @@ sharedPauseMenu = createPauseMenu({
   instructions: [
     'W A S D — move. Shift — sprint. Space — jump.',
     'E — interact. F or left click — attack. R or right click — ranged attack.',
+    'X — draw the Silverback Commander, if Snow gave it to you. It is loud, it is fast, and it is optional.',
     'G — drop the held weapon.',
     'During dialogue or inspection: number keys — choose.',
     'Tab or P — pause and review the current objective.',
@@ -798,6 +809,33 @@ addInteract({
     S.weapon = 'revolver';
     S.ammo = 6;
     updateGear();
+  },
+});
+
+/* Snow's own gun, offered rather than found.
+ *
+ * The revolver in the glovebox is nobody's: compact, anonymous, the sort of
+ * thing you leave in an ice machine. The Commander is the Family's, with the
+ * crest on the frame, and Snow does not hand it over casually. It rides
+ * concealed — taking it does not change what Tony is holding when the door
+ * opens — so the whole transaction can still be played without a gun in the
+ * room, and the fast way out stays a choice the player makes with [X]. */
+addInteract({
+  id: 'silverback', x: -9.2, y: 1.1, z: 17.2, r: 3.0,
+  label: () => (S.silverbackTaken
+    ? 'The Commander rides under your coat'
+    : 'Snow offers you the Silverback Commander'),
+  enabled: () => phase === 'car',
+  act: () => {
+    if (S.silverbackTaken) {
+      say('Prospect', 'It is under my coat. It stays under my coat.', 3.0);
+      return;
+    }
+    S.silverbackTaken = true;
+    addRead(6);
+    say(ALLY, 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.', 5.4);
+    toast('SILVERBACK COMMANDER', 'warn', 'Concealed · press X to draw · it is loud and it is ours');
+    sfx.select();
   },
 });
 
@@ -1706,21 +1744,25 @@ function runInspection(id) {
 }
 
 // ---------- The betrayal ----------
-function maybeBetray(trigger) {
+function maybeBetray(trigger, { fastDraw = false } = {}) {
   if (S.betrayed || (phase !== 'room' && phase !== 'door')) return;
   S.betrayed = true;
   phase = 'fight';
   S.fightStarted = true;
   if (inspection.done.size > 0) completeObjective('inspect', true);
   else failObjective('inspect');
-  setObjective('survive', 'They are between you and the door');
+  setObjective('survive', fastDraw
+    ? 'You opened. Finish it before anybody in this motel finds a telephone'
+    : 'They are between you and the door');
   closeInspection();
   closeDialogue();
   sfx.setMusic('fight');
   sfx.setTension(1);
 
-  const betrayalHold = say('Rico', 'Bring out the cutting board.', 3.4);
-  toast('IT IS HAPPENING', 'warn', `Trigger: ${trigger}`);
+  const betrayalHold = fastDraw
+    ? say('Rico', 'Whoa — WHOA—', 1.6)
+    : say('Rico', 'Bring out the cutting board.', 3.4);
+  toast(fastDraw ? 'YOU DREW FIRST' : 'IT IS HAPPENING', 'warn', `Trigger: ${trigger}`);
 
   // The bathroom door opens and the third man walks out
   afterLine(betrayalHold, () => {
@@ -1735,14 +1777,20 @@ function maybeBetray(trigger) {
     if (slicer) {
       slicer.state = 'chase';
       slicer.hostile = true;
-      if (!S.slicerKnown) {
+      /* The free hit is the price of being surprised. A man who has already
+       * drawn and is covering the room is not surprised — he is pointed at the
+       * door the noise came through. He still has to deal with the third man;
+       * he just does not eat a slicer for the privilege of noticing him. */
+      if (!S.slicerKnown && !fastDraw) {
         say('*', 'The bathroom door opens behind you.', 3);
         damagePlayer(S.reactionBonus ? 8 : 18, 'the man you did not know about');
+      } else if (fastDraw && !S.slicerKnown) {
+        say('Prospect', 'Third man. Of course there is a third man.', 3.0);
       } else {
         say('Prospect', 'I know. I heard you breathing an hour ago.', 3.2);
       }
     }
-  }, S.reactionBonus ? 0.78 : undefined);
+  }, fastDraw ? 0.55 : (S.reactionBonus ? 0.78 : undefined));
 
   // Chino blocks the exit, Rico goes for the money
   if (chino) {
@@ -1764,6 +1812,54 @@ function maybeBetray(trigger) {
   // Snow reacts to gunfire / a broken window / a signal / the second car
   const snowDelay = S.snowSignalled ? 3 : S.cluesFound.has('secondcar') ? 8 : 16;
   setTimeout(() => snowJoins('the noise'), snowDelay * 1000);
+}
+
+/**
+ * Draw the Silverback Commander.
+ *
+ * This is the scene's one genuinely fast exit, and it is entirely optional:
+ * the transaction can be talked, inspected, argued and brawled through
+ * without the Commander ever leaving Tony's coat. Drawing it inside room
+ * twelve before the sellers move does not skip the fight — it starts it, on
+ * Tony's count instead of Rico's, which is worth a couple of seconds and the
+ * third man's free swing.
+ *
+ * The bill comes later. It is a loud .45 in a motel at night with the Family's
+ * crest on the frame, so the police attention it buys is the real cost, and
+ * every quiet-exit objective in the scene is gone the moment it fires.
+ */
+function drawSilverback() {
+  if (phase === 'menu' || phase === 'end' || paused || grapple) return;
+  if (!S.silverbackTaken) {
+    if (phase === 'car' || phase === 'lot' || phase === 'door' || phase === 'room') {
+      toast('NOTHING UNDER YOUR COAT', 'warn', "Snow's Commander is still in the car");
+    }
+    return;
+  }
+  if (S.silverbackDrawn) return;
+
+  S.silverbackDrawn = true;
+  S.weapon = 'silverback';
+  S.ammo = WEAPON_STATS.silverback.ammo;
+  S.usedNonImprovised = true;
+  updateGear();
+  sfx.select();
+
+  const opening = phase === 'room' && !S.betrayed;
+  if (opening) {
+    /* Tony moves first, so the room turns while Rico is still holding a
+     * sample. The betrayal fires immediately rather than on the usual heat
+     * trigger, and `fastDraw` is what buys the tempo inside it. */
+    S.silverbackFast = true;
+    S.policeHeat += 18;
+    addHeat(100);
+    say('Prospect', 'Hands. Both of them. On the case.', 2.6);
+    maybeBetray('you drew the Commander', { fastDraw: true });
+    toast('COMMANDER OUT', 'warn', 'Seven rounds · everyone in this motel can hear it');
+    snowJoins('a Family gun coming out');
+  } else {
+    toast('COMMANDER OUT', 'warn', `Seven rounds · ${WEAPON_STATS.silverback.name}`);
+  }
 }
 
 function snowJoins(reason) {
@@ -1912,6 +2008,13 @@ function dropWeapon() {
       ? 'Left in room twelve, with your fur all over it'
       : 'Left in the open where anyone can find it');
   }
+  /* An anonymous revolver in an ice machine is a shrug. The Commander has a
+   * crest on the frame and it belongs to a man with a name, so leaving it
+   * anywhere is not evidence against Tony, it is evidence against the Family. */
+  if (WEAPON_STATS[dropped]?.family) {
+    S.policeHeat += 26;
+    toast('THE CREST IS ON IT', 'warn', 'You left a Family gun where somebody will pick it up');
+  }
   toast('DROPPED', '', WEAPON_STATS[dropped].name);
 }
 
@@ -1939,7 +2042,10 @@ function disposeWeapon(where) {
     rico: ['PLANTED ON RICO', 'Let the man who started it hold it', -10],
   };
   const [t, sub, heat] = notes[where] || ['DROPPED', '', 10];
-  S.policeHeat = Math.max(0, S.policeHeat + heat);
+  // The crest does not care how clever the hiding place was.
+  const crest = WEAPON_STATS[name === WEAPON_STATS.silverback.name ? 'silverback' : '']?.family ? 20 : 0;
+  S.policeHeat = Math.max(0, S.policeHeat + heat + crest);
+  if (crest) toast('THE CREST IS ON IT', 'warn', 'A Family gun, found or not, is a Family problem');
   toast(t, '', `${name} — ${sub}`);
   sfx.packaging();
 }

@@ -4,6 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>NO WAKE · Squatch Life</title>
+  <!-- Every other page in the campaign carries one of these. Without it the
+       browser asks the host for /favicon.ico on its own and takes a 404 for
+       it, which is a console error on a page that otherwise has none. -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128676;</text></svg>" />
   <link rel="stylesheet" href="src/style.css" />
   <link rel="stylesheet" href="src/nowake/nowake.css" />
   <script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>

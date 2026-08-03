@@ -431,6 +431,53 @@ const WEAPON_BUILDERS = {
     g.add(claw);
     return g;
   },
+  /* The Silverback Commander.
+   *
+   * The Family's own sidearm, and it is not subtle: a long slab-sided .45 with
+   * a silver slide, chequered walnut grips and the sasquatch crest inlaid on
+   * the frame. Everything about it says the man carrying it is somebody's, and
+   * that is exactly why Snow keeps one in the glovebox and exactly why firing
+   * it in a motel room is a decision rather than a reflex. */
+  silverback: () => {
+    const g = new THREE.Group();
+    g.name = 'silverback-commander';
+    const frame = box(0.12, 0.19, 0.24, 0x2b2b33);
+    frame.name = 'silverback.frame';
+    g.add(frame);
+    const slide = box(0.125, 0.13, 0.52, 0xc8ccd4, { emissive: 0x40454c });
+    slide.name = 'silverback.slide';
+    slide.position.set(0, 0.13, 0.14);
+    g.add(slide);
+    // The long Commander barrel standing proud of the slide.
+    const barrel = box(0.06, 0.06, 0.12, 0x9aa0a8);
+    barrel.name = 'silverback.barrel';
+    barrel.position.set(0, 0.12, 0.44);
+    g.add(barrel);
+    const muzzle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.038, 0.011, 6, 14),
+      lambert(0x1c1c22, { emissive: 0x0a0a0c }),
+    );
+    muzzle.name = 'silverback.muzzle';
+    muzzle.position.set(0, 0.12, 0.50);
+    g.add(muzzle);
+    const grip = box(0.115, 0.34, 0.17, 0x5a3620);
+    grip.name = 'silverback.grip';
+    grip.position.set(0, -0.22, -0.03);
+    grip.rotation.x = -0.24;
+    g.add(grip);
+    // The crest. Small, silver, and the whole reason anybody recognises it.
+    const crest = box(0.02, 0.1, 0.1, 0xdfe4ea, { emissive: 0x6a7078 });
+    crest.name = 'silverback.crest';
+    crest.position.set(0.06, -0.16, 0.01);
+    crest.rotation.x = -0.24;
+    g.add(crest);
+    const hammer = box(0.06, 0.09, 0.07, 0x33333b);
+    hammer.name = 'silverback.hammer';
+    hammer.position.set(0, 0.16, -0.09);
+    hammer.rotation.x = -0.3;
+    g.add(hammer);
+    return g;
+  },
   revolver: () => {
     const g = new THREE.Group();
     g.name = 'revolver';
@@ -484,6 +531,15 @@ export const WEAPON_STATS = {
   pistol:       { name: 'Pistol', dmg: 30, reach: 26, lethal: true, rate: 1.5, ranged: true },
   revolver:     { name: 'Compact revolver', dmg: 45, reach: 30, lethal: true, rate: 0.9, ranged: true, ammo: 6 },
   handcannon:   { name: 'Sasquatch hand cannon', dmg: 90, reach: 34, lethal: true, rate: 1.3, ranged: true, ammo: 4 },
+  /* Seven rounds, one man each, and every one of them audible from the road.
+   * It out-damages the compact revolver and comes up faster than anything else
+   * in this room, which is the whole appeal and the whole problem: the fast way
+   * out of room twelve is also the loudest, and `loud` is what makes the police
+   * heat land harder than any blade in this table. */
+  silverback:   {
+    name: 'Silverback Commander', dmg: 62, reach: 30, lethal: true, rate: 1.8,
+    ranged: true, ammo: 7, loud: true, family: true,
+  },
 };
 
 export function buildWeaponMesh(kind) {

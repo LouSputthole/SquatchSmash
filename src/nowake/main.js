@@ -288,13 +288,17 @@ function registerInteractions() {
     enabled: () => state.engine && state.bowLine && state.sternLine && !state.atHelm,
     onUse: enterHelm,
   });
-  interaction.register(boat.cast.willy.group, {
-    label: 'Roll Willy to the transom',
-    holdLabel: 'Move the body overboard',
-    hold: .85,
-    enabled: () => state.phase === 'body' && !state.bodyDisposed,
-    onUse: disposeBody,
-  });
+  /* The proxy carries the hold; the figure keeps it so that looking straight
+   * at the man still says his name. Either one starts the same lift. */
+  for (const target of [boat.targets.body, boat.cast.willy.group]) {
+    interaction.register(target, {
+      label: 'Roll Willy to the transom',
+      holdLabel: 'Move the body overboard',
+      hold: .85,
+      enabled: () => state.phase === 'body' && !state.bodyDisposed,
+      onUse: disposeBody,
+    });
+  }
 }
 
 /** Cross the visible boarding platform instead of teleporting through it. */
@@ -679,7 +683,11 @@ function enableBodyInteraction() {
   player.eyeHeight = 1.66;
   player.targetEye = 1.66;
   player.ground = boat.root.position.y + boat.deck.height;
-  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.15, 2.68, 4.66)));
+  /* Stand him off the body rather than over it. The old mark put his eye 0.2 m
+   * horizontally from a man lying on the deck, so the look vector below came
+   * out at nearly eighty degrees down — at the clamp, and grazing. From here
+   * the body sits a comfortable pace ahead and about forty-five degrees down. */
+  player.position.copy(boat.root.localToWorld(new THREE.Vector3(-.05, 2.68, 3.28)));
   player.velocity.set(0, 0, 0);
   player.yawCenter = null;
   player.yawRange = Math.PI;

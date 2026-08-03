@@ -123,12 +123,12 @@ try {
     'ambience.harbor',
     'boat.board.step', 'boat.body.drag', 'boat.body.rail', 'boat.engine.shutdown',
     'boat.engine.start', 'boat.engine.underway', 'boat.gunshot.deck', 'boat.hull.creak', 'boat.hull.wake',
-    'boat.rope.release',
-    // Irish is wired, subtitled and timed; he is not recorded yet.
+    /* The harbour and boat effects listed here have all been recorded and
+     * indexed since; the only thing still outstanding on this boat is Irish,
+     * who is wired, subtitled and timed but not yet performed. */
     'vo.nowake.below.irish.hands.1', 'vo.nowake.cruise.irish.egg.1',
     'vo.nowake.execution.irish.rail.1', 'vo.nowake.return.irish.no-back-half.1',
     'vo.nowake.reveal.irish.asked.1', 'vo.nowake.reveal.irish.counted.1',
-    'seagull.distant',
   ].sort();
   await page.evaluate(() => window.NO_WAKE.postfx?.disable?.());
   // Use a trusted browser gesture so the same click that starts the mission can
@@ -801,7 +801,11 @@ try {
     fell: Math.abs(window.NO_WAKE.boat.cast.willy.group.rotation.z) > 1,
     mode: window.NO_WAKE.player.mode,
     fullPitch: window.NO_WAKE.player.pitchMin < -1.2 && window.NO_WAKE.player.pitchMax > 1.2,
-    targeted: window.NO_WAKE.interaction.current === window.NO_WAKE.boat.cast.willy.group,
+    /* Either surface starts the lift: the broad proxy carries the hold so it
+     * cannot slip off a man lying on a moving deck, and his own figure stays
+     * registered so looking straight at him still names him. */
+    targeted: window.NO_WAKE.interaction.current === window.NO_WAKE.boat.cast.willy.group
+      || window.NO_WAKE.interaction.current === window.NO_WAKE.boat.targets.body,
     promptVisible: !document.getElementById('prompt').classList.contains('hidden'),
     cinematicReleased: !window.NO_WAKE.cameraDirector.active,
     bodyOriginY: window.NO_WAKE.boat.cast.willy.group.position.y,
@@ -815,8 +819,14 @@ try {
     JSON.stringify(body));
   await capture('no-wake-body-interaction.png');
 
+  /* The 0.85 s hold accumulates in the scene's own clamped step, not in wall
+   * clock: `animate` caps dt at 0.05, so on a software rasteriser running at a
+   * handful of frames a second the simulated hold advances at a fraction of
+   * real time. Six and a half seconds of held key used to land just under the
+   * threshold and read as a broken disposal. Hold it long enough that this
+   * contract measures the interaction rather than the rasteriser. */
   await page.keyboard.down('e');
-  await page.waitForTimeout(6500);
+  await page.waitForTimeout(14000);
   await page.keyboard.up('e');
   await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 0; });
   await page.waitForTimeout(100);
@@ -955,11 +965,15 @@ try {
       && montage.active === 'return-harbor-ahead',
     JSON.stringify(montage));
 
+  /* Six now: Irish clears the rail after the shot and refuses the back half of
+   * the egg story on the way in. Counted off the authored list rather than
+   * hard-coded, so adding a line to the aftermath cannot silently hang this
+   * wait again. */
   const aftermathExpected = Object.values(NO_WAKE_AFTERMATH_LINES);
-  await page.waitForFunction(() => {
+  await page.waitForFunction((expected) => {
     const log = window.NO_WAKE.state.aftermathCueLog ?? [];
-    return log.length === 4 && log.every((entry) => entry.status !== 'queued');
-  }, null, { timeout: 20000 });
+    return log.length === expected && log.every((entry) => entry.status !== 'queued');
+  }, aftermathExpected.length, { timeout: 60000 });
   const aftermathSequence = await page.evaluate((expectedTexts) => {
     const entries = window.NO_WAKE.state.aftermathCueLog ?? [];
     const subtitles = window.NO_WAKE.dialogueLog
@@ -972,7 +986,7 @@ try {
       subtitles,
     };
   }, aftermathExpected.map((line) => line.text));
-  check('all four aftermath cues and subtitles are requested in order without overlapping voice windows',
+  check(`all ${aftermathExpected.length} aftermath cues and subtitles are requested in order without overlapping voice windows`,
     JSON.stringify(aftermathSequence.cues) === JSON.stringify(aftermathExpected.map((line) => line.cue))
       && aftermathSequence.statuses.every((status) => ['started', 'complete'].includes(status))
       && aftermathSequence.windows.every((window, index, windows) => (
