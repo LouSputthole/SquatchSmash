@@ -29,8 +29,8 @@ With no tracks listed the radio still turns on — it just plays static.
 ## Signature cues — four records still owed
 
 Some songs belong to a person or a moment rather than to a station. These are
-cues, not programming. Two are wired and waiting on a file; the third is
-waiting on both.
+cues, not programming. Three are wired and waiting only on a file; the fourth
+is waiting on both, by request.
 
 | Cue | File wanted | Fires on | Playing until then | Wired? |
 |---|---|---|---|---|
@@ -94,7 +94,7 @@ manifest the single honest answer to "has the recording landed", and the
 runtime reads it: an unlisted signature track is never requested, so a missing
 song costs a fallback rather than a 404 and a console error.
 
-To turn either one on: drop the mp3 in this folder and add the usual one-line
+To turn any of them on: drop the mp3 in this folder and add the usual one-line
 entry to `manifest.json` with **no `station` and no `venue`** — a venue would
 put it in a radio playlist, and these are cues, not programming. Nothing in
 `src/` has to change. `tests/signature-audio.test.mjs` holds the contract.

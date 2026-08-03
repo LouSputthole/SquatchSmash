@@ -336,6 +336,38 @@ Branch `claude/squatch-life-continuation-2c23z0`, five commits on top of
   untouched by this session, and commit `8156788`'s Ape-attack rework is the
   most recent word on it.
 
+## Side quest: License to Grill (added 2026-08-03)
+
+Off the Bada Bing's back hallway, first visit only. Au Gratin has a foreign
+intelligence officer tied to the store room chair and has got nowhere with him
+for hours. Opening the store room door starts it.
+
+**Built and playable:** the room's permanent fixtures (bolted chair, floor
+drain, bare bulb, tool cart, utensil rail, portable radio); James Blond as a
+registered campaign identity with a dinner jacket, bow tie and bare feet;
+the 75-node interrogation with its questions, the cart, his belongings, his
+counterattack and four answers, the Shubenator interruption, the car, the name
+(**Vincent Mallard**, behind the laundromat on Thursdays) and three endings;
+the cord's timing bar; the spy-jazz radio; the outcome persisted to
+`squatch.bing.license-to-grill`.
+
+**The design under the joke:** hitting him is worth almost nothing and his
+belongings are worth three to five times a beating, so the player has to notice
+what he is. The car is not a nudge — it ends the scene. `PRESSURE` in
+`src/bing/license-to-grill.js` is the whole argument, and
+`tests/license-to-grill.test.mjs` holds it.
+
+**Not built yet:**
+
+- The **"Licensed to Grill" apartment collectible**. The `card` flag is
+  persisted on the shot ending; nothing in the apartment reads it.
+- The **later callback**. `licenseToGrillCallback` is written and tested but is
+  not mounted in any scene.
+- The **spy tuxedo cosmetic**.
+- The **Enola Squatch informant encounter**. The name and the meeting are
+  persisted; no mission consumes them yet.
+- `spy-jazz.mp3` itself — the radio plays `cosmic-drift.mp3` until it lands.
+
 ## Parked, by request
 
 - **"Can't You Hear Me Knocking" on the Beef Run takeoff roll, at 45.** Owner's
