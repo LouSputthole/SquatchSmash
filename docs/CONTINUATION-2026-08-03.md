@@ -343,9 +343,14 @@ Branch `claude/squatch-life-continuation-2c23z0`, five commits on top of
   nothing should be guessing at a mix for a song nobody has heard in place. The
   full note, the existing hook it mirrors (`updateTakeoff` in
   `src/beefrun/mission.js`, where the rotation call already fires off one flag
-  and `p.ias * KT > 58`), and the four things to settle with the file in hand —
-  units, which of the two takeoff rolls, the mix against headset and engines,
-  and what happens on an aborted roll — are in `assets/music/README.md`.
+  and `p.ias * KT > 58`) are in `assets/music/README.md`. Settled with the
+  owner: **once, on the initial Whispering Pines takeoff only** — not the
+  loaded El Hueso departure — and **about two minutes** of the record rather
+  than all of it. Gate it on the `takeoff` phase rather than a one-shot flag:
+  `rotateCalled` is deliberately reset so Sasole calls rotation on the second
+  departure too, and anything copying that pattern will play the song twice.
+  Still open: the mix against headset, engines and dialogue, which needs the
+  file in place to judge.
 
 ## Bugs found and left alone
 
