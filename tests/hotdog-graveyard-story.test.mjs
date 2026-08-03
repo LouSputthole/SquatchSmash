@@ -39,7 +39,7 @@ test('HotDog must be secured and loaded before the graveyard, and burial alone u
 
   assert.deepEqual(club.begin(), { ok: true, resumed: false, checkpoint: 'party' });
   assert.equal(club.completeClub({ assignment: 'reserve_pickup' }), false);
-  assert.equal(club.recordAttack({ gunKicked: true }), true);
+  assert.equal(club.recordAttack({ attackResolved: true }), true);
   for (const task of BADA_BING_TWO_CLEANUP_TASKS) {
     assert.equal(club.recordCleanup(task), true, task);
   }
@@ -95,12 +95,12 @@ test('current saves carry a durable HotDog incident shape', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const incident = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
 
-  assert.equal(CAMPAIGN_VERSION, 9);
+  assert.equal(CAMPAIGN_VERSION, 10);
   assert.deepEqual(incident, {
     status: 'locked',
     checkpoint: null,
     assignment: null,
-    gunKicked: false,
+    attackResolved: false,
     cleanupTasks: [],
     bodyWrapped: false,
     bodyLoaded: false,
@@ -110,6 +110,28 @@ test('current saves carry a durable HotDog incident shape', () => {
     respectedGraves: [],
     urinatedOn: [],
   });
+});
+
+test('v9 gun-resolution saves migrate to the Ape attack checkpoint without losing cleanup progress', () => {
+  const storage = new MemoryStorage();
+  const legacy = createCampaign({ storage: new MemoryStorage() }).state;
+  legacy.version = 9;
+  const incident = legacy.missions[MISSION_IDS.BADA_BING_TWO];
+  delete incident.attackResolved;
+  incident.status = 'in_progress';
+  incident.checkpoint = 'cleanup';
+  incident.gunKicked = true;
+  incident.cleanupTasks = ['bathrooms'];
+  storage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(legacy));
+
+  const campaign = createCampaign({ storage });
+  const migrated = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
+
+  assert.equal(campaign.state.version, CAMPAIGN_VERSION);
+  assert.equal(migrated.attackResolved, true);
+  assert.equal('gunKicked' in migrated, false);
+  assert.deepEqual(migrated.cleanupTasks, ['bathrooms']);
+  assert.equal(campaign.recovery, null);
 });
 
 test('v5 graveyard saves migrate the memorial ledger without losing disrespect', () => {
@@ -143,7 +165,7 @@ test('an in-progress graveyard resumes from persisted evidence state', () => {
     incident.status = 'in_progress';
     incident.checkpoint = 'graveyard';
     incident.assignment = 'reserve_pickup';
-    incident.gunKicked = true;
+    incident.attackResolved = true;
     incident.cleanupTasks = [...BADA_BING_TWO_CLEANUP_TASKS];
     incident.bodyWrapped = true;
     incident.bodyLoaded = true;
@@ -263,7 +285,7 @@ test('a v4 Bada Bing Two save resumes the new incident from the party', () => {
     status: 'in_progress',
     checkpoint: 'party',
     assignment: null,
-    gunKicked: false,
+    attackResolved: false,
     cleanupTasks: [],
     bodyWrapped: false,
     bodyLoaded: false,
@@ -309,7 +331,7 @@ test('a completed v4 Bada Bing Two save migrates past the inserted burial atomic
   assert.equal(incident.status, 'complete');
   assert.equal(incident.checkpoint, 'buried');
   assert.equal(incident.assignment, 'reserve_pickup');
-  assert.equal(incident.gunKicked, true);
+  assert.equal(incident.attackResolved, true);
   assert.deepEqual(incident.cleanupTasks, BADA_BING_TWO_CLEANUP_TASKS);
   assert.equal(incident.bodyWrapped, true);
   assert.equal(incident.bodyLoaded, true);

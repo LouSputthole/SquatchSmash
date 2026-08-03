@@ -50,10 +50,14 @@ export function buildHotDogPartySequence() {
     { phase: 'tension', who: 'Billy HotDog', line: 'Then ask me with the brush in your hand.', cue: 'vo.bing2.hotdog.bully.3', seconds: 3.0, action: 'ape-leaves' },
     { phase: 'tension', who: 'Rippinflow', line: 'He didn\'t leave. He went quiet.', cue: 'vo.bing2.rippin.quiet', seconds: 3.1 },
     { phase: 'tension', who: 'Ape', line: 'My fault. Fresh bottle. We are good.', cue: 'vo.bing2.ape.return', seconds: 3.1, action: 'ape-returns' },
-    { phase: 'tension', who: 'Billy HotDog', line: 'There he is. Knew you\'d remember your place.', cue: 'vo.bing2.hotdog.last', seconds: 3.0, action: 'attack' },
+    { phase: 'tension', who: 'Billy HotDog', line: 'There he is. Knew you\'d remember your place.', cue: 'vo.bing2.hotdog.last', seconds: 3.0 },
 
-    { phase: 'attack', who: 'Ape', line: 'Remember this.', cue: 'vo.bing2.ape.attack', seconds: 1.4 },
-    { phase: 'attack', who: 'Prospect', line: 'Gun!', cue: 'vo.bing2.prospect.gun', seconds: 1.0, action: 'enable-gun-kick' },
+    {
+      phase: 'attack', who: 'Ape', line: 'Here\'s your fucking fur brush, HotDog.',
+      cue: 'vo.bing2.ape.fur_brush',
+      direction: 'Low, controlled fury; close and personal, not shouted. Let “fur brush” land hard.',
+      seconds: 2.8, action: 'begin-beating',
+    },
     { phase: 'attack', who: 'Shubenator', line: 'Music. Right. Sorry.', cue: 'vo.bing2.shubenator.music', seconds: 2.0, action: 'music-cut' },
     {
       phase: 'aftermath', who: 'Shubenator', line: signature.text,
@@ -69,7 +73,7 @@ export function buildHotDogPartySequence() {
   return sequence.map((beat) => ({
     ...beat,
     // A tense scene still needs silence. These pauses let reaction animation,
-    // eyelines and the dropped gun register before the next line starts.
+    // eyelines and the hit aftermath register before the next line starts.
     gapAfter: beat.gapAfter ?? (
       beat.phase === 'tension' ? 0.55
         : beat.phase === 'attack' ? 0.42
@@ -105,7 +109,7 @@ export class SecondVisitMission {
       alarmDisabled: true,
       secretPanel: false,
       plateRead: false,
-      gunKicked: false,
+      attackResolved: false,
       bodyWrapped: false,
       bodyLoaded: false,
     };
@@ -115,7 +119,7 @@ export class SecondVisitMission {
 
   get readyToLeave() {
     return this.assignment !== null
-      && this.flags.gunKicked
+      && this.flags.attackResolved
       && this.flags.bodyWrapped
       && this.flags.bodyLoaded
       && SECOND_VISIT_CLEANUP_TASKS.every((task) => this.cleanup.has(task));
@@ -175,14 +179,14 @@ export class SecondVisitMission {
     if (this.state !== 'tension') return false;
     this.complete('stay-close');
     this.setState('attack');
-    this.addObjective('gun', 'Kick HotDog\'s gun away');
+    this.addObjective('attack', 'Stay clear while Ape handles HotDog');
     return true;
   }
 
-  kickGun() {
+  resolveAttack() {
     if (this.state !== 'attack') return false;
-    this.flags.gunKicked = true;
-    this.complete('gun');
+    this.flags.attackResolved = true;
+    this.complete('attack');
     this.setState('cleanup');
     for (const task of SECOND_VISIT_CLEANUP_TASKS) {
       this.addObjective(`cleanup.${task}`, CLEANUP_LABELS[task]);

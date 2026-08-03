@@ -41,13 +41,13 @@ class BadaBingTwoStory {
     return { ok: true, resumed: false, checkpoint: 'party' };
   }
 
-  recordAttack({ gunKicked = false } = {}) {
+  recordAttack({ attackResolved = false } = {}) {
     const mission = this.campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
-    if (mission.status !== 'in_progress' || gunKicked !== true) return false;
+    if (mission.status !== 'in_progress' || attackResolved !== true) return false;
     this.campaign.update((state) => {
       const incident = state.missions[MISSION_IDS.BADA_BING_TWO];
       incident.checkpoint = 'attack';
-      incident.gunKicked = true;
+      incident.attackResolved = true;
     });
     return true;
   }
@@ -55,7 +55,7 @@ class BadaBingTwoStory {
   recordCleanup(taskId) {
     if (!BADA_BING_TWO_CLEANUP_TASKS.includes(taskId)) return false;
     const mission = this.campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
-    if (mission.status !== 'in_progress' || !mission.gunKicked) return false;
+    if (mission.status !== 'in_progress' || !mission.attackResolved) return false;
     if (mission.cleanupTasks.includes(taskId)) return true;
     this.campaign.update((state) => {
       const incident = state.missions[MISSION_IDS.BADA_BING_TWO];
@@ -70,7 +70,7 @@ class BadaBingTwoStory {
     const cleaned = BADA_BING_TWO_CLEANUP_TASKS
       .every((task) => mission.cleanupTasks.includes(task));
     if (mission.status !== 'in_progress'
-      || !mission.gunKicked
+      || !mission.attackResolved
       || !cleaned
       || bodyWrapped !== true
       || bodyLoaded !== true

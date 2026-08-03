@@ -16,6 +16,11 @@ import { Player } from '../core/player.js';
 import { PostFX } from '../core/postfx.js';
 import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { buildClub, roomAt } from './club.js';
+import {
+  APE_EXIT_ROUTE,
+  APE_RETURN_ROUTE,
+  createHotDogAttack,
+} from './hotdog-attack.js';
 import { hotDogAudioLoadOptions } from './hotdog-audio.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
 import { buildHotDogParty } from './hotdog-party.js';
@@ -103,9 +108,10 @@ const state = {
     remaining: 0,
     gapRemaining: 0,
     current: null,
-    waitingForGun: false,
+    waitingForAttack: false,
     handoffReady: false,
   },
+  apeRouteStop: null,
   fallen: false,
   cleanupActive: false,
   bathroom: new Set(),
@@ -121,6 +127,7 @@ const state = {
     shot: null,
     eye: new THREE.Vector3(),
     look: new THREE.Vector3(),
+    shake: 0,
   },
 };
 
@@ -171,6 +178,7 @@ function setCinematicShot(name, eye, look) {
 function releaseCinematic({ x = null, z = null, lookAt = null } = {}) {
   state.cinematic.active = false;
   state.cinematic.shot = null;
+  state.cinematic.shake = 0;
   interaction.setPaused(false);
   if (Number.isFinite(x) && Number.isFinite(z)) {
     let yaw = player.yaw;
@@ -183,9 +191,16 @@ function releaseCinematic({ x = null, z = null, lookAt = null } = {}) {
   }
 }
 
-function applyCinematicCamera() {
+function applyCinematicCamera(dt = 0) {
   if (!state.cinematic.active) return;
   camera.position.copy(state.cinematic.eye);
+  if (state.cinematic.shake > 0) {
+    const intensity = state.cinematic.shake;
+    camera.position.x += Math.sin(state.elapsed * 77) * intensity;
+    camera.position.y += Math.cos(state.elapsed * 101) * intensity * 0.55;
+    camera.position.z += Math.sin(state.elapsed * 63) * intensity * 0.35;
+    state.cinematic.shake = Math.max(0, intensity - dt * 0.6);
+  }
   camera.lookAt(state.cinematic.look);
   camera.updateMatrixWorld(true);
 }
@@ -281,44 +296,108 @@ function react(reaction) {
   }
 }
 
-function moveApeOut() {
+function setApeOneShotRoute(route, speed) {
   const ape = party.byId.ape;
   ape.job = 'patrol';
-  ape.speed = 1.7;
-  ape.route = [
-    { x: -8.4, z: 2.6 },
-    { x: 5.9, z: 2.8 },
-    { x: 6.5, z: -3.2 },
-  ];
+  ape.speed = speed;
+  // The old first leg cut straight through the two-top at (-13.4, 1.05).
+  // These authored marks leave through the clear aisle and intentionally stop
+  // before the next line calls Ape back; no patrol loop gets to fight a table.
+  ape.route = route.map(({ x, z }) => ({ x, z }));
   ape.routeAt = 0;
+  state.apeRouteStop = ape.route.at(-1);
+}
+
+function moveApeOut() {
+  setApeOneShotRoute(APE_EXIT_ROUTE, 2.8);
 }
 
 function returnApe() {
-  const ape = party.byId.ape;
-  ape.route = null;
-  ape.job = 'stand';
-  ape.group.position.set(-14.7, 0, -0.15);
-  ape.faceToward(party.extra.hotdog.position.x, party.extra.hotdog.position.z, true);
+  setApeOneShotRoute(APE_RETURN_ROUTE, 3.2);
 }
 
-function stageAttack() {
-  if (state.fallen) return;
+function settleApeOneShotRoute() {
+  const stop = state.apeRouteStop;
+  if (!stop) return;
+  const ape = party.byId.ape;
+  const dx = ape.position.x - stop.x;
+  const dz = ape.position.z - stop.z;
+  if (dx * dx + dz * dz > 0.18) return;
+  // Npc patrols intentionally loop for ambient crowds. This is a cinematic
+  // walk, so take ownership at the final authored mark before that loop can
+  // turn Ape back through the furniture.
+  ape.route = null;
+  ape.job = 'stand';
+  ape.group.position.set(stop.x, ape.baseY ?? 0, stop.z);
+  state.apeRouteStop = null;
+}
+
+function applyResolvedAttackPresentation() {
   state.fallen = true;
-  mission.startAttack();
   const hotdog = party.extra.hotdog;
   const ape = party.byId.ape;
+  state.apeRouteStop = null;
   hotdog.job = 'stand';
+  hotdog.route = null;
   hotdog.group.position.set(-15.8, 0.25, -0.45);
   hotdog.group.rotation.set(0, 1.3, -1.34);
+  ape.route = null;
+  ape.job = 'stand';
   ape.group.position.set(-14.9, 0, -0.25);
   ape.group.rotation.y = -1.6;
   party.cleanup.blood.visible = true;
   party.cleanup.brokenStool.visible = true;
-  party.cleanup.gun.visible = true;
   for (const marker of Object.values(party.cleanup.evidenceMarkers)) marker.visible = true;
-  audio.play('glass.wine.fall', { volume: 0.95, position: hotdog.position });
-  setTimeout(() => audio.play('gun.drop.wood', { volume: 0.76, position: party.cleanup.gun.position }), 420);
-  hud.toast('HOTDOG IS REACHING FOR A GUN', 'bad', 4200);
+}
+
+function resolveAttack() {
+  if (!mission.resolveAttack()) return false;
+  applyResolvedAttackPresentation();
+  story.recordAttack({ attackResolved: true });
+  state.director.waitingForAttack = false;
+  state.director.running = true;
+  // One short breath after the final hit makes the switch to Shubenator's
+  // awkward music cue feel like a deliberate aftermath, not a skipped frame.
+  state.director.gapRemaining = 0.42;
+  repaintObjectives();
+  return true;
+}
+
+const attack = createHotDogAttack({
+  ape: party.byId.ape,
+  hotdog: party.extra.hotdog,
+  knife: party.apeKnife,
+  onImpact: ({ hit, final }) => {
+    const hotdog = party.extra.hotdog;
+    state.cinematic.shake = final ? 0.15 : 0.10;
+    audio.play(`hotdog.fist.impact.${Math.min(hit, 3)}`, {
+      volume: final ? 0.96 : 0.82,
+      position: hotdog.position,
+    });
+    if (final) {
+      audio.play('hotdog.body.floor', { volume: 0.94, position: hotdog.position });
+      audio.play('glass.wine.fall', { volume: 0.72, position: hotdog.position });
+      resolveAttack();
+    }
+  },
+});
+
+function stageAttack() {
+  if (state.fallen || attack.active || !mission.startAttack()) return false;
+  const hotdog = party.extra.hotdog;
+  const ape = party.byId.ape;
+  state.apeRouteStop = null;
+  ape.route = null;
+  ape.job = 'stand';
+  ape.group.position.set(-14.9, 0, -0.25);
+  ape.faceToward(hotdog.position.x, hotdog.position.z, true);
+  hotdog.route = null;
+  hotdog.job = 'stand';
+  hotdog.group.position.set(-15.8, 0, -0.45);
+  hotdog.faceToward(ape.position.x, ape.position.z, true);
+  audio.play('hotdog.knife.draw', { volume: 0.68, position: ape.position });
+  state.director.waitingForAttack = true;
+  return attack.start();
 }
 
 function assignCleanupRoles() {
@@ -358,15 +437,8 @@ function applyBeatAction(action) {
   }
   if (action === 'ape-leaves') moveApeOut();
   if (action === 'ape-returns') returnApe();
-  if (action === 'attack') stageAttack();
-  if (action === 'enable-gun-kick') {
-    state.director.waitingForGun = true;
+  if (action === 'begin-beating' && stageAttack()) {
     state.director.running = false;
-    releaseCinematic({
-      x: -10.55,
-      z: 0.75,
-      lookAt: party.cleanup.gun.position,
-    });
   }
   if (action === 'music-cut') audio.setLoopVolume('party.record', 0, 0.25);
   if (action === 'cleanup-start') assignCleanupRoles();
@@ -455,23 +527,6 @@ interaction.register(party.stage.controls, {
   },
 });
 
-interaction.register(party.cleanup.gun, {
-  label: 'Kick <b>HotDog\'s revolver</b> away',
-  enabled: () => state.phase === 'active' && state.director.waitingForGun && !mission.flags.gunKicked,
-  onUse: () => {
-    if (!mission.kickGun()) return;
-    story.recordAttack({ gunKicked: true });
-    party.cleanup.gun.position.x += 2.4;
-    party.cleanup.gun.rotation.z += 5.2;
-    audio.play('gun.drop.wood', { volume: 0.9, position: party.cleanup.gun.position });
-    state.director.waitingForGun = false;
-    state.director.running = true;
-    setCinematicShot('gun-kicked-aftermath', [-9.8, 2.3, 2.65], [-15.35, 0.72, -0.35]);
-    repaintObjectives();
-    hud.toast('GUN SECURED', 'good');
-  },
-});
-
 for (const [id, pad] of Object.entries(party.cleanup.bathroomPads)) {
   interaction.register(pad, {
     label: () => `Check the <b>${id === 'mens' ? 'men\'s room' : 'ladies\' room'}</b>`,
@@ -508,7 +563,7 @@ for (const [id, prop] of [['cufflink', party.cleanup.cufflink], ['lapel', party.
       state.evidence.add(id);
       prop.visible = false;
       party.cleanup.evidenceMarkers[id].visible = false;
-      audio.play('gun.pickup', { volume: 0.34, rate: 1.28, position: prop.position });
+      audio.play('glass.set', { volume: 0.34, rate: 1.28, position: prop.position });
       hud.say(id === 'cufflink'
         ? 'One cufflink. Booski can stop saying “one cufflink.”'
         : 'The lapel pin was under the stage lip. HotDog travelled farther than expected.', 3600);
@@ -602,7 +657,7 @@ for (const npc of party.all) {
   if ([party.extra.lou, party.extra.hotdog].includes(npc)) continue;
   interaction.register(npc.group, {
     label: () => `Check in with <b>${npc.name}</b>`,
-    enabled: () => state.phase === 'active' && !state.director.current && !state.director.waitingForGun,
+    enabled: () => state.phase === 'active' && !state.director.current && !state.director.waitingForAttack,
     onUse: () => {
       npc.faceToward(player.position.x, player.position.z);
       npc.say(2.4);
@@ -634,15 +689,14 @@ for (const npc of party.all) {
 
 function restoreFromCampaign() {
   const saved = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
-  if (!saved.gunKicked) return;
+  if (!saved.attackResolved) return;
   mission.enteredClub();
   mission.startPerformance();
   mission.finishPerformance();
   mission.startAttack();
-  stageAttack();
-  mission.kickGun();
+  resolveAttack();
   state.director.index = sequence.findIndex((beat) => beat.action === 'cleanup-start') + 1;
-  state.director.waitingForGun = false;
+  state.director.waitingForAttack = false;
   assignCleanupRoles();
   for (const task of saved.cleanupTasks) {
     mission.completeCleanup(task);
@@ -753,7 +807,11 @@ const runtime = {
   sequence,
   teleport,
   beginSequence,
-  kickGun: () => party.cleanup.gun.userData.interact?.onUse?.(),
+  // Focused browser checks use these hooks to exercise the same authored
+  // route and four-hit controller the player sees; there is no gun fallback.
+  startApeExit: moveApeOut,
+  startAttackCinematic: stageAttack,
+  attack,
   completeCleanupTask,
   get campaignState() { return campaign.state; },
 };
@@ -878,7 +936,11 @@ function animate(now) {
       if (state.fallen && npc === party.extra.hotdog) continue;
       npc.update(dt, player.position);
     }
-    applyCinematicCamera();
+    settleApeOneShotRoute();
+    // Npc.update owns idle motion; the attack controller applies its
+    // intentional pose afterward so the four hits cannot be overwritten.
+    attack.update(dt);
+    applyCinematicCamera(dt);
   }
   club.update(dt, player.position);
   clock.update(dt);

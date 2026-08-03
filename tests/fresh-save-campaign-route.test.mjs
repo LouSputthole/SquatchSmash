@@ -162,7 +162,7 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
 
   const bingTwo = createBadaBingTwoStory({ campaign });
   assert.deepEqual(bingTwo.begin(), { ok: true, resumed: false, checkpoint: 'party' });
-  assert.equal(bingTwo.recordAttack({ gunKicked: true }), true);
+  assert.equal(bingTwo.recordAttack({ attackResolved: true }), true);
   for (const task of BADA_BING_TWO_CLEANUP_TASKS) assert.equal(bingTwo.recordCleanup(task), true);
   assert.equal(bingTwo.completeClub({
     assignment: 'reserve_pickup', bodyWrapped: true, bodyLoaded: true,

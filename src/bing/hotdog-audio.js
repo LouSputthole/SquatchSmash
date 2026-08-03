@@ -10,8 +10,11 @@ export const HOTDOG_AUDIO_CUE_NAMES = Object.freeze([
   'door.locked',
   'glass.set',
   'glass.wine.fall',
-  'gun.drop.wood',
-  'gun.pickup',
+  'hotdog.knife.draw',
+  'hotdog.fist.impact.1',
+  'hotdog.fist.impact.2',
+  'hotdog.fist.impact.3',
+  'hotdog.body.floor',
   'switch.click',
 ]);
 

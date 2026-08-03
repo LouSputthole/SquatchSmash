@@ -255,7 +255,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 9;
+export const CAMPAIGN_VERSION = 10;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -464,7 +464,7 @@ function initialState() {
         status: 'locked',
         checkpoint: null,
         assignment: null,
-        gunKicked: false,
+        attackResolved: false,
         cleanupTasks: [],
         bodyWrapped: false,
         bodyLoaded: false,
@@ -888,6 +888,24 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  /* The HotDog scene no longer makes the Prospect stop a gun grab.  Preserve
+   * existing attack/cleanup saves by translating the old completion marker
+   * into the new cinematic resolution flag exactly once. */
+  9(saved) {
+    const incident = saved.missions?.[MISSION_IDS.BADA_BING_TWO] ?? {};
+    const { gunKicked: _legacyGunKicked, ...withoutLegacyGun } = incident;
+    return {
+      ...saved,
+      version: 10,
+      missions: {
+        ...saved.missions,
+        [MISSION_IDS.BADA_BING_TWO]: {
+          ...withoutLegacyGun,
+          attackResolved: incident.attackResolved === true || incident.gunKicked === true,
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -1096,7 +1114,9 @@ function normalize(saved) {
         checkpoint: ['party', 'attack', 'cleanup', 'body_loaded', 'graveyard', 'buried']
           .includes(bingTwo.checkpoint) ? bingTwo.checkpoint : null,
         assignment: typeof bingTwo.assignment === 'string' ? bingTwo.assignment : null,
-        gunKicked: bingTwo.gunKicked === true,
+        // `gunKicked` is accepted only as a legacy read path. New campaign
+        // writes carry the fact the attack finished, not how it once did.
+        attackResolved: bingTwo.attackResolved === true || bingTwo.gunKicked === true,
         cleanupTasks: uniqueStrings(bingTwo.cleanupTasks)
           .filter((task) => ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep']
             .includes(task)),
@@ -1716,7 +1736,7 @@ function seedApartmentPreviewCampaign(state, variant) {
     secondBing.status = 'complete';
     secondBing.checkpoint = 'buried';
     secondBing.assignment = 'reserve_pickup';
-    secondBing.gunKicked = true;
+    secondBing.attackResolved = true;
     secondBing.cleanupTasks = [...PREVIEW_CLEANUP_TASKS];
     secondBing.bodyWrapped = true;
     secondBing.bodyLoaded = true;
@@ -1882,7 +1902,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       secondBing.status = 'in_progress';
       secondBing.checkpoint = 'body_loaded';
       secondBing.assignment = 'reserve_pickup';
-      secondBing.gunKicked = true;
+      secondBing.attackResolved = true;
       secondBing.cleanupTasks = ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep'];
       secondBing.bodyWrapped = true;
       secondBing.bodyLoaded = true;
@@ -1905,7 +1925,7 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
       secondBing.status = 'complete';
       secondBing.checkpoint = 'buried';
       secondBing.assignment = 'reserve_pickup';
-      secondBing.gunKicked = true;
+      secondBing.attackResolved = true;
       secondBing.cleanupTasks = ['bathrooms', 'cleaning_kit', 'missing_evidence', 'final_sweep'];
       secondBing.bodyWrapped = true;
       secondBing.bodyLoaded = true;

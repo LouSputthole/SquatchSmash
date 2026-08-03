@@ -37,6 +37,7 @@ const TEST_MODULES = [
   './beefrun-runway-start.test.mjs',
   './post-airstrip-story.test.mjs',
   './bada-bing-two-mission.test.mjs',
+  './hotdog-attack.test.mjs',
   './graveyard-controls.test.mjs',
   './gut-presentation.test.mjs',
   './graveyard-mission.test.mjs',

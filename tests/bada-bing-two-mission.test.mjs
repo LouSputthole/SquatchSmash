@@ -64,7 +64,8 @@ test('the second Bing visit turns the closed party into a short cleanup mission'
   assert.equal(mission.state, 'attack');
 
   assert.equal(mission.completeCleanup(SECOND_VISIT_CLEANUP_TASKS[0]), false);
-  assert.equal(mission.kickGun(), true);
+  assert.equal(mission.resolveAttack(), true);
+  assert.equal(mission.flags.attackResolved, true);
   assert.equal(mission.state, 'cleanup');
   for (const task of SECOND_VISIT_CLEANUP_TASKS) {
     assert.equal(mission.completeCleanup(task), true, task);
@@ -87,8 +88,23 @@ test('the authored party sequence keeps the relaxed set, escalation, sudden atta
   assert.match(text, /He didn.t leave\. He went quiet/i);
   assert.match(text, /Nobody leaves/i);
   assert.match(text, /motel/i);
-  assert.ok(sequence.some((beat) => beat.action === 'attack'));
-  assert.ok(sequence.some((beat) => beat.action === 'enable-gun-kick'));
+  const beating = sequence.find((beat) => beat.action === 'begin-beating');
+  assert.deepEqual(
+    {
+      who: beating?.who,
+      line: beating?.line,
+      cue: beating?.cue,
+      direction: beating?.direction,
+    },
+    {
+      who: 'Ape',
+      line: 'Here\'s your fucking fur brush, HotDog.',
+      cue: 'vo.bing2.ape.fur_brush',
+      direction: 'Low, controlled fury; close and personal, not shouted. Let “fur brush” land hard.',
+    },
+  );
+  assert.equal(sequence.some((beat) => beat.action === 'enable-gun-kick'), false);
+  assert.equal(sequence.some((beat) => /revolver|gun/i.test(beat.line)), false);
 
   const signature = sequence.find((beat) => beat.cue === SHUBENATOR_SIGNATURE_TAKES.hotDogAftermath.cue);
   const music = sequence.findIndex((beat) => beat.cue === 'vo.bing2.shubenator.music');
@@ -122,6 +138,8 @@ test('the closed-party stage and cleanup read clearly from the playable floor', 
   assert.match(source, /new THREE\.CapsuleGeometry\(0\.46, 1\.25/);
   assert.match(source, /const evidenceMarkers = \{/);
   assert.match(source, /const serviceGuide = group\('service-exit-guide'\)/);
+  assert.match(source, /ape\.fur-brush-knife/);
+  assert.doesNotMatch(source, /makeRevolver/);
 });
 
 test('the HotDog runtime uses canonical faces and one Snow/Lawnmower body', () => {

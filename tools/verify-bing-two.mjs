@@ -137,7 +137,8 @@ async function incidentState(page) {
         incident.party.extra.hotdog
         && incident.party.extra.aubbie
         && incident.party.stage.controls
-        && incident.party.cleanup.gun
+        && incident.party.apeKnife
+        && !incident.party.cleanup.gun
         && incident.party.cleanup.wrap
         && incident.party.cleanup.loadPad
       ),
@@ -222,7 +223,6 @@ try {
       && [
         'evidence.cufflink',
         'evidence.lapel-pin',
-        'evidence.revolver',
         'trigger.service-load',
       ].every((id) => current.collision.nonblocking.includes(id))
       && current.cakePedestalParts >= 4,
@@ -322,6 +322,10 @@ try {
       },
       bloodPresentation: party.cleanup.blood.userData.presentation,
       bloodGeometry: party.cleanup.blood.children.map((child) => child.geometry?.type),
+      apeKnife: {
+        name: party.apeKnife?.name ?? '',
+        hiddenBeforeAttack: party.apeKnife?.visible === false,
+      },
       wrapGeometry: wrapBody?.geometry?.type,
       wrapRadius: wrapBody?.geometry?.parameters?.radius,
       evidenceMarkers: Object.keys(party.cleanup.evidenceMarkers),
@@ -341,9 +345,11 @@ try {
       && partyPresentation.micZ > -4
       && partyPresentation.spotlight.name === 'hogmama.spotlight'
       && partyPresentation.spotlight.intensity === 0
-      && partyPresentation.bloodPresentation === 'irregular-floor-splatter'
-      && !partyPresentation.bloodGeometry.includes('CircleGeometry')
-      && partyPresentation.wrapGeometry === 'CapsuleGeometry'
+       && partyPresentation.bloodPresentation === 'irregular-floor-splatter'
+       && !partyPresentation.bloodGeometry.includes('CircleGeometry')
+       && partyPresentation.apeKnife.name === 'ape.fur-brush-knife'
+       && partyPresentation.apeKnife.hiddenBeforeAttack
+       && partyPresentation.wrapGeometry === 'CapsuleGeometry'
       && partyPresentation.wrapRadius >= 0.4
       && partyPresentation.evidenceMarkers.length === 2
       && !partyPresentation.serviceGuide.visible
@@ -475,7 +481,7 @@ try {
       wrappedActive: wrapped.active,
       paths,
       tinyEvidenceIsSolid: [
-        'evidence.cufflink', 'evidence.lapel-pin', 'evidence.revolver',
+        'evidence.cufflink', 'evidence.lapel-pin',
         'trigger.service-load',
       ].some((id) => solidIds.includes(id)),
     };
@@ -490,6 +496,37 @@ try {
       && Object.values(physical.paths).every(Boolean)
       && !physical.tinyEvidenceIsSolid,
     JSON.stringify(physical));
+
+  const apeRoute = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    const ape = incident.party.byId.ape;
+    incident.startApeExit();
+    const start = [ape.group.position.x, ape.group.position.z];
+    const route = ape.route?.map(({ x, z }) => ({ x, z })) ?? [];
+    const positions = [];
+    for (let i = 0; i < 70; i += 1) {
+      ape.update(0.05, incident.player.position);
+      positions.push([ape.group.position.x, ape.group.position.z]);
+    }
+    const crossedTwoTopLane = positions.some(([x, z]) => (
+      x >= -14.15 && x <= -12.65 && z >= 0.45 && z <= 1.65
+    ));
+    return {
+      positions,
+      crossedTwoTopLane,
+      maxDistanceFromStart: Math.max(...positions.map(([x, z]) => Math.hypot(x - start[0], z - start[1]))),
+      route,
+    };
+  });
+  check('Ape uses the west-side route instead of walking into the two-top before the confrontation',
+    apeRoute.maxDistanceFromStart > 1
+      && !apeRoute.crossedTwoTopLane
+      && apeRoute.route.length >= 3,
+    JSON.stringify({
+      maxDistanceFromStart: apeRoute.maxDistanceFromStart,
+      crossedTwoTopLane: apeRoute.crossedTwoTopLane,
+      route: apeRoute.route,
+    }));
 
   await page.evaluate(() => window.HOTDOG_INCIDENT.beginSequence());
   await page.waitForFunction(
@@ -524,28 +561,49 @@ try {
     incident.state.director.running = false;
     const performance = incident.mission.state === 'performance' || incident.mission.startPerformance();
     const setFinished = incident.mission.finishPerformance();
-    const attacked = incident.mission.startAttack();
-    incident.state.director.waitingForGun = true;
-    const kicked = incident.kickGun();
+    const attacked = incident.startAttackCinematic();
+    const hits = [];
+    let landed = incident.attack.landed;
+    for (let i = 0; i < 200 && incident.attack.active; i += 1) {
+      incident.attack.update(0.02);
+      if (incident.attack.landed > landed) {
+        landed = incident.attack.landed;
+        hits.push(landed);
+      }
+    }
     incident.state.director.running = false;
     return {
       performance,
       setFinished,
       attacked,
-      kicked: Boolean(kicked || incident.mission.flags.gunKicked),
+      hits,
+      attackFinished: !incident.attack.active,
       missionState: incident.mission.state,
       checkpoint: incident.campaignState.missions.bada_bing_two.checkpoint,
-      campaignGunKicked: incident.campaignState.missions.bada_bing_two.gunKicked,
+      campaignAttackResolved: incident.campaignState.missions.bada_bing_two.attackResolved,
+      missionAttackResolved: incident.mission.flags.attackResolved,
+      bloodVisible: incident.party.cleanup.blood.visible,
+      brokenStoolVisible: incident.party.cleanup.brokenStool.visible,
+      knifeVisible: incident.party.apeKnife?.visible === true,
+      noGunProp: !incident.party.cleanup.gun,
+      noGunInteraction: !('kickGun' in incident),
     };
   });
-  check('the Prospect must kick HotDog’s gun before cleanup starts',
+  check('Ape lands four brutal beats and his final blow starts cleanup without a gun interaction',
     attack.performance
       && attack.setFinished
       && attack.attacked
-      && attack.kicked
+      && attack.attackFinished
+      && JSON.stringify(attack.hits) === JSON.stringify([1, 2, 3, 4])
       && attack.missionState === 'cleanup'
       && attack.checkpoint === 'attack'
-      && attack.campaignGunKicked,
+      && attack.campaignAttackResolved
+      && attack.missionAttackResolved
+      && attack.bloodVisible
+      && attack.brokenStoolVisible
+      && attack.knifeVisible
+      && attack.noGunProp
+      && attack.noGunInteraction,
     JSON.stringify(attack));
 
   const cleanup = await page.evaluate((tasks) => {

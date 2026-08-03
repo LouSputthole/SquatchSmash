@@ -114,7 +114,7 @@ test('Bada Bing Scene Two requires Lou, then unlocks the graveyard route to the 
 
   assert.deepEqual(story.begin(), { ok: true, resumed: false, checkpoint: 'party' });
   assert.equal(campaign.state.missions[MISSION_IDS.BADA_BING_TWO].status, 'in_progress');
-  assert.equal(story.recordAttack({ gunKicked: true }), true);
+  assert.equal(story.recordAttack({ attackResolved: true }), true);
   for (const task of BADA_BING_TWO_CLEANUP_TASKS) assert.equal(story.recordCleanup(task), true);
   assert.equal(story.completeClub({
     assignment: 'reserve_pickup', bodyWrapped: true, bodyLoaded: true,

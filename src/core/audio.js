@@ -1600,6 +1600,26 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 0.12, type: 'bandpass', freq: 700, q: 1.6, gain: 0.2 });
       break;
 
+    /* -------- Bada Bing: the HotDog Incident -------- */
+    case 'hotdog.knife.draw':
+      // A short folded-knife draw: metal, leather, then stillness. It is a
+      // warning prop, not a stab cue; Ape finishes this with his fists.
+      burst(ctx, dest, t, { dur: 0.12, type: 'bandpass', freq: 3100, q: 5, gain: 0.13, sweep: 1.6 });
+      tone(ctx, dest, t + 0.06, { freq: 1150, to: 1720, dur: 0.08, gain: 0.055, type: 'triangle' });
+      break;
+    case 'hotdog.fist.impact.1':
+    case 'hotdog.fist.impact.2':
+    case 'hotdog.fist.impact.3':
+      // Keep the four-hit beat readable even before the recorded impact bank
+      // is installed: body weight first, room rattle second, no gun-like snap.
+      burst(ctx, dest, t, { dur: 0.085, type: 'lowpass', freq: 260, gain: 0.33, sweep: 0.36 });
+      burst(ctx, dest, t + 0.012, { dur: 0.055, type: 'bandpass', freq: 760, q: 1.1, gain: 0.16 });
+      break;
+    case 'hotdog.body.floor':
+      tone(ctx, dest, t, { freq: 118, to: 54, dur: 0.26, gain: 0.34, type: 'triangle' });
+      burst(ctx, dest, t + 0.025, { dur: 0.2, type: 'lowpass', freq: 190, gain: 0.22, sweep: 0.42 });
+      break;
+
     /* -------- the Silver Room --------
      * Money changing hands, a kitchen, and a room going quiet.
      */

@@ -52,7 +52,7 @@ const EFFECT_SCENES = [
   ['THE TAKE', (name) => name.startsWith('heist.')],
   ['Bada Bing', (name) => name.startsWith('ambience.rain')
     || name.startsWith('ambience.club') || name.startsWith('ambience.crowd')
-    || name.startsWith('car.radio')],
+    || name.startsWith('car.radio') || name.startsWith('hotdog.')],
   ['Apartment — Margo', (name) => name.startsWith('margo.dress.')],
   ['Shared movement', (name) => name.startsWith('footstep.')],
 ];

@@ -3,7 +3,6 @@ import * as THREE from 'three';
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
-import { makeRevolver } from '../world/props.js';
 import { Npc } from './cast.js';
 import { STAGE_H } from './club.js';
 import { loadFaceIndex, populateFamily } from './family.js';
@@ -146,6 +145,33 @@ export function buildHotDogStageRig() {
   return { group: g, controls, mic, spotlight, setSpotlight };
 }
 
+/* Visual-only. Ape still settles the score with his fists; the knife is the
+ * cold, deliberate prop he brings back after HotDog's brush joke. Keeping it
+ * local avoids pulling the Motel's actor domain into this closed-party page. */
+function attachApeKnife(ape) {
+  if (!ape?.parts?.foreR) return null;
+  const knife = group('ape.fur-brush-knife');
+  const handle = cylinder({
+    r: 0.035, h: 0.28, seg: 8, pos: [0, -0.13, 0],
+    mat: mat({ color: 0x2a1a12, roughness: 0.84 }),
+  });
+  const bolster = cylinder({
+    r: 0.045, h: 0.05, seg: 8, pos: [0, -0.28, 0],
+    mat: mat({ color: 0x9fa6aa, roughness: 0.34, metalness: 0.82 }),
+  });
+  const blade = box({
+    size: [0.052, 0.34, 0.092], pos: [0, -0.47, 0],
+    mat: mat({ color: 0xbec7cd, roughness: 0.24, metalness: 0.88 }),
+  });
+  blade.rotation.z = -0.05;
+  knife.add(handle, bolster, blade);
+  knife.position.set(0.02, -0.36, 0.035);
+  knife.rotation.set(-0.32, 0, 0.18);
+  knife.visible = false;
+  ape.parts.foreR.add(knife);
+  return knife;
+}
+
 export function buildHotDogCleanupProps() {
   const g = group('hotdog.cleanup-props');
   const plastic = mat({ color: 0xd7dbe0, roughness: 0.48, transparent: true, opacity: 0.72 });
@@ -189,11 +215,6 @@ export function buildHotDogCleanupProps() {
     cufflink: evidenceMarker('cufflink', cufflink, 0xffdf72),
     lapel: evidenceMarker('lapel', lapel, 0xff5c68),
   };
-
-  const revolver = makeRevolver(null, { x: -12.85, y: 0.08, z: -0.2, rotY: 0.9 });
-  revolver.group.scale.setScalar(1.45);
-  revolver.group.visible = false;
-  g.add(revolver.group);
 
   const blood = group('hotdog.blood-splatter');
   blood.userData.presentation = 'irregular-floor-splatter';
@@ -294,7 +315,6 @@ export function buildHotDogCleanupProps() {
     group: g, kit, cufflink, lapel, blood, brokenStool, wrap,
     evidenceMarkers,
     bathroomPads: { mens: mensPad, ladies: ladiesPad },
-    gun: revolver.group,
     loadPad,
     serviceGuide,
   };
@@ -398,7 +418,6 @@ function installPartyColliders(club, {
   const nonblocking = [
     ['evidence.cufflink', cleanup.cufflink],
     ['evidence.lapel-pin', cleanup.lapel],
-    ['evidence.revolver', cleanup.gun],
     ['effect.blood', cleanup.blood],
     ['trigger.bathroom-men', cleanup.bathroomPads.mens],
     ['trigger.bathroom-ladies', cleanup.bathroomPads.ladies],
@@ -472,6 +491,7 @@ export async function buildHotDogParty(scene, club) {
     x: -16.2, z: -0.2, yaw: -2.4, job: 'stand',
     model: BILLY_HOTDOG_MODEL,
   });
+  const apeKnife = attachApeKnife(byId[CHARACTER_IDS.APE]);
   const aubbie = makeNpc(scene, club, {
     name: 'Aubbie', characterId: CHARACTER_IDS.AUBBIE,
     x: 5.9, z: -1.3, yaw: 2.4, job: 'stand', folded: true,
@@ -549,6 +569,7 @@ export async function buildHotDogParty(scene, club) {
     stage,
     cleanup,
     collision,
+    apeKnife,
     closedSign,
     camcorder: camera,
   };

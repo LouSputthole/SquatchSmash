@@ -6406,6 +6406,39 @@
       "prompt": "A wine glass going over on a laid table, rolling off, and breaking on a hard floor."
     },
     {
+      "name": "hotdog.knife.draw",
+      "duration": 0.45,
+      "_comment": "Bada Bing, HotDog Incident: Ape unfolds the visual-only fur-brush knife before the beating.",
+      "prompt": "A compact folding knife opened close to microphone: small metal click, brief steel scrape, leather grip shift. Controlled and quiet, no voice, no stabbing impact."
+    },
+    {
+      "name": "hotdog.fist.impact.1",
+      "duration": 0.45,
+      "_comment": "Bada Bing, HotDog Incident: first of Ape's four authored fist impacts.",
+      "prompt": "One heavy fist impact into a clothed adult torso in a closed bar. Low body thump, jacket fabric, a little room resonance. No gunshot, no voice, no gore.",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.fist.impact.2",
+      "duration": 0.45,
+      "_comment": "Bada Bing, HotDog Incident: second fist impact, distinct take.",
+      "prompt": "One heavy fist impact into a clothed adult torso in a closed bar, slightly sharper than the first. Low body thump, jacket fabric, a little room resonance. No gunshot, no voice, no gore.",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.fist.impact.3",
+      "duration": 0.5,
+      "_comment": "Bada Bing, HotDog Incident: third and fourth impacts reuse this closing hit take.",
+      "prompt": "One final heavy fist impact into a clothed adult torso in a closed bar. Dense low thump, wood-floor room resonance, restrained fabric movement. No gunshot, no voice, no gore.",
+      "promptInfluence": 0.56
+    },
+    {
+      "name": "hotdog.body.floor",
+      "duration": 0.85,
+      "_comment": "Bada Bing, HotDog Incident: HotDog drops after Ape's final hit.",
+      "prompt": "A heavy adult body collapsing onto a hardwood bar floor, followed by a small stool rattle. Weighty, abrupt, no voice, no exaggerated gore."
+    },
+    {
       "name": "search.rustle",
       "duration": 0.8,
       "prompt": "A hand moving over cold porcelain and dusty pipework, feeling for something hidden. Close and dry."
@@ -8232,242 +8265,6 @@
       "name": "vo.motel.snow.zvy8zf.1",
       "voice": "snow",
       "say": "Blue lights. We leave now."
-    },
-    {
-      "name": "vo.bing2.shubenator.intro",
-      "voice": "shubenator",
-      "say": "Club is closed, glasses are full. Hog Mama, save us from one another."
-    },
-    {
-      "name": "vo.bing2.hogmama.set.1",
-      "voice": "hogmama",
-      "say": "Billy HotDog comes home after eight months and asks if we still water the liquor. Billy, you drank hand sanitizer in county."
-    },
-    {
-      "name": "vo.bing2.lawnmower.heckle",
-      "voice": "snow",
-      "say": "It was name-brand sanitizer!"
-    },
-    {
-      "name": "vo.bing2.hogmama.set.2",
-      "voice": "hogmama",
-      "say": "Look at Lou smiling. That is not joy. That is a landlord seeing the deposit is already gone."
-    },
-    {
-      "name": "vo.bing2.hotdog.interrupt",
-      "voice": "hotdog",
-      "say": "Do the one about Ape and the brush!"
-    },
-    {
-      "name": "vo.bing2.hogmama.set.3",
-      "voice": "hogmama",
-      "say": "I do comedy, baby. Archaeology is down the street."
-    },
-    {
-      "name": "vo.bing2.hogmama.set.4",
-      "voice": "hogmama",
-      "say": "Welcome home, Billy. We missed you exactly as much as the judge required."
-    },
-    {
-      "name": "vo.bing2.hotdog.bully.1",
-      "voice": "hotdog",
-      "say": "Ape used to brush the old guys before meetings. Collar to tail. Go find your little fur brush."
-    },
-    {
-      "name": "vo.bing2.ape.warn.1",
-      "voice": "ape",
-      "say": "Old story, Billy. Let it stay old."
-    },
-    {
-      "name": "vo.bing2.lou.redirect",
-      "voice": "lou1",
-      "say": "Eat your cake, HotDog. Gratin threatened three people for that icing."
-    },
-    {
-      "name": "vo.bing2.hotdog.bully.2",
-      "voice": "hotdog",
-      "say": "Gratin protects food, Eric protects that camera, and Ape protects a fur brush. Everybody found a calling."
-    },
-    {
-      "name": "vo.bing2.ape.warn.2",
-      "voice": "ape",
-      "say": "I asked you once."
-    },
-    {
-      "name": "vo.bing2.hotdog.bully.3",
-      "voice": "hotdog",
-      "say": "Then ask me with the brush in your hand."
-    },
-    {
-      "name": "vo.bing2.rippin.quiet",
-      "voice": "rippinflow",
-      "say": "He didn't leave. He went quiet."
-    },
-    {
-      "name": "vo.bing2.ape.return",
-      "voice": "ape",
-      "say": "My fault. Fresh bottle. We are good."
-    },
-    {
-      "name": "vo.bing2.hotdog.last",
-      "voice": "hotdog",
-      "say": "There he is. Knew you'd remember your place."
-    },
-    {
-      "name": "vo.bing2.ape.attack",
-      "voice": "ape",
-      "say": "Remember this."
-    },
-    {
-      "name": "vo.bing2.prospect.gun",
-      "voice": "player",
-      "say": "Gun!"
-    },
-    {
-      "name": "vo.bing2.shubenator.music",
-      "voice": "shubenator",
-      "say": "Music. Right. Sorry."
-    },
-    {
-      "name": "vo.bing2.shubenator.signature.gleeful",
-      "voice": "shubenator",
-      "say": "Hey guys, what’s going on?",
-      "direction": "Gleeful and brightly oblivious, immediately after the violence. Do not acknowledge the body or play the darkness of the room."
-    },
-    {
-      "name": "vo.bing2.lou.lockdown",
-      "voice": "lou1",
-      "say": "Nobody leaves. Congratulations, everybody. You are all involved now."
-    },
-    {
-      "name": "vo.bing2.aubbie.bar",
-      "voice": "aubbie",
-      "say": "The bar, yes. Ape requires a specialist."
-    },
-    {
-      "name": "vo.bing2.lou.handoff",
-      "voice": "lou1",
-      "say": "Snow takes HotDog. Prospect goes with him. Bury this problem, then handle the Motel, room twelve."
-    },
-    {
-      "name": "vo.bing2.prospect.motel",
-      "voice": "player",
-      "say": "What is at room twelve?"
-    },
-    {
-      "name": "vo.bing2.snow.not-here",
-      "voice": "snow",
-      "say": "Not here. And not before the graveyard."
-    },
-    {
-      "name": "vo.graveyard.arrival.snow.1",
-      "voice": "snow",
-      "say": "End of the road. Fresh plot is past GeeWiz. Then the Motel."
-    },
-    {
-      "name": "vo.graveyard.arrival.prospect.1",
-      "voice": "player",
-      "say": "You planning to tell me what is at the Motel?"
-    },
-    {
-      "name": "vo.graveyard.arrival.snow.2",
-      "voice": "snow",
-      "say": "When we get there."
-    },
-    {
-      "name": "vo.graveyard.snow.bark.car",
-      "voice": "snow",
-      "say": "Car. Now. Room twelve is not getting cleaner while we stand here."
-    },
-    {
-      "name": "vo.graveyard.snow.bark.plot",
-      "voice": "snow",
-      "say": "Fresh plot is past GeeWiz. Sauce's hole stays open."
-    },
-    {
-      "name": "vo.graveyard.inspect.babs",
-      "voice": "player",
-      "say": "Babs got the good stone, fresh flowers, and a bench nobody puts their feet on."
-    },
-    {
-      "name": "vo.graveyard.inspect.brawny",
-      "voice": "player",
-      "say": "Brawny sold out the Family. Even the rain looks cleaner than this grave."
-    },
-    {
-      "name": "vo.graveyard.inspect.whiplash",
-      "voice": "player",
-      "say": "Whiplash got a crooked marker and exactly the maintenance he earned."
-    },
-    {
-      "name": "vo.graveyard.inspect.sheep",
-      "voice": "player",
-      "say": "Sheep got a proper stone. Not grand, not cheap. Family middle management forever."
-    },
-    {
-      "name": "vo.graveyard.inspect.echo",
-      "voice": "player",
-      "say": "Echo got a decent plot and a very premature date."
-    },
-    {
-      "name": "vo.graveyard.echo.alive",
-      "voice": "echo",
-      "say": "Hey, guys? I am still alive down here. Help me out."
-    },
-    {
-      "name": "vo.graveyard.prospect.wind",
-      "voice": "player",
-      "say": "Poor Echo. Wind sounds just like him tonight."
-    },
-    {
-      "name": "vo.graveyard.snow.wind",
-      "voice": "snow",
-      "say": "It always does. Keep walking."
-    },
-    {
-      "name": "vo.graveyard.inspect.colton",
-      "voice": "player",
-      "say": "Colton. His grave smells like Asian feet. That is all I have."
-    },
-    {
-      "name": "vo.graveyard.inspect.geewiz",
-      "voice": "player",
-      "say": "GeeWiz. Regular stone, regular plot, one spelling nobody ever agreed on."
-    },
-    {
-      "name": "vo.graveyard.inspect.sauce",
-      "voice": "player",
-      "say": "An open plot with SAUCE already cut into the temporary marker."
-    },
-    {
-      "name": "vo.graveyard.prospect.sauce",
-      "voice": "player",
-      "say": "We already have a hole. Put HotDog in Sauce's."
-    },
-    {
-      "name": "vo.graveyard.snow.sauce",
-      "voice": "snow",
-      "say": "No. I have a feeling we are going to need that one soon."
-    },
-    {
-      "name": "vo.graveyard.prospect.pee.brawny",
-      "voice": "player",
-      "say": "Brawny finally gets fresh flowers. Different liquid, same sentiment."
-    },
-    {
-      "name": "vo.graveyard.prospect.pee.whiplash",
-      "voice": "player",
-      "say": "Whiplash receives the only toast anybody brought him."
-    },
-    {
-      "name": "vo.graveyard.snow.lower",
-      "voice": "snow",
-      "say": "Easy. Feet first. He made enough noise above ground."
-    },
-    {
-      "name": "vo.graveyard.snow.done",
-      "voice": "snow",
-      "say": "That closes the HotDog incident. The Motel does not close this easy."
     },
     {
       "name": "vo.initiation.ceremony.speech-booskibro.107itai.1",
@@ -13709,6 +13506,238 @@
       "name": "vo.machine.lou.heist_day.3",
       "voice": "lou1",
       "say": "Eat. Dress plain. I will call when the car is moving."
+    },
+    {
+      "name": "vo.bing2.shubenator.intro",
+      "voice": "shubenator",
+      "say": "Club is closed, glasses are full. Hog Mama, save us from one another."
+    },
+    {
+      "name": "vo.bing2.hogmama.set.1",
+      "voice": "hogmama",
+      "say": "Billy HotDog comes home after eight months and asks if we still water the liquor. Billy, you drank hand sanitizer in county."
+    },
+    {
+      "name": "vo.bing2.lawnmower.heckle",
+      "voice": "snow",
+      "say": "It was name-brand sanitizer!"
+    },
+    {
+      "name": "vo.bing2.hogmama.set.2",
+      "voice": "hogmama",
+      "say": "Look at Lou smiling. That is not joy. That is a landlord seeing the deposit is already gone."
+    },
+    {
+      "name": "vo.bing2.hotdog.interrupt",
+      "voice": "hotdog",
+      "say": "Do the one about Ape and the brush!"
+    },
+    {
+      "name": "vo.bing2.hogmama.set.3",
+      "voice": "hogmama",
+      "say": "I do comedy, baby. Archaeology is down the street."
+    },
+    {
+      "name": "vo.bing2.hogmama.set.4",
+      "voice": "hogmama",
+      "say": "Welcome home, Billy. We missed you exactly as much as the judge required."
+    },
+    {
+      "name": "vo.bing2.hotdog.bully.1",
+      "voice": "hotdog",
+      "say": "Ape used to brush the old guys before meetings. Collar to tail. Go find your little fur brush."
+    },
+    {
+      "name": "vo.bing2.ape.warn.1",
+      "voice": "ape",
+      "say": "Old story, Billy. Let it stay old."
+    },
+    {
+      "name": "vo.bing2.lou.redirect",
+      "voice": "lou1",
+      "say": "Eat your cake, HotDog. Gratin threatened three people for that icing."
+    },
+    {
+      "name": "vo.bing2.hotdog.bully.2",
+      "voice": "hotdog",
+      "say": "Gratin protects food, Eric protects that camera, and Ape protects a fur brush. Everybody found a calling."
+    },
+    {
+      "name": "vo.bing2.ape.warn.2",
+      "voice": "ape",
+      "say": "I asked you once."
+    },
+    {
+      "name": "vo.bing2.hotdog.bully.3",
+      "voice": "hotdog",
+      "say": "Then ask me with the brush in your hand."
+    },
+    {
+      "name": "vo.bing2.rippin.quiet",
+      "voice": "rippinflow",
+      "say": "He didn't leave. He went quiet."
+    },
+    {
+      "name": "vo.bing2.ape.return",
+      "voice": "ape",
+      "say": "My fault. Fresh bottle. We are good."
+    },
+    {
+      "name": "vo.bing2.hotdog.last",
+      "voice": "hotdog",
+      "say": "There he is. Knew you'd remember your place."
+    },
+    {
+      "name": "vo.bing2.ape.fur_brush",
+      "voice": "ape",
+      "say": "Here's your fucking fur brush, HotDog.",
+      "direction": "Low, controlled fury; close and personal, not shouted. Let “fur brush” land hard."
+    },
+    {
+      "name": "vo.bing2.shubenator.music",
+      "voice": "shubenator",
+      "say": "Music. Right. Sorry."
+    },
+    {
+      "name": "vo.bing2.shubenator.signature.gleeful",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?",
+      "direction": "Gleeful and brightly oblivious, immediately after the violence. Do not acknowledge the body or play the darkness of the room."
+    },
+    {
+      "name": "vo.bing2.lou.lockdown",
+      "voice": "lou1",
+      "say": "Nobody leaves. Congratulations, everybody. You are all involved now."
+    },
+    {
+      "name": "vo.bing2.aubbie.bar",
+      "voice": "aubbie",
+      "say": "The bar, yes. Ape requires a specialist."
+    },
+    {
+      "name": "vo.bing2.lou.handoff",
+      "voice": "lou1",
+      "say": "Snow takes HotDog. Prospect goes with him. Bury this problem, then handle the Motel, room twelve."
+    },
+    {
+      "name": "vo.bing2.prospect.motel",
+      "voice": "player",
+      "say": "What is at room twelve?"
+    },
+    {
+      "name": "vo.bing2.snow.not-here",
+      "voice": "snow",
+      "say": "Not here. And not before the graveyard."
+    },
+    {
+      "name": "vo.graveyard.arrival.snow.1",
+      "voice": "snow",
+      "say": "End of the road. Fresh plot is past GeeWiz. Then the Motel."
+    },
+    {
+      "name": "vo.graveyard.arrival.prospect.1",
+      "voice": "player",
+      "say": "You planning to tell me what is at the Motel?"
+    },
+    {
+      "name": "vo.graveyard.arrival.snow.2",
+      "voice": "snow",
+      "say": "When we get there."
+    },
+    {
+      "name": "vo.graveyard.snow.bark.car",
+      "voice": "snow",
+      "say": "Car. Now. Room twelve is not getting cleaner while we stand here."
+    },
+    {
+      "name": "vo.graveyard.snow.bark.plot",
+      "voice": "snow",
+      "say": "Fresh plot is past GeeWiz. Sauce's hole stays open."
+    },
+    {
+      "name": "vo.graveyard.inspect.babs",
+      "voice": "player",
+      "say": "Babs got the good stone, fresh flowers, and a bench nobody puts their feet on."
+    },
+    {
+      "name": "vo.graveyard.inspect.brawny",
+      "voice": "player",
+      "say": "Brawny sold out the Family. Even the rain looks cleaner than this grave."
+    },
+    {
+      "name": "vo.graveyard.inspect.whiplash",
+      "voice": "player",
+      "say": "Whiplash got a crooked marker and exactly the maintenance he earned."
+    },
+    {
+      "name": "vo.graveyard.inspect.sheep",
+      "voice": "player",
+      "say": "Sheep got a proper stone. Not grand, not cheap. Family middle management forever."
+    },
+    {
+      "name": "vo.graveyard.inspect.echo",
+      "voice": "player",
+      "say": "Echo got a decent plot and a very premature date."
+    },
+    {
+      "name": "vo.graveyard.echo.alive",
+      "voice": "echo",
+      "say": "Hey, guys? I am still alive down here. Help me out."
+    },
+    {
+      "name": "vo.graveyard.prospect.wind",
+      "voice": "player",
+      "say": "Poor Echo. Wind sounds just like him tonight."
+    },
+    {
+      "name": "vo.graveyard.snow.wind",
+      "voice": "snow",
+      "say": "It always does. Keep walking."
+    },
+    {
+      "name": "vo.graveyard.inspect.colton",
+      "voice": "player",
+      "say": "Colton. His grave smells like Asian feet. That is all I have."
+    },
+    {
+      "name": "vo.graveyard.inspect.geewiz",
+      "voice": "player",
+      "say": "GeeWiz. Regular stone, regular plot, one spelling nobody ever agreed on."
+    },
+    {
+      "name": "vo.graveyard.inspect.sauce",
+      "voice": "player",
+      "say": "An open plot with SAUCE already cut into the temporary marker."
+    },
+    {
+      "name": "vo.graveyard.prospect.sauce",
+      "voice": "player",
+      "say": "We already have a hole. Put HotDog in Sauce's."
+    },
+    {
+      "name": "vo.graveyard.snow.sauce",
+      "voice": "snow",
+      "say": "No. I have a feeling we are going to need that one soon."
+    },
+    {
+      "name": "vo.graveyard.prospect.pee.brawny",
+      "voice": "player",
+      "say": "Brawny finally gets fresh flowers. Different liquid, same sentiment."
+    },
+    {
+      "name": "vo.graveyard.prospect.pee.whiplash",
+      "voice": "player",
+      "say": "Whiplash receives the only toast anybody brought him."
+    },
+    {
+      "name": "vo.graveyard.snow.lower",
+      "voice": "snow",
+      "say": "Easy. Feet first. He made enough noise above ground."
+    },
+    {
+      "name": "vo.graveyard.snow.done",
+      "voice": "snow",
+      "say": "That closes the HotDog incident. The Motel does not close this easy."
     },
     {
       "name": "vo.nowake.start.lou.platform.1",
