@@ -18,6 +18,7 @@ const TEST_MODULES = [
   './apartment-dressing.test.mjs',
   './margo-morning.test.mjs',
   './audio-variant-bank.test.mjs',
+  './signature-audio.test.mjs',
   './characters.test.mjs',
   './initiation-canon.test.mjs',
   './initiation-voice.test.mjs',

@@ -41,6 +41,7 @@ import { makeMaterials } from '../world/materials.js';
 import { roomEnvironment } from '../world/textures.js';
 
 import { buildClub, ROOMS, roomAt, STAGE_H } from './club.js';
+import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
 import { BingAudioEngine } from './audio.js';
 import { populate, makeAssociate } from './cast.js';
 import {
@@ -261,6 +262,10 @@ if (!campaign.hasItem(ITEM_IDS.PHONE)
 const game = {
   started: false,
   storyStarted: false,
+  /* One cue each per visit: Lou's record when Tony first walks into the
+   * office, Booskibro's when the scene is first actually about him. */
+  sensiLouCued: false,
+  babySnakesCued: false,
   paused: false,
   over: false,
   money: START_CASH,
@@ -2317,6 +2322,29 @@ function shotDrinkTick(dt) {
   hud.say('Hot rye, cold room. Booski looks personally vindicated.', 3600);
 }
 
+/**
+ * Baby Snakes, once, on Booskibro's first significant appearance.
+ *
+ * "Significant" is doing work here: he is on a stool at the bar from the
+ * moment the club loads, and a record that fires on line of sight would play
+ * over the front door. It starts when the scene becomes about him — at the
+ * Bing that is the shot beat, where he takes the floor, yells for it and the
+ * bouncer runs. Once per visit; the flag never re-arms.
+ *
+ * @param {object} [booski] his Npc, so the record comes from where he is
+ */
+function cueBabySnakes(booski) {
+  if (game.babySnakesCued) return;
+  game.babySnakesCued = true;
+  playSignatureTrack(audio, SIGNATURE_TRACKS.babySnakes, {
+    position: booski?.group?.position ?? club.anchors.dj,
+    ref: 4.5,
+    maxDist: 26,
+    fade: 1.2,
+    loop: false,
+  });
+}
+
 function startShotBeat() {
   if (game.booskiShotDone || game.beat || game.over) return;
   game.booskiShotDone = true;
@@ -2324,6 +2352,7 @@ function startShotBeat() {
   const bartender = cast.byName.bartender;
   if (!bartender) return;
   const booski = family.byId.booski;
+  cueBabySnakes(booski);
   const station = {
     x: bartender.group.position.x,
     z: bartender.group.position.z,
@@ -2907,10 +2936,14 @@ startBtn.addEventListener('click', async () => {
     audio.startMusicLoop('music.club', `assets/music/${clubRecord.file}`, {
       volume: 0.04, ambience: true, position: club.anchors.dj, ref: 3.5, maxDist: 34, fade: 2,
     });
-    // Lou's radio plays his old stuff all night; the panner does the
-    // round-the-corner falloff on its own.
-    audio.startMusicLoop('office.radio', 'assets/music/good-ole-days.mp3', {
-      volume: 0.22, ambience: true, position: club.anchors.officeRadio, ref: 0.8, maxDist: 9,
+    /* Lou's radio plays his old stuff all night; the panner does the
+     * round-the-corner falloff on its own. The record on it is "Sensi Lou",
+     * and it is his — see src/core/signature-music.js for why it is not in the
+     * music manifest and what happens until the recording lands. Walking into
+     * the office restarts it from the top (`enterLouOffice`), so the song
+     * begins when Tony does. */
+    playSignatureTrack(audio, SIGNATURE_TRACKS.sensiLou, {
+      position: club.anchors.officeRadio, ref: 0.8, maxDist: 9,
     });
     audio.startLoop('car.engine.idle', { volume: 0.22, ambience: false });
     game.radioOn = carRadio.preferredOn;
@@ -3020,6 +3053,20 @@ function onRoomChange(next) {
     hud.say('Warm, loud, and darker than it needs to be. The hallway to the back is on the right.', 5200);
   }
   if (next === 'hallway' && mission.state === 'club') mission.reachedHallway();
+  /* Sensi Lou starts when Tony walks in, not when the scene loads. The loop
+   * has been running quietly behind the office door all night; entering
+   * restarts it from the top so the song opens on the doorway, once per
+   * visit — walking in and out does not keep re-cueing it. */
+  if (next === 'office' && !game.sensiLouCued) {
+    game.sensiLouCued = true;
+    playSignatureTrack(audio, SIGNATURE_TRACKS.sensiLou, {
+      replace: true,
+      position: club.anchors.officeRadio,
+      ref: 0.8,
+      maxDist: 9,
+      crossfade: 0.4,
+    });
+  }
   if (next === 'office' && (mission.state === 'hallway' || mission.state === 'club')) {
     mission.enteredOffice();
     hud.say('Big Uncle Lou is at the desk. <kbd>E</kbd> when you are ready to talk.', 4600);
