@@ -171,8 +171,10 @@ test('neither track is in the music manifest until its file lands', () => {
 
 test('the outstanding signature recordings are reportable', () => {
   const pending = pendingSignatureTracks(new Set()).map((track) => track.file);
-  assert.deepEqual(pending.sort(), ['baby-snakes.mp3', 'sensi-lou.mp3']);
-  assert.deepEqual(pendingSignatureTracks(new Set(['sensi-lou.mp3', 'baby-snakes.mp3'])), []);
+  assert.deepEqual(pending.sort(), ['baby-snakes.mp3', 'sensi-lou.mp3', 'spy-jazz.mp3']);
+  assert.deepEqual(
+    pendingSignatureTracks(new Set(['sensi-lou.mp3', 'baby-snakes.mp3', 'spy-jazz.mp3'])), [],
+  );
 });
 
 /* ---------------- Shubenator ---------------- */

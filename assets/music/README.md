@@ -26,7 +26,7 @@ the manifest to mark every track that belongs in the club set.
 
 With no tracks listed the radio still turns on — it just plays static.
 
-## Signature cues — three records still owed
+## Signature cues — four records still owed
 
 Some songs belong to a person or a moment rather than to a station. These are
 cues, not programming. Two are wired and waiting on a file; the third is
@@ -37,6 +37,7 @@ waiting on both.
 | **Sensi Lou** | `sensi-lou.mp3` | Tony entering Big Uncle Lou's office at the Bing | `good-ole-days.mp3` | yes |
 | **Baby Snakes** | `baby-snakes.mp3` | Booskibro's first significant appearance — at the Bing, the shot beat where he takes the floor and yells for it | `booskibro.mp3` | yes |
 | **Can't You Hear Me Knocking** | `cant-you-hear-me-knocking.mp3` | **Beef Run initial takeoff roll, at 45 knots** | — | **not yet — owner is supplying the file** |
+| **Store room spy jazz** | `spy-jazz.mp3` | The portable radio during *License to Grill* | `cosmic-drift.mp3` | yes |
 
 ### Can't You Hear Me Knocking — the note, not the implementation
 

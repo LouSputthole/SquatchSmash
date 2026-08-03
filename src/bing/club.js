@@ -1576,6 +1576,115 @@ export function buildClub(scene, { renderer } = {}) {
       add(box({ size: [1.2, 0.06, 0.15], pos: [S.x0 + 2.6 + i * 4.6, CEIL_BACK - 0.1, (S.z0 + S.z1) / 2], mat: lit(0xd8f0d8, 1.6), cast: false }));
     }
 
+    /* ---- the chair that is bolted to the floor ----
+     *
+     * A store room with a drain in the middle of it and a chair bolted down
+     * beside the drain is not a store room, and the club has always been one
+     * plumbing fixture away from admitting that. These are permanent: they are
+     * here before the side quest, during it and after it, and the quest merely
+     * puts somebody in them. A room that only grows a torture chair when the
+     * torture starts is a room nobody believes.
+     *
+     * Everything is authored clear of the keg corner, both crate stacks, the
+     * freezer, the shelf run and the man under the tarpaulin. */
+    {
+      const M_UTIL = mat({ color: 0x6a6a72, roughness: 0.55, metalness: 0.5 });
+      const chair = group('bolted-chair');
+      chair.position.set(9.6, 0, -12.3);
+      chair.rotation.y = 0.22;
+      const chairWood = mat({ color: 0x4a3220, roughness: 0.9 });
+      chair.add(box({ size: [0.46, 0.06, 0.44], pos: [0, 0.46, 0], mat: chairWood }));
+      chair.add(box({ size: [0.44, 0.62, 0.06], pos: [0, 0.78, -0.19], mat: chairWood }));
+      for (const [lx, lz] of [[-0.18, -0.16], [0.18, -0.16], [-0.18, 0.16], [0.18, 0.16]]) {
+        chair.add(box({ size: [0.05, 0.46, 0.05], pos: [lx, 0.23, lz], mat: chairWood }));
+      }
+      // The bolts. Four plates, and the reason nobody tips this chair over.
+      for (const [px, pz] of [[-0.18, -0.16], [0.18, -0.16], [-0.18, 0.16], [0.18, 0.16]]) {
+        chair.add(box({ size: [0.11, 0.02, 0.11], pos: [px, 0.012, pz], mat: M_UTIL }));
+      }
+      add(chair);
+      solid(9.35, -12.55, 9.85, -12.05, 0, 1.1);
+      storeroom.chair = chair;
+      anchors.grillChair = new THREE.Vector3(9.6, 0, -12.3);
+
+      // The drain, directly in front of it, because of course it is.
+      const drain = group('floor-drain');
+      drain.position.set(9.6, 0, -12.9);
+      drain.add(cylinder({ r: 0.19, h: 0.02, pos: [0, 0.011, 0], mat: M_UTIL }));
+      for (let i = 0; i < 5; i++) {
+        drain.add(box({ size: [0.3, 0.012, 0.022], pos: [0, 0.022, -0.08 + i * 0.04], mat: mat({ color: 0x14140f, roughness: 1 }) }));
+      }
+      add(drain);
+      storeroom.drain = drain;
+
+      /* One bulb on a flex over the chair. The room already has two green
+       * strips; this is the light the scene is actually lit by, and it hangs
+       * low enough to be in shot. */
+      const flex = group('bare-bulb');
+      flex.position.set(9.6, 0, -12.3);
+      flex.add(cylinder({ r: 0.006, h: 0.5, pos: [0, CEIL_BACK - 0.25, 0], mat: mat({ color: 0x1a1a1a, roughness: 1 }) }));
+      const bulb = sphere({ r: 0.06, pos: [0, CEIL_BACK - 0.52, 0], mat: lit(0xfff0cf, 2.4) });
+      flex.add(bulb);
+      const bulbLight = new THREE.PointLight(0xffe6b8, 9, 6.5, 2);
+      bulbLight.position.set(0, CEIL_BACK - 0.54, 0);
+      flex.add(bulbLight);
+      add(flex);
+      storeroom.bulb = bulb;
+
+      /* The rolling cart. It is a kitchen's cart, so what is on it is a
+       * kitchen's tools, and the scene never has to invent an implement. */
+      const cart = group('grill-cart');
+      cart.position.set(8.2, 0, -12.85);
+      cart.rotation.y = -0.34;
+      for (const shelfY of [0.34, 0.78]) {
+        cart.add(box({ size: [0.86, 0.04, 0.5], pos: [0, shelfY, 0], mat: M_STEEL }));
+      }
+      for (const [lx, lz] of [[-0.38, -0.2], [0.38, -0.2], [-0.38, 0.2], [0.38, 0.2]]) {
+        cart.add(cylinder({ r: 0.018, h: 0.8, pos: [lx, 0.4, lz], mat: M_UTIL }));
+        cart.add(cylinder({ r: 0.045, h: 0.05, pos: [lx, 0.03, lz], rotX: Math.PI / 2, mat: mat({ color: 0x1c1c1c, roughness: 0.9 }) }));
+      }
+      // Tenderiser, tongs, and the bottle whose label fell off.
+      cart.add(box({ size: [0.1, 0.1, 0.16], pos: [-0.24, 0.86, 0.02], mat: M_UTIL }));
+      cart.add(cylinder({ r: 0.016, h: 0.3, pos: [-0.24, 0.95, 0.02], mat: mat({ color: 0x3a2a1c, roughness: 0.9 }) }));
+      for (const tz of [-0.02, 0.03]) {
+        cart.add(box({ size: [0.02, 0.02, 0.44], pos: [0.06, 0.81, tz], rotY: 0.12, mat: M_UTIL }));
+      }
+      cart.add(cylinder({ r: 0.038, h: 0.2, pos: [0.34, 0.9, -0.05], mat: mat({ color: 0x8a2418, roughness: 0.5 }) }));
+      add(cart);
+      solid(7.75, -13.15, 8.65, -12.55, 0, 0.95);
+      storeroom.cart = cart;
+      anchors.grillCart = new THREE.Vector3(8.2, 0.9, -12.85);
+
+      // Utensils hanging off a rail on the south wall, where a kitchen keeps
+      // them and where they read as ordinary until the room stops being one.
+      const rail = group('utensil-rail');
+      rail.position.set(7.6, 1.72, S.z0 + 0.06);
+      rail.add(cylinder({ r: 0.012, h: 1.5, pos: [0, 0, 0], rotZ: Math.PI / 2, mat: M_UTIL }));
+      for (let i = 0; i < 5; i++) {
+        const hx = -0.6 + i * 0.3;
+        rail.add(cylinder({ r: 0.008, h: 0.1, pos: [hx, -0.05, 0.02], mat: M_UTIL }));
+        rail.add(box({
+          size: [0.03 + (i % 2) * 0.05, 0.26 + (i % 3) * 0.08, 0.03],
+          pos: [hx, -0.22 - (i % 3) * 0.04, 0.02],
+          mat: i % 2 ? M_UTIL : mat({ color: 0x2e2e36, roughness: 0.8 }),
+        }));
+      }
+      add(rail);
+      storeroom.utensils = rail;
+
+      /* A portable radio on the shelf run, playing whatever it is playing.
+       * The quest turns it up; the rest of the time it is a prop. */
+      const radio = group('store-radio');
+      radio.position.set(S.x1 - 0.55, 1.28, S.z0 + 2.2);
+      radio.rotation.y = -Math.PI / 2 + 0.2;
+      radio.add(box({ size: [0.34, 0.2, 0.12], pos: [0, 0, 0], mat: mat({ color: 0x2a2a30, roughness: 0.8 }) }));
+      radio.add(cylinder({ r: 0.06, h: 0.02, pos: [-0.08, 0, 0.062], rotX: Math.PI / 2, mat: mat({ color: 0x14141a, roughness: 1 }) }));
+      radio.add(cylinder({ r: 0.004, h: 0.34, pos: [0.14, 0.22, -0.02], rotZ: -0.22, mat: M_UTIL }));
+      add(radio);
+      storeroom.radio = radio;
+      anchors.storeRadio = new THREE.Vector3(S.x1 - 0.55, 1.28, S.z0 + 2.2);
+    }
+
     /* ---- the thing behind the crates ----
      * Somebody's Tuesday went badly. He is face-down between the crate run
      * and the freezer with a tarpaulin thrown over most of him -- boots, one

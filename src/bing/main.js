@@ -42,6 +42,9 @@ import { roomEnvironment } from '../world/textures.js';
 
 import { buildClub, ROOMS, roomAt, STAGE_H } from './club.js';
 import { SIGNATURE_TRACKS, playSignatureTrack } from '../core/signature-music.js';
+import { createShubenatorSignature } from '../core/shubenator-signature.js';
+import { createLicenseToGrill } from './license-to-grill-runtime.js';
+import { QUEST } from './license-to-grill.js';
 import { BingAudioEngine } from './audio.js';
 import { populate, makeAssociate } from './cast.js';
 import {
@@ -1365,6 +1368,8 @@ function registerDoor(key, opts = {}) {
   reg(door.leaf, {
     label: () => {
       if (door.locked) return `<b>${door.label}</b> — locked`;
+      const quest = opts.questLabel?.();
+      if (quest) return quest;
       return `${door.open ? 'Close' : 'Open'} <b>${door.label}</b>`;
     },
     onUse: () => {
@@ -1386,7 +1391,19 @@ registerDoor('inner');
 registerDoor('manager', { lockedLine: 'The manager’s office. There is no manager. There is a room.' });
 registerDoor('ladies', { lockedLine: 'Not tonight, and not ever, frankly.' });
 registerDoor('mens');
-registerDoor('storage');
+/* The store room door is two things depending on the night. Ordinarily it is
+ * a door to a store room; while Gratin has somebody in there it is the way
+ * into the side quest, and opening it is what starts it. */
+registerDoor('storage', {
+  questLabel: () => (licenseToGrill.available() && !club.doors.storage.open
+    ? licenseToGrill.doorLabel(null) : null),
+  onToggle: (door) => {
+    if (!door.open) return;
+    if (!licenseToGrill.available()) return;
+    mission.addObjective('grill', QUEST.objective);
+    licenseToGrill.open();
+  },
+});
 registerDoor('lou', {
   onToggle: (door) => {
     if (door.open && mission.state === 'office' && game.louTalking) {
@@ -1490,6 +1507,48 @@ const familyScripts = buildFamilyScripts({
     return true;
   },
 });
+/* ---- the store room, and the man tied up in it ----
+ *
+ * A side quest off the back hallway, available on the first visit only: the
+ * second visit is the HotDog party and its own emergency, and a man tied to a
+ * chair in the next room is not a thing to discover halfway through carrying a
+ * body. The quest borrows Gratin and Numbskull off the floor rather than
+ * building second copies of them, and puts them back when it is over.
+ *
+ * Its persistence uses the club's own side-storage convention rather than the
+ * campaign schema, so a preview never writes the canonical save -- the same
+ * reason the DJ's record index lives where it does. */
+const LICENSE_TO_GRILL_KEY = 'squatch.bing.license-to-grill';
+
+/* One gate for the signature line for this whole visit. The store room's
+ * interruption is a scripted beat and goes through `scripted`; anything
+ * ambient on the floor asks `offer` and is told no if he has just said it. */
+const shubenatorSignature = createShubenatorSignature();
+
+const licenseToGrill = createLicenseToGrill({
+  scene,
+  club,
+  audio,
+  hud,
+  dialogue,
+  player,
+  interaction,
+  campaign,
+  family,
+  shubenator: shubenatorSignature,
+  isSecondVisit,
+  addMoney,
+  onPersist: (payload) => {
+    try {
+      const storage = getPreviewRuntime()?.storage ?? globalThis.localStorage;
+      storage.setItem(LICENSE_TO_GRILL_KEY, JSON.stringify(payload));
+    } catch {
+      /* A refused write costs the callback later, not the scene now. */
+    }
+    mission.complete('grill');
+  },
+});
+
 for (const npc of family.all) {
   const tree = familyScripts[npc.characterId];
   const startAt = npc.characterId === CHARACTER_IDS.IRISH
@@ -2767,6 +2826,8 @@ document.addEventListener('mousemove', (e) => {
 canvas.addEventListener('mousedown', (e) => {
   if (game.paused) return;
   if (dragLook) dragging = true;
+  // The cord's timing bar owns the click while it is sweeping.
+  if (e.button === 0 && licenseToGrill.press()) return;
   if (e.button === 0) interaction.press();
 });
 window.addEventListener('mouseup', (e) => {
@@ -2818,6 +2879,7 @@ window.addEventListener('keydown', (e) => {
       }
       return;
     }
+    if (licenseToGrill.press()) return;
     if (game.atMachine && !interaction.current) {
       slots.spin();
       paintMachine();
@@ -3236,6 +3298,7 @@ function frame() {
   ambientChatter(raw);
   if (game.atMachine) paintMachine();
 
+  licenseToGrill.update(dt);
   for (const npc of cast.all) npc.update(dt, player.position);
   if (game.associateWalking) {
     associate.update(dt, player.position);
@@ -3268,6 +3331,7 @@ window.__bing = {
   THREE, scene, camera, renderer, postfx, player, club, cast, slots, blackjack, mission, dialogue, hud, audio, game,
   interaction, drunk, highs, inventory, campaign, car, carRadio, carRadioReady, lot, associate, scripts,
   family, familyScripts, faceIndex,
+  licenseToGrill, shubenatorSignature,
   isSecondVisit, secondVisitStory,
   phone, phoneStory, spokeTo, stageTalk, voiceCue,
   updateZones, standingClearAt, findSafeStandSpot, recoverIfStuck, getInCar, getOutOfCar,

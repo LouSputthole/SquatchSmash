@@ -76,6 +76,22 @@ export const SIGNATURE_TRACKS = Object.freeze({
     loopKey: 'music.booski',
     volume: 0.34,
   }),
+  /**
+   * The portable radio in the Bing's store room, during License to Grill.
+   *
+   * Smooth spy-movie jazz, played low. It is the only thing in that room
+   * treating the evening as normal, which is what makes it funny and what
+   * makes it unpleasant — so it stays quiet and it never stops.
+   */
+  storeRoomJazz: cue({
+    id: 'store_room_jazz',
+    title: 'Store room spy jazz',
+    file: 'spy-jazz.mp3',
+    fallbackFile: 'cosmic-drift.mp3',
+    trigger: 'the store room radio during License to Grill',
+    loopKey: 'music.storeroom',
+    volume: 0.09,
+  }),
 });
 
 export function signatureTrackUrl(track) {

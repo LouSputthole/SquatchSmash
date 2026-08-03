@@ -190,6 +190,10 @@ export function makePerson(o = {}) {
      * is a different man saying a different thing with his neck. */
     pendant = true, chainStyle = 'single', pendantStyle = 'disc',
     neckline = false, luxury = false, shirtAccent = null, watch = false,
+    /* Two dinner-jacket details, both of them small and both of them the
+     * whole read on the one man who needs them: a bow tie at the collar, and
+     * bare feet, because whoever tied him to that chair took his shoes. */
+    bowtie = false, barefoot = false,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -294,8 +298,11 @@ export function makePerson(o = {}) {
     shin.position.set(0, -0.44, 0);
     shin.add(slab({ name: 'knee', size: [0.158 * t, 0.11, 0.188 * t], pos: [0, 0, 0], mat: trousers }));
     shin.add(slab({ name: 'shin', size: [0.15 * t, 0.42, 0.175 * t], pos: [0, -0.21, 0], mat: trousers }));
-    shin.add(box({ size: [0.135, 0.068, 0.29], pos: [0, -0.436, 0.05], mat: shoe }));
-    shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: shoe }));
+    /* Barefoot is a smaller, skin-coloured foot rather than a missing shoe:
+     * deleting the mesh leaves a trouser leg ending in mid-air. */
+    const footMat = barefoot ? skinMat : shoe;
+    shin.add(box({ size: barefoot ? [0.112, 0.056, 0.25] : [0.135, 0.068, 0.29], pos: [0, -0.44, barefoot ? 0.035 : 0.05], mat: footMat }));
+    if (!barefoot) shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: shoe }));
     pivot.add(shin);
     return pivot;
   }
@@ -463,6 +470,28 @@ export function makePerson(o = {}) {
       collar.rotation.z = side * -0.55;
       body.add(collar);
     }
+  }
+
+  /* The bow tie. Two wings and a knot at the base of the throat, on the same
+   * plane as the collar so it sits on the shirt rather than floating in front
+   * of it. It is the single detail that turns a dark suit into a dinner
+   * jacket at store-room distance. */
+  if (bowtie && !performanceWear) {
+    const tieMat = mat({ color: 0x101018, roughness: 0.42 });
+    // Just under the collar line the V-neck block uses, on the shirt front.
+    const tieY = 1.495;
+    const tieZ = shirtFront + 0.016;
+    for (const side of [-1, 1]) {
+      const wing = box({
+        name: `bowtie.wing.${side < 0 ? 'left' : 'right'}`,
+        size: [0.042, 0.036, 0.014],
+        pos: [side * 0.032, tieY, tieZ],
+        mat: tieMat,
+      });
+      wing.rotation.z = side * 0.28;
+      body.add(wing);
+    }
+    body.add(box({ name: 'bowtie.knot', size: [0.018, 0.024, 0.016], pos: [0, tieY, tieZ + 0.004], mat: tieMat }));
   }
 
   // Adult performer silhouette. The coloured rounded forms are the bikini

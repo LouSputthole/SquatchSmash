@@ -324,37 +324,29 @@ export function buildLicenseToGrillScript({
     /* ---------------- questions ---------------- */
     qInformant: {
       who: BLOND,
-      line: () => {
-        ask('informant');
-        return 'Inside? Goodness. You’ve assumed the answer is a person and not, say, a filing habit.';
-      },
+      enter: () => { ask('informant'); },
+        line: 'Inside? Goodness. You’ve assumed the answer is a person and not, say, a filing habit.',
       hold: 4.6,
       next: 'counterMaybe',
     },
     qCase: {
       who: BLOND,
-      line: () => {
-        ask('case');
-        return 'The silver case went where silver cases go. I’d check the last man who told you it was silver.';
-      },
+      enter: () => { ask('case'); },
+        line: 'The silver case went where silver cases go. I’d check the last man who told you it was silver.',
       hold: 4.8,
       next: 'counterMaybe',
     },
     qOrg: {
       who: BLOND,
-      line: () => {
-        ask('org');
-        return 'Nobody sends me anywhere. I am invited. Occasionally I am invited very quietly indeed.';
-      },
+      enter: () => { ask('org'); },
+        line: 'Nobody sends me anywhere. I am invited. Occasionally I am invited very quietly indeed.',
       hold: 4.6,
       next: 'counterMaybe',
     },
     qHair: {
       who: BLOND,
-      line: () => {
-        ask('hair');
-        return 'Sea salt, discipline, and excellent genetics.';
-      },
+      enter: () => { ask('hair'); },
+        line: 'Sea salt, discipline, and excellent genetics.',
       hold: 3.2,
       next: 'hairAgain',
     },
@@ -446,28 +438,22 @@ export function buildLicenseToGrillScript({
     },
     useChair: {
       who: BLOND,
-      line: () => {
-        apply('chair');
-        return 'Do let me know when you begin.';
-      },
+      enter: () => { apply('chair'); },
+        line: 'Do let me know when you begin.',
       hold: 2.8,
       next: () => backToWork(),
     },
     useStrike: {
       who: BLOND,
-      line: () => {
-        apply('strike');
-        return 'Mm. Yes. That is certainly a thing that happened to me.';
-      },
+      enter: () => { apply('strike'); },
+        line: 'Mm. Yes. That is certainly a thing that happened to me.',
       hold: 3.4,
       next: () => backToWork(),
     },
     useTenderizer: {
       who: BLOND,
-      line: () => {
-        apply('tenderizer');
-        return 'Surely that violates some international convention.';
-      },
+      enter: () => { apply('tenderizer'); },
+        line: 'Surely that violates some international convention.',
       hold: 3.4,
       next: 'tenderizerGratin',
     },
@@ -480,10 +466,8 @@ export function buildLicenseToGrillScript({
     },
     useIce: {
       who: BLOND,
-      line: () => {
-        apply('ice');
-        return 'Cold.';
-      },
+      enter: () => { apply('ice'); },
+        line: 'Cold.',
       hold: 1.8,
       next: 'iceGratin',
     },
@@ -495,10 +479,8 @@ export function buildLicenseToGrillScript({
     },
     useTongs: {
       who: BLOND,
-      line: () => {
-        apply('tongs');
-        return 'Let’s not be theatrical.';
-      },
+      enter: () => { apply('tongs'); },
+        line: 'Let’s not be theatrical.',
       hold: 2.6,
       next: 'tongsGratin',
     },
@@ -510,10 +492,8 @@ export function buildLicenseToGrillScript({
     },
     useSauce: {
       who: GRATIN,
-      line: () => {
-        apply('sauce');
-        return 'This is either hot sauce or fryer cleaner. Label fell off.';
-      },
+      enter: () => { apply('sauce'); },
+        line: 'This is either hot sauce or fryer cleaner. Label fell off.',
       hold: 4.0,
       next: 'sauceBlond',
     },
@@ -539,37 +519,29 @@ export function buildLicenseToGrillScript({
     },
     propWatch: {
       who: BLOND,
-      line: () => {
-        apply('watch');
-        return 'Careful. That is not a watch, that is a receipt for eleven years of my life.';
-      },
+      enter: () => { apply('watch'); },
+        line: 'Careful. That is not a watch, that is a receipt for eleven years of my life.',
       hold: 4.6,
       next: () => backToWork(),
     },
     propCamera: {
       who: BLOND,
-      line: () => {
-        apply('camera');
-        return 'There is nothing on it. There is famously nothing on it. Please put it down.';
-      },
+      enter: () => { apply('camera'); },
+        line: 'There is nothing on it. There is famously nothing on it. Please put it down.',
       hold: 4.4,
       next: () => backToWork(),
     },
     propPistol: {
       who: BLOND,
-      line: () => {
-        apply('pistol');
-        return 'That is a fitted grip. You will not find another. I would rather you shot me with it than dropped it.';
-      },
+      enter: () => { apply('pistol'); },
+        line: 'That is a fitted grip. You will not find another. I would rather you shot me with it than dropped it.',
       hold: 5.0,
       next: () => backToWork(),
     },
     propJacket: {
       who: BLOND,
-      line: () => {
-        apply('jacket');
-        return 'That is not off a rack. A man in Naples is going to hear about this and he is going to be hurt.';
-      },
+      enter: () => { apply('jacket'); },
+        line: 'That is not off a rack. A man in Naples is going to hear about this and he is going to be hurt.',
       hold: 5.0,
       next: 'jacketGratin',
     },
@@ -715,10 +687,8 @@ export function buildLicenseToGrillScript({
     },
     gratinTechnique: {
       who: BLOND,
-      line: () => {
-        apply('chair');
-        return 'That is the same technique.';
-      },
+      enter: () => { apply('chair'); },
+        line: 'That is the same technique.',
       hold: 2.8,
       next: 'gratinAdmits',
     },
