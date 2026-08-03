@@ -34,6 +34,7 @@
     "verify:golf": "node tools/verify-golf.mjs",
     "verify:heist": "node tools/verify-heist.mjs",
     "verify:silvercase": "node tools/verify-silvercase.mjs",
+    "verify:mansion": "node tools/verify-mansion.mjs",
     "preverify:bundle": "node tools/bundle-preview.mjs",
     "verify:bundle": "node tools/verify-bundle.mjs",
     "balance:silver": "node tools/balance-silver.mjs",

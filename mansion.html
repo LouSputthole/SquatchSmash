@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Lou's Mansion — SquatchSmash</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏛️</text></svg>">
+<style>
+  :root {
+    --gold: #e8c268;
+    --gold-bright: #ffe4a0;
+    --gold-deep: #8a6a1e;
+    --marble: #cfd4e0;
+    --night: #05060a;
+    --panel: rgba(10, 10, 16, .74);
+    --chrome: #b7c0cf;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--night); }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none; color: #f2eee1;
+  }
+  canvas { display: block; }
+  .hidden { display: none !important; }
+
+  .boot-failure {
+    position: fixed; inset: 0; z-index: 100; display: grid; place-content: center;
+    gap: 14px; padding: 32px; text-align: center; background: rgba(5, 6, 10, .97);
+  }
+  .boot-failure[hidden] { display: none; }
+  .boot-failure strong { font-size: 30px; color: var(--gold-bright); }
+  .boot-failure span { max-width: 620px; line-height: 1.55; color: var(--marble); }
+  .boot-failure .actions { display: flex; justify-content: center; gap: 12px; }
+  .boot-failure button, .boot-failure a {
+    border: 1px solid var(--gold); border-radius: 6px; padding: 10px 16px;
+    background: #14120c; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
+  }
+
+  /* ---------------- Crosshair (purely visual, no JS wiring) ---------------- */
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px;
+    border-radius: 50%; background: rgba(242, 238, 225, .82);
+    box-shadow: 0 0 3px rgba(0, 0, 0, .8); pointer-events: none; z-index: 4;
+  }
+
+  /* ---------------- Interaction prompt ---------------- */
+  #prompt {
+    position: fixed; bottom: 108px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; padding: 9px 18px 9px 12px;
+    background: var(--panel); border: 1px solid rgba(232, 194, 104, .38); border-radius: 10px;
+    backdrop-filter: blur(2px); z-index: 5; max-width: min(64vw, 560px);
+  }
+  #promptKey {
+    flex: 0 0 auto; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px;
+    background: rgba(232, 194, 104, .16); border: 1px solid var(--gold);
+    display: grid; place-items: center; font-size: 13px; font-weight: 900; color: var(--gold-bright);
+  }
+  #promptLabel { font-size: 15px; line-height: 1.35; color: #f2eee1; }
+  #promptLabel b { color: var(--gold-bright); }
+  #promptHoldBar {
+    position: absolute; left: 12px; right: 12px; bottom: -6px; height: 4px; border-radius: 2px;
+    background: rgba(255, 255, 255, .12); overflow: hidden;
+  }
+  #promptHold { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
+
+  /* ---------------- Start / menu overlay ---------------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center; overflow-y: auto;
+    background:
+      radial-gradient(ellipse at 50% 28%, rgba(90, 68, 18, .35), transparent 60%),
+      radial-gradient(ellipse at 50% 100%, rgba(20, 30, 46, .55), transparent 55%),
+      var(--night);
+    padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  .kicker { font-size: 13px; letter-spacing: 8px; color: var(--chrome); font-weight: 800; }
+  .title {
+    font-size: clamp(38px, 8vw, 84px); font-weight: 900; letter-spacing: 1px;
+    color: var(--gold-bright);
+    text-shadow: 0 0 30px rgba(232, 194, 104, .45), 0 6px 0 #2a2008;
+    margin: 6px 0 10px;
+  }
+  .sub { font-size: 17px; color: #d7d2c4; margin-bottom: 20px; max-width: 640px; }
+  .panel {
+    background: rgba(255, 255, 255, .05); border: 1px solid rgba(232, 194, 104, .3); border-radius: 12px;
+    padding: 14px 22px; font-size: 14px; line-height: 1.85; text-align: left; color: #e6e1d2;
+    max-width: 460px; margin-bottom: 22px;
+  }
+  .panel h3 { font-size: 12px; letter-spacing: 3px; color: var(--gold-bright); margin-bottom: 6px; }
+  .panel b { color: var(--gold); display: inline-block; min-width: 96px; }
+  .btn {
+    font-size: 21px; font-weight: 900; letter-spacing: 1px; padding: 13px 40px; border-radius: 12px;
+    border: none; cursor: pointer; color: #191204; font-family: inherit;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    box-shadow: 0 5px 0 var(--gold-deep), 0 8px 20px rgba(0, 0, 0, .55); transition: transform .08s;
+  }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--gold-deep); }
+  .btn.alt {
+    background: linear-gradient(180deg, #d7dce6, var(--chrome));
+    box-shadow: 0 5px 0 #5c6472, 0 8px 20px rgba(0, 0, 0, .55);
+  }
+  .btn.small { font-size: 15px; padding: 9px 22px; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div id="crosshair"></div>
+
+  <div id="prompt" class="hidden">
+    <span id="promptKey">E</span>
+    <span id="promptLabel"></span>
+    <div id="promptHoldBar"><div id="promptHold"></div></div>
+  </div>
+
+  <div id="menu" class="overlay">
+    <div class="kicker">SQUATCH LIFE · THE FAMILY COMPOUND</div>
+    <div class="title">LOU'S MANSION</div>
+    <div class="sub">
+      Initiation Night, before anyone arrives. Walk the grounds: the gate, the fountain, the
+      grand hall, the boardroom upstairs, and everywhere in between.
+    </div>
+    <div class="panel">
+      <h3>CONTROLS</h3>
+      <div><b>WASD</b> Move &nbsp;·&nbsp; <b>Mouse</b> Look (click to capture)</div>
+      <div><b>Shift</b> Sprint &nbsp;·&nbsp; <b>C</b> Crouch &nbsp;·&nbsp; <b>Space</b> Jump</div>
+      <div><b>E / Click</b> Look at something notable</div>
+      <div><b>Tab</b> Pause &nbsp;·&nbsp; <b>Esc</b> Release mouse</div>
+    </div>
+    <button id="startBtn" class="btn">STEP THROUGH THE GATE</button>
+    <a href="./index.html" class="btn alt small" style="text-decoration:none; display:inline-block;">APARTMENT</a>
+  </div>
+
+  <div id="bootFailure" class="boot-failure" hidden role="alert">
+    <strong data-boot-title></strong>
+    <span data-boot-detail></span>
+    <div class="actions">
+      <button type="button" data-boot-reload>RELOAD</button>
+      <a href="./index.html">APARTMENT</a>
+    </div>
+  </div>
+
+  <script src="./src/core/boot-guard.js"
+    data-target="bootFailure"
+    data-ready="mansion"
+    data-scene="Lou's Mansion"></script>
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+  <script type="module" src="./src/mansion/main.js"
+    onerror="window.__squatchSceneFail('Could not load the scene', 'src/mansion/main.js failed to load.')"></script>
+</body>
+</html>
