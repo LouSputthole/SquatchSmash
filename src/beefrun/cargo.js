@@ -456,9 +456,13 @@ export class CargoWeightSystem {
     return crates.reduce((n, c) => n + Math.round(9 * (1 - c.damage)), 0);
   }
 
-  /** Mass and balance handed to the physics each frame. */
-  applyTo(physics, fuelMass) {
-    physics.mass = AC.emptyMass + fuelMass + this.mass;
+  /**
+   * Mass and balance handed to the physics each frame.
+   * @param {object} [ac] aircraft tuning profile (empty mass), defaults to
+   *   Beef Run's AC.
+   */
+  applyTo(physics, fuelMass, ac = AC) {
+    physics.mass = ac.emptyMass + fuelMass + this.mass;
     physics.cgOffset = this.cgOffset;
     void lerp; void unlit;
   }
