@@ -9,12 +9,23 @@ const MAX_RPM = 2450;
 const CATCH_RPM = 340;
 
 export class EngineSystem {
-  constructor() {
-    this.engines = [this.makeEngine('left'), this.makeEngine('right')];
+  /**
+   * @param {object} [opts]
+   * @param {object} [opts.ac] aircraft tuning profile, defaults to Beef Run's AC.
+   * @param {string[]} [opts.engineNames] one entry per engine, in index order.
+   *   Defaults to the stock Brushrunner's two-engine ['left', 'right'].
+   */
+  constructor({ ac = AC, engineNames = ['left', 'right'] } = {}) {
+    this.ac = ac;
+    this.engineNames = engineNames;
+    this.engines = engineNames.map((name) => this.makeEngine(name));
     this.masterBattery = false;
     this.fuelSelectors = false;
-    this.fuel = AC.fuelMass;
-    // The right engine is scripted to refuse the first start attempt.
+    this.fuel = this.ac.fuelMass;
+    // The right engine is scripted to refuse the first start attempt. This is
+    // Beef Run-mission-specific scripting for its stock 2-engine layout — see
+    // the `this.engines.length === 2` guards below, which keep it from firing
+    // against index 1 of a 4-engine aircraft that has no "right engine" at all.
     this.rightBalks = true;
     this.onEvent = null;   // (name, engineIndex) => void
   }
@@ -37,11 +48,11 @@ export class EngineSystem {
   }
 
   reset(full = true) {
-    this.engines = [this.makeEngine('left'), this.makeEngine('right')];
+    this.engines = this.engineNames.map((name) => this.makeEngine(name));
     this.masterBattery = false;
     this.fuelSelectors = false;
     this.rightBalks = true;
-    if (full) this.fuel = AC.fuelMass;
+    if (full) this.fuel = this.ac.fuelMass;
   }
 
   // Bring both engines up hot and running (checkpoint restores mid-flight).
@@ -110,14 +121,17 @@ export class EngineSystem {
   }
 
   update(dt, airspeed) {
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < this.engines.length; i++) {
       const e = this.engines[i];
       e.backfire = Math.max(0, e.backfire - dt);
 
       if (e.starter > 0) {
         e.starter -= dt;
         e.rpm = damp(e.rpm, CATCH_RPM + 60, 6, dt);
-        const balky = i === 1 && this.rightBalks && e.attempts <= 1;
+        // Beef Run's scripted balk is specific to the stock 2-engine layout's
+        // index 1 (the "right" engine) — it does not apply to a 4-engine
+        // aircraft, which has no single engine that means "right".
+        const balky = this.engines.length === 2 && i === 1 && this.rightBalks && e.attempts <= 1;
         if (!balky && e.rpm > CATCH_RPM && !e.dead && this.fuel > 0) {
           e.running = true;
           e.starter = 0;
@@ -125,7 +139,7 @@ export class EngineSystem {
           this.onEvent?.('catch', i);
         } else if (e.starter <= 0) {
           this.onEvent?.('balk', i);
-          if (i === 1) this.rightBalks = false;   // it only refuses once
+          if (this.engines.length === 2 && i === 1) this.rightBalks = false;   // it only refuses once
         }
       }
 
@@ -167,7 +181,7 @@ export class EngineSystem {
           e.roughness = damp(e.roughness, (1 - e.health) * 0.6, 2, dt);
         }
 
-        this.fuel = Math.max(0, this.fuel - AC.fuelBurn * load * dt);
+        this.fuel = Math.max(0, this.fuel - this.ac.fuelBurn * load * dt);
         if (this.fuel <= 0 || !this.fuelSelectors) {
           e.running = false;
           this.onEvent?.('starved', i);
@@ -188,14 +202,15 @@ export class EngineSystem {
      * across the apron and takes forty seconds to decelerate to the stall. */
     const idleRef = IDLE_RPM * 0.92;
     const rpmFrac = clamp((e.rpm - idleRef) / (MAX_RPM - idleRef), -0.03, 1);
-    const speedFade = clamp(1 - (airspeed / AC.vThrustFade) * 0.55, 0.25, 1);
+    const speedFade = clamp(1 - (airspeed / this.ac.vThrustFade) * 0.55, 0.25, 1);
     const densRatio = clamp(rho / 1.225, 0.45, 1);
     const rough = 1 - e.roughness * 0.22;
-    return AC.thrustMax * rpmFrac * speedFade * densRatio * e.health * rough;
+    return this.ac.thrustMax * rpmFrac * speedFade * densRatio * e.health * rough;
   }
 
   totalThrustFraction() {
-    return (this.engines[0].rpm + this.engines[1].rpm) / (MAX_RPM * 2);
+    const sum = this.engines.reduce((s, e) => s + e.rpm, 0);
+    return sum / (MAX_RPM * this.engines.length);
   }
 
   status(i) {
