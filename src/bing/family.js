@@ -298,19 +298,35 @@ export function buildFamilyScripts({
   irishGifted = () => false,
   grantIrishGift = () => false,
 } = {}) {
-  /** A two-beat hangout: line one, a reply, line two, maybe a last word. */
+  /**
+   * A hangout: line one, a reply, line two, maybe a last word.
+   *
+   * `aside` adds a second thing to ask this member about, on its own branch off
+   * the opening line. It is the difference between a member who says one thing
+   * at you and a member you can actually stand and talk to — Eric had one from
+   * the start (the shawarma) and it is why he reads as a person rather than a
+   * line delivery. The branch is a dead end by design: it holds and ends, so
+   * the main thread is still there next time and nothing has to bookmark two
+   * positions at once.
+   */
   const hangout = (name, slug, {
     line1, line2, reply, replyTone = 'Reply', last, lastCue, leave = 'Another time.',
+    aside,
   }) => {
+    const options = [
+      { tone: reply.replyTone ?? replyTone, text: reply.text, cue: reply.cue, next: 'more' },
+    ];
+    if (aside) {
+      options.push({ tone: aside.tone, text: aside.ask, cue: aside.askCue, next: 'aside' });
+    }
+    options.push({ tone: 'Leave', text: leave, next: null });
+
     const tree = {
       open: {
         who: name,
         line: line1,
         cue: `vo.bing.hang.${slug}.1`,
-        options: [
-          { tone: reply.replyTone ?? replyTone, text: reply.text, cue: reply.cue, next: 'more' },
-          { tone: 'Leave', text: leave, next: null },
-        ],
+        options,
       },
       more: {
         who: name,
@@ -318,6 +334,27 @@ export function buildFamilyScripts({
         cue: `vo.bing.hang.${slug}.2`,
       },
     };
+    if (aside) {
+      /* Deliberately no explicit `cue`. The two beats of the main thread are
+       * hand-named `vo.bing.hang.<slug>.1/.2` because they predate the
+       * generator and the verifier asserts that exact list; everything added
+       * since goes through `applyBingVoiceCues`, which mints a stable
+       * `vo.bing.full.*` name from the words themselves and lets
+       * `npm run vo:bing` write it into the manifest. Naming these by hand
+       * would put a cue on the floor that no generator knows about, which is
+       * precisely the drift the Bing's coverage gate exists to catch. */
+      tree.aside = {
+        who: name,
+        line: aside.line1,
+        hold: aside.hold ?? 4.2,
+        next: 'asideMore',
+      };
+      tree.asideMore = {
+        who: name,
+        line: aside.line2,
+        hold: aside.hold2 ?? 4.4,
+      };
+    }
     if (last) {
       // The prospect gets the last word — authored, so it carries its cue.
       tree.more.options = [{ tone: 'Reply', text: last, cue: lastCue, next: null }];
@@ -331,12 +368,22 @@ export function buildFamilyScripts({
     line1: 'You see the lights flicker just now? That ain’t the wiring, that’s packet loss. This whole building is on wifi.',
     reply: { text: 'The jukebox is not a server, Lag.', cue: 'vo.bing.hang.lag.tony.1' },
     line2: 'I don’t dance, Prospect. I peaked in a game you never heard of and I’m still cooling down.',
+    aside: {
+      tone: 'Ask', ask: 'What game did you peak in?',
+      line1: 'You would not have heard of it. Server browser, no matchmaking, and a map nobody could pronounce.',
+      line2: 'I held rank one on that map for eleven weeks. Then they patched the ladder and gave everybody a fresh start. Everybody. Like it was nothing.',
+    },
   });
 
   const gratin = hangout('Gratin', 'gratin', {
     line1: 'The kitchen here does one thing, and it is shrimp, and it is wrong. I still order it. Loyalty.',
     reply: { text: 'That’s not loyalty, that’s a condition.' },
     line2: 'Sit. Eat something. You look like a prospect who skips lunch, and dead men skip lunch.',
+    aside: {
+      tone: 'Ask', ask: 'Who actually cooks back there?',
+      line1: 'One fella. Been here longer than the carpet. He does not speak to me and I respect that enormously.',
+      line2: 'I sent a compliment back once. He sent the shrimp back out. Same shrimp. Still wrong. That is a man with a position.',
+    },
     last: 'I ate an egg today, actually.',
     lastCue: 'vo.bing.hang.gratin.tony.1',
   });
@@ -377,6 +424,11 @@ export function buildFamilyScripts({
     line1: 'Gimme a word, baby. Any word. I’ll make a whole bit out of it, right here, no net.',
     reply: { text: 'Uh. “Errand.”' },
     line2: 'You? You’re a bit already, honey. Walkin’ around all serious with them little errands.',
+    aside: {
+      tone: 'Ask', ask: 'You do the radio too, right?',
+      line1: 'Ninety-seven eight, baby. Every night they let me. Half the callers are in this room pretending they are not.',
+      line2: 'Somebody phones in a dedication for his own wife and puts on a voice. I take it. I always take it.',
+    },
     last: 'Please don’t make me a bit.',
     lastCue: 'vo.bing.hang.hogmama.tony.1',
   });
@@ -385,6 +437,11 @@ export function buildFamilyScripts({
     line1: 'I ordered a spritz. They gave me a spritz. Ain’t every day the world does what it should.',
     reply: { text: 'Big night, then.' },
     line2: 'Relax, kid. Nobody dies on a Tuesday. Statistically that ain’t true, but relax anyway.',
+    aside: {
+      tone: 'Ask', ask: 'Where does the name come from?',
+      line1: 'Picked it at fourteen. Typed it in, hit enter, and that was that. You do not get to choose twice.',
+      line2: 'Grown men say it to my face in a bank now. Nobody laughs. That is the part I did not plan.',
+    },
   });
 
   /* Booskibro carries the shot beat: first walk-up goes line one, the offer,
@@ -464,6 +521,11 @@ export function buildFamilyScripts({
     line1: 'I’m between things right now. Big things. Can’t say. The things can hear.',
     reply: { text: 'Sure they can, Willy.' },
     line2: 'You want my seat? It’s the best seat. That’s why I’m in it. I test ’em all after close.',
+    aside: {
+      tone: 'Ask', ask: 'What big things?',
+      line1: 'Cannot say. Genuinely cannot. Not being cute about it, I signed nothing but I gave my word to a fella.',
+      line2: 'When it lands you will hear about it from somebody who is not me. That is how you will know it was me.',
+    },
   });
 
   const irishHangout = hangout('Irish', 'irish', {
@@ -498,30 +560,55 @@ export function buildFamilyScripts({
     line1: 'Statements made in this establishment are for entertainment purposes only.',
     reply: { text: 'Noted for the record.' },
     line2: 'I am having a nice time. This is my nice-time face. It is load-bearing.',
+    aside: {
+      tone: 'Ask', ask: 'Load-bearing how?',
+      line1: 'If it comes off, something behind it has to hold the weight instead. Nobody wants that. I do not want that.',
+      line2: 'So I keep it on, I have a nice time, and everybody goes home. It is a system and it works.',
+    },
   });
 
   const old_stove = hangout('Old Stove', 'stove', {
     line1: 'City drinks, city prices, city ice. Ice used to mean somethin’.',
     reply: { text: 'The ice is fine, Stove.' },
     line2: 'That aeroplane misses you. Don’t you tell her nothin’ I wouldn’t say.',
+    aside: {
+      tone: 'Ask', ask: 'How long have you been at that strip?',
+      line1: 'Longer than the strip. I was there when it was a field and a man with an opinion about the field.',
+      line2: 'They paved it, they numbered it, they put up a windsock. Same field. Same opinion.',
+    },
   });
 
   const snow = hangout('Snow', 'snow', {
     line1: 'Cold in here. Good.',
     reply: { text: 'You want them to turn the heat up?', cue: 'vo.bing.hang.snow.tony.1' },
     line2: 'You talk a lot for a guy on a checklist.',
+    aside: {
+      tone: 'Ask', ask: 'You always work nights?',
+      line1: 'Nights are honest. Nobody asks you to be pleased about anything at four in the morning.',
+      line2: 'Mop, radiator, one window that does not shut. I know where everything in this building is. Ask me sometime when it matters.',
+    },
   });
 
   const rippinflow = hangout('Rippinflow', 'rippinflow', {
     line1: 'Prospect on the floor, yeah, walkin’ like rent’s due — that’s a bar, that’s free, someone write that down.',
     reply: { text: 'I’m not writing that down.' },
     line2: 'I don’t freestyle no more. Anyway — look at him, suit like a verdict, uh — see, it happened again.',
+    aside: {
+      tone: 'Ask', ask: 'Why did you stop freestyling?',
+      line1: 'I did not stop. I retired. There is a difference and the difference is dignity.',
+      line2: 'Booski keeps a recording of the last one. He plays it at parties. That is not dignity, that is hostage footage.',
+    },
   });
 
   const seff = hangout('Seff', 'seff', {
     line1: 'Quick thing. You got a guy for mattresses? Doesn’t matter. Forget it. I GOT the guy. I’m the guy.',
     reply: { text: 'Why do I need a mattress guy?', replyTone: 'Ask' },
     line2: 'This round’s on me the moment somebody explains my situation to Lou. You’ll do that, right?',
+    aside: {
+      tone: 'Ask', ask: 'What situation?',
+      line1: 'It is not a situation situation. It is a timing thing. A calendar thing. Lou and I have a calendar thing.',
+      line2: 'Do not put it like that when you tell him. Put it warmer. Put it like I am already sorry.',
+    },
     last: 'I’m not doing that, Seff.',
   });
 
@@ -529,6 +616,11 @@ export function buildFamilyScripts({
     line1: 'I did nine hundred push-ups today. The number is not the impressive part. The floor was.',
     reply: { text: 'What did the floor do?', replyTone: 'Ask' },
     line2: 'You need mass, Prospect. Order the shrimp. Order nine shrimp.',
+    aside: {
+      tone: 'Ask', ask: 'What did the floor do?',
+      line1: 'Held. Every single one. Nine hundred times it could have said no and it never said no.',
+      line2: 'People thank the trainer. Nobody thanks the floor. Hey — what is going on with that, actually?',
+    },
   });
   const shubenator = {
     signatureCheerful: {
@@ -546,6 +638,11 @@ export function buildFamilyScripts({
     line1: 'I like you. I decided this morning. It’s done now, so don’t worry about it.',
     reply: { text: '…Thanks?' },
     line2: 'Lou says I’m the muscle. Booski says I’m the heart. I say ow.',
+    aside: {
+      tone: 'Ask', ask: 'Ow?',
+      line1: 'Shoulder. Old thing. It goes when it is cold and it is always cold by that fire door.',
+      line2: 'Do not tell anybody. If they know it goes, they stop asking me to do the part I am good at.',
+    },
   });
 
   return applyBingVoiceCues({

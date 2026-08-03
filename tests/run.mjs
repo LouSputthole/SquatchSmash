@@ -49,6 +49,7 @@ const TEST_MODULES = [
   './scene-audio-residency.test.mjs',
   './bing-dialogue-lock.test.mjs',
   './bing-family.test.mjs',
+  './bing-family-asides.test.mjs',
   './bing-voice-coverage.test.mjs',
   './beefrun-voice-manifest.test.mjs',
   './bing-audio.test.mjs',
