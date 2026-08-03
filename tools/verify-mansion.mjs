@@ -216,17 +216,21 @@ try {
     JSON.stringify(s));
 
   // 2. Up the driveway toward the fountain -- real WASD, not a teleport, to
-  // exercise genuine input on open, obstacle-free ground. The fountain's own
-  // (oversized, box-shaped) collider genuinely blocks a straight walk well
-  // short of the basin itself -- confirmed real collision, not a stall -- so
-  // this asserts real forward progress plus that a walking player is held
-  // there rather than clipping through (this doubles as a boundary check).
+  // exercise genuine input on open, obstacle-free ground. The fountain's
+  // tiered collider (fz +/- 3.6, i.e. z: 31.4-38.6 for fz=35 -- narrowed from
+  // an earlier oversized single box that used to engulf the front steps)
+  // genuinely blocks a straight walk a little short of the basin itself --
+  // confirmed real collision, not a stall -- so this asserts real forward
+  // progress plus that a walking player is held there rather than clipping
+  // through (this doubles as a boundary check). The threshold below tracks
+  // the collider's actual near face (~31.4) plus a small margin, not the
+  // pre-tiering number.
   await teleport(0, 0, 10, 180);
   const beforeDrive = await state();
   await walk(10);
   const afterDrive = await state();
   check('walking up the driveway with real WASD input makes real forward progress before the fountain blocks it',
-    (afterDrive.z - beforeDrive.z) > 12 && afterDrive.z < 28.6 && Math.abs(afterDrive.x) < 0.5,
+    (afterDrive.z - beforeDrive.z) > 12 && afterDrive.z < 32 && Math.abs(afterDrive.x) < 0.5,
     JSON.stringify({ beforeDrive, afterDrive }));
 
   // 3. Up the front steps onto the raised entry portico.
