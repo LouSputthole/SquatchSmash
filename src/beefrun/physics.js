@@ -190,8 +190,24 @@ export class AircraftPhysics {
     }
 
     // ---------- Thrust ----------
-    const tL = this.engines ? this.engines.thrust(0, V, rho) : 0;
-    const tR = this.engines ? this.engines.thrust(1, V, rho) : 0;
+    // Sums every engine the aircraft has, not just indices 0/1 -- a 4-engine
+    // layout (see src/enolasquatch) needs its outer two engines to actually
+    // push, not just spin and burn fuel. thrustL/thrustR stay meaningful as
+    // "total thrust on each side" for the asymmetric-yaw term below: engines
+    // are split by whether their configured name contains 'left'/'right'
+    // (falling back to even/odd index for a plain ['left','right'] pair, so
+    // Beef Run's own two-engine math is unchanged).
+    let tL = 0;
+    let tR = 0;
+    if (this.engines) {
+      const names = this.engines.engineNames || ['left', 'right'];
+      for (let i = 0; i < names.length; i++) {
+        const t = this.engines.thrust(i, V, rho);
+        const name = String(names[i]).toLowerCase();
+        const isRight = name.includes('right') || (!name.includes('left') && i % 2 === 1);
+        if (isRight) tR += t; else tL += t;
+      }
+    }
     this.thrustL = tL;
     this.thrustR = tR;
     sForce.z += tL + tR;
