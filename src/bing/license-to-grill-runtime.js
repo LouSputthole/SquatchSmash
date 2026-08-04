@@ -73,9 +73,11 @@ const ARRIVAL_RANGE = 3.4;
 /** The cord reaches this far, and only in front of him. */
 const WHIP_RANGE = 2.5;
 const WHIP_ARC = Math.cos(0.9);          // a little under 52° either side
-/** How long one swing takes, and how far through it the cord arrives. */
-const SWING_SECONDS = 0.72;
-const SWING_LANDS_AT = 0.60;
+/** How long one swing takes, and how far through it the cord arrives.
+ * Exported with `makeCord`/`poseCord` so the mansion's one-swing version of
+ * this lands on exactly the same frame this one does. */
+export const SWING_SECONDS = 0.72;
+export const SWING_LANDS_AT = 0.60;
 
 /**
  * The store-room door leaf, and how near it Gratin can be heard through it.
@@ -206,9 +208,14 @@ const CORD_MATERIALS = {
  * swing can be animated by turning the handle and letting the rest of the whip
  * arrive late. See `poseCord`.
  *
+ * Exported because Lou's mansion reuses it: Gratin offers the player a swing
+ * over the man hanging in the interrogation area, and that is the same length
+ * of flex, the same pose function and the same four cues rather than a second
+ * whip built somewhere else. See src/mansion/cast.js.
+ *
  * @returns {{root: THREE.Group, links: THREE.Object3D[]}}
  */
-function makeCord() {
+export function makeCord() {
   const root = new THREE.Group();
   root.name = 'grill.cord';
   const M = CORD_MATERIALS;
@@ -302,7 +309,7 @@ const REST_CURL = (Math.PI * 2) / 12;
  * Camera space looks down local −Z, so a negative pitch throws the arm
  * down-range and a positive one brings it back over the shoulder.
  */
-function poseCord(cord, p) {
+export function poseCord(cord, p) {
   const rest = !(p >= 0);
   const k = rest ? 0 : Math.min(1, p);
   const ease = (t) => t * t * (3 - 2 * t);

@@ -72,6 +72,14 @@ const CUES_AWAITING_VO_SYNC = Object.freeze({
   gas: 11, // the seven stages
   aftermath: 3, // LIFE SIGNS: 0
   exit: 8, // Snow, the cart, and xXx on the way out
+
+  /* The house's own people, added 2026-08-04 with src/mansion/cast.js. The
+   * mission was written before anybody lived here; these are the lines the
+   * building says back. */
+  gate: 6, // the man on the front door
+  guards: 9, // perimeter, stairs, basement, vault
+  bar: 3, // the Bada Bing's bartender, working Lou's bar
+  torture: 10, // Gratin, the swing, and what xXx says about family
 });
 
 const TOTAL_AWAITING = Object.values(CUES_AWAITING_VO_SYNC)

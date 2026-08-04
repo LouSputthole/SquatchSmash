@@ -17560,6 +17560,91 @@
       "say": "Humor me."
     },
     {
+      "name": "vo.door.refusal.heist_cleanup.1",
+      "voice": "player",
+      "say": "Not walking into the Bing wearing the bank. Clean up first."
+    },
+    {
+      "name": "vo.door.refusal.initiation_locked.1",
+      "voice": "player",
+      "say": "Lou said seven. The invitation still has to land."
+    },
+    {
+      "name": "vo.door.refusal.golf_call.1",
+      "voice": "player",
+      "say": "Lou said he would call about this morning. I am not guessing where."
+    },
+    {
+      "name": "vo.door.refusal.golf_return.1",
+      "voice": "player",
+      "say": "Three holes done. Whatever comes next, Lou will call for it."
+    },
+    {
+      "name": "vo.door.refusal.heist_call.1",
+      "voice": "player",
+      "say": "Lou said he would call. Today is not a day to guess."
+    },
+    {
+      "name": "vo.door.refusal.heist_kit.1",
+      "voice": "player",
+      "say": "Everything Lou named goes with me. Nothing else does."
+    },
+    {
+      "name": "vo.door.refusal.big_night_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+    },
+    {
+      "name": "vo.door.refusal.no_wake_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he knew. I am not chasing him today."
+    },
+    {
+      "name": "vo.door.refusal.date_call.1",
+      "voice": "player",
+      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_date.1",
+      "voice": "player",
+      "say": "That was a good night. Tomorrow is the other kind. Bed."
+    },
+    {
+      "name": "vo.door.refusal.day_two_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call with the next job."
+    },
+    {
+      "name": "vo.door.refusal.second_bing_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he wanted you back at the Bing."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_motel.1",
+      "voice": "player",
+      "say": "It is not even light out. Whatever is next can wait until I have slept."
+    },
+    {
+      "name": "vo.door.refusal.first_call.1",
+      "voice": "player",
+      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_squatchfather.1",
+      "voice": "player",
+      "say": "That is enough going out for one night."
+    },
+    {
+      "name": "vo.door.refusal.lou_package.1",
+      "voice": "player",
+      "say": "I am not going anywhere until I find Lou’s package."
+    },
+    {
+      "name": "vo.door.refusal.whiskey.1",
+      "voice": "player",
+      "say": "Take one pull of whiskey. You earned the nerves."
+    },
+    {
       "name": "vo.silentsquatch.arrival.prospect.humming",
       "voice": "player",
       "say": "Whatever’s in here has been humming since the car."
@@ -18295,89 +18380,144 @@
       "say": "Family meeting go well?"
     },
     {
-      "name": "vo.door.refusal.heist_cleanup.1",
-      "voice": "player",
-      "say": "Not walking into the Bing wearing the bank. Clean up first."
+      "name": "vo.silentsquatch.gate.doorman.farenough",
+      "voice": "mansion-gate",
+      "say": "That’s far enough. Hands out of the pockets."
     },
     {
-      "name": "vo.door.refusal.initiation_locked.1",
-      "voice": "player",
-      "say": "Lou said seven. The invitation still has to land."
+      "name": "vo.silentsquatch.gate.doorman.expected",
+      "voice": "mansion-gate",
+      "say": "You’re expected. That is not the same as welcome."
     },
     {
-      "name": "vo.door.refusal.golf_call.1",
-      "voice": "player",
-      "say": "Lou said he would call about this morning. I am not guessing where."
+      "name": "vo.silentsquatch.gate.doorman.driveway",
+      "voice": "mansion-gate",
+      "say": "You’re standing on a driveway I have to watch. Go in or go back down the steps."
     },
     {
-      "name": "vo.door.refusal.golf_return.1",
-      "voice": "player",
-      "say": "Three holes done. Whatever comes next, Lou will call for it."
+      "name": "vo.silentsquatch.gate.doorman.staysinyourhand",
+      "voice": "mansion-gate",
+      "say": "That stays in your hand. You don’t set it down, you don’t open it, and you don’t hand it to me."
     },
     {
-      "name": "vo.door.refusal.heist_call.1",
-      "voice": "player",
-      "say": "Lou said he would call. Today is not a day to guess."
+      "name": "vo.silentsquatch.gate.doorman.differentway",
+      "voice": "mansion-gate",
+      "say": "Do that again and you leave the property a different way than you came onto it."
     },
     {
-      "name": "vo.door.refusal.heist_kit.1",
-      "voice": "player",
-      "say": "Everything Lou named goes with me. Nothing else does."
+      "name": "vo.silentsquatch.gate.doorman.straightthrough",
+      "voice": "mansion-gate",
+      "say": "Straight through. Don’t wander, don’t touch anything, and don’t talk to the help."
     },
     {
-      "name": "vo.door.refusal.big_night_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+      "name": "vo.silentsquatch.guards.perimeter.path",
+      "voice": "mansion-guard",
+      "say": "Keep on the path."
     },
     {
-      "name": "vo.door.refusal.no_wake_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he knew. I am not chasing him today."
+      "name": "vo.silentsquatch.guards.perimeter.camera",
+      "voice": "mansion-guard",
+      "say": "You’ve been on camera since the gate."
     },
     {
-      "name": "vo.door.refusal.date_call.1",
-      "voice": "player",
-      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+      "name": "vo.silentsquatch.guards.perimeter.elevenlaps",
+      "voice": "mansion-guard",
+      "say": "Long walk, this. I do it eleven times a night."
     },
     {
-      "name": "vo.door.refusal.sleep_after_date.1",
-      "voice": "player",
-      "say": "That was a good night. Tomorrow is the other kind. Bed."
+      "name": "vo.silentsquatch.guards.stairs.seethegate",
+      "voice": "mansion-guard",
+      "say": "I can see the gate from up here."
     },
     {
-      "name": "vo.door.refusal.day_two_call.1",
-      "voice": "player",
-      "say": "Booskibro said he would call with the next job."
+      "name": "vo.silentsquatch.guards.stairs.nobodycomesup",
+      "voice": "mansion-guard",
+      "say": "Nobody comes up these unless he says so."
     },
     {
-      "name": "vo.door.refusal.second_bing_call.1",
-      "voice": "player",
-      "say": "Lou said he would call when he wanted you back at the Bing."
+      "name": "vo.silentsquatch.guards.basement.nothingyours",
+      "voice": "mansion-guard",
+      "say": "Nothing down here belongs to you."
     },
     {
-      "name": "vo.door.refusal.sleep_after_motel.1",
-      "voice": "player",
-      "say": "It is not even light out. Whatever is next can wait until I have slept."
+      "name": "vo.silentsquatch.guards.basement.keepwalking",
+      "voice": "mansion-guard",
+      "say": "Keep walking."
     },
     {
-      "name": "vo.door.refusal.first_call.1",
-      "voice": "player",
-      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+      "name": "vo.silentsquatch.guards.vault.arrangement",
+      "voice": "mansion-guard",
+      "say": "The door stays open. I stay here. That’s the arrangement."
     },
     {
-      "name": "vo.door.refusal.sleep_after_squatchfather.1",
-      "voice": "player",
-      "say": "That is enough going out for one night."
+      "name": "vo.silentsquatch.guards.vault.backup",
+      "voice": "mansion-guard",
+      "say": "Back up."
     },
     {
-      "name": "vo.door.refusal.lou_package.1",
-      "voice": "player",
-      "say": "I am not going anywhere until I find Lou’s package."
+      "name": "vo.silentsquatch.bar.bartender.orworking",
+      "voice": "bartender",
+      "say": "You want something, or are you working?"
     },
     {
-      "name": "vo.door.refusal.whiskey.1",
+      "name": "vo.silentsquatch.bar.bartender.samebottle",
+      "voice": "bartender",
+      "say": "It’s the same bottle it was ten minutes ago."
+    },
+    {
+      "name": "vo.silentsquatch.bar.bartender.fifteenbottles",
+      "voice": "bartender",
+      "say": "Fifteen bottles back there and every one of them is Jack And Daniels. Makes the job simple."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.conversational",
+      "voice": "gratin",
+      "say": "Give us a minute. He’s nearly conversational."
+    },
+    {
+      "name": "vo.silentsquatch.torture.prospect.alwaysyou",
       "voice": "player",
-      "say": "Take one pull of whiskey. You earned the nerves."
+      "say": "It’s always you doing this."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.kitchensdead",
+      "voice": "gratin",
+      "say": "I’m good at it, and the kitchen’s dead this time of night."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.youwantago",
+      "voice": "gratin",
+      "say": "You want a go? Everybody gets one. It keeps him talking."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.panonupstairs",
+      "voice": "gratin",
+      "say": "I’ve got a pan on upstairs. Take your turn or don’t."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.suityourself",
+      "voice": "gratin",
+      "say": "Suit yourself. He’s not going anywhere."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.hitlikefamily",
+      "voice": "xxx",
+      "say": "You hit like family."
+    },
+    {
+      "name": "vo.silentsquatch.torture.xxx.notacompliment",
+      "voice": "xxx",
+      "say": "That’s not a compliment. That’s just what they do."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.hesfine",
+      "voice": "gratin",
+      "say": "See? He’s fine."
+    },
+    {
+      "name": "vo.silentsquatch.torture.gratin.oneeach",
+      "voice": "gratin",
+      "say": "One each. House rule."
     }
   ]
 }

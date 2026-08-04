@@ -257,12 +257,13 @@ try {
     interiorLen: window.mansion.interior.colliders.length,
     armoryLen: window.mansion.weapons.colliders,
     labLen: window.mansion.labColliders,
+    castLen: window.mansion.castColliders ?? 0,
   }));
   check('collidersCount is internally consistent and a sane positive number (geometry actually built)',
     colliderInfo.collidersCount === colliderInfo.actualLength
       && colliderInfo.collidersCount
         === colliderInfo.groundsLen + colliderInfo.interiorLen
-          + colliderInfo.armoryLen + colliderInfo.labLen
+          + colliderInfo.armoryLen + colliderInfo.labLen + colliderInfo.castLen
       && colliderInfo.armoryLen === 6
       && colliderInfo.labLen > 40
       && colliderInfo.collidersCount > 50,

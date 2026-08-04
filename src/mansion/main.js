@@ -47,6 +47,7 @@ import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { mountSilentSquatch } from './mission/mount.js';
 import { createMansionLoadout } from './loadout.js';
+import { mountMansionCast } from './cast.js';
 /* Importing these constructs nothing: a Campaign is only built when
  * createCampaign() is CALLED, which happens below and only when there is a
  * laboratory in the house to play the mission in. Opening the house to walk
@@ -960,6 +961,40 @@ if (lab && night.play) {
 }
 
 /* ================================================================== */
+/* The people in the house                                              */
+/*                                                                       */
+/* Owner playtest 2026-08-04: "None of the characters are here." They    */
+/* were not: the mansion built three thousand meshes of house and put    */
+/* nobody in it. `./cast.js` is the man on the door, the guards on their  */
+/* posts, the Bing's bartender behind Lou's bar, Snow with his cart in    */
+/* the foyer, and Gratin over xXx in the basement.                       */
+/*                                                                       */
+/* Mounted AFTER the mission so it can share the mission's subtitle bar   */
+/* rather than opening a second one -- two subtitle bars is how a guard   */
+/* talks over Booski.                                                     */
+/* ================================================================== */
+const cast = mountMansionCast(scene, world, {
+  interaction,
+  camera,
+  player,
+  audio,
+  anchors,
+  lab,
+  hud: silentSquatch?.hud ?? null,
+  hasCase: () => loadout.hasCase(),
+  enabled: () => running,
+});
+/* Snow's cart is solid. Pushed here rather than inside the cast because
+ * `verify-mansion` asserts the merged collider total adds up from named
+ * contributors, and a third one that appears from nowhere makes the sum a
+ * number nobody can check. */
+let castColliders = 0;
+for (const box of cast?.colliders ?? []) {
+  colliders.push(box);
+  castColliders++;
+}
+
+/* ================================================================== */
 /* Pause menu                                                            */
 /* ================================================================== */
 const clock = new THREE.Clock();
@@ -1128,6 +1163,9 @@ function updateGame(dt) {
   /* The mission, if the house has a laboratory in it. It moves the beat on,
    * plays the writing, and drives the lab; it never moves the camera. */
   silentSquatch?.update(dt);
+  /* The house's own people: patrols walk, posts stand, and the barks fire off
+   * proximity to the man who says them. */
+  cast?.update(dt);
   /* The guns. `player.velocity` drives the walking sway on whatever is in
    * your hands, the same way the heist view-model is driven. */
   weaponSystem.update(dt, { speed: Math.hypot(player.velocity.x, player.velocity.z) });
@@ -1230,6 +1268,10 @@ window.mansion = {
   lab: silent.lab,
   /** Colliders this module contributed to the merged list. */
   labColliders: silentColliders,
+  /* Snow's cart. A named contributor, because the collider total is checked
+   * as a SUM of named contributors -- an anonymous +1 makes that check
+   * unverifiable rather than merely wrong. */
+  castColliders,
   rooms: anchors,
   /** Every enterable room: its rect, its floor height and a stand-on anchor.
    * tools/verify-mansion.mjs walks this list, so a room added to the interior

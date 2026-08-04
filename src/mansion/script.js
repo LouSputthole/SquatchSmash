@@ -44,10 +44,10 @@ function cue(scope, id) {
  * Everybody with a line.
  *
  * The five scientists who are not Aubbie, xXx, and the laboratory's own
- * computer were all named here before they had ids, so the owner could paste
- * ElevenLabs ids against a name rather than against a guess. All seven were
- * cast on 2026-08-04; the scientists' ids were assigned in descending order of
- * how much each of them actually says.
+ * computer need voice profiles that do not exist yet. They are named here so
+ * the owner can paste ElevenLabs ids against a name rather than against a
+ * guess, and the id itself is deliberately NOT invented — see
+ * `PENDING_VOICE_PROFILES`.
  */
 export const SPEAKERS = Object.freeze({
   PROSPECT: Object.freeze({ name: 'Prospect', voice: 'player' }),
@@ -63,6 +63,33 @@ export const SPEAKERS = Object.freeze({
   /* Hanging by his ankles over a pool of his own blood, and still going. The
    * owner is supplying the id; the profile name is `xxx`. */
   XXX: Object.freeze({ name: 'xXx', voice: 'xxx' }),
+
+  /* ---- the house's own people ---- */
+  /**
+   * The man on the front door.
+   *
+   * Owner: *"This guy is deadly serious and doesn't want any funny business."*
+   * He is not Family and he is not a doorman; he is the last thing between the
+   * driveway and Lou, he knows it, and none of what he says is a joke. His own
+   * profile (`mansion-gate`) rather than the guards' — he is the only person
+   * in the house who is allowed to stop you, and he has to sound like it.
+   */
+  GATE: Object.freeze({ name: 'The man on the door', voice: 'mansion-gate' }),
+  /**
+   * Everybody else in the same suit: the men walking the perimeter, the one at
+   * the top of the stairs, the one in the basement and the one on the vault.
+   *
+   * ONE profile for all of them, deliberately. They are a uniform, not five
+   * characters, and the writing leans on that — every line is short, flat and
+   * about the six square metres the man saying it is standing on. WHERE he is
+   * standing does the characterisation; the reading must not try to.
+   */
+  GUARD: Object.freeze({ name: 'Guard', voice: 'mansion-guard' }),
+  /** Au Gratin, running the interrogation. Already cast; `gratin`. */
+  GRATIN: Object.freeze({ name: 'Gratin', voice: 'gratin' }),
+  /** The Bada Bing's bartender, working Lou's bar tonight. ONE man — the same
+   * `bartender` profile the club has always used, not a second one. */
+  BARTENDER: Object.freeze({ name: 'The bartender', voice: 'bartender' }),
 
   /* ---- the six scientists. Index order matches `lab.scientists`. ---- */
   /** 0 — lead. Brilliant, exhausted, arrogant, proud of the weapon. */
@@ -553,6 +580,143 @@ export const SEQUENCES = Object.freeze({
   wallCloses: Object.freeze([
     { speaker: 'HUD', stage: 'wall.close', hold: 3.0 },
   ]),
+
+  /* =================================================================== */
+  /* THE HOUSE ITSELF — the people who are in it whether or not the       */
+  /* mission is running.                                                  */
+  /*                                                                      */
+  /* Owner, 2026-08-04: "None of the characters are here." Everything     */
+  /* below is a bark, not a scene: it fires once when the player comes     */
+  /* near the man who says it, and it has an idle twin if he loiters. They */
+  /* are played by `src/mansion/cast.js`, which owns the bodies; nothing    */
+  /* here decides where anybody stands.                                    */
+  /*                                                                       */
+  /* THE DOCTRINE STILL APPLIES. A mob boss's house with security on the   */
+  /* door, on the perimeter, on the landing and on the vault is not a joke  */
+  /* the scene is making — it is the house, played entirely straight, and   */
+  /* it is what makes the man hanging in the basement land.                 */
+  /* =================================================================== */
+
+  /* ---- The man on the front door. -------------------------------------
+   * He stops you before you are on the top step. He does not welcome you,
+   * he does not banter, and he does not soften any of it afterwards. The
+   * only warmth in the whole part is that he lets you in.
+   */
+  gateGreeting: Object.freeze([
+    { speaker: 'GATE', text: 'That’s far enough. Hands out of the pockets.', cue: cue('gate', 'doorman.farenough'), hold: 3.0 },
+    { speaker: 'GATE', text: 'You’re expected. That is not the same as welcome.', cue: cue('gate', 'doorman.expected'), hold: 3.6 },
+  ]),
+  gateLoiter: Object.freeze([
+    { speaker: 'GATE', text: 'You’re standing on a driveway I have to watch. Go in or go back down the steps.', cue: cue('gate', 'doorman.driveway'), hold: 5.0 },
+  ]),
+  /* He clocks the case before he clocks the face. He does not ask what is
+   * in it, because he has been told not to. */
+  gateCase: Object.freeze([
+    { speaker: 'GATE', text: 'That stays in your hand. You don’t set it down, you don’t open it, and you don’t hand it to me.', cue: cue('gate', 'doorman.staysinyourhand'), hold: 6.0 },
+  ]),
+  gateWarning: Object.freeze([
+    { speaker: 'GATE', text: 'Do that again and you leave the property a different way than you came onto it.', cue: cue('gate', 'doorman.differentway'), hold: 5.2 },
+  ]),
+  gateInside: Object.freeze([
+    { speaker: 'GATE', text: 'Straight through. Don’t wander, don’t touch anything, and don’t talk to the help.', cue: cue('gate', 'doorman.straightthrough'), hold: 5.0 },
+  ]),
+
+  /* ---- The guards. ----------------------------------------------------
+   * One voice, seven metres apart. Each of these is one flat sentence about
+   * the ground the man is standing on, because that is the whole part: the
+   * house is covered, and every corner of it has somebody in it who is bored
+   * of being there.
+   */
+  guardPathBark: Object.freeze([
+    { speaker: 'GUARD', text: 'Keep on the path.', cue: cue('guards', 'perimeter.path'), hold: 1.8 },
+  ]),
+  guardCameraBark: Object.freeze([
+    { speaker: 'GUARD', text: 'You’ve been on camera since the gate.', cue: cue('guards', 'perimeter.camera'), hold: 2.6 },
+  ]),
+  guardLapBark: Object.freeze([
+    { speaker: 'GUARD', text: 'Long walk, this. I do it eleven times a night.', cue: cue('guards', 'perimeter.elevenlaps'), hold: 3.6 },
+  ]),
+  /* Top of the horseshoe, facing the front doors, all night. */
+  guardStairsBark: Object.freeze([
+    { speaker: 'GUARD', text: 'I can see the gate from up here.', cue: cue('guards', 'stairs.seethegate'), hold: 2.4 },
+  ]),
+  guardStairsIdle: Object.freeze([
+    { speaker: 'GUARD', text: 'Nobody comes up these unless he says so.', cue: cue('guards', 'stairs.nobodycomesup'), hold: 3.0 },
+  ]),
+  /* Down past the armory, where the house stops pretending to be a house. */
+  guardBasementBark: Object.freeze([
+    { speaker: 'GUARD', text: 'Nothing down here belongs to you.', cue: cue('guards', 'basement.nothingyours'), hold: 2.6 },
+  ]),
+  guardBasementIdle: Object.freeze([
+    { speaker: 'GUARD', text: 'Keep walking.', cue: cue('guards', 'basement.keepwalking'), hold: 1.4 },
+  ]),
+  /* Eleven inches of steel, standing open, and a man in front of it. */
+  guardVaultBark: Object.freeze([
+    { speaker: 'GUARD', text: 'The door stays open. I stay here. That’s the arrangement.', cue: cue('guards', 'vault.arrangement'), hold: 4.2 },
+  ]),
+  guardVaultIdle: Object.freeze([
+    { speaker: 'GUARD', text: 'Back up.', cue: cue('guards', 'vault.backup'), hold: 1.4 },
+  ]),
+
+  /* ---- The bar in the billiard bay. -----------------------------------
+   * The Bada Bing's own bartender, working a private room for the night. He
+   * is not impressed by any of this and he is not going to be.
+   */
+  bartenderBark: Object.freeze([
+    { speaker: 'BARTENDER', text: 'You want something, or are you working?', cue: cue('bar', 'bartender.orworking'), hold: 3.0 },
+  ]),
+  bartenderIdle: Object.freeze([
+    { speaker: 'BARTENDER', text: 'It’s the same bottle it was ten minutes ago.', cue: cue('bar', 'bartender.samebottle'), hold: 3.2 },
+  ]),
+  bartenderJack: Object.freeze([
+    { speaker: 'BARTENDER', text: 'Fifteen bottles back there and every one of them is Jack And Daniels. Makes the job simple.', cue: cue('bar', 'bartender.fifteenbottles'), hold: 5.4 },
+  ]),
+
+  /* ---- The interrogation area, before the mission gets there. ----------
+   *
+   * Owner, verbatim: "Lets add one of the charcaters down here in charge of
+   * the torture and he aasks you as you walk by if you want to take a whack
+   * at him? Maybe Gratin again (thjats the joke always having Gratin
+   * torutuing people) ... and XXX says some shit about fmaily".
+   *
+   * So: Gratin is at work, the way a man is at work. He offers the player a
+   * turn the way you would offer somebody the last of the chips. THE SCENE
+   * DOES NOT FIND THIS FUNNY — Gratin has a pan on upstairs and this is the
+   * second job of his evening. The running gag is carried by the Prospect
+   * noticing that it is ALWAYS him, and by Gratin's answer, which is a man
+   * explaining his own competence and is not a punchline.
+   */
+  tortureGreeting: Object.freeze([
+    { speaker: 'GRATIN', text: 'Give us a minute. He’s nearly conversational.', cue: cue('torture', 'gratin.conversational'), hold: 3.4 },
+  ]),
+  /* The running gag, and the only line in the beat that is aware of itself —
+   * and it is aware of the GAME's joke, not the film's. Nobody winks. */
+  tortureAlwaysYou: Object.freeze([
+    { speaker: 'PROSPECT', text: 'It’s always you doing this.', cue: cue('torture', 'prospect.alwaysyou'), hold: 2.4 },
+    { speaker: 'GRATIN', text: 'I’m good at it, and the kitchen’s dead this time of night.', cue: cue('torture', 'gratin.kitchensdead'), hold: 4.0 },
+  ]),
+  /* The offer. The HUD says which button in this sequence's `onDone`, never
+   * over the top of him — docs/TONE-AND-PARODY.md, the sayThenInstruct rule. */
+  tortureOffer: Object.freeze([
+    { speaker: 'GRATIN', text: 'You want a go? Everybody gets one. It keeps him talking.', cue: cue('torture', 'gratin.youwantago'), hold: 4.2 },
+  ]),
+  tortureIdle: Object.freeze([
+    { speaker: 'GRATIN', text: 'I’ve got a pan on upstairs. Take your turn or don’t.', cue: cue('torture', 'gratin.panonupstairs'), hold: 3.8 },
+  ]),
+  tortureDeclined: Object.freeze([
+    { speaker: 'GRATIN', text: 'Suit yourself. He’s not going anywhere.', cue: cue('torture', 'gratin.suityourself'), hold: 3.0 },
+  ]),
+  /* One swing. The stage direction is where the cord actually moves; the
+   * cast module drives it and nothing here decides how a whip works. */
+  tortureSwing: Object.freeze([
+    { speaker: 'HUD', stage: 'cord.swing', hold: 0.8 },
+    { speaker: 'XXX', text: 'You hit like family.', cue: cue('torture', 'xxx.hitlikefamily'), hold: 2.4 },
+    { speaker: 'XXX', text: 'That’s not a compliment. That’s just what they do.', cue: cue('torture', 'xxx.notacompliment'), hold: 4.0 },
+    { speaker: 'GRATIN', text: 'See? He’s fine.', cue: cue('torture', 'gratin.hesfine'), hold: 2.0 },
+  ]),
+  tortureOneEach: Object.freeze([
+    { speaker: 'GRATIN', text: 'One each. House rule.', cue: cue('torture', 'gratin.oneeach'), hold: 2.2 },
+  ]),
 });
 
 /**
@@ -583,6 +747,9 @@ export const INSTRUCTIONS = Object.freeze({
   ELIMINATE_AUBBIE: 'Aim at Aubbie and LEFT CLICK.',
   SILENT_NIGHT: 'Hold E on the SILENT NIGHT switch.',
   RETURN_UPSTAIRS: 'Go back up the stairwell to the cellar.',
+  /* Gratin's offer. Raised in `tortureOffer`'s onDone, after he has finished
+   * asking — never on the same frame as the question. */
+  TAKE_A_SWING: 'Press E to take your swing.',
 });
 
 /** What appears under the reticle when the crosshair is genuinely on him. */
@@ -606,17 +773,22 @@ export const LAB_DOOR_CODE = '6969';
 export const PENDING_VOICE_PROFILES = Object.freeze([
   /* EMPTY, and that is the finished state.
    *
-   * The owner supplied every id on 2026-08-04 and they are in the manifest's
-   * `voices` block:
+   * The owner supplied every id on 2026-08-04 and they are all in the
+   * manifest's `voices` block:
    *
-   *   xxx          the man on the rope. Battered, unbothered, one octave
-   *                lower than he can hold.
-   *   vetrov       nervous technician — 11 lines, the most of any scientist
-   *   orlova       junior assistant — 11 lines, the youngest voice in the room
-   *   sokolov      weapons engineer — 10 lines, warm, loves the machine
-   *   marchuk      medical specialist — 9 lines, the only one watching people
-   *   bezmenov     the cynical old one — 7 lines, flat, expects the worst
-   *   labcomputer  the annunciator. Two lines and both of them are terrible.
+   *   xxx           the man on the rope. Battered, unbothered, one octave
+   *                 lower than he can hold.
+   *   vetrov        nervous technician — 11 lines, the most of any scientist
+   *   orlova        junior assistant — 11 lines, the youngest in the room
+   *   sokolov       weapons engineer — 10 lines, warm, loves the machine
+   *   marchuk       medical specialist — 9 lines, the only one watching people
+   *   bezmenov      the cynical old one — 7 lines, flat, expects the worst
+   *   labcomputer   the annunciator. Two lines and both of them are terrible.
+   *   mansion-gate  the man on the front door. Low, clipped, humourless, and
+   *                 never raised — he has never once had to shout.
+   *   mansion-guard everybody else in that suit. The flattest reading on the
+   *                 roster, on purpose: WHERE a man is standing does the
+   *                 characterisation, and the reading must not try to.
    *
    * Doctor Aubbie is deliberately NOT recast. He is the same Aubbie the
    * player drinks with — one stable id, one face, one voice, every scene —

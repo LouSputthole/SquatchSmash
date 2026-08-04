@@ -24,6 +24,7 @@ import * as THREE from 'three';
  * One Margo, one face, both scenes. */
 import { restyleMargoHead } from '../silver/margo.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { BADA_BING_BARTENDER } from '../core/wardrobe.js';
 import { mat, box, sphere, cylinder, group } from '../world/build.js';
 import { rand, pick } from './kit.js';
 
@@ -2103,10 +2104,13 @@ export function populate(scene, club, { includeMargo = true } = {}) {
   }));
   by.bouncer.folded = true;
 
+  /* His body is canon and lives in src/core/wardrobe.js, because Lou's
+   * mansion borrows him for the night and there is only one of him. Spread,
+   * never restated — same rule as the rest of the Family. */
   add('bartender', new Npc(scene, {
     name: 'the bartender', tier: 'hero', job: 'work',
     x: a.bartender.x, z: a.bartender.z, yaw: Math.PI / 2,
-    model: { height: 1.7, dress: 'waistcoat', shirt: 0xd8d4cc, hair: 'tied' },
+    model: { ...BADA_BING_BARTENDER },
   }));
 
   add('barback', new Npc(scene, {

@@ -246,6 +246,85 @@ export const AUBBIE = Object.freeze({
 });
 
 /**
+ * The Bada Bing's bartender.
+ *
+ * He was typed inline in `populate()` in src/bing/cast.js and nowhere else,
+ * which was fine right up until a second scene needed him — Lou's mansion has
+ * a bar in the billiard bay and it is THIS man working it, not a new one. So
+ * his body moves here, both places spread it, and there is one bartender.
+ *
+ * The waistcoat is the whole read: he is the only person in either building
+ * dressed by an employer rather than by himself.
+ */
+export const BADA_BING_BARTENDER = Object.freeze({
+  height: 1.70,
+  build: 1.00,
+  dress: 'waistcoat',
+  shirt: 0xd8d4cc,
+  hair: 'tied',
+});
+
+/* ------------------------------------------------------------------------ *
+ * LOU'S SECURITY
+ *
+ * Not Family. Hired, uniformed, and paid to be unpleasant — so they are
+ * dressed as a UNIT and the unit is the point: one suit, one shirt colour,
+ * one belt, one watch, and the watch is silver. Lou wears every expensive
+ * thing at once and his men wear none of it, which is the clearest thing the
+ * wardrobe can say about who these people are to him.
+ *
+ * `trim` is on for all of them despite the note at the top of this file about
+ * it not being free: the player is stopped by one of these men at the front
+ * door and talks to another one beside a hanging body. They are stood next
+ * to, so they get collars.
+ * ------------------------------------------------------------------------ */
+
+/** Everything every one of Lou's men has in common. Spread, never restated. */
+const SECURITY_UNIFORM = Object.freeze({
+  dress: 'suit',
+  shirt: 0x191c22,
+  shirtAccent: 0x9aa2ae,
+  trim: true,
+  belt: 'leather',
+  trouserFit: 'creased',
+  watch: 'silver',
+});
+
+/**
+ * The man on the front door.
+ *
+ * Owner: *"This guy is deadly serious and doesn't want any funny business."*
+ * The same uniform as the rest, one grade sharper — he is the biggest of them
+ * and he is the one with the earpiece's worth of authority, because he is the
+ * only one who is allowed to turn you around.
+ */
+export const MANSION_DOOR_MAN = Object.freeze({
+  ...SECURITY_UNIFORM,
+  height: 1.92,
+  build: 1.42,
+  hair: 'bald',
+  skin: 0xb87a4e,
+});
+
+/**
+ * The six men on the rest of the house, in the order the mansion posts them:
+ * three walking the perimeter outside, one at the top of the horseshoe stair,
+ * one in the basement, one on the vault.
+ *
+ * They differ only in the four things a uniform cannot hide — height, build,
+ * hair and skin — so they read as six men in the same suit rather than six
+ * copies of one man or six unrelated people who happen to match.
+ */
+export const MANSION_GUARDS = Object.freeze([
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.86, build: 1.22, hair: 'short', hairColour: 0x1c1410, skin: 0xd9a97f }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.78, build: 1.34, hair: 'crop', hairColour: 0x4a3a2a, skin: 0xe8c39c }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.90, build: 1.10, hair: 'short', hairColour: 0x2a1c14, skin: 0x8d5a3a, beard: true }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.81, build: 1.28, hair: 'bald', skin: 0xf0cba6 }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.75, build: 1.40, hair: 'short', hairColour: 0x14100e, skin: 0xc08a5e }),
+  Object.freeze({ ...SECURITY_UNIFORM, height: 1.88, build: 1.16, hair: 'crop', hairColour: 0x8a5a2a, skin: 0xf0cba6, beard: true }),
+]);
+
+/**
  * Everyone above, by the `CHARACTER_IDS` key the campaign uses, so a scene can
  * dress a roster it is iterating rather than naming each import.
  */
