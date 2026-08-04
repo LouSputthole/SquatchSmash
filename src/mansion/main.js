@@ -190,28 +190,16 @@ const { steps: frontSteps, portico: frontPortico } = grounds.props.frontEntry;
 const { ramp: serviceRamp } = grounds.props.serviceRoad;
 
 /*
- * KNOWN GAP (flagged, not patched -- see the final report): Phase 1's pool
- * deck (`buildPoolPatio()`, pad = 6 around POOL) is a flat platform poured at
- * GROUND_Y with no ramp or steps connecting it to the surrounding at-grade
- * lawn, and the building's own north wall has no door onto it either
- * ("fully solid, no openings specified" -- Phase 1's own comment on that
- * wall). On foot, the patio is not actually reachable: the ledge is a flat
- * 1.2 m rise, well over what the Player controller's jump can clear
- * (JUMP_SPEED=4.65 / JUMP_GRAVITY=13.5 -> well under a 1 m hop), and there is
- * no interior route to it either. Scope for this step is composition/
- * lighting/player-wiring, not redesigning either phase's exterior geometry,
- * so no bridging ramp has been added here -- but the rect is still
- * recognised below purely for height *resolution*, so a debug teleport (or
- * anything else that legitimately ends up standing there) reads a sane
- * GROUND_Y instead of rendering as the camera buried in the deck.
+ * The pool deck used to be unreachable on foot -- a flat 1.2 m platform with
+ * no ramp, no steps and no door onto it, which this file previously flagged
+ * as a known gap and left alone. Both ends of a real route now exist in
+ * MansionGrounds.js: the kitchen's pool door through the north wall, and a
+ * run of garden steps up the deck's west side for anyone walking round the
+ * outside. Those steps need resolving here, the same way the front entrance
+ * and the service ramp already are.
  */
-const POOL_DECK_PAD = 6;
-const poolDeck = {
-  x0: POOL.x0 - POOL_DECK_PAD,
-  x1: POOL.x1 + POOL_DECK_PAD,
-  z0: POOL.z0 - POOL_DECK_PAD,
-  z1: POOL.z1 + POOL_DECK_PAD,
-};
+const poolDeck = grounds.props.poolPatio.deck;
+const poolSteps = grounds.props.poolPatio.steps;
 
 function exteriorGroundAt(x, z) {
   if (inRectXZ(frontSteps, x, z)) {
@@ -223,8 +211,56 @@ function exteriorGroundAt(x, z) {
     const t = THREE.MathUtils.clamp((z - serviceRamp.z0) / (serviceRamp.z1 - serviceRamp.z0), 0, 1);
     return THREE.MathUtils.lerp(0, GROUND_Y, t);
   }
+  if (inRectXZ(poolSteps, x, z)) {
+    const t = THREE.MathUtils.clamp((x - poolSteps.x0) / (poolSteps.x1 - poolSteps.x0), 0, 1);
+    return THREE.MathUtils.lerp(0, GROUND_Y, t);
+  }
   if (inRectXZ(poolDeck, x, z)) return GROUND_Y;
   return 0;
+}
+
+/* ================================================================== */
+/* Light rig: keep a fixed number of the nearest practical lights on     */
+/*                                                                        */
+/* The house is furnished room by room, so between the two modules there  */
+/* are ninety-odd small point lights -- a lamp on a nightstand, a bulb in  */
+/* a display case, a candle on a dining table. three.js compiles EVERY     */
+/* visible light into EVERY material's shader, so leaving them all on is   */
+/* not a frame-rate question: measured here, the scene finished building   */
+/* and then never produced a second frame at all, because the shader for   */
+/* ninety-three point lights never finished compiling. (That is what a     */
+/* "the scene loads" pass would have shipped.)                             */
+/*                                                                         */
+/* Every one of these lights carries a `distance` between 4 and 26 m and    */
+/* `decay: 2`, so beyond its own range it contributes literally nothing.    */
+/* This keeps exactly ACTIVE_LIGHTS of them switched on -- the ones whose   */
+/* range best covers the camera -- and switches the rest off. Holding the   */
+/* count CONSTANT matters: three.js keys its shader programs on the number  */
+/* of visible lights, so a varying count would recompile every frame. The   */
+/* moon and the hemisphere fill are not in this set; they are always on.    */
+/* ================================================================== */
+const localLights = [...grounds.lights, ...interior.lights];
+const ACTIVE_LIGHTS = Math.min(14, localLights.length);
+const _lightRank = localLights.map((light) => ({ light, score: 0 }));
+for (const entry of _lightRank) entry.light.visible = false;
+for (let i = 0; i < ACTIVE_LIGHTS; i++) _lightRank[i].light.visible = true;
+let _lightTimer = 0;
+
+function updateLightRig(dt) {
+  _lightTimer -= dt;
+  if (_lightTimer > 0) return;
+  _lightTimer = 0.2;
+  const cam = camera.position;
+  for (const entry of _lightRank) {
+    const l = entry.light;
+    // Score = how far OUTSIDE its own range the camera is. Negative means the
+    // camera is inside the light's falloff, so it genuinely contributes.
+    entry.score = l.position.distanceTo(cam) - (l.distance || 0);
+  }
+  _lightRank.sort((a, b) => a.score - b.score);
+  for (let i = 0; i < _lightRank.length; i++) {
+    _lightRank[i].light.visible = i < ACTIVE_LIGHTS;
+  }
 }
 
 /* ================================================================== */
@@ -266,7 +302,7 @@ function startAmbience() {
   audio.startLoop('poolWater', {
     name: 'tap.run',
     volume: 0.07,
-    position: new THREE.Vector3(0, GROUND_Y + 1, 85),
+    position: new THREE.Vector3(POOL.x0 / 2 + POOL.x1 / 2, GROUND_Y + 1, POOL.z0 / 2 + POOL.z1 / 2),
     ref: 4,
     maxDist: 22,
     ambience: true,
@@ -307,14 +343,22 @@ player.ground = 0;
 /* callback needed.                                                         */
 /* ================================================================== */
 const interaction = new InteractionSystem(camera, tinyHud);
-/* The base MAX_DISTANCE (2.7 m, set inside core/interaction.js) is tuned
- * for close-up apartment fixtures (drawers, switches, a phone on a
- * nightstand). This scene's flavour props are architectural set pieces
- * meant to be read from across a room -- the chandelier hangs 6+ m above
- * the hall floor, the fountain statue is a driveway's width away -- so the
- * raycast range is extended for this scene only. This edits the instance's
- * own public property, not core/interaction.js. */
-interaction.raycaster.far = 34;
+/* The base MAX_DISTANCE (2.7 m, set inside core/interaction.js) is tuned for
+ * close-up apartment fixtures (drawers, switches, a phone on a nightstand).
+ * This scene's flavour props are architectural set pieces meant to be read
+ * from across a room -- the chandelier hangs in a double-height void, the
+ * fountain statue is a driveway's width away -- so the raycast range is
+ * extended for this scene only. This edits the instance's own public
+ * property, not core/interaction.js.
+ *
+ * 18 m, not the 34 m an earlier pass used: that ray is cast only against
+ * registered targets, so with nothing occluding it a label was readable
+ * clean through the building. Standing just inside the front door produced
+ * the note about Lou's desk -- two storeys up and thirty metres north. The
+ * range is now a room's worth, and the walls are handed to the system's own
+ * occluder list so a label needs line of sight as well as range. */
+interaction.raycaster.far = 18;
+interaction.setOccluders([...grounds.occluders, ...interior.occluders]);
 
 function flavor(mesh, label) {
   if (!mesh) return;
@@ -325,25 +369,28 @@ flavor(
   'A towering silver Sasquatch, fist raised. Lou had it commissioned the week after the primary.',
 );
 flavor(
-  interior.props.hall.chandelier,
-  'Crystal and gold, hanging over the hall like it dares you to mention the electric bill.',
+  interior.props.foyer.chandelier,
+  'Crystal and gold, hanging in the well of the horseshoe like it dares you to mention the electric bill.',
 );
 flavor(
-  interior.props.boardroom.screen,
+  interior.props.conference.screen,
   '"SILVER SASQUATCHES -- ANNUAL SHAREHOLDER MEETING." Confidential. Allegedly.',
 );
-/* MansionInterior.js's buildOffice() builds the display case inline and
- * does not return a separate handle for it (only `{ desk }` comes back in
- * officeProps) -- it cannot be registered on its own without editing that
- * file. The desk sits directly in front of it in the same small room, so
- * the flavour line covers both rather than silently dropping the case. */
+flavor(
+  interior.props.conference.podium,
+  'The podium faces the long table, and the long table faces the door Lou comes out of.',
+);
 flavor(
   interior.props.office.desk,
-  "Lou's desk. Behind it, a locked glass case holds something he has never shown anyone.",
+  "Lou's desk, dead centre behind the conference room. Behind it, a locked case holds something he has never shown anyone.",
 );
-for (const trophyCase of interior.props.trophyRoom.cases) {
+for (const trophyCase of interior.props.lounge.cases) {
   flavor(trophyCase, 'Tournament silverware. The family takes its bracket seeding very seriously.');
 }
+flavor(
+  interior.props.ballroom.stageStack,
+  'Amps, a stand, a stool. Whoever plays this room, plays it for one family.',
+);
 
 /* ================================================================== */
 /* Pause menu                                                            */
@@ -359,7 +406,7 @@ function lockPointer() {
 const sharedPauseMenu = createPauseMenu({
   title: "Lou's Mansion",
   canPause: () => running,
-  getObjective: () => 'Walk the grounds. There is no mission here yet -- just the house.',
+  getObjective: () => 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, and the cellar.',
   instructions: [
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'E, or click -- look at something notable for a one-line note.',
@@ -440,14 +487,29 @@ function updateGame(dt) {
   interaction.update(dt);
   grounds.update(dt);
   interior.update(dt);
+  updateLightRig(dt);
   audio.updateListener(camera);
 }
+
+/* Rendering can be suspended from the debug handle. This exists for headless
+ * verification: tools/verify-mansion.mjs walks the whole house on foot, which
+ * takes several simulated minutes, and driving a 3,700-mesh scene through
+ * swiftshader for all of it exhausts the software GPU process and kills the
+ * browser mid-tour. The verifier renders real frames either side of the walk
+ * -- so a shader or WebGL failure still surfaces, and it still asserts the
+ * canvas comes back with something on it -- and suspends only the middle.
+ * It has no effect on the game: nothing ever calls this in play. */
+let renderEnabled = true;
+let framesRendered = 0;
 
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
   if (running && !sharedPauseMenu.isPaused()) updateGame(dt);
-  renderer.render(scene, camera);
+  if (renderEnabled) {
+    renderer.render(scene, camera);
+    framesRendered++;
+  }
 }
 requestAnimationFrame(frame);
 
@@ -457,19 +519,29 @@ requestAnimationFrame(frame);
 /* squatchfather / window.GRAVEYARD).                                     */
 /*                                                                        */
 /* `teleport(x, y, z, yawDeg)`: `y` is a *floor height*, in the same units */
-/* as every anchor's `.y` component in `rooms` below (GROUND_Y, UPPER_Y,   */
-/* BASEMENT_Y, or 0 at street grade) -- not an eye/camera height. It snaps */
-/* `player.ground` directly to `y` (no smoothing lerp) so the camera reads */
-/* the correct height on the very next render, then runs one manual        */
-/* `player.update()` pass (matching src/bing/main.js's own teleport, which  */
-/* does the same single-step nudge) so collision resolution and the        */
-/* footstep/eye-height state settle immediately. `yawDeg` is degrees; 0     */
-/* faces -Z (three.js's default forward), matching `grounds.anchors.        */
-/* spawnYaw`'s own documented convention.                                  */
+/* as every anchor's `.y` component (GROUND_Y, UPPER_Y, BASEMENT_Y, or 0   */
+/* at street grade) -- not an eye/camera height.                            */
+/*                                                                          */
+/* FIXED 2026-08-04: this used to write that floor height straight into      */
+/* `player.position.y`, which is a CAMERA height. Everything downstream      */
+/* then read the player's feet as `position.y - eyeHeight`, i.e. 1.66 m      */
+/* BELOW the floor it had just been asked to stand on -- so the first        */
+/* `world.groundAt()` after a teleport disambiguated a multi-storey column   */
+/* with a bogus foot height. On the old layout that made teleporting onto    */
+/* the balcony land you reading a basement-ish height while visually still   */
+/* upstairs, and the verifier had to work around it by never teleporting     */
+/* onto an ambiguous column at all. Setting the camera height properly       */
+/* (`y + eyeHeight`) removes the whole class of problem and lets a verifier  */
+/* drop into any room on any storey and get a truthful answer.               */
+/*                                                                          */
+/* `yawDeg` is degrees; 0 faces -Z (three.js's default forward), matching    */
+/* `grounds.anchors.spawnYaw`'s own documented convention.                   */
 /* ================================================================== */
 function teleport(x, y, z, yawDeg = 0) {
   player.mode = 'walk';
-  player.position.set(x, y, z);
+  player.eyeHeight = 1.66;
+  player.targetEye = 1.66;
+  player.position.set(x, y + player.eyeHeight, z);
   player.ground = y;
   player.velocity.set(0, 0, 0);
   player.jumpHeight = 0;
@@ -496,6 +568,20 @@ window.mansion = {
   colliders,
   collidersCount: colliders.length,
   rooms: anchors,
+  /** Every enterable room: its rect, its floor height and a stand-on anchor.
+   * tools/verify-mansion.mjs walks this list, so a room added to the interior
+   * without an entry here is a room the verifier will not check. */
+  roomTable: interior.rooms,
+  vehicles: grounds.props.vehicles.map((v) => ({
+    kind: v.kind ?? null,
+    note: v.note ?? null,
+    x: v.x,
+    z: v.z,
+    yaw: v.yaw,
+    min: { x: v.worldCollider.min.x, z: v.worldCollider.min.z },
+    max: { x: v.worldCollider.max.x, z: v.worldCollider.max.z },
+  })),
+  landscaping: grounds.props.landscaping,
   teleport,
   /** Step the simulation without a real animation frame -- for headless verification. */
   tick(seconds = 1, step = 1 / 60) {
@@ -503,6 +589,9 @@ window.mansion = {
       updateGame(Math.min(step, seconds - elapsed));
     }
   },
+  /** Headless-verification only: suspend/resume the render loop. */
+  setRendering(on) { renderEnabled = !!on; },
+  get framesRendered() { return framesRendered; },
   get running() { return running; },
   get paused() { return sharedPauseMenu.isPaused(); },
 };

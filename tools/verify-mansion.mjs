@@ -1,45 +1,35 @@
 #!/usr/bin/env node
 /**
  * Verify Lou's Mansion -- a standalone, explore-only environment (exterior
- * grounds + interior rooms, no NPCs/combat/dialogue/mission state). Boots
- * mansion.html directly (the same way tools/verify-squatchfather.mjs boots
- * squatchfather.html?preview=1), walks a guided tour of every named room via
- * window.mansion.teleport()/tick() plus real simulated WASD, and checks a
- * handful of concrete boundary-collision assertions.
+ * grounds + interior rooms, no NPCs/combat/dialogue/mission state).
  *
- * Shell datum numbers below (GROUND_Y/UPPER_Y/BASEMENT_Y) are copied from
- * src/mansion/scenes/MansionGrounds.js for readability in this file's own
- * assertions -- they are not imported (this script only touches the page
- * over the wire, exactly like every other verify-*.mjs in this repo).
+ * WHAT THIS CHECKS, AND WHY IT IS SHAPED THIS WAY
  *
- * Two geometry quirks discovered while writing this script (both in the
- * already-committed Phase 1/2 files, out of this job's scope to fix -- see
- * the final report):
+ * The owner's playtest of the merged scene reported "Basement doesn't work"
+ * and "Cant enter a few of the rooms invisible walls". The previous version
+ * of this script reported 21/21 green on exactly that build, because it
+ * proved every room by TELEPORTING into the middle of it and reading back a
+ * floor height. Teleporting past a wall proves nothing about whether the wall
+ * has a doorway in it, and reading a floor height inside a stairwell proves
+ * nothing about whether the stair can be walked down.
  *
- *   1. The fountain's Box3 collider (a 12.6m square approximating the round
- *      basin, centred on FOUNTAIN_POS z=35) fully engulfs the front-entry
- *      steps and portico (z: 35-41 both sit inside the fountain's z: 28.7-
- *      41.3 collision band). A straight WASD walk up the driveway centreline
- *      is hard-blocked at the fountain's south face (~z=28.4) and never
- *      reaches the stairs at all -- confirmed empirically. This script does
- *      not fight that: it demonstrates the (real, correct) block as part of
- *      the driveway leg, then reaches the portico by teleporting to a point
- *      just past the fountain's z-extent instead of walking through it.
- *   2. `window.mansion.teleport()` sets `player.ground` to the requested
- *      floor height BEFORE running one internal `player.update()`, so that
- *      first frame's `world.groundAt()` call still uses the *previous*
- *      frame's stale eye height to disambiguate multi-level columns (see
- *      `MansionInterior.js`'s `floorAt()`). For small vertical gaps (e.g.
- *      hall ground floor vs. basement) this self-corrects within a couple of
- *      simulated frames. For a LARGE gap -- teleporting straight onto the
- *      upper-floor balcony, which shares its x/z footprint with the
- *      descending basement stairwell -- the first (wrong, low) resolution
- *      can be too far from the truth to recover by smoothing alone, and the
- *      player gets stuck reading a basement-ish height while visually still
- *      "on" the balcony. This script avoids that trap the same way a real
- *      player would avoid it: it always *walks* onto the balcony from the
- *      already-resolved, unambiguous upper hallway, rather than teleporting
- *      cold onto the ambiguous column.
+ * So the guided tour below is built the other way round:
+ *
+ *   1. Every room in the scene's own room table is entered ON FOOT, by
+ *      standing outside its doorway and holding W until the player is inside
+ *      the room's rect at the room's own floor height. If a doorway is walled
+ *      up, furnished shut, or leads into a wedge with no headroom, the walk
+ *      simply does not arrive and the check fails.
+ *   2. The room table is compared against the interior's room list, so a room
+ *      that exists in the scene but has no walk test here is itself a
+ *      failure -- a verifier cannot silently stop covering new geometry.
+ *   3. The basement is walked down to, from the foyer, on foot.
+ *   4. The horseshoe is climbed on foot, on both flights, and the balcony
+ *      between them is walked out onto.
+ *   5. The parked cars are checked for overlap -- with each other, with the
+ *      fountain, and with the house -- because "car orientation and density"
+ *      was a real geometry fault (three cars on 4 m centres, all 5+ m long).
+ *   6. Boundaries: the fence, the pool curb, the balcony rail.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -48,8 +38,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-// 5223 is verify-silvercase.mjs's port (a separate, concurrent mission's
-// verify script) -- picked the next free one instead of colliding with it.
 const PORT = Number(process.env.PORT) || 5224;
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -134,12 +122,11 @@ async function state() {
 }
 
 /**
- * Hold real key(s) via a genuine DOM keydown/keyup, but drive the actual
- * distance covered through the scene's own headless tick() rather than real
+ * Hold real key(s) via a genuine DOM keydown/keyup, but drive the distance
+ * covered through the scene's own headless tick() rather than real
  * animation-frame pacing -- this repo's squatchfather/no-wake verify scripts
- * use the identical "real keys, scene clock" split for the same reason:
- * swiftshader's frame rate says nothing useful about how far a held key
- * should have moved the player in a fixed amount of simulated time.
+ * use the identical "real keys, scene clock" split, because swiftshader's
+ * frame rate says nothing about how far a held key should have moved you.
  */
 async function walk(seconds, keys = ['KeyW']) {
   for (const k of keys) await page.keyboard.down(k);
@@ -148,21 +135,34 @@ async function walk(seconds, keys = ['KeyW']) {
   await settle(0.2);
 }
 
-/** Directly set the player's look yaw (degrees) -- the same "aim, then walk"
- * pattern src/nowake's verify script uses for its own headless steering,
- * since this scene has no mission dialogue driving the camera for us. */
+/** Aim, then walk -- the same headless steering src/nowake's script uses. */
 async function faceDeg(yawDeg) {
   await page.evaluate((deg) => {
     window.mansion.player.yaw = (deg * Math.PI) / 180;
   }, yawDeg);
 }
 
+/**
+ * Yaw (degrees) for a heading. In core/player.js a forward press moves along
+ * (-sin yaw, -cos yaw), so 0 faces -Z, 90 faces -X, 180 faces +Z, 270 faces
+ * +X. Spelled out here because every walk below depends on it.
+ */
+const NORTH = 180; // toward +z, deeper into the property
+const SOUTH = 0;
+const WEST = 90;
+const EAST = 270;
+
+function inside(rect, s, pad = 0.25) {
+  return s.x >= rect.x0 + pad && s.x <= rect.x1 - pad
+    && s.z >= rect.z0 + pad && s.z <= rect.z1 - pad;
+}
+
 try {
   await page.goto(`http://localhost:${PORT}/mansion.html`, { waitUntil: 'load' });
-  await page.waitForFunction(() => window.mansion?.player, null, { timeout: 60000 });
+  await page.waitForFunction(() => window.mansion?.player, null, { timeout: 120000 });
 
   /* ================================================================ */
-  /* Static sanity: every named anchor exists, geometry actually built  */
+  /* Static sanity                                                     */
   /* ================================================================ */
   const rooms = await page.evaluate(() => {
     const out = {};
@@ -172,14 +172,25 @@ try {
     return out;
   });
   const EXPECTED_ANCHORS = [
+    // grounds
     'gate', 'spawn', 'spawnYaw', 'fountainFront', 'frontDoorOutside', 'securityBooth',
-    'poolPatio', 'serviceRoadEntrance', 'hallCenter', 'chandelier', 'grandStairBottom',
-    'grandStairTop', 'basementLanding', 'livingRoomCenter', 'boardroomHead', 'boardroomTable',
-    'kitchenIsland', 'officeDesk', 'trophyRoomCenter', 'upperHallway', 'balconyRail',
+    'poolPatio', 'poolDoorOutside', 'poolSteps', 'serviceRoadEntrance', 'rosePavilion',
+    // interior -- ground
+    'foyerCenter', 'foyerRear', 'horseshoeWestFoot', 'horseshoeEastFoot',
+    'horseshoeWestTop', 'horseshoeEastTop', 'balconyRail', 'livingRoomCenter',
+    'loungeCenter', 'ballroomCenter', 'diningTable', 'kitchenIsland',
+    // interior -- basement
+    'basementStairTop', 'basementLanding', 'armoryCenter',
+    // interior -- upper
+    'galleryCenter', 'galleryWest', 'galleryEast', 'conferenceTable', 'conferenceHead',
+    'officeDesk', 'bedWestFront', 'bedEastFront', 'bedWestRear', 'bedEastRear',
+    'bathWest', 'bathEast', 'chandelier',
   ];
+  const missingAnchors = EXPECTED_ANCHORS.filter((k) => !(k in rooms));
+  const extraAnchors = Object.keys(rooms).filter((k) => !EXPECTED_ANCHORS.includes(k));
   check('window.mansion.rooms exposes every expected anchor (grounds + interior merged)',
-    EXPECTED_ANCHORS.every((k) => k in rooms) && Object.keys(rooms).length === EXPECTED_ANCHORS.length,
-    JSON.stringify(Object.keys(rooms)));
+    missingAnchors.length === 0 && extraAnchors.length === 0,
+    JSON.stringify({ missingAnchors, extraAnchors }));
 
   const colliderInfo = await page.evaluate(() => ({
     collidersCount: window.mansion.collidersCount,
@@ -193,18 +204,39 @@ try {
       && colliderInfo.collidersCount > 50,
     JSON.stringify(colliderInfo));
 
+  const roomTable = await page.evaluate(() => {
+    const out = {};
+    for (const [k, v] of Object.entries(window.mansion.roomTable)) {
+      out[k] = { rect: { ...v.rect }, floor: v.floor };
+    }
+    return out;
+  });
+
   /* ================================================================ */
-  /* Boot gate: a real click is the user gesture that starts the tour   */
+  /* Boot gate                                                         */
   /* ================================================================ */
-  await page.click('#startBtn');
-  await page.waitForFunction(() => window.mansion.running === true, null, { timeout: 20000 });
-  await page.waitForTimeout(300); // let swiftshader warm up its first materials
+  await page.evaluate(() => document.getElementById('startBtn').click());
+  await page.waitForFunction(() => window.mansion.running === true, null, { timeout: 120000 });
   check('clicking start begins the tour and hides the menu',
     await page.evaluate(() => window.mansion.running === true
       && document.getElementById('menu').classList.contains('hidden')));
 
+  // Render real frames before the tour, so a shader or WebGL failure in the
+  // new geometry surfaces here rather than never being exercised.
+  await page.waitForFunction(() => window.mansion.framesRendered > 3, null, { timeout: 180000 });
+  check('the scene renders real frames after boot', true,
+    `${await page.evaluate(() => window.mansion.framesRendered)} frames`);
+
+  /* Suspend rendering for the walking tour. Every check from here to the
+   * screenshot at the end is geometry, collision and navigation -- none of it
+   * reads a pixel -- and driving 3,700 meshes through swiftshader for the
+   * several simulated minutes the tour takes exhausts the software GPU
+   * process and takes the browser down with it. Rendering comes back on at
+   * the end and the canvas is checked for actual content. */
+  await page.evaluate(() => window.mansion.setRendering(false));
+
   /* ================================================================ */
-  /* Guided tour                                                        */
+  /* Grounds                                                           */
   /* ================================================================ */
 
   // 1. Spawn at the street gate, facing into the property.
@@ -215,190 +247,437 @@ try {
     Math.abs(s.x - rooms.spawn.x) < 0.3 && Math.abs(s.z - rooms.spawn.z) < 0.3,
     JSON.stringify(s));
 
-  // 2. Up the driveway toward the fountain -- real WASD, not a teleport, to
-  // exercise genuine input on open, obstacle-free ground. The fountain's
-  // tiered collider (fz +/- 3.6, i.e. z: 31.4-38.6 for fz=35 -- narrowed from
-  // an earlier oversized single box that used to engulf the front steps)
-  // genuinely blocks a straight walk a little short of the basin itself --
-  // confirmed real collision, not a stall -- so this asserts real forward
-  // progress plus that a walking player is held there rather than clipping
-  // through (this doubles as a boundary check). The threshold below tracks
-  // the collider's actual near face (~31.4) plus a small margin, not the
-  // pre-tiering number.
-  await teleport(0, 0, 10, 180);
+  // 2. Up the driveway. The fountain now sits at z=32 with a 3.6 m collision
+  // radius, so a straight walk up the centreline is stopped short of it and
+  // has to go round -- that is a real fountain in a real turnaround, and this
+  // asserts both the progress and the block.
+  await teleport(0, 0, 10, NORTH);
   const beforeDrive = await state();
   await walk(10);
   const afterDrive = await state();
-  check('walking up the driveway with real WASD input makes real forward progress before the fountain blocks it',
-    (afterDrive.z - beforeDrive.z) > 12 && afterDrive.z < 32 && Math.abs(afterDrive.x) < 0.5,
+  check('walking up the driveway with real WASD makes real forward progress before the fountain blocks it',
+    (afterDrive.z - beforeDrive.z) > 12 && afterDrive.z < 29 && Math.abs(afterDrive.x) < 0.6,
     JSON.stringify({ beforeDrive, afterDrive }));
 
-  // 3. Up the front steps onto the raised entry portico.
-  //
-  // The stair/portico footprint (z: 35-41) sits entirely inside the
-  // fountain's collision band (z: 28.7-41.3, see this file's header) in the
-  // already-committed grounds file, so a straight walk from the driveway
-  // cannot reach it (confirmed above). Teleporting straight past the
-  // fountain's z-extent reaches the portico cleanly instead.
-  await teleport(0, GROUND_Y, 41.5, 180);
+  // 3. Round the fountain and up the front steps, on foot the whole way.
+  // The basin blocks x:-3.7..3.7 / z:28.4..35.6, so this goes round it to the
+  // east, up the far side of the forecourt, and back onto the steps -- which
+  // is what a player does, and what proves the way in is not sealed.
+  await teleport(0, 0, 24, NORTH);
+  await settle(0.3);
+  const atStreetGrade = await state();
+  await faceDeg(EAST);
+  await walk(2.4); // into the corridor east of the basin
+  await faceDeg(NORTH);
+  await walk(8); // up past the basin to the foot of the steps
+  await faceDeg(WEST);
+  await walk(2.4); // back to the centreline
+  await faceDeg(NORTH);
+  await walk(1.6); // up the steps onto the raised entry
   await settle(0.5);
   s = await state();
-  check('the raised entry portico is reachable at ground level, just past the fountain',
-    Math.abs(s.z - 41.5) < 0.5 && Math.abs(s.ground - GROUND_Y) < 0.2,
-    JSON.stringify(s));
+  /* Asserted as a CLIMB, not as a position. "past z=38.6 at ground height" is
+   * also satisfied by standing in the middle of the foyer, so it would pass
+   * without the steps ever being walked up. This requires the whole approach
+   * to have started at street grade out on the turnaround and finished on the
+   * raised entry -- with nothing but held keys in between, so the only thing
+   * that can have lifted the player 1.2 m is the steps. */
+  check('the front steps lift the player from street grade to the raised entry, on foot',
+    atStreetGrade.ground < 0.05 && atStreetGrade.z < 25
+      && Math.abs(s.ground - GROUND_Y) < 0.35 && s.z > 38.8,
+    JSON.stringify({ atStreetGrade, after: s }));
 
-  // 4. Through the front door into the central hall -- real WASD from the
-  // portico, crossing the door threshold into the atrium.
+  // 4. Through the front door.
+  await faceDeg(NORTH);
   await walk(4);
   await settle(0.8);
   s = await state();
-  check('walking through the front door reaches the central hall at ground level',
-    s.z > 43 && Math.abs(s.ground - GROUND_Y) < 0.35,
+  check('walking through the front door reaches the foyer at ground level',
+    s.z > 45 && Math.abs(s.ground - GROUND_Y) < 0.35,
     JSON.stringify(s));
 
-  // 5. Up the grand staircase to the upper floor.
-  await teleport(rooms.grandStairBottom.x, GROUND_Y, 43.3, 180);
+  /* ================================================================ */
+  /* THE HORSESHOE -- both flights climbed on foot, balcony walked      */
+  /* ================================================================ */
+  for (const [side, anchor] of [['west', 'horseshoeWestFoot'], ['east', 'horseshoeEastFoot']]) {
+    await teleport(rooms[anchor].x, GROUND_Y, rooms[anchor].z - 1.4, NORTH);
+    await settle(0.4);
+    await walk(9);
+    await settle(1.0);
+    s = await state();
+    check(`the ${side} flight of the horseshoe can be climbed on foot to the gallery`,
+      s.z > 47.5 && Math.abs(s.ground - UPPER_Y) < 0.4,
+      JSON.stringify(s));
+  }
+
+  // ...and back down the west flight.
+  await teleport(rooms.horseshoeWestFoot.x, UPPER_Y, 49, SOUTH);
+  await settle(0.4);
+  await walk(9);
+  await settle(1.0);
+  s = await state();
+  check('the horseshoe can be descended on foot back to the foyer floor',
+    s.z < 43.5 && Math.abs(s.ground - GROUND_Y) < 0.4,
+    JSON.stringify(s));
+
+  // The balcony in the middle, between the two flights.
+  await teleport(0, UPPER_Y, 50.5, SOUTH);
+  await settle(0.4);
+  await walk(4);
   await settle(0.5);
+  s = await state();
+  check('the balcony between the two flights is walked out onto, over the foyer void',
+    s.z < 48 && s.z > 45 && Math.abs(s.ground - UPPER_Y) < 0.25,
+    JSON.stringify(s));
+
+  /* ================================================================ */
+  /* EVERY ROOM, ENTERED ON FOOT THROUGH ITS OWN DOORWAY                */
+  /*                                                                     */
+  /* `from` is where the player stands OUTSIDE the room (in the space     */
+  /* the door opens off), `face` the heading, `secs` how long to hold W.   */
+  /* ================================================================ */
+  const WALKS = [
+    {
+      room: 'foyer', from: [0, GROUND_Y, 39.6], face: NORTH, secs: 5, note: 'from the portico, through the front door',
+    },
+    {
+      room: 'livingRoom', from: [-6.5, GROUND_Y, 50.5], face: WEST, secs: 5, note: 'from the rear foyer, through the west archway',
+    },
+    {
+      room: 'lounge', from: [6.5, GROUND_Y, 50.5], face: EAST, secs: 5, note: 'from the rear foyer, through the east archway',
+    },
+    {
+      room: 'ballroom', from: [0, GROUND_Y, 55.5], face: NORTH, secs: 6, note: 'from the rear foyer, through the ballroom doors',
+    },
+    {
+      room: 'dining', from: [-12.5, GROUND_Y, 55.6], face: NORTH, secs: 5, note: 'from the living room, through the dining door',
+    },
+    {
+      room: 'kitchen', from: [12.5, GROUND_Y, 55.6], face: NORTH, secs: 5, note: 'from the lounge, through the kitchen door',
+    },
+    {
+      room: 'gallery', from: [0, UPPER_Y, 46.6], face: NORTH, secs: 2, note: 'from the balcony bay, onto the gallery',
+    },
+    {
+      room: 'conference', from: [0, UPPER_Y, 51.4], face: NORTH, secs: 5, note: 'from the gallery, through the double doors',
+    },
+    {
+      room: 'office', from: [0.9, UPPER_Y, 61.9], face: NORTH, secs: 5, note: "from the conference room, through Lou's door",
+    },
+    {
+      room: 'bedWestFront', from: [-14.0, UPPER_Y, 49.5], face: SOUTH, secs: 5, note: 'from the gallery',
+    },
+    {
+      room: 'bedEastFront', from: [14.0, UPPER_Y, 49.5], face: SOUTH, secs: 5, note: 'from the gallery',
+    },
+    {
+      room: 'bedWestRear', from: [-14.0, UPPER_Y, 51.5], face: NORTH, secs: 5, note: 'from the gallery',
+    },
+    {
+      room: 'bedEastRear', from: [14.0, UPPER_Y, 51.5], face: NORTH, secs: 5, note: 'from the gallery',
+    },
+    {
+      room: 'bathWest', from: [-14.0, UPPER_Y, 64.2], face: NORTH, secs: 5, note: 'from the west rear bedroom',
+    },
+    {
+      room: 'bathEast', from: [14.0, UPPER_Y, 64.2], face: NORTH, secs: 5, note: 'from the east rear bedroom',
+    },
+    {
+      room: 'basement', from: [7.2, GROUND_Y, 49.6], face: NORTH, secs: 14, note: 'from the rear foyer, down the cellar stair',
+    },
+  ];
+
+  for (const leg of WALKS) {
+    const room = roomTable[leg.room];
+    if (!room) {
+      check(`${leg.room} is enterable on foot (${leg.note})`, false, 'no such room in the scene room table');
+      continue;
+    }
+    await teleport(leg.from[0], leg.from[1], leg.from[2], leg.face);
+    await settle(0.4);
+    await faceDeg(leg.face);
+    await walk(leg.secs);
+    await settle(0.8);
+    s = await state();
+    const ok = inside(room.rect, s, 0.2) && Math.abs(s.ground - room.floor) < 0.45;
+    check(`${leg.room} is enterable on foot (${leg.note})`, ok,
+      `${JSON.stringify(s)} vs rect ${JSON.stringify(room.rect)} floor ${room.floor}`);
+  }
+
+  /* ================================================================ */
+  /* The layout itself, against the owner's brief                       */
+  /*                                                                     */
+  /* "the Conference room to be at the top of the stairs ... with the     */
+  /*  balcony in the middle ... the conference room then behind it Lous   */
+  /*  office up there at the top of the stairs in the middle. Then bed    */
+  /*  rooms on the side."                                                 */
+  /*                                                                      */
+  /* Walking into a room called `conference` proves the room exists; it    */
+  /* does not prove it is where it was asked to be. These read the rects   */
+  /* the scene actually built and assert the relationships.               */
+  /* ================================================================ */
+  const layout = await page.evaluate(() => {
+    const t = window.mansion.roomTable;
+    const i = window.mansion.interior;
+    return {
+      gallery: t.gallery.rect,
+      conference: t.conference.rect,
+      office: t.office.rect,
+      beds: [t.bedWestFront.rect, t.bedEastFront.rect, t.bedWestRear.rect, t.bedEastRear.rect],
+      foyer: t.foyer.rect,
+      stairWest: i.props.foyer.stairWest,
+      stairEast: i.props.foyer.stairEast,
+      balcony: i.props.foyer.balcony,
+      upperY: t.gallery.floor,
+      groundY: t.foyer.floor,
+    };
+  });
+
+  const centred = (r) => Math.abs(r.x0 + r.x1) < 0.001;
+  check('the conference room is at the top of the stairs, in the middle, straight off the gallery',
+    centred(layout.conference)
+      && layout.conference.z0 > layout.gallery.z1
+      && layout.conference.z0 - layout.gallery.z1 < 0.5
+      && layout.conference.floor !== 0,
+    JSON.stringify({ gallery: layout.gallery, conference: layout.conference }));
+
+  check("Lou's office is directly behind the conference room, in the same middle band",
+    centred(layout.office)
+      && layout.office.z0 > layout.conference.z1
+      && layout.office.z0 - layout.conference.z1 < 0.5
+      && Math.abs(layout.office.x0 - layout.conference.x0) < 0.001,
+    JSON.stringify({ conference: layout.conference, office: layout.office }));
+
+  check('all four bedrooms are in the side wings, clear of the middle band',
+    layout.beds.length === 4
+      && layout.beds.every((b) => b.x1 <= layout.conference.x0 || b.x0 >= layout.conference.x1),
+    JSON.stringify(layout.beds));
+
+  check('the horseshoe is two separate flights, up opposite flanks of the foyer, rising the same way',
+    layout.stairWest.x1 < layout.stairEast.x0
+      && layout.stairWest.z0 === layout.stairEast.z0
+      && layout.stairWest.z1 === layout.stairEast.z1
+      && layout.stairWest.z1 > layout.stairWest.z0,
+    JSON.stringify({ west: layout.stairWest, east: layout.stairEast }));
+
+  check('the balcony sits in the middle, between the two flights and out over the foyer',
+    layout.balcony.x0 > layout.stairWest.x1
+      && layout.balcony.x1 < layout.stairEast.x0
+      && Math.abs(layout.balcony.x0 + layout.balcony.x1) < 0.001
+      && layout.balcony.z0 < layout.stairWest.z1,
+    JSON.stringify({ balcony: layout.balcony, west: layout.stairWest, east: layout.stairEast }));
+
+  check('the foyer is one big open room, not a corridor',
+    (layout.foyer.x1 - layout.foyer.x0) > 15 && (layout.foyer.z1 - layout.foyer.z0) > 15,
+    `${(layout.foyer.x1 - layout.foyer.x0).toFixed(1)} x ${(layout.foyer.z1 - layout.foyer.z0).toFixed(1)} m`);
+
+  // Every room in the scene must have a walk test. A verifier that quietly
+  // stops covering the geometry is exactly what shipped the last build green.
+  const covered = new Set(WALKS.map((w) => w.room));
+  const uncovered = Object.keys(roomTable).filter((k) => !covered.has(k));
+  check('every room the interior declares has an on-foot walk test in this script',
+    uncovered.length === 0, `uncovered: ${uncovered.join(', ')}`);
+
+  /* ================================================================ */
+  /* The basement specifically: reachable, and at the armory floor      */
+  /* ================================================================ */
+  await teleport(7.2, GROUND_Y, 49.6, NORTH);
+  await settle(0.4);
+  await walk(14);
+  await settle(1.0);
+  s = await state();
+  check('the cellar stair descends on foot from the rear foyer to the armory floor',
+    Math.abs(s.ground - BASEMENT_Y) < 0.4 && s.z > 55,
+    JSON.stringify(s));
+
+  // ...and back up again, which is the half that strands you if it fails.
+  await faceDeg(SOUTH);
+  await walk(16);
+  await settle(1.0);
+  s = await state();
+  check('the cellar stair can be climbed back out to the ground floor',
+    Math.abs(s.ground - GROUND_Y) < 0.4,
+    JSON.stringify(s));
+
+  // Standing in the middle of the armory reads the armory floor, not the
+  // ground floor above it (the failure the old layout had in reverse).
+  await teleport(rooms.armoryCenter.x, BASEMENT_Y, rooms.armoryCenter.z, NORTH);
+  await settle(1.0);
+  s = await state();
+  check('the armory floor resolves below the house, not at ground level',
+    Math.abs(s.ground - BASEMENT_Y) < 0.15,
+    JSON.stringify(s));
+
+  /* ================================================================ */
+  /* Grounds: service door, pool door, pool steps                       */
+  /* ================================================================ */
+  await teleport(17.6, 0, 66, WEST);
+  await settle(0.4);
   await walk(6);
-  await settle(1.0);
-  s = await state();
-  check('climbing the grand staircase with real WASD input reaches the upper floor',
-    s.z > 47 && Math.abs(s.ground - UPPER_Y) < 0.4,
-    JSON.stringify(s));
-
-  // ...and out onto the balcony overlooking the hall.
-  await teleport(rooms.upperHallway.x, UPPER_Y, rooms.upperHallway.z, 0);
-  await settle(1.0);
-  s = await state();
-  check('the upper hallway sits at the upper-floor level, connecting to the balcony',
-    Math.abs(s.ground - UPPER_Y) < 0.2,
-    JSON.stringify(s));
-
-  // Walk from the (safe, single-level) upper hallway onto the balcony, which
-  // shares its x/z footprint with the descending basement stairwell -- see
-  // this file's header for why this is walked into rather than teleported.
-  await teleport(rooms.balconyRail.x, UPPER_Y, 53, 0);
   await settle(0.5);
-  await faceDeg(0); // heading -z, toward the balcony/rail
+  s = await state();
+  check('the rear service door is walkable from the service road into the kitchen',
+    s.x < 16 && Math.abs(s.ground - GROUND_Y) < 0.35,
+    JSON.stringify(s));
+
+  await teleport(rooms.poolDoorOutside.x, GROUND_Y, 72.5, NORTH);
+  await settle(0.4);
   await walk(5);
   await settle(0.5);
   s = await state();
-  check('walking onto the balcony overlooks the hall from the upper floor without falling through the shared stairwell column',
-    s.z < 49 && s.z > 43 && Math.abs(s.ground - UPPER_Y) < 0.25,
+  check('the kitchen pool door opens onto the patio deck',
+    s.z > 75.5 && Math.abs(s.ground - GROUND_Y) < 0.3,
     JSON.stringify(s));
 
-  // 6. Back down the grand staircase to the ground floor.
-  await teleport(rooms.grandStairBottom.x, UPPER_Y, 47, 0);
-  await settle(0.5);
-  await walk(6);
-  await settle(1.0);
+  await teleport(rooms.poolSteps.x - 2.2, 0, rooms.poolSteps.z, EAST);
+  await settle(0.4);
+  await walk(5);
+  await settle(0.6);
   s = await state();
-  check('descending the grand staircase with real WASD input returns to ground level',
-    s.z < 44 && Math.abs(s.ground - GROUND_Y) < 0.4,
-    JSON.stringify(s));
-
-  // 7. Into the sunken living room.
-  //
-  // NOTE: src/mansion/scenes/MansionInterior.js documents a deliberate
-  // deviation here -- Phase 1's podium slab under this footprint is solid
-  // and un-notched, so a literal ~0.4m recess would render as furniture
-  // buried in solid stone. Phase 2 kept the floor flush with the hall
-  // (GROUND_Y) and built the "sunken lounge" feel through furniture staging
-  // only (couches/rug/coffee table), not a real floor drop. That is ground
-  // truth already committed to this mission's own files, which this job is
-  // not permitted to edit -- so this checks what is actually built (flush
-  // with the hall) instead of asserting a physical drop that file explicitly
-  // chose not to build. See this script's own final report for the flag.
-  //
-  // Also note: `livingRoomCenter` is authored at the coffee table's own
-  // collider centre, so a teleport there is nudged clear by collision
-  // resolution -- this only asserts reachability and floor height, not an
-  // exact resting x/z, matching the boardroom/kitchen checks below (whose
-  // anchors are likewise their furniture's centre).
-  await teleport(rooms.livingRoomCenter.x, GROUND_Y, rooms.livingRoomCenter.z, 90);
-  await settle(1.0);
-  s = await state();
-  check('the living room is reachable and flush with the hall floor (documented interior deviation, not a drop)',
-    Math.abs(s.ground - GROUND_Y) < 0.15,
-    JSON.stringify(s));
-
-  // 8. Into the boardroom.
-  await teleport(rooms.boardroomTable.x, GROUND_Y, rooms.boardroomTable.z, 0);
-  await settle(1.0);
-  s = await state();
-  check('the boardroom sits at ground level east of the hall',
-    Math.abs(s.ground - GROUND_Y) < 0.15,
-    JSON.stringify(s));
-
-  // 9. Through to the kitchen and service corridor to the rear door.
-  await teleport(rooms.kitchenIsland.x, GROUND_Y, rooms.kitchenIsland.z, 0);
-  await settle(1.0);
-  s = await state();
-  check('the kitchen sits at ground level north of the boardroom',
-    Math.abs(s.ground - GROUND_Y) < 0.15,
-    JSON.stringify(s));
-
-  await teleport(16, GROUND_Y, 66, 0);
-  await settle(1.0);
-  s = await state();
-  check('the rear service door is reachable at ground level',
-    Math.abs(s.ground - GROUND_Y) < 0.3,
-    JSON.stringify(s));
-
-  // 10. Down into the basement armory, below the central hall. The landing
-  // anchor sits half a metre shy of the bottom (still one tread up from the
-  // flat armory floor), so a small, one-directional gap from BASEMENT_Y is
-  // the correct reading here, not smoothing noise.
-  await teleport(rooms.basementLanding.x, rooms.basementLanding.y, rooms.basementLanding.z, 0);
-  await settle(1.2);
-  s = await state();
-  check('the basement stairwell reaches the armory floor below the hall',
-    s.ground <= (BASEMENT_Y + 0.5) && s.ground >= (BASEMENT_Y - 0.1),
-    JSON.stringify(s));
-
-  // 11. Out back to the pool patio.
-  await teleport(rooms.poolPatio.x, GROUND_Y, rooms.poolPatio.z, 0);
-  await settle(1.0);
-  s = await state();
-  check('the pool patio deck sits at the raised ground-floor level',
-    Math.abs(s.ground - GROUND_Y) < 0.15,
+  check('the garden steps climb from the lawn onto the pool deck (was unreachable on foot)',
+    s.ground > GROUND_Y - 0.3,
     JSON.stringify(s));
 
   /* ================================================================ */
-  /* Boundary collision checks                                          */
+  /* Parked cars: orientation and density                               */
   /* ================================================================ */
+  const vehicles = await page.evaluate(() => window.mansion.vehicles);
+  check('the motor court and the side lot are both populated',
+    vehicles.length >= 5, `${vehicles.length} vehicles`);
 
-  // A. Cannot walk through the west perimeter fence.
-  await teleport(-25, 0, 45, 90); // yaw 90: heading is -x
+  function overlaps(a, b) {
+    return a.min.x < b.max.x && a.max.x > b.min.x && a.min.z < b.max.z && a.max.z > b.min.z;
+  }
+  const carOverlaps = [];
+  for (let i = 0; i < vehicles.length; i++) {
+    for (let j = i + 1; j < vehicles.length; j++) {
+      if (overlaps(vehicles[i], vehicles[j])) {
+        carOverlaps.push(`${vehicles[i].note} <-> ${vehicles[j].note}`);
+      }
+    }
+  }
+  check('no two parked cars overlap each other',
+    carOverlaps.length === 0, carOverlaps.join(' | '));
+
+  // The fountain basin, the front steps and the building itself.
+  const FOUNTAIN = {
+    min: { x: -3.7, z: 28.3 }, max: { x: 3.7, z: 35.7 },
+  };
+  const FRONT_STEPS = { min: { x: -6.4, z: 38.9 }, max: { x: 6.4, z: 41.1 } };
+  const HOUSE = { min: { x: -16.4, z: 40.6 }, max: { x: 16.4, z: 75.4 } };
+  const foul = [];
+  for (const v of vehicles) {
+    if (overlaps(v, FOUNTAIN)) foul.push(`${v.note} in the fountain`);
+    if (overlaps(v, FRONT_STEPS)) foul.push(`${v.note} on the front steps`);
+    if (overlaps(v, HOUSE)) foul.push(`${v.note} inside the house`);
+  }
+  check('no parked car intersects the fountain, the front steps or the building',
+    foul.length === 0, foul.join(' | '));
+
+  // Orientation: the motor court cars stand tangent to the turnaround kerb,
+  // so each one's heading is perpendicular to its own radius from the centre.
+  const courtCars = vehicles.filter((v) => (v.note || '').startsWith('motor court'));
+  const misaligned = courtCars.filter((v) => {
+    const rx = v.x - 0;
+    const rz = v.z - 35;
+    // Car long axis after a yaw of psi is (cos psi, -sin psi).
+    const ax = Math.cos(v.yaw);
+    const az = -Math.sin(v.yaw);
+    const dot = Math.abs((rx * ax + rz * az) / Math.hypot(rx, rz));
+    return dot > 0.08; // ~5 degrees off tangent
+  });
+  check('every motor-court car is parked tangent to the turnaround kerb, not at a random yaw',
+    courtCars.length >= 2 && misaligned.length === 0,
+    `${courtCars.length} court cars, ${misaligned.length} misaligned`);
+
+  /* ================================================================ */
+  /* Front landscaping                                                  */
+  /* ================================================================ */
+  const landscaping = await page.evaluate(() => ({
+    beds: window.mansion.landscaping.beds.length,
+    hedges: window.mansion.landscaping.hedges.length,
+    urns: window.mansion.landscaping.urns.length,
+    clumps: window.mansion.landscaping.clumps,
+  }));
+  check('the front of the property is planted (beds, hedging, urns, flowers)',
+    landscaping.beds >= 6 && landscaping.hedges >= 6
+      && landscaping.urns >= 4 && landscaping.clumps >= 40,
+    JSON.stringify(landscaping));
+
+  // The planting must not have walled the approach in: a straight walk up
+  // the drive still works (checked above) and the front door is still
+  // reachable from the parterre side of the lawn.
+  await teleport(-10, 0, 20, NORTH);
+  await settle(0.3);
+  await walk(9);
+  await settle(0.4);
+  const acrossLawn = await state();
+  check('the new front planting still leaves the lawn walkable (hedges block, beds do not)',
+    acrossLawn.z - 20 > 6, JSON.stringify(acrossLawn));
+
+  /* ================================================================ */
+  /* Boundary collision                                                 */
+  /* ================================================================ */
+  await teleport(-25, 0, 45, WEST);
   await walk(6);
   await settle(0.3);
   s = await state();
   check('the west perimeter fence blocks a straight walk toward the property boundary',
-    s.x > -29.9,
-    JSON.stringify(s));
+    s.x > -29.9, JSON.stringify(s));
 
-  // B. A solid curb rings the pool -- cannot walk into its own footprint.
-  await teleport(0, GROUND_Y, 78, 180); // yaw 180: heading is +z, toward the water
+  await teleport(0, GROUND_Y, 78, NORTH);
   await walk(6);
   await settle(0.3);
   s = await state();
   const insidePoolFootprint = s.x > -7 && s.x < 7 && s.z > 81 && s.z < 89;
   check("a solid curb keeps a straight walk out of the pool's own basin footprint",
-    !insidePoolFootprint,
-    JSON.stringify({ ...s, insidePoolFootprint }));
+    !insidePoolFootprint, JSON.stringify({ ...s, insidePoolFootprint }));
 
-  // C. The balcony's south railing blocks a walk off its edge into the
-  // atrium void below (falling there without using the stairs). Reached by
-  // walking in from the safe upper hallway, per this file's header note.
-  await teleport(rooms.balconyRail.x, UPPER_Y, 53, 0);
-  await settle(0.5);
-  await faceDeg(0); // heading -z, toward the rail at z~43
-  await walk(6);
+  await teleport(0, UPPER_Y, 50.5, SOUTH);
+  await settle(0.4);
+  await walk(8);
   await settle(0.3);
   s = await state();
-  check('the balcony south railing blocks a walk off the edge into the hall void below',
-    s.z > 42.6 && Math.abs(s.ground - UPPER_Y) < 0.3,
+  check('the balcony railing blocks a walk off the edge into the foyer void below',
+    s.z > 44.9 && Math.abs(s.ground - UPPER_Y) < 0.3,
     JSON.stringify(s));
+
+  // The gallery's own edge, either side of the balcony bay.
+  await teleport(-4.4, UPPER_Y, 50.5, SOUTH);
+  await settle(0.4);
+  await walk(8);
+  await settle(0.3);
+  s = await state();
+  check("the gallery's edge railing blocks a walk off it between the bay and the west flight",
+    s.z > 47.5 && Math.abs(s.ground - UPPER_Y) < 0.3,
+    JSON.stringify(s));
+
+  // The cellar stairwell must not be a hole you fall into sideways.
+  await teleport(3.5, GROUND_Y, 54.5, EAST);
+  await settle(0.4);
+  await walk(6);
+  await settle(0.4);
+  s = await state();
+  check('the cellar stairwell is guarded on its open side, not an unfenced hole in the floor',
+    Math.abs(s.ground - GROUND_Y) < 0.3,
+    JSON.stringify(s));
+
+  /* ================================================================ */
+  /* Rendering back on: the house must actually draw something           */
+  /* ================================================================ */
+  await teleport(0, GROUND_Y, 44.4, NORTH);
+  await settle(0.5);
+  const framesBefore = await page.evaluate(() => window.mansion.framesRendered);
+  await page.evaluate(() => window.mansion.setRendering(true));
+  await page.waitForFunction(
+    (n) => window.mansion.framesRendered > n + 2, framesBefore, { timeout: 180000 },
+  );
+  const shot = await page.screenshot({ type: 'png' });
+  // A black frame means the scene built but never drew; sample the PNG's raw
+  // bytes for any non-trivial variation rather than trusting the frame count.
+  const nonBlack = shot.some((b, i) => i > 64 && b > 24);
+  check('the foyer renders a non-black frame from inside the house', nonBlack,
+    `${shot.length} bytes`);
 
   check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
 } finally {

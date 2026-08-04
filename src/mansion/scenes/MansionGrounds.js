@@ -63,8 +63,38 @@ export const ROOF_Y1 = 10.6;
 export const WALL_T = 0.4;
 
 export const BUILDING = Object.freeze({ x0: -16, x1: 16, z0: 41, z1: 75 });
-/** The central hall's footprint: double-height atrium above, armory below. */
-export const ATRIUM = Object.freeze({ x0: -4, x1: 4, z0: 41, z1: 49 });
+
+/* ---------------------------------------------------------------------------
+ * LAYOUT DATUM (2026-08-04 rework, owner's brief).
+ *
+ * "I want the Conference room to be at the top of the stairs and the stairs to
+ *  be a big horse shoe with two sets of stairs going up with the balcony in the
+ *  middle and when you walk in the foyer is a big open area leading to that
+ *  horseshoe stair case. I want the conference room then behind it Lous office
+ *  up there at the top of the stairs in the middle. Then bed rooms on the side."
+ *
+ * The three rectangles below are the *structural* consequences of that brief --
+ * they are the only places the shell differs from a plain three-slab box, so
+ * both this file and MansionInterior.js read them from here rather than each
+ * keeping its own copy:
+ *
+ *   FOYER_VOID     the upper floor slab is missing over this footprint, which
+ *                  is what makes the entrance hall double-height. The two
+ *                  horseshoe flights and the central balcony bay are built
+ *                  inside it by MansionInterior.js.
+ *   BASEMENT_ROOM  the armory, a genuine room below the rear of the house.
+ *   BASEMENT_SHAFT the stairwell down to it: a hole cut clean through the
+ *                  ground-floor podium, so the descending stair is the ONLY
+ *                  walkable surface inside this rect (see MansionInterior's
+ *                  floorAt -- the previous layout offered the flat ground floor
+ *                  as a candidate everywhere in the hall, which is exactly why
+ *                  the basement stair could never be walked down).
+ * ------------------------------------------------------------------------- */
+export const FOYER_VOID = Object.freeze({ x0: -8.85, x1: 8.85, z0: 41, z1: 48 });
+export const BASEMENT_ROOM = Object.freeze({ x0: -9, x1: 9, z0: 50, z1: 64 });
+export const BASEMENT_SHAFT = Object.freeze({ x0: 5.4, x1: 9, z0: 51, z1: 58 });
+/** Kept for readers of the old name: the double-height entrance footprint. */
+export const ATRIUM = FOYER_VOID;
 
 export const GLASS_SILL = GROUND_Y + 0.15; // 1.35 -- floor-to-near-ceiling glass
 export const GLASS_TOP = GROUND_Y + 3.35; // 4.55
@@ -76,7 +106,14 @@ export const REAR_DOOR = Object.freeze({
   x: 16, y: GROUND_Y, z: 66, z0: 64.8, z1: 67.2, y0: GROUND_Y, y1: GROUND_Y + 2.4,
 });
 
-export const FOUNTAIN_POS = Object.freeze({ x: 0, z: 35 });
+/* Moved 3 m south of the turnaround's centre (it used to sit at z=35). The
+ * basin's widest tier is r=6, so from z=35 its rim reached z=41 -- the
+ * building's own south wall -- and visibly intersected the front steps and
+ * portico it was supposed to sit in front of. From z=32 the rim stops at
+ * z=38, a clear metre short of the bottom tread, which also opens up the
+ * forecourt between the fountain and the front door for the planting and the
+ * parked cars. */
+export const FOUNTAIN_POS = Object.freeze({ x: 0, z: 32 });
 export const POOL = Object.freeze({
   x0: -7, x1: 7, z0: 81, z1: 89, y: GROUND_Y - 1.3,
 });
@@ -85,7 +122,7 @@ export const SECURITY_BOOTH_POS = Object.freeze({ x: 8, z: 4 });
 /* ================================================================== */
 /* Material palette -- procedural only, matching the rest of the game. */
 /* ================================================================== */
-const M_GRASS = mat({ color: 0x1d3a24, roughness: 1 });
+const M_GRASS = mat({ color: 0x223f28, roughness: 1 });
 const M_CURB = mat({ color: 0xdedac9, roughness: 0.55 });
 const M_ASPHALT = mat({ color: 0x2b2c32, roughness: 0.85 });
 
@@ -96,6 +133,14 @@ const M_GOLD = mat({ color: 0xcda434, roughness: 0.3, metalness: 0.8 });
 const M_GLASS_TINT = mat({
   color: 0x8fc7dc, roughness: 0.1, metalness: 0.05, transparent: true, opacity: 0.4,
 });
+/** Bathroom glazing -- you can tell there is a light on, and nothing else. */
+const M_GLASS_FROST = mat({
+  color: 0xd6e4ea, roughness: 0.85, metalness: 0, transparent: true, opacity: 0.72,
+});
+/** Window frames/mullions: dark bronze, so the glazing reads as glazing. */
+const M_MULLION = mat({ color: 0x2a2620, roughness: 0.5, metalness: 0.35 });
+/** The basement's ceiling soffit -- poured concrete, not the podium's stone. */
+const M_BASEMENT_CEIL = mat({ color: 0x2b2925, roughness: 0.97 });
 
 const M_MARBLE = mat({ color: 0xe6e0d2, roughness: 0.32 });
 const M_MARBLE_DK = mat({ color: 0xb7ae98, roughness: 0.4 });
@@ -455,6 +500,9 @@ export function buildMansionGrounds(scene = null) {
   /** A solid box: mesh + matching collider. Used for every exterior wall,
    * pier, lintel, glass pane and basement wall segment. */
   const wallRects = [];
+  /* Sight blockers for the look-prompt raycast -- see the matching note in
+   * MansionInterior.js. Exterior walls, glazing and the floor slabs. */
+  const occluders = [];
   function ext(x0, x1, y0, y1, z0, z1, tag, material = M_STUCCO, addCollider = true) {
     const m = box({
       size: [x1 - x0, y1 - y0, z1 - z0],
@@ -463,6 +511,7 @@ export function buildMansionGrounds(scene = null) {
       name: tag,
     });
     root.add(m);
+    occluders.push(m);
     if (addCollider) solid(x0, x1, y0, y1, z0, z1);
     wallRects.push({ tag, x0, x1, y0, y1, z0, z1 });
     return m;
@@ -495,8 +544,26 @@ export function buildMansionGrounds(scene = null) {
 
   /* ---------------------------------------------------------------- */
   /* Ground plane                                                       */
+  /*                                                                     */
+  /* Notched around the building footprint rather than run straight      */
+  /* through it. The basement stair now cuts a real hole through the     */
+  /* podium, and a lawn slab spanning the whole property would be        */
+  /* visible through that hole from below -- you would stand in the      */
+  /* armory looking up at the underside of the front garden. The four    */
+  /* segments meet the podium's own sides flush, so nothing gaps.        */
   /* ---------------------------------------------------------------- */
-  root.add(box({ size: [70, 0.06, 100], pos: [0, -0.03, 45], mat: M_GRASS }));
+  for (const [gx0, gx1, gz0, gz1] of [
+    [-35, BUILDING.x0, -5, 95],
+    [BUILDING.x1, 35, -5, 95],
+    [BUILDING.x0, BUILDING.x1, -5, BUILDING.z0],
+    [BUILDING.x0, BUILDING.x1, BUILDING.z1, 95],
+  ]) {
+    root.add(box({
+      size: [gx1 - gx0, 0.06, gz1 - gz0],
+      pos: [(gx0 + gx1) / 2, -0.03, (gz0 + gz1) / 2],
+      mat: M_GRASS,
+    }));
+  }
 
   /* ---------------------------------------------------------------- */
   /* Street gate: pillars + emblems + open wrought-iron leaves           */
@@ -648,13 +715,22 @@ export function buildMansionGrounds(scene = null) {
   // import comment) so each surface below gets its own repeat count scaled
   // to roughly 0.5m pavers rather than inheriting one another's tiling.
   const paverBase = tileTex(1, '#5c5648', '#9a9484');
+  // Memoised on the rounded repeat pair: `tiled()` clones, and a clone is a
+  // separate GPU upload, so calling this once per paved surface without a
+  // cache buys nothing but texture memory.
+  const paverCache = new Map();
   function paverMaterial(w, l) {
-    return mat({
-      map: tiled(paverBase, Math.max(1, Math.round(w / 0.5)), Math.max(1, Math.round(l / 0.5))),
-      color: 0xffffff,
-      roughness: 0.74,
-      unique: true,
-    });
+    const rx = Math.max(1, Math.round(w / 0.5));
+    const ry = Math.max(1, Math.round(l / 0.5));
+    const key = `${rx}x${ry}`;
+    let m = paverCache.get(key);
+    if (!m) {
+      m = mat({
+        map: tiled(paverBase, rx, ry), color: 0xffffff, roughness: 0.74, unique: true,
+      });
+      paverCache.set(key, m);
+    }
+    return m;
   }
 
   root.add(box({ size: [8, 0.06, 23], pos: [0, 0.02, 11.5], mat: paverMaterial(8, 23) }));
@@ -708,7 +784,10 @@ export function buildMansionGrounds(scene = null) {
   // 5.5-intensity recipe used for path lighting elsewhere in this file, so
   // these two run brighter -- their whole job is making the cars read, not
   // evenly lighting a walking path.
-  const CAR_LAMP_POSITIONS = [[10.3, 34], [-14.25, 28.5]];
+  // (10.3,34) moved out to (12.5,33): the motor court's new tangent parking
+  // puts a Lincoln through the old position. (-12.5,33) is its mirror, added
+  // so both halves of the court's car line are lit the same.
+  const CAR_LAMP_POSITIONS = [[14.0, 33], [-14.0, 33], [-14.25, 28.5]];
   CAR_LAMP_POSITIONS.forEach(([x, z]) => lampPost(x, z, true, 11));
 
   /* ---------------------------------------------------------------- */
@@ -857,6 +936,22 @@ export function buildMansionGrounds(scene = null) {
     //      shrinking the blocked footprint enough that the front steps (see
     //      buildFrontEntry(), moved back to spec-adjacent z:39-40.5) clear it
     //      with room to spare.
+    /* Uplights at the basin rim. The statue is a polished-silver metal, which
+     * at night with no light on it is simply a black silhouette against the
+     * sky -- the centrepiece of the whole approach, unreadable. Four small
+     * warm lights round the pedestal pick it out the way a real one would. */
+    const statueLights = [];
+    for (const [ax, az] of [[-2.4, -2.4], [2.4, -2.4], [-2.4, 2.4], [2.4, 2.4]]) {
+      root.add(cylinder({
+        r: 0.13, h: 0.12, pos: [fx + ax, 1.72, fz + az], mat: M_MARBLE_DK,
+      }));
+      const l = new THREE.PointLight(0xffe2b4, 3.4, 9, 2);
+      l.position.set(fx + ax, 1.9, fz + az);
+      root.add(l);
+      statueLights.push(l);
+    }
+    void statueLights;
+
     const fountainColliderBody = solid(fx - 3.6, fx + 3.6, 0.3, 2.2, fz - 3.6, fz + 3.6);
     const fountainColliderPedestal = solid(fx - 1.3, fx + 1.3, 2.2, 6.6, fz - 1.3, fz + 1.3);
 
@@ -873,23 +968,86 @@ export function buildMansionGrounds(scene = null) {
 
   /* ---------------------------------------------------------------- */
   /* Parked family vehicles                                             */
+  /*                                                                     */
+  /* Owner playtest, 2026-08-03: "Car orientation and density" -- the     */
+  /* cars out front are wrong. They were: three on the side lot at 4 m    */
+  /* centres though a Lincoln is 5.4 m long, so all three physically      */
+  /* interpenetrated; and three more scattered across the turnaround at   */
+  /* hand-picked yaws of -0.4/0.3/0.35 rad, which line up with nothing --  */
+  /* not the kerb, not the drive, not each other -- so they read as cars   */
+  /* dropped on the lawn rather than cars somebody parked.                 */
+  /*                                                                       */
+  /* Both are now generated from the geometry they are parked on:          */
+  /*                                                                       */
+  /*   MOTOR COURT -- four cars standing on the turnaround circle, each    */
+  /*   TANGENT to the kerb at its own bearing, so the whole line follows    */
+  /*   the curve and everyone is pointing the same way round it (one-way,   */
+  /*   anticlockwise, nose toward the way out). A car is authored long on    */
+  /*   local +X (see bing/vehicles.js), so the yaw that puts its long axis   */
+  /*   on the tangent at bearing t is -(pi/2 + t).                          */
+  /*                                                                        */
+  /*   SIDE LOT -- three cars nose-in to the west edge of the spur on real  */
+  /*   3.4 m bay centres (a 2.05 m SUV therefore keeps 1.35 m of door        */
+  /*   clearance), with the bay lines painted under them.                    */
+  /*                                                                        */
+  /* Every spot is checked for overlap by tools/verify-mansion.mjs, against */
+  /* the other cars and against the fountain, the steps and the building --  */
+  /* which is the check that would have caught the old arrangement.         */
   /* ---------------------------------------------------------------- */
-  // Two of these spots (index 1 and 2, below) originally sat at z=40/41 --
-  // right at the building's south wall (BUILDING.z0=41). At their authored
-  // yaw, the rotated AABB (see makeVehicleCollider()) reached ~0.9m and
-  // ~2.3m respectively past that wall plane into the boardroom/living-room
-  // interior airspace. Both are pulled back to z=30-37.6 here, checked by
-  // hand against every neighbour (the fountain's tiered collider, the front
-  // steps/parapets, the palm at (11,35)/(-11,35), and each other) so nothing
-  // in this new arrangement overlaps anything else either.
+  const COURT_CENTRE = { x: 0, z: 35 };
+  /**
+   * A car standing tangent to the turnaround kerb at bearing `deg`, `r` out
+   * from the fountain.
+   *
+   * The bearings and radii below are not decorative. They keep the cars OUT
+   * of the two things a walker needs: the corridor either side of the
+   * fountain basin (which is the only way from the drive to the front door,
+   * since the basin blocks the centreline), and the run of turnaround in
+   * front of the steps. The pair nearest the drive sit further out at 11.5 m
+   * so that corridor stays about 1.6 m wide rather than a squeeze.
+   */
+  function courtSpot(deg, r, kind, color) {
+    const t = THREE.MathUtils.degToRad(deg);
+    return {
+      x: COURT_CENTRE.x + Math.cos(t) * r,
+      z: COURT_CENTRE.z + Math.sin(t) * r,
+      yaw: -(Math.PI / 2 + t),
+      kind,
+      color,
+      note: `motor court, bearing ${deg}`,
+    };
+  }
+  const SPUR_X = -18.7; // nose 0.6 m off the spur's west edge for a 5.4 m car
+  /* TWO cars in the motor court, not four, and both due west and due east of
+   * the basin rather than scattered round it.
+   *
+   * This is the "density" half of the owner's note. The turnaround is 24 m
+   * across with a 7 m fountain in the middle of it, so the only route from
+   * the drive to the front door is one of the two corridors either side of
+   * the basin -- and a car parked on the south-west or south-east arc narrows
+   * that corridor to under two metres. Parked level with the fountain the
+   * cars sit where a car actually would (nearest the door, out of the
+   * turning circle) and both corridors stay about five metres wide. */
   const CAR_SPOTS = [
-    { x: 9, z: 30, kind: 'lincoln', color: 0x101014, yaw: -0.4 },
-    { x: 9.5, z: 37.6, kind: 'suv', color: 0x2a2a30, yaw: 0.3 },
-    { x: -9.5, z: 30, kind: 'sedan', color: 0x1c1c22, yaw: 0.35 },
-    { x: -19, z: 24, kind: 'lincoln', color: 0x2e2e36, yaw: Math.PI / 2 },
-    { x: -19, z: 28, kind: 'suv', color: 0x151519, yaw: Math.PI / 2 },
-    { x: -19, z: 32, kind: 'sedan', color: 0x1a1a20, yaw: Math.PI / 2 },
+    courtSpot(180, 11.0, 'lincoln', 0x101014),
+    courtSpot(0, 11.0, 'suv', 0x2a2a30),
+    {
+      x: SPUR_X, z: 22.5, kind: 'suv', color: 0x151519, yaw: Math.PI, note: 'side lot bay 1',
+    },
+    {
+      x: SPUR_X, z: 25.9, kind: 'sedan', color: 0x1a1a20, yaw: Math.PI, note: 'side lot bay 2',
+    },
+    {
+      x: SPUR_X, z: 29.3, kind: 'lincoln', color: 0x2e2e36, yaw: Math.PI, note: 'side lot bay 3',
+    },
   ];
+  // Painted bay lines under the side lot, so the row reads as a car park.
+  const M_BAY_LINE = mat({ color: 0xb9b3a2, roughness: 0.8 });
+  for (const bz of [20.8, 24.2, 27.6, 31.0]) {
+    root.add(box({
+      size: [5.6, 0.02, 0.12], pos: [SPUR_X, 0.06, bz], mat: M_BAY_LINE, cast: false,
+    }));
+  }
   const vehicles = CAR_SPOTS.map((spot) => {
     const car = makeCar(spot.kind, spot.color);
     car.group.position.set(spot.x, 0, spot.z);
@@ -898,7 +1056,7 @@ export function buildMansionGrounds(scene = null) {
     const worldCollider = makeVehicleCollider(car);
     colliders.push(worldCollider);
     return {
-      ...car, x: spot.x, z: spot.z, worldCollider,
+      ...car, x: spot.x, z: spot.z, yaw: spot.yaw, note: spot.note, worldCollider,
     };
   });
 
@@ -983,12 +1141,234 @@ export function buildMansionGrounds(scene = null) {
     root.add(crown);
     solid(x - 0.4, x + 0.4, 0, h, z - 0.4, z + 0.4);
   }
+  /* The pair at (-9,45) and (9,45) were INSIDE the house -- BUILDING is
+   * x:-16..16, z:41..75, so both stood in the middle of the ground-floor
+   * west and east wings with their crowns in the upper storey. Removed. The
+   * pair at (+/-11,35) fouled the motor court's new tangent parking, so they
+   * move out to the corners of the facade planting. */
   const PALM_SPOTS = [
-    [-6, 6], [6, 6], [-6, 14], [6, 16],
-    [-11, 35], [11, 35], [-9, 45], [9, 45],
-    [14, 6],
+    [-6, 6], [6, 6], [-6, 14], [6, 16], [14, 6],
+    [-13.5, 38.6], [13.5, 38.6],
+    [-24, 12], [24, 12], [-21, 38],
   ];
   for (const [x, z] of PALM_SPOTS) buildPalm(x, z, 5.5 + Math.random() * 1.4);
+
+  /* ---------------------------------------------------------------- */
+  /* Flowers and landscaping to the front (owner playtest item 1)       */
+  /*                                                                     */
+  /* The approach was mown grass, pavers and palms and nothing else. This */
+  /* adds the planting a house like this would actually have: clipped box */
+  /* hedging outlining the beds, mass-planted colour inside them, stone    */
+  /* edging, urns flanking the front steps, and foundation planting along  */
+  /* the facade.                                                          */
+  /*                                                                       */
+  /* Everything here is grown from two small factories so the whole scheme */
+  /* costs a handful of shared materials: `hedge()` (a clipped block with   */
+  /* a real collider, because a 1 m box hedge is a real obstacle) and       */
+  /* `bloomClump()` (a foliage mound plus a few bloom heads, no collider,   */
+  /* because you can walk through a bed of pansies). Beds themselves are    */
+  /* flat and un-collided, which keeps them out of the player's way and     */
+  /* means none of this can become another invisible wall.                  */
+  /* ---------------------------------------------------------------- */
+  const M_SOIL = mat({ color: 0x2a1d14, roughness: 1 });
+  const M_BED_EDGE = mat({ color: 0xbdb6a2, roughness: 0.7 });
+  const M_HEDGE = mat({ color: 0x244f2c, roughness: 1 });
+  const M_HEDGE_TOP = mat({ color: 0x27562f, roughness: 1 });
+  const M_FOLIAGE = mat({ color: 0x37793f, roughness: 1 });
+  const M_URN = mat({ color: 0xcac2ac, roughness: 0.62 });
+  const BLOOM_MATS = [
+    mat({ color: 0xd8324a, roughness: 0.75 }), // scarlet
+    mat({ color: 0xf2e8d8, roughness: 0.75 }), // white
+    mat({ color: 0xe8a91c, roughness: 0.72 }), // gold -- the family colour
+    mat({ color: 0xd06bb8, roughness: 0.75 }), // pink
+    mat({ color: 0x8a5fd0, roughness: 0.75 }), // lavender
+  ];
+  const landscape = { beds: [], hedges: [], urns: [], clumps: 0 };
+
+  /** A rectangular planting bed: recessed soil inside a low stone edge. */
+  function bed(x0, x1, z0, z1, y = 0) {
+    root.add(box({
+      size: [x1 - x0, 0.1, z1 - z0],
+      pos: [(x0 + x1) / 2, y + 0.05, (z0 + z1) / 2],
+      mat: M_SOIL,
+      cast: false,
+    }));
+    for (const [ex0, ex1, ez0, ez1] of [
+      [x0 - 0.16, x1 + 0.16, z0 - 0.16, z0],
+      [x0 - 0.16, x1 + 0.16, z1, z1 + 0.16],
+      [x0 - 0.16, x0, z0, z1],
+      [x1, x1 + 0.16, z0, z1],
+    ]) {
+      root.add(box({
+        size: [ex1 - ex0, 0.16, ez1 - ez0],
+        pos: [(ex0 + ex1) / 2, y + 0.08, (ez0 + ez1) / 2],
+        mat: M_BED_EDGE,
+        cast: false,
+      }));
+    }
+    landscape.beds.push({
+      x0, x1, z0, z1,
+    });
+  }
+
+  /** A clipped box hedge. Real obstacle, so it carries a real collider. */
+  function hedge(x0, x1, z0, z1, h = 0.85, y = 0) {
+    root.add(box({
+      size: [x1 - x0, h, z1 - z0], pos: [(x0 + x1) / 2, y + h / 2, (z0 + z1) / 2], mat: M_HEDGE,
+    }));
+    // A lighter cap face: new growth catches the light, the flanks do not.
+    root.add(box({
+      size: [(x1 - x0) - 0.06, 0.05, (z1 - z0) - 0.06],
+      pos: [(x0 + x1) / 2, y + h, (z0 + z1) / 2],
+      mat: M_HEDGE_TOP,
+      cast: false,
+    }));
+    solid(x0, x1, y, y + h, z0, z1);
+    landscape.hedges.push({
+      x0, x1, z0, z1, h,
+    });
+  }
+
+  /** One flowering plant: a foliage mound with a few bloom heads over it. */
+  function bloomClump(x, z, y = 0, scale = 1, tint = null) {
+    const paint = tint ?? BLOOM_MATS[(Math.random() * BLOOM_MATS.length) | 0];
+    root.add(sphere({
+      r: 0.26 * scale, ry: 0.17 * scale, pos: [x, y + 0.12 * scale, z], mat: M_FOLIAGE, cast: false,
+    }));
+    const heads = 3;
+    for (let i = 0; i < heads; i++) {
+      const a = (i / heads) * Math.PI * 2 + Math.random();
+      const r = 0.05 + Math.random() * 0.15;
+      root.add(sphere({
+        r: 0.065 * scale,
+        pos: [x + Math.cos(a) * r * scale, y + (0.24 + Math.random() * 0.08) * scale, z + Math.sin(a) * r * scale],
+        mat: paint,
+        cast: false,
+      }));
+    }
+    landscape.clumps++;
+  }
+
+  /** Fill a bed with clumps on a jittered grid, one flower colour per bed. */
+  function plantBed(x0, x1, z0, z1, spacing = 1.5, y = 0) {
+    const tint = BLOOM_MATS[(Math.random() * BLOOM_MATS.length) | 0];
+    const nx = Math.max(1, Math.floor((x1 - x0) / spacing));
+    const nz = Math.max(1, Math.floor((z1 - z0) / spacing));
+    for (let i = 0; i < nx; i++) {
+      for (let j = 0; j < nz; j++) {
+        const px = x0 + ((i + 0.5) * (x1 - x0)) / nx + (Math.random() - 0.5) * 0.22;
+        const pz = z0 + ((j + 0.5) * (z1 - z0)) / nz + (Math.random() - 0.5) * 0.22;
+        bloomClump(px, pz, y + 0.1, 0.85 + Math.random() * 0.35, Math.random() < 0.78 ? tint : null);
+      }
+    }
+  }
+
+  /** A stone urn of trailing colour, for flanking a doorway or a step. */
+  function urn(x, z, y = 0) {
+    root.add(cylinder({
+      rTop: 0.42, rBottom: 0.3, h: 0.16, pos: [x, y + 0.08, z], mat: M_URN,
+    }));
+    root.add(cylinder({
+      rTop: 0.26, rBottom: 0.34, h: 0.5, pos: [x, y + 0.41, z], mat: M_URN,
+    }));
+    root.add(cylinder({
+      rTop: 0.5, rBottom: 0.34, h: 0.44, pos: [x, y + 0.86, z], mat: M_URN,
+    }));
+    root.add(sphere({
+      r: 0.44, ry: 0.26, pos: [x, y + 1.12, z], mat: M_FOLIAGE, cast: false,
+    }));
+    const tint = BLOOM_MATS[(Math.random() * BLOOM_MATS.length) | 0];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const r = 0.16 + Math.random() * 0.24;
+      root.add(sphere({
+        r: 0.08,
+        pos: [x + Math.cos(a) * r, y + 1.2 + Math.random() * 0.16, z + Math.sin(a) * r],
+        mat: tint,
+        cast: false,
+      }));
+    }
+    solid(x - 0.5, x + 0.5, y, y + 1.1, z - 0.5, z + 0.5);
+    landscape.urns.push({ x, z });
+  }
+
+  function buildLandscaping() {
+    // 1. Driveway borders: a planted strip outside each kerb, running from
+    // the gate to the turnaround, with the existing lamp row standing in it.
+    for (const side of [-1, 1]) {
+      bed(side > 0 ? 4.35 : -6.7, side > 0 ? 6.7 : -4.35, 1.5, 22);
+      plantBed(side > 0 ? 4.5 : -6.55, side > 0 ? 6.55 : -4.5, 1.8, 21.7, 1.5);
+      // The hedge starts at z=6, north of the security booth and its barrier
+      // arm, rather than running straight through them.
+      hedge(side > 0 ? 6.7 : -7.0, side > 0 ? 7.0 : -6.7, 6, 22, 0.8);
+    }
+
+    // 2. The two front-lawn parterres either side of the drive: a box-hedge
+    // outline with mass-planted colour inside it and a specimen at the centre.
+    const parterres = [
+      { x0: -18, x1: -8.6, z0: 6, z1: 17 },
+      { x0: 8.6, x1: 15, z0: 6, z1: 17 },
+    ];
+    for (const p of parterres) {
+      hedge(p.x0, p.x1, p.z0, p.z0 + 0.45, 0.7);
+      hedge(p.x0, p.x1, p.z1 - 0.45, p.z1, 0.7);
+      hedge(p.x0, p.x0 + 0.45, p.z0, p.z1, 0.7);
+      hedge(p.x1 - 0.45, p.x1, p.z0, p.z1, 0.7);
+      bed(p.x0 + 0.45, p.x1 - 0.45, p.z0 + 0.45, p.z1 - 0.45);
+      plantBed(p.x0 + 0.7, p.x1 - 0.7, p.z0 + 0.7, p.z1 - 0.7, 2.0);
+      // A clipped cone standing in the middle of the parterre.
+      const cx = (p.x0 + p.x1) / 2;
+      const cz = (p.z0 + p.z1) / 2;
+      root.add(cylinder({
+        rTop: 0.04, rBottom: 0.66, h: 2.1, pos: [cx, 1.15, cz], mat: M_HEDGE,
+      }));
+      solid(cx - 0.6, cx + 0.6, 0, 2.1, cz - 0.6, cz + 0.6);
+    }
+
+    // 3. Foundation planting along the facade, either side of the front
+    // steps -- the house met the lawn on a bare stucco line before this.
+    for (const [fx0, fx1] of [[BUILDING.x0, -6.6], [6.6, BUILDING.x1]]) {
+      bed(fx0, fx1, 39.2, 40.5);
+      plantBed(fx0 + 0.3, fx1 - 0.3, 39.4, 40.3, 1.7);
+      for (let sx = fx0 + 1.2; sx < fx1 - 0.8; sx += 2.4) {
+        root.add(sphere({
+          r: 0.55, ry: 0.62, pos: [sx, 0.6, 39.85], mat: M_HEDGE,
+        }));
+        solid(sx - 0.5, sx + 0.5, 0, 1.15, 39.35, 40.35);
+      }
+    }
+
+    // 4. Urns flanking the bottom and the top of the front steps.
+    urn(-7.1, 39.4);
+    urn(7.1, 39.4);
+    urn(-7.1, 36.4);
+    urn(7.1, 36.4);
+
+    // 5. Colour at the gate pillars, where every guest arrives.
+    for (const gx of [-6.4, 6.4]) {
+      bed(gx - 1.5, gx + 1.5, -1.4, 1.4);
+      plantBed(gx - 1.3, gx + 1.3, -1.2, 1.2, 1.25);
+    }
+
+    // 6. A rose bed on the west lawn, with a bench in front of it -- the one
+    // piece of the grounds that is somewhere to sit rather than somewhere to
+    // park. Clear of the side lot (x:-22..-14, z:20..32).
+    bed(-25, -19, 34, 40);
+    plantBed(-24.7, -19.3, 34.3, 39.7, 1.7);
+    for (const bx of [-23.5, -20.5]) {
+      root.add(box({ size: [1.7, 0.09, 0.42], pos: [bx, 0.46, 32.6], mat: M_BED_EDGE }));
+      root.add(box({
+        size: [1.7, 0.5, 0.09], pos: [bx, 0.72, 32.38], mat: M_BED_EDGE, rotX: 0.12,
+      }));
+      for (const lx of [-0.7, 0.7]) {
+        root.add(box({ size: [0.1, 0.44, 0.4], pos: [bx + lx, 0.22, 32.6], mat: M_LAMP_POST }));
+      }
+      solid(bx - 0.9, bx + 0.9, 0, 0.95, 32.2, 32.85);
+    }
+
+    return landscape;
+  }
+  const landscaping = buildLandscaping();
 
   /* ---------------------------------------------------------------- */
   /* Front staircase + entry portico (turnaround y=0 up to GROUND_Y)    */
@@ -1086,6 +1466,16 @@ export function buildMansionGrounds(scene = null) {
   /* Building shell: exterior walls, roofline, floor/roof slabs,        */
   /* door + window openings.                                            */
   /* ---------------------------------------------------------------- */
+  /** Upper-floor window band -- bedrooms, bathrooms, Lou's office. */
+  const UPPER_SILL = UPPER_Y + 0.9; // 6.9
+  const UPPER_HEAD = UPPER_Y + 3.0; // 9.0
+  /** The foyer's entrance glazing is two storeys tall, because the foyer is. */
+  const FOYER_GLASS_TOP = 8.6;
+  /** Kitchen door onto the pool deck (the deck's south edge IS the north wall). */
+  const POOL_DOOR = Object.freeze({
+    x0: 9.6, x1: 12.0, y0: GROUND_Y, y1: GROUND_Y + 2.4,
+  });
+
   function buildShell() {
     const zS0 = BUILDING.z0 - WALL_T;
     const zS1 = BUILDING.z0; // south wall band
@@ -1096,25 +1486,206 @@ export function buildMansionGrounds(scene = null) {
     const xE0 = BUILDING.x1;
     const xE1 = BUILDING.x1 + WALL_T; // east wall band
 
-    // South wall: living-room glass | pier | front door | pier | boardroom glass
-    ext(BUILDING.x0, -4, GLASS_TOP, UPPER_CEILING_Y, zS0, zS1, 'south-lintel-living');
-    ext(-4, FRONT_DOOR.x0, GROUND_Y, UPPER_CEILING_Y, zS0, zS1, 'south-pier-west');
-    ext(FRONT_DOOR.x0, FRONT_DOOR.x1, FRONT_DOOR.y1, UPPER_CEILING_Y, zS0, zS1, 'south-lintel-frontdoor');
-    ext(FRONT_DOOR.x1, 4, GROUND_Y, UPPER_CEILING_Y, zS0, zS1, 'south-pier-east');
-    ext(4, BUILDING.x1, GLASS_TOP, UPPER_CEILING_Y, zS0, zS1, 'south-lintel-boardroom');
-    ext(BUILDING.x0, -4, GLASS_SILL, GLASS_TOP, zS0 + 0.1, zS1 - 0.1, 'glass-living-south', M_GLASS_TINT);
-    ext(4, BUILDING.x1, GLASS_SILL, GLASS_TOP, zS0 + 0.1, zS1 - 0.1, 'glass-boardroom-south', M_GLASS_TINT);
+    const windows = [];
 
-    // East wall: boardroom glass (full depth) | kitchen wall | rear door | kitchen wall
-    ext(xE0, xE1, GLASS_TOP, UPPER_CEILING_Y, BUILDING.z0, 58, 'east-lintel-boardroom');
-    ext(xE0, xE1, GROUND_Y, UPPER_CEILING_Y, 58, REAR_DOOR.z0, 'east-wall-kitchen-a');
-    ext(xE0, xE1, REAR_DOOR.y1, UPPER_CEILING_Y, REAR_DOOR.z0, REAR_DOOR.z1, 'east-lintel-reardoor');
-    ext(xE0, xE1, GROUND_Y, UPPER_CEILING_Y, REAR_DOOR.z1, BUILDING.z1, 'east-wall-kitchen-b');
-    ext(xE0 + 0.1, xE1 - 0.1, GLASS_SILL, GLASS_TOP, BUILDING.z0, 58, 'glass-boardroom-east', M_GLASS_TINT);
+    /**
+     * One exterior wall plane, built as the COMPLEMENT of its openings.
+     *
+     * The previous shell hand-authored every pier and lintel box, which is
+     * why the south wall's piers still described a four-room ground floor
+     * after the rooms behind them moved. This takes the wall's full extent
+     * plus a list of openings and emits the solid segments between them, so
+     * the wall can never disagree with its own windows and doors: cut the
+     * plane at every opening edge, then within each resulting column fill the
+     * vertical gaps that no opening claims.
+     *
+     * `axis` is the plane's normal: 'z' for the south/north walls (so the
+     * along-wall coordinate `u` is x), 'x' for the east/west walls (u is z).
+     * Openings with `glass` get a pane inset into the reveal (and a collider,
+     * because a window is not a doorway); openings without it are true
+     * openings you walk through.
+     */
+    function panelWall({
+      axis, lo, hi, u0, u1, y0, y1, tag, openings = [],
+    }) {
+      const seg = (ua, ub, ya, yb, name, material, inset = 0) => {
+        if (ub - ua < 1e-4 || yb - ya < 1e-4) return;
+        if (axis === 'z') ext(ua, ub, ya, yb, lo + inset, hi - inset, name, material);
+        else ext(lo + inset, hi - inset, ya, yb, ua, ub, name, material);
+      };
+      const cuts = new Set([u0, u1]);
+      for (const o of openings) {
+        cuts.add(THREE.MathUtils.clamp(o.u0, u0, u1));
+        cuts.add(THREE.MathUtils.clamp(o.u1, u0, u1));
+      }
+      const us = [...cuts].sort((a, b) => a - b);
+      for (let i = 0; i < us.length - 1; i++) {
+        const ua = us[i];
+        const ub = us[i + 1];
+        if (ub - ua < 1e-4) continue;
+        const mid = (ua + ub) / 2;
+        const bands = openings
+          .filter((o) => mid > o.u0 && mid < o.u1)
+          .map((o) => [Math.max(y0, o.y0), Math.min(y1, o.y1)])
+          .filter(([a, b]) => b - a > 1e-4)
+          .sort((a, b) => a[0] - b[0]);
+        let cursor = y0;
+        for (const [ba, bb] of bands) {
+          seg(ua, ub, cursor, ba, `${tag}-solid`);
+          cursor = Math.max(cursor, bb);
+        }
+        seg(ua, ub, cursor, y1, `${tag}-solid`);
+      }
+      for (const o of openings) {
+        if (!o.glass) continue;
+        seg(o.u0, o.u1, o.y0, o.y1, `${tag}-${o.id}`, o.frosted ? M_GLASS_FROST : M_GLASS_TINT, 0.11);
+        // Mullions: a bare 7 m sheet of tinted glass reads as a hole in the
+        // wall. Vertical bars every ~2.4 m (plus a transom on anything over
+        // three metres tall) give the glazing a frame without a texture.
+        const span = o.u1 - o.u0;
+        const bays = Math.max(1, Math.round(span / 2.4));
+        for (let i = 1; i < bays; i++) {
+          const u = o.u0 + (span * i) / bays;
+          seg(u - 0.05, u + 0.05, o.y0, o.y1, `${tag}-mullion`, M_MULLION, 0.06);
+        }
+        if (o.y1 - o.y0 > 3.0) {
+          const ty = o.y0 + (o.y1 - o.y0) * 0.62;
+          seg(o.u0, o.u1, ty - 0.05, ty + 0.05, `${tag}-transom`, M_MULLION, 0.06);
+        }
+        windows.push(axis === 'z'
+          ? {
+            id: o.id, x0: o.u0, x1: o.u1, y0: o.y0, y1: o.y1, z0: lo, z1: hi,
+          }
+          : {
+            id: o.id, x0: lo, x1: hi, y0: o.y0, y1: o.y1, z0: o.u0, z1: o.u1,
+          });
+      }
+    }
 
-    // West + north walls: fully solid, no openings specified.
-    ext(xW0, xW1, GROUND_Y, UPPER_CEILING_Y, BUILDING.z0, BUILDING.z1, 'west-wall-full');
-    ext(BUILDING.x0, BUILDING.x1, GROUND_Y, UPPER_CEILING_Y, zN0, zN1, 'north-wall-full');
+    /* -- South wall (the front): living-room glazing | two-storey foyer
+     * entrance glazing either side of the front door | lounge glazing, with
+     * a bedroom window over each wing. ------------------------------------ */
+    panelWall({
+      axis: 'z',
+      lo: zS0,
+      hi: zS1,
+      u0: BUILDING.x0,
+      u1: BUILDING.x1,
+      y0: GROUND_Y,
+      y1: UPPER_CEILING_Y,
+      tag: 'south',
+      openings: [
+        {
+          id: 'livingSouth', u0: BUILDING.x0, u1: -9.2, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        {
+          id: 'bedWestFrontSouth', u0: -13.6, u1: -10.4, y0: UPPER_SILL, y1: UPPER_HEAD, glass: true,
+        },
+        {
+          id: 'foyerSouthWest', u0: -8.8, u1: FRONT_DOOR.x0, y0: GLASS_SILL, y1: FOYER_GLASS_TOP, glass: true,
+        },
+        { id: 'frontDoor', u0: FRONT_DOOR.x0, u1: FRONT_DOOR.x1, y0: GROUND_Y, y1: FRONT_DOOR.y1 },
+        {
+          id: 'frontTransom', u0: FRONT_DOOR.x0, u1: FRONT_DOOR.x1, y0: FRONT_DOOR.y1, y1: FOYER_GLASS_TOP, glass: true,
+        },
+        {
+          id: 'foyerSouthEast', u0: FRONT_DOOR.x1, u1: 8.8, y0: GLASS_SILL, y1: FOYER_GLASS_TOP, glass: true,
+        },
+        {
+          id: 'bedEastFrontSouth', u0: 10.4, u1: 13.6, y0: UPPER_SILL, y1: UPPER_HEAD, glass: true,
+        },
+        {
+          id: 'loungeSouth', u0: 9.2, u1: BUILDING.x1, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+      ],
+    });
+
+    /* -- East wall: the lounge's long glazing, the kitchen window and its
+     * service door, and the east wing's upper windows. -------------------- */
+    panelWall({
+      axis: 'x',
+      lo: xE0,
+      hi: xE1,
+      u0: BUILDING.z0,
+      u1: BUILDING.z1,
+      y0: GROUND_Y,
+      y1: UPPER_CEILING_Y,
+      tag: 'east',
+      openings: [
+        {
+          id: 'loungeEast', u0: BUILDING.z0, u1: 57.6, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        {
+          id: 'kitchenEast', u0: 59.5, u1: 63.5, y0: GROUND_Y + 0.95, y1: GLASS_TOP, glass: true,
+        },
+        { id: 'rearService', u0: REAR_DOOR.z0, u1: REAR_DOOR.z1, y0: GROUND_Y, y1: REAR_DOOR.y1 },
+        {
+          id: 'bedEastFrontEast', u0: 42.6, u1: 46.4, y0: UPPER_SILL, y1: UPPER_HEAD, glass: true,
+        },
+        {
+          id: 'bedEastRearEast', u0: 55.6, u1: 62.4, y0: UPPER_SILL, y1: UPPER_HEAD, glass: true,
+        },
+        {
+          id: 'bathEastEast', u0: 67.6, u1: 71.4, y0: UPPER_SILL + 0.5, y1: UPPER_HEAD - 0.2, glass: true, frosted: true,
+        },
+      ],
+    });
+
+    /* -- West wall: living-room and dining-room glazing, west wing upper
+     * windows. (This wall used to be "fully solid, no openings specified",
+     * which left the living room lit only from the front.) ---------------- */
+    panelWall({
+      axis: 'x',
+      lo: xW0,
+      hi: xW1,
+      u0: BUILDING.z0,
+      u1: BUILDING.z1,
+      y0: GROUND_Y,
+      y1: UPPER_CEILING_Y,
+      tag: 'west',
+      openings: [
+        {
+          id: 'livingWest', u0: 43, u1: 56, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        {
+          id: 'diningWest', u0: 60, u1: 71, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        {
+          id: 'bedWestFrontWest', u0: 42.6, u1: 46.4, y0: UPPER_SILL, y1: UPPER_HEAD, glass: true,
+        },
+        {
+          id: 'bedWestRearWest', u0: 55.6, u1: 62.4, y0: UPPER_SILL, y1: UPPER_HEAD, glass: true,
+        },
+        {
+          id: 'bathWestWest', u0: 67.6, u1: 71.4, y0: UPPER_SILL + 0.5, y1: UPPER_HEAD - 0.2, glass: true, frosted: true,
+        },
+      ],
+    });
+
+    /* -- North wall: Lou's office looks out over the pool, the dining room
+     * gets a garden window, and the kitchen gets the pool door. ----------- */
+    panelWall({
+      axis: 'z',
+      lo: zN0,
+      hi: zN1,
+      u0: BUILDING.x0,
+      u1: BUILDING.x1,
+      y0: GROUND_Y,
+      y1: UPPER_CEILING_Y,
+      tag: 'north',
+      openings: [
+        {
+          id: 'diningNorth', u0: -14.2, u1: -10.2, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        {
+          id: 'officeNorthWest', u0: -6.4, u1: -1.6, y0: UPPER_SILL, y1: UPPER_HEAD + 0.4, glass: true,
+        },
+        {
+          id: 'officeNorthEast', u0: 1.6, u1: 6.4, y0: UPPER_SILL, y1: UPPER_HEAD + 0.4, glass: true,
+        },
+        { id: 'poolDoor', u0: POOL_DOOR.x0, u1: POOL_DOOR.x1, y0: POOL_DOOR.y0, y1: POOL_DOOR.y1 },
+      ],
+    });
 
     // Roof slab (small eave overhang) + gold roofline trim.
     root.add(box({
@@ -1133,62 +1704,87 @@ export function buildMansionGrounds(scene = null) {
       }));
     }
 
-    // Podium/foundation (y:0..GROUND_Y) and upper floor slab (top at UPPER_Y),
-    // both omitting the atrium/basement footprint -- no collider on either,
-    // these are floors, not walls (see `solid()`'s note above).
-    const notchedSegs = [
-      { x0: BUILDING.x0, x1: ATRIUM.x0, z0: BUILDING.z0, z1: BUILDING.z1 },
-      { x0: ATRIUM.x1, x1: BUILDING.x1, z0: BUILDING.z0, z1: BUILDING.z1 },
-      { x0: ATRIUM.x0, x1: ATRIUM.x1, z0: ATRIUM.z1, z1: BUILDING.z1 },
+    /* -- Floor slabs. --------------------------------------------------
+     * Two DIFFERENT notches now, where the old shell had one:
+     *   the podium (ground-floor foundation, y:0..GROUND_Y) is holed only
+     *   where the basement stair cuts through it, and
+     *   the upper-floor slab is holed over the whole double-height foyer.
+     * Neither carries a collider -- these are floors, walked ON, not into. */
+    const podiumSegs = [
+      { x0: BUILDING.x0, x1: BASEMENT_SHAFT.x0, z0: BUILDING.z0, z1: BUILDING.z1 },
+      { x0: BASEMENT_SHAFT.x1, x1: BUILDING.x1, z0: BUILDING.z0, z1: BUILDING.z1 },
+      { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_SHAFT.x1, z0: BUILDING.z0, z1: BASEMENT_SHAFT.z0 },
+      { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_SHAFT.x1, z0: BASEMENT_SHAFT.z1, z1: BUILDING.z1 },
     ];
-    for (const s of notchedSegs) {
-      root.add(box({
+    for (const s of podiumSegs) {
+      const m = box({
         size: [s.x1 - s.x0, GROUND_Y, s.z1 - s.z0],
         pos: [(s.x0 + s.x1) / 2, GROUND_Y / 2, (s.z0 + s.z1) / 2],
         mat: M_PODIUM,
-      }));
+      });
+      root.add(m);
+      occluders.push(m);
     }
-    for (const s of notchedSegs) {
-      root.add(box({
-        size: [s.x1 - s.x0, 0.2, s.z1 - s.z0],
-        pos: [(s.x0 + s.x1) / 2, UPPER_Y - 0.1, (s.z0 + s.z1) / 2],
+    const upperSegs = [
+      { x0: BUILDING.x0, x1: FOYER_VOID.x0, z0: BUILDING.z0, z1: BUILDING.z1 },
+      { x0: FOYER_VOID.x1, x1: BUILDING.x1, z0: BUILDING.z0, z1: BUILDING.z1 },
+      { x0: FOYER_VOID.x0, x1: FOYER_VOID.x1, z0: FOYER_VOID.z1, z1: BUILDING.z1 },
+    ];
+    for (const s of upperSegs) {
+      const m = box({
+        size: [s.x1 - s.x0, 0.28, s.z1 - s.z0],
+        pos: [(s.x0 + s.x1) / 2, UPPER_Y - 0.14, (s.z0 + s.z1) / 2],
         mat: M_PODIUM,
-      }));
+      });
+      root.add(m);
+      occluders.push(m);
     }
 
-    // Basement shell, under the central hall only: floor slab + 4 perimeter
-    // walls (collider) rising from BASEMENT_Y up to just shy of GROUND_Y --
-    // NOT exactly to it. Reaching exactly to GROUND_Y put these colliders'
-    // top face flush with the ground floor's own walking surface, and
-    // core/player.js's own boundary skip (`p.y - eyeHeight > box.max.y`, a
-    // strict `>`) does not skip a collider whose top exactly equals the
-    // walker's feet height -- so a wall this tall silently blocked the
-    // ground-floor archways MansionInterior.js cuts into this exact same
-    // wall plane (x=-4 hall/living, x=4 hall/boardroom), since those
-    // archways' x-span overlaps this wall's x-span. Capping the top at
-    // BASEMENT_WALL_TOP (flush with the underside of Phase 2's hall floor
-    // slab, which sits at GROUND_Y-0.1..GROUND_Y) clears that false block
-    // while still fully enclosing the basement below it. No stairwell
-    // opening is cut here -- the hall floor above this footprint is Phase
-    // 2's to build, and it owns exactly where the descending stair goes.
-    const BASEMENT_WALL_TOP = GROUND_Y - 0.15;
+    /* -- Basement shell, under the rear half of the house. ---------------
+     * Floor slab, four perimeter walls from BASEMENT_Y up to y=0 (the
+     * underside of the podium), and a soffit ceiling with the stair shaft
+     * left open. The walls stop at y=0 rather than reaching GROUND_Y: the
+     * podium above them is a solid block, and a collider whose top is level
+     * with the ground floor's own walking surface is not skipped by
+     * core/player.js's `p.y - eyeHeight > box.max.y` test, so one that tall
+     * would silently block the rooms directly above it. */
     root.add(box({
-      size: [ATRIUM.x1 - ATRIUM.x0, 0.3, ATRIUM.z1 - ATRIUM.z0],
-      pos: [0, BASEMENT_Y - 0.15, (ATRIUM.z0 + ATRIUM.z1) / 2],
+      size: [BASEMENT_ROOM.x1 - BASEMENT_ROOM.x0, 0.3, BASEMENT_ROOM.z1 - BASEMENT_ROOM.z0],
+      pos: [
+        (BASEMENT_ROOM.x0 + BASEMENT_ROOM.x1) / 2,
+        BASEMENT_Y - 0.15,
+        (BASEMENT_ROOM.z0 + BASEMENT_ROOM.z1) / 2,
+      ],
       mat: M_MARBLE_DK,
     }));
-    ext(ATRIUM.x0, ATRIUM.x1, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z0 - 0.3, ATRIUM.z0, 'basement-wall-south', M_PODIUM);
-    ext(ATRIUM.x0, ATRIUM.x1, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z1, ATRIUM.z1 + 0.3, 'basement-wall-north', M_PODIUM);
-    ext(ATRIUM.x0 - 0.3, ATRIUM.x0, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z0, ATRIUM.z1, 'basement-wall-west', M_PODIUM);
-    ext(ATRIUM.x1, ATRIUM.x1 + 0.3, BASEMENT_Y, BASEMENT_WALL_TOP, ATRIUM.z0, ATRIUM.z1, 'basement-wall-east', M_PODIUM);
+    ext(BASEMENT_ROOM.x0, BASEMENT_ROOM.x1, BASEMENT_Y, 0, BASEMENT_ROOM.z0 - 0.3, BASEMENT_ROOM.z0, 'basement-wall-south', M_PODIUM);
+    ext(BASEMENT_ROOM.x0, BASEMENT_ROOM.x1, BASEMENT_Y, 0, BASEMENT_ROOM.z1, BASEMENT_ROOM.z1 + 0.3, 'basement-wall-north', M_PODIUM);
+    ext(BASEMENT_ROOM.x0 - 0.3, BASEMENT_ROOM.x0, BASEMENT_Y, 0, BASEMENT_ROOM.z0, BASEMENT_ROOM.z1, 'basement-wall-west', M_PODIUM);
+    ext(BASEMENT_ROOM.x1, BASEMENT_ROOM.x1 + 0.3, BASEMENT_Y, 0, BASEMENT_ROOM.z0, BASEMENT_ROOM.z1, 'basement-wall-east', M_PODIUM);
+    // Soffit ceiling, notched around the stair shaft so the shaft reads as an
+    // open hole in the floor above rather than a lit ceiling with a gap in it.
+    for (const s of [
+      { x0: BASEMENT_ROOM.x0, x1: BASEMENT_SHAFT.x0, z0: BASEMENT_ROOM.z0, z1: BASEMENT_ROOM.z1 },
+      { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_ROOM.x1, z0: BASEMENT_ROOM.z0, z1: BASEMENT_SHAFT.z0 },
+      { x0: BASEMENT_SHAFT.x0, x1: BASEMENT_ROOM.x1, z0: BASEMENT_SHAFT.z1, z1: BASEMENT_ROOM.z1 },
+    ]) {
+      root.add(box({
+        size: [s.x1 - s.x0, 0.12, s.z1 - s.z0],
+        pos: [(s.x0 + s.x1) / 2, -0.16, (s.z0 + s.z1) / 2],
+        mat: M_BASEMENT_CEIL,
+      }));
+    }
 
-    // Warm light spilling from the two glass rooms, seen from outside.
+    // Warm light spilling from the glazed rooms, seen from outside.
     const livingSpill = new THREE.PointLight(0xffc98a, 7, 14, 2);
-    livingSpill.position.set(-10, 2.6, 41.6);
+    livingSpill.position.set(-12, 2.6, 41.6);
     root.add(livingSpill);
-    const boardroomSpill = new THREE.PointLight(0xffc98a, 7, 14, 2);
-    boardroomSpill.position.set(10, 2.6, 41.6);
-    root.add(boardroomSpill);
+    const loungeSpill = new THREE.PointLight(0xffc98a, 7, 14, 2);
+    loungeSpill.position.set(12, 2.6, 41.6);
+    root.add(loungeSpill);
+    const foyerSpill = new THREE.PointLight(0xffdcae, 9, 18, 2);
+    foyerSpill.position.set(0, 4.2, 41.8);
+    root.add(foyerSpill);
 
     // Facade floodlights, uplighting the entrance stucco.
     const uplightA = new THREE.PointLight(0xffe6c2, 8, 20, 2);
@@ -1200,22 +1796,17 @@ export function buildMansionGrounds(scene = null) {
 
     return {
       wallRects,
-      windows: [
-        {
-          id: 'livingRoomSouth', x0: BUILDING.x0, x1: -4, y0: GLASS_SILL, y1: GLASS_TOP, z0: zS0, z1: zS1,
-        },
-        {
-          id: 'boardroomSouth', x0: 4, x1: BUILDING.x1, y0: GLASS_SILL, y1: GLASS_TOP, z0: zS0, z1: zS1,
-        },
-        {
-          id: 'boardroomEast', x0: xE0, x1: xE1, y0: GLASS_SILL, y1: GLASS_TOP, z0: BUILDING.z0, z1: 58,
-        },
-      ],
+      windows,
       slabs: {
-        podium: notchedSegs.map((s) => ({ ...s, y0: 0, y1: GROUND_Y })),
-        upperFloor: notchedSegs.map((s) => ({ ...s, y0: UPPER_Y - 0.2, y1: UPPER_Y })),
+        podium: podiumSegs.map((s) => ({ ...s, y0: 0, y1: GROUND_Y })),
+        upperFloor: upperSegs.map((s) => ({ ...s, y0: UPPER_Y - 0.28, y1: UPPER_Y })),
         basementFloor: {
-          x0: ATRIUM.x0, x1: ATRIUM.x1, z0: ATRIUM.z0, z1: ATRIUM.z1, y0: BASEMENT_Y - 0.3, y1: BASEMENT_Y,
+          x0: BASEMENT_ROOM.x0,
+          x1: BASEMENT_ROOM.x1,
+          z0: BASEMENT_ROOM.z0,
+          z1: BASEMENT_ROOM.z1,
+          y0: BASEMENT_Y - 0.3,
+          y1: BASEMENT_Y,
         },
         roof: {
           x0: BUILDING.x0 - 0.4, x1: BUILDING.x1 + 0.4, z0: BUILDING.z0 - 0.4, z1: BUILDING.z1 + 0.4, y0: ROOF_Y0, y1: ROOF_Y1,
@@ -1337,8 +1928,54 @@ export function buildMansionGrounds(scene = null) {
       buildTikiTorch(-12, 93.5), buildTikiTorch(12, 93.5),
     ];
 
+    /* Garden steps up onto the deck.
+     *
+     * This deck is a flat 1.2 m platform poured at GROUND_Y, and until now it
+     * had no ramp, no steps and no door: on foot the patio was unreachable
+     * from anywhere, which the composition root flagged as a known gap and
+     * left alone. It now has both ends of a real route -- the kitchen's pool
+     * door through the north wall (see POOL_DOOR in buildShell) and this run
+     * of steps up from the west lawn, for anyone who walks round the outside
+     * of the house instead. Six lerp-stepped treads, the same technique the
+     * front entrance and the service ramp already use. */
+    const stepsX0 = POOL.x0 - pad - 2.6;
+    const stepsX1 = POOL.x0 - pad;
+    const stepsZ0 = 83;
+    const stepsZ1 = 87;
+    for (let i = 0; i < 6; i++) {
+      const t = i / 6;
+      root.add(box({
+        size: [(stepsX1 - stepsX0) / 6 + 0.06, 0.16, stepsZ1 - stepsZ0],
+        pos: [
+          THREE.MathUtils.lerp(stepsX0, stepsX1, t),
+          THREE.MathUtils.lerp(0, GROUND_Y, t) + 0.08,
+          (stepsZ0 + stepsZ1) / 2,
+        ],
+        mat: M_DECK,
+      }));
+    }
+    for (const sz of [stepsZ0, stepsZ1]) {
+      root.add(box({
+        size: [stepsX1 - stepsX0, GROUND_Y + 0.5, 0.22],
+        pos: [(stepsX0 + stepsX1) / 2, (GROUND_Y + 0.5) / 2 - 0.4, sz],
+        mat: M_POOL_WALL,
+      }));
+      solid(stepsX0, stepsX1, 0, GROUND_Y + 0.1, sz - 0.13, sz + 0.13);
+    }
+
     return {
-      pool: POOL, waterY: poolWaterY, water, light: poolLight, chairs, torches,
+      pool: POOL,
+      waterY: poolWaterY,
+      water,
+      light: poolLight,
+      chairs,
+      torches,
+      deck: {
+        x0: POOL.x0 - pad, x1: POOL.x1 + pad, z0: POOL.z0 - pad, z1: POOL.z1 + pad,
+      },
+      steps: {
+        x0: stepsX0, x1: stepsX1, z0: stepsZ0, z1: stepsZ1,
+      },
     };
   }
   const poolPatio = buildPoolPatio();
@@ -1354,7 +1991,14 @@ export function buildMansionGrounds(scene = null) {
     frontDoorOutside: new THREE.Vector3(0, GROUND_Y, 39.5),
     securityBooth: new THREE.Vector3(SECURITY_BOOTH_POS.x, 0, SECURITY_BOOTH_POS.z),
     poolPatio: new THREE.Vector3(0, GROUND_Y, 85),
+    poolDoorOutside: new THREE.Vector3((POOL_DOOR.x0 + POOL_DOOR.x1) / 2, GROUND_Y, 76.5),
+    poolSteps: new THREE.Vector3(
+      (poolPatio.steps.x0 + poolPatio.steps.x1) / 2,
+      0,
+      (poolPatio.steps.z0 + poolPatio.steps.z1) / 2,
+    ),
     serviceRoadEntrance: new THREE.Vector3(19, 0, 0),
+    rosePavilion: new THREE.Vector3(-16, 0, 26),
   };
 
   /* ---------------------------------------------------------------- */
@@ -1368,6 +2012,18 @@ export function buildMansionGrounds(scene = null) {
     },
     rearService: {
       x: REAR_DOOR.x, y: GROUND_Y, z: REAR_DOOR.z, z0: REAR_DOOR.z0, z1: REAR_DOOR.z1, y0: REAR_DOOR.y0, y1: REAR_DOOR.y1, x0: shellMeta.bands.east.x0, x1: shellMeta.bands.east.x1, open: true,
+    },
+    poolDoor: {
+      x: (POOL_DOOR.x0 + POOL_DOOR.x1) / 2,
+      y: GROUND_Y,
+      z: BUILDING.z1,
+      x0: POOL_DOOR.x0,
+      x1: POOL_DOOR.x1,
+      y0: POOL_DOOR.y0,
+      y1: POOL_DOOR.y1,
+      z0: shellMeta.bands.north.z0,
+      z1: shellMeta.bands.north.z1,
+      open: true,
     },
   };
 
@@ -1396,10 +2052,12 @@ export function buildMansionGrounds(scene = null) {
   const props = {
     fountain,
     vehicles,
+    carSpots: CAR_SPOTS,
     securityBooth,
     frontEntry,
     serviceRoad,
     poolPatio,
+    landscaping,
     lamps: [...LAMP_POSITIONS, ...CAR_LAMP_POSITIONS],
     palmSpots: PALM_SPOTS,
     sky,
@@ -1419,7 +2077,14 @@ export function buildMansionGrounds(scene = null) {
     }
   }
 
+  /* Local point lights, for the composition root's light rig -- see the
+   * matching note at the end of MansionInterior.js. The moon (a shadow-
+   * casting DirectionalLight) and the hemisphere fill are deliberately NOT
+   * in this list: they are the scene's global lighting and always on. */
+  const lights = [];
+  root.traverse((o) => { if (o.isPointLight) lights.push(o); });
+
   return {
-    root, colliders, doors, props, anchors, shell, update,
+    root, colliders, doors, props, anchors, shell, lights, occluders, update,
   };
 }
