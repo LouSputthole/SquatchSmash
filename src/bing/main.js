@@ -73,6 +73,15 @@ const START_CASH = 340;
 const DRINK_TIME = 2.4;
 /* How much of the synthesised club bed survives under the real record. */
 const BED_UNDER_RECORD = 0.16;
+/**
+ * Lou's own radio, in the corner of his office, playing his own back catalogue
+ * all night. This is the ROOM's radio and nothing else — "Sensi Lou" is a
+ * separate sting on the door (see `cueSensiLou`), and the two used to be the
+ * same loop, which is how a four-second cue ended up repeating behind a closed
+ * door for the whole visit and carrying down the hallway.
+ */
+const LOU_RADIO_FILE = 'assets/music/good-ole-days.mp3';
+const LOU_RADIO_LEVEL = 0.2;
 
 /* Sallie J owns the player's first walk into the club. Legacy later visits
  * rotate through the other floor records using preview-safe storage. The
@@ -1301,7 +1310,11 @@ function setPhoneAudioDucked(connected) {
   const music = game.acoustics?.music ?? 0.05;
   audio.setLoopVolume('ambience.club', music * BED_UNDER_RECORD * game.phoneRadioScale, 0.24);
   audio.setLoopVolume('music.club', music * 0.9 * game.phoneRadioScale, 0.24);
-  audio.setLoopVolume('office.radio', 0.22 * game.phoneRadioScale, 0.24);
+  /* Through the same zone rule the room change uses, so ducking a call in the
+   * hallway cannot quietly hand the office radio a full-level mix it would
+   * then keep until the player crossed a threshold. */
+  const officeRadio = game.acoustics?.officeRadio ?? 0;
+  audio.setLoopVolume('office.radio', LOU_RADIO_LEVEL * officeRadio * game.phoneRadioScale, 0.24);
   carRadio.setPhoneDucked(connected);
 }
 let phoneContentRevision = campaign.state.revision;
@@ -1435,8 +1448,44 @@ registerDoor('storage', {
     licenseToGrill.open();
   },
 });
+/**
+ * "Sensi Lou", once, on the door.
+ *
+ * Owner's playtest, 2026-08-04: *"The sensi lou sound I could hear coming down
+ * the hallway. It should just play ONCE when you open the door."* Both halves
+ * of that are fixed here rather than in the mixer.
+ *
+ * NOT positional. It was panned onto `anchors.officeRadio` with a 9 m falloff,
+ * which is most of the back of house, so it bled into the corridor and Tony
+ * heard his own entrance music approaching. It is played flat now, straight
+ * into the ambience bus: it is a sting on Tony, not a radio in a room, and a
+ * sting does not have a location.
+ *
+ * And it is on the door rather than on the room. `onRoomChange('office')`
+ * fires a stride or two past the threshold, by which point the leaf is already
+ * open and the moment has gone. One shot, one flag, never re-armed — walking
+ * in and out of the office all night gets it exactly once.
+ */
+function cueSensiLou() {
+  if (game.sensiLouCued) return;
+  game.sensiLouCued = true;
+  playSignatureTrack(audio, SIGNATURE_TRACKS.sensiLou, {
+    replace: true,
+    crossfade: 0.4,
+    /* A sting, not a station. The cue is under five seconds and stops at its
+     * own out-point; left looping it would restart every four seconds for as
+     * long as Tony stood in the office. */
+    loop: false,
+    fade: 0.3,
+  });
+}
+
+/* The door is the only way in: its leaf starts shut on both visits and nobody
+ * else in the building ever opens it, so hanging the cue here cannot be
+ * walked past. */
 registerDoor('lou', {
   onToggle: (door) => {
+    if (door.open) cueSensiLou();
     if (door.open && mission.state === 'office' && game.louTalking) {
       dialogue.start(scripts.lou, 'doorOpen', cast.byName.lou);
     }
@@ -1558,6 +1607,9 @@ const shubenatorSignature = createShubenatorSignature();
 
 const licenseToGrill = createLicenseToGrill({
   scene,
+  /* The cord and the five things off Blond's person are carried, so they hang
+   * off the camera like every other held prop in this building. */
+  camera,
   club,
   audio,
   hud,
@@ -1567,6 +1619,9 @@ const licenseToGrill = createLicenseToGrill({
   campaign,
   family,
   shubenator: shubenatorSignature,
+  /* The cord takes a real slot in the club's own five-slot bar. */
+  inventory,
+  items: ITEMS,
   isSecondVisit,
   addMoney,
   onPersist: (payload) => {
@@ -2410,6 +2465,15 @@ function startBooskiShotDrink() {
   beat.phase = 'drinking';
   beat.awaitingDrink = false;
   beat.drink = 0;
+  /* Baby Snakes lands HERE, on the press that takes the shot.
+   *
+   * It used to start on `startShotBeat`, which is the pour — twelve or more
+   * seconds of bartender, bouncer and handover earlier, so by the time Tony
+   * actually drank it the record was most of the way through its own window
+   * and the moment it was cut for had already gone past. Owner's note,
+   * 2026-08-04: *"I want the sound to happen right when I take the shot, like
+   * hit E on it."* This is that keypress. */
+  cueBabySnakes(family.byId?.booski);
   audio.play('whiskey.swig', { volume: 0.68 });
   return true;
 }
@@ -2454,8 +2518,14 @@ function shotDrinkTick(dt) {
  * "Significant" is doing work here: he is on a stool at the bar from the
  * moment the club loads, and a record that fires on line of sight would play
  * over the front door. It starts when the scene becomes about him — at the
- * Bing that is the shot beat, where he takes the floor, yells for it and the
- * bouncer runs. Once per visit; the flag never re-arms.
+ * Bing that is the moment Tony actually throws the shot back, on his own
+ * keypress, with Booski stood over him. Once per visit; the flag never
+ * re-arms.
+ *
+ * Called from `startBooskiShotDrink`, NOT from `startShotBeat`: the beat opens
+ * on a pour and runs a bartender, a bouncer and a handover before the glass
+ * reaches him, and a three-second sting spent on all that is a sting nobody
+ * hears land.
  *
  * @param {object} [booski] his Npc, so the record comes from where he is
  */
@@ -2480,7 +2550,6 @@ function startShotBeat() {
   const bartender = cast.byName.bartender;
   if (!bartender) return;
   const booski = family.byId.booski;
-  cueBabySnakes(booski);
   const station = {
     x: bartender.group.position.x,
     z: bartender.group.position.z,
@@ -2965,7 +3034,14 @@ window.addEventListener('keydown', (e) => {
       }
       return;
     }
-    if (licenseToGrill.press()) return;
+    /* [E] deliberately does NOT swing the cord.
+     *
+     * It used to take `licenseToGrill.press()` here, which was right when that
+     * call answered a timing prompt and is wrong now that it means "use the
+     * violent thing in your hands". One button has to stay the ordinary one:
+     * [E] picks a man's watch up off the table, puts it back, opens the door
+     * and talks to Gratin, and the LEFT MOUSE BUTTON is the one that swings
+     * and breaks. See the mousedown handler above. */
     /* Unconditional while you are at the machine. It used to require
      * `!interaction.current`, which is never true standing in front of a
      * cabinet you are registered to look at — so [E] stepped away instead of
@@ -2987,6 +3063,9 @@ window.addEventListener('keydown', (e) => {
       paintPhone();
       return;
     }
+    /* In the store room, [Q] is "put his thing back on the table" before it is
+     * anything else — same shape as pocketing the phone or standing up. */
+    if (licenseToGrill.stepBack()) return;
     if (game.seatedIn === 'table') standFromTable();
     else if (game.seatedIn === 'seat') standFromSeat();
     else if (game.seatedIn === 'car') getOutOfCar();
@@ -3102,14 +3181,22 @@ startBtn.addEventListener('click', async () => {
     audio.startMusicLoop('music.club', `assets/music/${clubRecord.file}`, {
       volume: 0.04, ambience: true, position: club.anchors.dj, ref: 3.5, maxDist: 34, fade: 2,
     });
-    /* Lou's radio plays his old stuff all night; the panner does the
-     * round-the-corner falloff on its own. The record on it is "Sensi Lou",
-     * and it is his — see src/core/signature-music.js for why it is not in the
-     * music manifest and what happens until the recording lands. Walking into
-     * the office restarts it from the top (`enterLouOffice`), so the song
-     * begins when Tony does. */
-    playSignatureTrack(audio, SIGNATURE_TRACKS.sensiLou, {
-      position: club.anchors.officeRadio, ref: 0.8, maxDist: 9,
+    /* Lou's radio, and ONLY Lou's radio.
+     *
+     * "Sensi Lou" used to be started here instead, as a positional loop with a
+     * 9 m falloff and its own 4.7-second in/out points still applied — so a
+     * sting was looping behind a closed door from the title card onward and
+     * carrying down the corridor, which is the owner's note: *"The sensi lou
+     * sound I could hear coming down the hallway. It should just play ONCE
+     * when you open the door."*
+     *
+     * What is left here is the thing that should always have been here: a
+     * whole record, on a loop, in the corner of his office. The falloff is
+     * tight and `updateZones` shuts it down through the wall, so from the
+     * hallway it is a rumour rather than a radio. */
+    audio.startMusicLoop('office.radio', LOU_RADIO_FILE, {
+      volume: LOU_RADIO_LEVEL, ambience: true,
+      position: club.anchors.officeRadio, ref: 0.5, maxDist: 5.2, fade: 2,
     });
     audio.startLoop('car.engine.idle', { volume: 0.22, ambience: false });
     game.radioOn = carRadio.preferredOn;
@@ -3197,7 +3284,22 @@ function updateZones(dt) {
             : 900;
     audio.setLoopCutoff('ambience.club', cutoff, 0.6);
     audio.setLoopCutoff('music.club', cutoff, 0.6);
-    game.acoustics = { room: next, rain: rainVolume, music, crowd, cutoff };
+
+    /* Lou's radio, through Lou's wall.
+     *
+     * It never had a zone rule of its own: the panner alone decided how much
+     * of it reached the corridor, and the panner does not know there is a
+     * door. That is why a record playing in a closed office was audible all
+     * the way back down the hallway. It is a full level in the office, a
+     * fraction of one through an open door, and effectively nothing anywhere
+     * else in the building, with the same lowpass the club record gets. */
+    const officeRadio = next === 'office' ? 1
+      : next === 'hallway' ? (officeDoorOpen ? 0.16 : 0.02)
+        : 0;
+    audio.setLoopVolume('office.radio', LOU_RADIO_LEVEL * officeRadio * game.phoneRadioScale, 0.7);
+    audio.setLoopCutoff('office.radio', next === 'office' ? 20000 : 620, 0.6);
+
+    game.acoustics = { room: next, rain: rainVolume, music, crowd, cutoff, officeRadio };
     club.rain.setVisible(!inside);
   }
 
@@ -3219,25 +3321,10 @@ function onRoomChange(next) {
     hud.say('Warm, loud, and darker than it needs to be. The hallway to the back is on the right.', 5200);
   }
   if (next === 'hallway' && mission.state === 'club') mission.reachedHallway();
-  /* Sensi Lou starts when Tony walks in, not when the scene loads. The loop
-   * has been running quietly behind the office door all night; entering
-   * restarts it from the top so the song opens on the doorway, once per
-   * visit — walking in and out does not keep re-cueing it. */
-  if (next === 'office' && !game.sensiLouCued) {
-    game.sensiLouCued = true;
-    playSignatureTrack(audio, SIGNATURE_TRACKS.sensiLou, {
-      replace: true,
-      position: club.anchors.officeRadio,
-      ref: 0.8,
-      maxDist: 9,
-      crossfade: 0.4,
-      /* A sting, not a station. The cue is under five seconds and stops at its
-       * own out-point; left looping it would restart every four seconds for as
-       * long as Tony stood in the office. */
-      loop: false,
-      fade: 0.3,
-    });
-  }
+  /* Sensi Lou is NOT hung off the room change. Crossing into the office zone
+   * happens a stride or two past the threshold, and by then the door is
+   * already open and swinging — the cue has to be the hand on the handle.
+   * `cueSensiLou` is called by the door itself. */
   if (next === 'office' && (mission.state === 'hallway' || mission.state === 'club')) {
     mission.enteredOffice();
     hud.say('Big Uncle Lou is at the desk. <kbd>E</kbd> when you are ready to talk.', 4600);

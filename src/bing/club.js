@@ -1725,6 +1725,37 @@ export function buildClub(scene, { renderer } = {}) {
       add(radio);
       storeroom.radio = radio;
       anchors.storeRadio = new THREE.Vector3(S.x1 - 0.55, radioY, S.z0 + 2.2);
+
+      /* ---- the prep table, against the north wall ----
+       *
+       * A folding steel trestle, of the kind a kitchen keeps for a delivery
+       * it has nowhere else to put. Permanent, like the chair and the drain:
+       * it is here before the side quest, during it and after it, and all the
+       * quest does is empty a man's pockets onto it.
+       *
+       * Placed BEHIND somebody standing at the chair — the chair is at
+       * (9.6, −12.3) and you work on him facing south, so this is over your
+       * shoulder and beside the door you came in through. Clear of the duck
+       * crate (x 10.95–11.65), clear of the shelf run (x 12.85+), clear of the
+       * mop sink and clear of the store-room door's swing (x 6.2–7.3). */
+      const table = group('store-prep-table');
+      table.position.set(9.9, 0, -10.15);
+      table.rotation.y = 0.05;
+      const TABLE_TOP = 0.79;
+      table.add(box({ name: 'prep-table.top', size: [1.72, 0.05, 0.64], pos: [0, TABLE_TOP, 0], mat: M_STEEL }));
+      table.add(box({ size: [1.6, 0.06, 0.1], pos: [0, TABLE_TOP - 0.1, -0.22], mat: M_UTIL }));
+      for (const lx of [-0.74, 0.74]) {
+        for (const lz of [-0.24, 0.24]) {
+          table.add(cylinder({ r: 0.021, h: TABLE_TOP - 0.03, pos: [lx, (TABLE_TOP - 0.03) / 2, lz], mat: M_UTIL }));
+        }
+        table.add(box({ size: [0.05, 0.03, 0.56], pos: [lx, 0.02, 0], mat: M_UTIL }));
+      }
+      add(table);
+      solid(9.02, -10.5, 10.78, -9.82, 0, 0.82);
+      storeroom.table = table;
+      /* The world height of the table top, so anything laid on it can be
+       * placed from the quest without re-deriving the leg maths. */
+      anchors.grillTable = new THREE.Vector3(9.9, TABLE_TOP + 0.025, -10.15);
     }
 
     /* ---- the thing behind the crates ----

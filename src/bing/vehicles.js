@@ -288,21 +288,82 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
   }
   interior.add(rearBench);
 
-  // Wheel, column, instrument binnacle and illuminated analogue gauges.
-  const wheel = new THREE.Mesh(
-    new THREE.TorusGeometry(0.18, 0.024, 8, 24),
-    mat({ color: 0x111216, roughness: 0.76 }),
-  );
-  wheel.name = 'cockpit.steering-wheel';
-  wheel.position.set(0.43, 1.33, -0.43);
+  /* ---------------- steering wheel, column and binnacle ----------------
+   *
+   * Owner's playtest note, 2026-08-04: *"Steering wheel in the car when you
+   * arrive at the bing is pushed all forward."* It was, in three separate
+   * ways, and the same class of mistake as the one just fixed in the Silver
+   * Case's cabin.
+   *
+   * 1. It had **no rake**. A `TorusGeometry` is built in the XY plane, so its
+   *    axis is +Z; `rotation.y = PI/2` sends that axis onto this cabin's +X,
+   *    which is straight ahead — a rim standing bolt upright. The
+   *    `rotation.x = 0.32` written underneath it was meant to be the rake and
+   *    did nothing at all: the default Euler order is XYZ, so the x term is
+   *    applied in the PARENT frame, and after the y turn the parent's X *is*
+   *    the wheel's own axis. It span the rim in its own plane and left the
+   *    rake at zero. Fixed by taking the rotation in `YXZ` order, where the x
+   *    term lands in the frame the y term produced and rakes the wheel the
+   *    way a column does.
+   * 2. There was **no wheel**, only a rim. No hub, no spokes, no horn ring —
+   *    a bare 36 cm hoop hanging in the air in front of the dashboard.
+   * 3. It was **against the dash**. The rim sat at x 0.43 with the dashboard's
+   *    front face at 0.48, and the column ran forward from underneath it into
+   *    the dash rather than back out of the boss towards the driver, so
+   *    nothing reached the seat.
+   *
+   * The cabin's frame: +X is straight ahead, +Y is up, and the driver sits at
+   * z −0.43 with his eye at (−0.18, 1.55). A sedan wheel rakes about 24° off
+   * vertical with the TOP edge further forward, which here is the wheel's axis
+   * pointing forward and down. */
+  const WHEEL_RAKE = 0.42;
+  const wheelRim = mat({ color: 0x111216, roughness: 0.76 });
+  const wheel = group('cockpit.steering-wheel');
+  wheel.position.set(0.30, 1.28, -0.43);
+  wheel.rotation.order = 'YXZ';
   wheel.rotation.y = Math.PI / 2;
-  wheel.rotation.x = 0.32;
-  interior.add(wheel);
-  const steeringColumn = cylinderMesh(0.035, 0.44, dashPlastic);
+  wheel.rotation.x = WHEEL_RAKE;
+  wheel.add(new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.022, 8, 26), wheelRim));
+  // Three spokes at 12, 4 and 8 o'clock, in the wheel's OWN plane, so they
+  // carry the rake with the rim instead of being placed by hand beside it.
+  for (const a of [Math.PI / 2, -Math.PI / 6, Math.PI + Math.PI / 6]) {
+    const spoke = box({
+      name: 'cockpit.steering-spoke', size: [0.16, 0.016, 0.024],
+      pos: [Math.cos(a) * 0.088, Math.sin(a) * 0.088, 0], mat: wheelRim,
+    });
+    spoke.rotation.z = a;
+    wheel.add(spoke);
+  }
+  /* Boss and horn ring, dished towards the driver — which in this rig is
+   * NEGATIVE local z. The rig's local +Z is the wheel's axis and it points
+   * forward and down into the dashboard (that is what the rake IS), so the
+   * face of the wheel is on the −z side and everything the driver's thumbs
+   * touch belongs there. */
+  const boss = cylinderMesh(0.052, 0.028, dashPlastic, 16);
+  boss.rotation.x = Math.PI / 2;
+  boss.position.set(0, 0, -0.012);
+  wheel.add(boss);
+  const hornRing = cylinderMesh(0.03, 0.012, chromeTrim, 16);
+  hornRing.rotation.x = Math.PI / 2;
+  hornRing.position.set(0, 0, -0.03);
+  wheel.add(hornRing);
+  /* And the column the other way, out of the BACK of the boss along +z on the
+   * same rake, so the two are one assembly rather than a hoop and a bar that
+   * happen to be near each other. Its far end lands inside the dash slab at
+   * roughly (0.61, 1.14), which is 13 cm inside the front face. */
+  const steeringColumn = cylinderMesh(0.033, 0.34, dashPlastic);
   steeringColumn.name = 'cockpit.steering-column';
-  steeringColumn.position.set(0.50, 1.22, -0.43);
-  steeringColumn.rotation.z = Math.PI / 2;
-  interior.add(steeringColumn);
+  steeringColumn.rotation.x = Math.PI / 2;
+  steeringColumn.position.set(0, 0, 0.18);
+  wheel.add(steeringColumn);
+  // Indicator and wiper stalks, either side of the column, in the same frame.
+  for (const [sx, len, tilt] of [[-0.095, 0.15, 1.25], [0.095, 0.12, -1.3]]) {
+    const stalk = cylinderMesh(0.008, len, chromeTrim, 8);
+    stalk.rotation.z = tilt;
+    stalk.position.set(sx, -0.055, -0.03);
+    wheel.add(stalk);
+  }
+  interior.add(wheel);
   interior.add(box({ name: 'cockpit.gauge-hood', size: [0.11, 0.24, 0.54], pos: [0.47, 1.45, -0.43], mat: dashPlastic }));
   const gauges = [];
   for (const [gz, r] of [[-0.56, 0.075], [-0.39, 0.085], [-0.23, 0.06]]) {

@@ -499,11 +499,22 @@ export function buildFamilyScripts({
       hold: 3.6,
       next: 'yell',
     },
+    /* The node is still called `yell` because the bartender's timing contract
+     * is written against that name, but it is not a yell any more.
+     *
+     * Owner's playtest, 2026-08-04: *"I still want the booski 30 fucking
+     * seconds line recast, it's all high pitch and terrible, redo it much more
+     * chill, maybe lose the Ay!"* — so the "AY!" is gone and the rest is
+     * pitched at a man who does not have to raise his voice in his own room.
+     * The demand is unchanged and the count is unchanged, which matters,
+     * because `booskiShot.handoff` is him arriving on "Twenty-eight." The
+     * manifest still carries the old wording and an actor direction; the `say`
+     * needs to follow this line the next time the cue block is regenerated. */
     yell: {
       who: 'Booskibro',
-      line: 'AY! I want that shot in thirty FUCKING seconds!',
+      line: 'Get my man a shot. Thirty fuckin’ seconds. That’s generous, baby.',
       cue: 'vo.bing.booski.shot.yell',
-      hold: 2.6,
+      hold: 3.4,
       /* Dialogue applies the actual recording duration plus its tail before
        * resolving this `next`. That is the timing contract for the bartender:
        * he may start moving only once Booski has actually finished speaking. */

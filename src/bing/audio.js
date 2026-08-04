@@ -48,6 +48,39 @@ const BING_RUNTIME_CUES = new Set([
   'ambience.bing.rain.muffled',
   'ambience.club',
   'ambience.crowd',
+
+  /* ---- License to Grill, in the store room ----
+   *
+   * The cord Gratin hands over, and the five things off James Blond that end
+   * up on the prep table. Named one at a time, like everything else here: this
+   * scene borrows a handful of recordings that were made for other rooms, and
+   * borrowing has to be written down or the club decodes none of them and the
+   * whip lands on a synthesised noise.
+   *
+   * The `bing.grill.*` names are the ones this scene has ASKED for and does
+   * not have yet. Listing them costs nothing — the filter runs over cues the
+   * index actually holds, so an undelivered name simply matches nothing — and
+   * the day each recording lands the store room picks it up for free, exactly
+   * the way `phone.vibrate` above is waiting to. Until then
+   * `license-to-grill-runtime.js` plays the stand-in beside each one. */
+  'bing.grill.cord.handoff',
+  'bing.grill.cord.swing',
+  'bing.grill.cord.whip',
+  'bing.grill.cord.floor',
+  'bing.grill.smash.glass',
+  'bing.grill.smash.metal',
+  'bing.grill.smash.fabric',
+  'bing.grill.table.pickup',
+  /* …and the recordings standing in for them tonight. Every one of these is
+   * in `assets/sfx/index.json` — a stand-in that has no file is not a
+   * stand-in, it is a synthesised noise with a comment over it. */
+  'heist.gear.armor.pickup',
+  'cloth.snap',
+  'heist.player.hit',
+  'heist.bullet.impact',
+  'glass.wine.fall',
+  'heist.guard.weapon.drop',
+  'heist.swap.fabric',
 ]);
 
 /** Recorded cues authored specifically for either Bada Bing visit. */

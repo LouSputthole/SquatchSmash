@@ -51,6 +51,7 @@ const TEST_MODULES = [
   './bing-family.test.mjs',
   './bing-family-asides.test.mjs',
   './license-to-grill.test.mjs',
+  './license-to-grill-room.test.mjs',
   './bing-voice-coverage.test.mjs',
   './beefrun-voice-manifest.test.mjs',
   './new-scene-voice-manifest.test.mjs',

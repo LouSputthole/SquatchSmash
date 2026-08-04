@@ -20,6 +20,7 @@ import {
   PRESSURE,
   QUEST,
   SHUBES_INTERRUPTION_AT,
+  SWINGS_BEFORE_THE_TABLE,
   buildLicenseToGrillScript,
   createInterrogation,
 } from '../src/bing/license-to-grill.js';
@@ -226,4 +227,120 @@ test('every belonging has somewhere to go', () => {
   for (const item of BELONGINGS) {
     assert.ok(ids.has(item.node), `${item.id} points at missing node ${item.node}`);
   }
+});
+
+/* ---------------- the room, not the menu ---------------- */
+
+test('breaking one of his things is worth less than picking it up', () => {
+  /* The argument, and the reason smashing is optional rather than the point:
+   * what moves him is a stranger HOLDING the thing and deciding. Once it is in
+   * pieces the decision has been made and there is nothing left to threaten. */
+  for (const id of ['watch', 'camera', 'pistol', 'jacket']) {
+    assert.ok(PRESSURE.smash < PRESSURE[id], `smashing the ${id} must not beat taking it`);
+  }
+  // And still not worth less than swinging a fryer cord at him.
+  assert.ok(PRESSURE.smash > PRESSURE.strike);
+});
+
+test('a thing can only be broken once, and only if it can be broken at all', () => {
+  const grill = createInterrogation();
+  grill.apply('watch');
+  const first = grill.smash('watch');
+  assert.equal(first.gain, PRESSURE.smash);
+  assert.equal(grill.smash('watch').gain, 0, 'it is already in pieces');
+  assert.equal(grill.smash('watch').repeat, true);
+  assert.equal(grill.isSmashed('watch'), true);
+  // The keys carry no smashNode: they are what you threaten with, not what
+  // you break.
+  assert.equal(grill.smash('keys').gain, 0);
+  assert.equal(grill.isSmashed('keys'), false);
+});
+
+test('breaking things is recorded in methods rather than in a new saved field', () => {
+  const grill = createInterrogation();
+  grill.apply('watch');
+  grill.smash('watch');
+  grill.apply('jacket');
+  grill.threatenCar();
+  const out = grill.finish(ENDINGS.LEFT);
+  assert.deepEqual(Object.keys(out).sort(), [
+    'card', 'cash', 'compassion', 'completed', 'ending',
+    'gratinRespect', 'informant', 'meet', 'methods', 'sawShubes',
+  ], 'the campaign payload must keep its shape');
+  assert.deepEqual(out.methods, ['jacket', 'smashed:watch', 'watch']);
+});
+
+test('only the swings that land are counted', () => {
+  const grill = createInterrogation();
+  assert.equal(grill.swings(), 0);
+  for (let i = 0; i < SWINGS_BEFORE_THE_TABLE; i++) grill.apply('strike');
+  assert.equal(grill.swings(), SWINGS_BEFORE_THE_TABLE);
+  /* A cord that cracks on the floor is `chair`, and so is Gratin's own
+   * demonstration. Neither is Tony hitting the man, and his "you have done
+   * that three times now" has to mean three the room watched. */
+  grill.apply('chair');
+  grill.apply('watch');
+  assert.equal(grill.swings(), SWINGS_BEFORE_THE_TABLE);
+});
+
+test('searching him is no longer a menu', () => {
+  /* Owner's playtest, 2026-08-04: *"instead of searching him with all these
+   * different dialogue options … Gratin suggests you check out his belongings
+   * on the table behind you, then each one you pick up triggers the voice
+   * dialogue and then you have the option to smash it."* The `things` node and
+   * every route into it are gone; the room does that job now. */
+  assert.equal(Object.hasOwn(tree, 'things'), false, 'the search submenu is still there');
+  for (const node of Object.values(tree)) {
+    for (const option of valueOf(node.options) || []) {
+      assert.notEqual(option.next, 'things');
+      assert.doesNotMatch(option.text, /go through his things/i);
+    }
+  }
+  // And the cart no longer offers a worse version of the cord you are holding.
+  const cart = (valueOf(tree.cart.options) || []).map((o) => o.tone);
+  assert.equal(cart.includes('Cord'), false, 'the cart still offers the cord');
+});
+
+test('every smashable thing has its own reaction, and the keys deliberately do not', () => {
+  const ids = new Set(Object.keys(tree));
+  for (const item of BELONGINGS) {
+    if (item.id === 'keys') {
+      assert.equal(item.smashNode, null, 'you do not smash the keys, you drive off in the car');
+      continue;
+    }
+    assert.ok(item.smashNode, `${item.id} cannot be broken`);
+    assert.ok(ids.has(item.smashNode), `${item.id} points at missing node ${item.smashNode}`);
+    assert.ok(valueOf(tree[item.smashNode].line).length > 12, `${item.id} has no reaction worth hearing`);
+  }
+});
+
+test('the cord is handed over as a thing, and the three swings after it are authored', () => {
+  const take = (valueOf(tree.handOverCord.options) || [])[0];
+  assert.equal(take.tone, 'Take');
+  let handed = false;
+  const withHook = buildLicenseToGrillScript({ takeCord: () => { handed = true; } });
+  const hooked = withHook[CHARACTER_IDS.JAMES_BLOND];
+  const option = (valueOf(hooked.handOverCord.options) || [])[0];
+  assert.equal(option.next(), 'cordInHand', 'taking it must lead somewhere');
+  assert.equal(handed, true, 'taking the cord never reaches the runtime');
+  /* One line per landed swing, in order, and the third is where he gives up on
+   * the beating and points at the table. */
+  assert.ok(tree.afterSwing && tree.swingTwo && tree.swingThree);
+  assert.equal(tree.swingThree.next, 'tableNudge');
+  assert.match(valueOf(tree.tableNudgeTable.line), /table behind you/i);
+  assert.ok(tree.swingAgain, 'a fourth swing has nothing to say');
+  assert.ok(tree.swingWide, 'a swing that misses has nothing to say');
+});
+
+test('nobody is holding a box any more', () => {
+  /* Numbskull laid the man out on the table; his thread has to say so, and it
+   * must not hand the player a submenu that no longer exists. */
+  const numbskull = script.licenseToGrillNumbskull;
+  assert.match(valueOf(numbskull.open.line), /on that table/i);
+  for (const node of Object.values(numbskull)) {
+    for (const option of valueOf(node.options) || []) {
+      assert.notEqual(valueOf(option.next), 'things');
+    }
+  }
+  assert.match(valueOf(script.licenseToGrillGratin.needTools.line), /on the table by the door/i);
 });
