@@ -415,6 +415,15 @@ function brickMaterial(w, h) {
   }
   return m;
 }
+/* world/build.js's `box()` takes a `name`; its `cylinder()` and `sphere()` do
+ * not, and a helper five scenes share is not something this file gets to
+ * change. So anything round that has to be findable by name -- a jet, a pin, a
+ * bottle -- is tagged on the way past instead. */
+function named(mesh, name) {
+  mesh.name = name;
+  return mesh;
+}
+
 const M_COPING = mat({ color: 0xd6cfb8, roughness: 0.55 });
 const M_GRAVEL = mat({ map: tiled(tileTex(6, '#4b463c', '#8d8676'), 26, 26), roughness: 0.98, unique: true });
 const M_YEW = mat({ color: 0x1c3f24, roughness: 1 });
@@ -1489,10 +1498,22 @@ export function buildMansionGrounds(scene = null) {
   /* (24,12) is gone: the service road moved 6 m east to clear the billiard
    * bay and now runs straight through where it stood. Replaced by one on the
    * west lawn, which had none between the side lot and the rose bed. */
+  /* TWO OF THESE WERE PLANTED THROUGH SOMETHING (2026-08-04 pass). Measured,
+   * both of them, off the built boxes:
+   *   (14,6)  -- trunk x[13.72,14.28] z[5.72,6.28] against the east parterre's
+   *              own south hedge at x[8.60,15.00] z[6.00,6.45]: 28 cm of trunk
+   *              growing up through a clipped box hedge. Moved east to 16.6,
+   *              which keeps the row's z=6 line and clears the parterre (x1=15)
+   *              by 1.3 m.
+   *   (-21,33) -- trunk x[-21.28,-20.72] z[32.72,33.28] against the rose bed's
+   *              east bench at x[-21.35,-19.65] z[32.39,32.81]: the trunk stood
+   *              in the end of the bench. Moved west to -26.5, the far side of
+   *              the bed, clear of both benches and 3.2 m inside the fence.
+   */
   const PALM_SPOTS = [
-    [-6, 6], [6, 6], [-6, 14], [6, 16], [14, 6],
+    [-6, 6], [6, 6], [-6, 14], [6, 16], [16.6, 6],
     [-13.5, 38.6 - FORECOURT_SHIFT], [13.5, 38.6 - FORECOURT_SHIFT],
-    [-24, 12], [-27, 17], [-21, 38 - FORECOURT_SHIFT],
+    [-24, 12], [-27, 17], [-26.5, 38 - FORECOURT_SHIFT],
   ];
   for (const [x, z] of PALM_SPOTS) buildPalm(x, z, 5.5 + Math.random() * 1.4);
 
@@ -1801,20 +1822,64 @@ export function buildMansionGrounds(scene = null) {
    * billiard bay now stands (x:16..19.4, z:40..55). It moves 4 m east, and
    * the rear-door ramp lengthens west to meet it, so the route from the road
    * to the kitchen door is still one continuous climb. */
+  /* THE KITCHEN STEPS (owner playtest 2026-08-04, verbatim):
+   *
+   *   "Stairs going in and out of the kitchen are a bit fucked and intersect
+   *    with the golf green."
+   *
+   * Three separate faults, all measured off the built geometry before
+   * anything moved:
+   *
+   *  1. THE RUN DID NOT REACH THE DOOR. It started at x=17, and the kitchen's
+   *     service door is in the east wall at x=16..16.4 -- so there were 60 cm
+   *     of nothing between the doorway and the first tread. `exteriorGroundAt`
+   *     resolves the walking height from this ramp's own rect, so that strip
+   *     was not merely a visual gap: it read as grade, 1.2 m under the
+   *     threshold you had just stepped over.
+   *  2. THE FLIGHT STOPPED SHORT AND STOOD PROUD. The last tread's top was
+   *     y=1.14 and it finished at z=65.78, leaving 22 cm of open air before
+   *     the threshold at 1.2; and every tread was built 7 cm ABOVE the ramp
+   *     line it approximates, so you waded up the flight through your own
+   *     steps. The treads now sit ON that line and the run finishes with a
+   *     nosing flush with the kitchen floor.
+   *  3. THE KERB FLOATED. It was one 16 cm bar held at a CONSTANT y=0.6 for
+   *     the whole 3 m run -- measured y[0.52,0.68] over a ramp climbing 0 to
+   *     1.2 -- so it was buried under the bottom of the flight and hanging in
+   *     mid-air over the top of it. It is now laid per tread and rakes with
+   *     the steps, which is what a kerb on a flight does.
+   *
+   * The green is dealt with where the green is built -- see the putting green
+   * in buildRearGarden, which was laid straight across the service road AND
+   * across the ground outside this very door.
+   */
   function buildServiceRoad() {
     root.add(box({ size: [28 - 22, 0.06, 70], pos: [25, 0.02, 35], mat: M_ASPHALT }));
-    const x0 = 17;
+    const x0 = BUILDING.x1 + WALL_T; // 16.4 -- the flight starts AT the house
     const x1 = 22;
     const zBot = 63;
     const zTop = REAR_DOOR.z; // 66
     const steps = 6;
+    const depth = (zTop - zBot) / steps + 0.05;
+    /** Tread tops, so the kerb below can rake with the flight rather than
+     * guess at it. */
+    const treads = [];
     for (let i = 0; i < steps; i++) {
       const t = i / steps;
-      const z = THREE.MathUtils.lerp(zBot, zTop, t);
-      const y = THREE.MathUtils.lerp(0, GROUND_Y, t);
-      const depth = (zTop - zBot) / steps + 0.05;
+      treads.push({
+        z: THREE.MathUtils.lerp(zBot, zTop, t),
+        top: THREE.MathUtils.lerp(0, GROUND_Y, t),
+        depth,
+      });
+    }
+    // The nosing at the head of the run: flush with the kitchen threshold, so
+    // the last thing you step onto going out is the floor you just left.
+    treads.push({ z: zTop - 0.14, top: GROUND_Y, depth: 0.28 });
+    for (const tr of treads) {
       root.add(box({
-        size: [x1 - x0, 0.14, depth], pos: [(x0 + x1) / 2, y + 0.07, z], mat: M_ASPHALT,
+        size: [x1 - x0, 0.14, tr.depth],
+        pos: [(x0 + x1) / 2, tr.top - 0.07, tr.z],
+        mat: M_ASPHALT,
+        name: 'service-ramp-tread',
       }));
     }
     /* Kerb on the ramp's OUTER edge only. The inner one used to run the full
@@ -1824,9 +1889,15 @@ export function buildMansionGrounds(scene = null) {
      * 67.2, and the verifier's walk from the road duly stopped dead 1.3 m
      * short of it. The inner edge needs no kerb: it IS the house. */
     solid(x1, x1 + 0.25, 0, GROUND_Y + 0.2, zBot, zTop);
-    root.add(box({
-      size: [0.25, 0.16, zTop - zBot], pos: [x1 + 0.125, GROUND_Y * 0.5, (zBot + zTop) / 2], mat: M_CURB, cast: false,
-    }));
+    for (const tr of treads) {
+      root.add(box({
+        size: [0.25, 0.16, tr.depth],
+        pos: [x1 + 0.125, tr.top + 0.08, tr.z],
+        mat: M_CURB,
+        cast: false,
+        name: 'service-ramp-kerb',
+      }));
+    }
     return { road: { x0: 22, x1: 28, z0: 0, z1: 70 }, ramp: { x0, x1, z0: zBot, z1: zTop } };
   }
   const serviceRoad = buildServiceRoad();
@@ -2488,6 +2559,7 @@ export function buildMansionGrounds(scene = null) {
    * the ones nobody is using. The collider now matches the frame. */
   function buildLoungeChair(x, y, z, yaw, { towel = false } = {}) {
     const g = new THREE.Group();
+    g.name = 'pool-lounger';
     const deckY = 0.42;
     // Frame rails and feet.
     for (const sx of [-0.32, 0.32]) {
@@ -2510,10 +2582,29 @@ export function buildMansionGrounds(scene = null) {
         cast: false,
       }));
     }
-    // Raked back, hinged at the head end, with its own slats and a stay.
+    /* Raked back, hinged at the head end, with its own slats and a stay.
+     *
+     * THE RECLINE (owner playtest, verbatim): "pool chairs the back for your
+     * head goes straight down. They should be slightly inclined up."
+     *
+     * Measured, and he is exactly right: the sign was inverted. Every slat
+     * hangs off this hinge at local -z, and a rotation of THETA about +X sends
+     * a point (0, 0, -d) to (0, d*sin(THETA), -d*cos(THETA)) -- so the -0.62
+     * this was built with drove the head end 58 cm DOWN per metre of back
+     * instead of up. The verifier's own box for the north-west lounger read
+     * y[1.26,1.70] against a deck at 1.20: the top of the backrest finished
+     * six centimetres off the boards, which is a lounger you lie on with your
+     * head in the gutter.
+     *
+     * +0.62 rad is 35.5 degrees off the deck, which is the notch a real
+     * lounger's ratchet sits in for reading -- reclined, not upright. Nothing
+     * else about the frame moves; the hinge, the slats and the stay are the
+     * ones that were already here.
+     */
     const back = new THREE.Group();
+    back.name = 'pool-lounger-back';
     back.position.set(0, deckY + 0.05, -0.9);
-    back.rotation.x = -0.62;
+    back.rotation.x = 0.62;
     for (let i = 0; i < 5; i++) {
       back.add(box({
         size: [0.62, 0.045, 0.13], pos: [0, 0, -0.1 - i * 0.17], mat: M_LOUNGE, cast: false,
@@ -3028,6 +3119,8 @@ export function buildMansionGrounds(scene = null) {
   /* ================================================================== */
   function buildRearGarden() {
     const lanterns = [];
+    /** The canal's four jets, ticked from `update()` -- see part 3 below. */
+    const canalJets = [];
 
     /* ---- 1. The brick estate wall. -------------------------------------
      * Runs from the ends of the iron street fence (which stops at z=90) round
@@ -3124,16 +3217,59 @@ export function buildMansionGrounds(scene = null) {
       }));
       solid(kx0, kx1, 0, 0.36, kz0, kz1);
     }
-    // Four jets standing in it, and the light that makes the water read.
+    /* Four jets standing in it, and the light that makes the water read.
+     *
+     * THE JETS NOW RUN (owner playtest 2026-08-04, verbatim): "Lets make the
+     * jets in that still pool work in the back by the giant squatch."
+     *
+     * They were four nozzles and nothing else: a plinth, a stem and a glass
+     * bead on top, with no water coming out of any of them. The two fountains
+     * on the other side of the house already have the machinery for this --
+     * `FountainSpray`, the Points-cloud-plus-scrolling-jet-column rig at the
+     * top of this file, ticked once a frame from `update(dt)` the same way the
+     * driveway monument's and the pool feature's are. So this is that class a
+     * third time rather than a second particle system: one per nozzle, sized
+     * DOWN for a 3.2 m rill (rise 1.05 m, not the driveway's 2.6 -- a jet
+     * tuned for a 3.7 m statue in this thing would throw water over the kerb
+     * and onto the walk), plus a foam ring on the water at each nozzle so the
+     * fall reads as an impact and not as drops vanishing into glass.
+     *
+     * The sprays are returned to the caller and ticked in `update()`; a spray
+     * that is never updated is exactly what these four were.
+     */
+    const canalWaterY = CANAL.y + 0.42;
     for (const jz of [CANAL.z0 + 2.0, CANAL.z0 + 5.6, CANAL.z1 - 5.6, CANAL.z1 - 2.0]) {
-      root.add(cylinder({ r: 0.26, h: 0.5, pos: [0, CANAL.y + 0.25, jz], mat: M_MARBLE_DK }));
-      root.add(cylinder({ r: 0.06, h: 0.9, pos: [0, CANAL.y + 0.85, jz], mat: M_CHROME }));
-      root.add(sphere({
+      root.add(named(cylinder({
+        r: 0.26, h: 0.5, pos: [0, CANAL.y + 0.25, jz], mat: M_MARBLE_DK,
+      }), 'canal-jet-plinth'));
+      root.add(named(cylinder({
+        r: 0.06, h: 0.9, pos: [0, CANAL.y + 0.85, jz], mat: M_CHROME,
+      }), 'canal-jet-stem'));
+      root.add(named(sphere({
         r: 0.1,
         pos: [0, CANAL.y + 1.3, jz],
         mat: mat({ color: 0x9fdcea, roughness: 0.2, transparent: true, opacity: 0.7 }),
         cast: false,
-      }));
+      }), 'canal-jet-nozzle'));
+      const foam = new THREE.Mesh(
+        new THREE.RingGeometry(0.3, 0.72, 28),
+        mat({
+          map: foamRingTexture(), transparent: true, opacity: 0.5, roughness: 0.55, side: THREE.DoubleSide, unique: true,
+        }),
+      );
+      foam.name = 'canal-jet-foam';
+      foam.rotation.x = -Math.PI / 2;
+      foam.position.set(0, canalWaterY + 0.015, jz);
+      root.add(foam);
+      const jet = new FountainSpray(
+        root,
+        new THREE.Vector3(0, CANAL.y + 1.38, jz),
+        {
+          rise: 1.05, speedMin: 1.2, speedMax: 1.8, spread: 0.24, drops: 80, size: 0.16,
+        },
+      );
+      jet.start();
+      canalJets.push(jet);
     }
     const canalLight = new THREE.PointLight(0x63cde8, 9, 18, 2);
     canalLight.position.set(0, CANAL.y + 1.4, (CANAL.z0 + CANAL.z1) / 2);
@@ -3189,8 +3325,23 @@ export function buildMansionGrounds(scene = null) {
       }));
       solid(R.x0 - R.t / 2, R.x0 + R.t / 2, 0, R.wall, wz0, wz1);
     }
-    // The arch head over the gate: a half-torus of brick, which is what makes
-    // an opening in a garden wall read as a gate rather than a hole.
+    /* The arch head over the gate: a half-torus of brick, which is what makes
+     * an opening in a garden wall read as a gate rather than a hole.
+     *
+     * AND THE HEAD THAT CARRIES IT. The arch springs at y = wall - 0.5 = 1.8
+     * and is a full half-round of radius 1.3, so its crown reaches 3.35 --
+     * measured -- against a wall that stops at 2.30 and a coping at 2.42. The
+     * top metre of the arch stood out of the top of the wall in open air, and
+     * the box that was supposed to close the spandrel above it was authored
+     * with a NEGATIVE height: `wall - (wall - 0.5) - GATE_W/2 + 0.6` evaluates
+     * to -0.2, and `box()` scales a shared unit cube, so a negative size is a
+     * mirrored cube -- wound inside out and therefore invisible from the
+     * garden. It was the one inverted mesh in the whole scene.
+     *
+     * A gateway in a garden wall carries its arch in a RAISED HEAD, so that is
+     * what this is now: a block of the same brick from the wall head up over
+     * the crown, wider than the opening, with the wall's own coping course
+     * carried across it. Positive dimensions throughout. */
     {
       const arch = new THREE.Mesh(
         new THREE.TorusGeometry(GATE_W / 2, R.t / 2, 8, 22, Math.PI),
@@ -3199,11 +3350,26 @@ export function buildMansionGrounds(scene = null) {
       arch.position.set(R.x0, R.wall - 0.5, gateZ);
       arch.rotation.y = Math.PI / 2;
       root.add(arch);
+      /* Top of the arch's own TUBE, not of its centre line: the half-torus has
+       * radius GATE_W/2 and tube R.t/2, so its outer profile reaches 3.35 at
+       * the crown and is still 2.64 -- above the wall -- out at the springing.
+       * The head is therefore 0.6 m wider than the opening (the tube spreads
+       * to +/-1.55 of the centre line) and stands 25 cm proud of the crown. */
+      const archTop = (R.wall - 0.5) + GATE_W / 2 + R.t / 2; // 3.35
+      const headTop = archTop + 0.25;
+      const headW = GATE_W + 0.6;
       root.add(box({
-        size: [R.t, R.wall - (R.wall - 0.5) - GATE_W / 2 + 0.6, GATE_W + 0.4],
-        pos: [R.x0, R.wall + 0.1, gateZ],
-        mat: brickMaterial(1, 1),
+        size: [R.t, headTop - R.wall, headW],
+        pos: [R.x0, (R.wall + headTop) / 2, gateZ],
+        mat: brickMaterial(headW, headTop - R.wall),
+        name: 'rose-gate-head',
+      }));
+      root.add(box({
+        size: [R.t + 0.18, 0.12, headW + 0.2],
+        pos: [R.x0, headTop + 0.06, gateZ],
+        mat: M_COPING,
         cast: false,
+        name: 'rose-gate-coping',
       }));
       const gateLamp = new THREE.PointLight(0xffca7a, 6, 12, 2);
       gateLamp.position.set(R.x0 - 0.9, 2.5, gateZ);
@@ -3232,16 +3398,42 @@ export function buildMansionGrounds(scene = null) {
     // arbour over the cross path, and benches on the two long sides.
     const rcx = (R.x0 + R.x1) / 2;
     const rcz = (R.z0 + R.z1) / 2;
+    /* THE FLOWER IN THE WALKWAY (owner playtest 2026-08-04, verbatim):
+     *
+     *   "Outside in the brick garden area theres one flower in the walkway of
+     *    the arches"
+     *
+     * One, and this ring is where it came from. Sixteen stations at an even
+     * 22.5 degrees put one of them dead on the ring's west point -- measured
+     * at (12.80, 111.00), which is the centre line of the walk in from the
+     * moon gate, between the fourth and fifth hoops of the iron arbour. Nor
+     * was it a low clump: that station's index was even, so it carried a
+     * STANDARD rose on a clear stem, measured y[1.36,2.04] and 84 cm across,
+     * planted in the middle of the only way into this garden.
+     *
+     * Still sixteen stations, still on the same 4.4 m circle, but dealt round
+     * it with a GAP where the walk crosses. The gap is 2*asin(2/4.4) of arc,
+     * which is exactly the width that holds every station at least 2 m off the
+     * centre line -- clear of the arbour's own 1.35 m hoops with 65 cm to
+     * spare. The two nearest stations land at z = 111 +/- 2.63 and frame the
+     * walk instead of blocking it, which is what a parterre with a path
+     * through it is supposed to look like.
+     */
+    const WALK_GAP = 2 * Math.asin(2.0 / 4.4);
     for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
+      const a = Math.PI + WALK_GAP / 2 + ((i + 0.5) * (Math.PI * 2 - WALK_GAP)) / 16;
       const bx = rcx + Math.cos(a) * 4.4;
       const bz = rcz + Math.sin(a) * 4.4;
       root.add(cylinder({
         rTop: 0.34, rBottom: 0.28, h: 0.34, pos: [bx, 0.17, bz], mat: brickMaterial(0.8, 0.4), cast: false,
       }));
       bloomClump(bx, bz, 0.3, 1.35);
-      // Standard roses on clear stems, alternating with the low clumps.
-      if (i % 2 === 0) {
+      /* Standard roses on clear stems, alternating with the low clumps --
+       * counted OUTWARD FROM THE WALK on each side rather than off the raw
+       * index, so the two halves of the ring mirror each other across the
+       * garden's axis instead of running one station out of step. */
+      const fromWalk = i < 8 ? i : 15 - i;
+      if (fromWalk % 2 === 0) {
         root.add(cylinder({ r: 0.045, h: 1.2, pos: [bx, 0.94, bz], mat: M_TEAK }));
         root.add(sphere({ r: 0.42, ry: 0.34, pos: [bx, 1.7, bz], mat: M_FOLIAGE, cast: false }));
         for (let k = 0; k < 5; k++) {
@@ -3249,7 +3441,7 @@ export function buildMansionGrounds(scene = null) {
           root.add(sphere({
             r: 0.085,
             pos: [bx + Math.cos(ka) * 0.28, 1.78, bz + Math.sin(ka) * 0.28],
-            mat: BLOOM_MATS[(i / 2 + k) % BLOOM_MATS.length],
+            mat: BLOOM_MATS[(fromWalk + k) % BLOOM_MATS.length],
             cast: false,
           }));
         }
@@ -3288,10 +3480,18 @@ export function buildMansionGrounds(scene = null) {
     root.add(roseLight);
     lanterns.push(roseLight);
 
-    /* ---- 7. The pavilion that closes the axis. */
+    /* ---- 7. The pavilion that closes the axis.
+     *
+     * The apron is r+0.65 rather than the r+0.9 it was built at, and that is
+     * measured rather than taste: at 5.1 m the disc reached z=125.50 and the
+     * garden's own north wall stands at z:125.40..126.00 with its brick plinth
+     * projecting to 125.32 -- so the pavilion's bottom step ran 18 cm into the
+     * back wall of the garden. At r+0.65 = 4.85 it stops at 125.25, a clear
+     * 7 cm short of the plinth, and the columns (r=4.2, base flare 4.48) still
+     * stand well inside the step above it. */
     const P = PAVILION;
-    root.add(cylinder({ r: P.r + 0.9, h: 0.42, pos: [P.x, 0.21, P.z], mat: M_COPING, cast: false }));
-    root.add(cylinder({ r: P.r + 0.55, h: 0.2, pos: [P.x, 0.52, P.z], mat: M_MARBLE, cast: false }));
+    root.add(cylinder({ r: P.r + 0.65, h: 0.42, pos: [P.x, 0.21, P.z], mat: M_COPING, cast: false }));
+    root.add(cylinder({ r: P.r + 0.4, h: 0.2, pos: [P.x, 0.52, P.z], mat: M_MARBLE, cast: false }));
     for (let i = 0; i < 8; i++) {
       const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
       const cx = P.x + Math.cos(a) * P.r;
@@ -3353,18 +3553,37 @@ export function buildMansionGrounds(scene = null) {
 
     /* ---- 8. Lamp standards down the axis and the cross walk, so the
      * garden is a place at night rather than a black rectangle. */
+    /* A standard on the garden walks.
+     *
+     * THE LANTERN IS GLAZED, NOT SOLID. It was one opaque 0.44 m box centred
+     * at y=3.12, i.e. spanning 2.87..3.37 -- and the emissive globe it is
+     * supposed to show is r=0.17 at y=3.10, so the globe was entirely INSIDE
+     * the box. Measured, not guessed. Every one of these twelve standards read
+     * at night as a black block with light arriving from nowhere. Same
+     * outline, same height, built as a lantern: a base plate on the post head,
+     * four corner bars and a cap, with the lit globe visible between them. */
+    const M_LANTERN_CASE = mat({ color: 0x2a2a2e, roughness: 0.6 });
     function gardenLamp(x, z) {
-      root.add(cylinder({ r: 0.09, h: 2.9, pos: [x, 1.45, z], mat: M_IRON }));
-      root.add(box({
-        size: [0.44, 0.5, 0.44], pos: [x, 3.12, z], mat: mat({ color: 0x2a2a2e, roughness: 0.6 }),
-      }));
-      root.add(sphere({
+      root.add(named(cylinder({ r: 0.09, h: 2.9, pos: [x, 1.45, z], mat: M_IRON }), 'garden-lamp-post'));
+      for (const py of [2.895, 3.345]) {
+        root.add(box({
+          size: [0.44, 0.05, 0.44], pos: [x, py, z], mat: M_LANTERN_CASE, name: 'garden-lamp-case',
+        }));
+      }
+      for (const [bx, bz] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) {
+        root.add(box({
+          size: [0.04, 0.4, 0.04], pos: [x + bx, 3.12, z + bz], mat: M_LANTERN_CASE, cast: false, name: 'garden-lamp-case',
+        }));
+      }
+      root.add(named(sphere({
         r: 0.17,
         pos: [x, 3.1, z],
         mat: mat({ color: 0xffe6bc, roughness: 0.4, emissive: 0xffdca0, emissiveIntensity: 1.7 }),
         cast: false,
-      }));
-      root.add(cylinder({ rTop: 0.02, rBottom: 0.26, h: 0.3, pos: [x, 3.5, z], mat: M_IRON, cast: false }));
+      }), 'garden-lamp-globe'));
+      root.add(named(cylinder({
+        rTop: 0.02, rBottom: 0.26, h: 0.3, pos: [x, 3.5, z], mat: M_IRON, cast: false,
+      }), 'garden-lamp-finial'));
       const l = new THREE.PointLight(0xffd2a0, 16, 15, 2);
       l.position.set(x, 3.1, z);
       root.add(l);
@@ -3374,7 +3593,35 @@ export function buildMansionGrounds(scene = null) {
     // Clear of the maze's mouth (which sits on this walk) and of the rose
     // garden's gate, both of which are approached across it.
     for (const lx of [-27.0, -21.0, -12.4, 12.4, 21.0, 27.0]) gardenLamp(lx, 97.4);
-    for (const lz of [101.6, 110.0, 118.0]) {
+    /* THE LAMP POSTS BY THE BIG SQUATCH (owner playtest 2026-08-04, verbatim):
+     *
+     *   "Look at the lamp posts by the big squatch in the back and make sure
+     *    each is palced correctly and unimpeded."
+     *
+     * Six standards flank the axis walk that ends at the bronze under the
+     * pavilion. Walked and then measured, two of the three pairs were standing
+     * in something:
+     *
+     *   z=110.0 -> 109.0. The post's own box is x[4.51,4.69] and the east
+     *     parterre's brick edging runs x[4.36,4.60] from z=109.6 to 114.6 --
+     *     so the pair at 110 was planted 9 cm inside the bed's kerb, with the
+     *     bed's stone edge inside that again. 109.0 is the middle of the 72 cm
+     *     cross gap BETWEEN the two beds (they end at 108.64 and start at
+     *     109.36), which clears both by 22 cm and lines the lamps up with the
+     *     path across the parterres rather than with the planting.
+     *   z=118.0 -> 116.6. The pavilion's stone apron was a disc of radius 5.1
+     *     about (0,120.4) -- it is 4.85 now, see part 7 -- and the post at
+     *     (4.6,118) stands 5.188 m out, so its shaft grazed that apron and its
+     *     collider bit 5 cm into it: you could feel it walking round the
+     *     pavilion. At 116.6 the post is 5.97 m out, better than a metre clear
+     *     of the stone at either radius.
+     *
+     * The pair at 101.6 measured clean (the canal's kerb stops at x=+/-2.05
+     * and the first bed at z=103.16) and has not moved. All six are upright,
+     * founded at y=0 and 2.9 m to the lantern, which is the fixture's own
+     * `gardenLamp` recipe -- nothing here is a bespoke post.
+     */
+    for (const lz of [101.6, 109.0, 116.6]) {
       gardenLamp(-4.6, lz);
       gardenLamp(4.6, lz);
     }
@@ -3427,23 +3674,106 @@ export function buildMansionGrounds(scene = null) {
     });
     solid(firePit.x - 1.5, firePit.x + 1.5, 0, 0.75, firePit.z - 1.5, firePit.z + 1.5);
 
-    // East: the outdoor kitchen -- a brick counter, a grill, stools, a canopy.
+    /* East: the outdoor kitchen -- a brick counter, a grill, stools, a canopy.
+     *
+     * THE BAR TOP (owner playtest 2026-08-04, verbatim): "Outside bar is a
+     * little whackey with whats on it."
+     *
+     * It was, and every piece of it measured wrong in a different direction.
+     * The counter's coping tops out at y=1.10 and that is the datum everything
+     * standing on this bar is now set from:
+     *
+     *   - THE GRILL sat at y[1.08,1.42], i.e. two centimetres sunk into its
+     *     own counter top. It now stands on it.
+     *   - THE LID was a HALF-METRE-THICK slab rotated about its own middle:
+     *     measured y[1.02,2.22], so it ran clean through the grill body it was
+     *     supposed to cover AND eight centimetres down through the counter
+     *     under that. It is now a 6 cm lid on a real hinge at the grill's back
+     *     edge, propped open the way a grill lid is, with a handle on it.
+     *   - THE THIRD BOX was 0.9 x 0.22 x 1.1 of bare chrome floating one
+     *     centimetre off the coping at y[1.11,1.33], explaining nothing about
+     *     what it was. Same footprint, same place, built as what a bar this
+     *     size actually has there: a sunk ice well with the bottles in it.
+     *   - THE STOOL FEET floated 3 cm off the terrace (y[0.03,0.08]).
+     */
     const cookX = 20.5;
+    /** Top of the counter's coping -- the bar top itself. */
+    const BAR_TOP = 1.1;
+    const M_BOTTLE = mat({ color: 0x1e3a26, roughness: 0.22, metalness: 0.1 });
     root.add(box({
       size: [1.1, 1.0, 7.0], pos: [cookX, 0.5, 84], mat: brickMaterial(1.2, 1.1), name: 'outdoor-kitchen',
     }));
     root.add(box({ size: [1.35, 0.1, 7.3], pos: [cookX, 1.05, 84], mat: M_COPING, cast: false }));
     solid(cookX - 0.6, cookX + 0.6, 0, 1.05, 80.5, 87.5);
-    root.add(box({ size: [1.0, 0.34, 1.6], pos: [cookX, 1.25, 82.2], mat: M_CHROME, name: 'grill' }));
+    // The grill: body on the bar top, a grate over it, and the lid.
     root.add(box({
-      size: [1.0, 0.5, 1.6], pos: [cookX, 1.62, 82.2], mat: M_CHROME, rotX: -0.5, cast: false,
+      size: [1.0, 0.36, 1.6], pos: [cookX, BAR_TOP + 0.18, 82.2], mat: M_CHROME, name: 'grill',
     }));
-    root.add(box({ size: [0.9, 0.22, 1.1], pos: [cookX, 1.22, 85.6], mat: M_CHROME }));
+    for (let i = 0; i < 7; i++) {
+      root.add(box({
+        size: [0.86, 0.025, 0.06],
+        pos: [cookX, BAR_TOP + 0.37, 82.2 + (i - 3) * 0.2],
+        mat: M_LAMP_POST,
+        cast: false,
+        name: 'grill-grate',
+      }));
+    }
+    /* Hinged along the grill's west edge (x = cookX - 0.5, the side away from
+     * whoever is cooking) and swung open 1.05 rad. A point (L, t) on the leaf
+     * lands at (L*cos - t*sin, L*sin + t*cos) from that hinge, so the slab's
+     * own centre -- (0.5, 0.03) -- sits 22 cm out and 45 cm up from it.
+     * Nothing of the lid is below the hinge, which is the whole point: it
+     * cannot re-enter the grill or the counter however it is posed. */
+    root.add(box({
+      size: [1.0, 0.06, 1.6],
+      pos: [cookX - 0.28, BAR_TOP + 0.36 + 0.45, 82.2],
+      mat: M_CHROME,
+      rotZ: 1.05,
+      cast: false,
+      name: 'grill-lid',
+    }));
+    root.add(named(cylinder({
+      r: 0.025, h: 1.2, pos: [cookX - 0.09, BAR_TOP + 0.36 + 0.92, 82.2], mat: M_LAMP_POST, rotX: Math.PI / 2,
+    }), 'grill-lid-handle'));
+    /* The ice well, in the third box's own footprint: four chrome rim walls
+     * standing 16 cm proud of the bar and a bed of ice inside them, which is
+     * what you see from a standing player's eye height looking down into it. */
+    for (const [wx, wz, ww, wd] of [
+      [cookX, 85.075, 0.9, 0.05], [cookX, 86.125, 0.9, 0.05],
+      [cookX - 0.425, 85.6, 0.05, 1.1], [cookX + 0.425, 85.6, 0.05, 1.1],
+    ]) {
+      root.add(box({
+        size: [ww, 0.16, wd], pos: [wx, BAR_TOP + 0.08, wz], mat: M_CHROME, cast: false, name: 'bar-ice-well',
+      }));
+    }
+    root.add(box({
+      size: [0.8, 0.08, 1.0], pos: [cookX, BAR_TOP + 0.04, 85.6], mat: M_MARBLE, cast: false, name: 'bar-ice',
+    }));
+    for (const bz of [85.28, 85.92]) {
+      root.add(named(cylinder({
+        r: 0.05, h: 0.3, pos: [cookX - 0.12, BAR_TOP + 0.15, bz], mat: M_BOTTLE,
+      }), 'bar-bottle'));
+      root.add(cylinder({
+        rTop: 0.022, rBottom: 0.045, h: 0.16, pos: [cookX - 0.12, BAR_TOP + 0.37, bz], mat: M_BOTTLE, cast: false,
+      }));
+      root.add(cylinder({
+        r: 0.023, h: 0.04, pos: [cookX - 0.12, BAR_TOP + 0.47, bz], mat: M_GOLD, cast: false,
+      }));
+    }
     for (const sz of [81.0, 82.6, 84.2, 85.8, 87.4]) {
-      root.add(cylinder({ r: 0.24, h: 0.09, pos: [cookX - 1.6, 0.78, sz], mat: M_TEAK }));
+      root.add(named(cylinder({ r: 0.24, h: 0.09, pos: [cookX - 1.6, 0.78, sz], mat: M_TEAK }), 'bar-stool'));
       root.add(cylinder({ r: 0.06, h: 0.74, pos: [cookX - 1.6, 0.37, sz], mat: M_CHROME }));
-      root.add(cylinder({ r: 0.28, h: 0.05, pos: [cookX - 1.6, 0.05, sz], mat: M_CHROME, cast: false }));
+      root.add(cylinder({ r: 0.28, h: 0.05, pos: [cookX - 1.6, 0.025, sz], mat: M_CHROME, cast: false }));
       solid(cookX - 1.85, cookX - 1.35, 0, 0.82, sz - 0.25, sz + 0.25);
+    }
+    /* A tumbler poured at three of the five places -- 81.0, 84.2 and 87.4 and
+     * NOT the other two, because the bar top is not free at those: the grill
+     * occupies z:81.4..83.0 and the ice well z:85.05..86.15, and a glass set
+     * on the line of either would be standing inside it. */
+    for (const sz of [81.0, 84.2, 87.4]) {
+      root.add(named(cylinder({
+        rTop: 0.042, rBottom: 0.036, h: 0.11, pos: [cookX - 0.45, BAR_TOP + 0.055, sz], mat: M_POOL_GLASS, cast: false,
+      }), 'bar-tumbler'));
     }
     for (const [px, pz] of [[cookX - 2.4, 80.2], [cookX - 2.4, 87.8], [cookX + 1.0, 80.2], [cookX + 1.0, 87.8]]) {
       root.add(cylinder({ r: 0.1, h: 3.0, pos: [px, 1.5, pz], mat: M_TEAK }));
@@ -3462,16 +3792,49 @@ export function buildMansionGrounds(scene = null) {
     root.add(cookLight);
     lanterns.push(cookLight);
 
-    // ...and a three-hole putting green, because of course there is one.
+    /* ...and a three-hole putting green, because of course there is one.
+     *
+     * THE GREEN MOVED (owner playtest 2026-08-04): "Stairs going in and out of
+     * the kitchen are a bit fucked and intersect with the golf green."
+     *
+     * The green was an 11 x 9 m slab at x:16..27, z:66.5..75.5, and both ends
+     * of that rect were laid over something:
+     *
+     *   - its SOUTH edge covered z:66.5..67.2 of the kitchen's own service
+     *     doorway (x:16..16.4, z:64.8..67.2). You came out of the kitchen and
+     *     down the service steps onto turf that ran back under the house, with
+     *     the green's west edge tucked inside the east wall band;
+     *   - its EAST end overlapped the service road (x:22..28, z:0..70) by 5 x
+     *     3.5 m of coincident slab -- turf and asphalt at the same height,
+     *     z-fighting over the same ground.
+     *
+     * It is now a rect of its own, laid clear of both: north of the road's end
+     * (z=70), east of the house by 1.6 m, and stopped 0.3 m short of the
+     * outdoor kitchen's canopy. The holes are written as offsets from its
+     * centre so the pins can never again drift off the turf they are cut into.
+     */
+    const GREEN = {
+      x0: 18, x1: 29, z0: 70.5, z1: 79.5,
+    };
+    const greenCx = (GREEN.x0 + GREEN.x1) / 2;
+    const greenCz = (GREEN.z0 + GREEN.z1) / 2;
     const greenMat = mat({ color: 0x2f7a3a, roughness: 1 });
-    root.add(box({ size: [11, 0.07, 9], pos: [21.5, 0.035, 71], mat: greenMat, cast: false }));
-    for (const [hx, hz] of [[18.2, 68.4], [24.0, 70.6], [20.6, 74.0]]) {
-      root.add(cylinder({
+    root.add(box({
+      size: [GREEN.x1 - GREEN.x0, 0.07, GREEN.z1 - GREEN.z0],
+      pos: [greenCx, 0.035, greenCz],
+      mat: greenMat,
+      cast: false,
+      name: 'putting-green',
+    }));
+    for (const [dx, dz] of [[-3.3, -2.6], [2.5, -0.4], [-0.9, 3.0]]) {
+      const hx = greenCx + dx;
+      const hz = greenCz + dz;
+      root.add(named(cylinder({
         r: 0.16, h: 0.02, pos: [hx, 0.08, hz], mat: mat({ color: 0x0c1410, roughness: 1 }), cast: false,
-      }));
-      root.add(cylinder({ r: 0.012, h: 1.5, pos: [hx, 0.83, hz], mat: M_CHROME }));
+      }), 'putting-green-hole'));
+      root.add(named(cylinder({ r: 0.012, h: 1.5, pos: [hx, 0.83, hz], mat: M_CHROME }), 'putting-green-pin'));
       root.add(box({
-        size: [0.02, 0.2, 0.3], pos: [hx, 1.45, hz + 0.15], mat: mat({ color: 0xd8b23a, roughness: 0.8 }), cast: false,
+        size: [0.02, 0.2, 0.3], pos: [hx, 1.45, hz + 0.15], mat: mat({ color: 0xd8b23a, roughness: 0.8 }), cast: false, name: 'putting-green-flag',
       }));
     }
 
@@ -3489,23 +3852,48 @@ export function buildMansionGrounds(scene = null) {
       }),
     );
     /* Beside the mouth of the maze, not in front of it -- the approach to an
-     * opening is the one line nothing may stand on. */
+     * opening is the one line nothing may stand on.
+     *
+     * THE FLOATING BRICK WALL (owner playtest 2026-08-04, verbatim): "Floating
+     * brick wall by the hedge maze."
+     *
+     * This pier, and measured it is not subtle: the brick was built as a 62 cm
+     * block CENTRED on y=1.2, so it read y[0.89,1.51] -- 89 cm of daylight
+     * under a brick wall, standing beside the mouth of the maze where you walk
+     * past it at arm's length. (Its collider, meanwhile, ran the full 0..1.5,
+     * so you were stopped by the air under it as well.) The plate's own top
+     * 5 cm was inside the coping course, too.
+     *
+     * It is now a pier founded ON THE GROUND: 1.62 m of brick from grade with
+     * the coping over it, and the brass plate hung at the same reading height
+     * it always had, 6 cm clear under the coping instead of buried in it.
+     */
     const plateX = maze.entry.x + 2.4;
+    const pierTop = 1.62;
     plate.position.set(plateX, 1.35, MAZE.z0 - 1.15);
     plate.rotation.y = Math.PI;
     root.add(plate);
     root.add(box({
-      size: [1.7, 0.62, 0.34], pos: [plateX, 1.2, MAZE.z0 - 1.0], mat: brickMaterial(1.8, 0.7),
+      size: [1.7, pierTop, 0.34],
+      pos: [plateX, pierTop / 2, MAZE.z0 - 1.0],
+      mat: brickMaterial(1.8, pierTop),
+      name: 'maze-plate-pier',
     }));
     root.add(box({
-      size: [1.9, 0.12, 0.5], pos: [plateX, 1.57, MAZE.z0 - 1.0], mat: M_COPING, cast: false,
+      size: [1.9, 0.12, 0.5],
+      pos: [plateX, pierTop + 0.06, MAZE.z0 - 1.0],
+      mat: M_COPING,
+      cast: false,
+      name: 'maze-plate-coping',
     }));
-    solid(plateX - 0.9, plateX + 0.9, 0, 1.5, MAZE.z0 - 1.2, MAZE.z0 - 0.8);
+    solid(plateX - 0.9, plateX + 0.9, 0, pierTop + 0.12, MAZE.z0 - 1.2, MAZE.z0 - 0.8);
 
     return {
       wall: { ...GARDEN_WALL },
       rect: { ...GARDEN },
       canal: { ...CANAL, water: canalWater },
+      /** The rill's working jets. `update()` ticks every one of these. */
+      jets: canalJets,
       roseGarden: { ...ROSE_GARDEN, gate: { x: R.x0, z: gateZ, w: GATE_W } },
       pavilion: { ...PAVILION },
       firePit,
@@ -3809,13 +4197,16 @@ export function buildMansionGrounds(scene = null) {
   };
 
   /* ---------------------------------------------------------------- */
-  /* Per-frame update: water shader time + the fountain's upward spray  */
+  /* Per-frame update: water shader time + every spray on the property  */
   /* ---------------------------------------------------------------- */
   let torchTime = 0;
   function update(dt) {
     for (const m of waterMaterials) m.uniforms.uTime.value += dt;
     fountain.spray.update(dt);
     poolPatio.spray.update(dt);
+    // The rear garden's rill. These were built and never ticked, which is the
+    // whole of "the jets in that still pool" not working.
+    for (const jet of rearGarden.jets) jet.update(dt);
     torchTime += dt;
     for (const t of torchFlames) {
       const flick = 0.82 + 0.18 * Math.sin(torchTime * 9 + t.seed) * Math.sin(torchTime * 3.1 + t.seed * 2);
