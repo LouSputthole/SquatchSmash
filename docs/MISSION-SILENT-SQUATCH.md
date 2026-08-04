@@ -98,9 +98,11 @@ medical saws, syringes, a car battery, towels, a bucket, and several tools whose
 purpose is better left unexplained).
 
 Beside it, **xXx hangs upside down by his ankles** over a large pool of blood —
-badly beaten, barely conscious. Battered extreme-sports outfit, **not a
-recreation of any real actor's likeness or wardrobe**. Aiming at him makes the
-crosshair read **xXx**.
+badly beaten, barely conscious. Owner's direction, 2026-08-04: *"This is not
+going to be commercial. Keep XXX bald and looking like vin diesel maybe wearing
+jeans and a black tank top."* So: **bald, Vin Diesel likeness, jeans and a black
+tank top**, both torn and bloodied. Aiming at him makes the crosshair read
+**xXx**.
 
     xXx   You can take the car… you can take the mission…
           [coughs]
