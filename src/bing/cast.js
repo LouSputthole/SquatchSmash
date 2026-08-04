@@ -106,7 +106,7 @@ export const STOOL_SIT = 0.315;
  *   gut      0 by default. A real belly, sized on its own rather than derived
  *            from `build` -- see "gut" below, where it is built.
  *   dress    'suit' | 'shirt' | 'tracksuit' | 'tee' | 'waistcoat' | 'bikini' | 'work'
- *            | 'chef' | 'porter' | 'gown'
+ *            | 'chef' | 'porter' | 'gown' | 'bomber'
  *   hair     'short' | 'crop' | 'receding' | 'bald' | 'long' | 'tied'
  *   bandana  club colours, worn by the crew and the prospect
  *   face     image URL painted on the front of the skull, the way the
@@ -199,6 +199,17 @@ export function makePerson(o = {}) {
      * behind it, and bare feet, because whoever tied him to that chair took
      * his shoes. */
     bowtie = false, barefoot = false, tuxedo = false,
+    /* Tailoring detail, off by default because a crowd of twenty extras does
+     * not need waistbands. Turn it on for anyone the player stands next to.
+     *   trim      collar points, placket, buttons and cuffs on a shirt;
+     *             buttons, a pocket square and a real knotted tie on a suit
+     *   belt      false | 'leather' | 'gold' -- a waistband and a buckle
+     *   trouserFit 'plain' | 'creased' -- a front crease and turn-ups
+     *   jacketColour override the garment colour independently of `shirt`,
+     *             which a bomber needs because its knits are the accent
+     *   patches   squadron patches on a bomber's shoulder and chest */
+    trim = false, belt = false, trouserFit = 'plain',
+    jacketColour: jacketColourOption = null, patches = false,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -216,7 +227,8 @@ export function makePerson(o = {}) {
     roughness: performanceWear ? 0.52 : luxury ? 0.58 : 0.9,
     metalness: performanceWear ? 0.18 : luxury ? 0.08 : 0,
   });
-  const jacketColour = dress === 'suit' ? 0x1b1b22 : shirt;
+  const jacketColour = jacketColourOption
+    ?? (dress === 'suit' ? 0x1b1b22 : dress === 'bomber' ? 0x2f3138 : shirt);
   const jacket = mat({ color: jacketColour, roughness: 0.88 });
   const trousers = performanceWear
     ? skinMat
@@ -231,7 +243,7 @@ export function makePerson(o = {}) {
   const sleeve = dress === 'tee' || performanceWear
     || dress === 'porter' || dress === 'gown'
     ? skinMat
-    : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth);
+    : (dress === 'suit' || dress === 'tracksuit' || dress === 'bomber' ? jacket : cloth);
   /* Whites, aprons and a gown, for the Silver Room. Kept in this builder rather
    * than a second one: the supper club needs a dozen jobs the Bing does not
    * have, and every one of them is this body with something tied over it. */
@@ -299,15 +311,69 @@ export function makePerson(o = {}) {
     // two slabs this close read as one column with a seam down it.
     pivot.position.set(side * (curvy ? 0.118 : 0.108) * t, 0.90, 0);
     pivot.add(slab({ name: 'thigh', size: [0.175 * t, 0.44, 0.205 * t], pos: [0, -0.22, 0], mat: trousers }));
+    if (trouserFit === 'creased' && !performanceWear) {
+      /* The front crease. One narrow strip a shade lighter, running the length
+       * of the leg -- it is what makes trousers look pressed, and on a slab it
+       * is the only vertical the eye has to follow down. */
+      const creaseMat = mat({
+        color: new THREE.Color(trousers.color.getHex())
+          .lerp(new THREE.Color(0xffffff), 0.055).getHex(),
+        roughness: 0.9,
+      });
+      pivot.add(box({
+        name: 'trouser.crease',
+        size: [0.012, 0.43, 0.010],
+        pos: [0, -0.22, 0.103 * t], mat: creaseMat,
+      }));
+      pivot.userData.creaseMat = creaseMat;
+    }
     const shin = group('shin');
     shin.position.set(0, -0.44, 0);
     shin.add(slab({ name: 'knee', size: [0.158 * t, 0.11, 0.188 * t], pos: [0, 0, 0], mat: trousers }));
     shin.add(slab({ name: 'shin', size: [0.15 * t, 0.42, 0.175 * t], pos: [0, -0.21, 0], mat: trousers }));
+    if (trouserFit === 'creased' && !performanceWear) {
+      const creaseMat = pivot.userData.creaseMat;
+      shin.add(box({
+        name: 'trouser.crease',
+        size: [0.012, 0.41, 0.010],
+        pos: [0, -0.21, 0.088 * t], mat: creaseMat,
+      }));
+      /* Turn-ups. A hem with a cuff on it stops the leg; without one the
+       * trouser runs straight into the shoe and the two read as one object. */
+      shin.add(slab({
+        name: 'trouser.turnup',
+        size: [0.157 * t, 0.042, 0.182 * t],
+        pos: [0, -0.393, 0], mat: trousers,
+      }));
+    }
     /* Barefoot is a smaller, skin-coloured foot rather than a missing shoe:
      * deleting the mesh leaves a trouser leg ending in mid-air. */
     const footMat = barefoot ? skinMat : shoe;
     shin.add(box({ size: barefoot ? [0.112, 0.056, 0.25] : [0.135, 0.068, 0.29], pos: [0, -0.44, barefoot ? 0.035 : 0.05], mat: footMat }));
-    if (!barefoot) shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: shoe }));
+    if (!barefoot) {
+      shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: shoe }));
+      /* A sole. One matte strip under a glossier upper, and the shoe stops
+       * being a black wedge -- it is the cheapest possible read of "these are
+       * shoes and that is a floor". */
+      shin.add(box({
+        name: 'shoe.sole',
+        size: [0.139, 0.018, 0.30],
+        pos: [0, -0.473, 0.046], mat: mat({ color: 0x24242a, roughness: 0.95 }),
+      }));
+      if (trim) {
+        // Toe cap and a heel counter, which is what a dress shoe has.
+        shin.add(box({
+          name: 'shoe.toecap',
+          size: [0.129, 0.052, 0.072],
+          pos: [0, -0.442, 0.162], mat: mat({ color: 0x0e0e13, roughness: 0.32 }),
+        }));
+        shin.add(box({
+          name: 'shoe.laces',
+          size: [0.046, 0.010, 0.070],
+          pos: [0, -0.409, 0.058], mat: mat({ color: 0x0a0a0e, roughness: 0.9 }),
+        }));
+      }
+    }
     pivot.add(shin);
     return pivot;
   }
@@ -387,17 +453,40 @@ export function makePerson(o = {}) {
   if (gutOn > 0) {
     const gutMat = dress === 'suit' ? jacket : cloth;
     const gutW = (0.30 + gutOn * 0.25) * t;               // full width
-    const front = (0.16 + gutOn * 0.22) * t;              // front reach from centreline
-    const back = -0.075 * t;                               // sunk into the torso behind it
+    /* How far the belly reaches forward.
+     *
+     * This used to be `(0.16 + gutOn * 0.22) * t`, and the `* t` was the bug:
+     * `t` is already 0.55 + build*0.45, so a heavy frame was paid twice --
+     * once in width, which is right, and again in projection, which is not.
+     * A wide man's belly is WIDE. On Lou (build 1.38, gut 0.42) it came out
+     * 0.47 across by 0.38 deep by 0.38 tall, which is a beach ball, and under
+     * a suit it read as a bowling ball glued to the front of the jacket.
+     * Projection is now `gut`'s business alone; `build` still owns the width.
+     */
+    const front = 0.16 + gutOn * 0.22;
+    const back = -0.075;                                   // sunk into the torso behind it
     const gutH = 0.34 + Math.min(gutOn, 1.4) * 0.10;       // full height
-    const belly = sphere({
-      r: gutW / 2,
-      ry: gutH / 2,
-      rz: (front - back) / 2,
+    /* And it is a slab, not an ellipsoid.
+     *
+     * The whole figure is cut from chamfered boxes; the belly was the single
+     * smooth surface on it, so it took one continuous highlight while
+     * everything around it broke the light into facets, and the eye read it as
+     * a separate round object rather than as part of the man. The earlier
+     * softBox attempt failed because it was deep and narrow -- a tube strapped
+     * to a man's front -- which is a proportion problem, not a primitive
+     * problem, and the projection fix above is what actually addresses it.
+     */
+    const belly = softBox({
+      name: 'person.gut.belly',
+      size: [gutW, gutH, front - back],
       pos: [0, 1.15, lean + (front + back) / 2],
       mat: gutMat,
+      // A generous chamfer: rounded enough to be a belly, faceted enough to
+      // belong to a body cut from boxes. `slab` is not used here because it
+      // only chamfers the curvy figures and drops the name on everyone else,
+      // and this shape is measured by name in two places.
+      r: 0.075,
     });
-    belly.name = 'person.gut.belly';
     body.add(belly);
   }
   /* The ribcage stops above the navel rather than running down to the hips.
@@ -674,6 +763,80 @@ export function makePerson(o = {}) {
       body.add(lap);
     }
     body.add(box({ size: [0.038, 0.2, 0.018], pos: [0, 1.35, D * 1.09], mat: mat({ color: 0x6a1a24, roughness: 0.7 }) }));
+    if (trim) {
+      /* What separates a suit from a dark rectangle: a knot at the top of the
+       * tie, two buttons where a jacket actually closes, a pocket square, and
+       * a collar with points. All of it in front of the chest, none of it
+       * cutting into the figure. */
+      const tieMat = mat({ color: 0x6a1a24, roughness: 0.7 });
+      const knot = box({
+        name: 'suit.tie.knot',
+        size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
+      });
+      body.add(knot);
+      // The tip, wider than the neck of the tie, hanging below the last button.
+      body.add(box({
+        name: 'suit.tie.tip',
+        size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
+      }));
+      const shirtMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
+      for (const side of [-1, 1]) {
+        const point = box({
+          name: 'suit.collar.point',
+          size: [0.052, 0.062, 0.014],
+          pos: [side * 0.052, 1.455, D * 1.075], mat: shirtMat,
+        });
+        point.rotation.z = side * 0.34;
+        body.add(point);
+      }
+      const buttonMat = mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 });
+      for (const by of [1.268, 1.192]) {
+        body.add(cylinder({
+          r: 0.0105, h: 0.005, seg: 8,
+          pos: [-0.052 * t, by, D * 1.10], rotX: Math.PI / 2, mat: buttonMat,
+        }));
+      }
+      // Breast pocket square, on his left -- the figure faces +Z.
+      body.add(box({
+        name: 'suit.pocket-square',
+        size: [0.05, 0.022, 0.010],
+        pos: [0.128 * t, 1.392, D * 1.08],
+        mat: mat({ color: 0xb8a05a, roughness: 0.68 }),
+      }));
+    }
+  }
+  if (trim && (dress === 'shirt' || dress === 'tee') && !performanceWear && !neckline && !tuxedo) {
+    /* A shirt with a front. A placket down the middle with buttons on it and
+     * a collar sitting on the shoulders is the difference between a shirt and
+     * a coloured torso, and it costs eight boxes. */
+    const placketMat = mat({
+      color: new THREE.Color(shirt).lerp(new THREE.Color(0x000000), 0.22).getHex(),
+      roughness: 0.9,
+    });
+    body.add(box({
+      name: 'shirt.placket',
+      size: [0.036, 0.30, 0.012], pos: [0, 1.33, D * 1.05], mat: placketMat,
+    }));
+    const buttonMat = mat({ color: shirtAccent ?? 0xe8e4da, roughness: 0.5 });
+    for (const by of [1.44, 1.365, 1.29, 1.215]) {
+      body.add(cylinder({
+        r: 0.0085, h: 0.004, seg: 8,
+        pos: [0, by, D * 1.062], rotX: Math.PI / 2, mat: buttonMat,
+      }));
+    }
+    for (const side of [-1, 1]) {
+      const point = box({
+        name: 'shirt.collar.point',
+        size: [0.058, 0.066, 0.015],
+        pos: [side * 0.055, 1.472, D * 1.02], mat: placketMat,
+      });
+      point.rotation.z = side * 0.3;
+      body.add(point);
+    }
+    body.add(box({
+      name: 'shirt.collar.stand',
+      size: [0.19 * t, 0.036, D * 1.5], pos: [0, 1.508, lean * 0.5], mat: placketMat,
+    }));
   }
   if (dress === 'waistcoat') {
     body.add(box({ size: [0.35 * t, 0.32, D * 2.06], pos: [0, 1.34, 0], mat: mat({ color: 0x191920, roughness: 0.82 }) }));
@@ -702,6 +865,144 @@ export function makePerson(o = {}) {
     body.add(box({ size: [0.09, 0.34, 0.02], pos: [-0.06, 1.34, D * 1.08], mat: apronMat }));
     body.add(box({ size: [0.09, 0.34, 0.02], pos: [0.06, 1.34, D * 1.08], mat: apronMat }));
   }
+  if (belt && !performanceWear && dress !== 'gown') {
+    /* A waistband and a buckle. This is the join the figure has never had --
+     * shirt above, trousers below, and nothing saying where one stopped. On
+     * Lou it is also the only gold on him below the neck, so it is worth the
+     * four boxes.
+     *
+     * It sits on the hip line and is deliberately a shade darker than the
+     * trousers even in leather, because a belt that matches is a stripe. */
+    const gold = belt === 'gold';
+    const strapMat = mat({
+      color: gold ? 0x3a2a18 : 0x1a1416, roughness: 0.66, metalness: 0.04,
+    });
+    const buckleMat = mat({
+      color: gold ? 0xd9b64a : 0xb9bec6, roughness: 0.2, metalness: 0.95,
+    });
+    const beltY = 1.145 + gutOn * 0.02;
+    body.add(box({
+      name: 'belt.strap',
+      size: [0.352 * t, 0.044, D * 2.09], pos: [0, beltY, 0], mat: strapMat,
+    }));
+    body.add(box({
+      name: 'belt.buckle',
+      size: [0.062, 0.052, 0.014], pos: [0, beltY, D * 1.07], mat: buckleMat,
+    }));
+    body.add(box({
+      name: 'belt.buckle.tongue',
+      size: [0.010, 0.030, 0.006], pos: [0, beltY, D * 1.085], mat: strapMat,
+    }));
+    // Two keepers, so the strap reads as threaded rather than painted on.
+    for (const side of [-1, 1]) {
+      body.add(box({
+        name: 'belt.keeper',
+        size: [0.014, 0.050, D * 2.11],
+        pos: [side * 0.098 * t, beltY, 0], mat: mat({ color: 0x120e10, roughness: 0.8 }),
+      }));
+    }
+  }
+
+  if (dress === 'bomber') {
+    /* A flight jacket, and the thing that makes one is the knits.
+     *
+     * A bomber is not a coloured torso. Three ribbed bands -- collar, cuffs,
+     * waistband -- in a contrasting yarn are what the eye actually reads, and
+     * they are what makes the body above them look like a jacket rather than a
+     * jumper. The waistband is the important one: it stops the garment at the
+     * hip instead of letting it run into the trousers, which is the single
+     * difference between a bomber and a shirt in the same colour.
+     *
+     * Built as a shell over the torso the same way the tuxedo is built in
+     * front of it -- nothing here removes any part of the figure. */
+    const knitColour = new THREE.Color(jacketColour).lerp(new THREE.Color(0x000000), 0.34).getHex();
+    const knit = mat({ color: knitColour, roughness: 0.95 });
+    const leather = mat({ color: jacketColour, roughness: 0.62, metalness: 0.06 });
+    const hardware = mat({ color: 0xb9bec6, roughness: 0.24, metalness: 0.92 });
+
+    // The shell, a touch proud of the torso all round so it hangs off it.
+    body.add(box({
+      name: 'bomber.shell',
+      size: [0.372 * t, 0.40, D * 2.16], pos: [0, 1.31, 0], mat: leather,
+    }));
+    /* The waistband. Ribbed: five shallow slats rather than one band, because
+     * a single box reads as a hem and the ribbing is the whole tell. */
+    for (let i = 0; i < 5; i++) {
+      body.add(box({
+        name: 'bomber.waistband.rib',
+        size: [0.378 * t, 0.019, D * 2.19],
+        pos: [0, 1.128 + i * 0.021, 0],
+        mat: knit,
+      }));
+    }
+    /* The collar, standing rather than lying: a bomber's knit collar holds its
+     * own shape, which is why it sits above the shoulder line. */
+    body.add(box({
+      name: 'bomber.collar',
+      size: [0.215 * t, 0.062, D * 1.62], pos: [0, 1.532, lean * 0.5], mat: knit,
+    }));
+    for (const side of [-1, 1]) {
+      const wing = box({
+        name: 'bomber.collar.wing',
+        size: [0.052 * t, 0.058, D * 0.9],
+        pos: [side * 0.088 * t, 1.522, D * 0.72],
+        mat: knit,
+      });
+      wing.rotation.y = -side * 0.42;
+      body.add(wing);
+    }
+    /* The zip, off centre-left the way a flight jacket's is, with a pull that
+     * hangs. Hardware is the only shiny thing on the garment. */
+    body.add(box({
+      name: 'bomber.zip.tape',
+      size: [0.022, 0.40, 0.012], pos: [-0.012, 1.31, D * 1.10], mat: knit,
+    }));
+    body.add(box({
+      name: 'bomber.zip.teeth',
+      size: [0.010, 0.40, 0.008], pos: [-0.012, 1.31, D * 1.115], mat: hardware,
+    }));
+    body.add(box({
+      name: 'bomber.zip.pull',
+      size: [0.013, 0.034, 0.006], pos: [-0.012, 1.168, D * 1.125], mat: hardware,
+    }));
+    /* Shoulder yokes. Two seams running out to the sleeve head; on a slab
+     * figure they are the only thing that says the garment has panels. */
+    for (const side of [-1, 1]) {
+      body.add(box({
+        name: 'bomber.yoke',
+        size: [0.166 * t, 0.016, D * 2.0],
+        pos: [side * 0.104 * t, 1.474, 0],
+        mat: knit,
+      }));
+    }
+    // Two slash pockets at the hem, angled the way hands go into them.
+    for (const side of [-1, 1]) {
+      const slash = box({
+        name: 'bomber.pocket.slash',
+        size: [0.014, 0.108, 0.016],
+        pos: [side * 0.126 * t, 1.212, D * 1.10],
+        mat: knit,
+      });
+      slash.rotation.z = side * 0.5;
+      body.add(slash);
+    }
+    if (patches) {
+      /* Squadron flash on the chest and a name tape under it. Small, and
+       * deliberately not legible -- a readable patch at this scale would be
+       * three pixels of noise pretending to be text. */
+      body.add(box({
+        name: 'bomber.patch.squadron',
+        size: [0.062, 0.062, 0.008], pos: [0.096 * t, 1.398, D * 1.10],
+        mat: mat({ color: 0x8d2f2a, roughness: 0.9 }),
+      }));
+      body.add(box({
+        name: 'bomber.patch.nametape',
+        size: [0.086, 0.026, 0.007], pos: [-0.088 * t, 1.372, D * 1.10],
+        mat: mat({ color: 0x6b5a34, roughness: 0.92 }),
+      }));
+    }
+  }
+
   if (dress === 'gown') {
     /* A gown is a skirt: the legs still articulate underneath, so she can walk,
      * but from the waist down what you see is one falling shape. It hangs off
@@ -735,17 +1036,52 @@ export function makePerson(o = {}) {
         new THREE.Vector3(width * 0.55, (1.518 + low) / 2, chestZ),
         new THREE.Vector3(width, 1.518, D + 0.009),
       ]);
-      const links = new THREE.Mesh(
-        new THREE.TubeGeometry(drape, 28, gauge, 7),
+      /* Links, not a cable.
+       *
+       * A swept tube along the drape curve is a rope: one continuous surface
+       * with one continuous highlight, which at any distance reads as piping.
+       * A chain reads because it is made of separate pieces that each catch
+       * the light at their own angle. So the curve is sampled and a short slab
+       * is placed at every sample, turned to face along the tangent and
+       * alternating 90 degrees the way real links interlock. The tube stays
+       * underneath at a fraction of the gauge so there is no daylight between
+       * links on a curve.
+       */
+      const links = group(name);
+      const core = new THREE.Mesh(
+        new THREE.TubeGeometry(drape, 28, gauge * 0.45, 6),
         metal,
       );
-      links.name = name;
+      core.name = `${name}.core`;
+      links.add(core);
+      const count = Math.max(18, Math.round(width * 260));
+      const up = new THREE.Vector3(0, 1, 0);
+      for (let i = 0; i <= count; i++) {
+        const u = i / count;
+        const point = drape.getPoint(u);
+        const tangent = drape.getTangent(u).normalize();
+        const link = box({
+          name: `${name}.link`,
+          size: [gauge * 2.1, gauge * 2.9, gauge * 2.1],
+          pos: [point.x, point.y, point.z],
+          mat: metal,
+        });
+        link.quaternion.setFromUnitVectors(up, tangent);
+        // Alternate links stand on edge, which is what makes a chain sparkle
+        // rather than shine.
+        if (i % 2) link.rotateY(Math.PI / 2);
+        links.add(link);
+      }
       body.add(links);
       return links;
     };
+    /* On a closed jacket the drape has to be narrow enough to pass BEHIND the
+     * lapels. At the open-collar width it came up over the shoulders outside
+     * them and read as a pair of braces, which is not what Lou is wearing. */
+    const closedJacket = dress === 'suit' || dress === 'waistcoat';
     addDrape({
-      width: 0.105,
-      low: 1.397,
+      width: closedJacket ? 0.058 : 0.105,
+      low: closedJacket ? 1.352 : 1.397,
       gauge: silver ? 0.0032 : chainStyle === 'layered' ? 0.0082 : 0.0065,
       name: silver ? 'necklace.chain.silver' : 'necklace.chain',
     });
@@ -753,11 +1089,22 @@ export function makePerson(o = {}) {
       /* The second rope is shorter and finer, so it reads as deliberate
        * layering instead of two copies occupying the same pixels. */
       addDrape({
-        width: 0.092,
-        low: 1.435,
+        width: closedJacket ? 0.05 : 0.092,
+        low: closedJacket ? 1.396 : 1.435,
         gauge: silver ? 0.0025 : 0.0048,
         name: silver ? 'necklace.chain.silver.layered' : 'necklace.chain.layered',
       });
+    }
+    if (chainStyle === 'layered') {
+      /* The clasp, at the nape. Nobody sees it from the front, and that is the
+       * point -- it is there for the three-quarter-from-behind shots the club
+       * cameras and the cutscenes actually use. */
+      const clasp = cylinder({
+        r: 0.009, h: 0.022, seg: 8,
+        pos: [0, 1.524, -D * 0.92], rotZ: Math.PI / 2, mat: metal,
+      });
+      clasp.name = 'necklace.clasp';
+      body.add(clasp);
     }
     if (pendant) {
       const crest = pendantStyle === 'crest';
@@ -946,40 +1293,160 @@ export function makePerson(o = {}) {
     fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: sleeve }));
     fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
     fore.add(slab({ name: 'hand', size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
+    if (dress === 'bomber') {
+      /* The cuff, in the same ribbed yarn as the waistband and collar. Three
+       * bands is enough to read as knit; the point is that the sleeve stops
+       * with something rather than just ending. */
+      const cuffKnit = mat({
+        color: new THREE.Color(jacketColour).lerp(new THREE.Color(0x000000), 0.34).getHex(),
+        roughness: 0.95,
+      });
+      for (let i = 0; i < 3; i++) {
+        fore.add(slab({
+          name: 'bomber.cuff.rib',
+          size: [0.106 * t, 0.020, 0.111 * t],
+          pos: [0, -0.234 - i * 0.022, 0],
+          mat: cuffKnit,
+        }));
+      }
+      /* Pen pocket on the left upper sleeve, which is the detail that says
+       * flight jacket rather than varsity jacket. */
+      if (side < 0) {
+        pivot.add(box({
+          name: 'bomber.sleeve.pocket',
+          size: [0.062, 0.086, 0.014],
+          pos: [-0.062 * t, -0.14, 0.006], mat: cuffKnit,
+        }));
+        for (const px of [-0.014, 0.014]) {
+          pivot.add(box({
+            name: 'bomber.sleeve.pen',
+            size: [0.008, 0.05, 0.008],
+            pos: [-0.062 * t + px, -0.104, 0.012],
+            mat: mat({ color: 0x1c1c22, roughness: 0.4 }),
+          }));
+        }
+      }
+    }
+    if (trim && (dress === 'shirt' || dress === 'suit' || dress === 'waistcoat') && !performanceWear) {
+      /* A shirt cuff showing past the jacket sleeve. On a suit this is the
+       * half-inch of white that separates a man who owns his clothes from a
+       * man wearing a rectangle. */
+      const cuffMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
+      fore.add(slab({
+        name: 'shirt.cuff',
+        size: [0.098 * t, 0.032, 0.103 * t],
+        pos: [0, -0.256, 0.001], mat: cuffMat,
+      }));
+      fore.add(box({
+        name: 'shirt.cuff.link',
+        size: [0.009, 0.009, 0.007],
+        pos: [side * 0.048 * t, -0.256, 0.03], mat: mat({
+          color: watch === 'silver' ? 0xdce2e8 : 0xd9b64a, roughness: 0.2, metalness: 0.9,
+        }),
+      }));
+    }
     if (watch && side < 0) {
+      /* A watch, not a coin on a hoop.
+       *
+       * The old one was a torus with two discs stacked on it, which at three
+       * metres is a bracelet with a button on it. A wristwatch reads because
+       * of four things, in this order: a bracelet that wraps the wrist in
+       * links rather than a smooth ring, lugs joining the case to it, a bezel
+       * standing proud of the dial, and a crown on the side. The hands are the
+       * last thing anyone sees and the first thing everybody expects, so they
+       * are here too and they are stopped at ten past ten, the way a watch is
+       * photographed.
+       */
       const silverWatch = watch === 'silver';
       const watchMetal = mat({
         color: silverWatch ? 0xdce2e8 : 0xe0b94f,
-        roughness: 0.16,
+        roughness: 0.14,
         metalness: 0.98,
       });
-      const band = new THREE.Mesh(
-        new THREE.TorusGeometry(0.035 * t, 0.005, 6, 16),
-        watchMetal,
-      );
-      band.name = silverWatch ? 'person.watch.band.silver' : 'person.watch.band.gold';
-      band.position.set(0, -0.247, 0.003);
-      band.rotation.x = Math.PI / 2;
-      fore.add(band);
+      const wrist = 0.0355 * t;
+      const wristY = -0.247;
+      const faceZ = 0.045 * t;
+
+      /* The bracelet. Ten links around the wrist, each a slab tangent to the
+       * circle, so it catches light in facets the way a metal bracelet does
+       * and a swept tube does not. The two under the arm are dropped -- they
+       * are never seen and they are where the geometry would z-fight. */
+      const bracelet = group('person.watch.bracelet');
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + Math.PI / 10;
+        if (Math.cos(a) > 0.72) continue;
+        const link = box({
+          name: 'person.watch.link',
+          size: [0.0125, 0.0175, 0.0075],
+          pos: [Math.sin(a) * wrist, 0, Math.cos(a) * wrist],
+          mat: watchMetal,
+        });
+        link.rotation.y = a;
+        bracelet.add(link);
+      }
+      bracelet.position.set(0, wristY, 0.002);
+      fore.add(bracelet);
+
+      // Lugs: the two horns the case hangs between.
+      for (const ly of [-0.019, 0.019]) {
+        fore.add(box({
+          name: 'person.watch.lug',
+          size: [0.030, 0.010, 0.012],
+          pos: [0, wristY + ly, faceZ - 0.008],
+          mat: watchMetal,
+        }));
+      }
+      // The case, then a bezel standing proud of it.
       const dial = cylinder({
-        r: 0.026,
-        h: 0.009,
-        pos: [0, -0.247, 0.048 * t],
-        rotX: Math.PI / 2,
-        mat: watchMetal,
+        r: 0.0245, h: 0.011, pos: [0, wristY, faceZ], rotX: Math.PI / 2, mat: watchMetal,
       });
       dial.name = 'person.watch.dial';
       fore.add(dial);
-      const faceMat = mat({ color: 0x17131f, roughness: 0.2, metalness: 0.5 });
+      const bezel = new THREE.Mesh(
+        new THREE.TorusGeometry(0.0225, 0.0042, 6, 20),
+        watchMetal,
+      );
+      bezel.name = 'person.watch.bezel';
+      bezel.position.set(0, wristY, faceZ + 0.007);
+      bezel.rotation.x = Math.PI / 2;
+      fore.add(bezel);
+      // The face, dark and slightly glossy so it reads as glass over a dial.
+      const faceMat = mat({
+        color: silverWatch ? 0x141821 : 0x1a1208, roughness: 0.14, metalness: 0.4,
+      });
       const dialFace = cylinder({
-        r: 0.019,
-        h: 0.004,
-        pos: [0, -0.247, 0.055 * t],
-        rotX: Math.PI / 2,
-        mat: faceMat,
+        r: 0.0195, h: 0.004, pos: [0, wristY, faceZ + 0.0072], rotX: Math.PI / 2, mat: faceMat,
       });
       dialFace.name = 'person.watch.face';
       fore.add(dialFace);
+      // Four markers at the quarters, and the hands at ten past ten.
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2;
+        fore.add(box({
+          name: 'person.watch.marker',
+          size: [0.0035, 0.0055, 0.002],
+          pos: [Math.sin(a) * 0.0148, wristY + Math.cos(a) * 0.0148, faceZ + 0.0095],
+          mat: watchMetal,
+        }));
+      }
+      for (const [len, ang, name] of [[0.0125, -1.05, 'hour'], [0.0165, 0.52, 'minute']]) {
+        const hand = box({
+          name: `person.watch.hand.${name}`,
+          size: [0.0022, len, 0.0016],
+          pos: [Math.sin(ang) * len * 0.5, wristY + Math.cos(ang) * len * 0.5, faceZ + 0.0102],
+          mat: watchMetal,
+        });
+        hand.rotation.z = -ang;
+        fore.add(hand);
+      }
+      // The crown, on the right of the case as worn.
+      fore.add(cylinder({
+        r: 0.0042, h: 0.007, seg: 8,
+        pos: [0.0268, wristY, faceZ], rotZ: Math.PI / 2, mat: watchMetal,
+      }));
+      // A stable name for the whole assembly, for tests and for the ledger.
+      const braceletName = silverWatch ? 'person.watch.band.silver' : 'person.watch.band.gold';
+      bracelet.name = braceletName;
     }
     pivot.add(fore);
     pivot.userData.fore = fore;
