@@ -575,12 +575,69 @@ try {
     return { ...s, instanced, meshes, destroyed: h.city.destroyed, before, overCity };
   });
   check('Squatchbourg is an extensive instanced city, not a few hundred separate meshes',
-    cityBuilt.buildings > 400 && cityBuilt.instanced >= 3 && cityBuilt.meshes < 90
-      && cityBuilt.streetLights > 100 && !cityBuilt.destroyed,
+    cityBuilt.buildings > 2000 && cityBuilt.instanced >= 8 && cityBuilt.meshes < 90
+      && cityBuilt.streetLights > 400 && !cityBuilt.destroyed,
     JSON.stringify({ ...cityBuilt, before: undefined, overCity: undefined }));
 
+  /* ---- The elaborate city (owner: "I want it detailed... quite an elaborate
+   * city to drop the bomb on so it's a powerful scene") ----
+   * Asserted as STRUCTURE, because that is what was asked for and what a
+   * texture cannot fake: six districts that actually contain different things,
+   * a river with water in a carved channel, working frontage, and landmarks
+   * that are individually placed rather than scattered. */
+  const cityStructure = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const c = h.city;
+    const s = c.stats();
+    const seen = new Set();
+    for (const l of c.lots) seen.add(l.district);
+    const named = (n) => !!c.group.getObjectByName(n);
+    // The river channel has to be a real dip in the ground the aeroplane flies
+    // over, not a blue rectangle lying on the desert.
+    const onRiver = { x: c.x, z: c.z + Math.cos(0.34) * -260 };
+    const bankZ = c.z + Math.cos(0.34) * -260 + 220;
+    const channel = h.groundHeight(onRiver.x, onRiver.z);
+    const bank = h.groundHeight(onRiver.x, bankZ);
+    return {
+      ...s,
+      districts: [...seen].sort(),
+      landmarkNames: c.landmarks.map((l) => l.name),
+      hasGround: named('squatchbourg-ground'),
+      hasRiver: named('squatchbourg-river'),
+      hasHouses: named('squatchbourg-houses'),
+      hasRoofs: named('squatchbourg-roofs'),
+      hasTrees: named('squatchbourg-trees'),
+      hasRail: named('squatchbourg-rolling-stock'),
+      hasCraft: named('squatchbourg-river-craft'),
+      channelDepth: +(bank - channel).toFixed(1),
+    };
+  });
+  check('Squatchbourg has districts, a working river frontage, industry and landmarks worth aiming at',
+    cityStructure.districts.length >= 6
+      && cityStructure.landmarks >= 18 && cityStructure.landmarkParts > 150
+      && cityStructure.hasGround && cityStructure.hasRiver && cityStructure.hasHouses
+      && cityStructure.hasRoofs && cityStructure.hasTrees && cityStructure.hasRail
+      && cityStructure.hasCraft && cityStructure.channelDepth > 6,
+    JSON.stringify({
+      districts: cityStructure.districts,
+      buildings: cityStructure.buildings,
+      blocks: cityStructure.blocks,
+      houses: cityStructure.houses,
+      landmarks: cityStructure.landmarks,
+      landmarkParts: cityStructure.landmarkParts,
+      kitDrawCalls: cityStructure.kitDrawCalls,
+      channelDepth: cityStructure.channelDepth,
+    }));
+
+  check('every landmark in the city costs a handful of draw calls between them, not one each',
+    cityStructure.kitDrawCalls <= 12 && cityStructure.instancedMeshes <= 22
+      && cityStructure.plainMeshes <= 4,
+    `${cityStructure.landmarks} landmarks / ${cityStructure.landmarkParts} parts in `
+    + `${cityStructure.kitDrawCalls} instanced kit meshes; the whole city is `
+    + `${cityStructure.drawCallsApprox} draw calls and ~${cityStructure.trianglesApprox} triangles`);
+
   check('a whole frame with the city filling it stays inside a browser-game budget',
-    cityBuilt.overCity.calls < 120 && cityBuilt.overCity.tris < 400000,
+    cityBuilt.overCity.calls < 150 && cityBuilt.overCity.tris < 700000,
     `${cityBuilt.overCity.calls} draw calls, ${cityBuilt.overCity.tris} triangles for the whole scene from 3000 ft over the target`);
 
   /* ---- Cockpit preflight: all four engines start, brakes off, clears to taxi ----
@@ -672,15 +729,28 @@ try {
   /* ---- Cruise: a real nav-correction bark when off-heading. ---- */
   const navBark = await page.evaluate(() => {
     const h = window.__enolaSquatch;
+    /* Heading 130 with a 090 corridor. This airframe's nose is +Z, so the
+     * pilot's left is +X and headings count round toward +X — a RISING heading
+     * is a LEFT turn. Sitting at 130 the aeroplane has already gone too far
+     * left, so the correction Irish owes is RIGHT. He used to call the other
+     * one, which is the same class of mistake as the mirrored Beef Run seats
+     * and the reason this check now asserts the SIDE rather than just that
+     * somebody said something. */
     h.physics.setPose(h.physics.position.clone(), 90 + 40, h.physics.velocity.length());
     h.tick(10); // clears cruise.settle's own queue and the 4s nav-call cooldown
     return {
       navOffCourse: h.mission.flags.navOffCourse,
-      sawCorrection: h.dialogue.seen('nav.left5') || h.dialogue.seen('nav.right5') || h.dialogue.seen('nav.wrongWay'),
+      calledRight: h.dialogue.seen('nav.right5'),
+      calledLeft: h.dialogue.seen('nav.left5'),
+      wrongWay: h.dialogue.seen('nav.wrongWay'),
     };
   });
   check('flying 40 degrees off the 090 corridor fires a real Irish heading-correction bark',
-    navBark.navOffCourse && navBark.sawCorrection, JSON.stringify(navBark));
+    navBark.navOffCourse && (navBark.calledRight || navBark.calledLeft || navBark.wrongWay),
+    JSON.stringify(navBark));
+
+  check('and Irish calls the correction from inside the cockpit: too far left means come RIGHT',
+    navBark.calledRight && !navBark.calledLeft, JSON.stringify(navBark));
 
   /* ---- Detection corridor: real exposure/attention accumulation, then a
    * real, unassisted straight-line crossing into the compound's defenses. ---- */
@@ -762,9 +832,320 @@ try {
       && defenseDamage.phase === 'defense',
     JSON.stringify(defenseDamage));
 
+  /* ================================================================
+   * The 2026-08-04 escalation pass: night fighters, the autopilot, the tail
+   * gun the player mans, and the refined flak. All of it exercised HERE,
+   * mid-mission, with the aeroplane actually flying over the target — the
+   * checkpoint restore at `go('bombApproach')` below wipes every bit of it
+   * again, so nothing set up in this block leaks into the bombing run.
+   * ================================================================ */
+
+  /* ---- The flak, refined (owner: "let's really refine that") ---- */
+  const flak = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const d = h.defense;
+    const before = { bursts: d.burstsFired, near: d.nearMisses };
+    // Straight and level: the predictor is supposed to get the range.
+    const bursts = [];
+    d.onFlakBurst = (dist, point, severity) => bursts.push({ dist: Math.round(dist), severity: +severity.toFixed(2) });
+    let elevated = 0;
+    for (let i = 0; i < 60 * 30; i++) {
+      h.tick(1 / 60);
+      // Sampled across the run, not at one instant: which batteries are in
+      // range of the aeroplane changes as it crosses the target.
+      if (i % 30 === 0) {
+        elevated = Math.max(elevated, d.batteries.filter((b) => b.pitch > 0.05).length);
+      }
+    }
+    const settled = d.trackQuality;
+    // Now throw it about and watch the solution fall apart.
+    let heading = h.physics.headingDeg;
+    for (let i = 0; i < 60 * 6; i++) {
+      h.input.key(i % 120 < 60 ? 'KeyA' : 'KeyD', true);
+      h.tick(1 / 60);
+      h.input.key('KeyA', false);
+      h.input.key('KeyD', false);
+    }
+    const jinked = d.trackQuality;
+    void heading;
+    return {
+      batteries: d.batteries.length,
+      gunsPerBattery: d.batteries[0]?.guns.length ?? 0,
+      elevated,
+      shellsSeen: d.burstsFired - before.bursts,
+      bursts: bursts.length,
+      closest: bursts.length ? Math.min(...bursts.map((b) => b.dist)) : null,
+      settled: +settled.toFixed(2),
+      jinked: +jinked.toFixed(2),
+      intensity: +d.intensity.toFixed(2),
+    };
+  });
+  check('the flak is a battery problem now: real guns, real salvos, and a predictor that can be beaten',
+    flak.batteries >= 6 && flak.gunsPerBattery === 4 && flak.elevated > 0
+      && flak.shellsSeen > 12 && flak.bursts > 4
+      && flak.settled > 0.7 && flak.jinked < flak.settled,
+    JSON.stringify(flak));
+
+  check('a burst that goes off near the aeroplane is reported with its real distance',
+    flak.closest !== null && flak.closest < 900,
+    `closest burst reported at ${flak.closest} m of ${flak.bursts} heard`);
+
+  /* ---- Night fighters (owner: "not too hard not too easy... they try and
+   * shoot you down") ---- */
+  const fighters = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.spawnFighters(3, 0);
+    const states = new Set();
+    let maxEngaged = 0;
+    let calledOut = false;
+    for (let i = 0; i < 60 * 120; i++) {
+      h.tick(1 / 60);
+      const f = h.state().fighters;
+      f.states.forEach((s) => states.add(s));
+      maxEngaged = Math.max(maxEngaged, f.engaged);
+      if (h.dialogue.seen('fighters.first')) calledOut = true;
+      if (states.has('attack') && maxEngaged > 0 && f.roundsAtUs > 60) break;
+    }
+    const f = h.state().fighters;
+    return {
+      count: f.active,
+      states: [...states].sort(),
+      maxEngaged,
+      roundsAtUs: f.roundsAtUs,
+      hitsTaken: f.hitsTaken,
+      calledOut,
+      warned: [...(h.flightHud._warnState || [])].includes('fighters'),
+    };
+  });
+  check('the fighters hunt: they set up, commit, make a firing pass and are called out on the intercom',
+    fighters.count > 0 && fighters.states.includes('attack')
+      && fighters.maxEngaged >= 1 && fighters.maxEngaged <= 2
+      && fighters.roundsAtUs > 40 && fighters.calledOut && fighters.warned,
+    JSON.stringify(fighters));
+
+  const fightersBreak = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const seen = new Set();
+    for (let i = 0; i < 60 * 90; i++) {
+      h.tick(1 / 60);
+      h.state().fighters.states.forEach((s) => seen.add(s));
+      if (seen.has('breakoff') && seen.has('reposition')) break;
+    }
+    return { states: [...seen].sort() };
+  });
+  check('a fighter breaks off across the tail and comes round for another pass',
+    fightersBreak.states.includes('breakoff') && fightersBreak.states.includes('reposition'),
+    JSON.stringify(fightersBreak));
+
+  /* ---- The autopilot, and what it costs ----
+   *
+   * The HOLD is measured with the battery paused and the sky empty, because
+   * that is the only way to measure a control law: with flak bursting and two
+   * fighters making passes, the autopilot is correctly thrown off every few
+   * seconds (`onShrapnel` and `onFighterHit` both kick it, on purpose), and a
+   * test that cannot tell "it cannot hold a heading" from "it was shot off the
+   * heading" is not testing anything. The TRADE is measured separately, below,
+   * with everything switched back on. */
+  const autopilot = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const wasDeployed = h.defense.deployed;
+    h.defense.deployed = false;                 // pause the battery
+    h.interceptors.clear();                     // and empty the sky
+    /* And keep it empty. `updateDefensePhase` re-scrambles a wave the moment
+     * it notices there are fewer than three fighters up, which is exactly what
+     * it should do in a game and exactly what makes a control-law measurement
+     * meaningless — the first run of this check reported a 245 m altitude
+     * wander that turned out to be the aeroplane flying itself into the
+     * ground AFTER a fighter had shot the autopilot off at the twelve-second
+     * mark. One method stubbed, for one block, restored below. */
+    const realScramble = h.mission.scrambleFighters;
+    h.mission.scrambleFighters = () => false;
+    /* And four working engines. The damage-API check above deliberately put
+     * engine one out, and an autopilot with `PITCH_LIMIT` of authority
+     * genuinely CANNOT hold an altitude on a heavy bomber that is down an
+     * engine — measured here at about five metres a second of sink, which is
+     * the "limited authority" the system is designed to have and not a fault.
+     * That case belongs to the flying, not to the control law, so the law is
+     * measured on an aeroplane that is not already broken. */
+    h.engines.reset(false);
+    h.engines.forceRunning();
+    /* Somewhere real. By this point the aeroplane has flown four minutes of
+     * unattended headless flight through a barrage and three fighter passes,
+     * and it is wherever physics left it — which is quite often a spiral into
+     * the ground. `engage()` correctly refuses an aeroplane that is on the
+     * deck, on its side or below its stall, so the pose is staged the same way
+     * every other leg of this script stages the one it means to test. */
+    const at = h.physics.position.clone();
+    at.y = h.groundHeight(at.x, at.z) + 620;
+    h.physics.setPose(at, 90, 66);
+    h.physics.omega.set(0, 0, 0);
+    h.input.throttle = 0.7;
+    h.tick(1.5);
+
+    const heading = h.physics.headingDeg;
+    const altitude = h.physics.position.y;
+    const preflightState = {
+      onGround: h.physics.onGround,
+      tas: +h.physics.tas.toFixed(1),
+      roll: +h.physics.rollDeg.toFixed(1),
+      pitch: +h.physics.pitchDeg.toFixed(1),
+      stallT: +h.physics.stallT.toFixed(2),
+      lockout: +h.autopilot.lockout.toFixed(2),
+      alreadyEngaged: h.autopilot.engaged,
+    };
+    const took = h.autopilotToggle();
+    h.tick(45);
+    const held = {
+      took,
+      preflightState,
+      engaged: h.autopilot.engaged,
+      reason: h.autopilot.reason,
+      headingDrift: +Math.abs(((h.physics.headingDeg - heading + 540) % 360) - 180).toFixed(2),
+      altitudeDrift: +Math.abs(h.physics.position.y - altitude).toFixed(1),
+      predictability: +h.autopilot.predictability.toFixed(2),
+      fighterPredictability: +h.interceptors._predictability.toFixed(2),
+      readout: h.autopilot.readout(),
+      strip: document.getElementById('enola-autopilot')?.style.display,
+    };
+
+    // And the aeroplane takes itself back when something hits it.
+    h.mission.autopilot.disengage('blast wave');
+    const kicked = { engaged: h.autopilot.engaged, lockout: h.autopilot.lockout > 0 };
+    const refused = h.autopilotToggle();
+    h.tick(4);
+    const after = h.autopilotToggle();
+    h.defense.deployed = wasDeployed;
+    h.mission.scrambleFighters = realScramble;
+    return { held, kicked, refused, after };
+  });
+  check('the autopilot really holds a heading and an altitude while nobody is in the seat',
+    autopilot.held.took && autopilot.held.engaged
+      && autopilot.held.headingDrift < 4 && autopilot.held.altitudeDrift < 60
+      && autopilot.held.readout && autopilot.held.strip === 'block',
+    JSON.stringify(autopilot.held));
+
+  check('and it is not free: flying itself makes the aeroplane a measurably easier target',
+    autopilot.held.predictability > 0.6
+      && Math.abs(autopilot.held.fighterPredictability - autopilot.held.predictability) < 0.25,
+    `predictability ${autopilot.held.predictability}, and the fighters are reading ${autopilot.held.fighterPredictability}`);
+
+  check('a hit throws the autopilot off and it will not take the aeroplane straight back',
+    autopilot.kicked.engaged === false && autopilot.kicked.lockout
+      && autopilot.refused === false && autopilot.after === true,
+    JSON.stringify({ kicked: autopilot.kicked, refusedDuringLockout: autopilot.refused, afterLockout: autopilot.after }));
+
+  /* ---- The tail gun, manned by the player ----
+   *
+   * Real fighters, real rounds, and a real hit test through the turret's own
+   * arc — `aimGunAt` goes through `GunnerStation.pointAt()`, which clamps to
+   * exactly the stops a player has, so a fighter that can only be reached from
+   * outside the traverse is reported as out of arc rather than quietly hit. */
+  const gunnery = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const at = h.physics.position.clone();
+    at.y = h.groundHeight(at.x, at.z) + 620;
+    h.physics.setPose(at, 90, 66);
+    h.physics.omega.set(0, 0, 0);
+    h.input.throttle = 0.7;
+    h.tick(1);
+    if (h.state().fighters.active === 0) h.spawnFighters(2, 0);
+    h.tick(6);
+
+    const before = { autopilot: h.autopilot.engaged };
+    const took = h.gunToggle();
+    const seat = h.aircraft.anchors.rearGunSeat.clone().applyMatrix4(h.aircraft.group.matrixWorld);
+    const camAtTurret = h.camera.position.distanceTo(seat) < 2.5;
+    const hudUp = document.getElementById('enola-combat')?.style.display;
+    // While the player has it, the mission's own gunner state follows the
+    // player's trigger and not the Shubenator's burst timer.
+    const shubesQuiet = h.mission.gunFiring === h.gunner.firing;
+
+    let killed = 0;
+    let shots = 0;
+    let inArc = false;
+    let closest = Infinity;
+    for (let pass = 0; pass < 1600 && killed === 0; pass++) {
+      const live = h.interceptors.fighters.filter((f) => f.alive);
+      if (!live.length) break;
+      live.sort((a, b) => a.position.distanceTo(h.physics.position) - b.position.distanceTo(h.physics.position));
+      const t = live[0];
+      const range = t.position.distanceTo(h.physics.position);
+      closest = Math.min(closest, range);
+      // Lead it the way a gunner has to: the round takes time to get there.
+      const aim = t.position.clone().addScaledVector(t.velocity, range / 860);
+      const r = h.aimGunAt(aim.x, aim.y, aim.z);
+      inArc = inArc || r.inArc;
+      if (r.inArc && range < 1200) {
+        h.gunner.setFiring(true);
+        h.tick(3 / 60);
+        h.gunner.setFiring(false);
+      } else {
+        h.tick(5 / 60);
+      }
+      shots = h.gunner.shots;
+      killed = h.gunner.kills;
+    }
+    const state = h.gunner.readout();
+    const autopilotBefore = h.autopilot.engaged;
+    const left = h.gunToggle();
+    return {
+      took, before, camAtTurret, inArc, shots, killed,
+      closest: Math.round(closest),
+      belt: state.rounds, heat: +state.heat.toFixed(2),
+      hits: state.hits, hudUp, shubesQuiet,
+      leftGun: left === false, backInSeat: h.gunner.manned === false,
+      autopilotBefore, autopilotAfter: h.autopilot.engaged,
+      hudDown: document.getElementById('enola-combat')?.style.display,
+    };
+  });
+  check('taking the tail gun puts the player in the turret, engages the autopilot, and hands Shubes off the trigger',
+    gunnery.took && gunnery.camAtTurret && gunnery.shubesQuiet && gunnery.hudUp === 'block',
+    JSON.stringify({ ...gunnery, shots: undefined, killed: undefined }));
+
+  check('the player can actually shoot a night fighter down from the tail',
+    gunnery.inArc && gunnery.shots > 0 && gunnery.killed > 0 && gunnery.belt < 1400,
+    `${gunnery.shots} rounds away, ${gunnery.hits} on, ${gunnery.killed} destroyed, `
+    + `${gunnery.belt} left in the belt; closest pass ${gunnery.closest} m`);
+
+  check('coming forward again gives the gun back and does not change who is flying',
+    gunnery.leftGun && gunnery.backInSeat && gunnery.hudDown === 'none'
+      && gunnery.autopilotAfter === gunnery.autopilotBefore,
+    JSON.stringify({
+      leftGun: gunnery.leftGun,
+      backInSeat: gunnery.backInSeat,
+      autopilot: `${gunnery.autopilotBefore} -> ${gunnery.autopilotAfter}`,
+    }));
+
+  /* ---- The HUD instruction follows the character, per the tone doctrine ---- */
+  const instruction = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    h.mission.armCombatInstruction('TEST INSTRUCTION', 500);
+    h.dialogue.play('fighters.first', { urgent: true });
+    const whileTalking = { busy: h.dialogue.busy, pending: !!h.mission._pendingInstruction };
+    for (let i = 0; i < 60 * 40 && h.mission._pendingInstruction; i++) h.tick(1 / 60);
+    return { whileTalking, drained: !h.mission._pendingInstruction };
+  });
+  check('a combat instruction waits for the crew to stop talking before it reaches the glass',
+    instruction.whileTalking.busy && instruction.whileTalking.pending && instruction.drained,
+    JSON.stringify(instruction));
+
   /* Shortcut: the rest of the run to the target is straight, undamaging
    * flight already proven above (corridor crossing) — jump to the approach. */
-  const bombApproachEntry = await page.evaluate(() => window.__enolaSquatch.go('bombApproach'));
+  const bombApproachEntry = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const phase = h.go('bombApproach');
+    /* The combat block above is a stress test — it deliberately flies into a
+     * barrage and lets three fighters make passes, and it leaves the skin in a
+     * state no ordinary run would reach. `restoreCheckpoint('preRelease')`
+     * only restores damage when there is saved checkpoint DATA, and on this
+     * route the checkpoint has never actually been reached organically, so it
+     * has none. Reset it here rather than measure the blast's damage against a
+     * wing that is already at its limit. */
+    h.physics.damage.wing = 0;
+    h.physics.damage.gear = 0;
+    h.physics.damage.tireBurst = false;
+    return phase;
+  });
   check('go("bombApproach") stages the bombing run', bombApproachEntry === 'bombApproach');
 
   const targetingReal = await page.evaluate(() => {
@@ -812,6 +1193,26 @@ try {
     Math.abs((beforeMass - release.afterMass) - 2700) < 5,
     JSON.stringify({ beforeMass, afterMass: release.afterMass }));
 
+  /* ---- The break turn: the seconds between the bomb and the flash ----
+   * Owner's brief is that the blast is the payoff; the way to make it MEAN
+   * something is to make the player earn their distance from it. The objective
+   * has to say so, and `score.blastDistance` has to be the number that comes
+   * out of it. */
+  const breakTurn = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    return {
+      phase: h.mission.phase,
+      objective: h.mission.objective,
+      calledOut: h.dialogue.seen('bomb.breakTurn')
+        || h.dialogue.queue.some((l) => l.beat === 'bomb.breakTurn'),
+      pointYet: h.mission.explosionPoint === null || h.mission.explosionPoint === undefined,
+    };
+  });
+  check('the bomb being away starts a break turn rather than an empty objective and a wait',
+    breakTurn.phase === 'explosion' && breakTurn.pointYet && breakTurn.calledOut
+      && /turn/i.test(breakTurn.objective),
+    JSON.stringify(breakTurn));
+
   /* ---- The whistle starts the moment the payload leaves the mount ---- */
   const whistle = await page.evaluate(() => {
     const h = window.__enolaSquatch;
@@ -840,21 +1241,43 @@ try {
   const explosionReal = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     h.input.throttle = 0.9;
-    const seen = { flashPeak: 0, fireballPeak: 0, debris: 0, lightPeak: 0 };
-    // Same duty-cycled climb input as the corridor crossing above (KeyS is
-    // this flight model's nose-up — verified empirically, see this phase's
-    // report) — held while the payload really falls and the VFX plays.
-    for (let i = 0; i < 34; i++) {
+    const seen = {
+      flashPeak: 0, fireballPeak: 0, debris: 0, lightPeak: 0,
+      shockSamples: [], flattened: 0, columnPeak: 0, capPeak: 0,
+      wilson: 0, arrived: false, arrivedAt: null,
+      wingBefore: h.physics.damage.wing, wingAfter: 0,
+    };
+    /* Same duty-cycled climb input as the corridor crossing above (KeyS is
+     * this flight model's nose-up — verified empirically) — held while the
+     * payload really falls and the whole set-piece plays. Longer than it used
+     * to be, because the column does not finish going up for half a minute. */
+    for (let i = 0; i < 46; i++) {
       h.input.key('KeyS', true);
+      // "Climb, bank, and don't look at it." Flown, not just read: a bomber
+      // that runs east for a minute after the drop leaves the map, which is
+      // the map telling the truth rather than a bug.
+      if (i > 14 && i < 34) h.input.key('KeyA', true);
       h.tick(0.25);
       h.input.key('KeyS', false);
+      h.input.key('KeyA', false);
       h.tick(0.75);
       const vfx = h.mission._explosionVfx;
+      const st = h.state();
       if (vfx) {
         seen.flashPeak = Math.max(seen.flashPeak, vfx.flash.scale.x);
         seen.fireballPeak = Math.max(seen.fireballPeak, ...vfx.fire.map((b) => b.scale.x));
         seen.lightPeak = Math.max(seen.lightPeak, vfx.light.intensity);
         seen.debris = Math.max(seen.debris, vfx.debris.length);
+        seen.columnPeak = Math.max(seen.columnPeak, vfx.stem.scale.y);
+        seen.capPeak = Math.max(seen.capPeak, vfx.cap.scale.x);
+        seen.wilson = Math.max(seen.wilson, vfx.wilson.material.opacity);
+        seen.shockSamples.push(st.blast.shockRadius);
+        seen.flattened = Math.max(seen.flattened, st.blast.cityFlattened);
+        if (st.blast.shockArrived && !seen.arrived) {
+          seen.arrived = true;
+          seen.arrivedAt = st.blast.t;
+          seen.wingAfter = h.physics.damage.wing;
+        }
       }
     }
     return {
@@ -864,19 +1287,72 @@ try {
       agl: h.physics.agl,
       failed: h.mission.failed,
       whistleStopped: !h.audio.whistling,
+      blastDistance: h.mission.score.blastDistance,
       seen,
     };
   });
+
+  /* The whiteout is checked against the curve itself rather than by sampling
+   * the overlay: the double flash is over in a second and a half and the loop
+   * above steps in quarter-seconds, so a sampled peak would be luck. */
+  const whiteout = await page.evaluate(() => {
+    const el = document.getElementById('enola-blast');
+    const L = window.__enolaSquatch.blastLuminance;
+    return {
+      first: +L(0.022).toFixed(3),
+      dip: +L(0.19).toFixed(3),
+      second: +L(0.78).toFixed(3),
+      late: +L(8).toFixed(3),
+      overlayExists: !!el,
+      overlayBlend: el ? getComputedStyle(el).mixBlendMode : null,
+    };
+  });
+
   check('the Fat Squatch really falls, really impacts, and the mission really moves through explosion into escape',
     explosionReal.impacted && typeof explosionReal.bombAccuracy === 'number'
-      && explosionReal.phase === 'escape' && !explosionReal.failed
+      && ['escape', 'emergency', 'return'].includes(explosionReal.phase) && !explosionReal.failed
       && explosionReal.whistleStopped,
     JSON.stringify({ ...explosionReal, seen: undefined }));
 
   check('the detonation is on the scale the brief asked for: a huge flash, a real light, a fireball and a debris fan',
     explosionReal.seen.flashPeak > 500 && explosionReal.seen.fireballPeak > 400
       && explosionReal.seen.lightPeak > 1e5 && explosionReal.seen.debris >= 30,
-    JSON.stringify(explosionReal.seen));
+    JSON.stringify({
+      flashPeak: Math.round(explosionReal.seen.flashPeak),
+      fireballPeak: Math.round(explosionReal.seen.fireballPeak),
+      lightPeak: explosionReal.seen.lightPeak.toExponential(2),
+      debris: explosionReal.seen.debris,
+    }));
+
+  check('the flash whites the cockpit out, and does it TWICE the way a real device does',
+    whiteout.overlayExists && whiteout.overlayBlend === 'screen'
+      && whiteout.first > 0.9 && whiteout.dip < whiteout.first * 0.75
+      && whiteout.second > 0.9 && whiteout.late < 0.05,
+    JSON.stringify(whiteout));
+
+  check('the shock front visibly crosses the ground and takes the surviving city down as it reaches it',
+    explosionReal.seen.shockSamples.length > 4
+      && explosionReal.seen.shockSamples[explosionReal.seen.shockSamples.length - 1]
+        > explosionReal.seen.shockSamples[0]
+      && explosionReal.seen.shockSamples.every((r, i, a) => i === 0 || r >= a[i - 1])
+      && explosionReal.seen.flattened > 100,
+    `front reached ${explosionReal.seen.shockSamples[explosionReal.seen.shockSamples.length - 1]} m `
+    + `and knocked ${explosionReal.seen.flattened} pieces of Squatchbourg down on its way past`);
+
+  check('the column goes up and the cap unrolls off the top of it',
+    explosionReal.seen.columnPeak > 1500 && explosionReal.seen.capPeak > 1200
+      && explosionReal.seen.wilson > 0.1,
+    `stem ${Math.round(explosionReal.seen.columnPeak)} m, cap radius `
+    + `${Math.round(explosionReal.seen.capPeak)} m, condensation cloud peaked at `
+    + `${explosionReal.seen.wilson.toFixed(2)}`);
+
+  check('the blast wave catches up with the aeroplane and it costs something',
+    explosionReal.seen.arrived
+      && explosionReal.seen.wingAfter > explosionReal.seen.wingBefore
+      && typeof explosionReal.blastDistance === 'number' && explosionReal.blastDistance > 50,
+    `it arrived ${explosionReal.seen.arrivedAt}s after the flash at `
+    + `${Math.round(explosionReal.blastDistance)} m; skin damage went `
+    + `${explosionReal.seen.wingBefore.toFixed(3)} -> ${explosionReal.seen.wingAfter.toFixed(3)}`);
 
   /* ---- The crater: the city is gone, the ground is a hole, and physics knows ---- */
   const crater = await page.evaluate(() => {

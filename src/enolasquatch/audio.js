@@ -36,7 +36,7 @@ import { AudioEngine } from '../core/audio.js';
 import { isBundled, loadJson } from '../core/assets.js';
 import { loadOnceRetriable } from '../core/load-queue.js';
 import { MissionAudio } from '../beefrun/audio.js';
-import { clamp } from '../beefrun/util.js';
+import { clamp, lerp } from '../beefrun/util.js';
 
 const SFX_DIR = 'assets/sfx/';
 
@@ -284,6 +284,180 @@ export class EnolaMissionAudio extends MissionAudio {
     // And the debris, thrown for a long time afterwards.
     for (let i = 0; i < 5; i++) {
       burst(1.1 + i * 0.55 + Math.random() * 0.3, 0.16, 0.7, 2600, 200);
+    }
+    return true;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The flak                                                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * One burst, heard from `distance` metres.
+   *
+   * Owner: "the flak coming from the ground is bad ass. Let's really refine
+   * that." Most of what makes a near miss frightening is not the volume, it is
+   * the SPECTRUM: a burst two hundred metres away is a dull thud through the
+   * airframe because the air has taken the top off it, and one thirty metres
+   * away is a flat crack with all of it still in. So the lowpass corner and the
+   * attack both move with distance, rather than one sample being played
+   * quieter.
+   *
+   * Synthesised on purpose, like everything else on this page — see the file
+   * header. `assets/sfx/manifest.json` is owner-generated and off limits, and a
+   * bandwidth-limited noise burst is genuinely the right tool for this anyway.
+   *
+   * @param {number} distance metres
+   * @param {number} [severity] 0..1, as `Defense` computed it
+   */
+  flakBurst(distance = 200, severity = 0.5) {
+    const ctx = this.ctx;
+    if (!ctx || !this.ready) return false;
+    const bus = this.engine.busSfx;
+    const near = clamp(1 - distance / 320, 0, 1);
+    // Sound takes time to get there. Under a fifth of a second at these
+    // ranges, and it is exactly what separates "a burst" from "a burst NEAR
+    // YOU" — the near ones arrive with the light.
+    const t = ctx.currentTime + clamp(distance / 336, 0, 1.2);
+
+    const len = 0.5 + near * 0.5;
+    const n = Math.ceil(ctx.sampleRate * len);
+    const buffer = ctx.createBuffer(1, n, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < n; i++) {
+      const white = Math.random() * 2 - 1;
+      last = (last + 0.06 * white) / 1.06;
+      data[i] = last * 2.6 + white * 0.5;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    // 380 Hz at three hundred metres, 6.5 kHz right on top of you.
+    lp.frequency.setValueAtTime(lerp(380, 6500, near * near), t);
+    lp.frequency.exponentialRampToValueAtTime(lerp(120, 400, near), t + len);
+    const g = ctx.createGain();
+    const peak = clamp(0.16 + near * 0.7, 0, 0.9) * clamp(0.4 + severity, 0.2, 1.4);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + lerp(0.03, 0.004, near));
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    src.connect(lp).connect(g).connect(bus);
+    src.start(t);
+    src.stop(t + len + 0.05);
+
+    // The thump you feel rather than hear, only when it is genuinely close.
+    if (near > 0.35) {
+      const sub = ctx.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(lerp(70, 130, near), t);
+      sub.frequency.exponentialRampToValueAtTime(34, t + 0.5);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.0001, t);
+      sg.gain.exponentialRampToValueAtTime(near * 0.5, t + 0.02);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+      sub.connect(sg).connect(bus);
+      sub.start(t);
+      sub.stop(t + 0.75);
+    }
+    return true;
+  }
+
+  /**
+   * Splinters arriving on the skin.
+   *
+   * The sound a crew actually remembers: not the bang, the gravel on the
+   * fuselage half a second afterwards. A short burst of filtered impulses,
+   * which is what it is.
+   *
+   * @param {number} [k] 0..1 — how much of it there was
+   */
+  shrapnel(k = 0.5) {
+    const ctx = this.ctx;
+    if (!ctx || !this.ready) return false;
+    const bus = this.engine.busSfx;
+    const t0 = ctx.currentTime;
+    const hits = 4 + Math.round(clamp(k, 0, 1) * 12);
+    for (let i = 0; i < hits; i++) {
+      const at = t0 + Math.random() * 0.28;
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(900 + Math.random() * 2600, at);
+      osc.frequency.exponentialRampToValueAtTime(180 + Math.random() * 300, at + 0.05);
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.6;
+      bp.frequency.value = 1400 + Math.random() * 2200;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.06 + Math.random() * 0.09 * clamp(k, 0, 1), at + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.06);
+      osc.connect(bp).connect(g).connect(bus);
+      osc.start(at);
+      osc.stop(at + 0.08);
+    }
+    return true;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The blast wave arriving                                           */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * The front reaching the aeroplane.
+   *
+   * `detonation()` above is the event itself; this is the moment it gets to
+   * YOU, which is a completely different sound — a crack with no distance in
+   * it at all, then the airframe ringing, then a long roar of disturbed air
+   * going past. Fired by `MissionController.onShockWave()` at whatever range
+   * the player actually managed to get, which is why the break turn is worth
+   * flying.
+   *
+   * @param {number} [severity] 0..3 as the mission computed it
+   */
+  blastWave(severity = 1) {
+    const ctx = this.ctx;
+    if (!ctx || !this.ready) return false;
+    const bus = this.engine.busSfx;
+    const t = ctx.currentTime;
+    const k = clamp(severity, 0.15, 3);
+
+    // The slap.
+    const n = Math.ceil(ctx.sampleRate * 2.4);
+    const buffer = ctx.createBuffer(1, n, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < n; i++) {
+      const white = Math.random() * 2 - 1;
+      last = (last + 0.02 * white) / 1.02;
+      data[i] = last * 4.2 + white * 0.3;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(5200, t);
+    lp.frequency.exponentialRampToValueAtTime(90, t + 2.2);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(clamp(0.5 * k, 0.05, 1), t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 2.3);
+    src.connect(lp).connect(g).connect(bus);
+    src.start(t);
+    src.stop(t + 2.4);
+
+    // The airframe, complaining about it for a second and a half.
+    for (const f of [148, 233, 391]) {
+      const ring = ctx.createOscillator();
+      ring.type = 'triangle';
+      ring.frequency.setValueAtTime(f * (0.98 + Math.random() * 0.04), t + 0.02);
+      const rg = ctx.createGain();
+      rg.gain.setValueAtTime(0.0001, t + 0.02);
+      rg.gain.exponentialRampToValueAtTime(0.05 * clamp(k, 0.2, 1.4), t + 0.05);
+      rg.gain.exponentialRampToValueAtTime(0.0001, t + 1.6);
+      ring.connect(rg).connect(bus);
+      ring.start(t + 0.02);
+      ring.stop(t + 1.7);
     }
     return true;
   }

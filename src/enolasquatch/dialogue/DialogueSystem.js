@@ -33,6 +33,14 @@ const BARK_COOLDOWN = {
   heavyBanked: 16, heavySlow: 20, heavySmooth: 26,
   gunnerIdle: 22, gunnerFiring: 3.5,
   lowFuel: 30, terrainClose: 4,
+  /* The 2026-08-04 escalation pass. Combat pools are SHORT, because a crew
+   * that only reacts to every third fighter reads as a crew that has stopped
+   * paying attention — but not so short that four people talk over the one
+   * instruction that matters. `flakClose` and `fighterNearMiss` are the two
+   * that can fire many times a minute, so they get the tightest leash. */
+  flakClose: 6, fighterCommitting: 7, fighterAgain: 9,
+  fighterNearMiss: 5, fighterHitUs: 7, gunJam: 12,
+  autoRefused: 8, gunRefused: 8,
 };
 const GLOBAL_BARK_COOLDOWN = 5;
 

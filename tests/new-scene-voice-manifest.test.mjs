@@ -48,9 +48,66 @@ import { buildAudioTodo } from '../tools/audio-todo-lib.mjs';
  * (2026-08-04).
  */
 const ENOLA_CUES_AWAITING_VO_SYNC = [
-  /* Empty, and it should stay empty in a released state. The 26 walkaround
-   * patter, nightfall and idle-bark lines authored on 2026-08-04 were
-   * generated into the manifest by `npm run vo:sync` the same day. */
+  /* The 2026-08-04 escalation pass: night fighters, the autopilot, the tail
+   * gun the player mans, the break turn and the four-beat detonation. Forty-
+   * nine authored lines, listed here because `assets/sfx/manifest.json` and
+   * `assets/sfx/index.json` are owner-generated and were explicitly off limits
+   * to the session that wrote them — `npm run vo:sync` has not been run.
+   *
+   * This list is the repository's own mechanism for exactly that gap and it
+   * should go back to empty the moment somebody runs `npm run vo:enolasquatch`.
+   * Nothing else about the checker is relaxed: a line whose words or casting
+   * drifted, a stale entry, a duplicate or a collision is still a hard
+   * failure. */
+  'vo.enolasquatch.shubes.fighters-first-1.1',
+  'vo.enolasquatch.irish.fighters-first-2.1',
+  'vo.enolasquatch.sasole.fighters-first-3.1',
+  'vo.enolasquatch.shubes.fighters-down-1.1',
+  'vo.enolasquatch.irish.fighters-down-2.1',
+  'vo.enolasquatch.irish.fighters-broke-1.1',
+  'vo.enolasquatch.sasole.fighters-broke-2.1',
+  'vo.enolasquatch.sasole.auto-on-1.1',
+  'vo.enolasquatch.sasole.auto-on-2.1',
+  'vo.enolasquatch.sasole.auto-off-1.1',
+  'vo.enolasquatch.sasole.auto-kicked-1.1',
+  'vo.enolasquatch.shubes.gun-take-1.1',
+  'vo.enolasquatch.sasole.gun-take-2.1',
+  'vo.enolasquatch.shubes.gun-leave-1.1',
+  'vo.enolasquatch.irish.gun-dry-1.1',
+  'vo.enolasquatch.shubes.gun-dry-2.1',
+  'vo.enolasquatch.sasole.bomb-breakTurn-1.1',
+  'vo.enolasquatch.irish.bomb-breakTurn-2.1',
+  'vo.enolasquatch.prospect.explosion-flash-1.1',
+  'vo.enolasquatch.sasole.explosion-flash-2.1',
+  'vo.enolasquatch.irish.explosion-shockwave-1.1',
+  'vo.enolasquatch.numbskull.explosion-shockwave-2.1',
+  'vo.enolasquatch.sasole.explosion-shockwave-3.1',
+  'vo.enolasquatch.numbskull.explosion-column-1.1',
+  'vo.enolasquatch.irish.explosion-column-2.1',
+  'vo.enolasquatch.numbskull.explosion-column-3.1',
+  'vo.enolasquatch.shubes.explosion-column-4.1',
+  'vo.enolasquatch.sasole.explosion-column-5.1',
+  'vo.enolasquatch.sasole.bark-flakClose-1.1',
+  'vo.enolasquatch.irish.bark-flakClose-2.1',
+  'vo.enolasquatch.numbskull.bark-flakClose-3.1',
+  'vo.enolasquatch.shubes.bark-flakClose-4.1',
+  'vo.enolasquatch.shubes.bark-fighterCommitting-1.1',
+  'vo.enolasquatch.irish.bark-fighterCommitting-2.1',
+  'vo.enolasquatch.shubes.bark-fighterCommitting-3.1',
+  'vo.enolasquatch.shubes.bark-fighterAgain-1.1',
+  'vo.enolasquatch.irish.bark-fighterAgain-2.1',
+  'vo.enolasquatch.sasole.bark-fighterAgain-3.1',
+  'vo.enolasquatch.shubes.bark-fighterNearMiss-1.1',
+  'vo.enolasquatch.irish.bark-fighterNearMiss-2.1',
+  'vo.enolasquatch.numbskull.bark-fighterNearMiss-3.1',
+  'vo.enolasquatch.numbskull.bark-fighterHitUs-1.1',
+  'vo.enolasquatch.sasole.bark-fighterHitUs-2.1',
+  'vo.enolasquatch.irish.bark-fighterHitUs-3.1',
+  'vo.enolasquatch.shubes.bark-gunJam-1.1',
+  'vo.enolasquatch.irish.bark-gunJam-2.1',
+  'vo.enolasquatch.sasole.bark-autoRefused-1.1',
+  'vo.enolasquatch.sasole.bark-autoRefused-2.1',
+  'vo.enolasquatch.sasole.bark-gunRefused-1.1',
 ];
 
 const manifest = JSON.parse(

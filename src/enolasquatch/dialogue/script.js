@@ -311,6 +311,70 @@ export const BEATS = {
     H('I think I got one! I think! There was fire! Fire happened!', 3.0),
   ],
 
+  /* ---------------- Night fighters ----------------
+   *
+   * 2026-08-04, owner: "They will need good NPC behavior not too hard not too
+   * easy. they try and shoot you down." These are the beats over
+   * `../combat/Interceptors.js`.
+   *
+   * NOTHING IN THIS BLOCK SAYS LEFT OR RIGHT. The Shubenator is facing aft in
+   * the tail turret and everybody else is facing forward, so his port quarter
+   * is their starboard one — and this project has already shipped one scene
+   * with its left and right the wrong way round (the Beef Run's seats, fixed
+   * 2026-08-03). High, low, above, behind and "coming round again" all mean
+   * the same thing from both ends of the aeroplane, so that is what the crew
+   * call. */
+
+  'fighters.first': [
+    H('Something just went past the tail. Something fast and it was not ours.', 4.2),
+    I('Single engine. He is climbing back up to have another look at us.', 3.8),
+    L('Night fighters. They were always going to come. Everybody calls what they see, nobody guesses.', 5.2),
+  ],
+
+  'fighters.down': [
+    H('He is going down! He is going DOWN!', 2.6),
+    I('Confirmed. One less of them.', 2.2),
+  ],
+
+  'fighters.broke': [
+    I('They have turned back. We are past what their fuel will carry.', 3.4),
+    L('Then we are past the worst of it. Nobody relax.', 3.0),
+  ],
+
+  /* ---------------- The autopilot and the tail gun ----------------
+   *
+   * Owner: "maybe you can put the plane on auto pilot and gun them down." The
+   * trade is the mechanic, so Sasole says the price out loud the first time —
+   * and the HUD only names the key AFTER he has finished, per the tone
+   * doctrine. See `MissionController.armCombatInstruction()`. */
+
+  'auto.on': [
+    L('Setting the gyro. She will hold this heading and this height and she will do nothing else.', 5.0),
+    L('Understand me. She will not get out of the way of anything. That part was you.', 4.4),
+  ],
+
+  'auto.off': [
+    L('I have her. Hands on.', 2.0),
+  ],
+
+  'auto.kicked': [
+    L('Gyro is off — she is going over! Prospect, seat, NOW!', 3.6),
+  ],
+
+  'gun.take': [
+    H('You want it? Take it. I am not proud and I am not accurate.', 3.6),
+    L('Prospect is on the tail gun. Nobody is flying this aeroplane but a box of gears, so be quick about it.', 5.4),
+  ],
+
+  'gun.leave': [
+    H('It is warm. You are welcome.', 2.2),
+  ],
+
+  'gun.dry': [
+    I('Belt is out. There is nothing else back there.', 3.0),
+    H('There was a lot of it and now there is none of it.', 3.0),
+  ],
+
   /* ---------------- Bombing approach ---------------- */
 
   'bomb.targetInSight': [
@@ -365,6 +429,14 @@ export const BEATS = {
     L('There she goes. Plane just lost six thousand pounds of bad intentions.', 3.6),
   ],
 
+  /* The break turn. Everything the blast does to the aeroplane is scaled by
+   * how far away it got, so this is not flavour — it is the instruction that
+   * decides how bad the next thirty seconds are. */
+  'bomb.breakTurn': [
+    L('Now TURN. Hard over, nose down, and do not stop turning until I tell you.', 4.6),
+    I('Every second of that is distance, Prospect. Distance is the entire plan.', 4.2),
+  ],
+
   /* The whistle. Nobody in this crew has heard one before, which is the joke. */
   'bomb.falling': [
     H('Is it supposed to make that noise?', 2.4),
@@ -372,11 +444,34 @@ export const BEATS = {
     I('Then why is it getting worse.', 2.4),
   ],
 
-  /* ---------------- Explosion ---------------- */
+  /* ---------------- Explosion ----------------
+   *
+   * Four beats now rather than two, on their own clock (see
+   * `MissionController.updateDetonation`) so they land at the moments they
+   * were written for: the flash, the wave arriving, the column, the hole. */
+
+  'explosion.flash': [
+    P('I cannot see. I cannot see anything.', 2.8),
+    L('Nobody look at it. Fly the instruments. It comes back.', 3.4),
+  ],
+
+  'explosion.shockwave': [
+    I('BRACE—', 1.2),
+    N('Something hit us! Something hit the whole aeroplane at once!', 3.4),
+    L('That was the air. The air hit us.', 2.8),
+  ],
 
   'explosion.reaction': [
     I('That seems excessive.', 2.2),
     L('That was the conservative setting.', 2.6),
+  ],
+
+  'explosion.column': [
+    N('It is still going up.', 2.0),
+    I('It has been going up for fifteen seconds.', 2.8),
+    N('It is still going up.', 2.0),
+    H('Is it going to stop?', 2.0),
+    L('Eventually.', 1.8),
   ],
 
   'explosion.crater': [
@@ -476,6 +571,51 @@ export const BARKS = {
   terrainClose: [
     { who: 'SASOLE', text: 'Terrain. Terrain is a thing that wins arguments.' },
   ],
+
+  /* ---- The refined flak (owner: "let's really refine that") ----
+   * Fired by `MissionController` off a burst's REAL distance, not off a timer,
+   * so hearing one of these means one genuinely went off inside sixty metres. */
+  flakClose: [
+    { who: 'SASOLE', text: 'That one was close enough to read the serial number off.' },
+    { who: 'IRISH', text: 'Splinters. We are taking splinters down the side.' },
+    { who: 'NUMBSKULL', text: 'I felt that one in my teeth.' },
+    { who: 'SHUBES', text: 'The whole tail just moved and I was still attached to it!' },
+  ],
+
+  /* ---- Night fighters ----
+   * No left or right in any of these, for the reason given over the
+   * `fighters.*` block above: the man in the tail is facing the other way. */
+  fighterCommitting: [
+    { who: 'SHUBES', text: 'He is rolling in on us! High, coming down!' },
+    { who: 'IRISH', text: 'One committing. He is inside a mile and he is not sightseeing.' },
+    { who: 'SHUBES', text: 'I can see his exhaust. That is how close he is.' },
+  ],
+  fighterAgain: [
+    { who: 'SHUBES', text: 'He is back. He is BACK.' },
+    { who: 'IRISH', text: 'Second pass. Do not give him a straight line to work with.' },
+    { who: 'SASOLE', text: 'Same one, coming round again. He is patient. I hate patient.' },
+  ],
+  fighterNearMiss: [
+    { who: 'SHUBES', text: 'That went past me! That went past ME!' },
+    { who: 'IRISH', text: 'Wide. He has not settled yet.' },
+    { who: 'NUMBSKULL', text: 'There is daylight in this aeroplane and it is night.' },
+  ],
+  fighterHitUs: [
+    { who: 'NUMBSKULL', text: 'We are hit! We are hit somewhere!' },
+    { who: 'SASOLE', text: 'Report. Somebody give me a number, not a noise.' },
+    { who: 'IRISH', text: 'He got some of us that time.' },
+  ],
+  gunJam: [
+    { who: 'SHUBES', text: 'It has stopped! It got too hot and it has STOPPED!' },
+    { who: 'IRISH', text: 'Let it cool. Counting to three is not a personality flaw.' },
+  ],
+  autoRefused: [
+    { who: 'SASOLE', text: 'Not like this. Wings level, out of the buffet, and off the deck first.' },
+    { who: 'SASOLE', text: 'The gyro is not a magician. Fly her level and ask me again.' },
+  ],
+  gunRefused: [
+    { who: 'SASOLE', text: 'Not on the ground, Prospect. There is nothing up there to shoot at.' },
+  ],
 };
 
 export const cueOf = (beatId, index, who) =>
@@ -531,6 +671,11 @@ export const OBJECTIVES = {
   BOMB_APPROACH: 'Fly straight and level through the bombing corridor.',
   BOMB_MALFUNCTION: 'Hold altitude while the bomb bay is reset.',
   BOMB_RELEASE: 'Release the Fat Squatch.',
+  /* The seconds between the bomb leaving the mount and the flash. Everything
+   * the blast wave does to the aeroplane scales with how far it got, so this
+   * is a real instruction and not a caption. */
+  BREAK_TURN: 'Turn. Hard. Get distance before it goes off.',
+  BLAST: 'Keep going. Do not look at it.',
   ESCAPE: 'Climb. Bank away. Don’t look back.',
   RETURN: 'Get her home.',
   LANDING: 'Land on the runway you left from. Stop before it ends.',

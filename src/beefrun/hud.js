@@ -39,6 +39,8 @@ const WARNINGS = {
   payloadArmed: { text: 'PAYLOAD ARMED', kind: 'amber' },
   flak: { text: 'TAKING FIRE', kind: 'red' },
   overweight: { text: 'OVERWEIGHT', kind: 'amber' },
+  fighters: { text: 'FIGHTERS', kind: 'red' },
+  unattended: { text: 'NOBODY FLYING', kind: 'amber' },
 };
 
 export class FlightHud {

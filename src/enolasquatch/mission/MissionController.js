@@ -71,12 +71,13 @@ import {
 import { OBJECTIVES, RELEASE_LINES, releaseCueOf } from '../dialogue/script.js';
 import { Defense } from '../combat/Defense.js';
 import { Targeting } from '../combat/Targeting.js';
+import { Interceptors } from '../combat/Interceptors.js';
+import { Autopilot } from '../systems/Autopilot.js';
+import { GunnerStation } from '../systems/GunnerStation.js';
+import { Detonation, BLAST } from '../vfx/Detonation.js';
 import { WP, KT, FT } from '../../beefrun/config.js';
 import { evaluateLineupGate } from '../../beefrun/lineup-gate.js';
-import {
-  clamp, lerp, headingDelta,
-  solid, unlit, mat, boxGeo, sphereGeo, planeGeo, mesh, flatMesh, group,
-} from '../../beefrun/util.js';
+import { clamp, lerp, headingDelta, unlit } from '../../beefrun/util.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const TOWN = LANDMARKS_EAST.find((l) => l.id === 'town');
@@ -105,43 +106,29 @@ export function approxGroundHeight(x) {
   return ZONES_EAST[ZONES_EAST.length - 1].base;
 }
 
-/* ------------------------------------------------------------------ */
-/* Small, self-contained explosion VFX — see `_buildExplosionVfx()`.    */
-/* ------------------------------------------------------------------ */
-
-function sasquatchSilhouetteTexture() {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 256;
-  const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, 256, 256);
-  ctx.fillStyle = '#1a1420';
-  // Head, brow, ears — a silhouette, not a portrait; it only needs to read
-  // as "a Sasquatch" for the one beat it is on screen at peak size.
-  ctx.beginPath();
-  ctx.ellipse(128, 150, 92, 100, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(128, 96, 84, 26, 0, 0, Math.PI * 2);
-  ctx.fill();
-  for (const ex of [-70, 70]) {
-    ctx.beginPath();
-    ctx.ellipse(128 + ex, 128, 22, 30, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 export class MissionController {
   constructor(ctx) {
     Object.assign(this, ctx);
     /* See the class header for the full expected shape of `ctx`. */
 
-    this.defense = this.defense || new Defense(this.scene, {
-      getHeight: (x, z) => (this.getHeight ? this.getHeight(x, z) : approxGroundHeight(x)),
-    });
+    const groundAt = (x, z) => (this.getHeight ? this.getHeight(x, z) : approxGroundHeight(x));
+    this.defense = this.defense || new Defense(this.scene, { getHeight: groundAt });
     this.targeting = this.targeting || new Targeting({ target: COMPOUND, corridorHeading: TURN_POINT.newHeading });
+
+    /* The air threat, the box that flies for you, the gun you fly it to work,
+     * and the thing at the end of it. All four are new in the 2026-08-04
+     * escalation pass; see each file's own header for what it is for. */
+    this.interceptors = this.interceptors || new Interceptors(this.scene, { getHeight: groundAt });
+    this.autopilot = this.autopilot || new Autopilot({ physics: this.physics, engines: this.engines });
+    this.gunner = this.gunner || new GunnerStation({
+      aircraft: this.aircraft, interceptors: this.interceptors,
+    });
+    this.detonation = this.detonation || new Detonation(this.scene, {
+      camera: this.camera,
+      // The blast wave knocks the surviving outskirts down as it reaches them,
+      // rather than the whole city vanishing on the frame of the flash.
+      onShockFront: (r) => this.city?.advanceShock?.(r),
+    });
 
     this.phase = 'idle';
     this.phaseTime = 0;
@@ -172,11 +159,31 @@ export class MissionController {
     this._boardNudgeT = 0;
 
     /* The rear gun. `gunFiring` is what `EnolaSquatch.updateRearGun()` reads;
-     * `gunAim` is the world point it swings onto. */
+     * `gunAim` is the world point it swings onto. Either the Shubenator is
+     * working it (the mission drives these) or the player is (`this.gunner`
+     * drives them) — never both, see `updateRearGunner()`. */
     this.gunFiring = false;
     this.gunAim = new THREE.Vector3();
     this._gunBurst = 0;
     this._gunRest = 0;
+
+    /* The blast, as the rest of the page sees it. `blastFlash` is the 0..1
+     * whiteout `../main.js` paints over the whole screen; `blastTint` is the
+     * colour it cools through as the eye comes back. */
+    this.blastFlash = 0;
+    this.blastTint = { r: 1, g: 1, b: 1 };
+    this._shockArrived = false;
+    this._blastSoundFired = false;
+
+    /* How hard the aeroplane is being thrown about this frame, 0..1. Computed
+     * once and handed to BOTH the flak and the fighters, so evading means the
+     * same thing to everything shooting at you. */
+    this.evasion = 0;
+    this._prevRoll = 0;
+
+    /* An instruction waiting for a gap in the dialogue — see
+     * `armCombatInstruction()` and the tone doctrine it exists to obey. */
+    this._pendingInstruction = null;
 
     this.checkpoint = null;
     this.checkpointData = null;
@@ -193,6 +200,12 @@ export class MissionController {
       expressShipping: false,  // the achievement condition
       corridorScore: 0,
       roughAir: 0,
+      fightersDestroyed: 0,    // how many the tail gun took down
+      fighterPasses: 0,        // how many were pressed home against you
+      flakBursts: 0,
+      autopilotSeconds: 0,     // how long nobody was flying
+      gunnerSeconds: 0,        // how long the player was in the tail
+      blastDistance: null,     // how far clear you were when it went off
     };
 
     this.flags = {
@@ -231,7 +244,165 @@ export class MissionController {
     this.defense.onCatastrophic = (reason) => this.fail(`Catastrophic damage — ${reason}.`);
     this.defense.onSuppressed = () => this.dialogue.play('defense.suppressed', { once: true });
 
+    /* Flak, refined (owner: "the flak coming from the ground is bad ass. Let's
+     * really refine that"). The burst hands over its REAL distance, so the
+     * shake, the sound and the consequence are all functions of how close it
+     * was rather than of a flag. */
+    this.defense.onFlakBurst = (distance, point, severity) => {
+      this.score.flakBursts++;
+      this.cameras?.addShake?.(severity * severity * 1.5);
+      this.audio?.flakBurst?.(distance, severity);
+      if (distance < 60) this.dialogue.bark('flakClose');
+      void point;
+    };
+    this.defense.onShrapnel = (distance) => {
+      this.audio?.shrapnel?.(clamp(1 - distance / 95, 0, 1));
+      this.physics.damage.wing = clamp(this.physics.damage.wing + 0.012, 0, 1);
+      // Losing the autopilot to a near miss is the point of having one.
+      if (this.autopilot.engaged && Math.random() < 0.28) {
+        this.autopilot.disengage('shrapnel');
+      }
+    };
+
+    /* The fighters. Everything they do to the aeroplane goes through the
+     * ground defence's own damage model — see `Interceptors.js`'s header. */
+    this.interceptors.onFirstContact = () => {
+      this.dialogue.play('fighters.first', { urgent: true });
+      /* THE HUD FOLLOWS THE CHARACTER, IT DOES NOT TALK OVER HIM.
+       * `docs/TONE-AND-PARODY.md`: the character speaks first and the screen
+       * clarifies afterwards, never both on the same frame. So the two keys
+       * that make the whole autopilot/tail-gun trade possible are armed here
+       * and only reach the glass once Sasole has finished explaining what has
+       * just turned up. */
+      this.armCombatInstruction(
+        '<em>P</em> — hand her to the gyro. <em>T</em> — take the tail gun. '
+        + 'Mouse to traverse, left button to fire. Nobody is flying while you are back there.',
+        11000,
+      );
+    };
+    this.interceptors.onCallout = (kind) => {
+      this.score.fighterPasses++;
+      this.dialogue.bark(kind === 'again' ? 'fighterAgain' : 'fighterCommitting');
+    };
+    this.interceptors.onNearMiss = () => {
+      this.cameras?.addShake?.(0.18);
+      this.dialogue.bark('fighterNearMiss');
+    };
+    this.interceptors.onHit = (severity) => this.onFighterHit(severity);
+    this.interceptors.onKill = () => {
+      this.score.fightersDestroyed++;
+      this.dialogue.play('fighters.down', { once: false });
+    };
+
+    /* The autopilot, and what it costs. */
+    this.autopilot.onEngage = () => this.dialogue.play('auto.on', { once: true });
+    this.autopilot.onDisengage = (reason) => {
+      if (reason) this.dialogue.play('auto.kicked', { urgent: true });
+      else this.dialogue.play('auto.off', { once: true });
+      this.interceptors.setPredictability(0);
+    };
+
+    /* The player's gun. */
+    this.gunner.onShot = () => this.audio?.play?.('gun.shot', { volume: 0.4 });
+    this.gunner.onJam = () => this.dialogue.bark('gunJam');
+    this.gunner.onDry = () => this.dialogue.play('gun.dry', { once: true });
+
     this.payload.onImpact = (point) => this.onPayloadImpact(point);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* The gun and the box that flies for you                            */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Take or hand back the aeroplane.
+   *
+   * The autopilot refuses on the ground, in a stall, out of the envelope, and
+   * during its own lockout — see `../systems/Autopilot.js`. A refusal is not
+   * silent: Sasole says why, because a key that does nothing reads as a bug.
+   *
+   * @returns {boolean} whether the autopilot is now flying
+   */
+  toggleAutopilot() {
+    if (this.autopilot.engaged) {
+      // Coming back to the seat means coming off the gun.
+      if (this.gunner.manned) this.leaveGun();
+      this.autopilot.disengage(null);
+      return false;
+    }
+    const took = this.autopilot.engage({});
+    if (!took) {
+      this.dialogue.bark('autoRefused');
+      this.hud?.say?.('<em>Not from here.</em> Wings level, out of the stall, and above the deck first.', 3200);
+    }
+    return took;
+  }
+
+  /**
+   * Climb into the tail, or come forward again.
+   *
+   * The gun is only worth manning when somebody else is flying, so taking it
+   * engages the autopilot if it is not already on — and if the autopilot will
+   * not take the aeroplane, neither will this, because an unattended bomber
+   * with nobody in either seat is not a mechanic, it is a crash with a delay.
+   *
+   * @returns {boolean} whether the player is now on the gun
+   */
+  toggleGun() {
+    if (this.gunner.manned) { this.leaveGun(); return false; }
+    if (this.physics.onGround) { this.dialogue.bark('gunRefused'); return false; }
+    if (!this.autopilot.engaged && !this.autopilot.engage({})) {
+      this.dialogue.bark('autoRefused');
+      return false;
+    }
+    this.gunner.take();
+    this.gunFiring = false;
+    this.dialogue.play('gun.take', { once: true });
+    this.cameras?.setView?.('cockpit');
+    return true;
+  }
+
+  leaveGun() {
+    if (!this.gunner.manned) return false;
+    this.gunner.leave();
+    this.gunFiring = false;
+    this.dialogue.play('gun.leave', { once: true });
+    return true;
+  }
+
+  /**
+   * Queue a HUD instruction to be shown once the crew have stopped talking.
+   *
+   * `docs/TONE-AND-PARODY.md`, the owner's rule: "the character speaks first
+   * and the screen clarifies afterwards — never both at once, and never the
+   * screen instead." `sayThenInstruct` in `src/silvercase/main.js` is the
+   * shape; this is the same idea for a scene whose dialogue is a queue rather
+   * than a callback chain, so it waits on `dialogue.busy` going false instead
+   * of on an `onDone`.
+   */
+  armCombatInstruction(html, ms = 9000) {
+    this._pendingInstruction = { html, ms };
+  }
+
+  _drainInstruction() {
+    if (!this._pendingInstruction || this.dialogue.busy) return;
+    const { html, ms } = this._pendingInstruction;
+    this._pendingInstruction = null;
+    this.hud?.say?.(html, ms);
+  }
+
+  /** A fighter's round connected. */
+  onFighterHit(severity) {
+    this.cameras?.addShake?.(0.35 + severity * 0.5);
+    this.audio?.shrapnel?.(severity);
+    this.physics.damage.wing = clamp(this.physics.damage.wing + severity * 0.05, 0, 1);
+    if (Math.random() < 0.34 * severity) {
+      const alive = this.defense.damage.engines.map((d, i) => (d ? -1 : i)).filter((i) => i >= 0);
+      if (alive.length) this.defense.damageEngine(alive[Math.floor(Math.random() * alive.length)]);
+      else this.defense.damageElectrical();
+    }
+    if (this.autopilot.engaged && Math.random() < 0.45) this.autopilot.disengage('hit');
+    this.dialogue.bark('fighterHitUs');
   }
 
   /* ---------------------------------------------------------------- */
@@ -403,6 +574,22 @@ export class MissionController {
     this.onEnterPhase(name);
   }
 
+  /**
+   * The autopilot's one call into the frame loop.
+   *
+   * MUST run after `FlightInput.applyTo(physics.controls)` and before
+   * `physics.advance(dt)` — it overwrites the three axes and both throttle
+   * levers, and if the player's centred stick is written afterwards it simply
+   * erases everything the autopilot decided. `../main.js` calls it in exactly
+   * that gap; nothing else should call it at all.
+   *
+   * @returns {boolean} whether the autopilot is flying
+   */
+  flyControls(dt) {
+    if (this.paused || this.finished) return false;
+    return this.autopilot.update(dt);
+  }
+
   setObjective(text) {
     this.objective = text;
     this.flightHud?.setObjective?.(text);
@@ -538,14 +725,12 @@ export class MissionController {
         break;
 
       case 'explosion':
-        this.setObjective('');
-        this._explosionVfx = null;
+        this.setObjective(OBJECTIVES.BLAST);
         this._explosionT = 0;
         break;
 
       case 'escape':
         this.setObjective(OBJECTIVES.ESCAPE);
-        // He really is out of bullets — `escape.gunnerDone` says so.
         this.gunFiring = false;
         this.dialogue.play('escape.turn', { once: true, delay: 0.5 });
         this.weather.setConditions({ turbulence: 0.95, lightning: 0.3 });
@@ -622,6 +807,15 @@ export class MissionController {
 
     // The city's crater glow cools whether or not anybody is looking at it.
     this.city?.update?.(dt);
+
+    /* The detonation is driven from HERE rather than from the `explosion`
+     * phase, and that is deliberate: the column takes half a minute to finish
+     * going up and the escape has to be flyable while it does. The phase is
+     * over long before the shot is. */
+    if (this.detonation.live) this.updateDetonation(dt);
+
+    // Any instruction waiting for the crew to stop talking.
+    this._drainInstruction();
 
     switch (this.phase) {
       case 'walkaround': this.updateWalkaround(dt); break;
@@ -930,9 +1124,19 @@ export class MissionController {
     if (this._navCallTimer > 0 || this.dialogue.busy || p.onGround) return;
     const err = headingDelta(p.headingDeg, desiredHeading);
     let id = null;
+    /* LEFT AND RIGHT, FROM INSIDE THE COCKPIT.
+     *
+     * `headingDelta(current, target)` is `target - current`, so a POSITIVE
+     * error means the heading has to go UP. This airframe's nose is +Z, which
+     * makes the pilot's left +X, and headings count round toward +X — so a
+     * rising heading is a LEFT turn. (Confirmed by running the flight model
+     * headless: `controls.roll = +1`, which is the A key, raises both `rollDeg`
+     * and `headingDeg`.) Irish therefore calls LEFT for a positive error. He
+     * called right, which is the same class of mistake as the mirrored Beef Run
+     * seats and the same fix: say it from the seat, not from the apron. */
     if (Math.abs(err) > 95) id = 'nav.wrongWay';
-    else if (err > 6) id = 'nav.right5';
-    else if (err < -6) id = 'nav.left5';
+    else if (err > 6) id = 'nav.left5';
+    else if (err < -6) id = 'nav.right5';
     else if (this.flags.navOffCourse) id = 'nav.goodLine';
     if (id) {
       this.dialogue.play(id);
@@ -968,6 +1172,19 @@ export class MissionController {
     });
     this.score.patrolPeak = Math.max(this.score.patrolPeak, this.detection.attention);
     this.flightHud?.setPatrol?.(this.detection.state, this.detection.attention);
+
+    /* THE FIRST WAVE. Being seen is what scrambles them, which is what makes
+     * the stealth corridor worth flying properly: a crew that ducked the
+     * ridgeline gets a quiet run and one wave late; a crew that got picked up
+     * gets them immediately. The `phaseTime` clause is the floor, so the
+     * fighters happen either way and the corridor changes WHEN, not WHETHER —
+     * a mechanic that can be skipped entirely is a mechanic that half the
+     * players never see. */
+    if (!this.interceptors.deployed
+      && (this.detection.state === 'located' || this.phaseTime > 34)) {
+      this.interceptors.aggression = this.detection.state === 'located' ? 1.15 : 0.85;
+      this.scrambleFighters(2, this.detection.state === 'located' ? 5 : 14);
+    }
     if (p.position.x > ZONES_EAST.find((z) => z.id === 'corridor').to) {
       this.dialogue.play('detect.clear', { once: true });
       this.setPhase('defense');
@@ -1000,6 +1217,11 @@ export class MissionController {
    */
   updateRearGunner(dt, active) {
     const p = this.physics;
+    /* One gunner at a time. While the player is back there the Shubenator is
+     * out of the way, and `GunnerStation` owns `gunFiring`/`gunAim` instead —
+     * see `updateAirBattle()`. Two of them on one gun doubles the rate of fire
+     * and halves the tension. */
+    if (this.gunner.manned) return;
     if (!active) {
       this.gunFiring = false;
       this._gunBurst = 0;
@@ -1007,7 +1229,12 @@ export class MissionController {
       if (!p.onGround && this.flags.enginesEverStarted) this.dialogue.bark('gunnerIdle');
       return;
     }
-    this.gunAim.set(TARGET_X, this.groundAt(TARGET_X, COMPOUND.z) + 12, COMPOUND.z);
+    /* Whatever is closest and actually pressing. A tail gunner with a fighter
+     * on him does not keep shooting at a truck, which is what this did before
+     * there were any fighters to shoot at. */
+    const bogey = this._nearestFighter();
+    if (bogey) this.gunAim.copy(bogey.position);
+    else this.gunAim.set(TARGET_X, this.groundAt(TARGET_X, COMPOUND.z) + 12, COMPOUND.z);
     if (this._gunBurst > 0) {
       this._gunBurst -= dt;
       this.gunFiring = true;
@@ -1029,6 +1256,19 @@ export class MissionController {
     }
   }
 
+  /** The nearest live interceptor, or null. */
+  _nearestFighter() {
+    let best = null;
+    let bestD = Infinity;
+    const here = this.physics.position;
+    for (const f of this.interceptors.fighters) {
+      if (!f.alive) continue;
+      const d = f.position.distanceToSquared(here);
+      if (d < bestD) { bestD = d; best = f; }
+    }
+    return best;
+  }
+
   /** The ground height under a point, whichever sampler this mission was given. */
   groundAt(x, z) {
     return this.getHeight ? this.getHeight(x, z) : approxGroundHeight(x);
@@ -1036,8 +1276,30 @@ export class MissionController {
 
   updateDefensePhase(dt) {
     const p = this.physics;
-    this.defense.update(dt, { position: p.position, velocity: p.velocity });
+    /* DENSITY THAT MEANS SOMETHING. The battery works harder the closer the
+     * aeroplane gets, harder again while a searchlight has it, and hardest of
+     * all when nobody is flying — `Autopilot.predictability` is the same
+     * number the fighters read, so one decision (leave the seat to man the
+     * gun) tightens both threats at once. */
+    const closing = clamp(1 - (p.position.x - (TARGET_X - 2600)) / 2600, 0, 1);
+    this.defense.intensity = clamp(
+      0.75 + (1 - closing) * 0.55
+      + (this.defense.caught ? 0.5 : 0)
+      + this.autopilot.predictability * 0.45,
+      0.4, 1.8,
+    );
+    this.defense.update(dt, {
+      position: p.position,
+      velocity: p.velocity,
+      headingDeg: p.headingDeg,
+      evasion: this.evasion,
+    });
     this.updateRearGunner(dt, this.defense.state === 'active' || this.defense.caught);
+    /* THE SECOND WAVE, over the target, where they are least welcome. */
+    if (this.phaseTime > 12 && this.interceptors.activeCount < 3) {
+      this.interceptors.aggression = 1.15;
+      this.scrambleFighters(2, 3);
+    }
     if (this.defense.caught) this.flightHud?.setPatrol?.('located', 1);
     // Rare, mission-scripted safety valve — see the class header and
     // `Defense.js`'s own doc comment: nothing in Defense itself ever calls
@@ -1072,6 +1334,18 @@ export class MissionController {
     const p = this.physics;
     this.targeting.update(dt, p, true);
     this.score.corridorScore = this.targeting.corridorScore;
+
+    /* The guns do not stop because the bombardier has started. The run has to
+     * be flown straight, which is the one thing that lets the predictor settle
+     * — so the bombing corridor is deliberately the most dangerous ninety
+     * seconds of the mission, and that tension is the beat. */
+    this.defense.intensity = clamp(1.35 + this.autopilot.predictability * 0.4, 0.4, 1.8);
+    this.defense.update(dt, {
+      position: p.position,
+      velocity: p.velocity,
+      headingDeg: p.headingDeg,
+      evasion: this.evasion,
+    });
 
     // The gun is still worked on the run in — that is when they are closest to
     // the guns on the ground.
@@ -1172,392 +1446,249 @@ export class MissionController {
         this.dialogue.play('bomb.falling', { once: true, delay: 2.4 });
         this.dialogue.play('bomb.weightLoss', { once: true, delay: 5.4 });
         this._releaseStep = 'falling';
+        /* THE BREAK TURN. The seconds between the bomb leaving the mount and
+         * the flash used to be dead air with an empty objective on the glass;
+         * they are now the only thing standing between the player and the
+         * blast wave, because `onShockWave()` scales everything it does by how
+         * far away the aeroplane actually got. Sasole calls it and the HUD
+         * follows him, per the tone doctrine — the character first, the
+         * instruction after. */
+        this._breakFrom = this.physics.headingDeg;
+        this.dialogue.play('bomb.breakTurn', { once: true, delay: 1.2 });
         this.setPhase('explosion');
       }
     }
   }
 
-  /* ---- Explosion ---- */
+  /* ---- Explosion ----
+   *
+   * Owner, 2026-08-04: "the EXPLOSION should be absolutely ridiculously
+   * thermonuclear tsar bomba level insanity hardcore badass."
+   *
+   * The set-piece itself lives in `../vfx/Detonation.js` — the double flash,
+   * the shock front, the column, the cap, the light coming back. What is HERE
+   * is everything the detonation does to the aeroplane and the crew, which is
+   * deliberately not in that file: it owns a clock and some geometry and knows
+   * nothing about physics.
+   *
+   * The order of events, and why:
+   *
+   *   FLASH        instant, at the impact. `blastFlash` whites the cockpit out
+   *                and `../main.js` paints it. Light gets there first, so
+   *                nothing else happens on this frame.
+   *   THE FRONT    grows on `Detonation.shockRadius`, knocking the surviving
+   *                outskirts down as it crosses them (through the `onShockFront`
+   *                hook wired in the constructor).
+   *   ARRIVAL      when that radius reaches the AEROPLANE — which is a
+   *                different moment for every player, because it depends on how
+   *                far they got — the sound, the buffet and the damage all land
+   *                together. That is the payoff of the break turn, and it is
+   *                why `score.blastDistance` is worth having.
+   */
 
   onPayloadImpact(point) {
-    /* Once only.
-     *
-     * `_buildExplosionVfx()` adds a group to the scene and stores the ONLY
-     * handle to it on `_explosionVfx`; `updateExplosion()` is what animates
-     * that handle and, at the end, removes the group. So a second call
-     * overwrites the handle and orphans the first group in the scene
-     * permanently — a two-kilometre smoke column and forty pieces of debris,
-     * frozen at whatever opacity they had when they were abandoned, sitting
-     * over the target for the rest of the mission.
-     *
-     * It happens whenever the payload is released AND the mission is put into
-     * the explosion phase directly: `main.js`'s `go('explosion')` calls this
-     * once itself, and then the released payload finishes its own fall a few
-     * seconds later and calls it again through `payload.onImpact`. Cleared by
-     * `restoreCheckpoint`, so a checkpoint restart before the drop can still
-     * detonate. */
+    /* Once only. `Detonation.fire()` is itself idempotent while it is live,
+     * but the city, the crater, the scoring and the dialogue all have to be
+     * one-shot as well — and `main.js`'s `go('explosion')` calls this directly
+     * AND the released payload calls it again a few seconds later through
+     * `payload.onImpact`. Cleared by `restoreCheckpoint`, so a checkpoint
+     * restart before the drop can still detonate. */
     if (this.explosionPoint) return;
     this.explosionPoint = point.clone();
     // The whistle stops the instant it arrives, not a frame later.
     this.audio?.endFallingWhistle?.(0.03);
-    this.audio?.detonation?.(1.2);
-    /* Take the city away and put the hole there BEFORE the fireball is built,
-     * so the very first frame of the flash is already lighting a crater.
-     * `TargetCity.destroy()` also hands back the crater record, which
-     * `main.js` has already wired into the ground sampler through
-     * `onCrater` — that is what keeps the terrain the aeroplane can hit and
-     * the terrain the player can see the same surface. */
+
+    /* Take the middle of the city away and put the hole there BEFORE the
+     * fireball is built, so the very first frame of the flash is already
+     * lighting a crater. What is NOT taken away is the outskirts — those are
+     * left standing for the shock front, which is the whole reason the city is
+     * now wider than the crater (see `TargetCity.destroy()`). */
     if (this.city && !this.city.destroyed) {
       const crater = this.city.destroy(point);
       this.onCrater?.(crater);
     }
-    this._buildExplosionVfx(point);
-    this.cameras?.addShake?.(1.6);
-    this.cameras?.punchFov?.(9);
-    this.dialogue.play('explosion.reaction', { urgent: true, delay: 1.4 });
-    this.dialogue.play('explosion.crater', { once: true, delay: 6.5 });
+
+    this.detonation.fire(point);
+    this.blastFlash = 1;
+    this._shockArrived = false;
+    this._blastSoundFired = false;
+    this._explosionT = 0;
+
+    const p = this.physics;
+    this.score.blastDistance = Math.hypot(
+      p.position.x - point.x, p.position.y - point.y, p.position.z - point.z,
+    );
+
+    this.cameras?.punchFov?.(13);
+    // Only a small shake at the flash: nothing has physically reached the
+    // aeroplane yet. The real one is on arrival, below.
+    this.cameras?.addShake?.(0.25);
+
+    // Tower lights out, if this mission's DetectionSystem built any.
+    for (const t of this.detection.towers || []) {
+      if (t.lamp) t.lamp.material = unlit(0x201a14);
+    }
+
     const missDistance = Math.hypot(point.x - COMPOUND.x, point.z - COMPOUND.z);
     this.score.bombAccuracy = clamp(1 - missDistance / 260, 0, 1);
-    // EXPRESS SHIPPING: delivered without missing the target — a tight
-    // impact AND a corridor that was actually flown well, not a lucky drop
-    // at the end of a wandering approach.
+    // EXPRESS SHIPPING: delivered without missing the target — a tight impact
+    // AND a corridor that was actually flown well, not a lucky drop at the end
+    // of a wandering approach.
     this.score.expressShipping = missDistance < 140 && this.targeting.corridorScore > 0.6;
   }
 
   /**
-   * The detonation.
+   * The detonation, ticked from `update()` rather than from the `explosion`
+   * phase.
    *
-   * "I liked the flash, I want the explosion to be absolutely earth shattering
-   * and massive." The flash the owner liked is still the first thing that
-   * happens and it is still the same idea — an unlit sphere going from nothing
-   * to enormous in a quarter of a second — it is simply an order of magnitude
-   * larger and no longer the whole event. Built the same way as the
-   * fireball/smoke/debris-fan pattern `Brushrunner.explode()` uses
-   * (`src/beefrun/aircraft.js`), at roughly forty times the scale, because
-   * that one is an aeroplane hitting a hill and this one takes a city off the
-   * map.
-   *
-   * What is on screen, in order:
-   *
-   *   0.00  the white flash, 4 m -> 900 m, gone in a quarter second
-   *   0.00  a real PointLight at the impact, so the aeroplane, the crater and
-   *         the surviving outskirts are actually lit by it for a moment
-   *   0.02  the fireball: four nested spheres in white, yellow, orange and
-   *         deep red, expanding at different rates so the colours separate
-   *         the way they do in a real one
-   *   0.10  a ground-hugging dust ring racing outward past the crater lip
-   *   0.20  three shockwave rings at three speeds
-   *   0.60  the stem climbing, and then the cap unrolling off the top of it —
-   *         the mushroom, which is the shape the whole beat is for
-   *   0.30  a fan of forty pieces of debris on real ballistic arcs
-   *   1.20  the Sasquatch-head gag frame, at 900 m across, which lands better
-   *         at this scale than it ever did at ninety
-   *
-   * It runs for eighteen seconds instead of four, and the escape phase does
-   * not begin until the cap is up, because leaving before it is finished was
-   * throwing the shot away.
+   * The column takes the better part of half a minute to finish going up and
+   * the escape has to be flyable the whole time it does, so the phase ends
+   * long before the shot does. Keeping the two clocks separate is what lets
+   * the player turn away and still have it filling the mirror.
    */
-  _buildExplosionVfx(point) {
-    const g = group('fat-squatch-detonation');
-    g.position.copy(point);
+  updateDetonation(dt) {
+    const det = this.detonation;
+    det.update(dt);
+    this._explosionT = det.t;
+    this.blastFlash = det.screenFlash;
+    this.blastTint = det.flashColour;
+    const t = det.t;
 
-    /* EVERYTHING IN THIS FUNCTION SETS `fog: false`.
+    /* The crew, on their own clock rather than on `play(delay)` — that option
+     * delays the whole QUEUE rather than one beat, so four beats queued at
+     * once with four delays all wait for the longest of them. Thresholds here
+     * mean each one lands where it was written to land. */
+    if (t > 0.15) this.dialogue.play('explosion.flash', { once: true, urgent: true });
+    if (t > 5.0) this.dialogue.play('explosion.reaction', { once: true });
+    if (t > 13.0) this.dialogue.play('explosion.column', { once: true });
+    if (t > 21.0) this.dialogue.play('explosion.crater', { once: true });
+
+    /* ---- The front reaching the aeroplane ----
      *
-     * `MeshBasicMaterial` respects scene fog by default, and this mission flies
-     * a night route whose zones set `fogFar` between 1400 m and 4200 m. A
-     * two-kilometre column of fire three kilometres behind the aeroplane —
-     * which is exactly where the player is watching it from, because the
-     * escape phase's whole instruction is to fly away from it — was therefore
-     * being blended almost entirely into the fog colour, and the first render
-     * of it from a realistic distance came out as a uniform grey wash with a
-     * mushroom-shaped hint in it. A detonation this size is not something the
-     * weather gets to stand in front of. */
-    const flash = flatMesh(sphereGeo(1, 16, 12), unlit(0xfffaf0, {
-      transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
-    }), 0, 40, 0);
-    g.add(flash);
-
-    /* One real light. Everything else here is unlit geometry, which cannot
-     * put anything on the aeroplane or the ground; this is what makes the
-     * moment read as light rather than as a bright picture. */
-    const light = new THREE.PointLight(0xffb45a, 0, 6000, 1.6);
-    light.position.set(0, 60, 0);
-    g.add(light);
-
-    /* The fireball: four shells, each with its own colour and growth rate.
-     *
-     * Only the two INNER shells are additive. Additive blending adds light to
-     * whatever is behind it, so a deep-red shell 600 m across, drawn additively
-     * against this route's pale night sky, brightened the sky slightly and was
-     * otherwise invisible — the first render of the blast from a realistic
-     * 2.6 km came out as a small white smear on the horizon and nothing else.
-     * The two outer shells are therefore ordinary transparent geometry, which
-     * is opaque enough to be a shape against the sky, and the hot core stays
-     * additive so it still blows out to white in the middle. */
-    const fire = [
-      { colour: 0xfff3d0, to: 340, at: 0.55, fade: 1.9, y: 60, add: true, peak: 0.95 },
-      { colour: 0xffd24a, to: 470, at: 0.9, fade: 3.0, y: 90, add: true, peak: 0.9 },
-      { colour: 0xff7a1e, to: 620, at: 1.5, fade: 4.6, y: 130, add: false, peak: 0.85 },
-      { colour: 0xc4241a, to: 780, at: 2.4, fade: 6.5, y: 175, add: false, peak: 0.8 },
-    ].map((spec) => {
-      const ball = flatMesh(sphereGeo(1, 20, 14), unlit(spec.colour, {
-        transparent: true,
-        opacity: 0,
-        ...(spec.add ? { blending: THREE.AdditiveBlending } : {}),
-        depthWrite: false,
-        fog: false,
-      }), 0, spec.y, 0);
-      ball.userData.spec = spec;
-      g.add(ball);
-      return ball;
-    });
-
-    /* Three shockwave rings, on the deck, at three speeds.
-     *
-     * `tube` is the thickness in METRES at full extent, and the geometry's
-     * tube ratio is therefore `tube / to`. Building the torus with a fixed
-     * ratio instead (which is what it did) makes the tube a proportion of the
-     * ring, so a ring scaled to 2 km came with a tube over a kilometre thick —
-     * a doughnut the escaping aeroplane flies inside, which renders as the
-     * whole screen turning mauve. */
-    const rings = [
-      { to: 2400, over: 2.6, colour: 0xffe6b4, tube: 70 },
-      { to: 3400, over: 4.4, colour: 0xd9c2ff, tube: 110 },
-      { to: 4600, over: 7.0, colour: 0x8a7a9a, tube: 160 },
-    ].map((spec) => {
-      const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(1, spec.tube / spec.to, 8, 40),
-        new THREE.MeshBasicMaterial({
-          color: spec.colour, transparent: true, opacity: 0, toneMapped: false,
-          side: THREE.DoubleSide, depthWrite: false, fog: false,
-        }),
-      );
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = 22;
-      ring.userData.spec = spec;
-      g.add(ring);
-      return ring;
-    });
-
-    /* The dust wall: a low cylinder of smoke racing out along the ground and
-     * climbing as it goes, which is what actually sells the diameter. */
-    const dust = new THREE.Mesh(
-      new THREE.CylinderGeometry(1, 1, 1, 36, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: 0x6b5a44, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false,
-      }),
+     * Recomputed every frame against where the aeroplane actually IS, not
+     * against a time worked out at the flash: the player is flying away from
+     * it at sixty metres a second and every one of those metres buys time. */
+    const p = this.physics;
+    const range = Math.hypot(
+      p.position.x - this.explosionPoint.x,
+      p.position.y - this.explosionPoint.y,
+      p.position.z - this.explosionPoint.z,
     );
-    dust.position.y = 30;
-    g.add(dust);
-
-    /* The stem and the cap. A cylinder and a squashed sphere is the whole
-     * trick, and at this size it is enough — the shape is doing the work, not
-     * the shading. */
-    const stem = mesh(
-      new THREE.CylinderGeometry(120, 210, 1, 20, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: 0x8a6a4a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false,
-      }),
-      0, 0, 0,
-    );
-    g.add(stem);
-    const cap = flatMesh(sphereGeo(1, 22, 14), new THREE.MeshBasicMaterial({
-      color: 0xa08262, transparent: true, opacity: 0, depthWrite: false, fog: false,
-    }), 0, 0, 0);
-    g.add(cap);
-
-    /* Smoke, which is what turns the cap from a beige pancake into a cloud.
-     *
-     * A squashed sphere on its own renders as one flat ellipse — no shading
-     * varies across it, because it is an unlit basic material. So fourteen
-     * puffs ride the cap: they climb with the stem, spread out to the cap's
-     * own radius as it unrolls, and sit at slightly different heights and
-     * sizes, which breaks the silhouette's edge into lumps and gives the
-     * middle some internal contrast. Each one carries its own angle and its
-     * own two random factors so the ring never reads as fourteen identical
-     * balls on a circle. */
-    const smoke = [];
-    for (let i = 0; i < 14; i++) {
-      const a = (i / 14) * Math.PI * 2;
-      const puff = flatMesh(sphereGeo(1, 10, 7), new THREE.MeshBasicMaterial({
-        color: i % 3 === 0 ? 0x4a4038 : i % 3 === 1 ? 0x6b5a44 : 0x8a7358,
-        transparent: true, opacity: 0, depthWrite: false, fog: false,
-      }), 0, 0, 0);
-      puff.userData.ang = a;
-      puff.userData.ring = 0.72 + (i % 5) * 0.07;      // how far out on the cap
-      puff.userData.lift = 0.82 + (i % 4) * 0.12;      // how high up the cap
-      puff.userData.size = 0.3 + (i % 3) * 0.09;       // relative to the cap
-      g.add(puff);
-      smoke.push(puff);
+    if (!this._blastSoundFired && det.shockRadius >= range * 0.94) {
+      this._blastSoundFired = true;
+      this.audio?.detonation?.(1.45);
+    }
+    if (!this._shockArrived && det.shockRadius >= range) {
+      this._shockArrived = true;
+      this.onShockWave(range);
     }
 
-    // The gag frame: a Sasquatch-head silhouette, hidden until the fireball is
-    // near its peak, then gone again.
-    const gag = flatMesh(planeGeo(1, 1), mat({
-      map: sasquatchSilhouetteTexture(), transparent: true, alphaTest: 0.05, depthWrite: false,
-      fog: false, unique: true,
-    }), 0, 420, 0);
-    gag.visible = false;
-    g.add(gag);
-
-    // Forty pieces of what used to be Squatchbourg.
-    const debris = [];
-    for (let i = 0; i < 40; i++) {
-      const a = (i / 40) * Math.PI * 2 + Math.random() * 0.4;
-      const size = 6 + Math.random() * 22;
-      const bit = mesh(boxGeo(size, size * (0.4 + Math.random()), size), solid(i % 3 ? 0x3a3428 : 0x5a5248, { roughness: 1 }), 0, 30, 0);
-      const speed = 120 + Math.random() * 260;
-      bit.userData.vel = new THREE.Vector3(
-        Math.cos(a) * speed,
-        180 + Math.random() * 300,
-        Math.sin(a) * speed,
-      );
-      bit.userData.spin = new THREE.Vector3(Math.random() * 4, Math.random() * 3, Math.random() * 5);
-      g.add(bit);
-      debris.push(bit);
-    }
-
-    this.scene.add(g);
-    this._explosionVfx = { group: g, flash, light, fire, rings, dust, stem, cap, smoke, gag, debris };
-
-    // Tower-light-extinguish, if the deploy step built any (see
-    // `Defense.deploy()` — it does not build towers itself; those live on
-    // `this.detection.towers`, constructed once up front by whoever wires
-    // this mission's DetectionSystem, and reused here rather than duplicated).
-    for (const t of this.detection.towers || []) {
-      if (t.lamp) t.lamp.material = unlit(0x201a14);
+    if (det.done) {
+      det.dispose();
+      this.blastFlash = 0;
     }
   }
+
+  /**
+   * The blast wave gets to the aeroplane.
+   *
+   * Survivable at every distance the mission can actually produce, and
+   * genuinely unpleasant at the short ones — an aeroplane that can be thrown
+   * onto its side by the thing it just dropped is what makes the break turn
+   * worth flying. It is deliberately NOT a fail: the escape phase and the
+   * ordinary damage model take it from here, so a player who lingered gets a
+   * bad ride home rather than a restart card.
+   *
+   * @param {number} range metres from ground zero when it arrived
+   */
+  onShockWave(range) {
+    const p = this.physics;
+    // Overpressure falls off roughly with the cube root of the distance ratio;
+    // this is that shape, normalised so a kilometre out is a hard shove and
+    // three kilometres out is a bang and a wobble.
+    const severity = clamp(Math.pow(clamp(900 / Math.max(range, 120), 0, 3), 1.4), 0, 2.2);
+    this.score.blastSeverity = severity;
+
+    this.cameras?.addShake?.(clamp(severity * 1.3, 0.3, 2.4));
+    this.cameras?.punchFov?.(clamp(severity * 9, 3, 22));
+    this.audio?.blastWave?.(clamp(severity, 0.2, 2));
+
+    // A real push, outward, and a real tumble. `omega` is body-frame rad/s.
+    if (!p.onGround) {
+      const away = new THREE.Vector3(
+        p.position.x - this.explosionPoint.x, 0, p.position.z - this.explosionPoint.z,
+      );
+      if (away.lengthSq() > 1) away.normalize();
+      /* Hard, and survivable. Capped deliberately: at two hundred metres from
+       * a device this size a real crew is already gone, and a game that
+       * simulates that faithfully is a game that ends the mission with a
+       * shrug. The tumble is what the player remembers; the numbers are set so
+       * a competent recovery is always possible from any distance the mission
+       * can actually produce. */
+      p.velocity.addScaledVector(away, clamp(severity * 12, 0, 26));
+      p.velocity.y += clamp(severity * 5, 0, 11);
+      p.omega.x += (Math.random() - 0.5) * severity * 0.55;
+      p.omega.y += (Math.random() - 0.5) * severity * 0.4;
+      p.omega.z += (Math.random() - 0.5) * severity * 0.9;
+    }
+
+    // What it costs. Skin first, then an engine if it was really close.
+    p.damage.wing = clamp(p.damage.wing + severity * 0.16, 0, 1);
+    if (severity > 1.1) {
+      const alive = this.defense.damage.engines.map((d, i) => (d ? -1 : i)).filter((i) => i >= 0);
+      if (alive.length) this.defense.damageEngine(alive[Math.floor(Math.random() * alive.length)]);
+    }
+    if (severity > 0.55) this.defense.damageElectrical();
+
+    // Nobody's autopilot holds through that.
+    this.autopilot.disengage('blast wave');
+    this.weather.setConditions({ turbulence: clamp(0.6 + severity * 0.5, 0, 1.4) });
+    this.dialogue.play('explosion.shockwave', { urgent: true });
+  }
+
+  /** The handle the verifier and the console read. Owned by the Detonation. */
+  get _explosionVfx() { return this.detonation?.vfx ?? null; }
 
   updateExplosion(dt) {
-    if (!this.explosionPoint) return;
-    this._explosionT += dt;
-    const t = this._explosionT;
-    const vfx = this._explosionVfx;
-    if (vfx) {
-      // The flash the owner liked, at 900 m across.
-      const flashK = clamp(t / 0.34, 0, 1);
-      vfx.flash.material.opacity = lerp(1, 0, flashK * flashK);
-      vfx.flash.scale.setScalar(lerp(4, 900, Math.min(1, t / 0.45)));
-
-      // A real light, blindingly bright and then guttering down for ten
-      // seconds as the fireball turns over.
-      vfx.light.intensity = t < 0.4
-        ? lerp(0, 9e6, clamp(t / 0.08, 0, 1))
-        : 9e6 * Math.exp(-(t - 0.4) * 0.85);
-      vfx.light.color.setHex(t < 1.2 ? 0xffdca8 : 0xff7a2a);
-
-      for (const ball of vfx.fire) {
-        const s = ball.userData.spec;
-        const k = clamp(t / s.at, 0, 1);
-        ball.scale.setScalar(lerp(6, s.to, Math.sqrt(k)));
-        ball.position.y = s.y + t * 34;
-        /* Drawn back to front by shell: three.js sorts transparent objects by
-         * distance, and four concentric spheres are all at the same distance,
-         * so the outermost has to be told to go first or the red shell paints
-         * over the white core it is supposed to be wrapped around. */
-        ball.renderOrder = -s.to;
-        ball.material.opacity = clamp(1 - t / s.fade, 0, 1) * s.peak;
-      }
-
-      for (const ring of vfx.rings) {
-        const s = ring.userData.spec;
-        const k = clamp(t / s.over, 0, 1);
-        ring.scale.setScalar(lerp(2, s.to, Math.sqrt(k)));
-        ring.material.opacity = lerp(0.85, 0, k);
-      }
-
-      /* The dust wall. Capped at 1500 m: at 3000 m it reached past where the
-       * escaping aeroplane actually is, and a camera INSIDE a brown cylinder
-       * at half opacity is not a dust cloud, it is a brown screen. */
-      const dustK = clamp(t / 6.0, 0, 1);
-      const dustR = lerp(20, 1500, Math.sqrt(dustK));
-      vfx.dust.scale.set(dustR, lerp(40, 420, dustK), dustR);
-      vfx.dust.position.y = lerp(30, 220, dustK);
-      vfx.dust.material.opacity = clamp(0.55 - dustK * 0.55, 0, 0.55);
-
-      /* The stem climbs for six seconds, then the cap unrolls off the top of
-       * it. Keeping them on separate clocks is what makes it a mushroom
-       * rather than a lollipop that grows all at once. */
-      const stemK = clamp((t - 0.6) / 6.0, 0, 1);
-      const stemH = lerp(0, 1800, stemK);
-      vfx.stem.scale.set(1, Math.max(stemH, 1), 1);
-      vfx.stem.position.y = stemH / 2;
-      vfx.stem.material.opacity = clamp(stemK * 1.6, 0, 0.72) * clamp(1 - (t - 12) / 6, 0, 1);
-
-      const capK = clamp((t - 2.4) / 7.0, 0, 1);
-      const capR = lerp(60, 1150, Math.sqrt(capK));
-      vfx.cap.scale.set(capR, capR * 0.58, capR);
-      vfx.cap.position.y = lerp(200, 1950, capK);
-      vfx.cap.material.opacity = clamp(capK * 1.4, 0, 0.8) * clamp(1 - (t - 13) / 5, 0, 1);
-
-      /* The puffs ride the cap they were built for: same clock, same radius,
-       * so the cloud grows as one thing instead of as a disc with a separate
-       * ring of balls drifting away from it. */
-      for (const puff of vfx.smoke) {
-        const u = puff.userData;
-        const r = capR * u.ring;
-        puff.position.set(
-          Math.cos(u.ang) * r,
-          vfx.cap.position.y * u.lift + capR * 0.1,
-          Math.sin(u.ang) * r,
-        );
-        puff.scale.setScalar(Math.max(capR * u.size, 1));
-        puff.material.opacity = clamp(capK * 1.2, 0, 0.62) * clamp(1 - (t - 13) / 5, 0, 1);
-      }
-
-      /* The gag frame, now nine hundred metres of Sasquatch — and turned to
-       * face whoever is looking at it. It is a flat plane, and a flat plane in
-       * the XY plane is edge-on to a camera approaching along X, which is the
-       * axis this entire mission flies along: the joke was a one-pixel black
-       * vertical line for every player who saw it from the escape turn. */
-      vfx.gag.visible = t > 1.2 && t < 2.6;
-      if (vfx.gag.visible) {
-        if (this.camera) vfx.gag.quaternion.copy(this.camera.quaternion);
-        const gagK = clamp((t - 1.2) / 1.4, 0, 1);
-        const s = lerp(300, 950, Math.sin(gagK * Math.PI));
-        vfx.gag.scale.set(s, s, 1);
-        vfx.gag.position.y = lerp(360, 900, gagK);
-        vfx.gag.material.opacity = Math.sin(gagK * Math.PI) * 0.92;
-      }
-
-      for (const bit of vfx.debris) {
-        bit.userData.vel.y -= 40 * dt;
-        bit.position.addScaledVector(bit.userData.vel, dt);
-        bit.rotation.x += bit.userData.spin.x * dt;
-        bit.rotation.y += bit.userData.spin.y * dt;
-        bit.rotation.z += bit.userData.spin.z * dt;
-      }
-
-      /* Sustained ground shake, decaying over the first six seconds. The
-       * aeroplane is a couple of kilometres away by now and it still cannot
-       * hold a heading. */
-      if (t < 6) this.cameras?.addShake?.(clamp(0.9 - t * 0.15, 0, 0.9) * dt * 6);
+    void dt;
+    const p = this.physics;
+    if (!this.explosionPoint) {
+      // Still falling. This is the break turn — see `updateRelease`.
+      this.setObjective(OBJECTIVES.BREAK_TURN);
+      this.updateRearGunner(dt, false);
+      return;
     }
-    /* Eighteen seconds, not four. The cap does not finish going up until
-     * about eleven, and cutting to the escape phase before then was throwing
-     * the shot away. */
-    if (t > 18) {
-      if (vfx) {
-        this.scene.remove(vfx.group);
-        vfx.group.traverse((o) => { o.material?.dispose?.(); });
-      }
-      this._explosionVfx = null;
-      this.setPhase('escape');
-    }
+    const range = Math.hypot(p.position.x - this.explosionPoint.x, p.position.z - this.explosionPoint.z);
+    this.setObjective(`${OBJECTIVES.BLAST} (${(range / 1000).toFixed(1)} km)`);
+    /* Hand over to the escape once the wave has been past and the column is
+     * up far enough to be worth flying away from. The detonation itself keeps
+     * running for another twenty seconds — see `updateDetonation`. */
+    if (this.detonation.t > 12 && this._shockArrived) this.setPhase('escape');
+    if (this.detonation.t > BLAST.duration * 0.66) this.setPhase('escape');
   }
-
   /* ---- Escape / emergency ---- */
 
   updateEscape(dt) {
     const p = this.physics;
     this._escapeT += dt;
-    if (this._escapeT > 3 && !this.dialogue.seen('escape.gunnerDone')) {
+    // He works the gun as long as there is anything to work it at, and only
+    // announces that he is out once the sky behind them is empty.
+    this.updateRearGunner(dt, this.interceptors.engagedCount > 0);
+    if (this._escapeT > 3 && this.interceptors.activeCount === 0
+      && !this.dialogue.seen('escape.gunnerDone')) {
       this.dialogue.play('escape.gunnerDone', { once: true });
     }
     if (this._escapeT > 8) {
       this.weather.setConditions({ turbulence: 0.4, lightning: 0 });
       if (!this.dialogue.seen('escape.clear')) this.dialogue.play('escape.clear', { once: true });
+    }
+    /* THE LAST WAVE. Whatever is still flying comes after them on the way out,
+     * and this is the stretch the player is most likely to be on the gun for —
+     * the bomb is gone, the aeroplane is two and a half tonnes lighter, and
+     * there is nothing left to do with the seat except point it west. */
+    if (this._escapeT > 6 && this.interceptors.activeCount < 2) {
+      this.interceptors.aggression = 1.0;
+      this.scrambleFighters(2, 4);
     }
     if (!this._emergencyDecided && this._escapeT > 10 && p.agl > 220) {
       this._emergencyDecided = true;
@@ -1616,6 +1747,13 @@ export class MissionController {
 
   updateReturn(dt) {
     const p = this.physics;
+    /* They do not follow you home. Anything still up when the aeroplane is
+     * this far west turns back, because a fighter chase that never ends is not
+     * a threat, it is a chore. */
+    if (this.interceptors.activeCount > 0 && p.position.x < TARGET_X - 5200) {
+      this.interceptors.clear();
+      this.dialogue.play('fighters.broke', { once: true });
+    }
     this.updateNavCorrection(dt, RETURN_HEADING);
     // Still counting stars back there, and still out of bullets.
     this.updateRearGunner(dt, false);
@@ -1625,6 +1763,10 @@ export class MissionController {
   updateLanding(dt) {
     void dt;
     const p = this.physics;
+    // Nobody lands a four-engine bomber from the tail turret.
+    if (this.gunner.manned) this.leaveGun();
+    if (this.autopilot.engaged) this.autopilot.disengage(null);
+    if (this.interceptors.activeCount > 0) this.interceptors.clear();
     if (p.onGround && p.groundSpeed < 4) {
       this.gradeFinalLanding();
       const q = this.score.finalLanding;
@@ -1651,9 +1793,63 @@ export class MissionController {
   /* Shared flight behaviour                                           */
   /* ---------------------------------------------------------------- */
 
+  /**
+   * How hard the aeroplane is being thrown about, 0..1.
+   *
+   * One number, computed once a frame, handed to the flak predictor AND to the
+   * fighters' gunnery — so "evading" means the same thing to everything that is
+   * shooting, and a player who learns it against one has learned it against
+   * both. Roll RATE rather than roll angle, because a steady 30-degree bank is
+   * as easy to track as level flight; it is the change that spoils a solution.
+   */
+  updateEvasion(dt) {
+    const p = this.physics;
+    const rollRate = Math.abs(p.rollDeg - this._prevRoll) / Math.max(dt, 1e-3);
+    this._prevRoll = p.rollDeg;
+    const gWobble = Math.abs(p.gLoad - 1);
+    const slip = Math.abs(p.beta);
+    const raw = clamp(rollRate / 26, 0, 1) * 0.6 + clamp(gWobble / 0.7, 0, 1) * 0.3 + clamp(slip / 0.2, 0, 1) * 0.1;
+    // Decays slowly: a break turn buys a few seconds of a spoiled solution
+    // after it has finished, which is what actually makes jinking worth doing.
+    this.evasion = Math.max(raw, this.evasion - dt * 0.55);
+    if (this.autopilot.engaged) this.evasion = Math.min(this.evasion, 0.06);
+    return this.evasion;
+  }
+
+  /**
+   * The air battle, wherever the mission currently is.
+   *
+   * Driven from `updateFlightCommon` rather than from one phase because the
+   * fighters follow the aeroplane across phase boundaries — they are launched
+   * in the corridor and are still there over the target and on the way out,
+   * which is the whole reason the rear gun is worth manning.
+   */
+  updateAirBattle(dt) {
+    const p = this.physics;
+    this.interceptors.setPredictability(this.autopilot.engaged ? this.autopilot.predictability : 0);
+    this.interceptors.update(dt, { position: p.position, velocity: p.velocity, evasion: this.evasion });
+    const state = this.gunner.update(dt);
+    if (state?.manned) {
+      this.score.gunnerSeconds += dt;
+      this.gunFiring = this.gunner.firing;
+      this.gunner.aimPoint(this.gunAim);
+    }
+    if (this.autopilot.engaged) this.score.autopilotSeconds += dt;
+  }
+
+  /** Launch a wave of night fighters, once. */
+  scrambleFighters(count, delay = 0) {
+    if (this.interceptors.deployed && this.interceptors._pendingWave > 0) return false;
+    this.interceptors.deploy({ around: this.physics.position, count, delay });
+    return true;
+  }
+
   updateFlightCommon(dt) {
     const p = this.physics;
     const warn = new Set();
+
+    this.updateEvasion(dt);
+    this.updateAirBattle(dt);
 
     this.weather.sampleAir(p.position, p.agl, { wind: p.wind, gust: p.gust });
     const rough = p.gust.length();
@@ -1686,6 +1882,8 @@ export class MissionController {
     if (['bombApproach', 'bombMalfunction', 'release'].includes(this.phase) && !this.payloadReleased) warn.add('payloadArmed');
     if (this.defense?.damage.electrical) warn.add('electrical');
     if (this.defense?.state === 'active') warn.add('flak');
+    if (this.interceptors.activeCount > 0) warn.add('fighters');
+    if (this.autopilot.engaged && this.gunner.manned) warn.add('unattended');
     if (!this.payloadReleased && p.mass > AC_ENOLA.emptyMass + AC_ENOLA.payloadMass + AC_ENOLA.fuelMass * 0.85 && p.vspeed < 0.5 && p.agl < 300 && !p.onGround) {
       warn.add('overweight');
     }
@@ -1702,7 +1900,13 @@ export class MissionController {
     );
 
     if (this.engines.engines.every((e) => e.dead)) this.fail('All four engines are finished.');
-    if (Math.abs(p.position.x) > 12000 || p.position.z > 3000 || p.position.z < -6000) {
+    /* The eastern bound has to sit clear of the target AND of however far the
+     * blast wave throws you past it. Ground zero is at x = 9000, the escape
+     * leg runs on east while the crew get their heading sorted out, and the
+     * shock front adds a shove on top of that — 12,000 was close enough to be
+     * reachable by flying the escape correctly, which is not what an
+     * out-of-bounds message is for. */
+    if (Math.abs(p.position.x) > 13400 || p.position.z > 3000 || p.position.z < -6000) {
       this.fail('You have left the area the map covers.');
     }
   }
@@ -1814,11 +2018,17 @@ export class MissionController {
     this.audio?.endFallingWhistle?.(0.05);
     this.gunFiring = false;
     // See `onPayloadImpact`: a restart before the drop must be able to detonate.
-    if (this._explosionVfx) {
-      this.scene.remove(this._explosionVfx.group);
-      this._explosionVfx = null;
-    }
+    this.detonation.dispose();
     this.explosionPoint = null;
+    this.blastFlash = 0;
+    this._shockArrived = false;
+    this._blastSoundFired = false;
+    /* The air battle does not survive a restart either — a wave of fighters
+     * left over from the attempt before is a wave the player never earned. */
+    this.interceptors.clear();
+    this.gunner.reset();
+    this.autopilot.disengage(null);
+    this.autopilot.lockout = 0;
     this.preflight?.disarm?.();
     this.disarmBoardingTarget();
     this.crew?.takeSeats?.(this.aircraft);
@@ -1913,6 +2123,8 @@ export class MissionController {
     this.audio?.setStallHorn?.(false);
     this.audio?.endFallingWhistle?.(0.15);
     this.gunFiring = false;
+    this.gunner.leave();
+    this.autopilot.disengage(null);
     this.dialogue.clear();
     this.hud?.say?.(`<em>${reason}</em> Open the Tab menu and choose Restart from checkpoint to return to the ${this.checkpoint} checkpoint.`, 12000);
     this.flightHud?.showCheckpoint?.('TAB MENU — RESTART FROM CHECKPOINT');
@@ -1926,10 +2138,24 @@ export class MissionController {
     const mins = Math.floor(s.flightTime / 60);
     const secs = Math.round(s.flightTime % 60);
 
+    /* The three new rows are the escalation pass's own: what the tail gun did,
+     * how long nobody was flying, and how far clear they got before it went
+     * off. All three are things the player chose, which is the test for
+     * whether a number belongs on this card at all. */
+    const gunnery = s.fighterPasses > 0
+      ? `${s.fightersDestroyed} of ${s.fighterPasses}`
+      : (s.fightersDestroyed ? `${s.fightersDestroyed}` : '—');
+    const clearance = s.blastDistance === null
+      ? '—'
+      : `${(s.blastDistance / 1000).toFixed(2)} km`;
+
     const stats = [
       { label: 'Takeoff quality', value: pct(s.takeoff), grade: grade(s.takeoff) },
       { label: 'Bomb accuracy', value: pct(s.bombAccuracy), grade: grade(s.bombAccuracy) },
       { label: 'Corridor discipline', value: pct(s.corridorScore), grade: grade(s.corridorScore) },
+      { label: 'Fighters destroyed', value: gunnery, grade: s.fightersDestroyed > 0 ? 'good' : '' },
+      { label: 'Clear of the blast', value: clearance, grade: grade(clamp((s.blastDistance ?? 0) / 1600, 0, 1)) },
+      { label: 'Flown by nobody', value: `${Math.round(s.autopilotSeconds)}s`, grade: s.autopilotSeconds > 90 ? 'bad' : '' },
       { label: 'Final landing', value: pct(s.finalLanding), grade: grade(s.finalLanding) },
       { label: 'Patrol attention', value: pct(s.patrolPeak), grade: grade(1 - s.patrolPeak) },
       { label: 'Flight time', value: `${mins}:${String(secs).padStart(2, '0')}` },
@@ -1950,6 +2176,9 @@ export class MissionController {
       'Enola Squatch Flight Jacket',
       'Fat Squatch Dashboard Ornament',
       s.expressShipping ? 'Achievement: EXPRESS SHIPPING' : null,
+      s.fightersDestroyed >= 3 ? 'Achievement: TAIL-END CHARLIE' : null,
+      s.fighterPasses > 0 && s.fightersDestroyed === 0 && s.damage < 0.2
+        ? 'Achievement: NOT A SCRATCH' : null,
     ].filter(Boolean);
 
     return { stats, rank: ranks[tier], tier, total, unlocks, expressShipping: s.expressShipping };
