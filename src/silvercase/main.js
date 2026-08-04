@@ -138,6 +138,26 @@ function setObjective(text) {
  * instead of scrolling by. The copy lives in script.js's `INSTRUCTIONS` with
  * the rest of the mission's writing.
  */
+/**
+ * Play a beat, and only then put the instruction on screen.
+ *
+ * The order is the point, and it is the owner's rule for every scene: the
+ * character says his line first — "This is the part where we make sure
+ * everybody remembers this conversation" — and the HUD arrives afterwards to
+ * clarify what that means in buttons. Showing both at once reads as the game
+ * talking over its own cast, and it also gives away the beat before Ape has
+ * finished setting it up.
+ */
+function sayThenInstruct(sequence, text, opts = {}) {
+  dialogue.play(sequence, {
+    ...opts,
+    onDone: () => {
+      setInstruction(text, opts.instruction);
+      opts.onDone?.();
+    },
+  });
+}
+
 function setInstruction(text, { urgent = false } = {}) {
   if (!text) {
     ui.instruction.classList.remove('show', 'urgent');
@@ -947,16 +967,16 @@ function buildStates() {
     [S.COUCH_SHOOTING]: {
       enter() {
         setObjective(OBJECTIVES.COUCH_SHOOTING);
-        // "It's unclear who to shoot" — so the screen says it, in the game's
-        // own voice, and stays saying it until the man on the couch is down.
-        setInstruction(INSTRUCTIONS.COUCH_SHOOTING);
         couchFireHandled = false;
         // "This is the part where we make sure everybody remembers this
         // conversation." This is where Ape finally says when — so this is
         // where BOTH guns come out, and they stay out through the ambush.
         drawWeapon();
         cast.ape.drawWeapon();
-        dialogue.play(SEQUENCES.couchOrder);
+        /* Ape names the man, then the screen says which button. "It's unclear
+         * who to shoot" was the complaint; the answer is the HUD clarifying
+         * him, not replacing him. */
+        sayThenInstruct(SEQUENCES.couchOrder, INSTRUCTIONS.COUCH_SHOOTING);
       },
       update() {
         // No countdown, no QTE: the camera and controls stay fully live, and
@@ -1032,13 +1052,12 @@ function buildStates() {
     [S.CHAIR_SHOOTING]: {
       enter() {
         setObjective(OBJECTIVES.CHAIR_SHOOTING);
-        setInstruction(INSTRUCTIONS.CHAIR_SHOOTING);
         this.fired = false;
         this.t = 0;
         this.nudged = false;
         cast.ape.moveTo('chair');
         cast.ape.aimWeapon(true);
-        dialogue.play(SEQUENCES.chairOrder);
+        sayThenInstruct(SEQUENCES.chairOrder, INSTRUCTIONS.CHAIR_SHOOTING);
       },
       update(dt) {
         if (this.fired) return;
@@ -1166,13 +1185,12 @@ function buildStates() {
     [S.EXECUTE_WINSTON]: {
       enter() {
         setObjective(OBJECTIVES.EXECUTE_WINSTON);
-        setInstruction(INSTRUCTIONS.EXECUTE_WINSTON);
         this.fired = false;
         this.t = 0;
         this.begged = false;
         drawWeapon();
         cast.ape.drawWeapon();
-        dialogue.play(SEQUENCES.aftermathKillOrder);
+        sayThenInstruct(SEQUENCES.aftermathKillOrder, INSTRUCTIONS.EXECUTE_WINSTON);
       },
       update(dt) {
         if (this.fired) return;

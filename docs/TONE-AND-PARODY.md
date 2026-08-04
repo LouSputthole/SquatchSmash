@@ -47,6 +47,20 @@ sketch, and a sketch cannot carry the recognition. "It needs to be detailed and
 complete" is a tone requirement, not a polish requirement — an under-built scene
 fails the doctrine before any of its writing is heard.
 
+## HUD instructions never replace a character
+
+When the game needs to tell the player which button, the character speaks
+first and the screen clarifies afterwards — never both at once, and never the
+screen instead. Ape says "This is the part where we make sure everybody
+remembers this conversation. The one on the couch. Deke." and *then* the HUD
+says which button fires. Showing the instruction on the same frame reads as the
+game talking over its own cast, and it gives the beat away before the character
+has finished setting it up.
+
+Owner's rule, stated 2026-08-04, and it applies in every scene. `sayThenInstruct`
+in `src/silvercase/main.js` is the shape: play the beat, put the instruction up
+in its `onDone`.
+
 ## The test
 
 Two questions, and a scene has to pass both:
