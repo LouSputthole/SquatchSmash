@@ -59,6 +59,32 @@ The shared player controller now supports a grounded <kbd>Space</kbd> jump.
 Jump height is measured above the current floor frame, allowing the deck to
 heave and turn under Tony without detaching him from the cruiser.
 
+### The deck cannot trap the player
+
+`src/nowake/deck-collision.js` owns the cruiser's solid volumes and the capsule
+resolver, separately from `world.js`, so both can be swept without a browser.
+Two rules hold the deck open, and each has a gate behind it:
+
+- **No channel narrower than the 0.60 m capsule.** Two solids either overlap
+  and become one mass the player walks around, or leave a real gap he fits
+  through. Anything between is a position no resolver can satisfy.
+  `narrowChannels()` enumerates violations and the unit suite asserts it empty.
+- **Contact never costs the player his motion.** Only the velocity driving into
+  a surface is cancelled, so he slides along a rail instead of being pinned to
+  it, and a squeeze resolves to a stable mid-channel point he can walk out of.
+
+Both gates sweep a grid across the entire walkable deck, drop the player at
+every cell, step the simulation, and require each one to settle clear, stable,
+on the boat, and with somewhere to walk to — moored, immediately after the bow
+line is released, and with the hull turned off the world axes.
+
+Geometry moved to satisfy the first rule: the forward rail runs opened to the
+stanchion line (2.32) and the cabin trunk pulled back to its own mesh (1.26),
+giving 1.06 m of clear forward side deck against the old 0.92; the bow pulpit
+rails now meet at the stem instead of leaving a 0.12 m slot; the two helm
+chairs became one solid block; and the starboard chair moved 0.22 m inboard so
+the starboard side deck keeps a 0.66 m route forward.
+
 Willy, Lou and Booski use stable campaign identities and the canonical Bing
 figure rig. NO WAKE deliberately leaves the shared cast anatomy unchanged.
 Tony's execution view-model reuses the canonical six-shot revolver carried

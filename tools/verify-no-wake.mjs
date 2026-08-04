@@ -42,6 +42,17 @@ const browser = await chromium.launch({
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'],
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+/* Every `waitForFunction` in this file is wall clock waiting on *simulated*
+ * time. The scene clamps its step at 0.05 s and advances once per drawn frame,
+ * and this page on a software rasteriser draws well under one frame a second --
+ * measured at 0.6 fps in the container this was last run in. Playwright's 30 s
+ * default therefore measures the rasteriser, not the scene: the 1.15 s boarding
+ * tween alone needs about 53 s of wall clock to play out, so the run could not
+ * get past the player stepping aboard. The individual waits that already carry
+ * an explicit timeout were raised one at a time for the same reason; this makes
+ * it the rule instead of the exception. Nothing here waits on something that
+ * can hang forever -- each one is a beat the scene will reach. */
+page.setDefaultTimeout(240000);
 await page.addInitScript((sentinel) => localStorage.setItem('squatchlife.campaign', sentinel), SENTINEL);
 const problems = [];
 page.on('pageerror', (error) => problems.push(error.message));
@@ -76,18 +87,14 @@ check(`all ${AUTHORED_LINE_COUNT} NO WAKE lines have stable cue ids, cast voices
   JSON.stringify({ authored: authoredVoice.length, manifest: manifestVoice.length }));
 
 const recordingSheet = fs.readFileSync(path.join(ROOT, 'VOICE-LINES-TODO.md'), 'utf8');
-/* The seven lines that used to be listed here have since been recorded and
- * indexed, which quietly broke this check: it demands that the pickup list and
- * the recording sheet match exactly, and the sheet had moved on. What is
- * outstanding now is Irish's pass, and nothing else. */
-const expectedNoWakePickups = [
-  'vo.nowake.below.irish.hands.1.mp3',
-  'vo.nowake.cruise.irish.egg.1.mp3',
-  'vo.nowake.execution.irish.rail.1.mp3',
-  'vo.nowake.return.irish.no-back-half.1.mp3',
-  'vo.nowake.reveal.irish.asked.1.mp3',
-  'vo.nowake.reveal.irish.counted.1.mp3',
-];
+/* This list is a statement about what is still owed, so anything delivered has
+ * to come out of it or the check starts demanding that finished work be
+ * missing. It has now gone empty twice for the same reason: seven lines came in
+ * and were removed, then Irish's six followed them. All six are on disk, in
+ * `assets/sfx/index.json`, and `VOICE-LINES-TODO.md` no longer names a single
+ * `vo.nowake.` file — NO WAKE's voice run is complete. Leave this empty until
+ * new lines are authored for the scene. */
+const expectedNoWakePickups = [];
 const noWakePickupFiles = authoredVoice
   .map((line) => `vo.nowake.${line.cue}.1.mp3`)
   .filter((file) => recordingSheet.includes(`\`${file}\``));
@@ -127,13 +134,9 @@ try {
    * sfx:listen` rebuilt it. An approved-pending list is a statement about what
    * is still owed; anything delivered has to come out of it.
    *
-   * What is still owed on this boat is Irish, who is wired, subtitled and
-   * timed but not yet performed. */
-  const expectedPendingNoWakeNames = [
-    'vo.nowake.below.irish.hands.1', 'vo.nowake.cruise.irish.egg.1',
-    'vo.nowake.execution.irish.rail.1', 'vo.nowake.return.irish.no-back-half.1',
-    'vo.nowake.reveal.irish.asked.1', 'vo.nowake.reveal.irish.counted.1',
-  ].sort();
+   * Irish has since been performed. Every cue this scene asks for is indexed,
+   * so nothing on this boat is pending. */
+  const expectedPendingNoWakeNames = [];
   await page.evaluate(() => window.NO_WAKE.postfx?.disable?.());
   /* Use a trusted browser gesture so the same click that starts the mission
    * can legally acquire pointer lock, as it does for a player -- but aim it
@@ -602,6 +605,265 @@ try {
   await page.waitForTimeout(80);
   await capture('no-wake-bow-line-access.png');
 
+  /* ---------------------------------------------------------------------
+   * Walkable-deck sweep.
+   *
+   * Every soft-lock this scene has shipped has been the same shape: two
+   * solids leaving a channel narrower than the player's 0.60 m capsule, no
+   * position that satisfies both, and the player pinned there with his
+   * velocity cancelled. It happened at the aft bench, it happened again at
+   * the bow the moment the mooring line came off, and each time it was found
+   * by a person playing rather than by a gate.
+   *
+   * So: drop the real Player on a grid across the whole walkable deck, step
+   * the real simulation at each cell, and require three things of every one
+   * of them -- it settles, it settles somewhere clear and still on the boat,
+   * and from wherever it settles the player can walk away. The third is the
+   * one geometry cannot promise on its own and the one the playtests kept
+   * catching. A trap anywhere on this deck now fails this gate.
+   *
+   * `tests/no-wake-deck.test.mjs` runs the same sweep against the shared
+   * resolver in `src/nowake/deck-collision.js`; this one runs it against the
+   * live scene, so the two cannot drift apart silently.
+   * ------------------------------------------------------------------- */
+  await page.evaluate(() => {
+    /* Sized against the cost of a real frame: `player.update` runs the camera,
+     * the ground query and two collision passes, each of which forces a matrix
+     * update over the boat's ~400-node hierarchy, and measures around 0.25 ms
+     * here. 0.22 m spacing puts a sample inside every gap on the deck without
+     * making the sweep the longest thing in this file. */
+    window.__sweepDeck = ({ step = .22, settleFrames = 36, escapeFrames = 32, headings = 8 } = {}) => {
+      const game = window.NO_WAKE;
+      const V = game.player.position.constructor;
+      const player = game.player;
+      const deck = game.boat.deck;
+      const radius = .30;
+      const dt = 1 / 60;
+      const saved = {
+        mode: player.mode,
+        enabled: player.enabled,
+        position: player.position.clone(),
+        yaw: player.yaw,
+        ground: player.ground,
+        onFootstep: player.onFootstep,
+      };
+      player.onFootstep = null;
+      player.mode = 'walk';
+      player.enabled = true;
+      player.clearKeys();
+      const boatYaw = () => game.boat.root.rotation.y;
+      const place = (lx, lz) => {
+        player.velocity.set(0, 0, 0);
+        player.jumpHeight = 0;
+        player.grounded = true;
+        player.ground = game.boat.root.position.y + deck.height;
+        player.position.copy(game.world.fromBoatLocal(
+          new V(lx, deck.height + player.eyeHeight, lz),
+        ));
+      };
+      /* The boat is stationary for both sweeps, so world displacement equals
+       * boat-local displacement and the per-frame conversion -- which forces a
+       * full matrix update of a 400-node hierarchy -- can be skipped. Only the
+       * settled point is converted. */
+      const local = () => game.world.toBoatLocal(player.position.clone());
+      const penetration = (lx, lz) => {
+        let worst = 0;
+        let name = null;
+        const eyeY = deck.height + player.eyeHeight;
+        for (const box of game.boat.localColliders) {
+          if (eyeY + .05 < box.min.y || eyeY - player.eyeHeight > box.max.y) continue;
+          const cx = Math.max(box.min.x, Math.min(box.max.x, lx));
+          const cz = Math.max(box.min.z, Math.min(box.max.z, lz));
+          const depth = radius - Math.hypot(lx - cx, lz - cz);
+          if (depth > worst) { worst = depth; name = box.name ?? null; }
+        }
+        return { depth: worst, name };
+      };
+      const settle = (lx, lz) => {
+        place(lx, lz);
+        let px = player.position.x;
+        let pz = player.position.z;
+        let amplitude = 0;
+        for (let i = 0; i < settleFrames; i++) {
+          player.update(dt);
+          if (i > settleFrames - 12) {
+            amplitude = Math.max(amplitude,
+              Math.hypot(player.position.x - px, player.position.z - pz));
+          }
+          px = player.position.x;
+          pz = player.position.z;
+        }
+        return { at: local(), amplitude };
+      };
+
+      const failures = [];
+      const settled = new Map();
+      let cells = 0;
+      for (let x = -deck.halfBeam; x <= deck.halfBeam + 1e-9; x += step) {
+        for (let z = deck.bow; z <= deck.stern + 1e-9; z += step) {
+          cells++;
+          const { at, amplitude } = settle(x, z);
+          const { depth, name } = penetration(at.x, at.z);
+          const offDeck = Math.abs(at.x) > deck.halfBeam + .02
+            || at.z < deck.bow - .02 || at.z > deck.stern + .02;
+          if (amplitude > .004 || depth > .01 || offDeck) {
+            failures.push({
+              kind: offDeck ? 'off-deck' : depth > .01 ? 'buried' : 'oscillating',
+              from: [+x.toFixed(2), +z.toFixed(2)],
+              to: [+at.x.toFixed(3), +at.z.toFixed(3)],
+              depth: +depth.toFixed(3), amplitude: +amplitude.toFixed(4), inside: name,
+            });
+          }
+          const key = `${Math.round(at.x / .15)}:${Math.round(at.z / .15)}`;
+          if (!settled.has(key)) settled.set(key, { x: at.x, z: at.z, from: [x, z] });
+        }
+      }
+
+      const trapped = [];
+      for (const point of settled.values()) {
+        let best = 0;
+        for (let i = 0; i < headings; i++) {
+          place(point.x, point.z);
+          player.yaw = boatYaw() + i / headings * Math.PI * 2;
+          player.clearKeys();
+          const fromX = player.position.x;
+          const fromZ = player.position.z;
+          player.setKey('KeyW', true);
+          for (let f = 0; f < escapeFrames; f++) player.update(dt);
+          player.setKey('KeyW', false);
+          best = Math.max(best,
+            Math.hypot(player.position.x - fromX, player.position.z - fromZ));
+          if (best >= .45) break;
+        }
+        if (best < .45) {
+          trapped.push({
+            at: [+point.x.toFixed(3), +point.z.toFixed(3)],
+            from: [+point.from[0].toFixed(2), +point.from[1].toFixed(2)],
+            bestMove: +best.toFixed(3),
+          });
+        }
+      }
+
+      player.clearKeys();
+      player.mode = saved.mode;
+      player.enabled = saved.enabled;
+      player.position.copy(saved.position);
+      player.yaw = saved.yaw;
+      player.ground = saved.ground;
+      player.onFootstep = saved.onFootstep;
+      player.velocity.set(0, 0, 0);
+      player.update(dt);
+      return {
+        cells,
+        settledPoints: settled.size,
+        failures: failures.slice(0, 6),
+        failureCount: failures.length,
+        trapped: trapped.slice(0, 6),
+        trappedCount: trapped.length,
+      };
+    };
+  });
+
+  const mooredSweep = await page.evaluate(() => window.__sweepDeck());
+  check('every square of the moored deck resolves to a clear, stable, escapable spot',
+    mooredSweep.cells > 800 && mooredSweep.settledPoints > 100
+      && mooredSweep.failureCount === 0 && mooredSweep.trappedCount === 0,
+    JSON.stringify(mooredSweep));
+
+  /* The exact reported moment: the bow line comes off and the player is at the
+   * narrowest point on the boat. Release it through the real interaction, from
+   * where the player is really standing, and sweep again -- a prop or a piece
+   * of geometry changing on that beat has to fail this. */
+  const bowReleased = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    game.player.update(1 / 60);
+    game.player.camera.updateMatrixWorld(true);
+    game.interaction.update(1 / 60);
+    const targeted = game.interaction.current === game.boat.targets.bowLine;
+    game.interaction.press();
+    for (let i = 0; i < 40 && !game.state.bowLine; i++) game.interaction.update(.05);
+    game.interaction.release();
+    return {
+      targeted,
+      bowLine: game.state.bowLine,
+      ropeVisible: game.boat.targets.bowLine.visible,
+      attached: game.boat.targets.bowLine.userData.attached,
+      objective: document.getElementById('objective')?.textContent ?? null,
+    };
+  });
+  check('the bow line releases through its own hold interaction from the side deck',
+    bowReleased.targeted && bowReleased.bowLine
+      && !bowReleased.ropeVisible && bowReleased.attached === false,
+    JSON.stringify(bowReleased));
+
+  const untiedSweep = await page.evaluate(() => window.__sweepDeck());
+  check('the deck is still trap-free in the state right after the bow line is untied',
+    untiedSweep.failureCount === 0 && untiedSweep.trappedCount === 0,
+    JSON.stringify(untiedSweep));
+
+  /* Same deck, off the world axes. Collision runs in the boat's frame and the
+   * velocity response has to come back out of it, so a heading of 0 hides every
+   * sign error in that conversion — and the boat spends the entire mission on a
+   * heading of something else. */
+  const turnedSweep = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const heading = game.boat.root.rotation.y;
+    const berth = game.boat.root.position.clone();
+    /* Take her off the berth as well as off the axis. `groundAt` answers the
+     * dock before it answers the boat, and a hull turned 0.8 rad at Gate C
+     * reaches across the dock strip -- which would have this sweep measuring
+     * the pier rather than the deck. */
+    game.boat.root.position.set(48, berth.y, -120);
+    game.boat.root.rotation.y = 0.8;
+    game.boat.root.updateMatrixWorld(true);
+    const result = window.__sweepDeck();
+    game.boat.root.position.copy(berth);
+    game.boat.root.rotation.y = heading;
+    game.boat.root.updateMatrixWorld(true);
+    return { heading: 0.8, ...result };
+  });
+  check('the same deck is trap-free with the boat turned off the world axes',
+    turnedSweep.failureCount === 0 && turnedSweep.trappedCount === 0,
+    JSON.stringify(turnedSweep));
+
+  /* Walking back off the bow is the thing that was actually broken: the old
+   * resolver cancelled both velocity components whenever anything pushed at
+   * all, so a player resting on the port rail or the cabin trunk -- which is
+   * the normal state in a corridor this width -- could not slide along it. */
+  const bowRetreat = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const player = game.player;
+    const deck = game.boat.deck;
+    const results = [];
+    const saved = { mode: player.mode, yaw: player.yaw, position: player.position.clone() };
+    player.mode = 'walk';
+    player.enabled = true;
+    for (const start of [[-1.68, -5.12], [-2.02, -5.12], [-1.56, -5.12], [-2.02, -4.60]]) {
+      player.clearKeys();
+      player.velocity.set(0, 0, 0);
+      player.ground = game.boat.root.position.y + deck.height;
+      player.position.copy(game.world.fromBoatLocal(
+        new V(start[0], deck.height + player.eyeHeight, start[1]),
+      ));
+      player.yaw = game.boat.root.rotation.y + Math.PI;
+      player.setKey('KeyW', true);
+      for (let i = 0; i < 300; i++) player.update(1 / 60);
+      player.setKey('KeyW', false);
+      const end = game.world.toBoatLocal(player.position.clone());
+      results.push({ start, reached: +end.z.toFixed(2) });
+    }
+    player.clearKeys();
+    player.mode = saved.mode;
+    player.yaw = saved.yaw;
+    player.position.copy(saved.position);
+    player.velocity.set(0, 0, 0);
+    player.update(1 / 60);
+    return results;
+  });
+  check('a player pressed against either wall of the bow station can still walk aft',
+    bowRetreat.every((run) => run.reached > 2.5), JSON.stringify(bowRetreat));
+
   const moored = await page.evaluate(() => {
     const b = window.NO_WAKE.physics;
     b.running = true; b.throttle = 1;
@@ -660,6 +922,13 @@ try {
     underway.phase === 'drive' && underway.distance > 8 && underway.speed > 1
       && underway.checkpoint === 'underway', JSON.stringify(underway));
 
+  /* Both halves of this are measured in the scene's own frames, not in wall
+   * clock. The hull carries the player only inside `updateBoat`, which runs
+   * once per drawn frame, so the old fixed 650 ms sleep bought a couple of
+   * hundred frames on a real machine and, at the 0.6 fps this rasteriser
+   * manages, sometimes none at all: the last run cleared the 0.2 m coast
+   * threshold by 0.016 m. Wait for the boat to have travelled instead, with a
+   * frame ceiling so a genuinely dead hull still fails rather than hangs. */
   const deckRide = await page.evaluate(async () => {
     const game = window.NO_WAKE;
     game.physics.speed = .2;
@@ -668,13 +937,22 @@ try {
     const startDistance = game.physics.distance;
     game.physics.speed = 2.2;
     game.physics.throttle = 1;
-    await new Promise((resolve) => setTimeout(resolve, 650));
+    const frames = await new Promise((resolve) => {
+      let drawn = 0;
+      const tick = () => {
+        drawn++;
+        if (game.physics.distance - startDistance > .45 || drawn > 600) resolve(drawn);
+        else requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
     const after = game.world.toBoatLocal(game.player.position).clone();
     return {
       atHelm: game.state.atHelm,
       throttle: game.physics.throttle,
       coasted: game.physics.distance - startDistance,
       localDelta: before.distanceTo(after),
+      frames,
     };
   });
   check('leaving the helm neutralizes propulsion while a coasting deck carries the player with it',
@@ -922,10 +1200,15 @@ try {
    * clock: `animate` caps dt at 0.05, so on a software rasteriser running at a
    * handful of frames a second the simulated hold advances at a fraction of
    * real time. Six and a half seconds of held key used to land just under the
-   * threshold and read as a broken disposal. Hold it long enough that this
-   * contract measures the interaction rather than the rasteriser. */
+   * threshold and read as a broken disposal, and fourteen was only enough while
+   * the rasteriser stayed above about two frames a second — at the 0.6 fps
+   * measured here the hold reaches roughly 0.4 s and the body never moves.
+   *
+   * Any fixed wall-clock duration is the same bet made again. Hold the key and
+   * wait on the beat itself, so this contract measures the interaction at any
+   * frame rate. */
   await page.keyboard.down('e');
-  await page.waitForTimeout(14000);
+  await page.waitForFunction(() => window.NO_WAKE.state.bodyDisposed === true);
   await page.keyboard.up('e');
   await page.evaluate(() => { window.NO_WAKE.state.phaseTime = 0; });
   await page.waitForTimeout(100);
@@ -1072,7 +1355,7 @@ try {
   await page.waitForFunction((expected) => {
     const log = window.NO_WAKE.state.aftermathCueLog ?? [];
     return log.length === expected && log.every((entry) => entry.status !== 'queued');
-  }, aftermathExpected.length, { timeout: 60000 });
+  }, aftermathExpected.length);
   const aftermathSequence = await page.evaluate((expectedTexts) => {
     const entries = window.NO_WAKE.state.aftermathCueLog ?? [];
     const subtitles = window.NO_WAKE.dialogueLog
