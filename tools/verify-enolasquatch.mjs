@@ -130,6 +130,101 @@ try {
       && crewOnApron.sasoleIsPilot && crewOnApron.noBigLou,
     JSON.stringify(crewOnApron));
 
+  /* ---- The club crest, on the aeroplane and on the bomb ----
+   * Owner: "Aircraft is nice. Needs Squatch logo." + "Squatch logo on the bomb
+   * too." Asserted as badges that EXIST and carry a texture, plus the fact
+   * that the real artwork resolved off the existing `crest.round` art slot —
+   * a badge wearing the drawn placeholder is a working fallback, but it is
+   * not what was asked for. */
+  const logo = await page.evaluate(async () => {
+    const h = window.__enolaSquatch;
+    // The gear resolve is a fire-and-forget promise in the composition root.
+    for (let i = 0; i < 60 && h.state().clubLogo.realArtworkApplied === 0; i++) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const s = h.state().clubLogo;
+    const badges = [...(h.aircraft.parts.clubLogo || []), ...(h.payload.parts.clubLogo || [])];
+    return {
+      ...s,
+      allTextured: badges.every((b) => !!b.material?.map),
+      onFin: (h.aircraft.parts.clubLogo || []).filter((b) => b.name === 'club-crest-fin').length,
+      onNose: (h.aircraft.parts.clubLogo || []).filter((b) => b.name === 'club-crest-nose').length,
+      inAircraftGroup: (h.aircraft.parts.clubLogo || []).every((b) => {
+        let o = b; while (o) { if (o === h.aircraft.group) return true; o = o.parent; } return false;
+      }),
+      onBombBody: (h.payload.parts.clubLogo || []).every((b) => {
+        let o = b; while (o) { if (o === h.payload.group) return true; o = o.parent; } return false;
+      }),
+    };
+  });
+  check('the Silver Sasquatches crest is on the aeroplane (fin both sides, nose) and on the Fat Squatch',
+    logo.onAircraft === 3 && logo.onFin === 2 && logo.onNose === 1 && logo.onPayload === 2
+      && logo.allTextured && logo.inAircraftGroup && logo.onBombBody
+      && logo.realArtworkApplied === 5,
+    JSON.stringify(logo));
+
+  /* ---- Whispering Pines has grass and a treeline ----
+   * Owner: "Missing all the grass and stuff at whispering pines airport." The
+   * ground colour matters as much as the scatter: the route mesh used to
+   * paint the whole aerodrome in the eastbound desert palette, so a forest
+   * airstrip rendered grey. Sampled straight off the mesh's vertex colours. */
+  const scenery = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const s = h.state().scenery;
+    const named = (n) => h.scene.getObjectByName(n);
+    const trunks = named('whispering-pines-trunks');
+    const canopies = named('whispering-pines-canopies');
+    const tufts = named('whispering-pines-tufts');
+    const pad = named('enola-hardstand');
+    // Is the ground round the field actually green? Read the route mesh's own
+    // vertex colours near the airfield and compare red against green.
+    let greenVerts = 0;
+    let sampled = 0;
+    for (const o of h.scene.children) {
+      const col = o.isMesh && o.geometry?.attributes?.color;
+      const pos = o.isMesh && o.geometry?.attributes?.position;
+      if (!col || !pos || pos.count < 5000) continue;
+      for (let i = 0; i < pos.count; i++) {
+        const wx = o.position.x + pos.getX(i);
+        const wz = o.position.z + pos.getZ(i);
+        if (Math.abs(wx) > 300 || Math.abs(wz - 380) > 300) continue;
+        sampled++;
+        if (col.getY(i) > col.getX(i) * 1.25) greenVerts++;
+      }
+      break;
+    }
+    return {
+      trees: s.trees,
+      tufts: s.tufts,
+      trunkInstances: trunks?.count ?? 0,
+      canopyInstances: canopies?.count ?? 0,
+      tuftInstances: tufts?.count ?? 0,
+      hardstand: !!pad,
+      // The scatter is instanced, not hundreds of meshes.
+      sceneryMeshes: named('whispering-pines-scenery')?.children.length ?? 0,
+      sampled,
+      greenFraction: sampled ? +(greenVerts / sampled).toFixed(2) : 0,
+      // Nothing may have been planted on the runway.
+      onRunway: (() => {
+        if (!trunks) return -1;
+        const m = new (h.camera.matrixWorld.constructor)();
+        let hits = 0;
+        for (let i = 0; i < trunks.count; i++) {
+          trunks.getMatrixAt(i, m);
+          const x = m.elements[12]; const z = m.elements[14];
+          if (Math.abs(x) < 40 && Math.abs(z) < 480) hits++;
+        }
+        return hits;
+      })(),
+    };
+  });
+  check('Whispering Pines has grass, a pine treeline and a hardstand — and nothing grows on the runway',
+    scenery.trees > 250 && scenery.trunkInstances === scenery.trees
+      && scenery.canopyInstances === scenery.trees && scenery.tuftInstances > 400
+      && scenery.hardstand && scenery.sceneryMeshes < 20
+      && scenery.greenFraction > 0.9 && scenery.onRunway === 0,
+    JSON.stringify(scenery));
+
   /* ---- The walkaround, played for real ----
    * Every check below is reached by standing the player where a person would
    * stand and pointing his head at the part, then pressing E through the real

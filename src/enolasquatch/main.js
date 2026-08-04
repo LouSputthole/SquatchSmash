@@ -70,8 +70,9 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { roomEnvironment } from '../world/textures.js';
+import { resolveGear } from '../world/gear.js';
 
-import { WP } from '../beefrun/config.js';
+import { WP, ZONES } from '../beefrun/config.js';
 import { buildAirfield } from '../beefrun/airfield.js';
 import { terrainHeight } from '../beefrun/terrain.js';
 import { AircraftPhysics } from '../beefrun/physics.js';
@@ -95,12 +96,16 @@ import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
 import { EnolaPreflight } from './preflight.js';
+import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
 import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;
+/* Beef Run's own palette for the ground Whispering Pines stands on — see the
+ * colour blend in `buildEastGround()`. */
+const PINES_ZONE = ZONES.find((z) => z.id === 'pines');
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('scene');
@@ -253,6 +258,25 @@ function buildEastGround(sceneRef) {
     const hz = groundHeightCombined(wx, wz + 10) - groundHeightCombined(wx, wz - 10);
     const steep = clamp(Math.hypot(hx, hz) / 26, 0, 1);
     c.copy(groundCol).lerp(rockCol, steep * 0.85);
+    /* WHISPERING PINES IS GREEN. Owner: "Missing all the grass and stuff at
+     * whispering pines airport." The heights already blend into Beef Run's
+     * carved corridor near the field (`groundHeightCombined`, above) but the
+     * COLOURS did not: every vertex within sight of the aerodrome was painted
+     * `ZONES_EAST[0]`'s night-desert slate, so the Beef Run's forest airstrip
+     * became a grey pan the moment this mission drew it. Blending the palette
+     * over the same `x` window the height blend uses is the one-line
+     * counterpart to that blend, and it means the tree scatter in
+     * `./airfield-scenery.js` stands on ground the same colour as itself.
+     *
+     * A second, finer grass mesh laid over this one was tried first and is
+     * exactly what NOT to do: two co-planar heightfields at different vertex
+     * densities z-fight into speckled confetti across the whole field. One
+     * ground mesh, recoloured. */
+    const west = 1 - smoothstep(400, 1500, Math.hypot(wx - WP.x, 0));
+    if (west > 0) {
+      const near = PINES_ZONE.ground;
+      c.lerp(new THREE.Color(near).lerp(new THREE.Color(PINES_ZONE.rock), steep * 0.85), west);
+    }
     const tint = 0.86 + fbm(wx / 110, wz / 110, 2) * 0.28;
     c.multiplyScalar(tint);
     colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
@@ -366,6 +390,16 @@ const missionAudio = new EnolaMissionAudio(audio);
 
 const airfield = buildAirfield(scene, {});
 
+/* The grass, the treeline and the tufts. Owner: "Missing all the grass and
+ * stuff at whispering pines airport." `buildAirfield` was always here — the
+ * hangar, the runway, the windsock, the beacon — but the GROUND it stands on
+ * came from `buildEastGround` below, a single 50 m-per-segment route mesh with
+ * no scatter, where the Beef Run gets a streamed forest. See
+ * `./airfield-scenery.js` for why this dresses the field rather than running a
+ * second terrain system over it. */
+window.__squatchStage?.('Planting Whispering Pines…');
+const airfieldScenery = buildAirfieldScenery(scene, { getHeight: (x, z) => groundHeightCombined(x, z) });
+
 /* On foot, for the opening walkaround only. Same three pieces the Beef Run
  * uses on the apron — `InteractionSystem`, `Player`, and a `world` whose
  * `groundAt` is this mission's own heightfield — and after boarding the player
@@ -385,6 +419,21 @@ scene.add(aircraft.group);
 
 const payload = new FatSquatch();
 aircraft.anchors.payloadMount.add(payload.group);
+
+/* The club's crest, onto the aeroplane's three badges and the bomb's two.
+ * Owner: "Aircraft is nice. Needs Squatch logo." + "Squatch logo on the bomb
+ * too." `crest.round` is an EXISTING art slot pointing at the existing
+ * `assets/art/logo-crest.png` (see `assets/art/manifest.json`), so no new art
+ * and no manifest change; if the file ever goes missing, `resolveGear` hands
+ * back its own drawn placeholder and the badges simply keep the drawn crest
+ * they were built with. Fire-and-forget on purpose — nothing waits for it. */
+let clubLogoBadges = 0;
+resolveGear(['crest.round'])
+  .then((gear) => {
+    const tex = gear.get('crest.round')?.texture;
+    clubLogoBadges = aircraft.applyClubLogo(tex) + payload.applyClubLogo(tex);
+  })
+  .catch(() => { /* the drawn crest is already on every badge */ });
 
 /* Squatchbourg. Built once, up front, because it is 15 draw calls and about
  * 22k triangles that never change until they are removed — see the budget note
@@ -1088,6 +1137,14 @@ window.__enolaSquatch = {
        * black it is, and what the world under it looks like. */
       cutscene: mission.cutscene ? { ...mission.cutscene } : null,
       night: { dusk: weather.dusk, night: weather.night, staged: mission.nightfallStaged },
+      /* The club crest: how many badges exist and how many carry the real
+       * artwork rather than the drawn stand-in. */
+      clubLogo: {
+        onAircraft: aircraft.parts.clubLogo?.length ?? 0,
+        onPayload: payload.parts.clubLogo?.length ?? 0,
+        realArtworkApplied: clubLogoBadges,
+      },
+      scenery: { trees: airfieldScenery.trees, tufts: airfieldScenery.tufts },
       cityDestroyed: city.destroyed,
       phaseTime: +mission.phaseTime.toFixed(2),
       missionTime: +mission.missionTime.toFixed(2),

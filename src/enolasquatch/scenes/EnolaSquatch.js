@@ -27,6 +27,7 @@ import {
   mesh, flatMesh, group, clamp, damp, signTexture,
 } from '../../beefrun/util.js';
 import { Instruments } from '../../beefrun/instruments.js';
+import { crestPlaceholderTexture, applyCrest } from '../livery.js';
 import { AC_ENOLA } from '../config.js';
 
 const SKIN = 0x9aa0ac;          // bare-metal grey, unlike the Brushrunner's cream
@@ -50,15 +51,93 @@ const BELLY_Y = -FUSE_H / 2;
  * pair and must be kept in step with these. */
 const NACELLE_X = [-13.4, -6.4, 6.4, 13.4];
 
-/** Three-bladed prop, same construction idiom as the Brushrunner's. */
+/* ------------------------------------------------------------------ */
+/* Skin layering.
+ *
+ * Owner playtest, 2026-08-04: "Lot of intersecting things on the side."
+ * There were. Every flank decoration was placed at its own ad-hoc offset
+ * within a couple of centimetres of the skin, so they all landed in the same
+ * two-centimetre shell and fought: the purple racing stripe ran straight
+ * THROUGH the nose art and the "ENOLA SQUATCH" title plate, the second patch
+ * panel enclosed the stripe entirely (a 0.08 m box around a 0.04 m box, both
+ * centred on the same plane), and the crew-door frame did the same thing
+ * further aft.
+ *
+ * These four constants are the fix: one declared stacking order out from the
+ * skin, with real separation between the layers, and every flank part placed
+ * against the layer it belongs to rather than against a number typed at the
+ * call site. Anything added to the fuselage sides later goes on one of these.
+ *
+ *   SKIN_X    the aluminium itself
+ *   SEAM_X    panel lines and rivet runs — scribed into the skin
+ *   LIVERY_X  paint: the racing stripe and its pinstripe
+ *   DECAL_X   painted-on artwork: nose art, title plate, club crests
+ *   PANEL_X   bolted-on hardware: the repair patches, the crew door
+ *
+ * Paint goes over the metal, artwork goes over the paint, and a riveted patch
+ * covers all of it — which is also the right story for this aeroplane. */
+const SKIN_X = FUSE_W / 2;
+const SEAM_X = SKIN_X + 0.004;    // boxes 0.024 thick -> outer face +0.016
+const LIVERY_X = SKIN_X + 0.038;  // boxes 0.036 thick -> +0.020 .. +0.056
+const DECAL_X = SKIN_X + 0.068;   // flat planes, clear of the livery
+const PANEL_X = SKIN_X + 0.105;   // boxes 0.06 thick -> +0.075 .. +0.135
+
+/**
+ * Three-bladed prop.
+ *
+ * Owner playtest: "Front propeller looks off." It was — a straight untwisted
+ * slab standing out of a bare hub, with the spinner cone BEHIND the blades
+ * instead of in front of them (`coneGeo` centred at z 5.0 with the blades at
+ * z 4.85, so the blades came out of the middle of the cone and the only thing
+ * visible from the front was the cowl ring). A real constant-speed blade is
+ * wide and thick at the root, thin and narrow at the tip, and twisted maybe
+ * thirty degrees between the two, which is most of why a propeller reads as a
+ * propeller and not as three sticks. Four tapered, progressively twisted
+ * segments plus a root cuff get that for twelve boxes an engine.
+ */
 function propBlade(material) {
   const g = new THREE.Group();
-  const blade = mesh(boxGeo(0.26, 2.05, 0.08), material, 0, 1.14, 0);
-  blade.rotation.y = 0.3;
-  g.add(blade);
-  const tip = mesh(boxGeo(0.26, 0.18, 0.08), solid(0xe8d24a, { roughness: 0.6 }), 0, 2.24, 0);
+  // Root cuff: the fat cylindrical shank that goes into the hub.
+  const cuff = mesh(cylGeo(0.115, 0.13, 0.34, 10), solid(0x3a3d43, { roughness: 0.45, metalness: 0.5 }), 0, 0.3, 0);
+  g.add(cuff);
+  /* [halfway-out, width, thickness, twist] — the aerofoil narrows and flattens
+   * outboard while the pitch angle unwinds, same as the real thing. */
+  const stations = [
+    [0.62, 0.30, 0.105, 0.62],
+    [1.10, 0.27, 0.078, 0.44],
+    [1.56, 0.23, 0.058, 0.28],
+    [1.98, 0.17, 0.042, 0.16],
+  ];
+  let prev = 0.45;
+  for (const [y, w, t, twist] of stations) {
+    const len = (y - prev) * 2;
+    const seg = mesh(boxGeo(w, len, t), material, 0, prev + len / 2, 0);
+    seg.rotation.y = twist;
+    g.add(seg);
+    prev = y;
+  }
+  // The yellow tip stripe every ground-crew-bitten propeller has.
+  const tip = mesh(boxGeo(0.17, 0.2, 0.042), solid(0xe8d24a, { roughness: 0.6 }), 0, 2.06, 0);
+  tip.rotation.y = 0.16;
   g.add(tip);
   return g;
+}
+
+/**
+ * A rounded corner strake.
+ *
+ * Owner playtest: "Maybe a bit less square in some areas." The fuselage, the
+ * nacelles and the fin are all boxes, and a box's giveaway is its four hard
+ * longitudinal edges catching the light as one continuous line. A thin bar
+ * rolled 45 degrees into each edge turns one 90-degree corner into two
+ * 45-degree ones for one box per edge, which is the cheapest chamfer there is
+ * and reads from every angle a walkaround puts the player at.
+ */
+function chamfer(material, w, len, x, y, z, roll, axis = 'z') {
+  const bar = mesh(axis === 'z' ? boxGeo(w, w, len) : boxGeo(len, w, w), material, x, y, z);
+  if (axis === 'z') bar.rotation.z = roll;
+  else bar.rotation.x = roll;
+  return bar;
 }
 
 /**
@@ -220,11 +299,15 @@ export class EnolaSquatch {
       }
       return rg;
     };
-    const patch1 = mesh(boxGeo(1.8, 1.5, 0.08), patch, FUSE_W / 2 + 0.02, 0.3, -4.0);
+    /* Both flank patches sit on PANEL_X — proud of the paint, not buried in
+     * it. `patch2` also moved aft, from z 4.2 to z -6.6: at 4.2 it occupied
+     * exactly the same square metre of skin as the nose art and they z-fought
+     * for the whole walkaround. Aft of the wing it has the flank to itself. */
+    const patch1 = mesh(boxGeo(1.8, 1.5, 0.06), patch, PANEL_X, 0.3, -4.0);
     patch1.rotation.y = Math.PI / 2;
     g.add(patch1);
     patch1.add(rivets());
-    const patch2 = mesh(boxGeo(2.4, 1.2, 0.08), patchRough, -FUSE_W / 2 - 0.02, -0.6, 4.2);
+    const patch2 = mesh(boxGeo(2.2, 1.1, 0.06), patchRough, -PANEL_X, 0.55, -6.6);
     patch2.rotation.y = -Math.PI / 2;
     g.add(patch2);
     patch2.add(rivets());
@@ -240,16 +323,33 @@ export class EnolaSquatch {
     const seam = solid(0x7a808c, { roughness: 0.85, metalness: 0.2 });
     for (const sx of [-1, 1]) {
       for (const z of [-5.4, -1.6, 2.2, 5.6]) {
-        g.add(mesh(boxGeo(0.03, FUSE_H - 0.3, 0.06), seam, sx * (FUSE_W / 2 + 0.005), 0, z));
+        g.add(mesh(boxGeo(0.024, FUSE_H - 0.3, 0.06), seam, sx * SEAM_X, 0, z));
       }
       const run = rivetRun(metal, 13, 1.05, 'z');
-      run.position.set(sx * (FUSE_W / 2 + 0.02), FUSE_H / 2 - 0.5, 0);
+      run.position.set(sx * SEAM_X, FUSE_H / 2 - 0.5, 0);
       run.rotation.z = Math.PI / 2;
       g.add(run);
     }
     for (const z of [-4.2, 0.4, 4.8]) {
       g.add(mesh(boxGeo(FUSE_W - 0.2, 0.05, 0.05), seam, 0, FUSE_H / 2 + 0.005, z));
     }
+
+    /* Corner chamfers. Owner: "Maybe a bit less square in some areas." The
+     * fuselage's four longitudinal edges were dead 90-degree corners running
+     * the whole 15.5 m, which is the single most box-like thing on the model.
+     * See `chamfer()` for why one rolled bar per edge is enough. */
+    const chamferMat = solid(SKIN, { roughness: 0.62, metalness: 0.36 });
+    for (const sx of [-1, 1]) {
+      for (const sy of [-1, 1]) {
+        g.add(chamfer(chamferMat, 0.30, FUSE_LEN - 0.2,
+          sx * (FUSE_W / 2 - 0.09), sy * (FUSE_H / 2 - 0.09), 0, Math.PI / 4));
+      }
+    }
+    // A rounded spine and a rounded keel, so the top and bottom read curved.
+    const spine = mesh(cylGeo(0.5, 0.5, FUSE_LEN - 0.6, 12, true), chamferMat, 0, FUSE_H / 2 - 0.42, 0);
+    spine.rotation.x = Math.PI / 2;
+    spine.scale.set(2.6, 1, 1);
+    g.add(spine);
 
     // Nose cone, tapered, with a glazed bombardier bubble. The bubble is where
     // Numbskull actually sits — see `buildCrewStations()`.
@@ -333,6 +433,18 @@ export class EnolaSquatch {
       const nx = NACELLE_X[i];
       const nacelle = mesh(boxGeo(1.75, 1.6, 5.4), skin, nx, 0.7, 1.0);
       g.add(nacelle);
+      /* Rounded nacelle shoulders — the nacelle was a bare box under a round
+       * cowl, which made the join read as a can taped to a brick. Two rolled
+       * bars along the top edges and a half-round crown fix it for three
+       * meshes. Owner: "Maybe a bit less square in some areas." */
+      for (const sx of [-1, 1]) {
+        g.add(chamfer(skin, 0.34, 5.2, nx + sx * 0.72, 1.37, 1.0, Math.PI / 4));
+        g.add(chamfer(skin, 0.28, 5.2, nx + sx * 0.74, 0.05, 1.0, Math.PI / 4));
+      }
+      const crown = mesh(cylGeo(0.5, 0.5, 5.2, 12, true), skin, nx, 1.22, 1.0);
+      crown.rotation.x = Math.PI / 2;
+      crown.scale.set(1.7, 1, 1);
+      g.add(crown);
       // Nacelle nose fairing and the ring cowl, in two diameters.
       const cowl = mesh(cylGeo(0.8, 0.9, 1.5, 16), trim, nx, 0.7, 3.9);
       cowl.rotation.x = Math.PI / 2;
@@ -348,12 +460,38 @@ export class EnolaSquatch {
         gill.rotation.z = a;
         g.add(gill);
       }
-      const spinner = mesh(coneGeo(0.44, 1.0, 14), trim, nx, 0.7, 5.0);
+
+      /* THE FRONT END, rebuilt. Owner: "Front propeller looks off."
+       *
+       * It was assembled inside out. The blade hub sat at z 4.85 and the
+       * spinner cone was centred at z 5.0 — a 1.0 m cone whose base was at
+       * 4.5, BEHIND the blades — so the blades grew out of the middle of the
+       * spinner and the only thing visible head-on was the cowl ring with a
+       * black knuckle in the middle of it. Correct order, front to back, is:
+       * spinner apex, spinner, blade roots, back plate, reduction-gear
+       * housing, cowl. That is what this now is, and it is why nothing here
+       * shares a z with anything else.
+       */
+      const spinnerMat = solid(0x35373d, { roughness: 0.32, metalness: 0.55 });
+      // Gearbox housing between cowl lip and spinner — fills the gap that
+      // used to be a hole you could see the nacelle box through.
+      const gearbox = mesh(cylGeo(0.5, 0.72, 0.5, 16), metal, nx, 0.7, 4.9);
+      gearbox.rotation.x = Math.PI / 2;
+      g.add(gearbox);
+      // Back plate: the disc the blade roots come through.
+      const backPlate = mesh(cylGeo(0.52, 0.5, 0.1, 18), spinnerMat, nx, 0.7, 5.18);
+      backPlate.rotation.x = Math.PI / 2;
+      g.add(backPlate);
+      // The spinner proper: base just forward of the roots, apex forward.
+      const spinner = mesh(coneGeo(0.5, 1.15, 20), spinnerMat, nx, 0.7, 5.95);
       spinner.rotation.x = Math.PI / 2;
       g.add(spinner);
+      // Rounded tip on the cone, so it is an ogive and not a dart.
+      const spinnerTip = mesh(sphereGeo(0.075, 10, 8), spinnerMat, nx, 0.7, 6.5);
+      g.add(spinnerTip);
 
       const hub = new THREE.Group();
-      hub.position.set(nx, 0.7, 4.85);
+      hub.position.set(nx, 0.7, 5.4);
       const bladeMat = solid(0x24262a, { roughness: 0.5, metalness: 0.42 });
       for (let b = 0; b < 3; b++) {
         const blade = propBlade(bladeMat);
@@ -363,13 +501,15 @@ export class EnolaSquatch {
       g.add(hub);
       this.parts.prop.push(hub);
 
+      // The blurred disc lives FORWARD of the spinner tip so that, at speed,
+      // it never cuts a bright ellipse through the nose cone.
       const disc = new THREE.Mesh(
         new THREE.CircleGeometry(2.35, 24),
         new THREE.MeshBasicMaterial({
           color: 0xb9bec6, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
         }),
       );
-      disc.position.set(nx, 0.7, 4.94);
+      disc.position.set(nx, 0.7, 6.6);
       g.add(disc);
       this.parts.propDisc.push(disc);
 
@@ -446,19 +586,43 @@ export class EnolaSquatch {
     this.anchors.payloadMount = payloadMount;
     this.anchors.bombBayCenter = new THREE.Vector3(0, BELLY_Y, BAY_Z);
 
-    // ---- Livery: purple racing stripe down both sides of the fuselage ----
+    /* ---- Livery: purple racing stripe down both sides of the fuselage ----
+     *
+     * Laid in RUNS with gaps, not as one 14 m bar. The single bar ran through
+     * the crew door's frame and under both decals; every one of those was a
+     * pair of coplanar boxes fighting for the same pixels. The gaps below are
+     * where hardware and artwork live, and the stripe now stops either side of
+     * them the way a paint shop would have masked it off. Dropped to y -0.55
+     * as well, clearing the decal band entirely. */
+    const STRIPE_Y = -0.55;
+    const runs = (gaps) => {
+      const out = [];
+      let from = -(FUSE_LEN / 2 - 0.7);
+      for (const [a, b] of gaps) { out.push([from, a]); from = b; }
+      out.push([from, FUSE_LEN / 2 - 0.7]);
+      return out.filter(([a, b]) => b - a > 0.25);
+    };
     for (const sx of [-1, 1]) {
-      const stripe = mesh(boxGeo(0.04, 0.55, FUSE_LEN - 1.4), purple, sx * (FUSE_W / 2 + 0.01), 0.1, 0);
-      g.add(stripe);
-      const pin = mesh(boxGeo(0.045, 0.11, FUSE_LEN - 1.4), purpleLight, sx * (FUSE_W / 2 + 0.012), -0.36, 0);
-      g.add(pin);
+      /* Ascending, non-overlapping. Every gap is a real object that would
+       * otherwise be inside the stripe box: the waist blister at z -5.4 on
+       * both sides, and on the port side the crew door and the nose art. Runs
+       * shorter than 0.25 m are dropped by `runs()`, so touching gaps merge on
+       * their own. */
+      const gaps = sx < 0
+        ? [[-6.2, -4.6], [-4.4, -2.4], [3.2, 5.4]]
+        : [[-6.2, -4.6]];
+      for (const [a, b] of runs(gaps)) {
+        const len = b - a;
+        g.add(mesh(boxGeo(0.036, 0.5, len), purple, sx * LIVERY_X, STRIPE_Y, (a + b) / 2));
+        g.add(mesh(boxGeo(0.036, 0.1, len), purpleLight, sx * LIVERY_X, STRIPE_Y - 0.37, (a + b) / 2));
+      }
     }
     // Fin flash, same colour, so the livery reads from behind too.
     g.add(mesh(boxGeo(0.05, 3.9, 0.6), purple, 0.16, 2.8, -FUSE_LEN / 2 - 4.35));
 
-    // ---- Nose art (starboard side, under the cockpit's eyeline) ----
+    // ---- Nose art (port side, under the cockpit's eyeline) ----
     const noseArtMat = mat({ map: noseArtTexture(), roughness: 0.85, transparent: true, alphaTest: 0.03, unique: true });
-    const noseArt = flatMesh(planeGeo(1.9, 1.9), noseArtMat, -FUSE_W / 2 - 0.02, 0.4, 4.2);
+    const noseArt = flatMesh(planeGeo(1.9, 1.9), noseArtMat, -DECAL_X, 0.5, 4.3);
     noseArt.rotation.y = -Math.PI / 2;
     g.add(noseArt);
     this.parts.noseArt = noseArt;
@@ -466,18 +630,51 @@ export class EnolaSquatch {
     // ---- "ENOLA SQUATCH / Peace Through Superior Foot Size" ----
     // Painted just under the cockpit window, one side only — the same
     // placement real heavy-bomber nose art used, since only one side of the
-    // aeroplane is ever framed for the photo.
+    // aeroplane is ever framed for the photo. On DECAL_X, forward of the
+    // stripe's y band, and moved forward to z 1.4 so it no longer shares any
+    // skin with the nose art.
     const titleTex = signTexture(['ENOLA SQUATCH', 'Peace Through Superior Foot Size'], {
       w: 768, h: 220, bg: '#c9c2d4', fg: '#241a3a', border: '#4a2f8f', rough: true,
     });
     const titlePlate = flatMesh(
-      planeGeo(3.6, 1.0),
+      planeGeo(3.4, 0.94),
       mat({ map: titleTex, roughness: 0.85, transparent: true, unique: true }),
-      -FUSE_W / 2 - 0.02, -0.7, 1.6,
+      -DECAL_X, 0.42, 1.4,
     );
     titlePlate.rotation.y = -Math.PI / 2;
     g.add(titlePlate);
     this.parts.titlePlate = titlePlate;
+
+    /* ---- The Silver Sasquatches crest ----
+     *
+     * Owner playtest: "Aircraft is nice. Needs Squatch logo." The club's own
+     * artwork already exists and is already wired — `assets/art/logo-crest.png`
+     * through `src/world/gear.js`'s `crest.round` slot, the same file Big
+     * Uncle Lou has framed in his office at the Bing. No new art, no new
+     * manifest slot: the composition root resolves that slot and hands the
+     * texture to `applyClubLogo()` below.
+     *
+     * Three places, which is where a squadron actually puts its badge: both
+     * faces of the fin, and under the cockpit on the starboard side — the
+     * side the nose art is NOT on, so neither has to share skin with the
+     * other. Until the texture resolves they carry the drawn placeholder
+     * `resolveGear` falls back to, so no surface is ever blank. */
+    this.parts.clubLogo = [];
+    const logoMat = () => mat({
+      map: crestPlaceholderTexture(), roughness: 0.8, transparent: true, alphaTest: 0.02, unique: true,
+    });
+    for (const sx of [-1, 1]) {
+      const finBadge = flatMesh(planeGeo(1.5, 1.5), logoMat(), sx * 0.2, 3.1, -FUSE_LEN / 2 - 4.3);
+      finBadge.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      finBadge.name = 'club-crest-fin';
+      g.add(finBadge);
+      this.parts.clubLogo.push(finBadge);
+    }
+    const noseBadge = flatMesh(planeGeo(1.35, 1.35), logoMat(), DECAL_X, 0.45, 4.0);
+    noseBadge.rotation.y = Math.PI / 2;
+    noseBadge.name = 'club-crest-nose';
+    g.add(noseBadge);
+    this.parts.clubLogo.push(noseBadge);
 
     // ---- Landing gear: fixed tricycle, scaled up ----
     this.parts.gear = [];
@@ -517,17 +714,35 @@ export class EnolaSquatch {
      * The one part of the aeroplane the walkaround ends at: `anchors.crewDoor`
      * is the local point the boarding hit-box hangs on, and `anchors.stepDown`
      * is where the player is put back on the tarmac if he ever gets out. */
-    const doorFrame = mesh(boxGeo(0.06, 1.7, 0.95), trim, -FUSE_W / 2 - 0.015, -0.35, -3.4);
+    /* On PANEL_X, with the racing stripe masked off either side of it (see
+     * the livery block below) — the frame used to enclose the stripe box and
+     * the two flickered against each other from every angle. The door is also
+     * the one part of the aeroplane a stranded player has to be able to pick
+     * out, so it is deliberately the highest-contrast thing on this flank:
+     * dark frame, mismatched panel, white boarding stencil. */
+    const doorFrame = mesh(boxGeo(0.06, 1.8, 1.05), trim, -PANEL_X, -0.35, -3.4);
     g.add(doorFrame);
-    const doorPanel = mesh(boxGeo(0.05, 1.5, 0.8), patch, -FUSE_W / 2 - 0.05, -0.35, -3.4);
+    const doorPanel = mesh(boxGeo(0.05, 1.5, 0.8), patch, -PANEL_X - 0.05, -0.35, -3.4);
     g.add(doorPanel);
     doorPanel.add(mesh(boxGeo(0.06, 0.09, 0.26), metal, -0.03, -0.1, 0.24));
+    doorPanel.add(rivets());
+    // "CREW ENTRY" stencilled over the sill — the door has to be findable.
+    const doorStencil = flatMesh(
+      planeGeo(0.86, 0.28),
+      mat({
+        map: signTexture(['CREW ENTRY'], { w: 512, h: 160, bg: '#d8d2de', fg: '#241a3a', border: '#4a2f8f', rough: true }),
+        roughness: 0.85, transparent: true, unique: true,
+      }),
+      -PANEL_X - 0.1, 0.72, -3.4,
+    );
+    doorStencil.rotation.y = -Math.PI / 2;
+    g.add(doorStencil);
     this.parts.crewDoor = doorPanel;
     this.anchors.crewDoor = new THREE.Vector3(-FUSE_W / 2 - 0.6, -0.6, -3.4);
     this.anchors.stepDown = new THREE.Vector3(-FUSE_W / 2 - 3.4, 0, -3.4);
     // Boarding ladder, hooked under the sill.
     const ladder = group('boarding-ladder');
-    ladder.position.set(-FUSE_W / 2 - 0.35, -1.1, -3.4);
+    ladder.position.set(-PANEL_X - 0.25, -1.1, -3.4);
     for (const sx of [-0.28, 0.28]) {
       const rail = mesh(cylGeo(0.05, 0.05, 2.2, 6), metal, 0, 0, sx);
       rail.rotation.z = 0.16;
@@ -696,6 +911,20 @@ export class EnolaSquatch {
     this.anchors.rearGunSeat = new THREE.Vector3(0, station.position.y - 0.42, Z + 0.6);
     /** Where the barrels leave the aeroplane, for tracer origins. */
     this.anchors.rearGunMuzzle = new THREE.Vector3(0, station.position.y - 0.01, Z - 2.4);
+  }
+
+  /**
+   * Paint the club's real crest onto the three badges.
+   *
+   * Called by the composition root once `resolveGear('crest.round')` settles —
+   * see `../livery.js`. Until then the badges wear the drawn crest, so this is
+   * an upgrade rather than a requirement.
+   *
+   * @param {?THREE.Texture} texture
+   * @returns {number} badges repainted
+   */
+  applyClubLogo(texture) {
+    return applyCrest(this.parts.clubLogo, texture);
   }
 
   /* ---------------------------------------------------------------- */
