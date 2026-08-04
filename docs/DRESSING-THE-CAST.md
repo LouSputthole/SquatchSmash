@@ -65,6 +65,13 @@ square is at `+0.182 × t` for that reason, and the watch is on the left wrist f
 the same one. Getting this backwards is invisible in a front view and obvious
 the moment somebody turns.
 
+## Looking at it
+
+`docs/THE-FITTING-ROOM.md` — `npm start` then `/wardrobe.html`. Every canonical
+model under three lighting rigs, with detail cameras that aim at the named part
+rather than at a guessed height. Rule 7 below is what a verifier can check; the
+fitting room is for everything a verifier cannot.
+
 ## Where the options live
 
 `makeFigure` in `src/bing/cast.js` — see the option block at the top of the file.

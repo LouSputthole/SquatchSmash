@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Squatch Life — The Fitting Room</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128087;</text></svg>" />
+<style>
+  :root { color-scheme: dark; --ink:#f2efe4; --muted:#9a9688; --gold:#e8c86a; --line:#2c2c36; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: grid;
+    grid-template-columns: 262px 1fr 268px;
+    /* An explicit single row of exactly the viewport. Without it the row is
+     * sized to the tallest item -- the scrolling rail -- and the canvas, which
+     * asks for 100% of a cell whose height depends on the canvas, resolves to
+     * whatever the rail happened to be. It rendered into the top two thirds of
+     * the page and left a black band under it. */
+    grid-template-rows: 100vh;
+    background: #0c0d11; color: var(--ink);
+    font: 14px/1.5 "Trebuchet MS", "Segoe UI", sans-serif;
+    overflow: hidden;
+  }
+  body > * { min-height: 0; }
+  /* Contact-sheet mode: the figure and nothing else. */
+  body.bare { grid-template-columns: 1fr; }
+  body.bare aside, body.bare .hud { display: none; }
+  aside { overflow-y: auto; border-right: 1px solid var(--line); padding: 14px 0 28px; }
+  aside.right { border-right: 0; border-left: 1px solid var(--line); padding: 16px 16px 28px; }
+  h1 { margin: 0 16px 2px; font-size: 15px; letter-spacing: .12em; color: var(--gold); }
+  .sub { margin: 0 16px 14px; color: var(--muted); font-size: 12px; }
+  .rail button {
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    border-left: 3px solid transparent; color: var(--ink); font: inherit;
+    padding: 7px 14px; cursor: pointer;
+  }
+  .rail button:hover { background: #16171e; }
+  .rail button[aria-current="true"] { background: #191b24; border-left-color: var(--gold); color: var(--gold); font-weight: 700; }
+  .rail .k { display: block; font-size: 11px; color: var(--muted); font-weight: 400; font-family: ui-monospace, Consolas, monospace; }
+  main { position: relative; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .hud {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    padding: 10px 14px; background: linear-gradient(transparent, #0c0d11ee 45%);
+  }
+  .hud button, .hud select {
+    background: #191b24; color: var(--ink); border: 1px solid #333743;
+    border-radius: 4px; padding: 4px 10px; font: inherit; font-size: 12.5px; cursor: pointer;
+  }
+  .hud button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+  .hud .spacer { flex: 1; }
+  .name { position: absolute; top: 16px; left: 18px; }
+  .name h2 { margin: 0; font-size: 22px; letter-spacing: .02em; }
+  .name p { margin: 3px 0 0; max-width: 380px; color: var(--muted); font-size: 12.5px; }
+  .badge { display:inline-block; margin-left:8px; padding:0 7px; border-radius:9px; font-size:11px; font-weight:700; vertical-align:2px; }
+  .badge.photo { background:#24422e; color:#8fd9a8; }
+  .badge.authored { background:#4a3a14; color:#ffd23a; }
+  aside.right h3 { margin: 2px 0 8px; font-size: 12px; letter-spacing: .14em; color: var(--gold); }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  td { padding: 3px 0; border-bottom: 1px solid #1b1c23; vertical-align: top; }
+  td.k { color: var(--muted); width: 96px; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+  td.v { font-family: ui-monospace, Consolas, monospace; color: #8fc4a8; font-size: 11.5px; word-break: break-word; }
+  .swatch { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; border:1px solid #0006; vertical-align:-1px; }
+  .keys { margin-top: 18px; color: var(--muted); font-size: 11.5px; line-height: 1.7; }
+  .keys kbd { background:#191b24; border:1px solid #333743; border-radius:3px; padding:0 5px; font-family: ui-monospace, Consolas, monospace; color: var(--ink); }
+  .source { margin-top: 14px; color: #6f6c62; font-size: 11px; }
+  .source code { color: #8fc4a8; }
+  @media (max-width: 1080px) { body { grid-template-columns: 200px 1fr; } aside.right { display: none; } }
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three.module.min.js"}}</script>
+</head>
+<body>
+
+<aside class="rail">
+  <h1>THE FITTING ROOM</h1>
+  <p class="sub">Every canonical model, built by the game's own <code>makePerson</code>.</p>
+  <div id="rail"></div>
+</aside>
+
+<main>
+  <canvas id="view"></canvas>
+  <div class="name">
+    <h2 id="who">—</h2>
+    <p id="note"></p>
+  </div>
+  <div class="hud">
+    <button id="prev" title="Previous (←)">◀</button>
+    <button id="next" title="Next (→)">▶</button>
+    <button id="lineup" aria-pressed="false" title="The whole rail together (A)">Line-up</button>
+    <button id="spin" aria-pressed="true" title="Turntable (T)">Turntable</button>
+    <span class="spacer"></span>
+    <span id="marks"></span>
+    <select id="rig" title="Lighting rig (L)"></select>
+  </div>
+</main>
+
+<aside class="right">
+  <h3>WHAT THEY ARE WEARING</h3>
+  <table><tbody id="spec"></tbody></table>
+  <div class="keys">
+    <kbd>←</kbd> <kbd>→</kbd> change person &middot; <kbd>drag</kbd> orbit &middot; <kbd>wheel</kbd> dolly<br>
+    <kbd>1</kbd>–<kbd>6</kbd> full, head, chain, watch, belt, shoes<br>
+    <kbd>L</kbd> lighting &middot; <kbd>T</kbd> turntable &middot; <kbd>A</kbd> line-up &middot; <kbd>R</kbd> reset view
+  </div>
+  <p class="source">Read live from <code>src/core/wardrobe.js</code>,
+     <code>src/core/hotdog-model.js</code> and <code>src/bing/family-ape.js</code>.
+     Nothing here is restated, so this page cannot disagree with the game.</p>
+</aside>
+
+<script type="module">
+import { createFittingRoom, RAIL, RIGS, MARKS, MARK_ORDER, describe } from './src/wardrobe/preview.js';
+
+const canvas = document.getElementById('view');
+
+/* Only wear a photo that exists -- a probe for a face that has not landed is
+ * a 404 in the console on every single figure. */
+let faces = new Set();
+try {
+  const index = await fetch('assets/faces/index.json').then((r) => r.json());
+  faces = new Set(index.files ?? []);
+} catch { /* authored heads for everybody, which is a legitimate look */ }
+
+const room = createFittingRoom(canvas, { faces });
+
+/* ---- the rail ---- */
+const railEl = document.getElementById('rail');
+RAIL.forEach((entry, i) => {
+  const b = document.createElement('button');
+  b.innerHTML = `${entry.name}<span class="k">${entry.key}</span>`;
+  b.addEventListener('click', () => select(i));
+  railEl.appendChild(b);
+});
+
+/* ---- the marks ---- */
+const marksEl = document.getElementById('marks');
+for (const name of MARK_ORDER) {
+  const b = document.createElement('button');
+  b.textContent = MARKS[name].label;
+  b.dataset.mark = name;
+  b.addEventListener('click', () => { room.applyMark(name); paint(); });
+  marksEl.appendChild(b);
+}
+
+/* ---- the rigs ---- */
+const rigEl = document.getElementById('rig');
+for (const [key, rig] of Object.entries(RIGS)) {
+  const o = document.createElement('option');
+  o.value = key; o.textContent = rig.label;
+  rigEl.appendChild(o);
+}
+rigEl.addEventListener('change', () => { room.applyRig(rigEl.value); });
+
+function paintSpec(entry) {
+  const spec = document.getElementById('spec');
+  spec.innerHTML = '';
+  for (const [k, v] of describe(entry.model)) {
+    const tr = document.createElement('tr');
+    const swatch = typeof v === 'string' && v.startsWith('#')
+      ? `<span class="swatch" style="background:${v}"></span>` : '';
+    tr.innerHTML = `<td class="k">${k}</td><td class="v">${swatch}${v}</td>`;
+    spec.appendChild(tr);
+  }
+}
+
+function paint() {
+  const entry = room.current();
+  const solo = !room.state.lineup;
+  const worn = faces.has(entry.photo);
+  document.getElementById('who').innerHTML = solo
+    ? `${entry.name}<span class="badge ${worn ? 'photo' : 'authored'}">${worn ? 'photo face' : 'authored head'}</span>`
+    : 'The whole rail';
+  document.getElementById('note').textContent = solo
+    ? entry.note
+    : 'Everyone together under one light, which is the only way to see whether they read as one family.';
+  paintSpec(entry);
+  for (const [i, b] of [...railEl.children].entries()) {
+    b.setAttribute('aria-current', String(solo && i === room.state.index));
+  }
+  for (const b of marksEl.children) {
+    b.setAttribute('aria-pressed', String(solo && b.dataset.mark === room.state.mark));
+  }
+  document.getElementById('lineup').setAttribute('aria-pressed', String(!solo));
+  document.getElementById('spin').setAttribute('aria-pressed', String(room.state.turntable));
+  rigEl.value = room.state.rig;
+}
+
+function select(i) { room.showSolo(i); paint(); }
+
+document.getElementById('prev').addEventListener('click', () => select(room.state.index - 1));
+document.getElementById('next').addEventListener('click', () => select(room.state.index + 1));
+document.getElementById('lineup').addEventListener('click', () => {
+  if (room.state.lineup) room.showSolo(room.state.index); else room.showLineup();
+  paint();
+});
+document.getElementById('spin').addEventListener('click', () => {
+  room.state.turntable = !room.state.turntable; paint();
+});
+
+/* ---- mouse ---- */
+let dragging = false, lastX = 0, lastY = 0;
+canvas.addEventListener('pointerdown', (e) => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId);
+});
+canvas.addEventListener('pointerup', (e) => { dragging = false; canvas.releasePointerCapture(e.pointerId); });
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  room.state.yaw -= (e.clientX - lastX) * 0.007;
+  room.state.pitch = Math.max(-0.9, Math.min(1.1, room.state.pitch + (e.clientY - lastY) * 0.005));
+  lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  room.state.dist = Math.max(0.32, Math.min(24, room.state.dist * (1 + Math.sign(e.deltaY) * 0.11)));
+}, { passive: false });
+
+/* ---- keys ---- */
+const RIG_KEYS = Object.keys(RIGS);
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') select(room.state.index + 1);
+  else if (e.key === 'ArrowLeft') select(room.state.index - 1);
+  else if (e.key.toLowerCase() === 't') { room.state.turntable = !room.state.turntable; paint(); }
+  else if (e.key.toLowerCase() === 'a') { document.getElementById('lineup').click(); }
+  else if (e.key.toLowerCase() === 'r') { room.applyMark(room.state.mark); room.state.yaw = 0; paint(); }
+  else if (e.key.toLowerCase() === 'l') {
+    const next = RIG_KEYS[(RIG_KEYS.indexOf(room.state.rig) + 1) % RIG_KEYS.length];
+    room.applyRig(next); paint();
+  } else if (e.key >= '1' && e.key <= String(MARK_ORDER.length)) {
+    room.applyMark(MARK_ORDER[Number(e.key) - 1]); paint();
+  } else return;
+  e.preventDefault();
+});
+
+/* ---- loop ---- */
+function fit() {
+  const r = canvas.parentElement.getBoundingClientRect();
+  room.resize(Math.max(1, Math.floor(r.width)), Math.max(1, Math.floor(r.height)));
+}
+addEventListener('resize', fit);
+fit();
+paint();
+
+let last = performance.now();
+(function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  room.render(dt);
+  requestAnimationFrame(frame);
+})(last);
+
+/* The shot tool waits on this rather than on a timer, and drives the room
+ * directly, so a slow software render cannot capture a half-built figure. */
+globalThis.fittingRoom = room;
+globalThis.fittingRoomPaint = paint;
+globalThis.fittingRoomFit = fit;
+</script>
+</body>
+</html>

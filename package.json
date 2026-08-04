@@ -38,6 +38,7 @@
     "verify:enolasquatch": "node tools/verify-enolasquatch.mjs",
     "preverify:bundle": "node tools/bundle-preview.mjs",
     "verify:bundle": "node tools/verify-bundle.mjs",
+    "shots:wardrobe": "node tools/shots-wardrobe.mjs",
     "balance:silver": "node tools/balance-silver.mjs",
     "bundle": "node tools/bundle-preview.mjs",
     "sfx:voices": "node tools/generate-sfx.mjs --voices",
