@@ -2376,7 +2376,10 @@ export function buildMansionGrounds(scene = null) {
      * why the first render of this terrace came back black everywhere the
      * water's own glow did not reach. At 24 over a 4 m throw these actually
      * light the chairs, the coping and the skirt. */
-    for (const [lx, lz] of [[-8.9, 79.4], [8.9, 79.4], [-8.9, 90.6], [8.9, 90.6]]) {
+    /* z 80.6 / 89.4 rather than 79.4 / 90.6: at 79.4 the south-east standard
+     * stood 60 cm off the poolside radio console and read, from the kitchen
+     * door, as a black bar planted in front of it. */
+    for (const [lx, lz] of [[-8.9, 80.6], [8.9, 80.6], [-8.9, 89.4], [8.9, 89.4]]) {
       const l = new THREE.PointLight(0xffd9a8, 24, 20, 2);
       l.position.set(lx, GROUND_Y + 3.0, lz);
       root.add(l);

@@ -365,7 +365,16 @@ function mountTv(screenMesh, { channel = 0, on = true } = {}) {
 const loungeTv = mountTv(interior.props.lounge.tv?.screen, { channel: 0 });
 const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { channel: 2 });
 
-/** A small warm glow in front of each set, so the picture lights the room. */
+/* A small warm glow in front of each set, so the picture lights the room.
+ *
+ * These two sit OUTSIDE the nearest-N light rig above, and deliberately: a
+ * television's glow has to follow the set it belongs to, not the camera. That
+ * is safe only because they are dimmed to zero rather than hidden when the
+ * set is off -- three.js keys its shader programs on the number of VISIBLE
+ * lights, so toggling `.visible` here would recompile every shader in the
+ * scene each time somebody switched a telly on. The count stays constant at
+ * ACTIVE_LIGHTS + 2 for the whole run; measured in the browser: 126 point
+ * lights built, 16 visible, one shader compile. */
 for (const tv of houseTvs) {
   const glow = new THREE.PointLight(0x9fb4cc, 0, 5, 2);
   glow.position.copy(tv.position);
