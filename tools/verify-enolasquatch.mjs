@@ -980,6 +980,19 @@ try {
     h.physics.setPose(at, 90, 66);
     h.physics.omega.set(0, 0, 0);
     h.input.throttle = 0.7;
+    /* And take the shooting away for the measurement window.
+     *
+     * This check is about the CONTROL LAW — can it hold a heading and an
+     * altitude — which is why the engines are healed above. Leaving the
+     * batteries and the fighters live measured something else entirely: they
+     * pick their moments with Math.random(), so a wave that commits inside the
+     * 45 s damages the aeroplane, it sinks, and both the drift and the
+     * settledness the law reports are really a report on how the dice fell.
+     * Observed across runs of the same deterministic tick: 52.6 m and 0.75
+     * one time, 92.6 m and 0.31 another. Restored immediately after, so the
+     * checks below still meet a live battlefield. */
+    h.interceptors.clear();
+    h.defense.suppress();
     h.tick(1.5);
 
     const heading = h.physics.headingDeg;
@@ -1007,6 +1020,7 @@ try {
       readout: h.autopilot.readout(),
       strip: document.getElementById('enola-autopilot')?.style.display,
     };
+    h.defense.intensity = 1;
 
     // And the aeroplane takes itself back when something hits it.
     h.mission.autopilot.disengage('blast wave');
