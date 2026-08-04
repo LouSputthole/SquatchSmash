@@ -161,6 +161,16 @@ export class MissionController {
     this.inCockpit = true;
     this.boardTarget = null;
 
+    /* The nightfall cut — see `enterNightfall()`. Plain data the composition
+     * root reads to draw its fade/caption; null outside the `nightfall` phase
+     * so `../main.js` can treat "no cutscene" and "cutscene finished" the
+     * same way. */
+    this.cutscene = null;
+    this.nightfallStaged = false;
+    this._idleT = 0;
+    this._idleWhere = null;
+    this._boardNudgeT = 0;
+
     /* The rear gun. `gunFiring` is what `EnolaSquatch.updateRearGun()` reads;
      * `gunAim` is the world point it swings onto. */
     this.gunFiring = false;
@@ -283,24 +293,54 @@ export class MissionController {
    * The hit box hangs off `aircraft.anchors.crewDoor`, which is a child of the
    * aeroplane group, so it rides the aeroplane instead of being a box floating
    * over a patch of apron. Same idiom as Beef Run's `armBoardingTarget()`.
+   *
+   * 2026-08-04 — THE BOARDING BLOCKER. Owner playtest: "No way to board
+   * aircraft after precheck... the walkaround completes and the player is
+   * stranded." Measured in a browser, the interaction itself was never broken:
+   * the target armed on the last check and boarded correctly from a pose 1.8 m
+   * off the door, which is how it passed verification. What was broken is
+   * everything that leads a player to that pose. Three things are fixed here,
+   * and a fourth in `../preflight.js`:
+   *
+   *   1. THE MARKER. `preflight.pointAtBoarding(hit)` — the same pulsing ring
+   *      and tarmac footprint that guided all six checks now stands on the
+   *      crew door instead of vanishing the instant the walk finishes. This is
+   *      the actual fix; see the `boardAnchor` note in `../preflight.js`.
+   *   2. THE HIT BOX. It was 1.6 x 2.4 x 1.8 centred on the door itself, so
+   *      the useful stand-off was about a metre and the approach arc was
+   *      narrow. `InteractionSystem`'s ray is a fixed 2.7 m from the eye and
+   *      cannot be lengthened for one target, but the ray hits the box's
+   *      SURFACE — so a box that reaches further out from the fuselage buys
+   *      real stand-off. 3.4 x 3.0 x 3.4, pushed 0.7 m outboard and dropped
+   *      0.35 m, covers the door, the sill and the boarding ladder, and gives
+   *      roughly 2.2 m of usable stand-off from anywhere on the port quarter.
+   *   3. THE PROMPT TEXT names the door, so the HUD line matches the objective
+   *      line and Sasole's nudge instead of being a third phrasing.
    */
   armBoardingTarget() {
     if (this.boardTarget || !this.interaction) return;
     const anchor = this.aircraft.anchors.crewDoor;
     const hit = new THREE.Mesh(
-      new THREE.BoxGeometry(1.6, 2.4, 1.8),
+      new THREE.BoxGeometry(3.4, 3.0, 3.4),
       new THREE.MeshBasicMaterial({ visible: false }),
     );
-    hit.position.copy(anchor);
+    // Outboard along the aeroplane's own -X (the door's side), and down, so a
+    // man standing on the tarmac looking level walks into it rather than under
+    // it. `anchor` is already 0.6 m proud of the skin; this adds the rest.
+    hit.position.set(anchor.x - 0.7, anchor.y - 0.35, anchor.z);
     hit.name = 'enola-board';
     this.aircraft.group.add(hit);
     this.boardTarget = hit;
     this.interaction.register(hit, {
-      label: () => 'Climb aboard — <b>left seat</b>',
+      label: () => 'Climb aboard — <b>crew door</b>',
       key: 'E',
       onLook: () => this.dialogue.play('preflight.board', { once: true }),
       onUse: () => this.enterCockpit(),
     });
+    // The guidance marker follows the player to the door. Without this the
+    // walk's only wayfinding switches off at the moment it is needed.
+    this.preflight?.pointAtBoarding?.(hit);
+    this._boardNudgeT = 0;
   }
 
   disarmBoardingTarget() {
@@ -308,6 +348,20 @@ export class MissionController {
     this.interaction?.unregister?.(this.boardTarget);
     this.boardTarget.parent?.remove(this.boardTarget);
     this.boardTarget = null;
+    this.preflight?.pointAtBoarding?.(null);
+  }
+
+  /**
+   * How far the player is standing from the crew door, in metres, or null when
+   * there is no door to walk to. Drives the objective readout during the
+   * boarding step the same way `updateTaxi()` counts down to the hold point.
+   */
+  boardingDistance() {
+    const here = this.player?.position;
+    if (!this.boardTarget || !here) return null;
+    this.boardTarget.updateWorldMatrix(true, false);
+    const e = this.boardTarget.matrixWorld.elements;
+    return Math.hypot(here.x - e[12], here.z - e[14]);
   }
 
   /**
@@ -317,6 +371,7 @@ export class MissionController {
    * than a per-frame follow.
    */
   enterCockpit({ advance = true } = {}) {
+    const fromWalkaround = this.phase === 'walkaround';
     this.disarmBoardingTarget();
     this.preflight?.disarm?.();
     this.inCockpit = true;
@@ -333,7 +388,13 @@ export class MissionController {
     this.flightHud?.show?.(true);
     // `advance: false` is how the console/verification `go(phase)` helper gets
     // everybody aboard without also forcing the phase back to preflight.
-    if (advance) this.setPhase('preflight');
+    if (!advance) return;
+    /* Boarding off the apron runs the nightfall cut (owner: "maybe a cutscene
+     * where it turns to night and we are in the plane on the runway for
+     * takeoff"). Any other route into the seat — a checkpoint restore, the
+     * console's `go('preflight')` — goes straight to the start sequence,
+     * because those routes are already night and already positioned. */
+    this.setPhase(fromWalkaround ? 'nightfall' : 'preflight');
   }
 
   setPhase(name) {
@@ -362,9 +423,18 @@ export class MissionController {
         this.dialogue.setHeadset(false);
         this.preflight.arm();
         this.preflight.onComplete = () => {
-          this.dialogue.play('preflight.done', { once: true });
+          /* Order matters. `armBoardingTarget()` is what puts the marker on
+           * the crew door, and it must not be able to be skipped by anything
+           * `dialogue.play()` might do, so it goes FIRST — a dialogue system
+           * that ever throws would otherwise take the only way off the apron
+           * with it. */
           this.armBoardingTarget();
+          this.dialogue.play('preflight.done', { once: true });
         };
+        break;
+
+      case 'nightfall':
+        this.enterNightfall();
         break;
 
       case 'preflight':
@@ -555,6 +625,7 @@ export class MissionController {
 
     switch (this.phase) {
       case 'walkaround': this.updateWalkaround(dt); break;
+      case 'nightfall': this.updateNightfall(dt); break;
       case 'preflight': this.updatePreflight(dt); break;
       case 'taxi': this.updateTaxi(dt); break;
       case 'takeoff': this.updateTakeoff(dt); break;
@@ -574,7 +645,7 @@ export class MissionController {
       default: break;
     }
 
-    if (this.flags.enginesEverStarted && !['walkaround', 'preflight', 'epilogue'].includes(this.phase)) {
+    if (this.flags.enginesEverStarted && !['walkaround', 'nightfall', 'preflight', 'epilogue'].includes(this.phase)) {
       this.updateFlightCommon(dt);
     }
   }
@@ -595,10 +666,164 @@ export class MissionController {
 
     const next = this.preflight.next;
     const step = next && next.need > 1 ? ` (${next.count}/${next.need})` : '';
-    this.setObjective(next
-      ? `${OBJECTIVES.WALKAROUND} — next: ${next.label}${step}`
-      : OBJECTIVES.BOARD);
+    if (next) {
+      this.setObjective(`${OBJECTIVES.WALKAROUND} — next: ${next.label}${step}`);
+      /* Sasole prods a player who has stopped walking. Cooldown-gated in
+       * `../dialogue/DialogueSystem.js`, dropped rather than queued if anybody
+       * is already talking, so it can never step on a check's own beat. */
+      this._idleT = (this._idleT ?? 0) + dt;
+      if (here && this._idleWhere) {
+        if (Math.hypot(here.x - this._idleWhere.x, here.z - this._idleWhere.z) > 3) {
+          this._idleT = 0;
+          this._idleWhere = { x: here.x, z: here.z };
+        }
+      } else if (here) {
+        this._idleWhere = { x: here.x, z: here.z };
+      }
+      if (this._idleT > 18) {
+        this._idleT = 0;
+        this.dialogue.bark('walkaroundIdle');
+      }
+    } else {
+      /* The boarding step. The distance readout is the same idiom `updateTaxi`
+       * uses to count a player down to the hold point, and it exists for the
+       * same reason: an objective with no number in it cannot tell you whether
+       * you are getting warmer. See `armBoardingTarget()` for the rest of the
+       * boarding fix. */
+      const d = this.boardingDistance();
+      this.setObjective(d === null ? OBJECTIVES.BOARD : `${OBJECTIVES.BOARD} (${Math.ceil(d)} m)`);
+      // Nothing at all happening for twelve seconds: Sasole says where it is.
+      this._boardNudgeT = (this._boardNudgeT ?? 0) + dt;
+      if (this._boardNudgeT > 12 && !this.dialogue.busy) {
+        this.dialogue.play('preflight.sasole.boardNudge', { once: true });
+      }
+    }
     this.flightHud?.setChecklist?.(this.preflight.checklist);
+  }
+
+  /* ---- Nightfall: the cut from the daylight apron to the night runway ----
+   *
+   * Owner playtest, 2026-08-04: "its also daytime. Is it going to turn night
+   * when we take off after we do the precheck maybe a cutscene where it turns
+   * to night and we are in the plane on the runway for takeoff?"
+   *
+   * It is a night raid that was being flown off a sunlit apron, so this is the
+   * cut that fixes it. It runs BETWEEN boarding and the start sequence, and it
+   * deliberately does not swallow any phase that already worked: `preflight`
+   * (battery, fuel, four engines, brakes) and `taxi` both still run afterwards
+   * with every beat and gate they had. What the cut replaces is nothing — the
+   * time between the hatch closing and the engines turning, which until now
+   * was a jump-cut with the sun still up.
+   *
+   * Four steps, driven off `phaseTime` in `updateNightfall()`:
+   *
+   *   0.0  HATCH   hold on the apron, hatch closing, `nightfall.hatch`
+   *   2.6  DUSK    the sky runs down — real, interpolated `weather` state, not
+   *                a black card. `nightfall.wait` plays over it.
+   *   8.6  CUT     one frame of black; the aeroplane is moved to the runway
+   *                line-up anchor, the field's lamps are lit
+   *   9.4  HOLD    fade up on the runway at night, `nightfall.lineup`
+   *  13.4         -> `preflight`
+   *
+   * `cutscene` is plain data (a fade level and a caption); `../main.js` owns
+   * the DOM element that draws it. Same division of labour as `objective`.
+   * Skippable — `skipCutscene()` jumps to the end state, because a cutscene
+   * you cannot skip is a cutscene you resent on the second attempt. */
+
+  enterNightfall() {
+    this.setObjective(OBJECTIVES.NIGHTFALL);
+    this.inCockpit = true;
+    this.flightHud?.show?.(false);
+    this.flightHud?.showChecklist?.(false);
+    this.audio?.setPhase?.('airport');
+    this.cutscene = { active: true, fade: 0, caption: '', sub: '', skippable: true };
+    this.nightfallStaged = false;
+    // Where the sky starts from — the apron conditions `begin()` set.
+    this._duskFrom = { dusk: this.weather.dusk ?? 0.55, night: this.weather.night ?? 0.15 };
+    this.dialogue.play('nightfall.hatch', { once: true, delay: 0.4 });
+    this.dialogue.play('nightfall.wait', { once: true, delay: 0.4 });
+  }
+
+  /** Put the aeroplane on the runway, at night, with the field lit. */
+  stageNightRunway() {
+    if (this.nightfallStaged) return;
+    this.nightfallStaged = true;
+    const a = this.airfield.anchors;
+    const elev = this.getHeight ? this.getHeight(a.lineUp.x, a.lineUp.z) : a.lineUp.y;
+    this.physics.setPose(
+      new THREE.Vector3(a.lineUp.x, elev + AC_ENOLA.gearY, a.lineUp.z),
+      a.departHeading,
+      0,
+    );
+    this.physics.controls.parkingBrake = true;
+    this.aircraft.syncTo(this.physics);
+    this.weather.setConditions({ dusk: 1, night: 1, turbulence: 0.2, crosswind: 0.3, cloudDensity: 0.35 });
+    /* Whispering Pines has no runway lights of its own — the locals lay out
+     * battery lamps and park the truck across the threshold. Both already
+     * exist on the reused airfield for the Beef Run's dusk arrival; a night
+     * departure wants exactly the same two things, so this calls them rather
+     * than building a second set. */
+    this.airfield?.setDusk?.(1);
+    this.airfield?.moveTruckToThreshold?.();
+    this.airfield?.setTruckLights?.(true);
+  }
+
+  /** Jump straight to the end of the cut. Bound to a key by `../main.js`. */
+  skipCutscene() {
+    if (this.phase !== 'nightfall') return false;
+    this.stageNightRunway();
+    this.dialogue.clear();
+    this.setPhase('preflight');
+    return true;
+  }
+
+  updateNightfall(dt) {
+    void dt;
+    const t = this.phaseTime;
+    const cs = this.cutscene;
+    if (!cs) return;
+
+    // 0 -> 2.6s: still on the apron, hatch shut, nothing has moved yet.
+    if (t < 2.6) {
+      cs.fade = 0;
+      cs.caption = 'WHISPERING PINES';
+      cs.sub = 'Hatch closed';
+    } else if (t < 8.6) {
+      // 2.6 -> 8.6s: the sky actually runs down, live, in front of the player.
+      const k = clamp((t - 2.6) / 6, 0, 1);
+      const ease = k * k * (3 - 2 * k);
+      this.weather.setConditions({
+        dusk: lerp(this._duskFrom.dusk, 1, ease),
+        night: lerp(this._duskFrom.night, 1, ease),
+        cloudDensity: lerp(0.3, 0.35, ease),
+      });
+      this.airfield?.setDusk?.(ease);
+      cs.fade = 0;
+      cs.caption = 'WHISPERING PINES';
+      cs.sub = 'Waiting for dark';
+      // The last second of the run-down dips to black so the reposition is
+      // never seen as a teleport.
+      if (t > 7.6) cs.fade = clamp((t - 7.6) / 1.0, 0, 1);
+    } else if (t < 9.4) {
+      // 8.6 -> 9.4s: black. The aeroplane moves here and nowhere else.
+      cs.fade = 1;
+      cs.caption = '';
+      cs.sub = '';
+      this.stageNightRunway();
+    } else if (t < 13.4) {
+      // 9.4 -> 13.4s: fade up, lined up, engines cold, lamps down both edges.
+      this.stageNightRunway();
+      cs.fade = clamp(1 - (t - 9.4) / 1.4, 0, 1);
+      cs.caption = 'RUNWAY 18 — WHISPERING PINES';
+      cs.sub = 'The Enola Squatch, lined up and holding';
+      this.dialogue.play('nightfall.lineup', { once: true });
+    } else {
+      cs.active = false;
+      cs.fade = 0;
+      cs.caption = '';
+      cs.sub = '';
+      this.setPhase('preflight');
+    }
   }
 
   /* ---- Preflight / taxi / takeoff ---- */

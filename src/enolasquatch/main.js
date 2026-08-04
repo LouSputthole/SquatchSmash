@@ -661,6 +661,67 @@ function autoStartCaptainEngines() {
 
 const game = { started: false, paused: true };
 
+/* ------------------------------------------------------------------ */
+/* The nightfall cut's screen                                          */
+/*
+ * `MissionController` owns the timing and the world state; this owns the two
+ * pixels of DOM it needs. Built here in JS rather than added to
+ * `enolasquatch.html` so the whole cut lives inside `src/enolasquatch/`, and
+ * because the element is meaningless to every other phase.
+ *
+ * Deliberately NOT a full-black card for the whole run: the middle six seconds
+ * of the cut are the real sky running down, rendered live, with the fade at
+ * zero. Black is used for eight-tenths of a second, once, to cover the moment
+ * the aeroplane is moved from the apron to the runway.
+ */
+/* ------------------------------------------------------------------ */
+
+const cutscreen = document.createElement('div');
+cutscreen.id = 'enola-cutscene';
+cutscreen.style.cssText = [
+  'position:fixed', 'inset:0', 'pointer-events:none', 'z-index:40',
+  'display:none', 'opacity:1',
+].join(';');
+const cutFade = document.createElement('div');
+cutFade.style.cssText = 'position:absolute;inset:0;background:#05050a;opacity:0';
+const cutBars = document.createElement('div');
+cutBars.style.cssText = [
+  'position:absolute', 'inset:0',
+  'background:linear-gradient(#05050a 0 9%,transparent 9% 91%,#05050a 91% 100%)',
+].join(';');
+const cutText = document.createElement('div');
+cutText.style.cssText = [
+  'position:absolute', 'left:0', 'right:0', 'bottom:13%', 'text-align:center',
+  'font:600 26px/1.25 "Trebuchet MS",system-ui,sans-serif',
+  'letter-spacing:0.18em', 'color:#e8c86a', 'text-shadow:0 2px 14px #000',
+].join(';');
+const cutSub = document.createElement('div');
+cutSub.style.cssText = [
+  'position:absolute', 'left:0', 'right:0', 'bottom:9.5%', 'text-align:center',
+  'font:400 15px/1.3 "Trebuchet MS",system-ui,sans-serif',
+  'letter-spacing:0.1em', 'color:#cfd4e0', 'text-shadow:0 2px 10px #000',
+].join(';');
+const cutSkip = document.createElement('div');
+cutSkip.style.cssText = [
+  'position:absolute', 'right:26px', 'bottom:20px',
+  'font:400 12px/1 "Trebuchet MS",system-ui,sans-serif',
+  'letter-spacing:0.14em', 'color:#8a8f9c',
+].join(';');
+cutSkip.textContent = 'SPACE — SKIP';
+cutscreen.append(cutFade, cutBars, cutText, cutSub, cutSkip);
+document.body.appendChild(cutscreen);
+
+function paintCutscene() {
+  const cs = mission.cutscene;
+  const on = !!cs?.active;
+  cutscreen.style.display = on ? 'block' : 'none';
+  if (!on) return;
+  cutFade.style.opacity = String(cs.fade ?? 0);
+  cutText.textContent = cs.caption || '';
+  cutSub.textContent = cs.sub || '';
+  cutSkip.style.display = cs.skippable ? 'block' : 'none';
+}
+
 function paintHud() {
   flightHud.setFlight(physics, { fuel: engines.fuel / AC_ENOLA.fuelMass });
   flightHud.setEngines(engineHudView(engines));
@@ -669,6 +730,7 @@ function paintHud() {
   updateCargoReadout();
   updatePreflightChecklist();
   updateChoicePanel();
+  paintCutscene();
 }
 
 /** One simulated tick: input -> physics -> engines -> mission -> dialogue ->
@@ -773,7 +835,16 @@ function go(phase) {
     case 'walkaround':
       if (mission.phase !== 'walkaround') mission.setPhase('walkaround');
       break;
+    case 'nightfall':
+      mission.setPhase('nightfall');
+      break;
     case 'preflight':
+      /* Straight to the seat with the field already dark. `go('preflight')` is
+       * the "skip the opening" shortcut, and skipping the opening must not
+       * skip the night — the whole mission after this point is a night raid
+       * and every later phase assumes it. Same two calls the cut's own last
+       * step makes; see `MissionController.stageNightRunway()`. */
+      mission.stageNightRunway();
       mission.setPhase('preflight');
       break;
     case 'taxi': {
@@ -1006,7 +1077,17 @@ window.__enolaSquatch = {
         total: Object.keys(preflight.tasks).length,
         next: preflight.next?.name ?? null,
         complete: preflight.complete,
+        guidingToDoor: preflight.guidingToDoor,
+        markerVisible: preflight.marker.visible,
       },
+      boarding: {
+        armed: !!mission.boardTarget,
+        distance: mission.boardingDistance(),
+      },
+      /* The nightfall cut, for the verifier: whether the screen is up, how
+       * black it is, and what the world under it looks like. */
+      cutscene: mission.cutscene ? { ...mission.cutscene } : null,
+      night: { dusk: weather.dusk, night: weather.night, staged: mission.nightfallStaged },
       cityDestroyed: city.destroyed,
       phaseTime: +mission.phaseTime.toFixed(2),
       missionTime: +mission.missionTime.toFixed(2),
@@ -1183,6 +1264,10 @@ document.addEventListener('keydown', (e) => {
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
   player.setKey(e.code, true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
+  // The nightfall cut is skippable — see `MissionController.skipCutscene()`.
+  if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {
+    mission.skipCutscene();
+  }
   handleMissionChoiceKey(e.code);
 }, true);
 

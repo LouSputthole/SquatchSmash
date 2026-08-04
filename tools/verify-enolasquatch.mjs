@@ -175,6 +175,12 @@ try {
         bombbay: h.dialogue.seen('preflight.bombbay'),
         shubes: h.dialogue.seen('preflight.shubes.first'),
       },
+      /* Sasole's reaction half — added 2026-08-04, see the "walkaround patter"
+       * block in `src/enolasquatch/dialogue/script.js`. */
+      sasole: Object.fromEntries([
+        'chocksDone', 'propOne', 'propTwo', 'propThree', 'propFour',
+        'bayDone', 'payloadDone', 'tailDone', 'surfacesDone',
+      ].map((k) => [k, h.dialogue.seen(`preflight.sasole.${k}`)])),
       phase: h.mission.phase,
     };
   });
@@ -192,36 +198,87 @@ try {
       && walkaround.seen.bombbay && walkaround.seen.shubes,
     JSON.stringify(walkaround.seen));
 
-  /* ---- Boarding through the crew door ---- */
+  /* ---- Sasole's new walkaround patter (owner: "whippy snappy voice lines") ---- */
+  check('Sasole reacts to each check as it is finished, and the four propellers get four different lines',
+    walkaround.sasole.chocksDone && walkaround.sasole.propOne && walkaround.sasole.propTwo
+      && walkaround.sasole.propThree && walkaround.sasole.propFour && walkaround.sasole.bayDone
+      && walkaround.sasole.payloadDone && walkaround.sasole.tailDone && walkaround.sasole.surfacesDone,
+    JSON.stringify(walkaround.sasole));
+
+  /* ---- THE BOARDING BLOCKER ----
+   *
+   * Owner playtest, 2026-08-04: "No way to board aircraft after precheck. The
+   * walkaround completes and the player is stranded."
+   *
+   * The check this file used to make teleported the player to a pose 1.8 m off
+   * the door with the crosshair already on it, and passed — which is precisely
+   * why the bug shipped. Nothing verified that a player could FIND the door.
+   * So this is now two checks:
+   *
+   *   1. GUIDANCE. When the last check completes, the walk's marker must move
+   *      to the crew door rather than switching off, and the objective must
+   *      carry a live distance. (The regression is `EnolaPreflight.update()`
+   *      hiding the marker on `complete`.)
+   *   2. END TO END, ON FOOT. From wherever the sixth check actually leaves
+   *      the player — no teleport, no repositioning — face the door, hold W,
+   *      and walk. The prompt must appear, and E must board. If a future
+   *      change moves the door, shrinks the hit box or blocks the apron, this
+   *      fails the way the player did.
+   */
+  const guidance = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const d = h.mission.boardTarget;
+    let markerAtDoor = false;
+    if (d) {
+      d.updateWorldMatrix(true, false);
+      const e = d.matrixWorld.elements;
+      const m = h.preflight.marker.position;
+      markerAtDoor = Math.hypot(m.x - e[12], m.y - e[13], m.z - e[14]) < 1.2;
+    }
+    return {
+      armed: !!d,
+      markerVisible: h.preflight.marker.visible,
+      guidingToDoor: h.preflight.guidingToDoor,
+      markerAtDoor,
+      objective: h.mission.objective,
+      distance: h.mission.boardingDistance(),
+    };
+  });
+  check('finishing the walk moves the guidance marker onto the crew door instead of switching it off',
+    guidance.armed && guidance.markerVisible && guidance.guidingToDoor && guidance.markerAtDoor
+      && /\d+\s*m\)/.test(guidance.objective) && guidance.distance > 2,
+    JSON.stringify(guidance));
+
   const boarding = await page.evaluate(() => {
     const h = window.__enolaSquatch;
-    const armed = !!h.mission.boardTarget;
-    // Stand at the door and press E, through the real interaction system.
     const door = h.mission.boardTarget;
-    const pos = { x: 0, y: 0, z: 0 };
-    if (door) {
-      door.updateWorldMatrix(true, false);
-      const e = door.matrixWorld.elements;
-      pos.x = e[12]; pos.y = e[13]; pos.z = e[14];
+    door.updateWorldMatrix(true, false);
+    const e = door.matrixWorld.elements;
+    const target = { x: e[12], y: e[13], z: e[14] };
+    // Wherever the sixth check left him. Not moved, not re-aimed vertically.
+    const from = { x: h.player.position.x, z: h.player.position.z };
+    const startDistance = Math.hypot(from.x - target.x, from.z - target.z);
+    h.player.yaw = Math.atan2(-(target.x - from.x), -(target.z - from.z));
+    h.player.pitch = 0;              // looking dead level, like a person walking
+    h.player.setKey('KeyW', true);
+    let frames = 0;
+    let prompted = false;
+    for (; frames < 900; frames++) {
+      h.tick(1 / 60);
+      if (h.interaction.current === door) { prompted = true; break; }
     }
-    const gy = h.groundHeight(pos.x, pos.z);
-    // Two metres out from the door, on the same side.
-    const ax = pos.x - h.physics.position.x;
-    const az = pos.z - h.physics.position.z;
-    const len = Math.hypot(ax, az) || 1;
-    const sx = pos.x + (ax / len) * 1.8;
-    const sz = pos.z + (az / len) * 1.8;
-    h.player.position.set(sx, gy + 1.66, sz);
-    h.player.ground = gy;
-    const dx = pos.x - sx; const dy = pos.y - (gy + 1.66); const dz = pos.z - sz;
-    h.player.yaw = Math.atan2(-dx, -dz);
-    h.player.pitch = Math.atan2(dy, Math.hypot(dx, dz));
-    h.tick(1 / 30);
-    const prompted = !!h.interaction.current;
+    h.player.setKey('KeyW', false);
+    h.tick(0.1);
+    const desc = h.interaction.current?.userData?.interact;
+    const label = desc ? (typeof desc.label === 'function' ? desc.label() : desc.label) : null;
+    const promptDistance = Math.hypot(h.player.position.x - target.x, h.player.position.z - target.z);
     h.pressE(0);
     return {
-      armed,
+      startDistance: +startDistance.toFixed(1),
+      walkedSeconds: +(frames / 60).toFixed(2),
       prompted,
+      label,
+      promptDistance: +promptDistance.toFixed(2),
       inCockpit: h.mission.inCockpit,
       phase: h.mission.phase,
       crewAboard: h.crew.aboard,
@@ -230,11 +287,75 @@ try {
       bayClosed: h.mission.bombBayOpen === false,
     };
   });
-  check('the crew door arms when the walk is done and boarding it puts everyone in the aeroplane',
-    boarding.armed && boarding.prompted && boarding.inCockpit && boarding.phase === 'preflight'
-      && boarding.crewAboard && !boarding.playerEnabled && boarding.interactionPaused
-      && boarding.bayClosed,
+  check('a player who WALKS from the last check to the crew door gets the prompt and boards — no teleport',
+    boarding.startDistance > 8 && boarding.prompted && boarding.promptDistance > 2.5
+      && boarding.inCockpit && boarding.crewAboard && !boarding.playerEnabled
+      && boarding.interactionPaused && boarding.bayClosed
+      // Boarding off the apron runs the nightfall cut; the seat comes after it.
+      && boarding.phase === 'nightfall',
     JSON.stringify(boarding));
+
+  /* ---- The nightfall cut ----
+   * Owner: "its also daytime... maybe a cutscene where it turns to night and
+   * we are in the plane on the runway for takeoff". Asserted as three separate
+   * facts, because each of them can break on its own: the sky really changes,
+   * the aeroplane really moves to the runway, and the phase chain that follows
+   * (preflight -> taxi -> takeoff) is untouched. */
+  const cut = await page.evaluate(() => {
+    const h = window.__enolaSquatch;
+    const apron = {
+      night: h.weather.night, dusk: h.weather.dusk,
+      x: h.physics.position.x, z: h.physics.position.z, heading: h.physics.headingDeg,
+      fade: h.mission.cutscene?.fade ?? null,
+      captioned: !!h.mission.cutscene?.caption,
+    };
+    h.tick(6.0);                       // the sky runs down, live, in the world
+    const middle = {
+      night: h.weather.night, dusk: h.weather.dusk,
+      x: h.physics.position.x, phase: h.mission.phase,
+      fade: h.mission.cutscene?.fade ?? null,
+    };
+    h.tick(8.0);                       // through the black, up on the runway
+    const a = h.airfield.anchors;
+    return {
+      apron,
+      middle,
+      end: {
+        phase: h.mission.phase,
+        cutsceneOver: !h.mission.cutscene?.active,
+        night: h.weather.night,
+        dusk: h.weather.dusk,
+        staged: h.mission.nightfallStaged,
+        x: +h.physics.position.x.toFixed(1),
+        z: +h.physics.position.z.toFixed(1),
+        heading: +h.physics.headingDeg.toFixed(0),
+        lineUp: { x: a.lineUp.x, z: a.lineUp.z, heading: a.departHeading },
+        distanceToLineUp: +Math.hypot(h.physics.position.x - a.lineUp.x, h.physics.position.z - a.lineUp.z).toFixed(1),
+        onGround: h.physics.onGround,
+        parkingBrake: h.physics.controls.parkingBrake,
+        enginesRunning: h.engines.engines.filter((e) => e.running).length,
+        runwayLampsLit: !!h.scene.getObjectByName('runway-36-edge-lights')?.visible,
+        beats: {
+          hatch: h.dialogue.seen('nightfall.hatch'),
+          wait: h.dialogue.seen('nightfall.wait'),
+          lineup: h.dialogue.seen('nightfall.lineup'),
+        },
+      },
+    };
+  });
+  check('boarding cuts to nightfall: the sky really runs down from daylight to night in the world',
+    cut.apron.night < 0.3 && cut.apron.dusk < 0.7
+      && cut.middle.night > cut.apron.night && cut.middle.phase === 'nightfall'
+      && cut.end.night === 1 && cut.end.dusk === 1,
+    JSON.stringify({ apron: cut.apron, middle: cut.middle, endNight: cut.end.night }));
+
+  check('the cut ends with the Enola Squatch lined up on the runway at night, engines cold, and hands control back',
+    cut.end.phase === 'preflight' && cut.end.cutsceneOver && cut.end.staged
+      && cut.end.distanceToLineUp < 2 && Math.abs(cut.end.heading - cut.end.lineUp.heading) < 2
+      && cut.end.onGround && cut.end.parkingBrake && cut.end.enginesRunning === 0
+      && cut.end.runwayLampsLit
+      && cut.end.beats.hatch && cut.end.beats.wait && cut.end.beats.lineup,
+    JSON.stringify(cut.end));
 
   /* ---- The crew are physically in their seats, riding the airframe ---- */
   const seated = await page.evaluate(() => {
@@ -353,7 +474,16 @@ try {
     cityBuilt.overCity.calls < 120 && cityBuilt.overCity.tris < 400000,
     `${cityBuilt.overCity.calls} draw calls, ${cityBuilt.overCity.tris} triangles for the whole scene from 3000 ft over the target`);
 
-  /* ---- Cockpit preflight: all four engines start, brakes off, clears to taxi ---- */
+  /* ---- Cockpit preflight: all four engines start, brakes off, clears to taxi ----
+   *
+   * The phase chain is unchanged by the nightfall cut — preflight still gates
+   * on battery, fuel selectors, all four engines and the parking brake, and
+   * still hands off to `taxi`. What the cut DOES change is how long taxi
+   * lasts: the aeroplane is already standing on the line-up anchor, so
+   * `evaluateLineupGate` is satisfied on taxi's first frame and it clears
+   * straight through to `takeoff`. That transition is therefore recorded
+   * frame by frame rather than sampled at the end, so this still fails if
+   * `taxi` is ever skipped rather than passed through. */
   const engineStart = await page.evaluate(() => {
     const h = window.__enolaSquatch;
     h.engines.masterBattery = true;
@@ -361,18 +491,24 @@ try {
     h.input.throttle = 0.15;
     h.engines.crank(2);        // "three and four are yours, Prospect"
     h.engines.crank(3);
-    h.tick(5);
+    const phases = [];
+    const note = () => { if (phases[phases.length - 1] !== h.mission.phase) phases.push(h.mission.phase); };
+    note();
+    for (let i = 0; i < 300; i++) { h.tick(1 / 60); note(); }
     h.input.parkingBrake = false;
-    h.tick(1);
+    for (let i = 0; i < 60; i++) { h.tick(1 / 60); note(); }
     return {
       running: h.engines.engines.map((e) => e.running),
       engineStartBeat: h.dialogue.seen('preflight.engineStart'),
+      phases,
       phase: h.mission.phase,
+      taxiBeat: h.dialogue.seen('taxi.line'),
     };
   });
-  check('all four engines start, the start-sequence beat plays, and preflight clears to taxi',
+  check('all four engines start, the start-sequence beat plays, and preflight clears through taxi',
     engineStart.running.every(Boolean) && engineStart.engineStartBeat
-      && engineStart.phase === 'taxi',
+      && engineStart.phases.includes('taxi') && engineStart.taxiBeat
+      && ['taxi', 'takeoff'].includes(engineStart.phase),
     JSON.stringify(engineStart));
 
   /* ---- Takeoff: real thrust from all four engines (the config.js design
