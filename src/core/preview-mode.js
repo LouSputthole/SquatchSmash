@@ -159,6 +159,13 @@ export function previewSceneForLocation(locationLike = globalThis.location) {
   if (pathname.endsWith('/initiation.html') || pathname.endsWith('initiation.html')) {
     return 'initiation';
   }
+  /* Lou's mansion. The house is walkable with no campaign at all, and only
+   * claims one once PROJECT SILENT SQUATCH is actually mounted — but the route
+   * is mapped here so a preview of the mission seeds the mission's own scene
+   * rather than quietly seeding an apartment. */
+  if (pathname.endsWith('/mansion.html') || pathname.endsWith('mansion.html')) {
+    return 'mansion';
+  }
   if (pathname.endsWith('/bing.html') || pathname.endsWith('bing.html')) {
     return searchParams(locationLike).get('visit') === '2'
       ? 'bada_bing_two'

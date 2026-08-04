@@ -95,7 +95,11 @@ test('current saves carry a durable HotDog incident shape', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const incident = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
 
-  assert.equal(CAMPAIGN_VERSION, 11);
+  /* Bumped to 12 when PROJECT SILENT SQUATCH added its own mission record and
+   * `story.familyRespect` (see MIGRATIONS[11]). The subject of this test is
+   * the HotDog incident's SHAPE at whatever the current version is, and that
+   * shape is unchanged by the bump. */
+  assert.equal(CAMPAIGN_VERSION, 12);
   assert.deepEqual(incident, {
     status: 'locked',
     checkpoint: null,

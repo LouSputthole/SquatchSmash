@@ -14,10 +14,12 @@
  * `world = { colliders, floorZones, groundAt }` object, and a plain
  * requestAnimationFrame loop).
  *
- * There is no mission, no NPC roster, no combat and no dialogue here -- this
- * scene manages its own tiny bit of local state (has the tour started, is it
- * paused) and nothing else. It does not import or call into
- * `core/campaign.js`; there is no save integration this pass.
+ * PROJECT SILENT SQUATCH now mounts on top of that, and only when there is
+ * something to mount it in: the mission lives in `./mission/`, its writing in
+ * `./script.js`, and this file hands it the laboratory the environment build
+ * publishes (`interior.props.lab`). With no laboratory in the house, nothing
+ * is mounted, no campaign is constructed, and this is exactly the walkable
+ * tour it has always been -- see the SILENT SQUATCH section below.
  *
  * DOM contract (see the bottom of this file for the full list the Entry
  * phase's mansion.html must provide): #menu/#startBtn for the click-to-begin
@@ -42,6 +44,13 @@ import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
 import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_ORDER } from '../core/weapons/catalog.js';
+import { mountSilentSquatch } from './mission/mount.js';
+/* Importing these constructs nothing: a Campaign is only built when
+ * createCampaign() is CALLED, which happens below and only when there is a
+ * laboratory in the house to play the mission in. Opening the house to walk
+ * around it must never touch a save. */
+import { createCampaign } from '../core/campaign.js';
+import { createSilentSquatchStory } from '../core/silent-squatch-story.js';
 
 /* ================================================================== */
 /* DOM handles                                                          */
@@ -775,6 +784,87 @@ function updateAmmoHud() {
 }
 
 /* ================================================================== */
+/* PROJECT SILENT SQUATCH                                               */
+/*                                                                       */
+/* The mission (src/mansion/mission/) and the writing (src/mansion/       */
+/* script.js) are built against the laboratory API the environment pass   */
+/* publishes -- the glass, the six people behind it, the keypad, the      */
+/* transfer drawer, the core, the vents and the hidden wall in the wine   */
+/* cellar. NONE of that is built here and none of it is built by the      */
+/* mission: this file only looks for it and, if it is there, hands it to  */
+/* the mission along with a camera, an interaction system and a player.   */
+/*                                                                       */
+/* If the house has no laboratory in it yet, `lab` is null, nothing is    */
+/* mounted, and the scene is exactly the walkable tour it has always      */
+/* been -- which is why `npm run verify:mansion` keeps passing while the  */
+/* two halves of this mission are built in parallel. The mission's own    */
+/* checks do not wait on this: they drive `mission/contract-lab.js`, the  */
+/* published API written out as working code, in `npm test`.              */
+/*                                                                       */
+/* THE CASE IS THE SAME CASE. `mission/mount.js` imports                  */
+/* `src/silvercase/props/case.js` -- the actual chrome briefcase from The */
+/* Silver Case, carried in, put on Lou's desk, and handed to Booski.      */
+/* ================================================================== */
+const lab = interior.props.lab
+  ?? interior.lab
+  ?? grounds.props.lab
+  ?? null;
+
+/**
+ * The campaign seam.
+ *
+ * `createSilentSquatchStory` is what records the night: basement access, the
+ * Family's regard, Aubbie's notes on the apartment computer, Silent Squatch on
+ * the conspiracy board and the trophy on the shelf. A save that has already
+ * finished it says so, and the mission is not mounted a second time -- the
+ * house is simply a house with an open basement and a man still hanging in it.
+ */
+function beginCampaignNight() {
+  try {
+    const story = createSilentSquatchStory({ campaign: createCampaign() });
+    const entry = story.begin();
+    /* `play: false` means the save says this night is over -- the only reason
+     * the mission is not mounted in a house that has a laboratory in it. A
+     * campaign that could not be READ is a different thing entirely and must
+     * never cost anybody the mission. */
+    return entry.ok ? { story, play: true } : { story: null, play: false };
+  } catch {
+    /* A sandboxed frame with no storage must still be able to play it; it
+     * just does not remember it afterwards. */
+    return { story: null, play: true };
+  }
+}
+
+const night = lab ? beginCampaignNight() : { story: null, play: false };
+const missionStory = night.story;
+
+let silentSquatch = null;
+if (lab && night.play) {
+  silentSquatch = mountSilentSquatch({
+    THREE,
+    scene,
+    camera,
+    interaction,
+    player,
+    audio,
+    lab,
+    anchors,
+    /* The things he presses. Every one of them is optional: a target the
+     * environment has not built yet simply is not registered, and the beat it
+     * belongs to is still reachable from the debug handle below. */
+    targets: {
+      desk: lab.targets?.desk ?? interior.props.office.desk ?? null,
+      bust: lab.targets?.bust ?? null,
+      transferTable: lab.targets?.transferTable ?? null,
+      keypad: lab.targets?.keypad ?? null,
+      silentNight: lab.targets?.silentNight ?? null,
+    },
+    story: missionStory,
+    enabled: () => running,
+  });
+}
+
+/* ================================================================== */
 /* Pause menu                                                            */
 /* ================================================================== */
 const clock = new THREE.Clock();
@@ -788,12 +878,15 @@ function lockPointer() {
 const sharedPauseMenu = createPauseMenu({
   title: "Lou's Mansion",
   canPause: () => running,
-  getObjective: () => 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, the west wing and the Great Includer, the lower level behind the armory, and the walled garden and hedge maze behind the pool.',
+  getObjective: () => silentSquatch?.mission.objective
+    || 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, the west wing and the Great Includer, the lower level behind the armory, and the walled garden and hedge maze behind the pool.',
   instructions: [
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'E, or click -- look at something notable for a one-line note.',
     'In the cellar armory: E takes a weapon off the rack. Left mouse fires it,'
       + ' R reloads, Q puts it back.',
+    'On a job: E works the thing you are looking at. At a keypad, type the'
+      + ' number and press ENTER.',
     'Tab pauses and resumes. Escape releases the mouse, which also pauses.',
   ],
   onPause: () => {
@@ -841,6 +934,12 @@ startBtn.addEventListener('click', beginTour);
 /* ================================================================== */
 window.addEventListener('keydown', (e) => {
   if (!running) return;
+  /* The laboratory keypad gets first refusal on a keystroke: while it is up,
+   * the digits he types are a code rather than a walk. */
+  if (silentSquatch?.keydown(e)) {
+    e.preventDefault();
+    return;
+  }
   if (e.code === 'Space') e.preventDefault();
   player.setKey(e.code, true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
@@ -876,6 +975,10 @@ renderer.domElement.addEventListener('mousedown', (e) => {
    * rack. */
   if (weaponSystem.equipped) weaponSystem.setTrigger(true);
   else interaction.press();
+  /* And at the execution beat it is the execution. The mission resolves the
+   * shot against what the crosshair is actually on -- it does not decide that
+   * a trigger pull found him. */
+  silentSquatch?.fire();
 });
 window.addEventListener('mouseup', (e) => {
   if (e.button !== 0) return;
@@ -914,6 +1017,9 @@ function updateGame(dt) {
     tv._glowLight.intensity = g.intensity * 1.6;
   }
   houseRadio.update(dt);
+  /* The mission, if the house has a laboratory in it. It moves the beat on,
+   * plays the writing, and drives the lab; it never moves the camera. */
+  silentSquatch?.update(dt);
   /* The guns. `player.velocity` drives the walking sway on whatever is in
    * your hands, the same way the heist view-model is driven. */
   weaponSystem.update(dt, { speed: Math.hypot(player.velocity.x, player.velocity.z) });
@@ -1176,6 +1282,10 @@ window.mansion = {
     channels: theatreTv.channels.map((c) => c.name),
     toggle: () => theatreTv.toggle(),
   } : null,
+  /** PROJECT SILENT SQUATCH, or null in a house with no laboratory in it.
+   * Every beat of the mission is reachable from here, which is how a verifier
+   * plays it without a mouse. */
+  mission: silentSquatch?.debug ?? null,
   teleport,
   /** Step the simulation without a real animation frame -- for headless verification. */
   tick(seconds = 1, step = 1 / 60) {

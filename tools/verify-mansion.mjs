@@ -1738,6 +1738,170 @@ try {
     garden.lanterns >= 20, `${garden.lanterns} practical lights in the garden`);
 
   /* ================================================================ */
+  /* PROJECT SILENT SQUATCH                                            */
+  /*                                                                    */
+  /* The mission is built against the laboratory API the environment    */
+  /* pass publishes, and the two are built in parallel -- so these      */
+  /* checks drive it against `src/mansion/mission/contract-lab.js`, the */
+  /* published contract written out as working code. That is not a      */
+  /* substitute for the real lab: it is the half of the mission this    */
+  /* file can prove on its own, IN A REAL BROWSER, running the real     */
+  /* modules with the real HUD in the real DOM. The one check below     */
+  /* that is about the actual house is the last one: the mission must   */
+  /* mount exactly when there is a laboratory to mount it in.           */
+  /* ================================================================ */
+  const night = await page.evaluate(async () => {
+    const [lab, mission, machine, script, hudMod] = await Promise.all([
+      import('/src/mansion/mission/contract-lab.js'),
+      import('/src/mansion/mission/SilentSquatchMission.js'),
+      import('/src/mansion/mission/SilentSquatchStateMachine.js'),
+      import('/src/mansion/script.js'),
+      import('/src/mansion/mission/hud.js'),
+    ]);
+    const { INSTRUCTIONS, OBJECTIVES, SCIENTIST_INDEX } = script;
+    const theLab = lab.createContractLab();
+    const hud = hudMod.createMissionHud();
+    const run = mission.createSilentSquatchMission({
+      lab: theLab,
+      hud: {
+        setObjective: (t) => hud.setObjective(t),
+        setInstruction: (t) => hud.setInstruction(t),
+        setCallout: (t) => hud.setCallout(t),
+      },
+      onLine: (line) => hud.showLine(line),
+      onLineEnd: () => hud.hideLine(),
+    });
+
+    const DT = 1 / 30;
+    const until = (pred, limit = 400) => {
+      for (let t = 0; t < limit; t += DT) {
+        if (pred()) return true;
+        theLab.update(DT);
+        run.update(DT);
+      }
+      return pred();
+    };
+    const screens = [];
+    const snap = (where) => screens.push({ where, ...hud.text() });
+
+    run.start();
+    run.arrive('office');
+    until(() => run.instruction === INSTRUCTIONS.PLACE_CASE);
+    snap('office');
+    run.placeCaseOnDesk();
+    until(() => run.instruction === INSTRUCTIONS.TAKE_CASE);
+    run.takeCaseBack();
+    until(() => run.instruction === INSTRUCTIONS.BUST_SWITCH);
+    run.pressBustSwitch();
+    until(() => run.instruction === INSTRUCTIONS.DELIVER_CASE, 200);
+    run.deliverCase();
+    until(() => run.instruction === INSTRUCTIONS.KEYPAD, 400);
+    snap('keypad');
+    const wrongCode = run.enterCode('1234');
+    const lockedByWrongCode = theLab.doorLocked;
+    const rightCode = run.enterCode('6969');
+    until(() => run.instruction === INSTRUCTIONS.ELIMINATE_AUBBIE, 100);
+    const aubbieSide = theLab.scientists[SCIENTIST_INDEX.AUBBIE].side;
+    run.shootAubbie(true);
+    until(() => run.instruction === INSTRUCTIONS.SILENT_NIGHT, 200);
+    run.pullSilentNight();
+    until(() => run.fsm.name === machine.S.EXIT, 300);
+    until(() => run.instruction === INSTRUCTIONS.RETURN_UPSTAIRS, 30);
+    snap('exit');
+    run.leave();
+    until(() => run.fsm.name === machine.S.COMPLETE, 30);
+
+    const report = run.report();
+    hud.dispose();
+    /* Whether the HOUSE has a laboratory in it, and whether the mission the
+     * composition root mounted agrees. */
+    const built = window.mansion.interior.props.lab
+      ?? window.mansion.interior.lab
+      ?? window.mansion.grounds.props.lab
+      ?? null;
+    return {
+      report,
+      screens,
+      wrongCode,
+      lockedByWrongCode,
+      rightCode,
+      aubbieSide,
+      beats: report.history.map((name) => machine.BEAT_OF[name]),
+      objectiveOrder: [
+        OBJECTIVES.DELIVER_PACKAGE, OBJECTIVES.TAKE_TO_BOOSKI, OBJECTIVES.LOCK_THE_LAB,
+        OBJECTIVES.ELIMINATE_AUBBIE, OBJECTIVES.ACTIVATE_SILENT_NIGHT,
+        OBJECTIVES.RETURN_UPSTAIRS, '',
+      ],
+      labBuilt: Boolean(built),
+      missionMounted: Boolean(window.mansion.mission),
+    };
+  });
+
+  check('PROJECT SILENT SQUATCH plays end to end in the browser, on the player\'s own actions',
+    night.report.complete === true,
+    `finished at ${night.report.state}, beat ${night.report.beat}`);
+
+  check('...through all eleven of the spec\'s beats, in order',
+    JSON.stringify([...new Set(night.beats)]) === JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+      && night.beats.every((b, i) => i === 0 || b >= night.beats[i - 1]),
+    [...new Set(night.beats)].join(','));
+
+  check('...raising the spec\'s objectives, in the spec\'s order',
+    JSON.stringify(night.report.objectives) === JSON.stringify(night.objectiveOrder),
+    night.report.objectives.join(' | '));
+
+  check('the case is carried in, put on the desk, taken back, delivered and sent through',
+    night.report.case.placedOnDesk && night.report.case.delivered
+      && night.report.case.throughDrawer && night.report.case.state === 'gone',
+    JSON.stringify(night.report.case));
+
+  check('the keypad rejects a wrong code and only 6969 throws the bolts',
+    night.wrongCode === false && night.lockedByWrongCode === false
+      && night.rightCode === true && night.report.keypad.locked === true,
+    `wrong:${night.wrongCode} locked-by-wrong:${night.lockedByWrongCode} right:${night.rightCode}`);
+
+  check('Aubbie dies in the observation area, on the player\'s side of the glass',
+    night.aubbieSide === 'observation' && night.report.aubbie.side === 'observation'
+      && night.report.aubbie.killed === true,
+    `${night.aubbieSide} / ${JSON.stringify(night.report.aubbie)}`);
+
+  check('the gassing runs the spec\'s seven stages in the spec\'s order',
+    JSON.stringify(night.report.gasStages) === JSON.stringify([
+      'confusion', 'panic', 'covering', 'choking', 'slamming', 'crawling', 'collapsing',
+    ]),
+    night.report.gasStages.join(' -> '));
+
+  check('they go down one at a time, the last leaves a handprint, and LIFE SIGNS reaches 0',
+    night.report.collapsed.length === 5 && night.report.handprints === 1
+      && night.report.lifeSignsAtAftermath === 0 && night.report.lifeSignsTimedOut === false,
+    `${night.report.collapsed.length} down, life signs ${night.report.lifeSignsAtAftermath}`);
+
+  check('every line behind the glass is routed through the glass, and none of Booski\'s is',
+    night.report.glassRouted > 40 && night.report.dryRouted > 40,
+    `${night.report.glassRouted} muffled, ${night.report.dryRouted} dry`);
+
+  /* The HUD is real DOM, so the browser is the only place this can be
+   * checked: an objective on screen, a subtitle under it, and -- the owner's
+   * standing rule -- an instruction that is never the thing that told him. */
+  const officeScreen = night.screens.find((s2) => s2.where === 'office');
+  const keypadScreen = night.screens.find((s2) => s2.where === 'keypad');
+  check('the mission HUD puts a real objective, instruction and subtitle on the screen',
+    Boolean(officeScreen?.objective) && Boolean(officeScreen?.instruction)
+      && Boolean(keypadScreen?.objective),
+    JSON.stringify(officeScreen));
+
+  check('the HUD instruction is never the thing that gave the order',
+    keypadScreen.objective === 'Lock the laboratory door.'
+      && keypadScreen.instruction.startsWith('Press E at the keypad'),
+    `${keypadScreen.objective} / ${keypadScreen.instruction}`);
+
+  check('the mission mounts exactly when the house has a laboratory in it',
+    night.labBuilt === night.missionMounted,
+    night.labBuilt
+      ? 'laboratory present and mission mounted'
+      : 'no laboratory built yet, so no mission mounted (the house is still a house)');
+
+  /* ================================================================ */
   /* Rendering back on: the house must actually draw something           */
   /* ================================================================ */
   await teleport(0, GROUND_Y, 44.4, NORTH);
