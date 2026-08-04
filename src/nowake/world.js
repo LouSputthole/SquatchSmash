@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BIG_UNCLE_LOU } from '../core/wardrobe.js';
 import { Npc } from '../bing/cast.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
@@ -890,11 +891,7 @@ function buildBoat(scene, marina) {
   const cast = {
     lou: new Npc(root, {
       name: 'Big Uncle Lou', tier: 'hero', x: 1.18, y: 1.02, z: 2.18, yaw: Math.PI,
-      job: 'stand', model: {
-        height: 1.8, build: 1.4, dress: 'shirt', shirt: 0x25282a,
-        skin: 0xd9a97f, hair: 'receding', hairColour: 0x241b17,
-        chain: true, face: 'assets/faces/lou.png',
-      },
+      job: 'stand', model: { ...BIG_UNCLE_LOU, face: 'assets/faces/lou.png' },
     }),
     booski: new Npc(root, {
       name: 'Booskibro', tier: 'hero', x: -1.16, y: 1.02, z: 2.75, yaw: Math.PI,

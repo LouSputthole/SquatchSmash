@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { AUBBIE, BIG_UNCLE_LOU } from '../core/wardrobe.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
 import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
@@ -522,11 +523,9 @@ export async function buildHotDogParty(scene, club) {
   const lou = makeNpc(scene, club, {
     name: 'Big Uncle Lou', characterId: CHARACTER_IDS.LOU,
     x: -16.2, z: 2.0, yaw: 2.25, job: 'stand',
-    model: {
-      height: 1.83, build: 1.38, gut: 0.42, dress: 'suit', shirt: 0x20242c,
-      hairColour: 0x17110d, skin: 0xd7a67e, face: faces.has('lou.png') ? 'assets/faces/lou.png' : null,
-      chain: true,
-    },
+    // Canonical, so the man running this party is the man on the boat and the
+    // man in the office. The face is the only thing local to the scene.
+    model: { ...BIG_UNCLE_LOU, face: faces.has('lou.png') ? 'assets/faces/lou.png' : null },
   });
   const hotdog = makeNpc(scene, club, {
     name: 'Billy HotDog', characterId: CHARACTER_IDS.BILLY_HOTDOG,
@@ -537,10 +536,7 @@ export async function buildHotDogParty(scene, club) {
   const aubbie = makeNpc(scene, club, {
     name: 'Aubbie', characterId: CHARACTER_IDS.AUBBIE,
     x: 5.9, z: -1.3, yaw: 2.4, job: 'stand', folded: true,
-    model: {
-      height: 1.77, build: 1.05, dress: 'work', shirt: 0x24292c,
-      hair: 'short', hairColour: 0x8a3e20, beard: true, skin: 0xd7a67e,
-    },
+    model: AUBBIE,
   });
   aubbie.folded = true;
   attachAubbieTools(aubbie);

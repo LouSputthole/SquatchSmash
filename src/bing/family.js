@@ -21,6 +21,7 @@
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { SHUBENATOR_SIGNATURE_TAKES } from '../core/shubenator-signature.js';
 import { Npc, STOOL_SIT } from './cast.js';
+import { WARDROBE } from '../core/wardrobe.js';
 import { APE_FAMILY_MEMBER } from './family-ape.js';
 import { applyBingVoiceCues } from './script.js';
 
@@ -45,15 +46,9 @@ export const FAMILY = [
     /* AT THE BAR, by the service station — his shot beat happens here. On
      * the stool, not in it: see STOOL_SIT. */
     spot: { x: -18.7, z: 1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
-    model: {
-      /* Patriarch money, not crew uniform: a midnight-blue open knit with
-       * restrained gold ribs, a layered founder chain and a real watch. */
-      height: 1.8, build: 1.2, dress: 'shirt', shirt: 0x20365f,
-      hairColour: 0x2a1c14, skin: 0xd9a97f,
-      neckline: 'v', luxury: true, shirtAccent: 0x405a86,
-      chain: 'gold', chainStyle: 'layered', pendant: true,
-      pendantStyle: 'crest', watch: 'gold',
-    },
+    /* Patriarch money, not crew uniform: a midnight-blue open knit with
+     * restrained gold ribs, a layered founder chain and a real watch. */
+    model: WARDROBE.booski,
   },
   {
     id: CHARACTER_IDS.DEATHMEGATRON, name: 'DeathMegatron', slug: 'deathmegatron', photo: 'deathmegatron.png',
@@ -74,24 +69,7 @@ export const FAMILY = [
      *
      * Voice untouched — `deathmegatron` is a LOCKED founder voice. Her lines
      * are untouched too; none of them gender her, and none of them needed to. */
-    model: {
-      height: 1.79,
-      build: 1.12,
-      gender: 'female',
-      bodyShape: 'curvy',
-      dress: 'suit',
-      shirt: 0x1a1d2a,
-      shirtAccent: 0xc7a66a,
-      luxury: true,
-      hair: 'tied',
-      hairColour: 0x14100e,
-      skin: 0xc08a5e,
-      chain: 'gold',
-      chainStyle: 'layered',
-      pendant: true,
-      pendantStyle: 'crest',
-      watch: 'gold',
-    },
+    model: WARDROBE.deathmegatron,
   },
   {
     id: CHARACTER_IDS.SEFF, name: 'Seff', slug: 'seff', photo: 'seff.png',
@@ -100,25 +78,20 @@ export const FAMILY = [
     model: {
       height: 1.76, build: 1.0, dress: 'suit', shirt: 0x3a2a2a,
       hair: 'short', hairColour: 0x14100e, skin: 0xe8c39c,
+      belt: 'leather',
     },
   },
   {
     id: CHARACTER_IDS.IRISH, name: 'Irish', slug: 'irish', photo: 'irish.png',
     // East booth run, mid-story, sharing a booth with a regular.
     spot: { x: 4.55, z: -4.55, yaw: -Math.PI / 2, job: 'sit' },
-    model: {
-      height: 1.78, build: 1.15, dress: 'shirt', shirt: 0x1f2b22,
-      hair: 'short', hairColour: 0x8a5a2a, beard: true, skin: 0xf0cba6,
-    },
+    model: WARDROBE.irish,
   },
   {
     id: CHARACTER_IDS.GRATIN, name: 'Gratin', slug: 'gratin', photo: 'gratin.png',
     // His own east booth, near the kitchen door, loyal to the wrong shrimp.
     spot: { x: 4.55, z: -2.1, yaw: -Math.PI / 2, job: 'drink' },
-    model: {
-      height: 1.76, build: 1.3, dress: 'shirt', shirt: 0x3a3320,
-      hairColour: 0x2a1c14, skin: 0xd9a97f,
-    },
+    model: WARDROBE.gratin,
   },
   {
     id: CHARACTER_IDS.OLD_STOVE, name: 'Old Stove', slug: 'stove', photo: 'stove.png',
@@ -127,6 +100,7 @@ export const FAMILY = [
     model: {
       height: 1.72, build: 1.1, dress: 'shirt', shirt: 0x24303a,
       hair: 'receding', hairColour: 0x9a9a9a, beard: true, skin: 0xc08a5e,
+      belt: 'leather',
     },
   },
   {
@@ -144,10 +118,7 @@ export const FAMILY = [
     id: CHARACTER_IDS.ERIC, name: 'Eric', slug: 'eric', photo: 'erican.png',
     // Same booth as Lag, current on everything overseas, same move south.
     spot: { x: -9.35, z: 10.25, yaw: Math.PI, job: 'sit' },
-    model: {
-      height: 1.78, build: 1.05, dress: 'shirt', shirt: 0x24303a,
-      hairColour: 0x5a3a20, skin: 0xe8c39c,
-    },
+    model: WARDROBE.eric,
   },
   {
     id: CHARACTER_IDS.WILLY, name: 'Willy', slug: 'willy', photo: 'willy.png',
@@ -160,43 +131,26 @@ export const FAMILY = [
      * (src/bing/cast.js), not a Willy-only shape, so the visual continuity
      * does not suddenly inflate him the moment that scene lands. `build` only
      * moves a little; the belly is doing the work. */
-    model: {
-      height: 1.7, build: 1.1, gut: 1, dress: 'shirt', shirt: 0x2e2438,
-      hair: 'receding', hairColour: 0x5a3a20, beard: true, skin: 0xd9a97f,
-    },
+    model: WARDROBE.willy,
   },
   APE_FAMILY_MEMBER,
   {
     id: CHARACTER_IDS.HOG_MAMA, name: 'Hog Mama', slug: 'hogmama', photo: 'hogmama.png',
     // A two-top near the stage, working the floor for a bit.
     spot: { x: -6.35, z: 1.6, yaw: -1.34, job: 'sit' },
-    model: {
-      height: 1.68, build: 1.2, dress: 'shirt', shirt: 0x3a2a2a,
-      hairColour: 0x2a1c14, skin: 0xd9a97f,
-      gender: 'female', bodyShape: 'curvy',
-    },
+    model: WARDROBE.hogmama,
   },
   {
     id: CHARACTER_IDS.SHUBENATOR, name: 'The Shubenator', slug: 'shubenator', photo: 'shubes.png',
     // Another stage two-top, nine hundred push-ups deep.
     spot: { x: -8.15, z: 3.2, yaw: -1.34, job: 'drink' },
-    model: {
-      height: 1.84, build: 1.35, dress: 'tee', shirt: 0x2e6ed9,
-      hairColour: 0x2a1c14, skin: 0xe8c39c,
-    },
+    model: WARDROBE.shubenator,
   },
   {
     id: CHARACTER_IDS.RIPPINFLOW, name: 'Rippinflow', slug: 'rippinflow', photo: 'rippinflow.png',
     // Stage-side two-top, not freestyling, doing it again anyway.
     spot: { x: -13.45, z: 4.0, yaw: 1.8, job: 'sit' },
-    model: {
-      height: 1.77, build: 1.0, dress: 'tee', shirt: 0x2e2438,
-      hairColour: 0x14100e, skin: 0x8d5a3a,
-      /* Thin silver line, nothing hanging off it. The gold rope with the
-       * medallion is Lou's whole argument about himself; Rippinflow is not
-       * making that argument. */
-      chain: 'silver', pendant: false,
-    },
+    model: WARDROBE.rippinflow,
   },
   {
     /* Present only once the Beef Run has been flown: before that the Captain
@@ -204,10 +158,8 @@ export const FAMILY = [
      * cannot be in two scenes. Same id as the cockpit, same face. */
     id: CHARACTER_IDS.CAPTAIN_LOU_SASOLE, name: 'Captain Lou Sasole', slug: 'sasole', photo: 'sasole.png',
     spot: { x: -12.55, z: 0.85, yaw: -1.34, job: 'drink' },
-    model: {
-      height: 1.8, build: 1.1, dress: 'shirt', shirt: 0x2e3a5e,
-      hairColour: 0x4a4a48, skin: 0xd2a074,
-    },
+    /* He flies for a living, so the good thing he owns is the jacket. */
+    model: WARDROBE.captain_lou_sasole,
   },
   {
     id: CHARACTER_IDS.SNOW, name: 'Snow', slug: 'snow', photo: 'snow.png',
@@ -220,19 +172,13 @@ export const FAMILY = [
     /* North of the men's room door, and outside the arc its leaf sweeps
      * through the hallway -- the first spot for him was inside it. */
     spot: { x: 6.45, z: 1.78, yaw: 2.2, job: 'stand', folded: true },
-    model: {
-      height: 1.7, build: 0.95, dress: 'work', shirt: 0x3a4048,
-      hairColour: 0x9a9a9a, skin: 0xf0cba6,
-    },
+    model: WARDROBE.snow,
   },
   {
     id: CHARACTER_IDS.NUMBSKULL, name: 'Numbskull', slug: 'numbskull', photo: 'numbskull.png',
     // Watching the slot machine like it might need the muscle.
     spot: { x: 2.2, z: 6.6, yaw: 0.46, job: 'stand' },
-    model: {
-      height: 1.95, build: 1.45, dress: 'tee', shirt: 0x3a3a42,
-      hair: 'bald', skin: 0xd9a97f,
-    },
+    model: WARDROBE.numbskull,
   },
 ];
 

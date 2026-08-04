@@ -28,6 +28,8 @@ export const APE_FAMILY_MEMBER = Object.freeze({
     hairColour: 0x14100e,
     beard: true,
     skin: 0x8d5a3a,
+    // He is the one who does the work; boots and a belt, and nothing else.
+    belt: 'leather',
   }),
 });
 

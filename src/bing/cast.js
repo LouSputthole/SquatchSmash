@@ -230,6 +230,12 @@ export function makePerson(o = {}) {
   const jacketColour = jacketColourOption
     ?? (dress === 'suit' ? 0x1b1b22 : dress === 'bomber' ? 0x2f3138 : shirt);
   const jacket = mat({ color: jacketColour, roughness: 0.88 });
+  /* Whether the figure has something ON over a shirt. The shoulder line, the
+   * deltoids and the sleeves all have to agree about this: a bomber whose
+   * shoulders were still taking the shirt colour came out sage with navy
+   * epaulettes, because the garment had been added to the sleeve test and not
+   * to the other two. */
+  const outerwear = dress === 'suit' || dress === 'tracksuit' || dress === 'bomber';
   const trousers = performanceWear
     ? skinMat
     : mat({
@@ -243,7 +249,7 @@ export function makePerson(o = {}) {
   const sleeve = dress === 'tee' || performanceWear
     || dress === 'porter' || dress === 'gown'
     ? skinMat
-    : (dress === 'suit' || dress === 'tracksuit' || dress === 'bomber' ? jacket : cloth);
+    : (outerwear ? jacket : cloth);
   /* Whites, aprons and a gown, for the Silver Room. Kept in this builder rather
    * than a second one: the supper club needs a dozen jobs the Bing does not
    * have, and every one of them is this body with something tied over it. */
@@ -501,13 +507,13 @@ export function makePerson(o = {}) {
   });
   body.add(torso);
   // Shoulders: a slab the width of the frame, capped with square deltoids
-  body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: dress === 'suit' || dress === 'tracksuit' ? jacket : cloth }));
+  body.add(slab({ name: 'shoulders', size: [SH * 2.04, 0.13, D * 2.0], pos: [0, 1.465, lean], mat: outerwear ? jacket : cloth }));
   for (const sx of [-1, 1]) {
     body.add(slab({
       name: 'deltoid',
       size: [0.118 * t, 0.11, 0.128 * t],
       pos: [sx * SH, 1.45, lean],
-      mat: sleeve === skinMat ? skinMat : (dress === 'suit' || dress === 'tracksuit' ? jacket : cloth),
+      mat: sleeve === skinMat ? skinMat : (outerwear ? jacket : cloth),
     }));
   }
 
