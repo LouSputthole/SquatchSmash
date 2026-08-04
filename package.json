@@ -71,9 +71,11 @@
     "vo:golf": "node tools/golf-vo.mjs",
     "check:golf-vo": "node tools/golf-vo.mjs --check",
     "vo:mansion": "node tools/mansion-vo.mjs",
+    "vo:apartment": "node tools/apartment-vo.mjs",
+    "check:apartment-vo": "node tools/apartment-vo.mjs --check",
     "check:mansion-vo": "node tools/mansion-vo.mjs --check",
     "vo:initiation": "node tools/initiation-vo.mjs",
-    "vo:sync": "npm run vo:beefrun && npm run vo:nowake && npm run vo:hotdog && npm run vo:heist && npm run vo:bing && npm run vo:motel && npm run vo:silver && npm run vo:silvercase && npm run vo:enolasquatch && npm run vo:golf && npm run vo:mansion && npm run vo:initiation && npm run radio:cues",
+    "vo:sync": "npm run vo:beefrun && npm run vo:nowake && npm run vo:hotdog && npm run vo:heist && npm run vo:bing && npm run vo:motel && npm run vo:silver && npm run vo:silvercase && npm run vo:enolasquatch && npm run vo:golf && npm run vo:mansion && npm run vo:apartment && npm run vo:initiation && npm run radio:cues",
     "vo:initiation:check": "node tools/initiation-vo.mjs --check",
     "check:initiation-vo": "node tools/initiation-vo.mjs --check",
     "verify:silver-story": "node tools/verify-silver-story.mjs"

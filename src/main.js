@@ -2779,13 +2779,25 @@ function tryLeave() {
   doorTries.set(key, tries);
 
   /* Waiting on a phone call is not something he can go and fix, so it gets a
-   * bank of its own and never gets a hint -- there is nothing to hint at. */
+   * bank of its own and never gets a hint -- there is nothing to hint at.
+   *
+   * `res.vo` is the refusal's OWN take, and the specific line beats the bank
+   * every time: the screen says "Booskibro said he would call about tonight"
+   * and the generic bank says "I am not guessing", which is a different
+   * sentence about a different evening. `say()` returns false on an empty
+   * bank, so this reads as "his own words if they have been recorded, the
+   * general-purpose ones until then" and needs no knowledge of what is on
+   * disk. */
   if (res.kind === 'call' || res.kind === 'stay') {
-    audio.say('door.wait', { chance: 0.8, delay: 0.5 });
+    if (!(res.vo && audio.say(res.vo, { delay: 0.5 }))) {
+      audio.say('door.wait', { chance: 0.8, delay: 0.5 });
+    }
     return res;
   }
 
-  audio.say(DOOR_VO[key] ?? 'door.beer', { delay: 0.35 });
+  if (!(res.vo && audio.say(res.vo, { delay: 0.35 }))) {
+    audio.say(DOOR_VO[key] ?? 'door.beer', { delay: 0.35 });
+  }
   if (res.hint && tries >= 2) {
     hud.toast(res.hint, '');
     const hintVo = DOOR_HINT_VO[key];

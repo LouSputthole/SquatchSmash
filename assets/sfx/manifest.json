@@ -18277,6 +18277,91 @@
       "name": "vo.silentsquatch.exit.xxx.familymeeting",
       "voice": "xxx",
       "say": "Family meeting go well?"
+    },
+    {
+      "name": "vo.door.refusal.heist_cleanup.1",
+      "voice": "player",
+      "say": "Not walking into the Bing wearing the bank. Clean up first."
+    },
+    {
+      "name": "vo.door.refusal.initiation_locked.1",
+      "voice": "player",
+      "say": "Lou said seven. The invitation still has to land."
+    },
+    {
+      "name": "vo.door.refusal.golf_call.1",
+      "voice": "player",
+      "say": "Lou said he would call about this morning. I am not guessing where."
+    },
+    {
+      "name": "vo.door.refusal.golf_return.1",
+      "voice": "player",
+      "say": "Three holes done. Whatever comes next, Lou will call for it."
+    },
+    {
+      "name": "vo.door.refusal.heist_call.1",
+      "voice": "player",
+      "say": "Lou said he would call. Today is not a day to guess."
+    },
+    {
+      "name": "vo.door.refusal.heist_kit.1",
+      "voice": "player",
+      "say": "Everything Lou named goes with me. Nothing else does."
+    },
+    {
+      "name": "vo.door.refusal.big_night_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call about tonight. I am not turning up unasked."
+    },
+    {
+      "name": "vo.door.refusal.no_wake_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he knew. I am not chasing him today."
+    },
+    {
+      "name": "vo.door.refusal.date_call.1",
+      "voice": "player",
+      "say": "She said she would ring about tonight. I am not turning up at nine on a guess."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_date.1",
+      "voice": "player",
+      "say": "That was a good night. Tomorrow is the other kind. Bed."
+    },
+    {
+      "name": "vo.door.refusal.day_two_call.1",
+      "voice": "player",
+      "say": "Booskibro said he would call with the next job."
+    },
+    {
+      "name": "vo.door.refusal.second_bing_call.1",
+      "voice": "player",
+      "say": "Lou said he would call when he wanted you back at the Bing."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_motel.1",
+      "voice": "player",
+      "say": "It is not even light out. Whatever is next can wait until I have slept."
+    },
+    {
+      "name": "vo.door.refusal.first_call.1",
+      "voice": "player",
+      "say": "Big Uncle Lou said he would call. I should answer before I go anywhere."
+    },
+    {
+      "name": "vo.door.refusal.sleep_after_squatchfather.1",
+      "voice": "player",
+      "say": "That is enough going out for one night."
+    },
+    {
+      "name": "vo.door.refusal.lou_package.1",
+      "voice": "player",
+      "say": "I am not going anywhere until I find Lou’s package."
+    },
+    {
+      "name": "vo.door.refusal.whiskey.1",
+      "voice": "player",
+      "say": "Take one pull of whiskey. You earned the nerves."
     }
   ]
 }

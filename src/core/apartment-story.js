@@ -22,6 +22,71 @@ const FIRST_RING_DELAY = 6;
  * gap into a caller who rings back before he has stopped ringing.
  */
 const RETRY_GAP = 10;
+
+/**
+ * Everything Tony says at the front door when he is not going anywhere.
+ *
+ * These used to be seventeen string literals scattered through the branches
+ * of `tryLeave()`, which made them unreachable to anything except the branch
+ * that returned them. That mattered more than it looks: `main.js` puts the
+ * line on screen with `hud.say()` and then plays `vo.door.wait.*` underneath
+ * it -- a bank of three GENERIC lines -- so the player read "Booskibro said
+ * he would call about tonight. I am not turning up unasked." and heard "I am
+ * not guessing. I have never once guessed right." Seventeen specific,
+ * chapter-aware refusals were on screen and none of them had ever been
+ * offered for recording, because no tool could enumerate them.
+ *
+ * As a table they are data: `tools/apartment-vo.mjs` walks it, so every line
+ * here reaches VOICE-LINES-TODO.md, and the runtime plays the real line the
+ * moment a take for it lands (see `refusal()` below and `tryLeave` in
+ * src/main.js -- it falls back to the generic bank until then, so nothing
+ * goes quiet in the meantime).
+ *
+ * KEYS ARE CUE NAMES. Renaming one renames a recording; adding one adds a
+ * line to the sheet. Keep them stable.
+ */
+export const DEPARTURE_REFUSALS = Object.freeze({
+  heist_cleanup: 'Not walking into the Bing wearing the bank. Clean up first.',
+  initiation_locked: 'Lou said seven. The invitation still has to land.',
+  golf_call: 'Lou said he would call about this morning. I am not guessing where.',
+  golf_return: 'Three holes done. Whatever comes next, Lou will call for it.',
+  heist_call: 'Lou said he would call. Today is not a day to guess.',
+  heist_kit: 'Everything Lou named goes with me. Nothing else does.',
+  big_night_call: 'Booskibro said he would call about tonight. I am not turning up unasked.',
+  no_wake_call: 'Lou said he would call when he knew. I am not chasing him today.',
+  date_call: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+  sleep_after_date: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
+  day_two_call: 'Booskibro said he would call with the next job.',
+  second_bing_call: 'Lou said he would call when he wanted you back at the Bing.',
+  sleep_after_motel: 'It is not even light out. Whatever is next can wait until I have slept.',
+  first_call: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
+  sleep_after_squatchfather: 'That is enough going out for one night.',
+  lou_package: 'I am not going anywhere until I find Lou’s package.',
+  whiskey: 'Take one pull of whiskey. You earned the nerves.',
+});
+
+/**
+ * The line and the cue group that goes with it, spread into a refusal.
+ *
+ * `vo` is the group name `audio.say()` takes, so the take on disk is
+ * `vo.door.refusal.<key>.1.mp3` -- `say()` matches a bank by prefix, which is
+ * why the cue carries a take number the way the Beef Run's do.
+ */
+function refusal(key) {
+  return { line: DEPARTURE_REFUSALS[key], vo: `door.refusal.${key}` };
+}
+
+/** Every refusal as a recordable cue. Used by tools/apartment-vo.mjs. */
+export function departureRefusalCues() {
+  return Object.entries(DEPARTURE_REFUSALS).map(([key, line]) => ({
+    name: `vo.door.refusal.${key}.1`,
+    voice: 'player',
+    /* The subtitle carries markup for emphasis; a voice actor should be
+     * reading words, not tags. */
+    say: line.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim(),
+  }));
+}
+
 const DEPARTURE_REQUIREMENTS = Object.freeze([
   {
     id: 'eaten',
@@ -1031,14 +1096,14 @@ class ApartmentStory {
         return {
           kind: 'activity',
           ...missing,
-          line: 'Not walking into the Bing wearing the bank. Clean up first.',
+          ...refusal('heist_cleanup'),
         };
       }
       if (state.missions[MISSION_IDS.INITIATION].status === 'locked') {
         return {
           kind: 'stay',
           id: 'initiation_locked',
-          line: 'Lou said seven. The invitation still has to land.',
+          ...refusal('initiation_locked'),
         };
       }
       return { kind: 'go', destination: SCENE_IDS.INITIATION };
@@ -1048,7 +1113,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_GOLF_CALL,
-          line: 'Lou said he would call about this morning. I am not guessing where.',
+          ...refusal('golf_call'),
         };
       }
       if (state.missions[MISSION_IDS.SILVER_PINES].status !== 'complete') {
@@ -1057,7 +1122,7 @@ class ApartmentStory {
       return {
         kind: 'stay',
         id: 'golf_return_pending',
-        line: 'Three holes done. Whatever comes next, Lou will call for it.',
+        ...refusal('golf_return'),
       };
     }
     if (state.story.chapter === 'heist_day') {
@@ -1065,7 +1130,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_HEIST_CALL,
-          line: 'Lou said he would call. Today is not a day to guess.',
+          ...refusal('heist_call'),
         };
       }
       const missing = HEIST_PREPARATION_ITEMS.find(
@@ -1075,7 +1140,7 @@ class ApartmentStory {
         return {
           kind: 'activity',
           ...missing,
-          line: 'Everything Lou named goes with me. Nothing else does.',
+          ...refusal('heist_kit'),
         };
       }
       return { kind: 'go', destination: SCENE_IDS.BANK_HEIST };
@@ -1085,7 +1150,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.BOOSKI_BIG_NIGHT_CALL,
-          line: 'Booskibro said he would call about tonight. I am not turning up unasked.',
+          ...refusal('big_night_call'),
         };
       }
       return {
@@ -1098,7 +1163,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_NO_WAKE_CALL,
-          line: 'Lou said he would call when he knew. I am not chasing him today.',
+          ...refusal('no_wake_call'),
         };
       }
       if (state.missions[MISSION_IDS.NO_WAKE].status !== 'complete') {
@@ -1112,7 +1177,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.MARGO_DATE_CALL,
-          line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+          ...refusal('date_call'),
         };
       }
       if (state.missions[MISSION_IDS.SILVER_ROOM].status !== 'complete') {
@@ -1126,7 +1191,7 @@ class ApartmentStory {
       return {
         kind: 'stay',
         id: 'sleep_before_big_night',
-        line: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
+        ...refusal('sleep_after_date'),
       };
     }
     if (state.story.chapter === 'day_two'
@@ -1135,7 +1200,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
-          line: 'Booskibro said he would call with the next job.',
+          ...refusal('day_two_call'),
         };
       }
       if (state.missions[MISSION_IDS.AIRSTRIP_SMUGGLING].status !== 'complete') {
@@ -1148,7 +1213,7 @@ class ApartmentStory {
         return {
           kind: 'call',
           id: EVENT_IDS.LOU_SECOND_CALL,
-          line: 'Lou said he would call when he wanted you back at the Bing.',
+          ...refusal('second_bing_call'),
         };
       }
       if (state.missions[MISSION_IDS.BADA_BING_TWO].status !== 'complete') {
@@ -1175,14 +1240,14 @@ class ApartmentStory {
       return {
         kind: 'stay',
         id: 'sleep_before_big_night',
-        line: 'It is not even light out. Whatever is next can wait until I have slept.',
+        ...refusal('sleep_after_motel'),
       };
     }
     if (!this.#callAnswered()) {
       return {
         kind: 'call',
         id: EVENT_IDS.LOU_FIRST_CALL,
-          line: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
+          ...refusal('first_call'),
       };
     }
     const missions = this.campaign.state.missions;
@@ -1191,7 +1256,7 @@ class ApartmentStory {
         return {
           kind: 'stay',
           id: 'sleep',
-          line: 'That is enough going out for one night.',
+          ...refusal('sleep_after_squatchfather'),
         };
       }
       if (missions[MISSION_IDS.SQUATCHFATHER].status === 'in_progress'
@@ -1205,7 +1270,7 @@ class ApartmentStory {
         return {
           kind: 'item',
           id: ITEM_IDS.LOU_PACKAGE,
-          line: 'I am not going anywhere until I find Lou’s package.',
+          ...refusal('lou_package'),
         };
       }
       if (!activities.whiskeyRelaxed) {
@@ -1213,7 +1278,7 @@ class ApartmentStory {
           kind: 'activity',
           id: 'whiskeyRelaxed',
           label: 'Take a shot of whiskey',
-          line: 'Take one pull of whiskey. You earned the nerves.',
+          ...refusal('whiskey'),
           hint: 'Pick up the whiskey and hold F for a pull.',
         };
       }

@@ -323,6 +323,7 @@ test('the apartment door waits for Lou’s call even when every chore is done', 
     kind: 'call',
     id: EVENT_IDS.LOU_FIRST_CALL,
     line: 'Big Uncle Lou said he would call. I should answer before I go anywhere.',
+    vo: 'door.refusal.first_call',
   });
 });
 
@@ -405,6 +406,7 @@ test('returning from Bada Bing requires the package before Squatchfather', () =>
     kind: 'item',
     id: ITEM_IDS.LOU_PACKAGE,
     line: 'I am not going anywhere until I find Lou’s package.',
+    vo: 'door.refusal.lou_package',
   });
 
   campaign.addItem(ITEM_IDS.LOU_PACKAGE, { concealed: true });
@@ -540,6 +542,7 @@ test('crossing midnight does not start the Day Two chapter before Tony sleeps', 
     kind: 'stay',
     id: 'sleep',
     line: 'That is enough going out for one night.',
+    vo: 'door.refusal.sleep_after_squatchfather',
   });
   assert.deepEqual(story.sleep(), {
     ok: true, chapter: 'day_two', day: 2, timeMinutes: 420,
@@ -702,6 +705,7 @@ test('the Day Two door waits for Booskibro, then routes to the Beef Run', () => 
     kind: 'call',
     id: EVENT_IDS.BOOSKI_DAY_TWO_CALL,
     line: 'Booskibro said he would call with the next job.',
+    vo: 'door.refusal.day_two_call',
   });
 
   story.callAnswered(DAY_TWO_BOOSKI_CALL);
@@ -763,6 +767,7 @@ test('the door sends Tony to bed after the Motel instead of straight to the Circ
     kind: 'stay',
     id: 'sleep_before_big_night',
     line: 'It is not even light out. Whatever is next can wait until I have slept.',
+    vo: 'door.refusal.sleep_after_motel',
   });
 
   // Nobody rings before he has slept.
@@ -860,6 +865,7 @@ test('the date door waits for Margo, then routes to the Silver Room', () => {
     kind: 'call',
     id: EVENT_IDS.MARGO_DATE_CALL,
     line: 'She said she would ring about tonight. I am not turning up at nine on a guess.',
+    vo: 'door.refusal.date_call',
   });
 
   story.callAnswered(DATE_MARGO_CALL);
@@ -876,6 +882,7 @@ test('the date door waits for Margo, then routes to the Silver Room', () => {
     kind: 'stay',
     id: 'sleep_before_big_night',
     line: 'That was a good night. Tomorrow is the other kind. <em>Bed.</em>',
+    vo: 'door.refusal.sleep_after_date',
   });
 });
 
@@ -955,6 +962,7 @@ test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
     kind: 'call',
     id: EVENT_IDS.LOU_GOLF_CALL,
     line: 'Lou said he would call about this morning. I am not guessing where.',
+    vo: 'door.refusal.golf_call',
   });
 
   story.callAnswered(DAY_FOUR_LOU_GOLF_CALL);
@@ -977,6 +985,7 @@ test('the Day 4 door routes through Golf before exposing THE TAKE', () => {
     kind: 'call',
     id: EVENT_IDS.LOU_HEIST_CALL,
     line: 'Lou said he would call. Today is not a day to guess.',
+    vo: 'door.refusal.heist_call',
   });
   story.callAnswered(DAY_FOUR_LOU_HEIST_CALL);
   for (const item of HEIST_PREPARATION_ITEMS) story.collectHeistPreparation(item.id);
