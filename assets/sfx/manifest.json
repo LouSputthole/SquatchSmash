@@ -3427,6 +3427,156 @@
       "say": "I am funding something here. I do not know what."
     },
     {
+      "name": "weapon.revolver.fire",
+      "duration": 1.8,
+      "prompt": "a single .45 Colt revolver fired in a bare concrete cellar, deep flat crack with a hard mechanical hammer fall under it, tight low-ceiling slap and a short tail, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.reload.out",
+      "duration": 1.4,
+      "prompt": "a heavy revolver cylinder swung out on its crane and the ejector rod pushed hard, six spent brass cases lifting free and tumbling out together, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.reload.in",
+      "duration": 1.6,
+      "prompt": "six rounds dropped into a revolver cylinder from a speedloader, the loader knob twisted and pulled away, cylinder snapped shut on a steel frame, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.empty",
+      "duration": 0.7,
+      "prompt": "the hammer of an empty heavy revolver falling on a spent chamber, one dry mechanical click with a faint frame ring, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.mag.floor",
+      "duration": 1.2,
+      "prompt": "six spent brass revolver cases hitting a bare concrete floor and rolling, bright scattered metallic clinks settling to stillness, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.fire",
+      "duration": 1.3,
+      "prompt": "a single 9mm semi-automatic pistol shot fired indoors, sharp flat crack with the slide cycling and locking back into it, small room reflection, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.reload.out",
+      "duration": 0.8,
+      "prompt": "a magazine release pressed on a polymer 9mm pistol and an empty steel magazine dropping clear of the magwell, one catch click and a light metallic slide, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.reload.in",
+      "duration": 1,
+      "prompt": "a full 9mm magazine seated hard into a polymer pistol grip and the slide released forward onto a round, firm palm slap then a fast metallic snap, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.empty",
+      "duration": 0.6,
+      "prompt": "the trigger of an empty 9mm pistol pulled on a locked-back slide, one small dry mechanical click, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.mag.floor",
+      "duration": 1,
+      "prompt": "an empty steel pistol magazine dropped from waist height onto a bare concrete floor, one hard metallic knock, a short bounce and a settle, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.fire",
+      "duration": 1.6,
+      "prompt": "a single 5.56 carbine shot fired inside a low concrete cellar, extremely sharp controlled report with violent early reflections and a hard architectural tail, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.reload.out",
+      "duration": 1,
+      "prompt": "a magazine catch pressed on an aluminium carbine receiver and a polymer magazine pulled out of the well, one plastic-on-metal scrape and a catch click, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.reload.in",
+      "duration": 1.4,
+      "prompt": "a full polymer carbine magazine rocked into the magwell and slapped home, bolt catch paddle struck and the bolt running forward on a round, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.empty",
+      "duration": 0.6,
+      "prompt": "the trigger of an empty carbine pulled on a locked-back bolt, one sharp dry mechanical click, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.mag.floor",
+      "duration": 1.1,
+      "prompt": "an empty polymer rifle magazine dropped onto a bare concrete floor, one dull plastic knock with a metal floorplate tick and a short skid, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.fire",
+      "duration": 1.8,
+      "prompt": "a single 7.62 AK rifle shot fired indoors, deep heavy crack with more low end than a 5.56 and a loose stamped-steel rattle after it, hard room slap, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.reload.out",
+      "duration": 1.1,
+      "prompt": "a curved steel AK magazine rocked forward out of the magwell and pulled clear, a heavy paddle catch clacking and steel scraping steel, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.reload.in",
+      "duration": 1.4,
+      "prompt": "a loaded steel AK magazine rocked in front-first and levered back until the catch clacks shut, then the charging handle pulled and released, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.empty",
+      "duration": 0.7,
+      "prompt": "the trigger of an empty AK pulled on a closed bolt, one loud dry mechanical clack with a stamped-receiver ring, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.mag.floor",
+      "duration": 1.2,
+      "prompt": "an empty steel AK magazine dropped onto a bare concrete floor, one bright hard metallic clang with a rattling ring and a settle, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.fire",
+      "duration": 1.6,
+      "prompt": "a single belt-fed light machine gun shot fired indoors, heavy deep report with the open bolt slamming and a belt link tinkling free, hard concrete slap, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.reload.out",
+      "duration": 1.8,
+      "prompt": "the feed tray cover of a belt-fed machine gun lifted open and an empty plastic ammunition box unclipped and pulled off the receiver, latch clack, plastic scrape, loose belt links dragging, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.reload.in",
+      "duration": 2.4,
+      "prompt": "a full ammunition box clipped under a machine gun, a belt laid into the feed tray and the tray cover slammed shut, then the charging handle pulled and released, heavy metal throughout, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.empty",
+      "duration": 0.8,
+      "prompt": "the trigger of a belt-fed machine gun pulled with the belt run out, one heavy dry mechanical clack from an open bolt on nothing, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.mag.floor",
+      "duration": 1.3,
+      "prompt": "an empty plastic machine-gun ammunition box dropped onto a bare concrete floor, dull hollow plastic thump with loose belt links rattling inside it, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.fire",
+      "duration": 2.6,
+      "prompt": "a single .50 calibre anti-materiel rifle fired inside a concrete room, enormous concussive blast through a muzzle brake, chest-punching low end, violent room slap and a long ringing tail, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.reload.out",
+      "duration": 1.4,
+      "prompt": "a magazine catch pressed on a heavy .50 calibre rifle and a long steel ten-round magazine pulled out, deep metallic scrape and a heavy catch clack, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.reload.in",
+      "duration": 1.8,
+      "prompt": "a heavy loaded .50 calibre magazine pushed up into a rifle receiver until it locks, then the bolt handle drawn fully back and let slam forward, very heavy steel, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.empty",
+      "duration": 0.9,
+      "prompt": "the trigger of an empty .50 calibre rifle pulled on a locked-back bolt, one deep heavy dry click with a long steel ring, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.mag.floor",
+      "duration": 1.4,
+      "prompt": "a heavy empty .50 calibre steel rifle magazine dropped onto a bare concrete floor, one very heavy metallic bang with almost no bounce, close, dry, no voice"
+    },
+    {
       "name": "vo.silver.announcer.scene-show.2",
       "voice": "announcer",
       "say": "Ladies and gentlemen \u2014 the Silver Room is proud \u2014 the Midnight Pines."
@@ -6240,156 +6390,6 @@
       "name": "vo.beefrun.sasole.bark-finalFlare-3.1",
       "voice": "lou2",
       "say": "Small pull. Keep it straight. Let her settle."
-    },
-    {
-      "name": "weapon.revolver.fire",
-      "duration": 1.8,
-      "prompt": "a single .45 Colt revolver fired in a bare concrete cellar, deep flat crack with a hard mechanical hammer fall under it, tight low-ceiling slap and a short tail, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.reload.out",
-      "duration": 1.4,
-      "prompt": "a heavy revolver cylinder swung out on its crane and the ejector rod pushed hard, six spent brass cases lifting free and tumbling out together, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.reload.in",
-      "duration": 1.6,
-      "prompt": "six rounds dropped into a revolver cylinder from a speedloader, the loader knob twisted and pulled away, cylinder snapped shut on a steel frame, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.empty",
-      "duration": 0.7,
-      "prompt": "the hammer of an empty heavy revolver falling on a spent chamber, one dry mechanical click with a faint frame ring, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.mag.floor",
-      "duration": 1.2,
-      "prompt": "six spent brass revolver cases hitting a bare concrete floor and rolling, bright scattered metallic clinks settling to stillness, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.fire",
-      "duration": 1.3,
-      "prompt": "a single 9mm semi-automatic pistol shot fired indoors, sharp flat crack with the slide cycling and locking back into it, small room reflection, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.reload.out",
-      "duration": 0.8,
-      "prompt": "a magazine release pressed on a polymer 9mm pistol and an empty steel magazine dropping clear of the magwell, one catch click and a light metallic slide, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.reload.in",
-      "duration": 1.0,
-      "prompt": "a full 9mm magazine seated hard into a polymer pistol grip and the slide released forward onto a round, firm palm slap then a fast metallic snap, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.empty",
-      "duration": 0.6,
-      "prompt": "the trigger of an empty 9mm pistol pulled on a locked-back slide, one small dry mechanical click, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.mag.floor",
-      "duration": 1.0,
-      "prompt": "an empty steel pistol magazine dropped from waist height onto a bare concrete floor, one hard metallic knock, a short bounce and a settle, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.fire",
-      "duration": 1.6,
-      "prompt": "a single 5.56 carbine shot fired inside a low concrete cellar, extremely sharp controlled report with violent early reflections and a hard architectural tail, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.reload.out",
-      "duration": 1.0,
-      "prompt": "a magazine catch pressed on an aluminium carbine receiver and a polymer magazine pulled out of the well, one plastic-on-metal scrape and a catch click, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.reload.in",
-      "duration": 1.4,
-      "prompt": "a full polymer carbine magazine rocked into the magwell and slapped home, bolt catch paddle struck and the bolt running forward on a round, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.empty",
-      "duration": 0.6,
-      "prompt": "the trigger of an empty carbine pulled on a locked-back bolt, one sharp dry mechanical click, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.mag.floor",
-      "duration": 1.1,
-      "prompt": "an empty polymer rifle magazine dropped onto a bare concrete floor, one dull plastic knock with a metal floorplate tick and a short skid, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.fire",
-      "duration": 1.8,
-      "prompt": "a single 7.62 AK rifle shot fired indoors, deep heavy crack with more low end than a 5.56 and a loose stamped-steel rattle after it, hard room slap, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.reload.out",
-      "duration": 1.1,
-      "prompt": "a curved steel AK magazine rocked forward out of the magwell and pulled clear, a heavy paddle catch clacking and steel scraping steel, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.reload.in",
-      "duration": 1.4,
-      "prompt": "a loaded steel AK magazine rocked in front-first and levered back until the catch clacks shut, then the charging handle pulled and released, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.empty",
-      "duration": 0.7,
-      "prompt": "the trigger of an empty AK pulled on a closed bolt, one loud dry mechanical clack with a stamped-receiver ring, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.mag.floor",
-      "duration": 1.2,
-      "prompt": "an empty steel AK magazine dropped onto a bare concrete floor, one bright hard metallic clang with a rattling ring and a settle, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.fire",
-      "duration": 1.6,
-      "prompt": "a single belt-fed light machine gun shot fired indoors, heavy deep report with the open bolt slamming and a belt link tinkling free, hard concrete slap, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.reload.out",
-      "duration": 1.8,
-      "prompt": "the feed tray cover of a belt-fed machine gun lifted open and an empty plastic ammunition box unclipped and pulled off the receiver, latch clack, plastic scrape, loose belt links dragging, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.reload.in",
-      "duration": 2.4,
-      "prompt": "a full ammunition box clipped under a machine gun, a belt laid into the feed tray and the tray cover slammed shut, then the charging handle pulled and released, heavy metal throughout, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.empty",
-      "duration": 0.8,
-      "prompt": "the trigger of a belt-fed machine gun pulled with the belt run out, one heavy dry mechanical clack from an open bolt on nothing, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.mag.floor",
-      "duration": 1.3,
-      "prompt": "an empty plastic machine-gun ammunition box dropped onto a bare concrete floor, dull hollow plastic thump with loose belt links rattling inside it, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.fire",
-      "duration": 2.6,
-      "prompt": "a single .50 calibre anti-materiel rifle fired inside a concrete room, enormous concussive blast through a muzzle brake, chest-punching low end, violent room slap and a long ringing tail, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.reload.out",
-      "duration": 1.4,
-      "prompt": "a magazine catch pressed on a heavy .50 calibre rifle and a long steel ten-round magazine pulled out, deep metallic scrape and a heavy catch clack, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.reload.in",
-      "duration": 1.8,
-      "prompt": "a heavy loaded .50 calibre magazine pushed up into a rifle receiver until it locks, then the bolt handle drawn fully back and let slam forward, very heavy steel, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.empty",
-      "duration": 0.9,
-      "prompt": "the trigger of an empty .50 calibre rifle pulled on a locked-back bolt, one deep heavy dry click with a long steel ring, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.mag.floor",
-      "duration": 1.4,
-      "prompt": "a heavy empty .50 calibre steel rifle magazine dropped onto a bare concrete floor, one very heavy metallic bang with almost no bounce, close, dry, no voice"
     },
     {
       "name": "woo.up",
@@ -9594,6 +9594,630 @@
       "name": "vo.bing2.snow.not-here",
       "voice": "snow",
       "say": "Not here. And not before the graveyard."
+    },
+    {
+      "name": "vo.bing2.party.till.booski.1",
+      "voice": "booski",
+      "say": "Eight months, and the first thing the man does is look at my till."
+    },
+    {
+      "name": "vo.bing2.party.till.willy",
+      "voice": "willy",
+      "say": "Did he touch it?"
+    },
+    {
+      "name": "vo.bing2.party.till.booski.2",
+      "voice": "booski",
+      "say": "He LOOKED at it, Willy. Looking is the front half of touching."
+    },
+    {
+      "name": "vo.bing2.party.prosperous.hotdog.1",
+      "voice": "hotdog",
+      "say": "Booski! You got fat."
+    },
+    {
+      "name": "vo.bing2.party.prosperous.booski",
+      "voice": "booski",
+      "say": "I got PROSPEROUS, baby. Learn the difference."
+    },
+    {
+      "name": "vo.bing2.party.prosperous.hotdog.2",
+      "voice": "hotdog",
+      "say": "Same shirt, though."
+    },
+    {
+      "name": "vo.bing2.party.its-a-party.lou.1",
+      "voice": "lou1",
+      "say": "Ape. It is a party."
+    },
+    {
+      "name": "vo.bing2.party.its-a-party.ape",
+      "voice": "ape",
+      "say": "It is a party."
+    },
+    {
+      "name": "vo.bing2.party.its-a-party.lou.2",
+      "voice": "lou1",
+      "say": "Say it again like a man who believes it."
+    },
+    {
+      "name": "vo.bing2.party.cake-rule.gratin.1",
+      "voice": "gratin",
+      "say": "Nobody cuts that cake before Hog Mama. It is not a rule, it is a fact about the cake."
+    },
+    {
+      "name": "vo.bing2.party.cake-rule.irish",
+      "voice": "irish",
+      "say": "So a corner piece is\u2014"
+    },
+    {
+      "name": "vo.bing2.party.cake-rule.gratin.2",
+      "voice": "gratin",
+      "say": "Facts do not have corners, Irish."
+    },
+    {
+      "name": "vo.bing2.party.frame-drops.lag.1",
+      "voice": "lag",
+      "say": "These lights are on the same circuit as the walk-in. You can see the frame drops."
+    },
+    {
+      "name": "vo.bing2.party.frame-drops.stove",
+      "voice": "old-stove",
+      "say": "That is a fridge, son."
+    },
+    {
+      "name": "vo.bing2.party.frame-drops.lag.2",
+      "voice": "lag",
+      "say": "That is what a fridge wants you to think."
+    },
+    {
+      "name": "vo.bing2.party.came-home-with-money.seff.1",
+      "voice": "seff",
+      "say": "Somebody tell me Billy came home with money."
+    },
+    {
+      "name": "vo.bing2.party.came-home-with-money.stove",
+      "voice": "old-stove",
+      "say": "I am not here."
+    },
+    {
+      "name": "vo.bing2.party.came-home-with-money.seff.2",
+      "voice": "seff",
+      "say": "That is not a no. I am taking that as not a no."
+    },
+    {
+      "name": "vo.bing2.party.thats-a-bar.rippin.1",
+      "voice": "rippinflow",
+      "say": "Closed room, open bar, nobody eating \u2014 uh. That is a bar. That is free."
+    },
+    {
+      "name": "vo.bing2.party.thats-a-bar.sasole",
+      "voice": "lou2",
+      "say": "You told me you stopped."
+    },
+    {
+      "name": "vo.bing2.party.thats-a-bar.rippin.2",
+      "voice": "rippinflow",
+      "say": "I did stop. It happens to me."
+    },
+    {
+      "name": "vo.bing2.party.off-the-record.eric.1",
+      "voice": "eric",
+      "say": "Off the record. Is he the same? Eight months changes people."
+    },
+    {
+      "name": "vo.bing2.party.off-the-record.numbskull",
+      "voice": "numbskull",
+      "say": "He is louder."
+    },
+    {
+      "name": "vo.bing2.party.off-the-record.eric.2",
+      "voice": "eric",
+      "say": "That is not the direction I was hoping for."
+    },
+    {
+      "name": "vo.bing2.party.glad.numbskull.1",
+      "voice": "numbskull",
+      "say": "Is a welcome-home party for being glad, or for being seen being glad?"
+    },
+    {
+      "name": "vo.bing2.party.glad.rippin",
+      "voice": "rippinflow",
+      "say": "Yes."
+    },
+    {
+      "name": "vo.bing2.party.glad.numbskull.2",
+      "voice": "numbskull",
+      "say": "Okay. I can do both of them."
+    },
+    {
+      "name": "vo.bing2.party.nose-out.snow.1",
+      "voice": "snow",
+      "say": "Car is out back. Nose out."
+    },
+    {
+      "name": "vo.bing2.party.nose-out.aubbie",
+      "voice": "aubbie",
+      "say": "For a party."
+    },
+    {
+      "name": "vo.bing2.party.nose-out.snow.2",
+      "voice": "snow",
+      "say": "For a party."
+    },
+    {
+      "name": "vo.bing2.party.basket.deathmegatron.1",
+      "voice": "deathmegatron",
+      "say": "Phones in the basket. Both of yours, Booski."
+    },
+    {
+      "name": "vo.bing2.party.basket.booski",
+      "voice": "booski",
+      "say": "One of those is a calculator."
+    },
+    {
+      "name": "vo.bing2.party.basket.deathmegatron.2",
+      "voice": "deathmegatron",
+      "say": "In the basket."
+    },
+    {
+      "name": "vo.bing2.party.rhyming.hotdog.1",
+      "voice": "hotdog",
+      "say": "Rippin! You still doing the rhyming thing?"
+    },
+    {
+      "name": "vo.bing2.party.rhyming.rippin",
+      "voice": "rippinflow",
+      "say": "Nah."
+    },
+    {
+      "name": "vo.bing2.party.rhyming.hotdog.2",
+      "voice": "hotdog",
+      "say": "Good. It was never good."
+    },
+    {
+      "name": "vo.bing2.party.somebody-says-something.sasole",
+      "voice": "lou2",
+      "say": "Forty years of these. Somebody always says something."
+    },
+    {
+      "name": "vo.bing2.party.somebody-says-something.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Somebody always does."
+    },
+    {
+      "name": "vo.bing2.party.spotter.shubenator",
+      "voice": "shubenator",
+      "say": "I asked Lou for a spotter and he gave me a spotlight. Different discipline, same commitment."
+    },
+    {
+      "name": "vo.bing2.party.microphone.hogmama",
+      "voice": "hogmama",
+      "say": "Whoever set this microphone at this height is a coward, and I will find them."
+    },
+    {
+      "name": "vo.bing2.party.ears.willy",
+      "voice": "willy",
+      "say": "I would tell you where I have been, but this room has ears and two of them came home tonight."
+    },
+    {
+      "name": "vo.bing2.party.utensils.gratin",
+      "voice": "gratin",
+      "say": "He has touched every serving utensil on that table. I have re-laid it twice."
+    },
+    {
+      "name": "vo.bing2.party.eight-months.ape",
+      "voice": "ape",
+      "say": "Eight months. People are acting like he came back from a war."
+    },
+    {
+      "name": "vo.bing2.party.eggs.irish",
+      "voice": "irish",
+      "say": "Nobody has asked me where the eggs come from tonight. Nobody. In a room this size."
+    },
+    {
+      "name": "vo.bing2.cleanup.stool.numbskull",
+      "voice": "numbskull",
+      "say": "The stool broke on its own. That is what I am saying if anybody asks."
+    },
+    {
+      "name": "vo.bing2.cleanup.stool.rippin",
+      "voice": "rippinflow",
+      "say": "Nobody is going to ask."
+    },
+    {
+      "name": "vo.bing2.cleanup.counting.booski",
+      "voice": "booski",
+      "say": "Cufflink, pin, tab. Cufflink, pin, tab."
+    },
+    {
+      "name": "vo.bing2.cleanup.bleach.gratin",
+      "voice": "gratin",
+      "say": "Bleach in the mop water, not on the carpet. On the carpet it leaves a shape."
+    },
+    {
+      "name": "vo.bing2.cleanup.photograph.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Phones stay in the basket. Nobody took a photograph tonight."
+    },
+    {
+      "name": "vo.bing2.cleanup.whole-night.sasole",
+      "voice": "lou2",
+      "say": "He came, he had cake, he left early. That is the whole night."
+    },
+    {
+      "name": "vo.bing2.cleanup.never-comes-up.willy",
+      "voice": "willy",
+      "say": "This never comes up again. That is understood, yeah? Never comes up."
+    },
+    {
+      "name": "vo.bing2.cleanup.second-pass.shubenator",
+      "voice": "shubenator",
+      "say": "Second pass on the floor. Honestly, it is good for the shoulders."
+    },
+    {
+      "name": "vo.bing2.cleanup.thirty-years.hogmama",
+      "voice": "hogmama",
+      "say": "Thirty years of rooms. Never once had to help fold one."
+    },
+    {
+      "name": "vo.bing2.cleanup.suspicious.irish",
+      "voice": "irish",
+      "say": "Nobody is ever going to look into this, and THAT is the part I find suspicious."
+    },
+    {
+      "name": "vo.bing2.cleanup.battery.eric",
+      "voice": "eric",
+      "say": "The battery is in my pocket. Ask me in an hour, same answer."
+    },
+    {
+      "name": "vo.bing2.cleanup.lined.snow",
+      "voice": "snow",
+      "say": "Trunk is lined. When he is wrapped he goes straight in."
+    },
+    {
+      "name": "vo.bing2.cleanup.two-bags.aubbie",
+      "voice": "aubbie",
+      "say": "Two bags. One for cloth, one for glass. Do not mix them."
+    },
+    {
+      "name": "vo.bing2.cleanup.booth.ape",
+      "voice": "ape",
+      "say": "I am staying in the booth. Lou knows where I am."
+    },
+    {
+      "name": "vo.bing2.cleanup.mattresses.seff",
+      "voice": "seff",
+      "say": "So the mattress thing is off, then. That is what I am hearing."
+    },
+    {
+      "name": "vo.bing2.react.numbskull.sanitizer",
+      "voice": "numbskull",
+      "say": "He did! I watched him do it!"
+    },
+    {
+      "name": "vo.bing2.react.gratin.choke",
+      "voice": "gratin",
+      "say": "I have wine in my lung."
+    },
+    {
+      "name": "vo.bing2.react.ape.deposit",
+      "voice": "ape",
+      "say": "She has got you, Lou."
+    },
+    {
+      "name": "vo.bing2.react.eric.tape",
+      "voice": "eric",
+      "say": "Tape is rolling. For the family album."
+    },
+    {
+      "name": "vo.bing2.react.willy.cake",
+      "voice": "willy",
+      "say": "Billy. Billy, eat your cake."
+    },
+    {
+      "name": "vo.bing2.attack.numbskull",
+      "voice": "numbskull",
+      "say": "Ape\u2014 Ape, that is enough\u2014"
+    },
+    {
+      "name": "vo.bing2.attack.gratin",
+      "voice": "gratin",
+      "say": "I am looking at the kitchen."
+    },
+    {
+      "name": "vo.bing2.attack.willy",
+      "voice": "willy",
+      "say": "I am not seeing this. I want that noted."
+    },
+    {
+      "name": "vo.bing2.attack.sasole",
+      "voice": "lou2",
+      "say": "Somebody move the cake."
+    },
+    {
+      "name": "vo.bing2.attack.hogmama",
+      "voice": "hogmama",
+      "say": "I am going to take five."
+    },
+    {
+      "name": "vo.bing2.attack.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "That has been coming since the brush.",
+      "direction": "Quiet, comfortable, and a little pleased. He is the only person in the room enjoying this and he is not hiding it well."
+    },
+    {
+      "name": "vo.bing2.attack.seff",
+      "voice": "seff",
+      "say": "This is a bad time to bring up my situation."
+    },
+    {
+      "name": "vo.bing2.attack.eric",
+      "voice": "eric",
+      "say": "Camera is off. It is off. It has been off."
+    },
+    {
+      "name": "vo.bing2.attack.irish",
+      "voice": "irish",
+      "say": "See, this is what I mean about nobody finishing a story."
+    },
+    {
+      "name": "vo.bing2.attack.booski",
+      "voice": "booski",
+      "say": "One cufflink. There is a cufflink on the floor."
+    },
+    {
+      "name": "vo.bing2.attack.snow",
+      "voice": "snow",
+      "say": "I will bring the car round. Nose out."
+    },
+    {
+      "name": "vo.bing2.attack.aubbie",
+      "voice": "aubbie",
+      "say": "Nobody walks east of that stool."
+    },
+    {
+      "name": "vo.bing2.attack.rippin",
+      "voice": "rippinflow",
+      "say": "Not a bar. Nothing about that is a bar."
+    },
+    {
+      "name": "vo.bing2.walkup.party.booski.1",
+      "voice": "booski",
+      "say": "Lou put me on the door money AND the bar money. One man, two piles. It is a compliment and a punishment."
+    },
+    {
+      "name": "vo.bing2.walkup.party.booski.2",
+      "voice": "booski",
+      "say": "Say hello to Billy. Say it fast and keep walking. That is the play."
+    },
+    {
+      "name": "vo.bing2.walkup.party.willy",
+      "voice": "willy",
+      "say": "HotDog got louder in county. I did not know that was medically possible."
+    },
+    {
+      "name": "vo.bing2.walkup.party.eric",
+      "voice": "eric",
+      "say": "The camera is old. Tape, not cloud. That is good now, apparently."
+    },
+    {
+      "name": "vo.bing2.walkup.party.gratin",
+      "voice": "gratin",
+      "say": "HotDog touched every serving utensil. Every one."
+    },
+    {
+      "name": "vo.bing2.walkup.party.snow",
+      "voice": "snow",
+      "say": "Cold in here. Good."
+    },
+    {
+      "name": "vo.bing2.walkup.party.aubbie",
+      "voice": "aubbie",
+      "say": "Microphone cable is fixed. Do not step on the new splice."
+    },
+    {
+      "name": "vo.bing2.walkup.party.ape",
+      "voice": "ape",
+      "say": "Prospect. Have a drink, stand somewhere with a wall behind it, and enjoy the evening."
+    },
+    {
+      "name": "vo.bing2.walkup.party.rippin",
+      "voice": "rippinflow",
+      "say": "Prospect walks in with a job face on \u2014 nah. Not tonight. Tonight I am a guest."
+    },
+    {
+      "name": "vo.bing2.walkup.party.numbskull",
+      "voice": "numbskull",
+      "say": "I made a card. It is in my jacket. I am waiting for a good moment and there has not been one."
+    },
+    {
+      "name": "vo.bing2.walkup.party.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Phone in the basket, kid. Everybody. It is a party, not a deposition."
+    },
+    {
+      "name": "vo.bing2.walkup.party.hogmama",
+      "voice": "hogmama",
+      "say": "Thirty seconds, baby. Somebody has to run that light board and it is not going to be me."
+    },
+    {
+      "name": "vo.bing2.walkup.party.shubenator",
+      "voice": "shubenator",
+      "say": "Great turnout. Great energy. Slightly low protein, but great energy."
+    },
+    {
+      "name": "vo.bing2.walkup.party.sasole",
+      "voice": "lou2",
+      "say": "I flew in for this. I could have flown in for something else."
+    },
+    {
+      "name": "vo.bing2.walkup.party.irish",
+      "voice": "irish",
+      "say": "Sit down, sit down. So the egg\u2014 no, wait, you have got the walk on. Go on, then. Later."
+    },
+    {
+      "name": "vo.bing2.walkup.party.stove",
+      "voice": "old-stove",
+      "say": "Nice party. I would not know. I am not here."
+    },
+    {
+      "name": "vo.bing2.walkup.party.lag",
+      "voice": "lag",
+      "say": "Everyone is standing in the same six feet of this room. Terrible spread. You get wiped by one grenade."
+    },
+    {
+      "name": "vo.bing2.walkup.party.seff",
+      "voice": "seff",
+      "say": "Quick thing. You are close with Lou now. Forget it. Later. It is a calendar thing."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.booski",
+      "voice": "booski",
+      "say": "One cufflink, one pin, one tab. I am counting because nobody else can count under pressure."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.snow.1",
+      "voice": "snow",
+      "say": "Route is clear. Graveyard first. Motel after."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.snow.2",
+      "voice": "snow",
+      "say": "The shovel made sense when I picked it up."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.aubbie",
+      "voice": "aubbie",
+      "say": "Correct plastic is in storage. The shower curtain was Lawnmower."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.hogmama",
+      "voice": "hogmama",
+      "say": "The cake did not kill anybody and I am not throwing it out."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.gratin",
+      "voice": "gratin",
+      "say": "The kitchen stays hot. Bleach smells like bleach; onions smell like business."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Phone in the basket. Door stays locked."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.rippin",
+      "voice": "rippinflow",
+      "say": "Ape stays in the booth. HotDog stays wherever we put him."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.numbskull",
+      "voice": "numbskull",
+      "say": "Do we load the broken stool before or after the person?"
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.ape",
+      "voice": "ape",
+      "say": "I am not going to explain it to you. Lou will, when he wants you to know."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.shubenator",
+      "voice": "shubenator",
+      "say": "I have got the back hall. Mop, bucket, no complaints. Everybody has a lift they are good at."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.sasole",
+      "voice": "lou2",
+      "say": "You will sleep. Everybody says they will not, and then everybody does."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.willy",
+      "voice": "willy",
+      "say": "I was in the bathroom. Whole time. That is not a lie I am telling, that is a lie I am practising."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.irish",
+      "voice": "irish",
+      "say": "Eight months he was away and eleven minutes he was back. Somebody should look into that. Nobody will."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.stove",
+      "voice": "old-stove",
+      "say": "Wipe it down twice. Once is for you, twice is for the fella who comes after you."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.lag",
+      "voice": "lag",
+      "say": "I have carried worse. Different weight class, obviously."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.seff",
+      "voice": "seff",
+      "say": "Nobody is going to want the mattresses now. That is what gets me about tonight."
+    },
+    {
+      "name": "vo.bing2.shubenator.nudge",
+      "voice": "shubenator",
+      "say": "Prospect. Stage controls. Before Hog Mama starts without electricity.",
+      "direction": "Shouted across a loud room, cheerfully, with no sense that he is nagging."
+    },
+    {
+      "name": "vo.bing2.lou.enjoy",
+      "voice": "lou1",
+      "say": "Enjoy the party, Prospect. That is an order with a very short shelf life."
+    },
+    {
+      "name": "vo.bing2.lou.briefing",
+      "voice": "lou1",
+      "say": "Prospect. Both bathrooms, Aubbie's kit, and every piece of him that came off. Then me.",
+      "direction": "Turning panic into departments. Flat, fast, and completely unbothered."
+    },
+    {
+      "name": "vo.bing2.lou.not_swept",
+      "voice": "lou1",
+      "say": "That is not a swept room. Finish it and come back to me."
+    },
+    {
+      "name": "vo.bing2.lou.wrap_him",
+      "voice": "lou1",
+      "say": "Wrap him. Snow gets the keys.",
+      "direction": "He checks the whole room once, slowly, and only then says it. Quiet, final, and entirely ordinary to him."
+    },
+    {
+      "name": "vo.bing2.lou.closed_not_clean",
+      "voice": "lou1",
+      "say": "It looks closed. That is not the same as clean, and closed is what I asked for."
+    },
+    {
+      "name": "vo.bing2.aubbie.kit",
+      "voice": "aubbie",
+      "say": "Everything in that case is labelled. Use what is labelled."
+    },
+    {
+      "name": "vo.bing2.booski.evidence.1",
+      "voice": "booski",
+      "say": "That is one. There is another one somewhere and it is ruining my night."
+    },
+    {
+      "name": "vo.bing2.booski.evidence.2",
+      "voice": "booski",
+      "say": "That is both. Tell Lou it is both, and tell him I counted."
+    },
+    {
+      "name": "vo.bing2.rippin.shoulders",
+      "voice": "rippinflow",
+      "say": "I have got the shoulders. You have got the legs. On me."
+    },
+    {
+      "name": "vo.bing2.aubbie.wrapped",
+      "voice": "aubbie",
+      "say": "Tight, covered, nothing loose. He travels now."
+    },
+    {
+      "name": "vo.bing2.snow.trunk",
+      "voice": "snow",
+      "say": "Trunk is open. You and Numbskull, on three."
     },
     {
       "name": "vo.graveyard.arrival.snow.1",

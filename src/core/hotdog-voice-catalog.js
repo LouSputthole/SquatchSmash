@@ -1,3 +1,4 @@
+import { HOTDOG_SPEAKERS, hotDogRoomVoiceLines } from '../bing/hotdog-room-voices.js';
 import { buildHotDogPartySequence } from '../bing/second-visit.js';
 import {
   GRAVEYARD_ARRIVAL_LINES,
@@ -11,21 +12,18 @@ import {
  * stable manifest voice profile. Keep that translation here so the runtime
  * scripts remain the sole authority for cue ids and spoken words.
  *
- * Lawnmower is Snow in this sequence and therefore keeps Snow?s locked voice.
- * Echo is a scene/history role with a dedicated profile so a recording can be
- * recast later without rewriting a cue or splitting Eric into Ericran.
+ * The party floor's casting is `HOTDOG_SPEAKERS`, which is also what the
+ * runtime resolves a speaker to a body with -- one table means a name cannot
+ * be cast one way for the recording sheet and another way on screen. Lawnmower
+ * is Snow there and keeps Snow's locked voice. Echo is added here because he
+ * only exists in the graveyard: a scene/history role with a dedicated profile
+ * so a recording can be recast later without rewriting a cue or splitting Eric
+ * into Ericran.
  */
 export const HOTDOG_VOICE_BY_SPEAKER = Object.freeze({
-  Shubenator: 'shubenator',
-  'Hog Mama': 'hogmama',
-  Lawnmower: 'snow',
-  'Billy HotDog': 'hotdog',
-  Ape: 'ape',
-  'Big Uncle Lou': 'lou1',
-  Rippinflow: 'rippinflow',
-  Prospect: 'player',
-  Aubbie: 'aubbie',
-  Snow: 'snow',
+  ...Object.fromEntries(
+    Object.entries(HOTDOG_SPEAKERS).map(([name, casting]) => [name, casting.voice]),
+  ),
   Echo: 'echo',
 });
 
@@ -49,8 +47,21 @@ function unique(lines) {
   return Object.freeze([...byCue.values()]);
 }
 
+/**
+ * The whole closed party: the authored spine, plus everything the room says
+ * around it.
+ *
+ * `hotDogRoomVoiceLines()` is the ambient party chatter, the reactions to the
+ * beating, the cleanup floor and every walk-up. Those used to be HUD prose or
+ * silent `say()` calls with no words at all, so none of them could ever be
+ * recorded; collecting them here is what puts them on the recording sheet.
+ */
 export function hotDogPartyVoiceLines() {
-  return unique(buildHotDogPartySequence().map((beat) => catalogLine({
+  const authored = [
+    ...buildHotDogPartySequence(),
+    ...hotDogRoomVoiceLines(),
+  ];
+  return unique(authored.map((beat) => catalogLine({
     cue: beat.cue,
     text: beat.line,
     speaker: beat.who,

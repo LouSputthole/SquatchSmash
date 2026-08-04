@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { AudioEngine } from '../core/audio.js';
 import { AuthoredClock } from '../core/authored-clock.js';
 import {
+  CHARACTER_IDS,
   MISSION_IDS,
   SCENE_IDS,
   TIME_EVENT_IDS,
@@ -22,8 +23,14 @@ import {
   createHotDogAttack,
 } from './hotdog-attack.js';
 import { hotDogAudioLoadOptions } from './hotdog-audio.js';
+import { createHotDogChatter } from './hotdog-chatter.js';
 import { restoreHotDogCleanupPresentation } from './hotdog-cleanup-presentation.js';
 import { buildHotDogParty } from './hotdog-party.js';
+import {
+  HOTDOG_SPEAKERS,
+  HOTDOG_STAGED_LINES,
+  HOTDOG_WALKUP_LINES,
+} from './hotdog-room-voices.js';
 import {
   SECOND_VISIT_CLEANUP_TASKS,
   SecondVisitMission,
@@ -132,10 +139,14 @@ const state = {
 };
 
 let mission = null;
+let chatter = null;
 mission = new SecondVisitMission({
   onObjective: repaintObjectives,
   onMessage: (text) => hud.toast(text, ''),
   onNote: (text) => hud.say(text, 4200),
+  // The Shubenator is standing at the stage; he shouts it rather than the HUD
+  // printing his name and his words at a man who can see him.
+  onNudge: (line) => chatter?.interrupt(line),
 });
 
 function repaintObjectives() {
@@ -151,6 +162,25 @@ function repaintObjectives() {
 repaintObjectives();
 window.__squatchStage?.('Assigning party reactions...');
 
+/**
+ * The room's own voice.
+ *
+ * Everything the closed party says that the director does not: the overheard
+ * conversations before the set, the reactions to what Ape does, and the
+ * cleanup floor. It reads `state.director` to know when it must be quiet, so
+ * there is exactly one thing in this scene that decides who owns the room.
+ */
+chatter = createHotDogChatter({
+  player,
+  hud,
+  state,
+  sequence,
+  mission,
+  speakerActor: (name) => actorFor(name),
+  playCue: (cue) => playCue(cue),
+  cueSeconds: (cue) => cueSeconds(cue),
+});
+
 function cueSeconds(name) {
   const bank = audio.buffers?.get(name);
   return bank?.length ? bank[0].duration : 0;
@@ -164,6 +194,23 @@ function playCue(name) {
   const source = audio.play(name, { volume: 0.9 });
   audio._vo = source;
   return true;
+}
+
+/**
+ * Somebody says it, and the screen clarifies afterwards -- never both on the
+ * same frame.
+ *
+ * docs/TONE-AND-PARODY.md is explicit about this: a HUD instruction never
+ * replaces a character, and showing the instruction while the character is
+ * still setting it up reads as the game talking over its own cast. So the
+ * checklist, the button and the route arrows all wait for the line to land.
+ * `sayThenInstruct` in src/silvercase/main.js is the same shape.
+ */
+function speakThenNote(line, note, ms = 4200) {
+  const seconds = chatter.interrupt(line);
+  if (!note) return seconds;
+  setTimeout(() => hud.say(note, ms), Math.round(Math.max(0, seconds + 0.15) * 1000));
+  return seconds;
 }
 
 function setCinematicShot(name, eye, look) {
@@ -231,18 +278,27 @@ function directBeatCamera(beat) {
   }
 }
 
+/* Everybody on the floor who can be given a line, keyed the way the campaign
+ * keys people. Lou, Billy and Aubbie are built by the party rather than by the
+ * Family roster, so they are folded in here rather than looked up separately. */
+const partyActors = {
+  ...party.byId,
+  [CHARACTER_IDS.LOU]: party.extra.lou,
+  [CHARACTER_IDS.BILLY_HOTDOG]: party.extra.hotdog,
+  [CHARACTER_IDS.AUBBIE]: party.extra.aubbie,
+};
+
+/**
+ * Resolve a subtitle name to the body that says it.
+ *
+ * Exact name through the casting table, never a substring match: "Captain Lou
+ * Sasole" contains "lou", so the old test resolved him to Big Uncle Lou and
+ * would have put one man's lines in the other man's mouth the moment either
+ * of them was given ambient dialogue. They are two people with two voices.
+ */
 function actorFor(name) {
-  const normalized = String(name).toLowerCase();
-  if (normalized.includes('lou')) return party.extra.lou;
-  if (normalized.includes('hotdog')) return party.extra.hotdog;
-  if (normalized === 'ape') return party.byId.ape;
-  if (normalized.includes('hog mama')) return party.byId.hogmama;
-  if (normalized.includes('shubenator')) return party.byId.shubenator;
-  if (normalized.includes('rippin')) return party.byId.rippinflow;
-  if (normalized.includes('lawnmower')) return party.extra.lawnmower;
-  if (normalized.includes('aubbie')) return party.extra.aubbie;
-  if (normalized.includes('snow')) return party.byId.snow;
-  return null;
+  const characterId = HOTDOG_SPEAKERS[name]?.characterId;
+  return characterId ? partyActors[characterId] ?? null : null;
 }
 
 function showLine(beat) {
@@ -273,6 +329,11 @@ function hideLine() {
 
 function react(reaction) {
   const all = party.all;
+  /* The staging below is heads, eyelines and one man walking to a mark. What
+   * these people actually SAY is authored beside the reaction and lands in the
+   * pause after the beat that provoked it -- `buildHotDogPartySequence()`
+   * widens that pause by exactly the length of the answer. */
+  chatter.reactToBeat(reaction);
   if (reaction === 'numbskull-early-laugh') party.byId.numbskull?.say(2.5);
   if (reaction === 'gratin-choke') {
     const gratin = party.byId.gratin;
@@ -382,6 +443,31 @@ const attack = createHotDogAttack({
   },
 });
 
+/**
+ * What the rest of the party does with its head while Ape works.
+ *
+ * Most of them turn to the noise. Gratin, Old Stove and Lag turn away from it,
+ * which is a pose and not a line -- what each of them says is queued behind
+ * this and comes out either side of the aftermath beats.
+ */
+function turnRoomToTheAttack() {
+  const hotdog = party.extra.hotdog;
+  const ape = party.byId.ape;
+  const lookAway = new Set([
+    party.byId[CHARACTER_IDS.GRATIN],
+    party.byId[CHARACTER_IDS.OLD_STOVE],
+    party.byId[CHARACTER_IDS.LAG],
+  ].filter(Boolean));
+  for (const npc of party.all) {
+    if (npc === ape || npc === hotdog) continue;
+    if (lookAway.has(npc)) {
+      npc.faceToward(npc.position.x * 2 - hotdog.position.x, npc.position.z * 2 - hotdog.position.z);
+    } else {
+      npc.faceToward(hotdog.position.x, hotdog.position.z);
+    }
+  }
+}
+
 function stageAttack() {
   if (state.fallen || attack.active || !mission.startAttack()) return false;
   const hotdog = party.extra.hotdog;
@@ -396,6 +482,8 @@ function stageAttack() {
   hotdog.group.position.set(-15.8, 0, -0.45);
   hotdog.faceToward(ape.position.x, ape.position.z, true);
   audio.play('hotdog.knife.draw', { volume: 0.68, position: ape.position });
+  turnRoomToTheAttack();
+  chatter.startAttackReactions();
   state.director.waitingForAttack = true;
   return attack.start();
 }
@@ -427,7 +515,10 @@ function assignCleanupRoles() {
   set(party.byId.snow, 6.45, -8.2, 'stand', Math.PI);
   set(party.extra.sauce, -3.6, 6.2, 'work', -2.6);
   party.byId.eric.group.visible = false;
-  hud.say('Lou turns panic into departments. Your part is on the board.', 4800);
+  /* Lou turns panic into departments, and he does it out loud. Queued rather
+   * than spoken now: the aftermath beats are still running, and the chatter
+   * only takes the room once the director has finished with it. */
+  chatter.queue([HOTDOG_STAGED_LINES.louCleanupBriefing]);
 }
 
 function applyBeatAction(action) {
@@ -551,7 +642,13 @@ interaction.register(party.cleanup.kit, {
     party.cleanup.kit.visible = false;
     completeCleanupTask('cleaning_kit');
     audio.play('cloth.snap', { volume: 0.55, position: party.cleanup.kit.position });
-    hud.say('Plastic sheeting, nitrile gloves, carpet knife, proper chemicals. Aubbie labels everything.', 4300);
+    /* Aubbie calls across the room about his own case; the line under it is
+     * the Prospect looking in the case, which is his to notice and stays HUD. */
+    speakThenNote(
+      HOTDOG_STAGED_LINES.aubbieKitCalled,
+      'Plastic sheeting, nitrile gloves, carpet knife, proper chemicals. Aubbie labels everything.',
+      4300,
+    );
   },
 });
 
@@ -564,9 +661,18 @@ for (const [id, prop] of [['cufflink', party.cleanup.cufflink], ['lapel', party.
       prop.visible = false;
       party.cleanup.evidenceMarkers[id].visible = false;
       audio.play('glass.set', { volume: 0.34, rate: 1.28, position: prop.position });
-      hud.say(id === 'cufflink'
-        ? 'One cufflink. Booski can stop saying “one cufflink.”'
-        : 'The lapel pin was under the stage lip. HotDog travelled farther than expected.', 3600);
+      /* Booski has been counting these out loud since the body hit the floor,
+       * so he is the one who reacts. What the thing is and where it was found
+       * is the Prospect's own read of the carpet and stays on the HUD. */
+      speakThenNote(
+        state.evidence.size === 2
+          ? HOTDOG_STAGED_LINES.booskiEvidenceBoth
+          : HOTDOG_STAGED_LINES.booskiEvidenceFirst,
+        id === 'cufflink'
+          ? 'One cufflink. Booski can stop saying “one cufflink.”'
+          : 'The lapel pin was under the stage lip. HotDog travelled farther than expected.',
+        3600,
+      );
       if (state.evidence.size === 2) completeCleanupTask('missing_evidence');
     },
   });
@@ -576,10 +682,8 @@ interaction.register(party.extra.lou.group, {
   label: () => state.cleanupActive ? 'Report to <b>Lou for the final sweep</b>' : 'Talk to <b>Lou</b>',
   enabled: () => state.phase === 'active' && !state.director.current,
   onUse: () => {
-    party.extra.lou.faceToward(player.position.x, player.position.z);
-    party.extra.lou.say(3);
     if (!state.cleanupActive) {
-      hud.say('Enjoy the party, Prospect. That is an order with a very short shelf life.', 3900);
+      chatter.interrupt(HOTDOG_STAGED_LINES.louPartyGreeting);
       return;
     }
     const prerequisites = ['bathrooms', 'cleaning_kit', 'missing_evidence']
@@ -589,16 +693,23 @@ interaction.register(party.extra.lou.group, {
       if (!mission.cleanup.has('bathrooms')) missing.push('bathrooms');
       if (!mission.cleanup.has('cleaning_kit')) missing.push('Aubbie\'s kit');
       if (!mission.cleanup.has('missing_evidence')) missing.push('HotDog\'s jewelry');
-      hud.say(`Not a sweep. You still owe me: ${missing.join(', ')}.`, 4200);
+      /* He refuses the sweep in his own voice. The list of what is still owed
+       * is a checklist, so it follows him rather than standing in for him --
+       * and it is the part that cannot be a recording, because it depends on
+       * what this particular player has left undone. */
+      speakThenNote(HOTDOG_STAGED_LINES.louSweepIncomplete, `Still owed: ${missing.join(', ')}.`, 4200);
       return;
     }
     if (!state.finalSwept) {
       state.finalSwept = true;
       completeCleanupTask('final_sweep');
       restoreHotDogCleanupPresentation(party, mission.cleanup);
-      hud.say('Lou checks the room once, slowly. “Wrap him. Snow gets the keys.”', 4600);
+      /* The line the owner caught: the HUD used to narrate Lou checking the
+       * room and then quote him, with Lou stood in front of the player saying
+       * nothing. He says it. */
+      chatter.interrupt(HOTDOG_STAGED_LINES.louWrapHim);
     } else {
-      hud.say('The room looks closed, not cleaned. That is the difference Lou wanted.', 3600);
+      chatter.interrupt(HOTDOG_STAGED_LINES.louRoomClosed);
     }
   },
 });
@@ -610,7 +721,7 @@ interaction.register(party.extra.hotdog.group, {
     && state.fallen
     && SECOND_VISIT_CLEANUP_TASKS.every((task) => mission.cleanup.has(task))
     && !state.wrapped,
-  onTap: () => hud.say('Rippin has the shoulders. Hold and take the legs.', 2800),
+  onTap: () => speakThenNote(HOTDOG_STAGED_LINES.rippinWrapPrompt, 'Hold to take the legs.', 2800),
   onUse: () => {
     if (!mission.wrapBody()) return;
     state.wrapped = true;
@@ -619,7 +730,11 @@ interaction.register(party.extra.hotdog.group, {
     party.cleanup.serviceGuide.visible = true;
     audio.play('cloth.snap', { volume: 0.82, position: party.cleanup.wrap.position });
     repaintObjectives();
-    hud.say('Plastic tight, face covered, nothing loose. Follow the amber arrows through the rear-right hall to Snow at the service exit.', 5000);
+    speakThenNote(
+      HOTDOG_STAGED_LINES.aubbieWrapDone,
+      'Follow the amber arrows through the rear-right hall to Snow at the service exit.',
+      5000,
+    );
   },
 });
 
@@ -627,7 +742,7 @@ interaction.register(party.cleanup.loadPad, {
   label: 'Hold to <b>load HotDog into Snow\'s car</b>',
   hold: 1.7,
   enabled: () => state.phase === 'active' && state.wrapped && !state.loaded,
-  onTap: () => hud.say('Snow has the trunk open. Hold and lift with Numbskull.', 3000),
+  onTap: () => speakThenNote(HOTDOG_STAGED_LINES.snowLoadPrompt, 'Hold to lift with Numbskull.', 3000),
   onUse: () => {
     if (!mission.assign('reserve_pickup')) return;
     state.loaded = true;
@@ -651,6 +766,11 @@ interaction.register(party.cleanup.loadPad, {
 });
 window.__squatchStage?.('Checking the service exit...');
 
+/* Which line each person is up to. A second walk-up should be a second
+ * thought, not the same sentence again, and the count is per phase because
+ * the party and the cleanup are two different conversations. */
+const walkUpTurns = new Map();
+
 // Family walk-ups remain short ambient context. They never replace an
 // objective and they shut off while the authored sequence owns the room.
 for (const npc of party.all) {
@@ -659,30 +779,23 @@ for (const npc of party.all) {
     label: () => `Check in with <b>${npc.name}</b>`,
     enabled: () => state.phase === 'active' && !state.director.current && !state.director.waitingForAttack,
     onUse: () => {
+      const phase = state.cleanupActive ? 'cleanup' : 'party';
+      const lines = HOTDOG_WALKUP_LINES[phase][npc.name];
+      if (lines?.length) {
+        const key = `${phase}:${npc.name}`;
+        const turn = walkUpTurns.get(key) ?? 0;
+        walkUpTurns.set(key, turn + 1);
+        chatter.interrupt(lines[turn % lines.length]);
+        return;
+      }
+      /* Nobody has written this one anything, so nobody speaks. What is left
+       * is the Prospect reading a man who is busy, which is his own
+       * observation and belongs on the HUD rather than in somebody's mouth. */
       npc.faceToward(player.position.x, player.position.z);
       npc.say(2.4);
-      const lines = state.cleanupActive
-        ? {
-          Booskibro: 'One cufflink, one pin, one tab. I am counting because nobody else can count under pressure.',
-          Snow: 'Route is clear. Graveyard first. Motel after.',
-          Aubbie: 'Correct plastic is in storage. The shower curtain was Lawnmower.',
-          Lawnmower: 'The shovel made sense when I picked it up.',
-          'Hog Mama': 'The cake did not kill anybody and I am not throwing it out.',
-          Gratin: 'The kitchen stays hot. Bleach smells like bleach; onions smell like business.',
-          DeathMegatron: 'Phone in the basket. Door stays locked.',
-          Rippinflow: 'Ape stays in the booth. HotDog stays wherever we put him.',
-          Numbskull: 'Do we load the broken stool before or after the person?',
-        }
-        : {
-          Willy: 'HotDog got louder in county. I did not know that was medically possible.',
-          Eric: 'The camera is old. Tape, not cloud. That is good now, apparently.',
-          Gratin: 'HotDog touched every serving utensil. Every one.',
-          Snow: 'Cold in here. Good.',
-          Aubbie: 'Microphone cable is fixed. Do not step on the new splice.',
-        };
-      hud.say(lines[npc.name] ?? (state.cleanupActive
+      hud.say(state.cleanupActive
         ? `${npc.name} has a job and no interest in swapping.`
-        : `${npc.name} watches HotDog like a glass set too close to an edge.`), 3800);
+        : `${npc.name} watches HotDog like a glass set too close to an edge.`, 3800);
     },
   });
 }
@@ -805,6 +918,7 @@ const runtime = {
   game,
   state,
   sequence,
+  chatter,
   teleport,
   beginSequence,
   // Focused browser checks use these hooks to exercise the same authored
@@ -932,6 +1046,12 @@ function animate(now) {
     }
     updateRoom();
     updateDirector(dt);
+    /* After the director, so the room can only speak into a silence the
+     * director has already declined to use this frame. `mission.update` is
+     * what eventually gets the Shubenator to shout about the stage controls;
+     * it was never called here, so that nudge could not fire at all. */
+    mission.update(dt);
+    chatter.update(dt);
     for (const npc of party.all) {
       if (state.fallen && npc === party.extra.hotdog) continue;
       npc.update(dt, player.position);

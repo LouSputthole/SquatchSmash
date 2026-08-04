@@ -1,4 +1,5 @@
 import { applyBingVoiceCues } from './script.js';
+import { HOTDOG_STAGED_LINES, hotDogBeatReactionLine } from './hotdog-room-voices.js';
 import { SHUBENATOR_SIGNATURE_TAKES } from '../core/shubenator-signature.js';
 
 export const SECOND_VISIT_CLEANUP_TASKS = Object.freeze([
@@ -70,17 +71,24 @@ export function buildHotDogPartySequence() {
     { phase: 'handoff', who: 'Prospect', line: 'What is at room twelve?', cue: 'vo.bing2.prospect.motel', seconds: 2.3 },
     { phase: 'handoff', who: 'Snow', line: 'Not here. And not before the graveyard.', cue: 'vo.bing2.snow.not-here', seconds: 3.0 },
   ];
-  return sequence.map((beat) => ({
-    ...beat,
+  return sequence.map((beat) => {
     // A tense scene still needs silence. These pauses let reaction animation,
     // eyelines and the hit aftermath register before the next line starts.
-    gapAfter: beat.gapAfter ?? (
-      beat.phase === 'tension' ? 0.55
-        : beat.phase === 'attack' ? 0.42
-          : beat.phase === 'aftermath' ? 0.34
-            : 0.22
-    ),
-  }));
+    const quiet = beat.phase === 'tension' ? 0.55
+      : beat.phase === 'attack' ? 0.42
+        : beat.phase === 'aftermath' ? 0.34
+          : 0.22;
+    /* A beat with a named reaction now has words behind it, and those words
+     * belong in the silence AFTER the line rather than on top of it. Widen
+     * exactly this beat's gap by the reaction's own length so the room can
+     * answer Hog Mama without anybody being talked over, and so the same data
+     * keeps working if a reaction is later rewritten longer or shorter. */
+    const answer = hotDogBeatReactionLine(beat.reaction);
+    return {
+      ...beat,
+      gapAfter: beat.gapAfter ?? (answer ? quiet + answer.seconds + 0.3 : quiet),
+    };
+  });
 }
 
 export class SecondVisitMission {
@@ -247,13 +255,18 @@ export class SecondVisitMission {
     this.waited += dt;
     if (this.waited >= 90 && !this._partyNudge) {
       this._partyNudge = true;
-      /* 'shout', not 'text'. He is in the room; the club's message channel is
-       * otherwise Lou texting from the back office, and announcing a man
-       * standing at the stage with a phone alert is the wrong instrument. */
-      this.hooks.onMessage?.(
-        'SHUBENATOR: Prospect. Stage controls. Before Hog Mama starts without electricity.',
-        'shout',
-      );
+      /* He is standing twenty feet away, so he says it. A page that can give
+       * him a body takes `onNudge` and lets him shout it in his own voice;
+       * the older club page has no actor for him on this channel and falls
+       * back to the toast, which is why the text keeps its "NAME: words"
+       * shape -- that is what main.js splits a named shout on.
+       *
+       * 'shout', not 'text'. The club's message channel is otherwise Lou
+       * texting from the back office, and announcing a man standing at the
+       * stage with a phone alert is the wrong instrument. */
+      const nudge = HOTDOG_STAGED_LINES.shubenatorStageNudge;
+      if (this.hooks.onNudge) this.hooks.onNudge(nudge);
+      else this.hooks.onMessage?.(`SHUBENATOR: ${nudge.line}`, 'shout');
     }
   }
 }

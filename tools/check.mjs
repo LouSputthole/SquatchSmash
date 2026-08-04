@@ -301,6 +301,19 @@ try {
         + 'Run `npm run vo:bing`.');
     }
   }
+  /* The closed party and the graveyard mint their cue names from the authored
+   * line rather than spelling them at a call site, so the audio.play scan
+   * above cannot see any of them. A line whose cue is missing here is a line
+   * that can never be given a recording, and it is silent-with-a-subtitle
+   * either way, so nothing else would ever draw attention to it. */
+  {
+    const { checkHotDogVoiceManifest } = await import('./hotdog-vo.mjs');
+    const drift = checkHotDogVoiceManifest(sfxManifest);
+    if (drift.length) {
+      fail(`HotDog incident/graveyard voice catalog drift: ${drift.length} problem(s) `
+        + `(first: ${drift[0]}). Run \`npm run vo:hotdog\`.`);
+    }
+  }
   {
     const { checkNoWakeVoiceManifest } = await import('./nowake-vo.mjs');
     const drift = checkNoWakeVoiceManifest(sfxManifest);

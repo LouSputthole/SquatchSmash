@@ -528,6 +528,61 @@ try {
       route: apeRoute.route,
     }));
 
+  /*
+   * The room was silent from the front door to Hog Mama's first joke, which is
+   * the half of the owner's note that is not about a single line. The party now
+   * talks to itself, and the rule that keeps that from becoming noise is that
+   * the authored director owns the room whenever it is speaking. Both halves
+   * are asserted here, and the chatter's clock is stepped by hand for the same
+   * reason the four-hit attack is: a headless SwiftShader frame rate is not a
+   * fact about the scene.
+   */
+  const roomVoice = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    const subtitle = document.getElementById('subtitle');
+    const heard = [];
+    const step = (seconds) => {
+      for (let t = 0; t < seconds; t += 0.05) {
+        incident.chatter.update(0.05);
+        const line = subtitle.classList.contains('hidden') ? null : subtitle.textContent;
+        if (line && heard.at(-1) !== line) heard.push(line);
+      }
+    };
+    // Stand where the Family is standing: the west bar, the buffet, the east
+    // tables. Nothing is overheard from across an empty room on purpose.
+    for (const [x, z] of [[-16, 1.5], [-3, 5.2], [4, 5.5], [-11, 2.6]]) {
+      incident.teleport(x, z);
+      step(45);
+    }
+    const overheard = heard.slice();
+    // Hand the room to the director and hold it there.
+    incident.state.director.running = true;
+    incident.state.director.current = incident.sequence[0];
+    step(60);
+    const spokeOverTheDirector = heard.length > overheard.length || !!incident.chatter.speaking;
+    incident.state.director.current = null;
+    incident.state.director.running = false;
+    incident.teleport(0, 9.5);
+    return {
+      missionState: incident.mission.state,
+      conversations: incident.chatter.heardParty,
+      overheard,
+      spokeOverTheDirector,
+    };
+  });
+  check('the closed party talks to itself, and goes quiet the moment the director takes the room',
+    roomVoice.missionState === 'party'
+      && roomVoice.conversations.length >= 5
+      && roomVoice.overheard.length >= 10
+      && roomVoice.overheard.some((line) => /^(Booskibro|Billy HotDog|Big Uncle Lou|Snow):/.test(line))
+      && !roomVoice.spokeOverTheDirector,
+    JSON.stringify({
+      conversations: roomVoice.conversations,
+      overheard: roomVoice.overheard.length,
+      first: roomVoice.overheard[0] ?? null,
+      spokeOverTheDirector: roomVoice.spokeOverTheDirector,
+    }));
+
   await page.evaluate(() => window.HOTDOG_INCIDENT.beginSequence());
   await page.waitForFunction(
     () => window.HOTDOG_INCIDENT.state.director.current?.who === 'Shubenator',
@@ -605,6 +660,70 @@ try {
       && attack.noGunProp
       && attack.noGunInteraction,
     JSON.stringify(attack));
+
+  /*
+   * The aftermath beats, at speed, so `cleanup-start` really runs and Lou is
+   * handing out departments rather than the check faking his state.
+   */
+  await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    const director = incident.state.director;
+    director.index = incident.sequence.findIndex((beat) => beat.action === 'cleanup-start');
+    director.current = null;
+    director.remaining = 0;
+    director.gapRemaining = 0;
+    window.__hotDogAftermath = setInterval(() => {
+      const d = window.HOTDOG_INCIDENT.state.director;
+      d.running = true;
+      /* Leave a sliver rather than zero. `updateDirector` applies a beat's
+       * action on the frame its timer runs OUT, so a beat pinned at exactly
+       * zero is stepped straight past and `cleanup-start` never fires. */
+      if (d.gapRemaining > 0.02) d.gapRemaining = 0.02;
+      if (d.current && d.remaining > 0.02) d.remaining = 0.02;
+      if (window.HOTDOG_INCIDENT.game.cleanupActive) clearInterval(window.__hotDogAftermath);
+    }, 12);
+  });
+  await page.waitForFunction(() => window.HOTDOG_INCIDENT.game.cleanupActive, null, { timeout: 90000 })
+    .catch(() => {});
+  await page.evaluate(() => {
+    clearInterval(window.__hotDogAftermath);
+    const incident = window.HOTDOG_INCIDENT;
+    incident.state.director.running = false;
+    incident.state.director.current = null;
+  });
+
+  /*
+   * The line the owner reported by name. The HUD used to print
+   * `Lou checks the room once, slowly. "Wrap him. Snow gets the keys."` while
+   * Lou stood in front of the player saying nothing -- a HUD instruction
+   * standing in for a character, which docs/TONE-AND-PARODY.md forbids.
+   */
+  const louSweep = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    const subtitle = document.getElementById('subtitle');
+    const lou = incident.party.extra.lou;
+    for (const task of ['bathrooms', 'cleaning_kit', 'missing_evidence']) {
+      incident.completeCleanupTask(task);
+    }
+    lou.group.userData.interact.onUse();
+    return {
+      cleanupActive: incident.game.cleanupActive,
+      who: incident.chatter.speaking?.who ?? null,
+      cue: incident.chatter.speaking?.cue ?? null,
+      subtitle: subtitle.textContent,
+      louSpeaking: lou.speaking > 0,
+      swept: incident.state.finalSwept,
+    };
+  });
+  check('Lou says "Wrap him" out loud instead of the HUD narrating him',
+    louSweep.cleanupActive
+      && louSweep.who === 'Big Uncle Lou'
+      && louSweep.cue === 'vo.bing2.lou.wrap_him'
+      && /Wrap him\. Snow gets the keys\./.test(louSweep.subtitle)
+      && !/checks the room/i.test(louSweep.subtitle)
+      && louSweep.louSpeaking
+      && louSweep.swept,
+    JSON.stringify(louSweep));
 
   const cleanup = await page.evaluate((tasks) => {
     const incident = window.HOTDOG_INCIDENT;
