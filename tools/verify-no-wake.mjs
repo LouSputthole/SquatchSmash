@@ -131,9 +131,19 @@ try {
     'vo.nowake.reveal.irish.asked.1', 'vo.nowake.reveal.irish.counted.1',
   ].sort();
   await page.evaluate(() => window.NO_WAKE.postfx?.disable?.());
-  // Use a trusted browser gesture so the same click that starts the mission can
-  // legally acquire pointer lock, as it does for a player.
-  await page.click('#start-btn');
+  /* Use a trusted browser gesture so the same click that starts the mission
+   * can legally acquire pointer lock, as it does for a player -- but aim it
+   * with coordinates (like the execution shot's click further down this same
+   * file) instead of a locator. A locator click waits for the target's own
+   * bounding box to render two identical animation frames in a row before it
+   * will act, and this scene's continuous WebGL redraw on a software
+   * rasteriser can make that wait run past any reasonable ceiling. That is a
+   * property of the wait, not of the button: the coordinates do not move. */
+  const startBox = await page.evaluate(() => {
+    const r = document.getElementById('start-btn').getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+  });
+  await page.mouse.click(startBox.x, startBox.y);
   /* Start decodes the harbour bank and three authored radio shows before it
    * takes the title card down. On a software rasteriser that is comfortably
    * over half a minute, so the old 30 s ceiling failed this contract on
@@ -146,7 +156,7 @@ try {
   ));
   await page.evaluate(() => document.exitPointerLock?.());
   await page.waitForFunction(() => document.pointerLockElement === null);
-  await page.click('canvas', { position: { x: 640, y: 360 } });
+  await page.mouse.click(640, 360);
   await page.waitForFunction(() => (
     document.pointerLockElement === document.querySelector('canvas')
   ));
@@ -395,6 +405,55 @@ try {
     boot.cast.lou.characterId === 'lou' && boot.cast.booski.characterId === 'booski'
       && boot.cast.willy.characterId === 'willy' && boot.cast.willy.gut >= 1,
     JSON.stringify(boot.cast));
+  const seating = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    const willyWorld = game.boat.cast.willy.group.getWorldPosition(new V());
+    const willyLocal = game.world.toBoatLocal(willyWorld).toArray();
+    const bench = game.boat.localColliders.find((box) => (
+      box.max.x - box.min.x > 3 && box.min.z > 4.5 && box.max.z < 6
+    ));
+    return {
+      willyLocal,
+      benchFound: Boolean(bench),
+      onBench: Boolean(bench) && willyLocal[0] > bench.min.x && willyLocal[0] < bench.max.x
+        && willyLocal[2] > bench.min.z && willyLocal[2] < bench.max.z,
+    };
+  });
+  check('Willy is seated on the aft bench, not floating in open deck in front of it',
+    seating.benchFound && seating.onBench,
+    JSON.stringify(seating));
+  const canopyContact = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const Box3 = game.boat.localColliders[0].constructor;
+    const deckY = game.boat.deck.height;
+    const posts = [];
+    game.boat.root.traverse((object) => {
+      if (/^canopy support post/.test(object.name || '')) {
+        const box = new Box3().setFromObject(object);
+        posts.push({ name: object.name, localMinY: game.world.toBoatLocal(box.min.clone()).y });
+      }
+    });
+    const roof = game.boat.root.getObjectByName('wheelhouse roof');
+    const roofLocalMinY = game.world.toBoatLocal(
+      new Box3().setFromObject(roof).min.clone(),
+    ).y;
+    return {
+      count: posts.length,
+      // The side run bears on the open deck (1.02); the front run, tucked
+      // behind the dash, bears on the cabin trunk's own roof line (1.53).
+      // "Touching" means within a couple of centimetres of one of those, not
+      // the ~0.5 m gap the playtest called "floating".
+      gaps: posts.map((post) => ({
+        name: post.name,
+        gap: post.name.includes('side') ? post.localMinY - deckY : post.localMinY - 1.53,
+      })),
+      roofLocalMinY,
+    };
+  });
+  check('every canopy support post reaches the deck or the cabin trunk roof instead of floating clear of it',
+    canopyContact.count === 12 && canopyContact.gaps.every((post) => Math.abs(post.gap) < .03),
+    JSON.stringify(canopyContact));
   const boardingAim = await page.evaluate(() => {
     const game = window.NO_WAKE;
     const V = game.player.position.constructor;
@@ -631,6 +690,42 @@ try {
   check('the moving-frame collision pass ejects the player from a side railing',
     railCollision < 2.08 || railCollision > 2.60,
     JSON.stringify({ resolvedLocalX: railCollision }));
+
+  const benchTrap = await page.evaluate(() => {
+    const game = window.NO_WAKE;
+    const V = game.player.position.constructor;
+    /* The old aft bench collider fell 0.13 m short of the rail's inner edge
+     * on each side -- a gap narrower than the player's own 0.6 m diameter.
+     * (-2.0, 5.2) sits exactly in that former dead zone: outside the old
+     * bench box (to 1.95) and outside the old rail box (from 2.08) alike, so
+     * neither collider's own bounds contain it, yet a capsule centred there
+     * overlapped both. Ejecting off one used to shove the player inside the
+     * other, forever, with velocity zeroed on every push -- "I got stuck in
+     * the bench on the back, I just couldn't move". A fixed geometry has to
+     * settle here, not oscillate. */
+    game.player.mode = 'walk';
+    game.player.enabled = true;
+    game.player.ground = game.boat.root.position.y + game.boat.deck.height;
+    game.player.clearKeys();
+    game.player.velocity.set(0, 0, 0);
+    game.player.position.copy(game.world.fromBoatLocal(new V(-2.0, 2.68, 5.2)));
+    const track = [];
+    for (let i = 0; i < 60; i++) {
+      game.player.update(1 / 60);
+      track.push(game.world.toBoatLocal(game.player.position.clone()).toArray());
+    }
+    const last = track.at(-1);
+    const settleDelta = Math.hypot(last[0] - track.at(-2)[0], last[2] - track.at(-2)[2]);
+    const stillOverlapping = game.boat.localColliders.some((box) => {
+      const cx = Math.max(box.min.x, Math.min(box.max.x, last[0]));
+      const cz = Math.max(box.min.z, Math.min(box.max.z, last[2]));
+      return Math.hypot(last[0] - cx, last[2] - cz) < 0.29;
+    });
+    return { start: [-2.0, 5.2], last, settleDelta, stillOverlapping };
+  });
+  check('a player wedged between the aft bench and the rail settles into a clear spot instead of oscillating in place forever',
+    benchTrap.settleDelta < .01 && !benchTrap.stillOverlapping,
+    JSON.stringify(benchTrap));
 
   await page.evaluate(() => {
     const game = window.NO_WAKE;

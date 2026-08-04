@@ -449,15 +449,31 @@ function buildBoat(scene, marina) {
   }
 
   // Open wheelhouse: framed panes with gaps between every structural member.
-  root.add(box([2.90, .18, 4.25], white, 0, 3.20, -.68));
+  const wheelhouseRoof = box([2.90, .18, 4.25], white, 0, 3.20, -.68);
+  wheelhouseRoof.name = 'wheelhouse roof';
+  root.add(wheelhouseRoof);
+  /* The roof's underside sits at y=3.11. These uprights used to run only from
+   * 1.59-3.13 (front) and 1.61-3.11 (sides), meeting the roof but stopping
+   * roughly half a metre above anything solid -- the canopy posts everyone
+   * could see floating clear of the deck. The front run now reaches down to
+   * 1.53, the cabin trunk's own roof line just behind the dash, and the side
+   * run reaches all the way to the deck at 1.02, so every post that used to
+   * hang in open air now actually bears on something. Named so their contact
+   * with the deck/trunk can be checked directly instead of just by eye. */
   for (const x of [-1.32, -.44, .44, 1.32]) {
-    root.add(box([.11, 1.54, .12], white, x, 2.36, -2.71));
+    const post = box([.11, 1.60, .12], white, x, 2.33, -2.71);
+    post.name = 'canopy support post · front';
+    root.add(post);
   }
   for (const [x, width] of [[-.88, .72], [0, .76], [.88, .72]]) {
     root.add(box([width, 1.22, .045], glass, x, 2.38, -2.70));
   }
   for (const sx of [-1, 1]) {
-    for (const z of [-2.35, -.95, .45, 1.18]) root.add(box([.12, 1.50, .12], white, sx * 1.32, 2.36, z));
+    for (const z of [-2.35, -.95, .45, 1.18]) {
+      const post = box([.12, 2.09, .12], white, sx * 1.32, 2.065, z);
+      post.name = 'canopy support post · side';
+      root.add(post);
+    }
     for (const z of [-1.65, -.25, .81]) root.add(box([.045, 1.20, 1.16], glass, sx * 1.315, 2.38, z));
   }
   // Wipers sit on the glass rather than passing through it.
@@ -844,9 +860,33 @@ function buildBoat(scene, marina) {
 
   // Local collision volumes are resolved in boat space, so a turned boat does
   // not inflate its railings into giant world-axis boxes.
+  /* Both rails used to run bow to stern as an unbroken 2.08/-2.08 inner edge.
+   * That put two different pinch points within a whisker of the player's own
+   * 0.30 m capsule radius:
+   *
+   *  - Forward, alongside the cabin trunk (out to 1.28) and the windshield
+   *    frame (out to 1.36), the usable side deck was only ~0.72 m -- under
+   *    the 0.6 m the capsule needs with any margin at all, and it is what
+   *    made the run up to the bow "still kind of a bitch". The forward run of
+   *    each rail is relaxed to 2.20 here. The aft run is deliberately left at
+   *    the original 2.08: it already sits flush against the engine-hatch box
+   *    (out to 2.12) and the aft bench below, and relaxing it too would only
+   *    reopen the next problem against them.
+   *  - Aft, the old bench box (in to 1.95) fell 0.13 m short of that same
+   *    2.08 rail edge on each side -- a gap narrower than the capsule's own
+   *    diameter. `resolvePlayerOnBoat` has no stable position in a gap
+   *    smaller than 2*RADIUS: it resolves every overlapping collider in the
+   *    same pass, so ejecting off the bench lands the player inside the
+   *    rail, and ejecting off the rail lands them back inside the bench,
+   *    every single frame, with velocity zeroed on each push. That is "I got
+   *    stuck in the bench on the back, I just couldn't move" -- the worst of
+   *    the playtest notes, because there was no direction out. Widening the
+   *    bench box to overlap the (unchanged) rail edge instead of falling
+   *    short of it closes the gap there was nothing to be stuck in. */
   const localColliders = [
-    new THREE.Box3(new THREE.Vector3(2.08, .96, -5.70), new THREE.Vector3(2.60, 1.92, 5.65)),
-    new THREE.Box3(new THREE.Vector3(-2.60, .96, -5.70), new THREE.Vector3(-2.08, 1.92, 2.82)),
+    new THREE.Box3(new THREE.Vector3(2.20, .96, -5.70), new THREE.Vector3(2.70, 1.92, 2.85)),
+    new THREE.Box3(new THREE.Vector3(2.08, .96, 2.75), new THREE.Vector3(2.60, 1.92, 5.65)),
+    new THREE.Box3(new THREE.Vector3(-2.60, .96, -5.70), new THREE.Vector3(-2.20, 1.92, 2.82)),
     new THREE.Box3(new THREE.Vector3(-2.60, .96, 4.60), new THREE.Vector3(-2.08, 1.92, 5.65)),
     new THREE.Box3(new THREE.Vector3(-2.48, .96, 5.52), new THREE.Vector3(2.48, 1.92, 6.00)),
     new THREE.Box3(new THREE.Vector3(-2.42, .96, -6.75), new THREE.Vector3(-.06, 1.92, -5.42)),
@@ -856,7 +896,7 @@ function buildBoat(scene, marina) {
     new THREE.Box3(new THREE.Vector3(-.26, .98, -.12), new THREE.Vector3(.54, 2.14, .78)),
     new THREE.Box3(new THREE.Vector3(1.08, .98, -.12), new THREE.Vector3(1.88, 2.14, .78)),
     new THREE.Box3(new THREE.Vector3(-1.28, .98, -5.82), new THREE.Vector3(1.28, 1.72, -2.78)),
-    new THREE.Box3(new THREE.Vector3(-1.95, .98, 5.00), new THREE.Vector3(1.95, 2.00, 5.78)),
+    new THREE.Box3(new THREE.Vector3(-2.10, .98, 4.95), new THREE.Vector3(2.10, 2.00, 5.65)),
     new THREE.Box3(new THREE.Vector3(1.02, .98, 3.28), new THREE.Vector3(2.12, 2.04, 4.12)),
   ];
 
@@ -874,18 +914,40 @@ function buildBoat(scene, marina) {
       name: 'Booskibro', tier: 'hero', x: -1.16, y: 1.02, z: 2.75, yaw: Math.PI,
       job: 'stand', model: { ...source[CHARACTER_IDS.BOOSKI].model, face: 'assets/faces/booski.png' },
     }),
+    /* z was 4.68 -- half a metre short of the aft bench (its cushion runs
+     * 4.945-5.555, centred at 5.25), so Willy sat in open air in front of it
+     * rather than on it. Centred on the cushion instead: `sit()` folds him
+     * down onto whatever floor y he is given (1.02, the deck, same as the
+     * standing crew), it does not need the bench's own height, only its x/z
+     * footprint under him. */
     willy: new Npc(root, {
-      name: 'Willy', tier: 'hero', x: .62, y: 1.02, z: 4.68, yaw: Math.PI,
+      name: 'Willy', tier: 'hero', x: .62, y: 1.02, z: 5.25, yaw: Math.PI,
       job: 'sit', model: { ...source[CHARACTER_IDS.WILLY].model },
     }),
     /* Irish came along because somebody always does, and because a thing like
      * this is not supposed to happen on one man's word. He is the Family's
      * procedure voice: he is not here to shoot Willy, he is here so that
-     * afterwards nobody can say it was done wrong. He stands to port, one pace
-     * back from the two who will, close enough to hear and far enough to keep
-     * his hands empty. Same id, face and voice as the Bing floor. */
+     * afterwards nobody can say it was done wrong.
+     *
+     * He used to stand at (-1.72, 3.35): 0.37 m from the exact spot the
+     * boarding animation lands the player (-1.68, 3.72), so Tony stepped
+     * aboard almost on top of him every time -- "Irish kind of in the way".
+     * The owner's first instinct was to cut him from the boat entirely and
+     * have him see the boat off from the dock instead. That does not work
+     * for this Irish: five of his six lines (the count and the confirmation
+     * inside the confrontation, his hands below decks, the rail after the
+     * shot, and the back half he won't tell on the way in) are all spoken
+     * after the boat is already underway and moored nowhere near the dock,
+     * and `NoWakeCameraDirector.frameSpeaker('irish')` looks him up as
+     * `boat.cast.irish` and reads his position through the boat's own
+     * transform -- a dockside Irish is a different object the confrontation
+     * cannot find and the camera cannot frame. Cutting him back out of those
+     * beats to make the dock staging work would undo the whole reason he was
+     * added. He stays aboard for all of it; only his idle spot on the ride
+     * out moves, off the boarding line and well clear of the aft bench,
+     * shifted forward alongside Lou and Booski instead of behind them. */
     irish: new Npc(root, {
-      name: 'Irish', tier: 'hero', x: -1.72, y: 1.02, z: 3.35, yaw: 1.06,
+      name: 'Irish', tier: 'hero', x: -1.85, y: 1.02, z: 2.30, yaw: 1.06,
       job: 'stand', model: {
         ...source[CHARACTER_IDS.IRISH].model, face: 'assets/faces/irish.png',
       },
