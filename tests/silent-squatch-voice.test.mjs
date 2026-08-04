@@ -38,16 +38,23 @@ const manifest = JSON.parse(
 );
 
 /**
- * The mission's authored cues, per scope, as of 2026-08-04.
+ * The mission's authored cues, per scope.
  *
- * NOT ONE OF THEM IS IN assets/sfx/manifest.json: the mission was written in
- * the same pass as the scene and the manifest is regenerated centrally, so the
- * script legitimately runs ahead of the ledger. This table is how that stays a
- * fact somebody wrote down — a scope that grows a line fails here until the
- * number is updated, and a cue that HAS been generated fails the sync test
- * below until it is removed from the backlog.
+ * This table used to be the *backlog*: none of these were in the manifest,
+ * because the mission was written in the same pass as the scene and there was
+ * no `tools/mansion-vo.mjs` to carry them across. It said "WHEN THE CUES ARE
+ * GENERATED, THIS TABLE GOES TO ZERO", and on 2026-08-04 they were generated.
  *
- * WHEN THE CUES ARE GENERATED, THIS TABLE GOES TO ZERO.
+ * It has not gone to zero; it has changed job. It is now the SHIPPING
+ * INVENTORY, and the test below asserts the manifest contains every one of
+ * these and nothing else on the prefix. That is a stronger contract than the
+ * backlog was: a scope that gains a line fails here until the number is
+ * updated AND `npm run vo:mansion` has been run, so the sheet the voice actor
+ * reads can no longer fall behind the script the game plays.
+ *
+ * The 147 lines were invisible to VOICE-LINES-TODO.md for eleven days.
+ * Nothing reported it, because a cue that is not in the manifest is not
+ * missing — it does not exist.
  */
 const CUES_AWAITING_VO_SYNC = Object.freeze({
   arrival: 10, // Rippin, Eric, Shubes, Snow, and the Prospect on the way in
@@ -187,7 +194,7 @@ test('every line in the mission has a cue, a voice and words, and no two share o
   }
 });
 
-test('the manifest gap is exactly the declared backlog, per scope', () => {
+test('every authored line is in the manifest, per scope', () => {
   const lines = allSilentSquatchLines();
   const byScope = {};
   for (const line of lines) {
@@ -196,23 +203,39 @@ test('the manifest gap is exactly the declared backlog, per scope', () => {
   }
   assert.deepEqual(
     byScope, { ...CUES_AWAITING_VO_SYNC },
-    'a scope gained or lost lines — update CUES_AWAITING_VO_SYNC and run `npm run vo:sync`',
+    'a scope gained or lost lines — update the inventory and run `npm run vo:mansion`',
   );
   assert.equal(lines.length, TOTAL_AWAITING);
 
-  /* And the manifest genuinely does not have them yet. The day it does, this
-   * flips: the generated cues stop being a declared gap and the table above
-   * goes to zero. */
+  /* The contract that matters: the voice actor's sheet is generated from the
+   * manifest, so a line the game plays and the manifest has never heard of is
+   * a line nobody will ever record, and NOTHING else in the repo notices.
+   * That is what happened here, for 147 lines, until somebody went looking. */
   const inManifest = new Set(manifest.sfx.map((cue) => cue.name));
-  const generated = lines.filter((line) => inManifest.has(line.name));
-  assert.deepEqual(
-    generated.map((line) => line.name), [],
-    'these cues are in the ledger now — take them out of CUES_AWAITING_VO_SYNC',
-  );
-  /* Nothing else on this prefix is in the manifest either, so a renamed line
-   * cannot leave a stale recording behind carrying words nobody says. */
-  const stale = [...inManifest].filter((name) => name.startsWith('vo.silentsquatch.'));
-  assert.deepEqual(stale, []);
+  const absent = lines.filter((line) => !inManifest.has(line.name)).map((line) => line.name);
+  assert.deepEqual(absent, [], 'these lines are not in the ledger — run `npm run vo:mansion`');
+
+  /* And nothing on the prefix that nobody says: a renamed line must not leave
+   * a stale cue behind carrying words that are no longer in the game. */
+  const authored = new Set(lines.map((line) => line.name));
+  const stale = [...inManifest]
+    .filter((name) => name.startsWith('vo.silentsquatch.') && !authored.has(name));
+  assert.deepEqual(stale, [], 'stale cues — run `npm run vo:mansion`');
+});
+
+test('the manifest carries the mission words verbatim and casts them right', () => {
+  /* A cue can be present, named correctly, and carry the wrong text or the
+   * wrong actor — in which case the sheet is full of lines nobody in the game
+   * says, delivered in somebody else's voice. */
+  const declared = new Map(manifest.sfx.map((cue) => [cue.name, cue]));
+  const drift = [];
+  for (const line of allSilentSquatchLines()) {
+    const cue = declared.get(line.name);
+    if (!cue) continue; // covered by the test above
+    if (cue.say !== line.say) drift.push(`${line.name}: text`);
+    if (cue.voice !== line.voice) drift.push(`${line.name}: cast as ${cue.voice}, script says ${line.voice}`);
+  }
+  assert.deepEqual(drift, []);
 });
 
 test('nobody in this mission invents a voice profile', () => {
@@ -231,6 +254,20 @@ test('nobody in this mission invents a voice profile', () => {
     assert.ok(cast.has(name), `${name} is declared pending but nobody speaks with it`);
     assert.equal(voices.has(name), false, `${name} exists now — take it off PENDING_VOICE_PROFILES`);
   }
+});
+
+test('every voice this mission uses has an ElevenLabs id', () => {
+  /* The stronger form of the test above. `PENDING_VOICE_PROFILES` being empty
+   * only means nobody DECLARED a gap; this asserts there isn't one. A cue cast
+   * to a profile with no id cannot be rendered at all — `npm run sfx` has
+   * nothing to send — and it appears on the sheet as an ordinary line the
+   * voice actor cannot possibly deliver. */
+  const voices = manifest.voices || {};
+  const uncast = new Set();
+  for (const line of allSilentSquatchLines()) {
+    if (!voices[line.voice]?.id) uncast.add(line.voice);
+  }
+  assert.deepEqual([...uncast].sort(), []);
 });
 
 test('Big Uncle Lou is lou1, and the Family keeps its locked casting', () => {

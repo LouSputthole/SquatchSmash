@@ -331,12 +331,17 @@
       "style": 0.4
     },
     "hotdog": {
-      "id": "Pcfg2Zc6kmNWQ9ji3J5F",
-      "_note": "Billy HotDog - owner-cast 2026-08-01. Loud welcome-home guest, casually cruel because he has been getting away with it for years; the final insult gets quieter.",
+      "id": "PtJWpiWfVrCfOmNdkFpr",
+      "_note": "Billy HotDog - owner-RECAST 2026-08-04, was Pcfg2Zc6kmNWQ9ji3J5F. Loud welcome-home guest, casually cruel because he has been getting away with it for years; the final insult gets quieter.",
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
-      "style": 0.64
+      "style": 0.64,
+      "recast": {
+        "on": "2026-08-04",
+        "was": "Pcfg2Zc6kmNWQ9ji3J5F",
+        "reason": "Owner replaced the casting outright; the previous takes are a different actor and must not ship alongside the new ones."
+      }
     },
     "aubbie": {
       "id": "3Qc2SrJq4us6etYTOtzn",
@@ -361,6 +366,62 @@
       "stability": 0.5,
       "similarity": 0.82,
       "style": 0.4
+    },
+    "vetrov": {
+      "id": "v0eRobr4pSbFT9FKocdw",
+      "_note": "Vetrov — PROJECT SILENT SQUATCH scientist, 11 lines (most of any scientist needing a voice). Nervous technician: young, thin, apologetic. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.42,
+      "similarity": 0.82,
+      "style": 0.42
+    },
+    "orlova": {
+      "id": "nzeAacJi50IvxcyDnMXa",
+      "_note": "Orlova — PROJECT SILENT SQUATCH scientist, 11 lines (second most). Junior assistant, youngest voice in the room, proudest of it. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.4,
+      "similarity": 0.82,
+      "style": 0.46
+    },
+    "sokolov": {
+      "id": "XeYTv1UwuV9mT4Hi5ZpQ",
+      "_note": "Sokolov — PROJECT SILENT SQUATCH scientist, 10 lines. Weapons engineer, warm, in love with the machine and not the money. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.44,
+      "similarity": 0.82,
+      "style": 0.5
+    },
+    "marchuk": {
+      "id": "8WRfTpaUoqZSfTerOXzI",
+      "_note": "Marchuk — PROJECT SILENT SQUATCH scientist, 9 lines. Medical specialist: clinical, gentle, the only one watching the people. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.58,
+      "similarity": 0.84,
+      "style": 0.24
+    },
+    "bezmenov": {
+      "id": "Xh5OictnmgRO4dff7pLm",
+      "_note": "Bezmenov — PROJECT SILENT SQUATCH scientist, 7 lines. The cynical old one: flat, slow, has worked for men like this before and expects the worst. Accented English. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.7,
+      "similarity": 0.84,
+      "style": 0.12
+    },
+    "labcomputer": {
+      "id": "zp2G1GqPvAg5KDA55fjC",
+      "_note": "LABORATORY annunciator — PROJECT SILENT SQUATCH, 2 lines and both terrible news. Synthetic, unhurried, no affect whatever: stability high and style at zero on purpose, so the machine does not act.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.95,
+      "similarity": 0.9,
+      "style": 0
+    },
+    "xxx": {
+      "id": "V33LkP9pVLdcjeB2y5Na",
+      "_note": "xXx — hanging upside down by his ankles over a pool of his own blood and still going. Battered, unbothered, one octave lower than he can hold. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.34,
+      "similarity": 0.8,
+      "style": 0.6
     }
   },
   "sfx": [
@@ -17481,6 +17542,741 @@
       "name": "vo.initiation.ambient.lou.1ckii4g.1",
       "voice": "lou",
       "say": "Humor me."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.prospect.humming",
+      "voice": "player",
+      "say": "Whatever’s in here has been humming since the car."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.rippin.balls",
+      "voice": "rippinflow",
+      "say": "Whatever’s in that thing, I don’t want it near my balls."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.rippin.overthere",
+      "voice": "rippinflow",
+      "say": "I’m serious. Take it over there."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.eric.mood",
+      "voice": "eric",
+      "say": "Lou’s waiting for you. And he’s been in one of those moods."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.eric.dontsitdown",
+      "voice": "eric",
+      "say": "Top of the stairs, past the boardroom. Don’t sit down."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.whatsgoingon",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?"
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.nevermind",
+      "voice": "shubenator",
+      "say": "Actually, never mind. I don’t want to know."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.shubes.arms",
+      "voice": "shubenator",
+      "say": "I’m gonna go do arms."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.snow.morework",
+      "voice": "snow",
+      "say": "Try not to make more work for me tonight."
+    },
+    {
+      "name": "vo.silentsquatch.arrival.snow.doesntcomeout",
+      "voice": "snow",
+      "say": "It doesn’t come out. Marble."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.shutthedoor",
+      "voice": "lou1",
+      "say": "Shut the door."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.onthedesk",
+      "voice": "lou1",
+      "say": "On the desk. Where I can see it."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.itsadesk",
+      "voice": "lou1",
+      "say": "It’s a desk, kid. It’s been there longer than you have."
+    },
+    {
+      "name": "vo.silentsquatch.office.prospect.whatsinside",
+      "voice": "player",
+      "say": "What’s inside?"
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.soonenough",
+      "voice": "lou1",
+      "say": "Eh. You’ll find out soon enough."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.deliverittobooski",
+      "voice": "lou1",
+      "say": "Go deliver it to Booski. He’s in the basement."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.heykid",
+      "voice": "lou1",
+      "say": "Hey, kid."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.nicejob",
+      "voice": "lou1",
+      "say": "Nice job."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.dontaskanything",
+      "voice": "lou1",
+      "say": "Now don’t fuck around, and don’t ask anything you don’t wanna know."
+    },
+    {
+      "name": "vo.silentsquatch.office.lou.pastthearmory",
+      "voice": "lou1",
+      "say": "Down past the armory. Booski knows you’re coming."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.wineracks",
+      "voice": "player",
+      "say": "Wine racks. Pool table. Photographs of men nobody talks about."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.wherewashemeant",
+      "voice": "player",
+      "say": "So where’s the basement he meant?"
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.somebodydusts",
+      "voice": "player",
+      "say": "Somebody dusts this thing."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.gapundertheplinth",
+      "voice": "player",
+      "say": "…There’s a gap under the plinth."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.okay",
+      "voice": "player",
+      "say": "Okay."
+    },
+    {
+      "name": "vo.silentsquatch.cellar.prospect.musicsgone",
+      "voice": "player",
+      "say": "Music’s gone."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.notdry",
+      "voice": "irish",
+      "say": "Mind the floor there. It’s not dry."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.drains",
+      "voice": "irish",
+      "say": "There’s a drain every three metres in this hallway. Have a think about why a house needs that."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.goondown",
+      "voice": "irish",
+      "say": "Go on down. He doesn’t like waiting and I don’t like watching him wait."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.takethecar",
+      "voice": "xxx",
+      "say": "You can take the car… you can take the mission…"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.xxx.turnyourback",
+      "voice": "xxx",
+      "say": "But you don’t turn your back on family."
+    },
+    {
+      "name": "vo.silentsquatch.corridor.booski.decorations",
+      "voice": "booski",
+      "say": "Quit talking to the decorations and bring me the case!"
+    },
+    {
+      "name": "vo.silentsquatch.corridor.irish.samethreelines",
+      "voice": "irish",
+      "say": "He’s been at that all night, God love him. Same three lines."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.youarelate",
+      "voice": "deathmegatron",
+      "say": "You’re late."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.twelvecentimetres",
+      "voice": "deathmegatron",
+      "say": "Don’t lean on the glass. It’s twelve centimetres. You could drive a car at it."
+    },
+    {
+      "name": "vo.silentsquatch.lab.dmt.sixofthem",
+      "voice": "deathmegatron",
+      "say": "Six of them. Been in there since March."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.deliveryboy",
+      "voice": "booski",
+      "say": "There he is. Our little delivery boy."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.bothhands",
+      "voice": "booski",
+      "say": "On the transfer table. Both hands."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.doesntgetlighter",
+      "voice": "booski",
+      "say": "It doesn’t get lighter, kid."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.thesquatchanium",
+      "voice": "booski",
+      "say": "Ah, yes. The Squatchanium."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.howhard",
+      "voice": "booski",
+      "say": "Do you have any idea how hard this stuff is to get?"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.prospect.i",
+      "voice": "player",
+      "say": "I —"
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.rhetorical",
+      "voice": "booski",
+      "say": "Rhetorical question. I don’t care."
+    },
+    {
+      "name": "vo.silentsquatch.delivery.booski.throughitgoes",
+      "voice": "booski",
+      "say": "Through it goes. Watch what they do with it."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.transferchamber",
+      "voice": "orlova",
+      "say": "Transfer chamber secure."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.containmentcylinder",
+      "voice": "aubbie",
+      "say": "Careful with the containment cylinder."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.shieldingnotready",
+      "voice": "vetrov",
+      "say": "Doctor Aubbie, the shielding is not ready."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.whenisayitis",
+      "voice": "aubbie",
+      "say": "The shielding is ready when I say the shielding is ready."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.connectthecore",
+      "voice": "aubbie",
+      "say": "Connect the Squatchanium core."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.rotationstable",
+      "voice": "sokolov",
+      "say": "Core rotation stable."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.coolantpressure",
+      "voice": "orlova",
+      "say": "Purple coolant pressure holding."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.increasecoolant",
+      "voice": "aubbie",
+      "say": "Increase the purple coolant flow."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.reacting",
+      "voice": "marchuk",
+      "say": "The Squatchanium is reacting with the biological stabilizer."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.supposedtoreact",
+      "voice": "aubbie",
+      "say": "It is supposed to react. That is the entire principle."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.radiationclimbing",
+      "voice": "vetrov",
+      "say": "Radiation levels are climbing."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.pipeline",
+      "voice": "vetrov",
+      "say": "My wife thinks I am working on a pipeline."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.donottellthem",
+      "voice": "bezmenov",
+      "say": "Do not tell them that."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.goldfirst",
+      "voice": "aubbie",
+      "say": "No, no, no. Gold coupling first, purple coupling second."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.throughthefloor",
+      "voice": "sokolov",
+      "say": "Feel that through the floor. That is the rings."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.beyondprediction",
+      "voice": "sokolov",
+      "say": "Power output is beyond prediction."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.shadowsonthewall",
+      "voice": "aubbie",
+      "say": "If the stabilizer falls below forty percent, we all become shadows on the wall."
+    },
+    {
+      "name": "vo.silentsquatch.build.vetrov.notintheagreement",
+      "voice": "vetrov",
+      "say": "This was not in the original agreement."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.firstoneever",
+      "voice": "orlova",
+      "say": "First one ever built. Anywhere. By us."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.theywillkillus",
+      "voice": "bezmenov",
+      "say": "They will kill us when this is finished."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.theyneedus",
+      "voice": "aubbie",
+      "say": "They need us."
+    },
+    {
+      "name": "vo.silentsquatch.build.bezmenov.needsnoone",
+      "voice": "bezmenov",
+      "say": "Men like him need no one."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.temperature",
+      "voice": "marchuk",
+      "say": "Core temperature is increasing."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.stepback",
+      "voice": "marchuk",
+      "say": "Whoever is standing closest, step back. Both of you."
+    },
+    {
+      "name": "vo.silentsquatch.build.marchuk.weshouldevacuate",
+      "voice": "marchuk",
+      "say": "We should evacuate."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.fourminutes",
+      "voice": "aubbie",
+      "say": "Nobody is evacuating. We are four minutes from finished."
+    },
+    {
+      "name": "vo.silentsquatch.build.aubbie.watchinghistory",
+      "voice": "aubbie",
+      "say": "You are watching history through that window. Try to look like it."
+    },
+    {
+      "name": "vo.silentsquatch.build.sokolov.willbeoperational",
+      "voice": "sokolov",
+      "say": "Silent Squatch will be operational."
+    },
+    {
+      "name": "vo.silentsquatch.build.orlova.finalsequence",
+      "voice": "orlova",
+      "say": "Beginning final sequence."
+    },
+    {
+      "name": "vo.silentsquatch.build.booski.twelveweeks",
+      "voice": "booski",
+      "say": "Twelve weeks they’ve been down here. Eating my food."
+    },
+    {
+      "name": "vo.silentsquatch.build.dmt.six",
+      "voice": "deathmegatron",
+      "say": "Six."
+    },
+    {
+      "name": "vo.silentsquatch.build.booski.therestarehands",
+      "voice": "booski",
+      "say": "The one doing the talking is the one that matters. The rest are hands."
+    },
+    {
+      "name": "vo.silentsquatch.build.dmt.handscanwrite",
+      "voice": "deathmegatron",
+      "say": "Hands can write."
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.finalstabilization",
+      "voice": "aubbie",
+      "say": "Initiating final stabilization."
+    },
+    {
+      "name": "vo.silentsquatch.completion.computer.corecomplete",
+      "voice": "labcomputer",
+      "say": "PROJECT SILENT SQUATCH: CORE COMPLETE."
+    },
+    {
+      "name": "vo.silentsquatch.completion.orlova.itisholding",
+      "voice": "orlova",
+      "say": "It is holding. It is holding!"
+    },
+    {
+      "name": "vo.silentsquatch.completion.sokolov.twelveweeks",
+      "voice": "sokolov",
+      "say": "Twelve weeks! Twelve weeks!"
+    },
+    {
+      "name": "vo.silentsquatch.completion.vetrov.itoldyou",
+      "voice": "vetrov",
+      "say": "I told you the shielding would hold."
+    },
+    {
+      "name": "vo.silentsquatch.completion.bezmenov.congratulations",
+      "voice": "bezmenov",
+      "say": "Congratulations, everybody."
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.itiscomplete",
+      "voice": "aubbie",
+      "say": "It is complete."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.youarecertain",
+      "voice": "booski",
+      "say": "You’re certain?"
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.fatsquatch",
+      "voice": "aubbie",
+      "say": "The core is stable. The Fat Squatch can now be assembled."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.nobodyelseknows",
+      "voice": "booski",
+      "say": "And nobody else knows how to reproduce it?"
+    },
+    {
+      "name": "vo.silentsquatch.completion.aubbie.onlymyteam",
+      "voice": "aubbie",
+      "say": "Only my team understands the full process."
+    },
+    {
+      "name": "vo.silentsquatch.completion.booski.good",
+      "voice": "booski",
+      "say": "Good."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.lockthelab",
+      "voice": "booski",
+      "say": "Lock the lab."
+    },
+    {
+      "name": "vo.silentsquatch.lock.dmt.sixninesixnine",
+      "voice": "deathmegatron",
+      "say": "Six nine six nine."
+    },
+    {
+      "name": "vo.silentsquatch.lock.dmt.againslower",
+      "voice": "deathmegatron",
+      "say": "Again. Slower."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.notalongnumber",
+      "voice": "booski",
+      "say": "Six. Nine. Six. Nine. It is not a long number."
+    },
+    {
+      "name": "vo.silentsquatch.lock.bezmenov.whyisdoorlocked",
+      "voice": "bezmenov",
+      "say": "Why is door locked?"
+    },
+    {
+      "name": "vo.silentsquatch.lock.orlova.opendoor",
+      "voice": "orlova",
+      "say": "Open door."
+    },
+    {
+      "name": "vo.silentsquatch.lock.aubbie.whatisthis",
+      "voice": "aubbie",
+      "say": "What is this?"
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.usefulnessexpired",
+      "voice": "booski",
+      "say": "This guy’s usefulness has expired."
+    },
+    {
+      "name": "vo.silentsquatch.lock.booski.handleit",
+      "voice": "booski",
+      "say": "Handle it."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.wehadagreement",
+      "voice": "aubbie",
+      "say": "Booski, we had agreement."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.wedid",
+      "voice": "booski",
+      "say": "We did."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.maintainthecore",
+      "voice": "aubbie",
+      "say": "You need me to maintain the core."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.copiesofyournotes",
+      "voice": "booski",
+      "say": "We made copies of your notes."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.whatyouhavebuilt",
+      "voice": "aubbie",
+      "say": "You do not understand what you have built!"
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.isaidhandleit",
+      "voice": "booski",
+      "say": "I said handle it."
+    },
+    {
+      "name": "vo.silentsquatch.execution.aubbie.lookatme",
+      "voice": "aubbie",
+      "say": "Boy. Look at me. You do not have to do this."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.anyday",
+      "voice": "booski",
+      "say": "Any day, Prospect."
+    },
+    {
+      "name": "vo.silentsquatch.execution.dmt.notgoingtogetquieter",
+      "voice": "deathmegatron",
+      "say": "He is not going to get quieter."
+    },
+    {
+      "name": "vo.silentsquatch.execution.booski.thatwasaconsole",
+      "voice": "booski",
+      "say": "That was a console. Look at what you’re pointing it at."
+    },
+    {
+      "name": "vo.silentsquatch.execution.dmt.inthewayofthedoor",
+      "voice": "deathmegatron",
+      "say": "He’s in the way of the door."
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.whatareyoudoing",
+      "voice": "orlova",
+      "say": "What are you doing?!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.openthedoor",
+      "voice": "vetrov",
+      "say": "Open the door!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.marchuk.whydidyoukillhim",
+      "voice": "marchuk",
+      "say": "Why did you kill him?!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.everythingyouasked",
+      "voice": "sokolov",
+      "say": "We did everything you asked!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.please",
+      "voice": "vetrov",
+      "say": "Please!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.marchuk.noventilation",
+      "voice": "marchuk",
+      "say": "There is no ventilation!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.wehavefamilies",
+      "voice": "orlova",
+      "say": "We have families!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.cannotleaveus",
+      "voice": "sokolov",
+      "say": "You cannot leave us in here!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.vetrov.canworkforyou",
+      "voice": "vetrov",
+      "say": "We can work for you!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.orlova.tellnobody",
+      "voice": "orlova",
+      "say": "We will tell nobody!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.sokolov.moveback",
+      "voice": "sokolov",
+      "say": "Move! Move back!"
+    },
+    {
+      "name": "vo.silentsquatch.reaction.bezmenov.stop",
+      "voice": "bezmenov",
+      "say": "Stop."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.youstartedthejob",
+      "voice": "booski",
+      "say": "You started the job."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.finishit",
+      "voice": "booski",
+      "say": "Finish it."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.booski.samehand",
+      "voice": "booski",
+      "say": "It’s the same hand you just used."
+    },
+    {
+      "name": "vo.silentsquatch.silentnight.computer.activated",
+      "voice": "labcomputer",
+      "say": "SILENT NIGHT PROTOCOL ACTIVATED."
+    },
+    {
+      "name": "vo.silentsquatch.gas.orlova.ventsareopen",
+      "voice": "orlova",
+      "say": "The vents are open."
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.whyarethevents",
+      "voice": "vetrov",
+      "say": "Why are the vents open?"
+    },
+    {
+      "name": "vo.silentsquatch.gas.sokolov.gettothedoor",
+      "voice": "sokolov",
+      "say": "Get to the door! All of you, the door!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.bezmenov.itoldyou",
+      "voice": "bezmenov",
+      "say": "I told you."
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.sleeve",
+      "voice": "marchuk",
+      "say": "Sleeve over your mouth. Breathe through the sleeve."
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.masksarelocked",
+      "voice": "vetrov",
+      "say": "The masks are locked. The masks are locked!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.vetrov.icant",
+      "voice": "vetrov",
+      "say": "I can’t — I can’t —"
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.staydown",
+      "voice": "marchuk",
+      "say": "Down. Stay down."
+    },
+    {
+      "name": "vo.silentsquatch.gas.orlova.lookatme",
+      "voice": "orlova",
+      "say": "Look at me. Look at me!"
+    },
+    {
+      "name": "vo.silentsquatch.gas.sokolov.openit",
+      "voice": "sokolov",
+      "say": "Open it! Open it! Open —"
+    },
+    {
+      "name": "vo.silentsquatch.gas.marchuk.giveyourhand",
+      "voice": "marchuk",
+      "say": "Nadia. Give me your hand."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.booski.efficient",
+      "voice": "booski",
+      "say": "Efficient."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.booski.lousgonnalikeyou",
+      "voice": "booski",
+      "say": "Lou’s gonna like you."
+    },
+    {
+      "name": "vo.silentsquatch.aftermath.dmt.stillrunning",
+      "voice": "deathmegatron",
+      "say": "It’s still running. Look at it."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.snowbasement",
+      "voice": "booski",
+      "say": "Snow. Basement."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.howbad",
+      "voice": "snow",
+      "say": "How bad?"
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.bringthecart",
+      "voice": "booski",
+      "say": "Bring the cart."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.jesuschrist",
+      "voice": "snow",
+      "say": "Jesus Christ."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.andamop",
+      "voice": "booski",
+      "say": "And a mop."
+    },
+    {
+      "name": "vo.silentsquatch.exit.booski.louisstillawake",
+      "voice": "booski",
+      "say": "Upstairs. Lou’s still awake."
+    },
+    {
+      "name": "vo.silentsquatch.exit.snow.itoldyou",
+      "voice": "snow",
+      "say": "I told you not to make more work for me."
+    },
+    {
+      "name": "vo.silentsquatch.exit.xxx.familymeeting",
+      "voice": "xxx",
+      "say": "Family meeting go well?"
     }
   ]
 }

@@ -27,10 +27,10 @@
  *
  * CASTING. `SPEAKERS[x].voice` is a voice profile in the `voices` block of
  * assets/sfx/manifest.json. Big Uncle Lou is `lou1` — NEVER `lou2`, who is
- * Captain Lou Sasole, a different man. The profiles this mission needs that do
- * not exist yet are listed in `PENDING_VOICE_PROFILES` at the bottom, which is
- * what tests/silent-squatch-voice.test.mjs holds the manifest to. Cue names
- * are generated centrally (`npm run vo:*`); nothing here writes a manifest.
+ * Captain Lou Sasole, a different man. Every profile this mission uses now has
+ * an owner-supplied id; `PENDING_VOICE_PROFILES` at the bottom is empty and
+ * says why. Cue names are generated centrally — `npm run vo:mansion`, joined
+ * into `npm run vo:sync` — and nothing here writes a manifest.
  */
 
 /** `vo.silentsquatch.<scope>.<who>.<id>` — the name the runtime asks for, with
@@ -44,10 +44,10 @@ function cue(scope, id) {
  * Everybody with a line.
  *
  * The five scientists who are not Aubbie, xXx, and the laboratory's own
- * computer need voice profiles that do not exist yet. They are named here so
- * the owner can paste ElevenLabs ids against a name rather than against a
- * guess, and the id itself is deliberately NOT invented — see
- * `PENDING_VOICE_PROFILES`.
+ * computer were all named here before they had ids, so the owner could paste
+ * ElevenLabs ids against a name rather than against a guess. All seven were
+ * cast on 2026-08-04; the scientists' ids were assigned in descending order of
+ * how much each of them actually says.
  */
 export const SPEAKERS = Object.freeze({
   PROSPECT: Object.freeze({ name: 'Prospect', voice: 'player' }),
@@ -604,19 +604,27 @@ export const LAB_DOOR_CODE = '6969';
  * still fails the build. WHEN THE IDS LAND, EMPTY THIS ARRAY.
  */
 export const PENDING_VOICE_PROFILES = Object.freeze([
-  /* xXx, hanging upside down in the interrogation area. Owner is supplying
-   * the id. Battered, unbothered, one octave lower than he can hold. */
-  'xxx',
-  /* The five scientists who are not Aubbie. Accented English, all of them,
-   * and all six sound like six different people. */
-  'vetrov', // nervous technician — young, thin, apologetic
-  'sokolov', // weapons engineer — warm, delighted by the machine
-  'bezmenov', // cynical older scientist — flat, slow, expects the worst
-  'orlova', // junior assistant — the youngest voice in the room
-  'marchuk', // medical specialist — clinical, gentle, the only one watching people
-  /* The laboratory annunciator. Synthetic, unhurried, no affect whatever.
-   * Two lines in the whole mission and both of them are terrible. */
-  'labcomputer',
+  /* EMPTY, and that is the finished state.
+   *
+   * The owner supplied every id on 2026-08-04 and they are in the manifest's
+   * `voices` block:
+   *
+   *   xxx          the man on the rope. Battered, unbothered, one octave
+   *                lower than he can hold.
+   *   vetrov       nervous technician — 11 lines, the most of any scientist
+   *   orlova       junior assistant — 11 lines, the youngest voice in the room
+   *   sokolov      weapons engineer — 10 lines, warm, loves the machine
+   *   marchuk      medical specialist — 9 lines, the only one watching people
+   *   bezmenov     the cynical old one — 7 lines, flat, expects the worst
+   *   labcomputer  the annunciator. Two lines and both of them are terrible.
+   *
+   * Doctor Aubbie is deliberately NOT recast. He is the same Aubbie the
+   * player drinks with — one stable id, one face, one voice, every scene —
+   * and he already has eight recorded takes as a Family member.
+   *
+   * Leave the array in place rather than deleting the export: the test that
+   * allows exactly these names to be missing is what catches a casting typo,
+   * and an empty allow-list is the strictest version of it. */
 ]);
 
 /**
