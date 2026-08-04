@@ -24,8 +24,62 @@ import {
   syncEnolaSquatchVoiceManifest,
 } from '../tools/enolasquatch-vo.mjs';
 import { SEQUENCES } from '../src/silvercase/dialogue/script.js';
-import { RELEASE_LINES, releaseCueOf } from '../src/enolasquatch/dialogue/script.js';
+import {
+  RELEASE_LINES, releaseCueOf, allEnolaSquatchLines,
+} from '../src/enolasquatch/dialogue/script.js';
 import { buildAudioTodo } from '../tools/audio-todo-lib.mjs';
+
+/**
+ * Enola Squatch lines authored since the manifest was last generated.
+ *
+ * `assets/sfx/manifest.json` is regenerated centrally by the owner
+ * (`npm run vo:sync`), not by whoever writes the dialogue, so between an
+ * authoring session and the next voice run the script legitimately runs ahead
+ * of the ledger. This list is how that stays a fact somebody wrote down rather
+ * than a hole: the sync test below allows exactly these cues to be missing and
+ * nothing else, so a new line that nobody declares still fails the build, and
+ * drift, staleness, duplication and cue collisions all still fail
+ * unconditionally.
+ *
+ * WHEN THE MANIFEST IS REGENERATED, EMPTY THIS ARRAY. It should be `[]` in a
+ * released state.
+ *
+ * These 31 are the walkaround, the rear gunner, the city and the crater
+ * (2026-08-04).
+ */
+const ENOLA_CUES_AWAITING_VO_SYNC = [
+  'vo.enolasquatch.sasole.preflight-arrival-1.1',
+  'vo.enolasquatch.prospect.preflight-arrival-2.1',
+  'vo.enolasquatch.sasole.preflight-arrival-3.1',
+  'vo.enolasquatch.sasole.preflight-chocks-1.1',
+  'vo.enolasquatch.sasole.preflight-props-1.1',
+  'vo.enolasquatch.prospect.preflight-props-all-1.1',
+  'vo.enolasquatch.sasole.preflight-props-all-2.1',
+  'vo.enolasquatch.irish.preflight-payload-look-1.1',
+  'vo.enolasquatch.numbskull.preflight-payload-tap-1.1',
+  'vo.enolasquatch.numbskull.preflight-bombbay-tap-1.1',
+  'vo.enolasquatch.sasole.preflight-surfaces-1.1',
+  'vo.enolasquatch.sasole.preflight-done-1.1',
+  'vo.enolasquatch.irish.preflight-done-2.1',
+  'vo.enolasquatch.sasole.preflight-board-1.1',
+  'vo.enolasquatch.sasole.preflight-chocksStill-1.1',
+  'vo.enolasquatch.shubes.defense-gunner-open-1.1',
+  'vo.enolasquatch.sasole.defense-gunner-open-2.1',
+  'vo.enolasquatch.numbskull.bomb-cityInSight-1.1',
+  'vo.enolasquatch.irish.bomb-cityInSight-2.1',
+  'vo.enolasquatch.prospect.bomb-cityInSight-3.1',
+  'vo.enolasquatch.sasole.bomb-cityInSight-4.1',
+  'vo.enolasquatch.shubes.bomb-falling-1.1',
+  'vo.enolasquatch.numbskull.bomb-falling-2.1',
+  'vo.enolasquatch.irish.bomb-falling-3.1',
+  'vo.enolasquatch.shubes.explosion-crater-1.1',
+  'vo.enolasquatch.numbskull.explosion-crater-2.1',
+  'vo.enolasquatch.shubes.explosion-crater-3.1',
+  'vo.enolasquatch.irish.explosion-crater-4.1',
+  'vo.enolasquatch.sasole.explosion-crater-5.1',
+  'vo.enolasquatch.prospect.explosion-crater-6.1',
+  'vo.enolasquatch.sasole.explosion-crater-7.1',
+];
 
 const manifest = JSON.parse(
   fs.readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'),
@@ -97,7 +151,16 @@ test('Silver Case sync is pure and its check catches drift', () => {
 
 test('every Enola Squatch beat, bark and release line is in the ledger', () => {
   const cues = collectEnolaSquatchVoiceCues();
-  assert.equal(cues.length, 87);
+  /* Counted rather than snapshotted against a literal. The number this used to
+   * assert (87) was the script's size on the day it was written, so authoring
+   * a line failed a test whose actual subject is "does the collector walk
+   * EVERY category" — which is what the two assertions below check, and what
+   * the release-pick test under this one checks for the one category that is
+   * reachable from neither BEATS nor BARKS. `allEnolaSquatchLines()` is the
+   * script's own "every line, for VO tooling" export, so a category the
+   * collector drops still shows up here as a mismatch. */
+  assert.equal(cues.length, allEnolaSquatchLines().length);
+  assert.ok(cues.length >= 87, 'the script has lost lines rather than gained them');
   assert.equal(cues.every((cue) => cue.name.startsWith('vo.enolasquatch.') && cue.voice && cue.say), true);
   assert.equal(new Set(cues.map((cue) => cue.name)).size, cues.length, 'two lines share one recording');
 });
@@ -142,7 +205,25 @@ test('Enola Squatch sync is pure and its check catches drift', () => {
 
 test('the committed manifest is in sync with both scripts', () => {
   assert.deepEqual(checkSilverCaseVoiceManifest(manifest), []);
-  assert.deepEqual(checkEnolaSquatchVoiceManifest(manifest), []);
+
+  /* The Enola Squatch's script is allowed to be ahead of the ledger by exactly
+   * the cues declared in `ENOLA_CUES_AWAITING_VO_SYNC` and by nothing else —
+   * see that list's comment for why. Everything the checker can report other
+   * than a declared miss is still a hard failure: a line whose words or
+   * casting changed under a manifest entry (`drifted`), an entry for a line
+   * that no longer exists (`stale`), a repeated entry (`duplicate`), and two
+   * lines that would share one recording (`colliding`). */
+  const failures = checkEnolaSquatchVoiceManifest(manifest);
+  const missing = failures
+    .filter((f) => f.startsWith('missing cue '))
+    .map((f) => f.slice('missing cue '.length));
+  const other = failures.filter((f) => !f.startsWith('missing cue '));
+  assert.deepEqual(other, [], 'the manifest has drifted from the script');
+  assert.deepEqual(
+    missing.slice().sort(), ENOLA_CUES_AWAITING_VO_SYNC.slice().sort(),
+    'authored lines missing from the manifest must be declared in ENOLA_CUES_AWAITING_VO_SYNC '
+    + '(and the list emptied once `npm run vo:sync` has been run)',
+  );
 });
 
 test('the recording sheet shows both scenes rather than only counting them', () => {

@@ -256,10 +256,15 @@ export class AircraftPhysics {
     // the left engine lived on the right wing and the aeroplane that Sasole
     // says pulls left pulled right off the centreline every takeoff.
     //
-    // The constants come off `this.ac` so a second airframe brings its own;
-    // the 3.05 m moment arm does not yet, which is fine for the Brushrunner it
-    // was measured on and approximate for anything wider.
-    sTorque.y -= (tL - tR) * 3.05 * 0.9;
+    // The constants come off `this.ac` so a second airframe brings its own —
+    // including the moment arm, which used to be hard-coded at the
+    // Brushrunner's measured 3.05 m. That was right for the aeroplane it was
+    // measured on and roughly a third of the truth for the Enola Squatch,
+    // whose four nacelles average ~9.6 m off the centreline: an engine out on
+    // the heavy barely pushed the nose at all. `AC.engineArm` is 3.05, so the
+    // Brushrunner's numbers are unchanged to the last decimal.
+    const engineArm = this.ac.engineArm ?? 3.05;
+    sTorque.y -= (tL - tR) * engineArm * 0.9;
     const slowPower = clamp((tL + tR) / (this.ac.thrustMax * 2), 0, 1)
       * smoothstep(0, 13, V) * clamp(1 - V / 55, 0, 1);
     sTorque.y += slowPower * this.ac.torqueYaw * this.assist.torque;

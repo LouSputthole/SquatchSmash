@@ -10,14 +10,30 @@
  * not a standalone export, so per the phase brief this reimplements the
  * exact math rather than inventing a different one).
  *
- * Explicitly NOT built here (a later composition-root phase's job, same as
- * the brief asked): the render loop, main.js/HTML wiring, or any on-foot
- * walkaround/boarding system. `preflight` therefore plays out entirely
- * inside the cockpit — battery, fuel selectors, four engines, brakes off —
- * the same shape as Beef Run's own `startup` phase, just carrying the
- * banter beats on phase-time thresholds instead of a walkaround checklist
- * (there is no `Preflight` class for this mission; nothing in the brief's
- * three deliverables asked for one).
+ * 2026-08-04 — THE OPENING IS NOW A WALKAROUND. This file used to say that no
+ * on-foot walkaround/boarding system existed and that `preflight` therefore
+ * played out entirely from the left seat, firing its banter off phase-time
+ * thresholds. The owner asked for the Beef Run's precheck instead ("I want the
+ * scene to start with basically the same precheck outside of it. We can use
+ * this to have the dialogue with all the other characters that actually need
+ * to be there"), so:
+ *
+ *   `walkaround` — new opening phase. Tony is on foot on the apron with the
+ *      four crew standing round the aeroplane. `../preflight.js` owns the six
+ *      checks and fires the `preflight.*` beats off the parts they are about.
+ *      Ends at the crew door: `armBoardingTarget()` -> `enterCockpit()`.
+ *   `preflight` — unchanged in what it gates on (battery, fuel selectors, all
+ *      four engines, parking brake) and now genuinely the start-up phase it
+ *      always described itself as. It keeps a fallback copy of the four banter
+ *      beats for any route that arrives in the seat without the walk.
+ *
+ * Additional `ctx` entries that go with it, all optional — omit them and the
+ * mission behaves exactly as it did before, starting in `preflight`:
+ *   preflight (`../preflight.js`'s EnolaPreflight), crew (`../crew.js`),
+ *   player, interaction (`src/core`'s Player / InteractionSystem),
+ *   city (`../scenes/TargetCity.js`, so the detonation has something to take
+ *   away), and `onCrater(crater)` — a callback the composition root uses to
+ *   fold the new hole into its own ground-height function.
  *
  * `ctx` (constructor argument), all required unless marked optional:
  *   scene, camera (optional, used only if a caller wants nav projection),
@@ -50,6 +66,7 @@
 import * as THREE from 'three';
 import {
   AC_ENOLA, enolaMass, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, CHECKPOINTS,
+  ENOLA_PARKING,
 } from '../config.js';
 import { OBJECTIVES, RELEASE_LINES, releaseCueOf } from '../dialogue/script.js';
 import { Defense } from '../combat/Defense.js';
@@ -136,6 +153,21 @@ export class MissionController {
     this.payloadReleased = false;
     this.bombBayOpen = false;
 
+    /* On foot vs. in the seat. `inCockpit` is false only during the opening
+     * walkaround; every checkpoint restore is airborne or on the runway and
+     * puts it back to true. Named the same as Beef Run's own flag
+     * (`src/beefrun/mission.js`, `flags.inCockpit`) because the composition
+     * root branches on it in exactly the same way. */
+    this.inCockpit = true;
+    this.boardTarget = null;
+
+    /* The rear gun. `gunFiring` is what `EnolaSquatch.updateRearGun()` reads;
+     * `gunAim` is the world point it swings onto. */
+    this.gunFiring = false;
+    this.gunAim = new THREE.Vector3();
+    this._gunBurst = 0;
+    this._gunRest = 0;
+
     this.checkpoint = null;
     this.checkpointData = null;
 
@@ -197,15 +229,111 @@ export class MissionController {
   /* ---------------------------------------------------------------- */
 
   begin() {
-    const park = this.airfield.anchors.parking;
-    this.physics.setPose(new THREE.Vector3(park.x, park.y + AC_ENOLA.gearY, park.z), this.airfield.anchors.parkingHeading, 0);
+    /* Parked on the open south apron rather than at `airfield.anchors.parking`
+     * — that anchor was measured for the Brushrunner's 17.2 m span and stands
+     * a 33.5 m wing inside the hangar's collider. See `ENOLA_PARKING`'s own
+     * comment in ../config.js. */
+    const park = ENOLA_PARKING;
+    const elev = this.getHeight ? this.getHeight(park.x, park.z) : WP.elev;
+    this.physics.setPose(new THREE.Vector3(park.x, elev + AC_ENOLA.gearY, park.z), park.heading, 0);
     this.physics.controls.parkingBrake = true;
     this.physics.mass = enolaMass(this.engines.fuel, false);
     this.aircraft.syncTo(this.physics);
 
     this.weather.setConditions({ turbulence: 0.2, crosswind: 0.3, rain: 0, cloudDensity: 0.3, dusk: 0.55, night: 0.15, lightning: 0 });
     this.audio?.setPhase?.('airport');
-    this.setPhase('preflight');
+
+    /* The bay hangs open on the apron so the Fat Squatch is visible — and
+     * stand-under-able — for the whole walkaround. It is closed again the
+     * moment anybody gets in. */
+    if (this.preflight && this.player) {
+      this.bombBayOpen = true;
+      this.crew?.standOnApron?.(this.scene, { ...park, elev });
+
+      /* Tony starts off the aeroplane's port quarter, far enough back that the
+       * whole thing is in frame on the first look — which matters more on this
+       * airframe than it did on the Brushrunner, because it is 33.5 m across
+       * and the joke of the scene is partly its size. */
+      const start = park.playerStart;
+      const startY = this.getHeight ? this.getHeight(start.x, start.z) : elev;
+      this.player.position.set(start.x, startY + 1.66, start.z);
+      this.player.ground = startY;
+      this.player.pitch = 0;
+      this.player.yaw = Math.atan2(start.x - park.x, start.z - park.z);
+      this.player.mode = 'walk';
+      this.player.enabled = true;
+      this.player.velocity?.set?.(0, 0, 0);
+      this.interaction?.setPaused?.(false);
+      this.input.rudderKeys = false;   // E is the interact key out here
+
+      this.setPhase('walkaround');
+    } else {
+      this.crew?.takeSeats?.(this.aircraft);
+      this.setPhase('preflight');
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Boarding                                                          */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Put the "get in" prompt on the crew door.
+   *
+   * The hit box hangs off `aircraft.anchors.crewDoor`, which is a child of the
+   * aeroplane group, so it rides the aeroplane instead of being a box floating
+   * over a patch of apron. Same idiom as Beef Run's `armBoardingTarget()`.
+   */
+  armBoardingTarget() {
+    if (this.boardTarget || !this.interaction) return;
+    const anchor = this.aircraft.anchors.crewDoor;
+    const hit = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 2.4, 1.8),
+      new THREE.MeshBasicMaterial({ visible: false }),
+    );
+    hit.position.copy(anchor);
+    hit.name = 'enola-board';
+    this.aircraft.group.add(hit);
+    this.boardTarget = hit;
+    this.interaction.register(hit, {
+      label: () => 'Climb aboard — <b>left seat</b>',
+      key: 'E',
+      onLook: () => this.dialogue.play('preflight.board', { once: true }),
+      onUse: () => this.enterCockpit(),
+    });
+  }
+
+  disarmBoardingTarget() {
+    if (!this.boardTarget) return;
+    this.interaction?.unregister?.(this.boardTarget);
+    this.boardTarget.parent?.remove(this.boardTarget);
+    this.boardTarget = null;
+  }
+
+  /**
+   * Everybody gets in, and the mission becomes the cockpit mission it always
+   * was from here on. The crew are reparented into the airframe by
+   * `crew.takeSeats()` — see `../crew.js` for why that is a reparent rather
+   * than a per-frame follow.
+   */
+  enterCockpit({ advance = true } = {}) {
+    this.disarmBoardingTarget();
+    this.preflight?.disarm?.();
+    this.inCockpit = true;
+    this.bombBayOpen = false;
+    this.player && (this.player.enabled = false);
+    this.player && (this.player.mode = 'frozen');
+    this.interaction?.setPaused?.(true);
+    this.crew?.takeSeats?.(this.aircraft);
+    this.cameras?.setView?.('cockpit');
+    if (this.cameras) { this.cameras.lookYaw = 0; this.cameras.lookPitch = -0.08; }
+    this.audio?.setHeadset?.(true);
+    this.dialogue.setHeadset(true);
+    this.input.rudderKeys = true;
+    this.flightHud?.show?.(true);
+    // `advance: false` is how the console/verification `go(phase)` helper gets
+    // everybody aboard without also forcing the phase back to preflight.
+    if (advance) this.setPhase('preflight');
   }
 
   setPhase(name) {
@@ -225,11 +353,37 @@ export class MissionController {
 
   onEnterPhase(name) {
     switch (name) {
+      case 'walkaround':
+        this.setObjective(OBJECTIVES.WALKAROUND);
+        this.inCockpit = false;
+        this.flightHud?.show?.(false);
+        this.flightHud?.showChecklist?.(true);
+        this.audio?.setHeadset?.(false);
+        this.dialogue.setHeadset(false);
+        this.preflight.arm();
+        this.preflight.onComplete = () => {
+          this.dialogue.play('preflight.done', { once: true });
+          this.armBoardingTarget();
+        };
+        break;
+
       case 'preflight':
         this.setObjective(OBJECTIVES.PREFLIGHT);
+        this.inCockpit = true;
         this.flightHud?.show?.(true);
+        this.flightHud?.showChecklist?.(true);
         this.audio?.setHeadset?.(true);
         this.dialogue.setHeadset(true);
+        /* QUEUED, not timed, when the walk has been done. `preflight.done` and
+         * `preflight.board` are about fourteen seconds of dialogue and they are
+         * still going when the seat is reached; the old `phaseTime > N &&
+         * !dialogue.busy` gate therefore lost the start sequence entirely to
+         * anybody brisk about the switches, which is exactly what the
+         * verification run caught. Queuing it means it plays after them,
+         * whenever that is, and cannot be outrun. */
+        if (this.preflight?.complete) {
+          this.dialogue.play('preflight.engineStart', { once: true, delay: 1.0 });
+        }
         break;
 
       case 'taxi':
@@ -292,6 +446,7 @@ export class MissionController {
         this.saveCheckpoint('preRelease');
         this.bombBayOpen = false;
         this._sawTargetInSight = false;
+        this._sawCity = false;
         this._saidTenSeconds = false;
         this._saidSteady = false;
         break;
@@ -320,6 +475,8 @@ export class MissionController {
 
       case 'escape':
         this.setObjective(OBJECTIVES.ESCAPE);
+        // He really is out of bullets — `escape.gunnerDone` says so.
+        this.gunFiring = false;
         this.dialogue.play('escape.turn', { once: true, delay: 0.5 });
         this.weather.setConditions({ turbulence: 0.95, lightning: 0.3 });
         this.bombBayOpen = false;
@@ -393,7 +550,11 @@ export class MissionController {
       this.payload.update(dt, this.getHeight || ((x) => approxGroundHeight(x)));
     }
 
+    // The city's crater glow cools whether or not anybody is looking at it.
+    this.city?.update?.(dt);
+
     switch (this.phase) {
+      case 'walkaround': this.updateWalkaround(dt); break;
       case 'preflight': this.updatePreflight(dt); break;
       case 'taxi': this.updateTaxi(dt); break;
       case 'takeoff': this.updateTakeoff(dt); break;
@@ -413,9 +574,31 @@ export class MissionController {
       default: break;
     }
 
-    if (this.flags.enginesEverStarted && !['preflight', 'epilogue'].includes(this.phase)) {
+    if (this.flags.enginesEverStarted && !['walkaround', 'preflight', 'epilogue'].includes(this.phase)) {
       this.updateFlightCommon(dt);
     }
+  }
+
+  /* ---- Walkaround ---- */
+
+  /**
+   * The opening walkaround. All this method does is drive the guidance and
+   * let the crew look at Tony; every beat is fired by `preflight.js` off the
+   * part it belongs to, which is the whole point of the change.
+   */
+  updateWalkaround(dt) {
+    const here = this.player?.position ?? this.camera?.position ?? null;
+    this.preflight.update(dt, this.physics, this.camera);
+    if (here) this.crew?.lookAt?.(here);
+
+    if (this.phaseTime > 1.2) this.dialogue.play('preflight.arrival', { once: true });
+
+    const next = this.preflight.next;
+    const step = next && next.need > 1 ? ` (${next.count}/${next.need})` : '';
+    this.setObjective(next
+      ? `${OBJECTIVES.WALKAROUND} — next: ${next.label}${step}`
+      : OBJECTIVES.BOARD);
+    this.flightHud?.setChecklist?.(this.preflight.checklist);
   }
 
   /* ---- Preflight / taxi / takeoff ---- */
@@ -424,14 +607,30 @@ export class MissionController {
     void dt;
     const e = this.engines;
     const p = this.physics;
-    // Banter on phase-time thresholds — there is no on-foot walkaround for
-    // this mission (see the class header), so these fire as a scripted
-    // sequence rather than off proximity to anything.
-    if (this.phaseTime > 1.0) this.dialogue.play('preflight.numbskull', { once: true });
-    if (this.phaseTime > 5.0) this.dialogue.play('preflight.restraints', { once: true });
-    if (this.phaseTime > 9.5) this.dialogue.play('preflight.bombbay', { once: true });
-    if (this.phaseTime > 14.5) this.dialogue.play('preflight.shubes.first', { once: true });
-    if (this.phaseTime > 20 && !this.dialogue.busy) this.dialogue.play('preflight.engineStart', { once: true });
+    /* The four banter beats that used to fire off this phase's clock now fire
+     * off the walkaround, from the parts they are about (see `../preflight.js`
+     * and the note above the `preflight.*` block in `../dialogue/script.js`).
+     * What is left in the seat is the start sequence itself — and a safety
+     * net, so a player who reached the cockpit some other way (a checkpoint
+     * restore, `go('preflight')` from the console, a verification harness)
+     * still hears them rather than losing four beats to a route change. */
+    const walked = !!this.preflight?.complete;
+    if (!walked) {
+      if (this.phaseTime > 1.0) this.dialogue.play('preflight.numbskull', { once: true });
+      if (this.phaseTime > 5.0) this.dialogue.play('preflight.restraints', { once: true });
+      if (this.phaseTime > 9.5) this.dialogue.play('preflight.bombbay', { once: true });
+      if (this.phaseTime > 14.5) this.dialogue.play('preflight.shubes.first', { once: true });
+    }
+    // The walked route queues this on phase entry (see `onEnterPhase`); this
+    // is the fallback for a route that never walked.
+    if (!walked && this.phaseTime > 20 && !this.dialogue.busy) {
+      this.dialogue.play('preflight.engineStart', { once: true });
+    }
+
+    // Nobody starts four engines with the chocks still under the wheels.
+    if (this.preflight?.chocksIn && this.phaseTime > 4) {
+      this.dialogue.play('preflight.chocksStill', { once: true });
+    }
 
     if (!e.masterBattery) { this.setObjective(`${OBJECTIVES.PREFLIGHT} — battery on`); return; }
     if (!e.fuelSelectors) { this.setObjective(`${OBJECTIVES.PREFLIGHT} — fuel selectors on`); return; }
@@ -518,6 +717,8 @@ export class MissionController {
       if (!this._smoothPraised && Math.abs(p.rollDeg) < 6 && Math.abs(p.gLoad - 1) < 0.12 && this.phaseTime > 8) {
         if (this.dialogue.bark('heavySmooth')) this._smoothPraised = true;
       }
+      // Shubes, at the back, with nothing to shoot at yet.
+      this.updateRearGunner(dt, false);
     }
     if (p.position.x > CORRIDOR.x - 400) this.setPhase('detection');
   }
@@ -547,9 +748,63 @@ export class MissionController {
 
   /* ---- Defense ---- */
 
+  /**
+   * The rear gun, worked by the Shubenator.
+   *
+   * `defense.opening` already existed as a beat and `BARKS.gunnerIdle` /
+   * `BARKS.gunnerFiring` already existed as pools; what was missing was a gun.
+   * This runs the whole station: while the compound's battery is up he fires
+   * bursts of about a second and a half with a beat between them, the turret
+   * swings onto whatever is shooting, and the barks fire off the real state
+   * rather than off a timer. Outside the defence phase he sweeps the empty
+   * sky and occasionally says so.
+   *
+   * The aim point is the battery on the ground: `Defense.deploy()` was given
+   * the target's own position, and the gun is a tail gun, so it can only reach
+   * what is already behind the aeroplane — `updateRearGun()` clamps the
+   * traverse and the elevation, and out-of-arc aim simply reads as the barrels
+   * pressed against their stops, which is correct.
+   */
+  updateRearGunner(dt, active) {
+    const p = this.physics;
+    if (!active) {
+      this.gunFiring = false;
+      this._gunBurst = 0;
+      // Idle chatter from the back, on the pool's own long cooldown.
+      if (!p.onGround && this.flags.enginesEverStarted) this.dialogue.bark('gunnerIdle');
+      return;
+    }
+    this.gunAim.set(TARGET_X, this.groundAt(TARGET_X, COMPOUND.z) + 12, COMPOUND.z);
+    if (this._gunBurst > 0) {
+      this._gunBurst -= dt;
+      this.gunFiring = true;
+      if (this._gunBurst <= 0) {
+        this.gunFiring = false;
+        this._gunRest = 0.7 + Math.random() * 1.4;
+      }
+    } else {
+      this._gunRest -= dt;
+      if (this._gunRest <= 0) {
+        this._gunBurst = 0.9 + Math.random() * 1.1;
+        if (!this.dialogue.seen('defense.gunner.open')) {
+          this.dialogue.play('defense.gunner.open', { once: true });
+        } else {
+          this.dialogue.bark('gunnerFiring');
+        }
+        this.audio?.play?.('gun.shot', { volume: 0.35 });
+      }
+    }
+  }
+
+  /** The ground height under a point, whichever sampler this mission was given. */
+  groundAt(x, z) {
+    return this.getHeight ? this.getHeight(x, z) : approxGroundHeight(x);
+  }
+
   updateDefensePhase(dt) {
     const p = this.physics;
     this.defense.update(dt, { position: p.position, velocity: p.velocity });
+    this.updateRearGunner(dt, this.defense.state === 'active' || this.defense.caught);
     if (this.defense.caught) this.flightHud?.setPatrol?.('located', 1);
     // Rare, mission-scripted safety valve — see the class header and
     // `Defense.js`'s own doc comment: nothing in Defense itself ever calls
@@ -585,6 +840,14 @@ export class MissionController {
     this.targeting.update(dt, p, true);
     this.score.corridorScore = this.targeting.corridorScore;
 
+    // The gun is still worked on the run in — that is when they are closest to
+    // the guns on the ground.
+    this.updateRearGunner(dt, this.defense.state === 'active');
+
+    if (!this._sawCity && this.targeting.distance < 5200) {
+      this._sawCity = true;
+      this.dialogue.play('bomb.cityInSight', { once: true });
+    }
     if (!this._sawTargetInSight && this.targeting.distance < 3200) {
       this._sawTargetInSight = true;
       this.dialogue.play('bomb.targetInSight', { once: true });
@@ -658,8 +921,23 @@ export class MissionController {
       if (this._releaseTimer <= 0) {
         this.payload.release(this.scene, this.physics.velocity.clone());
         this.payloadReleased = true;
+
+        /* The pheeeeeew. Started here rather than inside `FatSquatch` because
+         * the payload is a passive prop and knows nothing about audio, and
+         * because the length of the fall is a physics question the mission can
+         * answer and the prop cannot: from `h` metres up with an initial
+         * vertical rate `v0`, ballistic time to the ground is
+         * (v0 + sqrt(v0^2 + 2gh)) / g. Handing that to the whistle means the
+         * sweep bottoms out as the bomb arrives instead of before or after it.
+         * `onPayloadImpact` cuts it, and so does `restoreCheckpoint`. */
+        const h = Math.max(20, this.physics.position.y - this.groundAt(this.physics.position.x, this.physics.position.z));
+        const v0 = Math.max(0, -this.physics.velocity.y);
+        const fall = (v0 + Math.sqrt(v0 * v0 + 2 * 9.81 * h)) / 9.81;
+        this.audio?.fallingWhistle?.(fall);
+        this._fallSeconds = fall;
         this.dialogue.play('bomb.packageAway', { once: true, delay: 0.3 });
-        this.dialogue.play('bomb.weightLoss', { once: true, delay: 2.8 });
+        this.dialogue.play('bomb.falling', { once: true, delay: 2.4 });
+        this.dialogue.play('bomb.weightLoss', { once: true, delay: 5.4 });
         this._releaseStep = 'falling';
         this.setPhase('explosion');
       }
@@ -670,8 +948,24 @@ export class MissionController {
 
   onPayloadImpact(point) {
     this.explosionPoint = point.clone();
+    // The whistle stops the instant it arrives, not a frame later.
+    this.audio?.endFallingWhistle?.(0.03);
+    this.audio?.detonation?.(1.2);
+    /* Take the city away and put the hole there BEFORE the fireball is built,
+     * so the very first frame of the flash is already lighting a crater.
+     * `TargetCity.destroy()` also hands back the crater record, which
+     * `main.js` has already wired into the ground sampler through
+     * `onCrater` — that is what keeps the terrain the aeroplane can hit and
+     * the terrain the player can see the same surface. */
+    if (this.city && !this.city.destroyed) {
+      const crater = this.city.destroy(point);
+      this.onCrater?.(crater);
+    }
     this._buildExplosionVfx(point);
-    this.dialogue.play('explosion.reaction', { urgent: true, delay: 0.6 });
+    this.cameras?.addShake?.(1.6);
+    this.cameras?.punchFov?.(9);
+    this.dialogue.play('explosion.reaction', { urgent: true, delay: 1.4 });
+    this.dialogue.play('explosion.crater', { once: true, delay: 6.5 });
     const missDistance = Math.hypot(point.x - COMPOUND.x, point.z - COMPOUND.z);
     this.score.bombAccuracy = clamp(1 - missDistance / 260, 0, 1);
     // EXPRESS SHIPPING: delivered without missing the target — a tight
@@ -680,36 +974,157 @@ export class MissionController {
     this.score.expressShipping = missDistance < 140 && this.targeting.corridorScore > 0.6;
   }
 
-  /** A scripted VFX timeline: flash, shockwave ring, debris, one gag frame. */
+  /**
+   * The detonation.
+   *
+   * "I liked the flash, I want the explosion to be absolutely earth shattering
+   * and massive." The flash the owner liked is still the first thing that
+   * happens and it is still the same idea — an unlit sphere going from nothing
+   * to enormous in a quarter of a second — it is simply an order of magnitude
+   * larger and no longer the whole event. Built the same way as the
+   * fireball/smoke/debris-fan pattern `Brushrunner.explode()` uses
+   * (`src/beefrun/aircraft.js`), at roughly forty times the scale, because
+   * that one is an aeroplane hitting a hill and this one takes a city off the
+   * map.
+   *
+   * What is on screen, in order:
+   *
+   *   0.00  the white flash, 4 m -> 900 m, gone in a quarter second
+   *   0.00  a real PointLight at the impact, so the aeroplane, the crater and
+   *         the surviving outskirts are actually lit by it for a moment
+   *   0.02  the fireball: four nested spheres in white, yellow, orange and
+   *         deep red, expanding at different rates so the colours separate
+   *         the way they do in a real one
+   *   0.10  a ground-hugging dust ring racing outward past the crater lip
+   *   0.20  three shockwave rings at three speeds
+   *   0.60  the stem climbing, and then the cap unrolling off the top of it —
+   *         the mushroom, which is the shape the whole beat is for
+   *   0.30  a fan of forty pieces of debris on real ballistic arcs
+   *   1.20  the Sasquatch-head gag frame, at 900 m across, which lands better
+   *         at this scale than it ever did at ninety
+   *
+   * It runs for eighteen seconds instead of four, and the escape phase does
+   * not begin until the cap is up, because leaving before it is finished was
+   * throwing the shot away.
+   */
   _buildExplosionVfx(point) {
     const g = group('fat-squatch-detonation');
     g.position.copy(point);
-    const flash = flatMesh(sphereGeo(1, 12, 8), unlit(0xf4e8ff, { transparent: true, opacity: 0 }), 0, 6, 0);
+
+    const flash = flatMesh(sphereGeo(1, 16, 12), unlit(0xfffaf0, {
+      transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+    }), 0, 40, 0);
     g.add(flash);
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(1, 0.4, 8, 24),
-      new THREE.MeshBasicMaterial({ color: 0xd9c2ff, transparent: true, opacity: 0, toneMapped: false, side: THREE.DoubleSide }),
+
+    /* One real light. Everything else here is unlit geometry, which cannot
+     * put anything on the aeroplane or the ground; this is what makes the
+     * moment read as light rather than as a bright picture. */
+    const light = new THREE.PointLight(0xffb45a, 0, 6000, 1.6);
+    light.position.set(0, 60, 0);
+    g.add(light);
+
+    // The fireball: four shells, each with its own colour and growth rate.
+    const fire = [
+      { colour: 0xfff3d0, to: 340, at: 0.55, fade: 1.9, y: 60 },
+      { colour: 0xffd24a, to: 470, at: 0.9, fade: 3.0, y: 90 },
+      { colour: 0xff7a1e, to: 620, at: 1.5, fade: 4.6, y: 130 },
+      { colour: 0xc4241a, to: 780, at: 2.4, fade: 6.5, y: 175 },
+    ].map((spec) => {
+      const ball = flatMesh(sphereGeo(1, 20, 14), unlit(spec.colour, {
+        transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+      }), 0, spec.y, 0);
+      ball.userData.spec = spec;
+      g.add(ball);
+      return ball;
+    });
+
+    // Three shockwave rings, on the deck, at three speeds.
+    const rings = [
+      { to: 2400, over: 2.6, colour: 0xffe6b4, tube: 9 },
+      { to: 3400, over: 4.4, colour: 0xd9c2ff, tube: 14 },
+      { to: 4600, over: 7.0, colour: 0x8a7a9a, tube: 22 },
+    ].map((spec) => {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(1, spec.tube / 40, 8, 40),
+        new THREE.MeshBasicMaterial({
+          color: spec.colour, transparent: true, opacity: 0, toneMapped: false,
+          side: THREE.DoubleSide, depthWrite: false,
+        }),
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 22;
+      ring.userData.spec = spec;
+      g.add(ring);
+      return ring;
+    });
+
+    /* The dust wall: a low cylinder of smoke racing out along the ground and
+     * climbing as it goes, which is what actually sells the diameter. */
+    const dust = new THREE.Mesh(
+      new THREE.CylinderGeometry(1, 1, 1, 36, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x6b5a44, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+      }),
     );
-    ring.rotation.x = Math.PI / 2;
-    ring.position.y = 4;
-    g.add(ring);
-    // The one-frame gag: a Sasquatch-head silhouette sprite, hidden until
-    // the shockwave nears its peak size, then swapped away again.
+    dust.position.y = 30;
+    g.add(dust);
+
+    /* The stem and the cap. A cylinder and a squashed sphere is the whole
+     * trick, and at this size it is enough — the shape is doing the work, not
+     * the shading. */
+    const stem = mesh(
+      new THREE.CylinderGeometry(120, 210, 1, 20, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0x8a6a4a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+      }),
+      0, 0, 0,
+    );
+    g.add(stem);
+    const cap = flatMesh(sphereGeo(1, 22, 14), new THREE.MeshBasicMaterial({
+      color: 0xa08262, transparent: true, opacity: 0, depthWrite: false,
+    }), 0, 0, 0);
+    g.add(cap);
+
+    // Smoke columns lifting off the flanks of the stem.
+    const smoke = [];
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const puff = flatMesh(sphereGeo(1, 10, 7), new THREE.MeshBasicMaterial({
+        color: i % 2 ? 0x4a4038 : 0x6b5a44, transparent: true, opacity: 0, depthWrite: false,
+      }), Math.cos(a) * 200, 40, Math.sin(a) * 200);
+      puff.userData.rise = 26 + (i % 4) * 12;
+      puff.userData.grow = 60 + (i % 3) * 34;
+      g.add(puff);
+      smoke.push(puff);
+    }
+
+    // The gag frame: a Sasquatch-head silhouette, hidden until the fireball is
+    // near its peak, then gone again.
     const gag = flatMesh(planeGeo(1, 1), mat({
       map: sasquatchSilhouetteTexture(), transparent: true, alphaTest: 0.05, depthWrite: false, unique: true,
-    }), 0, 40, 0);
+    }), 0, 420, 0);
     gag.visible = false;
     g.add(gag);
+
+    // Forty pieces of what used to be Squatchbourg.
     const debris = [];
-    for (let i = 0; i < 6; i++) {
-      const bit = mesh(boxGeo(2, 1.4, 2), solid(0x3a3428, { roughness: 1 }), 0, 4, 0);
-      const a = (i / 6) * Math.PI * 2;
-      bit.userData.vel = new THREE.Vector3(Math.cos(a) * (18 + Math.random() * 10), 26 + Math.random() * 16, Math.sin(a) * (18 + Math.random() * 10));
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2 + Math.random() * 0.4;
+      const size = 6 + Math.random() * 22;
+      const bit = mesh(boxGeo(size, size * (0.4 + Math.random()), size), solid(i % 3 ? 0x3a3428 : 0x5a5248, { roughness: 1 }), 0, 30, 0);
+      const speed = 120 + Math.random() * 260;
+      bit.userData.vel = new THREE.Vector3(
+        Math.cos(a) * speed,
+        180 + Math.random() * 300,
+        Math.sin(a) * speed,
+      );
+      bit.userData.spin = new THREE.Vector3(Math.random() * 4, Math.random() * 3, Math.random() * 5);
       g.add(bit);
       debris.push(bit);
     }
+
     this.scene.add(g);
-    this._explosionVfx = { group: g, flash, ring, gag, debris };
+    this._explosionVfx = { group: g, flash, light, fire, rings, dust, stem, cap, smoke, gag, debris };
 
     // Tower-light-extinguish, if the deploy step built any (see
     // `Defense.deploy()` — it does not build towers itself; those live on
@@ -726,32 +1141,93 @@ export class MissionController {
     const t = this._explosionT;
     const vfx = this._explosionVfx;
     if (vfx) {
-      const flashK = clamp(t / 0.25, 0, 1);
-      vfx.flash.material.opacity = lerp(0.95, 0, flashK);
-      vfx.flash.scale.setScalar(lerp(4, 60, Math.min(1, t / 0.6)));
+      // The flash the owner liked, at 900 m across.
+      const flashK = clamp(t / 0.34, 0, 1);
+      vfx.flash.material.opacity = lerp(1, 0, flashK * flashK);
+      vfx.flash.scale.setScalar(lerp(4, 900, Math.min(1, t / 0.45)));
 
-      const ringK = clamp(t / 3.2, 0, 1);
-      vfx.ring.scale.setScalar(lerp(1, 140, Math.sqrt(ringK)));
-      vfx.ring.material.opacity = lerp(0.8, 0, ringK);
+      // A real light, blindingly bright and then guttering down for ten
+      // seconds as the fireball turns over.
+      vfx.light.intensity = t < 0.4
+        ? lerp(0, 9e6, clamp(t / 0.08, 0, 1))
+        : 9e6 * Math.exp(-(t - 0.4) * 0.85);
+      vfx.light.color.setHex(t < 1.2 ? 0xffdca8 : 0xff7a2a);
 
-      // The gag frame: visible only in a short window around peak size.
-      vfx.gag.visible = t > 0.7 && t < 1.4;
+      for (const ball of vfx.fire) {
+        const s = ball.userData.spec;
+        const k = clamp(t / s.at, 0, 1);
+        ball.scale.setScalar(lerp(6, s.to, Math.sqrt(k)));
+        ball.position.y = s.y + t * 34;
+        ball.material.opacity = clamp(1 - t / s.fade, 0, 1) * 0.9;
+      }
+
+      for (const ring of vfx.rings) {
+        const s = ring.userData.spec;
+        const k = clamp(t / s.over, 0, 1);
+        ring.scale.setScalar(lerp(2, s.to, Math.sqrt(k)));
+        ring.material.opacity = lerp(0.85, 0, k);
+      }
+
+      // The dust wall.
+      const dustK = clamp(t / 6.0, 0, 1);
+      const dustR = lerp(20, 3000, Math.sqrt(dustK));
+      vfx.dust.scale.set(dustR, lerp(40, 420, dustK), dustR);
+      vfx.dust.position.y = lerp(30, 220, dustK);
+      vfx.dust.material.opacity = clamp(0.55 - dustK * 0.55, 0, 0.55);
+
+      /* The stem climbs for six seconds, then the cap unrolls off the top of
+       * it. Keeping them on separate clocks is what makes it a mushroom
+       * rather than a lollipop that grows all at once. */
+      const stemK = clamp((t - 0.6) / 6.0, 0, 1);
+      const stemH = lerp(0, 1800, stemK);
+      vfx.stem.scale.set(1, Math.max(stemH, 1), 1);
+      vfx.stem.position.y = stemH / 2;
+      vfx.stem.material.opacity = clamp(stemK * 1.6, 0, 0.72) * clamp(1 - (t - 12) / 6, 0, 1);
+
+      const capK = clamp((t - 2.4) / 7.0, 0, 1);
+      const capR = lerp(60, 1150, Math.sqrt(capK));
+      vfx.cap.scale.set(capR, capR * 0.58, capR);
+      vfx.cap.position.y = lerp(200, 1950, capK);
+      vfx.cap.material.opacity = clamp(capK * 1.4, 0, 0.8) * clamp(1 - (t - 13) / 5, 0, 1);
+
+      for (const puff of vfx.smoke) {
+        puff.position.y += puff.userData.rise * dt;
+        const s = puff.scale.x + puff.userData.grow * dt;
+        puff.scale.setScalar(s);
+        puff.material.opacity = clamp(0.5 - t * 0.03, 0, 0.5);
+      }
+
+      // The gag frame, now nine hundred metres of Sasquatch.
+      vfx.gag.visible = t > 1.2 && t < 2.6;
       if (vfx.gag.visible) {
-        const gagK = clamp((t - 0.7) / 0.7, 0, 1);
-        const s = lerp(20, 90, Math.sin(gagK * Math.PI));
+        const gagK = clamp((t - 1.2) / 1.4, 0, 1);
+        const s = lerp(300, 950, Math.sin(gagK * Math.PI));
         vfx.gag.scale.set(s, s, 1);
-        vfx.gag.material.opacity = Math.sin(gagK * Math.PI);
+        vfx.gag.position.y = lerp(360, 900, gagK);
+        vfx.gag.material.opacity = Math.sin(gagK * Math.PI) * 0.92;
       }
 
       for (const bit of vfx.debris) {
-        bit.userData.vel.y -= 30 * dt;
+        bit.userData.vel.y -= 40 * dt;
         bit.position.addScaledVector(bit.userData.vel, dt);
-        bit.rotation.x += dt * 3;
-        bit.rotation.z += dt * 2;
+        bit.rotation.x += bit.userData.spin.x * dt;
+        bit.rotation.y += bit.userData.spin.y * dt;
+        bit.rotation.z += bit.userData.spin.z * dt;
       }
+
+      /* Sustained ground shake, decaying over the first six seconds. The
+       * aeroplane is a couple of kilometres away by now and it still cannot
+       * hold a heading. */
+      if (t < 6) this.cameras?.addShake?.(clamp(0.9 - t * 0.15, 0, 0.9) * dt * 6);
     }
-    if (t > 4.2) {
-      if (vfx) this.scene.remove(vfx.group);
+    /* Eighteen seconds, not four. The cap does not finish going up until
+     * about eleven, and cutting to the escape phase before then was throwing
+     * the shot away. */
+    if (t > 18) {
+      if (vfx) {
+        this.scene.remove(vfx.group);
+        vfx.group.traverse((o) => { o.material?.dispose?.(); });
+      }
       this._explosionVfx = null;
       this.setPhase('escape');
     }
@@ -827,6 +1303,8 @@ export class MissionController {
   updateReturn(dt) {
     const p = this.physics;
     this.updateNavCorrection(dt, RETURN_HEADING);
+    // Still counting stars back there, and still out of bullets.
+    this.updateRearGunner(dt, false);
     if (p.position.x < WP.x + 1600) this.setPhase('landing');
   }
 
@@ -867,12 +1345,27 @@ export class MissionController {
     const rough = p.gust.length();
     this.score.roughAir += Math.max(0, rough - 3) * dt;
 
+    /* `BARKS.stall` does not exist in `../dialogue/script.js` — the pool was
+     * never written — so `bark('stall')` has always been a silent no-op. Left
+     * as it stands rather than inventing a line for it, and flagged here so
+     * the next person does not have to rediscover it by reading DialogueSystem. */
     if (!p.onGround && p.stallT > 0.35) { warn.add('stall'); this.audio?.setStallHorn?.(true); this.dialogue.bark?.('stall'); }
     else this.audio?.setStallHorn?.(!p.onGround && p.stallT > 0.2);
     if (!p.onGround && p.ias > AC_ENOLA.vne * 0.92) warn.add('overspeed');
-    if (!p.onGround && p.agl < 70 && p.vspeed < -3) warn.add('terrain');
+    if (!p.onGround && p.agl < 70 && p.vspeed < -3) {
+      warn.add('terrain');
+      /* `BARKS.terrainClose` HAS been written, and had no trigger anywhere in
+       * the mission — an authored, cued, castable line that could never play.
+       * Same for `BARKS.lowFuel` below. Both are wired to the condition their
+       * own words describe, which is the condition the HUD warning beside them
+       * was already computing. */
+      this.dialogue.bark('terrainClose');
+    }
     if (this.engines.engines.some((e) => e.temp > 245)) warn.add('hot');
-    if (this.score.fuelRemaining < 0.18) warn.add('fuel');
+    if (this.score.fuelRemaining < 0.18) {
+      warn.add('fuel');
+      if (!p.onGround) this.dialogue.bark('lowFuel');
+    }
     if (p.damage.gear > 0.3) warn.add('gear');
 
     if (this.phase === 'bombMalfunction' || (this.phase === 'bombApproach' && !this.bombBayOpen)) warn.add('bombBay');
@@ -997,6 +1490,29 @@ export class MissionController {
     this._touchdowns.length = 0;
     this.flightHud?.hideComplete?.();
 
+    /* Every checkpoint is airborne or lined up on the runway, so the
+     * walkaround is over however the player got here: the guidance marker, the
+     * six interaction targets and the boarding prompt all go away, the crew
+     * are in their seats, and the player is in his. Beef Run's own
+     * `restoreCheckpoint` does the same thing for the same reason — a
+     * restored flight that leaves the on-foot systems armed puts an
+     * interaction prompt on the glass at four thousand feet. */
+    this.audio?.endFallingWhistle?.(0.05);
+    this.gunFiring = false;
+    this.preflight?.disarm?.();
+    this.disarmBoardingTarget();
+    this.crew?.takeSeats?.(this.aircraft);
+    if (!this.inCockpit) {
+      this.inCockpit = true;
+      if (this.player) { this.player.enabled = false; this.player.mode = 'frozen'; }
+      this.interaction?.setPaused?.(true);
+      this.cameras?.setView?.('cockpit');
+      this.audio?.setHeadset?.(true);
+      this.dialogue.setHeadset(true);
+      this.input.rudderKeys = true;
+      this.flightHud?.show?.(true);
+    }
+
     const setup = {
       takeoff: () => {
         const a = this.airfield.anchors.lineUp;
@@ -1068,6 +1584,8 @@ export class MissionController {
     this.failed = reason;
     this.audio?.setPhase?.('silent');
     this.audio?.setStallHorn?.(false);
+    this.audio?.endFallingWhistle?.(0.15);
+    this.gunFiring = false;
     this.dialogue.clear();
     this.hud?.say?.(`<em>${reason}</em> Open the Tab menu and choose Restart from checkpoint to return to the ${this.checkpoint} checkpoint.`, 12000);
     this.flightHud?.showCheckpoint?.('TAB MENU — RESTART FROM CHECKPOINT');

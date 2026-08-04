@@ -54,11 +54,68 @@ export const BEATS = {
     L('More morale.', 1.8),
   ],
 
-  /* ---------------- Preflight ---------------- */
+  /* ---------------- Preflight ----------------
+   *
+   * These were written for a walkaround that did not exist yet: until
+   * 2026-08-04 the preflight phase ran entirely from the left seat and fired
+   * them off a phase timer, so `preflight.numbskull` — a line whose whole joke
+   * is that Tony can see where Numbskull is standing — played while Tony was
+   * strapped in and facing the other way. `preflight.js` now walks him round
+   * the aeroplane and every one of them fires off the thing it is about. The
+   * lines below are the new ones that walk needs; the four that were already
+   * here are unchanged. */
+
+  'preflight.arrival': [
+    L('There she is. Walk her with me before you get in — I am not signing for anything you did not look at.', 4.6),
+    P('All of it?', 1.6),
+    L('All of it. Chocks, all four fans, the bay, the bomb, the tail.', 3.6),
+  ],
 
   'preflight.numbskull': [
     P('Should you be standing under that?', 2.4),
     N('Probably not.', 2.0),
+  ],
+
+  'preflight.chocks': [
+    L('Chocks first. Two of them, and both of them come out, because I have seen what happens when it is one.', 4.4),
+  ],
+
+  'preflight.props': [
+    L('Pull each one through by hand. Four engines means four times, not one time with feeling.', 4.0),
+  ],
+
+  'preflight.props.all': [
+    P('All four turn.', 1.6),
+    L('All four turning is the low bar. All four turning at the same time is the job.', 3.6),
+  ],
+
+  'preflight.payload.look': [
+    I('That is the Fat Squatch. Do not lean on it, do not sit on it, do not put your coffee on it.', 4.2),
+  ],
+
+  'preflight.payload.tap': [
+    N('You have to actually pull on the strap. Tapping a strap tells you nothing.', 3.4),
+  ],
+
+  'preflight.bombbay.tap': [
+    N('Give it a proper look, not a glance. It is a panel, not a painting.', 3.2),
+  ],
+
+  'preflight.surfaces': [
+    L('Move the elevator. If it moves, it is connected. If it does not, we have a much shorter evening.', 4.2),
+  ],
+
+  'preflight.done': [
+    L('That is the walk. Nothing on this aeroplane is a surprise now, which is the most I have ever been able to say about it.', 5.0),
+    I('Door is open, Prospect. Left seat. Yours is the one on the left as she sits, not as you look at her.', 4.4),
+  ],
+
+  'preflight.board': [
+    L('Get in. Mind the ladder — it is the newest part of the aircraft and I do not trust it either.', 4.2),
+  ],
+
+  'preflight.chocksStill': [
+    L('Chocks are still in. She will run up beautifully and go absolutely nowhere.', 3.6),
   ],
 
   'preflight.restraints': [
@@ -151,6 +208,10 @@ export const BEATS = {
   'defense.gunner.on': [
     H('Rear gun’s hot. Say the word.', 2.0),
   ],
+  'defense.gunner.open': [
+    H('Word taken! Word absolutely taken!', 2.2),
+    L('Hold her steady for him. He cannot hit anything if the whole aeroplane is the thing that is moving.', 4.2),
+  ],
   'defense.hit': [
     L('That one found us. Report.', 2.2),
   ],
@@ -162,6 +223,12 @@ export const BEATS = {
 
   'bomb.targetInSight': [
     N('Target coming into view.', 2.0),
+  ],
+  'bomb.cityInSight': [
+    N('That is a whole town down there. Streets and everything.', 3.0),
+    I('Squatchbourg. Grid runs north–south, the tall part is the middle, and the middle is what we were given.', 4.6),
+    P('It’s bigger than I thought.', 2.0),
+    L('They always are. Fly the line.', 2.4),
   ],
   'bomb.tenSeconds': [
     I('Ten seconds.', 1.4),
@@ -206,11 +273,28 @@ export const BEATS = {
     L('There she goes. Plane just lost six thousand pounds of bad intentions.', 3.6),
   ],
 
+  /* The whistle. Nobody in this crew has heard one before, which is the joke. */
+  'bomb.falling': [
+    H('Is it supposed to make that noise?', 2.4),
+    N('That is the noise. That is the correct noise.', 2.8),
+    I('Then why is it getting worse.', 2.4),
+  ],
+
   /* ---------------- Explosion ---------------- */
 
   'explosion.reaction': [
     I('That seems excessive.', 2.2),
     L('That was the conservative setting.', 2.6),
+  ],
+
+  'explosion.crater': [
+    H('Guys. Guys, where did it go?', 2.6),
+    N('The town?', 1.6),
+    H('Yeah, the town.', 1.8),
+    I('There is a hole where the town was. A round one. You can see the far side of it from here.', 4.8),
+    L('That is what a crater is, Irish.', 2.4),
+    P('...I said a line before that.', 2.2),
+    L('Nobody heard your line. Everybody is looking at the hole.', 3.4),
   ],
 
   /* ---------------- Escape ---------------- */
@@ -328,7 +412,9 @@ export function allEnolaSquatchLines() {
 }
 
 export const OBJECTIVES = {
-  PREFLIGHT: 'Walk the preflight: restraints, bomb-bay panel, engines.',
+  WALKAROUND: 'Walk the aeroplane with Captain Sasole.',
+  BOARD: 'Climb aboard and take the left seat.',
+  PREFLIGHT: 'Battery, fuel, all four engines, brakes off.',
   TAXI: 'Taxi to the runway and line up.',
   TAKEOFF: 'Hold the line. Throttle up. Rotate before the runway ends.',
   CLIMB_TURN: 'Climb out, then turn onto the new heading.',
