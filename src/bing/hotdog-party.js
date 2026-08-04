@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import { CHARACTER_IDS } from '../core/campaign.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
+import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { Npc } from './cast.js';
 import { STAGE_H } from './club.js';
@@ -275,20 +276,25 @@ export function buildHotDogCleanupProps() {
 
   const wrap = group('hotdog.wrap');
   wrap.position.set(-15.9, 0, -0.45);
-  const wrappedBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.46, 1.25, 8, 16), plastic);
-  wrappedBody.name = 'hotdog.wrap-body';
-  wrappedBody.rotation.x = Math.PI / 2;
-  wrappedBody.position.y = 0.49;
-  wrappedBody.castShadow = true;
-  wrap.add(wrappedBody);
-  for (const z of [-0.42, 0, 0.42]) {
-    const band = new THREE.Mesh(
-      new THREE.TorusGeometry(0.47, 0.024, 7, 24),
-      mat({ color: 0xe7eaed, roughness: 0.5, transparent: true, opacity: 0.88 }),
-    );
-    band.position.set(0, 0.49, z);
-    wrap.add(band);
-  }
+  /*
+   * A wrapped body is only convincing at the size of the man inside it, so both
+   * numbers come off Billy's canonical model rather than being typed here: his
+   * standing height plus the toes he is now pointing, and his build.
+   */
+  const wrapped = buildWrappedBody({
+    length: BILLY_HOTDOG_MODEL.height + 0.1,
+    build: BILLY_HOTDOG_MODEL.build,
+    stain: 0.7,
+    seed: 1.7,
+  });
+  // Rippin and Aubbie rolled him onto the sheet; they did not lay him out
+  // square to the room.
+  wrapped.group.rotation.y = 0.12;
+  // The cleanup toggles, the `prop.wrapped-body` collider and the browser
+  // verifiers all reach the sheet by the name the capsule used to carry. It is
+  // the same object in the same place doing the same job, so it keeps it.
+  wrapped.sheet.name = 'hotdog.wrap-body';
+  wrap.add(wrapped.group);
   wrap.visible = false;
   g.add(wrap);
 
@@ -404,9 +410,12 @@ function installPartyColliders(club, {
     id: 'prop.broken-stool', target: cleanup.brokenStool,
     halfX: 0.42, halfZ: 0.42, minY: -0.06, maxY: 0.74,
   });
+  // Half a metre tall, not a metre: the old numbers were sized to a capsule
+  // standing on its side, and this one lies flat with its weight in the floor.
+  // The gathered ends past the head and the feet buy back the extra length.
   add({
     id: 'prop.wrapped-body', target: cleanup.wrap,
-    halfX: 0.5, halfZ: 1.12, minY: -0.03, maxY: 0.98,
+    halfX: 0.5, halfZ: 1.16, minY: -0.03, maxY: 0.5,
   });
 
   const cast = [];

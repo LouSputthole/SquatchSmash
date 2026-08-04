@@ -317,7 +317,28 @@ try {
       });
       return { id, mapped };
     });
+    /*
+     * The body on the floor used to be checked by asserting it was a capsule of
+     * a given radius, which pinned the exact shape the owner threw out. What
+     * matters now is that the thing reads as a wrapped man: measure its real
+     * vertices and prove the silhouette tapers and the two ends differ.
+     */
     const wrapBody = party.cleanup.wrap.getObjectByName('hotdog.wrap-body');
+    const wrapData = wrapBody?.parent?.userData?.wrappedBody ?? null;
+    const wrapPieces = wrapBody?.parent?.children ?? [];
+    wrapBody?.geometry?.computeBoundingBox?.();
+    const wrapBox = wrapBody?.geometry?.boundingBox ?? null;
+    const wrapWidthAt = (z, tolerance) => {
+      const position = wrapBody.geometry.getAttribute('position');
+      let lo = Infinity;
+      let hi = -Infinity;
+      for (let i = 0; i < position.count; i += 1) {
+        if (Math.abs(position.getZ(i) - z) > tolerance) continue;
+        lo = Math.min(lo, position.getX(i));
+        hi = Math.max(hi, position.getX(i));
+      }
+      return hi - lo;
+    };
     return {
       lawnmowerIsSnow: party.extra.lawnmower === party.byId.snow,
       castUnique: new Set(party.all).size === party.all.length,
@@ -335,8 +356,20 @@ try {
         name: party.apeKnife?.name ?? '',
         hiddenBeforeAttack: party.apeKnife?.visible === false,
       },
-      wrapGeometry: wrapBody?.geometry?.type,
-      wrapRadius: wrapBody?.geometry?.parameters?.radius,
+      wrap: wrapData && wrapBox && {
+        length: wrapBox.max.z - wrapBox.min.z,
+        width: wrapBox.max.x - wrapBox.min.x,
+        height: wrapBox.max.y - wrapBox.min.y,
+        head: wrapWidthAt(wrapData.noseZ, 0.02),
+        neck: wrapWidthAt(wrapData.neckZ, 0.02),
+        shoulder: wrapWidthAt(wrapData.shoulderZ, 0.02),
+        hip: wrapWidthAt(wrapData.hipZ, 0.02),
+        ankle: wrapWidthAt(wrapData.ankleZ, 0.02),
+        feet: wrapWidthAt(wrapBox.max.z - 0.068, 0.04),
+        headFirst: wrapData.headZ < wrapData.footZ,
+        tape: wrapPieces.filter((part) => /\.tape\./.test(part.name)).length,
+        gathers: wrapPieces.filter((part) => /\.gather\.[a-z]+$/.test(part.name)).length,
+      },
       evidenceMarkers: Object.keys(party.cleanup.evidenceMarkers),
       serviceGuide: {
         visible: party.cleanup.serviceGuide.visible,
@@ -372,8 +405,15 @@ try {
        && !partyPresentation.bloodGeometry.includes('CircleGeometry')
        && partyPresentation.apeKnife.name === 'ape.fur-brush-knife'
        && partyPresentation.apeKnife.hiddenBeforeAttack
-       && partyPresentation.wrapGeometry === 'CapsuleGeometry'
-      && partyPresentation.wrapRadius >= 0.4
+       && partyPresentation.wrap.length > partyPresentation.wrap.width * 2.5
+       && partyPresentation.wrap.width > partyPresentation.wrap.height * 1.25
+       && partyPresentation.wrap.shoulder > partyPresentation.wrap.hip
+       && partyPresentation.wrap.hip > partyPresentation.wrap.ankle * 1.5
+       && partyPresentation.wrap.headFirst
+       && partyPresentation.wrap.head > partyPresentation.wrap.neck * 1.4
+       && partyPresentation.wrap.feet > partyPresentation.wrap.ankle * 1.1
+       && partyPresentation.wrap.tape >= 6
+       && partyPresentation.wrap.gathers === 2
       && partyPresentation.evidenceMarkers.length === 2
       && !partyPresentation.evidenceIsEmissive
       && partyPresentation.evidenceCirclesHidden

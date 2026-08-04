@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
-import { Npc, makePerson } from '../bing/cast.js';
+import { Npc } from '../bing/cast.js';
 import { assetUrl, inlineManifest } from '../core/assets.js';
 import { BILLY_HOTDOG_MODEL } from '../core/hotdog-model.js';
+import { buildWrappedBody } from '../core/props/wrapped-body.js';
 import { box, collider, cylinder, emissive, group, mat, sphere } from '../world/build.js';
 import { GRAVES } from './mission.js';
 
@@ -344,51 +345,32 @@ export function hotDogBody() {
   body.userData.presentation = 'character';
   body.userData.bodyPhase = 'trunk';
 
-  const parts = makePerson({ ...BILLY_HOTDOG_MODEL, castShadow: true });
-  const figure = parts.group;
-  figure.name = 'hotdog.figure';
-  // Centre the real standing rig around this prop root, then put it on its
-  // back. Local -Z is HotDog's head and +Z is his feet from here on out.
-  figure.position.set(0, 0, 0.9);
-  figure.rotation.x = -Math.PI / 2;
-  parts.head.rotation.z = 0.1;
-  parts.armL.rotation.set(-0.18, 0, -0.34);
-  parts.armR.rotation.set(-0.1, 0, 0.28);
-  parts.foreL.rotation.x = -0.22;
-  parts.foreR.rotation.x = -0.16;
-  parts.legL.rotation.x = 0.05;
-  parts.legR.rotation.x = -0.04;
-  for (const eye of parts.eyes ?? []) eye.scale.y *= 0.16;
-  body.add(figure);
-
-  // He was wrapped at the club, but the plastic now reads as bands around a
-  // recognizable suit, face, shoes and belly instead of replacing him with a
-  // capsule. The actual HotDog rig remains the thing being carried.
-  const plastic = new THREE.MeshStandardMaterial({
-    color: 0xe8e2d5, roughness: 0.7, transparent: true, opacity: 0.33,
-    depthWrite: false, side: THREE.DoubleSide,
+  /*
+   * This is the same bundle Snow and the Prospect carried out of the Bada Bing
+   * an hour ago, so it is the shared prop rather than a second attempt at one.
+   * It stays visibly Billy by being SIZED off his canonical model -- his height
+   * plus pointed toes, his build -- and the dark mass inside the sheeting is
+   * already the colour of the suit he was killed in.
+   *
+   * The prop lies along local -Z to +Z, head first, which is the convention the
+   * burial choreography and `bodyPresentation()` below are written against.
+   */
+  const wrapped = buildWrappedBody({
+    length: BILLY_HOTDOG_MODEL.height + 0.1,
+    build: BILLY_HOTDOG_MODEL.build,
+    stain: 0.75,
+    seed: 2.6,
   });
-  const wraps = [
-    { z: -0.42, width: 0.27, height: 0.16 },
-    { z: 0.14, width: 0.34, height: 0.21 },
-    { z: 0.63, width: 0.25, height: 0.13 },
-  ];
-  for (const { z, width, height } of wraps) {
-    // A broad, flat sheet of plastic reads as wrapping. The old curved
-    // TubeGeometry left a literal hose end sticking out of Billy's side.
-    const band = new THREE.Mesh(new THREE.PlaneGeometry(width * 2, 0.075), plastic);
-    band.name = 'hotdog.wrap-band';
-    band.userData.presentation = 'flat-wrap';
-    band.position.set(0, height + 0.008, z);
-    band.rotation.x = -Math.PI / 2;
-    band.castShadow = false;
-    body.add(band);
-  }
+  // The prop's own origin is the ground it lies on; this root is his middle,
+  // because everything that moves him -- the trunk, the carry, the grave --
+  // was authored around the centre of the man.
+  wrapped.group.position.y = -wrapped.centreY;
+  body.add(wrapped.group);
 
-  // Open trunk: head inward, shoes protruding toward the player.
+  // Open trunk: head inward, taped-off feet protruding toward the player.
   body.position.set(0, 0.87, 17.46);
-  body.userData.parts = parts;
-  return { group: body, parts };
+  body.userData.wrapped = wrapped;
+  return { group: body, wrapped };
 }
 
 function moonVisual() {
@@ -528,7 +510,10 @@ export function buildGraveyard(scene) {
   const car = parkedCar();
   root.add(car);
   colliders.push(collider([-1.18, 0, 12.85], [1.18, 1.45, 17.55], 0.08));
-  const trunkLight = new THREE.PointLight(0xffcf91, 13.5, 7, 1.8);
+  // Two feet above the body and warm, so it has to be gentle: this lamp was set
+  // against a man in a dark suit, and pale plastic sheeting under the same
+  // number blows out into a glowing cocoon with the silhouette lost inside it.
+  const trunkLight = new THREE.PointLight(0xffcf91, 6.5, 7, 1.8);
   trunkLight.position.set(-0.15, 1.55, 17.75);
   scene.add(trunkLight);
 
@@ -648,10 +633,11 @@ export function buildGraveyard(scene) {
   }
 
   function bodyPresentation() {
-    const head = new THREE.Vector3();
-    const feet = new THREE.Vector3();
-    hotdog.parts.head.getWorldPosition(head);
-    hotdog.parts.group.localToWorld(feet.set(0, 0.03, 0));
+    // Which end is which comes off the prop's own measurements, so a change to
+    // the wrapping cannot quietly leave the burial choreography facing backward.
+    body.updateMatrixWorld(true);
+    const head = body.localToWorld(new THREE.Vector3(0, 0, hotdog.wrapped.headZ));
+    const feet = body.localToWorld(new THREE.Vector3(0, 0, hotdog.wrapped.footZ));
     return {
       uuid: body.uuid,
       phase: state.bodyPhase,
@@ -710,7 +696,7 @@ export function buildGraveyard(scene) {
     saucePlot,
     freshPlot,
     body,
-    bodyParts: hotdog.parts,
+    bodyWrap: hotdog.wrapped,
     shovel,
     snow,
     car,

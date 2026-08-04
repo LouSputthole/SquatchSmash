@@ -135,7 +135,11 @@ test('the closed-party stage and cleanup read clearly from the playable floor', 
   assert.match(source, /mic\.position\.set\(-12, 0, -3\.45\)/);
   assert.match(source, /new THREE\.ShapeGeometry\(shape\)/);
   assert.doesNotMatch(source, /new THREE\.CircleGeometry\(1\.15/);
-  assert.match(source, /new THREE\.CapsuleGeometry\(0\.46, 1\.25/);
+  // The body Rippin and Aubbie leave on the floor comes from the shared prop,
+  // sized off Billy himself. It used to be a capsule with three rings on it,
+  // and that must not come back.
+  assert.match(source, /buildWrappedBody\(\{\s*\n\s*length: BILLY_HOTDOG_MODEL\.height/);
+  assert.doesNotMatch(source, /CapsuleGeometry/);
   assert.match(source, /const evidenceMarkers = \{/);
   assert.match(source, /const serviceGuide = group\('service-exit-guide'\)/);
   assert.match(source, /ape\.fur-brush-knife/);

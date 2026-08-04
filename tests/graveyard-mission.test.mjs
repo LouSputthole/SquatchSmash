@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
-import * as THREE from 'three';
 
 import { BILLY_HOTDOG_MODEL } from '../src/core/hotdog-model.js';
+import { measureWrappedBody } from '../src/core/props/wrapped-body.js';
 import * as graveyardMissionModule from '../src/graveyard/mission.js';
 import {
   GraveyardMission,
@@ -69,40 +69,31 @@ test('Snow owns the arrival voice floor through the end of his recorded opening'
   assert.equal(resolveGraveyardLineHold(prospect, 0), prospect.seconds);
 });
 
-test('the graveyard body is the canonical Billy HotDog character, not a bundle primitive', () => {
+test('the graveyard body is the shared wrapped body, cut to Billy HotDog\'s canonical size', () => {
   const body = hotDogBody();
 
   assert.equal(body.group.userData.characterId, 'billy_hotdog');
   assert.equal(body.group.userData.presentation, 'character');
-  assert.equal(body.parts.profile.height, BILLY_HOTDOG_MODEL.height);
-  assert.equal(body.parts.profile.gut, BILLY_HOTDOG_MODEL.gut);
-  assert.ok(body.group.getObjectByName('hotdog.figure'));
-  const belly = body.group.getObjectByName('person.gut.belly');
-  assert.ok(belly, 'Billy keeps a distinct belly mass');
-  assert.equal(belly.geometry.type, 'SphereGeometry');
-  assert.ok(belly.scale.x > belly.scale.z * 1.2, 'the belly is broad, not a forward-pointing tube');
-  assert.ok(belly.scale.y >= belly.scale.z * 0.9, 'the belly stays round through its vertical silhouette');
-  body.group.updateMatrixWorld(true);
-  const bellyBounds = new THREE.Box3().setFromObject(belly);
-  for (const arm of [body.parts.armL, body.parts.armR]) {
-    arm.traverse((node) => {
-      if (!node.isMesh) return;
-      assert.equal(
-        new THREE.Box3().setFromObject(node).intersectsBox(bellyBounds),
-        false,
-        `${node.name || 'arm mesh'} stays outside Billy's rounded belly`,
-      );
-    });
-  }
-  const wrapBands = [];
-  body.group.traverse((node) => {
-    if (node.name === 'hotdog.wrap-band') wrapBands.push(node);
-  });
-  assert.equal(wrapBands.length, 3);
-  assert.equal(wrapBands.every((band) => band.userData.presentation === 'flat-wrap'), true);
-  assert.equal(
-    wrapBands.some((band) => ['TubeGeometry', 'CylinderGeometry', 'CapsuleGeometry'].includes(band.geometry.type)),
-    false,
+  // He is under the sheeting rather than in front of the player's face now, so
+  // what keeps him Billy is that the bundle is measured off his canonical model.
+  assert.equal(body.wrapped.length, BILLY_HOTDOG_MODEL.height + 0.1);
+  assert.equal(body.group.getObjectByName('wrapped-body').userData.presentation, 'wrapped-body');
+
+  const shapes = new Set();
+  body.group.traverse((node) => { if (node.isMesh) shapes.add(node.geometry.type); });
+  assert.equal(shapes.has('CapsuleGeometry'), false, 'the burial body is not a pill either');
+  assert.equal(shapes.has('TubeGeometry'), false);
+
+  const measured = measureWrappedBody(body.wrapped.group);
+  assert.ok(measured.shoulder.width > measured.hip.width, 'shoulders stay the widest point');
+  assert.ok(measured.hip.width > measured.ankle.width, 'hips stay wider than the ankles');
+
+  // The burial choreography lowers him head-first toward the marker, so the
+  // head end has to genuinely be the -Z end of the prop.
+  assert.ok(body.wrapped.headZ < body.wrapped.footZ);
+  assert.ok(
+    measured.headHalfArea > measured.footHalfArea,
+    'the skull-and-shoulders half carries more of him than the legs do',
   );
 });
 
