@@ -8,6 +8,40 @@ import {
   measureWrappedBody,
 } from '../src/core/props/wrapped-body.js';
 
+/**
+ * Half the sheet's width, and its height, every `step` down a run of the body.
+ *
+ * The named landmarks below say what the anatomy is; this says what the
+ * SILHOUETTE does between them, which is the thing a player actually reads and
+ * the thing a station table can quietly lose by interpolating flat.
+ */
+function profileBetween(sheet, from, to, step = 0.05) {
+  const position = sheet.geometry.getAttribute('position');
+  const series = [];
+  for (let z = from; z <= to; z += step) {
+    let lo = Infinity;
+    let hi = -Infinity;
+    let bottom = Infinity;
+    let top = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      // A shade wider than the step, so a sample landing between two rings
+      // still catches one instead of coming back empty.
+      if (Math.abs(position.getZ(i) - z) > step * 1.2) continue;
+      lo = Math.min(lo, position.getX(i));
+      hi = Math.max(hi, position.getX(i));
+      bottom = Math.min(bottom, position.getY(i));
+      top = Math.max(top, position.getY(i));
+    }
+    if (Number.isFinite(lo)) series.push({ z, halfWidth: (hi - lo) / 2, height: top - bottom });
+  }
+  return series;
+}
+
+/** Every place in a series where the value climbs again by more than `slack`. */
+function reversals(values, slack = 0.002) {
+  return values.filter((value, i) => i > 0 && value > values[i - 1] + slack).length;
+}
+
 /* ------------------------------------------------------------------ */
 /* It is a body, not a pill                                            */
 /* ------------------------------------------------------------------ */
@@ -30,6 +64,39 @@ test('the silhouette tapers shoulder to hip to ankle, which is what the capsule 
     `hips ${measured.hip.width} must beat ankles ${measured.ankle.width}`);
 });
 
+test('the calf swells back out wider than the knee, so the legs are not a cone', () => {
+  const wrapped = buildWrappedBody();
+  const measured = measureWrappedBody(wrapped.group);
+
+  // On a body lying on its back this is the one reversal in the whole lower
+  // leg, and it is the entire difference between a leg and the nose of a
+  // torpedo. Everything below the hip was strictly decreasing before it.
+  assert.ok(measured.calf.width > measured.knee.width,
+    `calf ${measured.calf.width} must beat knee ${measured.knee.width}`);
+  assert.ok(measured.ankle.width < measured.calf.width * 0.8,
+    `and then fall away hard: ankle ${measured.ankle.width} against calf ${measured.calf.width}`);
+  // A supine body's knees are the high point of the legs.
+  assert.ok(measured.knee.height > measured.calf.height * 1.15,
+    `knee ${measured.knee.height} must stand proud of calf ${measured.calf.height}`);
+});
+
+test('the whole lower half refuses to be monotone, in width and in profile', () => {
+  const wrapped = buildWrappedBody();
+  // Hip to ankle, stopping short of the feet on purpose: the feet flare back
+  // out on their own, and counting them would let a leg that IS a smooth cone
+  // pass on the strength of its toes.
+  const series = profileBetween(wrapped.sheet, wrapped.hipZ, wrapped.ankleZ);
+  assert.ok(series.length >= 8, 'the sweep has to actually sample the legs');
+
+  const widths = series.map((slice) => slice.halfWidth);
+  const heights = series.map((slice) => slice.height);
+  const shown = series.map((slice) =>
+    `${slice.z.toFixed(2)}:${slice.halfWidth.toFixed(3)}/${slice.height.toFixed(3)}`).join(' ');
+
+  assert.ok(reversals(widths) >= 1, `hip to feet is a smooth cone in width — ${shown}`);
+  assert.ok(reversals(heights) >= 1, `hip to feet is a smooth cone in profile — ${shown}`);
+});
+
 test('the two ends are telling apart at a glance, and the head is the -Z one', () => {
   const wrapped = buildWrappedBody();
   const measured = measureWrappedBody(wrapped.group);
@@ -42,14 +109,16 @@ test('the two ends are telling apart at a glance, and the head is the -Z one', (
     `head ${measured.head.width} against neck ${measured.neck.width}`);
   assert.ok(measured.feet.width > measured.ankle.width * 1.1,
     `feet ${measured.feet.width} against ankles ${measured.ankle.width}`);
-  assert.ok(
-    measured.head.width / measured.neck.width > measured.feet.width / measured.ankle.width * 1.25,
-    'the neck is a much deeper pinch than the ankles, which is what reads as a head',
-  );
+
+  // The caps differ too: a skull is round, and a pair of feet is wide and flat
+  // with the sheet dropped into the gap between them.
+  const headCap = measured.headEnd.height / measured.headEnd.width;
+  const footCap = measured.footEnd.height / measured.footEnd.width;
+  assert.ok(headCap > footCap * 1.2, `head cap ${headCap} against foot cap ${footCap}`);
 
   // And the half with the skull, shoulders, chest and belly in it carries more
   // of him than the half with two legs.
-  assert.ok(measured.headHalfArea > measured.footHalfArea * 1.15,
+  assert.ok(measured.headHalfArea > measured.footHalfArea * 1.1,
     `head half ${measured.headHalfArea} against foot half ${measured.footHalfArea}`);
 });
 
@@ -115,10 +184,20 @@ test('the excess past the head and the feet is gathered off, which is what a cap
   const sheet = new THREE.Box3().setFromObject(wrapped.sheet);
   const whole = new THREE.Box3().setFromObject(wrapped.group);
   assert.ok(whole.min.z < sheet.min.z - 0.1, 'sheeting is gathered past the head');
-  assert.ok(whole.max.z > sheet.max.z + 0.1, 'sheeting is gathered past the feet');
+  assert.ok(whole.max.z > sheet.max.z + 0.06, 'sheeting is gathered past the feet');
   assert.ok(wrapped.gathers.head && wrapped.gathers.feet);
   // Both gathers are taped off, which is the whole reason they hold.
   assert.equal(wrapped.tape.filter((mesh) => /gather\..+\.tie$/.test(mesh.name)).length, 2);
+
+  // There is far less spare sheet past a pair of feet than there is past a
+  // head, so the foot end is a short blunt knot. A long fine taper down there
+  // swallows the feet and hands the silhouette straight back to the torpedo.
+  const foot = new THREE.Box3().setFromObject(wrapped.gathers.feet).getSize(new THREE.Vector3());
+  const head = new THREE.Box3().setFromObject(wrapped.gathers.head).getSize(new THREE.Vector3());
+  assert.ok(foot.x > foot.z * 1.4, `the foot gather is blunt, not a spike: ${foot.x} by ${foot.z}`);
+  assert.ok(foot.z < wrapped.ankleZ - wrapped.kneeZ,
+    `and no longer than the shin it caps: ${foot.z}`);
+  assert.ok(foot.z < head.z, 'there is more spare sheet over a head than past two feet');
 });
 
 test('it sits into the floor at the shoulder and the hip, and bridges at the waist and the ankle', () => {

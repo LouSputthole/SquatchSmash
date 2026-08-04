@@ -50,7 +50,18 @@ import { box, cylinder, group, mat, sphere } from '../../world/build.js';
  *
  * `cleft` presses a groove down the centre line of the top of the section. It
  * is what turns one lozenge at the end into two feet, and what puts a seam
- * between the legs; without it the taper is right and the read is still wrong.
+ * between two legs; without it the taper is right and the read is still wrong.
+ * The numbers look large next to the section they are cut into, and they have
+ * to be: the ellipse already drops by about a fifth of its own half-height
+ * between the vertex nearest the top and its neighbour, so a cleft smaller than
+ * that is swallowed whole and never reaches the silhouette.
+ *
+ * THE LOWER HALF MUST NOT BE MONOTONE. The head end works because it is not --
+ * a skull, a hard pinch at the neck, then the shoulders. The legs need the same
+ * favour or they read as the nose of a torpedo: the knee pinches in and stands
+ * proud, the calf swells back out WIDER than the knee, and only then does it
+ * fall away hard to the ankle. That one reversal is the difference between a
+ * leg and a cone, so `tests/wrapped-body.test.mjs` asserts it.
  */
 const STATIONS = Object.freeze([
   { id: 'crown', z: 0.000, hw: 0.072, bottom: 0.086, top: 0.196 },
@@ -66,15 +77,19 @@ const STATIONS = Object.freeze([
   { id: 'waist', z: 0.946, hw: 0.228, bottom: 0.042, top: 0.362 },
   { id: 'hip-crest', z: 1.032, hw: 0.246, bottom: 0.004, top: 0.336 },
   { id: 'hip', z: 1.092, hw: 0.262, bottom: -0.018, top: 0.330 },
-  { id: 'crotch', z: 1.172, hw: 0.240, bottom: 0.022, top: 0.300, cleft: 0.030 },
-  { id: 'thigh', z: 1.300, hw: 0.216, bottom: 0.006, top: 0.286, cleft: 0.026 },
-  { id: 'knee', z: 1.470, hw: 0.180, bottom: 0.002, top: 0.256, cleft: 0.018 },
-  { id: 'calf', z: 1.592, hw: 0.166, bottom: 0.030, top: 0.236, cleft: 0.022 },
-  { id: 'shin', z: 1.720, hw: 0.142, bottom: 0.034, top: 0.202, cleft: 0.028 },
-  { id: 'ankle', z: 1.816, hw: 0.106, bottom: 0.046, top: 0.166, cleft: 0.030 },
-  { id: 'heel', z: 1.862, hw: 0.124, bottom: -0.010, top: 0.188, cleft: 0.034 },
-  { id: 'toe', z: 1.924, hw: 0.130, bottom: 0.052, top: 0.238, cleft: 0.058 },
-  { id: 'toe-tip', z: 1.962, hw: 0.078, bottom: 0.078, top: 0.180, cleft: 0.030 },
+  { id: 'crotch', z: 1.172, hw: 0.240, bottom: 0.022, top: 0.300, cleft: 0.078 },
+  { id: 'thigh', z: 1.300, hw: 0.216, bottom: 0.006, top: 0.268, cleft: 0.082 },
+  // A station either side of the knee, close in, so the pinch and the ridge
+  // land as a joint and not as a long ramp the eye reads straight through.
+  { id: 'lower-thigh', z: 1.396, hw: 0.190, bottom: 0.004, top: 0.244, cleft: 0.076 },
+  { id: 'knee', z: 1.470, hw: 0.168, bottom: 0.002, top: 0.312, cleft: 0.058 },
+  { id: 'knee-back', z: 1.534, hw: 0.178, bottom: 0.016, top: 0.226, cleft: 0.070 },
+  { id: 'calf', z: 1.592, hw: 0.190, bottom: 0.030, top: 0.212, cleft: 0.078 },
+  { id: 'shin', z: 1.720, hw: 0.126, bottom: 0.034, top: 0.190, cleft: 0.070 },
+  { id: 'ankle', z: 1.816, hw: 0.095, bottom: 0.046, top: 0.158, cleft: 0.062 },
+  { id: 'heel', z: 1.862, hw: 0.128, bottom: -0.010, top: 0.184, cleft: 0.072 },
+  { id: 'toe', z: 1.924, hw: 0.140, bottom: 0.052, top: 0.236, cleft: 0.098 },
+  { id: 'toe-tip', z: 1.962, hw: 0.086, bottom: 0.078, top: 0.176, cleft: 0.052 },
 ]);
 
 /** Crown to toe, before any `length` scaling. */
@@ -445,13 +460,19 @@ export function buildWrappedBody({
       y0: 0.132 * girth, y1: 0.062 * girth,
       drift: -0.035 * build, twist: 1.15,
     },
+    /*
+     * The foot end is a short blunt knot, not a spike. There is far less spare
+     * sheet down here than there is over a head, and a long fine taper past the
+     * toes was reading as the nose of a torpedo and swallowing the feet it was
+     * supposed to be capping -- it ran twice as long as the feet themselves.
+     */
     {
       id: 'feet',
       from: footZ - 0.004,
-      to: footZ + 0.198 * lengthScale,
-      r0: 0.076 * build, r1: 0.026 * build,
-      y0: 0.126 * girth, y1: 0.055 * girth,
-      drift: 0.042 * build, twist: -0.95,
+      to: footZ + 0.096 * lengthScale,
+      r0: 0.084 * build, r1: 0.050 * build,
+      y0: 0.126 * girth, y1: 0.086 * girth,
+      drift: 0.024 * build, twist: -0.7,
     },
   ];
   for (const spec of gatherSpecs) {
@@ -503,6 +524,8 @@ export function buildWrappedBody({
     neckZ: at('neck').z,
     shoulderZ: shoulder.z,
     hipZ: at('hip').z,
+    kneeZ: at('knee').z,
+    calfZ: at('calf').z,
     ankleZ: at('ankle').z,
     pose,
     hollow,
@@ -589,6 +612,8 @@ export function measureWrappedBody(target) {
     neck: sliceAt(data?.neckZ ?? minZ + span * 0.14),
     shoulder: sliceAt(data?.shoulderZ ?? mid - 0.58),
     hip: sliceAt(data?.hipZ ?? mid + 0.11),
+    knee: sliceAt(data?.kneeZ ?? mid + 0.49),
+    calf: sliceAt(data?.calfZ ?? mid + 0.61),
     ankle: sliceAt(data?.ankleZ ?? mid + 0.83),
     headEnd: sliceAt(minZ + span * 0.005, span * 0.012),
     footEnd: sliceAt(maxZ - span * 0.005, span * 0.012),
