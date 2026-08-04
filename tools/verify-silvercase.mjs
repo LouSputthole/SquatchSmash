@@ -119,7 +119,15 @@ async function tick(secs) {
  * `condition` first becomes true, never overshoot past it.
  *
  * `condition` is `"beat:NAME"` (fsm.name === NAME), `"choice:ID"`
- * (dialogue.choice?.id === ID), or `"choiceOpen"` (any choice is open).
+ * (dialogue.choice?.id === ID), `"choiceOpen"` (any choice is open), or
+ * `"instruction"` (the on-screen instruction is up).
+ *
+ * `instruction` exists because the HUD deliberately does NOT appear on the
+ * frame the beat is entered. The owner's rule is that the character speaks
+ * first and the screen clarifies afterwards, so `sayThenInstruct` raises it in
+ * the sequence's `onDone` — see docs/TONE-AND-PARODY.md. Reading the element
+ * straight after entering the beat therefore reads the empty string, which is
+ * correct behaviour and used to be a failing check.
  */
 async function tickUntil(condition, { stepSecs = 0.1, maxSteps = 400 } = {}) {
   return page.evaluate(([condition, stepSecs, maxSteps]) => {
@@ -129,6 +137,10 @@ async function tickUntil(condition, { stepSecs = 0.1, maxSteps = 400 } = {}) {
       if (kind === 'beat') return sc.fsm.name === value;
       if (kind === 'choice') return sc.dialogue.choice?.id === value;
       if (kind === 'choiceOpen') return Boolean(sc.dialogue.choice);
+      if (kind === 'instruction') {
+        const el = document.getElementById('instruction');
+        return Boolean(el && el.classList.contains('show') && el.textContent.trim());
+      }
       return false;
     };
     let steps = 0;
@@ -553,6 +565,8 @@ try {
   // shoot. So the screen should say it like in the hub as a game instruction
   // (not another character or anything)." So: no speaker, no cue, on screen
   // for as long as the order stands.
+  /* Wait for Ape to finish naming the man before reading the screen. */
+  await tickUntil('instruction');
   const couchInstruction = await page.evaluate(() => {
     const el = document.getElementById('instruction');
     return { text: el.textContent, shown: el.classList.contains('show') };
@@ -713,6 +727,9 @@ try {
     prayerLines.met, JSON.stringify(prayerLines));
   await page.keyboard.down('KeyE');
   let afterPrayer = await tickUntil('beat:CHAIR_SHOOTING');
+  /* Ape sets the chair up before the screen names the button. */
+  await tickUntil('instruction');
+  afterPrayer = { ...afterPrayer, state: await page.evaluate(() => window.silvercase.state()) };
   await page.keyboard.up('KeyE');
   check('finishing the ritual hands over to the chair beat with Chester still alive',
     afterPrayer.met
@@ -906,6 +923,9 @@ try {
   // checked is precisely the owner's: picking "kill him" must NOT kill him on
   // the keypress; it must hand the player a prompt and a trigger.
   let execute = await go('EXECUTE_WINSTON', 0.3);
+  /* Ape gives the order, then the screen names the button. */
+  await tickUntil('instruction');
+  execute = await page.evaluate(() => window.silvercase.state());
   check('choosing to kill the last man prompts for it rather than killing him on the keypress',
     execute.beat === 'EXECUTE_WINSTON'
       && execute.actors.winston.alive === true

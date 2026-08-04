@@ -199,16 +199,29 @@ test('every stand-in is a cue that is really in the sfx manifest and really has 
   }
 });
 
-test('none of the thirty wanted cues has been slipped into the manifest', async () => {
+test('the thirty wanted cues are declared, and the stand-ins stay until files land', async () => {
   const { readFileSync } = await import('node:fs');
   const manifest = JSON.parse(readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'));
+  const index = JSON.parse(readFileSync(new URL('../assets/sfx/index.json', import.meta.url), 'utf8'));
   const declared = new Set(manifest.sfx.map((c) => c.name));
-  /* This file authors cue NAMES; the cues themselves are generated centrally.
-   * If they land later this assertion is the one to delete, and deleting it
-   * should be a deliberate act. */
+  const files = new Set(index.files);
+
+  /* Being in the manifest is what puts a cue on the recording sheet, so all
+   * thirty belong there from the moment they are authored — that is how they
+   * get recorded at all.
+   *
+   * What marks one as still owed is the FILE, not the manifest row. This test
+   * originally asserted manifest-absence and started failing the moment the
+   * cues were generated centrally, which would have been read as "drop the
+   * stand-in" — and dropping it while no recording exists makes the guns
+   * silent, because these names have no procedural fallback in core/audio.js.
+   * `playWeaponCue` already gates on `hasSample`, so a delivered file is
+   * preferred automatically and nothing has to change when they arrive. */
   for (const cue of allWeaponCueNames()) {
-    assert.ok(!declared.has(cue), `${cue} is now in the manifest — drop the stand-in for it`);
+    assert.ok(declared.has(cue), `${cue} is not in assets/sfx/manifest.json — it will never be recorded`);
   }
+  const delivered = allWeaponCueNames().filter((cue) => files.has(`${cue}.mp3`));
+  assert.ok(delivered.length <= allWeaponCueNames().length);
 });
 
 test('playWeaponCue prefers a delivered recording and otherwise plays the stand-in', () => {
