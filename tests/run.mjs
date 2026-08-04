@@ -49,6 +49,7 @@ const TEST_MODULES = [
   './hotdog-attack.test.mjs',
   './graveyard-controls.test.mjs',
   './gut-presentation.test.mjs',
+  './outfits.test.mjs',
   './wrapped-body.test.mjs',
   './graveyard-mission.test.mjs',
   './hotdog-graveyard-story.test.mjs',

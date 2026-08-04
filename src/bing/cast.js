@@ -24,6 +24,7 @@ import * as THREE from 'three';
  * One Margo, one face, both scenes. */
 import { restyleMargoHead } from '../silver/margo.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import { BIG_UNCLE_LOU_BING } from '../core/wardrobe.js';
 import { mat, box, sphere, cylinder, group } from '../world/build.js';
 import { rand, pick } from './kit.js';
 
@@ -118,8 +119,21 @@ export const STOOL_SIT = 0.315;
  *            -- a V cuts a hole in the shirt and shows skin, which on a dark
  *            jacket reads as an open-necked knit, not as black tie.
  *   luxury   richer fabric, piping and ribbing without changing the rig
- *   watch    false | 'gold' | 'silver' -- worn on the left wrist
+ *   watch    false | 'gold' | 'silver' -- his own left wrist, which is +X
+ *   bracelet false | 'gold' | 'silver' -- his own right, so the two never
+ *            share a forearm and never share a name
  *   chainStyle 'single' | 'layered' -- the primary chain keeps its stable name
+ *   pendantStyle 'disc' | 'crest' | 'horn' -- 'horn' is the cornicello, the
+ *            twisted Italian horn, and it is built to hang clear of the man
+ *            rather than on the chest plane; see makeHorn below
+ *   hat      false | 'fedora' | 'flatcap'
+ *   pinstripe chalk stripes on the suit and its trousers
+ *   threePiece a waistcoat behind an open jacket, which is what puts a chain
+ *            somewhere a chain can actually be seen
+ *   argyle   { a, b, line } -- the diamond colourway for `dress: 'argyle'`
+ *            and for the stockings `knickers` brings with it
+ *   knickers plus-fours and tall socks instead of trousers
+ *   shoeStyle 'plain' | 'saddle'
  */
 /* ------------------------------------------------------------------ */
 /* Softened slabs                                                      */
@@ -181,6 +195,144 @@ function softBox({ size, pos, mat: material, name, rotX = 0, rotY = 0, rotZ = 0,
   return m;
 }
 
+/* ------------------------------------------------------------------ */
+/* The corno                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Dimensions of the horn, published because the chain has to reserve room for
+ * it before it is built. `length` is the horn alone; `neck` is the ferrule
+ * between it and the bail; `bailR` is the ring the chain runs through.
+ */
+const HORN = Object.freeze({
+  length: 0.106,
+  topR: 0.0138,
+  neck: 0.013,
+  bailR: 0.0092,
+  /* How far the whole thing reaches BEHIND the point it hangs from. The horn
+   * is fattest at the top and hooks backwards at the tip, so this is the worse
+   * of those two -- and the chain has to reserve it, or the hook is the one
+   * part of the horn that ends up inside the man. */
+  back: 0.024,
+});
+
+/**
+ * A cornicello. The Italian horn, and the one piece of jewellery on this
+ * roster whose SHAPE is the whole job.
+ *
+ * Four things make it read as a horn rather than as a gold carrot, and all
+ * four are load-bearing:
+ *
+ * **It curves, and it curves in one plane.** A straight taper is a spike. The
+ * spine below leans out and then hooks back at the tip, which is the pepper
+ * shape everybody actually recognises. The curve lives mostly in X because
+ * these figures are seen from the front; a horn that curved in Z would be a
+ * horn that looked straight in every conversation in the game.
+ *
+ * **It is fattest at the top and needle-thin at the point**, on a curve rather
+ * than a straight line -- `(1 - u^1.3)` keeps it broad through the first third
+ * and then loses the radius quickly, which is what a real one does.
+ *
+ * **It is ribbed.** A smooth gold taper under one bulb takes a single long
+ * highlight and reads as plastic. The rings break that into a row of separate
+ * catches, and they are slanted rather than square-on because the ridges on a
+ * real corno are a spiral.
+ *
+ * **It hangs from a bail.** Without a ring at the top the horn is a gold
+ * object floating in front of a man's chest, related to the chain only by
+ * being near it. The bail's axis runs along X so the chain passes THROUGH it,
+ * which is why this is placed at the chain's low point rather than under it.
+ *
+ * Built pointing down from its own origin -- the bail centre -- so the caller
+ * positions one point and gets a horn hanging off it.
+ */
+function makeHorn(metal) {
+  const g = group('necklace.pendant.horn');
+
+  const bail = new THREE.Mesh(
+    new THREE.TorusGeometry(HORN.bailR, 0.0026, 6, 14),
+    metal,
+  );
+  bail.name = 'necklace.pendant.horn.bail';
+  bail.rotation.y = Math.PI / 2;          // the hole faces along the chain
+  g.add(bail);
+
+  // The ferrule: the collar the horn is capped with where the bail joins it.
+  const cap = cylinder({
+    r: HORN.topR * 0.72, h: HORN.neck,
+    pos: [0, -HORN.bailR - HORN.neck / 2 + 0.002, 0], mat: metal, seg: 10,
+  });
+  cap.name = 'necklace.pendant.horn.cap';
+  g.add(cap);
+
+  const top = -HORN.bailR - HORN.neck + 0.003;
+  const L = HORN.length;
+  /* The spine, in metres, from the ferrule to the point. The last control
+   * point pulls back in X and away in Z, which is the hook. */
+  const spine = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0, top, 0),
+    new THREE.Vector3(0.0068, top - L * 0.26, 0.0024),
+    new THREE.Vector3(0.0186, top - L * 0.53, 0.0014),
+    new THREE.Vector3(0.0284, top - L * 0.79, -0.0056),
+    new THREE.Vector3(0.0288, top - L, -0.0192),
+  ]);
+  const radiusAt = (u) => HORN.topR * (1 - u ** 1.3) + 0.0009;
+
+  const SEGMENTS = 13;
+  const up = new THREE.Vector3(0, 1, 0);
+  const from = new THREE.Vector3();
+  const to = new THREE.Vector3();
+  const dir = new THREE.Vector3();
+  for (let i = 0; i < SEGMENTS; i++) {
+    const u0 = i / SEGMENTS;
+    const u1 = (i + 1) / SEGMENTS;
+    spine.getPoint(u0, from);
+    spine.getPoint(u1, to);
+    dir.subVectors(to, from);
+    const len = dir.length();
+    /* CylinderGeometry takes (top, bottom) and its own +Y is the top, so the
+     * far end of the segment is the "top" once it is aimed down the spine.
+     * The last one closes to a real point instead of a flat disc. */
+    const seg = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        i === SEGMENTS - 1 ? 0 : radiusAt(u1),
+        radiusAt(u0),
+        len,
+        9,
+      ),
+      metal,
+    );
+    seg.name = 'necklace.pendant.horn.segment';
+    seg.position.copy(from).add(to).multiplyScalar(0.5);
+    seg.quaternion.setFromUnitVectors(up, dir.normalize());
+    g.add(seg);
+  }
+
+  /* The spiral ribs. Six rings, each sitting on the spine, aligned to the
+   * tangent and then slanted by a constant angle -- at this scale a consistent
+   * slant is what a helical ridge looks like, and it costs one rotation. */
+  const RIBS = 6;
+  for (let i = 0; i < RIBS; i++) {
+    const u = (i + 0.6) / (RIBS + 0.4);
+    spine.getPoint(u, from);
+    const tangent = spine.getTangent(u).normalize();
+    const r = radiusAt(u);
+    const rib = new THREE.Mesh(
+      new THREE.TorusGeometry(r * 0.99, r * 0.19, 4, 10),
+      metal,
+    );
+    rib.name = 'necklace.pendant.horn.rib';
+    rib.position.copy(from);
+    /* A torus lies in XY with its axis on +Z, so aiming +Z down the spine puts
+     * the ring around the horn. */
+    rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), tangent);
+    rib.rotateX(0.42);
+    g.add(rib);
+  }
+
+  return g;
+}
+
 export function makePerson(o = {}) {
   const {
     height = 1.78, build = 1, gut = 0, dress = 'shirt', hair = 'short',
@@ -194,6 +346,7 @@ export function makePerson(o = {}) {
      * is a different man saying a different thing with his neck. */
     pendant = true, chainStyle = 'single', pendantStyle = 'disc',
     neckline = false, luxury = false, shirtAccent = null, watch = false,
+    bracelet = false,
     /* Dinner-jacket details, all of them small and all of them the whole read
      * on the one man who needs them: a bow tie at the collar, the tuxedo front
      * behind it, and bare feet, because whoever tied him to that chair took
@@ -210,6 +363,20 @@ export function makePerson(o = {}) {
      *   patches   squadron patches on a bomber's shoulder and chest */
     trim = false, belt = false, trouserFit = 'plain',
     jacketColour: jacketColourOption = null, patches = false,
+    /* Headwear, tailoring and the golf course. All off by default, because
+     * every one of them is meshes on a figure and the room behind Lou does
+     * not need a hat band.
+     *   hat        'fedora' (the Bing) | 'flatcap' (Silver Pines)
+     *   pinstripe  chalk stripes on the jacket, waistcoat and trousers
+     *   threePiece a waistcoat behind an OPEN jacket -- the reason a chain
+     *              worn over a suit is visible at all
+     *   argyle     { a, b, line } diamonds, for the vest and the stockings
+     *   knickers   plus-fours, so the sock is the leg from the knee down
+     *   pattern    a repeating motif on a camp shirt's two front panels
+     *   shoeStyle  'saddle' is the two-tone golf shoe */
+    hat = false, hatColour = null, pinstripe = false, threePiece = false,
+    argyle = null, knickers = false, pattern = false, shoeStyle = 'plain',
+    trouserColour = null,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -236,25 +403,71 @@ export function makePerson(o = {}) {
    * epaulettes, because the garment had been added to the sleeve test and not
    * to the other two. */
   const outerwear = dress === 'suit' || dress === 'tracksuit' || dress === 'bomber';
+  /* A knitted vest and a camp shirt are both "a garment with something under
+   * it", and the something is what the arms and the throat wear. Kept as one
+   * material so a sleeve, a collar and the strip of shirt showing at the neck
+   * can never drift apart. */
+  const vested = dress === 'argyle';
+  const campShirt = dress === 'camp';
+  const underMat = mat({
+    color: shirtAccent ?? (vested ? 0xeae6db : 0xe8e6e2),
+    roughness: 0.88,
+  });
   const trousers = performanceWear
     ? skinMat
     : mat({
-      color: dress === 'suit' ? 0x1b1b22 : dress === 'tracksuit' ? shirt : 0x232631,
+      color: trouserColour ?? (dress === 'suit' ? (jacketColourOption ?? 0x1b1b22)
+        : dress === 'tracksuit' ? shirt
+          : 0x232631),
       roughness: 0.92,
     });
+  /* The check on a pair of plus-fours. One shade down from the cloth, because
+   * a check with real contrast on a slab reads as a grid drawn on a leg. */
+  const checkMat = knickers
+    ? mat({
+      color: new THREE.Color(trousers.color.getHex())
+        .lerp(new THREE.Color(0x000000), 0.34).getHex(),
+      roughness: 0.93,
+    })
+    : null;
   const shoe = mat({ color: 0x14141a, roughness: 0.5 });
   /* Sleeves: a tee, a bikini, a porter's vest and a gown leave the arms bare,
    * everything else covers them, and a waistcoat is a shirt with something
-   * over the chest. */
+   * over the chest.
+   *
+   * A sweater vest has no sleeves at all, so its arms wear the shirt beneath
+   * it; a camp shirt has sleeves that stop above the elbow, which is the
+   * `shortSleeve` split below -- upper arm in cloth, everything past it bare. */
+  const shortSleeve = campShirt;
   const sleeve = dress === 'tee' || performanceWear
     || dress === 'porter' || dress === 'gown'
     ? skinMat
-    : (outerwear ? jacket : cloth);
+    : vested ? underMat : (outerwear ? jacket : cloth);
   /* Whites, aprons and a gown, for the Silver Room. Kept in this builder rather
    * than a second one: the supper club needs a dozen jobs the Bing does not
    * have, and every one of them is this body with something tied over it. */
   const whites = mat({ color: 0xe8e6e0, roughness: 0.94 });
   const apronMat = mat({ color: dress === 'porter' ? 0x4a4a52 : 0xd8d5cc, roughness: 0.96 });
+
+  /* ---- argyle ----
+   *
+   * Two diamond colours and an overstitch line, and that is the whole pattern.
+   * It is deliberately the SAME three colours on the vest and on the stockings,
+   * because that is what makes a golf outfit read as an outfit rather than as
+   * a jumper and some socks -- see the colourways in src/golf/cast.js. Held as
+   * one object so a scene passes a colourway rather than six loose hexes. */
+  const diamonds = argyle ?? { a: 0x2f6b46, b: 0xe8e2cc, line: 0x1d3a2a };
+  const diamondA = mat({ color: diamonds.a, roughness: 0.9 });
+  const diamondB = mat({ color: diamonds.b, roughness: 0.9 });
+  const stitchMat = mat({ color: diamonds.line, roughness: 0.92 });
+  /* Chalk stripe. One shade off the cloth, never white: a stripe with real
+   * contrast on a slab reads as a painted line rather than as a weave. */
+  const stripeMat = pinstripe
+    ? mat({
+      color: new THREE.Color(jacketColour).lerp(new THREE.Color(0xffffff), 0.42).getHex(),
+      roughness: 0.9,
+    })
+    : null;
 
   const g = group('person');
   const body = group('body');
@@ -316,7 +529,32 @@ export function makePerson(o = {}) {
     // A little more daylight between the legs than the rounded frame had, or
     // two slabs this close read as one column with a seam down it.
     pivot.position.set(side * (curvy ? 0.118 : 0.108) * t, 0.90, 0);
-    pivot.add(slab({ name: 'thigh', size: [0.175 * t, 0.44, 0.205 * t], pos: [0, -0.22, 0], mat: trousers }));
+    /* Plus-fours are cut FULL -- that is the whole point of them, and a
+     * knickerbocker on a normal trouser leg is just a trouser leg with a band
+     * round the bottom. Widen the thigh rather than adding a second shape. */
+    const legWide = knickers && !performanceWear ? 1.16 : 1;
+    pivot.add(slab({
+      name: 'thigh',
+      size: [0.175 * t * legWide, 0.44, 0.205 * t * legWide],
+      pos: [0, -0.22, 0], mat: trousers,
+    }));
+    if (knickers && !performanceWear) {
+      // The check: two warps and three wefts on the face of the leg.
+      for (const cx of [-0.052, 0.052]) {
+        pivot.add(box({
+          name: 'knicker.check.warp',
+          size: [0.010, 0.43, 0.008],
+          pos: [cx * t, -0.22, 0.104 * t * legWide], mat: checkMat,
+        }));
+      }
+      for (const cy of [-0.09, -0.22, -0.35]) {
+        pivot.add(box({
+          name: 'knicker.check.weft',
+          size: [0.175 * t * legWide * 0.94, 0.010, 0.008],
+          pos: [0, cy, 0.104 * t * legWide], mat: checkMat,
+        }));
+      }
+    }
     if (trouserFit === 'creased' && !performanceWear) {
       /* The front crease. One narrow strip a shade lighter, running the length
        * of the leg -- it is what makes trousers look pressed, and on a slab it
@@ -333,11 +571,99 @@ export function makePerson(o = {}) {
       }));
       pivot.userData.creaseMat = creaseMat;
     }
+    if (pinstripe && !performanceWear) {
+      /* Down the front and the outside of the thigh. Two per leg is enough:
+       * the eye reads "striped" off any two parallels and a full weave is
+       * forty boxes a man. */
+      for (const sx of [-0.045, 0.045]) {
+        pivot.add(box({
+          name: 'trouser.pinstripe',
+          size: [0.007, 0.43, 0.008],
+          pos: [sx * t, -0.22, 0.104 * t], mat: stripeMat,
+        }));
+      }
+    }
     const shin = group('shin');
     shin.position.set(0, -0.44, 0);
     shin.add(slab({ name: 'knee', size: [0.158 * t, 0.11, 0.188 * t], pos: [0, 0, 0], mat: trousers }));
-    shin.add(slab({ name: 'shin', size: [0.15 * t, 0.42, 0.175 * t], pos: [0, -0.21, 0], mat: trousers }));
-    if (trouserFit === 'creased' && !performanceWear) {
+    if (knickers && !performanceWear) {
+      /* ---- plus-fours ----
+       *
+       * A knickerbocker is not a short trouser. It is a full trouser gathered
+       * and buttoned BELOW the knee, so what actually reads is the blouse: a
+       * band of fabric wider than the leg, sitting under the kneecap, with the
+       * stocking coming out of the bottom of it. Without that overhang the leg
+       * is a trouser that has simply been cut off, which is a pair of shorts.
+       */
+      shin.add(box({
+        name: 'knicker.blouse',
+        size: [0.204 * t, 0.13, 0.234 * t],
+        pos: [0, -0.055, 0], mat: trousers,
+      }));
+      for (const cx of [-0.052, 0.052]) {
+        shin.add(box({
+          name: 'knicker.check.warp',
+          size: [0.010, 0.12, 0.008],
+          pos: [cx * t, -0.055, 0.118 * t], mat: checkMat,
+        }));
+      }
+      /* Wider than the blouse it gathers, or it is a band drawn INSIDE a
+       * trouser leg and nobody ever sees it. */
+      shin.add(box({
+        name: 'knicker.band',
+        size: [0.216 * t, 0.038, 0.246 * t],
+        pos: [0, -0.118, 0], mat: mat({
+          color: new THREE.Color(trousers.color.getHex())
+            .lerp(new THREE.Color(0x000000), 0.55).getHex(),
+          roughness: 0.9,
+        }),
+      }));
+      shin.add(box({
+        name: 'knicker.buckle',
+        size: [0.022, 0.020, 0.010],
+        pos: [0.054 * t, -0.118, 0.128 * t],
+        mat: mat({ color: 0xc9b070, roughness: 0.3, metalness: 0.8 }),
+      }));
+      /* ---- the stocking ----
+       * From under the blouse to the shoe, in the vest's own colourway, with
+       * a ribbed turnover at the top and the diamonds down the front of the
+       * calf where a man standing over a putt is actually seen from. */
+      shin.add(box({
+        name: 'stocking',
+        size: [0.152 * t, 0.30, 0.177 * t],
+        pos: [0, -0.29, 0], mat: diamondB,
+      }));
+      for (let i = 0; i < 3; i++) {
+        shin.add(box({
+          name: 'stocking.turnover.rib',
+          size: [0.158 * t, 0.014, 0.183 * t],
+          pos: [0, -0.152 - i * 0.017, 0], mat: diamondB,
+        }));
+      }
+      for (let i = 0; i < 3; i++) {
+        const dy = -0.225 - i * 0.072;
+        const d = box({
+          name: 'stocking.diamond',
+          size: [0.052, 0.052, 0.008],
+          pos: [0, dy, 0.089 * t],
+          mat: i % 2 ? diamondA : stitchMat,
+        });
+        d.rotation.z = Math.PI / 4;
+        shin.add(d);
+      }
+    } else {
+      shin.add(slab({ name: 'shin', size: [0.15 * t, 0.42, 0.175 * t], pos: [0, -0.21, 0], mat: trousers }));
+    }
+    if (pinstripe && !knickers && !performanceWear) {
+      for (const sx of [-0.04, 0.04]) {
+        shin.add(box({
+          name: 'trouser.pinstripe',
+          size: [0.007, 0.41, 0.008],
+          pos: [sx * t, -0.21, 0.089 * t], mat: stripeMat,
+        }));
+      }
+    }
+    if (trouserFit === 'creased' && !knickers && !performanceWear) {
       const creaseMat = pivot.userData.creaseMat;
       shin.add(box({
         name: 'trouser.crease',
@@ -354,10 +680,33 @@ export function makePerson(o = {}) {
     }
     /* Barefoot is a smaller, skin-coloured foot rather than a missing shoe:
      * deleting the mesh leaves a trouser leg ending in mid-air. */
-    const footMat = barefoot ? skinMat : shoe;
+    const saddle = shoeStyle === 'saddle' && !barefoot;
+    /* A saddle shoe is white with a dark band across the laces, and the band
+     * is the entire read -- a plain white shoe at this scale is a bandage. */
+    const saddleUpper = mat({ color: 0xf0ece0, roughness: 0.42 });
+    const footMat = barefoot ? skinMat : (saddle ? saddleUpper : shoe);
     shin.add(box({ size: barefoot ? [0.112, 0.056, 0.25] : [0.135, 0.068, 0.29], pos: [0, -0.44, barefoot ? 0.035 : 0.05], mat: footMat }));
+    if (saddle) {
+      shin.add(box({
+        name: 'shoe.saddle.band',
+        size: [0.139, 0.070, 0.072],
+        pos: [0, -0.439, 0.03], mat: shoe,
+      }));
+      shin.add(box({
+        name: 'shoe.saddle.toe',
+        size: [0.131, 0.062, 0.052],
+        pos: [0, -0.441, 0.172], mat: shoe,
+      }));
+      /* The fringed tongue, which is the other half of why a golf shoe looks
+       * like a golf shoe and a brogue does not. */
+      shin.add(box({
+        name: 'shoe.saddle.kiltie',
+        size: [0.118, 0.014, 0.056],
+        pos: [0, -0.406, 0.104], mat: shoe,
+      }));
+    }
     if (!barefoot) {
-      shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: shoe }));
+      shin.add(box({ size: [0.135, 0.056, 0.08], pos: [0, -0.432, -0.078], mat: saddle ? saddleUpper : shoe }));
       /* A sole. One matte strip under a glossier upper, and the shoe stops
        * being a black wedge -- it is the cheapest possible read of "these are
        * shoes and that is a floor". */
@@ -366,7 +715,7 @@ export function makePerson(o = {}) {
         size: [0.139, 0.018, 0.30],
         pos: [0, -0.473, 0.046], mat: mat({ color: 0x24242a, roughness: 0.95 }),
       }));
-      if (trim) {
+      if (trim && !saddle) {
         // Toe cap and a heel counter, which is what a dress shoe has.
         shin.add(box({
           name: 'shoe.toecap',
@@ -515,6 +864,82 @@ export function makePerson(o = {}) {
       pos: [sx * SH, 1.45, lean],
       mat: sleeve === skinMat ? skinMat : (outerwear ? jacket : cloth),
     }));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Where the front of him actually is                                  */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * The forward-most surface of the trunk, over a band of heights.
+   *
+   * This exists because `D` is a lie on half this roster. `D` is the half
+   * depth of the RIBCAGE, and every garment detail in this builder used to be
+   * placed at some multiple of it -- which is correct on a figure whose chest
+   * is the front of him, and wrong on every figure carrying a paunch or a
+   * gut. Lou is the case that proves it: his belly reaches nine centimetres
+   * further forward than his chest does, so his waistcoat, his buttons, his
+   * chalk stripes and his medallion were all being drawn INSIDE him. What you
+   * saw was a man in a plain black sack with a chain floating on it.
+   *
+   * Everything structural is built before this point, so measuring is both
+   * possible and cheap, and it keeps working for shapes nobody has built yet.
+   * Call it before a garment to find out where to lay the garment.
+   */
+  const _frontProbe = new THREE.Box3();
+  function torsoFront(y0, y1 = y0, halfWidth = 0.16) {
+    body.updateMatrixWorld(true);
+    let front = D;
+    body.traverse((m) => {
+      if (!m.isMesh) return;
+      _frontProbe.setFromObject(m);
+      if (_frontProbe.max.y < y0 || _frontProbe.min.y > y1) return;
+      if (_frontProbe.min.x > halfWidth || _frontProbe.max.x < -halfWidth) return;
+      front = Math.max(front, _frontProbe.max.z);
+    });
+    return front;
+  }
+
+  /**
+   * A garment panel that lies ON him instead of at a fixed depth.
+   *
+   * A waistcoat over a belly is not a flat board floating at chest depth: it
+   * touches the chest at the top and the belly at the bottom, so it SLOPES.
+   * That slope is the whole trick here -- measure the front at both ends and
+   * tilt the panel to join them. On a figure with a flat front both ends come
+   * back the same number, the tilt is zero, and this is exactly the flat panel
+   * it always was.
+   *
+   * Anything that belongs on the garment -- buttons, stripes, a pattern -- is
+   * added as a CHILD of the returned panel, at a small positive local z, so it
+   * inherits the slope for free and can never drift off the cloth.
+   *
+   * It returns a GROUP rather than the cloth mesh, and that is not cosmetic:
+   * `box()` carries an object's SIZE in its scale, so a button parented to the
+   * mesh would be squashed by the panel's own dimensions -- a 6mm button on a
+   * 20mm-thick panel came out 0.12mm thick and vanished. The group carries the
+   * placement, the mesh inside it carries the size, and children of the group
+   * are in plain metres.
+   */
+  function frontPanel({
+    name, width, yTop, yBottom, thickness = 0.02, mat: material,
+    lift = 0.004, x = 0, splay = 0,
+  }) {
+    const hw = Math.abs(x) + width / 2;
+    const zTop = torsoFront(yTop, yTop, hw) + lift;
+    const zBottom = torsoFront(yBottom, yBottom, hw) + lift;
+    const h = Math.hypot(yTop - yBottom, zTop - zBottom);
+    const panel = group(name);
+    panel.position.set(x, (yTop + yBottom) / 2, (zTop + zBottom) / 2);
+    panel.rotation.z = splay;
+    panel.rotation.x = Math.atan2(zTop - zBottom, yTop - yBottom);
+    panel.add(box({
+      name: `${name}.cloth`,
+      size: [width, h, thickness], pos: [0, 0, 0], mat: material,
+    }));
+    panel.userData.faceZ = thickness / 2;
+    panel.userData.halfHeight = h / 2;
+    return panel;
   }
 
   /* A rich knit reads in the details rather than as a louder colour. The
@@ -762,13 +1187,116 @@ export function makePerson(o = {}) {
   if (dress === 'suit') {
     // A jacket is a slightly bigger torso with a shirt front cut out of it
     body.add(box({ size: [0.365 * t, 0.46, D * 2.1], pos: [0, 1.28, 0], mat: jacket }));
-    body.add(box({ size: [0.075, 0.36, 0.02], pos: [0, 1.36, D * 1.06], mat: mat({ color: 0xe4e0d8, roughness: 0.9 }) }));
+    if (pinstripe) {
+      /* Chalk stripe, front and back. Three either side of the centre line on
+       * each face: the middle of the chest is shirt, waistcoat and lapel, so a
+       * stripe there is a stripe nobody ever sees.
+       *
+       * The front ones are panels rather than bars, because a stripe is woven
+       * INTO the cloth and the cloth is over whatever the man is. Laid flat at
+       * chest depth on Lou they ran straight through his middle and the whole
+       * front of the suit came out plain black. */
+      for (const sx of [-0.148, -0.104, -0.060, 0.060, 0.104, 0.148]) {
+        body.add(frontPanel({
+          name: 'suit.pinstripe.front',
+          width: 0.008, yTop: 1.500, yBottom: 1.060,
+          thickness: 0.008, x: sx * t, mat: stripeMat, lift: 0.005,
+        }));
+        body.add(box({
+          name: 'suit.pinstripe.back',
+          size: [0.008, 0.45, 0.008],
+          pos: [sx * t, 1.28, -D * 1.052], mat: stripeMat,
+        }));
+      }
+    }
+    /* ---- the waistcoat ----
+     *
+     * The rule the tuxedo wrote down applies again and in the same order:
+     * build what is underneath first, then lay the outer garment over it. So
+     * the shirt goes on, then the tie, then the waistcoat closes over the tie,
+     * and only then do the lapels come across the waistcoat's edges. Do it the
+     * other way round and the tie hangs over the waistcoat like a bib.
+     *
+     * It also earns its place mechanically: a chain worn over a BUTTONED
+     * jacket is a chain nobody can see. An open jacket with a waistcoat behind
+     * it is the only arrangement in which Lou's horn is on show and still
+     * looks like a man wearing a suit.
+     */
+    const vestTop = 1.432;
+    body.add(box({
+      size: [0.075, 0.36, 0.02],
+      pos: [0, 1.36, D * 1.06],
+      mat: mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.9 }),
+    }));
+    if (threePiece) {
+      const vestMat = mat({
+        color: new THREE.Color(jacketColour).lerp(new THREE.Color(0x000000), 0.24).getHex(),
+        roughness: 0.84,
+      });
+      const vestHalf = 0.112 * Math.min(t, 1.25);
+      const vest = frontPanel({
+        name: 'suit.waistcoat',
+        width: vestHalf * 2, yTop: vestTop, yBottom: 1.152,
+        thickness: 0.022, mat: vestMat, lift: 0.008,
+      });
+      body.add(vest);
+      const face = vest.userData.faceZ;
+      /* The point. A waistcoat finishes in a V below the last button, and
+       * without it the garment ends in a straight hem that reads as a bib. */
+      const point = box({
+        name: 'suit.waistcoat.point',
+        size: [vestHalf * 1.05, vestHalf * 1.05, 0.021],
+        pos: [0, -vest.userData.halfHeight + 0.012, 0], mat: vestMat,
+      });
+      point.rotation.z = Math.PI / 4;
+      vest.add(point);
+      if (pinstripe) {
+        for (const sx of [-0.062, 0, 0.062]) {
+          vest.add(box({
+            name: 'suit.waistcoat.pinstripe',
+            size: [0.007, vest.userData.halfHeight * 1.88, 0.008],
+            pos: [sx * Math.min(t, 1.25), 0, face + 0.003], mat: stripeMat,
+          }));
+        }
+      }
+      /* Buttons down the middle, in the panel's own space so they stay on the
+       * cloth however far the belly under it tips the garment. */
+      for (let i = 0; i < 4; i++) {
+        vest.add(cylinder({
+          r: 0.0085, h: 0.005, seg: 8,
+          pos: [0, 0.096 - i * 0.062, face + 0.004], rotX: Math.PI / 2,
+          mat: mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 }),
+        }));
+      }
+    }
     for (const sx of [-1, 1]) {
-      const lap = box({ size: [0.07, 0.26, 0.02], pos: [sx * 0.06, 1.36, D * 1.07], mat: jacket });
-      lap.rotation.z = sx * 0.22;
+      /* An open jacket wears its lapels further out and leaning harder, which
+       * is what opens the gap the waistcoat shows through -- and a jacket
+       * front hangs on the man, so it slopes with him like everything else. */
+      const lap = threePiece
+        ? frontPanel({
+          name: `suit.lapel.${sx < 0 ? 'left' : 'right'}`,
+          width: 0.086, yTop: 1.500, yBottom: 1.190, thickness: 0.021,
+          x: sx * 0.126 * Math.min(t, 1.25), mat: jacket,
+          lift: 0.014, splay: sx * 0.26,
+        })
+        : box({
+          name: `suit.lapel.${sx < 0 ? 'left' : 'right'}`,
+          size: [0.07, 0.26, 0.02],
+          pos: [sx * 0.06 * Math.min(t, 1.2), 1.352, D * 1.10], mat: jacket,
+          rotZ: sx * 0.22,
+        });
       body.add(lap);
     }
-    body.add(box({ size: [0.038, 0.2, 0.018], pos: [0, 1.35, D * 1.09], mat: mat({ color: 0x6a1a24, roughness: 0.7 }) }));
+    body.add(box({
+      name: 'suit.tie',
+      /* Stops AT the waistcoat rather than in front of it: on a three-piece
+       * the tie disappears at the top button and everything below that is
+       * waistcoat. This is also what leaves the sternum free for the chain. */
+      size: [0.038, threePiece ? 0.115 : 0.2, 0.018],
+      pos: [0, threePiece ? (vestTop + 0.062) : 1.35, D * 1.075],
+      mat: mat({ color: 0x6a1a24, roughness: 0.7 }),
+    }));
     if (trim) {
       /* What separates a suit from a dark rectangle: a knot at the top of the
        * tie, two buttons where a jacket actually closes, a pocket square, and
@@ -780,11 +1308,14 @@ export function makePerson(o = {}) {
         size: [0.044, 0.042, 0.024], pos: [0, 1.462, D * 1.10], mat: tieMat,
       });
       body.add(knot);
-      // The tip, wider than the neck of the tie, hanging below the last button.
-      body.add(box({
-        name: 'suit.tie.tip',
-        size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
-      }));
+      // The tip, wider than the neck of the tie, hanging below the last
+      // button -- unless a waistcoat has already swallowed it.
+      if (!threePiece) {
+        body.add(box({
+          name: 'suit.tie.tip',
+          size: [0.046, 0.05, 0.017], pos: [0, 1.238, D * 1.09], mat: tieMat,
+        }));
+      }
       const shirtMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
       for (const side of [-1, 1]) {
         const point = box({
@@ -796,17 +1327,20 @@ export function makePerson(o = {}) {
         body.add(point);
       }
       const buttonMat = mat({ color: 0x0d0d12, roughness: 0.34, metalness: 0.3 });
+      /* An open jacket's buttons are on its own edge, out where the front
+       * hangs -- not closed across a waistcoat it is not fastened over. */
+      const buttonX = threePiece ? -0.152 : -0.052;
       for (const by of [1.268, 1.192]) {
         body.add(cylinder({
           r: 0.0105, h: 0.005, seg: 8,
-          pos: [-0.052 * t, by, D * 1.10], rotX: Math.PI / 2, mat: buttonMat,
+          pos: [buttonX * t, by, D * 1.10], rotX: Math.PI / 2, mat: buttonMat,
         }));
       }
       // Breast pocket square, on his left -- the figure faces +Z.
       body.add(box({
         name: 'suit.pocket-square',
         size: [0.05, 0.022, 0.010],
-        pos: [0.128 * t, 1.392, D * 1.08],
+        pos: [0.152 * t, 1.392, D * 1.115],
         mat: mat({ color: 0xb8a05a, roughness: 0.68 }),
       }));
     }
@@ -843,6 +1377,197 @@ export function makePerson(o = {}) {
       name: 'shirt.collar.stand',
       size: [0.19 * t, 0.036, D * 1.5], pos: [0, 1.508, lean * 0.5], mat: placketMat,
     }));
+  }
+  if (vested) {
+    /* ---- the argyle sweater vest ----
+     *
+     * Same rule as the tuxedo and the waistcoat above: build the shirt first,
+     * then lay the knit over it. The collared shirt is the whole torso and
+     * both sleeves; the vest is a shell in front of and behind it with a V cut
+     * at the throat, and the diamonds go on the front of the shell.
+     *
+     * The diamonds are a real lattice rather than a scatter: two interleaved
+     * grids half a diamond apart, which is what makes argyle argyle. Each one
+     * is a box turned 45 degrees -- on a figure cut from slabs a rotated slab
+     * is a diamond, and a texture would be the only bitmap on the entire cast.
+     */
+    const vestHalf = 0.196 * t;
+    const vestTopY = 1.478;
+    const vestBottomY = 1.192;
+    /* The V, the ribs and the collar all live in the top third of the garment,
+     * where nobody carries anything, so they share one plane. The diamonds do
+     * not: they run down onto whatever the man's middle is doing, so each row
+     * measures its own height -- one of the four on this course is Lou. */
+    const vestFront = D * 1.06;
+    body.add(box({
+      name: 'argyle.vest',
+      size: [vestHalf * 2, vestTopY - vestBottomY, D * 2.12],
+      pos: [0, (vestTopY + vestBottomY) / 2, 0], mat: cloth,
+    }));
+    /* The V. Subtractive on purpose and correct here -- what shows through it
+     * is the shirt underneath, not skin, which is exactly the distinction
+     * DRESSING-THE-CAST.md draws between a knit collar and a tuxedo. */
+    const vBottomY = 1.352;
+    const vHalf = 0.078 * Math.min(t, 1.2);
+    const vShape = new THREE.Shape();
+    vShape.moveTo(-vHalf, vestTopY);
+    vShape.lineTo(vHalf, vestTopY);
+    vShape.lineTo(0, vBottomY);
+    vShape.closePath();
+    const vOpen = new THREE.Mesh(new THREE.ShapeGeometry(vShape), underMat);
+    vOpen.name = 'argyle.vest.opening';
+    vOpen.position.z = vestFront + 0.012;
+    body.add(vOpen);
+    // The ribbed band round the V, and the ribbed hem that stops the garment.
+    for (const side of [-1, 1]) {
+      const trimBar = box({
+        name: 'argyle.vest.rib.v',
+        size: [0.020, Math.hypot(vHalf, vestTopY - vBottomY), 0.012],
+        pos: [side * vHalf * 0.5, (vestTopY + vBottomY) / 2, vestFront + 0.018],
+        mat: stitchMat,
+      });
+      trimBar.rotation.z = side * -0.52;
+      body.add(trimBar);
+    }
+    body.add(box({
+      name: 'argyle.vest.rib.hem',
+      size: [vestHalf * 2.02, 0.030, D * 2.14],
+      pos: [0, vestBottomY + 0.012, 0], mat: stitchMat,
+    }));
+    // The collar of the shirt underneath, standing up out of the V.
+    body.add(box({
+      name: 'argyle.shirt.collar.stand',
+      size: [0.19 * t, 0.038, D * 1.5], pos: [0, 1.508, lean * 0.5], mat: underMat,
+    }));
+    for (const side of [-1, 1]) {
+      const point = box({
+        name: 'argyle.shirt.collar.point',
+        size: [0.056, 0.064, 0.015],
+        pos: [side * 0.054, 1.470, D * 1.055], mat: underMat,
+      });
+      point.rotation.z = side * 0.3;
+      body.add(point);
+    }
+    /* The lattice. `w`/`h` are the diamond's diagonals, and the second grid is
+     * offset by half of each so the two tile edge to edge instead of leaving
+     * gaps between them. Anything landing inside the V is skipped rather than
+     * drawn behind it -- a diamond peeking out of a neckline is the tell that
+     * the pattern was painted on afterwards. */
+    const w = 0.098;
+    const h = 0.104;
+    for (const [grid, colour] of [[0, diamondA], [1, diamondB]]) {
+      const off = grid * 0.5;
+      for (let i = -2; i <= 2; i++) {
+        for (let j = -1; j <= 2; j++) {
+          const dx = (i + off) * w;
+          const dy = 1.312 + (j + off) * h;
+          if (dy > vestTopY - 0.03 || dy < vestBottomY + 0.045) continue;
+          if (Math.abs(dx) > vestHalf - 0.045) continue;
+          // Inside the V, where the shirt is.
+          const vAt = dy > vBottomY
+            ? ((dy - vBottomY) / (vestTopY - vBottomY)) * vHalf
+            : 0;
+          if (Math.abs(dx) < vAt + 0.028) continue;
+          const diamondZ = Math.max(vestFront, torsoFront(dy, dy, vestHalf)) + 0.010;
+          const d = box({
+            name: 'argyle.diamond',
+            size: [w * 0.66, h * 0.66, 0.008],
+            pos: [dx, dy, diamondZ], mat: colour,
+          });
+          d.rotation.z = Math.PI / 4;
+          body.add(d);
+          // The overstitch: one thin line through the diamond, which is the
+          // detail that stops the lattice reading as a harlequin costume.
+          const stitch = box({
+            name: 'argyle.stitch',
+            size: [0.006, h * 1.02, 0.006],
+            pos: [dx, dy, diamondZ + 0.006], mat: stitchMat,
+          });
+          stitch.rotation.z = Math.PI / 4;
+          body.add(stitch);
+        }
+      }
+    }
+  }
+  if (campShirt) {
+    /* ---- an open camp shirt ----
+     *
+     * The torso is already the shirt colour, so the garment is two front
+     * panels laid over a white undershirt with a gap between them, a camp
+     * collar lying flat on the shoulders, and a hem that stops the sleeves.
+     * Nothing is cut away: the white in the middle is a panel ADDED in front
+     * of the ribcage, and the two dark panels are added in front of that.
+     */
+    const teeMat = mat({ color: 0xe6e3dc, roughness: 0.94 });
+    /* The shirt is worn OUT, so both the tee and the fronts run past the
+     * waistband -- and on Lou both of them therefore have to come over the
+     * belly rather than stop above it. `frontPanel` is what does that. */
+    const shirtTop = 1.498;
+    const shirtBottom = 1.022;
+    const tee = frontPanel({
+      name: 'camp.undershirt',
+      width: 0.150 * Math.min(t, 1.25), yTop: shirtTop, yBottom: 1.16,
+      thickness: 0.018, mat: teeMat, lift: 0.006,
+    });
+    body.add(tee);
+    // A crew neck on the undershirt, so it is a tee and not a bib.
+    tee.add(box({
+      name: 'camp.undershirt.neck',
+      size: [0.124 * Math.min(t, 1.25), 0.028, 0.022],
+      pos: [0, tee.userData.halfHeight - 0.010, 0.002], mat: teeMat,
+    }));
+    const placketMat = mat({
+      color: new THREE.Color(shirt).lerp(new THREE.Color(0x000000), 0.28).getHex(),
+      roughness: 0.9,
+    });
+    const tileA = mat({ color: shirtAccent ?? 0xd8cbb2, roughness: 0.9 });
+    const tileB = mat({ color: 0x8f4436, roughness: 0.9 });
+    for (const side of [-1, 1]) {
+      /* Each front hangs open and slightly away from the middle, which is why
+       * the two are splayed apart rather than parked side by side. */
+      const width = 0.152 * t;
+      const panel = frontPanel({
+        name: `camp.front.${side < 0 ? 'left' : 'right'}`,
+        width, yTop: shirtTop, yBottom: shirtBottom,
+        thickness: 0.020, mat: cloth, lift: 0.020,
+        x: side * 0.132 * t, splay: side * 0.05,
+      });
+      body.add(panel);
+      const face = panel.userData.faceZ;
+      // The turned edge of the placket, which is what makes it read as open.
+      panel.add(box({
+        name: 'camp.front.edge',
+        size: [0.016, panel.userData.halfHeight * 2, 0.022],
+        pos: [-side * (width / 2 - 0.008), 0, 0.004], mat: placketMat,
+      }));
+      if (pattern) {
+        /* The motif. Not a print -- a grid of small tiles on the two fronts,
+         * in the two accent colours, which at conversation distance is what a
+         * busy shirt actually looks like. Children of the panel, so they ride
+         * the same slope the cloth does. */
+        for (let row = 0; row < 5; row++) {
+          for (let col = 0; col < 2; col++) {
+            panel.add(box({
+              name: 'camp.pattern.tile',
+              size: [0.032, 0.020, 0.006],
+              pos: [(col - 0.5) * 0.070 * t, 0.148 - row * 0.078, face + 0.002],
+              mat: (row + col) % 2 ? tileA : tileB,
+            }));
+          }
+        }
+      }
+      /* The camp collar: one flat wing per side, lying ON the shoulder rather
+       * than standing up. That flat lie is the whole difference between a
+       * camp collar and a dress collar, and it is one rotation each. */
+      const wing = box({
+        name: `camp.collar.${side < 0 ? 'left' : 'right'}`,
+        size: [0.092 * t, 0.062, 0.032],
+        pos: [side * 0.088 * t, 1.492, D * 0.90], mat: cloth,
+      });
+      wing.rotation.z = side * -0.34;
+      wing.rotation.x = -0.42;
+      body.add(wing);
+    }
   }
   if (dress === 'waistcoat') {
     body.add(box({ size: [0.35 * t, 0.32, D * 2.06], pos: [0, 1.34, 0], mat: mat({ color: 0x191920, roughness: 0.82 }) }));
@@ -1034,12 +1759,17 @@ export function makePerson(o = {}) {
       ? mat({ color: 0xcfd6e0, roughness: 0.14, metalness: 0.98 })
       : mat({ color: 0xd9b64a, roughness: 0.2, metalness: 0.95 });
     const chestZ = D * (dress === 'suit' ? 1.07 : 1.02) + 0.016;
-    const addDrape = ({ width, low, gauge, name }) => {
+    const addDrape = ({ width, low, gauge, name, lowZ = chestZ + 0.003 }) => {
+      /* The mid control points ride between the collar and wherever the low
+       * point ended up, so a chain that has to come out over a belly leaves
+       * the shoulders on the body and arcs forward on its way down instead of
+       * kinking outward at the bottom. */
+      const midZ = chestZ + (lowZ - chestZ) * 0.45;
       const drape = new THREE.CatmullRomCurve3([
         new THREE.Vector3(-width, 1.518, D + 0.009),
-        new THREE.Vector3(-width * 0.55, (1.518 + low) / 2, chestZ),
-        new THREE.Vector3(0, low, chestZ + 0.003),
-        new THREE.Vector3(width * 0.55, (1.518 + low) / 2, chestZ),
+        new THREE.Vector3(-width * 0.55, (1.518 + low) / 2, midZ),
+        new THREE.Vector3(0, low, lowZ),
+        new THREE.Vector3(width * 0.55, (1.518 + low) / 2, midZ),
         new THREE.Vector3(width, 1.518, D + 0.009),
       ]);
       /* Links, not a cable.
@@ -1083,17 +1813,55 @@ export function makePerson(o = {}) {
     };
     /* On a closed jacket the drape has to be narrow enough to pass BEHIND the
      * lapels. At the open-collar width it came up over the shoulders outside
-     * them and read as a pair of braces, which is not what Lou is wearing. */
-    const closedJacket = dress === 'suit' || dress === 'waistcoat';
+     * them and read as a pair of braces, which is not what Lou is wearing.
+     *
+     * An OPEN jacket is the other case: the lapels have moved out of the way
+     * and the chain hangs on the waistcoat like it would on a shirt, so it
+     * gets the open-collar width and the open-collar length. */
+    const openJacket = dress === 'suit' && threePiece;
+    const closedJacket = (dress === 'suit' && !threePiece) || dress === 'waistcoat';
+    const horn = pendant && pendantStyle === 'horn';
+    const low = closedJacket ? 1.352 : openJacket ? 1.384 : 1.397;
+
+    /* ---------------------------------------------------------------- */
+    /* Where the pendant hangs                                           */
+    /* ---------------------------------------------------------------- */
+    /*
+     * A pendant hangs in front of the MAN, and the man is not the ribcage.
+     *
+     * This is rule 8 again (see DRESSING-THE-CAST.md), and the chain is where
+     * it bites hardest: `chestZ + 0.008` hung Lou's medallion with its lower
+     * half inside his belly, and a horn -- four times as long as a disc is
+     * tall -- would have been buried to the ribs. So `torsoFront` measures the
+     * band of chest this pendant will actually occupy, garments included, and
+     * the pendant plane clears the pendant's own BACK surface off that rather
+     * than its centreline.
+     *
+     * The chain then meets it: the drape's low point is put ON the pendant
+     * plane, so the bail is a ring the chain runs through instead of a ring
+     * parked somewhere near it.
+     */
+    const pendantHalf = horn ? HORN.back : pendantStyle === 'crest' ? 0.006 : 0.0045;
+    const pendantDrop = horn ? HORN.bailR + HORN.neck + HORN.length : 0.042;
+    const pendantZ = pendant
+      ? Math.max(
+        chestZ + 0.008,
+        torsoFront(low - pendantDrop, low + 0.03, 0.085) + pendantHalf + 0.005,
+      )
+      : chestZ + 0.003;
+
     addDrape({
       width: closedJacket ? 0.058 : 0.105,
-      low: closedJacket ? 1.352 : 1.397,
+      low,
+      lowZ: pendant ? pendantZ : chestZ + 0.003,
       gauge: silver ? 0.0032 : chainStyle === 'layered' ? 0.0082 : 0.0065,
       name: silver ? 'necklace.chain.silver' : 'necklace.chain',
     });
     if (chainStyle === 'layered') {
       /* The second rope is shorter and finer, so it reads as deliberate
-       * layering instead of two copies occupying the same pixels. */
+       * layering instead of two copies occupying the same pixels. It also
+       * stops well above the pendant: two chains meeting at one ring is a
+       * knot, not layering. */
       addDrape({
         width: closedJacket ? 0.05 : 0.092,
         low: closedJacket ? 1.396 : 1.435,
@@ -1112,12 +1880,18 @@ export function makePerson(o = {}) {
       clasp.name = 'necklace.clasp';
       body.add(clasp);
     }
-    if (pendant) {
+    if (pendant && horn) {
+      /* Hung from the low point of the chain itself, so the bail is a ring the
+       * chain runs through rather than a ring parked near it. */
+      const corno = makeHorn(metal);
+      corno.position.set(0, low, pendantZ);
+      body.add(corno);
+    } else if (pendant) {
       const crest = pendantStyle === 'crest';
       const disc = cylinder({
         r: crest ? 0.038 : 0.03,
         h: crest ? 0.012 : 0.009,
-        pos: [0, crest ? 1.371 : 1.382, chestZ + 0.008],
+        pos: [0, low - (crest ? 0.026 : 0.015), pendantZ],
         rotX: Math.PI / 2,
         mat: metal,
       });
@@ -1128,7 +1902,7 @@ export function makePerson(o = {}) {
         const inset = cylinder({
           r: 0.024,
           h: 0.006,
-          pos: [0, 1.371, chestZ + 0.017],
+          pos: [0, low - 0.026, pendantZ + 0.009],
           rotX: Math.PI / 2,
           mat: insetMat,
         });
@@ -1137,7 +1911,7 @@ export function makePerson(o = {}) {
         const crown = box({
           name: 'necklace.pendant.crown',
           size: [0.025, 0.012, 0.006],
-          pos: [0, 1.376, chestZ + 0.022],
+          pos: [0, low - 0.021, pendantZ + 0.014],
           mat: metal,
         });
         body.add(crown);
@@ -1274,6 +2048,77 @@ export function makePerson(o = {}) {
     }
     head.add(box({ size: [0.03, 0.004, 0.004], pos: [0, 0.181, 0.096], mat: mat({ color: 0x14141a, roughness: 0.35 }) }));
   }
+  if (hat) {
+    /* ---- headwear ----
+     *
+     * A hat is a crown and a brim and the relationship between them, and that
+     * relationship is the entire difference between the two here: a fedora's
+     * crown is tall and its brim reaches past the shoulders of the face, while
+     * a flat cap has almost no crown and a stub of a peak at the front only.
+     *
+     * Both sit ON the hair rather than instead of it, because the photo faces
+     * bring their own hair and a hat that replaced it would take the man's
+     * hairline with it.
+     */
+    const feltMat = mat({
+      color: hatColour ?? (hat === 'fedora' ? 0x4a3a28 : 0x5a5f52),
+      roughness: hat === 'fedora' ? 0.94 : 0.97,
+    });
+    if (hat === 'fedora') {
+      const brim = cylinder({
+        r: 0.168, h: 0.014, pos: [0, 0.276, -0.006], mat: feltMat,
+      });
+      brim.name = 'hat.fedora.brim';
+      brim.rotation.x = -0.07;             // snapped down at the front
+      head.add(brim);
+      head.add(box({
+        name: 'hat.fedora.crown',
+        size: [0.176, 0.116, 0.188], pos: [0, 0.338, -0.006], mat: feltMat,
+      }));
+      /* The pinch. Two blocks either side of a gap down the middle of the
+       * crown -- without it a fedora is a top hat that was cut short. */
+      for (const sx of [-1, 1]) {
+        const pinch = box({
+          name: 'hat.fedora.pinch',
+          size: [0.048, 0.040, 0.13], pos: [sx * 0.055, 0.404, -0.006], mat: feltMat,
+        });
+        pinch.rotation.z = sx * 0.16;
+        head.add(pinch);
+      }
+      head.add(box({
+        name: 'hat.fedora.band',
+        size: [0.182, 0.030, 0.194], pos: [0, 0.294, -0.006],
+        mat: mat({ color: 0x1b1a1e, roughness: 0.7 }),
+      }));
+    } else {
+      // Flat cap: a low crown pulled forward, and a short stiff peak.
+      const crown = box({
+        name: 'hat.flatcap.crown',
+        size: [0.212, 0.070, 0.216], pos: [0, 0.268, -0.014], mat: feltMat,
+      });
+      crown.rotation.x = -0.10;
+      head.add(crown);
+      /* Pulled forward over the brow, which is where the peak has to start
+       * from or it reads as a peakless beanie in a front three-quarter. */
+      head.add(box({
+        name: 'hat.flatcap.front',
+        size: [0.206, 0.046, 0.052], pos: [0, 0.252, 0.086], mat: feltMat,
+      }));
+      const peak = box({
+        name: 'hat.flatcap.peak',
+        size: [0.186, 0.016, 0.098], pos: [0, 0.234, 0.150], mat: feltMat,
+      });
+      peak.rotation.x = 0.26;
+      head.add(peak);
+      /* The button on top, which is the one detail that says "cap" and not
+       * "beret" from behind. */
+      const stud = cylinder({
+        r: 0.014, h: 0.008, pos: [0, 0.306, -0.016], mat: feltMat,
+      });
+      stud.name = 'hat.flatcap.button';
+      head.add(stud);
+    }
+  }
   if (bandana) {
     head.add(box({ size: [0.185, 0.048, 0.195], pos: [0, 0.222, -0.006], mat: mat({ color: BANDANA, roughness: 0.92 }) }));
     const tail = box({ size: [0.035, 0.115, 0.018], pos: [0.012, 0.185, -0.1], mat: mat({ color: BANDANA, roughness: 0.92 }) });
@@ -1294,11 +2139,38 @@ export function makePerson(o = {}) {
     const gutArmSpread = gutOn > 0 ? (0.075 + gutOn * 0.075) * t : 0;
     pivot.position.set(side * (SH + gutArmSpread), 1.44, lean);
     pivot.add(slab({ name: 'upperarm', size: [0.115 * t, 0.30, 0.125 * t], pos: [0, -0.15, 0], mat: sleeve }));
+    if (shortSleeve) {
+      /* A short sleeve is not a shorter arm. The upper arm keeps the shirt and
+       * a hem stops it above the elbow, and everything past that hem is the
+       * man -- which is also what makes the watch and the bracelet below the
+       * two things anybody actually looks at on this outfit. */
+      pivot.add(box({
+        name: 'camp.sleeve.hem',
+        size: [0.124 * t, 0.026, 0.134 * t],
+        pos: [0, -0.238, 0], mat: mat({
+          color: new THREE.Color(shirt).lerp(new THREE.Color(0x000000), 0.28).getHex(),
+          roughness: 0.9,
+        }),
+      }));
+    }
+    if (pinstripe && sleeve === jacket) {
+      pivot.add(box({
+        name: 'suit.pinstripe.sleeve',
+        size: [0.008, 0.29, 0.008],
+        pos: [side * 0.03 * t, -0.15, 0.064 * t], mat: stripeMat,
+      }));
+    }
     const fore = group('forearm');
     fore.position.set(0, -0.30, 0);
-    fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: sleeve }));
-    fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : sleeve }));
+    const foreMat = shortSleeve ? skinMat : sleeve;
+    fore.add(slab({ name: 'elbow', size: [0.105 * t, 0.10, 0.115 * t], pos: [0, 0, 0], mat: foreMat }));
+    fore.add(slab({ name: 'forearm', size: [0.10 * t, 0.27, 0.105 * t], pos: [0, -0.135, 0], mat: dress === 'waistcoat' ? cloth : foreMat }));
     fore.add(slab({ name: 'hand', size: [0.085, 0.115, 0.065], pos: [0, -0.3, 0.005], mat: skinMat }));
+    /* Where the sleeve's surface actually is. Every piece of jewellery below
+     * is placed off this rather than off a hand-tuned constant, which is what
+     * stops it disappearing inside a heavier man's arm -- see the watch. */
+    const armFrontZ = 0.0525 * t;
+    const armHalfX = 0.05 * t;
     if (dress === 'bomber') {
       /* The cuff, in the same ribbed yarn as the waistband and collar. Three
        * bands is enough to read as knit; the point is that the sleeve stops
@@ -1338,21 +2210,35 @@ export function makePerson(o = {}) {
        * half-inch of white that separates a man who owns his clothes from a
        * man wearing a rectangle. */
       const cuffMat = mat({ color: shirtAccent ?? 0xe4e0d8, roughness: 0.86 });
-      fore.add(slab({
+      const cuff = slab({
         name: 'shirt.cuff',
         size: [0.098 * t, 0.032, 0.103 * t],
         pos: [0, -0.256, 0.001], mat: cuffMat,
-      }));
+      });
+      /* `slab` drops the name on everybody who is not chamfered, and this is a
+       * part the watch has to be measured against. Put it back. */
+      cuff.name = 'shirt.cuff';
+      fore.add(cuff);
+      /* Proud of the cuff, not inside it. At z 0.03 this sat well behind the
+       * cuff's own front face and was a gold cube buried in a sleeve. */
       fore.add(box({
         name: 'shirt.cuff.link',
         size: [0.009, 0.009, 0.007],
-        pos: [side * 0.048 * t, -0.256, 0.03], mat: mat({
+        pos: [side * 0.048 * t, -0.256, armFrontZ + 0.006], mat: mat({
           color: watch === 'silver' ? 0xdce2e8 : 0xd9b64a, roughness: 0.2, metalness: 0.9,
         }),
       }));
     }
-    if (watch && side < 0) {
+    if (watch && side > 0) {
       /* A watch, not a coin on a hoop.
+       *
+       * On his own LEFT wrist, which is +X -- the figures face +Z, so a
+       * character's own left hand is on +X and the pocket square has always
+       * been placed at +0.182 for that reason. The watch was on -X, which is
+       * his right hand, while both this file and DRESSING-THE-CAST.md said
+       * "left". It is invisible in a front view and wrong the moment anybody
+       * turns round, which is the exact failure the handedness note warns
+       * about.
        *
        * The old one was a torus with two discs stacked on it, which at three
        * metres is a bracelet with a button on it. A wristwatch reads because
@@ -1362,6 +2248,22 @@ export function makePerson(o = {}) {
        * last thing anyone sees and the first thing everybody expects, so they
        * are here too and they are stopped at ten past ten, the way a watch is
        * photographed.
+       *
+       * ---- and it has to be OUTSIDE the arm ----
+       *
+       * Every dimension here used to be an absolute constant against a forearm
+       * that scales with `build`. The forearm's front face is at 0.0525 * t and
+       * the case sat at 0.045 * t, so on ANY figure the case was inside the
+       * sleeve, and on Lou -- t = 1.17 -- the bezel was inside it too. What you
+       * actually saw was four markers and two hands floating on a sleeve.
+       * Likewise the bracelet: it ringed the wrist at 0.0355 * t, which is
+       * inside a slab whose half-width is 0.05 * t, so not one link of it was
+       * ever drawn. It was a gold watch nobody could see.
+       *
+       * Everything below is therefore measured off `armFrontZ` and `armHalfX`.
+       * The caseback sinks slightly INTO the wrist, the way a watch worn by a
+       * person does; every part of it that is meant to be seen is in front of
+       * the sleeve by construction rather than by luck.
        */
       const silverWatch = watch === 'silver';
       const watchMetal = mat({
@@ -1369,9 +2271,13 @@ export function makePerson(o = {}) {
         roughness: 0.14,
         metalness: 0.98,
       });
-      const wrist = 0.0355 * t;
-      const wristY = -0.247;
-      const faceZ = 0.045 * t;
+      const caseR = 0.0245;
+      /* Up the forearm far enough that the case clears both the shirt cuff
+       * (top edge -0.240) and the top of the hand (-0.2425). A watch sits
+       * above the cuff; it does not share the wrist bone with it. */
+      const wristY = -0.210;
+      const faceZ = armFrontZ + 0.004;
+      const wrist = armHalfX + 0.0065;
 
       /* The bracelet. Ten links around the wrist, each a slab tangent to the
        * circle, so it catches light in facets the way a metal bracelet does
@@ -1384,7 +2290,7 @@ export function makePerson(o = {}) {
         const link = box({
           name: 'person.watch.link',
           size: [0.0125, 0.0175, 0.0075],
-          pos: [Math.sin(a) * wrist, 0, Math.cos(a) * wrist],
+          pos: [Math.sin(a) * wrist, 0, Math.cos(a) * wrist * 1.06],
           mat: watchMetal,
         });
         link.rotation.y = a;
@@ -1393,18 +2299,20 @@ export function makePerson(o = {}) {
       bracelet.position.set(0, wristY, 0.002);
       fore.add(bracelet);
 
-      // Lugs: the two horns the case hangs between.
+      /* Lugs: the two horns the case hangs between. Deep enough to bridge from
+       * inside the sleeve out to the caseback, so the watch is joined to the
+       * arm rather than hovering off it. */
       for (const ly of [-0.019, 0.019]) {
         fore.add(box({
           name: 'person.watch.lug',
-          size: [0.030, 0.010, 0.012],
-          pos: [0, wristY + ly, faceZ - 0.008],
+          size: [0.030, 0.010, 0.016],
+          pos: [0, wristY + ly, faceZ - 0.006],
           mat: watchMetal,
         }));
       }
       // The case, then a bezel standing proud of it.
       const dial = cylinder({
-        r: 0.0245, h: 0.011, pos: [0, wristY, faceZ], rotX: Math.PI / 2, mat: watchMetal,
+        r: caseR, h: 0.011, pos: [0, wristY, faceZ], rotX: Math.PI / 2, mat: watchMetal,
       });
       dial.name = 'person.watch.dial';
       fore.add(dial);
@@ -1414,7 +2322,11 @@ export function makePerson(o = {}) {
       );
       bezel.name = 'person.watch.bezel';
       bezel.position.set(0, wristY, faceZ + 0.007);
-      bezel.rotation.x = Math.PI / 2;
+      /* No rotation. A torus already lies in XY with its axis on +Z, which is
+       * the way the dial faces -- the PI/2 that used to be here tipped the
+       * bezel onto its side, so it was a hoop passing THROUGH the watch rather
+       * than a ring around it. It was invisible while the whole case was
+       * buried in the sleeve; it is not invisible now. */
       fore.add(bezel);
       // The face, dark and slightly glossy so it reads as glass over a dial.
       const faceMat = mat({
@@ -1445,14 +2357,59 @@ export function makePerson(o = {}) {
         hand.rotation.z = -ang;
         fore.add(hand);
       }
-      // The crown, on the right of the case as worn.
-      fore.add(cylinder({
+      /* The crown, on the right of the case as worn -- pushed out past the
+       * arm's own half-width as well as past its front, or on a heavy build it
+       * is a stub inside a sleeve beside a watch. */
+      const crown = cylinder({
         r: 0.0042, h: 0.007, seg: 8,
-        pos: [0.0268, wristY, faceZ], rotZ: Math.PI / 2, mat: watchMetal,
-      }));
+        pos: [Math.max(caseR + 0.003, armHalfX + 0.004), wristY, faceZ + 0.002],
+        rotZ: Math.PI / 2, mat: watchMetal,
+      });
+      crown.name = 'person.watch.crown';
+      fore.add(crown);
       // A stable name for the whole assembly, for tests and for the ledger.
       const braceletName = silverWatch ? 'person.watch.band.silver' : 'person.watch.band.gold';
       bracelet.name = braceletName;
+    }
+    if (bracelet && side < 0) {
+      /* ---- the other wrist ----
+       *
+       * A gold ID bracelet, and it goes on the hand the watch is not on. That
+       * is the only rule it needs: two heavy gold things on one forearm is a
+       * man wearing a watch twice, and keeping them on opposite sides is also
+       * what lets both be named, found and measured independently.
+       *
+       * Same construction as the watch band -- links tangent to a ring wider
+       * than the arm -- with a flat plate across the front of the wrist, which
+       * is the whole difference between an ID bracelet and a watch strap that
+       * lost its watch.
+       */
+      const silverBand = bracelet === 'silver';
+      const bandMetal = mat({
+        color: silverBand ? 0xdce2e8 : 0xe0b94f, roughness: 0.16, metalness: 0.97,
+      });
+      const ring = armHalfX + 0.006;
+      const bandY = -0.222;
+      const links = group(silverBand ? 'person.bracelet.silver' : 'person.bracelet.gold');
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2 + Math.PI / 12;
+        if (Math.cos(a) > 0.80) continue;         // behind the plate
+        const link = box({
+          name: 'person.bracelet.link',
+          size: [0.0138, 0.0142, 0.0082],
+          pos: [Math.sin(a) * ring, 0, Math.cos(a) * ring * 1.06],
+          mat: bandMetal,
+        });
+        link.rotation.y = a;
+        links.add(link);
+      }
+      links.position.set(0, bandY, 0.002);
+      fore.add(links);
+      fore.add(box({
+        name: 'person.bracelet.plate',
+        size: [0.030, 0.019, 0.007],
+        pos: [0, bandY, armFrontZ + 0.005], mat: bandMetal,
+      }));
     }
     pivot.add(fore);
     pivot.userData.fore = fore;
@@ -1477,7 +2434,13 @@ export function makePerson(o = {}) {
     barefoot: !!barefoot,
     luxury: !!luxury,
     watch: watch || false,
+    bracelet: bracelet || false,
     chainStyle: chain ? chainStyle : false,
+    pendantStyle: chain && pendant ? pendantStyle : false,
+    hat: hat || false,
+    pinstripe: !!pinstripe,
+    threePiece: !!threePiece,
+    knickers: !!knickers,
   };
   g.traverse((m) => {
     if (m.isMesh) {
@@ -2071,10 +3034,19 @@ export function populate(scene, club, { includeMargo = true } = {}) {
 
   /* ---- heroes ---- */
 
-  /* Lou: broad, expensive open-neck knit, layered gold, and the man's own
-   * face off the Initiation's photo set. He is a named founder, and the
-   * character bible is explicit that named Circle members wear their supplied
-   * photographs rather than a procedural approximation of them.
+  /* Lou: the chalk-stripe three-piece, the hat, and the man's own face off the
+   * Initiation's photo set. He is a named founder, and the character bible is
+   * explicit that named Circle members wear their supplied photographs rather
+   * than a procedural approximation of them.
+   *
+   * The jacket is OPEN over the waistcoat, and that is the outfit's whole
+   * argument: it is what puts the corno somewhere the player can see it from
+   * the other side of a desk. Closed, he is a man in a dark rectangle with a
+   * gold chain hidden inside it.
+   *
+   * The clothes come from `core/wardrobe.js` rather than being typed out here.
+   * They used to be typed out here, which is exactly how the Bing ended up
+   * with a 1.80m Lou in a knit while the boat had a 1.83m Lou in a suit.
    *
    * No bandana. Half the crew in here wear the club's colours on their heads
    * and Lou is deliberately not one of them -- he runs the place from an
@@ -2083,10 +3055,7 @@ export function populate(scene, club, { includeMargo = true } = {}) {
     name: 'Lou', tier: 'hero', job: 'sit',
     x: a.louSeat.x, z: a.louSeat.z, yaw: 0,
     model: {
-      height: 1.8, build: 1.4, dress: 'shirt', shirt: 0x6f5a38,
-      hairColour: 0x4a4a48, chain: 'gold', chainStyle: 'layered',
-      pendant: true, pendantStyle: 'crest', neckline: 'v', luxury: true,
-      shirtAccent: 0x9b825b, watch: 'gold', skin: 0xd2a074,
+      ...BIG_UNCLE_LOU_BING,
       face: 'assets/faces/lou.png', bandana: false,
     },
   }));

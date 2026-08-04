@@ -691,11 +691,16 @@ const scenePass = await page.evaluate(() => {
     .filter(([key]) => key.startsWith('performer'))
     .every(([, npc]) => hairOf(npc).length >= 2);
 
+  /* Lou's pendant is the corno now -- `pendantStyle: 'horn'` in
+   * core/wardrobe.js -- so this matches the family of names rather than the
+   * one the disc used to have, and then says which one it actually found. */
   let chain = false;
   let pendant = false;
+  let horn = 0;
   b.cast.byName.lou.group.traverse((o) => {
     if (o.name === 'necklace.chain') chain = true;
-    if (o.name === 'necklace.pendant') pendant = true;
+    if (o.name.startsWith('necklace.pendant')) pendant = true;
+    if (o.name === 'necklace.pendant.horn.rib') horn += 1;
   });
 
   /* On the cushion of the bench nearest them, whichever run that is, measured
@@ -736,6 +741,7 @@ const scenePass = await page.evaluate(() => {
     hairShaped,
     chain,
     pendant,
+    horn,
     patronsSeated: patronsSeated.length === 6 && patronsSeated.every(Boolean),
     archClear: b.standingClearAt(4.7, 3.4),
     monitorMounted: b.club.office.monitor.position.x > 13.3,
@@ -753,8 +759,9 @@ check('the stage front blocks the crowd but still takes the player',
 check('the runway is the blonde’s and every performer wears shaped hair',
   scenePass.blondeHair === 0xdcb04a && scenePass.blondePieceCount >= 3 && scenePass.hairShaped,
   `hair #${(scenePass.blondeHair ?? 0).toString(16)}, ${scenePass.blondePieceCount} pieces`);
-check('Lou’s chain drapes to a pendant lying on his chest',
-  scenePass.chain && scenePass.pendant);
+check('Lou’s chain drapes to the corno hanging off it',
+  scenePass.chain && scenePass.pendant && scenePass.horn >= 5,
+  `chain ${scenePass.chain}, pendant ${scenePass.pendant}, ${scenePass.horn} ribs`);
 check('booth patrons sit on the benches, not in the tables',
   scenePass.patronsSeated);
 check('the arch to the back of house is clear of booth colliders',
@@ -2058,7 +2065,7 @@ const punchPeople = await page.evaluate(() => {
   let rippinPendant = 0;
   b.family.byId.rippinflow.group.traverse((o) => {
     if (o.name === 'necklace.chain.silver') silver += 1;
-    if (o.name === 'necklace.pendant') rippinPendant += 1;
+    if (o.name.startsWith('necklace.pendant')) rippinPendant += 1;
   });
   const hairOf = (npc) => {
     let n = 0;
