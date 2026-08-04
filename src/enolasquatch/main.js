@@ -8,11 +8,13 @@
  * AircraftPhysics/EngineSystem/CameraManager/FlightInput/WeatherSystem/
  * DetectionSystem/MissionController/FlightHud together and drives them in the
  * render loop, its pause/restart/checkpoint wiring, its console debug-handle
- * convention) but simplified where this mission genuinely has less going on:
- * there is no on-foot walkaround, no `Player`, no `InteractionSystem`, no
- * campaign/story save and no crate-based cargo — the crew starts strapped in
- * and the whole mission plays out from the left seat (see the header comment
- * on `mission/MissionController.js`, which already assumes exactly that).
+ * convention). It is simplified where this mission genuinely has less going
+ * on — no campaign/story save, no crate-based cargo, no terrain streaming —
+ * but as of 2026-08-04 it is NOT simplified in the way this comment used to
+ * claim: the scene now opens with an on-foot walkaround, so `Player`,
+ * `InteractionSystem` and a real boarding step are all wired here, the same
+ * three pieces `src/beefrun/main.js` uses on the apron. The frame loop
+ * branches on `mission.inCockpit` exactly the way the Beef Run's does.
  *
  * ---------------------------------------------------------------------------
  * The eastbound terrain-height problem (read this before touching the ground
@@ -64,6 +66,8 @@
 import * as THREE from 'three';
 
 import { Hud } from '../core/hud.js';
+import { InteractionSystem } from '../core/interaction.js';
+import { Player } from '../core/player.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { roomEnvironment } from '../world/textures.js';
 
@@ -82,13 +86,17 @@ import {
 } from '../beefrun/util.js';
 
 import {
-  AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X,
+  AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, ENOLA_PARKING, CRATER,
 } from './config.js';
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
+import { TargetCity, craterOffset } from './scenes/TargetCity.js';
 import { FatSquatch } from './payload/FatSquatch.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
+import { EnolaPreflight } from './preflight.js';
+import { createCrew, makeToolCart } from './crew.js';
+import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
@@ -185,16 +193,36 @@ function rawEastHeight(x, z) {
 }
 
 /**
+ * The crater, once there is one.
+ *
+ * `null` until the Fat Squatch arrives, then the record `TargetCity.destroy()`
+ * hands back. It is deliberately a mutable module-level binding rather than
+ * something threaded through: `groundHeightCombined` is passed by reference
+ * into `AircraftPhysics`, `FatSquatch.update`, `Defense` and `Targeting`
+ * before the crater exists, and every one of them has to start returning the
+ * new ground the moment it does. One binding they all close over is the only
+ * version of this that cannot go stale in one of them.
+ */
+let activeCrater = null;
+
+/**
  * The mission's one ground-height function, used for physics, targeting,
  * defense prop placement and payload impact alike — see the file header.
  * Blends from Beef Run's own carved corridor near the field into the real
- * eastbound heightfield as `x` grows past the turn point.
+ * eastbound heightfield as `x` grows past the turn point, and then drops
+ * through `craterOffset()` if the target has already been hit.
  */
 function groundHeightCombined(x, z) {
   const blend = smoothstep(500, 1400, x);
-  if (blend <= 0) return terrainHeight(x, z);
-  if (blend >= 1) return rawEastHeight(x, z);
-  return lerp(terrainHeight(x, z), rawEastHeight(x, z), blend);
+  let h;
+  if (blend <= 0) h = terrainHeight(x, z);
+  else if (blend >= 1) h = rawEastHeight(x, z);
+  else h = lerp(terrainHeight(x, z), rawEastHeight(x, z), blend);
+  if (activeCrater) {
+    const d = Math.hypot(x - activeCrater.x, z - activeCrater.z);
+    if (d < CRATER.radius + CRATER.rimWidth) h += craterOffset(d, CRATER);
+  }
+  return h;
 }
 
 /** One static, non-streamed ground mesh covering the whole flight envelope. */
@@ -277,8 +305,54 @@ function buildEastGround(sceneRef) {
   return groundMesh;
 }
 
-buildEastGround(scene);
+const eastGround = buildEastGround(scene);
 window.__squatchStage?.('Painting the desert corridor…');
+
+/**
+ * Sink the coarse ground under the crater.
+ *
+ * The east ground is one static mesh at 50 m per cell — plenty for a route
+ * flown at cruise altitude and far too coarse for an 1,,600 m hole, which is
+ * why `TargetCity.buildCraterMesh()` builds a separate, much finer bowl. But
+ * the coarse mesh is still there, flat, and would occlude the whole crater
+ * from above. So: push its vertices down to just BELOW the crater's own
+ * profile inside the footprint (tapering to exactly the profile at the outer
+ * edge, so there is no step where they meet), and darken them, and let the
+ * fine mesh be the surface the player actually looks at.
+ *
+ * Only the ~1,200 vertices inside the footprint are touched, out of 24,465.
+ */
+function depressGroundForCrater(craterRecord) {
+  const geo = eastGround.geometry;
+  const pos = geo.attributes.position;
+  const colours = geo.attributes.color;
+  const ox = eastGround.position.x;
+  const oz = eastGround.position.z;
+  const outer = CRATER.radius + CRATER.rimWidth;
+  const scorch = new THREE.Color(0x241d18);
+  const c = new THREE.Color();
+  let touched = 0;
+  for (let i = 0; i < pos.count; i++) {
+    const wx = ox + pos.getX(i);
+    const wz = oz + pos.getZ(i);
+    const d = Math.hypot(wx - craterRecord.x, wz - craterRecord.z);
+    if (d >= outer) continue;
+    // 8 m of clearance in the middle, closing to nothing at the lip, so the
+    // fine crater mesh always wins the depth test where it exists.
+    const clearance = 8 * smoothstep(outer, outer - 140, d);
+    pos.setY(i, pos.getY(i) + craterOffset(d, CRATER) - clearance);
+    if (colours) {
+      c.setRGB(colours.getX(i), colours.getY(i), colours.getZ(i))
+        .lerp(scorch, clamp(1.15 - d / outer, 0, 1));
+      colours.setXYZ(i, c.r, c.g, c.b);
+    }
+    touched++;
+  }
+  pos.needsUpdate = true;
+  if (colours) colours.needsUpdate = true;
+  geo.computeVertexNormals();
+  return touched;
+}
 
 /* ------------------------------------------------------------------ */
 /* Systems                                                            */
@@ -287,7 +361,20 @@ window.__squatchStage?.('Painting the desert corridor…');
 const hud = new Hud();
 const flightHud = new FlightHud();
 
+const audio = new EnolaAudioEngine();
+const missionAudio = new EnolaMissionAudio(audio);
+
 const airfield = buildAirfield(scene, {});
+
+/* On foot, for the opening walkaround only. Same three pieces the Beef Run
+ * uses on the apron — `InteractionSystem`, `Player`, and a `world` whose
+ * `groundAt` is this mission's own heightfield — and after boarding the player
+ * is frozen and the interaction system paused, exactly as over there. */
+const interaction = new InteractionSystem(camera, hud);
+const world = { colliders: [...airfield.colliders], floorZones: [...airfield.floorZones], groundAt: groundHeightCombined };
+const player = new Player(camera, world);
+player.mode = 'walk';
+player.onFootstep = (surface, intensity) => audio.footstep?.(surface, intensity);
 
 const physics = new AircraftPhysics({ getHeight: groundHeightCombined, ac: AC_ENOLA });
 const engines = new EngineSystem({ ac: AC_ENOLA, engineNames: ['outerLeft', 'innerLeft', 'innerRight', 'outerRight'] });
@@ -299,6 +386,26 @@ scene.add(aircraft.group);
 const payload = new FatSquatch();
 aircraft.anchors.payloadMount.add(payload.group);
 
+/* Squatchbourg. Built once, up front, because it is 15 draw calls and about
+ * 22k triangles that never change until they are removed — see the budget note
+ * at the top of `scenes/TargetCity.js`. */
+window.__squatchStage?.('Laying out Squatchbourg…');
+const city = new TargetCity(scene, {
+  x: TARGET_X,
+  z: COMPOUND.z,
+  getHeight: (x, z) => groundHeightCombined(x, z),
+});
+
+/* The crew, and Numbskull's tool cart under the bomb bay. */
+const crew = createCrew();
+const toolCart = makeToolCart();
+scene.add(toolCart);
+{
+  const elev = groundHeightCombined(ENOLA_PARKING.x, ENOLA_PARKING.z);
+  toolCart.position.set(ENOLA_PARKING.x + 3.2, elev, ENOLA_PARKING.z - 2.4);
+  toolCart.rotation.y = 0.6;
+}
+
 const weather = new WeatherSystem(scene, renderer);
 // No towers along this route — see the report on this phase for why (no
 // eastbound landmark-prop builder exists to reuse or build in this phase's
@@ -309,11 +416,70 @@ const cameras = new CameraManager(camera);
 const input = new FlightInput();
 input.rudderKeys = true; // always in the cockpit — no on-foot 'E' to share Q/E with.
 
-const dialogue = new DialogueSystem(hud);
+/* ------------------------------------------------------------------ */
+/* Eastbound fog                                                      */
+/*
+ * `ZONES_EAST` carries an authored fog colour and near/far pair for each band
+ * of the route — dark blues through the mountain corridor, a silvered cloud
+ * bank, then the compound's warm dark. Until now NONE of it reached the
+ * screen: `WeatherSystem` (reused unmodified from the Beef Run) sets
+ * `scene.fog` from `zonePalette(focus.z)`, which bands Beef Run's OWN
+ * southbound `ZONES` by z. This route flies east at z ~ -500, which lands in
+ * Beef Run's `pines` zone for its whole length — so the desert compound, the
+ * target city and the crater were all being rendered through Whispering
+ * Pines' pale-blue daylight fog with a 2.6 km cut, at night.
+ *
+ * This is the same class of mismatch the file header already flags for
+ * `DetectionSystem.exposureAt()` and `WeatherSystem.sampleAir()`, and the same
+ * reason applies: those two read Beef Run's terrain at module scope and cannot
+ * be injected. Fog can be, because it is just three fields on the scene, so
+ * this corrects the one that is visible in every frame.
+ *
+ * Only the FOG is overridden, never `scene.background` — the weather system
+ * writes the background every frame to drive its lightning flash, and taking
+ * that over would put the storm out. It is also faded in over the same
+ * `x` window `groundHeightCombined` uses to blend into the eastbound
+ * heightfield, so the airfield end of the route keeps Beef Run's own look.
+ */
+/* ------------------------------------------------------------------ */
+
+const _fogColour = new THREE.Color();
+
+function applyEastFog(x, dt) {
+  const fog = scene.fog;
+  if (!fog) return;
+  const east = smoothstep(500, 1400, x);
+  if (east <= 0) return;
+  const { i, j, t } = zoneMixX(x);
+  const a = ZONES_EAST[i];
+  const b = ZONES_EAST[j];
+  _fogColour.set(a.fog).lerp(new THREE.Color(b.fog), t);
+  const near = lerp(a.fogNear, b.fogNear, t);
+  const far = lerp(a.fogFar, b.fogFar, t);
+  // Damped, so crossing a zone edge is a drift rather than a cut, and scaled
+  // by `east` so it hands over from the weather system rather than snapping.
+  const k = clamp(dt * 1.2 * east, 0, 1);
+  fog.color.lerp(_fogColour, k);
+  fog.near = lerp(fog.near, near, k);
+  fog.far = lerp(fog.far, far, k);
+}
+
+const dialogue = new DialogueSystem(hud, {
+  audio: missionAudio,
+  // The right man's head bobs when his line plays — the same hook Beef Run
+  // uses for Lou and Cecilio, just with four people on the circuit.
+  onLine: (line) => crew.speak(line.who, (line.hold ?? 2) * 0.8),
+});
+
+const preflight = new EnolaPreflight({
+  scene, interaction, aircraft, payload, dialogue, crew, audio: missionAudio,
+});
 
 const mission = new MissionController({
   scene, camera, physics, engines, aircraft, payload, weather, detection,
   airfield, flightHud, hud, dialogue, input, cameras,
+  audio: missionAudio,
+  player, interaction, preflight, crew, city,
   getHeight: groundHeightCombined,
 });
 // Defense/Targeting are created internally by MissionController when the ctx
@@ -321,8 +487,18 @@ const mission = new MissionController({
 // debug handle below reads them back off `mission` rather than constructing
 // duplicate instances.
 
+/* The one wire that keeps the crater honest: the mission tells us the hole
+ * exists, we fold it into the ground function every other system already holds
+ * a reference to, and we sink the coarse ground mesh under the fine one. */
+mission.onCrater = (crater) => {
+  if (!crater) return;
+  activeCrater = crater;
+  depressGroundForCrater(crater);
+};
+
 mission.onComplete = (report) => {
   flightHud.showComplete(report);
+  missionAudio.sting?.();
 };
 
 /* ------------------------------------------------------------------ */
@@ -334,12 +510,17 @@ mission.onComplete = (report) => {
 
 let _checklistShown = false;
 function updatePreflightChecklist() {
-  const inPreflight = mission.phase === 'preflight';
-  if (inPreflight !== _checklistShown) {
-    _checklistShown = inPreflight;
-    flightHud.showChecklist(inPreflight);
+  /* Two phases own this widget now: `walkaround` fills it from
+   * `EnolaPreflight.checklist` (the mission does that in its own update, off
+   * the six real checks), and `preflight` fills it from the start-up state
+   * below. It stays on screen across the boarding transition, which is right —
+   * the walkaround's rows are still true once you are in the seat. */
+  const wants = mission.phase === 'preflight' || mission.phase === 'walkaround';
+  if (wants !== _checklistShown) {
+    _checklistShown = wants;
+    flightHud.showChecklist(wants);
   }
-  if (!inPreflight) return;
+  if (mission.phase !== 'preflight') return;
   const rows = [
     { label: 'Battery & fuel selectors on', state: (engines.masterBattery && engines.fuelSelectors) ? 'done' : 'todo' },
     { label: 'Payload restraints checked', state: dialogue.seen('preflight.restraints') ? 'done' : 'todo' },
@@ -499,15 +680,38 @@ function paintHud() {
  * `detection.update()`/`defense.update()` a second time itself. */
 function simulateFrame(dt) {
   input.update(dt);
-  input.applyTo(physics.controls);
-  // One throttle lever drives both engines on each side — see the
-  // engineNames convention above and config.js's engine-count design note.
-  engines.setThrottle(0, physics.controls.throttleL);
-  engines.setThrottle(1, physics.controls.throttleL);
-  engines.setThrottle(2, physics.controls.throttleR);
-  engines.setThrottle(3, physics.controls.throttleR);
-  engines.update(dt, physics.tas);
-  physics.advance(dt);
+  const inCockpit = mission.inCockpit;
+
+  if (inCockpit) {
+    input.applyTo(physics.controls);
+    // One throttle lever drives both engines on each side — see the
+    // engineNames convention above and config.js's engine-count design note.
+    engines.setThrottle(0, physics.controls.throttleL);
+    engines.setThrottle(1, physics.controls.throttleL);
+    engines.setThrottle(2, physics.controls.throttleR);
+    engines.setThrottle(3, physics.controls.throttleR);
+    engines.update(dt, physics.tas);
+    physics.advance(dt);
+  } else {
+    /* On the apron. The aeroplane is chocked and braked, so nothing is
+     * integrated; the engines still tick over at zero airspeed so that any
+     * that get cranked make noise while the player is walking round them, the
+     * same accommodation `src/beefrun/main.js` makes. */
+    engines.update(dt, 0);
+    player.update(dt);
+    /* `Player._applyCamera()` writes `camera.position`/`camera.quaternion`,
+     * which only marks the matrix dirty — `matrixWorld` is not recomposed
+     * until something asks for it, and the thing that normally asks is
+     * `renderer.render()` at the END of the frame. `InteractionSystem.update()`
+     * raycasts through `raycaster.setFromCamera()`, which reads `matrixWorld`
+     * directly, so without this the crosshair is tested against where the
+     * player's head was LAST frame. Invisible at 60 fps and standing still,
+     * very visible while turning, and completely wrong in a headless step
+     * (`tick()`/`standAtNextCheck()` never render, so the camera matrix would
+     * never move at all). One matrix compose, on foot only. */
+    camera.updateMatrixWorld();
+    interaction.update(dt);
+  }
 
   autoStartCaptainEngines();
 
@@ -515,18 +719,35 @@ function simulateFrame(dt) {
   aircraft.update(dt, physics, engines, {
     bombBayOpen: mission.bombBayOpen,
     dusk: weather.dusk > 0.4,
+    gunFiring: mission.gunFiring,
+    gunAim: mission.gunAim,
   });
 
   mission.update(dt);
   dialogue.update(dt);
+  crew.update(dt, inCockpit ? camera.position : player.position);
 
-  weather.update(dt, physics.position);
+  // Sound follows the aeroplane. FlightHud reads two banks; the audio engine's
+  // own graph is a stereo pair, so each side's inner engine drives its channel.
+  for (const [ch, i] of [[0, 1], [1, 2]]) {
+    const e = engines.engines[i];
+    missionAudio.setEngine(ch, { rpm: e.rpm, running: e.running, roughness: e.roughness, health: e.health });
+  }
+  missionAudio.setAirspeed(inCockpit ? physics.tas : 0);
+  missionAudio.setRain(weather.rain);
+
+  const focus = inCockpit ? physics.position : player.position;
+  weather.update(dt, focus);
+  applyEastFog(focus.x, dt);
   airfield.update(dt, 0.4 + weather.crosswind * 0.1, 0);
 
-  cameras.update(dt, physics, aircraft.group, aircraft.pilotEye, {
-    roughness: physics.gust.length() * 0.05 + (physics.onGround ? physics.groundSpeed * 0.01 : 0),
-    gLoad: physics.gLoad,
-  });
+  if (inCockpit) {
+    cameras.update(dt, physics, aircraft.group, aircraft.pilotEye, {
+      roughness: physics.gust.length() * 0.05 + (physics.onGround ? physics.groundSpeed * 0.01 : 0),
+      gLoad: physics.gLoad,
+    });
+  }
+  audio.updateListener?.(camera);
 
   paintHud();
 }
@@ -543,9 +764,17 @@ function go(phase) {
   game.started = true;
   game.paused = false;
   mission.paused = false;
+  if (mission.phase === 'idle') mission.begin();
+  /* Everything except the walkaround itself happens with the crew strapped in,
+   * so board first. `advance: false` keeps `enterCockpit` from also forcing
+   * the phase to preflight and stamping on the one being asked for. */
+  if (phase !== 'walkaround' && !mission.inCockpit) mission.enterCockpit({ advance: false });
   switch (phase) {
+    case 'walkaround':
+      if (mission.phase !== 'walkaround') mission.setPhase('walkaround');
+      break;
     case 'preflight':
-      mission.begin();
+      mission.setPhase('preflight');
       break;
     case 'taxi': {
       const a = airfield.anchors.lineUp;
@@ -632,8 +861,17 @@ function go(phase) {
         payload.release(scene, physics.velocity.clone());
         mission.payloadReleased = true;
       }
-      mission.onPayloadImpact(point);
+      /* Phase FIRST, impact SECOND. `onEnterPhase('explosion')` clears
+       * `_explosionVfx` and resets the clock, so calling `onPayloadImpact()`
+       * before it — which is what this did — built the whole fireball and then
+       * immediately threw the handle to it away: the group stayed in the scene
+       * at opacity zero, never animated, never removed, and `go('explosion')`
+       * showed an empty sky. The organic route is unaffected (the payload
+       * takes seconds to fall, so it impacts long after the phase begins),
+       * which is why the end-to-end verification never caught it and why it
+       * only turned up when the detonation was framed for a screenshot. */
       mission.setPhase('explosion');
+      mission.onPayloadImpact(point);
       break;
     }
     case 'escape': {
@@ -684,10 +922,72 @@ window.__squatch.enolaSquatch = true;
 window.__enolaSquatch = {
   mission, physics, engines, aircraft, payload, dialogue, weather, detection,
   cameras, input, hud, flightHud, scene, camera, renderer, airfield,
+  player, interaction, preflight, crew, city, audio: missionAudio,
   get defense() { return mission.defense; },
   get targeting() { return mission.targeting; },
+  get crater() { return activeCrater; },
   groundHeight: groundHeightCombined,
+  /** The crater's own profile, so a caller can hold the ground against it. */
+  craterOffsetAt: (d) => craterOffset(d, CRATER),
   go,
+
+  /**
+   * Stand at the next walkaround check and put the crosshair on it.
+   *
+   * Built for `tools/verify-enolasquatch.mjs`, and genuinely useful from the
+   * console. This is NOT a shortcut past the walkaround — it moves the player
+   * and aims his head, and then the real `InteractionSystem` has to raycast
+   * from that camera, find the real proxy, and run the real descriptor. If a
+   * check is out of the 2.7 m interaction range, or hidden behind the
+   * fuselage from where a person would stand, this fails exactly the way a
+   * player would, which is the whole point of testing it this way rather than
+   * by calling `onUse` directly.
+   *
+   * @param {number} distance how far back to stand, in metres
+   * @returns {?object} { name, anchor, stand } or null when the walk is done
+   */
+  standAtNextCheck(distance = 2.0) {
+    const anchor = preflight.markerAnchor();
+    if (!anchor) return null;
+    const name = preflight.next?.name ?? null;
+    /* Step outward from the aeroplane's centreline so the player is not
+     * standing inside the fuselage looking at its back faces. If the check is
+     * ON the centreline — the payload, the bomb bay, the tail gun — go out to
+     * the starboard side, which is the side the crew door and the nose art are
+     * on and therefore the side a walkaround is done from. */
+    const away = new THREE.Vector3(anchor.x - physics.position.x, 0, anchor.z - physics.position.z);
+    if (away.lengthSq() < 4) {
+      away.set(-1, 0, 0).applyQuaternion(physics.quat);
+      away.y = 0;
+    }
+    away.normalize();
+    const sx = anchor.x + away.x * distance;
+    const sz = anchor.z + away.z * distance;
+    const gy = groundHeightCombined(sx, sz);
+    player.position.set(sx, gy + 1.66, sz);
+    player.ground = gy;
+    player.velocity?.set?.(0, 0, 0);
+    const dx = anchor.x - sx;
+    const dy = anchor.y - (gy + 1.66);
+    const dz = anchor.z - sz;
+    // A camera at yaw 0 / pitch 0 looks down -Z (see Player._applyCamera).
+    player.yaw = Math.atan2(-dx, -dz);
+    player.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    simulateFrame(1 / 60);
+    return { name, anchor: { x: anchor.x, y: anchor.y, z: anchor.z }, stand: { x: sx, y: gy, z: sz } };
+  },
+
+  /** Tap E where the player is standing, through the real interaction system. */
+  pressE(holdSeconds = 0) {
+    interaction.press();
+    if (holdSeconds > 0) {
+      let t = 0;
+      while (t < holdSeconds) { simulateFrame(1 / 60); t += 1 / 60; }
+    }
+    interaction.release();
+    simulateFrame(1 / 60);
+    return interaction.current?.userData?.interact ? true : false;
+  },
   tick(seconds, step = 1 / 60) {
     let t = 0;
     while (t < seconds - 1e-9) {
@@ -699,6 +999,15 @@ window.__enolaSquatch = {
   state() {
     return {
       phase: mission.phase,
+      inCockpit: mission.inCockpit,
+      crewAboard: crew.aboard,
+      walkaround: {
+        done: preflight.doneCount,
+        total: Object.keys(preflight.tasks).length,
+        next: preflight.next?.name ?? null,
+        complete: preflight.complete,
+      },
+      cityDestroyed: city.destroyed,
       phaseTime: +mission.phaseTime.toFixed(2),
       missionTime: +mission.missionTime.toFixed(2),
       checkpoint: mission.checkpoint,
@@ -719,11 +1028,38 @@ window.__enolaSquatch = {
 /* Start / pause                                                      */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Sound is brought up in the background rather than awaited.
+ *
+ * The Beef Run awaits `audio.init()` and `loadManifest()` before it calls
+ * `mission.begin()`; this page cannot, because the mission has to be running
+ * by the time the click handler returns — `tools/verify-enolasquatch.mjs`
+ * clicks Start and reads `mission.phase` synchronously in the same evaluate
+ * block, and more importantly a player should not watch a black screen while a
+ * voice bank decodes. `AudioEngine.init()` still runs inside the user gesture,
+ * which is the part browsers actually require.
+ */
+let audioStarted = false;
+function startAudio() {
+  if (audioStarted) return;
+  audioStarted = true;
+  audio.init().then(async () => {
+    missionAudio.init();
+    const sfx = await audio.loadManifest();
+    console.info(`[sfx] ${sfx.loaded}/${sfx.total} samples loaded; the rest are synthesised.`);
+  }).catch((err) => {
+    // A page with no sound is still a playable page. Say so once and move on.
+    console.warn('[enolasquatch] audio unavailable:', err?.message || err);
+  });
+}
+
 startBtn.addEventListener('click', () => {
   if (!game.started) {
     game.started = true;
     mission.begin();
+    hud.say('<em>Whispering Pines Municipal, well after dark.</em> Walk her with the Captain before you get in.', 6000);
   }
+  startAudio();
   overlay.classList.add('hidden');
   document.body.classList.add('playing');
   requestLock();
@@ -753,6 +1089,7 @@ function fallBackToDragLook() {
 
 function enableInput() {
   input.enabled = true;
+  player.enabled = !mission.inCockpit;
   game.paused = false;
   mission.paused = false;
   document.body.classList.remove('unlocked');
@@ -763,6 +1100,7 @@ document.addEventListener('pointerlockchange', () => {
   if (dragLook) return;
   const locked = document.pointerLockElement === canvas;
   input.enabled = locked;
+  player.enabled = locked && !mission.inCockpit;
   document.body.classList.toggle('unlocked', !locked);
   if (!locked && game.started && !mission.finished) pauseGame();
 });
@@ -776,7 +1114,8 @@ const pauseMenu = createPauseMenu({
   canPause: () => game.started && !mission.finished,
   getObjective: () => $('br-objective')?.textContent?.trim() || 'Follow the crew’s current instruction.',
   instructions: [
-    'W/S — pitch. A/D — bank. Q/E — rudder. Shift/Ctrl — throttle.',
+    'On the apron: W A S D — walk. E — check the thing the marker is on. E at the crew door — get in.',
+    'In the aircraft: W/S — pitch. A/D — bank. Q/E — rudder. Shift/Ctrl — throttle.',
     'F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop your two engines (three and four).',
     '1-5 — pick a line when the release choice is on screen. 1-3 for the engine emergency.',
@@ -786,12 +1125,18 @@ const pauseMenu = createPauseMenu({
     game.paused = true;
     mission.paused = true;
     input.enabled = false;
+    player.enabled = false;
+    player.clearKeys();
     input.clear();
+    interaction.release();
+    audio.ctx?.suspend?.();
   },
   onResume: () => {
     game.paused = false;
     mission.paused = false;
     input.enabled = true;
+    player.enabled = !mission.inCockpit;
+    audio.ctx?.resume?.();
     last = performance.now();
     requestLock();
   },
@@ -812,17 +1157,21 @@ $('es-again')?.addEventListener('click', () => window.location.reload());
 document.addEventListener('mousemove', (e) => {
   if (game.paused) return;
   if (dragLook && !dragging) return;
-  cameras.look(e.movementX, e.movementY);
+  if (mission.inCockpit) cameras.look(e.movementX, e.movementY);
+  else if (player.enabled) player.handleMouseMove(e.movementX, e.movementY);
 });
 
 document.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   dragging = true;
+  if (game.paused) return;
+  if (!mission.inCockpit) interaction.press();
 });
 
 document.addEventListener('mouseup', (e) => {
   if (e.button !== 0) return;
   dragging = false;
+  if (!mission.inCockpit) interaction.release();
 });
 
 document.addEventListener('keydown', (e) => {
@@ -832,15 +1181,20 @@ document.addEventListener('keydown', (e) => {
   if (e.repeat) return;
   const code = input.keyEvent(e, true);
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
+  player.setKey(e.code, true);
+  if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
   handleMissionChoiceKey(e.code);
 }, true);
 
 document.addEventListener('keyup', (e) => {
   input.keyEvent(e, false);
+  player.setKey(e.code, false);
+  if (!mission.inCockpit && e.code === 'KeyE') interaction.release();
 }, true);
 
 window.addEventListener('blur', () => {
   dragging = false;
+  player.clearKeys();
   input.clear();
 });
 
@@ -918,6 +1272,6 @@ function frame() {
 frame();
 
 document.addEventListener('visibilitychange', () => {
-  // No audio engine in this build (see the phase report) — nothing to mute.
-  void document.hidden;
+  if (!game.started) return;
+  audio.setMasterVolume?.(document.hidden ? 0 : 0.9);
 });

@@ -103,13 +103,30 @@ export const TURN_POINT = Object.freeze({
 // narrative/visual). Flagging this prominently rather than quietly working
 // around it, since it changes how "difficult to climb while loaded" actually
 // plays if only half the engines push.
+// 2026-08-04 — the owner asked for a bigger aeroplane ("a little more detail
+// on the plane and make it a bit bigger"). The airframe grew about 20% in
+// every linear dimension and the numbers below moved with it as a SET, so the
+// handling character described above is preserved rather than re-tuned:
+//
+//   span 28 -> 33.5 m, wingArea 110 -> 145 m^2  (aspect ratio 7.13 -> 7.74,
+//     still low enough that kInduced bites in a hard bank)
+//   emptyMass 8200 -> 9800, fuelMass 2600 -> 3000; payloadMass is UNCHANGED
+//     because the Fat Squatch is "six thousand pounds" out loud, in dialogue.
+//   thrustMax 9800 -> 11300 N/engine: loaded T/W is 45200 / (15500 * 9.81) =
+//     0.297, within a thousandth of the 0.296 it was before, so "difficult to
+//     climb while loaded" means exactly what it meant.
+//   Ixx/Iyy/Izz up ~36%, roughly mass x length^2 — still slower to turn, and
+//     no more so relative to its own control authority than before.
+//   torqueYaw/torqueRoll deliberately NOT raised: Izz went up 36%, so the same
+//     torque already produces a gentler swing, which is the right direction for
+//     an aeroplane this size on a narrow runway.
 export const AC_ENOLA = {
-  emptyMass: 8200,      // kg
-  fuelMass: 2600,       // full tanks, four engines
+  emptyMass: 9800,      // kg
+  fuelMass: 3000,       // full tanks, four engines
   payloadMass: 2700,    // kg — the Fat Squatch. "Six thousand pounds" (Sasole, taxi.line) ~= 2722 kg.
-  wingArea: 110,
-  span: 28,
-  chord: 3.9,
+  wingArea: 145,
+  span: 33.5,
+  chord: 4.4,
   CL0: 0.28,
   CLa: 4.3,             // per rad — lower than the Brushrunner's 5.1: less twitchy per degree
   alphaStall: 0.33,     // ~18.9 deg — more margin than the Brushrunner's 0.29 (~16.6 deg)
@@ -118,14 +135,14 @@ export const AC_ENOLA = {
   flapCL: 0.38,
   flapCD: 0.065,
   airBrakeCD: 0.20,
-  thrustMax: 9800,      // N per engine, static — see the engine-count note above
+  thrustMax: 11300,     // N per engine, static — see the engine-count note above
   vThrustFade: 140,     // m/s where static thrust has bled off — bigger engines, holds on longer
-  Ixx: 95000, Iyy: 140000, Izz: 125000,   // roll / pitch / yaw — ~10-13x the Brushrunner's
-  gearY: 2.6,           // wheel contact below CG
-  wheelbase: 6.0,
-  track: 6.5,
+  Ixx: 130000, Iyy: 190000, Izz: 170000,  // roll / pitch / yaw
+  gearY: 3.0,           // wheel contact below CG
+  wheelbase: 7.2,
+  track: 7.8,
   vne: 88,              // m/s never-exceed (~171 kt) — this is not a fast aeroplane
-  fuelBurn: 0.085,       // kg/s per engine at full power
+  fuelBurn: 0.095,      // kg/s per engine at full power
 
   /* Ground handling: heavier, less nimble than the Brushrunner. Less
    * nosewheel authority (a bigger tyre and a longer moment arm both cut
@@ -135,6 +152,15 @@ export const AC_ENOLA = {
   steerFadeV: 26,       // m/s where the tyre has handed over to the rudder
   torqueYaw: 3400,      // N·m of asymmetric-thrust yaw at full power, low speed
   torqueRoll: 2400,     // N·m of roll that comes with it
+
+  /* Distance from the centreline to one side's thrust line. The four nacelles
+   * sit at x = ±6.4 and ±13.4 m (`scenes/EnolaSquatch.js`), so a side's pair
+   * averages 9.9 m; 9.6 leaves a little back for the fact that the inboard
+   * engine is the one still turning most often. `AircraftPhysics` used to
+   * hard-code the Brushrunner's 3.05 m here, which understated an engine-out
+   * swing on this airframe by more than a factor of three — see the note at
+   * the asymmetric-thrust term in `src/beefrun/physics.js`. */
+  engineArm: 9.6,
 };
 
 /**
@@ -207,7 +233,74 @@ export const ZONES_EAST = [
   },
 ];
 
-export const TARGET_X = 9000;   // the desert compound, per the mission brief
+/**
+ * Where the Enola Squatch is parked, and where the crew stand around it while
+ * the walkaround is going on.
+ *
+ * NOT `airfield.anchors.parking`. That anchor is (-55, elev, 385) heading 090,
+ * measured for the Brushrunner's 17.2 m span; with 33.5 m of wing the north
+ * tip reaches z 401.5 and stands inside the hangar's east pier collider
+ * (`src/beefrun/airfield.js`, `addCollider(-52, 404, 3, 8, 7)`). Nobody had
+ * noticed because until now nothing ever put a walking player next to it.
+ *
+ * These coordinates put the aeroplane on the open south apron: tail at x -70,
+ * nose at x -46, wingtips at z 325 and z 359. Clear of the hangar (z 396+),
+ * the ops shack (-38, 366), the vending machine, the fuel tank (-72, 372) and
+ * the two wrecks (-84, 344 and -90, 328), and inside the airfield's flat pad
+ * (`terrainHeight`'s bowl runs 480 m out from the field, so the ground under
+ * all of it is exactly `WP.elev`).
+ */
+export const ENOLA_PARKING = Object.freeze({
+  x: -58,
+  z: 342,
+  heading: 90,          // nose east, wing running north–south, same as the Brushrunner's
+  /* Where Tony is standing when the scene opens: off the aeroplane's port
+   * side (the aeroplane's left is +X with a +Z nose, so "off the port wing" is
+   * -X of the nose, i.e. short of the tail), far enough back that the whole
+   * aeroplane is in frame on the first look. */
+  playerStart: Object.freeze({ x: -78, z: 320 }),
+});
+
+export const TARGET_X = 9000;   // the target city, per the mission brief
+
+/**
+ * Squatchbourg — the small city the Fat Squatch is addressed to.
+ *
+ * "It doesn't have to be super detailed as we are only going to see it from
+ * the air, but I want it to be more extensive" (owner, 2026-08-04). So: a real
+ * street grid with a dense downtown, a mid-rise ring, low outskirts, an
+ * industrial quarter and a river — about 900 buildings — but every one of
+ * them is an instance, not a mesh. See `scenes/TargetCity.js` for the draw-call
+ * budget and why the numbers below are the ones they are.
+ *
+ * `radius` is the outer edge of the built-up area. The bombing run's flattened
+ * pad in `main.js` (`rawEastHeight`'s `smoothstep(640, 260, dPad)`) is 640 m,
+ * so the city keeps inside that or its outskirts would climb a hillside.
+ */
+export const TARGET_CITY = Object.freeze({
+  name: 'Squatchbourg',
+  radius: 560,
+  blockSize: 74,        // metres between street centrelines
+  streetWidth: 13,
+  downtownRadius: 165,  // inside this, buildings are tall and packed
+  midRadius: 340,
+  maxHeight: 96,        // the one tower everybody aims at
+  seed: 0x5A5C17,
+});
+
+/**
+ * The crater the city used to be in.
+ *
+ * `depth` is metres below the surrounding (already flattened) ground, `radius`
+ * the lip. Wider than the city's downtown and deep enough that the rim reads
+ * from three thousand feet, which is the only altitude anybody sees it from.
+ */
+export const CRATER = Object.freeze({
+  radius: 620,
+  depth: 118,
+  rimHeight: 26,        // the thrown-up lip standing proud of the old ground
+  rimWidth: 190,        // how far past `radius` the lip runs out
+});
 
 // Navigation landmarks along the eastbound route, x-positioned the same way
 // Beef Run's `LANDMARKS` are z-positioned. `z` is a nominal cruise offset

@@ -145,6 +145,14 @@ export const AC = {
   steerFadeV: 22,       // m/s where the tyre has handed over to the rudder
   torqueYaw: 1900,      // N·m of left yaw at full power, low speed
   torqueRoll: 1300,     // N·m of left roll with it
+
+  /* Distance from the centreline to the thrust line of one side's engines.
+   * Measured off this airframe: the two nacelles sit at x = ±3.05 m
+   * (`src/beefrun/aircraft.js`). `AircraftPhysics` used to hard-code that
+   * number, which quietly understated a four-engine heavy's asymmetric yaw by
+   * a factor of three — it now reads this field, and this value is the one it
+   * used to hard-code, so nothing about the Brushrunner changes. */
+  engineArm: 3.05,
 };
 
 export const DIFFICULTY = {
