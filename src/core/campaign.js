@@ -54,10 +54,22 @@ export const SCENE_IDS = Object.freeze({
   SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
   INITIATION: 'initiation',
+  /* Lou's house. An explorable compound before PROJECT SILENT SQUATCH claims
+   * it, and the mission's own scene after: the office upstairs, the wine
+   * cellar, and the laboratory under the floor of it. */
+  MANSION: 'mansion',
 });
 
 export const ITEM_IDS = Object.freeze({
   LOU_PACKAGE: 'parcel',
+  /* THE SAME CASE. The one recovered in The Silver Case, carried into Lou's
+   * office, opened on his desk, and handed to Booski in the basement -- not a
+   * second prop that looks like it. See docs/MISSION-SILENT-SQUATCH.md's own
+   * instruction to reuse `src/silvercase/props/case.js`. */
+  SILVER_CASE: 'silver_case',
+  /* The apartment trophy PROJECT SILENT SQUATCH leaves behind: a miniature
+   * Squatchanium container, glowing on a shelf in a flat, forever. */
+  SQUATCHANIUM_MINIATURE: 'squatchanium_miniature',
   /* Once he has picked it up off the nightstand he has it for good, in every
    * scene and across every save. It is not a possession, it is how the rest of
    * the cast reaches him -- a campaign where the phone can be left on a table
@@ -77,6 +89,9 @@ export const MISSION_IDS = Object.freeze({
   SILVER_PINES: 'silver_pines',
   BANK_HEIST: 'bank_heist',
   INITIATION: 'initiation',
+  /* PROJECT SILENT SQUATCH -- the night in Lou's mansion, immediately after
+   * The Silver Case. */
+  SILENT_SQUATCH: 'silent_squatch',
 });
 
 export const EVENT_IDS = Object.freeze({
@@ -157,6 +172,10 @@ export const TIME_EVENT_IDS = Object.freeze({
   DEPART_BANK_HEIST: 'travel.bank_heist',
   COMPLETE_BANK_HEIST: 'mission.bank_heist',
   DEPART_INITIATION: 'travel.initiation',
+  /* The drive up to Lou's house with the case on the passenger seat, and the
+   * hours it takes to hand it over, watch it get built, and clean up after. */
+  DEPART_MANSION: 'travel.mansion',
+  COMPLETE_SILENT_SQUATCH: 'mission.silent_squatch',
 });
 
 const TIME_EVENTS = Object.freeze({
@@ -265,10 +284,41 @@ const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.DEPART_INITIATION]: Object.freeze({
     atLeast: Object.freeze({ day: 4, timeMinutes: 19 * 60 }),
   }),
+  /* PROJECT SILENT SQUATCH runs on the clock rather than at a fixed hour: it
+   * follows The Silver Case, which is not yet a routed scene, so pinning it to
+   * a wall-clock time would be inventing a place for it in a day the campaign
+   * has not written yet. The drive is twenty-five minutes and the night in the
+   * basement is a little over two hours. */
+  [TIME_EVENT_IDS.DEPART_MANSION]: Object.freeze({ minutes: 25 }),
+  [TIME_EVENT_IDS.COMPLETE_SILENT_SQUATCH]: Object.freeze({ minutes: 135 }),
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 11;
+export const CAMPAIGN_VERSION = 12;
+
+/**
+ * What finishing PROJECT SILENT SQUATCH is worth to the Family, on the 0-100
+ * scale `story.familyRespect` is kept in.
+ *
+ * This mission is the first thing in the campaign to write that field, so the
+ * scale is stated here rather than inferred: 0 is a prospect nobody has an
+ * opinion about, 100 is a made man. Locking six people in a room and pulling
+ * the switch yourself, at Booski's word and in front of him, is worth fifteen
+ * of it -- a real step, not a promotion.
+ */
+export const SILENT_SQUATCH_RESPECT = 15;
+
+/** Which beat of the night a Silent Squatch save resumes at. */
+export const SILENT_SQUATCH_CHECKPOINT_IDS = Object.freeze([
+  'office',
+  'basement',
+  'lab',
+  'core_complete',
+  'locked',
+  'aubbie_down',
+  'silent_night',
+  'clear',
+]);
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -310,6 +360,7 @@ const SCENES = Object.freeze({
       SCENE_IDS.SILVER_PINES,
       SCENE_IDS.BANK_HEIST,
       SCENE_IDS.INITIATION,
+      SCENE_IDS.MANSION,
     ]),
   }),
   [SCENE_IDS.BADA_BING_ONE]: Object.freeze({
@@ -398,6 +449,16 @@ const SCENES = Object.freeze({
     spawns: Object.freeze(['gathering']),
     next: Object.freeze([]),
   }),
+  /* Lou's mansion. One scene, three spawns: the gate he is dropped at, the
+   * foyer, and the cellar -- which is a resume point rather than a route, for
+   * a save that comes back after the wall in the wine cellar is already open.
+   * It comes home the way every other mission does. */
+  [SCENE_IDS.MANSION]: Object.freeze({
+    href: 'mansion.html',
+    defaultSpawn: 'gate',
+    spawns: Object.freeze(['gate', 'foyer', 'cellar']),
+    next: Object.freeze([SCENE_IDS.APARTMENT]),
+  }),
 });
 
 function normalizedSpawn(sceneId, spawn) {
@@ -429,6 +490,8 @@ function initialState() {
       meetingKnown: false,
       meetingLearnedFrom: null,
       timeEvents: [],
+      /* How the Family regards him, 0-100. See SILENT_SQUATCH_RESPECT. */
+      familyRespect: 0,
     },
     activities: {
       eaten: false,
@@ -588,6 +651,29 @@ function initialState() {
       },
       [MISSION_IDS.INITIATION]: {
         status: 'locked',
+      },
+      /* PROJECT SILENT SQUATCH. Everything here is a fact a later scene could
+       * reasonably know about a night it did not watch: what he did with his
+       * own hands, how many people were in the room when he did it, and the
+       * four things the house owes him afterwards. */
+      [MISSION_IDS.SILENT_SQUATCH]: {
+        status: 'locked',
+        checkpoint: null,
+        casePlaced: false,
+        caseDelivered: false,
+        labLocked: false,
+        aubbieEliminated: false,
+        silentNightActivated: false,
+        /** How many of the six did not come back up the stairs. */
+        scientistsLost: 0,
+        /* The rewards, kept as separate facts rather than one "finished"
+         * flag, because four different places in the game read them: the
+         * mansion basement, the apartment computer, the conspiracy board and
+         * the shelf the trophy stands on. */
+        basementUnlocked: false,
+        notesRecovered: false,
+        conspiracyBoard: false,
+        trophyAwarded: false,
       },
     },
     events: {
@@ -936,6 +1022,41 @@ const MIGRATIONS = Object.freeze({
       },
     };
   },
+  11(saved) {
+    /* PROJECT SILENT SQUATCH, and the standing it earns.
+     *
+     * Nothing is inferred. The night in Lou's basement is new work: no
+     * existing save can have done it, so the mission starts locked for
+     * everybody and `familyRespect` starts at zero for everybody -- including
+     * a save that has finished THE TAKE, because the field did not exist while
+     * that was being played and inventing a number for it would be the
+     * campaign telling a player something about himself that never happened. */
+    return {
+      ...saved,
+      version: 12,
+      story: {
+        ...saved.story,
+        familyRespect: 0,
+      },
+      missions: {
+        ...saved.missions,
+        [MISSION_IDS.SILENT_SQUATCH]: {
+          status: 'locked',
+          checkpoint: null,
+          casePlaced: false,
+          caseDelivered: false,
+          labLocked: false,
+          aubbieEliminated: false,
+          silentNightActivated: false,
+          scientistsLost: 0,
+          basementUnlocked: false,
+          notesRecovered: false,
+          conspiracyBoard: false,
+          trophyAwarded: false,
+        },
+      },
+    };
+  },
 });
 
 function migrate(saved) {
@@ -1054,6 +1175,11 @@ function normalize(saved) {
   const initiation = saved.missions?.[MISSION_IDS.INITIATION] ?? {};
   const initiationStatus = ['locked', 'available', 'in_progress', 'complete']
     .includes(initiation.status) ? initiation.status : base.missions.initiation.status;
+  const silentSquatch = saved.missions?.[MISSION_IDS.SILENT_SQUATCH] ?? {};
+  const silentSquatchStatus = ['locked', 'available', 'in_progress', 'complete']
+    .includes(silentSquatch.status)
+    ? silentSquatch.status
+    : base.missions[MISSION_IDS.SILENT_SQUATCH].status;
   const louCall = saved.events?.[EVENT_IDS.LOU_FIRST_CALL] ?? {};
   const attaboyCall = saved.events?.[EVENT_IDS.LOU_ATTABOY_CALL] ?? {};
   const booskiCall = saved.events?.[EVENT_IDS.BOOSKI_DAY_TWO_CALL] ?? {};
@@ -1100,6 +1226,7 @@ function normalize(saved) {
       meetingLearnedFrom: typeof saved.story?.meetingLearnedFrom === 'string'
         ? saved.story.meetingLearnedFrom : null,
       timeEvents: uniqueStrings(saved.story?.timeEvents),
+      familyRespect: boundedNumber(saved.story?.familyRespect, 0, 100, 0, true),
     },
     activities: Object.fromEntries(
       Object.keys(base.activities)
@@ -1258,6 +1385,24 @@ function normalize(saved) {
       },
       [MISSION_IDS.INITIATION]: {
         status: initiationStatus,
+      },
+      [MISSION_IDS.SILENT_SQUATCH]: {
+        status: silentSquatchStatus,
+        checkpoint: SILENT_SQUATCH_CHECKPOINT_IDS.includes(silentSquatch.checkpoint)
+          ? silentSquatch.checkpoint : null,
+        casePlaced: silentSquatch.casePlaced === true,
+        caseDelivered: silentSquatch.caseDelivered === true,
+        labLocked: silentSquatch.labLocked === true,
+        aubbieEliminated: silentSquatch.aubbieEliminated === true,
+        silentNightActivated: silentSquatch.silentNightActivated === true,
+        /* Six people went in. Nothing this mission can report makes that
+         * seven, and a save claiming otherwise is repaired rather than
+         * believed. */
+        scientistsLost: boundedNumber(silentSquatch.scientistsLost, 0, 6, 0, true),
+        basementUnlocked: silentSquatch.basementUnlocked === true,
+        notesRecovered: silentSquatch.notesRecovered === true,
+        conspiracyBoard: silentSquatch.conspiracyBoard === true,
+        trophyAwarded: silentSquatch.trophyAwarded === true,
       },
     },
     events: {
@@ -1866,6 +2011,15 @@ function seedPreviewCampaign(campaign, sceneId, apartmentVariant = null) {
     if (sceneId === SCENE_IDS.BADA_BING_ONE) {
       firstBing.status = 'available';
       state.events[EVENT_IDS.LOU_FIRST_CALL].status = 'answered';
+      return;
+    }
+
+    /* Lou's mansion, previewed at the top of PROJECT SILENT SQUATCH: the
+     * mission exposed, and the case from The Silver Case already in his
+     * hands, because the whole first beat is carrying it up the stairs. */
+    if (sceneId === SCENE_IDS.MANSION) {
+      state.missions[MISSION_IDS.SILENT_SQUATCH].status = 'available';
+      previewCarry(state, ITEM_IDS.SILVER_CASE);
       return;
     }
 
