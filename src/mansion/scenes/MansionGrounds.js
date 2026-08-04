@@ -194,8 +194,24 @@ const M_MARBLE = mat({ color: 0xe6e0d2, roughness: 0.32 });
 const M_MARBLE_DK = mat({ color: 0xb7ae98, roughness: 0.4 });
 const M_BRONZE = mat({ color: 0x8a5a2e, roughness: 0.35, metalness: 0.65 });
 const M_SILVER = mat({ color: 0xc8ccd6, roughness: 0.16, metalness: 0.9 });
+/* The monument's own metal, and why it is not M_SILVER.
+ *
+ * Measured, not guessed: cast in M_SILVER (metalness 0.9, roughness 0.16) the
+ * statue rendered as a black cut-out against the sky in every night shot. A
+ * near-pure metal has almost no diffuse response, so with no environment map
+ * in this scene it can only show what a light source specularly reflects
+ * straight back at the camera -- and four small rim uplights do not. Pulling
+ * the metalness down to a quarter and lifting the base colour gives the
+ * uplights something to work with, which is what makes it read as silver
+ * rather than as a hole in the picture, and a low emissive keeps the
+ * silhouette alive when the light rig has switched the rim lamps off. */
+const M_STATUE = mat({
+  color: 0xdfe4ee, roughness: 0.34, metalness: 0.26, emissive: 0x1b2130, emissiveIntensity: 0.55,
+});
 /** Darkened silver for the statue's bandana, so the mascot shape still reads. */
-const M_STATUE_PATINA = mat({ color: 0x7d838f, roughness: 0.34, metalness: 0.85 });
+const M_STATUE_PATINA = mat({
+  color: 0x8f95a2, roughness: 0.42, metalness: 0.2, emissive: 0x14181f, emissiveIntensity: 1.0,
+});
 const M_CHROME = mat({ color: 0xd7dce3, roughness: 0.14, metalness: 0.95 });
 
 const M_FENCE = mat({ color: 0x15161c, roughness: 0.5, metalness: 0.55 });
@@ -920,7 +936,7 @@ export function buildMansionGrounds(scene = null) {
     statue.name = 'silver-sasquatch-statue';
     statue.traverse((o) => {
       if (!o.isMesh) return;
-      o.material = o.userData?.palKey === 'bandana' ? M_STATUE_PATINA : M_SILVER;
+      o.material = o.userData?.palKey === 'bandana' ? M_STATUE_PATINA : M_STATUE;
       o.castShadow = true;
     });
     // Raised fist: the shoulder pivot swings the whole arm, so the fist stays
@@ -977,14 +993,23 @@ export function buildMansionGrounds(scene = null) {
     // the statue itself. Lower intensity, higher and further-back placement,
     // and a tighter cone let the light graze up across the new silhouette
     // (shoulders/head) instead of just flaring the tier underneath it.
-    const spotA = new THREE.SpotLight(0xfff3da, 10, 20, 0.4, 0.45, 1.8);
-    spotA.position.set(fx + 5, 2.2, fz - 3);
-    spotA.target.position.set(fx, statueY0 + 1.9, fz);
+    /* Re-aimed and opened up for the taller monument: the rig used to point
+     * at y=5.5 and y=6.0, which was the old statue's chest. This one stands
+     * 3.7 m on a 3.6 m pedestal, so the cones are aimed at its own middle and
+     * widened enough to take in the raised arm. */
+    const spotA = new THREE.SpotLight(0xfff3da, 17, 24, 0.6, 0.5, 1.5);
+    spotA.position.set(fx + 5.5, 1.6, fz - 3.4);
+    spotA.target.position.set(fx, statueY0 + 2.0, fz);
     root.add(spotA, spotA.target);
-    const spotB = new THREE.SpotLight(0xdfe8ff, 8, 20, 0.4, 0.45, 1.8);
-    spotB.position.set(fx - 5, 2.0, fz + 3);
-    spotB.target.position.set(fx, statueY0 + 2.4, fz);
+    const spotB = new THREE.SpotLight(0xdfe8ff, 14, 24, 0.6, 0.5, 1.5);
+    spotB.position.set(fx - 5.5, 1.6, fz + 3.4);
+    spotB.target.position.set(fx, statueY0 + 2.6, fz);
     root.add(spotB, spotB.target);
+    // A third from the front, so the face is not always in its own shadow.
+    const spotC = new THREE.SpotLight(0xfff0dc, 13, 24, 0.55, 0.5, 1.5);
+    spotC.position.set(fx, 1.6, fz - 6.2);
+    spotC.target.position.set(fx, statueY0 + 2.4, fz);
+    root.add(spotC, spotC.target);
 
     // Anchored at the raised fist (computed above), not the statue's own
     // central axis at its base. The spray used to originate from (fx,
@@ -995,7 +1020,14 @@ export function buildMansionGrounds(scene = null) {
     // "completely invisible" despite being correctly instantiated and ticked.
     // Spouting from the raised fist instead puts its base already clear of
     // the torso and above the head, so the column reads against open sky.
-    const spray = new FountainSpray(root, raisedFistWorld);
+    /* Sized down for where the fist now is. The default 2.6 m rise was tuned
+     * to a fist 4.4 m off the ground; this rig's is at nearly 8, and a 2.6 m
+     * column from up there reads as a searchlight rather than as water. A
+     * short plume off the knuckles falls back into the upper basin, which is
+     * what the foam ring below is drawn for. */
+    const spray = new FountainSpray(root, raisedFistWorld, {
+      rise: 1.15, speedMin: 1.3, speedMax: 1.9, spread: 0.3, size: 0.2,
+    });
     spray.start();
 
     // Collision: height-tiered to the basin's *actual* per-tier radius rather
@@ -1028,8 +1060,8 @@ export function buildMansionGrounds(scene = null) {
       root.add(cylinder({
         r: 0.13, h: 0.12, pos: [fx + ax, 1.72, fz + az], mat: M_MARBLE_DK,
       }));
-      const l = new THREE.PointLight(0xffe2b4, 3.4, 9, 2);
-      l.position.set(fx + ax, 1.9, fz + az);
+      const l = new THREE.PointLight(0xffe2b4, 6, 12, 2);
+      l.position.set(fx + ax, 2.2, fz + az);
       root.add(l);
       statueLights.push(l);
     }
@@ -2177,11 +2209,11 @@ export function buildMansionGrounds(scene = null) {
       }),
     });
     root.add(flame);
-    const light = new THREE.PointLight(0xff9a44, 5.5, 13, 2);
+    const light = new THREE.PointLight(0xff9a44, 11, 15, 2);
     light.position.set(x, GROUND_Y + poleH + 0.24, z);
     root.add(light);
     solid(x - 0.1, x + 0.1, GROUND_Y, GROUND_Y + poleH, z - 0.1, z + 0.1);
-    torchFlames.push({ flame, light, baseIntensity: 5.5, seed: Math.random() * 10 });
+    torchFlames.push({ flame, light, baseIntensity: 11, seed: Math.random() * 10 });
     return { flame, light };
   }
 
@@ -2323,10 +2355,42 @@ export function buildMansionGrounds(scene = null) {
     // full deck (x:-13..13, z:75..95) so the chairs/walls/deck boards
     // actually read at night instead of vanishing a few metres past the
     // water's own glow.
-    const torches = [
-      buildTikiTorch(-12, 76.5), buildTikiTorch(12, 76.5),
-      buildTikiTorch(-12, 93.5), buildTikiTorch(12, 93.5),
-    ];
+    /* Eight torches, not four, and closer in.
+     *
+     * Measured on the first render of this pass: with four at the corners of
+     * a 26 x 20 m deck, each a range-13 point light, the middle twelve metres
+     * of the terrace -- the loungers, the skirt, the coping, everything this
+     * pass added -- rendered as black. A torch is a 13 m lamp, so the spacing
+     * has to be under 13 m, and it was 17. They now run down both long sides
+     * at 6 m centres, which lights the chairs they stand between. */
+    const torches = [];
+    for (const tz of [77.0, 83.0, 89.0, 94.0]) {
+      torches.push(buildTikiTorch(-12.4, tz), buildTikiTorch(12.4, tz));
+    }
+    /* Four proper lamp standards down the pool's long sides.
+     *
+     * The intensities here are much higher than the driveway's, and that is
+     * arithmetic rather than taste: these are `decay: 2` lights, so what a
+     * surface receives falls off as 1/d^2, and the deck is 26 m by 20 m. A
+     * torch at intensity 5.5 delivers about 0.03 at ten metres -- which is
+     * why the first render of this terrace came back black everywhere the
+     * water's own glow did not reach. At 24 over a 4 m throw these actually
+     * light the chairs, the coping and the skirt. */
+    for (const [lx, lz] of [[-8.9, 79.4], [8.9, 79.4], [-8.9, 90.6], [8.9, 90.6]]) {
+      const l = new THREE.PointLight(0xffd9a8, 24, 20, 2);
+      l.position.set(lx, GROUND_Y + 3.0, lz);
+      root.add(l);
+      root.add(cylinder({ r: 0.06, h: 3.0, pos: [lx, GROUND_Y + 1.5, lz], mat: M_LAMP_POST }));
+      root.add(cylinder({
+        rTop: 0.22, rBottom: 0.1, h: 0.2, pos: [lx, GROUND_Y + 3.16, lz], mat: M_LAMP_POST,
+      }));
+      root.add(sphere({
+        r: 0.15,
+        pos: [lx, GROUND_Y + 3.02, lz],
+        mat: mat({ color: 0xffe6bc, roughness: 0.4, emissive: 0xffdca0, emissiveIntensity: 1.6 }),
+      }));
+      solid(lx - 0.12, lx + 0.12, GROUND_Y, GROUND_Y + 3.0, lz - 0.12, lz + 0.12);
+    }
 
     /* Garden steps up onto the deck.
      *

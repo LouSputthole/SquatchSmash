@@ -1419,10 +1419,10 @@ export function buildMansionInterior(shell = null) {
      * this room's dressing is deliberately kept off. */
     const tableY = GY;
     root.add(cylinder({
-      r: 1.55, h: 0.09, pos: [0, tableY + 0.78, inlayZ], mat: M_MARBLE, name: 'foyer-centre-table',
+      r: 1.35, h: 0.09, pos: [0, tableY + 0.78, inlayZ], mat: M_MARBLE, name: 'foyer-centre-table',
     }));
     root.add(cylinder({
-      r: 1.6, h: 0.05, pos: [0, tableY + 0.75, inlayZ], mat: M_GOLD, cast: false,
+      r: 1.4, h: 0.05, pos: [0, tableY + 0.75, inlayZ], mat: M_GOLD, cast: false,
     }));
     root.add(cylinder({
       rTop: 0.28, rBottom: 0.42, h: 0.72, pos: [0, tableY + 0.36, inlayZ], mat: M_WOOD_DK,
@@ -1440,36 +1440,48 @@ export function buildMansionInterior(shell = null) {
         cast: false,
       }));
     }
-    solid(-1.6, 1.6, tableY, tableY + 0.86, inlayZ - 1.6, inlayZ + 1.6);
-    // The arrangement: an urn, foliage and a lot of white.
+    solid(-1.4, 1.4, tableY, tableY + 0.86, inlayZ - 1.4, inlayZ + 1.4);
+    /* The arrangement: an urn and a dome of blooms.
+     *
+     * Sized against a person, after a first pass that was not: 26-cm flower
+     * heads on a metre-wide dome standing at eye level filled the entire
+     * screen from anywhere in the front half of the hall. Real heads are 6-9
+     * cm, the dome is 1.1 m across, and the whole thing tops out at 2.4 m --
+     * under a 2.86 m eye line, so it is something you look AT rather than
+     * something you look THROUGH. */
     root.add(cylinder({
-      rTop: 0.46, rBottom: 0.26, h: 0.62, pos: [0, tableY + 1.18, inlayZ], mat: M_GOLD,
+      rTop: 0.34, rBottom: 0.2, h: 0.44, pos: [0, tableY + 1.05, inlayZ], mat: M_GOLD,
+    }));
+    root.add(cylinder({
+      rTop: 0.36, rBottom: 0.3, h: 0.05, pos: [0, tableY + 1.27, inlayZ], mat: M_GOLD, cast: false,
     }));
     const M_FOYER_LEAF = mat({ color: 0x2c5f37, roughness: 0.95 });
     const M_FOYER_BLOOM = mat({ color: 0xf4efe2, roughness: 0.8 });
     const M_FOYER_BLOOM_GOLD = mat({ color: 0xe0b448, roughness: 0.7 });
-    for (let i = 0; i < 26; i++) {
-      const a = (i / 26) * Math.PI * 2 * 3.1;
-      const t = i / 26;
-      const r = 0.28 + t * 0.72;
-      const hgt = 1.62 + Math.sin(t * 3.4) * 0.44;
+    for (let i = 0; i < 40; i++) {
+      const t = (i + 0.5) / 40;
+      const a = i * 2.399963; // golden angle, so nothing lands in a ring
+      const r = 0.55 * Math.sqrt(1 - t * t);
+      const hgt = 1.3 + t * 0.62;
       root.add(sphere({
-        r: 0.13 + Math.random() * 0.05,
+        r: 0.055 + Math.random() * 0.028,
         pos: [Math.cos(a) * r, tableY + hgt, inlayZ + Math.sin(a) * r],
-        mat: i % 5 === 0 ? M_FOYER_BLOOM_GOLD : M_FOYER_BLOOM,
+        mat: i % 6 === 0 ? M_FOYER_BLOOM_GOLD : M_FOYER_BLOOM,
         cast: false,
       }));
-      root.add(box({
-        size: [0.06, 0.44, 0.24],
-        pos: [Math.cos(a) * r * 0.8, tableY + hgt - 0.3, inlayZ + Math.sin(a) * r * 0.8],
-        mat: M_FOYER_LEAF,
-        rotY: -a,
-        rotZ: Math.cos(a) * 0.5,
-        cast: false,
-      }));
+      if (i % 2 === 0) {
+        root.add(box({
+          size: [0.035, 0.2, 0.11],
+          pos: [Math.cos(a) * r * 1.05, tableY + hgt - 0.13, inlayZ + Math.sin(a) * r * 1.05],
+          mat: M_FOYER_LEAF,
+          rotY: -a,
+          rotZ: Math.cos(a) * 0.6,
+          cast: false,
+        }));
+      }
     }
-    const centreGlow = new THREE.PointLight(0xffe9c0, 3.0, 8, 2);
-    centreGlow.position.set(0, tableY + 2.5, inlayZ);
+    const centreGlow = new THREE.PointLight(0xffe9c0, 3.4, 7, 2);
+    centreGlow.position.set(0, tableY + 2.35, inlayZ);
     root.add(centreGlow);
     // Console tables down the rear hall's west wall, clear of the cellar
     // stairwell opposite them, with a lamp between and a bowl for keys.
@@ -1669,15 +1681,34 @@ export function buildMansionInterior(shell = null) {
         name: 'basement-stair-stringer',
       }));
       solid(BASEMENT_STAIR.x0, BASEMENT_STAIR.x0 + 0.3, BY, top, za, zb);
-      // A brass handrail on top of it, at hand height.
+    }
+    /* One continuous brass handrail on top of the stringer, on the rake.
+     *
+     * This used to be a short level bar per step at `top + 0.95`, which is
+     * the same "bunch of T bars" the owner reported on the horseshoe -- a
+     * flight of 22 disconnected handrails climbing down the wall. Built the
+     * way `rakingRail` builds the ones upstairs: one box, rotated onto the
+     * stair's own pitch, on standards that follow the treads. */
+    {
+      const railTopBottom = stairY(z0) + 0.06 + 0.95;
+      const railTopTop = stairY(z1) + 0.06 + 0.95;
+      const runZ = z1 - z0;
+      const pitch = Math.atan2(railTopTop - railTopBottom, runZ);
+      const railX = BASEMENT_STAIR.x0 + 0.15;
       root.add(box({
-        size: [0.08, 0.07, depth + 0.04],
-        pos: [BASEMENT_STAIR.x0 + 0.15, top + 0.95, (za + zb) / 2],
+        size: [0.09, 0.07, Math.hypot(runZ, railTopTop - railTopBottom)],
+        pos: [railX, (railTopBottom + railTopTop) / 2, (z0 + z1) / 2],
         mat: M_GOLD,
+        rotX: -pitch,
+        name: 'basement-stair-handrail',
       }));
-      root.add(cylinder({
-        r: 0.022, h: 0.95, pos: [BASEMENT_STAIR.x0 + 0.15, top + 0.48, (za + zb) / 2], mat: M_CHROME,
-      }));
+      for (let i = 0; i <= 9; i++) {
+        const z = THREE.MathUtils.lerp(z0, z1, i / 9);
+        const top = stairY(z) + 0.06;
+        root.add(cylinder({
+          r: 0.022, h: 0.95, pos: [railX, top + 0.48, z], mat: M_CHROME,
+        }));
+      }
     }
     /* Floor-level guard right round the opening, except the mouth at its
      * south end where you walk in.
@@ -2090,6 +2121,13 @@ export function buildMansionInterior(shell = null) {
     root.add(box({
       size: [0.16, 2.5, barZ1 - barZ0 + 0.8], pos: [backX, GY + 1.25, (barZ0 + barZ1) / 2], mat: M_WOOD_DK, name: 'back-bar',
     }));
+    /* Shelves with a lit edge. A back bar in a night scene is otherwise a
+     * black slab with black bottles on it -- measured on the first render,
+     * the Jack And Daniels were invisible from two metres. The emissive strip
+     * under each shelf is the standard fix and costs no light in the rig. */
+    const M_SHELF_STRIP = mat({
+      color: 0x2a2118, emissive: 0xffcf8a, emissiveIntensity: 1.9, roughness: 0.5,
+    });
     for (const shelfY of [GY + 1.28, GY + 1.72, GY + 2.16]) {
       root.add(box({
         size: [0.3, 0.05, barZ1 - barZ0 + 0.6], pos: [backX - 0.16, shelfY, (barZ0 + barZ1) / 2], mat: M_WOOD_DK,
@@ -2097,6 +2135,15 @@ export function buildMansionInterior(shell = null) {
       root.add(box({
         size: [0.32, 0.02, barZ1 - barZ0 + 0.6], pos: [backX - 0.16, shelfY + 0.035, (barZ0 + barZ1) / 2], mat: M_GOLD, cast: false,
       }));
+      root.add(box({
+        size: [0.05, 0.03, barZ1 - barZ0 + 0.5], pos: [backX - 0.3, shelfY + 0.42, (barZ0 + barZ1) / 2], mat: M_SHELF_STRIP, cast: false,
+      }));
+    }
+    // Three small lights washing down the bottles themselves.
+    for (const lz of [barZ0 + 1.0, (barZ0 + barZ1) / 2, barZ1 - 1.0]) {
+      const bl = new THREE.PointLight(0xffd9a0, 2.4, 3.4, 2);
+      bl.position.set(backX - 0.34, GY + 2.0, lz);
+      root.add(bl);
     }
     const M_JD_GLASS = mat({ color: 0x140f0a, roughness: 0.22, metalness: 0.1 });
     const M_JD_LABEL = mat({
@@ -2181,7 +2228,7 @@ export function buildMansionInterior(shell = null) {
         rTop: 0.06, rBottom: 0.2, h: 0.24, pos: [barX - 0.06, GY + 2.44, pz], mat: M_GOLD,
       }));
       root.add(sphere({ r: 0.075, pos: [barX - 0.06, GY + 2.36, pz], mat: M_BULB_WARM, cast: false }));
-      const bl = new THREE.PointLight(0xffdba8, 3.2, 7, 2);
+      const bl = new THREE.PointLight(0xffdba8, 5.4, 9, 2);
       bl.position.set(barX - 0.06, GY + 2.3, pz);
       root.add(bl);
       bayLights.push(bl);
@@ -2455,12 +2502,21 @@ export function buildMansionInterior(shell = null) {
         cast: false,
       }));
     }
-    const stageLight = new THREE.PointLight(0xffc0d8, 3.4, 12, 2);
-    stageLight.position.set(0, stageTop + 3.0, 72.4);
+    /* Stage lighting, raised after the first render came back with a lit
+     * truss over an unlit stage: par cans are emissive discs, not lights, so
+     * the deck needs its own wash or the kit and the amps read as one dark
+     * mass under a row of coloured dots. */
+    const stageLight = new THREE.PointLight(0xffc0d8, 8, 14, 2);
+    stageLight.position.set(0, stageTop + 2.8, 72.0);
     root.add(stageLight);
-    const stageWash = new THREE.PointLight(0xffd9a0, 3.0, 11, 2);
-    stageWash.position.set(0, stageTop + 2.2, 73.9);
+    const stageWash = new THREE.PointLight(0xffd9a0, 7, 13, 2);
+    stageWash.position.set(0, stageTop + 2.2, 73.7);
     root.add(stageWash);
+    for (const sx of [-3.4, 3.4]) {
+      const sl = new THREE.PointLight(0xffe0c0, 4.2, 9, 2);
+      sl.position.set(sx, stageTop + 2.0, 73.4);
+      root.add(sl);
+    }
 
     /* THE CHAIRS (owner playtest 2026-08-04, verbatim):
      *
@@ -2866,9 +2922,11 @@ export function buildMansionInterior(shell = null) {
         r: 0.008, h: 0.34, pos: [r.x1 - 0.24, GY + 2.34, sinkZ - 0.54 + i * 0.135], mat: M_RACK, rotZ: Math.PI / 2, cast: false,
       }));
     }
-    // Herb pots on the window sill.
-    for (let i = 0; i < 4; i++) {
-      const hz = 59.9 + i * 0.55;
+    /* Herb pots on the window sill, SOUTH of the sink: at 0.55 m centres from
+     * z=59.9 the fourth one landed at 61.55, standing in the sink's own right
+     * bowl. */
+    for (let i = 0; i < 3; i++) {
+      const hz = 59.5 + i * 0.6;
       root.add(cylinder({
         rTop: 0.08, rBottom: 0.06, h: 0.14, pos: [r.x1 - 0.22, GY + 1.02, hz], mat: M_BRONZE,
       }));
@@ -2923,9 +2981,28 @@ export function buildMansionInterior(shell = null) {
     // doorway is the same fault as a picture hung over one.
     const kitchenTvSet = makeTvSet(15.6, GY + 0.94, 69.4, -Math.PI / 2, { w: 0.72, h: 0.5 });
 
+    /* Under-cabinet strips over the two working runs. Measured: the nearest
+     * ceiling fitting is 6.4 m from the sink, and at `decay: 2` that is about
+     * a tenth of its intensity -- the whole east run, splashback and all,
+     * rendered as a dark band. This is how a kitchen is actually lit. */
+    const M_UNDER_CAB = mat({
+      color: 0x2a2620, emissive: 0xfff0cc, emissiveIntensity: 2.0, roughness: 0.5,
+    });
+    root.add(box({
+      size: [0.06, 0.03, 5.2], pos: [r.x1 - 0.42, GY + 1.56, 61.9], mat: M_UNDER_CAB, cast: false,
+    }));
+    root.add(box({
+      size: [2.6, 0.03, 0.06], pos: [13.8, GY + 1.56, r.z1 - 0.42], mat: M_UNDER_CAB, cast: false,
+    }));
+    for (const [ux, uz] of [[r.x1 - 0.7, 60.6], [r.x1 - 0.7, 63.4], [r.x1 - 0.7, 69.0], [13.6, r.z1 - 0.8]]) {
+      const ul = new THREE.PointLight(0xfff0cc, 3.2, 5.0, 2);
+      ul.position.set(ux, GY + 1.5, uz);
+      root.add(ul);
+    }
+
     const kitchenLights = [];
     for (const [px, pz] of [[11, 60.5], [12.5, 65.5], [13.4, 71.5]]) {
-      kitchenLights.push(ceilingLight(px, pz, UY - 0.35, 0xffe9c4, 4.6, 13));
+      kitchenLights.push(ceilingLight(px, pz, UY - 0.35, 0xffe9c4, 5.6, 15));
     }
     return {
       island, stove, ceilingLights: kitchenLights, tap: tapSpout, sinkTarget, runSink, updateSink, tv: kitchenTvSet,
