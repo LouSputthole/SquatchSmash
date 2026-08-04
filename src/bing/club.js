@@ -2221,12 +2221,17 @@ export function buildClub(scene, { renderer } = {}) {
      * -5.98. Hung at -5.72 it clears the glazing by 5.5cm and still leaves
      * 21cm of wall between it and THE OLD PLACE. */
     for (const [i, pz] of [[1, O.z0 + 3.78], [2, O.z0 + 4.4]]) {
-      add(makeFrame(M, {
+      const familyPic = makeFrame(M, {
         x: 7.926, y: 1.9, z: pz, rotY: Math.PI / 2, w: 0.34, h: 0.26,
         texture: printed(`lou-family${i}`, [['SUNDAY', 'AT THE SHORE'], ['THE NEPHEWS'], ['THE OLD PLACE']][i], {
           w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
         }),
-      }));
+      });
+      // THE NEPHEWS is real artwork now -- artSticker swaps in the file once
+      // the shared art manifest resolves it; every other placeholder in this
+      // loop keeps its drawn stand-in.
+      if (i === 1) artSticker(familyPic.art, 'bing.office.nephews', 0.34);
+      add(familyPic);
     }
     const shorePic = makeFrame(M, {
       x: dx + 0.62, y: 1.76, z: WALLS.north + 0.045, rotY: 0, w: 0.44, h: 0.34,
