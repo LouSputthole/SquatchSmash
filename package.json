@@ -55,6 +55,7 @@
     "check:nowake-vo": "node tools/nowake-vo.mjs --check",
     "vo:hotdog": "node tools/hotdog-vo.mjs",
     "vo:heist": "node tools/heist-vo.mjs",
+    "check:hotdog-vo": "node tools/hotdog-vo.mjs --check",
     "vo:bing": "node tools/bing-vo.mjs",
     "check:bing-vo": "node tools/bing-vo.mjs --check",
     "vo:motel": "node tools/motel-vo.mjs",

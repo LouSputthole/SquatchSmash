@@ -3427,6 +3427,156 @@
       "say": "I am funding something here. I do not know what."
     },
     {
+      "name": "weapon.revolver.fire",
+      "duration": 1.8,
+      "prompt": "a single .45 Colt revolver fired in a bare concrete cellar, deep flat crack with a hard mechanical hammer fall under it, tight low-ceiling slap and a short tail, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.reload.out",
+      "duration": 1.4,
+      "prompt": "a heavy revolver cylinder swung out on its crane and the ejector rod pushed hard, six spent brass cases lifting free and tumbling out together, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.reload.in",
+      "duration": 1.6,
+      "prompt": "six rounds dropped into a revolver cylinder from a speedloader, the loader knob twisted and pulled away, cylinder snapped shut on a steel frame, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.empty",
+      "duration": 0.7,
+      "prompt": "the hammer of an empty heavy revolver falling on a spent chamber, one dry mechanical click with a faint frame ring, close, dry, no voice"
+    },
+    {
+      "name": "weapon.revolver.mag.floor",
+      "duration": 1.2,
+      "prompt": "six spent brass revolver cases hitting a bare concrete floor and rolling, bright scattered metallic clinks settling to stillness, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.fire",
+      "duration": 1.3,
+      "prompt": "a single 9mm semi-automatic pistol shot fired indoors, sharp flat crack with the slide cycling and locking back into it, small room reflection, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.reload.out",
+      "duration": 0.8,
+      "prompt": "a magazine release pressed on a polymer 9mm pistol and an empty steel magazine dropping clear of the magwell, one catch click and a light metallic slide, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.reload.in",
+      "duration": 1,
+      "prompt": "a full 9mm magazine seated hard into a polymer pistol grip and the slide released forward onto a round, firm palm slap then a fast metallic snap, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.empty",
+      "duration": 0.6,
+      "prompt": "the trigger of an empty 9mm pistol pulled on a locked-back slide, one small dry mechanical click, close, dry, no voice"
+    },
+    {
+      "name": "weapon.pistol9.mag.floor",
+      "duration": 1,
+      "prompt": "an empty steel pistol magazine dropped from waist height onto a bare concrete floor, one hard metallic knock, a short bounce and a settle, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.fire",
+      "duration": 1.6,
+      "prompt": "a single 5.56 carbine shot fired inside a low concrete cellar, extremely sharp controlled report with violent early reflections and a hard architectural tail, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.reload.out",
+      "duration": 1,
+      "prompt": "a magazine catch pressed on an aluminium carbine receiver and a polymer magazine pulled out of the well, one plastic-on-metal scrape and a catch click, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.reload.in",
+      "duration": 1.4,
+      "prompt": "a full polymer carbine magazine rocked into the magwell and slapped home, bolt catch paddle struck and the bolt running forward on a round, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.empty",
+      "duration": 0.6,
+      "prompt": "the trigger of an empty carbine pulled on a locked-back bolt, one sharp dry mechanical click, close, dry, no voice"
+    },
+    {
+      "name": "weapon.carbine.mag.floor",
+      "duration": 1.1,
+      "prompt": "an empty polymer rifle magazine dropped onto a bare concrete floor, one dull plastic knock with a metal floorplate tick and a short skid, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.fire",
+      "duration": 1.8,
+      "prompt": "a single 7.62 AK rifle shot fired indoors, deep heavy crack with more low end than a 5.56 and a loose stamped-steel rattle after it, hard room slap, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.reload.out",
+      "duration": 1.1,
+      "prompt": "a curved steel AK magazine rocked forward out of the magwell and pulled clear, a heavy paddle catch clacking and steel scraping steel, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.reload.in",
+      "duration": 1.4,
+      "prompt": "a loaded steel AK magazine rocked in front-first and levered back until the catch clacks shut, then the charging handle pulled and released, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.empty",
+      "duration": 0.7,
+      "prompt": "the trigger of an empty AK pulled on a closed bolt, one loud dry mechanical clack with a stamped-receiver ring, close, dry, no voice"
+    },
+    {
+      "name": "weapon.ak47.mag.floor",
+      "duration": 1.2,
+      "prompt": "an empty steel AK magazine dropped onto a bare concrete floor, one bright hard metallic clang with a rattling ring and a settle, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.fire",
+      "duration": 1.6,
+      "prompt": "a single belt-fed light machine gun shot fired indoors, heavy deep report with the open bolt slamming and a belt link tinkling free, hard concrete slap, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.reload.out",
+      "duration": 1.8,
+      "prompt": "the feed tray cover of a belt-fed machine gun lifted open and an empty plastic ammunition box unclipped and pulled off the receiver, latch clack, plastic scrape, loose belt links dragging, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.reload.in",
+      "duration": 2.4,
+      "prompt": "a full ammunition box clipped under a machine gun, a belt laid into the feed tray and the tray cover slammed shut, then the charging handle pulled and released, heavy metal throughout, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.empty",
+      "duration": 0.8,
+      "prompt": "the trigger of a belt-fed machine gun pulled with the belt run out, one heavy dry mechanical clack from an open bolt on nothing, close, dry, no voice"
+    },
+    {
+      "name": "weapon.saw.mag.floor",
+      "duration": 1.3,
+      "prompt": "an empty plastic machine-gun ammunition box dropped onto a bare concrete floor, dull hollow plastic thump with loose belt links rattling inside it, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.fire",
+      "duration": 2.6,
+      "prompt": "a single .50 calibre anti-materiel rifle fired inside a concrete room, enormous concussive blast through a muzzle brake, chest-punching low end, violent room slap and a long ringing tail, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.reload.out",
+      "duration": 1.4,
+      "prompt": "a magazine catch pressed on a heavy .50 calibre rifle and a long steel ten-round magazine pulled out, deep metallic scrape and a heavy catch clack, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.reload.in",
+      "duration": 1.8,
+      "prompt": "a heavy loaded .50 calibre magazine pushed up into a rifle receiver until it locks, then the bolt handle drawn fully back and let slam forward, very heavy steel, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.empty",
+      "duration": 0.9,
+      "prompt": "the trigger of an empty .50 calibre rifle pulled on a locked-back bolt, one deep heavy dry click with a long steel ring, close, dry, no voice"
+    },
+    {
+      "name": "weapon.barrett.mag.floor",
+      "duration": 1.4,
+      "prompt": "a heavy empty .50 calibre steel rifle magazine dropped onto a bare concrete floor, one very heavy metallic bang with almost no bounce, close, dry, no voice"
+    },
+    {
       "name": "vo.silver.announcer.scene-show.2",
       "voice": "announcer",
       "say": "Ladies and gentlemen — the Silver Room is proud — the Midnight Pines."
@@ -6242,156 +6392,6 @@
       "say": "Small pull. Keep it straight. Let her settle."
     },
     {
-      "name": "weapon.revolver.fire",
-      "duration": 1.8,
-      "prompt": "a single .45 Colt revolver fired in a bare concrete cellar, deep flat crack with a hard mechanical hammer fall under it, tight low-ceiling slap and a short tail, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.reload.out",
-      "duration": 1.4,
-      "prompt": "a heavy revolver cylinder swung out on its crane and the ejector rod pushed hard, six spent brass cases lifting free and tumbling out together, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.reload.in",
-      "duration": 1.6,
-      "prompt": "six rounds dropped into a revolver cylinder from a speedloader, the loader knob twisted and pulled away, cylinder snapped shut on a steel frame, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.empty",
-      "duration": 0.7,
-      "prompt": "the hammer of an empty heavy revolver falling on a spent chamber, one dry mechanical click with a faint frame ring, close, dry, no voice"
-    },
-    {
-      "name": "weapon.revolver.mag.floor",
-      "duration": 1.2,
-      "prompt": "six spent brass revolver cases hitting a bare concrete floor and rolling, bright scattered metallic clinks settling to stillness, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.fire",
-      "duration": 1.3,
-      "prompt": "a single 9mm semi-automatic pistol shot fired indoors, sharp flat crack with the slide cycling and locking back into it, small room reflection, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.reload.out",
-      "duration": 0.8,
-      "prompt": "a magazine release pressed on a polymer 9mm pistol and an empty steel magazine dropping clear of the magwell, one catch click and a light metallic slide, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.reload.in",
-      "duration": 1,
-      "prompt": "a full 9mm magazine seated hard into a polymer pistol grip and the slide released forward onto a round, firm palm slap then a fast metallic snap, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.empty",
-      "duration": 0.6,
-      "prompt": "the trigger of an empty 9mm pistol pulled on a locked-back slide, one small dry mechanical click, close, dry, no voice"
-    },
-    {
-      "name": "weapon.pistol9.mag.floor",
-      "duration": 1,
-      "prompt": "an empty steel pistol magazine dropped from waist height onto a bare concrete floor, one hard metallic knock, a short bounce and a settle, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.fire",
-      "duration": 1.6,
-      "prompt": "a single 5.56 carbine shot fired inside a low concrete cellar, extremely sharp controlled report with violent early reflections and a hard architectural tail, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.reload.out",
-      "duration": 1,
-      "prompt": "a magazine catch pressed on an aluminium carbine receiver and a polymer magazine pulled out of the well, one plastic-on-metal scrape and a catch click, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.reload.in",
-      "duration": 1.4,
-      "prompt": "a full polymer carbine magazine rocked into the magwell and slapped home, bolt catch paddle struck and the bolt running forward on a round, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.empty",
-      "duration": 0.6,
-      "prompt": "the trigger of an empty carbine pulled on a locked-back bolt, one sharp dry mechanical click, close, dry, no voice"
-    },
-    {
-      "name": "weapon.carbine.mag.floor",
-      "duration": 1.1,
-      "prompt": "an empty polymer rifle magazine dropped onto a bare concrete floor, one dull plastic knock with a metal floorplate tick and a short skid, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.fire",
-      "duration": 1.8,
-      "prompt": "a single 7.62 AK rifle shot fired indoors, deep heavy crack with more low end than a 5.56 and a loose stamped-steel rattle after it, hard room slap, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.reload.out",
-      "duration": 1.1,
-      "prompt": "a curved steel AK magazine rocked forward out of the magwell and pulled clear, a heavy paddle catch clacking and steel scraping steel, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.reload.in",
-      "duration": 1.4,
-      "prompt": "a loaded steel AK magazine rocked in front-first and levered back until the catch clacks shut, then the charging handle pulled and released, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.empty",
-      "duration": 0.7,
-      "prompt": "the trigger of an empty AK pulled on a closed bolt, one loud dry mechanical clack with a stamped-receiver ring, close, dry, no voice"
-    },
-    {
-      "name": "weapon.ak47.mag.floor",
-      "duration": 1.2,
-      "prompt": "an empty steel AK magazine dropped onto a bare concrete floor, one bright hard metallic clang with a rattling ring and a settle, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.fire",
-      "duration": 1.6,
-      "prompt": "a single belt-fed light machine gun shot fired indoors, heavy deep report with the open bolt slamming and a belt link tinkling free, hard concrete slap, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.reload.out",
-      "duration": 1.8,
-      "prompt": "the feed tray cover of a belt-fed machine gun lifted open and an empty plastic ammunition box unclipped and pulled off the receiver, latch clack, plastic scrape, loose belt links dragging, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.reload.in",
-      "duration": 2.4,
-      "prompt": "a full ammunition box clipped under a machine gun, a belt laid into the feed tray and the tray cover slammed shut, then the charging handle pulled and released, heavy metal throughout, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.empty",
-      "duration": 0.8,
-      "prompt": "the trigger of a belt-fed machine gun pulled with the belt run out, one heavy dry mechanical clack from an open bolt on nothing, close, dry, no voice"
-    },
-    {
-      "name": "weapon.saw.mag.floor",
-      "duration": 1.3,
-      "prompt": "an empty plastic machine-gun ammunition box dropped onto a bare concrete floor, dull hollow plastic thump with loose belt links rattling inside it, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.fire",
-      "duration": 2.6,
-      "prompt": "a single .50 calibre anti-materiel rifle fired inside a concrete room, enormous concussive blast through a muzzle brake, chest-punching low end, violent room slap and a long ringing tail, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.reload.out",
-      "duration": 1.4,
-      "prompt": "a magazine catch pressed on a heavy .50 calibre rifle and a long steel ten-round magazine pulled out, deep metallic scrape and a heavy catch clack, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.reload.in",
-      "duration": 1.8,
-      "prompt": "a heavy loaded .50 calibre magazine pushed up into a rifle receiver until it locks, then the bolt handle drawn fully back and let slam forward, very heavy steel, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.empty",
-      "duration": 0.9,
-      "prompt": "the trigger of an empty .50 calibre rifle pulled on a locked-back bolt, one deep heavy dry click with a long steel ring, close, dry, no voice"
-    },
-    {
-      "name": "weapon.barrett.mag.floor",
-      "duration": 1.4,
-      "prompt": "a heavy empty .50 calibre steel rifle magazine dropped onto a bare concrete floor, one very heavy metallic bang with almost no bounce, close, dry, no voice"
-    },
-    {
       "name": "woo.up",
       "duration": 0.5,
       "prompt": "short warm upward two-note chime on a vibraphone, soft mallet, small room, quiet and unfussy, no music bed"
@@ -6771,13 +6771,6 @@
       "duration": 0.5,
       "_comment": "Bada Bing, HotDog Incident: third and fourth impacts reuse this closing hit take.",
       "prompt": "One final heavy fist impact into a clothed adult torso in a closed bar. Dense low thump, wood-floor room resonance, restrained fabric movement. No gunshot, no voice, no gore.",
-      "promptInfluence": 0.56
-    },
-    {
-      "name": "hotdog.fist.impact.4",
-      "duration": 0.6,
-      "_comment": "Bada Bing, HotDog Incident: the fourth and final fist impact, the one that puts him down.",
-      "prompt": "One final devastating fist impact into a clothed adult torso in a closed bar. Very heavy dull low thump, almost no high snap, jacket fabric, long wood-floor room resonance. No gunshot, no voice, no gore.",
       "promptInfluence": 0.56
     },
     {
@@ -9195,6 +9188,13 @@
       "say": "When does the car arrive?"
     },
     {
+      "name": "hotdog.fist.impact.4",
+      "duration": 0.6,
+      "_comment": "Bada Bing, HotDog Incident: the fourth and final fist impact, the one that puts him down.",
+      "prompt": "One final devastating fist impact into a clothed adult torso in a closed bar. Very heavy dull low thump, almost no high snap, jacket fabric, long wood-floor room resonance. No gunshot, no voice, no gore.",
+      "promptInfluence": 0.56
+    },
+    {
       "name": "vo.bing2.shubenator.intro",
       "voice": "shubenator",
       "say": "Club is closed, glasses are full. Hog Mama, save us from one another."
@@ -9315,6 +9315,630 @@
       "name": "vo.bing2.snow.not-here",
       "voice": "snow",
       "say": "Not here. And not before the graveyard."
+    },
+    {
+      "name": "vo.bing2.party.till.booski.1",
+      "voice": "booski",
+      "say": "Eight months, and the first thing the man does is look at my till."
+    },
+    {
+      "name": "vo.bing2.party.till.willy",
+      "voice": "willy",
+      "say": "Did he touch it?"
+    },
+    {
+      "name": "vo.bing2.party.till.booski.2",
+      "voice": "booski",
+      "say": "He LOOKED at it, Willy. Looking is the front half of touching."
+    },
+    {
+      "name": "vo.bing2.party.prosperous.hotdog.1",
+      "voice": "hotdog",
+      "say": "Booski! You got fat."
+    },
+    {
+      "name": "vo.bing2.party.prosperous.booski",
+      "voice": "booski",
+      "say": "I got PROSPEROUS, baby. Learn the difference."
+    },
+    {
+      "name": "vo.bing2.party.prosperous.hotdog.2",
+      "voice": "hotdog",
+      "say": "Same shirt, though."
+    },
+    {
+      "name": "vo.bing2.party.its-a-party.lou.1",
+      "voice": "lou1",
+      "say": "Ape. It is a party."
+    },
+    {
+      "name": "vo.bing2.party.its-a-party.ape",
+      "voice": "ape",
+      "say": "It is a party."
+    },
+    {
+      "name": "vo.bing2.party.its-a-party.lou.2",
+      "voice": "lou1",
+      "say": "Say it again like a man who believes it."
+    },
+    {
+      "name": "vo.bing2.party.cake-rule.gratin.1",
+      "voice": "gratin",
+      "say": "Nobody cuts that cake before Hog Mama. It is not a rule, it is a fact about the cake."
+    },
+    {
+      "name": "vo.bing2.party.cake-rule.irish",
+      "voice": "irish",
+      "say": "So a corner piece is—"
+    },
+    {
+      "name": "vo.bing2.party.cake-rule.gratin.2",
+      "voice": "gratin",
+      "say": "Facts do not have corners, Irish."
+    },
+    {
+      "name": "vo.bing2.party.frame-drops.lag.1",
+      "voice": "lag",
+      "say": "These lights are on the same circuit as the walk-in. You can see the frame drops."
+    },
+    {
+      "name": "vo.bing2.party.frame-drops.stove",
+      "voice": "old-stove",
+      "say": "That is a fridge, son."
+    },
+    {
+      "name": "vo.bing2.party.frame-drops.lag.2",
+      "voice": "lag",
+      "say": "That is what a fridge wants you to think."
+    },
+    {
+      "name": "vo.bing2.party.came-home-with-money.seff.1",
+      "voice": "seff",
+      "say": "Somebody tell me Billy came home with money."
+    },
+    {
+      "name": "vo.bing2.party.came-home-with-money.stove",
+      "voice": "old-stove",
+      "say": "I am not here."
+    },
+    {
+      "name": "vo.bing2.party.came-home-with-money.seff.2",
+      "voice": "seff",
+      "say": "That is not a no. I am taking that as not a no."
+    },
+    {
+      "name": "vo.bing2.party.thats-a-bar.rippin.1",
+      "voice": "rippinflow",
+      "say": "Closed room, open bar, nobody eating — uh. That is a bar. That is free."
+    },
+    {
+      "name": "vo.bing2.party.thats-a-bar.sasole",
+      "voice": "lou2",
+      "say": "You told me you stopped."
+    },
+    {
+      "name": "vo.bing2.party.thats-a-bar.rippin.2",
+      "voice": "rippinflow",
+      "say": "I did stop. It happens to me."
+    },
+    {
+      "name": "vo.bing2.party.off-the-record.eric.1",
+      "voice": "eric",
+      "say": "Off the record. Is he the same? Eight months changes people."
+    },
+    {
+      "name": "vo.bing2.party.off-the-record.numbskull",
+      "voice": "numbskull",
+      "say": "He is louder."
+    },
+    {
+      "name": "vo.bing2.party.off-the-record.eric.2",
+      "voice": "eric",
+      "say": "That is not the direction I was hoping for."
+    },
+    {
+      "name": "vo.bing2.party.glad.numbskull.1",
+      "voice": "numbskull",
+      "say": "Is a welcome-home party for being glad, or for being seen being glad?"
+    },
+    {
+      "name": "vo.bing2.party.glad.rippin",
+      "voice": "rippinflow",
+      "say": "Yes."
+    },
+    {
+      "name": "vo.bing2.party.glad.numbskull.2",
+      "voice": "numbskull",
+      "say": "Okay. I can do both of them."
+    },
+    {
+      "name": "vo.bing2.party.nose-out.snow.1",
+      "voice": "snow",
+      "say": "Car is out back. Nose out."
+    },
+    {
+      "name": "vo.bing2.party.nose-out.aubbie",
+      "voice": "aubbie",
+      "say": "For a party."
+    },
+    {
+      "name": "vo.bing2.party.nose-out.snow.2",
+      "voice": "snow",
+      "say": "For a party."
+    },
+    {
+      "name": "vo.bing2.party.basket.deathmegatron.1",
+      "voice": "deathmegatron",
+      "say": "Phones in the basket. Both of yours, Booski."
+    },
+    {
+      "name": "vo.bing2.party.basket.booski",
+      "voice": "booski",
+      "say": "One of those is a calculator."
+    },
+    {
+      "name": "vo.bing2.party.basket.deathmegatron.2",
+      "voice": "deathmegatron",
+      "say": "In the basket."
+    },
+    {
+      "name": "vo.bing2.party.rhyming.hotdog.1",
+      "voice": "hotdog",
+      "say": "Rippin! You still doing the rhyming thing?"
+    },
+    {
+      "name": "vo.bing2.party.rhyming.rippin",
+      "voice": "rippinflow",
+      "say": "Nah."
+    },
+    {
+      "name": "vo.bing2.party.rhyming.hotdog.2",
+      "voice": "hotdog",
+      "say": "Good. It was never good."
+    },
+    {
+      "name": "vo.bing2.party.somebody-says-something.sasole",
+      "voice": "lou2",
+      "say": "Forty years of these. Somebody always says something."
+    },
+    {
+      "name": "vo.bing2.party.somebody-says-something.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Somebody always does."
+    },
+    {
+      "name": "vo.bing2.party.spotter.shubenator",
+      "voice": "shubenator",
+      "say": "I asked Lou for a spotter and he gave me a spotlight. Different discipline, same commitment."
+    },
+    {
+      "name": "vo.bing2.party.microphone.hogmama",
+      "voice": "hogmama",
+      "say": "Whoever set this microphone at this height is a coward, and I will find them."
+    },
+    {
+      "name": "vo.bing2.party.ears.willy",
+      "voice": "willy",
+      "say": "I would tell you where I have been, but this room has ears and two of them came home tonight."
+    },
+    {
+      "name": "vo.bing2.party.utensils.gratin",
+      "voice": "gratin",
+      "say": "He has touched every serving utensil on that table. I have re-laid it twice."
+    },
+    {
+      "name": "vo.bing2.party.eight-months.ape",
+      "voice": "ape",
+      "say": "Eight months. People are acting like he came back from a war."
+    },
+    {
+      "name": "vo.bing2.party.eggs.irish",
+      "voice": "irish",
+      "say": "Nobody has asked me where the eggs come from tonight. Nobody. In a room this size."
+    },
+    {
+      "name": "vo.bing2.cleanup.stool.numbskull",
+      "voice": "numbskull",
+      "say": "The stool broke on its own. That is what I am saying if anybody asks."
+    },
+    {
+      "name": "vo.bing2.cleanup.stool.rippin",
+      "voice": "rippinflow",
+      "say": "Nobody is going to ask."
+    },
+    {
+      "name": "vo.bing2.cleanup.counting.booski",
+      "voice": "booski",
+      "say": "Cufflink, pin, tab. Cufflink, pin, tab."
+    },
+    {
+      "name": "vo.bing2.cleanup.bleach.gratin",
+      "voice": "gratin",
+      "say": "Bleach in the mop water, not on the carpet. On the carpet it leaves a shape."
+    },
+    {
+      "name": "vo.bing2.cleanup.photograph.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Phones stay in the basket. Nobody took a photograph tonight."
+    },
+    {
+      "name": "vo.bing2.cleanup.whole-night.sasole",
+      "voice": "lou2",
+      "say": "He came, he had cake, he left early. That is the whole night."
+    },
+    {
+      "name": "vo.bing2.cleanup.never-comes-up.willy",
+      "voice": "willy",
+      "say": "This never comes up again. That is understood, yeah? Never comes up."
+    },
+    {
+      "name": "vo.bing2.cleanup.second-pass.shubenator",
+      "voice": "shubenator",
+      "say": "Second pass on the floor. Honestly, it is good for the shoulders."
+    },
+    {
+      "name": "vo.bing2.cleanup.thirty-years.hogmama",
+      "voice": "hogmama",
+      "say": "Thirty years of rooms. Never once had to help fold one."
+    },
+    {
+      "name": "vo.bing2.cleanup.suspicious.irish",
+      "voice": "irish",
+      "say": "Nobody is ever going to look into this, and THAT is the part I find suspicious."
+    },
+    {
+      "name": "vo.bing2.cleanup.battery.eric",
+      "voice": "eric",
+      "say": "The battery is in my pocket. Ask me in an hour, same answer."
+    },
+    {
+      "name": "vo.bing2.cleanup.lined.snow",
+      "voice": "snow",
+      "say": "Trunk is lined. When he is wrapped he goes straight in."
+    },
+    {
+      "name": "vo.bing2.cleanup.two-bags.aubbie",
+      "voice": "aubbie",
+      "say": "Two bags. One for cloth, one for glass. Do not mix them."
+    },
+    {
+      "name": "vo.bing2.cleanup.booth.ape",
+      "voice": "ape",
+      "say": "I am staying in the booth. Lou knows where I am."
+    },
+    {
+      "name": "vo.bing2.cleanup.mattresses.seff",
+      "voice": "seff",
+      "say": "So the mattress thing is off, then. That is what I am hearing."
+    },
+    {
+      "name": "vo.bing2.react.numbskull.sanitizer",
+      "voice": "numbskull",
+      "say": "He did! I watched him do it!"
+    },
+    {
+      "name": "vo.bing2.react.gratin.choke",
+      "voice": "gratin",
+      "say": "I have wine in my lung."
+    },
+    {
+      "name": "vo.bing2.react.ape.deposit",
+      "voice": "ape",
+      "say": "She has got you, Lou."
+    },
+    {
+      "name": "vo.bing2.react.eric.tape",
+      "voice": "eric",
+      "say": "Tape is rolling. For the family album."
+    },
+    {
+      "name": "vo.bing2.react.willy.cake",
+      "voice": "willy",
+      "say": "Billy. Billy, eat your cake."
+    },
+    {
+      "name": "vo.bing2.attack.numbskull",
+      "voice": "numbskull",
+      "say": "Ape— Ape, that is enough—"
+    },
+    {
+      "name": "vo.bing2.attack.gratin",
+      "voice": "gratin",
+      "say": "I am looking at the kitchen."
+    },
+    {
+      "name": "vo.bing2.attack.willy",
+      "voice": "willy",
+      "say": "I am not seeing this. I want that noted."
+    },
+    {
+      "name": "vo.bing2.attack.sasole",
+      "voice": "lou2",
+      "say": "Somebody move the cake."
+    },
+    {
+      "name": "vo.bing2.attack.hogmama",
+      "voice": "hogmama",
+      "say": "I am going to take five."
+    },
+    {
+      "name": "vo.bing2.attack.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "That has been coming since the brush.",
+      "direction": "Quiet, comfortable, and a little pleased. He is the only person in the room enjoying this and he is not hiding it well."
+    },
+    {
+      "name": "vo.bing2.attack.seff",
+      "voice": "seff",
+      "say": "This is a bad time to bring up my situation."
+    },
+    {
+      "name": "vo.bing2.attack.eric",
+      "voice": "eric",
+      "say": "Camera is off. It is off. It has been off."
+    },
+    {
+      "name": "vo.bing2.attack.irish",
+      "voice": "irish",
+      "say": "See, this is what I mean about nobody finishing a story."
+    },
+    {
+      "name": "vo.bing2.attack.booski",
+      "voice": "booski",
+      "say": "One cufflink. There is a cufflink on the floor."
+    },
+    {
+      "name": "vo.bing2.attack.snow",
+      "voice": "snow",
+      "say": "I will bring the car round. Nose out."
+    },
+    {
+      "name": "vo.bing2.attack.aubbie",
+      "voice": "aubbie",
+      "say": "Nobody walks east of that stool."
+    },
+    {
+      "name": "vo.bing2.attack.rippin",
+      "voice": "rippinflow",
+      "say": "Not a bar. Nothing about that is a bar."
+    },
+    {
+      "name": "vo.bing2.walkup.party.booski.1",
+      "voice": "booski",
+      "say": "Lou put me on the door money AND the bar money. One man, two piles. It is a compliment and a punishment."
+    },
+    {
+      "name": "vo.bing2.walkup.party.booski.2",
+      "voice": "booski",
+      "say": "Say hello to Billy. Say it fast and keep walking. That is the play."
+    },
+    {
+      "name": "vo.bing2.walkup.party.willy",
+      "voice": "willy",
+      "say": "HotDog got louder in county. I did not know that was medically possible."
+    },
+    {
+      "name": "vo.bing2.walkup.party.eric",
+      "voice": "eric",
+      "say": "The camera is old. Tape, not cloud. That is good now, apparently."
+    },
+    {
+      "name": "vo.bing2.walkup.party.gratin",
+      "voice": "gratin",
+      "say": "HotDog touched every serving utensil. Every one."
+    },
+    {
+      "name": "vo.bing2.walkup.party.snow",
+      "voice": "snow",
+      "say": "Cold in here. Good."
+    },
+    {
+      "name": "vo.bing2.walkup.party.aubbie",
+      "voice": "aubbie",
+      "say": "Microphone cable is fixed. Do not step on the new splice."
+    },
+    {
+      "name": "vo.bing2.walkup.party.ape",
+      "voice": "ape",
+      "say": "Prospect. Have a drink, stand somewhere with a wall behind it, and enjoy the evening."
+    },
+    {
+      "name": "vo.bing2.walkup.party.rippin",
+      "voice": "rippinflow",
+      "say": "Prospect walks in with a job face on — nah. Not tonight. Tonight I am a guest."
+    },
+    {
+      "name": "vo.bing2.walkup.party.numbskull",
+      "voice": "numbskull",
+      "say": "I made a card. It is in my jacket. I am waiting for a good moment and there has not been one."
+    },
+    {
+      "name": "vo.bing2.walkup.party.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Phone in the basket, kid. Everybody. It is a party, not a deposition."
+    },
+    {
+      "name": "vo.bing2.walkup.party.hogmama",
+      "voice": "hogmama",
+      "say": "Thirty seconds, baby. Somebody has to run that light board and it is not going to be me."
+    },
+    {
+      "name": "vo.bing2.walkup.party.shubenator",
+      "voice": "shubenator",
+      "say": "Great turnout. Great energy. Slightly low protein, but great energy."
+    },
+    {
+      "name": "vo.bing2.walkup.party.sasole",
+      "voice": "lou2",
+      "say": "I flew in for this. I could have flown in for something else."
+    },
+    {
+      "name": "vo.bing2.walkup.party.irish",
+      "voice": "irish",
+      "say": "Sit down, sit down. So the egg— no, wait, you have got the walk on. Go on, then. Later."
+    },
+    {
+      "name": "vo.bing2.walkup.party.stove",
+      "voice": "old-stove",
+      "say": "Nice party. I would not know. I am not here."
+    },
+    {
+      "name": "vo.bing2.walkup.party.lag",
+      "voice": "lag",
+      "say": "Everyone is standing in the same six feet of this room. Terrible spread. You get wiped by one grenade."
+    },
+    {
+      "name": "vo.bing2.walkup.party.seff",
+      "voice": "seff",
+      "say": "Quick thing. You are close with Lou now. Forget it. Later. It is a calendar thing."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.booski",
+      "voice": "booski",
+      "say": "One cufflink, one pin, one tab. I am counting because nobody else can count under pressure."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.snow.1",
+      "voice": "snow",
+      "say": "Route is clear. Graveyard first. Motel after."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.snow.2",
+      "voice": "snow",
+      "say": "The shovel made sense when I picked it up."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.aubbie",
+      "voice": "aubbie",
+      "say": "Correct plastic is in storage. The shower curtain was Lawnmower."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.hogmama",
+      "voice": "hogmama",
+      "say": "The cake did not kill anybody and I am not throwing it out."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.gratin",
+      "voice": "gratin",
+      "say": "The kitchen stays hot. Bleach smells like bleach; onions smell like business."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.deathmegatron",
+      "voice": "deathmegatron",
+      "say": "Phone in the basket. Door stays locked."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.rippin",
+      "voice": "rippinflow",
+      "say": "Ape stays in the booth. HotDog stays wherever we put him."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.numbskull",
+      "voice": "numbskull",
+      "say": "Do we load the broken stool before or after the person?"
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.ape",
+      "voice": "ape",
+      "say": "I am not going to explain it to you. Lou will, when he wants you to know."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.shubenator",
+      "voice": "shubenator",
+      "say": "I have got the back hall. Mop, bucket, no complaints. Everybody has a lift they are good at."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.sasole",
+      "voice": "lou2",
+      "say": "You will sleep. Everybody says they will not, and then everybody does."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.willy",
+      "voice": "willy",
+      "say": "I was in the bathroom. Whole time. That is not a lie I am telling, that is a lie I am practising."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.irish",
+      "voice": "irish",
+      "say": "Eight months he was away and eleven minutes he was back. Somebody should look into that. Nobody will."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.stove",
+      "voice": "old-stove",
+      "say": "Wipe it down twice. Once is for you, twice is for the fella who comes after you."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.lag",
+      "voice": "lag",
+      "say": "I have carried worse. Different weight class, obviously."
+    },
+    {
+      "name": "vo.bing2.walkup.cleanup.seff",
+      "voice": "seff",
+      "say": "Nobody is going to want the mattresses now. That is what gets me about tonight."
+    },
+    {
+      "name": "vo.bing2.shubenator.nudge",
+      "voice": "shubenator",
+      "say": "Prospect. Stage controls. Before Hog Mama starts without electricity.",
+      "direction": "Shouted across a loud room, cheerfully, with no sense that he is nagging."
+    },
+    {
+      "name": "vo.bing2.lou.enjoy",
+      "voice": "lou1",
+      "say": "Enjoy the party, Prospect. That is an order with a very short shelf life."
+    },
+    {
+      "name": "vo.bing2.lou.briefing",
+      "voice": "lou1",
+      "say": "Prospect. Both bathrooms, Aubbie's kit, and every piece of him that came off. Then me.",
+      "direction": "Turning panic into departments. Flat, fast, and completely unbothered."
+    },
+    {
+      "name": "vo.bing2.lou.not_swept",
+      "voice": "lou1",
+      "say": "That is not a swept room. Finish it and come back to me."
+    },
+    {
+      "name": "vo.bing2.lou.wrap_him",
+      "voice": "lou1",
+      "say": "Wrap him. Snow gets the keys.",
+      "direction": "He checks the whole room once, slowly, and only then says it. Quiet, final, and entirely ordinary to him."
+    },
+    {
+      "name": "vo.bing2.lou.closed_not_clean",
+      "voice": "lou1",
+      "say": "It looks closed. That is not the same as clean, and closed is what I asked for."
+    },
+    {
+      "name": "vo.bing2.aubbie.kit",
+      "voice": "aubbie",
+      "say": "Everything in that case is labelled. Use what is labelled."
+    },
+    {
+      "name": "vo.bing2.booski.evidence.1",
+      "voice": "booski",
+      "say": "That is one. There is another one somewhere and it is ruining my night."
+    },
+    {
+      "name": "vo.bing2.booski.evidence.2",
+      "voice": "booski",
+      "say": "That is both. Tell Lou it is both, and tell him I counted."
+    },
+    {
+      "name": "vo.bing2.rippin.shoulders",
+      "voice": "rippinflow",
+      "say": "I have got the shoulders. You have got the legs. On me."
+    },
+    {
+      "name": "vo.bing2.aubbie.wrapped",
+      "voice": "aubbie",
+      "say": "Tight, covered, nothing loose. He travels now."
+    },
+    {
+      "name": "vo.bing2.snow.trunk",
+      "voice": "snow",
+      "say": "Trunk is open. You and Numbskull, on three."
     },
     {
       "name": "vo.graveyard.arrival.snow.1",
@@ -10480,6 +11104,567 @@
       "name": "vo.call.lou.no_wake.tony.4",
       "voice": "player",
       "say": "I will be there."
+    },
+    {
+      "name": "heist.crew_snow",
+      "voice": "snow",
+      "say": "Snow. I call the move. You keep the clock honest."
+    },
+    {
+      "name": "heist.crew_rippin",
+      "voice": "rippinflow",
+      "say": "Rippinflow. I drive us in. If the day gets ambitious, you drive us out."
+    },
+    {
+      "name": "heist.crew_shubes",
+      "voice": "shubenator",
+      "say": "Shubenator. Blue case, vault panel, and every wire you do not touch."
+    },
+    {
+      "name": "heist.crew_death",
+      "voice": "deathmegatron",
+      "say": "DeathMegatron. I move bags and bad ideas out of doorways."
+    },
+    {
+      "name": "heist.crew_numb",
+      "voice": "numbskull",
+      "say": "Numbskull. I own the lobby. People calm down when I sound bored."
+    },
+    {
+      "name": "heist.snow_arrival",
+      "voice": "snow",
+      "say": "Door shut. Phone off. We use names until the masks go on."
+    },
+    {
+      "name": "heist.snow_plan",
+      "voice": "snow",
+      "say": "Inside, six people do one job. Outside, six targets move as one."
+    },
+    {
+      "name": "heist.snow_rules",
+      "voice": "snow",
+      "say": "No civilians. No souvenirs. Nobody leaves a person to save a bag."
+    },
+    {
+      "name": "heist.rippin_route",
+      "voice": "rippinflow",
+      "say": "Route Green behaves at lunch. Today every light is going to discover a personality."
+    },
+    {
+      "name": "heist.shubes_case",
+      "voice": "shubenator",
+      "say": "The blue case is organized. Your hands are not part of the organization."
+    },
+    {
+      "name": "heist.death_bags",
+      "voice": "deathmegatron",
+      "say": "Lou bought bigger bags. Apparently confidence has handles."
+    },
+    {
+      "name": "heist.numb_alarm",
+      "voice": "numbskull",
+      "say": "I am nowhere near the alarms. This is me saying it before anybody asks."
+    },
+    {
+      "name": "heist.prospect_ready",
+      "voice": "player",
+      "say": "Armor is on. Magazines are full. I heard the plan."
+    },
+    {
+      "name": "heist.rippin_two_lights",
+      "voice": "rippinflow",
+      "say": "Two lights."
+    },
+    {
+      "name": "heist.snow_time",
+      "voice": "snow",
+      "say": "Time."
+    },
+    {
+      "name": "heist.shubes_loop",
+      "voice": "shubenator",
+      "say": "Exterior loop is live. It will remain useful until somebody looks out a window."
+    },
+    {
+      "name": "heist.death_breathe",
+      "voice": "deathmegatron",
+      "say": "Breathe now. It costs more in there."
+    },
+    {
+      "name": "heist.guard_warning",
+      "voice": "heist-guard",
+      "say": "Stop right there. Hands where I can see them."
+    },
+    {
+      "name": "heist.snow_guard",
+      "voice": "snow",
+      "say": "Prospect, visible guard. Put him on the floor."
+    },
+    {
+      "name": "heist.prospect_counterstrike",
+      "voice": "player",
+      "say": "Good thing about all that Counter-Strike I've been playing."
+    },
+    {
+      "name": "heist.snow_scoreboard",
+      "voice": "snow",
+      "say": "Save the scoreboard. Watch the lobby."
+    },
+    {
+      "name": "heist.death_floor",
+      "voice": "deathmegatron",
+      "say": "Hands clear. Eyes down. Nobody here needs to be brave."
+    },
+    {
+      "name": "heist.civilian_please",
+      "voice": "heist-customer",
+      "say": "Nobody move. Please, just do what they say."
+    },
+    {
+      "name": "heist.numb_manager",
+      "voice": "numbskull",
+      "say": "Manager is mine. Teller line is listening."
+    },
+    {
+      "name": "heist.manager_delay",
+      "voice": "heist-manager",
+      "say": "You do not know the delay. That door will not care who is holding the gun."
+    },
+    {
+      "name": "heist.shubes_answer",
+      "voice": "shubenator",
+      "say": "He does not have to know it. I know the panel."
+    },
+    {
+      "name": "heist.shubes_vault",
+      "voice": "shubenator",
+      "say": "Panel first. Time-delay second. Nobody touches the leads."
+    },
+    {
+      "name": "heist.snow_clock",
+      "voice": "snow",
+      "say": "Four minutes became two. Fill the bags we have and leave the rest."
+    },
+    {
+      "name": "heist.snow_insured",
+      "voice": "snow",
+      "say": "We came for insured paper, not uninsured people. Keep it clean."
+    },
+    {
+      "name": "heist.numb_signal",
+      "voice": "numbskull",
+      "say": "Foot switch. I stopped the teller. I did not stop what she already sent."
+    },
+    {
+      "name": "heist.rippin_street",
+      "voice": "rippinflow",
+      "say": "Blue lights on both ends. Route Green is turning brown."
+    },
+    {
+      "name": "heist.snow_exit_alarm",
+      "voice": "snow",
+      "say": "The sirens are the clock now. Bags, tools, people. Move."
+    },
+    {
+      "name": "heist.snow_contact",
+      "voice": "snow",
+      "say": "Planters first. Prospect, right side!"
+    },
+    {
+      "name": "heist.death_suppress",
+      "voice": "deathmegatron",
+      "say": "Intersection is occupied. I am correcting it."
+    },
+    {
+      "name": "heist.rippin_van",
+      "voice": "rippinflow",
+      "say": "Van is boxed. Give me five seconds and a miracle with keys."
+    },
+    {
+      "name": "heist.rippin_hit",
+      "voice": "rippinflow",
+      "say": "That is my leg. Route Green is officially cancelled."
+    },
+    {
+      "name": "heist.snow_fallback",
+      "voice": "snow",
+      "say": "Mercer garage. Pairs. Leave the van and keep Rippin between us."
+    },
+    {
+      "name": "heist.numb_bag",
+      "voice": "numbskull",
+      "say": "Bag is down. Rippin is not. Make the choice fast."
+    },
+    {
+      "name": "heist.snow_leave_it",
+      "voice": "snow",
+      "say": "Do not trade a person for paper."
+    },
+    {
+      "name": "heist.shubes_garage",
+      "voice": "shubenator",
+      "say": "Sedan is live. The ignition was never the difficult system."
+    },
+    {
+      "name": "heist.death_load",
+      "voice": "deathmegatron",
+      "say": "Cover me. Bags are heavier when everybody is shooting at the handles."
+    },
+    {
+      "name": "heist.rippin_drive",
+      "voice": "rippinflow",
+      "say": "Prospect drives. Left out, wrong way on purpose, then the warehouse lights."
+    },
+    {
+      "name": "heist.rippin_market_left",
+      "voice": "rippinflow",
+      "say": "Left at the warehouse. Hold it through Market, then right at the glass tower."
+    },
+    {
+      "name": "heist.snow_roadblock",
+      "voice": "snow",
+      "say": "Roadblock. Center gap. Do not argue with the cruisers."
+    },
+    {
+      "name": "heist.rippin_canal",
+      "voice": "rippinflow",
+      "say": "Canal road next. Narrow means they cannot put three cars beside us."
+    },
+    {
+      "name": "heist.shubes_swap",
+      "voice": "shubenator",
+      "say": "Cash first, coats second, weapons in the lined bin. In that order."
+    },
+    {
+      "name": "heist.death_swap_bags",
+      "voice": "deathmegatron",
+      "say": "Eight bags moved. Nobody leaves a handle in the dirty car."
+    },
+    {
+      "name": "heist.rippin_swap_aid",
+      "voice": "rippinflow",
+      "say": "Tie it above the tear. I can complain in the clean car."
+    },
+    {
+      "name": "heist.snow_return",
+      "voice": "snow",
+      "say": "Nobody celebrates until I count six people and every bag in this room."
+    },
+    {
+      "name": "heist.rippin_aid",
+      "voice": "rippinflow",
+      "say": "The van had one job and chose performance art. Wrap the leg tighter."
+    },
+    {
+      "name": "heist.shubes_defend",
+      "voice": "shubenator",
+      "say": "The vault opened on schedule. The alarm was a separate and inferior system."
+    },
+    {
+      "name": "heist.shubes_signature_cleanup",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?",
+      "direction": "Pleasant, deadpan, and entirely untroubled during mission cleanup. He sounds as though he has just joined an ordinary group chat."
+    },
+    {
+      "name": "heist.death_ammo",
+      "voice": "deathmegatron",
+      "say": "Ammunition accounted for. Everybody else is somebody else’s paperwork."
+    },
+    {
+      "name": "heist.numb_home",
+      "voice": "numbskull",
+      "say": "I saw the tracker late. I saw it. We are still all standing here."
+    },
+    {
+      "name": "heist.snow_good",
+      "voice": "snow",
+      "say": "You moved when I said move. You covered people before money. Lou will hear that."
+    },
+    {
+      "name": "heist.lou_call",
+      "voice": "lou",
+      "say": "Everybody breathing? Good. Clean up. Bada Bing, seven. Wear something worth remembering."
+    },
+    {
+      "name": "heist.prospect_home",
+      "voice": "player",
+      "say": "We got out. Everybody came home."
+    },
+    {
+      "name": "heist.snow_mask_call",
+      "voice": "snow",
+      "say": "Two blocks. Masks on now, while there is nobody outside to watch us do it."
+    },
+    {
+      "name": "heist.prospect_mask_on",
+      "voice": "player",
+      "say": "Mask is down. I can see fine."
+    },
+    {
+      "name": "heist.numb_van_count",
+      "voice": "numbskull",
+      "say": "Four minutes on the floor, one on the vault, one to walk out. That is the whole plan."
+    },
+    {
+      "name": "heist.numb_lobby_order",
+      "voice": "numbskull",
+      "say": "Everybody on the floor. Face down, hands out. This takes four minutes and then we are gone."
+    },
+    {
+      "name": "heist.snow_lobby_open",
+      "voice": "snow",
+      "say": "The room is yours, Prospect. Get them flat and keep them flat."
+    },
+    {
+      "name": "heist.snow_control_slipping",
+      "voice": "snow",
+      "say": "Half your room is up on its knees again. Fix it before I have to."
+    },
+    {
+      "name": "heist.numb_lobby_held",
+      "voice": "numbskull",
+      "say": "Lobby is tied off. Nobody in here is going anywhere on their own."
+    },
+    {
+      "name": "heist.numb_alarm_reached",
+      "voice": "numbskull",
+      "say": "Somebody got a hand to a switch. Whatever clock you thought you had, it is shorter."
+    },
+    {
+      "name": "heist.death_runner",
+      "voice": "deathmegatron",
+      "say": "Runner. West side, and he is four seconds from the street."
+    },
+    {
+      "name": "heist.snow_no_souvenirs",
+      "voice": "snow",
+      "say": "That is a man’s wallet in your hand. Put it down, or carry it into Lou’s office and explain it."
+    },
+    {
+      "name": "heist.snow_casualty",
+      "voice": "snow",
+      "say": "That was a customer. That is the one thing we do not do."
+    },
+    {
+      "name": "heist.snow_friendly_fire",
+      "voice": "snow",
+      "say": "Muzzle. Off me. Now."
+    },
+    {
+      "name": "heist.prospect_reassure_one",
+      "voice": "player",
+      "say": "Nobody here wants your money. It is the bank’s, it is insured, and it is not worth your life."
+    },
+    {
+      "name": "heist.prospect_reassure_two",
+      "voice": "player",
+      "say": "Look at me. Do what I say and you go home to whoever is waiting on you."
+    },
+    {
+      "name": "heist.prospect_order_down",
+      "voice": "player",
+      "say": "Down. Face on the floor, hands where I can see them."
+    },
+    {
+      "name": "heist.prospect_demand",
+      "voice": "player",
+      "say": "Wallet. Watch. On the tile in front of you."
+    },
+    {
+      "name": "heist.prospect_tie",
+      "voice": "player",
+      "say": "Hands behind your back. This is so I can stop watching you."
+    },
+    {
+      "name": "heist.hostage_plead_one",
+      "voice": "heist-customer",
+      "say": "Please. Please don’t shoot."
+    },
+    {
+      "name": "heist.hostage_plead_two",
+      "voice": "heist-customer",
+      "say": "I’m not doing anything. I’m not doing anything."
+    },
+    {
+      "name": "heist.hostage_plead_three",
+      "voice": "heist-customer",
+      "say": "Okay. Okay. It’s okay, I’m looking at the floor."
+    },
+    {
+      "name": "heist.hostage_plead_teller",
+      "voice": "heist-customer",
+      "say": "There’s nothing back here. There’s nothing in my drawer."
+    },
+    {
+      "name": "heist.hostage_reassured_one",
+      "voice": "heist-customer",
+      "say": "It isn’t mine. None of it is mine. Take it."
+    },
+    {
+      "name": "heist.hostage_reassured_two",
+      "voice": "heist-customer",
+      "say": "Thank you. Thank you. I’m staying right here."
+    },
+    {
+      "name": "heist.hostage_reassured_hard",
+      "voice": "heist-customer",
+      "say": "Then take it and go. Please just take it and go."
+    },
+    {
+      "name": "heist.hostage_hands_over",
+      "voice": "heist-customer",
+      "say": "That’s all of it. That’s everything I have on me."
+    },
+    {
+      "name": "heist.hostage_refuses",
+      "voice": "heist-customer",
+      "say": "I don’t have anything. I came in to pay a bill."
+    },
+    {
+      "name": "heist.hostage_tied",
+      "voice": "heist-customer",
+      "say": "It’s too tight. It’s too tight."
+    },
+    {
+      "name": "heist.hostage_caught",
+      "voice": "heist-customer",
+      "say": "I wasn’t reaching for anything. I wasn’t."
+    },
+    {
+      "name": "heist.hostage_witness",
+      "voice": "heist-customer",
+      "say": "You shot him. Oh God, you shot him."
+    },
+    {
+      "name": "heist.manager_second",
+      "voice": "heist-manager",
+      "say": "The timer does not care that you are in a hurry. Neither do I."
+    },
+    {
+      "name": "heist.rippin_tower_right",
+      "voice": "rippinflow",
+      "say": "Glass tower on the corner. Right there, and do not slow down for the light."
+    },
+    {
+      "name": "heist.rippin_swap_ahead",
+      "voice": "rippinflow",
+      "say": "Canal road. Yard gate on your left, four hundred metres. Lights off before you turn in."
+    },
+    {
+      "name": "heist.snow_lost_them",
+      "voice": "snow",
+      "say": "Nothing behind us. Nothing above us. We are a grey car on a service road."
+    },
+    {
+      "name": "heist.rippin_pursuit_close",
+      "voice": "rippinflow",
+      "say": "He is on the bumper. Do not brake for him, he will just get braver."
+    },
+    {
+      "name": "heist.lou_radio_open",
+      "voice": "lou",
+      "say": "Prospect. You are on my clock now. Do what Snow says and come back with everybody you left with."
+    },
+    {
+      "name": "heist.lou_radio_lobby",
+      "voice": "lou",
+      "say": "Those people on the floor are the bank’s problem, not yours. Do not make them yours."
+    },
+    {
+      "name": "heist.lou_radio_vault",
+      "voice": "lou",
+      "say": "Eight bags on that trolley. Eight is the number. I do not want to hear a seven."
+    },
+    {
+      "name": "heist.lou_radio_street",
+      "voice": "lou",
+      "say": "I can hear the sirens from my office. Get off that street."
+    },
+    {
+      "name": "heist.lou_debrief_open",
+      "voice": "lou",
+      "say": "Sit down, all of you. I only ever ask two things after a day like this."
+    },
+    {
+      "name": "heist.lou_debrief_people_clean",
+      "voice": "lou",
+      "say": "First one. Everybody who walked into that lobby walked back out of it. That is the whole reason I use you and not somebody cheaper."
+    },
+    {
+      "name": "heist.lou_debrief_people_dirty",
+      "voice": "lou",
+      "say": "First one, and you already know the answer. Somebody who came in to cash a cheque did not walk back out. That follows this family around for years."
+    },
+    {
+      "name": "heist.lou_debrief_money_full",
+      "voice": "lou",
+      "say": "Second one. All eight bags, insured paper, nothing on anybody’s person. That is the number I wanted and that is the number I got."
+    },
+    {
+      "name": "heist.lou_debrief_money_short",
+      "voice": "lou",
+      "say": "Second one. You left money on Mercer Street. It is insured, so nobody cries — but I asked for eight and I am counting less than eight."
+    },
+    {
+      "name": "heist.lou_debrief_souvenirs",
+      "voice": "lou",
+      "say": "And there is money in that bag that came out of a man’s coat. Take it off the table. We are not muggers, and it is coming out of your end."
+    },
+    {
+      "name": "heist.lou_debrief_verdict_good",
+      "voice": "lou",
+      "say": "Then it was a good day. Nobody hurt, everything counted, and tomorrow it is a paragraph nobody reads. Well done, kid."
+    },
+    {
+      "name": "heist.lou_debrief_verdict_bad",
+      "voice": "lou",
+      "say": "So it was not a good day. You are still standing here, which is something. Do not let anybody tell you it was clean."
+    },
+    {
+      "name": "heist.lou_prospect_verdict",
+      "voice": "lou",
+      "say": "You came home with the crew and you came home with the money. Whatever they decide about you later, that is on the record."
+    },
+    {
+      "name": "heist.snow_debrief_open",
+      "voice": "snow",
+      "say": "Sit down, all of you. We do this the same way every time."
+    },
+    {
+      "name": "heist.snow_debrief_people",
+      "voice": "snow",
+      "say": "People first. I count six of us. Now somebody tell me the other number."
+    },
+    {
+      "name": "heist.snow_debrief_money",
+      "voice": "snow",
+      "say": "Then the money. What went in the car, and what we left on Mercer."
+    },
+    {
+      "name": "heist.snow_debrief_clean",
+      "voice": "snow",
+      "say": "Nothing on the news tonight but a number. That is what a good day looks like."
+    },
+    {
+      "name": "heist.snow_debrief_ugly",
+      "voice": "snow",
+      "say": "That was not a job. That was a mess we walked out of. Lou hears it from me first."
+    },
+    {
+      "name": "heist.numb_debrief_ledger",
+      "voice": "numbskull",
+      "say": "Eight bags came off the trolleys. Here is what actually got home."
+    },
+    {
+      "name": "heist.death_debrief_count",
+      "voice": "deathmegatron",
+      "say": "Count it twice. I am not doing this again on Lou’s carpet."
+    },
+    {
+      "name": "heist.prospect_debrief",
+      "voice": "player",
+      "say": "First one. I moved when Snow said move and I did not make anything worse."
     },
     {
       "name": "vo.bing.ambient.01",
@@ -16296,567 +17481,6 @@
       "name": "vo.initiation.ambient.lou.1ckii4g.1",
       "voice": "lou",
       "say": "Humor me."
-    },
-    {
-      "name": "heist.crew_snow",
-      "voice": "snow",
-      "say": "Snow. I call the move. You keep the clock honest."
-    },
-    {
-      "name": "heist.crew_rippin",
-      "voice": "rippinflow",
-      "say": "Rippinflow. I drive us in. If the day gets ambitious, you drive us out."
-    },
-    {
-      "name": "heist.crew_shubes",
-      "voice": "shubenator",
-      "say": "Shubenator. Blue case, vault panel, and every wire you do not touch."
-    },
-    {
-      "name": "heist.crew_death",
-      "voice": "deathmegatron",
-      "say": "DeathMegatron. I move bags and bad ideas out of doorways."
-    },
-    {
-      "name": "heist.crew_numb",
-      "voice": "numbskull",
-      "say": "Numbskull. I own the lobby. People calm down when I sound bored."
-    },
-    {
-      "name": "heist.snow_arrival",
-      "voice": "snow",
-      "say": "Door shut. Phone off. We use names until the masks go on."
-    },
-    {
-      "name": "heist.snow_plan",
-      "voice": "snow",
-      "say": "Inside, six people do one job. Outside, six targets move as one."
-    },
-    {
-      "name": "heist.snow_rules",
-      "voice": "snow",
-      "say": "No civilians. No souvenirs. Nobody leaves a person to save a bag."
-    },
-    {
-      "name": "heist.rippin_route",
-      "voice": "rippinflow",
-      "say": "Route Green behaves at lunch. Today every light is going to discover a personality."
-    },
-    {
-      "name": "heist.shubes_case",
-      "voice": "shubenator",
-      "say": "The blue case is organized. Your hands are not part of the organization."
-    },
-    {
-      "name": "heist.death_bags",
-      "voice": "deathmegatron",
-      "say": "Lou bought bigger bags. Apparently confidence has handles."
-    },
-    {
-      "name": "heist.numb_alarm",
-      "voice": "numbskull",
-      "say": "I am nowhere near the alarms. This is me saying it before anybody asks."
-    },
-    {
-      "name": "heist.prospect_ready",
-      "voice": "player",
-      "say": "Armor is on. Magazines are full. I heard the plan."
-    },
-    {
-      "name": "heist.rippin_two_lights",
-      "voice": "rippinflow",
-      "say": "Two lights."
-    },
-    {
-      "name": "heist.snow_time",
-      "voice": "snow",
-      "say": "Time."
-    },
-    {
-      "name": "heist.shubes_loop",
-      "voice": "shubenator",
-      "say": "Exterior loop is live. It will remain useful until somebody looks out a window."
-    },
-    {
-      "name": "heist.death_breathe",
-      "voice": "deathmegatron",
-      "say": "Breathe now. It costs more in there."
-    },
-    {
-      "name": "heist.guard_warning",
-      "voice": "heist-guard",
-      "say": "Stop right there. Hands where I can see them."
-    },
-    {
-      "name": "heist.snow_guard",
-      "voice": "snow",
-      "say": "Prospect, visible guard. Put him on the floor."
-    },
-    {
-      "name": "heist.prospect_counterstrike",
-      "voice": "player",
-      "say": "Good thing about all that Counter-Strike I've been playing."
-    },
-    {
-      "name": "heist.snow_scoreboard",
-      "voice": "snow",
-      "say": "Save the scoreboard. Watch the lobby."
-    },
-    {
-      "name": "heist.death_floor",
-      "voice": "deathmegatron",
-      "say": "Hands clear. Eyes down. Nobody here needs to be brave."
-    },
-    {
-      "name": "heist.civilian_please",
-      "voice": "heist-customer",
-      "say": "Nobody move. Please, just do what they say."
-    },
-    {
-      "name": "heist.numb_manager",
-      "voice": "numbskull",
-      "say": "Manager is mine. Teller line is listening."
-    },
-    {
-      "name": "heist.manager_delay",
-      "voice": "heist-manager",
-      "say": "You do not know the delay. That door will not care who is holding the gun."
-    },
-    {
-      "name": "heist.shubes_answer",
-      "voice": "shubenator",
-      "say": "He does not have to know it. I know the panel."
-    },
-    {
-      "name": "heist.shubes_vault",
-      "voice": "shubenator",
-      "say": "Panel first. Time-delay second. Nobody touches the leads."
-    },
-    {
-      "name": "heist.snow_clock",
-      "voice": "snow",
-      "say": "Four minutes became two. Fill the bags we have and leave the rest."
-    },
-    {
-      "name": "heist.snow_insured",
-      "voice": "snow",
-      "say": "We came for insured paper, not uninsured people. Keep it clean."
-    },
-    {
-      "name": "heist.numb_signal",
-      "voice": "numbskull",
-      "say": "Foot switch. I stopped the teller. I did not stop what she already sent."
-    },
-    {
-      "name": "heist.rippin_street",
-      "voice": "rippinflow",
-      "say": "Blue lights on both ends. Route Green is turning brown."
-    },
-    {
-      "name": "heist.snow_exit_alarm",
-      "voice": "snow",
-      "say": "The sirens are the clock now. Bags, tools, people. Move."
-    },
-    {
-      "name": "heist.snow_contact",
-      "voice": "snow",
-      "say": "Planters first. Prospect, right side!"
-    },
-    {
-      "name": "heist.death_suppress",
-      "voice": "deathmegatron",
-      "say": "Intersection is occupied. I am correcting it."
-    },
-    {
-      "name": "heist.rippin_van",
-      "voice": "rippinflow",
-      "say": "Van is boxed. Give me five seconds and a miracle with keys."
-    },
-    {
-      "name": "heist.rippin_hit",
-      "voice": "rippinflow",
-      "say": "That is my leg. Route Green is officially cancelled."
-    },
-    {
-      "name": "heist.snow_fallback",
-      "voice": "snow",
-      "say": "Mercer garage. Pairs. Leave the van and keep Rippin between us."
-    },
-    {
-      "name": "heist.numb_bag",
-      "voice": "numbskull",
-      "say": "Bag is down. Rippin is not. Make the choice fast."
-    },
-    {
-      "name": "heist.snow_leave_it",
-      "voice": "snow",
-      "say": "Do not trade a person for paper."
-    },
-    {
-      "name": "heist.shubes_garage",
-      "voice": "shubenator",
-      "say": "Sedan is live. The ignition was never the difficult system."
-    },
-    {
-      "name": "heist.death_load",
-      "voice": "deathmegatron",
-      "say": "Cover me. Bags are heavier when everybody is shooting at the handles."
-    },
-    {
-      "name": "heist.rippin_drive",
-      "voice": "rippinflow",
-      "say": "Prospect drives. Left out, wrong way on purpose, then the warehouse lights."
-    },
-    {
-      "name": "heist.rippin_market_left",
-      "voice": "rippinflow",
-      "say": "Left at the warehouse. Hold it through Market, then right at the glass tower."
-    },
-    {
-      "name": "heist.snow_roadblock",
-      "voice": "snow",
-      "say": "Roadblock. Center gap. Do not argue with the cruisers."
-    },
-    {
-      "name": "heist.rippin_canal",
-      "voice": "rippinflow",
-      "say": "Canal road next. Narrow means they cannot put three cars beside us."
-    },
-    {
-      "name": "heist.shubes_swap",
-      "voice": "shubenator",
-      "say": "Cash first, coats second, weapons in the lined bin. In that order."
-    },
-    {
-      "name": "heist.death_swap_bags",
-      "voice": "deathmegatron",
-      "say": "Eight bags moved. Nobody leaves a handle in the dirty car."
-    },
-    {
-      "name": "heist.rippin_swap_aid",
-      "voice": "rippinflow",
-      "say": "Tie it above the tear. I can complain in the clean car."
-    },
-    {
-      "name": "heist.snow_return",
-      "voice": "snow",
-      "say": "Nobody celebrates until I count six people and every bag in this room."
-    },
-    {
-      "name": "heist.rippin_aid",
-      "voice": "rippinflow",
-      "say": "The van had one job and chose performance art. Wrap the leg tighter."
-    },
-    {
-      "name": "heist.shubes_defend",
-      "voice": "shubenator",
-      "say": "The vault opened on schedule. The alarm was a separate and inferior system."
-    },
-    {
-      "name": "heist.shubes_signature_cleanup",
-      "voice": "shubenator",
-      "say": "Hey guys, what’s going on?",
-      "direction": "Pleasant, deadpan, and entirely untroubled during mission cleanup. He sounds as though he has just joined an ordinary group chat."
-    },
-    {
-      "name": "heist.death_ammo",
-      "voice": "deathmegatron",
-      "say": "Ammunition accounted for. Everybody else is somebody else’s paperwork."
-    },
-    {
-      "name": "heist.numb_home",
-      "voice": "numbskull",
-      "say": "I saw the tracker late. I saw it. We are still all standing here."
-    },
-    {
-      "name": "heist.snow_good",
-      "voice": "snow",
-      "say": "You moved when I said move. You covered people before money. Lou will hear that."
-    },
-    {
-      "name": "heist.lou_call",
-      "voice": "lou",
-      "say": "Everybody breathing? Good. Clean up. Bada Bing, seven. Wear something worth remembering."
-    },
-    {
-      "name": "heist.prospect_home",
-      "voice": "player",
-      "say": "We got out. Everybody came home."
-    },
-    {
-      "name": "heist.snow_mask_call",
-      "voice": "snow",
-      "say": "Two blocks. Masks on now, while there is nobody outside to watch us do it."
-    },
-    {
-      "name": "heist.prospect_mask_on",
-      "voice": "player",
-      "say": "Mask is down. I can see fine."
-    },
-    {
-      "name": "heist.numb_van_count",
-      "voice": "numbskull",
-      "say": "Four minutes on the floor, one on the vault, one to walk out. That is the whole plan."
-    },
-    {
-      "name": "heist.numb_lobby_order",
-      "voice": "numbskull",
-      "say": "Everybody on the floor. Face down, hands out. This takes four minutes and then we are gone."
-    },
-    {
-      "name": "heist.snow_lobby_open",
-      "voice": "snow",
-      "say": "The room is yours, Prospect. Get them flat and keep them flat."
-    },
-    {
-      "name": "heist.snow_control_slipping",
-      "voice": "snow",
-      "say": "Half your room is up on its knees again. Fix it before I have to."
-    },
-    {
-      "name": "heist.numb_lobby_held",
-      "voice": "numbskull",
-      "say": "Lobby is tied off. Nobody in here is going anywhere on their own."
-    },
-    {
-      "name": "heist.numb_alarm_reached",
-      "voice": "numbskull",
-      "say": "Somebody got a hand to a switch. Whatever clock you thought you had, it is shorter."
-    },
-    {
-      "name": "heist.death_runner",
-      "voice": "deathmegatron",
-      "say": "Runner. West side, and he is four seconds from the street."
-    },
-    {
-      "name": "heist.snow_no_souvenirs",
-      "voice": "snow",
-      "say": "That is a man’s wallet in your hand. Put it down, or carry it into Lou’s office and explain it."
-    },
-    {
-      "name": "heist.snow_casualty",
-      "voice": "snow",
-      "say": "That was a customer. That is the one thing we do not do."
-    },
-    {
-      "name": "heist.snow_friendly_fire",
-      "voice": "snow",
-      "say": "Muzzle. Off me. Now."
-    },
-    {
-      "name": "heist.prospect_reassure_one",
-      "voice": "player",
-      "say": "Nobody here wants your money. It is the bank’s, it is insured, and it is not worth your life."
-    },
-    {
-      "name": "heist.prospect_reassure_two",
-      "voice": "player",
-      "say": "Look at me. Do what I say and you go home to whoever is waiting on you."
-    },
-    {
-      "name": "heist.prospect_order_down",
-      "voice": "player",
-      "say": "Down. Face on the floor, hands where I can see them."
-    },
-    {
-      "name": "heist.prospect_demand",
-      "voice": "player",
-      "say": "Wallet. Watch. On the tile in front of you."
-    },
-    {
-      "name": "heist.prospect_tie",
-      "voice": "player",
-      "say": "Hands behind your back. This is so I can stop watching you."
-    },
-    {
-      "name": "heist.hostage_plead_one",
-      "voice": "heist-customer",
-      "say": "Please. Please don’t shoot."
-    },
-    {
-      "name": "heist.hostage_plead_two",
-      "voice": "heist-customer",
-      "say": "I’m not doing anything. I’m not doing anything."
-    },
-    {
-      "name": "heist.hostage_plead_three",
-      "voice": "heist-customer",
-      "say": "Okay. Okay. It’s okay, I’m looking at the floor."
-    },
-    {
-      "name": "heist.hostage_plead_teller",
-      "voice": "heist-customer",
-      "say": "There’s nothing back here. There’s nothing in my drawer."
-    },
-    {
-      "name": "heist.hostage_reassured_one",
-      "voice": "heist-customer",
-      "say": "It isn’t mine. None of it is mine. Take it."
-    },
-    {
-      "name": "heist.hostage_reassured_two",
-      "voice": "heist-customer",
-      "say": "Thank you. Thank you. I’m staying right here."
-    },
-    {
-      "name": "heist.hostage_reassured_hard",
-      "voice": "heist-customer",
-      "say": "Then take it and go. Please just take it and go."
-    },
-    {
-      "name": "heist.hostage_hands_over",
-      "voice": "heist-customer",
-      "say": "That’s all of it. That’s everything I have on me."
-    },
-    {
-      "name": "heist.hostage_refuses",
-      "voice": "heist-customer",
-      "say": "I don’t have anything. I came in to pay a bill."
-    },
-    {
-      "name": "heist.hostage_tied",
-      "voice": "heist-customer",
-      "say": "It’s too tight. It’s too tight."
-    },
-    {
-      "name": "heist.hostage_caught",
-      "voice": "heist-customer",
-      "say": "I wasn’t reaching for anything. I wasn’t."
-    },
-    {
-      "name": "heist.hostage_witness",
-      "voice": "heist-customer",
-      "say": "You shot him. Oh God, you shot him."
-    },
-    {
-      "name": "heist.manager_second",
-      "voice": "heist-manager",
-      "say": "The timer does not care that you are in a hurry. Neither do I."
-    },
-    {
-      "name": "heist.rippin_tower_right",
-      "voice": "rippinflow",
-      "say": "Glass tower on the corner. Right there, and do not slow down for the light."
-    },
-    {
-      "name": "heist.rippin_swap_ahead",
-      "voice": "rippinflow",
-      "say": "Canal road. Yard gate on your left, four hundred metres. Lights off before you turn in."
-    },
-    {
-      "name": "heist.snow_lost_them",
-      "voice": "snow",
-      "say": "Nothing behind us. Nothing above us. We are a grey car on a service road."
-    },
-    {
-      "name": "heist.rippin_pursuit_close",
-      "voice": "rippinflow",
-      "say": "He is on the bumper. Do not brake for him, he will just get braver."
-    },
-    {
-      "name": "heist.lou_radio_open",
-      "voice": "lou",
-      "say": "Prospect. You are on my clock now. Do what Snow says and come back with everybody you left with."
-    },
-    {
-      "name": "heist.lou_radio_lobby",
-      "voice": "lou",
-      "say": "Those people on the floor are the bank’s problem, not yours. Do not make them yours."
-    },
-    {
-      "name": "heist.lou_radio_vault",
-      "voice": "lou",
-      "say": "Eight bags on that trolley. Eight is the number. I do not want to hear a seven."
-    },
-    {
-      "name": "heist.lou_radio_street",
-      "voice": "lou",
-      "say": "I can hear the sirens from my office. Get off that street."
-    },
-    {
-      "name": "heist.lou_debrief_open",
-      "voice": "lou",
-      "say": "Sit down, all of you. I only ever ask two things after a day like this."
-    },
-    {
-      "name": "heist.lou_debrief_people_clean",
-      "voice": "lou",
-      "say": "First one. Everybody who walked into that lobby walked back out of it. That is the whole reason I use you and not somebody cheaper."
-    },
-    {
-      "name": "heist.lou_debrief_people_dirty",
-      "voice": "lou",
-      "say": "First one, and you already know the answer. Somebody who came in to cash a cheque did not walk back out. That follows this family around for years."
-    },
-    {
-      "name": "heist.lou_debrief_money_full",
-      "voice": "lou",
-      "say": "Second one. All eight bags, insured paper, nothing on anybody’s person. That is the number I wanted and that is the number I got."
-    },
-    {
-      "name": "heist.lou_debrief_money_short",
-      "voice": "lou",
-      "say": "Second one. You left money on Mercer Street. It is insured, so nobody cries — but I asked for eight and I am counting less than eight."
-    },
-    {
-      "name": "heist.lou_debrief_souvenirs",
-      "voice": "lou",
-      "say": "And there is money in that bag that came out of a man’s coat. Take it off the table. We are not muggers, and it is coming out of your end."
-    },
-    {
-      "name": "heist.lou_debrief_verdict_good",
-      "voice": "lou",
-      "say": "Then it was a good day. Nobody hurt, everything counted, and tomorrow it is a paragraph nobody reads. Well done, kid."
-    },
-    {
-      "name": "heist.lou_debrief_verdict_bad",
-      "voice": "lou",
-      "say": "So it was not a good day. You are still standing here, which is something. Do not let anybody tell you it was clean."
-    },
-    {
-      "name": "heist.lou_prospect_verdict",
-      "voice": "lou",
-      "say": "You came home with the crew and you came home with the money. Whatever they decide about you later, that is on the record."
-    },
-    {
-      "name": "heist.snow_debrief_open",
-      "voice": "snow",
-      "say": "Sit down, all of you. We do this the same way every time."
-    },
-    {
-      "name": "heist.snow_debrief_people",
-      "voice": "snow",
-      "say": "People first. I count six of us. Now somebody tell me the other number."
-    },
-    {
-      "name": "heist.snow_debrief_money",
-      "voice": "snow",
-      "say": "Then the money. What went in the car, and what we left on Mercer."
-    },
-    {
-      "name": "heist.snow_debrief_clean",
-      "voice": "snow",
-      "say": "Nothing on the news tonight but a number. That is what a good day looks like."
-    },
-    {
-      "name": "heist.snow_debrief_ugly",
-      "voice": "snow",
-      "say": "That was not a job. That was a mess we walked out of. Lou hears it from me first."
-    },
-    {
-      "name": "heist.numb_debrief_ledger",
-      "voice": "numbskull",
-      "say": "Eight bags came off the trolleys. Here is what actually got home."
-    },
-    {
-      "name": "heist.death_debrief_count",
-      "voice": "deathmegatron",
-      "say": "Count it twice. I am not doing this again on Lou’s carpet."
-    },
-    {
-      "name": "heist.prospect_debrief",
-      "voice": "player",
-      "say": "First one. I moved when Snow said move and I did not make anything worse."
     }
   ]
 }
