@@ -53,6 +53,44 @@ const ENOLA_CUES_AWAITING_VO_SYNC = [
    * into the manifest by `npm run vo:sync` the same day. */
 ];
 
+/**
+ * Silver Case lines authored since the manifest was last generated.
+ *
+ * Exactly the same contract as `ENOLA_CUES_AWAITING_VO_SYNC` above, for
+ * exactly the same reason: `assets/sfx/manifest.json` is regenerated centrally
+ * by the owner (`npm run vo:sync`), so between an authoring session and the
+ * next voice run the script legitimately runs ahead of the ledger. Declaring
+ * the gap keeps it a fact somebody wrote down rather than a hole — a new line
+ * nobody declares still fails the build, and drift, staleness, duplication and
+ * cue collisions all still fail unconditionally.
+ *
+ * WHEN THE MANIFEST IS REGENERATED, EMPTY THIS ARRAY.
+ *
+ * These 16 are the 2026-08-04 playtest pass: Ape in the corridor, him naming
+ * the man on the couch, the three ways a shot can now be wrong (the shot is
+ * resolved against a real ray, so missing is a thing that happens), the whole
+ * man-in-the-chair beat that Ape fires alongside the player, and the Winston
+ * execution the aftermath's "kill him" branch now prompts for.
+ */
+const SILVERCASE_CUES_AWAITING_VO_SYNC = [
+  'vo.silvercase.aftermath.ape.nobodytoclean',
+  'vo.silvercase.aftermath.ape.wantitdoit',
+  'vo.silvercase.aftermath.ape.yourround',
+  'vo.silvercase.aftermath.winston.please',
+  'vo.silvercase.arrival.ape.dothetalking',
+  'vo.silvercase.arrival.ape.endofhall',
+  'vo.silvercase.chair.ape.amen',
+  'vo.silvercase.chair.ape.anytime',
+  'vo.silvercase.chair.ape.myparttoo',
+  'vo.silvercase.chair.ape.myround',
+  'vo.silvercase.chair.ape.onestory',
+  'vo.silvercase.chair.ape.together',
+  'vo.silvercase.couch.ape.theoneonthecouch',
+  'vo.silvercase.shots.ape.atme',
+  'vo.silvercase.shots.ape.missed',
+  'vo.silvercase.shots.ape.wrongman',
+];
+
 const manifest = JSON.parse(
   fs.readFileSync(new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8'),
 );
@@ -62,7 +100,14 @@ const todo = fs.readFileSync(new URL('../VOICE-LINES-TODO.md', import.meta.url),
 
 test('every Silver Case line the script names is in the ledger, and nothing else is', () => {
   const cues = collectSilverCaseVoiceCues();
-  assert.equal(cues.length, 60);
+  /* Counted against the script rather than snapshotted against a literal, for
+   * the same reason the Enola Squatch's count was: the number this used to
+   * assert (60) was the script's size on the day it was written, so authoring
+   * a line failed a test whose actual subject is "does the collector walk
+   * every category and mint a usable row for each". The floor still catches a
+   * scene that has LOST lines. */
+  assert.ok(cues.length >= 60, 'the script has lost lines rather than gained them');
+  assert.equal(new Set(cues.map((cue) => cue.name)).size, cues.length, 'two lines share one recording');
   assert.equal(cues.every((cue) => cue.name.startsWith('vo.silvercase.') && cue.voice && cue.say), true);
 });
 
@@ -176,7 +221,22 @@ test('Enola Squatch sync is pure and its check catches drift', () => {
 /* ---------------- both, in the manifest and on the sheet ---------------- */
 
 test('the committed manifest is in sync with both scripts', () => {
-  assert.deepEqual(checkSilverCaseVoiceManifest(manifest), []);
+  /* Both scripts are allowed to be ahead of the ledger by exactly the cues
+   * their AWAITING_VO_SYNC lists declare, and by nothing else. Everything the
+   * checker can report other than a declared miss is still a hard failure. */
+  const silverFailures = checkSilverCaseVoiceManifest(manifest);
+  const silverMissing = silverFailures
+    .filter((f) => f.startsWith('missing cue '))
+    .map((f) => f.slice('missing cue '.length));
+  assert.deepEqual(
+    silverFailures.filter((f) => !f.startsWith('missing cue ')), [],
+    'the manifest has drifted from the Silver Case script',
+  );
+  assert.deepEqual(
+    silverMissing.slice().sort(), SILVERCASE_CUES_AWAITING_VO_SYNC.slice().sort(),
+    'authored Silver Case lines missing from the manifest must be declared in '
+    + 'SILVERCASE_CUES_AWAITING_VO_SYNC (and the list emptied once `npm run vo:sync` has been run)',
+  );
 
   /* The Enola Squatch's script is allowed to be ahead of the ledger by exactly
    * the cues declared in `ENOLA_CUES_AWAITING_VO_SYNC` and by nothing else —
@@ -220,7 +280,14 @@ test('the recording sheet shows both scenes rather than only counting them', () 
   );
   const have = new Set(index.files || []);
   const owed = (cues) => cues.filter((cue) => !have.has(`${cue.name}.mp3`)).length;
-  const silverCaseOwed = owed(collectSilverCaseVoiceCues());
+  /* A line that is not in the manifest yet cannot be on a sheet generated FROM
+   * the manifest, so the declared-and-not-yet-synced cues are excluded here.
+   * The bug this test exists for — a scene counted in the snapshot at the top
+   * and then omitted from every section under it — is untouched by that. */
+  const awaiting = new Set(SILVERCASE_CUES_AWAITING_VO_SYNC);
+  const silverCaseOwed = owed(
+    collectSilverCaseVoiceCues().filter((cue) => !awaiting.has(cue.name)),
+  );
   const enolaOwed = owed(collectEnolaSquatchVoiceCues());
   if (silverCaseOwed) {
     assert.match(todo, new RegExp(`## Voice pickups — The Silver Case \\(${silverCaseOwed}\\)`));
