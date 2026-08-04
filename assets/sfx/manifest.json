@@ -3896,6 +3896,11 @@
       "say": "You’ve been inviting me back for about twenty minutes without actually saying it. Are you going to keep talking, or are we leaving?"
     },
     {
+      "name": "vo.silver.margo.invitation.plates",
+      "voice": "margo",
+      "say": "They’ll do one more and then they’ll put the lights up. That’s how these places end."
+    },
+    {
       "name": "vo.silver.margo.invitation.polite",
       "voice": "margo",
       "say": "That’s kind."
@@ -3904,6 +3909,11 @@
       "name": "vo.silver.margo.invitation.strong",
       "voice": "margo",
       "say": "One drink. And if your building has a service entrance, I’m getting back in the car and you can explain it to the man on the door."
+    },
+    {
+      "name": "vo.silver.margo.invitation.waiting",
+      "voice": "margo",
+      "say": "Alright. Somebody has to go first, and it isn’t going to be you."
     },
     {
       "name": "vo.silver.margo.moments.chairPulled",
