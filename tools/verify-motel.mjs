@@ -263,6 +263,31 @@ async function geometryState(target) {
  * the same thing — genuine key events driving genuine movement — without
  * asking a software rasteriser to keep up with a stopwatch.
  */
+/**
+ * Answer the dialogue wheel the way a player has to.
+ *
+ * `MOTEL.pick` refuses while the character is still asking — the four answers
+ * are not on screen yet. This used to be invisible: `pick` returned nothing,
+ * the harness moved on believing it had answered, `dialogue` stayed set, and
+ * the knock's gate (which also read `!dialogue`) quietly stopped working, so
+ * Rico was never sent for and this verifier waited out a three-minute ceiling
+ * for a man nobody had knocked for. Both halves are fixed; this waits for the
+ * real gate and asserts the answer was taken.
+ */
+async function answerWheel(target, style, { timeout = 45000 } = {}) {
+  await target.waitForFunction(() => window.MOTEL.dialogue?.ready === true, null, { timeout, polling: 80 });
+  const taken = await target.evaluate((pick) => window.MOTEL.pick(pick), style);
+  if (!taken) throw new Error(`the wheel refused the "${style}" answer`);
+  await target.waitForFunction(() => window.MOTEL.dialogue === null, null, { timeout: 5000 });
+  return taken;
+}
+
+/** Wait until nobody in room twelve is mid-sentence. */
+async function waitQuiet(target, { timeout = 45000 } = {}) {
+  await target.waitForFunction(() => !window.MOTEL.voice.busy(), null, { timeout, polling: 80 })
+    .catch(() => { /* reported by whatever assertion comes next */ });
+}
+
 async function moveForward(target, { want = 0.6, timeout = 12000 } = {}) {
   const before = await target.evaluate(() => ({
     x: window.MOTEL.pos.x,
@@ -406,6 +431,37 @@ try {
     passengerSightline.length > 0 && passengerSightline[0].distance > 2,
     JSON.stringify(passengerSightline));
 
+  /* The scene's first line is Snow's, it is recorded, and it used to be
+   * decided silent before it was ever spoken: `init()` kicked off an index
+   * fetch and 167 parallel downloads, and the line was said in the same
+   * synchronous block, so `prepareVoice` found nothing decoded and returned
+   * silence every time. Measured on `e2d9e96`: at the frame the subtitle
+   * appeared, the only buffers that had ever started were three 1.5 s noise
+   * beds, and `voice.playing()` was false 1.5 s later. */
+  await previewPage.waitForFunction(
+    () => document.getElementById('subtitle')?.textContent.includes('Room twelve. Meat first'),
+    null,
+    { timeout: 45000 },
+  );
+  const openingVoice = await previewPage.evaluate(() => ({
+    cue: window.MOTEL.openingCue,
+    decoded: window.MOTEL.voiceReadyFor(window.MOTEL.openingCue),
+    played: window.MOTEL.voice.played.filter((entry) => entry.cue === window.MOTEL.openingCue),
+    subtitle: document.getElementById('subtitle').textContent,
+    /* Under the old code this line arrived four seconds before the wheel, from
+     * `startScene`, and the wheel then said the whole sentence again. */
+    node: window.MOTEL.dialogue?.nodeId ?? null,
+  }));
+  check("Snow's opening line is voiced, not just subtitled",
+    openingVoice.decoded
+      && openingVoice.played.length === 1
+      && openingVoice.played[0].duration > 0.5
+      && openingVoice.subtitle.includes('Room twelve. Meat first'),
+    JSON.stringify(openingVoice));
+  check('the briefing is delivered once, by the wheel that asks for an answer',
+    openingVoice.node === 'snowBrief' && openingVoice.played.length === 1,
+    JSON.stringify({ node: openingVoice.node, plays: openingVoice.played.length }));
+
   const revolverPresentation = await previewPage.evaluate(() => {
     const motel = window.MOTEL;
     motel.forceInteract('glovebox');
@@ -445,10 +501,8 @@ try {
     JSON.stringify(clerkSpawn));
   await capture(previewPage, 'after-car-first-person');
 
-  await previewPage.evaluate(() => {
-    window.MOTEL.pick('calm');
-    window.MOTEL.forceInteract('exitCar');
-  });
+  await answerWheel(previewPage, 'calm');
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('exitCar'));
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'lot');
 
   const friendlyGuardBefore = await previewPage.evaluate(() => {
@@ -652,27 +706,34 @@ try {
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-pool-layout');
 
+  /* Room twelve answers the door even when the player walked away from a
+   * conversation. This is the soft-lock that made the scene unfinishable and
+   * this verifier unrunnable: the wheel is deliberately not modal, so leaving
+   * the car mid-briefing left `dialogue` set forever, and the knock's own gate
+   * read `!dialogue`. Measured on `e2d9e96`: phase `lot`, wheel still up,
+   * `knock.enabled()` false, Rico never spawned, and nothing on screen to say
+   * why. The gate is the phase now, and getting out closes the wheel. */
+  const walkAwayGate = await previewPage.evaluate(() => {
+    const motel = window.MOTEL;
+    motel.talk('snowBrief');
+    const knock = motel.interactableList.find((entry) => entry.id === 'knock');
+    return { phase: motel.phase, dialogue: motel.dialogue, knockEnabled: !!knock.enabled() };
+  });
+  check('walking away from a conversation still leaves room twelve knockable',
+    walkAwayGate.phase === 'lot'
+      && walkAwayGate.dialogue?.nodeId === 'snowBrief'
+      && walkAwayGate.knockEnabled,
+    JSON.stringify(walkAwayGate));
+
   await previewPage.evaluate(() => window.MOTEL.forceInteract('knock'));
   /* Rico is spawned by a timer a second after the knock. Waiting for him
    * rather than for the clock keeps this honest on a slow renderer, where a
    * frame can outlast the timer and the old fixed sleep stepped into an empty
    * doorway. */
-  /* KNOWN FAILURE, and it predates the Commander: this wait never resolves,
-   * on this commit and on 8156788 before it, and raising the ceiling to three
-   * minutes does not help — Rico is never spawned at all.
-   *
-   * `forceInteract` runs an interaction only when its own `enabled()` agrees,
-   * and the knock's gate is `phase === 'lot' && !dialogue`. When the harness
-   * reaches here with Snow's opening wheel still up, or still in the `car`
-   * phase, the call returns `true` for "the interaction exists" and does
-   * nothing, so the knock never happens and this waits for a man who was
-   * never sent for. Diagnosing which of the two gates is open needs a
-   * instrumented run; leaving the ceiling low so it fails in twenty seconds
-   * rather than three minutes. */
   await previewPage.waitForFunction(
     () => window.MOTEL.actors.some((actor) => actor.name === 'Rico'),
     null,
-    { timeout: 20000 },
+    { timeout: 30000 },
   );
   check('knocking brings Rico to the door of room twelve',
     await previewPage.evaluate(() => window.MOTEL.phase === 'door'
@@ -699,13 +760,133 @@ try {
       && ricoPresentation.mouthOpen
       && ricoPresentation.talkRemaining > 0,
     JSON.stringify(ricoPresentation));
-  await previewPage.evaluate(() => {
-    window.MOTEL.S.doorOpened = true;
-    window.MOTEL.forceInteract('enterRoom');
-  });
+  /* Answer him for real rather than setting `doorOpened` by hand: the door
+   * opening is a consequence of a chosen line, and the objective that follows
+   * is the thing this scene keeps failing to deliver. */
+  await answerWheel(previewPage, 'calm');
+  await previewPage.waitForFunction(
+    () => window.MOTEL.S.doorOpened && window.MOTEL.objective.sub.includes('Step inside'),
+    null,
+    { timeout: 45000 },
+  );
+  const doorObjective = await previewPage.evaluate(() => window.MOTEL.objective);
+  check('answering at the door opens it and says, in words, to go in',
+    doorObjective.sub.includes('Step inside') && doorObjective.sub.includes('[E]'),
+    JSON.stringify(doorObjective));
+
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('enterRoom'));
   await previewPage.waitForFunction(() => window.MOTEL.phase === 'room');
   await previewPage.waitForTimeout(180);
   await capture(previewPage, 'after-room-first-person');
+
+  /* ---- the transaction, step by step ----
+   *
+   * Three objects with three owners: their sample, their case of eight, your
+   * forty thousand. The owner's report was "the sample is on the bed, or do i
+   * need to put my sample on the table?" — the scene had four different nouns
+   * for those three things and never said whose was whose. Every step below
+   * asserts that the HUD names the object, the owner and the button. */
+  await previewPage.waitForFunction(() => window.MOTEL.S.sampleOut, null, { timeout: 60000 });
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'sample', null, { timeout: 45000 });
+  const sampleStep = await previewPage.evaluate(() => ({
+    deal: window.MOTEL.deal,
+    objective: window.MOTEL.objective,
+  }));
+  check('step one names their sample, the table and the button',
+    sampleStep.deal.step === 'sample'
+      && sampleStep.objective.id === 'inspect'
+      && /their sample/i.test(sampleStep.objective.title)
+      && sampleStep.objective.sub.includes('[E]')
+      && sampleStep.deal.board?.yours.includes('$40,000')
+      && sampleStep.deal.board.order === 'Meat first. Money second.',
+    JSON.stringify(sampleStep));
+
+  /* Rico pushes the money back once if nothing has been checked. Meat first is
+   * the rule of the room and a character says it, rather than the game simply
+   * refusing the button with no explanation. */
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('placeMoney'));
+  await previewPage.waitForFunction(
+    () => document.getElementById('subtitle').textContent.includes('Meat first. Money second.'),
+    null,
+    { timeout: 30000 },
+  );
+  const refused = await previewPage.evaluate(() => ({
+    onTable: window.MOTEL.S.moneyOnTable,
+    refused: window.MOTEL.S.payRefused,
+    subtitle: document.getElementById('subtitle').textContent,
+  }));
+  check('paying before checking is refused out loud, by Rico, not by a dead button',
+    !refused.onTable && refused.refused && refused.subtitle.includes('Rico'),
+    JSON.stringify(refused));
+
+  await waitQuiet(previewPage);
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('sample'));
+  await previewPage.evaluate(() => window.MOTEL.inspect(window.MOTEL.inspection.available()[0].id));
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'count', null, { timeout: 60000 });
+  const countStep = await previewPage.evaluate(() => ({
+    deal: window.MOTEL.deal,
+    objective: window.MOTEL.objective,
+    label: window.MOTEL.interactableList.find((entry) => entry.id === 'jerkyCase').label(),
+  }));
+  check('checking the sample moves the deal on to counting their case of eight',
+    countStep.deal.sampleChecked
+      && countStep.deal.step === 'count'
+      && countStep.objective.id === 'count'
+      && /their case of eight/i.test(countStep.objective.title)
+      && /count their case of eight/i.test(countStep.label),
+    JSON.stringify(countStep));
+
+  /* "i keep repeating 8 packages line". The count had no gate at all, so every
+   * [E] at the case said the same sentence again and stacked six suspicion and
+   * eight read on top each time — and the case sits next to the table, so it
+   * was hit by accident constantly. */
+  const beforeCount = await previewPage.evaluate(() => ({ heat: window.MOTEL.S.heat }));
+  await previewPage.evaluate(() => {
+    for (let i = 0; i < 5; i++) window.MOTEL.forceInteract('jerkyCase');
+  });
+  await previewPage.waitForTimeout(400);
+  const counted = await previewPage.evaluate(() => ({
+    counted: window.MOTEL.S.packagesCounted,
+    heat: window.MOTEL.S.heat,
+    countLines: window.MOTEL.voice.played.filter((entry) => entry.cue
+      === window.MOTEL.voice.cueForLine('Prospect', 'Eight packages. Numbered labels. Seals all intact.')
+      || entry.cue === window.MOTEL.voice.cueForLine('Prospect', 'Eight packages. Numbered labels. Two of these seals have been opened and re-pressed.')).length,
+    label: window.MOTEL.interactableList.find((entry) => entry.id === 'jerkyCase').label(),
+  }));
+  check('the eight packages are counted once, however many times [E] is pressed',
+    counted.counted
+      && counted.countLines <= 1
+      && counted.heat - beforeCount.heat <= 7
+      && /counted/i.test(counted.label),
+    JSON.stringify({ beforeCount, ...counted }));
+
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'pay', null, { timeout: 60000 });
+  const payStep = await previewPage.evaluate(() => ({
+    deal: window.MOTEL.deal,
+    objective: window.MOTEL.objective,
+    label: window.MOTEL.interactableList.find((entry) => entry.id === 'placeMoney').label(),
+  }));
+  check('counting moves the deal on to your case, and says whose it is',
+    payStep.deal.step === 'pay'
+      && payStep.objective.id === 'payment'
+      && /your case/i.test(payStep.objective.title)
+      && /put your case on the table/i.test(payStep.label)
+      && payStep.deal.board?.theirs.includes('eight counted'),
+    JSON.stringify(payStep));
+
+  await previewPage.evaluate(() => window.MOTEL.forceInteract('placeMoney'));
+  await previewPage.waitForFunction(() => window.MOTEL.deal.step === 'open', null, { timeout: 60000 });
+  const openStep = await previewPage.evaluate(() => ({
+    deal: window.MOTEL.deal,
+    objective: window.MOTEL.objective,
+    label: window.MOTEL.interactableList.find((entry) => entry.id === 'placeMoney').label(),
+  }));
+  check('with the money down, the last step says what opening it costs',
+    openStep.deal.moneyOnTable
+      && openStep.deal.step === 'open'
+      && /open your case/i.test(openStep.label)
+      && /nothing you have not checked/i.test(openStep.objective.sub),
+    JSON.stringify(openStep));
 
   const roomSpawns = await previewPage.evaluate(() => {
     const motel = window.MOTEL;

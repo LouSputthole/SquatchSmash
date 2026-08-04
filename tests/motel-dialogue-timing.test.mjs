@@ -41,8 +41,16 @@ test('Motel choices cannot interrupt the line that asks the question', () => {
   const end = source.indexOf('// ---------- Inspection', start);
   const body = source.slice(start, end);
   assert.match(body, /dialogue\.readyAt/);
-  assert.match(body, /if \(performance\.now\(\) < dialogue\.readyAt\) return;/);
+  /* The gate is named now and it is the only way in: `pickDialogue` asks
+   * `dialogueReady()`, and `MOTEL.pick` returns whether the answer was taken
+   * so a harness cannot believe it answered when the wheel refused it. */
+  assert.match(body, /function dialogueReady\(\) \{\s*\n\s*return !!dialogue && performance\.now\(\) >= dialogue\.readyAt;/);
+  assert.match(body, /function pickDialogue\(style\) \{\s*\n\s*if \(!dialogueReady\(\)\) return false;/);
   assert.match(body, /b\.disabled = true/);
+  /* The four answers are the instruction, so they are not on screen while the
+   * character is still asking — the tone doctrine's rule, in CSS. */
+  assert.match(body, /wheelEl\.classList\.add\('pending'\)/);
+  assert.match(body, /wheelEl\.classList\.remove\('pending'\)/);
 });
 
 test('Motel character follow-ups are chained from resolved line holds', () => {
@@ -53,14 +61,12 @@ test('Motel character follow-ups are chained from resolved line holds', () => {
   };
 
   for (const [name, body] of [
-    ['arrival briefing', section('function startScene(', 'function finishScene(')],
-    ['package count', section("id: 'jerkyCase'", "id: 'placeMoney'")],
+    ['package count', section("id: 'jerkyCase'", "/* YOUR case.")],
     ['bathroom warning', section("id: 'bathDoorCheck'", "id: 'windowSignal'")],
     ['dialogue choice', section('function pickDialogue(', '// ---------- Inspection')],
     ['inspection banter', section('function closeInspection(', 'function renderInspection(')],
     ['betrayal reveal', section('function maybeBetray(', 'function snowJoins(')],
     ['Snow crowbar throw', section('function snowJoins(', '// ---------- Combat')],
-    ['getaway boarding', section('function boardGetaway(', '// ---------- Doors')],
     ['quality check', section('// Snow helps himself to the evidence', 'if (S.windowBroken)')],
   ]) {
     assert.match(body, /afterLine\(/, `${name} must wait on the preceding line`);
@@ -68,4 +74,52 @@ test('Motel character follow-ups are chained from resolved line holds', () => {
 
   const directTimedSpeech = [...source.matchAll(/setTimeout\(\s*\(\)\s*=>\s*say\(/g)];
   assert.deepEqual(directTimedSpeech.map((match) => match[0]), []);
+});
+
+test('the two wheel prompts are spoken once, by the wheel that asks for an answer', () => {
+  const source = fs.readFileSync(new URL('../src/motel/main.js', import.meta.url), 'utf8');
+  const section = (start, end) => {
+    const from = source.indexOf(start);
+    return source.slice(from, source.indexOf(end, from));
+  };
+  const opening = section('function startScene(', 'function finishScene(');
+  const boarding = section('function boardGetaway(', '// ---------- Doors');
+
+  /* `snowBrief` and `getaway` both had their prompt spoken by the scene and
+   * then spoken again by the wheel four seconds later, so the first and last
+   * beats of the Motel were a man repeating himself over an unchanged
+   * subtitle. Only the wheel says them now. */
+  assert.doesNotMatch(opening, /say\(ALLY, 'Room twelve\./);
+  assert.doesNotMatch(boarding, /say\(ALLY, 'Tell me that was worth it\./);
+  assert.match(opening, /openDialogue\('snowBrief'\)/);
+  assert.match(boarding, /openDialogue\('getaway'\)/);
+
+  /* And the opening waits for Snow's take to decode rather than losing a race
+   * with its own download and reading as an unrecorded line. */
+  assert.match(opening, /primeMotelVoice\(\[OPENING_CUE\]/);
+  assert.match(source, /sfx\.init\(\{ priorityVoice: \[OPENING_CUE\] \}\)/);
+});
+
+test('the Motel deal is one step machine, and the HUD only follows a character', () => {
+  const source = fs.readFileSync(new URL('../src/motel/main.js', import.meta.url), 'utf8');
+
+  /* One place decides what room twelve is asking for. Every previous pass at
+   * this scene patched an individual line while eight call sites each set the
+   * objective to their own idea of the next thing. */
+  assert.match(source, /function dealStepNow\(\)/);
+  assert.match(source, /function advanceDeal\(\{ announce = null \} = \{\}\)/);
+  for (const step of ['sample', 'count', 'pay', 'open']) {
+    assert.match(source, new RegExp(`^\\s{2}${step}: \\{`, 'm'), `${step} has a HUD row`);
+  }
+
+  /* The instruction never lands on the same frame as the line that earns it. */
+  assert.match(source, /function sayThenInstruct\(who, line, seconds, instruct\)/);
+  const announce = source.slice(source.indexOf('function advanceDeal('), source.indexOf('function renderDealBoard('));
+  assert.match(announce, /sayThenInstruct\(announce\[0\], announce\[1\], announce\[2\] \?\? 3\.4, apply\)/);
+
+  /* Counting their case is a step, and it happens once. Pressing [E] at it
+   * used to repeat the same sentence and add six suspicion every time. */
+  const count = source.slice(source.indexOf("id: 'jerkyCase'"), source.indexOf('/* YOUR case.'));
+  assert.match(count, /if \(S\.packagesCounted\) \{/);
+  assert.match(count, /S\.packagesCounted = true;/);
 });

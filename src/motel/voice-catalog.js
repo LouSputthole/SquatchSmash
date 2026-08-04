@@ -39,6 +39,14 @@ export const MOTEL_STORY_LINES = Object.freeze([
   ['Prospect', 'Eight packages. Numbered labels. Seals all intact.'],
   ['Prospect', 'Eight packages. Numbered labels. Two of these seals have been opened and re-pressed.'],
   ['Rico', 'There it is. Now we are all friends with a table between us.'],
+  /* The transaction, said out loud. Room twelve names what it wants at every
+   * step instead of leaving it to the HUD. */
+  ['Rico', 'Satisfied? The case is right there. Eight of them. Count it.'],
+  ['Rico', 'Now the other half. On the table, where I can see it.'],
+  ['Rico', 'Meat first. Money second. That is how this works.'],
+  ['Chino', 'He is buying it blind. Rico. He is buying it blind.'],
+  ['Prospect', 'Eight in their case. One on the table. Neither of them is mine yet.'],
+  ['Prospect', 'Their case is on the far bed now. That is not where a deal happens.'],
   ['Prospect', 'There is a man breathing in your bathroom, Rico.'],
   ['Prospect', 'Motel lamp. Heavier than it looks.'],
   ['Prospect', 'Wear it.'],

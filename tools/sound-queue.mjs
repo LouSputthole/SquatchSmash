@@ -263,7 +263,8 @@ function sourceCues() {
 const NON_AUDIO_EXPORTS = new Set([
   'init', 'resume', 'setMuted', 'isMuted', 'setMusic', 'stopMusic', 'startMusic',
   'startAmbience', 'stopAmbience', 'setTension', 'shutdown',
-  'voice', 'voiceBusy', 'voiceCoverage', 'voiceRequested',
+  'voice', 'voiceBusy', 'voiceCoverage', 'voiceRequested', 'voicePlayed', 'voiceReady',
+  'prepareVoice', 'primeVoice', 'stopVoice',
   'setEngineSpeed', 'stopEngine',
 ]);
 
