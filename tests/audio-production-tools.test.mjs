@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { buildAudioTodo, normalizeAudioTodo } from '../tools/audio-todo-lib.mjs';
 import { voiceProfileFor } from '../src/core/characters.js';
-import { HEIST_DIALOGUE } from '../src/heist/script.js';
+import { ALL_HEIST_DIALOGUE } from '../src/heist/script.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -267,11 +267,21 @@ test('every THE TAKE spoken line has exact text and role-specific casting in the
     'Bank Customer': 'heist-customer',
     'Bank Manager': 'heist-manager',
     'Big Uncle Lou': 'lou',
+    /* She has one line and there is no `heist-teller` profile to give her, so
+     * she shares the customer voice. Casting her properly needs a voice id and
+     * is the owner's call; this table is deliberately spelled out rather than
+     * imported from tools/heist-vo.mjs so the tool cannot certify itself. */
+    Teller: 'heist-customer',
   };
 
-  assert.equal(byName.size, Object.keys(HEIST_DIALOGUE).length,
+  /* Both banks. The scene keeps its lines in two -- recorded, and authored but
+   * not yet recorded -- and for a long time only the first had manifest cues
+   * at all, which is precisely how 55 written lines stayed invisible to the
+   * recording sheet. Asserting against the recorded bank alone would restore
+   * that blind spot. */
+  assert.equal(byName.size, Object.keys(ALL_HEIST_DIALOGUE).length,
     'THE TAKE manifest must not contain missing, duplicate, or retired spoken cues');
-  for (const line of Object.values(HEIST_DIALOGUE)) {
+  for (const line of Object.values(ALL_HEIST_DIALOGUE)) {
     const cue = byName.get(line.cue);
     assert.ok(cue, `${line.cue} must be recordable from the shared manifest`);
     assert.equal(cue.say, line.text, `${line.cue} text must match the playable subtitle exactly`);

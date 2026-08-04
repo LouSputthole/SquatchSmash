@@ -23,7 +23,13 @@ import {
   collectEnolaSquatchVoiceCues,
   syncEnolaSquatchVoiceManifest,
 } from '../tools/enolasquatch-vo.mjs';
+import {
+  checkHeistVoiceManifest,
+  collectHeistVoiceCues,
+  syncHeistVoiceManifest,
+} from '../tools/heist-vo.mjs';
 import { SEQUENCES } from '../src/silvercase/dialogue/script.js';
+import { ALL_HEIST_DIALOGUE, HEIST_PENDING_DIALOGUE } from '../src/heist/script.js';
 import {
   RELEASE_LINES, releaseCueOf, allEnolaSquatchLines,
 } from '../src/enolasquatch/dialogue/script.js';
@@ -176,6 +182,71 @@ test('Enola Squatch sync is pure and its check catches drift', () => {
   assert.match(failures, /missing cue/);
   assert.match(failures, /drifted cue/);
   assert.match(failures, /stale cue/);
+});
+
+/* ---------------- THE TAKE ---------------- */
+
+test('every line the heist script names is in the ledger, including the pending bank', () => {
+  const cues = collectHeistVoiceCues();
+  /* The failure this guards is exactly the one at the top of this file, and
+   * the heist had it worse than either scene above: 112 lines written, 57 in
+   * the manifest. The other 55 -- eleven of Lou's fourteen, and every word a
+   * hostage says when a rifle comes up -- were parked in a second bank waiting
+   * on a tool that did not exist, so nothing counted them and nobody knew.
+   * A floor, not a snapshot: the subject is "does the collector walk BOTH
+   * banks", and a script that has lost lines still fails. */
+  assert.ok(cues.length >= 112, `the heist has lost lines: ${cues.length}`);
+  assert.equal(cues.length, Object.keys(ALL_HEIST_DIALOGUE).length);
+  assert.equal(new Set(cues.map((cue) => cue.name)).size, cues.length, 'two lines share one recording');
+  assert.equal(cues.every((cue) => cue.name.startsWith('heist.') && cue.voice && cue.say), true);
+
+  const names = new Set(cues.map((cue) => cue.name));
+  for (const entry of Object.values(HEIST_PENDING_DIALOGUE)) {
+    assert.ok(names.has(entry.cue), `${entry.id} is authored but not collectable`);
+  }
+});
+
+test('the heist tool owns its dialogue and leaves its 46 sound effects alone', () => {
+  /* `heist.` names both the dialogue and the effects, so this is the one
+   * generator that cannot filter by prefix. If it ever did, a rebuild would
+   * delete heist.bank.alarm and every other effect in the scene. */
+  const original = { sfx: [
+    { name: 'heist.bank.alarm', prompt: 'an alarm' },
+    { name: 'heist.map.paper', prompt: 'paper' },
+  ] };
+  const snapshot = structuredClone(original);
+  const synced = syncHeistVoiceManifest(original);
+  assert.deepEqual(original, snapshot, 'sync must not mutate its input');
+  assert.deepEqual(checkHeistVoiceManifest(synced), []);
+  for (const effect of ['heist.bank.alarm', 'heist.map.paper']) {
+    assert.ok(synced.sfx.some((cue) => cue.name === effect && cue.prompt),
+      `${effect} was eaten by the dialogue rebuild`);
+  }
+});
+
+test('the bank\'s own people are cast, and the two Lous stay apart', () => {
+  const voices = new Set(Object.keys(manifest.voices || {}));
+  const byName = new Map(collectHeistVoiceCues().map((cue) => [cue.name, cue]));
+  for (const cue of byName.values()) {
+    assert.ok(voices.has(cue.voice), `${cue.name} is cast as "${cue.voice}", which is not a voice profile`);
+  }
+  /* A hostage begging is a person, not an unvoiced prop. `npcLine` derives its
+   * speakerId from the cue id, so every one of them arrives as 'hostage' and
+   * has to be cast off the subtitle name instead. */
+  assert.equal(byName.get('heist.hostage_plead_one').voice, 'heist-customer');
+  assert.equal(byName.get('heist.guard_warning').voice, 'heist-guard');
+  /* The heist casts Big Uncle Lou on `lou`, which is a different profile from
+   * `lou1` and a very different man from `lou2`. Landing 13 new cues for him
+   * must not quietly re-cast the one that was already recorded. */
+  assert.equal(byName.get('heist.lou_call').voice, 'lou');
+  const lou = [...byName.values()].filter((cue) => cue.voice === 'lou');
+  assert.ok(lou.length >= 14, `Lou is only cast on ${lou.length} lines`);
+  assert.equal([...byName.values()].some((cue) => cue.voice === 'lou2'), false,
+    'Captain Lou Sasole is not in this bank');
+});
+
+test('the committed manifest is in sync with the heist script', () => {
+  assert.deepEqual(checkHeistVoiceManifest(manifest), []);
 });
 
 /* ---------------- both, in the manifest and on the sheet ---------------- */

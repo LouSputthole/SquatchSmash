@@ -171,15 +171,19 @@ export const HEIST_DIALOGUE = Object.freeze({
 });
 
 /**
- * Lines written for this pass, waiting on a cue in `assets/sfx/manifest.json`.
+ * Lines that are authored and played but not yet recorded.
  *
- * Kept in a second bank on purpose. `tools/check.mjs` requires every entry in
- * `HEIST_DIALOGUE` to have a manifest cue, and the manifest is generated
- * centrally — so a line added straight into the first bank would fail the gate
- * before anybody could record it. Everything here is authored, wired and
- * played; `dialogue.onStart` only reaches for audio when `audio.hasSample()`
- * agrees, so an unrecorded line is subtitled and silent rather than broken.
- * Move an entry up into `HEIST_DIALOGUE` the moment its cue lands.
+ * These have manifest cues now — `tools/heist-vo.mjs` mints them, and
+ * `npm run vo:sync` runs it — so this bank no longer means "waiting on a cue".
+ * It means waiting on a take. That distinction is still worth keeping in the
+ * code because `main.js` splits the audio preload on it: the recorded bank is
+ * on the critical path and this one is not, and asking the loader for 55 files
+ * that do not exist is work with no sound at the end of it.
+ *
+ * Everything here is authored, wired and played; `dialogue.onStart` only
+ * reaches for audio when `audio.hasSample()` agrees, so an unrecorded line is
+ * subtitled and silent rather than broken. Move an entry up into
+ * `HEIST_DIALOGUE` when its recording lands in `assets/sfx/index.json`.
  *
  * ## Tone
  *
