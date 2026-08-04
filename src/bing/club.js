@@ -2278,17 +2278,22 @@ export function buildClub(scene, { renderer } = {}) {
      *   bing.office.shore      AT THE SHORE     behind the desk, over Lou
      *   bing.office.bing_1979  THE BING 1979    the one the safe is behind
      */
-    for (const [i, pz, slot] of [
+    for (const [i, pz, slot, py = 1.9] of [
       [1, O.z0 + 3.78, 'bing.office.nephews'],
       [2, O.z0 + 4.4, 'bing.office.old_place'],
-      /* Two more on the same run, at the same pitch, so the door wall reads as
-       * a family wall rather than two pictures and a gap. Same drawn-until-
-       * delivered rule as the rest. */
-      [3, O.z0 + 5.02, 'bing.office.the_boys'],
-      [4, O.z0 + 5.64, 'bing.office.first_truck'],
+      /* A second row above the first two rather than a longer single run.
+       *
+       * Further along the same wall runs into the door's glazing, and the
+       * stretch that is left is what THE NEPHEWS is deliberately held clear
+       * of. Stacking is also just what this wall is — a man who has been
+       * hanging family photographs in the same office for thirty years fills
+       * it upward. Kept above 2.1m so the two-photograph row underneath stays
+       * the row verify-bing measures the door clearance against. */
+      [3, O.z0 + 3.78, 'bing.office.the_boys', 2.30],
+      [4, O.z0 + 4.4, 'bing.office.first_truck', 2.30],
     ]) {
       const pic = makeFrame(M, {
-        x: 7.926, y: 1.9, z: pz, rotY: Math.PI / 2, w: 0.34, h: 0.26,
+        x: 7.926, y: py, z: pz, rotY: Math.PI / 2, w: 0.34, h: 0.26,
         texture: printed(`lou-family${i}`, [
           ['SUNDAY', 'AT THE SHORE'], ['THE NEPHEWS'], ['THE OLD PLACE'],
           ['THE BOYS'], ['THE FIRST TRUCK'],
