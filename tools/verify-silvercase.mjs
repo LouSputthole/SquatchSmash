@@ -18,6 +18,9 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { APE_FAMILY_MEMBER } from '../src/bing/family-ape.js';
+import { CHARACTER_IDS } from '../src/core/campaign.js';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5223;
 const TYPES = {
@@ -144,6 +147,69 @@ async function domOverlay(id) {
   }, id);
 }
 
+/**
+ * Mean luminance of what is actually on screen, 0..1.
+ *
+ * The car ride shipped rendering as a black rectangle — the rig built no
+ * lights of its own and main.js's stand-in was about one candela, so the beat
+ * that opens the mission showed nothing at all. No amount of state
+ * introspection catches that, so this reads the framebuffer: render, then
+ * scale the WebGL canvas into a 2D one and average it, synchronously in the
+ * same task so the drawing buffer has not been cleared for compositing yet.
+ */
+async function screenLuminance() {
+  return page.evaluate(() => {
+    const sc = window.silvercase;
+    sc.renderer.render(sc.scene, sc.camera);
+    const src = sc.renderer.domElement;
+    const c = document.createElement('canvas');
+    c.width = 80;
+    c.height = 45;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    g.drawImage(src, 0, 0, c.width, c.height);
+    const { data } = g.getImageData(0, 0, c.width, c.height);
+    let sum = 0;
+    let lit = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const l = (data[i] * 0.2126 + data[i + 1] * 0.7152 + data[i + 2] * 0.0722) / 255;
+      sum += l;
+      if (l > 0.06) lit += 1;
+    }
+    const pixels = data.length / 4;
+    return { mean: +(sum / pixels).toFixed(4), litFraction: +(lit / pixels).toFixed(3) };
+  });
+}
+
+/** World-space bounding box of a cast member's figure. */
+async function actorBounds(name) {
+  return page.evaluate(async (name) => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const group = window.silvercase.cast[name].group;
+    const wasVisible = group.visible;
+    group.visible = true;
+    group.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(group);
+    group.visible = wasVisible;
+    return {
+      min: box.min.toArray().map((n) => +n.toFixed(3)),
+      max: box.max.toArray().map((n) => +n.toFixed(3)),
+    };
+  }, name);
+}
+
+async function hotbar() {
+  return page.evaluate(() => {
+    const el = document.getElementById('hotbar');
+    if (!el) return { present: false };
+    return {
+      present: true,
+      hidden: el.classList.contains('hidden'),
+      slots: el.children.length,
+      labels: [...el.children].map((slot) => slot.title),
+    };
+  });
+}
+
 try {
   await page.goto(`http://localhost:${PORT}/silvercase.html`, { waitUntil: 'load' });
   await page.waitForFunction(() => window.silvercase?.fsm, null, { timeout: 60000 });
@@ -169,6 +235,59 @@ try {
       && carRide.mode === 'seated'
       && carRide.cueLog[0] === 'vo.silvercase.car.ape.pitch',
     JSON.stringify(carRide));
+
+  // ---- The car ride is a picture, not a black screen. ------------------
+  const carLight = await screenLuminance();
+  check('the car ride actually renders a lit cabin rather than a black screen',
+    carLight.mean > 0.02 && carLight.litFraction > 0.3,
+    JSON.stringify(carLight));
+
+  const carRig = await page.evaluate(() => {
+    const car = window.silvercase.car;
+    const lights = [];
+    car.root.traverse((o) => { if (o.isLight) lights.push(o.type); });
+    return {
+      lights,
+      apeId: car.ape.characterId,
+      apeHeight: +(car.ape.parts.heightScale * 1.78).toFixed(3),
+      visible: car.root.visible,
+    };
+  });
+  check('the car rig owns its own lighting and the same Ape who is in the apartment',
+    carRig.visible && carRig.lights.length >= 3
+      && carRig.apeId === 'ape' && Math.abs(carRig.apeHeight - 1.88) < 0.01,
+    JSON.stringify(carRig));
+
+  // ---- Ape's identity is the campaign's, not a local lookalike. ---------
+  check('Ape is the canonical campaign character, with the Bing model and face',
+    carRide.state.ape.characterId === APE_FAMILY_MEMBER.id
+      && carRide.state.ape.characterId === CHARACTER_IDS.APE
+      && carRide.state.ape.family === true
+      && carRide.state.ape.face === 'assets/faces/ape.png'
+      && JSON.stringify(carRide.state.ape.model)
+        === JSON.stringify({ ...APE_FAMILY_MEMBER.model, face: 'assets/faces/ape.png' }),
+    JSON.stringify(carRide.state.ape));
+
+  // ---- Everybody is a person-sized person. -----------------------------
+  const CEILING = 2.6;
+  const scaleReport = {};
+  let scaleOk = true;
+  for (const [name, actor] of Object.entries(carRide.state.actors)) {
+    const bounds = await actorBounds(name);
+    const tall = actor.height >= 1.6 && actor.height <= 1.95;
+    const fits = bounds.max[1] < CEILING - 0.4;
+    const grounded = bounds.min[1] > -0.15;
+    scaleReport[name] = { height: actor.height, top: bounds.max[1], bottom: bounds.min[1] };
+    if (!tall || !fits || !grounded) scaleOk = false;
+  }
+  check('every figure is a real human height and clears the 2.6 m ceiling',
+    scaleOk, JSON.stringify(scaleReport));
+
+  // ---- The inventory bar is the shared one every other scene mounts. ----
+  const barAtStart = await hotbar();
+  check('the shared five-slot inventory bar is mounted and visible',
+    barAtStart.present && barAtStart.hidden === false && barAtStart.slots === 5,
+    JSON.stringify(barAtStart));
 
   // ---- CAR_RIDE -> ARRIVE_HALLWAY (debug go(), same as every jump below) -
   let arrive = await go('ARRIVE_HALLWAY');
@@ -244,15 +363,83 @@ try {
     caseReveal.beat === 'CASE_REVEAL' && caseOcclusionAfter === false,
     JSON.stringify({ caseReveal, caseOcclusionAfter }));
 
+  // ---- The case is open for exactly one beat — the one that confirms what
+  // is in it — and is shut and latched for the rest of the mission.
+  //
+  // Played out in full rather than jumped, because the point of the check is
+  // the SHAPE of the beat: the lid comes up, the contents are confirmed, and
+  // the lid goes back down before the mission moves on. Peak openness is
+  // sampled every step so an open that never happened and an open that never
+  // closed are both caught. ------------------------------------------------
+  const caseArc = await page.evaluate(() => {
+    const sc = window.silvercase;
+    let peak = 0;
+    let steps = 0;
+    while (sc.fsm.name === 'CASE_REVEAL' && steps < 600) {
+      sc.tick(0.05);
+      peak = Math.max(peak, sc.state().case.openness);
+      steps += 1;
+    }
+    for (let i = 0; i < 60; i++) sc.tick(0.05); // let the lid ease home
+    return { peak: +peak.toFixed(3), steps, state: sc.state() };
+  });
+  check('the case opens for the confirmation beat and is shut again afterwards',
+    caseArc.peak > 0.7
+      && caseArc.state.beat === 'COUCH_SHOOTING'
+      && caseArc.state.case.shut === true
+      && caseArc.state.case.openness === 0,
+    JSON.stringify({ peak: caseArc.peak, beat: caseArc.state.beat, case: caseArc.state.case }));
+
   // ---- COUCH_SHOOTING: no countdown, the player's own left click decides. -
   let couch = await go('COUCH_SHOOTING');
   check('COUCH_SHOOTING starts with Deke still alive', couch.beat === 'COUCH_SHOOTING' && couch.actors.deke.alive,
     JSON.stringify(couch.actors.deke));
+
+  // Ape has just said "go ahead", so Tony has the gun in his hands — the
+  // same big revolver the man in the bathroom is holding.
+  const armed = await page.evaluate(() => {
+    window.silvercase.tick(0.5);
+    const sc = window.silvercase;
+    return {
+      state: sc.state(),
+      viewModelInCamera: sc.camera.children.includes(sc.viewModel.group),
+      gunParts: (() => {
+        const names = [];
+        sc.viewModel.gun.traverse((o) => { if (o.name) names.push(o.name); });
+        return names;
+      })(),
+    };
+  });
+  const barArmed = await hotbar();
+  check('Ape’s order puts the big revolver in Tony’s hands and on the inventory bar',
+    armed.state.weapon.drawn && armed.state.weapon.visible && armed.viewModelInCamera
+      && armed.gunParts.includes('big-revolver')
+      && barArmed.labels[0] === 'Big revolver · drawn',
+    JSON.stringify({ weapon: armed.state.weapon, gun: armed.gunParts[0], bar: barArmed.labels[0] }));
+
+  const dekeSeated = await actorBounds('deke');
   await page.evaluate(() => window.silvercase.pressFire());
   let afterCouchShot = await tickUntil('beat:LOU_QUESTION');
   check('firing on the couch kills Deke and the aftermath line advances to LOU_QUESTION',
     afterCouchShot.met && !afterCouchShot.state.actors.deke.alive,
     JSON.stringify(afterCouchShot));
+
+  // ---- The body stays on the couch. ------------------------------------
+  // The couch's own footprint, straight out of ApartmentScene (x 6.925…9.075,
+  // z 1.76…2.64, seat top 0.54). A corpse that sinks through to the floor or
+  // slides off the front fails this; whether it STAYS there is checked again
+  // at the far end of the mission, once several minutes of story have run.
+  // (Nothing long is ticked here on purpose: the Lou question's own choice
+  // timeout is six seconds and burning the clock would skip the beat.)
+  const COUCH_BOX = { x0: 6.9, x1: 9.1, z0: 1.7, z1: 2.7 };
+  const dekeSettled = await actorBounds('deke');
+  const dekeSettledAt = (await page.evaluate(() => window.silvercase.state())).actors.deke;
+  const onTheCouch = dekeSettled.min[0] > COUCH_BOX.x0 && dekeSettled.max[0] < COUCH_BOX.x1
+    && dekeSettled.min[2] > COUCH_BOX.z0 - 0.5 && dekeSettled.max[2] < COUCH_BOX.z1
+    && dekeSettled.max[1] > 0.6 && dekeSettled.min[1] > -0.15;
+  check('the man shot on the couch slumps onto the couch instead of the floor',
+    onTheCouch && dekeSettledAt.seated === true && dekeSettledAt.alive === false,
+    JSON.stringify({ before: dekeSeated, settled: dekeSettled }));
 
   // ---- LOU_QUESTION: let the setup lines drain, then pick the option that
   // irritates Ape ("Depends on the lighting.") via the real 1-4 key path.
@@ -282,6 +469,27 @@ try {
       && !afterPrayer.state.actors.chester.alive
       && afterPrayer.state.reactionWindow.state === 'armed',
     JSON.stringify(afterPrayer));
+
+  // ---- The bathroom man is holding the big revolver, and the door he came
+  // through is off the latch rather than still standing in his way. --------
+  const ambushStaging = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const gun = sc.cast.pruitt.weapon;
+    const parents = [];
+    let node = gun.parent;
+    while (node && parents.length < 6) { parents.push(node.name || node.type); node = node.parent; }
+    return {
+      armed: Boolean(gun),
+      gunName: gun?.name,
+      inHand: parents.includes('forearm'),
+      revealed: sc.cast.pruitt.group.visible,
+      bathDoorOpen: sc.apartment.doors.bathroomDoor.isOpen(),
+    };
+  });
+  check('the bathroom man comes through an open door with the big revolver in hand',
+    ambushStaging.armed && ambushStaging.gunName === 'big-revolver'
+      && ambushStaging.inHand && ambushStaging.revealed && ambushStaging.bathDoorOpen,
+    JSON.stringify(ambushStaging));
 
   // ---- BATHROOM_AMBUSH, slow/no-fire path: let Pruitt's reaction window
   // expire untouched. Ape's death here is a direct, scripted kill() call from
@@ -341,6 +549,52 @@ try {
   check('sparing Winston keeps him alive and moves the mission to PICK_UP_CASE',
     afterAftermath.met && afterAftermath.state.actors.winston.alive,
     JSON.stringify(afterAftermath));
+
+  // ---- Every body from every earlier beat is still exactly where it died.
+  // Minutes of mission time have passed since the couch — the Lou question,
+  // the prayer, a failed run, a retry, the ambush and the aftermath — so if
+  // anything were still creeping, this is where it would show. --------------
+  const chesterRest = await actorBounds('chester');
+  const pruittRest = await actorBounds('pruitt');
+  const dekeMuchLater = await actorBounds('deke');
+  const bodiesNow = (await page.evaluate(() => window.silvercase.state())).actors;
+  check('every body is still exactly where it fell, minutes later',
+    JSON.stringify(dekeMuchLater) === JSON.stringify(dekeSettled)
+      && bodiesNow.chester.alive === false && chesterRest.max[1] > 0.6 && chesterRest.min[1] > -0.2
+      && Math.abs(bodiesNow.chester.at.x - 8) < 0.35
+      && bodiesNow.pruitt.alive === false && pruittRest.max[1] < 0.9 && pruittRest.min[1] > -0.2,
+    JSON.stringify({ deke: dekeMuchLater, chester: chesterRest, pruitt: pruittRest }));
+
+  // ---- Picking the case up: the real E interaction, aimed at the real hit
+  // box. The look-at raycast reads the camera's world matrix from the last
+  // rendered frame, so the pose has to be set, a frame allowed to happen, and
+  // only then the key pressed — exactly the order a player does it in. ------
+  await page.evaluate(() => {
+    const p = window.silvercase.player;
+    p.position.set(9.6, 1.66, 2.5);
+    p.yaw = 0;
+    p.pitch = -Math.atan2(1.46, 0.85);
+  });
+  await page.waitForTimeout(150);
+  const promptOnCase = await page.evaluate(() => {
+    window.silvercase.tick(0.1);
+    return document.getElementById('promptText').textContent;
+  });
+  await page.evaluate(() => {
+    window.silvercase.interactions.press();
+    window.silvercase.interactions.release();
+    window.silvercase.tick(1.2);
+  });
+  const carried = await page.evaluate(() => window.silvercase.state());
+  const barCarrying = await hotbar();
+  check('taking the case moves it into Tony’s hands, shut, and onto the inventory bar',
+    promptOnCase === 'Take the case'
+      && carried.beat === 'EXIT'
+      && carried.case.carried === true && carried.case.inWorld === false
+      && carried.case.shut === true && carried.case.openness === 0
+      && carried.weapon.drawn === false
+      && barCarrying.labels[1] === 'Lou’s case · closed',
+    JSON.stringify({ promptOnCase, case: carried.case, bar: barCarrying.labels.slice(0, 2) }));
 
   // ---- PICK_UP_CASE -> EXIT -> SCENE_COMPLETE ----------------------------
   let exitBeat = await go('EXIT');

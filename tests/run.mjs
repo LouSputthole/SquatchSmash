@@ -59,6 +59,7 @@ const TEST_MODULES = [
   './no-wake-irish.test.mjs',
   './silver-story.test.mjs',
   './silver-ape-continuity.test.mjs',
+  './silvercase-cast.test.mjs',
   './silver-voice-catalog.test.mjs',
   './golf-story.test.mjs',
   './golf-gallery.test.mjs',

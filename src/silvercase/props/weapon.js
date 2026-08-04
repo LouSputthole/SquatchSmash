@@ -1,0 +1,136 @@
+import * as THREE from 'three';
+import { makeRevolver } from '../../world/props.js';
+
+/**
+ * The guns in The Silver Case.
+ *
+ * Two of them, and they are deliberately the same gun: the one in Tony's
+ * hands and the one the man in the bathroom is holding when he comes through
+ * the door. Both are built from `world/props.js`'s `makeRevolver` — the
+ * campaign's canonical sidearm, the one the Squatchfather's prospect carries
+ * and the one lying on the flat's coffee table — scaled up into the long
+ * heavy-frame version this job calls for. Nothing here models a new weapon;
+ * it re-uses the modelled one at a different size so the two read as a pair.
+ *
+ * `makeRevolver` points down local -z, which is the convention every hand,
+ * view-model and muzzle effect in this project already shares.
+ */
+
+/**
+ * How much bigger the heavy-frame gun is than the coffee-table revolver.
+ * `makeRevolver` is about 30 cm end to end, which is a service four-inch;
+ * this is the eight-and-three-eighths, and it is meant to be recognisable
+ * across a room as the reason nobody in it is arguing.
+ */
+export const BIG_REVOLVER_SCALE = 1.35;
+
+/**
+ * The big revolver, as a world/hand prop.
+ *
+ * @param {object} [o]
+ * @param {number} [o.scale] multiplier on BIG_REVOLVER_SCALE
+ */
+export function makeBigRevolver({ scale = 1 } = {}) {
+  const built = makeRevolver(null, { x: 0, y: 0, z: 0 });
+  const g = built.group;
+  g.name = 'big-revolver';
+  g.scale.setScalar(BIG_REVOLVER_SCALE * scale);
+  g.traverse((o) => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = false;
+    }
+  });
+  g.userData.muzzle = built.muzzle.clone().multiplyScalar(BIG_REVOLVER_SCALE * scale);
+  return g;
+}
+
+/**
+ * Tony's first-person view-model.
+ *
+ * Modelled on `src/squatchfather/characters/ProspectController`'s concealed
+ * revolver, which is the established shape for this in the campaign: the gun
+ * plus a blocky hand on the raked grip and a cuff behind it, parented to the
+ * camera, sliding up from a hidden rest position when it is drawn and kicking
+ * on each shot.
+ *
+ * The mission never fires it for the player; it only ever reflects what the
+ * player already did.
+ */
+export function makeRevolverViewModel(camera, {
+  skin = 0xd2a074, sleeve = 0x1d1c22,
+} = {}) {
+  const group = new THREE.Group();
+  group.name = 'silvercase.viewmodel';
+
+  const gun = makeBigRevolver({ scale: 0.85 });
+  gun.position.set(0, -0.02, -0.03);
+  group.add(gun);
+
+  const skinMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.85 });
+  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.11, 0.1), skinMat);
+  hand.name = 'silvercase.viewmodel.hand';
+  hand.position.set(0, -0.06, 0.075);
+  hand.rotation.x = -0.42;
+  group.add(hand);
+
+  const cuff = new THREE.Mesh(
+    new THREE.BoxGeometry(0.105, 0.105, 0.17),
+    new THREE.MeshStandardMaterial({ color: sleeve, roughness: 0.92 }),
+  );
+  cuff.position.set(0.004, -0.125, 0.19);
+  cuff.rotation.x = -0.3;
+  group.add(cuff);
+
+  // Bottom-right of frame, angled slightly inward — close enough to read as
+  // held, far enough not to eat the subtitles.
+  const REST = new THREE.Vector3(0.2, -0.21, -0.44);
+  const HIDDEN = new THREE.Vector3(0.26, -0.6, -0.32);
+
+  group.visible = false;
+  group.position.copy(HIDDEN);
+  camera.add(group);
+
+  let drawn = false;
+  let drawT = 0;
+  let recoil = 0;
+
+  return {
+    group,
+    gun,
+    get drawn() { return drawn; },
+    /** Bring it up. Idempotent — asking twice does not restart the draw. */
+    draw() {
+      if (drawn) return false;
+      drawn = true;
+      drawT = 0;
+      group.visible = true;
+      group.position.copy(HIDDEN);
+      return true;
+    },
+    /** Put it away. */
+    holster() {
+      drawn = false;
+      drawT = 0;
+      recoil = 0;
+      group.visible = false;
+      group.position.copy(HIDDEN);
+      group.rotation.set(0, 0, 0);
+    },
+    /** One shot's worth of kick. */
+    fire() {
+      recoil = 1;
+    },
+    update(dt) {
+      if (drawn) {
+        drawT = Math.min(1, drawT + dt * 3.6);
+        const e = drawT * drawT * (3 - 2 * drawT);
+        group.position.lerpVectors(HIDDEN, REST, e);
+        group.rotation.set(-0.12 * (1 - e) + recoil * 0.3, 0.06, -0.95 * (1 - e));
+        group.position.z += recoil * 0.07;
+        group.position.y += recoil * 0.02;
+      }
+      recoil = Math.max(0, recoil - dt * 5.5);
+    },
+  };
+}

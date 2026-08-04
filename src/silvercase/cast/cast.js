@@ -1,17 +1,28 @@
-import { box, mat, group } from '../../world/build.js';
-import { APE_FAMILY_MEMBER, APE_FACE_URL } from '../../bing/family-ape.js';
+import * as THREE from 'three';
 import { ANCHORS } from '../scenes/ApartmentScene.js';
-import { makeActor } from './Actor.js';
+import { makeBigRevolver } from '../props/weapon.js';
+import { buildSilverCaseApe } from './ape.js';
+import { COLLAPSE, makeActor } from './Actor.js';
 
 /**
- * The Silver Case's six humans — Ape (Family, structurally unkillable) plus
- * five mission-local NPCs. Every anchor below is pulled straight from
- * ApartmentScene.js's `ANCHORS` rather than re-typed, so the cast can never
- * silently drift from the level geometry. Reminder from that file: `yaw` on
- * the seat/doorway anchors is authored as a Person *heading*
- * (facing = (sin(h), 0, cos(h)), 0 = +z) — exactly what `makeActor()` below
- * expects — while `hallwaySpawn`/`frontDoorInside` are *camera* yaw instead.
- * Nothing here reads those two, so no conversion is needed.
+ * The Silver Case's five humans — Ape (Family, structurally unkillable) plus
+ * four mission-local NPCs.
+ *
+ * Everybody here is built by the campaign's shared figure builder
+ * (`makePerson`, through `Npc`, in src/bing/cast.js): heights are real metres
+ * on a 1.78 m reference frame, `build` thickens the body without stretching
+ * it, and the seated pose is `Npc.sit()` measured against a real 0.53 m
+ * cushion. Nothing in this file invents proportions. Ape in particular is not
+ * described here at all — see ./ape.js, which hands the Bing's own
+ * `APE_FAMILY_MEMBER.model` and supplied face straight to the same builder the
+ * Silver Room uses for the same man.
+ *
+ * Every anchor below is pulled straight from ApartmentScene.js's `ANCHORS`
+ * rather than re-typed, so the cast can never silently drift from the level
+ * geometry. Reminder from that file: `yaw` on the seat/doorway anchors is
+ * authored as a figure *heading* (facing = (sin(h), 0, cos(h)), 0 = +z) —
+ * exactly what `makeActor()` expects — while `hallwaySpawn`/`frontDoorInside`
+ * are *camera* yaw instead. Nothing here reads those two.
  *
  * Faction assignment (per the brief): Deke, Chester and Winston never
  * themselves attack, so all three are "neutral" — damageable only by a
@@ -21,24 +32,18 @@ import { makeActor } from './Actor.js';
  * combat threat, in either direction.
  */
 
-// Person has no height/build/hairstyle sliders of its own — same fudge
-// CarInterior.js uses for Ape: a uniform scale against a "generic adult"
-// reference height, matching APE_FAMILY_MEMBER.model's canonical height/build
-// rather than inventing new proportions for him a second time.
-const APE_BASE_HEIGHT = 1.9;
-
 // Ape's own two spots for this mission — starting near the front door, then
 // stepping over to loom near the chair once the interrogation starts. Not
 // pulled from ANCHORS because neither is a level/geometry anchor; they're
 // blocking for one specific character, local to this file.
 const APE_SPOTS = Object.freeze({
   start: Object.freeze({
-    x: ANCHORS.frontDoorInside.x, z: ANCHORS.frontDoorInside.z + 0.6, yaw: Math.PI / 2, // facing +x, into the room
+    x: ANCHORS.frontDoorInside.x + 0.5, z: ANCHORS.frontDoorInside.z + 0.7, yaw: Math.PI / 2, // facing +x, into the room
   }),
   // A pace south of Chester's chair, facing back at him (-z) — looming over
   // the interrogation without standing in the chair anchor itself.
   chair: Object.freeze({
-    x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z + 1.1, yaw: Math.PI,
+    x: ANCHORS.chairSeat.x, z: ANCHORS.chairSeat.z + 1.15, yaw: Math.PI,
   }),
 });
 
@@ -60,60 +65,37 @@ function lerpAngle(a, b, t) {
 }
 
 /**
- * Person has no seated pose of its own (see CarInterior.js's `seatApe` for
- * the canonical note on why) — the same modest hip-forward leg/arm lean is
- * reused here for Deke (couch) and Chester (chair) rather than reinventing
- * it a second time.
+ * The bathroom man's pose, re-applied every frame after `Npc.update()`.
+ *
+ * Npc zeroes arm, forearm and head rotations at the top of each of its own
+ * updates — that is what keeps a raised arm from sticking forever — so a
+ * mission-authored pose has to run downstream of it, not once at build time.
+ * Both hands are on the revolver, which is what a man does with a gun that
+ * size when he has been standing in the dark waiting to use it.
  */
-function seatLegs(person) {
-  person.legL.rotation.x = 0.35;
-  person.legR.rotation.x = 0.35;
-  person.armL.rotation.x = 0.2;
-  person.armR.rotation.x = 0.2;
-}
-
-/**
- * A small hand-held prop for Pruitt — a few boxes built with the same
- * box()/mat() helpers every other file in this mission already uses, not the
- * full detailed makeRevolver() from world/props.js. The brief calls a "simple
- * prop or just an arm-raised pose" fine for this beat, and a two-box
- * silhouette reads as a drawn gun in profile without pulling in machinery
- * this mission doesn't otherwise need.
- */
-function makeHeldGun() {
-  const steel = mat({ color: 0x2c2f33, roughness: 0.4, metalness: 0.6 });
-  const gripMat = mat({ color: 0x1a1410, roughness: 0.7 });
-  const g = group('pruittGun');
-  g.add(box({ size: [0.05, 0.05, 0.22], pos: [0, 0, -0.1], mat: steel }));
-  g.add(box({ size: [0.05, 0.14, 0.05], pos: [0, -0.09, 0.03], mat: gripMat }));
-  return g;
+function twoHandedAim(parts) {
+  parts.armR.rotation.set(-1.32, 0, 0.16);
+  parts.foreR.rotation.set(-0.12, 0, 0);
+  parts.armL.rotation.set(-1.24, 0, -0.3);
+  parts.foreL.rotation.set(-0.24, 0.28, 0);
+  parts.head.rotation.x = -0.05;
 }
 
 export function populateCast(root) {
   // ---------------- Ape ----------------
+  // Canonical figure, canonical face, canonical id. Nothing local.
+  const apeNpc = buildSilverCaseApe(root, {
+    x: APE_SPOTS.start.x, z: APE_SPOTS.start.z, yaw: APE_SPOTS.start.yaw, job: 'stand',
+  });
   const apeBuild = makeActor({
-    name: 'Ape',
+    npc: apeNpc,
+    name: apeNpc.name,
+    characterId: apeNpc.characterId,
     faction: 'friendly',
     hp: 999,
-    palette: {
-      shirt: APE_FAMILY_MEMBER.model.shirt,
-      shirtDark: 0x0a0a0e,
-      pants: 0x1a1a20,
-      skin: APE_FAMILY_MEMBER.model.skin,
-      hair: APE_FAMILY_MEMBER.model.hairColour,
-      bandana: null, // Ape doesn't wear the Circle bandana on this job
-      face: APE_FACE_URL,
-    },
-    position: { x: APE_SPOTS.start.x, y: 0, z: APE_SPOTS.start.z },
-    yaw: APE_SPOTS.start.yaw,
+    folded: true, // arms crossed: he is here to watch somebody else work
   });
   const ape = apeBuild.actor;
-  ape.person.group.scale.set(
-    APE_FAMILY_MEMBER.model.build,
-    APE_FAMILY_MEMBER.model.height / APE_BASE_HEIGHT,
-    APE_FAMILY_MEMBER.model.build,
-  );
-  root.add(ape.group);
 
   // Ape's walk-to-spot tween — simple enough not to need pathfinding: a
   // straight-line lerp of position + shortest-path yaw over APE_MOVE_SECONDS.
@@ -122,7 +104,7 @@ export function populateCast(root) {
     const to = APE_SPOTS[spotName];
     if (!to) return false;
     apeMove = {
-      from: { x: ape.group.position.x, z: ape.group.position.z, yaw: ape.person.heading },
+      from: { x: ape.group.position.x, z: ape.group.position.z, yaw: ape.group.rotation.y },
       to,
       t: 0,
     };
@@ -135,72 +117,83 @@ export function populateCast(root) {
     ape.group.position.x = lerp(apeMove.from.x, apeMove.to.x, k);
     ape.group.position.z = lerp(apeMove.from.z, apeMove.to.z, k);
     const yaw = lerpAngle(apeMove.from.yaw, apeMove.to.yaw, k);
-    ape.person.heading = yaw;
+    ape.npc.homeYaw = yaw;
     ape.group.rotation.y = yaw;
     if (apeMove.t >= 1) apeMove = null;
   }
 
   // ---------------- Deke (couch) ----------------
   const dekeBuild = makeActor({
+    parent: root,
     name: 'Deke',
     faction: 'neutral',
     hp: 60,
-    palette: {
+    job: 'sit',
+    model: {
+      height: 1.76,
+      build: 1.06,
+      dress: 'tee',
+      hair: 'short',
       shirt: 0x4a5a42,
-      shirtDark: 0x33402e,
-      pants: 0x2a2a30,
       skin: 0xd9a877, // light/mid tone, per the brief
-      hair: 0x2a1e14,
-      bandana: null, // not a Circle member
-      face: null, // procedural flat head — a one-off minor character
+      hairColour: 0x2a1e14,
     },
-    position: ANCHORS.couchSeat,
+    // `y` is the seat's own base, not the anchor's cushion height: Npc.sit()
+    // folds the figure and drops it 0.42 from this base onto a 0.53 cushion.
+    position: { x: ANCHORS.couchSeat.x, y: ANCHORS.couchSeat.y, z: ANCHORS.couchSeat.z },
     yaw: ANCHORS.couchSeat.yaw,
+    // The owner's note, in one line: the man shot on the couch stays on it.
+    // He goes over toward the middle of the couch rather than over its arm.
+    collapse: { ...COLLAPSE.seated, bodyRoll: -0.5, bodyPitch: 0.26 },
   });
   const deke = dekeBuild.actor;
-  seatLegs(deke.person);
-  root.add(deke.group);
 
   // ---------------- Chester (chair) ----------------
   const chesterBuild = makeActor({
+    parent: root,
     name: 'Chester',
     faction: 'neutral',
     hp: 60,
-    palette: {
+    job: 'sit',
+    model: {
+      height: 1.81,
+      build: 1.14,
+      gut: 0.4,
+      dress: 'shirt',
+      hair: 'receding',
       shirt: 0x6a3a3a,
-      shirtDark: 0x4a2828,
-      pants: 0x2f2f36,
-      skin: 0xf0d0b0, // distinct from Deke's, per the brief
-      hair: 0x6a4a22, // distinct from Deke's
-      bandana: null,
-      face: null,
+      skin: 0xf0cba6, // distinct from Deke's, per the brief
+      hairColour: 0x5a3a20, // distinct from Deke's
     },
-    position: ANCHORS.chairSeat,
+    position: { x: ANCHORS.chairSeat.x, y: ANCHORS.chairSeat.y, z: ANCHORS.chairSeat.z },
     yaw: ANCHORS.chairSeat.yaw,
+    // Shot in the chair, he stays in the chair, over its right armrest.
+    collapse: { ...COLLAPSE.seated, bodyRoll: 0.46, bodyPitch: 0.34 },
   });
   const chester = chesterBuild.actor;
-  seatLegs(chester.person);
-  root.add(chester.group);
 
   // ---------------- Winston (kitchen, eventual survivor) ----------------
   const winstonBuild = makeActor({
+    parent: root,
     name: 'Winston',
     faction: 'neutral',
     hp: 60,
-    palette: {
+    job: 'stand',
+    model: {
+      height: 1.71,
+      build: 0.94,
+      dress: 'shirt',
+      hair: 'crop',
       shirt: 0xc9c2a8,
-      shirtDark: 0x9a9478,
-      pants: 0x2a2a30,
       skin: 0x8d5a3a, // dark tone, per the brief — same tone as Ape's
-      hair: 0x1a1410,
-      bandana: null,
-      face: null,
+      hairColour: 0x141014,
     },
-    position: ANCHORS.kitchenSpot,
+    position: { x: ANCHORS.kitchenSpot.x, y: ANCHORS.kitchenSpot.y, z: ANCHORS.kitchenSpot.z },
     yaw: ANCHORS.kitchenSpot.yaw,
+    // Backed against the counter: he goes down along it, toward the room.
+    collapse: { ...COLLAPSE.standing, roll: -0.12 },
   });
   const winston = winstonBuild.actor;
-  root.add(winston.group);
 
   // ---------------- Pruitt (bathroom gunman) ----------------
   // Starts hidden in the shallow, unlit alcove behind the bathroom door (see
@@ -210,46 +203,73 @@ export function populateCast(root) {
     x: ANCHORS.bathroomDoorway.x, y: 0, z: ANCHORS.bathroomDoorway.z - 0.5,
   };
   const pruittBuild = makeActor({
+    parent: root,
     name: 'Pruitt',
     faction: 'hostile',
     hp: 80,
-    palette: {
+    job: 'stand',
+    model: {
+      height: 1.84,
+      build: 1.2,
+      dress: 'tracksuit',
+      hair: 'crop',
+      beard: true,
       shirt: 0x3a3a42,
-      shirtDark: 0x27272e,
-      pants: 0x1a1a20,
       skin: 0xc99268,
-      hair: 0x141014,
-      bandana: null,
-      face: null,
+      hairColour: 0x141014,
     },
     position: pruittHidden,
     yaw: ANCHORS.bathroomDoorway.yaw,
+    pose: twoHandedAim,
+    // Shot as he clears the doorway, he drops where he stood — half in the
+    // room, half still in the bathroom. He never reaches the alcove's back
+    // wall because he falls FORWARD, the way he was already moving.
+    collapse: { ...COLLAPSE.standing, pitch: Math.PI / 2 - 0.14, roll: -0.14 },
   });
   const pruitt = pruittBuild.actor;
   pruitt.group.visible = false;
-  // Gun-drawn pose, applied now so it's already correct the instant
-  // reveal() flips visibility — nothing has to snap into place on frame one.
-  pruitt.person.armR.rotation.x = -1.2;
-  pruitt.person.armL.rotation.x = -0.7;
-  const gun = makeHeldGun();
-  gun.position.set(0, -0.95, 0.05);
-  pruitt.person.armR.add(gun);
-  root.add(pruitt.group);
 
+  // The big revolver, in his hand. Built to the same convention every other
+  // gun in this game uses (barrel down local -z, see world/props.js's
+  // makeRevolver) and parented to the right FOREARM at the hand — where
+  // makePerson puts the hand slab, y=-0.30 inside that group — so it tracks
+  // the aim pose above and the collapse afterwards with no extra bookkeeping.
+  const pruittGun = makeBigRevolver();
+  // -90° about x lays the barrel (local -z) down the forearm's own -y, i.e.
+  // pointing wherever the arm is pointing.
+  pruittGun.rotation.set(-Math.PI / 2 + 0.12, 0, 0);
+  pruittGun.position.set(0.005, -0.33, 0.03);
+  pruitt.parts.foreR.add(pruittGun);
+  pruitt.weapon = pruittGun;
+
+  /** A pace clear of the door frame, so he reads as coming OUT of the room. */
+  const pruittRevealed = {
+    x: ANCHORS.bathroomDoorway.x, y: ANCHORS.bathroomDoorway.y, z: ANCHORS.bathroomDoorway.z + 0.28,
+  };
   pruitt.reveal = function reveal() {
     if (pruitt.group.visible) return;
     pruitt.group.visible = true;
-    pruitt.group.position.set(
-      ANCHORS.bathroomDoorway.x, ANCHORS.bathroomDoorway.y, ANCHORS.bathroomDoorway.z,
-    );
-    pruitt.person.heading = ANCHORS.bathroomDoorway.yaw;
+    pruitt.group.position.set(pruittRevealed.x, pruittRevealed.y, pruittRevealed.z);
     pruitt.group.rotation.y = ANCHORS.bathroomDoorway.yaw;
+    pruitt.npc.homeYaw = ANCHORS.bathroomDoorway.yaw;
+  };
+
+  /** Tuck him back into the dark for a checkpoint retry. */
+  pruitt.hide = function hide() {
+    pruitt.revive();
+    pruitt.group.visible = false;
+    pruitt.group.position.set(pruittHidden.x, pruittHidden.y, pruittHidden.z);
+    pruitt.group.rotation.y = ANCHORS.bathroomDoorway.yaw;
+    pruitt.npc.homeYaw = ANCHORS.bathroomDoorway.yaw;
   };
 
   const all = [ape, deke, chester, winston, pruitt];
 
-  function update(dt) {
-    for (const actor of all) actor.update(dt);
+  const _playerPos = new THREE.Vector3();
+  function update(dt, playerPosition = null) {
+    if (playerPosition) _playerPos.copy(playerPosition);
+    const look = playerPosition ? _playerPos : null;
+    for (const actor of all) actor.update(dt, look);
     updateApeMove(dt);
   }
 
