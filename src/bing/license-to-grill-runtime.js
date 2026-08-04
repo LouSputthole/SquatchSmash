@@ -574,6 +574,8 @@ export function createLicenseToGrill({
     /** The object currently in his hands, if any. */
     held: null,
     heldModel: null,
+    /** What this quest last wrote into the shared HUD hand slot, or null. */
+    handShown: null,
     /** id -> { group, pad, wreck, mark } for the five things on the table. */
     table: new Map(),
     /** Queued HUD lines, shown one at a time once nobody is talking. */
@@ -595,12 +597,19 @@ export function createLicenseToGrill({
   function sfx(name, opts = {}) {
     if (audio?.hasSample?.(name)) { audio.play(name, opts); return; }
     switch (name) {
+      // A ballistic vest lifted off a table, for a coil of flex handed over.
       case PENDING_SFX.CORD_HANDOFF: audio?.play('heist.gear.armor.pickup', opts); break;
-      case PENDING_SFX.CORD_SWING: audio?.play('heist.swap.fabric', opts); break;
-      case PENDING_SFX.CORD_WHIP: audio?.play('hotdog.fist.impact.2', opts); break;
-      case PENDING_SFX.CORD_MISS: audio?.play('door.knob', opts); break;
+      // A linen tablecloth snapped open: a sharp fabric crack, which is what
+      // the air in front of a whip actually sounds like.
+      case PENDING_SFX.CORD_SWING: audio?.play('cloth.snap', opts); break;
+      // A dense clothed body impact. Closest thing in the building to a cord
+      // landing on a man in a dinner jacket.
+      case PENDING_SFX.CORD_WHIP: audio?.play('heist.player.hit', opts); break;
+      // And a hard crack off stone with a little debris, for one that misses.
+      case PENDING_SFX.CORD_MISS: audio?.play('heist.bullet.impact', opts); break;
       case PENDING_SFX.SMASH_GLASS: audio?.play('glass.wine.fall', opts); break;
-      case PENDING_SFX.SMASH_METAL: audio?.play('gun.impact', opts); break;
+      // A metal pistol hitting a hard floor, which is exactly the event.
+      case PENDING_SFX.SMASH_METAL: audio?.play('heist.guard.weapon.drop', opts); break;
       case PENDING_SFX.SMASH_FABRIC: audio?.play('heist.swap.fabric', opts); break;
       case PENDING_SFX.TABLE_PICKUP: audio?.play('gun.pickup', opts); break;
       default: break;
@@ -709,23 +718,36 @@ export function createLicenseToGrill({
     instructAfterDialogue('<em>[Click]</em> swings the cord. Stand over him for it to land.', 5600);
   }
 
-  /** Whatever is in his hands, on the HUD. */
+  /**
+   * Whatever is in his hands, on the HUD.
+   *
+   * Only ever writes when what it wants to say has CHANGED, and only ever
+   * clears a readout it put up itself. The hand slot is shared with the club's
+   * drinks, and a quest that repaints it every frame would take the beer out
+   * of Tony's hand on the dance floor.
+   *
+   * The cord's own line comes down when he leaves the store room, because that
+   * is where the button works — advertising `[Click]` in the middle of the
+   * floor, where left click is the club's second interact key, would be a lie.
+   */
   function paintHand() {
     if (!hud) return;
-    if (runtime.held) {
+    let want = null;
+    if (runtime.phase === 'open' && runtime.held) {
       const item = BELONGINGS.find((entry) => entry.id === runtime.held);
-      hud.setHand({
+      want = {
         icon: item?.icon ?? '▣',
         name: item?.hand ?? 'One of his things',
         hint: item?.smashNode ? '[Click] smash it · [Q] put it back' : '[Q] put it back',
-      });
-      return;
+      };
+    } else if (runtime.phase === 'open' && runtime.hasCord && inStoreRoom()) {
+      want = { ...(items.cord ?? { icon: '🪢', name: 'The cord' }), hint: '[Click] to swing it' };
     }
-    if (runtime.hasCord && runtime.phase === 'open') {
-      hud.setHand({ ...(items.cord ?? { icon: '🪢', name: 'The cord' }), hint: '[Click] to swing it' });
-      return;
-    }
-    hud.setHand(null);
+    const key = want ? `${want.icon}|${want.name}|${want.hint}` : null;
+    if (key === runtime.handShown) return;
+    if (!want && runtime.handShown === null) return;
+    runtime.handShown = key;
+    hud.setHand(want);
   }
 
   /** Is Tony inside the store room's four walls? */
@@ -1188,6 +1210,13 @@ export function createLicenseToGrill({
       }
 
       if (runtime.phase !== 'open') return;
+
+      /* The cord's readout follows him in and out of the room, and the whip
+       * itself goes away with it — he is carrying it, not brandishing it
+       * across the dance floor. */
+      const here = inStoreRoom();
+      if (runtime.cord) runtime.cord.root.visible = here && runtime.hasCord && !runtime.held;
+      paintHand();
 
       /* The swing. One pass of `poseCord` per frame while it is running, and
        * the cord lands two thirds of the way through, which is where the throw

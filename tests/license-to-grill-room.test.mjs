@@ -12,9 +12,11 @@
  * is visible from the script alone.
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import * as THREE from 'three';
 
+import { isBingPreloadCue } from '../src/bing/audio.js';
 import { CHARACTER_IDS } from '../src/core/campaign.js';
 import { PRESSURE, SWINGS_BEFORE_THE_TABLE } from '../src/bing/license-to-grill.js';
 import { createLicenseToGrill } from '../src/bing/license-to-grill-runtime.js';
@@ -138,6 +140,43 @@ function walkIn(h) {
   h.dialogue.finish();
   return h;
 }
+
+test('every sound the store room reaches for is one the club has decoded', () => {
+  /* The scene plays eight cues that have been ASKED for and not yet recorded,
+   * and a stand-in beside each one until they land. Both halves have to be in
+   * the Bing's preload set or the club never decodes them: `play()` falls
+   * through to the synthesiser for a cue with no buffer, and a whip landing on
+   * a synthesised noise is the owner's *"good whip sound effect"* not being
+   * there at all. The stand-ins additionally have to be INDEXED — a fallback
+   * with no file on disk is not a fallback. */
+  const runtime = fs.readFileSync(
+    new URL('../src/bing/license-to-grill-runtime.js', import.meta.url), 'utf8',
+  );
+  const indexed = new Set(JSON.parse(fs.readFileSync(
+    new URL('../assets/sfx/index.json', import.meta.url), 'utf8',
+  )).files || []);
+  const manifest = new Map(JSON.parse(fs.readFileSync(
+    new URL('../assets/sfx/manifest.json', import.meta.url), 'utf8',
+  )).sfx.map((cue) => [cue.name, cue]));
+
+  const wanted = [...runtime.matchAll(/'(bing\.grill\.[a-z.]+)'/g)].map((m) => m[1]);
+  assert.ok(wanted.length >= 8, 'the pending cue table has shrunk');
+  for (const name of new Set(wanted)) {
+    assert.equal(isBingPreloadCue(name), true,
+      `${name} is not in the Bing's preload set, so it can never arrive`);
+  }
+
+  const fallbacks = [...runtime.matchAll(/audio\?\.play\('([^']+)'/g)].map((m) => m[1]);
+  assert.ok(fallbacks.length >= 8, 'the stand-ins have gone missing');
+  for (const name of new Set(fallbacks)) {
+    const cue = manifest.get(name);
+    assert.ok(cue, `${name} is not in the sfx manifest`);
+    assert.equal(indexed.has(cue.file || `${name}.mp3`), true,
+      `${name} has no recording on disk, so it is not a stand-in`);
+    assert.equal(isBingPreloadCue(name), true,
+      `${name} is never decoded by the club, so it plays as a synth noise`);
+  }
+});
 
 test('opening the door does not teleport anybody', () => {
   /* Owner's note: *"let me open the door to the james blond scene without

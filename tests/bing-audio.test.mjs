@@ -38,6 +38,17 @@ test('the Bing preload retains every recorded runtime effect and rejects other s
     'whiskey.swig', 'whiskey.cap', 'whiskey.pour',
     'ambience.rain', 'ambience.bing.rain.muffled',
     'ambience.club', 'ambience.crowd',
+    /* License to Grill's store room. The `bing.grill.*` names are asked for
+     * and not yet recorded — listing them is free, because the preload filter
+     * runs over cues the index actually holds — and the five under them are
+     * the recordings standing in for them tonight. Without this the club
+     * decodes none of them and the cord lands on a synthesised noise. */
+    'bing.grill.cord.handoff', 'bing.grill.cord.swing', 'bing.grill.cord.whip',
+    'bing.grill.cord.floor', 'bing.grill.smash.glass', 'bing.grill.smash.metal',
+    'bing.grill.smash.fabric', 'bing.grill.table.pickup',
+    'heist.gear.armor.pickup', 'cloth.snap', 'heist.player.hit',
+    'heist.bullet.impact', 'glass.wine.fall', 'heist.guard.weapon.drop',
+    'heist.swap.fabric',
   ];
   for (const cue of runtimeEffects) {
     assert.equal(isBingPreloadCue(cue), true, cue);
