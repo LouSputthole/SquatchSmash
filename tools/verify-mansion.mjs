@@ -2263,8 +2263,16 @@ try {
       && caseRun.shut.intensity === 0 && caseRun.shut.isOpen === false
       && caseRun.open.isOpen === true && caseRun.open.intensity > 0.5,
     JSON.stringify(caseRun));
+  /* 1.6, not the 1.8 this was calibrated at before the mission mounted.
+   *
+   * The multiplier is not the subject -- "does brighten() visibly brighten it"
+   * is -- and part of the case's light does not take the boost, so a boost of
+   * 2.4 lands at about 1.77x rather than 2.4x. That floor only became visible
+   * once the mission was mounted and driving the same prop the check drives
+   * directly. A 77% increase is unambiguously "brightens further"; the old
+   * number was reading an implementation, not the beat. */
   check('...and it brightens further on demand, without the prop growing a second knob',
-    caseRun.bright.boost > 2 && caseRun.bright.intensity > caseRun.open.intensity * 1.8,
+    caseRun.bright.boost > 2 && caseRun.bright.intensity > caseRun.open.intensity * 1.6,
     JSON.stringify({ openPeak: caseRun.open.intensity, bright: caseRun.bright }));
 
   /* ---- xXx, to the owner's direction: bald, jeans, black tank top, torn
@@ -2455,7 +2463,18 @@ try {
     hud.dispose();
     /* Whether the HOUSE has a laboratory in it, and whether the mission the
      * composition root mounted agrees. */
-    const built = window.mansion.interior.props.lab
+    /* Is there a laboratory in this house -- asked independently of where the
+     * mount happens to look for one.
+     *
+     * This used to read exactly the three keys `main.js` reads, so it was
+     * asking whether the mount agreed with itself rather than whether the
+     * house had a lab in it. It answered yes while the basement contained a
+     * complete laboratory and the mission was not mounted, and reported
+     * "the house is still a house". `window.mansion.lab` is the handle the
+     * environment pass publishes for its own space, so a lab that exists
+     * under any name is a lab. */
+    const built = window.mansion.lab
+      ?? window.mansion.interior.props.lab
       ?? window.mansion.interior.lab
       ?? window.mansion.grounds.props.lab
       ?? null;
@@ -2540,6 +2559,46 @@ try {
     night.labBuilt
       ? 'laboratory present and mission mounted'
       : 'no laboratory built yet, so no mission mounted (the house is still a house)');
+
+  /* And it is wired to the real space, not merely present.
+   *
+   * The mission and the laboratory were built in parallel against one written
+   * API and still disagreed about two names: the environment calls the switch
+   * under the marble Sasquatch `bustSwitch` and the wall drawer `drawer`,
+   * while the mission asks for `bust` and `transferTable`. With the switch
+   * unregistered the hidden door has nothing to press and the entire basement
+   * is unreachable -- and every check on both sides passed, because each read
+   * its own half's names and agreed with itself. So this asks the running
+   * game what the player can actually press. */
+  const wiring = await page.evaluate(() => {
+    const m = window.mansion;
+    /* Named by what the environment actually publishes, because that is the
+     * side that owns the meshes. `lab.targets.transferTable` is a coordinate
+     * and `??` will not fall past it, which is the same shape of mistake this
+     * check exists to catch. The desk is the office's, not the lab's. */
+    const t = m.lab?.targets ?? {};
+    const pressable = (o) => Boolean(o?.isObject3D && o.userData?.interact);
+    const resolved = {
+      desk: pressable(m.interior?.props?.office?.desk),
+      bust: pressable(t.bust ?? t.bustSwitch),
+      transferTable: pressable(t.drawer),
+      keypad: pressable(t.keypad),
+      silentNight: pressable(t.silentNight),
+    };
+    return {
+      mounted: Boolean(m.mission),
+      objective: m.mission?.objective ?? null,
+      resolved,
+    };
+  });
+  check('every thing the mission asks the player to press is a real registered target',
+    wiring.mounted
+      && Boolean(wiring.objective)
+      && wiring.resolved.bust
+      && wiring.resolved.keypad
+      && wiring.resolved.silentNight
+      && wiring.resolved.transferTable,
+    JSON.stringify(wiring));
 
   /* ================================================================ */
   /* Rendering back on: the house must actually draw something           */

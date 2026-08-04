@@ -157,7 +157,12 @@ export function mountSilentSquatch({
   /* ---------------- what the player presses ---------------- */
   const at = (name) => mission.fsm.name === name || mission.fsm.pending === name;
   const register = (mesh, config) => {
-    if (!mesh || !interaction?.register) return;
+    /* `isObject3D`, not truthiness. A target published as a coordinate --
+     * `{x, y, z}` for placing something on rather than a thing to aim at --
+     * passes a truthy check and then dies inside the interaction system
+     * setting `userData.interact` on undefined, taking the whole mount with
+     * it. An absent target is meant to be skipped, and so is a wrong one. */
+    if (!mesh?.isObject3D || !interaction?.register) return;
     interaction.register(mesh, { enabled: () => enabled(), ...config });
   };
 
@@ -165,9 +170,25 @@ export function mountSilentSquatch({
     label: () => (at(S.LOU_OFFICE) ? 'Set the <b>case</b> on the desk' : 'Lou’s desk'),
     onUse: () => mission.placeCaseOnDesk() || mission.takeCaseBack(),
   });
+  /* The bust switch belongs to the house, not to the mission.
+   *
+   * `interaction.register` writes `userData.interact`, so registering the same
+   * mesh twice does not add a handler -- it REPLACES one. The environment
+   * already wires this switch to open the wall, and the mission overwriting it
+   * meant the secret door stopped working entirely outside the one beat the
+   * mission gates it on: the switch prompted, the player pressed it, and two
+   * tonnes of masonry sat still. The whole basement was behind that.
+   *
+   * So the mission's handler runs first and, whether or not this is its beat,
+   * the house still opens its own door afterwards. The mission advances when
+   * it is meant to and the door works when it is not. */
+  const houseWall = lab?.hiddenWall ?? null;
   register(targets.bust ?? null, {
     label: 'Reach <b>under</b> the bust',
-    onUse: () => mission.pressBustSwitch(),
+    onUse: () => {
+      mission.pressBustSwitch();
+      if (houseWall && !houseWall.isOpen) houseWall.open();
+    },
   });
   register(targets.transferTable ?? null, {
     label: () => (mission.caseState === 'carried'

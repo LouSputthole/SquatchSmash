@@ -849,9 +849,19 @@ function updateAmmoHud() {
 /* `src/silvercase/props/case.js` -- the actual chrome briefcase from The */
 /* Silver Case, carried in, put on Lou's desk, and handed to Booski.      */
 /* ================================================================== */
+/* The environment pass publishes its laboratory as the return of
+ * `buildSilentSquatch`; the mission pass was written against
+ * `interior.props.lab`. Both were correct in isolation and the house had a
+ * fully built basement laboratory that the mission never mounted into,
+ * because the two halves published to different names and every check on
+ * either side read its own name and agreed with itself. Publish it where the
+ * mission looks, so there is one name and it is this one. */
+if (silent?.lab && !interior.props.lab) interior.props.lab = silent.lab;
+
 const lab = interior.props.lab
   ?? interior.lab
   ?? grounds.props.lab
+  ?? silent?.lab
   ?? null;
 
 /**
@@ -896,10 +906,20 @@ if (lab && night.play) {
     /* The things he presses. Every one of them is optional: a target the
      * environment has not built yet simply is not registered, and the beat it
      * belongs to is still reachable from the debug handle below. */
+    /* Two of these had different names on the two sides, and one was not a
+     * mesh at all.
+     *
+     * The environment calls the switch under the marble Sasquatch
+     * `bustSwitch` and the wall drawer `drawer`; the mission was written
+     * against `bust` and `transferTable`. And `lab.targets.transferTable` is a
+     * coordinate for placing things on, not something to aim at. Left as it
+     * was, the hidden door had no switch the player could press -- the whole
+     * basement was unreachable -- and the transfer table crashed the mount.
+     * Both names are accepted here rather than renaming either half. */
     targets: {
       desk: lab.targets?.desk ?? interior.props.office.desk ?? null,
-      bust: lab.targets?.bust ?? null,
-      transferTable: lab.targets?.transferTable ?? null,
+      bust: lab.targets?.bust ?? lab.targets?.bustSwitch ?? null,
+      transferTable: lab.targets?.drawer ?? null,
       keypad: lab.targets?.keypad ?? null,
       silentNight: lab.targets?.silentNight ?? null,
     },
