@@ -75,6 +75,13 @@ export const SIGNATURE_TRACKS = Object.freeze({
     trigger: 'Booskibro’s first significant appearance in a scene',
     loopKey: 'music.booski',
     volume: 0.34,
+    /* Owner-picked window, 2026-08-04: in at 19.0, out at 22.2. Three and a
+     * bit seconds, timed to land on the shot rather than to play a record —
+     * he takes it, that comes in, it stops. The window lives on the cue
+     * instead of the call site because it belongs to the recording, and the
+     * full master stays on disk untrimmed. */
+    start: 19,
+    cutAt: 22.2,
   }),
   /**
    * The portable radio in the Bing's store room, during License to Grill.
@@ -128,7 +135,15 @@ export async function playSignatureTrack(audio, track, options = {}) {
     : signatureFallbackUrl(track);
   if (!wanted) return null;
 
-  const opts = { volume: track.volume, ambience: true, ...rest };
+  /* A cue's own in/out points travel with it. `rest` still wins, so a scene
+   * that wants a different window on the same record can say so. Only applied
+   * to the real recording — the fallback is a different track entirely and
+   * these timings would land nowhere in it. */
+  const window = delivered.has(track.file)
+    ? { ...(track.start != null ? { start: track.start } : {}),
+      ...(track.cutAt != null ? { cutAt: track.cutAt } : {}) }
+    : {};
+  const opts = { volume: track.volume, ambience: true, ...window, ...rest };
   return start(key, wanted, {
     ...opts,
     /* Second net. The manifest says the file is there, so this should not

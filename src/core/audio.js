@@ -557,6 +557,33 @@ export class AudioEngine {
       if (typeof onEnded === 'function') onEnded(handle);
     };
 
+    /* Play a window out of the middle of a record.
+     *
+     * Same vocabulary the station already uses for a track it talks over
+     * (`start` / `cutAt` in the radio manifest) — seek in once the duration is
+     * known, then stop at the mark. Done here rather than by trimming the mp3
+     * so the file on disk stays the delivered master: the in and out points are
+     * two numbers somebody can read and change, and nothing has been
+     * re-encoded to hit them. `timeupdate` fires about four times a second,
+     * which is loose for a hard cut, so the fade is what covers the seam. */
+    const { start: seekTo = null, cutAt = null } = opts;
+    if (seekTo != null) {
+      const seek = () => {
+        try { element.currentTime = seekTo; } catch { /* not seekable yet */ }
+      };
+      element.addEventListener('loadedmetadata', seek, { once: true });
+    }
+    if (cutAt != null) {
+      const watchCut = () => {
+        if (handle.released || element.currentTime < cutAt) return;
+        element.removeEventListener('timeupdate', watchCut);
+        if (element.loop && seekTo != null) { try { element.currentTime = seekTo; } catch { /* nope */ } return; }
+        this.stopLoop(key, opts.cutFade ?? 0.35);
+        ended();
+      };
+      element.addEventListener('timeupdate', watchCut);
+    }
+
     const retryEvents = ['pointerdown', 'keydown', 'touchend'];
     let retryTarget = null;
     let retryListener = null;

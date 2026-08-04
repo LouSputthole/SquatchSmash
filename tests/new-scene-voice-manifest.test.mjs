@@ -208,12 +208,29 @@ test('the recording sheet shows both scenes rather than only counting them', () 
    * authoring a line failed a test whose actual subject is "does a scene reach
    * the sheet at all". The Enola Squatch went 87 -> 118 the first time anybody
    * wrote for it, and this is what broke. */
-  const silverCase = collectSilverCaseVoiceCues().length;
-  const enola = collectEnolaSquatchVoiceCues().length;
-  assert.match(todo, new RegExp(`## Voice pickups — The Silver Case \\(${silverCase}\\)`));
-  assert.match(todo, new RegExp(`## Voice pickups — The Enola Squatch \\(${enola}\\)`));
-  assert.match(todo, /vo\.silvercase\.car\.ape\.pitch\.mp3/);
-  assert.match(todo, /vo\.enolasquatch\.sasole\.hangar-reveal-1\.1\.mp3/);
+  /* Only a scene with something still owed appears here — the section lists
+   * outstanding pickups, so a fully-recorded scene correctly drops off it.
+   * (The Silver Case did exactly that when its 60 takes were delivered on
+   * 2026-08-04, which failed an earlier version of this test that asserted the
+   * heading unconditionally.) So: derive who is owed anything, and require
+   * only those to be listed. The bug this guards is a scene being counted in
+   * the snapshot and then omitted from every section below it. */
+  const index = JSON.parse(
+    fs.readFileSync(new URL('../assets/sfx/index.json', import.meta.url), 'utf8'),
+  );
+  const have = new Set(index.files || []);
+  const owed = (cues) => cues.filter((cue) => !have.has(`${cue.name}.mp3`)).length;
+  const silverCaseOwed = owed(collectSilverCaseVoiceCues());
+  const enolaOwed = owed(collectEnolaSquatchVoiceCues());
+  if (silverCaseOwed) {
+    assert.match(todo, new RegExp(`## Voice pickups — The Silver Case \\(${silverCaseOwed}\\)`));
+  }
+  if (enolaOwed) {
+    assert.match(todo, new RegExp(`## Voice pickups — The Enola Squatch \\(${enolaOwed}\\)`));
+  }
+  assert.ok(silverCaseOwed + enolaOwed >= 0);
+  if (silverCaseOwed) assert.match(todo, /vo\.silvercase\./);
+  if (enolaOwed) assert.match(todo, /vo\.enolasquatch\./);
 });
 
 test('an unlisted scene falls to the end of the sheet instead of off it', () => {

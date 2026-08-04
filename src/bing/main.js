@@ -2466,7 +2466,9 @@ function cueBabySnakes(booski) {
     position: booski?.group?.position ?? club.anchors.dj,
     ref: 4.5,
     maxDist: 26,
-    fade: 1.2,
+    /* Short, because the cue is. A 1.2s fade on a 3.2s window spends most of
+     * it arriving. */
+    fade: 0.35,
     loop: false,
   });
 }
@@ -3001,12 +3003,23 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyR') blackjack.double();
   }
   if (e.code === 'KeyR' && game.seatedIn === 'car' && carRadio.on) carRadio.next();
-  if (e.code === 'Digit1' || e.code === 'Digit2' || e.code === 'Digit3' || e.code === 'Digit4') {
+  /* One through nine, not one through four.
+   *
+   * The club's own menus never went past four options, so this was written to
+   * the widest thing it had ever been asked to drive. License to Grill's
+   * interrogation runs to seven on a node — Blond's counterattack and the car
+   * both do — and 5 and 6 simply did nothing: the prompt listed them, the
+   * player pressed them, and the scene sat there. On a node whose only way
+   * forward is option 5 that is a dead end, not a missed line.
+   *
+   * The branches below take a raw index, so each now checks its own range
+   * rather than relying on the key filter to have done it. */
+  if (/^Digit[1-9]$/.test(e.code)) {
     const n = Number(e.code.slice(-1)) - 1;
     if (dialogue.active && dialogue.options.length) {
-      dialogue.choose(n);
+      if (n < dialogue.options.length) dialogue.choose(n);
     } else if (game.seatedIn === 'table' && blackjack.state === 'bet') {
-      blackjack.setBet(BETS[n]);
+      if (n < BETS.length) blackjack.setBet(BETS[n]);
     } else if (game.atMachine) {
       if (n === 0) slots.changeWager(-1);
       if (n === 1) slots.changeWager(1);

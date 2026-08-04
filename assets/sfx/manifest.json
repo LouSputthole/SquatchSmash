@@ -355,12 +355,12 @@
       "style": 0.48
     },
     "blond": {
-      "id": "qwaVDEGNsBllYcZO1ZOJ",
-      "_note": "James Blond — the store room, License to Grill. Foreign intelligence, unbothered, amused, RP. PROVISIONAL casting (irish id, the nearest British voice already cast) — swap this id and regenerate with `npm run sfx -- --force --cast blond`. Thirty cues named this profile before it existed, so none of them could generate.",
+      "id": "aGv5jHWKBy8K5xKvYeSX",
+      "_note": "James Blond -- owner-cast 2026-08-03. Suave spy parody, deadpan calm even under the tenderizer.",
       "model": "eleven_multilingual_v2",
-      "stability": 0.45,
-      "similarity": 0.8,
-      "style": 0.5
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.4
     }
   },
   "sfx": [

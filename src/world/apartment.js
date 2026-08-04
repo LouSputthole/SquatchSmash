@@ -1176,8 +1176,12 @@ export async function buildApartment(ctx) {
   const closetBack = gear.get('closet.back');
   const closet = P.makeCloset(M, {
     x0: CLOSET.x0 + 0.02, x1: CLOSET.x1 - 0.02, z0: z1, z1: CLOSET.back, h: CLOSET.h,
+    /* 0.52 wide, not 0.40. The closet mouth is 60cm, so this is very nearly
+     * the full width of the back wall — which is the point. It is the thing
+     * he hid, and shoving the shirts aside should uncover something big
+     * enough to be worth having hidden. */
     back: closetBack?.real
-      ? { texture: closetBack.texture, w: 0.40, h: 0.40 / (closetBack.aspect || 0.75), y: 1.16 }
+      ? { texture: closetBack.texture, w: 0.52, h: 0.52 / (closetBack.aspect || 0.75), y: 1.16 }
       : null,
     garments: [
       { cut: dieCutSlot('closet.shirt.a'), colour: 0x6b4f9e, w: 0.34, h: 0.58 },

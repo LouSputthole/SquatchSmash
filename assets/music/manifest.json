@@ -66,6 +66,14 @@
       "title": "Nehoo With a Guu",
       "start": 0,
       "cutAt": 15
+    },
+    {
+      "file": "baby-snakes.mp3",
+      "title": "Baby Snakes",
+      "artist": "Frank Zappa",
+      "start": 19,
+      "cutAt": 22.2,
+      "_note": "Booski's entrance, on the shot beat. Owner-picked window: in at 19.0, out at 22.2 -- the 3.2 seconds that are the joke. No station and no venue: this is a cue, not programming."
     }
   ]
 }
