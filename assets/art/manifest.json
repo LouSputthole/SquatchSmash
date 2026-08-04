@@ -392,6 +392,12 @@
       "caption": "A die-cut sticker on the office mini fridge."
     },
     {
+      "slot": "bing.office.nephews",
+      "file": "lou-office-nephews.jpg",
+      "title": "The Nephews",
+      "caption": "Framed on the door wall of Lou's office. Top secret -- ask before you stare."
+    },
+    {
       "slot": "bing.bathroom.anime4",
       "file": "bing-bathroom-anime4.jpg",
       "title": "Bada Bing bathroom print",
