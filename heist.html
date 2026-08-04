@@ -21,6 +21,7 @@
   <div id="heist-title"><span>THE TAKE</span><small id="phase-label">SAFEHOUSE</small></div>
   <div id="objective"><b>OBJECTIVE</b><span>Meet the crew.</span></div>
   <div id="guard-threat" class="hidden"><b>ARMED GUARD</b><span>2.75 SEC</span><i></i></div>
+  <div id="lobby-readout" class="hidden"><b>LOBBY</b><span class="control">0 / 22 DOWN</span><span class="ties">8 TIES</span><span class="casualties">NOBODY HURT</span></div>
   <div id="crew-strip"></div>
   <div id="health"><span>HEALTH</span><i></i></div>
   <div id="ammo"><b>20</b><span>/ 80</span><small>CONTROLLED</small></div>
@@ -40,10 +41,12 @@
   <div class="rule"></div>
   <p class="lede">Six people. One job. Stay with Snow, protect the crew, and bring home what you can carry.</p>
   <button id="start">BEGIN</button>
-  <small>WASD move · mouse look · E interact/order · left fire · right aim · R reload · Q drop bag</small>
+  <small>WASD move · mouse look · <b>1–5 or wheel</b> change what is in your hands · E interact / order down · <b>hold E</b> zip-tie · <b>F</b> reassure · <b>G</b> demand · left fire · right aim · R reload · Q drop bag</small>
+  <small class="objective-note">Minimise civilian casualties. Bring home all eight bags.</small>
 </div>
 
 <div id="fade"><span></span></div>
+<div id="debrief-board" class="hidden"></div>
 <div id="mission-card" class="hidden"></div>
 
 <script type="module" src="src/heist/main.js"></script>

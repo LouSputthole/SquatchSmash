@@ -19,18 +19,30 @@ test('safehouse reads as a planned job with physical gear instead of appliance p
   assert.ok(safehouse.getObjectByName('loadout-duffel'));
 });
 
-test('bank actors have articulated, distinct silhouettes and staged civilian responses', () => {
+test('bank actors have articulated silhouettes and a full lobby of hostages', () => {
   const level = buildHeistLevel(new THREE.Scene());
   const { bank } = level.phases;
 
   assert.ok(bank.interactables.guard.getObjectByName('bank-guard-head'));
   assert.ok(bank.interactables.guard.getObjectByName('bank-guard-gun'));
+  assert.ok(bank.interactables.guard.getObjectByName('bank-guard-holster'));
   assert.ok(bank.interactables.manager.getObjectByName('bank-manager-briefcase'));
-  assert.equal(bank.civilians.length, 16);
-  assert.ok(bank.civilians.every((actor) => actor.getObjectByName('civilian-arm-left')));
+  assert.equal(bank.civilians.length, 22);
+  assert.ok(bank.civilians.every((actor) => actor.userData.hostageId));
+  assert.ok(bank.civilians.every((actor) => actor.userData.figure));
+});
 
-  const responses = bank.civilians.map((actor) => actor.userData.setState('comply'));
-  assert.ok(new Set(responses).size >= 3, `only staged ${new Set(responses).size} civilian response(s)`);
+test('every hostage state produces its own distinct pose', () => {
+  const level = buildHeistLevel(new THREE.Scene());
+  const civilian = level.phases.bank.civilians[0];
+  const poses = ['startled', 'pleading', 'kneeling', 'prone', 'restrained', 'bolting', 'alarm', 'down']
+    .map((state) => civilian.userData.setState(state));
+  assert.equal(new Set(poses).size, poses.length, `poses collapsed: ${poses.join(',')}`);
+  // Prone lies down; restrained lies down with the arms behind the back.
+  civilian.userData.setState('prone');
+  const proneArm = civilian.userData.figure.parts.armL.rotation.x;
+  civilian.userData.setState('restrained');
+  assert.notEqual(civilian.userData.figure.parts.armL.rotation.x, proneArm);
 });
 
 test('bank keeps a readable central play lane between the architectural columns', () => {

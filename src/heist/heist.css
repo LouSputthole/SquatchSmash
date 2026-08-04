@@ -79,3 +79,49 @@ body { font-family: "Arial Narrow", "Segoe UI", sans-serif; color: #f3efe6; }
   .crew { min-width: 56px; padding: 5px; }
   .crew small { display: none; }
 }
+
+/* ---- the lobby, the debrief board, and the verdict ----
+ *
+ * The objective spine has to be visible while it is still changeable: the
+ * count of people on the floor, the ties left, and the one number that cannot
+ * be undone. */
+#lobby-readout { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; padding: 7px 14px; background: rgba(8,10,13,.8); border-top: 2px solid var(--green); }
+#lobby-readout.losing { border-top-color: var(--amber); }
+#lobby-readout b { color: #aeb5b3; font-size: 10px; letter-spacing: .18em; }
+#lobby-readout span { font-size: 13px; letter-spacing: .06em; }
+#lobby-readout .ties { color: var(--amber); }
+#lobby-readout .casualties { color: #9fb0a2; }
+#lobby-readout .casualties.bad { color: #e2635a; font-weight: 900; }
+
+#start-card .objective-note { margin-top: 10px; color: var(--amber); letter-spacing: .1em; }
+
+/* Off to the side and click-through: it is a board on the wall of the room,
+ * not a modal. Sitting in the middle of the screen it covered the crosshair
+ * and the interaction prompt for the two steps that come after it. */
+#debrief-board { position: fixed; z-index: 24; right: 24px; top: 96px; width: min(420px, 46vw); padding: 18px 20px; background: rgba(6,7,9,.94); border: 1px solid rgba(207,170,96,.5); box-shadow: 0 24px 70px rgba(0,0,0,.65); pointer-events: none; }
+#debrief-board h2 { margin: 0 0 14px; font-size: 20px; letter-spacing: .18em; color: var(--amber); }
+#debrief-board table { width: 100%; border-collapse: collapse; }
+#debrief-board td { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.1); font-size: 14px; }
+#debrief-board td:last-child { text-align: right; }
+#debrief-board tr.good td:last-child { color: #8fc79a; }
+#debrief-board tr.bad td:last-child { color: #e2635a; }
+
+.verdict { margin: 16px 0 0; font-size: 18px; font-weight: 900; letter-spacing: .22em; }
+.verdict.professional { color: #8fc79a; }
+.verdict.barely_clean { color: #cfaa60; }
+.verdict.hard_exit { color: #e08a4a; }
+.verdict.costly_success { color: #e2635a; }
+
+#mission-card h3 { margin: 22px 0 0; color: #aeb5b3; font-size: 11px; letter-spacing: .22em; }
+#mission-card table.scorecard tr.good td:last-child { color: #8fc79a; }
+#mission-card table.scorecard tr.bad td:last-child { color: #e2635a; }
+
+/* The end card grew a scorecard on top of the settlement, which pushed the
+ * return control below the fold on a 720p viewport. It scrolls now, and its
+ * own type is sized for the extra rows rather than for one table. */
+#mission-card { align-content: start; overflow-y: auto; padding: 26px 30px 34px; }
+#mission-card h1 { font-size: clamp(34px, 5.4vw, 64px); }
+#mission-card table { margin: 10px auto 4px; min-width: min(440px, 92vw); }
+#mission-card td { padding: 4px 12px; font-size: 14px; }
+#mission-card .verdict { margin: 8px 0 0; }
+#mission-card button { margin-top: 20px; }

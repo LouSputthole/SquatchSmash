@@ -170,4 +170,243 @@ export const HEIST_DIALOGUE = Object.freeze({
     'We got out. Everybody came home.', P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
 });
 
-export function dialogueLine(id) { return HEIST_DIALOGUE[id] ?? null; }
+/**
+ * Lines written for this pass, waiting on a cue in `assets/sfx/manifest.json`.
+ *
+ * Kept in a second bank on purpose. `tools/check.mjs` requires every entry in
+ * `HEIST_DIALOGUE` to have a manifest cue, and the manifest is generated
+ * centrally — so a line added straight into the first bank would fail the gate
+ * before anybody could record it. Everything here is authored, wired and
+ * played; `dialogue.onStart` only reaches for audio when `audio.hasSample()`
+ * agrees, so an unrecorded line is subtitled and silent rather than broken.
+ * Move an entry up into `HEIST_DIALOGUE` the moment its cue lands.
+ *
+ * ## Tone
+ *
+ * `docs/TONE-AND-PARODY.md` governs all of it. The recognition is the player's
+ * and it belongs entirely outside the scene: nobody in this bank knows they are
+ * in a parody, nobody remarks that this is like a film, and not one line here
+ * is a joke about the situation. It is a robbery, and everybody in it is
+ * talking the way people talk in one.
+ */
+export const HEIST_PENDING_DIALOGUE = Object.freeze({
+  /* ---- the van: the mask beat that could not be reached ---- */
+  snow_mask_call: line('snow_mask_call', CHARACTER_IDS.SNOW,
+    'Two blocks. Masks on now, while there is nobody outside to watch us do it.',
+    P.TACTICAL, ['VAN_APPROACH']),
+  prospect_mask_on: line('prospect_mask_on', CHARACTER_IDS.PROSPECT,
+    'Mask is down. I can see fine.', P.BARK, ['MASKS_ON']),
+  numb_van_count: line('numb_van_count', CHARACTER_IDS.NUMBSKULL,
+    'Four minutes on the floor, one on the vault, one to walk out. That is the whole plan.',
+    P.OBJECTIVE, ['MASKS_ON']),
+
+  /* ---- the lobby ---- */
+  numb_lobby_order: line('numb_lobby_order', CHARACTER_IDS.NUMBSKULL,
+    'Everybody on the floor. Face down, hands out. This takes four minutes and then we are gone.',
+    P.TACTICAL, ['LOBBY_CONTROL']),
+  snow_lobby_open: line('snow_lobby_open', CHARACTER_IDS.SNOW,
+    'The room is yours, Prospect. Get them flat and keep them flat.',
+    P.OBJECTIVE, ['LOBBY_CONTROL', 'GUARDS_SECURED']),
+  snow_control_slipping: line('snow_control_slipping', CHARACTER_IDS.SNOW,
+    'Half your room is up on its knees again. Fix it before I have to.',
+    P.WARNING, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING']),
+  numb_lobby_held: line('numb_lobby_held', CHARACTER_IDS.NUMBSKULL,
+    'Lobby is tied off. Nobody in here is going anywhere on their own.',
+    P.OBJECTIVE, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING']),
+  numb_alarm_reached: line('numb_alarm_reached', CHARACTER_IDS.NUMBSKULL,
+    'Somebody got a hand to a switch. Whatever clock you thought you had, it is shorter.',
+    P.WARNING, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING']),
+  death_runner: line('death_runner', CHARACTER_IDS.DEATHMEGATRON,
+    'Runner. West side, and he is four seconds from the street.',
+    P.WARNING, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING']),
+  snow_no_souvenirs: line('snow_no_souvenirs', CHARACTER_IDS.SNOW,
+    'That is a man’s wallet in your hand. Put it down, or carry it into Lou’s office and explain it.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING']),
+  snow_casualty: line('snow_casualty', CHARACTER_IDS.SNOW,
+    'That was a customer. That is the one thing we do not do.',
+    P.TACTICAL, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  snow_friendly_fire: line('snow_friendly_fire', CHARACTER_IDS.SNOW,
+    'Muzzle. Off me. Now.', P.TACTICAL,
+    ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS', 'CASH_LOADING', 'STREET_BLOCK_ONE', 'STREET_BLOCK_TWO']),
+
+  /* ---- Tony working the room ---- */
+  prospect_reassure_one: line('prospect_reassure_one', CHARACTER_IDS.PROSPECT,
+    'Nobody here wants your money. It is the bank’s, it is insured, and it is not worth your life.',
+    P.OBJECTIVE, null),
+  prospect_reassure_two: line('prospect_reassure_two', CHARACTER_IDS.PROSPECT,
+    'Look at me. Do what I say and you go home to whoever is waiting on you.',
+    P.OBJECTIVE, null),
+  prospect_order_down: line('prospect_order_down', CHARACTER_IDS.PROSPECT,
+    'Down. Face on the floor, hands where I can see them.', P.TACTICAL, null),
+  prospect_demand: line('prospect_demand', CHARACTER_IDS.PROSPECT,
+    'Wallet. Watch. On the tile in front of you.', P.TACTICAL, null),
+  prospect_tie: line('prospect_tie', CHARACTER_IDS.PROSPECT,
+    'Hands behind your back. This is so I can stop watching you.', P.TACTICAL, null),
+
+  /* ---- the people on the floor ----
+   * Pooled and anonymous: the owner is supplying voice ids for these once the
+   * behaviour is settled, so they are written to be castable in any order. */
+  hostage_plead_one: npcLine('hostage_plead_one', 'Bank Customer',
+    'Please. Please don’t shoot.', P.BARK, null),
+  hostage_plead_two: npcLine('hostage_plead_two', 'Bank Customer',
+    'I’m not doing anything. I’m not doing anything.', P.BARK, null),
+  hostage_plead_three: npcLine('hostage_plead_three', 'Bank Customer',
+    'Okay. Okay. It’s okay, I’m looking at the floor.', P.BARK, null),
+  hostage_plead_teller: npcLine('hostage_plead_teller', 'Teller',
+    'There’s nothing back here. There’s nothing in my drawer.', P.BARK, null),
+  hostage_reassured_one: npcLine('hostage_reassured_one', 'Bank Customer',
+    'It isn’t mine. None of it is mine. Take it.', P.BARK, null),
+  hostage_reassured_two: npcLine('hostage_reassured_two', 'Bank Customer',
+    'Thank you. Thank you. I’m staying right here.', P.BARK, null),
+  hostage_reassured_hard: npcLine('hostage_reassured_hard', 'Bank Customer',
+    'Then take it and go. Please just take it and go.', P.BARK, null),
+  hostage_hands_over: npcLine('hostage_hands_over', 'Bank Customer',
+    'That’s all of it. That’s everything I have on me.', P.BARK, null),
+  hostage_refuses: npcLine('hostage_refuses', 'Bank Customer',
+    'I don’t have anything. I came in to pay a bill.', P.BARK, null),
+  hostage_tied: npcLine('hostage_tied', 'Bank Customer',
+    'It’s too tight. It’s too tight.', P.BARK, null),
+  hostage_caught: npcLine('hostage_caught', 'Bank Customer',
+    'I wasn’t reaching for anything. I wasn’t.', P.WARNING, null),
+  hostage_witness: npcLine('hostage_witness', 'Bank Customer',
+    'You shot him. Oh God, you shot him.', P.WARNING, null),
+  manager_second: npcLine('manager_second', 'Bank Manager',
+    'The timer does not care that you are in a hurry. Neither do I.', P.OBJECTIVE, ['VAULT_BYPASS']),
+
+  /* ---- the drive ---- */
+  rippin_tower_right: line('rippin_tower_right', CHARACTER_IDS.RIPPINFLOW,
+    'Glass tower on the corner. Right there, and do not slow down for the light.',
+    P.TACTICAL, ['CITY_PURSUIT']),
+  rippin_swap_ahead: line('rippin_swap_ahead', CHARACTER_IDS.RIPPINFLOW,
+    'Canal road. Yard gate on your left, four hundred metres. Lights off before you turn in.',
+    P.TACTICAL, ['INDUSTRIAL_ROUTE']),
+  snow_lost_them: line('snow_lost_them', CHARACTER_IDS.SNOW,
+    'Nothing behind us. Nothing above us. We are a grey car on a service road.',
+    P.OBJECTIVE, ['VEHICLE_SWAP']),
+  rippin_pursuit_close: line('rippin_pursuit_close', CHARACTER_IDS.RIPPINFLOW,
+    'He is on the bumper. Do not brake for him, he will just get braver.',
+    P.WARNING, ['CITY_PURSUIT', 'ROADBLOCK', 'INDUSTRIAL_ROUTE']),
+
+  /* ---- Big Uncle Lou ----
+   *
+   * He had one cue in the entire mission — `heist.lou_call`, at the very end —
+   * which is a hole for the man whose job this is, and part of why the debrief
+   * did not read as anything: the person who decides what a day was worth
+   * never spoke. He is on the radio for the job and he is the last voice in the
+   * safehouse, and it is his lines that say the two numbers back to the player.
+   *
+   * `lou1`. Big Uncle Lou Sputthole. Never Captain Lou Sasole.
+   */
+  lou_radio_open: line('lou_radio_open', CHARACTER_IDS.LOU,
+    'Prospect. You are on my clock now. Do what Snow says and come back with everybody you left with.',
+    P.OBJECTIVE, ['BOARD_VAN', 'VAN_APPROACH']),
+  /* Wide state windows on the radio lines on purpose: they are sequenced
+   * behind the crew's own calls, and a player who moves fast through the lobby
+   * would otherwise walk out of the beat before Lou got to speak in it. */
+  lou_radio_lobby: line('lou_radio_lobby', CHARACTER_IDS.LOU,
+    'Those people on the floor are the bank’s problem, not yours. Do not make them yours.',
+    P.OBJECTIVE, ['LOBBY_CONTROL', 'GUARDS_SECURED', 'MANAGER_ESCORT', 'VAULT_BYPASS']),
+  lou_radio_vault: line('lou_radio_vault', CHARACTER_IDS.LOU,
+    'Eight bags on that trolley. Eight is the number. I do not want to hear a seven.',
+    P.OBJECTIVE, ['CASH_LOADING', 'ALARM_DISCOVERED', 'EXIT_ORDER']),
+  lou_radio_street: line('lou_radio_street', CHARACTER_IDS.LOU,
+    'I can hear the sirens from my office. Get off that street.',
+    P.WARNING, ['EXIT_ORDER', 'BANK_DOOR_CONTACT', 'STREET_BLOCK_ONE']),
+  lou_debrief_open: line('lou_debrief_open', CHARACTER_IDS.LOU,
+    'Sit down, all of you. I only ever ask two things after a day like this.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  lou_debrief_people_clean: line('lou_debrief_people_clean', CHARACTER_IDS.LOU,
+    'First one. Everybody who walked into that lobby walked back out of it. That is the whole reason I use you and not somebody cheaper.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  lou_debrief_people_dirty: line('lou_debrief_people_dirty', CHARACTER_IDS.LOU,
+    'First one, and you already know the answer. Somebody who came in to cash a cheque did not walk back out. That follows this family around for years.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  lou_debrief_money_full: line('lou_debrief_money_full', CHARACTER_IDS.LOU,
+    'Second one. All eight bags, insured paper, nothing on anybody’s person. That is the number I wanted and that is the number I got.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  lou_debrief_money_short: line('lou_debrief_money_short', CHARACTER_IDS.LOU,
+    'Second one. You left money on Mercer Street. It is insured, so nobody cries — but I asked for eight and I am counting less than eight.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  lou_debrief_souvenirs: line('lou_debrief_souvenirs', CHARACTER_IDS.LOU,
+    'And there is money in that bag that came out of a man’s coat. Take it off the table. We are not muggers, and it is coming out of your end.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  lou_debrief_verdict_good: line('lou_debrief_verdict_good', CHARACTER_IDS.LOU,
+    'Then it was a good day. Nobody hurt, everything counted, and tomorrow it is a paragraph nobody reads. Well done, kid.',
+    P.OBJECTIVE, ['DEBRIEF', 'LOU_CALL_SAFEHOUSE']),
+  lou_debrief_verdict_bad: line('lou_debrief_verdict_bad', CHARACTER_IDS.LOU,
+    'So it was not a good day. You are still standing here, which is something. Do not let anybody tell you it was clean.',
+    P.OBJECTIVE, ['DEBRIEF', 'LOU_CALL_SAFEHOUSE']),
+  lou_prospect_verdict: line('lou_prospect_verdict', CHARACTER_IDS.LOU,
+    'You came home with the crew and you came home with the money. Whatever they decide about you later, that is on the record.',
+    P.OBJECTIVE, ['LOU_CALL_SAFEHOUSE']),
+
+  /* ---- the debrief, which the owner could not read at all ---- */
+  snow_debrief_open: line('snow_debrief_open', CHARACTER_IDS.SNOW,
+    'Sit down, all of you. We do this the same way every time.', P.OBJECTIVE, ['MONEY_COUNT', 'DEBRIEF']),
+  snow_debrief_people: line('snow_debrief_people', CHARACTER_IDS.SNOW,
+    'People first. I count six of us. Now somebody tell me the other number.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  snow_debrief_money: line('snow_debrief_money', CHARACTER_IDS.SNOW,
+    'Then the money. What went in the car, and what we left on Mercer.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  snow_debrief_clean: line('snow_debrief_clean', CHARACTER_IDS.SNOW,
+    'Nothing on the news tonight but a number. That is what a good day looks like.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  snow_debrief_ugly: line('snow_debrief_ugly', CHARACTER_IDS.SNOW,
+    'That was not a job. That was a mess we walked out of. Lou hears it from me first.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  numb_debrief_ledger: line('numb_debrief_ledger', CHARACTER_IDS.NUMBSKULL,
+    'Eight bags came off the trolleys. Here is what actually got home.',
+    P.OBJECTIVE, ['DEBRIEF']),
+  death_debrief_count: line('death_debrief_count', CHARACTER_IDS.DEATHMEGATRON,
+    'Count it twice. I am not doing this again on Lou’s carpet.', P.BARK, ['DEBRIEF']),
+  prospect_debrief: line('prospect_debrief', CHARACTER_IDS.PROSPECT,
+    'First one. I moved when Snow said move and I did not make anything worse.',
+    P.OBJECTIVE, ['DEBRIEF']),
+});
+
+/**
+ * Which pooled line a hostage says, per outcome, in rotation.
+ *
+ * The director hands back a `response` key; `main.js` walks these so the same
+ * customer does not say the same sentence twice in a row and twenty-two people
+ * do not all beg in one voice.
+ */
+export const HOSTAGE_BARKS = Object.freeze({
+  plead: Object.freeze(['hostage_plead_one', 'hostage_plead_two', 'hostage_plead_three']),
+  plead_teller: Object.freeze(['hostage_plead_teller']),
+  reassured: Object.freeze(['hostage_reassured_one', 'hostage_reassured_two']),
+  reassured_hard: Object.freeze(['hostage_reassured_hard']),
+  reassured_tied: Object.freeze(['hostage_reassured_two']),
+  hands_over: Object.freeze(['hostage_hands_over']),
+  refuses: Object.freeze(['hostage_refuses']),
+  already_robbed: Object.freeze(['hostage_refuses']),
+  tied: Object.freeze(['hostage_tied']),
+  caught: Object.freeze(['hostage_caught']),
+  witness: Object.freeze(['hostage_witness']),
+});
+
+/** Tony's own verbs, in rotation for the same reason. */
+export const PROSPECT_VERB_LINES = Object.freeze({
+  reassure: Object.freeze(['prospect_reassure_one', 'prospect_reassure_two']),
+  demand: Object.freeze(['prospect_demand']),
+  order: Object.freeze(['prospect_order_down']),
+  restrain: Object.freeze(['prospect_tie']),
+});
+
+/** Both banks, because the runtime does not care which one a line came from. */
+export const ALL_HEIST_DIALOGUE = Object.freeze({
+  ...HEIST_DIALOGUE, ...HEIST_PENDING_DIALOGUE,
+});
+
+export function dialogueLine(id) { return ALL_HEIST_DIALOGUE[id] ?? null; }
+
+/** Cues that exist in the manifest today, for the audio preload. */
+export function recordedHeistCues() {
+  return Object.values(HEIST_DIALOGUE).map((entry) => entry.cue);
+}
+
+/** Cues authored this pass and waiting on the central voice run. */
+export function pendingHeistCues() {
+  return Object.values(HEIST_PENDING_DIALOGUE).map((entry) => entry.cue);
+}

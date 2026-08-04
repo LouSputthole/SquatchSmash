@@ -21,6 +21,13 @@ export class HeistHud {
     this.drive = document.getElementById('drive-hud');
     this.speed = document.getElementById('speed');
     this.route = document.getElementById('route');
+    /* The objective spine, on screen, permanently: the two numbers the job is
+     * scored on. `docs/TONE-AND-PARODY.md` calls detail load-bearing, and a
+     * player who cannot see the count cannot be trying to keep it. */
+    this.lobby = document.getElementById('lobby-readout');
+    this.lobbyControl = document.querySelector('#lobby-readout .control');
+    this.lobbyTies = document.querySelector('#lobby-readout .ties');
+    this.lobbyCasualties = document.querySelector('#lobby-readout .casualties');
     this.subtitleTimer = null;
   }
 
@@ -33,6 +40,23 @@ export class HeistHud {
     this.threatTime.textContent = `${Math.max(0, remaining).toFixed(2)} SEC`;
     this.threatBar.style.transform = `scaleX(${Math.max(0, Math.min(1, remaining / Math.max(0.01, total)))})`;
   }
+
+  /**
+   * The lobby panel. Hidden outside the bank, because a control figure for a
+   * room you are not in is noise.
+   */
+  setLobby(state) {
+    if (!this.lobby) return;
+    if (!state) { this.lobby.classList.add('hidden'); return; }
+    this.lobby.classList.remove('hidden');
+    this.lobbyControl.textContent = `${state.controlled} / ${state.total} DOWN`;
+    this.lobbyTies.textContent = `${state.ties} TIES`;
+    this.lobbyCasualties.textContent = state.casualties
+      ? `${state.casualties} CIVILIAN${state.casualties > 1 ? 'S' : ''} DOWN` : 'NOBODY HURT';
+    this.lobbyCasualties.classList.toggle('bad', state.casualties > 0);
+    this.lobby.classList.toggle('losing', state.controlled / Math.max(1, state.total) < 0.4);
+  }
+
   showPrompt(label, key = 'E') { this.promptLabel.innerHTML = label; this.promptKey.textContent = key; this.prompt.classList.remove('hidden'); }
   hidePrompt() { this.prompt.classList.add('hidden'); this.setHold(null); }
   setHold(value) { this.promptBar.style.width = value == null ? '0%' : `${Math.round(value * 100)}%`; }
@@ -42,7 +66,18 @@ export class HeistHud {
     this.subtitle.classList.remove('hidden');
     this.subtitleTimer = setTimeout(() => this.subtitle.classList.add('hidden'), duration * 1000);
   }
-  setAmmo(magazine, reserve, name) { this.ammo.textContent = magazine; this.reserve.textContent = `/ ${reserve}`; this.weapon.textContent = name; }
+
+  /**
+   * @param {number|string} magazine rounds left, or a dash for empty hands
+   * @param {number|string} reserve  already-formatted reserve text
+   * @param {string} name            what is actually in Tony's hands
+   */
+  setAmmo(magazine, reserve, name) {
+    this.ammo.textContent = magazine;
+    this.reserve.textContent = typeof reserve === 'number' ? `/ ${reserve}` : String(reserve ?? '');
+    this.weapon.textContent = name;
+  }
+
   setHealth(value) { this.health.style.background = `linear-gradient(90deg,#8fa391 ${value}%,rgba(255,255,255,.12) ${value}%)`; this.damage.style.opacity = String((100 - value) / 150); }
   setSuppression(value) { this.suppression.style.opacity = String(value * 0.75); }
   setBag(value, count) { this.bag.classList.toggle('hidden', count <= 0); this.bag.querySelector('span').textContent = `$${value.toLocaleString()}`; }
