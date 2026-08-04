@@ -211,10 +211,17 @@ test('Gratin shouts through the door before it is ever opened', () => {
    * door."* The line has existed since the quest landed and nothing played
    * it. */
   const h = harness();
-  h.standAt(0, 0);
+  h.standAt(0, 0);                        // the dance floor
   h.quest.update(0.05);
   assert.equal(h.started.length, 0);
-  h.standAt(DOOR.x, DOOR.z + 2.0);
+  /* And NOT on the way to Lou's briefing. His door is across the corridor at
+   * (7.9, −7.05); Gratin shouting over the top of the mission's own hallway
+   * beat would be the side quest talking across the scene. */
+  h.standAt(7.4, -7.0);
+  h.quest.update(0.05);
+  assert.equal(h.started.length, 0, 'Gratin shouted at Lou’s door');
+
+  h.standAt(DOOR.x, DOOR.z + 1.4);
   h.quest.update(0.05);
   assert.deepEqual(h.started, ['knocking']);
   // Once. Walking up and down the hallway does not make him repeat himself.
