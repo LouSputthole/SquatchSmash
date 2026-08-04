@@ -389,7 +389,7 @@ const round = new Round({
       if (kind === 'stop' && data.id === CHARACTER_IDS.PROSPECT) paintCard();
     },
     onHoleComplete: (summary, next) => showHoleCard(summary, next),
-    onLoadHole: (n) => course.load(n),
+    onLoadHole: (n) => { course.load(n); wireSideCooler(); },
     onRoundComplete: (summary) => showEndCard(summary),
   },
 });
@@ -1517,6 +1517,49 @@ interaction.register(carts.lead.amenities.zyn, {
   },
 });
 
+/**
+ * The course's own trailside coolers, one built fresh with each hole.
+ *
+ * `course.sideCooler` is a new object every time `course.build()` runs -- the
+ * old one's geometry already went with the last hole's teardown -- so the
+ * interaction target has to be re-registered on every load rather than once
+ * at startup, unlike the cart's cooler which lives for the whole round.
+ */
+let sideCoolerTarget = null;
+let sideCoolerRemaining = 0;
+function wireSideCooler() {
+  if (sideCoolerTarget) interaction.unregister(sideCoolerTarget);
+  sideCoolerTarget = null;
+  sideCoolerRemaining = 0;
+  const cooler = course.sideCooler;
+  if (!cooler) return;
+  sideCoolerRemaining = cooler.cans.length;
+  sideCoolerTarget = cooler.group;
+  interaction.register(cooler.group, {
+    label: () => sideCoolerRemaining > 0
+      ? `Grab a <b>cold one</b> from the cooler · ${sideCoolerRemaining} left`
+      : 'This <b>cooler</b> is picked clean',
+    enabled: () => camMode === CAM.WALK,
+    onUse: () => {
+      if (sideCoolerRemaining <= 0) {
+        hud.toast('Empty. Somebody beat you to it.', 'hint', 1400);
+        return;
+      }
+      const can = cooler.cans[sideCoolerRemaining - 1];
+      can.visible = false;
+      sideCoolerRemaining--;
+      const at = cooler.group.getWorldPosition(new THREE.Vector3());
+      audio.play('can.crack', { volume: 0.72, position: at });
+      window.setTimeout(() => audio.play('can.sip', { volume: 0.62, position: at }), 380);
+      window.setTimeout(() => audio.play('can.crush', { volume: 0.72, position: at }), 980);
+      hud.toast(sideCoolerRemaining
+        ? `${sideCoolerRemaining} left in this cooler.`
+        : 'Last one out of this cooler.', 'good', 1900);
+    },
+  });
+}
+wireSideCooler();
+
 interaction.register(course.marker, {
   label: () => {
     const hole = getHole(HOLE.number);
@@ -1960,6 +2003,7 @@ frame();
  */
 window.__golf = {
   campaign, story, round, course, golfers, carts, cues, dialogue, swing,
+  interaction,
   cartRadio, landingPreview, npcBallMarkers,
   cartRadioAudioPlan,
   waitForCartRadioAudio: () => cartRadioAudioReady,
