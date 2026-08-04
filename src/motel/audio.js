@@ -13,7 +13,14 @@ let musicTimer = null;
 let musicStep = 0;
 let musicMode = 'none';  // 'none' | 'tense' | 'fight' | 'chase'
 
-export function init() {
+/**
+ * @param {{ priorityVoice?: string[] }} [options] cues whose takes are decoded
+ * before the rest of the voice library is fetched. The scene's opening line is
+ * spoken about a second after this call and lost the race against 167 parallel
+ * voice downloads every single time, which read on screen as an unrecorded
+ * line even though the take was on disk.
+ */
+export function init(options = {}) {
   if (ctx) return;
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
@@ -26,7 +33,7 @@ export function init() {
   const data = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
   loadSamples(SAMPLE_CUES);
-  loadVoiceIndex();
+  loadVoiceIndex(options.priorityVoice || []);
 }
 
 /* Recorded cues this scene prefers over its own synthesis. Everything here
@@ -43,17 +50,28 @@ const SAMPLE_CUES = [
 // Preferred when decoded; every caller keeps its synth fallback, so nothing
 // in the scene depends on the files existing.
 const samples = new Map();
+/** One promise per file, so a caller can wait for a specific take to land. */
+const sampleLoads = new Map();
 
 function loadSamples(names) {
+  const waits = [];
   for (const name of names) {
-    if (samples.has(name)) continue;
+    if (samples.has(name)) {
+      const pending = sampleLoads.get(name);
+      if (pending) waits.push(pending);
+      continue;
+    }
     samples.set(name, null);
-    fetch(`assets/sfx/${name}.mp3`)
+    const load = fetch(`assets/sfx/${name}.mp3`)
       .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
       .then((buf) => ctx.decodeAudioData(buf))
-      .then((decoded) => samples.set(name, decoded))
-      .catch(() => samples.delete(name));
+      .then((decoded) => { samples.set(name, decoded); })
+      .catch(() => { samples.delete(name); })
+      .finally(() => { sampleLoads.delete(name); });
+    sampleLoads.set(name, load);
+    waits.push(load);
   }
+  return Promise.all(waits);
 }
 
 function playSample(name, { volume = 1, rate = 1 } = {}) {
@@ -85,27 +103,75 @@ const voiceBanks = new Map();
 const voiceLast = new Map();
 /** Every cue the scene has asked for, recorded or not — the wiring's receipt. */
 export const voiceRequested = new Set();
-let voiceIndexLoaded = false;
+/**
+ * Every take that actually started, in order. `voiceRequested` only proves the
+ * scene asked; this proves a recording came out of the speakers, which is the
+ * difference a player hears and the only thing that can catch a line losing a
+ * race against its own download.
+ */
+export const voicePlayed = [];
+let voiceIndexPromise = null;
 let currentVoice = null;
 let voiceUntil = 0;
 
-async function loadVoiceIndex() {
-  if (voiceIndexLoaded) return;
-  voiceIndexLoaded = true;
-  try {
-    const res = await fetch('assets/sfx/index.json', { cache: 'force-cache' });
-    if (!res.ok) return;
-    const index = await res.json();
-    for (const file of index.files || []) {
-      if (file.startsWith(VOICE_PREFIX) && file.endsWith('.mp3')) {
-        voiceFiles.add(file.slice(0, -4));
+/** Every file on disk whose name is a take of `cue`. */
+function takesOf(cue) {
+  const stem = `${cue.startsWith(VOICE_PREFIX) ? cue : `${VOICE_PREFIX}${cue}`}.`;
+  return [...voiceFiles].filter((name) => name.startsWith(stem));
+}
+
+function loadVoiceIndex(priorityCues = []) {
+  if (voiceIndexPromise) return voiceIndexPromise;
+  voiceIndexPromise = (async () => {
+    try {
+      const res = await fetch('assets/sfx/index.json', { cache: 'force-cache' });
+      if (!res.ok) return;
+      const index = await res.json();
+      for (const file of index.files || []) {
+        if (file.startsWith(VOICE_PREFIX) && file.endsWith('.mp3')) {
+          voiceFiles.add(file.slice(0, -4));
+        }
       }
+      voiceBanks.clear();
+      if (!voiceFiles.size) return;
+      /* The lines the scene opens on go first and alone. Firing all of them at
+       * once puts the first line of the scene behind a hundred and sixty-six
+       * downloads it does not need, and it arrives after the subtitle has
+       * already come and gone. */
+      const first = priorityCues.flatMap(takesOf);
+      if (first.length) await loadSamples(first);
+      loadSamples([...voiceFiles]);
+    } catch {
+      /* No index: the scene runs on subtitles alone rather than failing. */
     }
-    voiceBanks.clear();
-    if (voiceFiles.size) loadSamples([...voiceFiles]);
-  } catch {
-    /* No index: the scene runs on subtitles, which is the whole motel today. */
-  }
+  })();
+  return voiceIndexPromise;
+}
+
+/**
+ * Wait until the named cues can actually be spoken.
+ *
+ * Resolves true when at least one take of one of them is decoded, false when
+ * the ceiling runs out first — the caller speaks either way, because a late
+ * subtitle is still worse than a silent one.
+ */
+export async function primeVoice(cues, { timeoutMs = 6000 } = {}) {
+  if (!ctx || !cues?.length) return false;
+  let expired = false;
+  const ceiling = new Promise((resolve) => {
+    setTimeout(() => { expired = true; resolve(); }, timeoutMs);
+  });
+  await Promise.race([loadVoiceIndex(cues), ceiling]);
+  if (expired) return cues.some((cue) => takesOf(cue).some((name) => samples.get(name)));
+  const wanted = cues.flatMap(takesOf);
+  if (!wanted.length) return false;
+  await Promise.race([loadSamples(wanted), ceiling]);
+  return wanted.some((name) => samples.get(name));
+}
+
+/** True when a recorded take of this cue is decoded and ready to play. */
+export function voiceReady(cue) {
+  return takesOf(cue).some((name) => samples.get(name));
 }
 
 /**
@@ -117,41 +183,51 @@ export function prepareVoice(cue, { volume = 0.95 } = {}) {
   if (!cue) return silent;
   const fullCue = cue.startsWith(VOICE_PREFIX) ? cue : `${VOICE_PREFIX}${cue}`;
   voiceRequested.add(fullCue);
-  if (!ctx || !voiceFiles.size) return silent;
+  if (!ctx) return silent;
 
-  let bank = voiceBanks.get(fullCue);
-  if (!bank) {
-    const stem = `${fullCue}.`;
-    bank = [...voiceFiles].filter((n) => n.startsWith(stem)).sort();
-    voiceBanks.set(fullCue, bank);
-  }
-  if (!bank.length) return silent;
-
-  // Never the same take twice running — that is what makes VO sound canned.
-  let pick = bank[(Math.random() * bank.length) | 0];
-  for (let guard = 0; bank.length > 1 && pick === voiceLast.get(fullCue) && guard < 8; guard++) {
-    pick = bank[(Math.random() * bank.length) | 0];
-  }
-  const buf = samples.get(pick);
-  if (!buf) return silent;
-
-  return {
-    duration: buf.duration,
-    play() {
-      // Playback begins only when the dialogue reservation owns the floor.
-      stopVoice();
-      voiceLast.set(fullCue, pick);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      const g = ctx.createGain();
-      g.gain.value = volume;
-      src.connect(g).connect(master);
-      src.start();
-      currentVoice = src;
-      voiceUntil = ctx.currentTime + buf.duration;
-      return buf.duration;
-    },
+  const chooseTake = () => {
+    let bank = voiceBanks.get(fullCue);
+    if (!bank || !bank.length) {
+      bank = takesOf(fullCue).sort();
+      if (bank.length) voiceBanks.set(fullCue, bank);
+    }
+    if (!bank.length) return null;
+    // Never the same take twice running — that is what makes VO sound canned.
+    let pick = bank[(Math.random() * bank.length) | 0];
+    for (let guard = 0; bank.length > 1 && pick === voiceLast.get(fullCue) && guard < 8; guard++) {
+      pick = bank[(Math.random() * bank.length) | 0];
+    }
+    return samples.get(pick) ? pick : bank.find((name) => samples.get(name)) || null;
   };
+
+  const start = (pick) => {
+    const buf = samples.get(pick);
+    if (!buf) return 0;
+    // Playback begins only when the dialogue reservation owns the floor.
+    stopVoice();
+    voiceLast.set(fullCue, pick);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.value = volume;
+    src.connect(g).connect(master);
+    src.start();
+    currentVoice = src;
+    voiceUntil = ctx.currentTime + buf.duration;
+    voicePlayed.push({ cue: fullCue, take: pick, duration: buf.duration });
+    if (voicePlayed.length > 200) voicePlayed.shift();
+    return buf.duration;
+  };
+
+  const ready = chooseTake();
+  if (ready) {
+    return { duration: samples.get(ready).duration, play: () => start(ready) };
+  }
+  /* Nothing decoded yet. A line reserved now can still be spoken four seconds
+   * from now, by which time the take has usually landed, so the decision is
+   * deferred to the moment it speaks rather than settled at queue time — which
+   * used to condemn everything in the scene's first seconds to silence. */
+  return { duration: 0, play: () => start(chooseTake()) };
 }
 
 export function voice(cue, options = {}) {

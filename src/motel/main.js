@@ -8,6 +8,7 @@ import { lambert } from '../../game/src/world.js';
 import * as sfx from './audio.js';
 import {
   prepareVoice as prepareMotelVoice,
+  primeVoice as primeMotelVoice,
   stopVoice as stopMotelVoice,
 } from './audio.js';
 import {
@@ -50,6 +51,8 @@ const ROAD_Z = 34;
  * two words where anybody else would use ten. One name, one place to change it. */
 const ALLY = 'Snow';
 const ALLY_FACE = 'assets/faces/snow.png';
+/** The first line anybody speaks in this scene — Snow's, and it is recorded. */
+const OPENING_CUE = motelVoiceCue(ALLY, NODES.snowBrief.line);
 
 const campaign = createCampaign();
 const motelStory = createMotelStory({ campaign });
@@ -124,6 +127,10 @@ const grappleFillEl = $('grappleFill');
 const driveHudEl = $('driveHud');
 const packBoxEl = $('packBox');
 const packListEl = $('packList');
+const dealBoxEl = $('dealBox');
+const dealYoursEl = $('dealYours');
+const dealTheirsEl = $('dealTheirs');
+const dealOrderEl = $('dealOrder');
 const sceneInventory = new SceneInventoryBar({ slots: 5, visible: false });
 
 // ---------- Game state ----------
@@ -191,17 +198,38 @@ const S = {
   positionsMarked: 0,
   reactionBonus: false,
   hiddenWeaponKnown: false,
+  /* The transaction, tracked explicitly instead of inferred. */
+  dealStep: null,          // one of DEAL_STEPS while the deal is running
+  sampleChecked: false,    // ran at least one test on their sample
+  packagesCounted: false,  // counted their case of eight
+  payRefused: false,       // Rico pushed the money back once: meat first
+  paidBlind: false,        // bought without checking — his own fault, and said so
 };
 
 const shipment = rollShipment();
 const inspection = new Inspection(shipment);
 const freshness = new Freshness();
 
+/* THE DEAL, in the order the room runs it.
+ *
+ * Three objects, three different owners, and the whole scene fell over because
+ * they all read as "the case":
+ *
+ *   THEIR SAMPLE  — one strip, on the table, theirs. You look at it.
+ *   THEIR CASE    — eight packages, their side of the room. You count it.
+ *   YOUR CASE     — forty thousand dollars, yours. You put it down and open it.
+ *
+ * Every label, objective and line in this scene now uses exactly those three
+ * names, in that order, and the step machine below is the only thing allowed
+ * to decide what the HUD is asking for. */
+const DEAL_STEPS = ['sample', 'count', 'pay', 'open', 'done'];
+
 const OBJECTIVES = {
   main: [
     { id: 'reach', text: 'Reach room twelve' },
-    { id: 'inspect', text: 'Inspect the Reserve' },
-    { id: 'payment', text: 'Present the payment' },
+    { id: 'inspect', text: 'Inspect their sample' },
+    { id: 'count', text: 'Count their case of eight' },
+    { id: 'payment', text: 'Put your case on the table' },
     { id: 'survive', text: 'Survive the betrayal' },
     { id: 'recover', text: 'Recover the jerky' },
     { id: 'escape', text: 'Escape the motel' },
@@ -594,6 +622,20 @@ function afterLine(holdSeconds, next, gapSeconds = undefined) {
   return setTimeout(next, nextLineDelayMs(holdSeconds, gapSeconds));
 }
 
+/**
+ * A character speaks, and only then does the screen say which button.
+ *
+ * The tone doctrine's rule, and the shape `sayThenInstruct` takes in
+ * `src/silvercase/main.js`: putting the instruction up on the same frame as
+ * the line reads as the game talking over its own cast, and gives the beat
+ * away before the character has finished setting it up.
+ */
+function sayThenInstruct(who, line, seconds, instruct) {
+  const hold = say(who, line, seconds);
+  afterLine(hold, () => { if (phase !== 'end') instruct(); });
+  return hold;
+}
+
 /** Cue id for a spoken line: `snow.brief`, `rico.atdoor`, and so on. */
 function cueFor(who, beat) {
   return `${String(who).toLowerCase().replace(/[^a-z0-9]+/g, '')}.${beat}`;
@@ -643,13 +685,30 @@ function award(id) {
   sfx.achievement();
 }
 
-function foundClue(id) {
-  if (S.cluesFound.has(id)) return;
+function foundClue(id, { silent = false } = {}) {
+  if (S.cluesFound.has(id)) return false;
   S.cluesFound.add(id);
   addRead(9);
-  toast('WARNING SIGN', 'clue', CLUES[id]);
+  if (!silent) toast('WARNING SIGN', 'clue', CLUES[id]);
   renderObjectiveList();
   if (S.cluesFound.size >= Object.keys(CLUES).length) award('inspector');
+  return true;
+}
+
+/**
+ * A warning sign in the lot.
+ *
+ * Tony says what he is looking at, and the screen writes it down once he has
+ * stopped. It used to run the other way — the toast landed first and told the
+ * player the thing the character was two frames from saying — which is the
+ * same failure as putting a button prompt over a line.
+ */
+function clueBeat({ id, line, seconds = 4, advantage = null }) {
+  const fresh = foundClue(id, { silent: true });
+  sayThenInstruct('Prospect', line, seconds, () => {
+    if (fresh) toast('WARNING SIGN', 'clue', CLUES[id]);
+    if (advantage) toast('ADVANTAGE', 'clue', advantage);
+  });
 }
 
 function addHeat(n) {
@@ -657,6 +716,92 @@ function addHeat(n) {
 }
 function addRead(n) {
   S.read = THREE.MathUtils.clamp(S.read + n, 0, 100);
+}
+
+// ---------- The deal ----------
+/* One place decides what room twelve is asking for. Every previous pass fixed
+ * an individual line and the confusion came back, because eight different
+ * call sites were each setting the objective to their own idea of the next
+ * thing. Now they set a flag and this reads the flags. */
+
+/** Which step the transaction is on, derived only from what has happened. */
+function dealStepNow() {
+  if (S.betrayed || phase !== 'room') return null;
+  if (!S.sampleChecked) return 'sample';
+  if (!S.packagesCounted) return 'count';
+  if (!S.moneyOnTable) return 'pay';
+  if (!S.moneyOpened) return 'open';
+  return 'done';
+}
+
+const DEAL_HUD = {
+  sample: {
+    objective: 'inspect',
+    sub: 'Their sample is on the table. [E] there to work it over.',
+    have: 'Your case · $40,000, shut',
+    theirs: 'One strip on the table · a case of eight behind Rico',
+  },
+  count: {
+    objective: 'count',
+    sub: 'Their case, on their side of the room. [E] on it to count the eight.',
+    have: 'Your case · $40,000, shut',
+    theirs: 'Sample checked · eight packages uncounted',
+  },
+  pay: {
+    objective: 'payment',
+    sub: 'Meat first, money second. Your case goes on the table. [E] there.',
+    have: 'Your case · $40,000, in your hand',
+    theirs: 'Sample checked · eight counted',
+  },
+  open: {
+    objective: 'payment',
+    sub: 'Open your case when you are ready. Nothing you have not checked gets checked after.',
+    have: 'Your case · on the table, shut',
+    theirs: 'Their case · eight, waiting on your latch',
+  },
+};
+
+/**
+ * Push the HUD to the current step.
+ *
+ * `announce` is the character line that earns the change; the HUD only moves
+ * once that line is finished, never on the same frame as it.
+ */
+function advanceDeal({ announce = null } = {}) {
+  const step = dealStepNow();
+  if (!step || step === S.dealStep) { renderDealBoard(); return; }
+  const apply = () => {
+    if (dealStepNow() !== step) { renderDealBoard(); return; }
+    S.dealStep = step;
+    const hud = DEAL_HUD[step];
+    if (hud) setObjective(hud.objective, hud.sub);
+    renderDealBoard();
+  };
+  if (announce) sayThenInstruct(announce[0], announce[1], announce[2] ?? 3.4, apply);
+  else apply();
+}
+
+/**
+ * The standing readout of the transaction: what is yours, what is theirs, and
+ * the order the room does it in. Not an instruction — a statement of the
+ * board, so "the sample is on the bed, or do I put my sample on the table?"
+ * has an answer on screen at all times.
+ */
+let dealBoardSignature = '';
+function renderDealBoard() {
+  if (!dealBoxEl) return;
+  const hud = DEAL_HUD[S.dealStep];
+  const live = phase === 'room' && !S.betrayed && !!hud;
+  const yours = !live ? '' : (S.couponOnly ? 'Your case · one expired coupon' : hud.have);
+  const theirs = !live ? '' : (S.reserveMoved ? `${hud.theirs} — moved to the far bed` : hud.theirs);
+  const signature = `${live}|${yours}|${theirs}`;
+  if (signature === dealBoardSignature) return;
+  dealBoardSignature = signature;
+  dealBoxEl.classList.toggle('show', live);
+  if (!live) return;
+  dealYoursEl.textContent = yours;
+  dealTheirsEl.textContent = theirs;
+  dealOrderEl.textContent = 'Meat first. Money second.';
 }
 
 // ---------- Scene flow ----------
@@ -675,7 +820,11 @@ function startScene() {
     campaign.enter(SCENE_IDS.JERKY_MOTEL, { spawn: 'passenger_seat' });
   }
   resetSpeechFloor();
-  sfx.init();
+  /* Snow speaks the first line of the scene about a second from here. Naming
+   * his cue makes the audio layer fetch that one take before the other 166,
+   * which is the whole difference between a recorded opening and a subtitle
+   * with nothing behind it. */
+  sfx.init({ priorityVoice: [OPENING_CUE] });
   sfx.resume();
   sfx.startAmbience();
   sfx.setMusic('tense');
@@ -684,7 +833,7 @@ function startScene() {
   sceneInventory.show();
   phase = 'car';
   S.carryingMoney = true;
-  setObjective('reach', 'Meet the jerky suppliers');
+  setObjective('reach', 'In the car with Snow, outside the Flamingo. Room twelve, tonight.');
   renderObjectiveList();
   updateGear();
 
@@ -708,8 +857,18 @@ function startScene() {
   clerk = spawnActor({ ...CAST.clerk(), x: -44, z: -8.2, state: 'idle' });
   clerk.faceAt(-44, -4);                 // across his own counter at z = -7
 
-  const briefingHold = say(ALLY, 'Room twelve. Meat first. Money second.', 4.2, cueFor(ALLY, 'arrive'));
-  afterLine(briefingHold, () => { if (phase === 'car') openDialogue('snowBrief'); });
+  /* One delivery of the briefing, not two. It used to be spoken here and then
+   * spoken again by the wheel four seconds later, because `snowBrief`'s prompt
+   * is the same sentence — so the scene's very first beat was a man repeating
+   * himself over a subtitle that never changed. The wheel owns it now, and it
+   * does not open until his take can play. */
+  /* Twelve seconds of ceiling. Measured under a software rasteriser, where
+   * the index fetch and one decode land at 8.7 s while the first materials are
+   * still compiling; on a real GPU it is a fraction of a second. If it does
+   * expire the wheel still opens — a late subtitle beats a stuck car. */
+  primeMotelVoice([OPENING_CUE], { timeoutMs: 12000 }).finally(() => {
+    if (phase === 'car' && !dialogue && !S.dealStarted) openDialogue('snowBrief');
+  });
   clock.getDelta();
   return true;
 }
@@ -779,13 +938,14 @@ addInteract({
 
 addInteract({
   id: 'moneyCase', x: -7.6, y: 1.2, z: 15.2, r: 3.4,
-  label: () => (S.couponOnly ? 'The case: cash out, coupon in' : 'Inspect the payment'),
+  label: () => (S.couponOnly ? 'Your case: cash out, coupon in' : 'Look inside your case'),
   enabled: () => phase === 'car',
   act: () => {
     if (!S.couponOnly) {
-      say('*', '$40,000. Two real bundles on top, several very confident fakes underneath, one expired steakhouse coupon and a handwritten Sasquatch business card.', 5);
+      sayThenInstruct('*', '$40,000. Two real bundles on top, several very confident fakes underneath, one expired steakhouse coupon and a handwritten Sasquatch business card.', 5, () => {
+        if (!S.couponOnly) toast('YOUR CASE', '', 'Press [E] again to pull the cash and leave only the coupon');
+      });
       addRead(4);
-      toast('PAYMENT CHECKED', '', 'Press E again to pull the cash and leave only the coupon');
       S.moneyChecked = true;
     } else {
       say('Prospect', 'The coupon expired in March. So did my patience.', 3);
@@ -833,9 +993,10 @@ addInteract({
     }
     S.silverbackTaken = true;
     addRead(6);
-    say(ALLY, 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.', 5.4);
-    toast('SILVERBACK COMMANDER', 'warn', 'Concealed · press X to draw · it is loud and it is ours');
     sfx.select();
+    sayThenInstruct(ALLY, 'Under the coat. Seven in it. Do not let them see the crest and do not make me explain a Family gun to a night clerk.', 5.4, () => {
+      toast('SILVERBACK COMMANDER', 'warn', 'Concealed · press X to draw · it is loud and it is ours');
+    });
   },
 });
 
@@ -853,10 +1014,12 @@ addInteract({
   act: () => {
     if (!refs.manCar.trunk.opened) {
       refs.manCar.trunk.opened = true;
-      foundClue('trunk');
+      const fresh = foundClue('trunk', { silent: true });
       S.hiddenWeaponKnown = true;
-      say(ALLY, 'Crowbar. And the thing we never mention.', 3.6, cueFor(ALLY, 'trunk'));
-      toast('TRUNK OPEN', '', 'Crowbar and hand cannon available here');
+      sayThenInstruct(ALLY, 'Crowbar. And the thing we never mention.', 3.6, () => {
+        if (fresh) toast('WARNING SIGN', 'clue', CLUES.trunk);
+        toast('TRUNK OPEN', '', 'Crowbar and hand cannon available here');
+      });
     } else if (S.weapon !== 'handcannon') {
       pickUpWeapon(S.weapon === 'crowbar' ? 'handcannon' : 'crowbar');
     } else {
@@ -871,8 +1034,10 @@ addInteract({
   label: () => 'Inspect the discarded wrapper',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('wrapper');
-    say('Prospect', 'Reserve wrapper. Chewed open, not cut. Somebody in this motel is eating the inventory.', 4);
+    clueBeat({
+      id: 'wrapper',
+      line: 'Reserve wrapper. Chewed open, not cut. Somebody in this motel is eating the inventory.',
+    });
   },
 });
 
@@ -881,8 +1046,10 @@ addInteract({
   label: () => 'Listen at room nine',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('arguing');
-    say('*', 'Through the door: "...he brings the case, we take the case, nobody has to..." then nothing.', 4.4);
+    const fresh = foundClue('arguing', { silent: true });
+    sayThenInstruct('*', 'Through the door: "...he brings the case, we take the case, nobody has to..." then nothing.', 4.4, () => {
+      if (fresh) toast('WARNING SIGN', 'clue', CLUES.arguing);
+    });
   },
 });
 
@@ -891,9 +1058,12 @@ addInteract({
   label: () => 'Size up the smoker by the ice machine',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('lookout');
-    say('Prospect', 'He is watching the road, not the lot. Nobody watches the road unless somebody is coming.', 4.2);
     if (lookout) lookout.state = 'idle';
+    clueBeat({
+      id: 'lookout',
+      line: 'He is watching the road, not the lot. Nobody watches the road unless somebody is coming.',
+      seconds: 4.2,
+    });
   },
 });
 
@@ -902,10 +1072,12 @@ addInteract({
   label: () => 'Check the security camera',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('camera');
     S.tunnelKnown = true;
-    say('Prospect', 'Pointed at nothing. Whoever aimed it did not want room twelve on tape.', 4);
-    toast('ADVANTAGE', 'clue', 'Blind corner mapped — the pool drain route is on your mind now');
+    clueBeat({
+      id: 'camera',
+      line: 'Pointed at nothing. Whoever aimed it did not want room twelve on tape.',
+      advantage: 'Blind corner mapped — the pool drain route is on your mind now',
+    });
   },
 });
 
@@ -914,9 +1086,12 @@ addInteract({
   label: () => 'Look into the idling car',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('secondcar');
-    say('Prospect', 'Running engine. Warm seat. Nobody in it. That is a car waiting to leave in a hurry.', 4.2);
-    toast('ADVANTAGE', 'clue', 'Snow will come in sooner when it goes bad');
+    clueBeat({
+      id: 'secondcar',
+      line: 'Running engine. Warm seat. Nobody in it. That is a car waiting to leave in a hurry.',
+      seconds: 4.2,
+      advantage: 'Snow will come in sooner when it goes bad',
+    });
   },
 });
 
@@ -925,8 +1100,7 @@ addInteract({
   label: () => 'Search the laundry cart',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('towel');
-    say('Prospect', 'That is not sauce.', 3);
+    clueBeat({ id: 'towel', line: 'That is not sauce.', seconds: 3 });
   },
 });
 
@@ -935,10 +1109,13 @@ addInteract({
   label: () => 'Examine the empty packets',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('packets');
-    say('Prospect', 'Vacuum packets. Opened out here, refilled out here. Somebody repacked the shipment in a parking lot.', 4.4);
-    toast('ADVANTAGE', 'clue', 'You know what a repack looks like — the scan will read clearer');
     inspection.evidence -= 0.1;
+    clueBeat({
+      id: 'packets',
+      line: 'Vacuum packets. Opened out here, refilled out here. Somebody repacked the shipment in a parking lot.',
+      seconds: 4.4,
+      advantage: 'You know what a repack looks like — the scan will read clearer',
+    });
   },
 });
 
@@ -947,10 +1124,12 @@ addInteract({
   label: () => 'Watch the upstairs railing',
   enabled: () => phase === 'lot',
   act: () => {
-    foundClue('railing');
-    say('Prospect', 'Second floor. He looked away a half second late. That is a man with a job.', 4);
-    toast('ADVANTAGE', 'clue', 'Enemy positions will be marked when the room turns');
     S.positionsMarked = 6;
+    clueBeat({
+      id: 'railing',
+      line: 'Second floor. He looked away a half second late. That is a man with a job.',
+      advantage: 'Enemy positions will be marked when the room turns',
+    });
   },
 });
 
@@ -959,21 +1138,27 @@ addInteract({
   label: () => "Study room twelve's bathroom window",
   enabled: () => phase === 'lot' || phase === 'escape',
   act: () => {
-    foundClue('bathwindow');
     sfx.windowSlide();
     S.slicerKnown = true;
-    completeObjective('thirdman');
-    say('Prospect', 'The bathroom window opened an inch. Somebody in there wanted air, or a look at the lot.', 4.4);
-    toast('ADVANTAGE', 'clue', 'You know about the third man before he knows about you');
     S.reactionBonus = true;
+    completeObjective('thirdman');
+    clueBeat({
+      id: 'bathwindow',
+      line: 'The bathroom window opened an inch. Somebody in there wanted air, or a look at the lot.',
+      seconds: 4.4,
+      advantage: 'You know about the third man before he knows about you',
+    });
   },
 });
 
 // -- knocking --
+/* The gate is the phase and nothing else. It used to also read `!dialogue`,
+ * which meant an unanswered wheel — one a player is expressly allowed to walk
+ * away from — silently removed the only door in the scene. */
 addInteract({
   id: 'knock', x: -0.8, y: 1.4, z: -3.6, r: 3.4,
   label: () => (S.knocked ? 'Room twelve' : 'Knock on room twelve'),
-  enabled: () => phase === 'lot' && !dialogue,
+  enabled: () => phase === 'lot',
   act: () => knockOnTwelve(),
 });
 
@@ -987,7 +1172,7 @@ addInteract({
 // -- inside the room --
 addInteract({
   id: 'sample', x: 1.4, y: 1.0, z: -6.4, r: 3.4,
-  label: () => (inspecting ? 'Step back from the sample' : 'Inspect the sample'),
+  label: () => (inspecting ? 'Step back from their sample' : 'Inspect their sample'),
   enabled: () => (phase === 'room') && S.sampleOut,
   act: () => (inspecting ? closeInspection() : openInspection()),
 });
@@ -1000,56 +1185,103 @@ addInteract({
     S.sat = !S.sat;
     if (S.sat) {
       pos.set(3.0, 0, -5.6);
-      say('Rico', 'See? Civilised.', 2.4);
       addHeat(-6);
-      toast('SEATED', '', 'Inspection is easier — but this is a bad place to be when it turns');
+      sayThenInstruct('Rico', 'See? Civilised.', 2.4, () => {
+        if (S.sat) toast('SEATED', '', 'Inspection is easier — but this is a bad place to be when it turns');
+      });
     } else {
       say('Prospect', 'I inspect standing.', 2.2);
     }
   },
 });
 
+/* THEIR case of eight. Counting it is a step of the deal, and it happens once.
+ *
+ * This is the "i keep repeating 8 packages line" bug: the count had no gate at
+ * all, so every [E] at the case fired the same sentence again — and stacked
+ * another six suspicion and eight read on top each time. It sits next to the
+ * table, so a player pressing [E] while lining up the sample hit it repeatedly
+ * without ever meaning to. */
 addInteract({
   id: 'jerkyCase', x: refs.jerkyCase.x, y: 1.2, z: refs.jerkyCase.z, r: 3.2,
   label: () => {
     if (S.carryingJerky) return 'You have the Reserve';
-    if (phase === 'room') return 'Count the packages';
+    if (phase === 'room') return S.packagesCounted ? 'Their case · eight, counted' : 'Count their case of eight';
     return 'Take the Reserve';
   },
   enabled: () => onFoot() && phase !== 'lot'
     && !S.carryingJerky && !S.caseInPool && !S.caseBurned && refs.jerkyCase.group.visible,
   act: () => {
-    if (phase === 'room') {
-      addHeat(6);
-      addRead(8);
-      const countHold = say('Prospect', `Eight packages. Numbered labels. ${shipment.grade === 'genuine' ? 'Seals all intact.' : 'Two of these seals have been opened and re-pressed.'}`, 4.6);
-      if (shipment.grade !== 'genuine') inspection.evidence -= 0.15;
-      if (chino) chino.talkT = 1.6;
-      afterLine(countHold, () => say('Chino', 'You buying or writing a cookbook?', 3));
-    } else {
-      takeJerkyCase();
+    if (phase !== 'room') { takeJerkyCase(); return; }
+    if (S.packagesCounted) {
+      /* Counted already. He says something else, once, instead of saying the
+       * same sentence for the fifth time. */
+      say('Prospect', 'Eight in their case. One on the table. Neither of them is mine yet.', 3.6);
+      return;
     }
+    S.packagesCounted = true;
+    addHeat(6);
+    addRead(8);
+    const countHold = say('Prospect', `Eight packages. Numbered labels. ${shipment.grade === 'genuine' ? 'Seals all intact.' : 'Two of these seals have been opened and re-pressed.'}`, 4.6);
+    if (shipment.grade !== 'genuine') inspection.evidence -= 0.15;
+    if (chino) chino.talkT = 1.6;
+    completeObjective('count');
+    afterLine(countHold, () => {
+      if (phase !== 'room' || S.betrayed) return;
+      say('Chino', 'You buying or writing a cookbook?', 3);
+      advanceDeal({ announce: ['Rico', 'Now the other half. On the table, where I can see it.', 3.8] });
+    });
   },
 });
 
+/* YOUR case. Placing it and opening it are two separate decisions, and the
+ * second one is the one that ends the negotiation — so it is said out loud
+ * before it can be taken by accident. */
 addInteract({
   id: 'placeMoney', x: 1.4, y: 1.0, z: -6.4, r: 3.4,
-  label: () => (S.moneyOnTable ? 'Open the case' : 'Place the case on the table'),
+  label: () => {
+    if (S.moneyOnTable) return 'Open your case';
+    if (!S.sampleChecked) return 'Put your case on the table (he wants the meat looked at first)';
+    return 'Put your case on the table';
+  },
   enabled: () => phase === 'room' && (S.carryingMoney || S.moneyOnTable) && !S.moneyOpened,
   act: () => {
     if (!S.moneyOnTable) {
+      /* Meat first, money second — Snow says it in the car and Rico enforces
+       * it here. He pushes the money back exactly once, which teaches the rule
+       * without taking the decision away: press again and he takes it, and
+       * paying for something nobody looked at costs suspicion and a comment. */
+      if (!S.sampleChecked && !S.payRefused) {
+        S.payRefused = true;
+        sayThenInstruct('Rico', 'Meat first. Money second. That is how this works.', 3.6, () => {
+          if (phase !== 'room' || S.betrayed) return;
+          advanceDeal();
+          toast('HE PUSHED IT BACK', '', 'Check their sample first — press [E] again to pay blind anyway');
+        });
+        return;
+      }
       S.moneyOnTable = true;
       S.carryingMoney = false;
       placeMoneyCase();
       addHeat(4);
-      say('Rico', 'There it is. Now we are all friends with a table between us.', 3.6);
-      setObjective('payment', 'Your call when it opens');
+      if (!S.sampleChecked) {
+        S.paidBlind = true;
+        addHeat(10);
+        failObjective('inspect');
+        say('Chino', 'He is buying it blind. Rico. He is buying it blind.', 3.4);
+      }
       updateGear();
+      advanceDeal({ announce: ['Rico', 'There it is. Now we are all friends with a table between us.', 3.6] });
+      afterLine(4.6, () => {
+        if (phase !== 'room' || S.moneyOpened || S.betrayed) return;
+        toast('THE LATCH IS YOURS', 'warn', 'Opening it ends the negotiation — anything unchecked, you are buying');
+      });
     } else {
       S.moneyOpened = true;
       completeObjective('payment');
       say('*', 'The lamp catches the silver foil. For one second the case looks holy.', 4);
       addHeat(24);
+      advanceDeal();
       maybeBetray('money');
     }
   },
@@ -1082,8 +1314,9 @@ addInteract({
       S.snowSignalled = true;
       completeObjective('signal');
       addHeat(12);
-      say('*', 'Two fingers against the glass. Out in the lot, a car door opens.', 3.6);
-      toast('SIGNAL SENT', '', 'Snow is out of the car and moving');
+      sayThenInstruct('*', 'Two fingers against the glass. Out in the lot, a car door opens.', 3.6, () => {
+        toast('SIGNAL SENT', '', 'Snow is out of the car and moving');
+      });
       if (snow) { snow.state = 'goto'; snow.target = { x: -1, z: 1.5 }; snow.afterGoto = 'idle'; }
     } else if (!S.windowBroken) {
       breakWindow();
@@ -1206,8 +1439,9 @@ addInteract({
     S.stashFound = true;
     refs.stash.group.visible = true;
     completeObjective('stash');
-    say('Prospect', 'Premium stash. Black wrap, wax seal, real numbers. He was never going to sell me this.', 4.6);
-    toast('HIDDEN STASH', 'clue', "Rico's real product — take it on your way out");
+    sayThenInstruct('Prospect', 'Premium stash. Black wrap, wax seal, real numbers. He was never going to sell me this.', 4.6, () => {
+      toast('HIDDEN STASH', 'clue', "Rico's real product — take it on your way out");
+    });
   },
 });
 
@@ -1249,8 +1483,9 @@ addInteract({
     S.stashFound = true;
     completeObjective('stash');
     freshness.value = Math.min(100, freshness.value + 10);
-    say('Prospect', 'Room eleven. The real cure, stacked to the ceiling. They were selling me the wrapping.', 4.6);
-    toast('THE REAL PRODUCT', 'ach', 'Rico kept the honest meat one door away');
+    sayThenInstruct('Prospect', 'Room eleven. The real cure, stacked to the ceiling. They were selling me the wrapping.', 4.6, () => {
+      toast('THE REAL PRODUCT', 'ach', 'Rico kept the honest meat one door away');
+    });
   },
 });
 
@@ -1263,8 +1498,9 @@ addInteract({
     refs.monitor.used = true;
     S.positionsMarked = 10;
     markEnemies(10);
-    say('Prospect', 'Four of them in the lot. Two by the stairs, one at the pool, one at my car.', 4.4);
-    toast('POSITIONS MARKED', 'clue', 'You can see where they are for ten seconds');
+    sayThenInstruct('Prospect', 'Four of them in the lot. Two by the stairs, one at the pool, one at my car.', 4.4, () => {
+      toast('POSITIONS MARKED', 'clue', 'You can see where they are for ten seconds');
+    });
   },
 });
 
@@ -1423,8 +1659,9 @@ addInteract({
   act: () => {
     S.clerkCowed = true;
     clerk.state = 'panic';
-    say('Prospect', 'You saw a raccoon. A big one. In a shirt.', 3.2);
-    toast('CLERK HANDLED', '', 'No alarm from the office tonight');
+    sayThenInstruct('Prospect', 'You saw a raccoon. A big one. In a shirt.', 3.2, () => {
+      toast('CLERK HANDLED', '', 'No alarm from the office tonight');
+    });
   },
 });
 
@@ -1439,12 +1676,20 @@ addInteract({
 // ---------- Phase transitions ----------
 function exitCar() {
   phase = 'lot';
+  /* Getting out IS an answer. The wheel is deliberately not modal, so a player
+   * could step out mid-briefing and leave `dialogue` set forever — and the
+   * knock's gate reads `!dialogue`, so room twelve stopped answering the door
+   * and the scene had no way to say why. Measured: knock disabled, Rico never
+   * spawned, no prompt, no explanation. */
+  closeDialogue();
   pos.set(-5.4, 0, 16.0);
   feetY = 0;
   /* He says he is facing the exit, so he faces the exit. The road is +z. */
   if (snow) snow.faceAt(snow.group.position.x, ROAD_Z);
-  say(ALLY, 'Right here. Facing the exit.', 3.2, cueFor(ALLY, 'exitcar'));
-  setObjective('reach', 'Walk the lot — everything you notice out here counts inside');
+  sayThenInstruct(ALLY, 'Right here. Facing the exit.', 3.2, () => {
+    if (phase !== 'lot') return;
+    setObjective('reach', 'Knock on room twelve. Look the lot over first — every warning sign pays inside.');
+  });
   updateGear();
 }
 
@@ -1460,9 +1705,12 @@ function openTheDoor() {
 }
 
 function knockOnTwelve() {
+  if (S.knocked) return;
   S.knocked = true;
+  closeDialogue();
   phase = 'door';
   sfx.knock();
+  setObjective('reach', 'Answer him. 1–4 when the options come up.');
   setTimeout(() => {
     openTheDoor();
     openDialogue('atDoor');
@@ -1475,8 +1723,10 @@ function enterRoom() {
   S.dealStarted = true;
   pos.set(-0.2, 0, -5.4);
   feetY = 0;
+  closeDialogue();
   completeObjective('reach');
-  setObjective('inspect', 'Confirm the merchandise');
+  setObjective('inspect', 'Wait for Rico to put something on the table.');
+  renderDealBoard();
 
   /* Everyone takes their positions.
    *
@@ -1506,8 +1756,14 @@ function enterRoom() {
       if (phase !== 'room' || S.betrayed) return;
       S.sampleOut = true;
       sfx.packaging();
-      say('Rico', 'Mountain reserve. Eleven-year cure. No fillers.', 4);
-      toast('SAMPLE PRESENTED', '', 'Walk up to the table and press E to inspect it properly');
+      /* Rico lays it down and says what it is; the screen says which button
+       * only once he has stopped talking. Both on the same frame is the game
+       * talking over its own cast. */
+      sayThenInstruct('Rico', 'Mountain reserve. Eleven-year cure. No fillers.', 4, () => {
+        if (phase !== 'room' || S.betrayed) return;
+        advanceDeal();
+        toast('THEIR SAMPLE IS ON THE TABLE', '', 'One strip. [E] at the table to work it over.');
+      });
     });
   }, 1400);
 
@@ -1519,7 +1775,23 @@ const roomEvents = [
   { t: 12, run: () => { sfx.tvStatic(); refs.tv.volume = 0.8; say('*', 'Chino turns the television up. Nobody was watching it.', 3.4); addRead(8); } },
   { t: 22, run: () => { sfx.plumbing(); say('*', 'The bathroom faucet runs, then stops. Nobody flushes.', 3.4); addRead(10); if (S.read > 30) S.slicerKnown = true; } },
   { t: 30, run: () => { sfx.knifeTap(); say('Chino', 'You think rare meat grows on trees?', 3); addHeat(3); } },
-  { t: 38, run: () => { moveCaseAway(); say('*', 'The suitcase gets moved. Farther from you. Casually.', 3.4); addRead(9); addHeat(4); } },
+  /* Their case goes to the far bed here. It is the single most confusing beat
+   * in the scene — the thing the player is meant to count walks out of the
+   * middle of the room — so Tony names the object and the place out loud, and
+   * the standing readout says the same thing. */
+  {
+    t: 38,
+    run: () => {
+      moveCaseAway();
+      const movedHold = say('*', 'The suitcase gets moved. Farther from you. Casually.', 3.4);
+      afterLine(movedHold, () => {
+        if (phase !== 'room' || S.betrayed) return;
+        say('Prospect', 'Their case is on the far bed now. That is not where a deal happens.', 3.6);
+      });
+      addRead(9);
+      addHeat(4);
+    },
+  },
   { t: 46, run: () => { sfx.packaging(); say('*', 'Chino pulls on a second pair of gloves over the first.', 3.4); addRead(14); } },
   { t: 54, run: () => { say('*', 'Footsteps behind the bathroom door. Weight shifting on old tile.', 3.6); addRead(14); S.slicerKnown = true; completeObjective('thirdman'); } },
   { t: 62, run: () => { if (!S.betrayed) offerBetrayal(); } },
@@ -1535,6 +1807,8 @@ function moveCaseAway() {
   const i = ix('jerkyCase');
   i.x = -3.4;
   i.z = -12.6;
+  S.reserveMoved = true;
+  renderDealBoard();
 }
 
 function offerBetrayal() {
@@ -1560,6 +1834,10 @@ function openDialogue(nodeId) {
     wheelOptsEl.appendChild(b);
   });
   wheelEl.classList.add('show');
+  /* The four answers are the instruction, so they stay off screen until the
+   * character has finished asking. Showing them under a line still being
+   * spoken gives the beat away and reads as the HUD talking over the cast. */
+  wheelEl.classList.add('pending');
   slowTintEl.classList.add('on');
   timeScale = 0.35;   // time slows; it does not stop
   const promptHold = say(node.speaker, node.line, 4.5, cueFor(node.speaker, nodeId));
@@ -1567,23 +1845,30 @@ function openDialogue(nodeId) {
   opened.readyAt = performance.now() + promptHold * 1000;
   afterLine(promptHold, () => {
     if (dialogue !== opened) return;
+    wheelEl.classList.remove('pending');
     for (const button of wheelOptsEl.querySelectorAll('button.opt')) button.disabled = false;
   }, 0);
+}
+
+/** True once the four answers are on screen and the player may pick one. */
+function dialogueReady() {
+  return !!dialogue && performance.now() >= dialogue.readyAt;
 }
 
 function closeDialogue() {
   dialogue = null;
   wheelEl.classList.remove('show');
+  wheelEl.classList.remove('pending');
   slowTintEl.classList.remove('on');
   timeScale = 1;
 }
 
+/** @returns {boolean} whether the answer was taken. */
 function pickDialogue(style) {
-  if (!dialogue) return;
-  if (performance.now() < dialogue.readyAt) return;
+  if (!dialogueReady()) return false;
   const { nodeId, node } = dialogue;
   const opt = node.options[style];
-  if (!opt) return;
+  if (!opt) return false;
   closeDialogue();
   sfx.select();
   const choiceHold = say('Prospect', opt.text, 3.4, cueFor('Prospect', `${nodeId}.${style}`));
@@ -1593,7 +1878,6 @@ function pickDialogue(style) {
   if (nodeId === 'atDoor') {
     S.doorOpened = true;
     openDoor(refs.frontDoor);
-    toast('DOOR OPEN', '', 'Step inside when you are ready — nobody is pushing you');
   }
 
   if (nodeId === 'sample' && opt.nervous) {
@@ -1619,12 +1903,24 @@ function pickDialogue(style) {
   }
   const afterReply = () => {
     if (phase === 'end') return;
-    if (nodeId === 'atDoor') say('Rico', 'Come in before the neighbours smell it.', 3);
+    /* Rico invites him in, and only after that does the screen say the door is
+     * open and that nobody is rushing him. */
+    if (nodeId === 'atDoor') {
+      sayThenInstruct('Rico', 'Come in before the neighbours smell it.', 3, () => {
+        if (phase !== 'door') return;
+        setObjective('reach', 'Step inside room twelve. [E] at the doorway.');
+        toast('DOOR OPEN', '', 'Go in when you are ready — nobody is pushing you');
+      });
+    }
     if (nodeId === 'sample' && opt.nervous && !S.betrayed) {
       say('Chino', 'Rico. He is asking who handled it.', 3);
     }
     if (opt.demandStash && !S.betrayed) maybeBetray('counterfeit');
     if (nodeId === 'getaway') startDrive();
+    if (nodeId === 'snowBrief' && phase === 'car') {
+      setObjective('reach', 'Get out of the car. [E] on the door.');
+      toast('THE JOB', '', 'Meat first, money second — look the lot over before you knock');
+    }
   };
 
   afterLine(choiceHold, () => {
@@ -1633,10 +1929,7 @@ function pickDialogue(style) {
     const replyHold = say(opt.reply[0], opt.reply[1], 3.6, cueFor(opt.reply[0], `${nodeId}.${style}.reply`));
     afterLine(replyHold, afterReply);
   });
-
-  if (nodeId === 'snowBrief') {
-    setTimeout(() => toast('TIP', '', 'Look around the lot before you knock — every warning sign pays off'), 3000);
-  }
+  return true;
 }
 
 // ---------- Inspection ----------
@@ -1706,16 +1999,26 @@ function runInspectionByIndex(i) {
 }
 
 function runInspection(id) {
+  /* One test at a time. The panel is a menu of eight buttons and a player runs
+   * them as fast as they can click, which queued sixteen lines on a floor that
+   * never drops anything — measured at half a minute of the room narrating
+   * itself after the fact. The buttons come back the moment he stops talking. */
+  if (speechFloor.busy()) return;
   const res = inspection.run(id);
   if (!res) return;
   addHeat(res.heat * (S.sat ? 0.5 : 1));   // sitting down makes them patient
   addRead(6);
+  const firstTest = !S.sampleChecked;
+  S.sampleChecked = true;
   completeObjective('inspect');
   sfx.packaging();
   const inspectionHold = say('*', res.line, 4.2);
   renderInspection();
 
   const finishInspectionBeat = () => {
+    if (firstTest && phase === 'room' && !S.betrayed) {
+      advanceDeal({ announce: ['Rico', 'Satisfied? The case is right there. Eight of them. Count it.', 4.0] });
+    }
     if (res.revealed) {
       if (inspection.verdict === 'counterfeit') {
         if (inspection.correct()) {
@@ -1751,6 +2054,10 @@ function maybeBetray(trigger, { fastDraw = false } = {}) {
   S.fightStarted = true;
   if (inspection.done.size > 0) completeObjective('inspect', true);
   else failObjective('inspect');
+  if (S.packagesCounted) completeObjective('count', true);
+  else failObjective('count');
+  S.dealStep = 'done';
+  renderDealBoard();
   setObjective('survive', fastDraw
     ? 'You opened. Finish it before anybody in this motel finds a telephone'
     : 'They are between you and the door');
@@ -1869,7 +2176,7 @@ function snowJoins(reason) {
   snow.hp = Math.max(60, snow.hp);
   const barkIdx = Math.floor(Math.random() * SNOW_FIGHT_BARKS.length);
   const entranceHold = say(ALLY, SNOW_FIGHT_BARKS[barkIdx], 3.2, cueFor(ALLY, `fight.${barkIdx}`));
-  toast('MANNY IS IN', '', `He heard ${reason}`);
+  toast('SNOW IS IN', '', `He heard ${reason}`);
   if (!S.windowBroken && !refs.frontDoor.open) breakWindow(true);
   // He brings the crowbar from the trunk — thrown to you if you're
   // empty-handed, kept and visibly wielded if you're not.
@@ -2521,8 +2828,10 @@ function boardGetaway() {
     S.wrongCase = true;
   }
   sfx.carDoor();
-  const boardedHold = say(ALLY, 'Tell me that was worth it.', 3.4, cueFor(ALLY, 'boarded'));
-  afterLine(boardedHold, () => { if (phase === 'boarding') openDialogue('getaway'); });
+  /* The same duplication the opening had: this line is `getaway`'s prompt, so
+   * saying it here made Snow ask the question twice with a four-second pause
+   * in the middle. The wheel owns it. */
+  setTimeout(() => { if (phase === 'boarding') openDialogue('getaway'); }, 700);
 }
 
 // ---------- Doors ----------
@@ -3496,9 +3805,17 @@ function updateAmbient(dt) {
 function updateRoomBeats(dt) {
   if (phase !== 'room' || S.betrayed) return;
   roomT += dt;
+  /* One beat at a time, and never on top of somebody who is mid-sentence.
+   * These used to fire on the clock regardless, so a player working through
+   * the inspection panel stacked seven scripted beats behind sixteen
+   * inspection lines and heard the room narrate itself half a minute late —
+   * measured at 36 s of drift, with the betrayal line arriving after the
+   * betrayal. */
   while (roomEventIdx < roomEvents.length && roomT >= roomEvents[roomEventIdx].t) {
+    if (speechFloor.busy()) break;
     roomEvents[roomEventIdx].run();
     roomEventIdx++;
+    break;
   }
   // The room turns on its own if you take too long
   if (roomT > 96 && !S.betrayed) maybeBetray('time');
@@ -3560,7 +3877,7 @@ function updateFightLogic(dt) {
 
   if (snow && S.snowInside && snow.hp < 60 && !S.snowInjured) {
     S.snowInjured = true;
-    toast('MANNY IS HURT', 'warn', 'You are driving');
+    toast('SNOW IS HURT', 'warn', 'You are driving');
     say(ALLY, 'I am fine. Not my blood.', 3.2, cueFor(ALLY, 'hurt'));
   }
 }
@@ -3658,6 +3975,11 @@ function updateHud(dt) {
     subtitleT -= dt;
     if (subtitleT <= 0) subtitleEl.classList.remove('show');
   }
+  /* The inspection panel greys out while somebody is talking about the last
+   * test, so a fast clicker can see that the next one is waiting on the room
+   * rather than wondering why nothing happened. */
+  if (inspecting) inspectEl.classList.toggle('busy', speechFloor.busy());
+  renderDealBoard();
   const showMeters = phase === 'room' || phase === 'door' || phase === 'fight';
   metersEl.classList.toggle('show', showMeters);
   if (showMeters) {
@@ -3682,6 +4004,39 @@ window.MOTEL = {
   get campaignState() { return campaign.state; },
   get pos() { return pos; },
   get objectives() { return { done: [...objDone], failed: [...objFailed] }; },
+  /* What the HUD is asking for right now, and where the transaction is up to.
+   * A verifier that can only see `phase` cannot tell whether the scene ever
+   * told the player what to do, which is the failure this scene keeps having. */
+  get objective() {
+    return {
+      id: currentObjective,
+      title: objTitleEl.textContent,
+      sub: objSubEl.textContent,
+    };
+  },
+  get deal() {
+    return {
+      step: S.dealStep,
+      expected: dealStepNow(),
+      steps: [...DEAL_STEPS],
+      sampleChecked: S.sampleChecked,
+      packagesCounted: S.packagesCounted,
+      moneyOnTable: S.moneyOnTable,
+      moneyOpened: S.moneyOpened,
+      board: dealBoxEl?.classList.contains('show')
+        ? {
+          yours: dealYoursEl.textContent,
+          theirs: dealTheirsEl.textContent,
+          order: dealOrderEl.textContent,
+        }
+        : null,
+    };
+  },
+  get dialogue() {
+    return dialogue
+      ? { nodeId: dialogue.nodeId, ready: dialogueReady(), speaker: dialogue.node.speaker }
+      : null;
+  },
   get achievements() { return [...achieved]; },
   get interactables() { return interactables.map((i) => i.id); },
   get interactableList() { return interactables; },
@@ -3703,6 +4058,8 @@ window.MOTEL = {
     cueForLine: motelVoiceCue,
     coverage: () => sfx.voiceCoverage(),
     get requested() { return [...sfx.voiceRequested]; },
+    /** Takes that actually started, in order — asked-for is not the same as heard. */
+    get played() { return sfx.voicePlayed.map((entry) => ({ ...entry })); },
     busy: () => speechFloor.busy(),
     playing: () => sfx.voiceBusy(),
   },
@@ -3727,7 +4084,17 @@ window.MOTEL = {
   activeInteract: () => (activeInteract ? activeInteract.id : null),
   forceInteract: (id) => { const i = ix(id); if (i && (!i.enabled || i.enabled())) i.act(); return !!i; },
   betray: () => maybeBetray('debug'),
+  /* Open a wheel by name, so a verifier can reproduce the soft-lock this
+   * scene used to have: a conversation the player walked away from. */
+  talk: (nodeId) => openDialogue(nodeId),
+  /* Returns whether the answer was actually taken. It used to return nothing
+   * and silently refuse while the wheel was still coming up, which left
+   * `dialogue` set, closed the knock's gate, and stranded the harness in a lot
+   * whose only door had stopped working. */
   pick: (style) => pickDialogue(style),
+  voiceReadyFor: (cue) => sfx.voiceReady(cue),
+  get openingCue() { return OPENING_CUE; },
+  inspect: (id) => runInspection(id),
   inspectAll: () => { for (const s of [...inspection.available()]) runInspection(s.id); },
   finish: (k) => finishScene(k || 'home'),
   drive: () => startDrive(),

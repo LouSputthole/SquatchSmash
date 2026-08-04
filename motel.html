@@ -63,6 +63,19 @@
 
   #meters { position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 340px; display: none; }
   #meters.show { display: block; }
+
+  /* THE DEAL — three objects, three owners, permanently on screen while the
+     transaction is live. A statement of the board, not an instruction: the
+     objective line says what to do, this says whose is whose and where. */
+  #dealBox {
+    position: absolute; top: 16px; right: 18px; padding: 9px 13px; min-width: 250px; max-width: 320px;
+    display: none;
+  }
+  #dealBox.show { display: block; }
+  #dealBox .lbl { font-size: 10px; letter-spacing: 3px; color: var(--turq); font-weight: 800; }
+  #dealBox .row { font-size: 12.5px; line-height: 1.45; margin-top: 4px; color: #cdd5e4; }
+  #dealBox .row b { display: block; font-size: 10px; letter-spacing: 2px; color: #8e99ad; font-weight: 800; }
+  #dealOrder { color: var(--yellow); font-weight: 800; }
   .meter { margin-bottom: 6px; }
   .meter .lbl {
     display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 2px;
@@ -141,6 +154,9 @@
   }
   #wheelHead .who { color: var(--pink); font-weight: 900; letter-spacing: 1px; }
   #wheelOpts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  /* The answers are the instruction. They wait until the character has
+     finished asking, rather than sitting under a line still being spoken. */
+  #wheel.pending #wheelOpts, #wheel.pending #wheelHint { visibility: hidden; }
   .opt {
     display: flex; gap: 10px; align-items: flex-start; cursor: pointer;
     padding: 10px 14px; font-size: 15px; line-height: 1.35; text-align: left;
@@ -175,6 +191,8 @@
   }
   .insp:hover { border-color: var(--turq); }
   .insp.done { opacity: .38; cursor: default; }
+  /* One test at a time — the panel waits while the room talks about the last. */
+  #inspect.busy .insp[data-id] { opacity: .4; cursor: wait; border-color: rgba(255,255,255,.12); }
   .insp .k { color: var(--yellow); font-weight: 900; margin-right: 8px; }
   #verdict { margin-top: 8px; font-size: 14px; font-weight: 800; }
   #verdict.real { color: var(--green); }
@@ -307,6 +325,13 @@
         <div class="lbl"><span>PROSPECT'S READ</span><span id="readPct">0%</span></div>
         <div class="bar"><div class="fill" id="readFill"></div></div>
       </div>
+    </div>
+
+    <div id="dealBox" class="card">
+      <div class="lbl">THE DEAL</div>
+      <div class="row"><b>YOURS</b><span id="dealYours"></span></div>
+      <div class="row"><b>THEIRS</b><span id="dealTheirs"></span></div>
+      <div class="row"><b>THE ORDER</b><span id="dealOrder"></span></div>
     </div>
 
     <div id="driveHud">
