@@ -2412,6 +2412,45 @@ export function makeAshtray(M, { x, y, z, rotY = 0 }) {
  *
  * Returned hidden. main.js shows whichever one is in his hand.
  */
+/**
+ * A half-gallon of raw milk, in the glass jug it came home in.
+ *
+ * Not a carton: raw milk is the sort of thing that arrives in a returnable
+ * glass jug with a paper cap and a hand-lettered label, and the whole joke is
+ * that the man has gone out of his way for this. Cream line near the top,
+ * because unhomogenised milk separates and that line is the only proof in the
+ * geometry that this is not just milk.
+ *
+ * @param {object} o { x, y, z, rotY } — placed by its base.
+ */
+export function makeMilkJug(M, { x, y, z, rotY = 0 }) {
+  const g = group('milkjug');
+  g.position.set(x, y, z);
+  g.rotation.y = rotY;
+
+  const glass = new THREE.MeshPhysicalMaterial({
+    color: 0xf2f4ef, roughness: 0.09, transmission: 0.25,
+    transparent: true, opacity: 0.55, thickness: 0.02,
+  });
+  const milk = mat({ color: 0xfbf7ea, roughness: 0.62 });
+  const cream = mat({ color: 0xf6e9c4, roughness: 0.58 });
+  const paper = mat({ color: 0xd9cfb4, roughness: 0.95 });
+
+  // The milk first, then the glass around it, so the body reads as full.
+  g.add(cylinder({ r: 0.052, h: 0.150, pos: [0, 0.080, 0], mat: milk }));
+  // The cream line: unhomogenised, so it has separated overnight.
+  g.add(cylinder({ r: 0.0522, h: 0.028, pos: [0, 0.169, 0], mat: cream }));
+  g.add(cylinder({ r: 0.056, h: 0.200, pos: [0, 0.100, 0], mat: glass }));
+  g.add(cylinder({ rTop: 0.026, rBottom: 0.056, h: 0.045, pos: [0, 0.222, 0], mat: glass }));
+  g.add(cylinder({ r: 0.026, h: 0.030, pos: [0, 0.259, 0], mat: glass }));
+  // Paper cap, tied on. Nobody puts a screw top on this.
+  g.add(cylinder({ r: 0.030, h: 0.014, pos: [0, 0.280, 0], mat: paper }));
+  // Hand-lettered label, flat against the front of the jug.
+  g.add(box({ size: [0.002, 0.070, 0.072], pos: [-0.057, 0.104, 0], mat: paper }));
+
+  return { group: g, top: y + 0.287 };
+}
+
 export function makeHeldDrinks(M) {
   const g = group('heldDrinks');
 
@@ -2449,7 +2488,31 @@ export function makeHeldDrinks(M) {
   bottle.visible = false;
   g.add(bottle);
 
-  return { group: g, can, bottle };
+  /* ---- the jug of raw milk ----
+   * Same shape as the one on the shelf, scaled to a thing in a fist and with
+   * the cap off, because you do not drink out of a capped jug. */
+  const jug = group('heldJug');
+  const jugGlass = new THREE.MeshPhysicalMaterial({
+    color: 0xf2f4ef, roughness: 0.09, transmission: 0.25,
+    transparent: true, opacity: 0.55, thickness: 0.02,
+  });
+  const jugMilk = mat({ color: 0xfbf7ea, roughness: 0.62 });
+  jug.add(cylinder({ r: 0.044, h: 0.124, pos: [0, -0.014, 0], mat: jugMilk }));
+  jug.add(cylinder({
+    r: 0.0442, h: 0.024, pos: [0, 0.060, 0],
+    mat: mat({ color: 0xf6e9c4, roughness: 0.58 }),
+  }));
+  jug.add(cylinder({ r: 0.047, h: 0.166, pos: [0, -0.004, 0], mat: jugGlass }));
+  jug.add(cylinder({ rTop: 0.022, rBottom: 0.047, h: 0.038, pos: [0, 0.098, 0], mat: jugGlass }));
+  jug.add(cylinder({ r: 0.022, h: 0.026, pos: [0, 0.130, 0], mat: jugGlass }));
+  jug.add(box({
+    size: [0.002, 0.058, 0.060], pos: [-0.048, 0.000, 0],
+    mat: mat({ color: 0xd9cfb4, roughness: 0.95 }),
+  }));
+  jug.visible = false;
+  g.add(jug);
+
+  return { group: g, can, bottle, jug };
 }
 
 export function makeHeldCigarette() {

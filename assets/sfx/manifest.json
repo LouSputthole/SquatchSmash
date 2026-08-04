@@ -1867,17 +1867,23 @@
     {
       "name": "vo.toilet.hint.1",
       "voice": "player",
-      "say": "Nothing doing yet. Couple of cigarettes usually gets that moving."
+      "say": "Nothing doing yet. One dart usually gets that moving.",
+      "needsRerecord": true,
+      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
     },
     {
       "name": "vo.toilet.hint.2",
       "voice": "player",
-      "say": "Not yet. Give it a few smokes and we will be back in here."
+      "say": "Not yet. A zyn would sort this out inside a minute.",
+      "needsRerecord": true,
+      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
     },
     {
       "name": "vo.toilet.hint.3",
       "voice": "player",
-      "say": "Empty. It always turns up about four cigarettes in."
+      "say": "Empty. There is raw milk in the fridge, mind.",
+      "needsRerecord": true,
+      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
     },
     {
       "name": "vo.photo.1",
@@ -2488,6 +2494,81 @@
       "name": "vo.door.hr.2",
       "voice": "player",
       "say": "There is an email downstairs in my brain I have not dealt with."
+    },
+    {
+      "name": "vo.milk.1",
+      "voice": "player",
+      "say": "Right off the top. That is the cream. That is the good bit."
+    },
+    {
+      "name": "vo.milk.2",
+      "voice": "player",
+      "say": "Unpasteurised. My gut is going to have an opinion about that."
+    },
+    {
+      "name": "vo.milk.3",
+      "voice": "player",
+      "say": "Oh, that is farm. That is properly farm."
+    },
+    {
+      "name": "vo.door.wait.1",
+      "voice": "player",
+      "say": "Not yet. He said he would ring, so he will ring."
+    },
+    {
+      "name": "vo.door.wait.2",
+      "voice": "player",
+      "say": "Turning up unasked is how you stop getting asked."
+    },
+    {
+      "name": "vo.door.wait.3",
+      "voice": "player",
+      "say": "I am not guessing. I have never once guessed right."
+    },
+    {
+      "name": "vo.door.hint.poop.1",
+      "voice": "player",
+      "say": "Nothing is moving. Nothing has moved all morning."
+    },
+    {
+      "name": "vo.door.hint.poop.2",
+      "voice": "player",
+      "say": "A dart would sort that. Or a zyn. One of the two, and quickly."
+    },
+    {
+      "name": "vo.door.hint.poop.3",
+      "voice": "player",
+      "say": "There is raw milk in the fridge. That has never once failed me."
+    },
+    {
+      "name": "vo.door.hint.piss.1",
+      "voice": "player",
+      "say": "Stand over it, hold F, and stop overthinking it."
+    },
+    {
+      "name": "vo.door.hint.piss.2",
+      "voice": "player",
+      "say": "Bathroom. North door. It is not a maze."
+    },
+    {
+      "name": "vo.door.hint.eat.1",
+      "voice": "player",
+      "say": "There are eggs in the fridge and a pan on the hob. Two minutes."
+    },
+    {
+      "name": "vo.door.hint.eat.2",
+      "voice": "player",
+      "say": "Or there is a slice on the table. I am not proud."
+    },
+    {
+      "name": "vo.door.hint.shower.1",
+      "voice": "player",
+      "say": "Through the north door. Get in it."
+    },
+    {
+      "name": "vo.door.hint.dressed.1",
+      "voice": "player",
+      "say": "The nightstand. There is a drawer in the nightstand."
     },
     {
       "name": "vo.fired.1",

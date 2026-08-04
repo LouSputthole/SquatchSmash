@@ -101,7 +101,8 @@ await page.addInitScript(() => {
       ],
     },
     activities: {
-      eaten: true, showered: true, pooped: true, changedClothes: true, emailChecked: false,
+      eaten: true, showered: true, peed: true, pooped: true, changedClothes: true,
+      emailChecked: false,
     },
     inventory: { carried: [], concealed: [] },
     missions: {

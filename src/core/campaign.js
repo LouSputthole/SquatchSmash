@@ -99,6 +99,12 @@ export const EVENT_IDS = Object.freeze({
 export const TIME_EVENT_IDS = Object.freeze({
   EAT: 'activity.eat',
   SHOWER: 'activity.shower',
+  /* Two trips, not one. The morning routine used to fold both jobs into
+   * `POOP`, which meant a man who had emptied his bladder and nothing else was
+   * told he had used the bathroom and the door let him go. They are separate
+   * needs with separate tanks and separate interactions in the flat, so they
+   * are separate errands on the clock. */
+  PEE: 'activity.pee',
   POOP: 'activity.poop',
   CHANGE_CLOTHES: 'activity.change_clothes',
   CHECK_EMAIL: 'activity.check_email',
@@ -156,6 +162,8 @@ export const TIME_EVENT_IDS = Object.freeze({
 const TIME_EVENTS = Object.freeze({
   [TIME_EVENT_IDS.EAT]: Object.freeze({ minutes: 20 }),
   [TIME_EVENT_IDS.SHOWER]: Object.freeze({ minutes: 15 }),
+  // Short, because it is short. The other one is ten because it is not.
+  [TIME_EVENT_IDS.PEE]: Object.freeze({ minutes: 3 }),
   [TIME_EVENT_IDS.POOP]: Object.freeze({ minutes: 10 }),
   [TIME_EVENT_IDS.CHANGE_CLOTHES]: Object.freeze({ minutes: 5 }),
   [TIME_EVENT_IDS.CHECK_EMAIL]: Object.freeze({ minutes: 10 }),
@@ -260,7 +268,7 @@ const TIME_EVENTS = Object.freeze({
 });
 const MINUTES_PER_DAY = 24 * 60;
 
-export const CAMPAIGN_VERSION = 10;
+export const CAMPAIGN_VERSION = 11;
 export const CAMPAIGN_STORAGE_KEY = 'squatchlife.campaign';
 export const CAMPAIGN_RECOVERY_KEY = `${CAMPAIGN_STORAGE_KEY}.recovery`;
 
@@ -425,6 +433,7 @@ function initialState() {
     activities: {
       eaten: false,
       showered: false,
+      peed: false,
       pooped: false,
       changedClothes: false,
       emailChecked: false,
@@ -908,6 +917,22 @@ const MIGRATIONS = Object.freeze({
           ...withoutLegacyGun,
           attackResolved: incident.attackResolved === true || incident.gunKicked === true,
         },
+      },
+    };
+  },
+  10(saved) {
+    /* The morning routine grew a fifth errand: the two bathroom jobs are now
+     * tracked apart. A save that had already ticked the old combined chore has
+     * plainly been to the bathroom, so it inherits both -- the alternative is
+     * telling a player mid-campaign that a thing they did this morning is
+     * suddenly undone. A save that had not is left with both to do. */
+    const pooped = saved.activities?.pooped === true;
+    return {
+      ...saved,
+      version: 11,
+      activities: {
+        ...saved.activities,
+        peed: saved.activities?.peed === true || pooped,
       },
     };
   },

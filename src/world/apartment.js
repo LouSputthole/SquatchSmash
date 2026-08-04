@@ -566,6 +566,31 @@ export async function buildApartment(ctx) {
   eggHit.name = 'eggs';
   root.add(eggHit);
 
+  /* Half a gallon of raw milk, on the egg shelf beside the eggs.
+   *
+   * It is the one thing in this flat that is unambiguously a choice -- nobody
+   * is handed raw milk, you go and get raw milk -- which is why the label is
+   * hand-lettered and why it lives at eye level with the breakfast rather than
+   * down with the beer.
+   *
+   * Shelf 2 specifically, and measured: shelf 1 is the beer shelf and the six
+   * cans are laid out across the whole of it, so a 5.6cm jug anywhere on it
+   * lands inside a can. This is at the far end of the egg shelf, 34cm clear of
+   * the carton, and 29cm of jug under a 34cm gap to the shelf above. */
+  const milk = P.makeMilkJug(M, {
+    x: (fin.x0 + fin.x1) / 2, y: fin.shelfY[2] + 0.014, z: fin.z1 - 0.14,
+    rotY: -Math.PI / 2 + 0.22,
+  });
+  root.add(milk.group);
+  // Same proxy treatment as the eggs: a 10cm jug on a shelf is a hard aim.
+  const milkHit = box({
+    size: [0.24, 0.30, 0.24],
+    pos: [(fin.x0 + fin.x1) / 2, fin.shelfY[2] + 0.16, fin.z1 - 0.14],
+    mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
+  });
+  milkHit.name = 'milk';
+  root.add(milkHit);
+
   // Cereal on top of the fridge, because there is nowhere else for it.
   const cereal = P.makeCerealBox(M, {
     x: fridge.centre.x + 0.02, y: fridge.top, z: fridge.centre.z - 0.08,
@@ -1386,6 +1411,9 @@ export async function buildApartment(ctx) {
     fridgeOpen: false,
     fridgeT: 0,
     beersLeft: fridge.beerSlots.length,
+    /** Pulls left in the jug, and how many have gone down. */
+    milkLeft: 4,
+    milkDrunk: 0,
     lightsOn: false,
     lampOn: false,
     pcOn: false,
@@ -1412,13 +1440,17 @@ export async function buildApartment(ctx) {
     /** Mains multiplier and how long it has left. 1 is normal service. */
     sag: 1,
     sagT: 0,
-    bladder: 0.12,       // 0..1; drinking fills it
+    /* 0..1; drinking fills it, and a night's sleep has already done most of
+     * the work. He wakes up needing to go, because everybody does. */
+    bladder: 0.52,
     zynsLeft: 15,
     zynsTaken: 0,
     lipPacked: false,
-    bowel: 0,            // 0..1; cigarettes fill it. 4 of them and you are running
+    bowel: 0,            // 0..1; a dart, a zyn or the raw milk fills it outright
+    /** What tipped him: 'cig' | 'zyn' | 'milk' | 'eggs'. Picks the urge line. */
+    bowelCause: null,
     urgeAnnounced: false,
-    toiletHinted: false,   // he only points out the cigarette trick once
+    toiletHinted: false,   // he only points out how to get things going once
     underBedOut: false,    // the photograph under the bed, pulled part way out
     underBedSeen: false,   // he only says the line the first time
 
@@ -1473,7 +1505,8 @@ export async function buildApartment(ctx) {
       audio.say('fridge', { chance: 0.3, delay: 1.2 });
     }
     hud.say(open
-      ? 'Cold air. Six beers, half a lime, and something you should throw out.'
+      ? 'Cold air. Six beers, half a gallon of raw milk, half a lime, '
+        + 'and something you should throw out.'
       : '', open ? 3600 : 1);
   };
 
@@ -1497,6 +1530,27 @@ export async function buildApartment(ctx) {
         void i;
       },
     });
+  });
+
+  /* ---- the raw milk ---- */
+  interaction.register(milkHit, {
+    label: () => (state.milkLeft > 0
+      ? `Take the <b>raw milk</b> <span style="opacity:.6">(${state.milkLeft})</span>`
+      : 'An empty <b>jug</b>'),
+    enabled: () => state.fridgeOpen && milk.group.visible && !inventory.full,
+    onUse: () => {
+      if (state.milkLeft <= 0) {
+        hud.say('Empty jug. That went quickly, in every sense.');
+        return;
+      }
+      milk.group.visible = false;
+      state.heldItem = 'milk';
+      hud.setHand({
+        icon: '🥛', name: `Raw milk (${state.milkLeft})`, hint: 'Hold [F] to drink',
+      });
+      audio.play('fridge.bottles', { position: fridge.centre, volume: 0.55 });
+      hud.toast('Picked up the raw milk', 'good');
+    },
   });
 
   /* ---- zyns ---- */
@@ -1880,9 +1934,11 @@ export async function buildApartment(ctx) {
       if (state.bladder > 0.05) return 'Take a <b>leak</b>';
       return 'The <b>toilet</b>';
     },
-    // Cigarettes are what fill the bowel meter, and nothing else in the game
-    // says so. Said once, and only while there is genuinely nothing brewing --
-    // after that the belly rumbles do the telling.
+    /* A dart, a zyn or the raw milk is what fills the bowel meter, and nothing
+     * else in the game says so. Said once, and only while there is genuinely
+     * nothing brewing -- after that the belly rumbles do the telling. The
+     * door's second refusal says the same thing in more words if he is still
+     * standing here later wondering what the game wants. */
     onLook: () => {
       if (state.toiletHinted || state.bowel > 0.2) return;
       state.toiletHinted = true;
@@ -2412,6 +2468,19 @@ export async function buildApartment(ctx) {
     /** Put the bottle back on the counter. */
     returnWhiskey() {
       whiskey.group.visible = true;
+    },
+
+    /** A pull on the jug. Returns false when it is empty. */
+    consumeMilk() {
+      if (state.milkLeft <= 0) return false;
+      state.milkLeft--;
+      state.milkDrunk++;
+      return true;
+    },
+
+    /** Back on the shelf where it lives. */
+    returnMilk() {
+      milk.group.visible = true;
     },
 
     /**

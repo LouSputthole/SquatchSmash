@@ -16,6 +16,7 @@ const TEST_MODULES = [
   './fresh-save-campaign-route.test.mjs',
   './daynight.test.mjs',
   './apartment-dressing.test.mjs',
+  './apartment-milk.test.mjs',
   './margo-morning.test.mjs',
   './audio-variant-bank.test.mjs',
   './signature-audio.test.mjs',

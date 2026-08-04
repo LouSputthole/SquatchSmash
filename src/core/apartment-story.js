@@ -33,10 +33,28 @@ const DEPARTURE_REQUIREMENTS = Object.freeze([
     line: 'Not like this. Shower first.',
     hint: 'The bathroom is through the north door.',
   },
+  /* Two errands, not one. These used to be a single `pooped` chore, so a man
+   * who had emptied one tank was told he had used the bathroom and the door
+   * let him leave with the other one full. They have always been two
+   * interactions in the flat -- stand over it with [F], or sit down on it --
+   * so they are two lines on the list and two excuses at the door.
+   *
+   * In this order because it is the order they occur to him: the quick one
+   * first, the one he has been putting off second. */
+  {
+    id: 'peed',
+    line: 'Not making that journey like this. Bathroom first.',
+    hint: 'Stand over the toilet and hold [F].',
+  },
   {
     id: 'pooped',
-    line: 'Absolutely not. Bathroom first.',
-    hint: 'You definitely know where it is.',
+    line: 'Absolutely not. Not until that is dealt with.',
+    /* The one hint in this list that is about how to CAUSE the thing rather
+     * than where to do it. Nothing gets you onto that toilet until your body
+     * asks, and a player who has eaten nothing and smoked nothing can stand in
+     * that bathroom all morning wondering what the game wants. */
+    hint: 'Nothing is moving yet. A dart or a zyn would get things started — '
+      + 'so would the raw milk in the fridge.',
   },
   {
     id: 'changedClothes',
@@ -65,7 +83,8 @@ const DEPARTURE_REQUIREMENTS = Object.freeze([
 const ROUTINE_LABELS = Object.freeze({
   eaten: 'Eat something',
   showered: 'Have a shower',
-  pooped: 'Use the bathroom',
+  peed: 'Have a piss',
+  pooped: 'Take a dump',
   changedClothes: 'Put on a clean shirt',
 });
 

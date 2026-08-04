@@ -355,6 +355,22 @@ export class AudioEngine {
     const { chance = 1, volume = 0.85, delay = 0 } = opts;
     if (chance < 1 && Math.random() > chance) return false;
 
+    /* Cached per group, but only for as long as the library has not moved.
+     *
+     * This used to cache unconditionally, and an EMPTY bank is a perfectly
+     * good cache entry, so any group asked for before its takes had decoded
+     * was cached silent and stayed silent for the whole session. Most banks
+     * get away with it because they are asked for late; the ones that do not
+     * are exactly the ones that fire in the first minute -- the front door
+     * being the worst of them, since a player who tries the handle while the
+     * background bank is still filling in never hears the door again.
+     *
+     * `loadedCount` only ever increases, so comparing it is a cheap way of
+     * asking "has anything arrived since I last looked". */
+    if (this._voBanksAt !== this.loadedCount) {
+      this._voBanks = new Map();
+      this._voBanksAt = this.loadedCount;
+    }
     let bank = this._voBanks?.get(group);
     if (!bank) {
       bank = [];
