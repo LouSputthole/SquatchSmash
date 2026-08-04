@@ -9510,6 +9510,11 @@
       "say": "He is too big! Somebody find the prod!"
     },
     {
+      "name": "vo.motel.chino.4zdbk.1",
+      "voice": "motel-chino",
+      "say": "He is buying it blind. Rico. He is buying it blind."
+    },
+    {
       "name": "vo.motel.chino.5t7utr.1",
       "voice": "motel-chino",
       "say": "Rico. He knows."
@@ -9725,9 +9730,19 @@
       "say": "He answered too fast to be lying."
     },
     {
+      "name": "vo.motel.prospect.1mllplw.1",
+      "voice": "player",
+      "say": "Their case is on the far bed now. That is not where a deal happens."
+    },
+    {
       "name": "vo.motel.prospect.1mr6qip.1",
       "voice": "player",
       "say": "Now. Where is my meat."
+    },
+    {
+      "name": "vo.motel.prospect.1nfytw8.1",
+      "voice": "player",
+      "say": "Eight in their case. One on the table. Neither of them is mine yet."
     },
     {
       "name": "vo.motel.prospect.1ppllw9.1",
@@ -10030,6 +10045,11 @@
       "say": "Mountain reserve. Eleven-year cure. No fillers."
     },
     {
+      "name": "vo.motel.rico.1l3y0w1.1",
+      "voice": "motel-rico",
+      "say": "Meat first. Money second. That is how this works."
+    },
+    {
       "name": "vo.motel.rico.1l5asv7.1",
       "voice": "motel-rico",
       "say": "Whoa — WHOA—"
@@ -10065,6 +10085,11 @@
       "say": "Depends who is asking about meat at this hour."
     },
     {
+      "name": "vo.motel.rico.afuxpx.1",
+      "voice": "motel-rico",
+      "say": "Now the other half. On the table, where I can see it."
+    },
+    {
       "name": "vo.motel.rico.agljzb.1",
       "voice": "motel-rico",
       "say": "See? Civilised."
@@ -10083,6 +10108,11 @@
       "name": "vo.motel.rico.fy7cus.1",
       "voice": "motel-rico",
       "say": "The cattle had names."
+    },
+    {
+      "name": "vo.motel.rico.hwxkhb.1",
+      "voice": "motel-rico",
+      "say": "Satisfied? The case is right there. Eight of them. Count it."
     },
     {
       "name": "vo.motel.rico.ifg4sl.1",
