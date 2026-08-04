@@ -408,6 +408,69 @@ body.bing #hands { bottom: 66px; }
   padding: 0 2px;
 }
 
+/* ---------------- The table's own panel ----------------
+
+   Sitting down moves this box out of the bottom-right corner and puts it on
+   the felt, at about three times the size.
+
+   The owner's reasoning, and it is the right call: the printed cards on the
+   table are small, dark, seen from a seated pitch of -0.42 rad, and making
+   them legible is a texture-and-camera job of its own. The panel already
+   holds every fact a hand needs — both hands as ranks and suits, the running
+   total, the bet and the keys. So the panel becomes the way you play, and the
+   cards stay on the table being cards. Nothing is removed from the felt.
+
+   Centred horizontally and pushed a little below the middle, which is where
+   the table is once you are seated: the hand's verdict callout owns 38% and
+   this sits under it, so a WIN never lands on top of the totals that
+   explain it. It goes back to the corner the moment you stand up, and the
+   slot machine's panel is untouched. */
+#gamble.at-table {
+  right: auto;
+  bottom: auto;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+  width: min(540px, 74vw);
+  max-width: 74vw;
+  padding: 20px 26px 18px;
+  font-size: 25px;
+  line-height: 1.62;
+  background: rgba(8, 6, 10, 0.82);
+  border-color: rgba(255, 61, 139, 0.4);
+  border-radius: 5px;
+  text-align: center;
+  box-shadow: 0 10px 44px rgba(0, 0, 0, 0.55);
+}
+#gamble.at-table .title {
+  font-size: 13px;
+  letter-spacing: 3.4px;
+  margin-bottom: 12px;
+}
+/* The cards themselves want to read as cards: a shade brighter than the rest
+   of the line and spaced so 10♦ and 10♣ do not run into one word. */
+#gamble.at-table .body .hand {
+  color: #fff6ea;
+  letter-spacing: 3px;
+  font-weight: 600;
+}
+#gamble.at-table .keys {
+  margin-top: 15px;
+  padding-top: 12px;
+  font-size: 15px;
+  letter-spacing: 0.8px;
+}
+
+/* Small screens: keep it on the felt but stop it eating the whole view. */
+@media (max-height: 720px) {
+  #gamble.at-table {
+    top: 56%;
+    font-size: 20px;
+    padding: 14px 20px 13px;
+  }
+  #gamble.at-table .keys { font-size: 13px; margin-top: 11px; padding-top: 9px; }
+}
+
 /* ---------------- The hand's verdict ---------------- */
 
 /* One word in the middle of the view when a hand settles. Big, coloured,

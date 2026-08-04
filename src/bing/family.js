@@ -57,11 +57,40 @@ export const FAMILY = [
   },
   {
     id: CHARACTER_IDS.DEATHMEGATRON, name: 'DeathMegatron', slug: 'deathmegatron', photo: 'deathmegatron.png',
-    // Two stools down from Booski, with the spritz the world owed him.
+    // Two stools down from Booski, with the spritz the world owed her.
     spot: { x: -18.7, z: -1.3, y: STOOL_SIT, yaw: -Math.PI / 2, job: 'drink' },
+    /* She is a woman and one of the FIVE, and the figure said neither: she was
+     * carrying the roster's default unspecified frame in an off-the-peg grey
+     * suit, which is what everybody at the back of the Silver Room wears.
+     *
+     * Boss, then, not crew. `gender`/`bodyShape` give her the club's own
+     * female frame — narrower shoulder line, real hips, and the chamfered
+     * slabs the curvy figures get, which is geometry and nothing else: the
+     * performer forms in makePerson are gated on `performanceWear` and stay
+     * exactly where they are. On top of that the things this club uses to say
+     * somebody is senior, the same vocabulary Booskibro is dressed in: a
+     * midnight suit rather than a grey one, the luxury finish, a layered gold
+     * chain on the founders' crest, and a gold watch.
+     *
+     * Voice untouched — `deathmegatron` is a LOCKED founder voice. Her lines
+     * are untouched too; none of them gender her, and none of them needed to. */
     model: {
-      height: 1.82, build: 1.2, dress: 'suit', shirt: 0x2a2f3a,
-      hairColour: 0x14100e, skin: 0xc08a5e,
+      height: 1.79,
+      build: 1.12,
+      gender: 'female',
+      bodyShape: 'curvy',
+      dress: 'suit',
+      shirt: 0x1a1d2a,
+      shirtAccent: 0xc7a66a,
+      luxury: true,
+      hair: 'tied',
+      hairColour: 0x14100e,
+      skin: 0xc08a5e,
+      chain: 'gold',
+      chainStyle: 'layered',
+      pendant: true,
+      pendantStyle: 'crest',
+      watch: 'gold',
     },
   },
   {

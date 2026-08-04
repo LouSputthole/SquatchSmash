@@ -1036,6 +1036,30 @@ function synth(engine, name, dest, t, rate = 1) {
         burst(ctx, dest, t + i * 0.035, { dur: 0.02, type: 'lowpass', freq: 260, gain: 0.05 });
       }
       break;
+    /* A phone buzzing in a pocket, which is a different sound from a phone
+     * ringing on a nightstand: no tone at all, just the motor and the body of
+     * the handset knocking against whatever it is lying against. Two short
+     * pulses, because two short pulses is a text and one long one is a call —
+     * and the thing this plays for is a text.
+     *
+     * Deliberately synthesis-only. It carries no manifest entry and therefore
+     * requests no file, so it cannot 404 while nobody has recorded it; if a
+     * `phone.vibrate` recording is ever added it takes over here for free,
+     * the same way every other cue in this table works. */
+    case 'phone.vibrate':
+      for (let i = 0; i < 2; i++) {
+        const at = t + i * 0.30;
+        // The motor: a low buzz, felt more than heard.
+        tone(ctx, dest, at, { freq: 62, to: 54, dur: 0.17, gain: 0.30, type: 'square' });
+        tone(ctx, dest, at, { freq: 124, to: 108, dur: 0.16, gain: 0.10, type: 'triangle' });
+        // The handset against cloth: dry, dull, and over almost at once.
+        for (let k = 0; k < 5; k++) {
+          burst(ctx, dest, at + k * 0.034, {
+            dur: 0.026, type: 'lowpass', freq: 300, gain: 0.07,
+          });
+        }
+      }
+      break;
     case 'phone.hangup':
       tone(ctx, dest, t, { freq: 760, to: 420, dur: 0.16, gain: 0.10, type: 'sine' });
       break;

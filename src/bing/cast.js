@@ -113,6 +113,10 @@ export const STOOL_SIT = 0.315;
  *            Initiation gives the Circle their real faces. A photo brings its
  *            own hair, eyes and mouth, so the procedural ones stand down.
  *   neckline false | 'v' -- an open knit collar rather than a crew neck
+ *   tuxedo   a dinner jacket front: white dress shirt, satin lapels, studs,
+ *            cummerbund and a pocket square. NOT the same thing as `neckline`
+ *            -- a V cuts a hole in the shirt and shows skin, which on a dark
+ *            jacket reads as an open-necked knit, not as black tie.
  *   luxury   richer fabric, piping and ribbing without changing the rig
  *   watch    false | 'gold' | 'silver' -- worn on the left wrist
  *   chainStyle 'single' | 'layered' -- the primary chain keeps its stable name
@@ -190,10 +194,11 @@ export function makePerson(o = {}) {
      * is a different man saying a different thing with his neck. */
     pendant = true, chainStyle = 'single', pendantStyle = 'disc',
     neckline = false, luxury = false, shirtAccent = null, watch = false,
-    /* Two dinner-jacket details, both of them small and both of them the
-     * whole read on the one man who needs them: a bow tie at the collar, and
-     * bare feet, because whoever tied him to that chair took his shoes. */
-    bowtie = false, barefoot = false,
+    /* Dinner-jacket details, all of them small and all of them the whole read
+     * on the one man who needs them: a bow tie at the collar, the tuxedo front
+     * behind it, and bare feet, because whoever tied him to that chair took
+     * his shoes. */
+    bowtie = false, barefoot = false, tuxedo = false,
   } = o;
 
   /* Matte almost everywhere. The Squatchfather's cast is lit with Lambert and
@@ -470,6 +475,94 @@ export function makePerson(o = {}) {
       collar.rotation.z = side * -0.55;
       body.add(collar);
     }
+  }
+
+  /* ---- the dinner jacket ----
+   *
+   * The first pass at black tie was `neckline: 'v'` over a dark suit, and it
+   * was wrong in a way the owner spotted immediately: the V block cuts a
+   * skin-coloured triangle into the chest and hangs two pale bars either side
+   * of it. On an open knit that is a collar. On a tuxedo it is a man with his
+   * shirt undone to the sternum -- "a strange looking Vneck thing".
+   *
+   * A tuxedo is the opposite shape. The shirt is the bright thing and the
+   * jacket is what is over it, so this builds the shirt as a solid bib with
+   * studs down it, closes it at the waist with a cummerbund, and lays two
+   * satin lapels over the top running out to the shoulders. Nothing here
+   * removes any part of the torso -- it is all in front of the ribcage, on
+   * the same plane the collar and the bow tie already use.
+   *
+   * The satin is the jacket's own colour lifted a little and taken to a low
+   * roughness: on a slab figure under one bulb, a lapel reads because it
+   * catches light the wool does not. */
+  if (tuxedo && !performanceWear) {
+    const shirtWhite = mat({ color: shirtAccent ?? 0xf0efe8, roughness: 0.62 });
+    const satin = mat({
+      color: new THREE.Color(jacketColour).lerp(new THREE.Color(0xffffff), 0.16).getHex(),
+      roughness: 0.3,
+      metalness: 0.12,
+    });
+    const studMat = mat({ color: 0x0a0a10, roughness: 0.35, metalness: 0.4 });
+    const tuxFront = shirtFront + 0.006;
+    /* The bib. Top edge under the collar line, bottom edge at the waistband.
+     * Deliberately wider than the white you end up seeing: the lapels lie over
+     * it and close in towards the waist, so the visible shirt narrows as it
+     * descends the way a real dinner jacket makes it. Sizing the bib to the
+     * gap instead leaves a slice of bare ribcage between shirt and lapel. */
+    body.add(box({
+      name: 'tuxedo.shirt.front',
+      size: [0.17 * Math.min(t, 1.2), 0.30, 0.014],
+      pos: [0, 1.352, tuxFront],
+      mat: shirtWhite,
+    }));
+    // Shirt studs. Three, because a dress shirt has three showing.
+    for (const sy of [1.428, 1.348, 1.268]) {
+      body.add(box({
+        name: 'tuxedo.shirt.stud',
+        size: [0.016, 0.016, 0.008],
+        pos: [0, sy, tuxFront + 0.009],
+        mat: studMat,
+      }));
+    }
+    /* The cummerbund. Without it the white bib stops in mid-air above the
+     * trousers and the figure reads as a man in a bib, not a man in a tuxedo. */
+    body.add(box({
+      name: 'tuxedo.cummerbund',
+      size: [0.20 * Math.min(t, 1.2), 0.052, 0.016],
+      pos: [0, 1.196, tuxFront + 0.001],
+      mat: mat({ color: 0x0d0d14, roughness: 0.48 }),
+    }));
+    /* The lapels. Each is one board leaning outward as it rises, so the pair
+     * makes the wide shallow V of a dinner jacket rather than the deep narrow
+     * one of an open collar -- and the shirt shows BETWEEN them instead of
+     * through a hole in them. */
+    for (const side of [-1, 1]) {
+      const lapel = box({
+        name: `tuxedo.lapel.${side < 0 ? 'left' : 'right'}`,
+        size: [0.088 * Math.min(t, 1.2), 0.30, 0.016],
+        pos: [side * 0.116 * Math.min(t, 1.2), 1.362, tuxFront + 0.004],
+        mat: satin,
+      });
+      lapel.rotation.z = -side * 0.17;
+      body.add(lapel);
+      // The notch: a short satin wing out towards the shoulder seam.
+      const notch = box({
+        name: `tuxedo.lapel.notch.${side < 0 ? 'left' : 'right'}`,
+        size: [0.062 * Math.min(t, 1.2), 0.052, 0.015],
+        pos: [side * 0.176 * Math.min(t, 1.2), 1.475, tuxFront + 0.002],
+        mat: satin,
+      });
+      notch.rotation.z = -side * 0.34;
+      body.add(notch);
+    }
+    /* Breast pocket square, on his LEFT -- the figure faces +Z, so his left
+     * hand is on +X and the pocket goes with it. */
+    body.add(box({
+      name: 'tuxedo.pocket-square',
+      size: [0.048, 0.022, 0.010],
+      pos: [0.182 * Math.min(t, 1.2), 1.398, tuxFront],
+      mat: shirtWhite,
+    }));
   }
 
   /* The bow tie. Two wings and a knot at the base of the throat, on the same
@@ -906,6 +999,9 @@ export function makePerson(o = {}) {
     height,
     gut: gutOn,
     neckline: neckline || 'crew',
+    tuxedo: !!tuxedo,
+    bowtie: !!bowtie,
+    barefoot: !!barefoot,
     luxury: !!luxury,
     watch: watch || false,
     chainStyle: chain ? chainStyle : false,

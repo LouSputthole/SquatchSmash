@@ -21,7 +21,7 @@ import * as THREE from 'three';
 import { mat, box, cylinder, sphere, collider, group } from '../world/build.js';
 import { makeMaterials } from '../world/materials.js';
 import { makeChair, makeWhiskeyBottle, makeShotGlass, makeAshtray, makeWallClock, makeFrame, makePlant, makeTv, makeRevolver, makeCigarettePack, makeToilet } from '../world/props.js';
-import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick, squatchArt } from './kit.js';
+import { clubCarpet, asphalt, brick, panelling, backTile, felt, printed, neonText, lit, sign, tiled, rand, pick, squatchArt, cctvStill } from './kit.js';
 import { resolveGear } from '../world/gear.js';
 import { Tv } from '../core/tv.js';
 
@@ -1488,17 +1488,28 @@ export function buildClub(scene, { renderer } = {}) {
   /* ================================================================== */
   const storeroom = {};
   {
-    /* Kegs in their corner, shifted a hand north of where they were: the old
-     * grid's nearest keg stood inside the service door's swing. */
+    /* ---- kegs, all the way into the south-west corner ----
+     *
+     * They used to stand on a 0.72 grid starting at x S.x0+1.0, z S.z0+1.4,
+     * which put the back-right keg at (8.04, -12.88) with a 24cm radius —
+     * straight through the rolling cart at (8.2, -12.85), the "torture table"
+     * the side quest works off. The owner's note is exactly right and so is
+     * his fix: further into the corner.
+     *
+     * Tightened to a 0.56 pitch and moved to x 6.22–7.34, z -14.38 to -13.82.
+     * That clears the cart's footprint (x 7.71–8.69, z -13.23 to -12.47) on
+     * BOTH axes rather than only just, keeps the stack 26cm clear of the west
+     * wall face, and stays entirely west of the service door's opening
+     * (x 8.4–9.7), which is what the previous nudge north was protecting. */
     for (let i = 0; i < 6; i++) {
-      const kx = S.x0 + 1.0 + (i % 3) * 0.72;
-      const kz = S.z0 + 1.4 + Math.floor(i / 3) * 0.72;
+      const kx = S.x0 + 0.62 + (i % 3) * 0.56;
+      const kz = S.z0 + 0.62 + Math.floor(i / 3) * 0.56;
       add(group('keg',
         cylinder({ r: 0.24, h: 0.62, pos: [kx, 0.31, kz], mat: M_STEEL }),
         cylinder({ r: 0.2, h: 0.07, pos: [kx, 0.66, kz], mat: M_STEEL }),
       ));
     }
-    solid(S.x0 + 0.6, S.z0 + 1.0, S.x0 + 2.9, S.z0 + 2.6, 0, 0.7);
+    solid(S.x0 + 0.3, S.z0 + 0.3, S.x0 + 2.1, S.z0 + 1.6, 0, 0.7);
 
     /* Crates stacked the way a porter stacks them, not rolled by dice. The
      * old pass scattered twelve random boxes that overlapped each other and,
@@ -1511,11 +1522,21 @@ export function buildClub(scene, { renderer } = {}) {
     crate(10.78, -13.7, 0.56, -0.1, 0, 0x8a6a42);
     crate(10.42, -13.72, 0.5, 0.22, 0.5, 0x6b4f30);
     solid(9.75, -14.1, 11.1, -13.35, 0, 1.0);
-    // Singles: one by the shelf run, one dumped mid-floor on its way somewhere
+    /* Singles: one by the shelf run, one dumped on its way somewhere.
+     *
+     * The second one stood at (9.2, -11.3) with a collider from 8.95 to 9.45
+     * and -11.55 to -11.05 — which is the middle of the floor the side quest
+     * uses. It sat 11cm off the player's mark (9.55, -11.0), overlapped
+     * Gratin's (8.9, -11.35), and stood directly in the line between the
+     * player and the man in the chair at (9.6, -12.3): the owner's "boxes in
+     * the way", and a box you cannot walk round in a room you were just put
+     * into. Moved to the west wall, where it is still a box somebody dumped
+     * and is in nobody's way — clear of the keg stack, clear of the cart,
+     * clear of the door's swing and clear of every quest mark. */
     crate(12.2, -14.35, 0.55, -0.18, 0, 0x8a6a42);
     solid(11.9, -14.65, 12.5, -14.05, 0, 0.5);
-    crate(9.2, -11.3, 0.48, 0.35, 0, 0x6b4f30);
-    solid(8.95, -11.55, 9.45, -11.05, 0, 0.45);
+    crate(6.15, -12.9, 0.48, 0.35, 0, 0x6b4f30);
+    solid(5.9, -13.15, 6.4, -12.65, 0, 0.45);
     // The mop sink was the one fixture in here you could walk through
     solid(S.x0 + 0.4, S.z1 - 1.28, S.x0 + 1.02, S.z1 - 0.73, 0, 0.66);
 
@@ -1672,17 +1693,38 @@ export function buildClub(scene, { renderer } = {}) {
       add(rail);
       storeroom.utensils = rail;
 
-      /* A portable radio on the shelf run, playing whatever it is playing.
-       * The quest turns it up; the rest of the time it is a prop. */
+      /* A portable radio ON the shelf run — the owner's note was that it was
+       * IN it, and it was: the middle board is 6cm thick centred at y 1.25,
+       * so its top face is 1.28, and the radio's origin sat at exactly 1.28
+       * with a 0.2m-tall case around it. Half the set was inside the steel.
+       *
+       * The case is now stood on the board rather than centred on it — origin
+       * at board top + half the case height + the feet — and it has feet, so
+       * it reads as a thing put down rather than a thing embedded. The quest
+       * turns it up; the rest of the time it is a prop.
+       *
+       * SHELF_TOP is derived from the same expression the boards are built
+       * from a few lines above, so moving the run moves the radio with it. */
+      const SHELF_TOP = 0.55 + 1 * 0.7 + 0.03;   // middle board, top face
+      const RADIO_FOOT = 0.012;                  // half the foot's height
+      // Case half-height 0.10, feet under it: this stands the feet ON the board.
+      const radioY = SHELF_TOP + RADIO_FOOT * 2 + 0.1;
       const radio = group('store-radio');
-      radio.position.set(S.x1 - 0.55, 1.28, S.z0 + 2.2);
+      radio.position.set(S.x1 - 0.55, radioY, S.z0 + 2.2);
       radio.rotation.y = -Math.PI / 2 + 0.2;
       radio.add(box({ size: [0.34, 0.2, 0.12], pos: [0, 0, 0], mat: mat({ color: 0x2a2a30, roughness: 0.8 }) }));
       radio.add(cylinder({ r: 0.06, h: 0.02, pos: [-0.08, 0, 0.062], rotX: Math.PI / 2, mat: mat({ color: 0x14141a, roughness: 1 }) }));
       radio.add(cylinder({ r: 0.004, h: 0.34, pos: [0.14, 0.22, -0.02], rotZ: -0.22, mat: M_UTIL }));
+      for (const fx of [-0.13, 0.13]) {
+        radio.add(box({
+          size: [0.03, RADIO_FOOT * 2, 0.08],
+          pos: [fx, -0.1 - RADIO_FOOT, 0],
+          mat: mat({ color: 0x14141a, roughness: 1 }),
+        }));
+      }
       add(radio);
       storeroom.radio = radio;
-      anchors.storeRadio = new THREE.Vector3(S.x1 - 0.55, 1.28, S.z0 + 2.2);
+      anchors.storeRadio = new THREE.Vector3(S.x1 - 0.55, radioY, S.z0 + 2.2);
     }
 
     /* ---- the thing behind the crates ----
@@ -2220,13 +2262,34 @@ export function buildClub(scene, { renderer } = {}) {
      * centimetres INSIDE the door's north sidelight, whose frame stops at
      * -5.98. Hung at -5.72 it clears the glazing by 5.5cm and still leaves
      * 21cm of wall between it and THE OLD PLACE. */
-    for (const [i, pz] of [[1, O.z0 + 3.78], [2, O.z0 + 4.4]]) {
-      add(makeFrame(M, {
+    /* ---- the four photographs the owner is supplying ----
+     *
+     * All four are art SLOTS now, on the same pipeline as everything else on
+     * a Bada Bing wall: the drawn lettering below is what hangs there today,
+     * and the moment a file is named against the slot in
+     * assets/art/manifest.json the real photograph replaces it, sized from
+     * its own aspect ratio. `resolveGear` only fetches a file the manifest
+     * actually names, so an undelivered photo requests nothing and cannot
+     * 404 -- the picture just stays drawn. Which file goes in which slot is
+     * written down in assets/art/README.md.
+     *
+     *   bing.office.nephews    THE NEPHEWS      door wall, nearer the door
+     *   bing.office.old_place  THE OLD PLACE    door wall, the Italy picture
+     *   bing.office.shore      AT THE SHORE     behind the desk, over Lou
+     *   bing.office.bing_1979  THE BING 1979    the one the safe is behind
+     */
+    for (const [i, pz, slot] of [
+      [1, O.z0 + 3.78, 'bing.office.nephews'],
+      [2, O.z0 + 4.4, 'bing.office.old_place'],
+    ]) {
+      const pic = makeFrame(M, {
         x: 7.926, y: 1.9, z: pz, rotY: Math.PI / 2, w: 0.34, h: 0.26,
         texture: printed(`lou-family${i}`, [['SUNDAY', 'AT THE SHORE'], ['THE NEPHEWS'], ['THE OLD PLACE']][i], {
           w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
         }),
-      }));
+      });
+      artSticker(pic.art, slot, 0.34);
+      add(pic);
     }
     const shorePic = makeFrame(M, {
       x: dx + 0.62, y: 1.76, z: WALLS.north + 0.045, rotY: 0, w: 0.44, h: 0.34,
@@ -2234,6 +2297,7 @@ export function buildClub(scene, { renderer } = {}) {
         w: 320, h: 240, bg: '#3a2a20', fg: '#d8c8a8', font: '700 30px "Trebuchet MS", sans-serif',
       }),
     });
+    artSticker(shorePic.art, 'bing.office.shore', 0.44);
     add(shorePic);
     office.shorePicture = shorePic.group;
 
@@ -2285,10 +2349,15 @@ export function buildClub(scene, { renderer } = {}) {
     office.logos = officeLogos.map((f) => f.group);
     office.logoArt = officeLogos.map((f) => f.art);
 
-    const safePic = makeFrame(M, {
+    const safeFrame = makeFrame(M, {
       x: O.x1 - 0.13, y: 1.85, z: O.z0 + 1.2, rotY: -Math.PI / 2, w: 0.62, h: 0.48,
       texture: printed('safe-cover', ['THE BING', '1979'], { w: 512, h: 384, bg: '#2a1a24', fg: '#c8a2d8', font: '800 46px "Trebuchet MS", sans-serif' }),
-    }).group;
+    });
+    /* The art swaps; the FRAME is what swings off the wall, and `safePicture`
+     * is still that frame's group, so the safe behind it is unaffected either
+     * way -- a delivered photograph hinges open exactly like the drawn one. */
+    artSticker(safeFrame.art, 'bing.office.bing_1979', 0.62);
+    const safePic = safeFrame.group;
     add(safePic);
     office.safePicture = safePic;
     const safe = box({ size: [0.08, 0.42, 0.52], pos: [O.x1 - 0.14, 1.85, O.z0 + 1.2], mat: mat({ color: 0x2a2a30, roughness: 0.5, metalness: 0.6 }) });
@@ -2319,8 +2388,27 @@ export function buildClub(scene, { renderer } = {}) {
     /* The security monitor showing the parking lot, which matters later.
      * It hangs off a bracket on the back-right wall, angled down at the desk
      * the way every back-office CCTV set has hung since 1987 -- it used to
-     * float in mid-air over the desk's rear corner with nothing holding it. */
-    const monScreen = box({ size: [0.54, 0.4, 0.02], pos: [0, 0, 0.06], mat: lit(0x1a2a1a, 0.8) });
+     * float in mid-air over the desk's rear corner with nothing holding it.
+     *
+     * The screen itself was a flat green rectangle, which is a monitor that is
+     * ON and showing nothing. It now carries a still of the front door and the
+     * two men on it -- the owner's ask -- drawn in kit.js from the club's own
+     * squatch outline, with interlace, rain and a burnt-in timestamp. Emissive
+     * so it is the light source it is meant to be in a dim office, and mapped
+     * rather than tinted so the picture survives at any exposure. */
+    const monTexture = cctvStill('front-door');
+    const monScreen = box({
+      size: [0.54, 0.4, 0.02],
+      pos: [0, 0, 0.06],
+      mat: new THREE.MeshStandardMaterial({
+        map: monTexture,
+        emissiveMap: monTexture,
+        emissive: new THREE.Color(0xbfe8c4),
+        emissiveIntensity: 0.85,
+        roughness: 1,
+        toneMapped: true,
+      }),
+    });
     const monitor = group('monitor',
       box({ size: [0.64, 0.5, 0.12], pos: [0, 0, 0], mat: mat({ color: 0x26262e, roughness: 0.7 }) }),
       monScreen,

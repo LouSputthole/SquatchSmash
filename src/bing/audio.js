@@ -5,6 +5,11 @@
  */
 const BING_RUNTIME_CUES = new Set([
   'phone.ring',
+  /* Lou's texts, which are the club's only phone alert that is not a call.
+   * Synth-only until a recording lands: the preload filter simply matches
+   * nothing while the manifest has no file for it, and picks it up for free
+   * the day it does. */
+  'phone.vibrate',
   'phone.hangup',
   'radio.talk',
   'radio.tune',

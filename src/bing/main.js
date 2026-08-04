@@ -298,12 +298,43 @@ const game = {
   hudReady: false,
 };
 
+/* ------------------------------------------------------------------ *
+ * Lou's texts.
+ *
+ * Why the phone rang at the Bing with nothing behind it, in full: these are
+ * `Mission.onMessage`, and they are the only thing in the club that plays a
+ * phone cue outside an actual call. Every one of them is a TEXT — "LOU: You
+ * sightseeing?" at two minutes, "LOU: Back office. Now." at five, "LOU: I
+ * have sent somebody." at eight (`NUDGE` in mission.js), plus one each on the
+ * third and sixth blackjack hand and one for a jackpot. The owner's "is it
+ * texts?" is exactly right, and the reason nothing happened when he went
+ * looking is that there was nothing to answer: no call is created, the phone
+ * never enters `ringing`, and the payload is the toast, which had already
+ * gone by the time the ringtone finished.
+ *
+ * They were playing `phone.ring` — the full two-burr ringtone, at 0.35 —
+ * which is the sound of somebody calling you. It is now a pocket buzz at
+ * 0.28 (the requested 20% down), and the toast says who it is from, so a
+ * message reads as a message instead of as a call you have somehow missed.
+ * ------------------------------------------------------------------ */
 const MissionType = isSecondVisit ? SecondVisitMission : Mission;
 const mission = new MissionType({
   onObjective: () => repaintObjectives(),
-  onMessage: (text) => {
+  onMessage: (text, kind = 'text') => {
+    if (kind === 'text') {
+      /* Authored as "LOU: words". Split so the toast reads as a message from
+       * a named sender rather than as a line somebody is saying out loud. */
+      const [, from, said] = /^([A-Z][A-Z '’]*):\s*(.+)$/.exec(text) ?? [];
+      hud.toast(from ? `${from} texted — ${said}` : text, '');
+      audio.play('phone.vibrate', { volume: 0.28 });
+      return;
+    }
+    /* Somebody in the room, at volume. The second visit's one message is the
+     * Shubenator shouting across a party about the stage power, and it shared
+     * this channel with Lou's texts — so it was ALSO announced by a phone
+     * ringtone, for a man standing twenty feet away. No phone cue: he is not
+     * on the phone. */
     hud.toast(text, '');
-    audio.play('phone.ring', { volume: 0.35 });
   },
   onNote: (text) => hud.say(text, 4200),
   onState: (state) => { if (state === 'done') finish(); },
@@ -1560,7 +1591,23 @@ for (const npc of family.all) {
         return 'signatureCheerful';
       }
       : 'open';
-  if (tree) reg(npc.group, talkTo(npc, tree, startAt));
+  if (!tree) continue;
+  const floor = talkTo(npc, tree, startAt);
+  /* One registration per member, floor and store room alike, because there is
+   * one of each of them — the side quest walks Gratin and Numbskull through
+   * the door rather than building second copies. That is why they were still
+   * giving their floor barks in there: the figure changed rooms and the script
+   * did not. The quest gets first refusal on the press and on the crosshair
+   * label; when it declines (he is out on the floor, or the store room is not
+   * running) this is exactly the interaction it always was. */
+  reg(npc.group, {
+    label: () => licenseToGrill.npcLabel(npc.characterId)
+      ?? (typeof floor.label === 'function' ? floor.label() : floor.label),
+    onUse: () => {
+      if (licenseToGrill.talkTo(npc.characterId, npc)) return;
+      floor.onUse();
+    },
+  });
 }
 
 /* ---- the office ---- */
@@ -1646,12 +1693,32 @@ reg(club.office.ledger, {
 
 /* ---- the bar, the machine, the table ---- */
 
+/* ---- the slot machine ----
+ *
+ * [E] spins. It has always spun — but only through the `!interaction.current`
+ * branch of the keydown handler, and standing at the machine you are looking
+ * straight at the machine, so `interaction.current` was ALWAYS the cabinet and
+ * [E] always meant "step away". Every attempt to spin walked the player out of
+ * the machine instead. That is the owner's note exactly.
+ *
+ * Getting up is already [Q]: the handler has done `leaveMachine()` on KeyQ
+ * since it was written, the gamble panel prints "Q step away", and the posture
+ * chip in bing.html is literally a <kbd>Q</kbd>. So the fix is not to add a
+ * key, it is to stop the crosshair eating [E] once you are at the machine. The
+ * cabinet and its panel both stand down while `atMachine`, which leaves the
+ * ray with nothing in front of it and hands [E] to the reels.
+ */
 reg(slotParts.group, {
-  label: () => (game.atMachine ? 'Step away' : 'Play the <b>slot machine</b>'),
-  onUse: () => (game.atMachine ? leaveMachine() : useMachine()),
+  label: 'Play the <b>slot machine</b>',
+  enabled: () => !game.atMachine,
+  onUse: () => useMachine(),
 });
 reg(slotParts.panel, {
   label: 'The side <b>panel</b>',
+  /* Same reason. Disabling only the cabinet would let the ray carry on
+   * through it and find the panel behind, and [E] would inspect the skim
+   * counter every time the player tried to pull the handle. */
+  enabled: () => !game.atMachine,
   hold: 1.0,
   onUse: () => {
     if (slots.inspectPanel()) {
@@ -2701,21 +2768,37 @@ function showEnding(kind) {
 /* HUD panels                                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The blackjack panel.
+ *
+ * `at-table` moves it out of the corner and onto the felt at three times the
+ * size while Tony is seated — the owner's call, and the right one: the panel
+ * already carries every fact a hand needs, so it becomes the thing you play
+ * with and the printed cards stay on the table being cards. The class comes
+ * off the moment he stands, and the slot machine keeps the corner box.
+ */
 function paintGamble(view) {
   if (game.atMachine) return;
   if (!view) {
     ui.gamble.classList.add('hidden');
+    ui.gamble.classList.remove('at-table');
     return;
   }
   ui.gamble.classList.remove('hidden');
+  ui.gamble.classList.toggle('at-table', game.seatedIn === 'table');
   ui.gambleTitle.textContent = 'BLACKJACK · $25 MIN';
   const rows = [];
   if (view.state === 'bet') {
     rows.push(`Bet: <b>$${view.bet}</b>`);
     rows.push(`<span class="felt">${BETS.map((b) => (b === view.bet ? `[${b}]` : b)).join(' · ')}</span>`);
   } else {
-    rows.push(`Dealer: <b>${view.dealer.join(' ')}</b>`);
-    rows.push(`You: <b>${view.player.join(' ')}</b> — ${view.playerTotal > 21 ? '<span class="bust">bust</span>' : view.playerTotal}`);
+    /* Dealer's total as well as his cards. The corner box could get away with
+     * only the ranks because it was a reminder; a panel you are meant to play
+     * off has to answer "what is he showing" without arithmetic. `dealerTotal`
+     * already counts only the cards that are face up. */
+    rows.push(`Dealer <span class="hand">${view.dealer.join('  ')}</span>`
+      + `${view.dealer.some((c) => c === '??') ? '' : ` — ${view.dealerTotal}`}`);
+    rows.push(`You <span class="hand">${view.player.join('  ')}</span> — ${view.playerTotal > 21 ? '<span class="bust">bust</span>' : view.playerTotal}`);
     rows.push(`Bet: <b>$${view.bet}</b>`);
   }
   if (view.message) rows.push(`<span class="felt">${view.message}</span>`);
@@ -2730,6 +2813,7 @@ function paintGamble(view) {
 function paintMachine() {
   if (!game.atMachine) return;
   ui.gamble.classList.remove('hidden');
+  ui.gamble.classList.remove('at-table');
   ui.gambleTitle.textContent = 'BADA BING · SLOTS';
   const v = slots.view;
   const rows = [`Stake: <b>$${v.wager}</b>`];
@@ -2880,7 +2964,14 @@ window.addEventListener('keydown', (e) => {
       return;
     }
     if (licenseToGrill.press()) return;
-    if (game.atMachine && !interaction.current) {
+    /* Unconditional while you are at the machine. It used to require
+     * `!interaction.current`, which is never true standing in front of a
+     * cabinet you are registered to look at — so [E] stepped away instead of
+     * spinning, every single time. The cabinet and its panel now stand down
+     * while `atMachine` (see their registrations), and this makes sure that
+     * whatever else the ray finds past them, the spin key is the spin key.
+     * [Q] is how you leave; it always was. */
+    if (game.atMachine) {
       slots.spin();
       paintMachine();
       return;

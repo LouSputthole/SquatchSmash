@@ -210,6 +210,10 @@ const PROSPECT = 'Prospect';
  *   markShubes()     the door has opened
  *   answerCounter()  respond to his pitch
  *   finish(ending)   end the scene
+ *   broken()         has he given the name up yet
+ *   handled()        how many of his things have been turned over
+ *   handOff(node)    leave whoever you are talking to and go back to Blond,
+ *                    at the named node, once the current line has finished
  */
 export function buildLicenseToGrillScript({
   swing = () => {},
@@ -221,6 +225,9 @@ export function buildLicenseToGrillScript({
   markShubes = () => {},
   answerCounter = () => 0,
   finish = () => {},
+  broken = () => false,
+  handled = () => 0,
+  handOff = () => {},
 } = {}) {
   /**
    * After anything is done to him, the scene either cuts to Shubes or goes
@@ -801,6 +808,169 @@ export function buildLicenseToGrillScript({
     },
   };
 
+  /* ------------------------------------------------------------------ */
+  /* The other two people in the room                                    */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Gratin, in the store room, on this specific evening.
+   *
+   * He had the club's ordinary floor barks in here, which is the owner's note
+   * and is also the whole problem with borrowing a man off the floor: the
+   * figure moved rooms and the writing did not. On the floor he is a man in a
+   * booth being loyal to the wrong shrimp. In here he is the man who caught a
+   * spy, has been alone with him since seven, and has run out of ideas — and
+   * he is the game's own instructions, because he is the one who knows what
+   * the cart and the box are for.
+   *
+   * Every branch comes back to `open` so this is a thing you can stand and
+   * ask, and the last option hands the player back to the chair, which is the
+   * answer to "where do I start".
+   */
+  const gratin = {
+    open: {
+      who: GRATIN,
+      line: () => {
+        if (broken()) return 'We got a name out of him. Whatever you do next, do it away from my shoes.';
+        if (carAvailable()) return 'You are getting somewhere. Whatever you just picked up, pick up more of it.';
+        return 'What are you standing there for? He is four feet away and he is having a lovely time.';
+      },
+      options: () => {
+        const options = [
+          { tone: 'Ask', text: 'What do you actually need from me?', next: 'need' },
+          { tone: 'Ask', text: 'What have you already tried?', next: 'tried' },
+          { tone: 'Ask', text: 'Who is he?', next: 'who' },
+        ];
+        if (!broken()) {
+          options.push({ tone: 'Ask', text: 'Why can’t you do this yourself?', next: 'why' });
+        }
+        if (handled() > 0 && !broken()) {
+          options.push({ tone: 'Ask', text: 'He went quiet when I touched his things.', next: 'noticed' });
+        }
+        options.push({ tone: 'Go', text: 'Let me have a go at him.', next: 'handOff' });
+        options.push({ tone: 'Back', text: 'Nothing. Forget it.', next: null });
+        return options;
+      },
+    },
+    need: {
+      who: GRATIN,
+      line: 'A second set of hands and a second face. He has had mine all night and he has started finishing my sentences.',
+      hold: 5.0,
+      next: 'needTools',
+    },
+    needTools: {
+      who: GRATIN,
+      line: 'Cart is on your left, it is a kitchen, help yourself. Everything he had in his pockets is in the box Numbskull is holding. Use one, use the other, use both. Just get me a name.',
+      hold: 7.4,
+      next: 'open',
+    },
+    tried: {
+      who: GRATIN,
+      line: 'Hitting him. Hitting him harder. Waiting a while. Hitting him during the waiting.',
+      hold: 4.8,
+      next: 'triedFace',
+    },
+    triedFace: {
+      who: GRATIN,
+      line: 'Every single time he looks at me like I have brought him the wrong wine.',
+      hold: 4.2,
+      next: 'open',
+    },
+    who: {
+      who: GRATIN,
+      line: 'Foreign. Intelligence, the proper kind. Walked across our lot with a camera the size of a lighter and did not run when I said his name out loud.',
+      hold: 7.0,
+      next: 'whoWorry',
+    },
+    whoWorry: {
+      who: GRATIN,
+      line: 'That last part is the part I do not like.',
+      hold: 2.8,
+      next: 'open',
+    },
+    why: {
+      who: GRATIN,
+      line: 'Because I have been in this room since seven o’clock and I am starting to like him.',
+      hold: 4.6,
+      next: 'open',
+    },
+    noticed: {
+      who: GRATIN,
+      line: 'I saw it. Hit him and he writes a review. Touch one thing that belongs to him and he forgets to be charming.',
+      hold: 6.2,
+      next: 'noticedMore',
+    },
+    noticedMore: {
+      who: GRATIN,
+      line: 'So stop hitting him and start going through him.',
+      hold: 3.4,
+      next: 'open',
+    },
+    handOff: {
+      who: GRATIN,
+      line: 'Good. And Prospect — watch his face, not his mouth. His mouth is a professional.',
+      hold: 5.0,
+      next: () => { handOff('floor'); return null; },
+    },
+  };
+
+  /**
+   * Numbskull, holding the box, in the corner, being no help and total help.
+   *
+   * He is the belongings. The scene's whole argument is that the box is worth
+   * more than the cord, and he is the man standing next to the box saying so
+   * without knowing he is saying it.
+   */
+  const numbskull = {
+    open: {
+      who: NUMBSKULL,
+      line: () => (broken()
+        ? 'He gave it up. I want it on the record that nobody needed holding.'
+        : 'Everything off him is in this box. Watch, camera, the little gun, and keys to something.'),
+      options: () => {
+        const options = [
+          { tone: 'Ask', text: 'Anything in there worth anything?', next: 'worth' },
+          { tone: 'Ask', text: 'You holding up, Numbskull?', next: 'holding' },
+        ];
+        if (!broken()) {
+          options.push({ tone: 'Take', text: 'Let me see the box.', next: 'theBox' });
+        }
+        options.push({ tone: 'Back', text: 'Later.', next: null });
+        return options;
+      },
+    },
+    worth: {
+      who: NUMBSKULL,
+      line: 'The watch is worth my car. The little gun is worth my car. The keys go to something I have not been allowed to walk out and look at.',
+      hold: 7.0,
+      next: 'worthWall',
+    },
+    worthWall: {
+      who: NUMBSKULL,
+      line: 'Gratin said do not go and look at it. So I have been looking at this wall instead.',
+      hold: 4.8,
+      next: 'open',
+    },
+    holding: {
+      who: NUMBSKULL,
+      line: 'I am good. I said early on I would hold him still and everybody went quiet at me.',
+      hold: 5.0,
+      next: 'holdingStill',
+    },
+    holdingStill: {
+      who: NUMBSKULL,
+      line: 'I do still think it would help.',
+      hold: 2.6,
+      next: 'open',
+    },
+    theBox: {
+      who: NUMBSKULL,
+      line: 'Take it. Do not set it down on the floor. The floor in here has a drain in it.',
+      hold: 5.2,
+      next: () => { handOff('things'); return null; },
+    },
+  };
+
   /** The door, before any of this. */
   const door = {
     knocking: {
@@ -834,7 +1004,21 @@ export function buildLicenseToGrillScript({
 
   return applyBingVoiceCues({
     [CHARACTER_IDS.JAMES_BLOND]: blond,
+    licenseToGrillGratin: gratin,
+    licenseToGrillNumbskull: numbskull,
     licenseToGrillDoor: door,
     licenseToGrillCallback: callback,
   });
 }
+
+/**
+ * Which scene tree belongs to whom while the store room is running.
+ *
+ * Exported rather than inlined in the runtime so `tools/bing-vo.mjs` and the
+ * tests can ask the same question the club asks, and so nothing has to guess
+ * at a scope name from a character id.
+ */
+export const SCENE_TREES = Object.freeze({
+  [CHARACTER_IDS.GRATIN]: 'licenseToGrillGratin',
+  [CHARACTER_IDS.NUMBSKULL]: 'licenseToGrillNumbskull',
+});
