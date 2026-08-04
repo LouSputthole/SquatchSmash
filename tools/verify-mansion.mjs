@@ -49,6 +49,13 @@ const TYPES = {
 const GROUND_Y = 1.2;
 const UPPER_Y = 6.0;
 const BASEMENT_Y = -2.8;
+/* The 2026-08-04 pass pulled the front wall out 5 m (BUILDING.z0 41 -> 36) so
+ * the horseshoe's bottom treads are not jammed against it, and moved the whole
+ * forecourt the same 5 m to keep the approach's proportions. Every hard number
+ * on the approach below is written against these two, not typed in twice. */
+const FACADE_Z = 36;
+const COURT_Z = 30;
+const FOUNTAIN_Z = 27;
 
 let chromium;
 try {
@@ -175,6 +182,7 @@ try {
     // grounds
     'gate', 'spawn', 'spawnYaw', 'fountainFront', 'frontDoorOutside', 'securityBooth',
     'poolPatio', 'poolDoorOutside', 'poolSteps', 'serviceRoadEntrance', 'rosePavilion',
+    'billiardBay',
     // interior -- ground
     'foyerCenter', 'foyerRear', 'horseshoeWestFoot', 'horseshoeEastFoot',
     'horseshoeWestTop', 'horseshoeEastTop', 'balconyRail', 'livingRoomCenter',
@@ -247,23 +255,24 @@ try {
     Math.abs(s.x - rooms.spawn.x) < 0.3 && Math.abs(s.z - rooms.spawn.z) < 0.3,
     JSON.stringify(s));
 
-  // 2. Up the driveway. The fountain now sits at z=32 with a 3.6 m collision
-  // radius, so a straight walk up the centreline is stopped short of it and
-  // has to go round -- that is a real fountain in a real turnaround, and this
+  // 2. Up the driveway. The whole forecourt moved 5 m south with the facade
+  // (see FORECOURT_SHIFT), so the fountain now sits at z=27 with a 3.6 m
+  // collision radius: a straight walk up the centreline is stopped short of
+  // it and has to go round -- a real fountain in a real turnaround. This
   // asserts both the progress and the block.
-  await teleport(0, 0, 10, NORTH);
+  await teleport(0, 0, 6, NORTH);
   const beforeDrive = await state();
   await walk(10);
   const afterDrive = await state();
   check('walking up the driveway with real WASD makes real forward progress before the fountain blocks it',
-    (afterDrive.z - beforeDrive.z) > 12 && afterDrive.z < 29 && Math.abs(afterDrive.x) < 0.6,
+    (afterDrive.z - beforeDrive.z) > 12 && afterDrive.z < 24 && Math.abs(afterDrive.x) < 0.6,
     JSON.stringify({ beforeDrive, afterDrive }));
 
   // 3. Round the fountain and up the front steps, on foot the whole way.
   // The basin blocks x:-3.7..3.7 / z:28.4..35.6, so this goes round it to the
   // east, up the far side of the forecourt, and back onto the steps -- which
   // is what a player does, and what proves the way in is not sealed.
-  await teleport(0, 0, 24, NORTH);
+  await teleport(0, 0, 19, NORTH);
   await settle(0.3);
   const atStreetGrade = await state();
   await faceDeg(EAST);
@@ -273,7 +282,7 @@ try {
   await faceDeg(WEST);
   await walk(2.4); // back to the centreline
   await faceDeg(NORTH);
-  await walk(1.6); // up the steps onto the raised entry
+  await walk(2.2); // up the steps onto the raised entry
   await settle(0.5);
   s = await state();
   /* Asserted as a CLIMB, not as a position. "past z=38.6 at ground height" is
@@ -283,17 +292,21 @@ try {
    * raised entry -- with nothing but held keys in between, so the only thing
    * that can have lifted the player 1.2 m is the steps. */
   check('the front steps lift the player from street grade to the raised entry, on foot',
-    atStreetGrade.ground < 0.05 && atStreetGrade.z < 25
-      && Math.abs(s.ground - GROUND_Y) < 0.35 && s.z > 38.8,
+    atStreetGrade.ground < 0.05 && atStreetGrade.z < 20
+      && Math.abs(s.ground - GROUND_Y) < 0.35 && s.z > FACADE_Z - 2.2,
     JSON.stringify({ atStreetGrade, after: s }));
 
-  // 4. Through the front door.
+  /* 4. Through the front door and up the hall. Nothing stands on this line:
+   * the owner's "something in that main room when you walk in" is the centre
+   * table, and it sits under the chandelier at z=44.4 rather than halfway
+   * across the processional route -- which is where the first attempt put it,
+   * and which this leg caught. */
   await faceDeg(NORTH);
-  await walk(4);
+  await walk(5);
   await settle(0.8);
   s = await state();
   check('walking through the front door reaches the foyer at ground level',
-    s.z > 45 && Math.abs(s.ground - GROUND_Y) < 0.35,
+    s.z > FACADE_Z + 5 && Math.abs(s.ground - GROUND_Y) < 0.35,
     JSON.stringify(s));
 
   /* ================================================================ */
@@ -338,7 +351,7 @@ try {
   /* ================================================================ */
   const WALKS = [
     {
-      room: 'foyer', from: [0, GROUND_Y, 39.6], face: NORTH, secs: 5, note: 'from the portico, through the front door',
+      room: 'foyer', from: [0, GROUND_Y, FACADE_Z - 1.4], face: NORTH, secs: 5, note: 'from the portico, through the front door',
     },
     {
       room: 'livingRoom', from: [-6.5, GROUND_Y, 50.5], face: WEST, secs: 5, note: 'from the rear foyer, through the west archway',
@@ -471,6 +484,38 @@ try {
     (layout.foyer.x1 - layout.foyer.x0) > 15 && (layout.foyer.z1 - layout.foyer.z0) > 15,
     `${(layout.foyer.x1 - layout.foyer.x0).toFixed(1)} x ${(layout.foyer.z1 - layout.foyer.z0).toFixed(1)} m`);
 
+  /* ================================================================ */
+  /* STAIR CLEARANCE                                                   */
+  /*                                                                    */
+  /* Owner playtest 2026-08-04: "both the front stairs go right into the */
+  /* front wall so we either need to pull the front wall out a bit and   */
+  /* widen the room so you can get on the stairs".                       */
+  /*                                                                      */
+  /* Two checks, because "there is room on the plan" and "you can get on   */
+  /* the stairs" are different claims. The first measures the run of floor  */
+  /* between the inside face of the front wall and the bottom tread; the    */
+  /* second walks it, squaring up to a flight from the middle of the hall   */
+  /* and holding W until it is standing on the upper floor.                 */
+  /* ================================================================ */
+  const stairRun = layout.stairWest.z0 - layout.foyer.z0;
+  check('there is a proper run of floor between the front wall and the bottom tread',
+    stairRun >= 4.5,
+    `${stairRun.toFixed(2)} m of hall in front of the horseshoe (was 1.00 m)`);
+
+  for (const [side, anchor] of [['west', 'horseshoeWestFoot'], ['east', 'horseshoeEastFoot']]) {
+    // Stand square in front of the flight, back against the front wall.
+    await teleport(rooms[anchor].x, GROUND_Y, layout.foyer.z0 + 1.0, NORTH);
+    await settle(0.4);
+    const atDoor = await state();
+    await walk(11);
+    await settle(1.0);
+    s = await state();
+    check(`the ${side} flight can be reached and climbed from just inside the front door`,
+      atDoor.z < layout.stairWest.z0 - 4
+        && s.z > layout.stairWest.z1 - 0.6 && Math.abs(s.ground - UPPER_Y) < 0.4,
+      JSON.stringify({ atDoor, after: s }));
+  }
+
   // Every room in the scene must have a walk test. A verifier that quietly
   // stops covering the geometry is exactly what shipped the last build green.
   const covered = new Set(WALKS.map((w) => w.room));
@@ -509,11 +554,35 @@ try {
     JSON.stringify(s));
 
   /* ================================================================ */
+  /* THE GAP BEHIND THE CELLAR STAIR                                   */
+  /*                                                                    */
+  /* Owner playtest 2026-08-04: "There is a gap behind the stairs so you */
+  /* can get behind the stairs." The armory floor runs a metre south of  */
+  /* the shaft, and with no spandrel under the flight that strip walked   */
+  /* you straight in underneath it, into a void with the treads overhead. */
+  /*                                                                       */
+  /* Walked, not measured: stand in that strip at basement level and hold   */
+  /* W straight at the flight. The head wall has to stop you south of the   */
+  /* shaft, at the armory's own floor height -- ending up under the stair    */
+  /* (z past the shaft mouth) or lifted onto a tread is a fail.             */
+  /* ================================================================ */
+  for (const [label, x] of [['the middle of the alcove', 7.2], ['its east side', 8.4]]) {
+    await teleport(x, BASEMENT_Y, 50.4, NORTH);
+    await settle(0.4);
+    await walk(6);
+    await settle(0.5);
+    s = await state();
+    check(`there is no way in behind the cellar stair from ${label}`,
+      s.z < 51.05 && Math.abs(s.ground - BASEMENT_Y) < 0.2,
+      JSON.stringify(s));
+  }
+
+  /* ================================================================ */
   /* Grounds: service door, pool door, pool steps                       */
   /* ================================================================ */
-  await teleport(17.6, 0, 66, WEST);
+  await teleport(21.4, 0, 66, WEST);
   await settle(0.4);
-  await walk(6);
+  await walk(8);
   await settle(0.5);
   s = await state();
   check('the rear service door is walkable from the service road into the kitchen',
@@ -539,6 +608,92 @@ try {
     JSON.stringify(s));
 
   /* ================================================================ */
+  /* THE POOL: FIT, AND THE DECK'S SKIRT                                */
+  /*                                                                     */
+  /* Owner playtest 2026-08-04: "Pool needs to be fitted to the area its  */
+  /* in (small gap)" and "the pool deck is also raised which is nice but   */
+  /* there needs to be a side wall around it so that you cant see under    */
+  /* it".                                                                  */
+  /*                                                                        */
+  /* The first is geometry, so it is measured: the water plane's own world   */
+  /* bounding box against the basin rect it is supposed to fill. It used to  */
+  /* be 13x7 in a 14x8 hole -- half a metre of bare liner all the way round. */
+  /* The second is walked: the fascia has to stop someone at lawn level      */
+  /* from getting in under the deck, and must NOT stop someone standing on   */
+  /* the deck, which is the failure mode a full-height skirt would have.     */
+  /* ================================================================ */
+  const poolFit = await page.evaluate(() => {
+    const water = window.mansion.grounds.props.poolPatio.water;
+    water.updateMatrixWorld(true);
+    const b = new window.mansion.THREE.Box3().setFromObject(water);
+    const p = window.mansion.poolRect;
+    return {
+      gapX0: Math.abs(b.min.x - p.x0),
+      gapX1: Math.abs(b.max.x - p.x1),
+      gapZ0: Math.abs(b.min.z - p.z0),
+      gapZ1: Math.abs(b.max.z - p.z1),
+    };
+  });
+  const worstGap = Math.max(poolFit.gapX0, poolFit.gapX1, poolFit.gapZ0, poolFit.gapZ1);
+  check('the pool water fills its own basin -- no strip of bare liner round the water line',
+    worstGap <= 0.08, `worst edge gap ${worstGap.toFixed(3)} m (was 0.500)`);
+
+  const skirt = await page.evaluate(() => window.mansion.poolSkirt);
+  check('the raised pool deck is skirted on every open edge',
+    Array.isArray(skirt) && skirt.length >= 4
+      && skirt.every((seg) => seg.y0 <= 0.01 && seg.y1 >= GROUND_Y - 0.01),
+    JSON.stringify(skirt?.length ?? null));
+
+  // At lawn level, walking straight at the deck's north edge must be stopped
+  // by the fascia rather than walking in under the slab.
+  await teleport(0, 0, 99, SOUTH);
+  await settle(0.4);
+  await walk(6);
+  await settle(0.4);
+  s = await state();
+  check("the deck's side wall stops you walking in underneath it from the lawn",
+    s.z > 94.9 && s.ground < 0.05, JSON.stringify(s));
+
+  /* ...and standing ON the deck, the same fascia must NOT be an invisible
+   * wall. Asserted as "gets past the fascia line", not as "is still at deck
+   * height": the skirt's outer face IS the deck's edge, so anyone who walks
+   * through it walks off a 1.2 m drop onto the lawn, which is the correct
+   * behaviour and would make a height assertion contradict itself. Being
+   * stopped at z=94.6 is the failure this is looking for. */
+  await teleport(0, GROUND_Y, 92.5, NORTH);
+  await settle(0.4);
+  await walk(2.5);
+  await settle(0.4);
+  s = await state();
+  check('the skirt is not an invisible wall for anyone walking on the deck',
+    s.z > 95.0, JSON.stringify(s));
+
+  /* ================================================================ */
+  /* THE BILLIARD BAY                                                   */
+  /*                                                                     */
+  /* Owner playtest 2026-08-04: "lets expand it a bit out to the exterior */
+  /* so there is enough room for the bar stools and the bar". Walked from  */
+  /* the middle of the lounge, straight out through the middle archway.    */
+  /* ================================================================ */
+  const bay = await page.evaluate(() => window.mansion.loungeBay);
+  await teleport(13.0, GROUND_Y, 47.5, EAST);
+  await settle(0.4);
+  await walk(6);
+  await settle(0.6);
+  s = await state();
+  check('the billiard bay is walked into from the lounge, at the lounge floor',
+    s.x > bay.x0 + 0.4 && s.x < bay.x1 && Math.abs(s.ground - GROUND_Y) < 0.3,
+    `${JSON.stringify(s)} vs bay ${JSON.stringify(bay)}`);
+
+  // ...and back in, so the arch is a way through rather than a way out.
+  await faceDeg(WEST);
+  await walk(6);
+  await settle(0.5);
+  s = await state();
+  check('the bay archway is a way back into the lounge as well as out of it',
+    s.x < bay.x0 - 0.4 && Math.abs(s.ground - GROUND_Y) < 0.3, JSON.stringify(s));
+
+  /* ================================================================ */
   /* Parked cars: orientation and density                               */
   /* ================================================================ */
   const vehicles = await page.evaluate(() => window.mansion.vehicles);
@@ -561,10 +716,10 @@ try {
 
   // The fountain basin, the front steps and the building itself.
   const FOUNTAIN = {
-    min: { x: -3.7, z: 28.3 }, max: { x: 3.7, z: 35.7 },
+    min: { x: -3.7, z: FOUNTAIN_Z - 3.7 }, max: { x: 3.7, z: FOUNTAIN_Z + 3.7 },
   };
-  const FRONT_STEPS = { min: { x: -6.4, z: 38.9 }, max: { x: 6.4, z: 41.1 } };
-  const HOUSE = { min: { x: -16.4, z: 40.6 }, max: { x: 16.4, z: 75.4 } };
+  const FRONT_STEPS = { min: { x: -6.4, z: FACADE_Z - 2.1 }, max: { x: 6.4, z: FACADE_Z + 0.1 } };
+  const HOUSE = { min: { x: -16.4, z: FACADE_Z - 0.4 }, max: { x: 16.4, z: 75.4 } };
   const foul = [];
   for (const v of vehicles) {
     if (overlaps(v, FOUNTAIN)) foul.push(`${v.note} in the fountain`);
@@ -579,7 +734,7 @@ try {
   const courtCars = vehicles.filter((v) => (v.note || '').startsWith('motor court'));
   const misaligned = courtCars.filter((v) => {
     const rx = v.x - 0;
-    const rz = v.z - 35;
+    const rz = v.z - COURT_Z;
     // Car long axis after a yaw of psi is (cos psi, -sin psi).
     const ax = Math.cos(v.yaw);
     const az = -Math.sin(v.yaw);
@@ -607,13 +762,13 @@ try {
   // The planting must not have walled the approach in: a straight walk up
   // the drive still works (checked above) and the front door is still
   // reachable from the parterre side of the lawn.
-  await teleport(-10, 0, 20, NORTH);
+  await teleport(-10, 0, 18, NORTH);
   await settle(0.3);
   await walk(9);
   await settle(0.4);
   const acrossLawn = await state();
   check('the new front planting still leaves the lawn walkable (hedges block, beds do not)',
-    acrossLawn.z - 20 > 6, JSON.stringify(acrossLawn));
+    acrossLawn.z - 18 > 6, JSON.stringify(acrossLawn));
 
   /* ================================================================ */
   /* Boundary collision                                                 */
@@ -661,6 +816,94 @@ try {
   check('the cellar stairwell is guarded on its open side, not an unfenced hole in the floor',
     Math.abs(s.ground - GROUND_Y) < 0.3,
     JSON.stringify(s));
+
+  /* ================================================================ */
+  /* ART vs OPENINGS -- the systematic sweep                             */
+  /*                                                                      */
+  /* Owner playtest 2026-08-04: "A lot of the art is over doorways and     */
+  /* stuff ... but I like the big art layouts". This has come back more     */
+  /* than once, so it is checked as a CLASS rather than picture by picture: */
+  /* every hung piece registers its own world box (MansionInterior's        */
+  /* `wallArt`/`flatArt`), the scene hands out every opening it declares    */
+  /* (interior doorways, exterior doors, and the glazing), and this         */
+  /* intersects the two lists. A new picture hung across a door or a        */
+  /* window fails here, with the pair named, whether or not anybody         */
+  /* thought to look.                                                       */
+  /*                                                                         */
+  /* Two deliberate tolerances, both about the SAME plane rather than the    */
+  /* opening: a piece is only judged against an opening it actually          */
+  /* overlaps in every axis, and a 2 cm skin is allowed so a frame's         */
+  /* backing board resting on the reveal of an adjacent wall is not a        */
+  /* finding.                                                                */
+  /* ================================================================ */
+  const artSweep = await page.evaluate(() => ({
+    art: window.mansion.art,
+    openings: window.mansion.openings,
+  }));
+  check('every picture in the house registered itself with the art sweep',
+    Array.isArray(artSweep.art) && artSweep.art.length >= 12,
+    `${artSweep.art?.length ?? 0} pieces, ${artSweep.openings?.length ?? 0} openings`);
+
+  const SKIN = 0.02;
+  const clashes = [];
+  for (const piece of artSweep.art) {
+    for (const o of artSweep.openings) {
+      const overlapX = Math.min(piece.x1, o.x1) - Math.max(piece.x0, o.x0);
+      const overlapY = Math.min(piece.y1, o.y1) - Math.max(piece.y0, o.y0);
+      const overlapZ = Math.min(piece.z1, o.z1) - Math.max(piece.z0, o.z0);
+      if (overlapX > SKIN && overlapY > SKIN && overlapZ > SKIN) {
+        clashes.push(`${piece.id} over ${o.id}`);
+      }
+    }
+  }
+  check('no picture, banner or mirror is hung across a doorway or a window',
+    clashes.length === 0, clashes.join(' | '));
+
+  /* ================================================================ */
+  /* Working sets, and the working sink                                 */
+  /* ================================================================ */
+  const media = await page.evaluate(() => ({
+    tvs: window.mansion.media.tvs.length,
+    radioSets: window.mansion.media.radioSets,
+    radioOn: window.mansion.media.radioOn,
+    slots: window.mansion.artSlots.length,
+  }));
+  check('the house has working televisions and two radio sets, and the radio starts off',
+    media.tvs >= 2 && media.radioSets >= 2 && media.radioOn === false,
+    JSON.stringify(media));
+
+  const tvRun = await page.evaluate(async () => {
+    const tv = window.mansion.media.tvs[0];
+    const first = tv.channel;
+    tv.next();
+    const second = tv.channel;
+    return { on: tv.on, first, second };
+  });
+  check('a television is genuinely running a channel list, not a still picture',
+    tvRun.on === true && tvRun.first !== tvRun.second,
+    JSON.stringify(tvRun));
+
+  const radioRun = await page.evaluate(() => {
+    window.mansion.media.useRadio(1);
+    const afterOn = window.mansion.media.radioOn;
+    window.mansion.media.useRadio(1);
+    return { afterOn, afterOff: window.mansion.media.radioOn };
+  });
+  check('either radio set switches the house receiver on and off',
+    radioRun.afterOn === true && radioRun.afterOff === false,
+    JSON.stringify(radioRun));
+
+  const sinkRun = await page.evaluate(() => {
+    window.mansion.sink.set(true);
+    const on = window.mansion.sink.running;
+    window.mansion.sink.set(false);
+    return { on, off: window.mansion.sink.running };
+  });
+  check('the kitchen sink actually runs', sinkRun.on === true && sinkRun.off === false,
+    JSON.stringify(sinkRun));
+
+  check('the Squatch logo art slots are declared for the apartment gear pipeline',
+    media.slots >= 8, `${media.slots} slots`);
 
   /* ================================================================ */
   /* Rendering back on: the house must actually draw something           */

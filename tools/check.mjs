@@ -96,6 +96,7 @@ const VALID_SLOTS = (() => {
     'src/bing/club.js',
     'src/graveyard/world.js',
     'src/squatchfather/scenes/SquatchfatherScene.js',
+    'src/mansion/scenes/MansionInterior.js',
   ].map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'));
   for (const src of sceneSources) {
     for (const m of src.matchAll(/slot:\s*'([^']+)'/g)) slots.add(m[1]);
