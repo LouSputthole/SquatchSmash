@@ -134,11 +134,24 @@ export function makeCase({ x = 0, y = 0, z = 0, rotY = 0 } = {}) {
 
   /** Animate open (smoothed via update(), same as close()/setOpenness()). */
   function open() { target = 1; }
-  function close() { target = 0; }
+  /**
+   * Shut it. `instant` snaps the lid and kills the glow in the same frame,
+   * which is what a hard cut (a checkpoint restore, a scene reset) wants;
+   * without it the lid eases down over about a second, which is what the
+   * story beat wants.
+   */
+  function close({ instant = false } = {}) {
+    target = 0;
+    if (instant) {
+      t = 0;
+      apply();
+    }
+  }
   /** Set the target openness fraction (0..1); still eases via update(dt). */
   function setOpenness(v) { target = THREE.MathUtils.clamp(v, 0, 1); }
   function update(dt) {
     t += (target - t) * Math.min(1, dt * 6);
+    if (target === 0 && t < 0.004) t = 0; // fully latched, not asymptotically shut
     breathe += dt * 2.2;
     apply();
   }
@@ -156,6 +169,10 @@ export function makeCase({ x = 0, y = 0, z = 0, rotY = 0 } = {}) {
     close,
     setOpenness,
     isOpen: () => target > 0.5,
+    /** How far the lid actually is right now, 0 shut … 1 fully open. */
+    openness: () => t,
+    /** Lid down, latches home, no light coming out of it. */
+    isShut: () => t < 0.01,
     update,
     bounds: [[x - halfDiag, y, z - halfDiag], [x + halfDiag, y + H, z + halfDiag]],
   };

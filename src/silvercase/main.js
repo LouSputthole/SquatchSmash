@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { buildApartmentScene, ANCHORS, BATHROOM_DOOR } from './scenes/ApartmentScene.js';
 import { buildCarInterior } from './scenes/CarInterior.js';
 import { populateCast } from './cast/cast.js';
+import { SILVERCASE_APE_PRESENTATION } from './cast/ape.js';
+import { makeRevolverViewModel } from './props/weapon.js';
+import { makeCase } from './props/case.js';
 import { ReactionWindow } from './combat/ReactionWindow.js';
 import { DialogueController } from './dialogue/DialogueController.js';
 import { SEQUENCES, CHOICES, OBJECTIVES } from './dialogue/script.js';
@@ -10,7 +13,9 @@ import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { SceneInventoryBar } from '../core/scene-inventory.js';
 import { yawToward } from '../world/build.js';
+import { roomEnvironment } from '../world/textures.js';
 
 /**
  * The Silver Case — composition root.
@@ -49,15 +54,24 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-// CarInterior.js builds no lights of its own (it only builds geometry), so
-// without this the car-ride beat would render pitch black. Added directly to
-// `scene` (not either room's own root) so it survives whichever root is
-// currently hidden; it's a harmless soft top-up in the apartment, which
-// already carries its own ambient + three point lights.
-scene.add(new THREE.AmbientLight(0x40404c, 0.45));
-const cabinLight = new THREE.PointLight(0xffe8c0, 1.1, 5, 2);
-cabinLight.position.set(0, 1.8, 0.2);
-scene.add(cabinLight);
+{
+  // Chrome, steel and glass need something to reflect or they render black —
+  // this mission is named after a chrome briefcase and hands the player a
+  // revolver, so both of those matter. Same treatment as the Bing's floor.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileEquirectangularShader();
+  const src = roomEnvironment();
+  scene.environment = pmrem.fromEquirectangular(src).texture;
+  scene.environmentIntensity = 0.26;
+  pmrem.dispose();
+  src.dispose();
+}
+
+// Each room owns its own light — the apartment its lamps and ceiling
+// fixtures, the car its dome light, instruments, road bounce and passing
+// streetlights (see CarInterior.js's note on why the car ride used to render
+// as a black screen). The only light that lives up here is the one that
+// belongs to the camera rather than to either room.
 
 // A tiny muzzle flash, shared by the couch shot and the bathroom shot.
 const muzzleLight = new THREE.PointLight(0xffcf8a, 0, 6, 2);
@@ -186,6 +200,54 @@ const interactions = new InteractionSystem(camera, tinyHud);
 const audio = new AudioEngine();
 const reactionWindow = new ReactionWindow({ windowSeconds: 2.2 });
 
+/**
+ * The five-box bottom-right loadout every other production scene mounts
+ * (src/core/scene-inventory.js). It brings its own DOM and its own stylesheet,
+ * so silvercase.html needs nothing added to it. Hidden until the mission is
+ * actually running, exactly like the Squatchfather's and the Beef Run's.
+ */
+const sceneInventory = new SceneInventoryBar({
+  slots: 5,
+  visible: false,
+  catalog: {
+    revolver: { icon: '🔫', name: 'Big revolver' },
+    case: { icon: '💼', name: 'Lou’s case' },
+  },
+});
+/** What Tony is carrying, in slot order. Drives the bar and nothing else. */
+const loadout = { revolver: false, revolverDrawn: false, case: false };
+let inventorySignature = '';
+function syncInventory() {
+  const items = [];
+  if (loadout.revolver) {
+    items.push({
+      icon: '🔫',
+      label: loadout.revolverDrawn ? 'Big revolver · drawn' : 'Big revolver · concealed',
+    });
+  }
+  if (loadout.case) items.push({ icon: '💼', label: 'Lou’s case · closed' });
+  const next = JSON.stringify(items);
+  if (next === inventorySignature) return;
+  inventorySignature = next;
+  sceneInventory.set(items, Math.max(0, items.length - 1));
+}
+
+/** Tony's own gun, in his own hands — the same model the bathroom man holds. */
+const viewModel = makeRevolverViewModel(camera);
+
+/**
+ * The case, once it is in his hand rather than on the floor: a second, small,
+ * SHUT copy carried at the bottom-left of frame. The world case is hidden at
+ * the same moment, so there is only ever one of them on screen.
+ */
+const carriedCase = makeCase({ x: 0, y: 0, z: 0 });
+carriedCase.group.name = 'carriedCase';
+carriedCase.group.scale.setScalar(0.72);
+carriedCase.group.position.set(-0.3, -0.34, -0.62);
+carriedCase.group.rotation.set(0.12, 0.5, 0.28);
+carriedCase.group.visible = false;
+camera.add(carriedCase.group);
+
 const dialogue = new DialogueController({
   // No playCue hook: no vo.silvercase.* cues have been recorded yet, and per
   // the game's own established convention a missing cue is silence plus
@@ -223,7 +285,7 @@ const pauseMenu = createPauseMenu({
     'Left click — fire, when it matters.',
     'Right click — reach for your weapon (don’t, unless Ape says so).',
     '1-4 — pick a response when a choice is on screen. Hold E to finish the prayer.',
-    'Tab or Escape — pause.',
+    'Tab or Escape — pause. M — mute.',
   ],
   onPause: () => {
     paused = true;
@@ -332,7 +394,13 @@ function updateAmbientControl() {
     ambientFired.food = true;
     dialogue.interject(SEQUENCES.ambientFood);
   }
-  if (!ambientFired.glasses && lookingAt(TABLE_POS)) {
+  // The glasses are on the same table as the food, so this used to fire in
+  // the SAME frame as the line above and stack two barks on top of each
+  // other. It is the mission's one real clue — four glasses, three men — and
+  // it has to be its own moment: the takeout line first, and then only once
+  // the player is actually stood over the table looking down at it.
+  if (!ambientFired.glasses && ambientFired.food && !dialogue.busy
+      && lookingAt(TABLE_POS, 0.32, 2.6)) {
     ambientFired.glasses = true;
     cluesFound.glasses = true;
     apartment.props.glasses.noticed = true;
@@ -381,31 +449,6 @@ function updateChoiceHold(dt) {
   }
 }
 
-/** Actor.js has no revive()/restore() — only kill()/damage()/update(). Its
- * hp/alive/downT/group fields are plain, unencapsulated instance properties
- * though (nothing stops an external reset), so the checkpoint retry pokes
- * them directly rather than inventing a parallel resurrection mechanism.
- * X/Z are untouched by Actor's own collapse (only Y and rotation.x move), so
- * this alone is enough to put a fallen actor back exactly where it fell. */
-function reviveActor(actor) {
-  actor.hp = actor.maxHp;
-  actor.alive = true;
-  actor.downT = -1;
-  actor.group.rotation.x = 0;
-  actor.group.position.y = actor._fallFromY ?? actor.group.position.y;
-}
-
-/** cast.js's Pruitt has reveal() but no matching hide() — main.js recomputes
- * the same hidden spot cast.js used internally (ANCHORS.bathroomDoorway,
- * pulled back 0.5m) so a checkpoint retry can tuck him away again rather
- * than leaving him standing mid-ambush from the failed attempt. */
-function rehidePruitt() {
-  cast.pruitt.group.visible = false;
-  cast.pruitt.group.position.set(ANCHORS.bathroomDoorway.x, 0, ANCHORS.bathroomDoorway.z - 0.5);
-  cast.pruitt.group.rotation.y = ANCHORS.bathroomDoorway.yaw;
-  cast.pruitt.person.heading = ANCHORS.bathroomDoorway.yaw;
-}
-
 /** Somewhere open on the apartment floor, facing Chester's chair — clear of
  * the couch/coffee-table/chair colliders. Not any single authored anchor,
  * since none of ApartmentScene's anchors are "the middle of the room". */
@@ -414,9 +457,25 @@ const RETRY_SPOT = { x: 8.6, z: 0.6 };
 function restoreCheckpoint() {
   tweens.length = 0;
   reactionWindow.reset();
-  reviveActor(cast.ape);
-  reviveActor(cast.chester);
-  rehidePruitt();
+  // Actor.revive() puts a fallen figure back on its feet (or back in its
+  // chair) at its spawn pose, and cast.js's pruitt.hide() tucks the bathroom
+  // man back into the dark. Deke stays dead: the checkpoint is the start of
+  // the prayer, which is well after the couch, and the whole point of the
+  // owner's note is that his body does not go anywhere.
+  cast.ape.revive();
+  cast.chester.revive();
+  cast.pruitt.hide();
+  // …and the door he came through goes back on the latch with him.
+  apartment.doors.bathroomDoor.group.rotation.y = 0;
+  // The case was found and shut two beats ago and stays that way.
+  apartment.props.case.close({ instant: true });
+  // He is holding the gun at the checkpoint, because he was holding it when
+  // the bathroom door opened.
+  loadout.revolver = true;
+  loadout.revolverDrawn = true;
+  viewModel.holster();
+  viewModel.draw();
+  syncInventory();
 
   player.mode = 'walk';
   player.pitchMin = -Math.PI / 2 + 0.05;
@@ -429,6 +488,7 @@ function restoreCheckpoint() {
 
   interactions.setPaused(false);
   ui.hud.classList.add('visible');
+  sceneInventory.show();
   running = true;
   paused = false;
   clock.getDelta();
@@ -470,11 +530,44 @@ interactions.register(caseHit, {
   onUse: () => {
     if (fsm.is(S.ESTABLISH_CONTROL)) { fsm.go(S.CASE_REVEAL); return; }
     if (fsm.is(S.PICK_UP_CASE)) {
-      apartment.props.case.close();
+      takeCase();
       fsm.go(S.EXIT);
     }
   },
 });
+
+/**
+ * Lou's case leaves the room the way it should have arrived: shut.
+ *
+ * It is latched by hand at the end of the confirmation beat (see CASE_REVEAL),
+ * so by the time it is picked up the lid is already down; this only moves it
+ * from the floor into Tony's hand — the world prop goes away, the carried copy
+ * appears, and the inventory bar gains a slot.
+ */
+function takeCase() {
+  apartment.props.case.close({ instant: true });
+  apartment.props.case.group.visible = false;
+  carriedCase.close({ instant: true });
+  carriedCase.group.visible = true;
+  loadout.case = true;
+  syncInventory();
+  audio.play('heist.shubes_case', { volume: 0.55 });
+}
+
+/** Tony's own gun comes out only when Ape says so, and goes away after. */
+function drawWeapon() {
+  const first = !viewModel.drawn;
+  loadout.revolver = true;
+  loadout.revolverDrawn = true;
+  viewModel.draw();
+  if (first) audio.play('gun.pickup', { volume: 0.5 });
+  syncInventory();
+}
+function holsterWeapon() {
+  loadout.revolverDrawn = false;
+  viewModel.holster();
+  syncInventory();
+}
 
 // ---------------------------------------------------------------- states
 
@@ -581,7 +674,19 @@ function buildStates() {
           onDone: () => {
             apartment.props.case.open();
             after(1.2, () => {
-              dialogue.play(SEQUENCES.caseConfirmed, { onDone: () => fsm.go(S.COUCH_SHOOTING) });
+              dialogue.play(SEQUENCES.caseConfirmed, {
+                onDone: () => {
+                  // Ape has looked, Winston has nodded, and the lid comes
+                  // down. It is Lou's case, it is going back to Lou, and it
+                  // is shut from here to the end of the mission — including
+                  // in Tony's hand on the way out. The one beat that shows
+                  // the inside is the beat that confirms the contents; it is
+                  // not a light source for the next ten minutes.
+                  apartment.props.case.close();
+                  audio.play('heist.shubes_case', { volume: 0.5 });
+                  fsm.go(S.COUCH_SHOOTING);
+                },
+              });
             });
           },
         });
@@ -592,6 +697,10 @@ function buildStates() {
       enter() {
         setObjective(OBJECTIVES.COUCH_SHOOTING);
         couchFireHandled = false;
+        // "This is the part where we make sure everybody remembers this
+        // conversation." This is where Ape finally says when — so this is
+        // where the gun comes out, and it stays out through the ambush.
+        drawWeapon();
         dialogue.play(SEQUENCES.couchOrder);
       },
       update() {
@@ -603,6 +712,7 @@ function buildStates() {
           cast.deke.kill();
           audio.play('gun.shot', { volume: 0.9 });
           muzzleFlash();
+          viewModel.fire();
           dialogue.play(SEQUENCES.couchAftermath, { onDone: () => fsm.go(S.LOU_QUESTION) });
         }
       },
@@ -656,6 +766,16 @@ function buildStates() {
       enter() {
         setObjective(OBJECTIVES.BATHROOM_AMBUSH);
         ui.objective.classList.add('urgent');
+        // The door has to come off the latch or he walks through it: the
+        // bathroom leaf is real geometry sitting exactly where he appears.
+        // Fast, because he kicked it.
+        audio.play('door.creak', { volume: 0.7 });
+        swingDoor(
+          apartment.doors.bathroomDoor,
+          apartment.doors.bathroomDoor.group.rotation.y,
+          apartment.doors.bathroomDoor.openRotationY,
+          0.22,
+        );
         cast.pruitt.reveal();
         const cluesCount = Object.values(cluesFound).filter(Boolean).length;
         reactionWindow.start({ readinessBonus: cluesCount >= 2 });
@@ -674,6 +794,7 @@ function buildStates() {
             cast.pruitt.kill();
             audio.play('gun.shot', { volume: 0.95 });
             muzzleFlash();
+            viewModel.fire();
             const seq = reactionWindow.readinessBonus
               ? SEQUENCES.bathroomFastWithClues
               : SEQUENCES.bathroomFast;
@@ -710,6 +831,9 @@ function buildStates() {
     [S.PICK_UP_CASE]: {
       enter() {
         setObjective(OBJECTIVES.PICK_UP_CASE);
+        // The shooting is over; you cannot carry a case and hold a gun on a
+        // room at the same time. It goes away, and the bar still shows it.
+        holsterWeapon();
       },
     },
 
@@ -738,6 +862,7 @@ function buildStates() {
           running = false;
           document.exitPointerLock?.();
           ui.hud.classList.remove('visible');
+          sceneInventory.hide();
           ui.sceneCompleteOverlay.classList.remove('hidden');
         });
       },
@@ -752,6 +877,7 @@ function buildStates() {
           running = false;
           document.exitPointerLock?.();
           ui.hud.classList.remove('visible');
+          sceneInventory.hide();
           ui.deathOverlay.classList.remove('hidden');
         });
       },
@@ -823,6 +949,8 @@ ui.playAgainBtn.addEventListener('click', () => {
 function beginScene() {
   audio.init();
   running = true;
+  sceneInventory.show();
+  syncInventory();
   fsm.go(S.CAR_RIDE);
   lockPointer();
 }
@@ -836,7 +964,11 @@ function updateGame(dt) {
   dialogue.update(dt);
   apartment.update(dt);
   car.update(dt);
-  cast.update(dt);
+  // The cast's figures track the player's own eye, which is what makes a room
+  // full of people being held at gunpoint read as a room full of people.
+  cast.update(dt, player.position);
+  carriedCase.update(dt);
+  viewModel.update(dt);
   updateTweens(dt);
   checkEarlyDraw();
   updateChoiceHold(dt);
@@ -877,15 +1009,38 @@ window.silvercase = {
       flags: { ...flags },
       earlyDrawCount,
     },
-    actors: {
-      ape: { alive: cast.ape.alive, hp: cast.ape.hp },
-      deke: { alive: cast.deke.alive, hp: cast.deke.hp },
-      chester: { alive: cast.chester.alive, hp: cast.chester.hp },
-      winston: { alive: cast.winston.alive, hp: cast.winston.hp },
-      pruitt: {
-        alive: cast.pruitt.alive, hp: cast.pruitt.hp, revealed: cast.pruitt.group.visible,
+    actors: Object.fromEntries(cast.all.map((actor) => [
+      actor.name.toLowerCase(),
+      {
+        alive: actor.alive,
+        hp: actor.hp,
+        revealed: actor.group.visible,
+        /** Real metres, as authored — the whole point of the shared builder. */
+        height: actor.npc.parts.heightScale * 1.78,
+        at: {
+          x: +actor.group.position.x.toFixed(3),
+          y: +actor.group.position.y.toFixed(3),
+          z: +actor.group.position.z.toFixed(3),
+        },
+        seated: actor.seated,
+        armed: Boolean(actor.weapon),
       },
+    ])),
+    /** Ape's cross-scene identity, exactly as the campaign registry has it. */
+    ape: {
+      characterId: cast.ape.npc.characterId,
+      family: cast.ape.group.userData.npc?.family === true,
+      face: SILVERCASE_APE_PRESENTATION.face,
+      model: { ...SILVERCASE_APE_PRESENTATION.model },
     },
+    case: {
+      openness: +apartment.props.case.openness().toFixed(3),
+      shut: apartment.props.case.isShut(),
+      inWorld: apartment.props.case.group.visible,
+      carried: carriedCase.group.visible && carriedCase.isShut(),
+    },
+    weapon: { drawn: viewModel.drawn, visible: viewModel.group.visible },
+    inventory: { ...loadout, slots: JSON.parse(inventorySignature || '[]') },
     reactionWindow: reactionWindow.snapshot(),
   }),
   begin: () => beginScene(),
@@ -901,6 +1056,9 @@ window.silvercase = {
   interactions,
   audio,
   reactionWindow,
+  viewModel,
+  carriedCase,
+  sceneInventory,
   camera,
   scene,
   renderer,
