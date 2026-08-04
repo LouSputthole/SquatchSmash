@@ -47,7 +47,13 @@ let browser;
 try {
   await new Promise((resolve) => server.listen(PORT, resolve));
   browser = await chromium.launch({
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM || undefined,
+    /* Same resolution as every other verifier here. Without the
+     * PLAYWRIGHT_BROWSERS_PATH arm this falls back to the bundled headless
+     * shell, which is not installed in the container, so the script died on
+     * launch rather than on anything it was meant to check. */
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM
+      || (process.env.PLAYWRIGHT_BROWSERS_PATH
+        ? path.join(process.env.PLAYWRIGHT_BROWSERS_PATH, 'chromium') : undefined),
     args: [
       '--use-gl=swiftshader',
       '--enable-unsafe-swiftshader',

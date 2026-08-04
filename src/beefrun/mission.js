@@ -1390,7 +1390,7 @@ export class MissionController {
   }
 
   onImpact(severity, what) {
-    if (severity <= 0) return;
+    if (severity <= 0 || this.aircraft.destroyed) return;
     const p = this.physics;
     if (severity > 2.4) {
       p.damage.wing = clamp(p.damage.wing + severity * 0.06, 0, 1);
@@ -1398,6 +1398,19 @@ export class MissionController {
       this.audio.play('gun.impact', { volume: 0.7 });
     }
     if (severity > 6.5 || p.damage.wing >= 1) {
+      /* Presentation, layered on the failure rule rather than replacing it.
+       *
+       * A high-energy strike gets a fireball; a wing ground down to 1.0 over a
+       * long scrape still ends the flight, but quietly, because there is no
+       * detonation in it. Both still fail — the gate above is unchanged. */
+      if (severity >= 7.6 && this.aircraft.explode()) {
+        this.audio.explosion?.();
+        this.cameras.addShake(1.6);
+        for (let i = 0; i < this.engines.engines.length; i++) this.engines.kill(i, 'destroyed');
+        p.controls.throttleL = p.controls.throttleR = 0;
+        p.velocity.multiplyScalar(0.04);
+        p.omega.set(0, 0, 0);
+      }
       this.fail(what === 'terrain' ? 'You flew it into the ground.' : 'The aeroplane is finished.');
     }
   }
@@ -1565,6 +1578,10 @@ export class MissionController {
     this.checkpoint = name;
     const data = this.checkpointData?.name === name ? this.checkpointData : null;
     this.failed = null;
+    /* Put the airframe back if the last attempt ended in a fireball. Without
+     * this the restore flies a hidden aeroplane trailing somebody else's
+     * debris. */
+    this.aircraft.resetDestruction?.();
     this.dialogue.clear();
     this.input.clear();
     this.detection.clear();

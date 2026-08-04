@@ -256,6 +256,19 @@ export class MissionAudio {
   }
 
   /**
+   * The hard crash: one blast, layered rather than a single sample.
+   *
+   * Three cues stacked a few tens of milliseconds apart read as one event with
+   * depth to it — the detonation, the airframe folding, then the debris — where
+   * one cue on its own reads as a sound effect.
+   */
+  explosion() {
+    this.play('plane.crash.explosion', { volume: 1 });
+    this.play('can.crush', { volume: 0.42, delay: 0.025 });
+    this.play('gun.impact', { volume: 0.35, delay: 0.07 });
+  }
+
+  /**
    * A spoken line, if that exact line has been recorded.
    *
    * `say()` has no procedural fallback on purpose, so an unrecorded line shows

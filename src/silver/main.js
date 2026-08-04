@@ -1341,6 +1341,10 @@ function startTableCutscene() {
 /* ---- the champagne ---- */
 
 let champagneSent = false;
+/* Sent and finished are different questions. `champagneSent` stops it going
+ * twice; this says the cutscene has handed control back, which is what the
+ * next beat at the table actually has to wait for. */
+let champagneComplete = false;
 function sendChampagne() {
   if (champagneSent || !game.seated) return;
   champagneSent = true;
@@ -1358,6 +1362,7 @@ function sendChampagne() {
     onDone: () => {
       // Control comes back sitting down, which is where it was.
       player.mode = 'seated';
+      champagneComplete = true;
       goesBack(waiter);
       mission.addObjective('thanks', 'Acknowledge the table by the pillar', { optional: true });
       thanksPad.visible = true;
@@ -1461,7 +1466,9 @@ const ROUND_QUEUE = [
    * of the front table, so a player can wave him down before the queue does,
    * and the round must not then play a second time. */
   { id: 'drinks', after: 48, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
-  { id: 'family', after: 96, run: () => apeComesOver() },
+  /* Ape does not walk over while the champagne is still being explained. The
+   * evening has a social order and the bucket comes before the family. */
+  { id: 'family', after: 96, ready: () => champagneComplete, run: () => apeComesOver() },
   { id: 'funny', after: 150 },
   { id: 'personal', after: 186 },
   { id: 'show', after: 240, run: () => startShowCutscene() },
@@ -1479,8 +1486,14 @@ let seatedFor = 0;
 function runSeatedQueue(dt) {
   if (!game.seated || game.scene) return;
   seatedFor += dt;
-  // The champagne arrives on its own clock, between the drinks and the family
-  if (seatedFor > 74 && !champagneSent && !dialogue.active) sendChampagne();
+  /* The champagne arrives on its own clock, between the drinks and the family.
+   *
+   * The `return` matters. `sendChampagne` opens a cutscene by assigning
+   * `game.scene`, but this function's own guard on `game.scene` ran at the top
+   * of the frame — so without it, execution falls straight through to the
+   * queue below and, on any frame where a long round has pushed `seatedFor`
+   * past 96, dispatches Ape into the middle of the champagne. */
+  if (seatedFor > 74 && !champagneSent && !dialogue.active) { sendChampagne(); return; }
 
   const next = ROUND_QUEUE[queueAt];
   if (!next || seatedFor < next.after) return;

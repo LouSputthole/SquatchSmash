@@ -900,6 +900,24 @@ function synth(engine, name, dest, t, rate = 1) {
     case 'can.crush':
       burst(ctx, dest, t, { dur: 0.34, type: 'bandpass', freq: 2100, q: 0.8, gain: 0.42, sweep: 0.4 });
       break;
+    case 'plane.crash.explosion':
+      // A usable hard-crash fallback while the authored take is absent:
+      // sub-bass impact, fuel blast, tearing metal, then a short fire wash.
+      // The mission only calls this above its damage gate.
+      tone(ctx, dest, t, { freq: 72, to: 34, dur: 0.65, gain: 0.95, type: 'sine' });
+      burst(ctx, dest, t, { dur: 0.18, type: 'lowpass', freq: 280, gain: 1, sweep: 0.22 });
+      burst(ctx, dest, t + 0.035, { dur: 1.25, type: 'bandpass', freq: 760, q: 0.55, gain: 0.52, sweep: 0.24 });
+      for (let i = 0; i < 8; i++) {
+        burst(ctx, dest, t + 0.12 + i * 0.055 + Math.random() * 0.035, {
+          dur: 0.055,
+          type: 'bandpass',
+          freq: 850 + Math.random() * 2600,
+          q: 2.8,
+          gain: 0.08,
+        });
+      }
+      burst(ctx, dest, t + 0.28, { dur: 2.1, type: 'lowpass', freq: 520, gain: 0.18, sweep: 0.3 });
+      break;
 
     /* -------- switches, doors, knobs -------- */
     case 'switch.click':

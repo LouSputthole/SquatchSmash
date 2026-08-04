@@ -288,7 +288,14 @@ export function populate(scene, room) {
       add(`diner${diner}`, new Npc(scene, {
         name: 'a diner', tier: near && diner < 10 ? 'ambient' : 'background',
         job: Math.random() < 0.4 ? 'drink' : 'sit',
-        x: seat.x, z: seat.z, yaw: seat.yaw, look: near,
+        /* `look: false`, not `look: near`.
+         *
+         * Player-tracking on the near tables made the pair seated directly
+         * behind Margo hold an unbroken stare at Tony through the entire
+         * date. A room full of people watching one table is a horror beat,
+         * not a restaurant — they face the way they were seated and get on
+         * with their own evening. */
+        x: seat.x, z: seat.z, yaw: seat.yaw, look: false,
         model: {
           height: inGown ? rand(1.6, 1.78) : rand(1.68, 1.9),
           build: rand(0.92, 1.3),

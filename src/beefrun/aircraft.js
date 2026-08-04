@@ -134,6 +134,11 @@ export class Brushrunner {
       concern: 0,
       lighterSpark: 0,
     };
+    /* Set only by a hard crash, and cleared by `resetDestruction` when a
+     * checkpoint puts the aeroplane back. While it is true the airframe is
+     * hidden and `update` drives the fireball instead of the animation rig. */
+    this.destroyed = false;
+    this.explosion = null;
     this.build();
     if (withCockpit) this.buildCockpit();
     this.instruments = withCockpit ? new Instruments(this.parts.panelCanvas) : null;
@@ -755,6 +760,13 @@ export class Brushrunner {
    * @param {object} state  { cargoDoorOpen, dusk, gLat, warnings }
    */
   update(dt, phys, engines, state = {}) {
+    /* Nothing on the animation rig means anything once the aeroplane is a
+     * fireball — the props are gone, the flaps are gone, and the parts the
+     * rest of this method reaches for are hidden. */
+    if (this.destroyed) {
+      this.updateExplosion(dt);
+      return;
+    }
     const a = this.anim;
     const c = phys.controls;
 
@@ -856,6 +868,101 @@ export class Brushrunner {
       this._compassAccum = 0;
       this.drawCompass(phys.headingDeg);
     }
+  }
+
+  /**
+   * Replace the intact airframe with a short-lived fireball and debris fan.
+   *
+   * Hiding the direct children rather than emptying the group is what makes
+   * `resetDestruction` cheap and lossless: the aeroplane is still built, still
+   * has every part and canvas it had, and a checkpoint restore just turns it
+   * back on. Nothing here is rebuilt.
+   *
+   * @returns {boolean} false if it was already destroyed
+   */
+  explode() {
+    if (this.destroyed) return false;
+    this.destroyed = true;
+    for (const child of this.group.children) child.visible = false;
+
+    const fx = group('brushrunner-explosion');
+    fx.userData.age = 0;
+    const fire = [
+      [0xffe06a, 1.5, 0, 0.2, 1.0],
+      [0xff7a24, 2.2, -0.7, 0.0, 0.3],
+      [0xd92e18, 2.8, 0.8, -0.2, 0.1],
+    ];
+    for (const [colour, radius, x, y, z] of fire) {
+      const material = new THREE.MeshBasicMaterial({
+        color: colour, transparent: true, opacity: 0.96,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      });
+      const ball = mesh(sphereGeo(radius, 14, 9), material, x, y, z);
+      ball.userData.fireball = true;
+      fx.add(ball);
+    }
+    for (let i = 0; i < 7; i++) {
+      const smoke = mesh(
+        sphereGeo(0.9 + (i % 3) * 0.35, 9, 6),
+        new THREE.MeshBasicMaterial({ color: 0x2a2522, transparent: true, opacity: 0.76, depthWrite: false }),
+        (i - 3) * 0.58, 0.6 + (i % 2) * 0.5, (i % 3) * 0.65 - 0.5,
+      );
+      smoke.userData.smoke = true;
+      fx.add(smoke);
+    }
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const debris = mesh(
+        boxGeo(0.15 + (i % 3) * 0.1, 0.08, 0.35 + (i % 2) * 0.2),
+        solid(i % 2 ? BROWN : METAL, { roughness: 0.8, metalness: i % 2 ? 0 : 0.5 }),
+        Math.cos(a) * 1.2, (i % 4) * 0.24 - 0.2, Math.sin(a) * 1.2,
+      );
+      debris.userData.debris = true;
+      debris.userData.velocity = new THREE.Vector3(Math.cos(a) * (4 + i % 3), 3 + (i % 5), Math.sin(a) * (4 + i % 3));
+      fx.add(debris);
+    }
+    /* Added after the hide loop, so it is the one thing still visible. */
+    this.group.add(fx);
+    this.explosion = fx;
+    return true;
+  }
+
+  updateExplosion(dt) {
+    const fx = this.explosion;
+    if (!fx) return;
+    fx.userData.age += dt;
+    const age = fx.userData.age;
+    for (const child of fx.children) {
+      if (child.userData.fireball) {
+        child.scale.setScalar(1 + age * 2.8);
+        child.material.opacity = clamp(1 - age / 1.15, 0, 1);
+      } else if (child.userData.smoke) {
+        child.position.y += dt * 2.1;
+        child.scale.addScalar(dt * 0.8);
+        child.material.opacity = clamp(0.76 - age * 0.18, 0.12, 0.76);
+      } else if (child.userData.debris) {
+        child.position.addScaledVector(child.userData.velocity, dt);
+        child.userData.velocity.y -= 9.8 * dt;
+        child.rotation.x += dt * 5;
+        child.rotation.z += dt * 3;
+      }
+    }
+  }
+
+  /** Put the aeroplane back, for a checkpoint restore. */
+  resetDestruction() {
+    if (this.explosion) {
+      this.group.remove(this.explosion);
+      /* Every material here is made fresh in `explode`, so nothing shared is
+       * being disposed and a second crash builds its own. */
+      this.explosion.traverse((o) => o.material?.dispose?.());
+    }
+    this.explosion = null;
+    this.destroyed = false;
+    /* Safe to turn everything back on: the only conditional visibility on this
+     * model is the prop discs, which live inside the nacelle groups rather than
+     * at this level and are reassigned every frame by `update`. */
+    for (const child of this.group.children) child.visible = true;
   }
 
   drawCompass(heading) {
