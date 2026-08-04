@@ -157,6 +157,6 @@ test('the generated recording handoff keeps a complete authored ledger after del
 
   assert.deepEqual(
     catalog.filter((line) => !recordedFiles.has(`${line.cue}.mp3`)).map((line) => line.cue),
-    ['vo.bing2.ape.fur_brush'],
+    [],
   );
 });

@@ -149,11 +149,24 @@ test('the recording sheet shows both scenes rather than only counting them', () 
   /* renderVoice used to walk a hard-coded scene order and drop anything not
    * on it, so a new scene's lines were included in the coverage snapshot and
    * then omitted from every section under it. The sheet disagreed with
-   * itself and the missing lines looked like they did not exist. */
-  assert.match(todo, /## Voice pickups — The Silver Case \(60\)/);
-  assert.match(todo, /## Voice pickups — The Enola Squatch \(87\)/);
-  assert.match(todo, /vo\.silvercase\.car\.ape\.pitch\.mp3/);
-  assert.match(todo, /vo\.enolasquatch\.sasole\.hangar-reveal-1\.1\.mp3/);
+   * itself and the missing lines looked like they did not exist.
+   *
+   * Built from a probe manifest rather than the live one: once every real
+   * Silver Case / Enola Squatch line is recorded, those sections stop
+   * listing anything outstanding, which is correct and not what this test
+   * checks for. */
+  const probe = {
+    voices: { ape: { id: 'x' }, sasole: { id: 'y' } },
+    sfx: [
+      { name: 'vo.silvercase.car.ape.pitch', voice: 'ape', say: 'Pitch.' },
+      { name: 'vo.enolasquatch.sasole.hangar-reveal-1.1', voice: 'sasole', say: 'Reveal.' },
+    ],
+  };
+  const sheet = buildAudioTodo({ manifest: probe, index: { files: [] }, legacyQueue: {} });
+  assert.match(sheet, /## Voice pickups — The Silver Case \(1\)/);
+  assert.match(sheet, /## Voice pickups — The Enola Squatch \(1\)/);
+  assert.match(sheet, /vo\.silvercase\.car\.ape\.pitch\.mp3/);
+  assert.match(sheet, /vo\.enolasquatch\.sasole\.hangar-reveal-1\.1\.mp3/);
 });
 
 test('an unlisted scene falls to the end of the sheet instead of off it', () => {

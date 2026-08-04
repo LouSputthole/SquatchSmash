@@ -353,6 +353,14 @@
       "stability": 0.42,
       "similarity": 0.8,
       "style": 0.48
+    },
+    "blond": {
+      "id": "aGv5jHWKBy8K5xKvYeSX",
+      "_note": "James Blond -- owner-cast 2026-08-03. Suave spy parody, deadpan calm even under the tenderizer.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.82,
+      "style": 0.4
     }
   },
   "sfx": [
