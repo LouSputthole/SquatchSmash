@@ -180,6 +180,12 @@ try {
     if (localStorage.getItem(key) === null) localStorage.setItem(key, value);
   }, { key: CAMPAIGN_STORAGE_KEY, value: sceneTwoSeed() });
   const page = await context.newPage();
+  /* Clicks wait for a button to be visible, stable and hit-testable, and that
+   * wait is served by the page's main thread -- the same thread building the
+   * scene. Under a swiftshader render on a loaded box the default 30s is a bet
+   * on the rasteriser exactly the way the fixed sleeps below used to be, so
+   * every implicit wait on this page gets the same honest budget. */
+  page.setDefaultTimeout(SIM_WAIT);
   const problems = watchProblems(page);
 
   await page.goto(`http://localhost:${PORT}/bing.html?visit=2`, { waitUntil: 'load' });
@@ -1039,6 +1045,7 @@ try {
 
   const blockedContext = await browser.newContext({ viewport: { width: 640, height: 400 } });
   const blockedPage = await blockedContext.newPage();
+  blockedPage.setDefaultTimeout(SIM_WAIT);
   const blockedProblems = watchProblems(blockedPage);
   await blockedPage.goto(`http://localhost:${PORT}/bing.html?visit=2`, { waitUntil: 'load' });
   await blockedPage.waitForFunction(() => window.HOTDOG_INCIDENT?.story, null, { timeout: 90000 });
