@@ -34,6 +34,13 @@ const EXPECTED_SCENE_LINKS = Object.freeze({
   golf: 'golf.html?preview=1',
   heist: 'heist.html?preview=1&checkpoint=safehouse',
   initiation: 'initiation.html?preview=1',
+  /* The three scenes merged on 2026-08-03. They were deployed and playable by
+   * direct URL for a day before anybody noticed they were missing from the
+   * launcher — this check is an exact match in both directions, so a scene
+   * that ships without a card here now fails rather than quietly hiding. */
+  silvercase: 'silvercase.html?preview=1',
+  mansion: 'mansion.html?preview=1',
+  enolasquatch: 'enolasquatch.html?preview=1',
 });
 const APARTMENT_PREVIEW_CASES = Object.freeze([
   Object.freeze({
