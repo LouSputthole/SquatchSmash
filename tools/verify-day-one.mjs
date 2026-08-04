@@ -555,7 +555,7 @@ try {
     savedMinutes: window.__squatch.campaign.state.story.timeMinutes,
     chapter: window.__squatch.campaign.state.story.chapter,
     door: window.__squatch.apartmentStory.tryLeave({
-      eaten: true, showered: true, pooped: true, changedClothes: true,
+      eaten: true, showered: true, peed: true, pooped: true, changedClothes: true,
     }),
   }));
   check('a Day One nap kills the day toward the evening and is saved',
@@ -567,11 +567,136 @@ try {
       && napped.door?.destination === 'bada_bing_one',
     JSON.stringify(napped));
 
+  /* The morning's other errand needs a cause, and until now the only two were
+   * four cigarettes or nothing. All three routes are checked live because the
+   * numbers are the whole feature: a route that leaves the meter short is a
+   * required chore with no way to finish it. */
+  const urges = await page.evaluate(() => {
+    const game = window.__squatch;
+    const st = game.apartment.state;
+    const run = (fn) => {
+      st.bowel = 0;
+      st.bowelCause = null;
+      st.urgeAnnounced = false;
+      fn();
+      return { bowel: st.bowel, cause: st.bowelCause };
+    };
+
+    // One pouch.
+    st.lipPacked = false;
+    const zyn = run(() => game.takeZyn());
+    st.lipPacked = false;
+
+    // One pull on the jug, driven through the real [F] hold rather than poked.
+    st.heldItem = 'milk';
+    const milkBefore = st.milkLeft;
+    const bladderBefore = st.bladder;
+    const milk = run(() => {
+      game.player.keys.add('KeyF');
+      for (let i = 0; i < 240; i++) game.updateConsume(1 / 60);
+      game.player.keys.delete('KeyF');
+    });
+    st.heldItem = null;
+
+    return {
+      zyn,
+      milk,
+      milkTaken: milkBefore - st.milkLeft,
+      bladderRose: st.bladder > bladderBefore,
+    };
+  });
+  check('one zyn is enough on its own, and says so',
+    urges.zyn.bowel === 1 && urges.zyn.cause === 'zyn',
+    JSON.stringify(urges.zyn));
+  check('a pull of raw milk fills both tanks and is the third route to the toilet',
+    urges.milk.bowel === 1
+      && urges.milk.cause === 'milk'
+      && urges.milkTaken === 1
+      && urges.bladderRose,
+    JSON.stringify(urges));
+
+  /* The door has been a silent line of text since the Goals object stopped
+   * being called, with thirty-two delivered takes unreachable behind it.
+   *
+   * Waiting on the takes rather than assuming them: the apartment's wider
+   * library fills in behind play, and the point of the check is that the door
+   * speaks once it can, not that a headless run got there first. */
+  await page.waitForFunction(
+    () => window.__squatch.audio.hasSample('vo.door.piss.1')
+      && window.__squatch.audio.hasSample('vo.door.poop.1'),
+    null,
+    { timeout: 120000 },
+  );
+  const doorVoice = await page.evaluate(() => {
+    const game = window.__squatch;
+    const st = game.apartment.state;
+    st.fed = true;
+    st.showered = true;
+    st.dressed = true;
+    game.game.peed = false;
+    game.game.pooped = false;
+
+    const spoken = () => game.audio.playbacks
+      .filter((playback) => playback.name.startsWith('vo.door.'))
+      .map((playback) => playback.name);
+    const stack = document.querySelector('#toast-stack');
+    const clearToasts = () => { if (stack) stack.textContent = ''; };
+
+    /* The gate walk above already tried the handle once over each of these,
+     * and the escalation is per-reason and deliberately sticky, so wind it
+     * back to a man who has not tried this door yet today. */
+    game.doorTries.clear();
+    clearToasts();
+    game.audio.clearPlaybackLog();
+    const first = game.tryLeave();
+    const afterFirst = spoken();
+    const firstToast = document.querySelector('#toast-stack')?.textContent ?? '';
+
+    // Second time over the same thing, he also tells himself how.
+    clearToasts();
+    game.audio.clearPlaybackLog();
+    game.tryLeave();
+    const afterSecond = spoken();
+    const secondToast = document.querySelector('#toast-stack')?.textContent ?? '';
+
+    game.game.peed = true;
+    clearToasts();
+    game.audio.clearPlaybackLog();
+    const dump = game.tryLeave();
+    game.tryLeave();
+    return {
+      firstId: first?.id,
+      afterFirst,
+      afterSecond,
+      firstToast,
+      secondToast,
+      dumpId: dump?.id,
+      dumpToast: document.querySelector('#toast-stack')?.textContent ?? '',
+      dumpVo: spoken(),
+    };
+  });
+  check('the door speaks its refusal instead of only printing it',
+    doorVoice.firstId === 'peed'
+      && doorVoice.afterFirst.some((name) => name.startsWith('vo.door.piss.')),
+    JSON.stringify(doorVoice.afterFirst));
+  check('trying the same locked door twice adds the how, not just the what',
+    doorVoice.firstToast.trim() === ''
+      && /toilet/i.test(doorVoice.secondToast)
+      && doorVoice.afterSecond.some((name) => name.startsWith('vo.door.piss.')),
+    JSON.stringify({ first: doorVoice.firstToast, second: doorVoice.secondToast }));
+  check('the one hint that cannot be guessed from the room names the dart, the zyn and the milk',
+    doorVoice.dumpId === 'pooped'
+      && /dart|zyn/i.test(doorVoice.dumpToast)
+      && /milk/i.test(doorVoice.dumpToast)
+      && doorVoice.dumpVo.some((name) => name.startsWith('vo.door.poop.')),
+    JSON.stringify({ toast: doorVoice.dumpToast, vo: doorVoice.dumpVo }));
+
   const gates = await page.evaluate(() => {
     const game = window.__squatch;
     const state = game.apartment.state;
     state.fed = false;
     state.showered = false;
+    game.game.peed = false;
     game.game.pooped = false;
     state.dressed = false;
     state.repliedHR = false;
@@ -582,14 +707,17 @@ try {
     found.push(game.tryLeave()?.id);
     state.showered = true;
     found.push(game.tryLeave()?.id);
+    game.game.peed = true;
+    found.push(game.tryLeave()?.id);
     game.game.pooped = true;
     found.push(game.tryLeave()?.id);
     state.dressed = true;
     const go = game.tryLeave();
     return { found, go, emailChecked: state.repliedHR };
   });
-  check('the live door reports the four chores in order',
-    JSON.stringify(gates.found) === JSON.stringify(['eaten', 'showered', 'pooped', 'changedClothes']),
+  check('the live door reports the five chores in order',
+    JSON.stringify(gates.found)
+      === JSON.stringify(['eaten', 'showered', 'peed', 'pooped', 'changedClothes']),
     JSON.stringify(gates.found));
   check('email remains optional for departure',
     gates.emailChecked === false && gates.go?.destination === 'bada_bing_one',
@@ -597,10 +725,13 @@ try {
 
   await page.waitForURL(`http://localhost:${PORT}/bing.html`, { timeout: 10000 });
   await page.waitForFunction(() => window.__bing?.campaign, null, { timeout: 60000 });
+  /* The clock paints on the Bing's first HUD frame, which on a swiftshader
+   * run is not the frame after `__bing` appears. Five seconds was already the
+   * thin end of it and flaked outright once this file grew a decode wait. */
   await page.waitForFunction(
     () => document.querySelector('#clock .time')?.textContent?.trim(),
     null,
-    { timeout: 5000 },
+    { timeout: 30000 },
   );
   const arrived = await page.evaluate(() => {
     const state = window.__bing.campaign.state;
@@ -627,6 +758,7 @@ try {
       && arrived.event === 'answered'
       && arrived.activities.eaten
       && arrived.activities.showered
+      && arrived.activities.peed
       && arrived.activities.pooped
       && arrived.activities.changedClothes
       && !arrived.activities.emailChecked,

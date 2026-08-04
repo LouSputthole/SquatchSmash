@@ -22,6 +22,7 @@ export const ITEMS = {
   empty: { icon: '🥫', name: 'Empty can', hint: '[Q] to drop it' },
   cigs: { icon: '🚬', name: 'Smokes', hint: 'Hold [F] to light one' },
   whiskey: { icon: '🥃', name: "Jack & Daniel's", hint: 'Hold [F] to take a pull' },
+  milk: { icon: '🥛', name: 'Raw milk', hint: 'Hold [F] to drink' },
   eggs: { icon: '🥚', name: 'Two eggs', hint: 'The hob is over there' },
   slice: { icon: '🍕', name: 'Slice of pizza', hint: 'Hold [F] to eat it' },
   gun: { icon: '🔫', name: 'The revolver', hint: '[Click] to fire · [R] to reload' },

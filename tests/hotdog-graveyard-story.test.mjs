@@ -95,7 +95,7 @@ test('current saves carry a durable HotDog incident shape', () => {
   const campaign = createCampaign({ storage: new MemoryStorage() });
   const incident = campaign.state.missions[MISSION_IDS.BADA_BING_TWO];
 
-  assert.equal(CAMPAIGN_VERSION, 10);
+  assert.equal(CAMPAIGN_VERSION, 11);
   assert.deepEqual(incident, {
     status: 'locked',
     checkpoint: null,

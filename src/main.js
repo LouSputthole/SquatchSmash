@@ -405,9 +405,11 @@ camera.add(heldDrinks.group);
 function poseDrink(which, k) {
   const can = heldDrinks.can;
   const bottle = heldDrinks.bottle;
+  const jug = heldDrinks.jug;
   can.visible = which === 'can';
   bottle.visible = which === 'bottle';
-  const m = which === 'can' ? can : which === 'bottle' ? bottle : null;
+  jug.visible = which === 'jug';
+  const m = which === 'can' ? can : which === 'bottle' ? bottle : which === 'jug' ? jug : null;
   if (!m) return;
   // Ease so it settles at the lips instead of arriving at constant speed.
   const e = k * k * (3 - 2 * k);
@@ -506,6 +508,11 @@ const game = {
   toiletPee: false,     // the bladder emptying itself while you are sat down
   poopTime: 0,
   pooped: campaign.state.activities.pooped,
+  peed: campaign.state.activities.peed,
+  /* How much has actually come out this session. A pee is only an errand once
+   * something happened: unzipping, thinking better of it and zipping back up
+   * is not a chore ticked off. */
+  peeVolume: 0,
   nextPlopAt: 0,
   rumbleAt: 0,
   zynUntil: -1,
@@ -781,7 +788,7 @@ async function boot() {
     sitOnToilet, standFromToilet, takeZyn,
     sitOn, standFromSeat, lieOnBed, sleepInBed, sitAtPC, standFromPC, getUp,
     narrator, goals, chat, postfx, takeShower, cookEggs, eatEggs, tryLeave, learnAboutMeeting,
-    updateObjectives, startNewMorning, activityContext,
+    updateObjectives, startNewMorning, activityContext, doorTries,
     updateBowel, updatePushes, tryPush, applyDrunkFx, startGluing, updateGluing, glue, splat,
     dropHeld,
     poseDrink, heldDrinks, spooky, bullets, fireGun, reloadGun, heldGun, tv, phone, heldPhone,
@@ -1509,6 +1516,11 @@ const DROP_RULES = {
     put: () => { apartment.returnWhiskey(); return true; },
     cue: () => audio.play('whiskey.cap', { volume: 0.5 }),
   },
+  milk: {
+    put: () => { apartment.returnMilk(); return true; },
+    cue: () => audio.play('can.set', { volume: 0.45 }),
+    toast: 'Back in the fridge',
+  },
   slice: {
     put: () => apartment.returnSlice(),
     cue: () => audio.play('can.set', { volume: 0.4 }),
@@ -1591,6 +1603,7 @@ function updateConsume(dt) {
 
   if (st.heldItem === 'cigs' || cig.t >= 0) updateSmoking(dt, holdingF);
   else if (st.heldItem === 'whiskey') updateSwigging(dt, holdingF);
+  else if (st.heldItem === 'milk') updateMilk(dt, holdingF);
   else if (st.heldItem === 'slice') updateEatingSlice(dt, holdingF);
   else updateDrinking(dt, holdingF);
 }
@@ -1641,6 +1654,75 @@ function updateEatingSlice(dt, holdingF) {
   audio.play('egg.eat', { volume: 0.6 });
   audio.say('slice', { chance: 0.8, delay: 0.9 });
   hud.toast('Ate a slice', 'good');
+}
+
+/** Seconds of holding [F] for one pull on the jug. It goes down easily. */
+const MILK_TIME = 2.0;
+
+/**
+ * Raw milk, straight from the jug.
+ *
+ * The one thing in this fridge that is not a vice and behaves worse than all
+ * of them. It is a real drink -- it fills the bladder like anything else --
+ * and it is the third and most reliable route to the morning's other errand,
+ * which is the whole reason it exists: a player who does not smoke and does
+ * not touch the tin needs SOMETHING in this flat that gets things moving, and
+ * the fridge is the first place anybody looks.
+ *
+ * Deliberately not alcoholic and deliberately not food. Drinking it is not
+ * breakfast and does not tick `eaten`; he is not having a glass of milk for
+ * his breakfast, he is drinking out of the jug in front of an open fridge at
+ * six in the morning, which is a different thing entirely.
+ */
+function updateMilk(dt, holdingF) {
+  const st = apartment.state;
+  const wants = holdingF && st.heldItem === 'milk' && st.milkLeft > 0;
+
+  if (!wants) {
+    if (game.drinking > 0) {
+      game.drinking = 0;
+      hud.setHold(null);
+      poseDrink(null, 0);
+      if (!interaction.current) hud.hidePrompt();
+    }
+    if (holdingF && st.milkLeft <= 0) hud.say('Empty. You drank a half gallon of raw milk.');
+    return;
+  }
+
+  if (game.drinking === 0) audio.play('whiskey.cap', { volume: 0.45, rate: 1.25 });
+  game.drinking += dt;
+
+  hud.showPrompt('Drinking…', 'F');
+  hud.setHold(Math.min(1, game.drinking / MILK_TIME));
+  poseDrink('jug', Math.min(1, game.drinking / MILK_TIME));
+  if (game.drinking > 0.35 && Math.random() < dt * 2.6) {
+    audio.play('can.sip', { volume: 0.42, rate: 0.82 });
+  }
+  if (game.drinking < MILK_TIME) return;
+
+  game.drinking = 0;
+  hud.setHold(null);
+  poseDrink(null, 0);
+  hud.hidePrompt();
+  apartment.consumeMilk();
+  st.bladder = Math.min(1, st.bladder + 0.22);
+  /* And the other tank, all at once. This is the gag and it is also true:
+   * unpasteurised milk on an empty stomach is not a slow build. */
+  startTheUrge('milk');
+  audio.play('whiskey.gasp', { volume: 0.5, rate: 1.18 });
+  audio.play('belly.rumble', { volume: 0.7, delay: 1.4 });
+  audio.say('milk', { chance: 0.9, delay: 0.7 });
+
+  const n = st.milkLeft;
+  hud.setHand({
+    icon: '🥛',
+    name: n > 0 ? `Raw milk (${n})` : 'Empty jug',
+    hint: n > 0 ? 'Hold [F] to drink' : '[Q] put it back',
+  });
+  hud.toast(st.milkDrunk === 1 ? 'Raw milk. Bold.' : 'More raw milk. Bolder.', 'good');
+  hud.say(st.milkDrunk === 1
+    ? 'Thick, warm-ish, and faintly of a field. <em>Absolutely worth it.</em>'
+    : 'You know exactly what this does to you and you are doing it anyway.', 4800);
 }
 
 function updateDrinking(dt, holdingF) {
@@ -1831,8 +1913,14 @@ function updateSmoking(dt, holdingF) {
 
     apartment.consumeCigarette();
     drunk.smoke();
-    // Four of these and you will be needing the bathroom.
-    apartment.state.bowel = Math.min(1, apartment.state.bowel + 0.26);
+    /* One is enough. It always was in real life.
+     *
+     * This used to add 0.26, so the urge took FOUR cigarettes -- most of the
+     * pack, on a timer, for a chore the door then refuses to let you skip.
+     * Nobody found it, which is why the toilet's whole other half went
+     * unplayed. A dart on an empty stomach is the single most reliable thing
+     * in this flat, so it is the single most reliable thing in this flat. */
+    startTheUrge('cig');
 
     if (st.cigsLeft > 0) {
       hud.setHand({ icon: '🚬', name: `Smokes (${st.cigsLeft})`, hint: 'Hold [F] to light one' });
@@ -2000,10 +2088,11 @@ function takeZyn() {
   audio.play('zyn.tin', { position: apartment.zynPos, volume: 0.7 });
   audio.play('zyn.pack', { volume: 0.6, delay: 0.35 });
 
-  // A harder, shorter hit than a cigarette, and no trip to the bathroom.
+  // A harder, shorter hit than a cigarette -- and the same trip to the bathroom.
   drunk.rush = Math.max(drunk.rush, 1.25);
   drunk.steady = Math.max(drunk.steady, 55);
   game.zynUntil = time.elapsedReal + ZYN_SECONDS;
+  startTheUrge('zyn');
 
   hud.setHand({ icon: '⚪', name: `Zyn (${st.zynsLeft} left)`, hint: '[Q] bin it' });
   hud.toast('Upper lip. Steady hands.', 'good');
@@ -2178,14 +2267,15 @@ function eatEggs() {
   hud.say('Eaten standing up, out of the pan, at half past whatever. '
     + '<em>Eat those pasture raised eggs folks.</em>', 5600);
 
-  /* Breakfast starts things moving.
+  /* Breakfast starts things moving, but it does not finish the job.
    *
-   * The bowel gate used to be reachable only by smoking four cigarettes, so a
-   * player who never touched the pack got no urge, never used the toilet for
-   * the other thing, and never heard a word of that whole bank -- and the door
-   * excuse guarding it could not fire either. Two eggs put you most of the way
-   * there, which is both funnier and true. It still takes a while to arrive. */
+   * Deliberately still a partial: eggs get you most of the way and something
+   * else tips you over, which is both funnier and true. A dart, a zyn or the
+   * raw milk each take it the rest of the way on their own -- see
+   * `startTheUrge` -- so there is no route through this flat that leaves a
+   * player unable to work out how to make the toilet's other half happen. */
   st.bowel = Math.min(1, st.bowel + 0.62);
+  st.bowelCause ??= 'eggs';
 }
 
 /* ------------------------------------------------------------------ */
@@ -2308,6 +2398,7 @@ function nameFor(id, base) {
   const st = apartment.state;
   if (id === 'cigs') return `Smokes (${st.cigsLeft})`;
   if (id === 'whiskey') return `${base} (${st.whiskeyLeft})`;
+  if (id === 'milk') return `${base} (${st.milkLeft})`;
   if (id === 'gun') {
     const spare = st.spareRounds || 0;
     return `${base} (${st.rounds ?? 0}/6${spare ? ` · ${spare} spare` : ''})`;
@@ -2503,6 +2594,7 @@ function activityContext() {
   return {
     eaten: apartment.state.fed,
     showered: apartment.state.showered,
+    peed: game.peed,
     pooped: game.pooped,
     changedClothes: apartment.state.dressed,
     emailChecked: apartment.state.repliedHR,
@@ -2548,6 +2640,7 @@ function saveApartmentProgress() {
   campaign.update((state) => {
     state.activities.eaten = apartment.state.fed;
     state.activities.showered = apartment.state.showered;
+    state.activities.peed = game.peed;
     state.activities.pooped = game.pooped;
     state.activities.changedClothes = apartment.state.dressed;
     state.activities.emailChecked = apartment.state.repliedHR;
@@ -2617,29 +2710,87 @@ function installHeistApartmentInteractions() {
 }
 
 /**
+ * Which recorded bank the door draws from, by what it is refusing over.
+ *
+ * These recordings have been in the build since the door was a `Goals` object
+ * with its own gate list. That object was replaced by ApartmentStory and its
+ * `tryDoor` stopped being called, so thirty-two delivered takes of a man
+ * talking himself out of leaving his own flat have been sat in assets/sfx
+ * unreachable ever since -- the door has been a silent line of text. This is
+ * the wiring back up, keyed off the activity ids the story layer actually
+ * returns rather than off a second list that can drift from it.
+ */
+const DOOR_VO = Object.freeze({
+  eaten: 'door.eat',
+  showered: 'door.shower',
+  peed: 'door.piss',
+  pooped: 'door.poop',
+  changedClothes: 'door.dressed',
+  emailChecked: 'door.hr',
+});
+
+/**
+ * And the second thing he says when the first one has not worked.
+ *
+ * The excuse says what is missing; the hint says how. He only reaches for it
+ * once you have tried the same locked door twice over the same thing, because
+ * a man who tells himself how to have a piss on the first attempt is not a
+ * character, he is a tutorial.
+ */
+const DOOR_HINT_VO = Object.freeze({
+  eaten: 'door.hint.eat',
+  showered: 'door.hint.shower',
+  peed: 'door.hint.piss',
+  pooped: 'door.hint.poop',
+  changedClothes: 'door.hint.dressed',
+});
+
+/** How many times he has tried the handle over each particular thing. */
+const doorTries = new Map();
+
+/**
  * The door. It never lists what is missing -- it gives one reason, in his
  * voice, and the reason is whichever thing he would think of first.
+ *
+ * Second time over the same reason, it also tells him how. That is the only
+ * concession the door makes to a player who is stuck, and it is deliberately
+ * the character working it out rather than the game explaining itself: the
+ * one route that genuinely cannot be reasoned out from the room -- that you
+ * need a dart, a zyn or the raw milk before the toilet will do anything -- is
+ * the one the second line names outright.
  */
 function tryLeave() {
   if (game.left || game.passingOut) return;
   const pos = new THREE.Vector3(2.8, 1.1, 4.3);
   const res = apartmentStory.tryLeave(activityContext());
 
-  if (res.kind === 'call') {
-    audio.play('door.locked', { position: pos, volume: 0.8 });
-    narrator.note('door');
-    hud.say(res.line, 4600);
-    return res;
-  }
   if (res.kind === 'go') {
+    audio.say('door.leave', { delay: 0.2 });
     leaveForMission(res.destination);
     return res;
   }
 
-  audio.play('door.locked', { position: pos, volume: 0.7 });
+  audio.play('door.locked', { position: pos, volume: res.kind === 'call' ? 0.8 : 0.7 });
   narrator.note('door');
-  hud.say(res.line, 5200);
-  if (res.hint) hud.toast(res.hint, '');
+  hud.say(res.line, res.kind === 'call' ? 4600 : 5200);
+
+  const key = res.id ?? res.kind;
+  const tries = (doorTries.get(key) ?? 0) + 1;
+  doorTries.set(key, tries);
+
+  /* Waiting on a phone call is not something he can go and fix, so it gets a
+   * bank of its own and never gets a hint -- there is nothing to hint at. */
+  if (res.kind === 'call' || res.kind === 'stay') {
+    audio.say('door.wait', { chance: 0.8, delay: 0.5 });
+    return res;
+  }
+
+  audio.say(DOOR_VO[key] ?? 'door.beer', { delay: 0.35 });
+  if (res.hint && tries >= 2) {
+    hud.toast(res.hint, '');
+    const hintVo = DOOR_HINT_VO[key];
+    if (hintVo) audio.say(hintVo, { delay: 2.6 });
+  }
   return res;
 }
 
@@ -2778,6 +2929,7 @@ function sitOnToilet() {
    * the bowel with the stream sound under you and no scoring. Everybody
    * does this. Nobody talks about it either. */
   game.toiletPee = apartment.state.bladder > 0.04;
+  game.peeVolume = 0;
   if (game.toiletPee) audio.startLoop('pee.stream', { volume: 0.0, fade: 0.3 });
 
   interaction.setPaused(true);
@@ -2932,7 +3084,13 @@ function updateBowel(dt) {
     /* The other tank empties itself meanwhile -- same rate as standing, the
      * loop tapering with what is left, straight into the bowl every time. */
     if (game.toiletPee) {
+      const before = st.bladder;
       st.bladder = Math.max(0, st.bladder - dt * 0.075);
+      /* Sitting down does both jobs, and the list has to agree: this route
+       * emptied the bladder and ticked nothing, so a man who sat down with
+       * both tanks full stood up owing the door a piss he had just had. */
+      game.peeVolume += before - st.bladder;
+      markPeed();
       const power = Math.min(1, 0.25 + st.bladder * 2.2);
       audio.setLoopVolume('pee.stream', 0.10 + power * 0.20, 0.15);
       if (st.bladder <= 0.001) {
@@ -2971,18 +3129,77 @@ function updateBowel(dt) {
     st.urgeAnnounced = true;
     audio.play('belly.rumble', { volume: 0.85 });
     hud.toast('You need to go. Now.', 'bad');
-    hud.say('Four cigarettes on an empty stomach. <em>The bathroom. Immediately.</em>', 6000);
+    hud.say(URGE_LINES[st.bowelCause] ?? URGE_LINES.eggs, 6000);
   }
 }
+
+/**
+ * The thing that just went in, and what it does about five seconds later.
+ *
+ * One place, so the three routes into the same need cannot drift apart, and so
+ * the line that lands names whichever one you actually took. A cause is only
+ * recorded when it is the one that TIPPED him -- eggs claim it first and get
+ * overwritten by whatever finished the job, because "two eggs and then a dart"
+ * is a dart story.
+ *
+ * @param {'cig'|'zyn'|'milk'|'eggs'} cause
+ */
+function startTheUrge(cause) {
+  const st = apartment.state;
+  st.bowelCause = cause;
+  st.bowel = 1;
+}
+
+/** What he says about it, by whatever he has just put in himself. */
+const URGE_LINES = Object.freeze({
+  cig: 'One cigarette on an empty stomach. <em>Every single time.</em><br>'
+    + 'The bathroom. Immediately.',
+  zyn: 'That is the zyn. <em>That is always the zyn.</em><br>'
+    + 'The bathroom. Immediately.',
+  milk: 'Raw milk. Unpasteurised, unhomogenised, and <em>unbelievably</em> fast.<br>'
+    + 'The bathroom. Immediately.',
+  eggs: 'Two eggs and no patience. <em>The bathroom. Immediately.</em>',
+});
 
 /* ------------------------------------------------------------------ */
 /* Relieving yourself                                                  */
 /* ------------------------------------------------------------------ */
 
+/** Enough of a go that it counts as having been. */
+const PEE_ENOUGH = 0.10;
+
+/**
+ * Tick the morning's first errand off.
+ *
+ * Deliberately gated on volume rather than on having pressed the key: the
+ * chore is emptying the tank, and unzipping over a full bowl and changing your
+ * mind is not that. Called from both routes, because standing over it and
+ * sitting down on it are the same job done two ways -- and the sitting route
+ * used to tick nothing at all, so a man who did both at once left the flat
+ * still owing the list a piss.
+ *
+ * @param {boolean} inShower down the drain still counts. It happened.
+ */
+function markPeed({ inShower = false } = {}) {
+  if (game.peed) return false;
+  /* Either a proper go, or whatever was left emptied to nothing. The second
+   * arm matters: wake up with less than PEE_ENOUGH in the tank and the first
+   * arm alone can never be satisfied, which would leave a required chore that
+   * the flat physically cannot let you finish. */
+  const drained = game.peeVolume > 0.012 && apartment.state.bladder <= 0.006;
+  if (game.peeVolume < PEE_ENOUGH && !drained) return false;
+  game.peed = true;
+  completeApartmentActivity('peed', TIME_EVENT_IDS.PEE);
+  if (inShower) hud.toast('Nobody will ever know', 'good');
+  else hud.toast('That is one off the list', 'good');
+  return true;
+}
+
 function startPee() {
   if (game.peeing || game.passingOut) return;
   game.peeing = true;
   game.peeTime = 0;
+  game.peeVolume = 0;
   /* In the shower it goes down the drain and there is nothing to aim at, so
    * the stream retargets to the tub floor and accuracy stops being scored.
    * Everybody does this. Nobody says it. */
@@ -3068,7 +3285,10 @@ function updatePee(dt) {
   if (!game.peeing) return;
 
   game.peeTime += dt;
+  const before = st.bladder;
   st.bladder = Math.max(0, st.bladder - dt * 0.075);
+  game.peeVolume += before - st.bladder;
+  markPeed({ inShower: game.inShower });
 
   // Ramp in, hold, then taper as the tank empties.
   const ramp = Math.min(1, game.peeTime / 0.45);
@@ -3135,7 +3355,17 @@ function startNewMorning() {
   st.panState = null;
   game.pooped = false;
   game.poopTime = 0;
+  game.peed = false;
+  game.peeVolume = 0;
+  /* A morning starts with a full one. It is the first thing a man deals with
+   * and it is now the first thing on the list, so it has to be dealable-with
+   * the moment he is on his feet rather than after twenty minutes of standing
+   * about waiting for his own bladder to fill. */
+  st.bladder = Math.max(st.bladder, 0.52);
   st.bowel = Math.max(st.bowel, 0.35);
+  st.bowelCause = null;
+  // A new morning is a new set of excuses; he has not tried this door yet today.
+  doorTries.clear();
   /* And the room itself. Sleeping is the only thing that turns a chapter, so
    * it is the only thing that has to re-dress the flat without a reload --
    * read back off the campaign rather than passed in, so a morning reached by

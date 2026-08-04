@@ -77,6 +77,7 @@ test('a fresh Tony campaign persists the complete route to an in-progress Initia
   for (const [eventId, activity] of [
     [TIME_EVENT_IDS.EAT, 'eaten'],
     [TIME_EVENT_IDS.SHOWER, 'showered'],
+    [TIME_EVENT_IDS.PEE, 'peed'],
     [TIME_EVENT_IDS.POOP, 'pooped'],
     [TIME_EVENT_IDS.CHANGE_CLOTHES, 'changedClothes'],
   ]) {

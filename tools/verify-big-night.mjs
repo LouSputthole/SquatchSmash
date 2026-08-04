@@ -146,7 +146,7 @@ try {
       day: game.time.day,
       minutes: game.time.minutes,
       door: game.apartmentStory.tryLeave({
-        eaten: true, showered: true, pooped: true, changedClothes: true,
+        eaten: true, showered: true, peed: true, pooped: true, changedClothes: true,
       }),
     };
   });

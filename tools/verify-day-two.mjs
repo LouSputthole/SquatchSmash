@@ -123,7 +123,7 @@ try {
       clock: game.time.clock12,
       events: game.campaign.state.story.timeEvents,
       door: game.apartmentStory.tryLeave({
-        eaten: true, showered: true, pooped: true, changedClothes: true,
+        eaten: true, showered: true, peed: true, pooped: true, changedClothes: true,
       }),
     };
   });
@@ -263,9 +263,11 @@ try {
       && woke.flat.heldItem !== 'phone',
     JSON.stringify(woke.flat));
   check('the objectives panel lists the Day Two morning and Booskibro’s call',
-    woke.panel.length === 5
+    // Five chores now: the bathroom is two errands, not one.
+    woke.panel.length === 6
       && woke.panel.every((row) => row.done === false)
       && woke.panel[0].text === 'Eat something'
+      && woke.panel.filter((row) => /piss|dump/i.test(row.text)).length === 2
       && woke.panel.at(-1).text === 'Answer Booskibro’s call'
       && !woke.panel.some((row) => /Lou/.test(row.text)),
     JSON.stringify(woke.panel));

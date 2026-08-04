@@ -567,6 +567,7 @@ test('apartment readiness and learned story context survive a reload', () => {
   campaign.update((state) => {
     state.activities.eaten = true;
     state.activities.showered = true;
+    state.activities.peed = true;
     state.activities.pooped = true;
     state.activities.changedClothes = true;
     state.story.meetingKnown = true;
@@ -577,6 +578,7 @@ test('apartment readiness and learned story context survive a reload', () => {
   assert.deepEqual(restored.activities, {
     eaten: true,
     showered: true,
+    peed: true,
     pooped: true,
     changedClothes: true,
     emailChecked: false,
@@ -603,6 +605,59 @@ test('a valid version two save gains the whiskey flag without corruption recover
   assert.equal(campaign.recovery, null);
   assert.equal(persisted.version, CAMPAIGN_VERSION);
   assert.equal(persisted.activities.whiskeyRelaxed, false);
+});
+
+/*
+ * The morning routine grew a fifth errand between version 10 and 11, and the
+ * split is the whole point of it: a save that had ticked the old combined
+ * bathroom chore has plainly been to the bathroom and keeps both halves, while
+ * one that had not keeps neither. Getting this backwards either un-does a
+ * chore a player finished this morning or hands them one they never did.
+ */
+test('a version ten save splits the bathroom chore in two without losing it', () => {
+  const withBoth = new MemoryStorage();
+  const done = createCampaign({ storage: new MemoryStorage() }).state;
+  done.version = 10;
+  done.activities.pooped = true;
+  delete done.activities.peed;
+  withBoth.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(done));
+
+  const inherited = createCampaign({ storage: withBoth });
+  assert.equal(inherited.state.activities.pooped, true);
+  assert.equal(inherited.state.activities.peed, true);
+  assert.equal(inherited.recoveredNow, false);
+  assert.equal(inherited.recovery, null);
+  assert.equal(
+    JSON.parse(withBoth.getItem(CAMPAIGN_STORAGE_KEY)).version, CAMPAIGN_VERSION,
+  );
+
+  const withNeither = new MemoryStorage();
+  const notDone = createCampaign({ storage: new MemoryStorage() }).state;
+  notDone.version = 10;
+  notDone.activities.pooped = false;
+  delete notDone.activities.peed;
+  withNeither.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(notDone));
+
+  const owing = createCampaign({ storage: withNeither });
+  assert.equal(owing.state.activities.pooped, false);
+  assert.equal(owing.state.activities.peed, false);
+  assert.equal(owing.recoveredNow, false);
+});
+
+/** Two errands means two clock costs, and the quick one is the cheap one. */
+test('the two bathroom errands cost the clock separately', () => {
+  const campaign = createCampaign({ storage: new MemoryStorage() });
+  const start = campaign.state.story.timeMinutes;
+  campaign.advanceTime(TIME_EVENT_IDS.PEE, (state) => { state.activities.peed = true; });
+  const afterPee = campaign.state.story.timeMinutes;
+  campaign.advanceTime(TIME_EVENT_IDS.POOP, (state) => { state.activities.pooped = true; });
+  const afterPoop = campaign.state.story.timeMinutes;
+
+  assert.equal(afterPee - start, 3);
+  assert.equal(afterPoop - afterPee, 10);
+  assert.equal(campaign.state.activities.peed, true);
+  assert.equal(campaign.state.activities.pooped, true);
+  assert.ok(campaign.state.story.timeEvents.includes(TIME_EVENT_IDS.PEE));
 });
 
 test('older Day One saves gain the Day Two event and airstrip mission without losing progress', () => {

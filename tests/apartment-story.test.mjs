@@ -149,10 +149,12 @@ test('a missed story call rings back ten seconds after the caller gives up', () 
 
 test('the morning list is the door’s own requirements, chapter by chapter', () => {
   const nothingDone = {
-    eaten: false, showered: false, pooped: false, changedClothes: false, emailChecked: false,
+    eaten: false, showered: false, peed: false, pooped: false,
+    changedClothes: false, emailChecked: false,
   };
   const allDone = {
-    eaten: true, showered: true, pooped: true, changedClothes: true, emailChecked: false,
+    eaten: true, showered: true, peed: true, pooped: true,
+    changedClothes: true, emailChecked: false,
   };
 
   /* Day One. Four chores the door genuinely refuses on, Lou's call, and
@@ -165,7 +167,8 @@ test('the morning list is the door’s own requirements, chapter by chapter', ()
   const listed = dayOne.objectives(nothingDone);
   assert.equal(listed.day, 1);
   assert.deepEqual(listed.items.map((i) => i.id), [
-    'eaten', 'showered', 'pooped', 'changedClothes', EVENT_IDS.LOU_FIRST_CALL,
+    // Two bathroom errands, not one: they are separate tanks and separate jobs.
+    'eaten', 'showered', 'peed', 'pooped', 'changedClothes', EVENT_IDS.LOU_FIRST_CALL,
     // The tutorial's optional half, which the door never checks, and the one
     // line that says what a seventeen-hour day with nothing in it is for.
     'emailChecked', 'pcUsed', 'playedGame', 'killtime',
@@ -205,7 +208,7 @@ test('the morning list is the door’s own requirements, chapter by chapter', ()
   const morning = dayTwo.objectives(nothingDone);
   assert.equal(morning.day, 2);
   assert.deepEqual(morning.items.map((i) => i.id), [
-    'eaten', 'showered', 'pooped', 'changedClothes', EVENT_IDS.BOOSKI_DAY_TWO_CALL,
+    'eaten', 'showered', 'peed', 'pooped', 'changedClothes', EVENT_IDS.BOOSKI_DAY_TWO_CALL,
   ]);
   assert.equal(morning.items.find((i) => i.id === 'eaten').required, false);
   assert.equal(morning.items.at(-1).required, true);
@@ -214,6 +217,55 @@ test('the morning list is the door’s own requirements, chapter by chapter', ()
 
   dayTwo.callAnswered(DAY_TWO_BOOSKI_CALL);
   assert.equal(dayTwo.objectives(nothingDone).items.at(-1).label, 'Leave for the airstrip');
+});
+
+/*
+ * The one hint in the flat that has to name a mechanic, because it is the one
+ * thing in the flat that cannot be worked out by looking at the room: nothing
+ * gets you onto that toilet until your body asks, and nothing asks until you
+ * have had a dart, a zyn or the raw milk. A player who has done neither can
+ * stand in that bathroom all morning.
+ */
+test('the door tells him how to get things started when it refuses over the dump', () => {
+  const story = createApartmentStory({
+    campaign: createCampaign({ storage: new MemoryStorage() }),
+    ring: () => true,
+  });
+  story.callAnswered(DAY_ONE_LOU_CALL);
+
+  const refusal = story.tryLeave({
+    eaten: true, showered: true, peed: true, pooped: false, changedClothes: true,
+  });
+  assert.equal(refusal.id, 'pooped');
+  assert.match(refusal.hint, /dart|zyn/i);
+  assert.match(refusal.hint, /milk/i);
+
+  // And the quick one says where to do it rather than how to want to.
+  const earlier = story.tryLeave({
+    eaten: true, showered: true, peed: false, pooped: false, changedClothes: true,
+  });
+  assert.equal(earlier.id, 'peed');
+  assert.match(earlier.hint, /toilet/i);
+});
+
+test('the two bathroom errands read as two different jobs on the panel', () => {
+  const story = createApartmentStory({
+    campaign: createCampaign({ storage: new MemoryStorage() }),
+    ring: () => true,
+  });
+  const items = story.objectives({
+    eaten: false, showered: false, peed: false, pooped: false, changedClothes: false,
+  }).items;
+  const labels = Object.fromEntries(items.map((item) => [item.id, item.label]));
+  assert.notEqual(labels.peed, labels.pooped);
+  assert.ok(labels.peed && labels.pooped);
+
+  // Emptying one must never tick the other. This is the bug the split fixes.
+  const halfWay = story.objectives({
+    eaten: false, showered: false, peed: true, pooped: false, changedClothes: false,
+  }).items;
+  assert.equal(halfWay.find((item) => item.id === 'peed').done, true);
+  assert.equal(halfWay.find((item) => item.id === 'pooped').done, false);
 });
 
 test('the morning list never disagrees with what the door would say', () => {
@@ -233,7 +285,8 @@ test('the morning list never disagrees with what the door would say', () => {
     },
   ];
   const activities = {
-    eaten: false, showered: false, pooped: false, changedClothes: false, emailChecked: false,
+    eaten: false, showered: false, peed: false, pooped: false,
+    changedClothes: false, emailChecked: false,
   };
 
   for (const { chapter, setup } of cases) {
@@ -259,6 +312,7 @@ test('the apartment door waits for Lou’s call even when every chore is done', 
   const result = story.tryLeave({
     eaten: true,
     showered: true,
+    peed: true,
     pooped: true,
     changedClothes: true,
     emailChecked: false,
@@ -283,6 +337,7 @@ test('the apartment door names each required chore while email stays optional', 
   const activities = {
     eaten: false,
     showered: false,
+    peed: false,
     pooped: false,
     changedClothes: false,
     emailChecked: false,
@@ -292,6 +347,10 @@ test('the apartment door names each required chore while email stays optional', 
   activities.eaten = true;
   assert.equal(story.tryLeave(activities).id, 'showered');
   activities.showered = true;
+  /* The two bathroom jobs are refused separately and in the order he would
+   * think of them. Emptying one used to satisfy both. */
+  assert.equal(story.tryLeave(activities).id, 'peed');
+  activities.peed = true;
   assert.equal(story.tryLeave(activities).id, 'pooped');
   activities.pooped = true;
   assert.equal(story.tryLeave(activities).id, 'changedClothes');
@@ -379,6 +438,7 @@ test('sleep after Squatchfather creates a persistent Day Two wake checkpoint', (
     state.story.timeMinutes = 23 * 60 + 20;
     state.activities.eaten = true;
     state.activities.showered = true;
+    state.activities.peed = true;
     state.activities.pooped = true;
     state.activities.changedClothes = true;
     state.missions[MISSION_IDS.BADA_BING_ONE].status = 'complete';
@@ -408,6 +468,7 @@ test('sleep after Squatchfather creates a persistent Day Two wake checkpoint', (
   assert.deepEqual(restored.activities, {
     eaten: false,
     showered: false,
+    peed: false,
     pooped: false,
     changedClothes: false,
     emailChecked: false,
