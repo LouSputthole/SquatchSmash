@@ -45,6 +45,17 @@ const CHOCK_COLOUR = 0x8a6a42;
  * player may not. */
 const ORDER = ['chocks', 'props', 'bay', 'payload', 'tail', 'surfaces'];
 
+/* Sasole's four propeller reactions, indexed by how many blades have been
+ * pulled through so far — see the "walkaround patter" block in
+ * `dialogue/script.js` for why these are four separate beats and not one line
+ * played four times. */
+const PROP_REACTION = [
+  'preflight.sasole.propOne',
+  'preflight.sasole.propTwo',
+  'preflight.sasole.propThree',
+  'preflight.sasole.propFour',
+];
+
 const _markerPos = new THREE.Vector3();
 const _markerOff = new THREE.Vector3();
 
@@ -56,6 +67,9 @@ const MARKER_OFFSET = {
   payload: new THREE.Vector3(0, 0.4, 0),
   tail: new THREE.Vector3(0, -0.5, 0),
   surfaces: new THREE.Vector3(0, -1.0, 0),
+  /* The crew door. Not one of the six checks — it is where the marker goes
+   * AFTER they are all done. See `pointAtBoarding()`. */
+  board: new THREE.Vector3(0, -0.35, 0),
 };
 
 /**
@@ -101,6 +115,30 @@ export class EnolaPreflight {
     this.armed = false;
     this.onProgress = null;
     this.onComplete = null;
+
+    /* THE BOARDING BUG (owner playtest, 2026-08-04: "No way to board aircraft
+     * after precheck").
+     *
+     * The crew door's interaction target was armed correctly and, tested from
+     * a pose two metres off the door, prompted and boarded correctly — which
+     * is exactly why the verifier passed it. What no test covered was the
+     * thirty seconds BEFORE that pose. For all six checks the only thing
+     * telling the player where to go is this marker; `update()` below hid it
+     * the instant `complete` went true, which is the one moment it had
+     * something new to say. The walk ends at the ELEVATOR — 12.4 m behind the
+     * tail, measured in a browser — and the door is a 0.8 m panel on the far
+     * (port) side of a 15.5 m fuselage under 33.5 m of wing. So the guidance
+     * switched off, the objective line said "Climb aboard and take the left
+     * seat" with no direction in it, and the two lines that do say where the
+     * door is (`preflight.done` / `preflight.board`) have no recordings and
+     * scroll past as subtitles. The player is not stranded by a broken
+     * interaction; he is stranded because nothing on screen points at the one
+     * part of the aeroplane he now needs.
+     *
+     * `boardAnchor` is that fix: the mission hands the marker the boarding hit
+     * box, and the same ring/diamond/footprint that walked him round the
+     * aeroplane walks him to the door and stays there until he is in it. */
+    this.boardAnchor = null;
 
     this.propChecked = [false, false, false, false];
     this.surfaceAnim = 0;
@@ -219,8 +257,28 @@ export class EnolaPreflight {
     return !this.tasks.chocks.done;
   }
 
+  /**
+   * Point the guidance marker at the crew door once the walk is done.
+   *
+   * Called by `MissionController.armBoardingTarget()` with the same hit box
+   * the interaction system is registered against, so the thing that pulses is
+   * by construction the thing the crosshair has to find — they cannot drift
+   * apart the way a hand-placed second marker would.
+   *
+   * @param {?THREE.Object3D} object the boarding hit box, or null to clear
+   */
+  pointAtBoarding(object = null) {
+    this.boardAnchor = object;
+  }
+
+  /** True while the marker is standing on the crew door rather than a check. */
+  get guidingToDoor() {
+    return !!this.boardAnchor && this.complete;
+  }
+
   markerTarget() {
     const ac = this.aircraft;
+    if (this.guidingToDoor) return this.boardAnchor;
     switch (this.next?.name) {
       case 'chocks': return this.chocks.find((c) => !c.userData.pulled) ?? this.chocks[0];
       case 'props': return ac.parts.prop.find((_, i) => !this.propChecked[i]) ?? ac.parts.prop[0];
@@ -240,7 +298,7 @@ export class EnolaPreflight {
     const target = this.markerTarget();
     if (!target) return null;
     target.getWorldPosition(out);
-    const off = MARKER_OFFSET[this.next?.name];
+    const off = MARKER_OFFSET[this.guidingToDoor ? 'board' : this.next?.name];
     if (off) out.add(_markerOff.copy(off).applyQuaternion(this.aircraft.group.quaternion));
     return out;
   }
@@ -284,6 +342,14 @@ export class EnolaPreflight {
           chock.rotation.z = i === 0 ? 1.4 : -1.4;
           this.interaction.unregister(chock);
           this.audio?.play?.('frame.adjust', { volume: 0.6 });
+          /* Sasole's reaction half — see the "walkaround patter" block in
+           * `dialogue/script.js`. Fired from `onUse` rather than a timer so it
+           * can only ever play at a part the player has actually touched, and
+           * queued BEFORE `finish()` so it cannot land behind `preflight.done`
+           * on a player who leaves the chocks until last. */
+          if (this.tasks.chocks.count + 1 >= this.tasks.chocks.need) {
+            this.dialogue.play('preflight.sasole.chocksDone', { once: true });
+          }
           this.finish('chocks');
         },
       });
@@ -302,8 +368,14 @@ export class EnolaPreflight {
           hub.rotation.z += (Math.PI * 2) / 3;
           this.audio?.play?.('frame.adjust', { volume: 0.4 });
           this.interaction.unregister(hub);
+          /* One line per blade pulled, in the order they are pulled — NOT one
+           * line per engine number, because the player may start at number
+           * four. `PROP_REACTION` is indexed by how many are done, and queued
+           * before `finish()` for the same reason the chock reaction is. */
+          const said = PROP_REACTION[this.tasks.props.count];
+          if (said) this.dialogue.play(said, { once: true });
+          if (this.tasks.props.count + 1 === 4) this.dialogue.play('preflight.props.all', { once: true });
           this.finish('props');
-          if (this.tasks.props.count === 4) this.dialogue.play('preflight.props.all', { once: true });
         },
       });
     });
@@ -317,6 +389,7 @@ export class EnolaPreflight {
       onLook: () => this.dialogue.play('preflight.numbskull', { once: true }),
       onUse: () => {
         this.dialogue.play('preflight.bombbay', { once: true });
+        this.dialogue.play('preflight.sasole.bayDone', { once: true });
         this.audio?.play?.('switch.click', { volume: 0.7 });
         this.interaction.unregister(ac.parts.patches[2]);
         this.finish('bay');
@@ -334,6 +407,7 @@ export class EnolaPreflight {
         onLook: () => this.dialogue.play('preflight.payload.look', { once: true }),
         onUse: () => {
           this.dialogue.play('preflight.restraints', { once: true });
+          this.dialogue.play('preflight.sasole.payloadDone', { once: true });
           this.audio?.play?.('can.set', { volume: 0.5 });
           this.interaction.unregister(this.payload.group);
           this.finish('payload');
@@ -349,6 +423,7 @@ export class EnolaPreflight {
       enabled: () => !this.tasks.tail.done,
       onUse: () => {
         this.dialogue.play('preflight.shubes.first', { once: true });
+        this.dialogue.play('preflight.sasole.tailDone', { once: true });
         this.crew?.speak?.('SHUBES', 2.0);
         this.audio?.play?.('gun.dry', { volume: 0.5 });
         this.interaction.unregister(ac.parts.rearGunStation);
@@ -366,6 +441,10 @@ export class EnolaPreflight {
         this.surfaceAnim = 1;
         this.audio?.play?.('frame.adjust', { volume: 0.5 });
         this.interaction.unregister(ac.parts.elevator);
+        // Before `finish()`, not after: `finish()` is what fires `onComplete`,
+        // and "That is the walk" has to queue behind the reaction to the check
+        // that finished it, not in front of it.
+        this.dialogue.play('preflight.sasole.surfacesDone', { once: true });
         this.finish('surfaces');
       },
     });
@@ -375,6 +454,7 @@ export class EnolaPreflight {
     for (const m of this.registered) this.interaction.unregister(m);
     this.registered.length = 0;
     this.armed = false;
+    this.boardAnchor = null;
     this.marker.visible = false;
   }
 
@@ -387,7 +467,11 @@ export class EnolaPreflight {
     }
 
     this.markerT += dt;
-    const anchor = this.armed && !this.complete ? this.markerAnchor(_markerPos) : null;
+    /* `|| this.guidingToDoor` is the boarding fix: the marker used to die on
+     * `complete` and leave the player looking for a door he has never been
+     * shown. See the `boardAnchor` note in the constructor. */
+    const guiding = this.armed && (!this.complete || this.guidingToDoor);
+    const anchor = guiding ? this.markerAnchor(_markerPos) : null;
     if (anchor) {
       const ground = physics ? physics.position.y - AC_ENOLA.gearY : anchor.y - 1;
       this.marker.visible = true;

@@ -70,8 +70,9 @@ import { InteractionSystem } from '../core/interaction.js';
 import { Player } from '../core/player.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { roomEnvironment } from '../world/textures.js';
+import { resolveGear } from '../world/gear.js';
 
-import { WP } from '../beefrun/config.js';
+import { WP, ZONES } from '../beefrun/config.js';
 import { buildAirfield } from '../beefrun/airfield.js';
 import { terrainHeight } from '../beefrun/terrain.js';
 import { AircraftPhysics } from '../beefrun/physics.js';
@@ -95,12 +96,16 @@ import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
 import { EnolaPreflight } from './preflight.js';
+import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
 import { EnolaAudioEngine, EnolaMissionAudio } from './audio.js';
 
 const CORRIDOR = LANDMARKS_EAST.find((l) => l.id === 'corridor');
 const COMPOUND = LANDMARKS_EAST.find((l) => l.id === 'compound');
 const RETURN_HEADING = (TURN_POINT.newHeading + 180) % 360;
+/* Beef Run's own palette for the ground Whispering Pines stands on — see the
+ * colour blend in `buildEastGround()`. */
+const PINES_ZONE = ZONES.find((z) => z.id === 'pines');
 
 const $ = (id) => document.getElementById(id);
 const canvas = $('scene');
@@ -253,6 +258,25 @@ function buildEastGround(sceneRef) {
     const hz = groundHeightCombined(wx, wz + 10) - groundHeightCombined(wx, wz - 10);
     const steep = clamp(Math.hypot(hx, hz) / 26, 0, 1);
     c.copy(groundCol).lerp(rockCol, steep * 0.85);
+    /* WHISPERING PINES IS GREEN. Owner: "Missing all the grass and stuff at
+     * whispering pines airport." The heights already blend into Beef Run's
+     * carved corridor near the field (`groundHeightCombined`, above) but the
+     * COLOURS did not: every vertex within sight of the aerodrome was painted
+     * `ZONES_EAST[0]`'s night-desert slate, so the Beef Run's forest airstrip
+     * became a grey pan the moment this mission drew it. Blending the palette
+     * over the same `x` window the height blend uses is the one-line
+     * counterpart to that blend, and it means the tree scatter in
+     * `./airfield-scenery.js` stands on ground the same colour as itself.
+     *
+     * A second, finer grass mesh laid over this one was tried first and is
+     * exactly what NOT to do: two co-planar heightfields at different vertex
+     * densities z-fight into speckled confetti across the whole field. One
+     * ground mesh, recoloured. */
+    const west = 1 - smoothstep(400, 1500, Math.hypot(wx - WP.x, 0));
+    if (west > 0) {
+      const near = PINES_ZONE.ground;
+      c.lerp(new THREE.Color(near).lerp(new THREE.Color(PINES_ZONE.rock), steep * 0.85), west);
+    }
     const tint = 0.86 + fbm(wx / 110, wz / 110, 2) * 0.28;
     c.multiplyScalar(tint);
     colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
@@ -366,6 +390,16 @@ const missionAudio = new EnolaMissionAudio(audio);
 
 const airfield = buildAirfield(scene, {});
 
+/* The grass, the treeline and the tufts. Owner: "Missing all the grass and
+ * stuff at whispering pines airport." `buildAirfield` was always here — the
+ * hangar, the runway, the windsock, the beacon — but the GROUND it stands on
+ * came from `buildEastGround` below, a single 50 m-per-segment route mesh with
+ * no scatter, where the Beef Run gets a streamed forest. See
+ * `./airfield-scenery.js` for why this dresses the field rather than running a
+ * second terrain system over it. */
+window.__squatchStage?.('Planting Whispering Pines…');
+const airfieldScenery = buildAirfieldScenery(scene, { getHeight: (x, z) => groundHeightCombined(x, z) });
+
 /* On foot, for the opening walkaround only. Same three pieces the Beef Run
  * uses on the apron — `InteractionSystem`, `Player`, and a `world` whose
  * `groundAt` is this mission's own heightfield — and after boarding the player
@@ -385,6 +419,21 @@ scene.add(aircraft.group);
 
 const payload = new FatSquatch();
 aircraft.anchors.payloadMount.add(payload.group);
+
+/* The club's crest, onto the aeroplane's three badges and the bomb's two.
+ * Owner: "Aircraft is nice. Needs Squatch logo." + "Squatch logo on the bomb
+ * too." `crest.round` is an EXISTING art slot pointing at the existing
+ * `assets/art/logo-crest.png` (see `assets/art/manifest.json`), so no new art
+ * and no manifest change; if the file ever goes missing, `resolveGear` hands
+ * back its own drawn placeholder and the badges simply keep the drawn crest
+ * they were built with. Fire-and-forget on purpose — nothing waits for it. */
+let clubLogoBadges = 0;
+resolveGear(['crest.round'])
+  .then((gear) => {
+    const tex = gear.get('crest.round')?.texture;
+    clubLogoBadges = aircraft.applyClubLogo(tex) + payload.applyClubLogo(tex);
+  })
+  .catch(() => { /* the drawn crest is already on every badge */ });
 
 /* Squatchbourg. Built once, up front, because it is 15 draw calls and about
  * 22k triangles that never change until they are removed — see the budget note
@@ -442,6 +491,49 @@ input.rudderKeys = true; // always in the cockpit — no on-foot 'E' to share Q/
  * heightfield, so the airfield end of the route keeps Beef Run's own look.
  */
 /* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/* Nightfall lighting                                                  */
+/*
+ * `WeatherSystem.night` (reused unmodified from the Beef Run) darkens the SKY
+ * and the FOG toward near-black, and nothing else: the sun and hemisphere
+ * intensities it drives every frame are functions of `dusk` alone, bottoming
+ * out at 0.75 and 0.8. So a mission that sets `night: 1` gets a black sky over
+ * a landscape still lit like six in the evening — which is what the whole
+ * eastbound leg of this raid looked like, and what the new nightfall cut would
+ * have cut TO if this were not here.
+ *
+ * Correcting it inside `weather.js` would mean changing a file the Beef Run
+ * shares, so this scales the two lights from this mission's own frame instead,
+ * after `weather.update()` has written them. Beef Run never sets `night`, and
+ * nothing here runs in Beef Run's frame either way.
+ *
+ * Floors, not zeroes. A night raid the player cannot fly is not atmosphere: at
+ * full night the ground keeps about a fifth of its light and the hemisphere
+ * goes cold blue, which is enough to read terrain, the runway lamps, the
+ * compound and the crater against.
+ */
+/* ------------------------------------------------------------------ */
+
+const _nightHemi = new THREE.Color(0x1c2740);
+const _moonlight = new THREE.Color(0x8fa6d9);
+
+/**
+ * Applied every frame AFTER `weather.update()`, which is what makes it a
+ * fixed blend rather than a damped one: the weather system recomputes both
+ * lights from scratch each frame, so this re-tints that fresh value instead of
+ * chasing it. Damping toward night here would just fight the weather system's
+ * own damping toward day and settle halfway.
+ */
+function applyNight() {
+  const n = clamp(weather.night ?? 0, 0, 1);
+  if (n <= 0) return;
+  weather.sun.intensity *= lerp(1, 0.21, n);
+  weather.hemi.intensity *= lerp(1, 0.27, n);
+  // Moonlight is blue and comes from nowhere in particular.
+  weather.hemi.color.lerp(_nightHemi, 0.8 * n);
+  weather.sun.color.lerp(_moonlight, 0.7 * n);
+}
 
 const _fogColour = new THREE.Color();
 
@@ -661,6 +753,70 @@ function autoStartCaptainEngines() {
 
 const game = { started: false, paused: true };
 
+/* ------------------------------------------------------------------ */
+/* The nightfall cut's screen                                          */
+/*
+ * `MissionController` owns the timing and the world state; this owns the two
+ * pixels of DOM it needs. Built here in JS rather than added to
+ * `enolasquatch.html` so the whole cut lives inside `src/enolasquatch/`, and
+ * because the element is meaningless to every other phase.
+ *
+ * Deliberately NOT a full-black card for the whole run: the middle six seconds
+ * of the cut are the real sky running down, rendered live, with the fade at
+ * zero. Black is used for eight-tenths of a second, once, to cover the moment
+ * the aeroplane is moved from the apron to the runway.
+ */
+/* ------------------------------------------------------------------ */
+
+const cutscreen = document.createElement('div');
+cutscreen.id = 'enola-cutscene';
+cutscreen.style.cssText = [
+  'position:fixed', 'inset:0', 'pointer-events:none', 'z-index:40',
+  'display:none', 'opacity:1',
+].join(';');
+const cutFade = document.createElement('div');
+cutFade.style.cssText = 'position:absolute;inset:0;background:#05050a;opacity:0';
+const cutBars = document.createElement('div');
+cutBars.style.cssText = [
+  'position:absolute', 'inset:0',
+  'background:linear-gradient(#05050a 0 9%,transparent 9% 91%,#05050a 91% 100%)',
+].join(';');
+/* The location card sits under the TOP letterbox bar, not above the bottom
+ * one: the dialogue subtitles live at the bottom of the screen and the first
+ * cut of this put the caption straight through them. */
+const cutText = document.createElement('div');
+cutText.style.cssText = [
+  'position:absolute', 'left:0', 'right:0', 'top:15%', 'text-align:center',
+  'font:600 26px/1.25 "Trebuchet MS",system-ui,sans-serif',
+  'letter-spacing:0.18em', 'color:#e8c86a', 'text-shadow:0 2px 14px #000',
+].join(';');
+const cutSub = document.createElement('div');
+cutSub.style.cssText = [
+  'position:absolute', 'left:0', 'right:0', 'top:21%', 'text-align:center',
+  'font:400 15px/1.3 "Trebuchet MS",system-ui,sans-serif',
+  'letter-spacing:0.1em', 'color:#cfd4e0', 'text-shadow:0 2px 10px #000',
+].join(';');
+const cutSkip = document.createElement('div');
+cutSkip.style.cssText = [
+  'position:absolute', 'right:26px', 'bottom:20px',
+  'font:400 12px/1 "Trebuchet MS",system-ui,sans-serif',
+  'letter-spacing:0.14em', 'color:#8a8f9c',
+].join(';');
+cutSkip.textContent = 'SPACE — SKIP';
+cutscreen.append(cutFade, cutBars, cutText, cutSub, cutSkip);
+document.body.appendChild(cutscreen);
+
+function paintCutscene() {
+  const cs = mission.cutscene;
+  const on = !!cs?.active;
+  cutscreen.style.display = on ? 'block' : 'none';
+  if (!on) return;
+  cutFade.style.opacity = String(cs.fade ?? 0);
+  cutText.textContent = cs.caption || '';
+  cutSub.textContent = cs.sub || '';
+  cutSkip.style.display = cs.skippable ? 'block' : 'none';
+}
+
 function paintHud() {
   flightHud.setFlight(physics, { fuel: engines.fuel / AC_ENOLA.fuelMass });
   flightHud.setEngines(engineHudView(engines));
@@ -669,6 +825,7 @@ function paintHud() {
   updateCargoReadout();
   updatePreflightChecklist();
   updateChoicePanel();
+  paintCutscene();
 }
 
 /** One simulated tick: input -> physics -> engines -> mission -> dialogue ->
@@ -738,6 +895,7 @@ function simulateFrame(dt) {
 
   const focus = inCockpit ? physics.position : player.position;
   weather.update(dt, focus);
+  applyNight();
   applyEastFog(focus.x, dt);
   airfield.update(dt, 0.4 + weather.crosswind * 0.1, 0);
 
@@ -773,7 +931,16 @@ function go(phase) {
     case 'walkaround':
       if (mission.phase !== 'walkaround') mission.setPhase('walkaround');
       break;
+    case 'nightfall':
+      mission.setPhase('nightfall');
+      break;
     case 'preflight':
+      /* Straight to the seat with the field already dark. `go('preflight')` is
+       * the "skip the opening" shortcut, and skipping the opening must not
+       * skip the night — the whole mission after this point is a night raid
+       * and every later phase assumes it. Same two calls the cut's own last
+       * step makes; see `MissionController.stageNightRunway()`. */
+      mission.stageNightRunway();
       mission.setPhase('preflight');
       break;
     case 'taxi': {
@@ -1006,7 +1173,25 @@ window.__enolaSquatch = {
         total: Object.keys(preflight.tasks).length,
         next: preflight.next?.name ?? null,
         complete: preflight.complete,
+        guidingToDoor: preflight.guidingToDoor,
+        markerVisible: preflight.marker.visible,
       },
+      boarding: {
+        armed: !!mission.boardTarget,
+        distance: mission.boardingDistance(),
+      },
+      /* The nightfall cut, for the verifier: whether the screen is up, how
+       * black it is, and what the world under it looks like. */
+      cutscene: mission.cutscene ? { ...mission.cutscene } : null,
+      night: { dusk: weather.dusk, night: weather.night, staged: mission.nightfallStaged },
+      /* The club crest: how many badges exist and how many carry the real
+       * artwork rather than the drawn stand-in. */
+      clubLogo: {
+        onAircraft: aircraft.parts.clubLogo?.length ?? 0,
+        onPayload: payload.parts.clubLogo?.length ?? 0,
+        realArtworkApplied: clubLogoBadges,
+      },
+      scenery: { trees: airfieldScenery.trees, tufts: airfieldScenery.tufts },
       cityDestroyed: city.destroyed,
       phaseTime: +mission.phaseTime.toFixed(2),
       missionTime: +mission.missionTime.toFixed(2),
@@ -1057,7 +1242,8 @@ startBtn.addEventListener('click', () => {
   if (!game.started) {
     game.started = true;
     mission.begin();
-    hud.say('<em>Whispering Pines Municipal, well after dark.</em> Walk her with the Captain before you get in.', 6000);
+    // Daylight on the apron, dark by the runway — see the `nightfall` phase.
+    hud.say('<em>Whispering Pines Municipal, the last of the afternoon.</em> Walk her with the Captain before you get in.', 6000);
   }
   startAudio();
   overlay.classList.add('hidden');
@@ -1183,6 +1369,10 @@ document.addEventListener('keydown', (e) => {
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
   player.setKey(e.code, true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
+  // The nightfall cut is skippable — see `MissionController.skipCutscene()`.
+  if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {
+    mission.skipCutscene();
+  }
   handleMissionChoiceKey(e.code);
 }, true);
 

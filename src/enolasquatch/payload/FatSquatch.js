@@ -23,6 +23,7 @@ import {
   mat, solid, boxGeo, cylGeo, sphereGeo, planeGeo,
   mesh, flatMesh, group, rng,
 } from '../../beefrun/util.js';
+import { crestPlaceholderTexture, applyCrest } from '../livery.js';
 
 const G = 9.81;
 
@@ -269,6 +270,29 @@ export class FatSquatch {
       this.parts.stickers.push(plane);
     }
 
+    /* ---- The Silver Sasquatches crest, stencilled on the casing ----
+     *
+     * Owner playtest, 2026-08-04: "Squatch logo on the bomb too." Same
+     * artwork and the same mechanism as the aeroplane's three badges — see
+     * `../livery.js`. Two of them, one on each shoulder of the casing forward
+     * of the girth band, where they are visible from the tarmac with the bay
+     * open (which is exactly when the player is stood under this thing doing
+     * the restraints check) and from the chase camera on the way down.
+     */
+    this.parts.clubLogo = [];
+    for (const sx of [-1, 1]) {
+      const badge = flatMesh(
+        planeGeo(0.78, 0.78),
+        mat({ map: crestPlaceholderTexture(), roughness: 0.72, transparent: true, alphaTest: 0.02, unique: true }),
+        sx * BODY_R * 0.86, BODY_R * 0.5, 1.34,
+      );
+      badge.rotation.y = sx > 0 ? Math.PI / 2 : -Math.PI / 2;
+      badge.rotation.z = sx * -0.5;
+      badge.name = 'fat-squatch-crest';
+      g.add(badge);
+      this.parts.clubLogo.push(badge);
+    }
+
     // ---- Restraint straps: barely secured, visibly under tension in some
     // places and slack in others ----
     this.parts.strapMeshes = [];
@@ -302,6 +326,18 @@ export class FatSquatch {
     for (const strap of this.parts.strapMeshes) {
       strap.visible = false;
     }
+  }
+
+  /**
+   * Paint the club's real crest onto the two casing badges — see
+   * `../livery.js`. Called by the composition root when `resolveGear` settles;
+   * until then they wear the drawn crest.
+   *
+   * @param {?THREE.Texture} texture
+   * @returns {number} badges repainted
+   */
+  applyClubLogo(texture) {
+    return applyCrest(this.parts.clubLogo, texture);
   }
 
   /**

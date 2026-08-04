@@ -140,6 +140,98 @@ export const BEATS = {
     L('Three and four are yours, Prospect. Don’t be gentle, be correct.', 3.2),
   ],
 
+  /* ---------------- Sasole's walkaround patter ----------------
+   *
+   * 2026-08-04, owner note: "Lets give Sasole a new set of precheck whippy
+   * snappy voice lines like he has in the other one." The model is the Beef
+   * Run's own `preflight.*` block in `src/beefrun/script.js` (lines 119-145) —
+   * short, dry, one idea per line, the punchline landing on a noun. The block
+   * above is the INSTRUCTION half of each check ("do this, here is why"), and
+   * it stays exactly as it was. This block is the REACTION half: one clipped
+   * Sasole line the moment the check is actually finished, which is where the
+   * Beef Run gets its rhythm from (`preflight.chocks` -> `preflight.chocks.done`,
+   * `preflight.drain` -> `preflight.drain.clear`). `preflight.js` fires these
+   * from the same `onUse` that completes the task, so they can never play at a
+   * part the player has not touched.
+   *
+   * The four propeller reactions are deliberately four separate beats rather
+   * than one repeated line: the joke of this airframe is that there are four
+   * of everything, and a man saying the same sentence four times is a bug,
+   * not a gag. */
+
+  'preflight.sasole.chocksDone': [
+    L('Both of them. There are always two, and there is always a pilot who found out there were two.', 4.4),
+  ],
+
+  'preflight.sasole.propOne': [
+    L('One. Nine more blades to go, Prospect.', 2.4),
+  ],
+
+  'preflight.sasole.propTwo': [
+    L('Two. This is the part of aviation nobody puts on a poster.', 3.2),
+  ],
+
+  'preflight.sasole.propThree': [
+    L('Three. If one of these bites you, we are down a bombardier and a hand.', 3.6),
+    N('I am the bombardier.', 1.8),
+    L('Then be careful for both of us.', 2.4),
+  ],
+
+  'preflight.sasole.propFour': [
+    L('Four. Every fan turns, nothing is seized, nobody is bleeding. Best preflight I have had all year.', 4.6),
+  ],
+
+  'preflight.sasole.bayDone': [
+    L('Panel is on. That is not the same as the panel being right, but it is the half I can see.', 4.2),
+  ],
+
+  'preflight.sasole.payloadDone': [
+    L('Straps are tight. That bomb goes out of this aeroplane once, on purpose, over somebody else.', 4.4),
+  ],
+
+  'preflight.sasole.tailDone': [
+    L('Gun swings, ammunition is in it, and there is a Shubenator attached. Two of those I asked for.', 4.4),
+  ],
+
+  'preflight.sasole.surfacesDone': [
+    L('Elevator moves the way the wheel tells it to. Small thing. Only matters every second we are up.', 4.4),
+  ],
+
+  /* Fired by `MissionController.updateWalkaround()` when the walk is finished
+   * and the player has not gone to the door — see the boarding-guidance note
+   * over `armBoardingTarget()`. Sasole says where the door IS, which is the
+   * one thing none of the existing lines do. */
+  'preflight.sasole.boardNudge': [
+    L('Door is on the port side, behind the wing, with a ladder under it. Follow the marker, Prospect.', 4.6),
+    L('I will be in the right seat pretending I did not have to say that.', 3.2),
+  ],
+
+  /* ---------------- Nightfall: the cut from apron to runway ----------------
+   *
+   * 2026-08-04, owner note: "its also daytime. Is it going to turn night when
+   * we take off after we do the precheck maybe a cutscene where it turns to
+   * night and we are in the plane on the runway for takeoff?" — these are the
+   * lines over that cut. Written to be readable while the sky is doing the
+   * work, i.e. nobody says anything that needs a picture to explain it. */
+
+  'nightfall.hatch': [
+    L('Hatch closed. Bay closed. Nobody gets out of this aeroplane for the next four hours.', 4.4),
+    H('I would like it noted that I did not get in on purpose.', 3.0),
+    L('Noted. Denied.', 1.8),
+  ],
+
+  'nightfall.wait': [
+    I('We do not go in daylight. We sit until the field goes dark and then we go.', 4.2),
+    P('How long?', 1.4),
+    L('Long enough to think about it. Not long enough to change your mind.', 3.6),
+  ],
+
+  'nightfall.lineup': [
+    L('There it is. Whispering Pines at night, one runway, no tower, nobody to tell us not to.', 4.6),
+    I('Lined up and holding, Captain. Lamps are out down both edges.', 3.2),
+    L('Then we are done waiting. Battery, fuel, four engines, Prospect. Wake her up.', 4.2),
+  ],
+
   /* ---------------- Taxi / takeoff ---------------- */
 
   'taxi.line': [
@@ -350,6 +442,16 @@ export const BEATS = {
  * each entry instead of hardcoding a single owner.
  */
 export const BARKS = {
+  /* Sasole, while the player is stood on the apron not doing the next check.
+   * A pool rather than a beat because it has to be able to come back — see
+   * `MissionController.updateWalkaround()`'s idle timer. Cooldown lives in
+   * ../DialogueSystem.js's BARK_COOLDOWN table. */
+  walkaroundIdle: [
+    { who: 'SASOLE', text: 'Marker is on the next one, Prospect. It is not going to check itself.' },
+    { who: 'SASOLE', text: 'She is thirty-three metres across. Walking is most of the job.' },
+    { who: 'IRISH', text: 'Sun is going down on us, Prospect. Keep moving.' },
+    { who: 'SASOLE', text: 'I have watched men stare at this aeroplane before. It never once fixed anything.' },
+  ],
   heavyBanked: [
     { who: 'SASOLE', text: 'Easy. She’s not the little plane. Ease it back.' },
     { who: 'SASOLE', text: 'That bank angle is a request she is declining.' },
@@ -413,7 +515,12 @@ export function allEnolaSquatchLines() {
 
 export const OBJECTIVES = {
   WALKAROUND: 'Walk the aeroplane with Captain Sasole.',
-  BOARD: 'Climb aboard and take the left seat.',
+  /* The walk's guidance marker follows this objective to the crew door — see
+   * `EnolaPreflight.pointAtBoarding()`. The text names the SIDE and the
+   * LANDMARK because "climb aboard" on its own is not an instruction on an
+   * aeroplane with 33.5 m of wing and one 0.8 m door. */
+  BOARD: 'Climb aboard — crew door, port side, behind the wing.',
+  NIGHTFALL: 'Wait for dark.',
   PREFLIGHT: 'Battery, fuel, all four engines, brakes off.',
   TAXI: 'Taxi to the runway and line up.',
   TAKEOFF: 'Hold the line. Throttle up. Rotate before the runway ends.',
