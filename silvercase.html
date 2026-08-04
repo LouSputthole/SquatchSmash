@@ -34,12 +34,42 @@
     background: #14141a; color: #fff; font: inherit; text-decoration: none; cursor: pointer;
   }
 
-  /* ---------- reticle (decorative only, no JS hook) ---------- */
+  /* ---------- reticle ----------
+     Decorative until a beat asks the player to shoot somebody, at which point
+     `.hot` says the crosshair is genuinely on the man the order named. The
+     shot is resolved by a ray down this exact point (src/silvercase/combat/
+     Shooting.js), so this dot is now load-bearing rather than dressing. */
   #reticle {
     position: fixed; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
     border-radius: 50%; background: rgba(255,255,255,.75); box-shadow: 0 0 4px #000;
-    pointer-events: none; z-index: 3;
+    pointer-events: none; z-index: 3; transition: background .08s, box-shadow .08s, transform .08s;
   }
+  #reticle.aiming { background: rgba(255,255,255,.95); transform: scale(1.5); }
+  #reticle.hot {
+    background: var(--red); transform: scale(2.1);
+    box-shadow: 0 0 6px #000, 0 0 12px rgba(217,72,58,.95);
+  }
+
+  /* ---------- on-screen game instruction ----------
+     The hub's register, not a character's: no speaker, no voice, no cue. */
+  #instruction {
+    position: absolute; left: 50%; top: 20%; transform: translateX(-50%);
+    width: min(640px, 90vw); text-align: center; padding: 9px 18px;
+    border: 1px solid rgba(232,180,99,.55); border-radius: 8px;
+    background: rgba(15,13,10,.72); font-size: 17px; font-weight: 800;
+    letter-spacing: .6px; color: #f3e4c6; text-shadow: 0 2px 6px #000;
+    opacity: 0; transition: opacity .25s;
+  }
+  #instruction.show { opacity: 1; }
+  #instruction.urgent { border-color: rgba(217,72,58,.85); color: #ffd9d2; }
+
+  /* The name that appears under the reticle when it is on the right man. */
+  #targetTag {
+    position: absolute; left: 50%; top: calc(50% + 22px); transform: translateX(-50%);
+    font-size: 13px; font-weight: 900; letter-spacing: 3px; color: var(--red);
+    text-shadow: 0 2px 6px #000; opacity: 0; transition: opacity .1s;
+  }
+  #targetTag.show { opacity: 1; }
 
   /* ---------- HUD ---------- */
   #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; display: none; }
@@ -162,6 +192,8 @@
 
   <div id="hud">
     <div id="objective"><span class="label">OBJECTIVE</span><span id="objectiveText"></span></div>
+    <div id="instruction"></div>
+    <div id="targetTag"></div>
     <div id="subs"><div id="subsWho"></div><div id="subsLine"></div></div>
     <div id="prompt">
       <span id="promptKey">E</span><span id="promptText"></span>
@@ -185,7 +217,7 @@
       <div><b>WASD / Arrows</b> Move</div>
       <div><b>Mouse</b> Look (click the window to capture the cursor)</div>
       <div><b>E</b> Interact &nbsp;&middot;&nbsp; hold E where a prompt asks for it</div>
-      <div><b>Left Click</b> Fire, when it matters</div>
+      <div><b>Left Click</b> Fire &mdash; the shot goes where the crosshair is, so aim</div>
       <div><b>Right Click</b> Reach for your weapon (don't, unless Ape says so)</div>
       <div><b>1&ndash;4</b> Pick a response when a choice is on screen</div>
       <div><b>Tab / Esc</b> Pause &nbsp;&middot;&nbsp; <b>M</b> Mute</div>

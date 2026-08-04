@@ -37,6 +37,14 @@ export const BATHROOM_DOOR = Object.freeze({
   x: 11.2, z: -2.5, width: 0.9, height: 2.2,
   hinge: Object.freeze({ x: 10.75, z: -2.5 }), // west jamb, away from the kitchen counter
   openRotationY: -Math.PI / 2 + 0.05,
+  /**
+   * Not quite shut, which is the mission's own line about it: "The bathroom
+   * door isn't quite shut." It is the tell that there is a fourth man in the
+   * flat, so the door has to be visibly off the latch from the moment the
+   * player is in the room — an eight-centimetre black gap at the strike side,
+   * not a closed slab that the script merely claims is ajar.
+   */
+  ajarRotationY: -0.09,
 });
 
 // Every position later phases (cast/, state/) need, settled now so nothing
@@ -64,7 +72,13 @@ export const ANCHORS = Object.freeze({
   kitchenSpot: Object.freeze({ x: 10.6, y: 0, z: -0.2, yaw: -Math.PI / 2 }), // Person heading, faces -x
   bathroomDoorway: Object.freeze({ x: 11.2, y: 0, z: -2.4, yaw: 0 }), // Person heading, faces +z (into the room)
   caseSpot: Object.freeze({ x: 9.6, y: 0.05, z: 1.6 }),
-  coffeeTableSpot: Object.freeze({ x: 9.0, y: 0, z: 1.6 }),
+  // In FRONT of the couch, not inside it. The couch is a 2.15 m run centred on
+  // x=8 with its front face at z=1.76 (see the COUCH block below); the table is
+  // 1.20 x 0.62, so at the old (9.0, 1.6) its near half was buried in the
+  // cushions and its long axis was hanging off the end of the couch. Centred on
+  // the couch and set back 0.30 m from its front edge — a normal walking gap —
+  // the whole living half of the flat reads as one arrangement.
+  coffeeTableSpot: Object.freeze({ x: 8.0, y: 0, z: 1.05 }),
   tvSpot: Object.freeze({ x: 6.06, y: 1.55, z: -1.6 }),
   fridgeSpot: Object.freeze({ x: 11.64, y: 0, z: 1.95 }),
   // On the wall's west segment, well clear of the bathroom doorway. The
@@ -465,16 +479,74 @@ export function buildApartmentScene() {
   interactables.push(frontDoorHit);
 
   // ---------------- the bathroom door + shallow alcove ----------------
+  // The one door in this flat the mission asks the player to read, and it used
+  // to be a single 6 cm slab of laminate with no casing, no hardware and no
+  // panels — indistinguishable from a cupboard, in a beat whose whole point is
+  // that somebody is behind it. It now gets what every other door in this level
+  // already had (two sunk panels, a lined casing, a knob) plus the two things
+  // only this one needs: a strike-side edge dark enough to read as a gap when
+  // it sits ajar, and a light behind it.
   const bathDoorPivot = new THREE.Group();
   bathDoorPivot.name = 'bathDoorPivot';
   bathDoorPivot.position.set(BATHROOM_DOOR.hinge.x, 0, BATHROOM_DOOR.hinge.z);
+  const BW = BATHROOM_DOOR.width;
+  const BH = BATHROOM_DOOR.height;
   const bathDoorLeaf = box({
-    size: [BATHROOM_DOOR.width, BATHROOM_DOOR.height, 0.06],
-    pos: [BATHROOM_DOOR.width / 2, BATHROOM_DOOR.height / 2, 0],
-    mat: M2.doorWood,
+    size: [BW, BH, 0.06],
+    pos: [BW / 2, BH / 2, 0],
+    mat: M2.doorWorn,
   });
   bathDoorPivot.add(bathDoorLeaf);
+  // Two sunk panels on each face, so it is a door from the room AND from the
+  // bathroom side once it is standing open in the middle of the floor.
+  for (const py of [0.62, 1.5]) {
+    for (const pz of [0.032, -0.032]) {
+      bathDoorPivot.add(box({
+        size: [BW - 0.24, 0.6, 0.014], pos: [BW / 2, py, pz], mat: M2.doorPanel,
+      }));
+    }
+  }
+  // Knob and its rose, both sides, on the strike side away from the hinge.
+  for (const pz of [0.05, -0.05]) {
+    bathDoorPivot.add(cylinder({
+      r: 0.028, h: 0.05, pos: [BW - 0.08, 1.0, pz], rotX: Math.PI / 2, mat: M2.brass,
+    }));
+    bathDoorPivot.add(cylinder({
+      r: 0.042, h: 0.012, pos: [BW - 0.08, 1.0, pz * 0.6], rotX: Math.PI / 2, mat: M2.brass,
+    }));
+  }
+  // Privacy bolt on the room side, and three hinges on the jamb side.
+  bathDoorPivot.add(box({ size: [0.05, 0.075, 0.02], pos: [BW - 0.08, 1.2, 0.04], mat: M2.brass }));
+  for (const hy of [0.32, 1.1, 1.88]) {
+    bathDoorPivot.add(box({ size: [0.03, 0.11, 0.075], pos: [0.02, hy, 0], mat: M2.brass }));
+  }
   root.add(bathDoorPivot);
+
+  // Casing around the opening, on the room side — the thing that makes a hole
+  // in a wall read as a doorway. Sits just proud of the wall plane (A.z0) so it
+  // never z-fights with it, and stops short of the leaf's swing.
+  const bathCasing = group('bathroomCasing');
+  bathCasing.add(box({ size: [0.07, BH + 0.09, 0.05], pos: [bathX0 - 0.03, (BH + 0.09) / 2, 0.03], mat: M2.trim }));
+  bathCasing.add(box({ size: [0.07, BH + 0.09, 0.05], pos: [bathX1 + 0.03, (BH + 0.09) / 2, 0.03], mat: M2.trim }));
+  bathCasing.add(box({ size: [BW + 0.2, 0.09, 0.05], pos: [(bathX0 + bathX1) / 2, BH + 0.045, 0.03], mat: M2.trim }));
+  // The head jamb and the sill line inside the reveal, so the opening has
+  // depth rather than being a cut in a card.
+  bathCasing.add(box({ size: [BW, 0.04, 0.16], pos: [(bathX0 + bathX1) / 2, BH, -0.06], mat: M2.doorFrame }));
+  bathCasing.add(box({ size: [BW, 0.02, 0.14], pos: [(bathX0 + bathX1) / 2, 0.01, -0.05], mat: M2.trim }));
+  bathCasing.position.set(0, 0, A.z0);
+  root.add(bathCasing);
+
+  // One dim bulb behind it, because a bathroom nobody has switched off is what
+  // puts a line of light down an ajar door — and what makes it obvious the
+  // door moved when it comes off the latch.
+  const bathGlow = new THREE.PointLight(0xbfd0e0, 1.2, 2.0, 2);
+  bathGlow.position.set((bathX0 + bathX1) / 2, 1.75, A.z0 - 0.42);
+  root.add(bathGlow);
+
+  // Off the latch from the start. Not decoration: it is the mission's own clue
+  // ("The bathroom door isn't quite shut"), and the beat that follows is a man
+  // coming through it.
+  bathDoorPivot.rotation.y = BATHROOM_DOOR.ajarRotationY;
 
   const bathDoorCollider = collider(
     [bathX0, 0, A.z0 - 0.1], [bathX1, BATHROOM_DOOR.height, A.z0 + 0.1],
@@ -694,9 +766,17 @@ export function buildApartmentScene() {
       bathroomDoor: {
         group: bathDoorPivot,
         leaf: bathDoorLeaf,
-        collider: bathDoorCollider,
         openRotationY: BATHROOM_DOOR.openRotationY,
-        isOpen: () => Math.abs(bathDoorPivot.rotation.y) > 0.05,
+        /** Where it rests before anybody kicks it: off the latch, not shut. */
+        ajarRotationY: BATHROOM_DOOR.ajarRotationY,
+        collider: bathDoorCollider,
+        /**
+         * Open means OPEN — a man's width of it. The door starts ajar by
+         * design, so a bare `> 0.05` test (which is what this was) called it
+         * open before the mission had begun.
+         */
+        isOpen: () => Math.abs(bathDoorPivot.rotation.y) > 0.5,
+        isAjar: () => Math.abs(bathDoorPivot.rotation.y) > 0.02,
       },
     },
     props: {

@@ -180,7 +180,15 @@ async function screenLuminance() {
   });
 }
 
-/** World-space bounding box of a cast member's figure. */
+/**
+ * World-space bounding box of a cast member's FIGURE.
+ *
+ * Decals stuck to a man (`silvercase.mark`) are excluded deliberately: a 31 cm
+ * blood quad on a body that then topples reaches well outside its silhouette,
+ * and every measurement taken here — real heights, the 2.6 m ceiling, "the
+ * body is still exactly where it fell" — is about the man rather than about
+ * what was done to him.
+ */
 async function actorBounds(name) {
   return page.evaluate(async (name) => {
     const THREE = await import('/vendor/three.module.min.js');
@@ -188,7 +196,11 @@ async function actorBounds(name) {
     const wasVisible = group.visible;
     group.visible = true;
     group.updateWorldMatrix(true, true);
-    const box = new THREE.Box3().setFromObject(group);
+    const box = new THREE.Box3();
+    group.traverse((node) => {
+      if (!node.isMesh || node.name === 'silvercase.mark') return;
+      box.expandByObject(node);
+    });
     group.visible = wasVisible;
     return {
       min: box.min.toArray().map((n) => +n.toFixed(3)),
@@ -258,6 +270,46 @@ try {
       && carRig.apeId === 'ape' && Math.abs(carRig.apeHeight - 1.88) < 0.01,
     JSON.stringify(carRig));
 
+  // ---- The steering wheel is a steering wheel. ---------------------------
+  // "Apes steering wheel is sideways." A TorusGeometry's axis is +Z, which in
+  // this cabin is already "facing the driver"; the old `rotation.x = PI/2.4`
+  // (75°) laid it almost flat, so its axis pointed at the floor. A car wheel
+  // rakes the other way and by a quarter as much, so the axis stays mostly
+  // horizontal. Measured off the world matrix rather than off the authored
+  // number, so a re-parent or a rebuilt rig is still held to the same thing.
+  const wheelRig = await page.evaluate(async () => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const car = window.silvercase.car;
+    const rig = car.root.getObjectByName('steeringWheel');
+    if (!rig) return { present: false };
+    car.root.updateWorldMatrix(true, true);
+    const axis = new THREE.Vector3(0, 0, 1)
+      .transformDirection(rig.matrixWorld).normalize();
+    let parts = 0;
+    rig.traverse((o) => { if (o.isMesh) parts += 1; });
+    return {
+      present: true,
+      axis: axis.toArray().map((n) => +n.toFixed(3)),
+      rake: +rig.rotation.x.toFixed(3),
+      parts,
+    };
+  });
+  check('the steering wheel faces the driver instead of lying flat like a table',
+    wheelRig.present
+      && wheelRig.axis[2] > 0.8 && Math.abs(wheelRig.axis[1]) < 0.5
+      && wheelRig.rake < 0 && wheelRig.rake > -0.8
+      && wheelRig.parts >= 6,
+    JSON.stringify(wheelRig));
+
+  // ---- …and the cabin around it has something in it. --------------------
+  const carDressing = await page.evaluate(() => {
+    let meshes = 0;
+    window.silvercase.car.root.traverse((o) => { if (o.isMesh) meshes += 1; });
+    return { meshes };
+  });
+  check('the car interior is dressed rather than a dashboard in a void',
+    carDressing.meshes >= 60, JSON.stringify(carDressing));
+
   // ---- Ape's identity is the campaign's, not a local lookalike. ---------
   check('Ape is the canonical campaign character, with the Bing model and face',
     carRide.state.ape.characterId === APE_FAMILY_MEMBER.id
@@ -301,6 +353,27 @@ try {
       && Math.abs(arrivePose.y - 1.66) < 0.01 && arrivePose.mode === 'walk',
     JSON.stringify({ arrive, arrivePose }));
 
+  // ---- "Ape is not in the hallway - he should be in the hallway with you
+  // when you spawn in." The hallway runs x 0…6; the flat starts at x 6. He
+  // used to be built at x 7.1, i.e. already inside, before the player had
+  // knocked. Being in the corridor is the check — and being close enough to
+  // the spawn to be in frame, not at the far end of it. -------------------
+  const apeAtSpawn = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const ape = sc.cast.ape.group.position;
+    const player = sc.player.position;
+    return {
+      x: +ape.x.toFixed(3),
+      z: +ape.z.toFixed(3),
+      distance: +Math.hypot(ape.x - player.x, ape.z - player.z).toFixed(3),
+      visible: sc.cast.ape.group.visible,
+    };
+  });
+  check('Ape is standing in the hallway with the player at spawn, not already inside',
+    apeAtSpawn.visible && apeAtSpawn.x > 0.8 && apeAtSpawn.x < 6
+      && apeAtSpawn.distance < 3.5,
+    JSON.stringify(apeAtSpawn));
+
   // ---- KNOCK / ENTER_APARTMENT (brief dwell, just enough to confirm entry,
   // never long enough for either beat's own dialogue chain to auto-advance
   // before the next go() overwrites it — see the mission's DialogueController,
@@ -309,6 +382,51 @@ try {
   check('KNOCK is reachable', knock.beat === 'KNOCK', knock.beat);
   let enterApt = await go('ENTER_APARTMENT');
   check('ENTER_APARTMENT is reachable', enterApt.beat === 'ENTER_APARTMENT', enterApt.beat);
+
+  // ---- "Coffee table is in the couch need to move it." -------------------
+  // Measured, not asserted against a literal position: the two props' own
+  // world bounding boxes must not intersect, and the gap in front of the couch
+  // has to be walkable (the player's capsule is 0.30 m — core/player.js).
+  const furniture = await page.evaluate(async () => {
+    const THREE = await import('/vendor/three.module.min.js');
+    const props = window.silvercase.apartment.props;
+    const boxOf = (obj) => {
+      obj.updateWorldMatrix(true, true);
+      return new THREE.Box3().setFromObject(obj);
+    };
+    const couch = boxOf(props.couch.group);
+    const table = boxOf(props.coffeeTable.group);
+    return {
+      couch: { min: couch.min.toArray(), max: couch.max.toArray() },
+      table: { min: table.min.toArray(), max: table.max.toArray() },
+      intersects: couch.intersectsBox(table),
+      gap: +(couch.min.z - table.max.z).toFixed(3),
+    };
+  });
+  check('the coffee table sits in front of the couch instead of inside it',
+    furniture.intersects === false && furniture.gap > 0.25,
+    JSON.stringify(furniture));
+
+  // ---- "The bathroom door also doesn't look like a door." ---------------
+  // It is a door now: a leaf with panels, hardware and a lined casing rather
+  // than one slab of laminate — and it starts genuinely off the latch, which
+  // is what the mission's own clue line claims about it.
+  const bathDoorAtRest = await page.evaluate(() => {
+    const door = window.silvercase.apartment.doors.bathroomDoor;
+    let parts = 0;
+    door.group.traverse((o) => { if (o.isMesh) parts += 1; });
+    return {
+      parts,
+      rotation: +door.group.rotation.y.toFixed(3),
+      ajar: door.isAjar(),
+      open: door.isOpen(),
+      casing: Boolean(window.silvercase.apartment.root.getObjectByName('bathroomCasing')),
+    };
+  });
+  check('the bathroom door is a built door, hanging ajar before anybody kicks it',
+    bathDoorAtRest.parts >= 8 && bathDoorAtRest.casing
+      && bathDoorAtRest.ajar === true && bathDoorAtRest.open === false,
+    JSON.stringify(bathDoorAtRest));
 
   // ---- ESTABLISH_CONTROL -------------------------------------------------
   let establish = await go('ESTABLISH_CONTROL');
@@ -417,12 +535,144 @@ try {
       && barArmed.labels[0] === 'Big revolver · drawn',
     JSON.stringify({ weapon: armed.state.weapon, gun: armed.gunParts[0], bar: barArmed.labels[0] }));
 
+  // ---- Ape is holding a gun of his own. ----------------------------------
+  // "Ape needs a gun … Ape should be holding his gun." Mounted in his right
+  // hand from build (the same `mountHandRevolver` the bathroom man's uses) and
+  // shown the moment he gives the order. Arming him must not make him a
+  // threat: Actor's locked `hostile` setter is what guarantees that, so it is
+  // checked here rather than assumed.
+  const apeArmed = await page.evaluate(() => window.silvercase.state().ape);
+  check('Ape draws his own big revolver, in his own hand, and is still not hostile',
+    apeArmed.armed && apeArmed.gun === 'big-revolver' && apeArmed.gunInHand
+      && apeArmed.weaponDrawn === true && apeArmed.weaponVisible === true
+      && apeArmed.hostile === false,
+    JSON.stringify(apeArmed));
+
+  // ---- The on-screen instruction. ----------------------------------------
+  // "There should be a pop up to kill the guy on the couch. Its unclear who to
+  // shoot. So the screen should say it like in the hub as a game instruction
+  // (not another character or anything)." So: no speaker, no cue, on screen
+  // for as long as the order stands.
+  const couchInstruction = await page.evaluate(() => {
+    const el = document.getElementById('instruction');
+    return { text: el.textContent, shown: el.classList.contains('show') };
+  });
+  check('the couch order puts a speakerless on-screen instruction up and leaves it up',
+    couchInstruction.shown && /couch/i.test(couchInstruction.text)
+      && /left click/i.test(couchInstruction.text),
+    JSON.stringify(couchInstruction));
+
+  // ---- Stand somewhere a person can see the room from. -------------------
+  // The WASD check above left the player partway down the corridor, and the
+  // shot is a real ray now: from the hallway every one of these checks would
+  // be measuring the wall. Put him on the floor of the flat, facing in.
+  await page.evaluate(() => {
+    const p = window.silvercase.player;
+    p.position.set(9.2, 1.66, 0.3);
+    p.pitch = 0;
+    p.velocity.set(0, 0, 0);
+  });
+  await page.evaluate(() => window.silvercase.tick(0.05));
+
+  // ---- THE ONE. ----------------------------------------------------------
+  //
+  //   "you should also actually have to shoot where you are aiming. I just
+  //    clicked on the guy in the chair and it killed the bathroom guy."
+  //
+  // This is that bug, reproduced deliberately: put the crosshair on the man in
+  // the chair during the beat that ordered the man on the COUCH shot, and pull
+  // the trigger. Nobody may die, the bathroom man least of all — he is still
+  // hidden in the alcove and two beats away from existing.
+  const wrongMan = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const aim = sc.shootAt('chester');
+    sc.tick(0.2);
+    return { aim, state: sc.state() };
+  });
+  check('aiming at the man in the chair and firing does not kill the man on the couch',
+    wrongMan.aim.resolvesTo === 'chester'
+      && wrongMan.state.actors.deke.alive === true
+      && wrongMan.state.actors.pruitt.alive === true
+      && wrongMan.state.beat === 'COUCH_SHOOTING'
+      && wrongMan.state.mission.lastShot.actor === 'Chester'
+      && wrongMan.state.mission.lastShot.intended === 'Deke'
+      && wrongMan.state.mission.lastShot.onTarget === false,
+    JSON.stringify({ aim: wrongMan.aim, shot: wrongMan.state.mission.lastShot }));
+
+  check('the man the stray round found is hit but never killed by it',
+    wrongMan.state.actors.chester.alive === true
+      && wrongMan.state.actors.chester.hp < 60
+      && wrongMan.state.marks.onBodies.chester >= 1,
+    JSON.stringify({ chester: wrongMan.state.actors.chester, marks: wrongMan.state.marks }));
+
+  // ---- A round that finds nobody still goes somewhere. -------------------
+  const strayRound = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const before = sc.state().marks.holes;
+    // Square at the south wall, past the east end of the couch — a shot with
+    // nobody anywhere along it.
+    sc.player.yaw = Math.PI;
+    sc.player.pitch = 0;
+    sc.player.update(0);
+    sc.pressFire();
+    sc.tick(0.2);
+    const state = sc.state();
+    return { before, after: state.marks.holes, state };
+  });
+  check('a shot that finds nobody marks the room instead of killing somebody',
+    strayRound.after > strayRound.before
+      && strayRound.state.mission.lastShot.actor === null
+      && strayRound.state.mission.lastShot.surface === true
+      && strayRound.state.actors.deke.alive === true
+      && strayRound.state.beat === 'COUCH_SHOOTING',
+    JSON.stringify({ holes: [strayRound.before, strayRound.after], shot: strayRound.state.mission.lastShot }));
+
+  // ---- Now shoot the man you were told to. -------------------------------
   const dekeSeated = await actorBounds('deke');
+  const onTargetCouch = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const aim = sc.aimAt('deke');
+    sc.tick(0.05);
+    const hud = {
+      tag: document.getElementById('targetTag').classList.contains('show'),
+      reticleHot: document.getElementById('reticle').classList.contains('hot'),
+      name: document.getElementById('targetTag').textContent,
+    };
+    return { aim, hud, aimState: sc.state().aim };
+  });
+  check('putting the crosshair on the ordered man lights the reticle and names him',
+    onTargetCouch.aim.resolvesTo === 'deke'
+      && onTargetCouch.aimState.onTarget === true
+      && onTargetCouch.aimState.ordered === 'Deke'
+      && onTargetCouch.hud.tag && onTargetCouch.hud.reticleHot
+      && /DEKE/.test(onTargetCouch.hud.name),
+    JSON.stringify(onTargetCouch));
+
   await page.evaluate(() => window.silvercase.pressFire());
   let afterCouchShot = await tickUntil('beat:LOU_QUESTION');
   check('firing on the couch kills Deke and the aftermath line advances to LOU_QUESTION',
-    afterCouchShot.met && !afterCouchShot.state.actors.deke.alive,
+    afterCouchShot.met && !afterCouchShot.state.actors.deke.alive
+      && afterCouchShot.state.mission.lastShot.onTarget === true,
     JSON.stringify(afterCouchShot));
+
+  // ---- "There also needs to be a bullet impact and blood on the guy." ----
+  // The wound is parented to his own trunk, so it travels with the slump
+  // rather than hanging in the air where he used to be.
+  const dekeBlood = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const marks = sc.impacts.marksFor(sc.cast.deke);
+    return {
+      count: sc.state().marks.onBodies.deke,
+      attachedToFigure: marks.length > 0 && marks.every((m) => {
+        let node = m.parent;
+        while (node) { if (node === sc.cast.deke.group) return true; node = node.parent; }
+        return false;
+      }),
+    };
+  });
+  check('the man shot on the couch wears the wound, and it goes down with him',
+    dekeBlood.count >= 2 && dekeBlood.attachedToFigure,
+    JSON.stringify(dekeBlood));
 
   // ---- The body stays on the couch. ------------------------------------
   // The couch's own footprint, straight out of ApartmentScene (x 6.925…9.075,
@@ -462,16 +712,56 @@ try {
   check('the prayer opens its hold-E finish prompt once Ape is done reciting',
     prayerLines.met, JSON.stringify(prayerLines));
   await page.keyboard.down('KeyE');
-  let afterPrayer = await tickUntil('beat:BATHROOM_AMBUSH');
+  let afterPrayer = await tickUntil('beat:CHAIR_SHOOTING');
   await page.keyboard.up('KeyE');
-  check('holding E finishes the ritual, kills Chester, and the bathroom ambush arms',
+  check('finishing the ritual hands over to the chair beat with Chester still alive',
     afterPrayer.met
-      && !afterPrayer.state.actors.chester.alive
-      && afterPrayer.state.reactionWindow.state === 'armed',
+      && afterPrayer.state.actors.chester.alive === true
+      && afterPrayer.state.aim.ordered === 'Chester'
+      && /chair/i.test(afterPrayer.state.aim.instruction)
+      && afterPrayer.state.aim.instructionShown === true,
     JSON.stringify(afterPrayer));
 
+  // ---- "Ape needs a gun. There should also be a prompt to shoot the guy in
+  // the chair with Ape." Both guns are up, the prompt is on screen, and the
+  // shot has to land on the man in the chair like every other shot now. ----
+  const chairShot = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const apeBefore = sc.state().ape;
+    const aim = sc.shootAt('chester');
+    sc.tick(0.05);
+    const immediately = sc.state();
+    sc.tick(0.8); // Ape's own round follows two tenths behind Tony's
+    return {
+      apeBefore, aim, immediately, state: sc.state(),
+    };
+  });
+  check('Ape has his gun levelled at the chair while the prompt is up',
+    chairShot.apeBefore.weaponDrawn === true && chairShot.apeBefore.weaponVisible === true
+      && Math.abs(chairShot.apeBefore.at.x - 8) < 0.6,
+    JSON.stringify(chairShot.apeBefore));
+  check('shooting the man in the chair kills him, and Ape fires with you',
+    chairShot.aim.resolvesTo === 'chester'
+      && chairShot.immediately.mission.lastShot.onTarget === true
+      && chairShot.state.actors.chester.alive === false
+      && chairShot.state.mission.flags.apeFinishedChester === false
+      // Tony's wound plus its spatter, plus the round Ape put in him.
+      && chairShot.state.marks.onBodies.chester >= 3,
+    JSON.stringify({ aim: chairShot.aim, marks: chairShot.state.marks.onBodies }));
+
+  let afterPrayerChain = await tickUntil('beat:BATHROOM_AMBUSH');
+  check('the chair beat hands on to the bathroom ambush, armed',
+    afterPrayerChain.met
+      && afterPrayerChain.state.reactionWindow.state === 'armed'
+      && afterPrayerChain.state.reactionWindow.windowSeconds >= 3.2,
+    JSON.stringify(afterPrayerChain.state.reactionWindow));
+
   // ---- The bathroom man is holding the big revolver, and the door he came
-  // through is off the latch rather than still standing in his way. --------
+  // through is off the latch rather than still standing in his way. The swing
+  // is a 0.22 s tween started in the beat's own enter(), so it is given a
+  // moment before being measured — "the door opens properly" is a claim about
+  // where it ends up, not about the frame the beat began on. ---------------
+  await tick(0.5);
   const ambushStaging = await page.evaluate(() => {
     const sc = window.silvercase;
     const gun = sc.cast.pruitt.weapon;
@@ -484,6 +774,7 @@ try {
       inHand: parents.includes('forearm'),
       revealed: sc.cast.pruitt.group.visible,
       bathDoorOpen: sc.apartment.doors.bathroomDoor.isOpen(),
+      bathDoorRotation: +sc.apartment.doors.bathroomDoor.group.rotation.y.toFixed(3),
     };
   });
   check('the bathroom man comes through an open door with the big revolver in hand',
@@ -523,20 +814,58 @@ try {
   const prayerAgain = await tickUntil('choice:prayerFinish');
   check('the prayer choice opens again after retrying', prayerAgain.met, JSON.stringify(prayerAgain));
   await page.keyboard.down('KeyE');
+  // Second time through the chair beat, nobody pulls the trigger: the stall
+  // path has Ape finish it himself after twelve seconds rather than leaving
+  // the mission parked on a prompt forever, so this also proves that fallback.
   let afterPrayerAgain = await tickUntil('beat:BATHROOM_AMBUSH');
   await page.keyboard.up('KeyE');
-  check('finishing the prayer a second time re-arms the bathroom ambush',
-    afterPrayerAgain.met && afterPrayerAgain.state.reactionWindow.state === 'armed',
-    JSON.stringify(afterPrayerAgain));
+  check('a player who will not take the chair shot has Ape take it, and the scene goes on',
+    afterPrayerAgain.met
+      && afterPrayerAgain.state.mission.flags.apeFinishedChester === true
+      && afterPrayerAgain.state.actors.chester.alive === false
+      && afterPrayerAgain.state.reactionWindow.state === 'armed',
+    JSON.stringify({
+      flags: afterPrayerAgain.state.mission.flags,
+      window: afterPrayerAgain.state.reactionWindow,
+    }));
 
-  const fastFire = await page.evaluate(() => {
-    window.silvercase.pressFire();
-    window.silvercase.tick(0.05);
-    return { state: window.silvercase.state() };
+  // ---- The owner's bug, in the beat it actually happened in. -------------
+  // Both shots go inside ONE page.evaluate: the reaction window is running in
+  // real time as well as ticked time, and a Node round trip between them would
+  // be measuring the harness rather than the mission.
+  const ambushAim = await page.evaluate(() => {
+    const sc = window.silvercase;
+    // Point at the man in the CHAIR — dead, in the wrong direction entirely —
+    // and fire. This must not touch the man in the bathroom doorway.
+    const wrongAim = sc.shootAt('chester');
+    sc.tick(0.05);
+    const afterWrong = sc.state();
+    // Now point at the man who is actually pointing a gun at you.
+    const rightAim = sc.shootAt('pruitt');
+    sc.tick(0.05);
+    return {
+      wrongAim, afterWrong, rightAim, state: sc.state(),
+    };
   });
-  check('firing back in time neutralizes Pruitt before the window expires',
-    fastFire.state.reactionWindow.state === 'neutralized' && !fastFire.state.actors.pruitt.alive,
-    JSON.stringify(fastFire));
+  // The assertion is "the round did not find Pruitt", not "the round found
+  // Chester": Ape is stood a pace off the chair by this point, so a shot aimed
+  // past him at the slumped man behind him hits APE — which is the system
+  // working, not failing. Whoever the ray finds, it is not the man in the
+  // bathroom doorway, and the window does not close.
+  check('firing at the chair during the ambush does NOT kill the bathroom man',
+    ambushAim.wrongAim.resolvesTo !== 'pruitt'
+      && ambushAim.afterWrong.actors.pruitt.alive === true
+      && ambushAim.afterWrong.reactionWindow.state === 'armed'
+      && ambushAim.afterWrong.mission.lastShot.intended === 'Pruitt'
+      && ambushAim.afterWrong.mission.lastShot.actor !== 'Pruitt'
+      && ambushAim.afterWrong.mission.lastShot.onTarget === false,
+    JSON.stringify({ aim: ambushAim.wrongAim, shot: ambushAim.afterWrong.mission.lastShot }));
+  check('firing at the bathroom man neutralizes him, with blood on him',
+    ambushAim.rightAim.resolvesTo === 'pruitt'
+      && ambushAim.state.reactionWindow.state === 'neutralized'
+      && ambushAim.state.actors.pruitt.alive === false
+      && ambushAim.state.marks.onBodies.pruitt >= 2,
+    JSON.stringify({ aim: ambushAim.rightAim, marks: ambushAim.state.marks.onBodies }));
   let afterAmbush = await tickUntil('beat:AFTERMATH');
   check('a fast, successful shot advances the mission to AFTERMATH', afterAmbush.met, JSON.stringify(afterAmbush));
 
@@ -564,6 +893,46 @@ try {
       && Math.abs(bodiesNow.chester.at.x - 8) < 0.35
       && bodiesNow.pruitt.alive === false && pruittRest.max[1] < 0.9 && pruittRest.min[1] > -0.2,
     JSON.stringify({ deke: dekeMuchLater, chester: chesterRest, pruitt: pruittRest }));
+
+  // ---- The other half of the aftermath choice. --------------------------
+  //
+  //   "if you are going to not spare the last guy then you should get a prompt
+  //    to shoot him. Again blood and impact."
+  //
+  // The linear run above spares him — the canonical route, and the check
+  // directly before this one. The kill branch cannot be reached from here
+  // without replaying the entire mission, so it is entered with the same
+  // `go()` this script uses to reach every other beat. The contract being
+  // checked is precisely the owner's: picking "kill him" must NOT kill him on
+  // the keypress; it must hand the player a prompt and a trigger.
+  let execute = await go('EXECUTE_WINSTON', 0.3);
+  check('choosing to kill the last man prompts for it rather than killing him on the keypress',
+    execute.beat === 'EXECUTE_WINSTON'
+      && execute.actors.winston.alive === true
+      && execute.aim.ordered === 'Winston'
+      && /winston/i.test(execute.aim.instruction)
+      && execute.aim.instructionShown === true
+      && execute.weapon.drawn === true,
+    JSON.stringify({ beat: execute.beat, aim: execute.aim, winston: execute.actors.winston }));
+
+  const winstonShot = await page.evaluate(() => {
+    const sc = window.silvercase;
+    const aim = sc.shootAt('winston');
+    sc.tick(0.2);
+    return { aim, state: sc.state() };
+  });
+  check('shooting the last man puts him down where he stood, with blood and an impact',
+    winstonShot.aim.resolvesTo === 'winston'
+      && winstonShot.state.actors.winston.alive === false
+      && winstonShot.state.mission.lastShot.onTarget === true
+      && winstonShot.state.marks.onBodies.winston >= 2,
+    JSON.stringify({ aim: winstonShot.aim, marks: winstonShot.state.marks.onBodies }));
+
+  let afterExecution = await tickUntil('beat:PICK_UP_CASE');
+  check('the execution hands back to the case pickup with both guns away',
+    afterExecution.met && afterExecution.state.weapon.drawn === false
+      && afterExecution.state.ape.weaponDrawn === false,
+    JSON.stringify({ beat: afterExecution.state.beat, weapon: afterExecution.state.weapon }));
 
   // ---- Picking the case up: the real E interaction, aimed at the real hit
   // box. The look-at raycast reads the camera's world matrix from the last

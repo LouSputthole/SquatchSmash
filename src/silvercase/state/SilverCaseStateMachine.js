@@ -30,8 +30,12 @@ export const STATE_NAMES = Object.freeze([
   'COUCH_SHOOTING',
   'LOU_QUESTION',
   'SQUATCH_PRAYER',
+  /** The man in the chair — the player's shot and Ape's, together. */
+  'CHAIR_SHOOTING',
   'BATHROOM_AMBUSH',
   'AFTERMATH',
+  /** Only entered if the player picks "kill him" at the aftermath choice. */
+  'EXECUTE_WINSTON',
   'PICK_UP_CASE',
   'EXIT',
   'SCENE_COMPLETE',
@@ -48,7 +52,9 @@ export const S = Object.freeze(
  * The one checkpoint in the mission. A failure at BATHROOM_AMBUSH (the player
  * too slow against Pruitt) restarts from the start of the prayer beat, not
  * from the top of the mission — punishing enough to matter, not so punishing
- * it repeats the couch shooting or the Lou question.
+ * it repeats the couch shooting or the Lou question. It does replay the man in
+ * the chair, which is the beat immediately before the ambush and the one that
+ * puts the gun back in the player's hands pointing the right way.
  */
 export const CHECKPOINT = S.SQUATCH_PRAYER;
 

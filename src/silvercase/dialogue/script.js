@@ -57,6 +57,14 @@ export const SEQUENCES = Object.freeze({
   // ---------------------------------------------------------------------
   // Beat 2 — the hallway and the door.
   // ---------------------------------------------------------------------
+  // Ape is standing in the corridor with the player when control is handed
+  // over — he walks in from the stairs with you, he does not materialise
+  // inside the flat — so he has something to say on the way to the door.
+  hallwayArrival: Object.freeze([
+    { speaker: 'APE', text: '2E. End of the hall, past the one that smells like a fish tank.', cue: cue('arrival', 'ape.endofhall'), hold: 3.6 },
+    { speaker: 'APE', text: 'I do the talking. You do the looking-like-you’ve-done-this-before.', cue: cue('arrival', 'ape.dothetalking'), hold: 3.8 },
+  ]),
+
   arrival: Object.freeze([
     { speaker: 'CHESTER', text: 'Who is it?', cue: cue('arrival', 'chester.whoisit'), hold: 1.4 },
     { speaker: 'APE', text: 'Building appreciation committee.', cue: cue('arrival', 'ape.committee'), hold: 2.2 },
@@ -132,10 +140,32 @@ export const SEQUENCES = Object.freeze({
   // ---------------------------------------------------------------------
   couchOrder: Object.freeze([
     { speaker: 'APE', text: 'This is the part where we make sure everybody remembers this conversation.', cue: cue('couch', 'ape.remember'), hold: 3.4, look: 'deke' },
+    // Ape names him. "Go ahead" on its own left the player looking at three
+    // men and guessing which one the game meant — but that take is already
+    // recorded and delivered, so the naming is a NEW line in front of it
+    // rather than a rewrite of it.
+    { speaker: 'APE', text: 'The one on the couch. Deke.', cue: cue('couch', 'ape.theoneonthecouch'), hold: 2.2, look: 'deke' },
     { speaker: 'APE', text: 'Go ahead.', cue: cue('couch', 'ape.goahead'), hold: 1.4 },
+    // On-screen prose, in the HUD's own voice — nobody in the room says this.
+    { speaker: 'HUD', text: 'Aim at the man on the couch. Left click to fire.', hold: 3.0 },
   ]),
   couchAftermath: Object.freeze([
     { speaker: 'APE', text: 'Now we have more seating.', cue: cue('couch', 'ape.moreseating'), hold: 2.4, look: 'chester' },
+  ]),
+
+  // ---------------------------------------------------------------------
+  // Shot feedback. The mission resolves a trigger pull against whatever the
+  // crosshair was actually on (see combat/Shooting.js), so there are now
+  // three ways to pull it and be wrong, and each of them has to say so.
+  // ---------------------------------------------------------------------
+  shotMissed: Object.freeze([
+    { speaker: 'APE', text: 'That was a wall. The wall isn’t the problem here.', cue: cue('shots', 'ape.missed'), hold: 3.0 },
+  ]),
+  shotWrongMan: Object.freeze([
+    { speaker: 'APE', text: 'Wrong one. Look at what you’re pointing it at before you pull.', cue: cue('shots', 'ape.wrongman'), hold: 3.4 },
+  ]),
+  shotAtApe: Object.freeze([
+    { speaker: 'APE', text: 'You want to swing that back around at me, Prospect? Take your time. Think it through.', cue: cue('shots', 'ape.atme'), hold: 4.0 },
   ]),
 
   // ---------------------------------------------------------------------
@@ -177,8 +207,33 @@ export const SEQUENCES = Object.freeze({
   ]),
 
   // ---------------------------------------------------------------------
+  // Beat 7b — the man in the chair. The prayer used to end and Chester
+  // simply died; the owner's note is that the player should be prompted to
+  // do it, and that Ape — who is now visibly holding a gun — does it with
+  // him rather than watching.
+  // ---------------------------------------------------------------------
+  chairOrder: Object.freeze([
+    { speaker: 'APE', text: 'Prayer’s said. Now the amen.', cue: cue('chair', 'ape.amen'), hold: 2.2, look: 'chester' },
+    { speaker: 'APE', text: 'Together, Prospect. You and me. On you.', cue: cue('chair', 'ape.together'), hold: 2.8 },
+    { speaker: 'HUD', text: 'Aim at the man in the chair. Left click to fire — Ape fires with you.', hold: 3.4 },
+  ]),
+  chairStall: Object.freeze([
+    { speaker: 'APE', text: 'He isn’t going to volunteer. Any time now.', cue: cue('chair', 'ape.anytime'), hold: 2.8 },
+  ]),
+  chairTogether: Object.freeze([
+    { speaker: 'APE', text: 'Two of us, one story. That’s how the Family remembers it.', cue: cue('chair', 'ape.onestory'), hold: 3.4 },
+  ]),
+  chairApeAlone: Object.freeze([
+    { speaker: 'APE', text: 'Fine. My round.', cue: cue('chair', 'ape.myround'), hold: 1.8 },
+    { speaker: 'APE', text: 'Lou is going to hear it was mine. That’s twice now I did your part of this.', cue: cue('chair', 'ape.myparttoo'), hold: 4.0 },
+  ]),
+
+  // ---------------------------------------------------------------------
   // Beat 8 — the bathroom ambush.
   // ---------------------------------------------------------------------
+  bathroomWarning: Object.freeze([
+    { speaker: 'HUD', text: 'BATHROOM — aim at him and fire.', hold: 2.0 },
+  ]),
   bathroomFast: Object.freeze([
     { speaker: 'APE', text: 'Good. You do listen occasionally.', cue: cue('bathroom', 'ape.listen'), hold: 2.6 },
   ]),
@@ -199,8 +254,22 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'APE', text: 'Clean this up. All of it. And you were never here.', cue: cue('aftermath', 'ape.cleanup'), hold: 3.4 },
     { speaker: 'WINSTON', text: 'Yes — yes sir. Never. I was never here.', cue: cue('aftermath', 'winston.neverhere'), hold: 3.0 },
   ]),
-  aftermathKill: Object.freeze([
+  // Choosing to kill Winston no longer kills him on the keypress: the owner's
+  // note is that if you are not going to spare the last man you should be
+  // prompted to do it yourself, and see it happen.
+  aftermathKillOrder: Object.freeze([
     { speaker: 'APE', text: '…Or don’t.', cue: cue('aftermath', 'ape.ordont'), hold: 1.8 },
+    { speaker: 'APE', text: 'Your call, your round. He’s standing right there.', cue: cue('aftermath', 'ape.yourround'), hold: 3.0, look: 'winston' },
+    { speaker: 'HUD', text: 'Aim at Winston. Left click to fire.', hold: 3.0 },
+  ]),
+  aftermathKillStall: Object.freeze([
+    { speaker: 'WINSTON', text: 'Please — please, I’ll clean it, I’ll clean all of it —', cue: cue('aftermath', 'winston.please'), hold: 3.4 },
+  ]),
+  aftermathKill: Object.freeze([
+    { speaker: 'APE', text: 'Then there’s nobody to clean it. That’s a choice too.', cue: cue('aftermath', 'ape.nobodytoclean'), hold: 3.4 },
+  ]),
+  aftermathKillApeAlone: Object.freeze([
+    { speaker: 'APE', text: 'You don’t get to want it and not do it.', cue: cue('aftermath', 'ape.wantitdoit'), hold: 3.0 },
   ]),
   aftermathExit: Object.freeze([
     { speaker: 'APE', text: 'Always check the bathroom. That’s where bad ideas go to load themselves.', cue: cue('aftermath', 'ape.badideas'), hold: 3.6, look: 'bathroom' },
@@ -249,16 +318,45 @@ export const CHOICES = Object.freeze({
  * mission's writing — spoken and on-screen — lives in one file.
  */
 export const OBJECTIVES = Object.freeze({
-  ARRIVE_HALLWAY: 'Follow Ape into the building.',
+  ARRIVE_HALLWAY: 'Follow Ape down the hall to 2E.',
   KNOCK: 'Wait for the door.',
   ENTER_APARTMENT: 'Close and lock the door.',
   ESTABLISH_CONTROL: 'Find Lou’s case.',
   CASE_REVEAL: 'Watch Winston open the case.',
-  COUCH_SHOOTING: 'Do what Ape says.',
+  COUCH_SHOOTING: 'Shoot the man on the couch.',
   LOU_QUESTION: 'Answer, or don’t.',
   SQUATCH_PRAYER: 'Hold E to finish the ritual.',
+  CHAIR_SHOOTING: 'Shoot the man in the chair.',
   BATHROOM_AMBUSH: 'BATHROOM!',
   AFTERMATH: 'Decide what happens to Winston.',
+  EXECUTE_WINSTON: 'Shoot Winston.',
   PICK_UP_CASE: 'Pick up the case.',
   EXIT: 'Leave the apartment.',
+});
+
+/**
+ * The standing on-screen instruction for a beat that wants the player to shoot
+ * a specific man — the owner's note in full: *"There should be a pop up to kill
+ * the guy on the couch. Its unclear who to shoot. So the screen should say it
+ * like in the hub as a game instruction (not another character or anything)."*
+ *
+ * So: no speaker, no cue, no voice. This is the game talking to the player, the
+ * same register as the apartment hub's own on-screen prompts, and it stays up
+ * for as long as the order stands rather than scrolling past as a subtitle.
+ * `TARGET_CALLOUTS` is the second half of the same idea — the name that appears
+ * under the reticle at the moment the crosshair is genuinely on the right man,
+ * which is what makes "shoot where you are aiming" legible rather than cruel.
+ */
+export const INSTRUCTIONS = Object.freeze({
+  COUCH_SHOOTING: 'Aim at the man on the couch and LEFT CLICK to fire.',
+  CHAIR_SHOOTING: 'Aim at the man in the chair and LEFT CLICK. Ape fires with you.',
+  BATHROOM_AMBUSH: 'Aim at the man in the bathroom doorway and LEFT CLICK. Fast.',
+  EXECUTE_WINSTON: 'Aim at Winston and LEFT CLICK.',
+});
+
+export const TARGET_CALLOUTS = Object.freeze({
+  COUCH_SHOOTING: 'DEKE — FIRE',
+  CHAIR_SHOOTING: 'CHESTER — FIRE',
+  BATHROOM_AMBUSH: 'PRUITT — FIRE',
+  EXECUTE_WINSTON: 'WINSTON — FIRE',
 });

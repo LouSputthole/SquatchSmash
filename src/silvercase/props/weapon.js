@@ -46,6 +46,35 @@ export function makeBigRevolver({ scale = 1 } = {}) {
 }
 
 /**
+ * Put the big revolver in a figure's right hand.
+ *
+ * Both armed NPCs in this mission — the man who comes out of the bathroom and
+ * Ape, who is not going to stand there empty-handed while the prospect does the
+ * work — carry it the same way, so the placement lives here rather than being
+ * typed twice in cast.js. Parented to the right FOREARM at the hand (where
+ * `makePerson` puts the hand slab, y=-0.30 inside that group), so it tracks
+ * every pose and the collapse afterwards with no extra bookkeeping.
+ *
+ * The -90° about x lays the barrel (local -z, `makeRevolver`'s convention) down
+ * the forearm's own -y, i.e. pointing wherever the arm is pointing.
+ *
+ * @param {THREE.Object3D} forearm an `Npc` figure's `parts.foreR`
+ * @returns {THREE.Group} the gun, carrying `userData.muzzle` in its own space
+ */
+export function mountHandRevolver(forearm) {
+  const gun = makeBigRevolver();
+  gun.rotation.set(-Math.PI / 2 + 0.12, 0, 0);
+  gun.position.set(0.005, -0.33, 0.03);
+  forearm.add(gun);
+  return gun;
+}
+
+/** Where a mounted gun's flash happens, in world space. */
+export function muzzleWorld(gun, out) {
+  return gun.localToWorld(out.copy(gun.userData.muzzle));
+}
+
+/**
  * Tony's first-person view-model.
  *
  * Modelled on `src/squatchfather/characters/ProspectController`'s concealed

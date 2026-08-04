@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ANCHORS } from '../scenes/ApartmentScene.js';
-import { makeBigRevolver } from '../props/weapon.js';
+import { mountHandRevolver } from '../props/weapon.js';
 import { buildSilverCaseApe } from './ape.js';
 import { COLLAPSE, makeActor } from './Actor.js';
 
@@ -27,16 +27,29 @@ import { COLLAPSE, makeActor } from './Actor.js';
  * Faction assignment (per the brief): Deke, Chester and Winston never
  * themselves attack, so all three are "neutral" — damageable only by a
  * scripted order, never by hostile AI. "hostile" is reserved for Pruitt, the
- * one actor who actually fires. Ape is "friendly", which — per Actor.js's
- * locked `hostile` setter — makes him structurally impossible to arm as a
- * combat threat, in either direction.
+ * one actor who actually fires at the player. Ape is "friendly", which — per
+ * Actor.js's locked `hostile` setter — makes him structurally impossible to
+ * arm as a combat threat, in either direction. He does carry a gun (see
+ * `ape.drawWeapon` below): a weapon on a friendly actor is a prop and a
+ * scripted beat, never a threat, because `hostile` can never be set on him
+ * whatever any later code tries.
  */
 
-// Ape's own two spots for this mission — starting near the front door, then
-// stepping over to loom near the chair once the interrogation starts. Not
-// pulled from ANCHORS because neither is a level/geometry anchor; they're
-// blocking for one specific character, local to this file.
+// Ape's own spots for this mission — the corridor he walks in from, the door
+// he knocks on, the room he reads, and the pace beside the chair he takes once
+// the interrogation starts. Not pulled from ANCHORS because none of them is a
+// level/geometry anchor; they're blocking for one specific character, local to
+// this file.
+//
+// `hallway` is where he is standing when the mission hands the player the
+// controls: the owner's note is that Ape has to be IN the corridor, with you,
+// at spawn — he does the talking at that door, and a knock the player makes on
+// their own with nobody beside them is a different scene. The player spawns at
+// ANCHORS.hallwaySpawn (x 0.8, z 0) looking down +x, so this puts Ape a pace
+// ahead and to the far side of the runner, in frame from the first instant.
 const APE_SPOTS = Object.freeze({
+  hallway: Object.freeze({ x: 1.95, z: -0.34, yaw: Math.PI / 2 }), // facing +x, down the corridor
+  door: Object.freeze({ x: 5.25, z: 0.1, yaw: Math.PI / 2 }), // at 2E, facing the leaf
   start: Object.freeze({
     x: ANCHORS.frontDoorInside.x + 0.5, z: ANCHORS.frontDoorInside.z + 0.7, yaw: Math.PI / 2, // facing +x, into the room
   }),
@@ -81,11 +94,38 @@ function twoHandedAim(parts) {
   parts.head.rotation.x = -0.05;
 }
 
+/**
+ * Ape's two gun poses, applied the same way and for the same reason.
+ *
+ * `carry` is the gun down at his side, muzzle at the floor — the arm hangs, so
+ * the weapon's own -z (down the forearm's -y; see `mountHandRevolver`) points
+ * straight down, which is exactly how a man stands in somebody's living room
+ * holding one of these while somebody else talks.
+ *
+ * `aim` swings the shoulder forward until the forearm's -y is the figure's own
+ * +z — its facing — so the gun points at whatever he is turned toward. His
+ * chair spot is one pace off the chair and squarely facing it, which is why
+ * this needs no per-target maths.
+ */
+function apeCarryPose(parts) {
+  parts.armR.rotation.set(0.06, 0, 0.12);
+  parts.foreR.rotation.set(-0.16, 0, 0);
+  parts.armL.rotation.set(-0.34, 0, -0.26);
+  parts.foreL.rotation.set(-0.5, 0, 0);
+}
+function apeAimPose(parts) {
+  parts.armR.rotation.set(-1.45, 0, 0.1);
+  parts.foreR.rotation.set(-0.1, 0, 0);
+  parts.armL.rotation.set(-0.4, 0, -0.3);
+  parts.foreL.rotation.set(-0.62, 0, 0);
+  parts.head.rotation.x = -0.04;
+}
+
 export function populateCast(root) {
   // ---------------- Ape ----------------
   // Canonical figure, canonical face, canonical id. Nothing local.
   const apeNpc = buildSilverCaseApe(root, {
-    x: APE_SPOTS.start.x, z: APE_SPOTS.start.z, yaw: APE_SPOTS.start.yaw, job: 'stand',
+    x: APE_SPOTS.hallway.x, z: APE_SPOTS.hallway.z, yaw: APE_SPOTS.hallway.yaw, job: 'stand',
   });
   const apeBuild = makeActor({
     npc: apeNpc,
@@ -121,6 +161,68 @@ export function populateCast(root) {
     ape.group.rotation.y = yaw;
     if (apeMove.t >= 1) apeMove = null;
   }
+
+  /**
+   * Put him on a spot with no walk at all.
+   *
+   * `Actor.revive()` restores an actor to its BUILD position, which for Ape is
+   * now the corridor — right for the top of the mission and wrong for the one
+   * checkpoint, which resumes at the prayer with him already stood beside the
+   * chair. main.js calls this straight after reviving him there.
+   */
+  ape.snapTo = function snapTo(spotName) {
+    const to = APE_SPOTS[spotName];
+    if (!to) return false;
+    apeMove = null;
+    ape.group.position.x = to.x;
+    ape.group.position.z = to.z;
+    ape.group.rotation.y = to.yaw;
+    ape.npc.homeYaw = to.yaw;
+    ape.npc.homeX = to.x;
+    ape.npc.homeZ = to.z;
+    return true;
+  };
+
+  /**
+   * Ape's own gun.
+   *
+   * The owner's note is short: *"Ape needs a gun."* He is the one running this
+   * errand and he finishes the man in the chair alongside the prospect, so he
+   * has to be visibly holding it before that happens rather than producing it
+   * from nowhere at the moment it goes off. It rides in his hand from the
+   * moment he gives the couch order and goes away again once the shooting is
+   * done and there is a case to carry.
+   *
+   * Arming him changes nothing about what he IS: `faction: 'friendly'` locks
+   * `hostile` to false in Actor's own setter, so a friendly actor with a
+   * weapon is still structurally impossible to turn into a combat threat in
+   * either direction.
+   */
+  const apeGun = mountHandRevolver(ape.parts.foreR);
+  apeGun.visible = false;
+  ape.weapon = apeGun;
+  ape.weaponDrawn = false;
+  ape.drawWeapon = function drawWeapon() {
+    if (ape.weaponDrawn) return false;
+    ape.weaponDrawn = true;
+    apeGun.visible = true;
+    // Arms crossed is the pose of a man watching somebody else work. He is not
+    // doing that any more.
+    ape.npc.folded = false;
+    ape.pose = apeCarryPose;
+    return true;
+  };
+  ape.holsterWeapon = function holsterWeapon() {
+    ape.weaponDrawn = false;
+    apeGun.visible = false;
+    ape.pose = null;
+    ape.npc.folded = true;
+  };
+  /** Level it at whatever he is facing (the chair), or bring it back down. */
+  ape.aimWeapon = function aimWeapon(on) {
+    if (!ape.weaponDrawn) ape.drawWeapon();
+    ape.pose = on ? apeAimPose : apeCarryPose;
+  };
 
   // ---------------- Deke (couch) ----------------
   const dekeBuild = makeActor({
@@ -229,17 +331,10 @@ export function populateCast(root) {
   const pruitt = pruittBuild.actor;
   pruitt.group.visible = false;
 
-  // The big revolver, in his hand. Built to the same convention every other
-  // gun in this game uses (barrel down local -z, see world/props.js's
-  // makeRevolver) and parented to the right FOREARM at the hand — where
-  // makePerson puts the hand slab, y=-0.30 inside that group — so it tracks
-  // the aim pose above and the collapse afterwards with no extra bookkeeping.
-  const pruittGun = makeBigRevolver();
-  // -90° about x lays the barrel (local -z) down the forearm's own -y, i.e.
-  // pointing wherever the arm is pointing.
-  pruittGun.rotation.set(-Math.PI / 2 + 0.12, 0, 0);
-  pruittGun.position.set(0.005, -0.33, 0.03);
-  pruitt.parts.foreR.add(pruittGun);
+  // The big revolver, in his hand — the same mount, in the same place, that
+  // Ape's rides in. See `mountHandRevolver` in ../props/weapon.js for why it
+  // hangs off the forearm rather than off the figure.
+  const pruittGun = mountHandRevolver(pruitt.parts.foreR);
   pruitt.weapon = pruittGun;
 
   /** A pace clear of the door frame, so he reads as coming OUT of the room. */

@@ -3,11 +3,14 @@ import { buildApartmentScene, ANCHORS, BATHROOM_DOOR } from './scenes/ApartmentS
 import { buildCarInterior } from './scenes/CarInterior.js';
 import { populateCast } from './cast/cast.js';
 import { SILVERCASE_APE_PRESENTATION } from './cast/ape.js';
-import { makeRevolverViewModel } from './props/weapon.js';
+import { makeRevolverViewModel, muzzleWorld } from './props/weapon.js';
 import { makeCase } from './props/case.js';
 import { ReactionWindow } from './combat/ReactionWindow.js';
+import { ImpactKit, ShotResolver } from './combat/Shooting.js';
 import { DialogueController } from './dialogue/DialogueController.js';
-import { SEQUENCES, CHOICES, OBJECTIVES } from './dialogue/script.js';
+import {
+  SEQUENCES, CHOICES, OBJECTIVES, INSTRUCTIONS, TARGET_CALLOUTS,
+} from './dialogue/script.js';
 import { SilverCaseStateMachine, S, CHECKPOINT } from './state/SilverCaseStateMachine.js';
 import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
@@ -94,8 +97,11 @@ const ui = {
   beginBtn: $('beginBtn'),
 
   hud: $('hud'),
+  reticle: $('reticle'),
   objective: $('objective'),
   objectiveText: $('objectiveText'),
+  instruction: $('instruction'),
+  targetTag: $('targetTag'),
   subs: $('subs'),
   subsWho: $('subsWho'),
   subsLine: $('subsLine'),
@@ -121,6 +127,26 @@ function setObjective(text) {
   if (!text) { ui.objective.classList.remove('show'); return; }
   ui.objectiveText.textContent = text;
   ui.objective.classList.add('show');
+}
+
+/**
+ * The on-screen game instruction — the owner's "pop up to kill the guy on the
+ * couch", in the hub's own register rather than a character's.
+ *
+ * Deliberately NOT a dialogue line with a speaker: nobody in the room says it,
+ * it carries no cue, and it stays on screen for as long as the order stands
+ * instead of scrolling by. The copy lives in script.js's `INSTRUCTIONS` with
+ * the rest of the mission's writing.
+ */
+function setInstruction(text, { urgent = false } = {}) {
+  if (!text) {
+    ui.instruction.classList.remove('show', 'urgent');
+    ui.instruction.textContent = '';
+    return;
+  }
+  ui.instruction.textContent = text;
+  ui.instruction.classList.add('show');
+  ui.instruction.classList.toggle('urgent', urgent);
 }
 
 /** The tiny HUD contract InteractionSystem (core/interaction.js) needs —
@@ -198,7 +224,25 @@ player.mode = 'walk';
 
 const interactions = new InteractionSystem(camera, tinyHud);
 const audio = new AudioEngine();
-const reactionWindow = new ReactionWindow({ windowSeconds: 2.2 });
+// 3.2s, not 2.2. The owner's note: "lets give another second to get the
+// bathroom guy." The window still starts the instant the door is kicked and
+// still ends the mission when it runs out — it is now long enough to find a
+// man in a doorway, put the crosshair ON him (which, since the shot became a
+// real ray, is a thing the player genuinely has to do) and fire.
+const reactionWindow = new ReactionWindow({ windowSeconds: 3.2 });
+
+/**
+ * The shot, and what it leaves.
+ *
+ * `shots` casts the ray down the middle of the screen; `impacts` owns the
+ * pooled holes and wounds. The cast is parented into `apartment.root`, so one
+ * ray settles both "did I hit anybody" and "what is behind him" with the
+ * nearest hit winning — a man standing behind the couch cannot be shot through
+ * it, and a shot that misses everyone still marks the plaster.
+ */
+const shots = new ShotResolver(camera, { root: apartment.root });
+for (const actor of cast.all) shots.registerActor(actor);
+const impacts = new ImpactKit(scene);
 
 /**
  * The five-box bottom-right loadout every other production scene mounts
@@ -282,7 +326,7 @@ const pauseMenu = createPauseMenu({
   instructions: [
     'W A S D / arrows — move. Mouse — look.',
     'E — interact.',
-    'Left click — fire, when it matters.',
+    'Left click — fire. The shot goes where the crosshair is, so aim first.',
     'Right click — reach for your weapon (don’t, unless Ape says so).',
     '1-4 — pick a response when a choice is on screen. Hold E to finish the prayer.',
     'Tab or Escape — pause. M — mute.',
@@ -303,7 +347,21 @@ const pauseMenu = createPauseMenu({
 // ---------------------------------------------------------------- mission state
 
 const cluesFound = { glasses: false, bathroomDoor: false, chesterGlance: false };
-const flags = { irritatedApe: false };
+const flags = {
+  irritatedApe: false,
+  /** Set when the player let Ape finish somebody the player was asked to. */
+  apeFinishedChester: false,
+  apeFinishedWinston: false,
+};
+/**
+ * The last trigger pull, for the HUD, the verify script and nothing else.
+ * `{ intended, hit, actor, wrong }` — see `resolvePlayerShot`.
+ */
+let lastShot = null;
+/** How many times a trigger pull found somebody other than the ordered man. */
+let wrongTargetShots = 0;
+/** How many pulls found nobody at all. */
+let missedShots = 0;
 
 let running = false;
 let paused = false;
@@ -422,6 +480,36 @@ function updateAmbientControl() {
   }
 }
 
+/**
+ * The reticle, and the name under it.
+ *
+ * Aiming only matters if the player can tell they are aiming. While a beat has
+ * ordered a specific man shot, the same ray the trigger will use is cast every
+ * frame: the dot grows when a shot is live at all and goes red, with the man's
+ * name under it, at the moment it is genuinely on him. Nothing here changes
+ * where the bullet goes — it only shows the player what the game already knows.
+ */
+let aimOnTarget = false;
+function updateAimCallout() {
+  const target = orderedTarget();
+  if (!target || !running) {
+    aimOnTarget = false;
+    ui.reticle.classList.remove('aiming', 'hot');
+    ui.targetTag.classList.remove('show');
+    return;
+  }
+  ui.reticle.classList.add('aiming');
+  const hit = shots.trace();
+  aimOnTarget = hit?.actor === target;
+  ui.reticle.classList.toggle('hot', aimOnTarget);
+  if (aimOnTarget) {
+    ui.targetTag.textContent = TARGET_CALLOUTS[fsm.name] || `${target.name.toUpperCase()} — FIRE`;
+    ui.targetTag.classList.add('show');
+  } else {
+    ui.targetTag.classList.remove('show');
+  }
+}
+
 /** Right-click "reach for the weapon" before Ape calls for it — gated at the
  * mousedown handler to only ever arm while in one of the three states that
  * care, so this has nothing stale to consume on any other beat. */
@@ -449,14 +537,22 @@ function updateChoiceHold(dt) {
   }
 }
 
-/** Somewhere open on the apartment floor, facing Chester's chair — clear of
- * the couch/coffee-table/chair colliders. Not any single authored anchor,
- * since none of ApartmentScene's anchors are "the middle of the room". */
-const RETRY_SPOT = { x: 8.6, z: 0.6 };
+/**
+ * Somewhere open on the apartment floor, facing Chester's chair — clear of the
+ * couch/coffee-table/chair colliders. Not any single authored anchor, since
+ * none of ApartmentScene's anchors are "the middle of the room".
+ *
+ * Moved east with the coffee table: the table now sits square in front of the
+ * couch (x 7.40–8.60, z 0.74–1.36) instead of half inside it, and the old
+ * (8.6, 0.6) put the player's 0.30 m capsule 14 cm inside that footprint, so a
+ * retry began by shoving him out of the furniture.
+ */
+const RETRY_SPOT = { x: 9.4, z: 0.55 };
 
 function restoreCheckpoint() {
   tweens.length = 0;
   reactionWindow.reset();
+  setInstruction('');
   // Actor.revive() puts a fallen figure back on its feet (or back in its
   // chair) at its spawn pose, and cast.js's pruitt.hide() tucks the bathroom
   // man back into the dark. Deke stays dead: the checkpoint is the start of
@@ -465,8 +561,22 @@ function restoreCheckpoint() {
   cast.ape.revive();
   cast.chester.revive();
   cast.pruitt.hide();
-  // …and the door he came through goes back on the latch with him.
-  apartment.doors.bathroomDoor.group.rotation.y = 0;
+  // Reviving a man puts his body back; it does not take the blood off it, and
+  // the wound decals are parented to his own limbs so they would ride back up
+  // onto a living Chester. Deke's stay exactly where they are: he does not
+  // come back, and neither does what happened to him.
+  impacts.clearActor(cast.chester);
+  impacts.clearActor(cast.pruitt);
+  impacts.clearActor(cast.ape);
+  // Ape is back beside the chair with his gun in his hand, because that is
+  // where the checkpoint's own beat put him — revive() alone would return him
+  // to his BUILD position, which is now the corridor downstairs.
+  cast.ape.snapTo('chair');
+  cast.ape.drawWeapon();
+  cast.ape.aimWeapon(false);
+  // …and the door he came through goes back off the latch, but not shut: it
+  // is ajar for the whole mission, which is the clue.
+  apartment.doors.bathroomDoor.group.rotation.y = apartment.doors.bathroomDoor.ajarRotationY;
   // The case was found and shut two beats ago and stays that way.
   apartment.props.case.close({ instant: true });
   // He is holding the gun at the checkpoint, because he was holding it when
@@ -569,6 +679,133 @@ function holsterWeapon() {
   syncInventory();
 }
 
+// ---------------------------------------------------------------- shooting
+//
+// The owner's note, and the reason any of this exists:
+//
+//   "you should also actually have to shoot where you are aiming. I just
+//    clicked on the guy in the chair and it killed the bathroom guy."
+//
+// Every shooting beat used to read `firePressed` and kill its scripted man.
+// Now a trigger pull casts a real ray (combat/Shooting.js), and the BEAT asks
+// whether that ray found the man it named. Hitting somebody else, hitting Ape,
+// and hitting the wall are three different, authored outcomes, and none of
+// them advances the mission.
+
+const _muzzle = new THREE.Vector3();
+const _toShooter = new THREE.Vector3();
+const _aimAt = new THREE.Vector3();
+
+/** Which man, if any, the current beat has ordered shot. */
+function orderedTarget() {
+  if (fsm.is(S.COUCH_SHOOTING)) return cast.deke;
+  if (fsm.is(S.CHAIR_SHOOTING)) return cast.chester;
+  if (fsm.is(S.BATHROOM_AMBUSH)) return cast.pruitt;
+  if (fsm.is(S.EXECUTE_WINSTON)) return cast.winston;
+  return null;
+}
+
+/**
+ * Blood on a man, at the point a ray actually found him, facing the shooter.
+ *
+ * Ape is exempt, and not by omission: `Actor`'s locked `hostile` setter is what
+ * keeps him out of combat resolution, and this keeps him out of its cosmetics
+ * too. A round that finds him is a line, not a wound.
+ */
+function markBody(actor, point, fromPoint, opts) {
+  if (actor === cast.ape) return;
+  _toShooter.copy(fromPoint).sub(point).normalize();
+  impacts.body(actor, point, _toShooter, opts);
+  audio.play('heist.player.hit', { volume: 0.5, position: point });
+}
+
+/** A hole in the plaster, and the crack of it. */
+function markSurface(point, normal) {
+  impacts.surface(point, normal);
+  audio.play('gun.impact', { volume: 0.55, position: point });
+}
+
+/**
+ * One pull of Tony's trigger: noise, flash, kick, ray, and whatever the ray
+ * found. Returns the shot record; the calling beat decides what it means.
+ */
+function firePlayerShot() {
+  audio.play('gun.shot', { volume: 0.92 });
+  muzzleFlash();
+  viewModel.fire();
+  if (viewModel.gun.userData.muzzle) {
+    muzzleWorld(viewModel.gun, _muzzle);
+    impacts.muzzle(_muzzle);
+  }
+  const hit = shots.trace();
+  if (hit?.actor) markBody(hit.actor, hit.point, camera.position);
+  else if (hit) markSurface(hit.point, hit.normal);
+  return hit;
+}
+
+/**
+ * Fire, and report whether the ordered man was the one under the crosshair.
+ *
+ * A wrong hit is not a free pass: the man takes a real, non-fatal round (he is
+ * needed alive for the rest of the mission, and a graze that reads as a graze
+ * is better writing than a bullet that passes through him), Ape says so, and
+ * the beat stays exactly where it was, waiting for the right shot.
+ */
+function resolvePlayerShot() {
+  const target = orderedTarget();
+  const hit = firePlayerShot();
+  const actor = hit?.actor ?? null;
+  const onTarget = Boolean(target) && actor === target;
+  lastShot = {
+    intended: target?.name ?? null,
+    actor: actor?.name ?? null,
+    onTarget,
+    surface: Boolean(hit) && !actor,
+  };
+  if (onTarget) return true;
+  if (actor === cast.ape) {
+    dialogue.interject(SEQUENCES.shotAtApe);
+    wrongTargetShots += 1;
+    return false;
+  }
+  if (actor) {
+    // Wounded, never killed by a stray: floored at a third of his health so
+    // repeated mistakes can never quietly remove somebody the story needs.
+    actor.hp = Math.max(Math.round(actor.maxHp / 3), actor.hp - 15);
+    dialogue.interject(SEQUENCES.shotWrongMan);
+    wrongTargetShots += 1;
+    return false;
+  }
+  dialogue.interject(SEQUENCES.shotMissed);
+  missedShots += 1;
+  return false;
+}
+
+/**
+ * Ape's own round, fired from his own gun at a man he is stood in front of.
+ *
+ * The impact point comes off a ray from his muzzle rather than from a guessed
+ * chest height, for the same reason the player's does: it is the only way the
+ * hole ends up on the body. If the ray finds anything other than the man (an
+ * arm of the chair, say) the wound falls back to the aim point itself.
+ */
+function apeShootsAt(actor) {
+  const gun = cast.ape.weapon;
+  cast.ape.aimWeapon(true);
+  actor.parts.head.getWorldPosition(_aimAt);
+  _aimAt.y -= 0.3; // the chest, not the head
+  if (!gun) {
+    markBody(actor, _aimAt, camera.position);
+    return;
+  }
+  muzzleWorld(gun, _muzzle);
+  impacts.muzzle(_muzzle);
+  audio.play('gun.shot', { volume: 0.85, position: _muzzle });
+  const hit = shots.traceFrom(_muzzle, _aimAt.clone().sub(_muzzle));
+  if (hit?.actor === actor) markBody(actor, hit.point, _muzzle, { spatter: false });
+  else markBody(actor, _aimAt, _muzzle, { spatter: false });
+}
+
 // ---------------------------------------------------------------- states
 
 function buildStates() {
@@ -623,6 +860,14 @@ function buildStates() {
         player.pitch = 0;
         player.velocity.set(0, 0, 0);
         setObjective(OBJECTIVES.ARRIVE_HALLWAY);
+        // The owner's note: "Ape is not in the hallway - he should be in the
+        // hallway with you when you spawn in." He now BUILDS in the corridor
+        // (cast.js's APE_SPOTS.hallway) rather than inside the flat, so this
+        // only has to make sure a car ride replayed from the menu, or any
+        // other route into this beat, puts him back on that mark — and give
+        // him something to say on the walk down.
+        cast.ape.snapTo('hallway');
+        dialogue.play(SEQUENCES.hallwayArrival);
       },
     },
 
@@ -630,6 +875,9 @@ function buildStates() {
       enter() {
         setObjective(OBJECTIVES.KNOCK);
         audio.play('door.knob', { volume: 0.7 });
+        // He walks up to 2E and knocks on it, because he is the one doing the
+        // talking through it.
+        cast.ape.moveTo('door');
         dialogue.play(SEQUENCES.arrival, { onDone: () => fsm.go(S.ENTER_APARTMENT) });
         // The door visibly opens partway during/after the knock.
         after(0.5, () => {
@@ -658,6 +906,9 @@ function buildStates() {
     [S.ESTABLISH_CONTROL]: {
       enter() {
         setObjective(OBJECTIVES.ESTABLISH_CONTROL);
+        // In from the corridor with the player, and standing where he can see
+        // all three of them while Tony searches.
+        cast.ape.moveTo('start');
         dialogue.play(SEQUENCES.establishControl);
         apartment.props.caseOcclusion.visible = true;
       },
@@ -696,25 +947,32 @@ function buildStates() {
     [S.COUCH_SHOOTING]: {
       enter() {
         setObjective(OBJECTIVES.COUCH_SHOOTING);
+        // "It's unclear who to shoot" — so the screen says it, in the game's
+        // own voice, and stays saying it until the man on the couch is down.
+        setInstruction(INSTRUCTIONS.COUCH_SHOOTING);
         couchFireHandled = false;
         // "This is the part where we make sure everybody remembers this
         // conversation." This is where Ape finally says when — so this is
-        // where the gun comes out, and it stays out through the ambush.
+        // where BOTH guns come out, and they stay out through the ambush.
         drawWeapon();
+        cast.ape.drawWeapon();
         dialogue.play(SEQUENCES.couchOrder);
       },
       update() {
         // No countdown, no QTE: the camera and controls stay fully live, and
         // the player fires (or doesn't) on their own left-click, whenever.
+        // What has changed is that the click has to land on Deke.
         if (firePressed && !couchFireHandled) {
           firePressed = false;
+          if (!resolvePlayerShot()) return;
           couchFireHandled = true;
           cast.deke.kill();
-          audio.play('gun.shot', { volume: 0.9 });
-          muzzleFlash();
-          viewModel.fire();
+          setInstruction('');
           dialogue.play(SEQUENCES.couchAftermath, { onDone: () => fsm.go(S.LOU_QUESTION) });
         }
+      },
+      exit() {
+        setInstruction('');
       },
     },
 
@@ -747,11 +1005,11 @@ function buildStates() {
               onDone: () => {
                 dialogue.presentChoice(CHOICES.prayerFinish, {
                   onResolved: () => {
+                    // The prayer no longer kills him on its own. The owner's
+                    // note: "There should also be a prompt to shoot the guy in
+                    // the chair with Ape." That is its own beat.
                     dialogue.play(SEQUENCES.squatchPrayerFinish, {
-                      onDone: () => {
-                        cast.chester.kill();
-                        fsm.go(S.BATHROOM_AMBUSH);
-                      },
+                      onDone: () => fsm.go(S.CHAIR_SHOOTING),
                     });
                   },
                 });
@@ -762,9 +1020,66 @@ function buildStates() {
       },
     },
 
+    /**
+     * The man in the chair — the beat the prayer used to skip straight past.
+     *
+     * Both guns are up and both men fire. If the player pulls first, Ape's
+     * round follows a fifth of a second later and Chester carries two wounds;
+     * if the player will not do it, Ape does it alone after twelve seconds and
+     * says so, because a mission that stalls forever on a prompt is worse than
+     * one that judges you for missing it.
+     */
+    [S.CHAIR_SHOOTING]: {
+      enter() {
+        setObjective(OBJECTIVES.CHAIR_SHOOTING);
+        setInstruction(INSTRUCTIONS.CHAIR_SHOOTING);
+        this.fired = false;
+        this.t = 0;
+        this.nudged = false;
+        cast.ape.moveTo('chair');
+        cast.ape.aimWeapon(true);
+        dialogue.play(SEQUENCES.chairOrder);
+      },
+      update(dt) {
+        if (this.fired) return;
+        this.t += dt;
+        if (!this.nudged && this.t > 6.5) {
+          this.nudged = true;
+          dialogue.interject(SEQUENCES.chairStall);
+        }
+        if (firePressed) {
+          firePressed = false;
+          if (!resolvePlayerShot()) return;
+          this.fired = true;
+          setInstruction('');
+          // Tony's round lands; Ape's follows, because he said together.
+          after(0.2, () => {
+            apeShootsAt(cast.chester);
+            cast.chester.kill();
+            after(0.5, () => cast.ape.aimWeapon(false));
+            dialogue.play(SEQUENCES.chairTogether, { onDone: () => fsm.go(S.BATHROOM_AMBUSH) });
+          });
+          return;
+        }
+        if (this.t >= 12) {
+          this.fired = true;
+          flags.apeFinishedChester = true;
+          setInstruction('');
+          apeShootsAt(cast.chester);
+          cast.chester.kill();
+          after(0.5, () => cast.ape.aimWeapon(false));
+          dialogue.play(SEQUENCES.chairApeAlone, { onDone: () => fsm.go(S.BATHROOM_AMBUSH) });
+        }
+      },
+      exit() {
+        setInstruction('');
+      },
+    },
+
     [S.BATHROOM_AMBUSH]: {
       enter() {
         setObjective(OBJECTIVES.BATHROOM_AMBUSH);
+        setInstruction(INSTRUCTIONS.BATHROOM_AMBUSH, { urgent: true });
         ui.objective.classList.add('urgent');
         // The door has to come off the latch or he walks through it: the
         // bathroom leaf is real geometry sitting exactly where he appears.
@@ -777,24 +1092,34 @@ function buildStates() {
           0.22,
         );
         cast.pruitt.reveal();
+        dialogue.interject(SEQUENCES.bathroomWarning);
         const cluesCount = Object.values(cluesFound).filter(Boolean).length;
         reactionWindow.start({ readinessBonus: cluesCount >= 2 });
       },
       update(dt) {
         const event = reactionWindow.update(dt);
         if (event?.event === 'expired') {
+          // Pruitt gets the shot he came out of the bathroom to take.
+          const gun = cast.pruitt.weapon;
+          if (gun) {
+            muzzleWorld(gun, _muzzle);
+            impacts.muzzle(_muzzle);
+          }
+          audio.play('gun.shot', { volume: 0.95 });
           cast.ape.kill();
           fsm.go(S.FAILED);
           return;
         }
+        // The window is still open, so the player can keep firing — but only a
+        // round that actually finds Pruitt closes it. Shooting the wall, or
+        // Winston, or Ape, burns the time it took to do it.
         if (firePressed) {
           firePressed = false;
+          if (!resolvePlayerShot()) return;
           const result = reactionWindow.resolve('player_shot');
           if (result.ok) {
             cast.pruitt.kill();
-            audio.play('gun.shot', { volume: 0.95 });
-            muzzleFlash();
-            viewModel.fire();
+            setInstruction('');
             const seq = reactionWindow.readinessBonus
               ? SEQUENCES.bathroomFastWithClues
               : SEQUENCES.bathroomFast;
@@ -804,6 +1129,7 @@ function buildStates() {
       },
       exit() {
         ui.objective.classList.remove('urgent');
+        setInstruction('');
       },
     },
 
@@ -814,9 +1140,12 @@ function buildStates() {
           onDone: () => {
             dialogue.presentChoice(CHOICES.aftermath, {
               onResolved: (outcome) => {
-                if (outcome !== 'spare') cast.winston.kill();
-                const reaction = outcome === 'spare' ? SEQUENCES.aftermathSpare : SEQUENCES.aftermathKill;
-                dialogue.play(reaction, {
+                // Sparing him resolves here, the way it always did. Killing
+                // him no longer resolves on the keypress at all — the owner's
+                // note is that if you are not going to spare the last man you
+                // should have to do it, and see it.
+                if (outcome !== 'spare') { fsm.go(S.EXECUTE_WINSTON); return; }
+                dialogue.play(SEQUENCES.aftermathSpare, {
                   onDone: () => {
                     dialogue.play(SEQUENCES.aftermathExit, { onDone: () => fsm.go(S.PICK_UP_CASE) });
                   },
@@ -828,12 +1157,66 @@ function buildStates() {
       },
     },
 
+    /**
+     * The last man, if the player will not leave him one. Same contract as the
+     * chair: a named target, an on-screen instruction, a shot that has to land
+     * on him, blood where it lands — and Ape finishing it if the player asks
+     * for it and then will not do it.
+     */
+    [S.EXECUTE_WINSTON]: {
+      enter() {
+        setObjective(OBJECTIVES.EXECUTE_WINSTON);
+        setInstruction(INSTRUCTIONS.EXECUTE_WINSTON);
+        this.fired = false;
+        this.t = 0;
+        this.begged = false;
+        drawWeapon();
+        cast.ape.drawWeapon();
+        dialogue.play(SEQUENCES.aftermathKillOrder);
+      },
+      update(dt) {
+        if (this.fired) return;
+        this.t += dt;
+        if (!this.begged && this.t > 5) {
+          this.begged = true;
+          dialogue.interject(SEQUENCES.aftermathKillStall);
+        }
+        const finish = (seq) => {
+          this.fired = true;
+          setInstruction('');
+          dialogue.play(seq, {
+            onDone: () => {
+              dialogue.play(SEQUENCES.aftermathExit, { onDone: () => fsm.go(S.PICK_UP_CASE) });
+            },
+          });
+        };
+        if (firePressed) {
+          firePressed = false;
+          if (!resolvePlayerShot()) return;
+          cast.winston.kill();
+          finish(SEQUENCES.aftermathKill);
+          return;
+        }
+        if (this.t >= 14) {
+          flags.apeFinishedWinston = true;
+          apeShootsAt(cast.winston);
+          cast.winston.kill();
+          after(0.5, () => cast.ape.aimWeapon(false));
+          finish(SEQUENCES.aftermathKillApeAlone);
+        }
+      },
+      exit() {
+        setInstruction('');
+      },
+    },
+
     [S.PICK_UP_CASE]: {
       enter() {
         setObjective(OBJECTIVES.PICK_UP_CASE);
         // The shooting is over; you cannot carry a case and hold a gun on a
         // room at the same time. It goes away, and the bar still shows it.
         holsterWeapon();
+        cast.ape.holsterWeapon();
       },
     },
 
@@ -857,6 +1240,7 @@ function buildStates() {
     [S.SCENE_COMPLETE]: {
       enter() {
         setObjective('');
+        setInstruction('');
         player.mode = 'frozen';
         after(1.0, () => {
           running = false;
@@ -871,6 +1255,7 @@ function buildStates() {
     [S.FAILED]: {
       enter() {
         ui.deathTitle.textContent = 'TOO SLOW';
+        setInstruction('');
         dialogue.play(SEQUENCES.bathroomFailed);
         player.mode = 'frozen';
         after(1.2, () => {
@@ -969,10 +1354,14 @@ function updateGame(dt) {
   cast.update(dt, player.position);
   carriedCase.update(dt);
   viewModel.update(dt);
+  impacts.update(dt);
   updateTweens(dt);
   checkEarlyDraw();
   updateChoiceHold(dt);
-  if (!fsm.is(S.COUCH_SHOOTING, S.BATHROOM_AMBUSH)) firePressed = false;
+  updateAimCallout();
+  if (!fsm.is(S.COUCH_SHOOTING, S.CHAIR_SHOOTING, S.BATHROOM_AMBUSH, S.EXECUTE_WINSTON)) {
+    firePressed = false;
+  }
   fsm.update(dt);
 }
 
@@ -1008,6 +1397,28 @@ window.silvercase = {
       cluesFound: { ...cluesFound },
       flags: { ...flags },
       earlyDrawCount,
+      wrongTargetShots,
+      missedShots,
+      /** What the last trigger pull actually found — the aim/hit record. */
+      lastShot: lastShot ? { ...lastShot } : null,
+    },
+    /** What the crosshair is on right now, and what the beat asked for. */
+    aim: {
+      ordered: orderedTarget()?.name ?? null,
+      at: shots.trace()?.actor?.name ?? null,
+      onTarget: aimOnTarget,
+      instruction: ui.instruction.textContent || '',
+      instructionShown: ui.instruction.classList.contains('show'),
+      targetTagShown: ui.targetTag.classList.contains('show'),
+    },
+    /** Decals actually placed, by pool — the "blood and impact" contract. */
+    marks: {
+      wounds: impacts.wounds.pool.filter((m) => m.visible).length,
+      spatter: impacts.spatter.pool.filter((m) => m.visible).length,
+      holes: impacts.holes.pool.filter((m) => m.visible).length,
+      onBodies: Object.fromEntries(
+        cast.all.map((actor) => [actor.name.toLowerCase(), impacts.marksOn(actor)]),
+      ),
     },
     actors: Object.fromEntries(cast.all.map((actor) => [
       actor.name.toLowerCase(),
@@ -1032,6 +1443,19 @@ window.silvercase = {
       family: cast.ape.group.userData.npc?.family === true,
       face: SILVERCASE_APE_PRESENTATION.face,
       model: { ...SILVERCASE_APE_PRESENTATION.model },
+      /** His own gun: mounted from the start, shown when he draws it. */
+      armed: Boolean(cast.ape.weapon),
+      gun: cast.ape.weapon?.name ?? null,
+      gunInHand: Boolean(cast.ape.weapon)
+        && cast.ape.weapon.parent === cast.ape.parts.foreR,
+      weaponDrawn: cast.ape.weaponDrawn === true,
+      weaponVisible: cast.ape.weapon?.visible === true,
+      /** Locked false by Actor's own setter: armed is not hostile. */
+      hostile: cast.ape.hostile,
+      at: {
+        x: +cast.ape.group.position.x.toFixed(3),
+        z: +cast.ape.group.position.z.toFixed(3),
+      },
     },
     case: {
       openness: +apartment.props.case.openness().toFixed(3),
@@ -1047,6 +1471,41 @@ window.silvercase = {
   retry: () => { ui.deathOverlay.classList.add('hidden'); restoreCheckpoint(); },
   pressFire: () => { firePressed = true; },
   pressDraw: () => { drawPressed = true; },
+  /**
+   * Point the camera at an actor's chest, the way a player would before
+   * pulling the trigger. Returns what the crosshair then resolves to, so a
+   * verify script can prove the aim and the hit are the same thing rather
+   * than assuming it.
+   */
+  aimAt(name) {
+    const actor = cast[name];
+    if (!actor) return null;
+    const at = new THREE.Vector3();
+    actor.parts.head.getWorldPosition(at);
+    at.y -= 0.28;
+    const dx = at.x - camera.position.x;
+    const dy = at.y - camera.position.y;
+    const dz = at.z - camera.position.z;
+    // Player.js's camera convention: forward = (-sin(yaw), 0, -cos(yaw)).
+    player.yaw = Math.atan2(-dx, -dz);
+    player.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    player.update(0);
+    camera.updateMatrixWorld(true);
+    const hit = shots.trace();
+    return {
+      aimedAt: name,
+      resolvesTo: hit?.actor?.name?.toLowerCase() ?? null,
+      distance: hit ? +hit.distance.toFixed(3) : null,
+    };
+  },
+  /** Aim at `name` and pull the trigger in the same call. */
+  shootAt(name) {
+    const aim = window.silvercase.aimAt(name);
+    firePressed = true;
+    return aim;
+  },
+  shots,
+  impacts,
   chooseKey: (key) => dialogue.chooseKey(key),
   dialogue,
   cast,
