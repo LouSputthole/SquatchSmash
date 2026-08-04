@@ -204,6 +204,35 @@ export const VAULT = Object.freeze({
 export const CELLAR_DOOR = Object.freeze({ x0: 5.35, x1: 7.05 });
 
 /* ---------------------------------------------------------------------------
+ * THE SEAM (docs/MISSION-SILENT-SQUATCH.md, beat 3).
+ *
+ * The expansion pass left the corridor's WEST END WALL blank on purpose and
+ * said so in three places: nothing hung on it, nothing standing in front of
+ * it, and a verifier assertion holding the gap open. This is the door that gap
+ * was kept for -- a hole punched clean through the wing's west shell wall at
+ * the corridor's own floor, filled by a decorative wall panel that slides
+ * backward and then sideways when the switch under the marble bust is thrown.
+ *
+ * The shell contributes the OPENING and its lintel and nothing else. The
+ * panel, the mechanism, the plinth, the bust and everything west of here
+ * belong to `SilentSquatch.js`, which is also what closes the hole up again:
+ * with that module absent this is a 2 m doorway into bare earth, so the two
+ * ship together or not at all.
+ *
+ * 2.0 m wide, centred on the corridor (z 64.3..67.4, mid 65.85). A door has to
+ * be walked through, and the maze lesson -- no channel narrower than 0.6 m --
+ * applies here with a great deal of margin.
+ */
+export const SECRET_DOOR = Object.freeze({
+  x0: BASEMENT_WING.x0 - 0.3,
+  x1: BASEMENT_WING.x0,
+  z0: 64.85,
+  z1: 66.85,
+  y0: BASEMENT_Y,
+  y1: BASEMENT_Y + 2.25,
+});
+
+/* ---------------------------------------------------------------------------
  * LAYOUT DATUM (2026-08-04 rework, owner's brief).
  *
  * "I want the Conference room to be at the top of the stairs and the stairs to
@@ -2382,7 +2411,14 @@ export function buildMansionGrounds(scene = null) {
       mat: M_MARBLE_DK,
       name: 'cellar-wing-slab',
     }));
-    ext(BW.x0 - 0.3, BW.x0, BASEMENT_Y, 0, BW.z0 - 0.3, BW.z1 + 0.3, 'cellar-wing-west', M_PODIUM);
+    /* The west shell wall, in three pieces round SECRET_DOOR -- see the note
+     * on that constant. The lintel over the opening stops at y=0, the
+     * underside of the podium, exactly like the cellar stair's head wall and
+     * for the same reason: nothing in this house may top out on a floor
+     * somebody stands on. */
+    ext(BW.x0 - 0.3, BW.x0, BASEMENT_Y, 0, BW.z0 - 0.3, SECRET_DOOR.z0, 'cellar-wing-west-south', M_PODIUM);
+    ext(BW.x0 - 0.3, BW.x0, BASEMENT_Y, 0, SECRET_DOOR.z1, BW.z1 + 0.3, 'cellar-wing-west-north', M_PODIUM);
+    ext(BW.x0 - 0.3, BW.x0, SECRET_DOOR.y1, 0, SECRET_DOOR.z0, SECRET_DOOR.z1, 'cellar-wing-west-lintel', M_PODIUM);
     ext(BW.x1, BW.x1 + 0.3, BASEMENT_Y, 0, BW.z0 - 0.3, BW.z1 + 0.3, 'cellar-wing-east', M_PODIUM);
     ext(BW.x0 - 0.3, BW.x1 + 0.3, BASEMENT_Y, 0, BW.z1, BW.z1 + 0.3, 'cellar-wing-north', M_PODIUM);
     for (const [sx0, sx1] of [[BW.x0 - 0.3, BASEMENT_ROOM.x0], [BASEMENT_ROOM.x1, BW.x1 + 0.3]]) {

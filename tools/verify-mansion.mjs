@@ -246,21 +246,25 @@ try {
     missingAnchors.length === 0 && extraAnchors.length === 0,
     JSON.stringify({ missingAnchors, extraAnchors }));
 
-  /* The merged list is grounds + interior + the armory's racks. The racks are
-   * the third contributor and they are counted, not waved through: a rack you
-   * can walk through is a rack whose guns are decoration. */
+  /* The merged list is grounds + interior + the armory's racks + Silent
+   * Squatch. Every contributor is counted, not waved through: a rack you can
+   * walk through is a rack whose guns are decoration, and a lab wall you can
+   * walk through is a lab with no glass in it. */
   const colliderInfo = await page.evaluate(() => ({
     collidersCount: window.mansion.collidersCount,
     actualLength: window.mansion.colliders.length,
     groundsLen: window.mansion.grounds.colliders.length,
     interiorLen: window.mansion.interior.colliders.length,
     armoryLen: window.mansion.weapons.colliders,
+    labLen: window.mansion.labColliders,
   }));
   check('collidersCount is internally consistent and a sane positive number (geometry actually built)',
     colliderInfo.collidersCount === colliderInfo.actualLength
       && colliderInfo.collidersCount
-        === colliderInfo.groundsLen + colliderInfo.interiorLen + colliderInfo.armoryLen
+        === colliderInfo.groundsLen + colliderInfo.interiorLen
+          + colliderInfo.armoryLen + colliderInfo.labLen
       && colliderInfo.armoryLen === 6
+      && colliderInfo.labLen > 40
       && colliderInfo.collidersCount > 50,
     JSON.stringify(colliderInfo));
 
@@ -770,7 +774,7 @@ try {
       { at: [13.35, 65.9], note: 'east past the open vault door' },
       { at: [13.35, 71.0], room: 'vault', note: 'into the vault' },
       { at: [13.35, 65.9], note: 'back out of the vault' },
-      { at: [-14.4, 65.9], note: "to the corridor's blank west end" },
+      { at: [-14.4, 65.9], note: "to the corridor's west end and the marble bust" },
     ],
     6,
   );
@@ -1561,14 +1565,33 @@ try {
   check('the lower level lets you back out into the armory through the same doorway',
     s.z < 63.0 && Math.abs(s.ground - BASEMENT_Y) < 0.25, JSON.stringify(s));
 
-  /* The corridor's west end wall is being kept blank on purpose -- a later
-   * pass puts a secret door there. Asserted, so a future dressing pass cannot
-   * quietly hang something on it and take the seam away. */
-  const westEndArt = await page.evaluate(() => window.mansion.art.filter(
-    (a) => a.x0 < -15.0 && a.z1 > 64.0 && a.z0 < 67.6 && a.y1 < 0,
-  ).map((a) => a.id));
-  check("the cellar corridor's west end wall is left blank for the secret door",
-    westEndArt.length === 0, westEndArt.join(', '));
+  /* THE SEAM, CLAIMED.
+   *
+   * This check used to assert the corridor's west end wall stayed BLANK,
+   * because a later pass was going to put a secret door there. That pass has
+   * landed, so the assertion is inverted rather than deleted: the wall is now
+   * the door, the door starts shut, it is exactly where the expansion pass
+   * said it would be (x -15.9..-15.6, z 64.85..66.85), and the house's own
+   * art sweep still hangs nothing on it -- the dressing belongs to the panel
+   * that moves, which is why it is registered on the lab's list and not the
+   * house's. Hang a picture from `MansionInterior` on that wall and this
+   * still fails, exactly as before. */
+  const westEnd = await page.evaluate(() => ({
+    houseArt: window.mansion.art.filter(
+      (a) => a.x0 < -15.0 && a.z1 > 64.0 && a.z0 < 67.6 && a.y1 < 0,
+    ).map((a) => a.id),
+    door: window.mansion.lab.hiddenWall.rect,
+    phase: window.mansion.lab.hiddenWall.phase,
+    decor: window.mansion.lab.inventory.decorArt,
+  }));
+  check("the cellar corridor's west end wall is now the hidden door, and starts shut",
+    westEnd.houseArt.length === 0
+      && westEnd.phase === 'shut'
+      && Math.abs(westEnd.door.x0 + 15.9) < 0.01 && Math.abs(westEnd.door.x1 + 15.6) < 0.01
+      && westEnd.door.z0 >= 64.3 && westEnd.door.z1 <= 67.4
+      && (westEnd.door.z1 - westEnd.door.z0) >= 1.6
+      && westEnd.decor >= 3,
+    JSON.stringify(westEnd));
 
   // The theatre's rear riser: you come in at the top of the rake and step
   // DOWN toward the screen, which is the way round a cinema is built.
@@ -1738,8 +1761,647 @@ try {
     garden.lanterns >= 20, `${garden.lanterns} practical lights in the garden`);
 
   /* ================================================================ */
+  /* PROJECT SILENT SQUATCH                                            */
+  /*                                                                    */
+  /* docs/MISSION-SILENT-SQUATCH.md, beats 3-5 and 7-10. Two lessons     */
+  /* from the mansion's own history govern how this is checked:          */
+  /*                                                                      */
+  /*   1. DO NOT ASSERT A DOOR IS A DOOR -- WALK THROUGH IT. Every room   */
+  /*      check that teleported to a doorway passed while the floor was   */
+  /*      impassable. So the whole space below is entered once, on held   */
+  /*      keys, as one continuous route from the cellar corridor, and     */
+  /*      every room the module declares has to be arrived at that way.   */
+  /*   2. A COLLIDER TOPPING OUT ON A FLOOR DATUM IS AN INVISIBLE WALL.   */
+  /*      Asserted directly, for this space's own two datums.            */
+  /*                                                                       */
+  /* And the mission's own hard requirement gets a check of its own: the   */
+  /* player must NOT be able to reach the lab side of the glass while the  */
+  /* door is locked, which is walked at rather than measured.              */
+  /* ================================================================ */
+  const lab = await page.evaluate(() => ({
+    rects: window.mansion.lab.rects,
+    datums: window.mansion.lab.datums,
+    anchors: window.mansion.lab.anchors,
+    rooms: Object.fromEntries(Object.entries(window.mansion.lab.rooms)
+      .map(([k, v]) => [k, { rect: { ...v.rect }, floor: v.floor }])),
+    inventory: window.mansion.lab.inventory,
+    code: window.mansion.lab.code,
+    cues: window.mansion.lab.cues.map((c) => c.name),
+  }));
+  const LAB_Y = lab.datums.LAB_Y;
+
+  /**
+   * Put the crosshair on one of the lab's own interaction targets.
+   *
+   * Setting player.yaw/pitch is NOT enough on its own: the interaction
+   * raycast is cast from the CAMERA, and the camera only picks the player's
+   * look up inside player.update(). The first version of this helper skipped
+   * that and reported that the switch under the bust could not be aimed at
+   * from a spot it was plainly visible from. So it aims, then runs the real
+   * game loop for a moment, and only then reads what is under the crosshair.
+   */
+  async function aimAt(name) {
+    return page.evaluate((key) => {
+      const obj = window.mansion.lab.targets[key];
+      if (!obj) return null;
+      const at = obj.getWorldPosition(new window.mansion.THREE.Vector3());
+      const pl = window.mansion.player;
+      const dx = at.x - pl.position.x;
+      const dz = at.z - pl.position.z;
+      const dy = at.y - pl.position.y;
+      pl.yaw = Math.atan2(-dx, -dz);
+      pl.pitch = Math.max(-1.4, Math.min(1.4, Math.atan2(dy, Math.hypot(dx, dz))));
+      window.mansion.tick(0.2);
+      return {
+        x: +at.x.toFixed(2),
+        y: +at.y.toFixed(2),
+        z: +at.z.toFixed(2),
+        distance: +Math.hypot(dx, dz, dy).toFixed(2),
+      };
+    }, name);
+  }
+
+  /* ---- The innocent half, first, because that is the order a player
+   * meets it in: the cellar stair drops you into a normal luxury basement
+   * with a wine cellar and somewhere to sit. Walked from the stair foot. */
+  await teleport(7.2, BASEMENT_Y, 59.9, NORTH);
+  await settle(0.4);
+  const innocentLegs = [
+    { at: [5.2, 59.9], note: 'west across the armory, south of the caged store' },
+    { at: [2.4, 58.75], rect: lab.rects.entertainment, note: 'into the entertainment area, down the lane behind the couch' },
+    { at: [4.9, 58.75], note: 'back east past the end of the sectional' },
+    { at: [5.0, 55.7], note: 'south down the lane between the sectional and the racks' },
+    { at: [3.8, 55.7], note: 'west across the mouth of the cellar' },
+    { at: [3.8, 52.6], rect: lab.rects.wineCellar, note: 'into the wine cellar, down the aisle between the tasting table and the racks' },
+  ];
+  const innocentFails = [];
+  for (const leg of innocentLegs) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 26, tol: 0.85 });
+    if (!got.ok) { innocentFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+    if (leg.rect && !inside(leg.rect, got.s, -0.4)) {
+      innocentFails.push(`${leg.note} — outside the rect: ${JSON.stringify(got.s)}`);
+      break;
+    }
+    if (Math.abs(got.s.ground - BASEMENT_Y) > 0.3) {
+      innocentFails.push(`${leg.note} — wrong floor: ${JSON.stringify(got.s)}`);
+      break;
+    }
+  }
+  check('the basement reads as a normal luxury basement first: the wine cellar and the entertainment area are both walked into',
+    innocentFails.length === 0 && lab.inventory.wineRacks >= 2,
+    innocentFails.join(' | ') || `${lab.inventory.wineRacks} wine racks, both areas entered on foot`);
+
+  /* ---- The wall is shut, and it is a wall. Squared up in the corridor,
+   * hold W west and be stopped by two tonnes of masonry. */
+  await teleport(-13.6, BASEMENT_Y, 65.85, WEST);
+  await settle(0.4);
+  await walk(7);
+  await settle(0.5);
+  s = await state();
+  const stoppedByWall = s.x;
+  check('with the switch untouched, the corridor just ends -- the decorative wall is solid',
+    s.x > lab.rects.SECRET_DOOR.x1 - 0.05 && Math.abs(s.ground - BASEMENT_Y) < 0.25,
+    JSON.stringify(s));
+
+  /* ---- The switch under the bust. Not "the API opens the wall" -- stand
+   * where a player stands, put the crosshair on the plinth, and press E. */
+  await teleport(lab.anchors.bust.x + 1.15, BASEMENT_Y, lab.anchors.bust.z + 0.15, WEST);
+  await settle(0.4);
+  const switchAt = await aimAt('bustSwitch');
+  const onSwitch = await page.evaluate(() => window.mansion.interaction.current
+    === window.mansion.lab.hiddenWall.switchTarget);
+  const bustPrompt = await page.evaluate(() => (
+    document.getElementById('prompt').classList.contains('hidden')
+      ? null : document.getElementById('promptLabel').textContent));
+  await page.evaluate(() => { window.mansion.interaction.press(); });
+  await page.evaluate(() => { window.mansion.interaction.release(); });
+  await settle(0.4);
+  const wallStarted = await page.evaluate(() => window.mansion.lab.hiddenWall.phase);
+  check('the hidden switch under the marble bust is aimable from the corridor and throwing it starts the wall',
+    onSwitch && !!bustPrompt && wallStarted !== 'shut',
+    JSON.stringify({
+      switchAt, onSwitch, bustPrompt, wallStarted,
+    }));
+
+  /* Backward THEN sideways, in that order, and not in one move. */
+  const wallTravel = await page.evaluate(async () => {
+    const out = [];
+    for (let i = 0; i < 10; i++) {
+      window.mansion.tick(0.5);
+      const t = window.mansion.lab.hiddenWall.travel;
+      out.push({ back: +t.back.toFixed(2), across: +t.across.toFixed(2) });
+    }
+    return { samples: out, phase: window.mansion.lab.hiddenWall.phase };
+  });
+  const firstAcross = wallTravel.samples.findIndex((t) => t.across > 0.01);
+  const backDoneAt = wallTravel.samples.findIndex((t) => t.back > 0.99);
+  check('the wall slides backward first and only then sideways, and finishes open',
+    wallTravel.phase === 'open'
+      && backDoneAt >= 0 && firstAcross >= 0 && backDoneAt <= firstAcross,
+    JSON.stringify({ backDoneAt, firstAcross, last: wallTravel.samples.at(-1) }));
+
+  /* ---- THE WHOLE SPACE, ON FOOT, IN ONE ROUTE. No teleports after this
+   * line until the route is finished: from the corridor, through the
+   * doorway the wall just vacated, across the landing, DOWN the stairwell,
+   * past the man on the hook, through the pier opening and into the
+   * observation area. Every room the module declares is on it. */
+  await teleport(-13.6, BASEMENT_Y, 65.85, WEST);
+  await settle(0.5);
+  const ROUTE = [
+    { at: [-15.75, 65.85], note: 'through the doorway the wall vacated' },
+    { at: [-18.0, 65.6], room: 'landing', note: 'onto the concrete landing' },
+    { at: [-18.0, 61.4], note: 'round to the head of the flight' },
+    { at: [-18.0, 57.5], note: 'down the stairwell' },
+    { at: [-18.0, 54.4], room: 'interrogation', note: 'off the bottom tread into the interrogation area' },
+    { at: [-19.8, 53.0], note: 'past the steel table' },
+    { at: [-22.0, 51.4], note: 'past the man on the hook' },
+    { at: [-26.0, 52.9], note: 'to the pier opening' },
+    { at: [-29.5, 52.9], room: 'observation', note: 'through into the observation area' },
+    { at: [-32.6, 51.4], note: 'up to the glass, in front of the door' },
+  ];
+  const routeFails = [];
+  const routeRooms = new Set();
+  let stairTopGround = null;
+  for (const leg of ROUTE) {
+    const got = await walkTo(leg.at[0], leg.at[1], { steps: 34, tol: 0.9 });
+    if (!got.ok) { routeFails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+    if (leg.note.includes('head of the flight')) stairTopGround = got.s.ground;
+    if (leg.room) {
+      const r = lab.rooms[leg.room];
+      if (!inside(r.rect, got.s, 0.2) || Math.abs(got.s.ground - r.floor) > 0.45) {
+        routeFails.push(`${leg.note} — arrived outside ${leg.room}: ${JSON.stringify(got.s)}`);
+        break;
+      }
+      routeRooms.add(leg.room);
+    }
+  }
+  s = await state();
+  check('the whole Silent Squatch space is one continuous walk from the cellar corridor, on held keys',
+    routeFails.length === 0 && routeRooms.size === 3,
+    routeFails.join(' | ') || `${routeRooms.size} rooms entered on one walk, ended ${JSON.stringify(s)}`);
+
+  /* The stairwell specifically: it is a DESCENT, and it was walked. The
+   * route started on the cellar floor and finished 3.8 m below it with
+   * nothing but W in between. */
+  check('the concrete stairwell descends on foot from the cellar floor to the lab floor',
+    stairTopGround !== null && Math.abs(stairTopGround - BASEMENT_Y) < 0.35
+      && Math.abs(s.ground - LAB_Y) < 0.3
+      && Math.abs(LAB_Y - BASEMENT_Y) > 3,
+    JSON.stringify({ stairTop: stairTopGround, atGlass: s.ground, drop: +(BASEMENT_Y - LAB_Y).toFixed(2) }));
+
+  // ...and climbs back out, which is the half that strands you if it fails.
+  await teleport(-18.0, LAB_Y, 55.0, NORTH);
+  await settle(0.4);
+  await walk(13);
+  await settle(0.8);
+  s = await state();
+  check('...and the stairwell can be climbed back out to the cellar corridor',
+    Math.abs(s.ground - BASEMENT_Y) < 0.35 && s.z > 61.5, JSON.stringify(s));
+
+  /* ---- xXx. Present, hanging, over the blood, and the crosshair names him. */
+  await teleport(lab.anchors.xxx.x, LAB_Y, lab.anchors.xxx.z, WEST);
+  await settle(0.4);
+  await aimAt('xxx');
+  await settle(0.3);
+  const xxxRead = await page.evaluate(() => {
+    const el = document.getElementById('labTargetName');
+    const g = window.mansion.lab.xxx.group;
+    const b = new window.mansion.THREE.Box3().setFromObject(g);
+    return {
+      crosshair: window.mansion.lab.crosshairText,
+      dom: el && el.style.display !== 'none' ? el.textContent : null,
+      alive: window.mansion.lab.xxx.alive,
+      // Upside down: his head is BELOW his ankles.
+      headY: +b.min.y.toFixed(2),
+      ankleY: +b.max.y.toFixed(2),
+      at: { x: +g.position.x.toFixed(2), z: +g.position.z.toFixed(2) },
+    };
+  });
+  check('aiming at the man on the hook makes the crosshair read xXx',
+    xxxRead.crosshair === 'xXx' && xxxRead.dom === 'xXx', JSON.stringify(xxxRead));
+  check('xXx hangs upside down by the ankles, inside the interrogation area, and survives',
+    xxxRead.alive === true
+      && xxxRead.ankleY > LAB_Y + 2.0 && xxxRead.headY < LAB_Y + 1.0
+      && xxxRead.at.x > lab.rects.INTERROGATION.x0 && xxxRead.at.x < lab.rects.INTERROGATION.x1,
+    JSON.stringify(xxxRead));
+
+  // The crosshair is not a sticker: look away and it goes.
+  await faceDeg(EAST);
+  await settle(0.3);
+  const xhairAway = await page.evaluate(() => window.mansion.lab.crosshairText);
+  check('...and the callout clears when the crosshair comes off him',
+    xhairAway === null, String(xhairAway));
+
+  check('the steel table carries the interrogation kit the brief lists',
+    ['pliers', 'car battery', 'electrical leads', 'medical saw', 'syringe', 'towel', 'bucket', 'unexplained']
+      .every((t) => lab.inventory.torture.includes(t)),
+    lab.inventory.torture.join(', '));
+
+  /* ---- THE GLASS. The spec's one hard layout requirement, walked at from
+   * three places rather than measured once. */
+  const GW = lab.rects.GLASS_WALL;
+  const GD = lab.rects.GLASS_DOOR;
+  const glassFails = [];
+  for (const [label, px] of [
+    ['west of the door', GW.x0 + 2.0],
+    ['at the door', (GD.x0 + GD.x1) / 2],
+    ['east of the door', GW.x1 - 2.0],
+  ]) {
+    await teleport(px, LAB_Y, GW.z1 + 2.6, SOUTH);
+    await settle(0.4);
+    await walk(6);
+    await settle(0.4);
+    const at = await state();
+    if (at.z < GW.z1 - 0.05) glassFails.push(`${label}: got to z=${at.z}`);
+  }
+  check('the reinforced glass wall separates the two areas -- a straight walk at it is stopped everywhere along it, closed door included',
+    glassFails.length === 0, glassFails.join(' | '));
+
+  /* It IS a door, though: open it and walk through into the lab. */
+  await page.evaluate(() => window.mansion.lab.openDoor());
+  await settle(2.5);
+  await teleport((GD.x0 + GD.x1) / 2, LAB_Y, GW.z1 + 2.2, SOUTH);
+  await settle(0.4);
+  await walk(6);
+  await settle(0.5);
+  s = await state();
+  const insideLab = inside(lab.rooms.sealedLab.rect, s, 0.2);
+  check('the glass door is a real way through: opened, it walks you into the sealed lab',
+    insideLab && Math.abs(s.ground - LAB_Y) < 0.3, JSON.stringify(s));
+  // ...and back out.
+  await faceDeg(NORTH);
+  await walk(6);
+  await settle(0.5);
+  s = await state();
+  check('...and back out into the observation area',
+    s.z > GW.z1 && Math.abs(s.ground - LAB_Y) < 0.3, JSON.stringify(s));
+
+  /* ---- The keypad. 6969 and nothing else. */
+  await teleport(lab.anchors.keypad.x, LAB_Y, lab.anchors.keypad.z, SOUTH);
+  await settle(0.4);
+  const keypadAim = await aimAt('keypad');
+  const keypadResults = await page.evaluate((code) => {
+    const K = window.mansion.lab.keypad;
+    const before = { armed: K.armed, locked: window.mansion.lab.doorLocked };
+    // Nothing happens while it is not armed.
+    const unarmed = K.enter(code);
+    K.arm();
+    const wrong = ['1234', '0000', '696', '69690', '06969', '9696', '', ' 6969'].map((c) => K.enter(c));
+    const right = K.enter(code);
+    return {
+      before, unarmed, wrong, right, armed: K.armed, accepted: K.accepted, attempts: K.attempts,
+    };
+  }, lab.code);
+  check("the keypad beside the door takes 6969 and refuses everything else",
+    lab.code === '6969'
+      && keypadResults.wrong.every((r) => r === false)
+      && keypadResults.right === true
+      && keypadResults.accepted === true,
+    JSON.stringify(keypadResults));
+  check('the keypad is reachable from where a player stands at the door',
+    keypadAim !== null, JSON.stringify(keypadAim));
+
+  /* ---- Locking. The bolts, the indicator, the muffle -- and then the
+   * requirement that matters: you cannot get to the lab side any more. */
+  await settle(3.5);
+  const lockState = await page.evaluate(() => ({
+    locked: window.mansion.lab.doorLocked,
+    bolts: +window.mansion.lab.bolts.toFixed(2),
+    indicator: window.mansion.lab.indicator,
+    muffled: window.mansion.lab.muffled,
+    glass: window.mansion.lab.glassAudio.state(),
+  }));
+  check('locking the lab drives the bolts home and turns the indicator green to red',
+    lockState.locked && lockState.bolts > 0.9 && lockState.indicator === 'red',
+    JSON.stringify({ ...lockState, glass: undefined }));
+
+  await teleport((GD.x0 + GD.x1) / 2, LAB_Y, GW.z1 + 2.2, SOUTH);
+  await settle(0.4);
+  await walk(7);
+  await settle(0.5);
+  s = await state();
+  check('WITH THE DOOR LOCKED THE PLAYER CANNOT REACH THE LAB SIDE -- walked at, not measured',
+    s.z > GW.z1 - 0.05 && !inside(lab.rooms.sealedLab.rect, s, -0.5),
+    JSON.stringify(s));
+
+  /* The reinforced-glass audio path. Not per-line volume tweaks: a real
+   * send with three parallel paths, and impacts on the glass are the one
+   * thing that must NOT lose level or high end when the room seals. */
+  check('the glass audio send engages on the lock: voices drop and roll off, dialogue gains reverb, gas goes distant',
+    lockState.muffled === true
+      && lockState.glass.built === true
+      && lockState.glass.target.voiceGain < 0.5
+      && lockState.glass.target.voiceCutoff < 1200
+      && lockState.glass.target.voiceWet > 0.2
+      && lockState.glass.target.distantCutoff < lockState.glass.target.voiceCutoff
+      && lockState.glass.target.distantGain < lockState.glass.target.voiceGain,
+    JSON.stringify(lockState.glass.target));
+  check('...and impacts on the glass stay sharp and heavy through it',
+    lockState.glass.target.impactGain >= 1 && lockState.glass.target.impactBodyDb > 0,
+    JSON.stringify({
+      impactGain: lockState.glass.target.impactGain,
+      impactBodyDb: lockState.glass.target.impactBodyDb,
+      voiceGain: lockState.glass.target.voiceGain,
+    }));
+
+  /* ---- The transfer drawer carries the container through the wall. */
+  const drawer = await page.evaluate(async () => {
+    const T = window.mansion.THREE;
+    const D = window.mansion.lab;
+    const tray = D.rects; // keep the evaluate small; positions read below
+    const before = D.transferDrawer.sent;
+    D.transferDrawer.send();
+    window.mansion.tick(4);
+    const c = D.container.group.getWorldPosition(new T.Vector3());
+    return {
+      before,
+      sent: D.transferDrawer.sent,
+      containerVisible: D.container.visible,
+      containerZ: +c.z.toFixed(2),
+      glassZ0: tray.GLASS_WALL.z0,
+      labZ1: tray.SEALED_LAB.z1,
+    };
+  });
+  check('the transfer drawer carries the container through the wall into the lab',
+    drawer.before === false && drawer.sent === true && drawer.containerVisible === true
+      && drawer.containerZ < drawer.glassZ0,
+    JSON.stringify(drawer));
+
+  /* ---- The core completes, the monitors turn purple, and -- the spec's
+   * own requirement -- it is still glowing after everyone is dead. */
+  const coreRun = await page.evaluate(() => {
+    const L = window.mansion.lab;
+    const before = { phase: L.core.phase, purple: L.monitors.purple, lifeSigns: L.lifeSigns };
+    L.core.begin();
+    window.mansion.tick(6);
+    const building = L.core.phase;
+    L.core.complete();
+    window.mansion.tick(4);
+    return {
+      before,
+      building,
+      phase: L.core.phase,
+      isComplete: L.core.isComplete,
+      purple: L.monitors.purple,
+    };
+  });
+  check('the core builds, completes, locks, and every monitor turns from red to purple',
+    coreRun.before.phase === 'idle' && coreRun.before.purple === false
+      && coreRun.building === 'building' && coreRun.isComplete === true
+      && coreRun.purple === true,
+    JSON.stringify(coreRun));
+
+  /* ---- Silent Night. The gas fills the room, white to purple-grey, and
+   * the six go down one by one. */
+  const gasRun = await page.evaluate(async () => {
+    const L = window.mansion.lab;
+    const out = { start: L.gas.density, samples: [], vents: [] };
+    L.silentNight.liftCover();
+    L.silentNight.pull();
+    for (let i = 0; i < 6; i++) {
+      window.mansion.tick(5);
+      out.samples.push(+L.gas.density.toFixed(3));
+    }
+    out.running = L.gas.running;
+    out.pulled = L.silentNight.pulled;
+    // The six, through the ladder the spec sets out, in order.
+    for (const sci of L.scientists) sci.confused();
+    window.mansion.tick(1.5);
+    for (const sci of L.scientists) sci.panic();
+    window.mansion.tick(1.5);
+    for (const sci of L.scientists) sci.cover();
+    window.mansion.tick(1);
+    for (const sci of L.scientists) sci.coughing();
+    window.mansion.tick(1);
+    L.scientists[2].pound(3);
+    L.scientists[3].chairStrike();
+    out.chairBent = L.inventory.chairBent;
+    for (const sci of L.scientists) sci.crawl();
+    window.mansion.tick(3);
+    L.scientists.at(-1).handprint();
+    out.handprints = L.inventory.handprints;
+    for (const sci of L.scientists) sci.collapse();
+    window.mansion.tick(3);
+    out.lifeSigns = L.lifeSigns;
+    out.aliveAfter = L.scientists.filter((x) => x.alive).length;
+    return out;
+  });
+  check('Silent Night fills the sealed lab with gas -- thin at first, and it keeps thickening',
+    gasRun.start === 0 && gasRun.pulled === true && gasRun.running === true
+      && gasRun.samples[0] > 0 && gasRun.samples[0] < 0.4
+      && gasRun.samples.every((v, i) => i === 0 || v >= gasRun.samples[i - 1])
+      && gasRun.samples.at(-1) > 0.95,
+    JSON.stringify(gasRun.samples));
+  check('the chair bends against the glass and the glass does not break',
+    gasRun.chairBent > 0 && lab.inventory.masksReachable === false,
+    JSON.stringify({ chairBent: gasRun.chairBent }));
+  check('the six go down one at a time and the monitor reads LIFE SIGNS: 0',
+    lab.inventory.scientists === 6 && gasRun.lifeSigns === 0 && gasRun.aliveAfter === 0
+      && gasRun.handprints >= 1,
+    JSON.stringify({
+      lifeSigns: gasRun.lifeSigns, alive: gasRun.aliveAfter, handprints: gasRun.handprints,
+    }));
+
+  const coreAfter = await page.evaluate(() => {
+    const L = window.mansion.lab;
+    window.mansion.tick(4);
+    const c = window.mansion.scene.getObjectByName('silent-squatch-core');
+    let gold = 0;
+    let emissive = 0;
+    c.traverse((o) => {
+      if (o.isPointLight) gold = Math.max(gold, o.intensity);
+      if (o.material?.emissiveIntensity) emissive = Math.max(emissive, o.material.emissiveIntensity);
+    });
+    return { gold, emissive, lifeSigns: L.lifeSigns };
+  });
+  check('the core is still glowing after everybody in the room is dead',
+    coreAfter.lifeSigns === 0 && coreAfter.emissive > 0.5,
+    JSON.stringify(coreAfter));
+
+  /* ---- The case is THE case: one object, carried forward from The Silver
+   * Case, with its own two internal point lights doing the gold-and-purple
+   * work. Asserted as "the same prop", not as "a case-shaped thing": the
+   * lights are the ones makeCase() builds, they are dark while it is shut,
+   * and the mission's brightening is a second axis on top of the prop's own
+   * openness curve rather than a rewrite of it. */
+  const caseRun = await page.evaluate(() => {
+    const C = window.mansion.lab.case;
+    const shut = {
+      isOpen: C.isOpen,
+      openness: +C.openness.toFixed(3),
+      lights: C.lights.length,
+      intensity: +C.lights.reduce((a, l) => a + l.intensity, 0).toFixed(3),
+      colours: C.lights.map((l) => l.color.getHexString()),
+    };
+    /* Sampled over a couple of seconds, not read once: the prop breathes
+     * both lights on independent sines, so a single frame says more about
+     * where in the cycle you looked than about how bright it is. */
+    const peak = () => {
+      let hi = 0;
+      for (let i = 0; i < 140; i++) {
+        window.mansion.tick(1 / 60);
+        hi = Math.max(hi, C.lights.reduce((a, l) => a + l.intensity, 0));
+      }
+      return +hi.toFixed(3);
+    };
+    C.open();
+    /* `open()` already brightens -- that IS the beat ("brightening ... again
+     * when Booski opens it"), so the baseline sample has to put the boost
+     * back to 1 or it is measuring the beat against itself. */
+    C.brighten(1);
+    window.mansion.tick(3);
+    const open = { isOpen: C.isOpen, openness: +C.openness.toFixed(3), intensity: peak() };
+    C.brighten(2.4);
+    window.mansion.tick(3);
+    const bright = { boost: +C.glowBoost.toFixed(2), intensity: peak() };
+    return { shut, open, bright };
+  });
+  const caseColours = caseRun.shut.colours.join(',');
+  check('the case is the Silver Case prop, with a gold light and a purple one that only show once it opens',
+    caseRun.shut.lights === 2
+      && /d8a53a/.test(caseColours) && /6a2ad9/.test(caseColours)
+      && caseRun.shut.intensity === 0 && caseRun.shut.isOpen === false
+      && caseRun.open.isOpen === true && caseRun.open.intensity > 0.5,
+    JSON.stringify(caseRun));
+  check('...and it brightens further on demand, without the prop growing a second knob',
+    caseRun.bright.boost > 2 && caseRun.bright.intensity > caseRun.open.intensity * 1.8,
+    JSON.stringify({ openPeak: caseRun.open.intensity, bright: caseRun.bright }));
+
+  /* ---- xXx, to the owner's direction: bald, jeans, black tank top, torn
+   * and bloodied. Baldness is the checkable half -- every `sf.hair.*` mesh
+   * the shared rig builds has to be GONE, not merely recoloured, because a
+   * skin-toned crown still reads as a swimming cap. */
+  const xxxBuild = await page.evaluate(() => {
+    const f = window.mansion.lab.xxx.figure;
+    let hair = 0;
+    const colours = new Set();
+    f.group.traverse((o) => {
+      if (o.name?.startsWith('sf.hair.')) hair++;
+      if (o.isMesh && o.material?.color) colours.add(o.material.color.getHexString());
+    });
+    const legMesh = f.legL.hip.children.find((c) => c.isMesh);
+    const torsoMesh = f.torso.children.find((c) => c.isMesh);
+    const armMesh = f.armL.shoulder.children.find((c) => c.isMesh);
+    return {
+      hair,
+      jeans: legMesh?.material.color.getHexString(),
+      tank: torsoMesh?.material.color.getHexString(),
+      bareArm: armMesh?.material.color.getHexString(),
+      bloodied: [...colours].some((c) => /^3a0b0e$/.test(c)),
+    };
+  });
+  check('xXx is bald, in blue jeans and a black tank top, torn and bloodied',
+    xxxBuild.hair === 0
+      && xxxBuild.jeans === '2c4568'
+      && xxxBuild.tank === '141417'
+      && xxxBuild.bareArm === 'b98a63'
+      && xxxBuild.bloodied === true,
+    JSON.stringify(xxxBuild));
+
+  /* ---- Scientist lines go through the glass send, not round it. A line
+   * from inside the sealed lab has to arrive on the engine as real
+   * playback, and the send has to be the thing shaping it. */
+  const voiceRoute = await page.evaluate(() => {
+    const L = window.mansion.lab;
+    window.mansion.audio.clearPlaybackLog();
+    const before = L.glassAudio.state();
+    L.scientists[0].say('silent.voice.complete', { force: true });
+    const after = L.glassAudio.state();
+    return { built: after.built, engaged: after.engaged, wasBuilt: before.built };
+  });
+  check('a scientist behind the glass speaks through the send rather than round it',
+    voiceRoute.built === true && voiceRoute.engaged === true,
+    JSON.stringify(voiceRoute));
+
+  /* ---- The invisible-wall invariant, for this space's own datums. */
+  const labTraps = await page.evaluate(([by, ly]) => window.mansion.colliders
+    .filter((c) => c.min.x < -15.4 && c.min.z > 38 && c.max.z < 69 && c.max.y < -0.2)
+    .filter((c) => [by, ly].some((d) => Math.abs(c.max.y - d) < 0.06))
+    .map((c) => ({
+      x: [+c.min.x.toFixed(2), +c.max.x.toFixed(2)],
+      y: [+c.min.y.toFixed(2), +c.max.y.toFixed(2)],
+      z: [+c.min.z.toFixed(2), +c.max.z.toFixed(2)],
+    })), [BASEMENT_Y, LAB_Y]);
+  check('no collider under the mansion tops out exactly on the cellar floor or the lab floor',
+    labTraps.length === 0,
+    labTraps.length ? `${labTraps.length}: ${JSON.stringify(labTraps.slice(0, 4))}` : '');
+
+  /* ---- Coverage: a verifier that quietly stops walking new rooms is what
+   * shipped the last green build. Every room the module declares has to
+   * appear on the route above or in its own walk. */
+  const labRoomsCovered = new Set([...routeRooms, 'sealedLab']);
+  const labUncovered = Object.keys(lab.rooms).filter((k) => !labRoomsCovered.has(k));
+  check('every room Silent Squatch declares is walked into on foot by this script',
+    labUncovered.length === 0, `uncovered: ${labUncovered.join(', ')}`);
+
+  /* ---- The fit-out, against the brief's own lists. */
+  check('the sealed lab is fitted out as the brief describes it',
+    lab.inventory.workstations === 6 && lab.inventory.roboticArms >= 2
+      && lab.inventory.chemicalTanks >= 3 && lab.inventory.coolantTubes >= 4
+      && lab.inventory.gasVents >= 4 && lab.inventory.coreRings === 3
+      && lab.inventory.hasFatSquatchEmblem === true,
+    JSON.stringify(lab.inventory));
+  check('the observation area has the console bank, the monitors and the purple status lights',
+    lab.inventory.monitors >= 6 && lab.inventory.statusLights >= 6,
+    JSON.stringify({ monitors: lab.inventory.monitors, status: lab.inventory.statusLights }));
+  check('the emergency masks are locked in a cabinet nobody in that room can reach',
+    lab.inventory.masksReachable === false && lab.inventory.maskCabinetHeight > 2.4,
+    `${lab.inventory.maskCabinetHeight} m above the lab floor`);
+
+  /* ---- Audio: the cues are AUTHORED, with prompts, and nothing here
+   * edited the manifest. Named individually, because "some cues exist" is
+   * how a scene ends up silent in the one beat nobody checked. */
+  const REQUIRED_CUES = [
+    'silent.wall.mechanism', 'silent.stairwell.ambience', 'silent.door.seal',
+    'silent.door.bolts', 'silent.keypad.accept', 'silent.drawer.through',
+    'silent.core.hum', 'silent.core.roar', 'silent.alarm', 'silent.gas.release',
+    'silent.glass.fist', 'silent.glass.chair', 'silent.choking',
+  ];
+  const missingCues = REQUIRED_CUES.filter((c) => !lab.cues.includes(c));
+  const cuePrompts = await page.evaluate(() => window.mansion.lab.cues
+    .filter((c) => !c.prompt || c.prompt.length < 40).map((c) => c.name));
+  check('every sound this mission needs is authored as a named cue with a prompt',
+    missingCues.length === 0 && cuePrompts.length === 0 && lab.cues.length >= 30,
+    JSON.stringify({ missing: missingCues, thin: cuePrompts, total: lab.cues.length }));
+
+  /* ---- And the wall closes again, which is the exit. */
+  const closed = await page.evaluate(async () => {
+    window.mansion.lab.hiddenWall.close();
+    window.mansion.tick(9);
+    return window.mansion.lab.hiddenWall.phase;
+  });
+  await teleport(-13.6, BASEMENT_Y, 65.85, WEST);
+  await settle(0.4);
+  await walk(7);
+  await settle(0.5);
+  s = await state();
+  check('the wall seats itself back into the corridor and the corridor just ends again',
+    closed === 'shut' && s.x > lab.rects.SECRET_DOOR.x1 - 0.05
+      && Math.abs(s.x - stoppedByWall) < 0.4,
+    JSON.stringify({ closed, ...s }));
+
+  /* ================================================================ */
   /* Rendering back on: the house must actually draw something           */
   /* ================================================================ */
+  /* The lab first, because "the player must always clearly see the
+   * scientists reacting, the gas filling the room and the core still
+   * glowing" is a rendering claim and nothing above it drew a pixel. Stand
+   * in the observation area facing the glass, with the gas at full density
+   * and six bodies on the floor behind it, and require a frame with real
+   * variation in it -- a black frame here would mean the room built and
+   * never lit. */
+  await teleport(lab.anchors.coreView.x, LAB_Y, lab.anchors.coreView.z + 1.2, SOUTH);
+  await settle(0.6);
+  const labFramesBefore = await page.evaluate(() => window.mansion.framesRendered);
+  await page.evaluate(() => window.mansion.setRendering(true));
+  await page.waitForFunction(
+    (n) => window.mansion.framesRendered > n + 2, labFramesBefore, { timeout: 180000 },
+  );
+  const labShot = await page.screenshot({ type: 'png', timeout: 120000 });
+  check('the sealed lab renders through the glass -- gas, bodies, and a core still lit',
+    labShot.some((b, i) => i > 64 && b > 24), `${labShot.length} bytes`);
+  await page.evaluate(() => window.mansion.setRendering(false));
+
   await teleport(0, GROUND_Y, 44.4, NORTH);
   await settle(0.5);
   const framesBefore = await page.evaluate(() => window.mansion.framesRendered);
@@ -1747,7 +2409,12 @@ try {
   await page.waitForFunction(
     (n) => window.mansion.framesRendered > n + 2, framesBefore, { timeout: 180000 },
   );
-  const shot = await page.screenshot({ type: 'png' });
+  /* 120 s, not playwright's default 30 s. This is a software rasteriser
+   * drawing ten thousand meshes: a foyer frame measures around two seconds
+   * here, and a screenshot needs a couple of them plus compositing. The
+   * number is a swiftshader budget, not a claim about the game -- every
+   * other long wait in this script exists for the same reason. */
+  const shot = await page.screenshot({ type: 'png', timeout: 120000 });
   // A black frame means the scene built but never drew; sample the PNG's raw
   // bytes for any non-trivial variation rather than trusting the frame count.
   const nonBlack = shot.some((b, i) => i > 64 && b > 24);

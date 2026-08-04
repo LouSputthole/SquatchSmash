@@ -32,6 +32,7 @@ import {
   POOL,
 } from './scenes/MansionGrounds.js';
 import { buildMansionInterior } from './scenes/MansionInterior.js';
+import { buildSilentSquatch, silentSquatchCueNames } from './scenes/SilentSquatch.js';
 import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
@@ -491,10 +492,17 @@ const world = { colliders, floorZones: [], groundAt: () => 0 };
 const player = new Player(camera, world);
 player.onFootstep = (surface, intensity) => audio.footstep(surface, intensity);
 
+/* PROJECT SILENT SQUATCH lives west of and under the cellar corridor, and it
+ * is built further down this file because it needs the InteractionSystem.
+ * Declared here so `world.groundAt` can consult it: the lab's slab is four
+ * metres beneath the west wing's own podium, so both are candidates in the
+ * same column and neither may simply win. See `resolveFloor`'s note. */
+let silent = null;
+
 world.groundAt = (x, z) => {
   const feetY = player.position.y - player.eyeHeight;
-  const inside = interior.floorAt(x, z, feetY);
-  return inside ?? exteriorGroundAt(x, z);
+  const house = interior.floorAt(x, z, feetY) ?? exteriorGroundAt(x, z);
+  return silent ? silent.resolveFloor(x, z, feetY, house) : house;
 };
 
 player.mode = 'walk';
@@ -529,7 +537,43 @@ const interaction = new InteractionSystem(camera, tinyHud);
  * range is now a room's worth, and the walls are handed to the system's own
  * occluder list so a label needs line of sight as well as range. */
 interaction.raycaster.far = 18;
-interaction.setOccluders([...grounds.occluders, ...interior.occluders]);
+
+/* ================================================================== */
+/* PROJECT SILENT SQUATCH                                               */
+/*                                                                       */
+/* The mission's whole environment -- the innocent basement half, the     */
+/* hidden entrance in the corridor's west end wall, the stairwell, the    */
+/* interrogation area, the observation area and the sealed lab behind     */
+/* the reinforced glass -- plus every system the mission drives them      */
+/* with. See docs/MISSION-SILENT-SQUATCH.md and the header of             */
+/* scenes/SilentSquatch.js.                                               */
+/*                                                                         */
+/* Built HERE and not up beside the interior because it registers its own  */
+/* interaction targets (the switch under the bust, the keypad, the         */
+/* transfer drawer, the Silent Night lever) and needs the system that      */
+/* owns them. It contributes to the same four merged lists everything      */
+/* else does: colliders, occluders, lights and the update loop.            */
+/*                                                                          */
+/* `src/mansion/mission/` drives it through `window.mansion.lab`. Nothing   */
+/* in that module decides the ORDER any of it happens in, and nothing in    */
+/* this file does either.                                                   */
+/* ================================================================== */
+silent = buildSilentSquatch({
+  audio,
+  interaction,
+  camera,
+  enabled: () => running,
+  registerLight: registerLocalLight,
+});
+scene.add(silent.root);
+/* `colliders` is the same array `world.colliders` points at, so pushing here
+ * is the list the Player reads on the next frame -- the armory does exactly
+ * this with its racks. Counted, because verify-mansion asserts the merged
+ * total adds up from its named contributors. */
+const silentColliders = silent.colliders.length;
+colliders.push(...silent.colliders);
+
+interaction.setOccluders([...grounds.occluders, ...interior.occluders, ...silent.occluders]);
 
 function flavor(mesh, label) {
   if (!mesh) return;
@@ -715,7 +759,7 @@ const weaponSystem = new WeaponSystem({
   /* What a round can stop on: the house's own walls, floors and ceilings.
    * These are the same meshes the interaction system uses as occluders, so a
    * tracer stops exactly where a look-prompt stops. */
-  hitTargets: [...interior.occluders, ...grounds.occluders],
+  hitTargets: [...interior.occluders, ...grounds.occluders, ...silent.occluders],
   range: 70,
   onEvent: () => { ammoDirty = true; },
 });
@@ -829,7 +873,7 @@ async function beginTour() {
    * cost nothing to name) and the recordings standing in for them tonight,
    * which are real files and have to be decoded before a trigger is pulled.
    * Same shape the Bada Bing uses for `bing.grill.*`. */
-  audio.loadManifest({ names: weaponCueNames() }).catch(() => {});
+  audio.loadManifest({ names: [...weaponCueNames(), ...silentSquatchCueNames()] }).catch(() => {});
   player.enabled = true;
   lockPointer();
   clock.getDelta();
@@ -897,6 +941,7 @@ function updateGame(dt) {
   interaction.update(dt);
   grounds.update(dt);
   interior.update(dt);
+  silent.update(dt);
   updateLightRig(dt);
   /* The sets. A television repaints its canvas and re-uploads the texture,
    * which is not free, so a set that is switched off does nothing at all --
@@ -1002,6 +1047,20 @@ window.mansion = {
   doors,
   colliders,
   collidersCount: colliders.length,
+  /**
+   * PROJECT SILENT SQUATCH. The whole handle the mission state machine in
+   * `src/mansion/mission/` drives, and the one tools/verify-mansion.mjs
+   * walks: the hidden wall, the glass door and its lock, the keypad, the
+   * transfer drawer, the core, the monitors, the gas, the six scientists,
+   * the reinforced-glass audio path, and every rect and anchor in the space.
+   *
+   * Its rooms deliberately do NOT join `roomTable`/`rooms` above -- the
+   * house's anchor list is asserted exactly (missing and extra both fail)
+   * and this space is walked by its own tour in the verifier instead.
+   */
+  lab: silent.lab,
+  /** Colliders this module contributed to the merged list. */
+  labColliders: silentColliders,
   rooms: anchors,
   /** Every enterable room: its rect, its floor height and a stand-on anchor.
    * tools/verify-mansion.mjs walks this list, so a room added to the interior
