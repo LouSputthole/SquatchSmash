@@ -165,6 +165,7 @@ export class Round {
     this.npcShotsSeen = false;
     this.skipRequested = false;
     this._resultPlayed = false;
+    this._teeLunchPlayed = false;
     this._greenTalked = false;
     this._bunkerTalked = false;
     this._holeOutPlayed = false;
@@ -722,6 +723,16 @@ export class Round {
     if (ball.moving) return;
     if (this._resultPlayed) {
       if (this.cues.busy || this._wait > 0) return;
+      /* All four of them have now hit the first tee and the reaction to the
+       * Prospect's shot has run itself out. Lou closes the tee box before
+       * anybody gets in a cart -- Hole 1 only, and after every outcome branch,
+       * because the line is about the morning rather than about the shot. */
+      if (HOLE.number === 1 && !this._teeLunchPlayed) {
+        this._teeLunchPlayed = true;
+        this.cues.playSequence(this.seq('tee.lunch'));
+        this._wait = this.cues.lengthOf(this.seq('tee.lunch'));
+        return;
+      }
       /* Water and out of bounds cost a stroke and get a legal drop before
        * anybody gets in a cart. */
       if (ball.state === BALL_STATE.WATER) this.takeDrop('water');
@@ -1213,6 +1224,7 @@ export class Round {
     this._npcPhase = 'before';
     this._steppedUp = false;
     this._resultPlayed = false;
+    this._teeLunchPlayed = false;
     this._greenTalked = false;
     this._bunkerTalked = false;
     this._holeOutPlayed = false;
