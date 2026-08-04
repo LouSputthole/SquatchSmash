@@ -349,6 +349,12 @@ try {
       outfit: game.apartment.margo.outfit,
       pose: game.apartment.margo.pose,
       knees: game.apartment.margo.knees.map((knee) => knee.rotation.x),
+      torso: game.apartment.margo.upper.rotation.x,
+      headY: (() => {
+        game.apartment.margo.group.updateMatrixWorld(true);
+        // elements[13] is the world translation's Y; no THREE import needed here.
+        return Math.round(game.apartment.margo.head.matrixWorld.elements[13] * 1000) / 1000;
+      })(),
       canonicalFace: names.includes('margo.face.skull')
         && names.includes('margo.face.eye.left')
         && names.includes('margo.hair.fall.main'),
@@ -357,6 +363,14 @@ try {
       targetVisible: game.apartment.margo.helpTarget.visible,
       targetCurrent: game.interaction.current === game.apartment.margo.helpTarget,
       prompt: document.querySelector('#prompt .label')?.textContent ?? '',
+      /* Where the beat is TAKING the camera, not where a swiftshader frame
+       * rate has got it to yet: both of these ease in over about a second of
+       * real time, and this gate renders at single-figure frames per second.
+       * `aim` is the point his head turns toward and `lift` is how far he
+       * props himself up, and both are what the pose needs to be legible. */
+      aim: game.game.margoScene?.aim ?? null,
+      lift: game.game.margoScene?.cameraLiftTarget ?? 0,
+      pitchFloor: Math.round(game.player.pitchMin * 100) / 100,
     };
   });
   check('morning Margo is the Front and Center character in different clothes',
@@ -365,12 +379,25 @@ try {
       && helpReady.canonicalFace
       && helpReady.shapedClothes,
     JSON.stringify(helpReady));
-  check('the dress-help beat stages her on both knees and puts the target under the crosshair',
+  /* Bent over on all fours, not knelt upright: the fastening runs down the
+   * BACK of the dress, so the pose is what makes the interaction reachable at
+   * all. Her head ending up barely above her own hips is the cheapest thing
+   * to assert that an upright kneel cannot fake. */
+  check('the dress-help beat bends her over on all fours and puts the target under the crosshair',
     helpReady.pose === 'kneeling'
-      && helpReady.knees.every((angle) => angle < -1.5)
+      && helpReady.knees.every((angle) => angle > 1.3)
+      && helpReady.torso > 1.3
+      && helpReady.headY < 0.75
       && helpReady.targetVisible
       && helpReady.targetCurrent
-      && /help margo/i.test(helpReady.prompt),
+      && /help margo/i.test(helpReady.prompt)
+      /* And he is being propped up on an elbow and pointed down at her rather
+       * than left flat squinting over his own duvet. The aim onto her back
+       * wants about -0.43 of pitch, so the look floor has to be below that --
+       * at the -0.35 it used to be, his head stopped short of the beat. */
+      && helpReady.lift === 1
+      && helpReady.aim?.[1] < 0.8
+      && helpReady.pitchFloor <= -0.5,
     JSON.stringify(helpReady));
   if (CAPTURE) {
     const capturePath = path.resolve(CAPTURE);
@@ -382,6 +409,15 @@ try {
       if (overlay) overlay.style.display = 'none';
       return previous;
     });
+    /* Pump the scene's own update so the camera has arrived before the
+     * shutter. The lift and the head turn both ease in over about a second of
+     * REAL time and this gate renders at single-figure frames per second, so a
+     * capture taken on wall clock is a photograph of a camera still moving.
+     * `updateMargoWake` reads its beats off performance.now(), so stepping it
+     * converges the pose without skipping the scene forward. */
+    await page.evaluate(() => {
+      for (let i = 0; i < 150; i++) window.__squatch.updateMargoWake(1 / 60);
+    });
     await page.waitForTimeout(120);
     await page.screenshot({ path: capturePath });
     await page.evaluate((display) => {
@@ -391,7 +427,12 @@ try {
     console.log(`  note  captured Margo dress-help frame at ${capturePath}`);
   }
 
-  const helpHold = await page.evaluate(() => {
+  /* The beat is the picture frame's sweeping power bar rather than a hold, so
+   * it is driven the way the bar is actually played: tap to start it, then hit
+   * [E] with the marker inside the window. The marker is parked mid-window by
+   * hand rather than waited for, because a sweep that speeds up on every
+   * success is not something a headless gate should be trying to time. */
+  const dressGame = await page.evaluate(() => {
     const game = window.__squatch;
     const target = game.apartment.margo.helpTarget;
     const reachable = game.interaction.current === target;
@@ -399,29 +440,78 @@ try {
      * reachability failed; the `reachable` assertion above still fails. */
     if (!reachable) game.interaction.current = target;
     game.interaction.press();
-    for (let i = 0; i < 9; i++) game.interaction.update(0.1);
+    const bar = game.margoDress.bar;
+    const started = bar.active && game.margoDress.running;
+    const clapWhileRunning = game.audio.loops.has('margo.dress.clap');
+
+    const before = game.audio.playbacks.length;
+    const total = bar.total;
+    let good = 0;
+    for (let i = 0; i < total; i++) {
+      // One frame of sweep, then a press planted in the middle of the window.
+      game.updateMargoDressHelp(1 / 60);
+      bar.pos = (bar.window[0] + bar.window[1]) / 2;
+      if (bar.press()) good++;
+    }
+    const played = game.audio.playbacks.slice(before).map((playback) => playback.name);
     return {
       reachable,
+      started,
+      clapWhileRunning,
+      total,
+      good,
+      running: game.margoDress.running,
       progress: game.game.margoScene?.dressProgress ?? 0,
       modelProgress: game.apartment.margo.dressHelpProgress,
-      width: document.querySelector('#prompt .holdbar i')?.style.width ?? '',
-      holding: document.querySelector('#prompt')?.classList.contains('holding') ?? false,
-      label: document.querySelector('#prompt .label')?.textContent ?? '',
+      moans: played.filter((name) => name.startsWith('moan.')),
+      finish: played.filter((name) => name === 'clap.wet.finish').length,
+      clapAfter: game.audio.loops.has('margo.dress.clap'),
+      glueTarget: game.game.margoScene?.dressGlueTarget ?? 0,
     };
   });
-  check('holding E shows a readable middle on the dress-help progress bar',
-    helpHold.reachable
-      && helpHold.progress >= 0.4 && helpHold.progress <= 0.65
-      && helpHold.modelProgress === helpHold.progress
-      && helpHold.holding
-      && Number.parseInt(helpHold.width, 10) >= 40,
-    JSON.stringify(helpHold));
+  check('the dress beat is the same power bar as the picture frame, and it lands every pull',
+    dressGame.reachable
+      && dressGame.started
+      && dressGame.total === 7
+      && dressGame.good === 7
+      && dressGame.running === false
+      && dressGame.progress === 1
+      && dressGame.modelProgress === 1,
+    JSON.stringify(dressGame));
+  check('every successful pull plays a take, over a bed that stops when the bar does',
+    JSON.stringify(dressGame.moans)
+      === JSON.stringify(['moan.1', 'moan.3', 'moan.4', 'moan.5', 'moan.6', 'moan.3', 'moan.5'])
+      && dressGame.clapWhileRunning === true
+      && dressGame.clapAfter === false
+      && dressGame.finish === 1
+      && dressGame.glueTarget === 1,
+    JSON.stringify(dressGame));
+
+  const dressPayoff = await page.evaluate(() => {
+    const game = window.__squatch;
+    // A second of the scene's own update is what ramps the mess onto the dress.
+    for (let i = 0; i < 60; i++) game.updateMargoWake(1 / 60);
+    const margo = game.apartment.margo;
+    const blobs = margo.dressGlueGroup.children;
+    return {
+      dressGlue: margo.dressGlue,
+      blobs: blobs.length,
+      shown: blobs.filter((blob) => blob.visible).length,
+      // Parented to the blouse, so it walks out of the flat with her.
+      parented: margo.dressGlueGroup.parent === margo.upper,
+      pose: margo.pose,
+    };
+  });
+  check('the bottle gives all over the dress, and the dress takes it with her',
+    dressPayoff.dressGlue === 1
+      && dressPayoff.blobs >= 6
+      && dressPayoff.shown === dressPayoff.blobs
+      && dressPayoff.parented
+      && dressPayoff.pose === 'standing',
+    JSON.stringify(dressPayoff));
 
   const dressImpacts = await page.evaluate(() => {
     const game = window.__squatch;
-    const interaction = game.interaction;
-    for (let i = 0; i < 12; i++) interaction.update(0.1);
-    interaction.release();
     const margoScene = game.game.margoScene;
     return {
       candidates: margoScene?.dressImpactCandidates ?? [],
@@ -429,7 +519,6 @@ try {
       available: (margoScene?.dressImpactCandidates ?? []).filter((cue) => game.audio.hasSample(cue)),
       fallbackDecoded: game.audio.hasSample('drunk.collapse'),
       audioReady: game.audio.ready,
-      played: game.audio.playbacks.slice(-6).map((playback) => playback.name),
     };
   });
   /* This check used to tolerate `available: []` by accepting two

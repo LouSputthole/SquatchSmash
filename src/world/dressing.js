@@ -589,14 +589,44 @@ export function makeAnswerMachine(M, { x, y, z, rotY = 0 }) {
 }
 
 /**
+ * How far forward the torso goes for the dress beat, in radians.
+ *
+ * Named because three different things have to agree about it: the pose that
+ * sets it, the arms that cancel it so they still hang straight down, and the
+ * fastening progress that nudges it while the bar runs.
+ */
+const KNEEL_TORSO = 1.45;
+
+/**
+ * Where the mess lands on the dress, and how big each bit of it is.
+ *
+ * Down her BACK, which is where the fastening is and therefore where his
+ * hands were: `[x, y, head radius, run length]` in her own body frame, on the
+ * z -0.105 face, every blob a millimetre proud of it. Ordered from the
+ * fastening outward, because `setDressGlue` reveals them in this order and it
+ * has to arrive as a spray from one point rather than one frame of paint.
+ */
+const GLUE_BLOBS = Object.freeze([
+  [0.000, 0.400, 0.034, 0.185],
+  [-0.062, 0.372, 0.026, 0.140],
+  [0.058, 0.356, 0.028, 0.160],
+  [-0.018, 0.300, 0.030, 0.205],
+  [0.096, 0.288, 0.021, 0.105],
+  [-0.104, 0.286, 0.019, 0.095],
+  [0.036, 0.232, 0.024, 0.150],
+  [-0.048, 0.206, 0.021, 0.120],
+  [0.008, 0.150, 0.018, 0.085],
+]);
+
+/**
  * Somebody else in the bed on the fourth morning.
  *
  * Built round the hips rather than the feet, because every pose she is in
  * during that minute is a different angle between her legs and the rest of
- * her: on her side under the duvet, sat on the edge with her feet down,
- * standing up and going. A rig with the origin on the floor cannot sit down
- * without either floating or sinking, and this is a scene where she does all
- * three in about forty seconds.
+ * her: on her side under the duvet, sat on the edge with her feet down, bent
+ * over on all fours, standing up and going. A rig with the origin on the floor
+ * cannot sit down without either floating or sinking, and this is a scene
+ * where she does all four in about forty seconds.
  *
  * This remains a compact apartment rig rather than the Sasquatch-scale story
  * rig, but her authored face is shared with Front and Center. Clothes and pose
@@ -677,6 +707,7 @@ export function makeMorningGuest(M) {
   g.add(legs);
   const thighs = [];
   const knees = [];
+  const feet = [];
   for (const s of [-1, 1]) {
     const side = s < 0 ? 'right' : 'left';
     const thigh = group(`margo.leg.${side}.thigh`);
@@ -691,23 +722,70 @@ export function makeMorningGuest(M) {
       name: `margo.leg.${side}.shin`, size: [0.13, 0.40, 0.15],
       pos: [0, -0.20, 0], mat: jeans,
     }));
-    knee.add(box({
+    /* An ankle, which the rig did not used to have.
+     *
+     * The shoe was a box bolted to the shin, which is fine for every pose that
+     * keeps the shin roughly upright and wrong the moment one does not: fold
+     * the knee flat for the all-fours pose and a 24cm-deep foot stands on end
+     * and puts half of itself through the floorboards. One more joint, zero by
+     * default, so nothing that was right before moves. */
+    const foot = group(`margo.leg.${side}.foot`);
+    foot.position.y = -0.41;
+    foot.add(box({
       name: `margo.leg.${side}.shoe`, size: [0.14, 0.10, 0.24],
-      pos: [0, -0.41, 0.045], mat: mat({ color: 0x262326, roughness: 0.82 }),
+      pos: [0, 0, 0.045], mat: mat({ color: 0x262326, roughness: 0.82 }),
     }));
+    knee.add(foot);
     thigh.add(knee);
     legs.add(thigh);
+    feet.push(foot);
     thighs.push(thigh);
     knees.push(knee);
   }
 
-  /* Stable, generous hit volume behind the blouse. It follows her pose but
-   * stays invisible; the garment seam above is the visual target. */
+  /* Stable, generous hit volume over the fastening. Parented to the TORSO
+   * rather than to the root: bent over on all fours the two are half a metre
+   * and eighty degrees apart, and a hit box left at her hips is a prompt that
+   * appears somewhere she is not. It stays invisible; the garment seam above
+   * is the visual target. */
   const helpTarget = box({
     name: 'margo-dress-help', size: [0.48, 0.58, 0.38], pos: [0, 0.32, -0.12],
     mat: new THREE.MeshBasicMaterial({ visible: false }), cast: false, receive: false,
   });
-  g.add(helpTarget);
+  upper.add(helpTarget);
+
+  /*
+   * What the bottle does to the back of the dress.
+   *
+   * Parented to the blouse rather than sprayed at a wall plane the way the
+   * picture frame's mess is: hers has to travel with her, because she stands
+   * up in it, walks the length of the flat in it and leaves the building in
+   * it, and that is the entire joke. A blob is a squashed head with a run
+   * hanging off it -- anything viscous on a vertical surface sags, and a
+   * circle on its own reads as a sticker.
+   *
+   * Laid out by hand down the closure and across the shoulder blades rather
+   * than scattered at random, so the same frame comes out of a run twice.
+   */
+  const glueMat = mat({
+    unique: true, color: 0xf6f4ea, roughness: 0.16, metalness: 0,
+    transparent: true, opacity: 0,
+  });
+  const dressGlue = group('margo.dress.glue');
+  upper.add(dressGlue);
+  const glueBlobs = GLUE_BLOBS.map(([bx, by, r, run], i) => {
+    const blob = group(`margo.dress.glue.${i + 1}`);
+    blob.position.set(bx, by, -0.114);
+    blob.add(sphere({ r, ry: r * 0.88, rz: r * 0.42, pos: [0, 0, 0], mat: glueMat, cast: false }));
+    blob.add(box({
+      size: [r * 0.58, run, r * 0.44], pos: [0, -(run / 2 + r * 0.3), 0],
+      mat: glueMat, cast: false, receive: false,
+    }));
+    blob.visible = false;
+    blob.scale.setScalar(0);
+    dressGlue.add(blob);
+    return blob;
+  });
 
   const rig = {
     group: g,
@@ -717,15 +795,19 @@ export function makeMorningGuest(M) {
     arms,
     thighs,
     knees,
+    feet,
     helpTarget,
     dressClosure,
+    dressGlueGroup: dressGlue,
     faceParts,
     identity: 'margo',
     outfit: 'morning_blouse_and_jeans',
     pose: 'lying',
     dressHelpProgress: 0,
+    dressGlue: 0,
     setPose: null,
     setDressHelpProgress: null,
+    setDressGlue: null,
   };
 
   const resetLimbs = () => {
@@ -733,6 +815,7 @@ export function makeMorningGuest(M) {
     upper.rotation.set(0, 0, 0);
     thighs.forEach((thigh) => thigh.rotation.set(0, 0, 0));
     knees.forEach((knee) => knee.rotation.set(0, 0, 0));
+    feet.forEach((foot) => foot.rotation.set(0, 0, 0));
     arms.forEach((arm, i) => arm.rotation.set(0, 0, (i ? -1 : 1) * -0.06));
   };
 
@@ -752,20 +835,48 @@ export function makeMorningGuest(M) {
     rig.pose = pose;
     helpTarget.visible = pose === 'kneeling';
     if (pose === 'lying') {
-      /* On her side beside him. Laid down by rotating the standing rig a
-       * quarter turn about X, so her head runs toward the headboard and her
-       * feet toward the foot of the bed; the roll is applied in her own body
-       * frame first, which is what puts her on her side rather than face up. */
-      /* Head level with his, body running down the bed, above the duvet
-       * rather than inside it -- the bedding tops out at 0.72 with folds to
-       * 0.94, so anything at mattress height is upholstery. She is forty
-       * centimetres from his eye here, which is what lying next to somebody
-       * is; the scene deliberately does not turn his head toward her until
-       * she sits up, because at this range she is a wall, not a person. */
-      g.position.set(-3.74, 0.82, -2.72);
-      g.rotation.set(-Math.PI / 2, 0, 0.55);
-      legs.rotation.x = 0.22;
-      upper.rotation.x = -0.10;
+      /*
+       * On her side beside him, and -- the part this got wrong for a long
+       * time -- OUT OF HIS FACE.
+       *
+       * Three.js composes an XYZ euler as Rx·Ry·Rz, so on a rig that is being
+       * laid down by Rx(-90deg) the roll about her own spine is the Y term.
+       * The old pose put 0.55 into Z instead, which is not a roll at all: Z is
+       * applied first, in her standing frame, so it swung her whole body
+       * sideways and then the quarter turn dropped that swing into the floor
+       * plane. It carried her head 30cm back up the bed toward the headboard,
+       * and her skull finished 20cm from the camera -- near enough that he
+       * woke up inside her head. The measured comment above it still said
+       * forty centimetres, because nobody re-measured after the roll went in.
+       *
+       * So: Y is the roll, Z is zero, and the numbers are checked against the
+       * bed rather than against the last version of themselves. He wakes with
+       * his eye at (-4.15, 0.86, -3.35); her head lands at (-3.58, 0.93,
+       * -3.68), which is two thirds of a metre out with about 45cm of clear
+       * air to the nearest bit of her. Rolled to -1.35 rad she is on her side
+       * facing west, which is to say facing him. The mattress top is 0.60 and
+       * the thrown-back duvet tops out around 0.94, so 0.93 puts her ON the
+       * bedding instead of halfway through it.
+       *
+       * The curl is load-bearing rather than decorative: straight-legged she
+       * is 1.37m from crown to sole and the bed is 2.0m with her head 0.56m
+       * down it, so her shoes hung in mid-air past the foot rail at z -2.40.
+       * Knees drawn up and heels tucked back takes her to 1.28m, which fits --
+       * and note the knee sign, because the two are not the same joint: a
+       * NEGATIVE thigh brings the knee forward and a POSITIVE knee brings the
+       * heel back, which is what flexion is.
+       */
+      g.position.set(-3.58, 0.93, -3.12);
+      g.rotation.set(-Math.PI / 2, -1.35, 0);
+      thighs.forEach((thigh, i) => { thigh.rotation.x = -0.62 - i * 0.05; });
+      knees.forEach((knee, i) => { knee.rotation.x = 1.25 + i * 0.06; });
+      upper.rotation.x = -0.08;
+      /* Both arms in front of her, and no further: an arm thrown across is a
+       * forearm across the lens from where he is lying. */
+      arms.forEach((arm, i) => {
+        arm.rotation.x = -0.30 + i * 0.16;
+        arm.rotation.z = (i ? -1 : 1) * -0.14;
+      });
       return;
     }
     if (pose === 'sitting') {
@@ -782,25 +893,75 @@ export function makeMorningGuest(M) {
       return;
     }
     if (pose === 'kneeling') {
-      /* Beside the open side of the bed, three-quarter back to the player.
-       * Both knees reach the floor and both lower legs fold behind her, so the
-       * pose reads at a glance instead of looking like a shortened standing rig. */
-      g.position.set(-2.55, 0.41, -3.00);
+      /*
+       * On all fours, bent over, beside the open side of the bed.
+       *
+       * The fastening on this dress runs down her BACK -- `dressClosure` is at
+       * z -0.108, and +z on this rig is the way her shoes point -- so an
+       * upright kneel put the one thing the interaction is about on the far
+       * side of her from the only place the player can be. Bent over with her
+       * back to him it is the nearest surface in the frame, which is what an
+       * interaction wants and what the beat is for.
+       *
+       * Every angle here is derived from her own proportions rather than eyed
+       * in, because a quadruped pose is four contact points and getting one
+       * wrong is a limb through the floor:
+       *
+       *   - Thighs vertical, so the hips sit one thigh (0.41m) over the knees.
+       *   - Knees folded to just under a right angle, which lays the shins
+       *     flat BEHIND her -- and note the sign, because it is the opposite
+       *     of the thigh's: positive is flexion, heel toward the seat.
+       *   - Torso forward 1.45 rad, i.e. 83 degrees, i.e. horizontal, which
+       *     puts her shoulders (0.43 up the spine) at 0.55 and her head down
+       *     and out in front of her.
+       *   - Arms counter-rotated by the same 1.45 so they hang vertically in
+       *     world space rather than trailing behind a rotated torso. Reach
+       *     from shoulder to knuckle is 0.51, and 0.55 minus 0.51 is a palm on
+       *     the floor.
+       *
+       * Hips at 0.50 rather than 0.46: the shin is a 0.15m-deep box lying on
+       * its side, so the knee joint has to clear the floor by half of that or
+       * her lower legs are sunk in the floorboards.
+       *
+       * And she is at x -2.80 rather than out at -2.62, which is a sightline
+       * decision rather than a staging one. Bent over she is a metre lower
+       * than she was knelt upright, and the top of a thrown-back duvet is at
+       * 0.91: from out at -2.62 the ray from his eye to her back grazed that
+       * edge and the beat played as a strip of denim behind a wall of
+       * bedding. -2.80 is as close in as the bed will take -- her folded
+       * shins reach back to -3.43 and the frame's east face is at -3.45 --
+       * and it lifts her clear of the duvet with room to spare.
+       */
+      g.position.set(-2.80, 0.50, -3.02);
       g.rotation.set(0, 1.90, 0);
       thighs.forEach((thigh, i) => {
-        thigh.rotation.x = -0.16 + i * 0.03;
+        thigh.rotation.x = 0.06 + i * 0.03;
       });
       knees.forEach((knee, i) => {
-        knee.rotation.x = -2.06 - i * 0.04;
+        knee.rotation.x = 1.48 + i * 0.05;
       });
-      upper.rotation.x = 0.08;
+      /* And the ankles give back what the knees took, so the tops of her feet
+       * lie on the floor with the toes pointing back -- which is what a foot
+       * does when the shin above it is flat, and what stops a shoe standing on
+       * end through the floorboards. */
+      feet.forEach((foot, i) => { foot.rotation.x = 1.50 - i * 0.05; });
+      upper.rotation.x = KNEEL_TORSO;
       arms.forEach((arm, i) => {
-        arm.rotation.x = -0.32 + i * 0.08;
-        arm.rotation.z = i ? -0.12 : 0.12;
+        // Straight down, braced, slightly wider than her shoulders.
+        arm.rotation.x = -KNEEL_TORSO - 0.05;
+        arm.rotation.z = (i ? -1 : 1) * 0.13;
       });
       return;
     }
-    g.position.set(-2.55, 0.78, -3.00);
+    /* Standing, and standing ON the floor: her leg is 0.81 from hip to ankle
+     * with another 0.05 of shoe under it, so the hips have to sit at 0.87. At
+     * the 0.78 this used to be she walked out of the flat nine centimetres
+     * into the floorboards, which is invisible from a pillow and obvious the
+     * moment anything else in the scene wants to know where her feet are.
+     *
+     * x matches the kneel so that standing up is standing up rather than a
+     * 40cm sidestep, and MARGO_PATH starts from the same number. */
+    g.position.set(-2.80, 0.87, -3.00);
     g.rotation.set(0, 1.90, 0);
   };
 
@@ -809,13 +970,40 @@ export function makeMorningGuest(M) {
     rig.dressHelpProgress = p;
     dressClosure.scale.y = 0.18 + p * 0.82;
     dressClosure.position.y = 0.16 + p * 0.105;
-    /* She settles her shoulders as the fastening closes. The movement is
-     * intentionally slight so the interaction reads without turning into a
-     * repeated canned animation. */
-    if (rig.pose === 'kneeling') upper.rotation.x = 0.08 - p * 0.05;
+    /* She braces a little lower as the fastening closes. Slight on purpose --
+     * enough that the bar has something to move, not so much that it becomes a
+     * canned animation played seven times. Written as an offset off the pose's
+     * own angle rather than as a number of its own, so bending her further
+     * over never silently stands her back up. */
+    if (rig.pose === 'kneeling') upper.rotation.x = KNEEL_TORSO + p * 0.07;
   };
+
+  /**
+   * How much of the bottle ended up on the dress.
+   *
+   * Ramped rather than switched, and staggered across the blobs, because the
+   * bottle gives all at once and then keeps going for a second afterwards.
+   * One shared material carries the fade in and each blob carries its own
+   * arrival, so the spread reads as a spray with a source.
+   *
+   * @param {number} amount 0 clean, 1 the whole bottle
+   */
+  const setDressGlue = (amount) => {
+    const p = Math.max(0, Math.min(1, Number(amount) || 0));
+    rig.dressGlue = p;
+    glueMat.opacity = 0.94 * Math.min(1, p * 3.5);
+    glueBlobs.forEach((blob, i) => {
+      const at = (i / Math.max(1, glueBlobs.length - 1)) * 0.70;
+      const k = Math.max(0, Math.min(1, (p - at) / 0.30));
+      blob.visible = k > 0;
+      blob.scale.setScalar(k);
+    });
+  };
+
   rig.setPose = setPose;
   rig.setDressHelpProgress = setDressHelpProgress;
+  rig.setDressGlue = setDressGlue;
+  setDressGlue(0);
   setDressHelpProgress(0);
   setPose('lying');
   g.visible = false;

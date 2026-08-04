@@ -2014,6 +2014,59 @@
       "_note": "The nozzle gives. All of it, at once, at the wall."
     },
     {
+      "name": "moan.1",
+      "file": "moan-01.mp3",
+      "_note": "Delivered take. Hand-supplied recording, not generated: leave the file field alone or `npm run sfx` will look for moan.N.mp3."
+    },
+    {
+      "name": "moan.2",
+      "file": "moan-02.mp3",
+      "_note": "Delivered take. Hand-supplied recording, not generated: leave the file field alone or `npm run sfx` will look for moan.N.mp3."
+    },
+    {
+      "name": "moan.3",
+      "file": "moan-03.mp3",
+      "_note": "Delivered take. Hand-supplied recording, not generated: leave the file field alone or `npm run sfx` will look for moan.N.mp3."
+    },
+    {
+      "name": "moan.4",
+      "file": "moan-04.mp3",
+      "_note": "Delivered take. Hand-supplied recording, not generated: leave the file field alone or `npm run sfx` will look for moan.N.mp3."
+    },
+    {
+      "name": "moan.5",
+      "file": "moan-05.mp3",
+      "_note": "Delivered take. Hand-supplied recording, not generated: leave the file field alone or `npm run sfx` will look for moan.N.mp3."
+    },
+    {
+      "name": "moan.6",
+      "file": "moan-06.mp3",
+      "_note": "Delivered take. Hand-supplied recording, not generated: leave the file field alone or `npm run sfx` will look for moan.N.mp3."
+    },
+    {
+      "name": "clap.wet.loop.1",
+      "file": "wet-sloppy-clap-loop-01.mp3",
+      "loop": true,
+      "_note": "Delivered take. The continuous bed under the dress-help bar; the three variants are the same bed, wetter, and the beat climbs through them."
+    },
+    {
+      "name": "clap.wet.loop.2",
+      "file": "wet-sloppy-clap-loop-02.mp3",
+      "loop": true,
+      "_note": "Delivered take. The continuous bed under the dress-help bar; the three variants are the same bed, wetter, and the beat climbs through them."
+    },
+    {
+      "name": "clap.wet.loop.3",
+      "file": "wet-sloppy-clap-loop-03.mp3",
+      "loop": true,
+      "_note": "Delivered take. The continuous bed under the dress-help bar; the three variants are the same bed, wetter, and the beat climbs through them."
+    },
+    {
+      "name": "clap.wet.finish",
+      "file": "wet-sloppy-clap-one-shot-02.mp3",
+      "_note": "Delivered take. The one-shot both fixing games land on: the picture frame in the flat and the dress on the fourth morning."
+    },
+    {
       "name": "vo.glue.1",
       "voice": "player",
       "say": "All over the wall. Every time."
