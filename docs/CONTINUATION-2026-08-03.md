@@ -275,6 +275,14 @@ tension, real consequence. The comedy lives in the world (sasquatches, Lou, the
 Bing), never in the mission's spine. A scene has to be worth playing by someone
 who has never seen the film.
 
+**Engine traps — read `docs/ENGINE-TRAPS.md` before writing audio mixing, a
+browser check, or a new scene's dialogue wiring.** Five defects this codebase
+has produced more than once, each with the mechanism and the rule: overlapping
+AudioParam ramps stack rather than replace; the simulation clock is not the wall
+clock, so a check must wait on a predicate rather than sleep for a duration; a
+scene with no `tools/<scene>-vo.mjs` is invisible to the recording sheet however
+much is written for it; a manifest prefix may have two owners; and gates that
+report success without exercising what the player actually does.
 
 - Preserve the Beef Run's flight model, terrain, mission geography and aircraft
   as canonical. Its campaign boundaries live in `src/beefrun/main.js`,
