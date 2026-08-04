@@ -563,6 +563,10 @@ export class TargetCity {
       if (Math.hypot(wx - cx, wz - cz) < outer) lm.visible = false;
     }
     this.parts.streets.visible = false;
+    /* The river goes too. It runs right across the middle of the city and its
+     * whole length is inside the crater lip, so leaving it drawn puts a
+     * perfectly flat blue ribbon lying across the floor of a 120 m deep hole. */
+    this.parts.river.visible = false;
 
     // ---- 3. The hole ----
     this.crater = this.buildCraterMesh(cx, cz, y);

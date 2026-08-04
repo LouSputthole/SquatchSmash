@@ -947,6 +947,23 @@ export class MissionController {
   /* ---- Explosion ---- */
 
   onPayloadImpact(point) {
+    /* Once only.
+     *
+     * `_buildExplosionVfx()` adds a group to the scene and stores the ONLY
+     * handle to it on `_explosionVfx`; `updateExplosion()` is what animates
+     * that handle and, at the end, removes the group. So a second call
+     * overwrites the handle and orphans the first group in the scene
+     * permanently — a two-kilometre smoke column and forty pieces of debris,
+     * frozen at whatever opacity they had when they were abandoned, sitting
+     * over the target for the rest of the mission.
+     *
+     * It happens whenever the payload is released AND the mission is put into
+     * the explosion phase directly: `main.js`'s `go('explosion')` calls this
+     * once itself, and then the released payload finishes its own fall a few
+     * seconds later and calls it again through `payload.onImpact`. Cleared by
+     * `restoreCheckpoint`, so a checkpoint restart before the drop can still
+     * detonate. */
+    if (this.explosionPoint) return;
     this.explosionPoint = point.clone();
     // The whistle stops the instant it arrives, not a frame later.
     this.audio?.endFallingWhistle?.(0.03);
@@ -1011,8 +1028,19 @@ export class MissionController {
     const g = group('fat-squatch-detonation');
     g.position.copy(point);
 
+    /* EVERYTHING IN THIS FUNCTION SETS `fog: false`.
+     *
+     * `MeshBasicMaterial` respects scene fog by default, and this mission flies
+     * a night route whose zones set `fogFar` between 1400 m and 4200 m. A
+     * two-kilometre column of fire three kilometres behind the aeroplane —
+     * which is exactly where the player is watching it from, because the
+     * escape phase's whole instruction is to fly away from it — was therefore
+     * being blended almost entirely into the fog colour, and the first render
+     * of it from a realistic distance came out as a uniform grey wash with a
+     * mushroom-shaped hint in it. A detonation this size is not something the
+     * weather gets to stand in front of. */
     const flash = flatMesh(sphereGeo(1, 16, 12), unlit(0xfffaf0, {
-      transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
     }), 0, 40, 0);
     g.add(flash);
 
@@ -1023,32 +1051,52 @@ export class MissionController {
     light.position.set(0, 60, 0);
     g.add(light);
 
-    // The fireball: four shells, each with its own colour and growth rate.
+    /* The fireball: four shells, each with its own colour and growth rate.
+     *
+     * Only the two INNER shells are additive. Additive blending adds light to
+     * whatever is behind it, so a deep-red shell 600 m across, drawn additively
+     * against this route's pale night sky, brightened the sky slightly and was
+     * otherwise invisible — the first render of the blast from a realistic
+     * 2.6 km came out as a small white smear on the horizon and nothing else.
+     * The two outer shells are therefore ordinary transparent geometry, which
+     * is opaque enough to be a shape against the sky, and the hot core stays
+     * additive so it still blows out to white in the middle. */
     const fire = [
-      { colour: 0xfff3d0, to: 340, at: 0.55, fade: 1.9, y: 60 },
-      { colour: 0xffd24a, to: 470, at: 0.9, fade: 3.0, y: 90 },
-      { colour: 0xff7a1e, to: 620, at: 1.5, fade: 4.6, y: 130 },
-      { colour: 0xc4241a, to: 780, at: 2.4, fade: 6.5, y: 175 },
+      { colour: 0xfff3d0, to: 340, at: 0.55, fade: 1.9, y: 60, add: true, peak: 0.95 },
+      { colour: 0xffd24a, to: 470, at: 0.9, fade: 3.0, y: 90, add: true, peak: 0.9 },
+      { colour: 0xff7a1e, to: 620, at: 1.5, fade: 4.6, y: 130, add: false, peak: 0.85 },
+      { colour: 0xc4241a, to: 780, at: 2.4, fade: 6.5, y: 175, add: false, peak: 0.8 },
     ].map((spec) => {
       const ball = flatMesh(sphereGeo(1, 20, 14), unlit(spec.colour, {
-        transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+        transparent: true,
+        opacity: 0,
+        ...(spec.add ? { blending: THREE.AdditiveBlending } : {}),
+        depthWrite: false,
+        fog: false,
       }), 0, spec.y, 0);
       ball.userData.spec = spec;
       g.add(ball);
       return ball;
     });
 
-    // Three shockwave rings, on the deck, at three speeds.
+    /* Three shockwave rings, on the deck, at three speeds.
+     *
+     * `tube` is the thickness in METRES at full extent, and the geometry's
+     * tube ratio is therefore `tube / to`. Building the torus with a fixed
+     * ratio instead (which is what it did) makes the tube a proportion of the
+     * ring, so a ring scaled to 2 km came with a tube over a kilometre thick —
+     * a doughnut the escaping aeroplane flies inside, which renders as the
+     * whole screen turning mauve. */
     const rings = [
-      { to: 2400, over: 2.6, colour: 0xffe6b4, tube: 9 },
-      { to: 3400, over: 4.4, colour: 0xd9c2ff, tube: 14 },
-      { to: 4600, over: 7.0, colour: 0x8a7a9a, tube: 22 },
+      { to: 2400, over: 2.6, colour: 0xffe6b4, tube: 70 },
+      { to: 3400, over: 4.4, colour: 0xd9c2ff, tube: 110 },
+      { to: 4600, over: 7.0, colour: 0x8a7a9a, tube: 160 },
     ].map((spec) => {
       const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(1, spec.tube / 40, 8, 40),
+        new THREE.TorusGeometry(1, spec.tube / spec.to, 8, 40),
         new THREE.MeshBasicMaterial({
           color: spec.colour, transparent: true, opacity: 0, toneMapped: false,
-          side: THREE.DoubleSide, depthWrite: false,
+          side: THREE.DoubleSide, depthWrite: false, fog: false,
         }),
       );
       ring.rotation.x = Math.PI / 2;
@@ -1063,7 +1111,7 @@ export class MissionController {
     const dust = new THREE.Mesh(
       new THREE.CylinderGeometry(1, 1, 1, 36, 1, true),
       new THREE.MeshBasicMaterial({
-        color: 0x6b5a44, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+        color: 0x6b5a44, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false,
       }),
     );
     dust.position.y = 30;
@@ -1075,25 +1123,37 @@ export class MissionController {
     const stem = mesh(
       new THREE.CylinderGeometry(120, 210, 1, 20, 1, true),
       new THREE.MeshBasicMaterial({
-        color: 0x8a6a4a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+        color: 0x8a6a4a, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, fog: false,
       }),
       0, 0, 0,
     );
     g.add(stem);
     const cap = flatMesh(sphereGeo(1, 22, 14), new THREE.MeshBasicMaterial({
-      color: 0xa08262, transparent: true, opacity: 0, depthWrite: false,
+      color: 0xa08262, transparent: true, opacity: 0, depthWrite: false, fog: false,
     }), 0, 0, 0);
     g.add(cap);
 
-    // Smoke columns lifting off the flanks of the stem.
+    /* Smoke, which is what turns the cap from a beige pancake into a cloud.
+     *
+     * A squashed sphere on its own renders as one flat ellipse — no shading
+     * varies across it, because it is an unlit basic material. So fourteen
+     * puffs ride the cap: they climb with the stem, spread out to the cap's
+     * own radius as it unrolls, and sit at slightly different heights and
+     * sizes, which breaks the silhouette's edge into lumps and gives the
+     * middle some internal contrast. Each one carries its own angle and its
+     * own two random factors so the ring never reads as fourteen identical
+     * balls on a circle. */
     const smoke = [];
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
       const puff = flatMesh(sphereGeo(1, 10, 7), new THREE.MeshBasicMaterial({
-        color: i % 2 ? 0x4a4038 : 0x6b5a44, transparent: true, opacity: 0, depthWrite: false,
-      }), Math.cos(a) * 200, 40, Math.sin(a) * 200);
-      puff.userData.rise = 26 + (i % 4) * 12;
-      puff.userData.grow = 60 + (i % 3) * 34;
+        color: i % 3 === 0 ? 0x4a4038 : i % 3 === 1 ? 0x6b5a44 : 0x8a7358,
+        transparent: true, opacity: 0, depthWrite: false, fog: false,
+      }), 0, 0, 0);
+      puff.userData.ang = a;
+      puff.userData.ring = 0.72 + (i % 5) * 0.07;      // how far out on the cap
+      puff.userData.lift = 0.82 + (i % 4) * 0.12;      // how high up the cap
+      puff.userData.size = 0.3 + (i % 3) * 0.09;       // relative to the cap
       g.add(puff);
       smoke.push(puff);
     }
@@ -1101,7 +1161,8 @@ export class MissionController {
     // The gag frame: a Sasquatch-head silhouette, hidden until the fireball is
     // near its peak, then gone again.
     const gag = flatMesh(planeGeo(1, 1), mat({
-      map: sasquatchSilhouetteTexture(), transparent: true, alphaTest: 0.05, depthWrite: false, unique: true,
+      map: sasquatchSilhouetteTexture(), transparent: true, alphaTest: 0.05, depthWrite: false,
+      fog: false, unique: true,
     }), 0, 420, 0);
     gag.visible = false;
     g.add(gag);
@@ -1158,7 +1219,12 @@ export class MissionController {
         const k = clamp(t / s.at, 0, 1);
         ball.scale.setScalar(lerp(6, s.to, Math.sqrt(k)));
         ball.position.y = s.y + t * 34;
-        ball.material.opacity = clamp(1 - t / s.fade, 0, 1) * 0.9;
+        /* Drawn back to front by shell: three.js sorts transparent objects by
+         * distance, and four concentric spheres are all at the same distance,
+         * so the outermost has to be told to go first or the red shell paints
+         * over the white core it is supposed to be wrapped around. */
+        ball.renderOrder = -s.to;
+        ball.material.opacity = clamp(1 - t / s.fade, 0, 1) * s.peak;
       }
 
       for (const ring of vfx.rings) {
@@ -1168,9 +1234,11 @@ export class MissionController {
         ring.material.opacity = lerp(0.85, 0, k);
       }
 
-      // The dust wall.
+      /* The dust wall. Capped at 1500 m: at 3000 m it reached past where the
+       * escaping aeroplane actually is, and a camera INSIDE a brown cylinder
+       * at half opacity is not a dust cloud, it is a brown screen. */
       const dustK = clamp(t / 6.0, 0, 1);
-      const dustR = lerp(20, 3000, Math.sqrt(dustK));
+      const dustR = lerp(20, 1500, Math.sqrt(dustK));
       vfx.dust.scale.set(dustR, lerp(40, 420, dustK), dustR);
       vfx.dust.position.y = lerp(30, 220, dustK);
       vfx.dust.material.opacity = clamp(0.55 - dustK * 0.55, 0, 0.55);
@@ -1190,16 +1258,29 @@ export class MissionController {
       vfx.cap.position.y = lerp(200, 1950, capK);
       vfx.cap.material.opacity = clamp(capK * 1.4, 0, 0.8) * clamp(1 - (t - 13) / 5, 0, 1);
 
+      /* The puffs ride the cap they were built for: same clock, same radius,
+       * so the cloud grows as one thing instead of as a disc with a separate
+       * ring of balls drifting away from it. */
       for (const puff of vfx.smoke) {
-        puff.position.y += puff.userData.rise * dt;
-        const s = puff.scale.x + puff.userData.grow * dt;
-        puff.scale.setScalar(s);
-        puff.material.opacity = clamp(0.5 - t * 0.03, 0, 0.5);
+        const u = puff.userData;
+        const r = capR * u.ring;
+        puff.position.set(
+          Math.cos(u.ang) * r,
+          vfx.cap.position.y * u.lift + capR * 0.1,
+          Math.sin(u.ang) * r,
+        );
+        puff.scale.setScalar(Math.max(capR * u.size, 1));
+        puff.material.opacity = clamp(capK * 1.2, 0, 0.62) * clamp(1 - (t - 13) / 5, 0, 1);
       }
 
-      // The gag frame, now nine hundred metres of Sasquatch.
+      /* The gag frame, now nine hundred metres of Sasquatch — and turned to
+       * face whoever is looking at it. It is a flat plane, and a flat plane in
+       * the XY plane is edge-on to a camera approaching along X, which is the
+       * axis this entire mission flies along: the joke was a one-pixel black
+       * vertical line for every player who saw it from the escape turn. */
       vfx.gag.visible = t > 1.2 && t < 2.6;
       if (vfx.gag.visible) {
+        if (this.camera) vfx.gag.quaternion.copy(this.camera.quaternion);
         const gagK = clamp((t - 1.2) / 1.4, 0, 1);
         const s = lerp(300, 950, Math.sin(gagK * Math.PI));
         vfx.gag.scale.set(s, s, 1);
@@ -1499,6 +1580,12 @@ export class MissionController {
      * interaction prompt on the glass at four thousand feet. */
     this.audio?.endFallingWhistle?.(0.05);
     this.gunFiring = false;
+    // See `onPayloadImpact`: a restart before the drop must be able to detonate.
+    if (this._explosionVfx) {
+      this.scene.remove(this._explosionVfx.group);
+      this._explosionVfx = null;
+    }
+    this.explosionPoint = null;
     this.preflight?.disarm?.();
     this.disarmBoardingTarget();
     this.crew?.takeSeats?.(this.aircraft);
@@ -1537,6 +1624,13 @@ export class MissionController {
         this.input.throttle = 0.6;
         this.physics.controls.parkingBrake = false;
         this.payloadReleased = data?.payloadReleased ?? false;
+        /* Put the night back. Every other restore point sets its own
+         * conditions and this one did not, so restarting at the target
+         * inherited whatever the weather was last told — on a fresh page that
+         * is the apron's `dusk: 0.55, night: 0.15`, i.e. the bombing run over
+         * a night city played out in pale blue daylight haze with a 2.6 km fog
+         * cut. Matches `turnOnCourse`, which is the checkpoint before it. */
+        this.weather.setConditions({ dusk: 1, night: 1, cloudDensity: 0.5, turbulence: 0.5 });
         this.defense.deploy({ x: TARGET_X, z: COMPOUND.z }, { groundY: approxGroundHeight(TARGET_X), radius: 460 });
         this.setPhase('bombApproach');
       },

@@ -416,6 +416,54 @@ const cameras = new CameraManager(camera);
 const input = new FlightInput();
 input.rudderKeys = true; // always in the cockpit — no on-foot 'E' to share Q/E with.
 
+/* ------------------------------------------------------------------ */
+/* Eastbound fog                                                      */
+/*
+ * `ZONES_EAST` carries an authored fog colour and near/far pair for each band
+ * of the route — dark blues through the mountain corridor, a silvered cloud
+ * bank, then the compound's warm dark. Until now NONE of it reached the
+ * screen: `WeatherSystem` (reused unmodified from the Beef Run) sets
+ * `scene.fog` from `zonePalette(focus.z)`, which bands Beef Run's OWN
+ * southbound `ZONES` by z. This route flies east at z ~ -500, which lands in
+ * Beef Run's `pines` zone for its whole length — so the desert compound, the
+ * target city and the crater were all being rendered through Whispering
+ * Pines' pale-blue daylight fog with a 2.6 km cut, at night.
+ *
+ * This is the same class of mismatch the file header already flags for
+ * `DetectionSystem.exposureAt()` and `WeatherSystem.sampleAir()`, and the same
+ * reason applies: those two read Beef Run's terrain at module scope and cannot
+ * be injected. Fog can be, because it is just three fields on the scene, so
+ * this corrects the one that is visible in every frame.
+ *
+ * Only the FOG is overridden, never `scene.background` — the weather system
+ * writes the background every frame to drive its lightning flash, and taking
+ * that over would put the storm out. It is also faded in over the same
+ * `x` window `groundHeightCombined` uses to blend into the eastbound
+ * heightfield, so the airfield end of the route keeps Beef Run's own look.
+ */
+/* ------------------------------------------------------------------ */
+
+const _fogColour = new THREE.Color();
+
+function applyEastFog(x, dt) {
+  const fog = scene.fog;
+  if (!fog) return;
+  const east = smoothstep(500, 1400, x);
+  if (east <= 0) return;
+  const { i, j, t } = zoneMixX(x);
+  const a = ZONES_EAST[i];
+  const b = ZONES_EAST[j];
+  _fogColour.set(a.fog).lerp(new THREE.Color(b.fog), t);
+  const near = lerp(a.fogNear, b.fogNear, t);
+  const far = lerp(a.fogFar, b.fogFar, t);
+  // Damped, so crossing a zone edge is a drift rather than a cut, and scaled
+  // by `east` so it hands over from the weather system rather than snapping.
+  const k = clamp(dt * 1.2 * east, 0, 1);
+  fog.color.lerp(_fogColour, k);
+  fog.near = lerp(fog.near, near, k);
+  fog.far = lerp(fog.far, far, k);
+}
+
 const dialogue = new DialogueSystem(hud, {
   audio: missionAudio,
   // The right man's head bobs when his line plays — the same hook Beef Run
@@ -690,6 +738,7 @@ function simulateFrame(dt) {
 
   const focus = inCockpit ? physics.position : player.position;
   weather.update(dt, focus);
+  applyEastFog(focus.x, dt);
   airfield.update(dt, 0.4 + weather.crosswind * 0.1, 0);
 
   if (inCockpit) {
@@ -812,8 +861,17 @@ function go(phase) {
         payload.release(scene, physics.velocity.clone());
         mission.payloadReleased = true;
       }
-      mission.onPayloadImpact(point);
+      /* Phase FIRST, impact SECOND. `onEnterPhase('explosion')` clears
+       * `_explosionVfx` and resets the clock, so calling `onPayloadImpact()`
+       * before it — which is what this did — built the whole fireball and then
+       * immediately threw the handle to it away: the group stayed in the scene
+       * at opacity zero, never animated, never removed, and `go('explosion')`
+       * showed an empty sky. The organic route is unaffected (the payload
+       * takes seconds to fall, so it impacts long after the phase begins),
+       * which is why the end-to-end verification never caught it and why it
+       * only turned up when the detonation was framed for a screenshot. */
       mission.setPhase('explosion');
+      mission.onPayloadImpact(point);
       break;
     }
     case 'escape': {
