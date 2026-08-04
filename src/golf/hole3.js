@@ -70,6 +70,10 @@ export const CART_PATH_WIDTH = 2.7;
 /** Beside the last green, in front of the clubhouse. Where the morning ends. */
 export const CART_PARK = Object.freeze({ x: -6, z: -372 });
 
+/** On the opposite side of the cart park from the gallery, so nobody has to
+ * walk through the crew to reach it. Last one of the round. */
+export const SIDE_COOLER = Object.freeze({ x: -1.5, z: -368.5, rot: 0.15 });
+
 export const DROP_ZONE = Object.freeze({ x: -14, z: -310 });
 
 export const BOUNDS = Object.freeze({ minX: -78, maxX: 62, minZ: -412, maxZ: 42 });
@@ -177,7 +181,7 @@ export const LAYOUT = Object.freeze({
   bunkers: Object.freeze([LEFT_BUNKER, RIGHT_BUNKER, FAIRWAY_BUNKER]),
   corridor: CORRIDOR, dropZone: DROP_ZONE, bounds: BOUNDS, terrain: TERRAIN,
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
-  cartPark: CART_PARK, lot: LOT, lotArea: CLUBHOUSE_AREA, teeMarks: TEE_MARKS,
+  cartPark: CART_PARK, sideCooler: SIDE_COOLER, lot: LOT, lotArea: CLUBHOUSE_AREA, teeMarks: TEE_MARKS,
   npcTeeShots: NPC_TEE_SHOTS, npcPlan: NPC_PLAN, treeBands: TREE_BANDS,
   gallery: GALLERY,
   clubhouse: CLUBHOUSE, nextHint: NEXT_HINT,

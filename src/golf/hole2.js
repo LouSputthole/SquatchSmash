@@ -71,6 +71,10 @@ export const CART_PATH = Object.freeze([
 export const CART_PATH_WIDTH = 2.7;
 export const CART_PARK = Object.freeze({ x: 140, z: -430 });
 
+/** Off the path near where the cart stops, clear of the green and the bunker
+ * behind it. Same amenity as Hole 1's, restocked for this hole. */
+export const SIDE_COOLER = Object.freeze({ x: 136, z: -433, rot: -0.2 });
+
 export const DROP_ZONE = Object.freeze({ x: 120, z: -395 });
 
 export const BOUNDS = Object.freeze({ minX: -62, maxX: 214, minZ: -472, maxZ: 44 });
@@ -151,7 +155,7 @@ export const LAYOUT = Object.freeze({
   cornerBunker: CORNER_BUNKER,
   corridor: CORRIDOR, dropZone: DROP_ZONE, bounds: BOUNDS, terrain: TERRAIN,
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
-  cartPark: CART_PARK, lot: LOT, lotArea: LOT_AREA, teeMarks: TEE_MARKS,
+  cartPark: CART_PARK, sideCooler: SIDE_COOLER, lot: LOT, lotArea: LOT_AREA, teeMarks: TEE_MARKS,
   npcTeeShots: NPC_TEE_SHOTS, npcPlan: NPC_PLAN, treeBands: TREE_BANDS,
   clubhouse: CLUBHOUSE, nextHint: NEXT_HINT,
   cupRadius: CUP_RADIUS, flagHeight: FLAG_HEIGHT,

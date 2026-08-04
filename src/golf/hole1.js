@@ -67,6 +67,13 @@ export const CART_PATH_WIDTH = 2.7;
 export const CART_PARK = Object.freeze({ x: -17.5, z: -146.5 });
 
 /**
+ * A stocked cooler standing off the path, level with the bunker and clear of
+ * it, a few strides into the rough. The club's own amenity — restocked fresh
+ * for every group and separate from whatever Lou packed onto the cart.
+ */
+export const SIDE_COOLER = Object.freeze({ x: -20.2, z: -145.3, rot: 0.35 });
+
+/**
  * Where a ball that found the water is dropped: back on the tee side of the
  * hazard, on dry short grass, with a real shot to the green still in front of
  * him. A drop that leaves the player in trouble reads as a second penalty.
@@ -182,7 +189,7 @@ export const LAYOUT = Object.freeze({
   bunkers: Object.freeze([BUNKER]),
   corridor: CORRIDOR, dropZone: DROP_ZONE, bounds: BOUNDS, terrain: TERRAIN,
   wind: WIND, cartPath: CART_PATH, cartPathWidth: CART_PATH_WIDTH,
-  cartPark: CART_PARK, lot: LOT, teeMarks: TEE_MARKS,
+  cartPark: CART_PARK, sideCooler: SIDE_COOLER, lot: LOT, teeMarks: TEE_MARKS,
   npcTeeShots: NPC_TEE_SHOTS, npcPlan: NPC_PLAN, treeBands: TREE_BANDS,
   clubhouse: CLUBHOUSE, lotArea: LOT_AREA, nextHint: HOLE2_HINT,
   cupRadius: CUP_RADIUS, flagHeight: FLAG_HEIGHT,

@@ -354,6 +354,161 @@ const clubList = await page.evaluate(async () => {
 check('4b. three clubs and no more', clubList.join(',') === 'driver,iron,putter', clubList.join(', '));
 
 /* ------------------------------------------------------------------ */
+/* 4e-4j · the trailside cooler, and the cart's own amenities           */
+/* ------------------------------------------------------------------ */
+
+/*
+ * Walking up to a target and looking at it is three facts, not one:
+ * position inside interaction range, the camera's yaw pointed at it, and
+ * the camera's *pitch* pointed at it too. Every earlier interaction check in
+ * this file gets the last two for free by construction (spawn faces the
+ * bag levelly; the tee walk faces the pin levelly) because those targets
+ * sit at roughly eye height along a level sightline. A cooler or a pack of
+ * cigarettes sitting on a golf cart does not -- it is close and low, so a
+ * level ray sails clean over the top of it. `aimAt` sets both angles from
+ * real 3-D geometry (the same "player minus target" yaw convention `main.js`
+ * uses to face the spawn at the bag, plus the pitch that keeps the ray on
+ * the object). It is re-run before every single press below, not just the
+ * first: the walking camera's idle bob shifts the eye a few centimetres each
+ * frame, which is nothing at arm's reach but is enough to walk a close-range
+ * ray off a small prop between one keypress and the next.
+ */
+async function aimAt(t) {
+  await page.evaluate((p) => {
+    const g = window.__golf;
+    const dx = p.x - g.player.position.x;
+    const dy = p.y - g.player.position.y;
+    const dz = p.z - g.player.position.z;
+    const r = Math.hypot(dx, dy, dz) || 1;
+    g.player.yaw = Math.atan2(-dx, -dz);
+    g.player.pitch = Math.asin(Math.max(-1, Math.min(1, dy / r)));
+  }, t);
+  await page.waitForTimeout(120);   // let the real frame loop turn the camera to match
+}
+
+async function pressE() {
+  return page.evaluate(() => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE' }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE' }));
+    return {
+      toast: [...document.querySelectorAll('#toast-stack .toast')]
+        .map((el) => el.textContent.trim()).join(' | '),
+    };
+  });
+}
+
+/**
+ * Aim and press, retrying the aim a few times if the first attempt lands
+ * outside a real toast. The player's eye height eases onto new ground over
+ * a couple of real frames rather than snapping, so the very first aim right
+ * after a teleport can be a hair off; re-aiming (not re-teleporting) is
+ * exactly what a player nudging the mouse to actually look at the thing
+ * would do, and it is what settles the shot every time in practice.
+ */
+async function pressUntilToast(t, attempts = 6) {
+  let result = { toast: '' };
+  for (let i = 0; i < attempts && !result.toast; i++) {
+    await aimAt(t);
+    result = await pressE();
+  }
+  return { ...result, target: t };
+}
+
+/** Walk to a target -- standing back far enough that the idle bob is a
+ * rounding error rather than a miss -- then aim and press. */
+async function walkUpAndPress(getTarget) {
+  const t = await page.evaluate(getTarget);
+  await page.evaluate((p) => window.__golf.teleport(p.x, p.z + (p.standoff ?? 1.7)), t);
+  await page.waitForTimeout(150);   // let the player's eye height settle on the new ground
+  return pressUntilToast(t);
+}
+
+const returnHere = await page.evaluate(() => ({
+  x: window.__golf.player.position.x, z: window.__golf.player.position.z,
+  yaw: window.__golf.player.yaw, pitch: window.__golf.player.pitch,
+}));
+
+const coolerFacts = await page.evaluate(() => {
+  const g = window.__golf;
+  const cooler = g.course.sideCooler;
+  const pos = cooler.group.position;
+  return {
+    cansStart: cooler.cans.filter((c) => c.visible).length,
+    pos: { x: pos.x, z: pos.z },
+    expected: g.LAYOUT.sideCooler,
+  };
+});
+check('4e. Hole 1 stocks its own trailside cooler beside the cart path, separate from the cart',
+  coolerFacts.cansStart === 6
+    && Math.abs(coolerFacts.pos.x - coolerFacts.expected.x) < 0.01
+    && Math.abs(coolerFacts.pos.z - coolerFacts.expected.z) < 0.01,
+  JSON.stringify(coolerFacts));
+
+const coolerTarget = await page.evaluate(() => {
+  const p = window.__golf.course.sideCooler.group.position;
+  return { x: p.x, y: p.y + 0.35, z: p.z, standoff: 1.7 };
+});
+await page.evaluate((p) => window.__golf.teleport(p.x, p.z + p.standoff), coolerTarget);
+await page.waitForTimeout(150);
+const coolerGrab = await pressUntilToast(coolerTarget);
+const coolerAfterGrab = await page.evaluate(() => (
+  window.__golf.course.sideCooler.cans.filter((c) => c.visible).length
+));
+check('4f. walking up to the trailside cooler takes a real, visible can out of it',
+  coolerAfterGrab === 5 && /cold one|left in this cooler/i.test(coolerGrab.toast),
+  JSON.stringify({ ...coolerGrab, remaining: coolerAfterGrab }));
+
+// Drain the rest, one authored can at a time -- five more presses empties
+// the six the cooler started with.
+for (let i = 0; i < 5; i++) await pressUntilToast(coolerTarget);
+const coolerAfterAll = await page.evaluate(() => (
+  window.__golf.course.sideCooler.cans.filter((c) => c.visible).length
+));
+// One more press once it really is empty: this must not go negative or throw.
+const coolerEmptyPress = await pressUntilToast(coolerTarget);
+check('4g. the trailside cooler runs out and says so instead of going negative',
+  coolerAfterAll === 0 && /picked clean|empty|beat you to it/i.test(coolerEmptyPress.toast),
+  JSON.stringify({ afterAll: coolerAfterAll, toast: coolerEmptyPress.toast }));
+
+const cigCheck = await walkUpAndPress(async () => {
+  const { Vector3 } = await import('/vendor/three.module.min.js');
+  const at = window.__golf.carts.lead.amenities.cigarettes.getWorldPosition(new Vector3());
+  return { x: at.x, y: at.y, z: at.z, standoff: 1.7 };
+});
+check('4h. the cart cigarettes are a real, reachable interaction',
+  /cigarettes/i.test(cigCheck.toast), cigCheck.toast);
+
+const zynCheck = await walkUpAndPress(async () => {
+  const { Vector3 } = await import('/vendor/three.module.min.js');
+  const at = window.__golf.carts.lead.amenities.zyn.getWorldPosition(new Vector3());
+  return { x: at.x, y: at.y, z: at.z, standoff: 1.7 };
+});
+check('4i. the cart Zyn tin is a real, reachable interaction',
+  /wintergreen/i.test(zynCheck.toast), zynCheck.toast);
+
+const cartCansStart = await page.evaluate(() => (
+  window.__golf.carts.lead.amenities.beers.filter((can) => can.visible).length
+));
+const cartCoolerCheck = await walkUpAndPress(async () => {
+  const { Vector3 } = await import('/vendor/three.module.min.js');
+  const at = window.__golf.carts.lead.amenities.cooler.getWorldPosition(new Vector3());
+  return { x: at.x, y: at.y, z: at.z, standoff: 1.7 };
+});
+const cartCansAfter = await page.evaluate(() => (
+  window.__golf.carts.lead.amenities.beers.filter((can) => can.visible).length
+));
+check('4j. the cart cooler crushes a real, visible beer of its own, apart from the trailside coolers',
+  cartCansStart === 4 && cartCansAfter === 3 && /cold one|beer/i.test(cartCoolerCheck.toast),
+  JSON.stringify({ cartCansStart, cartCansAfter, toast: cartCoolerCheck.toast }));
+
+await page.evaluate((pos) => {
+  const g = window.__golf;
+  g.teleport(pos.x, pos.z);
+  g.player.yaw = pos.yaw;
+  g.player.pitch = pos.pitch;
+}, returnHere);
+
+/* ------------------------------------------------------------------ */
 /* 2 · walk to the tee                                                 */
 /* ------------------------------------------------------------------ */
 
@@ -936,7 +1091,14 @@ check('18. the stroke count updates on every shot',
   strokeCount.after === strokeCount.before + 1,
   `${strokeCount.before} → ${strokeCount.after}`);
 
-await page.waitForFunction(() => !window.__golf.round.playerBall.moving, null, { timeout: 15000 });
+/* This settles purely on the real animation-frame loop rather than the
+ * harness's own `step()`, so its wall-clock cost rides on whatever
+ * rendering throughput the machine actually has right now, the same way the
+ * page-load waits above it already budget 30-60s rather than a tight one.
+ * 15s cut it close under real contention (a shared, resource-constrained
+ * sandbox running several Playwright instances at once) even though the
+ * putt itself settles in a couple of simulated seconds. */
+await page.waitForFunction(() => !window.__golf.round.playerBall.moving, null, { timeout: 45000 });
 await page.waitForTimeout(120);
 const shotPresentation = await page.evaluate(() => {
   const result = document.getElementById('shot-result');
@@ -1097,6 +1259,14 @@ const played = await page.evaluate(async () => {
         ? { x: clubhouse.position.x, z: clubhouse.position.z }
         : null,
       expectedClubhouse: g.LAYOUT.clubhouse,
+      sideCooler: g.course.sideCooler
+        ? {
+          x: g.course.sideCooler.group.position.x,
+          z: g.course.sideCooler.group.position.z,
+          cans: g.course.sideCooler.cans.length,
+        }
+        : null,
+      expectedSideCooler: g.LAYOUT.sideCooler ?? null,
     };
   };
   const visuals = [visualState()];
@@ -1291,7 +1461,7 @@ check('28b. the round plays every hole the course has built',
   played.holesPlayed.join(',') === played.built.join(','),
   `played ${played.holesPlayed.join(', ')} of ${played.built.join(', ')} — ${played.roundStrokes} strokes, ${played.roundToPar}`);
 const visualByHole = new Map(played.visuals.map((visual) => [visual.hole, visual]));
-const visualBase = ['flag', 'hole-marker', 'tee-marker-left', 'tee-marker-right', 'clubhouse'];
+const visualBase = ['flag', 'hole-marker', 'tee-marker-left', 'tee-marker-right', 'clubhouse', 'clubhouse-sign'];
 check('28c. every hole builds its authored visual anchors',
   [1, 2, 3].every((hole) => visualBase.every((name) => visualByHole.get(hole)?.names.includes(name)))
     && visualByHole.get(1)?.names.includes('pond')
@@ -1307,6 +1477,23 @@ check('28d. Hole 3 renders the clubhouse even though it has no car park',
     && Math.abs(lastVisual.clubhouse.x - lastVisual.expectedClubhouse.x) < 0.01
     && Math.abs(lastVisual.clubhouse.z - lastVisual.expectedClubhouse.z) < 0.01,
   lastVisual ? `clubhouse ${lastVisual.clubhouse?.x},${lastVisual.clubhouse?.z}; lot ${lastVisual.hasLot}` : 'Hole 3 missing');
+check('28d1. the clubhouse carries its own name and the Family\'s grille room on its facade',
+  [1, 2, 3].every((hole) => visualByHole.get(hole)?.names.includes('clubhouse-sign')),
+  played.visuals.map((visual) => `H${visual.hole}: ${visual.names.includes('clubhouse-sign')}`).join(' | '));
+check('28d1b. only Hole 1 has a car park, and only Hole 1 builds its entrance sign there',
+  visualByHole.get(1)?.names.includes('entrance-sign')
+    && !visualByHole.get(2)?.names.includes('entrance-sign')
+    && !visualByHole.get(3)?.names.includes('entrance-sign'),
+  played.visuals.map((visual) => `H${visual.hole}: ${visual.names.includes('entrance-sign')}`).join(' | '));
+check('28d1c. every hole stocks its own trailside cooler at the authored spot beside the path',
+  [1, 2, 3].every((hole) => {
+    const v = visualByHole.get(hole);
+    return v?.sideCooler && v.expectedSideCooler
+      && Math.abs(v.sideCooler.x - v.expectedSideCooler.x) < 0.01
+      && Math.abs(v.sideCooler.z - v.expectedSideCooler.z) < 0.01
+      && v.sideCooler.cans === 6;
+  }),
+  played.visuals.map((visual) => `H${visual.hole}: ${JSON.stringify(visual.sideCooler)}`).join(' | '));
 check('28d2. the score HUD follows the active hole',
   played.visuals.every((visual) => visual.cardHole.startsWith(`HOLE ${visual.hole} ·`)),
   played.visuals.map((visual) => `H${visual.hole}: ${visual.cardHole}`).join(' | '));

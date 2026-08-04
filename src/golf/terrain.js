@@ -496,6 +496,95 @@ function buildHoleMarker(scene) {
   return g;
 }
 
+function entranceSignTexture() {
+  const c = document.createElement('canvas');
+  c.width = 640; c.height = 360;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#20301f';
+  ctx.fillRect(0, 0, 640, 360);
+  ctx.strokeStyle = '#c9ced9';
+  ctx.lineWidth = 7;
+  ctx.strokeRect(16, 16, 608, 328);
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 58px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = '#e8e8ec';
+  ctx.fillText('SILVER PINES', 320, 116);
+  ctx.font = 'bold 32px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = '#c9ced9';
+  ctx.fillText('GOLF & COUNTRY CLUB', 320, 164);
+  ctx.font = 'italic bold 28px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = '#b79bf0';
+  ctx.fillText('Members and Their Guests', 320, 232);
+  ctx.font = '25px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = '#9aa0ac';
+  ctx.fillText('Please check in at the pro shop', 320, 288);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
+ * The car-park welcome board, at the spot `LOT.sign` has always named -- data
+ * that has sat in the layout since Hole 1 was authored with nothing ever
+ * built at it. Hole 1 is the only hole with a car park, so it is the only
+ * hole with an entrance to mark; two planters flank it because a sign
+ * standing alone in mown grass reads as a placeholder and this club has had
+ * twenty years to plant something round its own name.
+ */
+function buildEntranceSign(scene) {
+  if (!HOLE.lot?.sign) return null;
+  const { x, z, rot = 0 } = HOLE.lot.sign;
+  const g = new THREE.Group();
+  g.name = 'entrance-sign';
+  g.position.set(x, heightAt(x, z), z);
+  g.rotation.y = rot;
+
+  const postMat = mat({ color: 0x3a2a1c, roughness: 1 });
+  for (const side of [-1, 1]) {
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 1.7, 8), postMat);
+    post.position.set(side * 1.05, 0.85, 0);
+    post.castShadow = true;
+    g.add(post);
+  }
+
+  const backing = new THREE.Mesh(
+    new THREE.BoxGeometry(2.5, 1.42, 0.1),
+    mat({ color: 0x20301f, roughness: 1 }),
+  );
+  backing.position.y = 1.55;
+  backing.castShadow = true;
+  g.add(backing);
+
+  const faceMat = new THREE.MeshStandardMaterial({
+    map: entranceSignTexture(), roughness: 0.85,
+  });
+  faceMat.userData.holeLocal = true;
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(2.32, 1.3), faceMat);
+  face.name = 'entrance-sign-face';
+  face.position.set(0, 1.55, 0.056);
+  g.add(face);
+
+  const bloomColours = [0xc65a7a, 0xe0a640];
+  for (const [i, side] of [-1, 1].entries()) {
+    const planter = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.32, 0.5),
+      mat({ color: 0x4a3623, roughness: 0.95 }),
+    );
+    planter.position.set(side * 1.5, 0.16, 0.25);
+    planter.castShadow = true;
+    g.add(planter);
+    const bloom = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.26, 0),
+      mat({ color: bloomColours[i], roughness: 0.9, flatShading: true }),
+    );
+    bloom.position.set(side * 1.5, 0.42, 0.25);
+    g.add(bloom);
+  }
+
+  scene.add(g);
+  return g;
+}
+
 /* ------------------------------------------------------------------ */
 /* Buildings and the rest of the club                                  */
 /* ------------------------------------------------------------------ */
@@ -545,6 +634,46 @@ function buildGallery(scene, marks, faces = new Set()) {
 }
 
 /**
+ * The name over the door.
+ *
+ * Silver Pines stays Silver Pines -- it is the campaign scene id, the HUD, the
+ * course marker and three holes of dialogue, and none of that is what the
+ * playtest note was reacting to. What it was reacting to is the building
+ * itself having no name on it. So the club keeps its own name, and the
+ * clubhouse gets a second, smaller line underneath: the room inside it that is
+ * actually theirs. Every other Family venue is a pun on the source it is
+ * winking at -- Bada Bing, the Squatchfather -- so this one follows the same
+ * rule: the Family's own grille room, inside somebody else's respectable club,
+ * the way a crew in this genre always has a table nobody else can sit at.
+ */
+const CLUBHOUSE_NAME = 'Silver Pines';
+const CLUBHOUSE_ROOM = 'The Squatch Family Grille';
+
+function clubhouseSignTexture() {
+  const c = document.createElement('canvas');
+  c.width = 1024; c.height = 288;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#241a12';
+  ctx.fillRect(0, 0, 1024, 288);
+  ctx.strokeStyle = '#c9ced9';
+  ctx.lineWidth = 8;
+  ctx.strokeRect(16, 16, 992, 256);
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 66px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = '#e8e8ec';
+  ctx.fillText(CLUBHOUSE_NAME.toUpperCase(), 512, 108);
+  ctx.font = 'italic bold 46px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = '#b79bf0';
+  ctx.fillText(CLUBHOUSE_ROOM, 512, 186);
+  ctx.font = '28px "Trebuchet MS", sans-serif';
+  ctx.fillStyle = '#9aa0ac';
+  ctx.fillText('MEMBERS AND THEIR GUESTS', 512, 234);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/**
  * The clubhouse: brick and dark timber, and a size that says this place was
  * more impressive twenty years ago. Modelled rather than a card because the
  * player walks past it in the opening.
@@ -588,12 +717,78 @@ function buildClubhouse(scene, colliders) {
   door.position.set(0, 1.3, 6.08);
   g.add(door);
 
+  /* The name over the door, on the timber band above the windows so it does
+   * not compete with either. Baked per hole, like the tee-marker board, so it
+   * tears down with the rest of the geometry rather than living on its own. */
+  const signMat = new THREE.MeshStandardMaterial({
+    map: clubhouseSignTexture(), roughness: 0.85,
+  });
+  signMat.userData.holeLocal = true;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(9.4, 2.64), signMat);
+  sign.name = 'clubhouse-sign';
+  sign.position.set(0, 7.4, 6.21);
+  g.add(sign);
+
   scene.add(g);
   colliders.push(new THREE.Box3(
     new THREE.Vector3(HOLE.clubhouse.x - 13, y, HOLE.clubhouse.z - 8),
     new THREE.Vector3(HOLE.clubhouse.x + 13, y + 11, HOLE.clubhouse.z + 8),
   ));
   return g;
+}
+
+/**
+ * A stocked cooler standing off the cart path, one to a hole.
+ *
+ * Separate from the cooler riding on the cart itself (`carts.js` builds that
+ * one) -- this is the course's own amenity, planted trailside the way a real
+ * club stocks water and beer along the walk, and it is rebuilt fresh with
+ * every hole, which reads as the staff getting to it before the group does.
+ * Same box-and-lid silhouette as the cart's cooler so the two amenities read
+ * as the same object seen in two places, not two different props.
+ */
+function buildSideCooler(scene) {
+  if (!HOLE.sideCooler) return null;
+  const { x, z, rot = 0 } = HOLE.sideCooler;
+  const g = new THREE.Group();
+  g.name = 'course-side-cooler';
+  g.position.set(x, heightAt(x, z), z);
+  g.rotation.y = rot;
+
+  const body = new THREE.Mesh(
+    new THREE.BoxGeometry(0.60, 0.48, 0.42),
+    mat({ color: 0xd8e1e5, roughness: 0.78 }),
+  );
+  body.position.y = 0.24;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+
+  const lid = new THREE.Mesh(
+    new THREE.BoxGeometry(0.64, 0.08, 0.46),
+    mat({ color: 0x6f86a0, roughness: 0.7 }),
+  );
+  lid.name = 'course-side-cooler-lid';
+  lid.position.y = 0.52;
+  lid.castShadow = true;
+  g.add(lid);
+
+  /* Six cans, a shade more than the cart carries, because this one nobody has
+   * touched yet this morning. */
+  const cans = [];
+  for (let i = 0; i < 6; i++) {
+    const can = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.038, 0.038, 0.15, 12),
+      mat({ color: i % 2 ? 0xc8cdd2 : 0x7f5ab7, roughness: 0.38, metalness: 0.58 }),
+    );
+    can.name = `course-side-cooler-beer-${i + 1}`;
+    can.position.set(-0.19 + (i % 3) * 0.19, 0.635, -0.08 + Math.floor(i / 3) * 0.16);
+    g.add(can);
+    cans.push(can);
+  }
+
+  scene.add(g);
+  return { group: g, lid, cans };
 }
 
 /** The next tee, over the trees. Scenery, and a promise about the round. */
@@ -772,11 +967,15 @@ export class Course {
     this.flag = buildFlag(g);
     buildTeeMarkers(g);
     this.marker = buildHoleMarker(g);
+    this.entranceSign = buildEntranceSign(g);
     /* The clubhouse belongs to any hole that can see it, not to the hole with
      * the car park on it. Gating it on `lot` meant the last hole — whose whole
      * staging is the building standing square behind the final green — did not
      * have one. */
     if (HOLE.clubhouse) buildClubhouse(g, this.colliders);
+    /* One stocked cooler a hole, standing off the path -- a fresh one, not the
+     * same cans carried over, because it is not the same physical cooler. */
+    this.sideCooler = buildSideCooler(g);
     if (HOLE.nextHint) buildNextHint(g);
     /* The crew waiting out the last hole. They belong to the hole group so a
      * hole change disposes them with everything else, and they are figures
