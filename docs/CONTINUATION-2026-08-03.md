@@ -267,6 +267,15 @@ pause is shared across campaign scenes.
 
 ## Standing rules carried forward
 
+**Tone doctrine — read `docs/TONE-AND-PARODY.md` before touching any scene.**
+The parody is that you are playing famous movie scenes inside a game that is
+itself the joke; the recognition belongs to the player and the scene must never
+point at it. Every scene plays straight, at full intensity — real stakes, real
+tension, real consequence. The comedy lives in the world (sasquatches, Lou, the
+Bing), never in the mission's spine. A scene has to be worth playing by someone
+who has never seen the film.
+
+
 - Preserve the Beef Run's flight model, terrain, mission geography and aircraft
   as canonical. Its campaign boundaries live in `src/beefrun/main.js`,
   `src/beefrun/mission.js` and `src/core/airstrip-story.js`.
