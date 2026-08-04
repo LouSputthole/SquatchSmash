@@ -492,6 +492,49 @@ input.rudderKeys = true; // always in the cockpit — no on-foot 'E' to share Q/
  */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/* Nightfall lighting                                                  */
+/*
+ * `WeatherSystem.night` (reused unmodified from the Beef Run) darkens the SKY
+ * and the FOG toward near-black, and nothing else: the sun and hemisphere
+ * intensities it drives every frame are functions of `dusk` alone, bottoming
+ * out at 0.75 and 0.8. So a mission that sets `night: 1` gets a black sky over
+ * a landscape still lit like six in the evening — which is what the whole
+ * eastbound leg of this raid looked like, and what the new nightfall cut would
+ * have cut TO if this were not here.
+ *
+ * Correcting it inside `weather.js` would mean changing a file the Beef Run
+ * shares, so this scales the two lights from this mission's own frame instead,
+ * after `weather.update()` has written them. Beef Run never sets `night`, and
+ * nothing here runs in Beef Run's frame either way.
+ *
+ * Floors, not zeroes. A night raid the player cannot fly is not atmosphere: at
+ * full night the ground keeps about a fifth of its light and the hemisphere
+ * goes cold blue, which is enough to read terrain, the runway lamps, the
+ * compound and the crater against.
+ */
+/* ------------------------------------------------------------------ */
+
+const _nightHemi = new THREE.Color(0x1c2740);
+const _moonlight = new THREE.Color(0x8fa6d9);
+
+/**
+ * Applied every frame AFTER `weather.update()`, which is what makes it a
+ * fixed blend rather than a damped one: the weather system recomputes both
+ * lights from scratch each frame, so this re-tints that fresh value instead of
+ * chasing it. Damping toward night here would just fight the weather system's
+ * own damping toward day and settle halfway.
+ */
+function applyNight() {
+  const n = clamp(weather.night ?? 0, 0, 1);
+  if (n <= 0) return;
+  weather.sun.intensity *= lerp(1, 0.21, n);
+  weather.hemi.intensity *= lerp(1, 0.27, n);
+  // Moonlight is blue and comes from nowhere in particular.
+  weather.hemi.color.lerp(_nightHemi, 0.8 * n);
+  weather.sun.color.lerp(_moonlight, 0.7 * n);
+}
+
 const _fogColour = new THREE.Color();
 
 function applyEastFog(x, dt) {
@@ -738,15 +781,18 @@ cutBars.style.cssText = [
   'position:absolute', 'inset:0',
   'background:linear-gradient(#05050a 0 9%,transparent 9% 91%,#05050a 91% 100%)',
 ].join(';');
+/* The location card sits under the TOP letterbox bar, not above the bottom
+ * one: the dialogue subtitles live at the bottom of the screen and the first
+ * cut of this put the caption straight through them. */
 const cutText = document.createElement('div');
 cutText.style.cssText = [
-  'position:absolute', 'left:0', 'right:0', 'bottom:13%', 'text-align:center',
+  'position:absolute', 'left:0', 'right:0', 'top:15%', 'text-align:center',
   'font:600 26px/1.25 "Trebuchet MS",system-ui,sans-serif',
   'letter-spacing:0.18em', 'color:#e8c86a', 'text-shadow:0 2px 14px #000',
 ].join(';');
 const cutSub = document.createElement('div');
 cutSub.style.cssText = [
-  'position:absolute', 'left:0', 'right:0', 'bottom:9.5%', 'text-align:center',
+  'position:absolute', 'left:0', 'right:0', 'top:21%', 'text-align:center',
   'font:400 15px/1.3 "Trebuchet MS",system-ui,sans-serif',
   'letter-spacing:0.1em', 'color:#cfd4e0', 'text-shadow:0 2px 10px #000',
 ].join(';');
@@ -849,6 +895,7 @@ function simulateFrame(dt) {
 
   const focus = inCockpit ? physics.position : player.position;
   weather.update(dt, focus);
+  applyNight();
   applyEastFog(focus.x, dt);
   airfield.update(dt, 0.4 + weather.crosswind * 0.1, 0);
 
@@ -1195,7 +1242,8 @@ startBtn.addEventListener('click', () => {
   if (!game.started) {
     game.started = true;
     mission.begin();
-    hud.say('<em>Whispering Pines Municipal, well after dark.</em> Walk her with the Captain before you get in.', 6000);
+    // Daylight on the apron, dark by the runway — see the `nightfall` phase.
+    hud.say('<em>Whispering Pines Municipal, the last of the afternoon.</em> Walk her with the Captain before you get in.', 6000);
   }
   startAudio();
   overlay.classList.add('hidden');

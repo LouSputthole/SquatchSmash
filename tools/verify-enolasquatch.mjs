@@ -322,6 +322,16 @@ try {
    */
   const guidance = await page.evaluate(() => {
     const h = window.__enolaSquatch;
+    /* Stand still on the apron. Sasole is supposed to notice and say where the
+     * door is — the beat that would have rescued the owner's playtest. Runs
+     * before the walk to the door so it is tested from the stranded state.
+     * Bounded, not fixed: the queue behind it is however long the walk made
+     * it, and `preflight.sasole.boardNudge` waits for a gap. */
+    let nudgeAfter = null;
+    for (let s = 0; s < 90 && nudgeAfter === null; s++) {
+      h.tick(1);
+      if (h.dialogue.seen('preflight.sasole.boardNudge')) nudgeAfter = s + 1;
+    }
     const d = h.mission.boardTarget;
     let markerAtDoor = false;
     if (d) {
@@ -337,12 +347,16 @@ try {
       markerAtDoor,
       objective: h.mission.objective,
       distance: h.mission.boardingDistance(),
+      nudgeAfter,
     };
   });
   check('finishing the walk moves the guidance marker onto the crew door instead of switching it off',
     guidance.armed && guidance.markerVisible && guidance.guidingToDoor && guidance.markerAtDoor
       && /\d+\s*m\)/.test(guidance.objective) && guidance.distance > 2,
-    JSON.stringify(guidance));
+    JSON.stringify({ ...guidance, nudgeAfter: undefined }));
+
+  check('a player who stands there not boarding is told, out loud, where the crew door is',
+    guidance.nudgeAfter !== null, `Sasole's boardNudge played after ${guidance.nudgeAfter}s of standing still`);
 
   const boarding = await page.evaluate(() => {
     const h = window.__enolaSquatch;

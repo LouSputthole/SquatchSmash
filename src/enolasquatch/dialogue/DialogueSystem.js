@@ -27,6 +27,9 @@ import { clamp } from '../../beefrun/util.js';
 
 const BARK_COOLDOWN = {
   default: 9,
+  // A prod at a player who has stopped walking round the aeroplane. Long,
+  // because being nagged every nine seconds is worse than being lost.
+  walkaroundIdle: 30,
   heavyBanked: 16, heavySlow: 20, heavySmooth: 26,
   gunnerIdle: 22, gunnerFiring: 3.5,
   lowFuel: 30, terrainClose: 4,

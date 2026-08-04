@@ -692,9 +692,17 @@ export class MissionController {
        * boarding fix. */
       const d = this.boardingDistance();
       this.setObjective(d === null ? OBJECTIVES.BOARD : `${OBJECTIVES.BOARD} (${Math.ceil(d)} m)`);
-      // Nothing at all happening for twelve seconds: Sasole says where it is.
+      /* Twenty seconds at the boarding step and still not aboard: Sasole says
+       * where the door is. QUEUED, not gated on `dialogue.busy` — the same
+       * mistake `onEnterPhase('preflight')` already documents for
+       * `preflight.engineStart`. `preflight.done` and `preflight.board` are
+       * fourteen seconds of dialogue on their own and a player who finished
+       * the walk briskly still has a queue behind them, so a `!busy` gate
+       * meant the one line that says where the door is could be outrun by the
+       * lines complaining that he had not found it. Appending is safe: it
+       * plays after whatever is talking, and `once` means never twice. */
       this._boardNudgeT = (this._boardNudgeT ?? 0) + dt;
-      if (this._boardNudgeT > 12 && !this.dialogue.busy) {
+      if (this._boardNudgeT > 20) {
         this.dialogue.play('preflight.sasole.boardNudge', { once: true });
       }
     }
