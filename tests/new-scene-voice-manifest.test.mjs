@@ -48,37 +48,9 @@ import { buildAudioTodo } from '../tools/audio-todo-lib.mjs';
  * (2026-08-04).
  */
 const ENOLA_CUES_AWAITING_VO_SYNC = [
-  'vo.enolasquatch.sasole.preflight-arrival-1.1',
-  'vo.enolasquatch.prospect.preflight-arrival-2.1',
-  'vo.enolasquatch.sasole.preflight-arrival-3.1',
-  'vo.enolasquatch.sasole.preflight-chocks-1.1',
-  'vo.enolasquatch.sasole.preflight-props-1.1',
-  'vo.enolasquatch.prospect.preflight-props-all-1.1',
-  'vo.enolasquatch.sasole.preflight-props-all-2.1',
-  'vo.enolasquatch.irish.preflight-payload-look-1.1',
-  'vo.enolasquatch.numbskull.preflight-payload-tap-1.1',
-  'vo.enolasquatch.numbskull.preflight-bombbay-tap-1.1',
-  'vo.enolasquatch.sasole.preflight-surfaces-1.1',
-  'vo.enolasquatch.sasole.preflight-done-1.1',
-  'vo.enolasquatch.irish.preflight-done-2.1',
-  'vo.enolasquatch.sasole.preflight-board-1.1',
-  'vo.enolasquatch.sasole.preflight-chocksStill-1.1',
-  'vo.enolasquatch.shubes.defense-gunner-open-1.1',
-  'vo.enolasquatch.sasole.defense-gunner-open-2.1',
-  'vo.enolasquatch.numbskull.bomb-cityInSight-1.1',
-  'vo.enolasquatch.irish.bomb-cityInSight-2.1',
-  'vo.enolasquatch.prospect.bomb-cityInSight-3.1',
-  'vo.enolasquatch.sasole.bomb-cityInSight-4.1',
-  'vo.enolasquatch.shubes.bomb-falling-1.1',
-  'vo.enolasquatch.numbskull.bomb-falling-2.1',
-  'vo.enolasquatch.irish.bomb-falling-3.1',
-  'vo.enolasquatch.shubes.explosion-crater-1.1',
-  'vo.enolasquatch.numbskull.explosion-crater-2.1',
-  'vo.enolasquatch.shubes.explosion-crater-3.1',
-  'vo.enolasquatch.irish.explosion-crater-4.1',
-  'vo.enolasquatch.sasole.explosion-crater-5.1',
-  'vo.enolasquatch.prospect.explosion-crater-6.1',
-  'vo.enolasquatch.sasole.explosion-crater-7.1',
+  /* Empty, and it should stay empty in a released state. The 31 walkaround,
+   * rear-gunner, city and crater lines authored on 2026-08-04 were generated
+   * into the manifest by `npm run vo:sync` the same day. */
 ];
 
 const manifest = JSON.parse(
@@ -231,8 +203,15 @@ test('the recording sheet shows both scenes rather than only counting them', () 
    * on it, so a new scene's lines were included in the coverage snapshot and
    * then omitted from every section under it. The sheet disagreed with
    * itself and the missing lines looked like they did not exist. */
-  assert.match(todo, /## Voice pickups — The Silver Case \(60\)/);
-  assert.match(todo, /## Voice pickups — The Enola Squatch \(87\)/);
+  /* Counted from the scripts, not written out as literals. The numbers these
+   * used to assert were the scripts' sizes on the day they were written, so
+   * authoring a line failed a test whose actual subject is "does a scene reach
+   * the sheet at all". The Enola Squatch went 87 -> 118 the first time anybody
+   * wrote for it, and this is what broke. */
+  const silverCase = collectSilverCaseVoiceCues().length;
+  const enola = collectEnolaSquatchVoiceCues().length;
+  assert.match(todo, new RegExp(`## Voice pickups — The Silver Case \\(${silverCase}\\)`));
+  assert.match(todo, new RegExp(`## Voice pickups — The Enola Squatch \\(${enola}\\)`));
   assert.match(todo, /vo\.silvercase\.car\.ape\.pitch\.mp3/);
   assert.match(todo, /vo\.enolasquatch\.sasole\.hangar-reveal-1\.1\.mp3/);
 });

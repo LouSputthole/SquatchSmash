@@ -119,13 +119,17 @@ try {
   const pendingNoWakeNames = selectedNoWakeCues
     .filter((cue) => !indexedFiles.has(cue.file || `${cue.name}.mp3`))
     .map((cue) => cue.name).sort();
+  /* The harbour and boat effects that used to be listed here have all been
+   * recorded and indexed. The previous comment said exactly that and left them
+   * in the list anyway, so the check went on demanding that ten delivered
+   * recordings still be missing — it passed only because the index had not yet
+   * caught up with the files on disk, and failed the moment `npm run
+   * sfx:listen` rebuilt it. An approved-pending list is a statement about what
+   * is still owed; anything delivered has to come out of it.
+   *
+   * What is still owed on this boat is Irish, who is wired, subtitled and
+   * timed but not yet performed. */
   const expectedPendingNoWakeNames = [
-    'ambience.harbor',
-    'boat.board.step', 'boat.body.drag', 'boat.body.rail', 'boat.engine.shutdown',
-    'boat.engine.start', 'boat.engine.underway', 'boat.gunshot.deck', 'boat.hull.creak', 'boat.hull.wake',
-    /* The harbour and boat effects listed here have all been recorded and
-     * indexed since; the only thing still outstanding on this boat is Irish,
-     * who is wired, subtitled and timed but not yet performed. */
     'vo.nowake.below.irish.hands.1', 'vo.nowake.cruise.irish.egg.1',
     'vo.nowake.execution.irish.rail.1', 'vo.nowake.return.irish.no-back-half.1',
     'vo.nowake.reveal.irish.asked.1', 'vo.nowake.reveal.irish.counted.1',
