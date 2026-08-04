@@ -37,7 +37,7 @@ import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
-import { Tv, CHANNELS } from '../core/tv.js';
+import { Tv, CHANNELS, videoChannel } from '../core/tv.js';
 
 /* ================================================================== */
 /* DOM handles                                                          */
@@ -202,6 +202,11 @@ const { ramp: serviceRamp } = grounds.props.serviceRoad;
  */
 const poolDeck = grounds.props.poolPatio.deck;
 const poolSteps = grounds.props.poolPatio.steps;
+/* The two flights off the terrace's north edge into the formal garden. Same
+ * treatment as the front steps and the service ramp: lerp-stepped geometry
+ * built by MansionGrounds, resolved here from the rects it exports. Without
+ * this the garden stairs are geometry you fall through. */
+const gardenStairs = grounds.props.poolPatio.gardenStairs;
 
 function exteriorGroundAt(x, z) {
   if (inRectXZ(frontSteps, x, z)) {
@@ -216,6 +221,11 @@ function exteriorGroundAt(x, z) {
   if (inRectXZ(poolSteps, x, z)) {
     const t = THREE.MathUtils.clamp((x - poolSteps.x0) / (poolSteps.x1 - poolSteps.x0), 0, 1);
     return THREE.MathUtils.lerp(0, GROUND_Y, t);
+  }
+  for (const st of gardenStairs) {
+    if (!inRectXZ(st, x, z)) continue;
+    const t = THREE.MathUtils.clamp((z - st.z0) / (st.z1 - st.z0), 0, 1);
+    return THREE.MathUtils.lerp(GROUND_Y, 0, t);
   }
   if (inRectXZ(poolDeck, x, z)) return GROUND_Y;
   return 0;
@@ -365,6 +375,45 @@ function mountTv(screenMesh, { channel = 0, on = true } = {}) {
 const loungeTv = mountTv(interior.props.lounge.tv?.screen, { channel: 0 });
 const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { channel: 2 });
 
+/* ================================================================== */
+/* THE HOME THEATRE, AND THE SEAM A FILM DROPS INTO                     */
+/*                                                                       */
+/* Owner brief, verbatim: "A Home theatre room (will add a watchable      */
+/* movie)". The room is built (MansionInterior's buildTheatre); this is   */
+/* the projector.                                                         */
+/*                                                                        */
+/* It is a `core/tv.js` set like the other two, with ONE difference: its   */
+/* channel list starts with a `videoChannel`, which is the same factory     */
+/* the apartment's Austin tape and Hog Mama's show already use. That        */
+/* factory builds its own <video> element on first use, wires the sound     */
+/* through a panner at the screen, and -- this is the part that makes it a  */
+/* seam rather than a stub -- draws a card reading NO FILM IN THE GATE when */
+/* the file is missing, which it is. Nothing here throws, nothing here      */
+/* fetches, and the room plays correctly today.                            */
+/*                                                                          */
+/* TO DROP A FILM IN: put the file at assets/video/the-feature.mp4. That is  */
+/* the whole change -- no code, no manifest (assets/video/ is not indexed by */
+/* one; `assetUrl` resolves the name directly). The two existing tapes in    */
+/* that folder are the precedent for the encode.                            */
+/*                                                                           */
+/* The other two sets in the house deliberately carry MANSION_CHANNELS,      */
+/* which filters video channels OUT: two sets tuned to the same tape share    */
+/* one <video> element and fight over it. This set owns its own channel       */
+/* object, so it shares nothing with anything.                                */
+/* ================================================================== */
+const THEATRE_FEATURE = videoChannel({
+  name: 'THE FEATURE',
+  file: 'the-feature.mp4',
+  card: 'NO FILM IN THE GATE',
+  glow: { colour: 0xc8d4e8, intensity: 1.5 },
+});
+const theatreScreen = interior.props.theatre?.screen ?? null;
+const theatreTv = mountTv(theatreScreen, { channel: 0, on: false });
+if (theatreTv) {
+  theatreTv.channels = [THEATRE_FEATURE, ...MANSION_CHANNELS];
+  theatreTv.index = 0;
+}
+
 /* A small warm glow in front of each set, so the picture lights the room.
  *
  * These two sit OUTSIDE the nearest-N light rig above, and deliberately: a
@@ -496,6 +545,45 @@ for (const bottle of interior.props.lounge.jackDaniels.slice(0, 1)) {
   flavor(bottle, 'Fifteen bottles of Jack And Daniels behind the bar. Lou orders it by the case.');
 }
 
+/* The third pass's rooms. Every one of these is a place you can now stand in,
+ * so every one of them says something when you look at it. */
+flavor(
+  interior.props.trophyHall.trophy,
+  'THE GREAT INCLUDER. Nearly five metres of it off the floor, and not one line on the plinth says who gave it.',
+);
+flavor(
+  interior.props.winterGarden.shield,
+  'Six palms, a lily pool and a birdcage with nothing in it. Somebody waters all of this.',
+);
+flavor(
+  interior.props.vault.door,
+  'Eleven inches of steel, standing open. Whoever was last in here was not worried about the walk back.',
+);
+flavor(
+  interior.props.lanRoom.stations[0]?.desk.panel,
+  'Five machines, five chairs, five sets of headphones. The crest is on the back of every one of them.',
+);
+flavor(
+  interior.props.guestRoom.art,
+  'Made up, turned down, and a window that looks out on a light bulb.',
+);
+flavor(
+  interior.props.cellarHall.crest,
+  'MEMBERS AND GUESTS. Four doors off one corridor, and the sign has never stopped anybody.',
+);
+flavor(
+  grounds.props.rearGarden.plate,
+  'THE MAZE — 1988. Planted the year the case was dropped. Lou has never been to the middle of it.',
+);
+flavor(
+  grounds.props.rearGarden.bronze,
+  'The same fist, in bronze, at the end of the walk. This one is not raised.',
+);
+flavor(
+  grounds.props.rearGarden.canal.water,
+  'Twelve metres of still water with four jets in it, pointed at nothing.',
+);
+
 /* ================================================================== */
 /* Things that actually do something                                    */
 /* ================================================================== */
@@ -546,6 +634,11 @@ for (const [set, where] of [
 for (const [tv, prop] of [
   [loungeTv, interior.props.lounge.tv],
   [kitchenTv, interior.props.kitchen.tv],
+  /* The theatre's projector works exactly the same way -- tap to run the
+   * feature, hold to walk the channel list. The screen mesh itself is the
+   * target, because a projector bolted to a ceiling is not something you
+   * reach up and press. */
+  [theatreTv, theatreScreen ? { group: theatreScreen } : null],
 ]) {
   if (!tv || !prop) continue;
   interaction.register(prop.group, {
@@ -573,7 +666,7 @@ function lockPointer() {
 const sharedPauseMenu = createPauseMenu({
   title: "Lou's Mansion",
   canPause: () => running,
-  getObjective: () => 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, and the cellar.',
+  getObjective: () => 'Walk the grounds and the house: the horseshoe stair, the conference room and Lou’s office above it, the bedrooms down the sides, the west wing and the Great Includer, the lower level behind the armory, and the walled garden and hedge maze behind the pool.',
   instructions: [
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'E, or click -- look at something notable for a one-line note.',
@@ -805,6 +898,55 @@ window.mansion = {
   poolSkirt: grounds.props.poolPatio.skirt,
   poolRect: { ...grounds.props.poolPatio.pool },
   loungeBay: { ...grounds.shell.loungeBay },
+  westWing: { ...grounds.shell.westWing },
+  basementWing: { ...grounds.shell.basementWing },
+  /** The rear garden: the walls, the maze's own grid, and the solved route
+   * through it. tools/verify-mansion.mjs walks `garden.maze.route` on foot
+   * and measures `garden.maze.corridor` -- see the maze note in
+   * MansionGrounds.js for why the route is exported rather than guessed. */
+  garden: {
+    wall: grounds.props.rearGarden.wall,
+    rect: grounds.props.rearGarden.rect,
+    pavilion: grounds.props.rearGarden.pavilion,
+    roseGarden: grounds.props.rearGarden.roseGarden,
+    firePit: grounds.props.rearGarden.firePit,
+    lanterns: grounds.props.rearGarden.lanternCount,
+    maze: {
+      rect: grounds.props.rearGarden.maze.rect,
+      cell: grounds.props.rearGarden.maze.cell,
+      corridor: grounds.props.rearGarden.maze.corridor,
+      walls: grounds.props.rearGarden.maze.walls,
+      entry: grounds.props.rearGarden.maze.entry,
+      exit: grounds.props.rearGarden.maze.exit,
+      heart: grounds.props.rearGarden.maze.heart,
+      route: grounds.props.rearGarden.maze.route,
+    },
+  },
+  /** THE GREAT INCLUDER: where it stands, how big it is, and what it says. */
+  greatIncluder: {
+    engraving: interior.props.trophyHall.engraving,
+    dais: interior.props.trophyHall.dais,
+    get height() {
+      const b = new THREE.Box3().setFromObject(interior.props.trophyHall.trophy);
+      return Number((b.max.y - b.min.y).toFixed(3));
+    },
+    get top() {
+      const b = new THREE.Box3().setFromObject(interior.props.trophyHall.trophy);
+      return Number(b.max.y.toFixed(3));
+    },
+  },
+  /** The lower level's five PCs and their logo'd chairs. */
+  lan: {
+    stations: interior.props.lanRoom.stations.length,
+    chairLogos: interior.props.lanRoom.chairBacks.length,
+  },
+  /** The theatre's projector, and whether the film seam is wired. */
+  theatre: theatreTv ? {
+    get on() { return theatreTv.on; },
+    get channel() { return theatreTv.channel.name; },
+    channels: theatreTv.channels.map((c) => c.name),
+    toggle: () => theatreTv.toggle(),
+  } : null,
   teleport,
   /** Step the simulation without a real animation frame -- for headless verification. */
   tick(seconds = 1, step = 1 / 60) {

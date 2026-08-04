@@ -278,6 +278,12 @@ const COUNTER_SQUATCH_LEGENDS = {
  * everything else paints on -- so the screen, its glow and its texture upload
  * carry on knowing nothing about it.
  *
+ * EXPORTED so a scene can declare a tape of its own without copying any of
+ * this (Lou's home theatre does exactly that -- see src/mansion/main.js). One
+ * call makes one closure over one <video> element, so two channels never
+ * share a decoder; two SETS tuned to the SAME channel object still would, so
+ * give each set its own channel rather than reusing one.
+ *
  * The element is built the first time the channel comes on rather than at
  * load, because a set that is never switched on should not have fetched a
  * video, and `enter()` runs off a keypress, which is the gesture autoplay
@@ -287,7 +293,7 @@ const COUNTER_SQUATCH_LEGENDS = {
  * The file being missing is normal -- a bundled build has no assets/ folder to
  * fetch from -- so a failure is a card on screen, not an exception.
  */
-function videoChannel({ name, file, card, glow }) {
+export function videoChannel({ name, file, card, glow }) {
   let el = null;
   let wired = false;
   let failed = false;

@@ -90,6 +90,16 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 480, height: 300 } });
 
 const problems = [];
+/* Every 404 the page takes, by path. The home theatre's film seam deliberately
+ * points at a tape that has not been delivered (assets/video/the-feature.mp4),
+ * and switching the projector on is what proves the seam is wired -- so the
+ * fetch, and its 404, are the correct behaviour rather than a fault. They are
+ * recorded here so the console check can say WHICH resource was missing
+ * instead of either failing on it or waving all 404s through. */
+const notFound = [];
+page.on('response', (r) => {
+  if (r.status() === 404) notFound.push(new URL(r.url()).pathname);
+});
 page.on('pageerror', (error) => problems.push(error.message));
 page.on('console', (message) => {
   if (message.type() === 'error') problems.push(message.text().slice(0, 240));
@@ -150,6 +160,34 @@ async function faceDeg(yawDeg) {
 }
 
 /**
+ * Steer to a point, on foot, re-aiming as it goes.
+ *
+ * Every other leg in this script is a fixed heading held for a fixed time,
+ * which is right for a doorway and useless for a maze: a maze is a sequence of
+ * turns, and a route that has to be walked cannot be expressed as one heading.
+ * This closes the loop instead -- read the player's real position, aim at the
+ * next waypoint, hold W for a moment, repeat -- so if a hedge is standing in
+ * the corridor the walk simply never arrives and the check fails. It uses
+ * nothing but real keys and the scene's own clock, exactly like `walk`.
+ *
+ * In core/player.js a forward press moves along (-sin yaw, -cos yaw), so the
+ * heading toward (dx, dz) is atan2(-dx, -dz).
+ */
+async function walkTo(tx, tz, { steps = 26, tol = 0.75 } = {}) {
+  let s = await state();
+  for (let i = 0; i < steps; i++) {
+    const dx = tx - s.x;
+    const dz = tz - s.z;
+    const d = Math.hypot(dx, dz);
+    if (d < tol) return { ok: true, s, steps: i };
+    await faceDeg((Math.atan2(-dx, -dz) * 180) / Math.PI);
+    await walk(Math.min(0.55, Math.max(0.2, d / 3)));
+    s = await state();
+  }
+  return { ok: Math.hypot(tx - s.x, tz - s.z) < tol, s, steps };
+}
+
+/**
  * Yaw (degrees) for a heading. In core/player.js a forward press moves along
  * (-sin yaw, -cos yaw), so 0 faces -Z, 90 faces -X, 180 faces +Z, 270 faces
  * +X. Spelled out here because every walk below depends on it.
@@ -183,12 +221,20 @@ try {
     'gate', 'spawn', 'spawnYaw', 'fountainFront', 'frontDoorOutside', 'securityBooth',
     'poolPatio', 'poolDoorOutside', 'poolSteps', 'serviceRoadEntrance', 'rosePavilion',
     'billiardBay',
+    // grounds -- the rear garden
+    'gardenCrossWalk', 'gardenStairsTop', 'mazeEntrance', 'mazeHeart', 'mazeExit',
+    'roseGardenGate', 'gardenPavilion', 'firePit', 'outdoorKitchen',
     // interior -- ground
     'foyerCenter', 'foyerRear', 'horseshoeWestFoot', 'horseshoeEastFoot',
     'horseshoeWestTop', 'horseshoeEastTop', 'balconyRail', 'livingRoomCenter',
     'loungeCenter', 'ballroomCenter', 'diningTable', 'kitchenIsland',
+    // interior -- the west wing
+    'trophyHallCenter', 'greatIncluder', 'winterGardenCenter',
     // interior -- basement
     'basementStairTop', 'basementLanding', 'armoryCenter',
+    // interior -- the lower level
+    'cellarDoor', 'cellarHallCenter', 'cellarHallWestEnd', 'guestRoomCenter',
+    'theatreCenter', 'lanRoomCenter', 'vaultCenter',
     // interior -- upper
     'galleryCenter', 'galleryWest', 'galleryEast', 'conferenceTable', 'conferenceHead',
     'officeDesk', 'bedWestFront', 'bedEastFront', 'bedWestRear', 'bedEastRear',
@@ -398,6 +444,31 @@ try {
     {
       room: 'basement', from: [7.2, GROUND_Y, 49.6], face: NORTH, secs: 14, note: 'from the rear foyer, down the cellar stair',
     },
+    /* The west wing, off the ground floor. */
+    {
+      room: 'trophyHall', from: [-14.5, GROUND_Y, 43.9], face: WEST, secs: 6, note: 'from the living room, through the arcade',
+    },
+    {
+      room: 'winterGarden', from: [-14.5, GROUND_Y, 70.3], face: WEST, secs: 6, note: 'from the dining room, through the French doors',
+    },
+    /* The lower level. Every one of these starts in the corridor and goes in
+     * through the room's own doorway, and the corridor itself is reached from
+     * the armory through the one hole this pass cut in its north wall. */
+    {
+      room: 'cellarHall', from: [6.2, BASEMENT_Y, 62.0], face: NORTH, secs: 1.8, note: 'from the armory, through the north-wall doorway',
+    },
+    {
+      room: 'guestRoom', from: [-12.1, BASEMENT_Y, 66.0], face: NORTH, secs: 4, note: 'from the cellar corridor',
+    },
+    {
+      room: 'theatre', from: [-2.85, BASEMENT_Y, 66.0], face: NORTH, secs: 5, note: 'from the cellar corridor, up the centre aisle',
+    },
+    {
+      room: 'lanRoom', from: [6.4, BASEMENT_Y, 66.0], face: NORTH, secs: 5, note: 'from the cellar corridor',
+    },
+    {
+      room: 'vault', from: [13.35, BASEMENT_Y, 66.0], face: NORTH, secs: 5, note: 'from the cellar corridor, past the open door',
+    },
   ];
 
   for (const leg of WALKS) {
@@ -522,6 +593,181 @@ try {
   const uncovered = Object.keys(roomTable).filter((k) => !covered.has(k));
   check('every room the interior declares has an on-foot walk test in this script',
     uncovered.length === 0, `uncovered: ${uncovered.join(', ')}`);
+
+  /* ================================================================ */
+  /* THE UPPER FLOOR, IN ONE CONTINUOUS WALK FROM THE HEAD OF THE      */
+  /* STAIRS -- NO TELEPORTS AFTER THE BOTTOM TREAD                     */
+  /*                                                                     */
+  /* Owner playtest: "Theres like an invisible wall upstairs in the       */
+  /* mansion preventing me from going into the side rooms." This gate was */
+  /* green on that build, and this is why: every leg in WALKS above       */
+  /* TELEPORTS to a spot already squared up in front of the room's own    */
+  /* door and then holds W for the last metre and a half. That proves the */
+  /* doorway is a doorway. It proves nothing whatever about being able to */
+  /* REACH the doorway -- and the thing in the way was thirteen ground-   */
+  /* floor wall colliders whose tops sat exactly on the upper floor's own */
+  /* walking surface, cutting the gallery into three and the conference   */
+  /* room in half. Every teleport in this script hopped straight over     */
+  /* them.                                                                */
+  /*                                                                       */
+  /* So this walks the whole storey as a player does: up one flight, and   */
+  /* then on held keys from room to room and back out again, with the      */
+  /* rect asserted at every stop. A teleport anywhere in here would put    */
+  /* the hole straight back.                                               */
+  /* ================================================================ */
+  await teleport(rooms.horseshoeWestFoot.x, GROUND_Y, layout.foyer.z0 + 1.0, NORTH);
+  await settle(0.4);
+  await walk(11);
+  await settle(0.8);
+  s = await state();
+  const climbedOnFoot = Math.abs(s.ground - UPPER_Y) < 0.4;
+
+  const TOUR = [
+    { at: [-7.2, 50.5], note: 'onto the gallery off the west flight' },
+    { at: [-14.0, 50.5], room: 'gallery', note: 'west along the gallery, past the foyer flank wall' },
+    { at: [-14.0, 45.2], room: 'bedWestFront', note: 'into the west front bedroom' },
+    { at: [-14.0, 50.5], note: 'back out onto the gallery' },
+    { at: [-14.0, 57.0], room: 'bedWestRear', note: 'into the west rear bedroom' },
+    { at: [-14.0, 69.0], room: 'bathWest', note: 'through it into the west ensuite' },
+    { at: [-14.0, 57.0], note: 'back out of the ensuite' },
+    { at: [-14.0, 50.5], note: 'back onto the gallery' },
+    { at: [0.0, 50.8], note: 'east along the gallery to the conference doors' },
+    { at: [0.0, 54.4], room: 'conference', note: 'through the double doors into the conference room' },
+    { at: [-3.2, 56.0], note: 'round the head of the long table' },
+    { at: [-3.2, 61.0], note: 'up the west side of it, across the z=58 line' },
+    { at: [0.0, 62.4], note: "to Lou's door" },
+    { at: [0.0, 67.0], room: 'office', note: "into Lou's office" },
+    { at: [0.0, 62.4], note: 'back out of the office' },
+    { at: [3.2, 61.0], note: 'back down the east side of the table' },
+    { at: [3.2, 55.0], note: '...and out past its head' },
+    { at: [0.0, 50.8], note: 'out onto the gallery again' },
+    { at: [14.0, 50.5], room: 'gallery', note: 'east along the gallery, past the other flank wall' },
+    { at: [14.0, 45.2], room: 'bedEastFront', note: 'into the east front bedroom' },
+    { at: [14.0, 50.5], note: 'back out onto the gallery' },
+    { at: [14.0, 57.0], room: 'bedEastRear', note: 'into the east rear bedroom' },
+    { at: [14.0, 69.0], room: 'bathEast', note: 'through it into the east ensuite' },
+  ];
+  const tourFails = [];
+  const tourRooms = new Set();
+  for (const leg of TOUR) {
+    const reached = await walkTo(leg.at[0], leg.at[1], { steps: 30, tol: 0.8 });
+    if (!reached.ok) {
+      tourFails.push(`${leg.note} — stuck at ${JSON.stringify(reached.s)}`);
+      break;
+    }
+    if (leg.room) {
+      const room = roomTable[leg.room];
+      if (!inside(room.rect, reached.s, 0.2) || Math.abs(reached.s.ground - room.floor) > 0.4) {
+        tourFails.push(`${leg.note} — arrived outside ${leg.room}: ${JSON.stringify(reached.s)}`);
+        break;
+      }
+      tourRooms.add(leg.room);
+    }
+  }
+  check('the whole upper floor is walkable from the head of the stairs, with no teleports',
+    climbedOnFoot && tourFails.length === 0 && tourRooms.size === 9,
+    tourFails.join(' | ') || `${tourRooms.size} upper rooms entered on one continuous walk`);
+
+  /* ...and the invariant behind it, asserted directly on the built geometry.
+   *
+   * `p.y - eyeHeight > box.max.y` is a STRICT comparison, so a collider whose
+   * top is exactly a floor's walking surface blocks everyone standing on that
+   * floor. Nothing inside the house may end at one. Scoped to the building
+   * footprint because that is where floors are -- a palm on the front lawn is
+   * allowed to be six metres tall. */
+  const floorTraps = await page.evaluate(([gy, uy]) => window.mansion.colliders
+    .filter((c) => c.min.x > -17 && c.max.x < 17 && c.min.z > 35 && c.max.z < 76)
+    .filter((c) => [gy, uy].some((d) => Math.abs(c.max.y - d) < 0.06))
+    .map((c) => ({
+      x: [+c.min.x.toFixed(2), +c.max.x.toFixed(2)],
+      y: [+c.min.y.toFixed(2), +c.max.y.toFixed(2)],
+      z: [+c.min.z.toFixed(2), +c.max.z.toFixed(2)],
+    })), [GROUND_Y, UPPER_Y]);
+  check('no collider in the house tops out exactly on a floor somebody stands on',
+    floorTraps.length === 0,
+    floorTraps.length ? `${floorTraps.length} floor-level collider tops: ${JSON.stringify(floorTraps.slice(0, 4))}` : '');
+
+  /* The same treatment for the other two storeys. One walk each, no teleports
+   * inside it, every room entered through its own door from the room next to
+   * it -- because "each room is enterable from a spot squared up outside its
+   * door" and "the floor is walkable" are different claims and only the second
+   * one is what a player experiences. */
+  async function tour(name, start, legs, expectRooms) {
+    await teleport(start[0], start[1], start[2], start[3]);
+    await settle(0.5);
+    const fails = [];
+    const seen = new Set();
+    for (const leg of legs) {
+      const got = await walkTo(leg.at[0], leg.at[1], { steps: 30, tol: 0.8 });
+      if (!got.ok) { fails.push(`${leg.note} — stuck at ${JSON.stringify(got.s)}`); break; }
+      if (leg.room) {
+        const room = roomTable[leg.room];
+        if (!inside(room.rect, got.s, 0.2) || Math.abs(got.s.ground - room.floor) > 0.4) {
+          fails.push(`${leg.note} — arrived outside ${leg.room}: ${JSON.stringify(got.s)}`);
+          break;
+        }
+        seen.add(leg.room);
+      }
+    }
+    check(name, fails.length === 0 && seen.size === expectRooms,
+      fails.join(' | ') || `${seen.size} rooms entered on one continuous walk`);
+  }
+
+  await tour(
+    'the whole ground floor, including the west wing, is one continuous walk from the front door',
+    [0, GROUND_Y, FACADE_Z + 2.0, NORTH],
+    [
+      { at: [-4.0, 43.0], room: 'foyer', note: 'up the hall, past the centre table under the chandelier' },
+      { at: [0, 50.6], note: 'round the horseshoe into the rear hall' },
+      { at: [-12.5, 50.5], room: 'livingRoom', note: 'west through the archway into the living room' },
+      { at: [-14.0, 47.8], note: 'down the channel between the couches and the coffee table' },
+      { at: [-14.6, 44.4], note: 'round the end of the south couch to the wing arcade' },
+      { at: [-20.0, 43.9], room: 'trophyHall', note: 'through the middle arch into the Great Includer hall' },
+      { at: [-16.9, 50.0], note: 'up the east side of the hall, past the dais' },
+      { at: [-16.9, 58.0], room: 'winterGarden', note: 'through the wing door into the winter garden' },
+      { at: [-16.7, 70.4], note: 'up the winter garden to the dining doors' },
+      { at: [-13.6, 70.8], room: 'dining', note: 'through the French doors into the dining room' },
+      { at: [-10.4, 71.2], note: 'round the head of the long table' },
+      { at: [-10.1, 62.0], note: 'down the east side of it, past ten chairs' },
+      { at: [-12.5, 59.0], note: 'to the living room door' },
+      { at: [-12.5, 56.0], note: 'through into the living room' },
+      { at: [-11.0, 50.6], note: 'back into the rear hall' },
+      { at: [0, 55.0], note: 'to the ballroom doors' },
+      { at: [0, 62.0], room: 'ballroom', note: 'into the ballroom' },
+      { at: [7.6, 65.8], note: 'east across the ballroom to the kitchen door' },
+      { at: [10.0, 68.5], room: 'kitchen', note: 'through into the kitchen, round the island' },
+      { at: [9.9, 63.0], note: 'down the west side of the island' },
+      { at: [12.5, 60.0], note: 'across to the lounge door' },
+      { at: [12.5, 55.0], room: 'lounge', note: 'through into the lounge' },
+      { at: [14.8, 53.0], note: 'down the east side of the billiard table' },
+      { at: [14.8, 47.5], note: 'to the middle bay arch' },
+      { at: [18.4, 47.5], note: 'out through the arch into the billiard bay' },
+    ],
+    8,
+  );
+
+  await tour(
+    'the whole lower level is one continuous walk from the foot of the cellar stair',
+    [7.2, BASEMENT_Y, 57.6, NORTH],
+    [
+      { at: [6.2, 61.8], room: 'basement', note: 'north across the armory, between the bench and the boiler' },
+      { at: [6.2, 65.9], room: 'cellarHall', note: 'through the north-wall doorway into the corridor' },
+      { at: [-12.1, 65.9], note: 'west down the corridor' },
+      { at: [-12.1, 70.0], room: 'guestRoom', note: 'into the guest bedroom' },
+      { at: [-12.1, 65.9], note: 'back into the corridor' },
+      { at: [-2.85, 65.9], note: 'east to the theatre doors' },
+      { at: [-2.85, 72.6], room: 'theatre', note: 'down the theatre aisle to the screen' },
+      { at: [-2.85, 65.9], note: 'back into the corridor' },
+      { at: [6.4, 65.9], note: 'east to the LAN room' },
+      { at: [6.4, 71.4], room: 'lanRoom', note: 'into the LAN room' },
+      { at: [6.4, 65.9], note: 'back into the corridor' },
+      { at: [13.35, 65.9], note: 'east past the open vault door' },
+      { at: [13.35, 71.0], room: 'vault', note: 'into the vault' },
+      { at: [13.35, 65.9], note: 'back out of the vault' },
+      { at: [-14.4, 65.9], note: "to the corridor's blank west end" },
+    ],
+    6,
+  );
 
   /* ================================================================ */
   /* The basement specifically: reachable, and at the armory floor      */
@@ -841,13 +1087,35 @@ try {
     openings: window.mansion.openings,
   }));
   check('every picture in the house registered itself with the art sweep',
-    Array.isArray(artSweep.art) && artSweep.art.length >= 12,
+    Array.isArray(artSweep.art) && artSweep.art.length >= 24,
     `${artSweep.art?.length ?? 0} pieces, ${artSweep.openings?.length ?? 0} openings`);
 
+  /* THE OPENING IS GROWN OUT OF ITS OWN WALL BEFORE INTERSECTING.
+   *
+   * The first version of this sweep compared each piece against the reveal
+   * only -- the 30 cm of wall thickness the doorway is cut through -- and a
+   * banner hung eleven centimetres in front of a doorway therefore passed,
+   * while hanging squarely across the top of it. That is exactly the fault
+   * the owner reported, so it is the fault the check has to catch: an opening
+   * is extended REVEAL metres out of the wall on both faces, because that is
+   * the volume a doorway needs kept clear on either side of it.
+   *
+   * Grown along the opening's own THIN axis only. Growing all three would
+   * start failing pictures hung a sensible distance to the side of a door,
+   * which is where pictures go. */
   const SKIN = 0.02;
+  const REVEAL = 0.34;
+  const grown = artSweep.openings.map((o) => {
+    const dx = o.x1 - o.x0;
+    const dy = o.y1 - o.y0;
+    const dz = o.z1 - o.z0;
+    const g = { ...o };
+    if (dz <= dx && dz <= dy) { g.z0 = o.z0 - REVEAL; g.z1 = o.z1 + REVEAL; } else if (dx <= dy) { g.x0 = o.x0 - REVEAL; g.x1 = o.x1 + REVEAL; } else { g.y0 = o.y0 - REVEAL; g.y1 = o.y1 + REVEAL; }
+    return g;
+  });
   const clashes = [];
   for (const piece of artSweep.art) {
-    for (const o of artSweep.openings) {
+    for (const o of grown) {
       const overlapX = Math.min(piece.x1, o.x1) - Math.max(piece.x0, o.x0);
       const overlapY = Math.min(piece.y1, o.y1) - Math.max(piece.y0, o.y0);
       const overlapZ = Math.min(piece.z1, o.z1) - Math.max(piece.z0, o.z0);
@@ -903,7 +1171,266 @@ try {
     JSON.stringify(sinkRun));
 
   check('the Squatch logo art slots are declared for the apartment gear pipeline',
-    media.slots >= 8, `${media.slots} slots`);
+    media.slots >= 16, `${media.slots} slots`);
+
+  /* ================================================================ */
+  /* THE WEST WING, AND THE GREAT INCLUDER                             */
+  /*                                                                    */
+  /* The walk-in test above proves the hall can be entered. These prove  */
+  /* the arcade is a way back as well as a way in (a room with one       */
+  /* direction of travel is a trap), and that the thing the hall was     */
+  /* built for is actually massive and actually says what it says.       */
+  /* ================================================================ */
+  await teleport(-20.1, GROUND_Y, 43.9, EAST);
+  await settle(0.4);
+  await walk(6);
+  await settle(0.5);
+  s = await state();
+  check('the trophy hall arcade is a way back into the living room as well as out of it',
+    s.x > -15.5 && Math.abs(s.ground - GROUND_Y) < 0.3, JSON.stringify(s));
+
+  // ...and the trophy hall connects to the winter garden without going back
+  // through the house, so the wing is a range rather than two dead ends.
+  await teleport(-16.8, GROUND_Y, 54.4, NORTH);
+  await settle(0.4);
+  await walk(6);
+  await settle(0.5);
+  s = await state();
+  check('the west wing runs through from the trophy hall into the winter garden',
+    s.z > 57.5 && Math.abs(s.ground - GROUND_Y) < 0.3, JSON.stringify(s));
+
+  const includer = await page.evaluate(() => ({
+    engraving: window.mansion.greatIncluder.engraving,
+    height: window.mansion.greatIncluder.height,
+    top: window.mansion.greatIncluder.top,
+    dais: window.mansion.greatIncluder.dais,
+    ceiling: window.mansion.grounds.shell.wingRoofY0,
+  }));
+  check('THE GREAT INCLUDER is engraved with exactly that, and nothing else',
+    includer.engraving === 'THE GREAT INCLUDER', JSON.stringify(includer.engraving));
+  check('the trophy is massive -- over three metres of cup, and it clears its own ceiling',
+    includer.height > 3.0 && includer.top < includer.ceiling && includer.top > 5.0,
+    `${includer.height} m tall, top at ${includer.top}, ceiling ${includer.ceiling}`);
+
+  // The engraving has to be READABLE, which means at eye height on the face
+  // you approach from -- not on top of a plinth you cannot see over.
+  const plate = await page.evaluate(() => window.mansion.art.find((a) => a.id === 'mansion.trophy.engraving'));
+  check("the engraving is on the plinth's front face at eye height, facing the way in",
+    plate && plate.y0 > GROUND_Y + 0.9 && plate.y1 < GROUND_Y + 2.0 && (plate.x1 - plate.x0) > 2.0,
+    JSON.stringify(plate));
+
+  // You must be able to walk up to it and read it; the velvet rope stops you
+  // at the dais, not three metres short of the room.
+  await teleport(includer.dais.x, GROUND_Y, includer.dais.z - 6.0, NORTH);
+  await settle(0.4);
+  await walk(5);
+  await settle(0.5);
+  s = await state();
+  check('you can walk the length of the hall up to the foot of the trophy',
+    s.z > includer.dais.z - 4.4 && Math.abs(s.ground - GROUND_Y) < 0.35, JSON.stringify(s));
+
+  /* ================================================================ */
+  /* THE LOWER LEVEL                                                   */
+  /* ================================================================ */
+  // The spine corridor, walked end to end, because four rooms off a
+  // corridor is only four rooms if the corridor goes anywhere.
+  await teleport(-14.4, BASEMENT_Y, 65.85, EAST);
+  await settle(0.4);
+  const cellarWestEnd = await state();
+  await walk(14);
+  await settle(0.6);
+  s = await state();
+  check('the cellar corridor is walkable from its west end to the vault door',
+    s.x - cellarWestEnd.x > 20 && Math.abs(s.ground - BASEMENT_Y) < 0.25,
+    JSON.stringify({ from: cellarWestEnd, to: s }));
+
+  // ...and back out into the armory, which is the half that strands you.
+  /* Three seconds, not six: six walks you straight across the armory and onto
+   * the cellar stair, which reads as "the ground floor" and fails a check that
+   * is about a doorway. */
+  await teleport(6.2, BASEMENT_Y, 66.0, SOUTH);
+  await settle(0.4);
+  await walk(3);
+  await settle(0.5);
+  s = await state();
+  check('the lower level lets you back out into the armory through the same doorway',
+    s.z < 63.0 && Math.abs(s.ground - BASEMENT_Y) < 0.25, JSON.stringify(s));
+
+  /* The corridor's west end wall is being kept blank on purpose -- a later
+   * pass puts a secret door there. Asserted, so a future dressing pass cannot
+   * quietly hang something on it and take the seam away. */
+  const westEndArt = await page.evaluate(() => window.mansion.art.filter(
+    (a) => a.x0 < -15.0 && a.z1 > 64.0 && a.z0 < 67.6 && a.y1 < 0,
+  ).map((a) => a.id));
+  check("the cellar corridor's west end wall is left blank for the secret door",
+    westEndArt.length === 0, westEndArt.join(', '));
+
+  // The theatre's rear riser: you come in at the top of the rake and step
+  // DOWN toward the screen, which is the way round a cinema is built.
+  const rake = await page.evaluate(async () => {
+    const back = window.mansion.player;
+    window.mansion.teleport(-2.85, -2.5, 69.0, 180);
+    window.mansion.tick(0.4);
+    const atBack = Number(back.ground.toFixed(3));
+    window.mansion.teleport(-2.85, -2.8, 73.0, 180);
+    window.mansion.tick(0.4);
+    return { atBack, atFront: Number(back.ground.toFixed(3)) };
+  });
+  check('the theatre is raked -- the back row stands above the front row',
+    rake.atBack > rake.atFront + 0.2 && Math.abs(rake.atFront - BASEMENT_Y) < 0.1,
+    JSON.stringify(rake));
+
+  // ...and the step down is walkable rather than a ledge you get stuck on.
+  await teleport(-2.85, -2.5, 68.6, NORTH);
+  await settle(0.4);
+  await walk(4);
+  await settle(0.5);
+  s = await state();
+  check('the riser can be walked down off, toward the screen',
+    s.z > 71.0 && Math.abs(s.ground - BASEMENT_Y) < 0.12, JSON.stringify(s));
+
+  const lan = await page.evaluate(() => window.mansion.lan);
+  check('the LAN room has real apartment PCs, one per seat, and a logo on every chair',
+    lan.stations >= 5 && lan.chairLogos === lan.stations,
+    JSON.stringify(lan));
+
+  const theatre = await page.evaluate(() => window.mansion.theatre);
+  check('the home theatre has a working projector with a film seam wired into it',
+    theatre && theatre.on === false && theatre.channels[0] === 'THE FEATURE'
+      && theatre.channels.length > 1,
+    JSON.stringify(theatre));
+  const theatreRun = await page.evaluate(() => {
+    const t = window.mansion.theatre;
+    t.toggle();
+    const on = t.on;
+    const showing = t.channel;
+    t.toggle();
+    return { on, showing, off: t.on };
+  });
+  check('the projector switches on, runs the feature channel, and switches off again',
+    theatreRun.on === true && theatreRun.off === false && theatreRun.showing === 'THE FEATURE',
+    JSON.stringify(theatreRun));
+
+  /* ================================================================ */
+  /* THE REAR GARDEN                                                   */
+  /* ================================================================ */
+  const garden = await page.evaluate(() => window.mansion.garden);
+
+  // Down onto the garden from the terrace, on foot.
+  await teleport(7.0, GROUND_Y, 93.4, NORTH);
+  await settle(0.4);
+  const onTerrace = await state();
+  await walk(8);
+  await settle(0.6);
+  s = await state();
+  check('the terrace steps descend on foot from the pool deck into the formal garden',
+    Math.abs(onTerrace.ground - GROUND_Y) < 0.2 && s.ground < 0.1 && s.z > 99,
+    JSON.stringify({ onTerrace, inGarden: s }));
+
+  // The brick estate wall is a real boundary on all three of its runs.
+  await teleport(27.5, 0, 116, NORTH);
+  await settle(0.3);
+  await walk(8);
+  await settle(0.3);
+  s = await state();
+  check('the brick estate wall closes the garden at its north end',
+    s.z < garden.wall.z1 && s.z > 122, JSON.stringify(s));
+  await teleport(27.0, 0, 110, EAST);
+  await settle(0.3);
+  await walk(6);
+  await settle(0.3);
+  s = await state();
+  check('the brick estate wall closes the garden on its east side',
+    s.x < garden.wall.x1 - 0.2 && s.x > 27.0, JSON.stringify(s));
+
+  /* ---- THE HEDGE MAZE -------------------------------------------------
+   * Two separate claims, checked separately: the maze cannot pinch, and the
+   * maze can be walked. The first is measured off the built hedge geometry
+   * (every run's centre line, sorted, so the gaps between them are the
+   * corridors); the second is walked, waypoint by waypoint, with real keys.
+   */
+  check('every corridor in the maze is far wider than the player is',
+    garden.maze.corridor.x > 2.0 && garden.maze.corridor.z > 2.0,
+    `${garden.maze.corridor.x.toFixed(2)} x ${garden.maze.corridor.z.toFixed(2)} m clear`);
+
+  const T = garden.maze.rect.hedge;
+  function lineGaps(walls, axis) {
+    const thin = walls.filter((w) => (axis === 'x'
+      ? (w.x1 - w.x0) < T * 1.5 : (w.z1 - w.z0) < T * 1.5));
+    const lines = [...new Set(thin.map((w) => Number((axis === 'x'
+      ? (w.x0 + w.x1) / 2 : (w.z0 + w.z1) / 2).toFixed(3))))].sort((a, b) => a - b);
+    const gaps = [];
+    for (let i = 1; i < lines.length; i++) gaps.push(lines[i] - lines[i - 1] - T);
+    return gaps;
+  }
+  const gapsX = lineGaps(garden.maze.walls, 'x');
+  const gapsZ = lineGaps(garden.maze.walls, 'z');
+  const worstMazeGap = Math.min(...gapsX, ...gapsZ);
+  check('no two hedges anywhere in the maze leave a channel under 0.6 m',
+    worstMazeGap >= 2.0,
+    `narrowest measured channel ${worstMazeGap.toFixed(2)} m across ${gapsX.length + gapsZ.length} bays`);
+
+  check('the maze is a real maze -- carved walls, an entrance, an exit and a route',
+    garden.maze.walls.length >= 12 && garden.maze.route.length >= 6
+      && garden.maze.entry.z < garden.maze.rect.z0
+      && garden.maze.exit.z > garden.maze.rect.z1,
+    `${garden.maze.walls.length} hedge runs, ${garden.maze.route.length} waypoints`);
+
+  // Walked. Not solved on paper -- walked, from the plaque at the mouth to
+  // the far side, on held keys, through whatever the hedges actually are.
+  await teleport(garden.maze.entry.x, 0, garden.maze.entry.z - 1.2, NORTH);
+  await settle(0.4);
+  const mazeLegs = [];
+  let mazeOk = true;
+  /* The heart of the maze is ON the route (it is the middle cell of the solved
+   * path), so whether it can be stood in is answered by this same walk rather
+   * than by a second trip -- and it has to be answered here, because once you
+   * are out the far side there is a hedge maze between you and it. */
+  let heartStood = null;
+  for (const wp of garden.maze.route) {
+    const leg = await walkTo(wp.x, wp.z);
+    mazeLegs.push(leg.ok ? 1 : 0);
+    if (Math.abs(wp.x - garden.maze.heart.x) < 0.01
+      && Math.abs(wp.z - garden.maze.heart.z) < 0.01) heartStood = leg;
+    if (!leg.ok) { mazeOk = false; break; }
+  }
+  s = await state();
+  check('the hedge maze can be walked on foot from its entrance to its exit',
+    mazeOk && s.z > garden.maze.rect.z1,
+    `${mazeLegs.filter(Boolean).length}/${garden.maze.route.length} waypoints reached, ended ${JSON.stringify(s)}`);
+
+  check('the middle of the maze is reachable and standable, lantern and bench included',
+    heartStood !== null && heartStood.ok,
+    heartStood ? JSON.stringify(heartStood.s) : 'the heart is not on the solved route');
+
+  // The walled rose garden's moon gate is a way in AND a way out.
+  await teleport(garden.roseGarden.gate.x - 2.0, 0, garden.roseGarden.gate.z, EAST);
+  await settle(0.4);
+  await walk(5);
+  await settle(0.5);
+  s = await state();
+  check('the rose garden is entered on foot through the moon gate in its brick wall',
+    s.x > garden.roseGarden.x0 + 0.8, JSON.stringify(s));
+  await faceDeg(WEST);
+  await walk(5);
+  await settle(0.5);
+  s = await state();
+  check('...and the moon gate lets you back out again',
+    s.x < garden.roseGarden.x0 - 0.6, JSON.stringify(s));
+
+  /* The pavilion at the head of the axis, up the walk BESIDE the canal --
+   * the canal is on the centre line and is a hole full of water with a kerb
+   * round it, so the centre line is precisely where you do not walk. */
+  await teleport(2.8, 0, 100.5, NORTH);
+  await settle(0.4);
+  await walk(12);
+  await settle(0.6);
+  s = await state();
+  check('the garden axis walks from the cross walk past the canal to the pavilion',
+    s.z > 114 && Math.abs(s.x - 2.8) < 2.0, JSON.stringify(s));
+
+  check('the garden is lit -- lamp standards, the pavilion, the fire pit and the canal',
+    garden.lanterns >= 20, `${garden.lanterns} practical lights in the garden`);
 
   /* ================================================================ */
   /* Rendering back on: the house must actually draw something           */
@@ -922,7 +1449,17 @@ try {
   check('the foyer renders a non-black frame from inside the house', nonBlack,
     `${shot.length} bytes`);
 
-  check('no runtime console errors occurred', problems.length === 0, problems.join(' | '));
+  /* The film that has not landed yet is allowed to 404 and nothing else is.
+   * A blanket "ignore 404s" would let a missing texture or a missing module
+   * through; naming the file keeps the seam honest in both directions. */
+  const strayNotFound = notFound.filter((p) => !p.endsWith('/the-feature.mp4'));
+  check('the only resource the house cannot find is the film nobody has delivered yet',
+    strayNotFound.length === 0,
+    `missing: ${[...new Set(notFound)].join(', ') || 'nothing'}`);
+  const strayErrors = problems.filter(
+    (p) => !(/Failed to load resource/.test(p) && strayNotFound.length === 0),
+  );
+  check('no runtime console errors occurred', strayErrors.length === 0, strayErrors.join(' | '));
 } finally {
   await browser.close();
   await new Promise((resolve) => server.close(resolve));
