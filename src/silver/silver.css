@@ -335,3 +335,42 @@ body.nosubs #subtitle { display: none; }
 #debug button:hover { background: rgba(216, 196, 138, 0.26); }
 #debug .stat { color: var(--paper); font-size: 11px; }
 #debug .stat b { color: var(--amber); font-weight: 400; }
+
+/* ------------------------------------------------------------------ */
+/* The ask                                                             */
+/* ------------------------------------------------------------------ */
+
+/* Sits above the posture hint, in the room's own brass rather than the
+   shared HUD grey, because it is not a control reminder — it is the moment
+   the evening has been building to and the only one of them the player has
+   to choose to take. It appears when she gives him the opening and goes the
+   instant he uses it or decides not to. */
+#ask {
+  position: fixed;
+  left: 50%;
+  bottom: 6.6rem;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.32rem 0.8rem 0.32rem 0.44rem;
+  border-radius: 999px;
+  background: rgba(12, 9, 6, 0.66);
+  border: 1px solid rgba(216, 196, 138, 0.34);
+  color: #e3d5ab;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+  opacity: 0.94;
+  transition: opacity 0.4s ease;
+  z-index: 12;
+}
+#ask.hidden { opacity: 0; }
+#ask .key {
+  background: #e3d5ab;
+  color: #14161c;
+  border-radius: 5px;
+  padding: 0.06rem 0.38rem;
+  font-weight: 700;
+  font-size: 0.72rem;
+}

@@ -22,7 +22,15 @@ export const SET = [
     lead: 'the bandleader',
     say: 'Good evening. We are the Midnight Pines and we are contractually obliged to be here.',
     cue: 'vo.silver.bandleader.set.opener',
-    dur: 52,
+    /* Shorter than it was, and the reason is arithmetic rather than taste.
+     * The third number is the one everybody has been told about and it is a
+     * 192-second master that cannot be cut; dessert is gated on it finishing;
+     * and at 52 and 58 the two warm-ups pushed that gate to nine and a
+     * quarter minutes after sitting down. "Scene kind of drags on — dessert
+     * could come a bit quicker." Both warm-ups still open, establish the
+     * band, and get their applause; they no longer cost ninety seconds of an
+     * evening that has nothing else in it while they play. */
+    dur: 38,
     stems: { rhythm: 0.5, horns: 0.22, piano: 0.34, vocal: 0 },
   },
   {
@@ -30,7 +38,7 @@ export const SET = [
     title: 'Ashland Line',
     lead: 'the singer',
     say: null,
-    dur: 58,
+    dur: 42,
     stems: { rhythm: 0.46, horns: 0.18, piano: 0.3, vocal: 0.34 },
   },
   {

@@ -294,6 +294,45 @@ const mission = new Mission({
  * `game.voLog` whether or not there is audio behind it, which is what lets
  * the verifier prove the wiring fires before a single mp3 has been made.
  * ------------------------------------------------------------------ */
+/**
+ * When the line currently in somebody's mouth is due to finish.
+ *
+ * `solo` stops whatever is speaking, which is correct for a scene shot on one
+ * camera and was catastrophic everywhere else. `greet()` starts the man's line
+ * and then, on the *same frame*, fires Margo's recognition bark — and the
+ * bark's own solo stop cut him off. Measured in the browser: the cellarman's
+ * 5.85s take played for 0.89s and then stopped, `naturalEnd: false`. That is
+ * every recorded line on the service route, the manager's, and Vinny's four,
+ * all of which are on disk, indexed, decoded, and were being played for about
+ * a syllable each. Which is exactly the report — "still missing some voice
+ * lines from the manager" — and it was never a casting or delivery gap.
+ *
+ * So a bark is `ambient`: it waits for the floor rather than taking it. One
+ * deferred bark at a time, flushed from the frame loop, and abandoned if it
+ * has waited longer than it is worth — a remark about the cellar is not worth
+ * hearing four lines later.
+ */
+let voiceFreeAt = 0;
+let deferredVoice = null;
+
+function voiceSpeaking() { return performance.now() < voiceFreeAt; }
+
+/** The whole deferred beat, not only its audio: subtitle and take travel together. */
+function deferVoice(job, { expires = 11000 } = {}) {
+  deferredVoice = { job, expiresAt: performance.now() + expires };
+}
+
+function flushVoice() {
+  if (!deferredVoice) return;
+  if (voiceSpeaking()) {
+    if (performance.now() > deferredVoice.expiresAt) deferredVoice = null;
+    return;
+  }
+  const { job } = deferredVoice;
+  deferredVoice = null;
+  job();
+}
+
 function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   if (!name) return false;
   game.voLog.push(name);
@@ -307,7 +346,11 @@ function voiceCue(name, { volume = 0.9, delay = 0, solo = true } = {}) {
   if (!bank?.length) return false;
   const src = audio.play(name, { volume, delay });
   if (solo) audio._vo = src;
-  audio.hold(delay + (src?.buffer ? src.buffer.duration : 1.6) + 0.25);
+  const seconds = delay + (src?.buffer ? src.buffer.duration : 1.6);
+  audio.hold(seconds + 0.25);
+  /* Only a solo line holds the floor. The room's own overheard voices are
+   * played `solo: false` on purpose and must not make a bark wait. */
+  if (solo) voiceFreeAt = performance.now() + seconds * 1000;
   return true;
 }
 
@@ -336,9 +379,16 @@ const dialogue = new Dialogue(ui.dialogue, {
 /* ------------------------------------------------------------------ */
 
 const date = new Date_(scene, room, {
+  /* Deferred, not dropped, and subtitle-with-take. She is reacting to
+   * something somebody has just said, so she says it when he has finished
+   * saying it — which is also what a person does. */
   onBark: (line, key, i) => {
-    hud.say(`<em>${DATE.name}:</em> ${line}`, 4600);
-    voiceCue(`vo.silver.margo.bark.${key}.${i + 1}`, { volume: 0.85 });
+    const say = () => {
+      hud.say(`<em>${DATE.name}:</em> ${line}`, 4600);
+      voiceCue(`vo.silver.margo.bark.${key}.${i + 1}`, { volume: 0.85 });
+    };
+    if (voiceSpeaking()) deferVoice(say);
+    else say();
   },
   onLeftBehind: () => {
     const n = mission.leftBehind();
@@ -549,6 +599,14 @@ const scripts = buildScripts({
   startTableCutscene: () => startTableCutscene(),
   startSway: () => startSway(),
   playRequest: () => performance_.request(mission.flags.songRequested),
+  /* Entering the invitation menu is a mission event whichever way it is
+   * reached — his key, or her line running into it — and it is recorded here
+   * so the two routes cannot record it differently. */
+  openInvitation: () => {
+    showAskPrompt(false);
+    mission.offerInvitation();
+    mission.addObjective('ask', 'Decide how the night ends');
+  },
   judgeInvitation: () => judgeInvitation(),
 });
 
@@ -1218,8 +1276,10 @@ function startTableCutscene() {
     {
       at: 9.2,
       run: () => {
-        // The manager says four words and the room starts moving.
-        manager?.faceToward(A.tableStaging.x, A.tableStaging.z);
+        // The manager says four words and the room starts moving. He turns
+        // back to his own station afterwards rather than spending the rest of
+        // the evening looking at the patch of floor a table used to be on.
+        glanceOver(manager, A.tableStaging.x, A.tableStaging.z, 14);
         for (const m of movers) m.faceToward(target.x, target.z);
       },
     },
@@ -1293,7 +1353,7 @@ function startTableCutscene() {
           if (turned >= 6) break;
           if (npc.job !== 'sit' && npc.job !== 'drink') continue;
           if (npc.group.position.distanceTo(target) > 12) continue;
-          npc.faceToward(target.x, target.z);
+          glanceOver(npc, target.x, target.z, 5.5);
           turned++;
         }
       },
@@ -1353,12 +1413,56 @@ function sendChampagne() {
   const waiter = comesToTable(cast.byName.waiter, { x: 1.2, z: 1.4 });
   audio.play('cork.pop', { volume: 0.55, position: target });
 
-  game.scene = new Cutscene(scripts.scenes.champagne.map((b) => ({ ...b })), {
+  /* He says who sent it and he points at them.
+   *
+   * The owner's note is that the bottle arriving, being accounted for, and
+   * Ape coming over are three things in a fixed order and were arriving on
+   * top of each other. The order is the queue's job; this is the middle beat
+   * actually happening on screen instead of only in the subtitle — the man
+   * turns to the pillar, his arm comes up, and the camera goes where he is
+   * pointing rather than panning at nothing.
+   */
+  const pillar = cast.crewTable;
+  const bouncer = cast.byName['bing-bouncer'];
+  let pointing = 0;
+  const beats = [
+    ...scripts.scenes.champagne.map((b) => ({ ...b })),
+    {
+      at: 2.4,
+      run: () => {
+        waiter?.faceToward(pillar.x, pillar.z);
+        pointing = 1;
+      },
+    },
+    {
+      at: 6.0,
+      run: () => {
+        // Two fingers off the cloth, from the one of them she is looking at.
+        if (bouncer) {
+          glanceOver(bouncer, target.x, target.z, 7);
+          bouncer.say(1.4);
+        }
+        date.watch(bouncer?.group ?? null, 5);
+      },
+    },
+    { at: 8.6, run: () => { pointing = 0; } },
+  ];
+
+  game.scene = new Cutscene(beats, {
     dateSeat: room.anchors.frontSeats[1],
     camera: [
       { at: 0, to: player.position.clone(), look: { x: target.x + 1.2, y: 1.4, z: target.z + 1.4 }, dur: 1.5 },
-      { at: 5.5, to: player.position.clone(), look: { x: cast.crewTable.x, y: 1.3, z: cast.crewTable.z }, dur: 3 },
+      { at: 5.5, to: player.position.clone(), look: { x: pillar.x, y: 1.3, z: pillar.z }, dur: 3 },
     ],
+    /* The point itself, written after `Npc.update` for the same reason the
+     * table carry's grip is: the idle pose is the last author otherwise, and
+     * the arm goes back down inside one frame. */
+    onPose: () => {
+      if (!pointing || !waiter) return;
+      waiter.parts.armR.rotation.x = -1.42;
+      waiter.parts.armR.rotation.z = -0.22;
+      waiter.parts.foreR.rotation.x = -0.12;
+    },
     onDone: () => {
       // Control comes back sitting down, which is where it was.
       player.mode = 'seated';
@@ -1424,12 +1528,39 @@ function startShowCutscene() {
  * Used once, for "Funny how?". Nothing else in the mission does this, which is
  * the only reason it works.
  */
+/**
+ * A look, not a stare.
+ *
+ * `faceToward` sets `targetYaw` and nothing ever clears it, so every one-off
+ * "the room notices" turn in this scene was permanent. Six diners turned to
+ * the front table at the end of the table cutscene and were still turned to it
+ * an hour later; the pillar four-top turned to Tony for "Funny how?" and never
+ * looked away again. That is the reported "table to left stares at you", and
+ * the diners' own `look: false` could never have fixed it, because this is the
+ * body and not the head.
+ *
+ * So a glance is a glance: turn, hold it for a beat, then go back to whatever
+ * you were sitting at.
+ */
+function glanceOver(npc, x, z, secs = 3.2) {
+  if (!npc) return;
+  const back = npc.homeYaw ?? npc.group.rotation.y;
+  npc.faceToward(x, z);
+  clearTimeout(npc.__glanceBack);
+  npc.__glanceBack = setTimeout(() => {
+    /* Unless something else has since given him somewhere to be — a waiter
+     * called to the table owns his own facing and must not be spun back to
+     * his chair mid-order. */
+    if (npc.job === 'sit' || npc.job === 'drink' || npc.job === 'stand') npc.targetYaw = back;
+  }, secs * 1000);
+}
+
 function holdTheRoom(on) {
   audio.setLoopVolume('ambience.diners', on ? 0.02 : 0.16, on ? 0.25 : 1.2);
   performance_.setDucked(on);
+  if (!on) return;
   for (const key of ['ape', 'bing-bouncer', 'waiter']) {
-    const npc = cast.byName[key];
-    if (npc && on) npc.faceToward(player.position.x, player.position.z);
+    glanceOver(cast.byName[key], player.position.x, player.position.z, 4.4);
   }
 }
 
@@ -1458,27 +1589,58 @@ function beginRound(id, { resume = false } = {}) {
   date.watch(null, 0);
 }
 
+/**
+ * The evening, in order.
+ *
+ * Two things were wrong with the order and one with the length.
+ *
+ * **Order.** The champagne used to arrive off a side clock (`seatedFor > 74`)
+ * rather than out of this list, and a side clock cannot be sequenced against
+ * anything. If the drinks round was still open at 74 — which it is whenever
+ * the player reads — the bottle went first and the waiter turned up
+ * afterwards to ask what they were drinking. The owner's note is a strict
+ * order: **waiter, then the bottle is sent and the waiter says who sent it
+ * and points, then Ape arrives.** It is a queue entry now, so the queue's own
+ * `dialogue.active` guard enforces all three of those with no special cases.
+ *
+ * **Length.** "Scene kind of drags on — dessert could come a bit quicker."
+ * The `after` number was never the thing holding dessert up: it is gated on
+ * the featured number finishing, and the featured number is a 192-second
+ * master that starts behind two warm-up numbers and a 240-second run-up. That
+ * put dessert nine and a quarter minutes after sitting down. The run-up is
+ * tightened here and the two warm-ups are shortened in `perform.js`; the
+ * master is what it is.
+ */
 const ROUND_QUEUE = [
   { id: 'table', after: 0 },
   { id: 'entrance', after: 6 },
-  { id: 'work', after: 26 },
+  { id: 'work', after: 24 },
   /* Skipped if the order already happened — the waiter patrols within reach
    * of the front table, so a player can wave him down before the queue does,
    * and the round must not then play a second time. */
-  { id: 'drinks', after: 48, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
-  /* Ape does not walk over while the champagne is still being explained. The
-   * evening has a social order and the bucket comes before the family. */
+  { id: 'drinks', after: 44, run: () => { if (!mission.roundsDone.has('drinks')) waiterComesOver(); } },
+  /* The bottle. After the waiter has been to the table and before the family
+   * comes over, because that is the order the evening happens in. */
+  { id: 'champagne', after: 74, run: () => sendChampagne() },
+  /* Ape does not walk over while the champagne is still being explained. */
   { id: 'family', after: 96, ready: () => champagneComplete, run: () => apeComesOver() },
-  { id: 'funny', after: 150 },
-  { id: 'personal', after: 186 },
-  { id: 'show', after: 240, run: () => startShowCutscene() },
+  { id: 'funny', after: 132 },
+  { id: 'personal', after: 164 },
+  { id: 'show', after: 196, run: () => startShowCutscene() },
   /* After the band. The evening keeps having things in it — this is the
    * window the brief asks for, where the player works out for himself that
    * it is going well rather than being handed a button that says so. */
-  { id: 'another', after: 300, run: () => waiterComesOver('another') },
-  { id: 'toast', after: 355, run: () => raiseAGlass() },
-  { id: 'dessert', after: 430, ready: () => mission.flags.mainPerformanceComplete,
+  { id: 'another', after: 262, run: () => waiterComesOver('another') },
+  { id: 'toast', after: 318, run: () => raiseAGlass() },
+  { id: 'dessert', after: 376, ready: () => mission.flags.mainPerformanceComplete,
     run: () => waiterComesOver('dessert') },
+  /* And then the thing the whole evening has been for. Without this the queue
+   * simply ran out after dessert and the player was left at a table with a
+   * finished conversation and an objective he had no way to act on — the
+   * reported "nothing happens after you order dessert, how are you supposed to
+   * ask her about seeing her again". */
+  { id: 'closing', after: 404, ready: () => mission.invitationReady && !mission.flags.invitation,
+    run: () => closeTheEvening() },
 ];
 
 let queueAt = 0;
@@ -1486,15 +1648,6 @@ let seatedFor = 0;
 function runSeatedQueue(dt) {
   if (!game.seated || game.scene) return;
   seatedFor += dt;
-  /* The champagne arrives on its own clock, between the drinks and the family.
-   *
-   * The `return` matters. `sendChampagne` opens a cutscene by assigning
-   * `game.scene`, but this function's own guard on `game.scene` ran at the top
-   * of the frame — so without it, execution falls straight through to the
-   * queue below and, on any frame where a long round has pushed `seatedFor`
-   * past 96, dispatches Ape into the middle of the champagne. */
-  if (seatedFor > 74 && !champagneSent && !dialogue.active) { sendChampagne(); return; }
-
   const next = ROUND_QUEUE[queueAt];
   if (!next || seatedFor < next.after) return;
   if (dialogue.active) return;
@@ -1581,6 +1734,14 @@ dialogue.hooks.onEnd = (reason) => {
   if (who === cast.byName.ape && who.homeSeat) {
     who.group.position.set(who.homeSeat.x, 0, who.homeSeat.z);
     who.group.rotation.y = who.homeSeat.yaw;
+    /* And the yaw he is easing *towards*, not only the one he is at.
+     * `greet()` aims everybody it opens at the player, and that target
+     * survives — so Ape sat back down at his own table and then turned, over
+     * the next second, to face Tony's, and stayed like that for the rest of
+     * the evening. From the front table that is a man at the next table
+     * staring at you, which is exactly what was reported. */
+    who.targetYaw = who.homeSeat.yaw;
+    who.gaze = 0;
     who.job = 'sit';
     who.sit();
   }
@@ -1673,15 +1834,83 @@ function finishSway() {
   }, 3200);
 }
 
+/**
+ * The end of the evening, as a beat rather than as a hotkey nobody used.
+ *
+ * The report: "nothing happens after you order dessert, how are you supposed
+ * to ask her about seeing her again". It was accurate. The seated queue's last
+ * entry was dessert; after it ran, the queue was exhausted and the mission sat
+ * there. The invitation existed and was reachable — one key, listed once on a
+ * pause screen — and nothing in the room ever said so or ever would.
+ *
+ * So the evening closes itself. The plates go, the room drops, and she gives
+ * him the opening: an authored beat, played straight, no wink at it. Then the
+ * prompt is up for as long as the moment lasts. If he sits on it, she moves
+ * first — and that line hands straight into the same menu, because the one
+ * thing that must not happen is the player reaching the end of a thirty-minute
+ * mission and finding no way to finish it.
+ *
+ * Deciding not to ask is still on the menu, and is still not rushing it.
+ */
+let closingStarted = false;
+let closingFor = -1;
+
+function showAskPrompt(on) {
+  const el = document.getElementById('ask');
+  if (!el) return;
+  if (on) el.querySelector('span').textContent = 'ask her about seeing her again';
+  el.classList.toggle('hidden', !on);
+}
+
+function closeTheEvening() {
+  if (closingStarted || !game.seated || mission.flags.invitation) return;
+  closingStarted = true;
+  /* The plates go first. He is clearing a table, not delivering a cue, so he
+   * arrives, works, and leaves without a word — and the room gets quiet
+   * behind him, which is the only stage direction this beat needs. */
+  const w = comesToTable(cast.byName.waiter, { x: 1.05, z: 1.05 });
+  audio.play('cutlery.set', { volume: 0.42, position: room.anchors.frontTable });
+  audio.play('glass.set', { volume: 0.34, delay: 0.7, position: room.anchors.frontTable });
+  setTimeout(() => goesBack(w), 2600);
+  audio.setLoopVolume('ambience.diners', 0.1, 3);
+  dialogue.start(scripts.invitation, 'plates', date.npc);
+  mission.addObjective('ask', 'Decide how the night ends');
+  closingFor = 0;
+}
+
+/** Her patience with a man who will not say it, in seconds. */
+const CLOSING_GRACE = 52;
+let closingNudged = false;
+
+function closingTick(dt) {
+  if (closingFor < 0 || mission.flags.invitation || game.over) return;
+  closingFor += dt;
+  /* Only while he is in the chair, because that is the only place the key
+   * does anything. Advertising R to a man on his feet is the same class of
+   * mistake as not advertising it at all. */
+  showAskPrompt(game.seated && !dialogue.active && mission.invitationReady);
+  if (closingNudged || closingFor < CLOSING_GRACE) return;
+  if (dialogue.active || game.scene || sway.active) return;
+  closingNudged = true;
+  showAskPrompt(false);
+  /* `next: 'open'` on this node, so her line runs into the menu on its own
+   * hold. `mission.offerInvitation()` is idempotent about when he asked, so
+   * arriving this way records the same honest answer the R key does. */
+  dialogue.start(scripts.invitation, 'waiting', date.npc);
+}
+
 function offerInvitation() {
   if (!mission.invitationReady) return false;
   if (!mission.offerInvitation()) return false;
+  showAskPrompt(false);
   mission.addObjective('ask', 'Decide how the night ends');
   dialogue.start(scripts.invitation, 'open', date.npc);
   return true;
 }
 
 function judgeInvitation() {
+  showAskPrompt(false);
+  closingFor = -1;
   /* Rushing it is asked of the mission rather than worked out here: `inState`
    * at this point is seconds since the invitation menu opened, which is a
    * measure of how fast the player reads. It fired on every run in the game,
@@ -1780,6 +2009,12 @@ function saveCheckpoint(state) {
       champagneSent,
       showStarted,
       taxiGone,
+      /* The closing beat is a latch like the rest of them: a reload taken
+       * after the plates went must not clear the table a second time and put
+       * her opening line back in her mouth. */
+      closingStarted,
+      closingNudged,
+      closingFor,
     },
   };
   try {
@@ -1806,6 +2041,10 @@ function restoreCheckpoint(cp = game.checkpoint) {
   tableCutsceneStarted = !!l.tableCutsceneStarted;
   champagneSent = !!l.champagneSent;
   showStarted = !!l.showStarted;
+  closingStarted = !!l.closingStarted;
+  closingNudged = !!l.closingNudged;
+  closingFor = Number.isFinite(l.closingFor) ? l.closingFor : -1;
+  showAskPrompt(false);
   if (l.taxiGone && !taxiGone) leaveTaxi();
 
   /* The table is a real object that the cutscene carried into place. If the
@@ -1914,6 +2153,21 @@ function updateZones() {
   audio.setLoopVolume('ambience.cellar', mix.cellar, 1.1);
   audio.setLoopVolume('ambience.kitchen', mix.kitchen, 1.1);
   audio.setLoopVolume('ambience.diners', mix.diners, 1.1);
+  /* The city, and the queue.
+   *
+   * The city is a flat exterior bed; the crowd is not, because thirty people
+   * standing on one stretch of pavement is a place and not a weather. It
+   * falls off with the walk down the alley and is gone once the service door
+   * is behind you, which is the whole gag of the entrance — the queue is a
+   * sound you leave. */
+  const outside = nextZone === 'exterior';
+  const toQueue = Math.hypot(p.x - 0, p.z - 38.1);
+  audio.setLoopVolume('ambience.city.night', outside ? 0.34 : 0.03, 1.4);
+  audio.setLoopVolume(
+    'ambience.crowd',
+    outside ? Math.max(0, 0.5 - toQueue * 0.011) : 0,
+    1.4,
+  );
   performance_.setRoomMix(mix.band, 1.1);
   // Behind a closed door, everything gets a blanket over it
   audio.setMuffle(nextZone === 'cellar' || nextZone === 'kitchen', 900);
@@ -1929,7 +2183,8 @@ function updateZones() {
 
 function onRoomChange(next) {
   const key = { street: 'street', alley: 'alley', stair: 'alley', cellar: 'cellar',
-    drystore: 'cellar', walkin: 'cellar', prep: 'kitchen', kitchen: 'kitchen',
+    drystore: 'cellar', walkin: 'cellar', undercroft: 'cellar',
+    prep: 'kitchen', kitchen: 'kitchen',
     dish: 'kitchen', corridor: 'corridor', floor: 'floor', lobby: 'floor' }[next];
   const notes = NOTES[key];
   if (notes && !game.noted.has(key)) {
@@ -1941,7 +2196,11 @@ function onRoomChange(next) {
   }
 
   if (next === 'alley' && mission.state === 'arrived') mission.intoAlley();
-  if ((next === 'cellar' || next === 'stair') && mission.state === 'service-route') mission.intoCellar();
+  /* The undercroft counts as being down there. A player who walks straight
+   * off the bottom of the ramp — which is now a doorway rather than a wall,
+   * and therefore the thing the ramp invites you to do — must not find the
+   * mission still sitting in `service-route` behind him. */
+  if (['cellar', 'stair', 'undercroft'].includes(next) && mission.state === 'service-route') mission.intoCellar();
   if ((next === 'kitchen' || next === 'prep') && ['service-route', 'cellar'].includes(mission.state)) mission.intoKitchen();
   if (next === 'corridor' && ['cellar', 'kitchen'].includes(mission.state)) mission.intoCorridor();
   if (next === 'floor' && ['corridor', 'kitchen'].includes(mission.state)) {
@@ -1956,6 +2215,64 @@ function checkHostStation() {
   if (mission.state !== 'host' || tableCutsceneStarted || game.scene) return;
   const d = player.position.distanceTo(room.anchors.hostStation);
   if (d < 2.6) startTableCutscene();
+}
+
+/**
+ * What the city sounds like while you are still outside it.
+ *
+ * The street and the alley had one twenty-second loop between them, so the
+ * first two minutes of the mission — which is a man on a wet pavement in front
+ * of thirty people, walking round the side of a building — sounded like a
+ * corridor. This is the traffic, the horns two streets over, and the elevated
+ * line, which is the one sound that makes the alley feel like it has a city on
+ * top of it rather than a ceiling.
+ *
+ * Positioned, so they arrive from somewhere: the road is north of the frontage
+ * and the line runs over the far end of the alley. Rationed the same way the
+ * room's barks are, and quieter in the alley than on the street, because the
+ * alley is where the mission wants you listening for a door.
+ */
+let streetAt = 4;
+let trainAt = 22;
+const _streetAt = new THREE.Vector3();
+function streetSound(dt) {
+  if (zone !== 'exterior' || game.scene) return;
+  const inAlley = where === 'alley' || where === 'stair';
+  const gain = inAlley ? 0.34 : 0.72;
+
+  streetAt -= dt;
+  if (streetAt <= 0) {
+    streetAt = 7 + Math.random() * 11;
+    const pick = Math.random();
+    const cue = pick < 0.62 ? 'street.car.pass.wet'
+      : pick < 0.86 ? 'traffic.pass' : 'street.horn.distant';
+    /* On the road, and a good way up it — a car passing is a thing going by
+     * over there, not a thing happening at your shoulder. */
+    _streetAt.set(
+      player.position.x + (Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 22),
+      0.6, 44,
+    );
+    audio.play(cue, { volume: gain * (0.5 + Math.random() * 0.4), position: _streetAt, ref: 12, maxDist: 90 });
+  }
+
+  trainAt -= dt;
+  if (trainAt > 0) return;
+  trainAt = 44 + Math.random() * 46;
+  /* The elevated line: three stems that are one train. Over the top of the
+   * alley, because that is where you want the city to be when you are looking
+   * for the service door. */
+  _streetAt.set(38, 9, inAlley ? 6 : 30);
+  audio.play('train.elevated.rumble', { volume: gain * 0.5, position: _streetAt, ref: 16, maxDist: 120 });
+  audio.play('train.elevated.roar', { volume: gain * 0.34, delay: 0.9, position: _streetAt, ref: 16, maxDist: 120 });
+  audio.play('train.elevated.sub', { volume: gain * 0.42, delay: 0.4, position: _streetAt, ref: 20, maxDist: 140 });
+  for (let i = 0; i < 6; i++) {
+    audio.play('train.rail.clatter', {
+      volume: gain * 0.24, delay: 1.4 + i * 0.42, position: _streetAt, ref: 14, maxDist: 90,
+    });
+  }
+  if (Math.random() < 0.4) {
+    audio.play('train.horn.far', { volume: gain * 0.3, delay: 3.2, position: _streetAt, ref: 30, maxDist: 200 });
+  }
 }
 
 /* What the building sounds like when nobody is talking to you. */
@@ -2014,6 +2331,13 @@ let staredFor = 0;
 
 function evening(dt) {
   taxiTick(dt);
+  /* In here rather than inline in `frame()`, for exactly the reason the
+   * comment above this function gives: anything living in the frame loop is
+   * something the headless driver silently does not run, and both a silent
+   * street and a bark that never gets its turn are the kind of thing nobody
+   * notices is untested. */
+  streetSound(dt);
+  flushVoice();
 
   if (sway.active) { sway.update(dt); hud.setTiming(sway.view); }
   else if (game.swayRunning) finishSway();
@@ -2163,8 +2487,13 @@ window.addEventListener('keydown', (e) => {
     /* One key for "say the thing you have been working up to". What that is
      * depends on where the evening has got to, which is the same logic the
      * player is using. */
-    if (mission.flags.swayed === 'refused' && !mission.flags.toast) askAgain();
-    else if (mission.invitationReady) offerInvitation();
+    /* The invitation goes first once it is genuinely available. It used to sit
+     * behind "ask her to dance again", so a man who had been turned down on
+     * the floor and had not raised a glass pressed R at the end of the evening
+     * and got the dance conversation instead of the one the objective on his
+     * screen was telling him to have. */
+    if (mission.invitationReady) offerInvitation();
+    else if (mission.flags.swayed === 'refused' && !mission.flags.toast) askAgain();
     else if (mission.flags.showStarted && !mission.flags.toast) raiseAGlass();
   }
   if (/^Digit[1-7]$/.test(e.code)) {
@@ -2304,6 +2633,25 @@ function leaveTaxi() {
   if (taxiGone) return;
   taxiGone = true;
   taxiWatching = false;
+  /* And he goes with a sound, which he did not.
+   *
+   * A car that has been idling at the kerb for four minutes with a man in it
+   * silently accelerating up the street is the single loudest missing thing in
+   * the opening. Starter, a rev off the kerb, and the pass fading up the road
+   * — positioned on the car, so it goes *away*. The horn is his, and only
+   * sometimes: he is aggrieved, not furious. */
+  const at = taxi.group.position.clone();
+  audio.play('car.engine.start', { volume: 0.42, position: at, ref: 4, maxDist: 60 });
+  audio.play('car.engine.rev', { volume: 0.5, delay: 1.5, position: at, ref: 4, maxDist: 60 });
+  audio.play('street.car.pass.wet', {
+    volume: 0.44, delay: 2.1, position: at.clone().add(new THREE.Vector3(16, 0, 0)), ref: 8, maxDist: 80,
+  });
+  audio.play('traffic.pass', {
+    volume: 0.3, delay: 3.4, position: at.clone().add(new THREE.Vector3(34, 0, 0)), ref: 12, maxDist: 90,
+  });
+  if (mission.flags.driverTipped) {
+    audio.play('street.horn.distant', { volume: 0.26, delay: 3.9, position: at, ref: 20, maxDist: 120 });
+  }
   taxi.leave();
   /* And the prompt goes with him. Left registered, the interaction system kept
    * a live "hold to take care of him ($40)" target attached to a car driving
@@ -2361,6 +2709,13 @@ startBtn.addEventListener('click', async () => {
     for (const bed of ['alley', 'cellar', 'kitchen', 'diners']) {
       audio.startLoop(`ambience.${bed}`, { volume: 0, ambience: true, fade: 1.5 });
     }
+    /* Two more beds, outdoors only. The queue at the rope is thirty people
+     * who have been there an hour and were, until now, completely silent —
+     * and the city they are standing in was one twenty-second alley loop for
+     * the whole exterior. Both are in the campaign's own sound set; the
+     * Silver Room simply was not asking for them. */
+    audio.startLoop('ambience.crowd', { volume: 0, ambience: true, fade: 2 });
+    audio.startLoop('ambience.city.night', { volume: 0, ambience: true, fade: 2 });
     audio.setLoopVolume('ambience.alley', 0.5, 1.5);
     room.setHouse(1, 0, true);
     addMoney(0);
@@ -2411,6 +2766,7 @@ function frame() {
   checkHostStation();
   barks(raw);
   runSeatedQueue(raw);
+  closingTick(raw);
   evening(raw);
 
   /* Crowd: the near half every frame, the far half on the Npc class's own
@@ -2461,9 +2817,18 @@ window.__silver = {
   /* The pieces the headless driver has to be able to step by hand, because it
    * runs the update path directly rather than waiting on frames. */
   __zones: () => updateZones(),
-  __seatTick: (dt) => runSeatedQueue(dt),
+  __seatTick: (dt) => { runSeatedQueue(dt); closingTick(dt); },
+  /* The closing beat, so the harness can play the real dessert→invitation
+   * path rather than calling the debug button and declaring it reachable. */
+  __closing: () => ({
+    started: closingStarted, nudged: closingNudged, forSecs: closingFor,
+    prompt: !document.getElementById('ask')?.classList.contains('hidden'),
+  }),
   __host: () => checkHostStation(),
-  __barks: (dt) => barks(dt),
+  __barks: (dt) => { barks(dt); flushVoice(); },
+  /* The one-mouth-at-a-time gate, so the harness can prove a recorded line
+   * is not being cut off by the next thing that wants to talk. */
+  __voice: () => ({ speaking: voiceSpeaking(), deferred: !!deferredVoice }),
   /* The car, the dance, and the two things she notices about being ignored.
    * The driver has to step this or it is testing a game nobody plays. */
   __evening: (dt) => evening(dt),

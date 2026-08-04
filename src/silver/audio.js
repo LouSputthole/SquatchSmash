@@ -13,7 +13,38 @@ import { loadOnceRetriable } from '../core/load-queue.js';
 
 const SFX_DIR = 'assets/sfx/';
 
+/**
+ * The street outside, and the car that leaves it.
+ *
+ * Two of the owner's notes land in one place: "need more sound effects for the
+ * crowd outside and the city while walking into the alley", and "the car
+ * driving away needs a sound". Both were true because this page's residency
+ * filter only lets four families of cue in, and every one of these is in the
+ * campaign manifest already, recorded and indexed, and simply was not on the
+ * list this scene is allowed to decode. Nothing new is being asked for; the
+ * street just gets the sounds a street has.
+ */
+const SILVER_STREET_CUES = [
+  // the road, and what is on it
+  'street.wet.night',
+  'street.car.pass.wet',
+  'street.horn.distant',
+  'traffic.pass',
+  'car.horn',
+  // the elevated line, which is what makes this a city and not a set
+  'train.elevated.rumble',
+  'train.elevated.roar',
+  'train.elevated.sub',
+  'train.rail.clatter',
+  'train.horn.far',
+  // and the hired car pulling off the kerb
+  'car.engine.start',
+  'car.engine.rev',
+  'car.door.close.heavy',
+];
+
 const SILVER_SHARED_CUES = new Set([
+  ...SILVER_STREET_CUES,
   'applause',
   'can.sip',
   'car.door',
@@ -40,6 +71,8 @@ const SILVER_SHARED_CUES = new Set([
   'woo.streak',
   'woo.up',
 ]);
+
+export { SILVER_STREET_CUES };
 
 /** Recorded cues that this page can actually request. */
 export function isSilverPreloadCue(cue) {

@@ -245,7 +245,17 @@ try {
       && departed.events.includes('travel.silver_room'),
     JSON.stringify(departed));
 
-  await page.waitForURL(/silver\.html/, { timeout: 20000 });
+  /* `commit`, and a real timeout. This wait failed on every run — on this
+   * branch and on a clean checkout alike — and it was not the navigation: the
+   * default `waitUntil: 'load'` was giving the Silver Room twenty seconds to
+   * fire its `load` event, and this page pulls its whole module graph and its
+   * art on a software rasteriser. The harness's own log said as much, with
+   * "navigated to .../silver.html" printed one line above the timeout.
+   *
+   * What this line is for is "the door really took us there", which is the
+   * commit. That the scene then boots is the next line's job, and that it
+   * boots into the right place is the check under it. */
+  await page.waitForURL(/silver\.html/, { timeout: 120000, waitUntil: 'commit' });
   await page.waitForFunction(() => window.__silver?.story, null, { timeout: 120000 });
   await page.evaluate(() => window.__silver.postfx.disable?.());
   const arrived = await page.evaluate(() => ({
