@@ -323,8 +323,8 @@
       "style": 0.2
     },
     "waiter": {
-      "id": "6yvQSmuck0L7cqMlVtsx",
-      "_note": "The men on the floor of the Silver Room -- the host, the maître d', the waiter, the bandleader, and the room's own overheard voices. From the owner's Voice_Ids sheet, row \"Wait staff bada or silver male\" (2026-07-31). One profile and five banks: everybody working the room in this scene is the same kind of professional courtesy, and recasting any one of them is a voice id in this block and nothing else.",
+      "id": "gAMZphRyrWJnLMDnom6H",
+      "_note": "The men on the floor of the Silver Room -- the host, the waiters, the champagne runner. Owner-recast 2026-08-04 (was 6yvQSmuck0L7cqMlVtsx). The 74 existing takes were rendered with the previous id and must be re-rendered: npm run sfx -- --force --cast waiter",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.8,
