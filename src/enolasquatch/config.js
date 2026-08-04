@@ -264,27 +264,48 @@ export const ENOLA_PARKING = Object.freeze({
 export const TARGET_X = 9000;   // the target city, per the mission brief
 
 /**
- * Squatchbourg — the small city the Fat Squatch is addressed to.
+ * Squatchbourg — the city the Fat Squatch is addressed to.
  *
  * "It doesn't have to be super detailed as we are only going to see it from
- * the air, but I want it to be more extensive" (owner, 2026-08-04). So: a real
- * street grid with a dense downtown, a mid-rise ring, low outskirts, an
- * industrial quarter and a river — about 900 buildings — but every one of
- * them is an instance, not a mesh. See `scenes/TargetCity.js` for the draw-call
- * budget and why the numbers below are the ones they are.
+ * the air, but I want it to be more extensive" (owner, 2026-08-04), and then
+ * on seeing it: "I want it detailed. We don't need fine texture but i want
+ * quite an elaborate city to drop the bomb on so it's a powerful scene."
  *
- * `radius` is the outer edge of the built-up area. The bombing run's flattened
- * pad in `main.js` (`rawEastHeight`'s `smoothstep(640, 260, dPad)`) is 640 m,
- * so the city keeps inside that or its outskirts would climb a hillside.
+ * So the second pass is STRUCTURE rather than texture: six named districts, a
+ * river with three crossings and a working waterfront, a marshalling yard, a
+ * heavy-industry quarter, a park, and a set of landmarks big enough to aim at.
+ * Every one of the several thousand pieces is an instance — see
+ * `scenes/TargetCity.js` for the draw-call budget and `scenes/PartKit.js` for
+ * how the landmarks cost four draw calls instead of two hundred.
+ *
+ * `radius` DELIBERATELY exceeds `CRATER.radius + CRATER.rimWidth` (810 m). The
+ * old city was 560 m across and sat entirely inside the crater, so the whole
+ * place vanished on the frame of the flash and there was nothing left for the
+ * shock front to knock over. Now roughly the outer third survives the fireball
+ * and is flattened progressively as the front reaches it, which is the thing
+ * the owner asked to be able to watch.
+ *
+ * The bombing run's flattened pad in `main.js` (`rawEastHeight`'s
+ * `smoothstep(640, 260, dPad)`) is only 640 m, so the outskirts stand on real
+ * rolling ground — every lot samples the mission's own height function rather
+ * than assuming one elevation, which is why a city this wide does not float.
  */
 export const TARGET_CITY = Object.freeze({
   name: 'Squatchbourg',
-  radius: 560,
-  blockSize: 74,        // metres between street centrelines
-  streetWidth: 13,
-  downtownRadius: 165,  // inside this, buildings are tall and packed
-  midRadius: 340,
-  maxHeight: 96,        // the one tower everybody aims at
+  radius: 1180,
+  blockSize: 78,        // metres between street centrelines
+  streetWidth: 14,
+  downtownRadius: 230,  // inside this, buildings are tall and packed
+  midRadius: 500,       // mid-rise ring; past it is low-rise and terraces
+  suburbRadius: 880,    // past this is smallholdings, sheds and the edge of town
+  maxHeight: 132,       // the one tower everybody aims at
+  /** The river: a bearing (radians) and how far the channel sits off centre. */
+  riverAngle: 0.34,
+  riverOffset: -260,
+  riverWidth: 96,
+  /** The industrial quarter is a wedge, centred on this bearing. */
+  industryAngle: Math.PI * 0.78,
+  industrySpread: 0.62,
   seed: 0x5A5C17,
 });
 
@@ -362,6 +383,8 @@ export const WARNINGS_ENOLA = {
   payloadArmed: { text: 'PAYLOAD ARMED', kind: 'amber' },
   flak: { text: 'TAKING FIRE', kind: 'red' },            // 'defense.hit'
   overweight: { text: 'OVERWEIGHT', kind: 'amber' },
+  fighters: { text: 'FIGHTERS', kind: 'red' },           // 'fighters.first'
+  unattended: { text: 'NOBODY FLYING', kind: 'amber' },  // the autopilot's price
 };
 
 /*

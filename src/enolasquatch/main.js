@@ -88,13 +88,15 @@ import {
 
 import {
   AC_ENOLA, TURN_POINT, ZONES_EAST, LANDMARKS_EAST, TARGET_X, ENOLA_PARKING, CRATER,
+  TARGET_CITY,
 } from './config.js';
 import { EnolaSquatch } from './scenes/EnolaSquatch.js';
-import { TargetCity, craterOffset } from './scenes/TargetCity.js';
+import { TargetCity, craterOffset, riverCarve } from './scenes/TargetCity.js';
 import { FatSquatch } from './payload/FatSquatch.js';
 import { DialogueSystem } from './dialogue/DialogueSystem.js';
 import { RELEASE_LINES } from './dialogue/script.js';
 import { MissionController } from './mission/MissionController.js';
+import { blastLuminance, shockRadiusAt } from './vfx/Detonation.js';
 import { EnolaPreflight } from './preflight.js';
 import { buildAirfieldScenery } from './airfield-scenery.js';
 import { createCrew, makeToolCart } from './crew.js';
@@ -194,6 +196,14 @@ function rawEastHeight(x, z) {
   const dPad = Math.hypot(x - TARGET_X, (z - COMPOUND.z) * 1.3);
   const pad = smoothstep(640, 260, dPad);
   h = lerp(h, ZONES_EAST[ZONES_EAST.length - 1].base - 12, pad);
+  /* Squatchbourg's river runs in a real channel rather than lying on the
+   * ground as a flat blue ribbon. `riverCarve` is exported by
+   * `scenes/TargetCity.js` and is the ONLY definition of that channel: the
+   * city lays its water surface and its quays against the same function, so
+   * what the aeroplane can hit and what the player can see are one surface.
+   * See the header note above `craterOffset` for the same argument about the
+   * crater. */
+  h += riverCarve(x - TARGET_X, z - COMPOUND.z, TARGET_CITY);
   return h;
 }
 
@@ -309,7 +319,7 @@ function buildEastGround(sceneRef) {
     // Clear of the runway/apron footprint and of the target's flattened pad.
     if (Math.abs(wx - WP.x) < 60 && Math.abs(wz) < WP.rwyHalf + 90) continue;
     if (wx > -160 && wx < 40 && wz > 300 && wz < 460) continue;
-    if (Math.hypot(wx - TARGET_X, wz - COMPOUND.z) < 520) continue;
+    if (Math.hypot(wx - TARGET_X, wz - COMPOUND.z) < TARGET_CITY.radius + 140) continue;
     const h = groundHeightCombined(wx, wz);
     dummy.position.set(wx, h + 4.2, wz);
     dummy.rotation.y = rand() * Math.PI * 2;
@@ -435,9 +445,13 @@ resolveGear(['crest.round'])
   })
   .catch(() => { /* the drawn crest is already on every badge */ });
 
-/* Squatchbourg. Built once, up front, because it is 15 draw calls and about
- * 22k triangles that never change until they are removed — see the budget note
- * at the top of `scenes/TargetCity.js`. */
+/* Squatchbourg. Built once, up front: six districts, a river with three
+ * crossings, a marshalling yard, heavy industry and twenty-odd landmarks, all
+ * of it instanced down to about twenty draw calls that never change until the
+ * blast wave starts taking them away — see the budget note at the top of
+ * `scenes/TargetCity.js` and `scenes/PartKit.js` for how the landmarks cost
+ * four draw calls instead of two hundred. `city.stats()` reports the real
+ * numbers and `tools/verify-enolasquatch.mjs` measures a real render. */
 window.__squatchStage?.('Laying out Squatchbourg…');
 const city = new TargetCity(scene, {
   x: TARGET_X,
@@ -806,6 +820,93 @@ cutSkip.textContent = 'SPACE — SKIP';
 cutscreen.append(cutFade, cutBars, cutText, cutSub, cutSkip);
 document.body.appendChild(cutscreen);
 
+/* ------------------------------------------------------------------ */
+/* The flash, the turret sight, and the strip that says who is flying   */
+/*
+ * Owner: "the flash that whites out the cockpit". `MissionController` publishes
+ * `blastFlash` (0..1) and `blastTint` every frame off
+ * `../vfx/Detonation.js`'s real double-pulse luminance curve; this is the two
+ * pixels of DOM that draw it. It is a full-screen overlay rather than a
+ * post-process because there is no EffectComposer on this page and a
+ * `mix-blend-mode: screen` div does the same job for nothing.
+ *
+ * The reticle and the belt/heat strip only exist while the player is in the
+ * tail, and the autopilot line only while the gyro has the aeroplane, so on a
+ * normal flight none of this is on screen at all.
+ */
+/* ------------------------------------------------------------------ */
+
+const blastscreen = document.createElement('div');
+blastscreen.id = 'enola-blast';
+blastscreen.style.cssText = [
+  'position:fixed', 'inset:0', 'pointer-events:none', 'z-index:45',
+  'opacity:0', 'background:#ffffff', 'mix-blend-mode:screen',
+].join(';');
+document.body.appendChild(blastscreen);
+
+const combatHud = document.createElement('div');
+combatHud.id = 'enola-combat';
+combatHud.style.cssText = [
+  'position:fixed', 'inset:0', 'pointer-events:none', 'z-index:30', 'display:none',
+].join(';');
+const reticle = document.createElement('div');
+reticle.style.cssText = [
+  'position:absolute', 'left:50%', 'top:50%', 'width:96px', 'height:96px',
+  'margin:-48px 0 0 -48px', 'border:1px solid rgba(168,255,122,0.55)',
+  'border-radius:50%', 'box-shadow:0 0 12px rgba(168,255,122,0.25) inset',
+].join(';');
+const reticleDot = document.createElement('div');
+reticleDot.style.cssText = [
+  'position:absolute', 'left:50%', 'top:50%', 'width:4px', 'height:4px',
+  'margin:-2px 0 0 -2px', 'background:rgba(168,255,122,0.9)', 'border-radius:50%',
+].join(';');
+const beltStrip = document.createElement('div');
+beltStrip.style.cssText = [
+  'position:absolute', 'left:50%', 'bottom:14%', 'transform:translateX(-50%)',
+  'font:600 13px/1.4 "Trebuchet MS",system-ui,sans-serif', 'letter-spacing:0.12em',
+  'color:#a8ff7a', 'text-shadow:0 2px 8px #000', 'text-align:center', 'white-space:nowrap',
+].join(';');
+combatHud.append(reticle, reticleDot, beltStrip);
+document.body.appendChild(combatHud);
+
+const autoStrip = document.createElement('div');
+autoStrip.id = 'enola-autopilot';
+autoStrip.style.cssText = [
+  'position:fixed', 'left:50%', 'top:9%', 'transform:translateX(-50%)',
+  'pointer-events:none', 'z-index:29', 'display:none',
+  'font:600 12px/1.3 "Trebuchet MS",system-ui,sans-serif', 'letter-spacing:0.16em',
+  'color:#e8c86a', 'text-shadow:0 2px 8px #000',
+].join(';');
+document.body.appendChild(autoStrip);
+
+function paintCombat() {
+  const flash = mission.blastFlash || 0;
+  if (flash > 0.001) {
+    const t = mission.blastTint || { r: 1, g: 1, b: 1 };
+    blastscreen.style.background = `rgb(${Math.round(t.r * 255)},${Math.round(t.g * 255)},${Math.round(t.b * 255)})`;
+    blastscreen.style.opacity = String(Math.min(1, flash));
+  } else if (blastscreen.style.opacity !== '0') {
+    blastscreen.style.opacity = '0';
+  }
+
+  const gun = mission.gunner;
+  const manned = !!gun?.manned;
+  combatHud.style.display = manned ? 'block' : 'none';
+  if (manned) {
+    const heat = Math.round(gun.heat * 100);
+    beltStrip.textContent = gun.jammed > 0
+      ? 'GUN JAMMED — LET IT COOL'
+      : `BELT ${gun.rounds}  ·  BARRELS ${heat}%  ·  ${gun.kills} DOWN`;
+    const hot = gun.jammed > 0 || gun.heat > 0.7;
+    reticle.style.borderColor = hot ? 'rgba(255,120,90,0.7)' : 'rgba(168,255,122,0.55)';
+    beltStrip.style.color = hot ? '#ff8a6a' : '#a8ff7a';
+  }
+
+  const line = mission.autopilot?.readout?.();
+  autoStrip.style.display = line ? 'block' : 'none';
+  if (line) autoStrip.textContent = line;
+}
+
 function paintCutscene() {
   const cs = mission.cutscene;
   const on = !!cs?.active;
@@ -826,6 +927,7 @@ function paintHud() {
   updatePreflightChecklist();
   updateChoicePanel();
   paintCutscene();
+  paintCombat();
 }
 
 /** One simulated tick: input -> physics -> engines -> mission -> dialogue ->
@@ -841,6 +943,15 @@ function simulateFrame(dt) {
 
   if (inCockpit) {
     input.applyTo(physics.controls);
+    /* THE AUTOPILOT GOES HERE AND NOWHERE ELSE.
+     *
+     * After `applyTo` — which writes the player's (centred, while he is in the
+     * tail) stick into the same three axes — and before the throttles are
+     * handed to the engines and the physics is stepped. Put it earlier and the
+     * player's centred stick erases it every frame; put it later and its own
+     * throttle never reaches the engines. See
+     * `MissionController.flyControls()`. */
+    mission.flyControls(dt);
     // One throttle lever drives both engines on each side — see the
     // engineNames convention above and config.js's engine-count design note.
     engines.setThrottle(0, physics.controls.throttleL);
@@ -900,10 +1011,18 @@ function simulateFrame(dt) {
   airfield.update(dt, 0.4 + weather.crosswind * 0.1, 0);
 
   if (inCockpit) {
-    cameras.update(dt, physics, aircraft.group, aircraft.pilotEye, {
-      roughness: physics.gust.length() * 0.05 + (physics.onGround ? physics.groundSpeed * 0.01 : 0),
-      gLoad: physics.gLoad,
-    });
+    /* While the player is in the tail the camera is the GUN's, not the
+     * CameraManager's. `CameraManager` only knows three views and adding a
+     * fourth would mean editing `src/beefrun/cameras.js`, which the Beef Run
+     * shares and the standing rules call canonical — so the turret places the
+     * camera itself and the manager is simply not run that frame. */
+    if (mission.gunner.manned) mission.gunner.applyCamera(camera);
+    else {
+      cameras.update(dt, physics, aircraft.group, aircraft.pilotEye, {
+        roughness: physics.gust.length() * 0.05 + (physics.onGround ? physics.groundSpeed * 0.01 : 0),
+        gLoad: physics.gLoad,
+      });
+    }
   }
   audio.updateListener?.(camera);
 
@@ -1092,8 +1211,45 @@ window.__enolaSquatch = {
   player, interaction, preflight, crew, city, audio: missionAudio,
   get defense() { return mission.defense; },
   get targeting() { return mission.targeting; },
+  get interceptors() { return mission.interceptors; },
+  get autopilot() { return mission.autopilot; },
+  get gunner() { return mission.gunner; },
+  get detonation() { return mission.detonation; },
   get crater() { return activeCrater; },
+
+  /* ---- The escalation pass's own console/verification handles ---- */
+
+  /** Put a wave of night fighters up right now. */
+  spawnFighters(count = 2, delay = 0) {
+    mission.interceptors.deploy({ around: physics.position, count, delay });
+    simulateFrame(1 / 60);
+    return mission.interceptors.fighters.length;
+  },
+  /** Hand the aeroplane to the gyro, or take it back. */
+  autopilotToggle() { const on = mission.toggleAutopilot(); simulateFrame(1 / 60); return on; },
+  /** Climb into the tail, or come forward. Engages the autopilot if needed. */
+  gunToggle() { const on = mission.toggleGun(); simulateFrame(1 / 60); return on; },
+  /** Hold the trigger for `seconds`, aimed wherever the turret is pointing. */
+  fireGun(seconds = 1) {
+    mission.gunner.setFiring(true);
+    let t = 0;
+    while (t < seconds) { simulateFrame(1 / 60); t += 1 / 60; }
+    mission.gunner.setFiring(false);
+    simulateFrame(1 / 60);
+    return mission.gunner.readout();
+  },
+  /** Point the turret at a world position. Clamped to the real arc. */
+  aimGunAt(x, y, z) {
+    const inArc = mission.gunner.pointAt(new THREE.Vector3(x, y, z));
+    simulateFrame(1 / 60);
+    return { inArc, yaw: mission.gunner.yaw, pitch: mission.gunner.pitch };
+  },
   groundHeight: groundHeightCombined,
+  /* The detonation's own maths, so a verifier can assert the SHAPE of the
+   * double flash and the shock expansion rather than trying to catch a
+   * quarter-second peak by sampling. */
+  blastLuminance,
+  shockRadiusAt,
   /** The crater's own profile, so a caller can hold the ground against it. */
   craterOffsetAt: (d) => craterOffset(d, CRATER),
   go,
@@ -1193,6 +1349,46 @@ window.__enolaSquatch = {
       },
       scenery: { trees: airfieldScenery.trees, tufts: airfieldScenery.tufts },
       cityDestroyed: city.destroyed,
+      city: city.stats(),
+      /* The 2026-08-04 escalation pass: the air battle, the box that flies for
+       * you, the gun you fly it to work, and the blast. All read-only. */
+      fighters: {
+        deployed: mission.interceptors.deployed,
+        active: mission.interceptors.activeCount,
+        engaged: mission.interceptors.engagedCount,
+        states: mission.interceptors.fighters.map((f) => f.state),
+        kills: mission.interceptors.kills,
+        hitsTaken: mission.interceptors.hitsTaken,
+        roundsAtUs: mission.interceptors.roundsAtUs,
+      },
+      autopilot: {
+        engaged: mission.autopilot.engaged,
+        lockout: +mission.autopilot.lockout.toFixed(2),
+        reason: mission.autopilot.reason,
+        predictability: +mission.autopilot.predictability.toFixed(3),
+        headingError: +mission.autopilot.holdError.heading.toFixed(2),
+        altitudeError: +mission.autopilot.holdError.altitude.toFixed(1),
+      },
+      gunner: mission.gunner.readout(),
+      flak: {
+        state: mission.defense.state,
+        intensity: +mission.defense.intensity.toFixed(2),
+        trackQuality: +mission.defense.trackQuality.toFixed(3),
+        batteries: mission.defense.batteries.length,
+        burstsFired: mission.defense.burstsFired,
+        nearMisses: mission.defense.nearMisses,
+        shellsInFlight: mission.defense._shells.length,
+      },
+      blast: {
+        live: mission.detonation.live,
+        t: +mission.detonation.t.toFixed(2),
+        flash: +(mission.blastFlash || 0).toFixed(3),
+        shockRadius: Math.round(mission.detonation.shockRadius),
+        shockArrived: mission._shockArrived,
+        cityFlattened: city.flattened,
+        cityShock: Math.round(city.shockRadius || 0),
+      },
+      evasion: +mission.evasion.toFixed(3),
       phaseTime: +mission.phaseTime.toFixed(2),
       missionTime: +mission.missionTime.toFixed(2),
       checkpoint: mission.checkpoint,
@@ -1301,7 +1497,9 @@ const pauseMenu = createPauseMenu({
   getObjective: () => $('br-objective')?.textContent?.trim() || 'Follow the crew’s current instruction.',
   instructions: [
     'On the apron: W A S D — walk. E — check the thing the marker is on. E at the crew door — get in.',
-    'In the aircraft: W/S — pitch. A/D — bank. Q/E — rudder. Shift/Ctrl — throttle.',
+    'In the aircraft: W/S — pitch. A/D — bank. Q/E — rudder. Shift/Z — throttle.',
+    'P — autopilot (holds heading and height, and nothing else). T — take the tail gun.',
+    'On the gun: mouse traverses the turret, left button fires. Nobody is flying while you are back there.',
     'F/G — flaps. Hold Space — air brake. B — wheel brakes. V — parking brake.',
     '3 — battery. 4 — fuel. 1/2 — start or stop your two engines (three and four).',
     '1-5 — pick a line when the release choice is on screen. 1-3 for the engine emergency.',
@@ -1343,7 +1541,8 @@ $('es-again')?.addEventListener('click', () => window.location.reload());
 document.addEventListener('mousemove', (e) => {
   if (game.paused) return;
   if (dragLook && !dragging) return;
-  if (mission.inCockpit) cameras.look(e.movementX, e.movementY);
+  if (mission.gunner.manned) mission.gunner.look(e.movementX, e.movementY);
+  else if (mission.inCockpit) cameras.look(e.movementX, e.movementY);
   else if (player.enabled) player.handleMouseMove(e.movementX, e.movementY);
 });
 
@@ -1351,12 +1550,14 @@ document.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   dragging = true;
   if (game.paused) return;
-  if (!mission.inCockpit) interaction.press();
+  if (mission.gunner.manned) mission.gunner.setFiring(true);
+  else if (!mission.inCockpit) interaction.press();
 });
 
 document.addEventListener('mouseup', (e) => {
   if (e.button !== 0) return;
   dragging = false;
+  if (mission.gunner.manned) mission.gunner.setFiring(false);
   if (!mission.inCockpit) interaction.release();
 });
 
@@ -1369,6 +1570,17 @@ document.addEventListener('keydown', (e) => {
   if (code === 'Space' || code === 'Shift' || code === 'Control') e.preventDefault();
   player.setKey(e.code, true);
   if (!mission.inCockpit && e.code === 'KeyE') interaction.press();
+  /* P and T. Neither is in `FlightInput`'s action map and neither should be:
+   * that file is shared with the Beef Run, which has no autopilot and no
+   * turret. Handled here, on this page only. */
+  if (mission.inCockpit && e.code === 'KeyP') {
+    const on = mission.toggleAutopilot();
+    hud.toast(on ? 'AUTOPILOT ENGAGED' : 'AUTOPILOT OFF');
+  }
+  if (mission.inCockpit && e.code === 'KeyT') {
+    const on = mission.toggleGun();
+    hud.toast(on ? 'TAIL GUN — LEFT BUTTON TO FIRE' : 'BACK IN THE SEAT');
+  }
   // The nightfall cut is skippable — see `MissionController.skipCutscene()`.
   if (mission.phase === 'nightfall' && (e.code === 'Space' || e.code === 'Enter')) {
     mission.skipCutscene();
