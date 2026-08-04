@@ -816,8 +816,18 @@ export function buildSilentSquatch({
     registerLight(l);
     return l;
   }
-  /** A caged industrial fluorescent, mesh + light. */
-  function fluoro(x, y, z, { rotY = 0, len = 1.3, colour = 0xdfe8ff, intensity = 5.4, range = 11 } = {}) {
+  /**
+   * A caged industrial fluorescent, mesh + light.
+   *
+   * `ceil` is the underside of the slab it hangs from, and passing it is not
+   * optional dressing: the fixture body tops out 0.105 m above `y`, so every
+   * one of these used to end a fifth of a metre short of the soffit with
+   * nothing between the two. Given the ceiling, it grows its own drop rods and
+   * a pair of fixing plates, and the thing is actually held up.
+   */
+  function fluoro(x, y, z, {
+    rotY = 0, len = 1.3, colour = 0xdfe8ff, intensity = 5.4, range = 11, ceil = null,
+  } = {}) {
     const g = group('ss-fluoro');
     g.position.set(x, y, z);
     g.rotation.y = rotY;
@@ -831,12 +841,25 @@ export function buildSilentSquatch({
     for (const sz of [-0.12, 0.12]) {
       g.add(box({ size: [len + 0.14, 0.015, 0.015], pos: [0, -0.13, sz], mat: M_STEEL_DULL, cast: false }));
     }
+    const drop = ceil === null ? 0 : ceil - (y + 0.105);
+    if (drop > 0.02) {
+      for (const sx of [-len / 2 + 0.16, len / 2 - 0.16]) {
+        g.add(box({
+          size: [0.028, drop, 0.028], pos: [sx, 0.105 + drop / 2, 0], mat: M_STEEL_DULL, cast: false,
+        }));
+        g.add(box({
+          size: [0.12, 0.02, 0.12], pos: [sx, 0.105 + drop - 0.01, 0], mat: M_STEEL_DULL, cast: false,
+        }));
+      }
+    }
     root.add(g);
     const l = light(colour, intensity, range, x, y - 0.15, z);
     return { group: g, light: l, tube: g.children[0] };
   }
-  /** A run of exposed pipe with brackets. */
-  function pipeRun(axis, from, to, at, y, { r = 0.07, material = M_PIPE, brackets = true } = {}) {
+  /** A run of exposed pipe with brackets. `ceil` makes the brackets reach it. */
+  function pipeRun(axis, from, to, at, y, {
+    r = 0.07, material = M_PIPE, brackets = true, ceil = null,
+  } = {}) {
     const len = Math.abs(to - from);
     const mid = (from + to) / 2;
     const m = cylinder({
@@ -850,12 +873,17 @@ export function buildSilentSquatch({
     });
     root.add(m);
     if (brackets) {
+      /* A bracket that stops in mid-air is a pipe hanging on nothing. Given
+       * the soffit, each one spans from the top of the pipe to it. */
+      const bTop = ceil === null ? y + 0.19 : ceil;
+      const bH = Math.max(0.08, bTop - (y + r));
+      const bY = bTop - bH / 2;
       const n = Math.max(2, Math.round(len / 2.2));
       for (let i = 0; i <= n; i++) {
         const p = from + ((to - from) * i) / n;
         root.add(box({
-          size: axis === 'x' ? [0.05, 0.16, r * 2.6] : [r * 2.6, 0.16, 0.05],
-          pos: axis === 'x' ? [p, y + 0.11, at] : [at, y + 0.11, p],
+          size: axis === 'x' ? [0.05, bH, r * 2.6] : [r * 2.6, bH, 0.05],
+          pos: axis === 'x' ? [p, bY, at] : [at, bY, p],
           mat: M_STEEL_DULL,
           cast: false,
         }));
@@ -863,11 +891,15 @@ export function buildSilentSquatch({
     }
     return m;
   }
-  /** A security camera on a bracket, aimed at a point. */
-  function camera_(x, y, z, aim) {
+  /** A security camera on a bracket, aimed at a point. `mount` is the soffit. */
+  function camera_(x, y, z, aim, { mount = null } = {}) {
     const g = group('ss-camera');
     g.position.set(x, y, z);
-    g.add(box({ size: [0.08, 0.22, 0.08], pos: [0, 0.11, 0], mat: M_STEEL_DULL }));
+    const stem = Math.max(0.22, mount === null ? 0.22 : mount - y);
+    g.add(box({ size: [0.08, stem, 0.08], pos: [0, stem / 2, 0], mat: M_STEEL_DULL }));
+    if (stem > 0.24) {
+      g.add(box({ size: [0.2, 0.02, 0.2], pos: [0, stem - 0.01, 0], mat: M_STEEL_DULL, cast: false }));
+    }
     const body = group('ss-camera-body');
     g.add(body);
     body.add(box({ size: [0.13, 0.13, 0.34], pos: [0, 0, 0], mat: M_BLACK }));
@@ -877,7 +909,15 @@ export function buildSilentSquatch({
     root.add(g);
     return g;
   }
-  /** A stain on the floor. Deliberately not cleaned up. */
+  /**
+   * A stain on the floor. Deliberately not cleaned up.
+   *
+   * `y` is the SURFACE it lies on, not the datum -- the lower level's floor
+   * finish tops out 12 mm above LAB_Y, and every stain down here used to be
+   * authored at the datum, which buried the lot of them under the slab. The
+   * per-seed lift on top of that is z-fight insurance: these overlap each
+   * other by design, and two decals on one plane flicker.
+   */
   function stain(x, z, y, size, seed, opacity = 1) {
     const m = new THREE.Mesh(
       new THREE.PlaneGeometry(size, size * (0.7 + (seed % 5) * 0.09)),
@@ -887,30 +927,46 @@ export function buildSilentSquatch({
     );
     m.rotation.x = -Math.PI / 2;
     m.rotation.z = seed * 1.7;
-    m.position.set(x, y + 0.006, z);
+    m.position.set(x, y + 0.006 + (seed % 7) * 0.0016, z);
+    m.name = 'ss-stain';
     root.add(m);
     return m;
   }
-  /** A drainage channel: a trench with a grating over it. */
+  /**
+   * A drainage channel: a trench with a grating over it.
+   *
+   * `y` is the floor SURFACE. Built proud of it rather than sunk into it,
+   * because there is no hole in the slab to sink it into: the first version
+   * put the trench's top face exactly on the floor's top face (two coplanar
+   * surfaces, guaranteed flicker) with the grating bars 7 mm UNDER the
+   * finished floor, so the whole channel rendered as two side rails and
+   * nothing between them.
+   */
   function drainChannel(x0, x1, z, y, { width = 0.26 } = {}) {
     root.add(box({
-      size: [x1 - x0, 0.16, width], pos: [(x0 + x1) / 2, y - 0.08, z], mat: M_BLACK, cast: false,
+      size: [x1 - x0, 0.03, width], pos: [(x0 + x1) / 2, y + 0.015, z], mat: M_BLACK, cast: false,
     }));
     const bars = Math.max(4, Math.round((x1 - x0) / 0.42));
     for (let i = 0; i < bars; i++) {
       root.add(box({
-        size: [0.055, 0.02, width],
-        pos: [x0 + 0.08 + ((x1 - x0 - 0.16) * i) / (bars - 1), y + 0.005, z],
+        size: [0.055, 0.018, width],
+        pos: [x0 + 0.08 + ((x1 - x0 - 0.16) * i) / (bars - 1), y + 0.031, z],
         mat: M_RUST,
         cast: false,
       }));
     }
     for (const sz of [z - width / 2 - 0.03, z + width / 2 + 0.03]) {
       root.add(box({
-        size: [x1 - x0, 0.04, 0.06], pos: [(x0 + x1) / 2, y + 0.01, sz], mat: M_STEEL_DULL, cast: false,
+        size: [x1 - x0, 0.04, 0.06], pos: [(x0 + x1) / 2, y + 0.02, sz], mat: M_STEEL_DULL, cast: false,
       }));
     }
   }
+  /**
+   * The finished floor of the lower level -- `ss-lower-floor`'s top face, 12
+   * mm over LAB_Y. Anything that LIES ON that floor (a stain, a pool, a
+   * grating) has to be authored against this, not against the datum.
+   */
+  const LAB_FLOOR = LAB_Y + 0.012;
 
   /* ================================================================== */
   /* BEAT 3a -- THE INNOCENT HALF                                        */
@@ -956,19 +1012,34 @@ export function buildSilentSquatch({
       mat: M_WOOD_DK,
       name: 'wine-cellar-lining',
     }));
-    // Two double-height racks, back to back on the stair side.
+    /* Two double-height racks, back to back on the stair side.
+     *
+     * Built as a carcass -- back, plinth, head, cheeks and four shelves --
+     * rather than as the solid block it used to be. The block was 0.62 m deep
+     * and the bottles were laid at x=0.16 inside it, so twenty-four bottles
+     * sat entirely INSIDE the timber with 10 mm of one end showing: a wine
+     * cellar with no visible wine. Same footprint, same collider, same
+     * bottles; they are just in a rack now instead of in a log. */
     const racks = [];
     for (const [rz, rot] of [[wineZ0 + 0.55, 0], [wineZ1 - 0.55, Math.PI]]) {
       const g = group('wine-rack');
       g.position.set(wineX1 - 0.42, BY, rz);
       g.rotation.y = rot;
-      g.add(box({ size: [0.62, 2.1, 2.0], pos: [0, 1.05, 0], mat: M_WOOD_DK }));
+      g.add(box({ size: [0.1, 2.1, 2.0], pos: [-0.26, 1.05, 0], mat: M_WOOD_DK }));
+      g.add(box({ size: [0.62, 0.08, 2.0], pos: [0, 0.04, 0], mat: M_WOOD_DK }));
+      g.add(box({ size: [0.62, 0.08, 2.0], pos: [0, 2.06, 0], mat: M_WOOD_DK }));
+      for (const cz of [-0.96, 0.96]) {
+        g.add(box({ size: [0.62, 2.1, 0.08], pos: [0, 1.05, cz], mat: M_WOOD_DK }));
+      }
       for (let row = 0; row < 4; row++) {
+        g.add(box({
+          size: [0.56, 0.03, 1.9], pos: [0.02, 0.42 + row * 0.42 - 0.07, 0], mat: M_WOOD_DK, cast: false,
+        }));
         for (let col = 0; col < 6; col++) {
           g.add(cylinder({
             r: 0.055,
             h: 0.32,
-            pos: [0.16, 0.42 + row * 0.42, -0.8 + col * 0.32],
+            pos: [0.02, 0.42 + row * 0.42, -0.8 + col * 0.32],
             rotZ: Math.PI / 2,
             mat: (row + col) % 3 === 0 ? M_WINE_RED : M_WINE,
             cast: false,
@@ -1082,11 +1153,20 @@ export function buildSilentSquatch({
     const tvZ = entZ1 - 0.2;
     root.add(box({ size: [2.2, 0.5, 0.4], pos: [entMid, BY + 0.25, tvZ], mat: M_WOOD_DK }));
     prop(entMid - 1.1, entMid + 1.1, BY, BY + 0.5, tvZ - 0.22, tvZ + 0.22);
+    /* Foot and neck, because the panel's bottom edge lands 60 mm over the
+     * unit's top and a television standing on air is a television standing on
+     * air however dark the room is. */
+    root.add(box({
+      size: [0.52, 0.03, 0.3], pos: [entMid, BY + 0.515, tvZ], mat: M_STEEL_DULL, cast: false, name: 'ent-tv-foot',
+    }));
+    root.add(box({
+      size: [0.14, 0.06, 0.1], pos: [entMid, BY + 0.55, tvZ], mat: M_STEEL_DULL, cast: false, name: 'ent-tv-neck',
+    }));
     root.add(box({
       size: [1.75, 1.0, 0.07], pos: [entMid, BY + 1.06, tvZ], mat: M_BLACK, name: 'ent-tv',
     }));
     root.add(box({
-      size: [1.62, 0.9, 0.02], pos: [entMid, BY + 1.06, tvZ - 0.05], mat: M_SCREEN_OFF, cast: false,
+      size: [1.62, 0.9, 0.02], pos: [entMid, BY + 1.06, tvZ - 0.05], mat: M_SCREEN_OFF, cast: false, name: 'ent-tv-screen',
     }));
 
     /* A bar cart, tucked into the north-west corner beside the set so that
@@ -1203,7 +1283,9 @@ export function buildSilentSquatch({
           unique: true,
         }),
       );
-      m.position.set(t / 2 + 0.06, py, pzz);
+      /* 0.068, not 0.06: the frame's own front face lands on 0.06 and a
+       * picture plane sharing a plane with its frame flickers. */
+      m.position.set(t / 2 + 0.068, py, pzz);
       m.rotation.y = Math.PI / 2;
       panel.add(m);
       panel.add(box({
@@ -1217,7 +1299,9 @@ export function buildSilentSquatch({
      * mounted head that tells you where the door is. */
     function trophyHead(z) {
       const g = group('silent-trophy');
-      g.position.set(d.x1 + 0.02, BY + 1.78, z);
+      // +0.002, not +0.02: the shield hangs ON the corridor's west end wall,
+      // whose inner face is exactly d.x1, and a 2 cm standoff reads as float.
+      g.position.set(d.x1 + 0.002, BY + 1.78, z);
       const fur = mat({ color: 0x3b2c20, roughness: 0.95 });
       g.add(box({ size: [0.06, 0.42, 0.4], pos: [0.03, 0, 0], mat: M_WOOD_DK, cast: false }));
       g.add(box({ size: [0.3, 0.3, 0.28], pos: [0.22, 0.02, 0], mat: fur }));
@@ -1300,16 +1384,35 @@ export function buildSilentSquatch({
     // the floor and the ceiling of the landing, and a hydraulic ram.
     const rails = group('hidden-wall-rails');
     root.add(rails);
-    for (const ry of [CELLAR_Y + 0.04, LANDING_CEIL - 0.12]) {
-      rails.add(box({
-        size: [0.12, 0.08, HIDDEN_ACROSS + w],
-        pos: [d.x0 - HIDDEN_BACK + 0.05, ry, pz - HIDDEN_ACROSS / 2],
-        mat: M_STEEL_DULL,
-        cast: false,
-      }));
-    }
+    // Floor rail, and a head rail deep enough to span soffit to panel head --
+    // it used to stop 0.16 m under the soffit and 0.12 m over the panel.
+    rails.add(box({
+      size: [0.12, 0.08, HIDDEN_ACROSS + w],
+      pos: [d.x0 - HIDDEN_BACK + 0.05, CELLAR_Y + 0.04, pz - HIDDEN_ACROSS / 2],
+      mat: M_STEEL_DULL,
+      cast: false,
+      name: 'hidden-wall-rail-floor',
+    }));
+    rails.add(box({
+      size: [0.12, LANDING_CEIL - d.y1, HIDDEN_ACROSS + w],
+      pos: [d.x0 - HIDDEN_BACK + 0.05, (LANDING_CEIL + d.y1) / 2, pz - HIDDEN_ACROSS / 2],
+      mat: M_STEEL_DULL,
+      cast: false,
+      name: 'hidden-wall-rail-head',
+    }));
+    // The ram, on its own stanchion. A tonne of hydraulics needs a foot.
+    const ramX = d.x0 - 0.6;
+    const ramZ = d.z1 + 0.25;
+    const ram = cylinder({
+      r: 0.09, h: 1.1, pos: [ramX, CELLAR_Y + 1.1, ramZ], rotZ: Math.PI / 2, mat: M_STEEL,
+    });
+    ram.name = 'hidden-wall-ram'; // build.js's cylinder() takes no name
+    rails.add(ram);
+    rails.add(box({
+      size: [0.2, 1.1, 0.26], pos: [ramX - 0.46, CELLAR_Y + 0.55, ramZ], mat: M_STEEL_DULL, name: 'hidden-wall-ram-foot',
+    }));
     rails.add(cylinder({
-      r: 0.09, h: 1.1, pos: [d.x0 - 0.6, CELLAR_Y + 1.1, d.z1 + 0.25], rotZ: Math.PI / 2, mat: M_STEEL,
+      r: 0.13, h: 0.12, pos: [ramX - 0.4, CELLAR_Y + 1.1, ramZ], rotZ: Math.PI / 2, mat: M_STEEL_DULL, cast: false,
     }));
 
     return {
@@ -1392,21 +1495,38 @@ export function buildSilentSquatch({
      * stretch of flight actually has. */
     const BANDS = 5;
     const bandDepth = (S.z1 - S.z0) / BANDS;
+    /** The underside of the raked soffit over the flight, band by band. */
+    const stairSoffitAt = (z) => {
+      const i = THREE.MathUtils.clamp(Math.floor((S.z1 - z) / bandDepth), 0, BANDS - 1);
+      return stairFloorAt(S.z1 - bandDepth * (i + 0.5)) + 2.55;
+    };
     for (let i = 0; i < BANDS; i++) {
       const zb = S.z1 - bandDepth * i;
       const za = zb - bandDepth;
+      /* Clipped at the landing's own south wall. Past that line the landing's
+       * masonry already closes this side, and two concrete boxes sharing a
+       * face is exactly the flicker the house has been reporting. */
+      const zc = Math.min(zb, L.z0 - 0.3);
       const yFloor = stairFloorAt(za);
+      /* Up to the soffit, not to a flat LAB_CEIL + 0.4.
+       *
+       * That constant is 0.15 m BELOW the cellar floor, so the top band's
+       * side walls finished under the landing and left a two-metre slot open
+       * to the void on each side of the head of the flight -- you could see
+       * daylight down the stairwell. The soffit rakes; the walls follow it,
+       * and the flat datum still wins at the bottom where it is the taller. */
+      const yTop = Math.max(LAB_CEIL + 0.4, stairSoffitAt((za + zc) / 2) + 0.21);
       for (const [wx0, wx1, tag] of [
         [S.x0 - 0.3, S.x0, 'ss-stair-west'], [S.x1, S.x1 + 0.3, 'ss-stair-east'],
       ]) {
         root.add(box({
-          size: [0.3, LAB_CEIL + 0.4 - yFloor, bandDepth],
-          pos: [(wx0 + wx1) / 2, (yFloor + LAB_CEIL + 0.4) / 2, (za + zb) / 2],
-          mat: concrete(bandDepth, 2.6),
+          size: [0.3, yTop - yFloor, zc - za],
+          pos: [(wx0 + wx1) / 2, (yFloor + yTop) / 2, (za + zc) / 2],
+          mat: concrete(zc - za, 2.6),
           name: tag,
           cast: false,
         }));
-        solid(wx0, wx1, yFloor, LAB_CEIL + 0.4, za, zb);
+        solid(wx0, wx1, yFloor, yTop, za, zc);
       }
       root.add(box({
         size: [S.x1 - S.x0 + 0.6, 0.14, bandDepth + 0.02],
@@ -1439,38 +1559,76 @@ export function buildSilentSquatch({
     /* ---- Dressing: this is where the house stops and the other thing
      * starts, so everything from here down is service-grade. */
     // Pipes across the landing ceiling and down the stairwell.
-    pipeRun('z', L.z0, L.z1, L.x0 + 0.7, LANDING_CEIL - 0.28);
-    pipeRun('z', L.z0, L.z1, L.x0 + 1.0, LANDING_CEIL - 0.28, { r: 0.045, material: M_PIPE_RED });
-    pipeRun('x', L.x0, L.x1, L.z1 - 0.5, LANDING_CEIL - 0.3, { r: 0.055 });
-    for (let i = 0; i < steps; i += 4) {
-      const z = S.z1 - depth * (i + 0.5);
-      root.add(cylinder({
-        r: 0.06, h: depth * 4.1, pos: [S.x1 - 0.22, stairFloorAt(z) + 2.3, z], rotX: Math.PI / 2, mat: M_PIPE, cast: false,
-      }));
+    pipeRun('z', L.z0, L.z1, L.x0 + 0.7, LANDING_CEIL - 0.28, { ceil: LANDING_CEIL });
+    pipeRun('z', L.z0, L.z1, L.x0 + 1.0, LANDING_CEIL - 0.28, { r: 0.045, material: M_PIPE_RED, ceil: LANDING_CEIL });
+    pipeRun('x', L.x0, L.x1, L.z1 - 0.5, LANDING_CEIL - 0.3, { r: 0.055, ceil: LANDING_CEIL });
+    /* One raked run down the flight, on hangers. It used to be five separate
+     * stubs at five different constant heights, each 0.76 m below the last
+     * and 0.03 m clear of its neighbour: a pipe cut into pieces and left in
+     * mid-air, which is not a service riser, it is a mistake. */
+    {
+      const pz0 = S.z0 + 0.2;
+      const pz1 = S.z1 - 0.2;
+      const py0 = stairFloorAt(pz0) + 2.28;
+      const py1 = stairFloorAt(pz1) + 2.28;
+      const raked = cylinder({
+        r: 0.06,
+        h: Math.hypot(pz1 - pz0, py1 - py0),
+        pos: [S.x1 - 0.22, (py0 + py1) / 2, (pz0 + pz1) / 2],
+        rotX: Math.PI / 2 - Math.atan2(py1 - py0, pz1 - pz0),
+        mat: M_PIPE,
+        cast: false,
+      });
+      raked.name = 'ss-stair-pipe'; // build.js's cylinder() takes no name
+      root.add(raked);
+      for (let i = 0; i < BANDS; i++) {
+        const z = S.z1 - bandDepth * (i + 0.5);
+        const yPipe = stairFloorAt(z) + 2.34;
+        const ySoffit = stairSoffitAt(z);
+        root.add(box({
+          size: [0.05, Math.max(0.04, ySoffit - yPipe), 0.05],
+          pos: [S.x1 - 0.22, (yPipe + ySoffit) / 2, z],
+          mat: M_STEEL_DULL,
+          cast: false,
+          name: 'ss-stair-pipe-hanger',
+        }));
+      }
     }
     // Lighting: two on the landing, four down the flight. One of them fails.
     const landingTubes = [
-      fluoro((L.x0 + L.x1) / 2, LANDING_CEIL - 0.3, L.z1 - 1.3, { rotY: Math.PI / 2 }),
-      fluoro((L.x0 + L.x1) / 2, LANDING_CEIL - 0.3, L.z0 + 1.3, { rotY: Math.PI / 2 }),
+      fluoro((L.x0 + L.x1) / 2, LANDING_CEIL - 0.3, L.z1 - 1.3, { rotY: Math.PI / 2, ceil: LANDING_CEIL }),
+      fluoro((L.x0 + L.x1) / 2, LANDING_CEIL - 0.3, L.z0 + 1.3, { rotY: Math.PI / 2, ceil: LANDING_CEIL }),
     ];
     const stairTubes = [];
     for (let i = 0; i < 4; i++) {
       const z = THREE.MathUtils.lerp(S.z1 - 0.9, S.z0 + 0.9, i / 3);
       stairTubes.push(fluoro((S.x0 + S.x1) / 2, stairFloorAt(z) + 2.42, z, {
-        rotY: Math.PI / 2, len: 1.1, intensity: 4.6, range: 9,
+        rotY: Math.PI / 2, len: 1.1, intensity: 4.6, range: 9, ceil: stairSoffitAt(z),
       }));
     }
     // Drainage channel down the middle of the landing, and a drip.
     drainChannel(L.x0 + 0.4, L.x1 - 0.4, (L.z0 + L.z1) / 2, CELLAR_Y);
-    // Cameras: one watching the door, one watching the flight.
+    /* Cameras: one watching the door, one watching the flight. Both hung off
+     * the soffit they are actually under -- the stairwell one used to take
+     * its height from the floor at the TOP of the rake and ended up sitting
+     * in the middle of the raking soffit two bands down. */
     camera_(L.x0 + 0.35, LANDING_CEIL - 0.45, L.z1 - 0.4,
-      [SECRET_DOOR.x0, CELLAR_Y + 1.3, (SECRET_DOOR.z0 + SECRET_DOOR.z1) / 2]);
-    camera_(S.x1 - 0.2, stairFloorAt(S.z1) + 2.3, S.z1 - 0.5,
-      [(S.x0 + S.x1) / 2, LAB_Y + 1.2, S.z0]);
+      [SECRET_DOOR.x0, CELLAR_Y + 1.3, (SECRET_DOOR.z0 + SECRET_DOOR.z1) / 2],
+      { mount: LANDING_CEIL });
+    camera_(S.x1 - 0.2, stairSoffitAt(S.z1 - 0.5) - 0.42, S.z1 - 0.5,
+      [(S.x0 + S.x1) / 2, LAB_Y + 1.2, S.z0],
+      { mount: stairSoffitAt(S.z1 - 0.5) });
     // Old blood on the landing, and a longer smear down two treads.
     stain(L.x0 + 1.5, L.z0 + 1.8, CELLAR_Y, 1.5, 3, 0.85);
     stain(L.x0 + 2.2, L.z0 + 2.4, CELLAR_Y, 0.9, 7, 0.6);
-    stain((S.x0 + S.x1) / 2 + 0.4, S.z1 - 1.4, stairFloorAt(S.z1 - 1.4) + 0.13, 1.1, 11, 0.55);
+    /* The smear down the flight, one stain per tread. It used to be a single
+     * 1.1 m plane laid flat across a rake that drops 0.48 m over that span,
+     * so five sixths of it was inside the treads. A stain on a stair has to
+     * be tread-sized or it is not on the stair. */
+    for (const [ti, sd] of [[4, 11], [5, 17]]) {
+      const zt = S.z1 - depth * (ti + 0.5);
+      stain((S.x0 + S.x1) / 2 + 0.4, zt, stairFloorAt(S.z1 - depth * ti) + 0.12, 0.26, sd, 0.55);
+    }
     // A hose on a reel and a bucket, because somebody's job is this room.
     root.add(cylinder({
       r: 0.24, h: 0.16, pos: [L.x0 + 0.34, CELLAR_Y + 1.2, L.z1 - 2.3], rotZ: Math.PI / 2, mat: M_RUST,
@@ -1623,11 +1781,19 @@ export function buildSilentSquatch({
       // Mullions every 1.7 m, and a frame round the whole light.
       const bays = Math.max(1, Math.round((px1 - px0) / 1.7));
       for (let i = 0; i <= bays; i++) {
+        const mx = px0 + ((px1 - px0) * i) / bays;
+        /* Not on the door jamb. Fully open, the leaf parks its own 90 mm
+         * edge stile on exactly that x in exactly that plane, and two steel
+         * boxes in the same place is the flicker the owner has been
+         * reporting elsewhere in the house. The leaf's stile IS the jamb
+         * trim when it is shut, so nothing is lost. */
+        if (Math.abs(mx - D.x0) < 0.01 || Math.abs(mx - D.x1) < 0.01) continue;
         root.add(box({
           size: [0.09, HEAD_Y - PLINTH_Y, 0.22],
-          pos: [px0 + ((px1 - px0) * i) / bays, (PLINTH_Y + HEAD_Y) / 2, midZ],
+          pos: [mx, (PLINTH_Y + HEAD_Y) / 2, midZ],
           mat: M_GLASS_EDGE,
           cast: false,
+          name: 'ss-glass-mullion',
         }));
       }
       for (const py of [PLINTH_Y, HEAD_Y]) {
@@ -1658,8 +1824,10 @@ export function buildSilentSquatch({
         size: [D.x1 - D.x0, 0.1, 0.2], pos: [0, ey, 0], mat: M_GLASS_EDGE, cast: false,
       }));
     }
-    // A handle on both faces.
-    for (const hz of [-0.14, 0.14]) {
+    /* A handle on both faces. At 0.075 they are bolted THROUGH the 0.12 m
+     * pane, which is how a glass door handle is fixed; at the 0.14 they were
+     * authored at they floated 18 mm clear of everything. */
+    for (const hz of [-0.075, 0.075]) {
       leaf.add(cylinder({
         r: 0.022, h: 0.5, pos: [(D.x1 - D.x0) / 2 - 0.22, LAB_Y + 1.06, hz], mat: M_STEEL,
       }));
@@ -1668,13 +1836,29 @@ export function buildSilentSquatch({
       [D.x0, D.y0, G.z0], [D.x1, D.y1, G.z1],
     );
     colliders.push(doorCollider);
-    // The head rail and the pocket guard the leaf runs into.
+    /* The head rail the leaf runs on, and the two brackets carrying it.
+     *
+     * It sits on the OBSERVATION face of the glass head, not in the middle of
+     * the wall: at midZ it ran the full width of the west light at y -4.28,
+     * which is 0.23 m INSIDE the fixed pane -- a steel beam buried in the
+     * glass for three and a half metres. */
+    const railZ = G.z1 + 0.16;
     root.add(box({
-      size: [(D.x1 - D.x0) * 2 + 0.4, 0.14, 0.3],
-      pos: [D.x0 - (D.x1 - D.x0) / 2 + 0.1, D.y1 + 0.12, midZ],
+      size: [(D.x1 - D.x0) * 2 + 0.4, 0.13, 0.3],
+      pos: [D.x0 - (D.x1 - D.x0) / 2 + 0.1, D.y1 + 0.11, railZ],
       mat: M_STEEL_DULL,
       cast: false,
+      name: 'ss-door-head-rail',
     }));
+    for (const bx of [D.x0 - (D.x1 - D.x0) + 0.3, D.x0 + 0.4]) {
+      root.add(box({
+        size: [0.1, 0.3, 0.18],
+        pos: [bx, D.y1 + 0.26, G.z1 + 0.07],
+        mat: M_STEEL_DULL,
+        cast: false,
+        name: 'ss-door-head-bracket',
+      }));
+    }
 
     /* ---- Four bolts, two per jamb. They shoot when the door locks; that
      * is the whole visual of "the indicator goes green, then red". */
@@ -1706,21 +1890,28 @@ export function buildSilentSquatch({
     }
 
     /* ---- The indicator over the door. Green while it is unlocked, red
-     * from the moment it is not. */
+     * from the moment it is not.
+     *
+     * Beside the east jamb, not on the door's centreline: the centreline is
+     * where the LIFE SIGNS panel hangs, and the two housings were occupying
+     * the same 0.2 m of head beam. */
+    const indX = D.x1 - 0.25;
     const indicatorHousing = box({
-      size: [0.46, 0.2, 0.22], pos: [(D.x0 + D.x1) / 2, D.y1 + 0.34, midZ + 0.2], mat: M_STEEL_DULL, cast: false,
+      size: [0.46, 0.2, 0.22], pos: [indX, D.y1 + 0.34, midZ + 0.2], mat: M_STEEL_DULL, cast: false,
+      name: 'ss-door-indicator-housing',
     });
     root.add(indicatorHousing);
     const indicator = box({
       size: [0.3, 0.1, 0.04],
-      pos: [(D.x0 + D.x1) / 2, D.y1 + 0.34, midZ + 0.33],
+      pos: [indX, D.y1 + 0.34, midZ + 0.33],
       mat: mat({
         color: 0x081408, emissive: 0x3ce85e, emissiveIntensity: 2.6, roughness: 1, unique: true,
       }),
       cast: false,
+      name: 'ss-door-indicator',
     });
     root.add(indicator);
-    const indicatorLight = light(0x3ce85e, 2.0, 4.5, (D.x0 + D.x1) / 2, D.y1 + 0.34, midZ + 0.5);
+    const indicatorLight = light(0x3ce85e, 2.0, 4.5, indX, D.y1 + 0.34, midZ + 0.5);
 
     return {
       panes, leaf, doorCollider, bolts, indicator, indicatorLight, midZ, PLINTH_Y, HEAD_Y,
@@ -1748,8 +1939,12 @@ export function buildSilentSquatch({
       glass.doorCollider.min.y = D.y0;
       glass.doorCollider.max.y = D.y1;
     }
+    /* Withdrawn INTO the jamb housing, not out into the doorway. The sign was
+     * inverted, so an unlocked door had four steel bolts standing 0.26 m
+     * across the opening at shin and chest height, and locking it pulled them
+     * back out of the way. */
     for (const b of glass.bolts) {
-      b.position.x = b.userData.home - b.userData.side * 0.26 * (1 - glassDoorState.bolts);
+      b.position.x = b.userData.home + b.userData.side * 0.26 * (1 - glassDoorState.bolts);
     }
   }
   applyDoor();
@@ -1769,39 +1964,50 @@ export function buildSilentSquatch({
     const cx = (R.x0 + R.x1) / 2;
 
     // Drainage running the length of the room, into a gulley at the west end.
-    drainChannel(R.x0 + 0.6, R.x1 - 0.6, 52.0, LAB_Y, { width: 0.3 });
+    drainChannel(R.x0 + 0.6, R.x1 - 0.6, 52.0, LAB_FLOOR, { width: 0.3 });
     const gulley = new THREE.Mesh(
       new THREE.CircleGeometry(0.34, 20),
       mat({ color: 0x07070a, roughness: 0.5, unique: true }),
     );
     gulley.rotation.x = -Math.PI / 2;
-    gulley.position.set(R.x0 + 1.2, LAB_Y + 0.02, 52.0);
+    gulley.position.set(R.x0 + 1.2, LAB_FLOOR + 0.008, 52.0);
+    gulley.name = 'ss-gulley';
     root.add(gulley);
 
-    // Pipes and conduit along the ceiling, and a cable tray.
-    pipeRun('x', R.x0, R.x1 + 0.3, R.z1 - 0.8, LAB_CEIL - 0.28, { r: 0.08 });
-    pipeRun('x', R.x0, R.x1 + 0.3, R.z1 - 1.15, LAB_CEIL - 0.28, { r: 0.05, material: M_PIPE_RED });
-    pipeRun('x', R.x0, R.x1 + 0.3, R.z0 + 0.9, LAB_CEIL - 0.3, { r: 0.06 });
+    // Pipes and conduit along the ceiling, and a cable tray on its own drops.
+    pipeRun('x', R.x0, R.x1 + 0.3, R.z1 - 0.8, LAB_CEIL - 0.28, { r: 0.08, ceil: LAB_CEIL });
+    pipeRun('x', R.x0, R.x1 + 0.3, R.z1 - 1.15, LAB_CEIL - 0.28, { r: 0.05, material: M_PIPE_RED, ceil: LAB_CEIL });
+    pipeRun('x', R.x0, R.x1 + 0.3, R.z0 + 0.9, LAB_CEIL - 0.3, { r: 0.06, ceil: LAB_CEIL });
+    const trayY = LAB_CEIL - 0.5;
     root.add(box({
-      size: [R.x1 - R.x0, 0.06, 0.34], pos: [cx, LAB_CEIL - 0.5, R.z0 + 1.6], mat: M_STEEL_DULL, cast: false,
+      size: [R.x1 - R.x0, 0.06, 0.34], pos: [cx, trayY, R.z0 + 1.6], mat: M_STEEL_DULL, cast: false, name: 'ss-cable-tray',
     }));
+    for (let i = 0; i <= 5; i++) {
+      root.add(box({
+        size: [0.04, LAB_CEIL - trayY - 0.03, 0.04],
+        pos: [R.x0 + 0.4 + ((R.x1 - R.x0 - 0.8) * i) / 5, (LAB_CEIL + trayY + 0.03) / 2, R.z0 + 1.6],
+        mat: M_STEEL_DULL,
+        cast: false,
+        name: 'ss-cable-tray-hanger',
+      }));
+    }
 
     // Lighting. Four tubes; the one over the table is the one that fails.
     const tubes = [];
     for (const [tx, tz] of [[R.x0 + 2.6, 53.6], [cx + 1.2, 53.6], [R.x0 + 2.6, 50.6], [cx + 1.2, 50.6]]) {
-      tubes.push(fluoro(tx, LAB_CEIL - 0.34, tz, { intensity: 5.0, range: 10 }));
+      tubes.push(fluoro(tx, LAB_CEIL - 0.34, tz, { intensity: 5.0, range: 10, ceil: LAB_CEIL }));
     }
     const failingTube = tubes[1];
 
     // Cameras, one from each end.
-    camera_(R.x1 - 0.4, LAB_CEIL - 0.5, R.z1 - 0.4, [cx, LAB_Y + 1.2, 52.0]);
-    camera_(R.x0 + 0.4, LAB_CEIL - 0.5, R.z0 + 0.4, [cx, LAB_Y + 1.2, 52.0]);
+    camera_(R.x1 - 0.4, LAB_CEIL - 0.5, R.z1 - 0.4, [cx, LAB_Y + 1.2, 52.0], { mount: LAB_CEIL });
+    camera_(R.x0 + 0.4, LAB_CEIL - 0.5, R.z0 + 0.4, [cx, LAB_Y + 1.2, 52.0], { mount: LAB_CEIL });
 
     // Old blood, never fully removed. Scrub marks that stop halfway.
     for (const [sx, sz, size, seed, op] of [
       [cx - 1.8, 53.0, 1.9, 2, 0.5], [cx + 2.4, 51.2, 1.4, 5, 0.36],
       [R.x1 - 2.0, 54.0, 1.1, 8, 0.3], [R.x0 + 2.2, 50.4, 1.6, 13, 0.42],
-    ]) stain(sx, sz, LAB_Y, size, seed, op);
+    ]) stain(sx, sz, LAB_FLOOR, size, seed, op);
     // A smear up the wall, at about the height of a shoulder.
     const wallSmear = new THREE.Mesh(
       new THREE.PlaneGeometry(1.2, 1.4),
@@ -1940,6 +2146,23 @@ export function buildSilentSquatch({
   /* on an inverted body points them at the ceiling.                         */
   /* ================================================================== */
   const XXX_AT = Object.freeze({ x: (INTERROGATION.x0 + INTERROGATION.x1) / 2 - 1.5, z: 51.5 });
+  /**
+   * The hanging rig's geometry, written down once so the chain, the hook and
+   * his ankles are all derived from the same numbers instead of authored
+   * separately and hoped at.
+   *
+   * `XXX_BODY_Y` is the y his figure group has always sat at (LAB_Y + 2.42);
+   * it is spelled out because `hang` now pivots at the hook and the figure's
+   * offset inside it has to reproduce exactly the same world position.
+   */
+  const XXX_FACING = Math.PI / 2;           // +Z local -> world +X, i.e. at the stair
+  const CHAIN_OFFSET = 0.26;                // he hangs this far in front of the chain
+  const XXX_BODY_Y = LAB_Y + 2.42;
+  const HOOK_Y = LAB_CEIL - 0.25;           // the top link's centre: the pivot
+  const CHAIN_AT = Object.freeze({
+    x: XXX_AT.x - CHAIN_OFFSET * Math.sin(XXX_FACING),
+    z: XXX_AT.z - CHAIN_OFFSET * Math.cos(XXX_FACING),
+  });
 
   function buildXxx() {
     const skin = 0xb98a63;
@@ -2050,15 +2273,30 @@ export function buildSilentSquatch({
     lipBlood.position.set(0.02, 0.09, 0.117);
     fig.head.add(lipBlood);
 
-    /* ---- Hang him. A parent group carries the position and the facing; the
-     * figure itself is turned over inside it, which keeps the two rotations
-     * from fighting over Euler order. */
+    /* ---- Hang him.
+     *
+     * `hang` is not a marker at his feet any more: its ORIGIN IS THE HOOK.
+     * That is the whole fix for "the chain is floating around". The chain,
+     * the shackle, the ropes and the man are all children of one group whose
+     * pivot is the point the chain hangs from, so the swing is a real
+     * pendulum about a real anchor and nothing in the rig can drift relative
+     * to anything else -- it is one rigid body plus one rotation.
+     *
+     * What it replaced: the chain was a root-level group holding links at
+     * absolute world coordinates, and update() rotated that group about the
+     * WORLD ORIGIN. At 56.5 m from (0,0) a 0.0275 rad idle sway swept the
+     * chain 1.56 m sideways, off the hook, off the man, and out over the
+     * torture table.
+     *
+     * He hangs CHAIN_OFFSET forward of the chain line, so the chain drops
+     * clear behind his heels instead of through his boots.
+     */
     const hang = group('xXx');
-    hang.position.set(XXX_AT.x, LAB_Y, XXX_AT.z);
-    hang.rotation.y = -Math.PI / 2; // his face (+Z local) toward the corridor
+    hang.position.set(CHAIN_AT.x, HOOK_Y, CHAIN_AT.z);
+    hang.rotation.y = XXX_FACING; // his face (+Z local) back toward the stair
     root.add(hang);
     fig.group.rotation.z = Math.PI;
-    fig.group.position.y = 2.42;
+    fig.group.position.set(0, XXX_BODY_Y - HOOK_Y, CHAIN_OFFSET);
     hang.add(fig.group);
 
     // Arms dangling toward the floor, i.e. "up" in his own inverted frame.
@@ -2075,79 +2313,162 @@ export function buildSilentSquatch({
     fig.torso.rotation.x = 0.1;
     fig.neck.rotation.x = -0.24;
 
-    /* ---- The rig above him: a joist hook, a chain, a shackle and rope. */
-    const hookY = LAB_Y + 3.0;
+    /* ---- The rig, measured rather than authored.
+     *
+     * Everything from here down is derived from where his shins ACTUALLY end
+     * once the pose above has been applied, read off the built matrices. The
+     * old version guessed: the chain ran LAB_CEIL-0.16 down to LAB_CEIL-0.70
+     * and the ankles are at LAB_Y+2.37, so it stopped 0.15 m short of him,
+     * and the two "ropes" were spread along world X while his ankles are
+     * spread along world Z, i.e. ninety degrees out.
+     */
+    hang.updateWorldMatrix(true, true);
+    const localOf = (o, x, y, z) => hang.worldToLocal(o.localToWorld(new THREE.Vector3(x, y, z)));
+    // The bottom of each shin box is the ankle; the sole of each boot is the
+    // highest thing on him, because he is the wrong way up.
+    const ankles = [fig.legL, fig.legR].map((leg) => localOf(leg.knee, 0, -0.37, 0));
+    const soleTop = Math.max(
+      localOf(fig.legL.knee, 0, -0.42, 0.06).y,
+      localOf(fig.legR.knee, 0, -0.42, 0.06).y,
+    );
+
+    // A steel plate bolted flat to the soffit, and the eye under it.
     root.add(box({
-      size: [0.5, 0.14, 0.14], pos: [XXX_AT.x, LAB_CEIL - 0.1, XXX_AT.z], mat: M_STEEL_DULL, cast: false,
+      size: [0.52, 0.08, 0.2],
+      pos: [CHAIN_AT.x, LAB_CEIL - 0.04, CHAIN_AT.z],
+      mat: M_STEEL_DULL,
+      cast: false,
+      name: 'xxx-hook-plate',
     }));
+    const EYE_R = 0.07;
+    const EYE_T = 0.022;
+    const eye = new THREE.Mesh(new THREE.TorusGeometry(EYE_R, EYE_T, 8, 20), M_STEEL);
+    eye.position.set(CHAIN_AT.x, LAB_CEIL - 0.08 - EYE_R - EYE_T, CHAIN_AT.z);
+    eye.rotation.y = XXX_FACING + Math.PI / 2; // across the top link's own plane
+    eye.castShadow = false;
+    eye.name = 'xxx-hook-eye';
+    root.add(eye);
+
+    /* The chain. Interlocking links, alternating quarter turns, the first
+     * one centred exactly on `hang`'s origin -- which is a fixed point of
+     * the swing, so it can never come off the eye -- and the last one landing
+     * exactly on the top face of the shackle bar. */
+    const LINK_R = 0.055;
+    const LINK_T = 0.017;
+    const LINK_OUT = LINK_R + LINK_T;
+    const BAR_H = 0.06;
+    const barY = soleTop + 0.06; // clear over the boots
+    const lastY = barY + BAR_H / 2 + LINK_OUT;
+    const links = Math.max(2, Math.round(-lastY / 0.062) + 1);
+    const pitch = -lastY / (links - 1); // < 2*(LINK_R - LINK_T), so they interlock
     const chain = group('xxx-chain');
-    root.add(chain);
-    const links = 7;
+    hang.add(chain);
     for (let i = 0; i < links; i++) {
-      chain.add(cylinder({
-        r: 0.035,
-        h: 0.11,
-        pos: [XXX_AT.x, LAB_CEIL - 0.16 - i * 0.09, XXX_AT.z],
-        rotZ: i % 2 ? Math.PI / 2 : 0,
-        rotX: i % 2 ? 0 : Math.PI / 2,
-        mat: M_STEEL_DULL,
-        cast: false,
-      }));
-    }
-    root.add(cylinder({
-      r: 0.05, h: 0.16, pos: [XXX_AT.x, LAB_Y + 2.52, XXX_AT.z], mat: M_STEEL, cast: false,
-    }));
-    for (const sx of [-0.11, 0.11]) {
-      root.add(cylinder({
-        r: 0.024,
-        h: 0.26,
-        pos: [XXX_AT.x + sx * 0.4, LAB_Y + 2.44, XXX_AT.z],
-        rotZ: sx > 0 ? -0.5 : 0.5,
-        mat: mat({ color: 0x6a5a3c, roughness: 0.95 }),
-        cast: false,
-      }));
+      const link = new THREE.Mesh(new THREE.TorusGeometry(LINK_R, LINK_T, 6, 16), M_STEEL_DULL);
+      link.position.set(0, -pitch * i, 0);
+      link.rotation.y = (i % 2) * (Math.PI / 2);
+      link.castShadow = false;
+      link.name = 'xxx-chain-link';
+      chain.add(link);
     }
 
-    /* ---- The pool of blood he is hanging over. Large, and still wet. */
-    const pool = new THREE.Mesh(
-      new THREE.CircleGeometry(1.15, 28),
-      mat({ color: 0x3d080c, roughness: 0.2, metalness: 0.06, unique: true }),
-    );
-    pool.rotation.x = -Math.PI / 2;
-    pool.position.set(XXX_AT.x, LAB_Y + 0.011, XXX_AT.z);
-    root.add(pool);
+    /* The shackle: a spreader bar on the end of the chain, a cord off each
+     * end of it, and a steel cuff round each ankle. The cords pass behind
+     * his heels, which is why the chain line is offset forward of him. */
+    const shackle = group('xxx-shackle');
+    hang.add(shackle);
+    shackle.add(box({
+      size: [0.4, BAR_H, 0.09], pos: [0, barY, 0], mat: M_STEEL, cast: false, name: 'xxx-shackle-bar',
+    }));
+    const ropeMat = mat({ color: 0x6a5a3c, roughness: 0.95 });
+    const up = new THREE.Vector3(0, 1, 0);
+    for (const a of ankles) {
+      const cuffY = a.y - 0.10;
+      const cuff = cylinder({
+        r: 0.155, h: 0.08, pos: [a.x, cuffY, a.z], mat: M_STEEL, cast: false,
+      });
+      cuff.name = 'xxx-ankle-cuff'; // build.js's cylinder() takes no name
+      shackle.add(cuff);
+      const from = new THREE.Vector3(Math.sign(a.x) * 0.17, barY - BAR_H / 2, 0);
+      const to = new THREE.Vector3(a.x, cuffY + 0.02, a.z - 0.13);
+      const d = to.clone().sub(from);
+      const cord = cylinder({ r: 0.024, h: d.length(), pos: [0, 0, 0], mat: ropeMat, cast: false });
+      cord.quaternion.setFromUnitVectors(up, d.clone().normalize());
+      cord.position.copy(from).add(to).multiplyScalar(0.5);
+      cord.name = 'xxx-ankle-rope';
+      shackle.add(cord);
+    }
+    /** What the chain spans, in world y. Reported, so it can be asserted. */
+    const chainSpan = {
+      hook: HOOK_Y + LINK_OUT,
+      bar: HOOK_Y + barY,
+      ankleY: HOOK_Y + ankles[0].y,
+    };
+
+    /* ---- The pool of blood he is hanging over. Large, still wet, and
+     * ON THE FLOOR.
+     *
+     * It was authored at LAB_Y + 0.011 and the lower level's floor finish
+     * tops out at LAB_Y + 0.012, so the whole thing -- pool, rim and the
+     * seven spatters round it -- was one millimetre under the slab and had
+     * never once been visible. Four overlapping discs at four heights rather
+     * than one circle, so it reads as something that ran rather than
+     * something that was drawn with a compass. */
+    const poolMat = mat({ color: 0x3d080c, roughness: 0.2, metalness: 0.06, unique: true });
     const poolRim = new THREE.Mesh(
-      new THREE.RingGeometry(1.15, 1.45, 28),
+      new THREE.RingGeometry(1.15, 1.52, 28),
       mat({
         color: 0x2a0709, roughness: 0.55, transparent: true, opacity: 0.62, unique: true,
       }),
     );
     poolRim.rotation.x = -Math.PI / 2;
-    poolRim.position.set(XXX_AT.x, LAB_Y + 0.009, XXX_AT.z);
+    poolRim.position.set(XXX_AT.x, LAB_FLOOR + 0.005, XXX_AT.z);
+    poolRim.name = 'xxx-blood-pool-rim';
     root.add(poolRim);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.15, 28), poolMat);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(XXX_AT.x, LAB_FLOOR + 0.008, XXX_AT.z);
+    pool.name = 'xxx-blood-pool';
+    root.add(pool);
+    // Lobes: where it spread further, including toward the drainage channel.
+    for (const [lx, lz, lr, ly] of [
+      [0.62, 0.34, 0.72, 0.011], [-0.48, -0.55, 0.6, 0.014], [0.18, 0.86, 0.55, 0.017],
+    ]) {
+      const lobe = new THREE.Mesh(new THREE.CircleGeometry(lr, 20), poolMat);
+      lobe.rotation.x = -Math.PI / 2;
+      lobe.position.set(XXX_AT.x + lx, LAB_FLOOR + ly, XXX_AT.z + lz);
+      lobe.name = 'xxx-blood-pool-lobe';
+      root.add(lobe);
+    }
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * Math.PI * 2 + 0.6;
       stain(XXX_AT.x + Math.cos(a) * (1.5 + (i % 3) * 0.4),
-        XXX_AT.z + Math.sin(a) * (1.5 + (i % 3) * 0.4), LAB_Y, 0.7, 30 + i, 0.55);
+        XXX_AT.z + Math.sin(a) * (1.5 + (i % 3) * 0.4), LAB_FLOOR, 0.7, 30 + i, 0.55);
     }
     // A drip, mid-air, permanently about to land. Moved in update().
     const drip = sphere({
       r: 0.022, pos: [XXX_AT.x, LAB_Y + 0.4, XXX_AT.z], mat: M_BLOOD, cast: false,
     });
+    drip.name = 'xxx-drip'; // build.js's sphere() takes no name
     root.add(drip);
 
     /* A generous hit volume, so aiming at a man reads as aiming at a man
-     * rather than as threading a crosshair between a forearm and a rope. */
+     * rather than as threading a crosshair between a forearm and a rope.
+     * Sized to the body he actually has: soles at LAB_Y + 2.42, knuckles at
+     * LAB_Y + 0.25. */
     const aim = new THREE.Mesh(
-      new THREE.BoxGeometry(1.0, 2.3, 0.9),
+      new THREE.BoxGeometry(1.1, 2.5, 1.1),
       mat({
         color: 0x000000, transparent: true, opacity: 0, depthWrite: false, unique: true,
       }),
     );
-    aim.position.set(XXX_AT.x, LAB_Y + 1.25, XXX_AT.z);
+    aim.position.set(XXX_AT.x, LAB_Y + 1.5, XXX_AT.z);
+    aim.name = 'xxx-aim';
     root.add(aim);
 
-    return { fig, hang, chain, pool, drip, aim, hookY };
+    return {
+      fig, hang, chain, shackle, pool, drip, aim, hookY: HOOK_Y, chainSpan,
+    };
   }
   const xxx = buildXxx();
 
@@ -2197,14 +2518,51 @@ export function buildSilentSquatch({
       }
       prop(bank.x0, bank.x1, LAB_Y, deskY + 0.04, consoleZ - 0.5, consoleZ + 0.5);
 
+      /* ---- The gantry the screens are actually mounted on.
+       *
+       * Nine monitors and a dozen lamps used to hang in the air between 0.4
+       * and 2.0 m above the desk with nothing under, behind or over them.
+       * Two posts per bank off the desk top, a rail at each screen row and a
+       * lamp rail over the lot: it reads as a control-room screen wall and,
+       * more to the point, it holds them up. All of it sits SOUTH of the
+       * screens, so from where a player stands it is hidden behind them. */
+      const ROW_Y = [LAB_Y + 1.62, LAB_Y + 2.14];
+      const LAMP_Y = LAB_Y + 2.86;
+      const gantryZ = consoleZ - 0.01;
+      for (const px of [bank.x0 - 0.05, bank.x1 + 0.05]) {
+        root.add(box({
+          size: [0.09, LAMP_Y + 0.09 - (deskY + 0.02), 0.24],
+          pos: [px, (deskY + 0.02 + LAMP_Y + 0.09) / 2, gantryZ],
+          mat: M_STEEL_DULL,
+          cast: false,
+          name: 'ss-console-gantry-post',
+        }));
+      }
+      for (const ry of ROW_Y) {
+        root.add(box({
+          size: [bw + 0.2, 0.07, 0.08], pos: [bmid, ry, consoleZ - 0.06], mat: M_STEEL_DULL, cast: false, name: 'ss-monitor-rail',
+        }));
+      }
+      root.add(box({
+        size: [bw + 0.2, 0.1, 0.14], pos: [bmid, LAMP_Y, consoleZ + 0.05], mat: M_STEEL_DULL, cast: false, name: 'ss-status-rail',
+      }));
+
       /* Monitors. Each owns a unique material so `setPurple()` is one pass
-       * over a list rather than nine special cases. */
+       * over a list rather than nine special cases.
+       *
+       * OWNER, 2026-08-04: "the screens outside of it should be turned around
+       * and facing us instead of in the lab." They were: the emissive plate
+       * was at consoleZ - 0.05 and the opaque casing at consoleZ + 0.12, so
+       * from the observation floor -- which is NORTH of the desk, at higher z
+       * -- you were looking at nine black boxes, and the only place the
+       * pictures could be read from was inside the sealed lab. The plate is
+       * now on the north face of its casing. */
       const count = Math.max(3, Math.round(bw / 0.72));
       for (let i = 0; i < count; i++) {
         const mx = bank.x0 + 0.4 + (i * (bw - 0.8)) / Math.max(1, count - 1);
         const my = LAB_Y + 1.62 + (i % 2 ? 0.0 : 0.52);
         root.add(box({
-          size: [0.62, 0.5, 0.3], pos: [mx, my, consoleZ + 0.12], mat: M_BLACK, cast: false,
+          size: [0.62, 0.5, 0.3], pos: [mx, my, consoleZ + 0.12], mat: M_BLACK, cast: false, name: 'ss-monitor-case',
         }));
         const kind = kinds[monitorIndex % kinds.length];
         monitorIndex++;
@@ -2212,22 +2570,25 @@ export function buildSilentSquatch({
         const texPurple = monitorTexture(kind, '#b06cff');
         const face = box({
           size: [0.54, 0.42, 0.02],
-          pos: [mx, my, consoleZ - 0.05],
+          pos: [mx, my, consoleZ + 0.29],
           mat: mat({
             map: texRed, emissive: 0xffffff, emissiveMap: texRed, emissiveIntensity: 0.85, roughness: 0.5, unique: true,
           }),
           cast: false,
+          name: 'ss-monitor-face',
         });
         root.add(face);
         monitors.push({ face, texRed, texPurple });
       }
 
-      // Keyboards along the desk.
+      /* Keyboards along the desk -- on the operator's edge, tilted up toward
+       * him. They were on the far edge, tilted away, which is a keyboard for
+       * somebody standing inside the laboratory. */
       const kbs = Math.max(1, Math.round(bw / 1.3));
       for (let i = 0; i < kbs; i++) {
         const kx = bank.x0 + 0.45 + (i * (bw - 0.9)) / Math.max(1, kbs - 1);
         root.add(box({
-          size: [0.5, 0.035, 0.2], pos: [kx, deskY + 0.04, consoleZ - 0.3], mat: M_BLACK, cast: false, rotX: -0.12,
+          size: [0.5, 0.035, 0.2], pos: [kx, deskY + 0.04, consoleZ + 0.3], mat: M_BLACK, cast: false, rotX: 0.12, name: 'ss-keyboard',
         }));
         /* Three ridges, not twenty-seven keycaps. At the distance anybody
          * ever stands from this desk the ridges read as a keyboard and the
@@ -2235,19 +2596,19 @@ export function buildSilentSquatch({
         for (let r = 0; r < 3; r++) {
           root.add(box({
             size: [0.44, 0.01, 0.03],
-            pos: [kx, deskY + 0.058 + r * 0.004, consoleZ - 0.35 + r * 0.045],
+            pos: [kx, deskY + 0.058 + r * 0.004, consoleZ + 0.35 - r * 0.045],
             mat: M_STEEL_DULL,
             cast: false,
           }));
         }
       }
 
-      // Purple status lights along the head of each bank.
+      // Purple status lights, on the lamp rail over the head of each bank.
       const lamps = Math.max(3, Math.round(bw / 0.6));
       for (let i = 0; i < lamps; i++) {
         const sx = bank.x0 + 0.25 + (i * (bw - 0.5)) / Math.max(1, lamps - 1);
         const l = box({
-          size: [0.1, 0.06, 0.05], pos: [sx, LAB_Y + 2.86, consoleZ + 0.1], mat: M_PURPLE_LAMP, cast: false,
+          size: [0.1, 0.06, 0.05], pos: [sx, LAMP_Y, consoleZ + 0.115], mat: M_PURPLE_LAMP, cast: false, name: 'ss-status-lamp',
         });
         root.add(l);
         statusLights.push(l);
@@ -2255,19 +2616,27 @@ export function buildSilentSquatch({
     }
 
     /* LIFE SIGNS, on the head beam over the lane, where it is unavoidable
-     * from the door and from the Silent Night pedestal both. */
+     * from the door and from the Silent Night pedestal both.
+     *
+     * Same fault as the console monitors, and the same fix: the readout was
+     * at GLASS_WALL.z1 + 0.02 with its own casing at + 0.14, so the number
+     * Booski reads out loud at the end of beat 10 was facing the corpses. It
+     * is on the north face of the casing now, and the casing's back sits
+     * against the glass head beam instead of 20 mm off it. */
+    const lifeY = LAB_Y + 2.78;
     const lifeX = (GLASS_DOOR.x0 + GLASS_DOOR.x1) / 2;
     const lifeFace = box({
       size: [0.8, 0.6, 0.02],
-      pos: [lifeX, LAB_Y + 2.72, GLASS_WALL.z1 + 0.02],
+      pos: [lifeX, lifeY, GLASS_WALL.z1 + 0.255],
       mat: mat({
         map: lifeSignsTexture(6, '#ff4438'), emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.5, unique: true,
       }),
       cast: false,
+      name: 'ss-life-signs-face',
     });
     lifeFace.material.emissiveMap = lifeFace.material.map;
     root.add(box({
-      size: [0.9, 0.7, 0.24], pos: [lifeX, LAB_Y + 2.72, GLASS_WALL.z1 + 0.14], mat: M_BLACK, cast: false,
+      size: [0.9, 0.7, 0.24], pos: [lifeX, lifeY, GLASS_WALL.z1 + 0.12], mat: M_BLACK, cast: false, name: 'ss-life-signs-case',
     }));
     root.add(lifeFace);
     light(0x7a2ee8, 3.0, 9, (R.x0 + R.x1) / 2, LAB_Y + 2.8, consoleZ);
@@ -2281,14 +2650,17 @@ export function buildSilentSquatch({
       root.add(cylinder({
         r: 0.11, h: 1.1, pos: [bx, LAB_Y + 0.55, consoleZ - 0.55], rotX: Math.PI / 2.4, mat: M_RUBBER, cast: false,
       }));
+      /* The duct at the plinth face is where the bundle actually goes; it
+       * used to be 0.25 m under the end of the bundle it was collecting. */
       root.add(box({
-        size: [0.34, 0.3, 0.14], pos: [bx, LAB_Y + 0.3, G.z1 + 0.05], mat: M_STEEL_DULL, cast: false,
+        size: [0.34, 0.3, 0.14], pos: [bx, LAB_Y + 0.5, G.z1 + 0.05], mat: M_STEEL_DULL, cast: false, name: 'ss-cable-duct',
       }));
+      // The loose run lies ON the floor rather than 0.21 m above it.
       for (let j = 0; j < 5; j++) {
         root.add(cylinder({
           r: 0.03,
           h: 1.3,
-          pos: [bx - 0.1 + j * 0.05, LAB_Y + 0.24, consoleZ - 0.1],
+          pos: [bx - 0.1 + j * 0.05, LAB_FLOOR + 0.03, consoleZ - 0.1],
           rotX: Math.PI / 2,
           mat: j % 2 ? M_RUBBER : M_PIPE_RED,
           cast: false,
@@ -2312,12 +2684,16 @@ export function buildSilentSquatch({
 
     /* ---- Gas controls: a valve bank with gauges, clearly labelled, and
      * clearly not something anybody put here by accident. */
+    /* Hard against the north wall. It used to hang 0.28 m off it -- a
+     * 1.5 x 1.3 m steel panel floating in the middle of the room with its
+     * back showing. Its front (local +z, and the group is turned through
+     * pi) still faces south, into the room, which is right. */
     const gasPanel = group('ss-gas-controls');
-    gasPanel.position.set(R.x0 + 1.4, LAB_Y, R.z1 - 0.36);
+    gasPanel.position.set(R.x0 + 1.4, LAB_Y, R.z1 - 0.08);
     gasPanel.rotation.y = Math.PI;
     root.add(gasPanel);
     gasPanel.add(box({ size: [1.5, 1.3, 0.16], pos: [0, 1.5, 0], mat: M_STEEL_DULL }));
-    prop(R.x0 + 0.6, R.x0 + 2.2, LAB_Y, LAB_Y + 2.2, R.z1 - 0.5, R.z1 - 0.2);
+    prop(R.x0 + 0.6, R.x0 + 2.2, LAB_Y, LAB_Y + 2.2, R.z1 - 0.26, R.z1);
     for (let i = 0; i < 3; i++) {
       gasPanel.add(cylinder({
         r: 0.14, h: 0.06, pos: [-0.45 + i * 0.45, 1.85, 0.1], rotX: Math.PI / 2, mat: M_STEEL,
@@ -2352,7 +2728,8 @@ export function buildSilentSquatch({
 
     /* ---- Emergency shutdown: a mushroom head under a wire guard. */
     const estop = group('ss-estop');
-    estop.position.set(R.x0 + 3.2, LAB_Y + 1.5, R.z1 - 0.34);
+    // Back plate flush on the north wall, not 0.27 m out in front of it.
+    estop.position.set(R.x0 + 3.2, LAB_Y + 1.5, R.z1 - 0.07);
     root.add(estop);
     estop.add(box({ size: [0.34, 0.34, 0.14], pos: [0, 0, 0], mat: M_STEEL_DULL }));
     estop.add(cylinder({ r: 0.11, h: 0.09, pos: [0, 0, -0.11], rotX: Math.PI / 2, mat: mat({ color: 0xb01c14, roughness: 0.5 }) }));
@@ -2408,7 +2785,9 @@ export function buildSilentSquatch({
         unique: true,
       }),
     );
-    keypadDisplay.position.set(0, 0.14, 0.061);
+    // 0.066, not 0.061: the bezel behind it ends at 0.060, and half a
+    // millimetre of separation is a flickering display, not a display.
+    keypadDisplay.position.set(0, 0.14, 0.066);
     keypad.add(keypadDisplay);
     for (let r = 0; r < 4; r++) {
       keypad.add(box({
@@ -2431,11 +2810,18 @@ export function buildSilentSquatch({
     /* ---- The transfer drawer, in the glass wall's plinth west of the door.
      * A steel tray on a motorised carriage that runs from this side to the
      * other. Beat 6 puts the container in it. */
-    /* The drawer sits in the plinth on the WEST side of the lane, with clear
-     * floor in front of it and console bank A stopping short of it. */
+    /* The drawer sits on the plinth on the WEST side of the lane, with clear
+     * floor in front of it and console bank A stopping short of it.
+     *
+     * ON the plinth, not straddling it: centred in the wall its 0.42 m
+     * carcass filled the exact volume the sliding leaf travels through, so
+     * opening the door drove two square metres of glass and steel straight
+     * through the transfer drawer. Its back now seats on the plinth's north
+     * face at G.z1 and the tray still runs the full DRAWER_THROW into the
+     * lab, which is the only part of it that has to cross the wall. */
     const drawerX = GLASS_DOOR.x0 - 0.55;
     const drawerFrame = group('ss-transfer-drawer');
-    drawerFrame.position.set(drawerX, LAB_Y + 0.28, (G.z0 + G.z1) / 2);
+    drawerFrame.position.set(drawerX, LAB_Y + 0.28, G.z1 + 0.22);
     root.add(drawerFrame);
     drawerFrame.add(box({ size: [0.9, 0.5, 0.42], pos: [0, 0, 0], mat: M_STEEL_DULL }));
     drawerFrame.add(box({ size: [0.78, 0.34, 0.06], pos: [0, 0, 0.2], mat: M_BLACK, cast: false }));
@@ -2481,7 +2867,9 @@ export function buildSilentSquatch({
     const snZ = G.z1 + 2.3;
     const sn = group('ss-silent-night');
     sn.position.set(snX, LAB_Y, snZ);
-    sn.rotation.y = 0.35;
+    // Turned toward the corner a player actually walks in from (the
+    // `silentNight` anchor, north-west of it) rather than away from it.
+    sn.rotation.y = -0.45;
     root.add(sn);
     sn.add(box({ size: [0.7, 1.05, 0.5], pos: [0, 0.52, 0], mat: M_STEEL_DULL }));
     sn.add(box({ size: [0.78, 0.08, 0.58], pos: [0, 1.08, 0], mat: M_STEEL }));
@@ -2529,9 +2917,9 @@ export function buildSilentSquatch({
 
     // Practical light in the room itself, so it is not lit only by screens.
     const obsTubes = [
-      fluoro((R.x0 + R.x1) / 2 - 3.0, LAB_CEIL - 0.34, R.z0 + 3.4, { intensity: 5.0, range: 11 }),
-      fluoro((R.x0 + R.x1) / 2 + 3.0, LAB_CEIL - 0.34, R.z0 + 3.4, { intensity: 5.0, range: 11 }),
-      fluoro((R.x0 + R.x1) / 2, LAB_CEIL - 0.34, R.z1 - 1.4, { intensity: 4.4, range: 10 }),
+      fluoro((R.x0 + R.x1) / 2 - 3.0, LAB_CEIL - 0.34, R.z0 + 3.4, { intensity: 5.0, range: 11, ceil: LAB_CEIL }),
+      fluoro((R.x0 + R.x1) / 2 + 3.0, LAB_CEIL - 0.34, R.z0 + 3.4, { intensity: 5.0, range: 11, ceil: LAB_CEIL }),
+      fluoro((R.x0 + R.x1) / 2, LAB_CEIL - 0.34, R.z1 - 1.4, { intensity: 4.4, range: 10, ceil: LAB_CEIL }),
     ];
 
     return {
@@ -2703,15 +3091,18 @@ export function buildSilentSquatch({
       placard.rotation.y = Math.PI / 2;
       root.add(placard);
     }
-    // Two more radiation symbols, big, stencilled on the walls.
+    /* Two more radiation symbols, big, stencilled on the walls. The south
+     * one was at R.z0 - 0.02, i.e. two centimetres INSIDE the south wall
+     * facing north -- painted on the far side of the masonry. */
     for (const [px, pz, rot] of [
-      [R.x1 - 0.02, R.z0 + 3.0, -Math.PI / 2], [cx + 2.4, R.z0 - 0.02, 0],
+      [R.x1 - 0.02, R.z0 + 3.0, -Math.PI / 2], [cx + 2.4, R.z0 + 0.02, 0],
     ]) {
       const big = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), mat({
         map: radTexture(), roughness: 0.92, unique: true,
       }));
       big.position.set(px, LAB_Y + 1.9, pz);
       big.rotation.y = rot;
+      big.name = 'ss-rad-stencil';
       root.add(big);
     }
 
@@ -2746,7 +3137,8 @@ export function buildSilentSquatch({
       const vx = R.x0 + 1.6 + (i % 3) * ((R.x1 - R.x0 - 3.2) / 2);
       const vz = R.z0 + 2.4 + Math.floor(i / 3) * 4.6;
       const g = group('ss-vent');
-      g.position.set(vx, LAB_CEIL - 0.2, vz);
+      // Frame flush INTO the soffit; it used to hang 0.08 m clear of it.
+      g.position.set(vx, LAB_CEIL - 0.12, vz);
       root.add(g);
       g.add(box({ size: [0.6, 0.12, 0.6], pos: [0, 0.06, 0], mat: M_STEEL_DULL, cast: false }));
       const louvres = [];
@@ -2761,9 +3153,12 @@ export function buildSilentSquatch({
       vents.push({ group: g, louvres, x: vx, z: vz });
     }
 
-    /* ---- The emergency masks. Locked, and 3.1 m up a bare wall. */
+    /* ---- The emergency masks. Locked, and well over head height on a bare
+     * wall -- but under the soffit and against the wall, which it was not:
+     * at LAB_Y + 3.1 with a 0.62 m case its top stood 0.16 m through the
+     * ceiling slab, and at R.x1 - 0.22 its back hung 0.07 m off the wall. */
     const maskCab = group('ss-mask-cabinet');
-    maskCab.position.set(R.x1 - 0.22, LAB_Y + 3.1, R.z1 - 2.4);
+    maskCab.position.set(R.x1 - 0.15, LAB_Y + 2.86, R.z1 - 2.4);
     maskCab.rotation.y = -Math.PI / 2;
     root.add(maskCab);
     maskCab.add(box({ size: [1.1, 0.62, 0.3], pos: [0, 0, 0], mat: mat({ color: 0x9a1c14, roughness: 0.55 }) }));
@@ -2794,7 +3189,10 @@ export function buildSilentSquatch({
         unique: true,
       }),
     );
-    maskLabel.position.set(0, -0.38, 0.16);
+    /* Stencilled on the wall under the cabinet. At (0, -0.38, 0.16) it was a
+     * label hanging in mid-air 0.07 m below the box it labels. */
+    maskLabel.position.set(0, -0.42, -0.145);
+    maskLabel.name = 'ss-mask-label';
     maskCab.add(maskLabel);
 
     /* ---- Lighting inside. Bright, clinical, and its own -- the lab must
@@ -2806,20 +3204,35 @@ export function buildSilentSquatch({
       [cx - 3.0, R.z1 - 2.0], [cx + 3.0, R.z1 - 2.0], [cx, CORE_AT.z],
     ]) {
       labTubes.push(fluoro(tx, LAB_CEIL - 0.36, tz, {
-        len: 1.7, colour: 0xeaf2ff, intensity: 5.6, range: 12,
+        len: 1.7, colour: 0xeaf2ff, intensity: 5.6, range: 12, ceil: LAB_CEIL,
       }));
     }
 
-    // A steel bench of glassware, for something to go over in beat 9.
-    root.add(box({ size: [2.0, 0.06, 0.6], pos: [cx - 3.4, LAB_Y + 0.92, R.z0 + 1.2], mat: M_STEEL }));
-    prop(cx - 4.4, cx - 2.4, LAB_Y, LAB_Y + 0.96, R.z0 + 0.9, R.z0 + 1.5);
+    /* A steel bench of glassware, for something to go over in beat 9. On four
+     * legs, because a 2 m worktop hovering at 0.92 m over a bare epoxy floor
+     * is not a bench, and every flask sat at a fixed y regardless of how tall
+     * it was, so the tall ones were half-sunk in the worktop. */
+    const benchZ = R.z0 + 1.2;
+    const benchTop = LAB_Y + 0.95;
+    root.add(box({
+      size: [2.0, 0.06, 0.6], pos: [cx - 3.4, benchTop - 0.03, benchZ], mat: M_STEEL, name: 'ss-glassware-bench',
+    }));
+    for (const [lx, lz] of [[-0.92, -0.24], [0.92, -0.24], [-0.92, 0.24], [0.92, 0.24]]) {
+      root.add(box({
+        size: [0.05, benchTop - 0.06 - LAB_Y, 0.05],
+        pos: [cx - 3.4 + lx, (LAB_Y + benchTop - 0.06) / 2, benchZ + lz],
+        mat: M_STEEL_DULL,
+      }));
+    }
+    prop(cx - 4.4, cx - 2.4, LAB_Y, benchTop, R.z0 + 0.9, R.z0 + 1.5);
     const glassware = [];
     for (let i = 0; i < 7; i++) {
+      const gh = 0.16 + (i % 3) * 0.06;
       const gw = cylinder({
         rTop: 0.05,
         rBottom: 0.07,
-        h: 0.16 + (i % 3) * 0.06,
-        pos: [cx - 4.2 + i * 0.28, LAB_Y + 1.03, R.z0 + 1.2],
+        h: gh,
+        pos: [cx - 4.2 + i * 0.28, benchTop + gh / 2, benchZ],
         mat: M_GLASS,
         cast: false,
       });
@@ -2859,12 +3272,15 @@ export function buildSilentSquatch({
     g.position.set(CORE_AT.x, LAB_Y, CORE_AT.z);
     root.add(g);
 
-    // The cradle it stands in.
+    /* The cradle it stands in. The four legs run all the way up to the
+     * sphere's seam band: they used to stop at y 1.425, which is 0.09 m
+     * short of the shell in every direction, so a metre-and-three-quarter
+     * ball of metal was resting on nothing at all. */
     g.add(cylinder({ r: 1.15, h: 0.18, pos: [0, 0.09, 0], mat: M_STEEL_DULL }));
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
       g.add(box({
-        size: [0.16, 1.25, 0.16], pos: [Math.cos(a) * 0.9, 0.8, Math.sin(a) * 0.9], mat: M_STEEL_DULL, rotY: -a,
+        size: [0.16, 1.5, 0.16], pos: [Math.cos(a) * 0.9, 0.925, Math.sin(a) * 0.9], mat: M_STEEL_DULL, rotY: -a,
       }));
     }
     prop(CORE_AT.x - 1.2, CORE_AT.x + 1.2, LAB_Y, LAB_Y + 2.6, CORE_AT.z - 1.2, CORE_AT.z + 1.2);
@@ -2980,12 +3396,17 @@ export function buildSilentSquatch({
         unique: true,
       }),
     );
-    emblem.position.set(0, 1.26, 0.79);
-    emblem.rotation.x = -0.35;
+    /* On the shell, not 0.06 m off it, and raked to the shell's own normal
+     * rather than tilted the opposite way: at y 1.255 the sphere's surface is
+     * at radius 0.735 and its normal there is 0.56 rad below the horizontal. */
+    emblem.position.set(0, 1.255, 0.738);
+    emblem.rotation.x = 0.56;
     g.add(emblem);
-    // And a stencilled designation on the cradle.
+    /* And a stencilled designation, bolted to the rim of the cradle drum.
+     * It used to be at (0, 0.5, 1.02), which is above the drum and inside
+     * none of the four legs: a nameplate floating in the air. */
     const plate = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.8, 0.16),
+      new THREE.PlaneGeometry(0.56, 0.11),
       mat({
         map: printed('silent.core.plate', ['SILENT SQUATCH / CORE 01'], {
           w: 512, h: 100, bg: '#3c4147', fg: '#12141a', font: '900 34px "Trebuchet MS", sans-serif',
@@ -2994,7 +3415,7 @@ export function buildSilentSquatch({
         unique: true,
       }),
     );
-    plate.position.set(0, 0.5, 1.02);
+    plate.position.set(0, 0.11, 1.158);
     g.add(plate);
 
     /* Two lights: gold from the middle, purple from the rings. Both are
@@ -3166,14 +3587,28 @@ export function buildSilentSquatch({
     },
   ];
 
-  /** Where each one works, and where each one dies. Inside the lab, all six. */
+  /**
+   * Where each one works, where each one faces, and where each one dies.
+   * Inside the lab, all six.
+   *
+   * `face` is a yaw for `Figure.place()`, whose face is +Z. Everybody used to
+   * be placed at Math.PI -- which is -Z, i.e. every one of them stood with
+   * his back to his own workstation, and the three nearest the glass had
+   * their backs to the player for the whole of beats 5 to 7. Each yaw below
+   * points at the bench that man is standing at: the north row's stools are
+   * on the +Z side of their benches, the south row's on the -Z side.
+   *
+   * Aubbie is off the bench line entirely and stands at the core he keeps
+   * talking about; his old spot was 0.30 m from index 2's, which is inside
+   * the other man.
+   */
   const STATION_AT = [
-    { x: (SEALED_LAB.x0 + SEALED_LAB.x1) / 2, z: CORE_AT.z + 1.9 },
-    { x: SEALED_LAB.x0 + 1.7, z: SEALED_LAB.z1 - 2.4 },
-    { x: SEALED_LAB.x0 + 5.1, z: SEALED_LAB.z1 - 2.4 },
-    { x: SEALED_LAB.x1 - 1.7, z: SEALED_LAB.z1 - 2.4 },
-    { x: SEALED_LAB.x0 + 1.5, z: SEALED_LAB.z0 + 3.5 },
-    { x: SEALED_LAB.x1 - 1.5, z: SEALED_LAB.z0 + 3.5 },
+    { x: CORE_AT.x - 2.2, z: CORE_AT.z, face: Math.PI / 2 },
+    { x: SEALED_LAB.x0 + 1.7, z: SEALED_LAB.z1 - 2.4, face: 0 },
+    { x: SEALED_LAB.x0 + 5.1, z: SEALED_LAB.z1 - 2.4, face: 0 },
+    { x: SEALED_LAB.x1 - 1.7, z: SEALED_LAB.z1 - 2.4, face: 0 },
+    { x: SEALED_LAB.x0 + 1.5, z: SEALED_LAB.z0 + 3.5, face: Math.PI },
+    { x: SEALED_LAB.x1 - 1.5, z: SEALED_LAB.z0 + 3.5, face: Math.PI },
   ];
 
   const GLASS_INSIDE_Z = GLASS_WALL.z0 - 0.55; // where you stand to hit it
@@ -3196,7 +3631,7 @@ export function buildSilentSquatch({
       iris: 0x4a3a28,
     });
     const home = STATION_AT[i];
-    fig.place(home.x, home.z, Math.PI); // facing +Z out of the lab, toward the glass
+    fig.place(home.x, home.z, home.face); // +Z is his face; see STATION_AT
     fig.group.position.y = LAB_Y;
     root.add(fig.group);
 
@@ -3250,7 +3685,10 @@ export function buildSilentSquatch({
         if (!self.alive) return self;
         self.stage = 'confused';
         fig.playGesture('shrug', 2.0);
-        self.goTo(fig.group.position.x, GLASS_INSIDE_Z + 1.2, 0.9);
+        /* MINUS 1.2. GLASS_INSIDE_Z is already the inside face of the glass;
+         * plus 1.2 walked him to z 49.65, which is through the pane and out
+         * into the observation area with Booski. */
+        self.goTo(fig.group.position.x, GLASS_INSIDE_Z - 1.2, 0.9);
         return self;
       },
       /** Beat 8: he tries the handle and finds out. */
@@ -3340,6 +3778,11 @@ export function buildSilentSquatch({
       handprint() {
         if (self._printed) return self;
         self._printed = true;
+        /* Two-sided, and facing OUT. A PlaneGeometry's normal is +Z and this
+         * one was turned to face -Z -- into the lab, away from the only
+         * people who were ever going to look at it. The spec's own
+         * visibility requirement lists "handprints appearing" among the
+         * things the player must be able to see. */
         const m = new THREE.Mesh(
           new THREE.PlaneGeometry(0.34, 0.42),
           mat({
@@ -3348,6 +3791,7 @@ export function buildSilentSquatch({
             opacity: 0,
             depthWrite: false,
             roughness: 0.4,
+            side: THREE.DoubleSide,
             unique: true,
           }),
         );
@@ -3356,7 +3800,7 @@ export function buildSilentSquatch({
           LAB_Y + 1.34,
           GLASS_WALL.z0 - 0.09,
         );
-        m.rotation.y = Math.PI;
+        m.name = 'ss-handprint';
         root.add(m);
         handprints.push({ mesh: m, t: 0 });
         return self;
@@ -4041,9 +4485,18 @@ export function buildSilentSquatch({
     {
       const f = xxx.fig;
       const sway = Math.sin(time * 0.55) * 0.035 + Math.sin(time * 0.23) * 0.02;
-      f.group.rotation.y = sway * 1.4;
-      xxx.hang.rotation.z = sway * 0.16;
-      xxx.chain.rotation.y = sway * 0.5;
+      /* One pendulum and one slow turn, BOTH on the group whose origin is the
+       * hook. `rotation.z` leaves the local Z axis alone, and the top chain
+       * link sits on it, so the chain cannot come off the eye; `rotation.y`
+       * turns the whole rig about the chain's own line. Chain, shackle, cuffs
+       * and man move as one rigid piece and both ends stay met.
+       *
+       * What this replaced: `chain.rotation.y` on a root-level group whose
+       * links carried absolute world coordinates. That rotates about (0,0),
+       * 56.5 m away, so the same idle sway threw the chain 1.5 m sideways --
+       * "the chain holding triple X is floating around". */
+      xxx.hang.rotation.z = sway * 0.55;
+      xxx.hang.rotation.y = XXX_FACING + sway * 0.9;
       // Shallow, painful breathing.
       const br = Math.sin(time * 0.9);
       f.chest.scale.set(1, 1 + br * 0.02, 1 + br * 0.012);
@@ -4059,9 +4512,10 @@ export function buildSilentSquatch({
         f.jaw.position.y += (f.jaw.userData.baseY - f.jaw.position.y) * k;
         f.mouth.scale.y += (1 - f.mouth.scale.y) * k;
       }
-      // The drip. Falls, lands, restarts.
+      // The drip. Falls off his head, lands in the pool, restarts. Its top is
+      // his hairline (LAB_Y + 0.51) and its bottom is the pool's own surface.
       const fall = (time * 0.32) % 1;
-      xxx.drip.position.y = THREE.MathUtils.lerp(LAB_Y + 0.55, LAB_Y + 0.03, fall);
+      xxx.drip.position.y = THREE.MathUtils.lerp(LAB_Y + 0.5, LAB_FLOOR + 0.03, fall);
       xxx.drip.visible = fall < 0.94;
     }
 
@@ -4188,6 +4642,25 @@ export function buildSilentSquatch({
       if (h.t >= 1) continue;
       h.t = Math.min(1, h.t + dt * 1.4);
       h.mesh.material.opacity = h.t * 0.9;
+    }
+
+    /* ---- SILENT NIGHT's safety cover, and the lever it lets go of.
+     * `coverT` was declared and never spent, so the cover stayed shut over
+     * the handle for the whole of beats 10 and 11 while the mission told the
+     * player it had been lifted and then that it had been pulled. It is
+     * hinged at the back of the pedestal, so it stands up out of the way. */
+    {
+      const wantCover = silentNightState.coverUp ? 1 : 0;
+      if (silentNightState.coverT !== wantCover) {
+        silentNightState.coverT += Math.sign(wantCover - silentNightState.coverT)
+          * Math.min(dt * 1.6, Math.abs(wantCover - silentNightState.coverT));
+        obs.silentNight.cover.rotation.x = -1.25 * silentNightState.coverT;
+      }
+      const wantLever = silentNightState.pulled ? 1.1 : 0; // toward the player
+      if (obs.silentNight.lever.rotation.x !== wantLever) {
+        const at = obs.silentNight.lever.rotation.x;
+        obs.silentNight.lever.rotation.x = at + (wantLever - at) * Math.min(1, dt * 3.5);
+      }
     }
 
     /* ---- the bent chair. */
@@ -4466,6 +4939,17 @@ export function buildSilentSquatch({
       figure: xxx.fig,
       aim: xxx.aim,
       at: { ...XXX_AT, y: LAB_Y },
+      /**
+       * The rig, in world y, so "the chain reaches" is a number and not a
+       * claim: `hook` is the top of the first link (it engages the eye under
+       * the ceiling plate), `bar` is the shackle the last link lands on, and
+       * `ankleY` is where his ankles actually are. Chain, shackle and man are
+       * all children of one group pivoting at the hook, so these three do not
+       * move relative to each other -- ever.
+       */
+      rig: { ...xxx.chainSpan },
+      chain: xxx.chain,
+      pool: xxx.pool,
       /** He is barely conscious, so this is a rasp, not a delivery. */
       say: (cue, opts = {}) => {
         xxx.fig.speak(opts.seconds ?? 2.2);
