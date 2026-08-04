@@ -2278,9 +2278,20 @@ export function buildClub(scene, { renderer } = {}) {
      *   bing.office.shore      AT THE SHORE     behind the desk, over Lou
      *   bing.office.bing_1979  THE BING 1979    the one the safe is behind
      */
+    /* Named, and named as a `*SLOTS` array on purpose: tools/check.mjs finds
+     * this scene's art slots by scraping `artSticker(x, 'literal')` out of
+     * this file, and the loop below passes the slot as a VARIABLE — so all
+     * four became invisible to the checker the moment it became a loop, and
+     * naming one of them in assets/art/manifest.json failed the build as an
+     * "unknown slot". The `const \w*SLOTS = [...]` rule already covers this
+     * file; declaring them here is what keeps them visible. */
+    const OFFICE_PHOTO_SLOTS = [
+      'bing.office.nephews', 'bing.office.old_place',
+      'bing.office.the_boys', 'bing.office.first_truck',
+    ];
     for (const [i, pz, slot, py = 1.9] of [
-      [1, O.z0 + 3.78, 'bing.office.nephews'],
-      [2, O.z0 + 4.4, 'bing.office.old_place'],
+      [1, O.z0 + 3.78, OFFICE_PHOTO_SLOTS[0]],
+      [2, O.z0 + 4.4, OFFICE_PHOTO_SLOTS[1]],
       /* A second row above the first two rather than a longer single run.
        *
        * Further along the same wall runs into the door's glazing, and the
@@ -2289,8 +2300,8 @@ export function buildClub(scene, { renderer } = {}) {
        * hanging family photographs in the same office for thirty years fills
        * it upward. Kept above 2.1m so the two-photograph row underneath stays
        * the row verify-bing measures the door clearance against. */
-      [3, O.z0 + 3.78, 'bing.office.the_boys', 2.30],
-      [4, O.z0 + 4.4, 'bing.office.first_truck', 2.30],
+      [3, O.z0 + 3.78, OFFICE_PHOTO_SLOTS[2], 2.30],
+      [4, O.z0 + 4.4, OFFICE_PHOTO_SLOTS[3], 2.30],
     ]) {
       const pic = makeFrame(M, {
         x: 7.926, y: py, z: pz, rotY: Math.PI / 2, w: 0.34, h: 0.26,

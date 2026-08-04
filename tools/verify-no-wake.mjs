@@ -154,8 +154,12 @@ try {
   /* Start decodes the harbour bank and three authored radio shows before it
    * takes the title card down. On a software rasteriser that is comfortably
    * over half a minute, so the old 30 s ceiling failed this contract on
-   * machine speed rather than on anything the scene did. */
-  await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 180000 });
+   * machine speed rather than on anything the scene did. 180 s was still not
+   * enough with several sibling agents on the box — this container has been
+   * measured at 0.6 fps under that load — so the ceiling is 300 s. It is a
+   * guard against a hang, not a performance assertion; the scene's own timing
+   * is measured in simulated steps further down. */
+  await page.waitForFunction(() => !document.getElementById('overlay'), null, { timeout: 300000 });
   await page.waitForTimeout(250);
 
   const initialPointerLock = await page.evaluate(() => (
