@@ -446,7 +446,7 @@ export const SEQUENCES = Object.freeze({
     { speaker: 'ORLOVA', text: 'We have families!', cue: cue('reaction', 'orlova.wehavefamilies'), hold: 1.8, muffled: true }, // spec
     { speaker: 'SOKOLOV', text: 'You cannot leave us in here!', cue: cue('reaction', 'sokolov.cannotleaveus'), hold: 2.4, muffled: true }, // spec
     { speaker: 'VETROV', text: 'We can work for you!', cue: cue('reaction', 'vetrov.canworkforyou'), hold: 2.0, muffled: true }, // spec
-    { speaker: 'ORLOVA', text: 'We will tell nobody!', cue: cue('reaction', 'orlova.telnobody'), hold: 2.0, muffled: true }, // spec
+    { speaker: 'ORLOVA', text: 'We will tell nobody!', cue: cue('reaction', 'orlova.tellnobody'), hold: 2.0, muffled: true }, // spec
   ]),
   /* One of them takes a metal chair to the glass. The chair bends. The glass
    * does not break. Then the old man tells him to stop. */
