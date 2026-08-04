@@ -323,8 +323,8 @@
       "style": 0.2
     },
     "waiter": {
-      "id": "6yvQSmuck0L7cqMlVtsx",
-      "_note": "The men on the floor of the Silver Room -- the host, the maître d', the waiter, the bandleader, and the room's own overheard voices. From the owner's Voice_Ids sheet, row \"Wait staff bada or silver male\" (2026-07-31). One profile and five banks: everybody working the room in this scene is the same kind of professional courtesy, and recasting any one of them is a voice id in this block and nothing else.",
+      "id": "miqykcv8BCUvQnRlIGUV",
+      "_note": "The men on the floor of the Silver Room -- the host, the maître d', the waiter, the bandleader, and the room's own overheard voices. Recast 2026-08-04 to the owner's updated id, replacing the prior 6yvQSmuck0L7cqMlVtsx. One profile and five banks: everybody working the room in this scene is the same kind of professional courtesy, and recasting any one of them is a voice id in this block and nothing else.",
       "model": "eleven_multilingual_v2",
       "stability": 0.45,
       "similarity": 0.8,
@@ -361,6 +361,38 @@
       "stability": 0.5,
       "similarity": 0.82,
       "style": 0.4
+    },
+    "manager": {
+      "id": "OLw8Wi4Ch4C4T0zHZrfh",
+      "_note": "The manager at Front and Center (the Silver Room) -- owner-cast 2026-08-04. Previously shared the npc-male id; split out to his own voice here.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.3
+    },
+    "trailer-announcer": {
+      "id": "laTmoAT4stwoPzthxjZT",
+      "_note": "RESERVED 2026-08-04, not yet cast to any cue. Movie-trailer-style announcer for future promotional/trailer content -- distinct from the in-fiction radio `announcer` profile.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.4
+    },
+    "npc-reserve-1": {
+      "id": "kWjdIkuzqBCnHbyAOYlF",
+      "_note": "RESERVED 2026-08-04, not yet cast to any cue. Spare NPC voice -- owner set this aside for a future NPC need or to split out one of the roles still doubled up on `npc-male` (e.g. heist-guard/heist-customer/heist-manager in THE TAKE).",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.3
+    },
+    "npc-reserve-2": {
+      "id": "2vubyVoGjNJ5HPga4SkV",
+      "_note": "RESERVED 2026-08-04, not yet cast to any cue. Owner asked if this was the bartender -- it is not; `bartender` is already LOCKED to nUEpF21E0nXsKMw4L4CS. Set aside for a future NPC need.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.5,
+      "similarity": 0.8,
+      "style": 0.3
     }
   },
   "sfx": [
@@ -3544,52 +3576,52 @@
     },
     {
       "name": "vo.silver.manager.do",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "…It’ll do. I’ll pass that to the men who carried it."
     },
     {
       "name": "vo.silver.manager.more",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "You didn’t ask for anything. That’s rather the point of the arrangement. Ma’am."
     },
     {
       "name": "vo.silver.manager.open.moment",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Mr — Prospect. One moment."
     },
     {
       "name": "vo.silver.manager.open.settled",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Everything as it should be?"
     },
     {
       "name": "vo.silver.manager.scene-table.1",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "No."
     },
     {
       "name": "vo.silver.manager.scene-table.10",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "For that."
     },
     {
       "name": "vo.silver.manager.scene-table.3",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Then bring something else."
     },
     {
       "name": "vo.silver.manager.scene-table.5",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Two-top. Front and center. Now."
     },
     {
       "name": "vo.silver.manager.scene-table.8",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "Give us a minute."
     },
     {
       "name": "vo.silver.manager.took",
-      "voice": "npc-male",
+      "voice": "manager",
       "say": "The band’s on at half past. You’ll want to be sitting for the third number, not the first. Trust me on the third number."
     },
     {
@@ -3660,16 +3692,12 @@
     {
       "name": "vo.silver.margo.bandleader.her-pick",
       "voice": "margo",
-      "say": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling.",
-      "needsRerecord": true,
-      "_note": "Existing take contains the retired horns/backing-track request. Replace it with this Bananaphone line, then remove needsRerecord."
+      "say": "Bananaphone. Completely straight. I want that violinist fighting for his life and nobody smiling."
     },
     {
       "name": "vo.silver.margo.bandleader.horns",
       "voice": "margo",
-      "say": "You came prepared to say that out loud. Fine. If he smiles, it doesn’t count.",
-      "needsRerecord": true,
-      "_note": "Existing take refers to the retired horn request. Replace it with this Bananaphone reaction, then remove needsRerecord."
+      "say": "You came prepared to say that out loud. Fine. If he smiles, it doesn’t count."
     },
     {
       "name": "vo.silver.margo.bark.alley.1",
@@ -4264,9 +4292,7 @@
     {
       "name": "vo.silver.player.bandleader.open.1e0ys9u",
       "voice": "player",
-      "say": "Bananaphone. Straight. Like it’s Carnegie Hall.",
-      "needsRerecord": true,
-      "_note": "Existing take asks for all the horns. Replace it with this Bananaphone request, then remove needsRerecord."
+      "say": "Bananaphone. Straight. Like it’s Carnegie Hall."
     },
     {
       "name": "vo.silver.player.bandleader.open.cmq3w6",

@@ -17,7 +17,7 @@ test('every Silver speaker bank resolves to a recorded voice profile', () => {
   for (const bank of Object.values(VOICE_OF)) assert.ok(PROFILE_OF[bank] ?? bank);
   assert.equal(PROFILE_OF.driver, 'doorman');
   assert.equal(PROFILE_OF.chef, 'waiter');
-  assert.equal(PROFILE_OF.manager, 'npc-male');
+  assert.equal(PROFILE_OF.manager, 'manager');
   assert.equal(PROFILE_OF.player, 'player');
 });
 
