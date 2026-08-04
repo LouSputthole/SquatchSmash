@@ -2398,6 +2398,38 @@ try {
   /* that is about the actual house is the last one: the mission must   */
   /* mount exactly when there is a laboratory to mount it in.           */
   /* ================================================================ */
+  /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
+   * like one: "I spawn in holding it but can put it away and see it in my
+   * inventory." Asserting the bar rendered is not that -- it is a row of
+   * squares. This drives the actual keys and reads whether the model in his
+   * hands appeared and disappeared with them. */
+  const carrying = await page.evaluate(async () => {
+    const L = window.mansion.loadout;
+    const before = { slots: L.slots, held: L.held, inHands: L.caseInHands, bar: L.barSlots };
+    /* Slot 5 is empty on arrival, so selecting it is "put it away". */
+    L.select(4);
+    const stowed = { held: L.held, inHands: L.caseInHands, stillCarried: L.hasCase };
+    L.select(before.slots.indexOf('case'));
+    const backOut = { held: L.held, inHands: L.caseInHands };
+    return { before, stowed, backOut };
+  });
+
+  check('the inventory bar is on screen with the case in a slot on arrival',
+    carrying.before.bar >= 5 && carrying.before.slots.includes('case'),
+    `${carrying.before.bar} slots, holding ${JSON.stringify(carrying.before.slots)}`);
+
+  check('he spawns with the case actually in his hands',
+    carrying.before.held === 'case' && carrying.before.inHands === true,
+    `held=${carrying.before.held} visible=${carrying.before.inHands}`);
+
+  check('putting the case away hides it without losing it',
+    carrying.stowed.inHands === false && carrying.stowed.stillCarried === true,
+    `visible=${carrying.stowed.inHands} still in inventory=${carrying.stowed.stillCarried}`);
+
+  check('selecting the case slot puts it back in his hands',
+    carrying.backOut.held === 'case' && carrying.backOut.inHands === true,
+    `held=${carrying.backOut.held} visible=${carrying.backOut.inHands}`);
+
   const night = await page.evaluate(async () => {
     const [lab, mission, machine, script, hudMod] = await Promise.all([
       import('/src/mansion/mission/contract-lab.js'),

@@ -422,6 +422,22 @@
       "stability": 0.34,
       "similarity": 0.8,
       "style": 0.6
+    },
+    "mansion-gate": {
+      "id": "TxWZERZ5Hc6h9dGxVmXa",
+      "_note": "The man on Lou's front door. Deadly serious and does not want any funny business: he greets you because that is the job, not because he is pleased to see you. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.72,
+      "similarity": 0.86,
+      "style": 0.12
+    },
+    "mansion-guard": {
+      "id": "lAqElvydqyTzitpwAdj6",
+      "_note": "Lou's loyal henchmen -- the four to six on the property. One voice across all of them on purpose: they are the same job, not the same man, so keep the readings short and flat and let position do the characterisation. Owner-cast 2026-08-04.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.62,
+      "similarity": 0.84,
+      "style": 0.22
     }
   },
   "sfx": [

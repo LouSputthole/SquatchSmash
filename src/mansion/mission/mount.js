@@ -58,6 +58,10 @@ export function mountSilentSquatch({
   targets = {},
   enabled = () => true,
   autoStart = true,
+  /* Told when the MISSION gives him the case or takes it away, so the scene's
+   * inventory can hold a slot for it. Not told about stowing -- that is the
+   * player's half and the inventory is the thing doing it. */
+  onCaseOwned = () => {},
 } = {}) {
   if (!lab || !THREE || !scene || !camera) return null;
 
@@ -83,17 +87,43 @@ export function mountSilentSquatch({
     return fallback ? fallback.clone() : new THREE.Vector3();
   };
 
+  /* TWO SEPARATE FACTS, and the carried model is visible only when both hold.
+   *
+   *   caseOwned  -- the MISSION says he has it (`onCase('carry')`)
+   *   caseInHand -- the PLAYER has its inventory slot selected
+   *
+   * Before the house had an inventory there was only the first, so the case
+   * rode in your hands from the gate to the office whether you wanted it or
+   * not. Collapsing them back into one boolean is how you get either a case
+   * that jumps into your hands the instant a beat fires, or a mission that
+   * cannot take the case off you because the player put it away. */
+  let caseOwned = false;
+  let caseInHand = true;
+  let caseOwnedLast = null;
+  const refreshCarried = () => {
+    carried.group.visible = caseOwned && caseInHand;
+    /* Told once per change, not once per call: the inventory adds and removes
+     * a slot off the back of this, and re-adding a slot he already has would
+     * move his selection out from under his thumb. */
+    if (caseOwned !== caseOwnedLast) {
+      caseOwnedLast = caseOwned;
+      onCaseOwned(caseOwned);
+    }
+  };
+
   function putCaseOn(object, fallback) {
     const at = worldPos(object, fallback);
     world.group.position.copy(at);
     world.group.visible = true;
-    carried.group.visible = false;
+    caseOwned = false;
+    refreshCarried();
   }
 
   function onCase(what) {
     switch (what) {
       case 'carry':
-        carried.group.visible = true;
+        caseOwned = true;
+        refreshCarried();
         world.group.visible = false;
         world.close({ instant: true });
         break;
@@ -109,9 +139,26 @@ export function mountSilentSquatch({
         /* Lou pushes it back across the desk toward him. */
         world.group.position.z += 0.35;
         break;
+      /* Owner's note: "Case goes under the desk when I deliver it." Lou does
+       * not leave a case that came out of that basement sitting on his desk
+       * for the rest of the night -- it goes down by his feet, out of the
+       * room's sightline, and stays a solid object the player can still find.
+       * Dropped to the floor and pushed under, rather than hidden: `gone`
+       * already exists for things that stop existing. */
+      case 'stash': {
+        const desk = worldPos(targets.desk, anchors?.officeDesk);
+        world.group.position.set(desk.x, Math.max(0.14, desk.y - 0.78), desk.z + 0.22);
+        world.group.rotation.y = 0.22;
+        world.close({ instant: true });
+        world.group.visible = true;
+        caseOwned = false;
+        refreshCarried();
+        break;
+      }
       case 'gone':
         world.group.visible = false;
-        carried.group.visible = false;
+        caseOwned = false;
+        refreshCarried();
         break;
       default: break;
     }
@@ -293,6 +340,21 @@ export function mountSilentSquatch({
     fire,
     openKeypad,
     closeKeypad,
+    /**
+     * The player's half of "is the case in his hands".
+     *
+     * Called by the inventory when the case's slot is selected or left. It
+     * cannot make him hold a case the mission has taken off him -- that is
+     * `caseOwned`, and it stays the mission's alone.
+     */
+    setCaseInHand(on) {
+      caseInHand = Boolean(on);
+      refreshCarried();
+    },
+    /** True while the mission says he is carrying it, stowed or not. */
+    get carryingCase() { return caseOwned; },
+    /** Put it under Lou's desk. Owner's note; also reachable from the script. */
+    stashCase() { onCase('stash'); },
     update(dt) {
       mission.update(dt, { position: player?.position ?? camera.position });
       carried.update(dt);

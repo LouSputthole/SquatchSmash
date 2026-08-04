@@ -46,6 +46,7 @@ import { mountArmory } from '../core/weapons/Armory.js';
 import { weaponCueNames } from '../core/weapons/audio.js';
 import { WEAPON_ORDER } from '../core/weapons/catalog.js';
 import { mountSilentSquatch } from './mission/mount.js';
+import { createMansionLoadout } from './loadout.js';
 /* Importing these constructs nothing: a Campaign is only built when
  * createCampaign() is CALLED, which happens below and only when there is a
  * laboratory in the house to play the mission in. Opening the house to walk
@@ -800,7 +801,33 @@ const armory = mountArmory({
    * read as black rectangles with black shapes on them, which is the state
    * this pass exists to leave behind. */
   addLight: registerLocalLight,
-  onEvent: () => { ammoDirty = true; },
+  onEvent: () => {
+    ammoDirty = true;
+    /* The bar follows the rack rather than the other way round: whatever the
+     * armory says is in his hands is what the slot shows, and putting a gun
+     * back empties it. See the note on `apply()` in ./loadout.js for what
+     * happened when this drove the weapon system instead of mirroring it. */
+    loadout.syncWeapon(weaponSystem.equipped ?? null);
+  },
+});
+
+/* ================================================================== */
+/* What he is carrying                                                  */
+/*                                                                       */
+/* Owner playtest 2026-08-04: "Let me have the case in my inventory. I    */
+/* spawn in holding it but can put it away and see it in my inventory.    */
+/* USe the same system form other scenes. We should already be doing      */
+/* this. This way I can grab guns and stuff too."                        */
+/*                                                                       */
+/* We were: `core/inventory.js` plus `SceneInventoryBar` is the pair      */
+/* eight other scenes mount, and the mansion was the one that never did.  */
+/* See src/mansion/loadout.js for why holding and OWNING the case are     */
+/* two separate facts.                                                    */
+/* ================================================================== */
+const loadout = createMansionLoadout({
+  weapons: weaponSystem,
+  weaponName: (id) => weaponSystem.firearm?.(id)?.name ?? id,
+  onCaseInHand: (on) => silentSquatch?.setCaseInHand(on),
 });
 
 /* The ammunition counter. Repainted only when something changed — a DOM write
@@ -903,6 +930,10 @@ if (lab && night.play) {
     audio,
     lab,
     anchors,
+    /* The case is a thing he is carrying, so it lives in a slot like anything
+     * else. Spawning holding it is this firing on the mission's first beat,
+     * not a special case at startup. */
+    onCaseOwned: (owned) => { if (owned) loadout.giveCase(); else loadout.takeCase(); },
     /* The things he presses. Every one of them is optional: a target the
      * environment has not built yet simply is not registered, and the beat it
      * belongs to is still reachable from the debug handle below. */
@@ -1012,7 +1043,19 @@ window.addEventListener('keydown', (e) => {
    * modifiers, not to plain letters. */
   if (e.code === 'KeyR' && !e.repeat) weaponSystem.reload();
   if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) armory.put();
+  /* Slots, the same keys as the flat: Digit1..Digit5 pick one directly, the
+   * wheel cycles. Selecting the case's slot puts it back in his hands and
+   * selecting anything else puts it away -- that IS the stow, so there is no
+   * separate "holster the case" verb to learn. */
+  if (!e.repeat && /^Digit[1-5]$/.test(e.code)) {
+    loadout.select(Number(e.code.slice(5)) - 1);
+    e.preventDefault();
+  }
 });
+window.addEventListener('wheel', (e) => {
+  if (!running) return;
+  loadout.cycle(e.deltaY > 0 ? 1 : -1);
+}, { passive: true });
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
   if (e.code === 'KeyE') interaction.release();
@@ -1224,6 +1267,26 @@ window.mansion = {
     get radioOn() { return houseRadio.on; },
     get radioTracks() { return houseRadio.playlist.length; },
     useRadio: (i = 0) => useRadioSet(radioSets[i]),
+  },
+  /**
+   * What he is carrying, so a verifier can prove the inventory WORKS rather
+   * than that a row of squares got drawn. `slots` is what is in it, `hands` is
+   * what the case model is actually doing, and `select` is the player's key.
+   */
+  loadout: {
+    get slots() { return [...loadout.inventory.items]; },
+    get selected() { return loadout.inventory.selected; },
+    get held() { return loadout.inventory.held; },
+    get hasCase() { return loadout.hasCase(); },
+    /** True when the chrome case is visibly in his hands right now. */
+    get caseInHands() {
+      const model = camera.getObjectByName('silentSquatchCarriedCase');
+      return Boolean(model?.visible);
+    },
+    get barSlots() {
+      return document.querySelectorAll('#hotbar .slot').length;
+    },
+    select: (i) => loadout.select(i),
   },
   /** Kitchen tap -- the "working sink". */
   sink: {
