@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { Npc } from '../bing/cast.js';
 import { FAMILY } from '../bing/family.js';
 import { CHARACTER_IDS } from '../core/campaign.js';
+import {
+  DECK, DECK_COLLIDERS, deckColliderBoxes, resolveOnDeck,
+} from './deck-collision.js';
 
 const mat = (color, roughness = 0.72, metalness = 0) => new THREE.MeshStandardMaterial({
   color, roughness, metalness,
@@ -664,7 +667,13 @@ function buildBoat(scene, marina) {
     root.add(seat);
   }
   helmSeat(.14, .28);
-  helmSeat(1.48, .28);
+  /* The starboard chair used to sit at x = 1.48, which put its 0.66 m cushion
+   * across the starboard non-slip strip (1.51-1.93) and left only 0.32 m
+   * between its collider and the rail -- half what the player's capsule needs,
+   * open at both ends, so he walked into it and stopped dead. 1.26 clears the
+   * strip, keeps the two chairs a natural 1.12 m apart on centres, and leaves a
+   * real 0.66 m route forward along the starboard side. See DECK_COLLIDERS. */
+  helmSeat(1.26, .28);
   root.add(box([3.72, .42, .66], ivory, 0, 1.21, 5.32));
   root.add(box([3.48, .16, .61], vinyl, 0, 1.49, 5.25));
   root.add(box([3.48, .58, .15], vinyl, 0, 1.70, 5.53));
@@ -858,47 +867,24 @@ function buildBoat(scene, marina) {
     sternLine,
   };
 
-  // Local collision volumes are resolved in boat space, so a turned boat does
-  // not inflate its railings into giant world-axis boxes.
-  /* Both rails used to run bow to stern as an unbroken 2.08/-2.08 inner edge.
-   * That put two different pinch points within a whisker of the player's own
-   * 0.30 m capsule radius:
+  /* Local collision volumes are resolved in boat space, so a turned boat does
+   * not inflate its railings into giant world-axis boxes.
    *
-   *  - Forward, alongside the cabin trunk (out to 1.28) and the windshield
-   *    frame (out to 1.36), the usable side deck was only ~0.72 m -- under
-   *    the 0.6 m the capsule needs with any margin at all, and it is what
-   *    made the run up to the bow "still kind of a bitch". The forward run of
-   *    each rail is relaxed to 2.20 here. The aft run is deliberately left at
-   *    the original 2.08: it already sits flush against the engine-hatch box
-   *    (out to 2.12) and the aft bench below, and relaxing it too would only
-   *    reopen the next problem against them.
-   *  - Aft, the old bench box (in to 1.95) fell 0.13 m short of that same
-   *    2.08 rail edge on each side -- a gap narrower than the capsule's own
-   *    diameter. `resolvePlayerOnBoat` has no stable position in a gap
-   *    smaller than 2*RADIUS: it resolves every overlapping collider in the
-   *    same pass, so ejecting off the bench lands the player inside the
-   *    rail, and ejecting off the rail lands them back inside the bench,
-   *    every single frame, with velocity zeroed on each push. That is "I got
-   *    stuck in the bench on the back, I just couldn't move" -- the worst of
-   *    the playtest notes, because there was no direction out. Widening the
-   *    bench box to overlap the (unchanged) rail edge instead of falling
-   *    short of it closes the gap there was nothing to be stuck in. */
-  const localColliders = [
-    new THREE.Box3(new THREE.Vector3(2.20, .96, -5.70), new THREE.Vector3(2.70, 1.92, 2.85)),
-    new THREE.Box3(new THREE.Vector3(2.08, .96, 2.75), new THREE.Vector3(2.60, 1.92, 5.65)),
-    new THREE.Box3(new THREE.Vector3(-2.60, .96, -5.70), new THREE.Vector3(-2.20, 1.92, 2.82)),
-    new THREE.Box3(new THREE.Vector3(-2.60, .96, 4.60), new THREE.Vector3(-2.08, 1.92, 5.65)),
-    new THREE.Box3(new THREE.Vector3(-2.48, .96, 5.52), new THREE.Vector3(2.48, 1.92, 6.00)),
-    new THREE.Box3(new THREE.Vector3(-2.42, .96, -6.75), new THREE.Vector3(-.06, 1.92, -5.42)),
-    new THREE.Box3(new THREE.Vector3(.06, .96, -6.75), new THREE.Vector3(2.42, 1.92, -5.42)),
-    new THREE.Box3(new THREE.Vector3(-1.36, .98, -2.82), new THREE.Vector3(1.36, 2.95, -2.54)),
-    new THREE.Box3(new THREE.Vector3(-.50, .98, -1.92), new THREE.Vector3(.78, 2.38, -.82)),
-    new THREE.Box3(new THREE.Vector3(-.26, .98, -.12), new THREE.Vector3(.54, 2.14, .78)),
-    new THREE.Box3(new THREE.Vector3(1.08, .98, -.12), new THREE.Vector3(1.88, 2.14, .78)),
-    new THREE.Box3(new THREE.Vector3(-1.28, .98, -5.82), new THREE.Vector3(1.28, 1.72, -2.78)),
-    new THREE.Box3(new THREE.Vector3(-2.10, .98, 4.95), new THREE.Vector3(2.10, 2.00, 5.65)),
-    new THREE.Box3(new THREE.Vector3(1.02, .98, 3.28), new THREE.Vector3(2.12, 2.04, 4.12)),
-  ];
+   * The table itself, the rules it has to obey and the reasoning behind every
+   * number that has moved live in `deck-collision.js`, because Node can import
+   * that and cannot import this file. `localColliders` stays a THREE.Box3 list
+   * so the scene, the camera director and the verifier keep working on it the
+   * way they always have; `deckBoxes` is the same geometry in the plain form
+   * the shared resolver reads. They are built from one source, so the deck the
+   * tests sweep is the deck the player walks on. */
+  const localColliders = DECK_COLLIDERS.map((entry) => {
+    const box = new THREE.Box3(
+      new THREE.Vector3(entry.min[0], entry.min[1], entry.min[2]),
+      new THREE.Vector3(entry.max[0], entry.max[1], entry.max[2]),
+    );
+    box.name = entry.name;
+    return box;
+  });
 
   const source = Object.fromEntries(FAMILY.map((member) => [member.id, member]));
   const cast = {
@@ -976,8 +962,9 @@ function buildBoat(scene, marina) {
   };
   return {
     root, targets, controls, cast, wheel, boardingBridge, bodyMarker, localColliders,
+    deckBoxes: deckColliderBoxes(),
     floatY: BOAT_FLOAT_Y,
-    deck: { halfBeam: 2.25, bow: -5.75, stern: 5.70, height: 1.02 },
+    deck: { ...DECK },
   };
 }
 
@@ -1064,6 +1051,24 @@ export function buildNoWakeWorld(scene) {
     return { x: c * dx - s * dz, z: s * dx + c * dz };
   }
 
+  /**
+   * Push the player capsule out of the boat's solids, in the boat's own frame.
+   *
+   * The arithmetic is `resolveOnDeck` in `deck-collision.js`; this wrapper does
+   * the frame changes and the velocity response. Two things here are load
+   * bearing and easy to undo by accident:
+   *
+   *  - Only the velocity driving **into** the surface is cancelled. The old
+   *    code zeroed both components whenever anything pushed at all, so a player
+   *    resting against a rail could not walk along it -- he could only step
+   *    straight off it. On a side deck whose clear band is under half a metre,
+   *    that reads as "I get stuck", and it is exactly what trapped the player
+   *    at the bow after releasing the mooring line.
+   *  - A `squeezed` result -- a channel narrower than the capsule -- returns a
+   *    stable mid-channel position and is deliberately *not* treated as a
+   *    collision for velocity purposes. The player keeps every bit of his
+   *    motion and walks straight back out the way he came in.
+   */
   function resolvePlayerOnBoat(player, radius) {
     boat.root.updateMatrixWorld(true);
     _localPlayer.copy(player.position);
@@ -1071,39 +1076,28 @@ export function buildNoWakeWorld(scene) {
     if (_localPlayer.x < -3 || _localPlayer.x > 3
       || _localPlayer.z < -6.5 || _localPlayer.z > 6.5
       || _localPlayer.y < .75 || _localPlayer.y > 4.3) return;
-    let changed = false;
-    for (const collider of boat.localColliders) {
-      if (_localPlayer.y + .05 < collider.min.y
-        || _localPlayer.y - player.eyeHeight > collider.max.y) continue;
-      const cx = THREE.MathUtils.clamp(_localPlayer.x, collider.min.x, collider.max.x);
-      const cz = THREE.MathUtils.clamp(_localPlayer.z, collider.min.z, collider.max.z);
-      const dx = _localPlayer.x - cx;
-      const dz = _localPlayer.z - cz;
-      const d2 = dx * dx + dz * dz;
-      if (d2 >= radius * radius) continue;
-      if (d2 > 1e-8) {
-        const d = Math.sqrt(d2);
-        const push = radius - d;
-        _localPlayer.x += dx / d * push;
-        _localPlayer.z += dz / d * push;
-      } else {
-        const sides = [
-          { d: _localPlayer.x - collider.min.x, axis: 'x', value: collider.min.x - radius },
-          { d: collider.max.x - _localPlayer.x, axis: 'x', value: collider.max.x + radius },
-          { d: _localPlayer.z - collider.min.z, axis: 'z', value: collider.min.z - radius },
-          { d: collider.max.z - _localPlayer.z, axis: 'z', value: collider.max.z + radius },
-        ].sort((a, b) => a.d - b.d);
-        _localPlayer[sides[0].axis] = sides[0].value;
-      }
-      changed = true;
-    }
-    if (!changed) return;
+    const solved = resolveOnDeck(
+      boat.deckBoxes, _localPlayer.x, _localPlayer.z,
+      radius, _localPlayer.y, player.eyeHeight, boat.deck,
+    );
+    if (!solved.changed) return;
+    _localPlayer.x = solved.x;
+    _localPlayer.z = solved.z;
     _worldPlayer.copy(_localPlayer);
     boat.root.localToWorld(_worldPlayer);
     player.position.x = _worldPlayer.x;
     player.position.z = _worldPlayer.z;
-    player.velocity.x = 0;
-    player.velocity.z = 0;
+    // Boat space to world space is the inverse of the yaw used by boatLocalXZ.
+    const length = Math.hypot(solved.dx, solved.dz);
+    const c = Math.cos(boat.root.rotation.y);
+    const s = Math.sin(boat.root.rotation.y);
+    const nx = (c * solved.dx + s * solved.dz) / length;
+    const nz = (-s * solved.dx + c * solved.dz) / length;
+    const into = player.velocity.x * nx + player.velocity.z * nz;
+    if (into < 0) {
+      player.velocity.x -= nx * into;
+      player.velocity.z -= nz * into;
+    }
   }
 
   return {

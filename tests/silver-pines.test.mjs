@@ -996,6 +996,58 @@ test('the line the scene is built around is uninterruptible and holds its silenc
   assert.ok(cue.direction.length > 0, 'somebody has to record this');
 });
 
+test('Lou closes the first tee by moving the morning on to lunch', () => {
+  /* Owner request: after the opening tee shots on Hole 1, Lou checks the hour
+   * and starts thinking about the next meal. Big Uncle Lou — `lou1` — and not
+   * Captain Lou Sasole, who is a different man with a different voice. */
+  const cue = CUES['golf.h1.lou.thinking_lunch'];
+  assert.ok(cue, 'the lunch line is gone from the script');
+  assert.equal(cue.text, 'Alright, eight A.M. Let’s start thinking lunch.');
+  assert.equal(cue.speaker, CHARACTER_IDS.LOU);
+  assert.equal(voiceProfileFor(cue.speaker), 'lou1');
+  assert.equal(cue.priority, 'story');
+  assert.equal(cue.once, true);
+  assert.ok(cue.direction.length > 0, 'somebody has to record this');
+  assert.deepEqual(SEQUENCES['tee.lunch'], ['golf.h1.lou.thinking_lunch']);
+  // It belongs to the first tee, so no later hole may inherit or override it.
+  for (const hole of [2, 3]) {
+    assert.equal(SEQUENCES[`h${hole}.tee.lunch`], undefined);
+  }
+});
+
+test('the lunch line plays once, after the tee reactions and before the cart', () => {
+  setActiveHole(1);
+  const played = [];
+  const round = new Round({
+    cues: {
+      busy: false,
+      play(id) { played.push(id); },
+      playSequence(name) { played.push(name); },
+      suppressBanter() {},
+      lengthOf() { return 1.6; },
+    },
+    dialogue: {},
+  });
+  round._startCartRide = () => played.push('<cart ride>');
+  round.beat = BEAT.TEE_RESULT;
+  round._resultPlayed = true;
+  round._wait = 0;
+  round.playerBall.placeAt(GREEN.x, GREEN.z);
+
+  round._updateTeeResult(1 / 60);
+  assert.deepEqual(played, ['tee.lunch'], 'Lou closes the tee before anybody moves');
+  assert.ok(round._wait > 0, 'the cart ride has to wait the line out');
+
+  // Still waiting: nothing else happens on top of it.
+  round._updateTeeResult(1 / 60);
+  assert.deepEqual(played, ['tee.lunch']);
+
+  // Line finished — now, and only now, everybody gets in.
+  round._wait = 0;
+  round._updateTeeResult(1 / 60);
+  assert.deepEqual(played, ['tee.lunch', '<cart ride>'], 'and it never plays twice');
+});
+
 test('past-mission callbacks read real save state and degrade to nothing', () => {
   assert.deepEqual(pastMissionBanter({}), []);
   assert.deepEqual(pastMissionBanter({ bada_bing_one: {} }), []);

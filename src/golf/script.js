@@ -353,6 +353,29 @@ cue('golf.h1.lou.before_he_changes_his_mind', LOU,
   'Pick up the ball before he changes his mind.',
   { direction: 'Warm. As close to proud as he gets in public.', priority: PRIORITY.STORY, once: true });
 
+/* --- everybody has hit --- */
+
+/**
+ * The first tee is finished, whatever happened on it.
+ *
+ * Lou does not review the shot. He checks the time and moves the morning
+ * along, which is the same thing he does with everything, and it is how you
+ * know the golf was never the point. Plays after every outcome branch above,
+ * on Hole 1 only, before anybody gets in a cart.
+ *
+ * The hour is not a joke and is not approximate: this round is played at
+ * 8:00 AM on Day 4 (`src/golf/main.js`, `radioClock.setTime(4, 8 * 60)`). If
+ * that ever moves, this line moves with it.
+ */
+cue('golf.h1.lou.thinking_lunch', LOU,
+  'Alright, eight A.M. Let’s start thinking lunch.',
+  {
+    direction: 'Checking his watch on the way off the tee box. Completely '
+      + 'serious about lunch, and not joking about the hour either. Warm, '
+      + 'unhurried, already walking.',
+    priority: PRIORITY.STORY, once: true,
+  });
+
 /* ================================================================== */
 /* THE CART RIDE                                                       */
 /* ================================================================== */
@@ -1201,6 +1224,8 @@ export const SEQUENCES = Object.freeze({
     'golf.h1.rippin.reject_the_event', 'golf.h1.lou.it_counts',
     'golf.h1.rippin.first_hole_ace', 'golf.h1.lou.before_he_changes_his_mind',
   ],
+  /* After all four of them have hit the first tee, whichever way it went. */
+  'tee.lunch': ['golf.h1.lou.thinking_lunch'],
 
   // --- the bunker ---
   'bunker.together': [
