@@ -264,6 +264,8 @@ try {
   // east, up the far side of the forecourt, and back onto the steps -- which
   // is what a player does, and what proves the way in is not sealed.
   await teleport(0, 0, 24, NORTH);
+  await settle(0.3);
+  const atStreetGrade = await state();
   await faceDeg(EAST);
   await walk(2.4); // into the corridor east of the basin
   await faceDeg(NORTH);
@@ -271,12 +273,19 @@ try {
   await faceDeg(WEST);
   await walk(2.4); // back to the centreline
   await faceDeg(NORTH);
-  await walk(3.5); // up the steps onto the portico
+  await walk(1.6); // up the steps onto the raised entry
   await settle(0.5);
   s = await state();
-  check('the front steps and entry portico are reachable on foot around the fountain',
-    s.z > 38.6 && Math.abs(s.ground - GROUND_Y) < 0.35,
-    JSON.stringify(s));
+  /* Asserted as a CLIMB, not as a position. "past z=38.6 at ground height" is
+   * also satisfied by standing in the middle of the foyer, so it would pass
+   * without the steps ever being walked up. This requires the whole approach
+   * to have started at street grade out on the turnaround and finished on the
+   * raised entry -- with nothing but held keys in between, so the only thing
+   * that can have lifted the player 1.2 m is the steps. */
+  check('the front steps lift the player from street grade to the raised entry, on foot',
+    atStreetGrade.ground < 0.05 && atStreetGrade.z < 25
+      && Math.abs(s.ground - GROUND_Y) < 0.35 && s.z > 38.8,
+    JSON.stringify({ atStreetGrade, after: s }));
 
   // 4. Through the front door.
   await faceDeg(NORTH);
@@ -284,7 +293,7 @@ try {
   await settle(0.8);
   s = await state();
   check('walking through the front door reaches the foyer at ground level',
-    s.z > 42 && Math.abs(s.ground - GROUND_Y) < 0.35,
+    s.z > 45 && Math.abs(s.ground - GROUND_Y) < 0.35,
     JSON.stringify(s));
 
   /* ================================================================ */
@@ -394,6 +403,73 @@ try {
     check(`${leg.room} is enterable on foot (${leg.note})`, ok,
       `${JSON.stringify(s)} vs rect ${JSON.stringify(room.rect)} floor ${room.floor}`);
   }
+
+  /* ================================================================ */
+  /* The layout itself, against the owner's brief                       */
+  /*                                                                     */
+  /* "the Conference room to be at the top of the stairs ... with the     */
+  /*  balcony in the middle ... the conference room then behind it Lous   */
+  /*  office up there at the top of the stairs in the middle. Then bed    */
+  /*  rooms on the side."                                                 */
+  /*                                                                      */
+  /* Walking into a room called `conference` proves the room exists; it    */
+  /* does not prove it is where it was asked to be. These read the rects   */
+  /* the scene actually built and assert the relationships.               */
+  /* ================================================================ */
+  const layout = await page.evaluate(() => {
+    const t = window.mansion.roomTable;
+    const i = window.mansion.interior;
+    return {
+      gallery: t.gallery.rect,
+      conference: t.conference.rect,
+      office: t.office.rect,
+      beds: [t.bedWestFront.rect, t.bedEastFront.rect, t.bedWestRear.rect, t.bedEastRear.rect],
+      foyer: t.foyer.rect,
+      stairWest: i.props.foyer.stairWest,
+      stairEast: i.props.foyer.stairEast,
+      balcony: i.props.foyer.balcony,
+      upperY: t.gallery.floor,
+      groundY: t.foyer.floor,
+    };
+  });
+
+  const centred = (r) => Math.abs(r.x0 + r.x1) < 0.001;
+  check('the conference room is at the top of the stairs, in the middle, straight off the gallery',
+    centred(layout.conference)
+      && layout.conference.z0 > layout.gallery.z1
+      && layout.conference.z0 - layout.gallery.z1 < 0.5
+      && layout.conference.floor !== 0,
+    JSON.stringify({ gallery: layout.gallery, conference: layout.conference }));
+
+  check("Lou's office is directly behind the conference room, in the same middle band",
+    centred(layout.office)
+      && layout.office.z0 > layout.conference.z1
+      && layout.office.z0 - layout.conference.z1 < 0.5
+      && Math.abs(layout.office.x0 - layout.conference.x0) < 0.001,
+    JSON.stringify({ conference: layout.conference, office: layout.office }));
+
+  check('all four bedrooms are in the side wings, clear of the middle band',
+    layout.beds.length === 4
+      && layout.beds.every((b) => b.x1 <= layout.conference.x0 || b.x0 >= layout.conference.x1),
+    JSON.stringify(layout.beds));
+
+  check('the horseshoe is two separate flights, up opposite flanks of the foyer, rising the same way',
+    layout.stairWest.x1 < layout.stairEast.x0
+      && layout.stairWest.z0 === layout.stairEast.z0
+      && layout.stairWest.z1 === layout.stairEast.z1
+      && layout.stairWest.z1 > layout.stairWest.z0,
+    JSON.stringify({ west: layout.stairWest, east: layout.stairEast }));
+
+  check('the balcony sits in the middle, between the two flights and out over the foyer',
+    layout.balcony.x0 > layout.stairWest.x1
+      && layout.balcony.x1 < layout.stairEast.x0
+      && Math.abs(layout.balcony.x0 + layout.balcony.x1) < 0.001
+      && layout.balcony.z0 < layout.stairWest.z1,
+    JSON.stringify({ balcony: layout.balcony, west: layout.stairWest, east: layout.stairEast }));
+
+  check('the foyer is one big open room, not a corridor',
+    (layout.foyer.x1 - layout.foyer.x0) > 15 && (layout.foyer.z1 - layout.foyer.z0) > 15,
+    `${(layout.foyer.x1 - layout.foyer.x0).toFixed(1)} x ${(layout.foyer.z1 - layout.foyer.z0).toFixed(1)} m`);
 
   // Every room in the scene must have a walk test. A verifier that quietly
   // stops covering the geometry is exactly what shipped the last build green.

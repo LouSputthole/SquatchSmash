@@ -1117,7 +1117,16 @@ export function buildMansionInterior(shell = null) {
     ceilingLight(0, 56, UY - 0.35, 0xffdca0, 4.6, 14);
 
     return {
-      chandelier, chandelierLight, stairY, roofWash,
+      chandelier,
+      chandelierLight,
+      stairY,
+      roofWash,
+      /* The three rects the owner's layout brief is actually about, handed
+       * out so tools/verify-mansion.mjs can assert the SHAPE of the house and
+       * not just that rooms with the right names can be walked into. */
+      stairWest: { ...STAIR_WEST },
+      stairEast: { ...STAIR_EAST },
+      balcony: { ...BALCONY },
     };
   }
   const foyerProps = buildFoyer();
