@@ -30,6 +30,12 @@ export const ITEMS = {
    * concealed, and the club draws its own line for that -- but the name and
    * the icon live here with everything else you can be holding. */
   parcel: { icon: '▣', name: "Lou's package", hint: 'Inside your jacket' },
+  /* Au Gratin's, off the back of a fryer, handed over in the Bing's store
+   * room and never asked for back. It takes a real slot because the owner
+   * asked for it to *"come to my inventory like an item"* — it is a thing
+   * Tony was given and is now carrying, not a prompt that appears when the
+   * scene wants one. */
+  cord: { icon: '🪢', name: 'The cord', hint: '[Click] to swing it' },
 };
 
 export class Inventory {

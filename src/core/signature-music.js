@@ -62,9 +62,23 @@ export const SIGNATURE_TRACKS = Object.freeze({
     title: 'Sensi Lou',
     file: 'sensi-lou.mp3',
     fallbackFile: 'good-ole-days.mp3',
-    trigger: 'entering Big Uncle Lou’s office',
-    loopKey: 'office.radio',
-    volume: 0.22,
+    trigger: 'opening the door of Big Uncle Lou’s office',
+    /* Its OWN key, deliberately not `office.radio`.
+     *
+     * The two used to share one loop, which meant a 4.7-second sting was
+     * standing in for the record playing in Lou's corner — so it repeated
+     * behind a closed door all night and bled down the hallway. They are two
+     * different things: the office radio is furniture, this is Tony walking
+     * in. Separate keys, separate mixes, no fight over who owns the loop. */
+    loopKey: 'music.sensilou',
+    /* 0.242 — the owner asked for ten per cent over the 0.22 it opened at.
+     *
+     * It is also no longer panned. A positional cue on the office radio with a
+     * 9 m falloff was audible from halfway down the hallway, which is exactly
+     * what a sting must not be: you heard it coming, and by the time the door
+     * was open it was already playing. It is played flat now, once, on the
+     * door — see `registerDoor('lou')` in src/bing/main.js. */
+    volume: 0.242,
     /* Owner-picked window, 2026-08-04: in at 5.0, out at 9.7. It is a sting on
      * the doorway rather than a record playing behind the door, so it is also
      * `loop: false` at the call site — a four-second window on repeat would be
@@ -80,14 +94,20 @@ export const SIGNATURE_TRACKS = Object.freeze({
     fallbackFile: 'booskibro.mp3',
     trigger: 'Booskibro’s first significant appearance in a scene',
     loopKey: 'music.booski',
-    volume: 0.34,
-    /* Owner-picked window, 2026-08-04: in at 19.0, out at 22.2. Three and a
-     * bit seconds, timed to land on the shot rather than to play a record —
-     * he takes it, that comes in, it stops. The window lives on the cue
-     * instead of the call site because it belongs to the recording, and the
-     * full master stays on disk untrimmed. */
-    start: 19,
-    cutAt: 22.2,
+    /* 0.40, up from 0.34, on the owner's note. It is a three-second sting
+     * against a muffled club record and a bar bed; at 0.34 it arrived as a
+     * texture rather than as the thing that just happened. */
+    volume: 0.40,
+    /* Owner-picked window, 2026-08-04, widened by 0.4 s at each end on the
+     * 2026-08-04 playtest: in at 18.6, out at 22.6. It used to open on 19.0
+     * and stop on 22.2, and the cue now fires on the keypress that actually
+     * takes the shot rather than on the pour — so the extra four tenths at the
+     * head is the run-up the record needs to be underneath him by the time the
+     * glass moves, and the four at the tail stops it cutting off on the
+     * swallow. The window lives on the cue instead of the call site because it
+     * belongs to the recording, and the full master stays on disk untrimmed. */
+    start: 18.6,
+    cutAt: 22.6,
   }),
   /**
    * The portable radio in the Bing's store room, during License to Grill.

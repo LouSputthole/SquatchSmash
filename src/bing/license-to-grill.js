@@ -71,16 +71,81 @@ export const PRESSURE = Object.freeze({
   camera: 12,
   pistol: 12,
   jacket: 16,
+  /**
+   * And breaking one of his things, on top of having picked it up.
+   *
+   * Deliberately the smallest number on this table except the cord, and that
+   * is the argument, not an oversight. What moves him is a stranger holding
+   * the thing and deciding. Once it is in pieces the decision has been made
+   * and there is nothing left of it to threaten him with — which is the same
+   * lesson the repeat rule teaches about the cart, and the reason the car
+   * works: the car is still in one piece when he talks.
+   *
+   * Counted once per object, so a full table of smashed effects is worth 24 —
+   * meaningful, and still nothing beside walking towards the door.
+   */
+  smash: 6,
 });
 
-/** His things, in the order a player is likely to turn them over. */
+/**
+ * His things, laid out on the prep table against the north wall.
+ *
+ * They used to be a submenu: `things` opened a list and the player picked
+ * words off it. The owner's note is that this was the wrong interface for the
+ * best idea in the scene — *"each one you pick up triggers the voice dialogue
+ * and then you have the option to smash it"* — so each one is now a physical
+ * object on a real table with a real pickup, and this list is what the runtime
+ * builds and what the recording ledger walks.
+ *
+ * `node` is the exchange his picking it up fires. `smashNode` is the exchange
+ * for breaking it, and the keys deliberately have none: a set of car keys is
+ * not the thing you break, it is the thing that tells you what to threaten.
+ */
 export const BELONGINGS = Object.freeze([
-  Object.freeze({ id: 'watch', label: 'A luxury wristwatch', node: 'propWatch' }),
-  Object.freeze({ id: 'camera', label: 'A miniature spy camera', node: 'propCamera' }),
-  Object.freeze({ id: 'pistol', label: 'A custom pistol', node: 'propPistol' }),
-  Object.freeze({ id: 'jacket', label: 'A pristine tuxedo jacket', node: 'propJacket' }),
-  Object.freeze({ id: 'keys', label: 'The keys to something parked out back', node: 'propKeys' }),
+  Object.freeze({
+    id: 'watch',
+    label: 'A luxury wristwatch',
+    hand: 'His wristwatch',
+    icon: '⌚',
+    node: 'propWatch',
+    smashNode: 'smashWatch',
+  }),
+  Object.freeze({
+    id: 'camera',
+    label: 'A miniature spy camera',
+    hand: 'His camera',
+    icon: '📷',
+    node: 'propCamera',
+    smashNode: 'smashCamera',
+  }),
+  Object.freeze({
+    id: 'pistol',
+    label: 'A custom pistol',
+    hand: 'His pistol',
+    icon: '🔫',
+    node: 'propPistol',
+    smashNode: 'smashPistol',
+  }),
+  Object.freeze({
+    id: 'jacket',
+    label: 'A pristine tuxedo jacket',
+    hand: 'His jacket',
+    icon: '🧥',
+    node: 'propJacket',
+    smashNode: 'smashJacket',
+  }),
+  Object.freeze({
+    id: 'keys',
+    label: 'The keys to something parked out back',
+    hand: 'His car keys',
+    icon: '🔑',
+    node: 'propKeys',
+    smashNode: null,
+  }),
 ]);
+
+/** How many landed swings of the cord before Gratin points at the table. */
+export const SWINGS_BEFORE_THE_TABLE = 3;
 
 /** The three ways it ends. */
 export const ENDINGS = Object.freeze({
@@ -102,6 +167,10 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
     asked: new Set(),
     used: new Set(),
     handled: new Set(),
+    /** Which of his things are in pieces. A subset of `handled`, always. */
+    smashed: new Set(),
+    /** Landed swings of the cord, which is how Gratin knows when to stop you. */
+    swings: 0,
     shubesSeen: false,
     carThreatened: false,
     broken: false,
@@ -121,9 +190,37 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
       return { gain: 0, repeat: true, pressure: state.pressure };
     }
     state.used.add(kind);
+    /* Only swings that LAND. A cord that cracks on the floor is `chair`, and
+     * so is Gratin's own demonstration; neither is Tony hitting the man, and
+     * Gratin's "you have done that three times now" has to mean the three the
+     * room actually watched. */
+    if (kind === 'strike') state.swings += 1;
     if (BELONGINGS.some((item) => item.id === kind)) state.handled.add(kind);
     state.pressure = Math.min(100, state.pressure + gain);
     return { gain, repeat: false, pressure: state.pressure };
+  }
+
+  /**
+   * Break one of his things.
+   *
+   * Separate from `apply` because it is a second act on an object that has
+   * already been picked up, and because it must be countable per object —
+   * `apply` dedupes by kind, so four smashes through it would have been worth
+   * one. Recorded into `used` rather than into a new persisted field, so the
+   * campaign's payload keeps its shape and `methods` simply reads
+   * `smashed:watch` alongside `sauce`.
+   */
+  function smash(id) {
+    if (!BELONGINGS.some((item) => item.id === id && item.smashNode)) {
+      return { gain: 0, repeat: false, pressure: state.pressure };
+    }
+    if (state.smashed.has(id)) {
+      return { gain: 0, repeat: true, pressure: state.pressure };
+    }
+    state.smashed.add(id);
+    state.used.add(`smashed:${id}`);
+    state.pressure = Math.min(100, state.pressure + PRESSURE.smash);
+    return { gain: PRESSURE.smash, repeat: false, pressure: state.pressure };
   }
 
   return {
@@ -132,6 +229,13 @@ export function createInterrogation({ onBreak = () => {} } = {}) {
     get broken() { return state.broken; },
 
     apply,
+    smash,
+    /** Landed swings of the cord so far. */
+    swings() { return state.swings; },
+    /** Has this thing already been picked up off the table? */
+    isHandled(id) { return state.handled.has(id); },
+    /** Is it in pieces? */
+    isSmashed(id) { return state.smashed.has(id); },
     ask(id) { state.asked.add(id); return state.asked.size; },
 
     /** Shubes walks in once, and only when it is at its worst. */
@@ -201,7 +305,7 @@ const PROSPECT = 'Prospect';
 
 /**
  * @param {object} hooks
- *   swing()          run the timing prompt for the cord
+ *   takeCord()       put the cord in Tony's hands as a carried item
  *   apply(kind)      register an interrogation method
  *   ask(id)          register a question
  *   carAvailable()   has he had his things gone through
@@ -216,7 +320,7 @@ const PROSPECT = 'Prospect';
  *                    at the named node, once the current line has finished
  */
 export function buildLicenseToGrillScript({
-  swing = () => {},
+  takeCord = () => {},
   apply = () => ({ gain: 0, repeat: false }),
   ask = () => 0,
   carAvailable = () => false,
@@ -230,13 +334,28 @@ export function buildLicenseToGrillScript({
   handOff = () => {},
 } = {}) {
   /**
-   * After anything is done to him, the scene either cuts to Shubes or goes
-   * back to the floor. One place decides, so the interruption cannot be
-   * missed by whichever branch the player happened to take.
+   * After anything is done to him at the chair, the scene either cuts to
+   * Shubes or goes back to the floor. One place decides, so the interruption
+   * cannot be missed by whichever branch the player happened to take.
    */
   const backToWork = () => {
     if (shubesDue()) { markShubes(); return 'shubesEnters'; }
     return 'floor';
+  };
+
+  /**
+   * And the same decision for anything done at the TABLE, where ending the
+   * thread is the right answer rather than opening a menu.
+   *
+   * Picking a man's watch up is not a conversation you are in the middle of:
+   * you are across the room with your back to him, holding it. He says his
+   * piece, it stops, and the player decides what to do with the object and
+   * when to walk back. Only the Shubenator gets to override that, because his
+   * whole joke is that he arrives at the wrong moment.
+   */
+  const backToTable = () => {
+    if (shubesDue()) { markShubes(); return 'shubesEnters'; }
+    return null;
   };
 
   const blond = {
@@ -279,19 +398,47 @@ export function buildLicenseToGrillScript({
       hold: 3.0,
       next: 'handOverCord',
     },
+    /* ---------------- the cord changes hands ----------------
+     *
+     * It used to be a timing bar: one option started a sweeping prompt, two
+     * hits landed and the scene moved on whether or not the player had ever
+     * wanted to hit anybody. Owner's note, 2026-08-04: *"Gratin should hand me
+     * the cord and let it come to my inventory like an item"* and *"I want to
+     * be able to whip him on command."* So he hands it over, it is a thing
+     * Tony is carrying for the rest of the evening, and every swing after this
+     * is the player's own decision at the moment they take it.
+     *
+     * The instruction is deliberately NOT in this node. Gratin finishes, and
+     * the runtime puts the button on screen in the beat afterwards — see
+     * `sayThenInstruct` in src/silvercase/main.js and the tone doctrine's
+     * "HUD instructions never replace a character". */
     handOverCord: {
       who: GRATIN,
-      line: 'Aim low. Apparently that’s where England keeps its secrets.',
-      hold: 3.6,
+      line: 'Here. Off the fryer. It was a cord before it was anything else, so nobody has to explain it later.',
+      hold: 6.2,
       options: [
         {
-          tone: 'Swing',
+          tone: 'Take',
           text: 'Take the cord.',
-          next: () => { swing(); return null; },
+          next: () => { takeCord(); return 'cordInHand'; },
         },
       ],
     },
-    /* main.js re-enters here when the timing prompt resolves. */
+    cordInHand: {
+      who: GRATIN,
+      line: 'Aim low. Apparently that’s where England keeps its secrets.',
+      hold: 3.6,
+    },
+
+    /* ---------------- the cord, on command ----------------
+     *
+     * The runtime plays one of these each time a swing actually lands, in
+     * order, and the third one is where Gratin gives up on the beating and
+     * points at the table. He is the game's own instructions in this room and
+     * it is far better coming out of him than out of a caption.
+     *
+     * `afterSwing` keeps its old name because it is the first of them and the
+     * scene has always re-entered on it. */
     afterSwing: {
       who: BLOND,
       line: 'I’ve had rougher service in Monte Carlo.',
@@ -302,7 +449,59 @@ export function buildLicenseToGrillScript({
       who: GRATIN,
       line: 'See? That’s the crap he’s been doing all night.',
       hold: 3.2,
-      next: 'floor',
+    },
+    swingTwo: {
+      who: BLOND,
+      line: 'Do keep going. I should hate to be the only one in this room getting anything out of it.',
+      hold: 5.0,
+      next: 'swingTwoNumbskull',
+    },
+    swingTwoNumbskull: {
+      who: NUMBSKULL,
+      line: 'Is he supposed to be doing that with his face?',
+      hold: 3.2,
+    },
+    swingThree: {
+      who: BLOND,
+      line: 'There. That is all of it. That is everything my body has to offer you and I am afraid it is not very much.',
+      hold: 6.6,
+      next: 'tableNudge',
+    },
+    tableNudge: {
+      who: GRATIN,
+      line: 'Stop. Prospect — stop. Look at his face. He’s been counting them.',
+      hold: 4.8,
+      next: 'tableNudgeTable',
+    },
+    tableNudgeTable: {
+      who: GRATIN,
+      line: 'Everything out of his pockets is on the table behind you. Numbskull laid it out. Go and pick his life up instead of hitting him with a fryer part.',
+      hold: 8.0,
+      next: 'tableNudgeBlond',
+    },
+    tableNudgeBlond: {
+      who: BLOND,
+      line: 'I would very much rather you didn’t.',
+      hold: 3.0,
+    },
+    /* Four, five, nine. A player who keeps swinging after Gratin has told him
+     * to stop gets told, every time, that it is not working — which is the
+     * scene's whole argument and has to survive being ignored.
+     *
+     * These two carry no `enter`: the runtime applies the method itself,
+     * because whether a swing lands is decided by where Tony is standing and
+     * not by which line comes next. */
+    swingAgain: {
+      who: BLOND,
+      line: 'Mm. Yes. That is certainly a thing that happened to me.',
+      hold: 3.4,
+    },
+    /* And a swing that goes wide — off the chair back, off the drain cover,
+     * off the floor. Worth `chair`, which is three, which is nothing. */
+    swingWide: {
+      who: BLOND,
+      line: 'Do let me know when you begin.',
+      hold: 2.8,
     },
 
     /* ---------------- the floor: everything else hangs off here ---------------- */
@@ -311,6 +510,11 @@ export function buildLicenseToGrillScript({
       line: () => (carAvailable()
         ? 'He’s got a whole life in that jacket. Keep pulling.'
         : 'Well? He’s not going to volunteer.'),
+      /* No "go through his things" any more. That was a submenu standing in
+       * for a room, and the room exists: his effects are laid out on the prep
+       * table by the door and each one is picked up with both hands. What is
+       * left here is what a conversation IS — the questions, the cart, and
+       * standing back to let Gratin embarrass himself again. */
       options: () => {
         const options = [
           { tone: 'Ask', text: 'Who inside the family are you talking to?', next: 'qInformant' },
@@ -318,11 +522,10 @@ export function buildLicenseToGrillScript({
           { tone: 'Ask', text: 'Who sent you into our city?', next: 'qOrg' },
           { tone: 'Ask', text: 'How do you keep your hair like that?', next: 'qHair' },
           { tone: 'Hurt', text: 'Use something off the cart.', next: 'cart' },
-          { tone: 'Search', text: 'Go through his things.', next: 'things' },
           { tone: 'Leave', text: 'Step back and let Gratin have another go.', next: 'gratinTurn' },
         ];
         if (carAvailable()) {
-          options.splice(6, 0, { tone: 'Press', text: 'What kind of car?', next: 'car' });
+          options.splice(5, 0, { tone: 'Press', text: 'What kind of car?', next: 'car' });
         }
         return options;
       },
@@ -433,29 +636,17 @@ export function buildLicenseToGrillScript({
     cart: {
       who: GRATIN,
       line: 'Help yourself. It’s a kitchen.',
+      /* The two cord entries are gone from here. The cord is in Tony's hands
+       * now and swinging it is a mouse button, not a line on a menu — leaving
+       * them would have offered the player a worse version of a thing they
+       * were already holding. */
       options: [
-        { tone: 'Cord', text: 'The chair again.', next: 'useChair' },
-        { tone: 'Cord', text: 'Not the chair.', next: 'useStrike' },
         { tone: 'Tool', text: 'The meat tenderiser.', next: 'useTenderizer' },
         { tone: 'Tool', text: 'The ice bucket.', next: 'useIce' },
         { tone: 'Tool', text: 'The tongs.', next: 'useTongs' },
         { tone: 'Tool', text: 'The bottle with no label.', next: 'useSauce' },
         { tone: 'Back', text: 'Leave the cart alone.', next: 'floor' },
       ],
-    },
-    useChair: {
-      who: BLOND,
-      enter: () => { apply('chair'); },
-        line: 'Do let me know when you begin.',
-      hold: 2.8,
-      next: () => backToWork(),
-    },
-    useStrike: {
-      who: BLOND,
-      enter: () => { apply('strike'); },
-        line: 'Mm. Yes. That is certainly a thing that happened to me.',
-      hold: 3.4,
-      next: () => backToWork(),
     },
     useTenderizer: {
       who: BLOND,
@@ -511,39 +702,37 @@ export function buildLicenseToGrillScript({
       next: () => backToWork(),
     },
 
-    /* ---------------- his things ---------------- */
-    things: {
-      who: NUMBSKULL,
-      line: 'Everything off him’s in the box. I counted it twice so nobody says anything later.',
-      options: () => {
-        const options = BELONGINGS
-          .filter((item) => item.id !== 'keys')
-          .map((item) => ({ tone: 'Handle', text: item.label, next: item.node }));
-        options.push({ tone: 'Keys', text: 'The keys to something parked out back.', next: 'propKeys' });
-        options.push({ tone: 'Back', text: 'Put the box down.', next: 'floor' });
-        return options;
-      },
-    },
+    /* ---------------- his things, off the table ----------------
+     *
+     * The writing is the writing it always was; what changed is who asks for
+     * it. There is no menu. Each of these fires because the player has walked
+     * across the room, looked at an object on a steel table and picked it up
+     * with their own hands, which is the only reason any of it lands: he is
+     * not answering a question, he is watching a stranger hold his property.
+     *
+     * They all end their thread rather than reopening the floor — the player
+     * is at the table with their back to him, holding the thing, and what
+     * happens next is theirs. */
     propWatch: {
       who: BLOND,
       enter: () => { apply('watch'); },
         line: 'Careful. That is not a watch, that is a receipt for eleven years of my life.',
       hold: 4.6,
-      next: () => backToWork(),
+      next: () => backToTable(),
     },
     propCamera: {
       who: BLOND,
       enter: () => { apply('camera'); },
         line: 'There is nothing on it. There is famously nothing on it. Please put it down.',
       hold: 4.4,
-      next: () => backToWork(),
+      next: () => backToTable(),
     },
     propPistol: {
       who: BLOND,
       enter: () => { apply('pistol'); },
         line: 'That is a fitted grip. You will not find another. I would rather you shot me with it than dropped it.',
       hold: 5.0,
-      next: () => backToWork(),
+      next: () => backToTable(),
     },
     propJacket: {
       who: BLOND,
@@ -556,13 +745,74 @@ export function buildLicenseToGrillScript({
       who: GRATIN,
       line: 'Prospect. Prospect, look at him. He didn’t blink for the tongs.',
       hold: 4.0,
-      next: () => backToWork(),
+      next: () => backToTable(),
     },
     propKeys: {
       who: GRATIN,
       line: 'Car keys. Nice ones. Heavier than my car.',
       hold: 3.4,
-      next: 'floor',
+      next: 'propKeysBlond',
+    },
+    propKeysBlond: {
+      who: BLOND,
+      /* The first and only time in this room that he does not have a line
+       * ready. He says nothing, and Gratin does not notice, and the player
+       * either notices or does not — which is the scene. */
+      line: '…',
+      direction: 'He does not answer. It is the only question all night he has not had a joke prepared for, and he knows the room can hear that.',
+      hold: 2.6,
+    },
+
+    /* ---------------- and breaking them ----------------
+     *
+     * The other half of the owner's note: *"then you have the option to smash
+     * it."* Worth `PRESSURE.smash` — six — and no more, because a thing in
+     * pieces cannot be threatened with any more. What it buys is this writing,
+     * which is the coldest he gets, and the player finding out that the man
+     * who laughed through a beating has a floor after all. */
+    smashWatch: {
+      who: BLOND,
+      line: 'That was my father’s. You have just done the only thing that will be remembered about tonight.',
+      hold: 6.0,
+      next: 'smashWatchGratin',
+    },
+    smashWatchGratin: {
+      who: GRATIN,
+      line: 'There it is. THERE it is. Prospect — everything on that table. All of it.',
+      hold: 5.2,
+      next: () => backToTable(),
+    },
+    smashCamera: {
+      who: BLOND,
+      line: 'There was nothing on it. Now there is nothing on it in a way I shall have to explain in writing.',
+      hold: 6.0,
+      next: () => backToTable(),
+    },
+    smashPistol: {
+      who: BLOND,
+      line: 'You have bent the frame. That was fitted to my hand. Do you understand that it cannot be replaced, only apologised for.',
+      hold: 7.2,
+      next: 'smashPistolNumbskull',
+    },
+    smashPistolNumbskull: {
+      who: NUMBSKULL,
+      line: 'That was worth my car.',
+      hold: 2.6,
+      next: () => backToTable(),
+    },
+    smashJacket: {
+      who: BLOND,
+      line: 'You have torn it at the shoulder. That is not a repair. There is no repair. That is a funeral.',
+      hold: 6.4,
+      next: () => backToTable(),
+    },
+    /* And the one thing in the room he is not allowed to break, because it is
+     * the only good news anybody in here has had all night. */
+    smashKeys: {
+      who: GRATIN,
+      line: 'Not those. Prospect, look at me — not those. Those are the only good news in this room.',
+      hold: 5.6,
+      next: () => backToTable(),
     },
 
     /* ---------------- the car, which is the end ---------------- */
@@ -860,7 +1110,7 @@ export function buildLicenseToGrillScript({
     },
     needTools: {
       who: GRATIN,
-      line: 'Cart is on your left, it is a kitchen, help yourself. Everything he had in his pockets is in the box Numbskull is holding. Use one, use the other, use both. Just get me a name.',
+      line: 'Cart is on your left, it is a kitchen, help yourself. Everything he had in his pockets is on the table by the door. Use one, use the other, use both. Just get me a name.',
       hold: 7.4,
       next: 'open',
     },
@@ -902,8 +1152,8 @@ export function buildLicenseToGrillScript({
     },
     noticedMore: {
       who: GRATIN,
-      line: 'So stop hitting him and start going through him.',
-      hold: 3.4,
+      line: 'So stop hitting him and start going through what’s on that table.',
+      hold: 4.0,
       next: 'open',
     },
     handOff: {
@@ -915,25 +1165,32 @@ export function buildLicenseToGrillScript({
   };
 
   /**
-   * Numbskull, holding the box, in the corner, being no help and total help.
+   * Numbskull, who emptied the man out onto the table, in the corner, being no
+   * help and total help.
    *
-   * He is the belongings. The scene's whole argument is that the box is worth
-   * more than the cord, and he is the man standing next to the box saying so
-   * without knowing he is saying it.
+   * He is the belongings. The scene's whole argument is that the table is
+   * worth more than the cord, and he is the man standing next to the table
+   * saying so without knowing he is saying it.
+   *
+   * He used to be HOLDING the box, and handing it over was a dialogue option
+   * that opened a submenu of nouns. The objects are on a real table now, so
+   * what is left of him is the part that was always the good part: the
+   * inventory clerk who has priced a spy's watch against his own car and is
+   * not allowed to go outside and look at the thing the keys open.
    */
   const numbskull = {
     open: {
       who: NUMBSKULL,
       line: () => (broken()
         ? 'He gave it up. I want it on the record that nobody needed holding.'
-        : 'Everything off him is in this box. Watch, camera, the little gun, and keys to something.'),
+        : 'Everything off him is laid out on that table. Watch, camera, the little gun, and keys to something.'),
       options: () => {
         const options = [
-          { tone: 'Ask', text: 'Anything in there worth anything?', next: 'worth' },
+          { tone: 'Ask', text: 'Anything on there worth anything?', next: 'worth' },
           { tone: 'Ask', text: 'You holding up, Numbskull?', next: 'holding' },
         ];
         if (!broken()) {
-          options.push({ tone: 'Take', text: 'Let me see the box.', next: 'theBox' });
+          options.push({ tone: 'Ask', text: 'Did you go through it properly?', next: 'theBox' });
         }
         options.push({ tone: 'Back', text: 'Later.', next: null });
         return options;
@@ -965,9 +1222,15 @@ export function buildLicenseToGrillScript({
     },
     theBox: {
       who: NUMBSKULL,
-      line: 'Take it. Do not set it down on the floor. The floor in here has a drain in it.',
-      hold: 5.2,
-      next: () => { handOff('things'); return null; },
+      line: 'Twice. Pockets, lining, both shoes. Then I put it all out where you could see it, in a line, like a shop.',
+      hold: 6.6,
+      next: 'theBoxDrain',
+    },
+    theBoxDrain: {
+      who: NUMBSKULL,
+      line: 'Do not set any of it down on the floor. The floor in here has a drain in it.',
+      hold: 5.0,
+      next: 'open',
     },
   };
 

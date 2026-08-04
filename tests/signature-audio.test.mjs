@@ -71,19 +71,56 @@ test('Sensi Lou is a real cue with a named file and a fallback that exists', () 
   );
 });
 
-test('walking into Lou\'s office is what starts it', () => {
-  /* Not scene load, and not the door interaction — the room change, which is
-   * the moment Tony is actually in there. */
-  const hook = bingMain.slice(bingMain.indexOf('function onRoomChange('));
-  assert.match(hook, /next === 'office' && !game\.sensiLouCued/);
+test('opening the office door is what starts it, and it is not panned', () => {
+  /* Owner's playtest, 2026-08-04: *"The sensi lou sound I could hear coming
+   * down the hallway, it should just play ONCE when you open the door."*
+   *
+   * Not scene load — a loop running behind a closed door since the title card
+   * is a radio, not a sting — and not the room change either, which fires a
+   * stride or two past a threshold the player has already crossed. The hand on
+   * the handle. And with no `position`, because a sting is on Tony rather than
+   * in a corner of a room he has not reached yet. */
+  const hook = bingMain.slice(
+    bingMain.indexOf('function cueSensiLou('),
+    bingMain.indexOf('registerDoor(\'service\''),
+  );
   assert.match(hook, /SIGNATURE_TRACKS\.sensiLou/);
-  assert.match(hook, /replace: true/, 'entering must restart the record, not layer a second one');
+  assert.match(hook, /replace: true/, 'the cue must restart the record, not layer a second one');
+  assert.match(hook, /loop: false/, 'a five-second sting must not repeat');
+  assert.doesNotMatch(hook, /position:/, 'the sting is unpanned — panning it is what bled into the hallway');
+  assert.match(hook, /if \(door\.open\) cueSensiLou\(\);/, 'the office door must be what fires it');
 });
 
-test('it cues once, however many times he walks back in', () => {
+test('nothing starts it before the door, and it cues once however often he walks back in', () => {
   assert.match(bingMain, /sensiLouCued: false/);
-  const hook = bingMain.slice(bingMain.indexOf('function onRoomChange('));
+  const hook = bingMain.slice(bingMain.indexOf('function cueSensiLou('));
   assert.match(hook, /game\.sensiLouCued = true/);
+  /* The boot block starts Lou's OWN radio and nothing else. A second
+   * `playSignatureTrack(sensiLou)` anywhere would be the old bug returning. */
+  assert.equal(
+    bingMain.split('SIGNATURE_TRACKS.sensiLou').length - 1, 1,
+    'Sensi Lou is fired from exactly one place',
+  );
+  assert.match(bingMain, /startMusicLoop\('office\.radio', LOU_RADIO_FILE/,
+    'the office keeps a radio of its own, separate from the sting');
+});
+
+test('the sting and the office radio are separate loops', () => {
+  /* They used to share `office.radio`, which is how a 4.7-second cue with
+   * in/out points ended up looping behind a closed door all night. */
+  assert.notEqual(SIGNATURE_TRACKS.sensiLou.loopKey, 'office.radio');
+  assert.equal(SIGNATURE_TRACKS.sensiLou.loopKey, 'music.sensilou');
+});
+
+test('the owner-picked windows and levels are the ones on the cues', () => {
+  /* Owner's playtest, 2026-08-04: Baby Snakes wider by four tenths at each
+   * end, Baby Snakes louder, and Sensi Lou ten per cent up on 0.22. */
+  assert.equal(SIGNATURE_TRACKS.babySnakes.start, 18.6);
+  assert.equal(SIGNATURE_TRACKS.babySnakes.cutAt, 22.6);
+  assert.equal(SIGNATURE_TRACKS.babySnakes.volume, 0.4);
+  assert.equal(SIGNATURE_TRACKS.sensiLou.volume, 0.242);
+  assert.equal(SIGNATURE_TRACKS.sensiLou.start, 5);
+  assert.equal(SIGNATURE_TRACKS.sensiLou.cutAt, 9.7);
 });
 
 /* ---------------- Baby Snakes ---------------- */
@@ -100,17 +137,29 @@ test('Baby Snakes is a real cue with a named file and a fallback that exists', (
   );
 });
 
-test('it fires on the beat the scene is about him, not on sight of him', () => {
-  /* He is on a bar stool from the moment the club loads. A line-of-sight cue
-   * would play his record over the front door. */
+test('it fires on the keypress that takes the shot, not on the pour', () => {
+  /* He is on a bar stool from the moment the club loads, so a line-of-sight
+   * cue would play his record over the front door. It used to fire on
+   * `startShotBeat`, which is the pour — and then ran a bartender, a bouncer
+   * and a handover before the glass ever reached Tony, so the three seconds
+   * the window was cut for had gone past by the time he drank it. Owner's
+   * playtest, 2026-08-04: *"I want the sound to happen right when I take the
+   * shot, like hit E on it."* */
   assert.match(bingMain, /function cueBabySnakes\(/);
-  /* Inside the shot beat, and after its guards: if there is no bartender the
-   * beat aborts and no record should have started. */
   const beat = bingMain.slice(bingMain.indexOf('function startShotBeat()'));
-  const guard = beat.indexOf('if (!bartender) return;');
-  const call = beat.indexOf('cueBabySnakes(booski)');
-  assert.ok(call > 0, 'the shot beat never cues Baby Snakes');
-  assert.ok(guard > 0 && call > guard, 'the cue must sit after the beat can still abort');
+  assert.equal(beat.includes('cueBabySnakes('), false,
+    'the pour must not cue it — the swallow does');
+
+  const drink = bingMain.slice(
+    bingMain.indexOf('function startBooskiShotDrink()'),
+    bingMain.indexOf('function shotDrinkTick('),
+  );
+  const guard = drink.indexOf('return false;');
+  const call = drink.indexOf('cueBabySnakes(');
+  assert.ok(call > 0, 'the drink never cues Baby Snakes');
+  assert.ok(guard > 0 && call > guard,
+    'the cue must sit after the press can still be refused');
+
   const cue = bingMain.slice(bingMain.indexOf('function cueBabySnakes('), bingMain.indexOf('function startShotBeat()'));
   assert.match(cue, /if \(game\.babySnakesCued\) return;/);
   assert.match(cue, /loop: false/, 'a signature entrance plays once, it does not loop');
