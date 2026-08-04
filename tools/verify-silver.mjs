@@ -127,7 +127,13 @@ if (failedToLoad) {
  * which every pixel of is drawn on the CPU. */
 const startClickedAt = Date.now();
 await page.evaluate(() => document.getElementById('start-btn').click());
-await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 90000 });
+/* Start is `await audio.loadManifest()`, which is four hundred fetches and
+ * four hundred decodes on a machine that is also drawing this scene in
+ * software. How long that takes is not what this harness is for — the
+ * *selection* is, and it is measured and asserted twenty lines below, wall
+ * clock included. The ninety seconds this used to allow was a number from a
+ * quieter box and it is a flake on a busy one. */
+await page.waitForFunction(() => window.__silver?.game.started, null, { timeout: 300000 });
 await page.evaluate(() => window.__silver.postfx.disable?.());
 await page.keyboard.press('Tab');
 await page.waitForFunction(() => window.__scenePause?.isPaused() === true);
@@ -912,12 +918,44 @@ check('the alley starts the service route', s.mission === 'service-route', s.mis
 check('she came down the alley too', s.dateRoom === 'alley' || s.dateGap < 6,
   `${s.dateRoom}, ${s.dateGap.toFixed(1)}m`);
 
+/* ---- and the street is a street ----
+ *
+ * Two notes in one place: "need more sound effects for the crowd outside and
+ * the city while walking into the alley" and "the car driving away needs a
+ * sound". Every one of these is in the campaign's own sound set and none of
+ * them was on the list this page is allowed to decode, so the exterior was one
+ * twenty-second alley loop and a car that accelerated away in total silence.
+ */
+const street = await page.evaluate(() => {
+  const b = window.__silver;
+  const need = ['street.car.pass.wet', 'street.horn.distant', 'traffic.pass',
+    'train.elevated.rumble', 'train.elevated.roar', 'train.rail.clatter',
+    'car.engine.start', 'car.engine.rev'];
+  return {
+    missing: need.filter((n) => !b.audio.hasSample(n)),
+    crowd: !!b.audio.loops.get('ambience.crowd'),
+    city: !!b.audio.loops.get('ambience.city.night'),
+    /* Anything the exterior has actually played by now. The driver's car has
+     * already gone by this point in the run. */
+    heard: [...new Set(b.audio.playbacks.map((p) => p.name))]
+      .filter((n) => /^(street\.|train\.|traffic\.|car\.engine)/.test(n)),
+  };
+});
+check('the street outside has traffic, the elevated line and a crowd on it',
+  street.missing.length === 0 && street.crowd && street.city && street.heard.length >= 2,
+  JSON.stringify(street));
+
 const drovOff = await page.evaluate(() => ({
   gone: window.__silver.debug.taxiGone(),
   prompt: !!window.__silver.taxi.window.userData.interact,
+  /* The car leaving is four positioned one-shots on the car itself, so it
+   * goes away rather than simply stopping being there. */
+  heardItGo: window.__silver.audio.playbacks.some((p) => p.name === 'car.engine.start'),
 }));
 check('and once he has walked off the car goes, and takes its prompt with it',
   drovOff.gone && !drovOff.prompt, JSON.stringify(drovOff));
+check('and it is audibly a car driving away rather than one that stops existing',
+  drovOff.heardItGo, JSON.stringify(drovOff));
 
 await page.evaluate(() => window.__silver.room.doors.service.toggle());
 await walkTo(34, 13.5);
@@ -1134,15 +1172,111 @@ const descent = await page.evaluate(() => {
   return out;
 });
 check('walking the descent on the keys ends up in the cellar, not back beside the bar',
-  descent.alley.feet < -2.4 && ['stair', 'cellar'].includes(descent.alley.room)
+  descent.alley.feet < -2.4 && ['stair', 'cellar', 'undercroft'].includes(descent.alley.room)
     && descent.alley.pops === 0
-    && descent.kitchen.feet < -2.4 && ['cellar', 'drystore'].includes(descent.kitchen.room)
+    && descent.kitchen.feet < -2.4 && ['cellar', 'drystore', 'undercroft'].includes(descent.kitchen.room)
     && descent.kitchen.pops === 0,
   `${JSON.stringify(descent.alley)} / ${JSON.stringify(descent.kitchen)}`);
 check('and he can walk back up out of it the same way',
   descent.backUp.feet > -0.4 && ['stair', 'alley'].includes(descent.backUp.room)
     && descent.upToPrep.feet > -0.4 && ['prep', 'kitchen'].includes(descent.upToPrep.room),
   `${JSON.stringify(descent.backUp)} / ${JSON.stringify(descent.upToPrep)}`);
+
+/* ---- and each descent ARRIVES somewhere ----
+ *
+ * The one the harness could not see, reported seven times and true every one
+ * of them: "the fucking STAIRS down are still going into the fucking wall and
+ * same thing with the stairs in to the kitchen."
+ *
+ * Everything above passed while it was broken, because every one of those
+ * checks asks whether he got *down* — and he did. He got down, and then he was
+ * standing at the bottom of a slope with a slab of unlit concrete 150mm in
+ * front of his face, and the way on was a ninety-degree turn that is invisible
+ * from the top of the ramp. A descent is not a descent unless it lands you
+ * somewhere, and "somewhere" is a geometric claim:
+ *
+ *   1. hold W from the top and he must lose the whole storey;
+ *   2. he must not be *stopped* at the foot — he keeps travelling well past
+ *      where the slab ends, which is the assertion a dead end fails;
+ *   3. and the sight line from eye height at the foot, along the direction he
+ *      was already walking, must be clear for four metres. That is the one
+ *      that would have caught this the first time and every time since: a wall
+ *      at the bottom of a ramp is a ray that stops.
+ */
+const arrivals = await page.evaluate(() => {
+  const b = window.__silver;
+  const T = b.THREE;
+  const p = b.player;
+  const was = { enabled: p.enabled, impair: p.impair, mode: p.mode };
+  p.impair = 0;
+  for (const d of Object.values(b.room.doors)) if (!d.locked && !d.open) d.toggle();
+  b.game.drive = null;
+
+  const hold = (tx, tz, secs) => {
+    p.mode = 'walk';
+    p.enabled = true;
+    p._tween = null;
+    p.yawCenter = null;
+    p.yaw = Math.atan2(-(tx - p.position.x), -(tz - p.position.z));
+    p.clearKeys();
+    p.setKey('KeyW', true);
+    for (let t = 0; t < secs; t += 1 / 60) p.update(1 / 60);
+    p.clearKeys();
+    p.update(1 / 60);
+  };
+
+  const ray = new T.Raycaster();
+  const runs = [
+    /* [name, where he starts on his feet, what he is walking at,
+     *  the x the slab stops at, how far past it he must get] */
+    { name: 'entry ramp', from: [24.5, 11.6], at: [12, 11.5], footX: 15.0, past: 1.6 },
+    { name: 'kitchen well', from: [21.5, 1.0], at: [12, 1.0], footX: 15.5, past: 1.6 },
+  ];
+  const out = runs.map((r) => {
+    p.position.set(r.from[0], 1.66, r.from[1]);
+    p.ground = 0;
+    p.update(0.016);
+    const top = p.position.y - p.eyeHeight;
+    hold(r.at[0], r.at[1], 12);
+    const feet = p.position.y - p.eyeHeight;
+    /* The sight line, taken from the foot of the slope rather than from
+     * wherever he stopped, so a man who never got there still fails on the
+     * distance and the room and not on a ray fired from inside a wall.
+     *
+     * 2.8m, because the room on the other side is 3.8m across and the far
+     * wall of it is a wall a man is *meant* to be able to see. What is being
+     * asserted is that the first three metres past the bottom of the slope
+     * are room. It used to be 150mm of concrete on one ramp and 700mm on the
+     * other. */
+    const eye = new T.Vector3(r.footX - 0.1, -2.9 + 1.66, r.at[1]);
+    ray.set(eye, new T.Vector3(-1, 0, 0));
+    ray.far = 2.8;
+    const hit = ray.intersectObjects(b.scene.children, true).find((h) => h.object.visible);
+    return {
+      name: r.name,
+      dropped: +(top - feet).toFixed(2),
+      x: +p.position.x.toFixed(2),
+      past: +(r.footX - p.position.x).toFixed(2),
+      needs: r.past,
+      room: b.room.roomAt(p.position.x, p.position.z, feet),
+      clearAhead: hit ? +hit.distance.toFixed(2) : null,
+    };
+  });
+  p.clearKeys();
+  p.impair = was.impair;
+  p.enabled = was.enabled;
+  p.mode = was.mode;
+  p.position.set(20, 1.66, 4);
+  p.ground = 0;
+  p.update(0.016);
+  return out;
+});
+check('each descent loses the whole storey and keeps going past the foot of the ramp',
+  arrivals.every((a) => a.dropped > 2.4 && a.past >= a.needs),
+  arrivals.map((a) => `${a.name}: dropped ${a.dropped}m, ${a.past}m past the slab (needs ${a.needs})`).join('; '));
+check('and what is at the bottom of each one is a room rather than a wall',
+  arrivals.every((a) => a.clearAhead === null && a.room === 'undercroft'),
+  arrivals.map((a) => `${a.name}: ${a.room}, ${a.clearAhead === null ? 'clear 2.8m ahead' : `WALL at ${a.clearAhead}m`}`).join('; '));
 
 /* ---- and nowhere below grade hands a man a floor over his head ----
  *
@@ -1164,7 +1298,10 @@ const lifts = await page.evaluate(() => {
     const cz = Math.max(c.min.z, Math.min(z, c.max.z));
     return Math.hypot(x - cx, z - cz) < RADIUS;
   });
-  const CELL = 0.1; const X0 = 13; const Z0 = -17; const NX = 180; const NZ = 340;
+  /* Wide enough to take in the undercroft, which is the room both ramps now
+   * arrive in and therefore the one place a new below-grade teleport could
+   * hide. It starts at x=11. */
+  const CELL = 0.1; const X0 = 10.5; const Z0 = -17; const NX = 205; const NZ = 340;
   const at = (i, j) => i * NZ + j;
   const H = new Float32Array(NX * NZ).fill(NaN);
   const si = Math.round((22 - X0) / CELL); const sj = Math.round((1 - Z0) / CELL);
@@ -1583,8 +1720,14 @@ let sawShowScene = false;
 let sawDrinks = false;
 let seatedResume = null;
 let apeAtTable = null;
+/* The order the three table beats actually happen in, sampled as the queue
+ * runs rather than read off the cue log afterwards — the log is a ring buffer
+ * and the route ahead of this fills a good part of it. */
+const beatOrder = { drink: -1, bottle: -1, ape: -1, apeSaw: {} };
 for (let i = 0; i < 140; i++) {
   const st = await state();
+  if (beatOrder.drink < 0 && st.flags.drinkOrdered) beatOrder.drink = i;
+  if (beatOrder.bottle < 0 && st.flags.champagneSent) beatOrder.bottle = i;
   if (st.flags.drinkOrdered) sawDrinks = true;
   if (st.scene && st.flags.showStarted === false && sawDrinks) sawShowScene = true;
   if (st.mission === 'performance') break;
@@ -1593,6 +1736,10 @@ for (let i = 0; i < 140; i++) {
       const b = window.__silver;
       const ape = b.cast.byName.ape;
       if (b.game.talkingTo !== ape) return null;
+      window.__apeSaw = {
+        champagneSent: b.mission.flags.champagneSent,
+        drinkOrdered: b.mission.flags.drinkOrdered,
+      };
       const table = b.room.anchors.frontTable;
       const his = b.room.anchors.frontSeats[0];
       const waiterMark = { x: table.x + 1.1, z: table.z + 1.0 };
@@ -1609,6 +1756,10 @@ for (let i = 0; i < 140; i++) {
         ).toFixed(2),
       };
     });
+    if (apeAtTable) {
+      beatOrder.ape = i;
+      beatOrder.apeSaw = await page.evaluate(() => window.__apeSaw);
+    }
   }
   if (!seatedResume) {
     const candidate = await page.evaluate(() => {
@@ -1673,6 +1824,50 @@ check('Ape stands on the open side of the table, clear of Tony and the waiter ma
   JSON.stringify(apeAtTable));
 check('the champagne arrives from the table by the pillar',
   s.flags.champagneSent === true, String(s.flags.champagneSent));
+
+/* ---- and it arrives in the order the evening happens in ----
+ *
+ * "Overlapping scene with the waiter at the table and being sent the bottle of
+ * champagne and Ape arriving. It should be waiter, Bottle is sent and waiter
+ * acknowledges who sent it and points, then Ape arrives." The champagne used
+ * to run off its own clock rather than out of the queue, so a player who was
+ * still ordering at 74 seconds got the bottle first and the order afterwards.
+ * `voLog` is the evening in the order it was said. */
+check('the waiter comes first, then the bottle and who sent it, then Ape — in that order',
+  beatOrder.drink >= 0 && beatOrder.bottle > beatOrder.drink
+    && beatOrder.ape > beatOrder.bottle
+    && beatOrder.apeSaw.champagneSent === true && beatOrder.apeSaw.drinkOrdered !== null,
+  JSON.stringify(beatOrder));
+
+/* ---- and nobody is left staring ----
+ *
+ * "Table to left stares at you." The diners' player-tracking was switched off
+ * for this and it was never the cause: `faceToward` sets a body yaw that
+ * nothing ever cleared, so the six people the table cutscene turns towards the
+ * front table were still turned to it an hour later, and the pillar four-top
+ * turned to Tony for "Funny how?" and never looked away. A glance is allowed;
+ * being held is not. */
+/* Real time, not stepped time: a glance is held for a few seconds of the
+ * player's clock, and everything above this line runs inside one evaluate. */
+await page.waitForTimeout(7000);
+const staring = await page.evaluate(() => {
+  const b = window.__silver;
+  const table = b.room.anchors.frontTable;
+  const held = [];
+  for (const [key, npc] of Object.entries(b.cast.byName)) {
+    if (npc.job !== 'sit' && npc.job !== 'drink') continue;
+    if (npc.targetYaw === undefined) continue;
+    const home = npc.homeYaw ?? 0;
+    const off = Math.abs(Math.atan2(Math.sin(npc.targetYaw - home), Math.cos(npc.targetYaw - home)));
+    if (off < 0.25) continue;                       // back where he was sitting
+    const at = Math.atan2(table.x - npc.group.position.x, table.z - npc.group.position.z);
+    const toward = Math.abs(Math.atan2(Math.sin(npc.targetYaw - at), Math.cos(npc.targetYaw - at)));
+    if (toward < 0.5) held.push(key);
+  }
+  return { held, n: held.length };
+});
+check('and the room went back to its own evening instead of watching the front table',
+  staring.n === 0, staring.held.join(', ') || 'nobody held');
 
 /* ---- "funny how?" ----
  * Reached by taking the first answer every time, which is the point: the
@@ -2009,8 +2204,8 @@ const dessertGate = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
   const original = JSON.parse(JSON.stringify(b.debug.save()));
-  b.game.checkpoint.queueAt = 10;               // ROUND_QUEUE's dessert entry
-  b.game.checkpoint.seatedFor = 431;
+  b.game.checkpoint.queueAt = 11;               // ROUND_QUEUE's dessert entry
+  b.game.checkpoint.seatedFor = 377;
   b.game.checkpoint.mission.flags.mainPerformanceComplete = false;
   b.debug.load();
   b.dialogue.end();
@@ -2299,18 +2494,81 @@ check('the dev panel is absent without ?dev',
  * menu. The harness never saw it, because it called the ending resolver
  * directly and never once used the invitation the game offers.
  */
-const asked = await page.evaluate(() => {
+/* ---- and it is reached by playing the evening, not by a debug button ----
+ *
+ * The reported dead end: "nothing happens after you order desert, how are you
+ * supposed to ask her about seeing her again". This harness could not see it,
+ * because it called `debug.invite()` — so the last beat of a thirty-minute
+ * mission was verified through a button that is not in the shipped page, while
+ * the route a player actually has ended at an exhausted queue.
+ *
+ * So the whole tail is driven here: dessert's entry, then the closing entry,
+ * then her line, the prompt going up, and — for a man who never presses the
+ * key — her deciding to go first and that line running into the menu on its
+ * own. Nothing below touches `debug.invite()`.
+ */
+const dessertToAsk = await page.evaluate(() => {
   const b = window.__silver;
   b.dialogue.end();
-  b.mission.inState = 150;                     // he has sat through the show
-  const opened = b.debug.invite();
-  return {
-    opened, state: b.mission.state, options: b.dialogue.options.length,
-    askedAfter: b.mission.askedAfter, rushed: b.mission.rushedIt,
+  const out = {};
+  /* Sit him at the end of the evening, exactly as the queue would have: both
+   * gates open, the dessert entry next, and a man who has been in this state
+   * long enough that asking is not rushing it. */
+  b.game.checkpoint.queueAt = 11;               // dessert
+  b.game.checkpoint.seatedFor = 377;
+  b.debug.load();
+  b.dialogue.end();
+  b.mission.flags.showStarted = true;
+  b.mission.flags.mainPerformanceComplete = true;
+  b.mission.inState = 150;
+  /* Sampled rather than snapshotted at the end: every one of these nodes runs
+   * on its own hold and clears itself, so asking afterwards would only ever
+   * see the last one. */
+  const seen = new Set();
+  let promptSeen = false;
+  const step = (secs) => {
+    for (let t = 0; t < secs; t += 0.25) {
+      b.dialogue.update(0.25, b.player.position);
+      b.mission.update(0.25, { trailing: false });
+      b.__seatTick(0.25);
+      if (b.dialogue.nodeId) seen.add(b.dialogue.nodeId);
+      if (b.__closing().prompt) promptSeen = true;
+      if (b.mission.state === 'invitation' && b.dialogue.options.length) return;
+    }
   };
+  step(1);
+  out.orderedDessert = seen.has('dessert');
+  b.dialogue.end();
+  /* Past the closing entry's own `after`, which is what a player who has just
+   * finished ordering reaches next, and then a full grace period of a man who
+   * says nothing at all. */
+  step(140);
+  out.platesWent = seen.has('plates');
+  out.sheWentFirst = seen.has('waiting');
+  out.promptShown = promptSeen;
+  out.closing = b.__closing();
+  out.after = {
+    node: b.dialogue.nodeId,
+    state: b.mission.state,
+    options: b.dialogue.options.length,
+    askedAfter: b.mission.askedAfter,
+    rushed: b.mission.rushedIt,
+    prompt: b.__closing().prompt,
+    onBoard: b.mission.objectives.some((o) => o.id === 'ask'),
+  };
+  return out;
 });
-check('the invitation comes up off the back of the evening, with a way out of it',
-  asked.opened && asked.state === 'invitation' && asked.options >= 5,
+check('ordering dessert is followed by the plates going and her giving him the opening',
+  dessertToAsk.orderedDessert && dessertToAsk.platesWent
+    && dessertToAsk.closing.started === true,
+  JSON.stringify(dessertToAsk));
+check('and the way to ask her is on the screen once the moment is his to take',
+  dessertToAsk.promptShown === true, JSON.stringify(dessertToAsk));
+const asked = dessertToAsk.after;
+check('a man who never says a word still reaches the question rather than sitting at a finished table',
+  dessertToAsk.sheWentFirst
+    && asked.state === 'invitation' && asked.options >= 5
+    && asked.onBoard && asked.prompt === false,
   JSON.stringify(asked));
 check('and a man who sat through the show has not rushed it',
   asked.rushed === false && asked.askedAfter >= 150, JSON.stringify(asked));
@@ -2521,6 +2779,60 @@ check('and no two flat faces share a plane to fight over',
 check('both ramps have a handrail with more than one bar in it',
   dressed.rails.entry >= 4 && dressed.rails.well >= 6,
   JSON.stringify(dressed.rails));
+
+/* ---- there is a city out there ----
+ *
+ * "Lets also add the city on the outside. Cheap low detail but lets get the
+ * city." Cheap is a requirement and not an excuse, so it is asserted: three
+ * instanced draws for the whole skyline, nothing on the set, and something
+ * actually in front of a man standing on the pavement where the car leaves
+ * him — which is the only place in the mission it is ever seen from.
+ */
+const city = await page.evaluate(() => {
+  const b = window.__silver;
+  const T = b.THREE;
+  const out = { instanced: 0, blocks: 0, extraDraws: 0 };
+  const boxes = [];
+  b.room.root.traverse((o) => {
+    if (!o.isInstancedMesh) return;
+    if (!/^city-/.test(o.name)) return;
+    out.instanced++;
+    if (o.name === 'city-blocks') {
+      out.blocks = o.count;
+      const m = new T.Matrix4();
+      const p = new T.Vector3();
+      const s = new T.Vector3();
+      const q = new T.Quaternion();
+      for (let i = 0; i < o.count; i++) {
+        o.getMatrixAt(i, m);
+        m.decompose(p, q, s);
+        boxes.push({ x: p.x, z: p.z, w: s.x, d: s.z, h: s.y });
+      }
+    }
+  });
+  /* Nothing standing on the club, the street, or the alley. */
+  out.onTheSet = boxes.filter((c) => c.x + c.w / 2 > -46 && c.x - c.w / 2 < 50
+    && c.z + c.d / 2 > -34 && c.z - c.d / 2 < 70).length;
+  out.tallest = boxes.reduce((n, c) => Math.max(n, c.h), 0);
+  /* And something in shot from the drop-off, looking up the street, which is
+   * where the arrival leaves him standing. */
+  const from = b.room.anchors.dropOff;
+  const ray = new T.Raycaster();
+  let hits = 0;
+  for (let i = -4; i <= 4; i++) {
+    const a = i * 0.14;
+    ray.set(new T.Vector3(from.x, 1.66, from.z + 1), new T.Vector3(Math.sin(a), 0.12, Math.cos(a)).normalize());
+    ray.far = 260;
+    if (ray.intersectObjects(b.scene.children, true).some((h) => /^city-/.test(h.object.name))) hits++;
+  }
+  out.inShot = hits;
+  return out;
+});
+check('there is a city outside, built cheaply and standing clear of the set',
+  city.instanced >= 2 && city.blocks >= 40 && city.onTheSet === 0 && city.tallest > 30,
+  JSON.stringify(city));
+check('and it is in front of a man standing where the car leaves him',
+  city.inShot >= 3, `${city.inShot} of 9 sight lines up the street reach it`);
 
 /* ---- she walks beside him, and stays put when he turns round ----
  *
@@ -2746,6 +3058,58 @@ const voice = await page.evaluate(({ cues, voices }) => {
   cues: manifest.sfx.filter((c) => c.name.startsWith('vo.silver.')).map((c) => ({ name: c.name, say: c.say })),
   voices: Object.fromEntries(manifest.sfx.filter((c) => c.name.startsWith('vo.silver.')).map((c) => [c.name, c.voice])),
 });
+/* ---- and asking for it is not the same as hearing it ----
+ *
+ * "Still missing some voice lines from the manager." All ten of his are on
+ * disk, indexed, and decoded by this page; so are Vinny's four and every other
+ * recording in the scene. They were silent anyway, and the check below this
+ * one passed the whole time, because it counts cues *asked for* and a cue that
+ * is asked for and then stopped 40ms later is indistinguishable from one that
+ * played.
+ *
+ * The bug: `voiceCue`'s `solo` stops whatever is speaking, and `greet()` fires
+ * Margo's recognition bark on the same frame as the greeted man's line. So
+ * every recorded line on the service route — the doorman, the cellarman, the
+ * porter, the chef, the manager — was played for about a syllable and then
+ * killed by her reaction to it.
+ *
+ * `naturalEnd` is the engine's own record of whether a source survived its
+ * decoded duration, so this is measurable rather than inferred: greet a man
+ * with her at your shoulder, exactly as the game does, and his take has to
+ * still be running a second later.
+ */
+const notCutOff = await page.evaluate(async () => {
+  const b = window.__silver;
+  b.dialogue.end();
+  b.audio.clearPlaybackLog();
+  const man = b.cast.byName.cellarman;
+  const was = { mode: b.date.mode, p: b.player.position.clone() };
+  b.date.follow();
+  b.player.position.set(man.group.position.x + 1.2, -1.24, man.group.position.z + 1.2);
+  /* greet() is module-private; this is what it does, in its order. */
+  b.dialogue.start(b.scripts.cellarman, 'open', man);
+  b.date.watch(man.group, 3);
+  b.date.hooks.onBark('She knows him.', 'recognised', 0);
+  await new Promise((r) => setTimeout(r, 1200));
+  const spoken = b.audio.playbacks.filter((p) => p.name.startsWith('vo.silver.'));
+  const his = spoken.find((p) => p.name === 'vo.silver.cellarman.open');
+  const out = {
+    played: spoken.map((p) => p.name),
+    hisDuration: his ? +his.decodedDuration.toFixed(2) : null,
+    /* Still running, or ran to its own end. Either is fine; being stopped a
+     * fifth of the way through is not. */
+    hisSurvived: !!his && (his.endedAt === null || his.naturalEnd === true),
+    barkWaited: b.__voice().deferred || spoken.length === 1,
+  };
+  b.dialogue.end();
+  b.date.mode = was.mode;
+  b.player.position.copy(was.p);
+  return out;
+});
+check('a recorded line is not cut off by the next thing that wants to talk',
+  notCutOff.hisSurvived && notCutOff.hisDuration > 1,
+  JSON.stringify(notCutOff));
+
 check('the evening actually asked for its voice, line by line, rather than staying silent',
   voice.asked > 40 && voice.distinct > 25 && voice.specials.length === 3,
   `${voice.asked} cues asked for, ${voice.distinct} distinct — e.g. ${voice.sample.join(', ')}`);

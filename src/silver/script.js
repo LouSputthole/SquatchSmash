@@ -1618,8 +1618,33 @@ export function buildScripts(ctx) {
   };
 
   const invitation = {
+    /* The plates go, and the evening has run out of things to be about.
+     *
+     * Played completely straight: nobody remarks on the situation, nobody
+     * says the word date, and she does not ask him anything. She puts the
+     * decision on the table and leaves it there, which is the only pressure
+     * this beat needs and the reason it is the beat the whole thirty minutes
+     * has been for. */
+    plates: {
+      who: DATE.name,
+      line: '<em>(The plates go. She turns her glass a quarter turn on the cloth and '
+        + 'leaves it alone.)</em> They’ll do one more and then they’ll put the lights up. '
+        + 'That’s how these places end.',
+      hold: 5.4,
+    },
+    /* And if he sits on it. She is not annoyed and she does not repeat
+     * herself; she has simply decided to be the one who says something, which
+     * costs him nothing on the score and something else entirely. */
+    waiting: {
+      who: DATE.name,
+      line: '<em>(She reaches under the table for her bag, and then does not pick it '
+        + 'up.)</em> Alright. Somebody has to go first, and it isn’t going to be you.',
+      hold: 4.6,
+      next: 'open',
+    },
     open: {
       who: DATE.name,
+      enter: () => ctx.openInvitation?.(),
       variant: () => (woo.score >= 88 ? 'looking-at-the-door' : woo.score >= 60 ? 'she-claps' : 'checks-the-time'),
       line: () => {
         if (woo.score >= 88) return '<em>(She has been looking at the door for about a minute and not saying anything about it.)</em>';

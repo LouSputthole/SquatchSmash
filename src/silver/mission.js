@@ -328,7 +328,13 @@ export class Mission {
    */
   offerInvitation() {
     if (!this.invitationReady) return false;
-    this.askedAfter = this.inState;
+    /* Once. There are two ways into the menu now — he says it, or she gives up
+     * waiting and her line runs into it — and the second one arrives through
+     * the node's own `enter`, so this is called twice on that path. Writing
+     * `askedAfter` again would write it *after* the move into `invitation` has
+     * reset `inState` to zero, and every careful evening would be judged as a
+     * man who sat down and immediately suggested leaving. */
+    if (this.askedAfter === null) this.askedAfter = this.inState;
     return this.setState('invitation');
   }
 

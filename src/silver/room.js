@@ -58,6 +58,39 @@ export const RAMP_UP = { x0: 15.5, x1: 20, z0: -0.6, z1: 2.6 };
 export const WELL = { x0: 14.6, x1: 22, z0: 8.4, z1: 14.6 };
 
 /**
+ * The undercroft: the below-grade passage the two ramps actually arrive in.
+ *
+ * Reported by the owner seven times and true every one of them — **both
+ * staircases ran into a wall**. The entry ramp bottomed out at x=15 with the
+ * well's end wall 150mm in front of it; the kitchen well bottomed out at
+ * x=15.5 with the cellar's west wall 700mm in front of it. Standing at the
+ * top of either one, the thing at the bottom of the slope was a slab of
+ * unlit concrete, and the way on was a ninety-degree turn you could not see
+ * from up there. Screenshots of both descents are unambiguous: black.
+ *
+ * The answer is not to nudge the ramps. It is that a ramp has to arrive
+ * somewhere, and there was nowhere for either of them to arrive. So the
+ * building now has the thing a building like this has: a service passage
+ * running under the staff corridor from the foot of one ramp to the foot of
+ * the other, racked with the empties and the overflow. Crates come down off
+ * the alley, along here, and up into the kitchen without ever crossing the
+ * wine.
+ *
+ * Both walls the ramps used to die into now have a doorway in them, on the
+ * ramp's own centre line, with a light behind it — so what is at the bottom
+ * of each slope is a lit room you are walking into, which is the entire
+ * complaint.
+ *
+ * Two footprints because they are two different questions. `ROOMS.undercroft`
+ * is where `roomAt` says you are; this one is where `groundAt` says the floor
+ * is, and it has to run a shade *past* the room in both directions so that
+ * the single centimetre inside a doorway is never answered "street level" —
+ * that is the exact shape of the bug that used to fire a man 2.9m up onto
+ * the corridor carpet.
+ */
+export const UNDERCROFT = { x0: 11, x1: 15.02, z0: -1.5, z1: 14.3 };
+
+/**
  * The tallest lift that counts as a step rather than as a teleport.
  *
  * Nothing reads this to decide a floor height — that ended badly, see
@@ -77,6 +110,11 @@ export const ROOMS = {
   cellar:    { x0: 15, x1: 28.5, z0: -6,  z1: 8.6, y1: -0.8 },
   drystore:  { x0: 15, x1: 21,   z0: -14, z1: -6,  y1: -0.8 },
   walkin:    { x0: 21, x1: 28.5, z0: -14, z1: -6,  y1: -0.8 },
+  /* Under the staff corridor, joining the foot of one ramp to the foot of
+   * the other. It is listed here, above `corridor`, and carries `y1` — so a
+   * man below grade at (12.5, 6) is in the undercroft and the waiter walking
+   * over his head is in the corridor. */
+  undercroft: { x0: 11, x1: 14.9, z0: -1.4, z1: 14.2, y1: -0.8 },
 
   /* ---- the way in ---- */
   street:    { x0: -40, x1: 44, z0: 34,  z1: 66 },
@@ -124,7 +162,7 @@ export function roomAt(x, z, y = 0) {
 /** The five audio zones, and which rooms belong to each. */
 export const ZONES = {
   exterior: ['street', 'alley'],
-  cellar: ['stair', 'cellar', 'drystore', 'walkin'],
+  cellar: ['stair', 'cellar', 'drystore', 'walkin', 'undercroft'],
   kitchen: ['prep', 'kitchen', 'dish'],
   corridor: ['corridor'],
   club: ['lobby', 'floor', 'stage', 'backstage', 'restrooms', 'manager', 'service'],
@@ -699,6 +737,191 @@ export function buildRoom(scene, { renderer } = {}) {
   }
 
   /* ================================================================ */
+  /* The city                                                          */
+  /* ================================================================ */
+
+  /**
+   * "Lets also add the city on the outside. Cheap low detail but lets get the
+   * city."
+   *
+   * The Silver Room is a windowless supper club, so this is only ever seen
+   * from two places: standing on the pavement when the car pulls away — which
+   * is where the arrival leaves you looking — and over the party wall from the
+   * alley. That is the entire budget argument, and it is why this is one
+   * InstancedMesh of boxes and not a district.
+   *
+   * Three instanced draws for the whole skyline: the blocks, the roof clutter,
+   * and the aircraft-warning lights on the tall ones. Nothing casts or
+   * receives a shadow and nothing is lit by a fitting — the windows are an
+   * emissive map, so the city costs the renderer one material and no lights at
+   * all. The building itself is what you see it against.
+   *
+   * The fog does the rest: at 0.013 exponential, a wall forty metres up the
+   * road is a quarter fogged and one at ninety is most of the way gone, so the
+   * grid reads as depth rather than as a wall of boxes. Nothing is placed
+   * inside 70m of the frontage except the two nearest ranges, which are the
+   * only ones a player can reach and the only ones with colliders.
+   */
+  window.__squatchStage?.('Putting up the city…');
+  {
+    /* One 64x64 canvas, drawn once: a grid of windows with about a third of
+     * them lit. It is the albedo and, in its lit channel, the emissive — the
+     * same trick the club's lampshades use, and for the same reason. */
+    const cw = document.createElement('canvas');
+    cw.width = 64; cw.height = 64;
+    const cg = cw.getContext('2d');
+    const ew = document.createElement('canvas');
+    ew.width = 64; ew.height = 64;
+    const eg = ew.getContext('2d');
+    cg.fillStyle = '#20222a';
+    cg.fillRect(0, 0, 64, 64);
+    eg.fillStyle = '#000';
+    eg.fillRect(0, 0, 64, 64);
+    for (let wy = 0; wy < 16; wy++) {
+      for (let wx = 0; wx < 8; wx++) {
+        const lit = Math.random() < 0.34;
+        const px = 2 + wx * 8;
+        const py = 2 + wy * 4;
+        cg.fillStyle = lit ? '#8d7c52' : '#171922';
+        cg.fillRect(px, py, 5, 2);
+        if (!lit) continue;
+        eg.fillStyle = Math.random() < 0.22 ? '#6f7f9c' : '#c8a45e';
+        eg.fillRect(px, py, 5, 2);
+      }
+    }
+    const cityMap = new THREE.CanvasTexture(cw);
+    const cityEmissive = new THREE.CanvasTexture(ew);
+    for (const t of [cityMap, cityEmissive]) {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.wrapS = THREE.RepeatWrapping;
+      t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(1.6, 2.6);
+    }
+    const cityMat = new THREE.MeshStandardMaterial({
+      map: cityMap,
+      emissiveMap: cityEmissive,
+      emissive: 0xffffff,
+      emissiveIntensity: 0.85,
+      roughness: 0.95,
+      metalness: 0,
+    });
+
+    /* Stable, because a skyline that reshuffles every time the player reloads
+     * a checkpoint is a skyline nobody can learn. */
+    let seed = 0x5f3a91;
+    const rnd = () => {
+      seed = (Math.imul(seed ^ (seed >>> 15), 0x2c1b3c6d) + 0x9e3779b9) >>> 0;
+      return seed / 4294967296;
+    };
+
+    /* Where a block is allowed to stand: never on the set. The club is
+     * x −30..38, z −22..34 and the road it faces is z 34..66, so the city
+     * starts on the far kerb and wraps round the ends of the street. */
+    const clear = (x, z, w, d) => {
+      if (x + w / 2 > -46 && x - w / 2 < 50 && z + d / 2 > -34 && z - d / 2 < 70) return false;
+      return Math.hypot(x, z) > 46;
+    };
+
+    const lots = [];
+    for (let gx = -7; gx <= 7; gx++) {
+      for (let gz = -5; gz <= 7; gz++) {
+        const bx = gx * 30 + (rnd() - 0.5) * 7;
+        const bz = gz * 30 + 40 + (rnd() - 0.5) * 7;
+        const r = Math.hypot(bx, bz - 40);
+        if (r > 215) continue;
+        if (rnd() < 0.16) continue;                     // a gap in the block
+        const w = 12 + rnd() * 12;
+        const d = 12 + rnd() * 12;
+        if (!clear(bx, bz, w, d)) continue;
+        /* Taller towards the middle distance, so the skyline has a downtown
+         * to be in front of rather than being a flat hedge. */
+        const near = Math.max(0, 1 - r / 200);
+        const h = 9 + rnd() * 14 + near * (rnd() < 0.22 ? 46 : 16);
+        lots.push({ x: bx, z: bz, w, d, h, tint: 0.7 + rnd() * 0.5 });
+      }
+    }
+
+    const _m = new THREE.Matrix4();
+    const _q = new THREE.Quaternion();
+    const _p = new THREE.Vector3();
+    const _s = new THREE.Vector3();
+    const _c = new THREE.Color();
+    const blocks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), cityMat, lots.length);
+    blocks.name = 'city-blocks';
+    blocks.castShadow = false;
+    blocks.receiveShadow = false;
+    lots.forEach((l, i) => {
+      _p.set(l.x, l.h / 2, l.z);
+      _s.set(l.w, l.h, l.d);
+      _m.compose(_p, _q, _s);
+      blocks.setMatrixAt(i, _m);
+      _c.setHex(0x5c6068).multiplyScalar(l.tint);
+      blocks.setColorAt(i, _c);
+      /* Only the ones a man on this pavement could walk into. Everything
+       * else is scenery and does not need to be in the collision list. */
+      if (Math.hypot(l.x, l.z - 40) < 96) {
+        solid(l.x - l.w / 2, l.z - l.d / 2, l.x + l.w / 2, l.z + l.d / 2, 0, l.h);
+      }
+    });
+    blocks.instanceMatrix.needsUpdate = true;
+    if (blocks.instanceColor) blocks.instanceColor.needsUpdate = true;
+    add(blocks);
+
+    // Water tanks and stair huts, because a flat roof reads as a shoebox
+    const roofCount = Math.min(90, Math.floor(lots.length * 0.5));
+    const clutter = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 1, 6),
+      mat({ color: 0x3b352c, roughness: 0.98 }),
+      roofCount,
+    );
+    clutter.name = 'city-rooftops';
+    clutter.castShadow = false;
+    for (let i = 0; i < roofCount; i++) {
+      const l = lots[Math.floor(rnd() * lots.length)] ?? lots[0];
+      const s = 2.4 + rnd() * 3;
+      _p.set(l.x + (rnd() - 0.5) * l.w * 0.5, l.h + s / 2, l.z + (rnd() - 0.5) * l.d * 0.5);
+      _s.set(s, s, s);
+      _m.compose(_p, _q, _s);
+      clutter.setMatrixAt(i, _m);
+    }
+    clutter.instanceMatrix.needsUpdate = true;
+    add(clutter);
+
+    /* The red lights on the tall ones. Unlit boxes with the fog off — they are
+     * the one thing in the skyline that has to still be there at 180 metres,
+     * because a couple of red dots at the top of the haze is what says the
+     * city keeps going. */
+    const tall = lots.filter((l) => l.h > 40);
+    if (tall.length) {
+      const warn = new THREE.InstancedMesh(
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshBasicMaterial({ color: 0xd8402c, fog: false }),
+        tall.length,
+      );
+      warn.name = 'city-warning-lights';
+      tall.forEach((l, i) => {
+        _p.set(l.x, l.h + 0.6, l.z);
+        _s.set(1.1, 1.1, 1.1);
+        _m.compose(_p, _q, _s);
+        warn.setMatrixAt(i, _m);
+      });
+      warn.instanceMatrix.needsUpdate = true;
+      add(warn);
+      /* They blink, slowly, out of phase. One uniform per frame on a material
+       * nothing else uses; the alternative is a hundred and forty static red
+       * squares, which reads as a texture rather than as a city. */
+      let warnT = 0;
+      ticking.push((dt) => {
+        warnT += dt;
+        warn.material.opacity = 0.55 + 0.45 * Math.sin(warnT * 1.7);
+        warn.material.transparent = true;
+      });
+    }
+
+    anchors.cityBlocks = blocks;
+  }
+
+  /* ================================================================ */
   /* The alley                                                         */
   /* ================================================================ */
 
@@ -880,8 +1103,15 @@ export function buildRoom(scene, { renderer } = {}) {
      *
      * The face lands on x=15.00, flush with the head of the ramp slab and
      * with the corridor floor's east edge above it, and it stops 20mm short
-     * of that floor for the same reason the cellar's west wall does. */
-    wall(14.85, 8.2, 14.85, 14.8, -CELLAR_Y - 0.02, M_CONCRETE, 0.3, CELLAR_Y);
+     * of that floor for the same reason the cellar's west wall does.
+     *
+     * And it has a doorway in it now, three metres wide, on the ramp's own
+     * centre line (z=11.5). That is the fix for the complaint that has been
+     * made about this ramp more than any other thing in the scene: it used to
+     * be a blank slab 150mm past the bottom of the slope, so the descent read
+     * as walking into a wall — which is exactly what it was. Through it is
+     * the undercroft, lit, which is what you can now see from the top. */
+    wallGap('z', 14.85, 8.2, 14.8, 10, 13, -CELLAR_Y - 0.02, M_CONCRETE, 0.3, CELLAR_Y);
     /* The haunch under the entry ramp.
      *
      * The cellar runs to z=8.6 and the ramp starts at z=8.4, so 200mm of the
@@ -964,8 +1194,13 @@ export function buildRoom(scene, { renderer } = {}) {
      * no slot down its west side — but stopping 20mm short of it, for the same
      * reason the shaft cheeks do: a collider whose top is exactly the floor
      * somebody is standing on is a wall they cannot see, and this one runs the
-     * length of the building straight through the corridor's prep doorway. */
-    wall(14.8, -6.2, 14.8, 8.2, -CELLAR_Y - 0.02, M_BRICK_IN, 0.3, CELLAR_Y);
+     * length of the building straight through the corridor's prep doorway.
+     *
+     * The doorway in it is the other half of the stairs fix. It is on the
+     * kitchen well's own centre line (z=1.0), so a man walking down the well
+     * out of the prep kitchen is walking at an opening rather than at 700mm
+     * of brick. */
+    wallGap('z', 14.8, -6.2, 8.2, -0.5, 2.5, -CELLAR_Y - 0.02, M_BRICK_IN, 0.3, CELLAR_Y);
 
     anchors.cellarman = new THREE.Vector3(24.5, CELLAR_Y, 3.2);
     anchors.cellarMid = new THREE.Vector3(21, CELLAR_Y, 1);
@@ -1068,6 +1303,77 @@ export function buildRoom(scene, { renderer } = {}) {
       add(box({ size: [0.1, 0.06, 5.4], pos: [hx, CELLAR_Y + 2.05, -10.6], mat: M_STEEL }));
     }
     anchors.walkin = new THREE.Vector3(24.5, CELLAR_Y, -10);
+  }
+
+  /* ================================================================ */
+  /* The undercroft: where the two ramps arrive                        */
+  /* ================================================================ */
+
+  window.__squatchStage?.('Opening the undercroft…');
+  {
+    const U = ROOMS.undercroft;
+    /* The floor runs to x=15 rather than to the room box's 14.9, so it meets
+     * the foot of the entry ramp and the cellar slab exactly instead of
+     * leaving a 100mm strip of nothing in the doorway a man is walking
+     * through. The room box stops short so `roomAt` cannot argue with the
+     * cellar over the same square metre. */
+    floor({ x0: 11, x1: 15, z0: U.z0, z1: U.z1 }, M_CONCRETE, 'concrete', CELLAR_Y);
+    ceiling({ x0: 11, x1: 15, z0: U.z0, z1: U.z1 }, M_CONCRETE, CELLAR_Y + CEIL_CELLAR);
+    /* Three walls. The fourth side is the two the ramps used to die into,
+     * which now have doorways in them and are built with their own rooms. */
+    wall(11, U.z0, 11, U.z1, -CELLAR_Y - 0.02, M_BRICK_IN, 0.3, CELLAR_Y);
+    wall(11, U.z0, 15, U.z0, -CELLAR_Y - 0.02, M_BRICK_IN, 0.3, CELLAR_Y);
+    wall(11, U.z1, 15, U.z1, -CELLAR_Y - 0.02, M_BRICK_IN, 0.3, CELLAR_Y);
+
+    /* Light, which is half the fix.
+     *
+     * A doorway at the bottom of a dark ramp is still a black rectangle. One
+     * bulkhead just inside each opening, on the ramp's centre line, so the
+     * thing at the end of the slope is lit before you start down it — and two
+     * more down the length of the passage so it reads as somewhere that
+     * continues rather than as a cupboard.
+     */
+    for (const [lz, power] of [[11.5, 2.6], [7, 1.9], [1, 2.6], [-0.2, 1.5]]) {
+      add(box({
+        size: [0.14, 0.09, 1.2], pos: [13.6, CELLAR_Y + CEIL_CELLAR - 0.045, lz],
+        mat: mat({ color: 0xdfe6ee, roughness: 1, emissive: 0xbfd0e0, emissiveIntensity: 0.8 }),
+      }));
+      const l = pointLight(0xcfe0f0, power);
+      l.position.set(13.6, CELLAR_Y + 2.1, lz);
+      l.distance = 11;
+      add(l);
+      houseLights.push({ light: l, back: true });
+    }
+
+    /* What it is for. Empties going out, overflow coming in, and a stack of
+     * the club's own crates against the west wall — 650mm deep, which leaves
+     * the passage the three metres two men and a hand truck need. */
+    const crateMat = mat({ color: 0x3a2a1c, roughness: 0.9 });
+    for (let i = 0; i < 7; i++) {
+      const cz = 12.6 - i * 2.1;
+      const stack = 1 + ((i * 7919) % 3);
+      for (let s = 0; s < stack; s++) {
+        add(box({
+          size: [0.62, 0.44, 1.5], pos: [11.65, CELLAR_Y + 0.22 + s * 0.44, cz], mat: crateMat,
+        }));
+      }
+      solid(11.34, cz - 0.75, 11.96, cz + 0.75, CELLAR_Y, CELLAR_Y + 0.44 * stack);
+    }
+    /* Empty kegs on their sides, because a cellar passage with nothing on the
+     * floor is a corridor with a light in it. */
+    for (const [kz, kx] of [[9.4, 14.2], [5.2, 14.2], [3.4, 14.25]]) {
+      add(cylinder({ r: 0.24, h: 0.82, pos: [kx, CELLAR_Y + 0.24, kz], mat: M_STEEL_D, rotZ: Math.PI / 2 }));
+      solid(kx - 0.42, kz - 0.25, kx + 0.42, kz + 0.25, CELLAR_Y, CELLAR_Y + 0.48);
+    }
+
+    anchors.undercroft = new THREE.Vector3(13.2, CELLAR_Y, 6);
+    /* The two marks the verifier walks to: what is dead ahead at the bottom
+     * of each slope. Written down here rather than in the harness so the
+     * assertion and the building cannot drift apart. */
+    anchors.rampArrivals = [
+      { name: 'entry ramp', foot: new THREE.Vector3(15.2, CELLAR_Y, 11.5), heading: { x: -1, z: 0 } },
+      { name: 'kitchen well', foot: new THREE.Vector3(15.6, CELLAR_Y, 1.0), heading: { x: -1, z: 0 } },
+    ];
   }
 
   /* ================================================================ */
@@ -2032,7 +2338,7 @@ export function buildRoom(scene, { renderer } = {}) {
      * cellar's slab and not the street's asphalt, which is what it was, and
      * which is what launched him back up beside the bar. The end wall is what
      * stops him getting here at all; this is what it costs if he ever does. */
-    for (const r of [ROOMS.cellar, ROOMS.drystore, ROOMS.walkin, WELL]) {
+    for (const r of [ROOMS.cellar, ROOMS.drystore, ROOMS.walkin, WELL, UNDERCROFT]) {
       if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return CELLAR_Y;
     }
     return 0;
