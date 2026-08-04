@@ -1330,6 +1330,49 @@ window.mansion = {
     },
     select: (i) => loadout.select(i),
   },
+  /**
+   * Where every person in the house is actually standing.
+   *
+   * The house and the people were built by different passes, so "is there a
+   * man inside the furniture" is a question neither half can answer on its
+   * own -- and the interior pass measured the pool-room bar carcass and its
+   * back bar OVERLAPPING by 4 cm, which is a bar with no aisle to stand in.
+   * A verifier can now test each post against the real collider list rather
+   * than against the placement arithmetic that put him there.
+   */
+  cast: {
+    get people() {
+      const out = {};
+      for (const [id, npc] of Object.entries(cast?.people ?? {})) {
+        const p = npc.group?.position;
+        if (p) out[id] = { x: Number(p.x.toFixed(3)), y: Number(p.y.toFixed(3)), z: Number(p.z.toFixed(3)) };
+      }
+      return out;
+    },
+    /** Posts whose standing position is inside a solid box. */
+    get inSolid() {
+      const bad = [];
+      for (const [id, npc] of Object.entries(cast?.people ?? {})) {
+        const p = npc.group?.position;
+        if (!p) continue;
+        for (const box of colliders) {
+          /* Waist height: a floor plate the feet stand on is not a fault, a
+           * counter through the middle of a man is. */
+          const y = p.y + 1.0;
+          if (p.x > box.min.x && p.x < box.max.x
+            && p.z > box.min.z && p.z < box.max.z
+            && y > box.min.y && y < box.max.y) {
+            bad.push(`${id} at (${p.x.toFixed(2)}, ${p.z.toFixed(2)}) inside`
+              + ` x[${box.min.x.toFixed(2)},${box.max.x.toFixed(2)}]`
+              + ` y[${box.min.y.toFixed(2)},${box.max.y.toFixed(2)}]`
+              + ` z[${box.min.z.toFixed(2)},${box.max.z.toFixed(2)}]`);
+            break;
+          }
+        }
+      }
+      return bad;
+    },
+  },
   /** Kitchen tap -- the "working sink". */
   sink: {
     get running() { return sinkRunning; },

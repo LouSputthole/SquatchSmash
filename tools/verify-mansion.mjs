@@ -2399,6 +2399,24 @@ try {
   /* that is about the actual house is the last one: the mission must   */
   /* mount exactly when there is a laboratory to mount it in.           */
   /* ================================================================ */
+  /* THE PEOPLE AND THE HOUSE WERE BUILT BY DIFFERENT PASSES, so "is anybody
+   * standing inside the furniture" is a question neither half can answer.
+   * This asks the running game, against the real merged collider list, rather
+   * than against the arithmetic that placed them. */
+  const staffing = await page.evaluate(() => ({
+    people: window.mansion.cast?.people ?? {},
+    inSolid: window.mansion.cast?.inSolid ?? [],
+  }));
+  const posts = Object.keys(staffing.people);
+
+  check('the house is staffed -- door, guards, bar, foyer and basement',
+    posts.length >= 9,
+    `${posts.length} on post: ${posts.join(', ')}`);
+
+  check('nobody is standing inside the furniture',
+    staffing.inSolid.length === 0,
+    staffing.inSolid.length ? `inside a collider: ${staffing.inSolid.join(', ')}` : 'all clear');
+
   /* THE CASE IS A THING HE IS CARRYING, and the owner asked for it to behave
    * like one: "I spawn in holding it but can put it away and see it in my
    * inventory." Asserting the bar rendered is not that -- it is a row of

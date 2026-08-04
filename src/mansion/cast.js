@@ -489,7 +489,11 @@ export function mountMansionCast(scene, world = {}, {
     look: 'Gloves, a cart and a bucket, in a house where nothing has happened yet.',
   });
   const cart = makeJanitorCart();
-  cart.position.set(snowAt.x + 0.85, snowAt.y, snowAt.z + 0.35);
+  /* Far enough forward that the cart's own rear — the push bar and the mop
+   * leaning out of the bucket — clears the man behind it. At +0.85 the built
+   * geometry reached back to `snowAt.x - 0.15`, so Snow stood 15 cm inside
+   * his own cart and the foyer had an invisible wall in front of him. */
+  cart.position.set(snowAt.x + 1.45, snowAt.y, snowAt.z + 0.35);
   cart.rotation.y = -0.5;
   scene.add(cart);
   /* The cart is the one thing this module puts in the world that a player can
@@ -498,10 +502,24 @@ export function mountMansionCast(scene, world = {}, {
    * its named contributors, so a module that quietly adds one makes that sum
    * wrong from the outside. The composition root pushes it and counts it, the
    * same way it already does for the armory's racks. */
-  const cartCollider = new THREE.Box3(
-    new THREE.Vector3(cart.position.x - 1.15, snowAt.y, cart.position.z - 0.5),
-    new THREE.Vector3(cart.position.x + 0.4, snowAt.y + 1.05, cart.position.z + 0.5),
-  );
+  /* MEASURED off the built cart, not authored around it.
+   *
+   * The hand-written box ran from `cart.x - 1.15` to `cart.x + 0.4`, and the
+   * cart stands at `snowAt.x + 0.85` — so the solid reached 30 cm PAST Snow
+   * and he was standing inside it. Nobody would have seen it: he does not
+   * collide with the world, so the only symptom was an invisible wall in
+   * front of the one man in the foyer, until a check asked whether anybody in
+   * the house was standing in the furniture.
+   *
+   * `setFromObject` walks the real meshes, so the box is whatever the cart
+   * actually is, and it cannot drift when the cart is redressed. */
+  cart.updateMatrixWorld(true);
+  const cartCollider = new THREE.Box3().setFromObject(cart);
+  /* Floor to waist: the mop handle sticking up out of the bucket is not a
+   * thing you walk into, and a collider as tall as it makes the cart a
+   * pillar. */
+  cartCollider.min.y = snowAt.y;
+  cartCollider.max.y = Math.min(cartCollider.max.y, snowAt.y + 1.05);
 
   /* ---- Gratin, and the offer -------------------------------------------
    * The interrogation area is the laboratory's, so this exists only when the
