@@ -6774,6 +6774,13 @@
       "promptInfluence": 0.56
     },
     {
+      "name": "hotdog.fist.impact.4",
+      "duration": 0.6,
+      "_comment": "Bada Bing, HotDog Incident: the fourth and final fist impact, the one that puts him down.",
+      "prompt": "One final devastating fist impact into a clothed adult torso in a closed bar. Very heavy dull low thump, almost no high snap, jacket fabric, long wood-floor room resonance. No gunshot, no voice, no gore.",
+      "promptInfluence": 0.56
+    },
+    {
       "name": "hotdog.body.floor",
       "duration": 0.85,
       "_comment": "Bada Bing, HotDog Incident: HotDog drops after Ape's final hit.",

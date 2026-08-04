@@ -14,6 +14,7 @@ export const HOTDOG_AUDIO_CUE_NAMES = Object.freeze([
   'hotdog.fist.impact.1',
   'hotdog.fist.impact.2',
   'hotdog.fist.impact.3',
+  'hotdog.fist.impact.4',
   'hotdog.body.floor',
   'switch.click',
 ]);

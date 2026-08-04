@@ -9,7 +9,7 @@ export const SECOND_VISIT_CLEANUP_TASKS = Object.freeze([
 ]);
 
 const CLEANUP_LABELS = Object.freeze({
-  bathrooms: 'Check both bathrooms and the back hall',
+  bathrooms: 'Check the men\'s room',
   cleaning_kit: 'Retrieve Aubbie\'s cleanup kit from storage',
   missing_evidence: 'Find HotDog\'s missing cufflink and lapel pin',
   final_sweep: 'Perform Lou\'s final evidence sweep',
@@ -210,7 +210,7 @@ export class SecondVisitMission {
     this.flags.bodyWrapped = true;
     this.complete('wrap');
     this.setState('body-ready');
-    this.addObjective('load', 'Follow the service-exit arrows and load HotDog into Snow\'s car');
+    this.addObjective('load', 'Take HotDog out through the store room and load him into Snow\'s car');
     return true;
   }
 

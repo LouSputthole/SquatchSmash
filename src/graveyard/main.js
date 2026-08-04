@@ -376,11 +376,20 @@ function startPee(id = currentTraitorGrave()) {
   return true;
 }
 
+/* What the hold has to buy: a second of it, and ten impacts actually landing
+ * on the stone. Both are measured in simulated time and particle hits, never
+ * wall clock -- which is why it is a predicate a check can wait on rather than
+ * a duration a check can sleep for. */
+function peeEarned() {
+  return state.pee.active
+    && state.pee.time >= 1.05
+    && stream.stats.total - state.pee.impactStart >= 10;
+}
+
 function stopPee() {
   if (!state.pee.active) return;
   const id = state.pee.graveId;
-  const earned = state.pee.time >= 1.05
-    && stream.stats.total - state.pee.impactStart >= 10;
+  const earned = peeEarned();
   state.pee.active = false;
   state.pee.graveId = null;
   hud.setPosture(null);
@@ -448,6 +457,7 @@ const runtime = {
   get displayClock() { return { day: clock.day, timeMinutes: clock.minutes }; },
   get interactionTarget() { return interaction.current?.userData?.graveId ?? null; },
   get disrespecting() { return state.pee.active; },
+  get disrespectEarned() { return peeEarned(); },
   inspect,
   respect: payRespect,
   startPee,

@@ -20,6 +20,15 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5205;
+
+/* Every wait below that gates on the game advancing -- a director beat, a
+ * tween finishing, an interaction target resolving -- is waiting on simulated
+ * time, and the simulation step is clamped. On a loaded box the page renders
+ * at a fraction of real time, so a 5s or 10s budget for a 2.3s animation is a
+ * bet on the rasteriser rather than a test of the game. A generous budget
+ * costs nothing when the condition is met, which is the normal case; it only
+ * changes how long a genuine failure takes to report. */
+const SIM_WAIT = 90_000;
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -333,7 +342,21 @@ try {
         visible: party.cleanup.serviceGuide.visible,
         text: party.cleanup.serviceGuide.userData.guidanceText,
         parts: party.cleanup.serviceGuide.children.length,
+        // The old guide laid floor arrows across the main room's south wall,
+        // pointing at a route through masonry. The exit is marked at the two
+        // doors the player actually walks through instead.
+        marksBothDoors: ['service-route.store-room-sign', 'service-route.exit-sign']
+          .every((name) => Boolean(party.cleanup.serviceGuide.getObjectByName(name))),
       },
+      // Evidence is jewellery on a dark floor with a dim circle around it, not
+      // a pair of glowing pickups, and the circles stay dark until the
+      // cutscene lets go of the room.
+      evidenceIsEmissive: [party.cleanup.cufflink, party.cleanup.lapel]
+        .some((prop) => (prop.material?.emissive?.getHex?.() ?? 0) > 0),
+      evidenceCirclesHidden: Object.values(party.cleanup.evidenceMarkers)
+        .every((marker) => marker.visible === false),
+      bathroomChecks: Object.keys(party.cleanup.bathroomPads),
+      ladiesLocked: window.HOTDOG_INCIDENT.club.doors.ladies.locked,
     };
   });
   check('the closed party uses canonical faces, one Snow/Lawnmower identity, and readable cleanup presentation',
@@ -352,14 +375,19 @@ try {
        && partyPresentation.wrapGeometry === 'CapsuleGeometry'
       && partyPresentation.wrapRadius >= 0.4
       && partyPresentation.evidenceMarkers.length === 2
+      && !partyPresentation.evidenceIsEmissive
+      && partyPresentation.evidenceCirclesHidden
+      && partyPresentation.bathroomChecks.join() === 'mens'
+      && partyPresentation.ladiesLocked
       && !partyPresentation.serviceGuide.visible
-      && partyPresentation.serviceGuide.parts >= 4,
+      && partyPresentation.serviceGuide.parts >= 4
+      && partyPresentation.serviceGuide.marksBothDoors,
     JSON.stringify(partyPresentation));
 
   const physical = await page.evaluate(() => {
     const incident = window.HOTDOG_INCIDENT;
     const { party, club } = incident;
-    for (const key of ['mens', 'ladies', 'storage', 'service']) {
+    for (const key of ['mens', 'storage', 'service']) {
       const door = club.doors[key];
       door.locked = false;
       if (!door.open) door.toggle();
@@ -450,7 +478,6 @@ try {
     const targets = {
       controls: worldPosition(party.stage.controls),
       mens: worldPosition(party.cleanup.bathroomPads.mens),
-      ladies: worldPosition(party.cleanup.bathroomPads.ladies),
       storageKit: worldPosition(party.cleanup.kit),
       lou: worldPosition(party.extra.lou.group),
       fallenBody: worldPosition(hotdog.group),
@@ -532,7 +559,7 @@ try {
   await page.waitForFunction(
     () => window.HOTDOG_INCIDENT.state.director.current?.who === 'Shubenator',
     null,
-    { timeout: 5000 },
+    { timeout: SIM_WAIT },
   );
   const directedOpening = await page.evaluate(() => {
     const incident = window.HOTDOG_INCIDENT;
@@ -606,6 +633,103 @@ try {
       && attack.noGunInteraction,
     JSON.stringify(attack));
 
+  /* The mouse must survive the cinematic. A hard lookAt() during the beating
+   * meant the player could not watch the room react to it, which is most of
+   * what there is to look at. The shot still chooses where they stand. */
+  const cinematicLook = await page.evaluate(() => {
+    const incident = window.HOTDOG_INCIDENT;
+    const { camera, player, state } = incident;
+    const forward = () => {
+      const v = new incident.three.Vector3(0, 0, -1);
+      v.applyQuaternion(camera.quaternion);
+      return [v.x, v.y, v.z];
+    };
+    state.cinematic.active = true;
+    state.cinematic.shot = 'test-shot';
+    state.cinematic.eye.set(-10.4, 2.2, 2.2);
+    state.cinematic.look.set(-15.15, 1.25, -0.15);
+    state.cinematic.anchorYaw = player.yaw;
+    state.cinematic.anchorPitch = player.pitch;
+    incident.applyCinematicCamera(0);
+    const centred = forward();
+    const eyeAtCentre = camera.position.toArray();
+
+    player.handleMouseMove(-420, 0);
+    incident.applyCinematicCamera(0);
+    const swung = forward();
+    const eyeAfterSwing = camera.position.toArray();
+
+    // And it stays a shot: a full spin of the mouse cannot turn the player
+    // around to look at a wall.
+    player.handleMouseMove(-9000, 0);
+    incident.applyCinematicCamera(0);
+    const pinned = forward();
+
+    state.cinematic.active = false;
+    return {
+      centred, swung, pinned, eyeAtCentre, eyeAfterSwing,
+      swingAngle: Math.acos(Math.min(1, Math.max(-1,
+        centred[0] * swung[0] + centred[1] * swung[1] + centred[2] * swung[2]))),
+      pinnedAngle: Math.acos(Math.min(1, Math.max(-1,
+        centred[0] * pinned[0] + centred[1] * pinned[1] + centred[2] * pinned[2]))),
+    };
+  });
+  check('the player keeps mouse look inside an authored shot, clamped to the staging',
+    cinematicLook.swingAngle > 0.15
+      && cinematicLook.pinnedAngle > cinematicLook.swingAngle
+      && cinematicLook.pinnedAngle <= 1.35
+      && cinematicLook.eyeAtCentre.every((v, i) => Math.abs(v - cinematicLook.eyeAfterSwing[i]) < 1e-6),
+    JSON.stringify(cinematicLook));
+
+  /* Shubenator's gag is arriving after the fact, so he has to be seen crossing
+   * the room. The beat waits on his mark; it used to teleport him onto it. */
+  const shubesWalk = await page.evaluate(async () => {
+    const incident = window.HOTDOG_INCIDENT;
+    const shubenator = incident.party.byId.shubenator;
+    incident.state.shubesArrived = false;
+    shubenator.group.position.set(-6.0, 0, -7.8);
+    const start = [shubenator.group.position.x, shubenator.group.position.z];
+
+    const beat = incident.sequence.find((b) => b.reaction === 'shubenator-aftermath');
+    incident.state.director.index = incident.sequence.indexOf(beat);
+    incident.state.director.current = null;
+    incident.state.director.remaining = 0;
+    incident.state.director.gapRemaining = 0;
+    incident.state.director.running = true;
+    incident.updateDirector(0.016);
+    const heldBeforeWalk = incident.state.director.current === null;
+
+    incident.walkShubenatorIn();
+    const path = [];
+    for (let i = 0; i < 900 && !incident.state.shubesArrived; i += 1) {
+      shubenator.update(0.03, incident.player.position);
+      incident.settleAuthoredWalks();
+      incident.state.elapsed += 0.03;
+      path.push([shubenator.group.position.x, shubenator.group.position.z]);
+    }
+    const travelled = path.reduce((total, point, i) => (
+      i === 0 ? 0 : total + Math.hypot(point[0] - path[i - 1][0], point[1] - path[i - 1][1])
+    ), 0);
+
+    incident.updateDirector(0.016);
+    return {
+      heldBeforeWalk,
+      arrived: incident.state.shubesArrived,
+      travelled,
+      start,
+      end: [shubenator.group.position.x, shubenator.group.position.z],
+      speaksAfterArrival: incident.state.director.current?.reaction === 'shubenator-aftermath',
+    };
+  });
+  check('Shubenator walks in for his aftermath line instead of appearing on the mark',
+    shubesWalk.heldBeforeWalk
+      && shubesWalk.arrived
+      // A teleport covers the distance in one frame and logs almost no path.
+      && shubesWalk.travelled > 12
+      && Math.hypot(shubesWalk.end[0] + 13.6, shubesWalk.end[1] - 1.05) < 0.5
+      && shubesWalk.speaksAfterArrival,
+    JSON.stringify(shubesWalk));
+
   const cleanup = await page.evaluate((tasks) => {
     const incident = window.HOTDOG_INCIDENT;
     const completed = tasks.map((task) => [task, incident.completeCleanupTask(task)]);
@@ -638,7 +762,9 @@ try {
       && cleanup.banked
       && cleanup.guideAfterWrap
       && !cleanup.guideAfterLoad
-      && /service-exit arrows/i.test(cleanup.loadObjective),
+      // The route is named by the rooms it passes through. The floor arrows
+      // it used to name pointed through the main room's south wall.
+      && /store room/i.test(cleanup.loadObjective),
     JSON.stringify(cleanup));
 
   await page.waitForFunction(
@@ -702,7 +828,7 @@ try {
     () => window.GRAVEYARD.mission.echoHeard
       && window.GRAVEYARD.campaignState.missions.bada_bing_two.echoHeard,
     null,
-    { timeout: 10000 },
+    { timeout: SIM_WAIT },
   );
   const memorialInteractions = await page.evaluate(() => {
     const runtime = window.GRAVEYARD;
@@ -756,20 +882,25 @@ try {
   await page.waitForFunction(
     () => window.GRAVEYARD.interactionTarget === 'brawny',
     null,
-    { timeout: 10000 },
+    { timeout: SIM_WAIT },
   );
   await page.keyboard.press('p');
   await page.waitForTimeout(120);
   const legacyPWasInert = await page.evaluate(() => !window.GRAVEYARD.disrespecting);
   await page.keyboard.down('e');
-  await page.waitForFunction(() => window.GRAVEYARD.disrespecting, null, { timeout: 3000 });
-  await page.waitForTimeout(1650);
+  await page.waitForFunction(() => window.GRAVEYARD.disrespecting, null, { timeout: SIM_WAIT });
+  /* The hold is judged in simulated seconds and stream impacts, and the
+   * simulation step is clamped, so a fixed sleep here measures the rasteriser
+   * rather than the game: on a loaded box 1.65s of wall clock delivered a
+   * fraction of that in sim time and E came up before the hold had earned
+   * anything. Wait for the condition the game itself will judge. */
+  await page.waitForFunction(() => window.GRAVEYARD.disrespectEarned, null, { timeout: SIM_WAIT });
   await page.keyboard.up('e');
   await page.waitForFunction(
     () => !window.GRAVEYARD.disrespecting
       && window.GRAVEYARD.mission.tributeFor('brawny') === 'disrespect',
     null,
-    { timeout: 5000 },
+    { timeout: SIM_WAIT },
   );
   await page.keyboard.press('e');
   await page.waitForTimeout(160);
@@ -815,7 +946,7 @@ try {
       && bodyMove.placementStarted,
     JSON.stringify(bodyMove));
 
-  await page.waitForFunction(() => window.GRAVEYARD.mission.bodyPlaced, null, { timeout: 10000 });
+  await page.waitForFunction(() => window.GRAVEYARD.mission.bodyPlaced, null, { timeout: SIM_WAIT });
   const placement = await page.evaluate(() => window.GRAVEYARD.bodyPresentation());
   check('placing HotDog turns him lengthwise with his head toward the marker',
     placement.phase === 'placed'
@@ -877,7 +1008,7 @@ try {
     mission: window.HOTDOG_INCIDENT.campaignState.missions.bada_bing_two,
   }));
   await blockedPage.evaluate(() => document.getElementById('start-btn').click());
-  await blockedPage.waitForFunction(() => document.getElementById('start-btn').disabled, null, { timeout: 10000 });
+  await blockedPage.waitForFunction(() => document.getElementById('start-btn').disabled, null, { timeout: SIM_WAIT });
   const afterBlockedStart = await blockedPage.evaluate(() => ({
     scene: window.HOTDOG_INCIDENT.campaignState.scene,
     story: window.HOTDOG_INCIDENT.campaignState.story,

@@ -735,11 +735,34 @@ export class AudioEngine {
     }, fade * 1000 + 60);
   }
 
+  /**
+   * Ramp an AudioParam from wherever it is right now, discarding automation
+   * still queued behind it.
+   *
+   * A bare linearRampToValueAtTime does NOT do this. Automation events live on
+   * one timeline sorted by time, so a shorter ramp scheduled while a longer one
+   * is still running gets inserted *before* it: the param reaches the new value
+   * on schedule and then keeps travelling to the old target. Every room change
+   * in the game lands inside startLoop's 1.2s fade-in, which is how the closed
+   * party ended up playing full outdoor rain volume indoors -- the ducking ramp
+   * ran, then the fade-in it interrupted carried the gain back up to 0.30.
+   * stopLoop has always anchored correctly; this is the same three lines.
+   */
+  _rampParam(param, value, ramp) {
+    const t = this.ctx.currentTime;
+    if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t);
+    else {
+      param.cancelScheduledValues(t);
+      param.setValueAtTime(param.value, t);
+    }
+    param.linearRampToValueAtTime(value, t + ramp);
+  }
+
   setLoopVolume(key, v, ramp = 0.3) {
     const h = this.loops.get(key);
     if (!h) return;
     h.volume = v;
-    h.gain.gain.linearRampToValueAtTime(v, this.ctx.currentTime + ramp);
+    this._rampParam(h.gain.gain, v, ramp);
   }
 
   /** Low-pass one loop — a wall between the listener and the music. */
@@ -747,7 +770,7 @@ export class AudioEngine {
     const h = this.loops.get(key);
     if (!h || !h.filter || h.cutoff === hz) return;
     h.cutoff = hz;
-    h.filter.frequency.linearRampToValueAtTime(hz, this.ctx.currentTime + ramp);
+    this._rampParam(h.filter.frequency, hz, ramp);
   }
 
   /* ---------------------------------------------------------------- */
@@ -855,6 +878,34 @@ function tone(ctx, dest, t, { freq = 220, to = null, dur = 0.2, gain = 0.3, type
   o.start(t);
   o.stop(t + dur + 0.05);
   return g;
+}
+
+/**
+ * A fist landing on a body, in the four layers a real one has: the knuckle and
+ * jacket fabric at the top, the flat slap of the hit itself, the chest cavity
+ * underneath it, and the room answering a beat later. Anything less than this
+ * reads as a door closing — which is what the HotDog beating sounded like when
+ * it was two bursts.
+ *
+ * `weight` moves the whole thing lower and longer, `snap` trades fabric for
+ * knuckle, and `room` is how much of the bar comes back.
+ */
+function bodyImpact(ctx, dest, t, { weight = 1, snap = 1, room = 1, gain = 1 } = {}) {
+  burst(ctx, dest, t, {
+    dur: 0.022 / snap, type: 'highpass', freq: 2400 * snap, q: 0.7,
+    gain: 0.085 * snap * gain,
+  });
+  burst(ctx, dest, t + 0.004, {
+    dur: 0.07 * weight, type: 'bandpass', freq: 540 / weight, q: 0.95,
+    gain: 0.2 * gain, sweep: 0.45,
+  });
+  tone(ctx, dest, t + 0.006, {
+    freq: 98 / weight, to: 44 / weight, dur: 0.15 * weight,
+    gain: 0.32 * gain, type: 'triangle',
+  });
+  burst(ctx, dest, t + 0.03, {
+    dur: 0.3 * room, type: 'lowpass', freq: 360, gain: 0.05 * room * gain, sweep: 0.38,
+  });
 }
 
 /**
@@ -1692,17 +1743,32 @@ function synth(engine, name, dest, t, rate = 1) {
       burst(ctx, dest, t, { dur: 0.12, type: 'bandpass', freq: 3100, q: 5, gain: 0.13, sweep: 1.6 });
       tone(ctx, dest, t + 0.06, { freq: 1150, to: 1720, dur: 0.08, gain: 0.055, type: 'triangle' });
       break;
+    /* Four hits, four distinct sounds, escalating. The first is the surprise
+     * and has the most knuckle in it; by the fourth there is very little snap
+     * left and a great deal of body, because by then HotDog is not standing up
+     * to be hit any more. Identical repeats read as a loop, not a beating. */
     case 'hotdog.fist.impact.1':
+      bodyImpact(ctx, dest, t, { weight: 0.92, snap: 1.25, room: 0.85 });
+      break;
     case 'hotdog.fist.impact.2':
+      bodyImpact(ctx, dest, t, { weight: 1.05, snap: 0.95, room: 1, gain: 1.05 });
+      break;
     case 'hotdog.fist.impact.3':
-      // Keep the four-hit beat readable even before the recorded impact bank
-      // is installed: body weight first, room rattle second, no gun-like snap.
-      burst(ctx, dest, t, { dur: 0.085, type: 'lowpass', freq: 260, gain: 0.33, sweep: 0.36 });
-      burst(ctx, dest, t + 0.012, { dur: 0.055, type: 'bandpass', freq: 760, q: 1.1, gain: 0.16 });
+      bodyImpact(ctx, dest, t, { weight: 1.18, snap: 0.75, room: 1.15, gain: 1.1 });
+      break;
+    case 'hotdog.fist.impact.4':
+      bodyImpact(ctx, dest, t, { weight: 1.4, snap: 0.55, room: 1.4, gain: 1.2 });
+      // The one that ends it also puts something through the bar behind them.
+      tone(ctx, dest, t + 0.02, { freq: 62, to: 31, dur: 0.42, gain: 0.2, type: 'sine' });
       break;
     case 'hotdog.body.floor':
-      tone(ctx, dest, t, { freq: 118, to: 54, dur: 0.26, gain: 0.34, type: 'triangle' });
-      burst(ctx, dest, t + 0.025, { dur: 0.2, type: 'lowpass', freq: 190, gain: 0.22, sweep: 0.42 });
+      // Dead weight onto boards: no bounce, a long floor boom, jacket, and the
+      // stool it takes down on the way.
+      tone(ctx, dest, t, { freq: 104, to: 41, dur: 0.34, gain: 0.36, type: 'triangle' });
+      tone(ctx, dest, t + 0.01, { freq: 57, to: 28, dur: 0.5, gain: 0.22, type: 'sine' });
+      burst(ctx, dest, t + 0.015, { dur: 0.22, type: 'lowpass', freq: 210, gain: 0.2, sweep: 0.4 });
+      burst(ctx, dest, t + 0.05, { dur: 0.16, type: 'bandpass', freq: 1900, q: 0.8, gain: 0.05, sweep: 0.6 });
+      burst(ctx, dest, t + 0.14, { dur: 0.26, type: 'bandpass', freq: 720, q: 2.4, gain: 0.06, sweep: 1.5 });
       break;
 
     /* -------- the Silver Room --------

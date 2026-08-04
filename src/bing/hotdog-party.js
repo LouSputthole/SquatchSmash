@@ -188,25 +188,45 @@ export function buildHotDogCleanupProps() {
   kit.add(label);
   g.add(kit);
 
-  const cufflink = cylinder({ r: 0.075, h: 0.032, seg: 12, pos: [-13.15, 0.05, 0.72], mat: emissive(0xd2bd68, 1.15) });
+  /* Jewellery on a dark floor, not a pickup that glows in the dark. Both of
+   * these used to be emissive, which is what made the room read like a
+   * collectathon; they are metal and enamel now and the floor circle is the
+   * only thing doing the pointing. */
+  const cufflink = cylinder({
+    r: 0.075, h: 0.032, seg: 12, pos: [-13.15, 0.05, 0.72],
+    mat: mat({ color: 0xc4a94f, roughness: 0.24, metalness: 0.92 }),
+  });
   cufflink.name = 'hotdog.cufflink';
-  const lapel = box({ size: [0.16, 0.032, 0.11], pos: [-10.45, 0.04, -1.0], mat: emissive(0xb3212c, 1.05) });
+  const lapel = box({
+    size: [0.16, 0.032, 0.11], pos: [-10.45, 0.04, -1.0],
+    mat: mat({ color: 0x8e1a24, roughness: 0.3, metalness: 0.45 }),
+  });
   lapel.name = 'hotdog.lapel-pin';
   g.add(cufflink, lapel);
 
+  /* A ring drawn on the floor, low and dim, in the vocabulary the owner asked
+   * for: circle the thing on the ground. It lies flat and writes no depth, so
+   * it reads as chalk on the boards rather than a lamp buried under them. */
+  const floorCircle = (name, x, z, color, radius = 0.3) => {
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(radius - 0.035, radius, 40),
+      new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity: 0.42, depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    ring.name = name;
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(x, 0.012, z);
+    ring.renderOrder = 3;
+    ring.castShadow = false;
+    ring.receiveShadow = false;
+    return ring;
+  };
+
   const evidenceMarker = (name, object, color) => {
     const marker = group(`evidence-marker.${name}`);
-    marker.position.copy(object.position);
-    marker.position.y = 0.035;
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.27, 0.024, 7, 28),
-      emissive(color, 2.1),
-    );
-    ring.rotation.x = Math.PI / 2;
-    ring.castShadow = false;
-    marker.add(ring);
-    const beacon = sphere({ r: 0.035, ry: 2.3, pos: [0, 0.24, 0], mat: emissive(color, 2.4), cast: false });
-    marker.add(beacon);
+    marker.add(floorCircle(`evidence-circle.${name}`, object.position.x, object.position.z, color));
     marker.visible = false;
     g.add(marker);
     return marker;
@@ -272,11 +292,14 @@ export function buildHotDogCleanupProps() {
   wrap.visible = false;
   g.add(wrap);
 
+  /* One bathroom, not two. The ladies' door at x 7.9, z 2.9..3.9 opens on a
+   * strip that belongs to no room -- roomAt() calls it 'outside' -- so sending
+   * the player in there walked them out of the building through a doorway that
+   * was never built. It stays locked for the party and the sweep is the men's
+   * room only. */
   const mensPad = box({ size: [0.42, 0.06, 0.34], pos: [11.7, 0.03, 1.4], mat: mat({ color: 0x534b3c, roughness: 0.92 }) });
-  const ladiesPad = box({ size: [0.42, 0.06, 0.34], pos: [10.0, 0.03, 0.2], mat: mat({ color: 0x534b3c, roughness: 0.92 }) });
   mensPad.name = 'bathroom-check.mens';
-  ladiesPad.name = 'bathroom-check.ladies';
-  g.add(mensPad, ladiesPad);
+  g.add(mensPad);
 
   const loadPad = box({
     size: [1.35, 1.35, 0.08],
@@ -287,34 +310,45 @@ export function buildHotDogCleanupProps() {
   loadPad.name = 'service-loading-pad';
   g.add(loadPad);
 
+  /* Two doors, not a trail of arrows.
+   *
+   * The old guide laid three floor arrows at (3.5,-9.8), (6.3,-11.8) and
+   * (8.35,-13.25). The first is in the main room and the next two are in the
+   * store room, so the line they drew ran straight through the main room's
+   * south wall -- it pointed at a route that does not exist. The way out is
+   * east into the hallway, south through the store-room door at (6.75, -9.5),
+   * then the service door at (9.05, -15). So mark those two doors and let the
+   * player walk the building instead of following arrows into masonry. */
   const serviceGuide = group('service-exit-guide');
-  serviceGuide.userData.guidanceText = 'SERVICE EXIT / SNOW';
-  const arrowShape = new THREE.Shape();
-  arrowShape.moveTo(0, -0.55);
-  arrowShape.lineTo(0.42, 0.08);
-  arrowShape.lineTo(0.16, 0.08);
-  arrowShape.lineTo(0.16, 0.55);
-  arrowShape.lineTo(-0.16, 0.55);
-  arrowShape.lineTo(-0.16, 0.08);
-  arrowShape.lineTo(-0.42, 0.08);
-  arrowShape.closePath();
-  for (const [x, z, yaw] of [[3.5, -9.8, 0.3], [6.3, -11.8, 0.5], [8.35, -13.25, 0]]) {
-    const arrow = new THREE.Mesh(new THREE.ShapeGeometry(arrowShape), emissive(0xffc34e, 2.2));
-    arrow.rotation.x = -Math.PI / 2;
-    arrow.rotation.z = yaw;
-    arrow.position.set(x, 0.018, z);
-    arrow.castShadow = false;
-    serviceGuide.add(arrow);
-  }
-  const exitLamp = box({ size: [1.1, 0.26, 0.08], pos: [8.92, 2.15, -14.02], mat: emissive(0xffb638, 2.4), cast: false });
+  serviceGuide.userData.guidanceText = 'THROUGH THE STORE ROOM / SERVICE DOOR';
+
+  const storeRoomSign = sign(printed('service-route-store-room', ['STORE ROOM'], {
+    w: 512, h: 128, bg: '#241a10', fg: '#ffca63', font: '900 62px "Trebuchet MS", sans-serif',
+  }), 1.05, 0.26, { x: 6.75, y: 2.18, z: -9.42 });
+  storeRoomSign.name = 'service-route.store-room-sign';
+  serviceGuide.add(storeRoomSign);
+  serviceGuide.add(floorCircle('service-route.store-room-circle', 6.75, -9.05, 0xffc34e, 0.5));
+
+  const exitLamp = box({
+    size: [1.1, 0.26, 0.08], pos: [9.05, 2.15, -14.92],
+    mat: emissive(0xffb638, 2.4), cast: false,
+  });
+  exitLamp.name = 'service-route.exit-lamp';
   serviceGuide.add(exitLamp);
+  const exitSign = sign(printed('service-route-exit', ['SERVICE EXIT'], {
+    w: 512, h: 128, bg: '#241a10', fg: '#ffca63', font: '900 56px "Trebuchet MS", sans-serif',
+  }), 1.1, 0.26, { x: 9.05, y: 1.86, z: -14.9 });
+  exitSign.name = 'service-route.exit-sign';
+  serviceGuide.add(exitSign);
+  serviceGuide.add(floorCircle('service-route.exit-circle', 9.05, -14.1, 0xffc34e, 0.62));
+
   serviceGuide.visible = false;
   g.add(serviceGuide);
 
   return {
     group: g, kit, cufflink, lapel, blood, brokenStool, wrap,
     evidenceMarkers,
-    bathroomPads: { mens: mensPad, ladies: ladiesPad },
+    bathroomPads: { mens: mensPad },
     loadPad,
     serviceGuide,
   };
@@ -420,7 +454,6 @@ function installPartyColliders(club, {
     ['evidence.lapel-pin', cleanup.lapel],
     ['effect.blood', cleanup.blood],
     ['trigger.bathroom-men', cleanup.bathroomPads.mens],
-    ['trigger.bathroom-ladies', cleanup.bathroomPads.ladies],
     ['trigger.service-load', cleanup.loadPad],
     ['guide.service-exit', cleanup.serviceGuide],
   ].map(([id, object]) => {

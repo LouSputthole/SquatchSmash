@@ -376,3 +376,105 @@ test('new NO WAKE and THE TAKE beds have layered seamless procedural loops', () 
     assert.ok(starts() - before >= 2, `${cue} must not use the generic single-noise loop`);
   }
 });
+
+/**
+ * A param that keeps a sorted automation timeline and can be sampled at a
+ * time, the way a real AudioParam does. `audioParam` above collapses every
+ * ramp to its target the instant it is scheduled, which cannot express the
+ * failure these two tests cover: a short ramp scheduled while a longer one is
+ * still running is inserted *before* it on the timeline, so the param reaches
+ * the new value on time and then keeps travelling to the older target.
+ */
+function timelineParam(initial = 0) {
+  return {
+    events: [{ time: -Infinity, value: initial, kind: 'set' }],
+    get value() { return this.at(this.sampleAt ?? 0); },
+    set value(next) { this.events = [{ time: -Infinity, value: next, kind: 'set' }]; },
+    sampleAt: 0,
+    cancelScheduledValues(time) {
+      this.events = this.events.filter((event) => event.time < time);
+    },
+    setValueAtTime(next, time) { this._insert({ time, value: next, kind: 'set' }); },
+    linearRampToValueAtTime(next, time) { this._insert({ time, value: next, kind: 'ramp' }); },
+    exponentialRampToValueAtTime(next, time) { this.linearRampToValueAtTime(next, time); },
+    setTargetAtTime(next, time) { this.setValueAtTime(next, time); },
+    _insert(event) {
+      this.events.push(event);
+      this.events.sort((a, b) => a.time - b.time);
+    },
+    at(time) {
+      let previous = this.events[0];
+      for (const event of this.events) {
+        if (event.time > time) {
+          if (event.kind !== 'ramp') return previous.value;
+          const span = event.time - previous.time;
+          if (!Number.isFinite(span) || span <= 0) return event.value;
+          const t = (time - previous.time) / span;
+          return previous.value + (event.value - previous.value) * t;
+        }
+        previous = event;
+      }
+      return previous.value;
+    },
+  };
+}
+
+function loopMixHarness() {
+  const node = (extra = {}) => audioNode({ start() {}, stop() {}, ...extra });
+  const ctx = {
+    currentTime: 0,
+    sampleRate: 8_000,
+    createBuffer: (_channels, length) => ({ getChannelData: () => new Float32Array(length) }),
+    createBufferSource: () => node({ playbackRate: audioParam(1), loop: false }),
+    createOscillator: () => node({ frequency: audioParam(), type: 'sine' }),
+    createBiquadFilter: () => audioNode({
+      frequency: timelineParam(20_000), Q: audioParam(), type: 'lowpass',
+    }),
+    createGain: () => audioNode({ gain: timelineParam() }),
+    createPanner: () => audioNode({
+      positionX: { value: 0 }, positionY: { value: 0 }, positionZ: { value: 0 },
+    }),
+  };
+  const engine = new AudioEngine();
+  engine.ctx = ctx;
+  engine.ready = true;
+  engine.busAmb = audioNode();
+  engine.busSfx = audioNode();
+  engine.busMusic = audioNode();
+  return { engine, ctx };
+}
+
+test('a room change wins against the fade-in it interrupts', () => {
+  const { engine, ctx } = loopMixHarness();
+
+  // Exactly what the closed party does: start outdoor rain over a long fade,
+  // then duck it hard one frame later once the room resolves to indoors.
+  const rain = engine.startLoop('party.rain', {
+    name: 'ambience.rain', volume: 0.3, ambience: true, fade: 1.2,
+  });
+  ctx.currentTime = 0.016;
+  engine.setLoopVolume('party.rain', 0.018, 0.8);
+
+  assert.ok(rain.gain.gain.at(0.9) <= 0.03, 'the duck must land');
+  for (const time of [1.2, 1.4, 2, 8]) {
+    assert.ok(
+      rain.gain.gain.at(time) <= 0.02,
+      `rain must stay ducked at ${time}s, not climb back to the outdoor level`,
+    );
+  }
+  assert.equal(rain.volume, 0.018);
+});
+
+test('a loop cutoff change discards the automation it interrupts', () => {
+  const { engine, ctx } = loopMixHarness();
+
+  const record = engine.startLoop('party.record', { name: 'ambience.crowd', volume: 0.2, fade: 1.2 });
+  engine.setLoopCutoff('party.record', 900, 2);
+  ctx.currentTime = 0.4;
+  engine.setLoopCutoff('party.record', 12_000, 0.5);
+
+  assert.ok(
+    record.filter.frequency.at(3) >= 11_000,
+    'a door opening must not slowly re-close itself',
+  );
+});

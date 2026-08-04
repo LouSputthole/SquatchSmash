@@ -111,7 +111,6 @@ const state = {
     waitingForAttack: false,
     handoffReady: false,
   },
-  apeRouteStop: null,
   fallen: false,
   cleanupActive: false,
   bathroom: new Set(),
@@ -128,7 +127,10 @@ const state = {
     eye: new THREE.Vector3(),
     look: new THREE.Vector3(),
     shake: 0,
+    anchorYaw: 0,
+    anchorPitch: 0,
   },
+  shubesArrived: false,
 };
 
 let mission = null;
@@ -166,11 +168,23 @@ function playCue(name) {
   return true;
 }
 
+/* How far off the authored framing the player may look. Wide enough to watch
+ * the room react instead of only the two men in the middle of it, tight enough
+ * that the shot the scene chose is still the shot you are standing in. */
+const CINEMATIC_LOOK_YAW = 1.3;
+const CINEMATIC_LOOK_PITCH = 0.62;
+const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+
 function setCinematicShot(name, eye, look) {
   state.cinematic.active = true;
   state.cinematic.shot = name;
   state.cinematic.eye.set(...eye);
   state.cinematic.look.set(...look);
+  // Re-centre the mouse offset on every new shot. The shot picks where you
+  // stand and what you are pointed at; anything you did with the mouse during
+  // the last one should not carry over into a different framing.
+  state.cinematic.anchorYaw = player.yaw;
+  state.cinematic.anchorPitch = player.pitch;
   player.clearKeys();
   interaction.setPaused(true);
 }
@@ -193,15 +207,34 @@ function releaseCinematic({ x = null, z = null, lookAt = null } = {}) {
 
 function applyCinematicCamera(dt = 0) {
   if (!state.cinematic.active) return;
-  camera.position.copy(state.cinematic.eye);
-  if (state.cinematic.shake > 0) {
-    const intensity = state.cinematic.shake;
+  const shot = state.cinematic;
+  camera.position.copy(shot.eye);
+  if (shot.shake > 0) {
+    const intensity = shot.shake;
     camera.position.x += Math.sin(state.elapsed * 77) * intensity;
     camera.position.y += Math.cos(state.elapsed * 101) * intensity * 0.55;
     camera.position.z += Math.sin(state.elapsed * 63) * intensity * 0.35;
-    state.cinematic.shake = Math.max(0, intensity - dt * 0.6);
+    shot.shake = Math.max(0, intensity - dt * 0.6);
   }
-  camera.lookAt(state.cinematic.look);
+  // The shot owns where the player is standing. It does not own their head.
+  // A hard lookAt() took the mouse away for the length of the whole sequence,
+  // which is the one thing the scene is not allowed to do -- the player has to
+  // be able to look at the room while Ape is working. So the authored framing
+  // becomes the neutral centre and mouse movement swings off it, clamped.
+  const dx = shot.look.x - camera.position.x;
+  const dy = shot.look.y - camera.position.y;
+  const dz = shot.look.z - camera.position.z;
+  const baseYaw = Math.atan2(-dx, -dz);
+  const basePitch = Math.atan2(dy, Math.hypot(dx, dz));
+  let offsetYaw = (player.yaw - shot.anchorYaw) % (Math.PI * 2);
+  if (offsetYaw > Math.PI) offsetYaw -= Math.PI * 2;
+  if (offsetYaw < -Math.PI) offsetYaw += Math.PI * 2;
+  camera.rotation.set(
+    clamp(basePitch + (player.pitch - shot.anchorPitch), -CINEMATIC_LOOK_PITCH, CINEMATIC_LOOK_PITCH),
+    baseYaw + clamp(offsetYaw, -CINEMATIC_LOOK_YAW, CINEMATIC_LOOK_YAW),
+    0,
+    'YXZ',
+  );
   camera.updateMatrixWorld(true);
 }
 
@@ -283,11 +316,16 @@ function react(reaction) {
   if (reaction === 'lou-warning-look') party.extra.lou.faceToward(party.extra.hotdog.position.x, party.extra.hotdog.position.z);
   if (reaction === 'eric-recording') party.byId.eric?.faceToward(-12, -3.45);
   if (reaction === 'shubenator-aftermath') {
+    // He has already walked here under his own steam; the beat is gated on it.
+    // The snap remains only for a restored save, which drops the player into
+    // the aftermath with nobody having walked anywhere.
     const shubenator = party.byId.shubenator;
     if (shubenator) {
+      cancelWalk(shubenator);
       shubenator.route = null;
       shubenator.job = 'stand';
       shubenator.group.position.set(-13.6, 0, 1.05);
+      state.shubesArrived = true;
       shubenator.faceToward(party.extra.hotdog.position.x, party.extra.hotdog.position.z, true);
     }
   }
@@ -296,47 +334,97 @@ function react(reaction) {
   }
 }
 
-function setApeOneShotRoute(route, speed) {
-  const ape = party.byId.ape;
-  ape.job = 'patrol';
-  ape.speed = speed;
-  // The old first leg cut straight through the two-top at (-13.4, 1.05).
+/* Authored one-shot walks.
+ *
+ * Npc patrols loop by design, because that is what an ambient crowd wants. A
+ * scripted walk is the opposite: it has an end. Each entry here is taken back
+ * at its final mark before the patrol loop can turn the actor around and send
+ * them through the furniture again. `deadline` exists because a blocked walk
+ * must never become a stuck scene -- if an actor cannot reach their mark the
+ * scene puts them on it and carries on.
+ */
+const authoredWalks = new Map();
+
+function walkOnce(npc, route, speed, { onArrive = null, timeout = 0 } = {}) {
+  if (!npc) return;
+  npc.job = 'patrol';
+  npc.speed = speed;
+  // The old Ape first leg cut straight through the two-top at (-13.4, 1.05).
   // These authored marks leave through the clear aisle and intentionally stop
-  // before the next line calls Ape back; no patrol loop gets to fight a table.
-  ape.route = route.map(({ x, z }) => ({ x, z }));
-  ape.routeAt = 0;
-  state.apeRouteStop = ape.route.at(-1);
+  // before the next line calls him back; no patrol loop gets to fight a table.
+  npc.route = route.map(({ x, z }) => ({ x, z }));
+  npc.routeAt = 0;
+  authoredWalks.set(npc, {
+    stop: npc.route.at(-1),
+    onArrive,
+    deadline: timeout > 0 ? state.elapsed + timeout : Infinity,
+  });
+}
+
+function cancelWalk(npc) {
+  authoredWalks.delete(npc);
+}
+
+function arriveAt(npc, walk) {
+  npc.route = null;
+  npc.job = 'stand';
+  npc.group.position.set(walk.stop.x, npc.baseY ?? 0, walk.stop.z);
+  authoredWalks.delete(npc);
+  walk.onArrive?.(npc);
+}
+
+function settleAuthoredWalks() {
+  for (const [npc, walk] of authoredWalks) {
+    const dx = npc.position.x - walk.stop.x;
+    const dz = npc.position.z - walk.stop.z;
+    if (dx * dx + dz * dz <= 0.18 || state.elapsed >= walk.deadline) arriveAt(npc, walk);
+  }
 }
 
 function moveApeOut() {
-  setApeOneShotRoute(APE_EXIT_ROUTE, 2.8);
+  walkOnce(party.byId.ape, APE_EXIT_ROUTE, 2.8);
 }
 
 function returnApe() {
-  setApeOneShotRoute(APE_RETURN_ROUTE, 3.2);
+  walkOnce(party.byId.ape, APE_RETURN_ROUTE, 3.2);
 }
 
-function settleApeOneShotRoute() {
-  const stop = state.apeRouteStop;
-  if (!stop) return;
-  const ape = party.byId.ape;
-  const dx = ape.position.x - stop.x;
-  const dz = ape.position.z - stop.z;
-  if (dx * dx + dz * dz > 0.18) return;
-  // Npc patrols intentionally loop for ambient crowds. This is a cinematic
-  // walk, so take ownership at the final authored mark before that loop can
-  // turn Ape back through the furniture.
-  ape.route = null;
-  ape.job = 'stand';
-  ape.group.position.set(stop.x, ape.baseY ?? 0, stop.z);
-  state.apeRouteStop = null;
+/* Shubenator's whole bit is arriving after the fact and asking what happened,
+ * so he has to be seen crossing the room to do it. He leaves the decks the
+ * moment he has killed the music and the aftermath beat waits on his mark --
+ * the room standing over a body in silence while he walks over is the joke. */
+const SHUBENATOR_AFTERMATH_ROUTE = Object.freeze([
+  Object.freeze({ x: -5.2, z: -6.9 }),
+  Object.freeze({ x: -4.8, z: 2.2 }),
+  Object.freeze({ x: -9.0, z: 2.5 }),
+  Object.freeze({ x: -12.4, z: 2.0 }),
+  Object.freeze({ x: -13.6, z: 1.05 }),
+]);
+
+function walkShubenatorIn() {
+  const shubenator = party.byId.shubenator;
+  if (!shubenator || state.shubesArrived) return;
+  walkOnce(shubenator, SHUBENATOR_AFTERMATH_ROUTE, 3.15, {
+    timeout: 9,
+    onArrive: (npc) => {
+      state.shubesArrived = true;
+      npc.faceToward(party.extra.hotdog.position.x, party.extra.hotdog.position.z, true);
+    },
+  });
+}
+
+/* The floor circles are a cleanup aid, not a light show during the beating.
+ * They used to appear on Ape's last punch, which put two glowing rings in the
+ * middle of the shot while the room was still watching a man go down. */
+function revealEvidenceCircles() {
+  for (const marker of Object.values(party.cleanup.evidenceMarkers)) marker.visible = true;
 }
 
 function applyResolvedAttackPresentation() {
   state.fallen = true;
   const hotdog = party.extra.hotdog;
   const ape = party.byId.ape;
-  state.apeRouteStop = null;
+  cancelWalk(ape);
   hotdog.job = 'stand';
   hotdog.route = null;
   hotdog.group.position.set(-15.8, 0.25, -0.45);
@@ -347,7 +435,6 @@ function applyResolvedAttackPresentation() {
   ape.group.rotation.y = -1.6;
   party.cleanup.blood.visible = true;
   party.cleanup.brokenStool.visible = true;
-  for (const marker of Object.values(party.cleanup.evidenceMarkers)) marker.visible = true;
 }
 
 function resolveAttack() {
@@ -370,7 +457,7 @@ const attack = createHotDogAttack({
   onImpact: ({ hit, final }) => {
     const hotdog = party.extra.hotdog;
     state.cinematic.shake = final ? 0.15 : 0.10;
-    audio.play(`hotdog.fist.impact.${Math.min(hit, 3)}`, {
+    audio.play(`hotdog.fist.impact.${hit}`, {
       volume: final ? 0.96 : 0.82,
       position: hotdog.position,
     });
@@ -386,7 +473,7 @@ function stageAttack() {
   if (state.fallen || attack.active || !mission.startAttack()) return false;
   const hotdog = party.extra.hotdog;
   const ape = party.byId.ape;
-  state.apeRouteStop = null;
+  cancelWalk(ape);
   ape.route = null;
   ape.job = 'stand';
   ape.group.position.set(-14.9, 0, -0.25);
@@ -403,7 +490,6 @@ function stageAttack() {
 function assignCleanupRoles() {
   if (state.cleanupActive) return;
   state.cleanupActive = true;
-  club.doors.ladies.locked = false;
   const set = (npc, x, z, job = 'work', yaw = 0) => {
     if (!npc) return;
     npc.route = null;
@@ -440,9 +526,15 @@ function applyBeatAction(action) {
   if (action === 'begin-beating' && stageAttack()) {
     state.director.running = false;
   }
-  if (action === 'music-cut') audio.setLoopVolume('party.record', 0, 0.25);
+  if (action === 'music-cut') {
+    audio.setLoopVolume('party.record', 0, 0.25);
+    walkShubenatorIn();
+  }
   if (action === 'cleanup-start') assignCleanupRoles();
-  if (action === 'release-cutscene') releaseCinematic({ x: -9.4, z: 2.4, lookAt: { x: -15.5, z: -0.4 } });
+  if (action === 'release-cutscene') {
+    releaseCinematic({ x: -9.4, z: 2.4, lookAt: { x: -15.5, z: -0.4 } });
+    revealEvidenceCircles();
+  }
 }
 
 function beginSequence() {
@@ -483,6 +575,9 @@ function updateDirector(dt) {
     return;
   }
   if (next.phase === 'handoff' && !d.handoffReady) return;
+  // He is crossing the room to deliver it. Holding the beat is the point --
+  // the walk is the joke, and a line from an empty mark is not.
+  if (next.reaction === 'shubenator-aftermath' && !state.shubesArrived) return;
   d.index++;
   d.current = next;
   showLine(next);
@@ -515,7 +610,8 @@ function registerDoor(key, lockedLine = 'Locked for the party.') {
     },
   });
 }
-for (const key of ['front', 'inner', 'mens', 'ladies', 'storage', 'service']) registerDoor(key);
+for (const key of ['front', 'inner', 'mens', 'storage', 'service']) registerDoor(key);
+registerDoor('ladies', 'Bolted since the remodel. There is nothing behind it but the lot.');
 
 interaction.register(party.stage.controls, {
   label: 'Press <b>Hog Mama\'s spotlight and microphone controls</b>',
@@ -527,21 +623,18 @@ interaction.register(party.stage.controls, {
   },
 });
 
-for (const [id, pad] of Object.entries(party.cleanup.bathroomPads)) {
-  interaction.register(pad, {
-    label: () => `Check the <b>${id === 'mens' ? 'men\'s room' : 'ladies\' room'}</b>`,
-    enabled: () => state.phase === 'active' && mission.state === 'cleanup' && !state.bathroom.has(id),
-    onUse: () => {
-      state.bathroom.add(id);
-      audio.play('cloth.suit.movement', { volume: 0.4, position: pad.position });
-      hud.say(id === 'mens'
-        ? 'Two wet towels, one broken dispenser, nobody hiding.'
-        : 'Empty stalls. Eric\'s forgotten camera battery under the sink.', 3600);
-      pad.visible = false;
-      if (state.bathroom.size === 2) completeCleanupTask('bathrooms');
-    },
-  });
-}
+interaction.register(party.cleanup.bathroomPads.mens, {
+  label: 'Check the <b>men\'s room</b>',
+  enabled: () => state.phase === 'active' && mission.state === 'cleanup' && !state.bathroom.has('mens'),
+  onUse: () => {
+    const pad = party.cleanup.bathroomPads.mens;
+    state.bathroom.add('mens');
+    audio.play('cloth.suit.movement', { volume: 0.4, position: pad.position });
+    hud.say('Two wet towels, one broken dispenser, Eric\'s camera battery behind the cistern. Nobody hiding.', 4200);
+    pad.visible = false;
+    completeCleanupTask('bathrooms');
+  },
+});
 
 interaction.register(party.cleanup.kit, {
   label: 'Take <b>Aubbie\'s correct cleanup kit</b>',
@@ -619,7 +712,7 @@ interaction.register(party.extra.hotdog.group, {
     party.cleanup.serviceGuide.visible = true;
     audio.play('cloth.snap', { volume: 0.82, position: party.cleanup.wrap.position });
     repaintObjectives();
-    hud.say('Plastic tight, face covered, nothing loose. Follow the amber arrows through the rear-right hall to Snow at the service exit.', 5000);
+    hud.say('Plastic tight, face covered, nothing loose. Out through the hall, into the store room, Snow is holding the service door.', 5000);
   },
 });
 
@@ -697,11 +790,15 @@ function restoreFromCampaign() {
   resolveAttack();
   state.director.index = sequence.findIndex((beat) => beat.action === 'cleanup-start') + 1;
   state.director.waitingForAttack = false;
+  // A restored save opens after the aftermath, so nobody walks anywhere. The
+  // gate on Shubenator's beat must not be left armed against a beat that has
+  // already passed.
+  state.shubesArrived = true;
   assignCleanupRoles();
   for (const task of saved.cleanupTasks) {
     mission.completeCleanup(task);
   }
-  state.bathroom = new Set(saved.cleanupTasks.includes('bathrooms') ? ['mens', 'ladies'] : []);
+  state.bathroom = new Set(saved.cleanupTasks.includes('bathrooms') ? ['mens'] : []);
   state.kitTaken = saved.cleanupTasks.includes('cleaning_kit');
   state.evidence = new Set(saved.cleanupTasks.includes('missing_evidence') ? ['cufflink', 'lapel'] : []);
   state.finalSwept = saved.cleanupTasks.includes('final_sweep');
@@ -811,6 +908,10 @@ const runtime = {
   // route and four-hit controller the player sees; there is no gun fallback.
   startApeExit: moveApeOut,
   startAttackCinematic: stageAttack,
+  walkShubenatorIn,
+  settleAuthoredWalks,
+  updateDirector,
+  applyCinematicCamera,
   attack,
   completeCleanupTask,
   get campaignState() { return campaign.state; },
@@ -936,7 +1037,7 @@ function animate(now) {
       if (state.fallen && npc === party.extra.hotdog) continue;
       npc.update(dt, player.position);
     }
-    settleApeOneShotRoute();
+    settleAuthoredWalks();
     // Npc.update owns idle motion; the attack controller applies its
     // intentional pose afterward so the four hits cannot be overwritten.
     attack.update(dt);
