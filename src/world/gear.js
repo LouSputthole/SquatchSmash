@@ -93,6 +93,20 @@ const FALLBACKS = {
   'squatchfather.portrait.irish': () => posterPlaceholder('IRISH', 'FAMILY', 320),
   'squatchfather.portrait.seff': () => posterPlaceholder('SEFF', 'FAMILY', 320),
   'squatchfather.portrait.deathmegatron': () => posterPlaceholder('DEATH', 'MEGATRON', 320),
+  /* Lou's mansion. Every one of these points at a Silver Sasquatches logo
+   * file the apartment already ships (see assets/art/manifest.json), which is
+   * the owner's own brief: "take artwork from the apartment. All the Squatch
+   * logos. and use them at least once." The fallbacks below only show if a
+   * file fails to resolve -- MansionInterior.js draws its own crest into each
+   * slot at build time and swaps it for the real image afterwards. */
+  'mansion.foyer.crest': () => posterPlaceholder('Silver', 'SASQUATCHES', 270),
+  'mansion.lounge.banner': () => posterPlaceholder('Silver', 'SASQUATCHES', 44),
+  'mansion.bay.shield': () => posterPlaceholder('The House', 'BAR', 30),
+  'mansion.conference.crest': () => posterPlaceholder('Silver', 'SASQUATCHES', 270),
+  'mansion.gallery.pride': () => posterPlaceholder('All Of', 'THEM', 300),
+  'mansion.ballroom.backdrop': () => posterPlaceholder('Live', 'AND ONLY HERE', 214),
+  'mansion.office.shield': () => posterPlaceholder('The House', 'SILVER SASQUATCHES', 40),
+  'mansion.basement.shield': () => posterPlaceholder('Nothing Leaves', 'THIS ROOM', 8),
   'cereal.box': () => posterPlaceholder('Oops All', 'LOBBYS', 200),
   'crest.round': () => posterPlaceholder('Crest', 'EST. 2021', 270),
   'shelf.photo': () => posterPlaceholder('Someone', 'YOU KNOW', 200),

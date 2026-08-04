@@ -47,6 +47,11 @@ import { makeCar, makeVehicleCollider, populateLot } from '../../bing/vehicles.j
 // share that exact cached texture instance.
 import { tileTex } from '../../world/textures.js';
 import { tiled } from '../../bing/kit.js';
+/* The Squatch Smash player rig, reused as the monument in the fountain --
+ * see buildFountain(). game/ is the in-world PC game and has no dependency
+ * on this scene; this import goes one way only, and the module is three
+ * hundred lines of THREE primitives with no game state in it. */
+import { Sasquatch } from '../../../game/src/player.js';
 
 void populateLot; // imported for parity/documentation only -- see note above.
 
@@ -62,7 +67,50 @@ export const ROOF_Y0 = UPPER_CEILING_Y;
 export const ROOF_Y1 = 10.6;
 export const WALL_T = 0.4;
 
-export const BUILDING = Object.freeze({ x0: -16, x1: 16, z0: 41, z1: 75 });
+/* THE FRONT WALL, PULLED OUT (owner playtest 2026-08-04, verbatim):
+ *
+ *   "both the front stairs go right into the front wall so we either need to
+ *    pull the front wall out a bit and widen the room so you can get on the
+ *    stairs"
+ *
+ * Exactly right, and measured: the horseshoe's bottom tread sat at z=42 and
+ * the south wall's inside face at z=41, so the entire approach to both
+ * flights was a 1 m slot between the front door and the first riser. You
+ * could not stand square to a flight, let alone walk onto it.
+ *
+ * The whole facade moves 5 m south (z0 41 -> 36), which is a change of datum
+ * rather than a nudge: the foyer, the living room, the lounge and the two
+ * front bedrooms all read their own z0 from here, the shell's south wall and
+ * every opening in it are built from it, and the ground plane is notched to
+ * it. The stair feet stay at z=42, so the run in front of them goes from 1 m
+ * to 6 m. The forecourt (turnaround, fountain, front steps, planting) moves
+ * the same 5 m so the approach keeps its proportions -- see FORECOURT_SHIFT.
+ */
+export const BUILDING = Object.freeze({ x0: -16, x1: 16, z0: 36, z1: 75 });
+
+/* How far the whole forecourt moved with the facade. Everything on the
+ * approach is written as `<old number> - FORECOURT_SHIFT` so the two can
+ * never drift apart again. */
+export const FORECOURT_SHIFT = 5;
+
+/* THE BILLIARD BAY (owner playtest 2026-08-04, verbatim):
+ *
+ *   "Pooltable room very nice - lets expand it a bit out to the exterior so
+ *    there is enough room for the bar stools and the bar"
+ *
+ * Measured before moving anything: the lounge is 6.85 m wide, the billiard
+ * table's collider is 2.8 m of that, the bar counter another 0.9, and the
+ * stools' colliders (0.52 wide) overlapped the table's by 6 cm. There was
+ * literally no floor left between a cue and a bar stool.
+ *
+ * So the room grows east, into a single-storey glazed bay hung off the
+ * lounge's outer wall. The main block above it is untouched -- the bay's flat
+ * roof lands at BAY_ROOF_Y0, well under the upper floor -- and the service
+ * road moves east to make room for it (see buildServiceRoad).
+ */
+export const LOUNGE_BAY = Object.freeze({ x0: 16, x1: 20.6, z0: 41, z1: 54 });
+export const BAY_ROOF_Y0 = 5.2;
+export const BAY_ROOF_Y1 = 5.6;
 
 /* ---------------------------------------------------------------------------
  * LAYOUT DATUM (2026-08-04 rework, owner's brief).
@@ -90,7 +138,7 @@ export const BUILDING = Object.freeze({ x0: -16, x1: 16, z0: 41, z1: 75 });
  *                  as a candidate everywhere in the hall, which is exactly why
  *                  the basement stair could never be walked down).
  * ------------------------------------------------------------------------- */
-export const FOYER_VOID = Object.freeze({ x0: -8.85, x1: 8.85, z0: 41, z1: 48 });
+export const FOYER_VOID = Object.freeze({ x0: -8.85, x1: 8.85, z0: BUILDING.z0, z1: 48 });
 export const BASEMENT_ROOM = Object.freeze({ x0: -9, x1: 9, z0: 50, z1: 64 });
 export const BASEMENT_SHAFT = Object.freeze({ x0: 5.4, x1: 9, z0: 51, z1: 58 });
 /** Kept for readers of the old name: the double-height entrance footprint. */
@@ -100,20 +148,20 @@ export const GLASS_SILL = GROUND_Y + 0.15; // 1.35 -- floor-to-near-ceiling glas
 export const GLASS_TOP = GROUND_Y + 3.35; // 4.55
 
 export const FRONT_DOOR = Object.freeze({
-  x: 0, y: GROUND_Y, z: 41, x0: -1.3, x1: 1.3, y0: GROUND_Y, y1: GROUND_Y + 2.8,
+  x: 0, y: GROUND_Y, z: BUILDING.z0, x0: -1.6, x1: 1.6, y0: GROUND_Y, y1: GROUND_Y + 3.0,
 });
 export const REAR_DOOR = Object.freeze({
   x: 16, y: GROUND_Y, z: 66, z0: 64.8, z1: 67.2, y0: GROUND_Y, y1: GROUND_Y + 2.4,
 });
 
-/* Moved 3 m south of the turnaround's centre (it used to sit at z=35). The
- * basin's widest tier is r=6, so from z=35 its rim reached z=41 -- the
- * building's own south wall -- and visibly intersected the front steps and
- * portico it was supposed to sit in front of. From z=32 the rim stops at
- * z=38, a clear metre short of the bottom tread, which also opens up the
- * forecourt between the fountain and the front door for the planting and the
- * parked cars. */
-export const FOUNTAIN_POS = Object.freeze({ x: 0, z: 32 });
+/* Three metres south of the turnaround's centre. The basin's widest tier is
+ * r=6, so it must sit at least that far clear of the bottom tread of the
+ * front steps or the rim eats them (which is what happened at z=35 on the old
+ * facade line). Both numbers now move with the facade -- see FORECOURT_SHIFT
+ * -- so the rim still stops a clear metre short of the steps. */
+export const COURT_CENTRE = Object.freeze({ x: 0, z: 35 - FORECOURT_SHIFT });
+export const COURT_RADIUS = 12;
+export const FOUNTAIN_POS = Object.freeze({ x: 0, z: 32 - FORECOURT_SHIFT });
 export const POOL = Object.freeze({
   x0: -7, x1: 7, z0: 81, z1: 89, y: GROUND_Y - 1.3,
 });
@@ -146,6 +194,8 @@ const M_MARBLE = mat({ color: 0xe6e0d2, roughness: 0.32 });
 const M_MARBLE_DK = mat({ color: 0xb7ae98, roughness: 0.4 });
 const M_BRONZE = mat({ color: 0x8a5a2e, roughness: 0.35, metalness: 0.65 });
 const M_SILVER = mat({ color: 0xc8ccd6, roughness: 0.16, metalness: 0.9 });
+/** Darkened silver for the statue's bandana, so the mascot shape still reads. */
+const M_STATUE_PATINA = mat({ color: 0x7d838f, roughness: 0.34, metalness: 0.85 });
 const M_CHROME = mat({ color: 0xd7dce3, roughness: 0.14, metalness: 0.95 });
 
 const M_FENCE = mat({ color: 0x15161c, roughness: 0.5, metalness: 0.55 });
@@ -165,6 +215,12 @@ const M_DECK = mat({ color: 0xcfc9b8, roughness: 0.62 });
 const M_POOL_WALL = mat({ color: 0xbfc7c2, roughness: 0.5 });
 const M_POOL_LINER = mat({ color: 0x2a3a3d, roughness: 0.6 });
 const M_LOUNGE = mat({ color: 0x2f7f78, roughness: 0.85 });
+const M_TOWEL = mat({ color: 0xe8e0cc, roughness: 1 });
+const M_POOL_GLASS = mat({
+  color: 0xdfe8ea, roughness: 0.1, metalness: 0.05, transparent: true, opacity: 0.45,
+});
+/** The deck's skirt and coping -- see buildPoolPatio's fascia note. */
+const M_DECK_SKIRT = mat({ color: 0xb4ad9c, roughness: 0.72 });
 const M_LAMP_POST = mat({ color: 0x14151a, roughness: 0.5, metalness: 0.6 });
 
 /* ================================================================== */
@@ -375,14 +431,39 @@ function foamRingTexture() {
 }
 
 class FountainSpray {
-  constructor(parent, origin) {
+  /**
+   * @param {THREE.Object3D} parent
+   * @param {THREE.Vector3} origin
+   * @param {{rise?:number, speedMin?:number, speedMax?:number, spread?:number,
+   *          drops?:number, size?:number}} [opts]
+   *
+   * The options exist because there are two fountains on this property now --
+   * the monument in the turnaround and the little one standing in the pool --
+   * and a jet sized for a 3.7 m statue looks like a burst main in four feet
+   * of water. Defaults are the driveway fountain's original constants, so
+   * that call site is unchanged.
+   */
+  constructor(parent, origin, opts = {}) {
+    const {
+      rise = SPRAY_RISE,
+      speedMin = SPRAY_SPEED_MIN,
+      speedMax = SPRAY_SPEED_MAX,
+      spread = SPRAY_SPREAD,
+      drops = SPRAY_DROPS,
+      size = 0.34,
+    } = opts;
     this.origin = origin.clone();
+    this.rise = rise;
+    this.speedMin = speedMin;
+    this.speedMax = speedMax;
+    this.spreadScale = spread;
+    this.drops = drops;
     this.t = 0;
     this.on = false;
-    this.pos = new Float32Array(SPRAY_DROPS * 3);
-    this.vel = new Float32Array(SPRAY_DROPS);
-    this.life = new Float32Array(SPRAY_DROPS);
-    this.spread = new Float32Array(SPRAY_DROPS * 2);
+    this.pos = new Float32Array(drops * 3);
+    this.vel = new Float32Array(drops);
+    this.life = new Float32Array(drops);
+    this.spread = new Float32Array(drops * 2);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
     // Point size was 0.09 -- about 9cm streaks, which additive blending plus
@@ -392,7 +473,7 @@ class FountainSpray {
     // renderer's exposure curve instead of getting compressed toward grey.
     this.points = new THREE.Points(geo, new THREE.PointsMaterial({
       map: sprayDropTexture(),
-      size: 0.34,
+      size,
       sizeAttenuation: true,
       transparent: true,
       depthWrite: false,
@@ -403,15 +484,16 @@ class FountainSpray {
     this.points.frustumCulled = false;
     this.points.visible = false;
     parent.add(this.points);
-    for (let i = 0; i < SPRAY_DROPS; i++) this._seed(i, Math.random());
+    for (let i = 0; i < drops; i++) this._seed(i, Math.random());
 
     // Secondary jet column: a thin tapered translucent shell with a
     // scrolling streak texture running up the centre of the spray. Even if
     // every particle above happened to be off-screen or too subtle, this
     // guarantees a genuinely visible, animated "water is moving" column in
     // any static screenshot -- see jetColumnTexture()'s doc comment.
-    const jetH = SPRAY_RISE * 0.86;
-    this.jetGeo = new THREE.CylinderGeometry(0.16, 0.055, jetH, 14, 6, true);
+    const jetH = rise * 0.86;
+    const jetR = 0.16 * (rise / SPRAY_RISE);
+    this.jetGeo = new THREE.CylinderGeometry(jetR, jetR * 0.34, jetH, 14, 6, true);
     this.jetMat = new THREE.MeshBasicMaterial({
       map: jetColumnTexture(),
       transparent: true,
@@ -433,7 +515,7 @@ class FountainSpray {
     const r = Math.sqrt(Math.random());
     this.spread[i * 2] = Math.cos(a) * r;
     this.spread[i * 2 + 1] = Math.sin(a) * r;
-    this.vel[i] = SPRAY_SPEED_MIN + Math.random() * (SPRAY_SPEED_MAX - SPRAY_SPEED_MIN);
+    this.vel[i] = this.speedMin + Math.random() * (this.speedMax - this.speedMin);
     this.life[i] = at;
   }
 
@@ -445,15 +527,15 @@ class FountainSpray {
     if (!this.on) return;
     this.t += dt;
     const o = this.origin;
-    for (let i = 0; i < SPRAY_DROPS; i++) {
-      this.life[i] += (this.vel[i] / SPRAY_RISE) * dt;
+    for (let i = 0; i < this.drops; i++) {
+      this.life[i] += (this.vel[i] / this.rise) * dt;
       if (this.life[i] >= 1) this._seed(i, this.life[i] - 1);
       const f = this.life[i];
       const arc = Math.sin(f * Math.PI); // rises then falls back, not a straight drop
       const j = i * 3;
-      this.pos[j] = o.x + this.spread[i * 2] * SPRAY_SPREAD * f;
-      this.pos[j + 1] = o.y + SPRAY_RISE * arc;
-      this.pos[j + 2] = o.z + this.spread[i * 2 + 1] * SPRAY_SPREAD * f;
+      this.pos[j] = o.x + this.spread[i * 2] * this.spreadScale * f;
+      this.pos[j + 1] = o.y + this.rise * arc;
+      this.pos[j + 2] = o.z + this.spread[i * 2 + 1] * this.spreadScale * f;
     }
     this.points.geometry.attributes.position.needsUpdate = true;
 
@@ -737,9 +819,11 @@ export function buildMansionGrounds(scene = null) {
   root.add(box({ size: [0.3, 0.1, 23], pos: [-4.15, 0.05, 11.5], mat: M_CURB }));
   root.add(box({ size: [0.3, 0.1, 23], pos: [4.15, 0.05, 11.5], mat: M_CURB }));
 
-  const turnaround = new THREE.Mesh(new THREE.CircleGeometry(12, 48), paverMaterial(24, 24));
+  const turnaround = new THREE.Mesh(
+    new THREE.CircleGeometry(COURT_RADIUS, 48), paverMaterial(COURT_RADIUS * 2, COURT_RADIUS * 2),
+  );
   turnaround.rotation.x = -Math.PI / 2;
-  turnaround.position.set(0, 0.02, 35);
+  turnaround.position.set(COURT_CENTRE.x, 0.02, COURT_CENTRE.z);
   turnaround.receiveShadow = true;
   root.add(turnaround);
 
@@ -786,8 +870,10 @@ export function buildMansionGrounds(scene = null) {
   // evenly lighting a walking path.
   // (10.3,34) moved out to (12.5,33): the motor court's new tangent parking
   // puts a Lincoln through the old position. (-12.5,33) is its mirror, added
-  // so both halves of the court's car line are lit the same.
-  const CAR_LAMP_POSITIONS = [[14.0, 33], [-14.0, 33], [-14.25, 28.5]];
+  // so both halves of the court's car line are lit the same. Both then moved
+  // south with the forecourt, and the third (side-lot) post was dropped
+  // because the west one now stands within five metres of the side lot too.
+  const CAR_LAMP_POSITIONS = [[14.0, 33 - FORECOURT_SHIFT], [-14.0, 33 - FORECOURT_SHIFT]];
   CAR_LAMP_POSITIONS.forEach(([x, z]) => lampPost(x, z, true, 11));
 
   /* ---------------------------------------------------------------- */
@@ -800,65 +886,62 @@ export function buildMansionGrounds(scene = null) {
     root.add(cylinder({ r: 4, h: 0.5, pos: [fx, 1.6 + 0.25, fz], mat: M_MARBLE_DK }));
     root.add(cylinder({ r: 1.2, h: 1.5, pos: [fx, 2.1 + 0.75, fz], mat: M_BRONZE }));
 
-    // Heroic silver Bigfoot, ~3.3 m tall, standing on the pedestal, fist
-    // raised. Rebuilt from 6 flat, evenly-sized boxes (no ape-like
-    // proportions at all) into the same low-poly box idiom `core/person.js`
-    // uses for its humanoid rig -- shoulders pushed wider than the hips,
-    // a forward lean on the torso, a distinct head with a browridge slab,
-    // and each arm built on its own rotation pivot (like Person.buildArm())
-    // so the fist stays rigidly attached to its arm instead of floating as
-    // an independently-placed box.
+    /* THE STATUE (owner playtest 2026-08-04, verbatim):
+     *
+     *   "The big statue out front lets make it a silver sasquatch. Can
+     *    probably use the model we have from the other game."
+     *
+     * So it is literally that model. `Sasquatch` in game/src/player.js is the
+     * player character of Squatch Smash -- the in-world PC game on the desk in
+     * the apartment -- and the first entry in its own SKINS table is called
+     * "Silver Sasquatch". Nothing is re-sculpted here: the rig is built, cast
+     * in metal, scaled to monument size and posed.
+     *
+     * Three things have to be done to it and no more:
+     *
+     *  1. CAST IT. The game rig is MeshLambertMaterial in six flat team
+     *     colours, which under this scene's ACES tone mapping reads as grey
+     *     plastic. Every mesh is repainted with the same M_SILVER /
+     *     M_MARBLE_DK pair the rest of this file uses for metalwork, so it
+     *     reads as a polished casting under the uplights. The bandana keeps a
+     *     darker patina so the silhouette still has the mascot's shape in it.
+     *  2. SCALE IT. The game model stands about 3.9 units tall with its feet
+     *     at y~0.07, so 0.95 puts a 3.7 m monument on the pedestal.
+     *  3. POSE IT. `buildArm` hangs each arm from a shoulder pivot, exactly so
+     *     rotation.x/z swings the whole limb -- so the left arm goes up into
+     *     the raised fist this fountain has always had, and the right relaxes.
+     *
+     * Nothing calls the rig's animation: `update()` is never invoked, so it
+     * stands still, which is what a statue does.
+     */
     const statueY0 = 3.6;
-    const shoulderY = 2.35;
-    const statue = group('bigfoot-statue',
-      // Legs -- planted stance, narrower than the shoulders.
-      box({ size: [0.42, 1.0, 0.58], pos: [-0.27, 0.5, 0], mat: M_SILVER }),
-      box({ size: [0.42, 1.0, 0.58], pos: [0.27, 0.5, 0], mat: M_SILVER }),
-      // Hips -- the narrow end of the classic ape-silhouette taper.
-      box({ size: [0.92, 0.42, 0.7], pos: [0, 1.12, 0], mat: M_SILVER }),
-      // Torso -- forward-leaning, deep chest.
-      box({
-        size: [1.35, 1.2, 0.85], pos: [0, 1.85, 0.08], mat: M_SILVER, rotX: -0.14,
-      }),
-      // Shoulder caps -- pushed wide of the torso: the single biggest cue
-      // that reads "ape" instead of "person in a box suit".
-      box({ size: [0.55, 0.42, 0.85], pos: [-0.92, shoulderY, 0.05], mat: M_SILVER }),
-      box({ size: [0.55, 0.42, 0.85], pos: [0.92, shoulderY, 0.05], mat: M_SILVER }),
-      // Neck, head, and a heavy brow-ridge slab -- the sasquatch's single
-      // heaviest silhouette tell.
-      box({ size: [0.38, 0.28, 0.4], pos: [0, 2.62, 0.14], mat: M_SILVER }),
-      box({ size: [0.66, 0.6, 0.62], pos: [0, 3.0, 0.18], mat: M_SILVER }),
-      box({ size: [0.56, 0.16, 0.28], pos: [0, 3.2, 0.42], mat: M_SILVER }));
-    // Raised arm -- upper arm, forearm and fist all live on one rotation
-    // pivot at the shoulder, so the whole limb swings and reads as a single
-    // arm-with-a-fist rather than a disconnected floating box. The pivot's
-    // children hang straight down at rotation.z=0 (like core/person.js's
-    // buildArm()); rotating a touch past PI swings that hanging arm up and
-    // out into a raised-fist pose, ending well above the head rather than
-    // (a first attempt's math error) down and further out to the side.
-    const armRaised = new THREE.Group();
-    armRaised.position.set(-0.95, shoulderY, 0.05);
-    armRaised.rotation.z = Math.PI + 0.35;
-    armRaised.add(box({ size: [0.4, 0.8, 0.4], pos: [0, -0.4, 0], mat: M_SILVER }));
-    armRaised.add(box({ size: [0.34, 0.7, 0.36], pos: [0, -1.05, 0.04], mat: M_SILVER }));
-    const raisedFist = box({ size: [0.46, 0.46, 0.46], pos: [0, -1.5, 0.06], mat: M_SILVER });
-    armRaised.add(raisedFist);
-    statue.add(armRaised);
-    // Lowered arm -- same one-pivot construction, slight outward angle.
-    const armLower = new THREE.Group();
-    armLower.position.set(0.95, shoulderY, 0.05);
-    armLower.rotation.z = 0.28;
-    armLower.add(box({ size: [0.4, 0.78, 0.4], pos: [0, -0.4, 0], mat: M_SILVER }));
-    armLower.add(box({ size: [0.34, 0.72, 0.36], pos: [0, -1.05, 0.02], mat: M_SILVER }));
-    armLower.add(box({ size: [0.4, 0.4, 0.4], pos: [0, -1.45, 0], mat: M_SILVER }));
-    statue.add(armLower);
+    const rig = new Sasquatch();
+    const statue = rig.group;
+    statue.name = 'silver-sasquatch-statue';
+    statue.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = o.userData?.palKey === 'bandana' ? M_STATUE_PATINA : M_SILVER;
+      o.castShadow = true;
+    });
+    // Raised fist: the shoulder pivot swings the whole arm, so the fist stays
+    // rigidly on the end of it however this pose is tuned later.
+    rig.armL.rotation.z = -2.55;
+    rig.armL.rotation.x = 0.12;
+    rig.armR.rotation.z = 0.22;
+    rig.armR.rotation.x = -0.18;
+    rig.legL.rotation.x = 0.06;
+    rig.legR.rotation.x = -0.06;
+    rig.head.rotation.x = -0.1;
+    statue.scale.setScalar(0.95);
     statue.position.set(fx, statueY0, fz);
+    statue.rotation.y = Math.PI; // face the gate, not the house
     root.add(statue);
-    // Exact world position of the raised fist -- computed, not hand-derived,
-    // so the spray's anchor point (below) is always correct even if the arm
-    // pose above is tweaked later.
+    // Exact world position of the raised fist -- computed off the rig's own
+    // hand mesh, not hand-derived, so the spray's anchor point (below) is
+    // always correct even if the pose above is tweaked later.
     statue.updateMatrixWorld(true);
-    const raisedFistWorld = raisedFist.getWorldPosition(new THREE.Vector3());
+    const raisedFistWorld = rig.armL.children[rig.armL.children.length - 1]
+      .getWorldPosition(new THREE.Vector3());
 
     const lowerWaterMat = makeWaterMaterial({ deep: 0x0b3440, shallow: 0x1f7d8c });
     const lowerWater = new THREE.Mesh(new THREE.CircleGeometry(5.7, 40), lowerWaterMat);
@@ -953,7 +1036,7 @@ export function buildMansionGrounds(scene = null) {
     void statueLights;
 
     const fountainColliderBody = solid(fx - 3.6, fx + 3.6, 0.3, 2.2, fz - 3.6, fz + 3.6);
-    const fountainColliderPedestal = solid(fx - 1.3, fx + 1.3, 2.2, 6.6, fz - 1.3, fz + 1.3);
+    const fountainColliderPedestal = solid(fx - 1.3, fx + 1.3, 2.2, 7.4, fz - 1.3, fz + 1.3);
 
     return {
       statue,
@@ -994,7 +1077,6 @@ export function buildMansionGrounds(scene = null) {
   /* the other cars and against the fountain, the steps and the building --  */
   /* which is the check that would have caught the old arrangement.         */
   /* ---------------------------------------------------------------- */
-  const COURT_CENTRE = { x: 0, z: 35 };
   /**
    * A car standing tangent to the turnaround kerb at bearing `deg`, `r` out
    * from the fountain.
@@ -1096,20 +1178,56 @@ export function buildMansionGrounds(scene = null) {
     armPivot.rotation.z = 0.28;
     root.add(armPivot);
 
-    const boothLight = new THREE.PointLight(0xbcd8ff, 3.2, 9, 2);
-    boothLight.position.set(cx, 1.7, cz);
+    /* THE AWKWARD LIGHT (owner playtest 2026-08-04, verbatim):
+     *
+     *   "Theres an awkward light near the guard station that needs rotating
+     *    or fixing"
+     *
+     * Both fixtures on this booth were wrong, and in the same way: neither
+     * was mounted on anything.
+     *
+     *  - The interior lamp was a bare PointLight at (8, 1.7, 4) -- dead
+     *    centre of a 2x2x2.2 solid box. three.js point lights do not respect
+     *    occlusion, so it lit the driveway *through* the booth's own walls
+     *    while lighting the booth's outward faces from behind. That is the
+     *    light that reads wrong from ten metres away. It now hangs under the
+     *    roof, dimmer, and is what you see through the glass.
+     *  - The exterior one was a cylinder rotated onto its side (rotZ = PI/2),
+     *    so a 12 cm disc stuck horizontally out of the wall with its emissive
+     *    face aimed sideways down the fence line, and its PointLight floated
+     *    20 cm clear of the wall in open air.
+     *
+     * Replaced with an actual wall lantern: a bracket off the wall, a hood
+     * over it, a lamp inside the hood and the light under the hood aimed at
+     * the ground it is supposed to be lighting. */
+    const boothLight = new THREE.PointLight(0xbcd8ff, 1.9, 6, 2);
+    boothLight.position.set(cx, h - 0.42, cz);
     root.add(boothLight);
+    root.add(box({
+      size: [0.5, 0.06, 0.5],
+      pos: [cx, h - 0.16, cz],
+      mat: mat({ color: 0x1a2029, emissive: 0x7fb8e8, emissiveIntensity: 1.1, roughness: 0.6 }),
+      cast: false,
+    }));
 
-    // Exterior sconce on the driveway-facing (west) wall -- the one interior
-    // PointLight above (range 9) never reaches the outward faces, so beyond
-    // ~5m the booth was a near-pure-black box. This is enough to keep its
-    // silhouette readable at driveway distance.
-    root.add(cylinder({
-      r: 0.06, h: 0.1, pos: [cx - w / 2 - 0.08, h - 0.35, cz], rotZ: Math.PI / 2,
-      mat: mat({ color: 0x232a33, emissive: 0x9fd0ff, emissiveIntensity: 1.6, roughness: 0.5 }),
+    const lanternX = cx - w / 2 - 0.02;
+    root.add(box({
+      size: [0.04, 0.16, 0.16], pos: [lanternX, h - 0.3, cz], mat: M_LAMP_POST,
+    }));
+    root.add(box({
+      size: [0.34, 0.05, 0.06], pos: [lanternX - 0.17, h - 0.24, cz], mat: M_LAMP_POST, cast: false,
+    }));
+    root.add(box({
+      size: [0.38, 0.06, 0.38], pos: [lanternX - 0.3, h - 0.27, cz], mat: M_BOOTH_ROOF, cast: false,
+    }));
+    root.add(box({
+      size: [0.24, 0.26, 0.24],
+      pos: [lanternX - 0.3, h - 0.43, cz],
+      mat: mat({ color: 0x2a3038, emissive: 0xbcdcff, emissiveIntensity: 1.5, roughness: 0.45 }),
+      cast: false,
     }));
     const sconceLight = new THREE.PointLight(0xbcdcff, 4.5, 13, 2);
-    sconceLight.position.set(cx - w / 2 - 0.2, h - 0.35, cz);
+    sconceLight.position.set(lanternX - 0.3, h - 0.62, cz);
     root.add(sconceLight);
 
     solid(cx - w / 2, cx + w / 2, 0, h, cz - d / 2, cz + d / 2);
@@ -1146,10 +1264,13 @@ export function buildMansionGrounds(scene = null) {
    * west and east wings with their crowns in the upper storey. Removed. The
    * pair at (+/-11,35) fouled the motor court's new tangent parking, so they
    * move out to the corners of the facade planting. */
+  /* (24,12) is gone: the service road moved 6 m east to clear the billiard
+   * bay and now runs straight through where it stood. Replaced by one on the
+   * west lawn, which had none between the side lot and the rose bed. */
   const PALM_SPOTS = [
     [-6, 6], [6, 6], [-6, 14], [6, 16], [14, 6],
-    [-13.5, 38.6], [13.5, 38.6],
-    [-24, 12], [24, 12], [-21, 38],
+    [-13.5, 38.6 - FORECOURT_SHIFT], [13.5, 38.6 - FORECOURT_SHIFT],
+    [-24, 12], [-27, 17], [-21, 38 - FORECOURT_SHIFT],
   ];
   for (const [x, z] of PALM_SPOTS) buildPalm(x, z, 5.5 + Math.random() * 1.4);
 
@@ -1327,22 +1448,24 @@ export function buildMansionGrounds(scene = null) {
 
     // 3. Foundation planting along the facade, either side of the front
     // steps -- the house met the lawn on a bare stucco line before this.
+    const facadeZ0 = 39.2 - FORECOURT_SHIFT;
+    const facadeZ1 = 40.5 - FORECOURT_SHIFT;
     for (const [fx0, fx1] of [[BUILDING.x0, -6.6], [6.6, BUILDING.x1]]) {
-      bed(fx0, fx1, 39.2, 40.5);
-      plantBed(fx0 + 0.3, fx1 - 0.3, 39.4, 40.3, 1.7);
+      bed(fx0, fx1, facadeZ0, facadeZ1);
+      plantBed(fx0 + 0.3, fx1 - 0.3, facadeZ0 + 0.2, facadeZ1 - 0.2, 1.7);
       for (let sx = fx0 + 1.2; sx < fx1 - 0.8; sx += 2.4) {
         root.add(sphere({
-          r: 0.55, ry: 0.62, pos: [sx, 0.6, 39.85], mat: M_HEDGE,
+          r: 0.55, ry: 0.62, pos: [sx, 0.6, (facadeZ0 + facadeZ1) / 2], mat: M_HEDGE,
         }));
-        solid(sx - 0.5, sx + 0.5, 0, 1.15, 39.35, 40.35);
+        solid(sx - 0.5, sx + 0.5, 0, 1.15, facadeZ0 + 0.15, facadeZ1 - 0.15);
       }
     }
 
     // 4. Urns flanking the bottom and the top of the front steps.
-    urn(-7.1, 39.4);
-    urn(7.1, 39.4);
-    urn(-7.1, 36.4);
-    urn(7.1, 36.4);
+    urn(-7.1, 39.4 - FORECOURT_SHIFT);
+    urn(7.1, 39.4 - FORECOURT_SHIFT);
+    urn(-7.1, 36.4 - FORECOURT_SHIFT);
+    urn(7.1, 36.4 - FORECOURT_SHIFT);
 
     // 5. Colour at the gate pillars, where every guest arrives.
     for (const gx of [-6.4, 6.4]) {
@@ -1366,6 +1489,19 @@ export function buildMansionGrounds(scene = null) {
       solid(bx - 0.9, bx + 0.9, 0, 0.95, 32.2, 32.85);
     }
 
+    /* 7. Planted cheeks either side of the front steps, in the ground the
+     * facade left behind when it came 5 m south. Deliberately kept inside
+     * x:6.4..8.4 -- the motor court's two cars stand at x=+/-11 and are 5.4 m
+     * long, so anything wider than this would be planting in a parking bay,
+     * which is the class of fault the car-overlap check exists to catch. */
+    for (const side of [-1, 1]) {
+      const px0 = side < 0 ? -8.4 : 6.4;
+      const px1 = side < 0 ? -6.4 : 8.4;
+      hedge(px0, px1, 32.2, 32.6, 0.55);
+      bed(px0, px1, 32.8, 34.0);
+      plantBed(px0 + 0.2, px1 - 0.2, 32.95, 33.85, 1.1);
+    }
+
     return landscape;
   }
   const landscaping = buildLandscaping();
@@ -1384,8 +1520,8 @@ export function buildMansionGrounds(scene = null) {
     // this starting at z=35 (the fountain's own centre), which put the
     // entire staircase inside the fountain's old collider and made the front
     // door unreachable on foot from any angle.
-    const zBot = 39;
-    const zTop = 40.5;
+    const zBot = 39 - FORECOURT_SHIFT;
+    const zTop = 40.5 - FORECOURT_SHIFT;
     const steps = 6;
     for (let i = 0; i < steps; i++) {
       const t = i / steps;
@@ -1400,10 +1536,9 @@ export function buildMansionGrounds(scene = null) {
     solid(x1, x1 + 0.3, 0, GROUND_Y + 0.2, zBot, zTop);
 
     // Portico landing -- runs from the top of the stairs to the front door
-    // at z=41 (a short 0.5 m landing), matching the spec's implied door
-    // approach.
+    // (a short 0.5 m landing), matching the spec's implied door approach.
     const porticoZ0 = zTop;
-    const porticoZ1 = 41;
+    const porticoZ1 = BUILDING.z0;
     root.add(box({
       size: [x1 - x0, 0.2, porticoZ1 - porticoZ0],
       pos: [0, GROUND_Y - 0.1, (porticoZ0 + porticoZ1) / 2],
@@ -1440,10 +1575,14 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   /* Service road + rear-door ramp                                      */
   /* ---------------------------------------------------------------- */
+  /* The service road used to run x:16..22 -- straight through where the
+   * billiard bay now stands (x:16..19.4, z:40..55). It moves 4 m east, and
+   * the rear-door ramp lengthens west to meet it, so the route from the road
+   * to the kitchen door is still one continuous climb. */
   function buildServiceRoad() {
-    root.add(box({ size: [22 - 16, 0.06, 70], pos: [19, 0.02, 35], mat: M_ASPHALT }));
-    const x0 = 15;
-    const x1 = 19;
+    root.add(box({ size: [28 - 22, 0.06, 70], pos: [25, 0.02, 35], mat: M_ASPHALT }));
+    const x0 = 17;
+    const x1 = 22;
     const zBot = 63;
     const zTop = REAR_DOOR.z; // 66
     const steps = 6;
@@ -1456,9 +1595,17 @@ export function buildMansionGrounds(scene = null) {
         size: [x1 - x0, 0.14, depth], pos: [(x0 + x1) / 2, y + 0.07, z], mat: M_ASPHALT,
       }));
     }
-    solid(x0 - 0.25, x0, 0, GROUND_Y + 0.2, zBot, zTop);
+    /* Kerb on the ramp's OUTER edge only. The inner one used to run the full
+     * length at x0-0.25, which was harmless when the ramp started at x=15
+     * (inside the podium) but is a wall across the rear service door now that
+     * it starts at the building line -- the door is at x:16..16.4, z:64.8..
+     * 67.2, and the verifier's walk from the road duly stopped dead 1.3 m
+     * short of it. The inner edge needs no kerb: it IS the house. */
     solid(x1, x1 + 0.25, 0, GROUND_Y + 0.2, zBot, zTop);
-    return { road: { x0: 16, x1: 22, z0: 0, z1: 70 }, ramp: { x0, x1, z0: zBot, z1: zTop } };
+    root.add(box({
+      size: [0.25, 0.16, zTop - zBot], pos: [x1 + 0.125, GROUND_Y * 0.5, (zBot + zTop) / 2], mat: M_CURB, cast: false,
+    }));
+    return { road: { x0: 22, x1: 28, z0: 0, z1: 70 }, ramp: { x0, x1, z0: zBot, z1: zTop } };
   }
   const serviceRoad = buildServiceRoad();
 
@@ -1475,6 +1622,8 @@ export function buildMansionGrounds(scene = null) {
   const POOL_DOOR = Object.freeze({
     x0: 9.6, x1: 12.0, y0: GROUND_Y, y1: GROUND_Y + 2.4,
   });
+  /** Head height of the three arches from the lounge into the billiard bay. */
+  const BAY_ARCH_TOP = GROUND_Y + 3.4;
 
   function buildShell() {
     const zS0 = BUILDING.z0 - WALL_T;
@@ -1612,8 +1761,19 @@ export function buildMansionGrounds(scene = null) {
       y1: UPPER_CEILING_Y,
       tag: 'east',
       openings: [
+        /* The lounge's own glazing now stops either side of the billiard
+         * bay; between those two panes the wall is opened right up into it,
+         * in three arches on two piers rather than one 15 m hole (a bay that
+         * wide with no structure between it and the house reads as a missing
+         * wall, and gives the roof above nothing to sit on). */
         {
-          id: 'loungeEast', u0: BUILDING.z0, u1: 57.6, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+          id: 'loungeEastSouth', u0: BUILDING.z0, u1: LOUNGE_BAY.z0 - 0.4, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        { id: 'loungeBayArchSouth', u0: 41.4, u1: 44.6, y0: GROUND_Y, y1: BAY_ARCH_TOP },
+        { id: 'loungeBayArchMid', u0: 45.6, u1: 49.4, y0: GROUND_Y, y1: BAY_ARCH_TOP },
+        { id: 'loungeBayArchNorth', u0: 50.4, u1: 53.6, y0: GROUND_Y, y1: BAY_ARCH_TOP },
+        {
+          id: 'loungeEastNorth', u0: LOUNGE_BAY.z1 + 0.4, u1: 57.6, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
         },
         {
           id: 'kitchenEast', u0: 59.5, u1: 63.5, y0: GROUND_Y + 0.95, y1: GLASS_TOP, glass: true,
@@ -1686,6 +1846,96 @@ export function buildMansionGrounds(scene = null) {
         { id: 'poolDoor', u0: POOL_DOOR.x0, u1: POOL_DOOR.x1, y0: POOL_DOOR.y0, y1: POOL_DOOR.y1 },
       ],
     });
+
+    /* -- The billiard bay: a single-storey glazed wing hung off the lounge's
+     * outer wall, three arches wide. Its walls stop at BAY_ROOF_Y0, so the
+     * main block's east wall carries on above it untouched. -------------- */
+    const bayXOuter = LOUNGE_BAY.x1 + WALL_T;
+    const bayZ0 = LOUNGE_BAY.z0 - WALL_T;
+    const bayZ1 = LOUNGE_BAY.z1 + WALL_T;
+    panelWall({
+      axis: 'z',
+      lo: bayZ0,
+      hi: LOUNGE_BAY.z0,
+      u0: xE1,
+      u1: bayXOuter,
+      y0: GROUND_Y,
+      y1: BAY_ROOF_Y0,
+      tag: 'bay-south',
+      openings: [{
+        id: 'baySouth', u0: xE1 + 0.4, u1: bayXOuter - 0.4, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+      }],
+    });
+    panelWall({
+      axis: 'z',
+      lo: LOUNGE_BAY.z1,
+      hi: bayZ1,
+      u0: xE1,
+      u1: bayXOuter,
+      y0: GROUND_Y,
+      y1: BAY_ROOF_Y0,
+      tag: 'bay-north',
+      openings: [{
+        id: 'bayNorth', u0: xE1 + 0.4, u1: bayXOuter - 0.4, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+      }],
+    });
+    panelWall({
+      axis: 'x',
+      lo: LOUNGE_BAY.x1,
+      hi: bayXOuter,
+      u0: bayZ0,
+      u1: bayZ1,
+      y0: GROUND_Y,
+      y1: BAY_ROOF_Y0,
+      tag: 'bay-east',
+      openings: [
+        {
+          id: 'bayEastSouth', u0: 41.6, u1: 44.4, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        {
+          id: 'bayEastMid', u0: 45.8, u1: 49.2, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        {
+          id: 'bayEastNorth', u0: 50.6, u1: 53.4, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+      ],
+    });
+    // The bay's own podium, so its floor is the lounge's floor and nobody can
+    // see in under it from the service road.
+    root.add(box({
+      size: [bayXOuter - LOUNGE_BAY.x0, GROUND_Y, bayZ1 - bayZ0],
+      pos: [(LOUNGE_BAY.x0 + bayXOuter) / 2, GROUND_Y / 2, (bayZ0 + bayZ1) / 2],
+      mat: M_PODIUM,
+      name: 'bay-podium',
+    }));
+    // Flat roof with a deep gilded cornice -- the bay is the one part of the
+    // house you see head-on from the service gate.
+    root.add(box({
+      size: [bayXOuter - LOUNGE_BAY.x0 + 0.7, BAY_ROOF_Y1 - BAY_ROOF_Y0, bayZ1 - bayZ0 + 0.7],
+      pos: [(LOUNGE_BAY.x0 + bayXOuter) / 2, (BAY_ROOF_Y0 + BAY_ROOF_Y1) / 2, (bayZ0 + bayZ1) / 2],
+      mat: M_ROOF,
+      name: 'bay-roof',
+    }));
+    for (const [tx0, tx1, tz0, tz1] of [
+      [LOUNGE_BAY.x0, bayXOuter + 0.35, bayZ0 - 0.35, bayZ0 - 0.18],
+      [LOUNGE_BAY.x0, bayXOuter + 0.35, bayZ1 + 0.18, bayZ1 + 0.35],
+      [bayXOuter + 0.18, bayXOuter + 0.35, bayZ0 - 0.35, bayZ1 + 0.35],
+    ]) {
+      root.add(box({
+        size: [tx1 - tx0, 0.16, tz1 - tz0],
+        pos: [(tx0 + tx1) / 2, BAY_ROOF_Y1 - 0.02, (tz0 + tz1) / 2],
+        mat: M_GOLD,
+        cast: false,
+      }));
+    }
+    // Gilded pilasters on the two piers between the arches, inside and out.
+    for (const pz of [45.1, 49.9]) {
+      for (const px of [xE1 + 0.02, LOUNGE_BAY.x1 - 0.02]) {
+        root.add(box({
+          size: [0.1, BAY_ARCH_TOP - GROUND_Y, 0.9], pos: [px, (GROUND_Y + BAY_ARCH_TOP) / 2, pz], mat: M_GOLD, cast: false,
+        }));
+      }
+    }
 
     // Roof slab (small eave overhang) + gold roofline trim.
     root.add(box({
@@ -1822,17 +2072,84 @@ export function buildMansionGrounds(scene = null) {
   /* ---------------------------------------------------------------- */
   /* Pool patio (behind the mansion, z > 75)                            */
   /* ---------------------------------------------------------------- */
-  function buildLoungeChair(x, y, z, yaw) {
+  /* THE POOL CHAIRS (owner playtest 2026-08-04: "Pool chairs need some
+   * work"). They were two boxes: a slab and a tilted slab, floating with no
+   * legs, no frame and no arms, and carrying a collider 0.8 x 2.0 m -- wider
+   * and longer than the chair itself, so you were stopped by air.
+   *
+   * Rebuilt as an actual sun lounger: a welded chrome frame on feet, a
+   * slatted deck, a raked back on its own hinge, arms, and a folded towel on
+   * the ones nobody is using. The collider now matches the frame. */
+  function buildLoungeChair(x, y, z, yaw, { towel = false } = {}) {
     const g = new THREE.Group();
-    g.add(box({ size: [0.7, 0.1, 1.8], pos: [0, 0.25, 0], mat: M_LOUNGE }));
-    g.add(box({
-      size: [0.7, 0.1, 0.8], pos: [0, 0.5, -0.9], mat: M_LOUNGE, rotX: -0.35,
-    }));
+    const deckY = 0.42;
+    // Frame rails and feet.
+    for (const sx of [-0.32, 0.32]) {
+      g.add(box({ size: [0.05, 0.05, 1.9], pos: [sx, deckY, 0], mat: M_CHROME }));
+      for (const sz of [-0.78, 0.78]) {
+        g.add(cylinder({ r: 0.022, h: deckY, pos: [sx, deckY / 2, sz], mat: M_CHROME }));
+        g.add(cylinder({
+          r: 0.05, h: 0.03, pos: [sx, 0.015, sz], mat: M_LAMP_POST,
+        }));
+      }
+    }
+    g.add(box({ size: [0.72, 0.04, 0.05], pos: [0, deckY, -0.95], mat: M_CHROME, cast: false }));
+    g.add(box({ size: [0.72, 0.04, 0.05], pos: [0, deckY, 0.95], mat: M_CHROME, cast: false }));
+    // Slatted deck.
+    for (let i = 0; i < 10; i++) {
+      g.add(box({
+        size: [0.62, 0.045, 0.13],
+        pos: [0, deckY + 0.045, -0.82 + i * 0.185],
+        mat: M_LOUNGE,
+        cast: false,
+      }));
+    }
+    // Raked back, hinged at the head end, with its own slats and a stay.
+    const back = new THREE.Group();
+    back.position.set(0, deckY + 0.05, -0.9);
+    back.rotation.x = -0.62;
+    for (let i = 0; i < 5; i++) {
+      back.add(box({
+        size: [0.62, 0.045, 0.13], pos: [0, 0, -0.1 - i * 0.17], mat: M_LOUNGE, cast: false,
+      }));
+    }
+    for (const sx of [-0.32, 0.32]) {
+      back.add(box({ size: [0.05, 0.05, 0.9], pos: [sx, -0.01, -0.42], mat: M_CHROME }));
+    }
+    g.add(back);
+    // Arms.
+    for (const sx of [-0.37, 0.37]) {
+      g.add(box({ size: [0.05, 0.05, 0.72], pos: [sx, deckY + 0.28, -0.32], mat: M_CHROME }));
+      g.add(cylinder({ r: 0.02, h: 0.28, pos: [sx, deckY + 0.14, 0.02], mat: M_CHROME }));
+    }
+    if (towel) {
+      g.add(box({
+        size: [0.5, 0.07, 0.44], pos: [0, deckY + 0.11, 0.42], mat: M_TOWEL, cast: false,
+      }));
+      g.add(box({
+        size: [0.5, 0.05, 0.34], pos: [0, deckY + 0.16, 0.36], mat: M_TOWEL, cast: false,
+      }));
+    }
     g.position.set(x, y, z);
     g.rotation.y = yaw;
     root.add(g);
-    solid(x - 0.4, x + 0.4, y, y + 0.6, z - 1.0, z + 1.0);
+    const cos = Math.abs(Math.cos(yaw));
+    const sin = Math.abs(Math.sin(yaw));
+    const hx = (cos * 0.78 + sin * 1.96) / 2;
+    const hz = (sin * 0.78 + cos * 1.96) / 2;
+    solid(x - hx, x + hx, y, y + 0.55, z - hz, z + hz);
     return g;
+  }
+
+  /** A round poolside side table with a drink standing on it. */
+  function buildPoolTable(x, y, z) {
+    root.add(cylinder({ r: 0.03, h: 0.5, pos: [x, y + 0.25, z], mat: M_CHROME }));
+    root.add(cylinder({ r: 0.2, h: 0.02, pos: [x, y + 0.04, z], mat: M_CHROME, cast: false }));
+    root.add(cylinder({ r: 0.28, h: 0.04, pos: [x, y + 0.52, z], mat: M_DECK }));
+    root.add(cylinder({
+      rTop: 0.055, rBottom: 0.04, h: 0.16, pos: [x, y + 0.62, z], mat: M_POOL_GLASS,
+    }));
+    solid(x - 0.3, x + 0.3, y, y + 0.55, z - 0.3, z + 0.3);
   }
 
   // Deck-level tiki torches -- the patio used to be lit only at the water
@@ -1901,22 +2218,105 @@ export function buildMansionGrounds(scene = null) {
       }));
       solid(x0, x1, POOL.y, GROUND_Y, z0, z1);
     }
+    /* THE GAP (owner playtest 2026-08-04: "Pool needs to be fitted to the
+     * area its in (small gap)"). The water plane was built a metre smaller
+     * than the pool in BOTH axes -- 13x7 in a 14x8 basin -- so half a metre
+     * of bare liner showed all the way round the water line, which is exactly
+     * a pool that does not fit its hole. It is now the basin's own size, held
+     * 3 cm off each wall so the two surfaces do not z-fight. */
     const poolWaterY = POOL.y + 1.1;
     const poolWaterMat = makeWaterMaterial({ deep: 0x0a3a52, shallow: 0x2fa6c9 });
-    const water = new THREE.Mesh(new THREE.PlaneGeometry(POOL.x1 - POOL.x0 - 1, POOL.z1 - POOL.z0 - 1), poolWaterMat);
+    const poolCx = (POOL.x0 + POOL.x1) / 2;
+    const poolCz = (POOL.z0 + POOL.z1) / 2;
+    const water = new THREE.Mesh(
+      new THREE.PlaneGeometry(POOL.x1 - POOL.x0 - 0.06, POOL.z1 - POOL.z0 - 0.06),
+      poolWaterMat,
+    );
     water.rotation.x = -Math.PI / 2;
-    water.position.set(0, poolWaterY, 85);
+    water.position.set(poolCx, poolWaterY, poolCz);
     root.add(water);
     waterMaterials.push(poolWaterMat);
+    // Gilded coping course round the water line, the width of the wall head.
+    for (const [cx0, cx1, cz0, cz1] of [
+      [POOL.x0 - pw, POOL.x1 + pw, POOL.z0 - pw, POOL.z0],
+      [POOL.x0 - pw, POOL.x1 + pw, POOL.z1, POOL.z1 + pw],
+      [POOL.x0 - pw, POOL.x0, POOL.z0, POOL.z1],
+      [POOL.x1, POOL.x1 + pw, POOL.z0, POOL.z1],
+    ]) {
+      root.add(box({
+        size: [cx1 - cx0, 0.05, cz1 - cz0],
+        pos: [(cx0 + cx1) / 2, GROUND_Y + 0.015, (cz0 + cz1) / 2],
+        mat: M_GOLD,
+        cast: false,
+      }));
+    }
 
     const poolLight = new THREE.PointLight(0x4ad9ff, 2.6, 30, 2);
-    poolLight.position.set(0, poolWaterY + 0.4, 85);
+    poolLight.position.set(poolCx, poolWaterY + 0.4, poolCz);
     root.add(poolLight);
 
+    /* A little water fountain in the pool (owner playtest 2026-08-04). A
+     * stone plinth standing on the basin floor at the north end, a bowl just
+     * clear of the water, and the same FountainSpray the driveway fountain
+     * uses -- one class, two fountains, rather than a second particle rig. */
+    const featureZ = POOL.z1 - 1.9;
+    root.add(cylinder({
+      r: 0.85, h: poolWaterY - POOL.y - 0.1, pos: [poolCx, (POOL.y + poolWaterY - 0.1) / 2, featureZ], mat: M_POOL_WALL,
+    }));
+    root.add(cylinder({
+      r: 1.05, h: 0.12, pos: [poolCx, poolWaterY + 0.02, featureZ], mat: M_MARBLE_DK,
+    }));
+    root.add(cylinder({
+      rTop: 0.42, rBottom: 0.3, h: 0.5, pos: [poolCx, poolWaterY + 0.33, featureZ], mat: M_MARBLE,
+    }));
+    root.add(cylinder({
+      r: 0.82, h: 0.1, pos: [poolCx, poolWaterY + 0.62, featureZ], mat: M_GOLD,
+    }));
+    const featureBowlMat = makeWaterMaterial({ deep: 0x0e4552, shallow: 0x36b6d2 });
+    const featureBowl = new THREE.Mesh(new THREE.CircleGeometry(0.74, 28), featureBowlMat);
+    featureBowl.rotation.x = -Math.PI / 2;
+    featureBowl.position.set(poolCx, poolWaterY + 0.68, featureZ);
+    root.add(featureBowl);
+    waterMaterials.push(featureBowlMat);
+    const poolFoam = new THREE.Mesh(
+      new THREE.RingGeometry(0.6, 1.35, 40),
+      mat({
+        map: foamRingTexture(), transparent: true, opacity: 0.6, roughness: 0.55, side: THREE.DoubleSide, unique: true,
+      }),
+    );
+    poolFoam.rotation.x = -Math.PI / 2;
+    poolFoam.position.set(poolCx, poolWaterY + 0.02, featureZ);
+    root.add(poolFoam);
+    const poolSpray = new FountainSpray(
+      root,
+      new THREE.Vector3(poolCx, poolWaterY + 0.74, featureZ),
+      { rise: 1.5, speedMin: 1.5, speedMax: 2.2, spread: 0.3 },
+    );
+    poolSpray.start();
+    const featureLight = new THREE.PointLight(0x7fe4ff, 3.2, 9, 2);
+    featureLight.position.set(poolCx, poolWaterY + 0.5, featureZ);
+    root.add(featureLight);
+    solid(poolCx - 1.1, poolCx + 1.1, POOL.y, GROUND_Y, featureZ - 1.1, featureZ + 1.1);
+
     const chairs = [
-      [-11, 80, 0], [-11, 84.5, 0], [-11, 89, 0],
-      [11, 80, Math.PI], [11, 84.5, Math.PI], [11, 89, Math.PI],
-    ].map(([x, z, yaw]) => buildLoungeChair(x, GROUND_Y, z, yaw));
+      [-10.6, 79.4, Math.PI / 2, true], [-10.6, 82.6, Math.PI / 2, false],
+      [-10.6, 85.8, Math.PI / 2, true], [-10.6, 89.0, Math.PI / 2, false],
+      [10.6, 79.4, -Math.PI / 2, false], [10.6, 82.6, -Math.PI / 2, true],
+      [10.6, 85.8, -Math.PI / 2, false], [10.6, 89.0, -Math.PI / 2, true],
+    ].map(([x, z, yaw, towel]) => buildLoungeChair(x, GROUND_Y, z, yaw, { towel }));
+    for (const [tx, tz] of [[-10.6, 81.0], [-10.6, 87.4], [10.6, 81.0], [10.6, 87.4]]) {
+      buildPoolTable(tx, GROUND_Y, tz);
+    }
+    // Parasols between the pairs, closed and standing in their bases.
+    for (const [ux, uz] of [[-12.3, 84.2], [12.3, 84.2]]) {
+      root.add(cylinder({ r: 0.28, h: 0.14, pos: [ux, GROUND_Y + 0.07, uz], mat: M_MARBLE_DK }));
+      root.add(cylinder({ r: 0.045, h: 2.5, pos: [ux, GROUND_Y + 1.35, uz], mat: M_CHROME }));
+      root.add(cylinder({
+        rTop: 0.08, rBottom: 0.24, h: 1.3, pos: [ux, GROUND_Y + 2.15, uz], mat: M_LOUNGE,
+      }));
+      root.add(sphere({ r: 0.09, pos: [ux, GROUND_Y + 2.86, uz], mat: M_GOLD, cast: false }));
+      solid(ux - 0.3, ux + 0.3, GROUND_Y, GROUND_Y + 2.6, uz - 0.3, uz + 0.3);
+    }
 
     // Four deck-level tiki torches at the patio's corners -- clear of the
     // lounge-chair rows (z:80-89) and the pool itself, spread across the
@@ -1963,6 +2363,129 @@ export function buildMansionGrounds(scene = null) {
       solid(stepsX0, stepsX1, 0, GROUND_Y + 0.1, sz - 0.13, sz + 0.13);
     }
 
+    /* THE SKIRT (owner playtest 2026-08-04, verbatim):
+     *
+     *   "the pool deck is also raised which is nice but there needs to be a
+     *    side wall around it so that you cant see under it"
+     *
+     * Correct: the deck was four 10 cm slabs floating at y=1.15 on nothing at
+     * all, so from anywhere on the lawn you looked straight in under it and
+     * out the other side. This closes the three open edges with a real
+     * fascia, poured from grade to the deck surface, with a projecting
+     * coping course over it so the deck reads as a raised terrace rather than
+     * a plinth. The fourth edge (south) needs none: it is the house.
+     *
+     * The fascia collider stops 2 cm BELOW the deck surface on purpose.
+     * core/player.js skips a collider only when your feet are strictly above
+     * its top, so a skirt reaching the full 1.2 m would be an invisible wall
+     * standing 35 cm in from the deck edge for anyone walking on the deck --
+     * the exact class of fault this pass is fixing elsewhere. At 1.18 it is
+     * skipped from above and still blocks anyone at grade.
+     */
+    const deckRect = {
+      x0: POOL.x0 - pad, x1: POOL.x1 + pad, z0: POOL.z0 - pad, z1: POOL.z1 + pad,
+    };
+    const skirtT = 0.36;
+    const skirtSegs = [
+      // West, split either side of the garden-steps opening.
+      [deckRect.x0, deckRect.x0 + skirtT, deckRect.z0, stepsZ0],
+      [deckRect.x0, deckRect.x0 + skirtT, stepsZ1, deckRect.z1],
+      // East, full run.
+      [deckRect.x1 - skirtT, deckRect.x1, deckRect.z0, deckRect.z1],
+      // North, full run, corner to corner.
+      [deckRect.x0, deckRect.x1, deckRect.z1 - skirtT, deckRect.z1],
+    ];
+    for (const [sx0, sx1, sz0, sz1] of skirtSegs) {
+      root.add(box({
+        size: [sx1 - sx0, GROUND_Y, sz1 - sz0],
+        pos: [(sx0 + sx1) / 2, GROUND_Y / 2, (sz0 + sz1) / 2],
+        mat: M_DECK_SKIRT,
+        name: 'pool-deck-skirt',
+      }));
+      solid(sx0, sx1, 0, GROUND_Y - 0.02, sz0, sz1);
+      // Projecting coping over the fascia head.
+      const outX0 = sx0 === deckRect.x0 ? sx0 - 0.14 : sx0;
+      const outX1 = sx1 === deckRect.x1 ? sx1 + 0.14 : sx1;
+      const outZ1 = sz1 === deckRect.z1 ? sz1 + 0.14 : sz1;
+      root.add(box({
+        size: [outX1 - outX0, 0.1, outZ1 - sz0],
+        pos: [(outX0 + outX1) / 2, GROUND_Y - 0.05, (sz0 + outZ1) / 2],
+        mat: M_MARBLE_DK,
+        cast: false,
+      }));
+    }
+    // Cheek walls returning the skirt into the garden steps' own opening.
+    for (const sz of [stepsZ0, stepsZ1]) {
+      root.add(box({
+        size: [skirtT, GROUND_Y, 0.22],
+        pos: [deckRect.x0 + skirtT / 2, GROUND_Y / 2, sz + (sz === stepsZ0 ? -0.11 : 0.11)],
+        mat: M_DECK_SKIRT,
+        cast: false,
+      }));
+    }
+
+    /* The poolside radio (owner playtest 2026-08-04: "...and one out by the
+     * pool"). A weatherproof set on its own console beside the kitchen door,
+     * where the deck is walked past rather than sat on. It is a cabinet only:
+     * the tuner is the house's one `core/radio.js` receiver, mounted by the
+     * composition root -- see the note at the top of src/mansion/main.js. */
+    const radioX = 8.6;
+    const radioZ = 78.4;
+    root.add(box({
+      size: [0.9, 0.62, 0.5], pos: [radioX, GROUND_Y + 0.31, radioZ], mat: M_DECK, name: 'pool-radio-console',
+    }));
+    root.add(box({
+      size: [0.98, 0.06, 0.58], pos: [radioX, GROUND_Y + 0.64, radioZ], mat: M_GOLD, cast: false,
+    }));
+    solid(radioX - 0.45, radioX + 0.45, GROUND_Y, GROUND_Y + 0.66, radioZ - 0.25, radioZ + 0.25);
+    const poolRadioGroup = new THREE.Group();
+    const setW = 0.56;
+    const setH = 0.3;
+    const setD = 0.22;
+    poolRadioGroup.add(box({
+      size: [setW, setH, setD], pos: [0, setH / 2, 0], mat: M_LAMP_POST, name: 'pool-radio-case',
+    }));
+    poolRadioGroup.add(box({
+      size: [setW + 0.04, 0.035, setD + 0.04], pos: [0, setH, 0], mat: M_GOLD, cast: false,
+    }));
+    for (let i = 0; i < 6; i++) {
+      poolRadioGroup.add(box({
+        size: [0.018, setH * 0.5, 0.012], pos: [-setW * 0.26 + (i - 2.5) * 0.038, setH * 0.5, setD / 2 + 0.008], mat: M_CHROME, cast: false,
+      }));
+    }
+    const poolDial = box({
+      size: [setW * 0.3, setH * 0.3, 0.012],
+      pos: [setW * 0.26, setH * 0.56, setD / 2 + 0.007],
+      mat: mat({
+        color: 0x24201a, emissive: 0xffb347, emissiveIntensity: 0, roughness: 0.5, unique: true,
+      }),
+      cast: false,
+    });
+    poolRadioGroup.add(poolDial);
+    const poolPilot = sphere({
+      r: 0.016,
+      pos: [setW * 0.26, setH * 0.24, setD / 2 + 0.01],
+      mat: mat({
+        color: 0x3a2410, emissive: 0xff7a2a, emissiveIntensity: 0, roughness: 0.5, unique: true,
+      }),
+      cast: false,
+    });
+    poolRadioGroup.add(poolPilot);
+    poolRadioGroup.add(cylinder({
+      r: 0.008, h: 0.52, pos: [-setW / 2 + 0.05, setH + 0.26, -setD / 2 + 0.04], mat: M_CHROME, rotZ: 0.22,
+    }));
+    poolRadioGroup.position.set(radioX, GROUND_Y + 0.67, radioZ);
+    poolRadioGroup.rotation.y = Math.PI + 0.35;
+    root.add(poolRadioGroup);
+    const poolRadio = {
+      group: poolRadioGroup,
+      speakerPos: new THREE.Vector3(radioX, GROUND_Y + 0.85, radioZ),
+      setLit(on) {
+        poolDial.material.emissiveIntensity = on ? 1.4 : 0;
+        poolPilot.material.emissiveIntensity = on ? 2.0 : 0;
+      },
+    };
+
     return {
       pool: POOL,
       waterY: poolWaterY,
@@ -1970,12 +2493,15 @@ export function buildMansionGrounds(scene = null) {
       light: poolLight,
       chairs,
       torches,
-      deck: {
-        x0: POOL.x0 - pad, x1: POOL.x1 + pad, z0: POOL.z0 - pad, z1: POOL.z1 + pad,
-      },
+      spray: poolSpray,
+      radio: poolRadio,
+      deck: deckRect,
       steps: {
         x0: stepsX0, x1: stepsX1, z0: stepsZ0, z1: stepsZ1,
       },
+      skirt: skirtSegs.map(([sx0, sx1, sz0, sz1]) => ({
+        x0: sx0, x1: sx1, z0: sz0, z1: sz1, y0: 0, y1: GROUND_Y,
+      })),
     };
   }
   const poolPatio = buildPoolPatio();
@@ -1987,8 +2513,8 @@ export function buildMansionGrounds(scene = null) {
     gate: new THREE.Vector3(0, 0, 0),
     spawn: new THREE.Vector3(0, 0, -3),
     spawnYaw: Math.PI, // faces +Z, into the property (three.js default forward is -Z at yaw 0)
-    fountainFront: new THREE.Vector3(0, 0, 26),
-    frontDoorOutside: new THREE.Vector3(0, GROUND_Y, 39.5),
+    fountainFront: new THREE.Vector3(0, 0, 26 - FORECOURT_SHIFT),
+    frontDoorOutside: new THREE.Vector3(0, GROUND_Y, BUILDING.z0 - 1.5),
     securityBooth: new THREE.Vector3(SECURITY_BOOTH_POS.x, 0, SECURITY_BOOTH_POS.z),
     poolPatio: new THREE.Vector3(0, GROUND_Y, 85),
     poolDoorOutside: new THREE.Vector3((POOL_DOOR.x0 + POOL_DOOR.x1) / 2, GROUND_Y, 76.5),
@@ -1997,7 +2523,10 @@ export function buildMansionGrounds(scene = null) {
       0,
       (poolPatio.steps.z0 + poolPatio.steps.z1) / 2,
     ),
-    serviceRoadEntrance: new THREE.Vector3(19, 0, 0),
+    serviceRoadEntrance: new THREE.Vector3(25, 0, 0),
+    billiardBay: new THREE.Vector3(
+      (LOUNGE_BAY.x0 + LOUNGE_BAY.x1) / 2, GROUND_Y, (LOUNGE_BAY.z0 + LOUNGE_BAY.z1) / 2,
+    ),
     rosePavilion: new THREE.Vector3(-16, 0, 26),
   };
 
@@ -2039,6 +2568,8 @@ export function buildMansionGrounds(scene = null) {
     ROOF_Y1,
     WALL_T,
     footprint: { ...BUILDING },
+    loungeBay: { ...LOUNGE_BAY },
+    bayRoofY0: BAY_ROOF_Y0,
     atrium: { ...ATRIUM },
     walls: shellMeta.wallRects,
     windows: shellMeta.windows,
@@ -2070,6 +2601,7 @@ export function buildMansionGrounds(scene = null) {
   function update(dt) {
     for (const m of waterMaterials) m.uniforms.uTime.value += dt;
     fountain.spray.update(dt);
+    poolPatio.spray.update(dt);
     torchTime += dt;
     for (const t of torchFlames) {
       const flick = 0.82 + 0.18 * Math.sin(torchTime * 9 + t.seed) * Math.sin(torchTime * 3.1 + t.seed * 2);

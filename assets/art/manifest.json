@@ -576,6 +576,54 @@
       "file": "graveyard/colton.webp",
       "title": "Colton",
       "caption": "Colton's named memorial portrait at the Squatch graveyard."
+    },
+    {
+      "slot": "mansion.foyer.crest",
+      "file": "logo-crest.png",
+      "title": "The crest, over the foyer",
+      "caption": "Hung on the balcony front where it faces the front door across the void."
+    },
+    {
+      "slot": "mansion.lounge.banner",
+      "file": "logo-banner-wide.jpg",
+      "title": "The banner, in the billiard room",
+      "caption": "On the pier between the bay arches, where the trophy cases can see it."
+    },
+    {
+      "slot": "mansion.bay.shield",
+      "file": "logo-shield-wide.jpg",
+      "title": "The shield, over the bar",
+      "caption": "Behind the Jack And Daniels, which is where a house badge belongs."
+    },
+    {
+      "slot": "mansion.conference.crest",
+      "file": "logo-crest.png",
+      "title": "The crest, in the conference room",
+      "caption": "Over the coffee service, facing the long table."
+    },
+    {
+      "slot": "mansion.gallery.pride",
+      "file": "logo-pride.jpg",
+      "title": "Pride, on the gallery",
+      "caption": "At the west end of the run, between the founders' portraits and the bedrooms."
+    },
+    {
+      "slot": "mansion.ballroom.backdrop",
+      "file": "logo-2023-square.jpg",
+      "title": "The stage backdrop",
+      "caption": "Hung on the swag behind the drum riser. The band plays under the crest."
+    },
+    {
+      "slot": "mansion.office.shield",
+      "file": "logo-shield.jpg",
+      "title": "The shield, in Lou's office",
+      "caption": "On the wall behind the desk, east of his own door."
+    },
+    {
+      "slot": "mansion.basement.shield",
+      "file": "logo-shield-2022.jpg",
+      "title": "The shield, in the armory",
+      "caption": "Over the noticeboard in the alcove behind the cellar stair."
     }
   ]
 }

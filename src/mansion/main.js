@@ -36,6 +36,8 @@ import { Player } from '../core/player.js';
 import { InteractionSystem } from '../core/interaction.js';
 import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
+import { Radio } from '../core/radio.js';
+import { Tv, CHANNELS } from '../core/tv.js';
 
 /* ================================================================== */
 /* DOM handles                                                          */
@@ -314,6 +316,92 @@ function startAmbience() {
 }
 
 /* ================================================================== */
+/* WORKING TELEVISIONS AND RADIOS                                       */
+/*                                                                       */
+/* Owner playtest 2026-08-04, verbatim: "Lets get working TVs and radios, */
+/* especially a radio in the pool table room and one out by the pool."    */
+/*                                                                        */
+/* Both are the game's OWN systems, not new ones. `core/tv.js` is the      */
+/* channel-list television the apartment and Lou's Bing office already     */
+/* run; `core/radio.js` is the 97.8 receiver from the apartment, the boat  */
+/* and the Bing. Nothing here re-implements a media player, and no new     */
+/* audio cue is introduced -- the radio's own `radio.click` / `radio.tune` */
+/* / `radio.talk` cues and the TV's `tv.click` are all already in          */
+/* assets/sfx/manifest.json because those two scenes use them.             */
+/*                                                                        */
+/* ONE RECEIVER, TWO SETS. `AudioEngine.startLoop` is keyed by name, and   */
+/* Radio starts its talk bed as the literal key 'radio.talk' -- so a       */
+/* second live Radio instance would silently lose its bed to the first,    */
+/* and switching either one off would stop the other's. So the house has   */
+/* one tuner and two physical sets wired to it: the billiard bay's         */
+/* mahogany set and the poolside deck set. Using either one moves the      */
+/* sound to it, which is also what a house with one aerial does.           */
+/* ================================================================== */
+const houseTvs = [];
+/* The two video channels build a <video> element inside a closure they    */
+/* share at module scope, so two sets tuned to the same tape would fight   */
+/* over one element. The mansion's sets carry the drawn channels only.     */
+const MANSION_CHANNELS = CHANNELS.filter((c) => typeof c.enter !== 'function');
+
+function mountTv(screenMesh, { channel = 0, on = true } = {}) {
+  if (!screenMesh) return null;
+  const tv = new Tv({ audio });
+  tv.channels = MANSION_CHANNELS.slice();
+  tv.on = on;
+  tv.index = channel;
+  tv.position = new THREE.Vector3();
+  screenMesh.getWorldPosition(tv.position);
+  const tex = new THREE.CanvasTexture(tv.canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.generateMipmaps = false;
+  tex.minFilter = THREE.LinearFilter;
+  screenMesh.material = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+  tv._tex = tex;
+  tv._glowLight = null;
+  houseTvs.push(tv);
+  return tv;
+}
+
+const loungeTv = mountTv(interior.props.lounge.tv?.screen, { channel: 0 });
+const kitchenTv = mountTv(interior.props.kitchen.tv?.screen, { channel: 2 });
+
+/** A small warm glow in front of each set, so the picture lights the room. */
+for (const tv of houseTvs) {
+  const glow = new THREE.PointLight(0x9fb4cc, 0, 5, 2);
+  glow.position.copy(tv.position);
+  scene.add(glow);
+  tv._glowLight = glow;
+}
+
+const radioSets = [
+  interior.props.lounge.radio,
+  grounds.props.poolPatio.radio,
+].filter(Boolean);
+const houseRadio = new Radio(audio, {
+  setRadio: () => {},
+  toast: () => {},
+}, { hour: 21 }, { venue: 'mansion' });
+let activeRadioSet = radioSets[0] ?? null;
+if (activeRadioSet) houseRadio.setPosition(activeRadioSet.speakerPos);
+houseRadio.on = false;
+houseRadio.preferredOn = false;
+
+/** Use a set: move the sound to it, then toggle it. */
+function useRadioSet(set) {
+  if (!set) return;
+  if (houseRadio.on && activeRadioSet === set) {
+    houseRadio.turnOff();
+    set.setLit(false);
+    return;
+  }
+  activeRadioSet?.setLit(false);
+  activeRadioSet = set;
+  houseRadio.setPosition(set.speakerPos);
+  if (!houseRadio.on) houseRadio.turnOn();
+  set.setLit(true);
+}
+
+/* ================================================================== */
 /* Player + world                                                       */
 /* ================================================================== */
 const world = { colliders, floorZones: [], groundAt: () => 0 };
@@ -389,8 +477,78 @@ for (const trophyCase of interior.props.lounge.cases) {
 }
 flavor(
   interior.props.ballroom.stageStack,
-  'Amps, a stand, a stool. Whoever plays this room, plays it for one family.',
+  'A bass rig, a kit on the riser and seven cans on the bar. Whoever plays this room, plays it for one family.',
 );
+flavor(
+  grounds.props.poolPatio.water,
+  'Heated, lit, and running its own little fountain at the deep end. Nobody in this family swims.',
+);
+for (const bottle of interior.props.lounge.jackDaniels.slice(0, 1)) {
+  flavor(bottle, 'Fifteen bottles of Jack And Daniels behind the bar. Lou orders it by the case.');
+}
+
+/* ================================================================== */
+/* Things that actually do something                                    */
+/* ================================================================== */
+
+/** The kitchen tap. Hold E to run it; let go and it stops. */
+let sinkRunning = false;
+function setSink(on) {
+  if (on === sinkRunning) return;
+  sinkRunning = interior.props.kitchen.runSink(on);
+  if (sinkRunning) {
+    audio.startLoop('mansion.sink', {
+      name: 'tap.run',
+      volume: 0.5,
+      position: interior.props.kitchen.tap.getWorldPosition(new THREE.Vector3()),
+      ref: 1.6,
+      maxDist: 12,
+      fade: 0.12,
+    });
+  } else {
+    audio.stopLoop('mansion.sink', 0.18);
+  }
+}
+interaction.register(interior.props.kitchen.sinkTarget, {
+  label: () => (sinkRunning ? 'Turn the tap <b>off</b>' : 'Run the <b>tap</b>'),
+  enabled: () => running,
+  onUse: () => setSink(!sinkRunning),
+});
+
+/** Either radio set: switch it on, or move the station over to it. */
+for (const [set, where] of [
+  [interior.props.lounge.radio, 'the billiard bay'],
+  [grounds.props.poolPatio.radio, 'the pool deck'],
+]) {
+  if (!set) continue;
+  interaction.register(set.group, {
+    label: () => (houseRadio.on && activeRadioSet === set
+      ? '97.8 THE SQUATCH. <b>Off</b>'
+      : `Put 97.8 on in ${where}`),
+    enabled: () => running,
+    onUse: () => useRadioSet(set),
+  });
+}
+
+/* Either television. `core/interaction.js`'s two-action contract is
+ * onTap = the cheap one on a quick press, onUse = the committed one at the
+ * end of a hold -- so a tap works the power switch and a hold walks the
+ * channels, which is the way round a set actually behaves. */
+for (const [tv, prop] of [
+  [loungeTv, interior.props.lounge.tv],
+  [kitchenTv, interior.props.kitchen.tv],
+]) {
+  if (!tv || !prop) continue;
+  interaction.register(prop.group, {
+    label: () => (tv.on
+      ? `<b>${tv.channel.name}</b> &mdash; hold to change channel`
+      : 'Switch the <b>set</b> on'),
+    enabled: () => running,
+    hold: 0.55,
+    onUse: () => { if (tv.on) tv.next(); else tv.toggle(); },
+    onTap: () => tv.toggle(),
+  });
+}
 
 /* ================================================================== */
 /* Pause menu                                                            */
@@ -434,6 +592,11 @@ async function beginTour() {
   menuEl.classList.add('hidden');
   await audio.init();
   startAmbience();
+  /* The station's own record list. It is loaded but the set stays OFF: this
+   * is a tour of an empty house, and a radio that starts talking at you
+   * before you have touched it is not what "a radio in the pool table room"
+   * means. Either set switches it on. */
+  houseRadio.loadManifest().catch(() => {});
   player.enabled = true;
   lockPointer();
   clock.getDelta();
@@ -488,6 +651,22 @@ function updateGame(dt) {
   grounds.update(dt);
   interior.update(dt);
   updateLightRig(dt);
+  /* The sets. A television repaints its canvas and re-uploads the texture,
+   * which is not free, so a set that is switched off does nothing at all --
+   * `Tv.update` returns immediately when `on` is false, and the texture is
+   * only flagged when it has actually changed. */
+  for (const tv of houseTvs) {
+    if (!tv.on) {
+      if (tv._glowLight.intensity !== 0) tv._glowLight.intensity = 0;
+      continue;
+    }
+    tv.update(dt);
+    tv._tex.needsUpdate = true;
+    const g = tv.glow();
+    tv._glowLight.color.setHex(g.colour);
+    tv._glowLight.intensity = g.intensity * 1.6;
+  }
+  houseRadio.update(dt);
   audio.updateListener(camera);
 }
 
@@ -556,6 +735,10 @@ function teleport(x, y, z, yawDeg = 0) {
 }
 
 window.mansion = {
+  /* Handed out so a verifier can do real geometry (Box3 of a mesh, say)
+   * against the same THREE instance the scene was built with rather than
+   * re-deriving world boxes from constructor parameters. */
+  THREE,
   scene,
   camera,
   renderer,
@@ -582,6 +765,37 @@ window.mansion = {
     max: { x: v.worldCollider.max.x, z: v.worldCollider.max.z },
   })),
   landscaping: grounds.props.landscaping,
+  /** Every hung picture's world box, and every opening it must not cover.
+   * tools/verify-mansion.mjs intersects the two -- see the art/doorway note
+   * in MansionInterior.js. */
+  art: interior.art,
+  artSlots: interior.artSlots,
+  openings: [
+    ...Object.values(interior.doors).map((d) => ({ id: d.id, ...d })),
+    ...Object.values(grounds.doors).map((d) => ({ ...d })),
+    ...grounds.shell.windows.map((w) => ({ ...w })),
+  ],
+  /** The working sets, so a verifier can prove they are wired rather than modelled. */
+  media: {
+    tvs: houseTvs.map((tv) => ({
+      get on() { return tv.on; },
+      get channel() { return tv.channel.name; },
+      toggle: () => tv.toggle(),
+      next: () => tv.next(),
+    })),
+    radioSets: radioSets.length,
+    get radioOn() { return houseRadio.on; },
+    get radioTracks() { return houseRadio.playlist.length; },
+    useRadio: (i = 0) => useRadioSet(radioSets[i]),
+  },
+  /** Kitchen tap -- the "working sink". */
+  sink: {
+    get running() { return sinkRunning; },
+    set: (on) => setSink(on),
+  },
+  poolSkirt: grounds.props.poolPatio.skirt,
+  poolRect: { ...grounds.props.poolPatio.pool },
+  loungeBay: { ...grounds.shell.loungeBay },
   teleport,
   /** Step the simulation without a real animation frame -- for headless verification. */
   tick(seconds = 1, step = 1 / 60) {
