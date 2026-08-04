@@ -1171,12 +1171,20 @@ const bellyState = await page.evaluate(async () => {
   };
   // The trunk, excluding head/arms/legs: hips, waist, ribcage, shoulders and
   // -- when present -- the belly, which is added to `body` alongside them.
+  /* The trunk is the MAN, not what is hanging off him.
+   *
+   * A necklace was being counted as part of the torso here, which quietly
+   * coupled two unrelated things: how fat Willy is, and how far in front of a
+   * man's chest somebody else's medallion hangs. When the pendant was moved
+   * out to clear Lou's belly -- it used to be drawn inside it -- Booski's
+   * "trunk" got a centimetre deeper and Willy's margin shrank for no reason
+   * that has anything to do with Willy. Jewellery is excluded. */
   const trunkBoxOf = (npc) => {
     const excl = new Set([npc.parts.head, npc.parts.armL, npc.parts.armR]);
     const box = new T.Box3();
     let any = false;
     npc.parts.body.children.forEach((child) => {
-      if (excl.has(child)) return;
+      if (excl.has(child) || /^necklace\./.test(child.name)) return;
       child.updateMatrixWorld(true);
       const bb = new T.Box3().setFromObject(child);
       if (!any) { box.copy(bb); any = true; } else box.union(bb);
