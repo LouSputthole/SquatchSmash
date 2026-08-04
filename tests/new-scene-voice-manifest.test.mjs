@@ -73,22 +73,9 @@ const ENOLA_CUES_AWAITING_VO_SYNC = [
  * execution the aftermath's "kill him" branch now prompts for.
  */
 const SILVERCASE_CUES_AWAITING_VO_SYNC = [
-  'vo.silvercase.aftermath.ape.nobodytoclean',
-  'vo.silvercase.aftermath.ape.wantitdoit',
-  'vo.silvercase.aftermath.ape.yourround',
-  'vo.silvercase.aftermath.winston.please',
-  'vo.silvercase.arrival.ape.dothetalking',
-  'vo.silvercase.arrival.ape.endofhall',
-  'vo.silvercase.chair.ape.amen',
-  'vo.silvercase.chair.ape.anytime',
-  'vo.silvercase.chair.ape.myparttoo',
-  'vo.silvercase.chair.ape.myround',
-  'vo.silvercase.chair.ape.onestory',
-  'vo.silvercase.chair.ape.together',
-  'vo.silvercase.couch.ape.theoneonthecouch',
-  'vo.silvercase.shots.ape.atme',
-  'vo.silvercase.shots.ape.missed',
-  'vo.silvercase.shots.ape.wrongman',
+  /* Empty, and it should stay empty in a released state. The 16 lines from the
+   * 2026-08-04 playtest pass were generated into the manifest by
+   * `npm run vo:sync` the same day. */
 ];
 
 const manifest = JSON.parse(

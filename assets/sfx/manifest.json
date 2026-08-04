@@ -12098,6 +12098,16 @@
       "say": "Anyway. Focus up. We’re here."
     },
     {
+      "name": "vo.silvercase.arrival.ape.endofhall",
+      "voice": "ape",
+      "say": "2E. End of the hall, past the one that smells like a fish tank."
+    },
+    {
+      "name": "vo.silvercase.arrival.ape.dothetalking",
+      "voice": "ape",
+      "say": "I do the talking. You do the looking-like-you’ve-done-this-before."
+    },
+    {
       "name": "vo.silvercase.arrival.chester.whoisit",
       "voice": "npc-male",
       "say": "Who is it?"
@@ -12218,6 +12228,11 @@
       "say": "This is the part where we make sure everybody remembers this conversation."
     },
     {
+      "name": "vo.silvercase.couch.ape.theoneonthecouch",
+      "voice": "ape",
+      "say": "The one on the couch. Deke."
+    },
+    {
       "name": "vo.silvercase.couch.ape.goahead",
       "voice": "ape",
       "say": "Go ahead."
@@ -12226,6 +12241,21 @@
       "name": "vo.silvercase.couch.ape.moreseating",
       "voice": "ape",
       "say": "Now we have more seating."
+    },
+    {
+      "name": "vo.silvercase.shots.ape.missed",
+      "voice": "ape",
+      "say": "That was a wall. The wall isn’t the problem here."
+    },
+    {
+      "name": "vo.silvercase.shots.ape.wrongman",
+      "voice": "ape",
+      "say": "Wrong one. Look at what you’re pointing it at before you pull."
+    },
+    {
+      "name": "vo.silvercase.shots.ape.atme",
+      "voice": "ape",
+      "say": "You want to swing that back around at me, Prospect? Take your time. Think it through."
     },
     {
       "name": "vo.silvercase.lou.chester.notpersonal",
@@ -12313,6 +12343,36 @@
       "say": "No footprints left."
     },
     {
+      "name": "vo.silvercase.chair.ape.amen",
+      "voice": "ape",
+      "say": "Prayer’s said. Now the amen."
+    },
+    {
+      "name": "vo.silvercase.chair.ape.together",
+      "voice": "ape",
+      "say": "Together, Prospect. You and me. On you."
+    },
+    {
+      "name": "vo.silvercase.chair.ape.anytime",
+      "voice": "ape",
+      "say": "He isn’t going to volunteer. Any time now."
+    },
+    {
+      "name": "vo.silvercase.chair.ape.onestory",
+      "voice": "ape",
+      "say": "Two of us, one story. That’s how the Family remembers it."
+    },
+    {
+      "name": "vo.silvercase.chair.ape.myround",
+      "voice": "ape",
+      "say": "Fine. My round."
+    },
+    {
+      "name": "vo.silvercase.chair.ape.myparttoo",
+      "voice": "ape",
+      "say": "Lou is going to hear it was mine. That’s twice now I did your part of this."
+    },
+    {
       "name": "vo.silvercase.bathroom.ape.listen",
       "voice": "ape",
       "say": "Good. You do listen occasionally."
@@ -12341,6 +12401,26 @@
       "name": "vo.silvercase.aftermath.ape.ordont",
       "voice": "ape",
       "say": "…Or don’t."
+    },
+    {
+      "name": "vo.silvercase.aftermath.ape.yourround",
+      "voice": "ape",
+      "say": "Your call, your round. He’s standing right there."
+    },
+    {
+      "name": "vo.silvercase.aftermath.winston.please",
+      "voice": "npc-male",
+      "say": "Please — please, I’ll clean it, I’ll clean all of it —"
+    },
+    {
+      "name": "vo.silvercase.aftermath.ape.nobodytoclean",
+      "voice": "ape",
+      "say": "Then there’s nobody to clean it. That’s a choice too."
+    },
+    {
+      "name": "vo.silvercase.aftermath.ape.wantitdoit",
+      "voice": "ape",
+      "say": "You don’t get to want it and not do it."
     },
     {
       "name": "vo.silvercase.aftermath.ape.badideas",
