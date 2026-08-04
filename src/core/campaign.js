@@ -1834,6 +1834,7 @@ function seedApartmentPreviewCampaign(state, variant) {
   if (checkpoint.spawn === 'wake') {
     state.activities.eaten = false;
     state.activities.showered = false;
+    state.activities.peed = false;
     state.activities.pooped = false;
     state.activities.changedClothes = false;
   }

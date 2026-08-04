@@ -598,9 +598,23 @@ try {
     });
     st.heldItem = null;
 
+    /* And once a morning. A dart is what gets things started, not a lever that
+     * marches you off the balcony every time you pull it, so both routes are
+     * asked again with the business already done -- the pouch through
+     * `startTheUrge`, the eggs through their own partial. */
+    game.game.pooped = true;
+    st.lipPacked = false;
+    const zynAfter = run(() => game.takeZyn());
+    st.panState = 'done';
+    const eggsAfter = run(() => game.eatEggs());
+    game.game.pooped = false;
+    st.lipPacked = false;
+
     return {
       zyn,
       milk,
+      zynAfter,
+      eggsAfter,
       milkTaken: milkBefore - st.milkLeft,
       bladderRose: st.bladder > bladderBefore,
     };
@@ -614,6 +628,10 @@ try {
       && urges.milkTaken === 1
       && urges.bladderRose,
     JSON.stringify(urges));
+  check('having been once, nothing sends him back -- not the zyn, not the eggs',
+    urges.zynAfter.bowel === 0 && urges.zynAfter.cause === null
+      && urges.eggsAfter.bowel === 0 && urges.eggsAfter.cause === null,
+    JSON.stringify({ zynAfter: urges.zynAfter, eggsAfter: urges.eggsAfter }));
 
   /* The door has been a silent line of text since the Goals object stopped
    * being called, with thirty-two delivered takes unreachable behind it.

@@ -2273,7 +2273,10 @@ function eatEggs() {
    * else tips you over, which is both funnier and true. A dart, a zyn or the
    * raw milk each take it the rest of the way on their own -- see
    * `startTheUrge` -- so there is no route through this flat that leaves a
-   * player unable to work out how to make the toilet's other half happen. */
+   * player unable to work out how to make the toilet's other half happen.
+   *
+   * And, like every other route, only while there is still a job to do. */
+  if (alreadyBeen()) return;
   st.bowel = Math.min(1, st.bowel + 0.62);
   st.bowelCause ??= 'eggs';
 }
@@ -3146,8 +3149,27 @@ function updateBowel(dt) {
  */
 function startTheUrge(cause) {
   const st = apartment.state;
+  if (alreadyBeen()) return;
   st.bowelCause = cause;
   st.bowel = 1;
+}
+
+/**
+ * Whether the morning's second errand is already behind him.
+ *
+ * A dart is what gets things STARTED. It is not a lever that sends you back to
+ * the bathroom every time you pull it -- a man who has already been does not
+ * owe the toilet another trip because he lit one afterwards, and being marched
+ * off the balcony mid-cigarette by his own guts is a joke that is funny once.
+ * So the urge fires once a morning and every route in -- dart, zyn, milk,
+ * eggs -- asks here first.
+ *
+ * Read off the campaign as well as the session so it survives a reload: the
+ * save is what the door consults, and the two must not disagree about whether
+ * this morning's business is done.
+ */
+function alreadyBeen() {
+  return game.pooped || campaign.state.activities.pooped === true;
 }
 
 /** What he says about it, by whatever he has just put in himself. */
