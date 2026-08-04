@@ -38,6 +38,10 @@ import { AudioEngine } from '../core/audio.js';
 import { createPauseMenu } from '../core/pause-menu.js';
 import { Radio } from '../core/radio.js';
 import { Tv, CHANNELS } from '../core/tv.js';
+import { WeaponSystem } from '../core/weapons/WeaponSystem.js';
+import { mountArmory } from '../core/weapons/Armory.js';
+import { weaponCueNames } from '../core/weapons/audio.js';
+import { WEAPON_ORDER } from '../core/weapons/catalog.js';
 
 /* ================================================================== */
 /* DOM handles                                                          */
@@ -49,6 +53,12 @@ const promptEl = $('prompt');
 const promptKeyEl = $('promptKey');
 const promptLabelEl = $('promptLabel');
 const promptHoldEl = $('promptHold');
+const ammoEl = $('ammo');
+const ammoNameEl = $('ammoName');
+const ammoMagEl = $('ammoMag');
+const ammoReserveEl = $('ammoReserve');
+const ammoStateEl = $('ammoState');
+const reticleEl = $('reticle');
 
 /**
  * The InteractionSystem contract wants exactly `showPrompt`/`hidePrompt`/
@@ -247,6 +257,21 @@ const _lightRank = localLights.map((light) => ({ light, score: 0 }));
 for (const entry of _lightRank) entry.light.visible = false;
 for (let i = 0; i < ACTIVE_LIGHTS; i++) _lightRank[i].light.visible = true;
 let _lightTimer = 0;
+
+/**
+ * Add a practical light to the nearest-N rig after it has been built.
+ *
+ * The rig's `ACTIVE_LIGHTS` count is fixed at construction on purpose (three.js
+ * keys its shader programs on the number of VISIBLE lights, so a varying count
+ * recompiles every material in the scene). A late arrival therefore joins the
+ * candidate pool, switched off, and takes its turn on proximity like the other
+ * ninety — the constant stays constant and nothing recompiles.
+ */
+function registerLocalLight(light) {
+  light.visible = false;
+  localLights.push(light);
+  _lightRank.push({ light, score: 0 });
+}
 
 function updateLightRig(dt) {
   _lightTimer -= dt;
@@ -560,6 +585,103 @@ for (const [tv, prop] of [
 }
 
 /* ================================================================== */
+/* THE BASEMENT ARMORY                                                  */
+/*                                                                       */
+/* Owner, 2026-08-04: "I want them fully usable with bullet tracers,     */
+/* magazine ejections when they reload, bullet counts, empty mag click   */
+/* sound, full sound effects. I want them fully wired and usable. We     */
+/* will be reusing these in other scenes, but for now just put them in   */
+/* the armory in the basement of the mansion."                           */
+/*                                                                        */
+/* NONE OF IT IS BUILT HERE. `src/core/weapons/` owns the six weapons,    */
+/* their ammunition, their reloads, their tracers, their sound and the    */
+/* racks; this file supplies a camera, a scene, an audio engine and the   */
+/* six mount points the basement declares, and wires three keys to it.    */
+/* THE TAKE is the next scene to mount the same module, and when it does  */
+/* it will import exactly what is imported at the top of this file.       */
+/*                                                                        */
+/* The system resolves NOTHING about people. It puts a round in the air,  */
+/* stops it on the house's own wall geometry, and reports where. Any      */
+/* scene that wants a round to hurt somebody decides that itself, with    */
+/* its own roster in front of it — which is how the standing rule that    */
+/* Snow never enters player-hostile targeting is kept by a module that    */
+/* has never heard of Snow. There is no actor list here and there is no   */
+/* damage in this scene at all: the mansion is empty.                     */
+/* ================================================================== */
+const weaponSystem = new WeaponSystem({
+  camera,
+  world: scene,
+  audio,
+  groundAt: (x, z) => {
+    /* Ejected magazines land on the floor under themselves. `world.groundAt`
+     * reconstructs the storey from the PLAYER's foot height, which is right
+     * for a magazine that has just left the player's own hands. */
+    const inside = interior.floorAt(x, z, player.position.y - player.eyeHeight);
+    return inside ?? exteriorGroundAt(x, z);
+  },
+  /* What a round can stop on: the house's own walls, floors and ceilings.
+   * These are the same meshes the interaction system uses as occluders, so a
+   * tracer stops exactly where a look-prompt stops. */
+  hitTargets: [...interior.occluders, ...grounds.occluders],
+  range: 70,
+  onEvent: () => { ammoDirty = true; },
+});
+
+/* How many collider boxes the racks contributed. The merged list is otherwise
+ * exactly grounds + interior, and `verify-mansion.mjs` asserts that sum — so a
+ * third contributor has to be countable rather than quietly making the total
+ * not add up. */
+let armoryColliders = 0;
+
+const armory = mountArmory({
+  parent: scene,
+  system: weaponSystem,
+  interaction,
+  racks: interior.props.basement.armoryRacks,
+  enabled: () => running,
+  /* The racks are solid. `colliders` is the same array `world.colliders`
+   * points at, so pushing into it here is the collider list the Player reads
+   * on the next frame — no rebuild, no second list to keep in step. */
+  addCollider: (x0, x1, y0, y1, z0, z1) => {
+    colliders.push(new THREE.Box3(
+      new THREE.Vector3(Math.min(x0, x1), y0, Math.min(z0, z1)),
+      new THREE.Vector3(Math.max(x0, x1), y1, Math.max(z0, z1)),
+    ));
+    armoryColliders++;
+  },
+  /* Each rack's strip light joins the house's nearest-N rig rather than being
+   * switched on unconditionally: under the cellar's own bare bulb the racks
+   * read as black rectangles with black shapes on them, which is the state
+   * this pass exists to leave behind. */
+  addLight: registerLocalLight,
+  onEvent: () => { ammoDirty = true; },
+});
+
+/* The ammunition counter. Repainted only when something changed — a DOM write
+ * every frame for a number that moves twice a second is a DOM write every
+ * frame for nothing. */
+let ammoDirty = true;
+function updateAmmoHud() {
+  if (!ammoDirty || !ammoEl) return;
+  ammoDirty = false;
+  const hud = weaponSystem.hud();
+  if (!hud) {
+    ammoEl.classList.add('hidden');
+    reticleEl?.classList.add('hidden');
+    return;
+  }
+  ammoEl.classList.remove('hidden');
+  reticleEl?.classList.remove('hidden');
+  ammoNameEl.textContent = hud.name;
+  ammoMagEl.textContent = String(hud.rounds);
+  ammoReserveEl.textContent = String(hud.reserve);
+  ammoEl.classList.toggle('dry', hud.rounds === 0);
+  ammoStateEl.textContent = hud.reloading
+    ? 'RELOADING'
+    : (hud.rounds === 0 ? (hud.reserve === 0 ? 'NO ROUNDS' : 'EMPTY — R') : '');
+}
+
+/* ================================================================== */
 /* Pause menu                                                            */
 /* ================================================================== */
 const clock = new THREE.Clock();
@@ -577,10 +699,13 @@ const sharedPauseMenu = createPauseMenu({
   instructions: [
     'W A S D -- walk. Mouse -- look. Shift -- sprint. C -- crouch. Space -- jump.',
     'E, or click -- look at something notable for a one-line note.',
+    'In the cellar armory: E takes a weapon off the rack. Left mouse fires it,'
+      + ' R reloads, Q puts it back.',
     'Tab pauses and resumes. Escape releases the mouse, which also pauses.',
   ],
   onPause: () => {
     interaction.setPaused(true);
+    weaponSystem.setTrigger(false);
     player.clearKeys();
     if (audio.ctx && audio.ctx.state === 'running') audio.ctx.suspend();
   },
@@ -606,6 +731,12 @@ async function beginTour() {
    * before you have touched it is not what "a radio in the pool table room"
    * means. Either set switches it on. */
   houseRadio.loadManifest().catch(() => {});
+  /* The armory's sound. `weaponCueNames()` asks for both halves: the thirty
+   * `weapon.*` cues this system wants recorded (which match nothing yet and
+   * cost nothing to name) and the recordings standing in for them tonight,
+   * which are real files and have to be decoded before a trigger is pulled.
+   * Same shape the Bada Bing uses for `bing.grill.*`. */
+  audio.loadManifest({ names: weaponCueNames() }).catch(() => {});
   player.enabled = true;
   lockPointer();
   clock.getDelta();
@@ -620,6 +751,11 @@ window.addEventListener('keydown', (e) => {
   if (e.code === 'Space') e.preventDefault();
   player.setKey(e.code, true);
   if (e.code === 'KeyE' && !e.repeat) interaction.press();
+  /* R and Q only mean anything with a gun in your hands, and neither is a
+   * browser accelerator on its own — the Beef Run's Ctrl lesson applies to
+   * modifiers, not to plain letters. */
+  if (e.code === 'KeyR' && !e.repeat) weaponSystem.reload();
+  if (e.code === 'KeyQ' && !e.repeat && weaponSystem.equipped) armory.put();
 });
 window.addEventListener('keyup', (e) => {
   player.setKey(e.code, false);
@@ -628,6 +764,7 @@ window.addEventListener('keyup', (e) => {
 window.addEventListener('blur', () => {
   player.clearKeys();
   interaction.release();
+  weaponSystem.setTrigger(false);
 });
 window.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== renderer.domElement) return;
@@ -639,10 +776,18 @@ renderer.domElement.addEventListener('mousedown', (e) => {
     lockPointer();
     return;
   }
-  if (e.button === 0) interaction.press();
+  if (e.button !== 0) return;
+  /* Armed, the left button is the trigger; empty-handed it is the second
+   * interact key it has always been. E stays interact either way, so a man
+   * holding a SAW can still take it off and put it back without shooting the
+   * rack. */
+  if (weaponSystem.equipped) weaponSystem.setTrigger(true);
+  else interaction.press();
 });
 window.addEventListener('mouseup', (e) => {
-  if (e.button === 0) interaction.release();
+  if (e.button !== 0) return;
+  weaponSystem.setTrigger(false);
+  interaction.release();
 });
 window.addEventListener('contextmenu', (e) => e.preventDefault());
 document.addEventListener('pointerlockchange', () => {
@@ -676,6 +821,11 @@ function updateGame(dt) {
     tv._glowLight.intensity = g.intensity * 1.6;
   }
   houseRadio.update(dt);
+  /* The guns. `player.velocity` drives the walking sway on whatever is in
+   * your hands, the same way the heist view-model is driven. */
+  weaponSystem.update(dt, { speed: Math.hypot(player.velocity.x, player.velocity.z) });
+  if (weaponSystem.equipped) ammoDirty = true;
+  updateAmmoHud();
   audio.updateListener(camera);
 }
 
@@ -801,6 +951,85 @@ window.mansion = {
   sink: {
     get running() { return sinkRunning; },
     set: (on) => setSink(on),
+  },
+  /**
+   * The armory, so a verifier can prove the guns WORK rather than that they
+   * render. Everything a rack of weapons claims to do is reachable from here:
+   * take one down, fire it, watch the count go down, reload it, watch a real
+   * magazine leave the gun and land on the concrete, and hear the dry click
+   * when it runs out.
+   */
+  weapons: {
+    /** Catalog ids, in rack order. */
+    order: [...WEAPON_ORDER],
+    /** Collider boxes the racks added to the merged world list. */
+    get colliders() { return armoryColliders; },
+    /** Where every rack's mount point is, as the basement declares it. */
+    racks: interior.props.basement.armoryRacks.map((r) => ({ ...r })),
+    /** Per-weapon rack state: how many copies, how many still on the wall. */
+    report: () => armory.report(),
+    /** What the ammunition counter says, or null with empty hands. */
+    hud: () => weaponSystem.hud(),
+    get equipped() { return weaponSystem.equipped; },
+    take: (id) => armory.take(id),
+    put: () => armory.put(),
+    resupply: (id) => armory.resupply(id),
+    reload: () => weaponSystem.reload(),
+    /** One deliberate shot. Returns the shot result, including `tracer`. */
+    fire: () => weaponSystem.triggerPress(),
+    /** Hold or release the trigger, for the automatics. */
+    trigger: (down) => weaponSystem.setTrigger(down === true),
+    /** Rounds in the air right now, and how many this pool has ever fired. */
+    get tracers() {
+      return { live: weaponSystem.tracers.live, fired: weaponSystem.tracers.fired };
+    },
+    /** Magazines and brass: thrown, in the air, and settled on the floor. */
+    get ejecta() {
+      const pool = weaponSystem.ejecta;
+      return {
+        dropped: pool.dropped,
+        landed: pool.landed,
+        airborne: pool.airborne,
+        resting: pool.resting,
+        /** The world Y of each piece, so a verifier can prove it FELL. */
+        heights: pool.pieces.map((p) => Number(p.object.position.y.toFixed(3))),
+      };
+    },
+    /** Shots, dry clicks, reloads, ejections, impacts. */
+    get stats() { return { ...weaponSystem.stats }; },
+    /** Which cues the guns have asked for, most recent last. */
+    get cues() { return [...weaponSystem.cueLog]; },
+    /** Whether a named cue has a decoded recording ready in this page. */
+    hasSample: (name) => audio.hasSample(name) === true,
+    /** Ammunition state per weapon, whether held or racked. */
+    ammo: () => Object.fromEntries(
+      WEAPON_ORDER.map((id) => [id, weaponSystem.firearm(id).snapshot()]),
+    ),
+    /** The ammunition counter's own DOM, so "displayed" can be asserted. */
+    hudText: () => (ammoEl && !ammoEl.classList.contains('hidden')
+      ? `${ammoNameEl.textContent} ${ammoMagEl.textContent}/${ammoReserveEl.textContent} ${ammoStateEl.textContent}`.trim()
+      : null),
+    /** Whether every one of the six models is really in the scene graph. */
+    models: () => WEAPON_ORDER.map((id) => {
+      const stand = armory.stands.get(id);
+      if (!stand) return { id, present: false };
+      const gun = stand.built.copies[0]?.gun;
+      let meshes = 0;
+      gun?.traverse((o) => { if (o.isMesh) meshes++; });
+      /* Where the first copy actually hangs, in world space. A verifier has
+       * to be able to STAND IN FRONT OF ONE and look at it; guessing from the
+       * rack's centre puts the crosshair in the gap between two pistols. */
+      const at = gun ? gun.getWorldPosition(new THREE.Vector3()) : null;
+      return {
+        id,
+        present: true,
+        copies: stand.built.copies.length,
+        meshes,
+        hasMagazine: !!gun?.userData.magazine,
+        muzzle: !!gun?.userData.muzzle,
+        at: at ? { x: at.x, y: at.y, z: at.z } : null,
+      };
+    }),
   },
   poolSkirt: grounds.props.poolPatio.skirt,
   poolRect: { ...grounds.props.poolPatio.pool },

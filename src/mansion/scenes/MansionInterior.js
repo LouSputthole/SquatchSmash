@@ -3639,38 +3639,39 @@ export function buildMansionInterior(shell = null) {
     topping(r.x0 + 0.2, r.x1 - 0.2, BY + 0.012, r.z0 + 0.2, r.z1 - 0.2,
       concreteMaterial(r.x1 - r.x0, r.z1 - r.z0), 'basement-floor');
 
-    // ---- Wall racks with abstract weapon silhouettes.
-    function wallRack(x, z, rotY) {
-      const g = group('wall-rack',
-        box({
-          size: [1.55, 1.45, 0.05], pos: [0, -0.12, -0.07], mat: M_RACK_BACK, name: 'rack-backplate',
-        }),
-        box({ size: [1.4, 0.06, 0.06], pos: [0, 0, 0], mat: M_RACK }),
-        box({ size: [0.06, 0.5, 0.06], pos: [-0.6, -0.25, 0], mat: M_RACK }),
-        box({ size: [0.06, 0.5, 0.06], pos: [0.6, -0.25, 0], mat: M_RACK }));
-      for (const rx of [-0.38, 0.12]) {
-        g.add(cylinder({
-          rTop: 0.03, rBottom: 0.045, h: 1.05, pos: [rx, -0.22, 0.03], mat: M_SILHOUETTE,
-        }));
-        g.add(box({ size: [0.15, 0.05, 0.05], pos: [rx, 0.02, 0.05], mat: M_RACK }));
-      }
-      for (const px of [-0.62, 0.62]) {
-        const barrelX = px + (px < 0 ? 0.09 : -0.09);
-        g.add(box({ size: [0.05, 0.22, 0.05], pos: [px, -0.56, 0.03], mat: M_SILHOUETTE }));
-        g.add(box({ size: [0.2, 0.05, 0.05], pos: [barrelX, -0.47, 0.03], mat: M_SILHOUETTE }));
-      }
-      g.position.set(x, BY + 1.4, z);
-      g.rotation.y = rotY;
-      root.add(g);
-      const cos = Math.abs(Math.cos(rotY));
-      const sin = Math.abs(Math.sin(rotY));
-      solid(x - (cos * 0.8 + sin * 0.15), x + (cos * 0.8 + sin * 0.15), BY, BY + 1.55,
-        z - (sin * 0.8 + cos * 0.15), z + (sin * 0.8 + cos * 0.15));
-    }
-    wallRack(-6.4, r.z0 + 0.35, 0);
-    wallRack(-3.6, r.z0 + 0.35, 0);
-    wallRack(r.x0 + 0.35, 53.5, Math.PI / 2);
-    wallRack(r.x0 + 0.35, 56.5, Math.PI / 2);
+    /* ---- THE ARMORY WALL.
+     *
+     * This used to build four boards of "abstract weapon silhouettes" — two
+     * tapered cylinders and a couple of slabs per board, standing in for guns
+     * nobody could name and nobody could pick up. They are gone. What hangs
+     * here now is the shared weapon system's real racks, built by
+     * `src/core/weapons/Armory.js` out of the same models THE TAKE, NO WAKE
+     * and The Silver Case use, and every one of them can be taken down, fired,
+     * reloaded and put back.
+     *
+     * The geometry is NOT built here, deliberately. `MansionInterior.js` owns
+     * the room; the armory owns the weapons, because the next scene to want
+     * them will not be a mansion. What this file contributes is the six
+     * MOUNT POINTS — where on which wall each rack hangs — which is a fact
+     * about this basement and about nowhere else.
+     *
+     * Geography, measured against the room (x -9..9, z 50..64) and everything
+     * already standing in it:
+     *   - the south wall (z = 50.45, facing +Z into the room) carries the four
+     *     small arms and the two carbines. It is the wall you see as you come
+     *     off the bottom of the stair.
+     *   - the west wall (x = -8.55, facing +X) carries the two crew-served
+     *     guns, north of the ammunition stacks already at z 51.4 and 53.0 and
+     *     south of the caged store at z 60.5.
+     */
+    const armoryRacks = [
+      { id: 'revolver', x: -6.7, y: BY, z: r.z0 + 0.45, rotY: 0 },
+      { id: 'pistol9', x: -4.9, y: BY, z: r.z0 + 0.45, rotY: 0 },
+      { id: 'carbine', x: -2.9, y: BY, z: r.z0 + 0.45, rotY: 0 },
+      { id: 'ak47', x: -1.2, y: BY, z: r.z0 + 0.45, rotY: 0 },
+      { id: 'saw', x: r.x0 + 0.45, y: BY, z: 54.6, rotY: Math.PI / 2 },
+      { id: 'barrett', x: r.x0 + 0.45, y: BY, z: 56.8, rotY: Math.PI / 2 },
+    ];
 
     // ---- A caged store at the north end, padlocked.
     const cageZ0 = 60.5;
@@ -3836,7 +3837,15 @@ export function buildMansionInterior(shell = null) {
     }
 
     return {
-      bulbLight, workLight, ceilingLights: cans, drain, shield: basementShield,
+      bulbLight,
+      workLight,
+      ceilingLights: cans,
+      drain,
+      shield: basementShield,
+      /** Where the shared armory's racks hang. Consumed by src/mansion/main.js. */
+      armoryRacks,
+      /** So the armory can make its own racks solid in this room's collider list. */
+      addSolid: solid,
     };
   }
   const basementProps = buildBasement();

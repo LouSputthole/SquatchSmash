@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildCarbine } from '../core/weapons/models.js';
 
 /**
  * THE TAKE's guns, and Tony's hands.
@@ -46,98 +47,23 @@ function tube(parent, r, h, position, material, rotX = Math.PI / 2, name = '') {
 /**
  * The carbine, pointing down local -Z.
  *
- * About 74 cm from muzzle to buttplate with the stock collapsed, which is a
- * short-barrelled carbine and not the metre-long fence post the old four-box
- * version implied. Every part is a part somebody could name: flash hider, gas
- * block, front sight, free-float handguard with a rail, ejection port and
- * forward assist, charging handle, dust cover, magazine with a floorplate,
- * pistol grip, buffer tube and a collapsed stock.
+ * THE MODEL MOVED to `src/core/weapons/models.js` as `buildCarbine`, part for
+ * part and name for name, when the shared weapon system was built — Lou's
+ * basement armory racks four of this exact gun, and a second carbine modelled
+ * beside this one would have been two guns the player is told are one. THE
+ * TAKE's carbine is unchanged: same 74 cm, same fourteen named parts, same
+ * `userData.muzzle`, same optional sling.
+ *
+ * The original note still applies and is worth keeping in front of anyone
+ * editing the model: about 74 cm from muzzle to buttplate with the stock
+ * collapsed, which is a short-barrelled carbine and not the metre-long fence
+ * post the old four-box version implied. Every part is a part somebody could
+ * name: flash hider, gas block, front sight, free-float handguard with a rail,
+ * ejection port and forward assist, charging handle, dust cover, magazine with
+ * a floorplate, pistol grip, buffer tube and a collapsed stock.
  */
 export function makeHeistCarbine({ sling = false } = {}) {
-  const g = new THREE.Group();
-  g.name = 'heist-carbine';
-
-  // Barrel group: bore, flash hider, gas block, front sight tower.
-  tube(g, 0.0095, 0.30, [0, 0.028, -0.235], MATS.parkerized, Math.PI / 2, 'carbine-barrel');
-  const hider = tube(g, 0.0135, 0.055, [0, 0.028, -0.398], MATS.parkerized, Math.PI / 2, 'carbine-flash-hider');
-  for (let i = 0; i < 4; i++) {
-    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.03, 0.03), MATS.bore);
-    slot.position.set(0, 0.006, -0.008);
-    slot.rotation.z = (i / 4) * Math.PI;
-    hider.add(slot);
-  }
-  tube(g, 0.0055, 0.012, [0, 0.028, -0.424], MATS.bore, Math.PI / 2, 'carbine-muzzle');
-  slab(g, [0.026, 0.042, 0.034], [0, 0.036, -0.318], MATS.parkerized, 'carbine-gas-block');
-  slab(g, [0.012, 0.05, 0.012], [0, 0.066, -0.318], MATS.parkerized, 'carbine-front-sight');
-
-  // Free-float handguard: an octagonal tube with a top rail and side slots.
-  const handguard = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.024, 0.024, 0.20, 8),
-    MATS.polymer,
-  );
-  handguard.name = 'carbine-handguard';
-  handguard.position.set(0, 0.028, -0.19);
-  handguard.rotation.x = Math.PI / 2;
-  handguard.castShadow = true;
-  g.add(handguard);
-  for (let i = 0; i < 7; i++) {
-    slab(g, [0.036, 0.005, 0.008], [0, 0.053, -0.27 + i * 0.026], MATS.parkerized);
-    slab(g, [0.052, 0.008, 0.006], [0, 0.012, -0.26 + i * 0.026], MATS.bore);
-  }
-
-  // Upper receiver, ejection port, forward assist, charging handle, rear sight.
-  slab(g, [0.032, 0.046, 0.20], [0, 0.03, -0.055], MATS.steel, 'carbine-upper');
-  slab(g, [0.006, 0.024, 0.062], [0.017, 0.028, -0.03], MATS.parkerized, 'carbine-dust-cover');
-  slab(g, [0.012, 0.016, 0.016], [0.019, 0.014, 0.012], MATS.parkerized, 'carbine-forward-assist');
-  slab(g, [0.03, 0.012, 0.05], [0, 0.056, 0.05], MATS.parkerized, 'carbine-charging-handle');
-  slab(g, [0.03, 0.006, 0.12], [0, 0.055, -0.02], MATS.parkerized, 'carbine-top-rail');
-  slab(g, [0.024, 0.03, 0.014], [0, 0.072, 0.028], MATS.parkerized, 'carbine-rear-sight');
-  slab(g, [0.01, 0.012, 0.01], [0, 0.079, 0.028], MATS.bore);
-
-  // Lower receiver, magazine well, magazine, trigger and guard, grip.
-  slab(g, [0.028, 0.05, 0.14], [0, -0.01, -0.005], MATS.steel, 'carbine-lower');
-  const mag = new THREE.Group();
-  mag.name = 'carbine-magazine';
-  mag.position.set(0, -0.062, -0.036);
-  mag.rotation.x = -0.13;
-  slab(mag, [0.024, 0.13, 0.048], [0, 0, 0], MATS.polymer);
-  slab(mag, [0.028, 0.01, 0.054], [0, -0.068, 0], MATS.parkerized);
-  slab(mag, [0.02, 0.012, 0.02], [0, 0.064, -0.016], MATS.brass, 'carbine-top-round');
-  g.add(mag);
-  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.019, 0.004, 6, 12, Math.PI), MATS.steel);
-  guard.position.set(0, -0.036, 0.028);
-  guard.rotation.set(Math.PI / 2, 0, Math.PI);
-  guard.rotateX(Math.PI / 2);
-  g.add(guard);
-  slab(g, [0.006, 0.018, 0.006], [0, -0.028, 0.03], MATS.parkerized, 'carbine-trigger');
-  const grip = new THREE.Group();
-  grip.position.set(0, -0.038, 0.062);
-  grip.rotation.x = 0.42;
-  slab(grip, [0.03, 0.098, 0.036], [0, -0.048, 0], MATS.polymer, 'carbine-grip');
-  for (let i = 0; i < 3; i++) slab(grip, [0.034, 0.006, 0.006], [0, -0.03 - i * 0.02, 0.017], MATS.parkerized);
-  g.add(grip);
-
-  // Buffer tube and a stock collapsed onto it.
-  tube(g, 0.017, 0.15, [0, 0.026, 0.13], MATS.parkerized, Math.PI / 2, 'carbine-buffer-tube');
-  const stock = new THREE.Group();
-  stock.name = 'carbine-stock';
-  stock.position.set(0, 0.02, 0.145);
-  slab(stock, [0.042, 0.076, 0.1], [0, 0, 0], MATS.furniture);
-  slab(stock, [0.048, 0.088, 0.016], [0, -0.004, 0.056], MATS.polymer, 'carbine-buttplate');
-  slab(stock, [0.05, 0.014, 0.05], [0, 0.044, -0.01], MATS.furniture, 'carbine-cheek-weld');
-  g.add(stock);
-
-  if (sling) {
-    const strap = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.006, 4, 14, Math.PI * 1.1), MATS.webbing);
-    strap.name = 'carbine-sling';
-    strap.position.set(0, -0.06, -0.09);
-    strap.rotation.set(0, Math.PI / 2, 0.5);
-    g.add(strap);
-  }
-
-  g.userData.muzzle = new THREE.Vector3(0, 0.028, -0.43);
-  g.traverse((o) => { if (o.isMesh) o.receiveShadow = false; });
-  return g;
+  return buildCarbine({ sling });
 }
 
 /**

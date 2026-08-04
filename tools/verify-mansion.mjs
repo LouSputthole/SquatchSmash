@@ -200,15 +200,21 @@ try {
     missingAnchors.length === 0 && extraAnchors.length === 0,
     JSON.stringify({ missingAnchors, extraAnchors }));
 
+  /* The merged list is grounds + interior + the armory's racks. The racks are
+   * the third contributor and they are counted, not waved through: a rack you
+   * can walk through is a rack whose guns are decoration. */
   const colliderInfo = await page.evaluate(() => ({
     collidersCount: window.mansion.collidersCount,
     actualLength: window.mansion.colliders.length,
     groundsLen: window.mansion.grounds.colliders.length,
     interiorLen: window.mansion.interior.colliders.length,
+    armoryLen: window.mansion.weapons.colliders,
   }));
   check('collidersCount is internally consistent and a sane positive number (geometry actually built)',
     colliderInfo.collidersCount === colliderInfo.actualLength
-      && colliderInfo.collidersCount === colliderInfo.groundsLen + colliderInfo.interiorLen
+      && colliderInfo.collidersCount
+        === colliderInfo.groundsLen + colliderInfo.interiorLen + colliderInfo.armoryLen
+      && colliderInfo.armoryLen === 6
       && colliderInfo.collidersCount > 50,
     JSON.stringify(colliderInfo));
 
@@ -576,6 +582,305 @@ try {
       s.z < 51.05 && Math.abs(s.ground - BASEMENT_Y) < 0.2,
       JSON.stringify(s));
   }
+
+  /* ================================================================ */
+  /* THE ARMORY                                                        */
+  /*                                                                    */
+  /* Owner, 2026-08-04: "I want them fully usable with bullet tracers,  */
+  /* magazine ejections when they reload, bullet counts, empty mag      */
+  /* click sound, full sound effects. I want them fully wired and       */
+  /* usable."                                                           */
+  /*                                                                     */
+  /* So this does not check that six racks render. It takes a gun off    */
+  /* the wall ON FOOT with a real keypress, fires it and watches the     */
+  /* count go down, reloads it and watches a REAL magazine object leave  */
+  /* the gun and fall to the concrete, empties it and watches the dry    */
+  /* click happen exactly once, puts it back, and then does the whole    */
+  /* count-fire-reload run again for all six. A verifier that only       */
+  /* proves the racks render is not evidence they work.                 */
+  /* ================================================================ */
+  /* Every step below drives the guns through the page. A step that throws —
+   * because an earlier one left nothing in the player's hands, say — must
+   * report a failed CHECK rather than take the whole verifier down with it,
+   * or one broken gun hides the state of the other five. */
+  async function armoryStep(fn, arg) {
+    try {
+      return await page.evaluate(fn, arg);
+    } catch (err) {
+      return { error: String(err?.message || err).split('\n')[0].slice(0, 160) };
+    }
+  }
+
+  const WEAPONS = await page.evaluate(() => window.mansion.weapons.order);
+  check('all six weapons the owner named are racked in the basement armory',
+    WEAPONS.length === 6
+      && ['revolver', 'pistol9', 'carbine', 'ak47', 'saw', 'barrett']
+        .every((id) => WEAPONS.includes(id)),
+    JSON.stringify(WEAPONS));
+
+  const models = await page.evaluate(() => window.mansion.weapons.models());
+  const thinModels = models.filter((m) => !m.present || m.meshes < 24 || !m.muzzle);
+  check('every racked weapon is a real model, not a silhouette (meshes + a muzzle)',
+    thinModels.length === 0,
+    JSON.stringify(models.map((m) => `${m.id}:${m.meshes}`)));
+
+  const magsFitted = models.filter((m) => m.id !== 'revolver' && !m.hasMagazine);
+  check('every magazine-fed weapon on the wall has a real magazine fitted to it',
+    magsFitted.length === 0, JSON.stringify(magsFitted));
+
+  const wall = await page.evaluate(() => window.mansion.weapons.report());
+  check('there are multiple copies of every weapon on the racks',
+    Object.values(wall).every((w) => w.copies >= 2 && w.onWall === w.copies),
+    JSON.stringify(Object.fromEntries(Object.entries(wall).map(([k, v]) => [k, v.copies]))));
+
+  /* The racks are solid. Walk into the pistol board and be stopped by it —
+   * a rack you can stand inside is a rack whose guns are wallpaper. */
+  const rackSpecs = await page.evaluate(() => window.mansion.weapons.racks);
+  const pistolRack = rackSpecs.find((r) => r.id === 'pistol9');
+  await teleport(pistolRack.x, BASEMENT_Y, pistolRack.z + 2.2, SOUTH);
+  await settle(0.3);
+  await walk(4);
+  await settle(0.4);
+  s = await state();
+  check('the armory racks are solid — you cannot walk through the guns',
+    s.z > pistolRack.z + 0.35 && Math.abs(s.ground - BASEMENT_Y) < 0.2,
+    JSON.stringify({ rackZ: pistolRack.z, stoppedAt: s }));
+
+  /* ---- Take one off the wall, on foot, with a real E press.
+   *
+   * Aimed at where the FIRST COPY actually hangs, not at the middle of the
+   * board: four pistols on 30 cm centres leave 10 cm gaps between them, and a
+   * crosshair down the middle of the rack goes through one of the gaps and
+   * reports, correctly, that there is nothing to take. */
+  const pistolAt = models.find((m) => m.id === 'pistol9').at;
+  const standOff = 0.95;
+  await teleport(pistolAt.x, BASEMENT_Y, pistolAt.z + standOff, SOUTH);
+  await page.evaluate((pitch) => { window.mansion.player.pitch = pitch; },
+    Math.atan2(pistolAt.y - (BASEMENT_Y + 1.66), standOff));
+  await settle(0.5);
+  const promptText = await page.evaluate(() => (
+    document.getElementById('prompt').classList.contains('hidden')
+      ? null : document.getElementById('promptLabel').textContent));
+  check('looking at a racked weapon offers it, with its own bullet count in the prompt',
+    !!promptText && /9mm/i.test(promptText) && /\d+\/\d+/.test(promptText),
+    JSON.stringify(promptText));
+
+  await page.keyboard.press('KeyE');
+  await settle(0.4);
+  let armed = await page.evaluate(() => ({
+    equipped: window.mansion.weapons.equipped,
+    hud: window.mansion.weapons.hud(),
+    hudText: window.mansion.weapons.hudText(),
+    onWall: window.mansion.weapons.report().pistol9.onWall,
+  }));
+  check('pressing E takes the weapon off the rack and into the player’s hands',
+    armed.equipped === 'pistol9' && armed.onWall === 3,
+    JSON.stringify(armed));
+  check('the ammunition counter is on screen and shows magazine and spare rounds',
+    !!armed.hudText && armed.hud.rounds === 15 && armed.hud.reserve === 75
+      && armed.hudText.includes('15') && armed.hudText.includes('75'),
+    JSON.stringify(armed.hudText));
+
+  /* ---- Fire it. The count goes down, tracer goes up, rounds land on the
+   * house's own geometry, and the gun asks for its own fire cue. ---- */
+  const fired = await armoryStep(() => {
+    const w = window.mansion.weapons;
+    if (!w.hud()) return { error: 'nothing in hand to fire' };
+    const before = w.hud().rounds;
+    const shots = [];
+    for (let i = 0; i < 3; i++) { shots.push(w.fire()); window.mansion.tick(0.4); }
+    return {
+      before,
+      after: w.hud().rounds,
+      shots: shots.map((sh) => !!sh?.fired),
+      tracers: w.tracers,
+      stats: w.stats,
+      cues: w.cues,
+    };
+  });
+  check('firing puts rounds down range and counts them out of the magazine',
+    !!fired.shots?.every(Boolean) && fired.after === fired.before - 3 && fired.stats?.shots === 3,
+    JSON.stringify({ before: fired.before, after: fired.after, shots: fired.shots }));
+  check('every round fired put a tracer up',
+    fired.tracers?.fired === 3, JSON.stringify(fired.tracers ?? fired));
+  check('rounds stop on the house’s own geometry rather than running forever',
+    fired.stats?.impacts >= 1, JSON.stringify(fired.stats ?? fired));
+  check('firing asks for that weapon’s own fire cue',
+    fired.cues?.filter((c) => c === 'weapon.pistol9.fire').length === 3,
+    JSON.stringify(fired.cues ?? fired));
+
+  /* Every round in the air is ONE draw call — the whole reason the tracer
+   * pool was lifted out of The Enola Squatch instead of being rewritten. */
+  const tracerMeshes = await page.evaluate(() => {
+    let pools = 0;
+    let instanced = true;
+    window.mansion.scene.traverse((o) => {
+      if (o.name === 'tracer-pool') { pools++; if (!o.isInstancedMesh) instanced = false; }
+    });
+    return { pools, instanced };
+  });
+  check('all tracer in the scene is one instanced draw call, not a mesh per round',
+    tracerMeshes.pools === 1 && tracerMeshes.instanced, JSON.stringify(tracerMeshes));
+
+  /* ---- Reload. A real magazine leaves the gun and falls to the floor. ---- */
+  const reload = await armoryStep(() => {
+    const w = window.mansion.weapons;
+    if (!w.hud()) return { error: 'nothing in hand to reload' };
+    const before = { ...w.hud(), ejecta: w.ejecta.dropped };
+    const started = w.reload();
+    // Sample once the ejection has happened but before anything has landed.
+    window.mansion.tick(0.7);
+    const midAir = w.ejecta;
+    window.mansion.tick(4.0);
+    return {
+      started,
+      before,
+      midAir,
+      after: w.hud(),
+      ejecta: w.ejecta,
+      stats: w.stats,
+      cues: w.cues.slice(-6),
+    };
+  });
+  check('reloading ejects a real object that leaves the gun',
+    !!reload.started && reload.stats?.ejections === 1
+      && reload.ejecta?.dropped > reload.before?.ejecta,
+    JSON.stringify({ started: reload.started, stats: reload.stats, ejecta: reload.ejecta, error: reload.error }));
+  check('the ejected magazine is airborne first and lands on the armory floor',
+    reload.midAir?.airborne >= 1 && reload.ejecta?.landed >= 1
+      && !!reload.ejecta?.heights.some((h) => h < BASEMENT_Y + 0.25),
+    JSON.stringify({ midAir: reload.midAir, settled: reload.ejecta }));
+  check('the reload refills the magazine out of the spare rounds',
+    reload.after?.rounds === 15 && reload.after?.reserve === 75 - 15,
+    JSON.stringify(reload.after ?? reload));
+  check('the reload plays a magazine out, a magazine in, and the magazine hitting the floor',
+    ['weapon.pistol9.reload.out', 'weapon.pistol9.reload.in', 'weapon.pistol9.mag.floor']
+      .every((c) => reload.cues?.includes(c)),
+    JSON.stringify(reload.cues ?? reload));
+
+  /* ---- The empty click: once, and distinct from firing. ---- */
+  const dry = await armoryStep(() => {
+    const w = window.mansion.weapons;
+    if (!w.hud()) return { error: 'nothing in hand to empty' };
+    // Empty the magazine, then keep pulling the trigger.
+    for (let i = 0; i < 40 && w.hud().rounds > 0; i++) { w.fire(); window.mansion.tick(0.3); }
+    const shotsWhenEmpty = w.stats.shots;
+    const clicksBefore = w.stats.dryClicks;
+    const first = w.fire();
+    const second = w.fire();
+    // And a held trigger must not machine-gun the click.
+    w.trigger(true);
+    window.mansion.tick(1.0);
+    w.trigger(false);
+    return {
+      rounds: w.hud().rounds,
+      first,
+      second,
+      shotsUnchanged: w.stats.shots === shotsWhenEmpty,
+      clicks: w.stats.dryClicks - clicksBefore,
+      cues: w.cues.slice(-4),
+    };
+  });
+  check('an empty magazine clicks instead of firing, and the click is not a shot',
+    dry.rounds === 0 && dry.first?.reason === 'empty' && dry.shotsUnchanged === true
+      && !!dry.cues?.includes('weapon.pistol9.empty'),
+    JSON.stringify(dry));
+  check('the empty click happens once per trigger pull, not once per frame',
+    dry.clicks >= 1 && dry.clicks <= 3, `${dry.clicks} clicks`);
+
+  /* ---- Put it back, and it remembers what it had left. ---- */
+  await page.keyboard.press('KeyQ');
+  await settle(0.3);
+  const racked = await page.evaluate(() => ({
+    equipped: window.mansion.weapons.equipped,
+    hudText: window.mansion.weapons.hudText(),
+    onWall: window.mansion.weapons.report().pistol9.onWall,
+    ammo: window.mansion.weapons.ammo().pistol9,
+  }));
+  check('Q puts the weapon back on its rack and clears the ammunition counter',
+    racked.equipped === null && racked.onWall === 4 && racked.hudText === null,
+    JSON.stringify(racked));
+  check('a weapon put back empty comes off the wall empty — the armory is shared, not a vending machine',
+    racked.ammo.rounds === 0, JSON.stringify(racked.ammo));
+
+  const resupplied = await page.evaluate(() => {
+    const w = window.mansion.weapons;
+    w.resupply('pistol9');
+    return w.ammo().pistol9;
+  });
+  check('the ammunition crate under the rack refills the spare rounds',
+    resupplied.reserve === 75, JSON.stringify(resupplied));
+
+  /* ---- And now every one of the six, end to end. ---- */
+  const runAll = await armoryStep((ids) => {
+    const w = window.mansion.weapons;
+    const out = {};
+    for (const id of ids) {
+      w.resupply(id);
+      const took = w.take(id);
+      /* Ammunition follows the GUN, not the rack, so the 9mm comes back off
+       * the wall exactly as empty as the dry-click run left it. Top it up
+       * first — that is what the crate under the rack is for, and it is what
+       * a player does before walking out with it. */
+      if (w.hud() && w.hud().rounds === 0) { w.reload(); window.mansion.tick(6.0); }
+      const start = w.hud();
+      const shot = w.fire();
+      window.mansion.tick(0.6);
+      const afterShot = w.hud();
+      const reloaded = w.reload();
+      window.mansion.tick(8.0);
+      const afterReload = w.hud();
+      out[id] = {
+        took,
+        equipped: w.equipped,
+        capacity: start?.capacity ?? null,
+        fired: !!shot?.fired,
+        tracer: !!shot?.tracer,
+        counted: afterShot ? start.rounds - afterShot.rounds : null,
+        reloaded,
+        refilled: afterReload?.rounds ?? null,
+        state: afterReload?.state ?? null,
+        cues: w.cues.slice(-8).filter((c) => c.startsWith(`weapon.${id}.`)),
+      };
+      w.put();
+      window.mansion.tick(0.2);
+    }
+    return out;
+  }, WEAPONS);
+
+  for (const id of WEAPONS) {
+    const r = runAll[id] ?? { error: runAll.error };
+    check(`the ${id} can be taken off the rack, fired, counted down and reloaded`,
+      !!r.took && r.equipped === id && !!r.fired && r.counted === 1
+        && !!r.reloaded && r.refilled === r.capacity && r.state === 'ready',
+      JSON.stringify(r));
+  }
+  const capacities = WEAPONS.map((id) => runAll[id]?.capacity ?? null);
+  check('the six weapons have genuinely different magazines, not one gun in six shapes',
+    new Set(capacities).size >= 5 && !capacities.includes(null), JSON.stringify(capacities));
+  check('every weapon asked for its own fire cue rather than a shared one',
+    WEAPONS.every((id) => runAll[id]?.cues?.includes(`weapon.${id}.fire`)),
+    JSON.stringify(Object.fromEntries(WEAPONS.map((id) => [id, runAll[id]?.cues]))));
+
+  /* The thirty `weapon.*` cues are not recorded yet, so the guns are audible
+   * tonight only if their stand-ins are real decoded recordings in this page.
+   * A stand-in with no file is a synthesised noise with a comment over it. */
+  const standIns = await page.evaluate(() => {
+    const wanted = [
+      'gun.shot', 'gun.dry', 'gun.reload', 'ice.drop', 'heist.weapon.check',
+      'boat.gunshot.deck', 'heist.swap.weapons', 'heist.weapon.empty', 'heist.guard.weapon.drop',
+      'heist.weapon.carbine.indoor', 'heist.weapon.reload', 'heist.weapon.carbine',
+      'heist.weapon.down', 'footstep.metal', 'heist.police.gunshot', 'heist.cash.drop',
+    ];
+    return wanted.filter((n) => !window.mansion.weapons.hasSample(n));
+  });
+  check('every stand-in recording the guns fall back on is decoded and ready in the page',
+    standIns.length === 0, `missing: ${standIns.join(', ')}`);
+
+  const allRacked = await page.evaluate(() => window.mansion.weapons.report());
+  check('every weapon ends the tour back on its own rack',
+    Object.values(allRacked).every((w) => w.onWall === w.copies && w.taken === null),
+    JSON.stringify(allRacked));
 
   /* ================================================================ */
   /* Grounds: service door, pool door, pool steps                       */

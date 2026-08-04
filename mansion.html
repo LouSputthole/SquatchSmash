@@ -64,6 +64,40 @@
   }
   #promptHold { height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--gold-bright)); }
 
+  /* ---------------- Ammunition counter (basement armory) ----------------
+   * Bottom right, out of the subtitle line's way, and only on screen when
+   * there is something in the player's hands. `#reticle` is the aiming mark
+   * that replaces the passive dot while armed. */
+  #ammo {
+    position: fixed; right: 26px; bottom: 26px; z-index: 5; text-align: right;
+    padding: 10px 16px; border-radius: 10px;
+    background: var(--panel); border: 1px solid rgba(232, 194, 104, .34);
+    backdrop-filter: blur(2px); pointer-events: none;
+  }
+  #ammoName {
+    display: block; font-size: 11px; letter-spacing: 2.4px; font-weight: 800;
+    color: var(--chrome); margin-bottom: 2px;
+  }
+  #ammoCount { display: block; font-size: 34px; font-weight: 900; line-height: 1; color: #f2eee1; }
+  #ammoMag { color: var(--gold-bright); }
+  #ammoCount .slash { color: rgba(242, 238, 225, .38); margin: 0 3px; font-size: 24px; }
+  #ammoReserve { font-size: 21px; color: rgba(242, 238, 225, .66); }
+  #ammoState {
+    display: block; font-size: 11px; letter-spacing: 2.4px; font-weight: 800;
+    color: var(--gold-bright); min-height: 13px; margin-top: 3px;
+  }
+  #ammo.dry #ammoMag { color: #e6663c; }
+  #reticle {
+    position: fixed; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+    pointer-events: none; z-index: 4;
+  }
+  #reticle::before, #reticle::after {
+    content: ''; position: absolute; background: rgba(242, 238, 225, .8);
+    box-shadow: 0 0 3px rgba(0, 0, 0, .9);
+  }
+  #reticle::before { left: 50%; top: 0; width: 1px; height: 22px; margin-left: -.5px; }
+  #reticle::after { top: 50%; left: 0; height: 1px; width: 22px; margin-top: -.5px; }
+
   /* ---------------- Start / menu overlay ---------------- */
   .overlay {
     position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column;
@@ -114,19 +148,30 @@
     <div id="promptHoldBar"><div id="promptHold"></div></div>
   </div>
 
+  <div id="reticle" class="hidden"></div>
+
+  <div id="ammo" class="hidden">
+    <span id="ammoName"></span>
+    <span id="ammoCount"><b id="ammoMag">0</b><span class="slash">/</span><span id="ammoReserve">0</span></span>
+    <span id="ammoState"></span>
+  </div>
+
   <div id="menu" class="overlay">
     <div class="kicker">SQUATCH LIFE · THE FAMILY COMPOUND</div>
     <div class="title">LOU'S MANSION</div>
     <div class="sub">
       Initiation Night, before anyone arrives. Walk the grounds and the house: the gate, the
       fountain, the open foyer and its horseshoe stair, the conference room at the top of it
-      with Lou&rsquo;s office behind, the bedrooms down both sides &mdash; and the cellar.
+      with Lou&rsquo;s office behind, the bedrooms down both sides &mdash; and the cellar, where the
+      family keeps the armory.
     </div>
     <div class="panel">
       <h3>CONTROLS</h3>
       <div><b>WASD</b> Move &nbsp;·&nbsp; <b>Mouse</b> Look (click to capture)</div>
       <div><b>Shift</b> Sprint &nbsp;·&nbsp; <b>C</b> Crouch &nbsp;·&nbsp; <b>Space</b> Jump</div>
       <div><b>E / Click</b> Look at something notable</div>
+      <div><b>E</b> Take a weapon off the cellar rack &nbsp;·&nbsp; <b>Q</b> Put it back</div>
+      <div><b>Left mouse</b> Fire &nbsp;·&nbsp; <b>R</b> Reload</div>
       <div><b>Tab</b> Pause &nbsp;·&nbsp; <b>Esc</b> Release mouse</div>
     </div>
     <button id="startBtn" class="btn">STEP THROUGH THE GATE</button>

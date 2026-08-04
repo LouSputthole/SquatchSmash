@@ -7,6 +7,7 @@ const TEST_MODULES = [
   './heist-campaign.test.mjs',
   './bank-heist-story.test.mjs',
   './combat-core.test.mjs',
+  './weapons-core.test.mjs',
   './ground-vehicle.test.mjs',
   './heist-bank-threat.test.mjs',
   './heist-safehouse.test.mjs',

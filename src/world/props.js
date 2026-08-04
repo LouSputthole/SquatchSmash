@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { box, boxFrom, cylinder, sphere, plane, mat, group } from './build.js';
 import { drawSquatchSilhouette, brushedMetal } from './textures.js';
+import { buildNineMillimeter, buildRevolver } from '../core/weapons/models.js';
 
 /** Basin interiors reuse the appliance metal, tiled tighter. */
 const T_brushed = brushedMetal('#c2c6ca');
@@ -3176,69 +3177,25 @@ export function makeCandle(M, { x, y, z, h = 0.10, r = 0.021, colour = 0xf0e6d2,
  * are gone. Built pointing along -Z so that dropping it into the camera's hand
  * needs no correction, and so the muzzle position it hands back is simply the
  * far end of the barrel.
+ *
+ * THE MODEL ITSELF NOW LIVES IN `src/core/weapons/models.js`. It was lifted
+ * there, part for part, when the shared weapon system was built: the same gun
+ * is the flat's coffee-table revolver, the Squatchfather prospect's gun, both
+ * heavy-frame guns in The Silver Case (via `BIG_REVOLVER_SCALE`), the one on
+ * the boat in NO WAKE, and a rack of six in Lou's basement armory. One model,
+ * six scenes. This wrapper keeps the `(M, {x,y,z,rotY}) -> {group, hammer,
+ * muzzle}` contract every one of those call sites already uses; `M` was never
+ * read by this builder and still is not.
  */
 export function makeRevolver(M, { x, y, z, rotY = 0 }) {
-  const g = group('revolver');
+  const g = buildRevolver();
   g.position.set(x, y, z);
   g.rotation.y = rotY;
-
-  const steel = mat({ color: 0x3a3f45, roughness: 0.34, metalness: 0.82 });
-  const dark = mat({ color: 0x22262b, roughness: 0.5, metalness: 0.6 });
-  const wood = mat({ color: 0x5a3520, roughness: 0.62 });
-
-  const BARREL = 0.115;
-  // Barrel, with the rib along the top and the bore in the end.
-  const barrel = cylinder({ r: 0.011, h: BARREL, pos: [0, 0.028, -0.085], rotX: Math.PI / 2, mat: steel });
-  g.add(barrel);
-  g.add(box({ size: [0.012, 0.008, BARREL], pos: [0, 0.038, -0.085], mat: steel }));
-  g.add(cylinder({ r: 0.0055, h: 0.012, pos: [0, 0.028, -0.142], rotX: Math.PI / 2, mat: mat({ color: 0x0a0b0c, roughness: 1 }) }));
-  // Front sight.
-  g.add(box({ size: [0.004, 0.010, 0.010], pos: [0, 0.045, -0.136], mat: dark }));
-
-  // Cylinder, fluted, with the chambers showing at the front face.
-  const cyl = cylinder({ r: 0.021, h: 0.040, pos: [0, 0.028, -0.008], rotX: Math.PI / 2, mat: steel });
-  g.add(cyl);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2;
-    g.add(cylinder({
-      r: 0.0042, h: 0.006,
-      pos: [Math.cos(a) * 0.0135, 0.028 + Math.sin(a) * 0.0135, -0.029],
-      rotX: Math.PI / 2, mat: mat({ color: 0x131518, roughness: 0.9 }),
-    }));
-  }
-
-  // Frame, top strap and rear sight.
-  g.add(box({ size: [0.020, 0.030, 0.075], pos: [0, 0.028, 0.020], mat: steel }));
-  g.add(box({ size: [0.016, 0.007, 0.055], pos: [0, 0.045, 0.014], mat: steel }));
-  g.add(box({ size: [0.014, 0.008, 0.006], pos: [0, 0.048, 0.040], mat: dark }));
-
-  // Hammer, back and slightly up, and the trigger inside its guard.
-  const hammer = box({ size: [0.010, 0.020, 0.012], pos: [0, 0.050, 0.050], mat: dark });
-  hammer.rotation.x = -0.30;
-  g.add(hammer);
-  g.add(box({ size: [0.006, 0.016, 0.006], pos: [0, 0.010, 0.028], mat: dark, rotX: 0.2 }));
-  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.017, 0.0035, 6, 14, Math.PI), steel);
-  guard.position.set(0, 0.009, 0.030);
-  guard.rotation.set(Math.PI / 2, 0, Math.PI);
-  guard.rotateX(Math.PI / 2);
-  g.add(guard);
-
-  /* Grip, raked back the way a revolver's is. Two panels with the frame's
-   * backstrap between them, so it is not one lump of wood. */
-  const grip = new THREE.Group();
-  grip.position.set(0, 0.012, 0.055);
-  grip.rotation.x = 0.42;
-  g.add(grip);
-  grip.add(box({ size: [0.026, 0.078, 0.030], pos: [0, -0.030, 0], mat: wood }));
-  grip.add(box({ size: [0.030, 0.070, 0.012], pos: [0, -0.028, -0.012], mat: dark }));
-
-  for (const m of [barrel, cyl]) m.castShadow = true;
-
   return {
     group: g,
-    hammer,
+    hammer: g.userData.moving.hammer,
     /** Where the flash happens and where a shot starts, in local space. */
-    muzzle: new THREE.Vector3(0, 0.028, -0.148),
+    muzzle: g.userData.muzzle.clone(),
   };
 }
 
@@ -3247,73 +3204,21 @@ export function makeRevolver(M, { x, y, z, rotY = 0 }) {
  *
  * Like the revolver it points along -Z, so character hands, first-person
  * view-models and muzzle effects can share one convention.
+ *
+ * Also lifted into `src/core/weapons/models.js` — this is the 27-mesh pistol
+ * Lou and Booski carry in NO WAKE, and it is now the armory's 9mm as well.
+ * One change came with the lift: the grip's floorplate slab is now the
+ * bottom of a real detachable magazine object, so a scene that reloads the
+ * gun has something to drop on the floor. Everything visible is where it was.
  */
 export function makeNineMillimeterPistol(M, { x, y, z, rotY = 0 }) {
-  const g = group('9mm semi-automatic pistol');
+  const g = buildNineMillimeter();
   g.position.set(x, y, z);
   g.rotation.y = rotY;
-
-  const slideSteel = mat({ color: 0x343a40, roughness: 0.30, metalness: 0.86 });
-  const slideDark = mat({ color: 0x171b1f, roughness: 0.40, metalness: 0.70 });
-  const polymer = mat({ color: 0x202326, roughness: 0.76 });
-  const inset = mat({ color: 0x0a0c0e, roughness: 0.95 });
-
-  g.add(box({ size: [0.032, 0.038, 0.164], pos: [0, 0.038, -0.050], mat: slideSteel }));
-  g.add(box({ size: [0.026, 0.008, 0.074], pos: [0, 0.060, -0.018], mat: slideDark }));
-  g.add(box({ size: [0.018, 0.010, 0.029], pos: [0, 0.058, -0.005], mat: inset }));
-  g.add(cylinder({
-    r: 0.0062, h: 0.013, pos: [0, 0.038, -0.137], rotX: Math.PI / 2, mat: inset,
-  }));
-
-  g.add(box({ size: [0.005, 0.010, 0.010], pos: [0, 0.067, -0.122], mat: inset }));
-  for (const sx of [-1, 1]) {
-    g.add(box({ size: [0.006, 0.010, 0.010], pos: [sx * 0.010, 0.067, 0.020], mat: inset }));
-  }
-
-  g.add(box({ size: [0.030, 0.030, 0.122], pos: [0, 0.012, -0.044], mat: polymer }));
-  g.add(box({ size: [0.034, 0.012, 0.064], pos: [0, -0.004, -0.082], mat: polymer }));
-  for (const zRail of [-0.100, -0.082, -0.064]) {
-    g.add(box({ size: [0.037, 0.005, 0.006], pos: [0, -0.012, zRail], mat: inset }));
-  }
-  g.add(cylinder({
-    r: 0.0045, h: 0.038, pos: [0, 0.020, 0.004], rotZ: Math.PI / 2, mat: slideDark,
-  }));
-
-  const grip = new THREE.Group();
-  grip.position.set(0, 0.003, 0.025);
-  grip.rotation.x = 0.20;
-  grip.add(box({ size: [0.033, 0.098, 0.047], pos: [0, -0.046, 0.022], mat: polymer }));
-  for (const sx of [-1, 1]) {
-    grip.add(box({ size: [0.0035, 0.068, 0.034], pos: [sx * 0.018, -0.044, 0.022], mat: inset }));
-  }
-  grip.add(box({ size: [0.039, 0.009, 0.052], pos: [0, -0.099, 0.030], mat: slideDark }));
-  g.add(grip);
-
-  const trigger = box({
-    size: [0.006, 0.022, 0.007], pos: [0, -0.010, 0.000], mat: slideDark, rotX: 0.32,
-  });
-  g.add(trigger);
-  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.0035, 6, 16, Math.PI), polymer);
-  guard.position.set(0, -0.011, -0.001);
-  guard.rotation.set(Math.PI / 2, 0, Math.PI);
-  guard.rotateX(Math.PI / 2);
-  g.add(guard);
-
-  for (const sx of [-1, 1]) {
-    for (let i = 0; i < 4; i++) {
-      g.add(box({
-        size: [0.003, 0.026, 0.004],
-        pos: [sx * 0.017, 0.038, 0.004 + i * 0.009],
-        mat: inset,
-        rotX: -0.18,
-      }));
-    }
-  }
-
   return {
     group: g,
-    trigger,
-    muzzle: new THREE.Vector3(0, 0.038, -0.144),
+    trigger: g.userData.moving.trigger,
+    muzzle: g.userData.muzzle.clone(),
   };
 }
 
