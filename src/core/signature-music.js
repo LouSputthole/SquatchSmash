@@ -65,6 +65,12 @@ export const SIGNATURE_TRACKS = Object.freeze({
     trigger: 'entering Big Uncle Lou’s office',
     loopKey: 'office.radio',
     volume: 0.22,
+    /* Owner-picked window, 2026-08-04: in at 5.0, out at 9.7. It is a sting on
+     * the doorway rather than a record playing behind the door, so it is also
+     * `loop: false` at the call site — a four-second window on repeat would be
+     * a fire alarm. */
+    start: 5,
+    cutAt: 9.7,
   }),
   /** Booskibro's first significant appearance in a scene. */
   babySnakes: cue({

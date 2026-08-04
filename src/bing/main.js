@@ -3231,6 +3231,11 @@ function onRoomChange(next) {
       ref: 0.8,
       maxDist: 9,
       crossfade: 0.4,
+      /* A sting, not a station. The cue is under five seconds and stops at its
+       * own out-point; left looping it would restart every four seconds for as
+       * long as Tony stood in the office. */
+      loop: false,
+      fade: 0.3,
     });
   }
   if (next === 'office' && (mission.state === 'hallway' || mission.state === 'club')) {
