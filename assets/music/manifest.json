@@ -71,9 +71,9 @@
       "file": "baby-snakes.mp3",
       "title": "Baby Snakes",
       "artist": "Frank Zappa",
-      "start": 19,
-      "cutAt": 22.2,
-      "_note": "Booski's entrance, on the shot beat. Owner-picked window: in at 19.0, out at 22.2 -- the 3.2 seconds that are the joke. No station and no venue: this is a cue, not programming."
+      "start": 18.6,
+      "cutAt": 22.6,
+      "_note": "Booski's entrance, on the [E] that takes the shot. Owner-picked window widened 0.4s at each end on the 2026-08-04 playtest: in at 18.6, out at 22.6. Documentation — the runtime reads signature-music.js."
     },
     {
       "file": "sensi-lou.mp3",

@@ -6476,6 +6476,46 @@
       "prompt": "A wine glass going over on a laid table, rolling off, and breaking on a hard floor."
     },
     {
+      "name": "bing.grill.cord.whip",
+      "duration": 1.2,
+      "prompt": "a leather whip cracking across a clothed human torso in a small tiled store room, sharp leather crack over a dense dull body impact, short hard room slap, no voice, no gore"
+    },
+    {
+      "name": "bing.grill.cord.swing",
+      "duration": 0.9,
+      "prompt": "a heavy braided leather whip swung hard through the air in a small concrete room, low rushing whoosh building to a tight snap of air, close, dry, no voice"
+    },
+    {
+      "name": "bing.grill.cord.floor",
+      "duration": 1.1,
+      "prompt": "a heavy leather cord missing and cracking across a bare concrete floor beside a wooden chair, hard flat slap with a little grit and a short room ring, close, dry, no voice"
+    },
+    {
+      "name": "bing.grill.cord.handoff",
+      "duration": 1.4,
+      "prompt": "a coiled length of heavy braided electrical flex lifted off a steel kitchen shelf and handed over, dense leathery coil creak with a small metallic ferrule tap, close, dry, no voice"
+    },
+    {
+      "name": "bing.grill.smash.glass",
+      "duration": 1.6,
+      "prompt": "a luxury wristwatch smashed face-down on a steel kitchen table, crystal shattering into small bright shards with a metallic case ring after it, close, dry, no voice"
+    },
+    {
+      "name": "bing.grill.smash.metal",
+      "duration": 1.5,
+      "prompt": "a small steel pistol slammed hard onto a concrete floor, heavy metallic clatter with the frame ringing and one part skidding away, close, dry, no voice"
+    },
+    {
+      "name": "bing.grill.smash.fabric",
+      "duration": 1.8,
+      "prompt": "a fine wool dinner jacket torn open at the shoulder seam with both hands, long dry stitching rip followed by heavy fabric falling, close, no voice"
+    },
+    {
+      "name": "bing.grill.table.pickup",
+      "duration": 0.8,
+      "prompt": "a small personal object lifted off a steel prep table, one light metallic scrape and a soft settle of the table top, close, dry, no voice"
+    },
+    {
       "name": "hotdog.knife.draw",
       "duration": 0.45,
       "_comment": "Bada Bing, HotDog Incident: Ape unfolds the visual-only fur-brush knife before the beating.",
@@ -10460,1672 +10500,6 @@
       "say": "I will be there."
     },
     {
-      "name": "vo.bing.ambient.01",
-      "voice": "doorman",
-      "say": "You hear something happened with the butcher union?"
-    },
-    {
-      "name": "vo.bing.ambient.02",
-      "voice": "doorman",
-      "say": "I don’t talk business near the coat check."
-    },
-    {
-      "name": "vo.bing.ambient.03",
-      "voice": "doorman",
-      "say": "Four hundred on a duck. A duck. In this economy."
-    },
-    {
-      "name": "vo.bing.ambient.04",
-      "voice": "doorman",
-      "say": "He says it’s a franchise. It’s a van."
-    },
-    {
-      "name": "vo.bing.ambient.05",
-      "voice": "performer",
-      "say": "You want a drink or you want the seat? Both is fine. Neither isn’t."
-    },
-    {
-      "name": "vo.bing.ambient.06",
-      "voice": "doorman",
-      "say": "They stopped doing the Sunday thing. Nobody said why."
-    },
-    {
-      "name": "vo.bing.ambient.07",
-      "voice": "npc-male",
-      "say": "One more hand and I’m going home. I mean it this time."
-    },
-    {
-      "name": "vo.bing.ambient.08",
-      "voice": "doorman",
-      "say": "That’s the prospect. Don’t look at him, you’ll set him off."
-    },
-    {
-      "name": "vo.bing.ambient.09",
-      "voice": "doorman",
-      "say": "Wednesday. Seven. Everybody keeps saying it like I’ve got a diary."
-    },
-    {
-      "name": "vo.bing.bartender.capacity",
-      "voice": "bartender",
-      "say": "Finish one of those first. I am not a shelf."
-    },
-    {
-      "name": "vo.bing.full.ape.aside.line.rqb5su",
-      "voice": "ape",
-      "say": "If it comes off, something behind it has to hold the weight instead. Nobody wants that. I do not want that."
-    },
-    {
-      "name": "vo.bing.full.ape.asideMore.line.9a3t0p",
-      "voice": "ape",
-      "say": "So I keep it on, I have a nice time, and everybody goes home. It is a system and it works."
-    },
-    {
-      "name": "vo.bing.full.ape.open.tony.1inst32",
-      "voice": "player",
-      "say": "Noted for the record."
-    },
-    {
-      "name": "vo.bing.full.ape.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.ape.open.tony.qqlmup",
-      "voice": "player",
-      "say": "Load-bearing how?"
-    },
-    {
-      "name": "vo.bing.full.associate.no.line.xr8cgp",
-      "voice": "doorman",
-      "say": "No. That’s not what that was. Come on."
-    },
-    {
-      "name": "vo.bing.full.associate.open.line.1ub3l1a",
-      "voice": "doorman",
-      "say": "Congratulations. You’ve discovered cards. Lou wants you."
-    },
-    {
-      "name": "vo.bing.full.associate.open.tony.124286t",
-      "voice": "player",
-      "say": "One more hand."
-    },
-    {
-      "name": "vo.bing.full.associate.open.tony.16pgg7u",
-      "voice": "player",
-      "say": "I’m going."
-    },
-    {
-      "name": "vo.bing.full.bartender.joke.line.1uqigwu",
-      "voice": "bartender",
-      "say": "Architecture. Take it up with the architect. He’s dead."
-    },
-    {
-      "name": "vo.bing.full.bartender.lou-drink.line.17f403x",
-      "voice": "bartender",
-      "say": "Coffee. Black, and he complains about it. Enjoy."
-    },
-    {
-      "name": "vo.bing.full.bartender.open.line.1w2a01j",
-      "voice": "bartender",
-      "say": "Lou’s in the back. He said don’t make him wait."
-    },
-    {
-      "name": "vo.bing.full.bartender.open.line.k4a1l5",
-      "voice": "bartender",
-      "say": "You’re done already? He must like you."
-    },
-    {
-      "name": "vo.bing.full.bartender.open.tony.1573ecz",
-      "voice": "player",
-      "say": "One for the road."
-    },
-    {
-      "name": "vo.bing.full.bartender.open.tony.1h534md",
-      "voice": "player",
-      "say": "Later."
-    },
-    {
-      "name": "vo.bing.full.bartender.open.tony.1mgwzff",
-      "voice": "player",
-      "say": "What have you got?"
-    },
-    {
-      "name": "vo.bing.full.bartender.open.tony.e38pik",
-      "voice": "player",
-      "say": "Put it on Booski’s tab."
-    },
-    {
-      "name": "vo.bing.full.bartender.open.tony.g8wg42",
-      "voice": "player",
-      "say": "Anything I should know before I go back there?"
-    },
-    {
-      "name": "vo.bing.full.bartender.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.bartender.open.tony.poqixp",
-      "voice": "player",
-      "say": "Then why’d you put a bar between me and his office?"
-    },
-    {
-      "name": "vo.bing.full.bartender.order.tony.1un6u0s",
-      "voice": "player",
-      "say": "Whatever Lou drinks."
-    },
-    {
-      "name": "vo.bing.full.bartender.order.tony.ip1fej",
-      "voice": "player",
-      "say": "Beer."
-    },
-    {
-      "name": "vo.bing.full.bartender.order.tony.ti7t3r",
-      "voice": "player",
-      "say": "Whiskey. Neat."
-    },
-    {
-      "name": "vo.bing.full.bartender.order.tony.xa0av4",
-      "voice": "player",
-      "say": "Club soda. I’m working."
-    },
-    {
-      "name": "vo.bing.full.bartender.poured.line.1t39iem",
-      "voice": "bartender",
-      "say": "This is the last one before he sees you. I mean that as a favour."
-    },
-    {
-      "name": "vo.bing.full.bartender.poured.line.1tvet",
-      "voice": "bartender",
-      "say": "On the house. Everything in here is on the house until Lou says otherwise."
-    },
-    {
-      "name": "vo.bing.full.bartender.soda.line.kmxlpd",
-      "voice": "bartender",
-      "say": "Club soda. There you go. Big night."
-    },
-    {
-      "name": "vo.bing.full.bartender.tip.line.19crrv7",
-      "voice": "bartender",
-      "say": "Somebody’s been sat in the lot twenty minutes. Engine off. Two of them. Not drinking, not leaving, not my business."
-    },
-    {
-      "name": "vo.bing.full.booski.open.tony.1h2bls2",
-      "voice": "player",
-      "say": "Later — errands."
-    },
-    {
-      "name": "vo.bing.full.booski.open.tony.h4rucb",
-      "voice": "player",
-      "say": "The house always pays you, Boosk."
-    },
-    {
-      "name": "vo.bing.full.booski.open.tony.obkpk3",
-      "voice": "player",
-      "say": "Good to see you too, Boosk."
-    },
-    {
-      "name": "vo.bing.full.bouncer.annoyed.line.3lxppj",
-      "voice": "doorman",
-      "say": "You drove through Jersey. In Jersey. To Jersey. Go in before I have to think about it."
-    },
-    {
-      "name": "vo.bing.full.bouncer.direct.line.14rmtxu",
-      "voice": "doorman",
-      "say": "Everybody’s expected. Nobody’s expected. Go on."
-    },
-    {
-      "name": "vo.bing.full.bouncer.friendly.line.wgujnz",
-      "voice": "doorman",
-      "say": "That’s the coat. It’s a big coat."
-    },
-    {
-      "name": "vo.bing.full.bouncer.leaving.line.95cupw",
-      "voice": "doorman",
-      "say": "Drive safe. And I mean the speed limit, not the other thing."
-    },
-    {
-      "name": "vo.bing.full.bouncer.open.line.g60di9",
-      "voice": "doorman",
-      "say": "Lou know you’re coming?"
-    },
-    {
-      "name": "vo.bing.full.bouncer.open.tony.1asmym5",
-      "voice": "player",
-      "say": "He’s expecting me."
-    },
-    {
-      "name": "vo.bing.full.bouncer.open.tony.1hks4kv",
-      "voice": "player",
-      "say": "He better be. I drove through Jersey."
-    },
-    {
-      "name": "vo.bing.full.bouncer.open.tony.6s88zr",
-      "voice": "player",
-      "say": "You’re looking healthy. Wider, but healthy."
-    },
-    {
-      "name": "vo.bing.full.bouncer.returning2.line.4u1gt6",
-      "voice": "doorman",
-      "say": "Back so soon. That’s either very good or very bad."
-    },
-    {
-      "name": "vo.bing.full.bouncer.silent.line.hg4nmz",
-      "voice": "doorman",
-      "say": "You’re no fun since they made you a prospect."
-    },
-    {
-      "name": "vo.bing.full.bouncer.through.line.1rtn1fd",
-      "voice": "doorman",
-      "say": "He’s in the back. Don’t make me come find you."
-    },
-    {
-      "name": "vo.bing.full.captain_lou_sasole.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.captain_lou_sasole.open.tony.qncolo",
-      "voice": "player",
-      "say": "They’re alright."
-    },
-    {
-      "name": "vo.bing.full.dealer.open.line.10erdw",
-      "voice": "dealer",
-      "say": "Seat’s open. Twenty-five minimum."
-    },
-    {
-      "name": "vo.bing.full.dealer.open.tony.14moh1q",
-      "voice": "player",
-      "say": "This table straight?"
-    },
-    {
-      "name": "vo.bing.full.dealer.open.tony.1wp27rz",
-      "voice": "player",
-      "say": "Not tonight."
-    },
-    {
-      "name": "vo.bing.full.dealer.open.tony.zcu8js",
-      "voice": "player",
-      "say": "Deal me in."
-    },
-    {
-      "name": "vo.bing.full.dealer.straight.line.115m339",
-      "voice": "dealer",
-      "say": "The cards are."
-    },
-    {
-      "name": "vo.bing.full.deathmegatron.aside.line.16wdk95",
-      "voice": "deathmegatron",
-      "say": "Picked it at fourteen. Typed it in, hit enter, and that was that. You do not get to choose twice."
-    },
-    {
-      "name": "vo.bing.full.deathmegatron.asideMore.line.nmglp6",
-      "voice": "deathmegatron",
-      "say": "Grown men say it to my face in a bank now. Nobody laughs. That is the part I did not plan."
-    },
-    {
-      "name": "vo.bing.full.deathmegatron.open.tony.11xy8re",
-      "voice": "player",
-      "say": "Where does the name come from?"
-    },
-    {
-      "name": "vo.bing.full.deathmegatron.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.deathmegatron.open.tony.n2gou",
-      "voice": "player",
-      "say": "Big night, then."
-    },
-    {
-      "name": "vo.bing.full.dj.horns.line.15zbk3f",
-      "voice": "announcer",
-      "say": "Horns. Everybody wants horns. Nobody wants the four minutes before the horns."
-    },
-    {
-      "name": "vo.bing.full.dj.open.line.flx672",
-      "voice": "announcer",
-      "say": "You want a request? Because the answer’s no. Lou picks the records."
-    },
-    {
-      "name": "vo.bing.full.dj.open.line.yranbx",
-      "voice": "announcer",
-      "say": "Back again. Alright — one request, and if Lou asks, you threatened me."
-    },
-    {
-      "name": "vo.bing.full.dj.open.tony.1nr2ebp",
-      "voice": "player",
-      "say": "Something with horns. Loud."
-    },
-    {
-      "name": "vo.bing.full.dj.open.tony.1va8fo7",
-      "voice": "player",
-      "say": "Anything by the Squatch?"
-    },
-    {
-      "name": "vo.bing.full.dj.open.tony.eyf3o",
-      "voice": "player",
-      "say": "Anything by the Squatch."
-    },
-    {
-      "name": "vo.bing.full.dj.open.tony.h033a9",
-      "voice": "player",
-      "say": "Fair enough."
-    },
-    {
-      "name": "vo.bing.full.dj.squatch.line.1m9s40e",
-      "voice": "announcer",
-      "say": "That’s the one thing I would play. It’s in the crate. Lou says it’s \"a lot\"."
-    },
-    {
-      "name": "vo.bing.full.eric.open.tony.1jw6ixv",
-      "voice": "player",
-      "say": "What should I eat nearby?"
-    },
-    {
-      "name": "vo.bing.full.eric.open.tony.1upksdx",
-      "voice": "player",
-      "say": "Alright. What’s happening overseas?"
-    },
-    {
-      "name": "vo.bing.full.eric.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.gratin.aside.line.1hz1fmf",
-      "voice": "gratin",
-      "say": "One fella. Been here longer than the carpet. He does not speak to me and I respect that enormously."
-    },
-    {
-      "name": "vo.bing.full.gratin.asideMore.line.1b7uagz",
-      "voice": "gratin",
-      "say": "I sent a compliment back once. He sent the shrimp back out. Same shrimp. Still wrong. That is a man with a position."
-    },
-    {
-      "name": "vo.bing.full.gratin.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.gratin.open.tony.ueqzhj",
-      "voice": "player",
-      "say": "Who actually cooks back there?"
-    },
-    {
-      "name": "vo.bing.full.gratin.open.tony.xqe6sq",
-      "voice": "player",
-      "say": "That’s not loyalty, that’s a condition."
-    },
-    {
-      "name": "vo.bing.full.hallGuard.no.line.zp6uhs",
-      "voice": "doorman",
-      "say": "No. Go in. He’s been staring at the same page five minutes."
-    },
-    {
-      "name": "vo.bing.full.hallGuard.open.line.eewi55",
-      "voice": "doorman",
-      "say": "He’s in a mood."
-    },
-    {
-      "name": "vo.bing.full.hallGuard.open.line.xnqyll",
-      "voice": "doorman",
-      "say": "That sit comfortable?"
-    },
-    {
-      "name": "vo.bing.full.hallGuard.open.tony.1gct3gj",
-      "voice": "player",
-      "say": "Then I won’t keep him."
-    },
-    {
-      "name": "vo.bing.full.hallGuard.open.tony.1qhb99",
-      "voice": "player",
-      "say": "It’s tailoring."
-    },
-    {
-      "name": "vo.bing.full.hallGuard.open.tony.6lnk7x",
-      "voice": "player",
-      "say": "That narrow it down?"
-    },
-    {
-      "name": "vo.bing.full.hallGuard.tailoring.line.1y5k1wo",
-      "voice": "doorman",
-      "say": "Sure it is. Keep your jacket shut in the lot."
-    },
-    {
-      "name": "vo.bing.full.hogmama.aside.line.b0yc0w",
-      "voice": "hogmama",
-      "say": "Ninety-seven eight, baby. Every night they let me. Half the callers are in this room pretending they are not."
-    },
-    {
-      "name": "vo.bing.full.hogmama.asideMore.line.snlo98",
-      "voice": "hogmama",
-      "say": "Somebody phones in a dedication for his own wife and puts on a voice. I take it. I always take it."
-    },
-    {
-      "name": "vo.bing.full.hogmama.open.tony.1at8yi0",
-      "voice": "player",
-      "say": "You do the radio too, right?"
-    },
-    {
-      "name": "vo.bing.full.hogmama.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.hogmama.open.tony.qr02zn",
-      "voice": "player",
-      "say": "Uh. “Errand.”"
-    },
-    {
-      "name": "vo.bing.full.irish.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.irish.open.tony.msqwvq",
-      "voice": "player",
-      "say": "Go on."
-    },
-    {
-      "name": "vo.bing.full.james_blond.afterSwing.line.b8zbj7",
-      "voice": "blond",
-      "say": "I’ve had rougher service in Monte Carlo."
-    },
-    {
-      "name": "vo.bing.full.james_blond.afterTheName.line.51k0p1",
-      "voice": "gratin",
-      "say": "Anything else you want to ask him while he’s being helpful?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.afterTheName.tony.j8avic",
-      "voice": "player",
-      "say": "Nothing. We’re finished here."
-    },
-    {
-      "name": "vo.bing.full.james_blond.afterTheName.tony.lqrg6p",
-      "voice": "player",
-      "say": "Why didn’t you tell us before?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.breaks.line.1ny5y3j",
-      "voice": "blond",
-      "say": "All right! The informant meets my handler every Thursday behind the laundromat."
-    },
-    {
-      "name": "vo.bing.full.james_blond.brief.line.1trqp5z",
-      "voice": "gratin",
-      "say": "He keeps laughing every time I hit him. I can’t tell if he’s tough or just British."
-    },
-    {
-      "name": "vo.bing.full.james_blond.car.line.69f8av",
-      "voice": "player",
-      "say": "What kind of car?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.carAlarm.line.13sonpd",
-      "voice": "blond",
-      "say": "You stay away from that automobile."
-    },
-    {
-      "name": "vo.bing.full.james_blond.carAnswer.line.w5u623",
-      "voice": "blond",
-      "say": "A 1964 Harrington V12."
-    },
-    {
-      "name": "vo.bing.full.james_blond.carForklift.line.1twcgw1",
-      "voice": "gratin",
-      "say": "Prospect, go get the forklift."
-    },
-    {
-      "name": "vo.bing.full.james_blond.carForklift.tony.1idy71j",
-      "voice": "player",
-      "say": "Turn towards the door."
-    },
-    {
-      "name": "vo.bing.full.james_blond.carGratin.line.hlj7s4",
-      "voice": "gratin",
-      "say": "Is that the little silver one out back?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.line.deno9b",
-      "voice": "gratin",
-      "say": "Help yourself. It’s a kitchen."
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.tony.12ogipb",
-      "voice": "player",
-      "say": "The tongs."
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.tony.17ou3f3",
-      "voice": "player",
-      "say": "The ice bucket."
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.tony.1cue1tm",
-      "voice": "player",
-      "say": "The meat tenderiser."
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.tony.3p3dbx",
-      "voice": "player",
-      "say": "The bottle with no label."
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.tony.ezw8ui",
-      "voice": "player",
-      "say": "Not the chair."
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.tony.ndp431",
-      "voice": "player",
-      "say": "The chair again."
-    },
-    {
-      "name": "vo.bing.full.james_blond.cart.tony.of4ibu",
-      "voice": "player",
-      "say": "Leave the cart alone."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterAtYou.line.1gax5j7",
-      "voice": "blond",
-      "say": "And you. The new recruit. Do you truly believe these animals consider you family?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterAtYou.tony.10iu49w",
-      "voice": "player",
-      "say": "More than your people considered you."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterAtYou.tony.1urb46s",
-      "voice": "player",
-      "say": "I’m mostly here for the health insurance."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterAtYou.tony.o95x3g",
-      "voice": "player",
-      "say": "Keep talking."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterGratin.line.aegi1v",
-      "voice": "gratin",
-      "say": "Lou still has my bowling shoes. We’re tied together financially."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterJoke.line.r8ym0o",
-      "voice": "numbskull",
-      "say": "We do not have that. Gratin, do we have that?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterKeep.line.c3v5wx",
-      "voice": "blond",
-      "say": "I’d rather not, now you’ve said it like that."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterLanded.line.1jesc5n",
-      "voice": "gratin",
-      "say": "Oh, that landed. Look at his face. That LANDED."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterMaybe.line.szn5vr",
-      "voice": "blond",
-      "say": "You know, your employer will dispose of you the moment you become inconvenient."
-    },
-    {
-      "name": "vo.bing.full.james_blond.counterSilence.line.dzdccn",
-      "voice": "gratin",
-      "say": "Nothing. He gave him nothing. Prospect, that’s the first professional thing anybody’s done in this room tonight."
-    },
-    {
-      "name": "vo.bing.full.james_blond.endings.line.zqtjnp",
-      "voice": "gratin",
-      "say": "So. What do we do with him."
-    },
-    {
-      "name": "vo.bing.full.james_blond.endings.tony.1ua0yfe",
-      "voice": "player",
-      "say": "Leave him tied. Lou can decide."
-    },
-    {
-      "name": "vo.bing.full.james_blond.endings.tony.2tsfvx",
-      "voice": "player",
-      "say": "Untie one hand."
-    },
-    {
-      "name": "vo.bing.full.james_blond.endings.tony.astkvk",
-      "voice": "player",
-      "say": "Finish the job."
-    },
-    {
-      "name": "vo.bing.full.james_blond.endLeft.line.d2bhcc",
-      "voice": "gratin",
-      "say": "Good. He’s Lou’s problem now, and Lou likes problems that can’t stand up."
-    },
-    {
-      "name": "vo.bing.full.james_blond.endShot.line.tgrvlq",
-      "voice": "gratin",
-      "say": "Right. Numbskull, the drain’s right there. And somebody find out whose car that is now."
-    },
-    {
-      "name": "vo.bing.full.james_blond.endUntied.line.jzsw4g",
-      "voice": "gratin",
-      "say": "One hand. ONE. And you’re explaining the plate to Lou, not me."
-    },
-    {
-      "name": "vo.bing.full.james_blond.firstQuestion.line.vsd0cn",
-      "voice": "player",
-      "say": "Who hired you?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.line.14lf3a1",
-      "voice": "gratin",
-      "say": "Well? He’s not going to volunteer."
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.line.arj3ng",
-      "voice": "gratin",
-      "say": "He’s got a whole life in that jacket. Keep pulling."
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.1clbh8f",
-      "voice": "player",
-      "say": "Who inside the family are you talking to?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.1ixqlgr",
-      "voice": "player",
-      "say": "Go through his things."
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.1okd54y",
-      "voice": "player",
-      "say": "Step back and let Gratin have another go."
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.1rdb28s",
-      "voice": "player",
-      "say": "Who sent you into our city?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.1x9y9bu",
-      "voice": "player",
-      "say": "Where did the silver case go?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.69f8av",
-      "voice": "player",
-      "say": "What kind of car?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.h1m51k",
-      "voice": "player",
-      "say": "How do you keep your hair like that?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.floor.tony.jotwam",
-      "voice": "player",
-      "say": "Use something off the cart."
-    },
-    {
-      "name": "vo.bing.full.james_blond.gratinAdmits.line.kdt4b8",
-      "voice": "gratin",
-      "say": "It’s a good technique."
-    },
-    {
-      "name": "vo.bing.full.james_blond.gratinLooksRound.line.pahehk",
-      "voice": "gratin",
-      "say": "That was your first mistake."
-    },
-    {
-      "name": "vo.bing.full.james_blond.gratinTechnique.line.1gf55s1",
-      "voice": "blond",
-      "say": "That is the same technique."
-    },
-    {
-      "name": "vo.bing.full.james_blond.gratinTurn.line.1agsef5",
-      "voice": "gratin",
-      "say": "Fine. Watch. This is a technique."
-    },
-    {
-      "name": "vo.bing.full.james_blond.gratinVindicated.line.p3a1d8",
-      "voice": "gratin",
-      "say": "See? That’s the crap he’s been doing all night."
-    },
-    {
-      "name": "vo.bing.full.james_blond.hairAgain.line.1fpfdmy",
-      "voice": "gratin",
-      "say": "Hit him again."
-    },
-    {
-      "name": "vo.bing.full.james_blond.handOverCord.line.4hherc",
-      "voice": "gratin",
-      "say": "Aim low. Apparently that’s where England keeps its secrets."
-    },
-    {
-      "name": "vo.bing.full.james_blond.handOverCord.tony.17vccwv",
-      "voice": "player",
-      "say": "Take the cord."
-    },
-    {
-      "name": "vo.bing.full.james_blond.iceGratin.line.ocnwj3",
-      "voice": "gratin",
-      "say": "Outstanding work, Prospect. We’ve confirmed his temperature."
-    },
-    {
-      "name": "vo.bing.full.james_blond.jacketGratin.line.1lywjjv",
-      "voice": "gratin",
-      "say": "Prospect. Prospect, look at him. He didn’t blink for the tongs."
-    },
-    {
-      "name": "vo.bing.full.james_blond.nameDemanded.line.amwd14",
-      "voice": "gratin",
-      "say": "Name."
-    },
-    {
-      "name": "vo.bing.full.james_blond.numbskullWeighsIn.line.hqn8ez",
-      "voice": "numbskull",
-      "say": "I offered to hold him. Gratin says that’s not the part that isn’t working."
-    },
-    {
-      "name": "vo.bing.full.james_blond.open.line.rndh1f",
-      "voice": "blond",
-      "say": "Blond. James Blond. International intelligence, specialised operations, occasional baccarat."
-    },
-    {
-      "name": "vo.bing.full.james_blond.persuasive.line.vs21k",
-      "voice": "blond",
-      "say": "You’ll need to be considerably more persuasive."
-    },
-    {
-      "name": "vo.bing.full.james_blond.propCamera.line.1jwl4zv",
-      "voice": "blond",
-      "say": "There is nothing on it. There is famously nothing on it. Please put it down."
-    },
-    {
-      "name": "vo.bing.full.james_blond.propJacket.line.1aaslx6",
-      "voice": "blond",
-      "say": "That is not off a rack. A man in Naples is going to hear about this and he is going to be hurt."
-    },
-    {
-      "name": "vo.bing.full.james_blond.propKeys.line.g9ptbe",
-      "voice": "gratin",
-      "say": "Car keys. Nice ones. Heavier than my car."
-    },
-    {
-      "name": "vo.bing.full.james_blond.propPistol.line.15t3auz",
-      "voice": "blond",
-      "say": "That is a fitted grip. You will not find another. I would rather you shot me with it than dropped it."
-    },
-    {
-      "name": "vo.bing.full.james_blond.propWatch.line.w6o8hq",
-      "voice": "blond",
-      "say": "Careful. That is not a watch, that is a receipt for eleven years of my life."
-    },
-    {
-      "name": "vo.bing.full.james_blond.qCase.line.pcyjzg",
-      "voice": "blond",
-      "say": "The silver case went where silver cases go. I’d check the last man who told you it was silver."
-    },
-    {
-      "name": "vo.bing.full.james_blond.qHair.line.1hk6jwj",
-      "voice": "blond",
-      "say": "Sea salt, discipline, and excellent genetics."
-    },
-    {
-      "name": "vo.bing.full.james_blond.qInformant.line.je5kob",
-      "voice": "blond",
-      "say": "Inside? Goodness. You’ve assumed the answer is a person and not, say, a filing habit."
-    },
-    {
-      "name": "vo.bing.full.james_blond.qOrg.line.914mel",
-      "voice": "blond",
-      "say": "Nobody sends me anywhere. I am invited. Occasionally I am invited very quietly indeed."
-    },
-    {
-      "name": "vo.bing.full.james_blond.resume.line.xv8pi2",
-      "voice": "gratin",
-      "say": "I didn’t ask for your résumé."
-    },
-    {
-      "name": "vo.bing.full.james_blond.sauceBlond.line.10e3tm0",
-      "voice": "blond",
-      "say": "Now — let us all be terribly calm about this. What was the question?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesAccepted.line.1xe56ci",
-      "voice": "blond",
-      "say": "Thank you."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesAftermath.line.mkwsr4",
-      "voice": "blond",
-      "say": "Remarkably good."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesBacksOut.line.18dho87",
-      "voice": "shubenator",
-      "say": "Okay. Well, let me know if you guys need anything."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesDenial.line.cdtg5n",
-      "voice": "gratin",
-      "say": "There is no British guy tied to the chair."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesFrozen.line.1q4bx1r",
-      "voice": "gratin",
-      "say": "They’re frozen."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesGetOut.line.1we2h77",
-      "voice": "gratin",
-      "say": "Get out."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesGoodEvening.line.17v4q3y",
-      "voice": "blond",
-      "say": "Good evening."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesHey.line.1y290h5",
-      "voice": "shubenator",
-      "say": "Hey."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesIsThis.line.1v7i9qx",
-      "voice": "shubenator",
-      "say": "Oh. Is this the guy?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesOffers.line.btoqo9",
-      "voice": "shubenator",
-      "say": "Mozzarella stick?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesPrivate.line.5i2jnd",
-      "voice": "gratin",
-      "say": "Private meeting."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesReturns.line.1c39j1y",
-      "voice": "shubenator",
-      "say": "Do you want me to lock this?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesTheBritishGuy.line.1cc81p1",
-      "voice": "shubenator",
-      "say": "The British guy tied to the chair."
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesWhatGuy.line.3qj8s5",
-      "voice": "gratin",
-      "say": "What guy?"
-    },
-    {
-      "name": "vo.bing.full.james_blond.shubesYes.line.1l7u0l6",
-      "voice": "gratin",
-      "say": "YES."
-    },
-    {
-      "name": "vo.bing.full.james_blond.tenderizerGratin.line.fuqrfz",
-      "voice": "gratin",
-      "say": "This is Tennessee. We got our own conventions."
-    },
-    {
-      "name": "vo.bing.full.james_blond.theName.line.1bukl7f",
-      "voice": "blond",
-      "say": "Vincent Mallard."
-    },
-    {
-      "name": "vo.bing.full.james_blond.things.line.l289zt",
-      "voice": "numbskull",
-      "say": "Everything off him’s in the box. I counted it twice so nobody says anything later."
-    },
-    {
-      "name": "vo.bing.full.james_blond.things.tony.1mh8ia9",
-      "voice": "player",
-      "say": "The keys to something parked out back."
-    },
-    {
-      "name": "vo.bing.full.james_blond.things.tony.1vjp2ui",
-      "voice": "player",
-      "say": "Put the box down."
-    },
-    {
-      "name": "vo.bing.full.james_blond.things.tony.7l5f7y",
-      "voice": "player",
-      "say": "A custom pistol"
-    },
-    {
-      "name": "vo.bing.full.james_blond.things.tony.9xyyhp",
-      "voice": "player",
-      "say": "A pristine tuxedo jacket"
-    },
-    {
-      "name": "vo.bing.full.james_blond.things.tony.cfy8bp",
-      "voice": "player",
-      "say": "A miniature spy camera"
-    },
-    {
-      "name": "vo.bing.full.james_blond.things.tony.z6r3dl",
-      "voice": "player",
-      "say": "A luxury wristwatch"
-    },
-    {
-      "name": "vo.bing.full.james_blond.tongsGratin.line.1oqnpv0",
-      "voice": "gratin",
-      "say": "Buddy, you wore a tuxedo to spy on Sasquatches."
-    },
-    {
-      "name": "vo.bing.full.james_blond.useChair.line.3aw6k8",
-      "voice": "blond",
-      "say": "Do let me know when you begin."
-    },
-    {
-      "name": "vo.bing.full.james_blond.useIce.line.14yi6xf",
-      "voice": "blond",
-      "say": "Cold."
-    },
-    {
-      "name": "vo.bing.full.james_blond.useSauce.line.15qv56b",
-      "voice": "gratin",
-      "say": "This is either hot sauce or fryer cleaner. Label fell off."
-    },
-    {
-      "name": "vo.bing.full.james_blond.useStrike.line.wfw3i6",
-      "voice": "blond",
-      "say": "Mm. Yes. That is certainly a thing that happened to me."
-    },
-    {
-      "name": "vo.bing.full.james_blond.useTenderizer.line.xyqv5m",
-      "voice": "blond",
-      "say": "Surely that violates some international convention."
-    },
-    {
-      "name": "vo.bing.full.james_blond.useTongs.line.10rknz1",
-      "voice": "blond",
-      "say": "Let’s not be theatrical."
-    },
-    {
-      "name": "vo.bing.full.james_blond.whyNot.line.1u5z4gg",
-      "voice": "blond",
-      "say": "Because I assumed you were professionals."
-    },
-    {
-      "name": "vo.bing.full.james_blond.writtenDown.line.kellhl",
-      "voice": "gratin",
-      "say": "Numbskull, is there a pen. There’s a pen. I’m using the menu."
-    },
-    {
-      "name": "vo.bing.full.lag.aside.line.a2h47j",
-      "voice": "lag",
-      "say": "You would not have heard of it. Server browser, no matchmaking, and a map nobody could pronounce."
-    },
-    {
-      "name": "vo.bing.full.lag.asideMore.line.1q7b7jg",
-      "voice": "lag",
-      "say": "I held rank one on that map for eleven weeks. Then they patched the ladder and gave everybody a fresh start. Everybody. Like it was nothing."
-    },
-    {
-      "name": "vo.bing.full.lag.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.lag.open.tony.s2jldk",
-      "voice": "player",
-      "say": "What game did you peak in?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillCallback.open.line.ht1dty",
-      "voice": "blond",
-      "say": "I’ve been meaning to discuss your interrogation technique."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillCallback.open.tony.kiea6x",
-      "voice": "player",
-      "say": "Still driving the silver car?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillDoor.knocking.line.1mvtv1e",
-      "voice": "gratin",
-      "say": "Prospect! Get back here. I need a second set of hands."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.handOff.line.1sqprmo",
-      "voice": "gratin",
-      "say": "Good. And Prospect — watch his face, not his mouth. His mouth is a professional."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.need.line.qyc88g",
-      "voice": "gratin",
-      "say": "A second set of hands and a second face. He has had mine all night and he has started finishing my sentences."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.needTools.line.egjqtf",
-      "voice": "gratin",
-      "say": "Cart is on your left, it is a kitchen, help yourself. Everything he had in his pockets is in the box Numbskull is holding. Use one, use the other, use both. Just get me a name."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.noticed.line.i1acfa",
-      "voice": "gratin",
-      "say": "I saw it. Hit him and he writes a review. Touch one thing that belongs to him and he forgets to be charming."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.noticedMore.line.f1yc4",
-      "voice": "gratin",
-      "say": "So stop hitting him and start going through him."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.line.1g00ent",
-      "voice": "gratin",
-      "say": "What are you standing there for? He is four feet away and he is having a lovely time."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.line.5c7gw9",
-      "voice": "gratin",
-      "say": "We got a name out of him. Whatever you do next, do it away from my shoes."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.line.p86qay",
-      "voice": "gratin",
-      "say": "You are getting somewhere. Whatever you just picked up, pick up more of it."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.tony.14lv4tr",
-      "voice": "player",
-      "say": "What do you actually need from me?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.tony.1a5x6e0",
-      "voice": "player",
-      "say": "He went quiet when I touched his things."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.tony.1ko44d5",
-      "voice": "player",
-      "say": "What have you already tried?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.tony.1stlk9q",
-      "voice": "player",
-      "say": "Let me have a go at him."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.tony.3vo7xx",
-      "voice": "player",
-      "say": "Who is he?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.tony.jiw36c",
-      "voice": "player",
-      "say": "Nothing. Forget it."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.open.tony.sa4lho",
-      "voice": "player",
-      "say": "Why can’t you do this yourself?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.tried.line.z195g4",
-      "voice": "gratin",
-      "say": "Hitting him. Hitting him harder. Waiting a while. Hitting him during the waiting."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.triedFace.line.qsh2fb",
-      "voice": "gratin",
-      "say": "Every single time he looks at me like I have brought him the wrong wine."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.who.line.18q48un",
-      "voice": "gratin",
-      "say": "Foreign. Intelligence, the proper kind. Walked across our lot with a camera the size of a lighter and did not run when I said his name out loud."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.whoWorry.line.d2cntt",
-      "voice": "gratin",
-      "say": "That last part is the part I do not like."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillGratin.why.line.uecgyj",
-      "voice": "gratin",
-      "say": "Because I have been in this room since seven o’clock and I am starting to like him."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.holding.line.1y65zsf",
-      "voice": "numbskull",
-      "say": "I am good. I said early on I would hold him still and everybody went quiet at me."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.holdingStill.line.hif1re",
-      "voice": "numbskull",
-      "say": "I do still think it would help."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.line.144jfd0",
-      "voice": "numbskull",
-      "say": "Everything off him is in this box. Watch, camera, the little gun, and keys to something."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.line.grdgo6",
-      "voice": "numbskull",
-      "say": "He gave it up. I want it on the record that nobody needed holding."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1h25b3t",
-      "voice": "player",
-      "say": "Let me see the box."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1h534md",
-      "voice": "player",
-      "say": "Later."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.o2dhps",
-      "voice": "player",
-      "say": "You holding up, Numbskull?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.zh9osz",
-      "voice": "player",
-      "say": "Anything in there worth anything?"
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.theBox.line.1cu53fr",
-      "voice": "numbskull",
-      "say": "Take it. Do not set it down on the floor. The floor in here has a drain in it."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.worth.line.1ln79p1",
-      "voice": "numbskull",
-      "say": "The watch is worth my car. The little gun is worth my car. The keys go to something I have not been allowed to walk out and look at."
-    },
-    {
-      "name": "vo.bing.full.licenseToGrillNumbskull.worthWall.line.1cajjlk",
-      "voice": "numbskull",
-      "say": "Gratin said do not go and look at it. So I have been looking at this wall instead."
-    },
-    {
-      "name": "vo.bing.full.lou.andthen.line.1vah18a",
-      "voice": "lou1",
-      "say": "Then you decide whether they’re wasting our time. That part’s yours. That’s why it’s you going and not one of the animals."
-    },
-    {
-      "name": "vo.bing.full.lou.busy.line.1rjobfp",
-      "voice": "lou1",
-      "say": "It’s Tuesday. Tuesday’s busy. Wednesday’s worse."
-    },
-    {
-      "name": "vo.bing.full.lou.called.line.czlqoh",
-      "voice": "lou1",
-      "say": "I did."
-    },
-    {
-      "name": "vo.bing.full.lou.candy.line.d2l6uh",
-      "voice": "lou1",
-      "say": "Take one. Everybody takes one. Nobody eats one."
-    },
-    {
-      "name": "vo.bing.full.lou.changed.line.tulsor",
-      "voice": "lou1",
-      "say": "Nothing changed. That’s what worries me. It should have, by now."
-    },
-    {
-      "name": "vo.bing.full.lou.confident.line.iqzopd",
-      "voice": "lou1",
-      "say": "Everybody knows what they’re doing. The ones who don’t come back knew as well."
-    },
-    {
-      "name": "vo.bing.full.lou.contact.line.vhp8a2",
-      "voice": "lou1",
-      "say": "Two of them. One talks, one doesn’t. The one who doesn’t is the one to watch, which I should not have to explain to a grown man."
-    },
-    {
-      "name": "vo.bing.full.lou.doorOpen.line.19tnvci",
-      "voice": "lou1",
-      "say": "Close the door. We’re not selling raffle tickets."
-    },
-    {
-      "name": "vo.bing.full.lou.enter.line.1f761oa",
-      "voice": "lou1",
-      "say": "There he is."
-    },
-    {
-      "name": "vo.bing.full.lou.enter.line.1kwn31d",
-      "voice": "lou1",
-      "say": "Office is closed, Prospect. Party is out front. Try not to miss the murder."
-    },
-    {
-      "name": "vo.bing.full.lou.enter.line.1oe6npq",
-      "voice": "lou1",
-      "say": "Shut the door."
-    },
-    {
-      "name": "vo.bing.full.lou.enter.line.bkm5pu",
-      "voice": "lou1",
-      "say": "Sit down. Or don’t. You’ve had all night to decide."
-    },
-    {
-      "name": "vo.bing.full.lou.envelope.tony.1uitjw6",
-      "voice": "player",
-      "say": "And then?"
-    },
-    {
-      "name": "vo.bing.full.lou.envelope.tony.yscmc9",
-      "voice": "player",
-      "say": "Fine."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.line.17ydj50",
-      "voice": "lou1",
-      "say": "You came here for a package and nearly left with forty pounds of quarters."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.line.lc299m",
-      "voice": "lou1",
-      "say": "You took your time. Relatively speaking."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.line.lki7aa",
-      "voice": "lou1",
-      "say": "You’ve been at my bar. I can hear it from here."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.line.tmwqwr",
-      "voice": "lou1",
-      "say": "You took your time."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.tony.140czgz",
-      "voice": "player",
-      "say": "I came straight in."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.tony.1dsb0i0",
-      "voice": "player",
-      "say": "You called. I’m here."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.tony.1g0x304",
-      "voice": "player",
-      "say": "Your slot machine attacked me."
-    },
-    {
-      "name": "vo.bing.full.lou.greet.tony.1skj0qt",
-      "voice": "player",
-      "say": "Place looks busy."
-    },
-    {
-      "name": "vo.bing.full.lou.hang.line.3wpchh",
-      "voice": "lou1",
-      "say": "Out front. Hog Mama is waiting on the stage controls."
-    },
-    {
-      "name": "vo.bing.full.lou.hang.tony.hq4amq",
-      "voice": "player",
-      "say": "I’m going, Lou."
-    },
-    {
-      "name": "vo.bing.full.lou.hang.tony.s33n16",
-      "voice": "player",
-      "say": "Clean. Mostly."
-    },
-    {
-      "name": "vo.bing.full.lou.inspecting.line.pj0l8m",
-      "voice": "lou1",
-      "say": "It’s a gun, Prospect. Not an engagement ring."
-    },
-    {
-      "name": "vo.bing.full.lou.jerky.line.1uh4wg9",
-      "voice": "lou1",
-      "say": "That’s exactly the sentence people say before things get complicated."
-    },
-    {
-      "name": "vo.bing.full.lou.liquor.line.oiyhn4",
-      "voice": "lou1",
-      "say": "You complete the errand first. Then you rob my bar."
-    },
-    {
-      "name": "vo.bing.full.lou.machine.line.9ju3gw",
-      "voice": "lou1",
-      "say": "That machine has taken more off this crew than the state has. Sit down."
-    },
-    {
-      "name": "vo.bing.full.lou.monitor.line.1eyrta1",
-      "voice": "lou1",
-      "say": "Four cameras and none of them point at anything I care about."
-    },
-    {
-      "name": "vo.bing.full.lou.photos.line.pfpdv4",
-      "voice": "lou1",
-      "say": "You here to pick up a package or review my decorating?"
-    },
-    {
-      "name": "vo.bing.full.lou.questions.tony.13zl6yb",
-      "voice": "player",
-      "say": "Why give me this here?"
-    },
-    {
-      "name": "vo.bing.full.lou.questions.tony.16a5c15",
-      "voice": "player",
-      "say": "I’ve got it."
-    },
-    {
-      "name": "vo.bing.full.lou.questions.tony.1lahoj6",
-      "voice": "player",
-      "say": "Who am I meeting?"
-    },
-    {
-      "name": "vo.bing.full.lou.questions.tony.wmukgv",
-      "voice": "player",
-      "say": "Somebody’s watching the club."
-    },
-    {
-      "name": "vo.bing.full.lou.refuse.line.3o4jmh",
-      "voice": "lou1",
-      "say": "Then you go anyway and I worry the whole evening. Take it, Prospect."
-    },
-    {
-      "name": "vo.bing.full.lou.sat.line.1js4sny",
-      "voice": "lou1",
-      "say": "Good. Sitting. That’s progress."
-    },
-    {
-      "name": "vo.bing.full.lou.straight.line.cjsc8t",
-      "voice": "lou1",
-      "say": "You did. I noticed. Don’t get used to being noticed."
-    },
-    {
-      "name": "vo.bing.full.lou.waiting.tony.1ddcl3z",
-      "voice": "player",
-      "say": "And if I don’t take it?"
-    },
-    {
-      "name": "vo.bing.full.lou.waiting.tony.1lavgm7",
-      "voice": "player",
-      "say": "What is it?"
-    },
-    {
-      "name": "vo.bing.full.lou.warning.tony.1rs0tw",
-      "voice": "player",
-      "say": "What changed?"
-    },
-    {
-      "name": "vo.bing.full.lou.warning.tony.awltb1",
-      "voice": "player",
-      "say": "I know what I’m doing."
-    },
-    {
-      "name": "vo.bing.full.lou.warning.tony.hdjyui",
-      "voice": "player",
-      "say": "They’re jerky dealers."
-    },
-    {
-      "name": "vo.bing.full.lou.warning.tony.mg3d9s",
-      "voice": "player",
-      "say": "I understand."
-    },
-    {
-      "name": "vo.bing.full.lou.watched.line.cwm110",
-      "voice": "lou1",
-      "say": "…Grey sedan. By the office wall. Alright. Find out whether it follows you. Don’t do anything about it. Find out."
-    },
-    {
-      "name": "vo.bing.full.lou.why.line.5g6i9h",
-      "voice": "lou1",
-      "say": "Because here it’s mine, and out there it’s evidence. And because I wanted to look at you before you went."
-    },
-    {
-      "name": "vo.bing.full.margo.dinner.tony.14cm7ow",
-      "voice": "player",
-      "say": "That was the whole thing. That was all of it."
-    },
-    {
-      "name": "vo.bing.full.margo.dinner.tony.8taeo9",
-      "voice": "player",
-      "say": "Take my number. Ring it when you are not working."
-    },
-    {
-      "name": "vo.bing.full.margo.fold.line.1gbo14r",
-      "voice": "margo",
-      "say": "Hm. Shame. That was nearly something."
-    },
-    {
-      "name": "vo.bing.full.margo.open.tony.1xxg4iv",
-      "voice": "player",
-      "say": "I was going to walk past."
-    },
-    {
-      "name": "vo.bing.full.margo.open.tony.rnhobt",
-      "voice": "player",
-      "say": "What are you drinking?"
-    },
-    {
-      "name": "vo.bing.full.margo.why.tony.10rytv8",
-      "voice": "player",
-      "say": "I could have a word about the two hundred."
-    },
-    {
-      "name": "vo.bing.full.margo.why.tony.152qfmo",
-      "voice": "player",
-      "say": "Good luck with the two hundred."
-    },
-    {
-      "name": "vo.bing.full.margo.why.tony.ijm69l",
-      "voice": "player",
-      "say": "Let me buy you dinner."
-    },
-    {
-      "name": "vo.bing.full.margo.word.line.1r9jmzw",
-      "voice": "margo",
-      "say": "No. Absolutely not. I have watched what a word costs and I would rather have the two hundred outstanding forever. But thank you for offering it like it was nothing."
-    },
-    {
-      "name": "vo.bing.full.margo.word.tony.9r65as",
-      "voice": "player",
-      "say": "Then let me buy you dinner instead."
-    },
-    {
-      "name": "vo.bing.full.numbskull.aside.line.1a3glad",
-      "voice": "numbskull",
-      "say": "Shoulder. Old thing. It goes when it is cold and it is always cold by that fire door."
-    },
-    {
-      "name": "vo.bing.full.numbskull.asideMore.line.1fmwp8z",
-      "voice": "numbskull",
-      "say": "Do not tell anybody. If they know it goes, they stop asking me to do the part I am good at."
-    },
-    {
-      "name": "vo.bing.full.numbskull.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.numbskull.open.tony.o1awfw",
-      "voice": "player",
-      "say": "Ow?"
-    },
-    {
-      "name": "vo.bing.full.numbskull.open.tony.ofpa41",
-      "voice": "player",
-      "say": "…Thanks?"
-    },
-    {
-      "name": "vo.bing.full.old_stove.aside.line.1vrdg7g",
-      "voice": "old-stove",
-      "say": "Longer than the strip. I was there when it was a field and a man with an opinion about the field."
-    },
-    {
-      "name": "vo.bing.full.old_stove.asideMore.line.9nqoo6",
-      "voice": "old-stove",
-      "say": "They paved it, they numbered it, they put up a windsock. Same field. Same opinion."
-    },
-    {
-      "name": "vo.bing.full.old_stove.open.tony.dbfott",
-      "voice": "player",
-      "say": "How long have you been at that strip?"
-    },
-    {
-      "name": "vo.bing.full.old_stove.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.old_stove.open.tony.x8oqq6",
-      "voice": "player",
-      "say": "The ice is fine, Stove."
-    },
-    {
-      "name": "vo.bing.full.rippinflow.aside.line.15x6wkj",
-      "voice": "rippinflow",
-      "say": "I did not stop. I retired. There is a difference and the difference is dignity."
-    },
-    {
-      "name": "vo.bing.full.rippinflow.asideMore.line.1yl5vv7",
-      "voice": "rippinflow",
-      "say": "Booski keeps a recording of the last one. He plays it at parties. That is not dignity, that is hostage footage."
-    },
-    {
-      "name": "vo.bing.full.rippinflow.open.tony.1y1d6fm",
-      "voice": "player",
-      "say": "I’m not writing that down."
-    },
-    {
-      "name": "vo.bing.full.rippinflow.open.tony.3ny2bi",
-      "voice": "player",
-      "say": "Why did you stop freestyling?"
-    },
-    {
-      "name": "vo.bing.full.rippinflow.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.security.chair.line.1461trs",
-      "voice": "doorman",
-      "say": "Check it from a chair."
-    },
-    {
-      "name": "vo.bing.full.security.open.line.1rxz5cn",
-      "voice": "doorman",
-      "say": "Prospect. Floor’s down there."
-    },
-    {
-      "name": "vo.bing.full.security.open.tony.18uzeor",
-      "voice": "player",
-      "say": "Alright, alright."
-    },
-    {
-      "name": "vo.bing.full.security.open.tony.56elm3",
-      "voice": "player",
-      "say": "I’m checking the structural integrity."
-    },
-    {
-      "name": "vo.bing.full.seff.aside.line.vzj3ea",
-      "voice": "seff",
-      "say": "It is not a situation situation. It is a timing thing. A calendar thing. Lou and I have a calendar thing."
-    },
-    {
-      "name": "vo.bing.full.seff.asideMore.line.7bbons",
-      "voice": "seff",
-      "say": "Do not put it like that when you tell him. Put it warmer. Put it like I am already sorry."
-    },
-    {
-      "name": "vo.bing.full.seff.more.tony.18rev59",
-      "voice": "player",
-      "say": "I’m not doing that, Seff."
-    },
-    {
-      "name": "vo.bing.full.seff.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.seff.open.tony.lm2qxk",
-      "voice": "player",
-      "say": "What situation?"
-    },
-    {
-      "name": "vo.bing.full.seff.open.tony.xorodf",
-      "voice": "player",
-      "say": "Why do I need a mattress guy?"
-    },
-    {
-      "name": "vo.bing.full.shubenator.aside.line.81ffut",
-      "voice": "shubenator",
-      "say": "Held. Every single one. Nine hundred times it could have said no and it never said no."
-    },
-    {
-      "name": "vo.bing.full.shubenator.asideMore.line.2h8h1v",
-      "voice": "shubenator",
-      "say": "People thank the trainer. Nobody thanks the floor. Hey — what is going on with that, actually?"
-    },
-    {
-      "name": "vo.bing.full.shubenator.open.tony.1jthio9",
-      "voice": "player",
-      "say": "What did the floor do?"
-    },
-    {
-      "name": "vo.bing.full.shubenator.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.snow.aside.line.1i7d3nl",
-      "voice": "snow",
-      "say": "Nights are honest. Nobody asks you to be pleased about anything at four in the morning."
-    },
-    {
-      "name": "vo.bing.full.snow.asideMore.line.1lw2upu",
-      "voice": "snow",
-      "say": "Mop, radiator, one window that does not shut. I know where everything in this building is. Ask me sometime when it matters."
-    },
-    {
-      "name": "vo.bing.full.snow.open.tony.1lb6swm",
-      "voice": "player",
-      "say": "You always work nights?"
-    },
-    {
-      "name": "vo.bing.full.snow.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.willy.aside.line.10q2gcw",
-      "voice": "willy",
-      "say": "Cannot say. Genuinely cannot. Not being cute about it, I signed nothing but I gave my word to a fella."
-    },
-    {
-      "name": "vo.bing.full.willy.asideMore.line.z9644b",
-      "voice": "willy",
-      "say": "When it lands you will hear about it from somebody who is not me. That is how you will know it was me."
-    },
-    {
-      "name": "vo.bing.full.willy.open.tony.dt2qpn",
-      "voice": "player",
-      "say": "What big things?"
-    },
-    {
-      "name": "vo.bing.full.willy.open.tony.kay3u1",
-      "voice": "player",
-      "say": "Another time."
-    },
-    {
-      "name": "vo.bing.full.willy.open.tony.rml5hz",
-      "voice": "player",
-      "say": "Sure they can, Willy."
-    },
-    {
-      "name": "vo.bing.hang.shubenator.signature.cheerful",
-      "voice": "shubenator",
-      "say": "Hey guys, what’s going on?",
-      "direction": "Cheerful and casually late to the conversation. A friendly first hello; he genuinely believes nothing in the room is tense."
-    },
-    {
       "name": "vo.silvercase.car.ape.pitch",
       "voice": "ape",
       "say": "Three geniuses borrowed something from Lou without asking. We’re going over there to improve their decision-making."
@@ -16004,6 +14378,1697 @@
       "name": "vo.initiation.ambient.lou.1ckii4g.1",
       "voice": "lou",
       "say": "Humor me."
+    },
+    {
+      "name": "vo.bing.ambient.01",
+      "voice": "doorman",
+      "say": "You hear something happened with the butcher union?"
+    },
+    {
+      "name": "vo.bing.ambient.02",
+      "voice": "doorman",
+      "say": "I don’t talk business near the coat check."
+    },
+    {
+      "name": "vo.bing.ambient.03",
+      "voice": "doorman",
+      "say": "Four hundred on a duck. A duck. In this economy."
+    },
+    {
+      "name": "vo.bing.ambient.04",
+      "voice": "doorman",
+      "say": "He says it’s a franchise. It’s a van."
+    },
+    {
+      "name": "vo.bing.ambient.05",
+      "voice": "performer",
+      "say": "You want a drink or you want the seat? Both is fine. Neither isn’t."
+    },
+    {
+      "name": "vo.bing.ambient.06",
+      "voice": "doorman",
+      "say": "They stopped doing the Sunday thing. Nobody said why."
+    },
+    {
+      "name": "vo.bing.ambient.07",
+      "voice": "npc-male",
+      "say": "One more hand and I’m going home. I mean it this time."
+    },
+    {
+      "name": "vo.bing.ambient.08",
+      "voice": "doorman",
+      "say": "That’s the prospect. Don’t look at him, you’ll set him off."
+    },
+    {
+      "name": "vo.bing.ambient.09",
+      "voice": "doorman",
+      "say": "Wednesday. Seven. Everybody keeps saying it like I’ve got a diary."
+    },
+    {
+      "name": "vo.bing.bartender.capacity",
+      "voice": "bartender",
+      "say": "Finish one of those first. I am not a shelf."
+    },
+    {
+      "name": "vo.bing.full.ape.aside.line.rqb5su",
+      "voice": "ape",
+      "say": "If it comes off, something behind it has to hold the weight instead. Nobody wants that. I do not want that."
+    },
+    {
+      "name": "vo.bing.full.ape.asideMore.line.9a3t0p",
+      "voice": "ape",
+      "say": "So I keep it on, I have a nice time, and everybody goes home. It is a system and it works."
+    },
+    {
+      "name": "vo.bing.full.ape.open.tony.1inst32",
+      "voice": "player",
+      "say": "Noted for the record."
+    },
+    {
+      "name": "vo.bing.full.ape.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.ape.open.tony.qqlmup",
+      "voice": "player",
+      "say": "Load-bearing how?"
+    },
+    {
+      "name": "vo.bing.full.associate.no.line.xr8cgp",
+      "voice": "doorman",
+      "say": "No. That’s not what that was. Come on."
+    },
+    {
+      "name": "vo.bing.full.associate.open.line.1ub3l1a",
+      "voice": "doorman",
+      "say": "Congratulations. You’ve discovered cards. Lou wants you."
+    },
+    {
+      "name": "vo.bing.full.associate.open.tony.124286t",
+      "voice": "player",
+      "say": "One more hand."
+    },
+    {
+      "name": "vo.bing.full.associate.open.tony.16pgg7u",
+      "voice": "player",
+      "say": "I’m going."
+    },
+    {
+      "name": "vo.bing.full.bartender.joke.line.1uqigwu",
+      "voice": "bartender",
+      "say": "Architecture. Take it up with the architect. He’s dead."
+    },
+    {
+      "name": "vo.bing.full.bartender.lou-drink.line.17f403x",
+      "voice": "bartender",
+      "say": "Coffee. Black, and he complains about it. Enjoy."
+    },
+    {
+      "name": "vo.bing.full.bartender.open.line.1w2a01j",
+      "voice": "bartender",
+      "say": "Lou’s in the back. He said don’t make him wait."
+    },
+    {
+      "name": "vo.bing.full.bartender.open.line.k4a1l5",
+      "voice": "bartender",
+      "say": "You’re done already? He must like you."
+    },
+    {
+      "name": "vo.bing.full.bartender.open.tony.1573ecz",
+      "voice": "player",
+      "say": "One for the road."
+    },
+    {
+      "name": "vo.bing.full.bartender.open.tony.1h534md",
+      "voice": "player",
+      "say": "Later."
+    },
+    {
+      "name": "vo.bing.full.bartender.open.tony.1mgwzff",
+      "voice": "player",
+      "say": "What have you got?"
+    },
+    {
+      "name": "vo.bing.full.bartender.open.tony.e38pik",
+      "voice": "player",
+      "say": "Put it on Booski’s tab."
+    },
+    {
+      "name": "vo.bing.full.bartender.open.tony.g8wg42",
+      "voice": "player",
+      "say": "Anything I should know before I go back there?"
+    },
+    {
+      "name": "vo.bing.full.bartender.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.bartender.open.tony.poqixp",
+      "voice": "player",
+      "say": "Then why’d you put a bar between me and his office?"
+    },
+    {
+      "name": "vo.bing.full.bartender.order.tony.1un6u0s",
+      "voice": "player",
+      "say": "Whatever Lou drinks."
+    },
+    {
+      "name": "vo.bing.full.bartender.order.tony.ip1fej",
+      "voice": "player",
+      "say": "Beer."
+    },
+    {
+      "name": "vo.bing.full.bartender.order.tony.ti7t3r",
+      "voice": "player",
+      "say": "Whiskey. Neat."
+    },
+    {
+      "name": "vo.bing.full.bartender.order.tony.xa0av4",
+      "voice": "player",
+      "say": "Club soda. I’m working."
+    },
+    {
+      "name": "vo.bing.full.bartender.poured.line.1t39iem",
+      "voice": "bartender",
+      "say": "This is the last one before he sees you. I mean that as a favour."
+    },
+    {
+      "name": "vo.bing.full.bartender.poured.line.1tvet",
+      "voice": "bartender",
+      "say": "On the house. Everything in here is on the house until Lou says otherwise."
+    },
+    {
+      "name": "vo.bing.full.bartender.soda.line.kmxlpd",
+      "voice": "bartender",
+      "say": "Club soda. There you go. Big night."
+    },
+    {
+      "name": "vo.bing.full.bartender.tip.line.19crrv7",
+      "voice": "bartender",
+      "say": "Somebody’s been sat in the lot twenty minutes. Engine off. Two of them. Not drinking, not leaving, not my business."
+    },
+    {
+      "name": "vo.bing.full.booski.open.tony.1h2bls2",
+      "voice": "player",
+      "say": "Later — errands."
+    },
+    {
+      "name": "vo.bing.full.booski.open.tony.h4rucb",
+      "voice": "player",
+      "say": "The house always pays you, Boosk."
+    },
+    {
+      "name": "vo.bing.full.booski.open.tony.obkpk3",
+      "voice": "player",
+      "say": "Good to see you too, Boosk."
+    },
+    {
+      "name": "vo.bing.full.bouncer.annoyed.line.3lxppj",
+      "voice": "doorman",
+      "say": "You drove through Jersey. In Jersey. To Jersey. Go in before I have to think about it."
+    },
+    {
+      "name": "vo.bing.full.bouncer.direct.line.14rmtxu",
+      "voice": "doorman",
+      "say": "Everybody’s expected. Nobody’s expected. Go on."
+    },
+    {
+      "name": "vo.bing.full.bouncer.friendly.line.wgujnz",
+      "voice": "doorman",
+      "say": "That’s the coat. It’s a big coat."
+    },
+    {
+      "name": "vo.bing.full.bouncer.leaving.line.95cupw",
+      "voice": "doorman",
+      "say": "Drive safe. And I mean the speed limit, not the other thing."
+    },
+    {
+      "name": "vo.bing.full.bouncer.open.line.g60di9",
+      "voice": "doorman",
+      "say": "Lou know you’re coming?"
+    },
+    {
+      "name": "vo.bing.full.bouncer.open.tony.1asmym5",
+      "voice": "player",
+      "say": "He’s expecting me."
+    },
+    {
+      "name": "vo.bing.full.bouncer.open.tony.1hks4kv",
+      "voice": "player",
+      "say": "He better be. I drove through Jersey."
+    },
+    {
+      "name": "vo.bing.full.bouncer.open.tony.6s88zr",
+      "voice": "player",
+      "say": "You’re looking healthy. Wider, but healthy."
+    },
+    {
+      "name": "vo.bing.full.bouncer.returning2.line.4u1gt6",
+      "voice": "doorman",
+      "say": "Back so soon. That’s either very good or very bad."
+    },
+    {
+      "name": "vo.bing.full.bouncer.silent.line.hg4nmz",
+      "voice": "doorman",
+      "say": "You’re no fun since they made you a prospect."
+    },
+    {
+      "name": "vo.bing.full.bouncer.through.line.1rtn1fd",
+      "voice": "doorman",
+      "say": "He’s in the back. Don’t make me come find you."
+    },
+    {
+      "name": "vo.bing.full.captain_lou_sasole.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.captain_lou_sasole.open.tony.qncolo",
+      "voice": "player",
+      "say": "They’re alright."
+    },
+    {
+      "name": "vo.bing.full.dealer.open.line.10erdw",
+      "voice": "dealer",
+      "say": "Seat’s open. Twenty-five minimum."
+    },
+    {
+      "name": "vo.bing.full.dealer.open.tony.14moh1q",
+      "voice": "player",
+      "say": "This table straight?"
+    },
+    {
+      "name": "vo.bing.full.dealer.open.tony.1wp27rz",
+      "voice": "player",
+      "say": "Not tonight."
+    },
+    {
+      "name": "vo.bing.full.dealer.open.tony.zcu8js",
+      "voice": "player",
+      "say": "Deal me in."
+    },
+    {
+      "name": "vo.bing.full.dealer.straight.line.115m339",
+      "voice": "dealer",
+      "say": "The cards are."
+    },
+    {
+      "name": "vo.bing.full.deathmegatron.aside.line.16wdk95",
+      "voice": "deathmegatron",
+      "say": "Picked it at fourteen. Typed it in, hit enter, and that was that. You do not get to choose twice."
+    },
+    {
+      "name": "vo.bing.full.deathmegatron.asideMore.line.nmglp6",
+      "voice": "deathmegatron",
+      "say": "Grown men say it to my face in a bank now. Nobody laughs. That is the part I did not plan."
+    },
+    {
+      "name": "vo.bing.full.deathmegatron.open.tony.11xy8re",
+      "voice": "player",
+      "say": "Where does the name come from?"
+    },
+    {
+      "name": "vo.bing.full.deathmegatron.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.deathmegatron.open.tony.n2gou",
+      "voice": "player",
+      "say": "Big night, then."
+    },
+    {
+      "name": "vo.bing.full.dj.horns.line.15zbk3f",
+      "voice": "announcer",
+      "say": "Horns. Everybody wants horns. Nobody wants the four minutes before the horns."
+    },
+    {
+      "name": "vo.bing.full.dj.open.line.flx672",
+      "voice": "announcer",
+      "say": "You want a request? Because the answer’s no. Lou picks the records."
+    },
+    {
+      "name": "vo.bing.full.dj.open.line.yranbx",
+      "voice": "announcer",
+      "say": "Back again. Alright — one request, and if Lou asks, you threatened me."
+    },
+    {
+      "name": "vo.bing.full.dj.open.tony.1nr2ebp",
+      "voice": "player",
+      "say": "Something with horns. Loud."
+    },
+    {
+      "name": "vo.bing.full.dj.open.tony.1va8fo7",
+      "voice": "player",
+      "say": "Anything by the Squatch?"
+    },
+    {
+      "name": "vo.bing.full.dj.open.tony.eyf3o",
+      "voice": "player",
+      "say": "Anything by the Squatch."
+    },
+    {
+      "name": "vo.bing.full.dj.open.tony.h033a9",
+      "voice": "player",
+      "say": "Fair enough."
+    },
+    {
+      "name": "vo.bing.full.dj.squatch.line.1m9s40e",
+      "voice": "announcer",
+      "say": "That’s the one thing I would play. It’s in the crate. Lou says it’s \"a lot\"."
+    },
+    {
+      "name": "vo.bing.full.eric.open.tony.1jw6ixv",
+      "voice": "player",
+      "say": "What should I eat nearby?"
+    },
+    {
+      "name": "vo.bing.full.eric.open.tony.1upksdx",
+      "voice": "player",
+      "say": "Alright. What’s happening overseas?"
+    },
+    {
+      "name": "vo.bing.full.eric.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.gratin.aside.line.1hz1fmf",
+      "voice": "gratin",
+      "say": "One fella. Been here longer than the carpet. He does not speak to me and I respect that enormously."
+    },
+    {
+      "name": "vo.bing.full.gratin.asideMore.line.1b7uagz",
+      "voice": "gratin",
+      "say": "I sent a compliment back once. He sent the shrimp back out. Same shrimp. Still wrong. That is a man with a position."
+    },
+    {
+      "name": "vo.bing.full.gratin.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.gratin.open.tony.ueqzhj",
+      "voice": "player",
+      "say": "Who actually cooks back there?"
+    },
+    {
+      "name": "vo.bing.full.gratin.open.tony.xqe6sq",
+      "voice": "player",
+      "say": "That’s not loyalty, that’s a condition."
+    },
+    {
+      "name": "vo.bing.full.hallGuard.no.line.zp6uhs",
+      "voice": "doorman",
+      "say": "No. Go in. He’s been staring at the same page five minutes."
+    },
+    {
+      "name": "vo.bing.full.hallGuard.open.line.eewi55",
+      "voice": "doorman",
+      "say": "He’s in a mood."
+    },
+    {
+      "name": "vo.bing.full.hallGuard.open.line.xnqyll",
+      "voice": "doorman",
+      "say": "That sit comfortable?"
+    },
+    {
+      "name": "vo.bing.full.hallGuard.open.tony.1gct3gj",
+      "voice": "player",
+      "say": "Then I won’t keep him."
+    },
+    {
+      "name": "vo.bing.full.hallGuard.open.tony.1qhb99",
+      "voice": "player",
+      "say": "It’s tailoring."
+    },
+    {
+      "name": "vo.bing.full.hallGuard.open.tony.6lnk7x",
+      "voice": "player",
+      "say": "That narrow it down?"
+    },
+    {
+      "name": "vo.bing.full.hallGuard.tailoring.line.1y5k1wo",
+      "voice": "doorman",
+      "say": "Sure it is. Keep your jacket shut in the lot."
+    },
+    {
+      "name": "vo.bing.full.hogmama.aside.line.b0yc0w",
+      "voice": "hogmama",
+      "say": "Ninety-seven eight, baby. Every night they let me. Half the callers are in this room pretending they are not."
+    },
+    {
+      "name": "vo.bing.full.hogmama.asideMore.line.snlo98",
+      "voice": "hogmama",
+      "say": "Somebody phones in a dedication for his own wife and puts on a voice. I take it. I always take it."
+    },
+    {
+      "name": "vo.bing.full.hogmama.open.tony.1at8yi0",
+      "voice": "player",
+      "say": "You do the radio too, right?"
+    },
+    {
+      "name": "vo.bing.full.hogmama.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.hogmama.open.tony.qr02zn",
+      "voice": "player",
+      "say": "Uh. “Errand.”"
+    },
+    {
+      "name": "vo.bing.full.irish.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.irish.open.tony.msqwvq",
+      "voice": "player",
+      "say": "Go on."
+    },
+    {
+      "name": "vo.bing.full.james_blond.afterSwing.line.b8zbj7",
+      "voice": "blond",
+      "say": "I’ve had rougher service in Monte Carlo."
+    },
+    {
+      "name": "vo.bing.full.james_blond.afterTheName.line.51k0p1",
+      "voice": "gratin",
+      "say": "Anything else you want to ask him while he’s being helpful?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.afterTheName.tony.j8avic",
+      "voice": "player",
+      "say": "Nothing. We’re finished here."
+    },
+    {
+      "name": "vo.bing.full.james_blond.afterTheName.tony.lqrg6p",
+      "voice": "player",
+      "say": "Why didn’t you tell us before?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.breaks.line.1ny5y3j",
+      "voice": "blond",
+      "say": "All right! The informant meets my handler every Thursday behind the laundromat."
+    },
+    {
+      "name": "vo.bing.full.james_blond.brief.line.1trqp5z",
+      "voice": "gratin",
+      "say": "He keeps laughing every time I hit him. I can’t tell if he’s tough or just British."
+    },
+    {
+      "name": "vo.bing.full.james_blond.car.line.69f8av",
+      "voice": "player",
+      "say": "What kind of car?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.carAlarm.line.13sonpd",
+      "voice": "blond",
+      "say": "You stay away from that automobile."
+    },
+    {
+      "name": "vo.bing.full.james_blond.carAnswer.line.w5u623",
+      "voice": "blond",
+      "say": "A 1964 Harrington V12."
+    },
+    {
+      "name": "vo.bing.full.james_blond.carForklift.line.1twcgw1",
+      "voice": "gratin",
+      "say": "Prospect, go get the forklift."
+    },
+    {
+      "name": "vo.bing.full.james_blond.carForklift.tony.1idy71j",
+      "voice": "player",
+      "say": "Turn towards the door."
+    },
+    {
+      "name": "vo.bing.full.james_blond.carGratin.line.hlj7s4",
+      "voice": "gratin",
+      "say": "Is that the little silver one out back?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.cart.line.deno9b",
+      "voice": "gratin",
+      "say": "Help yourself. It’s a kitchen."
+    },
+    {
+      "name": "vo.bing.full.james_blond.cart.tony.12ogipb",
+      "voice": "player",
+      "say": "The tongs."
+    },
+    {
+      "name": "vo.bing.full.james_blond.cart.tony.17ou3f3",
+      "voice": "player",
+      "say": "The ice bucket."
+    },
+    {
+      "name": "vo.bing.full.james_blond.cart.tony.1cue1tm",
+      "voice": "player",
+      "say": "The meat tenderiser."
+    },
+    {
+      "name": "vo.bing.full.james_blond.cart.tony.3p3dbx",
+      "voice": "player",
+      "say": "The bottle with no label."
+    },
+    {
+      "name": "vo.bing.full.james_blond.cart.tony.of4ibu",
+      "voice": "player",
+      "say": "Leave the cart alone."
+    },
+    {
+      "name": "vo.bing.full.james_blond.cordInHand.line.4hherc",
+      "voice": "gratin",
+      "say": "Aim low. Apparently that’s where England keeps its secrets."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterAtYou.line.1gax5j7",
+      "voice": "blond",
+      "say": "And you. The new recruit. Do you truly believe these animals consider you family?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterAtYou.tony.10iu49w",
+      "voice": "player",
+      "say": "More than your people considered you."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterAtYou.tony.1urb46s",
+      "voice": "player",
+      "say": "I’m mostly here for the health insurance."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterAtYou.tony.o95x3g",
+      "voice": "player",
+      "say": "Keep talking."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterGratin.line.aegi1v",
+      "voice": "gratin",
+      "say": "Lou still has my bowling shoes. We’re tied together financially."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterJoke.line.r8ym0o",
+      "voice": "numbskull",
+      "say": "We do not have that. Gratin, do we have that?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterKeep.line.c3v5wx",
+      "voice": "blond",
+      "say": "I’d rather not, now you’ve said it like that."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterLanded.line.1jesc5n",
+      "voice": "gratin",
+      "say": "Oh, that landed. Look at his face. That LANDED."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterMaybe.line.szn5vr",
+      "voice": "blond",
+      "say": "You know, your employer will dispose of you the moment you become inconvenient."
+    },
+    {
+      "name": "vo.bing.full.james_blond.counterSilence.line.dzdccn",
+      "voice": "gratin",
+      "say": "Nothing. He gave him nothing. Prospect, that’s the first professional thing anybody’s done in this room tonight."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endings.line.zqtjnp",
+      "voice": "gratin",
+      "say": "So. What do we do with him."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endings.tony.1ua0yfe",
+      "voice": "player",
+      "say": "Leave him tied. Lou can decide."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endings.tony.2tsfvx",
+      "voice": "player",
+      "say": "Untie one hand."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endings.tony.astkvk",
+      "voice": "player",
+      "say": "Finish the job."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endLeft.line.d2bhcc",
+      "voice": "gratin",
+      "say": "Good. He’s Lou’s problem now, and Lou likes problems that can’t stand up."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endShot.line.tgrvlq",
+      "voice": "gratin",
+      "say": "Right. Numbskull, the drain’s right there. And somebody find out whose car that is now."
+    },
+    {
+      "name": "vo.bing.full.james_blond.endUntied.line.jzsw4g",
+      "voice": "gratin",
+      "say": "One hand. ONE. And you’re explaining the plate to Lou, not me."
+    },
+    {
+      "name": "vo.bing.full.james_blond.firstQuestion.line.vsd0cn",
+      "voice": "player",
+      "say": "Who hired you?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.line.14lf3a1",
+      "voice": "gratin",
+      "say": "Well? He’s not going to volunteer."
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.line.arj3ng",
+      "voice": "gratin",
+      "say": "He’s got a whole life in that jacket. Keep pulling."
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.tony.1clbh8f",
+      "voice": "player",
+      "say": "Who inside the family are you talking to?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.tony.1okd54y",
+      "voice": "player",
+      "say": "Step back and let Gratin have another go."
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.tony.1rdb28s",
+      "voice": "player",
+      "say": "Who sent you into our city?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.tony.1x9y9bu",
+      "voice": "player",
+      "say": "Where did the silver case go?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.tony.69f8av",
+      "voice": "player",
+      "say": "What kind of car?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.tony.h1m51k",
+      "voice": "player",
+      "say": "How do you keep your hair like that?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.floor.tony.jotwam",
+      "voice": "player",
+      "say": "Use something off the cart."
+    },
+    {
+      "name": "vo.bing.full.james_blond.gratinAdmits.line.kdt4b8",
+      "voice": "gratin",
+      "say": "It’s a good technique."
+    },
+    {
+      "name": "vo.bing.full.james_blond.gratinLooksRound.line.pahehk",
+      "voice": "gratin",
+      "say": "That was your first mistake."
+    },
+    {
+      "name": "vo.bing.full.james_blond.gratinTechnique.line.1gf55s1",
+      "voice": "blond",
+      "say": "That is the same technique."
+    },
+    {
+      "name": "vo.bing.full.james_blond.gratinTurn.line.1agsef5",
+      "voice": "gratin",
+      "say": "Fine. Watch. This is a technique."
+    },
+    {
+      "name": "vo.bing.full.james_blond.gratinVindicated.line.p3a1d8",
+      "voice": "gratin",
+      "say": "See? That’s the crap he’s been doing all night."
+    },
+    {
+      "name": "vo.bing.full.james_blond.hairAgain.line.1fpfdmy",
+      "voice": "gratin",
+      "say": "Hit him again."
+    },
+    {
+      "name": "vo.bing.full.james_blond.handOverCord.line.127e3o",
+      "voice": "gratin",
+      "say": "Here. Off the fryer. It was a cord before it was anything else, so nobody has to explain it later."
+    },
+    {
+      "name": "vo.bing.full.james_blond.handOverCord.tony.17vccwv",
+      "voice": "player",
+      "say": "Take the cord."
+    },
+    {
+      "name": "vo.bing.full.james_blond.iceGratin.line.ocnwj3",
+      "voice": "gratin",
+      "say": "Outstanding work, Prospect. We’ve confirmed his temperature."
+    },
+    {
+      "name": "vo.bing.full.james_blond.jacketGratin.line.1lywjjv",
+      "voice": "gratin",
+      "say": "Prospect. Prospect, look at him. He didn’t blink for the tongs."
+    },
+    {
+      "name": "vo.bing.full.james_blond.nameDemanded.line.amwd14",
+      "voice": "gratin",
+      "say": "Name."
+    },
+    {
+      "name": "vo.bing.full.james_blond.numbskullWeighsIn.line.hqn8ez",
+      "voice": "numbskull",
+      "say": "I offered to hold him. Gratin says that’s not the part that isn’t working."
+    },
+    {
+      "name": "vo.bing.full.james_blond.open.line.rndh1f",
+      "voice": "blond",
+      "say": "Blond. James Blond. International intelligence, specialised operations, occasional baccarat."
+    },
+    {
+      "name": "vo.bing.full.james_blond.persuasive.line.vs21k",
+      "voice": "blond",
+      "say": "You’ll need to be considerably more persuasive."
+    },
+    {
+      "name": "vo.bing.full.james_blond.propCamera.line.1jwl4zv",
+      "voice": "blond",
+      "say": "There is nothing on it. There is famously nothing on it. Please put it down."
+    },
+    {
+      "name": "vo.bing.full.james_blond.propJacket.line.1aaslx6",
+      "voice": "blond",
+      "say": "That is not off a rack. A man in Naples is going to hear about this and he is going to be hurt."
+    },
+    {
+      "name": "vo.bing.full.james_blond.propKeys.line.g9ptbe",
+      "voice": "gratin",
+      "say": "Car keys. Nice ones. Heavier than my car."
+    },
+    {
+      "name": "vo.bing.full.james_blond.propPistol.line.15t3auz",
+      "voice": "blond",
+      "say": "That is a fitted grip. You will not find another. I would rather you shot me with it than dropped it."
+    },
+    {
+      "name": "vo.bing.full.james_blond.propWatch.line.w6o8hq",
+      "voice": "blond",
+      "say": "Careful. That is not a watch, that is a receipt for eleven years of my life."
+    },
+    {
+      "name": "vo.bing.full.james_blond.qCase.line.pcyjzg",
+      "voice": "blond",
+      "say": "The silver case went where silver cases go. I’d check the last man who told you it was silver."
+    },
+    {
+      "name": "vo.bing.full.james_blond.qHair.line.1hk6jwj",
+      "voice": "blond",
+      "say": "Sea salt, discipline, and excellent genetics."
+    },
+    {
+      "name": "vo.bing.full.james_blond.qInformant.line.je5kob",
+      "voice": "blond",
+      "say": "Inside? Goodness. You’ve assumed the answer is a person and not, say, a filing habit."
+    },
+    {
+      "name": "vo.bing.full.james_blond.qOrg.line.914mel",
+      "voice": "blond",
+      "say": "Nobody sends me anywhere. I am invited. Occasionally I am invited very quietly indeed."
+    },
+    {
+      "name": "vo.bing.full.james_blond.resume.line.xv8pi2",
+      "voice": "gratin",
+      "say": "I didn’t ask for your résumé."
+    },
+    {
+      "name": "vo.bing.full.james_blond.sauceBlond.line.10e3tm0",
+      "voice": "blond",
+      "say": "Now — let us all be terribly calm about this. What was the question?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesAccepted.line.1xe56ci",
+      "voice": "blond",
+      "say": "Thank you."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesAftermath.line.mkwsr4",
+      "voice": "blond",
+      "say": "Remarkably good."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesBacksOut.line.18dho87",
+      "voice": "shubenator",
+      "say": "Okay. Well, let me know if you guys need anything."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesDenial.line.cdtg5n",
+      "voice": "gratin",
+      "say": "There is no British guy tied to the chair."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesFrozen.line.1q4bx1r",
+      "voice": "gratin",
+      "say": "They’re frozen."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesGetOut.line.1we2h77",
+      "voice": "gratin",
+      "say": "Get out."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesGoodEvening.line.17v4q3y",
+      "voice": "blond",
+      "say": "Good evening."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesHey.line.1y290h5",
+      "voice": "shubenator",
+      "say": "Hey."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesIsThis.line.1v7i9qx",
+      "voice": "shubenator",
+      "say": "Oh. Is this the guy?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesOffers.line.btoqo9",
+      "voice": "shubenator",
+      "say": "Mozzarella stick?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesPrivate.line.5i2jnd",
+      "voice": "gratin",
+      "say": "Private meeting."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesReturns.line.1c39j1y",
+      "voice": "shubenator",
+      "say": "Do you want me to lock this?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesTheBritishGuy.line.1cc81p1",
+      "voice": "shubenator",
+      "say": "The British guy tied to the chair."
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesWhatGuy.line.3qj8s5",
+      "voice": "gratin",
+      "say": "What guy?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.shubesYes.line.1l7u0l6",
+      "voice": "gratin",
+      "say": "YES."
+    },
+    {
+      "name": "vo.bing.full.james_blond.smashCamera.line.l8fm6d",
+      "voice": "blond",
+      "say": "There was nothing on it. Now there is nothing on it in a way I shall have to explain in writing."
+    },
+    {
+      "name": "vo.bing.full.james_blond.smashJacket.line.htk90b",
+      "voice": "blond",
+      "say": "You have torn it at the shoulder. That is not a repair. There is no repair. That is a funeral."
+    },
+    {
+      "name": "vo.bing.full.james_blond.smashKeys.line.l5s525",
+      "voice": "gratin",
+      "say": "Not those. Prospect, look at me — not those. Those are the only good news in this room."
+    },
+    {
+      "name": "vo.bing.full.james_blond.smashPistol.line.1578w3p",
+      "voice": "blond",
+      "say": "You have bent the frame. That was fitted to my hand. Do you understand that it cannot be replaced, only apologised for."
+    },
+    {
+      "name": "vo.bing.full.james_blond.smashPistolNumbskull.line.14alimb",
+      "voice": "numbskull",
+      "say": "That was worth my car."
+    },
+    {
+      "name": "vo.bing.full.james_blond.smashWatch.line.1rzgx43",
+      "voice": "blond",
+      "say": "That was my father’s. You have just done the only thing that will be remembered about tonight."
+    },
+    {
+      "name": "vo.bing.full.james_blond.smashWatchGratin.line.14vy3td",
+      "voice": "gratin",
+      "say": "There it is. THERE it is. Prospect — everything on that table. All of it."
+    },
+    {
+      "name": "vo.bing.full.james_blond.swingAgain.line.wfw3i6",
+      "voice": "blond",
+      "say": "Mm. Yes. That is certainly a thing that happened to me."
+    },
+    {
+      "name": "vo.bing.full.james_blond.swingThree.line.180re6x",
+      "voice": "blond",
+      "say": "There. That is all of it. That is everything my body has to offer you and I am afraid it is not very much."
+    },
+    {
+      "name": "vo.bing.full.james_blond.swingTwo.line.k36lws",
+      "voice": "blond",
+      "say": "Do keep going. I should hate to be the only one in this room getting anything out of it."
+    },
+    {
+      "name": "vo.bing.full.james_blond.swingTwoNumbskull.line.1o82303",
+      "voice": "numbskull",
+      "say": "Is he supposed to be doing that with his face?"
+    },
+    {
+      "name": "vo.bing.full.james_blond.swingWide.line.3aw6k8",
+      "voice": "blond",
+      "say": "Do let me know when you begin."
+    },
+    {
+      "name": "vo.bing.full.james_blond.tableNudge.line.1rlhme0",
+      "voice": "gratin",
+      "say": "Stop. Prospect — stop. Look at his face. He’s been counting them."
+    },
+    {
+      "name": "vo.bing.full.james_blond.tableNudgeBlond.line.1o9vlnf",
+      "voice": "blond",
+      "say": "I would very much rather you didn’t."
+    },
+    {
+      "name": "vo.bing.full.james_blond.tableNudgeTable.line.ts4u3i",
+      "voice": "gratin",
+      "say": "Everything out of his pockets is on the table behind you. Numbskull laid it out. Go and pick his life up instead of hitting him with a fryer part."
+    },
+    {
+      "name": "vo.bing.full.james_blond.tenderizerGratin.line.fuqrfz",
+      "voice": "gratin",
+      "say": "This is Tennessee. We got our own conventions."
+    },
+    {
+      "name": "vo.bing.full.james_blond.theName.line.1bukl7f",
+      "voice": "blond",
+      "say": "Vincent Mallard."
+    },
+    {
+      "name": "vo.bing.full.james_blond.tongsGratin.line.1oqnpv0",
+      "voice": "gratin",
+      "say": "Buddy, you wore a tuxedo to spy on Sasquatches."
+    },
+    {
+      "name": "vo.bing.full.james_blond.useIce.line.14yi6xf",
+      "voice": "blond",
+      "say": "Cold."
+    },
+    {
+      "name": "vo.bing.full.james_blond.useSauce.line.15qv56b",
+      "voice": "gratin",
+      "say": "This is either hot sauce or fryer cleaner. Label fell off."
+    },
+    {
+      "name": "vo.bing.full.james_blond.useTenderizer.line.xyqv5m",
+      "voice": "blond",
+      "say": "Surely that violates some international convention."
+    },
+    {
+      "name": "vo.bing.full.james_blond.useTongs.line.10rknz1",
+      "voice": "blond",
+      "say": "Let’s not be theatrical."
+    },
+    {
+      "name": "vo.bing.full.james_blond.whyNot.line.1u5z4gg",
+      "voice": "blond",
+      "say": "Because I assumed you were professionals."
+    },
+    {
+      "name": "vo.bing.full.james_blond.writtenDown.line.kellhl",
+      "voice": "gratin",
+      "say": "Numbskull, is there a pen. There’s a pen. I’m using the menu."
+    },
+    {
+      "name": "vo.bing.full.lag.aside.line.a2h47j",
+      "voice": "lag",
+      "say": "You would not have heard of it. Server browser, no matchmaking, and a map nobody could pronounce."
+    },
+    {
+      "name": "vo.bing.full.lag.asideMore.line.1q7b7jg",
+      "voice": "lag",
+      "say": "I held rank one on that map for eleven weeks. Then they patched the ladder and gave everybody a fresh start. Everybody. Like it was nothing."
+    },
+    {
+      "name": "vo.bing.full.lag.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.lag.open.tony.s2jldk",
+      "voice": "player",
+      "say": "What game did you peak in?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillCallback.open.line.ht1dty",
+      "voice": "blond",
+      "say": "I’ve been meaning to discuss your interrogation technique."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillCallback.open.tony.kiea6x",
+      "voice": "player",
+      "say": "Still driving the silver car?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillDoor.knocking.line.1mvtv1e",
+      "voice": "gratin",
+      "say": "Prospect! Get back here. I need a second set of hands."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.handOff.line.1sqprmo",
+      "voice": "gratin",
+      "say": "Good. And Prospect — watch his face, not his mouth. His mouth is a professional."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.need.line.qyc88g",
+      "voice": "gratin",
+      "say": "A second set of hands and a second face. He has had mine all night and he has started finishing my sentences."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.needTools.line.1ez2vja",
+      "voice": "gratin",
+      "say": "Cart is on your left, it is a kitchen, help yourself. Everything he had in his pockets is on the table by the door. Use one, use the other, use both. Just get me a name."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.noticed.line.i1acfa",
+      "voice": "gratin",
+      "say": "I saw it. Hit him and he writes a review. Touch one thing that belongs to him and he forgets to be charming."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.noticedMore.line.1pvtpta",
+      "voice": "gratin",
+      "say": "So stop hitting him and start going through what’s on that table."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.line.1g00ent",
+      "voice": "gratin",
+      "say": "What are you standing there for? He is four feet away and he is having a lovely time."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.line.5c7gw9",
+      "voice": "gratin",
+      "say": "We got a name out of him. Whatever you do next, do it away from my shoes."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.line.p86qay",
+      "voice": "gratin",
+      "say": "You are getting somewhere. Whatever you just picked up, pick up more of it."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.tony.14lv4tr",
+      "voice": "player",
+      "say": "What do you actually need from me?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.tony.1a5x6e0",
+      "voice": "player",
+      "say": "He went quiet when I touched his things."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.tony.1ko44d5",
+      "voice": "player",
+      "say": "What have you already tried?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.tony.1stlk9q",
+      "voice": "player",
+      "say": "Let me have a go at him."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.tony.3vo7xx",
+      "voice": "player",
+      "say": "Who is he?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.tony.jiw36c",
+      "voice": "player",
+      "say": "Nothing. Forget it."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.open.tony.sa4lho",
+      "voice": "player",
+      "say": "Why can’t you do this yourself?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.tried.line.z195g4",
+      "voice": "gratin",
+      "say": "Hitting him. Hitting him harder. Waiting a while. Hitting him during the waiting."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.triedFace.line.qsh2fb",
+      "voice": "gratin",
+      "say": "Every single time he looks at me like I have brought him the wrong wine."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.who.line.18q48un",
+      "voice": "gratin",
+      "say": "Foreign. Intelligence, the proper kind. Walked across our lot with a camera the size of a lighter and did not run when I said his name out loud."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.whoWorry.line.d2cntt",
+      "voice": "gratin",
+      "say": "That last part is the part I do not like."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillGratin.why.line.uecgyj",
+      "voice": "gratin",
+      "say": "Because I have been in this room since seven o’clock and I am starting to like him."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.holding.line.1y65zsf",
+      "voice": "numbskull",
+      "say": "I am good. I said early on I would hold him still and everybody went quiet at me."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.holdingStill.line.hif1re",
+      "voice": "numbskull",
+      "say": "I do still think it would help."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.line.1khqw2q",
+      "voice": "numbskull",
+      "say": "Everything off him is laid out on that table. Watch, camera, the little gun, and keys to something."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.line.grdgo6",
+      "voice": "numbskull",
+      "say": "He gave it up. I want it on the record that nobody needed holding."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1h534md",
+      "voice": "player",
+      "say": "Later."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1knrtgn",
+      "voice": "player",
+      "say": "Did you go through it properly?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.1mi8jml",
+      "voice": "player",
+      "say": "Anything on there worth anything?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.open.tony.o2dhps",
+      "voice": "player",
+      "say": "You holding up, Numbskull?"
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.theBox.line.niep5o",
+      "voice": "numbskull",
+      "say": "Twice. Pockets, lining, both shoes. Then I put it all out where you could see it, in a line, like a shop."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.theBoxDrain.line.1nx4zm0",
+      "voice": "numbskull",
+      "say": "Do not set any of it down on the floor. The floor in here has a drain in it."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.worth.line.1ln79p1",
+      "voice": "numbskull",
+      "say": "The watch is worth my car. The little gun is worth my car. The keys go to something I have not been allowed to walk out and look at."
+    },
+    {
+      "name": "vo.bing.full.licenseToGrillNumbskull.worthWall.line.1cajjlk",
+      "voice": "numbskull",
+      "say": "Gratin said do not go and look at it. So I have been looking at this wall instead."
+    },
+    {
+      "name": "vo.bing.full.lou.andthen.line.1vah18a",
+      "voice": "lou1",
+      "say": "Then you decide whether they’re wasting our time. That part’s yours. That’s why it’s you going and not one of the animals."
+    },
+    {
+      "name": "vo.bing.full.lou.busy.line.1rjobfp",
+      "voice": "lou1",
+      "say": "It’s Tuesday. Tuesday’s busy. Wednesday’s worse."
+    },
+    {
+      "name": "vo.bing.full.lou.called.line.czlqoh",
+      "voice": "lou1",
+      "say": "I did."
+    },
+    {
+      "name": "vo.bing.full.lou.candy.line.d2l6uh",
+      "voice": "lou1",
+      "say": "Take one. Everybody takes one. Nobody eats one."
+    },
+    {
+      "name": "vo.bing.full.lou.changed.line.tulsor",
+      "voice": "lou1",
+      "say": "Nothing changed. That’s what worries me. It should have, by now."
+    },
+    {
+      "name": "vo.bing.full.lou.confident.line.iqzopd",
+      "voice": "lou1",
+      "say": "Everybody knows what they’re doing. The ones who don’t come back knew as well."
+    },
+    {
+      "name": "vo.bing.full.lou.contact.line.vhp8a2",
+      "voice": "lou1",
+      "say": "Two of them. One talks, one doesn’t. The one who doesn’t is the one to watch, which I should not have to explain to a grown man."
+    },
+    {
+      "name": "vo.bing.full.lou.doorOpen.line.19tnvci",
+      "voice": "lou1",
+      "say": "Close the door. We’re not selling raffle tickets."
+    },
+    {
+      "name": "vo.bing.full.lou.enter.line.1f761oa",
+      "voice": "lou1",
+      "say": "There he is."
+    },
+    {
+      "name": "vo.bing.full.lou.enter.line.1kwn31d",
+      "voice": "lou1",
+      "say": "Office is closed, Prospect. Party is out front. Try not to miss the murder."
+    },
+    {
+      "name": "vo.bing.full.lou.enter.line.1oe6npq",
+      "voice": "lou1",
+      "say": "Shut the door."
+    },
+    {
+      "name": "vo.bing.full.lou.enter.line.bkm5pu",
+      "voice": "lou1",
+      "say": "Sit down. Or don’t. You’ve had all night to decide."
+    },
+    {
+      "name": "vo.bing.full.lou.envelope.tony.1uitjw6",
+      "voice": "player",
+      "say": "And then?"
+    },
+    {
+      "name": "vo.bing.full.lou.envelope.tony.yscmc9",
+      "voice": "player",
+      "say": "Fine."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.line.17ydj50",
+      "voice": "lou1",
+      "say": "You came here for a package and nearly left with forty pounds of quarters."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.line.lc299m",
+      "voice": "lou1",
+      "say": "You took your time. Relatively speaking."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.line.lki7aa",
+      "voice": "lou1",
+      "say": "You’ve been at my bar. I can hear it from here."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.line.tmwqwr",
+      "voice": "lou1",
+      "say": "You took your time."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.tony.140czgz",
+      "voice": "player",
+      "say": "I came straight in."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.tony.1dsb0i0",
+      "voice": "player",
+      "say": "You called. I’m here."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.tony.1g0x304",
+      "voice": "player",
+      "say": "Your slot machine attacked me."
+    },
+    {
+      "name": "vo.bing.full.lou.greet.tony.1skj0qt",
+      "voice": "player",
+      "say": "Place looks busy."
+    },
+    {
+      "name": "vo.bing.full.lou.hang.line.3wpchh",
+      "voice": "lou1",
+      "say": "Out front. Hog Mama is waiting on the stage controls."
+    },
+    {
+      "name": "vo.bing.full.lou.hang.tony.hq4amq",
+      "voice": "player",
+      "say": "I’m going, Lou."
+    },
+    {
+      "name": "vo.bing.full.lou.hang.tony.s33n16",
+      "voice": "player",
+      "say": "Clean. Mostly."
+    },
+    {
+      "name": "vo.bing.full.lou.inspecting.line.pj0l8m",
+      "voice": "lou1",
+      "say": "It’s a gun, Prospect. Not an engagement ring."
+    },
+    {
+      "name": "vo.bing.full.lou.jerky.line.1uh4wg9",
+      "voice": "lou1",
+      "say": "That’s exactly the sentence people say before things get complicated."
+    },
+    {
+      "name": "vo.bing.full.lou.liquor.line.oiyhn4",
+      "voice": "lou1",
+      "say": "You complete the errand first. Then you rob my bar."
+    },
+    {
+      "name": "vo.bing.full.lou.machine.line.9ju3gw",
+      "voice": "lou1",
+      "say": "That machine has taken more off this crew than the state has. Sit down."
+    },
+    {
+      "name": "vo.bing.full.lou.monitor.line.1eyrta1",
+      "voice": "lou1",
+      "say": "Four cameras and none of them point at anything I care about."
+    },
+    {
+      "name": "vo.bing.full.lou.photos.line.pfpdv4",
+      "voice": "lou1",
+      "say": "You here to pick up a package or review my decorating?"
+    },
+    {
+      "name": "vo.bing.full.lou.questions.tony.13zl6yb",
+      "voice": "player",
+      "say": "Why give me this here?"
+    },
+    {
+      "name": "vo.bing.full.lou.questions.tony.16a5c15",
+      "voice": "player",
+      "say": "I’ve got it."
+    },
+    {
+      "name": "vo.bing.full.lou.questions.tony.1lahoj6",
+      "voice": "player",
+      "say": "Who am I meeting?"
+    },
+    {
+      "name": "vo.bing.full.lou.questions.tony.wmukgv",
+      "voice": "player",
+      "say": "Somebody’s watching the club."
+    },
+    {
+      "name": "vo.bing.full.lou.refuse.line.3o4jmh",
+      "voice": "lou1",
+      "say": "Then you go anyway and I worry the whole evening. Take it, Prospect."
+    },
+    {
+      "name": "vo.bing.full.lou.sat.line.1js4sny",
+      "voice": "lou1",
+      "say": "Good. Sitting. That’s progress."
+    },
+    {
+      "name": "vo.bing.full.lou.straight.line.cjsc8t",
+      "voice": "lou1",
+      "say": "You did. I noticed. Don’t get used to being noticed."
+    },
+    {
+      "name": "vo.bing.full.lou.waiting.tony.1ddcl3z",
+      "voice": "player",
+      "say": "And if I don’t take it?"
+    },
+    {
+      "name": "vo.bing.full.lou.waiting.tony.1lavgm7",
+      "voice": "player",
+      "say": "What is it?"
+    },
+    {
+      "name": "vo.bing.full.lou.warning.tony.1rs0tw",
+      "voice": "player",
+      "say": "What changed?"
+    },
+    {
+      "name": "vo.bing.full.lou.warning.tony.awltb1",
+      "voice": "player",
+      "say": "I know what I’m doing."
+    },
+    {
+      "name": "vo.bing.full.lou.warning.tony.hdjyui",
+      "voice": "player",
+      "say": "They’re jerky dealers."
+    },
+    {
+      "name": "vo.bing.full.lou.warning.tony.mg3d9s",
+      "voice": "player",
+      "say": "I understand."
+    },
+    {
+      "name": "vo.bing.full.lou.watched.line.cwm110",
+      "voice": "lou1",
+      "say": "…Grey sedan. By the office wall. Alright. Find out whether it follows you. Don’t do anything about it. Find out."
+    },
+    {
+      "name": "vo.bing.full.lou.why.line.5g6i9h",
+      "voice": "lou1",
+      "say": "Because here it’s mine, and out there it’s evidence. And because I wanted to look at you before you went."
+    },
+    {
+      "name": "vo.bing.full.margo.dinner.tony.14cm7ow",
+      "voice": "player",
+      "say": "That was the whole thing. That was all of it."
+    },
+    {
+      "name": "vo.bing.full.margo.dinner.tony.8taeo9",
+      "voice": "player",
+      "say": "Take my number. Ring it when you are not working."
+    },
+    {
+      "name": "vo.bing.full.margo.fold.line.1gbo14r",
+      "voice": "margo",
+      "say": "Hm. Shame. That was nearly something."
+    },
+    {
+      "name": "vo.bing.full.margo.open.tony.1xxg4iv",
+      "voice": "player",
+      "say": "I was going to walk past."
+    },
+    {
+      "name": "vo.bing.full.margo.open.tony.rnhobt",
+      "voice": "player",
+      "say": "What are you drinking?"
+    },
+    {
+      "name": "vo.bing.full.margo.why.tony.10rytv8",
+      "voice": "player",
+      "say": "I could have a word about the two hundred."
+    },
+    {
+      "name": "vo.bing.full.margo.why.tony.152qfmo",
+      "voice": "player",
+      "say": "Good luck with the two hundred."
+    },
+    {
+      "name": "vo.bing.full.margo.why.tony.ijm69l",
+      "voice": "player",
+      "say": "Let me buy you dinner."
+    },
+    {
+      "name": "vo.bing.full.margo.word.line.1r9jmzw",
+      "voice": "margo",
+      "say": "No. Absolutely not. I have watched what a word costs and I would rather have the two hundred outstanding forever. But thank you for offering it like it was nothing."
+    },
+    {
+      "name": "vo.bing.full.margo.word.tony.9r65as",
+      "voice": "player",
+      "say": "Then let me buy you dinner instead."
+    },
+    {
+      "name": "vo.bing.full.numbskull.aside.line.1a3glad",
+      "voice": "numbskull",
+      "say": "Shoulder. Old thing. It goes when it is cold and it is always cold by that fire door."
+    },
+    {
+      "name": "vo.bing.full.numbskull.asideMore.line.1fmwp8z",
+      "voice": "numbskull",
+      "say": "Do not tell anybody. If they know it goes, they stop asking me to do the part I am good at."
+    },
+    {
+      "name": "vo.bing.full.numbskull.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.numbskull.open.tony.o1awfw",
+      "voice": "player",
+      "say": "Ow?"
+    },
+    {
+      "name": "vo.bing.full.numbskull.open.tony.ofpa41",
+      "voice": "player",
+      "say": "…Thanks?"
+    },
+    {
+      "name": "vo.bing.full.old_stove.aside.line.1vrdg7g",
+      "voice": "old-stove",
+      "say": "Longer than the strip. I was there when it was a field and a man with an opinion about the field."
+    },
+    {
+      "name": "vo.bing.full.old_stove.asideMore.line.9nqoo6",
+      "voice": "old-stove",
+      "say": "They paved it, they numbered it, they put up a windsock. Same field. Same opinion."
+    },
+    {
+      "name": "vo.bing.full.old_stove.open.tony.dbfott",
+      "voice": "player",
+      "say": "How long have you been at that strip?"
+    },
+    {
+      "name": "vo.bing.full.old_stove.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.old_stove.open.tony.x8oqq6",
+      "voice": "player",
+      "say": "The ice is fine, Stove."
+    },
+    {
+      "name": "vo.bing.full.rippinflow.aside.line.15x6wkj",
+      "voice": "rippinflow",
+      "say": "I did not stop. I retired. There is a difference and the difference is dignity."
+    },
+    {
+      "name": "vo.bing.full.rippinflow.asideMore.line.1yl5vv7",
+      "voice": "rippinflow",
+      "say": "Booski keeps a recording of the last one. He plays it at parties. That is not dignity, that is hostage footage."
+    },
+    {
+      "name": "vo.bing.full.rippinflow.open.tony.1y1d6fm",
+      "voice": "player",
+      "say": "I’m not writing that down."
+    },
+    {
+      "name": "vo.bing.full.rippinflow.open.tony.3ny2bi",
+      "voice": "player",
+      "say": "Why did you stop freestyling?"
+    },
+    {
+      "name": "vo.bing.full.rippinflow.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.security.chair.line.1461trs",
+      "voice": "doorman",
+      "say": "Check it from a chair."
+    },
+    {
+      "name": "vo.bing.full.security.open.line.1rxz5cn",
+      "voice": "doorman",
+      "say": "Prospect. Floor’s down there."
+    },
+    {
+      "name": "vo.bing.full.security.open.tony.18uzeor",
+      "voice": "player",
+      "say": "Alright, alright."
+    },
+    {
+      "name": "vo.bing.full.security.open.tony.56elm3",
+      "voice": "player",
+      "say": "I’m checking the structural integrity."
+    },
+    {
+      "name": "vo.bing.full.seff.aside.line.vzj3ea",
+      "voice": "seff",
+      "say": "It is not a situation situation. It is a timing thing. A calendar thing. Lou and I have a calendar thing."
+    },
+    {
+      "name": "vo.bing.full.seff.asideMore.line.7bbons",
+      "voice": "seff",
+      "say": "Do not put it like that when you tell him. Put it warmer. Put it like I am already sorry."
+    },
+    {
+      "name": "vo.bing.full.seff.more.tony.18rev59",
+      "voice": "player",
+      "say": "I’m not doing that, Seff."
+    },
+    {
+      "name": "vo.bing.full.seff.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.seff.open.tony.lm2qxk",
+      "voice": "player",
+      "say": "What situation?"
+    },
+    {
+      "name": "vo.bing.full.seff.open.tony.xorodf",
+      "voice": "player",
+      "say": "Why do I need a mattress guy?"
+    },
+    {
+      "name": "vo.bing.full.shubenator.aside.line.81ffut",
+      "voice": "shubenator",
+      "say": "Held. Every single one. Nine hundred times it could have said no and it never said no."
+    },
+    {
+      "name": "vo.bing.full.shubenator.asideMore.line.2h8h1v",
+      "voice": "shubenator",
+      "say": "People thank the trainer. Nobody thanks the floor. Hey — what is going on with that, actually?"
+    },
+    {
+      "name": "vo.bing.full.shubenator.open.tony.1jthio9",
+      "voice": "player",
+      "say": "What did the floor do?"
+    },
+    {
+      "name": "vo.bing.full.shubenator.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.snow.aside.line.1i7d3nl",
+      "voice": "snow",
+      "say": "Nights are honest. Nobody asks you to be pleased about anything at four in the morning."
+    },
+    {
+      "name": "vo.bing.full.snow.asideMore.line.1lw2upu",
+      "voice": "snow",
+      "say": "Mop, radiator, one window that does not shut. I know where everything in this building is. Ask me sometime when it matters."
+    },
+    {
+      "name": "vo.bing.full.snow.open.tony.1lb6swm",
+      "voice": "player",
+      "say": "You always work nights?"
+    },
+    {
+      "name": "vo.bing.full.snow.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.willy.aside.line.10q2gcw",
+      "voice": "willy",
+      "say": "Cannot say. Genuinely cannot. Not being cute about it, I signed nothing but I gave my word to a fella."
+    },
+    {
+      "name": "vo.bing.full.willy.asideMore.line.z9644b",
+      "voice": "willy",
+      "say": "When it lands you will hear about it from somebody who is not me. That is how you will know it was me."
+    },
+    {
+      "name": "vo.bing.full.willy.open.tony.dt2qpn",
+      "voice": "player",
+      "say": "What big things?"
+    },
+    {
+      "name": "vo.bing.full.willy.open.tony.kay3u1",
+      "voice": "player",
+      "say": "Another time."
+    },
+    {
+      "name": "vo.bing.full.willy.open.tony.rml5hz",
+      "voice": "player",
+      "say": "Sure they can, Willy."
+    },
+    {
+      "name": "vo.bing.hang.shubenator.signature.cheerful",
+      "voice": "shubenator",
+      "say": "Hey guys, what’s going on?",
+      "direction": "Cheerful and casually late to the conversation. A friendly first hello; he genuinely believes nothing in the room is tense."
     }
   ]
 }
