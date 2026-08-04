@@ -221,6 +221,12 @@ export function createLicenseToGrill({
       x: npc.group.position.x,
       z: npc.group.position.z,
       yaw: npc.group.rotation.y,
+      /* Both facings, because they are two different things. `rotation.y` is
+       * where he is pointing this frame; `targetYaw` is where Npc.update is
+       * easing him towards, and it survives being teleported. Restore only
+       * the first and a member put back on the floor snaps to his stool and
+       * then slowly turns to face a store room two rooms away. */
+      targetYaw: npc.targetYaw,
       job: npc.job,
     });
     npc.job = 'stand';
@@ -243,6 +249,7 @@ export function createLicenseToGrill({
     npc._syncJob?.(true);
     npc.group.position.set(was.x, npc.group.position.y, was.z);
     npc.group.rotation.y = was.yaw;
+    npc.targetYaw = was.targetYaw;
     runtime.parked.delete(id);
   }
 
