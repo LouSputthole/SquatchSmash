@@ -46,7 +46,7 @@ import { makeCar, makeVehicleCollider, populateLot } from '../../bing/vehicles.j
 // this doesn't retroactively retile whatever else in the game happens to
 // share that exact cached texture instance.
 import { tileTex } from '../../world/textures.js';
-import { tiled } from '../../bing/kit.js';
+import { tiled, brick, printed } from '../../bing/kit.js';
 /* The Squatch Smash player rig, reused as the monument in the fountain --
  * see buildFountain(). game/ is the in-world PC game and has no dependency
  * on this scene; this import goes one way only, and the module is three
@@ -112,6 +112,97 @@ export const LOUNGE_BAY = Object.freeze({ x0: 16, x1: 20.6, z0: 41, z1: 54 });
 export const BAY_ROOF_Y0 = 5.2;
 export const BAY_ROOF_Y1 = 5.6;
 
+/* THE WEST WING (owner brief, third pass, verbatim):
+ *
+ *   "Expand the mansion ground level. Beauty."
+ *   "in Lou's mansion is a massive trophy engraved: THE GREAT INCLUDER"
+ *
+ * The east elevation already grew once (the billiard bay). This is the same
+ * move on the west, at wing scale rather than bay scale: a single-storey range
+ * hung off the living room and the dining room, holding two rooms the house
+ * did not have -- the hall the trophy stands in, and a winter garden.
+ *
+ * Why here and not inside the existing footprint: every ground-floor room is
+ * already furnished and every wall in the middle of the house is already a
+ * partition with a doorway in it. Adding a room by subdividing one would make
+ * two small rooms out of one good one. Hanging it off the west elevation makes
+ * the house bigger, which is what was asked for, and it is the one elevation
+ * with nothing in front of it -- the side lot stops at z=32, the rose bed at
+ * z=40, and the perimeter fence is at x=-30, so the range has 5.4 m of lawn
+ * outside it and fouls nothing.
+ *
+ * The two rooms are separated by their own partition and connected to each
+ * other, so the wing reads as one range rather than two lean-tos. Its roof
+ * lands at WING_ROOF_Y0/Y1, which is under the upper floor's window sills
+ * (UPPER_SILL = 6.9) -- the main block above it is untouched.
+ */
+export const TROPHY_HALL = Object.freeze({
+  x0: -24.2, x1: -16, z0: 41.0, z1: 55.7,
+});
+export const WINTER_GARDEN = Object.freeze({
+  x0: -24.2, x1: -16, z0: 56.0, z1: 74.0,
+});
+/** The whole range, walls included -- what the podium and roof are poured to. */
+export const WEST_WING = Object.freeze({
+  x0: -24.6, x1: -16, z0: 40.6, z1: 74.4,
+});
+/* 6.6, not 6.0. The Great Includer is 3.3 m of cup on a metre of plinth on a
+ * dais, and at a 4.8 m ceiling its finial went through the coffers -- measured,
+ * by the verifier, which reads the trophy's real world box. 6.6 gives the hall
+ * 5.4 m and still lands the roof slab under the upper storey's window sills at
+ * 6.9, which is the constraint that fixes the upper bound. The roof's east edge
+ * stops dead on the building line for the same reason (no overhang across the
+ * bedroom windows above it). */
+export const WING_ROOF_Y0 = 6.6;
+export const WING_ROOF_Y1 = 7.05;
+
+/* THE LOWER LEVEL (owner brief, third pass): a guest bedroom, a LAN room, a
+ * home theatre and a vault, none of which fit in the armory.
+ *
+ * The armory (BASEMENT_ROOM) is deliberately NOT enlarged. It is furnished
+ * wall to wall, a sibling pass is mounting a weapons armory on its south and
+ * west walls, and moving its shell would move theirs. Instead the basement
+ * gains a wing to the NORTH of it, under the ballroom/dining/kitchen block,
+ * joined by one doorway punched through the armory's north wall between the
+ * tool bench and the boiler (CELLAR_DOOR) -- the only 1.85 m of that wall with
+ * nothing standing against it.
+ *
+ * BASEMENT_WING is the FOOTPRINT, wall bands included, and is what floorAt
+ * reads: a rect per room would leave the wall bands and every threshold
+ * between them with no floor candidate at all, and floorAt's "nothing here"
+ * fallback is the podium 4 m overhead.
+ */
+export const BASEMENT_WING = Object.freeze({
+  x0: -15.6, x1: 15.6, z0: 64.0, z1: 74.6,
+});
+/** The spine corridor: every room downstairs opens off it. */
+export const CELLAR_HALL = Object.freeze({
+  x0: -15.6, x1: 15.6, z0: 64.3, z1: 67.4,
+});
+export const GUEST_ROOM = Object.freeze({
+  x0: -15.6, x1: -7.9, z0: 67.7, z1: 74.6,
+});
+export const THEATRE = Object.freeze({
+  x0: -7.6, x1: 1.9, z0: 67.7, z1: 74.6,
+});
+/* The theatre's back row stands on a riser -- offered by floorAt.
+ *
+ * At the SOUTH end, which is the end you come in at: the screen is on the
+ * north wall, so a raked floor rises away from it, and you enter a cinema at
+ * the top of the rake. Getting this the wrong way round puts the back row in
+ * a pit and the front row's heads in the picture. */
+export const THEATRE_TIER = Object.freeze({
+  x0: -7.6, x1: 1.9, z0: 67.7, z1: 70.3, y: 0.3,
+});
+export const LAN_ROOM = Object.freeze({
+  x0: 2.2, x1: 10.9, z0: 67.7, z1: 74.6,
+});
+export const VAULT = Object.freeze({
+  x0: 11.2, x1: 15.6, z0: 67.7, z1: 74.6,
+});
+/** The one hole in the armory's north wall. Everything else there is untouched. */
+export const CELLAR_DOOR = Object.freeze({ x0: 5.35, x1: 7.05 });
+
 /* ---------------------------------------------------------------------------
  * LAYOUT DATUM (2026-08-04 rework, owner's brief).
  *
@@ -166,6 +257,44 @@ export const POOL = Object.freeze({
   x0: -7, x1: 7, z0: 81, z1: 89, y: GROUND_Y - 1.3,
 });
 export const SECURITY_BOOTH_POS = Object.freeze({ x: 8, z: 4 });
+
+/* THE REAR GARDEN (owner brief, third pass, verbatim):
+ *
+ *   "More fancy shit in the backyard."  "A hedge maze garden"  "fancy brick
+ *    walls"
+ *
+ * Behind the pool, on ground the property did not previously own: a formal
+ * garden on a single north-south axis, walled in brick rather than fenced in
+ * iron. Wrought iron is what you show the street; brick is what you put round
+ * the part nobody drives past.
+ *
+ * GARDEN is the walled enclosure, measured to the INSIDE faces of the brick.
+ * MAZE and ROSE_GARDEN are the two halves either side of the axis. The maze's
+ * corridor width is derived from its own cell size and hedge thickness and is
+ * asserted by tools/verify-mansion.mjs -- a hedge maze whose corridors narrow
+ * anywhere is the NO WAKE deck fault with topiary on it.
+ */
+export const GARDEN = Object.freeze({
+  x0: -29.7, x1: 29.7, z0: 96, z1: 125.7,
+});
+export const GARDEN_WALL = Object.freeze({
+  x0: -30, x1: 30, z0: 90, z1: 126, h: 2.6, t: 0.6,
+});
+export const MAZE = Object.freeze({
+  x0: -25.0, x1: -9.4, z0: 100.0, z1: 122.0, cols: 5, rows: 7, hedge: 0.7, height: 2.15,
+});
+export const ROSE_GARDEN = Object.freeze({
+  x0: 9.4, x1: 25.0, z0: 100.0, z1: 122.0, wall: 2.3, t: 0.5,
+});
+/** The reflecting canal on the garden's axis, and the pavilion that closes it. */
+/* A rill rather than a lake: 3.2 m wide, so the axis walk can run down BOTH
+ * sides of it at a proper width instead of the walk having to be notched into
+ * two 55 cm ribbons. `kerb` is how far the coping stands proud of the water on
+ * each side, and the walk is cut around exactly that. */
+export const CANAL = Object.freeze({
+  x0: -1.6, x1: 1.6, z0: 103.0, z1: 115.0, y: -0.55, kerb: 0.45,
+});
+export const PAVILION = Object.freeze({ x: 0, z: 120.4, r: 4.2 });
 
 /* ================================================================== */
 /* Material palette -- procedural only, matching the rest of the game. */
@@ -238,6 +367,34 @@ const M_POOL_GLASS = mat({
 /** The deck's skirt and coping -- see buildPoolPatio's fascia note. */
 const M_DECK_SKIRT = mat({ color: 0xb4ad9c, roughness: 0.72 });
 const M_LAMP_POST = mat({ color: 0x14151a, roughness: 0.5, metalness: 0.6 });
+
+/* The rear garden's masonry. Brick is retiled per surface (memoised on the
+ * rounded repeat pair, the same way the driveway pavers are) so a 36 m estate
+ * wall reads as courses of brick rather than one brick stretched to 36 m. */
+const brickBase = brick('#7a4630');
+const _brickCache = new Map();
+function brickMaterial(w, h) {
+  const rx = Math.max(1, Math.round(w / 1.9));
+  const ry = Math.max(1, Math.round(h / 1.9));
+  const key = `${rx}x${ry}`;
+  let m = _brickCache.get(key);
+  if (!m) {
+    m = mat({
+      map: tiled(brickBase, rx, ry), color: 0xffffff, roughness: 0.92, unique: true,
+    });
+    _brickCache.set(key, m);
+  }
+  return m;
+}
+const M_COPING = mat({ color: 0xd6cfb8, roughness: 0.55 });
+const M_GRAVEL = mat({ map: tiled(tileTex(6, '#4b463c', '#8d8676'), 26, 26), roughness: 0.98, unique: true });
+const M_YEW = mat({ color: 0x1c3f24, roughness: 1 });
+const M_YEW_TOP = mat({ color: 0x21492a, roughness: 1 });
+const M_IRON = mat({ color: 0x14161a, roughness: 0.45, metalness: 0.6 });
+const M_TEAK = mat({ color: 0x6a4a2c, roughness: 0.75 });
+const M_BRONZE_STATUE = mat({
+  color: 0x6e5a34, roughness: 0.42, metalness: 0.45, emissive: 0x16120a, emissiveIntensity: 0.9,
+});
 
 /* ================================================================== */
 /* Water: adapted from src/nowake/world.js's buildWater() -- the same    */
@@ -655,6 +812,10 @@ export function buildMansionGrounds(scene = null) {
     [BUILDING.x1, 35, -5, 95],
     [BUILDING.x0, BUILDING.x1, -5, BUILDING.z0],
     [BUILDING.x0, BUILDING.x1, BUILDING.z1, 95],
+    /* The rear garden's own ground. The property used to stop at the pool's
+     * north coping; the formal garden behind it (see buildRearGarden) runs to
+     * z=126 inside a brick estate wall, so the lawn has to reach it. */
+    [-35, 35, 95, GARDEN.z1 + 4],
   ]) {
     root.add(box({
       size: [gx1 - gx0, 0.06, gz1 - gz0],
@@ -1656,6 +1817,8 @@ export function buildMansionGrounds(scene = null) {
   });
   /** Head height of the three arches from the lounge into the billiard bay. */
   const BAY_ARCH_TOP = GROUND_Y + 3.4;
+  /** ...and of the arcade from the living room into the west wing. */
+  const WING_ARCH_TOP = GROUND_Y + 3.6;
 
   function buildShell() {
     const zS0 = BUILDING.z0 - WALL_T;
@@ -1836,12 +1999,36 @@ export function buildMansionGrounds(scene = null) {
       y1: UPPER_CEILING_Y,
       tag: 'west',
       openings: [
+        /* The living room's west glazing used to be one 13 m pane, z:43..56.
+         * The west wing is hung off this wall, so the southern half of that
+         * run becomes the arcade into the trophy hall and the rest stays
+         * glazed. The band picked is z:41.4..46.4 and nothing else: the
+         * couch against this wall occupies z:46.75..48.85, the fireplace
+         * z:51.2..54, and an opening across either of those is furniture
+         * standing in a doorway -- the exact fault the walk-in tests exist
+         * to catch. */
+        /* Three arches on two piers, not one 5 m hole. The billiard bay
+         * already set the precedent on the other side of the house and the
+         * reasoning is the same: a five-metre opening with no structure in it
+         * reads as a missing wall and gives the storey above nothing to stand
+         * on. The middle arch is centred on z=43.9, which is the line the
+         * walk-in test drives -- put the piers on that line instead and the
+         * hall is entered by squeezing past a column. */
+        { id: 'livingToTrophySouth', u0: 41.4, u1: 42.8, y0: GROUND_Y, y1: WING_ARCH_TOP },
+        { id: 'livingToTrophyMid', u0: 43.2, u1: 44.6, y0: GROUND_Y, y1: WING_ARCH_TOP },
+        { id: 'livingToTrophyNorth', u0: 45.0, u1: 46.4, y0: GROUND_Y, y1: WING_ARCH_TOP },
         {
-          id: 'livingWest', u0: 43, u1: 56, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+          id: 'livingWest', u0: 47.6, u1: 50.8, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
         },
         {
-          id: 'diningWest', u0: 60, u1: 71, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+          id: 'livingWestNorth', u0: 54.4, u1: 57.2, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
         },
+        {
+          id: 'diningWest', u0: 60.4, u1: 63.8, y0: GLASS_SILL, y1: GLASS_TOP, glass: true,
+        },
+        /* French doors into the winter garden, north of the dining sideboard
+         * (z:64.4..67.6) and its curtain (z:67.06..68.4). */
+        { id: 'diningToWinter', u0: 68.8, u1: 71.8, y0: GROUND_Y, y1: GROUND_Y + 2.8 },
         {
           id: 'bedWestFrontWest', u0: 42.6, u1: 46.4, y0: UPPER_SILL, y1: UPPER_HEAD, glass: true,
         },
@@ -1969,6 +2156,113 @@ export function buildMansionGrounds(scene = null) {
       }
     }
 
+    /* -- THE WEST WING. -------------------------------------------------
+     * Same construction as the billiard bay, at range scale: a podium so its
+     * floor is the ground floor's, three outer walls with their own glazing,
+     * a flat roof under the upper storey's window sills, and a gilded cornice.
+     * The east side is the main block's own west wall (already built above,
+     * with the arcade and the French doors in it), so it gets none here. */
+    const wingOuterX = WEST_WING.x0;
+    const wingInnerX = WEST_WING.x1;   // == BUILDING.x0
+    const wingT = 0.4;
+    panelWall({
+      axis: 'x',
+      lo: wingOuterX,
+      hi: wingOuterX + wingT,
+      u0: WEST_WING.z0,
+      u1: WEST_WING.z1,
+      y0: GROUND_Y,
+      y1: WING_ROOF_Y0,
+      tag: 'wing-west',
+      openings: [
+        {
+          id: 'trophyWestSouth', u0: 43.0, u1: 46.4, y0: GLASS_SILL + 0.9, y1: GLASS_TOP + 0.5, glass: true,
+        },
+        {
+          id: 'trophyWestNorth', u0: 50.2, u1: 53.6, y0: GLASS_SILL + 0.9, y1: GLASS_TOP + 0.5, glass: true,
+        },
+        {
+          id: 'winterWestSouth', u0: 58.0, u1: 63.4, y0: GLASS_SILL - 0.6, y1: GLASS_TOP + 0.4, glass: true,
+        },
+        {
+          id: 'winterWestNorth', u0: 65.6, u1: 71.6, y0: GLASS_SILL - 0.6, y1: GLASS_TOP + 0.4, glass: true,
+        },
+      ],
+    });
+    panelWall({
+      axis: 'z',
+      lo: WEST_WING.z0,
+      hi: WEST_WING.z0 + wingT,
+      u0: wingOuterX,
+      u1: wingInnerX,
+      y0: GROUND_Y,
+      y1: WING_ROOF_Y0,
+      tag: 'wing-south',
+      openings: [{
+        id: 'trophySouth', u0: -22.4, u1: -17.8, y0: GLASS_SILL + 0.9, y1: GLASS_TOP + 0.5, glass: true,
+      }],
+    });
+    panelWall({
+      axis: 'z',
+      lo: WEST_WING.z1 - wingT,
+      hi: WEST_WING.z1,
+      u0: wingOuterX,
+      u1: wingInnerX,
+      y0: GROUND_Y,
+      y1: WING_ROOF_Y0,
+      tag: 'wing-north',
+      openings: [{
+        id: 'winterNorth', u0: -22.4, u1: -17.8, y0: GLASS_SILL - 0.6, y1: GLASS_TOP + 0.4, glass: true,
+      }],
+    });
+    root.add(box({
+      size: [wingInnerX - wingOuterX, GROUND_Y, WEST_WING.z1 - WEST_WING.z0],
+      pos: [(wingOuterX + wingInnerX) / 2, GROUND_Y / 2, (WEST_WING.z0 + WEST_WING.z1) / 2],
+      mat: M_PODIUM,
+      name: 'wing-podium',
+    }));
+    /* Overhang on three sides only: the east edge stops on the building line.
+     * An eave reaching past it at this height would cross the bottom of the
+     * upper storey's west windows. */
+    root.add(box({
+      size: [(wingInnerX - wingOuterX) + 0.45, WING_ROOF_Y1 - WING_ROOF_Y0, WEST_WING.z1 - WEST_WING.z0 + 0.9],
+      pos: [
+        (wingOuterX - 0.45 + wingInnerX) / 2,
+        (WING_ROOF_Y0 + WING_ROOF_Y1) / 2,
+        (WEST_WING.z0 + WEST_WING.z1) / 2,
+      ],
+      mat: M_ROOF,
+      name: 'wing-roof',
+    }));
+    for (const [tx0, tx1, tz0, tz1] of [
+      [wingOuterX - 0.45, wingInnerX, WEST_WING.z0 - 0.45, WEST_WING.z0 - 0.25],
+      [wingOuterX - 0.45, wingInnerX, WEST_WING.z1 + 0.25, WEST_WING.z1 + 0.45],
+      [wingOuterX - 0.45, wingOuterX - 0.25, WEST_WING.z0 - 0.45, WEST_WING.z1 + 0.45],
+    ]) {
+      root.add(box({
+        size: [tx1 - tx0, 0.18, tz1 - tz0],
+        pos: [(tx0 + tx1) / 2, WING_ROOF_Y1 - 0.02, (tz0 + tz1) / 2],
+        mat: M_GOLD,
+        cast: false,
+      }));
+    }
+    // Pilasters up the outer face, between the windows -- the elevation you
+    // see from the whole west lawn, so it gets an order rather than a slab.
+    for (const pz of [42.0, 48.4, 55.0, 64.6, 73.0]) {
+      root.add(box({
+        size: [0.34, WING_ROOF_Y0 - GROUND_Y, 0.9],
+        pos: [wingOuterX - 0.12, (GROUND_Y + WING_ROOF_Y0) / 2, pz],
+        mat: M_MARBLE_DK,
+        cast: false,
+      }));
+      root.add(box({
+        size: [0.44, 0.22, 1.02], pos: [wingOuterX - 0.12, WING_ROOF_Y0 - 0.1, pz], mat: M_GOLD, cast: false,
+      }));
+    }
+    const wingSpill = new THREE.PointLight(0xffd0a0, 8, 16, 2);
+    wingSpill.position.set(wingOuterX - 1.4, 2.8, 48.0);
+    root.add(wingSpill);
+
     // Roof slab (small eave overhang) + gold roofline trim.
     root.add(box({
       size: [BUILDING.x1 - BUILDING.x0 + 0.8, ROOF_Y1 - ROOF_Y0, BUILDING.z1 - BUILDING.z0 + 0.8],
@@ -2040,7 +2334,21 @@ export function buildMansionGrounds(scene = null) {
       mat: M_MARBLE_DK,
     }));
     ext(BASEMENT_ROOM.x0, BASEMENT_ROOM.x1, BASEMENT_Y, 0, BASEMENT_ROOM.z0 - 0.3, BASEMENT_ROOM.z0, 'basement-wall-south', M_PODIUM);
-    ext(BASEMENT_ROOM.x0, BASEMENT_ROOM.x1, BASEMENT_Y, 0, BASEMENT_ROOM.z1, BASEMENT_ROOM.z1 + 0.3, 'basement-wall-north', M_PODIUM);
+    /* The armory's north wall, with ONE doorway punched through it into the
+     * lower level's spine corridor.
+     *
+     * x:5.35..7.05 and nowhere else. The armory is furnished wall to wall and
+     * two of its three other walls carry the weapon racks, so this is the only
+     * stretch of masonry down there with nothing standing against it: the tool
+     * bench's collider stops at x=5.25 and the boiler's starts at x=7.1. The
+     * armory's own fit-out is not moved by a centimetre to make room for it.
+     *
+     * The head stops 0.6 m short of the podium so there is a real lintel over
+     * it rather than a full-height slot. */
+    const cellarDoorHead = BASEMENT_Y + 2.2;
+    ext(BASEMENT_ROOM.x0, CELLAR_DOOR.x0, BASEMENT_Y, 0, BASEMENT_ROOM.z1, BASEMENT_ROOM.z1 + 0.3, 'basement-wall-north-west', M_PODIUM);
+    ext(CELLAR_DOOR.x1, BASEMENT_ROOM.x1, BASEMENT_Y, 0, BASEMENT_ROOM.z1, BASEMENT_ROOM.z1 + 0.3, 'basement-wall-north-east', M_PODIUM);
+    ext(CELLAR_DOOR.x0, CELLAR_DOOR.x1, cellarDoorHead, 0, BASEMENT_ROOM.z1, BASEMENT_ROOM.z1 + 0.3, 'basement-wall-north-lintel', M_PODIUM);
     ext(BASEMENT_ROOM.x0 - 0.3, BASEMENT_ROOM.x0, BASEMENT_Y, 0, BASEMENT_ROOM.z0, BASEMENT_ROOM.z1, 'basement-wall-west', M_PODIUM);
     ext(BASEMENT_ROOM.x1, BASEMENT_ROOM.x1 + 0.3, BASEMENT_Y, 0, BASEMENT_ROOM.z0, BASEMENT_ROOM.z1, 'basement-wall-east', M_PODIUM);
     // Soffit ceiling, notched around the stair shaft so the shaft reads as an
@@ -2056,6 +2364,36 @@ export function buildMansionGrounds(scene = null) {
         mat: M_BASEMENT_CEIL,
       }));
     }
+
+    /* -- THE LOWER LEVEL, north of the armory. ---------------------------
+     * Floor slab, perimeter walls and a soffit ceiling, exactly the same
+     * construction as the armory's, over BASEMENT_WING. Its south wall runs
+     * only where the armory's does not: between x=-9 and x=9 the armory's own
+     * north wall (with the doorway in it, above) IS the corridor's south wall,
+     * and doubling it would put two colliders in the same 30 cm.
+     *
+     * The fit-out -- the corridor, the guest room, the theatre, the LAN room
+     * and the vault -- is MansionInterior's, the same split as everywhere
+     * else in this house. */
+    const BW = BASEMENT_WING;
+    root.add(box({
+      size: [BW.x1 - BW.x0 + 0.6, 0.3, BW.z1 - BW.z0 + 0.6],
+      pos: [(BW.x0 + BW.x1) / 2, BASEMENT_Y - 0.15, (BW.z0 + BW.z1) / 2],
+      mat: M_MARBLE_DK,
+      name: 'cellar-wing-slab',
+    }));
+    ext(BW.x0 - 0.3, BW.x0, BASEMENT_Y, 0, BW.z0 - 0.3, BW.z1 + 0.3, 'cellar-wing-west', M_PODIUM);
+    ext(BW.x1, BW.x1 + 0.3, BASEMENT_Y, 0, BW.z0 - 0.3, BW.z1 + 0.3, 'cellar-wing-east', M_PODIUM);
+    ext(BW.x0 - 0.3, BW.x1 + 0.3, BASEMENT_Y, 0, BW.z1, BW.z1 + 0.3, 'cellar-wing-north', M_PODIUM);
+    for (const [sx0, sx1] of [[BW.x0 - 0.3, BASEMENT_ROOM.x0], [BASEMENT_ROOM.x1, BW.x1 + 0.3]]) {
+      ext(sx0, sx1, BASEMENT_Y, 0, BW.z0, BW.z0 + 0.3, 'cellar-wing-south', M_PODIUM);
+    }
+    root.add(box({
+      size: [BW.x1 - BW.x0, 0.12, BW.z1 - BW.z0],
+      pos: [(BW.x0 + BW.x1) / 2, -0.16, (BW.z0 + BW.z1) / 2],
+      mat: M_BASEMENT_CEIL,
+      name: 'cellar-wing-soffit',
+    }));
 
     // Warm light spilling from the glazed rooms, seen from outside.
     const livingSpill = new THREE.PointLight(0xffc98a, 7, 14, 2);
@@ -2452,6 +2790,56 @@ export function buildMansionGrounds(scene = null) {
     const deckRect = {
       x0: POOL.x0 - pad, x1: POOL.x1 + pad, z0: POOL.z0 - pad, z1: POOL.z1 + pad,
     };
+    /* THE GARDEN STAIRS off the deck's north edge.
+     *
+     * The formal garden behind the pool is at grade and the terrace is 1.2 m
+     * over it, so the two have to be joined by something. A single flight on
+     * the centre line was the obvious move and is the wrong one: the deck's
+     * own verifier walks the centre line from BOTH sides -- north-to-south to
+     * prove the fascia stops you getting in underneath the slab, and
+     * south-to-north to prove the same fascia is not an invisible wall for
+     * anyone on the deck. A stair at x=0 would make the first of those climb
+     * the terrace instead of being stopped by it.
+     *
+     * So it is a PAIR of flights, off the centre, with the fascia continuous
+     * between them -- which is also what a terrace this wide would actually
+     * have. The centre line stays exactly as it was.
+     */
+    const gardenStairs = [
+      { x0: -8.8, x1: -5.2, z0: deckRect.z1, z1: deckRect.z1 + 4.0 },
+      { x0: 5.2, x1: 8.8, z0: deckRect.z1, z1: deckRect.z1 + 4.0 },
+    ];
+    for (const st of gardenStairs) {
+      const treads = 8;
+      for (let i = 0; i < treads; i++) {
+        const t = i / treads;
+        const z = THREE.MathUtils.lerp(st.z0, st.z1, t);
+        root.add(box({
+          size: [st.x1 - st.x0, 0.16, (st.z1 - st.z0) / treads + 0.06],
+          pos: [(st.x0 + st.x1) / 2, THREE.MathUtils.lerp(GROUND_Y, 0, t) + 0.08, z],
+          mat: M_DECK,
+          name: 'garden-step',
+        }));
+      }
+      // Raking cheek walls with a ball finial on each newel, both sides.
+      for (const cx of [st.x0 - 0.22, st.x1 + 0.22]) {
+        for (let i = 0; i < 8; i++) {
+          const za = THREE.MathUtils.lerp(st.z0, st.z1, i / 8);
+          const zb = THREE.MathUtils.lerp(st.z0, st.z1, (i + 1) / 8);
+          const top = THREE.MathUtils.lerp(GROUND_Y, 0, i / 8) + 0.95;
+          root.add(box({
+            size: [0.44, top, zb - za], pos: [cx, top / 2, (za + zb) / 2], mat: brickMaterial(0.5, top),
+          }));
+          root.add(box({
+            size: [0.56, 0.12, zb - za], pos: [cx, top + 0.06, (za + zb) / 2], mat: M_COPING, cast: false,
+          }));
+          solid(cx - 0.24, cx + 0.24, 0, top, za, zb);
+        }
+        root.add(sphere({ r: 0.24, pos: [cx, GROUND_Y + 1.2, st.z0 + 0.2], mat: M_COPING }));
+        root.add(sphere({ r: 0.24, pos: [cx, 1.2, st.z1 - 0.2], mat: M_COPING }));
+      }
+    }
+
     const skirtT = 0.36;
     const skirtSegs = [
       // West, split either side of the garden-steps opening.
@@ -2459,8 +2847,11 @@ export function buildMansionGrounds(scene = null) {
       [deckRect.x0, deckRect.x0 + skirtT, stepsZ1, deckRect.z1],
       // East, full run.
       [deckRect.x1 - skirtT, deckRect.x1, deckRect.z0, deckRect.z1],
-      // North, full run, corner to corner.
-      [deckRect.x0, deckRect.x1, deckRect.z1 - skirtT, deckRect.z1],
+      // North, in three: corner to the west flight, between the two flights
+      // (the centre line, unchanged), and the east flight to the corner.
+      [deckRect.x0, gardenStairs[0].x0 - 0.44, deckRect.z1 - skirtT, deckRect.z1],
+      [gardenStairs[0].x1 + 0.44, gardenStairs[1].x0 - 0.44, deckRect.z1 - skirtT, deckRect.z1],
+      [gardenStairs[1].x1 + 0.44, deckRect.x1, deckRect.z1 - skirtT, deckRect.z1],
     ];
     for (const [sx0, sx1, sz0, sz1] of skirtSegs) {
       root.add(box({
@@ -2566,12 +2957,718 @@ export function buildMansionGrounds(scene = null) {
       steps: {
         x0: stepsX0, x1: stepsX1, z0: stepsZ0, z1: stepsZ1,
       },
+      /** The two flights down off the north edge into the formal garden.
+       * Resolved by src/mansion/main.js's exteriorGroundAt, like every other
+       * lerp-stepped run on this property. */
+      gardenStairs,
       skirt: skirtSegs.map(([sx0, sx1, sz0, sz1]) => ({
         x0: sx0, x1: sx1, z0: sz0, z1: sz1, y0: 0, y1: GROUND_Y,
       })),
     };
   }
   const poolPatio = buildPoolPatio();
+
+  /* ================================================================== */
+  /* THE REAR GARDEN                                                     */
+  /*                                                                      */
+  /* Owner brief, third pass, verbatim: "More fancy shit in the backyard",*/
+  /* "A hedge maze garden", "fancy brick walls".                          */
+  /*                                                                       */
+  /* One axis, walled in brick, laid out the way a formal garden is: a     */
+  /* cross walk along the terrace, a reflecting canal on the centre line   */
+  /* with parterres either side, a hedge maze filling the west compartment */
+  /* and a walled rose garden filling the east one, and a domed pavilion   */
+  /* closing the axis at the far end.                                      */
+  /*                                                                        */
+  /* THE MAZE IS GENERATED, NOT DRAWN. A hand-drawn maze is a maze whose     */
+  /* corridors are whatever the person drawing it typed, and the NO WAKE     */
+  /* deck is what that costs. This one is carved on a grid by a seeded       */
+  /* backtracker, so every corridor is exactly (cell - hedge) wide by         */
+  /* construction -- 2.4 m, four times the player's own 0.6 m diameter --     */
+  /* the walls are emitted as merged runs along grid lines and can therefore  */
+  /* not pinch, and the solved route is exported so tools/verify-mansion.mjs  */
+  /* can WALK it rather than take the geometry's word for it. The seed is     */
+  /* fixed: the same maze every load, which is what makes walking it a test.  */
+  /* ================================================================== */
+  function buildRearGarden() {
+    const lanterns = [];
+
+    /* ---- 1. The brick estate wall. -------------------------------------
+     * Runs from the ends of the iron street fence (which stops at z=90) round
+     * the back of the property: west, north, east. Piers every 6 m, a moulded
+     * brick plinth, a stone coping course and a ball finial on every pier --
+     * the difference between a garden wall and a retaining wall. */
+    const W = GARDEN_WALL;
+    function estateRun(axis, at, from, to) {
+      const len = to - from;
+      const mid = (from + to) / 2;
+      const put = (t, y0, y1, material, cast = true) => {
+        root.add(box({
+          size: axis === 'z' ? [len, y1 - y0, t] : [t, y1 - y0, len],
+          pos: axis === 'z' ? [mid, (y0 + y1) / 2, at] : [at, (y0 + y1) / 2, mid],
+          mat: material,
+          cast,
+        }));
+      };
+      put(W.t, 0, W.h, brickMaterial(len, W.h));
+      put(W.t + 0.16, 0, 0.42, brickMaterial(len, 0.6), false);   // plinth
+      put(W.t + 0.2, W.h, W.h + 0.14, M_COPING, false);           // coping
+      if (axis === 'z') solid(from, to, 0, W.h, at - W.t / 2, at + W.t / 2);
+      else solid(at - W.t / 2, at + W.t / 2, 0, W.h, from, to);
+      for (let p = from; p <= to + 0.01; p += 6) {
+        const px = axis === 'z' ? p : at;
+        const pz = axis === 'z' ? at : p;
+        root.add(box({
+          size: [0.95, W.h + 0.5, 0.95], pos: [px, (W.h + 0.5) / 2, pz], mat: brickMaterial(1, W.h),
+        }));
+        root.add(box({
+          size: [1.15, 0.16, 1.15], pos: [px, W.h + 0.58, pz], mat: M_COPING, cast: false,
+        }));
+        root.add(sphere({ r: 0.3, pos: [px, W.h + 0.86, pz], mat: M_COPING }));
+        solid(px - 0.5, px + 0.5, 0, W.h + 0.5, pz - 0.5, pz + 0.5);
+      }
+    }
+    estateRun('x', W.x0 + W.t / 2, W.z0, W.z1);
+    estateRun('x', W.x1 - W.t / 2, W.z0, W.z1);
+    estateRun('z', W.z1 - W.t / 2, W.x0, W.x1);
+
+    /* ---- 2. Gravel walks. The cross walk runs the width of the garden
+     * under the terrace; the axis walk runs from it to the pavilion. Flat
+     * and un-collided, so none of this is ever an invisible wall. */
+    /* The axis walk is cut around the canal rather than laid across it -- the
+     * first version paved straight over the water, and from the terrace the
+     * whole rill simply was not there. */
+    const K = CANAL.x1 + CANAL.kerb;
+    for (const [gx0, gx1, gz0, gz1] of [
+      [GARDEN.x0, GARDEN.x1, 96.4, 99.6],
+      [-3.6, 3.6, 99.6, CANAL.z0 - CANAL.kerb - 0.15],
+      [-3.6, 3.6, CANAL.z1 + CANAL.kerb + 0.15, 117.4],
+      [-3.6, -K, CANAL.z0 - CANAL.kerb - 0.15, CANAL.z1 + CANAL.kerb + 0.15],
+      [K, 3.6, CANAL.z0 - CANAL.kerb - 0.15, CANAL.z1 + CANAL.kerb + 0.15],
+      [MAZE.x1 + 0.6, ROSE_GARDEN.x0 - 0.6, 122.0, 124.6],
+    ]) {
+      root.add(box({
+        size: [gx1 - gx0, 0.06, gz1 - gz0],
+        pos: [(gx0 + gx1) / 2, 0.03, (gz0 + gz1) / 2],
+        mat: M_GRAVEL,
+        cast: false,
+      }));
+    }
+
+    /* ---- 3. The reflecting canal, on the axis. Same water shader the
+     * fountain and the pool use -- one factory, three pieces of water. */
+    const canalMat = makeWaterMaterial({ deep: 0x08202e, shallow: 0x1d5f74, opacity: 0.9 });
+    const canalWater = new THREE.Mesh(
+      new THREE.PlaneGeometry(CANAL.x1 - CANAL.x0 - 0.06, CANAL.z1 - CANAL.z0 - 0.06),
+      canalMat,
+    );
+    canalWater.rotation.x = -Math.PI / 2;
+    canalWater.position.set((CANAL.x0 + CANAL.x1) / 2, CANAL.y + 0.42, (CANAL.z0 + CANAL.z1) / 2);
+    root.add(canalWater);
+    waterMaterials.push(canalMat);
+    root.add(box({
+      size: [CANAL.x1 - CANAL.x0, 0.1, CANAL.z1 - CANAL.z0],
+      pos: [(CANAL.x0 + CANAL.x1) / 2, CANAL.y - 0.05, (CANAL.z0 + CANAL.z1) / 2],
+      mat: M_POOL_LINER,
+      cast: false,
+    }));
+    /* Coping kerb all the way round, standing 35 cm proud of the lawn so the
+     * rill reads as a cut in the ground rather than a puddle, with a collider
+     * so nobody paddles. */
+    for (const [kx0, kx1, kz0, kz1] of [
+      [CANAL.x0 - CANAL.kerb, CANAL.x1 + CANAL.kerb, CANAL.z0 - CANAL.kerb, CANAL.z0],
+      [CANAL.x0 - CANAL.kerb, CANAL.x1 + CANAL.kerb, CANAL.z1, CANAL.z1 + CANAL.kerb],
+      [CANAL.x0 - CANAL.kerb, CANAL.x0, CANAL.z0, CANAL.z1],
+      [CANAL.x1, CANAL.x1 + CANAL.kerb, CANAL.z0, CANAL.z1],
+    ]) {
+      root.add(box({
+        size: [kx1 - kx0, 0.9, kz1 - kz0],
+        pos: [(kx0 + kx1) / 2, CANAL.y + 0.45, (kz0 + kz1) / 2],
+        mat: M_COPING,
+      }));
+      solid(kx0, kx1, 0, 0.36, kz0, kz1);
+    }
+    // Four jets standing in it, and the light that makes the water read.
+    for (const jz of [CANAL.z0 + 2.0, CANAL.z0 + 5.6, CANAL.z1 - 5.6, CANAL.z1 - 2.0]) {
+      root.add(cylinder({ r: 0.26, h: 0.5, pos: [0, CANAL.y + 0.25, jz], mat: M_MARBLE_DK }));
+      root.add(cylinder({ r: 0.06, h: 0.9, pos: [0, CANAL.y + 0.85, jz], mat: M_CHROME }));
+      root.add(sphere({
+        r: 0.1,
+        pos: [0, CANAL.y + 1.3, jz],
+        mat: mat({ color: 0x9fdcea, roughness: 0.2, transparent: true, opacity: 0.7 }),
+        cast: false,
+      }));
+    }
+    const canalLight = new THREE.PointLight(0x63cde8, 9, 18, 2);
+    canalLight.position.set(0, CANAL.y + 1.4, (CANAL.z0 + CANAL.z1) / 2);
+    root.add(canalLight);
+    lanterns.push(canalLight);
+
+    /* ---- 4. Parterre beds either side of the canal, brick-edged. */
+    for (const side of [-1, 1]) {
+      const px0 = side < 0 ? -8.2 : 4.6;
+      const px1 = side < 0 ? -4.6 : 8.2;
+      for (const [bz0, bz1] of [[103.4, 108.4], [109.6, 114.6]]) {
+        for (const [ex0, ex1, ez0, ez1] of [
+          [px0 - 0.24, px1 + 0.24, bz0 - 0.24, bz0],
+          [px0 - 0.24, px1 + 0.24, bz1, bz1 + 0.24],
+          [px0 - 0.24, px0, bz0, bz1],
+          [px1, px1 + 0.24, bz0, bz1],
+        ]) {
+          root.add(box({
+            size: [ex1 - ex0, 0.34, ez1 - ez0],
+            pos: [(ex0 + ex1) / 2, 0.17, (ez0 + ez1) / 2],
+            mat: brickMaterial(Math.max(ex1 - ex0, ez1 - ez0), 0.4),
+            cast: false,
+          }));
+        }
+        bed(px0, px1, bz0, bz1);
+        plantBed(px0 + 0.4, px1 - 0.4, bz0 + 0.4, bz1 - 0.4, 1.3);
+        // A clipped cone at each bed's centre, the way a parterre is punctuated.
+        const ccx = (px0 + px1) / 2;
+        const ccz = (bz0 + bz1) / 2;
+        root.add(cylinder({
+          rTop: 0.04, rBottom: 0.5, h: 1.8, pos: [ccx, 0.95, ccz], mat: M_YEW,
+        }));
+        solid(ccx - 0.45, ccx + 0.45, 0, 1.8, ccz - 0.45, ccz + 0.45);
+      }
+    }
+
+    /* ---- 5. THE HEDGE MAZE. --------------------------------------------- */
+    const maze = buildHedgeMaze();
+
+    /* ---- 6. The walled rose garden, east compartment. */
+    const R = ROSE_GARDEN;
+    const GATE_W = 2.6;
+    const gateZ = (R.z0 + R.z1) / 2;
+    // West wall (facing the axis), broken by a moon-gate arch.
+    for (const [wz0, wz1] of [[R.z0, gateZ - GATE_W / 2], [gateZ + GATE_W / 2, R.z1]]) {
+      root.add(box({
+        size: [R.t, R.wall, wz1 - wz0],
+        pos: [R.x0, R.wall / 2, (wz0 + wz1) / 2],
+        mat: brickMaterial(R.t, R.wall),
+      }));
+      root.add(box({
+        size: [R.t + 0.18, 0.12, wz1 - wz0], pos: [R.x0, R.wall + 0.06, (wz0 + wz1) / 2], mat: M_COPING, cast: false,
+      }));
+      solid(R.x0 - R.t / 2, R.x0 + R.t / 2, 0, R.wall, wz0, wz1);
+    }
+    // The arch head over the gate: a half-torus of brick, which is what makes
+    // an opening in a garden wall read as a gate rather than a hole.
+    {
+      const arch = new THREE.Mesh(
+        new THREE.TorusGeometry(GATE_W / 2, R.t / 2, 8, 22, Math.PI),
+        brickMaterial(4, 1),
+      );
+      arch.position.set(R.x0, R.wall - 0.5, gateZ);
+      arch.rotation.y = Math.PI / 2;
+      root.add(arch);
+      root.add(box({
+        size: [R.t, R.wall - (R.wall - 0.5) - GATE_W / 2 + 0.6, GATE_W + 0.4],
+        pos: [R.x0, R.wall + 0.1, gateZ],
+        mat: brickMaterial(1, 1),
+        cast: false,
+      }));
+      const gateLamp = new THREE.PointLight(0xffca7a, 6, 12, 2);
+      gateLamp.position.set(R.x0 - 0.9, 2.5, gateZ);
+      root.add(gateLamp);
+      lanterns.push(gateLamp);
+    }
+    // South, north and east walls, unbroken except a service gap at the south
+    // east corner so the compartment is never a single-exit trap.
+    for (const [wx0, wx1, wz0, wz1] of [
+      [R.x0, R.x1 - 3.2, R.z0 - R.t / 2, R.z0 + R.t / 2],
+      [R.x0, R.x1, R.z1 - R.t / 2, R.z1 + R.t / 2],
+    ]) {
+      root.add(box({
+        size: [wx1 - wx0, R.wall, wz1 - wz0], pos: [(wx0 + wx1) / 2, R.wall / 2, (wz0 + wz1) / 2], mat: brickMaterial(wx1 - wx0, R.wall),
+      }));
+      root.add(box({
+        size: [wx1 - wx0, 0.12, wz1 - wz0 + 0.18], pos: [(wx0 + wx1) / 2, R.wall + 0.06, (wz0 + wz1) / 2], mat: M_COPING, cast: false,
+      }));
+      solid(wx0, wx1, 0, R.wall, wz0, wz1);
+    }
+    root.add(box({
+      size: [R.t, R.wall, R.z1 - R.z0], pos: [R.x1, R.wall / 2, (R.z0 + R.z1) / 2], mat: brickMaterial(R.t, R.wall),
+    }));
+    solid(R.x1 - R.t / 2, R.x1 + R.t / 2, 0, R.wall, R.z0, R.z1);
+    // Inside: a circular rose parterre round a sundial, box edging, an iron
+    // arbour over the cross path, and benches on the two long sides.
+    const rcx = (R.x0 + R.x1) / 2;
+    const rcz = (R.z0 + R.z1) / 2;
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const bx = rcx + Math.cos(a) * 4.4;
+      const bz = rcz + Math.sin(a) * 4.4;
+      root.add(cylinder({
+        rTop: 0.34, rBottom: 0.28, h: 0.34, pos: [bx, 0.17, bz], mat: brickMaterial(0.8, 0.4), cast: false,
+      }));
+      bloomClump(bx, bz, 0.3, 1.35);
+      // Standard roses on clear stems, alternating with the low clumps.
+      if (i % 2 === 0) {
+        root.add(cylinder({ r: 0.045, h: 1.2, pos: [bx, 0.94, bz], mat: M_TEAK }));
+        root.add(sphere({ r: 0.42, ry: 0.34, pos: [bx, 1.7, bz], mat: M_FOLIAGE, cast: false }));
+        for (let k = 0; k < 5; k++) {
+          const ka = (k / 5) * Math.PI * 2;
+          root.add(sphere({
+            r: 0.085,
+            pos: [bx + Math.cos(ka) * 0.28, 1.78, bz + Math.sin(ka) * 0.28],
+            mat: BLOOM_MATS[(i / 2 + k) % BLOOM_MATS.length],
+            cast: false,
+          }));
+        }
+      }
+    }
+    root.add(cylinder({ r: 1.5, h: 0.28, pos: [rcx, 0.14, rcz], mat: M_COPING, cast: false }));
+    root.add(cylinder({ rTop: 0.28, rBottom: 0.42, h: 1.0, pos: [rcx, 0.78, rcz], mat: M_MARBLE_DK }));
+    root.add(cylinder({ r: 0.46, h: 0.07, pos: [rcx, 1.31, rcz], mat: M_BRONZE }));
+    root.add(box({
+      size: [0.05, 0.4, 0.42], pos: [rcx, 1.5, rcz], mat: M_BRONZE, rotX: -0.7, name: 'sundial-gnomon',
+    }));
+    solid(rcx - 0.5, rcx + 0.5, 0, 1.35, rcz - 0.5, rcz + 0.5);
+    for (const bz of [R.z0 + 3.0, R.z1 - 3.0]) {
+      root.add(box({ size: [1.9, 0.1, 0.5], pos: [rcx, 0.48, bz], mat: M_TEAK }));
+      root.add(box({
+        size: [1.9, 0.56, 0.1], pos: [rcx, 0.76, bz - 0.22], mat: M_TEAK, rotX: 0.14,
+      }));
+      for (const lx of [-0.8, 0.8]) {
+        root.add(box({ size: [0.1, 0.46, 0.44], pos: [rcx + lx, 0.23, bz], mat: M_IRON }));
+      }
+      solid(rcx - 1.0, rcx + 1.0, 0, 0.95, bz - 0.32, bz + 0.32);
+    }
+    // Iron arbour over the walk in from the moon gate.
+    for (let i = 0; i <= 4; i++) {
+      const ax = R.x0 + 0.9 + i * 0.9;
+      const hoop = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.035, 6, 18, Math.PI), M_IRON);
+      hoop.position.set(ax, 1.2, gateZ);
+      hoop.rotation.y = Math.PI / 2;
+      root.add(hoop);
+      for (const s of [-1, 1]) {
+        root.add(cylinder({ r: 0.035, h: 1.2, pos: [ax, 0.6, gateZ + s * 1.35], mat: M_IRON }));
+      }
+    }
+    const roseLight = new THREE.PointLight(0xffdca0, 14, 16, 2);
+    roseLight.position.set(rcx, 3.1, rcz);
+    root.add(roseLight);
+    lanterns.push(roseLight);
+
+    /* ---- 7. The pavilion that closes the axis. */
+    const P = PAVILION;
+    root.add(cylinder({ r: P.r + 0.9, h: 0.42, pos: [P.x, 0.21, P.z], mat: M_COPING, cast: false }));
+    root.add(cylinder({ r: P.r + 0.55, h: 0.2, pos: [P.x, 0.52, P.z], mat: M_MARBLE, cast: false }));
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+      const cx = P.x + Math.cos(a) * P.r;
+      const cz = P.z + Math.sin(a) * P.r;
+      root.add(cylinder({ r: 0.16, h: 3.4, pos: [cx, 2.32, cz], mat: M_MARBLE }));
+      root.add(cylinder({ rTop: 0.28, rBottom: 0.2, h: 0.24, pos: [cx, 4.14, cz], mat: M_MARBLE, cast: false }));
+      root.add(cylinder({ rTop: 0.2, rBottom: 0.28, h: 0.2, pos: [cx, 0.72, cz], mat: M_MARBLE, cast: false }));
+      solid(cx - 0.2, cx + 0.2, 0, 3.4, cz - 0.2, cz + 0.2);
+    }
+    root.add(cylinder({ r: P.r + 0.6, h: 0.34, pos: [P.x, 4.43, P.z], mat: M_MARBLE_DK, cast: false }));
+    root.add(cylinder({ r: P.r + 0.75, h: 0.14, pos: [P.x, 4.66, P.z], mat: M_GOLD, cast: false }));
+    {
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(P.r + 0.2, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        M_ROOF,
+      );
+      dome.position.set(P.x, 4.7, P.z);
+      dome.castShadow = true;
+      root.add(dome);
+      root.add(cylinder({ r: 0.26, h: 0.7, pos: [P.x, 9.2, P.z], mat: M_GOLD }));
+      root.add(sphere({ r: 0.38, pos: [P.x, 9.75, P.z], mat: M_GOLD }));
+    }
+    // The bronze under the dome: the family's own mark, at the end of the walk.
+    const bronze = new THREE.Group();
+    bronze.add(cylinder({ r: 0.95, h: 0.7, pos: [0, 0.35, 0], mat: M_MARBLE_DK }));
+    bronze.add(box({ size: [1.7, 0.14, 1.7], pos: [0, 0.77, 0], mat: M_GOLD, cast: false }));
+    /* The same rig the fountain's monument uses, cast in bronze instead of
+     * silver -- one model, two statues, rather than a second sculpt. Arms
+     * folded rather than raised: the one out front is the victory pose, and
+     * this one is the one that waits at the end of the walk. */
+    const bronzeRig = new Sasquatch();
+    bronzeRig.group.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = M_BRONZE_STATUE;
+      o.castShadow = true;
+    });
+    bronzeRig.armL.rotation.z = -0.55;
+    bronzeRig.armL.rotation.x = -0.95;
+    bronzeRig.armR.rotation.z = 0.55;
+    bronzeRig.armR.rotation.x = -0.95;
+    bronzeRig.head.rotation.x = 0.08;
+    bronzeRig.group.scale.setScalar(0.62);
+    bronzeRig.group.position.set(0, 0.84, 0);
+    bronzeRig.group.rotation.y = Math.PI;
+    bronze.add(bronzeRig.group);
+    bronze.position.set(P.x, 0.62, P.z);
+    root.add(bronze);
+    solid(P.x - 1.0, P.x + 1.0, 0, 3.2, P.z - 1.0, P.z + 1.0);
+    const pavLight = new THREE.PointLight(0xffd9a8, 22, 20, 2);
+    pavLight.position.set(P.x, 4.0, P.z);
+    root.add(pavLight);
+    lanterns.push(pavLight);
+    for (const s of [-1, 1]) {
+      const l = new THREE.PointLight(0xffe6c2, 7, 11, 2);
+      l.position.set(P.x + s * 2.4, 0.5, P.z - 3.2);
+      root.add(l);
+      lanterns.push(l);
+    }
+
+    /* ---- 8. Lamp standards down the axis and the cross walk, so the
+     * garden is a place at night rather than a black rectangle. */
+    function gardenLamp(x, z) {
+      root.add(cylinder({ r: 0.09, h: 2.9, pos: [x, 1.45, z], mat: M_IRON }));
+      root.add(box({
+        size: [0.44, 0.5, 0.44], pos: [x, 3.12, z], mat: mat({ color: 0x2a2a2e, roughness: 0.6 }),
+      }));
+      root.add(sphere({
+        r: 0.17,
+        pos: [x, 3.1, z],
+        mat: mat({ color: 0xffe6bc, roughness: 0.4, emissive: 0xffdca0, emissiveIntensity: 1.7 }),
+        cast: false,
+      }));
+      root.add(cylinder({ rTop: 0.02, rBottom: 0.26, h: 0.3, pos: [x, 3.5, z], mat: M_IRON, cast: false }));
+      const l = new THREE.PointLight(0xffd2a0, 16, 15, 2);
+      l.position.set(x, 3.1, z);
+      root.add(l);
+      lanterns.push(l);
+      solid(x - 0.14, x + 0.14, 0, 2.9, z - 0.14, z + 0.14);
+    }
+    // Clear of the maze's mouth (which sits on this walk) and of the rose
+    // garden's gate, both of which are approached across it.
+    for (const lx of [-27.0, -21.0, -12.4, 12.4, 21.0, 27.0]) gardenLamp(lx, 97.4);
+    for (const lz of [101.6, 110.0, 118.0]) {
+      gardenLamp(-4.6, lz);
+      gardenLamp(4.6, lz);
+    }
+
+    /* ---- 9. The two side lawns, either side of the pool terrace. Both were
+     * bare grass; both are now somewhere you would actually stand. */
+    // West: a sunken fire pit in a brick ring, with built-in seating.
+    const firePit = { x: -21, z: 84 };
+    for (let i = 0; i < 20; i++) {
+      const a = (i / 20) * Math.PI * 2;
+      const bx = firePit.x + Math.cos(a) * 3.4;
+      const bz = firePit.z + Math.sin(a) * 3.4;
+      /* Tangent to the ring: -(a + PI/2). At -a the benches splay outward like
+       * a starburst -- the same arithmetic slip the winter garden's lily basin
+       * had, and just as obvious once you look at it. */
+      const tangent = -(a + Math.PI / 2);
+      root.add(box({
+        size: [1.2, 0.5, 0.7], pos: [bx, 0.25, bz], mat: brickMaterial(1.3, 0.6), rotY: tangent, cast: false,
+      }));
+      root.add(box({
+        size: [1.25, 0.08, 0.78], pos: [bx, 0.53, bz], mat: M_COPING, rotY: tangent, cast: false,
+      }));
+      solid(bx - 0.5, bx + 0.5, 0, 0.55, bz - 0.5, bz + 0.5);
+    }
+    root.add(cylinder({ r: 1.35, h: 0.62, pos: [firePit.x, 0.31, firePit.z], mat: brickMaterial(4, 0.7) }));
+    root.add(cylinder({ r: 1.5, h: 0.1, pos: [firePit.x, 0.65, firePit.z], mat: M_COPING, cast: false }));
+    root.add(cylinder({
+      r: 1.15,
+      h: 0.14,
+      pos: [firePit.x, 0.7, firePit.z],
+      mat: mat({ color: 0x14100c, roughness: 1 }),
+      cast: false,
+    }));
+    const fireFlame = sphere({
+      r: 0.5,
+      ry: 0.72,
+      pos: [firePit.x, 1.05, firePit.z],
+      mat: mat({
+        color: 0x000000, emissive: 0xff8a2c, emissiveIntensity: 2.2, roughness: 1, unique: true,
+      }),
+      cast: false,
+    });
+    root.add(fireFlame);
+    const fireLight = new THREE.PointLight(0xff8a3c, 20, 18, 2);
+    fireLight.position.set(firePit.x, 1.2, firePit.z);
+    root.add(fireLight);
+    lanterns.push(fireLight);
+    torchFlames.push({
+      flame: fireFlame, light: fireLight, baseIntensity: 20, seed: 3.7,
+    });
+    solid(firePit.x - 1.5, firePit.x + 1.5, 0, 0.75, firePit.z - 1.5, firePit.z + 1.5);
+
+    // East: the outdoor kitchen -- a brick counter, a grill, stools, a canopy.
+    const cookX = 20.5;
+    root.add(box({
+      size: [1.1, 1.0, 7.0], pos: [cookX, 0.5, 84], mat: brickMaterial(1.2, 1.1), name: 'outdoor-kitchen',
+    }));
+    root.add(box({ size: [1.35, 0.1, 7.3], pos: [cookX, 1.05, 84], mat: M_COPING, cast: false }));
+    solid(cookX - 0.6, cookX + 0.6, 0, 1.05, 80.5, 87.5);
+    root.add(box({ size: [1.0, 0.34, 1.6], pos: [cookX, 1.25, 82.2], mat: M_CHROME, name: 'grill' }));
+    root.add(box({
+      size: [1.0, 0.5, 1.6], pos: [cookX, 1.62, 82.2], mat: M_CHROME, rotX: -0.5, cast: false,
+    }));
+    root.add(box({ size: [0.9, 0.22, 1.1], pos: [cookX, 1.22, 85.6], mat: M_CHROME }));
+    for (const sz of [81.0, 82.6, 84.2, 85.8, 87.4]) {
+      root.add(cylinder({ r: 0.24, h: 0.09, pos: [cookX - 1.6, 0.78, sz], mat: M_TEAK }));
+      root.add(cylinder({ r: 0.06, h: 0.74, pos: [cookX - 1.6, 0.37, sz], mat: M_CHROME }));
+      root.add(cylinder({ r: 0.28, h: 0.05, pos: [cookX - 1.6, 0.05, sz], mat: M_CHROME, cast: false }));
+      solid(cookX - 1.85, cookX - 1.35, 0, 0.82, sz - 0.25, sz + 0.25);
+    }
+    for (const [px, pz] of [[cookX - 2.4, 80.2], [cookX - 2.4, 87.8], [cookX + 1.0, 80.2], [cookX + 1.0, 87.8]]) {
+      root.add(cylinder({ r: 0.1, h: 3.0, pos: [px, 1.5, pz], mat: M_TEAK }));
+      solid(px - 0.14, px + 0.14, 0, 3.0, pz - 0.14, pz + 0.14);
+    }
+    root.add(box({
+      size: [4.0, 0.18, 8.4], pos: [cookX - 0.7, 3.05, 84], mat: M_TEAK, cast: false,
+    }));
+    for (let i = 0; i < 9; i++) {
+      root.add(box({
+        size: [4.0, 0.09, 0.12], pos: [cookX - 0.7, 3.2, 80.4 + i * 0.9], mat: M_TEAK, cast: false,
+      }));
+    }
+    const cookLight = new THREE.PointLight(0xffd2a0, 18, 16, 2);
+    cookLight.position.set(cookX - 0.7, 2.85, 84);
+    root.add(cookLight);
+    lanterns.push(cookLight);
+
+    // ...and a three-hole putting green, because of course there is one.
+    const greenMat = mat({ color: 0x2f7a3a, roughness: 1 });
+    root.add(box({ size: [11, 0.07, 9], pos: [21.5, 0.035, 71], mat: greenMat, cast: false }));
+    for (const [hx, hz] of [[18.2, 68.4], [24.0, 70.6], [20.6, 74.0]]) {
+      root.add(cylinder({
+        r: 0.16, h: 0.02, pos: [hx, 0.08, hz], mat: mat({ color: 0x0c1410, roughness: 1 }), cast: false,
+      }));
+      root.add(cylinder({ r: 0.012, h: 1.5, pos: [hx, 0.83, hz], mat: M_CHROME }));
+      root.add(box({
+        size: [0.02, 0.2, 0.3], pos: [hx, 1.45, hz + 0.15], mat: mat({ color: 0xd8b23a, roughness: 0.8 }), cast: false,
+      }));
+    }
+
+    /* ---- 10. A brass plate at the head of the maze walk. Nothing in this
+     * garden explains itself, and one line of lettering at the mouth of a
+     * hedge maze is what a house like this would put there. */
+    const plate = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.5, 0.42),
+      mat({
+        map: printed('mansion.maze.plate', ['THE MAZE — 1988'], {
+          w: 512, h: 144, bg: '#241a10', fg: '#e0be74', font: '900 52px Georgia, serif', border: '#8a6a24',
+        }),
+        roughness: 0.5,
+        unique: true,
+      }),
+    );
+    /* Beside the mouth of the maze, not in front of it -- the approach to an
+     * opening is the one line nothing may stand on. */
+    const plateX = maze.entry.x + 2.4;
+    plate.position.set(plateX, 1.35, MAZE.z0 - 1.15);
+    plate.rotation.y = Math.PI;
+    root.add(plate);
+    root.add(box({
+      size: [1.7, 0.62, 0.34], pos: [plateX, 1.2, MAZE.z0 - 1.0], mat: brickMaterial(1.8, 0.7),
+    }));
+    root.add(box({
+      size: [1.9, 0.12, 0.5], pos: [plateX, 1.57, MAZE.z0 - 1.0], mat: M_COPING, cast: false,
+    }));
+    solid(plateX - 0.9, plateX + 0.9, 0, 1.5, MAZE.z0 - 1.2, MAZE.z0 - 0.8);
+
+    return {
+      wall: { ...GARDEN_WALL },
+      rect: { ...GARDEN },
+      canal: { ...CANAL, water: canalWater },
+      roseGarden: { ...ROSE_GARDEN, gate: { x: R.x0, z: gateZ, w: GATE_W } },
+      pavilion: { ...PAVILION },
+      firePit,
+      lanternCount: lanterns.length,
+      /** Look-targets for the composition root's flavour HUD. */
+      plate,
+      bronze,
+      maze,
+    };
+  }
+
+  /**
+   * The maze itself: carve, merge, build, solve.
+   *
+   * `vWall[c][r]` is the hedge standing on vertical grid line `c` beside row
+   * `r`; `hWall[c][r]` the one on horizontal grid line `r` above column `c`.
+   * Carving clears them; the perimeter is left standing except at the two
+   * gaps. Runs are merged along each grid line before anything is built, so
+   * one hedge is one box and one collider rather than one per cell -- a 5x7
+   * maze is about thirty pieces instead of a hundred and twenty.
+   */
+  function buildHedgeMaze() {
+    const {
+      x0, z0, cols, rows, hedge: T, height: H,
+    } = MAZE;
+    const cw = (MAZE.x1 - MAZE.x0) / cols;
+    const cd = (MAZE.z1 - MAZE.z0) / rows;
+    const cellX = (c) => x0 + (c + 0.5) * cw;
+    const cellZ = (r) => z0 + (r + 0.5) * cd;
+
+    /* Fixed seed. A maze that is different every load is a maze no verifier
+     * can walk and no player can learn, and both of those matter. */
+    let seed = 0x5eed1234;
+    const rnd = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+
+    const vWall = Array.from({ length: cols + 1 }, () => new Array(rows).fill(true));
+    const hWall = Array.from({ length: cols }, () => new Array(rows + 1).fill(true));
+    const seen = Array.from({ length: cols }, () => new Array(rows).fill(false));
+
+    const ENTRY_COL = 2;
+    const EXIT_COL = 2;
+    const stack = [[ENTRY_COL, 0]];
+    seen[ENTRY_COL][0] = true;
+    while (stack.length) {
+      const [c, r] = stack[stack.length - 1];
+      const options = [];
+      if (c > 0 && !seen[c - 1][r]) options.push([c - 1, r, 'v', c, r]);
+      if (c < cols - 1 && !seen[c + 1][r]) options.push([c + 1, r, 'v', c + 1, r]);
+      if (r > 0 && !seen[c][r - 1]) options.push([c, r - 1, 'h', c, r]);
+      if (r < rows - 1 && !seen[c][r + 1]) options.push([c, r + 1, 'h', c, r + 1]);
+      if (!options.length) { stack.pop(); continue; }
+      const [nc, nr, kind, wc, wr] = options[(rnd() * options.length) | 0];
+      if (kind === 'v') vWall[wc][wr] = false;
+      else hWall[wc][wr] = false;
+      seen[nc][nr] = true;
+      stack.push([nc, nr]);
+    }
+    // Three deliberate loops. A perfect maze is all dead ends, and a garden
+    // maze that punishes every wrong turn with a full backtrack is a chore.
+    for (const [c, r] of [[1, 2], [3, 4], [2, 5]]) vWall[c][r] = false;
+    // The way in and the way out.
+    hWall[ENTRY_COL][0] = false;
+    hWall[EXIT_COL][rows] = false;
+
+    /* ---- merge and build ---- */
+    const walls = [];
+    function hedgeRun(ax0, ax1, az0, az1) {
+      root.add(box({
+        size: [ax1 - ax0, H, az1 - az0],
+        pos: [(ax0 + ax1) / 2, H / 2, (az0 + az1) / 2],
+        mat: M_YEW,
+        name: 'maze-hedge',
+      }));
+      root.add(box({
+        size: [ax1 - ax0 - 0.08, 0.06, az1 - az0 - 0.08],
+        pos: [(ax0 + ax1) / 2, H, (az0 + az1) / 2],
+        mat: M_YEW_TOP,
+        cast: false,
+      }));
+      solid(ax0, ax1, 0, H, az0, az1);
+      walls.push({
+        x0: ax0, x1: ax1, z0: az0, z1: az1,
+      });
+    }
+    for (let c = 0; c <= cols; c++) {
+      const lineX = x0 + c * cw;
+      let run = null;
+      for (let r = 0; r <= rows; r++) {
+        const on = r < rows && vWall[c][r];
+        if (on && run === null) run = r;
+        if (!on && run !== null) {
+          hedgeRun(lineX - T / 2, lineX + T / 2, z0 + run * cd - T / 2, z0 + r * cd + T / 2);
+          run = null;
+        }
+      }
+    }
+    for (let r = 0; r <= rows; r++) {
+      const lineZ = z0 + r * cd;
+      let run = null;
+      for (let c = 0; c <= cols; c++) {
+        const on = c < cols && hWall[c][r];
+        if (on && run === null) run = c;
+        if (!on && run !== null) {
+          hedgeRun(x0 + run * cw - T / 2, x0 + c * cw + T / 2, lineZ - T / 2, lineZ + T / 2);
+          run = null;
+        }
+      }
+    }
+
+    /* ---- solve, for the verifier and for the lantern at the heart ---- */
+    const key = (c, r) => r * cols + c;
+    const prev = new Map();
+    const queue = [[ENTRY_COL, 0]];
+    prev.set(key(ENTRY_COL, 0), null);
+    while (queue.length) {
+      const [c, r] = queue.shift();
+      const nbrs = [];
+      if (c > 0 && !vWall[c][r]) nbrs.push([c - 1, r]);
+      if (c < cols - 1 && !vWall[c + 1][r]) nbrs.push([c + 1, r]);
+      if (r > 0 && !hWall[c][r]) nbrs.push([c, r - 1]);
+      if (r < rows - 1 && !hWall[c][r + 1]) nbrs.push([c, r + 1]);
+      for (const [nc, nr] of nbrs) {
+        if (prev.has(key(nc, nr))) continue;
+        prev.set(key(nc, nr), [c, r]);
+        queue.push([nc, nr]);
+      }
+    }
+    const path = [];
+    let cursor = [EXIT_COL, rows - 1];
+    while (cursor) {
+      path.unshift({ x: cellX(cursor[0]), z: cellZ(cursor[1]) });
+      cursor = prev.get(key(cursor[0], cursor[1])) ?? null;
+    }
+    const entry = { x: cellX(ENTRY_COL), z: MAZE.z0 - 2.4 };
+    const exit = { x: cellX(EXIT_COL), z: MAZE.z1 + 2.4 };
+    const route = [entry, ...path, exit];
+
+    /* A lantern and a bench at the deepest cell on the route, so the middle of
+     * the maze is somewhere you arrive at rather than somewhere you notice you
+     * are.
+     *
+     * BOTH GO IN OPPOSITE CORNERS OF THE CELL, and that is not decoration.
+     *
+     * First attempt put the lamp on the centre line with a bench either side.
+     * The cell is 2.42 m of clear corridor, so that left two channels of half
+     * a metre -- under the player's own 0.6 m diameter -- and the maze walk
+     * jammed in the middle of the maze, eight waypoints short. Second attempt
+     * pushed both against the flanks, which keeps the north-south channel open
+     * and closes the east-west one, and this cell is a crossroads.
+     *
+     * A CORNER is the only placement that leaves BOTH channels open: with the
+     * lamp in one diagonal corner and the bench in the other, a straight line
+     * through the cell in either axis is clear by 1.4 m or better. Walked, not
+     * assumed -- verify:mansion drives the exported route on held keys and
+     * this is exactly the failure it caught.
+     */
+    const heart = path[Math.floor(path.length / 2)];
+    const lampX = heart.x + 0.85;
+    const lampZ = heart.z + 0.85;
+    root.add(cylinder({ r: 0.1, h: 2.5, pos: [lampX, 1.25, lampZ], mat: M_IRON }));
+    root.add(sphere({
+      r: 0.2,
+      pos: [lampX, 2.66, lampZ],
+      mat: mat({ color: 0xffe6bc, roughness: 0.4, emissive: 0xffca7a, emissiveIntensity: 1.9 }),
+      cast: false,
+    }));
+    root.add(cylinder({ rTop: 0.03, rBottom: 0.3, h: 0.34, pos: [lampX, 3.0, lampZ], mat: M_IRON, cast: false }));
+    const heartLight = new THREE.PointLight(0xffca7a, 15, 13, 2);
+    heartLight.position.set(lampX, 2.66, lampZ);
+    root.add(heartLight);
+    solid(lampX - 0.14, lampX + 0.14, 0, 2.5, lampZ - 0.14, lampZ + 0.14);
+    const benchX = heart.x - 0.9;
+    const benchZ = heart.z - 0.9;
+    root.add(box({ size: [0.4, 0.09, 0.95], pos: [benchX, 0.44, benchZ], mat: M_TEAK }));
+    root.add(box({
+      size: [0.1, 0.5, 0.95], pos: [benchX - 0.2, 0.7, benchZ], mat: M_TEAK, cast: false,
+    }));
+    for (const lz of [benchZ - 0.36, benchZ + 0.36]) {
+      root.add(box({ size: [0.38, 0.42, 0.08], pos: [benchX, 0.22, lz], mat: M_IRON }));
+    }
+    solid(benchX - 0.24, benchX + 0.24, 0, 0.5, benchZ - 0.5, benchZ + 0.5);
+
+    return {
+      rect: { ...MAZE },
+      cell: { w: cw, d: cd },
+      /** Clear corridor width in each axis -- asserted by verify:mansion. */
+      corridor: { x: cw - T, z: cd - T },
+      walls,
+      entry,
+      exit,
+      heart,
+      /** Entry-to-exit, in world coordinates. The verifier walks this. */
+      route,
+    };
+  }
+  const rearGarden = buildRearGarden();
 
   /* ---------------------------------------------------------------- */
   /* Anchors                                                            */
@@ -2595,6 +3692,16 @@ export function buildMansionGrounds(scene = null) {
       (LOUNGE_BAY.x0 + LOUNGE_BAY.x1) / 2, GROUND_Y, (LOUNGE_BAY.z0 + LOUNGE_BAY.z1) / 2,
     ),
     rosePavilion: new THREE.Vector3(-16, 0, 26),
+    // The rear garden.
+    gardenCrossWalk: new THREE.Vector3(0, 0, 98),
+    gardenStairsTop: new THREE.Vector3(-7, GROUND_Y, 94.4),
+    mazeEntrance: new THREE.Vector3(rearGarden.maze.entry.x, 0, rearGarden.maze.entry.z),
+    mazeHeart: new THREE.Vector3(rearGarden.maze.heart.x, 0, rearGarden.maze.heart.z),
+    mazeExit: new THREE.Vector3(rearGarden.maze.exit.x, 0, rearGarden.maze.exit.z),
+    roseGardenGate: new THREE.Vector3(ROSE_GARDEN.x0 - 1.6, 0, (ROSE_GARDEN.z0 + ROSE_GARDEN.z1) / 2),
+    gardenPavilion: new THREE.Vector3(PAVILION.x, 0, PAVILION.z - 5.4),
+    firePit: new THREE.Vector3(rearGarden.firePit.x, 0, rearGarden.firePit.z - 5),
+    outdoorKitchen: new THREE.Vector3(18.0, 0, 84),
   };
 
   /* ---------------------------------------------------------------- */
@@ -2637,6 +3744,9 @@ export function buildMansionGrounds(scene = null) {
     footprint: { ...BUILDING },
     loungeBay: { ...LOUNGE_BAY },
     bayRoofY0: BAY_ROOF_Y0,
+    westWing: { ...WEST_WING },
+    wingRoofY0: WING_ROOF_Y0,
+    basementWing: { ...BASEMENT_WING },
     atrium: { ...ATRIUM },
     walls: shellMeta.wallRects,
     windows: shellMeta.windows,
@@ -2655,6 +3765,7 @@ export function buildMansionGrounds(scene = null) {
     frontEntry,
     serviceRoad,
     poolPatio,
+    rearGarden,
     landscaping,
     lamps: [...LAMP_POSITIONS, ...CAR_LAMP_POSITIONS],
     palmSpots: PALM_SPOTS,

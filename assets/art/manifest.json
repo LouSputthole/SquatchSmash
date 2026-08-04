@@ -630,6 +630,54 @@
       "file": "logo-shield-2022.jpg",
       "title": "The shield, in the armory",
       "caption": "Over the noticeboard in the alcove behind the cellar stair."
+    },
+    {
+      "slot": "mansion.trophy.crest",
+      "file": "logo-crest.png",
+      "title": "The crest, over the Great Includer",
+      "caption": "High on the apse wall in the west wing, above the trophy itself."
+    },
+    {
+      "slot": "mansion.winter.shield",
+      "file": "logo-shield.jpg",
+      "title": "The shield, in the winter garden",
+      "caption": "On the inner wall at the far end, facing the lily pool."
+    },
+    {
+      "slot": "mansion.cellar.crest",
+      "file": "logo-shield-wide.jpg",
+      "title": "The crest, on the lower level",
+      "caption": "Beside the armory door, at the head of the cellar corridor."
+    },
+    {
+      "slot": "mansion.theatre.banner",
+      "file": "logo-banner-wide.jpg",
+      "title": "The banner, in the screening room",
+      "caption": "On the side wall between the sconces, where the house lights catch it."
+    },
+    {
+      "slot": "mansion.lan.banner",
+      "file": "logo-pride.jpg",
+      "title": "The banner, in the LAN room",
+      "caption": "Over the five stations, next to the house ladder."
+    },
+    {
+      "slot": "mansion.lan.chairs",
+      "file": "logo-crest.png",
+      "title": "The crest, on the gamer chairs",
+      "caption": "On the back of every chair in the LAN room -- one slot dresses all five."
+    },
+    {
+      "slot": "mansion.guest.art",
+      "file": "logo-2023-square.jpg",
+      "title": "The crest, in the guest room",
+      "caption": "Over the bed in the guest bedroom on the lower level."
+    },
+    {
+      "slot": "mansion.vault.mark",
+      "file": "logo-shield.jpg",
+      "title": "The mark, in the vault",
+      "caption": "On the steel beside the vault door, where the count is written up."
     }
   ]
 }
