@@ -32,10 +32,13 @@ export function makeCar(kind = 'sedan', colour = null, { dented = false } = {}) 
 
   const g = group(`car.${kind}`);
   const bodyY = s.wheelR + s.bodyH / 2;
-  g.add(box({ size: [s.L, s.bodyH, s.W], pos: [0, bodyY, 0], mat: paint }));
+  const bodyBox = box({ name: 'car.body', size: [s.L, s.bodyH, s.W], pos: [0, bodyY, 0], mat: paint });
+  g.add(bodyBox);
   const cabinY = s.wheelR + s.bodyH + s.cabinH / 2;
-  g.add(box({ size: [s.cabinL, s.cabinH, s.W * 0.94], pos: [s.cabinOff, cabinY, 0], mat: paint }));
-  g.add(box({ size: [s.cabinL * 0.93, s.cabinH * 0.56, s.W * 0.96], pos: [s.cabinOff, cabinY + s.cabinH * 0.12, 0], mat: glass }));
+  const cabinBox = box({ name: 'car.cabin', size: [s.cabinL, s.cabinH, s.W * 0.94], pos: [s.cabinOff, cabinY, 0], mat: paint });
+  g.add(cabinBox);
+  const glassBox = box({ name: 'car.glass', size: [s.cabinL * 0.93, s.cabinH * 0.56, s.W * 0.96], pos: [s.cabinOff, cabinY + s.cabinH * 0.12, 0], mat: glass });
+  g.add(glassBox);
   g.add(box({ size: [0.14, 0.16, s.W * 0.92], pos: [s.L / 2 - 0.05, s.wheelR + 0.3, 0], mat: chrome }));
   g.add(box({ size: [0.14, 0.16, s.W * 0.92], pos: [-s.L / 2 + 0.05, s.wheelR + 0.3, 0], mat: chrome }));
 
@@ -71,8 +74,118 @@ export function makeCar(kind = 'sedan', colour = null, { dented = false } = {}) 
 
   return {
     group: g, heads, tails,
+    /* The three shell slabs, by name. Fifteen cars in the lot are only ever
+     * seen from outside and want exactly this: one solid body, one solid
+     * greenhouse, one pane. The car you sit IN has to take two of them apart
+     * (see openCabin), so it needs to be able to find them. */
+    body: bodyBox, cabin: cabinBox, glass: glassBox,
+    shape: s, paint, glassMat: glass,
     length: s.L, width: s.W, height: s.wheelR + s.bodyH + s.cabinH,
     collider: collider([-s.L / 2, 0, -s.W / 2], [s.L / 2, 1.6, s.W / 2]),
+  };
+}
+
+/**
+ * Take the lid off one car, so the cabin is a space instead of a solid.
+ *
+ * The owner's note on the opening shot was "need to fix the car interior
+ * (looks like shit)", and the reason is structural rather than a question of
+ * detail: the cockpit in `makePlayerCar` is careful, complete work — dash,
+ * two front seats, a rear bench, gauges, a radio stack, door cards, a console
+ * and a shifter, pedals — and almost all of it is BURIED. The sedan's body
+ * slab is one solid box from y 0.36 to y 1.36, the driver's eye sits at 1.55,
+ * and everything in that cabin below 1.36 is inside the paint. From behind
+ * the wheel you were looking across a flat painted deck at a steering rim
+ * sunk into it to the shoulders, three headrest nubs and a mirror, with no
+ * floor, no windscreen and no pillars — you could see the wet lot straight
+ * through the front of the car, because a box viewed from inside culls away.
+ *
+ * So this does not add detail. It removes the two slabs that were hiding the
+ * detail already there, and puts back the parts a box was standing in for:
+ * a floor pan, sills and a bulkhead fore and aft, the door tops, four
+ * pillars, a headliner and a windscreen. The silhouette from outside is the
+ * same car — every panel lands on the faces the two boxes occupied.
+ *
+ * Player car only. The lot's fifteen are untouched and stay one box each.
+ */
+export function openCabin(car, { from, to } = {}) {
+  const s = car.shape;
+  const paint = car.paint;
+  const g = car.group;
+
+  const bodyY0 = s.wheelR;
+  const bodyY1 = s.wheelR + s.bodyH;                 // 1.36 on the sedan
+  const cabinY1 = bodyY1 + s.cabinH;                 // 2.26
+  const halfW = s.W / 2;
+  const cabinHalfW = (s.W * 0.94) / 2;
+  // The opening, along the car's length. Defaults to the greenhouse footprint.
+  const x0 = from ?? (s.cabinOff - s.cabinL / 2);
+  const x1 = to ?? (s.cabinOff + s.cabinL / 2);
+
+  g.remove(car.body, car.cabin);
+
+  const panel = (name, minX, minY, minZ, maxX, maxY, maxZ, material = paint) => {
+    const m = box({
+      name,
+      size: [maxX - minX, maxY - minY, maxZ - minZ],
+      pos: [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2],
+      mat: material,
+    });
+    g.add(m);
+    return m;
+  };
+
+  const SILL = 0.145;     // outer skin thickness down the sides
+  const FLOOR = 0.09;     // the pan you put your feet on
+  const BULK = 0.12;      // front and rear bulkheads
+
+  /* ---- what is left of the body slab ----
+   * Everything fore of the dash and aft of the rear bench stays solid; it is
+   * engine and boot and nobody is ever inside it. */
+  panel('car.body.front', x1, bodyY0, -halfW, s.L / 2, bodyY1, halfW);
+  panel('car.body.rear', -s.L / 2, bodyY0, -halfW, x0, bodyY1, halfW);
+  // Sides, as skin rather than as fill.
+  for (const sz of [-1, 1]) {
+    panel(`car.body.sill.${sz < 0 ? 'left' : 'right'}`,
+      x0, bodyY0, sz > 0 ? halfW - SILL : -halfW,
+      x1, bodyY1, sz > 0 ? halfW : -halfW + SILL);
+  }
+  // The floor, and the two bulkheads that close the cabin off front and back.
+  panel('car.floor', x0, bodyY0, -halfW + SILL, x1, bodyY0 + FLOOR, halfW - SILL,
+    mat({ color: 0x14141a, roughness: 0.95 }));
+  panel('car.bulkhead.front', x1 - BULK, bodyY0 + FLOOR, -halfW + SILL, x1, bodyY1, halfW - SILL);
+  panel('car.bulkhead.rear', x0, bodyY0 + FLOOR, -halfW + SILL, x0 + BULK, bodyY1, halfW - SILL);
+
+  /* ---- what is left of the greenhouse ----
+   * A roof, four pillars and the band of body colour under the side glass.
+   * The glass box that was always there is untouched and still fills the gap
+   * between them from outside. */
+  const glassY0 = bodyY1 + s.cabinH * 0.12 - (s.cabinH * 0.56) / 2;   // 1.666
+  const glassY1 = bodyY1 + s.cabinH * 0.12 + (s.cabinH * 0.56) / 2;   // 2.170
+  const cx0 = s.cabinOff - s.cabinL / 2;
+  const cx1 = s.cabinOff + s.cabinL / 2;
+  panel('car.roof', cx0, glassY1, -cabinHalfW, cx1, cabinY1, cabinHalfW);
+  for (const sz of [-1, 1]) {
+    const zOut = sz > 0 ? cabinHalfW : -cabinHalfW;
+    const zIn = sz > 0 ? cabinHalfW - 0.07 : -cabinHalfW + 0.07;
+    const side = sz < 0 ? 'left' : 'right';
+    // Waist: the strip of paint between the door top and the side glass.
+    panel(`car.waist.${side}`, cx0, bodyY1, Math.min(zIn, zOut), cx1, glassY0, Math.max(zIn, zOut));
+    // A and C pillars, at the ends of the same run.
+    panel(`car.pillar.a.${side}`, cx1 - 0.09, glassY0, Math.min(zIn, zOut), cx1, glassY1, Math.max(zIn, zOut));
+    panel(`car.pillar.c.${side}`, cx0, glassY0, Math.min(zIn, zOut), cx0 + 0.09, glassY1, Math.max(zIn, zOut));
+  }
+  /* No panel across the front or the back of the greenhouse: those two gaps
+   * are the windscreen and the rear window, and the roof slab above them is
+   * already the header. The original single cabin box filled both, which is
+   * why there was nothing in front of the driver but open air. */
+
+  return {
+    x0, x1, cx0, cx1, cabinHalfW,
+    floorY: bodyY0 + FLOOR,
+    waistY: bodyY1,
+    glassY0,
+    glassY1,
   };
 }
 
@@ -124,6 +237,16 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
   car.group.rotation.y = yaw;
   car.group.userData.role = 'player-car';
   scene.add(car.group);
+
+  /* Open the shell BEFORE anything is put inside it. Until this ran, the
+   * whole cockpit below y 1.36 was sealed inside the body slab and the
+   * driver's 1.55m eye looked out over a painted lid. */
+  const cabin = openCabin(car);
+  /* The side and rear glass is one box, and a box seen from inside culls
+   * every face. Double-sided on this one car so the windows read as windows
+   * from the driver's seat as well as from the lot. */
+  car.glass.material = car.glass.material.clone();
+  car.glass.material.side = THREE.DoubleSide;
 
   const interior = group('interior');
   const trim = mat({ color: 0x241d18, roughness: 0.88 });
@@ -206,13 +329,34 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
   const gloveLid = box({ name: 'cockpit.glove-box', size: [0.045, 0.24, 0.44], pos: [0.48, 1.11, 0.48], mat: trim });
   interior.add(gloveLid);
 
-  // Door cards, centre console, shifter, pedals and the little things that sell a cabin.
+  /* Door cards, centre console, shifter, pedals and the little things that
+   * sell a cabin. The cards have come 8cm inboard: they used to sit at
+   * z ±0.86 with their outer face 2mm inside the body skin, which nothing
+   * could see through and which now z-fights the sill the open shell leaves
+   * behind. At ±0.78 they stand clearly proud of it, the way trim does. */
+  const DOOR_Z = 0.78;
   for (const side of [-1, 1]) {
     interior.add(box({
       name: side < 0 ? 'cockpit.door.driver' : 'cockpit.door.passenger',
-      size: [1.80, 0.55, 0.055], pos: [-0.25, 1.08, side * 0.86], mat: trim,
+      size: [1.80, 0.55, 0.055], pos: [-0.25, 1.08, side * DOOR_Z], mat: trim,
     }));
-    interior.add(box({ name: 'cockpit.door-handle', size: [0.24, 0.035, 0.035], pos: [0.05, 1.28, side * 0.825], mat: chromeTrim }));
+    interior.add(box({ name: 'cockpit.door-handle', size: [0.24, 0.035, 0.035], pos: [0.05, 1.28, side * (DOOR_Z - 0.038)], mat: chromeTrim }));
+    /* An armrest and a window winder, because a door card with nothing on it
+     * is a wall. Both sit on the cabin side of the card. */
+    interior.add(box({
+      name: 'cockpit.armrest', size: [0.52, 0.07, 0.09],
+      pos: [-0.28, 1.19, side * (DOOR_Z - 0.06)], mat: vinyl,
+    }));
+    interior.add(box({
+      name: 'cockpit.window-winder', size: [0.05, 0.05, 0.05],
+      pos: [0.10, 1.12, side * (DOOR_Z - 0.05)], mat: chromeTrim,
+    }));
+    /* The card only reaches y 1.355; the shell's waist starts at 1.36. A
+     * capping rail across the join turns two panels into one door. */
+    interior.add(box({
+      name: 'cockpit.door-cap', size: [1.80, 0.05, 0.075],
+      pos: [-0.25, 1.375, side * DOOR_Z], mat: trim,
+    }));
   }
   const consoleGroup = group('cockpit.center-console');
   consoleGroup.add(box({ name: 'console.body', size: [0.86, 0.24, 0.24], pos: [-0.22, 0.84, 0], mat: vinyl }));
@@ -227,16 +371,98 @@ export function makePlayerCar(scene, { x, z, yaw = 0 }) {
     interior.add(box({ name: 'cockpit.pedal', size: [0.08, 0.16, 0.10], pos: [0.61, 0.58, pz], mat: gaugeDark, rotZ: -0.18 }));
   }
 
+  /* ---- the windscreen ----
+   *
+   * There was not one. The scene's own description of this car is "a
+   * windscreen with rain on it", and the only glass on the model was the
+   * single-sided greenhouse box, whose front face sits above the driver's
+   * eyeline and culls away from inside anyway. Straight ahead there was a
+   * hole in the front of the car.
+   *
+   * One raked pane from the top of the cowl to the roof header, filling the
+   * aperture the open shell leaves between the A-pillars. Faint, because you
+   * have to drive through it — the read comes from the frame round it, the
+   * wipers lying across the bottom and the amber of the dash caught in it. */
+  const screenGlass = mat({
+    color: 0x8fa8bc,
+    roughness: 0.06,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.14,
+    side: THREE.DoubleSide,
+  });
+  const windscreen = box({
+    name: 'cockpit.windscreen',
+    size: [0.024, 0.86, 1.70],
+    pos: [0.955, 1.77, 0],
+    mat: screenGlass,
+    cast: false,
+  });
+  windscreen.rotation.z = 0.20;      // the top leans back over the cabin
+  interior.add(windscreen);
+  // Wipers, parked at the bottom of the pane where wipers park.
+  for (const wz of [-0.42, 0.42]) {
+    const blade = box({
+      name: 'cockpit.wiper', size: [0.03, 0.022, 0.62],
+      pos: [1.028, 1.375, wz], mat: mat({ color: 0x121216, roughness: 0.9 }), cast: false,
+    });
+    blade.rotation.x = 0.14;
+    interior.add(blade);
+  }
+  // The cowl: the strip of body between the dash top and the glass.
+  interior.add(box({
+    name: 'cockpit.cowl', size: [0.16, 0.05, 1.74], pos: [0.99, 1.345, 0], mat: dashPlastic,
+  }));
+
+  /* ---- the roof, from underneath ----
+   * The open shell's roof slab sits at 2.17. A headliner at 2.00 gives the
+   * cabin a ceiling at the height a car has one, and the dome lamp, the sun
+   * strip and the mirror all hang off it instead of floating under a slab
+   * twenty centimetres above them. */
+  const headliner = box({
+    name: 'cockpit.headliner', size: [2.32, 0.06, 1.68], pos: [-0.25, 2.03, 0],
+    mat: mat({ color: 0xcfc7b6, roughness: 0.96 }),
+  });
+  interior.add(headliner);
+
   const rearView = box({ name: 'cockpit.rear-view-mirror', size: [0.055, 0.12, 0.34], pos: [0.65, 1.88, 0], mat: chromeTrim });
   interior.add(rearView);
+  // And the stalk it hangs from, up to the headliner.
+  interior.add(box({
+    name: 'cockpit.mirror-stalk', size: [0.03, 0.11, 0.05], pos: [0.65, 1.99, 0], mat: chromeTrim,
+  }));
   const sunStrip = box({ name: 'cockpit.windscreen-header', size: [0.10, 0.09, 1.70], pos: [0.86, 1.98, 0], mat: vinyl });
   interior.add(sunStrip);
+  // Two sun visors, folded up against the header.
+  for (const vz of [-0.42, 0.42]) {
+    interior.add(box({
+      name: 'cockpit.sun-visor', size: [0.19, 0.02, 0.58], pos: [0.74, 1.985, vz], mat: vinyl,
+    }));
+  }
   const domeLamp = box({ name: 'cockpit.dome-lamp', size: [0.16, 0.025, 0.28], pos: [-0.25, 1.99, 0], mat: lit(0xffd2a0, 0.75) });
   interior.add(domeLamp);
   const domeLight = new THREE.PointLight(0xffd2a0, 0.62, 3.1, 2);
   domeLight.name = 'cockpit.dome-light';
   domeLight.position.set(-0.18, 1.82, 0);
   interior.add(domeLight);
+
+  /* ---- the floor, dressed ----
+   * The pan `openCabin` puts back is bare metal. A mat under each footwell
+   * and a transmission tunnel down the middle is what stops it reading as
+   * the bottom of a box. */
+  const carpet = mat({ color: 0x1b1613, roughness: 0.99 });
+  interior.add(box({
+    name: 'cockpit.tunnel', size: [2.20, 0.16, 0.30], pos: [-0.30, cabin.floorY + 0.08, 0], mat: carpet,
+  }));
+  for (const mz of [-0.46, 0.46]) {
+    interior.add(box({
+      name: 'cockpit.floor-mat', size: [0.86, 0.03, 0.56], pos: [0.28, cabin.floorY + 0.02, mz], mat: carpet, cast: false,
+    }));
+    interior.add(box({
+      name: 'cockpit.floor-mat.rear', size: [0.66, 0.03, 0.56], pos: [-1.02, cabin.floorY + 0.02, mz], mat: carpet, cast: false,
+    }));
+  }
+
   car.group.add(interior);
 
   // Poses live in car-local space, so changing the parking angle cannot put

@@ -134,10 +134,21 @@ export function collectBingVoiceCues() {
 
   /* The store room side quest. Its options and several of its lines are
    * functions of the interrogation's own state — whether the car is on the
-   * table, whether his things have been gone through — so it is collected
-   * under both answers rather than only the opening one. */
+   * table, whether his things have been gone through, whether he has given
+   * the name up — so it is collected under every answer rather than only the
+   * opening one. Gratin's and Numbskull's store-room threads read all three,
+   * and a variant that is never enumerated here is a line the writer never
+   * mints a cue for and the player therefore never hears. */
   for (const carAvailable of [false, true]) {
-    collectTrees(found, buildLicenseToGrillScript({ carAvailable: () => carAvailable }));
+    for (const broken of [false, true]) {
+      for (const handled of [0, 2]) {
+        collectTrees(found, buildLicenseToGrillScript({
+          carAvailable: () => carAvailable,
+          broken: () => broken,
+          handled: () => handled,
+        }));
+      }
+    }
   }
 
   /* The second visit replaces Lou's whole tree after buildScripts(), so it

@@ -20,15 +20,26 @@ import { Npc } from './cast.js';
 import {
   ENDINGS,
   QUEST,
+  SCENE_TREES,
   buildLicenseToGrillScript,
   createInterrogation,
 } from './license-to-grill.js';
 
-/** Where everybody stands once the door shuts. Store-room world coordinates. */
+/**
+ * Where everybody stands once the door shuts. Store-room world coordinates.
+ *
+ * The two Family marks used to carry a literal yaw and both of them were
+ * wrong — Gratin faced the south-west wall and Numbskull faced past the
+ * chair — so the room read as three people who had never met. They now carry
+ * the point they are LOOKING at instead, and the yaw comes off the same
+ * `atan2(dx, dz)` the cast's own faceToward uses. Gratin is angled at the
+ * front of the chair so he is open to whoever comes through the door;
+ * Numbskull looks straight at the man he is guarding.
+ */
 const MARKS = Object.freeze({
   blond: { x: 9.6, z: -12.3, yaw: 0.22 },
-  gratin: { x: 8.9, z: -11.35, yaw: -2.5 },
-  numbskull: { x: 10.9, z: -11.6, yaw: 3.5 },
+  gratin: { x: 8.9, z: -11.35, faceAt: { x: 9.6, z: -11.95 } },
+  numbskull: { x: 10.9, z: -11.6, faceAt: { x: 9.6, z: -12.3 } },
   player: { x: 9.55, z: -11.0, yaw: Math.PI },
 });
 
@@ -54,10 +65,17 @@ function makeBlond(scene, colliders) {
       build: 1.0,
       dress: 'suit',
       /* Midnight, not black — a dinner jacket, and it reads as one even in a
-       * store room with a single bulb over it. */
+       * store room with a single bulb over it.
+       *
+       * `tuxedo`, NOT `neckline: 'v'`. The V cut a skin-coloured triangle into
+       * his chest and hung two pale bars either side of it, which is an open
+       * knit collar, not black tie — the owner's "strange looking Vneck
+       * thing". The tuxedo option builds the opposite: a white bib with studs,
+       * a cummerbund closing it at the waist, and satin lapels laid over the
+       * top. `shirtAccent` is the shirt's own white. */
       shirt: 0x14161f,
       shirtAccent: 0xf0efe8,
-      neckline: 'v',
+      tuxedo: true,
       luxury: true,
       hair: 'short',
       hairColour: 0xd8c088,
@@ -99,6 +117,26 @@ export function createLicenseToGrill({
      * back exactly as it was rather than approximately. */
     parked: new Map(),
     persisted: null,
+    /**
+     * How far through the evening the CONVERSATION is, as opposed to how far
+     * through it the interrogation is.
+     *
+     * This exists because the owner could not find where the scene starts
+     * again once it stops. There was nothing to walk up to: Blond had no
+     * interaction on him at all, and `resume()` was only ever called from
+     * `open()` and from the cord's own callback — so a conversation that
+     * lapsed (walk more than 6.5m from the chair and Dialogue ends it) was
+     * gone for the rest of the visit, with a live objective still on screen.
+     *
+     * 'intro' | 'floor' | 'named'. Written at the two moments that actually
+     * move the scene on, so walking back up to the chair always lands
+     * somewhere sensible rather than somewhere remembered.
+     */
+    stage: 'intro',
+    /** Set by a scene tree that wants to hand the player back to the chair. */
+    handOff: null,
+    /** Interaction targets this quest owns, so `close` can take them away. */
+    targets: [],
   };
 
   /* The cord. Six swings is a beating; two is a gesture, which is what this
@@ -114,6 +152,9 @@ export function createLicenseToGrill({
     onDone: () => {
       runtime.grill?.apply('strike');
       hud?.setTiming(null);
+      /* The cord is the end of the scripted opening. Everything after it hangs
+       * off `floor`, so this is the moment the scene becomes re-enterable. */
+      runtime.stage = 'floor';
       resume('afterSwing');
     },
   });
@@ -123,7 +164,19 @@ export function createLicenseToGrill({
     apply: (kind) => runtime.grill.apply(kind),
     ask: (id) => runtime.grill.ask(id),
     carAvailable: () => !!runtime.grill?.carAvailable(),
-    threatenCar: () => runtime.grill.threatenCar(),
+    broken: () => !!runtime.grill?.broken,
+    handled: () => runtime.grill?.state?.handled?.size ?? 0,
+    /* Deferred on purpose. A tree's `next` runs INSIDE Dialogue.choose/update,
+     * and starting a second conversation from in there would have the caller
+     * overwrite the new thread's timer and pending node the moment it returns.
+     * So the hand-off is recorded and performed by this quest's own update, on
+     * the first frame after the current line has finished and closed itself. */
+    handOff: (node) => { runtime.handOff = node || 'floor'; },
+    threatenCar: () => {
+      const broke = runtime.grill.threatenCar();
+      if (broke) runtime.stage = 'named';
+      return broke;
+    },
     shubesDue: () => !!runtime.grill?.shubesDue(),
     markShubes: () => {
       runtime.grill.markShubes();
@@ -144,6 +197,22 @@ export function createLicenseToGrill({
     dialogue?.start(tree, node, runtime.blond);
   }
 
+  /**
+   * Where walking back up to the chair puts you.
+   *
+   * Derived from the scene's own progress rather than from Dialogue's
+   * bookmarks: a bookmark records wherever the thread happened to lapse,
+   * including halfway through a line Gratin is saying about a bottle, and the
+   * cord's option ends its thread with reason 'done' — which leaves whatever
+   * stale bookmark preceded it in place. Three answers, all of them a node a
+   * conversation can honestly begin at.
+   */
+  function reentry() {
+    if (runtime.stage === 'named') return 'afterTheName';
+    if (runtime.stage === 'floor') return 'floor';
+    return 'open';
+  }
+
   /** Walk a Family member off the floor and into the room, remembering where. */
   function bringIn(id, mark) {
     const npc = family?.byId?.[id];
@@ -157,7 +226,13 @@ export function createLicenseToGrill({
     npc.job = 'stand';
     npc._syncJob?.(true);
     npc.group.position.set(mark.x, npc.group.position.y, mark.z);
-    npc.group.rotation.y = mark.yaw;
+    npc.group.rotation.y = mark.faceAt
+      ? Math.atan2(mark.faceAt.x - mark.x, mark.faceAt.z - mark.z)
+      : mark.yaw;
+    /* Nail the visible facing too. `targetYaw` is what Npc.update eases
+     * towards, and a member who came in from the floor still carries the one
+     * he was using out there. */
+    npc.targetYaw = npc.group.rotation.y;
   }
 
   function putBack(id) {
@@ -179,13 +254,48 @@ export function createLicenseToGrill({
     return !isSecondVisit && runtime.phase === 'closed' && !runtime.persisted;
   }
 
+  /**
+   * Put a crosshair on the man in the chair.
+   *
+   * This is the answer to "where do I start the torture sequence?". The scene
+   * used to be a conversation and nothing else: nothing in the room could be
+   * looked at, so once the conversation stopped — and it stops the moment you
+   * step 6.5m away from the chair, which is most of this room — there was no
+   * surface left to press [E] on. Blond now carries the same walk-up
+   * interaction every other person in this building carries, and its label
+   * says which part of the evening it is about to resume.
+   */
+  function mountBlond() {
+    if (!interaction || !runtime.blond) return;
+    runtime.targets.push(interaction.register(runtime.blond.group, {
+      label: () => {
+        if (runtime.stage === 'named') return 'Settle up with <b>James Blond</b>';
+        if (runtime.stage === 'floor') return 'Work on <b>James Blond</b>';
+        return 'Talk to <b>James Blond</b>';
+      },
+      /* Not while the cord is in the air: [E] belongs to the timing bar then,
+       * and a prompt offering a conversation over the top of it is a lie. */
+      enabled: () => runtime.phase === 'open' && !bar.active,
+      onUse: () => resume(reentry()),
+    }));
+  }
+
+  function unmountTargets() {
+    if (!interaction) return;
+    for (const target of runtime.targets) interaction.unregister?.(target);
+    runtime.targets.length = 0;
+  }
+
   function open() {
     if (!available()) return false;
     runtime.phase = 'open';
+    runtime.stage = 'intro';
+    runtime.handOff = null;
     runtime.grill = createInterrogation();
     runtime.blond = makeBlond(scene, club?.colliders);
     bringIn(CHARACTER_IDS.GRATIN, MARKS.gratin);
     bringIn(CHARACTER_IDS.NUMBSKULL, MARKS.numbskull);
+    mountBlond();
 
     if (player) {
       player.position.set(MARKS.player.x, player.position.y, MARKS.player.z);
@@ -200,7 +310,8 @@ export function createLicenseToGrill({
       maxDist: 11,
       fade: 1.4,
     });
-    hud?.say(`<em>${QUEST.title}.</em> Gratin shuts the door behind you.`, 4200);
+    hud?.say(`<em>${QUEST.title}.</em> Gratin shuts the door behind you. `
+      + '<em>[E] on Blond to work on him. [E] on Gratin if you want telling what for.</em>', 7000);
     resume('open');
     return true;
   }
@@ -223,9 +334,11 @@ export function createLicenseToGrill({
 
   function close() {
     runtime.phase = 'done';
+    runtime.handOff = null;
     hud?.setTiming(null);
     audio?.stopLoop?.('music.storeroom', 1.2);
     bar.stop();
+    unmountTargets();
     putBack(CHARACTER_IDS.GRATIN);
     putBack(CHARACTER_IDS.NUMBSKULL);
     if (runtime.blond) {
@@ -251,12 +364,64 @@ export function createLicenseToGrill({
     doorLabel(fallback) {
       return available() ? `<b>${QUEST.door}</b>` : fallback;
     },
+
+    /**
+     * Is this Family member currently standing in the store room for us?
+     *
+     * The club registers ONE walk-up interaction per member, on the floor, at
+     * scene build — and the quest borrows the men themselves rather than
+     * building copies, so that one registration follows them through the door.
+     * Which is exactly the owner's note: in the store room they were still
+     * saying their floor lines. This is what the club asks before choosing
+     * which script the man in front of you is in.
+     */
+    inRoom(characterId) {
+      return runtime.phase === 'open' && runtime.parked.has(characterId);
+    },
+
+    /**
+     * Start this member's store-room conversation. Returns false when he is
+     * not in here, and the club falls back to his ordinary floor thread.
+     */
+    talkTo(characterId, npc = null) {
+      if (!this.inRoom(characterId)) return false;
+      const sceneTree = script[SCENE_TREES[characterId]];
+      if (!sceneTree) return false;
+      const speaker = npc ?? family?.byId?.[characterId] ?? null;
+      /* Resumable, like every other walk-up in the club: step out of range
+       * mid-answer and the next press picks it back up. Blond's own thread is
+       * deliberately NOT resumable — see `reentry`. */
+      dialogue?.start(sceneTree, 'open', speaker, { resume: true });
+      return true;
+    },
+
+    /** The crosshair label for a member who is in here, or null for the floor. */
+    npcLabel(characterId) {
+      if (!this.inRoom(characterId)) return null;
+      if (characterId === CHARACTER_IDS.GRATIN) return 'Ask <b>Au Gratin</b> what he wants';
+      if (characterId === CHARACTER_IDS.NUMBSKULL) return 'Ask <b>Numbskull</b> about the box';
+      return null;
+    },
+
     /** Everything the club has to do to this per frame. */
     update(dt) {
       if (runtime.phase !== 'open') return;
       if (bar.active || bar.flash) {
         bar.update(dt);
         hud?.setTiming(bar.view);
+      }
+      /* A scene tree asked to give the player back to the chair. Wait for its
+       * own last line to finish and close itself, then start Blond cleanly —
+       * doing it from inside the tree would have Dialogue overwrite the new
+       * thread the instant the handler returned. */
+      if (runtime.handOff && !dialogue?.active) {
+        const node = runtime.handOff;
+        runtime.handOff = null;
+        /* Being handed back past the scripted opening counts as having done
+         * it — otherwise walking up to the chair afterwards would replay the
+         * introduction over the top of a conversation already in progress. */
+        if (runtime.stage === 'intro') runtime.stage = 'floor';
+        resume(node);
       }
       runtime.blond?.update(dt, player?.position ?? new THREE.Vector3());
     },

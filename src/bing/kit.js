@@ -315,6 +315,131 @@ export function squatchArt(key, {
   });
 }
 
+/**
+ * What the back-office monitor is showing: the front door, from above.
+ *
+ * A still, deliberately. Lou's set is one camera pointed at the one part of
+ * this building he actually worries about, and a genuine second render pass
+ * of the vestibule would cost a camera, a target and a frame budget for a
+ * 54cm screen nobody stands in front of for longer than a line of dialogue.
+ * A drawn frame reads correctly from the desk and costs one canvas.
+ *
+ * Everything in it is the same vocabulary as the room it hangs in: the two
+ * shapes under the canopy are drawSquatchSilhouette, the same outline the
+ * crest over the club doors and the poster in the flat use, so the men on the
+ * monitor are the men outside. Greyscale-green, blown highlights round the
+ * doorway, interlace lines, and the timestamp a set like this has always had
+ * burnt into the corner.
+ */
+export function cctvStill(key = 'front-door', {
+  w = 512, h = 384, stamp = 'CAM 01  FRONT', clock = '23:41:07',
+} = {}) {
+  return cached(`bing.cctv.${key}`, () => {
+    const c = canvas(w, h);
+    const g = c.getContext('2d');
+
+    // The tube itself: never black, always a dim charged green.
+    g.fillStyle = '#0b120c';
+    g.fillRect(0, 0, w, h);
+
+    /* The lot, seen down the length of the canopy. One vanishing point, high
+     * and central, which is where a camera bolted over a door actually is. */
+    g.fillStyle = '#151f16';
+    g.beginPath();
+    g.moveTo(0, h);
+    g.lineTo(w * 0.2, h * 0.52);
+    g.lineTo(w * 0.8, h * 0.52);
+    g.lineTo(w, h);
+    g.closePath();
+    g.fill();
+
+    // The building face, and the doorway blowing the exposure out.
+    g.fillStyle = '#101a11';
+    g.fillRect(w * 0.14, h * 0.1, w * 0.72, h * 0.44);
+    const spill = g.createLinearGradient(0, h * 0.18, 0, h * 0.72);
+    spill.addColorStop(0, 'rgba(190, 255, 200, 0.85)');
+    spill.addColorStop(1, 'rgba(120, 200, 130, 0.05)');
+    g.fillStyle = spill;
+    g.fillRect(w * 0.38, h * 0.18, w * 0.24, h * 0.4);
+    g.fillStyle = 'rgba(210, 255, 215, 0.9)';
+    g.fillRect(w * 0.4, h * 0.2, w * 0.2, h * 0.3);
+
+    // The canopy over the doors, and the heater the bouncer stands under.
+    g.fillStyle = '#1d2b1e';
+    g.fillRect(w * 0.24, h * 0.06, w * 0.52, h * 0.06);
+    g.fillStyle = 'rgba(200, 255, 190, 0.55)';
+    g.fillRect(w * 0.3, h * 0.125, w * 0.06, h * 0.02);
+
+    /* The door guys. One heavy and square in front of the light, one leaning
+     * on the wall to his right, which is exactly the arrangement out there. */
+    drawSquatchSilhouette(g, w * 0.36, h * 0.78, h * 0.52, '#040804');
+    drawSquatchSilhouette(g, w * 0.64, h * 0.74, h * 0.44, '#050b05');
+    // And the queue, further out and much smaller, in the rain.
+    drawSquatchSilhouette(g, w * 0.16, h * 0.63, h * 0.2, '#0a120a');
+    drawSquatchSilhouette(g, w * 0.86, h * 0.61, h * 0.18, '#0a120a');
+
+    // Rope line: two posts and the sag between them.
+    g.strokeStyle = 'rgba(160, 220, 165, 0.5)';
+    g.lineWidth = 2;
+    for (const px of [w * 0.26, w * 0.74]) {
+      g.beginPath();
+      g.moveTo(px, h * 0.86);
+      g.lineTo(px, h * 0.7);
+      g.stroke();
+    }
+    g.beginPath();
+    g.moveTo(w * 0.26, h * 0.71);
+    g.quadraticCurveTo(w * 0.5, h * 0.78, w * 0.74, h * 0.71);
+    g.stroke();
+
+    // Rain, because it has been raining on this lot all night.
+    g.strokeStyle = 'rgba(190, 235, 195, 0.16)';
+    g.lineWidth = 1;
+    for (let i = 0; i < 220; i++) {
+      const rx = Math.random() * w;
+      const ry = Math.random() * h;
+      g.beginPath();
+      g.moveTo(rx, ry);
+      g.lineTo(rx - 2, ry + 9 + Math.random() * 7);
+      g.stroke();
+    }
+
+    // Sensor grain.
+    for (let i = 0; i < 2600; i++) {
+      g.fillStyle = `rgba(190,255,195,${Math.random() * 0.07})`;
+      g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+    }
+
+    // Interlace. Half the reason a still reads as a camera and not a picture.
+    g.fillStyle = 'rgba(0, 0, 0, 0.24)';
+    for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1);
+
+    // Vignette: a cheap lens on a bracket, wide open.
+    const vig = g.createRadialGradient(w / 2, h / 2, h * 0.24, w / 2, h / 2, h * 0.78);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.62)');
+    g.fillStyle = vig;
+    g.fillRect(0, 0, w, h);
+
+    // Burnt-in overlay.
+    g.fillStyle = '#c9f2cd';
+    g.font = '700 20px "Courier New", monospace';
+    g.textAlign = 'left';
+    g.textBaseline = 'top';
+    g.fillText(stamp, 14, 12);
+    g.textAlign = 'right';
+    g.fillText(clock, w - 14, h - 30);
+    g.textAlign = 'left';
+    g.fillText('REC', 14, h - 30);
+    g.fillStyle = '#e05a5a';
+    g.beginPath();
+    g.arc(66, h - 21, 6, 0, Math.PI * 2);
+    g.fill();
+
+    return finish(c, { repeat: [1, 1] });
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Builders                                                            */
 /* ------------------------------------------------------------------ */

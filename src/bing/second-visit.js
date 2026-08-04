@@ -247,7 +247,13 @@ export class SecondVisitMission {
     this.waited += dt;
     if (this.waited >= 90 && !this._partyNudge) {
       this._partyNudge = true;
-      this.hooks.onMessage?.('SHUBENATOR: Prospect. Stage controls. Before Hog Mama starts without electricity.');
+      /* 'shout', not 'text'. He is in the room; the club's message channel is
+       * otherwise Lou texting from the back office, and announcing a man
+       * standing at the stage with a phone alert is the wrong instrument. */
+      this.hooks.onMessage?.(
+        'SHUBENATOR: Prospect. Stage controls. Before Hog Mama starts without electricity.',
+        'shout',
+      );
     }
   }
 }

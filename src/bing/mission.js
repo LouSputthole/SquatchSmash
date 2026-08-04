@@ -30,6 +30,13 @@ const NUDGE = [
 export class Mission {
   /**
    * @param {object} hooks { onObjective, onState, onMessage, onNote }
+   *
+   * `onMessage(text, kind)` — `kind` is 'text' by default and every message
+   * this class sends is one: they are Lou, in the back office, texting the
+   * prospect's phone. The scene turns that into a pocket buzz rather than a
+   * ringtone, so the club is not pretending somebody is calling. The second
+   * visit's mission sends 'shout' for the one message that is a person in the
+   * room instead.
    */
   constructor(hooks = {}) {
     this.hooks = hooks;

@@ -54,6 +54,14 @@ const FALLBACKS = {
   'label.whiskey': () => posterPlaceholder('Jack And', 'DANIELS', 30),
   'eggs.carton': () => posterPlaceholder('Pasture', 'RAISED', 82),
   'bing.office.squatches_bing': () => posterPlaceholder('Silver Sasquatches', 'AT THE BING', 340),
+  /* Big Uncle Lou's own four photographs. Owner-supplied; until the files
+   * land the club keeps its drawn lettering, because `dressArtSlots` only
+   * swaps a slot whose texture actually resolved. See assets/art/README.md
+   * for which filename belongs to which of these. */
+  'bing.office.shore': () => posterPlaceholder('At The Shore', 'SASQUATCHES, SUNDAY', 196),
+  'bing.office.bing_1979': () => posterPlaceholder('The Bing', '1979', 286),
+  'bing.office.old_place': () => posterPlaceholder('The Old Place', 'ITALY', 28),
+  'bing.office.nephews': () => posterPlaceholder('The Nephews', 'ALL OF THEM', 316),
   'bing.office.logo.crest': () => posterPlaceholder('Silver', 'SASQUATCHES', 270),
   'bing.office.logo.shield': () => posterPlaceholder('Silver', 'SASQUATCHES', 270),
   'bing.office.fridge.sticker.toy': () => posterPlaceholder('Lou\'s', 'STICKER', 300),
