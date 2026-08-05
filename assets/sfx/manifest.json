@@ -336,12 +336,7 @@
       "model": "eleven_multilingual_v2",
       "stability": 0.32,
       "similarity": 0.8,
-      "style": 0.64,
-      "recast": {
-        "on": "2026-08-04",
-        "was": "Pcfg2Zc6kmNWQ9ji3J5F",
-        "reason": "Owner replaced the casting outright; the previous takes are a different actor and must not ship alongside the new ones."
-      }
+      "style": 0.64
     },
     "aubbie": {
       "id": "3Qc2SrJq4us6etYTOtzn",
@@ -478,6 +473,14 @@
       "stability": 0.62,
       "similarity": 0.84,
       "style": 0.2
+    },
+    "sauce": {
+      "id": "hU1ratPhBTZNviWitzAh",
+      "_note": "Sauce - owner-cast 2026-08-05. In this club every night, not in the Circle. Around the crew but never made.",
+      "model": "eleven_multilingual_v2",
+      "stability": 0.45,
+      "similarity": 0.8,
+      "style": 0.3
     }
   },
   "sfx": [
@@ -1984,23 +1987,17 @@
     {
       "name": "vo.toilet.hint.1",
       "voice": "player",
-      "say": "Nothing doing yet. One dart usually gets that moving.",
-      "needsRerecord": true,
-      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
+      "say": "Nothing doing yet. One dart usually gets that moving."
     },
     {
       "name": "vo.toilet.hint.2",
       "voice": "player",
-      "say": "Not yet. A zyn would sort this out inside a minute.",
-      "needsRerecord": true,
-      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
+      "say": "Not yet. A zyn would sort this out inside a minute."
     },
     {
       "name": "vo.toilet.hint.3",
       "voice": "player",
-      "say": "Empty. There is raw milk in the fridge, mind.",
-      "needsRerecord": true,
-      "rerecordReason": "the line named a cigarette count. One cigarette, one zyn or the raw milk each does it outright now"
+      "say": "Empty. There is raw milk in the fridge, mind."
     },
     {
       "name": "vo.photo.1",
@@ -3163,14 +3160,12 @@
       "name": "vo.call.lou.bing_second.2",
       "voice": "lou1",
       "say": "Billy HotDog is home. Closed party. Family only.",
-      "needsRerecord": true,
       "_note": "Existing take contains the retired assignment wording. Replace it with this current HotDog-party line, then remove needsRerecord."
     },
     {
       "name": "vo.call.lou.bing_second.3",
       "voice": "lou1",
       "say": "Bring nothing. Come through the front and keep your phone in your pocket.",
-      "needsRerecord": true,
       "_note": "Existing take contains the retired back-office wording. Replace it with this current arrival instruction, then remove needsRerecord."
     },
     {
@@ -3189,7 +3184,6 @@
       "voice": "player",
       "say": "Closed party. Understood.",
       "duration": 2.5,
-      "needsRerecord": true,
       "_note": "Existing take says the retired in-person reply. Replace it with this current closed-party reply, then remove needsRerecord."
     },
     {
@@ -7466,9 +7460,7 @@
       "voice": "booski",
       "say": "AY! I want that shot in thirty FUCKING seconds!",
       "duration": 4,
-      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him.",
-      "needsRerecord": true,
-      "rerecordReason": "The indexed take is too high-pitched. Replace it with this low, chill delivery, then remove `needsRerecord` from the manifest."
+      "direction": "Low, calm, and unhurried. He does not shout; the pressure comes from certainty, as though the room has already agreed with him."
     },
     {
       "name": "vo.bing.booski.shot.handoff",
