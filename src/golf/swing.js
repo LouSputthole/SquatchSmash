@@ -24,9 +24,28 @@ export const SWING_PHASE = {
 /* Seconds for the marker to sweep the full power bar. Slow enough to aim at,
  * fast enough that a full swing is a decision rather than a wait. */
 const POWER_TIME = 1.05;
-/* The strike sweep is quicker — this is the part that is supposed to be a
- * reflex — and it runs past zero so that being late is a real miss. */
+/* The strike sweep runs past zero so that being late is a real miss. */
 const STRIKE_FLOOR = -0.30;
+
+/**
+ * Where the third click's marker starts from, at the very least.
+ *
+ * The strike sweep used to begin wherever the power marker happened to stop,
+ * which quietly made the *tempo of the third click a function of how hard you
+ * were swinging*. A full iron gave you 833 ms to read the line; a six-foot
+ * putt gave you 389 ms; a two-foot tap gave you 133 ms and resolved itself
+ * before a human could react, at `STRIKE_FLOOR`, as a full hook. The shortest
+ * shot on the course was the hardest input in the game, which is exactly
+ * backwards, and it is most of what "the swing still needs work" was.
+ *
+ * A floor fixes it without touching the shape of the swing: the marker still
+ * falls from the power he chose whenever that is a real backswing, and a soft
+ * shot simply gets the same readable run-up a full one does. The club's own
+ * `strikeSpeed` and `deadZone` still decide how wide the window is, so a
+ * driver stays sharper than a putter — the difference is that all three now
+ * *arrive* at a pace a person can play.
+ */
+const STRIKE_START_FLOOR = 0.55;
 
 /** The iron's clean-lie sweet spot. Kept public for old verifier call sites. */
 export const DEAD_ZONE = 0.09;
@@ -36,19 +55,28 @@ export const DEAD_ZONE = 0.09;
  * distance target; it is the point beyond which the player is swinging harder
  * than that club can be controlled comfortably. The distance target is worked
  * out per shot in clubs.js.
+ *
+ * `strikeSpeed` is in bar-widths per second and every one of them is below the
+ * power sweep's 0.952, which the gameplay spec asks for in as many words: "the
+ * strike sweep stays slower than the power sweep so a first-time player can
+ * read the second click". Driver and iron used to sit at 1.15 and 1.08 —
+ * *faster* than the power bar, and the opposite of what was written down. The
+ * only thing that now runs quicker than the power sweep is a driver held past
+ * its control point, and being punished for that is the point of the risk
+ * multiplier in `controlWindow`.
  */
 export const SWING_CONTROL = Object.freeze({
   driver: Object.freeze({
     safePower: 0.86, deadZone: 0.075, missScale: 0.27,
-    strikeSpeed: 1.15, fadeBias: 0.22,
+    strikeSpeed: 0.90, fadeBias: 0.22,
   }),
   iron: Object.freeze({
     safePower: 0.91, deadZone: DEAD_ZONE, missScale: 0.34,
-    strikeSpeed: 1.08, fadeBias: 0.14,
+    strikeSpeed: 0.85, fadeBias: 0.14,
   }),
   putter: Object.freeze({
     safePower: 0.97, deadZone: 0.115, missScale: 0.44,
-    strikeSpeed: 0.90, fadeBias: 0.025,
+    strikeSpeed: 0.66, fadeBias: 0.025,
   }),
 });
 
@@ -119,6 +147,8 @@ export class Swing {
     this.marker = 0;
     this.power = 0;
     this.accuracy = 0;
+    /** Where this swing's strike sweep began. Drives the meter and the arms. */
+    this.strikeStart = STRIKE_START_FLOOR;
     /** True while the marker is on its way back down the power bar. */
     this.falling = false;
     this.result = null;
@@ -134,6 +164,7 @@ export class Swing {
     this.marker = 0;
     this.power = 0;
     this.accuracy = 0;
+    this.strikeStart = STRIKE_START_FLOOR;
     this.falling = false;
     this.result = null;
     this._applyControl(controlWindow({ club: this.club, lieSpread: this.lieSpread }));
@@ -177,6 +208,11 @@ export class Swing {
 
       case SWING_PHASE.POWER:
         this._setPower(this.marker);
+        /* The strike sweep starts from the backswing, floored so that a tap-in
+         * gets the same readable run-up as a full driver. See
+         * STRIKE_START_FLOOR. */
+        this.strikeStart = Math.max(this.power, STRIKE_START_FLOOR);
+        this.marker = this.strikeStart;
         this.phase = SWING_PHASE.STRIKE;
         return this.phase;
 
@@ -198,8 +234,9 @@ export class Swing {
       if (this.marker >= 1) { this.marker = 1; this.falling = true; }
       if (this.marker <= 0 && this.falling) {
         // He let the whole thing go by. That is a decision too: a tap.
-        this.marker = 0;
         this._setPower(0.06);
+        this.strikeStart = STRIKE_START_FLOOR;
+        this.marker = this.strikeStart;
         this.phase = SWING_PHASE.STRIKE;
       }
       return;

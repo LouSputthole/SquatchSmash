@@ -34,7 +34,8 @@ import { CueQueue, Dialogue, numberKeyOwner } from './dialogue.js';
 import { Round, BEAT } from './mission.js';
 import { Swing, SWING_PHASE, controlWindow } from './swing.js';
 import {
-  CLUB_IDS, getClub, estimateCarry, landingPreviewFor, powerForCarry,
+  CLUB_IDS, getClub, estimateCarry, estimateTotal, landingPreviewFor,
+  powerForDistance,
 } from './clubs.js';
 import { BALL_STATE, solveShot } from './ball.js';
 import {
@@ -453,7 +454,10 @@ function paintPlayerClub() {
   let pose = 0;
   if (swing.phase === SWING_PHASE.POWER) pose = swing.marker * 0.62;
   else if (swing.phase === SWING_PHASE.STRIKE) {
-    const span = Math.max(0.05, swing.power + 0.30);
+    /* The arms swing from wherever the strike sweep began, which is no longer
+     * the chosen power — see STRIKE_START_FLOOR in swing.js. Reading
+     * `swing.power` here made a tap-in's downswing start below the ball. */
+    const span = Math.max(0.05, swing.strikeStart + 0.30);
     pose = ((swing.marker + 0.30) / span) * 0.62 - 0.22;
   }
   playerClubRig.rotation.set(-0.04, -0.12, -0.34 + pose);
@@ -524,7 +528,9 @@ function adjustPlannedDistance(direction) {
   const plan = shotPlan();
   const step = selected.grounded ? 1.524 : 9.144; // five feet or ten yards
   const minimum = selected.grounded ? 0.61 : 9.144;
-  const maximum = Math.max(minimum, estimateCarry(club, 1, lie));
+  /* The planned number is where he wants it to FINISH, so the ceiling is the
+   * club's total and not its carry. */
+  const maximum = Math.max(minimum, estimateTotal(club, 1, lie));
   const current = Number.isFinite(plannedDistance) ? plannedDistance : plan.distance;
   plannedDistance = THREE.MathUtils.clamp(current + direction * step, minimum, maximum);
   const copy = selected.grounded
@@ -609,6 +615,7 @@ function enterAddress() {
   camMode = CAM.ADDRESS;
   player.enabled = false;
   player.mode = 'frozen';
+  frozenMeter = null;
   selectClub(recommendedClubForShot());
   swing.reset();
   swing.configure({ club, lieSpread: surfaceProps(round.playerSurface()).spread });
@@ -631,6 +638,7 @@ function leaveAddress() {
   player.enabled = true;
   player.mode = 'walk';
   swing.reset();
+  frozenMeter = null;
   ui.shot.classList.add('hidden');
   ui.meter.classList.add('hidden');
   ui.aim.classList.add('hidden');
@@ -716,7 +724,7 @@ function paintCard() {
 function guideState() {
   if (camMode === CAM.ADDRESS) {
     const plan = shotPlan();
-    const target = powerForCarry(club, plan.distance, surfaceProps(round.playerSurface()));
+    const target = powerForDistance(club, plan.distance, surfaceProps(round.playerSurface()));
     const targetPct = Math.round(target * 100);
     if (swing.phase === SWING_PHASE.POWER) {
       return {
@@ -1114,14 +1122,17 @@ function paintShot() {
   ui.lie.textContent = lie.label;
   ui.wind.textContent = `${HOLE.wind.mph} MPH ${HOLE.wind.label}`;
   const plan = shotPlan();
-  const targetPower = powerForCarry(club, plan.distance, lie);
+  const targetPower = powerForDistance(club, plan.distance, lie);
   const power = swing.phase === SWING_PHASE.IDLE
     ? targetPower
     : swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power;
+  /* Carry, said out loud as carry. The yellow ring on the ground is the same
+   * number, and the plan percentage beside it is a finish distance — three
+   * readouts that used to be two different things wearing one label. */
   const est = estimateCarry(club, power, lie);
   const carry = c.grounded
     ? `≈ ${Math.round(toFeet(est))} ft`
-    : `≈ ${Math.round(toYards(est))} yds`;
+    : `≈ ${Math.round(toYards(est))} yds carry`;
   ui.carry.textContent = `${carry} · plan ${Math.round(targetPower * 100)}%`;
 }
 
@@ -1156,7 +1167,7 @@ function paintLandingPreview() {
   }
   const lie = surfaceProps(round.playerSurface());
   const plan = shotPlan();
-  const targetPower = powerForCarry(club, plan.distance, lie);
+  const targetPower = powerForDistance(club, plan.distance, lie);
   const power = swing.phase === SWING_PHASE.IDLE
     ? targetPower
     : swing.phase === SWING_PHASE.POWER ? swing.marker : swing.power;
@@ -1216,47 +1227,96 @@ const meterValue = (v) => Math.max(0, Math.min(100,
   ((v - METER_FLOOR) / (1 - METER_FLOOR)) * 100));
 const meterPct = (v) => `${meterValue(v)}%`;
 
+/**
+ * Everything the meter draws, as plain numbers.
+ *
+ * Pulled out of `paintMeter` so the resolved swing can be *frozen* and drawn
+ * again after the ball has gone. `paintMeter` used to have a DONE branch —
+ * the mark parked where he actually hit it, and `strikeLabel()` under it —
+ * that no player has ever seen: `fireSwing` called `swing.reset()` and hid the
+ * meter on the same frame the third click landed, and the camera left for the
+ * flight immediately after, so the one frame of feedback that tells a player
+ * *why* the ball is doing that was written, styled and unreachable.
+ */
+function meterState() {
+  const striking = swing.phase !== SWING_PHASE.POWER;
+  const livePower = striking ? swing.power : swing.marker;
+  const lie = surfaceProps(round.playerSurface());
+  return {
+    phase: swing.phase,
+    marker: swing.marker,
+    power: livePower,
+    deadZone: swing.deadZone,
+    safePower: swing.safePower,
+    risk: swing.risk,
+    liveRisk: controlWindow({ club, power: livePower, lieSpread: lie.spread }).risk,
+    targetPower: powerForDistance(club, shotPlan().distance, lie),
+    label: swing.strikeLabel(),
+  };
+}
+
+function paintMeterFrom(state) {
+  ui.meter.classList.remove('hidden');
+  const striking = state.phase !== SWING_PHASE.POWER;
+  const zero = meterValue(0);
+  const fillEnd = meterValue(state.power);
+  ui.meterFill.style.left = `${Math.min(zero, fillEnd)}%`;
+  ui.meterFill.style.width = `${Math.abs(fillEnd - zero)}%`;
+  ui.meterMark.style.left = meterPct(state.marker);
+  ui.meterLate.style.width = `${zero}%`;
+  ui.meterRisk.style.left = meterPct(state.safePower);
+  ui.meterRisk.style.width = `${100 - meterValue(state.safePower)}%`;
+  ui.meterTarget.style.left = meterPct(state.targetPower);
+  ui.meterIdeal.textContent = striking
+    ? 'late · draw / hook'
+    : `ideal ${Math.round(state.targetPower * 100)}%`;
+  ui.meterRiskCopy.textContent = striking
+    ? 'early · fade / slice'
+    : `overswing ${Math.round(state.safePower * 100)}%+`;
+
+  /* The forgiving middle, drawn where it actually is, so a player can see the
+   * size of the target he is being given rather than having to infer it. */
+  ui.meterLine.style.left = meterPct(-state.deadZone);
+  ui.meterLine.style.width =
+    `${((state.deadZone * 2) / (1 - METER_FLOOR)) * 100}%`;
+
+  ui.meterHint.textContent = state.phase === SWING_PHASE.POWER
+    ? state.liveRisk > 0.05 ? 'OVERSWING · CLICK TO RISK IT' : 'CLICK: SET POWER'
+    : state.phase === SWING_PHASE.STRIKE
+      ? state.risk > 0.05 ? 'CLICK: SMALLER SWEET SPOT' : 'CLICK: STRIKE'
+      : state.label;
+  ui.meter.classList.toggle('strike', state.phase === SWING_PHASE.STRIKE);
+  ui.meter.classList.toggle('overswing', state.liveRisk > 0.05);
+}
+
 function paintMeter() {
   if (!swing.active && swing.phase !== SWING_PHASE.DONE) {
     ui.meter.classList.add('hidden');
     return;
   }
-  ui.meter.classList.remove('hidden');
+  paintMeterFrom(meterState());
+}
 
-  const striking = swing.phase !== SWING_PHASE.POWER;
-  const livePower = striking ? swing.power : swing.marker;
-  const lie = surfaceProps(round.playerSurface());
-  const liveControl = controlWindow({ club, power: livePower, lieSpread: lie.spread });
-  const targetPower = powerForCarry(club, shotPlan().distance, lie);
-  const zero = meterValue(0);
-  const fillEnd = meterValue(livePower);
-  ui.meterFill.style.left = `${Math.min(zero, fillEnd)}%`;
-  ui.meterFill.style.width = `${Math.abs(fillEnd - zero)}%`;
-  ui.meterMark.style.left = meterPct(swing.marker);
-  ui.meterLate.style.width = `${zero}%`;
-  ui.meterRisk.style.left = meterPct(swing.safePower);
-  ui.meterRisk.style.width = `${100 - meterValue(swing.safePower)}%`;
-  ui.meterTarget.style.left = meterPct(targetPower);
-  ui.meterIdeal.textContent = striking
-    ? 'late · draw / hook'
-    : `ideal ${Math.round(targetPower * 100)}%`;
-  ui.meterRiskCopy.textContent = striking
-    ? 'early · fade / slice'
-    : `overswing ${Math.round(swing.safePower * 100)}%+`;
+/**
+ * The struck meter, held on screen while the ball is in the air.
+ *
+ * Nine hundred milliseconds is about as long as a player looks at the bar
+ * before his eye follows the ball, and it is long enough to read a mark
+ * sitting outside the pale band next to the word SLICED.
+ */
+const STRIKE_FEEDBACK_TIME = 0.9;
+let frozenMeter = null;
+let frozenMeterTimer = 0;
 
-  /* The forgiving middle, drawn where it actually is, so a player can see the
-   * size of the target he is being given rather than having to infer it. */
-  ui.meterLine.style.left = meterPct(-swing.deadZone);
-  ui.meterLine.style.width =
-    `${((swing.deadZone * 2) / (1 - METER_FLOOR)) * 100}%`;
-
-  ui.meterHint.textContent = swing.phase === SWING_PHASE.POWER
-    ? liveControl.risk > 0.05 ? 'OVERSWING · CLICK TO RISK IT' : 'CLICK: SET POWER'
-    : swing.phase === SWING_PHASE.STRIKE
-      ? swing.risk > 0.05 ? 'CLICK: SMALLER SWEET SPOT' : 'CLICK: STRIKE'
-      : swing.strikeLabel();
-  ui.meter.classList.toggle('strike', swing.phase === SWING_PHASE.STRIKE);
-  ui.meter.classList.toggle('overswing', liveControl.risk > 0.05);
+function updateFrozenMeter(dt) {
+  if (!frozenMeter) return;
+  frozenMeterTimer -= dt;
+  if (frozenMeterTimer <= 0) {
+    frozenMeter = null;
+    ui.meter.classList.add('hidden');
+    return;
+  }
+  paintMeterFrom(frozenMeter);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1268,12 +1328,22 @@ player.yawOffset = 0;
 function fireSwing() {
   const result = swing.result;
   const strikeLabel = swing.strikeLabel();
+  /* Snapshot the resolved bar BEFORE the reset, so the mark he actually hit
+   * stays on screen for a beat while the ball is in the air. See
+   * `updateFrozenMeter`. The ball still launches on this frame — the meter is
+   * feedback, never a delay. */
+  const struck = meterState();
   swing.reset();
-  ui.meter.classList.add('hidden');
   const shot = round.playerSwing({
     club, power: result.power, accuracy: result.accuracy, aim: aimYaw,
   });
-  if (!shot) return;
+  if (!shot) {
+    ui.meter.classList.add('hidden');
+    return;
+  }
+  frozenMeter = struck;
+  frozenMeterTimer = STRIKE_FEEDBACK_TIME;
+  paintMeterFrom(struck);
   camMode = CAM.FLIGHT;
   flightTimer = 0;
   ui.shot.classList.add('hidden');
@@ -1786,6 +1856,10 @@ function frame() {
     paintPlayerClub();
   } else if (camMode === CAM.FLIGHT) {
     flightTimer += dt;
+    /* The struck bar stays up for a beat after the third click, so the player
+     * can see where his mark landed against the pale band while the ball is
+     * still climbing. */
+    updateFrozenMeter(dt);
     applyFlightCamera(dt);
     /* Back to him once the ball has stopped and the eye has had a moment to
      * register where it finished. */
@@ -2043,6 +2117,7 @@ window.__golf = {
     for (const g of Object.values(golfers)) g.update(dt, player.position);
     courseAudio?.update(dt);
     updateShotPresentation(dt);
+    updateFrozenMeter(dt);
     /* Keep the verifier's synchronous simulation equivalent to one rendered
      * frame. Browser animation normally applies this camera every RAF, but a
      * tight page-evaluate loop intentionally does not yield to RAF. */

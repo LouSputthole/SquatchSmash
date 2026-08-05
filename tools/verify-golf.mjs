@@ -768,24 +768,39 @@ check('5a. address shows the recommended club and hands in first person',
     && playerClubView.cameraMounted && playerClubView.hands === 2,
   JSON.stringify(playerClubView));
 await page.waitForTimeout(100);
-const landingPreview = await page.evaluate(() => {
+const landingPreview = await page.evaluate(async () => {
   const g = window.__golf;
   const marker = g.scene.getObjectByName('golf-landing-preview');
   const ring = marker?.getObjectByName('golf-landing-preview-ring');
+  /* What the ball ACTUALLY carries with the swing the ring is drawn for.
+   * The ring is a promise about where it lands, so the only honest check is
+   * against the integrator — a fixed metre threshold here is what let a
+   * planning model that over-read a full iron by 28% pass for months. */
+  const { simulate } = await import('/src/golf/ball.js');
+  const { launchFor, powerForDistance } = await import('/src/golf/clubs.js');
+  const ball = g.round.playerBall.position;
+  const lie = g.surfaceProps(g.round.playerSurface());
+  const power = powerForDistance(g.club, g.plan().distance, lie);
+  const flown = simulate(
+    { x: ball.x, z: ball.z }, g.aimYaw,
+    launchFor(g.club, { power, accuracy: 0, lie }),
+  );
   return {
     visible: !!marker?.visible,
     distance: marker?.userData.distance ?? 0,
     radius: marker?.userData.radius ?? 0,
     club: marker?.userData.club ?? '',
+    actualCarry: flown.carry,
     yellow: ring?.material?.color?.getHex?.() ?? 0,
     label: document.querySelector('#aim .distance')?.textContent?.trim() ?? '',
     reticleVisible: !document.getElementById('landing-reticle')?.classList.contains('hidden'),
     reticleWidth: parseFloat(document.querySelector('#landing-reticle .ring')?.style.width || '0'),
   };
 });
-check('5a1. addressing shows a yellow, distance-driven landing area in the world',
+check('5a1. addressing shows a yellow landing area that agrees with the real carry',
   landingPreview.visible && landingPreview.club === 'iron'
-    && landingPreview.distance > 140 && landingPreview.radius > 2
+    && landingPreview.distance > 90 && landingPreview.radius > 2
+    && Math.abs(landingPreview.distance / landingPreview.actualCarry - 1) < 0.10
     && landingPreview.yellow === 0xffdf57 && /yd landing area/i.test(landingPreview.label)
     && landingPreview.reticleVisible && landingPreview.reticleWidth >= 54,
   JSON.stringify(landingPreview));

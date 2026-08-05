@@ -11,7 +11,8 @@ import {
 } from '../src/golf/field.js';
 import { simulate, solveShot, Ball } from '../src/golf/ball.js';
 import {
-  launchFor, CLUB_IDS, estimateCarry, powerForCarry, landingPreviewFor,
+  launchFor, CLUB_IDS, estimateCarry, estimateTotal, powerForDistance,
+  landingPreviewFor,
 } from '../src/golf/clubs.js';
 import {
   Swing, SWING_PHASE, DEAD_ZONE, controlWindow, resolveStrike, shotShape,
@@ -142,14 +143,38 @@ test('walking away cannot permanently skip the first-tee invitation', () => {
   assert.equal(round.beat, BEAT.NPC_TEE, 'only a completed branch releases the tee');
 });
 
-test('fade and slice visibly curve during flight instead of only launching offline', () => {
+/**
+ * A fade has to go right, a draw has to go left, and both have to bend on the
+ * way rather than merely start offline.
+ *
+ * The old version of this only asserted the bend, along the world +X axis, at
+ * one fixed aim. That let the entire scene ship with `launchFor`'s dispersion
+ * and side spin carrying the wrong sign: yaw here is `atan2(x, z)`, so a
+ * positive yaw offset steers a ball playing down the hole to the player's
+ * LEFT, and every shaped shot flew the exact mirror of the word the HUD had
+ * just put on screen. SLICED finished left. HOOKED finished right.
+ *
+ * So this measures the offset the way the player experiences it — signed,
+ * positive to the right of the line he was aiming down — and it does it from
+ * two different headings, because a bug that is a sign error is invisible to
+ * any test that only ever aims one way.
+ */
+test('fade and slice curve to the RIGHT, draw and hook to the left, and both bend in flight', () => {
   setActiveHole(1);
   const from = { x: HOLE1.teeMarks.ball.x, z: HOLE1.teeMarks.ball.z };
   const lie = surfaceProps(surfaceAt(from.x, from.z));
-  const trace = (accuracy) => {
+  /* How far right of the aimed line a point is. `right` is the shot direction
+   * turned a quarter turn clockwise seen from above, which for a Y-up,
+   * right-handed world is (-uz, ux). */
+  const rightOf = (aim, point) => {
+    const ux = Math.sin(aim);
+    const uz = Math.cos(aim);
+    return (point.x - from.x) * -uz + (point.z - from.z) * ux;
+  };
+  const trace = (aim, accuracy) => {
     const ball = new Ball();
     ball.placeAt(from.x, from.z);
-    ball.strike(0, launchFor('driver', { power: 0.9, accuracy, lie }));
+    ball.strike(aim, launchFor('driver', { power: 0.9, accuracy, lie }));
     let elapsed = 0;
     let early = null;
     while (ball.moving && elapsed < 2.6) {
@@ -157,20 +182,29 @@ test('fade and slice visibly curve during flight instead of only launching offli
       elapsed += 1 / 120;
       if (!early && elapsed >= 0.35) early = { x: ball.position.x, z: ball.position.z };
     }
-    return { early, late: { x: ball.position.x, z: ball.position.z } };
+    return {
+      early: rightOf(aim, early),
+      late: rightOf(aim, { x: ball.position.x, z: ball.position.z }),
+    };
   };
-  const straight = trace(0);
-  const fade = trace(1);
-  const earlyAngle = Math.atan2(
-    fade.early.x - straight.early.x,
-    fade.early.z - from.z,
-  );
-  const lateAngle = Math.atan2(
-    fade.late.x - straight.late.x,
-    fade.late.z - from.z,
-  );
-  assert.ok(lateAngle > earlyAngle + 0.012,
-    `shot shape should build in flight: early ${earlyAngle}, late ${lateAngle}`);
+
+  for (const aim of [0, Math.PI, Math.PI / 2, -0.6]) {
+    const straight = trace(aim, 0);
+    const fade = trace(aim, 1);
+    const draw = trace(aim, -1);
+    assert.ok(fade.late - straight.late > 1.5,
+      `an open face must finish RIGHT of the line (aim ${aim.toFixed(2)}): `
+      + `${(fade.late - straight.late).toFixed(2)} m`);
+    assert.ok(draw.late - straight.late < -1.5,
+      `a closed face must finish LEFT of the line (aim ${aim.toFixed(2)}): `
+      + `${(draw.late - straight.late).toFixed(2)} m`);
+    assert.ok(
+      (fade.late - straight.late) > (fade.early - straight.early) + 0.5,
+      `shot shape must build in flight rather than only launch offline `
+      + `(aim ${aim.toFixed(2)}): early ${(fade.early - straight.early).toFixed(2)} m, `
+      + `late ${(fade.late - straight.late).toFixed(2)} m`,
+    );
+  }
 });
 
 test('a long approach starts a reusable solo cart retrieval without replaying dialogue', () => {
@@ -579,8 +613,15 @@ test('the yellow landing preview follows aim and live club distance without prom
     from: TEE, aim, club: 'iron', power: 0.85, lie,
   });
 
-  assert.ok(preview.distance > 140 && preview.distance < 175,
-    `the 85% iron preview should be a useful full-shot read, got ${preview.distance.toFixed(1)}m`);
+  /* The ring shows where the ball LANDS, so the only honest assertion is
+   * against the carry the real integrator produces for the same swing. The
+   * old fixed 140-175 m window was written around a flat efficiency constant
+   * that over-read a full iron by 28%: it asserted the estimate stayed near a
+   * number the ball never reached. */
+  const actual = simulate(TEE, aim, launchFor('iron', { power: 0.85, accuracy: 0, lie })).carry;
+  assert.ok(Math.abs(preview.distance / actual - 1) < 0.08,
+    `the landing ring must agree with the real carry: preview `
+    + `${preview.distance.toFixed(1)}m vs actual ${actual.toFixed(1)}m`);
   assert.ok(Math.abs(preview.x - (TEE.x + preview.distance)) < 1e-6);
   assert.ok(Math.abs(preview.z - TEE.z) < 1e-6);
   assert.ok(preview.radius > 2 && preview.radius < 20,
@@ -708,15 +749,31 @@ test('the swing is forgiving in the middle and punishing at the edges', () => {
 test('the power target recommends a useful club-specific shot instead of full power', () => {
   const lie = lieAt(TEE);
   const distance = Math.hypot(PIN.x - TEE.x, PIN.z - TEE.z);
-  const iron = powerForCarry('iron', distance, lie);
-  const driver = powerForCarry('driver', distance, lie);
+  const iron = powerForDistance('iron', distance, lie);
+  const driver = powerForDistance('driver', distance, lie);
 
   assert.ok(iron > 0.82 && iron < 0.89,
     `the 167-yard iron should read near 85%, got ${(iron * 100).toFixed(0)}%`);
   assert.ok(driver < iron,
     `the longer driver should need less power (${driver.toFixed(2)} vs ${iron.toFixed(2)})`);
-  assert.ok(Math.abs(estimateCarry('iron', iron, lie) - distance) < 1,
-    'the ideal-power marker should agree with the HUD carry estimate');
+  /* The marker is a plan for where the ball FINISHES, so it is solved and
+   * checked against the total. It used to be checked against the carry, which
+   * is a different number and a different promise. */
+  assert.ok(Math.abs(estimateTotal('iron', iron, lie) - distance) < 1,
+    'the ideal-power marker should agree with the finish-distance estimate');
+  /* And the whole planning stack has to agree with the integrator, which is
+   * the assertion the old flat efficiency constant could never have passed:
+   * it recommended 85% for a shot its own carry model put at 219 m and the
+   * ball at 152. Measured down the SAFE line, because the line at the flag is
+   * over water on purpose and a drowned ball is the hole working, not the
+   * planner lying. */
+  const safe = Math.hypot(GREEN.x - TEE.x, GREEN.z - TEE.z);
+  const played = simulate(TEE, Math.atan2(GREEN.x - TEE.x, GREEN.z - TEE.z),
+    launchFor('iron', { power: powerForDistance('iron', safe, lie), accuracy: 0, lie }));
+  const finished = Math.hypot(played.position.x - TEE.x, played.position.z - TEE.z);
+  assert.ok(Math.abs(finished / safe - 1) < 0.12,
+    `the recommended power should actually cover the shot: planned `
+    + `${safe.toFixed(0)}m, played ${finished.toFixed(0)}m`);
 });
 
 test('overswinging shrinks the sweet spot and turns an open face into a slice', () => {
