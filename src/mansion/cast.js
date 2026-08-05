@@ -9,11 +9,41 @@
  *   - a man on the front door who stops you before the top step;
  *   - six of Lou's security: three walking the ground outside, one at the top
  *     of the horseshoe stair looking out over the front doors, one downstairs
- *     past the armory, one standing on the open vault;
+ *     past the armory with a television on, one standing on the open vault;
  *   - the Bada Bing's bartender, working the bar in the billiard bay;
  *   - Snow and his cart, cleaning near the entrance;
  *   - Gratin, in the interrogation area, running what is going on down there,
- *     with the offer of a turn.
+ *     who hands you the cord;
+ *   - AND THE FAMILY, which is what this file was missing.
+ *
+ * ## The Family (owner playtest, 2026-08-05)
+ *
+ * Verbatim: *"lOUS not in his office in the mansion"* and *"Need to see whats
+ * going on with all the voice lines and where the rest of the cast is.
+ * Everyone should be there for the most part utilizing the house hanging
+ * out."*
+ *
+ * He was right twice. This module placed the SECURITY and not one member of
+ * the Family — so `./script.js` gave Lou, Booski, DeathMegatron, Irish,
+ * Rippin, Eric and Shubes a full mission's worth of lines and PROJECT SILENT
+ * SQUATCH played every one of them at an empty room.
+ *
+ * EVERY ONE OF THEM IS NOW STOOD WHERE HIS OWN LINES ALREADY FIRE, and that
+ * is the whole placement rule — the mission's zones were not moved to suit
+ * the bodies, the bodies were put where the mission has always been shouting:
+ *
+ *   Lou            `office`      behind his own desk, and the case is
+ *                                carried to that desk in front of him
+ *   Booski         `observation` at the transfer table, running the basement
+ *   DeathMegatron  `observation` at the laboratory glass, watching the six
+ *   Irish          `corridor`    the cellar corridor, where the floor is wet
+ *   Rippin         `rippin`      the lounge — the pool room, off the bar
+ *   Eric           `eric`        the dining table, in a chair
+ *   Shubes         `shubes`      the gallery, wandering through it
+ *
+ * Four more of the roster use rooms the house built and nobody was ever in:
+ * Captain Lou Sasole on a stool at the bar, Numbskull on the pool terrace,
+ * Hog Mama in the kitchen, Willy in the conference room.
  *
  * ## What this file does NOT own
  *
@@ -25,12 +55,20 @@
  * scene needed (`MANSION_DOOR_MAN`, `MANSION_GUARDS`) and the bartender, whose
  * model moved there out of `src/bing/cast.js` so that the man behind Lou's bar
  * is the same man who is behind the Bing's. Nothing here restates a height, a
- * build or a garment.
+ * build or a garment: every figure below SPREADS its canonical model and adds
+ * only what is local to this scene — a face, a pose, a spot.
+ *
+ * The **faces** are `assets/faces/`, and only the photos that exist. Same
+ * technique the club, the golf course and the Initiation use: one image on the
+ * front of a box skull. `FACES` below names only files listed in
+ * assets/faces/index.json, because a face that has not landed is a 404 in the
+ * console and this scene has a check that fails on those.
  *
  * The **whip** is `src/bing/license-to-grill-runtime.js` — the actual cord
  * Gratin hands over in LICENSE TO GRILL, its actual pose function, its actual
- * swing timing and its actual four cues. The mansion gets one swing out of it
- * rather than a second whip.
+ * swing timing and its actual four cues. What the mansion does with it is its
+ * own: Gratin HANDS IT OVER once, and after that it is yours and it works
+ * every time you use it. See `THE WHIP` below.
  *
  * The **house** is `./scenes/`. This module reads anchors and stands people on
  * them; it builds no architecture, moves no wall and touches no collider.
@@ -39,13 +77,20 @@
  *
  * 1. **SNOW IS NEVER A TARGET.** He is not in a hostile list, a damage path or
  *    an aim resolver, because this module has none of those things: it owns
- *    bodies, barks and one authored, scripted swing that can only ever land on
- *    the man already hanging from the ceiling. There is no code path here by
- *    which any weapon in the house can be pointed at anybody. Standing owner
- *    rule; the way it is kept is by not building the machinery.
- * 2. **BIG UNCLE LOU IS `lou1`.** Captain Lou Sasole is `lou2` and is a
- *    different man. Neither of them is in this file — but the casting table it
- *    reads from (`SPEAKERS`) holds that line and nothing here goes around it.
+ *    bodies, barks and one authored swing that is registered ON THE ONE MAN it
+ *    can land on. The swing is `interaction.register(lab.xxx.aim, …)` — there
+ *    is no ray, no target list, no damage model and no "whatever is under the
+ *    crosshair" anywhere in this file, so there is no code path by which the
+ *    cord can be pointed at Snow or at anybody else. Standing owner rule; the
+ *    way it is kept is by not building the machinery.
+ * 2. **THE TWO LOUS ARE TWO MEN.** Big Uncle Lou is `lou`/`lou1` and wears
+ *    `BIG_UNCLE_LOU`; he is behind the desk in the office. Captain Lou Sasole
+ *    is `captain_lou_sasole`/`lou2` and wears `CAPTAIN_LOU_SASOLE`; he is on a
+ *    stool at the bar. THEY ARE BOTH IN THIS HOUSE TONIGHT AND THEY MUST NEVER
+ *    MERGE — different wardrobe entry, different face photo, different voice
+ *    profile, different floor. `src/core/wardrobe.js` dresses them apart on
+ *    purpose ("so that when both Lous are in the same room nobody has to read
+ *    a subtitle to tell them apart"), and this is the room it meant.
  *
  * ## Doctrine
  *
@@ -102,6 +147,75 @@ const BASEMENT_Y = -2.8;
 function yawToward(fromX, fromZ, atX, atZ) {
   return Math.atan2(atX - fromX, atZ - fromZ);
 }
+
+/* ================================================================== */
+/* FACES                                                                */
+/*                                                                       */
+/* One image on the front of a box skull -- makePerson's `face`, the      */
+/* Initiation's technique, and the reason Big Uncle Lou looks like        */
+/* himself rather than like a generic heavy.                             */
+/*                                                                        */
+/* ONLY PHOTOS THAT EXIST ARE NAMED HERE. assets/faces/index.json is the   */
+/* ledger of which have landed, and every file below is in it. A path to   */
+/* a photo that has not landed is a 404 in the console, and                */
+/* tools/verify-mansion.mjs fails on exactly that ("the only resource the  */
+/* house cannot find is the film nobody has delivered yet"). Snow, Gratin  */
+/* and the security keep the authored heads they already had -- they are   */
+/* not being redressed by this pass.                                       */
+/* ================================================================== */
+const FACES = Object.freeze({
+  /* `lou.png` is BIG UNCLE LOU. `sasole.png` is CAPTAIN LOU SASOLE. Two
+   * photographs of two men, adjacent here for the same reason the wardrobe
+   * puts their bodies adjacent: so nobody merges them by accident. */
+  lou: 'assets/faces/lou.png',
+  sasole: 'assets/faces/sasole.png',
+  booski: 'assets/faces/booski.png',
+  deathmegatron: 'assets/faces/deathmegatron.png',
+  irish: 'assets/faces/irish.png',
+  rippinflow: 'assets/faces/rippinflow.png',
+  erican: 'assets/faces/erican.png',
+  shubes: 'assets/faces/shubes.png',
+  hogmama: 'assets/faces/hogmama.png',
+});
+
+/* ================================================================== */
+/* SITTING DOWN ON THIS HOUSE'S FURNITURE                               */
+/*                                                                       */
+/* `Npc.sit()` folds the figure and drops it 0.42 of its own height       */
+/* scale from its base, and that 0.42 is measured against a cushion       */
+/* 0.53 above the floor -- src/bing/cast.js's STOOL_SIT note, which       */
+/* exists because Booskibro spent a month buried in a bar stool to the    */
+/* waist. So a seat at any other height needs its base moved by the       */
+/* difference, and this is that one subtraction written once.             */
+/*                                                                        */
+/* The three numbers below are MEASURED off the built house's own          */
+/* colliders in a running browser, not authored: the dining and            */
+/* conference chairs' seats top out 0.50 above their floor, the kitchen    */
+/* island's stools 0.75, and the bay bar's stools 0.90.                    */
+/* ================================================================== */
+/** The cushion height `Npc.sit()`'s pose was tuned against. */
+const POSE_CUSHION = 0.53;
+/**
+ * Base height for a figure sitting on a seat `cushion` above `floorY`.
+ *
+ * THE PELVIS IS PUT ON THE CUSHION AND THE FEET ARE ALLOWED TO FALL WHERE
+ * THEY FALL, which is a real choice and it is this way round on purpose.
+ * Measured in the running browser: the folded pose's shin is 0.59 long, so
+ * the seat this figure fits perfectly is about 0.59 high. This house's dining
+ * and conference chairs are 0.50, nine centimetres shy of that, so a man
+ * sitting properly on one has his shoes nine centimetres into the carpet --
+ * under a table, behind a chair, where nobody will ever see them. Correcting
+ * it at the base instead would lift the pelvis nine centimetres clear of the
+ * cushion and he would visibly hover, which is the exact fault STOOL_SIT was
+ * written to fix, upside down. The Bada Bing has the same mismatch at 6 cm
+ * and has shipped with it since the club opened.
+ *
+ * The stools are not affected: feet on a bar stool belong on its ring, and
+ * both stool figures measure 16 cm and 31 cm clear of the floor.
+ */
+const seatBase = (floorY, cushion) => floorY + cushion - POSE_CUSHION;
+/** How high this house's seats are, measured off its own colliders. */
+const CUSHION = Object.freeze({ chair: 0.50, islandStool: 0.75, barStool: 0.90 });
 
 /**
  * The perimeter beats.
@@ -272,10 +386,10 @@ export function mountMansionCast(scene, world = {}, {
    * is mid-sentence is INTERJECTED rather than queued behind him, so walking
    * past two men does not produce a conversation neither of them is having. */
   const dialogue = new DialogueController({
-    onLine: (line) => {
-      screen?.showLine?.(line);
-      speakerFor(line.speaker)?.say?.(Math.max(1.2, line.hold ?? 2));
-    },
+    /* No `say` here. The subtitle bar is wrapped once at mount (see THE
+     * MOUTHS THE MISSION MOVES) so that the mission's lines animate their
+     * speaker too, and doing it in both places would drive one jaw twice. */
+    onLine: (line) => { screen?.showLine?.(line); },
     onLineEnd: () => screen?.hideLine?.(),
     onStage: (stageName) => { stages.push(stageName); },
     playCue: (cue) => {
@@ -523,6 +637,201 @@ export function mountMansionCast(scene, world = {}, {
   cartCollider.min.y = snowAt.y;
   cartCollider.max.y = Math.min(cartCollider.max.y, snowAt.y + 1.05);
 
+  /* ================================================================ */
+  /* THE FAMILY, UPSTAIRS                                              */
+  /*                                                                    */
+  /* NOBODY BELOW GETS A BARK FROM THIS MODULE, and that is deliberate. */
+  /* The mission already owns every word these four say and fires them  */
+  /* off its own trigger volumes (`rippin`, `eric`, `shubes`, `office`  */
+  /* in mission/mount.js, and their idle twins in `#idleBarks`). A bark */
+  /* here would be a SECOND controller on the same man and he would say */
+  /* his line twice, a beat apart, which is worse than saying it to an  */
+  /* empty room. What this module supplies is the man, in the volume,   */
+  /* with a face on him -- and the mouth, through `speakerFor`.          */
+  /* ================================================================ */
+
+  /* ---- Big Uncle Lou, behind his own desk ------------------------------
+   * Owner, verbatim: *"lOUS not in his office in the mansion"*.
+   *
+   * `officeDesk` is the anchor the player is sent to with the case in his
+   * hands, and the desk's own collider runs 1.34 m north of it. Lou stands
+   * clear of the far side of that, at the east end, out of the chair rather
+   * than in it -- a man who stood up when somebody knocked.
+   *
+   * HE DOES NOT TOUCH THE DESK. The desk mesh is the mission's case-drop
+   * target and is registered by mission/mount.js; this registers Lou's own
+   * body and nothing else, and he stands BEHIND the desk so he never comes
+   * between the player and the thing he is being told to press.
+   *
+   * `lou1`, and `assets/faces/lou.png`. NOT Captain Lou Sasole, who is
+   * downstairs on a bar stool wearing a flight jacket and lou2. */
+  const desk = at('officeDesk', { x: 0, y: UPPER_Y, z: 70.2 });
+  const louAt = { x: desk.x + 1.05, y: desk.y, z: desk.z + 2.55 };
+  post('lou', {
+    name: 'Big Uncle Lou',
+    model: { ...BIG_UNCLE_LOU, face: FACES.lou },
+    x: louAt.x,
+    y: louAt.y,
+    z: louAt.z,
+    /* Across his own desk, at the door somebody is about to come through. */
+    yaw: yawToward(louAt.x, louAt.z, desk.x, desk.z - 3),
+    look: 'Big Uncle Lou. He has been waiting for you and he is not going to say so.',
+  });
+
+  /* ---- Rippin, in the pool room ----------------------------------------
+   * The spec's `rippin` zone is `loungeCenter`, and the lounge is the room
+   * the owner means by "the pool room and bar": billiards at one end, and the
+   * glazed bay with the bar and the stools off the other. He leans on the
+   * billiard table's west rail, which is inside the volume his own line fires
+   * from -- "Whatever's in that thing, I don't want it near my balls." lands
+   * on a man who is standing at the table, rather than on nobody. */
+  const lounge = at('loungeCenter', { x: 12.5, y: GROUND_Y, z: 45.5 });
+  const rippinAt = { x: lounge.x - 2.05, y: lounge.y, z: lounge.z + 2.1 };
+  post('rippin', {
+    name: 'Rippinflow',
+    model: { ...RIPPINFLOW, face: FACES.rippinflow },
+    job: 'lean',
+    x: rippinAt.x,
+    y: rippinAt.y,
+    z: rippinAt.z,
+    yaw: yawToward(rippinAt.x, rippinAt.z, lounge.x + 1.9, lounge.z + 3.1),
+    look: 'Rippinflow, who has not taken a shot in twenty minutes.',
+  });
+
+  /* ---- Eric, at the table ----------------------------------------------
+   * The spec calls it "the table" and the mission's `eric` zone is the dining
+   * table, so: in a chair at it, on the east side, facing across. The chair
+   * run is 1.5 m off the table's centre line and its cushion is 0.50 above
+   * the floor -- hence `seatBase`, and hence Eric sitting ON it. */
+  const dining = at('diningTable', { x: -12.5, y: GROUND_Y, z: 66 });
+  const ericAt = { x: dining.x + 1.5, y: seatBase(dining.y, CUSHION.chair), z: dining.z };
+  post('eric', {
+    name: 'Eric',
+    model: { ...ERIC, face: FACES.erican },
+    job: 'sit',
+    x: ericAt.x,
+    y: ericAt.y,
+    z: ericAt.z,
+    yaw: yawToward(ericAt.x, ericAt.z, dining.x, dining.z),
+    look: 'Eric, at a table nobody has eaten at.',
+  });
+
+  /* ---- Shubes, wandering through ---------------------------------------
+   * "arrival, wandering through" -- so he is the one man upstairs who is not
+   * on a spot. A short there-and-back along the gallery, clear of the
+   * horseshoe's balustrade (which ends 2.4 m south of his line) and of the
+   * conference wall (5 m north of it), so the walk never takes him into the
+   * furniture at any point in its loop rather than only where he started. */
+  const gallery = at('galleryCenter', { x: 0, y: UPPER_Y, z: 50.5 });
+  const shubesRoute = [
+    { x: gallery.x - 5.0, z: gallery.z - 0.1 },
+    { x: gallery.x + 5.0, z: gallery.z - 0.1 },
+  ];
+  post('shubes', {
+    name: 'The Shubenator',
+    model: { ...SHUBENATOR, face: FACES.shubes },
+    job: 'patrol',
+    x: shubesRoute[0].x,
+    y: gallery.y,
+    z: shubesRoute[0].z,
+    yaw: yawToward(shubesRoute[0].x, shubesRoute[0].z, shubesRoute[1].x, shubesRoute[1].z),
+    route: shubesRoute.map((p) => ({ ...p })),
+    speed: 0.95,
+    look: 'Shubes, on his fourth lap of a landing with nothing on it.',
+  });
+
+  /* ================================================================ */
+  /* THE REST OF THE FAMILY, USING THE HOUSE                           */
+  /*                                                                    */
+  /* Owner: "Everyone should be there for the most part utilizing the   */
+  /* house hanging out." Four rooms the house built and never put       */
+  /* anybody in. These four ARE off every mission zone, so they are the */
+  /* only people this module barks for -- see SEQUENCES' `house` scope. */
+  /* ================================================================ */
+
+  /* ---- Captain Lou Sasole, on a stool at the bar -----------------------
+   * The bay's stools stand 0.7 m out from the anchor and 0.9 m off the floor;
+   * the one nearest the service end puts him opposite the bartender, which is
+   * where a man drinks alone in somebody else's house.
+   *
+   * THE OTHER LOU. `lou2`, `sasole.png`, `CAPTAIN_LOU_SASOLE` -- a flight
+   * jacket and a silver watch, four floors and one entire wardrobe entry away
+   * from the man in the pressed suit upstairs. */
+  const bayBar = at('billiardBay', { x: 18.3, y: GROUND_Y, z: 47.5 });
+  const sasoleAt = {
+    x: bayBar.x + 0.7, y: seatBase(bayBar.y, CUSHION.barStool), z: bayBar.z - 1.6,
+  };
+  post('sasole', {
+    name: 'Captain Lou Sasole',
+    model: { ...CAPTAIN_LOU_SASOLE, face: FACES.sasole },
+    job: 'drink',
+    x: sasoleAt.x,
+    y: sasoleAt.y,
+    z: sasoleAt.z,
+    /* Square to his own drink, which is on the bar behind him at +x. */
+    yaw: yawToward(sasoleAt.x, sasoleAt.z, bayBar.x + 3.0, sasoleAt.z),
+    bark: SEQUENCES.sasoleBar,
+    idle: SEQUENCES.sasoleIdle,
+    look: 'Captain Lou Sasole. The pilot, not the boss — and he has been told the difference all night.',
+  });
+
+  /* ---- Hog Mama, in the kitchen ----------------------------------------
+   * On a stool at the island, facing the working side of it. The island's
+   * stools are 0.5 m off its south face and their cushions are 0.75 up. */
+  const kitchen = at('kitchenIsland', { x: 12.0, y: GROUND_Y, z: 63.5 });
+  const hogAt = {
+    x: kitchen.x, y: seatBase(kitchen.y, CUSHION.islandStool), z: kitchen.z + 0.5,
+  };
+  post('hogmama', {
+    name: 'Hog Mama',
+    model: { ...HOG_MAMA, face: FACES.hogmama },
+    job: 'drink',
+    x: hogAt.x,
+    y: hogAt.y,
+    z: hogAt.z,
+    yaw: yawToward(hogAt.x, hogAt.z, kitchen.x, kitchen.z + 4),
+    bark: SEQUENCES.hogmamaKitchen,
+    idle: SEQUENCES.hogmamaIdle,
+    look: 'Hog Mama, in the one room in this house anybody actually sits in.',
+  });
+
+  /* ---- Willy, in the conference room -----------------------------------
+   * In a chair down the north side of the boardroom table, three hours early
+   * for a meeting, not at the head of it. */
+  const boardroom = at('conferenceTable', { x: 0, y: UPPER_Y, z: 58 });
+  const willyAt = {
+    x: boardroom.x - 1.1, y: seatBase(boardroom.y, CUSHION.chair), z: boardroom.z + 1.7,
+  };
+  post('willy', {
+    name: 'Willy',
+    model: WILLY,
+    job: 'sit',
+    x: willyAt.x,
+    y: willyAt.y,
+    z: willyAt.z,
+    yaw: yawToward(willyAt.x, willyAt.z, boardroom.x, boardroom.z),
+    bark: SEQUENCES.willyBoardroom,
+    idle: SEQUENCES.willyIdle,
+    look: 'Willy, early, in a room with nothing booked in it.',
+  });
+
+  /* ---- Numbskull, on the terrace ---------------------------------------
+   * Outside the pool doors, on the deck, looking at water nobody is in. The
+   * biggest man on the roster standing in the dark being quiet. */
+  const poolDoor = at('poolDoorOutside', { x: 10.8, y: GROUND_Y, z: 76.5 });
+  const numbAt = { x: poolDoor.x - 0.2, y: poolDoor.y, z: poolDoor.z + 0.9 };
+  post('numbskull', {
+    name: 'Numbskull',
+    model: NUMBSKULL,
+    x: numbAt.x,
+    y: numbAt.y,
+    z: numbAt.z,
+    yaw: yawToward(numbAt.x, numbAt.z, numbAt.x - 2, numbAt.z + 8),
+    bark: SEQUENCES.numbskullTerrace,
+    idle: SEQUENCES.numbskullIdle,
+    look: 'Numbskull, outside, watching a heated pool nobody swims in.',
+  });
+
   /* ---- Gratin, and the offer -------------------------------------------
    * The interrogation area is the laboratory's, so this exists only when the
    * laboratory does. He stands over xXx — who is built, hung and animated by
@@ -531,6 +840,92 @@ export function mountMansionCast(scene, world = {}, {
    * The running gag is the Prospect's line, not Gratin's: it is ALWAYS Gratin.
    * Gratin's answer is a man explaining that he is good at his job.
    */
+  /* ================================================================ */
+  /* THE FAMILY, DOWNSTAIRS                                            */
+  /*                                                                    */
+  /* Behind the wall, so they exist only when the laboratory does --    */
+  /* the same gate Gratin is already on. Every spot is DERIVED from the */
+  /* lab's own published anchors rather than typed, so all three of     */
+  /* them move with the room if the room moves.                         */
+  /*                                                                    */
+  /* No barks here either: the mission plays Irish on the `corridor`    */
+  /* beat, DeathMegatron on `observation`, and Booski across seven      */
+  /* beats from the delivery to "And a mop." This module stands them    */
+  /* where all of that already happens.                                 */
+  /* ================================================================ */
+  const labAt = lab?.anchors ?? null;
+  if (labAt) {
+    /* ---- Irish, in the cellar corridor --------------------------------
+     * The interrogation hall IS the corridor his lines are about -- "Mind
+     * the floor there. It's not dry.", "There's a drain every three metres
+     * in this hallway." He stands a metre and a half in from the foot of the
+     * stairwell, which is the first thing the player sees on the way down
+     * and the exact moment the mission plays him. */
+    const foot = labAt.stairFoot;
+    if (foot && Number.isFinite(foot.x)) {
+      const irishAt = { x: foot.x - 0.55, y: foot.y, z: foot.z - 1.5 };
+      post('irish', {
+        name: 'Irish',
+        model: { ...IRISH, face: FACES.irish },
+        job: 'work',
+        x: irishAt.x,
+        y: irishAt.y,
+        z: irishAt.z,
+        yaw: yawToward(irishAt.x, irishAt.z, foot.x, foot.z),
+        look: 'Irish, with a bucket, in a hallway with a drain every three metres.',
+      });
+    }
+
+    /* ---- Booski, running the basement ---------------------------------
+     * Owner: *"BOOSKI — the basement, running it."* He has 31 lines, more
+     * than anybody in the mission, and every one of them is spoken in the
+     * observation area: the delivery, the asides over the build, "Lock the
+     * lab", "Handle it", "Finish it", "Efficient", and Snow on the intercom.
+     *
+     * Beside the transfer table, NOT ON IT. `anchors.transferTable` is the
+     * spot the PLAYER is sent to stand on to set the case down, so a man
+     * standing there is a man standing in the middle of the one interaction
+     * this beat has. He is 1.6 m east of it, turned to watch the opening the
+     * player comes in through -- which is what "There he is." needs. */
+    const table = labAt.transferTable;
+    if (table && Number.isFinite(table.x)) {
+      const booskiAt = { x: table.x + 1.6, y: table.y, z: table.z - 0.9 };
+      post('booski', {
+        name: 'Booski',
+        model: { ...BOOSKI, face: FACES.booski },
+        x: booskiAt.x,
+        y: booskiAt.y,
+        z: booskiAt.z,
+        yaw: yawToward(booskiAt.x, booskiAt.z, labAt.crossOpening?.x ?? booskiAt.x + 7, booskiAt.z + 1.3),
+        look: 'Booski. Everything in this basement is happening because he said so.',
+      });
+    }
+
+    /* ---- DeathMegatron, at the laboratory glass ------------------------
+     * Owner: *"DEATHMEGATRON — at the laboratory glass."* Which is also what
+     * she is about: "Don't lean on the glass. It's twelve centimetres. You
+     * could drive a car at it." and "Six of them. Been in there since March."
+     *
+     * West of the glass door and clear of both console banks, facing through
+     * the glass into the sealed lab -- so she is looking at the six people
+     * she is counting rather than at the room she is standing in. Completely
+     * heartless in this scene, per the owner's note, and standing perfectly
+     * still watching them work is the coldest way to play it. */
+    const glassDoor = labAt.glassDoor;
+    if (glassDoor && Number.isFinite(glassDoor.x)) {
+      const dmtAt = { x: glassDoor.x - 1.8, y: glassDoor.y, z: glassDoor.z - 0.35 };
+      post('deathmegatron', {
+        name: 'DeathMegatron',
+        model: { ...DEATHMEGATRON, face: FACES.deathmegatron },
+        x: dmtAt.x,
+        y: dmtAt.y,
+        z: dmtAt.z,
+        yaw: yawToward(dmtAt.x, dmtAt.z, dmtAt.x, dmtAt.z - 8),
+        look: 'DeathMegatron, watching six people through twelve centimetres of glass.',
+      });
+    }
+  }
+
   const hangingAt = lab?.xxx?.at ?? lab?.anchors?.xxx ?? null;
   let torture = null;
   if (hangingAt && Number.isFinite(hangingAt.x)) {
@@ -638,20 +1033,51 @@ export function mountMansionCast(scene, world = {}, {
     return typeof hasCase === 'function' ? hasCase() === true : false;
   }
 
+  /**
+   * Which BODY a line comes out of.
+   *
+   * One entry per casting key in `SPEAKERS`, so a line played anywhere moves
+   * the mouth of the man who is saying it. The four guards who now have their
+   * own voice profile resolve to their own body — `GUARD_STAIRS` is the man
+   * on the stairs and nobody else — and only the shared perimeter throat has
+   * to guess, because two men genuinely share it.
+   *
+   * Everybody not standing in this house resolves to null and is simply a
+   * subtitle: the six scientists are the laboratory's own figures and it
+   * speaks them itself (`lab.scientists[i].say`), xXx is `lab.xxx`, and the
+   * Prospect is the player, who has no body to animate.
+   */
   function speakerFor(speakerKey) {
     switch (speakerKey) {
+      /* the house's own staff */
       case 'GATE': return people.gateMan;
       case 'GRATIN': return torture?.npc ?? null;
       case 'BARTENDER': return people.bartender;
       case 'SNOW': return people.snow;
-      /* Six men share the GUARD profile, so "which body" is whichever one the
-       * player is standing in front of. `nearestGuard` answers that. */
-      case 'GUARD': return nearestGuard();
+      case 'GUARD_STAIRS': return people.stairs;
+      case 'GUARD_BASEMENT': return people.basement;
+      case 'GUARD_VAULT': return people.vault;
+      /* Two men still share `mansion-guard` on the perimeter, so "which body"
+       * is whichever of them the player is standing in front of. */
+      case 'GUARD':
+      case 'GUARD_PERIMETER': return nearestGuard();
+      /* the Family */
+      case 'LOU': return people.lou;
+      case 'BOOSKI': return people.booski;
+      case 'DEATHMEGATRON': return people.deathmegatron;
+      case 'IRISH': return people.irish;
+      case 'RIPPIN': return people.rippin;
+      case 'ERIC': return people.eric;
+      case 'SHUBES': return people.shubes;
+      case 'SASOLE': return people.sasole;
+      case 'NUMBSKULL': return people.numbskull;
+      case 'HOGMAMA': return people.hogmama;
+      case 'WILLY': return people.willy;
       default: return null;
     }
   }
 
-  /** Who the GUARD profile is coming out of: whoever is nearest. */
+  /** Who the shared perimeter profile is coming out of: whoever is nearest. */
   const GUARD_POSTS = ['patrol0', 'patrol1', 'patrol2', 'stairs', 'basement', 'vault'];
   function nearestGuard() {
     const p = playerPosition();
@@ -664,6 +1090,40 @@ export function mountMansionCast(scene, world = {}, {
       if (d < bestD) { bestD = d; best = npc; }
     }
     return best;
+  }
+
+  /* ================================================================ */
+  /* THE MOUTHS THE MISSION MOVES                                      */
+  /*                                                                    */
+  /* The cast and PROJECT SILENT SQUATCH are two DialogueControllers    */
+  /* sharing one subtitle bar (main.js passes the mission's HUD in).    */
+  /* The cast's own controller already animates its speaker; the        */
+  /* mission's did not, because the mission has never known that any of */
+  /* these people have bodies -- it plays a line and calls showLine.    */
+  /*                                                                     */
+  /* So: whatever puts a line on the shared bar moves the right man's    */
+  /* mouth, whichever controller wrote it. That is done by wrapping the  */
+  /* ONE method both of them call, once, at mount -- not by reaching     */
+  /* into the mission, which owns its own writing and timing and should  */
+  /* not learn about meshes to get a jaw moving. The cast's own onLine   */
+  /* no longer calls `say` itself, so there is exactly one path.         */
+  /* ================================================================ */
+  let unwrapScreen = null;
+  if (screen && typeof screen.showLine === 'function' && !screen.__castSpeaks) {
+    const inner = screen.showLine.bind(screen);
+    const own = Object.prototype.hasOwnProperty.call(screen, 'showLine')
+      ? screen.showLine : null;
+    unwrapScreen = () => {
+      if (own) screen.showLine = own; else delete screen.showLine;
+      delete screen.__castSpeaks;
+    };
+    screen.showLine = (line) => {
+      /* `hold` is the authored reading time; a mouth that stops before the
+       * subtitle does reads as a man who gave up halfway through. */
+      speakerFor(line?.speaker)?.say?.(Math.max(1.2, line?.hold ?? 2));
+      return inner(line);
+    };
+    screen.__castSpeaks = true;
   }
 
   /**
@@ -812,6 +1272,10 @@ export function mountMansionCast(scene, world = {}, {
     },
 
     dispose() {
+      /* Put the shared subtitle bar back the way it was found. The mission
+       * outlives this module in a scene that unmounts the cast, and leaving a
+       * closure over dead NPCs on its HUD is a leak with a body count. */
+      unwrapScreen?.();
       ownHud?.dispose?.();
       takeCordBack();
       for (const npc of Object.values(people)) {
