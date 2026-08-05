@@ -87,6 +87,10 @@ import {
 /* ====================================================================== *
  * THE SCENES
  *
+ * `short` is a column heading, and it exists because seven "Lou's mansion —
+ * the house" headings in a 300-pixel panel are seven columns one character
+ * wide. It is a label and nothing keys off it.
+ *
  * `rig` is the fitting room's lighting rig this scene is judged under, and
  * it is not decoration: a gold rope that reads under a studio key is a smear
  * under the Bing's one warm bulb, so a scene's people should default to the

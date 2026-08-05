@@ -215,7 +215,8 @@ export function compare(appearances) {
   const shown = appearances.filter(isShowable);
   const columns = shown.map((a) => ({
     scene: a.scene,
-    label: SCENES[a.scene]?.label ?? a.scene,
+    label: SCENES[a.scene]?.short ?? a.scene,
+    full: SCENES[a.scene]?.label ?? a.scene,
     where: a.where,
     appearance: a,
   }));
@@ -321,6 +322,13 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
      * Beef Run's block rig. Carried so the page can still say the person is
      * in that scene instead of silently dropping him. */
     unshown: [],
+    /* Which slice of a long scene is on the stand, and how many slices there
+     * are. The Bing floor is twenty people and the mansion seventeen; the
+     * original rail already learned that a row that long puts each man at a
+     * sixth of the frame, which is enough to see that they read as one
+     * family and not enough to see anything else. */
+    page: 0,
+    pages: 1,
   };
 
   function faceUrl(entry) {
@@ -355,6 +363,8 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
     state.view = 'canonical';
     state.subject = null;
     state.unshown = [];
+    state.page = 0;
+    state.pages = 1;
     clearStand();
     const entry = RAIL[state.index];
     const person = buildOne(entry);
@@ -378,6 +388,21 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
    *
    * @param {{label:string, sub:string, model:object, face:?string}[]} items
    */
+  /**
+   * The slice of a long row that is worth looking at.
+   *
+   * Eight, because that is what the canonical rail already settled on after
+   * sixteen came back unreadable, and because at eight a 1.83 m man still
+   * fills two thirds of the frame. Anything shorter than nine is one page and
+   * the control never appears.
+   */
+  const PAGE_SIZE = 8;
+  function paginate(items) {
+    state.pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    state.page = Math.max(0, Math.min(state.page, state.pages - 1));
+    return items.slice(state.page * PAGE_SIZE, (state.page + 1) * PAGE_SIZE);
+  }
+
   function layOut(items) {
     clearStand();
     /* Spacing is by shoulder, not by name: a 1.45-build Numbskull beside a
@@ -423,6 +448,8 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
     state.lineupFrom = from;
     state.lineupCount = count;
     state.unshown = [];
+    state.page = 0;
+    state.pages = 1;
     return layOut(RAIL.slice(from, from + count).map((entry) => ({
       key: entry.key,
       label: entry.name,
@@ -438,6 +465,7 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
     state.view = state.view === 'canonical' ? 'scene' : state.view;
     state.lineup = false;
     state.unshown = [];
+    state.pages = 1;
     clearStand();
     const person = makePerson({
       ...appearance.model,
@@ -470,15 +498,17 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
    * warm bulb. Judging the Bing's people under a studio key is how a smear
    * gets signed off as jewellery.
    */
-  function showScene(sceneId, { keepRig = false } = {}) {
+  function showScene(sceneId, { keepRig = false, page = 0 } = {}) {
     const scene = SCENES[sceneId];
     if (!scene) return null;
+    if (state.subject !== sceneId || state.view !== 'scene') state.page = 0;
+    if (page !== null) state.page = page;
     state.view = 'scene';
     state.subject = sceneId;
     if (!keepRig) applyRig(scene.rig);
     const cast = appearancesInScene(sceneId);
     state.unshown = cast.filter((a) => !isShowable(a));
-    layOut(cast.filter(isShowable).map((a) => ({
+    layOut(paginate(cast.filter(isShowable)).map((a) => ({
       key: a.character,
       label: a.name,
       sub: a.where,
@@ -497,14 +527,16 @@ export function createFittingRoom(canvas, { faces = new Set() } = {}) {
    * here on purpose: a man compared across six rooms has to be compared under
    * ONE light, or every difference is a lighting difference.
    */
-  function showCharacter(characterId) {
+  function showCharacter(characterId, { page = 0 } = {}) {
     const cast = appearancesOf(characterId);
     if (cast.length === 0) return null;
+    if (state.subject !== characterId || state.view !== 'character') state.page = 0;
+    if (page !== null) state.page = page;
     state.view = 'character';
     state.subject = characterId;
     state.unshown = cast.filter((a) => !isShowable(a));
     const face = faceForCharacter(characterId);
-    layOut(cast.filter(isShowable).map((a) => ({
+    layOut(paginate(cast.filter(isShowable)).map((a) => ({
       key: `${a.character}.${a.scene}`,
       label: SCENES[a.scene]?.label ?? a.scene,
       sub: a.where,
