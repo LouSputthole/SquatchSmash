@@ -691,7 +691,15 @@ export const KILL_BUDGET = Object.freeze({
 function poseFor(figure, pose) {
   const p = figure.parts;
   if (pose === 'kneel') { figure.kneeling(); return pose; }
-  if (pose === 'down') { figure.fallen({ roll: -0.5 }); return pose; }
+  if (pose === 'down') {
+    /* Settle him against the floor he is ON, not the one he was built on --
+     * `fallen()` measures the posed body's lowest world point against
+     * `baseY`, and a guard who moved between beats would otherwise sink by
+     * the difference. See the same line in `attackers.js`. */
+    figure.baseY = figure.root.position.y;
+    figure.fallen({ roll: -0.5 });
+    return pose;
+  }
   if (pose === 'wounded') {
     figure.stand();
     p.legL.rotation.x = -1.35;

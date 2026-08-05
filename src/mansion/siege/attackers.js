@@ -1219,6 +1219,15 @@ export function createAttackerPool({
    * double count clears a wave that still has four men in it.
    */
   function markDown(entry, { silent = false } = {}) {
+    /* HE FALLS ON THE FLOOR HE IS STANDING ON.
+     *
+     * `HeistFigure.fallen()` settles the posed body by measuring its lowest
+     * WORLD point against `figure.baseY` -- which was the staging zone's
+     * floor when he was built. A man who came in off the forecourt at y 0 and
+     * died on the gallery at y 6 would settle six metres below the landing,
+     * which is a body in the foyer ceiling. One line, and it has to be here
+     * rather than at spawn because the whole point is that he moved. */
+    entry.figure.baseY = entry.root.position.y;
     entry.figure.fallen({ roll: Math.random() > 0.5 ? 0.62 : -0.58 });
     entry.root.userData.down = true;
     entry.target = null;

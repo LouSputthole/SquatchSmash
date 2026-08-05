@@ -269,6 +269,30 @@ test('onDown fires exactly once when a FRIENDLY kills an attacker', () => {
   assert.deepEqual(downs, [entry.id], 'and only once');
 });
 
+test('a body falls on the floor he was standing on, not the one he spawned on', () => {
+  /* `HeistFigure.fallen()` settles the posed body against `figure.baseY`. A
+   * man who came in off the forecourt at y 0 and died six metres up on the
+   * gallery settled six metres below the landing -- a body in the foyer
+   * ceiling. Both floors, both directions. */
+  const { pool } = harness();
+  const orders = releaseWave(pool, 'one');
+  const floorOf = (entry) => {
+    entry.root.updateMatrixWorld(true);
+    return new THREE.Box3().setFromObject(entry.root).min.y;
+  };
+  const onTheGallery = pool.entry(orders[0].id);
+  onTheGallery.root.position.set(7, 6.0, 49);
+  pool.registerHit(onTheGallery.figure.parts.head, 9999);
+  assert.ok(Math.abs(floorOf(onTheGallery) - 6.0) < 0.25,
+    `he settled at y ${floorOf(onTheGallery).toFixed(2)} instead of on the gallery`);
+
+  const inTheForecourt = pool.entry(orders[1].id);
+  inTheForecourt.root.position.set(0, 0, 28);
+  pool.registerHit(inTheForecourt.figure.parts.head, 9999);
+  assert.ok(Math.abs(floorOf(inTheForecourt)) < 0.25,
+    `he settled at y ${floorOf(inTheForecourt).toFixed(2)} instead of on the gravel`);
+});
+
 test('a whole wave reports every man once and only once', () => {
   const { pool, downs } = harness();
   const orders = releaseWave(pool, 'two');
