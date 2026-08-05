@@ -227,10 +227,20 @@ Nothing can be built for these; they are files and ids only the owner has.
 | --- | --- |
 | Voice id — female NPC, Lou's room | The two women in the master-suite hot tub |
 | Voice id — additional male NPC | Whatever it was wanted for |
-| Voice id — `sauce` | Sauce's lines in the Bing, and the whole cartel-palace reveal |
+| ~~Voice id — `sauce`~~ | **Delivered 2026-08-05** (`hU1ratPhBTZNviWitzAh`) |
 | `assets/video/the-feature.mp4` | The home theatre, and the evening-before-bed film beat |
-| `assets/art/enola-squatch-nose-art.png` | The bomber's nose art |
+| ~~`assets/art/enola-squatch-nose-art.png`~~ | **Delivered 2026-08-05**, with `enola-squatch-nose-name.png` alongside it. Both are on the aeroplane |
 | The real "Can't You Hear Me Knocking" recording | Its cue |
+
+### And one the owner has already answered twice, differently
+
+The **Silver Room waiter** was recast to two different ids on 2026-08-04, in
+two sessions that could not see each other. The merge took
+`miqykcv8BCUvQnRlIGUV`, because that is the id all 74 takes on disk were
+actually rendered with; `gAMZphRyrWJnLMDnom6H` had none. If the second one was
+the intended voice, change it in the manifest and run
+`npm run sfx -- --force --cast waiter`. The whole history is in the profile's
+own `_note` and in `docs/BRANCH-AUDIT.md`.
 
 > The two NPC voice ids were mentioned in conversation but never actually
 > pasted. That is the only reason they are not wired.
@@ -244,11 +254,12 @@ agent that died in a container restart with zero commits. Part two — mission
 flow and dialogue — has never been dispatched. The spec is written in full at
 `docs/NO-WAKE-REDESIGN.md` and is not blocked on anything.
 
-**`main` is a long way behind.** `main` is at `f07a712`; the working branch is
-many commits past it, and there are nine other remote branches including
-`claude/outfit-refinement-pass-d2lk39` and
-`codex/silver-room-voice-recast-20260804`. A branch audit and a merge to
-`main` is owed and is not a decision — it is work.
+**~~`main` is a long way behind.~~** **Done 2026-08-05.** `main` was at
+`f07a712`; it now carries the siege, the Enola escalation, the wardrobe pass,
+the voice recast and the nose art. Four branches merged, four were already in,
+and two are staying where they are — the whole audit, including the one genuine
+voice-id conflict and the reason the Beef Run / Front and Center branch is
+superseded rather than pending, is in **`docs/BRANCH-AUDIT.md`**.
 
 **The aftermath has no trigger in the world.** `mission.aftermathEnded()` and
 `mission.metSasole()` both exist and both work; nothing in the scene calls

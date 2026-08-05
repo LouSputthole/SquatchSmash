@@ -53,7 +53,8 @@ What "fix the trees" most likely means, in the order worth checking:
 
 | Edit | Problem | Why | Scenes | Geom | Nav | Art only | Priority | Dup risk | When |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Nose art | `assets/art/enola-squatch-nose-art.png` has never been delivered | The aeroplane is named for it | Enola | no | no | yes | med | none | owner-owed |
+| ~~Nose art~~ | **Done 2026-08-05.** Both paintings delivered and on the port forward fuselage — name forward, pin-up aft, 0.34 m apart | — | Enola | — | — | — | — | — | landed |
+| `tools/check.mjs` cannot validate `enolasquatch.*` art slots | `VALID_SLOTS` is built from five hard-coded scene sources and `src/enolasquatch/` is not one of them, so any `enolasquatch.*` row in `assets/art/manifest.json` fails the build. The nose art therefore loads straight from `assets/art/` instead of through the manifest | **A bundled build has no nose art.** `tools/bundle-preview.mjs` only inlines manifest-referenced art, so the bundle falls back to the drawn placeholder while `npm start` shows the paintings — the two builds disagree about what the aeroplane looks like | Enola, preview bundle | no | no | no | med | low — one line in `check.mjs` plus two manifest rows | before anyone ships a bundle |
 
 ---
 
