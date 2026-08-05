@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT) || 5342;
-const OUT = path.join(ROOT, 'docs', 'validation', '2026-08-04', 'wardrobe');
+const OUT = path.join(ROOT, 'docs', 'validation', '2026-08-05', 'wardrobe');
 const ONLY = process.argv.slice(2);
 const want = (name) => ONLY.length === 0 || ONLY.includes(name);
 
@@ -41,8 +41,27 @@ const TYPES = {
  * `spin` turns the FIGURE on the turntable -- the three-quarter view a full
  * length wants. `yaw` walks the CAMERA round instead, which is what a detail
  * wants: the mark is already aimed at the watch, and the only remaining
- * question is which side of the arm you are standing on. */
+ * question is which side of the arm you are standing on.
+ *
+ * `scene` and `character` are the workshop's two ledger views. They keep the
+ * page chrome -- the panel beside them IS the shot, because what they are for
+ * is the comparison table and the flags, not the geometry. */
 const SHOTS = [
+  /* THE WORKSHOP. A scene apiece for the rooms with the most people in them,
+   * and the four people the appearance ledger found something wrong with. */
+  { name: 'scene-bada-bing', scene: 'bada_bing' },
+  { name: 'scene-mansion-house', scene: 'mansion_house' },
+  { name: 'scene-mansion-siege', scene: 'mansion_siege' },
+  { name: 'scene-no-wake', scene: 'no_wake' },
+  { name: 'scene-golf', scene: 'golf' },
+  { name: 'scene-bank-heist', scene: 'bank_heist' },
+  { name: 'character-lou', character: 'lou' },
+  { name: 'character-sasole', character: 'captain_lou_sasole' },
+  { name: 'character-numbskull', character: 'numbskull' },
+  { name: 'character-deathmegatron', character: 'deathmegatron' },
+  { name: 'character-snow', character: 'snow' },
+  { name: 'character-shubenator', character: 'shubenator' },
+
   { name: 'rail-a-studio', who: null, rig: 'studio', from: 0, count: 8 },
   { name: 'rail-b-studio', who: null, rig: 'studio', from: 8, count: 8 },
   { name: 'rail-a-bing', who: null, rig: 'bing', from: 0, count: 8 },
@@ -93,7 +112,10 @@ const browser = await chromium.launch({
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'],
 });
 
-const page = await browser.newPage({ viewport: { width: 1280, height: 820 } });
+/* Wide enough for the workshop's comparison panel to be READ in the shot:
+ * seven scenes of Big Uncle Lou beside a 360px table is the whole point of
+ * the by-character view, and at 1280 that table is columns of one character. */
+const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 const problems = [];
 page.on('pageerror', (e) => { problems.push(e.message); console.error(`  [page] ${e.message}`); });
 page.on('console', (m) => { if (m.type() === 'error') console.error(`  [console] ${m.text()}`); });
@@ -107,12 +129,20 @@ await page.addStyleTag({ content: '.hud { display: none !important; }' });
 let wrote = 0;
 for (const shot of SHOTS) {
   if (!want(shot.name)) continue;
-  await page.evaluate(({ who, rig, mark, spin, yaw, from, count }) => {
+  await page.evaluate(({ who, rig, mark, spin, yaw, from, count, scene, character }) => {
     const room = globalThis.fittingRoom;
     /* The rail needs the full width of the window: shot into the 750px column
-     * between the two panels it loses the people at both ends. */
-    document.body.classList.toggle('bare', who === null);
+     * between the two panels it loses the people at both ends. The workshop
+     * views want the opposite -- their panel is half the point. */
+    document.body.classList.toggle('bare', who === null && !scene && !character);
     globalThis.fittingRoomFit();
+    if (scene || character) {
+      if (scene) room.showScene(scene);
+      else room.showCharacter(character);
+      room.state.turntable = false;
+      globalThis.fittingRoomPaint();
+      return;
+    }
     room.applyRig(rig);
     if (who === null) room.showLineup(from ?? 0, count ?? undefined);
     else {
